@@ -48,7 +48,7 @@ Package와 불변 공개 SDK version, 템플릿 값을 정의한다.
 
 ## SharedVisualInput (값)
 
-`@lophn/ui-chart`와 `@lophn/ui-table`은 앱과 host가 같은 version의 선언형 JSON 입력을 사용한다. chart의 종류는 기존 시계열·막대·누적 막대·분포이고 table은 column 선언과 rows다. script·HTML·remote import는 입력에 없다. 세션 블록의 보관·크기·문서화 명세는 → lophn-agent/visuals다. SDK는 데이터 rendering과 loading/empty/error·접근 가능한 데이터 표만 소유한다.
+`@lophn/ui-chart`와 `@lophn/ui-table`은 앱과 host가 같은 version의 선언형 JSON 입력을 사용한다. chart의 종류는 시계열·막대·누적 막대·분포·산점과 node·edge 도표이고(→ apps/sdk#R17) table은 column 선언과 rows다. script·HTML·remote import는 입력에 없다. 세션 블록의 보관·크기·문서화 명세는 → lophn-agent/visuals다. SDK는 데이터 rendering과 loading/empty/error·접근 가능한 데이터 표만 소유한다.
 
 ## SharedLocalization (값)
 

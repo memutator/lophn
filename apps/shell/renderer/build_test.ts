@@ -39,6 +39,11 @@ Deno.test("shell/desktop#R17: renderer build가 entry 세 개와 scope된 CSS Mo
   const dir = await mkdtemp(join(tmpdir(), "shell-renderer-"));
   try {
     await build(dir);
+    const html = await readFile(join(dir, "desktop", "index.html"), "utf8");
+    assert(
+      html.includes("./desktop.js"),
+      "desktop index.html이 entry를 가리키지 않는다",
+    );
     for (const name of outputs) {
       const js = await readFile(join(dir, `${name}.js`), "utf8");
       const css = await readFile(join(dir, `${name}.css`), "utf8");

@@ -163,6 +163,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T8 contracts 모음·전역 유일성·coverage 도구
 
+- 상태: 완료 (#17)
 - 등급: 기본
 - concern: 저장소 바닥
 - 요구: 없음(architecture/README.md 4장)

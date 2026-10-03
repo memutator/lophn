@@ -94,9 +94,9 @@ concerns: [apps/sdk]
 - 확인: Markdown과 code block을 읽고 숫자 열을 정렬하며 대량 행을 가상 scroll로 탐색할 수 있다.
 - 의도: apps#I4
 
-**[R17]** @lophn/ui-chart는 시계열·막대·누적 막대·분포를 d3-scale·d3-shape 계산과 React SVG로 제공하며 산점도와 누적 면은 첫 판 지원 밖으로 표시한다.
-- 이유: 이전에 검증한 지원 범위와 구현 선택을 유지한다.
-- 확인: 네 종류를 예제에서 사용할 수 있고 산점도와 누적 면을 지원한다고 안내하지 않으며 색과 치수 규칙은 shell/design-system을 따른다.
+**[R17]** @lophn/ui-chart는 시계열·막대·누적 막대·분포·산점 차트를 d3-scale·d3-shape 계산과 React SVG로, node와 edge로 된 도표를 React SVG로 제공하며 누적 면은 첫 판 지원 밖으로 표시한다.
+- 이유: 이전에 검증한 지원 범위와 구현 선택을 유지하되, lophn-agent/visuals#R1이 세션 시각 블록으로 산점 차트와 node·edge 도표를 같은 SDK로 그리라고 하므로 그 둘을 더한다.
+- 확인: 여섯 종류를 예제에서 사용할 수 있고 누적 면을 지원한다고 안내하지 않으며 색과 치수 규칙은 shell/design-system을 따른다.
 - 의도: apps#I4
 
 **[R18]** @lophn/ui-filter는 기간·다중 선택·검색, @lophn/ui-stat은 수치·변화량, @lophn/ui-state는 loading·empty·error·freshness 상태를 제공한다.

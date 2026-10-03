@@ -1,0 +1,5 @@
+{
+  "name": "@lophn/contracts",
+  "exports": { "./platform": "./platform/mod.ts" },
+  "compilerOptions": { "erasableSyntaxOnly": true }
+}

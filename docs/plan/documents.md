@@ -1,0 +1,619 @@
+---
+type: plan
+concerns: [documents]
+---
+# documents 구현 계획
+
+최상위 concern `documents`의 leaf 9개(projects, file-tracking, versions, formats, outline-and-search, series, addressing, contexts, terms)와 `fixtures/projects/`를 만든다. 문서 편집 화면·목록 화면은 shell 팀이 만들고, 이 팀은 core 쪽 command·read 모듈, documents worker 프로세스, 그리고 그 contract의 구현을 맡는다.
+
+정본: [intent](../intent/documents.md), requirements `docs/requirements/documents/`, domain model `docs/domain-model/documents/`, [architecture](../architecture/documents.md), 지나는 flow.
+
+## 모든 작업에 공통
+
+- 코드 자리는 `packages/documents/<leaf>/`이고 모양은 [architecture.md](../dev/architecture.md)를 따른다(`mod.ts`, `model.ts`, `commands.ts`, `reads.ts`, `work.ts`, `adapters/`, 옆에 `*_test.ts`). 같은 최상위의 다른 leaf는 그 leaf의 `mod.ts`로만 부른다. 다른 최상위는 `packages/contracts/<그 최상위>/`로만 부른다.
+- 프로세스 배치(architecture/documents 2장): core 안에서는 command·read 모듈만 돈다. documents worker(coordinator 1)와 준비 worker 2 slot, 호출마다 뜨는 format runner(최대 2)는 `apps/worker/`의 kind로 조립한다. 무거운 일(scan, hash, blob 준비, 추출, diff, 검색)은 core에서 하지 않는다.
+- ledger 표 DDL은 그 leaf 코드에 두고 platform의 migration 등록 contract로 올린다. derived store(`~/.lophn/derived/documents.sqlite`) 표는 outline-and-search의 adapter가 소유하고 coordinator만 쓴다.
+- 테스트 이름은 요구 번호로 시작한다: `Deno.test("documents/versions#R3: 같은 내용과 format 계약의 저장은 기존 판을 돌려준다", ...)`. 시각·id·무작위 값은 `packages/base`의 interface로 주입한다. 파일 시나리오는 `fixtures/projects/`를 임시 폴더에 복사해 쓴다.
+- 통합 테스트는 core를 메모리 SQLite와 임시 data root로 띄우고 API(`POST /v1/<resource>/<method>`)로 부른다. documents worker가 필요한 테스트는 실제 coordinator·준비 worker 프로세스를 띄운다.
+- 선행의 `<팀>#?(무엇)`은 그 팀 계획의 작업 id가 정해지면 바꾼다.
+
+## slice: skeleton
+
+### T1 예시 project 폴더 fixture
+
+- 등급: 좁은
+- concern: documents/projects, documents/file-tracking, documents/formats, documents/series
+- 요구: 없음 (아래 작업 테스트의 재료: projects#R3–R5, file-tracking#R3, R4, R11, formats#R2, R10–R16, series#R5, R8, outline-and-search#R11)
+- 자리: fixtures/projects/
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음 (fixture 폴더와 시나리오 helper)
+- slice: skeleton
+- 선행: 없음
+- 완료:
+  - `fixtures/projects/notes-basic/`: 하위 폴더 2단 이상, Markdown 문서들(ATX 1~6단, setext, YAML front matter, fenced code 안 heading 모양, HTML pre, `{#custom-id}`, 같은 제목 중복, 기호만 있는 제목, level 건너뛰기, 단일 h1·여러 h1, 서문, 한글 제목, BOM·CRLF·분해형 한글), `.gitignore`와 그에 걸리는 파일, `**/*.md` 밖 파일
+  - `fixtures/projects/multi-folder/`: 두 root에 같은 상대 경로 파일, 중첩 폴더
+  - `fixtures/projects/mixed-formats/`: HTML(script·style·template·nav·textarea·hidden·aria-hidden·section id·title fallback), XHTML, plain text, PDF, PNG, 알 수 없는 data
+  - `fixtures/projects/weekly-report/`: series용 문서(P001, 0.2·0.9·0.10, 0.2.1, 자유 이름 key)
+  - `fixtures/projects/korean-search/`: 긴 한국어 단어, 2글자 단어가 든 본문
+  - `fixtures/projects/scenarios.ts`: fixture를 임시 폴더로 복사하고 바깥 변화를 만드는 helper(바깥에서 고치기, 지우고 같은 경로에 다시 만들기, 이름 바꾸기, root 밖 symlink, `.git` 폴더, lophn data 폴더, 권한 제거, 같은 size·mtime 수정). `.git`처럼 저장소에 넣을 수 없는 것은 helper가 만든다
+  - `deno task check` 통과, fixture 목록과 쓰임을 `fixtures/projects/README.md`에 한 줄씩
+
+## slice: documents
+
+### T2 documents worker 프로세스 뼈대
+
+- 등급: 기본
+- concern: documents/file-tracking
+- 요구: documents/file-tracking#R5
+- 자리: packages/documents/file-tracking/ (작업 배분 scheduler, adapters/ipc), apps/worker/ (documents coordinator·준비 worker kind 조립)
+- 쓰는 contract: platform 신뢰 child 감독(감독 pipe, ready, machine credential 전달), platform blob 준비 pipe, base frame codec(contracts 팀이 base에 두면)
+- 내놓는 contract: 없음 (core↔coordinator↔준비 worker 내부 IPC)
+- slice: documents
+- 선행: platform#?(신뢰 child 감독과 apps/worker 진입점), contracts#?(documents contract), contracts#?(base frame codec 여부)
+- 완료:
+  - coordinator 1개가 준비 worker 2 slot을 띄우고 crash 시 그 slot을 새 프로세스로 채운다. 한 slot은 사람이 기다리는 요청을 먼저 받고, 기다리는 요청이 없으면 두 slot 모두 background
+  - stdio 길이 prefix frame(`request_id, operation, input_ref, basis`)과 제한된 chunk frame. IPC 종료는 진행 요청의 `unavailable`이지 성공이 아니다. stderr에 본문·token을 쓰지 않는다
+  - root별 iterator와 후보 큐, round-robin으로 최대 128 directory entry씩 배분, 결과 command 제출 동시 2개
+  - core 비동기 dispatch: core는 IPC 결과를 기다리는 동안 command queue·JS 실행 흐름을 잡지 않는다
+  - 권한: coordinator는 `--allow-net`·`--allow-env`·`--allow-ffi` 없이 `--no-prompt`. 준비 worker는 root·working copy·staging의 read와 필요한 write만
+  - `packages/documents/file-tracking/scheduler_test.ts`에 file-tracking#R5: 큰 root scan 중 작은 root의 변경이 처리되고, 동시 준비가 2를 넘지 않고, 예산 초과는 unverified로 남는다
+  - IPC 끊김·worker crash 테스트
+
+### T3 document format 추출 규칙
+
+- 등급: 기본
+- concern: documents/formats
+- 요구: documents/formats#R1, R2, R3, R9, R10, R11, R12, R13, R14, R15, R16, R17
+- 자리: packages/documents/formats/ (`modules/document/`, `modules/pdf/`, `modules/image/`, `modules/data/`의 선언·validate·extract, model.ts의 출력 값)
+- 쓰는 contract: contracts/documents의 FormatDeclaration, FormatDiagnostic, SectionExtractionResult, ExtractedSection
+- 내놓는 contract: 없음 (T4가 묶어 실행한다)
+- slice: documents
+- 선행: T1, contracts#?(documents contract)
+- 완료:
+  - module 코드는 Deno·Web 전역 없이 JSON·문자열·배열 계산만 쓴다(QuickJS guest에서 돈다). sha256도 module 안의 순수 구현
+  - 내장 선언 4개: document(text/markdown, text/x-markdown, text/html, application/xhtml+xml, text/plain), pdf, image(image/*), data(나머지). MIME·구조·metadata 요구·template·guide·examples·vocabulary
+  - 추출용 텍스트: UTF-8 decode → BOM 제거 → LF → NFC. 원문 바이트는 그대로
+  - Markdown ATX·setext, front matter·fenced code·HTML pre 제외, 트리·범위, 유일한 h1은 title, `_preamble`, `{#id}` 우선 key, 자동 slug(`A & B`→`a--b`), 빈 slug는 `section`, 같은 부모 중복은 `-2`·`-3`, 명시 anchor 중복은 구조 error, 조상 slug를 `/`로 이은 key
+  - HTML·XHTML 원본 h1~h6, 제외 구역, heading id 우선, 감싸는 section id는 첫 heading에만, title fallback. 스크립트·동적 DOM 실행 없음
+  - plain text는 heading을 만들지 않는다. pdf·image·data extract는 `unsupported`
+  - 출력: title, key, parent, position, level, anchor, own_ranges, subtree_range, characters, heading을 뺀 own range 본문 hash(body_hash), 대표 텍스트와 text_hash
+  - `modules/document/*_test.ts`에 각 요구 번호 테스트(T1 fixture와 inline 입력). 같은 입력을 두 번 돌려 같은 출력
+
+### T4 format runner 격리와 module 묶음
+
+- 등급: 최상위
+- concern: documents/formats
+- 요구: documents/formats#R8, R18, R19, R20
+- 자리: packages/documents/formats/ (adapters/quickjs-host, work.ts의 runner client·fixture 관문·출력 검사, module 묶음과 module_hash, reads.ts), apps/worker/ (format-runner kind)
+- 쓰는 contract: platform blob(정확한 module 묶음을 purpose `format_module`로 보존), platform read·인증
+- 내놓는 contract: format 실행(`/v1/formats/list`, `/get`, `/validate`, `/extract`), SDK format Package가 다시 내보낼 내장 선언과 module_hash(질문 Q10)
+- slice: documents
+- 선행: T2, T3
+- 완료:
+  - runner는 호출마다 새 프로세스·새 QuickJS WASM context. guest에 `Date`·시간 API·`Math.random`·crypto 난수·`eval`·`Function`·동적 import·host object·WASM·FFI를 설치하지 않는다. 요청의 정확한 묶음 안 module만 로드
+  - 초기 조절값: guest memory 64 MiB, 호출 5초(interrupt handler + coordinator deadline kill), 입력 16 MiB, 출력 8 MiB, runner heap 제한, 동시 2개. crash·한도 초과는 그 호출의 `unavailable`
+  - module_hash는 묶음 코드·의존·추출 규칙·guest 실행 규약을 덮는다. 묶음은 재현 가능하게 만들고 check가 source와 묶음의 일치를 확인한다
+  - 사용 가능 전에 입력·기대 출력 fixture 전부와 우회(파일·network·시간·난수·동적 코드) 테스트 통과. host가 출력 크기·key 유일·범위·부모 존재·비순환을 다시 검사
+  - 옛 Version이 가리키는 module은 hash로만 찾고 이름으로 최신 module을 찾지 않는다. 누락·실행 실패·미지원을 구별하고 대체 추출을 하지 않는다
+  - `/v1/formats/list`, `/get`(선언·template·guide·예시·vocabulary), `/validate`(파일·줄·열 위치, Version 없음), `/extract`
+  - `runner_test.ts`에 formats#R18: 금지 접근마다 실패, 무한 loop kill, 대형 출력 거절, 반복 결과 같음. formats#R19: fixture 하나 실패나 순환 부모 출력 module은 쓰이지 않음. formats#R20: module 누락·runner 실패의 이유 구별. formats#R8: 검사만으로 판 수가 늘지 않음(API 통합 테스트)
+
+### T5 address 문법과 이름 예약
+
+- 등급: 기본
+- concern: documents/addressing
+- 요구: documents/addressing#R1, R2, R10
+- 자리: packages/documents/addressing/ (model.ts의 Slug·PlaceRef·Address·DocumentRef 문법, 이름 제안·검사, commands.ts가 쓰는 `place_names`·`document_names` 예약 helper와 DDL)
+- 쓰는 contract: platform command(Tx), platform migration 등록
+- 내놓는 contract: 자리 이름 예약 port(apps/registration이 app 생성·이름 변경 transaction에서 부른다), Address parse/format(contracts/documents에 두면 shell·MCP·CLI가 같은 문법을 쓴다)
+- slice: documents
+- 선행: contracts#?(documents contract), platform#?(command 등록과 migration)
+- 완료:
+  - `<place>/<doc>#<section>@<version>`: version은 0으로 시작하지 않는 양의 10진수, section은 percent encoding, context는 place가 아님
+  - project·app slug는 하나의 이름 공간, 문서 이름은 자리 안에서 유일, 현재·옛 예약 이름은 다른 대상에 재사용 불가(예약 행은 지우거나 target을 바꾸지 않음)
+  - 이름 검사: `_`로 시작, address 구분자, 공백, 제어 문자 거절, 최대 길이(질문 Q5). 제목에서 영문 이름 제안, 첫 파일 이름을 재료로 씀, 한글 제목은 그대로 둠
+  - `model_test.ts`에 addressing#R1, R10, `commands_test.ts`에 addressing#R2(project 이름을 app이, 옛 문서 이름을 다른 문서가 쓰면 conflict, 보관 뒤에도 예약 유지)
+
+### T6 Document·Version ledger
+
+- 등급: 기본
+- concern: documents/versions
+- 요구: documents/versions#R1, R2, R3, R4, R5, R6, R7, R8, R9, R11, R12
+- 자리: packages/documents/versions/
+- 쓰는 contract: platform command·read·인증(actor는 credential, run, 종료 run 거절)·blob(blob_refs 등록, 원문 read), addressing 예약 helper(T5)
+- 내놓는 contract: `document.save`(준비 결과를 받는 command), `document.update`, `document.archive`, `document.unarchive`; read `/v1/documents/list`, `/get`, `/history`, `/file`; event `DocumentCreated`, `DocumentSaved`, `DocumentUpdated`, `DocumentArchived`, `DocumentUnarchived`
+- slice: documents
+- 선행: T5
+- 완료:
+  - `documents`·`versions` 표와 DDL. 판 번호는 문서마다 1부터 연속. 여러 파일 판(대표 파일 하나 + 첨부)의 정규화 ContentFile 목록 blob과 `files_hash`·`content_hash`(codepoint 순 고정 필드 JSON의 SHA-256)
+  - 첫 저장은 Document와 Version을 한 transaction에 만들고 `DocumentCreated`와 `DocumentSaved`(previous_version null)를 낸다. 새 판은 `DocumentSaved`
+  - 최신 content_hash와 FormatRef(name, module_hash, explicit)가 같으면 기존 판과 `unchanged`, event 없음
+  - base_version CAS, 신뢰한 preparation_ref만 받고 core에서 파일을 다시 읽거나 hash하지 않음. 저장 주체는 인증된 자격, 주장한 이름·작업 디렉터리로 source를 만들지 않음
+  - 확정 판의 원문·형식·주체·시각·출처는 바꾸는 경로가 없다. 영구 삭제 route가 없다
+  - `/v1/documents/list`(place, active·archived, 개수 조건, 최신 판 주체·시각·format), `/get`, `/history`(판마다 주체·시각·run), `/file`(고정 판의 ContentFile 상대 경로 → 저장 바이트와 MIME Content-Type)
+  - `model_test.ts`, `commands_test.ts`, `reads_test.ts`에 각 요구 번호 테스트, API 통합 테스트(HTML·PDF·이미지 원문 바이트와 Content-Type 대조)
+
+### T7 Project ledger
+
+- 등급: 기본
+- concern: documents/projects
+- 요구: documents/projects#R1, R2, R3, R7, R8, R9, R10, R11
+- 자리: packages/documents/projects/
+- 쓰는 contract: platform command·read·인증, addressing 예약 helper(T5)
+- 내놓는 contract: `project.create`, `project.update`(이름·제목·목적), `project.archive`, `project.unarchive`; read `/v1/projects/list`, `/get`, `/resolve`; 활성 tracking root 목록 read(platform 감독이 documents worker 권한을 만들 때 씀); event `ProjectCreated`, `ProjectUpdated`, `ProjectArchived`, `ProjectUnarchived`
+- slice: documents
+- 선행: T5
+- 완료:
+  - `projects`·`project_folders`·`project_tracking_patterns` 표. 등록·변경은 user만(agent·app·coding agent는 forbidden). 폴더 0개·여러 개 허용, 기본 project 자동 생성 없음
+  - create는 tracking.enabled=false만 받는다. 기본 제안 값(`**/*.md`, .gitignore 적용)은 read가 돌려준다
+  - 켜진 tracking root 겹침(같은 실제 폴더, 조상·자손) 검사를 순수 함수로 두고 unarchive에서 쓴다(set_tracking은 T10)
+  - 사람 read: 이름·목적·폴더 설명·문서 수·패턴·.gitignore 적용. agent read: 등록 목록·연결 project·읽을 자료 참조, 실제 경로·파일 목록 없음
+  - resolve: 가장 깊은 등록 root(꺼진 중첩 root 포함), 내용 유사도로 재연결하지 않음
+  - 이름 변경은 같은 transaction에서 place 예약, 보관은 문서·판을 지우거나 일괄 보관하지 않음
+  - `commands_test.ts`, `reads_test.ts`, `model_test.ts`에 각 요구 번호 테스트, API 통합 테스트
+
+### T8 저장 준비 경로
+
+- 등급: 기본
+- concern: documents/versions, documents/formats, documents/file-tracking
+- 요구: documents/formats#R4, R5, R7
+- 자리: packages/documents/versions/ (work.ts의 준비 조립, `/v1/documents/prepare`·`/save` route), packages/documents/file-tracking/ (준비 worker의 파일 목록 검사, 같은 stream의 hash와 blob 준비, canonical ContentFile 목록), packages/documents/formats/ (validate 호출)
+- 쓰는 contract: platform 인증·read·command·blob 준비 pipe, format 실행(T4)
+- 내놓는 contract: 파일 준비 결과(`/v1/documents/prepare`, `/v1/documents/save`; PreparedVersion, SaveResult), 다른 command와 같은 Tx에서 준비된 판을 확정하는 저장 port(lophn-agent의 tool 결과 확정, series 첫 가입; 질문 Q7)
+- slice: documents
+- 선행: T2, T4, T6
+- 완료:
+  - 호출자 자격(user, coding_agent, agent, app)으로 doc·base_version 또는 신규 doc·metadata, 파일 목록·대표 파일·내용 참조, FormatRef, idempotency key를 받는다. app·release·run·actor는 인증 근거로 확인하고 본문 주장으로 받지 않는다
+  - 준비 worker가 안전한 상대 경로·유일 경로·대표 파일 하나·바이트 수를 검사하고 같은 stream을 hash와 blob 준비로 보낸다. canonical 목록, format validate 뒤 `preparation_ref`를 원래 요청·기준·blob에 묶는다
+  - 명시 format의 error는 `invalid_input`으로 거절(사전 validate와 같은 오류), warning은 결과에 남김. 미지정 새 문서는 MIME 기본 format, 구조 error는 warning, 위험 경로·접근 실패·runner 실패는 낮추지 않음
+  - 기존 문서는 base_version의 정확한 FormatRef. 최신 판이 바뀌면 conflict 뒤 재준비. 사람의 명시 format 변경만 새 판의 계약을 바꿈
+  - 같은 idempotency key의 재전달은 같은 신규 doc ID
+  - `work_test.ts`·API 통합 테스트에 formats#R4, R5, R7
+
+### T9 address 해석과 문서 이동·이름 변경
+
+- 등급: 기본
+- concern: documents/addressing
+- 요구: documents/addressing#R1, R3, R6, R7, R8, R9
+- 자리: packages/documents/addressing/ (reads.ts `/v1/documents/resolve`, commands.ts `document.move`·`document.rename`)
+- 쓰는 contract: platform command·read·인증(QuestionActionEvidence로 machine이 actor=user를 적용), apps registration read(App 존재·status; apps 쪽 구현 전에는 test double), versions(T6) mod
+- 내놓는 contract: `document.move`, `document.rename`(lophn-agent question option action의 소유 command), read `/v1/documents/resolve`; event `DocumentMoved`, `DocumentRenamed`
+- slice: documents
+- 선행: T6, T7
+- 완료:
+  - 해석: place 예약 → place ID, `(place ID, 이름)` 예약 → doc, version 지정이면 그 판·없으면 해석 시점 최신 판. 옛 project 이름·옛 문서 이름·옛 자리도 같은 대상의 현재 참조를 함께 돌려준다
+  - 자리 없는 문서는 제목으로 찾고 ID로 읽는다. 기본 자리에 자동으로 넣지 않는다
+  - 보관·자리 없음이 된 대상도 예약을 지우지 않고 보관 상태·ID 읽기를 안내한다
+  - move·rename은 user 또는 고정 option action(대상·place·이름·base_revision)을 적용하는 machine(actor=user)만. 자유 답·낡은 기준은 conflict. 옛 예약을 남기고 새 예약을 같은 transaction에 더함
+  - 자리 변경은 FileSource·디스크 파일·tracking 규칙을 바꾸지 않는다
+  - 옛 address도 현재 scope로 검사하고 안내로 권한을 넓히지 않는다
+  - `reads_test.ts`, `commands_test.ts`에 각 요구 번호 테스트(이름·자리를 여러 번 바꾼 뒤 처음 address로 지정 판에 닿기)
+
+### T10 tracking 규칙과 미리보기
+
+- 등급: 기본
+- concern: documents/projects
+- 요구: documents/projects#R3, R4, R5, R6, R7
+- 자리: packages/documents/projects/ (model.ts 규칙 판정, work.ts 미리보기 scan, commands.ts `project.set_tracking`과 `project.update`의 folders 변경), packages/documents/file-tracking/ (scan iterator 재사용)
+- 쓰는 contract: platform command·read·인증, documents worker(T2)
+- 내놓는 contract: `/v1/projects/preview_tracking`(TrackingPreview, page), `project.set_tracking`; event `ProjectTrackingChanged`
+- slice: documents
+- 선행: T1, T2, T7
+- 완료:
+  - 각 root 기준 `/` 상대 경로에 include·exclude glob을 순서대로, 마지막 일치, 미일치 제외. picomatch와 ignore(중첩 `.gitignore` 포함), OS locale 무관
+  - `.git` 내부·lophn data 폴더·root 밖 symlink는 include로도 추적 불가(순회와 최종 열린 파일 둘 다)
+  - 미리보기는 포함·제외 파일과 이유를 root와 묶어 page로 돌려주고, 적용은 미리 본 folders·tracking·base_revision과 같아야 한다(다르면 conflict). 디스크에 새로 생긴 파일은 적용한 규칙으로 판정
+  - set_tracking에서 활성 켜진 root 겹침 conflict
+  - `model_test.ts`에 projects#R4, R5, `work_test.ts`·`commands_test.ts`에 projects#R3, R6, R7, API 통합 테스트
+
+### T11 파일 관측에서 Version까지
+
+- 등급: 최상위
+- concern: documents/file-tracking, documents/versions
+- 요구: documents/file-tracking#R3, R4, R6, R7, R8, R9, R10, R18, documents/versions#R13
+- 자리: packages/documents/file-tracking/ (work.ts의 watch·scan·안정 읽기·후보 합치기·관측 제출, model.ts의 FileObservationBasis·FileStatus 계산, `/v1/files/status`), packages/documents/versions/ (`document.save`의 관측 CAS와 원본 연결 문서 규칙)
+- 쓰는 contract: platform 인증(machine credential)·command·read·event 구독(규칙·source 변경)·blob 준비 pipe, 저장 준비 경로(T8)
+- 내놓는 contract: `/v1/files/status`(FileStatus)
+- slice: documents
+- 선행: T8, T10
+- 완료:
+  - root별 `Deno.watchFs(recursive)` 신호는 힌트. 시작·절전 복귀·watch 넘침·단절·규칙·폴더 변경·보관 해제에 전체 대조, 평소 60초마다 root scan(진행 중이면 합침), root당 후보 10,000개 초과면 `rescan_required` 하나
+  - canonical 경로별 후보 합치기, 750ms 조용하면 관측, 안정 읽기 최대 3회. 열기 전·후 실제 경로·file identity·size·mtime 비교, 같은 stream에서 hash와 blob. 안정 확인 실패는 unverified로 두고 다음 파일로
+  - 삭제 후 재생성·이름 변경을 단순 수정으로 숨기지 않고, 내용이 같다고 source를 자동 재연결하지 않는다. size·mtime가 같아도 주기 대조에서 hash를 영원히 건너뛰지 않는다
+  - 제출은 FileObservationBasis(project, project_revision, path, document_revision, file_source, active, original_hash, observed_at)와 함께 machine `document.save`. 규칙·source·최신 판·보관·root 제거가 바뀌었으면 conflict 뒤 재관측
+  - `documents.source_path` 하나가 경로↔문서 대응이고 목록·scan·편집이 같은 read를 쓴다. 원본 연결 문서의 직접 내용 저장은 conflict, 파일 삭제·tracking 해제로 연결이 자동으로 사라지지 않음
+  - FileStatus: 추적 안 함, 추적 중인 판, version 대기, format 검사 실패, 원본 없음, 미확인 + 관측 시각·비교 판. 꺼진 동안 여러 번 고친 파일은 현재 내용만 준비
+  - root 추가·해제 때 platform 감독에 새 권한 목록으로 worker 교체를 요청하고 재scan
+  - `work_test.ts`(T1 시나리오: 꺼진 동안 고침, watch 넘침, 지우고 재생성, 이름 변경, 읽는 중 교체, 같은 size·mtime 수정, 규칙 변경·source 재연결·보관·권한 상실을 준비와 확정 사이에 끼움)와 `model_test.ts`에 각 요구 번호 테스트. 파일 3,000개 변경 중 다른 root의 작은 저장과 고정 판 read가 응답하는 통합 테스트
+
+### T12 사람 파일 쓰기와 working copy
+
+- 등급: 기본
+- concern: documents/file-tracking, documents/formats
+- 요구: documents/file-tracking#R1, R2, R11, R12, R15, R16, R17, documents/formats#R6
+- 자리: packages/documents/file-tracking/ (work.ts 파일 쓰기 알고리즘, `files.*` route, commands.ts `file.record_result`, adapters/ working copy 저장 `~/.lophn/documents/working-copies/<doc>/`)
+- 쓰는 contract: platform 인증(user만, machine credential)·command, route kind=file, shell confirmation window(files.delete 근거), 저장 준비 경로(T8), 파일 관측(T11)
+- 내놓는 contract: 파일 쓰기(`/v1/files/list`, `/read`, `/status`, `/watch`, `/write`, `/rename`, `/delete`, `/record_result`; FileTarget, FileWriteRequest, FileOperationResult); event `FileWritten`, `FileRenamed`, `FileDeleted`
+- slice: documents
+- 선행: T8, T11, platform#?(route kind=file와 바이트 응답)
+- 완료:
+  - user만 원본 파일 통로를 쓴다. agent·coding agent·app·MCP·CLI 자격은 forbidden
+  - 같은 canonical 목표의 작업 직렬화, 시작에 base_hash 대조, 같은 디렉터리 임시 파일 exclusive-create·stream·sync, 교체 직전 경계·file identity·hash 재검사, atomic replace, 새 파일은 no-replace 설치, 가능한 OS에서 부모 디렉터리 sync. 원자 교체 불가면 실패(truncate·복사 덮어쓰기 없음)
+  - 충돌은 `conflict`(HTTP 409), 권한·read-only·용량·quota·원자 교체 불가는 `unavailable`(HTTP 503). log·감사 payload에는 경로·hash·OS 오류만
+  - FileOperationResult는 파일 결과·기록 결과·version_result(not_requested, preparing, validation_failed, conflict, confirmed)를 따로. 성공한 파일 작업마다 `file.record_result`로 event 하나, `(request_key, operation)` 중복 방지. 응답 유실에 자동 재쓰기 없음
+  - 자동 저장은 파일 쓰기만, 명시 저장·편집 종료가 version 준비 경계. 지정 format 검사 실패는 파일을 되돌리지 않는다
+  - 원본 없는 문서는 선택 판으로 만든 working copy를 편집하고, 새 최신 판과 충돌하면 working copy를 남긴 채 새 기준을 돌려준다. 자동 project·문서 생성 없음, 앱 source 자동 추적 없음
+  - `files_test.ts`(교체 직전·직후 종료, no-replace 경쟁, 외부 수정 409, 권한·용량 503, 본문 없는 log), `commands_test.ts`, `working-copy_test.ts`에 각 요구 번호 테스트, API 통합 테스트
+
+### T13 derived store와 검색
+
+- 등급: 기본
+- concern: documents/outline-and-search
+- 요구: documents/outline-and-search#R10, R11, R12, R13, R14, R16, R17, R18
+- 자리: packages/documents/outline-and-search/ (adapters/ derived SQLite 9개 표, work.ts search consumer·재생성, reads.ts `/v1/search/query`·`/status`)
+- 쓰는 contract: platform event 구독·read(seq S의 일관된 snapshot, scope 후보 필터)·redaction·blob read, format 실행(T4)
+- 내놓는 contract: outline·search 읽기 중 `/v1/search/query`, `/v1/search/status`(SearchResult, IndexCoverage)
+- slice: documents
+- 선행: T4, T6
+- 완료:
+  - `derived_versions`, `derived_sections`, `derived_texts`, `search_documents`, `search_rows`, `search_fts`(FTS5 `tokenize='trigram'`), `summary_cache`, `derived_cursors`, `watch_unverified`. coordinator가 유일한 writer, 별도 read 연결
+  - consumer 결과·FTS 교체·cursor는 한 derived transaction. 실패 판은 이유를 남기고 cursor가 진행돼도 omissions를 돌려준다. 재생성·재파생은 ledger에 아무것도 쓰지 않는다
+  - 3 codepoint 미만 질의는 허용 후보 행의 escaped LIKE. 최신 반영 판의 section 제목·본문과 가용 요약·주제 텍스트, 요약 일치는 입력 판·stale를 따로
+  - 검색 결과: 고정 판 참조·section·범위·제목·snippet·score. 검색 판과 최신 판이 다르면 둘 다. 빈 결과도 lagging·rebuilding·omissions와 함께
+  - 보관 문서·보관 자리는 현재 ledger 상태로 기본 결과에서 뺀다(낡은 index 행이 있어도). 해제 뒤 비동기 반영
+  - 같은 대상의 재파생·목록 무효화는 500ms 합침, move는 출발·도착 자리와 관련 Context 갱신, 대상 불명 event는 전체 무효화
+  - 요약 없으면 원문 서문 200 codepoint 발췌(요약과 구분). 요약을 만들려고 model·agent run을 시작하지 않음
+  - 삭제·손상 시 seq S snapshot으로 `documents.rebuild.sqlite`를 만들고 따라잡은 뒤 교체, 그동안 `rebuilding=true`
+  - 권한 밖 ID는 후보 단계에서 빼고 count·rank·page도 허용 집합에서. agent 출력은 redaction
+  - `work_test.ts`, `reads_test.ts`에 각 요구 번호 테스트(T1 korean-search로 2글자·3글자 한글, index 삭제 후 재생성, 실패 주입 시 빈 결과와 실제 빈 결과 구별)
+
+### T14 outline과 단계적 읽기
+
+- 등급: 기본
+- concern: documents/outline-and-search, documents/addressing
+- 요구: documents/outline-and-search#R1, R2, R3, R5, R6, R7, R8, R9, R15, R22, R26, documents/addressing#R4, R5
+- 자리: packages/documents/outline-and-search/ (model.ts 예산·estimated token·cursor, reads.ts `/v1/outline/root`·`/place`·`/document`·`/v1/documents/read`, coordinator의 page basis), packages/documents/addressing/ (section 해석)
+- 쓰는 contract: platform read·인증·redaction·blob read, format 실행(T4), derived store(T13)
+- 내놓는 contract: outline·search 읽기 중 `/v1/outline/root`, `/v1/outline/place`, `/v1/outline/document`, `/v1/documents/read`(OutlinePage, ReadResult, Section, LineRange)
+- slice: documents
+- 선행: T9, T13
+- 완료:
+  - root(활동 순, 이 slice에서는 project·app 자리와 자리 없는 문서 묶음; context 부분은 T23) → place(갱신 순, 제목·format·선택 판·갱신 시각·발췌·section 수, 본문 없음, agent에게 경로·디스크 상태 없음) → document outline(section별 시작·끝·body_hash·문자 수·estimated token·부모·자식 수) → section·줄 범위 본문
+  - 기본 예산: root 1,500, place 3,000, document outline 2,000·depth 2 estimated token, 본문 12,000 codepoint. estimated token은 codepoint 수/3 올림. 초과 시 complete=false·cursor·숨긴 자식 수
+  - 본문 cursor는 ver·module_hash·section·include_children·줄 위치·줄 안 codepoint 위치. 긴 한 줄도 겹침·누락 없이 이어 읽음. outline 뒤 새 판이 저장돼도 같은 cursor는 처음 판, latest_version은 따로
+  - 목록 cursor는 basis_seq·query_hash·sort·scope_basis·선택 판 목록에 묶는다. 다른 조건·판의 cursor는 `invalid_input`, basis 만료·worker 재시작은 `conflict`. page마다 scope 재검사
+  - cache가 없으면 선택 판만 직접 추출하고 scan·index 따라잡기를 기다리지 않는다
+  - 성공 추출의 key 없음은 `missing`, 미지원은 `unsupported`, 미완료·실패는 `unverified`. 추정 section을 돌려주지 않는다
+  - section 해석: 전체 경로 우선, 유일한 마지막 이름 허용, 중복이면 `invalid_input`(모호함). 선택 판의 같은 key만, 최신 판에서 사라지면 소실 표시, 유사 section redirect 없음. code block·table 주소 없음
+  - `model_test.ts`, `reads_test.ts`에 각 요구 번호 테스트(12,000자 초과 본문·한 줄짜리 긴 본문 이어 읽기, scan·index 큐 지연 중 선택 판 읽기 우선 응답)
+
+### T15 saved view
+
+- 등급: 기본
+- concern: documents/outline-and-search
+- 요구: documents/outline-and-search#R23, R24, R25
+- 자리: packages/documents/outline-and-search/ (commands.ts `view.save`·`view.update`·`view.delete`, reads.ts `/v1/views/list`·`/get`·`/open`)
+- 쓰는 contract: platform command·read·인증, 검색(T13), place 목록(T14)
+- 내놓는 contract: `view.save`, `view.update`, `view.delete`; read `/v1/views/list`, `/get`, `/open`; event `SavedViewCreated`, `SavedViewUpdated`, `SavedViewDeleted`
+- slice: documents
+- 선행: T13, T14
+- 완료:
+  - `saved_views` 표, 저장·변경·삭제는 user만, revision은 마지막 변경 event seq
+  - 조건: text, place, Context 포함 여부, format, document_status(active·archived·all, 기본 active), 갱신 기간. 정렬: updated_desc, updated_asc, title_asc, address_asc. 정의하지 않은 조건(series 멤버, tag, 앱 DB, 문서 관계)은 `invalid_input`
+  - open은 매번 현재 허용 문서로 다시 만들고 Document·Context item을 만들지 않는다. text 조건이면 IndexCoverage를 붙인다. 상대 기간은 open 시각에 고정하고 cursor에 유지
+  - cache는 정규화 조건·정렬·대상 고정 판 목록·현재 scope가 같을 때만. glossary 없음. 삭제된 view cursor는 conflict
+  - `commands_test.ts`, `reads_test.ts`에 각 요구 번호 테스트
+
+### T16 이력·diff·restore
+
+- 등급: 기본
+- concern: documents/outline-and-search, documents/versions
+- 요구: documents/versions#R10, documents/outline-and-search#R19, R20, R21
+- 자리: packages/documents/outline-and-search/ (model.ts 공용 section-comparison, reads.ts `/v1/documents/section_history`·`/diff`, work.ts 준비 worker의 bounded Myers diff), packages/documents/versions/ (`/v1/documents/restore`, `document.restore`)
+- 쓰는 contract: platform command·read·인증·blob read, 저장 준비 경로(T8), 사람 파일 쓰기(T12)
+- 내놓는 contract: `/v1/documents/section_history`, `/v1/documents/diff`, `/v1/documents/restore`, `document.restore`; event `DocumentRestored`
+- slice: documents
+- 선행: T12, T14
+- 완료:
+  - section 이력: 고정 판 사이 같은 key로 변경 없음·본문 수정·추가·소실. 이름 변경은 소실+추가, 유사도 대응 없음. 중간 판부터 잘라도 직전 판과 비교, 소실 행은 살아 있는 행 뒤
+  - diff: 두 고정 판의 전체 또는 선택 section 줄 단위, 한도를 넘으면 변경 블록 단위로 이어 읽기, blob 복원 불가 구간은 누락. 계산은 준비 worker
+  - restore: 선택 판의 바이트와 정확한 FormatRef를 준비하고 최신 base_version·base_revision CAS. 최신과 같으면 새 판 없음. 원본 연결 문서는 사람 파일 쓰기(T12) 뒤 관측 근거로만 확정
+  - section-comparison은 T24 watch가 같은 함수를 쓴다(module 묶음의 body_hash 규약)
+  - `model_test.ts`, `reads_test.ts`, `versions/commands_test.ts`에 각 요구 번호 테스트
+
+### T17 Series ledger
+
+- 등급: 기본
+- concern: documents/series, documents/versions
+- 요구: documents/series#R1, R2, R3, R5, R7, R8, R10, R11, R13, R14, documents/versions#R15
+- 자리: packages/documents/series/ (model.ts 정렬·다음 규칙 순수 계산, commands.ts)
+- 쓰는 contract: platform command·read·인증·blob(draft), versions(T6)·저장 준비 경로(T8)·addressing(T9)
+- 내놓는 contract: `series.create`, `series.update`, `series.set_draft`, `series.clear_draft`, `series.add_instance`, `series.update_instance`, `series.remove_instance`, `series.archive`, `series.unarchive`; event `SeriesCreated` 등 9개
+- slice: documents
+- 선행: T8, T9
+- 완료:
+  - `series`·`series_instances`·`series_keys` 표. create·update·add_instance·update_instance는 user와 허용 coding_agent·app, 나머지 가족 변경은 user, lophn agent는 mutation 없음
+  - key는 비어 있지 않고 가족 안에서 유일, 멤버를 빼도 예약 유지, 문서 address 이름과 별개. 같은 자리·같은 format만 멤버, 멤버 수정은 같은 doc의 새 판
+  - 첫 Document 저장과 첫 가입을 같이 요청하면 한 ledger transaction에서 두 검사와 일치 draft 비우기
+  - 정렬: format 선언 order_value 또는 key 자연 순(숫자 성분은 수로, 0.9 다음 0.10, 동점·해석 불가는 locale 무관 codepoint 순과 Document ID)
+  - NextRule 등록 검사: 정수 ±step, major·minor·patch, 1~4자리 0 채움. 5자리 채움·해석 불가 규칙은 등록 거절. P001→P002, 0.2→0.3, 0.2→1.0, 0.2.1→0.2.2
+  - draft 하나(key·예정 doc·template 값), 확정 멤버 아님, 첫 판 전에는 Document·Context 대상 아님
+  - 보관·해제는 멤버 문서와 독립, 영구 삭제 route 없음, 읽기는 event를 만들지 않음
+  - `model_test.ts`, `commands_test.ts`에 각 요구 번호 테스트
+
+### T18 Series 읽기와 다음 이름
+
+- 등급: 기본
+- concern: documents/series
+- 요구: documents/series#R4, R6, R9, R12
+- 자리: packages/documents/series/ (reads.ts `/v1/series/list`·`/get`·`/next`, work.ts 준비 worker의 series-next), packages/documents/outline-and-search/ (`/v1/outline/series`)
+- 쓰는 contract: platform read·인증, documents worker(T2)
+- 내놓는 contract: `/v1/series/list`, `/v1/series/get`, `/v1/series/next`(NextSuggestion), `/v1/outline/series`
+- slice: documents
+- 선행: T14, T17
+- 완료:
+  - 자리별 가족 목록(규칙, 멤버 수), 상세와 가족 목차는 같은 기준·순서의 key·제목·고정 최신 판·보관 상태. page는 T14 cursor 방식
+  - next: key 자연 순의 마지막 확정 멤버(보관 멤버 포함, draft 제외)와 규칙으로 계산, from·taken·document_name·series_revision 반환, 아무것도 예약·저장하지 않음. 빈 가족·해석 불가·안전 정수 overflow는 빈 제안
+  - ID 또는 자리+이름으로 조회, 가족은 address·version이 없음
+  - lophn agent 자격은 list·get·next만, 허용 coding_agent·app은 T17 mutation도
+  - `reads_test.ts`에 각 요구 번호 테스트(제안을 두 번 읽어도 문서·event 수 같음)
+
+### T19 문서를 파일로 두기와 빼기
+
+- 등급: 기본
+- concern: documents/projects, documents/file-tracking, documents/versions
+- 요구: documents/projects#R12, documents/file-tracking#R13, R14, documents/versions#R13
+- 자리: packages/documents/file-tracking/ (work.ts 두기·빼기 순서), packages/documents/versions/ (`document.set_source`), packages/documents/projects/ (파일 하나의 정확한 include 추가)
+- 쓰는 contract: platform command·인증, shell confirmation window(파일 삭제 근거), 사람 파일 쓰기(T12), address 이동(T9), tracking(T10)
+- 내놓는 contract: `document.set_source`, 두기·빼기 요청(파일 쓰기 contract 안의 동작); event `DocumentSourceChanged`
+- slice: documents
+- 선행: T9, T10, T12
+- 완료:
+  - 두기: tracking이 켜진 project만(꺼졌으면 conflict). 최신 고정 판 바이트를 no-replace로 쓰고, 패턴 밖이면 그 파일 하나의 include를 `project.set_tracking`으로, `document.move`, `document.set_source`를 각각 현재 CAS로 확정. 파일 성공 뒤 연결 확정 실패는 파일을 남기고 따로 표시
+  - 빼기: 디스크 hash가 최신 판 원문과 같을 때만 파일 삭제, 다르면 conflict로 파일을 남김
+  - set_source·해제는 user만, 자동으로 연결이 사라지지 않음
+  - `work_test.ts`, `commands_test.ts`에 각 요구 번호 테스트(확인과 생성 사이에 대상 파일을 만들어 덮지 않음)
+
+### T20 문서 export
+
+- 등급: 기본
+- concern: documents/versions
+- 요구: documents/versions#R16
+- 자리: packages/documents/versions/ (reads.ts `/v1/documents/export`, work.ts 묶기)
+- 쓰는 contract: platform read·인증·redaction·blob read
+- 내놓는 contract: read `/v1/documents/export`
+- slice: documents
+- 선행: T9, T14
+- 완료:
+  - 사람이 고른 project·app 자리의 문서와 고정 판을 Markdown·JSON으로, 원래 바이트와 판 참조를 함께. HTML·PDF처럼 Markdown으로 못 바꾸는 원문은 원래 MIME과 바이트. derived index는 넣지 않음
+  - 외부 출력은 redaction, redaction 실패 구간은 빠진 범위와 이유로 표시하고 온전한 export로 꾸미지 않음
+  - `reads_test.ts`에 versions#R16 테스트
+
+### T21 documents slice flow E2E
+
+- 등급: 기본
+- concern: documents
+- 요구: 없음 (flow 시나리오: first-project, project-workspace, edit-document, find-documents, organize-documents, restore-document, write-series)
+- 자리: E2E 자리(질문 Q3, 추천 `e2e/flows/`)
+- 쓰는 contract: shell 화면, fake provider 없음(model 없는 갈래만)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: T11–T20, shell#?(launcher·project-workspace·document 편집기·documents 화면·projects 화면), platform#?(E2E harness와 `deno task e2e`)
+- 완료:
+  - first-project 1~8과 다른 갈래(겹침 거절, 접근 상실, format 검사 실패, 미지원 형식)
+  - project-workspace의 문서 단계(1, 2, 7과 저장 실패 갈래). 터미널·앱 패널 단계는 shell·apps slice
+  - edit-document 1~8과 다른 갈래(바깥 수정 충돌, 503, 검사 실패)
+  - find-documents 1~4, 7과 사람 갈래. 5~6(agent·coding agent 읽기)은 질문 Q4
+  - organize-documents 1, 4~7과 사람 직접 이동 갈래. 2~3(lophn 역할 추천·question)은 질문 Q4
+  - restore-document 1~6과 다른 갈래, write-series 1~7과 다른 갈래
+  - `deno task e2e`에서 위 시나리오가 통과
+
+## slice: context
+
+### T22 Context ledger
+
+- 등급: 기본
+- concern: documents/contexts
+- 요구: documents/contexts#R1, R2, R3, R5, R6, R7, R8, R15
+- 자리: packages/documents/contexts/
+- 쓰는 contract: platform command·read·인증(Context Engineer agent 자격), apps blueprint read((app, command)의 존재와 effect=read), versions(T6)
+- 내놓는 contract: `context.create`, `context.update`, `context.set_item`, `context.remove_item`, `context.archive`, `context.unarchive`; read `/v1/contexts/list`, `/get`, `/related`; event `ContextCreated`, `ContextUpdated`, `ContextItemSet`, `ContextItemRemoved`, `ContextArchived`, `ContextUnarchived`
+- slice: context
+- 선행: T9, contracts#?(apps blueprint read command 조회)
+- 완료:
+  - `contexts`·`context_items` 표, target_key canonical encoding(문서 전체 null section, section, app 가지 구분)
+  - item 대상은 저장 판이 있는 문서·그 section·앱 read command만. 미추적 파일·project 폴더·write·external command는 `invalid_input`
+  - 관점 기준·참고·watch와 이유, 같은 문서를 여러 context·같은 context에서 전체와 section을 별개로
+  - user와 허용 CE agent의 개별 동작, coding agent의 직접 변경은 forbidden(제안은 question 쪽), 종료 run 거절, base_revision CAS
+  - 제거·보관은 문서·앱·용어를 바꾸지 않음. 보관 중 watch 멈춤(T24가 확인)
+  - related: 문서가 직접 든 context, project 문서가 직접 든 context를 item에서 계산. 별도 project-context 연결 없음
+  - Context는 Operator 담당 범위를 만들지 않는다(preset이 여러 context를 고름)
+  - apps 쪽 구현 전에는 contract를 흉내 내는 test double로 app item을 검사한다
+  - `commands_test.ts`, `reads_test.ts`에 각 요구 번호 테스트
+
+### T23 context outline
+
+- 등급: 기본
+- concern: documents/outline-and-search, documents/contexts
+- 요구: documents/outline-and-search#R2, R4, documents/contexts#R4
+- 자리: packages/documents/outline-and-search/ (`/v1/outline/context`, root의 context 부분), packages/documents/contexts/ (reads)
+- 쓰는 contract: platform read·인증·redaction
+- 내놓는 contract: `/v1/outline/context`
+- slice: context
+- 선행: T14, T22
+- 완료:
+  - root에 context 목적·기준 항목 수·참조 앱 수·활동, 문제·질문·approval 대기는 소유 concern read를 가리키는 참조만
+  - context outline: 목적, 기준→참고→watch 순서의 item, 선택 이유, 선택 고정 판, 읽기 가능 여부, 빈 관점 구별. 예산 3,000과 cursor
+  - item은 최신 판을 따라 읽되 읽은 결과·전달 근거는 그때 고른 고정 판, 항목별 옛 판 고정 옵션 없음
+  - `reads_test.ts`에 각 요구 번호 테스트
+
+### T24 context watch
+
+- 등급: 기본
+- concern: documents/contexts
+- 요구: documents/contexts#R9, R10, R11, R12, R13
+- 자리: packages/documents/contexts/ (work.ts watch consumer, commands.ts `context.record_watch_change`), packages/documents/outline-and-search/ (derived `watch` cursor·`watch_unverified`를 mod로 노출)
+- 쓰는 contract: platform event 구독·read(source_seq까지 event 재생)·command·machine credential, section-comparison(T16)
+- 내놓는 contract: `context.record_watch_change`(machine); event `ContextWatchedItemChanged`(platform notifications가 구독)
+- slice: context
+- 선행: T16, T22
+- 완료:
+  - 자기 derived cursor로 `DocumentSaved`를 받아 source_seq 당시 구성을 재생하고 전후 고정 판 비교: 문서 전체는 content_hash, section은 같은 key body_hash·추가·소실. format만 바뀐 저장은 내용 변화가 아님
+  - 추출 미완료·실패·비교 의미가 불명한 module 변경은 `watch_unverified`에 남기고 나중에 재추출
+  - confirmed만 command로 제출, `(context, target_key, after_version)` 중복 방지, 구성 변경·보관 뒤의 낡은 결과는 거절, command 수락 뒤에 cursor 진행
+  - section key 소실은 item을 그대로 두고 소실·미확인을 구별, 유사 section으로 바꾸지 않음
+  - 앱 read command item의 watch는 호출·변화 기록을 만들지 않음. 변화 event로 agent run을 시작하지 않음
+  - `work_test.ts`, `commands_test.ts`에 각 요구 번호 테스트(비교 중 관점 변경·보관, 같은 결과 재전달, extractor 실패)
+
+### T25 Term
+
+- 등급: 기본
+- concern: documents/terms
+- 요구: documents/terms#R1, R2, R3, R4, R5, R6
+- 자리: packages/documents/terms/ (commands.ts, reads.ts glossary)
+- 쓰는 contract: platform command·read·인증(CE agent 자격, QuestionActionEvidence로 machine이 actor=user 적용), outline 읽기(T14)
+- 내놓는 contract: `term.propose`, `term.define`, `term.update`, `term.archive`, `term.unarchive`; read `/v1/terms/list`, `/get`, `/v1/outline/context`의 glossary; event `TermProposed`, `TermDefined`, `TermUpdated`, `TermArchived`, `TermUnarchived`
+- slice: context
+- 선행: T22, T23
+- 완료:
+  - `terms`·`term_evidence` 표. 후보는 실제 본문의 고정 판과 section 또는 줄 범위 근거가 있어야 한다. route가 command 전에 고정 판 범위를 읽어 출현을 확인하고(질문 Q8), 근거 없는 agent 후보는 거절
+  - 정의 확정·수정은 user 또는 고정 option(context·이름·뜻)을 적용하는 machine(actor=user)만. CE agent는 후보 이름·근거만, definition 입력은 forbidden
+  - context마다 따로, 같은 이름 자동 통합·번역·상속·대응 없음. 이름 비교는 정확한 문자열
+  - glossary는 정의와 후보를 나누고 정의 첫 page 30개와 cursor
+  - 보관은 정의·근거를 지우지 않고 정의를 후보로 돌리는 경로가 없다
+  - 앱 read command를 item으로 가진 context의 사람 정의를 앱 설명 읽기 근거로 제공, blueprint로 복사하지 않음
+  - `commands_test.ts`, `reads_test.ts`에 각 요구 번호 테스트(정의 35개를 30개·5개로)
+
+### T26 context export
+
+- 등급: 기본
+- concern: documents/contexts
+- 요구: documents/contexts#R14
+- 자리: packages/documents/contexts/ (reads.ts `/v1/contexts/export`)
+- 쓰는 contract: platform read·인증·redaction
+- 내놓는 contract: read `/v1/contexts/export`
+- slice: context
+- 선행: T20, T25
+- 완료:
+  - 목적, 관점별 직접 item, 선택 이유, 읽은 고정 판 참조, glossary. 하위 context·관계 지도·권한 밖 본문 없음. T20과 같은 Markdown·JSON 규칙
+  - `reads_test.ts`에 contexts#R14 테스트
+
+### T27 context slice flow E2E
+
+- 등급: 기본
+- concern: documents
+- 요구: 없음 (flow 시나리오: build-context, define-terms)
+- 자리: E2E 자리(질문 Q3)
+- 쓰는 contract: shell 화면
+- 내놓는 contract: 없음
+- slice: context
+- 선행: T22–T26, shell#?(contexts 화면), lophn-agent#?(Context Engineer 역할과 question option 적용)
+- 완료:
+  - build-context: 사람이 contexts 화면에서 item·관점·이유를 직접 고치는 갈래, watch 변화 확인(6~7), 보관·제거 갈래. Context Engineer 제안 갈래(2~4)와 revert(8)는 질문 Q4
+  - define-terms: 사람이 직접 정의하는 갈래와 후보·정의 구별(3, 6), 같은 이름 다른 context 갈래. Context Engineer 후보와 option 적용(2, 4~5)은 질문 Q4
+  - `deno task e2e`에서 위 시나리오가 통과
+
+## slice: agent
+
+### T28 지침 파일
+
+- 등급: 기본
+- concern: documents/file-tracking, documents/versions
+- 요구: documents/file-tracking#R19, R20, documents/versions#R19, R20
+- 자리: packages/documents/file-tracking/ (FileTarget·FileObservationBasis의 instruction_file 가지, 등록 파일 관측), packages/documents/versions/ (instruction_file source·VersionSource, 지침 문서 write 보호)
+- 쓰는 contract: lophn-agent instructions(InstructionLocation·Attachment exact 등록 read, 지침 대상 판정), platform 인증·command
+- 내놓는 contract: 파일 쓰기와 저장 준비 contract의 instruction_file 가지, 지침 대상(등록 locator 또는 preset 첨부)의 현재 확정 판 read와 지침 문서 여부 표시(lophn-agent/instructions#R3, R6이 씀)
+- slice: agent
+- 선행: T12, T19, lophn-agent#?(instructions 등록 contract)
+- 완료:
+  - 전역 `~/.lophn/LOPHN.md`·project·app LOPHN.md·preset 첨부 지침은 exact 등록 파일만 관측(data root 재귀 tracking·부모 순회·cwd 추측 없음), owner·실제 열린 파일·symlink·UTF-8·hash 검사
+  - 최초 생성은 미존재 CAS, 저장·복원은 base_hash와 base_version CAS 뒤 재관측으로 새 판. 파일이 없으면 첫 저장 전에는 version 없음, agent가 빈 파일을 만들지 않음
+  - 지침 문서는 agent·coding agent·app의 create·save·제목·move·source 변경이 forbidden(다른 출력으로 지정해도). agent는 question 제안만
+  - 전역 지침은 place·name null의 instruction_file source, Project·system place 자동 생성 없음. LOPHN.md와 AGENTS.md 구별
+  - `*_test.ts`에 각 요구 번호 테스트
+
+### T29 설치 안내 읽기
+
+- 등급: 기본
+- concern: documents/versions
+- 요구: documents/versions#R17, R18
+- 자리: packages/documents/versions/ (설치 manifest reader: lophn_version·title·content_hash), packages/documents/outline-and-search/ (`/v1/guides/list`·`/get`·`/outline`·`/read`를 기존 outline·section 읽기 코드로)
+- 쓰는 contract: platform install 묶음의 `guides/` 자리(질문 Q6), platform read·인증
+- 내놓는 contract: `/v1/guides/list`, `/v1/guides/get`, `/v1/guides/outline`, `/v1/guides/read`(BundledGuide)
+- slice: agent
+- 선행: T14, platform#?(설치 묶음 자리)
+- 완료:
+  - offline으로 목록·목차·절·본문, 설치 판·내용 hash 표시. 사용자 Document·place·tracking을 자동으로 만들지 않음
+  - 직접 편집·이동·보관 불가. 사람이 고치려면 일반 문서 복사본으로 저장(documents.save), update가 복사본을 덮지 않음
+  - 테스트용 안내 fixture 묶음, `*_test.ts`에 각 요구 번호 테스트
+
+### T30 agent 출력 저장 범위와 revert 경로
+
+- 등급: 기본
+- concern: documents/versions, documents/contexts, documents/terms
+- 요구: documents/versions#R14
+- 자리: packages/documents/versions/, packages/documents/contexts/, packages/documents/terms/
+- 쓰는 contract: lophn-agent assignments(Operator의 기존 출력 Document 판정), lophn-agent revert(machine 보상 근거), platform 인증
+- 내놓는 contract: revert가 쓰는 `document.archive`·`document.restore`(machine, 결정 근거), context·term 후보 변경의 보상 경로
+- slice: agent
+- 선행: T8, T16, T22, T25, lophn-agent#?(assignments 출력 contract), lophn-agent#?(revert contract)
+- 완료:
+  - 기획·설계·반복 판단 결과는 고정 문서 판으로 남고 SaveResult의 고정 참조로 다시 연다. Operator는 assignment의 기존 Document에 새 판만(새 Document·자리·format 불가), 원본 연결·보관·지침 문서는 출력 불가
+  - revert: run 이후 판·revision이 그대로일 때만 보상, 생성 문서는 보관, 원본 연결 문서의 디스크 revert는 포함하지 않음. 이후 변경은 conflict
+  - `*_test.ts`에 versions#R14(agent 출력) 테스트와 revert 경로 테스트
+
+## slice: apps
+
+### T31 앱 자리와 앱 출력
+
+- 등급: 기본
+- concern: documents/addressing, documents/versions, documents/series
+- 요구: documents/versions#R14, documents/addressing#R2, documents/series#R1
+- 자리: packages/documents/addressing/ (place kind app 해석, 자리 이름 예약 port 구현을 apps/registration에 주입), packages/documents/versions/ (app 자격 저장 범위), packages/documents/outline-and-search/ (앱 자리 목록은 apps/blueprint의 읽을 구조를 가리킴)
+- 쓰는 contract: apps registration read(App 존재·status·slug), apps blueprint read(선언 출력 문서 이름)
+- 내놓는 contract: 자리 이름 예약 port의 구현(T5에서 모양을 냄)
+- slice: apps
+- 선행: T9, T17, apps#T1(app 생성의 이름 예약), apps#T13(앱 broker), apps#T14(cap-save)
+- 완료:
+  - 앱은 자기 앱 자리의 선언된 출력 이름(blueprint documents[].key)만 저장. save는 (앱 자리, key)로 대상을 찾아 첫 저장이면 만들고 그 뒤에는 같은 Document의 새 판(base_version CAS), VersionSource kind=app{app, release}. 앱 결과는 고정 판으로 다시 연다
+  - project 이름을 앱이 쓰면 conflict(같은 transaction 예약), 앱 이름 변경 뒤 옛 address 안내
+  - 허용된 앱의 series 등록·멤버 저장
+  - `*_test.ts`에 각 요구 번호 테스트, apps 팀 registration 테스트와 함께 이름 공간 통합 테스트
+
+## 다른 팀에 기대는 것
+
+| 팀 | 무엇 | 쓰는 작업 |
+|---|---|---|
+| contracts | `packages/contracts/documents/` 전부(architecture/documents 5장), 자리 이름 예약 port, Address parser, base frame codec 여부 | 전부 |
+| platform | command·read 등록, migration 등록, seq S snapshot read, scope 후보 필터, event 구독 client, blob 준비 pipe·read, route kind=file와 바이트 응답, 신뢰 child 감독(root 권한 목록으로 교체), machine credential, QuestionActionEvidence, redaction, core 테스트 harness, E2E harness | T2–T31 |
+| shell | 화면(launcher 등록, project-workspace, document 편집기·이력·diff, documents 화면, projects 화면, contexts 화면), files.delete의 confirmation 근거 | T12, T19, T21, T27 |
+| apps | registration read와 app 생성·이름 변경에서 예약 port 호출, blueprint의 read command 조회와 출력 선언 | T22, T31 |
+| lophn-agent | instructions 등록 read, assignments 출력 판정, revert 근거, Context Engineer 자격, question option 적용 | T9, T25, T27, T28, T30 |
+
+## 요구 덮기
+
+| concern | 요구 수 | 덮은 수 | 작업 |
+|---|---|---|---|
+| documents/projects | 12 | 12 | T7, T10, T19 |
+| documents/file-tracking | 20 | 20 | T2, T11, T12, T19, T28 |
+| documents/versions | 20 | 20 | T6, T11, T16, T17, T19, T20, T28, T29, T30, T31 |
+| documents/formats | 20 | 20 | T3, T4, T8, T12 |
+| documents/outline-and-search | 26 | 26 | T13, T14, T15, T16, T23 |
+| documents/series | 14 | 14 | T17, T18, T31 |
+| documents/addressing | 10 | 10 | T5, T9, T14, T31 |
+| documents/contexts | 15 | 15 | T22, T23, T24, T26 |
+| documents/terms | 6 | 6 | T25 |
+| 합계 | 143 | 143 | |
+
+## 질문
+
+- **Q1 공유 entry 파일.** documents command·read를 core에 등록하는 자리(`apps/core/`)와 worker kind를 더하는 자리(`apps/worker/`)는 여러 팀이 고친다. 추천: platform 팀이 skeleton에서 registry를 만들고, documents 팀은 자기 등록 파일(`apps/core/documents.ts`, `apps/worker/documents/`)만 고친다.
+- **Q2 의존성(stack.md).** 추천: picomatch, ignore(architecture가 이미 이름을 정함), QuickJS WASM sync 빌드(quickjs-emscripten 계열) 하나, HTML 추출용 parse5(format module 묶음 안에 넣음). Markdown heading scanner, sha256(guest 안), bounded Myers diff는 직접 쓴다. stack.md는 lead가 고치므로 승인을 바란다.
+- **Q3 E2E 자리와 소유.** 추천: `e2e/flows/<flow>_test.ts`(Playwright Electron), documents·context slice의 flow E2E는 documents 팀이 쓰고 화면은 shell 팀 작업을 선행으로 둔다.
+- **Q4 model이 끼는 flow 단계.** organize-documents 2~3(lophn 역할 추천과 question), find-documents 5~6(agent·coding agent 읽기), build-context 2~4·8과 define-terms 2·4~5(Context Engineer)는 agent·coding-agent slice가 있어야 돈다. 추천: documents·context slice에서는 사람 갈래로 E2E를 돌리고, 그 단계는 agent·coding-agent slice의 마지막 작업 E2E에 넣는다(lead가 그 팀 계획에 줄을 더하도록).
+- **Q5 이름 최대 길이.** addressing#R10은 "spec에서 정한다"인데 spec 문서를 두지 않는다. 추천: 문서 이름 100 codepoint, place slug 64 codepoint, 자동 제안은 소문자 ASCII·숫자·하이픈. 코드와 테스트가 정본이다.
+- **Q6 설치 안내 글과 자리.** documents는 manifest reader와 읽기 경로만 만든다. 추천: 안내 글은 lophn-agent 팀(lophn 역할 소유)이 쓰고, 설치 묶음의 `guides/` 자리와 manifest 생성은 platform/install-and-update가 정한다.
+- **Q7 다른 최상위와 한 Tx로 묶기.** document.save가 Operator 출력·앱 출력 범위를, context.set_item이 앱 read command를 확인해야 하는데 command handler는 Tx만 받고 다른 최상위 표를 읽지 못한다. 반대로 apps의 app 생성은 place 이름 예약을, lophn-agent의 tool 결과 확정은 문서 저장을 같은 Tx에 넣어야 한다. 추천: 소유 팀이 구현하는 동기 Tx port(정책 판정, 이름 예약, 준비된 판 확정)를 contracts에 두고 core 조립에서 주입한다(contracts 팀에 요청함).
+- **Q8 derived가 필요한 검사.** term 근거의 실제 출현, context item section의 존재, problems의 해석 연결 section 확인은 추출 결과가 필요해 ledger Tx 안에서 못 한다. 추천: route handler가 command 전에 coordinator로 고정 판을 읽어 확인하고, command는 고정 판 존재와 참조만 CAS한다. 고정 판과 정확한 module은 불변이라 확인 결과가 낡지 않는다.
+- **Q9 첫 저장의 event.** architecture 5.1은 "새 판은 DocumentSaved, 첫 문서는 DocumentCreated"이고 DocumentSaved payload는 "previous_version(첫 판 null)"이다. 계획은 첫 저장에 둘 다 낸다(search·watch consumer가 DocumentSaved만 보면 된다).
+- **Q10 SDK format Package.** apps/sdk#R4는 "documents/formats가 정한 format Package"를 1.0.0으로 내라고 하는데 documents 문서에 이름이 없다. 추천: `@lophn/format-document` 하나. 내장 document format의 이름·MIME 목록·template·guide·FormatRef(그 SDK 판이 가리키는 정확한 module_hash)만 담고 검사 코드는 넣지 않는다(검사는 격리된 `/v1/formats/validate`만). pdf·image·data는 원문 format이라 Package가 필요 없다. 코드는 apps 팀 자리 `packages/sdk/format-document/`, 내용은 T3·T4의 선언에서 만든다.

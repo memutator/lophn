@@ -23,6 +23,13 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 의존성을 더할 때는 이 표나 아래 목록에 이유와 함께 적는다. 같은 일을 하는 라이브러리를 둘 들이지 않는다.
 
+| 의존성 | 쓰는 곳 | 이유 |
+|---|---|---|
+| picomatch | documents/file-tracking | tracking 규칙의 glob |
+| ignore | documents/file-tracking | `.gitignore` 모양 제외 규칙 |
+| QuickJS WASM (sync 빌드 하나) | documents/formats | format 검사 코드를 격리해 돌린다 |
+| parse5 | documents/formats의 HTML format 묶음 안 | HTML 문서 해석 |
+
 ## check 명령 하나
 
 저장소 루트의 `deno task check`가 모든 관문이다. 모든 작업은 이것을 통과해야 끝난다. skeleton slice가 이 명령을 만들기 전까지는 `deno check`, `deno test`, `node tools/check-docs.ts`를 직접 돌린다.

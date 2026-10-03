@@ -30,9 +30,24 @@ slice는 사람이 처음부터 끝까지 해 볼 수 있는 한 줄기다. 그 
 
 여러 slice에 걸치는 flow는 갈래를 나눠 돈다.
 
-- organize-documents: documents slice에서는 사람이 직접 고르는 이동만, lophn의 추천과 question 갈래는 agent slice에서 돈다.
+- documents slice의 flow는 사람 갈래만 돈다. model이 끼는 단계(organize-documents 2~3, find-documents 5~6)는 agent slice E2E에서 돈다.
+- context slice는 agent 뒤라 build-context, define-terms를 model 단계까지 함께 돈다.
 - view-agent-visuals: 표·차트·도표는 agent slice, 앱 카드 갈래는 apps slice에서 돈다.
 - new-app은 apps와 coding-agent에 걸친다. apps slice에서는 coding agent 대신 fixture 앱으로 등록·release까지 돌리고, coding-agent slice에서 처음부터 끝까지 돈다.
+
+## E2E
+
+flow E2E는 `e2e/flows/<flow 이름>_test.ts`에 둔다. slice의 E2E는 아래 팀이 쓰고, 화면이 필요한 단계는 shell 팀 작업을 선행으로 둔다.
+
+| slice | E2E 담당 |
+|---|---|
+| skeleton | contracts(뼈대 smoke) |
+| documents, context | documents |
+| agent, operator | lophn-agent |
+| apps | apps |
+| coding-agent | coding-agent |
+| problems | problems |
+| operations | platform |
 
 ## 팀
 

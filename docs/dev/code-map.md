@@ -23,6 +23,7 @@ packages/
   design/             token, 컴포넌트, wording catalog
   sdk/                앱이 import하는 공개 SDK(ui-*, cap-*, format-*, blueprint)
   <최상위>/<leaf 경로>/  concern 하나의 코드
+e2e/flows/            flow 하나에 E2E 하나: <flow 이름>_test.ts
 tools/                check-docs, fake-provider 같은 개발 도구
 fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 ```
@@ -123,4 +124,5 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 - `packages/contracts`와 `packages/base`는 다른 어떤 package도 import하지 않는다.
 - `apps/shell`은 core package를 import하지 않는다. contracts, design, sdk만 쓴다.
 - `apps/*` entry는 package를 조립만 한다. 업무 규칙은 package에 둔다.
+- 여러 팀이 같은 entry에 붙는 곳(`apps/core`의 route, `apps/worker`의 kind)은 platform 팀이 registry를 만들고, 각 팀은 자기 등록 파일(`apps/core/<팀>.ts`, `apps/worker/<팀>/`)만 고친다.
 - 한 concern의 ledger 표는 그 concern의 코드만 읽고 쓴다. 다른 concern의 표가 필요하면 그 concern의 read contract를 쓴다.

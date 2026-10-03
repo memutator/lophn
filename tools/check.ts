@@ -37,6 +37,10 @@ async function exists(path: string): Promise<boolean> {
 export const steps: Step[] = [
   { name: "fmt", command: ["deno", "fmt", "--check"] },
   { name: "lint", command: ["deno", "lint"] },
+  {
+    name: "deps",
+    command: ["deno", "run", "--allow-read", "tools/check-deps.ts"],
+  },
   // workspace 전체와 tools를 본다. check-docs.ts는 Node로만 돌아 deno.json에서 빼고 docs 단계가 실행으로 확인한다.
   { name: "check", command: ["deno", "check"] },
   {

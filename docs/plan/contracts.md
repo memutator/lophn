@@ -867,6 +867,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T45 contracts/platform: backup·diagnostics·install-and-update
 
+- 상태: 완료 (#25)
 - 등급: 기본
 - concern: platform/backup-and-migration, platform/diagnostics, platform/install-and-update
 - 요구: platform/backup-and-migration#R3, R6, R8, R10–R12; platform/diagnostics#R1, R2, R4–R6, R8–R10; platform/install-and-update#R1, R2, R6–R8, R10; shell/desktop#R20

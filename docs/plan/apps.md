@@ -1,0 +1,534 @@
+---
+type: plan
+concerns: [apps]
+---
+# apps 구현 계획
+
+apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime, agent-context, connections, permissions, automations, invocations, data, preview, sdk)을 구현하는 작업이다. 코드 자리는 [code-map](../dev/code-map.md)의 apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data kind, 공개 SDK `packages/sdk/`의 blueprint·cap-*·format-*, 그리고 `fixtures/apps/`다. `packages/sdk/ui-*`와 `@lophn/tokens`는 shell 팀이 만든다.
+
+## 공통으로 정한 것
+
+- **core 조립.** platform#T9의 registry에 apps는 `apps/core/apps.ts` 한 파일로만 등록한다(command·read·event·schema step·dispatchable command·port·worker kind launch spec). worker kind 코드는 `apps/worker/apps/`에만 둔다(lead 결정).
+- **앱 안에서 도는 코드.** `packages/apps/runtime/entrypoint/`, `packages/apps/invocations/context.ts`, `packages/apps/automations/clock.ts`, `packages/apps/agent-context/redaction.ts`, `packages/apps/connections/client.ts`는 release bundle에 "플랫폼 진입 파일"로 들어가 manifest hash로 고정된다. 그래서 의존성이 없어야 한다(Zod, npm 금지). core·supervisor는 앱 코드를 import하지 않는다.
+- **SDK.** `packages/sdk/*`는 앱 bundle에 그대로 들어가므로 SDK끼리만 peer로 의존하고, Zod를 끌어오는 `packages/contracts` 파일은 import하지 않는다. 예외는 blueprint 정본 검증기 하나다. contracts 팀 제안대로 import 없는 순수 TS 검증기를 `packages/contracts/apps/blueprint.ts`에 두고 @lophn/blueprint가 다시 내보내 정본을 하나로 둔다(apps/blueprint#R16, 질문 Q2).
+- **테스트 이름**은 요구 번호로 시작한다: `Deno.test("apps/runtime#R19: ...")`. 시각·id·무작위·단조 tick은 `packages/base`의 Clock·IdSource로 주입한다.
+- **E2E.** apps slice의 flow 8개는 T27이 돌린다. 앞 slice flow 중 앱 단계(project-workspace의 app-panel, build-context의 blueprint 조회, approve-action의 confirm·grant, view-agent-visuals의 app-card)도 T27이 함께 돌린다(Q4).
+- **시작 시점.** 선행이 모두 main에 합쳐진 작업은 slice와 상관없이 시작한다(Q9).
+- **다른 팀 작업 id.** 아래 `선행:`에서 아직 id를 받지 못한 것은 `<팀>(<contract 또는 기능>)`으로 적었다. id를 받는 대로 채운다.
+
+## slice: documents
+
+### T1 앱 등록, source 연결, 보관
+
+- 등급: 기본
+- concern: apps/registration
+- 요구: apps/registration#R1–R10
+- 자리: packages/apps/registration/ (model.ts, commands.ts, reads.ts, adapters/source-path.ts, mod.ts), apps/core/apps.ts
+- 쓰는 contract: platform command·read·인증(actor·scope: user, 전체 scope coding connection, 앱 scope connection), documents/addressing의 place_names 예약 Tx 함수, lophn-agent/questions option action으로 적용될 owner command 등록(platform approvals)
+- 내놓는 contract: `/v1/apps/{create,connect_source,archive,unarchive,list,get}`, event AppCreated·AppSourceConnected·AppArchived·AppUnarchived (contracts#T20)
+- slice: documents
+- 선행: contracts#T20, contracts#T14, platform#T9, documents#T5
+- 완료:
+  - `registration_test.ts`: 화면 없는 앱·화면 있는 앱 등록과 문서 등록 구별(R1), source·release·기획 판 없는 등록과 기획 판 있는 등록 조회(R2), 전체 scope coding connection은 등록되고 앱 scope connection·lophn agent 직접 요청은 forbidden(R3), 관리 저장소 밖 git 폴더의 실제 경로 연결(R4), source 재연결 전후 active_release·bundle 참조 불변(R5), 기존 비소유 폴더와 같은 slug에서 그 폴더 불변·이름 공간 conflict(R6), slug에서 이름 추천과 입력 이름 보존(R7), archive가 run_enabled=false를 함께 저장하고 unarchive가 false 유지(R8), archive 뒤 release 이력·앱 place 조회(R9), project 없이 등록한 앱의 독립 place 조회(R10)
+  - CAS·idempotency 거절 테스트(같은 key 재전송, 낡은 seq)
+  - flow organize-documents의 앱 보관 단계 E2E(documents slice의 E2E에 넣는다)
+
+## slice: apps
+
+### T2 blueprint 정규 schema와 @lophn/blueprint
+
+- 등급: 기본
+- concern: apps/blueprint, apps/sdk
+- 요구: apps/blueprint#R1, R4, R5, R6, R7, R10, R11, R15, R16, R18, R19, R20, R21, R22, apps/sdk#R5
+- 자리: packages/sdk/blueprint/ (define.ts, mod.ts, *_test.ts), packages/apps/blueprint/ (mod.ts). 정본 검증기 `packages/contracts/apps/blueprint.ts`는 contracts#T33이 쓴다
+- 쓰는 contract: contracts#T33의 import 없는 blueprint 검증기(type, normalize, validate, InputSchema 검사, default 적용, 정규 input hash)
+- 내놓는 contract: @lophn/blueprint 1.0.0의 공개 API(defineBlueprint, defineAgentContext, validateBlueprint, validateInput, canonicalInputHash). contracts#T33의 정본 검증기를 다시 내보낸다(Q2)
+- slice: apps
+- 선행: contracts#T33
+- 완료:
+  - `validate_test.ts`: 화면 없는 앱의 빈 화면 목록 허용, 누락·중복·모르는 선언 거절(R1), effect 하나와 독립 confirm(R4), external·write·read 정의 예시(Google Calendar 조회=read, 동기화=write, 일정 만들기=external)(R5), secret을 쓰는 read·write의 confirm=false 허용(R6), JSON Schema 부분집합의 타입·enum·default·길이·수 범위 검사와 default 채움(R10), $ref·oneOf·format·모르는 keyword 거절(R11), screen·command key와 label 분리(R15), 같은 corpus에서 작성형과 검증기 판정이 같고 network·model 없이 돈다(R16), 순서만 다른 작성형의 같은 정규 JSON과 옛 context 필드 거절(R18), sizes 비어 있음·중복 거절(R19), command description·input description이 비면 거절하고 blueprint만으로 tool 목록(목적·필수 입력·effect·confirm)을 만들 수 있다(R20), revert 지원 선언 누락·read/external의 supported=true·되돌림 command 없음 거절(R21), app_connections·agent_context의 잘못된 대상·command·주석 자리 거절과 옛 context 형식 구별(R22)
+  - `canonical-json_test.ts`: 생략한 default와 명시한 default가 같은 input hash(R7)
+  - `reexport_test.ts`: @lophn/blueprint가 contracts의 검증기를 그대로 다시 내보내고(사본 없음), 템플릿 작성형과 직접 쓴 같은 선언이 같은 판정을 낸다(apps/sdk#R5). SDK 설치 byte에 zod가 없다
+  - 요구별 판정 테스트는 이 작업이 apps 요구 번호로 쓰고 contracts#T33의 검증기를 부른다. 검증기가 요구와 다르면 contracts 팀에 고칠 것을 요청한다
+  - automation 선언 검사(interval_ms ≥ 60000, on_start, command 존재·confirm=false, 고정 입력 schema 통과)는 여기서 선언 형태만, 실행 정책은 T20
+
+### T3 permission scope와 Deno flag 계산
+
+- 등급: 기본
+- concern: apps/permissions, apps/blueprint
+- 요구: apps/permissions#R5, R6, R7, R8, R9, R10, R11, R12, R18, R19, R25, apps/blueprint#R9
+- 자리: packages/apps/permissions/ (model.ts, flags.ts, protected-paths.ts, adapters/realpath.ts, mod.ts)
+- 쓰는 contract: platform 데이터 root·보호 경로 목록(platform/security), contracts#T33의 PermissionScope
+- 내놓는 contract: 없음(apps 안쪽 모듈. T4·T8·T13이 쓴다)
+- slice: apps
+- 선행: apps#T2, contracts#T33
+- 완료:
+  - `model_test.ts`: fs.write가 fs.read를 포함하지 않고 문자열 prefix만 같은 폴더 거절(R5), `~`·상대 경로·symlink를 실제 절대 경로로 풀고 폴더 밖 symlink 경고(R6), home 전체·~/.ssh·~/.aws·~/.gnupg·keychain·데이터 root·다른 앱 DB·source를 감싸는 부모 경로 거절(R7), wildcard host·port 0·전체 port 거절(R8), net.listen은 localhost·127.0.0.1·::1의 정확한 port만, 0.0.0.0 거절(R9), localhost·127.0.0.1·::1을 합치지 않음(R10), 정렬과 중복 거절(R12)
+  - `flags_test.ts`: 생성한 deno 인자에 --allow-all·-A·--allow-run·--allow-ffi·--allow-sys·--allow-env·--prompt가 없고 --no-prompt·--no-remote·--no-npm·--cached-only·--no-config가 있음(R18, R19), 플랫폼 실제 port와 설정 port가 net 범위에 들어가지 않고 방향을 강제할 수 없는 net.listen 요청은 거절(R11), migration용 flag는 bundle 읽기와 자기 DB 작업 영역만(R18), effect 선언과 무관하게 같은 앱의 flag가 같다(apps/blueprint#R9)
+  - Deno 한계 문구(VM·container 아님, 허락 경로 안 secret, 실행 중 symlink 교체, CPU·RSS·disk 미제한)를 grant 표시 자료의 message key로 내놓는다(R25)
+
+### T4 grant command와 read
+
+- 등급: 기본
+- concern: apps/permissions
+- 요구: apps/permissions#R1, R2, R3, R24, R26, R27, apps/automations#R13
+- 자리: packages/apps/permissions/ (commands.ts, reads.ts), apps/core/apps.ts
+- 쓰는 contract: platform command·read·approval(정확한 app·kind·scope에 묶인 approval 한 번 사용, `/v1/approvals/apply` owner command 등록)
+- 내놓는 contract: `/v1/grants/{create,revoke,list}`, event GrantCreated·GrantRevoked (contracts#T37). grants.list는 confirmation window의 grant 표시 자료다(요구·reason·정규 scope·조합 경고·Deno 한계 문구 key)
+- slice: apps
+- 선행: apps#T1, apps#T3, contracts#T37, platform#T23
+- 완료:
+  - `commands_test.ts`: 선언만 있는 접근은 실행 범위가 0이고 같은 범위의 approval 적용 뒤만 grant가 생긴다(R1), 실행 범위 = 현재 release 요구 ∩ active grant로 옛 grant·grant 밖 선언 모두 제외(R2), 같은 host·port의 후속 release는 grant 재사용·새 host·port는 미포함(R3), fs.read와 net.fetch 동시 요구에 조합 경고가 표시 자료에 붙고 자동 부여 없음(R24), app.call grant의 방향 있는 (caller,target,commands) 기록과 B→A·A→C 미포함(R26), agent.commands grant가 기본 닫힘이고 화면 열기·app.call·coding connection과 별개(R27)
+  - 앱에 activation이 진행 중이면 grant.create·revoke가 conflict(apps/releases#R13의 grant 쪽 거절)
+  - revoke는 "종료 확인 근거"가 있어야 revoked로 확정한다(종료 확인 자체는 T13)
+  - Grant kind `automation.run`(scope `{automation, command, input_hash, when}`): 현재 blueprint의 external automation 선언과 정확히 같을 때만 grant.create, 끄기는 사람의 grant.revoke이고 프로세스 재시작 없이 다음 회차부터 막힌다(apps/automations#R13, Q1). apps/permissions domain model의 kind 목록을 같은 PR에서 고친다
+
+### T5 SDK catalog과 설치
+
+- 등급: 기본
+- concern: apps/sdk
+- 요구: apps/sdk#R2, R3, R4, R6, R8, R9, R11, R12, R13
+- 자리: packages/apps/sdk/ (model.ts, commands.ts, reads.ts, install.ts, resolve.ts, mod.ts), packages/sdk/*/guide.md(패키지마다 안내), apps/core/apps.ts
+- 쓰는 contract: platform command·read·blob(blob.prepare)
+- 내놓는 contract: `/v1/packages/{register_version,list,versions,guide,usage}`, event PackageVersionRegistered (contracts#T37). `lophn-sdk:<name>@<version>` import map 해석 함수(T6이 쓴다)
+- slice: apps
+- 선행: apps#T2, contracts#T37, platform#T13, platform#T14
+- 완료:
+  - `install_test.ts`: 설치가 packages/sdk/*를 패키지마다 자기 완결 byte로 묶고 hash·guide hash를 blob에 넣은 뒤 register_version을 machine으로 부른다. 설치 사본은 파일 0444·디렉터리 0555(R9), 설치가 확인한 내용만 목록에 나타나고 외부 패키지는 등록할 수 없다(R13), 다시 설치(update)는 새 version만 더하고 기존 version byte·guide를 덮지 않는다(R8, R11)
+  - `catalog_test.ts`: 한 Package에 한 kind(component·capability·domain·format)(R2), 목록에서 이름·한 줄 목적·정확한 version·공개 API·permission·peer·예제를 읽는다(R3), 설치 대상 목록이 R4의 이름을 1.0.0으로 담고 cap-read-model·cap-notify는 없다(R4; ui-*·tokens는 shell, cap-problem은 problems#T5가 만든 byte를 등록하므로 이름 전부가 실제로 설치되는지는 T27에서 확인), @me 이름이 있으면 먼저 정렬하고 개인 등록 요청은 forbidden(R6), guide가 patch·minor·major를 구별하고 permission 증가를 major로 표시(R12)
+  - usage read가 release의 고정 sdk_dependencies로 사용처를 찾는다(R6)
+
+### T6 release bundle 준비 (release worker)
+
+- 등급: 기본
+- concern: apps/releases, apps/blueprint, apps/sdk, apps/permissions
+- 요구: apps/releases#R1, R2, R3, R4, R19, apps/blueprint#R17, apps/sdk#R7, R10, R34
+- 자리: packages/apps/releases/prepare/ (git-extract.ts, limits.ts, source-watch.ts), packages/apps/releases/bundle/ (manifest.ts, seal.ts, import-map.ts), packages/apps/releases/ui-build/, packages/apps/blueprint/extract.ts, apps/worker/apps/release.ts
+- 쓰는 contract: platform blob(blob.prepare, 신뢰 pipe), documents format 실행(`/v1/formats/validate·get`, module_hash), problems/problem-codes(필수·예약 code 검사), coding-agent의 bundle 제외 목록 상수(안내·wrapper·제품 local 설정·skill 사본, coding-agent/guides#R19), T5의 import map 해석
+- 내놓는 contract: release worker job(supervisor ↔ worker stdio JSON, apps 안쪽), 읽기 전용 bundle 사본 위치 규칙 `apps/<app ID>/bundles/<bundle hash>/`와 그 안의 정규 `blueprint.json`·source map 자리(problems test runner·collector가 씀, contracts#T36에 경로 함수)
+- slice: apps
+- 선행: apps#T2, apps#T5, contracts#T36, contracts#T50, platform#T12, platform#T13, documents#T4, problems#T1
+- 완료:
+  - `git-extract_test.ts`: 지정 commit의 tree object만 읽고 working tree 변경·uncommitted 파일·symlink 자체·.git·개발 credential·agent 설정(coding-agent 제외 목록: AGENTS.md·CLAUDE.md의 관리 구간 파일, bin/lophn wrapper, .mcp.json, .claude/settings.local.json, skill 사본)이 bundle에 없다. source 밖 경로·commit에 없는 변경은 거절(R2)
+  - `limits_test.ts`: source 64MiB·bundle 256MiB·10000파일·300000ms 각각을 넘기는 입력, 준비 중 취소, worker 종료에서 bundle이 확정되지 않고 실패 이유가 남는다(R19). 준비 중 source 변경이면 source_changed로 취소(R3)
+  - `bundle_test.ts`: bundle 사본 root에 정규 `blueprint.json`이 있고 manifest가 가리킨다, 같은 commit·SDK에서 같은 bundle hash, source와 설치 SDK 최신판을 바꿔도 기존 bundle byte·선언 불변(R1), manifest의 entrypoint·파일 hash·sdk_dependencies, lophn-sdk import map을 bundle 안 상대 경로로 바꾸고 ^·~·latest 거절(apps/sdk#R7), remote·npm·jsr import 거절(apps/sdk#R34)
+  - `ui-build_test.ts`: 고정 UI 의존으로 화면 build와 external source map이 bundle에 들어가고, 운영 시작에는 build·다운로드가 없다(R4, apps/sdk#R10)
+  - `extract_test.ts`: TypeScript blueprint 추출은 권한 없는 Deno 자식에서 10초 제한, 파일·network 접근과 무한 반복이 거절되거나 10초 안에 끝난다(apps/blueprint#R17)
+
+### T7 앱 진입점, direct 통로, @lophn/cap-schedule
+
+- 등급: 기본
+- concern: apps/runtime, apps/invocations, apps/blueprint, apps/sdk
+- 요구: apps/runtime#R3, R5, R8, R10, R11, R12, R22, R31, apps/blueprint#R8, R12, apps/invocations#R4, R14, apps/sdk#R27, R28
+- 자리: packages/apps/runtime/entrypoint/ (main.ts, startup.ts, direct-server.ts, control.ts, screens.ts, verify.ts), packages/apps/invocations/context.ts, packages/sdk/cap-schedule/ (handlers.ts, context.ts, trace.ts, results.ts, mod.ts)
+- 쓰는 contract: contracts#T34(앱 통로 wire, 초기 JSON, AppConnection 검증, createAppChannelClient), problems의 앱 SDK 보고와 exception observer(앱 code load 전에 설치)
+- 내놓는 contract: direct socket `GET /screens/<screen>/<path>`, `POST /_lophn/commands/{invoke,cancel,status}`, `POST /_lophn/control/{probe,open,close,shutdown}`의 앱 쪽 구현. mode live·preview·test(test는 problems runner가 띄움)
+- slice: apps
+- 선행: apps#T2, contracts#T34, platform#T5, problems#T5
+- 완료:
+  - `direct-server_test.ts`: 위조 서명·옛 nonce·다른 release·bundle·mode·만료·범위 밖 screen·command를 각각 거절(R11), 틀린 입력은 handler 전 invalid_input이고 default를 채운 정규 입력으로 handler를 부른다(apps/blueprint#R7 재사용), body의 actor·effect·caller 주장 무시(R9), 화면 요청은 선언 size와 view_session에 묶이고 같은 프로세스의 두 view_session이 분리된다(R31), lophn.invalid 외 host 거절(R8)
+  - `ready_test.ts`: 시작은 ready=false·accepting=false, 실제 등록 handler 목록이 blueprint와 다르면 ReadyAttestation이 실패한다(apps/blueprint#R8), 준비 모드에서 write·external command와 clock이 닫혀 있다(R3), activation commit 전 control/open 거절
+  - `entrypoint_test.ts`: 앱 code load 전에 exception observer를 설치하고, 처리되지 않은 exception·rejection은 보고 시도 뒤 stderr에 원래 실패를 남기고 exit 1, 보고 통로가 끊겨도 같다(R22)
+  - `invoke_test.ts`: 쓰기 응답 전에 연결을 끊어도 handler가 다시 불리지 않는다(R12), command 경계 하나에 invocation 하나이고 내부 helper 10개는 따로 기록되지 않는다(apps/invocations#R4), 입력 본문 1MiB 상한을 넘으면 invalid_input과 blob·version 참조 안내(apps/blueprint#R12), ledger 쪽 없이도 응답한다(R10)
+  - `cap-schedule/context_test.ts`(Deno 2.9): await·timer·SQLite·fetch 뒤 app·release·mode·invocation 문맥 유지, 모르는 invocation ID를 만들지 않음(apps/sdk#R27), trace 이름 64자 허용·65자 거절과 inv ID와 구별(apps/sdk#R28)
+  - `cap-schedule/results_test.ts`: read 결과가 정상 0행과 미수집·부분 범위·신선도 부족을 구별하고, 조건·정렬·데이터 기준이 바뀐 이어 읽기 cursor를 거절(apps/invocations#R14)
+  - socket은 사용자 전용 Unix socket HTTP/1.1이고 화면 socket 위치는 앱 view에 노출되지 않는다(R5, 통합은 T10)
+
+### T8 supervisor 프로세스 수명
+
+- 등급: 최상위
+- concern: apps/runtime
+- 요구: apps/runtime#R1, R2, R4, R6, R7, R16, R17, R18, R19, R20, R21, R23, R24
+- 자리: packages/apps/runtime/supervisor/ (supervisor.ts, restart-policy.ts, control-link.ts), packages/apps/runtime/processes/ (spawn.ts, socket-dir.ts, identity.ts, terminate.ts), packages/apps/runtime/core-link.ts(core 쪽), apps/app-supervisor/main.ts
+- 쓰는 contract: platform 신뢰 child 감독 pipe(child stdin·stdout 위 길이 prefix frame, codec contracts#T6, stdout은 frame 전용·그 밖 출력은 stderr, machine credential 1회 전달, EOF면 앱 child까지 종료; platform#T7), event 구독(WS, seq cursor), read(apps·releases·grants 현재 상태), 앱마다 app:<app> 자격 발급(platform#T31)
+- 내놓는 contract: core ↔ supervisor 제어 protocol(apps 안쪽), `/v1/apps/{record_started,record_stopped,record_unavailable}`를 machine으로 부름(contracts#T20)
+- slice: apps
+- 선행: apps#T3, apps#T7, contracts#T20, platform#T4, platform#T7
+- 완료:
+  - architecture/apps.md 2.1의 "전용 pipe의 JSON line"을 platform pipe(길이 prefix frame)로 같은 PR에서 고친다
+  - `spawn_test.ts`: clearEnv와 HOME·DENO_DIR·XDG_CACHE_HOME·PATH만 전달, parent의 API token이 자식 환경에 없음, LOPHN_DENO 또는 Deno.execPath() 사용(R24), 초기 JSON은 stdin 한 줄이고 argv·환경에 token·secret 없음(R7), --cached-only·--no-remote로 원격 import한 앱은 시작 실패(R23)
+  - `socket-dir_test.ts`: XDG_RUNTIME_DIR이 없으면 사용자별 0700 임시 디렉터리, 경로 104byte 미만 검사, 긴 slug에도 시작(slug를 경로에 넣지 않음)(R6)
+  - `supervisor_test.ts`: 재시작과 activation이 겹쳐도 같은 DB writer가 둘 생기지 않고, 이전 자식 종료 확인 전 다음 자식을 띄우지 않는다(R1), 30초 안에 hash·handler·schema·probe를 확인하지 못하면 시작 실패와 이유(R2), 앱 import 오류가 core·supervisor를 끝내지 않고 앱에 플랫폼 DB·credential 파일 접근이 없다(R4), 사람이 멈춘 앱은 재기동·backoff 경과에도 시작하지 않음(R16), core 제어 EOF면 새 호출·clock을 닫고 자식 종료, PID 재사용을 생존 근거로 쓰지 않음(R17), daemon 종료·재시작·release 교체의 자식 정지를 미리 의도된 종료로 분류(동시 SIGINT에서 crash로 세지 않음)(R18), 예상 밖 종료는 1·2·4초부터 최대 300초 backoff, 600초 안에 5회 넘으면 자동 재시작 중지와 이유, run_enabled 불변(R19), idle만으로 종료하지 않음(R20), 한 앱을 무응답으로 만들어도 다른 앱 direct 호출과 core 읽기가 응답(R21)
+
+### T9 실행 상태, 멈춤, 관측
+
+- 등급: 기본
+- concern: apps/runtime, apps/registration
+- 요구: apps/runtime#R13, R14, R15, R25, R26, R27, R28, R29, apps/registration#R8
+- 자리: packages/apps/runtime/ (model.ts RuntimeState, commands.ts, reads.ts), packages/apps/runtime/observations/ (log-buffer.ts, stream-decoder.ts, memory.ts, crash.ts), apps/core/apps.ts
+- 쓰는 contract: platform command·read·redaction, problems 문제 보고(`/v1/problems/observe-exception`)
+- 내놓는 contract: `/v1/apps/{enable_execution,disable_execution,runtime,logs}`, event AppExecutionEnabled·AppExecutionDisabled·AppStarted·AppStopped·AppUnavailable (contracts#T20). apps.logs {app, invocation?, limit≤200, max_bytes?} → {lines, collected_at, truncated, state}
+- slice: apps
+- 선행: apps#T8, contracts#T20, contracts#T6, problems#T3
+- 완료:
+  - `model_test.ts`: release 없음=preparing, 사람이 멈춤=stopped, 응답함=running, 허용됐지만 응답 없음=unavailable 네 상황과 termination_pending, 상세 이유는 reason에만(R13), 과거 event만으로 running이라 하지 않음
+  - `stop_test.ts`: 멈춤은 새 command·clock부터 닫고 진행 호출 종료 요청 뒤 10초 유예와 강제 종료, OS 종료 확인 전에는 termination_pending(R15), archive도 같은 순서로 닫히고 unarchive 뒤에도 멈춤 유지(apps/registration#R8)
+  - `log-buffer_test.ts`: invocation당 200줄·최근 500 invocation·미연결 500줄·한 줄 300자, redaction 뒤 secret 없음, 줄바꿈 없는 stdout의 byte 상한, 버린 줄은 supervisor pipe 진단(log 줄 손실, contracts#T6)으로 남김(R26), 추가 조회 최대 200줄과 실패 직후 flush 대기 20ms 이하(R27)
+  - `memory_test.ts`: Linux VmRSS 60초 표본, 다른 OS는 측정하지 않은 값을 0으로 채우지 않음, heap 설정을 RSS 제한이라 하지 않음(R25), 한도의 85% 초과가 10분 지속될 때만 관측, 표본 누락은 지속을 끊음, 한도 없음·미측정이면 주장하지 않음(R29)
+  - `crash_test.ts`: ready timeout·crash loop·V8 OOM·예상 밖 종료를 다른 근거로 problems에 보내고 의도된 정지는 보내지 않음(R28), runtime read가 실행 상태와 열린 problem을 별개로 두고 없는 지표를 만들지 않음(R14)
+
+### T10 apps.connect와 runtime client
+
+- 등급: 기본
+- concern: apps/runtime, apps/permissions
+- 요구: apps/runtime#R9, R32, apps/permissions#R28
+- 자리: packages/apps/runtime/connect.ts(core 안 제어 어댑터, AppConnection 서명), packages/apps/runtime/client/ (Deno client), apps/core/apps.ts
+- 쓰는 contract: platform 인증(AuthenticatedContext의 actor·scope·credential_ref·기한, core epoch; platform#T5), 소유 회수 event(GrantRevoked, assignment 멈춤, coding-agent의 CodingAgentConnectionRevoked, run 종료), lophn-agent의 AgentAppScope(contracts#T26, agent credential의 conditions), contracts#T34
+- 내놓는 contract: `POST /v1/apps/connect`, AppConnection, Deno runtime client(agent runtime·MCP·CLI가 씀). shell main의 Node client는 shell 팀이 같은 wire로 만든다
+- slice: apps
+- 선행: apps#T4, apps#T7, apps#T8, contracts#T34, contracts#T26, platform#T5, coding-agent#T9
+- 완료:
+  - `connect_test.ts`: 제어 경로는 플랫폼 인증 연결만 받고 임의 caller의 control 요청과 화면 본문의 다른 앱 주장은 거절(R9), live connection에 release 필수·release 없는 preview는 bundle_hash로 결속, endpoint·nonce를 ledger에 쓰지 않음, 화면 connection은 screen·size 교집합(blueprint sizes)만
+  - `agent-connect_test.ts`: 열린 앱이라도 agent.commands grant가 없으면 거절, grant 뒤에도 AgentAppScope 밖 command는 connection에 들어가지 않음, lophn·App Engineer·Operator에게 각자 허용 command만(R32, apps/permissions#R28)
+  - `client_test.ts`: Unix socket HTTP로 invoke·status·cancel, request_key 재사용으로 같은 결과 조회, 전송 단절은 결과 모름으로 돌려주고 자동 재호출 없음
+  - 별도 platform 회수 event는 없다. 소유 event(GrantRevoked, assignment 멈춤, CodingAgentConnectionRevoked, run 종료)와 core epoch 변화를 받으면 그 credential_ref로 발급한 connection을 쓰는 통로를 닫는다(Q5)
+
+### T11 invocation 기록 command와 read
+
+- 등급: 기본
+- concern: apps/invocations, apps/releases
+- 요구: apps/invocations#R3, R6, R9, R10, R13, R15, R16, R17, apps/releases#R17
+- 자리: packages/apps/invocations/ (model.ts, commands.ts, reads.ts, mod.ts), apps/core/apps.ts
+- 쓰는 contract: platform command·read·redaction·blob(detail_hash), platform 공통 idempotency
+- 내놓는 contract: `/v1/invocations/{record_started,record_finished,record_denied,list,get}`, event InvocationStarted·InvocationFinished·InvocationDenied (contracts#T35). accept_confirm은 T12
+- slice: apps
+- 선행: apps#T1, contracts#T35, platform#T2
+- 완료:
+  - `model_test.ts`: 상태 전이(없음·accepted→running→succeeded/failed/unknown, denied), terminal 뒤 늦은 start가 running으로 되돌리지 않음, 같은 사실 재전송은 같은 결과·다른 종료 사실은 conflict(R6), accepted만 있으면 started_at 없음(R9), 알려진 ID만 unknown으로 확정·모르는 호출은 만들지 않음(R10)
+  - `reads_test.ts`: release 교체 뒤에도 당시 release·operation·trigger·mode·actor·caller가 그대로(R3), command를 지운 새 release 뒤에도 당시 blueprint로 설명(apps/releases#R17), A→B와 agent→B의 caller(app·release·parent / run·tool_call) 구별과 부모 없으면 없음(R16), confirm에서 actor·caller는 요청자이고 approval은 별도 참조(R17), succeeded는 handler 반환일 뿐 업무 정확성 필드를 두지 않음(R13), summary 16KiB·redaction 뒤 secret 없음(R15)
+
+### T12 invocation 후행 전달과 confirm 실행
+
+- 등급: 기본
+- concern: apps/invocations
+- 요구: apps/invocations#R1, R2, R5, R7, R8, R11, R12, R18, R19
+- 자리: packages/apps/invocations/delivery/ (queue.ts, backoff.ts), packages/apps/invocations/confirm.ts(accept_confirm command), packages/apps/runtime/entrypoint/confirm-marker.ts, packages/apps/permissions/broker/invocations.ts
+- 쓰는 contract: platform approval(정확한 approval 확인과 approval_uses INSERT Tx 함수, platform#T32), supervisor pipe의 diagnostic 메시지(종류 "apps 전달 손실", platform#T8; 분류는 platform#T38), platform 인증(credential_ref·기한·core epoch, platform#T31)
+- 내놓는 contract: `/v1/invocations/accept_confirm`, event InvocationAccepted, ConfirmExecutionProof (contracts#T34, T35)
+- slice: apps
+- 선행: apps#T7, apps#T8, apps#T11, contracts#T35, contracts#T6, platform#T8, platform#T32
+- 완료:
+  - `delivery_test.ts`: ledger 저장을 지연시켜도 일반 호출 응답이 먼저 오고 기록은 뒤에 반영(R1), 기록 대상: confirm·write·external·automation read·실패/거절 read·start·data_change, 성공 일반 read 100회는 기록 100개를 만들지 않음(R2), 업무 성공 뒤 전달을 끊어도 응답은 성공이고 기록 메시지만 재전송·한도 초과는 손실 진단(R5), 전체 4096 메시지 또는 8MiB, unavailable만 1·2·4초부터 최대 30초 backoff, unauthorized·conflict·invalid_input은 반복 안 함(R19), A→B·agent→B 일반 read도 같은 규칙(R18)
+  - `confirm_test.ts`: approval 사용과 accepted가 한 transaction이고 저장 실패면 handler가 불리지 않음, 같은 접수 재전송은 기존 접수(R7), 같은 proof를 동시에 보내도 handler 1회, 옛 프로세스 proof·입력·release·command가 다른 proof 거절(R8), marker 4096개가 차면 기존 marker를 버리지 않고 새 접수 거절(R19)
+  - `effects_test.ts`: 로컬 저장 뒤 외부 전송 실패를 저장 완료와 전송 실패로 따로 남기고 취소 요청 접수를 효과 취소로 표시하지 않음(R11), 결과 모름·기록 누락으로 업무를 다시 부르지 않음(R12)
+
+### T13 broker의 permission 강제
+
+- 등급: 기본
+- concern: apps/permissions, apps/blueprint
+- 요구: apps/permissions#R4, R13, R14, R15, R16, R17, R20, R21, R22, R23, R29, apps/blueprint#R13
+- 자리: packages/apps/permissions/broker/ (server.ts, net-fetch.ts, secrets.ts, documents.ts, problems.ts, apply-grant.ts), apps/core/apps.ts
+- 쓰는 contract: platform secret 전송 부착·redaction, documents 저장(`/v1/documents/save`, 앱 자리·documents[].key로 찾고 첫 저장이면 만듦, documents#T8·T31), problems 문제 보고(`/v1/problems/report`), platform 인증(app:<app> 자격)
+- 내놓는 contract: broker `/_lophn/broker/{net/fetch,secrets/use,documents/save,problems/report}`(apps 안쪽, SDK가 씀)
+- slice: apps
+- 선행: apps#T4, apps#T8, platform#T15, platform#T20, platform#T31, documents#T8, problems#T3
+- 완료:
+  - `fs-boundary_test.ts`: 운영 앱이 자기 data는 읽고 쓰고 source·다른 앱 DB·log·credential 접근은 거절(R4)
+  - `documents_test.ts`: 미선언 문서·grant 밖 문서 저장 거절(R13), 같은 선언 key로 두 번 저장하면 broker가 같은 (앱 자리, key)·같은 재전송 key로 보내고 다른 앱 place 참조는 거절(apps/blueprint#R13). documents#T31(apps slice, 이 작업 뒤)이 들어오기 전에는 documents 저장 contract fake로 보고, 같은 Document에 version이 쌓이는 실제 확인은 T27이 한다
+  - `secrets_test.ts`: grant가 있는 앱의 command를 사람 화면·agent·automation·다른 앱이 불러도 secret이 붙고 회수하면 다음 사용부터 거절(R14), 앱 코드·준비 모드·preview·argv·환경·invocation·event·blob에 원값 없음(R15), redaction 등록 실패와 다른 host redirect에서 전달 멈춤(R16), 값 교체·삭제 뒤 사용 앱을 종료 확인과 새 nonce로 재시작(R17)
+  - `apply-grant_test.ts`: grant 변경은 새 호출 차단 → 기존 자식 종료 확인 → 새 범위 재시작, 종료 확인 전 새 자식 없음(R20), 종료 확인을 막으면 회수 진행 중·확인 뒤에만 revoked(R21), 전송 뒤 회수해도 그 전송은 완료 사실로 남음(R22), app.call·agent.commands 회수도 관련 연결 차단과 종료 확인 뒤 적용·옛 connection 거절(R29)
+  - 진단·수리 runner가 다른 앱·플랫폼 파일을 요청하면 거절(R23)
+
+### T14 cap-fs, cap-net, cap-store, cap-save, cap-secret
+
+- 등급: 기본
+- concern: apps/sdk
+- 요구: apps/sdk#R22, R23, R24, R25, R26, R30, R31, R32
+- 자리: packages/sdk/cap-fs/, packages/sdk/cap-net/, packages/sdk/cap-store/, packages/sdk/cap-save/, packages/sdk/cap-secret/
+- 쓰는 contract: T13 broker 서비스, T7 cap-schedule의 host 문맥
+- 내놓는 contract: 각 @lophn/cap-* 1.0.0 공개 API
+- slice: apps
+- 선행: apps#T7, apps#T13, problems#T5
+- 완료:
+  - capability import가 grant를 주지 않고 요구 permission이 빠진 앱 선언은 검사에서 거절(R22), 거절 오류에 필요한 permission 이름과 scope(R23)
+  - cap-fs read·write·watch, cap-net timeout·retry fetch(재시도는 read에만 기본), cap-store 자기 SQLite와 migration 도우미(R24), loopback 듣기 안내는 Deno.serve이고 별도 패키지 없음(R25)
+  - @lophn/cap-problem에 추가 permission 없이 선언 code 보고·해소 주장·변경 메모가 있고 닫기 API가 없다(R26). cap-problem 코드는 problems#T5가 쓰고(Q3) 이 작업은 공개 API 검사만 한다
+  - cap-save는 선언 key·기대 version·재전송 key를 받고 같은 요청 재전송이 version 하나(R30), cap-secret은 grant 범위 사용 client와 preview 대역만 있고 원값 읽기·CRUD 없음(R31), 공개 API에 core DB·credential·grant 발급·problem 닫기 통로 없음(R32)
+
+### T15 앱 쌍 연결
+
+- 등급: 기본
+- concern: apps/connections, apps/runtime, apps/sdk
+- 요구: apps/connections#R1–R7, apps/runtime#R30, apps/sdk#R40
+- 자리: packages/apps/connections/ (resolve.ts, origin.ts, client.ts, mod.ts), packages/apps/permissions/broker/apps-connect.ts, packages/sdk/cap-schedule/connect.ts(connectAppCommands)
+- 쓰는 contract: T4 grant, T10 connect, contracts#T34(AppCallOrigin)
+- 내놓는 contract: broker `/_lophn/broker/apps/connect`(apps 안쪽), connectAppCommands(@lophn/cap-schedule)
+- slice: apps
+- 선행: apps#T4, apps#T10, apps#T12, apps#T13, contracts#T34
+- 완료:
+  - `resolve_test.ts`: A→B 두 command 허락이면 그 둘만, B→A·A→C 거절(R1), 호출 범위 = source 선언 ∩ active app.call grant ∩ target 현재 command, 새 command는 옛 grant로 안 됨(R2)
+  - `pair_test.ts`: 같은 handler·입력 검사·effect, secret grant가 있는 target의 confirm=false는 추가 approval 없이, confirm=true만 approval(R3), ledger 지연 중에도 A→B 응답(R4, apps/runtime#R30), 위조 caller·미허락 command·옛 프로세스 연결 거절(apps/runtime#R30), A의 당시 release와 부모 inv 전달·부모 없으면 없음, B→C는 B 자신의 선언·grant 없이는 거절(R5), B가 응답 중 종료돼도 A의 다른 화면과 C 호출이 동작하고 B 쓰기를 반복하지 않음(R6), A→B→A와 아홉 번째 앱 거절·독립 A→B와 B→A는 가능(R7)
+  - SDK client가 실제 app·release·부모 inv 문맥을 전달하고 import만으로 연결 허락이 생기지 않음(apps/sdk#R40)
+
+### T16 화면 context와 agent 주석
+
+- 등급: 기본
+- concern: apps/agent-context, apps/sdk
+- 요구: apps/agent-context#R1–R6, apps/sdk#R39
+- 자리: packages/apps/agent-context/ (schema.ts, redaction.ts, mod.ts), packages/sdk/cap-schedule/screen-context.ts(registerScreenContext, registerAnnotationTarget)
+- 쓰는 contract: contracts#T33(ScreenContextReadInput, AppScreenContext, AnnotationWriteInput), platform redaction(model 전달 경계에서 다시 적용은 lophn-agent 쪽)
+- 내놓는 contract: SDK 등록 API. read·write는 앱의 일반 command라 새 경로 없음
+- slice: apps
+- 선행: apps#T2, apps#T7, apps#T10, contracts#T33
+- 완료:
+  - 선언된 화면만 context·주석을 제공하고 미선언 화면·자리는 invalid_input(R1), 같은 앱 두 view_session에서 다른 상태와 revision, 닫힌 view는 unavailable·옛 상태를 최신으로 내보내지 않음(R2), 요약은 redaction 뒤 UTF-8 2048byte 이하이고 상세는 detail=true 조회에서만(R3), sensitive_paths는 요약·상세·오류에서 제거되고 안전성 미확인은 생략 사실만(R4), 주석 쓰기는 선언 자리와 expected_revision CAS, revision 변경은 conflict·닫힌 view는 unavailable(R5), agent.commands grant를 거두면 조회·되쓰기 거절(R6, T10 통합)
+  - 템플릿 예제에서 코드 입력과 지난 attempt 공유·민감 칸 제외·옛 revision 주석 거절(apps/sdk#R39)
+
+### T17 data worker: backup, migration, restore
+
+- 등급: 기본
+- concern: apps/data
+- 요구: apps/data#R1, R2, R3, R5, R6, R7, R8, R10, R14
+- 자리: packages/apps/data/worker/ (schema.ts, backup.ts, migrate.ts, restore.ts, integrity.ts), packages/apps/data/commands.ts, apps/worker/apps/data.ts
+- 쓰는 contract: platform blob(보호 backup 설치, blob field 등록 때 일반 읽기 불가로 적는다; platform#T13·T14), T3 migration용 flag
+- 내놓는 contract: `/v1/releases/{record_backup,record_data_change,record_data_restore}`, event ReleaseBackupRecorded·ReleaseDataChanged·ReleaseDataRestored, data worker job(stdin JSON → DataResult; problems test runner도 씀) (contracts#T36)
+- slice: apps
+- 선행: apps#T3, apps#T6, contracts#T36, platform#T13, platform#T14
+- 완료:
+  - 앱마다 DB 파일 하나이고 core·supervisor는 열지 않으며 종료 확인 뒤 단독 data worker만 연다(R1), ORM 없는 앱도 같은 규칙을 통과하고 업무 저장과 ledger를 함께 rollback했다고 하지 않음(R2), DB 미사용 앱 schema 0 허용·실제 schema와 마지막 migration 결과 확인(R3)
+  - WAL에 새 항목이 있는 DB를 SQLite backup API로 backup·복구하면 항목이 남고 본체 파일 복사는 유효 backup이 아님(R5), 단계마다 데이터 변경과 schema 갱신이 한 transaction이고 중간 실패에 함께 rollback(R6), 0→3의 두 번째 단계 실패면 0의 데이터·schema로 복원(R7), 공개한 migration script를 바꾼 release 준비 거절(R8), migration 6회 뒤 최근 5개 유지·진행 중 복원 참조는 보호(R10), schema 통과를 업무 정확성으로 표시하지 않음(R14)
+  - migration 자식에 network·secret·외부 fs·subprocess 권한이 없다(T3 flag 재사용)
+
+### T18 activation
+
+- 등급: 최상위
+- concern: apps/releases, apps/data
+- 요구: apps/releases#R8, R12, R13, R14, R15, R16, apps/data#R4, R9, R11, R12
+- 자리: packages/apps/releases/activation/ (orchestrator.ts, steps.ts, recovery.ts), packages/apps/releases/commands.ts(start_activation, complete_activation, fail_activation), apps/core/apps.ts
+- 쓰는 contract: platform approval(정확한 대상 release approval, `/v1/approvals/apply` owner command), notification(ReleaseActivationFailed), event 구독
+- 내놓는 contract: `/v1/releases/{start_activation,complete_activation,fail_activation}`, event ReleaseActivationStarted·ReleaseActivated·ReleaseSuperseded·ReleaseActivationFailed (contracts#T36)
+- slice: apps
+- 선행: apps#T4, apps#T8, apps#T9, apps#T17, apps#T19, platform#T23, platform#T33
+- 완료:
+  - `activation_test.ts`: coding agent가 준비한 release도 approval 없이는 activating이 되지 않고 재시도에는 새 결정(R8), approval 뒤 grant·active release를 바꾸면 낡은 activation 거절(R12), activation 둘·grant 변경 동시 요청에서 하나만 진행, 이전 자식 종료 뒤 새 자식(R13), handler·hash·schema·probe 불일치면 active 불변·성공 commit 뒤에만 통로 open, 같은 transaction에 이름·설명 갱신과 첫 성공의 run_enabled=true(R14), 다른 schema의 옛 release는 바로 activation 안 됨·같은 schema rollback은 새 activation(R16)
+  - `recovery_test.ts`: 종료 확인·backup 확정을 각각 지연시키면 migration도 새 업무도 시작하지 않음(apps/data#R4), migration·새 준비 실패면 새 자식 종료 → backup restore → 무결성·schema 확인 → record_data_restore → fail_activation → 이전 release 재준비, 복원 실패·미확인은 unavailable과 문제 보고(apps/data#R11, apps/releases#R15), 성공 commit 뒤 만든 업무 데이터는 옛 backup으로 자동 덮지 않음(apps/data#R12), migration 이력에서 출발·도착 schema·설명·손실 가능성·backup·결과·시각을 찾음(apps/data#R9)
+  - 각 단계에서 child·core·supervisor를 끊는 테스트와 complete_activation 응답 유실 테스트(architecture/apps.md 8장)
+
+### T19 release 준비 확정, 비교, blueprint read
+
+- 등급: 기본
+- concern: apps/releases, apps/blueprint
+- 요구: apps/releases#R5, R6, R7, R9, R10, R11, R18, apps/blueprint#R2, R3
+- 자리: packages/apps/releases/ (commands.ts prepare, reads.ts list·get·compare, compare.ts, preparation.ts(supervisor 쪽 요청 진행)), packages/apps/blueprint/reads.ts(apps.blueprint), apps/core/apps.ts
+- 쓰는 contract: problems test 실행(Verification read: bundle_hash·kind=app_test·pass), coding-agent의 `checkTicketClaim({ticket, claim_seq, connection, now})` read(같은 core transaction 안에서 요청 때와 확정 때), platform command·read
+- 내놓는 contract: `/v1/releases/{prepare_bundle,preparation,cancel_preparation,prepare,list,get,compare}`, `/v1/apps/blueprint`, event ReleasePrepared (contracts#T36, T20)
+- slice: apps
+- 선행: apps#T6, apps#T8, contracts#T36, contracts#T41, problems#T9, problems#T10, problems#T11, coding-agent#T19
+- 완료:
+  - `prepare_test.ts`: release 없이 bundle을 테스트한 뒤 같은 hash의 pass만 준비되고 한 byte 바꾼 bundle·자가 제출 결과는 거절(R5), 누락·만료·반납·connection 회수·claim 변경은 요청 때와 확정 때 모두 거절, 출처는 claim 해제 뒤에도 그대로(R6), 새 claim 없는 준비 거절·옛 ticket 없는 release는 null 출처 그대로 읽고 선택 가능(R7), 열린 problem의 code 삭제·완화는 경고로만(R18)
+  - `compare_test.ts`: 새 필수 입력·external 효과·permission 추가·파괴 migration이 각각 비교에 보임(R9), schema가 같아도 효과가 바뀌면 호환이라 하지 않고 설명만 바뀐 경우를 구별(R10), 데이터 계약 변경은 apps/data 근거, 새 접근 요청은 grant 근거로 따로(R11)
+  - `blueprint-read_test.ts`: 설명·구조 검증·실제 test 통과를 다른 필드로 내고 설명만 있는 앱에 test 성공 표시가 없음(apps/blueprint#R3), 화면·command 설명에서 결과·시작 위치·선택·예시·정보 종류·보존·제약·automation 끄는 법 필드가 있는지 검사(빈 값 거절, apps/blueprint#R2)
+  - prepare_bundle 진행은 core command queue 밖 supervisor 메모리이고 메모리 유실이면 unknown
+
+### T20 automation
+
+- 등급: 기본
+- concern: apps/automations, apps/blueprint
+- 요구: apps/automations#R1–R13, apps/blueprint#R14
+- 자리: packages/apps/automations/ (clock.ts, permits.ts, reads.ts, mod.ts), packages/apps/permissions/broker/automations.ts(try_acquire, release), apps/core/apps.ts
+- 쓰는 contract: T12 후행 기록, T4의 `automation.run` grant(external automation 켜기 승인, Q1), packages/base의 Clock(단조 tick)
+- 내놓는 contract: `/v1/apps/automations`(선언·현재 실행 가능 여부·승인 상태·실제 관측), broker `/_lophn/broker/automations/{try_acquire,release}`(apps 안쪽)
+- slice: apps
+- 선행: apps#T4, apps#T7, apps#T8, apps#T12, contracts#T34
+- 완료:
+  - `clock_test.ts`: 같은 입력의 직접 호출과 automation이 같은 handler를 부르고 미선언 command·잘못된 입력 거절(R1, apps/blueprint#R14), on_start 한 번과 60000ms 간격만, 59999ms·cron·파일·event 계기 거절(R2), 1초 검사·started_tick 배수·벽시계 변경 무관·재시작은 새 기준(R3), 통로 닫힘·schema 불일치면 handler 없이 이유를 남김(R4), 진행 중이면 다음 회차 skip(R5), 절전 1시간 뒤 지난 60회와 보충 1회 모두 없음(R7), 실패 직후 retry 0(R8), timeout 10분이면 취소 요청과 timeout 사실, 결과 모름은 성공·미실행으로 쓰지 않음(R9)
+  - `permits_test.ts`: 독립 automation 5개가 동시에 도래하면 4개만 시작하고 대기열 없음, permit은 실제 handler 종료·자식 종료 확인 때만 반환(R6)
+  - `reads_test.ts`: 선언만·앱 꺼짐·권한 없음·입력 source 없음·성공·실패를 다른 사실로 구별하고 read 포함 호출이 invocation에 남음(R10), 기록 전달 실패와 재시작 뒤 결과 모름으로 회차를 다시 돌리지 않음(R11), 수동 확인은 직접 호출이고 preview 대상이 없으면 운영으로 대신 부르지 않음(R12)
+  - apps/automations domain model에 켜기 승인 = `automation.run` grant를 같은 PR에서 적는다
+  - `external_test.ts`: external automation은 켜는 승인 전에는 돌지 않고 승인 뒤 같은 command·입력·주기로 추가 확인 없이 돈다, 입력·command·주기를 바꾸거나 끈 뒤 다시 켜면 새 승인, confirm=true 연결 거절, grant가 있는 secret을 쓰는 command는 실행(R13)
+
+### T21 preview와 test mode 대역
+
+- 등급: 기본
+- concern: apps/preview
+- 요구: apps/preview#R1–R10
+- 자리: packages/apps/preview/ (launcher.ts, adapters/secret.ts, adapters/external.ts, adapters/documents.ts, adapters/apps.ts, mod.ts), apps/core/apps.ts
+- 쓰는 contract: T8 supervisor, T10 connect(mode=preview), problems 문제 보고(preview는 개발 진단, problem=null), problems test 실행(bundle 대상 Verification)
+- 내놓는 contract: `/v1/previews/{start,get,stop}`, PreviewInput (contracts#T37). 대역 adapter는 problems test runner의 mode=test에도 쓴다
+- slice: apps
+- 선행: apps#T6, apps#T8, apps#T10, apps#T13, contracts#T37
+- 완료:
+  - release 없는 bundle도 preview로 열리고 active release·운영 통로 불변(R1), fixture에서 만든 disposable DB·파일에만 쓰고 운영 DB·backup을 복사하지 않음, 종료 뒤 폐기(R2), preview 종료 뒤 호출은 unavailable이고 운영 앱이 불리지 않음(R3), secret·외부 쓰기·문서 저장·다른 앱 조회·loopback 듣기는 대역만(R4), confirm command의 실제 handler와 approval 소비 없음·대역 성공을 실행 성공이라 하지 않음(R5), clock이 꺼져 있고 수동 호출만(R6), 운영과 preview의 view_session 분리와 응답·invocation·보고의 mode 구별(R7), preview 보고가 운영 problem을 열거나 닫지 않음(R8), release 없는 preview에는 가짜 release·invocation이 없음(R9), preview 성공이 grant·activation·run_enabled·운영 데이터를 바꾸지 않음(R10)
+
+### T22 앱 템플릿
+
+- 등급: 기본
+- concern: apps/sdk
+- 요구: apps/sdk#R1, R29, R33, R35, R36, R41
+- 자리: packages/apps/sdk/template/ (app/ 템플릿 원본, resolve.ts), packages/apps/sdk/install.ts(템플릿 hash 고정 설치)
+- 쓰는 contract: shell의 @lophn/ui-state AppErrorBoundary·@lophn/ui-layout·shell/wording catalog 검사 도구, problems의 @lophn/cap-problem과 exception observer(problems#T5), coding-agent/guides의 안내 파일 자리(templates/app/AGENTS.md·CLAUDE.md·.gitignore의 관리 구간은 coding-agent#T34가 채운다)
+- 내놓는 contract: `templates/app/` 설치 템플릿(coding agent가 씀)
+- slice: apps
+- 선행: apps#T5, apps#T7, apps#T14, problems#T5, shell#T6, shell#T40
+- 완료:
+  - 템플릿으로 만든 앱에 진입 코드·blueprint·정확한 import map과 lock·DB 쓸 때만 migration·생성 blueprint test·fixture·React 화면·coding agent 안내가 있고 문제 보고·예외 수집·root AppErrorBoundary가 기본 연결(R33, R29)
+  - 템플릿 앱이 en만으로 돌고 고정 문구 직접 삽입·빠진 en key·placeholder 불일치가 build/test에서 실패, catalog 문구를 바꿔도 command·screen key 불변(R41)
+  - LOPHN_APP_TEMPLATE → 설치 templates/app → 내장 검증 템플릿 순서와 hash 확인(R35)
+  - 템플릿 업무 프로세스는 Deno, 화면은 React, lophn 화면과 같은 설치 Package를 쓴다(R1), guide에 재사용 기준(실제 사용처 2개 이상, 앱 DB 구조·앱 전용 prop은 앱에 남김)(R36)
+  - 템플릿 앱이 T6 bundle 준비와 problems app test를 통과한다
+
+### T23 fixture: 할 일 앱
+
+- 등급: frontend
+- concern: apps/blueprint, apps/data, apps/agent-context, apps/connections, apps/permissions
+- 요구: apps/blueprint#R2, R19, R21, apps/data#R3, R6, apps/agent-context#R1, R4, R5, apps/connections#R1, apps/permissions#R5
+- 자리: fixtures/apps/todo/
+- 쓰는 contract: @lophn/blueprint, cap-schedule, cap-store, cap-fs, cap-save, ui-*(shell)
+- 내놓는 contract: 없음(E2E·problems tests가 쓰는 fixture)
+- slice: apps
+- 선행: apps#T22, apps#T15, apps#T16, shell#T34, shell#T40, shell#T41
+- 완료:
+  - 화면 full·panel, command: list_todos(read), add_todo·complete_todo(write, revert 지원), revert_todo, export_markdown·import_markdown(fs.read·fs.write grant, problems/tests#R18의 "파일 편집·변환"), add_to_calendar(캘린더 앱 app.call)
+  - DB schema 0→1→2 migration 두 release(change-app·restore-app-release 시나리오용), 변경 → 되돌림 → 같은 상태 테스트
+  - agent_context: 지금 고치는 할 일의 요약과 민감 칸(private_note), 힌트 annotation target
+  - 템플릿에서 시작해 T6·problems app test를 통과
+
+### T24 fixture: 캘린더 앱
+
+- 등급: frontend
+- concern: apps/blueprint, apps/automations, apps/permissions, apps/connections
+- 요구: apps/blueprint#R5, R6, R20, apps/automations#R13, apps/permissions#R8, R14, apps/connections#R3
+- 자리: fixtures/apps/calendar/, fixtures/apps/calendar/fake-external/(테스트용 외부 캘린더 HTTP server)
+- 쓰는 contract: @lophn/blueprint, cap-schedule, cap-store, cap-net, cap-secret, ui-*(shell)
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: apps#T22, apps#T14, apps#T20, shell#T40, shell#T41
+- 완료:
+  - command: list_events(read), add_event(write, revert 지원), sync_events(외부에서 가져와 저장, write), create_external_event(external, confirm=false), delete_all_events(write, confirm=true)
+  - secret.use(외부 캘린더 token)·net.fetch(fake 외부 host·port) 선언, automation: on_start sync·interval sync(60000ms)·external 동기화(켜는 승인 필요)
+  - 다른 앱(할 일)과 agent가 쓰는 command, problems/tests#R18의 "외부 연동 효과"
+
+### T25 fixture: rate limit 대시보드 앱
+
+- 등급: frontend
+- concern: apps/blueprint, apps/runtime, apps/invocations
+- 요구: apps/blueprint#R19, apps/runtime#R31, apps/invocations#R14
+- 자리: fixtures/apps/rate-limit-dashboard/
+- 쓰는 contract: @lophn/blueprint, cap-schedule, cap-store, cap-fs, ui-chart·ui-stat·ui-filter·ui-state·ui-layout(shell)
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: apps#T22, shell#T34, shell#T40, shell#T41
+- 완료:
+  - 화면 full·panel·card(panel 320px·card 240px에서 가로 scroll 없음), 같은 앱의 panel 두 개와 card 하나가 프로세스 하나
+  - 집계 기간·시간대가 있는 read command, 미수집·부분 범위·신선도 부족을 정상 0행과 구별(problems/tests#R18의 "집계 기간·시간대")
+
+### T26 fixture: 일부러 깨지는 앱
+
+- 등급: 기본
+- concern: apps/runtime, apps/data
+- 요구: apps/runtime#R2, R19, R22, R28, apps/data#R7, R11
+- 자리: fixtures/apps/broken/
+- 쓰는 contract: @lophn/blueprint, cap-schedule, cap-problem
+- 내놓는 contract: 없음(problems slice의 report-app-problem·app-broken·verify-app-repair가 쓴다)
+- slice: apps
+- 선행: apps#T22, problems#T5, shell#T40
+- 완료:
+  - runtime 쪽 깨짐(환경 값 없이 fixture 설정으로 고른다): 시작 crash, ready timeout, handler 불일치, V8 OOM, 반복 종료, migration 두 번째 단계 실패, 틀린 집계를 정상 응답
+  - problems 팀 시나리오 10종(problems#T12가 검증한다):
+    1. 선언 code 2개(fixer coding_agent 하나, fixer user 하나). code마다 실제 command에 fixture 실패를 주입하는 실패 경로 test 1개 이상
+    2. command handler 안의 처리되지 않은 TypeError(앱 source frame 2~3개 깊이)와, 같은 함수에서 줄·message만 다른 변형(같은 지문)
+    3. 처리되지 않은 Promise rejection(process)
+    4. view의 root render 오류(TSX, source map 포함), event handler error, view의 unhandledrejection. 깨진 view에서도 [문제 알리기]가 동작
+    5. 미선언 code를 reportProblem에 넘기는 command(_invalid_report)
+    6. 앱 frame 없는 exception(의존 package 안에서 throw)
+    7. 짧은 시간에 보고 25개를 내는 command(앱당 60초 20개 한도)
+    8. 30줄 넘게 log를 남긴 뒤 실패하는 command, 응답 뒤 비동기로 실패하는 command
+    9. reproduction용 판 5개: A 깨짐, B 고침, C 약화(보고 경로 삭제 또는 기대 낮춤), D 여전히 깨짐, E 다른 실패. 같은 고정 reproduction test를 A→B/C/D/E에 적용할 수 있다
+    10. 빈 DB에서는 되고 이전 판 schema에서는 실패하는 migration 판
+  - 판마다 source commit이 따로 있어 T6 bundle 준비와 release 준비로 이어진다(verify-app-repair에 쓴다)
+
+### T27 apps slice flow E2E
+
+- 등급: 기본
+- concern: apps
+- 요구: flow new-app(fixture 경로), change-app, restore-app-release, run-app-automation, manage-app-permissions, use-app-command, connect-apps, ask-app-hint가 가리키는 apps 요구
+- 자리: E2E 자리(skeleton이 정한 곳)의 apps flow 시나리오, fixtures/apps/
+- 쓰는 contract: shell E2E 도구(Playwright Electron), tools/fake-provider, 각 팀의 apps slice 작업
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: apps#T1–T26, apps#T29, problems#T9–T11, documents#T31, shell#T37–T45, shell#T47, lophn-agent#T44(앱 command 자동 tool·앱 판정·SDK 안내 tool), lophn-agent#T47(lophn의 앱 일: 화면 context·힌트·앱 카드), lophn-agent#T48(앱 revert), coding-agent#T18, coding-agent#T19, coding-agent#T20, coding-agent#T21
+- 완료:
+  - 위 8개 flow가 E2E로 돈다. new-app은 실제 coding agent 대신 coding-agent#T20의 fake coding agent가 ticket을 claim하고, fixture 앱을 템플릿 source로 등록 → bundle 준비 → app test → release 준비 → preview → activation까지 돈다. 기획·설계·App Engineer 단계는 coding-agent slice E2E가 돈다. 실제 coding_agent credential(keychain·loader)은 platform#T34(coding-agent slice)라, apps slice에서는 platform#T9의 `apps/core/testing/` harness로 coding_agent credential을 만든다
+  - 앞 slice flow의 앱 단계(project-workspace의 app-panel, build-context의 앱 blueprint 조회, approve-action의 confirm·grant, view-agent-visuals의 app-card)를 함께 돌린다(Q4)
+  - 각 flow의 다른 갈래 중 앱 고장·연결 끊김·거절·사람이 그만둠을 하나 이상씩 넣는다
+  - 설치된 SDK catalog에 apps/sdk#R4의 이름 전부(@lophn/blueprint, tokens, ui-* 10개, cap-* 7개, format-document)가 1.0.0으로 있다
+
+### T29 @lophn/format-document
+
+- 등급: 좁은
+- concern: apps/sdk
+- 요구: apps/sdk#R2, R4
+- 자리: packages/sdk/format-document/
+- 쓰는 contract: documents format 선언(내장 document format의 이름·MIME 목록·template·guide·FormatRef의 정확한 module_hash, documents#T3·T4)
+- 내놓는 contract: @lophn/format-document 1.0.0
+- slice: apps
+- 선행: apps#T5, documents#T3, documents#T4
+- 완료:
+  - Package는 kind=format 하나만 담고 catalog에 1.0.0으로 등록된다(R2, R4)
+  - 이름·MIME 목록·template·guide·FormatRef만 담고 검사 코드는 넣지 않는다. 검사는 격리된 `/v1/formats/validate`만 한다
+  - FormatRef의 module_hash가 documents#T4의 `/v1/formats/get` 결과와 같다는 테스트
+  - pdf·image·data는 원문 format이라 Package를 만들지 않는다(documents 팀 추천, 그 팀 질문 Q10에 올라가 있다)
+
+## slice: operations
+
+### T28 앱 export
+
+- 등급: 기본
+- concern: apps/data
+- 요구: apps/data#R13
+- 자리: packages/apps/data/worker/export.ts, packages/apps/data/reads.ts, apps/core/apps.ts
+- 쓰는 contract: platform blob(export 묶음), platform file route(사람이 고른 자리에 파일로 받기, platform#T12)
+- 내놓는 contract: `/v1/apps/export`(준비 중·완성·실패 구별) (contracts#T20)
+- slice: operations
+- 선행: apps#T17, apps#T19, platform#T12, platform#T13
+- 완료:
+  - export 안에 고정 blueprint·release 이력·각 불변 bundle·정확한 SDK byte·WAL 확정 내용을 포함한 무결성 확인 DB 사본이 있고 secret 원값·credential이 없으며 앱 외부 자료 포함 여부가 명시된다(R13)
+  - flow backup-and-restore의 앱 export 단계 E2E(operations slice)
+
+## 다른 팀과 주고받는 것
+
+| 팀 | apps가 받는 것 | apps가 주는 것 |
+|---|---|---|
+| contracts | contracts#T20(앱 등록·실행, documents slice), T33(blueprint·scope·agent-context 값, 정본 검증기), T34(앱 통로), T35(invocation 전달), T36(release·data worker job), T37(grant·package·preview), T14(이름 예약 port), T41(ticket claim port), T26(AgentAppScope), T32(test 실행·problem code), T39(문제 보고) | C-apps-1–7 목록과 모양 |
+| platform | core 조립, 신뢰 child 띄우기, command·read·event·blob·인증·approval·secret·redaction·notification·diagnostics | approval apply owner command(grant.create·revoke, release.start_activation, app.create, automation 켜기), invocation 전달 |
+| documents | place_names 예약 Tx 함수, 앱 문서 저장(place=app, name=key), format 실행, format Package 이름 | AppCreated, 앱 place |
+| problems | 문제 보고, test 실행과 Verification read, problem code 검사, @lophn/cap-problem과 exception observer | bundle 사본(T6), apps.logs(T9), invocations.get(T11), data worker job(T17), apps.blueprint·releases read(T19), ReleaseActivated(T18), test mode 진입점과 대역(T7, T21), fixture 앱(T23–T26) |
+| shell | ui-*·tokens(shell#T34 agent slice, T40·T41 apps slice), wording 검사 도구(shell#T6), app-frame Node client(T37), 앱 preload(T38), app-detail(T43), 패널 탭·앱 카드(T44), confirmation window 앱 결정 4종(T45) | 앱 통로(T7, T10), 결정 표시 read(T4, T19, T20), 적용 command(T4, T12, T18) |
+| lophn-agent | AgentAppScope(agent credential conditions), app tool 생성 | apps read(T1, T9, T11, T19), connect(T10), agent-context SDK(T16), accept_confirm(T12), revert 계약(T2, T7) |
+| coding-agent | ticket claim 검사 Tx 함수, MCP op 대응 | 앱 RPC(T1, T5, T9, T11, T19, T21), 템플릿(T22) |
+
+## 요구 덮기
+
+| concern | 요구 수 | 덮은 수 | 작업 |
+|---|---|---|---|
+| apps/registration | 10 | 10 | T1(R1–R10), T9(R8) |
+| apps/blueprint | 22 | 22 | T2(R1, R4–R7, R10, R11, R15, R16, R18–R22), T3(R9), T6(R17), T7(R8, R12), T13(R13), T19(R2, R3), T20(R14) |
+| apps/releases | 19 | 19 | T6(R1–R4, R19), T11(R17), T18(R8, R12–R16), T19(R5–R7, R9–R11, R18) |
+| apps/runtime | 32 | 32 | T7(R3, R5, R8, R10–R12, R22, R31), T8(R1, R2, R4, R6, R7, R16–R21, R23, R24), T9(R13–R15, R25–R29), T10(R9, R32), T15(R30) |
+| apps/permissions | 29 | 29 | T3(R5–R12, R18, R19, R25), T4(R1–R3, R24, R26, R27), T10(R28), T13(R4, R13–R17, R20–R23, R29) |
+| apps/connections | 7 | 7 | T15(R1–R7) |
+| apps/agent-context | 6 | 6 | T16(R1–R6) |
+| apps/automations | 13 | 13 | T20(R1–R13), T4(R13의 켜기 grant) |
+| apps/invocations | 19 | 19 | T7(R4, R14), T11(R3, R6, R9, R10, R13, R15–R17), T12(R1, R2, R5, R7, R8, R11, R12, R18, R19) |
+| apps/data | 14 | 14 | T17(R1–R3, R5–R8, R10, R14), T18(R4, R9, R11, R12), T28(R13) |
+| apps/preview | 10 | 10 | T21(R1–R10) |
+| apps/sdk | 41 | 41 | apps 작업 31개: T2(R5), T5(R2–R4, R6, R8, R9, R11–R13), T6(R7, R10, R34), T7(R27, R28), T14(R22–R26, R30–R32), T15(R40), T16(R39), T22(R1, R29, R33, R35, R36, R41). shell 작업 10개: shell#T34(R16 ui-table, R17, R20, R38), shell#T40(R14, R15, R18 ui-state, R21, R37), shell#T41(R16 ui-reading, R18 filter·stat, R19). R4의 tokens·ui-* 부분은 shell#T34·T40·T41, R29 component와 R41 공용 UI 부분은 shell#T40·T41이 함께 덮는다 |
+| 합계 | 222 | 222 | |
+
+작업 수는 29개다. slice별로 documents 1(T1), apps 27(T2–T27, T29), operations 1(T28)이다.
+
+## 질문
+
+모두 정했다(lead 답, 2026-10-04). 기록으로 남긴다.
+
+- **Q1 external automation 켜기 승인의 저장 자리.** 정했다: Grant kind `automation.run`(scope `{automation, command, input_hash, when}`)을 더한다. 켜기는 approval로 grant.create, 끄기는 grant.revoke다. 앱 clock은 회차마다 broker try_acquire에서 active grant를 확인하므로 프로세스를 재시작하지 않는다. external이 아닌 automation은 앱 실행 허용을 따른다. apps/permissions·apps/automations domain model은 T4·T20 PR에서 고치고, contracts#T37에 kind를 더한다.
+- **Q2 blueprint schema의 정본 자리.** 정했다: import 없는 순수 TS 검증기 하나를 packages/contracts/apps/blueprint.ts에 두고 @lophn/blueprint가 다시 내보낸다. 앱이 import하는 검증기는 의존성 없는 순수 TS로 둔다는 예외가 docs/dev/stack.md에 들어간다.
+- **Q3 @lophn/cap-problem 코드 자리.** 정했다: problems#T5가 packages/sdk/cap-problem/에 쓴다. apps는 catalog 등록(T5)·진입점 연결(T7)·공개 API 검사(T14)를 맡는다.
+- **Q4 앞 slice flow의 앱 단계.** 정했다: organize-documents의 앱 보관 단계는 T1(documents slice)에서 돈다. 나머지 앱 단계(project-workspace, build-context, approve-action, view-agent-visuals)는 T27에서 돈다.
+- **Q5 AppConnection 서명·기한·회수.** 정했다(platform Q15): 앱 direct 연결과 confirm proof는 apps가 서명하는 진술이다. platform은 credential_ref·기한·core epoch만 준다. 서명은 core 안 apps 제어 어댑터가 core 시작마다 만드는 Ed25519 key로 하고, 공개 key는 앱 초기 JSON에 넣는다. AppConnection 기한은 원래 credential 이하·최대 10분, proof는 120초다. 회수는 소유 event와 core epoch로 판단해 관련 통로를 닫고 새 nonce로 재시작한다.
+- **Q6 format SDK Package.** 정했다(documents Q10): @lophn/format-document 하나다(T29).
+- **Q7 test mode 진입점.** 정했다: problems test runner는 같은 진입점과 같은 두 socket HTTP protocol을 쓰고, runner가 broker와 caller 역할을 한다. domain-model/apps/runtime의 mode에 test를 더하는 일은 T7 PR에서 한다.
+- **Q8 core 조립 자리.** 정했다: apps는 `apps/core/apps.ts`와 `apps/worker/apps/`만 고친다.
+- **Q9 apps slice 시작 시점.** 정했다: 선행이 모두 main에 합쳐진 작업은 slice와 상관없이 시작한다(docs/dev/team-brief.md).
+- **Q10 apps slice에서의 ticket claim.** 정했다: coding-agent#T18·T19·T20과 contracts#T41이 apps slice에 있다. T19와 T27이 그것을 쓴다.
+- **Q11 ui-chart 지원 종류.** lophn-agent/visuals#R1(산점 차트, node·edge 도표)과 apps/sdk#R17(산점도는 첫 판 밖)이 부딪쳤다. shell·lophn-agent 팀과 맞춰 apps/sdk#R17과 domain-model/apps/sdk의 SharedVisualInput에 산점 차트와 node·edge 도표를 더했다(누적 면만 첫 판 밖). 구현은 shell#T34다.

@@ -19,34 +19,36 @@ code-map의 platform 줄을 따른다. architecture 2.2의 모듈 이름(`comman
 | HTTP·WebSocket 입구, route registry | packages/platform/api/ |
 | 입장 한도, platform I/O 작업 scheduler, 신뢰 child 감독 | packages/platform/responsiveness/ |
 | 신뢰 child 권한 정책, data 직렬화, child 메모리 상한 adapter | packages/platform/security/ |
-| core 조립, data root, 시작·종료 | apps/core/ (조립), packages/platform/install-and-update/ (규칙) |
-| platform I/O worker | apps/worker/ (kind `platform-io`) |
+| core 조립, data root, 시작·종료, 팀 등록 registry | apps/core/ (조립과 registry), packages/platform/install-and-update/ (규칙) |
+| worker kind registry | apps/worker/ (entry와 kind 목록) |
+| platform I/O worker | apps/worker/platform/ (kind `platform-io`) |
 
 ## 내놓는 contract
 
-contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 적은 것은 contracts 팀 작업 id를 받으면 바꾼다.
+contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
-| 이름 | 무엇 | 처음 쓰는 slice |
-|---|---|---|
-| base | ErrorCode 7종과 HTTP 상태, Result, Clock, IdSource(접두사 목록), RFC 8785 canonical JSON, sha256, seq 십진 문자열, 안전 log interface | skeleton |
-| 등록 interface | CommandDefinition, ReadDefinition, EventDefinition, SchemaStep, Tx(자기 표 SQL, emit, now, newId, 반응 cursor 갱신), read snapshot | skeleton |
-| transport | `POST /v1/<resource>/<method>`, route kind, 오류 body, command 요청·응답, read 응답 공통 필드, idempotency key 한도 | skeleton |
-| event 구독 | EventEnvelope, `/v1/events/list`, WS frame과 close code, AdvanceSubscriberCursor | skeleton |
-| 인증 값 | Actor, CredentialScope, CredentialConditions, AuthenticatedContext | skeleton |
-| supervisor pipe | 신뢰 child의 hello·ready·stop·stopped·diagnostic 메시지, Electron main→core hello | skeleton |
-| platform client | `createPlatformClient` | skeleton |
-| platform route(skeleton) | platform/status(ledger_id 포함), platform/health, identity/current, commands/result, events/list, events/advance-cursor | skeleton |
-| blob | PreparedBlob, BlobReadResult, blob field 정의(보존 종류), Tx의 blob 참조 등록, `blob.prepare` 통로, `/v1/blobs/read` | documents |
-| redaction | RedactionInput·RedactionResult·Omission, entry가 끼워 주는 Redactor interface | documents |
-| notification | Notification, 계기 source event 표, notifications route | context |
-| secret | secrets route, SecretPreparation, 전송 부착·갱신 결과 저장 interface | agent |
-| approval | ApprovalAction·ApprovalEffect·ApprovalUse, binding hash 규칙, approvals route, Tx의 approval 사용 | agent |
-| confirmation handle | main↔core 비공개 연결의 handle 발급·사용 메시지 | agent |
-| settings | SettingDefinition 등록 interface, EffectiveSetting, settings route | agent |
-| QuestionActionEvidence | machine이 user 변경으로 기록하는 근거 | agent |
-| data 직렬화 | 자료를 data로 감싸는 interface와 TrustClass | agent |
-| file·worker 전달 route | 인증·한도 뒤 감독 중인 worker kind로 넘기는 route kind(`file`은 바이트 응답) | documents |
-| backups·diagnostics route | backups/list·get, diagnostics/list·check | operations |
+| 이름 | 무엇 | 처음 쓰는 slice | contracts 작업 |
+|---|---|---|---|
+| base | ErrorCode 7종과 HTTP 상태, Result, Clock, IdSource(접두사 목록), RFC 8785 canonical JSON, sha256, seq 십진 문자열, 안전 log interface | skeleton | contracts#T3, T4 |
+| 등록 interface | CommandDefinition, ReadDefinition, EventDefinition, SchemaStep, Tx(자기 표 SQL, emit, now, newId, 반응 cursor 갱신), read snapshot | skeleton | contracts#T6(`tx.call`, `tx.port` 포함) |
+| transport | `POST /v1/<resource>/<method>`, route kind, 오류 body, command 요청·응답, read 응답 공통 필드, idempotency key 한도 | skeleton | contracts#T5 |
+| event 구독 | EventEnvelope, `/v1/events/list`, WS frame과 close code, AdvanceSubscriberCursor | skeleton | contracts#T7 |
+| 인증 값 | Actor, CredentialScope, CredentialConditions, AuthenticatedContext | skeleton | contracts#T6 |
+| supervisor pipe | stdin·stdout 길이 prefix binary frame codec, 신뢰 child의 hello·ready·stop·stopped·diagnostic·byte chunk 메시지, kind launch spec, Electron main↔core 메시지 | skeleton | contracts#T6 |
+| platform client | `createPlatformClient` | skeleton | contracts#T5 |
+| platform route(skeleton) | platform/status(ledger_id 포함), platform/health, identity/current, commands/result, events/list, events/advance-cursor | skeleton | contracts#T6 |
+| blob | PreparedBlob, BlobReadResult, blob field 정의(보존 종류), Tx의 blob 참조 등록, `blob.prepare` 통로, `/v1/blobs/read` | documents | contracts#T11 |
+| redaction | RedactionInput·RedactionResult·Omission, entry가 끼워 주는 Redactor interface | documents | contracts#T12 |
+| notification | Notification, 계기 source event 표, notifications route | agent | contracts#T22 |
+| secret | secrets route, SecretPreparation, 전송 부착·갱신 결과 저장 interface | agent | contracts#T23 |
+| approval | ApprovalAction·ApprovalEffect·ApprovalUse, binding hash 규칙, approvals route, Tx의 approval 사용 | agent | contracts#T22 |
+| confirmation handle | main↔core 비공개 연결의 handle 발급·사용 메시지 | documents | contracts#T13 |
+| settings | SettingDefinition 등록 interface, EffectiveSetting, settings route | agent | contracts#T24 |
+| QuestionActionEvidence | machine이 user 변경으로 기록하는 근거(값은 lophn-agent 소유, platform은 검증) | agent | contracts#T28 |
+| data 직렬화 | 자료를 data로 감싸는 interface와 TrustClass | agent | contracts#T12 |
+| file·worker 전달 route | 인증·한도 뒤 감독 중인 worker kind로 넘기는 route kind(`file`은 바이트 응답, `defineFile`·`defineWorker`) | documents | contracts#T5 |
+| workspace route | CurrentViewState의 publish·bind·unpublish·read(core 메모리, route kind `memory`) | agent | contracts#T25 |
+| backups·diagnostics route | backups/list·get, diagnostics/list·check | operations | contracts#T45 |
 
 ## 쓰는 다른 팀 contract
 
@@ -56,8 +58,8 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 | coding-agent | connection digest·회수 상태 read, connection 생성 command(digest 제출), TicketConfirmed·TicketCheckFailed event, harness 설정 검증 | T34, T35, T36 |
 | apps | 현재 grant read, invocations의 confirm 접수, ReleaseActivationFailed event, 앱 실행 credential 조건, invocation·release activation 복구 command, grant 위험 read, SDK hash | T31, T32, T33, T43, T47 |
 | problems | ProblemOpened·ProblemReopened·ProblemClosed(운영 보고 여부), snapshot 수집 입력 | T37, T39 |
-| documents | ContextWatchedItemChanged event, blob 준비 호출, 복원 뒤 derived 초기화 | T17, T13, T42 |
-| shell | confirmation window(handle 사용), Electron main의 core 시작과 종료, notification 표시 | T9, T22, T46 |
+| documents | ContextWatchedItemChanged event, blob 준비 호출, 복원 뒤 derived 초기화 | T53, T13, T42 |
+| shell | confirmation window(handle 사용), Electron main의 core 시작과 종료·`--tray`·`--quit`, notification 표시, 패키징, 현재 보기 publish | T9, T56, T22, T46, T48, T55, T57 |
 
 ---
 
@@ -72,7 +74,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: base, 등록 interface(Tx, SchemaStep, EventDefinition)
 - 내놓는 contract: 없음
 - slice: skeleton
-- 선행: contracts(base), contracts(등록 interface)
+- 선행: contracts#T1, contracts#T3, contracts#T4, contracts#T6
 - 완료: 아래 확인이 통과한다
   - `node:sqlite` 연결이 `journal_mode=WAL`의 실제 반환을 확인하고 `synchronous=FULL`, `foreign_keys=ON`, `busy_timeout=5000`을 건다. WAL이 아니면 쓰기 전에 기동을 거절한다(R2).
   - `events`, `command_results`, `subscriber_cursors`, `schema_migrations` 표와 UPDATE·DELETE 금지 trigger가 있다(R10, R22).
@@ -90,7 +92,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: base, 등록 interface, transport(command 요청·응답)
 - 내놓는 contract: 없음
 - slice: skeleton
-- 선행: platform#T1, contracts(transport)
+- 선행: platform#T1, contracts#T5
 - 완료: 아래 확인이 통과한다
   - writer는 Deno Worker 하나 안의 유일한 쓰기 연결이다. API 쪽과 작은 메시지로 주고받는다.
   - 처리 순서: fingerprint(RFC 8785, token·handle 원문 제외)를 transaction 전에 계산 → `BEGIN IMMEDIATE` → 현재 자격 재검사 hook → `(principal,key)` 조회 → 같은 fingerprint면 저장 결과를 `replayed:true`로 → 다르면 `conflict` → 등록 handler(동기, Tx만) → event·결과 저장 → commit → event 배포에 wake-up 힌트(R3, R5, R13).
@@ -126,7 +128,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: event 구독, 등록 interface(Tx의 반응 cursor 갱신)
 - 내놓는 contract: 없음
 - slice: skeleton
-- 선행: platform#T2, platform#T3, contracts(event 구독)
+- 선행: platform#T2, platform#T3, contracts#T7
 - 완료: 아래 확인이 통과한다
   - 배포기는 commit 힌트를 받아 reader에서 커밋된 event를 읽는다. 힌트를 잃어도 seq 조회로 따라잡는다.
   - `/v1/events/list`(`seq > after_seq`)와 WS session 처리(`from_seq` 포함, `types`·`subjects` 필터, 숨긴 event도 `scanned_through_seq`에 포함, `head_seq`)가 같은 재생 뜻을 가진다(api R5).
@@ -144,9 +146,10 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: 인증 값, base
 - 내놓는 contract: 없음
 - slice: skeleton
-- 선행: contracts(인증 값), contracts(base)
+- 선행: contracts#T3, contracts#T6
 - 완료: 아래 확인이 통과한다
   - token은 주입한 무작위 source의 32 bytes base64url, 검증은 sha256 digest의 32-byte constant-time 비교다. digest를 Bearer로 받지 않는다.
+  - architecture/platform 5.6 표의 `coding_agent` 줄과 마지막 절 "connection 생성은 보호 화면의 exact scope 결정"을 coding-agent/connection#R2·D19에 맞춰 고친다. 사람의 harness 연결·범위 선택이 허락이고 확인 창은 없으며, 회수만 confirmation window다(→ Q16).
   - core epoch마다의 메모리 registry: user(hello에 한 번), machine(task·대상·결과 command 고정) 발급과 active→revoked/ended. ended·revoked는 되살리지 않는다(R2, R7).
   - actor는 credential에서만 정한다. 본문·header·환경 변수의 actor 주장을 무시한다(R1). actor별 상한 ∩ 현재 조건(R3).
   - token 원문이 오류·log·event·결과에 나오지 않는다(R6). credential을 renderer·앱 코드에 넘기는 경로가 없다(R4).
@@ -184,9 +187,10 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: supervisor pipe
 - 내놓는 contract: supervisor pipe의 child 쪽 helper(entry가 조립)
 - slice: skeleton
-- 선행: contracts(supervisor pipe)
+- 선행: contracts#T6
 - 완료: 아래 확인이 통과한다
-  - 부모가 만든 Node IPC channel(`stdio` 'ipc')로 child를 띄운다(→ Q2). argv에 credential이 없다. stdout·stderr를 제어 통로나 성공 근거로 쓰지 않는다.
+  - 감독 통로는 부모가 만든 child의 stdin(부모→자식)·stdout(자식→부모) pipe 위의 길이 prefix binary frame이다(JSON 제어 frame과 byte chunk frame, codec은 contracts#T6). child helper는 console 출력을 stderr로 돌리고 frame이 아닌 stdout 바이트는 protocol 위반으로 그 child를 멈춘다. stderr는 제어·성공 근거로 쓰지 않는다(→ Q2). argv에 credential이 없다. architecture 2.4의 해당 문장을 같은 PR에서 고친다.
+  - Electron main↔core도 같은 frame을 쓴다. shell main의 diagnostic도 이 통로로 보낸다.
   - child는 `deno run --cached-only --frozen --no-prompt`와 kind별로 좁힌 `--allow-read/--allow-write/--allow-net`만 받는다. `--allow-all`·전체 환경은 없다. 권한 표는 TrustClass와 architecture 2.4 표를 따른다(security R1–R3).
   - hello(core epoch, process identity, task, scope 상한, credential) → ready 10초 → stop 5초 뒤 실제 handle 강제 종료. 실패 재기동은 1·2·4초 뒤 최대 3회, 그 뒤 그 구성 요소만 사용 불가.
   - 부모 pipe EOF면 child가 새 작업과 credential 사용을 멈추고 종료한다. Linux는 process group으로 자식까지 정리한다. PID 파일만 보고 죽이지 않는다.
@@ -199,13 +203,13 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 등급: 기본
 - concern: platform/responsiveness, platform/diagnostics, platform/redaction
 - 요구: platform/responsiveness#R4, platform/diagnostics#R2, R3, R11, R12, platform/redaction#R15
-- 자리: apps/worker/ (kind `platform-io`), packages/platform/responsiveness/, packages/platform/diagnostics/
+- 자리: apps/worker/platform/, packages/platform/responsiveness/, packages/platform/diagnostics/
 - 쓰는 contract: supervisor pipe, base(log)
 - 내놓는 contract: supervisor pipe의 diagnostic 메시지(신뢰 child가 안전 진단을 보내는 길, problems 요청)
 - slice: skeleton
 - 선행: platform#T7
 - 완료: 아래 확인이 통과한다
-  - `apps/worker`는 kind로 고르는 entry다. kind 파일은 팀마다 따로 둔다(→ Q4). 이 작업은 `platform-io`만 만든다.
+  - `apps/worker/main.ts`는 kind로 고르는 entry와 kind 목록(registry)이다. 각 팀은 `apps/worker/<팀>/`만 고친다(lead 결정, Q4). 이 작업은 `apps/worker/platform/`의 `platform-io`만 만든다.
   - 무거운 작업 동시 2개, 대기 32개, principal당 4개, principal 사이 round-robin(responsiveness R4)
   - core와 신뢰 child의 log·diagnostic 메시지를 I/O worker가 `H/logs/`에 비동기로 쓴다. info 기본, 파일당 10MiB×5, 메모리 대기 1MiB, 넘치면 버리고 개수만 센다. log가 막혀도 API가 기다리지 않는다(diagnostics R2, R3, R11, R12).
   - 기록에는 구성 요소·시각·종류·안전 위치·설명만 있고 stdout·stderr·HTTP dump·crash 메모리·credential을 남기지 않는다(redaction R15).
@@ -219,18 +223,19 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 요구: platform/install-and-update#R7, R9, R10, R12, platform/ledger#R21, platform/diagnostics#R8
 - 자리: apps/core/, packages/platform/install-and-update/, packages/platform/diagnostics/
 - 쓰는 contract: supervisor pipe(Electron main→core hello), platform route(skeleton)
-- 내놓는 contract: platform client(실제 동작 확인), 통합 테스트용 core harness(→ Q3)
+- 내놓는 contract: platform client(실제 동작 확인), 통합 테스트용 core harness `apps/core/testing/`(→ Q3), `H/run` 위치 metadata(→ T55)
 - slice: skeleton
 - 선행: platform#T6, platform#T7, platform#T8
 - 완료: 아래 확인이 통과한다
   - `LOPHN_HOME` 또는 `~/.lophn`을 소유자·symlink 확인한 정규 경로 하나로 고정하고 H·`H/run`·`H/apps`가 0700보다 넓으면 기동을 거절한다(R7, R9).
-  - 최상위 팀마다 `apps/core/modules/<팀>.ts` 한 파일이 자기 command·read·event·schema step·worker kind launch spec을 등록하고, `apps/core/main.ts`는 그 목록만 부른다(→ Q4).
-  - `deno task dev`: `LOPHN_HOME=.dev-data`로 core를 띄우고(shell이 있으면 shell main이 core를 띄운다) fake provider가 있으면 함께 띄운다.
+  - registry: 최상위 팀마다 `apps/core/<팀>.ts` 한 파일이 자기 command·read·event·schema step·dispatchable command·port·worker kind launch spec을 등록하고, `apps/core/main.ts`는 그 목록만 부른다. 팀은 자기 등록 파일만 고친다(lead 결정, Q4).
+  - 시작 인자: data root는 `LOPHN_HOME`(없으면 `~/.lophn`), port는 `--port=<n>`(기본 7431, 0이면 빈 port). 실제 port와 core epoch는 부모에게 감독 frame으로 알린다. contracts#T9의 `deno task dev`·`dev:core`가 이것으로 띄운다.
   - `H/run/`의 OS instance lock으로 같은 H에 두 번째 core·writer를 열지 않는다(R10).
   - 시작: lock → ledger 열기·schema step → writer·reader → event 배포 → API → I/O worker 감독. Electron main의 IPC hello에 user token을 한 번 준다. 창 닫기가 아니라 main의 명시 종료나 pipe EOF가 core 종료를 시작한다(R12).
   - 종료: 새 command 입장 닫기 → 입장한 command 확정·실패 → child 정지 → 연결 닫기 → lock 해제(ledger R21)
   - `/v1/platform/status`(준비·schema·data root·`ledger_id`·구성 요소)와 `/v1/platform/health`(HealthObservation, 관측 시각)는 인증을 요구한다(diagnostics R8).
-  - 다른 팀 통합 테스트가 메모리 SQLite·임시 H로 core를 띄우고 자기 모듈을 등록하는 harness
+  - `apps/core/testing/`: 다른 팀 통합 테스트가 메모리 SQLite·임시 H로 core를 띄우고 자기 모듈을 등록하는 harness. 다섯 actor 어느 것이든 지정 scope·conditions의 테스트 credential을 만들 수 있다(coding_agent 발급 T34 전에도 MCP·CLI 테스트가 붙는다). 테스트 전용이고 `apps/core/main.ts`에는 이 입구가 없다. 다른 팀 `*_test.ts`는 이 폴더만 import한다(lead 결정).
+  - 시작 때 `H/run/`에 인증 없는 위치 metadata(port, core epoch, 시작 시각; credential 없음)를 쓰고 정상 종료 때 지운다.
   - Node 부모가 실제 core 프로세스를 띄워 hello → command → read → event list → WS 구독까지 도는 통합 테스트(skeleton의 core 쪽)
   - `core_test.ts`에 위 요구 테스트
 
@@ -275,7 +280,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: transport, supervisor pipe
 - 내놓는 contract: transport(route kind `file`의 바이트 응답, `worker` 전달 kind → Q9)
 - slice: documents
-- 선행: platform#T9, contracts(transport의 file·worker kind)
+- 선행: platform#T9, contracts#T5(`defineFile`·`defineWorker`)
 - 완료: 아래 확인이 통과한다
   - `file` route(documents의 원본 파일 읽기)는 ledger queue를 거치지 않고 인증·한도·schema 뒤 등록된 worker kind로 비동기 pipe 요청을 보내고, 바이트와 Content-Type을 그대로 돌려준다(api R3).
   - `worker` route(problems의 report·request-test 등)는 같은 길로 JSON 결과·공통 오류를 그대로 돌려준다.
@@ -287,17 +292,17 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 등급: 기본
 - concern: platform/blob-store
 - 요구: platform/blob-store#R1, R2, R3, R12
-- 자리: packages/platform/blob-store/, apps/worker/ (kind `platform-io`)
+- 자리: packages/platform/blob-store/, apps/worker/platform/
 - 쓰는 contract: blob, supervisor pipe
 - 내놓는 contract: blob(`blob.prepare` 통로, PreparedBlob)
 - slice: documents
-- 선행: platform#T8, platform#T9, contracts(blob)
+- 선행: platform#T8, platform#T9, contracts#T11
 - 완료: 아래 확인이 통과한다
   - I/O worker가 같은 파일 시스템의 `H/blobs/tmp/`에 streaming으로 쓰며 sha256·크기를 계산하고 fsync → 0400 → 원자적 rename → directory sync 뒤에만 성공한다(R2, R3).
   - 같은 hash는 덮어쓰지 않고 기존 파일을 검증해 재사용한다(R1). 최대 1GiB, chunk 1MiB, 예상 hash·크기 불일치는 `invalid_input`.
   - 준비 참조는 principal·purpose·hash·크기와 10분 수명으로 core 메모리에 등록된다. core는 파일을 다시 hash하지 않는다.
   - 실제 디스크 여유가 부족하면 새 준비를 `unavailable`로 막고 참조 blob을 지우지 않는다(R12).
-  - 다른 신뢰 프로세스가 큰 바이트를 보내는 통로(→ Q6)
+  - 문서 worker 같은 신뢰 child는 감독 pipe의 byte chunk frame으로 보내고, core는 해석·hash 없이 backpressure를 지키며 I/O worker로 넘긴다(→ Q6).
   - `prepare_test.ts`에 위 요구 테스트
 
 ### T14 blob 참조 등록과 읽기
@@ -327,7 +332,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: redaction
 - 내놓는 contract: redaction(Redactor interface, RedactionInput·RedactionResult·Omission)
 - slice: documents
-- 선행: platform#T8, contracts(redaction)
+- 선행: platform#T8, contracts#T12
 - 완료: 아래 확인이 통과한다
   - 알려진 값 registry: 보호 메모리에 원문 전체를 두고 긴 값부터 정확히 검사한다. 길이·개수로 빼지 않는다(R1).
   - 고정 gitleaks prefix·PEM 규칙 묶음의 content hash를 입력·출력이 함께 쓴다. OpenAI·Anthropic·GitHub·AWS·Slack key, JWT·PEM fixture(R2).
@@ -354,7 +359,24 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
   - 화면 문자열 80자 초과는 안전 shape, private 필드는 길이와 무관하게 통째로 뺀다. 짧은 이메일도 예외가 아니다(R12).
   - `fields_test.ts`, `samples_test.ts`에 위 요구 테스트
 
-## context
+### T56 confirmation handle 발급·검증·소비
+
+- 등급: 기본
+- concern: platform/approvals, platform/identity
+- 요구: platform/approvals#R3, R4, R5
+- 자리: packages/platform/identity/, packages/platform/ledger/
+- 쓰는 contract: confirmation handle, supervisor pipe(main↔core)
+- 내놓는 contract: confirmation handle(main↔core 발급·사용 메시지, command 요청의 `confirmation`)
+- slice: documents
+- 선행: platform#T2, platform#T9, contracts#T13
+- 완료: 아래 확인이 통과한다
+  - handle은 main↔core 비공개 통로에서만 발급되는 메모리 값이고 core epoch·main 연결·window·정확한 대상·내용 기준·허용 결정·120초에 묶인다. ledger·fingerprint·event·log에 원문이 없다.
+  - 사람 클릭이 필요한 command(documents의 파일 지우기, approval 결정 등)는 등록 때 handle 필요를 선언하고, writer가 transaction 안에서 현재 상태와 함께 검증·소비한다. handle이 없거나 대상·내용이 다르면 거절한다(R3, R5).
+  - 창 닫기·main/core 재시작은 handle을 무효로 한다. commit 실패면 살아 있는 handle의 예약만 풀고 만료·종료 handle은 되살리지 않는다. commit 뒤 응답 유실의 같은 key는 저장 결과를 먼저 돌려준다. 침묵·창 닫기는 결정이 아니다(R4).
+  - handle이 필요한 `file`·`worker` route(documents의 `files.delete` 등)는 ledger를 쓰지 않으므로, core의 handle registry가 대상(예: canonical 경로·base_hash·동작)과 맞는지 확인하고 메모리에서 원자적으로 소비한 뒤에만 worker로 넘긴다. 소비 실패·만료·불일치면 넘기지 않는다. 넘긴 뒤 worker가 `conflict`를 내도 handle은 소비된 채이고 사람이 다시 확인한다. 결과 기록은 소유 concern의 뒤 command(documents의 `file.record_result`)가 맡는다. 소비만 하는 빈 writer transaction은 만들지 않는다(ledger#R22).
+  - `confirmation_test.ts`에 위 요구 테스트, flow organize-documents의 파일 지우기 단계 통합 테스트(shell#T22와 함께)
+
+## agent
 
 ### T17 notification 반응 처리기와 생성·읽음
 
@@ -362,21 +384,19 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2, R3, R4, R5, R6, R7, R8, R11
 - 자리: packages/platform/notifications/
-- 쓰는 contract: notification, event 구독, 등록 interface, documents의 ContextWatchedItemChanged event
+- 쓰는 contract: notification, event 구독, 등록 interface
 - 내놓는 contract: notification(Notification, 계기 표, notifications get·list·create·read route)
-- slice: context
-- 선행: platform#T4, platform#T14, platform#T15, contracts(notification), documents의 ContextWatchedItemChanged contract
+- slice: agent
+- 선행: platform#T4, platform#T14, platform#T15, contracts#T22
 - 완료: 아래 확인이 통과한다
   - core의 독립 비동기 루프가 `notifications` cursor부터 event batch를 읽는다. 계기 있으면 `create_notification`(source 재검사, notification·`NotificationCreated`·cursor를 한 transaction), 없으면 cursor만 올린다(R1, R2).
-  - 계기 표 전체를 두되 이 작업은 source contract가 있는 `ContextWatchedItemChanged`(machine 확정)만 켠다. 나머지 source는 T29, T33, T36, T39에서 켠다.
+  - 계기 표와 처리기를 만들고, 각 source는 그 event contract가 생기는 작업에서 켠다: T29(approval·question·assignment), T53(context watch), T33(release activation), T36(ticket), T39(문제).
   - `source_seq UNIQUE`로 같은 사실은 최대 1개, 재시작·재전달로 늘지 않는다(R4).
   - 제목·대상·변화·사람 행동·결과 열기 경로는 source 사실에서 만들고 redaction을 거친다. 본문·대화·업무 상태를 복사하지 않는다(R3).
   - `mark_notification_read`는 처음 `read_at`과 `NotificationRead`를 한 번, 반복은 unchanged. 읽음은 재시작 뒤에도 남는다(R5).
   - 읽음·클릭이 승인·답·닫힘을 만들지 않고 새 run·닫힌 세션 재개를 만들지 않는다(R6, R7). 전달 실패로 버리지 않고 model call을 쓰지 않는다(R8). 발생 순서대로 모두 다시 읽을 수 있다(R11).
   - `notifications_test.ts`에 위 요구 테스트
-  - flow build-context의 notification 단계 통합 테스트
-
-## agent
+  - flow answer-question·resume-agent-session의 notification 단계 통합 테스트
 
 ### T18 Tx 안에서 다른 owner의 등록 command 부르기
 
@@ -387,7 +407,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: 등록 interface
 - 내놓는 contract: 등록 interface(Tx의 등록 command dispatch)
 - slice: agent
-- 선행: platform#T2, contracts(등록 interface의 dispatch)
+- 선행: platform#T2, contracts#T6(`tx.call`)
 - 완료: 아래 확인이 통과한다
   - command handler가 Tx로 다른 concern의 등록 command(예: lophn-agent FinishToolCall → documents save_version, WaitRun → `create_approval_request`, question option 적용 → 소유 command)를 같은 transaction에서 부른다. 불린 command는 원래 AuthenticatedContext로 자기 actor 상한·schema·CAS를 다시 검사한다.
   - event는 같은 transaction의 seq로 차례대로 남고 command 결과는 바깥 command 하나만 저장된다. 어느 하나라도 실패하면 전체 rollback이다.
@@ -399,11 +419,11 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 등급: 최상위
 - concern: platform/secrets
 - 요구: platform/secrets#R1, R2, R4, R6, R7, R8
-- 자리: packages/platform/secrets/, apps/worker/ (kind `platform-io`)
+- 자리: packages/platform/secrets/, apps/worker/platform/
 - 쓰는 contract: secret, supervisor pipe
 - 내놓는 contract: secret(`/v1/secrets/list·set·remove·cleanup`, SecretPreparation, `secret.prepare` 통로)
 - slice: agent
-- 선행: platform#T8, platform#T15, contracts(secret)
+- 선행: platform#T8, platform#T15, contracts#T23
 - 완료: 아래 확인이 통과한다
   - I/O worker의 OS adapter가 Linux Secret Service에 값을 둔다. 값은 argv·환경 변수·파일에 가지 않는다(→ Q7). macOS·Windows adapter는 T49.
   - 보호 입력은 전용 pipe 작업 `secret.prepare`로만 받는다. 세션 메시지·agent·외부 MCP 경로가 없다(R2).
@@ -440,7 +460,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: approval, blob, redaction
 - 내놓는 contract: approval(ApprovalAction·ApprovalEffect, binding hash, approvals get·list·create·expire·cancel route)
 - slice: agent
-- 선행: platform#T14, platform#T15, contracts(approval)
+- 선행: platform#T14, platform#T15, contracts#T22
 - 완료: 아래 확인이 통과한다
   - `create_approval_request`는 요청자·역할·tool·MCP, 정확한 대상, redaction한 미리보기, 이유, 변경 범위, 외부 전송·수신처, 되돌림을 빠짐없이 요구한다. 수리면 보존 데이터·검증 기준도(R1, R2).
   - 요청자·동작·영향·설명·기한은 생성 뒤 바뀌지 않고 끝난 결정은 다시 열리지 않는다(R6).
@@ -449,22 +469,21 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
   - get·list read는 판단할 동작·대상·이유·변경·외부 전송·보존·되돌릴 수 없는 영향을 요약하되 R1·R2 항목을 빠뜨리지 않는다(R17).
   - `requests_test.ts`에 위 요구 테스트
 
-### T22 confirmation handle과 허락·거절
+### T22 approval 허락·거절
 
 - 등급: 기본
 - concern: platform/approvals
 - 요구: platform/approvals#R3, R4, R5, R15, R16
-- 자리: packages/platform/approvals/, packages/platform/identity/
+- 자리: packages/platform/approvals/
 - 쓰는 contract: confirmation handle, lophn-agent의 handoff 계보 판정
-- 내놓는 contract: confirmation handle(main↔core 발급·사용 메시지)
+- 내놓는 contract: approval(grant·reject route)
 - slice: agent
-- 선행: platform#T21, contracts(confirmation handle), lophn-agent의 handoff 계보 contract
+- 선행: platform#T21, platform#T56, contracts#T26(`runs/read`의 original_message·handoff sender_run로 계보 판정), lophn-agent#T10, lophn-agent#T32
 - 완료: 아래 확인이 통과한다
-  - handle은 main↔core 비공개 연결에서만 발급되는 메모리 값이고 core epoch·main 연결·window·정확한 대상·내용·허용 결정·120초에 묶인다. ledger·fingerprint·event·log에 원문이 없다.
-  - grant·reject는 handle 없이 user token으로도 안 된다. 앱·agent·MCP는 자기 요청을 허락하지 못한다(R3). 기본 선택·침묵·창 닫기·읽음·질문 답은 결정이 아니다(R4).
-  - writer transaction 안에서 현재 상태와 함께 검증·소비한다. 대상·입력·비교 기준·assignment·tool이 바뀌면 거절하고 새 request가 필요하다(R5).
+  - `grant_approval_request`·`reject_approval_request`는 T56의 handle을 writer transaction에서 현재 request 상태·내용·기한과 함께 검증·소비하고 결정을 저장한다. handle 없이는 user token으로도 안 된다. 앱·agent·MCP는 자기 요청을 허락하지 못한다(R3). 기본 선택·침묵·창 닫기·읽음·질문 답은 결정이 아니다(R4).
+  - 대상·입력·비교 기준·assignment·tool이 바뀌면 거절하고 새 request가 필요하다(R5).
   - 거절·만료·취소는 미실행 종료이고 사람 결정으로 구별된다(R15). 같은 run과 handoff 계보에서 거절된 같은 동작·대상·입력은 다시 묻지 않는다(R16).
-  - `confirmation_test.ts`에 위 요구 테스트, flow approve-action 통합 테스트(shell의 confirmation window와 함께)
+  - `decisions_test.ts`에 위 요구 테스트, flow approve-action 통합 테스트(shell#T22·T29의 confirmation window와 함께)
 
 ### T23 approval 적용과 한 번 사용
 
@@ -475,7 +494,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: approval, 등록 interface
 - 내놓는 contract: approval(`/v1/approvals/apply`, Tx의 approval 사용)
 - slice: agent
-- 선행: platform#T22, platform#T18
+- 선행: platform#T22, platform#T18, contracts#T22(`Tx.useApproval`)
 - 완료: 아래 확인이 통과한다
   - `apply_approved_action`은 현재 권한·원래 run·대상·CAS·정확 action → `approval_uses` INSERT → 소유 command 접수·변경·event → 결과를 한 transaction에 확정한다. approval만 먼저 소비하는 공개 command가 없다(R7, R11).
   - 중복 전달·동시 사용·실패·unknown 뒤 재호출은 같은 receipt를 돌려주고 새 동작을 만들지 않는다(R7).
@@ -489,9 +508,9 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 요구: platform/ledger#R11, platform/identity#R14
 - 자리: packages/platform/identity/, packages/platform/ledger/
 - 쓰는 contract: 인증 값, QuestionActionEvidence, lophn-agent의 run·assignment 유효성 read와 question option action read
-- 내놓는 contract: QuestionActionEvidence, agent credential 발급(agent runtime 경계)
+- 내놓는 contract: agent credential 발급(agent runtime 경계)
 - slice: agent
-- 선행: platform#T9, contracts(QuestionActionEvidence), lophn-agent의 run·question contract
+- 선행: platform#T9, contracts#T28(QuestionActionEvidence), contracts#T26(`runs/read`), lophn-agent의 question contract
 - 완료: 아래 확인이 통과한다
   - 유효 assignment·run 시작에서 agent runtime에 `agent:<asg>` credential을 주고 run 종료·멈춤·감독 상실에 끝낸다. agent runtime 자체는 machine credential을 받는다.
   - agent scope에는 lophn-agent가 계산한 AgentAppScope(contracts/lophn-agent 타입)가 실리고 AuthenticatedContext로 apps 연결 검사에 전달된다. platform은 그 내용을 해석하지 않고 상한을 넓히지 못하게만 한다(lophn-agent 요청). identity domain model의 CredentialScope를 같은 PR에서 고친다.
@@ -508,7 +527,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: settings, 등록 interface
 - 내놓는 contract: settings(SettingDefinition 등록 interface, EffectiveSetting, settings definitions·get route)
 - slice: agent
-- 선행: platform#T9, contracts(settings)
+- 선행: platform#T9, contracts#T24
 - 완료: 아래 확인이 통과한다
   - 각 concern이 공개한 항목만 받는다. 설명·종류·기본값·허용값·단위·층·적용 시점이 없으면 등록 거절(R1, R4).
   - `builtin < common` 두 층만, object 항목별·scalar/array 전체 교체, 생략과 null·빈 목록·false 구별(R5, R8, R9). 작업 폴더·세션·환경 변수·CLI 인자는 층이 아니다(R6).
@@ -540,7 +559,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 등급: 기본
 - concern: platform/settings
 - 요구: platform/settings#R3, R26, R27, R28, R29, R30
-- 자리: packages/platform/settings/, apps/worker/ (kind `platform-io`)
+- 자리: packages/platform/settings/, apps/worker/platform/
 - 쓰는 contract: settings, QuestionActionEvidence
 - 내놓는 contract: settings(TOML import·export pipe 작업)
 - slice: agent
@@ -561,7 +580,7 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: data 직렬화
 - 내놓는 contract: data 직렬화(agent runtime·coding repair context가 entry로 받아 쓰는 interface, TrustClass)
 - slice: agent
-- 선행: platform#T9, contracts(data 직렬화)
+- 선행: platform#T9, contracts#T12(data 직렬화·TrustClass)
 - 완료: 아래 확인이 통과한다
   - 문서·제목·주소·앱 응답·log·summary·수리 자료의 문자열을 구조 필드의 data로 직렬화하고, 경계 표식을 흉내 낸 문자열이 지시 영역으로 나가지 못한다(R10).
   - summary·compaction·handoff에 범위·고정 판·출처·분류가 남고 출처 불명은 data다(R11).
@@ -585,15 +604,47 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 
 - 등급: 기본
 - concern: platform/security
-- 요구: platform/security#R3, problems/tests의 메모리 상한 요구(problems 팀이 id를 알려 준다)
+- 요구: platform/security#R3, problems/tests#R20
 - 자리: packages/platform/security/
 - 쓰는 contract: supervisor pipe
 - 내놓는 contract: 자식 process 메모리 상한 interface(problems test runner가 entry로 받음)
 - slice: agent
-- 선행: platform#T7
+- 선행: platform#T7, contracts#T6(kind launch spec의 메모리 상한, 결과 `hard`|`soft`|`unavailable`)
 - 완료: 아래 확인이 통과한다
-  - Linux에서 자식 process 전체 메모리 512MiB를 cgroup v2로 강제한다(→ Q10). 강제할 수 없으면 `unavailable`을 돌려주고 상한 없이 띄우지 않는다.
+  - Linux에서 자식 process 전체 메모리 536,870,912 bytes를 cgroup v2로 강제한다(hard, → Q10). interface는 적용한 방식(`hard`|`soft`)을 돌려주고 test result에 남게 한다. 어떤 방식도 걸 수 없으면 시작 전에 `unavailable`을 돌려주고 상한 없이 띄우지 않는다.
   - `memory_limit_test.ts`에 위 요구 테스트(상한을 넘는 fixture가 실제로 죽는다)
+
+### T57 현재 보기 전달(workspace relay)
+
+- 등급: 기본
+- concern: platform/api, platform/identity
+- 요구: platform/identity#R3, R8, platform/redaction#R5, lophn-agent/harness/prompt-assemble#R28
+- 자리: packages/platform/api/
+- 쓰는 contract: contracts#T25의 CurrentViewState, contracts#T26(`runs/read`), 인증 값
+- 내놓는 contract: 없음(route 정의는 contracts#T25의 `contracts/shell/workspace.ts`, route kind `memory`·`defineMemory`; 이 작업은 core에 등록하고 구현한다)
+- slice: agent
+- 선행: platform#T24, platform#T6, contracts#T25, contracts#T26
+- 완료: 아래 확인이 통과한다
+  - `memory` route kind는 ledger queue와 reader를 거치지 않고 API loop의 작은 메모리 handler로 돈다. 인증·한도 검사는 다른 route와 같다.
+  - shell main(user)만 창마다 `publish {window_ref, generation, observed_at, summary, tab_pages}`, `bind {session, window_ref}`, `unpublish {window_ref}`를 보낸다. summary ≤2048 bytes, 탭 page 20개, 본문·초안·터미널 출력·DOM·screenshot은 schema가 거절한다.
+  - agent runtime은 자기 run의 session으로만 `read {session}`을 부른다. run→session은 `runs/read`로 확인하고 다른 session은 부재와 같다(identity R3, R8). 반환 전에 redaction을 거친다(redaction R5).
+  - 값은 core 메모리에만 있고 ledger·blob·log에 없다. 크기는 창 수 × (2048 bytes + 탭 page)로 묶인다. main 연결이 끊기거나 core epoch가 바뀌면 그 main의 값은 모두 `disconnected`, 결합 없는 주기 run은 `unavailable`이며 옛 값을 `current`로 주지 않는다(prompt-assemble#R28).
+  - architecture/platform 5.1 route 목록을 같은 PR에서 고친다(lead 결정, Q14).
+  - `workspace_test.ts`에 위 요구 테스트
+
+## context
+
+### T53 notification 계기: context watch 변화
+
+- 등급: 좁은
+- concern: platform/notifications
+- 요구: platform/notifications#R1, R3, R7
+- 자리: packages/platform/notifications/
+- 쓰는 contract: notification, documents의 ContextWatchedItemChanged event
+- 내놓는 contract: 없음
+- slice: context
+- 선행: platform#T17, documents의 ContextWatchedItemChanged contract
+- 완료: `triggers_test.ts`에 machine이 watch 변화·section 소실을 확정한 `ContextWatchedItemChanged`만 계기가 되는 R1 테스트와 notification이 새 run을 만들지 않는 R7 테스트, flow build-context의 notification 단계 통합 테스트
 
 ## apps
 
@@ -650,10 +701,11 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - 쓰는 contract: 인증 값, secret, coding-agent의 connection command와 digest·회수 read
 - 내놓는 contract: coding credential 보호 전달(신뢰 MCP·CLI loader와 TUI child)
 - slice: coding-agent
-- 선행: platform#T19, platform#T22, coding-agent의 connection contract
+- 선행: platform#T19, platform#T22, contracts#T47(`CodingAgentConnectionAuth` port와 loader 보호 전달 요청), coding-agent#T9
 - 완료: 아래 확인이 통과한다
   - 사람의 connection 결정 뒤 인증 경계가 token을 만들고 keychain에 준비하고 digest만 connection command에 제출한다. commit 실패·중단 token은 쓸 수 없고 고아를 정리한다(identity R5, secrets R12).
   - 신뢰 loader가 현재 connection·scope·process generation을 확인한 지정 child에만 non-inheritable 보호 통로로 넘긴다. 일반 shell·renderer·coding agent 요청으로는 열리지 않는다(identity R15).
+  - lophn이 [Start]로 띄운 coding TUI 프로세스 자체에는 token이 가지 않고 connection 참조만 간다. 그 TUI 아래에서 시작한 lophn MCP·CLI child가 loader로 받는다. TUI 전용 보호 전달 길은 따로 없다.
   - 회수는 keychain 삭제와 별개로 모든 새 요청에서 즉시 적용된다.
   - `coding_credential_test.ts`에 위 요구 테스트, flow connect-coding-agent의 credential 단계 통합 테스트
 
@@ -680,6 +732,22 @@ contracts 팀에 보낸다. 작업의 `선행:`에 `contracts(<이름>)`으로 �
 - slice: coding-agent
 - 선행: platform#T17, coding-agent의 event contract
 - 완료: `triggers_test.ts`에 두 계기와 claim·완료 보고 등 비계기의 R1, R2 테스트
+
+### T55 lophn daemon 시작·중지와 로컬 상태
+
+- 등급: 기본
+- concern: platform/install-and-update
+- 요구: platform/install-and-update#R10, R12
+- 자리: packages/platform/install-and-update/, apps/core/
+- 쓰는 contract: `H/run` 위치 metadata, shell의 Electron main 실행 옵션
+- 내놓는 contract: `H/run` 위치 metadata schema와 daemon 시작·중지 방법(coding-agent/cli#R8의 `lophn daemon`이 씀)
+- slice: coding-agent
+- 선행: platform#T9, contracts#T6(`H/run` metadata), shell#T51(`--tray`, second-instance `--quit`)
+- 완료: 아래 확인이 통과한다
+  - 시작: launcher가 창 없이 Electron main을 띄우고 main이 core를 띄운다. 이미 실행 중이면 두 번째 instance를 열지 않고 실행 중이라고 알린다(R10). Electron 없는 server 실행은 없다(R12).
+  - 중지: OS single-instance 통로로 실행 중인 Electron main에 명시 종료를 요청하고 main이 정상 종료 순서(T9)를 밟는다. API token이 필요 없고 coding credential을 쓰지 않는다.
+  - 상태·log: OS 사용자 권한으로 `H/run` 위치 metadata와 instance lock, `H/logs`의 안전 log를 읽는다. 원문 credential은 어디에도 없다.
+  - `daemon_test.ts`에 R10, R12 테스트
 
 ## problems
 
@@ -746,11 +814,11 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 등급: 기본
 - concern: platform/backup-and-migration
 - 요구: platform/backup-and-migration#R8, R9, R10, R11, R12
-- 자리: packages/platform/backup-and-migration/, apps/worker/ (kind `platform-io`)
+- 자리: packages/platform/backup-and-migration/, apps/worker/platform/
 - 쓰는 contract: blob
 - 내놓는 contract: backups(`/v1/backups/list·get`, manifest format 1)
 - slice: operations
-- 선행: platform#T14, platform#T40, contracts(backups·diagnostics route)
+- 선행: platform#T14, platform#T40, contracts#T45
 - 완료: 아래 확인이 통과한다
   - 하루 한 번 I/O worker가 SQLite online backup으로 snapshot S를 만들고 S의 모든 `blob_refs` blob과 사람의 설정 선택을 함께 담는다(R8, R9).
   - 그동안 GC·삭제를 막고 integrity·blob 존재·실제 sha256을 모두 통과한 묶음만 `complete=true`(R10).
@@ -769,9 +837,9 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 선행: platform#T41, platform#T22
 - 완료: 아래 확인이 통과한다
   - 사람이 잃을 S 뒤 기록 범위를 확인하면 모든 writer·worker·앱·agent를 정지하고 현재 자료를 따로 보존한 뒤 staging 검증본으로 교체한다(R13).
-  - 새 epoch·새 `ledger_id`로 실행 credential을 다시 발급하고 derived와 전송 cursor를 복원 ledger 기준으로 다시 만든다. 다른 ledger의 같은 seq를 이어 처리하지 않는다(R14).
+  - 새 epoch·새 `ledger_id`로 실행 credential을 다시 발급하고 platform의 derived(api-subscriptions)와 전송 cursor를 복원 ledger 기준으로 다시 만든다. 소유 derived는 기록한 `ledger_id`가 `platform/status`와 다르면 버리고 다시 만든다(documents#T13). 다른 ledger의 같은 seq를 이어 처리하지 않는다(R14).
   - 결정적 derived는 다시 만들고 model 요약은 같은 출력이라고 표시하지 않는다(ledger R19).
-  - `restore_test.ts`에 위 요구 테스트, flow backup-and-restore E2E(operations slice)
+  - `restore_test.ts`에 위 요구 테스트, flow backup-and-restore E2E 단계(`e2e/flows/backup-and-restore_test.ts`)
 
 ### T43 재시작 복구 조정과 기동 순서
 
@@ -794,7 +862,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 등급: 기본
 - concern: platform/blob-store
 - 요구: platform/blob-store#R8, R9, R10, R11, R13
-- 자리: packages/platform/blob-store/, apps/worker/ (kind `platform-io`)
+- 자리: packages/platform/blob-store/, apps/worker/platform/
 - 쓰는 contract: blob
 - 내놓는 contract: 없음
 - slice: operations
@@ -827,18 +895,18 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 쓰는 contract: notification, shell의 표시 경로
 - 내놓는 contract: 없음
 - slice: operations
-- 선행: platform#T17, shell의 notification 표시 작업
+- 선행: platform#T17, shell#T56
 - 완료: 아래 확인이 통과한다
   - OS 표시는 사람이 켰을 때만, redaction한 최소 제목·대상 열기만 shell main에 준다(R9).
   - 전달 실패는 retry 업무 표 없이 다음 조회에서 안전 이유로 보인다(R10). 자동 표시는 focus·문서·앱을 바꾸지 않는다(R12).
-  - `os_display_test.ts`에 위 요구 테스트, flow catch-up-notifications E2E(shell과 함께)
+  - `os_display_test.ts`에 위 요구 테스트, flow catch-up-notifications E2E 단계(shell과 함께)
 
 ### T47 doctor와 보안 진단
 
 - 등급: 기본
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R4, R5, R6, R9, R10
-- 자리: packages/platform/diagnostics/, apps/worker/ (kind `platform-io`)
+- 자리: packages/platform/diagnostics/, apps/worker/platform/
 - 쓰는 contract: redaction, apps의 grant 위험 read와 SDK hash
 - 내놓는 contract: diagnostics(`/v1/diagnostics/list·check`)
 - slice: operations
@@ -858,13 +926,13 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 쓰는 contract: 없음
 - 내놓는 contract: 없음
 - slice: operations
-- 선행: platform#T43, shell의 Electron 패키징 작업
+- 선행: platform#T43, shell#T57
 - 완료: 아래 확인이 통과한다
-  - `/opt/lophn/`에 Deno binary·platform source·lock·vendor·desktop·skills·sdk·guides(documents의 lophn 사용 안내, architecture 3.1을 같은 PR에서 고친다), `/usr/bin/lophn-desktop`·`lophn`·`lophn-mcp` launcher. 시작에 의존성 다운로드가 없다(R4, R5, R6).
+  - `/opt/lophn/`에 Deno binary·platform source·lock·vendor·desktop·skills·sdk·guides(자리는 이 작업이 정하고, 원문은 lophn-agent의 `packages/lophn-agent/roles/lophn/guides/`에서 복사한다. architecture 3.1을 같은 PR에서 고친다), `/usr/bin/lophn-desktop`·`lophn`·`lophn-mcp` launcher. 시작에 의존성 다운로드가 없다(R4, R5, R6).
   - Chromium sandbox 파일 root 소유·4755와 Ubuntu 24.04 이상에서 실제 sandbox 활성 검사. sandbox를 끈 실행은 배포 테스트 통과로 세지 않는다(R2, R3, security R4).
   - Deno cache `~/.cache/lophn/deno`를 지워도 H가 그대로다(R8). 의존성은 lock과 integrity hash로 고정(security R5).
   - 실제 build·설치·기동·앱 호출·backup restore를 Ubuntu에서 확인하기 전에는 Linux 배포를 사용 가능으로 표시하지 않는다(R1 Linux).
-  - flow install-lophn E2E(Linux)
+  - flow install-lophn E2E 단계(Linux)
 
 ### T49 macOS·Windows 설치 묶음과 OS adapter
 
@@ -875,10 +943,11 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 쓰는 contract: 없음
 - 내놓는 contract: 없음
 - slice: operations
-- 선행: platform#T48
+- 선행: platform#T48, shell#T57
 - 완료: 아래 확인이 통과한다
   - macOS `Lophn.app/Contents/Resources/`, Windows `Lophn/resources/` 묶음, 서명·공증 검증
-  - macOS Keychain·Windows Credential Manager adapter, Windows Job Object 자식 종료, IPC channel 동작(→ Q2), 소유자 전용 ACL 검사
+  - macOS Keychain·Windows Credential Manager adapter, Windows Job Object 자식 종료, 감독 frame 통로 동작(→ Q2), 소유자 전용 ACL 검사
+  - 자식 메모리 상한: Windows는 Job Object(hard), macOS는 `--v8-flags=--max-old-space-size`와 짧은 주기의 process tree RSS watchdog(넘으면 그룹 종료, soft)(lead 결정, Q10)
   - 각 OS에서 실제 설치·기동·앱 호출·backup restore를 확인하기 전에는 사용 가능으로 표시하지 않는다(R1).
 
 ### T50 lophn update 절차
@@ -894,7 +963,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 완료: 아래 확인이 통과한다
   - 사람이 새 .deb를 설치하는 수동 update만. 자동 다운로드·설치·무단 재시작 없음(R13).
   - 진행 작업과 플랫폼을 정상 정지한 뒤 설치 파일만 바꾸고 H를 초기화하지 않으며, schema 변경은 T40의 검증 복구본 뒤 migration(R14). 기술 기반은 Electron·Deno·SQLite·MCP/CLI 그대로(R15).
-  - flow update-lophn E2E
+  - flow update-lophn E2E 단계
 
 ### T51 응답성 측정 harness와 목표
 
@@ -926,6 +995,21 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 일반 앱 화면·read·command가 core·invocation 기록을 기다리지 않는다(R2). 한 앱의 무한 loop·crash가 다른 앱·shell 조작을 막지 않는다(R5, Electron main 쪽은 shell과 함께).
   - flow work-offline E2E의 응답성 단계
 
+
+### T54 operations slice flow E2E
+
+- 등급: 기본
+- concern: platform/install-and-update, platform/backup-and-migration, platform/notifications, platform/responsiveness
+- 요구: platform/install-and-update#R11, platform/backup-and-migration#R13, R15, R16, platform/notifications#R11, platform/responsiveness#R1
+- 자리: e2e/flows/
+- 쓰는 contract: platform client, contracts#T10의 E2E harness
+- 내놓는 contract: 없음
+- slice: operations
+- 선행: platform#T42, platform#T43, platform#T46, platform#T48, platform#T50, platform#T52, contracts#T10, shell#T28, shell#T56, shell#T57, shell#T58, shell#T59
+- 완료: 아래 확인이 통과한다
+  - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).
+  - `deno task e2e`에서 operations slice의 다섯 flow가 모두 통과한다.
+
 ---
 
 ## 요구 덮기
@@ -933,39 +1017,41 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 | concern | 요구 수 | 덮은 수 | 작업 |
 |---|---|---|---|
 | platform/api | 7 | 7 | T4, T6, T12 |
-| platform/approvals | 17 | 17 | T21, T22, T23, T32 |
-| platform/backup-and-migration | 18 | 18 | T1, T7, T40, T41, T42, T43 |
+| platform/approvals | 17 | 17 | T21, T22, T23, T32, T56 |
+| platform/backup-and-migration | 18 | 18 | T1, T7, T40, T41, T42, T43, T54 |
 | platform/blob-store | 13 | 13 | T13, T14, T44 |
 | platform/diagnostics | 12 | 12 | T6, T8, T9, T38, T47 |
-| platform/identity | 15 | 15 | T5, T6, T11, T14, T24, T34 |
-| platform/install-and-update | 15 | 15 | T9, T43, T48, T49, T50 |
+| platform/identity | 15 | 15 | T5, T6, T11, T14, T24, T34, T57 |
+| platform/install-and-update | 15 | 15 | T9, T43, T48, T49, T50, T54, T55 |
 | platform/ledger | 23 | 23 | T1, T2, T3, T4, T9, T18, T24, T42 |
-| platform/notifications | 12 | 12 | T17, T29, T33, T36, T39, T46 |
-| platform/redaction | 17 | 17 | T8, T15, T16, T37 |
-| platform/responsiveness | 10 | 10 | T8, T10, T11, T12, T51, T52 |
+| platform/notifications | 12 | 12 | T17, T29, T33, T36, T39, T46, T53, T54 |
+| platform/redaction | 17 | 17 | T8, T15, T16, T37, T57 |
+| platform/responsiveness | 10 | 10 | T8, T10, T11, T12, T51, T52, T54 |
 | platform/secrets | 12 | 12 | T19, T20, T31, T34, T45 |
 | platform/security | 11 | 11 | T6, T7, T20, T28, T30, T48 |
 | platform/settings | 31 | 31 | T25, T26, T27, T35 |
 | 합 | 213 | 213 | |
 
-slice별 작업 수: skeleton 10, documents 6, context 1, agent 13, apps 3, coding-agent 3, problems 3, operator 0, operations 13. 모두 52개.
+slice별 작업 수: skeleton 10, documents 7, agent 15, context 1, apps 3, coding-agent 4, problems 3, operator 0, operations 14. 모두 57개. (context slice는 documents와 agent 뒤다. 번호는 다른 팀에 알린 뒤 바꾸지 않으므로 T53–T57은 자기 slice 자리에 있다.)
 
 ## 질문
 
 추천안으로 계획을 썼다. lead가 다르게 정하면 고친다.
 
-- **Q1 core 모듈 자리.** architecture 2.2의 `commands`, `reads`, `events`, `supervisor`는 code-map에 줄이 없다. 추천: command·read·event는 `packages/platform/ledger/`, 신뢰 child 감독은 `packages/platform/responsiveness/`에 두고 architecture/platform.md 2.2를 code-map에 맞게 T1·T7 PR에서 고친다.
-- **Q2 상속 pipe.** architecture의 "상속된 비공개 pipe"를 Node IPC channel(`stdio` 'ipc', `process.send`)로 구현한다. Linux에서 Node 부모→Deno 자식, Deno 부모→Deno 자식 모두 확인했다. Node 부모가 준 fd 3 pipe는 Deno 자식에서 EBADF라 쓸 수 없었다. Windows·macOS는 T49에서 확인한다.
-- **Q3 다른 팀의 통합 테스트가 core를 띄우는 법.** 의존 규칙상 `packages/<팀>/`은 platform을 import할 수 없다. 추천: `apps/core/harness.ts`(메모리 SQLite·임시 H·모듈 등록)를 테스트 파일만 import해도 된다는 예외를 code-map 의존 규칙에 더한다(lead).
-- **Q4 여러 팀이 같이 쓰는 entry.** `apps/core`와 `apps/worker`를 모든 팀이 고친다. 추천(apps 팀 제안과 같음): `apps/core/modules/<팀>.ts`와 `apps/worker/kinds/<kind>.ts`를 팀마다 소유하고, `apps/core/main.ts`·`apps/worker/main.ts`의 목록에는 팀이 한 줄씩만 더한다. 목록 파일은 platform 자리다.
-- **Q5 `events.run` FK.** domain model은 `events.run → runs.id`인데 run 표(lophn-agent)는 skeleton에 없다. 추천: 첫 release 전까지 schema step은 고쳐 쓸 수 있고 개발 데이터는 다시 만든다. run 표가 들어올 때 schema 조립 순서에서 run 표를 앞에 두고 FK를 더한다.
-- **Q6 blob 준비 통로.** 문서 worker 같은 신뢰 프로세스가 큰 바이트를 I/O worker로 보내는 길이 architecture에 정해지지 않았다. 추천: I/O worker가 loopback 전용 stream 입구를 열고, 보내는 쪽은 자기 machine credential로 인증하며 I/O worker가 core에 자격을 확인한다. 새 token 종류를 만들지 않고 core event loop로 바이트를 중계하지 않는다.
-- **Q7 OS keychain 접근.** 일반 `--allow-ffi` 금지와 keychain 호출이 부딪힌다. 추천: I/O worker 안 OS adapter 진입점에서만 Linux `secret-tool`(값은 stdin), macOS `security`(값은 prompt 입력으로), Windows Credential Manager는 그 진입점에 한정한 FFI. 값이 argv·환경 변수에 가지 않는 방법만 쓴다.
-- **Q8 problems의 상시 worker.** problems 팀은 report collector와 test runner control을 core가 상시 감독하는 `apps/worker` kind로, 실제 test 자식만 요청마다 띄우자고 한다. architecture/platform 2.1은 "상시 5개, test runner는 bounded"라고 적었다. 추천: 동의한다. supervisor가 kind마다 상시·요청 시 정책을 받고 architecture 2.1 문장을 고친다.
-- **Q9 worker 전달 route kind.** documents의 원본 파일 읽기(`file`)와 problems의 report·request-test는 core가 인증만 하고 worker로 넘겨야 한다. `file`은 architecture에 있고, JSON을 넘기는 `worker` kind를 더하는 contract 변경을 contracts 팀에 요청한다(T12).
-- **Q10 test 자식 메모리 상한.** 추천: Linux는 cgroup v2(`systemd-run --user --scope -p MemoryMax=512M`), Windows는 Job Object 메모리 상한. macOS는 process 전체 상한을 강제할 수단이 없어 앱 test가 `unavailable`이 된다. macOS에서 앱 test를 못 돌리는 것이 받아들일 만한지 lead 확인이 필요하다.
-- **Q11 command_results의 다른 principal 조회.** problems 팀은 RequestTest 접수를 별도 표 없이 `command_results`로 남기고 principal+command+key로 읽자고 한다. architecture는 자기 principal의 결과만 읽게 한다. 추천: 자기 principal만 유지하고, runner 복구에 다른 principal의 기록이 필요하면 problems 소유 표를 둔다.
-- **Q12 ledger 식별.** restore 뒤 derived가 다른 ledger의 같은 seq를 이어 처리하지 않으려면(backup-and-migration#R14) 소유 worker가 ledger 교체를 알아야 한다. 추천: `platform/status`에 `ledger_id`(ledger를 만들거나 복원할 때마다 새 값)를 두고 derived 출처에 함께 적는다.
-- **Q13 공통 오류 코드 수.** docs/dev/architecture.md는 6개, architecture/platform.md와 domain model은 `internal`을 더한 7개다. 추천: 7개로 맞추고 dev/architecture.md를 고친다(lead).
-- **Q14 workspace relay.** shell 팀이 core 메모리에 현재 workspace 보기를 두는 platform/api 소유 endpoint를 제안했다고 lophn-agent 팀이 전했다(runtime이 turn 시작에 `{session}`으로 읽는다). architecture/platform 5.1은 "위 목록이 platform 소유 경로의 전부"라 새 route는 architecture 변경이다. shell 팀의 제안을 받으면 작업을 더하고, 그 전까지 계획에 넣지 않는다(lead 확인).
-- **Q15 앱 연결 진술.** apps 팀 제안: AppConnection·ConfirmExecutionProof는 새 token·actor가 아니라 core 안 apps 제어 adapter가 core 시작마다 만든 Ed25519 key로 서명한 진술이고, 기한은 AppConnection 최대 10분(원래 credential 기한 이하), proof 120초다. platform은 `credential_ref`·기한만 주고 회수는 소유 event(grant 회수, assignment 멈춤, connection 회수, run 종료)와 core epoch로 판단한다. 추천: 동의한다. 별도 platform 회수 event는 만들지 않는다.
+- **Q1 core 모듈 자리(lead 결정: 추천대로).** architecture 2.2의 `commands`, `reads`, `events`, `supervisor`는 code-map에 줄이 없다. 추천: command·read·event는 `packages/platform/ledger/`, 신뢰 child 감독은 `packages/platform/responsiveness/`에 두고 architecture/platform.md 2.2를 code-map에 맞게 T1·T7 PR에서 고친다.
+- **Q2 감독 통로(정함).** architecture의 "상속된 비공개 pipe"를 child의 stdin·stdout pipe 위 길이 prefix binary frame(JSON 제어 frame과 byte chunk frame)으로 정했다. 모든 신뢰 child와 Electron main↔core가 같은 codec(contracts#T6)을 쓴다. Node IPC channel은 JSON만 실어 blob·file 바이트에 맞지 않고, Node 부모가 준 fd 3 pipe는 Deno 자식에서 EBADF였다(Linux에서 확인). architecture 2.4의 "stdout을 제어 통로로 쓰지 않는다"는 "stdout은 감독 frame 전용, 그 밖의 출력은 stderr, stderr는 제어·성공 근거가 아니다"로 T7 PR에서 고친다.
+- **Q3 다른 팀의 통합 테스트가 core를 띄우는 법(lead 결정).** 다른 팀 `*_test.ts`는 `apps/core/testing/`만 import할 수 있다(code-map에 반영됨). harness는 T9가 만든다.
+- **Q4 여러 팀이 같이 쓰는 entry(lead 결정).** platform이 skeleton에서 registry를 만들고(T8, T9), 각 팀은 `apps/core/<팀>.ts`와 `apps/worker/<팀>/`만 고친다.
+- **Q5 `events.run` FK(lead 결정: 추천대로).** domain model은 `events.run → runs.id`인데 run 표(lophn-agent)는 skeleton에 없다. 추천: 첫 release 전까지 schema step은 고쳐 쓸 수 있고 개발 데이터는 다시 만든다. run 표가 들어올 때 schema 조립 순서에서 run 표를 앞에 두고 FK를 더한다.
+- **Q6 blob 준비 통로(정함).** 문서 worker 같은 신뢰 child는 감독 pipe의 byte chunk frame으로 바이트를 보내고, core는 해석·hash 없이 backpressure를 지키며 I/O worker로 넘긴다. hash·fsync·설치는 I/O worker만 한다. 새 endpoint·token 종류를 만들지 않는다. file route(T12)의 바이트도 같은 길이다.
+- **Q7 OS keychain 접근(lead 결정: 추천대로).** 일반 `--allow-ffi` 금지와 keychain 호출이 부딪힌다. 추천: I/O worker 안 OS adapter 진입점에서만 Linux `secret-tool`(값은 stdin), macOS `security`(값은 prompt 입력으로), Windows Credential Manager는 그 진입점에 한정한 FFI. 값이 argv·환경 변수에 가지 않는 방법만 쓴다.
+- **Q8 problems의 상시 worker(lead 결정: 추천대로).** problems 팀은 report collector와 test runner control을 core가 상시 감독하는 `apps/worker` kind로, 실제 test 자식만 요청마다 띄우자고 한다. architecture/platform 2.1은 "상시 5개, test runner는 bounded"라고 적었다. 추천: 동의한다. supervisor가 kind마다 상시·요청 시 정책을 받고 architecture 2.1 문장을 고친다.
+- **Q9 worker 전달 route kind(lead 결정: 추천대로).** documents의 원본 파일 읽기(`file`)와 problems의 report·request-test는 core가 인증만 하고 worker로 넘겨야 한다. `file`은 architecture에 있고, JSON을 넘기는 `worker` kind를 더하는 contract 변경을 contracts 팀에 요청한다(T12).
+- **Q10 test 자식 메모리 상한(lead 결정).** Linux는 cgroup v2, Windows는 Job Object로 hard 강제한다. macOS는 unavailable로 두지 않고 V8 heap 상한(`--max-old-space-size`)과 process tree RSS watchdog으로 soft 강제한다. interface가 방식(`hard`|`soft`)을 돌려주고 test result에 남긴다(T30, T49).
+- **Q11 command_results의 다른 principal 조회(정함).** `command_results`는 platform 표이고 자기 principal의 결과만 읽힌다(`commands/result`). owner read에 다른 principal 조회를 열지 않는다. problems의 test 요청처럼 요청자와 runner가 함께 봐야 하는 기록은 problems 소유 append-only 표로 둔다(problems 팀에 알림).
+- **Q12 ledger 식별(lead 결정: 추천대로).** restore 뒤 derived가 다른 ledger의 같은 seq를 이어 처리하지 않으려면(backup-and-migration#R14) 소유 worker가 ledger 교체를 알아야 한다. 추천: `platform/status`에 `ledger_id`(ledger를 만들거나 복원할 때마다 새 값)를 두고 derived 출처에 함께 적는다.
+- **Q13 공통 오류 코드 수(lead 결정).** internal을 포함한 7개다. lead가 docs/dev/architecture.md를 고쳤다.
+- **Q14 workspace relay(lead 결정).** shell 팀 제안을 받아 T57(agent slice)로 더했다. core 메모리에만 두고 shell main이 쓰고 agent runtime이 자기 session만 읽는다. architecture/platform 5.1을 같은 PR에서 고친다.
+- **Q15 앱 연결 진술(lead 결정: 추천대로).** apps 팀 제안: AppConnection·ConfirmExecutionProof는 새 token·actor가 아니라 core 안 apps 제어 adapter가 core 시작마다 만든 Ed25519 key로 서명한 진술이고, 기한은 AppConnection 최대 10분(원래 credential 기한 이하), proof 120초다. platform은 `credential_ref`·기한만 주고 회수는 소유 event(grant 회수, assignment 멈춤, connection 회수, run 종료)와 core epoch로 판단한다. 추천: 동의한다. 별도 platform 회수 event는 만들지 않는다.
+- **Q16 coding connection 생성 결정(정함).** architecture/platform 5.6 표(`coding_agent`는 "confirmation window의 connection 결정 뒤 발급")와 마지막 절("보호 화면의 exact scope 결정")이 coding-agent/connection#R2·D19(사람의 harness 연결·범위 선택이 허락, 확인 창 없음, 회수만 confirmation window)와 부딪힌다. platform/identity#R5도 "사람의 harness 연결 선택"이다. architecture를 R2에 맞춰 T5 PR에서 고친다.
+- **Q17 confirmation handle 시점(정함).** documents slice의 파일 지우기(organize-documents)가 confirmation window를 쓴다. 그래서 handle 발급·검증·소비를 T56(documents slice)으로 떼었고, approval의 허락·거절만 T22(agent slice)에 남겼다.

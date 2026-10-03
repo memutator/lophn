@@ -16,7 +16,6 @@ concerns: [documents]
 - 테스트 이름은 요구 번호로 시작한다: `Deno.test("documents/versions#R3: 같은 내용과 format 계약의 저장은 기존 판을 돌려준다", ...)`. 시각·id·무작위 값은 `packages/base`의 interface로 주입한다. 파일 시나리오는 `fixtures/projects/`를 임시 폴더에 복사해 쓴다.
 - 통합 테스트는 core를 메모리 SQLite와 임시 data root로 띄우고 API(`POST /v1/<resource>/<method>`)로 부른다. documents worker가 필요한 테스트는 실제 coordinator·준비 worker 프로세스를 띄운다.
 - core 등록은 `apps/core/documents.ts`, worker kind 조립은 `apps/worker/documents/`만 고친다. registry는 platform이 만든다(lead 결정 Q1).
-- 선행의 `<팀>#?(무엇)`은 그 팀 계획의 작업 id가 정해지면 바꾼다.
 
 ## slice: skeleton
 
@@ -50,7 +49,7 @@ concerns: [documents]
 - 쓰는 contract: platform 신뢰 child 감독(감독 pipe, ready, machine credential 전달), platform blob 준비 pipe, contracts#T6의 신뢰 child pipe framing(작업 요청·응답·byte chunk frame; documents 안에 따로 codec을 만들지 않는다)
 - 내놓는 contract: 없음 (core↔coordinator↔준비 worker 내부 IPC)
 - slice: documents
-- 선행: platform#T7(신뢰 child 감독), platform#T9(core entry), contracts#T6(감독 pipe), contracts#T15
+- 선행: platform#T7(신뢰 child 감독), platform#T8(worker entry와 kind 목록), platform#T9(core entry와 registry), contracts#T6(감독 pipe), contracts#T15
 - 완료:
   - coordinator 1개가 준비 worker 2 slot을 띄우고 crash 시 그 slot을 새 프로세스로 채운다. 한 slot은 사람이 기다리는 요청을 먼저 받고, 기다리는 요청이 없으면 두 slot 모두 background
   - contracts#T6 framing 위에 `request_id, operation, input_ref, basis` 요청과 제한된 chunk를 싣는다. IPC 종료는 진행 요청의 `unavailable`이지 성공이 아니다. stderr에 본문·token을 쓰지 않는다
@@ -149,7 +148,7 @@ concerns: [documents]
   - create는 tracking.enabled=false만 받는다. 기본 제안 값(`**/*.md`, .gitignore 적용)은 read가 돌려준다
   - 켜진 tracking root 겹침(같은 실제 폴더, 조상·자손) 검사를 순수 함수로 두고 unarchive에서 쓴다(set_tracking은 T10)
   - 사람 read: 이름·목적·폴더 설명·문서 수·패턴·.gitignore 적용. agent read: 등록 목록·연결 project·읽을 자료 참조, 실제 경로·파일 목록 없음
-  - resolve: 가장 깊은 등록 root(꺼진 중첩 root 포함), 내용 유사도로 재연결하지 않음
+  - resolve: 가장 깊은 등록 root(꺼진 중첩 root 포함), 내용 유사도로 재연결하지 않음. coding agent가 cwd로 resolve하면 project 참조만 돌려주고 경로·원본 연결은 만들지 않음
   - 이름 변경은 같은 transaction에서 place 예약, 보관은 문서·판을 지우거나 일괄 보관하지 않음
   - `commands_test.ts`, `reads_test.ts`, `model_test.ts`에 각 요구 번호 테스트, API 통합 테스트
 
@@ -224,7 +223,7 @@ concerns: [documents]
   - 제출은 FileObservationBasis(project, project_revision, path, document_revision, file_source, active, original_hash, observed_at)와 함께 machine `document.save`. 규칙·source·최신 판·보관·root 제거가 바뀌었으면 conflict 뒤 재관측
   - `documents.source_path` 하나가 경로↔문서 대응이고 목록·scan·편집이 같은 read를 쓴다. 원본 연결 문서의 직접 내용 저장은 conflict, 파일 삭제·tracking 해제로 연결이 자동으로 사라지지 않음
   - FileStatus: 추적 안 함, 추적 중인 판, version 대기, format 검사 실패, 원본 없음, 미확인 + 관측 시각·비교 판. 꺼진 동안 여러 번 고친 파일은 현재 내용만 준비
-  - root 추가·해제 때 platform 감독에 새 권한 목록으로 worker 교체를 요청하고 재scan
+  - launch spec(활성 root 목록으로 만든 allow-read·allow-write)은 `apps/core/documents.ts`가 선언한다. root 추가·해제로 spec이 바뀌면 platform#T7이 documents worker만 정상 정지 뒤 새 권한으로 다시 띄우고, coordinator는 시작 때 전체 root를 재scan
   - `work_test.ts`(T1 시나리오: 꺼진 동안 고침, watch 넘침, 지우고 재생성, 이름 변경, 읽는 중 교체, 같은 size·mtime 수정, 규칙 변경·source 재연결·보관·권한 상실을 준비와 확정 사이에 끼움)와 `model_test.ts`에 각 요구 번호 테스트. 파일 3,000개 변경 중 다른 root의 작은 저장과 고정 판 read가 응답하는 통합 테스트
 
 ### T12 사람 파일 쓰기와 working copy
@@ -236,7 +235,7 @@ concerns: [documents]
 - 쓰는 contract: platform 인증(user만, machine credential)·command, route kind=file, shell confirmation window(files.delete 근거), 저장 준비 경로(T8), 파일 관측(T11)
 - 내놓는 contract: 파일 쓰기(`/v1/files/list`, `/read`, `/status`, `/watch`, `/write`, `/rename`, `/delete`, `/record_result`; FileTarget, FileWriteRequest, FileOperationResult); event `FileWritten`, `FileRenamed`, `FileDeleted`
 - slice: documents
-- 선행: T8, T11, platform#T12(file·worker 전달 route), contracts#T13(confirmation window), contracts#T16
+- 선행: T8, T11, platform#T12(file·worker 전달 route), platform#T56(confirmation handle), contracts#T13(confirmation window), contracts#T16
 - 완료:
   - user만 원본 파일 통로를 쓴다. agent·coding agent·app·MCP·CLI 자격은 forbidden
   - 같은 canonical 목표의 작업 직렬화, 시작에 base_hash 대조, 같은 디렉터리 임시 파일 exclusive-create·stream·sync, 교체 직전 경계·file identity·hash 재검사, atomic replace, 새 파일은 no-replace 설치, 가능한 OS에서 부모 디렉터리 sync. 원자 교체 불가면 실패(truncate·복사 덮어쓰기 없음)
@@ -244,6 +243,7 @@ concerns: [documents]
   - FileOperationResult는 파일 결과·기록 결과·version_result(not_requested, preparing, validation_failed, conflict, confirmed)를 따로. 성공한 파일 작업마다 `file.record_result`로 event 하나, `(request_key, operation)` 중복 방지. 응답 유실에 자동 재쓰기 없음
   - 자동 저장은 파일 쓰기만, 명시 저장·편집 종료가 version 준비 경계. 지정 format 검사 실패는 파일을 되돌리지 않는다
   - 원본 없는 문서는 선택 판으로 만든 working copy를 편집하고, 새 최신 판과 충돌하면 working copy를 남긴 채 새 기준을 돌려준다. 자동 project·문서 생성 없음, 앱 source 자동 추적 없음
+  - files.delete는 등록 때 confirmation handle 필요를 선언하고, core의 handle registry가 worker로 넘기기 전에 handle을 대상(canonical 경로, base_hash, delete)과 함께 메모리에서 원자적으로 검증·소비한다(platform#T56). 넘긴 뒤 conflict여도 handle은 소비된 채 사람이 다시 확인한다. ledger 접수 command는 두지 않는다. ApprovalRequest는 쓰지 않는다
   - `files_test.ts`(교체 직전·직후 종료, no-replace 경쟁, 외부 수정 409, 권한·용량 503, 본문 없는 log), `commands_test.ts`, `working-copy_test.ts`에 각 요구 번호 테스트, API 통합 테스트
 
 ### T13 derived store와 검색
@@ -255,7 +255,7 @@ concerns: [documents]
 - 쓰는 contract: platform event 구독·read(seq S의 일관된 snapshot, scope 후보 필터)·redaction·blob read, format 실행(T4)
 - 내놓는 contract: outline·search 읽기 중 `/v1/search/query`, `/v1/search/status`(SearchResult, IndexCoverage), derived 삭제 뒤 재생성(platform#T42 restore가 씀)
 - slice: documents
-- 선행: T4, T6, contracts#T18, platform#T4, platform#T15(redaction 규칙 엔진)
+- 선행: T4, T6, contracts#T18, platform#T3, platform#T4, platform#T15(redaction 규칙 엔진)
 - 완료:
   - `derived_versions`, `derived_sections`, `derived_texts`, `search_documents`, `search_rows`, `search_fts`(FTS5 `tokenize='trigram'`), `summary_cache`, `derived_cursors`, `watch_unverified`. coordinator가 유일한 writer, 별도 read 연결
   - consumer 결과·FTS 교체·cursor는 한 derived transaction. 실패 판은 이유를 남기고 cursor가 진행돼도 omissions를 돌려준다. 재생성·재파생은 ledger에 아무것도 쓰지 않는다
@@ -264,7 +264,7 @@ concerns: [documents]
   - 보관 문서·보관 자리는 현재 ledger 상태로 기본 결과에서 뺀다(낡은 index 행이 있어도). 해제 뒤 비동기 반영
   - 같은 대상의 재파생·목록 무효화는 500ms 합침, move는 출발·도착 자리와 관련 Context 갱신, 대상 불명 event는 전체 무효화
   - 요약 없으면 원문 서문 200 codepoint 발췌(요약과 구분). 요약을 만들려고 model·agent run을 시작하지 않음
-  - 삭제·손상 시 seq S snapshot으로 `documents.rebuild.sqlite`를 만들고 따라잡은 뒤 교체, 그동안 `rebuilding=true`
+  - 삭제·손상 시 한 read transaction에서 현재 자료와 as_of_seq=S를 함께 받아(platform#T3) `documents.rebuild.sqlite`를 만들고 S 다음부터 구독으로 따라잡은 뒤 교체, 그동안 `rebuilding=true`. derived가 기록한 `ledger_id`가 `/v1/platform/status`와 다르면(복원 뒤) derived를 버리고 재생성
   - 권한 밖 ID는 후보 단계에서 빼고 count·rank·page도 허용 집합에서. agent 출력은 redaction
   - `work_test.ts`, `reads_test.ts`에 각 요구 번호 테스트(T1 korean-search로 2글자·3글자 한글, index 삭제 후 재생성, 실패 주입 시 빈 결과와 실제 빈 결과 구별)
 
@@ -368,7 +368,7 @@ concerns: [documents]
 - 쓰는 contract: platform command·인증, shell confirmation window(파일 삭제 근거), 사람 파일 쓰기(T12), address 이동(T9), tracking(T10)
 - 내놓는 contract: `document.set_source`, 두기·빼기 요청(파일 쓰기 contract 안의 동작); event `DocumentSourceChanged`
 - slice: documents
-- 선행: T9, T10, T12
+- 선행: T9, T10, T12, platform#T56
 - 완료:
   - 두기: tracking이 켜진 project만(꺼졌으면 conflict). 최신 고정 판 바이트를 no-replace로 쓰고, 패턴 밖이면 그 파일 하나의 include를 `project.set_tracking`으로, `document.move`, `document.set_source`를 각각 현재 CAS로 확정. 파일 성공 뒤 연결 확정 실패는 파일을 남기고 따로 표시
   - 빼기: 디스크 hash가 최신 판 원문과 같을 때만 파일 삭제, 다르면 conflict로 파일을 남김
@@ -399,7 +399,7 @@ concerns: [documents]
 - 쓰는 contract: shell 화면, fake provider 없음(model 없는 갈래만)
 - 내놓는 contract: 없음
 - slice: documents
-- 선행: T11–T20, contracts#T10(E2E harness), shell#?(launcher·project-workspace·document 편집기·documents 화면·projects 화면)
+- 선행: T11–T20, contracts#T10(E2E harness), shell#T9, T13–T20, T22, T23(첫 창, layout, project-workspace, launcher 등록·미리보기, document 편집기·저장·이력, documents 화면, projects 화면, 파일 지우기 확인)
 - 완료:
   - first-project 1~8과 다른 갈래(겹침 거절, 접근 상실, format 검사 실패, 미지원 형식)
   - project-workspace의 문서 단계(1, 2, 7과 저장 실패 갈래). 터미널·앱 패널 단계는 shell·apps slice
@@ -510,7 +510,7 @@ concerns: [documents]
 - 쓰는 contract: shell 화면, contracts#T10 E2E harness와 fake provider
 - 내놓는 contract: 없음
 - slice: context
-- 선행: T22–T26, contracts#T10, shell#?(contexts 화면·conversation 화면), lophn-agent#T42(context·term tool과 revert 연결), lophn-agent#T43(Context Engineer 역할), lophn-agent#T29(question option 적용), lophn-agent#T34(revert)
+- 선행: T22–T26, contracts#T10, shell#T36(contexts 화면), shell#T27(대화 도크), shell#T28(질문 칸), shell#T29(revert 확인), lophn-agent#T42(context·term tool과 revert 연결), lophn-agent#T43(Context Engineer 역할), lophn-agent#T29(question option 적용), lophn-agent#T34(revert)
 - 완료:
   - context slice는 agent slice 뒤라 model 단계까지 돈다(lead 결정 Q4). Context Engineer는 fake provider script로 움직인다
   - build-context 1~8과 다른 갈래(담당 없음, 목적 미정, section 소실·미확인, 범위 밖 자료, 보관·제거, revert 충돌, 연결 끊김)
@@ -525,10 +525,10 @@ concerns: [documents]
 - concern: documents/file-tracking, documents/versions
 - 요구: documents/file-tracking#R19, R20, documents/versions#R19, R20
 - 자리: packages/documents/file-tracking/ (FileTarget·FileObservationBasis의 instruction_file 가지, 등록 파일 관측), packages/documents/versions/ (instruction_file source·VersionSource, 지침 문서 write 보호)
-- 쓰는 contract: contracts#T27의 InstructionLocation·Attachment exact 등록 read와 지침 대상 판정 port(T15·T16의 instruction_file 참조를 이 type으로 좁힘), platform 인증·command
+- 쓰는 contract: contracts#T27의 InstructionLocation·InstructionAttachment 값(T15·T16의 instruction_file 참조를 이 type으로 좁힘), `/v1/presets/instruction-attachments` read, Tx 안의 지침 첨부 판정 port(tx.port, 요청함), platform 인증·command. LOPHN.md 자리 규칙(전역·project·app)은 documents가 instruction_file source로 스스로 판정
 - 내놓는 contract: 파일 쓰기와 저장 준비 contract의 instruction_file 가지, 지침 대상(등록 locator 또는 preset 첨부)의 현재 확정 판 read와 지침 문서 여부 표시(lophn-agent/instructions#R3, R6이 씀)
 - slice: agent
-- 선행: T12, T19, contracts#T27(지침 등록 값 InstructionLocation·Attachment와 지침 대상 판정 port; lophn-agent 구현 T18은 이 작업 뒤)
+- 선행: T12, T19, contracts#T27(지침 값·첨부 read·첨부 판정 port; lophn-agent 구현 T18은 이 작업 뒤)
 - 완료:
   - 전역 `~/.lophn/LOPHN.md`·project·app LOPHN.md·preset 첨부 지침은 exact 등록 파일만 관측(data root 재귀 tracking·부모 순회·cwd 추측 없음), owner·실제 열린 파일·symlink·UTF-8·hash 검사
   - 최초 생성은 미존재 CAS, 저장·복원은 base_hash와 base_version CAS 뒤 재관측으로 새 판. 파일이 없으면 첫 저장 전에는 version 없음, agent가 빈 파일을 만들지 않음
@@ -593,7 +593,7 @@ concerns: [documents]
 - concern: documents/versions
 - 요구: documents/versions#R14
 - 자리: packages/documents/versions/
-- 쓰는 contract: contracts#T27의 assignment(Operator의 기존 출력 Document 판정), platform 인증
+- 쓰는 contract: contracts#T27의 `/v1/assignments/outputs`와 Tx 안의 Operator 출력 판정 port(tx.port, 요청함), platform 인증
 - 내놓는 contract: 없음 (document.save가 판정 port를 부른다)
 - slice: operator
 - 선행: T30, contracts#T27, lophn-agent#T52(ApplyOperatorAssignment와 outputs)

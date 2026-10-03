@@ -1,0 +1,1112 @@
+---
+type: plan
+concerns: [shell]
+---
+# shell 계획
+
+최상위 concern `shell`의 leaf 8개(desktop, workspace, terminal, confirmation-window, app-frame, editor, wording, design-system)를 만든다. 코드 자리는 `apps/shell/`(main, preload, ipc, renderer, renderer/overlay, renderer/confirmation, terminal-host, gallery), `packages/design/`(token, 컴포넌트, 읽기 스타일, wording catalog), `packages/sdk/tokens`, `packages/sdk/ui-*`다.
+
+- 화면은 화면마다의 명세 없이 `docs/ui-ux/README.md`의 전역 규칙, shell requirements, 각 flow의 사람 단계로 만든다. 화면에는 지금 필요한 것만 보이고 나머지는 펼쳐 본다(G1, G2). 화면 문구는 wording key와 en 값으로만 쓴다.
+- 화면 작업은 frontend 등급이다. main·terminal host·보안 경계는 기본 등급이다.
+- slice의 flow E2E는 `docs/plan/README.md`의 E2E 담당 팀이 쓴다. shell 작업은 그 E2E의 선행이다. shell 작업의 완료는 단위 테스트(`deno test`, `node --test`), gallery 등록과 screenshot, 그리고 실제 Electron이 필요한 확인은 `e2e/` harness의 shell 통합 테스트(`e2e/shell/`)다.
+- 이전 lophn(`/home/pyosechang/projects/lophn-legacy`)은 `docs/dev/legacy.md`대로 골라서 가져온다. 작업마다 "가져올 것"에 적었다. `v2-*` 파일, `bridge.ts`, 구 daemon client·token, permit·lease·execution 계약, 접근성 전용 코드, 테스트는 가져오지 않는다. 이름과 storage key의 판 표시(`v1`, `5.0` 같은 주석)는 지운다.
+- 이름은 apps와 맞춘다: 앱 화면은 `screen`(+`size`), main이 view마다 만드는 식별은 `view_session`이다. `docs/architecture/shell.md`의 `surface`·`viewId`·`packages/shell/design-system`·`renderer/wording` 표기는 T1에서 code-map과 이 이름으로 고친다.
+
+## 공통 테스트 방식
+
+- main(npm): Electron API는 작은 adapter interface 뒤에 두고 `node --test`에서 가짜를 끼운다. 시각·id·무작위 값은 주입한다.
+- renderer와 `packages/design`: `deno test`와 happy-dom으로 컴포넌트 동작을 본다. 모양은 gallery screenshot이 본다.
+- 실제 Electron(native view, overlay, modal, sandbox, PTY): `e2e/` harness(contracts#T10)의 `e2e/shell/*_test.ts`. `deno task e2e`로 돈다.
+- 테스트 이름은 요구 번호로 시작한다: `shell/terminal#R7: 숨긴 탭의 출력이 10,000줄을 넘으면 오래된 줄부터 뺀다`.
+
+## skeleton
+
+### T1 shell 작업 공간, build, check 연결
+
+- 등급: 기본
+- concern: shell/desktop, shell/design-system
+- 요구: shell/desktop#R17
+- 자리: apps/shell/main/(package.json, package-lock.json, tsconfig.json, build.mjs), apps/shell/preload/, apps/shell/ipc/, apps/shell/renderer/(deno.json, build.ts), packages/design/deno.json, docs/architecture/shell.md, docs/dev/stack.md
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: contracts#T1
+- 완료: 아래 확인이 통과한다
+  - `apps/shell/main`은 npm·TypeScript strict(`erasableSyntaxOnly`, `allowImportingTsExtensions`, `noEmit`)로 typecheck하고 esbuild로 main과 preload 세 개(shell, confirmation, app)를 각각 한 파일로 묶는다. sandbox preload는 `electron` 말고 아무것도 require하지 않는다. main은 `packages/contracts`·`packages/base`의 `.ts` 원본과 같은 판의 `zod`(4.6.5)를 쓴다.
+  - `npm --prefix apps/shell/main run check`가 `tsc --noEmit`과 `node --test`를 돌고 `deno task check` 4단계에서 돈다.
+  - `apps/shell/renderer`는 Deno workspace member이고 `deno bundle --platform=browser`로 shell·overlay·confirmation entry를 만든다. CSS Modules(`*.module.css`)와 `packages/design`을 같이 묶는다. 글꼴 woff2는 bundle 옆으로 복사한다.
+  - main과 renderer는 서로의 실행 코드를 import하지 않는다. 공유하는 IPC schema는 `apps/shell/ipc/`의 Zod schema 하나다.
+  - `desktop_build_test`: `shell/desktop#R17` 두 build가 각각 산출물을 만들고 renderer가 `packages/design`의 같은 token 모듈을 쓴다.
+  - `docs/architecture/shell.md`의 코드 자리와 이름을 code-map·apps와 맞춘다(packages/design, packages/design/wording, apps/shell/ipc, screen, view_session).
+  - 더한 의존성(electron, esbuild, react, react-dom, happy-dom)을 판과 이유와 함께 `docs/dev/stack.md`에 적는다.
+- 가져올 것: legacy `apps/desktop/renderer/build.ts`(deno bundle 방식), `apps/desktop/main/tsconfig.json`. `build-v2-client.ts`는 가져오지 않는다.
+
+### T2 Electron main: 창, single instance, 보안 기본값, shell scheme
+
+- 등급: 기본
+- concern: shell/desktop, shell/app-frame
+- 요구: shell/desktop#R11(창), R12, R16, R22(최소 창), R23, shell/app-frame#R3, R4, R23
+- 자리: apps/shell/main/desktop/(window.ts, single-instance.ts, security.ts, shell-protocol.ts, ipc-guard.ts), apps/shell/preload/shell.ts
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: shell#T1
+- 완료: 아래 확인이 통과한다
+  - 데이터 root별 `requestSingleInstanceLock`. 두 번째 시작은 등록된 창 열기 intent만 기존 main에 넘기고 argv의 URL·파일·명령은 실행하지 않는다.
+  - session을 만들기 전에 `app.setPath('userData', '<home>/shell/browser')`.
+  - 모든 BrowserWindow·WebContentsView에 `sandbox`, `contextIsolation`, `webSecurity`, Node integration 셋 끔, `webviewTag: false`, `allowRunningInsecureContent: false`. packaged build에서는 devtools를 열지 않는다.
+  - 시스템 제목 표시줄 없음. macOS 신호등 자리 80px, Windows·Linux 창 버튼 자리 138px. 최소 창 960×600px. 창 제목은 main이 검증한 공간 이름 + ` — lophn`.
+  - `lophn-shell://` handler는 설치 파일만 safe join으로 내주고 CSP를 붙인다.
+  - IPC guard: sender가 registry의 살아 있는 webContents인지, main frame인지, URL의 scheme·host·path를 각각 비교한다. subframe·다른 origin·모르는 필드·큰 입력은 거절한다.
+  - `window_test`, `security_test`, `ipc_guard_test`(node --test)에 위 요구 테스트. renderer에서 `require`·`process`·token을 읽을 수 없음을 보는 shell 통합 spec 하나(`e2e/shell/sandbox_test.ts`).
+- 가져올 것: legacy `main/src/main/app.ts`의 창·single instance·bounds 부분, `security.ts`, `shell-protocol.ts`, `ipc.ts`의 `requireShell` 검사 원리.
+
+### T3 core 시작과 연결: 감독 pipe, 사람 token, read·command·event client
+
+- 등급: 기본
+- concern: shell/desktop, shell/app-frame
+- 요구: shell/desktop#R7(마지막 화면과 확인 시각), R15, R19, R20, R21(창 닫기는 중지가 아님), shell/app-frame#R23
+- 자리: apps/shell/main/desktop/core/(supervise.ts, client.ts, events.ts, allowlist.ts), apps/shell/ipc/core.ts, apps/shell/main/package.json(`dev` script)
+- 쓰는 contract: contracts#T5(RPC client·envelope), contracts#T6(감독 pipe hello `{user_token, api_port, core_epoch}`·platform/status·identity/current), contracts#T7(event 구독)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: shell#T2, contracts#T5, contracts#T6, contracts#T7, platform#T9
+- 완료: 아래 확인이 통과한다
+  - 창부터 열고 준비 상태를 보인다. main이 `deno run <flags> apps/core/main.ts`를 `LOPHN_HOME`과 함께 띄우고(개발: `deno`, packaged: bundle된 Deno) core의 stdin·stdout 위 길이 prefix frame(contracts#T6 codec)으로 hello를 보내 실제 port·core epoch·user token을 한 번 받는다. 같은 root의 두 번째 main은 single instance로 막히므로 두 번째 core가 생기지 않는다.
+  - 사람 token은 main 메모리에만 있다. renderer·argv·URL·cookie·환경·log에 없다.
+  - renderer가 부를 수 있는 read·command는 contract schema에서 만든 allowlist뿐이다. 임의 credential 발급·daemon 종료 통로는 없다.
+  - event는 seq cursor로 구독하고 끊기면 renderer에 "최신 확인 못함 + 마지막 확인 시각"을 push한다. 다시 붙으면 인증·core epoch 확인 뒤 cursor 따라잡기와 현재 read로 맞춘다. epoch가 바뀌면 옛 응답을 generation으로 버린다.
+  - 마지막 창을 닫아도 main과 core는 남는다.
+  - `npm run dev -- --home <dir>`로 개발 데이터 root를 받는다(인자 이름은 platform과 맞춘다).
+  - `core_client_test`, `allowlist_test`, `supervise_test`(가짜 core)에 위 요구 테스트.
+- 가져올 것: legacy `daemon-lifecycle.ts`의 시작·대기 순서 원리만. `daemon-client.ts`, `paths.ts`의 token·port 파일 방식은 가져오지 않는다.
+
+### T4 design token 원본과 생성
+
+- 등급: 기본
+- concern: shell/design-system
+- 요구: shell/design-system#R7, R8, R9, R10, R11, R14, R15, R16, R17, R18, R19, R20, R24, R36(생성과 불일치 검사), R38, R45
+- 자리: packages/design/tokens.ts, packages/design/generate.ts, packages/design/generated/(tokens.css, vars.ts), packages/design/fonts/, packages/design/base.css
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음(shell 안쪽과 SDK가 쓰는 token 모듈)
+- slice: skeleton
+- 선행: shell#T1
+- 완료: 아래 확인이 통과한다
+  - `tokens.ts` 하나가 light·dark 색, 상태 색과 아이콘 이름, 차트 계열 8색과 기타 회색, diff 색, 글꼴, 크기·줄높이, 간격, radius, 테두리, 그림자, 움직임, 쌓임 순서, breakpoint, floating 표면 값을 갖는다. 값은 요구의 숫자 그대로다.
+  - `generate.ts`가 CSS 변수, TS 타입, 문서값을 만들고 `--check`는 생성물이 원본과 다르면 실패한다.
+  - Pretendard Variable과 JetBrains Mono woff2와 OFL license를 저장소에 둔다. 외부 font 요청이 없다.
+  - `tokens_test`: 요구마다 값 검사, light·dark 쌍이 모두 있음, 차트 palette validator(light #ffffff·dark #161615 표면)를 돌린다.
+- 가져올 것: legacy `packages/sdk/tokens`(tokens.ts, generate.ts, fonts, fonts.css, license). 값은 지금 요구로 다시 맞춘다.
+
+### T5 theme override 검증과 token-only style 검사
+
+- 등급: 기본
+- concern: shell/design-system
+- 요구: shell/design-system#R3, R4, R36(token 밖 스타일 검사), R40, R44
+- 자리: packages/design/theme.ts, packages/design/style-check/, packages/design/style-check_test.ts
+- 쓰는 contract: contracts#T24(settings registry의 theme override 값 모양)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: shell#T4
+- 완료: 아래 확인이 통과한다
+  - theme override는 있는 token 이름의 값만 바꾼다. 이름 추가·삭제는 거절하고, 검증에 실패한 값만 기본값으로 돌아간다. 강조색 override도 같은 검증을 거친다. 같은 결과 CSS 변수 집합을 shell·앱 session에 쓸 수 있게 낸다.
+  - style 검사는 `apps/shell/renderer`, `packages/design`, `packages/sdk/ui-*`의 CSS에서 token 밖 색·길이·시간·굵기·z-index·breakpoint와 없는 token 참조를 거절한다. `deno test` 안에서 돈다(check 단계를 늘리지 않는다).
+  - `theme_test`, `style-check_test`에 위 요구 테스트. 임의 hex·px·ms를 넣은 fixture가 실패한다.
+- 가져올 것: legacy `packages/sdk/tokens/stylelint.ts`, `lint_styles.ts`의 token-only 규칙. stylelint를 쓰면 stack.md에 더한다.
+
+### T6 wording catalog, ICU, Intl, 문구 검사
+
+- 등급: 기본
+- concern: shell/wording
+- 요구: shell/wording#R1, R3, R6, R7, R11, R13, R14
+- 자리: packages/design/wording/(mod.ts, en.ts, keys.ts, format.ts, intl.ts, check.ts, check_test.ts)
+- 쓰는 contract: contracts#T32·T39·T40(problems가 소유한 문구 상수 key)
+- 내놓는 contract: 없음(shell renderer, overlay, confirmation, main, SDK UI가 쓰는 catalog 모듈)
+- slice: skeleton
+- 선행: shell#T1
+- 완료: 아래 확인이 통과한다
+  - key는 `<screen>.<part>.<name>`이고 en 값은 ICU MessageFormat이다. 날짜·숫자·상대 시각은 `Intl.DateTimeFormat`, `Intl.NumberFormat`, `Intl.RelativeTimeFormat`으로만 만든다. 문장 조각을 이어 붙이지 않는다.
+  - `t(key, values)`의 key와 placeholder가 타입으로 묶인다.
+  - 검사: 화면 코드의 직접 문구, 없는 key, 빠진 en 값, placeholder 불일치는 오류. 사용자 문구의 snake_case·ID 접두사·원시 enum·ledger·release·invocation·assignment 같은 안쪽 말은 경고. 문서·코드·개발자 diagnostics는 제외. contracts/problems의 문구 상수 key는 알려진 key로 받고 다시 정의하지 않는다.
+  - Baseline, Reference, Follow changes, For decisions, For summaries, Agent activity, App activity key가 catalog에 있다.
+  - 버튼·제목은 마침표 없음, 문장은 마침표를 검사한다.
+  - `check_test`, `format_test`에 위 요구 테스트.
+- 가져올 것: legacy `renderer/src/i18n`의 typed key 방식만. ko dictionary와 조사 처리는 가져오지 않는다. ICU 구현 라이브러리(추천 intl-messageformat)를 stack.md에 더한다.
+
+### T7 gallery와 screenshot 회귀
+
+- 등급: frontend
+- concern: shell/design-system
+- 요구: shell/design-system#R6(금지 목록 검토), R36(light·dark screenshot regression), R37
+- 자리: apps/shell/gallery/(deno.json, build.ts, serve.ts, screenshot.ts, src/), apps/shell/gallery/screenshots/
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: shell#T4, shell#T6, contracts#T10(Playwright 자리)
+- 완료: 아래 확인이 통과한다
+  - 컴포넌트와 화면을 등록하면 light, dark, 좁은 폭, empty, loading, error 여섯 경우를 한 화면에서 고른다. 여섯 경우가 없는 등록은 build에서 거절한다.
+  - `deno task gallery:screenshot`이 Playwright로 여섯 경우 screenshot을 찍고 `screenshots/`의 기준과 비교한다. `--update`는 사람이 채택한 모습을 기준으로 바꾼다.
+  - 금지 목록(R6)과 간격 리듬 검토 항목을 gallery 화면에 붙여 사람이 채택할 때 본다.
+  - token 페이지(색, 글꼴, 간격, 쌓임)를 첫 등록으로 둔다.
+  - `gallery_test`: 등록 schema, 여섯 경우 누락 거절.
+- 가져올 것: legacy `apps/gallery`의 chrome, iframe frame 방식, `screenshot.ts`. 구 PRODUCT embedding, grant·action mock, 기존 baseline은 가져오지 않는다.
+
+### T8 공통 컴포넌트: 조작과 상태
+
+- 등급: frontend
+- concern: shell/design-system
+- 요구: shell/design-system#R1, R2, R5, R6, R26, R27, R28, R29, R34, R43
+- 자리: packages/design/components/(button, icon-button, input, textarea, select, checkbox, switch, kbd, field, tabs, skeleton, empty-state, error-state, stale-note, author-mark, status-mark)
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: shell#T4, shell#T6, shell#T7
+- 완료: 아래 확인이 통과한다
+  - CSS Modules, Radix Primitives, Lucide(16/20px, 선 1.5, 정한 14px 유지)만 쓴다.
+  - 버튼 primary·secondary·ghost·danger, sm·md·lg 28/32/36px, 내용 너비, 같은 크기 조작의 높이·기준선 일치. 입력은 라벨 위, 도움말·오류 아래, placeholder를 라벨로 쓰지 않음. 일반 탭은 활성 2px 밑줄.
+  - 첫 조회 300ms 전에는 아무것도 없고 그 뒤 자리를 지킨 skeleton. empty는 아이콘 20px·한 문장·행동 하나, error는 실패 대상·다시 불러오기, stale은 마지막 갱신 나이, agent 작성 표식.
+  - 상태와 diff는 색 말고 글·표지로도 구별한다. 닫은 레이어의 focus는 연 자리로 돌아간다.
+  - 모든 컴포넌트를 gallery 여섯 경우로 등록하고 금지 목록 검토를 통과한다.
+  - 컴포넌트 옆 `*_test.tsx`(happy-dom)에 위 요구 테스트.
+- 가져올 것: legacy `packages/sdk/ui-control`, `ui-state`(presented.ts, reportError.ts 빼고), `ui-layout`의 Tabs. 접근성 전용 announcer는 빼고 ARIA는 Radix가 주는 만큼만 둔다.
+
+### T9 launcher 첫 창
+
+- 등급: frontend
+- concern: shell/desktop, shell/wording
+- 요구: shell/desktop#R7(core 단절 표시), R22(상단 바 48px), R24(새 창은 런처, 창 제목), R25(48px 끌기 바, 고정 lophn 진입점 자리), shell/wording#R1, R10
+- 자리: apps/shell/renderer/desktop/(main.tsx, router.ts, launcher/, top-bar/, connection/)
+- 쓰는 contract: contracts#T6(platform/status read)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: shell#T3, shell#T8
+- 완료: 아래 확인이 통과한다
+  - 새 기본 창은 언제나 런처로 연다. 런처는 최대폭 1040px 가운데 기둥, 48px 끌기 바, 바 오른쪽 lophn 진입점(카드가 아님)을 둔다. 카드 자리는 실제 read 결과로만 채운다(skeleton에서는 비었음 상태).
+  - core 준비 전·실패·단절을 화면 말(en key)로 구별하고 다음 행동 하나를 보인다. 단절 때 마지막 화면과 확인 시각을 남긴다.
+  - gallery에 launcher를 여섯 경우로 등록한다.
+  - `launcher_test`, `router_test`에 위 요구 테스트. contracts#T10의 skeleton smoke가 이 창을 쓴다.
+- 가져올 것: legacy `renderer/src/spaces/Launcher.tsx`, `shell/Shell.tsx`의 골격. 구 data store와 router의 v2 symbol은 가져오지 않는다.
+
+## documents
+
+### T10 shell overlay view
+
+- 등급: 기본
+- concern: shell/app-frame, shell/design-system
+- 요구: shell/app-frame#R24, R29(경계 drag 중 pointer, 16ms 묶기), shell/design-system#R2(focus 복귀), R20
+- 자리: apps/shell/main/app-frame/overlay.ts, apps/shell/main/app-frame/view-order.ts, apps/shell/renderer/overlay/, apps/shell/ipc/overlay.ts
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T2, shell#T8
+- 완료: 아래 확인이 통과한다
+  - 창마다 투명 WebContentsView 하나(`lophn-shell://overlay/index.html`, 배경 `#00000000`)를 contentView 맨 위에 둔다. view를 붙일 때마다 overlay를 다시 맨 위로 올리고 z-order는 main의 한 모듈만 바꾼다.
+  - `shell:overlay-open {kind, anchorRect, model}` → overlay가 그리고 결과는 `shell:overlay-result`로 연 쪽에 돌아온다. overlay는 command를 보내지 않는다. menu·popover·tooltip은 그 사각형만, dialog·palette·경계 drag는 창 본문 전체를 bounds로 쓴다.
+  - 조작 표면만 keyboard focus를 가져가고 닫히면 연 요소로 돌린다. tooltip·drag·notification은 focus를 옮기지 않는다. 같은 창의 표면은 sibling DOM으로 쌓임 순서를 지킨다.
+  - 경계 drag 중 overlay가 pointer를 받고 bounds 갱신은 16ms에 한 번으로 묶는다.
+  - overlay crash 때 다시 만들어 맨 위에 두고 열려 있던 표면은 닫힘으로 알린다.
+  - `overlay_test`(가짜 view)와 `e2e/shell/overlay_test.ts`(menu를 연 동안과 닫은 뒤 아래 view가 보임)에 위 요구 테스트.
+- 가져올 것: 없음(legacy는 view를 숨겼다). legacy `viewHost.ts`의 hold coalescing은 쓰지 않는다.
+
+### T11 공통 컴포넌트: 떠 있는 표면
+
+- 등급: frontend
+- concern: shell/design-system
+- 요구: shell/design-system#R20, R33, R35(chip 모양), R38, R45
+- 자리: packages/design/components/(tooltip, popover, menu, dialog, sheet, toast, palette, chip), apps/shell/renderer/overlay/surfaces/
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T8, shell#T10
+- 완료: 아래 확인이 통과한다
+  - tooltip 400ms 지연, menu·popover 행 32px, dialog 480/640px·안 여백 24px, toast 360px·5초·짧은 조작 2초·hover·focus 중 멈춤·행동 최대 2개·error는 유지, palette 640px·위 20%, sheet는 backdrop 없이 Escape·바깥 click으로 닫음.
+  - popover·dialog 그림자와 floating 표면·backdrop 색은 token 값이다. 카드에는 그림자가 없다.
+  - 사람의 답을 기다리는 chip은 360px 하나와 나머지 개수, 저절로 사라지지 않음, 보기·닫기.
+  - overlay model로 그려지는 같은 컴포넌트를 gallery에 여섯 경우로 등록한다.
+  - 컴포넌트 옆 테스트에 위 요구 테스트.
+- 가져올 것: legacy `packages/sdk/ui-overlay`(Tooltip, Popover, Menu, Dialog, Toast, CommandPalette). CommandPalette의 항상 보이는 scrollbar 처리도 가져온다.
+
+### T12 공통 컴포넌트: 표, 트리, 목록, 카드, 수치, 페이지 틀, 읽기
+
+- 등급: frontend
+- concern: shell/design-system
+- 요구: shell/design-system#R16(읽기 글자), R21, R22, R23, R30, R31, R32, R39, R42
+- 자리: packages/design/components/(table, tree, list, card, stat-tile, page-frames), packages/design/reading/(markdown, toc, code-block, diff-view, reading.module.css)
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T8
+- 완료: 아래 확인이 통과한다
+  - 페이지 틀 5종(읽기 600/680/800px와 목차 220px, dashboard 1440px/12열, 목록 360px+상세, 전체 폭 표, 폼 640px). 최대폭 기둥은 가운데이고 800·1280·1920px에서 검증한다. 런처 1040px, 프로젝트 개요 800px.
+  - 목차는 container 폭 868·948·1068px에서 본문 오른쪽 48px, 부족하면 머리 dropdown. 1280px 창의 520px 칸은 읽기 폭 488px.
+  - 표: 행 36/44px, 숫자 오른쪽·tabular, 글자 말줄임 tooltip, sticky 머리, 1,000행 넘으면 가상 scroll, 상대 시각과 절대 시각 tooltip, ID는 개발자 diagnostics에서만.
+  - 트리 행 28px, 깊이당 12px, 8단부터 더 들이지 않음. 카드는 독립 객체만, 그림자 없음, 수치 타일 한 줄 최대 4개.
+  - Markdown 읽기 renderer는 HTML을 실행하지 않는다. parser는 편집기와 같은 Lezer Markdown을 쓴다(읽기·편집 위치 차이를 줄이고 parser를 둘 들이지 않는다). 제목 1단 20px, 2단 16px/600/위 40px, 3단 16px/600/secondary, 4단 14px, palette 항목 36px.
+  - gallery 여섯 경우 등록과 컴포넌트 옆 테스트.
+- 가져올 것: legacy `ui-layout`(page frames, Tree, ScrollArea), `ui-table`, `ui-stat`, `ui-reading`(Markdown, TocTree, CodeBlock, DiffView). `marked` 의존은 가져오지 않는다.
+
+### T13 workspace layout 저장과 복원
+
+- 등급: 기본
+- concern: shell/workspace, shell/desktop
+- 요구: shell/workspace#R6, R7, R8, shell/desktop#R24(이어서)
+- 자리: apps/shell/main/workspace/(layout.ts, layout-store.ts, restore.ts), apps/shell/ipc/workspace.ts
+- 쓰는 contract: contracts#T14(project), contracts#T15(document·version), contracts#T20(App)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T3
+- 완료: 아래 확인이 통과한다
+  - `WorkspaceLayout`(domain-model/shell/workspace)을 Zod로 검증하고 `<home>/shell/layout.json`에 원자 교체로 쓴다. 폴더 0700, 파일 0600(Windows는 동등 ACL). 미지원 schema·손상은 빈 layout과 안전한 오류.
+  - 창 bounds, 마지막 공간, 프로젝트별 탭·칸·선택·분할 비율·읽던 위치·정보 패널 선택만 담는다. 본문·초안·출력·credential·승인·앱 업무 상태·preview는 없다.
+  - 복원은 현재 대상과 권한을 다시 읽어 없거나 못 쓰는 대상은 이유와 닫기를 가진 자리표시로 둔다. 터미널은 종료된 자리표시로만 복원하고 PTY를 만들지 않는다.
+  - [이어서]는 마지막 공간의 layout으로 탭을 만든다. 새 창은 그래도 런처다.
+  - `layout_test`, `restore_test`에 위 요구 테스트.
+- 가져올 것: legacy `renderer/src/workbench/persist.ts`의 모양만. localStorage `lophn.workbench.v1` key 방식은 가져오지 않는다.
+
+### T14 project-workspace 틀: sidebar, 상단 경로, 탭 줄, 두 칸
+
+- 등급: frontend
+- concern: shell/workspace, shell/desktop, shell/editor, shell/design-system
+- 요구: shell/workspace#R1, R2, R3, R4, shell/desktop#R22, R26(런처 복귀), R28(작업대 탐색), shell/editor#R3, R5, shell/design-system#R24, R25
+- 자리: apps/shell/renderer/workspace/(workspace.tsx, tab-strip/, panes/, sidebar/, info-panel-slot/), apps/shell/renderer/desktop/top-bar/
+- 쓰는 contract: documents#T7(projects list·get), documents#T6(문서 목록)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T9, shell#T11, shell#T12, shell#T13, documents#T7, documents#T6
+- 완료: 아래 확인이 통과한다
+  - sidebar 240px(drag 200~400px)·접힘 56px·행 32px, 상단 바 48px, 본문 여백 좌우 32px·위 24px, 창 1024px 미만 16px. 640px 미만 sidebar 숨김, 640~1023px 기본 접힘. 사람이 고른 폭은 자동으로 다시 접지 않는다.
+  - 모든 공간 왼쪽 위에 런처 복귀, sidebar 접힘 때는 상단 바로 옮긴다.
+  - 작업대 sidebar는 프로젝트 폴더·문서·연관 컨텍스트만. 없어진 거처·분류 전·컨텍스트 계층은 없다.
+  - 탭 줄 36px, 탭 120~220px·고정 탭 36px·닫기 20px, 넘치면 줄 안 scroll로 선택 탭을 보임, 페이지 가로 scroll 없음. 종류를 글자로 구별한다(문서 편집기, 뷰어, 터미널, 앱 패널 자리).
+  - 좌우 1칸 또는 2칸, 경계 1px·잡는 영역 8px, 두 번 누르면 50:50. drag와 키보드로 다른 칸으로 옮기기. 칸마다 탭 순서·선택과 focus 하나.
+  - 칸 하나가 480px 아래가 되면 분할 비율·탭 소속을 보존한 한 칸 보기, 넓어지면 원래 배치. 정보 패널은 본문 720px 또는 두 칸과 경계를 남길 때만 붙이고 아니면 overlay.
+  - 상단 경로는 focus 칸 활성 탭을 따른다.
+  - gallery 등록, `tab-strip_test`, `panes_test`에 위 요구 테스트.
+- 가져올 것: legacy `renderer/src/workbench`(model, pane·tab·split UI), `spaces/ProjectSpace.tsx` 골격, `ui-layout`의 SplitPane·Resizer·TabBar. 구 target·address 계약은 가져오지 않는다.
+
+### T15 launcher: 프로젝트 등록과 추적 미리보기
+
+- 등급: frontend
+- concern: shell/desktop, shell/wording
+- 요구: shell/desktop#R25(프로젝트 카드, 프로젝트 등록), R26(카드), shell/wording#R2, R4, R10, R12
+- 자리: apps/shell/renderer/desktop/launcher/, apps/shell/renderer/workspace/tracking/, apps/shell/main/desktop/folder-picker.ts
+- 쓰는 contract: documents#T7(projects.create·list), documents#T10(preview_tracking, set_tracking), documents#T11(files.status)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T9, shell#T14, documents#T7, documents#T10, documents#T11
+- 완료: 아래 확인이 통과한다
+  - 런처 카드는 사람이 지은 이름·목적·상태만 보인다. 내부 slug·ID·경로는 펼친 상세에만 둔다.
+  - 등록: 이름·목적과 OS 폴더 선택(main의 dialog, 폴더 없이도 등록). 등록과 추적 켜기를 구별한다. 추적 미리보기의 포함·제외 이유·겹침을 보고 켠다.
+  - 오류는 실패한 대상·영향·다음 행동 하나(폴더 겹침, 접근 불가, 미리보기 뒤 바뀜).
+  - flow first-project 1~4단계 화면. gallery 등록과 `launcher-register_test`에 위 요구 테스트.
+- 가져올 것: legacy `spaces/projectDialogs.tsx`, `Onboarding.tsx`의 배치만.
+
+### T16 문서 읽기와 편집기
+
+- 등급: frontend
+- concern: shell/editor
+- 요구: shell/editor#R4, R7, R8, R9, R10, R11, R16
+- 자리: apps/shell/renderer/editor/(markdown-editor.tsx, live-preview.ts, preview.ts, commands.ts, find/, link-picker/, problems-gutter/, document-head.tsx)
+- 쓰는 contract: documents#T14(outline·본문 읽기), documents#T6(문서·판), documents#T9(address)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T12, shell#T14, documents#T14, documents#T6
+- 완료: 아래 확인이 통과한다
+  - CodeMirror 6은 `apps/shell/renderer/editor/`에만 있고 SDK에 공개하지 않는다.
+  - 읽기와 편집이 같은 기둥·읽기 폭·16px/28px와 같은 제목·목록·인용·코드 스타일을 쓴다. 전환 전후 첫 블록 위치 차이 4px 이하(`e2e/shell/read-edit_test.ts`로 잰다).
+  - 편집 mode는 머리의 편집/읽기 버튼과 커서만 바뀐다. Markdown 표지는 커서가 그 요소 안일 때만 muted로 보인다.
+  - 코드는 고정폭·muted 배경·문법 강조 없음, 인용 막대 2px, 체크박스 16px, 이미지 실패에 아이콘과 alt, 16:9 skeleton, frontmatter 두 열.
+  - 찾기 줄 36px·입력 28px, 형식 문제 gutter 24px·아이콘 14px·목록 최대 200px, 링크 고르기 320px popover(overlay).
+  - 탭 제목은 파일 이름, tooltip은 문서 제목과 상대 경로, 좌우 화살표·Enter·Delete, 제목이 사라지면 32px sticky 머리. 문서 머리는 제목 20px·메타 12px·편집 ghost·CommandOrControl+E·정보 패널·메뉴, 읽기 화면에 primary 없음.
+  - `editor_test`(happy-dom)에 위 요구 테스트.
+- 가져올 것: legacy `renderer/src/editor`(MarkdownEditor.tsx, livePreview.ts, preview.ts, markdownCommands.ts, find, link picker, CSS). `usePickerDocs.ts`의 구 query store, autosave·format 계약, `SaveStatus.tsx`의 announcer는 가져오지 않는다.
+
+### T17 저장 흐름: 파일 통로, 저장 상태, 충돌, 닫기 guard
+
+- 등급: 기본
+- concern: shell/editor
+- 요구: shell/editor#R1, R2, R12, R15
+- 자리: apps/shell/main/editor/(file-adapter.ts, close-guard.ts), apps/shell/ipc/editor.ts, apps/shell/renderer/editor/(save-state.ts, save-status.tsx, notice-bar.tsx, conflict/)
+- 쓰는 contract: documents#T12(/v1/files/read·write·status·watch, 409·503, FileOperationResult), documents#T8(documents prepare·save), contracts#T16(파일 쓰기)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T16, documents#T12, documents#T8
+- 완료: 아래 확인이 통과한다
+  - 저장 버튼 없이 고침을 main의 파일 adapter로 보낸다(target, base_hash, request_key, 바이트). main이 파일 통로를 부르고 renderer는 경로·port를 모른다.
+  - 탭 닫기·파일 전환·읽기 전환·창 닫기·CommandOrControl+S는 마지막 변경을 flush하고 documents의 편집 종료에 잇는다. 유휴 종료는 documents 결과만 반영하고 shell에 timer를 두지 않는다.
+  - 디스크 저장, 기록 확인, version 확정, format 검사 실패를 따로 기억한다. 머리 메타 줄에는 지금 결과나 다음 행동 하나만, 단계별 사실과 관측 시각은 상세에서 펼친다. 뒤 단계 실패를 이미 성공한 파일 저장 실패로 바꾸지 않는다.
+  - 문서 옆 notice는 32px, 가장 높은 우선순위 하나. 충돌 막대는 해결까지 남고 해결 화면(현재 파일과 비교)으로 간다. 디스크 재읽기 안내만 3초 뒤 사라진다. 초안을 새 원본으로 덮지 않는다.
+  - 쓰기 실패·불명·충돌이 남으면 탭·창 닫기를 잠시 막고 계속 편집·명시 폐기·접수 확인을 고르게 한다(이 선택은 overlay dialog이며 confirmation window가 아니다).
+  - 결과 불명은 자동으로 다시 쓰지 않고 documents의 결과 조회부터 한다.
+  - `file-adapter_test`, `close-guard_test`, `save-state_test`에 위 요구 테스트.
+- 가져올 것: legacy `main/src/main/close-guard.ts`(중복 질문 억제, timeout).
+
+### T18 정보 패널, 버전 이력, 비교, 복원
+
+- 등급: frontend
+- concern: shell/editor
+- 요구: shell/editor#R6, R13, R14
+- 자리: apps/shell/renderer/editor/info-panel/, apps/shell/renderer/editor/versions/, apps/shell/renderer/editor/compare/
+- 쓰는 contract: documents#T16(section 이력·diff·restore), documents#T6
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T14, shell#T16, documents#T16
+- 완료: 아래 확인이 통과한다
+  - 정보 패널 320px, 머리 36px, 안 여백 16px, 행 32px, 절 간격 20px, 정보·버전·컨텍스트 탭, 기본 닫힘, 공간별 열림·마지막 탭 기억, CommandOrControl+Alt+B. overlay일 때 Escape·바깥 click으로 닫힘.
+  - 비교: 도구 줄 44px, 바뀐 절 목록 220px, 원문 13px/20px, 줄 번호 40px씩, 기호 16px, 바뀌지 않은 7줄 넘는 구간은 앞뒤 3줄만, 나란히 보기는 본문 1,100px 이상, 5,000줄 넘으면 절 선택. 좁으면 한 줄 보기와 이유.
+  - +·− 기호와 색을 함께, 같으면 `These versions are identical`(en key). 복원은 secondary이고 primary 버튼이 없다. 복원 결과(새 판, 같아서 변경 없음, 충돌)를 그대로 보인다.
+  - flow restore-document 화면. gallery 등록과 `compare_test`에 위 요구 테스트.
+
+### T19 documents 화면: 검색, saved view, series
+
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R1(문서 탐색이 기본), R28(lophn 공간 탐색)
+- 자리: apps/shell/renderer/desktop/lophn-space/(sidebar, documents/, series/)
+- 쓰는 contract: documents#T13(검색), documents#T14, documents#T15(saved view), documents#T17·T18(series), documents#T9(address)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T12, shell#T14, documents#T13, documents#T15, documents#T17, documents#T18
+- 완료: 아래 확인이 통과한다
+  - lophn 공간은 projects, documents, contexts, apps, things-to-confirm, roles, settings 일곱 형제다. 중간 계층이 없다.
+  - 조건(프로젝트, 앱, context, format) 검색과 짧은 근거, 보관 포함, 색인 지연·누락 표시. 빈 결과를 원본 부재로 단정하지 않는다.
+  - saved view 저장·열기. 목차에서 section을 고르고 같은 고정 판의 다음 범위만 더 읽는다. 옛 참조·지정 판·최신 여부.
+  - series: 등록(자리·이름·제목·format·정렬·다음 이름 규칙), 첫 key, 다음 key 제안과 근거, 순서대로 읽기, 가족 보관·해제. 제안 조회는 문서를 만들지 않는다.
+  - flow find-documents, write-series 화면. gallery 등록과 화면 테스트.
+
+### T20 projects 화면과 정리: 이름, 자리, 보관, export, 파일로 두기와 빼기
+
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R28(projects), shell/wording#R10
+- 자리: apps/shell/renderer/desktop/lophn-space/projects/, apps/shell/renderer/desktop/lophn-space/organize/
+- 쓰는 contract: documents#T7(update·archive), documents#T9(이동·이름 변경), documents#T19(파일로 두기·빼기), documents#T20(export)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T19, shell#T23, documents#T9, documents#T19, documents#T20
+- 완료: 아래 확인이 통과한다
+  - 프로젝트 목록·이름·목적·보관. 보관은 소속 문서 삭제가 아니다.
+  - 문서 이름·자리 이동은 묻지 않고 하고 결과를 보인다. 파일에서 빼며 지우기는 confirmation window의 owner decision으로 보낸다(T23).
+  - export: 문서·고정 판 선택, 포함·제외·반환 불가 이유와 실제 결과.
+  - 이름 충돌·대상 변경은 "This changed since you opened it" 패턴.
+  - flow organize-documents의 사람 갈래 화면. gallery 등록과 화면 테스트.
+
+### T21 명령 팔레트와 창 안 shortcut
+
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R18(CommandOrControl+K, CommandOrControl+Shift+L), R30
+- 자리: apps/shell/renderer/desktop/palette/, apps/shell/main/desktop/shortcuts.ts
+- 쓰는 contract: documents#T13(검색), documents#T7
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T11, shell#T14, shell#T19
+- 완료: 아래 확인이 통과한다
+  - 창 안 팔레트 CommandOrControl+K, 런처 복귀 CommandOrControl+Shift+L. 전역 Ctrl+K를 등록하지 않는다(전역 팔레트는 T56).
+  - 묶음 순서: 작업대는 열린 탭·문서·파일·컨텍스트·행동, lophn 공간은 프로젝트·컨텍스트·문서·앱·행동. 결과는 현재 탐색 대상으로만 간다.
+  - palette는 overlay에 그린다. `palette_test`에 위 요구 테스트.
+- 가져올 것: legacy `renderer/src/palette`, `main/src/shared/shortcuts.ts`.
+
+### T22 confirmation window 기반: child modal, 보호 preload, 일회 handle
+
+- 등급: 기본
+- concern: shell/confirmation-window, shell/app-frame
+- 요구: shell/confirmation-window#R1, R4, R5, R6, R7, R9, shell/app-frame#R30
+- 자리: apps/shell/main/confirmation/(coordinator.ts, handle.ts, window.ts, submit.ts), apps/shell/preload/confirmation.ts, apps/shell/renderer/confirmation/(main.tsx, frame/)
+- 쓰는 contract: contracts#T13(confirmation window, handle 등록 message, `CommandEnvelope.confirmation`), platform#T56(handle 발급·검증·소비), contracts#T22(approval)
+- 내놓는 contract: confirmation window(contracts#T13 먼저)
+- slice: documents
+- 선행: shell#T3, shell#T8, contracts#T13, platform#T56
+- 완료: 아래 확인이 통과한다
+  - 열기 계기: main이 `ApprovalRequestCreated`·`QuestionCreated`를 구독하거나 사람이 [Review]를 누른 intent. 자동으로 창을 띄우지 않고 요청한 창의 사람이 연다.
+  - 요청한 shell 창의 child modal BrowserWindow(`parent`, `modal: true`), 전용 메모리 session, `lophn-shell://confirmation/index.html` 설치 코드만. 일반 shell preload·앱 preload 없음. 탐색·새 창·download·network 막음. 앱 전용 창에서 요청해도 앞으로 가져온다.
+  - 열린 동안 부모 창의 앱 view는 숨기지 않고 모든 앱 webContents에 `before-input-event` 차단을 건다.
+  - main이 독립 read로 대상 정본·CAS·허용 결정을 얻고 일치 검사가 끝날 때까지 제출을 막는다. 대상 변경·다른 결정·조회 실패·단절에는 옛 버튼을 없애고 이유와 최신 내용 열기만 남긴다.
+  - handle 원문은 main에만 있고 renderer는 displayId만 안다. 32 bytes, 120초와 대상 기한 중 이른 시각, core epoch·main 연결·window·대상·내용 기준·허용 결정에 결합. 닫힘·취소·crash·연결 종료·core 재시작·다른 대상 표시에 무효화. 같은 handle의 두 번째 제출은 새 결정을 만들지 않는다. 제출 결과 불명이면 새 handle 없이 receipt부터 조회한다.
+  - 첫 focus는 설명, 기본 선택 없음, Enter 즉시 제출 없음, 닫기·Escape는 결정이 아님. 2차 확인은 영향과 scope를 다시 보이는 별도 단계.
+  - 사용자 theme은 T5가 검증한 token 값만, slot·fork는 읽지 않는다.
+  - `coordinator_test`, `handle_test`(가짜 core)와 `e2e/shell/confirmation_test.ts`(부모 앱 view가 보이지만 click·키가 가지 않음, CLI·MCP 동의가 결정이 안 됨)에 위 요구 테스트.
+- 가져올 것: 없음(legacy는 native message box와 view 숨김을 썼다).
+
+### T23 confirmation window 화면: 배치, 상세, 전후 비교, owner decision
+
+- 등급: frontend
+- concern: shell/confirmation-window, shell/wording
+- 요구: shell/confirmation-window#R2, R3, shell/wording#R12
+- 자리: apps/shell/renderer/confirmation/(layout/, details/, before-after/, kinds/owner-decision/)
+- 쓰는 contract: contracts#T13(owner_decision `{concern, decision, targets, input, comparison}`), documents#T12·T19(files.delete 표시 자료)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T12, shell#T22
+- 완료: 아래 확인이 통과한다
+  - 최대 640px, 좁으면 창 안에 맞춤. 기본 순서 대상·변경 → 영향·위험 → revert 가능 → 결정. 주체·시각·이유·근거·상세 전후는 Details에 접는다. 제목이 결정 자체를 문장으로 말한다(예: "Delete this file?").
+  - 전후는 현재·바뀐 뒤 세로, 문서는 바뀐 문단과 앞뒤 1문단에 +/− 표지, 설정은 항목과 값, 전체·code diff는 펼침. 긴 줄은 자르지 않는다. 색 없이 추가·삭제·생략·자료 없음을 구별한다.
+  - 정확한 경로·대상은 숨기지 않고 고정폭 원문으로 보인다. 그 밖의 내부 식별자·hash는 Details.
+  - 첫 owner decision: documents의 파일 지우기.
+  - gallery에 confirmation 화면을 여섯 경우로 등록하고 `layout_test`에 위 요구 테스트.
+
+### T24 터미널 host와 PTY
+
+- 등급: 기본
+- concern: shell/terminal
+- 요구: shell/terminal#R1, R2, R3, R4(일반 shell), R5(일반 shell 비주입), R7, R8, R9, R10, R11
+- 자리: apps/shell/terminal-host/(main.ts, pty.ts, ring-buffer.ts, child-group.ts, env.ts), apps/shell/main/terminal/(supervisor.ts, ipc.ts), apps/shell/ipc/terminal.ts
+- 쓰는 contract: documents#T7(등록 폴더)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T3, shell#T13, documents#T7
+- 완료: 아래 확인이 통과한다
+  - main이 Electron 실행당 terminal host 하나를 상속 private pipe로 띄우고 감독한다. host가 node-pty(POSIX PTY, Windows ConPTY)·child group·출력 ring buffer를 갖는다. node-pty native module rebuild를 build에 넣는다.
+  - `shell:terminal-open({project, folder_ref})`: 등록 폴더가 하나면 그것, 여럿이면 선택 전 시작 안 함, 없거나 디렉터리가 아니거나 못 읽으면 이유와 함께 거절하고 다른 폴더로 대신 시작하지 않는다.
+  - Linux·macOS는 사용자 login shell, Windows는 PowerShell 7, 없으면 표시한 5.1을 실행 파일과 argv 배열로 직접 spawn한다. 환경에서 플랫폼 token·connection·handle·내부 endpoint를 뺀다. host 제어 pipe는 child에 상속하지 않는다.
+  - 입력은 살아 있는 shell renderer main frame의 그 터미널 focus와 generation을 main이 확인한 뒤에만 보낸다.
+  - ring buffer 터미널마다 10,000줄과 5,242,880 bytes 중 먼저 닿는 쪽, 오래된 chunk부터 빼고 dropped 표시. disk·ledger·blob·log·세션 문맥에 쓰지 않는다. renderer가 다시 생기면 살아 있는 host의 buffer만 다시 보인다.
+  - 종료: 시작 실패, 확인된 exit code, 결과 불명(host crash)을 구별한다. 다시 시작은 사람이 누를 때만 새 generation으로, 옛 입력 재생 없음. 닫기·Electron 종료의 사람 확인 뒤 process group(Windows Job Object)의 종료를 확인하고, 확인 실패는 결과 불명.
+  - OSC 52 clipboard, OSC 8 자동 링크, 임의 escape 기반 host 동작을 막는다. output flood는 chunk 단위로 양보한다.
+  - `ring-buffer_test`, `env_test`, `start_test`, `child-group_test`와 `e2e/shell/terminal_test.ts`(secret 모양 출력이 저장소·진단에 없음, host crash 표시)에 위 요구 테스트.
+- 가져올 것: 없음(legacy에 터미널이 없다). xterm.js와 node-pty를 stack.md에 더한다.
+
+### T25 터미널 탭 화면
+
+- 등급: frontend
+- concern: shell/terminal, shell/workspace
+- 요구: shell/terminal#R1(폴더 선택), R6, R7(다시 보이기), R9(종료 표시와 다시 시작), R10(닫기 확인), R11(xterm handler), shell/workspace#R1(터미널 탭), R7(종료 자리표시)
+- 자리: apps/shell/renderer/terminal/(terminal-tab.tsx, xterm-view.ts, folder-choice.tsx, exit-banner.tsx)
+- 쓰는 contract: 없음(T24의 IPC)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T14, shell#T24
+- 완료: 아래 확인이 통과한다
+  - 여러 등록 폴더 중 고르는 화면, 첫 열기 안내에 "OS 사용자 권한으로 돈다, lophn 앱 sandbox가 아니다"와 "시작 위치는 프로젝트 폴더"를 다른 뜻으로 보인다.
+  - xterm.js에는 OSC clipboard, 자동 링크, 파일·앱·플랫폼 동작 handler를 등록하지 않는다.
+  - 출력 옆에 종료 상태·exit code·결과 불명, 출력 일부 없음 표시, [Start again]은 새 shell. 탭 전환·공간 이동·숨김은 shell을 유지한다.
+  - 살아 있는 터미널 닫기는 overlay dialog로 확인하고 취소하면 유지한다.
+  - gallery 등록, `terminal-tab_test`, 그리고 flow project-workspace의 터미널 단계 E2E `e2e/shell/project-workspace-terminal_test.ts`(documents 팀의 `e2e/flows/project-workspace_test.ts`는 문서 단계만 돈다).
+
+## agent
+
+### T26 현재 보기 상태 수집과 relay publish
+
+- 등급: 기본
+- concern: shell/workspace
+- 요구: shell/workspace#R9, R10
+- 자리: apps/shell/main/workspace/(current-view.ts, view-publish.ts)
+- 쓰는 contract: contracts#T25(CurrentViewState와 relay publish·bind·unpublish·read message), platform#T57(현재 보기 relay), contracts#T12(redaction)
+- 내놓는 contract: 현재 보기 상태(contracts#T25 먼저)
+- slice: agent
+- 선행: shell#T13, shell#T14, contracts#T25, platform#T57
+- 완료: 아래 확인이 통과한다
+  - main이 renderer의 layout 힌트를 실제 view registry·현재 scope와 대조해 `CurrentViewState`를 만든다. 문서 선택은 판·절·줄 범위만, 앱은 app·release·mode·screen·view generation만. 본문·초안·터미널 출력·DOM·screenshot은 없다.
+  - 창의 보기 generation이 바뀔 때 relay에 publish하고, 사람 요청·steering을 보낼 때 그 창 window_ref와 session 결합을 함께 보낸다. 요약 2048 bytes, 탭 page 20개, 생략·잘림·관측 시각 표시. redaction 실패는 omission.
+  - 창 닫힘·단절에는 unavailable·disconnected를 publish하고 다른 창의 상태를 대신 쓰지 않는다.
+  - `current-view_test`에 위 요구 테스트(두 창에서 각자의 탭과 선택만 묶임).
+
+### T27 대화 도크
+
+- 등급: frontend
+- concern: shell/desktop, shell/workspace
+- 요구: shell/desktop#R1, R2, R3, R7(대화의 단절), R8, R29, shell/workspace#R13(새 답이 focus·scroll을 빼앗지 않음)
+- 자리: apps/shell/renderer/conversation/(dock.tsx, message-list/, composer/, delivery-state.ts, result-links.tsx, drafts.ts)
+- 쓰는 contract: contracts#T26(run·session·message), lophn-agent#T11(세션·전송·접수 조회·steering), lophn-agent#T10·T12(멈춤·다시 시작·run 상태), lophn-agent#T25(기다림 표시), lophn-agent#T28(세션 이어가기)
+- 내놓는 contract: 없음
+- slice: agent
+- 선행: shell#T11, shell#T14, shell#T26, contracts#T26, lophn-agent#T10, lophn-agent#T11, lophn-agent#T12
+- 완료: 아래 확인이 통과한다
+  - 모든 공간에서 오른쪽 400px 도크로 토글한다. 본문을 밀고 320px 정보 패널 자리를 임시로 쓰며, 본문 480px를 남길 수 없으면 overlay. 닫으면 이전 정보 패널 상태로 돌아간다. 닫거나 한 번도 열지 않아도 문서·앱 탐색은 그대로다.
+  - 결과 링크는 답 아래, 4개 이상이면 첫 3개·남은 개수·나머지 보기.
+  - 작성 중 말·선택 답·커서를 세션 전환·confirmation window·전송 실패·단절에 세션별 메모리로 보존한다. 보내는 중·접수됨·못 보냄·접수 확인 안 됨을 구별하고 불명이면 재전송보다 접수 조회를 먼저 보인다.
+  - streaming 글은 임시 표시이고 확정 메시지로 바꾼다. 새 답·세션 전환이 사람의 scroll 위치와 입력 focus를 빼앗지 않는다.
+  - 현재 수정과 다음 요청을 구별해 보내고 멈추기를 둔다(flow steer-agent-work).
+  - gallery 등록과 `dock_test`, `delivery-state_test`에 위 요구 테스트.
+
+### T28 질문 칸, things-to-confirm, notification chip
+
+- 등급: frontend
+- concern: shell/desktop, shell/design-system
+- 요구: shell/desktop#R6, R9, R10(창 안 chip), R26(대기 개수 글자 pill), R27, shell/design-system#R35
+- 자리: apps/shell/renderer/conversation/question-strip/, apps/shell/renderer/desktop/lophn-space/things-to-confirm/, apps/shell/renderer/desktop/notification-chip/
+- 쓰는 contract: contracts#T22(approval·notification), contracts#T28(question), platform#T17(notification 생성·읽음), platform#T21(approval 조회), lophn-agent#T24(답·미루기·취소)
+- 내놓는 contract: 없음
+- slice: agent
+- 선행: shell#T11, shell#T22, shell#T27, contracts#T22, contracts#T28, platform#T17, lophn-agent#T24
+- 완료: 아래 확인이 통과한다
+  - 질문·approval 칸은 대화 입력 위 하나, blocking 먼저·나머지 접수 순, 현재 번호/전체와 앞뒤. action 없는 질문의 선택 답·자유 답·미루기·취소는 일반 답 경로로 보낸다. option action·approval은 [Review]로 confirmation window를 연다.
+  - things-to-confirm은 기다리는 것(종류별 개수와 다음 행동)과 지난 일(최신순 링크), 역할·기간 filter. 목록을 읽는 것만으로 답·승인이 제출되지 않는다. 세션 없는 요청도 여기서 연다. 사람이 notification을 명시적으로 읽음·읽지 않음으로 남기고, 그것이 답·승인·문제 닫힘이 아님을 지킨다. 항목이 많아도 종류나 개수로 버리지 않는다.
+  - notification chip은 창 오른쪽 아래 360px 하나와 외 n건, 보기·닫기, 자동 표시가 focus나 현재 문서를 바꾸지 않는다. 클릭은 things-to-confirm으로 갈 뿐 읽음·결정이 아니다.
+  - 런처 카드의 approval 대기 개수는 글자 pill. 프로젝트·앱 공간의 lophn 크롬은 그 공간의 결정 대기와 daemon 장애 안내만.
+  - gallery 등록과 화면 테스트.
+
+### T29 confirmation window 종류: approval, option action, revert, secret 입력, shell 외부 링크
+
+- 등급: frontend
+- concern: shell/confirmation-window, shell/app-frame
+- 요구: shell/confirmation-window#R2(종류별 배치), R5(바뀜 표시), shell/app-frame#R7
+- 자리: apps/shell/renderer/confirmation/kinds/(approval/, option-action/, revert/, secret-input/, external-link/), apps/shell/main/confirmation/kinds/
+- 쓰는 contract: contracts#T22(approval), contracts#T23(secret), contracts#T28(question option action·revert), contracts#T29(provider credential 입력), lophn-agent#T29(option action 적용), lophn-agent#T34(revert preview·revert_run). OAuth 쪽 lophn-agent#T16은 이 작업을 선행으로 두므로 여기서는 contracts#T29 모양으로만 테스트한다
+- 내놓는 contract: 없음
+- slice: agent
+- 선행: shell#T22, shell#T23, contracts#T22, contracts#T23, contracts#T28, contracts#T29, platform#T21, platform#T22, lophn-agent#T29, lophn-agent#T34
+- 완료: 아래 확인이 통과한다
+  - approval request: 결정을 문장으로 묻고 exact 대상·입력·영향·되돌릴 범위. 허락·거절·명시 취소. 승인 접수와 실제 적용을 구별해 돌려준다.
+  - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
+  - revert: 복원 가능·불가·충돌·남을 영향. 안전하지 않은 부분은 기본 적용에서 뺀다.
+  - secret 입력: 보호 입력칸, 값은 main에서 secret contract(또는 provider credential command)로 바로 가고 어디에도 남지 않는다. 결과는 안전 참조와 저장 결과만. OAuth code·최종 URL 붙여넣기도 이 입력이다(provider 인증 방식은 lead 결정을 따른다).
+  - shell 크롬의 외부 링크: 정확한 origin을 보이고 확인 뒤 OS browser로 연다. 앱 링크 경로(T38)와 섞지 않는다.
+  - gallery 등록과 종류별 테스트.
+
+### T30 roles 화면: 하는 일, 만든 것, 대화, 작업 검토, Preset
+
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R3, R4, R5, lophn-agent/observability#R16, R17, R20, R21, R22(화면)
+- 자리: apps/shell/renderer/desktop/lophn-space/roles/(list/, detail/, work/, made/, review/, preset/)
+- 쓰는 contract: contracts#T26(run·session), contracts#T27(preset·assignment), contracts#T30(tool call·trace·usage), contracts#T28(revert), lophn-agent#T7·T8(preset 편집·기본 preset), lophn-agent#T9(멈춤·재개·회수), lophn-agent#T6(사용량), lophn-agent#T39·T40(trace read·export), lophn-agent#T37(MCP tool의 preset 선택)
+- 내놓는 contract: 없음
+- slice: agent
+- 선행: shell#T12, shell#T27, contracts#T26, contracts#T27, contracts#T30, lophn-agent#T7, lophn-agent#T9, lophn-agent#T39
+- 완료: 아래 확인이 통과한다
+  - 역할 목록은 같은 열 배치. 상세는 하는 일·만든 것·대화 탭. 회수된 담당은 지난 대화만 보이고 입력창이 없다. 멈춘 담당의 입력은 소유 concern의 허용 결과를 그대로 따른다.
+  - 하는 일은 In progress / Waiting / Stopped / Done 순, 다시 시작과 다시 시키기는 다른 버튼.
+  - 작업 검토: 기본은 대상·결과·다음 행동, 상세에 시각·역할·이유·근거·영향 링크. 도구 활동은 단계 수로 접고 펼침. 판단은 요약만. 호출별 사용량과 실제 청구·구독 포함·무료·모름을 구별한다. export는 내용 종류를 고르고 결과 수를 보인다.
+  - Preset: 역할마다 기본 Preset과 사람이 고친 판, 계정 순서·model·context·skill·MCP·개별 tool 선택, 새 판 저장과 명시 적용. 내부 구성(prompt, capability)은 펼친 자리에만.
+  - flow review-agent-work, resume-agent-session(roles 쪽), add-agent-extension(Preset 쪽) 화면. gallery 등록과 화면 테스트.
+
+### T31 settings: provider 연결과 계정, 확장, 전역 Instructions 진입
+
+- 등급: frontend
+- concern: shell/wording, shell/desktop
+- 요구: shell/wording#R10, R13(For decisions·For summaries)
+- 자리: apps/shell/renderer/desktop/lophn-space/settings/(providers/, accounts/, extensions/, general/)
+- 쓰는 contract: contracts#T29(provider·credential·catalog), contracts#T24(settings registry), contracts#T23(secret), platform#T25–T27(settings definitions·get·history·apply), lophn-agent#T3(provider 등록·순서), lophn-agent#T4·T5(catalog·model 기본값), lophn-agent#T6(사용량), lophn-agent#T15(연결 테스트), lophn-agent#T16(OAuth), lophn-agent#T35·T36·T38(skill·MCP·MCP OAuth)
+- 내놓는 contract: 없음
+- slice: agent
+- 선행: shell#T12, shell#T29, contracts#T24, contracts#T29, platform#T25, lophn-agent#T3, lophn-agent#T15, lophn-agent#T35, lophn-agent#T36
+- 완료: 아래 확인이 통과한다
+  - provider 연결: contract가 알려 준 인증 방식(API key, 공식 로그인, 로컬)만 보이고 과금·한도·금액 모름을 구별한다. key와 로그인 응답은 confirmation window의 secret 입력으로만 받는다.
+  - 계정: 같은 provider의 계정 순서, 사용 가능·인증 문제·사용량 한도·확인된 리셋 시각, 다음 행동 하나. 교체·삭제·재로그인은 confirmation window.
+  - 연결 테스트는 사람이 누를 때만, 결과와 모르는 비용을 0으로 채우지 않는다.
+  - model 선택 라벨은 For decisions, For summaries. 설정 값은 정의·현재 적용값·효력 시점과 기본/펼침을 나눈다.
+  - 확장: 로컬 skill 폴더 등록, MCP server(stdio, Streamable HTTP, 인증 방식) 추가, 실패와 다음 행동. MCP credential은 secret 입력.
+  - 전역 [Instructions] 진입(T32).
+  - flow connect-provider, manage-provider-accounts, ask-lophn-help(settings 쪽), add-agent-extension 화면. gallery 등록과 화면 테스트.
+
+### T32 [Instructions]: 지침 파일을 같은 편집기로
+
+- 등급: 기본
+- concern: shell/editor
+- 요구: shell/editor#R17
+- 자리: apps/shell/main/editor/instructions.ts, apps/shell/renderer/editor/instructions-entry.tsx
+- 쓰는 contract: documents#T28(지침 파일), lophn-agent#T18(instructions)
+- 내놓는 contract: 없음
+- slice: agent
+- 선행: shell#T17, shell#T18, documents#T28, lophn-agent#T18
+- 완료: 아래 확인이 통과한다
+  - 전역(settings), project(project-workspace), app(app-detail) [Instructions]는 main이 exact 지침 파일 대상만 resolve해서 같은 편집기로 연다. 없으면 빈 초안이고 사람의 첫 저장으로 만든다.
+  - 초안 보존, 외부 변경 충돌, version 비교, 복원은 일반 문서와 같다. 경로와 안쪽 version 식별자는 기본 화면에 없다. agent 제안은 저장하지 않는다.
+  - flow edit-instructions 화면. `instructions_test`에 위 요구 테스트.
+
+### T33 격리 문서 view
+
+- 등급: 기본
+- concern: shell/app-frame
+- 요구: shell/app-frame#R1(문서), R2(문서), R8, R10, R11(문서 host), R14, R17
+- 자리: apps/shell/main/app-frame/(document-view.ts, session-policy.ts, document-protocol.ts), apps/shell/renderer/app-frame/document-view-slot.tsx
+- 쓰는 contract: contracts#T11(blob 읽기), contracts#T15(version)
+- 내놓는 contract: 없음
+- slice: agent
+- 선행: shell#T2, shell#T3, shell#T10
+- 완료: 아래 확인이 통과한다
+  - 실행 가능한 문서 format(HTML 등)은 `lophn-document://ver-<ULID 소문자>/...` view로 연다. host는 소문자 DNS label이고 main registry가 고정 version으로 해석한다.
+  - partition `document-<version>-<view_session>` 메모리 session. 닫으면 webContents를 파괴하고 `clearStorageData`·cache 정리. 쿠키·localStorage·IndexedDB·cache가 shell·다른 판과 섞이지 않는다.
+  - CSP `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'`, network 기본 차단, 자기 고정 판 자원만 proxy, worker에도 같은 경계.
+  - preload 없음, 원본 파일 수정 통로 없음.
+  - session 정책은 한 모듈에 등록한다(T37이 앱 session을 같은 모듈에 더한다).
+  - `document-view_test`, `session-policy_test`와 `e2e/shell/document-isolation_test.ts`에 위 요구 테스트.
+- 가져올 것: legacy `views.ts`의 `#artifactSession` 분리 원리만. `/v1/artifact/file` 계약은 가져오지 않는다.
+
+### T34 SDK: @lophn/tokens, @lophn/ui-table, @lophn/ui-chart
+
+- 등급: frontend
+- concern: shell/design-system
+- 요구: shell/design-system#R11(차트 낮은 대비 보조), R12, R13, R41, apps/sdk#R4(@lophn/tokens·ui-table·ui-chart 1.0.0), R16(ui-table), R17, R20, R38
+- 자리: packages/sdk/tokens/, packages/sdk/ui-table/, packages/sdk/ui-chart/
+- 쓰는 contract: 없음(packages/design을 고정 SDK package로 낸다)
+- 내놓는 contract: @lophn/tokens, @lophn/ui-table, @lophn/ui-chart 1.0.0
+- slice: agent
+- 선행: shell#T4, shell#T12
+- 완료: 아래 확인이 통과한다
+  - 각 package는 deno.json(정확한 1.0.0), mod.ts, 예제를 갖고 `packages/design`의 token·컴포넌트를 쓴다. contracts는 import하지 않는다.
+  - ui-table: 정렬, 페이지, 열 선택, 숫자 정렬, 가상 scroll, component 안 scroll.
+  - ui-chart: 시계열(선), 막대, 누적 막대, 분포, 그리고 visuals가 요구하는 산점과 node·edge 도표(Q5). d3-scale·d3-shape 계산과 React SVG. 선 2px, 막대 최대 24px·끝 radius 4px·간격 2px, 점 radius 4px, subtle 격자, 선·영역은 십자선 tooltip, 막대·점은 항목 tooltip, 색은 엔티티에 고정·순환 없음, 이중 축 없음, 9번째부터 기타 회색, light aqua·yellow·magenta에 직접 라벨 또는 표 보기, 10만 이상 축은 compact, 날짜 `Sep 26`·tooltip `Sep 26, 2026 (Sat)`(Intl).
+  - 같은 입력 계약을 앱 화면과 세션 시각 블록이 쓴다. loading·empty·error 표시가 있고 임의 script를 실행하지 않는다.
+  - gallery 등록과 package 옆 테스트.
+- 가져올 것: legacy `packages/sdk/ui-chart`(LineChart, BarChart, geometry, palette), `ui-table`. d3-scale·d3-shape를 stack.md에 더한다.
+
+### T35 세션 시각 블록 renderer
+
+- 등급: frontend
+- concern: shell/workspace
+- 요구: shell/workspace#R12, R13
+- 자리: apps/shell/renderer/workspace/visuals/(registry.ts, block-frame.tsx, table-block.tsx, chart-block.tsx, diagram-block.tsx, document-block.tsx)
+- 쓰는 contract: contracts#T30(VisualBlock), lophn-agent#T33(블록 schema·문서로 남기기)
+- 내놓는 contract: 없음
+- slice: agent
+- 선행: shell#T27, shell#T33, shell#T34, contracts#T30, lophn-agent#T33
+- 완료: 아래 확인이 통과한다
+  - 검증된 선언형 블록(표, 막대·선·산점 차트, node·edge 도표, 고정 문서)만 설치 SDK의 허용 registry로 그린다. 앱 카드 갈래는 T44. schema를 통과하지 못하면 그 자리에 오류와 안전한 설명만.
+  - agent의 JS·HTML·CSS·URL을 import·eval·innerHTML로 실행하지 않고 label·text를 escape한다. script 입력은 실행 없이 거절된다.
+  - 블록 틀: 제목·출처·관측 시각·내용 또는 실패 이유·[Save as document](visuals 저장 contract), 저장 뒤 고정 문서 링크. 문서 블록은 T33 view로 연다.
+  - loading·error·empty·접근 불가는 다른 블록과 입력을 막지 않는 그 자리 상태. focus와 읽던 위치를 지킨다.
+  - flow view-agent-visuals의 표·차트·도표 갈래 화면. gallery 등록과 `registry_test`(script 거절)에 위 요구 테스트.
+
+## context
+
+### T36 contexts 화면
+
+- 등급: frontend
+- concern: shell/desktop, shell/editor, shell/wording
+- 요구: shell/desktop#R28(contexts), shell/editor#R6(정보 패널 컨텍스트 탭), shell/wording#R13(Baseline·Reference·Follow changes)
+- 자리: apps/shell/renderer/desktop/lophn-space/contexts/(list/, detail/, meanings/, watch/), apps/shell/renderer/editor/info-panel/contexts-tab.tsx
+- 쓰는 contract: contracts#T21(context·term), documents#T22, T23, T24, T25, T26
+- 내놓는 contract: 없음
+- slice: context
+- 선행: shell#T18, shell#T19, shell#T27, shell#T29, documents#T22, documents#T25
+- 완료: 아래 확인이 통과한다
+  - Focus(사람이 지은 이름과 목적), 기준·참고·watch 항목을 Baseline·Reference·Follow changes로 보인다. 근거와 부족한 자료는 펼친다.
+  - watch의 확인된 변화·소실·미확인을 구별한다. 보관은 원자료 변경이 아니다.
+  - Meaning: context별 사람 정의와 미정 후보, 출현 근거 최대 5개, 사람이 이름·뜻을 정하거나 미룸. 추천을 정의로 만들지 않는다.
+  - 문서 정보 패널의 컨텍스트 탭에서 그 문서가 속한 Focus로 간다.
+  - flow build-context, define-terms 화면(대화·질문·revert는 T27·T28·T29). gallery 등록과 화면 테스트.
+
+## apps
+
+### T37 앱 view registry, scheme proxy, session, network 정책
+
+- 등급: 기본
+- concern: shell/app-frame, shell/desktop
+- 요구: shell/app-frame#R1(앱), R2, R3, R4, R8, R9, R11, R12, R16, R18, R19, R20, R22, shell/desktop#R13
+- 자리: apps/shell/main/app-frame/(registry.ts, app-protocol.ts, app-connection.ts, session-policy.ts, network-policy.ts, diagnostics.ts)
+- 쓰는 contract: contracts#T38(앱 화면 틀), contracts#T34(앱 통로 wire, `AppScreenRequest{screen, size, view_session}`), apps#T10(`POST /v1/apps/connect`), apps#T7(`/screens/…`, `/_lophn/commands/invoke`), apps#T4(network grant host), platform#T8(diagnostic 메시지)
+- 내놓는 contract: 앱 화면 틀(contracts#T38 먼저)
+- slice: apps
+- 선행: shell#T2, shell#T3, shell#T33, contracts#T38, apps#T10, apps#T7
+- 완료: 아래 확인이 통과한다
+  - `appFrame.open({app, mode, release?, screen, size, parentWindow, bounds})`·`replace`·`close`. main이 앱 통로로 연결을 얻고 view에 묶는다. 페이지가 주장한 앱·release·actor는 쓰지 않는다.
+  - `lophn-app://app-<ULID 소문자>/<screen>/…` 요청을 main의 Node client가 앱 socket(`socketPath`)으로 넘기고 응답을 stream으로 돌려준다. socket 경로·port·인증 header는 view와 preload에 없다. redirect·CSP·MIME 검사, 다른 연결로의 redirect 거절, 취소는 upstream도 중단.
+  - partition `persist:app-<app>:live`, `persist:app-<app>:preview-<bundle hash>`. 앱·preview·문서·shell의 cookie·localStorage·IndexedDB·cache가 섞이지 않는다. release·연결·권한이 바뀌면 옛 view와 연결을 버리고 cache를 지운 뒤 다시 연다.
+  - network 기본 차단, 자기 scheme과 apps/permissions의 fetch host만 통과(port·redirect·WebSocket·subframe 포함). 새 창·camera·location·download·scheme 밖 탐색 거절.
+  - view 생성·교체·숨김·폐기·실제 attach를 같은 view_session과 generation으로 core 감독 통로의 diagnostic 메시지(platform#T8)에 남긴다(query·본문·token 없음).
+  - 앱 UI 코드를 shell renderer에 import하지 않는다. view가 있다고 권한이 생기지 않는다.
+  - `registry_test`, `app-protocol_test`, `network-policy_test`와 `e2e/shell/app-isolation_test.ts`(앱 사이·preview 사이 저장 교차 읽기 실패, 미부여 host 차단)에 위 요구 테스트.
+- 가져올 것: legacy `views.ts`의 `#appSession` 분리 원리. 앱 resolver·socket grant·capture lease·receipt 계약은 가져오지 않는다.
+
+### T38 앱 preload: command 호출, 외부 링크, view 예외 전달
+
+- 등급: 기본
+- concern: shell/app-frame
+- 요구: shell/app-frame#R5, R6, R13, R15, problems/reporting#R5, R6(view 예외 귀속)
+- 자리: apps/shell/preload/app.ts, apps/shell/main/app-frame/(app-call.ts, external-link.ts, view-error.ts)
+- 쓰는 contract: contracts#T38(`lophnApp` bridge), apps#T7(`/_lophn/commands/invoke`), apps#T12(confirm의 accept_confirm·proof), contracts#T39(문제 보고), problems#T3(collector `POST /v1/problems/observe-exception`)
+- 내놓는 contract: 앱 preload bridge(contracts#T38 먼저)
+- slice: apps
+- 선행: shell#T37, apps#T12, problems#T3
+- 완료: 아래 확인이 통과한다
+  - 앱 preload는 `lophnApp.call(command, input)`과 `lophnApp.openExternal(url)`만 공개한다. 별도 query API, 다른 앱 호출, shell API, token, 임의 method·경로·파일 접근은 없다.
+  - `app:call`은 main이 실제 view의 앱·release·mode·연결과 blueprint schema를 검사해 고정 socket의 `/_lophn/commands/invoke`로 보낸다. 일반 읽기는 ledger 기록을 기다리지 않는다. confirm command는 approval(T44의 confirmation)로 간다.
+  - 외부 링크: HTTP·HTTPS, userinfo 없음, 8,192자 이하만 확인 없이 OS browser로 연다(live·preview 같음). view 안에서는 열지 않는다. 기록에는 origin·path만.
+  - `app:view-error`: main이 view registry의 `{view_session, generation, app, release, mode, binding}`을 붙여 인증된 client로 collector에 보낸다. 페이지가 주장한 값은 버린다.
+  - `app-call_test`, `external-link_test`(8,193자·다른 scheme·userinfo 거절), `view-error_test`에 위 요구 테스트.
+- 가져올 것: legacy `preload/app-preload.ts`의 contextBridge 모양, `security.ts`의 외부 URL 검사 원리. `lophnApp.action`·permit 계약은 가져오지 않는다.
+
+### T39 native view 배치: 동시 표시, focus, bounds, 좁은 창
+
+- 등급: 기본
+- concern: shell/app-frame
+- 요구: shell/app-frame#R25, R26(좁은 창 bounds), R27, R28, R29(탭 전환 때 옛 view 먼저 숨김), R35, R36
+- 자리: apps/shell/main/app-frame/visibility.ts, apps/shell/renderer/app-frame/(embedded-view.tsx, bounds.ts)
+- 쓰는 contract: 없음(T37의 registry)
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: shell#T10, shell#T14, shell#T37
+- 완료: 아래 확인이 통과한다
+  - renderer가 ResizeObserver로 칸·카드의 사각형을 보내고 붙이기·숨기기·폐기는 main 한 모듈만 한다. 창 본문·칸·카드 경계와 교차를 검사하고 view가 경계 밖에 보이는 frame이 없다. 스크롤 밖 카드는 떼어 낸다.
+  - 프로젝트 두 칸에 보이는 native view를 동시에 붙이고 키보드 focus는 한 view 또는 shell에만 둔다. 다른 공간으로 가면 그 공간에서 안 보이는 view만 숨긴다.
+  - 탭 전환은 옛 view를 먼저 숨기고 새 view가 준비되면 붙인다. resize는 16ms마다 묶는다.
+  - 좁은 창에서 대화·정보 패널·운영 패널이 본문을 덮으면 앱 view를 숨기지 않고 덮이지 않는 영역으로 bounds를 줄인다. 닫으면 원래 bounds.
+  - 앱 view는 배정된 경계 안에서 자기 페이지 머리부터 그리고 바깥 크롬은 shell이 그린다.
+  - `visibility_test`와 `e2e/shell/native-view_test.ts`(두 view 동시 표시, drag 중 view가 보임, 전환 중 겹친 frame 없음, 1024px 미만 bounds 축소)에 위 요구 테스트.
+- 가져올 것: legacy `views.ts`의 `#mount`·`setBounds`·`toDip`·latest requested bounds 처리, `renderer/src/shell/EmbeddedView.tsx`의 ResizeObserver+rAF.
+
+### T40 SDK UI: ui-control, ui-overlay, ui-layout, ui-state
+
+- 등급: frontend
+- concern: shell/design-system
+- 요구: apps/sdk#R4(ui-control·ui-overlay·ui-layout·ui-state 1.0.0), R14, R15, R18(ui-state), R21, R29(AppErrorBoundary component), R37, R41(공용 UI SDK)
+- 자리: packages/sdk/ui-control/, packages/sdk/ui-overlay/, packages/sdk/ui-layout/, packages/sdk/ui-state/
+- 쓰는 contract: contracts#T38(`lophnApp` bridge 타입은 SDK 쪽 사본으로 두고 contracts를 import하지 않는다), problems의 view error 경로(T38)
+- 내놓는 contract: @lophn/ui-control, @lophn/ui-overlay, @lophn/ui-layout, @lophn/ui-state 1.0.0
+- slice: apps
+- 선행: shell#T8, shell#T11, shell#T12, shell#T38
+- 완료: 아래 확인이 통과한다
+  - ui-control: 28·32·36px 버튼·입력·선택·체크박스·스위치·키 표시. ui-overlay: tooltip·popover·메뉴·dialog·toast·palette(앱 안에서는 앱 view 안에 그린다). ui-layout: 앱 shell·tab·sidebar·grid·card·5가지 페이지 틀, container 크기 반응(패널 320px·카드 240px부터 가로 scroll 없음). ui-state: loading·empty·error·freshness와 AppErrorBoundary(root 오류를 app preload의 오류 수집으로 넘김).
+  - shell 화면이 같은 package를 쓴다(첫 소비자). 고정 문구는 wording key·en·ICU·Intl을 쓰고 package의 문구 검사를 기본 test에 잇는다. message key와 command·screen key를 섞지 않는다.
+  - 예제와 gallery 등록, package 옆 테스트. apps#T22·T23–T26보다 먼저 main에 들어간다.
+- 가져올 것: legacy `ui-control`, `ui-overlay`, `ui-layout`, `ui-state`(presented.ts, reportError.ts 빼고).
+
+### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
+
+- 등급: frontend
+- concern: shell/design-system
+- 요구: apps/sdk#R4(ui-reading·ui-filter·ui-stat·ui-action 1.0.0), R16(ui-reading), R18(ui-filter·ui-stat), R19, R41(공용 UI SDK)
+- 자리: packages/sdk/ui-reading/, packages/sdk/ui-filter/, packages/sdk/ui-stat/, packages/sdk/ui-action/
+- 쓰는 contract: @lophn/blueprint 1.0.0(apps#T2, peer import)
+- 내놓는 contract: @lophn/ui-reading, @lophn/ui-filter, @lophn/ui-stat, @lophn/ui-action 1.0.0
+- slice: apps
+- 선행: shell#T12, shell#T40, apps#T2
+- 완료: 아래 확인이 통과한다
+  - ui-reading: Markdown·목차 tree·code block·문서 주소 표시. ui-filter: 기간·다중 선택·검색. ui-stat: 수치·변화량. ui-action: 명령 버튼과 확인 표시, blueprint의 사람 확인 선언(confirm)을 따르고 확인 호출은 `lophnApp.call`로만.
+  - 예제, gallery 등록, package 옆 테스트. apps#T23–T26보다 먼저 main에 들어간다.
+- 가져올 것: legacy `ui-reading`, `ui-filter`, `ui-stat`, `ui-action`의 버튼 pending·error 표현만(구 invoker 계약은 빼고).
+
+### T42 app-space 화면과 apps 화면
+
+- 등급: frontend
+- concern: shell/app-frame, shell/desktop, shell/wording
+- 요구: shell/app-frame#R26(운영 패널 720px), shell/desktop#R27, shell/wording#R4
+- 자리: apps/shell/renderer/app-frame/(app-space.tsx, app-bar.tsx, ops-panel-frame.tsx), apps/shell/renderer/desktop/lophn-space/apps/
+- 쓰는 contract: contracts#T20(App 등록·실행 상태), apps#T9(실행 상태), apps#T1(이름·보관)
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: shell#T37, shell#T39, apps#T9
+- 완료: 아래 확인이 통과한다
+  - 앱 공간은 얇은 바와 앱 view 전체 본문. 바에 런처 복귀, 앱 이름·연결 상태, [Report a problem] 자리(T52), 운영 패널 진입, 문서 작업대 전환. 운영 패널 720px, 1024px 미만이면 overlay이되 앱 view는 남은 영역으로 줄어든다.
+  - 프로젝트·앱 공간의 lophn 크롬은 그 앱의 결정 대기와 daemon 장애 안내만.
+  - lophn 공간 apps 화면: 사람이 지은 이름, 상태, 보관, 이름 바꾸기. 원시 enum·ID 없음.
+  - gallery 등록과 화면 테스트.
+- 가져올 것: legacy `spaces/AppSpace.tsx`의 얇은 chrome 배치, `screens/Apps.tsx`.
+
+### T43 app-detail: Version, Access, Automations, Connections, Activity, Data
+
+- 등급: frontend
+- concern: shell/desktop, shell/wording
+- 요구: shell/wording#R4, R10, R12
+- 자리: apps/shell/renderer/app-frame/app-detail/(versions/, access/, automations/, connections/, activity/, data/)
+- 쓰는 contract: apps#T19(release list·get·compare), apps#T18(activation 진행), apps#T4(grants.list), apps#T20(automations), apps#T15(앱 쌍 연결), apps#T11(invocation read), apps#T28(앱 export)
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: shell#T42, apps#T19, apps#T4, apps#T20
+- 완료: 아래 확인이 통과한다
+  - Version(release는 화면에서 Version): 현재·다른 version, 바뀐 것의 요약, 그 version의 실제 Test result(당시 테스트는 지금 앱의 증명이 아님), 운영과 분리된 preview 열기(preview partition의 앱 view), 고르기는 confirmation window(T45). 준비·적용·시작 확인·ticket 확인을 서로 다른 결과로 보인다.
+  - Access(grant): 이 앱이 읽을 수 있는 파일·보낼 수 있는 host·쓰는 secret 이름, 조합 경고, 바꾸기는 confirmation window. 회수 요청 접수와 실제 정리(프로세스 종료·재시작, secret 참조 차단·OS 값 삭제)를 구별해 보인다.
+  - Automations: 선언(command, 고정 입력, 주기), 켜기는 confirmation window(승인되면 grant `automation.run`), 끄기는 확인 창 없이 grant.revoke, 지난 실행.
+  - Connections(다른 앱 command), Activity(invocation은 기본에서 숨기고 펼치면 Activity), Data(export).
+  - app [Instructions] 진입(T32), Issues·Tasks 탭 자리(T53, T50).
+  - flow change-app, restore-app-release, run-app-automation, manage-app-permissions, connect-apps, use-app-command(app-detail 쪽) 화면. gallery 등록과 화면 테스트.
+
+### T44 앱 패널 탭과 세션 앱 카드
+
+- 등급: frontend
+- concern: shell/workspace, shell/app-frame
+- 요구: shell/workspace#R5, R11, shell/app-frame#R33, R34(패널·카드 크롬), R35
+- 자리: apps/shell/renderer/workspace/app-panel-tab.tsx, apps/shell/renderer/workspace/visuals/app-card-block.tsx, apps/shell/main/workspace/app-view-context.ts
+- 쓰는 contract: apps#T2·T19(blueprint screens[].sizes), apps#T16(agent-context는 앱의 일반 command), contracts#T30(VisualBlock 앱 카드), lophn-agent#T47(앱 카드 블록)
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: shell#T35, shell#T37, shell#T39
+- 완료: 아래 확인이 통과한다
+  - blueprint가 panel 크기를 선언한 screen만 프로젝트 탭에 연다. 아니면 앱 공간으로 열기를 안내하고 조용히 줄이지 않는다. 카드도 card 크기 선언만.
+  - 패널·카드는 전체 앱 view와 같은 앱·release·mode 신원과 session·scheme·preload·network 격리. size class는 screen 요청에, 폭·높이는 앱이 viewport에서 읽는다.
+  - 패널·카드마다 앱 이름·모드·연결 상태와 그 view에 묶인 [Report a problem]을 shell 크롬에 둔다.
+  - 앱 탭의 현재 보기 상태는 app·release·mode·screen 참조만. 상세 상태·힌트·주석은 앱이 선언한 command로만. DOM·screenshot을 보내지 않는다.
+  - 카드는 message·block 표시 참조와 generation에 묶이고 보이는 사각형만 main에 보낸다. 카드를 열어도 command 권한이 늘지 않는다.
+  - flow view-agent-visuals의 앱 카드 갈래, project-workspace의 앱 패널 단계, ask-app-hint 화면. gallery 등록과 `e2e/shell/app-card_test.ts`(카드 scroll bounds).
+
+### T45 confirmation window: 앱 결정 4종
+
+- 등급: frontend
+- concern: shell/confirmation-window
+- 요구: shell/confirmation-window#R8, R10
+- 자리: apps/shell/renderer/confirmation/kinds/(release-activation/, grant/, confirm-command/, automation/), apps/shell/main/confirmation/kinds/apps.ts
+- 쓰는 contract: apps#T19(`/v1/releases/compare`, `/v1/apps/blueprint`), apps#T4(`/v1/grants/list`), apps#T20(`/v1/apps/automations`), apps#T18(start_activation), apps#T12(accept_confirm), contracts#T37(grant), apps/preview(안전 preview가 있을 때)
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: shell#T23, shell#T29, apps#T19, apps#T4, apps#T20
+- 완료: 아래 확인이 통과한다
+  - 넷 다 platform approval request로 오고 main이 apps read를 독립 재조회해 표시한다. 결정은 approvals 결정 command에 handle·CAS를 붙인다.
+  - release activation: 바뀐 화면·command 입력·effect·confirm·automation·permission 추가/축소·data change와 손실, "검토 필요" 표시.
+  - grant: 경로·host·port·secret 이름 원문 전체를 고정폭으로, 줄이지 않는다. fs.read+net.fetch 조합 경고와 Deno 한계 문구(apps 소유 key). 앱 쌍 연결(부르는 앱 → 대상 앱의 방향·command 범위)도 이 종류로 보인다(flow connect-apps).
+  - confirm command: label·설명·effect·revert와 정규 입력. diff로 못 보이는 동작은 현재·바뀐 뒤 설명을 세로로, 안전 preview는 apps/preview 결과로만, 없으면 없다고.
+  - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
+  - gallery 등록과 종류별 테스트.
+
+### T46 앱 화면 검사 host
+
+- 등급: 기본
+- concern: shell/app-frame
+- 요구: problems/tests#R7(view 예외·깨진 view의 feedback 화면 검사), R19(관측 private IPC)
+- 자리: apps/shell/main/app-frame/screen-test-host.ts, apps/shell/main/entry-screen-test.ts
+- 쓰는 contract: contracts#T38(화면 검사 host 입력·관측 타입과 설치 경로 규칙, contracts에 요청함)
+- 내놓는 contract: 앱 화면 검사 host(같은 Electron 실행 파일의 `--app-screen-test`)
+- slice: apps
+- 선행: shell#T37, shell#T38
+- 완료: 아래 확인이 통과한다
+  - `--app-screen-test`로 시작하면 사람 token·core 연결 없이 임시 userData, `app-test-<run>` 메모리 partition, offscreen rendering으로만 돈다. 창을 OS에 보이지 않는다.
+  - 상속 pipe(fd 3)의 JSON lines로 입력(고정 bundle 화면 위치, screen key 목록, test용 앱 socket 경로, 기한)을 받고 관측(load 결과, error·unhandledrejection·루트 render 오류, 깨진 view에서 feedback binding·캡처·dialog 결과, 막힌 network 시도)을 돌려준다. stdout은 쓰지 않는다.
+  - 운영 view session·credential·DB와 공유하지 않고 collector로 직접 보내지 않는다.
+  - 상속 fd 3이 실제로 되는지 먼저 확인한다(Node 부모의 fd 3을 Deno 자식이 EBADF로 못 쓴 사례가 있다. 여기는 Deno 부모, Electron 자식이다). 안 되면 감독 통로와 같은 stdin·stdout 길이 prefix frame(contracts#T6 codec)으로 바꾸고 contracts 팀에 알린다.
+  - `screen-test-host_test`와 problems#T11이 쓰는 fixture 하나로 확인한다.
+- 가져올 것: legacy `app.ts`의 offscreen option 기록(hidden window는 첫 frame 뒤 capture가 멈춘다).
+
+### T47 앱 전용 창, OS 앱 바로가기, 창 열기 intent
+
+- 등급: 기본
+- concern: shell/desktop, shell/app-frame
+- 요구: shell/desktop#R13(앱 전용 새 창), R14, shell/app-frame#R18
+- 자리: apps/shell/main/desktop/(app-window.ts, os-entry/linux.ts, os-entry/macos.ts, os-entry/windows.ts, open-intent.ts)
+- 쓰는 contract: contracts#T20(App), contracts#T13(`lophn://things-to-confirm/<id>` 링크 모양, contracts에 요청함)
+- 내놓는 contract: 창 열기 intent `lophn-desktop --open-app <app ID>`, `lophn://things-to-confirm/<id>`
+- slice: apps
+- 선행: shell#T2, shell#T37
+- 완료: 아래 확인이 통과한다
+  - 앱 전용 새 창은 본문 view와 같은 session·scheme·preload 경계를 쓴다.
+  - Linux `.desktop`, macOS app bundle, Windows shortcut은 고정 앱 ID를 `--open-app` intent로만 넘긴다. 앱 코드·source path·token·port를 실행하지 않는다.
+  - `lophn://things-to-confirm/<id>`는 OS URL scheme으로 등록하고 single instance로 받아 엄격히 parse한 뒤 그 대상 화면을 창에 연다. confirmation window를 자동으로 띄우지 않는다(사람이 그 화면에서 누를 때 그 창을 부모로 연다).
+  - `open-intent_test`, `os-entry_test`와 세 표시 방식에서 같은 격리 spec(`e2e/shell/app-isolation_test.ts` 확장).
+
+### T48 깨진 앱 격리 확인
+
+- 등급: 기본
+- concern: shell/app-frame
+- 요구: shell/app-frame#R21, R32(깨진 view에서도 크롬 동작)
+- 자리: e2e/shell/broken-app_test.ts, apps/shell/main/app-frame/crash.ts
+- 쓰는 contract: apps#T26(일부러 깨지는 fixture 앱)
+- 내놓는 contract: 없음
+- slice: apps
+- 선행: shell#T37, shell#T39, shell#T42, apps#T26
+- 완료: 아래 확인이 통과한다
+  - 앱 UI의 무한 loop, 큰 렌더링, crash에서 shell 크롬·다른 탭·다른 앱을 조작한다. platform/responsiveness 기준(shell 첫 반응 p95 100ms)을 잰다. WebContents 분리만으로 자원 격리 완료라고 표시하지 않는다.
+  - crash·멈춤에 연결 상태를 보이고 자동 재호출 없이 현재 연결로 새 view를 여는 행동을 준다.
+
+## coding-agent
+
+### T49 ticket [Start]: coding TUI 시작과 관측
+
+- 등급: 기본
+- concern: shell/terminal
+- 요구: shell/terminal#R4(coding TUI), R5(coding TUI credential), R12, R13
+- 자리: apps/shell/main/terminal/coding-start.ts, apps/shell/terminal-host/(launch-plan.ts, prompt-delivery.ts, observe-socket.ts)
+- 쓰는 contract: contracts#T42(CodingAgentLaunchPlan, human_start_handle, operation_id, HarnessSessionObservation), coding-agent#T38(`lophn session plan --json`), coding-agent#T39(관측), platform#T34(coding credential loader)
+- 내놓는 contract: 없음
+- slice: coding-agent
+- 선행: shell#T24, shell#T25, coding-agent#T38, coding-agent#T39, platform#T34
+- 완료: 아래 확인이 통과한다
+  - 사람 클릭으로 main이 one-use human_start_handle과 operation_id를 만들고, core로 ticket·connection·등록 폴더를 다시 검사한 뒤 `lophn session plan --json`(child)으로 LaunchPlan을 받는다. 다른 harness·cwd로 대체하지 않는다.
+  - host는 executable·분리 argv·cwd·env·credential handle로 shell 없이 PTY를 직접 연다. token 원문은 argv·prompt·PTY·출력·공통 환경에 없다. 일반 shell 환경은 그대로다.
+  - prompt_delivery: argv면 할 일 없음, stdin_after_ready면 readiness를 최대 10,000ms 기다려 정확히 한 번 쓰고 delivered·not_delivered·unknown. 재전송·재spawn·resume 없음. 같은 operation_id는 같은 runtime_ref.
+  - 관측 socket: lophn이 연 TUI마다 host가 0700 폴더의 무작위 Unix socket(Windows named pipe)을 만들고 `LOPHN_TERMINAL_OBSERVE`로 그 경로만 준다. host가 자기 runtime_ref·generation을 붙이고 payload의 주장은 쓰지 않는다. 끝나면 지운다. Electron 재시작 뒤는 unknown이고 자동 spawn·resume이 없다.
+  - `coding-start_test`, `prompt-delivery_test`, `observe-socket_test`에 위 요구 테스트.
+
+### T50 Connection 화면과 Tasks
+
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R19(고정 연결 intent 검증)
+- 자리: apps/shell/renderer/desktop/lophn-space/settings/connections/, apps/shell/renderer/app-frame/app-detail/tasks/, apps/shell/main/desktop/coding-connection.ts
+- 쓰는 contract: contracts#T41(connection·ticket), contracts#T43(CLI 출력), coding-agent#T27(사람 화면 ticket read), coding-agent#T36(연결 생성·설치), coding-agent#T40(회수)
+- 내놓는 contract: 없음
+- slice: coding-agent
+- 선행: shell#T29, shell#T43, shell#T49, coding-agent#T27, coding-agent#T36, coding-agent#T40
+- 완료: 아래 확인이 통과한다
+  - Connection: 감지된 harness(예: "Claude Code")를 고르기만 한다. renderer는 "이 harness로 연결" 고정 intent만 보내고 main이 따로 검증한다. main이 `lophn harness detect|refresh|install --json`, `lophn doctor --json`을 child로 부른다(refresh는 사람 클릭만). 감지 기록·MCP·skill 위치는 펼친 자리에만. 회수만 confirmation window.
+  - Tasks(ticket): 목록·상세, 상태, 복사할 요청 문장, [Start](누르는 것이 허락, 확인 창 없음, 등록 project 폴더가 여럿이면 고른 뒤 누른다), TUI 상태(starting/ready/working/waiting_input/ended/unknown)를 Task 상태와 구별. 한 줄 사유로 취소, claim이 풀린 일을 다시 맡기기, 완료 주장과 실제 검사(통과·실패·미확인)와 남은 확인을 구별한다.
+  - coding-agent#T27이 내놓는 화면 상태 값(여섯 상태와 readiness)과 다음 행동 값([Start] 가능, 확인 필요, 결과 확인, 승인 대기)을 shell이 en wording key로 바꾼다. claim·기한·connection ID는 기본 화면에 없다(coding-agent/tickets#R27).
+  - flow connect-coding-agent, manage-coding-access, start-coding-agent, manage-tickets 화면. gallery 등록과 화면 테스트.
+
+### T51 창 없는 시작과 종료 intent
+
+- 등급: 기본
+- concern: shell/desktop
+- 요구: shell/desktop#R21(창 없는 tray mode, 명시 중지)
+- 자리: apps/shell/main/desktop/(launch-mode.ts, quit.ts), apps/shell/main/desktop/single-instance.ts
+- 쓰는 contract: contracts#T6(감독 통로 종료 순서), platform#T55(`lophn daemon start|stop`이 부르는 모양)
+- 내놓는 contract: Electron 실행 intent `--tray`(창 없이 main과 core만), second-instance 종료 요청 `--quit`
+- slice: coding-agent
+- 선행: shell#T3
+- 완료: 아래 확인이 통과한다
+  - `--tray`로 시작하면 main이 core만 띄우고 창을 열지 않는다. 같은 데이터 root에 이미 main이 있으면 두 번째 instance를 열지 않고 실행 중이라고 알린 뒤 끝난다.
+  - 실행 중인 main에 second-instance argv `--quit`이 오면 진행 중 터미널·저장을 확인할 창이 없을 때는 그 사실을 log에 남기고 core 정상 종료 순서를 밟는다. 창이 있으면 T55의 끄기 확인과 같은 경로를 쓴다.
+  - argv의 다른 값은 실행하지 않는다.
+  - `launch-mode_test`, `quit_test`에 위 요구 테스트. platform#T55의 선행.
+
+## problems
+
+### T52 문제 알리기
+
+- 등급: frontend
+- concern: shell/app-frame, shell/wording
+- 요구: shell/app-frame#R31, R32, R34(버튼이 그 view에 묶임), shell/wording#R8, R9, problems/feedback#R5, R6, R10, R11, R12, R13
+- 자리: apps/shell/main/app-frame/feedback.ts, apps/shell/renderer/overlay/feedback/, apps/shell/renderer/app-frame/report-button.tsx
+- 쓰는 contract: contracts#T38(feedback IPC), contracts#T39(문제 보고), problems#T15(submit-feedback), contracts#T12(redaction)
+- 내놓는 contract: 없음
+- slice: problems
+- 선행: shell#T10, shell#T37, shell#T42, shell#T44, problems#T15
+- 완료: 아래 확인이 통과한다
+  - [Report a problem]은 앱 공간 바·패널·카드의 독립 버튼이다. 누르면 main이 버튼 시점 `{view_session, generation, app, release, mode, screen path, observedAt}`를 고정하고 그 앱 view의 `capturePage`를 먼저 요청한 뒤 overlay에 dialog를 연다. 앱 view는 그대로 보인다. confirmation window·lophn dialog가 이미 떠 있거나 가려졌거나 다른 창이면 캡처하지 않고 이유만 남긴다. 캡처는 1500ms까지, 늦으면 버린다.
+  - raw capture는 main과 문제 보고 경계만 갖고 dialog에는 redaction된 PNG만. 글·화면 상태·screenshot을 미리 보고 각각 뺄 수 있다. screenshot 기본은 꺼짐, 미리보기를 본 뒤 켬. 미선택·화면 없음·수집 실패·redaction 제외·저장 실패의 이유를 보이고 첨부 없이 글만 보낼 수 있다.
+  - 미제출·접수 대기·접수 완료를 구별하고, 실패에는 복사 가능한 글과 이유. 초안은 메모리에만. 취소는 저장하지 않고 이미 접수한 것은 닫아도 지우지 않는다. 기존 문제 선택 여부를 보이고 접수 뒤 묶인 Issue로 갈 수 있다.
+  - 앱 view가 crash·무한 loop여도 버튼과 dialog가 동작한다. 안내에 stack·log·원문 오류가 없고 문제 문구는 problems가 정한 값 그대로.
+  - `feedback_test`와 `e2e/shell/report-problem_test.ts`(깨진 view에서 dialog 열림, 캡처 동안 view가 보임)에 위 요구 테스트. problems#T23의 선행.
+
+### T53 app-detail Issues: 문제, 수리 결과, 사람 결정
+
+- 등급: frontend
+- concern: shell/wording, shell/confirmation-window
+- 요구: shell/wording#R5, R9
+- 자리: apps/shell/renderer/app-frame/app-detail/issues/, apps/shell/renderer/confirmation/kinds/problem-decision/
+- 쓰는 contract: contracts#T40(problem command·read), problems#T6(목록·상세), problems#T21(ApplyProblemDecision), problems#T22(수리·결과·닫힘 표시)
+- 내놓는 contract: 없음
+- slice: problems
+- 선행: shell#T23, shell#T43, problems#T6, problems#T21
+- 완료: 아래 확인이 통과한다
+  - Issue 목록·상세: 사람이 겪는 영향 한 문장, 보고 수, 수리 주장과 실제 테스트·사람 확인("I checked")·미확인 범위를 구별한다. report·claim·snapshot은 이름으로 보이지 않는다(Details we collected).
+  - 사람 결정(fixed, not fixed, not visible, dismiss + 한 줄 이유)은 confirmation window의 owner decision이다. main이 problem·basis_seq·release·last_report에 묶인 handle로 `ApplyProblemDecision`을 보낸다.
+  - "직접 해 봤지만 안 됩니다"는 새 feedback(T52)으로 간다.
+  - flow app-broken, verify-app-repair 화면. gallery 등록과 화면 테스트.
+
+## operator
+
+### T54 Operator: 붙이기, Repeating check, 보고, 멈춤과 회수
+
+- 등급: frontend
+- concern: shell/desktop
+- 요구: shell/desktop#R4(회수된 담당), R5
+- 자리: apps/shell/renderer/desktop/lophn-space/roles/operator/, apps/shell/renderer/workspace/operator-entry.tsx
+- 쓰는 contract: contracts#T27(preset·assignment), lophn-agent#T52(Operator 붙이기), lophn-agent#T9(멈춤·재개·회수)
+- 내놓는 contract: 없음
+- slice: operator
+- 선행: shell#T29, shell#T30, lophn-agent#T52
+- 완료: 아래 확인이 통과한다
+  - Operator를 project나 app에 여럿 붙인다. Preset, 읽을 자료, 출력, 주기(Repeating check)를 정하고 붙이기는 confirmation window의 보호 승인이다.
+  - 보고 결과는 roles의 만든 것에서 문서로 열고, 사람 결정이 필요한 질문만 things-to-confirm으로 간다.
+  - 멈춤·다시 시작·회수, 회수된 담당은 지난 대화만. 답을 기다리는 동안 주기를 건너뛴 사실을 보인다.
+  - flow set-up-operator, receive-operator-report, manage-operator 화면. gallery 등록과 화면 테스트.
+
+## operations
+
+### T55 tray, 로그인 자동 시작, 종료
+
+- 등급: 기본
+- concern: shell/desktop
+- 요구: shell/desktop#R11(tray·자동 시작), R21
+- 자리: apps/shell/main/desktop/(tray.ts, autostart.ts, quit.ts)
+- 쓰는 contract: contracts#T6(감독 pipe 종료), contracts#T45(install-and-update)
+- 내놓는 contract: 없음
+- slice: operations
+- 선행: shell#T3, shell#T24, shell#T51
+- 완료: 아래 확인이 통과한다
+  - tray: 창 열기, 런처, lophn 끄기, 창만 닫기를 나눈다. 모든 창을 닫아도 main·tray·core는 남는다. 끄기는 진행 중 터미널·저장·결정을 확인한 뒤 main의 명시 종료로 core 정상 정지를 시작한다(Q1).
+  - 로그인 자동 시작은 검증된 실행 경로와 `--tray`만 등록하고 창을 열지 않는다(Linux XDG autostart, 그 외 login item).
+  - `tray_test`, `autostart_test`, `quit_test`에 위 요구 테스트. Q1 결정대로 shell/desktop#R21과 architecture/shell의 OS 통합 절을 같은 PR에서 고친다.
+- 가져올 것: legacy `app.ts`의 `#installTray`, `autostart.ts`.
+
+### T56 OS notification과 전역 팔레트
+
+- 등급: 기본
+- concern: shell/desktop
+- 요구: shell/desktop#R7(놓친 notification 재생 없음), R10(OS 표시), R18(전역 CommandOrControl+Shift+K)
+- 자리: apps/shell/main/desktop/(os-notification.ts, global-shortcut.ts)
+- 쓰는 contract: contracts#T22(notification), contracts#T24(OS notification opt-in 설정), platform#T17
+- 내놓는 contract: OS 표시 경로(platform#T46이 쓴다)
+- slice: operations
+- 선행: shell#T3, shell#T21, shell#T28
+- 완료: 아래 확인이 통과한다
+  - opt-in일 때만 지금 도착한 `NotificationCreated`를 제목 `lophn`, 본문 en key `Something needs your attention`으로 표시한다. 이름·내용·secret·원문 오류는 OS에 넘기지 않는다. 재연결 backlog는 표시하지 않고 표시 ID 중복을 메모리에서 막는다. 클릭은 해당 things-to-confirm·결과를 열 뿐 읽음·결정이 아니다. OS 실패는 그 기능만 안내하고 retry 루프가 없다.
+  - 전역 팔레트 CommandOrControl+Shift+K는 창 안 팔레트와 다른 동작이다. 등록 실패는 사용 불가로 안내하고 다른 key를 차지하지 않는다. 종료 때 해제한다.
+  - `os-notification_test`, `global-shortcut_test`에 위 요구 테스트. flow catch-up-notifications의 shell 쪽.
+- 가져올 것: legacy `app.ts`의 `#installShortcut`.
+
+### T57 Electron 패키징과 설치 실패 안내
+
+- 등급: 기본
+- concern: shell/desktop
+- 요구: shell/desktop#R11(패키징), R12, R20(bundle된 Deno)
+- 자리: apps/shell/main/electron-builder.yml, apps/shell/main/packaging/, apps/shell/main/scripts/stage.ts, apps/shell/renderer/desktop/launcher/start-failure/
+- 쓰는 contract: contracts#T45(install-and-update), platform#T48·T49(설치 묶음)
+- 내놓는 contract: shell build 산출물(platform#T48·T49가 묶는다)
+- slice: operations
+- 선행: shell#T3, shell#T24, shell#T47
+- 완료: 아래 확인이 통과한다
+  - electron-builder로 Linux .deb(먼저), macOS·Windows 설정. shell build, preload, renderer, 로컬 글꼴, 고정 의존성, bundle된 Deno, node-pty native 모듈을 staging에 넣는다. sandbox를 끄지 않는다(Ubuntu AppArmor userns는 chrome-sandbox 권한으로 맞추고 `--no-sandbox` 우회 없음).
+  - packaged main은 bundle된 Deno로 core를 띄운다. 시작 실패·sandbox 실패·schema 비호환은 런처의 실패 갈래로 정상처럼 보이지 않게 안내하고 다음 행동 하나를 준다.
+  - `stage_test`와 지원 OS의 packaged smoke(`e2e/shell/packaged_test.ts`)에 위 요구 테스트.
+- 가져올 것: legacy `electron-builder.yml`, `packaging/linux/after-install.sh`의 chrome-sandbox 처리. 구 runtime payload·CLI/MCP 링크·afterPack은 가져오지 않는다.
+
+### T58 settings: backup과 restore, update 안내, 진단, OS notification 선택
+
+- 등급: frontend
+- concern: shell/wording
+- 요구: shell/wording#R5, R10
+- 자리: apps/shell/renderer/desktop/lophn-space/settings/(backup/, update/, diagnostics/, notifications/)
+- 쓰는 contract: contracts#T45(backup·diagnostics·install-and-update), contracts#T24(settings), contracts#T23(secret), platform#T41·T42(backup·restore), platform#T45(secret export·import), platform#T47(doctor), platform#T50(update)
+- 내놓는 contract: 없음
+- slice: operations
+- 선행: shell#T31, platform#T41, platform#T50
+- 완료: 아래 확인이 통과한다
+  - backup: 복원 가능한 묶음·제외된 자료·다시 준비할 항목, 만들기·검증 결과·보존, restore는 잃을 최신 기록 범위를 보이는 confirmation window. 복원 성공·확인 못한 부분·다시 준비할 연결을 구별한다. credential 다시 준비와 secret의 암호 보호 export·import는 confirmation window의 secret 입력으로만(platform#T45). 앱별 export는 app-detail(T43).
+  - update: 새 version·지원 OS·schema 호환·정상 정지·재시작 필요만 보인다. 자동 다운로드·설치·재시작 없음.
+  - 진단: 보안 상태 점검과 doctor 결과는 영향 한 문장과 다음 행동, 원문은 개발자 diagnostics 펼침에만.
+  - OS notification opt-in.
+  - flow backup-and-restore, update-lophn 화면. gallery 등록과 화면 테스트.
+
+### T59 offline: provider 끊김과 core 끊김
+
+- 등급: frontend
+- concern: shell/desktop, shell/editor
+- 요구: shell/desktop#R7, shell/editor#R12(연결 끊김)
+- 자리: apps/shell/renderer/desktop/connection/, apps/shell/renderer/editor/save-status.tsx
+- 쓰는 contract: contracts#T29(provider 상태), contracts#T6(platform/status)
+- 내놓는 contract: 없음
+- slice: operations
+- 선행: shell#T17, shell#T27, shell#T31
+- 완료: 아래 확인이 통과한다
+  - provider 끊김에서는 로컬 문서·앱·터미널 작업을 그대로 두고 대화에만 필요한 행동 한 줄을 보인다(설정 도움·provider 연결로 잇는다).
+  - core 끊김에서는 초안·마지막 read·터미널을 유지하고 새 파일 쓰기·결정 제출 gate를 닫으며 "최신 확인 못함"과 확인 시각을 보인다.
+  - flow work-offline, install-lophn(실패 갈래) 화면. gallery에 두 끊김 상태를 등록하고 화면 테스트.
+
+## 요구 덮기
+
+shell 최상위의 요구는 8개 leaf에 178개이고 모두 위 작업의 `요구:`에 들어 있다.
+
+| concern | 요구 수 | 덮은 수 | 작업 |
+|---|---|---|---|
+| shell/desktop | 30 | 30 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59 |
+| shell/workspace | 13 | 13 | T13, T14, T25–T27, T35, T44 |
+| shell/terminal | 13 | 13 | T24, T25, T49 |
+| shell/confirmation-window | 10 | 10 | T22, T23, T29, T45 |
+| shell/app-frame | 36 | 36 | T2, T3, T10, T22, T29, T33, T37–T39, T42, T44, T47, T48, T52 |
+| shell/editor | 17 | 17 | T14, T16–T18, T32, T36, T59 |
+| shell/wording | 14 | 14 | T6, T9, T15, T20, T23, T31, T36, T42, T43, T52, T53, T58 |
+| shell/design-system | 45 | 45 | T4, T5, T7, T8, T10–T12, T14, T28, T34 |
+
+다른 최상위의 요구 가운데 소유 팀과 합의해 shell 작업이 구현하는 것:
+
+| 요구 | shell 작업 | 합의 |
+|---|---|---|
+| apps/sdk#R4(tokens·ui-*), R14–R21, R29(component), R37, R38, R41(공용 UI SDK) | T34, T40, T41 | apps 팀(나머지 R29·R41 템플릿 연결, R4 catalog는 apps) |
+| problems/feedback#R5, R6, R10, R11, R12, R13 | T52 | problems 팀(접수·검증·redaction·snapshot은 problems#T15) |
+| problems/reporting#R5, R6(view 예외 귀속) | T38 | problems 팀(collector는 problems#T3·T16) |
+| problems/tests#R7(화면 검사), R19 | T46 | problems 팀(runner는 problems#T11) |
+| lophn-agent/observability#R16, R17, R20, R21, R22(화면) | T30 | lophn-agent 팀 |
+
+## 질문
+
+- **Q1 Electron 종료와 core 수명.** architecture/platform과 platform#T9는 Electron main이 core를 상속 pipe로 띄우고 main 종료·pipe EOF에 core를 끝낸다. shell/desktop#R21과 architecture/shell은 "Electron 종료는 daemon 중지가 아니고 tray에 따로 중지가 있다"고 한다. 둘은 함께 성립하지 않는다. 추천: platform 쪽을 따른다. 창을 모두 닫아도 main·tray·core는 남고, tray의 [Quit lophn]이 진행 중인 일을 확인한 뒤 main과 core를 함께 끝낸다. T55 PR에서 shell/desktop#R21과 architecture/shell 2.1·OS 통합 절을 고친다.
+- **Q2 CLI의 daemon 시작과 중지(정함).** user token은 Electron main이 띄운 core의 통로로만 받는다. 그래서 `lophn daemon start|stop`(coding-agent/cli#R8, platform#T55)은 core를 직접 띄우지 않고 Electron main을 `--tray`로 띄우거나 `--quit`을 second-instance로 보낸다(T51). core는 언제나 main의 child다.
+- **Q3 현재 보기 상태 relay(정함).** agent runtime이 turn마다 현재 보기를 읽는 통로가 architecture에 없었다. shell main이 core 메모리 relay에 `CurrentViewState`를 publish하고 사람 요청 때 session↔window를 bind하며, runtime은 자기 run의 session만 `read {session}`으로 읽는다(observed_at·generation 포함, 끊김·epoch 변경은 disconnected, 주기 run은 unavailable, ledger 없음). platform#T57이 route를 더하고 architecture/platform 5.1을 고친다. lophn-agent·platform 팀 동의. 남은 확인: architecture 변경이라 lead가 platform Q14에서 확인한다.
+- **Q4 앱 화면 검사 host.** architecture/problems는 앱 화면 틀의 test mode를 쓰지만 shell 문서에는 없다. 추천: problems 팀과 합의한 `--app-screen-test` host(T46)로 하고 shell requirements를 늘리지 않는다. T46 PR에서 architecture/shell 5.2에 한 단락을 더한다. 타입과 설치 경로 규칙은 contracts#T38에 요청했다.
+- **Q5 산점 차트와 node·edge 도표(정함).** lophn-agent/visuals#R1과 apps/sdk#R17이 부딪쳤다. apps 팀이 apps/sdk#R17에 산점 차트와 node·edge 도표를 더했고(누적 면만 첫 판 밖) shell#T34가 ui-chart에 만든다.
+- **Q6 shell 크롬 외부 링크 확인.** shell/app-frame#R7은 shell 크롬의 외부 링크를 confirmation window로 확인하라고 한다. provider 공식 로그인 버튼도 여기 해당해 한 번 더 누르게 된다(G5는 되돌릴 수 있는 일을 묻지 않는다). 추천: 요구대로 확인 창에서 정확한 origin을 보이고 연다.
+- **Q7 의존성.** shell이 더하는 것: electron, esbuild(main·preload 묶기), react·react-dom, happy-dom(renderer 테스트), Radix Primitives, lucide-react, CodeMirror 6과 Lezer Markdown(읽기 renderer도 같은 parser), @xterm/xterm, node-pty(native rebuild), d3-scale·d3-shape, intl-messageformat(ICU), stylelint(token-only 검사), electron-builder. 추천: 각 작업 PR에서 판과 이유를 stack.md에 더한다. Playwright는 lead가 정한 `e2e/`의 것을 gallery screenshot도 같이 쓴다.
+- **Q8 보호 창이 아닌 확인.** 살아 있는 터미널 닫기, 저장 안 된 초안 버리기는 사람 결정이지만 플랫폼 결정(approval·권한·secret·option action)이 아니다. 추천: shell overlay dialog로 묻고 confirmation window를 쓰지 않는다.
+- **Q9 project-workspace flow의 앱 패널 단계.** documents slice E2E는 문서 단계만, 터미널 단계는 T25의 spec이 돈다. 앱 패널 단계는 앱이 있어야 하니 apps slice E2E에서 돈다(view-agent-visuals의 앱 카드 갈래처럼). plan README의 갈래 목록에 더해 달라.
+- **Q10 confirmation window의 slice(정함).** contracts#T13과 documents 팀은 confirmation window를 documents slice(파일 지우기)에 둔다. platform이 handle 발급·검증·소비를 documents slice의 platform#T56으로 떼었다. shell#T22는 platform#T56에, approval 종류(shell#T29)는 platform#T22에 기댄다.

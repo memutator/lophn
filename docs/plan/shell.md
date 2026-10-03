@@ -137,23 +137,23 @@ concerns: [shell]
   - `check_test`, `format_test`에 위 요구 테스트.
 - 가져올 것: legacy `renderer/src/i18n`의 typed key 방식만. ko dictionary와 조사 처리는 가져오지 않는다. ICU 구현 라이브러리(추천 intl-messageformat)를 stack.md에 더한다.
 
-### T7 gallery와 screenshot 회귀
+### T7 gallery: 등록과 여섯 경우
 
 - 등급: frontend
 - concern: shell/design-system
-- 요구: shell/design-system#R6(금지 목록 검토), R36(light·dark screenshot regression), R37
-- 자리: apps/shell/gallery/(deno.json, build.ts, serve.ts, screenshot.ts, src/), apps/shell/gallery/screenshots/
+- 요구: shell/design-system#R6(금지 목록 검토), R37(여섯 경우 등록과 사람 검토)
+- 자리: apps/shell/gallery/(deno.json, build.ts, serve.ts, src/)
 - 쓰는 contract: 없음
 - 내놓는 contract: 없음
 - slice: skeleton
-- 선행: shell#T4, shell#T6, contracts#T10(Playwright 자리)
+- 선행: shell#T4, shell#T6
 - 완료: 아래 확인이 통과한다
   - 컴포넌트와 화면을 등록하면 light, dark, 좁은 폭, empty, loading, error 여섯 경우를 한 화면에서 고른다. 여섯 경우가 없는 등록은 build에서 거절한다.
-  - `deno task gallery:screenshot`이 Playwright로 여섯 경우 screenshot을 찍고 `screenshots/`의 기준과 비교한다. `--update`는 사람이 채택한 모습을 기준으로 바꾼다.
   - 금지 목록(R6)과 간격 리듬 검토 항목을 gallery 화면에 붙여 사람이 채택할 때 본다.
   - token 페이지(색, 글꼴, 간격, 쌓임)를 첫 등록으로 둔다.
   - `gallery_test`: 등록 schema, 여섯 경우 누락 거절.
-- 가져올 것: legacy `apps/gallery`의 chrome, iframe frame 방식, `screenshot.ts`. 구 PRODUCT embedding, grant·action mock, 기존 baseline은 가져오지 않는다.
+  - screenshot 회귀는 T60이다(Playwright 자리 contracts#T10이 shell#T9 뒤에 와서 떼었다).
+- 가져올 것: legacy `apps/gallery`의 chrome, iframe frame 방식. 구 PRODUCT embedding, grant·action mock, 기존 baseline은 가져오지 않는다.
 
 ### T8 공통 컴포넌트: 조작과 상태
 
@@ -487,6 +487,21 @@ concerns: [shell]
   - 출력 옆에 종료 상태·exit code·결과 불명, 출력 일부 없음 표시, [Start again]은 새 shell. 탭 전환·공간 이동·숨김은 shell을 유지한다.
   - 살아 있는 터미널 닫기는 overlay dialog로 확인하고 취소하면 유지한다.
   - gallery 등록, `terminal-tab_test`, 그리고 flow project-workspace의 터미널 단계 E2E `e2e/shell/project-workspace-terminal_test.ts`(documents 팀의 `e2e/flows/project-workspace_test.ts`는 문서 단계만 돈다).
+
+### T60 gallery screenshot 회귀
+
+- 등급: 기본
+- concern: shell/design-system
+- 요구: shell/design-system#R36(light·dark screenshot regression), R37(사람이 채택한 기준)
+- 자리: apps/shell/gallery/screenshot.ts, apps/shell/gallery/screenshots/
+- 쓰는 contract: 없음
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T7, contracts#T10
+- 완료: 아래 확인이 통과한다
+  - `deno task gallery:screenshot`이 `e2e/`의 Playwright로 등록된 컴포넌트·화면의 여섯 경우 screenshot을 찍고 `screenshots/`의 기준과 비교한다. `--update`는 사람이 채택한 모습을 기준으로 바꾼다.
+  - 그때까지 등록된 컴포넌트·화면(T7–T9)의 기준을 남긴다. 이후 작업의 "gallery 등록"은 이 기준 갱신을 포함한다.
+- 가져올 것: legacy `apps/gallery/screenshot.ts`.
 
 ## agent
 
@@ -1091,7 +1106,7 @@ shell 최상위의 요구는 8개 leaf에 178개이고 모두 위 작업의 `요
 | shell/app-frame | 36 | 36 | T2, T3, T10, T22, T31, T33, T37–T39, T42, T44, T47, T48, T52 |
 | shell/editor | 17 | 17 | T14, T16–T18, T32, T36, T59 |
 | shell/wording | 14 | 14 | T6, T9, T15, T20, T23, T31, T36, T42, T43, T52, T53, T58 |
-| shell/design-system | 45 | 45 | T4, T5, T7, T8, T10–T12, T14, T28, T34 |
+| shell/design-system | 45 | 45 | T4, T5, T7, T8, T10–T12, T14, T28, T34, T60 |
 
 다른 최상위의 요구 가운데 소유 팀과 합의해 shell 작업이 구현하는 것:
 

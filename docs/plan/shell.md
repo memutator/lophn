@@ -84,6 +84,7 @@ concerns: [shell]
 
 ### T4 design token 원본과 생성
 
+- 상태: 완료 (#14)
 - 등급: 기본
 - concern: shell/design-system
 - 요구: shell/design-system#R7, R8, R9, R10, R11, R14, R15, R16, R17, R18, R19, R20, R24, R36(생성과 불일치 검사), R38, R45

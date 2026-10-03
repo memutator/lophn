@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>혼합 형식 문서</title>
+<style>
+/* style 안의 h1은 section으로 뽑지 않는다. */
+body::before { content: "# style 안의 제목"; }
+h1 { color: red; }
+</style>
+<script>
+// script가 돌면 h1을 추가할 테지만 실행하지 않는다.
+document.write("<h1>script가 추가한 제목</h1>");
+</script>
+</head>
+<body>
+
+<h2 id="intro">첫 제목</h2>
+<p>h1이 없으므로 title을 문서 제목으로 쓴다.</p>
+
+<section id="sec-a">
+  <h3>section 안의 첫 제목</h3>
+  <p>감싸는 section의 id는 이 첫 heading에만 붙는다.</p>
+  <h4>section 안의 두 번째 제목</h4>
+  <p>두 번째 heading에는 section id가 붙지 않는다.</p>
+</section>
+
+<h2>두 번째 제목</h2>
+
+<nav>
+  <h3>nav 안의 제목</h3>
+  <p>nav 안은 제외 구역이다.</p>
+</nav>
+
+<textarea>
+  <h3>textarea 안의 제목</h3>
+</textarea>
+
+<div hidden>
+  <h3>hidden 제목</h3>
+</div>
+
+<div aria-hidden="true">
+  <h3>aria-hidden 제목</h3>
+</div>
+
+<template>
+  <h3>template 안의 제목</h3>
+</template>
+
+<pre>
+<h3>pre 안의 제목</h3>
+</pre>
+
+<h2>마지막 제목</h2>
+
+</body>
+</html>

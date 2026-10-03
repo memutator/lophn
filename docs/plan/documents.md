@@ -21,6 +21,7 @@ concerns: [documents]
 
 ### T1 예시 project 폴더 fixture
 
+- 상태: 완료 (#4)
 - 등급: 좁은
 - concern: documents/projects, documents/file-tracking, documents/formats, documents/series
 - 요구: 없음 (아래 작업 테스트의 재료: projects#R3–R5, file-tracking#R3, R4, R11, formats#R2, R10–R16, series#R5, R8, outline-and-search#R11)

@@ -381,6 +381,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T47 contracts/coding-agent: connection
 
+- 상태: 완료 (#31)
 - 등급: 기본
 - concern: coding-agent/connection
 - 요구: coding-agent/connection#R1–R4, R15, R17

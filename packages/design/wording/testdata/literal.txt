@@ -1,0 +1,9 @@
+export function Broken() {
+  return (
+    <div>
+      <h1>Saved projects</h1>
+      <button type="button" title="Open the project">Go</button>
+      <span>{t("missing.key.name")}</span>
+    </div>
+  );
+}

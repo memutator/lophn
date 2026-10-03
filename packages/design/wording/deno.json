@@ -1,0 +1,12 @@
+{
+  "name": "@lophn/wording",
+  "exports": {
+    ".": "./mod.ts",
+    "./check": "./check.ts"
+  },
+  "imports": {
+    "intl-messageformat": "npm:intl-messageformat@12.1.2",
+    "@formatjs/icu-messageformat-parser": "npm:@formatjs/icu-messageformat-parser@3.5.20"
+  },
+  "compilerOptions": { "erasableSyntaxOnly": true }
+}

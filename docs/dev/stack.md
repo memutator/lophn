@@ -51,6 +51,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | react 19.3.0, react-dom 19.3.0 | apps/shell/renderer | shell·overlay·confirmation renderer. Deno workspace에서 `npm:`으로 고정한다 |
 | @types/react 19.3.0 | apps/shell/renderer | React 19는 타입을 함께 싣지 않는다. JSX 타입은 `jsxImportSourceTypes`로 이 패키지를 가리킨다 |
 | @luca/esbuild-deno-loader 0.11.1 | apps/shell/renderer | renderer bundle이 Deno import map과 `npm:`·`jsr:`를 esbuild로 resolve한다. CSS Modules를 만들려면 esbuild loader가 필요하고, deno bundle은 클래스 맵을 만들지 않는다 |
+| intl-messageformat 12.1.2 | packages/design/wording | en 문구의 ICU MessageFormat, placeholder와 plural |
 
 ## check 명령 하나
 

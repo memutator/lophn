@@ -1,0 +1,401 @@
+// 화면 코드의 고정 문구를 검사한다. 오류는 실패, 경고는 결과 목록이다.
+// 실행: deno test (check_test.ts가 저장소 화면 코드에도 돌린다)
+import { parse } from "@formatjs/icu-messageformat-parser";
+import { en } from "./en.ts";
+
+export type Severity = "error" | "warning";
+
+export type Finding = {
+  file: string;
+  line: number;
+  severity: Severity;
+  rule: string;
+  message: string;
+};
+
+export type CheckOptions = {
+  // contracts/problems 같은 다른 concern이 소유한 문구 key. catalog에 다시 정의하면 오류다.
+  knownKeys?: readonly string[];
+};
+
+const SCREENS = [
+  "launcher",
+  "project-workspace",
+  "document",
+  "terminal",
+  "app-panel",
+  "app-space",
+  "app-detail",
+  "projects",
+  "documents",
+  "contexts",
+  "apps",
+  "things-to-confirm",
+  "roles",
+  "settings",
+  "conversation",
+  "app-card",
+  "confirmation-window",
+  "report-problem",
+  "common",
+];
+
+const KEY_SHAPE = new RegExp(
+  `^(?:${
+    SCREENS.join("|")
+  })\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`,
+);
+
+const TEXT_ATTRIBUTES = new Set([
+  "title",
+  "aria-label",
+  "placeholder",
+  "alt",
+  "label",
+]);
+
+// ui-ux README 3절에서 화면에 내보이지 않기로 한 안쪽 개념.
+const INTERNAL_WORDS = [
+  "ledger",
+  "release",
+  "invocation",
+  "assignment",
+  "snapshot",
+  "redaction",
+  "claim",
+  "handoff",
+  "run",
+  "ticket",
+  "provider",
+  "grant",
+];
+
+const INTERNAL_WORD =
+  /(?<![a-z])(?:ledger|release|invocation|assignment|snapshot|redaction|claim|handoff|run|ticket|provider|grant)(?![a-z])/i;
+
+const SNAKE_WORD = /(?<![a-z0-9])[a-z]+(?:_[a-z0-9]+)+(?![a-z0-9])/;
+
+const ID_PREFIX = /(?<![a-z])[a-z]{2,}_(?=[a-z0-9])/;
+
+const RAW_ENUM = /(?<![A-Za-z])[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+(?![A-Za-z])/;
+
+const CALLED = new Set(["t"]);
+
+type Segment =
+  | { kind: "code"; text: string }
+  | { kind: "text"; text: string }
+  | { kind: "string"; text: string; quote: string };
+
+// JSX를 문자열 literal과 텍스트로 대충 나눈다. 검사 대상은 고정 문구라 표현식 안은 코드로 둔다.
+// `<`는 태그 시작만 태그로 본다. 비교식의 `<`는 코드 그대로 둔다.
+function tagAt(source: string, from: number): number {
+  let cursor = from;
+  while (cursor < source.length) {
+    const next = source.indexOf("<", cursor);
+    if (next === -1) return -1;
+    if (/[A-Za-z/!]/.test(source[next + 1] ?? "")) return next;
+    cursor = next + 1;
+  }
+  return -1;
+}
+
+function segments(source: string): Segment[] {
+  const out: Segment[] = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const next = tagAt(source, cursor);
+    if (next === -1) {
+      out.push({ kind: "code", text: source.slice(cursor) });
+      break;
+    }
+    out.push({ kind: "code", text: source.slice(cursor, next) });
+    const close = source.indexOf(">", next);
+    if (close === -1) {
+      out.push({ kind: "code", text: source.slice(next) });
+      break;
+    }
+    const tag = source.slice(next, close + 1);
+    out.push({ kind: "code", text: tag });
+    if (tag.startsWith("</") || tag.endsWith("/>")) {
+      cursor = close + 1;
+      continue;
+    }
+    let pos = close + 1;
+    while (pos < source.length && source[pos] !== "<") {
+      if (source[pos] === "{") {
+        // `{식}`은 텍스트가 아니다. 중첩 중괄호까지 코드로 읽는다.
+        let depth = 1;
+        const start = pos;
+        pos += 1;
+        while (pos < source.length && depth > 0) {
+          if (source[pos] === "{") depth += 1;
+          else if (source[pos] === "}") depth -= 1;
+          pos += 1;
+        }
+        out.push({ kind: "code", text: source.slice(start, pos) });
+        continue;
+      }
+      const textStart = pos;
+      while (
+        pos < source.length && source[pos] !== "<" && source[pos] !== "{"
+      ) {
+        pos += 1;
+      }
+      const text = source.slice(textStart, pos);
+      if (text.length > 0) out.push({ kind: "text", text });
+    }
+    cursor = pos;
+  }
+  return out.flatMap(splitStrings);
+}
+
+function splitStrings(segment: Segment): Segment[] {
+  if (segment.kind !== "code") return [segment];
+  const out: Segment[] = [];
+  const pattern = /"([^"\\]|\\.)*"|'([^'\\]|\\.)*'/g;
+  let cursor = 0;
+  for (const match of segment.text.matchAll(pattern)) {
+    const start = match.index ?? 0;
+    if (start > cursor) {
+      out.push({ kind: "code", text: segment.text.slice(cursor, start) });
+    }
+    out.push({
+      kind: "string",
+      text: match[0].slice(1, -1),
+      quote: match[0][0],
+    });
+    cursor = start + match[0].length;
+  }
+  if (cursor < segment.text.length) {
+    out.push({ kind: "code", text: segment.text.slice(cursor) });
+  }
+  return out;
+}
+
+function lineOf(source: string, index: number): number {
+  return source.slice(0, index).split("\n").length;
+}
+
+function visibleText(text: string): boolean {
+  const words = text.replace(/\{[^}]*\}/g, "").trim();
+  return /[A-Za-z]/.test(words);
+}
+
+function keyParts(key: string): [string, string, string] | undefined {
+  const parts = key.split(".");
+  if (parts.length !== 3) return;
+  return [parts[0], parts[1], parts[2]];
+}
+
+const SHORT_PARTS = new Set([
+  "button",
+  "title",
+  "heading",
+  "label",
+  "view",
+  "models",
+  "activity",
+]);
+
+// 버튼·제목·한 단어 라벨은 마침표가 없고, 여러 단어 문장은 마침표가 있다.
+function expectsPeriod(key: string): boolean {
+  const parts = keyParts(key);
+  if (!parts) return false;
+  if (SHORT_PARTS.has(parts[1]) || SHORT_PARTS.has(parts[2])) return false;
+  return true;
+}
+
+function messageText(message: string): string {
+  return message.replace(/\{[^{}]*\}/g, " ").replace(/#/g, " ");
+}
+
+export function checkSource(
+  file: string,
+  source: string,
+  catalog: Record<string, string> = en,
+  options: CheckOptions = {},
+): Finding[] {
+  const findings: Finding[] = [];
+  const known = new Set(options.knownKeys ?? []);
+  const add = (
+    index: number,
+    severity: Severity,
+    rule: string,
+    message: string,
+  ) =>
+    findings.push({
+      file,
+      line: lineOf(source, index),
+      severity,
+      rule,
+      message,
+    });
+
+  const parts = segments(source);
+  let offset = 0;
+  for (const part of parts) {
+    const index = offset;
+    offset += part.kind === "string" ? part.text.length + 2 : part.text.length;
+    if (part.kind === "text" && visibleText(part.text)) {
+      add(
+        index,
+        "error",
+        "literal-text",
+        "화면 코드에 직접 문구가 있다. message key를 쓴다.",
+      );
+    }
+    if (part.kind !== "string") continue;
+    const before = source.slice(0, index);
+    const attribute = /(?:^|[\s])([a-z-]+)\s*=\s*$/.exec(before);
+    if (
+      attribute && TEXT_ATTRIBUTES.has(attribute[1]) && visibleText(part.text)
+    ) {
+      add(
+        index,
+        "error",
+        "literal-attribute",
+        `${attribute[1]}에 직접 문구가 있다. message key를 쓴다.`,
+      );
+    }
+    const call = /(?:^|[^A-Za-z0-9_])([A-Za-z]+)\(\s*$/.exec(before);
+    if (!call || !CALLED.has(call[1])) continue;
+    if (!(part.text in catalog) && !known.has(part.text)) {
+      add(index, "error", "unknown-key", `없는 message key: ${part.text}`);
+    }
+  }
+
+  if (!file.endsWith(".tsx")) checkCatalog(source, catalog, known, add);
+  return findings;
+}
+
+function checkCatalog(
+  source: string,
+  catalog: Record<string, string>,
+  known: Set<string>,
+  add: (
+    index: number,
+    severity: Severity,
+    rule: string,
+    message: string,
+  ) => void,
+) {
+  for (const [key, message] of Object.entries(catalog)) {
+    const index = source.indexOf(JSON.stringify(key));
+    const at = index === -1 ? 0 : index;
+    if (known.has(key)) {
+      add(
+        at,
+        "error",
+        "owned-elsewhere",
+        `${key}는 다른 concern의 문구 key라 catalog에 두지 않는다.`,
+      );
+    }
+    if (!KEY_SHAPE.test(key)) {
+      add(
+        at,
+        "error",
+        "key-shape",
+        `key 모양이 <screen>.<part>.<name>이 아니다: ${key}`,
+      );
+    }
+    if (message.trim() === "") {
+      add(at, "error", "empty-message", `${key}의 en 값이 비었다.`);
+      continue;
+    }
+    try {
+      parse(message);
+    } catch (error) {
+      add(at, "error", "icu-syntax", `${key}의 ICU 문법이 잘못됐다: ${error}`);
+      continue;
+    }
+    const endsWithPeriod = message.trimEnd().endsWith(".");
+    if (expectsPeriod(key) && !endsWithPeriod) {
+      add(at, "error", "missing-period", `${key}는 문장인데 마침표가 없다.`);
+    }
+    if (!expectsPeriod(key) && endsWithPeriod) {
+      add(at, "error", "extra-period", `${key}는 버튼·제목인데 마침표가 있다.`);
+    }
+    const part = keyParts(key)?.[1];
+    if (part === "diagnostics") continue;
+    const text = messageText(message);
+    if (SNAKE_WORD.test(text)) {
+      add(
+        at,
+        "warning",
+        "snake-case",
+        `${key}의 en 값에 snake_case 단어가 있다.`,
+      );
+    }
+    if (ID_PREFIX.test(text)) {
+      add(
+        at,
+        "warning",
+        "id-prefix",
+        `${key}의 en 값에 ID 접두사 모양이 있다.`,
+      );
+    }
+    if (RAW_ENUM.test(text)) {
+      add(at, "warning", "raw-enum", `${key}의 en 값에 원시 enum 모양이 있다.`);
+    }
+    if (INTERNAL_WORD.test(text)) {
+      add(
+        at,
+        "warning",
+        "internal-word",
+        `${key}의 en 값에 안쪽 개념 단어(${INTERNAL_WORDS.join(", ")})가 있다.`,
+      );
+    }
+  }
+}
+
+const SOURCE_GLOBS = ["apps/shell/renderer", "packages/sdk"];
+
+async function collect(root: string): Promise<string[]> {
+  const files: string[] = [];
+  async function visit(dir: string) {
+    // 없는 대상(packages/sdk가 아직 없을 때)은 지나간다.
+    try {
+      if (!(await Deno.stat(dir)).isDirectory) return;
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) return;
+      throw error;
+    }
+    for await (const entry of Deno.readDir(dir)) {
+      const path = `${dir}/${entry.name}`;
+      if (entry.isDirectory) {
+        if (entry.name === "testdata" || entry.name === "node_modules") {
+          continue;
+        }
+        await visit(path);
+      } else if (entry.name.endsWith(".tsx")) files.push(path);
+    }
+  }
+  for (const glob of SOURCE_GLOBS) await visit(`${root}/${glob}`);
+  return files.sort();
+}
+
+export async function checkRepo(
+  root: string,
+  options: CheckOptions = {},
+): Promise<Finding[]> {
+  const findings: Finding[] = [];
+  for (const path of await collect(root)) {
+    const relative = path.slice(root.length + 1);
+    findings.push(
+      ...checkSource(relative, await Deno.readTextFile(path), en, options),
+    );
+  }
+  findings.push(
+    ...checkSource(
+      "packages/design/wording/en.ts",
+      JSON.stringify(en, null, 2),
+      en,
+      options,
+    ),
+  );
+  return findings;
+}
+
+export function errorsOf(findings: Finding[]): Finding[] {
+  return findings.filter((finding) => finding.severity === "error");
+}

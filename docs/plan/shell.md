@@ -123,7 +123,7 @@ concerns: [shell]
 - 등급: 기본
 - concern: shell/wording
 - 요구: shell/wording#R1, R3, R6, R7, R11, R13, R14
-- 자리: packages/design/wording/(mod.ts, en.ts, keys.ts, format.ts, intl.ts, check.ts, check_test.ts)
+- 자리: packages/design/wording/(mod.ts, en.ts, placeholders.ts, generate.ts, format.ts, intl.ts, check.ts, check_test.ts, format_test.ts)
 - 쓰는 contract: contracts#T32·T39·T40(problems가 소유한 문구 상수 key)
 - 내놓는 contract: 없음(shell renderer, overlay, confirmation, main, SDK UI가 쓰는 catalog 모듈)
 - slice: skeleton
@@ -975,6 +975,7 @@ concerns: [shell]
   - raw capture는 main과 문제 보고 경계만 갖고 dialog에는 redaction된 PNG만. 글·화면 상태·screenshot을 미리 보고 각각 뺄 수 있다. screenshot 기본은 꺼짐, 미리보기를 본 뒤 켬. 미선택·화면 없음·수집 실패·redaction 제외·저장 실패의 이유를 보이고 첨부 없이 글만 보낼 수 있다.
   - 미제출·접수 대기·접수 완료를 구별하고, 실패에는 복사 가능한 글과 이유. 초안은 메모리에만. 취소는 저장하지 않고 이미 접수한 것은 닫아도 지우지 않는다. 기존 문제 선택 여부를 보이고 접수 뒤 묶인 Issue로 갈 수 있다.
   - 앱 view가 crash·무한 loop여도 버튼과 dialog가 동작한다. 안내에 stack·log·원문 오류가 없고 문제 문구는 problems가 정한 값 그대로.
+  - contracts/problems 문구 상수 key를 wording 검사의 알려진 key로 잇는다.
   - `feedback_test`와 `e2e/shell/report-problem_test.ts`(깨진 view에서 dialog 열림, 캡처 동안 view가 보임)에 위 요구 테스트. problems#T23의 선행.
 
 ### T53 app-detail Issues: 문제, 수리 결과, 사람 결정

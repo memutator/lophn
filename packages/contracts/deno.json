@@ -2,7 +2,10 @@
   "name": "@lophn/contracts",
   "exports": {
     ".": "./mod.ts",
-    "./platform": "./platform/mod.ts"
+    "./platform": "./platform/mod.ts",
+    "./shell": "./shell/mod.ts"
   },
-  "compilerOptions": { "erasableSyntaxOnly": true }
+  "compilerOptions": {
+    "erasableSyntaxOnly": true
+  }
 }

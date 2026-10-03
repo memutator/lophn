@@ -203,3 +203,4 @@ export {
 } from "./supervision.ts";
 export * from "./blob.ts";
 export * from "./pipe-ops.ts";
+export * from "./confirmation-handle.ts";

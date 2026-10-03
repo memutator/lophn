@@ -6,6 +6,7 @@ import {
 import { runIdSchema } from "./ids.ts";
 import { seqSchema } from "./values.ts";
 import type { CommandRoute, ReadRoute } from "./route.ts";
+import { confirmationRefSchema } from "./confirmation-handle.ts";
 
 const encoder = new TextEncoder();
 
@@ -16,7 +17,6 @@ export const idempotencyKeySchema = z.string().refine((value) => {
     bytes <= IDEMPOTENCY_KEY_MAX_BYTES;
 }, { message: "invalid idempotency key" });
 
-// 모양은 contracts#T13이 좁힌다. 여기서는 불투명 참조만 받는다.
 const opaqueRefSchema = z.string().min(1);
 
 const preparedSchema = z.array(opaqueRefSchema);
@@ -24,20 +24,54 @@ const preparedSchema = z.array(opaqueRefSchema);
 type CommandRequestRoute = {
   input: z.ZodType;
   compare?: z.ZodType;
+  confirmation?: "required";
 };
 
-export function commandRequestSchema<R extends CommandRequestRoute>(route: R) {
+// field 순서는 canonical JSON에 남으므로 요청 본문의 기존 순서를 유지한다.
+const commandRequestFields = {
+  idempotency_key: idempotencyKeySchema,
+  compare: z.strictObject({}),
+  run: runIdSchema.optional(),
+  prepared: preparedSchema,
+  confirmation: confirmationRefSchema.optional(),
+};
+
+type CompareSchema<R extends CommandRequestRoute> = [
+  Extract<R["compare"], z.ZodType>,
+] extends [never] ? z.ZodObject<Record<string, never>>
+  : Extract<R["compare"], z.ZodType>;
+
+type ConfirmationSchema<R extends CommandRequestRoute> =
+  R["confirmation"] extends "required" ? typeof confirmationRefSchema
+    : z.ZodOptional<typeof confirmationRefSchema>;
+
+type CommandRequestObject<R extends CommandRequestRoute> = z.ZodObject<{
+  input: R["input"];
+  idempotency_key: typeof idempotencyKeySchema;
+  compare: CompareSchema<R>;
+  run: z.ZodOptional<typeof runIdSchema>;
+  prepared: typeof preparedSchema;
+  confirmation: ConfirmationSchema<R>;
+}>;
+
+export function commandRequestSchema<R extends CommandRequestRoute>(
+  route: R,
+): CommandRequestObject<R> {
+  const compare = (route.compare ?? z.strictObject({})) as CompareSchema<R>;
+  // 선언한 route만 confirmation을 필수로 둔다. 나머지에서는 field 자체가 선택이다.
+  const confirmation = (
+    route.confirmation === "required"
+      ? confirmationRefSchema
+      : confirmationRefSchema.optional()
+  ) as ConfirmationSchema<R>;
   return z.strictObject({
     input: route.input,
-    idempotency_key: idempotencyKeySchema,
-    compare: (route.compare ?? z.strictObject({})) as [
-      Extract<R["compare"], z.ZodType>,
-    ] extends [never] ? z.ZodObject<Record<string, never>>
-      : Extract<R["compare"], z.ZodType>,
-    run: runIdSchema.optional(),
-    prepared: preparedSchema,
-    confirmation: opaqueRefSchema.optional(),
-  });
+    idempotency_key: commandRequestFields.idempotency_key,
+    compare,
+    run: commandRequestFields.run,
+    prepared: commandRequestFields.prepared,
+    confirmation,
+  }) as unknown as CommandRequestObject<R>;
 }
 
 export type CommandRequest<R extends CommandRoute> = z.infer<

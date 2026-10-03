@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node build.ts",
-    "check": "tsc --noEmit -p . && node --test"
+    "check": "deno fmt --check --ignore=node_modules,dist . ../preload && deno lint --ignore=node_modules,dist . ../preload && tsc --noEmit -p . && node --test"
   },
   "dependencies": {
     "electron": "44.5.1",

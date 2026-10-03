@@ -124,5 +124,6 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 - `packages/contracts`와 `packages/base`는 다른 어떤 package도 import하지 않는다.
 - `apps/shell`은 core package를 import하지 않는다. contracts, design, sdk만 쓴다.
 - `apps/*` entry는 package를 조립만 한다. 업무 규칙은 package에 둔다.
+- 다른 팀의 테스트는 `apps/core/testing/`(platform이 만드는 통합 테스트 harness)를 `*_test.ts`에서만 import할 수 있다. 제품 코드는 import하지 않는다.
 - 여러 팀이 같은 entry에 붙는 곳(`apps/core`의 route, `apps/worker`의 kind)은 platform 팀이 registry를 만들고, 각 팀은 자기 등록 파일(`apps/core/<팀>.ts`, `apps/worker/<팀>/`)만 고친다.
 - 한 concern의 ledger 표는 그 concern의 코드만 읽고 쓴다. 다른 concern의 표가 필요하면 그 concern의 read contract를 쓴다.

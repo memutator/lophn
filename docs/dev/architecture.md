@@ -30,7 +30,7 @@ packages/<최상위>/<leaf>/
 
 ## 오류
 
-- 경계(API, command, contract)에서는 공통 오류 코드만 쓴다: `invalid_input`, `not_found`, `forbidden`, `unauthorized`, `conflict`, `unavailable`. `packages/base`의 Result 타입으로 돌려준다.
+- 경계(API, command, contract)에서는 공통 오류 코드 7개만 쓴다: `invalid_input`, `not_found`, `forbidden`, `unauthorized`, `conflict`, `unavailable`, `internal`. `internal`은 우리 코드의 결함일 때만 쓴다. `packages/base`의 Result 타입으로 돌려준다.
 - 안쪽에서는 throw해도 되지만 경계를 넘기 전에 공통 오류로 바꾼다.
 - 조용히 삼키지 않는다. 모르는 결과는 모른다고 기록한다(P11).
 - secret과 개인정보는 오류와 log에 넣지 않는다(platform/redaction).

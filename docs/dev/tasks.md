@@ -52,7 +52,7 @@ slice 문서 안에 작업을 이 모양으로 쓴다.
 ## 테스트
 
 - 단위: `model.ts`의 순수 규칙, `commands.ts`의 CAS와 거절. 대상 옆 `*_test.ts`.
-- 통합: core를 메모리 SQLite와 임시 폴더로 띄우고 API로 부른다. contract의 입력·출력·오류를 확인한다.
+- 통합: core를 임시 폴더의 파일 SQLite로 띄우고(WAL은 메모리 DB에서 켜지지 않는다) API로 부른다. `apps/core/testing/` harness를 쓴다. contract의 입력·출력·오류를 확인한다.
 - E2E: flow 문서 하나가 시나리오 하나다. Playwright로 shell을 띄우고 fake provider와 fixture를 쓴다.
 - model이 끼는 부분은 fake provider의 script나 녹화 응답으로 테스트한다. 실제 model의 판단 품질은 lophn-agent/evaluation이 따로 잰다.
 - 시각, id, 무작위 값은 주입해서 테스트가 매번 같게 돈다.

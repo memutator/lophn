@@ -27,6 +27,7 @@ slice 문서 안에 작업을 이 모양으로 쓴다.
 - 쓰는 contract: platform command, blob
 - 내놓는 contract: apps registration API   (있으면 contracts 팀 작업이 먼저)
 - slice: apps
+- 조사: docs/research/<주제>.md   (agent 관련 작업은 필수, research.md)
 - 선행: apps#T2, contracts#T5
 - 완료: 아래 확인이 통과한다
   - registration_test.ts에 R1–R4 테스트
@@ -36,6 +37,7 @@ slice 문서 안에 작업을 이 모양으로 쓴다.
 - 작업 하나는 기본 등급 worker가 한 세션에 끝낼 크기다: 요구 15개 안팎, 새 파일 10개 안팎. 넘으면 나눈다.
 - 파일과 바꿈이 정해진 좁은 작업은 좁은 등급, 대부분은 기본, 화면 작업은 frontend로 표시한다. 최상위는 처음부터 가장 어려운 문제에만 표시한다.
 - contract를 새로 내놓거나 바꾸는 일은 따로 contracts 팀 작업으로 떼어 먼저 둔다.
+- lophn-agent와 coding-agent의 작업은 주제마다 조사 작업을 먼저 둔다. 오픈소스 3개 이상을 코드로 본다([research.md](research.md)).
 
 ## 완료
 

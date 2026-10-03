@@ -25,6 +25,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 - team member는 자기 최상위 문서(intent, requirements, domain model, architecture)와 관련 flow만 읽는다. 다른 최상위는 contract와 concern id로만 본다.
 - 다른 팀에 필요한 것은 그 team member에게 직접 요청하고, contract 변경은 contracts 팀에 요청한다.
 - review는 team member가 직접 하거나, 구현한 worker와 다른 model의 worker를 띄워 맡긴다.
+- lophn-agent 팀과 coding-agent 팀은 계획을 쓰기 전에 주제마다 오픈소스 조사를 worker에게 맡긴다([research.md](research.md)). 프로젝트마다 worker 하나를 두면 빠르다.
 
 ## worker 등급
 

@@ -14,6 +14,7 @@ lophn을 구현하는 사람과 agent가 함께 지키는 것이다. 무엇을 �
 | [stack.md](stack.md) | 기술 스택, check 명령, 개발 환경과 fixture |
 | [tasks.md](tasks.md) | 계획 문서와 작업 단위의 모양, 완료, 테스트, 추적, git |
 | [team.md](team.md) | 역할, worker 등급과 model, 주고받는 법 |
+| [research.md](research.md) | agent 관련 주제는 오픈소스 3개 이상을 코드로 조사한다. 참고 주소 |
 | [legacy.md](legacy.md) | 이전 lophn 코드에서 가져와도 되는 것 |
 
 순서: contracts와 base, 뼈대(`skeleton` slice)를 먼저 만들고 그다음 slice들을 병렬로 진행한다.

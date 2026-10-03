@@ -16,7 +16,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | ledger, 앱 DB, derived store | SQLite (Deno의 `node:sqlite`), WAL, FTS5 | |
 | renderer, SDK UI | React, CodeMirror 6 | 이전 lophn shell과 같다 |
 | 터미널 | xterm.js, node-pty(ConPTY) | |
-| schema | Zod 한 가지 | contracts와 경계 검사 |
+| schema | Zod 한 가지 | contracts와 경계 검사. 예외: 앱이 import하는 blueprint 검증기는 의존성 없는 순수 TS(`packages/contracts/apps/blueprint.ts`, `@lophn/blueprint`가 다시 내보냄) |
 | format, lint | `deno fmt`, `deno lint` | 저장소 전체(npm 쪽 포함) |
 | 테스트 | `deno test`; shell main은 `node --test`; E2E는 Playwright(Electron) | |
 | secret | OS keychain | 평문 금지 |

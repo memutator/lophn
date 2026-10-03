@@ -31,7 +31,7 @@ lophn을 구현하는 team member(2단, Opus 5.5)가 따르는 지침이다. 사
 
 lead가 "구현 시작"을 보내면 시작한다.
 
-- 선행이 모두 main에 합쳐진 작업부터 한다. slice 순서를 지킨다.
+- 선행이 모두 main에 합쳐진 작업은 slice와 상관없이 시작해도 된다. slice 순서는 우선순위와 E2E의 순서다. 앞 slice 작업을 먼저 잡는다.
 - 작업 하나마다: `git fetch origin && git worktree add .claude/worktrees/<branch> -b <branch> origin/main` → worker를 띄워 그 worktree에서 구현시킨다 → 결과를 review한다(직접 하거나 다른 model의 worker) → push, PR, rebase, check, `gh pr merge --squash --delete-branch` → `git worktree remove`.
 - 같은 PR에서 계획 문서의 그 작업에 `- 상태: 완료 (#<PR 번호>)`를 단다.
 - slice의 마지막 작업에서 그 slice의 flow E2E를 돌린다.

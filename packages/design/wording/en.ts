@@ -8,8 +8,8 @@ export const en = {
   "document.diff.identical": "These versions are identical.",
   "settings.models.for-decisions": "For decisions",
   "settings.models.for-summaries": "For summaries",
-  "settings.activity.agent": "Agent activity",
-  "settings.activity.app": "App activity",
+  "common.activity.agent": "Agent activity",
+  "common.activity.app": "App activity",
 } as const;
 
 export type Catalog = typeof en;

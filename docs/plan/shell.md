@@ -123,7 +123,7 @@ concerns: [shell]
 - 등급: 기본
 - concern: shell/wording
 - 요구: shell/wording#R1, R3, R6, R7, R11, R13, R14
-- 자리: packages/design/wording/(mod.ts, en.ts, placeholders.ts, generate.ts, format.ts, intl.ts, check.ts, check_test.ts, format_test.ts)
+- 자리: packages/design/wording/(mod.ts, en.ts, placeholders.ts, generate.ts, format.ts, intl.ts, check.ts, check_test.ts, format_test.ts, rules.ts)
 - 쓰는 contract: contracts#T32·T39·T40(problems가 소유한 문구 상수 key)
 - 내놓는 contract: 없음(shell renderer, overlay, confirmation, main, SDK UI가 쓰는 catalog 모듈)
 - slice: skeleton

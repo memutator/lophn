@@ -10,8 +10,8 @@ export type PlaceholderKinds = {
   "document.diff.identical": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;
   "settings.models.for-summaries": Record<never, never>;
-  "settings.activity.agent": Record<never, never>;
-  "settings.activity.app": Record<never, never>;
+  "common.activity.agent": Record<never, never>;
+  "common.activity.app": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

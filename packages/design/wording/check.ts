@@ -2,6 +2,16 @@
 // 실행: deno test (check_test.ts가 저장소 화면 코드에도 돌린다)
 import { parse } from "@formatjs/icu-messageformat-parser";
 import { en } from "./en.ts";
+import {
+  ID_PREFIX,
+  INTERNAL_WORD,
+  INTERNAL_WORDS,
+  KEY_SHAPE,
+  RAW_ENUM,
+  SHORT_PARTS,
+  SNAKE_WORD,
+  TEXT_ATTRIBUTES,
+} from "./rules.ts";
 
 export type Severity = "error" | "warning";
 
@@ -17,67 +27,6 @@ export type CheckOptions = {
   // contracts/problems 같은 다른 concern이 소유한 문구 key. catalog에 다시 정의하면 오류다.
   knownKeys?: readonly string[];
 };
-
-const SCREENS = [
-  "launcher",
-  "project-workspace",
-  "document",
-  "terminal",
-  "app-panel",
-  "app-space",
-  "app-detail",
-  "projects",
-  "documents",
-  "contexts",
-  "apps",
-  "things-to-confirm",
-  "roles",
-  "settings",
-  "conversation",
-  "app-card",
-  "confirmation-window",
-  "report-problem",
-  "common",
-];
-
-const KEY_SHAPE = new RegExp(
-  `^(?:${
-    SCREENS.join("|")
-  })\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`,
-);
-
-const TEXT_ATTRIBUTES = new Set([
-  "title",
-  "aria-label",
-  "placeholder",
-  "alt",
-  "label",
-]);
-
-// ui-ux README 3절에서 화면에 내보이지 않기로 한 안쪽 개념.
-const INTERNAL_WORDS = [
-  "ledger",
-  "release",
-  "invocation",
-  "assignment",
-  "snapshot",
-  "redaction",
-  "claim",
-  "handoff",
-  "run",
-  "ticket",
-  "provider",
-  "grant",
-];
-
-const INTERNAL_WORD =
-  /(?<![a-z])(?:ledger|release|invocation|assignment|snapshot|redaction|claim|handoff|run|ticket|provider|grant)(?![a-z])/i;
-
-const SNAKE_WORD = /(?<![a-z0-9])[a-z]+(?:_[a-z0-9]+)+(?![a-z0-9])/;
-
-const ID_PREFIX = /(?<![a-z])[a-z]{2,}_(?=[a-z0-9])/;
-
-const RAW_ENUM = /(?<![A-Za-z])[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+(?![A-Za-z])/;
 
 const CALLED = new Set(["t"]);
 
@@ -186,16 +135,6 @@ function keyParts(key: string): [string, string, string] | undefined {
   if (parts.length !== 3) return;
   return [parts[0], parts[1], parts[2]];
 }
-
-const SHORT_PARTS = new Set([
-  "button",
-  "title",
-  "heading",
-  "label",
-  "view",
-  "models",
-  "activity",
-]);
 
 // 버튼·제목·한 단어 라벨은 마침표가 없고, 여러 단어 문장은 마침표가 있다.
 function expectsPeriod(key: string): boolean {

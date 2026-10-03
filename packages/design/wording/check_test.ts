@@ -74,8 +74,8 @@ Deno.test("shell/wording#R13: Baseline, Reference, Follow changes, For decisions
   assertEquals(en["contexts.view.follow-changes"], "Follow changes");
   assertEquals(en["settings.models.for-decisions"], "For decisions");
   assertEquals(en["settings.models.for-summaries"], "For summaries");
-  assertEquals(en["settings.activity.agent"], "Agent activity");
-  assertEquals(en["settings.activity.app"], "App activity");
+  assertEquals(en["common.activity.agent"], "Agent activity");
+  assertEquals(en["common.activity.app"], "App activity");
 });
 
 Deno.test("shell/wording#R7: 저장소 화면 코드와 catalog에 문구 오류가 없다", async () => {

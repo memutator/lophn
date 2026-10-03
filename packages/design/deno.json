@@ -1,0 +1,12 @@
+{
+  "name": "@lophn/design",
+  "exports": {
+    ".": "./mod.ts",
+    "./base.css": "./base.css",
+    "./tokens.css": "./generated/tokens.css"
+  },
+  "tasks": {
+    "generate": "deno run --allow-read --allow-write --allow-run generate.ts",
+    "check-generated": "deno run --allow-read --allow-run generate.ts --check"
+  }
+}

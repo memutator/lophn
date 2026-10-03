@@ -1,34 +1,38 @@
-// shell·overlay·confirmation entry를 각각 브라우저 bundle 하나로 만든다.
-// deno bundle은 CSS Modules의 클래스 맵을 만들지 못해 esbuild로 묶는다.
-// esbuild-deno-loader는 모든 파일을 자기가 읽으므로, CSS Modules와 글꼴은 별도
-// namespace에서 esbuild loader로 넘긴다. 글꼴 파일은 T4에서 더한다.
+// deno-loader 대신 asset namespace에서 CSS Modules와 CSS·font를 읽어 esbuild loader를 쓴다.
 import * as esbuild from "esbuild";
 import { denoPlugins } from "@luca/esbuild-deno-loader";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const here = dirname(new URL(import.meta.url).pathname);
-
+const here = dirname(fileURLToPath(import.meta.url));
 const entries = ["desktop", "overlay", "confirmation"];
 
-const assetLoaders: Record<string, string> = {
-  ".module.css": "local-css",
-  ".woff2": "file",
-};
+function fileUrl(path: string): URL {
+  return path.startsWith("file:") ? new URL(path) : pathToFileURL(path);
+}
 
-function assetPlugin(): esbuild.Plugin {
+function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
   return {
     name: "renderer-assets",
     setup(build) {
-      build.onResolve({ filter: /\.(module\.css|woff2)$/ }, (args) => {
-        if (!args.path.startsWith(".")) return undefined;
-        const path = new URL(args.path, pathToFileURL(args.importer)).pathname;
-        const loader = Object.entries(assetLoaders).find(([ext]) =>
-          path.endsWith(ext)
-        )?.[1];
-        if (!loader) return undefined;
+      build.onResolve({ filter: /\.(css|woff2)$/ }, (args) => {
+        const mapped = imports[args.path];
+        const url = mapped
+          ? new URL(mapped)
+          : args.path.startsWith("file:")
+          ? new URL(args.path)
+          : args.path.startsWith(".") && args.importer
+          ? new URL(args.path, fileUrl(args.importer))
+          : undefined;
+        if (!url || url.protocol !== "file:") return undefined;
+        const path = fileURLToPath(url);
+        const loader: esbuild.Loader = path.endsWith(".module.css")
+          ? "local-css"
+          : path.endsWith(".css")
+          ? "css"
+          : "file";
         return { path, namespace: "renderer-asset", pluginData: { loader } };
       });
       build.onLoad(
@@ -36,6 +40,7 @@ function assetPlugin(): esbuild.Plugin {
         async (args) => ({
           contents: await readFile(args.path),
           loader: args.pluginData.loader,
+          resolveDir: dirname(args.path),
         }),
       );
     },
@@ -43,14 +48,39 @@ function assetPlugin(): esbuild.Plugin {
 }
 
 export async function build(outdir = join(here, "dist")): Promise<void> {
-  // 루트 deno.json의 workspace 멤버 glob은 아직 없는 폴더를 가리켜 deno-loader의
-  // workspace 탐색이 실패한다. renderer deno.json의 imports만 담은 import map을
-  // 넘기면 탐색 없이 같은 resolve를 쓴다.
+  // 없는 workspace 폴더의 탐색을 피하되 임시 map에서도 로컬 import의 기준 경로를 유지한다.
   const scratch = await mkdtemp(join(tmpdir(), "shell-renderer-map-"));
   const configPath = join(scratch, "deno.json");
   try {
     const config = JSON.parse(await readFile(join(here, "deno.json"), "utf8"));
-    await writeFile(configPath, JSON.stringify({ imports: config.imports }));
+    const imports: Record<string, string> = Object.fromEntries(
+      Object.entries(config.imports as Record<string, string>).map((
+        [key, value],
+      ) => [
+        key,
+        value.startsWith(".")
+          ? new URL(value, pathToFileURL(join(here, "deno.json"))).href
+          : value,
+      ]),
+    );
+    const design = new URL(
+      "../../../packages/design/",
+      pathToFileURL(`${here}/`),
+    );
+    const designConfig = JSON.parse(
+      await readFile(new URL("deno.json", design), "utf8"),
+    );
+    for (
+      const [key, value] of Object.entries(
+        designConfig.exports as Record<string, string>,
+      )
+    ) {
+      const specifier = key === "."
+        ? designConfig.name
+        : `${designConfig.name}/${key.slice(2)}`;
+      imports[specifier] = new URL(value, design).href;
+    }
+    await writeFile(configPath, JSON.stringify({ imports }));
     await esbuild.build({
       absWorkingDir: here,
       entryPoints: entries.map((name) => ({
@@ -63,7 +93,7 @@ export async function build(outdir = join(here, "dist")): Promise<void> {
       jsx: "automatic",
       assetNames: "[name]",
       plugins: [
-        assetPlugin(),
+        assetPlugin(imports),
         // deno-loader는 자기 esbuild 타입 사본을 쓰므로 구조만 맞춘다.
         ...(denoPlugins({ configPath }) as esbuild.Plugin[]),
       ],

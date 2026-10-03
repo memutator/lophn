@@ -107,8 +107,8 @@ concerns: [shell]
 - 등급: 기본
 - concern: shell/design-system
 - 요구: shell/design-system#R3, R4, R36(token 밖 스타일 검사), R40, R44
-- 자리: packages/design/theme.ts, packages/design/style-check/, packages/design/style-check_test.ts
-- 쓰는 contract: contracts#T24(settings registry의 theme override 값 모양)
+- 자리: packages/design/(deno.json, theme.ts, theme_test.ts, mod.ts), packages/design/style-check/(mod.ts, model.ts, work.ts, testdata/), packages/design/style-check_test.ts, docs/dev/stack.md, deno.lock
+- 쓰는 contract: 없음(settings 등록과 session 적용은 후속 작업이 순수 theme 함수를 부른다)
 - 내놓는 contract: 없음
 - slice: skeleton
 - 선행: shell#T4
@@ -116,7 +116,7 @@ concerns: [shell]
   - theme override는 있는 token 이름의 값만 바꾼다. 이름 추가·삭제는 거절하고, 검증에 실패한 값만 기본값으로 돌아간다. 강조색 override도 같은 검증을 거친다. 같은 결과 CSS 변수 집합을 shell·앱 session에 쓸 수 있게 낸다.
   - style 검사는 `apps/shell/renderer`, `packages/design`, `packages/sdk/ui-*`의 CSS에서 token 밖 색·길이·시간·굵기·z-index·breakpoint와 없는 token 참조를 거절한다. `deno test` 안에서 돈다(check 단계를 늘리지 않는다).
   - `theme_test`, `style-check_test`에 위 요구 테스트. 임의 hex·px·ms를 넣은 fixture가 실패한다.
-- 가져올 것: legacy `packages/sdk/tokens/stylelint.ts`, `lint_styles.ts`의 token-only 규칙. stylelint를 쓰면 stack.md에 더한다.
+- 가져올 것: legacy `packages/sdk/tokens/stylelint.ts`, `lint_styles.ts`의 token-only 규칙만. postcss와 postcss-value-parser를 쓰고 stack.md에 판과 이유를 적는다.
 
 ### T6 wording catalog, ICU, Intl, 문구 검사
 

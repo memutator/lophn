@@ -15,9 +15,9 @@ coding agent가 작은 요약부터 필요한 근거를 읽고 과거 증상과 
 - 확인: 두 조회 사이 발생과 release를 바꾸면 새 상태와 조립 시각이 반영되고 옛 source 줄 번호는 발생 release의 commit 기준으로 표시된다.
 - 의도: coding-agent#I7
 
-**[R2]** 수리 자료는 ticket에 연결된 여러 문제를 문제별로 구별하고 ticket 없는 직접 수리도 같은 내용 계약으로 문제 하나를 읽게 한다.
-- 이유: problems/repairs의 직접 수리와 여러 문제의 근거를 한 통로에서 제공하되 섞지 않는다.
-- 확인: 여러 문제 ticket에서 각 근거가 어느 문제인지 확인되고 직접 수리 묶음에 가짜 ticket·claim이 생기지 않는다.
+**[R2]** 수리 자료는 ticket에 연결된 여러 문제를 문제별로 구별하고 ticket 준비 전 조사도 같은 내용 계약으로 문제 하나를 읽게 하되 code 작업은 ticket 생성·MCP claim 뒤에만 시작한다.
+- 이유: ticket 준비 조사와 여러 문제의 작업 근거를 한 통로에서 제공하되 섞지 않는다.
+- 확인: 여러 문제 ticket에서 각 근거가 어느 문제인지 확인되고 ticket 준비 조사 묶음 읽기만으로 ticket·claim이 생기지 않고 code 작업 시작 안내는 담당 agent의 ticket 준비로 연결된다.
 - 의도: coding-agent#I7, coding-agent#I4
 
 **[R3]** 절은 대상과 증상·사람 말·볼 곳·acceptance check·지킬 것·발생 근거와 실패 invocation·대표 발생·직전 변화·log·지난 고친 기록·관련 문제·첨부·재현·더 읽기·반환 방법 순서로 제공하고 내용과 누락 사실이 모두 없는 빈 절만 뺀다.
@@ -57,7 +57,7 @@ coding agent가 작은 요약부터 필요한 근거를 읽고 과거 증상과 
 - 확인: 많은 문제와 화면 결과에서 상한을 지키고 나머지 행·첨부를 추가 조회할 수 있으며 binary는 기본 텍스트에 들어가지 않는다.
 - 의도: coding-agent#I7
 
-**[R10]** 재현 안내는 6줄 및 500자, 더 읽기 안내는 5줄, 반환 안내는 4줄로 제한해 전체 근거 읽기·ticket 완료 보고 또는 직접 고친 기록과 실제 테스트 요청으로 잇는다.
+**[R10]** 재현 안내는 6줄 및 500자, 더 읽기 안내는 5줄, 반환 안내는 4줄로 제한해 전체 근거 읽기·현재 ticket의 완료 보고와 실제 테스트 요청으로 잇고 ticket 없는 조회는 담당 agent의 ticket 준비로 잇는다.
 - 이유: 고쳤다는 주장과 machine 확인을 구별하면서 다음 행동을 찾게 한다.
 - 확인: 안내가 상한을 지키고 연결된 요청이 실제 동작하며 coding agent가 문제를 대신 닫도록 안내하지 않는다.
 - 의도: coding-agent#I7, coding-agent#I5
@@ -120,11 +120,11 @@ coding agent가 작은 요약부터 필요한 근거를 읽고 과거 증상과 
 
 ## 열린 질문
 
-- coding-agent/repair-context#Q1 현재 앱 sample hook을 추가 근거로 채택할까.
-- coding-agent/repair-context#Q2 옛 화면 64 KiB 상한과 새 24 KiB 상한 중 무엇을 적용할까.
-- coding-agent/repair-context#Q3 절별 줄 상한과 새 domain model의 자수·개수 상한을 어떻게 합칠까.
-- coding-agent/repair-context#Q4 근거가 가장 다른 발생의 비교 기준을 무엇으로 정할까.
-- coding-agent/repair-context#Q5 2 MiB를 넘는 이미지에 파생 축소나 부분 읽기를 제공할까.
+- coding-agent/repair-context#Q1
+- coding-agent/repair-context#Q2
+- coding-agent/repair-context#Q3
+- coding-agent/repair-context#Q4
+- coding-agent/repair-context#Q5
 
 ## 버린 것
 

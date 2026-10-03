@@ -1,10 +1,12 @@
 # 열린 질문과 충돌
 
-requirements·domain model·architecture·flow·screen과 intent 연결·일관성 검사에서 모은 것이다. 쓰는 동안에는 멈추지 않고 추천안을 적용했다. 여기서 한꺼번에 정하면 해당 concern 문서를 고친다.
+requirements·domain model·architecture·flow·이전 screen과 intent 연결·일관성 검사에서 모은 것이다. 쓰는 동안에는 멈추지 않고 추천안을 적용했다. 여기서 한꺼번에 정하면 해당 concern 문서를 고친다.
 
-- 모두 620건: 질문 296, 충돌 288, 빠짐 23, 범위 13 (정함 또는 기존 해결 61건 포함)
-- 질문: 사람이 정할 것. 충돌: 문서·모델·concern 사이가 어긋난 곳. 빠짐: 필요한 contract·flow·screen이 없는 곳. 범위: intent와 요구의 연결 또는 제품 범위가 불분명한 곳.
-- "적용"은 지금 문서에 들어가 있는 쪽이다. 적용함·고침은 기록으로 남기며, 추천 적용을 사람의 결정으로 보지 않는다. "정함"은 아래 사람 결정으로 분명히 풀린 항목이다. 같은 id는 하나로 합치고 서로 다른 내용·kind는 합친 기록에 남긴다.
+- 모두 755건: 질문 406, 충돌 298, 빠짐 26, 범위 25 (정함 또는 기존 해결 75건 포함)
+- 질문: 사람이 정할 것. 충돌: 문서·모델·concern 사이가 어긋난 곳. 빠짐: 필요한 contract·flow가 없는 곳. 범위: intent와 요구의 연결 또는 제품 범위가 불분명한 곳.
+- "적용"은 작성 당시 문서에 들어가 있던 쪽의 기록이다. 뒤의 "결정"·"후속 기록"이 옛 추천과 다르면 새 기록을 따른다. 적용함·고침은 기록으로 남기며, 추천 적용을 사람의 결정으로 보지 않는다. "정함"은 아래 사람 결정으로 분명히 풀린 항목이다. 같은 id는 하나로 합치고 서로 다른 내용·kind는 합친 기록에 남긴다.
+
+- 수집 제외: redesign/lophn-agent#Q42는 질문 원문이 "없음."인 placeholder여서 건수에 넣지 않았다.
 
 ## 먼저 정할 큰 것
 
@@ -13,7 +15,7 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
 | H1 | automation이 메일 보내기·결제처럼 바깥 상태를 바꾸는 command(external)를 실행하게 할까. 지금 모델은 금지. 정한 것: secret 사용은 앱에 준 grant가 허락이고, 가져오기·동기화는 external이 아니라 automation으로 돈다. |
 | H2 | coding agent의 release activation도 매번 사람 승인할까(추천: 예). |
 | H3 | App Engineer의 주기 검토를 둘까(지금: 없음, 사람 요청으로만). |
-| H4 | reproduction test를 만들 수 없는 repair ticket을 사람의 확인을 acceptance check로 삼아 허용할까(지금: 불가, ticket 없이 직접 수리). |
+| H4 | reproduction test를 만들 수 없는 repair ticket을 사람의 확인을 acceptance check로 삼아 허용할까. 결정 16으로 ticket 없는 직접 수리는 폐기했다. ticket 접수와 실행 준비 분리·reproduction 없는 조건 허용은 아직 미정이다. |
 | H5 | 터미널 대화형 확인을 승인으로 인정할까(추천: 아니오). |
 | H6 | 기술 선택(Electron, Deno, SQLite) 유지(추천: 유지). |
 | H7 | App Engineer의 ticket 생성을 매번 묻지 않기로 한 결정(lophn-agent/harness/tool-judgment)을 받아들일까. |
@@ -32,7 +34,22 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
 6. automation은 external·confirm command를 아직 못 돌린다(H1 남은 부분). 가져오기·동기화는 돌린다.
 7. 화면에는 지금 필요한 것만 보이고 복잡한 내용·과정은 숨긴다(P17, shell I8,I9). 화면 말은 영어(i18n, 처음엔 en만)이며 ledger·invocation·assignment 같은 안쪽 개념은 내보내지 않는다. docs/README.md의 말 표는 문서·코드의 말이다.
 
-## platform (82)
+## 2026-10-04 정한 것
+
+8. harness intent는 I1~I3 세 줄만 남았다(고른 model과 계정, 잃거나 두 번 하지 않음, 비용). prompt injection·secret 약속은 없앴다. secret은 platform I8이 맡는다.
+9. lophn agent는 lophn, 앱, agent 관리와 사용의 복잡도를 추상화한다(docs/intent/lophn-agent.md I1~I8). roles intent 노드는 없앴다.
+10. preset: agent 구성 하나(역할 종류, prompt, capability, context, MCP, skill, provider·model, 지침). 역할마다 제품 기본 preset이 있고 사람이 고치거나 새로 만든다. 제품이 고정한 금지·상한은 preset으로 못 바꾼다. concern은 lophn-agent/presets(Role entity 대신 Preset). lophn-agent/role-definition은 presets로 옮겼다(moved_to).
+11. 역할별 개수: lophn 전역 하나, App Engineer 앱마다 하나, Context Engineer 전역 하나, Operator는 project나 app마다 원하는 만큼. Operator는 문서 context가 아니라 project나 app에 붙고, 읽을 자료(context)는 preset 항목이다.
+12. 사용자 지침: coding agent용 AGENTS.md와 다른 lophn 전용 Markdown 파일(LOPHN.md). 전역 ~/.lophn/LOPHN.md, project 폴더의 LOPHN.md, 앱 자리의 LOPHN.md. textarea가 아니라 파일이고 문서 version으로 이력을 얻는다. 화면에서는 [Instructions]로 lophn 편집기에서 연다. 지침으로 권한·approval·제품 안전 규칙을 넓히지 못한다. 사람만 고치고 agent는 question으로 제안한다. concern은 lophn-agent/instructions.
+13. 작업 자리(파일 cwd 대신): App Engineer는 맡은 앱, Operator는 붙은 project/app. lophn과 Context Engineer는 세션을 연 곳을 세션의 작업 자리로 잡고 사람이 명시적으로 바꿀 때만 바뀐다. 읽을 지침 층은 작업 자리로 정한다.
+14. prompt 층 순서: 1 제품 공통 지시+tool 정의 → 2 역할 지시+preset prompt → 3 사람 지침(전역 → project → app) → [cache 경계] → 4 세션 이력·자료·run 사실 → 5 이번 turn 동적 context(시각, 지금 보는 탭·앱 화면)는 맨 뒤 최신 메시지에 붙인다.
+15. 역할의 RoleValues(관점, 기대 결과, 상황 같은 글)는 domain model 값이 아니라 prompt 글이다. 기계가 쓰는 값(tool, 읽기 범위, model)만 preset에 둔다.
+16. 모든 coding 일은 ticket이 된다. 사람의 직접 요청이나 피드백도 lophn·App Engineer가 ticket으로 만든다. coding agent의 흐름은 하나다: MCP로 ticket claim → 일 → 보고.
+17. coding agent 시작은 "시작(ticket, harness, 방식)" 동작 하나다. 지금 지원: (a) 사람이 자기 터미널에서 직접 시작(지금처럼), (b) ticket의 [Start]를 사람이 누르면 lophn이 그 project의 터미널 탭에서 harness를 TUI로 첫 prompt와 함께 연다. 누르는 것이 사람의 허락이다. 나중: headless와 자동 시작(preset에 미리 준 허락이 있을 때), coordinator. "lophn은 외부 프로세스를 시작하지 않는다" 같은 규칙은 (b)를 허용하도록 고친다.
+18. harness 연동: 제품이 배포하는 harness catalog(감지, 버전·인증 확인, MCP·skill·지침·hook 자리와 형식, 실행 계약) + 이 컴퓨터의 감지·관측(실행 파일, 버전, 인증, 설치 파일, 로딩, session을 따로, 모르면 모름) + lophn이 쓴 것의 설치 기록(receipt, hash가 맞을 때만 갱신·제거, 사람이 고친 파일은 덮어쓰지 않고 충돌로). 감지는 PATH와 정해진 fallback만 읽고, 다시 감지는 사람이 누를 때. 설치는 사람이 고른 harness에만. 기본 harness는 사람이 고르는 값(비면 정한 규칙). 처음엔 이 컴퓨터만, WSL·원격 관측 기록은 처음부터 나눠 둔다. session 관측은 derived이고 ledger 표를 새로 두지 않는다. 근거: scratchpad/research/harness-catalog.md.
+19. credential: 사람이 harness 연결을 고르면 lophn이 connection을 만들고 MCP·skill을 설치한다. token은 설정 파일에 쓰지 않고 lophn MCP server가 시작할 때 OS keychain에서 꺼낸다. lophn이 터미널 탭에서 시작한 session에는 시작할 때 붙인다. 권한 경계(scope, 회수 즉시 거절, 승인·권한·secret·문제 닫기 불가)는 그대로다. concern: coding-agent/connection(권한), coding-agent/harnesses(catalog·감지·설치 기록), coding-agent/sessions(시작·관측).
+
+## platform (85)
 
 ### platform/api
 
@@ -126,6 +143,11 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 옛 subprotocol 허용 | 비브라우저 Authorization header만
   - 추천: 정상 클라이언트는 브라우저 밖이므로 HTTP upgrade의 Authorization header만 사용
   - 적용: R6·R11; subprotocol token은 적용하지 않음
+- **redesign/propagate#Q2** [질문] OS별 coding credential 보호 process-local 전달은 무엇으로 구현할까?
+  - 선택지: 상속 제한 pipe/handle / 신뢰 loader direct keychain
+  - 추천: 실제 loader·child generation·connection 결합을 검증; argv·일반 env·PTY 금지
+  - 적용: 경계 반영; OS 구현은 미정
+  - 근거: platform/identity#R15; coding-agent/sessions#R5; platform/secrets#R12
 
 ### platform/install-and-update
 
@@ -271,6 +293,16 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 사람 이름·설명·영향·되돌림·적용 시점을 같은 registry로 읽고 question option action 적용
   - 적용: 예; requirements R27~R29·architecture 한 줄 적용
   - 근거: platform#I10; lophn-agent/roles#I7
+- **redesign/propagate#Q1** [범위] 공개 설정 key와 machine-local profile 선택의 정확한 저장 schema를 어디서 확정할까?
+  - 선택지: 일반 설정 등록 선택만 / path까지 설정 복제
+  - 추천: 공통 registry는 enabled·nullable 기본/profile 선택만; local path·관측은 harness owner
+  - 적용: 선택/관측 경계 반영; 정확한 key는 미정
+  - 근거: platform/settings#R31; coding-agent/harnesses#R4,R5
+- **redesign/propagate#Q8** [범위] 옛 일반 설정의 role 층과 Role ID를 새 Preset 구성으로 언제 migrate할까?
+  - 선택지: 일반 설정 role 원본 유지 / Preset 판으로 explicit migration
+  - 추천: 두 원본 금지; source 기록을 보존한 명시 migration을 실제 구현 schema 변경에서 설계
+  - 적용: 문서의 common/Preset 경계와 pst registry 적용; 실행 migration은 아직 없음
+  - 근거: platform/settings#R5,R7; domain-model/platform/settings; domain-model/platform/ledger
 
 ### platform
 
@@ -443,7 +475,7 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 적용: 미적용: threshold와 소유 근거는 아직 정해지지 않아 requirements 수치 추가 안 함
   - 근거: platform/diagnostics#R10; apps/permissions; domain-model/platform/diagnostics
 
-## documents (87)
+## documents (88)
 
 ### documents/addressing
 
@@ -677,6 +709,11 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 설치 guides catalog의 version·title·content hash; 사용자 Document 자동 생성 없음
   - 적용: 예; requirements R17~R18·architecture 한 줄 적용
   - 근거: documents#I2; lophn-agent/roles#I7
+- **redesign/propagate#Q5** [질문] 전역 LOPHN.md의 Project 없는 source를 어떻게 version에 연결할까?
+  - 선택지: 가짜 system Project / exact instruction_file source
+  - 추천: place=null exact global instruction source; data-root recursive tracking 금지
+  - 적용: instruction_file tagged source/target와 신규 write guard 반영
+  - 근거: lophn-agent/instructions#R1~R3; documents/file-tracking#R19; documents/versions#R19
 
 ### documents
 
@@ -1531,7 +1568,7 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 적용: 미적용: screen은 수정 범위 밖; key·en 소유 정의는 반영
   - 근거: problems/problem-codes#R6; domain-model/problems/problem-codes.md; docs/screens/app-detail.md; shell/wording#R7
 
-## lophn-agent (110)
+## lophn-agent (212)
 
 ### lophn-agent/assignments
 
@@ -1543,6 +1580,31 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 모두 pause / 보관만 pause·나머지 호출 차단 / 영구 회수도 pause
   - 추천: 현재 보관만 pause하고 나머지는 호출 차단, 대상 concern과 분류를 맞춘다
   - 적용: 보관 자동 pause·일시 unavailable 호출 차단
+- **redesign/lophn-agent#Q10** [범위] 기존 flows가 role-definition·context Operator·별도 role extension 선택을 쓴다
+  - 선택지: flow owner 변경
+  - 추천: Preset과 project/app scope 및 LOPHN.md·작업 자리로 전파
+  - 적용: 미적용: flow owner 작업 필요
+  - 근거: docs/flows/add-agent-extension.md; docs/flows/manage-operator.md; docs/flows/set-up-operator.md; docs/flows/connect-provider.md; docs/flows/manage-provider-accounts.md
+- **redesign/lophn-agent#Q25** [질문] lophn-agent/assignments#Q1 반복 실패의 공통 연속 3회를 역할·실패 종류별 기준으로 바꿀까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/assignments.md
+- **redesign/lophn-agent#Q26** [질문] lophn-agent/assignments#Q2 보관이 아닌 영구 접근 회수·삭제·일시 unavailable에서 자동 pause와 재개 조건을 어떻게 구분할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/assignments.md
+- **redesign/lophn-agent#Q88** [질문] 반복 실패 공통 3회를 역할별·실패 종류별 값으로 바꿀지는 실제 기록 뒤 정한다. 현재 공통 3회다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/assignments.md
+- **redesign/lophn-agent#Q89** [질문] archive가 아닌 일시적 대상 unavailable은 호출을 막지만 자동 pause 사유로 확정하지 않았다. 영구 접근 회수·삭제의 분류와 재개 조건은 대상 concern과 맞춘다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/assignments.md
 
 ### lophn-agent/conversation
 
@@ -1550,6 +1612,11 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 현재 비모델 원인·재개 안내만 / 진단 전용 제한 모델 예외
   - 추천: 모델 호출 차단 유지, 비모델 기록으로 안내
   - 적용: paused assignment 모델 우회 없음
+- **redesign/lophn-agent#Q16** [질문] lophn-agent/conversation#Q1 반복 실패로 멈춘 assignment에서 진단 전용 제한 모델 세션을 예외로 허용할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/conversation.md
 
 ### lophn-agent/evaluation
 
@@ -1565,6 +1632,31 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 역할 판단만;비교 가능한 업무별 다섯 신호
   - 추천: 앱 제작 비용·문제 탐지 지연·수리 중 사람 개입·정보 접근 token·검증된 재료 재사용을 각각 비교하고 종합 점수는 만들지 않는다.
   - 적용: 추가 제품 점수 없음
+- **redesign/lophn-agent#Q8** [범위] evaluation 24개 요구를 I1~I8/I1~I3 제품 약속에 연결할 근거가 없다
+  - 선택지: 개발 품질 concern; 제품 intent 추가
+  - 추천: 기존 평가 contract는 유지하되 허위 intent 링크 제거; owner가 개발 범위를 따로 정함
+  - 적용: 적용: evaluation intent 링크 제거; 제품 약속 추가 안 함
+  - 근거: docs/requirements/lophn-agent/evaluation.md; docs/domain-model/lophn-agent/evaluation.md; docs/intent/lophn-agent.md; docs/intent/lophn-agent/harness.md
+- **redesign/lophn-agent#Q22** [질문] lophn-agent/evaluation#Q1 eval 제한 시간을 실제 model 600초·모델 없는 테스트 120초로 시작할까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/evaluation.md
+- **redesign/lophn-agent#Q23** [질문] lophn-agent/evaluation#Q2 내용 판정의 24/30 보정 기준을 장기 유지할까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/evaluation.md
+- **redesign/lophn-agent#Q24** [질문] lophn-agent/evaluation#Q3 다섯 제품 신호를 eval에 어디까지 포함할까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/evaluation.md
+- **redesign/lophn-agent#Q87** [질문] 개발용 eval 결과·격리 workspace 보존 기간 및 파일 schema version. 제품 trace 보존과 독립적으로 정한다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/evaluation.md
 
 ### lophn-agent/extensions
 
@@ -1592,6 +1684,47 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 선택 없음;실제 사례별 명시 선택
   - 추천: 역할 concern에서 실제 이름·scope·eval 근거를 정할 때만 늘린다.
   - 적용: lophn-agent/roles/app-engineer·lophn-agent/roles/operator에 위임
+  - 후속 기록: 2026-10-04 결정 10으로 preset의 외부 MCP·skill 명시 선택은 허용된다. 역할별 제품 기본 skill의 실제 이름·목록과 검증 contract는 아직 미정이다(redesign/lophn-agent#Q35,#Q93).
+- **redesign/lophn-agent#Q30** [질문] lophn-agent/extensions#Q1 외부 MCP 자원을 서버 연결 외에 안정된 자원 식별로 구별할까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/extensions.md
+- **redesign/lophn-agent#Q31** [질문] lophn-agent/extensions#Q2 이어 읽기가 없는 MCP의 큰 결과를 보관한 원문에서 다시 읽게 할까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/extensions.md
+- **redesign/lophn-agent#Q32** [질문] lophn-agent/extensions#Q3 MCP OAuth에 device code를 추가할까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/extensions.md
+- **redesign/lophn-agent#Q33** [질문] lophn-agent/extensions#Q4 설명·입력·MCP 힌트가 그대로인 서버의 숨은 행동 변경을 어떻게 다룰까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/extensions.md
+- **redesign/lophn-agent#Q34** [질문] lophn-agent/extensions#Q5 skill 본문과 MCP 도구 목록의 전체 크기 상한을 얼마로 둘까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/extensions.md
+- **redesign/lophn-agent#Q35** [질문] lophn-agent/extensions#Q6 역할별 기본 skill 및 Operator의 외부 MCP·skill 선택을 언제 늘릴까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/extensions.md
+- **redesign/lophn-agent#Q93** [질문] 외부 tool의 되돌림·결과 조회·idempotency 보장을 검증하는 contract 및 현재 네 역할에 허용할 서버·tool 목록. 설정만으로 기존 역할 범위를 넓히지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/extensions.md
+- **redesign/lophn-agent#Q94** [질문] agent runtime 격리에서 MCP stdio 실행 파일 및 skill 꾸러미 읽기를 허용하는 플랫폼 경계. 무제한 shell·파일 tool로 제공하지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/extensions.md
 
 ### lophn-agent/handoff
 
@@ -1599,6 +1732,16 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: assignment 재방문 금지 / 별도 길이 상한 / 각 run 한도만
   - 추천: 첫 판은 각 run 한도만 적용하고 실제 순환 기록이 생기면 재방문 금지 검토
   - 적용: 별도 handoff 상한 없음, harness/run-loop 한도 적용
+- **redesign/lophn-agent#Q21** [질문] lophn-agent/handoff#Q1 같은 원래 사람 요청의 handoff 순환·총 사슬 길이를 어떻게 제한할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/handoff.md
+- **redesign/lophn-agent#Q86** [질문] HandoffContent 각 문자열·목록의 크기 상한. 현재 필수 구조만 정하며 transport·prompt 상한은 → lophn-agent/harness/tools, lophn-agent/harness/prompt-assemble을 따른다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/handoff.md
 
 ### lophn-agent/harness/model
 
@@ -1638,6 +1781,66 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 보수 기본값 / 확인 정보·사람 입력 한계
   - 추천: 확인 정보·사람 입력 한계 필수
   - 적용: 확인 정보·사람 입력 한계 필수
+- **redesign/lophn-agent#Q1** [질문] judgment/organizing 공통 설정을 실행 slot으로 유지할까
+  - 선택지: 공통 강제 slot; 생성 기본값과 preset별 선택
+  - 추천: 생성 기본값만 유지하고 organizing 미선택은 같은 preset model
+  - 적용: 적용: ModelDefaults, PresetModelSelection, ResolvedModel
+  - 근거: docs/intent/lophn-agent.md#I5; docs/intent/lophn-agent/harness.md#I1; docs/domain-model/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q63** [질문] lophn-agent/harness/model#Q1 공개 가격 외 계약 가격을 사람이 별도 출처로 보완할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q64** [질문] lophn-agent/harness/model#Q2 catalog 밖 model의 128,000·8,192 token·tool 지원 가정을 허용할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q65** [질문] lophn-agent/harness/model#Q3 첫 설치의 두 model 선택을 어떤 목록·순서로 추천할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q66** [질문] lophn-agent/harness/model#Q4 2,048·8,192·16,384·32,768 추론 예산이 품질 차이를 만드는가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q67** [질문] lophn-agent/harness/model#Q5 강도·예산·토글을 함께 선언한 model의 추론 선택 우선순위는 무엇인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q68** [질문] lophn-agent/harness/model#Q6 첫 판 model input에 이미지를 포함할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q69** [질문] lophn-agent/harness/model#Q7 정확한 token 계산을 local tokenizer·provider count API 중 무엇으로 제공할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q70** [질문] lophn-agent/harness/model#Q8 Claude 계열을 기본 추천으로 유지할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q71** [질문] lophn-agent/harness/model#Q9 한계를 모르는 model을 사용할 조건은 무엇인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q101** [질문] catalog 밖 model은 확인된 정보 또는 user 명시 한계만으로 허용한다. user 보완값의 확인 UI·검증 책임 경계.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/harness/model.md
+- **redesign/lophn-agent#Q102** [질문] reasoning 인자 및 불투명 필수 상태를 요구하는 provider mode의 실제 지원 범위와 메모리 유실 뒤 연속 호출 복구 가능성은 → lophn-agent/harness/provider의 same-run 상태 정책 안에서 정한다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/harness/model.md
 
 ### lophn-agent/harness/prompt-assemble
 
@@ -1657,15 +1860,42 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 초기값 유지 / 한글·큰 MCP·작은 창 fixture 뒤 조정
   - 추천: 초기값 유지 후 lophn-agent/evaluation으로 검증
   - 적용: 초기값 유지
-- **lophn-agent/harness/prompt-assemble#Q5** [충돌] 옛 작업 층 순서와 새 domain model의 다섯 층 순서가 일치하지 않는다.
+- **lophn-agent/harness/prompt-assemble#Q5** [충돌] 정함: 옛 작업 층 순서와 새 domain model의 다섯 층 순서가 일치하지 않는다.
   - 선택지: 옛 공통·역할·작업 구조 / 새 지시·tools·자료·이력·현재 입력 구조
   - 추천: 논리적 공통·역할·작업 구분은 유지하고 새 구조에서 현재 입력 전문을 보호
   - 적용: 공통·역할·작업 구분과 고정 prefix, 현재 입력 보호
+  - 결정: 2026-10-04 결정 14: 제품 공통 지시+tool → 역할+preset → 사람 지침 → cache 경계 → 세션 이력·자료·run 사실 → 최신 메시지의 turn 동적 context 순서로 대체한다.
 - **lophn-agent/harness/prompt-assemble#Q6** [질문] 매 turn 화면 요약 크기와 층 위치를 어떻게 둘까
   - 선택지: 고정 지시 앞 / history 뒤 독립 turn_context
   - 추천: 고정 prefix 뒤·현재 입력 앞; 총8KiB·20탭·앱요약2KiB; 실제 수집 근거 저장
   - 적용: 추천안 적용
   - 근거: lophn-agent/harness#I10; requirements:lophn-agent/harness/prompt-assemble#R25
+- **redesign/lophn-agent#Q36** [질문] lophn-agent/harness/prompt-assemble#Q1 lophn 시작 자료에 전체 outline 1,500·context와 place 3,000·문서 outline 2,000 token 별도 상한과 run 끝까지 index 고정을 둘 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/prompt-assemble.md
+- **redesign/lophn-agent#Q37** [질문] lophn-agent/harness/prompt-assemble#Q2 App Engineer의 별도 시작 token 예산을 둘 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/prompt-assemble.md
+- **redesign/lophn-agent#Q38** [질문] lophn-agent/harness/prompt-assemble#Q3 같은 구간의 새 압축은 어떤 명시 변경 뒤 허용할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/prompt-assemble.md
+- **redesign/lophn-agent#Q39** [질문] lophn-agent/harness/prompt-assemble#Q4 70%·50%·25%·2,000~15,000 token 초기 압축값을 유지할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/prompt-assemble.md
+- **redesign/lophn-agent#Q40** [질문] 정함: lophn-agent/harness/prompt-assemble#Q5 옛 작업 층 순서와 새 domain model의 다섯 층 순서가 일치하지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/prompt-assemble.md
+  - 결정: 2026-10-04 결정 14: 새 다섯 층 순서로 확정. lophn-agent/harness/prompt-assemble#Q5 및 architecture/lophn-agent#Q7과 같은 결정이다.
 
 ### lophn-agent/harness/provider
 
@@ -1705,6 +1935,61 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 공통 model 시간 한도 / 독립 30초 상한; usage 별도 용도 / provider 결과만
   - 추천: 단발 테스트 30초 상한과 실제 유료 시도 usage 기록
   - 적용: 단발 테스트 30초 상한·실제 호출 usage 기록
+- **redesign/lophn-agent#Q2** [질문] 고른 계정에서 자동 credential 이동을 어디까지 허용할까
+  - 선택지: 선택 계정 하나; 명시 목록 안; provider 전체
+  - 추천: Preset의 명시 순서 목록 안 같은 provider/model만; 하나면 이동 없음
+  - 적용: 적용: preset credentials와 provider affinity
+  - 근거: docs/domain-model/lophn-agent/presets.md; docs/domain-model/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q49** [질문] lophn-agent/harness/provider#Q1 Claude OAuth가 lophn 식별과 프로필·추론 권한으로 실제 tool call을 받는가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q50** [질문] lophn-agent/harness/provider#Q2 ChatGPT·xAI 제3자 OAuth client 발급과 공식 허용 범위는 무엇인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q51** [질문] lophn-agent/harness/provider#Q3 SuperGrok 표준·Heavy 중 어느 요금제가 OAuth 추론을 받는가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q52** [질문] lophn-agent/harness/provider#Q4 Claude·ChatGPT 사용량 조회가 lophn 식별로 허용되며 5시간·7일 창과 정확한 리셋을 주는가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q53** [질문] lophn-agent/harness/provider#Q5 온보딩 건너뛰기와 인증 전 slot 진행 금지를 어떻게 함께 지키는가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q54** [질문] lophn-agent/harness/provider#Q6 첫 provider 인증 범위와 안전한 secret 보관 불가 환경은 어떻게 처리하는가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q55** [질문] lophn-agent/harness/provider#Q7 PV-16·PV-18의 버림 판정과 credential 하나 제한이 이번 추가 지시·현재 domain model의 여러 credential 요구와 충돌한다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q56** [질문] lophn-agent/harness/provider#Q8 PV-25와 초안 domain model의 추론 서명 전면 제외가 충돌했고 현재 provider domain model은 필수 opaque 상태의 비영속 재사용으로 수정되었다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q98** [질문] OAuth 제품별 lophn 사용 허용·실제 호출 검증 결과와 공식 endpoint·client 식별 값. 미검증 정의는 활성화하지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 현재 보호·기록 contract 유지; 구체 owner 형식은 검토 목록
+  - 근거: docs/domain-model/lophn-agent/harness/provider.md
+- **redesign/lophn-agent#Q99** [질문] 첫 판의 지원 API key·loopback 연결·검증된 OAuth 조합. keychain 없는 환경 정책은 → platform/secrets.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/harness/provider.md
 
 ### lophn-agent/harness/run-loop
 
@@ -1732,6 +2017,46 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 공통 수치 / 역할별 수치
   - 추천: 공통 수치
   - 적용: 공통 수치
+- **redesign/lophn-agent#Q4** [질문] 진행 Run 중 사람 지침과 작업 자리 변경을 언제 읽을까
+  - 선택지: Run 시작 고정; 매 call 현재 판
+  - 추천: Preset 구성은 Run 고정, 자리·지침은 매 call 확정 snapshot
+  - 적용: 적용: RunBasis.initial_work_place, ContextBasis.instructions/work_place
+  - 근거: docs/domain-model/lophn-agent/harness/run-loop.md; docs/domain-model/lophn-agent/harness/prompt-assemble.md
+- **redesign/lophn-agent#Q43** [질문] lophn-agent/harness/run-loop#Q1 provider 끄기·MCP 연결 제거 때 이미 전송한 요청은 어떻게 처리하는가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/run-loop.md
+- **redesign/lophn-agent#Q44** [질문] lophn-agent/harness/run-loop#Q2 공통 30회·5분·사람 기다림 제외 30분이 실제 일에 충분한가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/run-loop.md
+- **redesign/lophn-agent#Q45** [질문] lophn-agent/harness/run-loop#Q3 세션 입력 수·전체 접수 run 수에 어떤 유한 상한을 둘 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/run-loop.md
+- **redesign/lophn-agent#Q46** [질문] lophn-agent/harness/run-loop#Q4 agent 프로세스를 상시 대기시키거나 요청 때 띄울 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/run-loop.md
+- **redesign/lophn-agent#Q47** [질문] lophn-agent/harness/run-loop#Q5 run 시간 한도에 사람 답 기다림을 포함할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/run-loop.md
+- **redesign/lophn-agent#Q48** [질문] lophn-agent/harness/run-loop#Q6 run 한도·반복 tool 실패 기준을 공통값 또는 역할별로 둘 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/run-loop.md
+- **redesign/lophn-agent#Q97** [질문] 공통 첫 한도 30회·300000ms·1800000ms 및 사람 기다림 제외를 확정할지, 역할별 한도를 둘지.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/harness/run-loop.md
 
 ### lophn-agent/harness/safety
 
@@ -1743,6 +2068,16 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 현재 assignment scope·최소 자료 / provider별 추가 정책 / 별도 scope 동의
   - 추천: 현재 scope와 최소 자료를 지키고 provider별 추가 통제는 별도 결정
   - 적용: 현재 assignment scope·최소 자료
+- **redesign/lophn-agent#Q61** [질문] lophn-agent/harness/safety#Q1 두 요청을 번갈아 성공시키는 무진행 반복도 감지할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/safety.md
+- **redesign/lophn-agent#Q62** [질문] lophn-agent/harness/safety#Q2 model API로 나가는 문서·앱 자료 범위를 사람이 어떻게 통제하는가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/safety.md
 
 ### lophn-agent/harness/tools
 
@@ -1755,6 +2090,16 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 현재 허락·역할 범위와 effect 판정으로 제공
   - 적용: intent에 맞춰 고침
   - 근거: lophn-agent/harness#I9; requirements:lophn-agent/harness/tools#R8; requirements:lophn-agent/harness/tools#R5; requirements:lophn-agent/harness/tools#R15
+- **redesign/lophn-agent#Q41** [질문] lophn-agent/harness/tools#Q1 이미지·PDF·표의 원본과 부분 preview를 어떤 크기로 반환할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/tools.md
+- **redesign/lophn-agent#Q95** [질문] 이미지·PDF 등 비텍스트 ToolResult 크기 상한. 안전하게 크기를 검사할 수 없으면 model input에 포함하지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 현재 보호·기록 contract 유지; 구체 owner 형식은 검토 목록
+  - 근거: docs/domain-model/lophn-agent/harness/tools.md
 
 ### lophn-agent/harness/usage
 
@@ -1770,6 +2115,21 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: provider 결과만 / 연결 test 용도 추가
   - 추천: 실제 시도는 연결 test 용도로 기록
   - 적용: 연결 test 용도 포함
+- **redesign/lophn-agent#Q72** [질문] lophn-agent/harness/usage#Q1 비용 표시에 선택 환산을 제공할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/usage.md
+- **redesign/lophn-agent#Q103** [질문] 독립 연결 test도 connection_test ModelCall로 실제 시도를 기록한다. 결과 요약·call 연결은 → lophn-agent/harness/provider의 ProviderCheck이며 별도 사용량 정본을 만들지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 현재 보호·기록 contract 유지; 구체 owner 형식은 검토 목록
+  - 근거: docs/domain-model/lophn-agent/harness/usage.md
+- **redesign/lophn-agent#Q106** [질문] global 실행 slot 필드를 남기면 Preset 선택 정본과 혼동된다
+  - 선택지: slot 필드 유지; 용도 필드
+  - 추천: ModelCall.model_use로 judgment/organizing 용도를 기록하고 실제 선택은 preset/CallModel 참조
+  - 적용: 적용: usage·architecture
+  - 근거: docs/domain-model/lophn-agent/harness/usage.md; docs/requirements/lophn-agent/harness/usage.md; docs/architecture/lophn-agent.md
 
 ### lophn-agent/harness/waiting-and-recovery
 
@@ -1789,6 +2149,31 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 계속 건너뛰기 / 별도 새 회차 허용
   - 추천: lophn-agent/harness/run-loop과 lophn-agent/scheduling대로 계속 건너뛰기
   - 적용: 계속 건너뛰기
+- **redesign/lophn-agent#Q57** [질문] lophn-agent/harness/waiting-and-recovery#Q1 재시작 후 대기 approval을 같은 요청으로 이을 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/waiting-and-recovery.md
+- **redesign/lophn-agent#Q58** [질문] lophn-agent/harness/waiting-and-recovery#Q2 조회 수단 없는 MCP external 효과의 충돌 보류는 언제 풀 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/waiting-and-recovery.md
+- **redesign/lophn-agent#Q59** [질문] lophn-agent/harness/waiting-and-recovery#Q3 완성 압축 summary와 보호 원문 범위를 복구할 근거는 무엇인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/waiting-and-recovery.md
+- **redesign/lophn-agent#Q60** [질문] lophn-agent/harness/waiting-and-recovery#Q4 H8 Operator가 질문을 기다리는 동안 주기를 계속 건너뛰는 정책을 유지할 것인가?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/harness/waiting-and-recovery.md
+- **redesign/lophn-agent#Q100** [질문] **H8.** Operator가 질문 답을 기다리는 동안 주기 회차를 계속 건너뛰는 정책 유지 여부. 현재는 → lophn-agent/scheduling의 건너뜀 규칙을 따른다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/harness/waiting-and-recovery.md
 
 ### lophn-agent/observability
 
@@ -1804,6 +2189,36 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 수집기 검증한 한 version;다중 version
   - 추천: 구현 때 수집기로 검증한 한 version을 고정하고 export에 명시한다.
   - 적용: R15의 version 명시
+- **redesign/lophn-agent#Q27** [질문] lophn-agent/observability#Q1 보존 기본을 자동 삭제 없음으로 둘까, 상세 180일·export 내용 14일·세션 종료 후 90일·UTC 일별 비용 365일로 둘까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/observability.md
+- **redesign/lophn-agent#Q28** [질문] lophn-agent/observability#Q2 유한 기간 합의 뒤 단축 소급·삭제 비복구·정리 주기를 어떻게 적용할까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/observability.md
+- **redesign/lophn-agent#Q29** [질문] lophn-agent/observability#Q3 첫 OTLP GenAI Semantic Conventions version을 무엇으로 고정할까?
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/observability.md
+- **redesign/lophn-agent#Q90** [질문] 자동 삭제 없음과 유한 보존 중 선택. 후보는 발생 후 상세 180일·export 내용 14일·세션 종료 뒤 90일·UTC 일별 비용 365일이며 현재 활성 정책은 아니다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/observability.md
+- **redesign/lophn-agent#Q91** [질문] 유한 보존의 기간 단축 소급 적용·삭제 비복구 및 삭제된 blob 참조 표현을 → platform/blob-store와 맞춘다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/observability.md
+- **redesign/lophn-agent#Q92** [질문] OTLP GenAI Semantic Conventions의 정확한 지원 version.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/observability.md
 
 ### lophn-agent/questions
 
@@ -1819,6 +2234,36 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 기본 무기한 / 일정 시간 뒤 답 없음으로 stopped
   - 추천: 현재 기본 무기한 유지, 명시 기한 허용
   - 적용: 기본 기한 없음
+- **redesign/lophn-agent#Q17** [질문] lophn-agent/questions#Q1 선택지 개수의 이전 2~6개 제한을 유지할까, 현재 상한 없음으로 갈까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/questions.md
+- **redesign/lophn-agent#Q18** [질문] lophn-agent/questions#Q2 답 기다림 질문의 이전 고정 900초 기한과 현재 기본 무기한 중 무엇을 쓸까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/questions.md
+- **redesign/lophn-agent#Q19** [질문] lophn-agent/questions#Q3 답 없는 질문에 기본 유한 기한을 도입할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/questions.md
+- **redesign/lophn-agent#Q80** [질문] H8: 답 없는 Operator 질문 동안 주기를 계속 건너뛸지. 현재는 건너뛴다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/questions.md
+- **redesign/lophn-agent#Q81** [질문] 답 없는 질문의 기본 기한: 현재 null. 유한 기한을 도입하면 → lophn-agent/harness/waiting-and-recovery와 맞춘다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/questions.md
+- **redesign/lophn-agent#Q82** [질문] OptionAction의 정규화·binding hash는 → platform/ledger 및 소유 command schema와 동일한 contract로 정한다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 현재 보호·기록 contract 유지; 구체 owner 형식은 검토 목록
+  - 근거: docs/domain-model/lophn-agent/questions.md
 
 ### lophn-agent/revert
 
@@ -1841,13 +2286,34 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: user actor와 고정 receipt·command·CAS에 묶인 machine 적용; agent.commands 회수로 사람의 복원 능력을 대신 판정하지 않음
   - 적용: 추천안 적용
   - 근거: lophn-agent#I5; platform/identity; apps/runtime
+- **redesign/lophn-agent#Q20** [질문] lophn-agent/revert#Q1 복원 불가 변경이 섞인 run에 사람이 남는 영향 확인 후 부분 revert를 제공할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/revert.md
+- **redesign/lophn-agent#Q83** [질문] 복원 불가 변경이 섞일 때 부분 revert를 제공할지. 현재 모델은 사람의 명시적 동의 뒤 복원 가능 변경 전체만 적용한다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/revert.md
+- **redesign/lophn-agent#Q84** [질문] 원자적 검사·복원 대상 수·event 수 한도와 준비 결과 schema는 → platform/ledger 및 각 owner와 정한다. 한도를 넘는 전체 revert를 분할 적용하지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/revert.md
+- **redesign/lophn-agent#Q85** [질문] 원본 연결 문서의 복원 준비·파일 반영 순서와 실패 시 결과는 → documents/file-tracking, documents/versions. 이 문서는 디스크 원본 복구를 보장하지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 현재 보호·기록 contract 유지; 구체 owner 형식은 검토 목록
+  - 근거: docs/domain-model/lophn-agent/revert.md
 
 ### lophn-agent/role-definition
 
-- **lophn-agent/role-definition#Q1** [질문] 내장 세 역할을 사람이 편집하거나 복사할 수 있게 할까.
+- **lophn-agent/role-definition#Q1** [질문] 정함: 내장 세 역할을 사람이 편집하거나 복사할 수 있게 할까.
   - 선택지: 현행 제품 정의 유지·Operator만 정의 / 다른 역할 복사본 편집 허용
   - 추천: 현행 유지
   - 적용: 내장 세 역할 편집·복사 금지
+  - 결정: 2026-10-04 결정 10: 역할마다 기본 preset을 두고 사람이 고치거나 새로 만든다. provider·model도 preset마다 선택하며 제품 금지·상한은 바꾸지 못한다.
 
 ### lophn-agent/roles/app-engineer
 
@@ -1873,6 +2339,21 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 담당 앱 허락된 read·지원 write 허용; source·blueprint 직접 변경 금지 유지
   - 적용: intent에 맞춰 고침
   - 근거: lophn-agent/harness#I9; requirements:lophn-agent/roles/app-engineer#R3; requirements:lophn-agent/roles/app-engineer#R5
+- **redesign/lophn-agent#Q73** [질문] lophn-agent/roles/app-engineer#Q1 H3: App Engineer 주기 검토를 추가할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/roles/app-engineer.md
+- **redesign/lophn-agent#Q74** [질문] lophn-agent/roles/app-engineer#Q2 H7: App Engineer 티켓 생성에 매번 승인을 묻지 않는 lophn-agent/harness/tool-judgment를 유지할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/roles/app-engineer.md
+- **redesign/lophn-agent#Q75** [질문] lophn-agent/roles/app-engineer#Q3 이전 AE-17의 티켓 생성 ask와 lophn-agent/harness/tool-judgment의 매번 묻지 않는 생성을 어떻게 맞출까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/roles/app-engineer.md
 
 ### lophn-agent/roles/lophn
 
@@ -1889,17 +2370,29 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 허락된 앱 command 및 설정 선택 질문을 제공
   - 적용: intent에 맞춰 고침
   - 근거: lophn-agent#I11; lophn-agent/roles#I7; requirements:lophn-agent/roles/lophn#R4; requirements:lophn-agent/roles/lophn#R16
+- **redesign/lophn-agent#Q76** [질문] lophn-agent/roles/lophn#Q1 문서 추천의 30일·4회·2개 중 두 조건을 계속 추천 근거로 쓸까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/roles/lophn.md
+- **redesign/lophn-agent#Q77** [질문] lophn-agent/roles/lophn#Q2 이전 LA-20의 문서 쓰기 허용 본문과 매번 확인이라는 확인 문장 중 무엇을 적용할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/roles/lophn.md
 
 ### lophn-agent/roles/operator
 
-- **lophn-agent/roles/operator#Q1** [질문] 구체적 Operator에 외부 MCP tool 선택을 허용할까.
+- **lophn-agent/roles/operator#Q1** [질문] 정함: 구체적 Operator에 외부 MCP tool 선택을 허용할까.
   - 선택지: 현재 0개 유지 / 사람이 서버와 개별 tool을 승인해 선택
   - 추천: 첫 판은 0개 유지, 실제 사례가 생기면 extensions 계약과 함께 검토
   - 적용: 외부 MCP tool 0개
-- **lophn-agent/roles/operator#Q2** [질문] 구체적 Operator에 등록한 반복 절차 skill 선택을 허용할까.
+  - 결정: 2026-10-04 결정 10·11: Operator는 project/app에 붙고 MCP를 preset에서 명시 선택할 수 있다. 영구 0개 금지는 폐기하며 실제 tool의 effect·scope 검증은 redesign/lophn-agent#Q93으로 남긴다.
+- **lophn-agent/roles/operator#Q2** [질문] 정함: 구체적 Operator에 등록한 반복 절차 skill 선택을 허용할까.
   - 선택지: 현재 0개 유지 / 등록 절차의 정확한 이름 선택
   - 추천: 첫 판은 0개 유지
   - 적용: skill 0개
+  - 결정: 2026-10-04 결정 10: 등록 skill은 preset 항목으로 선택할 수 있다. 영구 0개 금지는 폐기하며 제품 금지·상한은 유지한다.
 
 ### lophn-agent/scheduling
 
@@ -1911,6 +2404,26 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 현재 skip / 질문 기한·대기 정책 변경
   - 추천: lophn-agent/harness/run-loop의 skip 유지
   - 적용: 사람 기다림을 포함한 미종료 run이면 skip
+- **redesign/lophn-agent#Q14** [질문] lophn-agent/scheduling#Q1 Operator에 cron 5칸·IANA 시간대의 현지 달력 주기를 추가할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/scheduling.md
+- **redesign/lophn-agent#Q15** [질문] lophn-agent/scheduling#Q2 H8: Operator가 질문 답을 기다리는 동안 모든 회차를 건너뛰는 정책을 유지할까.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/requirements/lophn-agent/scheduling.md
+- **redesign/lophn-agent#Q78** [질문] 현지 달력 주기를 지원할지 정한다. 현재 first_at·every_ms만 사용한다. cron 5칸·IANA 시간대·DST 값은 추가하지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/scheduling.md
+- **redesign/lophn-agent#Q79** [질문] **H8.** Operator 질문 대기 중 회차를 모두 skip하는 정책 유지 여부. 현재 accepted·running·waiting_user 모두 skip이다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/scheduling.md
 
 ### lophn-agent
 
@@ -1924,11 +2437,12 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: platform settings 값에 정확한 서버·원래 tool 쌍 선택을 추가하고 서버 배열은 연결 후보로만 사용한다. 새 tool은 자동 선택하지 않는다.
   - 적용: 예: 정확한 쌍 목록과 RunBasis 정의 hash에 고정; domain model 변경은 별도 필요
   - 근거: requirements/lophn-agent/extensions.md#R31; domain-model/lophn-agent/extensions.md#RoleExtensionSelection
-- **architecture/lophn-agent#Q3** [충돌] 공통 역할 값은 확장 선택 고정 []인데 현재 요구와 사용자 지시는 skill·외부 MCP 지원을 요구한다.
+- **architecture/lophn-agent#Q3** [충돌] 정함: 공통 역할 값은 확장 선택 고정 []인데 현재 요구와 사용자 지시는 skill·외부 MCP 지원을 요구한다.
   - 선택지: 확장 연결만 구현하고 항상 사용 금지; []를 초기 기본값으로 두고 사람 설정의 명시 선택 허용
   - 추천: []는 초기 기본값으로 유지하고 platform settings의 사람 명시 선택만 허용한다. 역할의 능력·scope 상한은 절대 확장하지 않는다.
   - 적용: 예: 역할 기본 선택 0개, 사람 설정으로 범위 안 선택 가능; 공통 domain model의 고정 표현 정리 필요
   - 근거: domain-model/lophn-agent/roles/common.md#CommonRoleValues; requirements/lophn-agent/extensions.md#R30,#R31; 사용자 외부 MCP·skill 지원 지시
+  - 결정: 2026-10-04 결정 10·15: 역할 구성 정본은 Preset이고 MCP·skill을 사람이 명시 선택한다. RoleValues 글은 domain 값이 아니라 prompt이며 선택을 영구 []로 고정하지 않는다.
 - **architecture/lophn-agent#Q4** [충돌] Run 시작 순서는 domain model에서 접수 seq만인데 요구는 세 우선순위·8회 양보다.
   - 선택지: 전체 FIFO; 우선순위만; assignment 안 FIFO와 assignment 간 세 우선순위
   - 추천: assignment 안 FIFO를 지키며 시작 가능한 각 assignment의 맨 앞 run들 사이에서 세 우선순위와 8회 양보를 적용한다.
@@ -1944,11 +2458,12 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: tool-judgment의 현재 scope·판·정확한 입력·효과 근거를 공통 판정 결과로 쓰고 ToolCall에는 그 판정 근거를 보존한다.
   - 적용: 예: 하나의 판정 모듈과 ToolCall 기록, 이중 policy 없음; 필드 schema 통일 필요
   - 근거: domain-model/lophn-agent/harness/tools.md#ToolDecision; domain-model/lophn-agent/harness/tool-judgment.md#ToolDecision
-- **architecture/lophn-agent#Q7** [충돌] prompt 요구의 작업 재료 순서와 domain model의 다섯 층 순서가 다르다.
+- **architecture/lophn-agent#Q7** [충돌] 정함: prompt 요구의 작업 재료 순서와 domain model의 다섯 층 순서가 다르다.
   - 선택지: 요구 순서로 전면 교체; 다섯 층과 각 층 내부 순서를 구별
   - 추천: 다섯 층을 정본 구조로 쓰고 history/current_input 내부에서 요구의 실제 자료·event 순서를 유지한다.
   - 적용: 예: instructions/tools/references/history/current_input 고정
   - 근거: requirements/lophn-agent/harness/prompt-assemble.md; domain-model/lophn-agent/harness/prompt-assemble.md
+  - 결정: 2026-10-04 결정 14: 새 다섯 층과 cache 경계를 정본으로 쓰고 현재 탭·앱 화면·시각은 최신 메시지 맨 뒤에 둔다.
 - **architecture/lophn-agent#Q8** [충돌] 명시 provider 연결 test의 실제 사용량을 기록해야 하지만 ModelCall purpose와 독립 call 소유 조건에 test가 없다.
   - 선택지: 감사 누락; judgment로 오기록; connection_test 용도와 user test 소유 근거 추가
   - 추천: ModelCall purpose에 connection_test를 추가하고 run/session null인 명시 user test를 ProviderCheck로 연결한다. 가짜 run·세션을 만들지 않는다.
@@ -1994,11 +2509,12 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: tool-judgment 정본 전체를 ToolCall에 저장한다.
   - 적용: 고침: tools의 중복 schema를 정본 참조로 교체
   - 근거: /home/pyosechang/projects/lophn/docs/domain-model/lophn-agent/harness/tools.md#ToolDecision; /home/pyosechang/projects/lophn/docs/domain-model/lophn-agent/harness/tool-judgment.md#ToolDecision
-- **check/lophn-agent#Q5** [충돌] 공통 역할의 확장 선택 고정 []가 requirements의 기본 0개 및 명시 선택 지원과 다르다.
+- **check/lophn-agent#Q5** [충돌] 정함: 공통 역할의 확장 선택 고정 []가 requirements의 기본 0개 및 명시 선택 지원과 다르다.
   - 선택지: 영구 0개 / 기본 0개
   - 추천: 기본값과 역할별 상한을 분리하고 선택 저장은 extensions에만 둔다.
   - 적용: 고침: CommonRoleValues 기본값·참조 변경; Operator 미확정 추가 능력은 확대하지 않음
   - 근거: /home/pyosechang/projects/lophn/docs/domain-model/lophn-agent/roles/common.md; /home/pyosechang/projects/lophn/docs/requirements/lophn-agent/roles/common.md#R5; /home/pyosechang/projects/lophn/docs/domain-model/lophn-agent/role-definition.md
+  - 결정: 2026-10-04 결정 10·15: MCP·skill 선택 정본은 Preset이며 공통 역할의 영구 [] 제한은 없다. 기본 선택과 제품 상한은 분리한다.
 - **check/lophn-agent#Q6** [충돌] RoleExtensionSelection에 서버만 있어 선택 서버의 미래 tool까지 노출될 수 있다.
   - 선택지: 서버 전체 / 정확한 현재 쌍
   - 추천: 서버 배열은 연결 후보로만 쓰고 mcp_tools의 서버·원래 tool 쌍 교집합만 노출한다.
@@ -2060,11 +2576,17 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 현재 Operator 상한과 0개를 유지하고 확장 지원은 명시 승인 내용·효과·scope까지 결정한 뒤 추가한다.
   - 적용: 미적용: 공통 기본값 수정이 Operator 추가 tool 허락은 아님
   - 근거: /home/pyosechang/projects/lophn/docs/requirements/lophn-agent/roles/operator.md#Q1,Q2; /home/pyosechang/projects/lophn/docs/domain-model/lophn-agent/roles/operator.md; /home/pyosechang/projects/lophn/docs/domain-model/lophn-agent/assignments.md#OperatorApprovalBundle
+  - 후속 기록: 2026-10-04 결정 10으로 Operator preset의 확장 선택을 영구 0개로 고정하지 않는다. 승인 묶음·실제 effect·scope 검증의 구체는 여전히 열려 있다(redesign/lophn-agent#Q93).
 - **check/lophn-agent#Q18** [범위] paused 대화 보존 및 저장 요청 실행 contract 변경을 screens·flows·shell에 연결해야 한다.
   - 선택지: 입력 차단 / 보존·미실행 표시 및 재개 뒤 실행 action
   - 추천: paused 입력은 저장됨·아직 실행 안 됨을 구분하고 재개 뒤 명시 실행 선택을 연결한다. 내부 assignment/run 이름은 노출하지 않는다.
   - 적용: 미적용: 할당 scope 밖 문서; main에 변경 계약 전달
   - 근거: /home/pyosechang/projects/lophn/docs/screens/roles.md; /home/pyosechang/projects/lophn/docs/screens/conversation.md; /home/pyosechang/projects/lophn/docs/requirements/shell/desktop.md; /home/pyosechang/projects/lophn/docs/requirements/lophn-agent/conversation.md#R14; /home/pyosechang/projects/lophn/docs/architecture/lophn-agent.md
+- **redesign/lophn-agent#Q13** [범위] 최초 check-docs의 타 subtree intent 오류 9개
+  - 선택지: 소유자 재연결
+  - 추천: 새 lophn-agent I1~I8/harness I1~I3 또는 각 owner intent로 재연결
+  - 적용: 미적용: 소유 범위 밖
+  - 근거: docs/requirements/apps/agent-context.md; docs/requirements/apps/sdk.md; docs/requirements/documents/versions.md; docs/requirements/shell/workspace.md
 
 ### lophn-agent/visuals
 
@@ -2087,7 +2609,51 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 적용: intent에 맞춰 고침
   - 근거: lophn-agent/harness#I9; requirements:lophn-agent/roles/common#R5
 
-## coding-agent (59)
+### lophn-agent/instructions
+
+- **redesign/lophn-agent#Q3** [질문] LOPHN.md 입력 크기 상한을 얼마로 둘까
+  - 선택지: 무제한; 파일/전체 상한
+  - 추천: 파일 32768 UTF-8 bytes·전체 131072 bytes; 초과·오류는 call 차단
+  - 적용: 적용: instructions와 prompt-assemble
+  - 근거: docs/domain-model/lophn-agent/instructions.md; docs/requirements/lophn-agent/instructions.md
+- **redesign/lophn-agent#Q5** [질문] Preset 첨부 지침의 순서와 version을 어떻게 고를까
+  - 선택지: 지역 지침 앞; 뒤; 첨부 version 고정
+  - 추천: global→project→app→첨부 배열; 중복은 첫 document; 내용은 매 call 최신 확정 판
+  - 적용: 적용: InstructionAttachment, InstructionLayer
+  - 근거: docs/domain-model/lophn-agent/instructions.md
+- **redesign/lophn-agent#Q11** [범위] 지침 파일 tracking·문서 보호·Instructions 편집기 경로의 owner contract가 필요하다
+  - 선택지: instruction 독립 표; documents 재사용
+  - 추천: documents/file-tracking·versions의 파일 정본/판을 재사용하고 shell/editor가 편집; agent write 제외를 owner에서도 보장
+  - 적용: 미적용: 타 owner 전파 필요; assigned 문서는 참조만 명시
+  - 근거: docs/requirements/documents/file-tracking.md; docs/domain-model/documents/file-tracking.md; docs/requirements/documents/versions.md; docs/domain-model/documents/versions.md; docs/requirements/shell/editor.md; docs/architecture/documents.md; docs/architecture/shell.md
+- **redesign/lophn-agent#Q105** [질문] 일반 context 자료 읽기와 언제나 읽을 사람 지침의 범위를 어떻게 구분할까
+  - 선택지: 같은 자료 scope; 지침 contract 별도 읽기
+  - 추천: 작업 자리·첨부 지침만 별도 읽고 연결 주소로 scope 확대 금지; 첨부 부재는 call 차단
+  - 적용: 적용: instructions·tool-judgment
+  - 근거: docs/domain-model/lophn-agent/instructions.md; docs/domain-model/lophn-agent/harness/tool-judgment.md
+
+### lophn-agent/presets
+
+- **redesign/lophn-agent#Q6** [질문] 제품 기본 preset 개인화와 새 판 적용을 어떻게 나눌까
+  - 선택지: 배포 원문 변경; user preset 새 판
+  - 추천: 배포 원문은 유지; user preset 저장 뒤 Assignment에 명시 적용; Operator 전체 승인
+  - 적용: 적용: Preset commands와 ChangeAssignmentPreset
+  - 근거: docs/domain-model/lophn-agent/presets.md; docs/domain-model/lophn-agent/assignments.md
+- **redesign/lophn-agent#Q9** [범위] domain-model README의 Role diagram과 Context Operator 범위는 entity-map 한 줄 편집 범위 밖이다
+  - 선택지: diagram owner 변경; 그대로
+  - 추천: Role→Preset 및 scope App|Project|all diagram 전파
+  - 적용: 미적용: entity-map 한 줄만 수정
+  - 근거: docs/domain-model/README.md
+
+### lophn-agent/harness/tool-judgment
+
+- **redesign/lophn-agent#Q96** [질문] ToolCall이 담는 판정 필드와 계약 판 식별자의 구체 형식은 → lophn-agent/harness/tools와 맞춘다. 독립 판정 table·command·event는 만들지 않는다.
+  - 선택지: 기존 issue 검토; 현재 contract 유지
+  - 추천: 현재 명시된 contract를 유지하고 owner 검토 목록에서 결정
+  - 적용: 미정: 문서에서 공통 목록으로 이동
+  - 근거: docs/domain-model/lophn-agent/harness/tool-judgment.md
+
+## coding-agent (87)
 
 ### coding-agent/cli
 
@@ -2115,6 +2681,17 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 보존 snapshot만; 시간당 10회 제한 sample hook
   - 추천: coding-agent/repair-context#Q1과 함께 첫 판 보존 snapshot만
   - 적용: sample 실행과 별칭 없음
+- **redesign/coding-agent#Q12** [충돌] 정함: MCP claim 하나 흐름과 기존 CLI claim·OpenClaw CLI fallback을 어떻게 맞추나
+  - 선택지: CLI claim 유지 / 실제 claim은 MCP만
+  - 추천: 결정16의 MCP claim을 그대로 적용; CLI는 조회·갱신·반납·보고와 MCP 연결 안내, 미지원 MCP는 claim 없이 code 작업 불가
+  - 적용: 적용; I1 CLI 연동의 실제 작업 범위를 사람 검수에 남김
+  - 근거: wf-common 결정16; coding-agent#I1; cli#R1,R36,R41; 연구 3.1 OpenClaw
+  - 결정: 2026-10-04 결정 16: 실제 coding 작업의 claim은 MCP 하나로 통일한다. CLI 조회·갱신·반납·보고는 가능하나 MCP 미지원 환경에서 CLI claim으로 우회하지 않는다.
+- **redesign/coding-agent#Q14** [범위] 기존 CLI의 사람 daemon·secret·파일/project/context/series 관리 요구를 coding-agent intent만으로 정당화할 수 있나
+  - 선택지: 삭제 / 기존 기능 유지·소유 concern 위임 / intent 확장
+  - 추천: 기존 통로는 유지하되 실제 계약은 소유 concern 위임; coding-agent I1/I2/I3은 얇은 연동 부분만 덮으며 관리 기능 자체 약속은 범위 검수
+  - 적용: 모든 의도는 유효 coding-agent I1~I8로 연결; cli R7,R8,R16~R23,R31,R35,R38의 사람 관리 자체는 범위로 기록
+  - 근거: docs/intent/coding-agent.md; docs/requirements/coding-agent/cli.md; docs/README.md 요구는 intent 넘지 않음
 
 ### coding-agent/connection
 
@@ -2130,6 +2707,11 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 전체 연결; 앱에 고정 근거 저장; 별도 제한 읽기 허용 목록
   - 추천: 앞의 두 가지로 해결하고 첫 판에 별도 문서 권한을 추가하지 않음
   - 적용: 범위 밖 근거 내용 미제공
+- **redesign/coding-agent#Q13** [빠짐] OS keychain trusted loader와 TUI/MCP/CLI credential 전달의 구체를 어느 concern이 정하나
+  - 선택지: 평문 파일 / token env / trusted process-local 통로
+  - 추천: identity·secrets가 keychain·자식 process-local 인증 contract를 정하고 terminal은 보호 handle 전달; token은 config·argv·prompt·일반 env·PTY에 금지
+  - 적용: coding 문서는 경계만 적용; platform/identity·platform/secrets·shell/terminal 상세 필요
+  - 근거: wf-common 결정19; coding-agent/connection#R17; architecture 2.3
 
 ### coding-agent/guides
 
@@ -2149,6 +2731,21 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 개인 SDK 우선·중첩 metadata; 설치 SDK 우선·문자열 map
   - 추천: 첫 판에는 개인 SDK 없이 설치 SDK 우선, 문자열 map
   - 적용: 설치 SDK 탐색과 문자열 map
+- **redesign/coding-agent#Q5** [질문] 관리 marker 없는 기존 안내에 구간을 추가할까
+  - 선택지: append / 무변경 / first-create plan
+  - 추천: 기존 파일 무변경·복구 안내; 새 템플릿 first-create 별도 명시 plan
+  - 적용: 적용
+  - 근거: 연구 7장 instruction marker 질문; guides#R15; domain-model/coding-agent/harnesses
+- **redesign/coding-agent#Q17** [질문] status hook과 summary hook의 설치 목적을 나눌까
+  - 선택지: 같은 hook에 결합 / 별도 collection
+  - 추천: Claude summary 전달만 기존 budget 유지, runtime 상태 collection 별도 목적·검증 version·receipt; OpenClaw 미검증 unknown
+  - 적용: 적용
+  - 근거: 연구 7장 status hook 목적 질문; guides#R25; harnesses#R11
+- **redesign/coding-agent#Q21** [질문] 기존 architecture의 문자·줄 계산을 domain에도 명시할까
+  - 선택지: 미정 유지 / Unicode code point·logical line
+  - 추천: 현재 architecture 추천 유지; 문자 상한 Unicode code point, CRLF를 LF로 센 logical line; test_command 실행 파일 허용 목록은 소유 spec에 위임
+  - 적용: 적용; harness native ID에도 같은 code point 사용
+  - 근거: architecture/coding-agent.md 5.5,5.6; domain-model/coding-agent/guides,tickets 정할 것
 
 ### coding-agent/mcp-server
 
@@ -2219,6 +2816,7 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 현행 ticket 없는 직접 수리; 사람 확인만 조건으로 허용
   - 추천: 현행 직접 수리
   - 적용: reproduction test 없는 수리 ticket 생성 거절
+  - 후속 기록: 2026-10-04 결정 16으로 ticket 없는 직접 수리 추천은 폐기한다(redesign/coding-agent#Q20). 모든 요청을 ticket으로 접수하되 reproduction 없는 실행 준비와 사람 acceptance check 허용 여부(H4)는 미정이며 redesign/propagate#Q4·redesign/lophn-agent#Q107과 함께 정한다.
 - **coding-agent/tickets#Q3** [질문] 구현 ticket 완료 끝점을 공통 기본값으로 정할까.
   - 선택지: ticket별 test·preview 또는 activation 명시; 공통 기본 끝점
   - 추천: ticket별 명시
@@ -2231,6 +2829,42 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 선택지: 문제 claim 24시간·읽기 갱신; ticket claim 60분·명시 갱신
   - 추천: problems/repairs과 apps/releases 및 새 ticket 정책
   - 적용: ticket에만 60분 claim·명시 갱신
+- **redesign/coding-agent#Q15** [충돌] 모든 coding 작업 ticket화와 다른 최상위의 ticket 없는 수리·release 계약을 어떻게 맞추나
+  - 선택지: 직접 수리 유지 / 준비 조사만 유지·작업 ticket화
+  - 추천: ticket 준비 전 problem bundle 조사와 과거 기록 조회는 유지; 신규 code·고친 기록·release 준비는 현재 ticket claim 필수
+  - 적용: coding 문서 적용; problems/repairs·apps/releases·lophn-agent 역할·flow 수정은 맡은 범위 밖
+  - 근거: wf-common 결정16; coding-agent/tickets#R5,R16; coding-agent/mcp-server#R21,R25
+- **redesign/coding-agent#Q20** [충돌] 정함: 기존 coding-agent/tickets#Q2의 ticket 없는 직접 수리 추천을 유지할까
+  - 선택지: 직접 수리 / ticket 준비만·code 무착수
+  - 추천: 결정16으로 기존 추천을 대체; reproduction 부족이면 담당 agent가 ticket 근거를 준비하고 code 작업하지 않음
+  - 적용: 적용; 기존 issue 원문은 역사로 보존하며 이 row가 새 결정의 적용 범위
+  - 근거: wf-common 결정16; issues/coding-agent__tickets.tsv Q2; coding-agent/tickets#R16
+  - 결정: 2026-10-04 결정 16: ticket 없는 직접 coding 수리 추천은 폐기한다. reproduction 부족 때 준비와 code 착수를 분리하며 ticket readiness는 별도 열린 질문이다.
+- **redesign/lophn-agent#Q7** [충돌] 근거 부족 repair 생성 금지와 모든 coding 일 ticket 원칙이 충돌한다
+  - 선택지: 근거 부족은 ticket 없음; 준비 상태 ticket
+  - 추천: 직접 요청·피드백도 ticket으로 남기고 미정·재현 부족을 준비 상태로 표시
+  - 적용: 적용: lophn/AE 요구와 기본 ticket.create; ticket 준비 상태는 owner에 전파 필요
+  - 근거: docs/requirements/lophn-agent/roles/lophn.md; docs/requirements/lophn-agent/roles/app-engineer.md; docs/requirements/coding-agent/tickets.md; docs/domain-model/coding-agent/tickets.md
+- **redesign/lophn-agent#Q104** [충돌] 실행 준비된 ticket 채택 근거 요구와 모든 직접 요청 ticket의 상태를 구분해야 한다
+  - 선택지: ticket 생성 보류; 준비 상태 생성
+  - 추천: ticket 접수는 남기고 채택·검사 부족은 실행 미준비로 표시
+  - 적용: 적용: AE R17; owner 준비 상태 전파 필요
+  - 근거: docs/requirements/lophn-agent/roles/app-engineer.md; docs/requirements/coding-agent/tickets.md
+- **redesign/lophn-agent#Q107** [충돌] coding-agent/tickets 현재 schema는 준비 상태 없이 채택 질문·검사 조건을 생성 필수로 요구한다
+  - 선택지: 현재 생성 제한 유지; owner에 준비 상태 ticket 도입
+  - 추천: 모든 직접 coding 일 ticket 원칙에 맞춰 owner가 접수·실행 준비를 분리; 빈 조건·가짜 채택 생성 금지
+  - 적용: assigned 역할 요구에 준비 미완료 명시; owner schema 변경 미적용
+  - 근거: docs/domain-model/coding-agent/tickets.md:20,58-60; docs/requirements/coding-agent/tickets.md; docs/requirements/lophn-agent/roles/lophn.md; docs/requirements/lophn-agent/roles/app-engineer.md
+- **redesign/propagate#Q3** [충돌] 모든 coding 요청의 즉시 ticket 접수와 생성 필수 채택·acceptance check를 어떻게 분리할까?
+  - 선택지: 접수 후 readiness / 생성 전 조사만 / 조건 자동 채우기
+  - 추천: 접수와 실행 준비를 분리하고 가짜 채택·빈 조건 보충 금지; owner가 states/schema와 claim gating 확정
+  - 적용: coding-agent 파일 수정 금지로 미적용; 새 flow는 준비된 ticket만 Start
+  - 근거: coding-agent/tickets#R2,R3,R5,R6; lophn-agent/roles/lophn; lophn-agent/roles/app-engineer
+- **redesign/propagate#Q4** [충돌] reproduction 없는 코드 수리의 ticket 준비와 보호된 사람 문제 확인을 어떻게 맞출까?
+  - 선택지: ticket readiness 차단 / 사람이 정한 acceptance check 추가
+  - 추천: ticket 없는 direct repair는 금지; 보호된 사람 확인을 유지하되 ticket owner의 reproduction 조건을 별도 결정
+  - 적용: ticket 없는 신규 fallback 제거; 조건 완화 미적용
+  - 근거: coding-agent/tickets#R9; problems/closing#R9; problems/repairs#R4
 
 ### coding-agent
 
@@ -2306,6 +2940,7 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 인증 경계에서 core 밖 보호 보관을 먼저 준비하고 command는 hash만 받아 원문 없는 결과를 반환한다.
   - 적용: 고침: connection domain command·표 설명, architecture 2.3·RPC·7.1을 platform 인증 contract와 credentials/connections 경로에 맞춤
   - 근거: platform/identity#R5; architecture/platform#5.6; coding-agent/connection#R17
+  - 후속 기록: 2026-10-04 결정 19: harness 연결 선택 때 connection을 만들고 credential은 OS keychain에 둔다. MCP server 시작 때 keychain에서 꺼내며 설정 파일에 token을 쓰지 않는다. OS별 process-local 전달 구체는 redesign/propagate#Q2·redesign/coding-agent#Q13에 남긴다.
 - **check/coding-agent#Q8** [충돌] CLI의 자체 secret lock·password unlock은 OS keychain 방식과 파일 볼트 폐기에 맞지 않는다.
   - 선택지: 자체 볼트 잠금; OS keychain 사용 가능 여부·OS 안내
   - 추천: 값 등록·삭제는 보호 화면, 잠김·누락은 OS 안내·unavailable로 처리한다.
@@ -2378,7 +3013,89 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 적용: 고침: 의도 줄 무변경, 최종 check-docs 오류0·경고1(의도 없는 요구6개); coding-agent 오류 없음
   - 근거: coding-agent/cli#R19; /home/pyosechang/projects/lophn/tools/check-docs.ts#readPromises; docs/intent/lophn-agent/roles.md
 
-## shell (45)
+### coding-agent/harnesses
+
+- **redesign/coding-agent#Q1** [질문] 기본 harness가 비었을 때 후보 순서를 고정할까
+  - 선택지: 고정 제품 우선순위 / 유일한 후보 제안·복수 chooser
+  - 추천: nullable 선택 유지; 설치·TUI 사용 가능한 후보 하나만 제안하고 여러 개면 사람 선택
+  - 적용: 적용; 저장 선택 unavailable은 자동 fallback하지 않음
+  - 근거: wf-common 결정18; research/harness-catalog.md 7장 default 질문; coding-agent/harnesses#R5
+- **redesign/coding-agent#Q2** [질문] enabled=false가 제거·회수를 뜻하나
+  - 선택지: 선택 후보 제외 / uninstall / revoke
+  - 추천: 선택·launcher 후보 제외만, uninstall/revoke 별도
+  - 적용: 적용
+  - 근거: 연구 7장 enabled 질문; domain-model/coding-agent/harnesses 정책
+- **redesign/coding-agent#Q3** [질문] custom executable와 profile을 어느 범위로 지원할까
+  - 선택지: 미지원 / command override만 / explicit profile
+  - 추천: 명시 profile identity와 executable·환경 이름·effective config roots를 나누며 임의 shell 문자열은 거절
+  - 적용: 적용; profile의 settings 저장 contract는 다른 워커 범위
+  - 근거: 연구 7장 custom profile 질문; coding-agent/harnesses#R4
+- **redesign/coding-agent#Q4** [질문] unknown version에 어떤 hook을 설치할까
+  - 선택지: 최신 event 추정 / 검증 conservative subset / 미설치
+  - 추천: 검증 conservative subset 또는 조각 안내; 검증 subset 없으면 미설치·unknown
+  - 적용: 적용; upstream source만으로 검증 version을 만들어 넣지 않음
+  - 근거: 연구 7장 unknown version hook 질문; coding-agent/harnesses#R11
+- **redesign/coding-agent#Q6** [질문] persistent config와 runtime MCP injection을 어떻게 나눌까
+  - 선택지: 모두 파일 / 모두 runtime / adapter별 capability
+  - 추천: capability를 나누고 현재 일곱 persistent adapter 계약 유지; runtime injection은 현재 실행에 열지 않음
+  - 적용: 적용; Codex TOML 조각·OpenClaw stdio 미확인 유지
+  - 근거: 연구 7장 MCP 방식 질문; architecture/coding-agent.md 5.5
+- **redesign/coding-agent#Q7** [질문] 감지 cache와 version/auth probe의 budget은 무엇인가
+  - 선택지: 고정 TTL / identity invalidation·사람 refresh
+  - 추천: TTL 없음·env/profile/catalog generation invalidate·명시 refresh; 별도 version/auth probe 5초·64KiB, fallback alias hop8
+  - 적용: 추천 값 적용; filesystem lookup과 별도 검사 level 구별; shell RC PATH hydration 실행 안 함
+  - 근거: 연구 7장 cache TTL 질문; 연구 O7/P5; domain-model/coding-agent/harnesses
+- **redesign/coding-agent#Q8** [질문] receipt/journal 저장 실패와 설치 partial을 어떻게 처리할까
+  - 선택지: 성공 표시 / 전체 rollback / component별 partial·recovery
+  - 추천: 실제 commit과 component별 partial을 기록하고 journal/hash 재검사로 ownership 복구 전 갱신·제거 금지
+  - 적용: 적용; multi-file 원자성 주장 없음
+  - 근거: 연구 7장 receipt 실패 질문; coding-agent/harnesses#R9
+- **redesign/coding-agent#Q16** [빠짐] harness 선택·profile·native path 설정을 어디에 저장하나
+  - 선택지: catalog 수정 / 신규 ledger / 기존 settings
+  - 추천: platform/settings 재사용, choice와 machine-local profile/env path 분리; 감지가 저장 선택을 지우지 않음
+  - 적용: coding 문서 참조 적용; settings entity/schema는 다른 워커 범위
+  - 근거: 연구 7장 custom/default/cache 질문; wf-common 결정18; platform/settings
+- **redesign/coding-agent#Q19** [충돌] Codex 연결 선택 뒤 MCP 자동 설치 결정과 TOML 조각 출력 보존 계약을 어떻게 맞추나
+  - 선택지: Codex TOML 자동 쓰기 / 조각·수동 적용 유지
+  - 추천: 지정된 기존 adapter 위치·manifest 계약을 우선 보존하여 Codex MCP는 조각·안내, skill은 선택 target에 설치; loading 미확인은 unknown
+  - 적용: 적용; Codex 연결은 다른 제품처럼 무조건 자동 MCP 완료라 표시하지 않음
+  - 근거: computed task 1번 위치·manifest 유지; 연구 6장3; guides#R18; wf-common 결정19
+
+### coding-agent/sessions
+
+- **redesign/coding-agent#Q9** [범위] 사람 [Start]와 TUI 관측을 coding-agent intent가 명시적으로 덮는가
+  - 선택지: I1/I4 연동 구현으로 수용 / 별도 intent 약속 추가
+  - 추천: I1/I4로 사람 시작·지정 ticket을 연결하되 새로운 자동 시작은 금지; 사람의 intent 검수에 범위 명시
+  - 적용: requirements 연결 적용; intent는 수정하지 않음
+  - 근거: coding-agent#I1,I4,I6; intent 하지 않는 것 자동 시작 금지; wf-common 결정17
+- **redesign/coding-agent#Q10** [질문] readiness·native ID 검증 상한과 resume 공개 범위를 정할까
+  - 선택지: 자동 resume / 사람 새 시작 / catalog capability만
+  - 추천: readiness10초·ID1024 code point 검증; resume capability만 catalog에 두고 현재 자동/새 resume 명령은 열지 않음
+  - 적용: 추천 값 적용; pi transcriptPath 필요; Hermes/OpenClaw 미검증은 unknown
+  - 근거: 연구 7장 launch/resume 질문; 연구 3.2; coding-agent/sessions#R5,R7,R10
+- **redesign/coding-agent#Q11** [빠짐] ticket 앱의 연결 source가 project에 속하지 않거나 project 폴더가 여러 개인 경우 [Start] cwd를 어떻게 정하나
+  - 선택지: 임의 source cwd / project 연결 안내·폴더 선택
+  - 추천: 등록 project와 연결 source 관계를 검사하고 여러 폴더는 사람 선택; 없으면 연결 안내·무시작
+  - 적용: 적용; project/app 관계 해석과 terminal start contract는 shell/apps/documents에 전파 필요
+  - 근거: coding-agent/sessions#R3; documents/projects; apps/registration; shell/terminal
+- **redesign/coding-agent#Q18** [범위] 정함: local session observation에 durable execution intent를 추가할까
+  - 선택지: 새 ledger session/job / derived만
+  - 추천: 관측은 derived; headless·자동 시작·coordinator authority가 열릴 때만 durable intent 별도 설계
+  - 적용: 적용; 새 entity·ledger 표 없음
+  - 근거: wf-common 결정17,18; 연구 7장 session observation 질문; product P2,P7
+  - 결정: 2026-10-04 결정 17·18: 현재 session 관측은 derived이며 새 ledger session/job 표를 두지 않는다. headless·자동 시작·coordinator는 나중 설계한다.
+- **redesign/lophn-agent#Q12** [범위] coding agent Start와 MCP 연결 설치·credential은 lophn agent tool이 아니다
+  - 선택지: agent 시작 tool; 사람 Start
+  - 추천: coding-agent/sessions가 사람 Start·project terminal TUI·첫 prompt를 담당; connection/harnesses가 설치·keychain 처리
+  - 적용: 미적용: owner와 흐름 전파 필요; assigned 역할은 ticket 생성만
+  - 근거: docs/requirements/coding-agent/sessions.md; docs/domain-model/coding-agent/sessions.md; docs/architecture/coding-agent.md; docs/flows/new-app.md; docs/flows/change-app.md; docs/flows/app-broken.md; docs/flows/manage-tickets.md
+- **redesign/propagate#Q7** [충돌] 새 앱의 [Start]는 source→project 연결을 요구하지만 source 연결은 첫 coding 작업에서 준비한다. 최초 연결을 어느 단계에서 만들까?
+  - 선택지: 사람이 Start 전 source 연결 / 자기 터미널 bootstrap / launch plan의 별도 explicit project 계약
+  - 추천: 사람의 기존 project/source 연결이 있으면 Start; 없으면 추측 없이 준비 차단·직접 터미널 안내. sessions owner가 bootstrap 계약 확정
+  - 적용: 새 app flow에 명시; owner 문서 변경 안 함
+  - 근거: coding-agent/sessions#R3,R4; flows/new-app; apps/registration
+
+## shell (46)
 
 ### shell/app-frame
 
@@ -2552,6 +3269,7 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 앱 통로의 effect·grant를 그대로 소비하고 shell 화면이 새 caller approval이나 자동화 금지를 만들지 않으며 UX·값·화면·flow 정본을 구별한다.
   - 적용: 고침: architecture 앱 통로 소비 경계·전역 UX/정적 screen/flow 정본 설명; harness I7 미변경
   - 근거: shell#I8,I9; apps#I7; apps/automations; apps/blueprint; docs/README.md; 최근 결정 4~8
+  - 후속 기록: 2026-10-04 결정 8: 역사 기록의 harness I7 미변경은 당시 상태다. 현재 I7은 삭제되고 secret 약속은 platform#I8이 맡는다. screen 정적 명세는 없고 전역 규칙은 docs/ui-ux/README.md다.
 - **check/shell#Q16** [충돌] screen/roles#Q2가 전제한 회수된 담당의 새 대화 금지 표시가 shell/desktop에서는 암묵적이다.
   - 선택지: 소유 정책으로 input gate / shell 새 업무 규칙
   - 추천: 회수된 담당에는 지난 대화만 표시하고 멈춘 담당의 가능 여부는 소유 정책에 맡긴다.
@@ -2622,6 +3340,11 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 적용: TSV에 적용 기록 없음
   - 근거: shell/wording
   - 후속 기록: check/shell#Q1에서 shell/wording#R14로 적용함(R16 제안은 당시 번호); check/shell#Q19의 key segment 규칙은 열린 채 유지
+- **redesign/propagate#Q6** [범위] 새 Preset·Instructions·Start의 화면 wording/진입점은 어디서 확정할까?
+  - 선택지: 전역 README 변경 / concern 계약과 flow만
+  - 추천: docs/ui-ux/README.md는 수정하지 않고 기존 정보 최소화·en 원칙 유지
+  - 적용: 기존 global UI 규칙 유지; 필요 화면 vocabulary 목록만 기록
+  - 근거: shell/editor#R17; shell/terminal#R12; lophn-agent/instructions#R2
 
 ## domain model 사이 (14)
 
@@ -2662,9 +3385,10 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
 - **dm#C11** [충돌] Role.ToolSelection은 command 이름만, 승인된 (app, command) 쌍은 Assignment에 고정 — 승인·tools·blueprint가 같은 쌍 검사를 공유해야 함
   - 선택지: 공통 검사 규칙 하나
   - 추천: lophn-agent/assignments 정본
-- **dm#C12** [충돌] extensions(skill, 외부 MCP)가 architecture/agent-runtime.md에는 없다고 적혀 있음
+- **dm#C12** [충돌] 정함: extensions(skill, 외부 MCP)가 architecture/agent-runtime.md에는 없다고 적혀 있음
   - 선택지: architecture를 고침
   - 추천: architecture 재작성 때 반영
+  - 결정: 2026-10-04 결정 10: 외부 MCP·skill은 preset 구성 항목으로 지원한다. architecture의 확장 없음 단정은 폐기한다.
 - **dm#C13** [충돌] 한눈에 보기 예시의 "정해진 기간 재발이 없으면 닫힘"이 problems/closing 규칙(조용히 닫힘 없음)과 다름
   - 선택지: 예시 고침
   - 추천: domain-model/README의 entity 지도 쓸 때 고침
@@ -2739,11 +3463,12 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
   - 추천: 제품 기능이 아닌 eval은 개발 품질 flow로 별도 관리
   - 적용: 제품 flow에서 제외하고 uncovered_intents에 남김
   - 근거: /home/pyosechang/projects/lophn/docs/intent/lophn-agent.md#I8; /home/pyosechang/projects/lophn/docs/requirements/lophn-agent/evaluation.md#R21-R23
-- **flow/catalog#Q2** [질문] 사람이 정하는 중인 harness#I7의 prompt injection·secret 보장 장면을 확정할까?
+- **flow/catalog#Q2** [질문] 정함: 사람이 정하는 중인 harness#I7의 prompt injection·secret 보장 장면을 확정할까?
   - 선택지: 사람 결정까지 미확정; 현재 safety 요구로 확정
   - 추천: 사람 결정까지 미확정 유지
   - 적용: lophn-agent/harness#I7을 uncovered_intents에 남김; 기존 platform secret 약속만 별도 flow로 연결
   - 근거: /tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/wf-common.md#21; /home/pyosechang/projects/lophn/docs/intent/lophn-agent/harness.md#I7
+  - 결정: 2026-10-04 결정 8: harness intent는 I1~I3만 남고 옛 I7은 삭제되었다. I7 flow 연결 요구는 없으며 secret 약속은 platform#I8이 맡는다.
 - **flow/catalog#Q3** [충돌] 세션 visual의 산점 차트를 SDK가 지원한다고 쓸까?
   - 선택지: SDK 산점 지원 추가; 세션 산점 제외; 사람 결정 대기
   - 추천: 사람 결정 전 flow에서는 양쪽이 지원하는 표·선·막대·도표·앱 카드만 예로 든다
@@ -2992,11 +3717,12 @@ requirements·domain model·architecture·flow·screen과 intent 연결·일관�
 
 ### coding-agent
 
-- **intent/coding-agent#Q1** [충돌] coding-agent/connection#R18의 회수 뒤 현재 ticket 읽기 확인이 coding-agent#I2와 connection#R8의 즉시 읽기 거절과 부딪힌다.
+- **intent/coding-agent#Q1** [충돌] 정함: coding-agent/connection#R18의 회수 뒤 현재 ticket 읽기 확인이 coding-agent#I2와 connection#R8의 즉시 읽기 거절과 부딪힌다.
   - 선택지: 회수된 연결의 읽기 허용; 회수 인증 거절로 상실 확인
   - 추천: 회수된 연결은 읽기·쓰기를 즉시 거절하고 인증 거절로 상실을 확인한다.
   - 적용: intent에 맞춰 고침: R18과 확인에서 회수 인증 거절과 허용된 연결의 ticket 재조회를 구별함
   - 근거: coding-agent#I2; coding-agent/connection#R8; coding-agent/connection#R18
+  - 결정: 2026-10-04 결정 19: connection 회수 뒤 읽기·쓰기를 즉시 거절한다. 회수된 credential의 ticket 재조회가 아니라 인증 거절로 상실을 확인한다.
 
 ### documents
 

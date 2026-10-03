@@ -73,6 +73,11 @@ secret 원값을 OS keychain에 보관하고 ledger에는 참조만 남기며 �
 - 확인: 허용 adapter의 갱신은 참조만 바뀌고 오래된 판·다른 목적지·agent의 갱신 결과 제출은 거절되는지 확인하며 로그인·갱신 정책은 lophn-agent/harness/provider·lophn-agent/extensions를 따른다.
 - 의도: platform#I2, platform#I8, platform#I1
 
+**[R12]** coding connection credential은 앱 secret·provider 인증과 다른 용도로 OS keychain에 준비하고 active connection commit과 연결한 신뢰 loader만 사용할 수 있으며 실패한 준비 값을 정리하고 원문을 agent나 일반 설정에 반환하지 않는다.
+- 이유: 자동 연결의 인증 token이 앱 secret 사용 경계를 넓히지 않게 한다.
+- 확인: commit 전 token·실패 token이 거절되고 연결 회수는 keychain 정리 지연과 무관하게 즉시 새 사용을 막으며 coding-agent/connection과 platform/identity의 보호 전달만 허용되는지 본다.
+- 의도: platform#I2, platform#I8
+
 ## 열린 질문
 
 - platform/secrets#Q1 Linux Secret Service 없는 desktop·headless에서 어떤 대체 보호 저장소를 지원할까?

@@ -37,7 +37,7 @@ ledger의 공통 envelope, 식별·시각·오류 값, 확정 command 결과와 
 | `qst` | Question | → lophn-agent/questions |
 | `ntf` | Notification | → platform/notifications |
 | `rvt` | Revert | → lophn-agent/revert |
-| `rol` | Role | → lophn-agent/role-definition |
+| `pst` | Preset | → lophn-agent/presets |
 | `asg` | Assignment | → lophn-agent/assignments |
 | `ses` | Session | → lophn-agent/conversation |
 | `msg` | Message | → lophn-agent/conversation |

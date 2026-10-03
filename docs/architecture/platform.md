@@ -107,7 +107,7 @@ H/
   derived/                         소유 concern별 derived DB·출처·cursor
   apps/<app ID>/                   apps 소유 실행 자료·DB·backup
   sdk/                             apps/sdk 소유 고정 설치 자료
-  credentials/connections/<cac>/   coding-agent 연결 보호 저장소(token 0600)
+  LOPHN.md                        사람이 쓰는 전역 지침; exact 파일만 version 연결
   run/                             instance lock·인증 없는 위치 metadata·임시 제어 자료
   logs/                            안전 운영 log·crash 관측
   backups/<UTC stamp>/             manifest.json·ledger.db·blobs/...
@@ -115,7 +115,7 @@ H/
   settings/                        명시 import/export용 TOML, 원본 아님
 ```
 
-Linux H·관리 앱 폴더·credentials·run은 0700이며 더 넓으면 정상 기동을 거절한다. token 파일은 0600, 다른 소유자·symlink·넓은 권한은 사용 불가다. 다른 OS는 동등한 소유자 전용 ACL을 검증한다. user·assignment·app·worker token 파일은 만들지 않는다. OS keychain 원값은 이 tree 밖에 있다. 외부 project 원본과 앱 source는 각 소유 concern이 등록한 위치에 남긴다.
+Linux H·관리 앱 폴더·run은 0700이며 더 넓으면 정상 기동을 거절한다. coding connection token 원문은 OS keychain에만 있고 설정·wrapper·파일에는 connection 참조만 둔다. 다른 OS는 동등한 소유자 전용 ACL을 검증한다. user·assignment·app·worker token 파일은 만들지 않는다. OS keychain 원값은 이 tree 밖에 있다. 외부 project 원본과 앱 source는 각 소유 concern이 등록한 위치에 남긴다.
 
 ### 3.2 ledger 표 소유권
 
@@ -278,7 +278,7 @@ platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`,
 | `app:<app>` | core가 supervisor의 신뢰 앱 runtime 경계에 고정 app·release·process·mode로 발급 | 자기 선언 보고·산출물; 사용자 코드에는 token 없음; 종료·판 교체·회수 시 폐기 |
 | `machine` | 신뢰 worker에 task·대상·결과 command를 고정하여 발급 | 자기 배정 작업만; 실제 test runner만 test 결과 제출; 작업/프로세스 종료 시 폐기 |
 
-이것은 다섯 actor의 하나의 credential 형식이다. 앱 연결·confirmation handle·준비 참조를 추가 token 종류나 actor로 만들지 않는다. coding agent 연결 생성의 원값은 보호 저장 준비를 마친 후 해당 소유 command에 digest만 제출하고, commit 확인 뒤 adapter가 저장 결과만 보여 준다. 원문 재조회·원문을 command_results에 저장하는 재전달은 없다. 저장 준비나 commit 실패의 token은 사용할 수 없고 정리 대상이다.
+이것은 다섯 actor의 하나의 credential 형식이다. 앱 연결·confirmation handle·준비 참조를 추가 token 종류나 actor로 만들지 않는다. 사람 harness 연결 선택 뒤 인증 경계가 coding agent token을 자동 발급·OS keychain 보관 준비하고 소유 command에 digest만 제출한다. commit 확인 뒤 adapter가 값 없는 준비 결과만 보여 준다. 원문 재조회·원문을 command_results에 저장하는 재전달은 없다. 저장 준비나 commit 실패의 token은 사용할 수 없고 정리 대상이다.
 
 검사 순서는 **Host → Origin → Bearer → 현재 동작 자격**이다. 실제 port P의 allowlist는 `127.0.0.1:P`, `localhost:P`, `[::1]:P`다. 임의 proxy header는 무시하고 Origin header가 있으면 값에 관계없이 403이다. CORS·cookie·브라우저 예외는 없다. 인증/route 한도를 정한 뒤 body를 읽고 Content-Length를 사전 검사하며 길이가 없거나 속인 stream도 누적 상한을 넘기기 전에 중단한다. health·준비 상태·WS도 예외가 없다.
 
@@ -508,7 +508,7 @@ SQLite/schema 점검 뒤 정상 read는 전체 scan·index·큰 blob hash를 기
 
 migration은 앞으로만 간다. 이전 설치로 돌아갈 때는 사람이 호환되는 검증 backup을 restore해야 한다. migration 전 복구본은 성공 직후 삭제하지 않고 사람이 범위와 복원 가능성을 확인한 명시 삭제만 허용한다. 삭제는 SQLite page·WAL·OS backup의 물리 흔적 제거를 보장하지 않는다. 수동 lophn update는 정상 정지 후 OS 설치 묶음만 교체하고 필요한 변환은 이 절차를 따른다. 자동 다운로드/설치/무단 재시작과 headless 별도 설치는 첫 판에 없다.
 
-settings는 `builtin < common < role`만 병합하며 role 허용 항목만 받는다. TOML 1.0 format 1의 명시 import/export는 worker에서 parse·redaction·전체 영향 검증한 뒤 `ApplySettings`에 제출한다. 객체는 항목별, scalar/array는 높은 층 전체 교체다. reload 실패는 마지막 유효 판 전체를 유지한다. 일반 설정에 secret·환경 치환·include·command·원격 URL·assignment override·안전 해제는 없다. 적용값은 메모리이며 명시 선택만 ledger 원본이다. 새 model/prompt/tool/run 한도는 다음 run, 현재 안전 제한은 다음 호출부터 적용한다. 변하지 않은 연결을 reload 때문에 재기동하지 않는다.
+일반 settings는 `builtin < common`만 병합하고 Preset 구성은 별도 고정 판으로 저장한다. TOML 1.0 format 1의 명시 import/export는 worker에서 parse·redaction·전체 영향 검증한 뒤 `ApplySettings`에 제출한다. 객체는 항목별, scalar/array는 높은 층 전체 교체다. nullable 값과 선택 삭제는 구별하며 정확한 교환 표현은 → redesign/propagate#Q1에서 확정한다. reload 실패는 마지막 유효 판 전체를 유지한다. 일반 설정에 secret·환경 치환·include·command·원격 URL·assignment override·안전 해제는 없다. 적용값은 메모리이며 명시 선택만 ledger 원본이다. Preset model/prompt/tool과 run 한도 변경은 다음 run, 지침·작업 자리 snapshot과 현재 안전 제한은 다음 호출부터 적용한다. 변하지 않은 연결을 reload 때문에 재기동하지 않는다.
 
 diagnostics는 안전 구성 요소·시각·분류·위치·redaction 설명만 비동기로 기록한다. core·SDK·desktop 내부 실패는 `lophn_internal`이며 앱 문제로 돌리지 않는다. 인증 실패 폭주는 제한 log만 남기고 ledger event를 만들지 않는다. doctor는 SDK 같은 version의 hash 차이·credential 권한·grant 위험·log 미가공 key 패턴을 worker에서 검사하고 원문 없이 실제 관측을 반환한다. raw stdout/stderr·HTTP dump·crash memory·내부 추론은 자동 수집하지 않는다.
 
@@ -522,3 +522,9 @@ diagnostics는 안전 구성 요소·시각·분류·위치·redaction 설명만
 - **이전:** 앱이 secret 값을 읽고 암호화 파일 볼트·safeStorage master key를 사용했다. **지금:** keychain 원값·참조 CAS·전송 직전 플랫폼 첨부이며 보호 export만 별도다. **이유:** 원값을 agent·앱 코드·backup에 퍼뜨리지 않는다.
 - **이전:** index가 ledger에 섞이고 backup은 DB 중심이었다. **지금:** derived는 재생성 파일, backup은 snapshot S의 모든 참조 blob까지 검증한다. **이유:** 빠른 복사본을 원본과 분리하고 실제 복원 가능성을 보장한다.
 - **이전:** notification을 폭넓은 협업 전이나 앱 임의 발송으로 만들 여지가 있었다. **지금:** 계기 표·source_seq unique·전용 subscriber만 생성한다. **이유:** 표시가 업무 결정·새 agent 작업이 되지 않는다.
+
+## Preset 설정과 coding loader 경계
+
+일반 설정 원본은 builtin/common 선택이며 Preset 계정·model·prompt·자료·MCP·skill·지침 연결의 원본은 → lophn-agent/presets의 고정 판이다. 공통 judgment/organizing 값은 생성 후보만 제공한다. coding enabled·nullable 기본 harness·profile 선택은 → coding-agent/harnesses로 검증하고 machine-local executable·effective roots·receipt·관측은 TOML export와 분리한다.
+
+connection 생성은 보호 화면의 exact scope 결정 → 신뢰 인증 경계의 token/keychain 준비 → connection 검증 hash commit → trusted loader 사용 순서다. commit 전·실패 token은 무효이며 고아 값을 정리한다. OS keychain 누락·잠김은 unavailable; 평문 token 파일·일반 env fallback은 없다. loader는 current connection·scope·catalog adapter·실제 child generation을 확인하고 process-local 보호 통로로 MCP/CLI 인증 adapter에만 전달한다. TUI [Start]는 기존 connection 사용 허락이며 credential 발급·scope 확대 허락을 대신하지 않는다. revoke는 keychain 삭제 완료와 별도로 모든 새 요청에서 즉시 적용한다. → platform/identity#R5,R15, platform/secrets#R12

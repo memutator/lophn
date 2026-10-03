@@ -6,7 +6,7 @@ concerns: [documents/terms, documents/contexts, documents/outline-and-search, do
 
 문서마다 같은 말이 다른 뜻으로 쓰여 읽기와 판단이 헷갈리는 사람이, 특정 목적의 자료에서 자신이 쓸 뜻을 정한다.
 
-지키는 약속: documents#I7, lophn-agent/roles#I4, lophn-agent/roles#I1, lophn-agent#I7.
+지키는 약속: documents#I7, lophn-agent#I1, lophn-agent#I7.
 
 ## 흐름
 

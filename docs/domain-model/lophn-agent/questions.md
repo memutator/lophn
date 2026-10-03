@@ -150,6 +150,8 @@ option·action·recommendation·answer는 질문 안의 값이고 독립 ID·표
 
 ## 정책
 
+- **고정 입력 포장.** OptionAction 정규화·binding hash는 platform/ledger와 소유 command schema contract를 쓴다.
+
 - **답 기한.** 기본 expires_at=null이며 options 수의 고정 상한·900초 기본 기한은 없다. 기한이 있는 경우 그 경계부터 답을 받지 않는다.
 - **답 없음.** 만료·미루기·취소는 답 없이 종료다. 같은 run의 stopped 및 reason은 → lophn-agent/harness/waiting-and-recovery. 자동 기본 답·추정 적용은 없다.
 - **재개.** 답은 같은 run으로 전달한다. 고정 action이 있으면 대상 적용 결과를 확인한 뒤 그 결과와 함께 재개한다. 적용 CAS conflict는 답을 지우지 않고 동작 미적용으로 남긴다. 바뀐 기준은 새 질문의 고정 option을 다시 확인해야 한다. → lophn-agent/harness/waiting-and-recovery
@@ -157,8 +159,3 @@ option·action·recommendation·answer는 질문 안의 값이고 독립 ID·표
 - **secret.** 질문으로 password·API key·token을 받지 않는다. secret 판정된 답은 일반 blob·model 입력에 넣지 않고 안전 입력으로 처리한다. → platform/secrets, platform/redaction
 - **Operator 대기.** pending run이 있는 assignment의 주기 처리와 건너뛰기는 → lophn-agent/scheduling. 질문 생성·답이 새 agent run의 event 계기를 만들지 않는다.
 
-## 정할 것
-
-- H8: 답 없는 Operator 질문 동안 주기를 계속 건너뛸지. 현재는 건너뛴다.
-- 답 없는 질문의 기본 기한: 현재 null. 유한 기한을 도입하면 → lophn-agent/harness/waiting-and-recovery와 맞춘다.
-- OptionAction의 정규화·binding hash는 → platform/ledger 및 소유 command schema와 동일한 contract로 정한다.

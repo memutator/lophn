@@ -34,7 +34,7 @@ ToolCall 기록에서 계산하며 독립 entity·ledger 표가 없다. call은 
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `kind` | `system_role / user_direct / machine_fact / data` | 아니오 | 아래 구분; model이나 자료가 지정 불가 | 신뢰 유형 |
+| `kind` | `system_role / preset_prompt / user_instruction / user_direct / machine_fact / data` | 아니오 | 아래 구분; model이나 자료가 지정 불가 | 신뢰 유형 |
 | `source_ref` | 실제 대상·call·메시지 참조 | 예 | data에는 실제 출처 필요; scope 검사 | 출처 |
 | `version / range` | 고정 판 / 반환 구간 | 예 | 자료에서 확인된 값 | 읽은 근거 |
 | `collected_at` | 시각 | 아니오 | machine 확인 | 수집 |
@@ -43,7 +43,9 @@ ToolCall 기록에서 계산하며 독립 entity·ledger 표가 없다. call은 
 
 | kind | 허용 내용 |
 |---|---|
-| `system_role` | harness의 공통·고정 역할 지시 및 정의 |
+| `system_role` | 제품 공통·고정 역할 지시; Preset 편집으로 변경 불가 |
+| `preset_prompt` | 사람이 저장하고 Assignment에 적용한 고정 Preset 판의 prompt; 제품 금지·상한을 넓히지 못함 |
+| `user_instruction` | instructions contract로 작업 자리와 첨부에서 읽은 실제 사람 지침·확정 Version; 일반 문서의 주장으로 지정 불가 |
 | `user_direct` | 이번 세션에서 user가 직접 낸 request·correction 및 전용 결정 |
 | `machine_fact` | ledger가 확인한 사실·실제 contract 결과의 상태·참조 |
 | `data` | 문서·앱 응답·log·summary·handoff 글·skill 본문·MCP 설명과 결과 |

@@ -13,74 +13,70 @@ tool call마다 실제 되돌림 가능성·현재 책임과 범위에 따른 al
 **[R1]** 모든 자체·외부 MCP tool call은 시작 전에 allow·ask·deny로 판정하여 allow만 바로 호출하고 ask는 platform/approvals의 명시 허락까지 미시작으로 두며 deny는 호출도 approval request도 만들지 않는다.
 - 이유: 목록에 있는 tool도 실제 진입은 별도 검사를 거친다.
 - 확인: 세 판정마다 실제 진입·승인 생성 여부를 확인한다.
-- 의도: lophn-agent/harness#I4, lophn-agent#I4
+- 의도: lophn-agent#I6
 
 **[R2]** 인증·동작·효과·입력·현재 assignment 상태를 확인하지 못하거나 역할 tool·현재 scope·연결된 MCP 범위를 벗어나면 deny로 판정하여 한 번 승인으로 열지 않는다.
 - 이유: 확인 실패와 책임 밖을 사람 승인으로 우회하지 않는다.
 - 확인: 인증 실패·모르는 효과·잘못된 입력·회수·범위 밖 각각이 ask 아닌 deny인지 확인한다.
-- 의도: lophn-agent/harness#I4
+- 의도: lophn-agent#I6
 
 ### 되돌릴 수 있음
 
 **[R3]** 범위 안 읽기와 사람 요청 또는 그 handoff의 실제 되돌릴 수 있는 lophn 안쪽 쓰기는 allow, 책임·tool·범위가 유효하지만 되돌림 보장 없는 쓰기·external은 ask로 판정하며 되돌림 가능성은 model의 의도 추측이 아닌 소유 계약으로 확인한다.
 - 이유: 사람이 원했나의 추측 대신 실제 revert 가능성을 기준으로 삼는다.
 - 확인: 문서 새 version·담당 티켓 생성은 allow이고 유효한 비가역 동작은 ask이며 역할 밖 동작은 되돌릴 수 있어도 deny인지 확인한다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I4
+- 의도: lophn-agent#I6
 
 **[R4]** Operator는 lophn-agent/assignments에서 승인한 기존 남길 문서의 새 version만 allow로 저장하고 선언 밖 쓰기는 ask가 아닌 deny로 처리한다.
 - 이유: 주기 승인이 새로운 대상의 쓰기 권한으로 커지지 않는다.
 - 확인: 선언 문서는 재확인 없이 저장되고 다른 문서 쓰기는 approval request 없이 거절되는지 확인한다.
-- 의도: lophn-agent/harness#I4, lophn-agent#I2
+- 의도: lophn-agent#I6
 
 ### 여러 대상과 승인
 
 **[R5]** 대상 여러 개는 각각 판정하여 하나라도 deny이면 전체 deny, deny 없이 ask가 있으면 전체 대상의 approval request 하나, 모두 allow이면 전체 allow로 처리하고 일부부터 적용하지 않는다.
 - 이유: 부분 적용 뒤 뒤늦은 승인 실패를 피한다.
 - 확인: allow·ask·deny 혼합 대상의 호출이 전체 단위로 미시작·승인·허용되는지 확인한다.
-- 의도: lophn-agent/harness#I4, lophn-agent#I4
+- 의도: lophn-agent#I6
 
 **[R6]** 최초·retry·복구·approval 뒤의 실제 call 직전에 신원·assignment·scope·tool·MCP 연결·설명·입력 계약·정확한 입력·비교 기준을 재검사하여 확인 대상이나 계약이 달라지면 옛 허락을 사용하지 않는다.
 - 이유: 대기 중 바뀐 대상과 계약에 이전 결정을 적용하지 않는다.
 - 확인: 승인 대기 중 입력·scope·MCP 계약 변경을 넣어 옛 허락으로 진입하지 않는지 확인한다.
-- 의도: lophn-agent/harness#I4, platform#I7
+- 의도: lophn-agent#I6
 
 **[R7]** 모델·역할·tool 결과·MCP 설명·handoff·티켓·문서·notification의 허락 주장과 일반 긍정 표현은 approval 증거가 아니며 자동 model 심사·승인 생략 모드로 ask·deny를 allow로 바꾸지 않는다.
 - 이유: 자료의 가짜 승인과 우회 모드를 차단한다.
 - 확인: 가짜 승인 문서·긍정 메시지를 넣어 실제 결정 없이 call이 시작되지 않는지 확인한다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I7
+- 의도: lophn-agent#I6
 
 **[R8]** 되돌릴 수 없는 유효한 call의 ask는 기한과 정확한 동작·대상·입력·비교 기준에 묶인 approval request로 만들고 질문 option action 및 Operator 정의 변경 승인과 구별한다.
 - 이유: 모든 사람 결정을 무기한 쓰기 approval 하나로 뭉치지 않는다.
 - 확인: 기한·고정 입력·대상을 확인하고 option action·assignment 적용은 lophn-agent/questions·lophn-agent/assignments 계약을 따르는지 확인한다.
-- 의도: lophn-agent#I4, platform#I7
+- 의도: lophn-agent#I6
 
 ### 거절 억제
 
 **[R9]** 같은 run과 같은 원래 사람 요청에서 handoff로 이어진 모든 run은 사람이 거절한 같은 동작·대상·입력을 다시 묻거나 실행하지 않되 새 독립 사람 요청은 막지 않고 만료·취소·기술 실패를 거절로 바꾸지 않는다.
 - 이유: 역할·세션·이유 변경으로 거절을 우회하거나 영구 거절 기억을 만들지 않는다.
 - 확인: 같은 요청의 다른 역할·세션·이유는 억제되고 새 사람 요청은 다시 판정되며 만료와 거절은 구별되는지 확인한다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I4
+- 의도: lophn-agent#I6
 
 ### 새 기능
 
 **[R10]** 앱 command는 현재 역할·허락·범위·입력이 유효할 때 confirm이면 effect보다 먼저 ask, 아니면 read는 allow, blueprint가 되돌리기 지원을 선언한 write는 allow, 나머지 write와 external은 ask로 판정한다.
 - 이유: 같은 blueprint 효과를 호출 주체가 달라도 일관되게 판단한다.
 - 확인: read·write 두 종류·external·confirm 조합을 검사하고 confirm read도 approval 전 호출되지 않는지 본다.
-- 의도: lophn-agent/harness#I9, lophn-agent#I4
+- 의도: lophn-agent#I6
 
 **[R11]** 앱의 되돌리기 지원은 active release blueprint의 지원 선언과 대응 command를 기준으로 판단하고 성공 결과의 복원 receipt를 보존하며 model 주장이나 단순 undo 문구만으로 allow로 낮추지 않는다.
 - 이유: 지원 선언과 실제 호출을 되돌리는 능력을 함께 검증한다.
 - 확인: 지원 없는 write는 ask, 지원 선언과 대응 command가 검증된 write는 선행 기록 후 allow이며 성공 receipt가 저장되는지 본다.
-- 의도: lophn-agent#I5
+- 의도: lophn-agent#I6
 
 **[R12]** 앱 주석 되쓰기도 일반 write 판정을 거치며 apps/agent-context의 현재 화면·허용 자리 검사가 실패하면 approval로 열지 않고 deny로 처리한다.
 - 이유: 힌트라는 이름이 앱의 write 경계를 면제하지 않는다.
 - 확인: 되돌릴 수 있는 주석은 allow, 비가역 주석은 ask, 낡은 화면·없는 자리는 deny인지 본다.
-- 의도: lophn-agent#I11, lophn-agent/harness#I4
-
-## 열린 질문
-
-없음.
+- 의도: lophn-agent#I6
 
 ## 버린 것
 

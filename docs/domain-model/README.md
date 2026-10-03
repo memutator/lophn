@@ -12,7 +12,7 @@ lophn이 **무엇을 기억하는가**를 concern별로 적는다. 파일 하나
 
 ## entity 지도
 
-ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item, model slot 같은 것)는 entity 안의 값이거나 ID 없는 기록이다. 표 이름은 각 파일의 "ledger 표"에서 가져왔다.
+ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item, preset 구성 같은 것)는 entity 안의 값이거나 ID 없는 기록이다. 표 이름은 각 파일의 "ledger 표"에서 가져왔다.
 
 | concern | entity (접두사) | ledger 표 |
 |---|---|---|
@@ -39,7 +39,7 @@ ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item
 | [problems/grouping](problems/grouping.md) | Problem `prb` | `problems` |
 | [problems/snapshots](problems/snapshots.md) | Snapshot `snp` | `snapshots` |
 | [problems/tests](problems/tests.md) | Verification `vrf` | `verifications`, `verification_reports` |
-| [lophn-agent/role-definition](lophn-agent/role-definition.md) | Role `rol` | `roles`, `role_revisions` |
+| [lophn-agent/presets](lophn-agent/presets.md) | Preset `pst` | `presets`, `preset_revisions` |
 | [lophn-agent/assignments](lophn-agent/assignments.md) | Assignment `asg` | `assignments`, `assignment_revisions`, `assignment_outputs`, `assignment_read_apps`, `assignment_read_commands` |
 | [lophn-agent/scheduling](lophn-agent/scheduling.md) | | `assignment_schedule_occurrences` |
 | [lophn-agent/conversation](lophn-agent/conversation.md) | Session `ses`, Message `msg` | `sessions`, `messages` |
@@ -54,7 +54,7 @@ ID를 가진 entity는 30개다. 나머지(blueprint, problem code, context item
 | [coding-agent/connection](coding-agent/connection.md) | CodingAgentConnection `cac` | `coding_agent_connections` |
 | [coding-agent/tickets](coding-agent/tickets.md) | Ticket `tkt` | `tickets`, `ticket_references`, `ticket_adoption_questions`, `ticket_conditions`, `ticket_problems`, `ticket_open_repair_problems`, `ticket_claims`, `ticket_completions`, `ticket_check_results` |
 
-entity나 표 없이 값·정책만 가진 concern: platform/identity, redaction, security, diagnostics · documents/file-tracking, formats · apps/blueprint, runtime, automations, data, preview · problems/problem-codes, feedback, repairs, closing · lophn-agent/roles/*, handoff, extensions, observability, evaluation, harness/prompt-assemble, tool-judgment, safety · coding-agent/guides, repair-context.
+entity나 표 없이 값·정책만 가진 concern: platform/identity, redaction, security, diagnostics · documents/file-tracking, formats · apps/blueprint, runtime, automations, data, preview · problems/problem-codes, feedback, repairs, closing · lophn-agent/roles/*, handoff, extensions, observability, evaluation, harness/prompt-assemble, tool-judgment, safety · coding-agent/guides, repair-context, harnesses(catalog·관측·local receipt), sessions(시작 계획·derived 관측).
 
 ## 관계
 
@@ -73,7 +73,7 @@ entity나 표 없이 값·정책만 가진 concern: platform/identity, redaction
  Ticket ─── App · Problem · acceptance check ─── Verification
    └──< claim ─── CodingAgentConnection(scope: 전체 | App 하나)
 
- Role ──< Assignment(범위: App | Context | lophn 전체) ──< Run ──< ModelCall ─── Provider
+ Preset 고정 판 ──< Assignment(범위: Project | App | 전역) ──< Run ──< ModelCall ─── Provider
                                                          ├──< ToolCall
                                                          ├── source: 사람 요청 | 주기 회차 | handoff
                                                          └── Session ──< Message

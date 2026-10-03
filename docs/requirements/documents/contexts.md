@@ -86,6 +86,11 @@ context의 목적·자료·선택 이유와 기준/참고/watch 관점, 문서·
 - 확인: export에서 현재 항목과 고정 참조를 확인하고 glossary는 documents/terms를 따르며 없는 하위 context·관계 지도나 권한 밖 본문을 포함하지 않는다.
 - 의도: documents#I8, documents#I5
 
+**[R15]** context는 agent가 읽을 자료 선택이며 Operator 담당 범위를 만들지 않고 같은 project나 app의 여러 Operator가 preset에서 각각 선택할 수 있다.
+- 이유: 자료 묶음과 일을 맡긴 대상을 분리한다.
+- 확인: 같은 project의 Operator 둘이 다른 context를 고르고 context 보관으로 assignment 대상이 바뀌지 않는지 보며 구성은 lophn-agent/presets·lophn-agent/assignments를 따른다.
+- 의도: documents#I5
+
 ## 열린 질문
 
 - documents/contexts#Q1 context 분할·병합을 실제 동작으로 추가할까.

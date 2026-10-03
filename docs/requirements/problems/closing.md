@@ -54,9 +54,9 @@ concerns: [problems/closing]
 - 확인: 빈 이유는 거절되고 오탐의 기대 기준·판단 이유를 남길 수 있으며 로그 부재만으로 고쳐졌다고 하지 않는다.
 - 의도: problems#I5
 
-**[R9]** reproduction을 만들 수 없는 직접 수리는 보호된 사람 확인으로 끝낼 수 있지만 다른 테스트 통과를 자동 수리 확인으로 바꾸지 않는다.
-- 이유: baseline을 만들 수 없다는 한계를 숨기지 않고 problems/repairs·H4의 직접 수리 통로를 유지한다.
-- 확인: 재현 불가 수리를 사람에게 확인받아도 내가 확인함이며 테스트로 확인됨으로 표시되지 않고 ticket 허용은 coding-agent/tickets의 H4를 따른다.
+**[R9]** reproduction을 만들 수 없는 코드 수리도 ticket과 claim을 거쳐야 하며 사람의 보호된 확인은 유지하되 다른 테스트 통과나 ticket·session 완료를 자동 수리 확인으로 바꾸지 않는다.
+- 이유: baseline 한계를 숨기지 않으면서 ticket 없는 코드 수리 우회도 열지 않는다.
+- 확인: 보호된 사람 확인과 문제 닫힘 근거를 별도로 보존하고 coding-agent/tickets의 필수 reproduction 조건과의 충돌은 redesign/propagate#Q4에 남긴다.
 - 의도: problems#I5
 
 **[R10]** 사람이 “아직입니다”라고 하면 열린 문제는 닫지 않고 닫힌 문제는 다시 열며 같은 release에 같은 확인을 반복 요청하지 않는다.

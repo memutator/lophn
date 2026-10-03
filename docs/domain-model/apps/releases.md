@@ -19,7 +19,7 @@ Release의 불변 묶음, 준비 근거와 activation 상태를 정의한다.
 | `data_schema` | 0 이상 정수 | 아니오 | → apps/data | 사용하는 앱 DB schema |
 | `data_changes` | DataChange[] | 아니오 | → apps/data; 빈 목록 허용 | 앞으로 가는 migration |
 | `tests` | `vrf` ID[] | 아니오 | 비어 있지 않음; 중복 금지; 같은 bundle의 통과한 app test; release_tests에서 조회 시 조립 | → problems/tests |
-| `ticket_source` | TicketSource | 예 | 준비 확정 시 현재 claim 검사 | 준비 출처 |
+| `ticket_source` | TicketSource | 예 | 새 coding 준비는 필수; null은 과거 이력만; 준비 확정 시 현재 claim 검사 | 준비 출처 |
 | `created_by` | actor | 아니오 | → platform/identity | 준비 요청 주체 |
 | `created_at` | UTC 시각 | 아니오 | → platform/ledger | 준비 확정 시각 |
 | `status` | `prepared` / `activating` / `active` / `failed` / `superseded` | 아니오 | 아래 전이만 | activation 상태 |
@@ -38,7 +38,7 @@ Release의 불변 묶음, 준비 근거와 activation 상태를 정의한다.
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | `prepared` | machine | 신뢰된 준비 결과·같은 hash app test 통과; ticket_source가 있으면 현재 claim 검사 | `ReleasePrepared` |
+| 없음 | `prepared` | machine | 신뢰된 준비 결과·같은 hash app test 통과; 새 coding 준비는 ticket_source 필수·현재 claim 검사 | `ReleasePrepared` |
 | `prepared` / `superseded` / `failed` | `activating` | machine | 정확한 approval·grant·현재 release·schema 비교; 앱에 다른 activation 없음 | `ReleaseActivationStarted` |
 | `activating` | `active` | machine | 필요한 migration과 준비 확인 완료; 같은 transaction에서 App.active_release 변경 | `ReleaseActivated` |
 | `active` | `superseded` | machine | 다른 release activation 성공과 같은 transaction | `ReleaseSuperseded` |
@@ -50,7 +50,7 @@ Release의 불변 묶음, 준비 근거와 activation 상태를 정의한다.
 - 앱마다 active와 activating은 각각 많아야 하나다. activating 동안 다른 activation·grant 변경은 금지한다.
 - 준비는 정확한 commit으로 하며 uncommitted 파일을 넣지 않는다. 화면 build는 준비 프로세스에서 하고 운영 프로세스에서 하지 않는다.
 - 테스트는 release 없이 bundle hash로 가능하다. test runner만 실제 결과를 쓴다(→ problems/tests).
-- 긴 준비의 확정 때에도 현재 claim의 connection·seq·기한을 다시 검사한다. ticket 없는 수리에는 ticket_source가 없다.
+- 긴 준비의 확정 때에도 현재 claim의 connection·seq·기한을 다시 검사한다. 새 coding 준비에서 ticket_source 누락을 거절한다. 과거 ticket_source=null은 이력으로만 보존하고 가짜 출처를 채우지 않는다.
 - approval 거절은 activation 실패가 아니다. failed 묶음의 외부 조건만 고친 재시도에는 새 결정이 필요하다.
 - active 참조 변경·이전 release 대체·App 이름/설명 갱신은 같은 transaction이다. 첫 성공에서 run_enabled를 true로 한다. 업무 통로는 commit 뒤에만 연다(→ apps/runtime).
 - 이전 release도 새 activation이다. 현재 schema와 같은 판만 바로 허용한다. 운영 후 옛 backup 자동 복원과 agent run revert의 대상이 아니다.
@@ -106,7 +106,7 @@ bundle 안의 manifest이며 release에 별도 mutable 표로 복제하지 않�
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `release.prepare` | machine | 신뢰된 준비 결과,app,commit,bundle_hash,blueprint_hash,data_schema,data_changes,tests,ticket_source?,key | App source; 같은 bundle test; 현재 claim; 요청 connection scope | `ReleasePrepared` | `forbidden`, `invalid_input`, `conflict`, `unavailable` |
+| `release.prepare` | machine | 신뢰된 준비 결과,app,commit,bundle_hash,blueprint_hash,data_schema,data_changes,tests,ticket_source,key | App source; 같은 bundle test; 현재 claim; 요청 connection scope | `ReleasePrepared` | `forbidden`, `invalid_input`, `conflict`, `unavailable` |
 | `release.start_activation` | machine | release,approval,expected previous release,grants seq,schema,key | 현재 활성 참조·grant 집합·approval; 앱 activation lock | `ReleaseActivationStarted` | `forbidden`, `conflict`, `invalid_input` |
 | `release.complete_activation` | machine | release,started_seq,실제 schema·준비 확인 | 같은 시도·이전 활성 참조·grant seq; 데이터 결과 | `ReleaseActivated`, `ReleaseSuperseded` | `conflict`, `unavailable` |
 | `release.fail_activation` | machine | release,started_seq,failure | 같은 진행 시도 | `ReleaseActivationFailed` | `conflict`, `invalid_input` |

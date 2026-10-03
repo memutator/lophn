@@ -32,9 +32,9 @@ concerns: [platform/settings]
 
 ### 층과 병합
 
-**[R5]** 설정 우선순위는 내장 기본값보다 사용자 공통 선택이 높고 사용자 공통 선택보다 소유 concern이 허용한 역할별 선택이 높으며 다른 지속 설정 층은 두지 않는다.
-- 이유: 값의 출처와 이긴 선택이 예측 가능해야 한다.
-- 확인: 허용된 항목을 세 층에서 다르게 선택하여 역할별 값이 이기고 assignment별 override는 거절되는지 본다.
+**[R5]** 일반 설정은 내장 기본값과 사람의 공통 선택 두 층만 병합하며 agent별 구성은 lophn-agent/presets의 고정 판에 두고 별도 역할·assignment override 층이나 복제 원본을 만들지 않는다.
+- 이유: Preset과 일반 설정이 같은 선택의 서로 다른 원본이 되면 안 된다.
+- 확인: 공통 선택이 내장 기본값보다 우선하고 preset 구성이 일반 설정의 역할별 항목으로 저장되지 않는지 본다.
 - 의도: platform#I10
 
 **[R6]** 작업 디렉터리·앱 문서·세션·환경 변수·CLI 일회 인자·외부 서버 응답은 일반 설정을 덮어쓰는 층으로 해석하지 않는다.
@@ -42,9 +42,9 @@ concerns: [platform/settings]
 - 확인: 각 출처에 같은 항목을 넣어도 적용값과 판이 바뀌지 않는지 본다; 설치 위치 선택은 platform/install-and-update를 따른다.
 - 의도: platform#I10, platform#I2
 
-**[R7]** provider와 model catalog 보정은 공통 선택에서만 받고 judgment model과 organizing model의 역할별 덮어쓰기는 허용하지 않는다.
-- 이유: lophn-agent/harness/model의 두 공통 model slot을 유지한다.
-- 확인: 역할별 provider 보정이나 model 선택이 거절되는지 보고 실제 정의와 선택은 lophn-agent/harness/provider와 lophn-agent/harness/model을 따른다.
+**[R7]** provider·model catalog 보정과 새 preset 생성용 judgment·organizing 기본값은 공통 설정에 두되 실제 계정·model 선택은 preset마다 저장하고 기본값 변경으로 기존 preset·run을 바꾸지 않는다.
+- 이유: 공통 기본값은 구성의 시작 후보이지 모든 역할의 고정 model slot이 아니다.
+- 확인: 서로 다른 계정·model의 preset 두 개를 사용한 뒤 기본값을 바꿔도 기존 판은 유지되고 organizing 미선택 해석은 lophn-agent/harness/model을 따르는지 본다.
 - 의도: platform#I10
 
 **[R8]** object는 항목별로 병합하고 문자열·숫자·참거짓은 높은 층의 값으로 교체하며 목록은 연결하거나 중복 제거하지 않고 높은 층의 전체 목록으로 교체한다.
@@ -52,9 +52,9 @@ concerns: [platform/settings]
 - 확인: 낮은 층의 두 원소 목록에 높은 층의 한 원소 목록을 적용하여 한 원소만 남고 object의 생략 항목만 낮은 층을 따르는지 본다.
 - 의도: platform#I10
 
-**[R9]** 생략은 낮은 층을 따르고 해당 층의 선택 삭제는 낮은 층으로 돌아가며 빈 목록과 false는 명시한 값으로 취급한다.
-- 이유: 비우는 선택과 선택하지 않은 상태를 구별한다.
-- 확인: 생략·삭제·빈 목록·false를 각각 적용해 낮은 층 복귀와 명시값 유지가 구분되는지 본다.
+**[R9]** 생략과 선택 삭제는 낮은 층을 따르고 nullable 항목의 명시 null·빈 목록·false는 서로 다른 선택으로 검증한다.
+- 이유: 비어 있는 기본 harness 선택을 삭제나 감지 실패와 섞지 않는다.
+- 확인: nullable 기본 harness를 null로 저장한 경우와 선택 record를 삭제한 경우를 구별하고 null 불허 항목은 거절한다.
 - 의도: platform#I10
 
 **[R10]** 현재 항목마다 적용값·그 값을 정한 층·위와 아래 층의 명시 선택·적용 판을 조회할 수 있다.
@@ -101,7 +101,7 @@ concerns: [platform/settings]
 - 확인: 제안이나 TOML 파일 변경만으로 판이 바뀌지 않고 명시적 apply 뒤에만 바뀌는지 본다.
 - 의도: platform#I10
 
-**[R18]** 한 번의 apply는 모든 영향 역할의 적용값까지 검증한 뒤 전체 변경을 함께 저장하거나 함께 거절한다.
+**[R18]** 한 번의 apply는 모든 영향 concern의 적용값까지 검증한 뒤 전체 변경을 함께 저장하거나 함께 거절한다.
 - 이유: 일부 항목만 새 정책이 되는 중간 상태를 막는다.
 - 확인: 여러 항목 중 하나를 잘못 입력하여 어떤 선택도 바뀌지 않는지 본다.
 - 의도: platform#I10
@@ -111,7 +111,7 @@ concerns: [platform/settings]
 - 확인: 두 편집 중 하나를 먼저 적용하면 나중 apply가 충돌하고 새 선택을 읽을 수 있는지 본다.
 - 의도: platform#I10, platform#I1
 
-**[R20]** 성공한 변경은 변경 주체·시각·항목·전후 선택·영향 역할·새 판을 기록하며 선택과 적용값이 모두 같은 다시 읽기는 새 판을 만들지 않는다.
+**[R20]** 성공한 변경은 변경 주체·시각·항목·전후 선택·영향 concern·새 판을 기록하며 선택과 적용값이 모두 같은 다시 읽기는 새 판을 만들지 않는다.
 - 이유: 정책 변화의 근거는 남기되 변화 없는 조회는 변경으로 부풀리지 않는다.
 - 확인: 변경 뒤 이력을 읽고 같은 선택을 다시 읽을 때 판이 유지되는지 본다.
 - 의도: platform#I1, platform#I10
@@ -131,9 +131,9 @@ concerns: [platform/settings]
 - 확인: 초기 설정 오류 상태에서 agent는 시작되지 않지만 수정 화면과 기존 앱·문서는 열리는지 본다.
 - 의도: platform#I3, platform#I10
 
-**[R24]** model·추론 수준·prompt·tool 목록·문맥 한도·run 한도 변경은 다음 run부터 적용하고 진행 run은 시작 판을 유지하되 현재 권한과 안전 제한은 호출 때 현재값을 검사한다.
-- 이유: run의 해석 기준은 고정하되 안전 회수를 늦추지 않는다.
-- 확인: 진행 중 공통 설정을 바꾸어 다음 run만 새 판을 쓰고 현재 권한 회수는 진행 run의 다음 호출부터 반영되는지 본다; 항목 의미는 lophn-agent/harness/model·lophn-agent/harness/run-loop·lophn-agent/harness/tool-judgment·lophn-agent/harness/safety를 따른다.
+**[R24]** Preset model·추론 수준·prompt·tool·자료 선택과 run 한도는 다음 run부터 명시 적용한 판을 쓰되 사람 지침·세션 작업 자리·현재 보기 snapshot은 call마다 다시 resolve하고 현재 권한·안전 제한도 매 호출 검사한다.
+- 이유: 고정 구성과 call마다 바뀌는 사람 지침·현재 context를 구별한다.
+- 확인: 공통 생성 기본값 변경으로 기존 Preset 판은 바뀌지 않고 명시 적용은 다음 run, 지침 저장은 다음 call에 반영되며 현재 권한 회수는 즉시 호출을 막는지 본다.
 - 의도: platform#I10, platform#I2
 
 **[R25]** 적용 결과는 새 판·즉시 효력이 난 항목·다음 run부터 효력이 나는 항목을 구별하고 바뀌지 않은 provider·extension을 재연결하거나 lophn 전체를 재시작하지 않는다.
@@ -168,6 +168,11 @@ concerns: [platform/settings]
 - 확인: 기본 화면에 내부 key·층·판이 노출되지 않고 필요한 선택과 영향은 보이며 상세 조회와 lophn 역할 안내는 같은 registry의 정보를 쓰는지 본다; en·message key·화면 배치는 shell/wording·shell/design-system을 따른다.
 - 의도: platform#I10, platform#I5
 
+**[R31]** coding harness의 enabled·nullable 기본 선택·profile 선택은 소유 concern의 검증을 따르며 실행 파일 경로·감지·loading·receipt·session 관측은 machine-local 자료로 분리하고 일반 설정 export에 섞지 않는다.
+- 이유: 사람의 선택과 이 컴퓨터에서 확인한 사실은 다르다.
+- 확인: 기본 선택이 비면 coding-agent/harnesses의 단일 후보 제안·여러 후보 선택 규칙을 적용하고 재감지·profile 변경 없이 path 관측을 공통 선택으로 저장하지 않는지 본다.
+- 의도: platform#I10
+
 ## 열린 질문
 
 - platform/settings#Q1 설정 교환 문서의 format version과 옛 항목 migration을 언제 지원할까.
@@ -179,5 +184,5 @@ concerns: [platform/settings]
 
 - 설정 TOML 파일을 별도의 원본으로 읽거나 감시하던 방식은 버린다: ledger의 명시 선택만 원본이다.
 - 모르는 항목을 경고하고 무시하던 storage 규칙은 버린다: 새 domain model과 엄격한 검증 요구에 따라 거절한다.
-- 역할별 model 선택과 subagent 깊이 1 설정은 버린다: lophn-agent/harness/model의 공통 model과 모든 역할의 subagent 없음 규칙을 따른다.
+- 공통 model slot을 모든 역할의 실제 실행 model로 강제하던 방식은 버린다: 계정·model은 Preset 판에 두고 공통 값은 생성 후보만 제공한다. subagent 깊이 1 설정은 제품의 subagent 없음 규칙에 따라 두지 않는다.
 - evaluation 설정을 제품 설정 목록에 포함하던 방식은 버린다: lophn-agent/evaluation은 개발 도구다.

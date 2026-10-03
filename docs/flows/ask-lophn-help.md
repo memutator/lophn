@@ -1,12 +1,12 @@
 ---
 type: flow
-concerns: [lophn-agent/roles/lophn, lophn-agent/conversation, lophn-agent/questions, lophn-agent/harness/tools, lophn-agent/harness/provider, documents/versions, documents/outline-and-search, platform/settings, platform/ledger, platform/approvals, platform/secrets, shell/desktop, shell/wording, shell/confirmation-window]
+concerns: [lophn-agent/roles/lophn, lophn-agent/conversation, lophn-agent/questions, lophn-agent/harness/tools, lophn-agent/harness/provider, documents/versions, documents/outline-and-search, platform/settings, platform/ledger, platform/approvals, platform/secrets, shell/desktop, shell/wording, shell/confirmation-window, lophn-agent/presets, lophn-agent/instructions, coding-agent/sessions]
 ---
 # 설정의 뜻을 묻고 원하는 선택을 적용한다
 
 사람이 현재 기능이나 설정을 가리켜 뜻을 묻거나, lophn 사용법을 알고 설정을 바꾸고 싶을 때 시작한다. 설명을 듣는 일과 실제 변경을 결정하는 일은 다르다.
 
-지키는 약속: lophn-agent/roles#I7, platform#I10, lophn-agent#I7, shell#I8, platform#I5.
+지키는 약속: lophn-agent#I3, platform#I10, lophn-agent#I7, shell#I8, platform#I5.
 
 ## 흐름
 
@@ -17,6 +17,11 @@ concerns: [lophn-agent/roles/lophn, lophn-agent/conversation, lophn-agent/questi
 5. confirmation-window 화면 되돌릴 수 있는 안쪽 변경의 선택지를 적용하려는 사람은 정확한 변경을 다시 확인하고 확정한다. lophn은 결정 대상을 독립 재조회해 일치 검사가 끝나기 전에는 제출을 받지 않는다. (lophn-agent/questions#R13, shell/confirmation-window#R5, shell/confirmation-window#R6)
 6. machine이 사람이 확정한 대상·값·층·비교 판과 전체 영향 설정을 검증하고, 소유 command로 그 변경만 한 번 적용한다. agent에게 직접 설정 변경 command를 주지 않는다. 사람에게는 보이지 않는다. (platform/settings#R18, platform/settings#R19, platform/settings#R29, platform/ledger#R13, lophn-agent/harness/tools#R20)
 7. **settings 화면 conversation 화면** 사람은 답 접수와 실제 적용 결과를 구별해 확인하고, 즉시 바뀐 항목과 다음 run부터 바뀌는 항목을 안다. 접수됐다는 이유만으로 변경 완료라고 하지 않는다. (lophn-agent/questions#R10, platform/settings#R24, platform/settings#R25)
+
+## agent 구성과 지침을 바꾸는 갈래
+
+- 사람은 현재 작업 자리의 [Instructions]로 전역·project·app 파일을 편집한다. agent는 변경을 question으로 제안하며 저장하지 않는다. 작업 자리는 세션을 연 곳에서 사람의 명시 변경 때만 바뀐다. (lophn-agent/instructions#R2, lophn-agent/instructions#R3, lophn-agent/instructions#R4, shell/editor#R17)
+- agent 구성 변경은 Preset 새 판·명시 적용이며 model·context·MCP·skill은 preset마다 고른다. 코드 변경 요청은 ticket으로 이어지고 coding 시작은 자기 터미널 또는 사람이 누른 [Start]다. (lophn-agent/presets#R1, lophn-agent/presets#R6, lophn-agent/presets#R14, coding-agent/tickets#R5, coding-agent/sessions#R1)
 
 ## 다른 갈래
 

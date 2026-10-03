@@ -105,7 +105,7 @@ ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 �
 
 ### 앱 tool 생성·호출 정책
 
-- blueprint command의 이름·설명·input schema·effect·confirm·되돌리기 contract로 ToolDefinition을 생성한다. MCP 설정·stdio 자식은 만들지 않는다. 역할 상한·현재 앱 허락·assignment 교집합만 제공한다. → lophn-agent/roles/common.
+- blueprint command의 이름·설명·input schema·effect·confirm·되돌리기 contract로 ToolDefinition을 생성한다. MCP 설정·stdio 자식은 만들지 않는다. 고정 Preset capability 선택·제품 역할 상한·현재 앱 허락·assignment 교집합만 제공한다. → lophn-agent/roles/common.
 - `blueprint.agent_context`의 `read_command`와 `annotation_targets[].write_command`는 예약 tool 이름 없이 앱의 command key를 참조한다. context read는 `ScreenContextReadInput {screen,view_session,detail}`, 결과는 `AppScreenContext {app,release,screen,view_session,revision,summary,data?,redacted}`다. annotation write는 `AnnotationWriteInput {screen,view_session,expected_revision,target,text}`다. 이 값의 정본 schema는 → apps/agent-context이며 harness는 원래 command binding에 연결한다.
 - context 상세 read와 annotation write는 선언된 원래 앱 command의 binding을 사용한다. 별도 generic DOM·주석 script tool은 없다. 화면·자리·비교 기준은 → apps/agent-context가 검사한다.
 - 실행 직전 current active release·blueprint hash·허락·effect·confirm·command.revert.supported와 revert.command를 다시 검사한다. 달라졌으면 `conflict`/`forbidden`으로 미실행하며 다음 run에서 새 정의를 생성한다. old approval을 이식하지 않는다.
@@ -165,10 +165,9 @@ ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 �
 
 ## 정책
 
+- **비텍스트 크기.** 이미지·PDF 등 ToolResult의 크기를 안전하게 검사할 contract가 없으면 model input에 포함하지 않는다.
+
 - **결과 상한.** 성공·실패 텍스트는 UTF-8 24576 byte와 300줄 중 먼저 닿는 상한. 목록·검색은 최대 20개 요약. document·목록은 앞부분, log는 최신 부분을 남기며 원래 크기·범위·생략·이어 읽기 참조를 제공한다.
-- **tool 제공.** 역할이 고정한 묶음과 허용된 extension 목록만 제공한다. 자체 동작·범위의 구체 값은 → lophn-agent/roles/common 및 각 역할 concern. 임의 shell·웹 검색·웹 읽기·브라우저·임의 파일·코드·subagent·coding agent 시작 tool은 없다.
+- **tool 제공.** 고정 Preset 판의 capability와 MCP·skill 선택을 제품 역할 상한·현재 scope·허락으로 좁힌 목록만 제공한다. 기계 선택은 → lophn-agent/presets, 책임은 → lophn-agent/roles/common 및 각 역할 concern. 임의 shell·웹 검색·웹 읽기·브라우저·임의 파일·코드·subagent·coding agent 시작 tool은 없다.
 - **공통 오류.** `invalid_input / unauthorized / forbidden / not_found / conflict / unavailable`를 사용한다. 범위 밖 대상 이름·존재는 오류에 노출하지 않는다. waiting_user는 실패가 아니다.
 
-## 정할 것
-
-- 이미지·PDF 등 비텍스트 ToolResult 크기 상한. 안전하게 크기를 검사할 수 없으면 model input에 포함하지 않는다.

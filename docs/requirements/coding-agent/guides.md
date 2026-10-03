@@ -4,7 +4,7 @@ concerns: [coding-agent/guides]
 ---
 # coding-agent/guides
 
-coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만드는 세션 시작 summary, 앱 템플릿의 공통 안내와 이를 안전하게 설치·갱신하는 방법을 맡는다; 실제 권한 판정과 테스트·release 관문은 해당 concern을 가리킨다.
+coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만드는 세션 시작 summary, 앱 템플릿의 공통 안내와 내용과 관리 구간을 맡는다. 실제 설치 target·ownership·갱신·제거는 coding-agent/harnesses를 따른다; 실제 권한 판정과 테스트·release 관문은 해당 concern을 가리킨다.
 
 ## 요구
 
@@ -32,7 +32,7 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 
 **[R5]** Claude Code·Codex·OpenCode·Hermes·pi·Gemini CLI·OpenClaw의 실제 skill 발견 위치와 trust 절차에 맞는 설치 안내를 제공하고 동명 skill은 자동 교체하지 않으며 pi에서는 MCP tool이 직접 호출되게 한다.
 - 이유: 같은 폴더 한 곳에 복사하는 것만으로 모든 제품이 사용할 수는 없다.
-- 확인: 제품별 실제 선택 skill과 충돌을 coding-agent/connection 검사로 확인하고 pi에서 별도 실행 script 없이 tool을 호출한다.
+- 확인: 제품별 실제 선택 skill과 충돌을 coding-agent/harnesses 검사로 확인하고 pi에서 별도 실행 script 없이 tool을 호출한다.
 - 의도: coding-agent#I6
 
 ### 작업 절차
@@ -47,7 +47,7 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 - 확인: 형식 검사·자리·저장·주소 보고가 순서대로 있고 coding agent에게 원본 파일 API를 쓰라고 하지 않는다.
 - 의도: coding-agent#I3
 
-**[R8]** 앱 제작 안내는 채택 설계와 유지 제약 읽기, 설치 SDK와 재사용 재료 찾기, 필요하면 전체 연결의 가벼운 앱 등록, 구현 시작 source 연결·템플릿, blueprint를 먼저 수정한 뒤 구현, 실제 테스트, preview, release 준비, 결과 반환 순서를 따른다.
+**[R8]** 앱 제작 안내는 지정 ticket 읽기·MCP claim 뒤 채택 설계와 유지 제약 읽기, 설치 SDK와 재사용 재료 찾기, 필요하면 전체 연결의 가벼운 앱 등록, 구현 시작 source 연결·템플릿, blueprint를 먼저 수정한 뒤 구현, 실제 테스트, preview, release 준비, 결과 반환 순서를 따른다.
 - 이유: apps/registration와 problems/tests를 유지하고 새 code 전에 재사용을 검토한다.
 - 확인: SDK 탐색이 구현 전에 나오고 앱 하나 연결은 등록 대신 등록된 앱을 사용하며 app test 실패 뒤 release 준비를 시도하지 않는다.
 - 의도: coding-agent#I3, coding-agent#I5
@@ -57,15 +57,15 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 - 확인: 지정 ticket을 다시 고르라는 질문 없이 진행하고 claim 상실 뒤 release 준비·보고를 중단하며 탐색만 요청한 경우 임의 수리에 착수하지 않는다.
 - 의도: coding-agent#I4, coding-agent#I7
 
-**[R10]** ticket 없는 직접 수리 안내에는 문제 claim이나 가짜 ticket을 만들지 않고 problems/repairs의 고친 기록과 problems/tests의 실제 테스트 요청 및 release 연결만 남기게 한다.
-- 이유: problems/repairs은 사람이 직접 부탁한 수리를 허용하되 claim을 ticket에만 둔다.
-- 확인: 직접 수리 예제에서 claim 호출이 없고 고친 기록과 실제 테스트 근거를 원래 문제에서 찾을 수 있다.
+**[R10]** 사람의 직접 제작·수리 요청도 lophn·App Engineer가 검사 가능한 ticket으로 정리한 뒤 MCP claim·작업·보고하도록 안내하고 ticket 없이 code 작업을 시작하지 않는다.
+- 이유: 직접 요청과 자동 발견을 구별하되 모든 coding 작업의 계약은 ticket 하나로 통일한다.
+- 확인: 직접 요청 예제도 ticket 생성 근거·MCP claim·보고가 있고 필요한 채택 답·reproduction 기준이 없으면 무생성과 담당 agent의 다음 행동 안내가 나온다.
 - 의도: coding-agent#I5
 
 **[R11]** 제작·수리 안내는 problems/problem-codes의 문제 코드 선언·보고·예외 수집·피드백 연결과 원래 증상 테스트를 포함하고 기존 fixture·업무 제약을 보존하며 선언 삭제·기대값 완화로 문제를 숨기지 않게 한다.
 - 이유: 수리 이후 정상 여부를 machine이 확인할 근거를 잃지 않아야 한다.
 - 확인: 안내의 체크 목록에 해당 concern이 있고 선언 삭제·조건 완화 사례를 정상 수리로 안내하지 않으며 매 수리 뒤 새 탐지 규칙을 반드시 추가하라고 요구하지 않는다.
-- 의도: coding-agent#I5, problems#I6
+- 의도: coding-agent#I5
 
 **[R12]** 결과 안내는 완료 주장·preview·실제 test result·release 준비·activation·문제 닫힘을 구별하고 실행한 확인과 미실행·한계를 보고하게 한다.
 - 이유: 고쳤다는 말이나 shell log를 machine 통과로 오인하지 않게 한다.
@@ -109,12 +109,12 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 **[R19]** 배포 안내·skill·hook·CLI wrapper·MCP 설정은 운영 release 묶음에서 제외하고 local hook 설정은 source의 ignore 안내에 포함한다.
 - 이유: 개발 도구가 앱 실행 코드나 공유 credential로 퍼지지 않아야 한다.
 - 확인: source에는 개발 통로가 있고 release에는 제품 local 설정과 배포 도구가 없다.
-- 의도: coding-agent#I2, platform#I8
+- 의도: coding-agent#I2
 
 **[R20]** 배포 skill은 lophn binary와 함께 서명·설치하고 skill과 앱 템플릿은 version과 content hash로 고정해 같은 version의 내용 변경을 배포 테스트에서 거절한다.
 - 이유: 플랫폼 안내 자체가 공급망과 갱신 추적의 대상이다.
 - 확인: 동일 version 내용을 바꾸면 테스트가 실패하고 사용자가 만든 skill은 로컬 파일로만 취급된다.
-- 의도: platform#I4, coding-agent#I6
+- 의도: coding-agent#I6
 
 ### 세션 시작 summary
 
@@ -123,7 +123,7 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 - 확인: 범위 밖 자료가 없고 각 요약에서 상세 조회가 가능하며 summary를 읽어도 claim 생성·갱신·수리 착수가 없다.
 - 의도: coding-agent#I3, coding-agent#I8
 
-**[R22]** 시작 summary와 제작·수리 skill은 사람이 연 세션에서 사람 지시로만 ticket을 claim하며 목록 발견과 summary 읽기는 착수 지시가 아님을 명시한다.
+**[R22]** 시작 summary와 제작·수리 skill은 자기 터미널의 사람 지시 또는 coding-agent/sessions의 [Start] 첫 prompt로 지정한 ticket만 MCP claim하며 목록 발견과 summary 읽기는 착수 지시가 아님을 명시한다.
 - 이유: lophn-agent/harness/tool-judgment의 즉시 열린 ticket이 저절로 일을 시작하는 것으로 바뀌지 않게 한다.
 - 확인: ticket이 생긴 뒤 summary만 읽으면 작업이 시작되지 않고 사람이 특정 ticket을 지시하면 다시 선택하게 묻지 않는다.
 - 의도: coding-agent#I4
@@ -136,11 +136,11 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 **[R24]** Claude Code 시작 hook은 전체 timeout 5초·daemon 대기 3초로 제한하고 daemon 장애·문제와 ticket 없음에서는 빈 출력과 종료 값 0으로 세션 시작을 막지 않는다.
 - 이유: lophn 장애가 coding agent의 사용을 방해하면 안 된다.
 - 확인: 실제 Claude Code 실행 없이 hook 명령으로 요약·마지막 지시·빈 출력 계약을 검사하고 timeout과 장애에서도 0으로 끝난다.
-- 의도: coding-agent#I1, platform#I3
+- 의도: coding-agent#I1
 
-**[R25]** hook 설치는 제품 local 설정의 lophn 소유 항목만 수정해 다른 hook과 permission을 보존하고 깨진 JSON은 경고와 무변경으로 처리하며 Claude Code 외 제품은 hook 없이 공통 안내의 명시 summary 조회로 시작한다.
+**[R25]** 시작 summary hook은 Claude Code에만 제공하고 다른 여섯 제품은 명시 summary 조회를 안내하며 설치·상태 수집 hook은 coding-agent/harnesses#R7,R8,R11을 따르되 summary 전달과 결합하지 않는다.
 - 이유: 검증되지 않은 hook 동작과 사용자 설정 덮어쓰기를 피한다.
-- 확인: 다른 hook·permission이 유지되고 깨진 JSON이 덮이지 않으며 다른 여섯 제품은 명시 조회 안내를 찾을 수 있다.
+- 확인: 다른 hook·permission이 유지되고 깨진 JSON이 덮이지 않으며 다른 여섯 제품은 명시 summary 조회 안내를 찾고 검증된 상태 hook이 있어도 summary 지원으로 표시되지 않는다.
 - 의도: coding-agent#I6, coding-agent#I1
 
 ### 작업 절차
@@ -152,10 +152,10 @@ coding agent가 발견하고 필요할 때 읽는 배포 skill, 요청 시 만�
 
 ## 열린 질문
 
-- coding-agent/guides#Q1 OpenClaw 별도 workspace에서 앱 공통 안내를 어떤 방식으로 읽게 할까.
-- coding-agent/guides#Q2 skill 설치는 제품별 발견 위치 adapter를 기본으로 제공할까.
-- coding-agent/guides#Q3 관리 경계가 없는 기존 안내에 최초 설치 때 구간을 추가할까.
-- coding-agent/guides#Q4 옛 SDK 우선순위와 중첩 skill metadata 예시를 첫 판에서도 유지할까.
+- coding-agent/guides#Q1
+- coding-agent/guides#Q2
+- coding-agent/guides#Q3
+- coding-agent/guides#Q4
 
 ## 버린 것
 

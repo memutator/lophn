@@ -31,7 +31,7 @@ concerns: [apps/agent-context]
 **[R5]** 힌트·주석 쓰기는 선언한 자리와 조회한 화면 revision을 입력으로 검사하고 대상이 닫혔거나 revision이 달라지면 충돌로 거절한다.
 - 이유: 답을 만드는 동안 사람이 고친 코드나 다른 attempt에 힌트를 덮어쓰지 않는다.
 - 확인: 조회 뒤 코드를 바꾸거나 탭을 닫고 주석 쓰기를 요청하면 적용되지 않으며 현재 화면을 다시 읽도록 안내한다.
-- 의도: lophn-agent#I11
+- 의도: apps#I12
 
 **[R6]** context 조회와 주석 쓰기는 apps/runtime의 같은 command 통로와 apps/permissions의 agent command 허락을 사용하고 되쓰기의 확인·revert 판단은 lophn-agent/harness/tool-judgment를 따른다.
 - 이유: context 전용 권한이나 DOM 쓰기가 기존 호출 안전 규칙을 우회하지 않는다.

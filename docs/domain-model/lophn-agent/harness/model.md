@@ -4,7 +4,7 @@ concerns: [lophn-agent/harness/model]
 ---
 # lophn-agent/harness/model
 
-Model catalog 항목·가격 snapshot과 공통 judgment·organizing slot 설정을 정의한다.
+Model catalog 항목·가격 snapshot과 새 preset 생성용 judgment·organizing 기본값과 호출 검증 snapshot을 정의한다.
 
 ## CatalogEntry (값)
 
@@ -51,13 +51,14 @@ ReasoningLevel은 순서가 있는 `off / minimal / low / medium / high / very_h
 | `cache_ttl_ms` | 양의 정수 ms | 예 | cache write 요율의 확인된 TTL | cache 구간 |
 | `input / output / cache_read / cache_write / reasoning` | 0 이상 십진수 문자열 각각 | 예 | 1000000 token당 금액; null은 모름, 0은 확인된 무료 | 요율 |
 
-## ModelSlot (값)
+## ResolvedModel (값)
 
-독립 ID가 없는 공통 설정이다. 처음 설치에는 두 slot 모두 null이다.
+PresetModelSelection을 catalog·provider의 현재 정보로 검증해 RunBasis에 고정하는 값이다. 실제 선택 정본은 → lophn-agent/presets이며 이 값은 선택을 독립 편집하지 않는다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `slot` | `judgment / organizing` | 아니오 | 각각 하나 | judgment model / organizing model |
+| `purpose` | `judgment / organizing` | 아니오 | preset의 model 또는 organizing_model을 resolve | 용도 |
+| `credentials` | credential key 배열 | 아니오 | PresetModelSelection.credentials와 같은 순서; 무인증 local만 [] | 사람이 고른 계정 |
 | `provider` | `pvd` ID | 아니오 | → lophn-agent/harness/provider | 선택 provider |
 | `model_name` | 비어 있지 않은 문자열 | 아니오 | 현재 provider 이름 목록 있으면 포함 필수 | 전송 model 이름 |
 | `verification` | `verified / unverified` | 아니오 | 목록 미조회면 unverified; 첫 성공 call에 확인 | 이름 확인 |
@@ -68,6 +69,10 @@ ReasoningLevel은 순서가 있는 `off / minimal / low / medium / high / very_h
 | `input_media / output_media` | 매체 배열 각각 | 아니오 | text 필수 | 매체 확인 |
 | `price_basis` | PriceBasis | 예 | 없으면 비용 모름 | 가격 snapshot |
 | `basis` | 필드별 출처·판의 JSON object | 아니오 | catalog 사실·user 보완 구별 | 선택 근거 |
+
+## ModelDefaults (값)
+
+새 preset을 구성할 때 사람이 명시 복사하는 `{judgment: PresetModelSelection|null, organizing: PresetModelSelection|null, settings_seq}`다. 처음은 모두 null이다. 두 기본값은 실행 중 fallback이 아니며 변경은 기존 Preset·Assignment·Run에 전파하지 않는다. 선택 모양은 → lophn-agent/presets다.
 
 ## CatalogState (값)
 
@@ -83,35 +88,30 @@ ReasoningLevel은 순서가 있는 `off / minimal / low / medium / high / very_h
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `agent_model_slots` | ModelSlot 또는 빈 slot 및 설정 seq | PK `slot` | PK; 두 값만 | 없음 | provider FK; price·basis는 설정 snapshot; 삭제 RESTRICT |
+| `agent_model_defaults` | 새 preset 생성용 기본 선택 또는 null과 설정 seq | PK `purpose` | PK; 두 값만 | 없음 | provider FK; price·basis는 설정 snapshot; 삭제 RESTRICT |
 
-CatalogEntry·CatalogState는 ledger 밖 derived store다. slot의 당시 가격·한계는 설정 및 Run.basis·ModelCall에 고정하며 catalog 삭제로 과거를 바꾸지 않는다. 설정 공통 층은 → platform/settings.
+CatalogEntry·CatalogState는 ledger 밖 derived store다. 당시 가격·한계는 Run.basis·ModelCall에 고정하며 catalog 삭제로 과거를 바꾸지 않는다. 설정 공통 층은 → platform/settings.
 
 ## command
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `ChangeModelSlots` | user | judgment·organizing 설정 또는 null | 이전 설정 seq; provider·목록·한계·지원 schema 검증 | `ModelSlotsChanged` | `invalid_input`, `conflict`, `not_found`, `unavailable` |
-| `VerifyModelSlot` | machine | slot, 성공 call 참조 | slot 설정 seq·provider·model 일치 | `ModelSlotsChanged` | `conflict` |
+| `ChangeModelDefaults` | user | judgment·organizing 설정 또는 null | 이전 설정 seq; provider·목록·한계·지원 schema 검증 | `ModelDefaultsChanged` | `invalid_input`, `conflict`, `not_found`, `unavailable` |
 
 ## event
 
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
-| `ModelSlotsChanged` | 없음 | 설정 seq, 변경 slot, 설정 snapshot | shell/desktop, lophn-agent/harness/run-loop |
+| `ModelDefaultsChanged` | 없음 | 설정 seq, 변경 기본값, 설정 snapshot | shell/desktop, lophn-agent/presets |
 
 ## 정책
 
-- **slot 적용.** Run 시작에 두 slot을 고정한다. 역할별 override 및 자동 model·provider fallback 목록은 없다. user 변경은 다음 run부터다. organizing은 제목·요약·세션 압축에 사용한다. 역할별 일의 slot 선택은 → lophn-agent/roles.
-- **호출 gate.** 빈 slot, 확인·user 명시 한계 없음, 필요한 text·tool 미지원, 입력·예약 출력·전체 창 초과면 call하지 않는다. 이름 미확인을 큰 한계나 tool 지원으로 대신하지 않는다.
+- **선택 적용.** Run 시작에 Assignment의 고정 Preset 판에서 model·organizing_model·계정을 resolve한다. 새 판단·본문은 judgment, 제목·요약·세션 압축은 organizing이며 후자가 null이면 model을 사용한다. 독립 이어가기 summary도 해당 Assignment의 고정 preset으로 resolve한다. 공통 기본값 변경과 catalog 누락은 이미 고른 구성을 바꾸지 않는다.
+- **호출 gate.** 빈 preset model, 확인·user 명시 한계 없음, 필요한 text·tool 미지원, 입력·예약 출력·전체 창 초과면 call하지 않는다. 이름 미확인을 큰 한계나 tool 지원으로 대신하지 않는다.
 - **catalog 우선순위.** models.dev release snapshot → 새 정상 갱신본 → 좁은 lophn 보정 → user 명시 보완. 명시된 필드만 덮는다.
 - **catalog 갱신.** 마지막 확인 뒤 86400000ms마다 비동기 공개 GET; ETag 조건부 조회. user 새로 받기는 즉시. 세션·key·token·선택·계정은 보내지 않는다. auto_update false면 마지막 정상본만 쓴다.
 - **catalog 검증.** 빈 목록·깨진 자료·양의 정수 아닌 알려진 token 한계·음수 또는 무한대 가격·USD/1000000 token이 아닌 단위·중복 또는 잘못된 context 가격 경계는 전체 갱신 거절이다. 마지막 정상본, 없으면 release snapshot을 유지하며 실패·마지막 정상 수신 시각을 남긴다.
-- **선택 보존.** catalog 누락·폐기 예정은 저장된 slot을 지우거나 이름을 바꾸지 않는다. provider 사용 불가에도 자동 model 대체는 없다.
+- **선택 보존.** catalog 누락·폐기 예정은 저장된 preset 선택을 지우거나 이름을 바꾸지 않는다. provider 사용 불가에도 자동 model 대체는 없다.
 - **reasoning.** named는 지원된 수준만 제공한다. budget은 low 2048·medium 8192·high 16384·maximum 32768 token을 확인 min/max로 clamp한다. toggle은 off/high만 제공한다. provider_default이며 보정된 기본값 없으면 추론 인자를 보내지 않는다. run 중 고정 수준을 높이지 않는다.
 - **가격.** 현재 가격으로 과거 call 비용을 재계산하지 않는다. 계산·집계는 → lophn-agent/harness/usage.
 
-## 정할 것
-
-- catalog 밖 model은 확인된 정보 또는 user 명시 한계만으로 허용한다. user 보완값의 확인 UI·검증 책임 경계.
-- reasoning 인자 및 불투명 필수 상태를 요구하는 provider mode의 실제 지원 범위와 메모리 유실 뒤 연속 호출 복구 가능성은 → lophn-agent/harness/provider의 same-run 상태 정책 안에서 정한다.

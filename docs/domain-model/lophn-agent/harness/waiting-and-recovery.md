@@ -101,6 +101,3 @@ RecoveryBasis는 `RunRecovered` payload로 남기며 독립 복구 표·entity�
 - **확인 불가 쓰기.** 불명확 효과와 충돌하는 후속 call은 확인 전 금지다. 사람의 새 run도 앞 효과 확인을 생략하지 않는다.
 - **저장 불가.** 새 model·쓰기·approval 필요·external call은 시작하지 않는다. 읽기는 현재 assignment·scope를 검증할 수 있을 때만 후행 기록으로 허용한다. 결과 저장 전 다음 model 판단은 금지다.
 
-## 정할 것
-
-- **H8.** Operator가 질문 답을 기다리는 동안 주기 회차를 계속 건너뛰는 정책 유지 여부. 현재는 → lophn-agent/scheduling의 건너뜀 규칙을 따른다.

@@ -1,32 +1,25 @@
 ---
 type: flow
-concerns: [lophn-agent/roles/context-engineer, lophn-agent/roles/operator, lophn-agent/roles/common, lophn-agent/role-definition, lophn-agent/assignments, lophn-agent/scheduling, lophn-agent/questions, documents/contexts, documents/versions, documents/series, apps/permissions, platform/approvals, shell/confirmation-window, shell/desktop]
+concerns: [lophn-agent/roles/context-engineer, lophn-agent/roles/operator, lophn-agent/presets, lophn-agent/instructions, lophn-agent/assignments, lophn-agent/scheduling, lophn-agent/questions, documents/contexts, documents/versions, apps/permissions, platform/approvals, shell/confirmation-window]
 ---
-# 반복해서 살펴볼 일을 맡긴다
+# 반복해서 맡길 일을 구성한다
 
-같은 자료를 반복 확인하며 판단을 매번 요청하던 사람이, 무엇을 살펴보고 어떤 결과를 남길지 말해 반복 판단을 맡긴다. 앱이 수행하는 수집·집계와 Operator가 맡는 판단을 구별한다.
-
-지키는 약속: lophn-agent#I2, lophn-agent/roles#I5, lophn-agent#I4, platform#I5.
+사람이 project나 app에서 반복할 판단을 맡기려 할 때 시작한다. Operator는 원하는 만큼 만들며 읽을 context와 일을 맡긴 project/app은 별개다.
 
 ## 흐름
 
-1. contexts 화면 사람이 반복해서 판단할 목적과 자료를 말한다. Context Engineer는 기존 context와 겹치는 책임을 읽고 반복 판단이 필요한 근거를 검토한다. 후보 검토는 최근 30일 watch 변화 4회 이상, 기준 자료 뒤처짐 14일 이상, 최근 30일 같은 수동 업무 4회 이상 중 하나의 근거가 있을 때 시작한다. (documents/contexts#R1, lophn-agent/roles/context-engineer#R1, lophn-agent/roles/context-engineer#R11, lophn-agent/roles/context-engineer#R13)
-2. Context Engineer가 프로그램으로 처리할 수집·합계와 agent가 맡을 해석·판단을 나눈다. 단순 수집·집계뿐인 일을 Operator로 제안하지 않는다. 목적과 범위는 필요한 자료만 읽어 정리하며, 계산에 모델을 쓰지 않는다. 사람에게는 보이지 않는다. (lophn-agent/roles/context-engineer#R3, lophn-agent/roles/context-engineer#R11, lophn-agent/roles/common#R9)
-3. Context Engineer가 판단·제외·필요 근거·비교 기준·갱신 조건, context 하나, 실제 남길 기존 문서 최소 1개, 주기와 읽을 앱 명령·tool을 담은 고정 초안을 남긴다. 남길 문서가 없으면 최초 양식을 실제 문서 판으로 준비하되 판단 결과로 표시하지 않는다. 첫 예정 시점과 양수 간격은 명시하며 기본 주기로 대신하지 않는다. 사람에게는 보이지 않는다. (lophn-agent/roles/context-engineer#R12, lophn-agent/role-definition#R15, lophn-agent/assignments#R6, documents/versions#R14, lophn-agent/scheduling#R3)
-4. contexts 화면 사람이 제안한 반복 판단과 읽을 자료·남길 문서·주기를 검토한다. 뜻이나 목적을 사람만 정할 수 있으면 필요한 결정 하나만 선택지·근거·추천 이유와 함께 묻는다. 실제 문서나 범위가 빠진 제안은 승인 가능한 초안으로 취급하지 않는다. (lophn-agent/roles/context-engineer#R12, lophn-agent/roles/context-engineer#R10, lophn-agent/questions#R1, lophn-agent/questions#R3, lophn-agent/assignments#R6)
-5. confirmation-window 화면 사람이 정확한 정의·context·남길 문서·주기·읽을 앱 명령·tool 전체와 현재 값에서 달라지는 내용·이유를 보고 승인하거나 거절한다. 추천, 일반 질문 답, 무응답이나 창 닫기로 반복 판단을 시작하지 않는다. (lophn-agent/assignments#R4, lophn-agent/assignments#R5, platform/approvals#R3, platform/approvals#R4, platform/approvals#R10, lophn-agent/questions#R12, shell/confirmation-window#R5, shell/confirmation-window#R6)
-6. machine이 승인한 고정 초안과 현재 전제를 다시 검사한 뒤 정의와 assignment를 적용하고 주기 접수를 준비한다. 읽을 앱 명령도 현재 앱별 agent 허락과 승인 범위의 교집합 안에서만 쓴다. 다른 역할에는 자동 주기를 붙이지 않는다. 사람에게는 보이지 않는다. (lophn-agent/role-definition#R11, lophn-agent/assignments#R4, lophn-agent/assignments#R5, apps/permissions#R27, apps/permissions#R28, platform/approvals#R7, platform/approvals#R11, lophn-agent/scheduling#R1)
-7. roles 화면 사람이 맡긴 일의 목적·현재 진행·필요한 다음 행동을 확인한다. 범위·남길 문서·주기와 상세 기록은 필요할 때 확인한다. 승인 접수와 실제 적용 성공은 구별하며 아직 판단하지 않은 최초 양식을 보고 결과로 표시하지 않는다. (lophn-agent/assignments#R3, lophn-agent/roles/context-engineer#R12, platform/approvals#R9, shell/desktop#R4)
+1. 사람은 project 또는 app을 고르고 원하는 판단·기대 결과를 말한다. Context Engineer는 기존 자료·출력 문서와 필요한 읽기 범위를 보고 반복할 책임 초안을 제안한다. 안쪽 검토는 사람에게는 보이지 않는다. (lophn-agent/assignments#R2, lophn-agent/presets#R15, documents/contexts#R15)
+2. 사람은 Operator 기본 preset을 고치거나 복사·새 preset으로 prompt·context·capability·MCP·skill·provider 계정·model·붙일 지침을 구성한다. agent의 초안은 제안이며 자기 권한을 적용하지 못한다. (lophn-agent/presets#R1, lophn-agent/presets#R9, lophn-agent/presets#R10, lophn-agent/presets#R11)
+3. 사람은 project/app 범위·고정 preset 판·반복 판단과 책임 밖·실제 남길 기존 문서 최소 1개·주기·승인된 app read 명령을 확인한다. 출력 문서가 없으면 사람의 선택으로 첫 실제 판을 마련하되 빈 예약을 결과로 표시하지 않는다. (lophn-agent/assignments#R4, lophn-agent/assignments#R5, lophn-agent/assignments#R6, lophn-agent/assignments#R8)
+4. 사람은 보호 화면에서 검토한 정확한 전체 구성과 범위를 승인한다. lophn은 preset·문서·app read·현재 revision을 다시 검사하고 한 번에 적용한다. 처리 과정은 사람에게는 보이지 않는다. (lophn-agent/assignments#R4, lophn-agent/assignments#R5, lophn-agent/presets#R11, platform/approvals#R5, shell/confirmation-window#R5)
+5. lophn은 정한 주기로 새 run을 접수하고 고정 preset 판·담당 project/app·call별 현재 지침으로 판단하여 지정 기존 문서에 새 version만 쓴다. 자료 watch만으로 run을 만들지 않는다. 사람에게는 보이지 않는다. (lophn-agent/presets#R14, lophn-agent/instructions#R4, lophn-agent/instructions#R8, lophn-agent/scheduling#R1, lophn-agent/assignments#R6)
 
 ## 다른 갈래
 
-- 1에서 같은 context에 겹치는 책임이 있으면 새 일을 늘리는 대신 기존 책임·남길 문서를 바꿀 초안을 제안한다. 기존 결과 문서 하나를 두 Operator가 함께 소유하지 않는다. (lophn-agent/roles/context-engineer#R13, lophn-agent/assignments#R8)
-- 3에서 실제 첫 판이 없는 문서, 원본 연결·보관 문서, series나 동적 이름을 쓰기 대상으로 정하면 적용할 수 없다. 사람은 쓸 수 있는 기존 문서를 정한다. (lophn-agent/assignments#R6)
-- 4에서 사람이 뜻·목적 결정을 미루면 관련 변경은 보류한다. 미정 내용과 추천을 승인된 정의에 넣지 않는다. (lophn-agent/roles/context-engineer#R10, lophn-agent/questions#R8)
-- 5에서 거절·취소·만료하면 반복 판단은 시작되지 않는다. 창 닫기는 승인도 거절도 아니며 지정 기한이 있으면 그 시각 이후 승인할 수 없다. (platform/approvals#R4, platform/approvals#R12, platform/approvals#R15, shell/confirmation-window#R4)
-- 6에서 초안·변경 전 판·권한·대상이 달라졌으면 옛 승인으로 적용하지 않는다. 새 내용을 확인하도록 안내하며 적용 오류는 이전 정의를 유지한다. (lophn-agent/assignments#R5, lophn-agent/role-definition#R11, lophn-agent/role-definition#R12, platform/approvals#R11)
-- 연결이 끊겨도 승인 접수를 적용 완료로 바꾸지 않는다. 마지막 확인 상태를 유지하고 재연결 뒤 현재 기록으로 맞춘다. (platform/approvals#R9, shell/desktop#R7)
+- 같은 project/app의 다른 Operator는 허용하지만 같은 남길 문서는 거두지 않은 하나만 소유한다. 멈춤도 독점을 유지하고 사람 편집은 CAS로 충돌을 검사한다. (lophn-agent/assignments#R2, lophn-agent/assignments#R8)
+- 원본 연결·보관 문서·지침 문서·없는 첫 판·series 동적 이름은 출력으로 허용하지 않는다. 지침은 [Instructions]에서 사람만 고친다. (lophn-agent/assignments#R6, documents/versions#R20, shell/editor#R17)
+- 범위·preset·주기·자료·출력이 검토 뒤 바뀌면 이전 approval을 쓰지 않는다. 취소·충돌은 기존 구성을 유지한다. (lophn-agent/assignments#R5, lophn-agent/presets#R12, platform/approvals#R11)
 
 ## 끝
 
-사람이 승인한 반복 일이 실제로 적용됐음을 확인하고 다음 판단을 기다린다. 거절하거나 결정을 미뤘다면 반복 판단은 시작되지 않는다. 다음 결과 확인은 flow/receive-operator-report, 범위 변경·멈춤은 flow/manage-operator에서 이어진다. (lophn-agent/assignments#R3, lophn-agent/assignments#R4, platform/approvals#R9)
+사람은 project/app에 무엇을 반복해서 맡겼고 언제·어디에 결과가 남는지 안다. Preset·자료·출력의 세부는 필요할 때 펼치고 run의 실제 진행은 맡긴 책임과 구별한다. (lophn-agent/assignments#R3)

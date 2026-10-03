@@ -436,3 +436,9 @@ core 시작·기존 앱 direct call은 문서 전수 scan·index rebuild 완료�
 - 이전: series 초안을 첫 Version 없는 문서로 저장하고 다음 이름을 화면·daemon에서 나누어 계산했다 / 지금: draft는 Series의 값이고 다음 계산은 read→준비 worker의 공용 순수 계산이다 / 이유: 미확정 작성 값과 독립 문서 가족을 구별하며 같은 기준의 제안을 돌려준다.
 - 이전: saved view 목록이나 index 사본을 정본처럼 보존했다 / 지금: 조건은 saved_views의 ledger 사실이고 open의 목록만 derived cache다 / 이유: 사람의 조건은 잃지 않고 현재 허용 자료를 매번 다시 고른다.
 - 이전: v2에서 앱별 host journal·lease·실행 허가 단계·토큰 여러 종을 늘렸다 / 지금: ledger 하나·core writer 하나·재scan 가능한 메모리 후보와 derived cursor만 쓴다 / 이유: 문서 준비 비용을 격리하는 데 분산 ledger 장치가 필요하지 않다.
+
+## Instructions 파일의 명시 등록
+
+[Instructions]는 → lophn-agent/instructions의 exact 전역/project/app 파일 또는 사람이 연결한 지침 Document를 editor로 연다. global ~/.lophn/LOPHN.md는 data-root 재귀 tracking을 열지 않는 단일 파일 예외이고 Project/system place를 자동 생성하지 않는다. documents/file-tracking의 instruction_file target·관측 basis가 registration revision·source·hash·base_version을 비교해 documents/versions의 instruction_file source 판을 확정한다. 파일 부재는 첫 저장 전 지침 없음이고 agent가 빈 파일을 만들지 않는다. 사람 쓰기 결과와 version 확정은 기존처럼 별도다.
+
+지침 대상 분류는 exact 등록/preset 첨부 참조로 확인한다. agent·coding agent·app의 문서 write/source 이동·출력 지정 우회는 거절하며 question으로 제안만 한다. 외부 사람 편집은 안정 관측으로 새 판을 만들고 복원은 새 Version이다. call마다 지침 최신 확정 판을 resolve하는 것은 agent runtime이며 파일·version 정본을 prompt snapshot 원본으로 복제하지 않는다. → documents/file-tracking#R19,R20, documents/versions#R19,R20, shell/editor#R17

@@ -6,7 +6,7 @@ concerns: [lophn-agent/conversation, lophn-agent/harness/run-loop, lophn-agent/h
 
 agent가 일하는 동안 방향을 고치거나 다음 일을 맡기거나 중단하고 싶을 때 시작한다. 사람은 말을 다시 입력하지 않고 접수·반영·실제 종료를 각각 확인한다.
 
-지키는 약속: lophn-agent#I3, lophn-agent/harness#I2, lophn-agent/harness#I3, lophn-agent/harness#I8.
+지키는 약속: lophn-agent#I3, lophn-agent/harness#I2, lophn-agent/harness#I3, lophn-agent#I6.
 
 ## 흐름
 

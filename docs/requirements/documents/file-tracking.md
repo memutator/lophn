@@ -108,6 +108,16 @@ concerns: [documents/file-tracking]
 - 확인: 원본 재연결 후 파일 목록·편집·scan에서 같은 문서를 가리키고 과거 판은 그대로 읽는다.
 - 의도: documents#I1, documents#I3
 
+**[R19]** lophn-agent/instructions가 지정한 전역·project·app LOPHN.md와 사람이 preset에 붙인 지침 파일은 [Instructions] 또는 명시 연결로 정확한 파일만 등록하여 안정된 바이트의 문서 version을 만들고 일반 폴더 tracking 범위를 넓히지 않는다.
+- 이유: 전역 파일도 이력은 얻되 lophn 데이터 root 전체를 추적하지 않는다.
+- 확인: 일반 tracking이 꺼졌거나 전역 파일이 data root에 있어도 지정 지침만 저장·외부 변경 관측되고 다른 파일은 추가 추적되지 않으며 없는 파일을 agent가 생성하지 않는지 본다.
+- 의도: documents#I1, documents#I2, lophn-agent#I8
+
+**[R20]** 지침 파일의 최초 생성·저장·복원은 사람의 파일 작업과 hash·version CAS를 사용하고 agent의 직접 파일 쓰기·문서 저장·원본 재연결은 question 제안으로만 받는다.
+- 이유: 지침을 읽는 권한은 자기 지침을 고치는 권한이 아니다.
+- 확인: 지침 대상이 Operator 출력이나 앱 출력으로도 선택되어 있어도 agent 저장은 거절되고 외부 편집 충돌을 덮어쓰지 않는지 본다.
+- 의도: documents#I1, lophn-agent#I8
+
 ## 열린 질문
 
 - documents/file-tracking#Q1 agent가 원본 연결 문서를 고치는 통로를 추가할까.

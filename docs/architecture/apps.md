@@ -271,7 +271,7 @@ write/external·confirm·automation의 read 포함 전체 호출·실패/거절 
 
 고정 SDK code/guide hash·import map·lock·blueprint 정규 JSON·실제 handler 목록·문서 format·permission·automation·필수 problem code를 검사한다. blueprint TS는 권한 없는 추출 자식에서 10초까지 실행한다. GUI build와 external source map까지 끝낸 후 bundle manifest와 실제 byte를 봉인하여 `blob`으로 설치한다. bundle_hash가 완성된 뒤 바로 그 hash로 app test를 요청한다. test 후 byte 수정은 새 bundle·새 test다.
 
-ticket 근거가 있으면 요청 시와 준비 확정 시 모두 현재 connection·claim_seq·기한을 검사하고 출처를 불변 보존한다. ticket 없는 직접 수리에 필수 claim을 만들지 않는다. 같은 입력 schema라는 이유로 동작 호환을 주장하지 않으며 command 효과·confirm·automation·permission·데이터 변경·손실·삭제한 problem code 경고를 이전 release와 비교하여 사람에게 제공한다.
+새 coding release 준비는 ticket 출처가 필수이며 요청 시와 준비 확정 시 모두 현재 connection·claim_seq·기한을 검사하고 출처를 불변 보존한다. 과거 ticket 없는 release는 당시 null 출처로 보존하며 옛 release 선택은 새 코드 수리가 아니다. 같은 입력 schema라는 이유로 동작 호환을 주장하지 않으며 command 효과·confirm·automation·permission·데이터 변경·손실·삭제한 problem code 경고를 이전 release와 비교하여 사람에게 제공한다.
 
 **activation.** 모든 activation과 이전 release 선택에 정확한 사람 approval이 필요하다. 앱마다 하나만 접수하고 다른 activation과 grant 변경을 거절한다. 시작과 확정 모두 활성 참조·bundle·grant seq·approval·실제 schema를 CAS한다. 순서는 이전 자식 종료 확인 → 필요할 때 보호 backup 확정 → migration과 schema 실제 확인 → 새 앱의 준비 확인 → 활성 참조 commit → 업무 통로 open이다. schema가 같은 rollback은 새 activation이며 다른 schema의 옛 release는 바로 시작하지 않는다.
 

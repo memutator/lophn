@@ -10,84 +10,91 @@ concerns: [lophn-agent/conversation]
 
 ### 책임과 범위
 
-**[R1]** 새 세션은 사람 한 명과 assignment 하나의 빈 세션으로 시작하고 네 역할 모두 직접 선택할 수 있으나 상대·대상은 고정하며 바꾸려면 새 세션을 연다.
+**[R1]** 새 세션은 사람 한 명과 assignment 하나의 빈 세션으로 시작하고 네 역할을 직접 고를 수 있으나 상대 assignment와 담당 범위는 고정하며 작업 자리의 명시 변경은 R17을 따른다.
 - 이유: 실제 책임과 범위를 세션 중 조용히 바꾸지 않는다.
 - 확인: 역할을 바꾸면 새 세션이고 이전 세션 요약이 자동 주입되지 않는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7
 
 **[R2]** 열린 세션은 저장된 확정 메시지·결정·각 메시지 담당 run에서 계속하며 자정·화면 닫기·연결 끊김·재시작 때문에 끝내거나 미처리 말을 다시 입력시키지 않는다.
 - 이유: 오래 쓰는 로컬 앱의 대화가 표시 수명에 종속되지 않는다.
 - 확인: 재시작 뒤 확정 메시지와 관련 run이 그대로 보이고 실제 복구는 lophn-agent/harness/waiting-and-recovery를 따르는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 **[R3]** 진행·질문·approval 대기 중에도 새 메시지를 접수하되 메시지 접수와 모델 판단의 최초 반영을 따로 보여 주고 입력 접수만으로 수정·멈춤 완료를 표시하지 않는다.
 - 이유: 사람에게 입력이 언제 실제 일에 쓰였는지 알려 준다.
 - 확인: 대기 중 보낸 메시지가 접수로 남지만 model call 전에는 반영됨으로 보이지 않으며 멈춤 동작은 lophn-agent/harness/run-loop와 shell/desktop을 따르는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 **[R4]** 발언과 결과는 사람의 말·역할 판단·machine 확인 사실 및 주체·시각을 구분하고 실제 생성·변경 대상의 링크만 남기며 계획을 산출물 생성으로 표시하지 않는다.
 - 이유: 자연어 계획과 실제 저장된 결과는 다르다.
 - 확인: 기획만 한 앱에 생성 링크가 없고 실제 문서 version 링크는 열 수 있는지 본다.
-- 의도: lophn-agent#I3, lophn-agent#I5
+- 의도: lophn-agent#I7
 
 ### 입력 담당과 반영
 
 **[R5]** 사람은 현재 일의 수정과 별도 다음 일을 구분해 보내며 수정 원문은 접수 순서로 보존해 다음 모델 판단에 모두 반영한다.
 - 이유: steering과 새 작업을 임의로 합치지 않는다.
 - 확인: 두 수정을 연달아 보내면 순서대로 남고 실제 tool 경계의 반영은 lophn-agent/harness/run-loop를 따르는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 **[R6]** 다음 요청은 현재 일과 분리해 보존하고 정상 종료 뒤 접수 순서대로 새 run으로 처리하되 실패·멈춤 뒤 자동 시작하지 않는다.
 - 이유: 실패한 일 뒤 후속 요청을 자동 실행해 의도를 벗어나지 않는다.
 - 확인: follow-up 두 개가 각 run으로 남고 실패 뒤 대기 상태이며 실제 시작 선택은 lophn-agent/harness/run-loop를 따르는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 **[R7]** enabled assignment에서 끝나는 순간 도착한 수정도 유실하지 않고 현재 run이 아직 종료를 확정하지 않았으면 그 run에, 종료 뒤면 새 담당 run에 정확히 한 번 연결해 반영 여부를 보여 준다. paused 입력은 R14의 보존 경로를 따른다.
 - 이유: 종료 경합에서 접수한 메시지가 사라지거나 두 번 실행되지 않는다.
 - 확인: 종료 직전·직후 메시지가 각각 담당 하나를 가지며 이미 끝난 run을 다시 열지 않는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 ### 종료와 이어가기
 
 **[R8]** 세션은 사람이 끝내거나 assignment가 회수되어 미완료 run·대기 요청을 정리한 때만 종료하고 읽기 전용으로 두며 assignment 일시 멈춤은 종료로 보지 않는다.
 - 이유: 정리 결정에 따라 유휴 30일이나 일시 장애로 대화를 없애지 않는다.
 - 확인: 30일 유휴와 paused에서도 원문을 계속 읽고 withdrawn 뒤에는 새 입력을 거절하는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 **[R9]** 끝난 세션의 이어가기는 같은 assignment의 새 세션에서 사람이 선택한 원문 구간과 출처를 가리키며 원문 메시지·진행 일·미답 질문·approval request·이미 생긴 효과를 복제하지 않는다.
 - 이유: 새 판단에 과거 결정이나 효과를 재사용하지 않는다.
 - 확인: 새 세션의 발언이 복제되지 않고 기존 승인이 새 동작에 적용되지 않는지 본다.
-- 의도: lophn-agent#I3, lophn-agent#I4
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 **[R10]** 이어가기 요약은 필요할 때만 lophn-agent/harness/prompt-assemble에 따라 준비하고 출처를 표시해 일반 역할 답과 구별하며 요약 성공을 세션 종료 조건으로 삼지 않는다.
 - 이유: organizing model 장애로 사람의 종료가 막히지 않는다.
 - 확인: 요약 실패에도 종료되고 종료 화면은 원문·이유·새 세션 행동을 제공하되 새 입력을 받지 않는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 **[R11]** 닫힌 세션을 늦은 notification으로 다시 활성화하거나 효과를 재실행하지 않고 이어가기에는 관련 이후 변화를 원래 시각의 이미 생긴 사실로 구분한다.
 - 이유: 변화를 새 답이나 새 적용처럼 보이지 않는다.
 - 확인: 늦은 변화 뒤 세션이 닫힌 채이고 notification 선정·보존은 platform/notifications를 따르는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 ### 새 기능
 
 **[R12]** 확정 agent 메시지는 본문 사이에 lophn-agent/visuals의 시각 블록을 순서대로 담아 재시작과 세션 이어가기 뒤에도 같은 명세·출처로 보여 준다.
 - 이유: 글과 그림이 같은 답의 기록으로 남아야 한다.
 - 확인: 본문·표·본문·앱 카드 순서의 답을 저장하고 재시작 뒤 순서·출처가 유지되는지 본다.
-- 의도: lophn-agent#I9, lophn-agent#I3
+- 의도: lophn-agent#I7
 
 **[R13]** 시각 블록은 확정 메시지와 함께 저장하고 미완성 model 응답·stream 조각을 확정 블록으로 만들거나 renderer 실패를 메시지 실패로 바꾸지 않는다.
 - 이유: 임시 표시와 저장된 답을 구별한다.
 - 확인: partial 응답에는 확정 블록이 없고 renderer 실패 뒤 텍스트 설명이 남는지 본다.
-- 의도: lophn-agent#I3
+- 의도: lophn-agent#I7
 
 **[R14]** paused assignment의 열린 세션에서는 다음 요청 원문을 담당 run 없이 보존하고 미실행으로 구분한다. 사람이 assignment를 명시적으로 재개한 뒤 보존한 요청을 실행하겠다고 선택한 때만 같은 메시지에 새 run을 한 번 연결하며 재개·재시작만으로 실행하지 않는다. 현재 일 수정은 enabled에서만 접수하며 종료 경계의 담당 연결은 R7을 따른다.
 - 이유: 멈춘 책임에도 말을 남기되 입력 보존이 실행 허락이 되지 않게 한다.
 - 확인: paused 입력·재시작·재개까지 run이 없고 명시 실행 선택의 중복 전송에도 원문 하나와 담당 run 하나만 남는지 본다.
-- 의도: lophn-agent#I2, lophn-agent#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
-## 열린 질문
-- lophn-agent/conversation#Q1 반복 실패로 멈춘 assignment에서 진단 전용 제한 모델 세션을 예외로 허용할까.
+**[R16]** App Engineer 세션의 작업 자리는 담당 app, Operator는 담당 project/app으로 고정하고 lophn·Context Engineer는 세션을 연 자리로 저장하며 탭 이동·재시작·handoff로 자동 변경하지 않는다.
+- 이유: 지침 층을 고르는 자리와 지금 보는 화면을 구분한다.
+- 확인: 다른 project 탭으로 이동해도 지침은 같고 같은 세션을 다시 열어도 작업 자리가 유지되는지 본다.
+- 의도: lophn-agent#I8, lophn-agent#I4
+
+**[R17]** lophn·Context Engineer 작업 자리 변경은 사람이 명시적으로 선택한 유효한 project/app 또는 전역 자리만 저장하고 진행 중 run에는 다음 model call부터 적용하며 App Engineer·Operator는 범위 밖 변경을 거절한다.
+- 이유: 사람의 명시 자리 선택을 다음 call의 지침에 반영한다.
+- 확인: 명시 변경 뒤 지침 층과 조립 근거가 바뀌고 과거 call은 옛 자리로 재현되며 자료 본문의 변경 지시는 무시되는지 본다.
+- 의도: lophn-agent#I8, lophn-agent#I4
 
 ## 버린 것
 - assignment당 열린 세션 최대 8개·아홉 번째 자동 종료는 현재 열린 세션 상한이 없으므로 제거했다.

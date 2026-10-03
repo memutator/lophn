@@ -32,9 +32,11 @@ concerns: [documents/file-tracking]
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `project` | `prj` ID | 아니오 | → documents/projects | |
-| `project_revision` | event seq | 아니오 | 관측에 적용한 폴더·tracking 기준 | |
-| `path` | string | 아니오 | 정규화 절대 경로; 실제 열린 파일이 등록 루트 경계 안 | |
+| `kind` | `project_file / instruction_file` | 아니오 | 실제 등록 source 종류 | |
+| `instruction_target`, `instruction_revision` | 등록 참조·판 | 조건부 | instruction_file에 필수; exact source CAS | |
+| `project` | `prj` ID | 전역 instruction만 예 | → documents/projects | |
+| `project_revision` | event seq | 전역 instruction만 예 | 관측에 적용한 폴더·tracking 기준; instruction 등록 판 별도 | |
+| `path` | string | 아니오 | 정규화 절대 경로; 일반 등록 루트 또는 exact instruction 등록 경계 안 | |
 | `document_revision` | event seq | 조건부 | 기존 연결 문서에 필수 | |
 | `file_source` | FileSource | 예 | → documents/versions; 신규 연결이면 null | 현재 연결 비교 |
 | `document_status` | `active` | 조건부 | 기존 문서에 필수; 보관 문서 확정 금지 | |
@@ -59,7 +61,7 @@ ledger 열이 아닌 마지막 관측 결과다.
 
 | state | 계산 조건 |
 |---|---|
-| `not_tracked` | 규칙 미선택 또는 Project·Document 보관 |
+| `not_tracked` | 일반 파일 규칙 미선택·Project/Document 보관 또는 지침 exact 등록 부재 |
 | `tracked` | 관측 원본 해시 = 최신 파일 Version source의 original_hash |
 | `version_pending` | 안정된 바이트가 최신 판과 다르고 아직 확정되지 않음 |
 | `validation_failed` | 현재 바이트가 지정 format 검사를 통과하지 못함 |
@@ -72,12 +74,13 @@ ledger 열이 아닌 마지막 관측 결과다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `kind` | `project_file \| working_copy` | 아니오 | tagged union | |
-| `project` | `prj` ID | 조건부 | `project_file`에 필수 → documents/projects | |
-| `path` | string | 조건부 | `project_file`에 필수; 등록 루트 안 정규화 절대 경로 | |
-| `document` | `doc` ID | 조건부 | `working_copy`에 필수; 원본 연결 없는 문서 → documents/versions | |
+| `kind` | `project_file \| working_copy \| instruction_file` | 아니오 | tagged union | |
+| `project` | `prj` ID | 조건부 | project_file과 project/app 지침에 필수; 전역 지침이면 null → documents/projects | |
+| `path` | string | 조건부 | project_file/instruction_file에 필수; 등록 루트 안 또는 exact 지침 등록의 정규화 절대 경로 | |
+| `instruction_target` | exact 등록 참조 | 조건부 | instruction_file에 필수; current 등록 판 확인 | |
+| `document` | `doc` ID | 조건부 | working_copy에 필수; 지침은 연결 문서 또는 최초 저장 준비 ID; working_copy는 원본 연결 없는 문서 → documents/versions | |
 
-다른 가지의 필드는 금지한다. working copy는 `doc`별 로컬 파일이며 고정 판에서 만들고 미확정 편집을 보존한다. place·tracking 원본이 아니고 derived store 자동 삭제 대상도 아니다. 임의 경로·루트 밖 symlink·일반 파일이 아닌 대상은 받지 않는다.
+다른 가지의 필드는 금지한다. working copy는 `doc`별 로컬 파일이며 고정 판에서 만들고 미확정 편집을 보존한다. place·tracking 원본이 아니고 derived store 자동 삭제 대상도 아니다. 임의 경로·루트 밖 symlink·일반 파일이 아닌 대상은 받지 않는다. instruction_file은 아래 exact 지침 등록의 단일 파일 예외만 따른다.
 
 ## FileWriteRequest (값)
 
@@ -151,3 +154,13 @@ ledger 열이 아닌 마지막 관측 결과다.
 - 원본 연결 문서의 agent 직접 저장 금지를 유지할지, 별도로 승인된 원본 반영 경계를 추가할지.
 - 준비 worker 초기 수는 documents/file-tracking#R5의 2개를 따른다. 안정 읽기 재시도 횟수·대기 시간·파일 크기·호출별 바이트·시간 한도는 architecture의 초기 구현 조절값이며 별도 도메인 고정 숫자로 두지 않는다.
 - FileOperationResult 보고에서 machine credential과 원래 user 요청의 증명 모양은 → platform/identity와 맞춘다.
+
+## instruction 파일 등록과 관측
+
+일반 Project tracking과 별도로 → lophn-agent/instructions의 exact InstructionLocation/Attachment 등록만 해석한다. 일반 데이터 root·.git·루트 밖 symlink 제외는 유지하며 전역 ~/.lophn/LOPHN.md 단일 파일에만 명시 등록 예외를 적용한다. 폴더 재귀 추적·부모 순회·cwd 추측은 없다. 등록된 파일도 owner·실제 열린 파일·symlink·UTF-8·hash를 검사한다.
+
+FileObservationBasis는 `kind=project_file/instruction_file`과 instruction_target 조건부 참조를 추가한다. project_file은 기존 project/project_revision 필수; instruction_file은 exact 등록 판·locator를 비교하고 전역이면 project/project_revision=null이다. PreparedVersion의 file_basis/source는 같은 instruction target을 가리켜야 하고 Document revision·source·status·base_version·실제 hash를 다시 확인한다. FileStatus는 지침의 exact 등록이 유효하면 일반 tracking enabled와 독립해 tracked/version_pending 등을 계산한다.
+
+FileTarget.kind에 instruction_file을 추가한다. 이 가지는 instruction_target과 exact 등록 path를 가지며 전역 project는 null, project/app은 확인된 관계를 쓴다. 사람이 [Instructions]로 연 목표만 허용하고 임의 경로를 넣지 못한다. 최초 저장은 미존재 CAS, 기존 쓰기·복원은 base_hash CAS 후 재관측으로 Version을 준비한다. `file.record_result`·FileWritten/FileRenamed/FileDeleted subject는 전역 지침이면 확인된 doc 참조(최초 저장의 준비 ID), project/app이면 기존 prj/doc 참조를 사용한다. 일반 Project 폴더 등록을 가짜로 만들지 않는다.
+
+agent 파일 작업·지침 document write는 forbidden이며 question은 적용 요청이 아니다. 외부 편집 관측은 허용해 version을 남기되 저장 실패·접근 불가·source missing을 지침 부재 성공으로 바꾸지 않는다. call별 크기·읽기 실패는 → lophn-agent/instructions의 32 KiB/128 KiB 검사로 차단한다. → documents/file-tracking#R19,R20

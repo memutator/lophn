@@ -1,19 +1,19 @@
 ---
 type: flow
-concerns: [lophn-agent/roles/app-engineer, lophn-agent/conversation, lophn-agent/questions, documents/versions, apps/blueprint, apps/sdk, coding-agent/tickets, coding-agent/connection, problems/tests, apps/preview, apps/releases, apps/data, apps/permissions, apps/runtime, platform/approvals, shell/confirmation-window, shell/wording]
+concerns: [lophn-agent/roles/app-engineer, lophn-agent/conversation, lophn-agent/questions, documents/versions, apps/blueprint, apps/sdk, coding-agent/tickets, coding-agent/connection, problems/tests, apps/preview, apps/releases, apps/data, apps/permissions, apps/runtime, platform/approvals, shell/confirmation-window, shell/wording, lophn-agent/presets, coding-agent/harnesses, coding-agent/sessions, shell/terminal]
 ---
 # 쓰던 앱을 원하는 방식으로 바꾼다
 
 사람이 쓰던 앱의 기능·화면·동작을 바꾸거나 새 공용 SDK를 사용하는 변경을 원할 때 시작한다. 새 구현을 준비하는 것과 운영 앱을 바꾸는 것은 별개다.
 
-지키는 약속: apps#I2, apps#I3, lophn-agent/roles#I3, coding-agent#I4, coding-agent#I5, platform#I5.
+지키는 약속: apps#I2, apps#I3, lophn-agent#I2, coding-agent#I4, coding-agent#I5, platform#I5.
 
 ## 흐름
 
 1. conversation 화면 사람이 담당 App Engineer에게 원하는 결과를 말한다. App Engineer는 기존 설계·blueprint·release·확인된 사용 동작과 비교하고, 이미 자료로 확인할 수 있는 사실은 다시 묻지 않으며 필요한 결정만 설명과 추천을 붙여 묻는다. (lophn-agent/roles/app-engineer#R1, lophn-agent/roles/app-engineer#R2, lophn-agent/questions#R1, lophn-agent/questions#R3, lophn-agent/conversation#R4)
 2. App Engineer가 기존 동작 중 보존할 것과 바꿀 범위·사용 동작·acceptance check를 설계 문서의 고정 판으로 남긴다. 최신 판을 덮어쓰지 않고 실제 읽은 판을 기준으로 저장한다. 사람에게는 보이지 않는다. (lophn-agent/roles/app-engineer#R9, lophn-agent/roles/app-engineer#R11, lophn-agent/roles/app-engineer#R12, documents/versions#R2, documents/versions#R4)
 3. conversation 화면 사람이 실제 확인한 고정 설계 판을 채택한다. App Engineer는 같은 판과 채택 답을 근거로 같은 bundle의 app test와 실행 가능한 test command를 가진 구현 ticket을 남긴다. 실제 사용까지 맡긴 경우에는 정확한 release의 activation 확인도 조건에 넣는다. (lophn-agent/questions#R16, lophn-agent/roles/app-engineer#R17, coding-agent/tickets#R3, coding-agent/tickets#R8)
-4. app-detail 화면 사람이 맡길 일을 확인해 직접 연 coding agent 세션에 명시적으로 시킨다. 필요한 연결은 confirmation-window 화면에서 범위를 정한다. 사람이 시키기 전에는 ticket 발견만으로 시작하지 않으며, 준비 중에도 기존 앱은 기존 release와 고정 SDK로 계속 동작한다. (coding-agent/connection#R1, coding-agent/connection#R2, coding-agent/tickets#R11, apps/sdk#R10, apps/sdk#R11, apps/releases#R8)
+4. 사람은 변경할 ticket을 확인한 뒤 [Start]로 선택한 harness를 해당 project 터미널 탭 TUI로 열거나 자기 터미널에서 ticket을 지정한다. 기존 connection scope·ticket·project 폴더를 검증하고 첫 prompt는 한 번만 전달한다. session 시작은 claim이 아니며 coding agent는 MCP claim 후 구현·보고한다. (coding-agent/sessions#R1, coding-agent/sessions#R3, coding-agent/sessions#R5, coding-agent/sessions#R9, coding-agent/tickets#R11, shell/terminal#R12)
 5. coding agent가 새 blueprint·구현을 준비하고 test runner가 같은 bundle의 필수 검사와 ticket의 확인을 실제로 수행한다. 운영 데이터·backup·실계정에 접근하지 않고 테스트 대역에서 확인하며, 필요한 migration은 빈 DB와 이전 schema에서 새 schema로 가는 두 경우를 검사한다. coding agent가 현재 claim을 재확인하고 같은 bundle의 app test 통과 결과로 release를 준비한다. 사람에게는 보이지 않는다. (apps/blueprint#R1, problems/tests#R6, problems/tests#R7, problems/tests#R8, problems/tests#R13, problems/tests#R15, apps/releases#R5, apps/releases#R6, coding-agent/tickets#R15)
 6. app-detail 화면 사람이 실제 테스트 결과와 기존 앱에서 바뀔 내용을 보고 app-space 화면에서 운영과 분리된 preview를 확인한다. 사람이 요청한 release 검토에서 App Engineer는 실제 결과를 저장된 설계와 대조하고 어긋남·후속 변경 후보를 남긴다. preview 성공이나 schema 일치만으로 동작·업무 의미가 맞다고 단정하지 않는다. (apps/preview#R1, apps/preview#R2, apps/preview#R7, apps/preview#R10, lophn-agent/roles/app-engineer#R1, lophn-agent/roles/app-engineer#R18, apps/releases#R9, apps/releases#R10, problems/tests#R12)
 7. confirmation-window 화면 사람이 정확한 release의 실제 동작 변경·추가와 축소 권한·데이터 변경·손실 가능성을 확인하고 승인하거나 보류한다. 새 host·경로·secret 등은 필요한 범위를 따로 허락하며, 기존 grant나 설계 채택으로 권한을 넓히지 않는다. (apps/releases#R8, apps/releases#R9, apps/releases#R11, apps/permissions#R1, apps/permissions#R3, platform/approvals#R5, shell/confirmation-window#R6)

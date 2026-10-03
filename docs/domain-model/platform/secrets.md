@@ -43,8 +43,8 @@ OS 준비 결과이며 값은 command에 포함하지 않는다.
 |---|---|---|---|---|
 | `preparation` | 불투명 string | 아니오 | 신뢰 플랫폼 worker의 준비 식별 | 준비 증거 |
 | `sealed_ref` | 불투명 string | 아니오 | 준비된 OS 값 참조 | 새 참조 |
-| `purpose` | `app_secret` / `provider_credential` / `external_mcp_credential` | 아니오 | 다른 용도로 사용 불가 | 용도 |
-| `owner` | string | 아니오 | 앱 secret 이름 또는 provider·외부 MCP credential의 고정 소유 key | 소유 대상 |
+| `purpose` | `app_secret` / `provider_credential` / `external_mcp_credential` / `coding_connection_credential` | 아니오 | 다른 용도로 사용 불가 | 용도 |
+| `owner` | string | 아니오 | 앱 secret 이름 또는 provider·외부 MCP·coding connection credential의 고정 소유 key | 소유 대상 |
 
 ## SecretUse (값)
 
@@ -54,7 +54,7 @@ OS 준비 결과이며 값은 command에 포함하지 않는다.
 |---|---|---|---|---|
 | `sealed_ref` | 불투명 string | 아니오 | 현재 참조와 같음 | 사용할 값 |
 | `revision` | integer | 아니오 | 현재 판과 같음 | 사용 판 |
-| `purpose` | `app_secret` / `provider_credential` / `external_mcp_credential` | 아니오 | 준비 용도와 같음 | 용도 |
+| `purpose` | `app_secret` / `provider_credential` / `external_mcp_credential` / `coding_connection_credential` | 아니오 | 준비 용도와 같음 | 용도 |
 | `destination` | 검증된 목적지 값 | 아니오 | 실제 전송 목적지·동작과 현재 허용 조건에 묶임 | 소비 경계 |
 
 앱 사용은 고정 release 요구 ∩ 유효 grant의 secret 이름에만 허용한다. 호출마다 사람 approval을 요구하지 않고 command를 부른 쪽(사람 화면·agent·automation·다른 앱)으로 막지 않는다. command의 confirm·external 판정은 → apps/invocations, lophn-agent/harness/tool-judgment. provider 인증은 현재 provider 참조·판을 검사하고 HTTPS 전송 직전에 붙인다(→ lophn-agent/harness/provider).
@@ -106,3 +106,7 @@ provider·외부 MCP credential 참조·판은 각각 → lophn-agent/harness/pr
 - secret name 문법·길이와 OS keychain adapter의 불투명 참조 모양.
 - OS 삭제·프로세스 종료 미완료 결과의 지속 보관과 재시도 key. 현재 참조 교체 성공과 정리 완료를 합치지 않는다.
 - H1의 남은 부분은 → apps/automations#R13이다. 첫 판 automation은 external·confirm을 선언·실행하지 못하고 가져오기·동기화 read·write의 secret 사용은 grant를 따른다. secret 사용 자체를 금지하지 않는다.
+
+## coding connection 보호 준비
+
+`coding_connection_credential`의 owner는 → coding-agent/connection의 안정된 principal이다. 이름 공간 secrets 표에 복제하지 않고 신뢰 인증 경계가 principal로 OS keychain 값을 resolve한다. keychain 준비는 core command 밖, token 검증 hash·active connection 확정은 소유 command transaction 안이다. 준비 값은 확정 전 인증에 쓰이지 않는다. commit 실패·중단 고아는 신뢰 경계가 정리하며 원값·keychain locator를 event에 남기지 않는다. trusted loader의 목적·실제 child·connection scope를 확인한 보호 process-local 전달만 → platform/identity#R15로 허용한다. 앱 secret 값·provider 원값 전달 허락과 섞지 않는다.

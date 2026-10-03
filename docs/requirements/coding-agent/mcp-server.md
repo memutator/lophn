@@ -12,7 +12,7 @@ concerns: [coding-agent/mcp-server]
 
 **[R1]** MCP는 coding agent 세션마다 로컬 stdio server 하나를 설치된 executable의 절대 위치와 분리 argv로 시작하고 stdout에는 MCP 메시지, stderr에는 진단만 보내며 공백 위치와 오프라인 시작을 지원한다.
 - 이유: 제품 설정과 shell 인용 방식 차이 없이 연결하고 진단이 protocol을 깨뜨리지 않게 한다.
-- 확인: 공백 설치·작업 위치와 네트워크 차단에서 초기화·tool 발견이 성공하고 stdout에 안내 문장이 없으며 설치·인증은 coding-agent/connection을 따른다.
+- 확인: 공백 설치·작업 위치와 네트워크 차단에서 초기화·tool 발견이 성공하고 stdout에 안내 문장이 없으며 credential은 coding-agent/connection, 설치 target·loading은 coding-agent/harnesses를 따르며 OpenClaw의 session 소유 stdio 미확인은 unknown과 CLI fallback으로 구별한다.
 - 의도: coding-agent#I1
 
 **[R2]** MCP는 daemon API의 얇은 adapter로서 lophn-agent/harness/tools의 공통 tool 계약에 등록된 coding agent 허용 동작만 내보내고 내부 호출과 같은 권한·actor·변경 경로를 사용한다.
@@ -72,7 +72,7 @@ concerns: [coding-agent/mcp-server]
 **[R12]** 이력과 diff 읽기는 두 고정 판 및 선택 절·범위를 받아 줄 단위 추가·소실·본문 변경·변경 없음을 제공하고 의미상 이름 변경은 추정하지 않는다.
 - 이유: 원문 비교와 의미 해석을 구별한다.
 - 확인: documents/outline-and-search의 같은 key 비교에서 복원 불가 범위를 누락으로 표시하고 agent 추정 rename을 machine 사실로 내지 않는다.
-- 의도: documents#I2, coding-agent#I3
+- 의도: coding-agent#I3
 
 ### 문서 저장과 format
 
@@ -84,7 +84,7 @@ concerns: [coding-agent/mcp-server]
 **[R14]** format은 저장과 별도 tool에서 media type별 목록·선언·작성 안내·파일 bytes 검사를 제공하고 명시 format 부적합은 저장을 거절하되 기본 추론 format 부적합은 documents/formats의 경고 계약으로 전달한다.
 - 이유: 명시한 형식의 거짓 저장을 막고 쓰기 전에 형식을 읽게 한다.
 - 확인: 선언의 필수 입력·본문 구조와 검사 위치·severity를 읽고 명시 부적합 저장은 무변경이며 옛 저장 종류 입력을 거절한다.
-- 의도: coding-agent#I3, documents#I9
+- 의도: coding-agent#I3
 
 **[R15]** 자리 없는 저장은 유효한 고정 주소를 반환하고 다음 자리 선택을 사람에게 안내하되 context를 소속으로 받거나 사람 대신 원본 파일로 놓거나 제거하지 않는다.
 - 이유: lophn-agent/questions의 관점 선택과 documents/projects의 실제 파일 위치를 구별한다.
@@ -96,19 +96,19 @@ concerns: [coding-agent/mcp-server]
 **[R16]** series tool은 자리별 목록·규칙과 정렬된 인스턴스·다음 key와 title 제안만 제공하고 다음 제안에서 실제 문서를 저장하거나 series를 생성하지 않는다.
 - 이유: 다음 값을 읽는 일과 사람의 관계 정의를 구별한다.
 - 확인: documents/series의 첫 key 직접 지정·규칙 부적합·이미 사용한 key가 표시되고 생성 동작이 노출되지 않는다.
-- 의도: coding-agent#I3, documents#I6
+- 의도: coding-agent#I3
 
 **[R17]** context 읽기는 목록·상세·기준과 참고와 watch 항목·읽기 깊이·glossary·특정 문서를 참조하는 context를 제공하고 생성·이름 변경·항목 추가와 제거·관점 변경·분할·병합·용어 추가와 채택 변경 제안은 고정 변경안·이유를 남기는 통로로만 제공한다.
 - 이유: 관점 정의의 최종 변경은 사람이 하고 coding agent는 필요한 언어와 근거를 읽는다.
 - 확인: 프로젝트 폴더나 untracked 파일을 문서 항목으로 넣는 제안을 거절하고 제안 접수만으로 context·용어가 바뀌지 않으며 lophn-agent/questions를 가리킨다.
-- 의도: documents#I5, coding-agent#I3
+- 의도: coding-agent#I3
 
 ### 질문과 approval request
 
 **[R18]** 질문과 approval request는 각각 범위 안 목록·상세·상태·이유·선택 또는 정확한 대상과 영향을 읽고 허용된 제안 접수나 보호 작업 요청에서 생긴 대기를 반환하되 사람 답·허락·거절은 노출하지 않는다.
 - 이유: lophn-agent/questions과 platform/approvals에서 가역 질문과 되돌릴 수 없는 승인을 분리한다.
 - 확인: 둘의 대기와 적용 사실이 구별되고 제안만으로 적용되지 않으며 coding agent가 질문을 직접 만드는 권한 미확정 부분은 공통 질문으로 남긴다.
-- 의도: coding-agent#I2, platform#I5
+- 의도: coding-agent#I2
 
 ### 앱 개발과 SDK
 
@@ -124,18 +124,18 @@ concerns: [coding-agent/mcp-server]
 
 **[R21]** release 준비는 source와 선택 수리 문제·ticket 및 현재 claim 근거를 받아 준비 release·실제 테스트 근거·대기 approval request·다음 조회를 반환하고 준비와 사람 activation을 구별한다.
 - 이유: problems/tests와 apps/releases을 transport에서 빠뜨리지 않는다.
-- 확인: 같은 묶음 hash의 app test 없이 준비할 수 없고 ticket이 있으면 현재 claim을 검사하며 ticket 없는 수리는 문제 claim을 만들지 않는다.
+- 확인: 같은 묶음 hash의 app test 없이 준비할 수 없고 모든 coding release 준비에 지정 ticket의 현재 claim을 검사하며 ticket 없는 작업과 문제 직접 claim은 거절한다.
 - 의도: coding-agent#I5, coding-agent#I4
 
 **[R22]** SDK tool은 설명과 API 이름 검색으로 이름·최신 version·종류·한 줄 설명의 catalog를, package 선택으로 API·type·permission·peer 의존·예제의 상세를 제공한다.
 - 이유: 이미 검증된 재료를 쓰기 전에 계약을 읽게 한다.
 - 확인: apps/sdk의 설치 catalog를 검색하고 비설치·없는 package를 명확히 구별하며 개인 SDK 추가 지원은 현재 범위와 구별한다.
-- 의도: coding-agent#I3, apps#I2
+- 의도: coding-agent#I3
 
 **[R23]** SDK 추가는 package와 exact version을 받아 앱 import map에 사용할 고정 import 안내를 반환하고 허용된 source 반영을 선택하면 변경·무변경·충돌을 표시하며 범위 지정 version과 조용한 upgrade는 거절한다.
 - 이유: 재현 가능한 SDK 추가와 사람 source 보존을 함께 지킨다.
 - 확인: 같은 exact version 두 번 추가해 중복이 없고 기존 다른 version은 충돌로 보이며 최신 범위·미설치 version은 apps/sdk의 판정대로 거절된다.
-- 의도: apps#I2, coding-agent#I3
+- 의도: coding-agent#I3
 
 ### 문제와 수리 자료
 
@@ -144,7 +144,7 @@ concerns: [coding-agent/mcp-server]
 - 확인: 목록에는 요약과 상세 읽기가 있고 묶음 내용·선정·상한·cursor는 coding-agent/repair-context를 그대로 지키며 추가 조회가 claim을 만들거나 갱신하지 않는다.
 - 의도: coding-agent#I7
 
-**[R25]** 수리 쓰기는 해석 문서 저장·ticket 사용·문제별 고친 release 기록·실제 reproduction test와 app test 요청을 제공하고 직접 문제 claim·별도 시도 단계·workflow 조작·agent의 증상 결론을 제공하지 않는다.
+**[R25]** 수리 조사의 문서 저장·근거 조회는 code 작업과 구별하고 수리 code 쓰기는 지정 ticket의 현재 MCP claim 아래 고친 release 기록·실제 reproduction test와 app test 요청을 제공하며 직접 문제 claim·별도 시도 단계·workflow 조작·agent의 증상 결론을 제공하지 않는다.
 - 이유: problems/tests·problems/grouping·problems/repairs의 단순한 사실과 검사 모델로 옛 기능 목적을 유지한다.
 - 확인: problems/repairs·problems/tests에서 실제 결과를 다시 읽고 옛 진단·시작·완료·취소 기능의 목적을 문서와 ticket으로 수행하되 test result 자체 입력과 문제 닫힘을 거절한다.
 - 의도: coding-agent#I5
@@ -178,7 +178,7 @@ concerns: [coding-agent/mcp-server]
 **[R30]** 모든 tool의 목록·검색·요약·본문·첨부·추가 읽기·다음 안내에는 coding-agent/connection의 현재 범위와 platform/redaction을 적용하고 approval 결정·grant 변경·secret 값·backup·문제 닫힘·무시·사람 확인을 제공하지 않는다.
 - 이유: 하위 읽기와 통로 변경이 권한 경계를 우회하면 안 된다.
 - 확인: 다른 앱 제목·본문·건수·첨부와 token이 나오지 않고 금지 요청을 daemon에서도 거절한다.
-- 의도: coding-agent#I2, platform#I2
+- 의도: coding-agent#I2
 
 **[R31]** 프로젝트 등록·tracking 규칙·context와 term 정의·lophn agent assignment 변경·사람 원본 임의 읽기·앱 DB 직접 접근·ticket 목표 변경과 확인 판정·test result 작성을 coding agent tool로 내보내지 않는다.
 - 이유: 도구 편의가 사람과 machine 전용 권한을 되살리지 않게 한다.
@@ -209,15 +209,27 @@ concerns: [coding-agent/mcp-server]
 - 확인: tool 정의 뒤 release 변경을 만들어 옛 schema 호출이 거절되고 읽기는 ledger 쓰기를 기다리지 않으며 별도 앱 MCP 설정 없이 호출되는지 본다.
 - 의도: coding-agent#I2
 
+### credential과 외부 session
+
+**[R36]** MCP server는 시작할 때 connection 참조로 OS keychain의 credential을 인증 경계에서 받고 설정 파일이나 prompt의 token을 요구하지 않으며 keychain 실패에서는 user credential·평문 파일로 fallback하지 않는다.
+- 이유: 연결 선택 뒤 자동 설치가 credential을 노출하지 않아야 한다.
+- 확인: 자동 발급 connection으로 초기화하고 keychain 잠김에서는 unavailable이며 token이 MCP text·진단·설정·PTY 출력에 없다.
+- 의도: coding-agent#I1, coding-agent#I2
+
+**[R37]** ticket 시작·harness 설치·resume·permission 대답을 coding credential의 MCP tool로 제공하지 않고 지정 ticket의 claim·작업·보고만 허용한다.
+- 이유: 사람 [Start] 허락과 제품 permission을 coding credential이 대신할 수 없다.
+- 확인: 직접 start·설치·permission 응답 op는 discovery와 직접 호출에서 거절되고 session 관측이 없어도 유효 claim 검사는 coding-agent/tickets를 따른다.
+- 의도: coding-agent#I2, coding-agent#I4
+
 ## 열린 질문
 
-- coding-agent/mcp-server#Q1 옛 app test 기본 300초와 아직 미확정인 test runner timeout 정책을 어떻게 맞출까.
-- coding-agent/mcp-server#Q2 첫 판에 stdio 외 loopback HTTP MCP transport도 제공할까.
-- coding-agent/mcp-server#Q3 저장된 검색 관점 읽기를 첫 판에 포함하고 어느 concern이 소유할까.
-- coding-agent/mcp-server#Q4 coding agent context 변경안이 고정 action 질문을 직접 생성할 수 있을까.
-- coding-agent/mcp-server#Q5 SDK 추가는 고정 import 안내만 반환할까 source import map도 바꿀까.
-- coding-agent/mcp-server#Q6 옛 v2 수리 상세 16 KiB·capture 64 KiB·50개 목록 상한을 새 묶음에도 적용할까.
-- coding-agent/mcp-server#Q7 runtime의 앱 간 연결 목록 읽기를 첫 판 MCP에 포함할까.
+- coding-agent/mcp-server#Q1
+- coding-agent/mcp-server#Q2
+- coding-agent/mcp-server#Q3
+- coding-agent/mcp-server#Q4
+- coding-agent/mcp-server#Q5
+- coding-agent/mcp-server#Q6
+- coding-agent/mcp-server#Q7
 
 ## 버린 것
 

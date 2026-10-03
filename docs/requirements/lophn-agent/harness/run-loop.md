@@ -13,7 +13,7 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 **[R1]** 새 run은 사람 요청 하나·lophn-agent/scheduling이 허용한 Operator 회차 하나·lophn-agent/handoff로 이어진 원래 사람 요청 하나에 대응하며 자료 변경·결과 도착·notification만으로 새 run을 만들지 않는다.
 - 이유: 판단의 시작은 사람의 의도나 승인된 주기에서 온다.
 - 확인: 세 계기를 각각 접수하고 문서 변경·결과 도착·notification은 새 run을 만들지 않는지 확인한다.
-- 의도: lophn-agent#I3, lophn-agent#I2
+- 의도: lophn-agent/harness#I2
 
 **[R2]** 입력과 run은 시작 전에 영속 접수하고 저장 성공 뒤 접수 완료를 답하며 같은 요청·회차·handoff 재전달은 platform/ledger의 중복 규칙으로 이전 결과를 반환한다.
 - 이유: 재시작·재전송으로 입력 유실과 중복 작업이 생기지 않는다.
@@ -43,14 +43,14 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 **[R7]** handoff를 받은 run에서는 보낸 run·원래 사람 요청·맡긴 내용·근거 고정 version을 확인할 수 있으며 packet의 책임은 lophn-agent/handoff를 따른다.
 - 이유: 받은 일의 출처를 독립 run에서 되짚는다.
 - 확인: 수신 run에서 네 근거를 확인하고 같은 handoff 중복 시작이 없는지 확인한다.
-- 의도: lophn-agent#I3, lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2
 
 ### turn과 tool 묶음
 
 **[R8]** 사람 요청과 주기 일은 provider에 독립적인 하나의 agent loop를 쓰며 model call·tool 동작·시간 대기는 platform/ledger의 쓰기 흐름을 점유하지 않고 platform/responsiveness를 따른다.
 - 이유: 느린 호출이 무관한 상태 변경을 막지 않는다.
 - 확인: model·tool·retry 대기 중 무관한 읽기·쓰기 응답을 확인한다.
-- 의도: platform#I3, lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2
 
 **[R9]** turn은 멈춤 확인→접수 입력 선택→사람 기다림·한도 검사→prompt 조립→model call 하나·완전 응답 확인→tool 묶음→결과 영속 기록→계속·종료 판정 순서로 진행하고 조립 뒤 입력·멈춤을 다시 확인한다.
 - 이유: 오래 조립하는 사이 도착한 수정과 멈춤을 놓치지 않는다.
@@ -60,12 +60,12 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 **[R10]** 현재 일을 고치는 입력이 접수되면 다음 tool을 시작하기 전에 그 입력을 반영하는 새 판단을 거친다.
 - 이유: 진행 중 방향 수정이 실제 행동보다 늦게 적용되지 않게 한다.
 - 확인: 여러 tool 응답 사이 steering을 넣어 미시작 tool 대신 새 판단이 시작되는지 확인한다.
-- 의도: lophn-agent/harness#I3, lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2
 
 **[R11]** 출력 한도·단절·중단으로 불완전한 model 응답의 tool call은 하나도 시작하지 않고 출력 잘림 사실은 다음 판단에 전달한다.
 - 이유: 완성되지 않은 인자나 판단으로 효과를 만들지 않는다.
 - 확인: 부분 JSON·출력 잘림·스트림 단절 모두 tool 시작 0개인지 확인한다.
-- 의도: lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
 
 **[R12]** 모든 call이 읽기로 확인된 묶음만 병렬로 처리할 수 있고 쓰기·external·미분류 call이 하나라도 있으면 전체를 요청 순서로 처리하며 병렬 결과도 요청 순서로 모은다.
 - 이유: 동작 간 순서를 바꾸지 않으면서 독립 읽기를 빠르게 할 수 있다.
@@ -82,12 +82,12 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 **[R14]** 정상 종료는 완전 응답에 tool call과 미반영 steering이 모두 없을 때 입력 접수와 원자적으로 확정하며 enabled에서 뒤에 도착한 steering은 새 run에 보존하고 다음 일 요청은 정상 종료를 막지 않는다. paused의 입력 보존은 lophn-agent/conversation을 따르고 새 run을 접수하지 않는다.
 - 이유: 종료 경계에서 마지막 수정이 잃어버려지지 않는다.
 - 확인: 종료 직전·직후 steering을 넣어 현재 반영 또는 새 담당이 반드시 남는지 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
+- 의도: lophn-agent/harness#I2
 
 **[R15]** 사람 멈춤 접수 뒤 새 model·tool·retry·후속 요청 시작을 즉시 막고 진행 호출에 중단을 요청하며 미시작 call은 미실행으로 끝낸다.
 - 이유: 멈춤이 실제 새 효과의 진입을 차단한다.
 - 확인: 멈춤 직후 모든 새 진입 0개와 진행 호출의 중단 요청을 확인한다.
-- 의도: lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
 
 **[R16]** 끝난 run의 늦은 결과는 감사 기록만 보완하고 그 run의 새 대상 변경·재개·새 run 생성을 거절하며 이미 시작한 외부 효과를 취소·미실행·성공으로 꾸미지 않는다.
 - 이유: 늦은 응답이 멈춤 결정을 뒤집지 않는다.
@@ -116,41 +116,32 @@ run의 영속 접수·시작·turn·retry·유한한 한도·멈춤·최종 결�
 **[R20]** 공통 run 한도는 model 시도 30회·진행 없는 시간 5분·사람 기다림을 뺀 전체 시간 30분이며 양의 정수만 받고 사람만 다음 run부터 바꿀 수 있고 역할이 늘리거나 0·무제한으로 둘 수 없다.
 - 이유: 유한한 작업 경계와 공통 설정을 유지한다.
 - 확인: 각 경계 도달을 테스트하고 retry·재시작이 횟수·시간을 초기화하지 않으며 사람 기다림은 두 시간에서 빠지는지 확인한다.
-- 의도: lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
 
 **[R21]** 진행은 완전 model 응답 또는 확정 tool 결과만 인정하여 실패 시도도 model 횟수에 세고 부분 token은 무진행 시간을 초기화하지 않는다.
 - 이유: 느린 부분 출력으로 run이 무한 지속되지 않게 한다.
 - 확인: 부분 token만 계속 오는 호출이 5분 무진행에 멈추고 실패 시도 수가 줄지 않는지 확인한다.
-- 의도: lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
 
 **[R22]** 한도 도달 뒤에는 judgment·organizing·마무리 model을 추가로 부르지 않고 machine이 확정된 사실만으로 결과를 정리한다.
 - 이유: 종료 정리가 상한 우회가 되지 않는다.
 - 확인: 30회·5분·30분 각 한도 이후 model call이 0개인지 확인한다.
-- 의도: lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
 
 **[R23]** provider가 일시 실패로 분류한 model 통신만 같은 입력으로 최초 뒤 최대 2회 retry하고 서버 최소 재시도 시각을 지키며 없으면 2초·4초 기다리고 부분 응답은 채택하지 않는다.
 - 이유: retry를 숨기거나 대기를 앞당기지 않는다.
 - 확인: 최대 3개 실제 시도, 2·4초 간격과 120초 서버 최소 대기 보존을 확인한다.
-- 의도: lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
 
 **[R24]** tool 자동 retry는 읽기 또는 최초 호출의 중복 효과 없음이 계약으로 보장된 쓰기에만 최초 뒤 최대 1회 허용하여 1초에 ±10% jitter를 준 대기 뒤 매번 재판정하고 거절·잘못된 입력·사라진 대상·문맥 초과·사람 멈춤은 동일 요청 retry하지 않는다.
 - 이유: 중복 효과와 거절 반복을 막는다.
 - 확인: 보장 없는 쓰기·external은 재호출되지 않고 허용 요청도 최대 2번 진입하는지 확인한다.
-- 의도: lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
 
 **[R25]** provider를 끄거나 MCP 연결을 제거하면 새 진입을 막고 가능한 진행 요청은 취소하되 이미 전송·시작한 결과는 lophn-agent/harness/waiting-and-recovery의 확인 경계로 처리한다.
 - 이유: 설정 변경이 이미 일어난 효과를 지우지 않는다.
 - 확인: 설정 회수 직후 새 요청이 없고 중단 가능·불가능한 진행 요청의 결과가 각각 정확히 남는지 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I4
-
-## 열린 질문
-
-- lophn-agent/harness/run-loop#Q1 provider 끄기·MCP 연결 제거 때 이미 전송한 요청은 어떻게 처리하는가?
-- lophn-agent/harness/run-loop#Q2 공통 30회·5분·사람 기다림 제외 30분이 실제 일에 충분한가?
-- lophn-agent/harness/run-loop#Q3 세션 입력 수·전체 접수 run 수에 어떤 유한 상한을 둘 것인가?
-- lophn-agent/harness/run-loop#Q4 agent 프로세스를 상시 대기시키거나 요청 때 띄울 것인가?
-- lophn-agent/harness/run-loop#Q5 run 시간 한도에 사람 답 기다림을 포함할 것인가?
-- lophn-agent/harness/run-loop#Q6 run 한도·반복 tool 실패 기준을 공통값 또는 역할별로 둘 것인가?
+- 의도: lophn-agent/harness#I2
 
 ## 버린 것
 

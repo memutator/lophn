@@ -13,7 +13,8 @@ ModelCall의 실제 시도·입출력·사용량·당시 비용과 중복 없는
 | `id` | `mcl` ID | 아니오 | PK; 실제 전송 시도마다 별도 ID | 시도 |
 | `run` | `run` ID | 예 | 판단·run 안 정리에는 필수; → lophn-agent/harness/run-loop | 원인 run |
 | `session` | `ses` ID | 예 | run에 있으면 같은 session; 독립 이어가기에는 필수; → lophn-agent/conversation | 관련 세션 |
-| `slot` | `judgment / organizing` | 예 | connection_test만 null; judgment는 judgment, 제목·압축은 organizing | model slot |
+| `model_use` | `judgment / organizing` | 예 | connection_test만 null; judgment는 judgment, 제목·압축은 organizing | preset model 호출 용도 |
+| `preset` | `{id,revision}` | 예 | run·독립 이어가기에는 필수; connection_test는 null; → lophn-agent/presets | 선택 구성 근거 |
 | `purpose` | `judgment / title_summary / conversation_compression / connection_test` | 아니오 | connection_test는 명시 user test이며 run/session null; 가짜 run·세션 없음 | 별도 용도 |
 | `test_request` | `{command_key,test_kind}` | 예 | connection_test에만 필수; 인증된 user 요청 key·`text / tool_call` 고정; provider·model·credential은 CallModel과 같은 요청 기준 | 명시 test 근거 |
 | `attempt_kind` | `initial / retry / credential_change` | 아니오 | 실제 시도 구별; model fallback 없음 | 시도 종류 |
@@ -41,7 +42,7 @@ ModelCall의 실제 시도·입출력·사용량·당시 비용과 중복 없는
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | `started` | machine | input·basis blob 준비; run·slot·credential 또는 명시 connection_test 자격 검사; 저장 후 전송 | `ModelCallStarted` |
+| 없음 | `started` | machine | input·basis blob 준비; run·preset 선택·credential 또는 명시 connection_test 자격 검사; 저장 후 전송 | `ModelCallStarted` |
 | `started` | `finished` | machine | 응답·실패·취소 저장 또는 복구 확인 불가 | `ModelCallFinished` |
 | `finished` | `finished` | machine | 늦은 확인 결과·usage·cost 근거 추가; 기존 사실 보존 | `ModelCallSupplemented` |
 
@@ -60,8 +61,8 @@ ModelCall의 실제 시도·입출력·사용량·당시 비용과 중복 없는
 |---|---|---|---|---|
 | `provider` | `pvd` ID | 아니오 | → lophn-agent/harness/provider | 실제 목적지 |
 | `name / protocol` | 문자열 / 호출 형식 | 아니오 | 실제 전송값 | 실제 model·adapter |
-| `credential_key / credential_revision` | 문자열 / 양의 정수 | 아니오 | 전송 직전 확인값; secret 값 없음 | 실제 credential |
-| `options` | JSON object | 아니오 | 당시 slot snapshot; connection_test는 명시 요청의 검증된 옵션 snapshot | sampling 등 |
+| `credential_key / credential_revision` | 문자열 / 양의 정수 | 예 | 무인증 loopback만 둘 다 null; 그 외 전송 직전 확인값; secret 값 없음 | 실제 credential |
+| `options` | JSON object | 아니오 | 당시 preset model 선택 snapshot; connection_test는 명시 요청의 검증된 옵션 snapshot | sampling 등 |
 | `requested_reasoning / applied_reasoning` | 수준 또는 provider 옵션 | 예 | 미지원·미확인은 null; 값 구별 | 추론 선택 |
 | `limits` | `{context_limit,input_limit,output_limit,supports_tools}` | 아니오 | 당시 확인·user 명시 한계 | 크기 검사 |
 | `catalog_basis / price_basis` | 출처 snapshot / PriceBasis | 아니오 / 예 | → lophn-agent/harness/model; 당시 값 | 한계·가격 근거 |
@@ -110,7 +111,7 @@ ModelCall의 실제 시도·입출력·사용량·당시 비용과 중복 없는
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `model_calls` | ModelCall 및 상태 seq | PK `id` | partial `(run,attempt_order)` WHERE run IS NOT NULL; partial `(test_command_key,attempt_order)` WHERE purpose=connection_test | `(run,state)`, `(session,started_at)`, `(slot,purpose,started_at)`, `(provider,model_name,started_at)`, `retry_of` | run·session·provider FK; credential `(provider,key)` FK; retry·이동 self FK; blob 영구 참조; 삭제 RESTRICT |
+| `model_calls` | ModelCall 및 상태 seq | PK `id` | partial `(run,attempt_order)` WHERE run IS NOT NULL; partial `(test_command_key,attempt_order)` WHERE purpose=connection_test | `(run,state)`, `(session,started_at)`, `(model_use,purpose,started_at)`, `(provider,model_name,started_at)`, `retry_of` | run·session·provider FK; credential `(provider,key)` FK; retry·이동 self FK; blob 영구 참조; 삭제 RESTRICT |
 | `model_call_supplements` | 보완 근거·usage·cost·결과 참조 | PK `(call,supplement_key)` | PK; event_seq | `(call,event_seq)` | call FK; event FK; blob 참조; 삭제 RESTRICT |
 
 UsageTotal은 호출 원본에서 재계산하는 derived store이며 독립 ledger 표가 없다.
@@ -127,7 +128,7 @@ UsageTotal은 호출 원본에서 재계산하는 derived store이며 독립 led
 
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
-| `ModelCallStarted` | call | run?, session?, slot, purpose, model, input, context_basis | shell/desktop |
+| `ModelCallStarted` | call | run?, session?, model_use, purpose, model, input, context_basis | shell/desktop |
 | `ModelCallFinished` | call | outcome, output?, usage, cost, 측정 | lophn-agent/harness/run-loop, lophn-agent/harness/usage, shell/desktop |
 | `ModelCallSupplemented` | call | supplement_key, 이전 근거 참조, 추가 fact | lophn-agent/harness/usage, lophn-agent/observability, shell/desktop |
 
@@ -136,10 +137,7 @@ UsageTotal은 호출 원본에서 재계산하는 derived store이며 독립 led
 - **합계.** input에 이미 포함된 cache 및 output에 포함된 reasoning은 다시 더하지 않는다. 비교 불가 포함 관계는 분리한다. 모르는 token·금액은 0이 아니다.
 - **추정.** 겹침 없는 과금 token 구간 × 당시 1000000 token당 요율을 십진수로 계산한다. 필요한 usage·가격이 하나라도 모르면 그 금액은 unknown이다. 통화는 합치거나 자동 환산하지 않는다.
 - **보완 합계.** call마다 한 번만 세며 보완 근거의 확인값을 적용하되 최초 사실·가격을 지우지 않는다. 현재 가격으로 과거를 바꾸지 않는다.
-- **연결 test.** slot·run·session을 만들지 않고 명시 요청의 model·credential·보호 test 재료를 고정한다. 텍스트·tool call 실제 시도는 모두 시작 기록 뒤 전송하며 ProviderCheck.calls로 연결한다. 한 시도 30000ms 상한, usage_wait 제외, 설정 조회로 자동 전송 없음이다.
+- **연결 test.** model_use·run·session을 만들지 않고 명시 요청의 model·credential·보호 test 재료를 고정한다. 텍스트·tool call 실제 시도는 모두 시작 기록 뒤 전송하며 ProviderCheck.calls로 연결한다. 한 시도 30000ms 상한, usage_wait 제외, 설정 조회로 자동 전송 없음이다.
 - **비용 상한.** 없다. run 제어 한도는 → lophn-agent/harness/run-loop.
 - **귀속.** handoff 받는 run의 call은 실제 받은 assignment·역할·run에 귀속한다. 보낸 run 비용으로 바꾸지 않는다.
 
-## 정할 것
-
-- 독립 연결 test도 connection_test ModelCall로 실제 시도를 기록한다. 결과 요약·call 연결은 → lophn-agent/harness/provider의 ProviderCheck이며 별도 사용량 정본을 만들지 않는다.

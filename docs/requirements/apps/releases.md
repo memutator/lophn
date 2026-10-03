@@ -37,15 +37,15 @@ concerns: [apps/releases]
 - 확인: release 없이 bundle을 테스트한 뒤 같은 hash만 준비되고 한 byte를 바꾸거나 결과를 자가 제출하면 거절된다.
 - 의도: apps#I3
 
-**[R6]** ticket 근거 release 준비는 coding-agent/tickets의 현재 connection·claim seq·기한을 요청 때와 긴 준비의 확정 때 다시 확인하고 ticket과 당시 claim을 출처로 보존한다.
-- 이유: apps/releases에 따라 낡은 claim으로 release를 내지 않는다.
-- 확인: 준비 중 claim이 만료되거나 담당자가 바뀌면 거절되고 claim 해제·ticket 취소·후속 release 뒤에도 과거 출처가 남는다.
-- 의도: coding-agent#I4
+**[R6]** 새 coding 작업의 release 준비는 ticket의 현재 connection·claim seq·기한을 요청 때와 긴 준비 확정 때 다시 확인하고 ticket과 당시 claim을 불변 출처로 보존한다.
+- 이유: 기존 claim 없는 수리 fallback을 새 준비의 입구로 쓰지 않는다.
+- 확인: 누락·만료·반납·connection 회수·claim 변경은 거절되고 claim 해제·ticket 취소 뒤 과거 준비 출처는 그대로 남는지 본다.
+- 의도: apps#I3, coding-agent#I4
 
-**[R7]** 직접 수리의 release에는 필수 ticket이나 claim을 만들지 않으며 문제·수리 근거의 유효성은 problems/repairs와 problems/tests를 따른다.
-- 이유: problems/repairs의 ticket 없는 수리를 허용하면서 근거가 다른 앱에 묶이지 않게 한다.
-- 확인: ticket 없이 동일 bundle의 app test로 준비할 수 있고 수리 근거가 다른 앱이면 거절된다.
-- 의도: apps#I3
+**[R7]** 사람이 자기 터미널에서 맡긴 코드 수리도 ticket과 현재 MCP claim을 거쳐 새 release를 준비하며 과거 ticket 없는 release는 가짜 ticket·claim을 보충하지 않고 당시 출처로 읽고 선택할 수 있다.
+- 이유: 새 작업 계약과 이미 남은 이력을 구별한다.
+- 확인: 새 claim 없는 release 준비는 거절되고 옛 release 읽기·사람 approval에 따른 이전 release 선택에는 새 coding ticket을 강제하지 않는지 본다.
+- 의도: apps#I3, apps#I6
 
 ### activation 결정
 

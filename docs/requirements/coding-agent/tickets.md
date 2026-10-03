@@ -30,7 +30,7 @@ concerns: [coding-agent/tickets]
 - 확인: 다른 앱·13개 문제·중복 문제를 거절하고 같은 문제 동시 생성 요청 중 하나만 성공한다.
 - 의도: coding-agent#I4
 
-**[R5]** 사람과 담당 App Engineer가 같은 입력 검사를 거쳐 ticket을 만들 수 있고 App Engineer 생성은 별도 승인·공개 단계 없이 즉시 열린 ticket으로 보인다.
+**[R5]** 모든 coding 작업은 사람의 직접 요청·피드백도 lophn·담당 App Engineer가 같은 입력 검사를 거쳐 ticket으로 정리하고 생성은 별도 공개 단계 없이 즉시 열린 ticket으로 보인다.
 - 이유: lophn-agent/harness/tool-judgment는 되돌릴 수 있는 생성과 외부 착수를 나눈다.
 - 확인: 담당 앱 ticket이 즉시 목록에 나오고 별도 공개·수정 도구가 없으며 자동 coding agent run이 시작되지 않는다.
 - 의도: coding-agent#I4
@@ -64,7 +64,7 @@ concerns: [coding-agent/tickets]
 
 ### claim과 만료
 
-**[R11]** claim은 사람이 연 세션에서 사람 지시를 받은 범위 안 coding agent 연결만 요청하며 ticket 하나의 현재 연결은 하나이고 한 연결의 동시 ticket 수에는 상한을 두지 않는다.
+**[R11]** claim은 자기 터미널의 사람 지시 또는 coding-agent/sessions의 [Start] 첫 prompt로 지정한 ticket에 대해 범위 안 coding agent 연결만 MCP로 요청하며 ticket 하나의 현재 연결은 하나이고 한 연결의 동시 ticket 수에는 상한을 두지 않는다.
 - 이유: problems/repairs과 lophn-agent/harness/tool-judgment를 유지하면서 외부 프로세스의 작업 선택을 대신하지 않는다.
 - 확인: 같은 ticket 동시 claim 중 하나만 성공하고 같은 연결이 다른 ticket도 claim할 수 있으며 목록 읽기만으로 claim이 생기지 않는다.
 - 의도: coding-agent#I4, coding-agent#I2
@@ -89,9 +89,9 @@ concerns: [coding-agent/tickets]
 - 확인: 다른 앱·다른 claim release 연결을 거절하고 ticket과 release에서 원래 claim 출처를 역조회한다.
 - 의도: coding-agent#I4, coding-agent#I5
 
-**[R16]** ticket 없는 직접 수리에는 문제 claim·별도 기한·자동 claim을 두지 않고 problems/repairs와 problems/tests를 사용한다.
-- 이유: problems/repairs의 사람 직접 수리를 유지한다.
-- 확인: 문제 claim과 lophn agent의 code 수리 claim 통로가 없고 ticket 없는 수리는 고친 기록과 실제 테스트 요청만 남긴다.
+**[R16]** 직접 제작·수리 요청도 ticket 생성 뒤 MCP claim·작업·보고로 처리하고 문제 직접 claim이나 ticket 없는 coding 시작 통로는 제공하지 않는다.
+- 이유: 모든 coding 작업의 검사 가능한 계약을 하나로 만들고 과거 ticket 없는 기록은 보존한다.
+- 확인: 직접 요청에서도 실제 ticket·claim·완료 보고가 있으며 근거 부족이면 담당 agent가 다음 결정을 준비하고 과거 고친 기록은 조회 가능하다.
 - 의도: coding-agent#I5
 
 ### 완료 보고와 machine 검사
@@ -133,9 +133,9 @@ concerns: [coding-agent/tickets]
 - 확인: 취소 뒤 옛 요청이 거절되고 이전 결과는 조회되며 외부 프로세스를 멈췄다는 가짜 확인이 없다.
 - 의도: coding-agent#I4, coding-agent#I2
 
-**[R24]** 문제의 수리 요청은 사람에게 복사할 직접 수리 문장이나 ticket 고정 자료를 제공하는 것이며 priority·요청 표시를 승인이나 외부 coding agent 자동 시작으로 취급하지 않는다.
+**[R24]** 문제의 수리 요청은 lophn·App Engineer의 ticket 준비로 이어지고 사람이 자기 터미널에 지정 ticket 지시를 전달하거나 [Start]로 TUI를 열되 priority·요청 표시만으로 자동 시작하지 않는다.
 - 이유: 사람의 수리 부탁과 되돌릴 수 없는 approval를 구별한다.
-- 확인: 요청 버튼과 사람 세션의 수리 지시로 claim 근거를 찾되 platform/approvals의 승인이 자동 생성되거나 coding agent가 자동 시작되지 않는다.
+- 확인: 요청 버튼과 자기 터미널 지시와 [Start] 첫 prompt로 claim 근거를 찾되 platform/approvals의 승인이 자동 생성되거나 coding agent가 자동 시작되지 않는다.
 - 의도: coding-agent#I4
 
 **[R25]** 기능 요청으로 판명된 문제도 원문·기대 기준·고정 출처를 보존한 채 새 구현 ticket 근거로 연결하고 볼 곳·지킬 것·claim을 권한 grant로 해석하지 않는다.
@@ -157,11 +157,13 @@ concerns: [coding-agent/tickets]
 
 ## 열린 질문
 
-- coding-agent/tickets#Q1 긴 구현 세션에 기본 60분 claim을 유지할까.
-- coding-agent/tickets#Q2 H4 reproduction test 없는 수리 ticket도 사람 acceptance check로 허용할까.
-- coding-agent/tickets#Q3 구현 ticket 완료 끝점을 공통 기본값으로 정할까.
-- coding-agent/tickets#Q4 H7 담당 App Engineer의 승인 없는 즉시 ticket 생성을 유지할까.
-- coding-agent/tickets#Q5 옛 24시간 문제 claim과 읽기 자동 갱신을 유지할까.
+- redesign/coding-agent#Q15
+- redesign/coding-agent#Q20
+- coding-agent/tickets#Q1
+- coding-agent/tickets#Q2
+- coding-agent/tickets#Q3
+- coding-agent/tickets#Q4
+- coding-agent/tickets#Q5
 
 ## 버린 것
 

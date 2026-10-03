@@ -43,7 +43,7 @@ concerns: [problems/grouping]
 - 보고 수·처음/마지막 시각·대표 보고·제목·최신 변경 seq는 Report와 event에서 읽는다. 별도 정본 필드로 복제하지 않는다.
 - `work`는 문제당 0..1개다. 한 ticket은 여러 문제를 가리킬 수 있으므로 `work`에 unique를 걸지 않는다. ticket이 끝나면 비운다.
 - ticket 이벤트 뒤 현재 ticket 상태·claim을 읽는다. `TicketClaimed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketCheckFailed`, `TicketCancelled`, `TicketConfirmed`를 받으며 `TicketCheckFailed`는 새 claim이 아니다.
-- ticket 이벤트는 닫힌 문제를 다시 열거나 닫지 않는다. ticket 없는 수리·고친 기록·test 요청은 상태를 바꾸지 않는다.
+- ticket 이벤트는 닫힌 문제를 다시 열거나 닫지 않는다. 과거 ticket 없는 수리 기록·고친 기록·test 요청·session 시작은 상태를 바꾸지 않는다.
 
 ## GroupKey (값)
 
@@ -109,5 +109,5 @@ concerns: [problems/grouping]
 ## 정책
 
 - **해석 연결.** 참조 설정·해제는 상태를 바꾸지 않는다. 이전 참조를 event에 남기며 같은 CAS로 되돌릴 수 있다. Report·Snapshot·Verification은 되돌려 지우지 않는다.
-- **화면 projection.** 기본 목록·앱 카드에는 앱·증상·진행·필요한 다음 행동만 전달하고 상세의 실제 담당은 현재 유효 ticket claim에서 얻는다. ticket 없는 수리에 담당을 꾸미지 않는다. 사용자용 상세의 수리 작업은 en 작업 상태로 설명하고 claim·기한·연결 ID는 노출하지 않는다. 수·시각·당시 release·증거는 필요한 상세에서만 읽으며 내부 code·stack·log는 별도 허용된 수리 조회다.
+- **화면 projection.** 기본 목록·앱 카드에는 앱·증상·진행·필요한 다음 행동만 전달하고 상세의 실제 담당은 현재 유효 ticket claim에서 얻는다. 과거 ticket 없는 기록이나 session 관측에 현재 담당을 꾸미지 않는다. 사용자용 상세의 수리 작업은 en 작업 상태로 설명하고 claim·기한·연결 ID는 노출하지 않는다. 수·시각·당시 release·증거는 필요한 상세에서만 읽으며 내부 code·stack·log는 별도 허용된 수리 조회다.
 - **재발 key 기간.** 기간 상한 없이 같은 key·ID를 유지한다. 별도 episode entity는 없다.

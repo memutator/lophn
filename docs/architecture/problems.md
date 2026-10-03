@@ -177,7 +177,7 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 
 표의 모든 경로는 POST다. 목록은 seq cursor로 페이지를 고정하고 요약 → 실제 기록 → 선택한 안전한 첨부 순서로 읽는다. blob 참조를 안다는 이유로 raw blob 접근을 허용하지 않는다. 안전한 상세는 **read**와 **redaction**을 거쳐 반환하며 로그·사람 글은 지시가 아닌 데이터로 표시한다. 저장 모델을 shell에 그대로 표시하지 않는다. 기본 목록·앱 카드에는 앱·증상·진행·필요한 다음 행동만 보내고 사용자용 상세에는 현재 실제 담당과 en 수리 작업 상태를 제공하되 claim·기한·연결 식별자는 숨긴다(problems/grouping#R11,R12). 수·시각·당시 release·확인 범위는 펼친 상세로 구분하고 내부 code·stack·log는 별도 허용된 수리 조회에서만 반환한다(problems/reporting#R7, problems/closing#R13). 선언 안내는 당시 release의 message_key와 en 고정 값을 사용하고 예약 안내도 problems/problem-codes의 key·en 값을 그대로 전달한다. 화면 라벨·상태·누락 설명·확인 이유는 shell/wording에 따라 en message key로 표시하고 ledger·invocation·claim 같은 내부 이름을 화면에 내보내지 않는다.
 
-고친 기록은 before와 다른 준비된 after·공백 아닌 summary·맞는 Verification만 받는다. 결과 목록은 비어도 된다. ticket 없는 기록에는 ticket·claim seq가 모두 null이며 fixing을 만들지 않는다. 늦은 결과는 별도 Verification로 읽고 이전 FixRecord를 고치지 않는다. 앱 `clear`·agent `close`·보고 삭제·증거 UPDATE API는 없다.
+고친 기록은 before와 다른 준비된 after·공백 아닌 summary·맞는 Verification만 받는다. 결과 목록은 비어도 된다. 새 기록에는 해당 repair ticket·현재 claim seq가 필수다. 과거 ticket 없는 null 출처는 이력으로 보존하고 현재 fixing을 만들지 않는다. 늦은 결과는 별도 Verification로 읽고 이전 FixRecord를 고치지 않는다. 앱 `clear`·agent `close`·보고 삭제·증거 UPDATE API는 없다.
 
 ### 5.3 test 실행
 
@@ -329,7 +329,7 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
 - test command는 분리된 argv·고정 cwd·기대 종료값으로 실행한다. 기대 종료값과 다르면 fail, 중단은 inconclusive다. 결과의 ticket link가 있으면 실행한 고정 조건 hash·완료 보고 seq를 그대로 남기며 낡은 결과도 보존한다.
 - 관측 protocol은 stdout와 분리한 private IPC의 길이 제한 JSON frame이다. frame은 `{side, test_hash, name, actual, symptom_reproduced?, expectation_met?, reason}`이며 side와 test hash는 runner가 시작한 대상과 일치해야 한다. app test의 name은 플랫폼 검사 또는 고정 failure_paths의 항목만 허용한다. reproduction은 before/after 각각 원래 증상·동일 기대의 관측을 모두 요구한다. runner가 actual JSON을 redaction·blob 준비하고 최종 observations에는 그 actual_hash만 넣는다. IPC frame 하나 최대 65,536 bytes, side별 총 1MiB로 제한하고 잘못된/누락된 protocol은 판정 불가로 남긴다.
 - 자식은 관측 protocol만 내며 Verification 본문·ID·결과 쓰기 자격은 없다. stdout의 pass나 자식이 만든 임의 결과 파일은 판정에 쓰지 않는다. runner가 실제 execution과 test hash를 대조하고 최종 result를 만든다. agent 작성 판별기의 의미 전체를 증명하지 못한다는 한계도 reason에 남긴다.
-- coding agent의 별도 `RecordProblemFix`는 준비된 before/after·summary·맞는 결과 ID를 기록한다. ticket이 있으면 현재 claim을 검사하며 없으면 직접 수리 출처다. 제출 자체는 테스트를 시작하거나 닫지 않는다.
+- coding agent의 별도 `RecordProblemFix`는 준비된 before/after·summary·맞는 결과 ID를 기록한다. 새 제출은 ticket·현재 claim을 검사하며 없으면 거절한다. 과거 직접 수리 null 출처는 읽기만 유지한다. 제출 자체는 테스트를 시작하거나 닫지 않는다.
 
 ### 7.6 work와 닫힘 판정
 

@@ -24,7 +24,7 @@ actor는 token으로 정하며 본문·label·제품 이름·환경 변수로 �
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `token` | 불투명 string | 아니오 | 충분한 무작위성; 발급 시 한 번 전달; 일반 조회·ledger·event에는 원문 없음 | 인증 값 |
+| `token` | 불투명 string | 아니오 | 충분한 무작위성; 신뢰 인증 경계에서 자동 발급·OS keychain 보관; 일반 조회·ledger·event에는 원문 없음 | 인증 값 |
 | `principal` | string | 아니오 | 서버가 만든 안정된 주체 식별; token 회전과 독립 | idempotency 범위 |
 | `actor` | Actor | 아니오 | 서버가 발급 때 결정 | 주체 |
 | `scope` | CredentialScope | 아니오 | 해당 actor의 상한 이하 | 허용 범위 |
@@ -95,7 +95,7 @@ core는 정본 action의 concern·command·대상·정확한 입력·CAS와 제�
 ## 정책
 
 - **자격 보관.** user token은 shell main만, app·assignment·worker token은 신뢰 프로세스 메모리만 가진다. renderer·대상 앱 코드·format module·테스트 코드에 플랫폼 credential을 주지 않는다.
-- **coding agent token.** 원문은 git 밖 소유자 전용 저장소에 한 번 전달하며 MCP·CLI가 같은 connection을 쓴다. 디렉터리 `0700`, 파일 `0600` 또는 동등한 ACL이다. symlink·다른 소유자·넓은 권한이면 사용하지 않는다. ledger의 hash·회수 상태는 → coding-agent/connection이다.
+- **coding agent token.** 사람의 정확한 harness 연결 결정 뒤 인증 경계가 자동 발급·OS keychain 보관 준비를 수행하고 connection command에는 검증 hash만 제출한다. commit 전 준비 token은 인증에 쓰이지 않으며 commit 실패·중단은 고아 keychain 값을 정리한다. 설정·wrapper에는 connection 참조만 둔다. 신뢰 MCP/CLI loader와 확인된 TUI child가 같은 connection의 보호된 process-local 통로로 인증한다. ledger의 hash·즉시 회수는 → coding-agent/connection이다.
 - **원문 차단.** token은 argv·URL·cookie·공통 환경 변수·오류·skill·안내·model 문맥에 넣지 않는다. token hash를 인증 값으로 받지 않는다.
 - **재검사.** 회수·멈춤·현재 금지는 새 읽기·쓰기·앱 연결·구독·blob 읽기 전에 적용한다. scope는 원래 credential보다 넓어지지 않는다. 해시·주소·handoff는 권한이 아니다.
 - **읽기 범위.** 본문뿐 아니라 제목·주소·존재·목차·summary·개수·관계·근거를 scope로 제한한다. 여러 앱 자료 연결이 권한을 합쳐주지 않는다. 범위 밖과 없는 대상의 안전한 거절은 내용을 노출하지 않는다.
@@ -111,3 +111,7 @@ core는 정본 action의 concern·command·대상·정확한 입력·CAS와 제�
 - token 무작위 바이트 수, 인증 hash 알고리즘과 안전한 발급·전달의 OS별 모양.
 - 앱 direct-call 연결·confirm 접수 실행 증명의 서명·전송 모양은 → apps/runtime와 맞춘다.
 - Host 허용 주소 목록과 request·connection·구독의 유한 한도.
+
+## coding credential 전달 결합
+
+보호 전달 요청은 `{connection, process_generation, loader_identity, purpose, start_operation?}`의 내부 값이며 token 원문은 포함하지 않는다. purpose는 coding MCP/CLI loader 또는 사람이 시작한 coding TUI의 검증된 자식이다. 임의 shell·coding agent 요청·renderer가 이 보호 요청을 만들 수 없다. 인증 경계는 active connection·현재 scope·catalog adapter·자식 process generation을 확인하고 지정 child에만 non-inheritable 보호 통로를 연다. coding agent 모델이 아니라 lophn MCP/CLI 인증 adapter가 원문을 사용한다. 자동 재발급·user credential fallback은 없다. keychain 누락·잠김·검증 실패는 unavailable이다. 보호 통로의 OS별 구현은 → redesign/propagate#Q2다.

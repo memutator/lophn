@@ -8,13 +8,13 @@ concerns: [coding-agent/repair-context]
 
 ## RepairContext (값)
 
-현재 허용된 정본을 읽어 조립하는 derived 응답이다. 별도 entity·ID·blob 정본·ledger 표·상태·event는 없다. Ticket 없는 직접 수리도 같은 구성으로 problem 하나를 읽을 수 있다. 전송 framing은 → coding-agent/mcp-server, coding-agent/cli이다.
+현재 허용된 정본을 읽어 조립하는 derived 응답이다. 별도 entity·ID·blob 정본·ledger 표·상태·event는 없다. Ticket 준비 전 조사도 같은 구성으로 problem 하나를 읽을 수 있으나 coding 작업을 시작하는 권리가 아니다. 전송 framing은 → coding-agent/mcp-server, coding-agent/cli이다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `app` | 앱 ID | 아니오 | → apps/registration | 대상 앱 하나 |
-| `ticket` | `tkt` ID | 예 | 같은 앱의 repair ticket; → coding-agent/tickets | 직접 수리면 null |
-| `problems` | 문제 ID[] | 아니오 | 중복 금지; ticket이면 Ticket.problems와 같음; 직접 수리면 요청 problem 하나; → problems/grouping | |
+| `ticket` | `tkt` ID | 예 | 같은 앱의 repair ticket; → coding-agent/tickets | ticket 준비 전 조사면 null |
+| `problems` | 문제 ID[] | 아니오 | 중복 금지; ticket이면 Ticket.problems와 같음; ticket 준비 전 조사면 요청 problem 하나; → problems/grouping | |
 | `observed_at` | UTC 시각 | 아니오 | 공통 시각 형식 | |
 | `basis` | `{concern, id, revision}[]` | 아니오 | 조립 때 읽은 대상의 변경 seq; 불변 대상은 생성 seq | 현재 조회 근거; 당시 snapshot과 구별 |
 | `sections` | RepairContextSection[] | 아니오 | 아래 순서 보존; 여러 문제의 내용은 problem별로 구분 | |
@@ -43,7 +43,7 @@ concerns: [coding-agent/repair-context]
 | 1 | `target_symptom` | 앱·ticket 제목, 문제 증상·발생 시각 → apps/registration, coding-agent/tickets, problems/grouping | 문제당 1줄·전체 2줄 |
 | 2 | `human_text` | 사람 feedback·보고 원문 excerpt → problems/feedback, problems/reporting | 전체 5줄·문제당 300자 |
 | 3 | `inspect` | 고정 근거 주소·볼 위치 → coding-agent/tickets, documents/addressing | 10줄·5개; 본문 대신 주소 |
-| 4 | `acceptance_checks` | ticket acceptance check 참조·요약 → coding-agent/tickets; 직접 수리는 기존 확인 기준이 있을 때만 | 8줄·200자 요약 + 전체 조건 읽기 |
+| 4 | `acceptance_checks` | ticket acceptance check 참조·요약 → coding-agent/tickets; ticket 준비 전 조사는 기존 확인 기준이 있을 때만 | 8줄·200자 요약 + 전체 조건 읽기 |
 | 5 | `preserve` | ticket의 유지 제약 → coding-agent/tickets | 8줄·200자 요약 + 전체 제약 읽기 |
 | 6 | `failure_basis` | 보고·snapshot의 당시 시각·release·실패 invocation·고정 source 근거 → problems/reporting, problems/snapshots, apps/releases | 실패 invocation 15줄 이하 |
 | 7 | `representative_occurrences` | 아래 선정한 실제 Report 참조·snapshot excerpt → problems/reporting, problems/snapshots | 최대 3개·전체 30줄·각각 400자 |
@@ -54,7 +54,7 @@ concerns: [coding-agent/repair-context]
 | 12 | `attachments` | snapshot 첨부 참조·종류·크기 → problems/snapshots | 40줄·이미지 metadata 최대 20개; command 결과 각각 3행; binary는 기본 텍스트에 넣지 않음 |
 | 13 | `reproduction` | 원래 증상 재현 절차·고정 테스트 기준 → problems/tests, coding-agent/tickets | 6줄·500자 + 전체 근거 읽기 |
 | 14 | `more` | 종류별 추가 근거 읽기 | 5줄 + cursor; 근거 목록은 추가 페이지로 이어 읽음 |
-| 15 | `return_method` | ticket 완료 보고 또는 직접 고친 기록·test 요청의 참조; 실제 command 표현은 → coding-agent/mcp-server, coding-agent/cli | 4줄 |
+| 15 | `return_method` | ticket 완료 보고·test 요청 또는 ticket 준비 전 담당 agent 안내 참조; 실제 command 표현은 → coding-agent/mcp-server, coding-agent/cli | 4줄 |
 
 ## RepairEvidenceRead (값)
 
@@ -73,7 +73,7 @@ concerns: [coding-agent/repair-context]
 | `occurrences` | 20개 | report 목록·고정 evidence 참조; 넘침 cursor |
 | `source_diff` | 300줄 | 고정 release source끼리 비교; 현재 변화와 당시 사실 구별 |
 | `screen` | UTF-8 24,576 bytes | 안전한 화면 상태 텍스트; 넘침 cursor |
-| `image` | 이미지 하나 2,097,152 bytes | redaction 뒤 제공; 미지원 통로에는 허용된 로컬 첨부 열기 참조·종류·크기 제공; 큰 이미지 부분 읽기 가능 여부는 정할 것 |
+| `image` | 이미지 하나 2,097,152 bytes | redaction 뒤 제공; 미지원 통로에는 허용된 로컬 첨부 열기 참조·종류·크기 제공; 상한 초과는 크기와 미제공 이유만 반환 |
 | 나머지 | 텍스트 응답 최대 UTF-8 24,576 bytes·300줄 | 정본 참조로 이어 읽기; 구조·Unicode를 깨뜨리지 않음 |
 
 모든 추가 텍스트 페이지에도 UTF-8 24,576 bytes·300줄의 전체 상한을 함께 적용한다. 이미지 binary는 별도 상한이며 base64를 기본 묶음에 넣어 텍스트 상한을 우회하지 않는다.
@@ -81,9 +81,9 @@ concerns: [coding-agent/repair-context]
 ## 정책
 
 - **정본 범위.** problem·Report·Snapshot·Ticket·Release·Invocation·고친 기록·Verification·해석 고정 판은 각 concern 정본을 참조한다. 현재 조립 결과를 과거 snapshot의 사실로 바꾸지 않는다. 내부 agent의 prompt나 자체 repair attempt entity를 만들지 않는다.
-- **대표 발생.** 첫 발생·마지막 발생·근거가 가장 다른 발생을 중복 없이 최대 3개 고른다. 발생 순서는 원래 Report 접수 event seq다. 동일 후보면 낮은 Report seq를 우선한다. 근거 차이의 비교 방식은 정할 것에 둔다.
+- **대표 발생.** 첫 발생·마지막 발생·근거가 가장 다른 발생을 중복 없이 최대 3개 고른다. 발생 순서는 원래 Report 접수 event seq다. 고정 근거의 `(release, 실패 command, evidence 종류 집합, 보존된 stack source 위치)`에서 앞의 대표와 항목 불일치 수가 가장 큰 후보를 고르고 동률은 낮은 Report seq를 우선한다. 현재 source로 비교값을 보충하지 않는다(→ coding-agent/repair-context#Q4).
 - **직전 변화.** 첫 발생 시각 7일(`604,800,000ms`) 전부터 조회 현재 시각까지의 변경 중 첫 발생에 가까운 시각 순으로 최대 12개를 고른다. 같은 거리면 낮은 event seq를 우선하며 결과 순서와 ID는 결정적으로 유지한다. 인과관계라는 판정은 하지 않는다.
-- **전체 상한.** ticket 하나에 연결된 모든 문제의 절을 합쳐 UTF-8 24 KiB(`24,576 bytes`)와 300줄을 모두 지킨다. 직접 수리의 problem 묶음도 같다. 누락·가림·잘림 표시·이어 읽기 안내도 상한에 포함한다.
+- **전체 상한.** ticket 하나에 연결된 모든 문제의 절을 합쳐 UTF-8 24 KiB(`24,576 bytes`)와 300줄을 모두 지킨다. ticket 준비 전 problem 조사 묶음도 같다. 누락·가림·잘림 표시·이어 읽기 안내도 상한에 포함한다.
 - **축소 순서.** 초과면 log → 대표 발생 excerpt → 첨부 metadata 순서로 줄인다. 각 생략 지점에 잘림·원래 범위와 실제 추가 읽기를 남긴다. 그래도 초과면 필수 참조·상태는 유지하고 나머지 내용을 이어 읽기 참조로 바꾸며 조용히 빼지 않는다.
 - **접근 검사.** 조립·추가 페이지·첨부 각각에 요청 connection scope를 적용한다(→ coding-agent/connection, platform/identity). ticket reference로 범위 밖 정보를 복사하거나 blob hash를 접근 권한으로 쓰지 않는다.
 - **redaction·데이터.** text·JSON·이미지·추가 근거를 반환 전에 → platform/redaction을 적용한다. 사람 말·앱 문자열·log는 명시 data fence 안에 두고 agent 해석과 구별하며 지시·approval 근거가 아니다(→ platform/security). 부분 수집·미검증 등의 한계도 reason과 content에 남겨 summary에서 숨기지 않는다.
@@ -91,7 +91,6 @@ concerns: [coding-agent/repair-context]
 
 ## 정할 것
 
-- `근거가 가장 다른 발생`의 비교 키·가중치. 최소한 고정 Report·Snapshot 근거만 사용하고 결정적 tie-break를 유지한다.
-- 첫 발생 부근 변경의 대상 종류와 보존된 source diff가 없을 때의 응답. 없는 diff를 임의 현재 파일 순회로 보충하지 않는다.
-- 2 MiB를 넘는 이미지의 안전한 파생 축소·부분 읽기 방식. 제공할 수 없으면 크기와 미제공 이유를 표시한다.
-- 실제 cursor·문자 수·줄 수 계산과 이미지 미지원 CLI fallback은 → coding-agent/mcp-server, coding-agent/cli의 spec에서 확정한다.
+- coding-agent/repair-context#Q4
+- coding-agent/repair-context#Q5
+- redesign/coding-agent#Q21

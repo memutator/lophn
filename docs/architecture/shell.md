@@ -287,7 +287,7 @@ core RPC는 platform/api의 `POST /v1/<resource>/<method>`, event는 WebSocket `
 
 gallery는 컴포넌트·화면의 light·dark·좁은 폭·empty·loading·error 여섯 경우를 먼저 등록한다. 사람이 채택한 screenshot을 회귀 기준으로 저장한다. 접근성·대비·reduced-motion·키보드 focus 복원, 읽기/편집 첫 블록 위치 차이 4px 이하, 떠 있는 UI·경계 drag 중 앱 view가 사라지지 않음, 보호 창 열림 중 부모 창·앱 view 입력 차단을 별도 테스트한다. 차트 palette 변경 검증은 shell/design-system의 정한 값을 검사하며 새 색이나 차트 정책을 여기서 만들지 않는다.
 
-고정 UI 문구는 `renderer/wording/`의 en-only catalog와 shared 타입으로 main·shell·overlay·confirmation renderer에 전달한다. 모든 고정 문구는 shell/wording#R14의 `<screen>.<part>.<name>` key·ICU MessageFormat을 쓰며 날짜·숫자·상대 시각은 Intl API로 formatting한다. locale을 더할 때 같은 key의 catalog를 더하고 문장 조각을 이어 붙이지 않는다. 문구 검사는 직접 문자열·없는 key·빠진 en 값·placeholder 불일치를 오류로, 사용자 화면의 ID 접두사·snake_case·원시 enum·ledger·release·invocation·assignment 같은 안쪽 개념 이름을 경고로 처리한다. 문서·코드·별도 개발자 diagnostics는 이 경고에서 제외한다. 화면 말의 mapping과 자유 글·고정 문구 구분은 screens/README.md#3,#4를 따른다. agent 자유 글은 key로 만들지 않고 en 언어 규칙만 지킨다. 기본 안내는 짧고 직접적인 1~2문장·영향·다음 행동 하나, 버튼·제목은 마침표 없음이다. 문제 문구는 problems가 확정한 값을 그대로 쓰며 shell이 placeholder·앱 이름을 다시 합성하지 않는다. 앱 기본 안내·tooltip·사용자 상세에 stack·log·원문 오류를 넣지 않는다.
+고정 UI 문구는 `renderer/wording/`의 en-only catalog와 shared 타입으로 main·shell·overlay·confirmation renderer에 전달한다. 모든 고정 문구는 shell/wording#R14의 `<screen>.<part>.<name>` key·ICU MessageFormat을 쓰며 날짜·숫자·상대 시각은 Intl API로 formatting한다. locale을 더할 때 같은 key의 catalog를 더하고 문장 조각을 이어 붙이지 않는다. 문구 검사는 직접 문자열·없는 key·빠진 en 값·placeholder 불일치를 오류로, 사용자 화면의 ID 접두사·snake_case·원시 enum·ledger·release·invocation·assignment 같은 안쪽 개념 이름을 경고로 처리한다. 문서·코드·별도 개발자 diagnostics는 이 경고에서 제외한다. 화면 말의 mapping과 자유 글·고정 문구 구분은 ui-ux/README.md#3,#4를 따른다. agent 자유 글은 key로 만들지 않고 en 언어 규칙만 지킨다. 기본 안내는 짧고 직접적인 1~2문장·영향·다음 행동 하나, 버튼·제목은 마침표 없음이다. 문제 문구는 problems가 확정한 값을 그대로 쓰며 shell이 placeholder·앱 이름을 다시 합성하지 않는다. 앱 기본 안내·tooltip·사용자 상세에 stack·log·원문 오류를 넣지 않는다.
 
 화면 전체 UI/UX 규칙은 docs/ui-ux/README.md, 공통 시각·조작 값은 shell/design-system, 여러 concern을 지나는 사람 흐름은 docs/flows가 정본이다. 이 architecture의 route·adapter는 그 명세를 구현할 뿐 별도 정보 목록을 늘리지 않는다. read의 세부 단계는 메모리 presenter에 보존하되 기본에는 지금 필요한 결과·다음 행동만 표시하고 Details에서 필요한 근거를 펼친다. 내부 재검사·scan·index·redaction·retry 과정은 기본 화면에 진행 목록으로 만들지 않는다.
 
@@ -427,3 +427,11 @@ scene별 loading은 300ms 이후 해당 자리를 유지한 skeleton으로만 �
 - 이전: legacy 디자인의 거처·분류 전·컨텍스트 계층·milestone별 제한이 화면에 남았다. / 지금: 런처→프로젝트/앱/lophn 공간, 문서·앱 중심 탐색과 얇은 앱 frame을 쓴다. / 이유: 현재 shell/desktop의 실제 대상과 조작을 유지한다.
 - 이전: SDK 폴더마다 token·읽기 스타일을 복사하거나 shell 편집기까지 공개하려는 범위가 섞였다. / 지금: shell/design-system 정본에서 생성하고 SDK는 고정 package 배포만, CodeMirror는 shell 전용이다. / 이유: 공통 시각 규칙은 재사용하고 두 번째 소비자가 없는 편집기 공개 계약은 만들지 않는다.
 - 이전: 과거 notification event·진행 글을 OS로 그대로 보냈다. / 지금: platform이 확정한 NotificationCreated만 opt-in·최소 문구로 표시하며 backlog는 재생하지 않는다. / 이유: notification 계기·기록은 한 곳에서 정하고 OS 노출·focus 방해를 줄인다.
+
+## ticket에서 coding TUI를 시작한다
+
+사람 ticket [Start] → shell main: exact ticket/harness/method의 one-use human_start_handle·operation_id 확인 → coding-agent/sessions: 현재 ticket·connection scope·catalog version/profile·executable·project folder를 검증한 LaunchPlan → 인증 경계: keychain connection을 실제 child generation의 trusted loader에 보호 전달 → terminal host: executable/argv/cwd로 PTY 직접 spawn → adapter: 첫 prompt 정확히 1회 → 사람: 같은 project 터미널 탭 TUI. 별도 confirmation window 없이 클릭 자체가 이 시작의 허락이다. credential 발급·scope 확대·harness 자체 trust 결정은 대신하지 않는다.
+
+중복 접수는 같은 runtime ref만 반환한다. 준비·prompt 전달 결과 불명은 unknown이며 자동 재전송·새 spawn·resume은 없다. renderer 복원은 살아 있는 host에 재연결하고 layout 복원은 PTY를 시작하지 않는다. TUI session 상태·native ID는 derived evidence이고 actual ticket claim·완료·문제 닫힘과 분리한다. 일반 shell은 기존 비주입 환경을 유지한다. 터미널 일반 agent 제어 contract나 미래 coordinator 권한은 여기서 만들지 않는다. → shell/terminal#R4,R5,R12,R13, coding-agent/sessions#R1~R10
+
+[Instructions]는 기존 편집기·초안·충돌·version 보기 경로를 재사용하며 exact 지침 파일 대상만 main에서 resolve한다. 경로·안쪽 ID는 기본 화면에 노출하지 않는다. → shell/editor#R17

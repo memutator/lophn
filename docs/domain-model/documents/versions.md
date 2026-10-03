@@ -78,9 +78,13 @@ Version에는 보관 상태나 수정 전이가 없다.
 
 ## FileSource (값)
 
+project_file과 instruction_file의 tagged union이다.
+
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `project` | `prj` ID | 아니오 | → documents/projects | 원본 관측 Project |
+| `kind` | `project_file / instruction_file` | 아니오 | 기존 source는 project_file | 원본 종류 |
+| `instruction_target` | InstructionLocation/Attachment 등록 참조 | 조건부 | instruction_file만 필수 → lophn-agent/instructions | exact 지침 목표 |
+| `project` | `prj` ID | 전역 지침만 예 | project_file은 필수 → documents/projects | 원본 관측 Project |
 | `path` | string | 아니오 | 정규화 절대 경로; 실제 경계 → documents/file-tracking | |
 
 현재 place와 FileSource는 독립이다. 처음 tracking하는 파일만 그 Project place로 생성한다. 앱 place로 옮겨도 연결은 그대로다.
@@ -101,11 +105,12 @@ Version에는 보관 상태나 수정 전이가 없다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `kind` | `file \| app` | 아니오 | tagged union | |
-| `project` | `prj` ID | 조건부 | `file`에 필수 → documents/projects | |
-| `path` | string | 조건부 | `file`에 필수; 당시 정규화 원본 경로 | |
-| `original_hash` | sha256 | 조건부 | `file`에 필수; 실제 관측 원문 바이트 해시 | |
-| `observed_at` | UTC 시각 | 조건부 | `file`에 필수 | |
+| `kind` | `file \| app \| instruction_file` | 아니오 | tagged union | |
+| `instruction_target` | InstructionLocation/Attachment 등록 참조 | 조건부 | instruction_file에 필수 | 당시 지침 목표 |
+| `project` | `prj` ID | 조건부 | file은 필수; instruction_file 전역만 null → documents/projects | |
+| `path` | string | 조건부 | file/instruction_file에 필수; 당시 정규화 원본 경로 | |
+| `original_hash` | sha256 | 조건부 | file/instruction_file에 필수; 실제 관측 원문 바이트 해시 | |
+| `observed_at` | UTC 시각 | 조건부 | file/instruction_file에 필수 | |
 | `app` | `app` ID | 조건부 | `app`에 필수 → apps/registration | |
 | `release` | `rel` ID | 조건부 | `app`에 필수; 서버가 확인 → apps/releases | |
 
@@ -149,10 +154,10 @@ Version에는 보관 상태나 수정 전이가 없다.
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `documents` | 모든 Document 필드; place는 `place_kind, place_id`, source는 `source_project, source_path` | PK `id` | `(place_kind, place_id, name)` where place non-null; `source_path` where source non-null | `(status, place_kind, place_id, id)`, `(latest_version)` | place → documents/projects 또는 apps/registration; source_project → documents/projects; `(id, latest_version)` → `versions(document, id)`; revision → platform/ledger |
+| `documents` | 모든 Document 필드; place는 `place_kind, place_id`, source는 `source_kind, source_instruction_target, source_project, source_path` | PK `id` | `(place_kind, place_id, name)` where place non-null; `source_path` where source non-null | `(status, place_kind, place_id, id)`, `(latest_version)` | place → documents/projects 또는 apps/registration; source_project → documents/projects; `(id, latest_version)` → `versions(document, id)`; revision → platform/ledger |
 | `versions` | `id, document, number, files_hash, primary_path, file_count, content_hash, format_name, module_hash, format_explicit, saved_by, saved_at, run, source` | PK `id` | `(document, number)`, `(document, id)` | `(document, number DESC)`, `(run, document)` | document → `documents.id`; files_hash·module_hash·원문 해시 → platform/blob-store; run → lophn-agent/harness/run-loop |
 
-파일 목록은 `files_hash`가 가리키는 정규화 목록 blob이다. `primary_path`, `file_count`는 준비 결과의 작은 검증된 요약이며 각각 목록과 일치한다. source·place의 nullable 필드는 가지 전체가 null이거나 가지의 모든 필수 필드가 있어야 한다. 첫 행과 첫 판의 순환 참조는 transaction 끝에서 검사한다.
+파일 목록은 `files_hash`가 가리키는 정규화 목록 blob이다. `primary_path`, `file_count`는 준비 결과의 작은 검증된 요약이며 각각 목록과 일치한다. source·place의 nullable 필드는 가지 전체가 null이거나 가지의 모든 필수 필드가 있어야 한다. instruction_file의 global source는 아래 지침 contract의 project=null 예외를 따른다. 첫 행과 첫 판의 순환 참조는 transaction 끝에서 검사한다.
 
 ## command
 
@@ -190,3 +195,13 @@ Version에는 보관 상태나 수정 전이가 없다.
 - 독립 산출물 가족은 → documents/series의 채택한 모델을 따른다; Operator 출력 범위를 독립 문서로 넓힐지는 별도 결정이다.
 - 문서·판 영구 삭제를 추가할지. 추가 시 고정 근거·address 예약·blob 보존 규칙도 함께 정한다.
 - 정규화 파일 목록의 canonical JSON encoding과 content_hash 입력 필드 집합. 준비 처리와 blob 참조 검증이 같은 규약을 사용해야 한다.
+
+## 지침 FileSource와 write 보호
+
+→ lophn-agent/instructions의 InstructionLocation 또는 InstructionAttachment가 가리키는 문서는 instruction 대상이다. 이 분류는 이름·현재 place·본문만으로 추정하지 않고 정확한 등록 locator 또는 preset의 document 참조로 확인한다. 해당 문서의 agent/coding_agent/app create·save·title/move·source 변경은 현재 분류를 검사해 forbidden이다. 사람 파일 작업과 해당 locator를 관측한 좁은 machine만 Version을 확정한다. 지침 파일을 다른 출력으로 선택해도 금지를 해제하지 못한다.
+
+FileSource는 `{kind: project_file, project, path}` 또는 `{kind: instruction_file, instruction_target, project?, path}`의 tagged union이다. 기존 source는 project_file로 해석한다. instruction_target은 → lophn-agent/instructions의 exact 층·대상·파일 등록 참조이며 global은 project=null, project/app은 등록 관계가 확인된 Project를 가리킨다. preset 첨부는 사람이 연결한 원본 범위를 따른다. 현재 place와 source는 여전히 독립이며 전역 지침은 사용자 Project나 system place를 자동 만들지 않고 place/name=null을 허용하는 지침 source 문서다.
+
+VersionSource는 기존 file/app에 instruction_file을 추가하고 그 경우 instruction_target·path·original_hash·observed_at이 필수, project는 전역일 때만 null이다. instruction source 신규 최초 저장과 첫 Version은 같은 transaction이다. documents 표는 source_kind/source_instruction_target을 원본 가지에 추가하며 source_project의 null은 instruction_file 전역 가지에만 허용한다. source_path unique는 모든 가지에 걸쳐 유지한다. 같은 실제 파일의 기존 Document 연결을 재사용하며 두 Document로 중복 연결하지 않는다.
+
+Instruction의 문서 조회는 허용된 층·첨부와 고정 판만 읽는다. 지침 읽기나 place=null 예외가 일반 자료 읽기·쓰기 범위를 넓히지 않는다. 문서 분류 해제·source 이동이 지침 편집 우회가 되지 않도록 현재 locator와 참조를 함께 재검사한다. → documents/versions#R19,R20

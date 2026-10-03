@@ -29,20 +29,24 @@ Prompt의 조립 층·근거·크기 계산과 compaction·이어가기 summary�
 
 | 순서 | kind | 포함 |
 |---|---|---|
-| 1 | `instructions` | 제품 공통 규칙, 고정 역할 지시, assignment 목적·scope |
-| 2 | `tools` | 고정 tool 정의; skill은 사용 가능한 이름·설명만 사전순 |
-| 3 | `references` | scope 안 outline·주소·version, handoff 고정 근거; 본문은 tool로 읽은 구간만 |
-| 4 | `history` | 지정한 같은 세션 summary 하나, 이후 메시지, 현재 run의 확정 call 결과 |
-| 5 | `turn_context` | TurnContext: 현재 시각·허용 열린 탭·초점·앱 화면 짧은 요약; 매 judgment turn 새로 수집 |
-| 6 | `current_input` | 이번 request와 미반영 correction, 생성 event seq 순 |
+| 1 | `product` | 제품 공통 지시+고정 tool 정의; 실제 허용 schema만 |
+| 2 | `role_preset` | 제품 역할 지시+preset prompt; 선택 skill 이름·설명만 |
+| 3 | `user_instructions` | global→project→app→preset 첨부; 작업 자리로 resolve한 확정 판 |
+| cache 경계 | — | 1·2·3 끝 최대 3개; 사람 지침 뒤가 안정 prefix 끝 |
+| 4 | `work_material` | 목적·scope·run 사실·허용 outline/주소/고정 자료·이어가기/압축 summary·세션/model/tool 이력·이번 request와 미반영 corrections; 이력 순서·call/result 쌍 유지 |
+| 5 | `turn_context` | 이력 뒤 맨 마지막 최신 메시지에 붙이는 현재 시각·허용 탭·초점·앱 화면 짧은 요약 |
+
+순서 5는 앞의 이력 사이에 끼우거나 user_instructions 앞에 넣지 않는다. 이번 turn에 새 실제 사람 메시지가 없으면 machine이 수집한 data 메시지를 최신 위치에 붙이며 사람 발언 Message를 만들어 저장하지 않는다. organizing은 최신 화면을 수집하지 않고 같은 제품·역할·사람 지침 뒤 지정 원문만 넣는다.
 
 ## ContextBasis (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `role_revision / assignment_revision` | 양의 정수 각각 | 아니오 | RunBasis.role/assignment.revision과 일치; → lophn-agent/harness/run-loop | 지시·scope 판 |
-| `role_seq / assignment_seq / tools_revision` | seq / seq / 판 문자열 | 아니오 | RunBasis.role/assignment.basis_seq 및 tools.revision과 일치 | 지시·scope·tool 근거 |
-| `extension_revision` | 양의 정수 | 아니오 | RunBasis.extensions.skill_selection_revision과 일치; → lophn-agent/extensions | 역할별 확장 선택 판 |
+| `preset_revision / assignment_revision` | 양의 정수 각각 | 아니오 | Run call이면 RunBasis.preset/assignment.revision과 일치; 독립 이어가기는 현재 Assignment에 적용한 고정 Preset 판 snapshot; → lophn-agent/harness/run-loop | 지시·scope 판 |
+| `preset_seq / assignment_seq / tools_revision` | seq / seq / 판 문자열 | 아니오 | Run call이면 RunBasis.preset/assignment.basis_seq 및 tools.revision과 일치; 독립 이어가기는 이번 준비의 고정 선택 근거 | 지시·scope·tool 근거 |
+| `extension_revision` | 양의 정수 | 아니오 | Run call이면 RunBasis.extensions.settings_revision과 일치; 독립 이어가기는 이번 준비의 설정 snapshot; → lophn-agent/extensions | 공급 확장 설정 판 |
+| `work_place / work_place_revision` | WorkPlace / 양의 정수 | 아니오 | 세션 현재 자리·자리 revision 또는 세션 없는 Operator scope·Assignment.revision; → lophn-agent/conversation | 지침 선택 근거 |
+| `instructions` | InstructionLayer[] | 아니오 | 이번 call의 순서·확정 version·hash·부재; → lophn-agent/instructions | 사람 지침 근거 |
 | `references` | `{target, version, section?, perspective?, returned_range?}` 배열 | 아니오 | 실제 포함 자료만; → documents/versions, documents/contexts | 자료 근거 |
 | `message_ranges` | `{session, from_seq, through_seq}` 배열 | 아니오 | 명시 세션; 원래 순서·구간 보존 | 원문 구간 |
 | `summaries` | SummaryRef 배열 | 아니오 | 완성 summary만; 기본 `[]` | summary 근거 |
@@ -101,18 +105,18 @@ tab은 shell/workspace의 opaque 참조·kind·허용된 title·문서 고정 ve
 
 - **불투명 추론 상태.** 사람이 읽는 추론 본문은 조립 재료가 아니다. provider가 요구하는 signature·encrypted reasoning item은 구조화 prompt·ContextBasis·저장 input blob 밖의 전송 adapter 메모리 상태이며 같은 run·provider·model의 연속 요청에만 원형대로 붙인다. 세션·summary·다른 run으로 저장·전달하지 않는다. 크기 검사는 이 상태를 포함한 실제 전송 크기를 검증한다. → lophn-agent/harness/provider.
 - **저장.** 조립·summary 캐시는 ledger 밖 derived store다. 독립 command·event·ledger 표를 만들지 않는다. 실제 입력과 ContextBasis는 → lophn-agent/harness/usage의 input·context_basis blob에 남긴다. summary 실패 시도도 ModelCall로 기록한다.
-- **고정 prefix.** 역할·assignment·tool·slot은 run 시작 판이다. 현재 scope 회수·멈춤은 매 call 검사하되 새 지시와 옛 판을 한 call에 섞지 않는다.
+- **고정 prefix.** 제품·역할과 preset·tool·model은 Run 시작 판이며 지침과 작업 자리는 call 직전 현재 확정 판이다. 한 call 안에서는 모두 snapshot하고 현재 scope 회수·멈춤은 매 call 검사한다. 지침 편집이나 명시 자리 변경은 다음 call의 prefix부터 반영한다.
 - **초기 자료.** 기준은 주소·읽은 version·summary·최상위 outline, 참고는 주소·summary, watch는 변경 자료 주소·summary·변경 표시와 미변경 주소다. 관점 정의는 → documents/contexts.
 - **중복.** 같은 대상·version·관점은 처음 한 번만 넣고 tool 이력 본문을 초기 자료에 복제하지 않는다. version·관점이 다르면 제목만으로 합치지 않는다.
-- **cache 경계.** 마지막 tool 정의 뒤, 역할 고정 지시 끝, 최신 실제 user request 끝에 최대 3개. 시간·run 사실·자료·summary는 고정 지시 뒤다. 단발 압축에는 새 명시 cache를 만들지 않는다. protocol 변환은 → lophn-agent/harness/provider.
+- **cache 경계.** product 끝·role_preset 끝·user_instructions 끝의 최대 3개다. work_material 이력은 append-only prefix로 유지하고 turn_context는 최신 메시지 끝에만 붙인다. 지침 변경은 prefix를 바꾸지만 탭·시각 변경만으로 기존 이력을 재직렬화하지 않는다. 단발 압축은 새 명시 cache가 없고 protocol 번역은 provider다.
 - **크기.** cache hit도 context 점유를 줄이지 않는다. 정확 token 계산 또는 검증된 보수 상한을 사용하고 매체 크기 판정 불가면 call하지 않는다. model 한계는 → lophn-agent/harness/model.
 - **compaction 시작·목표.** 전체 요청이 budget의 70% 이상이면 시작하며 50% 이하가 목표다. 최근 이력은 budget의 25%를 2000~15000 token으로 clamp하여 보존하고 call·result 짝 경계 초과를 허용하되 입력 한계는 넘지 않는다.
-- **보호.** 공통·역할 지시, 현재 목적, 최신 사람 request 전문, 유효 결정, 필수 근거는 자르지 않는다.
+- **보호.** 공통·역할·preset·사람 지침, 현재 목적, 최신 사람 request 전문, 유효 결정, 필수 근거는 자르지 않는다.
 - **결정적 축소.** 보호 밖 오래된 text tool result가 2000 Unicode code point를 넘고 원문 재조회 길이 있으면 앞 1000·뒤 1000과 별도 생략 표시·재조회 참조를 남긴다. 원본은 바꾸지 않는다.
-- **summary call.** 축소 후에도 목표 초과면 organizing slot으로 완료된 오래된 구간을 요약한다. 출력 상한은 min(budget의 10%,4000 token). 재료가 organizing 입력 budget 절반을 넘으면 짝을 지켜 절반 이하 chunk로 요약·병합하며 단일 짝도 못 넣으면 실패다.
+- **summary call.** 축소 후에도 목표 초과면 preset organizing 선택으로 완료된 오래된 구간을 요약한다. 출력 상한은 min(budget의 10%,4000 token). 재료가 organizing 입력 budget 절반을 넘으면 짝을 지켜 절반 이하 chunk로 요약·병합하며 단일 짝도 못 넣으면 실패다.
 - **완료 조건.** 비어 있지 않은 완전 응답, 여섯 부분·모든 범위·보호 전문 유지, 재조립 크기 감소, 50% 목표 이하를 모두 만족해야 한다. 별도 재검토 model call은 추가하지 않는다.
 - **실패.** 원문 유지 및 실패 표시; 같은 구간 자동 summary 반복 금지. 원문이 한계 안이면 진행, 밖이면 불완전 prompt로 call하지 않는다.
 - **초기 자료 축소.** 참고 summary → 기준 outline → 선택 자료 순으로 축소하며 오래된 변경부터 주소만 남긴다. 생략을 기록한다. 보호 입력만으로 한계 초과면 call 금지다.
 - **이어가기.** user가 선택한 같은 assignment 세션 구간만 사용하며 최신 완성 summary 하나와 그 뒤 원문을 넣는다. 종료 때 model call을 강제하지 않는다. 캐시 유실은 기존 완성 call 조회 또는 새 organizing call로 처리하며 같은 문장 재생을 보장하지 않는다.
 - **재사용 범위.** compaction은 같은 run에만, continuation은 명시 세션 이어가기에만 사용한다. 다른 세션·다음 주기·handoff에 이전 세션을 자동 주입하지 않는다. 장기 기억은 없다.
-- **skill.** 발견·읽기 및 ExtensionSettings.role_selections의 역할별 선택은 → lophn-agent/extensions. 선택은 RunBasis의 확장 설정 판으로 고정한다. 본문은 선택해 읽은 tool 이력에만 넣으며 압축으로 없어지면 다시 읽는 길을 남긴다.
+- **skill.** Preset.skills/MCP 구성 선택은 → lophn-agent/presets, 발견·읽기·서버 설정은 → lophn-agent/extensions. 선택은 RunBasis.preset 판으로 고정한다. 본문은 선택해 읽은 tool 이력에만 넣으며 압축으로 없어지면 다시 읽는 길을 남긴다.

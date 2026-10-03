@@ -52,10 +52,10 @@ lophn의 지원 OS·설치 패키지·첫 실행·자체 update와 사람이 찾
 - 확인: cache 삭제 후 고정 의존성으로 다시 시작하여 기존 문서와 앱 데이터가 유지되는지 본다.
 - 의도: platform#I1
 
-**[R9]** Linux에서 데이터 root·관리하는 앱 폴더·실행 자격 폴더는 0700, token 파일은 0600으로 두며 더 넓은 권한이면 정상 기동을 거절하고 고칠 방법을 안내한다.
-- 이유: 같은 컴퓨터의 다른 사용자에게 자료와 자격이 노출되지 않게 한다.
-- 확인: 각 폴더와 token 파일 권한을 넓혀 시작이 거절되고 적정 권한으로 고친 뒤에만 시작되는지 본다; credential의 세부 보관은 platform/identity를 따른다.
-- 의도: platform#I2
+**[R9]** Linux 데이터 root·관리 앱 폴더·runtime 제어 폴더는 0700과 소유자·symlink 검사를 적용하고 다른 OS는 동등 ACL을 확인하며 coding token은 파일 없이 platform/identity의 OS keychain과 보호 loader를 쓴다.
+- 이유: 관리 파일의 권한과 coding credential 원문 보관을 구별한다.
+- 확인: 관리 폴더의 권한·소유자·symlink 오류에 시작이 거절되고 coding token 파일을 만들지 않으며 keychain 잠김은 credential 사용만 unavailable인지 본다.
+- 의도: platform#I4, platform#I2
 
 **[R10]** 같은 데이터 폴더에는 플랫폼 instance를 하나만 시작하며 이미 실행 중이면 두 번째 writer를 열지 않고 기존 instance 사용 또는 충돌을 안내한다.
 - 이유: 같은 원본에 여러 플랫폼이 쓰는 일을 막는다.

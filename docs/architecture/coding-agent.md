@@ -6,9 +6,10 @@ concerns: [coding-agent]
 
 ## 1. 맡는 것과 맡지 않는 것
 
-사람이 연 Claude Code, Codex, OpenCode, Hermes, pi, Gemini CLI, OpenClaw 세션에 MCP(stdio), CLI, skill을 제공한다. connection 설치·회수 안내, 앱 source의 공통 안내 배포, 요청 시 session summary·repair context 조립, ticket claim·완료 보고·machine check를 맡는다. connection과 ticket의 domain module은 core에 있지만, 큰 응답 조립과 검사는 core 밖이다.
+Claude Code, Codex, OpenCode, Hermes, pi, Gemini CLI, OpenClaw의 자기 터미널 세션과 사람 [Start]로 project 터미널 탭에 연 TUI에 MCP(stdio), CLI, skill을 제공한다. 제품 harness catalog·native 감지·선택 target 설치 receipt, credential 자동 발급·keychain 보관·회수, session 시작·derived 관측, 공통 안내와 summary·repair context, MCP ticket claim·완료 보고·machine check를 맡는다. connection과 ticket의 domain module은 core에 있지만, 큰 응답 조립과 검사는 core 밖이다.
 
-- lophn은 coding agent 프로세스·코드 생성 loop를 시작하지 않는다. ticket 생성·문제 발생·hook 조회는 착수 지시가 아니다.
+- 시작 동작은 ticket·harness·방식 하나다. 지금은 사람이 자기 터미널에서 직접 시작하거나 [Start]로 project 터미널 탭의 TUI를 첫 prompt와 함께 연다. 클릭이 exact 시작 허락이며 ticket 생성·문제 발생·hook 조회는 착수 지시가 아니다. headless·자동 시작·preset 사전 허락·coordinator·coding loop는 이번 범위에 없다.
+- 모든 coding 작업은 직접 요청·피드백도 lophn·App Engineer가 ticket으로 정리한 뒤 MCP claim→작업→보고한다. 근거 부족은 다음 결정으로 연결하고 ticket 없는 code 작업 fallback을 제공하지 않는다.
 - source 편집은 외부 coding agent의 파일 도구가 한다. connection은 source lock도, 외부 프로세스 종료 권한도 아니다.
 - 문서 version, format, blueprint, release, preview, 실제 Verification, problem 닫힘은 각각 소유 concern의 contract를 쓴다. 통로가 같은 사실의 별도 상태를 만들지 않는다.
 - MCP·CLI·worker는 ledger와 앱 DB를 직접 열지 않는다. 어떤 coding agent 통로도 approval 결정·grant 변경·secret 값·운영 backup·원본 임의 파일 접근·machine test result 작성을 제공하지 않는다.
@@ -18,18 +19,19 @@ concerns: [coding-agent]
 
 ### 2.1 수명과 통신
 
-이 concern의 실행 프로세스 종류는 세 개다. CLI의 installer·doctor·hook은 별도 daemon이 아니라 CLI의 실행 mode다.
+MCP·CLI·coding-agent worker에 shell/terminal의 PTY 실행 경계를 연결한다. installer·doctor·hook은 CLI mode이며 catalog·관측·receipt 관리도 core writer 밖이다. coding loop는 외부 harness가 소유한다.
 
 | 프로세스 | 누가 시작하나 | 하는 일 | 종료·감독 |
 |---|---|---|---|
-| MCP `lophn-mcp` | 사람이 연 coding agent의 MCP client; 세션마다 하나 | JSON-RPC framing, tool discovery, 입력 검증, 공통 client 호출, MCP 결과 표현 | stdin EOF·세션 종료에 종료; 다시 시작은 제품이 결정. core는 띄우지 않음 |
+| MCP `lophn-mcp` | 자기 터미널 또는 [Start] TUI의 제품 MCP client; session 소유 여부는 adapter별 관측 | JSON-RPC framing, tool discovery, 입력 검증, 공통 client 호출, MCP 결과 표현 | stdin EOF·세션 종료에 종료; 다시 시작은 제품이 결정. core는 띄우지 않음; OpenClaw session stdio 미확인은 unknown |
 | CLI `lophn` | 사람 또는 coding agent의 shell command | argv·JSON 입력, 같은 공통 client, 사람이 읽는 출력·JSON, 설치·doctor·hook | 호출 한 번 뒤 종료. daemon start는 platform의 시작 통로에 요청하며 CLI가 writer가 되지 않음 |
 | coding-agent worker | core의 프로세스 감독 | summary·repair context 조립, redaction·budget, ticket 조건 비교·test 요청, event 따라잡기 | core가 시작·감독·재시작. core 연결 상실 시 작업 중단; 새 credential로 reported 재조회 |
+| 외부 harness TUI | 사람이 [Start]를 누른 exact plan을 shell main이 검증하고 shell/terminal PTY로 시작 | 제품 TUI·첫 prompt 수신·MCP 사용; native hook/plugin/extension의 검증 evidence만 관측 | 외부 harness가 coding loop 소유; 재시작·resume 자동 실행 없음, process 소유/종료는 shell/terminal contract |
 
 core에는 `coding-agent/connection/commands`, `coding-agent/tickets/commands`, 각 read module만 둔다. claim 만료 60초 타이머는 core의 감독 timer가 만료 후보 read 뒤 `ticket.expire_claim`을 제출한다. timer 자체가 표를 쓰지 않는다. connection 회수 transaction은 새 인증을 즉시 막으며 claim 정리는 이후 command로 가능하다. 재시작 때도 먼저 만료 후보를 정리한다.
 
 ```text
-사람 → coding agent 세션
+사람 → 자기 터미널 / [Start] → shell main → project 터미널 PTY → coding agent TUI
          ├ MCP client ─ stdin/stdout ─ lophn-mcp ─┐
          ├ shell command ─ lophn CLI ────────────┼─ loopback HTTP JSON ─ core
          └ skill·AGENTS.md (로컬 파일)            │                    ├ 인증·read
@@ -56,13 +58,14 @@ core 주소는 `--daemon-url`, `LOPHN_DAEMON_URL`, 현재 daemon 연결 정보, 
 
 ```text
 deno run --cached-only --no-prompt --config <resources>/deno.json
-  --allow-read=<resources>,<cache>,<connection-token-file>,<daemon-discovery-files>,<submission-root>
+  --allow-read=<resources>,<cache>,<daemon-discovery-files>,<submission-root>
   --allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR
   --allow-net=<core-loopback-host:port>,<allowed-app-loopback-host:ports>
   <resources>/packages/coding-agent/mcp/main.ts
   --connection <cac-id> --toolsets core,app --cwd <submission-root>
 ```
 
+- OS keychain 접근은 Deno의 광범위 run/FFI가 아니라 platform/identity·platform/secrets의 trusted credential loader가 제공하는 보호된 process-local 통로다. MCP·CLI에 keychain 전체 조회·user token·임의 secret 권한을 주지 않는다. 이 전달 contract의 구체는 해당 concern에서 확정한다.
 - MCP에는 `-A`, 무제한 read/write/env/run, `--allow-run`, `--allow-write`, `--allow-ffi`를 주지 않는다. format·빌드·테스트·source 배포는 담당 프로세스에 요청한다. loopback net permission은 listen과 connect를 구별하지 못하므로 MCP 코드는 listener를 만들지 않는다.
 - Deno 파일 권한만으로 submission root 안의 symlink·금지 영역까지 안전하다고 보지 않는다. 명시 제출 파일과 연결 source는 realpath로 재검사한다. 운영 data·backup·추적 원본·다른 앱 source로 이어지는 경로는 거절한다. 원본 자료는 고정 Version 참조로 읽는다.
 - 연결 source가 없는 문서 작업은 사람이 선택한 제출 workspace만 read allowlist에 넣는다. agent가 이미 가진 bytes를 제출할 수도 있다. core에는 클라이언트 파일 경로를 보내 서버가 읽게 하지 않는다.
@@ -70,15 +73,16 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
 - worker는 설치 코드 read, core loopback net, 전달받은 작업 credential만 가진다. source 디렉터리·ledger·앱 DB·keychain read/write·임의 run permission은 없다. 요청자의 connection을 인증 contract로 검증한 좁은 조회 context를 사용하며 machine credential로 범위 밖 근거를 대신 읽지 않는다. 테스트 credential은 test runner에만 있다.
 - 패키지 설치는 코드·설정·Deno cache를 함께 설치한다. MCP 시작에 download·npx·원격 import를 넣지 않는다. 별도 외부 제품 adapter가 필요하면 제품의 사람이 승인한 설치 절차로 미리 설치하고 exact version을 고정한다.
 
-### 2.3 connection token 전달
+### 2.3 connection credential 자동 발급·전달
 
-1. 사람은 **confirmation window**에서 label과 `all` 또는 정확한 app 하나를 확인한다.
-2. **인증**의 신뢰 발급·보관 경계가 core command 밖에서 token을 만들고 소유자 전용 보관을 먼저 준비한다. 위치는 platform이 소유한 `~/.lophn/credentials/connections/<cac-id>/` 아래이며 디렉터리 `0700`, token 파일 `0600` 또는 동등한 ACL이다. symlink·다른 소유자·넓은 mode이면 사용하지 않는다.
-3. core의 connection command는 정확한 사람 확인·준비된 검증 hash만 받아 connection과 hash·event를 같은 transaction에 설치한다. token 원문은 command 입력·결과·일반 API read·event·stdout에 없다. commit 실패의 준비 token은 사용할 수 없고 인증 경계가 정리한다.
-4. 제품 설정·wrapper는 `--connection <cac-id>` 또는 `LOPHN_CONNECTION`만 갖는다. MCP와 CLI의 credential loader가 인증 경계가 정한 같은 token 파일을 읽는다. token 원문은 argv·URL·환경 변수·source·안내·ledger·진단·model 문맥에 넣지 않는다.
-5. 보호 보관 준비 실패는 connection을 만들지 않는다. connection 생성 뒤 제품 설정·skill 설치 실패는 별도 설치 실패로 보이며 connection을 몰래 재발급하지 않는다. 일반 조회로 token을 다시 꺼내지 않는다. 잃어버린 token이나 scope 변경은 사람이 회수 후 새 connection을 만드는 방식이다.
+1. 사람은 연결할 harness·profile·user/app 설치 target·label·all 또는 app 하나의 scope를 선택하고 confirmation window에서 정확한 connection 범위를 결정한다. token 생성·복사·붙여 넣기는 없다.
+2. 인증의 trusted 경계가 core 밖에서 token을 자동 발급하고 OS keychain에 connection principal의 항목으로 보호 보관을 준비한다. 잠김·누락은 unavailable이고 평문 파일 fallback은 없다.
+3. core command는 준비된 검증 hash와 정확한 사람 결정만 받아 connection·hash·event를 한 transaction에 기록한다. 원문 token은 command 입력·결과·API·event·stdout에 없다. commit 실패의 준비 keychain 항목은 사용 불가·정리한다.
+4. 생성 성공 뒤 installer가 선택 target의 MCP·skill을 설치한다. 설정·wrapper에는 `--connection <cac-id>` 또는 `LOPHN_CONNECTION` 참조만 쓴다. MCP server·CLI 시작 때 trusted loader가 keychain에서 꺼내 process-local 통로로 전달하며 일곱 제품 config의 `env`에도 token은 없다.
+5. lophn이 [Start]로 여는 TUI에도 같은 connection credential을 시작 시 보호된 통로로 붙인다. first prompt·argv·일반 env·PTY·log·model 문맥에 token 원문을 넣지 않는다. 자식 MCP/CLI는 보호 참조로 같은 actor를 확인한다.
+6. 보관 준비 실패는 무생성이다. connection 생성 뒤 설치 실패는 connection 성공·component별 partial 실패로 분리하고 재발급하지 않는다. 설치 제거는 revoke가 아니며 scope 변경·분실은 사람이 기존 connection 회수 뒤 새 연결을 선택한다.
 
-인증 실패에 user credential fallback·자동 재발급은 없다. 회수 직후 살아 있는 MCP와 direct-call 앱 credential의 새 요청도 거절된다. 로컬 파일 삭제는 회수를 대신하지 않는다.
+인증 실패에 user credential fallback·자동 재발급은 없다. 회수 직후 살아 있는 MCP와 direct-call 앱 credential의 새 요청도 거절된다. keychain 항목·설치 파일 삭제는 회수를 대신하지 않는다. harness/profile/session은 credential entity 필드가 아니다.
 
 ## 3. 저장
 
@@ -90,8 +94,12 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
 | `tickets`, `ticket_references`, `ticket_adoption_questions`, `ticket_conditions`, `ticket_problems`, `ticket_open_repair_problems` | 같은 ledger; core `coding-agent/tickets` | 생성·취소·check command. 문제 독점 예약은 생성 transaction의 unique 제약; 종료 시 현재 예약만 제거 |
 | `ticket_claims`, `ticket_completions`, `ticket_check_results` | 같은 ledger; core `coding-agent/tickets` | 현재 claim, 보고별 completion, 조건별 최신 check. 과거 completion·event 보존 |
 | 완료 summary | **blob** contract의 `~/.lophn/blobs/sha256/…` | 변경·수행/미실행 확인·한계의 UTF-8 bytes를 redaction 후 준비. ledger에는 hash·영구 참조 |
-| command 결과·event·worker cursor | platform ledger 표 | **command**, **event 구독**으로만. coding-agent 전용 queue·journal 없음 |
-| token 원문 | 위 credentials 경로 | **인증** 보관. backup·git·release 제외. coding-agent module은 keychain secret 표를 만들지 않음 |
+| command 결과·event·worker cursor | platform ledger 표 | **command**, **event 구독**으로만. coding-agent 전용 작업 queue 없음 |
+| HarnessDefinition catalog | 서명된 제품 배포 resource | catalog/adapter revision·검증 version·감지/설치/실행 계약; host absolute path·secret 없음 |
+| 감지·설치/loading·session 관측 | derived memory/disposable local cache | environment/profile/catalog/generation별; stale/unknown 유지. 새 ledger 표 없음 |
+| LocalIntegrationReceipt·recovery journal | `~/.lophn/integrations/` private local metadata | installer만. exact target·owned path/key/marker·last-written hash, component별 commit·복구; 운영 ledger 아님 |
+| default/enabled/profile 선택 | platform/settings | 사용자 선택과 native local path 분리; 감지가 저장 선택을 덮지 않음 |
+| token 원문 | OS keychain의 인증 경계 | 자동 발급·보호된 process-local 전달. backup·git·release·config 제외. coding-agent module은 token 파일·keychain secret 표를 만들지 않음 |
 | 배포 skill·템플릿 | `<resources>/skills/<name>/SKILL.md`, `<resources>/templates/app/`; 서명된 설치 manifest | version·content hash 고정. 같은 version 내용 변경은 배포 테스트 실패 |
 | 설치 사본 | 사람이 선택한 제품 skill root·제품 설정 | installer만. 동명 사람 파일은 충돌, 조용한 교체 금지 |
 | 앱 공통 안내 | `<source>/AGENTS.md` | `<!-- begin lophn-managed -->`와 `<!-- end lophn-managed -->` 사이 하나만 갱신 |
@@ -104,14 +112,16 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
 
 | concern | 프로세스 | 모듈 | 저장 | 주로 쓰는 contract |
 |---|---|---|---|---|
-| coding-agent/connection | core, CLI installer, MCP/CLI loader | `connection/commands`, `connection/read`, `connection/credential`, `adapters` | `coding_agent_connections`, 소유자 전용 token, 제품 설정 | 인증, command, read, confirmation window |
+| coding-agent/connection | core, trusted 인증 경계, MCP/CLI loader | `connection/commands`, `connection/read`, `connection/credential` | `coding_agent_connections`, OS keychain | 인증, command, read, confirmation window |
+| coding-agent/harnesses | CLI installer/doctor, core 밖 local adapter | `harnesses/catalog`, `detection`, `integration`, `receipts`, `adapters` | 배포 catalog·derived 관측·local receipt/journal | settings, 인증 참조, 파일 hash-CAS |
+| coding-agent/sessions | shell main, terminal PTY, 관측 adapter | `sessions/plan`, `launch`, `observe` | launch plan·derived 관측, 새 ledger 없음 | shell/terminal, 인증, read, ticket 현재 claim |
 | coding-agent/mcp-server | MCP | `mcp/stdio`, `mcp/server`, `mcp/tools`, `client` | 없음 | coding agent 통로, read, command, 앱 통로 |
 | coding-agent/cli | CLI | `cli/parser`, `cli/commands`, `cli/output`, `client` | 설치 사본 외 없음 | coding agent 통로, confirmation window |
 | coding-agent/guides | CLI installer/hook, worker | `guides/install`, `guides/managed-files`, `guides/summary`, `adapters` | 설치 skill·템플릿·AGENTS.md; summary는 없음 | read, 인증, release 준비·적용 |
 | coding-agent/repair-context | worker | `repair-context/assemble`, `select`, `budget`, `cursor` | 없음 | read, blob, redaction, outline·search 읽기 |
 | coding-agent/tickets | core, worker | `tickets/commands`, `read`, `checker` | ticket 표 9개 | command, read, event 구독, test 실행, release 준비·적용 |
 
-leaf concern 6개 모두 배치했다. 내부 경로는 `packages/coding-agent/…`로 두며 옛 `v2`, 작업 번호, `coding-agent-interface` 패키지를 새 정본 이름으로 남기지 않는다.
+leaf concern 8개 모두 배치했다. 내부 경로는 `packages/coding-agent/…`로 두며 옛 `v2`, 작업 번호, `coding-agent-interface` 패키지를 새 정본 이름으로 남기지 않는다.
 
 ## 5. 내놓는 contract
 
@@ -133,7 +143,7 @@ leaf concern 6개 모두 배치했다. 내부 경로는 `packages/coding-agent/�
 
 MCP protocol 오류는 JSON parse `-32700`, request 모양 `-32600`, 없는 method `-32601`, 없는 tool·MCP params `-32602`다. 알려진 tool의 실행·scope·입력 실패와 효과 불명은 JSON-RPC 응답 안 `isError: true`다. tool 숨기기만으로 권한을 막지 않으며 API에서도 같은 허용 목록을 검사한다.
 
-**보장.** MCP·CLI는 같은 operation registry·validator·credential loader·client를 사용한다. 같은 credential·입력·CAS·key의 domain 결과와 거절이 같다. 읽기는 writer queue를 거치지 않는다. 반환 전에 scope·redaction을 적용한다. 앱 read는 direct call이며 invocation 기록 때문에 응답을 기다리지 않는다.
+**보장.** MCP·CLI는 같은 operation registry·validator·credential loader·client를 사용한다. 양쪽에 제공하는 같은 credential·입력·CAS·key의 domain 결과와 거절이 같다. 작업 claim은 MCP에만 두며 CLI claim은 MCP 연결·지정 ticket 안내만 반환한다. 읽기는 writer queue를 거치지 않는다. 반환 전에 scope·redaction을 적용한다. 앱 read는 direct call이며 invocation 기록 때문에 응답을 기다리지 않는다.
 
 **보장하지 않는 것.** skill loading·준수, 외부 OS 파일 접근·git 편집·프로세스 종료, source 편집의 동시성 통제, 완료 주장의 진실, 응답 유실을 실패로 판정, 자동 새 실행, preview로 운영 정상·problem 닫힘 증명은 보장하지 않는다.
 
@@ -156,8 +166,10 @@ MCP protocol 오류는 JSON parse `-32700`, request 모양 `-32600`, 없는 meth
 | `lophn_approval` / core | `list`, `show` / approval?, app?, state?, cursor? | exact 대상·입력·영향·기한·대기/적용 상태·결정 위치 | S; allow/reject/consume op 없음 |
 | `lophn_app` / app | `list`, `show`, `register`, `source`, `validate`, `test`, `preview_start`, `preview_stop`, `release_prepare`, `status`, `blueprint`, `invocations`, `logs`, `sync_tools`, `command`, `invocation` / app?, source?, name?, title?, purpose?, planning_version?, template_version?, bundle_hash?, timeout_ms?, problems?, ticket?, claim_seq?, command?, input?, environment?, invocation?, preview?, kind?, target?, test_hash?, check_index?, check_hash?, completion_seq?, before?, after?, basis_seq?, reports?, automation?, limit?, lines?, cursor?, base_revision?, idempotency_key? | 앱·source·검사 diagnostics·Verification/진행·preview 참조·prepared release·approval·현재 상태·invocation·log·배포별 변경 결과 | register ALL, 나머지 A. app test 기본 300,000ms를 runner에 명시. invocation 최대20, log1~2,000줄. release_prepare는 현재 ticket claim과 같은 hash 통과 근거 |
 | `lophn_sdk` / app | `catalog`, `show`, `add` / query?, package?, version?, app?, apply? | catalog 이름·최신판·종류·설명, API/type/permission/peer/예제, exact import 안내·변경/무변경/충돌 | G; apply만 A. range version·미설치 version·조용한 upgrade 거절 |
-| `lophn_problem` / app | `list`, `show`, `snapshot`, `fix_records`, `summary`, `bundle`, `more`, `record_fix`, `test` / app?, problem?, ticket?, claim_seq?, state?, handler?, kind?, source_ref?, cursor?, before_release?, after_release?, summary_version?, verification?, test_hash?, target?, basis_seq?, reports?, base_revision?, idempotency_key? | 문제·snapshot·고친 기록·bounded 수리 자료·추가 근거; record_fix 접수 event; 실제 테스트 접수/결과 | S/A. more는 정본 참조만. claim·별도 repair 단계·닫힘·test result 입력 없음 |
-| `lophn_ticket` / app | `list`, `show`, `checks`, `claim`, `renew`, `release`, `report` / app?, state?, limit?, cursor?, ticket?, claim_seq?, completion?, base_revision?, idempotency_key? | 목록·불변 본문·조건·현재 claim/작업 가능 여부·조건별 근거; claim connection/seq/기한; 보고 접수·남은 조건 | S/A; list1~20. 후속 쓰기는 유효 claim·이번 seq 검사. create/cancel/check 판정 op 없음 |
+| `lophn_problem` / app | `list`, `show`, `snapshot`, `fix_records`, `summary`, `bundle`, `more`, `record_fix`, `test` / app?, problem?, ticket?, claim_seq?, state?, handler?, kind?, source_ref?, cursor?, before_release?, after_release?, summary_version?, verification?, test_hash?, target?, basis_seq?, reports?, base_revision?, idempotency_key? | 문제·snapshot·고친 기록·bounded 수리 자료·추가 근거; record_fix 접수 event; 실제 테스트 접수/결과 | S/A. coding 쓰기는 현재 ticket/claim 필수; 과거 ticket 없는 기록은 조회만. more는 정본 참조만. claim·별도 repair 단계·닫힘·test result 입력 없음 |
+| `lophn_ticket` / app | `list`, `show`, `checks`, `claim`, `renew`, `release`, `report` / app?, state?, limit?, cursor?, ticket?, claim_seq?, completion?, base_revision?, idempotency_key? | 목록·불변 본문·조건·현재 claim/작업 가능 여부·조건별 근거; claim connection/seq/기한; 보고 접수·남은 조건 | S/A; list1~20. 후속 쓰기는 유효 claim·이번 seq 검사. create/cancel/check 판정/start/resume/permission 응답 op 없음 |
+
+위 표의 `?`는 여러 op를 합친 입력 목록에서의 선택 표시다. coding 작업의 source 구현·변경, `release_prepare`, `record_fix`에는 현재 `ticket`·`claim_seq`가 필수이며 조회·ticket 준비 전 근거 조사에만 생략할 수 있다. 문서 저장·설치 관측이 ticket claim을 만들거나 code 작업을 대신 허락하지 않는다.
 
 고정 runtime adapter는 `lophn_app`의 조회와 동작 `command`, `invocation`으로 제공한다. `command` 입력은 app·command·JSON input·`environment: preview|production`·양의 timeout_ms?이며 기본 preview다. coding credential은 선언된 `effect=read`이며 `confirm=false`인 command만 호출한다. `invocation`은 app·invocation ID·같은 environment를 받아 실제 결과·효과 불명을 읽는다. CLI의 사람용 write/external·automation은 아래 사람 통로로만 제공한다. 이 두 op도 `lophn_app` schema의 완전한 op 목록에 포함한다.
 
@@ -180,7 +192,7 @@ secret 사용은 호출자 종류가 아니라 현재 앱 grant와 network host�
 | `/v1/repair_context/summary`, `/bundle` | problem 또는 repair ticket → 요약 또는 RepairContext | 현재 connection의 모든 참조 검사; 둘 다 상태 무변경 |
 | `/v1/repair_context/more` | problem,kind,source,cursor? → evidence page·next_cursor | 고정 조건 cursor, scope·redaction·kind budget. 틀린 cursor invalid_input |
 | `/v1/tickets/list`, `/show`, `/checks` | app/state/limit/cursor 또는 ticket → 요약·전체 ticket·check | scope; list 최대20, 본문 없음; show는 모든 고정 근거·조건 |
-| `/v1/tickets/create` | Ticket 불변 필드,key → open ticket | user·담당 App Engineer만. 생성 시 문제 독점 unique·판/채택 답·조건; invalid_input/forbidden/not_found/conflict |
+| `/v1/tickets/create` | Ticket 불변 필드,key → open ticket | user·lophn·담당 App Engineer만. 생성 시 문제 독점 unique·판/채택 답·조건; invalid_input/forbidden/not_found/conflict |
 | `/v1/tickets/claim` | ticket,base_revision,key → claimed ticket·connection·claim_seq·expires_at | coding_agent; open/check_failed·active connection·scope·revision |
 | `/v1/tickets/renew_claim`, `/release_claim` | ticket,claim_seq,base_revision,key → 현재 claim 또는 open | 현재 coding_agent만; seq·connection·기한. unauthorized/forbidden/conflict |
 | `/v1/tickets/report_completion` | ticket,claim_seq,base_revision,completion,key → reported ticket·completion_seq | 유효 claim·같은 app/ticket/claim release·모든 참조 검사. invalid_input/unauthorized/forbidden/not_found/conflict |
@@ -201,8 +213,9 @@ connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoke
 | `daemon start|stop|status|logs` | logs cursor/lines? | 접수와 실제 상태·안전 log 구별. start/stop 사람 전용; coding credential에서는 거절 |
 | `connection list|show|create|revoke` | show/revoke ID, create label·scope, revoke revision | 원문 없는 연결·보호 화면 대기·회수. create/revoke 사람 전용 |
 | `mcp config` | `--target`, `--scope user|app`, connection, toolsets? | 절대 executable·argv·안전 env의 제품별 조각만. 설정 파일 무변경 |
-| `connection install` | `--target`, `--scope`, connection, app? | 사람이 선택한 lophn 설정 항목의 diff·변경/무변경/충돌·네 검사. trust 확대 없음 |
-| `skills list|install` | install `--target` 또는 `--dir`, `--scope`, names? | 이름·설명·version/hash, 파일별 변경/무변경/충돌. 동명 비관리 skill 교체 없음 |
+| `connection install` | 선택 harness/profile·scope·connection·app? | 기존 connection의 선택 target 재설치; 사람 전용·동일 receipt 계약. 자동 재발급 없음 |
+| `harness list|detect|refresh|inspect|plan|install|update|remove` | exact native target/profile·user/app scope·components·plan·operation key | catalog·최초 감지·명시 재감지·resource별 diff/outcome·receipt·네 loading 관측. 관리 쓰기 사람 전용; 전체 자동 설치 없음 |
+| `skills list|install` | install `--target`, profile?, `--scope`, names? | 이름·설명·version/hash, 파일별 변경/무변경/충돌. 동명 비관리 skill 교체 없음 |
 | `session summary` | app?, cursor?, `--hook`? | lophn_session 결과. hook mode는 아래 별도 상한 |
 | `index root|place|context|document|section|status`, `search <query>` | 대상·depth·cursor·place? | lophn_index 결과; saved view 전용 command 없음 |
 | `read <address>` | version/section/start/length/cursor? | lophn_read 결과·정확한 판·이어 읽기 |
@@ -221,8 +234,8 @@ connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoke
 | `app start|stop|release activate` | app, exact release/대상 입력 | 사람 보호 결정 대기와 실제 상태. coding credential은 거절 |
 | `problem list|show|snapshot|fix-records|summary|bundle|more|record-fix|test` | 대응 MCP 입력; more kind/source-ref/cursor | lophn_problem 결과; image 미지원은 허용 첨부 열기 참조·종류·크기 |
 | `problem attachment open` | problem·snapshot·첨부 참조 | 허용된 첨부의 로컬 열기. 운영 경로 대신 안전한 참조; scope·redaction 검사 |
-| `problem report|request-repair|confirm|dismiss` | report app/한 줄 증상, request problem, confirm 근거, dismiss 사유/false-alarm? | feedback 접수·복사 문장/ticket 고정 자료·결정 화면. 사람 전용; 요청은 자동 agent 시작 아님 |
-| `ticket list|show|checks|claim|renew|release|report|create|cancel` | 대응 MCP 입력; report JSON; create 불변 필드; cancel 사유 | lophn_ticket 결과. create/cancel 사람 통로만, check 판정 command 없음 |
+| `problem report|request-repair|confirm|dismiss` | report app/한 줄 증상, request problem(ticket 준비), confirm 근거, dismiss 사유/false-alarm? | feedback 접수·담당 agent의 ticket 준비/지정 ticket 지시·결정 화면. 사람 전용; 요청은 자동 agent 시작 아님 |
+| `ticket list|show|checks|claim|renew|release|report|create|cancel` | 대응 MCP 입력; report JSON; create 불변 필드; cancel 사유 | lophn_ticket 결과. create/cancel 사람 통로만, claim은 MCP 안내만, check 판정 command 없음 |
 | `secrets status|list|set|delete` | name?; set 값은 보호 화면의 안전 입력만 | keychain 사용 가능 여부·이름·허용 참조·결정 대기. 잠김/누락은 OS 안내·unavailable, 자체 lock/password unlock 없음. 사람 전용; 값은 argv/stdout/JSON/stderr에 없음 |
 
 `app test`는 app test·test command·reproduction test 요청을 구별하는 `--kind`와 그 소유 contract 입력을 받는다. 일반 shell stdout를 test result로 제출하는 옵션은 없다. `ticket report`는 release·summary 문서/bytes·outputs·문제별 fix event·Verification 참조를 받되 완료 seq를 입력받지 않는다. `document history`는 from/to와 선택 section의 고정 이력이며 diff의 rename 추정은 없다.
@@ -231,12 +244,12 @@ connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoke
 
 ### 5.5 일곱 제품 설치 adapter와 안내
 
-adapter manifest는 검증한 제품 version·설정 schema·user/app 위치·loading probe를 고정한다. 설치 당시 capability가 맞지 않으면 자동 설정 대신 조각과 다음 수동 확인을 제공한다. 기존 server·env·permission·trust·hook·동명 skill을 덮어쓰지 않는다. 아래는 각 제품의 통로를 만드는 모양이다.
+HarnessDefinition의 adapter manifest는 검증한 제품 version·설정 schema·effective profile의 user/app 위치·loading probe·detection/version/auth·hook·TUI 첫 prompt와 session evidence 계약을 고정한다. domain 정본은 → coding-agent/harnesses, coding-agent/sessions다. 설치 당시 capability가 맞지 않으면 자동 설정 대신 조각과 다음 수동 확인을 제공한다. 기존 server·env·permission·trust·hook·동명 skill을 덮어쓰지 않는다. 아래는 각 제품의 통로를 만드는 모양이다.
 
 | 제품 | MCP 설치 연결 | skill root (user / app) | 앱 공통 안내·주의 |
 |---|---|---|---|
 | Claude Code | 사람 user 등록 또는 app `.mcp.json`의 `mcpServers.lophn`: command·args·env | `~/.claude/skills` / `.claude/skills` | `CLAUDE.md` 관리 구간의 `@AGENTS.md`; 기존 import·permission 보존. `.claude/settings.local.json`의 lophn SessionStart 항목만 설치 |
-| Codex | `~/.codex/config.toml`의 `[mcp_servers.lophn]`: command·args·env; CLI가 조각 출력 | `~/.agents/skills` / `.agents/skills` | `AGENTS.md`; 더 가까운 `AGENTS.override.md`·안내 검사. 앱별 TOML/MCP 파일 자동 생성 없음 |
+| Codex | effective `CODEX_HOME`(기본 `~/.codex`)/`config.toml`의 `[mcp_servers.lophn]`: command·args·env; CLI가 조각 출력 | `~/.agents/skills` / `.agents/skills` | `AGENTS.md`; 더 가까운 `AGENTS.override.md`·안내 검사. 앱별 TOML/MCP 파일 자동 생성 없음 |
 | OpenCode | `~/.config/opencode/opencode.json` 또는 app `opencode.json`: `mcp.lophn`의 type=local·command 배열·environment | `~/.config/opencode/skills` / `.opencode/skills` | `AGENTS.md`; 기존 rules·다른 config 우선순위 유지 |
 | Hermes | `$HERMES_HOME/config.yaml`(기본 `~/.hermes/config.yaml`)의 `mcp_servers.lophn`: command·args·env·cwd | `$HERMES_HOME/skills` / `.hermes/skills` | `AGENTS.md`; project skill trust는 사람이 `hermes skills trust`로 결정. 프로필 home과 실제 workspace 확인 |
 | pi | 사람에게 미리 설치된 exact MCP adapter의 `.mcp.json` 또는 `~/.pi/agent/mcp-adapter.json`: `mcpServers.lophn` command·args·env·`directTools:true` | `~/.pi/agent/skills` / `.pi/skills` | `AGENTS.md`; tools를 직접 등록, MCP script/proxy가 필수인 형태는 사용하지 않음. native MCP와 adapter 이중 기동 금지 |
@@ -247,20 +260,20 @@ OpenClaw gateway·제품의 shared MCP 수명은 lophn이 세션별 프로세스
 
 설치 알고리즘은 다음이다.
 
-1. 선택 제품·user/app scope·connection·app realpath를 확인하고 서명된 manifest의 version/hash·skill frontmatter·본문 500줄 미만·한 단계 참조를 검사한다. 문자 상한은 Unicode code point, 줄은 CRLF를 LF로 정규화한 logical line 기준이다.
-2. skill root 바로 아래 `<name>/SKILL.md`와 직접 참조 파일을 함께 복사한다. 이름·설명만 시작 discovery에 보이고 본문은 필요한 skill을 읽을 때만 들어간다. 동명 사람 skill은 conflict다. lophn 관리 사본도 기대 hash와 다르면 사용자 변경으로 보존한다.
+1. 선택 제품·native environment/profile·effective config roots·user/app scope·connection·app realpath·catalog/adapter revision으로 exact target plan을 만들고 서명된 manifest의 version/hash·skill frontmatter·본문 500줄 미만·한 단계 참조를 검사한다. 문자 상한은 Unicode code point, 줄은 CRLF를 LF로 정규화한 logical line 기준이다.
+2. skill root 바로 아래 `<name>/SKILL.md`와 직접 참조 파일을 함께 복사한다. 이름·설명만 시작 discovery에 보이고 본문은 필요한 skill을 읽을 때만 들어간다. 동명 사람 skill은 conflict다. lophn 관리 사본도 receipt의 last-written hash와 다르면 사용자 변경으로 보존한다. receipt 없는 동명 사본은 소유한다고 추정하지 않는다.
 3. 새 템플릿은 처음부터 AGENTS.md 관리 marker 쌍을 갖는다. 갱신은 정확한 쌍 하나의 내부만 교체한다. marker 없음·중복·불완전은 무변경·사람 복구 안내다. 앞뒤 bytes는 그대로 둔다.
 4. MCP 설정은 해당 lophn key만 merge하고 CLI wrapper는 절대 설치 client와 connection ID·app 기본값만 넣는다. Codex는 조각·안내만 배포한다. ignore와 제품 얇은 안내도 관리 부분만 바꾼다. broken JSON/TOML/YAML은 무변경이다.
-5. 읽은 전체 파일 hash와 교체 직전 hash를 비교하고 다르면 conflict다. 같은 디렉터리 임시 파일을 fsync 후 원자적 rename한다. 파일별 changed/unchanged/skipped/conflict와 이유를 반환한다. multi-file 설치를 하나의 원자적 transaction이라고 표시하지 않는다.
+5. receipt의 owned resource/fragment digest와 현재 digest 일치, 계획에서 읽은 전체 파일 hash와 교체 직전 hash 일치를 모두 검사한다. 불일치·외부 symlink·동명 비관리 resource는 conflict다. 같은 디렉터리 temp/fsync/rename으로 파일별 교체하고 committed resource의 receipt를 갱신한다. 제거도 같은 ownership+hash 조건에서 owned fragment/file만 지우며 user 영역은 남긴다. changed/unchanged/skipped/conflict/failed·receipt outcome을 resource별로 반환하고 multi-file 원자성을 주장하지 않는다. receipt 저장 실패는 partial+recovery journal이며 재검사 전 추가 갱신·제거를 막는다.
 6. MCP initialize·tool discovery·skill name/description discovery·app guide loading을 각각 success/failure/unknown으로 기록한다. 파일 존재만으로 loading 성공이라고 하지 않는다. override·동명 skill·더 가까운 안내·별도 workspace·trust 거절의 다음 확인을 준다.
 
 배포 네 skill은 `lophn-navigate`, `lophn-save`, `lophn-build-app`, `lophn-repair`다. 앱 템플릿은 **release 준비·적용**과 **test 실행** 관문을 안내하고 code·SDK layout은 apps 소유다. 공통 안내에는 고정 설계 주소, SDK 재사용, blueprint 먼저 수정, machine 생성 테스트 수정 금지, 문제 code·reportProblem·예외·피드백 연결 보존, 실제 테스트·preview·결과 반환, 사람 지시 claim, 금지 작업만 둔다. 변하는 ticket·repair bundle·token은 없다. 안내·skill·wrapper·hook·제품 local MCP 설정은 운영 release에서 제외한다.
 
-Claude Code hook은 `session summary --hook --app <app>`을 사용한다. 시작·재개·초기화에 warning 이상 coding_agent 대상 open/fixing 문제를 최대3개, 열린/check_failed ticket의 요약·나머지 수·상세 읽기·마지막 착수 금지 문장을 합쳐 **10줄·1,200 code point 이하**로 만든다. info·사람 처리 문제는 제외한다. 전체 timeout5초, core 대기3초이며 장애·빈 결과는 stdout 빈 값·exit0으로 끝낸다. 이는 일반 summary의 실패 표시와 다르고 hook이 세션 시작을 막지 않기 위한 예외다. doctor·명시 summary에는 실패 이유를 표시한다. 나머지 여섯 제품은 hook 없이 같은 summary를 명시 조회한다.
+Claude Code hook은 `session summary --hook --app <app>`을 사용한다. 시작·재개·초기화에 warning 이상 coding_agent 대상 open/fixing 문제를 최대3개, 열린/check_failed ticket의 요약·나머지 수·상세 읽기·마지막 착수 금지 문장을 합쳐 **10줄·1,200 code point 이하**로 만든다. info·사람 처리 문제는 제외한다. 전체 timeout5초, core 대기3초이며 장애·빈 결과는 stdout 빈 값·exit0으로 끝낸다. 이는 일반 summary의 실패 표시와 다르고 hook이 세션 시작을 막지 않기 위한 예외다. doctor·명시 summary에는 실패 이유를 표시한다. 나머지 여섯 제품은 같은 summary를 명시 조회한다. 상태 수집 hook/plugin/extension은 summary와 별도 목적·receipt·version 검증이다. Claude settings, Codex effective CODEX_HOME hooks, Gemini settings, Hermes YAML/plugin, OpenCode XDG plugin, pi extension을 서로 다른 target으로 두고 미검증 status adapter/OpenClaw는 unknown이다. hook 설치로 trust·permission 응답 권한을 열지 않는다.
 
 ### 5.6 repair context 조립·budget·cursor
 
-`repair-context/assemble`은 coding-agent worker에서 요청마다 현재 read·고정 blob을 모은다. `observed_at`, 읽은 대상별 `basis` revision, 증상 당시 시각·발생 release·source commit 기준을 함께 낸다. ticket은 연결된 문제를 각각 구별하며 직접 수리는 problem 하나·ticket=null이다. 완성 묶음은 저장하지 않는다.
+`repair-context/assemble`은 coding-agent worker에서 요청마다 현재 read·고정 blob을 모은다. `observed_at`, 읽은 대상별 `basis` revision, 증상 당시 시각·발생 release·source commit 기준을 함께 낸다. ticket은 연결된 문제를 각각 구별하며 ticket 준비 전 조사는 problem 하나·ticket=null이다. 이 조회로 code 작업을 시작하지 않는다. 완성 묶음은 저장하지 않는다.
 
 절 순서는 domain model의 15종 그대로다. `target_symptom → human_text → inspect → acceptance_checks → preserve → failure_basis → representative_occurrences → preceding_changes → logs → past_repairs → related_problems → attachments → reproduction → more → return_method`다. 내용도 누락 사실도 없는 절만 뺀다. raw 사람 말·앱 문자열·log는 명시 data fence 안에 두며 가설·해석과 분리한다.
 
@@ -305,22 +318,39 @@ cursor는 worker가 만든 opaque base64url payload에 서버 MAC을 붙인다. 
 
 ## 7. 흐름
 
-### 7.1 사람 연결 설치와 세션 시작
+### 7.1 harness 감지·연결·설치
 
 ```text
-[사람] label·scope·제품·설치 범위 선택
- → [shell main / confirmation window] exact 대상 확인
- → [인증의 신뢰 발급·보관 경계] token 소유자 전용 보호 보관 준비 (core command 밖)
- → [core] coding_agent_connection.create command(준비된 hash만) → connection+hash+event
- → [인증 경계] commit 확인; 실패한 준비는 사용 불가·정리
- → [CLI installer] 선택한 lophn 설정/skill/안내만 설치·doctor
- → [사람] coding agent 열기
- → [제품 MCP client] lophn-mcp stdio 시작 → initialize → tools/list
- → [MCP 또는 CLI hook] summary read
- → [worker] scope 안 요약 조립 → 상세 read·claim_rule 반환 (command 없음)
+[최초 native lookup / 사람 Refresh] PATH·bounded fallback 읽기 → environment/profile별 HarnessDetection
+ → [사람] harness·profile·설치 범위·connection scope 선택
+ → [shell main / confirmation window] exact connection 범위 결정
+ → [인증 trusted 경계] token 자동 발급·OS keychain 보관 준비 (core 밖)
+ → [core] connection.create(hash만) → connection+hash+event
+ → [인증 경계] commit 확인; 실패 준비는 사용 불가·정리
+ → [installer] catalog revision·target·receipt·hash 검사 → 파일별 commit·receipt
+ → [doctor] component 상태와 네 loading stage 별도 관측
 ```
 
-목록 발견은 착수 지시가 아니다. 네 loading 검사 중 실제 세션 loading을 확인하지 못한 항목은 unknown이다. daemon 장애의 hook 예외는 세션 시작을 막지 않으며 명시 doctor에서는 읽지 못한 이유가 남는다.
+재감지는 사람이 요청할 때만 한다. PATH·profile·catalog 변경은 cache를 stale로 만들되 자동 탐색·설치·시작하지 않는다. 감지는 credential을 만들지 않는다. Codex MCP는 TOML 조각 출력·안내이며 자동 수정하지 않는다. keychain 보관 실패는 무생성, 설치 부분 실패는 발급 성공과 별도로 표시한다. unknown auth/loading을 성공이나 부재로 바꾸지 않는다.
+
+### 7.1.1 지정 ticket의 사람 시작
+
+```text
+[사람] ticket·harness·방식 선택
+ ├ 자기 터미널: 사람이 직접 제품 TUI를 열고 지정 ticket 지시
+ └ [Start]: exact one-use start handle → shell main 검증
+     → 현재 ticket revision/claim 없음·connection scope·executable/profile·project 폴더 재검사
+     → 인증 경계가 connection credential 보호 전달
+     → shell/terminal의 project PTY 탭에 catalog argv로 TUI spawn
+     → first prompt 1회 전달 (지정 ticket read → MCP claim → 작업 → 보고)
+ → [제품 MCP client] lophn-mcp 시작 → keychain loader → initialize/tools list
+ → [coding agent] ticket show → MCP ticket.claim (실제 claim 경쟁/CAS)
+ → [상태 adapter] native ID·상태 evidence → derived session 관측
+```
+
+[Start]가 시작 허락이며 별도 시작 confirmation window는 없다. 연결 생성·scope 확대·harness 자체 trust·release activation의 허락을 대신하지 않는다. 등록 project와 연결 source가 없거나 여러 폴더 선택이 미정이면 다음 연결/선택 안내로 끝난다. 실행 전에 다른 harness로 fallback하거나 재감지하지 않는다. status `starting/ready/working/waiting_input/ended/unknown`은 claim·보고·실제 테스트와 별개다. session ID가 없으면 null이며 탭/connection/ses ID로 채우지 않는다. 자기 터미널 session은 확인된 MCP binding/evidence만 연결하고 lophn process 소유로 표시하지 않는다.
+
+readiness·first prompt 전달이 불명이면 unknown이며 자동 입력 재전송·새 process 시작이 없다. lophn 재시작 뒤 terminal 복원은 새 TUI 실행이 아니며 evidence 재연결 전 unknown이다. 나중 headless·자동 시작·coordinator는 현재 method·MCP op·ledger에 열지 않는다.
 
 ### 7.2 문서 저장
 
@@ -337,12 +367,12 @@ cursor는 worker가 만든 opaque base64url payload에 서버 MAC을 붙인다. 
 ### 7.3 지정 ticket claim과 제작·release 준비
 
 ```text
-[사람 화면] 열린 문제 하나의 수리 요청 또는 App Engineer에게 새 구현 요청
- → [shell/App Engineer] 기존 고정 자료에서 ticket 입력 준비; 미정 재현·채택은 생성하지 않고 다음 행동 안내
+[사람 화면] 직접 요청·피드백·열린 문제의 수리 요청 또는 새 구현 요청
+ → [shell/lophn/App Engineer] 기존 고정 자료에서 ticket 입력 준비; 미정 재현·채택은 생성하지 않고 다음 행동 안내
  → [core tickets module] 같은 ticket.create 검사 → open (외부 세션 자동 시작 없음)
- → [사람] 열린 coding agent 세션에 특정 ticket 작업 지시
+ → [사람] 자기 터미널에 특정 ticket 지시 또는 [Start] 첫 prompt
  → [MCP/CLI] ticket show·고정 채택 판·acceptance check 읽기
- → [core tickets module] ticket.claim command(base_revision,key)
+ → [MCP → core tickets module] ticket.claim command(base_revision,key)
  → [MCP/CLI] connection·claim_seq·60분 기한 반환
  → [coding agent] SDK 읽기 → blueprint·source 구현
  → [apps 준비 담당] 연결 source 고정 bundle
@@ -356,10 +386,10 @@ cursor는 worker가 만든 opaque base64url payload에 서버 MAC을 붙인다. 
 
 읽기·테스트·preview·release 준비는 claim을 연장하지 않는다. source 변경이면 이전 hash의 app test를 재사용하지 않는다. 준비는 activation이 아니며 activation 결정은 사람에게 남는다.
 
-### 7.4 ticket 수리와 직접 수리 자료 읽기
+### 7.4 ticket 수리와 ticket 준비 전 조사 자료 읽기
 
 ```text
-[MCP/CLI] repair ticket 또는 직접 problem의 bundle 요청
+[MCP/CLI] repair ticket 또는 준비 전 problem의 bundle 조회 요청
  → [core read/인증] 현재 연결·허용 대상 판정 → [worker] 정본별 basis 수집
  → [worker] 발생 release·snapshot·실패 invocation·지난 고친 기록·고정 test 조립
  → [worker] scope/redaction·대표 선정·절별/전체 budget·more 생성
@@ -370,7 +400,7 @@ cursor는 worker가 만든 opaque base64url payload에 서버 MAC을 붙인다. 
  → [core problems module] 고친 기록 command·release·Verification 연결
 ```
 
-ticket이 있으면 7.3의 claim을 먼저 받는다. 직접 수리는 ticket=null이고 claim·기한·가짜 ticket 없이 고친 기록·실제 test 요청만 남긴다. 당시 source 근거가 없으면 현재 파일로 과거 줄 번호를 꾸미지 않는다.
+code 작업 전에는 7.3의 실제 ticket·MCP claim이 필수다. 준비 전 조회는 ticket=null이며 문서·근거 조사만 가능하고 담당 agent의 ticket 준비로 이어진다. ticket 없는 고친 기록은 과거 근거 조회만 유지한다. 당시 source 근거가 없으면 현재 파일로 과거 줄 번호를 꾸미지 않는다.
 
 ### 7.5 완료 보고와 machine check
 
@@ -413,23 +443,28 @@ worker는 `VerificationRecorded`, `ProblemClosed`, `ProblemReopened`, `ReleaseAc
 |---|---|
 | MCP/CLI 종료·stdin EOF | 권위 있는 작업 상태 없음. 제품이 다시 연 통로에서 같은 connection·ticket·claim·release를 읽음. 종료만으로 반납·외부 세션 사망을 기록하지 않음 |
 | 쓰기 응답 유실 | 원래 key·내용으로 command 결과 조회/재요청 또는 현재 대상 read. 새 key로 준비·보고·외부 효과를 자동 반복하지 않음. effect_unknown·exit6/isError |
-| core 재시작 | active 영구 connection token 그대로 사용. 실행 credential은 인증 contract에 따라 새로 받음. token 자동 재발급 없음. core 만료 정리, worker reported 누락 check 복구 |
+| core 재시작 | OS keychain의 active connection credential 그대로 사용. 실행 credential은 인증 contract에 따라 새로 받음. token 자동 재발급 없음. core 만료 정리, worker reported 누락 check 복구 |
 | worker 종료 | core 감독이 재시작. derived bundle은 다시 조립; 접수 완료 report는 ledger에 남음. event cursor+reported read로 따라잡고 최신 completion CAS. cursor 불가면 첫 페이지 재조회 |
 | 만료·회수·취소·동일 connection 재claim | 모든 후속 쓰기 transaction에서 현재 seq·기한 재검사. timer 정리 지연은 허용 근거 아님. 이전 산출물 보존, 자동 renew 없음 |
 | test/format/release 준비 프로세스 중단 | 소유 contract의 실제 결과·미실행·unavailable 전달. shell excerpt·preview 성공으로 Verification pass를 만들지 않음 |
 | redaction·근거 수집 실패 | 해당 절/첨부의 missing/redacted/forbidden/truncated와 이유. 실패를 없는 문제·빈 성공·0건으로 감추지 않음 |
-| 설치 부분 실패·동시 편집·깨진 설정 | 파일별 무변경/충돌, 사람 파일 보존. 기대 hash로 이미 적용된 lophn 파일만 확인, 전체 설치 성공 추측 금지. 네 doctor 단계 재검사 |
-| token 유출 의심·분실 | 사람 회수 후 새 connection; token 파일 삭제·label 변경만으로 해결이라고 하지 않음. 진단은 connection ID만 |
+| 설치 부분 실패·동시 편집·깨진 설정 | component별 commit/무변경/충돌·사람 파일 보존. receipt/journal과 현재 hash 재검사, receipt 실패는 partial+recovery. 전체 성공 추측 금지·네 loading 단계 별도 관측 |
+| PATH/version/auth probe 실패·빈 결과 | absent·error·timeout·unknown 구별; 마지막 관측과 시각 유지. 자동 refresh/install/launch 없음 |
+| [Start] executable·scope·ticket revision 변경 | spawn 전 conflict/unavailable; 새 connection·다른 harness·임의 cwd 자동 대체 없음 |
+| TUI readiness timeout·prompt 전달 불명·실행 경계 종료 | session unknown/launch_failed와 다음 터미널 확인 안내; prompt 자동 재전송·process 자동 재시작 없음. 실제 exit evidence만 ended |
+| session hook 수집 끊김·lophn 재시작 | stale/unknown, native ID 미획득은 null. 재관측만 허용하며 claim은 별도 정본 조회·기존 만료 정책 |
+| keychain 잠김·누락 | credential 사용 unavailable, OS 다음 행동 안내. token 파일·user fallback·자동 재발급 없음 |
+| token 유출 의심·분실 | 사람 회수 후 새 connection; keychain 항목 삭제·label 변경만으로 해결이라고 하지 않음. 진단은 connection ID만 |
 
-테스트는 MCP/CLI parity, app scope의 제목·건수·첨부 누출, 회수 후 살아 있는 MCP/direct-call 거절, claim 기한 경계·재claim 옛 seq, 보고/검사 CAS, Unicode budget·cursor 변조, managed marker 오류·동시 편집·원자적 교체, 일곱 제품의 기존 설정 보존·네 loading 단계·오프라인 MCP 시작을 포함한다.
+테스트는 사람 [Start] exact 허락·project PTY·prompt 1회·재시작 unknown·session/claim 분리, bounded native 감지·명시 refresh·profile cache 분리, receipt/hash update/remove·partial recovery·keychain 잠김, MCP/CLI 공통 동작 parity(실제 claim은 MCP만), app scope의 제목·건수·첨부 누출, 회수 후 살아 있는 MCP/direct-call 거절, claim 기한 경계·재claim 옛 seq, 보고/검사 CAS, Unicode budget·cursor 변조, managed marker 오류·동시 편집·원자적 교체, 일곱 제품의 기존 설정 보존·네 loading 단계·오프라인 MCP 시작을 포함한다.
 
 ## 9. 이전과 달라진 것
 
-- 이전: CLI가 user token을 읽거나 환경 제품 이름으로 actor를 정했다. / 지금: coding-agent connection ID의 같은 token을 MCP·CLI가 쓰며 사람 credential은 shell main에만 둔다. / 이유: 통로 변경·label·작업 위치로 권한을 얻지 못하게 한다.
+- 이전: CLI가 user token을 읽거나 환경 제품 이름으로 actor를 정했다. / 지금: coding-agent connection ID의 OS keychain의 같은 credential을 MCP·CLI가 시작 때 받으며 사람 credential은 shell main에만 둔다. / 이유: 통로 변경·label·작업 위치로 권한을 얻지 못하게 한다.
 - 이전: 인증 실패에 user token으로 coding token을 자동 재발급했다. / 지금: 회수·분실은 사람이 회수 후 새 connection을 만든다. / 이유: 회수 결정을 되살리지 않는다.
 - 이전: MCP의 broad read/write/run과 daemon command 안 source 순회·테스트가 섞였다. / 지금: narrow adapter, core 밖 담당 프로세스, 결과만 command다. / 이유: A1·A2와 source/data 경계를 지킨다.
 - 이전: 직전 사본은 다섯 tool 묶음만 적어 format·series·질문·runtime·출력 동작을 구현자가 다시 추측했다. / 지금: 고정 15개 tool의 전체 op·blueprint 유래 read tool·CLI 전체 command·자기 RPC·검사·오류·출력을 명시한다. / 이유: 현재 requirements의 capability를 빠뜨리지 않고 공통 registry로 두 통로를 맞춘다.
-- 이전: 문제 직접 claim·24시간 claim·읽기 갱신·repair attempt/workflow·host journal·receipt가 있었다. / 지금: ticket claim60분·명시 갱신, 고친 기록·Verification·invocation을 사용한다. / 이유: 불필요한 상태·ledger·권한 단계를 없앤다.
+- 이전: 문제 직접 claim·24시간 claim·읽기 갱신·repair attempt/workflow·host 작업 journal·receipt가 있었다. / 지금: ticket claim60분·명시 갱신, 고친 기록·Verification·invocation을 사용한다. / 이유: 불필요한 작업 상태·ledger·권한 단계를 없앤다. 새 LocalIntegrationReceipt는 외부 config ownership의 local metadata이지 작업 receipt 부활이 아니다.
 - 이전: 수리 자료가 현재·당시 근거와 여러 크기 체계를 섞었다. / 지금: 요청 시 worker 조립·고정 basis·15절·24KiB/300줄·실제 cursor로 통일한다. / 이유: 적은 token으로 근거 전체에 닿고 없는 증거를 숨기지 않는다.
 - 이전: skill 덮어쓰기·제품별 본문 복제·앱 설정 자동 trust를 할 여지가 있었다. / 지금: hash/CAS·managed 구간·AGENTS.md 정본·네 단계 loading 검사, Codex 조각·OpenClaw 명시 읽기다. / 이유: 사람 안내·설정·workspace를 보존한다.
 - 이전: 모든 시작 조회 실패를 같은 방식으로 처리했다. / 지금: 일반 summary는 실패를 표시하고 Claude Code hook만 명시 상한·timeout·빈 출력/exit0 예외다. / 이유: 근거 부재와 장애를 구분하면서 외부 세션 시작을 막지 않는다.

@@ -12,6 +12,8 @@ Session과 Message, 입력의 담당 run과 최초 반영 연결을 정의한다
 |---|---|---|---|---|
 | `id` | `ses` ID | 아니오 | PK | 세션 |
 | `assignment` | `asg` ID | 아니오 | 불변; → lophn-agent/assignments | 상대 assignment |
+| `work_place` | WorkPlace | 아니오 | OpenSession에서 확정; AE/Operator는 assignment 범위와 같음 | 지침 선택 자리 |
+| `work_place_revision` | 양의 정수 | 아니오 | 초기 1; 명시 변경마다 증가 | 자리 CAS |
 | `state` | `open / closed` | 아니오 | 초기 `open` | 새 입력 접수 가능 여부 |
 | `continued_from` | Continuation | 예 | 같은 assignment의 세션; 자기 자신 금지 | 사람이 지정한 원문 구간 |
 | `closed_reason` | `user_closed / assignment_withdrawn` | 예 | `closed`일 때만 필수 | 종료 이유 |
@@ -36,6 +38,15 @@ Session과 Message, 입력의 담당 run과 최초 반영 연결을 정의한다
 - 세션에는 `archived` 상태, 자동 만료, 열린 세션 수 상한이 없다.
 - 화면 닫기, 자정, 연결 끊김, 재시작, assignment의 `paused`는 세션을 닫지 않는다.
 - 세션 없는 주기 run에 세션을 자동 생성하지 않는다.
+
+## WorkPlace (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `kind` | `global / project / app` | 아니오 | 실제 개설 자리; file cwd 아님 | 자리 종류 |
+| `id` | Project 또는 App ID | 예 | global이면 null; 나머지는 active 대상 참조 | 작업 대상 |
+
+App Engineer는 Assignment.scope app, Operator는 project/app으로 고정한다. lophn·Context Engineer는 OpenSession의 shell 개설 자리로 시작하며 자리 없는 전역 화면은 global이다. app의 project 관계는 owner contract로 resolve한다. 이어가기 summary는 작업 자리를 상속하는 동작이 아니며 새 세션 개설 자리나 사람의 명시 선택을 쓴다. 탭·초점·TurnContext·handoff는 이 값을 바꾸지 않는다.
 
 ## Message (`msg`)
 
@@ -106,7 +117,8 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `OpenSession` | user | ID, assignment, continued_from? | assignment enabled/paused·현재 revision; withdrawn 거절·출처 seq | `SessionOpened` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
+| `OpenSession` | user | ID, assignment, 개설 WorkPlace, continued_from? | assignment enabled/paused·현재 revision; withdrawn 거절·출처 seq | `SessionOpened` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
+| `ChangeSessionWorkPlace` | user | 세션, 새 WorkPlace | 세션 open·work_place_revision CAS·대상 active; lophn/CE만; 다음 call 적용 | `SessionWorkPlaceChanged` | invalid_input, conflict, forbidden, not_found |
 | `CloseSession` | user / machine | 세션, 이유 | 예상 `open`, 상태 seq; 미종료 run 없음 | `SessionClosed` | `conflict`, `forbidden` |
 | `ReceiveMessage` | user | ID, 세션, 본문, mode, 대상 run? | 세션 open·상태 seq; assignment 현재 상태·revision; correction은 enabled·같은 세션의 담당 run 검사 및 종료 경계 정책; ID 내용 일치 | `MessageReceived`; enabled run 접수는 → lophn-agent/harness/run-loop; paused request는 run=null | `invalid_input`, `conflict`, `forbidden` |
 | `RecordMessage` | agent / machine | ID, 세션, run?, 본문, links | run·세션 연결; ID 내용 일치 | `MessageRecorded` | `invalid_input`, `conflict`, `forbidden` |
@@ -118,7 +130,8 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
-| `SessionOpened` | 세션 | assignment, continued_from? | shell/desktop |
+| `SessionOpened` | 세션 | assignment, work_place, work_place_revision, continued_from? | shell/desktop |
+| `SessionWorkPlaceChanged` | 세션 | 전후 work_place·revision | lophn-agent/harness/prompt-assemble, shell/desktop |
 | `SessionClosed` | 세션 | 이유, closed_at | shell/desktop, lophn-agent/harness/prompt-assemble |
 | `MessageReceived` | 메시지 | 세션, 담당 run, mode, body | lophn-agent/harness/run-loop, shell/desktop |
 | `MessageRecorded` | 메시지 | 세션, run?, body, links | shell/desktop |
@@ -130,3 +143,5 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 - **이어가기.** summary 준비·선택은 → lophn-agent/harness/prompt-assemble. 세션 종료에 summary 성공을 요구하지 않는다.
 - **접수.** enabled는 Message 및 담당 run 저장 commit 뒤에 접수 완료를 반환한다. paused request는 Message만 commit하고 보존·미실행임을 반환한다. withdrawn은 세션 정리 전에도 새 입력을 거절한다.
 - **보존한 요청 실행.** ExecuteStoredRequest는 명시적인 사람 선택에만 AcceptRun과 AssignMessage를 함께 적용한다. 같은 원문을 복제하지 않고 새 run 출처는 그 message ID다. 현재 선행 run의 failed/stopped 확인 등 시작 정책은 → lophn-agent/harness/run-loop를 그대로 따르며 재개 event·재시작·일반 메시지로 자동 실행하지 않는다.
+
+- **작업 자리.** AE/Operator는 assignment 담당 범위로 고정하고 lophn/CE는 Session 값으로 유지한다. 매 call 준비 직전에 현재 자리와 지침 판을 함께 snapshot하여 ContextBasis에 기록한다. 변경은 다음 call부터, 과거 call 근거는 불변이다. 세션 없는 Operator 회차는 Assignment.scope를 쓴다. → lophn-agent/instructions.

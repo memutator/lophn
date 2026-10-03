@@ -42,7 +42,7 @@ Ticket의 불변 요구, acceptance check, claim, 완료 보고와 machine check
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | `open` | `user` 또는 담당 App Engineer의 `agent` | 필수값·채택 판·조건·문제 독점 검사 통과 | `TicketCreated` |
+| 없음 | `open` | `user` 또는 lophn·담당 App Engineer의 `agent` | 필수값·채택 판·조건·문제 독점 검사 통과 | `TicketCreated` |
 | `open` / `check_failed` | `claimed` | 범위 안 `coding_agent` | 현재 revision 일치; claim 없음; 사람 지시 | `TicketClaimed` |
 | `claimed` | `claimed` | 현재 `coding_agent` | connection·claim seq 일치; 기한 전 명시적 갱신 | `TicketClaimRenewed` |
 | `claimed` | `open` | 현재 `coding_agent` 또는 `machine` | 반납, 만료 또는 connection 회수; 현재 claim 비교 | `TicketClaimReleased` |
@@ -152,7 +152,7 @@ ID 없는 tagged union이다. 아래에서 해당 kind의 필드만 존재한다
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `ticket.create` | `user`, 담당 App Engineer `agent` | 불변 필드 전부, idempotency key | 앱·고정 판·채택 답·조건 유효; 문제 revision과 열린 예약 없음 | `TicketCreated` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
+| `ticket.create` | `user`, lophn·담당 App Engineer `agent` | 불변 필드 전부, idempotency key | 앱·고정 판·채택 답·조건 유효; 문제 revision과 열린 예약 없음 | `TicketCreated` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
 | `ticket.claim` | `coding_agent` | ticket, idempotency key | `base_revision`, state open/check_failed, active connection·scope | `TicketClaimed` | `unauthorized`, `forbidden`, `not_found`, `conflict` |
 | `ticket.renew_claim` | 현재 `coding_agent` | ticket, claim_seq | `base_revision`, connection·claim_seq 일치, `now < expires_at` | `TicketClaimRenewed` | `unauthorized`, `forbidden`, `conflict` |
 | `ticket.release_claim` | 현재 `coding_agent` | ticket, claim_seq | `base_revision`, 현재 유효 claim 일치 | `TicketClaimReleased` | `unauthorized`, `forbidden`, `conflict` |
@@ -179,21 +179,22 @@ release 준비 command는 → apps/releases에서 소유하며 ticket ID·현재
 
 ## 정책
 
+- **문자 계산.** 문자 상한은 Unicode code point, 줄 상한은 CRLF를 LF로 정규화한 logical line으로 센다. test_command 실행 파일 허용 목록은 소유 test 실행 spec이 정하며 임의 실행 권한을 추가하지 않는다(→ redesign/coding-agent#Q21).
 - **claim 기간.** 기본 `3,600,000ms`이며 claim 생성·명시적 갱신 시점부터 계산한다. 읽기·repair-context·release 요청은 연장하지 않는다. 만료 정리는 60초마다와 재시작 때 하되 모든 쓰기도 즉시 기한을 검사한다.
 - **claim 상실.** 만료·반납·취소 뒤 옛 claim 갱신·ticket 근거 release 준비·완료 보고를 거절한다. 같은 connection이 재claim해도 옛 seq는 `conflict`, 회수 credential은 `unauthorized`다.
-- **사람 지시.** coding agent는 사람이 연 세션에서 사람 지시로만 claim한다. 목록·시작 summary는 지시가 아니며 외부 세션 감독 entity를 만들지 않는다(→ coding-agent/guides).
+- **사람 지시.** coding agent는 자기 터미널의 사람 지시 또는 [Start] 첫 prompt로 지정한 ticket만 MCP claim한다. 목록·시작 summary는 지시가 아니다. → coding-agent/sessions의 시작·상태 관측은 claim 생성·갱신·해제를 대신하지 않는다. claim 필드에 외부 session ID를 넣지 않는다. 같은 connection의 여러 session은 claim_seq로 현재 권리를 확인한다.
 - **사람 화면.** 진행 정본은 이 파일의 여섯 상태다. → coding-agent/tickets#R27, shell/wording에 따라 영어 화면 말로 표현하고 claim 기한·연결 ID·전체 조건과 보고·test 원문은 기본에서 숨긴다. 화면 라벨을 별도 ledger 상태로 저장하지 않는다.
 - **check 판정.** 전부 pass일 때만 confirmed다. 하나라도 실제 fail이면 check_failed, 그 외 미실행·승인·운영 대기는 reported다. 일반 shell log나 완료 주장의 통과 문자열은 machine test result가 아니다.
 - **check 재접수.** 재시작 때 reported를 읽고 누락 check를 잇는다. `VerificationRecorded`, `ProblemClosed`, `ProblemReopened`, `ReleaseActivated`, `ReleaseSuperseded` 뒤 남은 조건을 재검사한다. model call은 없다.
 - **문제 경계.** `TicketConfirmed`로 문제를 닫지 않는다. 문제 작업 상태·열린 ticket 참조는 → problems/grouping이 현재 ticket을 읽어 idempotent command로 적용하고, 닫힘은 → problems/closing에서 먼저 판정한다.
 - **종료 보존.** 취소·만료는 release·문서·고친 기록·test result 삭제나 문제 닫힘이 아니다. claim은 source git lock이나 외부 프로세스 제어권이 아니다.
-- **직접 수리.** ticket 없는 수리에는 claim·기한·가짜 ticket이 없다. → problems/repairs, problems/tests만 사용한다. 취소 ticket을 직접 수리 경로로 완료 처리할 수 없다.
+- **모든 coding 작업.** 직접 요청·피드백도 lophn·App Engineer가 검사 가능한 ticket으로 정리한다. code 작업은 MCP claim→작업→보고이며 ticket 없는 수리 fallback은 없다. 과거 고친 기록은 → problems/repairs의 근거로 보존한다. 근거 부족은 무생성·다음 결정 안내이고 취소 ticket을 직접 경로로 완료 처리하지 않는다.
 - **activation 조건.** 실제 사용까지 맡긴 구현에만 `release_active`를 명시한다. 숨은 공통 기본값은 없다. activation approval는 → apps/releases, platform/approvals이다.
 
 ## 정할 것
 
-- claim 기본 기간 `3,600,000ms` 유지 또는 조정.
-- **H4.** reproduction test 없는 repair ticket을 사람 acceptance check로 허용할지. 현재는 생성 거절·ticket 없는 직접 수리다.
-- **H2.** coding agent release activation의 매번 사람 approval 유지. 현재 유지한다.
-- **H7.** 담당 App Engineer의 승인 없는 즉시 ticket 생성 유지.
-- 문자 상한의 계산 단위(Unicode code point 또는 grapheme cluster)와 test_command 실행 파일 허용 목록의 구체는 spec에서 확정한다.
+- coding-agent/tickets#Q1
+- redesign/coding-agent#Q20
+- coding-agent/cli#Q2
+- coding-agent/tickets#Q4
+- redesign/coding-agent#Q21

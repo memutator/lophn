@@ -13,27 +13,27 @@ concerns: [lophn-agent/harness/waiting-and-recovery]
 **[R1]** 답이 필요한 질문은 추정 답으로 진행하지 않고 lophn-agent/questions의 실제 답을 받으면 같은 run을 재개하며 만료·미루기·취소는 답 없음 이유의 stopped로 끝낸다.
 - 이유: 답을 기다리는 일과 사람이 미룬 일을 같은 상태로 두지 않는다.
 - 확인: 답·만료·미루기·취소 네 경우의 같은 run 재개 또는 stopped 결과를 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent#I4
+- 의도: lophn-agent/harness#I2
 
 **[R2]** approval 허락은 현재 상태·scope·tool 계약·정확한 입력·비교 기준을 다시 검사한 뒤 그 call만 한 번 시작하고 거절·만료·취소·재검사 실패는 미실행으로 남긴 뒤 같은 run의 새 판단으로 잇는다.
 - 이유: 과거 허락이 달라진 동작을 시작하지 못하게 한다.
 - 확인: 각 결정과 재검사 실패를 테스트하여 고정 call 외 진입이 없고 새 판단으로 이어지는지 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent#I4
+- 의도: lophn-agent/harness#I2
 
 **[R3]** 규칙 금지·사람 거절·미결정·만료·취소·종료로 효력 상실·확인 통로 또는 판정 실패를 구별하고 어느 경우도 허락으로 바꾸지 않으며 사람 거절·만료·취소는 tool·run 실패 수에 세지 않는다.
 - 이유: 사람의 결정이 반복 실패나 허용 추정으로 오해되지 않는다.
 - 확인: 각 결과의 설명과 실패 수를 확인한다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I2
+- 의도: lophn-agent/harness#I2
 
 **[R4]** 사람 기다림은 필요한 tool과 다음 model call을 막으면서 새 입력·멈춤을 받고 명시 steering으로 옛 질문을 취소하면 답 없음 종료와 새 담당 입력 보존, 옛 approval을 취소하면 미실행 뒤 같은 run 재판단으로 처리한다.
 - 이유: 일반 메시지를 답으로 가장하지 않고 수정 입력을 잃지 않는다.
 - 확인: 질문·approval 대기 중 일반 메시지·수정·멈춤을 넣어 서로 다른 처리와 입력 보존을 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
+- 의도: lophn-agent/harness#I2
 
 **[R5]** 결정 접수와 실제 적용 결과를 따로 확인할 수 있고 필요 없어진 질문·approval 또는 끝난 run의 늦은 결정은 새 동작에 사용하지 않는다.
 - 이유: 버튼 클릭이 실제 적용 성공과 같지 않다.
 - 확인: 적용 충돌·중복 결정·종료 뒤 결정을 보내 접수와 미적용 이유가 구별되는지 확인한다.
-- 의도: lophn-agent/harness#I2, platform#I7
+- 의도: lophn-agent/harness#I2
 
 ### 보이는 기다림
 
@@ -57,7 +57,7 @@ concerns: [lophn-agent/harness/waiting-and-recovery]
 **[R9]** 비사용자 중단은 저장된 경계에서 같은 run을 자동 복구하되 새 진입 전에 현재 assignment·판정·안전·대상·credential·누적 한도를 재확인하고 run 전체를 처음부터 반복하거나 멈춘 assignment를 풀지 않는다.
 - 이유: 복구가 승인·멈춤·효과 경계를 무효화하지 않는다.
 - 확인: core 재시작 뒤 유효 run만 이어지고 회수·멈춤·한도 초과는 입력·확정 결과를 보존한 채 진행하지 않는지 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I4
+- 의도: lophn-agent/harness#I2
 
 ### 불명확 효과
 
@@ -71,19 +71,12 @@ concerns: [lophn-agent/harness/waiting-and-recovery]
 **[R11]** 재시작 뒤 대기 요청은 실제 현재 결정과 미시작 증거를 조회하여 유효하고 미반영된 결정만 한 번 반영하고 미시작을 확인하지 못한 approval은 사용하지 않는다.
 - 이유: event 유실과 재전달에서도 승인 한 번 사용을 지킨다.
 - 확인: 결정 전달 직후 중단과 event 유실을 테스트하고 같은 승인으로 두 call이 시작되지 않는지 확인한다.
-- 의도: lophn-agent/harness#I2, platform#I7
+- 의도: lophn-agent/harness#I2
 
 **[R12]** 완성 압축 summary는 lophn-agent/harness/prompt-assemble의 실제 완성 출력과 원문 보호 범위를 다시 조립하여 같은 run에 복구하고 세션 이어가기 summary와 합치지 않는다.
 - 이유: derived cache 유실로 원문 경계나 요약의 용도가 바뀌지 않는다.
 - 확인: cache 제거 뒤 완성 호출 근거로 복구하고 압축·이어가기의 적용 범위가 구별되는지 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
-
-## 열린 질문
-
-- lophn-agent/harness/waiting-and-recovery#Q1 재시작 후 대기 approval을 같은 요청으로 이을 것인가?
-- lophn-agent/harness/waiting-and-recovery#Q2 조회 수단 없는 MCP external 효과의 충돌 보류는 언제 풀 것인가?
-- lophn-agent/harness/waiting-and-recovery#Q3 완성 압축 summary와 보호 원문 범위를 복구할 근거는 무엇인가?
-- lophn-agent/harness/waiting-and-recovery#Q4 H8 Operator가 질문을 기다리는 동안 주기를 계속 건너뛰는 정책을 유지할 것인가?
+- 의도: lophn-agent/harness#I2
 
 ## 버린 것
 

@@ -1,12 +1,12 @@
 ---
 type: flow
-concerns: [documents/contexts, documents/outline-and-search, documents/versions, apps/blueprint, apps/permissions, apps/runtime, lophn-agent/roles/context-engineer, lophn-agent/roles/common, lophn-agent/questions, lophn-agent/assignments, lophn-agent/handoff, lophn-agent/harness/prompt-assemble, lophn-agent/revert, platform/identity, platform/notifications, shell/desktop, shell/confirmation-window]
+concerns: [documents/contexts, documents/outline-and-search, documents/versions, apps/blueprint, apps/permissions, apps/runtime, lophn-agent/roles/context-engineer, lophn-agent/roles/common, lophn-agent/questions, lophn-agent/assignments, lophn-agent/handoff, lophn-agent/harness/prompt-assemble, lophn-agent/revert, platform/identity, platform/notifications, shell/desktop, shell/confirmation-window, lophn-agent/presets]
 ---
 # 함께 볼 자료와 관점을 정한다
 
 사람이 여러 문서나 앱 자료를 같은 목적 아래 묶어 agent와 함께 보고 싶다. 목적과 필요한 판단만 사람이 정하고, 자료 찾기와 작은 범위 읽기는 lophn이 맡는다.
 
-지키는 약속: documents#I5, documents#I4, lophn-agent/roles#I1, lophn-agent/roles#I4, lophn-agent/roles#I6, lophn-agent#I1, lophn-agent/harness#I3.
+지키는 약속: documents#I5, documents#I4, lophn-agent#I1, lophn-agent#I6, lophn-agent/harness#I3.
 
 ## 흐름
 
@@ -32,3 +32,7 @@ concerns: [documents/contexts, documents/outline-and-search, documents/versions,
 ## 끝
 
 사람이 같은 목적 아래 필요한 자료와 관점을 다시 열 수 있다. 읽은 근거는 고정 판으로 남고, watch의 확인된 변화와 미확인이 구별되며 판단은 사람 요청 또는 승인된 Operator 주기에서만 시작한다. (documents/contexts#R1, documents/contexts#R4, documents/contexts#R10, documents/contexts#R11, platform/notifications#R7, lophn-agent/assignments#R15)
+
+## Operator와 자료의 경계
+
+Operator는 project/app의 책임이며 Context에 붙지 않는다. 이 flow에서 읽을 자료는 고정 Preset 판이 선택한 Context와 현재 허용 범위의 교집합이다. 같은 project/app의 여러 Operator가 다른 자료를 쓰고 별도 기존 출력 문서를 가진다. Context watch가 run을 자동 시작하지 않으며 맡기는 변경은 exact preset·범위·출력·주기의 사람 승인으로 적용한다. (lophn-agent/presets#R5, lophn-agent/assignments#R2, lophn-agent/assignments#R5, documents/contexts#R15)

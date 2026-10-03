@@ -51,27 +51,27 @@ concerns: [shell/workspace]
 **[R9]** agent의 사람 요청에는 그 요청을 보낸 창의 프로젝트·열린 탭 종류와 허용 대상 참조·선택 탭·focus 칸·문서 선택 범위·관측 시각을 현재 보기 상태로 묶어 제공한다.
 - 이유: 다른 창의 작업을 현재 요청의 문맥으로 오인하지 않는다.
 - 확인: 두 창에서 요청하여 각각 요청 창의 탭과 선택 범위만 제공되는지 보고 문맥에 넣는 방법은 lophn-agent/harness/prompt-assemble을 따른다.
-- 의도: lophn-agent/harness#I10
+- 의도: shell#I1
 
 **[R10]** 현재 보기 상태는 허용 대상과 platform/redaction을 검사한 최대 2KiB의 요약부터 제공하고 나머지 탭 참조는 한 번에 최대 20개씩 읽게 하며 생략·단절·관측 시각을 표시한다.
 - 이유: 탭 전체 내용이 매 turn의 token과 민감한 자료로 번지지 않는다.
 - 확인: 많은 탭과 범위 밖 탭을 열어 요약 한도·이어 읽기·생략 표시를 확인하고 선택 본문·편집 초안·터미널 출력이 자동 첨부되지 않는지 본다.
-- 의도: lophn-agent/harness#I10, platform#I2
+- 의도: shell#I1, platform#I2
 
 **[R11]** 앱 탭의 현재 보기 상태는 실제 앱·release·모드·화면 참조만 먼저 넘기고 상세 상태와 힌트·주석은 apps/agent-context의 선언된 command로만 읽고 쓴다.
 - 이유: DOM 캡처나 임의 입력 통로가 앱의 공개 범위를 우회하면 안 된다.
 - 확인: 민감한 입력칸이 있는 앱에서 DOM·screenshot이 자동 전송되지 않고 선언한 상세 읽기만 가능한지 본다.
-- 의도: lophn-agent/harness#I10, apps#I12
+- 의도: shell#I1, apps#I12
 
 **[R12]** 세션의 시각 블록은 답의 해당 위치에 설치된 SDK의 선언형 컴포넌트·고정 문서 뷰어·카드 표시를 선언한 앱 frame으로 그리며 agent가 준 script·HTML을 shell 코드로 실행하지 않는다.
 - 이유: 답을 그림으로 읽는 기능이 shell 실행 권한으로 바뀌어서는 안 된다.
 - 확인: lophn-agent/visuals가 제공한 표·차트·도표·문서·앱 카드를 표시하고 script 입력은 실행 없이 거절되는지 본다.
-- 의도: lophn-agent#I9, platform#I2
+- 의도: shell#I1, platform#I2
 
 **[R13]** 시각 블록 틀은 제목·출처·관측 시각·내용 또는 실패 이유와 lophn-agent/visuals의 문서로 남기기를 제공하고 세션 전환·새 답이 사용자의 스크롤 위치와 focus를 빼앗지 않게 한다.
 - 이유: 그림의 근거와 저장 결과를 알면서 읽던 작업을 이어간다.
 - 확인: 블록 로딩·실패·문서 저장·streaming 중에도 입력 focus와 읽던 위치가 유지되고 저장 후 고정 문서 링크가 보이는지 본다.
-- 의도: lophn-agent#I10, shell#I1
+- 의도: shell#I2, shell#I1
 
 ## 열린 질문
 

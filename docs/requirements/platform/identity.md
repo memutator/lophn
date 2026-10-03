@@ -32,9 +32,9 @@ concerns: [platform/identity]
 - 확인: 각 renderer·앱·format·test의 메모리·IPC·환경에서 자격을 조회해 나오지 않는지 확인한다.
 - 의도: platform#I2
 
-**[R5]** coding agent token은 한 번만 전달해 git 밖 소유자 전용 저장소에 지속 보관하고 POSIX directory 0700·파일 0600 또는 동등 ACL을 요구하며 symlink·다른 소유자·넓은 권한이면 사용하지 않는다.
-- 이유: 재시작마다 사람 자격으로 자동 재발급받거나 소스에 token을 남기면 안 된다.
-- 확인: 재시작 뒤 같은 connection을 사용하고 git·소스에서 원값을 찾을 수 없으며 symlink·권한 확대·소유자 변경에는 사용이 거절되는지 확인한다.
+**[R5]** 사람의 harness 연결 선택에 따라 lophn이 coding credential을 자동 발급하여 OS keychain에 보관하고 ledger에는 검증 hash만 확정하며 준비·commit 실패의 credential은 사용할 수 없게 정리한다.
+- 이유: 사람에게 token 생성·파일 보관·붙여넣기를 맡기지 않는다.
+- 확인: keychain 잠김·보관 실패·connection commit 실패에서 연결 성공을 표시하지 않고 준비 token이 인증에 쓰이지 않으며 재시작 뒤 같은 active connection을 사용하는지 본다.
 - 의도: platform#I2
 
 **[R6]** token 원문은 argv·URL·cookie·공통 환경 변수·skill·안내·오류·ledger·event·model 문맥에 넣지 않고 일반 조회로 다시 반환하거나 token hash를 인증 값으로 받지 않는다.
@@ -87,6 +87,11 @@ concerns: [platform/identity]
 - 이유: machine이나 agent가 user라고 적어 사람 결정을 만들어서는 안 된다.
 - 확인: machine의 임의 user 주장·다른 option·변경된 입력·이미 적용한 답을 거절하고 실제 고정 option만 한 번 user로 기록되는지 확인하며 approval request의 결정 주체는 platform/approvals, grant의 주체는 apps/permissions, 직접 확인은 shell/confirmation-window를 따른다.
 - 의도: platform#I7, platform#I1
+
+**[R15]** coding MCP·CLI 시작과 lophn의 coding TUI 시작은 신뢰 loader가 현재 connection·scope·process 결합을 확인한 뒤 keychain credential을 보호된 process-local 통로로 전달하며 일반 shell·renderer·모델·설정·argv·PTY·공통 환경에 원문을 넘기지 않는다.
+- 이유: 설치 파일과 session을 자동 준비하더라도 사람 권한이나 app secret은 상속하지 않는다.
+- 확인: 허용 loader·등록된 자식만 동일 connection을 쓰고 임의 connection 참조·회수·다른 scope·잘못된 자식에서는 실패하며 보호 loader 불가에는 평문 fallback이 없는지 본다.
+- 의도: platform#I2, platform#I8
 
 ## 열린 질문
 

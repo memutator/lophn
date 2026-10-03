@@ -27,13 +27,13 @@ CodingAgentConnection의 범위, credential 참조와 회수 상태를 정의한
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | `active` | `user` | 보호 화면의 정확한 label·scope 확인; credential 발급 성공 | `CodingAgentConnectionCreated` |
+| 없음 | `active` | `user` | 사람 harness 연결 선택과 보호 화면의 정확한 label·scope 확인; 자동 credential 발급·keychain 준비 성공 | `CodingAgentConnectionCreated` |
 | `active` | `revoked` | `user` | 보호 화면 확인; `revision` 일치 | `CodingAgentConnectionRevoked` |
 
 ### 불변 조건
 
 - `harness`, 외부 세션 ID, 살아 있음, token 파일 경로를 entity 필드로 두지 않는다.
-- token 원문은 ledger·event·티켓·안내·앱 source·진단 log에 저장하지 않는다. 발급·검증·보관 계약은 → platform/identity, platform/secrets이다.
+- token 원문은 ledger·event·티켓·안내·앱 source·진단 log에 저장하지 않는다. 자동 발급·검증·OS keychain 보관 계약은 → platform/identity, platform/secrets이다. 사람에게 token 생성·붙여 넣기를 요구하지 않는다.
 - actor는 credential에서 확인한 `coding_agent:<connection id>`다. 요청 본문의 actor, 제품 이름, 작업 폴더로 추정하지 않는다.
 - credential 상한과 connection scope가 모두 요청을 허용해야 한다. 근거 주소나 ticket claim은 scope를 넓히지 않는다.
 - 회수 뒤 이미 접수된 완료 보고·문서·release·test result는 남는다. 보고의 machine check도 계속할 수 있다.
@@ -45,18 +45,7 @@ CodingAgentConnection의 범위, credential 참조와 회수 상태를 정의한
 | `kind` | `all \| app` | 아니오 | enum | |
 | `app` | 앱 ID | 예 | `kind = app`일 때 필수; `all`이면 null; → apps/registration | 앱 하나 |
 
-## ConnectionInstallationCheck (값)
-
-ledger 정본이 아닌 로컬 설치 검사 결과다. 외부 coding agent의 runtime 상태가 아니다.
-
-| 필드 | 타입 | null | 제약 | 뜻 |
-|---|---|---|---|---|
-| `connection` | `cac` ID | 아니오 | 이 파일의 connection 참조 | |
-| `at` | UTC 시각 | 아니오 | 공통 시각 형식 | |
-| `checks` | `{stage, result, reason}[]` | 아니오 | 아래 stage 4개를 각각 한 번 포함 | |
-| `checks[].stage` | `mcp_initialize \| tool_discovery \| skill_discovery \| app_guide_loading` | 아니오 | enum | MCP 미지원은 CLI 실패와 다름 |
-| `checks[].result` | `success \| failure \| unknown` | 아니오 | enum | 실제 loading을 확인하지 못하면 `unknown` |
-| `checks[].reason` | string | 아니오 | 실패·확인 못함이면 공백 금지; secret 제외 | trust·override·발견 실패의 안전한 이유 |
+설치·네 loading stage 관측은 → coding-agent/harnesses의 HarnessIntegrationObservation이다. session 시작·상태는 → coding-agent/sessions의 derived 값이다. credential 정본에 이 값들을 넣지 않는다.
 
 ## 관계
 
@@ -72,20 +61,20 @@ ledger 정본이 아닌 로컬 설치 검사 결과다. 외부 coding agent의 r
 |---|---|---|---|---|---|
 | `coding_agent_connections` | `id, label, scope_kind, scope_app, principal, token_hash, state, revision` | PK `id` | `principal`, `token_hash` | `(state, id)`, `(scope_app, state, id)` | `scope_app` → apps/registration; principal 규칙 → platform/identity; `revision` → platform/ledger event seq |
 
-`scope_kind = all`이면 `scope_app IS NULL`, `app`이면 `scope_app IS NOT NULL`이다. `principal = 'coding_agent:' || id`를 강제한다. token 원문 발급·보호 보관 준비는 → platform/identity의 인증 경계에서 core command 밖에 끝내며 command는 준비된 검증 hash만 받는다. connection 생성·검증 hash 설치, connection·credential 회수는 각각 같은 command transaction으로 적용한다. commit 실패의 준비 token은 사용할 수 없고 인증 경계가 정리한다. Credential 값은 → platform/identity이며 별도 ledger credential 표·ID는 없다.
+`scope_kind = all`이면 `scope_app IS NULL`, `app`이면 `scope_app IS NOT NULL`이다. `principal = 'coding_agent:' || id`를 강제한다. token 원문 자동 발급·OS keychain 보관 준비는 → platform/identity의 인증 경계에서 core command 밖에 끝내며 command는 준비된 검증 hash만 받는다. connection 생성·검증 hash 설치, connection·credential 회수는 각각 같은 command transaction으로 적용한다. commit 실패의 준비 token은 사용할 수 없고 인증 경계가 정리한다. Credential 값은 → platform/identity이며 별도 ledger credential 표·ID는 없다.
 
 ## command
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `coding_agent_connection.create` | `user` | `id, label, scope`, 인증 경계의 준비된 token 검증 hash, 보호 화면 근거, idempotency key | ID 미존재; 앱 존재; 확인 대상·입력 일치; 인증 경계의 보호 보관 준비 확인 | `CodingAgentConnectionCreated` | `invalid_input`, `forbidden`, `conflict` |
+| `coding_agent_connection.create` | `user` | `id, label, scope`, 인증 경계의 준비된 token 검증 hash, 보호 화면 근거, idempotency key | ID 미존재; 앱 존재; 확인 대상·입력 일치; 인증 경계의 OS keychain 보관 준비 확인 | `CodingAgentConnectionCreated` | `invalid_input`, `forbidden`, `conflict` |
 | `coding_agent_connection.revoke` | `user` | `connection`, 보호 화면 근거, idempotency key | `base_revision`, 현재 `active`, 확인 대상 일치 | `CodingAgentConnectionRevoked` | `not_found`, `forbidden`, `conflict` |
 
 ## event
 
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
-| `CodingAgentConnectionCreated` | `cac` | `label, scope, principal`; token 값 없음 | coding-agent/guides |
+| `CodingAgentConnectionCreated` | `cac` | `label, scope, principal`; token 값 없음 | coding-agent/harnesses, coding-agent/guides |
 | `CodingAgentConnectionRevoked` | `cac` | `before_revision` | coding-agent/tickets, apps/runtime |
 
 ## 정책
@@ -96,9 +85,11 @@ ledger 정본이 아닌 로컬 설치 검사 결과다. 외부 coding agent의 r
 - **원본 접근.** 사람 원본 파일의 임의 경로·폴더 순회와 앱 DB 직접 접근은 제공하지 않는다. 외부 coding agent의 OS 파일 접근이나 프로세스 종료를 connection으로 통제하지 않는다.
 - **회수 적용.** 회수 직후 새 읽기·쓰기를 거절한다. 직접 앱 credential도 원래 connection 회수를 따른다(→ apps/runtime). 남은 claim 해제는 → coding-agent/tickets이며 정리를 기다리는 동안에도 회수된 credential을 허용하지 않는다.
 - **교체.** token 분실·scope 변경은 기존 connection 회수 뒤 새 connection 생성으로만 처리한다. MCP·CLI는 같은 credential을 쓰고 user credential로 자동 fallback하지 않는다.
-- **설치 보존.** 기존 server·env·permission·동명 skill·hook·안내·trust는 자동 덮어쓰기나 확대 대상이 아니다. 하네스별 경로·설정 형식은 spec이다.
+- **설치 분리.** 생성 성공 뒤 → coding-agent/harnesses가 선택 target MCP·skill 설치를 이어 한다. 실패는 partial로 보이고 credential은 남는다. 설치 제거는 revoke가 아니며 revoke도 설치 파일 삭제나 process 종료가 아니다.
+- **전달.** 설정·wrapper에는 connection 참조만 둔다. MCP/CLI 시작 때 인증 경계가 OS keychain에서 꺼내고 lophn TUI 시작 때 보호된 process-local 통로로 붙인다. token을 argv·일반 env·prompt·PTY·log·model에 넣지 않는다. keychain 잠김·누락은 unavailable이며 평문 파일 fallback은 없다.
 
 ## 정할 것
 
-- 로컬 token 원문 보관 수단과 소유권·symlink·backup 제외 검사는 → platform/identity, platform/secrets에서 확정한다.
-- 실제 loading을 검증할 제품·최소 버전과 외부 세션에 claim 상실을 알리는 비강제 방법. 현재는 claim 재조회이며 강제 프로세스 중단은 없다.
+- redesign/coding-agent#Q13
+- coding-agent/connection#Q1
+- coding-agent/connection#Q2

@@ -105,12 +105,22 @@ concerns: [documents/versions]
 **[R17]** lophn 사용 안내는 설치 묶음에 포함한 읽기 전용 문서 목록으로 배포하고 lophn version·안내 제목·고정 내용 hash로 판을 구별하여 사람과 lophn 역할이 같은 설치 판을 offline으로 읽게 한다.
 - 이유: lophn 자체의 설명은 인터넷이나 사용자 프로젝트 생성 없이 설치한 기능과 일치해야 한다.
 - 확인: offline에서 사용 안내의 목록·목차·절·본문을 읽고 설치 version과 내용 hash를 확인하며 사용자 Document가 자동 생성되지 않는지 본다.
-- 의도: lophn-agent/roles#I7, platform#I6
+- 의도: lophn-agent#I3, platform#I6
 
 **[R18]** 배포 안내는 사용자 프로젝트·앱 자리·자동 system 자리나 tracking 대상으로 넣지 않고 사람이 수정하여 남기려면 일반 문서의 복사본으로 저장하게 한다.
 - 이유: 설치 문서와 사람이 작성한 고정 version의 생애를 섞지 않는다.
 - 확인: 설치 안내를 직접 편집·이동·보관할 수 없고 복사본은 documents/versions의 일반 판 이력으로 남으며 update가 복사본을 덮지 않는지 본다.
-- 의도: documents#I2, lophn-agent/roles#I7
+- 의도: documents#I2, lophn-agent#I3
+
+**[R19]** 사람이 지정한 lophn 지침은 실제 UTF-8 Markdown 파일의 확정 version으로 이력을 만들고 최초 저장·외부 변경·옛 내용 복원을 같은 원본 비교와 새 판 규칙으로 처리하며 지침이라는 이유로 과거 판을 덮지 않는다.
+- 이유: 지침을 textarea 설정이나 별도 이력 원본으로 복제하지 않는다.
+- 확인: 전역·project·app·preset 지침을 고치고 복원하여 파일 hash와 확정 판을 확인하며 없는 파일은 사람의 첫 저장 전에 version이 없고 LOPHN.md·AGENTS.md가 구별되는지 본다.
+- 의도: documents#I2, lophn-agent#I8
+
+**[R20]** 지침으로 등록된 문서는 lophn agent·coding agent·앱의 문서 write·이동·원본 연결 변경 대상에서 제외하고 agent는 사람에게 question으로 변경을 제안한다.
+- 이유: 자료·출력 경로를 통해 지침 수정 금지를 우회하지 못하게 한다.
+- 확인: 같은 지침 문서를 다른 자리로 옮기거나 출력으로 지정하여 저장하려 해도 거절되고 사람의 직접 저장·복원과 신뢰한 파일 관측만 새 판을 만드는지 본다.
+- 의도: documents#I1, lophn-agent#I8
 
 ## 열린 질문
 

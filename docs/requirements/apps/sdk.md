@@ -208,7 +208,7 @@ concerns: [apps/sdk]
 **[R38]** 공용 차트·표 component는 앱 화면과 lophn 세션의 선언형 시각 블록에서 같은 입력 계약으로 사용하고 임의 script 실행 없이 loading·empty·error와 접근 가능한 데이터 읽기를 제공한다.
 - 이유: 앱과 agent 답의 시각 재료를 별도로 복제하지 않는다.
 - 확인: 같은 데이터가 앱과 lophn 화면에서 같은 component로 그려지고 표가 크면 component 내부에서 scroll하며 지원 종류는 R16·R17을 따른다.
-- 의도: apps#I2, lophn-agent#I9
+- 의도: apps#I2, apps#I10
 
 **[R39]** SDK는 apps/agent-context의 화면 상태 등록·민감한 칸 제거·요약과 상세 반환·선언된 주석 handler 및 revision 검사를 제공한다.
 - 이유: 앱마다 context 공유의 안전 계약을 다시 구현하지 않는다.

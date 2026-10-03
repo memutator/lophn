@@ -171,8 +171,10 @@ Provider에 속하는 구조값이며 독립 entity·ID 접두사는 없다.
 
 ## 정책
 
-- **credential 선택.** user 순서에서 enabled이며 rejected·revoked·usage_wait·해당 model block이 아닌 첫 credential을 고른다. 기본은 등록 순서다. 무작위·round-robin은 없다.
-- **run affinity.** 처음 고른 credential을 유지한다. rejected·usage_wait·model 불가가 된 경우에만 같은 provider의 다음 credential로 넘어가고 앞 credential 회복 후에도 run 중 돌아가지 않는다. 실제 선택 key·revision 및 이동 관계는 → lophn-agent/harness/usage의 ModelCall에 남긴다. 다른 provider·model 자동 fallback은 없다.
+- **미검증 provider.** OAuth 제품별 lophn 사용 허용·endpoint·client 식별·실제 호출 contract가 검증되지 않은 정의는 활성화하지 않는다.
+
+- **credential 선택.** 실제 목록은 → lophn-agent/presets의 PresetModelSelection.credentials다. provider의 등록 순서는 화면 후보의 기본 순서일 뿐 실행 후보가 아니다. preset 목록 안 enabled·현재 usable 첫 항목만 고르고 목록 밖 계정은 선택하지 않는다. 무인증 loopback만 빈 목록을 허용한다.
+- **run affinity.** 처음 고른 credential을 유지하며 rejected·usage_wait·model 불가 때도 고정 preset 목록 안 같은 provider·model의 뒤 계정만 가능하다. 목록이 하나면 이동하지 않는다. 앞 계정 회복에도 돌아가지 않고 실제 선택·판·이동은 ModelCall에 남긴다. 다른 provider·model·목록 밖 계정 자동 fallback은 없다.
 - **OAuth 갱신.** 만료 60000ms 전부터 credential별 단일 갱신, 최대 15000ms. secret 재조회·새 token 안전 보관 뒤 사용하며 새 refresh token 없으면 이전 것을 유지한다. OAuth 401은 갱신 한 번·동일 요청 재전송 한 번만; 실제 재전송은 별도 ModelCall이며 run 한도에 센다.
 - **device code.** 서버 interval·expiry 우선; interval 없으면 5000ms. xAI slow_down마다 5000ms 증가. ChatGPT 최대 900000ms, xAI expiry 없으면 최대 300000ms. 거절·만료·user 취소 즉시 중단한다. code·PKCE verifier·state 원문은 ledger에 저장하지 않는다.
 - **사용량 대기.** 확인된 reset까지, 모르면 3600000ms. 그 전 test call은 금지다. plan 접근 제한은 인증 폐기와 구별한다.
@@ -182,7 +184,3 @@ Provider에 속하는 구조값이며 독립 entity·ID 접두사는 없다.
 - **제품 식별.** 모든 로그인·call은 lophn으로 식별한다. 다른 CLI 위장·CLI 경유·요금 제한 우회용 이름 변경은 금지다.
 - **연결 test.** user 명시 요청의 별도 test 재료만 보내며 세션·문서를 test 재료로 쓰지 않는다. 설정 조회는 model call을 만들지 않는다. 한 시도는 30000ms 상한이며 usage_wait credential은 test하지 않는다. 전송 전에 → lophn-agent/harness/usage의 connection_test ModelCall을 기록하고 성공·실패·취소·retry 모두 실제 시도로 보존한다. test tool은 검증용이며 앱 command·업무 변경을 실행하지 않는다.
 
-## 정할 것
-
-- OAuth 제품별 lophn 사용 허용·실제 호출 검증 결과와 공식 endpoint·client 식별 값. 미검증 정의는 활성화하지 않는다.
-- 첫 판의 지원 API key·loopback 연결·검증된 OAuth 조합. keychain 없는 환경 정책은 → platform/secrets.

@@ -67,10 +67,6 @@ Assignment 안의 값이며 독립 ID·상태는 없다. → lophn-agent/assignm
 - **대기 중 skip.** 미종료 Run이 있는 매 회차도 last_due_at을 옮긴다. 답을 기다리는 동안 별도 회차 대기열을 쌓지 않는다.
 - **사람 요청.** 직접 요청 Run은 last_due_at을 옮기지 않는다. Operator는 사람 요청과 승인한 주기만 접수하며 event·handoff는 계기가 아니다.
 - **주기 변경.** 승인 적용 시 새 first_at은 적용 시각보다 미래이며 last_due_at을 null로 한다. 상태 변경·책임만 변경은 last_due_at을 유지한다. paused 상태의 승인 변경은 resume가 아니다.
-- **계산 주체.** 예정 시점은 machine이 ledger 밖에서 계산하고 명령에서 현재 Schedule과 일치하는지 검사한다. model slot을 쓰지 않는다.
+- **계산 주체.** 예정 시점은 machine이 ledger 밖에서 계산하고 명령에서 현재 Schedule과 일치하는지 검사한다. model 선택을 쓰지 않는다.
 - **실패 소유.** Run 결과를 받아 Assignment를 반복 실패로 pause하는 규칙은 → lophn-agent/assignments만 소유한다.
 
-## 정할 것
-
-- 현지 달력 주기를 지원할지 정한다. 현재 first_at·every_ms만 사용한다. cron 5칸·IANA 시간대·DST 값은 추가하지 않는다.
-- **H8.** Operator 질문 대기 중 회차를 모두 skip하는 정책 유지 여부. 현재 accepted·running·waiting_user 모두 skip이다.

@@ -4,7 +4,7 @@ concerns: [problems/repairs]
 ---
 # problems/repairs
 
-coding agent가 무엇을 어느 release로 고쳤다고 알렸는지와 실제 테스트 참조·수리 출처를 불변 기록으로 남긴다; ticket 없는 사람의 직접 수리도 포함하지만 고친 주장과 테스트 요청은 닫힘이 아니며 ticket은 coding-agent/tickets, 실제 결과는 problems/tests, 판정은 problems/closing이 맡는다.
+coding agent가 무엇을 어느 release로 고쳤다고 알렸는지와 실제 테스트 참조·수리 출처를 불변 기록으로 남긴다; 사람의 직접 코드 수리도 ticket을 거치지만 고친 주장과 테스트 요청은 닫힘이 아니며 ticket은 coding-agent/tickets, 실제 결과는 problems/tests, 판정은 problems/closing이 맡는다.
 
 ## 요구
 
@@ -25,23 +25,23 @@ coding agent가 무엇을 어느 release로 고쳤다고 알렸는지와 실제 
 - 확인: 낡은 문제 기준 제출은 충돌하고 새 수리와 늦은 테스트가 나와도 이전 변경 설명과 결과 참조를 계속 읽을 수 있다.
 - 의도: problems#I4
 
-### 직접 수리와 ticket 출처
+### coding 수리와 ticket 출처
 
-**[R4]** ticket 없는 사람의 직접 수리는 ticket·claim·만료·수리 시작 상태 없이 고친 기록과 테스트 요청을 남길 수 있다.
-- 이유: ticket은 직접 수리의 필수 입구가 아니며 problems/repairs에 따라 가짜 담당을 만들지 않는다.
-- 확인: ticket을 만들거나 claim하지 않아도 수리 기록과 problems/tests 요청이 가능하고 problems/grouping에 고치는 중이나 별도 담당이 생기지 않는다.
-- 의도: problems#I4
+**[R4]** 사람의 직접 코드 수리 요청도 lophn·App Engineer가 repair ticket으로 정리하고 coding agent는 현재 MCP claim으로 작업·고친 기록·완료 보고를 남기며 과거 ticket 없는 기록은 당시 출처대로 보존한다.
+- 이유: 코드 수리 입구는 하나로 하되 옛 이력을 꾸미지 않는다.
+- 확인: 새 수리 기록에서 ticket·claim 누락은 거절되고 옛 null 출처는 읽기 가능하며 ticket 접수·실행 준비 충돌은 redesign/propagate#Q3에 기록한다.
+- 의도: problems#I4, problems#I3
 
-**[R5]** ticket 수리 기록은 그 문제를 포함한 repair ticket의 현재 유효 claim을 가진 coding agent의 출처만 받는다.
-- 이유: 다른 agent나 만료한 claim의 변경을 현재 ticket의 결과로 섞지 않는다.
-- 확인: claim을 놓거나 만료한 뒤 같은 ticket 출처로 제출하면 거절되고 ticket 없는 직접 기록과 출처가 구별된다.
+**[R5]** 새 수리 기록은 그 문제를 포함한 repair ticket의 현재 유효 claim을 가진 coding agent만 제출한다.
+- 이유: 새 수리 결과에 다른 agent·만료 claim·session 관측을 담당 근거로 쓰지 않는다.
+- 확인: claim 누락·만료·반납·connection 회수·다른 claim의 제출을 거절하고 기록 뒤 담당 변경이 옛 claim seq를 지우지 않는지 본다.
 - 의도: problems#I4, problems#I3
 
 ### 테스트 요청과 닫힘
 
-**[R6]** 고친 기록 제출은 자동 테스트나 닫힘을 뜻하지 않으며 직접 수리도 ticket 수리와 같은 problems/tests 요청 및 problems/closing 근거를 적용한다.
-- 이유: 완료 주장과 실제 검증·사용 중 확인을 섞지 않는다.
-- 확인: 고친 기록만 제출해도 테스트 자식이 시작되거나 문제가 닫히지 않고 별도 요청과 실제 결과·사람 확인을 따른다.
+**[R6]** 고친 기록 제출은 자동 테스트나 문제 닫힘을 뜻하지 않으며 자기 터미널 수리도 problems/tests의 실제 결과와 problems/closing의 확인 근거를 별도로 따른다.
+- 이유: 작업 시작·고쳤다는 보고·실제 검증·문제 닫힘은 다르다.
+- 확인: 보고만으로 테스트 자식이나 닫힘이 생기지 않고 ticket claim·release 준비·session ended만으로 수리 확인이 되지 않는지 본다.
 - 의도: problems#I4, problems#I5
 
 **[R7]** 사람의 설정·입력 조치에는 고친 기록을 만들기 위해 가짜 release를 요구하지 않고 problems/closing의 보호된 사람 확인을 사용한다.
@@ -56,4 +56,4 @@ coding agent가 무엇을 어느 release로 고쳤다고 알렸는지와 실제 
 ## 버린 것
 
 - 별도 RepairAttempt·ChangeSet과 작업 시작 전 통합 계획은 ticket·release·고친 기록·test result로 충분하므로 버린다.
-- 직접 수리에 ticket·claim·만료가 필요 없다는 중복 요구는 이 문서의 직접 수리 약속에 통합하므로 별도 요구로 두지 않는다.
+- ticket 없는 직접 코드 수리 fallback은 모든 coding 작업을 ticket→MCP claim→작업→보고로 통일하여 폐기한다. 옛 기록을 삭제하거나 가짜 출처로 채우지는 않는다.

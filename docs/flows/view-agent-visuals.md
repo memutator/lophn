@@ -6,7 +6,7 @@ concerns: [lophn-agent/visuals, lophn-agent/conversation, lophn-agent/roles/loph
 
 사람이 자료를 비교하거나 운영 상황을 설명해 달라고 요청했고, 글만으로는 이해하기 어려워 시각 표현이 포함된 답을 받는다. 사람은 필요한 결과만 읽고, 다시 쓸 부분만 문서로 남긴다.
 
-연결된 intent: lophn-agent#I9, lophn-agent#I10, apps#I10, shell#I2, lophn-agent#I3, shell#I8.
+연결된 intent: shell#I1, shell#I2, apps#I10, lophn-agent#I3, shell#I8.
 
 ## 흐름
 

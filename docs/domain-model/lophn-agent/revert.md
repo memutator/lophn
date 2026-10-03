@@ -171,6 +171,8 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 
 ## 정책
 
+- **전체 복원 경계.** owner의 검사·복원 한도를 넘는 전체 revert를 분할 적용하지 않는다. 원본 연결 문서의 version 복원과 파일 반영은 documents/file-tracking·documents/versions의 별도 사실이며 디스크 원본 복구를 보장하지 않는다.
+
 ### 영역별 복원 판정
 
 | 대상 종류 | 판정 concern | 기본 분류·조건 |
@@ -179,7 +181,7 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 | context·item·term 후보 | → documents/contexts, documents/terms | reversible: 이전 값·현재 판 근거와 복원 후 관계 검사 필요 |
 | agent run이 생성한 미claim ticket | → coding-agent/tickets | reversible: ticket 취소; claim 이후는 owner 판정 없이는 복원 불가 |
 | pending approval request | → platform/approvals | 유효한 미결정 동작 차단은 owner의 cancellation 규칙; 이미 저장된 결정은 retained |
-| assignment·role·설정 변경 | → lophn-agent/assignments, lophn-agent/role-definition, platform/settings | owner가 현재 승인 범위·참조·판을 검사; 이전 값 근거 없이는 reversible 아님 |
+| assignment·preset·설정 변경 | → lophn-agent/assignments, lophn-agent/presets, platform/settings | owner가 현재 승인 범위·참조·판을 검사; 이전 값 근거 없이는 reversible 아님 |
 | report·관측·snapshot·test result | → problems/reporting, problems/snapshots, problems/tests | retained; 관측 사실을 지우거나 problem을 닫지 않음 |
 | run·tool/model call·질문 답·승인 결정·invocation 결과 | → lophn-agent/harness/run-loop, lophn-agent/harness/tools, lophn-agent/harness/usage, lophn-agent/questions, platform/approvals, apps/invocations | retained; 과거 사실·사용량·결정은 불변 |
 | activation·secret 사용·외부 전송 등 실제 외부 효과 | → apps/releases, platform/secrets, 실제 호출 소유 concern | irreversible; 기존 효과를 취소됐다고 간주하지 않음 |
@@ -194,8 +196,3 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 - **새 변경.** 문서 version pointer만 과거로 옮기거나 event를 삭제하지 않는다. 복원은 소유 concern의 새 변경이다. 새 복원 event의 actor=user/run=null이며 원래 run을 다시 수행한 것으로 기록하지 않는다.
 - **후속 작업.** revert는 새 agent run을 만들지 않는다. ledger 복원·파일 반영·앱 상태 결과가 서로 다르면 각 소유 기록을 분리해 유지한다.
 
-## 정할 것
-
-- 복원 불가 변경이 섞일 때 부분 revert를 제공할지. 현재 모델은 사람의 명시적 동의 뒤 복원 가능 변경 전체만 적용한다.
-- 원자적 검사·복원 대상 수·event 수 한도와 준비 결과 schema는 → platform/ledger 및 각 owner와 정한다. 한도를 넘는 전체 revert를 분할 적용하지 않는다.
-- 원본 연결 문서의 복원 준비·파일 반영 순서와 실패 시 결과는 → documents/file-tracking, documents/versions. 이 문서는 디스크 원본 복구를 보장하지 않는다.

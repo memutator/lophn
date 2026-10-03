@@ -26,7 +26,7 @@ concerns: [documents, apps, problems, lophn-agent, coding-agent]
 | U-7 | agent가 한 일을 되돌린다 | agent run의 변경 목록 | 되돌릴지 | revert | 변경 전 상태로 돌아간다 |
 | U-8 | 고쳐졌는지 확인한다 | 고친 기록 | 고쳐졌나 | 확인 / 아직 | 문제가 닫히거나 다시 열린다 |
 | U-9 | lophn agent와 대화한다 | 대화 | 의도, 취향 | 메시지 | agent가 일한다 |
-| U-10 | Operator를 배치하거나 거둔다 | assignment 제안 | 허락 여부 | assignment | 주기 실행이 시작되거나 멈춘다 |
+| U-10 | project/app의 Operator를 만들거나 거둔다 | Preset 판·assignment 제안 | 허락 여부 | assignment | 주기 실행이 시작되거나 멈춘다 |
 | U-11 | 앱 권한을 거둔다 | 앱 권한 목록 | 무엇을 거둘지 | 회수 | 앱이 줄어든 권한으로 다시 시작한다 |
 | U-12 | 문서와 프로젝트를 정리한다(이름, 자리, 보관) | 문서·프로젝트 목록 | 무엇을 어디로 | 이름·자리·보관 변경 | 옛 주소가 새 대상으로 안내된다 |
 | U-13 | 문서의 이전 판을 다시 쓴다 | 버전 이력 | 어느 판으로 | 새 버전 | 새 버전이 생긴다 |
@@ -35,13 +35,18 @@ concerns: [documents, apps, problems, lophn-agent, coding-agent]
 | U-16 | notification을 읽는다 | notification | — | 읽음 | — |
 | U-17 | 질문을 미루거나 approval request를 취소한다 | 질문, approval request | 미룰지, 취소할지 | 상태 변경 | 기다리던 일이 그에 맞게 끝난다 |
 | U-18 | assignment를 멈추거나 다시 켠다 | assignment, 멈춘 이유 | 멈출지 | assignment 상태 | 주기 실행이 멈추거나 다시 돈다 |
-| U-19 | Operator의 정의·범위·남길 문서·주기를 승인해 바꾼다 | 변경 제안 | 허락 여부 | 새 assignment 판 | 다음 회차부터 적용된다 |
-| U-20 | provider를 등록하고 판단·organizing model을 고른다 | provider | 어느 모델 | 공통 설정 | 다음 실행부터 쓰인다 |
+| U-19 | Operator의 고정 Preset 판·project/app 범위·남길 문서·주기를 승인해 바꾼다 | 변경 제안 | 허락 여부 | 새 assignment 판 | 다음 회차부터 적용된다 |
+| U-20 | provider를 연결하고 preset의 계정·model을 고른다 | provider·Preset 구성 | 계정 순서·model | Preset 새 판; 공통 model 값은 생성 후보만 | 다음 run부터 명시 적용한 판을 쓴다 |
 | U-21 | agent가 무엇을 했고 얼마나 썼는지 본다 | 실행, 모델 호출, 사용량 | — | — | — |
 | U-22 | 진행 중인 일을 고치거나 다음 일을 맡긴다 | 실행 | 무엇을 고칠지 | 메시지 | 실행이 고친 방향으로 이어진다 |
 | U-23 | 실행을 멈추거나 남은 일을 다시 맡긴다 | 실행 | 멈출지 | 멈춤, 새 요청 | 실행이 멈춘다 |
 | U-24 | coding agent 연결을 만들거나 거둔다 | 연결 목록 | 범위(전체 / 앱 하나) | 연결 | coding agent가 그 범위로만 일한다 |
-| U-25 | 티켓을 직접 만들거나 취소한다 | 앱, 문제 | 무엇을 맡길지 | 티켓 | coding agent가 티켓을 본다 |
+| U-25 | coding 일을 요청하거나 ticket을 취소한다 | 앱·문제·ticket | 무엇을 맡길지 | lophn/App Engineer가 정리한 ticket·취소 | coding agent가 MCP claim할 준비를 확인한다 |
+
+| U-26 | agent 지침을 쓰고 고친다 | 현재 LOPHN.md·판 이력 | 어떤 지침을 적용할지 | 사람 파일 저장·새 Version | 다음 call부터 해당 작업 자리 지침을 읽는다 |
+| U-27 | ticket의 coding agent를 시작한다 | 준비된 ticket·harness | 자기 터미널 또는 [Start] | exact TUI 시작·첫 prompt 1회 | process/session 관측과 실제 MCP claim을 구별한다 |
+
+U-10/U-19/U-20은 lophn-agent/presets#R6,R14와 lophn-agent/assignments#R2,R5, U-24/U-27은 coding-agent/connection#R3와 coding-agent/sessions#R1~R10, U-26은 shell/editor#R17을 따른다. 모든 coding 요청의 접수/readiness 충돌은 redesign/propagate#Q3에 남기고 가짜 채택·조건으로 우회하지 않는다.
 
 ## coding agent (CA)
 
@@ -49,10 +54,10 @@ concerns: [documents, apps, problems, lophn-agent, coding-agent]
 |---|---|---|---|---|---|
 | CA-1 | 맥락을 파악한다 | 컨텍스트 목차, 문서 절, 검색, 앱 목록, SDK 목록 | 무엇을 더 읽을지 | 없음 | 적은 토큰으로 필요한 것에 닿는다 |
 | CA-2 | 문서를 남긴다 | 자리 후보(프로젝트, 앱) | 어디에 둘지, 형식 | 문서 버전 | 주소를 돌려받는다, 형식 검사 통과 |
-| CA-3 | 새 앱을 만든다 | 기획·설계 문서나 티켓, 템플릿, SDK 목록 | 구현 방법 | 필요하면 가벼운 앱 등록(전체 범위 연결만), 구현 시작 때 소스 폴더 연결, 앱 코드(git), blueprint, 문제 코드 선언, release | app test 통과(blueprint 유효, 문제 코드 선언과 보고 경로 포함), 미리보기, activation 뒤 정상 신호 |
+| CA-3 | 새 앱을 만든다 | 지정 ticket·채택된 고정 기획/설계, 템플릿, SDK 목록 | 구현 방법 | 필요하면 가벼운 앱 등록(전체 범위 연결만), 구현 시작 때 소스 폴더 연결, 앱 코드(git), blueprint, 문제 코드 선언, release | app test 통과(blueprint 유효, 문제 코드 선언과 보고 경로 포함), 미리보기, activation 뒤 정상 신호 |
 | CA-4 | 앱을 바꾼다(구현 티켓) | 티켓(요구, acceptance check), blueprint, 코드 | 구현 방법 | 코드, release, 완료 보고 | 티켓 acceptance check 통과 |
-| CA-5 | 문제를 고친다 | 열린 문제, snapshot, 지난 시도, blueprint, 해석이나 티켓이 있으면 그것 | 원인, 수정 | 코드, reproduction test, release, 고친 기록 | reproduction test 통과, activation 뒤 재발 없음 또는 사람의 확인 |
-| CA-6 | 일을 맡고 끝냈다고 알린다 | 열린 티켓과 문제 목록 | 무엇을 맡을지(사람의 지시로) | 티켓 claim, 완료 보고 | machine이 acceptance check를 검사한다 |
+| CA-5 | 문제를 고친다 | 열린 문제, snapshot, 지난 시도, blueprint, 지정 repair ticket·고정 해석 | 원인, 수정 | 코드, reproduction test, release, 고친 기록 | reproduction test 통과, activation 뒤 재발 없음 또는 사람의 확인 |
+| CA-6 | 일을 맡고 끝냈다고 알린다 | 열린 티켓과 문제 목록 | 무엇을 맡을지(사람의 지시로) | MCP ticket claim, 작업, 완료 보고 | machine이 acceptance check를 검사한다 |
 | CA-7 | 미리보기로 화면과 동작을 확인한다 | 실행 묶음 | 고칠 것이 있나 | 없음 | 미리보기가 뜬다 |
 
 ## lophn agent — lophn (LA)
@@ -80,14 +85,14 @@ concerns: [documents, apps, problems, lophn-agent, coding-agent]
 |---|---|---|---|---|---|
 | CE-1 | 컨텍스트를 짠다 | 문서 목차, 기존 컨텍스트, 앱 blueprint의 명령 목록 | 목적, 무엇을 기준·참고·watch로 둘지 | 컨텍스트, 항목 | 사람이 되돌릴 수 있다 |
 | CE-2 | 용어를 정리한다 | 여러 문서 본문 | 용어 후보 | 용어 후보(정의는 사람이 한다) | 사람이 정의한다 |
-| CE-3 | Operator assignment를 제안한다 | 컨텍스트의 변화 빈도, 반복되는 수동 일 | 반복 판단이 있나 | Operator 정의 초안, assignment approval request | 사람이 승인한다 |
+| CE-3 | Operator assignment를 제안한다 | 컨텍스트의 변화 빈도, 반복되는 수동 일 | 반복 판단이 있나 | Operator Preset 고정 판·project/app assignment 초안, approval request | 사람이 승인한다 |
 | CE-4 | lophn에게 일을 넘긴다 | 원래 사람 요청, 근거 판 | 무엇을 | 받는 실행의 출처 | 받는 실행이 시작한다 |
 
 ## lophn agent — Operator (OP)
 
 | ID | 일 | 읽을 것 | 판단할 것 | 쓸 것 | 확인 방법 |
 |---|---|---|---|---|---|
-| OP-1 | 배치된 컨텍스트에서 반복 판단을 한다 | 컨텍스트의 문서, 승인된 앱의 읽기 명령 결과 | 무엇이 바뀌었나, 판단 | 남길 문서의 새 버전(바뀐 게 없으면 없음) | 산출물이 생긴다. 반복 실패하면 멈춘다 |
+| OP-1 | 담당 project/app에서 반복 판단을 한다 | 고정 Preset 판이 고른 context 문서, 승인된 앱의 읽기 명령 결과 | 무엇이 바뀌었나, 판단 | 남길 문서의 새 버전(바뀐 게 없으면 없음) | 산출물이 생긴다. 반복 실패하면 멈춘다 |
 
 ## machine (M)
 
@@ -120,3 +125,7 @@ concerns: [documents, apps, problems, lophn-agent, coding-agent]
 |---|---|---|
 | APP-1 | 선언한 문제 코드로 문제를 보고한다 | 보고 |
 | APP-2 | 선언한 문서를 남긴다 | 문서 버전 |
+
+## 제품 기본 agent와 자료 경계
+
+전역 lophn·Context Engineer는 각각 하나, App Engineer는 앱마다 하나, Operator는 project/app마다 0개 이상이다. 네 역할 모두 제품 기본 Preset에서 사람의 새 판을 구성할 수 있다. context·capability·MCP·skill·계정·model은 Preset 구성, 실제 대상·출력·주기는 assignment다. Agent는 LOPHN.md를 직접 쓰지 않고 question으로 제안한다. (lophn-agent/assignments#R2, lophn-agent/presets#R1, lophn-agent/presets#R9, lophn-agent/instructions#R3)

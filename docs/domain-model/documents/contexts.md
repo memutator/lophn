@@ -146,3 +146,7 @@ ledger 밖 계산 결과의 제출 값이다.
 - source_seq 시점 구성 근거의 조회와 현재 CAS를 → platform/ledger와 맞춘다. 작은 이전 값 event 또는 일관된 snapshot 읽기가 필요하다.
 - 현재 평면 Context 편집 외 분할·병합을 추가할지. 상위 Context·용어 상속은 현재 없다.
 - target_key canonical encoding을 다른 읽기·watch 중복 처리와 동일하게 고정한다.
+
+## agent 구성과의 경계
+
+Context는 읽을 자료의 묶음이며 Operator의 담당 대상이나 assignment scope가 아니다. Operator는 → lophn-agent/assignments의 Project 또는 App에 붙고 → lophn-agent/presets의 고정 판에서 Context를 0개 이상 선택한다. 같은 Project/App의 여러 Operator가 다른 Context를 읽을 수 있다. Context 보관·항목 제거가 assignment scope를 자동 변경하거나 새 run을 시작하지 않는다.

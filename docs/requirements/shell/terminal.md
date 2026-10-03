@@ -23,14 +23,14 @@ concerns: [shell/terminal]
 - 확인: 터미널 두 개와 문서 탭 사이를 오가며 focus가 있는 터미널만 입력받는지 본다.
 - 의도: shell#I7
 
-**[R4]** 터미널에는 화면에 표시한 OS 사용자 shell을 직접 시작하되 Linux·macOS는 사용자의 login shell을 사용하고 Windows는 PowerShell 7이 설치되어 있으면 이를 쓰며 없으면 Windows PowerShell 5.1을 표시하여 사용한다.
-- 이유: 시작 프로그램을 알면서 익숙한 환경을 쓰되 숨은 명령 문자열을 실행하지 않는다.
-- 확인: OS별 실제 실행 shell과 화면 표시가 같고 shell 실행 파일과 시작 인자가 구별되는지 본다.
+**[R4]** 일반 터미널은 Linux·macOS의 사용자 login shell 또는 Windows PowerShell 7·없으면 표시한 5.1을 직접 시작하고 ticket의 사람이 누른 [Start]는 coding-agent/sessions의 검증된 harness executable·분리 인자를 PTY로 직접 시작한다.
+- 이유: 사람 shell과 ticket TUI 시작의 대상·허락을 구별한다.
+- 확인: 일반 탭에서 표시한 shell이 시작되고 [Start]에서는 exact ticket·harness·방식에 묶인 일회 handle과 검증한 adapter로 지정 TUI만 열리는지 본다.
 - 의도: shell#I7
 
-**[R5]** shell 시작 환경에는 OS 사용자 환경과 터미널 표시값만 전달하고 lophn token·앱 connection credential·confirmation handle·keychain secret·daemon 내부 endpoint는 주입하지 않는다.
-- 이유: 일반 shell이 lophn의 내부 권한을 자동 상속하면 안 된다.
-- 확인: child 환경에서 내부 자격이 없고 사용자가 OS에서 따로 설정한 도구 환경과 lophn 일반 설정이 구별되는지 본다.
+**[R5]** 일반 shell에는 플랫폼 credential을 주입하지 않고 사람이 허락한 coding TUI에는 platform/identity의 검증된 보호 loader로 해당 connection credential만 붙이며 token 원문은 argv·prompt·PTY·출력·공통 환경에 넣지 않는다.
+- 이유: TUI 연결 준비가 일반 shell의 플랫폼 권한 상속으로 번지지 않게 한다.
+- 확인: 일반 shell의 환경은 그대로이고 [Start] child의 MCP·CLI만 같은 connection을 사용하며 app secret·user token·confirmation handle이 전달되지 않는지 본다.
 - 의도: platform#I2, shell#I7
 
 **[R6]** 터미널은 OS 사용자 권한으로 동작하며 lophn 앱 sandbox가 아니라고 표시하고 프로젝트 폴더 밖 접근이나 사람이 실행한 외부 coding agent의 행동을 lophn이 제한한다고 안내하지 않는다.
@@ -62,6 +62,16 @@ concerns: [shell/terminal]
 - 이유: 출력은 실행 지시가 아니라 터미널에 표시할 자료다.
 - 확인: clipboard와 링크 제어 문자열·가짜 confirmation 출력을 보내도 OS나 플랫폼 행동이 생기지 않는지 본다.
 - 의도: platform#I2, shell#I3
+
+**[R12]** coding TUI 시작 직전에 사람의 exact 시작 handle·ticket 현재 판·connection scope·harness executable/profile·등록 project 폴더를 다시 검증하고 다른 harness·cwd로 자동 대체하지 않으며 첫 prompt 전달과 중복 방지는 coding-agent/sessions를 따른다.
+- 이유: 클릭 뒤 바뀐 대상이나 중복 IPC가 다른 일을 시작하면 안 된다.
+- 확인: ticket·executable·scope·folder 변경은 거절하고 같은 시작 요청 재전달은 같은 runtime만 반환하며 준비·전달 결과 불명 뒤 재전송·재spawn이 없는지 본다.
+- 의도: shell#I7, platform#I2
+
+**[R13]** 터미널 배치·renderer 복원은 기존 host의 관측 가능한 runtime에만 다시 연결하고 Electron 재시작이나 host 결과 불명 뒤 coding TUI를 자동 spawn·resume하거나 첫 prompt를 재생하지 않는다.
+- 이유: 다시 보는 일과 다시 실행하는 일은 다르다.
+- 확인: renderer 재생성은 살아 있는 동일 generation을 표시하고 Electron 재시작은 상태 unknown과 사람이 누르는 새 시작으로 남으며 ticket claim은 session 관측과 독립인지 본다.
+- 의도: shell#I7, shell#I4
 
 ## 열린 질문
 

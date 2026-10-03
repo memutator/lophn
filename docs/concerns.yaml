@@ -370,8 +370,18 @@ concerns:
   summary: 사람이 쓰는 외부 coding agent(Claude Code, Codex 등)가 lophn에 붙는 통로와 맡기는 일.
 
 - id: coding-agent/connection
-  summary: CodingAgentConnection. connection 만들기·회수, scope(전체 / 앱 하나), label, token 발급, 연결 회수(M-20).
+  summary: CodingAgentConnection. coding agent가 lophn을 부를 때의 권한 경계. scope(전체 / 앱 하나), credential 자동 발급과 keychain 보관(설정 파일에 token을 쓰지 않음), 회수(M-20).
   entities: [CodingAgentConnection]
+
+- id: coding-agent/harnesses
+  summary: 지원하는 coding agent harness의 catalog(감지 방법, 버전·인증 확인, MCP·skill·지침·hook을 넣는 자리와 형식, 실행 계약), 이 컴퓨터에서 감지한 결과, lophn이 설치한 것의 기록(receipt)과 갱신·제거, 기본 harness 선택.
+  excludes:
+    - 설치하는 skill과 안내의 내용 -> coding-agent/guides
+
+- id: coding-agent/sessions
+  summary: ticket을 coding agent로 시작하기(터미널 탭의 TUI, 첫 prompt, harness 고르기), session 관측(상태, session id, 끝남, 모름), 나중의 headless·자동 시작·coordinator 자리.
+  excludes:
+    - 터미널 탭 자체 -> shell/terminal
 
 - id: coding-agent/mcp-server
   summary: MCP server(stdio)가 내보이는 tool 목록과 입력·출력 모양, error, 범위 검사.

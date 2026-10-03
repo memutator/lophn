@@ -6,7 +6,7 @@ concerns: [lophn-agent/observability, lophn-agent/revert, lophn-agent/harness/us
 
 agent 결과가 마음에 들지 않거나 무엇을 왜 했고 얼마나 썼는지 알고 싶을 때 시작한다. 사람은 결과와 다음 행동부터 확인하고, 필요할 때 근거·변경·비용을 펼쳐 본다.
 
-지키는 약속: lophn-agent#I5, lophn-agent/harness#I5, platform#I1, platform#I2, shell#I8.
+지키는 약속: lophn-agent#I5, lophn-agent#I7, platform#I1, platform#I2, shell#I8.
 
 ## 흐름
 

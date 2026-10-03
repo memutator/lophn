@@ -90,6 +90,11 @@ concerns: [shell/editor]
 - 확인: focus 칸을 바꾸면 경로가 바뀌고 정한 머리·본문 치수가 유지된다.
 - 의도: shell#I1, shell#I8
 
+**[R17]** 전역·project·app의 [Instructions]는 lophn-agent/instructions의 해당 Markdown 파일을 같은 lophn 편집기로 열고 없으면 사람의 첫 저장으로 만들며 일반 문서와 같은 초안 보존·외부 변경 충돌·version 비교·복원을 제공한다.
+- 이유: 지침 편집은 별도 textarea 설정이 아니라 파일을 고치는 일이다.
+- 확인: 지침을 만들고 외부 편집과 충돌시켜 초안·파일 쓰기·확정 판 상태가 구별되며 경로·version 식별자는 기본 화면에서 숨기고 agent 제안은 저장하지 않는지 본다.
+- 의도: shell#I5, shell#I8, lophn-agent#I8
+
 ## 열린 질문
 
 

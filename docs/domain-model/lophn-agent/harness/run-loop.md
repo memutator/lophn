@@ -18,7 +18,7 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 | `start_after` | `run` ID | 예 | 같은 assignment; 자신·순환 금지 | 다음 일의 선행 run |
 | `start_confirmed_seq` | seq | 예 | 선행 failed/stopped 뒤 user 계속 선택 command의 seq; 확인 전 null | 후속 요청 시작의 사람 근거 |
 | `state` | `accepted / running / waiting_user / finished` | 아니오 | 초기 `accepted` | 상태 |
-| `basis` | sha256 | 예 | 첫 시작에 필수; 이후 불변 | 역할·assignment·tool·두 slot 및 설정 판 snapshot |
+| `basis` | sha256 | 예 | 첫 시작에 필수; 이후 불변 | preset·assignment·tool·model 및 설정 판 snapshot |
 | `waiting_on` | `qst / apr` ID | 예 | `waiting_user`에 필수, 그 외 null; → lophn-agent/questions, platform/approvals | 현재 막는 요청 하나 |
 | `started_at` | 시각 | 예 | 첫 시작에만 설정; 이후 불변 | 실제 시작 |
 | `limits` | RunLimits | 아니오 | 시작에 고정; 이후 변경 금지 | 적용 상한 |
@@ -49,7 +49,7 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 
 - assignment 하나의 `running / waiting_user` run은 최대 하나다. 여러 세션의 사람 요청은 여러 `accepted` run으로 접수할 수 있다.
 - 같은 assignment 안 시작 순서는 `RunAccepted` seq다. assignment마다 시작 가능한 맨 앞 후보를 모아 사람 응답 대기·사람 한 번짜리 일·주기 일 우선순위와 각 우선순위 FIFO를 적용하며 상위 8개 연속 시작 뒤 가장 오래 기다린 시작 가능한 하위 후보에 다음 자리를 준다. 막힌 assignment는 무관한 후보를 막지 않는다. 주기 회차는 `accepted / running / waiting_user` 하나라도 있으면 → lophn-agent/scheduling에서 건너뛴다.
-- `basis`는 당시 값의 사본이다. 역할별 model override는 없다. 현재 멈춤·credential 회수·scope 축소는 다음 call 전에 검사한다.
+- `basis`는 당시 값의 사본이다. 실제 model·계정은 이 Assignment가 고정한 Preset 판에서 resolve한다. 현재 멈춤·credential 회수·scope 축소는 다음 call 전에 검사한다.
 - run 전체의 transaction, 대상 임대, 독립 Turn·입력 queue·실패 entity는 없다. turn은 완전한 ModelCall 응답과 그 응답의 ToolCall 관계로 읽는다.
 - 정상 종료와 enabled assignment의 correction 접수는 같은 writer에서 순서를 확정한다. paused 입력 보존은 → lophn-agent/conversation이며 새 Run을 접수하지 않는다. 미반영 correction이 있으면 정상 종료를 거절한다.
 - correction 뒤 이전 응답의 미시작 tool은 미실행으로 닫는다. 이미 시작한 call의 결과는 기록한다.
@@ -81,11 +81,12 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `role` | `{id,revision,snapshot_hash,basis_seq}` | 아니오 | revision 양의 정수; → lophn-agent/role-definition | 고정 역할 판 |
+| `preset` | `{id,revision,snapshot_hash,basis_seq}` | 아니오 | revision 양의 정수; → lophn-agent/presets | 고정 preset 판 |
 | `assignment` | `{id,revision,snapshot_hash,basis_seq}` | 아니오 | revision 양의 정수; → lophn-agent/assignments | 고정 assignment 판 |
 | `tools` | `{revision,definitions_hash}` | 아니오 | → lophn-agent/harness/tools | 고정 정의 목록 |
-| `extensions` | `{settings_revision,role_selection,skill_hashes,mcp_config_revisions,mcp_tool_definition_hashes}` | 아니오 | 정확한 skill·서버/tool 쌍 선택 및 사용한 판·hash 고정; 빈 목록 허용; → lophn-agent/extensions | 고정 확장 판 |
-| `model_slots` | `{judgment,organizing,settings_seq}` | 아니오 | 두 값은 ModelSlot 또는 null; → lophn-agent/harness/model | 시작 설정 snapshot |
+| `extensions` | `{settings_revision,preset_selection,skill_hashes,mcp_config_revisions,mcp_tool_definition_hashes}` | 아니오 | 정확한 skill·서버/tool 쌍 선택 및 사용한 판·hash 고정; 빈 목록 허용; → lophn-agent/extensions | 고정 확장 판 |
+| `models` | `{judgment,organizing}` | 아니오 | 두 값은 preset의 선택을 검증한 ResolvedModel; organizing 미선택은 judgment와 같은 model·계정·옵션이며 purpose만 organizing; → lophn-agent/harness/model | preset에서 resolve한 호출 snapshot |
+| `initial_work_place` | WorkPlace | 아니오 | Session 현재 자리 또는 Operator.scope; call마다 현재 자리는 ContextBasis에 기록 | 시작 자리 |
 | `limits / tool_result_limits` | RunLimits / byte·line·목록 상한 | 아니오 | 시작에 고정 | 제어 값 |
 
 ## HandoffReference (값)
@@ -169,6 +170,3 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 - **후속 요청.** 선행 completed면 접수 seq대로 시작한다. failed/stopped면 요청을 보존하고 user의 계속할 요청 선택 전에는 시작하지 않는다.
 - **실패 소유.** assignment 연속 실패 판정은 → lophn-agent/assignments. 같은 tool 반복 실패는 → lophn-agent/harness/safety.
 
-## 정할 것
-
-- 공통 첫 한도 30회·300000ms·1800000ms 및 사람 기다림 제외를 확정할지, 역할별 한도를 둘지.

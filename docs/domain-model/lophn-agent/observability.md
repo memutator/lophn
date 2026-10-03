@@ -13,7 +13,7 @@ concerns: [lophn-agent/observability]
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `run` | `run` ID | 아니오 | trace 하나의 기준; → lophn-agent/harness/run-loop | 대상 |
-| `basis` | sha256 | 예 | Run.basis 참조; 별도 본문 복제 없음 | 시작 당시 역할·scope·slot·tool 판 |
+| `basis` | sha256 | 예 | Run.basis 참조; 별도 본문 복제 없음 | 시작 당시 preset·scope·model 선택·tool 판 |
 | `events` | seq 배열 | 아니오 | 원본 event seq 순; 샘플링 없음; → platform/ledger | 상태·실제 변경 |
 | `messages` | `msg` ID 배열 | 아니오 | 원본 참조; → lophn-agent/conversation | 입력·결과 |
 | `model_calls` | `mcl` ID 배열 | 아니오 | 모든 시도; → lophn-agent/harness/usage | model 이력 |
@@ -62,8 +62,3 @@ concerns: [lophn-agent/observability]
 - **유한 보존 gate.** 유한 기간 합의 시에도 진행·미반영 입력·답/approval 대기·revert 근거를 보호한다. event는 불변으로 남기며 삭제 본문은 부재로 보이고 성공·실패 사실을 바꾸지 않는다. 실제 삭제는 platform/ledger·platform/blob-store만 수행한다.
 - **범위 분리.** 보존 설정은 문서 변경 이력·제품 세션 원문·eval 산출물 수명을 임의로 줄이지 않는다. → lophn-agent/conversation, lophn-agent/evaluation.
 
-## 정할 것
-
-- 자동 삭제 없음과 유한 보존 중 선택. 후보는 발생 후 상세 180일·export 내용 14일·세션 종료 뒤 90일·UTC 일별 비용 365일이며 현재 활성 정책은 아니다.
-- 유한 보존의 기간 단축 소급 적용·삭제 비복구 및 삭제된 blob 참조 표현을 → platform/blob-store와 맞춘다.
-- OTLP GenAI Semantic Conventions의 정확한 지원 version.

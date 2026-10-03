@@ -1,12 +1,12 @@
 ---
 type: flow
-concerns: [lophn-agent/scheduling, lophn-agent/assignments, lophn-agent/roles/operator, lophn-agent/roles/common, lophn-agent/harness/run-loop, lophn-agent/harness/prompt-assemble, lophn-agent/harness/waiting-and-recovery, lophn-agent/questions, documents/contexts, documents/versions, apps/runtime, apps/permissions, apps/invocations, problems/grouping, platform/notifications, shell/desktop]
+concerns: [lophn-agent/scheduling, lophn-agent/assignments, lophn-agent/roles/operator, lophn-agent/roles/common, lophn-agent/harness/run-loop, lophn-agent/harness/prompt-assemble, lophn-agent/harness/waiting-and-recovery, lophn-agent/questions, documents/contexts, documents/versions, apps/runtime, apps/permissions, apps/invocations, problems/grouping, platform/notifications, shell/desktop, lophn-agent/presets]
 ---
 # 정해 둔 판단 결과와 새 이상을 확인한다
 
 사람이 승인한 반복 판단의 주기가 도래한다. 사람은 계속 지켜보지 않아도 맡긴 일의 결과를 나중에 읽고, 꼭 자신의 선택이 필요한 일만 확인한다.
 
-지키는 약속: lophn-agent/roles#I1, lophn-agent/roles#I5, lophn-agent/roles#I6, lophn-agent#I2, documents#I5, platform#I9.
+지키는 약속: lophn-agent#I1, lophn-agent#I4, lophn-agent#I6, lophn-agent#I2, documents#I5, platform#I9.
 
 ## 흐름
 
@@ -29,3 +29,7 @@ concerns: [lophn-agent/scheduling, lophn-agent/assignments, lophn-agent/roles/op
 ## 끝
 
 사람이 실제 남긴 보고를 읽거나 변화 없음·질문 대기·실패·멈춤을 서로 구별해 확인한다. 완료 결과가 없는 회차를 성공으로 채우지 않고 사람의 결정이 남았다면 다음 행동을 확인한다. (lophn-agent/roles/operator#R6, lophn-agent/roles/common#R10, lophn-agent/assignments#R3, lophn-agent/harness/run-loop#R18)
+
+## Operator와 자료의 경계
+
+Operator는 project/app의 책임이며 Context에 붙지 않는다. 이 flow에서 읽을 자료는 고정 Preset 판이 선택한 Context와 현재 허용 범위의 교집합이다. 같은 project/app의 여러 Operator가 다른 자료를 쓰고 별도 기존 출력 문서를 가진다. Context watch가 run을 자동 시작하지 않으며 맡기는 변경은 exact preset·범위·출력·주기의 사람 승인으로 적용한다. (lophn-agent/presets#R5, lophn-agent/assignments#R2, lophn-agent/assignments#R5, documents/contexts#R15)

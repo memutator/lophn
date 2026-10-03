@@ -33,6 +33,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T1 Deno workspace와 check 명령
 
+- 상태: 완료 (#3)
 - 등급: 기본
 - concern: 저장소 바닥
 - 요구: 없음(docs/dev/stack.md의 "check 명령 하나"와 판 고정)

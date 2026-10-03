@@ -8,8 +8,10 @@
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@^1.0.6": "1.1.6",
+    "npm:@formatjs/icu-messageformat-parser@3.5.20": "3.5.20",
     "npm:@types/react@19.3.0": "19.3.0",
     "npm:esbuild@0.28.2": "0.28.2",
+    "npm:intl-messageformat@12.1.2": "12.1.2",
     "npm:react-dom@19.3.0": "19.3.0_react@19.3.0",
     "npm:react@19.3.0": "19.3.0",
     "npm:zod@4.6.5": "4.6.5"
@@ -176,6 +178,18 @@
       "os": ["win32"],
       "cpu": ["x64"]
     },
+    "@formatjs/fast-memoize@3.1.7": {
+      "integrity": "sha512-zXfhLpvA6T7+efdt9JLbBwZ00tT7NsBMDVnDu8rpHeNNv8KfRZAMo2gkG0k9lK/Nzc//3kJ9pImsfuJxk3KhUA=="
+    },
+    "@formatjs/icu-messageformat-parser@3.5.20": {
+      "integrity": "sha512-DUzCb2iskGDKvLU7P+nz/rjpmN59luoTRbWHFFNYNnZTxWCKvwPI94rNll99TGZaI6XoTbDF0QGegk21GFrQZQ==",
+      "dependencies": [
+        "@formatjs/icu-skeleton-parser"
+      ]
+    },
+    "@formatjs/icu-skeleton-parser@2.1.12": {
+      "integrity": "sha512-ca7tZMLpfHX3sUD7hP6gE/qr6Iq89EDd3ZLeRhbsB7r0UD55DGJq+tmFLzrGrnx5StahUevQmQQVtbDRHsfDHA=="
+    },
     "@types/react@19.3.0": {
       "integrity": "sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==",
       "dependencies": [
@@ -218,6 +232,13 @@
       "scripts": true,
       "bin": true
     },
+    "intl-messageformat@12.1.2": {
+      "integrity": "sha512-Y7ZnMtT/04nVJnjf1/x/AkfP5we/iN0AhckDdlFPtnetk6/VTuj2OPW5SE7steMd3UNaOtky4KJJY6jwyvWfJg==",
+      "dependencies": [
+        "@formatjs/fast-memoize",
+        "@formatjs/icu-messageformat-parser"
+      ]
+    },
     "react-dom@19.3.0_react@19.3.0": {
       "integrity": "sha512-JDk8dgif51OjFoDE70+OT9ICyYr+69HlmihNwp1+Nsfbna3t5sIiCa9ZJktDmQ4/1b/rn26hIAR2uYXDMr5r0Q==",
       "dependencies": [
@@ -248,6 +269,12 @@
           "npm:esbuild@0.28.2",
           "npm:react-dom@19.3.0",
           "npm:react@19.3.0"
+        ]
+      },
+      "packages/design/wording": {
+        "dependencies": [
+          "npm:@formatjs/icu-messageformat-parser@3.5.20",
+          "npm:intl-messageformat@12.1.2"
         ]
       }
     }

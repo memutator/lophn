@@ -4,7 +4,8 @@
     "./packages/sdk/*",
     "./apps/*",
     "./apps/shell/renderer",
-    "./apps/shell/gallery"
+    "./apps/shell/gallery",
+    "./packages/design/wording"
   ],
   "lock": {
     "frozen": true

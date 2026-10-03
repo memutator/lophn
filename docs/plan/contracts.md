@@ -213,6 +213,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T11 contracts/platform: blob·pipe 작업 호출
 
+- 상태: 완료 (#18)
 - 등급: 기본
 - concern: platform/blob-store
 - 요구: platform/blob-store#R1, R3–R7, R9, R11–R13; platform/ledger#R22

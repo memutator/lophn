@@ -20,7 +20,7 @@ slice는 사람이 처음부터 끝까지 해 볼 수 있는 한 줄기다. 그 
 |---|---|---|
 | skeleton | (뼈대: core 시작, shell 창, ledger, API, event, 개발 환경, check 명령) | 없음 |
 | documents | first-project, project-workspace, edit-document, find-documents, organize-documents, restore-document, write-series | skeleton |
-| context | build-context, define-terms | documents |
+| context | build-context, define-terms | documents, agent |
 | agent | connect-provider, manage-provider-accounts, steer-agent-work, resume-agent-session, review-agent-work, answer-question, approve-action, ask-lophn-help, edit-instructions, add-agent-extension, view-agent-visuals | documents |
 | apps | new-app, change-app, restore-app-release, run-app-automation, manage-app-permissions, use-app-command, connect-apps, ask-app-hint | agent |
 | coding-agent | connect-coding-agent, manage-coding-access, start-coding-agent, manage-tickets | apps |
@@ -28,7 +28,11 @@ slice는 사람이 처음부터 끝까지 해 볼 수 있는 한 줄기다. 그 
 | operator | set-up-operator, receive-operator-report, manage-operator | context, apps |
 | operations | install-lophn, update-lophn, backup-and-restore, catch-up-notifications, work-offline | problems |
 
-new-app은 apps와 coding-agent에 걸친다. apps slice에서는 coding agent 대신 fixture 앱으로 등록·release까지 돌리고, coding-agent slice에서 처음부터 끝까지 돈다.
+여러 slice에 걸치는 flow는 갈래를 나눠 돈다.
+
+- organize-documents: documents slice에서는 사람이 직접 고르는 이동만, lophn의 추천과 question 갈래는 agent slice에서 돈다.
+- view-agent-visuals: 표·차트·도표는 agent slice, 앱 카드 갈래는 apps slice에서 돈다.
+- new-app은 apps와 coding-agent에 걸친다. apps slice에서는 coding agent 대신 fixture 앱으로 등록·release까지 돌리고, coding-agent slice에서 처음부터 끝까지 돈다.
 
 ## 팀
 

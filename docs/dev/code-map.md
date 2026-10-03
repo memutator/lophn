@@ -66,7 +66,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 | apps/invocations | packages/apps/invocations/ |
 | apps/data | packages/apps/data/ |
 | apps/preview | packages/apps/preview/ |
-| apps/sdk | packages/apps/sdk/ (catalog) · packages/sdk/ (앱이 import하는 공개 SDK) |
+| apps/sdk | packages/apps/sdk/ (catalog) · packages/sdk/ (앱이 import하는 공개 SDK. cap-problem은 problems 팀, ui-*는 shell 팀이 쓴다) |
 | problems/problem-codes | packages/problems/problem-codes/ |
 | problems/reporting | packages/problems/reporting/ |
 | problems/feedback | packages/problems/feedback/ |

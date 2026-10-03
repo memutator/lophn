@@ -34,6 +34,7 @@ lead가 "구현 시작"을 보내면 시작한다.
 - 선행이 모두 main에 합쳐진 작업은 slice와 상관없이 시작해도 된다. slice 순서는 우선순위와 E2E의 순서다. 앞 slice 작업을 먼저 잡는다.
 - 작업 하나마다: `git fetch origin && git worktree add .claude/worktrees/<branch> -b <branch> origin/main` → worker를 띄워 그 worktree에서 구현시킨다 → 결과를 review한다(직접 하거나 다른 model의 worker) → push, PR, rebase, check, `gh pr merge --squash --delete-branch` → `git worktree remove`.
 - 같은 PR에서 계획 문서의 그 작업에 `- 상태: 완료 (#<PR 번호>)`를 단다.
+- 병합 전에 review 기록을 PR에 남긴다(`gh pr review --comment`): 누가(model) 봤는지, 읽은 것, 찾아서 고친 것, rebase 뒤 돌린 check. 기록을 먼저 남기고 병합한다. 병합이 permission에 막히면 다시 시도하지 않고 lead에게 알린다.
 - 병합하면 그 작업을 `선행:`에 둔 다른 팀에 바로 알린다("<팀>#T<n> 병합됨, PR #<번호>"). 기다리는 팀은 이 알림으로 깨어난다. 할 수 있는 작업이 없으면 기다린다.
 - slice의 마지막 작업에서 그 slice의 flow E2E를 돌린다.
 - slice마다 lead에게 보고한다: 합친 PR, 도는 flow, 남은 것.

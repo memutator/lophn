@@ -18,6 +18,7 @@ apps/                 실행 entry. 조립만 하고 업무 규칙을 두지 않
   cli/                lophn CLI
   mcp/                lophn-mcp (stdio MCP server)
 packages/
+  contracts/mod.ts    contract 모음(다시 내보내기만)
   contracts/<최상위>/ 최상위 사이 contract(type과 schema). contracts 팀만 고친다
   base/               id, clock, Result와 오류 코드, canonical JSON, log. contracts 팀만 고친다
   design/             token, 컴포넌트, wording catalog
@@ -121,7 +122,7 @@ fixtures/             예시 project 폴더, 예시 앱, 녹화한 model 응답
 ## 의존 규칙
 
 - `packages/<최상위>/...`는 자기 최상위 안의 다른 leaf를 그 leaf의 `mod.ts`로만 import한다. 다른 최상위는 `packages/contracts/<그 최상위>/`로만 부른다.
-- `packages/contracts`와 `packages/base`는 다른 어떤 package도 import하지 않는다.
+- `packages/base`는 다른 어떤 package도 import하지 않는다. `packages/contracts`는 `packages/base`만 import한다.
 - `apps/shell`은 core package를 import하지 않는다. contracts, design, sdk만 쓴다.
 - `apps/*` entry는 package를 조립만 한다. 업무 규칙은 package에 둔다.
 - 다른 팀의 테스트는 `apps/core/testing/`(platform이 만드는 통합 테스트 harness)를 `*_test.ts`에서만 import할 수 있다. 제품 코드는 import하지 않는다.

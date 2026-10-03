@@ -4,7 +4,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 ---
 # 기술 스택과 개발 환경
 
-판은 처음 뼈대를 만들 때 그때의 최신 안정판으로 정하고 lockfile로 고정한다. 정한 판은 이 문서에 적는다. 판을 올리는 것은 별도 작업이다.
+판은 처음 뼈대를 만들 때 그때의 최신 안정판으로 정하고 lockfile로 고정한다. 정한 판은 contracts 팀이 skeleton 첫 작업(contracts#T1) PR에서 이 문서에 적는다(예: Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 
 ## 고른 것
 
@@ -34,13 +34,14 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 저장소 루트의 `deno task check`가 모든 관문이다. 모든 작업은 이것을 통과해야 끝난다. skeleton slice가 이 명령을 만들기 전까지는 `deno check`, `deno test`, `node tools/check-docs.ts`를 직접 돌린다.
 
-1. `deno fmt --check`, `deno lint`
+1. `deno fmt --check`, `deno lint` (대상은 코드다. `docs/`의 Markdown은 check-docs가 맡아 빼고 둔다)
+1. 의존 규칙 검사(code-map의 import 방향, 이름 금지 규칙). 나중에 contract coverage도 더한다
 2. `deno check` (Deno workspace 전체)
 3. `deno test` (단위·통합)
 4. `npm --prefix apps/shell/main run check` (tsc --noEmit, node --test)
 5. `node tools/check-docs.ts`
 
-E2E는 `deno task e2e`로 따로 돈다. slice를 끝낼 때 돈다([tasks.md](tasks.md)).
+E2E는 `deno task e2e`로 따로 돈다. Playwright의 Electron 실행이 Deno에서 안 되면 `e2e/`에만 Node `package.json`을 두는 예외를 쓴다. slice를 끝낼 때 돈다([tasks.md](tasks.md)).
 
 ## 개발 환경
 

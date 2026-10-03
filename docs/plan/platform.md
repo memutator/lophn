@@ -75,6 +75,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: skeleton
 - 선행: contracts#T1, contracts#T3, contracts#T4, contracts#T6
+- 상태: 완료 (#29)
 - 완료: 아래 확인이 통과한다
   - `node:sqlite` 연결이 `journal_mode=WAL`의 실제 반환을 확인하고 `synchronous=FULL`, `foreign_keys=ON`, `busy_timeout=5000`을 건다. WAL이 아니면 쓰기 전에 기동을 거절한다(R2).
   - `events`, `command_results`, `subscriber_cursors`, `schema_migrations` 표와 UPDATE·DELETE 금지 trigger가 있다(R10, R22).

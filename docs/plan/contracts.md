@@ -50,6 +50,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T2 의존 규칙·이름·이식성 검사
 
+- 상태: 완료 (#7)
 - 등급: 기본
 - concern: 저장소 바닥
 - 요구: 없음(docs/dev/code-map.md 의존 규칙, docs/dev/architecture.md 이름, docs/dev/contracts.md)

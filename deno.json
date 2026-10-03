@@ -1,0 +1,44 @@
+{
+  "workspace": [
+    "./packages/*",
+    "./packages/sdk/*",
+    "./apps/*",
+    "./apps/shell/renderer",
+    "./apps/shell/gallery"
+  ],
+  "lock": {
+    "frozen": true
+  },
+  "imports": {
+    "zod": "npm:zod@4.6.5",
+    "@std/assert": "jsr:@std/assert@1.0.19"
+  },
+  "tasks": {
+    "check": "deno run --allow-all tools/check.ts"
+  },
+  "fmt": {
+    "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.json", "**/*.jsonc"],
+    "exclude": [
+      "node_modules",
+      ".dev-data",
+      ".claude",
+      "dist"
+    ]
+  },
+  "lint": {
+    "include": ["**/*.ts", "**/*.tsx", "**/*.js"],
+    "exclude": [
+      "node_modules",
+      ".dev-data",
+      ".claude",
+      "dist"
+    ],
+    "rules": {
+      "exclude": ["no-slow-types"]
+    }
+  },
+  "test": {
+    "exclude": ["e2e"]
+  },
+  "exclude": ["tools/check-docs.ts"]
+}

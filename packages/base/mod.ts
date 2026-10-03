@@ -17,6 +17,7 @@ export { cryptoRandom, type RandomSource, seededRandom } from "./random.ts";
 export { createIdSource, type IdParts, type IdSource, parseId } from "./id.ts";
 export { formatSeq, nextFromSeq, parseSeq } from "./seq.ts";
 export { canonicalize } from "./canonical-json.ts";
+export { type DueTimes, dueTimes, type DueTimesInput } from "./schedule.ts";
 export { fingerprint, sha256Hex } from "./hash.ts";
 export {
   createLogger,

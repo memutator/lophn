@@ -466,6 +466,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T24 contracts/platform: settings registry
 
+- 상태: 완료 (#12)
 - 등급: 기본
 - concern: platform/settings
 - 요구: platform/settings#R1, R3, R5, R9–R15, R19, R20, R25–R29, R31

@@ -7,7 +7,8 @@
 // - entity 하나는 concern 하나만 가진다
 // - docs 아래 모든 .md가 metadata(type, concerns)를 가지고, concern이 트리에 있다
 // - concern 하나에 하나씩 두는 문서 종류는 경로가 docs/<type>/<concern id>.md이다
-// - flow는 docs/flows/ 아래에 있다
+// - flow는 docs/flows/, plan은 docs/plan/ 아래에 있다
+// - 모든 leaf concern이 docs/dev/code-map.md의 표에 코드 자리를 가진다
 // - 요구의 "- 의도:"가 있는 intent 약속을 가리킨다(--intents는 빠진 요구와 요구 없는 약속까지 적는다)
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -18,9 +19,9 @@ const docsDir = join(root, "docs");
 
 // concern 하나에 파일 하나: docs/<type>/<concern id>.md
 const perConcernTypes = ["intent", "domain-model", "requirements", "spec", "architecture"];
-const otherTypes = ["guide", "flow"];
+const otherTypes = ["guide", "flow", "plan"];
 // 이름으로 두는 문서: type -> 폴더
-const namedTypeDirs: Record<string, string> = { flow: "flows" };
+const namedTypeDirs: Record<string, string> = { flow: "flows", plan: "plan" };
 const allTypes = [...perConcernTypes, ...otherTypes];
 
 type Concern = {
@@ -168,7 +169,7 @@ function checkDocs(byId: Map<string, Concern>): Map<string, Set<string>> {
     if (dir) {
       const m = rel.match(new RegExp(`^${dir}/([a-z0-9-]+)\\.md$`));
       if (!m) errors.push(`docs/${rel} ${type} 문서는 docs/${dir}/<이름>.md에 둔다(이름은 소문자, 숫자, -)`);
-    } else if (type === "flow") {
+    } else if (type === "flow" || type === "plan") {
       errors.push(`docs/${rel} ${type} 문서의 폴더가 틀림`);
     }
     for (const id of ids) {
@@ -241,6 +242,24 @@ function checkIntentLinks(): void {
   }
 }
 
+function checkCodeMap(byId: Map<string, Concern>): void {
+  const path = join(docsDir, "dev", "code-map.md");
+  let text = "";
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    errors.push("docs/dev/code-map.md가 없음");
+    return;
+  }
+  const mapped = new Set([...text.matchAll(/^\| ([a-z0-9-]+(?:\/[a-z0-9-]+)+) \|/gm)].map((m) => m[1]));
+  for (const id of leaves(byId)) {
+    if (!mapped.has(id)) errors.push(`docs/dev/code-map.md에 코드 자리가 없음: ${id}`);
+  }
+  for (const id of mapped) {
+    if (!byId.has(id)) errors.push(`docs/dev/code-map.md가 없는 concern을 가리킴: ${id}`);
+  }
+}
+
 function leaves(byId: Map<string, Concern>): string[] {
   const ids = [...byId.values()].filter((c) => !c.movedTo).map((c) => c.id);
   return ids.filter((id) => !ids.some((other) => other.startsWith(id + "/")));
@@ -250,6 +269,7 @@ const concerns = readConcerns(join(docsDir, "concerns.yaml"));
 const byId = checkConcerns(concerns);
 const covered = checkDocs(byId);
 checkIntentLinks();
+checkCodeMap(byId);
 
 if (process.argv.includes("--coverage")) {
   const leafIds = leaves(byId);

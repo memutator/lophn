@@ -18,7 +18,7 @@ registerShellScheme(protocol);
 const instance = startSingleInstance({
   app,
   dataRoot,
-  onOpenApp: () => openDesktopWindow(),
+  onOpenWindow: () => openDesktopWindow(),
 });
 
 // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다(desktop#R21).
@@ -50,7 +50,6 @@ function openDesktopWindow(): void {
   openWindow({
     platform: process.platform,
     packaged: app.isPackaged,
-    spaceName: "Launcher",
     preload: join(here, "..", "preload-shell.js"),
     url: DESKTOP_URL,
     windows: {

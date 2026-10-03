@@ -14,16 +14,19 @@ export const TOP_BAR_HEIGHT = 48;
 
 const TITLE_SUFFIX = " — lophn";
 
-/** renderer가 보낸 문자열이 아니라 main이 아는 공간 이름만 받는다. */
-export function windowTitle(spaceName: string): string {
-  return `${spaceName}${TITLE_SUFFIX}`;
+/**
+ * renderer가 보낸 문자열이 아니라 main이 아는 공간 이름만 받는다. 런처는 공간이
+ * 아니라서 이름 없이 제품 이름만 쓴다.
+ */
+export function windowTitle(spaceName?: string): string {
+  return spaceName ? `${spaceName}${TITLE_SUFFIX}` : "lophn";
 }
 
 export interface WindowOptions {
   platform: NodeJS.Platform;
   packaged: boolean;
-  /** main이 검증한 공간 이름. */
-  spaceName: string;
+  /** main이 검증한 공간 이름. 런처는 없다. */
+  spaceName?: string;
   preload: string;
   show?: boolean;
 }

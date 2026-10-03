@@ -23,6 +23,7 @@ concerns: [shell]
 
 ### T1 shell 작업 공간, build, check 연결
 
+- 상태: 완료 (#11)
 - 등급: 기본
 - concern: shell/desktop, shell/design-system
 - 요구: shell/desktop#R17

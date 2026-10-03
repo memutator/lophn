@@ -20,6 +20,12 @@ const NAME = /^[a-z][a-z0-9_-]*$/;
 
 const errorCodeSchema = z.enum(ERROR_CODES);
 
+// 사람 결정 handle이 필요한 route만 선언한다. read는 결정을 제출하지 않는다.
+export type ConfirmationDeclaration<I extends z.ZodType> = {
+  confirmation: "required";
+  binding: readonly (keyof z.infer<I> & string)[];
+};
+
 type RouteBase<K extends RouteKind, I extends z.ZodType, O> = {
   kind: K;
   resource: string;
@@ -31,6 +37,8 @@ type RouteBase<K extends RouteKind, I extends z.ZodType, O> = {
   actors: readonly ActorKind[];
   errors: readonly ErrorCode[];
   display_read?: string;
+  confirmation?: "required";
+  binding?: readonly string[];
 };
 
 export type CommandRoute<
@@ -66,7 +74,7 @@ type DefineOptions<I extends z.ZodType, O> = {
   actors: readonly ActorKind[];
   errors: readonly ErrorCode[];
   display_read?: string;
-};
+} & Partial<ConfirmationDeclaration<I>>;
 
 function define<K extends RouteKind, I extends z.ZodType, O>(
   kind: K,
@@ -81,6 +89,25 @@ function define<K extends RouteKind, I extends z.ZodType, O>(
       throw new Error("route error code is outside the common seven");
     }
   }
+  if (options.confirmation !== undefined || options.binding !== undefined) {
+    // 사람 결정은 제출이다. read가 결정을 받으면 표시와 제출이 한 통로로 섞인다.
+    if (kind === "read") {
+      throw new Error("read route cannot require a confirmation handle");
+    }
+    if (options.confirmation !== "required" || !options.binding?.length) {
+      throw new Error(
+        "confirmation requires both confirmation and a binding field list",
+      );
+    }
+    const shape = options.input instanceof z.ZodObject
+      ? options.input.shape as Record<string, z.ZodType>
+      : undefined;
+    for (const field of options.binding) {
+      if (!shape || !(field in shape)) {
+        throw new Error(`confirmation binding field is not in input: ${field}`);
+      }
+    }
+  }
   return { kind, ...options };
 }
 
@@ -90,32 +117,41 @@ export function defineCommand<
   C extends z.ZodType = z.ZodObject<Record<string, never>>,
 >(
   options: Omit<DefineOptions<I, O>, "compare"> & { compare?: C },
-): Omit<CommandRoute<I, O>, "compare"> & { compare?: C } {
+):
+  & Omit<CommandRoute<I, O>, "compare" | "confirmation" | "binding">
+  & { compare?: C }
+  & Partial<ConfirmationDeclaration<I>> {
   return define("command", options) as
-    & Omit<CommandRoute<I, O>, "compare">
-    & { compare?: C };
+    & Omit<CommandRoute<I, O>, "compare" | "confirmation" | "binding">
+    & { compare?: C }
+    & Partial<ConfirmationDeclaration<I>>;
 }
 
 export function defineRead<I extends z.ZodType, O extends z.ZodType>(
-  options: DefineOptions<I, O>,
+  options: Omit<DefineOptions<I, O>, "confirmation" | "binding">,
 ): ReadRoute<I, O> {
   return define("read", options);
 }
 
 // 성공은 원본 바이트와 Content-Type이다(platform/api#R3). 실패는 JSON 오류.
 export function defineFile<I extends z.ZodType>(
-  options: Omit<DefineOptions<I, { contentType: string }>, "output"> & {
-    contentType: string;
-  },
-): FileRoute<I> {
+  options:
+    & Omit<DefineOptions<I, { contentType: string }>, "output">
+    & { contentType: string }
+    & Partial<ConfirmationDeclaration<I>>,
+): FileRoute<I> & Partial<ConfirmationDeclaration<I>> {
   const { contentType, ...rest } = options;
-  return define("file", { ...rest, output: { contentType } });
+  return define("file", { ...rest, output: { contentType } }) as
+    & FileRoute<I>
+    & Partial<ConfirmationDeclaration<I>>;
 }
 
 export function defineWorker<I extends z.ZodType, O extends z.ZodType>(
-  options: DefineOptions<I, O>,
-): WorkerRoute<I, O> {
-  return define("worker", options);
+  options: DefineOptions<I, O> & Partial<ConfirmationDeclaration<I>>,
+): WorkerRoute<I, O> & Partial<ConfirmationDeclaration<I>> {
+  return define("worker", options) as
+    & WorkerRoute<I, O>
+    & Partial<ConfirmationDeclaration<I>>;
 }
 
 export function routePath(route: { resource: string; method: string }): string {

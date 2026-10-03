@@ -43,6 +43,7 @@
 | D28 | 되돌림을 모르는 외부 MCP tool은 external로 보고 묻는다. 사람이 preset에서 그 tool을 안전하다고 표시하면 묻지 않는다. ticket 취소는 묻지 않는다. lophn과 Context Engineer는 늘 하나이고 회수 대신 멈춤만 둔다. |
 | D29 | docs/flows/jobs.md는 지웠다. product.md P1은 flow를 가리킨다. |
 | D30 | 열린 질문은 전부 정했다. 판정은 아래 "결정 기록"에 있다. |
+| D31 | provider 로그인: Anthropic은 API key만 쓴다(Claude OAuth는 첫 판에서 뺀다. Anthropic이 제3자 앱의 Claude.ai 로그인을 금지한다). ChatGPT는 공식 Sign in with ChatGPT로, xAI는 SuperGrok OAuth로 로그인한다(xAI가 OAuth를 열었다). 그 밖은 API key와 로컬 연결이다. |
 
 큰 질문(H1–H8, G1–G3)의 답은 D23–D25와 D29에 있다. G1(git)과 G2(problem 문서 타입 없음)도 정했다.
 

@@ -49,4 +49,4 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 - 정할 수 없는 것은 문서에 쓰지 않고 open-issues에 `<concern id>#Q<n>`으로 올리고 추천안으로 진행한다. 사람에게 올릴 것은 lead가 고른다(제품 방향, 비용, 되돌리기 비싼 것만).
 - contract를 바꿔야 하면 worker나 다른 팀이 직접 고치지 않고 contracts 팀에 요청한다.
 - 두 팀이 같은 파일을 고쳐야 하면 lead가 순서를 정한다. 동시에 고치지 않는다.
-- 한 team member가 동시에 돌리는 worker는 3개까지다. rate limit이 나면 줄인다.
+- worker는 선행이 허용하는 만큼 동시에 띄운다. 팀마다 8개, 모든 팀을 합쳐 30개까지다. Claude worker는 팀마다 2개까지이고, rate limit이 나면 Claude worker부터 줄인다.

@@ -42,7 +42,12 @@ lead가 "구현 시작"을 보내면 시작한다.
 
 ## worker 띄우기
 
-Agent tool로 띄운다. 동시에 3개까지. worker는 자기 sub agent를 띄우지 않는다.
+Agent tool로 띄운다. worker는 자기 sub agent를 띄우지 않는다.
+
+- 선행이 허용하는 작업은 모두 동시에 띄운다. 팀마다 동시에 8개까지, 모든 팀을 합쳐 30개까지다. 한 작업에 worker 하나, worktree 하나다.
+- 같은 파일을 고치는 작업은 동시에 띄우지 않는다. 띄울 작업이 없으면 기다린다.
+- Claude worker(frontend, 최상위)는 팀마다 동시에 2개까지다. Anthropic rate limit(429)이 나면 Claude worker부터 줄인다. grok, sol, space-bunny는 그 한도와 상관없다.
+- worker의 Bash가 막히면 그 확인은 team member가 직접 돌린다.
 
 | 등급 | Agent tool |
 |---|---|

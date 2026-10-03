@@ -867,6 +867,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T45 contracts/platform: backup·diagnostics·install-and-update
 
+- 상태: 완료 (#25)
 - 등급: 기본
 - concern: platform/backup-and-migration, platform/diagnostics, platform/install-and-update
 - 요구: platform/backup-and-migration#R3, R6, R8, R10–R12; platform/diagnostics#R1, R2, R4–R6, R8–R10; platform/install-and-update#R1, R2, R6–R8, R10; shell/desktop#R20
@@ -875,7 +876,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 내놓는 contract: platform 운영 read
 - 받은 요청: shell(install-and-update의 daemon 상태·시작·정상 정지·설치 판 호환; skeleton에 필요한 시작·정지는 T6의 감독 pipe에 먼저 둔다)
 - slice: operations
-- 선행: contracts#T6
+- 선행: contracts#T6, contracts#T12(진단 기록이 RedactionResult를 쓴다)
 - 완료: 아래 확인이 통과한다
   - `/v1/backups/{list,get}`, `/v1/diagnostics/{list,check}`, `BackupManifest` format 1·검사 상태, 진단 항목(구성 요소·관측 시각·오류 종류·안전 위치), 설치 판·schema 호환 상태.
 

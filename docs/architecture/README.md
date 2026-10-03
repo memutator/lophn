@@ -97,6 +97,21 @@ architecture는 최상위 concern 하나에 파일 하나다. 잎 concern까지 
 | coding agent 통로 | coding-agent | coding agent | MCP·CLI가 내보이는 읽기·쓰기 |
 | confirmation window | shell | platform, apps | 사람의 결정을 받아 command로. option action은 고르기 전에 그대로 보여 준다 |
 | 앱 화면 틀 | shell | apps, problems | 앱 view를 감싸고 [문제 알리기]를 둔다 |
+| handler 등록 interface·Tx·port·같은 transaction dispatch | platform | 모든 최상위 | command·read handler와 Tx·port를 등록하고 같은 transaction에서 dispatch한다 |
+| 감독 pipe(hello·ready·stop, main↔core) | platform | 모든 신뢰 child, shell | hello·ready·stop으로 main과 core, core와 신뢰 child를 잇는다 |
+| settings registry | platform | shell, lophn-agent, 정의를 등록하는 모든 최상위 | 설정 정의를 등록하고 현재 값·판·적용 시점을 한 곳에서 읽는다 |
+| 현재 보기 상태 | shell | lophn-agent | 사람이 지금 보는 자리를 lophn-agent가 읽게 한다 |
+| 시각 블록 | lophn-agent | shell | agent가 만든 시각 블록을 shell renderer가 그린다 |
+| AgentAppScope | lophn-agent | platform(conditions), apps(connect) | agent가 앱에 닿는 범위를 platform 조건과 apps 연결이 함께 쓴다 |
+| blueprint·permission 종류·problem code 선언 | apps·problems | problems, coding-agent, lophn-agent, sdk | 앱 선언의 blueprint·permission·problem code를 여러 최상위가 읽는다 |
+| 앱 시작 입력·data job | apps | problems(test runner) | test runner가 운영과 같은 앱 시작 입력과 data job으로 앱을 띄우고 migration을 검사한다 |
+| 자리 이름 예약 port | documents | apps | apps가 앱 생성 transaction 안에서 documents의 자리 이름을 예약한다 |
+| 지침 첨부·Operator 출력 port | lophn-agent | documents | documents가 저장 transaction 안에서 그 문서가 지침으로 붙었는지·Operator 출력인지 lophn-agent에 묻는다 |
+| connection 인증 port | coding-agent | platform | platform 인증이 매 요청 coding agent connection의 상태·scope·token digest를 읽는다 |
+| release bundle에서 빼는 개발 도구 경로 | coding-agent | apps | release bundle에 넣지 않을 개발 도구 경로를 apps에 알린다 |
+| ticket claim 확인 port | coding-agent | apps | apps가 release 준비 transaction 안에서 ticket claim이 유효한지 확인한다 |
+| coding TUI 시작 | coding-agent | shell | coding agent 세션의 TUI를 shell이 띄운다 |
+| 주기 시점 계산 | base | lophn-agent, apps | 주기 회차의 다음 시점을 한 계산으로 낸다 |
 
 contract를 더 만들거나 바꿔야 하면 소유 파일에 쓰고 이 표를 고친다.
 

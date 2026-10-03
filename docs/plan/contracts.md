@@ -163,6 +163,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T8 contracts 모음·전역 유일성·coverage 도구
 
+- 상태: 완료 (#17)
 - 등급: 기본
 - concern: 저장소 바닥
 - 요구: 없음(architecture/README.md 4장)
@@ -558,7 +559,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 자리: `packages/contracts/lophn-agent/` — `providers.ts`, `model-calls.ts`, `models.ts`, 각 `_test.ts`
 - 쓰는 contract: T5, T6, T23
 - 내놓는 contract: agent run(provider·model call 기록). model 호출 자체(`invokeModelCall`)는 다른 최상위가 부르지 않으므로 lophn-agent 안쪽에 둔다.
-- 받은 요청: lophn-agent(A4), shell(connect-provider, OAuth 입력은 secret 입력)
+- 받은 요청: lophn-agent(A4), shell(connect-provider, OAuth 입력은 secret 입력), lead(D31: Anthropic은 API key만, OAuth는 ChatGPT의 Sign in with ChatGPT와 xAI의 SuperGrok만; Claude OAuth 자리는 두지 않는다)
 - slice: agent
 - 선행: contracts#T23, contracts#T26
 - 완료: 아래 확인이 통과한다
@@ -940,7 +941,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 | 앱 영역 command·read(app, grant, package, preview) | T20, T37 |
 | platform 운영 read(status, health, settings, backup, diagnostics) | T6, T24, T45 |
 
-### 4장 표 밖의 최상위 사이 contract (T8이 4장 표에 더한다)
+### 4장 표 밖의 최상위 사이 contract (4장 표에 있다)
 
 | contract | 소유 → 쓰는 쪽 | 작업 |
 |---|---|---|

@@ -30,8 +30,10 @@ export function commandRequestSchema<R extends CommandRequestRoute>(route: R) {
   return z.strictObject({
     input: route.input,
     idempotency_key: idempotencyKeySchema,
-    compare: (route.compare ?? z.strictObject({})) as R["compare"] extends
-      z.ZodType ? R["compare"] : z.ZodObject<Record<string, never>>,
+    compare: (route.compare ?? z.strictObject({})) as [
+      Extract<R["compare"], z.ZodType>,
+    ] extends [never] ? z.ZodObject<Record<string, never>>
+      : Extract<R["compare"], z.ZodType>,
     run: runIdSchema.optional(),
     prepared: preparedSchema,
     confirmation: opaqueRefSchema.optional(),

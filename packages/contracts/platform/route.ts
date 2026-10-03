@@ -84,10 +84,16 @@ function define<K extends RouteKind, I extends z.ZodType, O>(
   return { kind, ...options };
 }
 
-export function defineCommand<I extends z.ZodType, O extends z.ZodType>(
-  options: DefineOptions<I, O>,
-): CommandRoute<I, O> {
-  return define("command", options);
+export function defineCommand<
+  I extends z.ZodType,
+  O extends z.ZodType,
+  C extends z.ZodType = z.ZodObject<Record<string, never>>,
+>(
+  options: Omit<DefineOptions<I, O>, "compare"> & { compare?: C },
+): Omit<CommandRoute<I, O>, "compare"> & { compare?: C } {
+  return define("command", options) as
+    & Omit<CommandRoute<I, O>, "compare">
+    & { compare?: C };
 }
 
 export function defineRead<I extends z.ZodType, O extends z.ZodType>(

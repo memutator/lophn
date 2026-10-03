@@ -8,10 +8,10 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 ## 계획 문서
 
-- 계획은 `docs/plan/`에 둔다. `docs/plan/README.md`(guide)는 slice 목록과 순서, 첫 판에 넣을 intent 약속을 적는다.
-- slice 하나는 `docs/plan/<slice 이름>.md`(type `plan`)다. 이름은 하는 일로 짓는다(예: `skeleton`, `documents-basic`, `coding-agent-connect`). 번호나 단계 이름(`milestone1`, `phase-2`)은 쓰지 않는다. 순서는 README의 목록이 정한다.
-- slice는 사람이 처음부터 끝까지 해 볼 수 있는 한 줄기다. 끝나면 하나 이상의 flow가 E2E로 돈다.
-- metadata의 `concerns`에는 slice가 손대는 concern을 모두 적는다.
+- 범위는 `docs/` 전부다. 첫 판에서 덜어 내는 것은 없다.
+- `docs/plan/README.md`(guide, lead가 씀): slice 목록과 순서, 팀 사이의 선행 관계.
+- `docs/plan/<팀>.md`(type `plan`, team member가 씀): 그 팀의 작업 전부. 작업마다 `slice:` 줄로 속한 slice를 적는다. 작업 id는 `<팀>#T<n>`이다.
+- slice는 사람이 처음부터 끝까지 해 볼 수 있는 한 줄기다. 끝나면 그 slice의 flow가 E2E로 돈다. 이름은 하는 일로 짓는다(예: `skeleton`, `documents`). 번호나 단계 이름(`milestone1`, `phase-2`)은 쓰지 않는다.
 
 ## 작업 단위
 
@@ -26,7 +26,8 @@ slice 문서 안에 작업을 이 모양으로 쓴다.
 - 자리: packages/apps/registration/, packages/contracts/apps/   (code-map.md)
 - 쓰는 contract: platform command, blob
 - 내놓는 contract: apps registration API   (있으면 contracts 팀 작업이 먼저)
-- 선행: T2, skeleton#T5
+- slice: apps
+- 선행: apps#T2, contracts#T5
 - 완료: 아래 확인이 통과한다
   - registration_test.ts에 R1–R4 테스트
   - flow new-app 1~3단계 E2E
@@ -66,6 +67,6 @@ spec 문서 대신 테스트가 요구를 가리킨다.
 
 - main은 늘 `deno task check`가 통과한다.
 - 작업마다 worktree와 branch 하나: `<concern 이름>/<짧은 설명>`(예: `apps-registration/register-command`).
-- commit 메시지는 영어 명령형 한 줄과 본문. 본문 끝에 `Refs: apps/registration#R1-R4, plan skeleton#T6`.
+- commit 메시지는 영어 명령형 한 줄과 본문. 본문 끝에 `Refs: apps/registration#R1-R4, apps#T6`.
 - 병합 순서: contracts와 base → 선행이 없는 작업 → 나머지. 병합 전에 main으로 rebase하고 check를 다시 돈다.
 - 병합은 lead가 한다([team.md](team.md)).

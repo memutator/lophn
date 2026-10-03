@@ -201,3 +201,5 @@ export {
   workerRequestSchema,
   workerResponseSchema,
 } from "./supervision.ts";
+export * from "./blob.ts";
+export * from "./pipe-ops.ts";

@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { z } from "zod";
-import { ok } from "../../base/mod.ts";
+import { ok, type Result } from "../../base/mod.ts";
+import type { BlobRefRegistration, PermanentBlobReference } from "./blob.ts";
 import type { CommandRequest } from "./envelope.ts";
 import { definePort } from "./ports.ts";
 import type {
@@ -94,6 +95,54 @@ const asyncRead: ReadDefinition<typeof read> = {
   handle: async () => await Promise.resolve(ok({ title: "x" })),
 };
 void asyncRead;
+
+const blobRegistration: BlobRefRegistration = {
+  owner_kind: "DocumentVersion",
+  owner_key: "ver_01arz3ndektsv4rrffq69g5fav",
+  field: "file",
+  registered_seq: "42",
+  source: {
+    kind: "prepared",
+    blob: {
+      preparation: "worker-preparation-1",
+      principal: "user",
+      purpose: "document_file",
+      hash: "a".repeat(64),
+      size_bytes: 3,
+    },
+  },
+};
+function blobTypeChecks(tx: Tx, snapshot: ReadSnapshot) {
+  const result: Result<PermanentBlobReference> = tx.registerBlobRef(
+    blobRegistration,
+  );
+  // @ts-expect-error 등록은 비동기 파일 작업이 아니라 같은 transaction의 Result다.
+  const asyncResult: Promise<Result<PermanentBlobReference>> = result;
+  tx.registerBlobRef({
+    ...blobRegistration,
+    // @ts-expect-error hash 단독 주장은 검증된 준비·허용 기존 참조가 아니다.
+    source: { kind: "hash", hash: "a".repeat(64) },
+  });
+  // @ts-expect-error read snapshot은 blob 참조를 등록할 수 없다.
+  snapshot.registerBlobRef(blobRegistration);
+  void asyncResult;
+}
+void blobTypeChecks;
+Deno.test("platform/blob-store#R4 platform/ledger#R22: Tx blob 참조 등록은 동기 Result이고 event 없는 기반 쓰기에 한정한다", () => {
+  const register: Tx["registerBlobRef"] = (reference) =>
+    ok({
+      owner_kind: reference.owner_kind,
+      owner_key: reference.owner_key,
+      field: reference.field,
+      registered_seq: reference.registered_seq,
+      hash: reference.source.kind === "prepared"
+        ? reference.source.blob.hash
+        : reference.source.reference.hash,
+    });
+  const result = register(blobRegistration);
+  assertEquals(result.ok, true);
+  if (result.ok) assertEquals(result.value.registered_seq, "42");
+});
 Deno.test("platform/ledger#R3 platform/ledger#R11: 등록 handler와 Tx call은 동기 Result를 보존한다", () => {
   assertEquals(definition.route, route);
   assertEquals(readDefinition.route, read);

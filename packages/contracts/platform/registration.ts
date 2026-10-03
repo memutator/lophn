@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "./identity.ts";
+import type { BlobRefRegistration, PermanentBlobReference } from "./blob.ts";
 import type { IdPrefix } from "./ids.ts";
 import type { PortKey } from "./ports.ts";
 import type { CommandRoute, ReadRoute } from "./route.ts";
@@ -36,6 +37,10 @@ export interface Tx {
   now(): string;
   newId(prefix: IdPrefix): string;
   port<T>(key: PortKey<T>): T;
+  // 소유 변경과 같은 transaction에서 준비 주체·purpose 또는 기존 참조 권한을 검사한다.
+  registerBlobRef(
+    reference: BlobRefRegistration,
+  ): Result<PermanentBlobReference>;
   // 반응 command의 소유 변경과 subscriber 처리 위치를 같은 transaction에 확정한다(platform/ledger#R15).
   // 위치가 줄어들면 err이고 handler는 그 결과를 그대로 돌려 전체를 rollback한다.
   advanceSubscriberCursor(

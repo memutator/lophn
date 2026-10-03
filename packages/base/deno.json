@@ -1,0 +1,5 @@
+{
+  "name": "@lophn/base",
+  "exports": "./mod.ts",
+  "compilerOptions": { "erasableSyntaxOnly": true }
+}

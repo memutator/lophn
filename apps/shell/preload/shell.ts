@@ -1,3 +1,5 @@
 import { contextBridge } from "electron";
 
-contextBridge.exposeInMainWorld("lophnShell", {});
+import { shellApi } from "./shell-api.ts";
+
+contextBridge.exposeInMainWorld("lophnShell", shellApi);

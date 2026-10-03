@@ -44,6 +44,7 @@ concerns: [shell]
 
 ### T2 Electron main: 창, single instance, 보안 기본값, shell scheme
 
+- 상태: 완료 (#15)
 - 등급: 기본
 - concern: shell/desktop, shell/app-frame
 - 요구: shell/desktop#R11(창), R12, R16, R22(최소 창), R23, shell/app-frame#R3, R4, R23
@@ -59,7 +60,7 @@ concerns: [shell]
   - 시스템 제목 표시줄 없음. macOS 신호등 자리 80px, Windows·Linux 창 버튼 자리 138px. 최소 창 960×600px. 창 제목은 main이 검증한 공간 이름 + ` — lophn`.
   - `lophn-shell://` handler는 설치 파일만 safe join으로 내주고 CSP를 붙인다.
   - IPC guard: sender가 registry의 살아 있는 webContents인지, main frame인지, URL의 scheme·host·path를 각각 비교한다. subframe·다른 origin·모르는 필드·큰 입력은 거절한다.
-  - `window_test`, `security_test`, `ipc_guard_test`(node --test)에 위 요구 테스트. renderer에서 `require`·`process`·token을 읽을 수 없음을 보는 shell 통합 spec 하나(`e2e/shell/sandbox_test.ts`).
+  - `window_test`, `security_test`, `ipc_guard_test`(node --test)에 위 요구 테스트.
 - 가져올 것: legacy `main/src/main/app.ts`의 창·single instance·bounds 부분, `security.ts`, `shell-protocol.ts`, `ipc.ts`의 `requireShell` 검사 원리.
 
 ### T3 core 시작과 연결: 감독 pipe, 사람 token, read·command·event client
@@ -209,6 +210,7 @@ concerns: [shell]
   - 경계 drag 중 overlay가 pointer를 받고 bounds 갱신은 16ms에 한 번으로 묶는다.
   - overlay crash 때 다시 만들어 맨 위에 두고 열려 있던 표면은 닫힘으로 알린다.
   - `overlay_test`(가짜 view)와 `e2e/shell/overlay_test.ts`(menu를 연 동안과 닫은 뒤 아래 view가 보임)에 위 요구 테스트.
+  - renderer에서 `require`·`process`·token을 읽을 수 없음(`e2e/shell/sandbox_test.ts`, shell/desktop#R16).
 - 가져올 것: 없음(legacy는 view를 숨겼다). legacy `viewHost.ts`의 hold coalescing은 쓰지 않는다.
 
 ### T11 공통 컴포넌트: 떠 있는 표면

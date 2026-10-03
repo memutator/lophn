@@ -1,7 +1,14 @@
 // deno-loader 대신 asset namespace에서 CSS Modules와 CSS·font를 읽어 esbuild loader를 쓴다.
 import * as esbuild from "esbuild";
 import { denoPlugins } from "@luca/esbuild-deno-loader";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -98,6 +105,12 @@ export async function build(outdir = join(here, "dist")): Promise<void> {
         ...(denoPlugins({ configPath }) as esbuild.Plugin[]),
       ],
     });
+    // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.
+    await mkdir(join(outdir, "desktop"), { recursive: true });
+    await copyFile(
+      join(here, "desktop", "index.html"),
+      join(outdir, "desktop", "index.html"),
+    );
   } finally {
     await rm(scratch, { recursive: true });
   }

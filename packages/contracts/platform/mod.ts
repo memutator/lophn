@@ -162,6 +162,7 @@ export {
   platformHealth,
   platformStatus,
 } from "./platform-routes.ts";
+export { EVENTS, ROUTES } from "./registry.ts";
 export {
   appCredentialRequestSchema,
   appCredentialResponseSchema,

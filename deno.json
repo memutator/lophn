@@ -14,7 +14,8 @@
     "@std/assert": "jsr:@std/assert@1.0.19"
   },
   "tasks": {
-    "check": "deno run --allow-all tools/check.ts"
+    "check": "deno run --allow-all tools/check.ts",
+    "contracts:coverage": "deno run --allow-read tools/contract-coverage.ts"
   },
   "fmt": {
     "include": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.json", "**/*.jsonc"],

@@ -65,6 +65,8 @@ lophn 설치 자원의 배포 값이다. ledger entity·ID·실행 상태는 없
 - **관리 구간.** 시작 marker는 `<!-- begin lophn-managed -->`, 끝 marker는 `<!-- end lophn-managed -->`다. 짝이 맞는 구간 하나의 내부만 변경하며 앞뒤 사람 내용을 바이트 그대로 보존한다. marker 없음·중복·불완전·짝 불일치는 무변경과 복구 안내다.
 - **동시 변경.** 갱신은 읽은 전체 파일 hash를 비교하고 다르면 덮지 않는다. 임시 파일·원자적 교체로 반영한다. coding agent에게 임의 원본 파일 쓰기 API를 제공하지 않는다.
 - **설치 확인.** 파일 존재와 실제 loading을 구별한다. MCP 초기화·tool 발견·skill 발견·앱 안내 loading의 검사 값은 → coding-agent/connection이다. 동명 설정·skill·hook·trust를 자동 덮어쓰거나 넓히지 않는다.
+- **세션 시작 hook.** Claude Code의 시작·재개·초기화 hook만 현재 앱의 warning 이상 coding_agent 대상 open/fixing 문제 최대 3개와 open/check_failed ticket·나머지 수·상세 읽기·마지막 사람 지시 전 착수 금지 안내를 합쳐 10줄·1,200자 이내로 낸다. info·사람 처리 문제는 제외한다. 전체 timeout 5초·daemon 대기 3초이며 장애·빈 결과는 stdout 빈 값·exit 0이다. 일반 명시 summary는 실패를 숨기지 않는다. 다른 여섯 제품에는 hook 없이 명시 summary를 안내한다(→ coding-agent/guides#R23,R24,R25).
+- **배포 고정.** skill·템플릿은 lophn binary와 함께 서명·설치하고 version·content hash로 고정한다. 같은 version의 내용 변경은 배포 테스트 실패다. 안내·skill·hook·wrapper·제품 local MCP 설정은 운영 release에서 제외하고 local 설정은 source의 관리 ignore 구간으로 안내한다(→ coding-agent/guides#R19,R20).
 - **실행 금지.** ticket·problem 변화만으로 외부 coding agent를 시작하지 않는다. 훅이 없으면 같은 시작 summary를 명시적으로 읽게 안내하며 실패는 `읽지 못함`으로 표시한다.
 
 ## 정할 것

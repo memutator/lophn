@@ -22,7 +22,7 @@ concerns: [lophn-agent/evaluation]
 | `expected` | 검사 predicate 배열 | 아니오 | 비어 있지 않음; 실제 산출물·상태 기준 | 필수 결과 |
 | `forbidden_changes` | 검사 predicate 배열 | 아니오 | 부작용 항목 명시; 기본 `[]` | 금지 변경 |
 | `mode` | `real_model` | 아니오 | 결정적 model 없는 test는 해당 concern의 테스트 | 시행 방식 |
-| `timeout_ms` | 정수 ms | 아니오 | 기본 600000; 1000~3600000; 시작 전 고정 | 상한 |
+| `timeout_ms` | 정수 ms | 아니오 | 기본 600000; 양의 정수; 시작 전 고정 | 상한 |
 | `judging_rules` | ContentJudgingRule 배열 | 아니오 | 필요 축·질문·경계 명시 | 판정 기준 |
 
 ## EvalSnapshot (값)
@@ -90,7 +90,7 @@ concerns: [lophn-agent/evaluation]
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `snapshot` | EvalSnapshot | 아니오 | 변경 불가 | 조건 |
-| `planned / satisfied / unsatisfied / errors / insufficient / missing` | 0 이상 정수 각각 | 아니오 | 서로 겹치지 않음; 합계 planned | 시행 집계 |
+| `planned / satisfied / unsatisfied / errors / insufficient / missing` | 0 이상 정수 각각 | 아니오 | planned는 총 시행 수; 나머지 다섯 결과 수는 서로 겹치지 않고 합계가 planned | 시행 집계 |
 | `pass_rate` | 0~1 십진수 문자열 | 예 | errors·insufficient·missing이 모두 0일 때만 | 전체 비율 |
 | `passed` | boolean | 예 | regression은 모든 시행 satisfied; 불완전이면 null | 전체 통과 |
 

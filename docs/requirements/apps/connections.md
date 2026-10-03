@@ -20,8 +20,8 @@ concerns: [apps/connections]
 
 **[R3]** 앱끼리도 대상 앱의 같은 command handler·입력 검사·효과·사람 확인 선언을 사용하며 확인이 필요한 command는 정확한 대상과 입력에 대한 사람 approval 없이 실행하지 않는다.
 - 이유: 다른 앱 호출이 별도 API나 확인 없는 우회가 되지 않는다.
-- 확인: 직접 쓰는 command와 다른 앱이 쓰는 command가 같은 handler를 호출하고 secret 사용 command는 앱 쌍 허락만으로 실행되지 않는다.
-- 의도: apps#I11
+- 확인: 직접 쓰는 command와 다른 앱이 쓰는 command가 같은 handler를 호출하고 secret grant가 있는 대상 앱의 confirm=false command는 추가 approval 없이 실행되며 confirm=true command만 별도 approval을 요구한다.
+- 의도: apps#I11, apps#I7
 
 **[R4]** 연결 준비 뒤 앱끼리의 일반 command 요청·응답은 core·supervisor·ledger queue를 거치지 않고 대상 앱으로 직접 간다.
 - 이유: 두 앱을 잇는 일이 플랫폼 업무 중계나 공용 병목을 만들지 않는다.

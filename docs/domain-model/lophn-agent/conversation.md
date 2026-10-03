@@ -26,7 +26,7 @@ Session과 Message, 입력의 담당 run과 최초 반영 연결을 정의한다
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | `open` | user | assignment 유효; 이어가기 출처가 같은 assignment | `SessionOpened` |
+| 없음 | `open` | user | assignment enabled 또는 paused; withdrawn 거절; 이어가기 출처가 같은 assignment | `SessionOpened` |
 | `open` | `closed` | user / machine | 미종료 run과 대기 요청 정리 완료; 사람 종료 또는 assignment withdrawn | `SessionClosed` |
 
 ### 불변 조건
@@ -45,7 +45,7 @@ Session과 Message, 입력의 담당 run과 최초 반영 연결을 정의한다
 | `session` | `ses` ID | 아니오 | FK; 사람 입력은 `open` 세션만 | 세션 |
 | `actor` | actor | 아니오 | → platform/identity; 본문과 함께 불변 | 실제 발언자 |
 | `body` | sha256 | 아니오 | 불변; redaction을 거친 MessageContent blob; 기존 text blob도 읽음; → platform/blob-store, platform/redaction | 확정 본문·블록 |
-| `run` | `run` ID | 예 | 있으면 같은 세션·assignment; → lophn-agent/harness/run-loop | 담당 또는 답을 만든 run |
+| `run` | `run` ID | 예 | 있으면 같은 세션·assignment; paused에서 보존한 user request는 실행 선택 전 null; → lophn-agent/harness/run-loop | 담당 또는 답을 만든 run |
 | `mode` | `request / correction` | 예 | user 입력에 필수; agent·machine 발언에는 null | 새 일 / steering |
 | `applied_at_call` | `mcl` ID | 예 | 최초 한 번만 설정; 같은 담당 run; → lophn-agent/harness/usage | 이 입력을 처음 포함한 call |
 | `links` | 대상 참조 배열 | 아니오 | 기본 `[]`; 실제 존재하는 대상만; 계획은 생성 링크가 아님 | 문서·version·질문·approval request·call 연결 |
@@ -54,10 +54,10 @@ Session과 Message, 입력의 담당 run과 최초 반영 연결을 정의한다
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | 확정 메시지 | user | 본문 blob 및 담당 run 접수와 같은 transaction | `MessageReceived` |
+| 없음 | 확정 메시지 | user | enabled는 본문 blob 및 담당 run 접수와 같은 transaction; paused request는 run=null 원문만 저장; withdrawn 거절 | `MessageReceived` |
 | 없음 | 확정 메시지 | agent / machine | 확정 본문; 스트리밍 조각 아님 | `MessageRecorded` |
 | 미반영 | 최초 반영 연결 있음 | machine | 입력을 포함하는 ModelCall 시작과 같은 transaction | `MessageApplied` |
-| 미반영·담당 미확정 또는 이전 담당 | 새 담당 run | machine | 종료 경계 또는 질문 취소; 하나의 담당만 확정 | `MessageAssigned` |
+| 미반영·담당 미확정 또는 이전 담당 | 새 담당 run | machine | 종료 경계·질문 취소 또는 사람이 보존한 요청 실행 선택; 하나의 담당만 확정 | `MessageAssigned` |
 
 ### 불변 조건
 
@@ -66,8 +66,8 @@ Session과 Message, 입력의 담당 run과 최초 반영 연결을 정의한다
 - 입력 접수와 모델 반영은 별개다. 반영은 run의 성공을 뜻하지 않는다.
 - 일반 메시지는 질문 답·승인·멈춤이 아니다. 결정은 → lophn-agent/questions, platform/approvals.
 - 생성 event seq가 발언 순서다. steering은 그 순서로 다음 model call에 모두 반영한다.
-- 다음 일은 `request`이며 독립 `accepted` run으로 접수한다. `start_after`와 시작 정책은 → lophn-agent/harness/run-loop.
-- 종료 경계의 입력은 현재 run 또는 새 run 중 정확히 하나에 남긴다. 종료 뒤 입력을 버리지 않는다.
+- enabled의 다음 일은 `request`이며 독립 `accepted` run으로 접수한다. paused의 request는 담당 run 없이 보존하며 재개만으로 접수하지 않는다. `start_after`와 시작 정책은 → lophn-agent/harness/run-loop.
+- enabled의 종료 경계 입력은 현재 run 또는 새 run 중 정확히 하나에 남긴다. paused로 바뀌었으면 request를 run 없이 보존하고 correction은 접수 완료로 표시하지 않는다. 종료 뒤 접수한 원문을 버리지 않는다.
 
 ## MessageContent (값)
 
@@ -106,12 +106,13 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `OpenSession` | user | ID, assignment, continued_from? | assignment 현재 상태·출처 seq | `SessionOpened` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
+| `OpenSession` | user | ID, assignment, continued_from? | assignment enabled/paused·현재 revision; withdrawn 거절·출처 seq | `SessionOpened` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
 | `CloseSession` | user / machine | 세션, 이유 | 예상 `open`, 상태 seq; 미종료 run 없음 | `SessionClosed` | `conflict`, `forbidden` |
-| `ReceiveMessage` | user | ID, 세션, 본문, mode, 대상 run? | 세션 상태 seq; run 상태; ID 내용 일치 | `MessageReceived`; run 접수는 → lophn-agent/harness/run-loop | `invalid_input`, `conflict`, `forbidden` |
+| `ReceiveMessage` | user | ID, 세션, 본문, mode, 대상 run? | 세션 open·상태 seq; assignment 현재 상태·revision; correction은 enabled·같은 세션의 담당 run 검사 및 종료 경계 정책; ID 내용 일치 | `MessageReceived`; enabled run 접수는 → lophn-agent/harness/run-loop; paused request는 run=null | `invalid_input`, `conflict`, `forbidden` |
 | `RecordMessage` | agent / machine | ID, 세션, run?, 본문, links | run·세션 연결; ID 내용 일치 | `MessageRecorded` | `invalid_input`, `conflict`, `forbidden` |
 | `ApplyMessages` | machine | 메시지 ID 목록, call | 모두 미반영; call 시작 transaction | `MessageApplied` | `conflict` |
-| `AssignMessage` | machine | 메시지, 새 run | 미반영, 이전 담당 run 및 상태 seq | `MessageAssigned` | `conflict`, `invalid_input` |
+| `AssignMessage` | machine | 메시지, 새 run | 미반영, 이전 담당 run 및 상태 seq; run 없는 보존 request는 ExecuteStoredRequest의 사람 선택 필요 | `MessageAssigned` | `conflict`, `invalid_input` |
+| `ExecuteStoredRequest` | user | 보존 message ID, 예상 assignment revision | 현재 enabled·세션 open·user request·run/applied_at_call null; 중복은 같은 담당 결과 | `RunAccepted` 및 `MessageAssigned` 같은 transaction | `conflict`, `forbidden`, `invalid_input` |
 
 ## event
 
@@ -127,4 +128,5 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 ## 정책
 
 - **이어가기.** summary 준비·선택은 → lophn-agent/harness/prompt-assemble. 세션 종료에 summary 성공을 요구하지 않는다.
-- **접수.** Message 및 담당 run 저장 commit 뒤에만 접수 완료를 반환한다.
+- **접수.** enabled는 Message 및 담당 run 저장 commit 뒤에 접수 완료를 반환한다. paused request는 Message만 commit하고 보존·미실행임을 반환한다. withdrawn은 세션 정리 전에도 새 입력을 거절한다.
+- **보존한 요청 실행.** ExecuteStoredRequest는 명시적인 사람 선택에만 AcceptRun과 AssignMessage를 함께 적용한다. 같은 원문을 복제하지 않고 새 run 출처는 그 message ID다. 현재 선행 run의 failed/stopped 확인 등 시작 정책은 → lophn-agent/harness/run-loop를 그대로 따르며 재개 event·재시작·일반 메시지로 자동 실행하지 않는다.

@@ -1,5 +1,5 @@
 // docs/concerns.yaml과 문서 metadata를 검사한다.
-// 실행: node tools/check-docs.ts [--coverage]
+// 실행: node tools/check-docs.ts [--coverage] [--intents]
 //
 // 검사하는 것
 // - concern id가 겹치지 않고, 부모가 있고, summary가 있다
@@ -7,6 +7,9 @@
 // - entity 하나는 concern 하나만 가진다
 // - docs 아래 모든 .md가 metadata(type, concerns)를 가지고, concern이 트리에 있다
 // - concern 하나에 하나씩 두는 문서 종류는 경로가 docs/<type>/<concern id>.md이다
+// - flow는 docs/flows/, screen은 docs/screens/ 아래에 있다
+// - flow의 screens가 있는 screen 문서를 가리키고, 본문의 [screen: 이름]이 screens에 있다
+// - 요구의 "- 의도:"가 있는 intent 약속을 가리킨다(--intents는 빠진 요구와 요구 없는 약속까지 적는다)
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
@@ -16,7 +19,9 @@ const docsDir = join(root, "docs");
 
 // concern 하나에 파일 하나: docs/<type>/<concern id>.md
 const perConcernTypes = ["intent", "domain-model", "requirements", "spec", "architecture"];
-const otherTypes = ["guide", "flow"];
+const otherTypes = ["guide", "flow", "screen"];
+// 이름으로 두는 문서: type -> 폴더
+const namedTypeDirs: Record<string, string> = { flow: "flows", screen: "screens" };
 const allTypes = [...perConcernTypes, ...otherTypes];
 
 type Concern = {
@@ -133,6 +138,10 @@ function readMetadata(path: string): Record<string, string> | undefined {
   return undefined;
 }
 
+// flow 이름 -> 가리키는 screen 이름
+const flowScreens = new Map<string, string[]>();
+const screenNames = new Set<string>();
+
 function checkDocs(byId: Map<string, Concern>): Map<string, Set<string>> {
   // type -> 문서가 있는 concern id
   const covered = new Map<string, Set<string>>();
@@ -160,12 +169,99 @@ function checkDocs(byId: Map<string, Concern>): Map<string, Set<string>> {
       if (rel !== expected) errors.push(`docs/${rel} 경로가 첫 concern과 맞지 않음(기대: docs/${expected})`);
       if (ids.length !== 1) errors.push(`docs/${rel} ${type} 문서는 concern 하나만 가진다`);
     }
+    const dir = namedTypeDirs[type];
+    if (dir) {
+      const m = rel.match(new RegExp(`^${dir}/([a-z0-9-]+)\\.md$`));
+      if (!m) errors.push(`docs/${rel} ${type} 문서는 docs/${dir}/<이름>.md에 둔다(이름은 소문자, 숫자, -)`);
+      else if (type === "screen") screenNames.add(m[1]);
+      else {
+        const listed = parseList(meta.screens ?? "");
+        flowScreens.set(m[1], listed);
+        const body = readFileSync(file, "utf8");
+        for (const used of body.matchAll(/\[screen:\s*([a-z0-9-]+)\]/g)) {
+          if (!listed.includes(used[1])) errors.push(`docs/${rel} [screen: ${used[1]}]가 metadata screens에 없음`);
+        }
+      }
+    } else if (type === "flow" || type === "screen") {
+      errors.push(`docs/${rel} ${type} 문서의 폴더가 틀림`);
+    }
     for (const id of ids) {
       if (!covered.has(type)) covered.set(type, new Set());
       covered.get(type)!.add(id);
     }
   }
+  for (const [flow, screens] of flowScreens) {
+    for (const name of screens) {
+      if (!screenNames.has(name)) errors.push(`docs/flows/${flow}.md 없는 screen을 가리킴: ${name}`);
+    }
+  }
+  const used = new Set([...flowScreens.values()].flat());
+  for (const name of screenNames) {
+    if (!used.has(name)) warnings.push(`docs/screens/${name}.md 어느 flow도 가리키지 않음`);
+  }
   return covered;
+}
+
+// intent 약속: "<node>#I<n>" -> 연결된 요구 수
+function readPromises(): Map<string, number> {
+  const promises = new Map<string, number>();
+  const dir = join(docsDir, "intent");
+  for (const file of listMarkdown(dir)) {
+    const node = relative(dir, file).split(sep).join("/").replace(/\.md$/, "");
+    for (const m of readFileSync(file, "utf8").matchAll(/\*\*\[I(\d+)\]\*\*/g)) promises.set(`${node}#I${m[1]}`, 0);
+  }
+  return promises;
+}
+
+function checkIntentLinks(): void {
+  const promises = readPromises();
+  const missing: string[] = [];
+  const notAncestor: string[] = [];
+  const dir = join(docsDir, "requirements");
+  for (const file of listMarkdown(dir)) {
+    const rel = relative(docsDir, file).split(sep).join("/");
+    const concern = relative(dir, file).split(sep).join("/").replace(/\.md$/, "");
+    const lines = readFileSync(file, "utf8").split("\n");
+    let current: { id: string; line: number; linked: boolean } | undefined;
+    const close = () => {
+      if (current && !current.linked) missing.push(`docs/${rel}:${current.line} ${current.id}`);
+    };
+    lines.forEach((raw, i) => {
+      const req = raw.match(/^\*\*\[(R\d+)\]\*\*/);
+      if (req) {
+        close();
+        current = { id: req[1], line: i + 1, linked: false };
+        return;
+      }
+      if (/^## /.test(raw)) {
+        close();
+        current = undefined;
+        return;
+      }
+      const link = raw.match(/^- 의도:\s*(.+)$/);
+      if (!link || !current) return;
+      const refs = [...link[1].matchAll(/([a-z0-9-]+(?:\/[a-z0-9-]+)*)#I(\d+)/g)];
+      if (refs.length === 0) errors.push(`docs/${rel}:${i + 1} 의도에 "<intent 노드>#I<n>"이 없음`);
+      for (const [ref, node] of refs) {
+        if (!promises.has(ref)) {
+          errors.push(`docs/${rel}:${i + 1} 없는 intent 약속: ${ref}`);
+          continue;
+        }
+        current.linked = true;
+        promises.set(ref, promises.get(ref)! + 1);
+        if (concern !== node && !concern.startsWith(node + "/")) notAncestor.push(`docs/${rel}:${i + 1} ${current.id} -> ${ref}`);
+      }
+    });
+    close();
+  }
+  const empty = [...promises].filter(([, n]) => n === 0).map(([ref]) => ref);
+  if (missing.length > 0) warnings.push(`의도 없는 요구 ${missing.length}개`);
+  if (empty.length > 0) warnings.push(`요구가 없는 intent 약속 ${empty.length}개`);
+  if (process.argv.includes("--intents")) {
+    for (const m of missing) console.log(`의도 없음 ${m}`);
+    for (const e of empty) console.log(`요구 없음 ${e}`);
+    for (const n of notAncestor) console.log(`조상이 아닌 intent ${n}`);
+  }
 }
 
 function leaves(byId: Map<string, Concern>): string[] {
@@ -176,6 +272,7 @@ function leaves(byId: Map<string, Concern>): string[] {
 const concerns = readConcerns(join(docsDir, "concerns.yaml"));
 const byId = checkConcerns(concerns);
 const covered = checkDocs(byId);
+checkIntentLinks();
 
 if (process.argv.includes("--coverage")) {
   const leafIds = leaves(byId);

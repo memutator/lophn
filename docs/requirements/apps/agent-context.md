@@ -36,7 +36,7 @@ concerns: [apps/agent-context]
 **[R6]** context 조회와 주석 쓰기는 apps/runtime의 같은 command 통로와 apps/permissions의 agent command 허락을 사용하고 되쓰기의 확인·revert 판단은 lophn-agent/harness/tool-judgment를 따른다.
 - 이유: context 전용 권한이나 DOM 쓰기가 기존 호출 안전 규칙을 우회하지 않는다.
 - 확인: 화면을 열어 두었어도 agent command 허락을 거두면 조회·되쓰기가 거절되고 되돌릴 수 없는 주석 쓰기는 사람 결정을 기다린다.
-- 의도: apps#I11
+- 의도: apps#I11, apps#I12
 
 ## 열린 질문
 

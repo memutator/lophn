@@ -65,7 +65,7 @@ ApprovalRequest의 고정 동작, 사람의 결정, 한 번 사용 연결을 정
 
 - “현재 release”, 이름·slug만으로 대상을 묶지 않는다. 같은 입력이라도 대상·caller·비교 기준이 달라지면 다른 동작이다.
 - assignment·tool·MCP 연결이 호출 전제이면 그 고정 ID와 판은 소유 command의 입력·비교 기준에 포함한다. → lophn-agent/harness/tool-judgment, lophn-agent/extensions
-- 앱 `confirm` 호출은 `concern = apps/invocations`, requester와 caller는 앱 화면의 `user`다. targets·입력은 정확한 앱·release·command를, `input_hash`는 그 command의 정규 입력을 고정한다. → apps/invocations
+- 앱 `confirm` 호출은 `concern = apps/invocations`이며 requester와 caller는 인증된 실제 요청자다. 앱 화면의 user·agent·다른 앱의 요청을 사람이 허락해도 원래 요청자를 user로 바꾸지 않는다. targets·입력은 정확한 앱·release·command와 실제 caller 근거를, `input_hash`는 그 command의 정규 입력을 고정한다. agent ask와 confirm이 겹치면 같은 정확한 approval을 한 번만 사용한다. → apps/invocations#R17, apps/invocations#R18, lophn-agent/harness/tool-judgment
 - secret 값·credential 원문은 입력·미리보기·event에 넣지 않는다. secret 이름·안전 참조·사용 대상만 고정한다. → platform/secrets, platform/redaction
 
 ## ApprovalEffect (값)
@@ -135,6 +135,7 @@ ApprovalRequest의 고정 동작, 사람의 결정, 한 번 사용 연결을 정
 
 ## 정책
 
+- **결정 표시.** 기본 화면은 동작·대상·이유·변경과 외부 전송·보존 데이터·되돌릴 수 없는 영향을 사람이 아는 말로 요약한다. 필수 설명을 숨겨 결정을 유도하지 않는다. 기술적인 호출 출처·정확한 입력·CAS는 redaction된 상세에서 확인하며 표시용 요약이 action 결속을 바꾸지 않는다. en·message key·child modal과 입력 차단은 → shell/wording, shell/confirmation-window다. → platform/approvals#R17
 - **한 번 사용.** ledger 변경은 유효성 검사·`approval_uses` INSERT·소유 변경을 같은 짧은 transaction에서 한다. ledger 밖 동작은 접수·사용 연결부터 함께 확정하고 밖에서 수행한다. 동작 시작 뒤 사용 연결을 쓰지 않는다.
 - **confirm 접수.** 앱 confirm은 `accepted` invocation과 approval 사용을 같은 command에서 확정한다. 결과 불명확·실패·재전송은 같은 접수이며 허락을 다시 쓰지 않는다. → apps/invocations
 - **현재 권한.** 허락은 권한 검사를 면제하지 않는다. tool 판정 `deny`는 approval request로 우회하지 않는다. → lophn-agent/harness/tool-judgment

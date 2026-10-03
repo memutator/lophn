@@ -23,7 +23,7 @@ Invocation의 관측 기록과 confirm command의 한 번 접수를 정의한다
 | `status` | `accepted` / `running` / `succeeded` / `failed` / `denied` / `unknown` | 아니오 | 아래 전이만 | 접수/관측 결과 |
 | `started_at` | UTC 시각 | 예 | 실제 시작 관측만; accepted/denied에는 없음 | 실제 시작 |
 | `finished_at` | UTC 시각 | 예 | succeeded/failed/denied/unknown 확정 시 필수; unknown은 미확인 판정 시각 | 종료/거절/미확인 판정 |
-| `summary` | 작은 JSON object | 아니오 | redaction; 일반 입출력 본문·credential 원문 금지 | code·거절 사유 |
+| `summary` | 작은 JSON object | 아니오 | redaction 뒤 UTF-8 최대 16KiB; 일반 입출력 본문·credential 원문 금지 | code·거절 사유 |
 | `detail_hash` | sha256 | 예 | redaction된 실패 상세 blob → platform/blob-store | 안전한 근거 |
 
 ### 상태
@@ -136,8 +136,8 @@ AppCallOrigin은 kind=app으로 app/release/parent_invocation만 projection하�
 
 - **기록 대상.** confirm 접수·결과, write/external 명령, automation(read 포함), 실패/거절 read, start, data_change를 기록한다. 화면 byte 조회·성공한 일반 read는 매번 기록하지 않는다.
 - **confirm 접수.** 승인 사용과 accepted를 원자적으로 저장한다. 재전송은 같은 접수만 돌려준다. 저장 실패면 handler를 부르지 않는다. 입력/release 변경은 새 확인이다.
-- **실행 중복.** 앱은 증명을 검증하고 handler 전 메모리에 inv ID를 넣는다. marker를 지우기 전 증명이 만료되어야 한다. 목록이 가득 차면 새 접수 거절; 기존 marker를 버려 재실행하지 않는다. 새 프로세스는 옛 proof를 거절한다. 결과를 모르면 재실행하지 않는다.
-- **전달.** supervisor의 bounded 메모리 목록에서 기록 메시지만 backoff 재전송한다. 인증 실패·conflict는 반복하지 않고 → platform/diagnostics. 한도 초과 시 redaction된 손실 진단을 남기며 앱 응답을 막지 않는다.
+- **실행 중복.** 앱은 증명을 검증하고 handler 전 메모리에 inv ID를 넣는다. marker를 지우기 전 증명이 만료되어야 한다. 프로세스당 4096개 목록이 가득 차면 새 접수 거절; 기존 marker를 버려 재실행하지 않는다. 새 프로세스는 옛 proof를 거절한다. 결과를 모르면 재실행하지 않는다.
+- **전달.** supervisor의 전체 4096 메시지 또는 8MiB 중 먼저 닿는 메모리 한도 안에서 기록 메시지만 재전송한다. unavailable만 1000ms·2000ms·4000ms부터 최대 30000ms backoff로 다시 보낸다. unauthorized·conflict·invalid_input은 반복하지 않고 → platform/diagnostics. 한도 초과 시 redaction된 손실 진단을 남기며 앱 응답을 막지 않는다.
 - **손실.** 기록 없음은 미실행이 아니다. snapshot은 기록 없음/연결 ID 모름을 그대로 표시한다(→ problems/snapshots).
 - **문서 성공.** 명령 결과가 문서 저장을 포함하면 문서 version 확정까지 기다린다(→ documents/versions). invocation 전달만 기다리지 않는다.
 
@@ -146,5 +146,5 @@ AppCallOrigin은 kind=app으로 app/release/parent_invocation만 projection하�
 
 ## 정할 것
 
-- proof 서명·TTL·접수 marker 한도와 summary byte 상한을 platform/identity와 정한다.
-- 기록 전달 메모리 한도·backoff 수치와 durable 전달 보관의 도입 여부. 현재는 bounded 메모리 재전송이다.
+- proof 서명·TTL은 platform/identity와 정한다. marker·summary·전달 한도·backoff는 apps/invocations#R19를 따른다.
+- durable 전달 보관의 도입 여부. 현재는 bounded 메모리 재전송이다.

@@ -73,7 +73,7 @@ Version에는 보관 상태나 수정 전이가 없다.
 - idempotency key와 새 `doc` ID를 재사용한 동일 재전달은 → platform/ledger의 결과를 따른다. 최신 판이 다른 내용으로 바뀌었으면 낡은 요청으로 덮지 않는다.
 - 형식 변경을 명시하지 않은 저장은 `base_version`의 FormatRef를 사용하고 그 판이 최신인지 확정 때 검사한다(→ documents/formats).
 - blob 내구 설치·큰 파일 목록 검사·hash·format 실행은 command 밖에서 끝낸다. 신뢰한 준비 처리의 증명만 받는다.
-- restore는 선택한 Version의 내용으로 새 Version을 만든다. 같은 내용·형식이면 `unchanged`다. 이전 Version과 event는 남는다.
+- restore는 선택한 Version의 내용과 정확한 FormatRef로 새 Version을 만든다. 사람의 명시 restore는 과거 FormatRef를 선택하는 허용된 형식 변경이며 준비도 선택 판의 정확한 module로 한다. 같은 내용·형식이면 `unchanged`이고 변경 event가 없다. 이전 Version과 event는 남는다.
 - 기획·설계 채택은 Version 상태가 아니다(→ lophn-agent/questions). 새 Version이 이전 판의 채택을 자동 이전하지 않는다.
 
 ## FileSource (값)
@@ -121,6 +121,19 @@ Version에는 보관 상태나 수정 전이가 없다.
 | `reference` | Address 또는 DocumentRef | 아니오 | → documents/addressing; 항상 고정 판 | |
 | `event_seq` | event seq | 조건부 | `saved`에 필수; `unchanged`는 null | 이번 커밋 seq |
 | `warnings` | FormatDiagnostic[] | 아니오 | → documents/formats; 빈 목록 허용 | |
+
+## BundledGuide (값)
+
+사용자 Document가 아닌 설치 묶음의 읽기 전용 안내다(→ documents/versions#R17,R18). ledger 표·entity ID·사용자 place·tracking·Version 번호는 없다.
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `lophn_version` | string | 아니오 | 설치 묶음의 정확한 version | |
+| `title` | string | 아니오 | 안내 제목 | |
+| `content_hash` | sha256 | 아니오 | 설치 manifest가 고정한 실제 내용 hash | 고정 안내 판 참조 |
+| `files` | 읽기 전용 파일 목록 | 아니오 | manifest 안의 상대 경로만; 대표 파일 하나 | |
+
+목록·목차·section·본문은 설치한 같은 묶음에서 offline으로 읽는다. 복사하여 남기는 요청만 일반 Document 저장으로 처리하며 설치 update가 복사본을 바꾸지 않는다.
 
 ## 관계
 
@@ -170,10 +183,10 @@ Version에는 보관 상태나 수정 전이가 없다.
 
 - **run.** 종료한 run을 가진 새 대상 변경은 거절한다(→ lophn-agent/harness/run-loop). 저장된 동일 내용은 run 성공의 증명이 아니다.
 - **revert.** agent run 이후의 판·revision이 그대로일 때만 보상한다. 이후 다른 변경은 `conflict`다. 생성 문서는 보관하며 원본 연결 문서의 디스크 revert는 run revert에 포함하지 않는다(→ lophn-agent/revert).
-- **독립 결과.** 첫 판은 같은 산출물에 새 Version을 쌓는다. 독립 편집 대상은 별도 Document이며 Series·자동 다음 번호·초안 칸은 없다.
+- **독립 결과.** 같은 산출물의 갱신은 같은 Document의 새 Version이다. 독립 편집 대상은 별도 Document이며 가족·멤버 key·다음 이름·draft는 → documents/series가 맡는다. SeriesDraft는 첫 Version 없는 Document를 만들지 않는다.
 
 ## 정할 것
 
-- 독립 산출물 가족을 관리하는 Series가 필요한지.
+- 독립 산출물 가족은 → documents/series의 채택한 모델을 따른다; Operator 출력 범위를 독립 문서로 넓힐지는 별도 결정이다.
 - 문서·판 영구 삭제를 추가할지. 추가 시 고정 근거·address 예약·blob 보존 규칙도 함께 정한다.
 - 정규화 파일 목록의 canonical JSON encoding과 content_hash 입력 필드 집합. 준비 처리와 blob 참조 검증이 같은 규약을 사용해야 한다.

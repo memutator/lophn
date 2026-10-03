@@ -27,7 +27,10 @@ lophn 문서는 **concern** 단위로 나눈다. concern 목록은 [concerns.yam
 | `requirements` | 어떻게 만들든 지켜야 하는 것 | `docs/requirements/<concern id>.md` | 하나 |
 | `spec` | 동작의 구체(모양, 순서, 값, 오류) | `docs/spec/<concern id>.md` | 하나 |
 | `architecture` | 프로세스, 저장, 경계, contract | `docs/architecture/<concern id>.md` | 하나 |
-| `flow` | 여러 concern을 가로지르는 사용 흐름 | `docs/flows/<이름>.md` | 지나는 concern 모두 |
+| `flow` | 여러 concern을 가로지르는 사용 흐름. 사람이 하는 일 하나를 처음부터 끝까지 | `docs/flows/<이름>.md` | 지나는 concern 모두 |
+| `screen` | 화면 하나의 정적 명세: 보이는 것, 숨긴 것, 행동, 상태, 문구 | `docs/screens/<이름>.md` | 화면이 보여 주는 concern 모두 |
+
+화면 전체에 걸치는 UX 규칙(정보 최소화, 숨기기, 화면 말, i18n)은 [screens/README.md](screens/README.md)에 둔다. 색·글꼴·간격·컴포넌트 값은 `shell/design-system`, 문구 규칙과 i18n의 지켜야 할 것은 `shell/wording` requirements가 맡는다. flow는 화면을 이름으로만 가리키고, 화면의 모양은 screen 문서에만 쓴다.
 
 모든 문서의 첫 줄부터:
 
@@ -61,6 +64,8 @@ concerns: [lophn-agent/harness/provider]
 | approval request, notification | 승인 요청, 알림 |
 
 문서, 앱, 사람, 질문, 역할, 문제, 피드백처럼 원래 쓰는 말은 그대로 쓴다.
+
+이 표는 문서와 코드의 말이다. 화면 말은 다르다. 화면은 영어(i18n, 처음엔 en만)이고, 바이브코딩 사용자가 아는 말만 쓴다. ledger, invocation, assignment 같은 안쪽 개념은 화면에 내보내지 않는다. 화면 말은 [screens/README.md](screens/README.md)에서 정한다.
 
 ## requirements 쓰는 법
 
@@ -123,3 +128,73 @@ concerns: [lophn-agent/harness]
 3. **requirements는 intent를 넘지 않는다.** 어느 약속에도 연결되지 않는 요구는 범위를 넘었거나 intent에 약속이 빠진 것이다. 요구가 하나도 없는 약속은 requirements가 빠뜨린 것이다.
 4. **intent는 사람만 고친다.** agent가 intent와 맞지 않는 것을 찾으면 intent를 고치지 않고 [open-issues.md](../open-issues.md)에 올린다.
 5. **intent가 requirements보다 위다.** intent가 바뀌어 기존 요구와 부딪히면 그 요구를 intent에 맞게 고친다. 번호는 유지하고, 고친 사실은 [open-issues.md](../open-issues.md)에 남긴다.
+
+## flow 쓰는 법
+
+```markdown
+---
+type: flow
+concerns: [지나는 concern 모두]
+screens: [지나는 화면 이름 모두]
+---
+# 사람이 하는 일로 쓴 제목(예: 새 앱 하나가 생기기까지)
+
+누가, 언제, 왜 이 흐름을 시작하나. 한두 문장.
+
+## 흐름
+
+1. **[screen: launcher]** 사람이 …한다. (apps/registration#R2)
+2. lophn이 …한다. 사람에게는 보이지 않는다. (platform/ledger#R4)
+
+## 다른 갈래
+
+- 2에서 …이면 …
+
+## 끝
+
+사람이 무엇을 보고 끝났다고 아나.
+```
+
+1. **사람 입장에서 쓴다.** 사람이 보고 하는 것과, 안쪽에서 저절로 되는 일을 구별한다. 안쪽 일에는 "사람에게는 보이지 않는다"를 붙인다.
+2. **단계마다 받치는 요구를 가리킨다.** `concern#R<n>`으로 적는다. 가리킬 요구가 없으면 빈 곳이다. [open-issues.md](../open-issues.md)에 `flow/<이름>#Q<n>`으로 올린다.
+3. **화면은 이름만 가리킨다.** `[screen: <이름>]`으로 적고 metadata `screens`에도 넣는다. 화면 모양은 screen 문서의 몫이다.
+4. **실패와 다른 갈래를 쓴다.** 연결 끊김, 거절, 앱 고장, 사람이 그만둠.
+
+## screen 쓰는 법
+
+```markdown
+---
+type: screen
+concerns: [이 화면이 보여 주는 concern]
+---
+# <이름>
+
+이 화면에서 사람이 하는 일 한 줄.
+
+## 보이는 것
+기본으로 보이는 것. 지금 판단하거나 행동하는 데 꼭 필요한 것만, 중요한 순서로.
+
+## 숨긴 것
+기본으로 보이지 않는 것과 어디서 펼치나. 안쪽에서 저절로 처리되어 아예 보이지 않는 것.
+
+## 행동
+주 행동 하나와 보조 행동.
+
+## 상태
+비었음, 불러오는 중, 오류, 연결 끊김, 권한 없음, 그 화면에만 있는 상태.
+
+## 문구
+
+| key | en |
+|---|---|
+| launcher.empty.title | Nothing here yet |
+
+## 크기와 접근성
+넓은 창, 좁은 창, 패널·카드 크기, 키보드, screen reader.
+```
+
+1. **화면 전체 규칙은 [screens/README.md](screens/README.md)를 따른다.** 거기와 다른 규칙을 화면마다 만들지 않는다.
+2. **덜어 낸다.** 보이는 것에 넣을지 망설여지면 숨긴 것에 넣는다.
+3. **업무 규칙은 쓰지 않는다.** 무엇을 보여 주고 지켜야 하나는 그 concern의 requirements를 `concern#R<n>`으로 가리킨다.
+4. **문구는 key와 en 값으로 쓴다.** 설명 문장은 한국어로 쓰고, 화면에 나오는 말만 영어로 쓴다.
+

@@ -31,22 +31,22 @@ concerns: [shell/terminal]
 **[R5]** shell 시작 환경에는 OS 사용자 환경과 터미널 표시값만 전달하고 lophn token·앱 connection credential·confirmation handle·keychain secret·daemon 내부 endpoint는 주입하지 않는다.
 - 이유: 일반 shell이 lophn의 내부 권한을 자동 상속하면 안 된다.
 - 확인: child 환경에서 내부 자격이 없고 사용자가 OS에서 따로 설정한 도구 환경과 lophn 일반 설정이 구별되는지 본다.
-- 의도: shell#I7
+- 의도: platform#I2, shell#I7
 
 **[R6]** 터미널은 OS 사용자 권한으로 동작하며 lophn 앱 sandbox가 아니라고 표시하고 프로젝트 폴더 밖 접근이나 사람이 실행한 외부 coding agent의 행동을 lophn이 제한한다고 안내하지 않는다.
 - 이유: 프로젝트 시작 위치와 권한 격리는 같은 보장이 아니다.
 - 확인: 터미널 첫 열기 안내에 OS 사용자 권한과 프로젝트 시작 위치가 서로 다른 뜻으로 보이는지 본다.
-- 의도: shell#I7
+- 의도: shell#I7, platform#I2
 
 **[R7]** 탭 전환·다른 공간 이동·터미널 숨김은 shell과 출력을 유지하고 같은 Electron 실행 동안 최근 출력은 터미널마다 최대 10,000줄과 UTF-8 5MiB 중 먼저 도달한 범위까지 보존한다.
 - 이유: 화면 전환이 작업 종료가 되어서는 안 되지만 무한 출력이 다른 화면을 막아서도 안 된다.
 - 확인: 숨긴 탭에서 출력을 내고 돌아와 같은 shell과 출력을 읽으며 상한을 넘으면 오래된 출력부터 제외되고 제외 표시가 보이는지 본다.
-- 의도: shell#I7
+- 의도: shell#I7, shell#I4
 
 **[R8]** 터미널 원시 출력은 disk·ledger·blob·일반 log·세션 문맥에 자동 저장하지 않고 shell renderer가 재생성되어도 살아 있는 terminal host의 최근 출력 범위만 다시 표시한다.
 - 이유: password·token이 포함될 수 있는 출력의 보존 범위를 좁힌다.
 - 확인: secret 모양의 출력을 내고 저장소·진단·agent 문맥에 자동 사본이 없으며 renderer crash 뒤 최근 출력이 다시 보이는지 본다.
-- 의도: shell#I7
+- 의도: platform#I2, shell#I7
 
 **[R9]** shell이 종료되면 종료 상태·확인된 exit code 또는 결과 불명을 출력 옆에 남기고 다시 시작은 사람이 누른 때만 새 shell로 수행한다.
 - 이유: 실패를 자동 명령 반복으로 고치거나 성공으로 추측하지 않는다.
@@ -61,7 +61,7 @@ concerns: [shell/terminal]
 **[R11]** 터미널 출력의 제어 문자열은 제목·색·커서 같은 허용 표시로만 해석하고 clipboard 쓰기·파일 열기·앱 command·자동 URL 열기·플랫폼 결정을 실행하지 않는다.
 - 이유: 출력은 실행 지시가 아니라 터미널에 표시할 자료다.
 - 확인: clipboard와 링크 제어 문자열·가짜 confirmation 출력을 보내도 OS나 플랫폼 행동이 생기지 않는지 본다.
-- 의도: shell#I2
+- 의도: platform#I2, shell#I3
 
 ## 열린 질문
 

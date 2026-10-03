@@ -36,25 +36,25 @@ concerns: [coding-agent/repair-context]
 
 ### 절 순서와 내용
 
-내용도 누락 사실도 없는 빈 절만 뺀다. mandatory 근거를 축약하더라도 실제 정본으로 이어 읽을 수 있어야 한다. 요약은 acceptance check의 전체 조건을 대체하지 않는다.
+내용도 누락 사실도 없는 빈 절만 뺀다. mandatory 근거를 축약하더라도 실제 정본으로 이어 읽을 수 있어야 한다. 요약은 acceptance check의 전체 조건을 대체하지 않는다. 별도 머리 정보는 앱·문제·상태·현재 claim 연결·횟수·처음/마지막 시각·발생 release를 6줄 이하로 낸다. 문제 summary는 문제당 2줄·전체 10줄·1,200자 이하다. 아래의 줄·문자·개수 상한과 전체 상한을 모두 적용한다.
 
 | 순서 | kind | 담는 것·정본 참조 | 기본 묶음의 절 상한 |
 |---|---|---|---|
-| 1 | `target_symptom` | 앱·ticket 제목, 문제 증상·발생 시각 → apps/registration, coding-agent/tickets, problems/grouping | 문제당 한 줄 |
-| 2 | `human_text` | 사람 feedback·보고 원문 excerpt → problems/feedback, problems/reporting | 문제당 300자 |
-| 3 | `inspect` | 고정 근거 주소·볼 위치 → coding-agent/tickets, documents/addressing | 5개; 본문 대신 주소 |
-| 4 | `acceptance_checks` | ticket acceptance check 참조·요약 → coding-agent/tickets; 직접 수리는 기존 확인 기준이 있을 때만 | 200자 요약 + 전체 조건 읽기 |
-| 5 | `preserve` | ticket의 유지 제약 → coding-agent/tickets | 200자 요약 + 전체 제약 읽기 |
-| 6 | `failure_basis` | 보고·snapshot의 당시 시각·release·실패 연산·고정 source 근거 → problems/reporting, problems/snapshots, apps/releases | 항목별 한 줄 |
-| 7 | `representative_occurrences` | 아래 선정한 실제 Report 참조·snapshot excerpt → problems/reporting, problems/snapshots | 최대 3개, 각각 400자 |
-| 8 | `preceding_changes` | 첫 발생 부근 release·문서 등의 실제 변경 참조 | 최대 12개, 각각 100자 |
-| 9 | `logs` | snapshot이 가리키는 안전한 log excerpt → problems/snapshots | 종류별 최대 200줄; 전체 상한 우선 |
-| 10 | `past_repairs` | 최신 고친 기록·실제 Verification 참조 → problems/repairs, problems/tests | 최신 5개 + 더 읽기 |
-| 11 | `related_problems` | 같은 앱의 관련 문제 참조 → problems/grouping | 10개 + 더 읽기; 재귀 묶음 없음 |
-| 12 | `attachments` | snapshot 첨부 참조·종류·크기 → problems/snapshots | 이미지 metadata 최대 20개; binary는 기본 텍스트에 넣지 않음 |
-| 13 | `reproduction` | 원래 증상 재현 절차·고정 테스트 기준 → problems/tests, coding-agent/tickets | 500자 + 전체 근거 읽기 |
-| 14 | `more` | 종류별 추가 근거 읽기 | 20개 + cursor |
-| 15 | `return_method` | ticket 완료 보고 또는 직접 고친 기록·test 요청의 참조; 실제 command 표현은 → coding-agent/mcp-server, coding-agent/cli | 5줄 |
+| 1 | `target_symptom` | 앱·ticket 제목, 문제 증상·발생 시각 → apps/registration, coding-agent/tickets, problems/grouping | 문제당 1줄·전체 2줄 |
+| 2 | `human_text` | 사람 feedback·보고 원문 excerpt → problems/feedback, problems/reporting | 전체 5줄·문제당 300자 |
+| 3 | `inspect` | 고정 근거 주소·볼 위치 → coding-agent/tickets, documents/addressing | 10줄·5개; 본문 대신 주소 |
+| 4 | `acceptance_checks` | ticket acceptance check 참조·요약 → coding-agent/tickets; 직접 수리는 기존 확인 기준이 있을 때만 | 8줄·200자 요약 + 전체 조건 읽기 |
+| 5 | `preserve` | ticket의 유지 제약 → coding-agent/tickets | 8줄·200자 요약 + 전체 제약 읽기 |
+| 6 | `failure_basis` | 보고·snapshot의 당시 시각·release·실패 invocation·고정 source 근거 → problems/reporting, problems/snapshots, apps/releases | 실패 invocation 15줄 이하 |
+| 7 | `representative_occurrences` | 아래 선정한 실제 Report 참조·snapshot excerpt → problems/reporting, problems/snapshots | 최대 3개·전체 30줄·각각 400자 |
+| 8 | `preceding_changes` | 첫 발생 부근 release·문서 등의 실제 변경 참조 | 최대 12개·14줄·각각 100자 |
+| 9 | `logs` | snapshot이 가리키는 안전한 log excerpt → problems/snapshots | 기본 묶음 전체 45줄; 추가 페이지는 200줄 |
+| 10 | `past_repairs` | 최신 고친 기록·실제 Verification 참조 → problems/repairs, problems/tests | 최신 5개·10줄 + 더 읽기 |
+| 11 | `related_problems` | 같은 앱의 관련 문제 참조 → problems/grouping | 관계 묶음마다 5줄·전체 10개 + 더 읽기; 재귀 묶음 없음 |
+| 12 | `attachments` | snapshot 첨부 참조·종류·크기 → problems/snapshots | 40줄·이미지 metadata 최대 20개; command 결과 각각 3행; binary는 기본 텍스트에 넣지 않음 |
+| 13 | `reproduction` | 원래 증상 재현 절차·고정 테스트 기준 → problems/tests, coding-agent/tickets | 6줄·500자 + 전체 근거 읽기 |
+| 14 | `more` | 종류별 추가 근거 읽기 | 5줄 + cursor; 근거 목록은 추가 페이지로 이어 읽음 |
+| 15 | `return_method` | ticket 완료 보고 또는 직접 고친 기록·test 요청의 참조; 실제 command 표현은 → coding-agent/mcp-server, coding-agent/cli | 4줄 |
 
 ## RepairEvidenceRead (값)
 
@@ -86,7 +86,7 @@ concerns: [coding-agent/repair-context]
 - **전체 상한.** ticket 하나에 연결된 모든 문제의 절을 합쳐 UTF-8 24 KiB(`24,576 bytes`)와 300줄을 모두 지킨다. 직접 수리의 problem 묶음도 같다. 누락·가림·잘림 표시·이어 읽기 안내도 상한에 포함한다.
 - **축소 순서.** 초과면 log → 대표 발생 excerpt → 첨부 metadata 순서로 줄인다. 각 생략 지점에 잘림·원래 범위와 실제 추가 읽기를 남긴다. 그래도 초과면 필수 참조·상태는 유지하고 나머지 내용을 이어 읽기 참조로 바꾸며 조용히 빼지 않는다.
 - **접근 검사.** 조립·추가 페이지·첨부 각각에 요청 connection scope를 적용한다(→ coding-agent/connection, platform/identity). ticket reference로 범위 밖 정보를 복사하거나 blob hash를 접근 권한으로 쓰지 않는다.
-- **redaction·데이터.** text·JSON·이미지·추가 근거를 반환 전에 → platform/redaction을 적용한다. 사람 말·앱 문자열·log는 자료로 구별하며 지시·approval 근거가 아니다(→ platform/security).
+- **redaction·데이터.** text·JSON·이미지·추가 근거를 반환 전에 → platform/redaction을 적용한다. 사람 말·앱 문자열·log는 명시 data fence 안에 두고 agent 해석과 구별하며 지시·approval 근거가 아니다(→ platform/security). 부분 수집·미검증 등의 한계도 reason과 content에 남겨 summary에서 숨기지 않는다.
 - **읽기 무변경.** 묶음·추가 근거 읽기는 claim 생성·갱신·반납이나 problem·ticket 상태를 바꾸지 않는다.
 
 ## 정할 것

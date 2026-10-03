@@ -61,7 +61,7 @@ main은 read·command·event·앱 direct call을 독립적인 비동기 요청�
 
 코드는 `apps/shell/main/`, `apps/shell/preload/`, `apps/shell/renderer/`에 둔다. main은 npm·TypeScript strict로, renderer는 Deno workspace에서 SDK와 디자인 패키지를 공유해 build한다. preload 세 종류와 IPC schema는 `apps/shell/ipc/`에 둔다. main과 renderer가 서로의 실행 코드나 DB 모듈을 import하지 않는다.
 
-- `main/desktop/`: 창·tray·autostart·shortcut·설치 실행 intent.
+- `main/desktop/`: 창·tray·autostart·shortcut·설치 실행 intent. `main/workspace/`와 같은 layout adapter로 창과 공간별 UI 편의 값을 보존한다.
 - `main/confirmation/`: 보호 창·handle 수명·결정 제출 adapter.
 - `main/app-frame/`: view registry·scheme proxy·session·network·native view visibility.
 - `main/editor/`: 파일 쓰기 adapter·창 닫기 guard; 파일 쓰기 구현은 없음.
@@ -108,7 +108,7 @@ route는 renderer의 로컬 화면 주소다. API endpoint나 domain 주소를 �
 - 작업대는 네 종류 탭 36px, 좌우 1칸 또는 2칸·최소 칸 폭 480px를 쓴다. 부족하면 분할 설정을 보존한 한 칸 보기로 전환한다.
 - 정보 패널은 320px·정보/버전/컨텍스트 탭·기본 닫힘이다. dock 뒤 본문 720px 또는 분할 두 칸과 경계 1px를 남길 수 없으면 overlay다.
 - 대화는 오른쪽 400px로 본문을 밀고 정보 패널을 임시 접는다. 본문 480px를 남길 수 없으면 overlay로 바꾼다. 닫으면 이전 정보 패널 상태를 복원한다. 입력·선택 답·커서는 세션별 초안 메모리에서 유지한다.
-- 역할은 같은 목록 열과 하는 일/만든 것/대화 탭을 쓴다. 하는 일은 지금/기다림/멈춤/끝남 순서, 다시 시작/다시 시키기는 분리한다. 결과가 4개 이상이면 첫 3개와 남은 개수·전체 보기를 둔다.
+- 역할은 같은 목록 열과 하는 일/만든 것/대화 탭을 쓴다. 하는 일은 지금/기다림/멈춤/끝남 순서, 다시 시작/다시 시키기는 분리한다. 대화 입력 gate는 lophn-agent/assignments의 현재 허용 결과를 쓰며 회수된 담당은 지난 대화만 읽고 새 입력을 받지 않는다. 결과가 4개 이상이면 첫 3개와 남은 개수·전체 보기를 둔다.
 - 질문·approval request 칸은 대화 입력 위 하나, blocking 우선·나머지 접수 순서로 현재 번호/전체와 앞뒤 이동을 둔다. 세션 없는 요청도 확인할 것에서 연다.
 - 확인할 것은 기다리는 것/지난 일과 역할·기간 filter로 나눈다. notification 칩은 오른쪽 아래 360px 한 칸·외 n건·보기/닫기만 두고 focus나 현재 문서를 바꾸지 않는다.
 - 창 팔레트 `CommandOrControl+K`, 전역 팔레트 `CommandOrControl+Shift+K`, 런처 복귀 `CommandOrControl+Shift+L`은 서로 다르다. 전역 Ctrl+K를 등록하지 않는다. 팔레트 묶음 순서는 shell/desktop#R30을 따른다.
@@ -124,7 +124,7 @@ Linux 기본 root는 `~/.lophn`, 변경 시 `LOPHN_HOME`이며 다른 OS root �
 | `<home>/shell/browser/` | 앱별 persistent Chromium partition의 cookie·localStorage·IndexedDB·cache | main의 session manager만 partition 생성; shell·앱·문서 사이 분리; 업무 DB의 정본이 아님 |
 | terminal host 메모리 | PTY handle·child group·탭별 최근 10,000줄/5MiB 중 먼저 도달한 출력 ring buffer·순서·종료 관측 | terminal host만; disk·ledger·blob·진단 자동 보관 없음; Electron 종료에 소실 |
 | shell renderer 메모리 | 마지막 read와 확인 시각·event cursor, 세션별 대화 초안·커서, 편집 중 아직 전달 못한 내용 | crash·Electron 종료 뒤 보존을 약속하지 않음; 필요 사실은 소유 read로 재구성 |
-| main·feedback renderer 메모리 | 미제출 feedback 글·button 시점 binding·raw capture·안전한 미리보기 | 취소·창 종료에 폐기; raw screenshot을 disk·일반 log·blob에 쓰지 않음 |
+| main·shell overlay view·feedback 작성 소유 renderer 메모리 | 미제출 feedback 글·button 시점 binding·raw capture·안전한 미리보기 | raw는 main과 문제 보고 경계만 보유; overlay·작성 소유 renderer는 글과 안전한 미리보기만 보유; 취소·창 종료에 폐기; raw screenshot을 disk·일반 log·blob에 쓰지 않음 |
 | documents의 원본 파일·working copy | 원본 연결 문서는 등록 프로젝트 파일; 원본 없는 문서는 document별 working copy | 파일 쓰기 contract만 사용; 위치를 shell 설정·browser 저장에 복제하지 않음 |
 | platform ledger·blob·derived·앱 DB | 확정 사실·문서 version·redaction된 snapshot·검색·업무 데이터 | shell은 경로를 직접 열거나 표를 쓰지 않음 |
 | OS keychain | platform secret contract가 저장한 실제 secret | shell은 보호 입력을 전달하고 안전 참조만 받음; 사람 token의 영구 저장소로 쓰지 않음 |
@@ -156,7 +156,7 @@ shell이 내놓는 최상위 contract는 **confirmation window**, **앱 화면 �
 
 **실제 이름과 입력**
 
-- main service `confirmation.open({request, comparison, parentWindow?})`는 등록된 결정 종류와 고정 대상 참조만 받는다. approval request·question option action·소유 concern의 사람 결정 intent·secret 입력·shell 외부 링크 열기 intent가 대상이다.
+- main service `confirmation.open({request, comparison, parentWindow})`는 등록된 결정 종류와 고정 대상 참조·실제 요청 부모 창만 받는다. approval request·question option action·소유 concern의 사람 결정 intent·secret 입력·shell 외부 링크 열기 intent가 대상이다.
 - 일반 preload `lophnShell.openConfirmation(intent)` → IPC `shell:confirmation-open`은 창을 열 뿐이다. 임의 command 본문·HTML·허락값을 받지 않는다.
 - 보호 preload `lophnConfirmation.getDisplay()` → `confirmation:display`, `submit({displayId, decision, input?})` → `confirmation:submit`, `cancel()` → `confirmation:cancel`만 둔다. input은 해당 결정 schema의 입력이다.
 - 일회 handle 원문은 main에 남는다. renderer의 `displayId`는 그 창의 표시 자료 참조이며 bearer credential이나 독립 결정 권한이 아니다. main은 caller registry의 창과 displayId를 함께 확인한 뒤 handle을 붙인다.
@@ -177,7 +177,7 @@ shell이 내놓는 최상위 contract는 **confirmation window**, **앱 화면 �
 
 정본 기준이 바뀌거나 다른 곳에서 결정되면 옛 행동을 제거하고 이유·최신 내용 열기만 남긴다. 대상 설명을 새 것으로 조용히 바꾸어 옛 클릭을 적용하지 않는다. secret input은 일반 문구 catalog·event·feedback 캡처 경로와 분리하고 제출·취소·창 종료에 지운다.
 
-**표시**는 최대폭 640px, 주체·시각 → 대상·변경 → 이유 → 위험 → revert 가능 → 근거 → 전후 → 결정 순이다. 현재/바뀐 뒤는 세로, 문서는 바뀐 문단과 앞뒤 1문단·추가/삭제 기호, 전체/code diff는 펼침이다. permission 경로는 고정폭 원문 전체로 표시한다. 앱 동작 전후 자료가 없으면 없다고 적고 안전 preview만 apps/preview 결과로 연다. 사용자 theme은 검증된 token 값만 받으며 slot·fork는 보호 화면에 적용되지 않는다.
+**표시**는 shell/confirmation-window#R2의 최대폭 640px이며 좁은 창에는 창 안에 맞추고, 대상·변경 → 영향·위험 → revert 가능 → 결정 순만 기본으로 보인다. 주체·시각·이유·근거·상세 전후는 Details에 접고, 결정에 필요한 정확한 범위는 숨기지 않는다. 현재/바뀐 뒤는 세로, 문서는 바뀐 문단과 앞뒤 1문단·추가/삭제 기호, 전체/code diff는 펼침이다. permission 경로는 고정폭 원문 전체로 표시한다. 앱 동작 전후 자료가 없으면 없다고 적고 안전 preview만 apps/preview 결과로 연다. 사용자 theme은 검증된 token 값만 받으며 slot·fork는 보호 화면에 적용되지 않는다.
 
 **오류**는 공통 `invalid_input`, `not_found`, `forbidden`, `unauthorized`, `conflict`, `unavailable`을 쓴다. IPC sender 위조는 `forbidden`, 사라진 대상은 `not_found`, 끝난 요청·바뀐 내용·사용된/만료 handle은 `conflict`, core·keychain에 닿지 못함은 `unavailable`로 표시한다. 발급·검증의 인증 오류 최종 분류는 인증 contract를 따른다.
 
@@ -201,10 +201,10 @@ shell이 내놓는 최상위 contract는 **confirmation window**, **앱 화면 �
 - 운영 앱은 `persist:app-<app ID>:live`, preview는 `persist:app-<app ID>:preview-<bundle hash>` partition으로 분리한다. 같은 앱·모드 창들은 같은 partition을 쓰되 다른 앱·preview와 cookie·localStorage·IndexedDB·cache를 공유하지 않는다. 페이지에 플랫폼 credential을 저장하지 않는다.
 - shell은 shell 전용 partition, confirmation은 창별 메모리 partition, 격리 문서는 `document-<version ID>-<view ID>` 메모리 partition이다. 문서 view를 닫으면 webContents를 파괴하고 `clearStorageData`·cache 정리를 한 뒤 registry에서 지운다.
 - main은 앱 연결을 앱 통로의 `POST /v1/apps/connect`로 얻는다. `session.protocol.handle('lophn-app', handler)`는 `lophn-app://<app label>/<surface key>/...` 요청을 main registry의 고정 연결과 매칭하고 앱 프로세스 Unix socket의 `/screens/<key>/...`로 넘긴다. main의 `node:http` client는 `socketPath`를 사용해 해당 socket에 직접 붙고, 응답 바이트를 `Response`의 stream으로 돌려준다. renderer는 socket 경로·내부 port·인증 header를 받지 않는다. redirect·응답 CSP·MIME을 검사하고 다른 연결로의 redirect를 따르지 않는다. 취소된 protocol 요청은 upstream도 중단하며 무한 응답을 main 메모리에 모으지 않는다.
-- 앱 preload의 `app:call`도 같은 고정 socket의 `/_lophn/commands/invoke`에 main이 schema 검증한 호출을 전달한다. 이것은 core command 중계가 아니며 일반 호출은 ledger 기록을 기다리지 않는다. confirm만 approval와 invocation의 선행 접수를 따른다. socket의 OS별 transport 차이는 앱 통로 adapter가 숨긴다. main이 임의 socket 경로나 대상 앱을 renderer 입력에서 고르는 API는 없다.
+- 앱 preload의 `app:call`도 같은 고정 socket의 `/_lophn/commands/invoke`에 main이 schema 검증한 호출을 전달한다. 이것은 core command 중계가 아니며 일반 호출은 ledger 기록을 기다리지 않는다. confirm만 approval와 invocation의 선행 접수를 따른다. command effect는 앱 통로가 검증한 blueprint 값을 따른다: 밖에서 가져오기만 하면 read, 가져와 저장하면 write, 앱 밖 상태를 바꾸면 external이다. 바깥 요청은 network grant의 host 경계로만 간다. secret 전송은 앱에 준 grant가 허락이며 호출마다 approval을 더하거나 caller 종류로 막지 않고 전송 직전 플랫폼이 붙인다. shell은 값을 받거나 앱 코드·agent에 전달하지 않는다. automation의 external·confirm 금지는 apps/automations 소유이고 shell이 가져오기·동기화까지 같은 금지로 표시하지 않는다. socket의 OS별 transport 차이는 앱 통로 adapter가 숨긴다. main이 임의 socket 경로나 대상 앱을 renderer 입력에서 고르는 API는 없다.
 - 문서 protocol handler는 별도로 blob contract의 고정 version 자원만 proxy한다. 앱 socket 응답·문서 blob·shell 설치 파일은 각 session의 handler와 대상 registry를 공유하지 않는다.
 - session `webRequest.onBeforeRequest`와 CSP에서 network를 기본 차단한다. 자기 scheme·자기 대상과 apps/permissions가 전달한 허용 fetch host만 통과시킨다. URL을 파싱해 port·redirect·WebSocket·subframe에도 적용하고 임의 loopback·file·다른 앱 주소는 거절한다. session 정책은 단일 모듈에 등록해 여러 handler가 덮어쓰지 않게 한다.
-- 문서 CSP는 `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'`이다. resource는 자기 문서 고정 판에서만 proxy한다. 앱·문서의 worker와 service worker는 첫 구현에서 허용하지 않는다.
+- 문서 CSP는 `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'`이다. resource는 자기 문서 고정 판에서만 proxy한다. worker의 Node integration도 끄며 worker 요청에 session·CSP·대상·network 경계를 그대로 적용하고 요구에 없는 앱 browser worker 금지를 별도로 만들지 않는다.
 - `setWindowOpenHandler`는 deny, permission request/check/device handler는 모두 기본 false, download·fullscreen·webview 삽입·scheme 밖 navigation은 거절한다. 새 창은 main의 검증된 앱 창 intent로만 만든다.
 - 앱의 외부 링크는 HTTP/HTTPS·userinfo 없음·8192자 이하를 검사해 live·preview 모두 OS browser로 바로 연다. shell 크롬의 외부 링크는 confirmation을 거친다. 링크 기록은 origin·path만 남기고 query·fragment를 제거한다.
 
@@ -212,7 +212,7 @@ shell이 내놓는 최상위 contract는 **confirmation window**, **앱 화면 �
 
 main registry는 `{viewId, webContents, window, app/version, release, mode, connection, generation, attached}`를 갖는다. bounds는 shell renderer가 `ResizeObserver`로 요청하지만 실제 붙이기·숨기기·폐기는 main 한 모듈만 한다. 상단 크롬·[문제 알리기]는 shell renderer 소유이며 앱 bounds에 포함되지 않는다.
 
-- 앱 공간·프로젝트 탭 패널·세션 카드는 같은 frame 경계를 쓴다. 프로젝트 두 칸에서 앱·문서·터미널을 나란히 놓고 보이는 native view를 각 경계에 동시에 attach한다. 입력 focus는 하나다. 앱 공간 운영 패널은 720px, 창 1024px 미만이면 본문 전체 overlay다.
+- 앱 공간·프로젝트 탭 패널·세션 카드는 같은 frame 경계를 쓴다. 프로젝트 두 칸에서 앱·문서·터미널을 나란히 놓고 보이는 native view를 각 경계에 동시에 attach한다. 입력 focus는 하나다. 앱 공간 운영 패널은 720px, 창 1024px 미만이면 overlay로 두되 패널이 덮지 않는 본문 영역에 앱 view bounds를 줄여 표시하고 패널 닫힘 뒤 원래 bounds로 돌린다.
 - tooltip·sheet·menu·popover·palette·dialog는 shell overlay view에 그리고 앱 view는 숨기지 않는다. 탭·칸 경계 drag 중에는 overlay view가 창 본문 전체 bounds로 pointer를 받는다. resize는 16ms마다 bounds 변경을 합친다. 탭 교체는 옛 view부터 숨기고 새 view 준비 후 붙인다.
 - 분할의 각 칸과 보이는 앱 카드는 자기 rectangle에 view를 붙인다. main은 창 본문·칸·카드 경계와 교차 영역을 검사한다. 스크롤 밖 카드는 detach한다. 좁은 창에서 대화·정보 패널이 본문을 덮으면 앱 view bounds를 패널 밖 영역으로 줄이고 숨기지 않는다. confirmation window는 별도 modal 창이다.
 - release·연결·permission 변경은 옛 view와 연결을 폐기하고 현재 앱 통로를 다시 얻는다. persistent session의 cache·이전 실행 코드가 새 release를 대신하지 않도록 cache를 정리하고 고정 release의 응답만 제공한다. 저장 상태의 존재가 호출 권한은 아니다.
@@ -222,13 +222,13 @@ main registry는 `{viewId, webContents, window, app/version, release, mode, conn
 
 - main은 창마다 투명 WebContentsView 하나를 `lophn-shell://overlay/index.html`로 만들고 `setBackgroundColor('#00000000')`로 둔다. 앱 view를 attach할 때마다 overlay를 `contentView.addChildView`로 다시 넣어 항상 맨 위에 둔다. z-order는 main의 view registry만 바꾼다.
 - 닫혀 있으면 `setVisible(false)`다. menu·popover·tooltip은 그 사각형만, backdrop이 있는 dialog·palette와 경계 drag는 창 본문 전체를 bounds로 쓴다. 그래서 떠 있는 UI 바깥의 click은 그대로 앱이나 shell에 간다.
-- shell renderer가 `shell:overlay-open {kind, anchorRect, model}`을 보내면 main이 sender를 검증해 overlay로 전달하고, 선택·입력 결과는 `shell:overlay-result`로 연 쪽에 돌아온다. overlay는 표시와 선택만 하고 command를 직접 보내지 않는다.
-- 열리면 keyboard focus를 overlay로 옮기고 닫히면 연 요소로 되돌린다. Escape, 바깥 click, 창 blur에 닫는다. screen reader에는 menu·dialog role로 보인다.
+- shell renderer가 `shell:overlay-open {kind, anchorRect, model}`을 보내면 main이 sender를 검증해 overlay로 전달하고, 선택·입력 결과는 `shell:overlay-result`로 연 쪽에 돌아온다. overlay는 표시와 선택만 하고 command를 직접 보내지 않는다. 같은 창에서 열린 표면들은 overlay 안의 sibling DOM으로 두어 shell/design-system#R20의 층을 유지하고 dialog 안 menu도 별도 shell overlay view를 만들지 않고 같은 registry에서 표시한다.
+- menu·popover·palette·dialog·sheet 같은 조작 표면만 keyboard focus를 overlay로 옮기고 닫히면 연 요소로 되돌린다. tooltip·경계 drag의 표시만으로 focus를 옮기지 않는다. sheet는 backdrop 없이 Escape·바깥 click으로 닫고 modal 밖 popup은 focus 이동에 닫는다. 자동 notification은 focus와 현재 문서를 유지한다. 조작 표면에 해당 menu·dialog role을, tooltip에는 tooltip 의미를 제공한다.
 - overlay는 보안 경계가 아니다. 사람 결정과 secret 입력은 confirmation window만 받는다.
 
-**feedback binding**은 main이 버튼 시점에 `{viewId, generation, app, release, mode, surfacePath, observedAt}`를 고정한 뒤 만든 불투명 메모리 참조다. 다른 창·새 release로 재해석하지 않는다. `capturePage`를 먼저 요청하고 shell overlay view에 dialog를 연다. 앱 view는 그대로 보인다. 캡처 중 view 교체·crash·timeout이면 이미지를 제외하고 글 작성은 유지한다. raw capture는 main에서 문제 보고 contract로만 보내고 shell 미리보기에는 redaction된 PNG만 전달한다. capture 원문 hash·binding·redaction 결과 hash·선택 자료를 같은 draftRef에 묶어, 최종 제출 때 새 이미지를 바꿔 붙이지 못하게 한다.
+**feedback binding**은 main이 버튼 시점에 `{viewId, generation, app, release, mode, surfacePath, observedAt}`를 고정한 뒤 만든 불투명 메모리 참조다. 다른 창·새 release로 재해석하지 않는다. problems/feedback#R5에 따라 보호 창·lophn dialog가 이미 열렸거나 view가 가려진 동안·다른 창은 캡처하지 않고 제외 이유만 남긴다. 그 외에는 `capturePage`를 먼저 요청하고 shell overlay view에 dialog를 연다. 앱 view는 그대로 보인다. 캡처 중 view 교체·crash·timeout이면 이미지를 제외하고 글 작성은 유지한다. raw capture는 main에서 문제 보고 contract로만 보내고 shell 미리보기에는 redaction된 PNG만 전달한다. capture 원문 hash·binding·redaction 결과 hash·선택 자료를 같은 draftRef에 묶어, 최종 제출 때 새 이미지를 바꿔 붙이지 못하게 한다.
 
-글은 1~500 Unicode scalar, 화면 상태는 65536 bytes 이하, 이미지 PNG는 긴 변 1600px·2097152 bytes 이하라는 problems/feedback의 결과를 표시한다. screenshot 기본 선택은 false이며 안전한 미리보기를 사람이 확인해야 true다. 보호 화면·다른 창은 캡처하지 않고 수집 실패·미선택·redaction 불가 이유를 snapshot에 전달한다. 이미지를 얻지 못해도 글을 제출할 수 있다.
+글은 redaction 뒤 공백 외 1~500 Unicode scalar, 화면 상태는 65536 bytes 이하, 이미지 PNG는 긴 변 1600px·2097152 bytes 이하, 전체 전송은 3145728 bytes 이하라는 problems/feedback의 결과를 표시한다. screenshot 기본 선택은 false이며 안전한 미리보기를 사람이 확인해야 true다. 보호 화면·다른 창은 캡처하지 않고 수집 실패·미선택·redaction 불가 이유를 snapshot에 전달한다. 이미지를 얻지 못해도 글을 제출할 수 있다.
 
 **오류**는 잘못된 표면·bounds·URL에 `invalid_input`, 범위 밖 caller·host에 `forbidden`, 옛 release·binding 불일치에 `conflict`, 앱 중지·연결 없음에 `unavailable`이다. capture 실패는 첨부 없는 결과이며 feedback 글 보내기 실패와 합치지 않는다.
 
@@ -276,7 +276,7 @@ core RPC는 platform/api의 `POST /v1/<resource>/<method>`, event는 WebSocket `
 - tray는 창 열기·런처·명시 daemon 중지·Electron 종료를 분리한다. daemon 중지는 main의 tray callback이 platform/install-and-update의 정상 정지 경로에만 요청하며 일반 preload에 넣지 않는다. 앱·agent의 진행 결과는 정지 완료 결과로 확인한다.
 - Linux `.desktop`, macOS app bundle, Windows shortcut은 고정 앱 ID를 `lophn-desktop --open-app <app ID>` intent로 전달한다. main은 현재 read와 앱 통로를 확인해 같은 앱 frame의 전용 창을 연다. shortcut은 앱 코드·source path·token·고정 port를 실행하지 않는다.
 - 전역 shortcut 등록 실패는 해당 기능의 사용 불가로 안내하고 다른 shortcut을 임의 점유하지 않는다. 종료 때 main이 등록을 해제한다. OS 자동 시작은 검증된 실행 경로와 tray intent만 등록한다.
-- OS notification은 설정의 opt-in 때만 표시하고 제목 `lophn`, 본문 `확인할 일이 있습니다.`와 내부 notification ID의 클릭 연결만 쓴다. 이름·문서 내용·secret·원문 오류는 OS에 넘기지 않는다. 클릭은 해당 확인할 것/결과를 열 뿐 결정·읽음 command를 대신하지 않는다.
+- OS notification은 설정의 opt-in 때만 표시하고 제목 `lophn`, en message key의 본문 `Something needs your attention`과 내부 notification ID의 클릭 연결만 쓴다. 이름·문서 내용·secret·원문 오류는 OS에 넘기지 않는다. 클릭은 해당 확인할 것/결과를 열 뿐 결정·읽음 command를 대신하지 않는다.
 - `NotificationCreated`의 현재 도착분만 OS 표시 대상으로 삼고 재연결의 backlog를 연속 재생하지 않는다. main 메모리의 표시 ID 중복 억제는 domain 읽음 상태가 아니다. OS 실패여도 ledger notification·창 안 목록은 남고 자동 retry 루프를 추가하지 않는다.
 - shell build·preload·renderer·로컬 font·고정 의존성·bundle된 Deno를 설치 staging에 제공한다. electron-builder로 OS별 포장하되 지원 완료·서명·공증·sandbox 검증과 데이터 위치는 platform/install-and-update 기준을 따른다.
 - 첫 update는 수동 OS 패키지 설치다. shell은 새 version·OS·schema 호환·정상 정지·재시작 필요를 보여 줄 뿐 autoUpdater 다운로드·자동 설치·무단 재시작·데이터 초기화를 하지 않는다. backup·migration은 platform이 수행한다.
@@ -287,7 +287,9 @@ core RPC는 platform/api의 `POST /v1/<resource>/<method>`, event는 WebSocket `
 
 gallery는 컴포넌트·화면의 light·dark·좁은 폭·empty·loading·error 여섯 경우를 먼저 등록한다. 사람이 채택한 screenshot을 회귀 기준으로 저장한다. 접근성·대비·reduced-motion·키보드 focus 복원, 읽기/편집 첫 블록 위치 차이 4px 이하, 떠 있는 UI·경계 drag 중 앱 view가 사라지지 않음, 보호 창 열림 중 부모 창·앱 view 입력 차단을 별도 테스트한다. 차트 palette 변경 검증은 shell/design-system의 정한 값을 검사하며 새 색이나 차트 정책을 여기서 만들지 않는다.
 
-고정 UI 문구는 `renderer/wording/` catalog와 shared 타입으로 main·renderer에 전달한다. 한국어 합니다체 1~2문장·영향·다음 행동 하나, 버튼·제목은 마침표 없음이다. 조사 병기는 오류, 기본 안내의 ID 접두사·snake_case·원시 enum은 경고다. release·run·watch 같은 정한 말은 금지하지 않는다. 문제 문구는 problems가 확정한 값을 그대로 쓰며 shell이 placeholder·앱 이름을 다시 합성하지 않는다. 앱 기본 안내·tooltip에 stack·log·원문 오류를 넣지 않는다.
+고정 UI 문구는 `renderer/wording/`의 en-only catalog와 shared 타입으로 main·shell·overlay·confirmation renderer에 전달한다. 모든 고정 문구는 shell/wording#R14의 `<screen>.<part>.<name>` key·ICU MessageFormat을 쓰며 날짜·숫자·상대 시각은 Intl API로 formatting한다. locale을 더할 때 같은 key의 catalog를 더하고 문장 조각을 이어 붙이지 않는다. 문구 검사는 직접 문자열·없는 key·빠진 en 값·placeholder 불일치를 오류로, 사용자 화면의 ID 접두사·snake_case·원시 enum·ledger·release·invocation·assignment 같은 안쪽 개념 이름을 경고로 처리한다. 문서·코드·별도 개발자 diagnostics는 이 경고에서 제외한다. 화면 말의 mapping과 자유 글·고정 문구 구분은 screens/README.md#3,#4를 따른다. agent 자유 글은 key로 만들지 않고 en 언어 규칙만 지킨다. 기본 안내는 짧고 직접적인 1~2문장·영향·다음 행동 하나, 버튼·제목은 마침표 없음이다. 문제 문구는 problems가 확정한 값을 그대로 쓰며 shell이 placeholder·앱 이름을 다시 합성하지 않는다. 앱 기본 안내·tooltip·사용자 상세에 stack·log·원문 오류를 넣지 않는다.
+
+화면 전체 UX 규칙은 screens/README.md, 공통 시각·조작 값은 shell/design-system, 정적 화면은 docs/screens, 여러 concern을 지나는 사람 흐름은 docs/flows가 정본이다. 이 architecture의 route·adapter는 그 명세를 구현할 뿐 별도 정보 목록을 늘리지 않는다. read의 세부 단계는 메모리 presenter에 보존하되 기본에는 지금 필요한 결과·다음 행동만 표시하고 Details에서 필요한 근거를 펼친다. 내부 재검사·scan·index·redaction·retry 과정은 기본 화면에 진행 목록으로 만들지 않는다.
 
 ## 7. 흐름
 
@@ -370,7 +372,7 @@ action 없는 질문·자유 답은 일반 답 경로이고 이를 command로 �
 
 target은 원본 연결이면 등록 프로젝트 파일, 아니면 document별 working copy다. 경로 생성·원자 교체·hash 비교는 documents가 수행한다. 자동 저장마다 version을 요구하지 않는다. 탭 닫기·파일/읽기 전환·창 닫기·CommandOrControl+S는 마지막 파일 변경을 flush하고 documents의 편집 종료 경계에 연결한다. worker가 알린 유휴 종료도 같은 결과로 표시하고 shell에 별도 version timer를 만들지 않는다.
 
-쓰기 실패·불명·충돌에서 탭·창 닫기를 잠시 막고 초안 보존과 비교/접수 확인 경로를 제시한다. disk 성공·기록 확인·version 확정·format 검사·search 반영을 한 저장 완료로 합치지 않는다. 외부 파일을 자동 병합·덮어쓰지 않는다.
+쓰기 실패·불명·충돌에서 탭·창 닫기를 잠시 막고 초안 보존과 비교/접수 확인 경로를 제시한다. disk 성공·기록 확인·version 확정·format 검사·search 반영을 한 저장 완료로 합치지 않되, 머리 메타 줄에는 현재 결과·필요한 다음 행동만 보이고 단계별 사실과 관측 시각은 Details에서 펼친다. 외부 파일을 자동 병합·덮어쓰지 않는다.
 
 ### 7.6 단절 뒤 돌아오고 notification을 표시한다
 

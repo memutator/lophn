@@ -94,7 +94,7 @@ concerns: [problems/grouping]
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
 | `ReconcileProblemWork` | machine | problem, ticket, 받은 ticket event seq | 문제 최신 seq·현재 work; 현재 ticket 상태·claim; 문제당 열린 ticket 1개 | 상태 변화면 `ProblemWorkStarted` / `ProblemWorkEnded` | `not_found`, `conflict`, `forbidden` |
-| `LinkProblemInterpretation` | 담당 App Engineer 또는 user | problem, 새 참조 또는 null | 문제 최신 seq·현재 참조; 앱 scope·판 읽기 권한 | `ProblemInterpretationLinked` | `invalid_input`, `not_found`, `forbidden`, `conflict` |
+| `LinkProblemInterpretation` | 담당 App Engineer | problem, 새 참조 또는 null | 문제 최신 seq·현재 참조; 앱 scope·판 읽기 권한 | `ProblemInterpretationLinked` | `invalid_input`, `not_found`, `forbidden`, `conflict` |
 
 ## event
 
@@ -109,4 +109,5 @@ concerns: [problems/grouping]
 ## 정책
 
 - **해석 연결.** 참조 설정·해제는 상태를 바꾸지 않는다. 이전 참조를 event에 남기며 같은 CAS로 되돌릴 수 있다. Report·Snapshot·Verification은 되돌려 지우지 않는다.
+- **화면 projection.** 기본 목록·앱 카드에는 앱·증상·진행·필요한 다음 행동만 전달하고 상세의 실제 담당은 현재 유효 ticket claim에서 얻는다. ticket 없는 수리에 담당을 꾸미지 않는다. 사용자용 상세의 수리 작업은 en 작업 상태로 설명하고 claim·기한·연결 ID는 노출하지 않는다. 수·시각·당시 release·증거는 필요한 상세에서만 읽으며 내부 code·stack·log는 별도 허용된 수리 조회다.
 - **재발 key 기간.** 기간 상한 없이 같은 key·ID를 유지한다. 별도 episode entity는 없다.

@@ -66,16 +66,17 @@ blob 자체와 준비 파일은 ledger 표가 아니다. 참조 목록은 공통
 
 ## 정책
 
-- **경로.** 완성 blob은 `~/.lophn/blobs/sha256/<hash 앞 2자>/<나머지 62자>`, 임시는 `~/.lophn/blobs/tmp/`다. API는 내부 파일 경로를 받지 않는다.
-- **설치.** 같은 파일 시스템의 임시 파일에 스트리밍 저장하며 그 바이트로 sha256를 계산한다. 파일 sync 뒤 원자적 설치하고 지원 OS에서는 디렉터리도 sync한다. 기존 같은 hash는 재사용하며 덮어쓰지 않는다.
+- **경로.** → platform/install-and-update가 시작 전에 고정한 data root `H` 아래 완성 blob은 `H/blobs/sha256/<hash 앞 2자>/<나머지 62자>`, 임시는 `H/blobs/tmp/`다. API는 내부 파일 경로를 받지 않는다.
+- **설치.** 같은 파일 시스템의 임시 파일에 스트리밍 저장하며 그 바이트로 sha256를 계산한다. 완성 파일은 POSIX 0400 또는 동등한 소유자 읽기 전용 ACL로 두고 파일 sync 뒤 원자적 설치하며 지원 OS에서는 디렉터리도 sync한다. 기존 같은 hash는 재사용하며 덮어쓰지 않는다. → platform/blob-store#R2, platform/blob-store#R3
 - **준비 검사.** 예상 hash 불일치·크기 한도 초과는 `invalid_input`, 디스크 부족·손상은 `unavailable`이다. core는 작은 신뢰 준비 메타데이터만 검사하고 다시 파일을 읽거나 hash하지 않는다.
 - **redaction.** 외부 출력·보고용 복사본은 → platform/redaction을 마친 뒤 저장한다. 사람 원본 문서의 보존은 → documents/versions이며 출력용 redaction과 섞지 않는다.
-- **GC.** 첫 구현은 정지 유지보수만 허용한다. 새 준비·command를 막고 진행 준비를 끝내거나 중단한 뒤 writer를 닫는다. 고정 ledger의 모든 `blob_refs`와 비교해 미참조 blob·임시 파일만 유예 뒤 삭제한다. 정상 동작 중 나이만 보고 삭제하지 않는다.
+- **GC.** 기동 시와 매일 필요 여부를 점검하지만 실제 삭제는 정지 유지보수만 허용한다. 새 준비·command를 막고 진행 준비를 끝내거나 중단한 뒤 writer를 닫는다. 고정 ledger의 모든 `blob_refs`와 비교해 미참조 설치 blob은 미참조 확인 시각부터 7일 뒤 삭제하고, 비정상 종료의 임시 파일은 살아 있는 작업이 아님을 확인한 뒤 정리한다. 정상 동작 중 나이만 보고 삭제하지 않는다. → platform/blob-store#R8, platform/blob-store#R9, platform/blob-store#R10
+- **저장 공간.** ledger·WAL·blob·임시 준비·안전 여유의 실제 공간이 부족하면 신규 수집·변경을 제한한다. 참조 blob을 임의 삭제해 성공을 만들지 않는다. 참조 차단·실제 파일 삭제·다른 사본 잔존은 별개다. → platform/blob-store#R11, platform/blob-store#R12
 - **복구.** blob 설치와 SQLite commit은 공동 원자 작업이 아니다. 미참조 준비는 고아로 남을 수 있으나 참조된 내용의 부재는 저장소 손상이다.
 - **삭제.** 큰 근거의 기간별 삭제는 내용 소유 concern의 정책과 공통 참조 흔적 정책이 정해진 뒤에만 허용한다. event는 수정·삭제하지 않는다(→ platform/ledger).
 
 ## 정할 것
 
-- blob 크기·스트림·읽기 구간 한도, 준비 식별 수명, 정지 GC의 유예 기간.
+- blob 크기·스트림·읽기 구간 한도와 준비 식별 수명의 구현 기본값은 → platform architecture의 blob contract와 맞춘다. 정지 GC의 미참조 유예는 7일로 정해졌다.
 - 상세 근거 삭제 후 참조 유지와 `content unavailable` 표현. 현재는 참조된 blob을 기간만으로 삭제하지 않는다.
 - 지원 OS의 원자 설치·sync 보장과 검증 범위.

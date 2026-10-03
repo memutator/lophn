@@ -72,6 +72,8 @@ migration은 새 파일로 추가한다. 공개한 기존 script와 release의 D
 - **backup 관문.** migration 전 보호 backup 참조를 먼저 ledger에 확정한다. 그 전 새 업무 쓰기는 없다. agent·앱 credential에 운영 backup 읽기 scope를 주지 않는다.
 - **실패 복원.** 새 업무 통로를 열기 전의 activation 실패만 backup으로 복원할 수 있다. 무결성·schema 실제 확인 뒤 이전 release를 준비한다. 불확실/복원 실패는 unavailable이며 → problems/reporting.
 - **운영 후.** activation commit 뒤 새 업무가 있었을 가능성을 배제할 수 없으면 옛 backup으로 자동 덮어쓰지 않는다. 단절 상태의 모르는 migration을 성공으로 채우거나 무조건 replay하지 않는다.
+- **보존.** migration backup은 기본 최근 5개를 유지하되 진행 중 복원이 참조하는 backup은 완료 전 삭제하지 않는다.
+- **export.** 고정 blueprint·release 이력·불변 실행 bundle과 정확한 SDK 의존 byte·일관된 SQLite DB 사본을 함께 내보낸다. DB byte 준비는 command 밖 data worker가 수행하고 WAL의 확정 내용을 포함해 무결성을 확인한다. OS keychain의 secret 원값·credential은 포함하지 않고 앱 외부 자료·첨부 파일의 포함 여부를 명시한다. export가 운영 DB 복원이나 외부 효과 취소를 뜻하지 않는다.
 
 ## 정할 것
 

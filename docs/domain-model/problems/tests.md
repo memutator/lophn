@@ -72,7 +72,7 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 |---|---|---|---|---|
 | `argv` | 문자열 목록 | 아니오 | 길이 1 이상; 실행 파일과 분리된 인자; 자유 shell 문자열 금지 | 실제 command |
 | `cwd` | 상대 path 문자열 | 아니오 | 고정 source 안; `..`·symlink로 작업 폴더 밖 접근 금지 | 작업 위치 |
-| `timeout_ms` | 정수 | 아니오 | 1 이상; 생략 금지 | 유한 시간 제한 |
+| `timeout_ms` | 정수 | 아니오 | 1~300,000; 생략 금지; 클라이언트 제안 60,000 | 유한 시간 제한 |
 | `expected_exit_code` | 정수 | 아니오 | 실제 종료값과 비교 | 기대 종료값 |
 | `environment` | sha256 blob 참조 | 아니오 | 안전한 환경·대역 정의; 실제 secret 금지 | 고정 테스트 환경 |
 
@@ -135,14 +135,18 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 ## 정책
 
 - **app test 필수 검사.** 선언·SDK 보고·선언별 실제 실패 경로·정적/동적 code 사용·process 예외·view 예외·feedback·redaction, blueprint/handler 일치·permission 거절·고정 SDK를 검사한다. 화면 없는 묶음의 화면 검사는 이유 있는 `not_applicable`이다.
+- **앱 계약 검사.** 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration을 모두 확인한다(→ apps/data). read는 입력 schema·업무 및 외부 상태 불변을 확인한다(→ apps/blueprint). automation은 같은 command·입력·grant와 external/confirm 금지를 확인하며 grant된 secret의 read/write 가져오기·동기화는 대역으로 검사한다(→ apps/automations, apps/permissions). 출력 schema는 apps/blueprint에서 확정되지 않은 별도 필수 선언으로 요구하지 않는다.
 - **플랫폼 검사.** 플랫폼 필수 검사 code는 앱 묶음 밖의 고정 runner 소유이며 coding agent가 바꿀 수 없다. 앱 code·화면·blueprint·의존·테스트 변경은 새 hash와 새 app test를 요구한다.
 - **격리.** 운영 DB·backup·keychain·사람 파일·일반 홈·실제 외부 서비스 접근 금지다. 고정 source는 읽기 전용, 쓰기는 테스트 폴더·테스트 DB만 허용한다. secret·network·문서 쓰기는 고정 대역이다.
-- **시작과 복구.** 자식 시작 전에 공통 command 기록에 시작 사실을 남긴다. 시작한 실행이 끊기면 실제 기록과 `inconclusive`를 남긴다. 복구를 이유로 같은 요청을 몰래 재실행하지 않는다.
+- **시작과 복구.** 자식 시작 전에 공통 command 기록에 시작 시도를 남긴다. 이 기록만으로 실제 시작을 주장하지 않으며 runner의 spawn·started_at 관측으로 실제 시작을 구별한다. 시작한 실행이 끊기면 실제 기록과 `inconclusive`를 남긴다. 복구를 이유로 같은 요청을 몰래 재실행하지 않는다.
 - **낡은 근거.** 문제·ticket이 바뀐 뒤 끝난 결과도 실행 사실로 보존한다. 닫힘·ticket 확인 시 별도 CAS를 적용한다.
+- **실행 범위.** 첫 판은 Deno test 진입점과 플랫폼 harness의 앱 command·화면 fixture만 받는다. 임의 native 실행 파일과 shell 해석은 시작 전 거절한다. private IPC 관측 JSON은 side/test hash/허용 검사 이름을 검증하고 frame당 65,536 bytes·side당 총 1,048,576 bytes다. 잘못된·누락된·초과한 관측은 inconclusive다.
+- **자원 한도.** 실제 동시 실행 2개·준비 대기 16개, 안전 출력 side당 1,048,576 bytes, 전체 메모리 process당 536,870,912 bytes·Deno heap 268,435,456 bytes다. 전체 process 경계 강제 불가이면 시작 전 unavailable이며 출력 초과는 drain을 계속하며 잘림을 남긴다.
+- **임시 자료.** 확정된 작업 폴더는 즉시 정리한다. redaction 완료 미확정 spool은 확정 여부를 확인할 때까지 최대 24시간 유지한 뒤 판정 불가 복구를 확정하고 정리한다. 실제 시작 여부를 모르면 Verification을 만들지 않고 요청 조회에 확인 불가를 남긴다. 확정 result blob은 자동 삭제하지 않는다.
 - **권한.** 일반 shell의 agent 테스트 로그는 → problems/repairs의 설명일 뿐 Verification으로 등록하지 않는다. 이 event는 notification을 만들지 않는다.
 
 ## 정할 것
 
 - 지원 runtime별 테스트 진입점·판정 protocol, observations JSON schema의 세부. 종료값만으로 reproduction 증상을 증명하는 형식은 허용하지 않는다.
-- timeout 상한·기본값, 출력·메모리 한도와 runner 작업 폴더 보관 기간.
+- process 전체 메모리 경계를 강제하는 OS별 adapter는 → platform/security와 맞춘다. 첫 한도값과 작업 폴더 정책은 위에 정의한다.
 - 공통 command 기록의 요청·시작·복구 필드 지원은 → platform/ledger와 맞춘다. 별도 test 큐 entity는 만들지 않는다.

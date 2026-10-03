@@ -17,7 +17,7 @@ ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 �
 | `response_order` | 0 이상 정수 | 아니오 | 응답 순서 불변 | 순차 처리 순서 |
 | `tool` | 비어 있지 않은 문자열 | 아니오 | 고정 목록의 정확 이름; 추측 수정 금지 | 동작 |
 | `definition_revision` | 비어 있지 않은 문자열 | 아니오 | Run.basis의 정의 판 | contract 기준 |
-| `effect` | `read / write / confirm / external` | 아니오 | 앱은 read/write/external; legacy confirm은 별도 confirm=true로 판정; model이 변경 불가 | 효과 |
+| `effect` | `read / write / external` | 아니오 | 소유 contract 값; model이 변경 불가; confirm은 별도 boolean | 효과 |
 | `app_command` | AppCommandBinding | 예 | 자동 앱 tool일 때 필수 | 앱 contract 판 |
 | `confirm` | boolean | 아니오 | 앱 blueprint 값; 그 밖 기본 false; effect와 독립 | approval 강제 |
 | `extension` | `{server_name,configuration_revision,original_tool}` | 예 | 외부 MCP에만; → lophn-agent/extensions | 외부 출처 |
@@ -54,7 +54,7 @@ ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 �
 - tool 업무 동작 하나는 다른 concern의 contract 호출 하나다. 여러 영역의 숨은 절차는 없다. 판정·기록·approval 대기는 공통 처리다.
 - 완전한 model 응답만 처리한다. 최초 요청 중복 key는 `(model_call,response_key)`이며 retry는 최초 tcl ID를 업무 idempotency key로 유지한다.
 - confirm=false인 read는 현재 assignment·scope·멈춤 확인 뒤 직접 호출하며 요청·판정·진입·결과 기록은 뒤따른다. 읽기 응답은 ledger 저장을 기다리지 않되 다음 model 판단 전에는 결과를 저장한다.
-- write·confirm=true·legacy confirm·external은 요청 및 진입 기록 저장 성공 뒤에만 시작한다. ledger 쓰기의 대상 변경과 ToolCall 성공 기록은 같은 짧은 command transaction이다.
+- write·confirm=true·external은 요청 및 진입 기록 저장 성공 뒤에만 시작한다. ledger 쓰기의 대상 변경과 ToolCall 성공 기록은 같은 짧은 command transaction이다.
 - 승인 허락은 성공이 아니다. 고정 대상·input·비교 기준·효과가 달라졌으면 옛 approval을 사용하지 않는다. approval 사용과 업무 변경 또는 외부 진입은 같은 transaction에서 한 번 확정한다. → platform/approvals.
 - 다중 대상 중 deny 하나면 전체 미실행; deny 없고 ask 있으면 하나의 고정 approval로 묻는다. 일부부터 바꾸지 않는다.
 - 응답 순서대로 하나씩 처리하며 쓰기 최종 실패 뒤 남은 미시작 call은 미실행으로 닫고 새 판단을 받는다.
@@ -62,14 +62,9 @@ ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 �
 - 밖으로 전달한 call의 응답이 없으면 미실행이 아니라 uncertain이다. 결과 조회·idempotency 보장 없이는 자동 retry하지 않는다.
 - terminal run의 늦은 결과는 감사 보완만이며 새 대상 변경·다음 model call을 만들지 않는다. 불명확 효과와 충돌할 후속 call은 확인 전 차단한다.
 
-## ToolDecision (값)
+## ToolDecision 참조
 
-| 필드 | 타입 | null | 제약 | 뜻 |
-|---|---|---|---|---|
-| `verdict` | `allow / ask / deny` | 아니오 | → lophn-agent/harness/tool-judgment | 판정 |
-| `basis_seq` | seq | 아니오 | 현재 판정 기준 | 근거 |
-| `reason` | 안전한 코드 | 아니오 | 원문 secret·error 없음 | 판정 이유 |
-| `approval` | `apr` ID | 예 | ask에 필수; 다른 verdict에 null; → platform/approvals | 정확 call에 묶인 요청 |
+값의 정본은 → lophn-agent/harness/tool-judgment의 ToolDecision이다. ToolCall.decision에는 그 값 전체를 저장하며 별도 verdict·approval 규칙을 정의하지 않는다.
 
 ## ToolOutcome (값)
 
@@ -86,7 +81,7 @@ ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 �
 |---|---|---|---|---|
 | `name / description / revision` | 비어 있지 않은 문자열 각각 | 아니오 | 이름 unique; 내장 name은 `<영역>.<동작>` 점 표기(예: `document.save_version`, `ticket.create`, `problem.set_interpretation`); 외부는 → lophn-agent/extensions | 정의 |
 | `input_schema / output_schema` | JSON Schema 각각 | 아니오 | 검증 가능; actor·권한을 model이 지정할 필드 없음 | 입출력 |
-| `effect` | `read / write / confirm / external` | 아니오 | 앱은 read/write/external; 없으면 목록·호출 제외 | 실제 영향 |
+| `effect` | `read / write / external` | 아니오 | 소유 contract 값; 없으면 목록·호출 제외 | 실제 영향 |
 | `confirm` | boolean | 아니오 | 기본 false; 앱은 blueprint의 별도 값 | 사람 확인 |
 | `app_command` | AppCommandBinding | 예 | 자동 생성 앱 tool에 필수 | 원래 command |
 | `scope_check` | contract 검사 이름 | 아니오 | 현재 대상 범위 검사 | 범위 |

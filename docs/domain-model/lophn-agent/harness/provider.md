@@ -121,7 +121,10 @@ Provider에 속하는 구조값이며 독립 entity·ID 접두사는 없다.
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `at` | 시각 | 아니오 | user 명시 test | 확인 시각 |
-| `credential_key / credential_revision` | 문자열 / 양의 정수 | 아니오 | 시험한 정확 credential | 확인 대상 |
+| `credential_key / credential_revision` | 문자열 / 양의 정수 | 아니오 | 테스트한 정확 credential | 확인 대상 |
+| `model_name / test_kind` | 문자열 / `text / tool_call` | 아니오 | 명시 user test 요청에 고정 | 테스트 대상 |
+| `command_key` | 비어 있지 않은 문자열 | 아니오 | 인증된 user 명시 test 요청 key; 중복 실행 금지 | 사람 요청 근거 |
+| `calls` | `mcl` ID 배열 | 아니오 | → lophn-agent/harness/usage의 같은 command_key·provider·model·credential connection_test 실제 시도; 전송 전 차단이면 빈 배열 | 사용량 연결 |
 | `result` | `success / failure` | 아니오 | 안전한 결과 | test result |
 | `code` | ProviderFailure | 예 | failure에 필수; 원문 오류 없음 | 오류 분류 |
 
@@ -177,7 +180,7 @@ Provider에 속하는 구조값이며 독립 entity·ID 접두사는 없다.
 - **cache.** Anthropic Messages의 명시 cache는 300000ms; Responses·Chat Completions는 자동 cache. 미지원이면 cache 없이 호출한다. 경계 선택은 → lophn-agent/harness/prompt-assemble.
 - **과금 경로.** API key는 API 과금, Claude OAuth는 추가 사용량, ChatGPT·SuperGrok OAuth는 구독으로 표시하되 청구액 확정은 추측하지 않는다. 계산은 → lophn-agent/harness/usage.
 - **제품 식별.** 모든 로그인·call은 lophn으로 식별한다. 다른 CLI 위장·CLI 경유·요금 제한 우회용 이름 변경은 금지다.
-- **연결 test.** user 명시 요청의 별도 test 재료만 보내며 세션·문서를 test 재료로 쓰지 않는다. 설정 조회는 model call을 만들지 않는다.
+- **연결 test.** user 명시 요청의 별도 test 재료만 보내며 세션·문서를 test 재료로 쓰지 않는다. 설정 조회는 model call을 만들지 않는다. 한 시도는 30000ms 상한이며 usage_wait credential은 test하지 않는다. 전송 전에 → lophn-agent/harness/usage의 connection_test ModelCall을 기록하고 성공·실패·취소·retry 모두 실제 시도로 보존한다. test tool은 검증용이며 앱 command·업무 변경을 실행하지 않는다.
 
 ## 정할 것
 

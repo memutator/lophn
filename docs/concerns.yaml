@@ -394,7 +394,7 @@ concerns:
   summary: 프로젝트 화면의 탭 줄. 탭 종류(문서 편집기, 뷰어, 터미널, 앱 패널), 배치, 다시 열 때 복원, agent에게 넘기는 현재 보기 상태(열린 탭, 초점, 선택 영역), 세션의 시각 블록을 그리는 틀.
 
 - id: shell/terminal
-  summary: 프로젝트 폴더에서 여는 터미널 탭. 사람만 입력하고 lophn agent는 입력하지 못한다. 시작 폴더, 환경, 출력 보존.
+  summary: 프로젝트 폴더에서 여는 터미널 탭. 시작 폴더, 환경, 출력 보존.
 
 - id: shell/confirmation-window
   summary: 사람의 결정을 받는 보호 화면. 무엇을 보여 주나(대상, 입력, 되돌릴 수 있나, option action), 일회 확인 handle.
@@ -408,7 +408,7 @@ concerns:
     - 파일 쓰기 규칙 -> documents/file-tracking
 
 - id: shell/wording
-  summary: UI 문구 규칙과 화면 말. 개발자가 쓰는 말을 그대로 쓰고 만든 번역어를 쓰지 않는다.
+  summary: UI 문구 규칙과 화면 말, i18n(모든 문구는 message key, 처음엔 en만). 화면에는 안쪽 개념 대신 바이브코딩 사용자가 아는 말을 쓴다.
 
 - id: shell/design-system
   summary: 색, 글꼴, 간격, 컴포넌트.

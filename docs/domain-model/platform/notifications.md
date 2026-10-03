@@ -92,11 +92,12 @@ Created actor는 machine, Read actor는 user다. 두 event의 envelope run은 nu
 - **표 밖 계기 금지.** 같은 문제의 추가 report·TicketCreated/Claimed/ClaimReleased/CompletionReported/Cancelled·handoff 종료·RunFinished·일반 문서 저장은 notification을 만들지 않는다.
 - **agent 비기동.** 생성·배달·읽음은 새 agent run이나 닫힌 세션 재개의 계기가 아니다. 기존 질문·approval 대기 해제는 해당 concern의 결정 event로만 처리한다.
 - **내용 비복제.** 열린 세션에 보여 줄 때도 같은 notification을 참조한다. role 발언·Message로 원래 사실을 다시 저장하지 않는다. → lophn-agent/conversation
-- **OS 표시.** OS notification은 같은 notification을 표시하는 경로다. domain 상태·새 계기·배달 성공 표를 만들지 않는다. secret·원문을 내보내지 않으며 실제 OS 표시와 tray는 → shell/desktop, platform/redaction.
+- **OS 표시.** OS notification은 사람이 켰을 때만 같은 notification의 최소 안전 제목·대상 열기를 표시하는 경로다. domain 상태·새 계기·배달 성공 표를 만들지 않는다. secret·원문을 내보내지 않으며 실제 OS 표시와 tray는 → shell/desktop, platform/redaction. → platform/notifications#R9
+- **작업 유지.** 자동 표시로 입력 focus·현재 문서·앱을 바꾸지 않는다. 사람이 명시적으로 대상 열기를 골랐을 때만 이동한다. → platform/notifications#R12
+- **전달 실패.** OS 표시 실패는 다음 화면 조회에서 안전한 이유와 함께 반환한다. 자동 retry 업무 상태를 만들지 않는다. 재시작 뒤 이전 배달 결과를 확인할 수 없으면 성공으로 채우지 않는다. → platform/notifications#R10
 - **보존.** OS 배달 실패·창 닫기 때문에 ledger notification을 버리지 않는다. 다시 조회·구독해 원래 notification을 표시한다. 배달에 model call을 쓰지 않는다.
 
 ## 정할 것
 
-- OS notification 기본 제공·opt-in·창 안만 중 어떤 정책을 쓸지, 표시 정보의 최소 범위. 실제 OS 동작은 → shell/desktop.
-- OS 배달 retry 간격과 실패 표시 시점은 미정이며 첫 domain model에는 배달 상태·retry ledger 표를 추가하지 않는다.
-- 닫힌 세션 이후 여러 notification을 묶어 표시할지의 선정 기준은 → shell/desktop, lophn-agent/conversation. 계기·source_seq별 근거와 읽음은 합치지 않는다.
+- OS 표시 실패 관측의 ledger 밖 보관·재시작 뒤 확인 방법은 → shell/desktop과 맞춘다. 기본 opt-in·다음 조회 실패 표시·자동 retry 업무 상태 없음은 → platform/notifications#R9, platform/notifications#R10으로 정해졌다.
+- 닫힌 세션 이후 여러 notification의 화면 묶음은 → shell/desktop, lophn-agent/conversation이다. → platform/notifications#R11에 따라 모든 개별 근거를 발생 순서대로 다시 읽을 수 있고 계기·source_seq별 근거와 읽음은 합치지 않는다.

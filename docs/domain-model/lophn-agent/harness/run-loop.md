@@ -48,10 +48,10 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 ### 불변 조건
 
 - assignment 하나의 `running / waiting_user` run은 최대 하나다. 여러 세션의 사람 요청은 여러 `accepted` run으로 접수할 수 있다.
-- 시작 순서는 `RunAccepted` seq다. 주기 회차는 `accepted / running / waiting_user` 하나라도 있으면 → lophn-agent/scheduling에서 건너뛴다.
+- 같은 assignment 안 시작 순서는 `RunAccepted` seq다. assignment마다 시작 가능한 맨 앞 후보를 모아 사람 응답 대기·사람 한 번짜리 일·주기 일 우선순위와 각 우선순위 FIFO를 적용하며 상위 8개 연속 시작 뒤 가장 오래 기다린 시작 가능한 하위 후보에 다음 자리를 준다. 막힌 assignment는 무관한 후보를 막지 않는다. 주기 회차는 `accepted / running / waiting_user` 하나라도 있으면 → lophn-agent/scheduling에서 건너뛴다.
 - `basis`는 당시 값의 사본이다. 역할별 model override는 없다. 현재 멈춤·credential 회수·scope 축소는 다음 call 전에 검사한다.
 - run 전체의 transaction, 대상 임대, 독립 Turn·입력 queue·실패 entity는 없다. turn은 완전한 ModelCall 응답과 그 응답의 ToolCall 관계로 읽는다.
-- 정상 종료와 correction 접수는 같은 writer에서 순서를 확정한다. 미반영 correction이 있으면 정상 종료를 거절한다.
+- 정상 종료와 enabled assignment의 correction 접수는 같은 writer에서 순서를 확정한다. paused 입력 보존은 → lophn-agent/conversation이며 새 Run을 접수하지 않는다. 미반영 correction이 있으면 정상 종료를 거절한다.
 - correction 뒤 이전 응답의 미시작 tool은 미실행으로 닫는다. 이미 시작한 call의 결과는 기록한다.
 - `finished` run을 원인으로 한 새 대상 변경은 `forbidden`이다. 늦은 결과·usage는 감사 보완만 허용하며 run을 깨우지 않는다.
 - 실패·멈춤은 이미 저장한 변경을 자동 revert하지 않는다. 변경은 event의 run으로 조회한다. → lophn-agent/revert.
@@ -84,7 +84,7 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 | `role` | `{id,revision,snapshot_hash,basis_seq}` | 아니오 | revision 양의 정수; → lophn-agent/role-definition | 고정 역할 판 |
 | `assignment` | `{id,revision,snapshot_hash,basis_seq}` | 아니오 | revision 양의 정수; → lophn-agent/assignments | 고정 assignment 판 |
 | `tools` | `{revision,definitions_hash}` | 아니오 | → lophn-agent/harness/tools | 고정 정의 목록 |
-| `extensions` | `{skill_selection_revision,skill_hashes,mcp_config_revisions}` | 아니오 | 사용한 것만; 빈 목록 허용; → lophn-agent/extensions | 고정 확장 판 |
+| `extensions` | `{settings_revision,role_selection,skill_hashes,mcp_config_revisions,mcp_tool_definition_hashes}` | 아니오 | 정확한 skill·서버/tool 쌍 선택 및 사용한 판·hash 고정; 빈 목록 허용; → lophn-agent/extensions | 고정 확장 판 |
 | `model_slots` | `{judgment,organizing,settings_seq}` | 아니오 | 두 값은 ModelSlot 또는 null; → lophn-agent/harness/model | 시작 설정 snapshot |
 | `limits / tool_result_limits` | RunLimits / byte·line·목록 상한 | 아니오 | 시작에 고정 | 제어 값 |
 
@@ -145,7 +145,7 @@ Run의 출처, 시작 기준, 누적 한도와 최종 결과를 정의한다.
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `AcceptRun` | machine | ID, assignment, session?, source, continued_from?, start_after? | 출처 key·내용; assignment 판; message 접수는 같은 transaction | `RunAccepted` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
+| `AcceptRun` | machine | ID, assignment, session?, source, continued_from?, start_after? | 출처 key·내용; 현재 assignment enabled·판; 새 message 접수 또는 ExecuteStoredRequest의 사람 선택·MessageAssigned는 같은 transaction | `RunAccepted` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
 | `StartRun` | machine | run, basis, limits | 예상 accepted·state_seq; 현재 assignment; active unique; 선행 결과 | `RunStarted` | `conflict`, `forbidden`, `unavailable` |
 | `CheckpointRun` | machine | run, elapsed | 예상 running·state_seq; active 감소 금지 | 없음; 시간 값만 갱신 | `conflict`, `invalid_input` |
 | `FinishRun` | machine | run, outcome, result | 예상 상태·state_seq; 정상 종료면 미반영 correction 없음 | `RunFinished` | `conflict`, `invalid_input` |

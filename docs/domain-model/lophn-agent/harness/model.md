@@ -32,13 +32,13 @@ ledger entity가 아닌 derived catalog 값이다. model identity는 `(provider_
 | `minimum_budget / maximum_budget` | 양의 정수 token 각각 | 예 | budget에 필수; min ≤ max | token 범위 |
 | `default_level` | ReasoningLevel | 예 | 확인된 기본값만; `provider_default` 제외 | 기본 수준 |
 
-ReasoningLevel은 순서가 있는 `off / minimal / low / medium / high / very_high / maximum`과 순서 밖의 `provider_default`다. 화면은 끔·최소·낮음·중간·높음·매우 높음·최대·모델에 맡김이다.
+ReasoningLevel은 순서가 있는 `off / minimal / low / medium / high / very_high / maximum`과 순서 밖의 `provider_default`다. 화면 문구는 → shell/wording의 영어 message key이며 이 enum을 화면 문자열로 직접 노출하지 않는다.
 
 ## PriceBasis (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `currency` | ISO 4217 문자열 | 아니오 | 요율 전부 같은 통화 | 통화 |
+| `currency` | ISO 4217 문자열 | 아니오 | catalog 요율은 고정 `USD`; provider 보고 청구액 통화는 → lophn-agent/harness/usage | 통화 |
 | `rates` | PriceRate 배열 | 아니오 | 비어 있지 않음; 구간 겹침 금지 | 적용 구간별 요율 |
 | `source / revision` | 문자열 각각 | 아니오 | 공식 catalog·models.dev·보정 등 명시 | 출처·판 |
 | `checked_at` | 시각 | 아니오 | 당시 확인값 | 가격 시각 |
@@ -106,7 +106,7 @@ CatalogEntry·CatalogState는 ledger 밖 derived store다. slot의 당시 가격
 - **호출 gate.** 빈 slot, 확인·user 명시 한계 없음, 필요한 text·tool 미지원, 입력·예약 출력·전체 창 초과면 call하지 않는다. 이름 미확인을 큰 한계나 tool 지원으로 대신하지 않는다.
 - **catalog 우선순위.** models.dev release snapshot → 새 정상 갱신본 → 좁은 lophn 보정 → user 명시 보완. 명시된 필드만 덮는다.
 - **catalog 갱신.** 마지막 확인 뒤 86400000ms마다 비동기 공개 GET; ETag 조건부 조회. user 새로 받기는 즉시. 세션·key·token·선택·계정은 보내지 않는다. auto_update false면 마지막 정상본만 쓴다.
-- **catalog 검증.** 빈 목록·깨진 자료·양의 정수 아닌 알려진 token 한계·음수 가격은 전체 갱신 거절이다. 마지막 정상본, 없으면 release snapshot을 유지하며 실패·마지막 정상 수신 시각을 남긴다.
+- **catalog 검증.** 빈 목록·깨진 자료·양의 정수 아닌 알려진 token 한계·음수 또는 무한대 가격·USD/1000000 token이 아닌 단위·중복 또는 잘못된 context 가격 경계는 전체 갱신 거절이다. 마지막 정상본, 없으면 release snapshot을 유지하며 실패·마지막 정상 수신 시각을 남긴다.
 - **선택 보존.** catalog 누락·폐기 예정은 저장된 slot을 지우거나 이름을 바꾸지 않는다. provider 사용 불가에도 자동 model 대체는 없다.
 - **reasoning.** named는 지원된 수준만 제공한다. budget은 low 2048·medium 8192·high 16384·maximum 32768 token을 확인 min/max로 clamp한다. toggle은 off/high만 제공한다. provider_default이며 보정된 기본값 없으면 추론 인자를 보내지 않는다. run 중 고정 수준을 높이지 않는다.
 - **가격.** 현재 가격으로 과거 call 비용을 재계산하지 않는다. 계산·집계는 → lophn-agent/harness/usage.

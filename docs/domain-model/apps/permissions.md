@@ -72,11 +72,11 @@ Permission kind는 `fs.read`, `fs.write`, `net.fetch`, `net.listen`, `secret.use
 |---|---|---|---|---|
 | `app` | `app` ID | 아니오 | 실행 credential과 일치 → apps/registration | 사용 앱 |
 | `release` | `rel` ID | 아니오 | 현재 프로세스 release → apps/releases | 선언 기준 |
-| `invocation` | `inv` ID | 아니오 | confirm 접수·실제 명령과 일치 → apps/invocations | 한 호출 |
-| `command` | 문자열 | 아니오 | 검사된 command 문맥; confirm=true | 사용 명령 |
-| `input_hash` | sha256 | 아니오 | approval과 실제 입력 일치 | 정확한 입력 |
-| `name` | 문자열 | 아니오 | 현재 선언·active grant 모두 존재 | secret 이름 |
-| `destination` | `{scheme:string,host:string,port:integer}` | 예 | 외부 인증 사용이면 필수; 확인한 입력에 묶음 | 전달 목적지 |
+| `invocation` | `inv` ID | 예 | 알려진 실제 호출 ID만; 성공 일반 read는 ledger 행이 없을 수 있음 → apps/invocations | 한 호출의 알려진 참조 |
+| `command` | 문자열 | 아니오 | 현재 고정 blueprint의 검사된 command 문맥; confirm 여부는 secret 허락과 별개 | 사용 명령 |
+| `input_hash` | sha256 | 아니오 | 검증·default 적용한 실제 입력; confirm이면 approval 입력과도 일치 | 정확한 입력 |
+| `name` | 문자열 | 아니오 | 현재 secret 선언·active secret.use grant 모두 존재 | secret 이름 |
+| `destination` | `{scheme:string,host:string,port:integer}` | 아니오 | 실제 전송 목적지; 현재 net.fetch 선언∩grant의 정확한 host·port | 전달 목적지 |
 
 ## 관계
 
@@ -113,7 +113,7 @@ secret 사용은 ledger 변경 command가 아니다. 플랫폼 전달기가 현�
 - **금지 범위.** 다른 앱 DB/source·플랫폼 보호 경로·keychain·credential 파일을 포함한 넓은 부모 경로도 거절한다. 모든 host·홈 전체 편의 grant는 없다.
 - **sandbox.** Deno `--no-prompt`; `--allow-all`, `--allow-run`, `--allow-ffi`, `--allow-sys`, `--allow-env`는 금지다. runtime 원격 import·의존 다운로드·임의 설정·하위 프로세스·native code는 금지이며 migration에도 적용한다.
 - **강제.** fs/network scope 교집합만 실행 권한으로 번역한다. 표현할 수 없는 network 방향 정책은 거절한다. SDK는 같은 앱 코드와 같은 프로세스이며 별도 보안 경계가 아니다.
-- **secret.** 준비 모드·preview에는 운영 secret 문맥이 없다. 운영 앱은 선언 이름∩유효 grant의 secret을 쓰고 호출마다 사람 확인을 받지 않는다. 시작 코드·automation·agent·다른 앱이 부른 command도 같은 grant로 쓴다. 값 보관·이름 변경 event는 → platform/secrets.
+- **secret.** 시작 준비 코드·준비 모드·preview에는 운영 secret 문맥이 없다. 운영 앱의 검사된 command는 선언 이름∩유효 grant의 secret을 쓰고 호출마다 사람 확인을 받지 않는다. automation·agent·다른 앱이 부른 command도 같은 grant로 쓴다. 실제 전송은 net.fetch 선언∩grant의 host·port도 검사한다. 값 보관·이름 변경 event는 → platform/secrets.
 - **전달.** argv·환경 변수·화면·agent 응답·invocation·event·공통 blob에 secret 값을 넣지 않는다. redaction 등록 실패면 전달하지 않는다. destination 변경 redirect는 재검사한다.
 - **회수.** secret 교체·삭제는 사용 앱을 재시작한다. 이미 일어난 업무 쓰기·외부 요청의 취소를 뜻하지 않는다.
 - **조합 검사.** fs.read와 net.fetch 동시 요구는 외부 전송 조합 경고 대상이며 grant 자체를 자동 허락하지 않는다.
@@ -124,5 +124,5 @@ secret 사용은 ledger 변경 command가 아니다. 플랫폼 전달기가 현�
 ## 정할 것
 
 - network 방향을 Deno 밖 OS 제한/플랫폼 전송부로 나누는 정책을 → platform/security와 정한다. 넓은 플래그로 조용히 우회하지 않는다.
-- secret 원값 전달과 플랫폼 전송부의 인증 사용 중 선택한다. 현재 권장 형태는 앱 코드에 원값을 주지 않는 인증 전달이다.
+- secret 원값은 앱 코드에 주지 않고 플랫폼 전송부에서 붙인다(apps#I7). 인증 부착 방식별 요청 schema는 spec에서 정하며 일반 원값 조회는 만들지 않는다.
 - **H1.** automation 외부 효과의 반복 사전 허락 여부는 → apps/automations.

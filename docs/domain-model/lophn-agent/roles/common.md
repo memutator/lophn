@@ -13,8 +13,8 @@ Role의 모양은 → lophn-agent/role-definition이며 이 표는 모든 Role �
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `subagent_count` | integer | 아니오 | 고정 `0` | 자식 agent 없음 |
-| `external_mcp_selection` | string[] | 아니오 | 현재 고정 `[]` | 외부 MCP tool 선택 없음 |
-| `skill_selection` | string[] | 아니오 | 현재 고정 `[]` | skill 선택 없음 |
+| `external_mcp_selection` | 정확한 서버·tool 쌍 배열 | 아니오 | 기본 `[]`; → lophn-agent/extensions의 역할별 선택에서 조회; Role에 중복 저장하지 않음 | 외부 MCP 기본 선택 |
+| `skill_selection` | string[] | 아니오 | 기본 `[]`; → lophn-agent/extensions의 역할별 선택에서 조회; Role에 중복 저장하지 않음 | skill 기본 선택 |
 | `model_overrides` | JSON object | 아니오 | 고정 `{}`; model 선택은 → lophn-agent/harness/model | 역할별 model 선택 없음 |
 | `scope_expansion_from_addresses` | boolean | 아니오 | 고정 `false` | 자료 안 주소가 읽기 범위를 늘리지 않음 |
 | `organizing_creates_judgment` | boolean | 아니오 | 고정 `false` | organizing은 새 요구·가설·판정·acceptance check 생성 금지 |
@@ -51,7 +51,7 @@ Role의 모양은 → lophn-agent/role-definition이며 이 표는 모든 Role �
 | `lophn` | read/write/external, confirm 포함 | 사람이 agent 사용을 허락한 앱; → apps/permissions | `visual.show`, `visual.read`, `visual.prepare_document` |
 | `app_engineer` | read와 실제 undo 지원 write; confirm은 approval | 담당 앱 하나와 사람의 agent 사용 허락 | 위 세 tool; 담당 문서 범위 |
 | `context_engineer` | 실행 0개; metadata 목록·설명만 | 현재 자료 scope | 위 세 tool; 요청 문서 범위 |
-| `operator` | 승인된 read command만; confirm이면 approval | Assignment.read_apps/read_commands 및 고정 Role 선택 교집합 | 세션 있는 사람 요청에서 승인 목록에 선택한 시각 tool만; 문서는 승인 output만 |
+| `operator` | 승인된 confirm=false read command만; confirm=true는 역할 상한 밖 | Assignment.read_apps/read_commands 및 고정 Role 선택 교집합 | 세션 있는 사람 요청에서 승인 목록에 선택한 시각 tool만; 문서는 승인 output만 |
 
 `visual.show`는 세션 출력이지 Operator의 업무 문서 write 대상 확대가 아니다. 앱 카드가 보인다는 이유로 command를 선택하지 않는다. 현재 앱 허락이 없어지면 어떤 역할도 호출하지 않는다. 주석은 lophn 역할의 선언된 앱 write command이며 → lophn-agent/harness/tool-judgment를 적용한다.
 
@@ -67,4 +67,4 @@ Role의 모양은 → lophn-agent/role-definition이며 이 표는 모든 Role �
 
 ## 정할 것
 
-- 현재 외부 MCP·skill 선택은 0개다. 구체적 반복 업무가 필요하면 → lophn-agent/extensions의 범위·secret·되돌림·승인 계약과 함께 지원 여부를 정한다. 웹·subagent 금지는 유지한다.
+- 기본 외부 MCP·skill 선택은 0개이며 사람의 명시 선택과 제공 검사는 → lophn-agent/extensions다. Operator의 추가 선택 허용 여부는 → lophn-agent/roles/operator가 소유하며 현재 상한을 자동으로 늘리지 않는다. 웹·subagent 금지는 유지한다.

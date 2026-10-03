@@ -55,6 +55,8 @@ Report 순간의 증거와 각 항목의 누락 이유를 불변 Snapshot으로 
 | `frames` | source frame 목록 | 아니오 | 각 `{path: 상대 문자열, function: 문자열 또는 null, line: 양의 정수 또는 null, column: 양의 정수 또는 null}`; 당시 release 기준 | 사람이 읽을 원래 source 위치 |
 | `source_missing_reason` | MissingReason | 예 | source map·앱 frame이 없으면 필수 | 위치를 얻지 못한 이유 |
 | `stack` | sha256 blob 참조 | 예 | redaction된 stack; 최대 16,384 bytes | 추가 stack |
+| `stack_missing_reason` | MissingReason | 예 | stack이 null일 때 필수; 있으면 null | stack 미수집·제외 이유 |
+| `truncation_notes` | 문자열 목록 | 아니오 | 없으면 빈 목록; frame·stack을 제한했으면 실제 제외 범위를 명시 | 일부 잘림의 이유 |
 
 ## LogEvidence (값)
 
@@ -65,6 +67,7 @@ Report 순간의 증거와 각 항목의 누락 이유를 불변 Snapshot으로 
 | `truncated` | boolean | 아니오 | 제외된 로그가 있으면 true | 잘림 여부 |
 | `scope` | 문자열 | 아니오 | 실제 수집 범위를 redaction된 설명으로 고정 | invocation 한정 또는 앱 로그 조각 |
 | `from_at` / `to_at` | 공통 시각 | 예 | 알려진 범위만; 추정하지 않음 | 로그 관측 범위 |
+| `collected_at` | 공통 시각 | 아니오 | 실제 source 자료를 얻은 시각; Snapshot.captured_at과 구별 | 로그 수집 시점 |
 
 ## ScreenEvidence (값)
 
@@ -99,7 +102,8 @@ Report 순간의 증거와 각 항목의 누락 이유를 불변 Snapshot으로 
 
 ## 정책
 
-- **로그 기본값.** 최근 30줄이며 알려진 invocation으로 가능한 만큼 좁힌다. 범위 밖을 “발생 없음”으로 해석하지 않는다.
+- **조립 한도.** 전체 2,000ms, 오류 frame 최대 32개, 큰 자료 준비 총 2,359,296 bytes다. 초과 항목은 실제 timeout·잘림·제외 이유를 고정하고 나머지는 접수한다.
+- **로그 기본값.** 최근 30줄·총 65,536 bytes이며 알려진 invocation으로 가능한 만큼 좁힌다. 한 줄의 별도 기본 길이는 정하지 않는다. 범위 밖을 “발생 없음”으로 해석하지 않는다.
 - **연결 제한.** 시간상 가까운 invocation으로 대체하지 않으며 미도착 기록을 무기한 기다리지 않는다.
 - **화면 제한.** screenshot은 feedback 미리보기에서 사람이 선택한 것만 저장한다. 화면 없는 automation은 “화면 없음”이다.
 - **보관 기간.** 첫 판에는 관측 blob의 자동 삭제 기간을 두지 않는다. Snapshot은 문제 닫힘 후에도 참조를 유지한다.
@@ -107,4 +111,4 @@ Report 순간의 증거와 각 항목의 누락 이유를 불변 Snapshot으로 
 
 ## 정할 것
 
-- 로그 총 bytes·오류 frame 최대 개수·전체 수집 timeout. 최근 30줄 외에 과거의 큰 한도표를 기본값으로 가져오지 않는다.
+- 한 줄의 별도 길이·앱별 및 전체 장기 보존 bytes 상한은 아직 정하지 않았다. 조립 한도와 장기 보존 용량은 구별한다.

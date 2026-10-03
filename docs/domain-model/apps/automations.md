@@ -23,12 +23,12 @@ automation의 주기 값과 회차 정책을 정의한다.
 
 ## 정책
 
-- **계기.** on_start는 업무 통로가 열릴 때 한 번, interval은 시작 기준 단조 시계로 계산한다. 최소 간격은 60000ms다. 재시작은 새 시작이다.
-- **비중첩.** `(프로세스 구분값,release,key)`마다 진행 회차는 많아야 하나다. 진행 중 다음 회차는 skip하며 queue에 쌓지 않는다.
+- **계기.** on_start는 업무 통로가 열릴 때 한 번, interval은 시작 기준 단조 시계로 계산한다. 시계는 1000ms마다 도래 여부를 검사하고 최소 간격은 60000ms다. 재시작은 새 시작이다.
+- **비중첩.** `(프로세스 구분값,release,key)`마다 진행 회차는 많아야 하나다. 서로 다른 automation은 병렬이며 전체 동시 invocation 기본 한도는 4개다. 진행 중이거나 전체 한도 때문에 시작하지 못한 회차는 skip하며 queue에 쌓지 않는다. 실제 handler 종료나 자식 종료 확인 전에는 진행 점유를 풀지 않는다.
 - **누락 회차.** 절전·멈춤 동안 놓친 회차는 replay하지 않는다. 복귀 시 다음 미래 간격만 잡는다.
-- **실패.** 실패 직후 retry는 0회다. 다음 정해진 회차만 받는다. 기록 전달 실패는 회차를 다시 돌릴 근거가 아니다.
+- **실패.** 실패 직후 retry는 0회다. 다음 정해진 회차만 받는다. 기본 timeout은 600000ms이며 취소 요청·결과 미확인 처리는 → apps/invocations다. timeout 요청을 실제 종료나 효과 취소로 취급하지 않는다. 기록 전달 실패는 회차를 다시 돌릴 근거가 아니다.
 - **통로.** clock은 앱 프로세스 안에서만 돌고 직접 호출과 같은 handler·input 검사를 쓴다. actor는 machine, trigger는 automation key이며 read도 invocation을 남긴다(→ apps/invocations).
-- **권한.** confirm=true, external effect 명령은 automation으로 선언하지 않는다. secret 사용은 grant를 따른다. confirm=false로 반복 허락을 대신하지 않는다.
+- **권한.** confirm=true, external effect 명령은 automation으로 선언하거나 실행하지 않는다. 실행 직전 현재 고정 command의 effect·confirm을 다시 검사한다. secret 사용은 선언 이름∩grant와 실제 net.fetch host·port 범위를 따르며 caller가 automation이라는 이유로 막지 않는다. confirm=false로 반복 허락을 대신하지 않는다.
 - **닫힘.** 준비 모드·preview·교체 중·실행 허용 꺼짐·archive에서는 clock을 열지 않는다. 실행 허용의 정본 → apps/runtime.
 - **event.** 회차의 시작·끝은 → apps/invocations의 event만 쓴다. 별도 automation 완료 event와 운영 ledger clock은 없다.
 

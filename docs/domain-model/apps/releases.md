@@ -124,6 +124,7 @@ bundle 안의 manifest이며 release에 별도 mutable 표로 복제하지 않�
 ## 정책
 
 - **bundle 제외.** git 관리 파일·개발 credential·agent 설정은 bundle에 넣지 않는다. 의존의 범위·latest·변경 가능한 원격 import는 거절한다.
+- **준비 상한.** core 밖 준비 worker는 source 64MiB·완성 bundle 256MiB·10000파일·전체 300000ms 기본 상한을 적용한다. 상한 초과·취소·worker 종료의 부분 결과는 release.prepare 입력으로 확정하지 않는다. test result는 완성된 동일 bundle hash에 연결한 불변 참조이며 테스트 뒤 bundle byte에 넣지 않는다.
 - **notification.** 이 concern의 notification 계기는 ReleaseActivationFailed만이며 항상 생성 대상이다(→ platform/notifications).
 
 ## 정할 것

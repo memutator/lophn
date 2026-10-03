@@ -90,7 +90,7 @@ Deno는 VM/container가 아니며 허락 경로 내부 데이터, 실행 중 sym
 
 automation clock은 앱 프로세스 안 `automations/clock`이 소유한다. 업무 통로가 열린 단조 시계 tick을 기준으로 1000ms마다 검사한다. on_start는 한 번, interval은 최소 60000ms이고 `started_tick + n * interval_ms`로 계산한다. 절전에서 돌아오면 가장 가까운 미래 배수만 선택하여 밀린 회차를 모두 skip한다. 재시작은 새 기준이다.
 
-같은 `(nonce,release,key)`에는 running_invocation이 하나뿐이다. 서로 다른 automation은 병렬이고 전체 동시 invocation 기본 한도는 4개다. 전체 한도만 supervisor의 메모리 permit으로 제한한다. 회차가 도래하면 broker의 즉시 permit 요청을 하고 없으면 skip한다. permit 대기열·ledger 회차 표·공유 handler 실행은 없다. permit은 실제 handler 종료나 자식 종료 확인 때 반환한다. timeout 요청만으로 살아 있는 handler의 permit을 반환하지 않는다. 준비·교체·preview·archive·run_enabled=false에서는 clock을 닫는다. 자동 retry는 0회, timeout은 600000ms이며 confirm·external·secret 명령은 선언과 실행 모두 거절한다.
+같은 `(nonce,release,key)`에는 running_invocation이 하나뿐이다. 서로 다른 automation은 병렬이고 전체 동시 invocation 기본 한도는 4개다. 전체 한도만 supervisor의 메모리 permit으로 제한한다. 회차가 도래하면 broker의 즉시 permit 요청을 하고 없으면 skip한다. permit 대기열·ledger 회차 표·공유 handler 실행은 없다. permit은 실제 handler 종료나 자식 종료 확인 때 반환한다. timeout 요청만으로 살아 있는 handler의 permit을 반환하지 않는다. 준비·교체·preview·archive·run_enabled=false에서는 clock을 닫는다. 자동 retry는 0회, timeout은 600000ms이며 confirm·external 명령은 선언과 실행 모두 거절한다. secret을 쓰는 read·write 명령은 선언 이름∩grant와 정확한 net.fetch host·port 안에서 실행하며 secret 사용 자체를 거절 사유로 삼지 않는다.
 
 `runtime/observations`는 stdout/stderr를 비동기로 읽는다. SDK의 실제 invocation 문맥 표시는 `[inv=<id>]`, 내부 trace는 별도 이름이다. AsyncLocalStorage 기반으로 await·timer·SQLite·fetch 뒤의 app·release·mode·invocation 문맥을 유지하며 Deno 2.9 대상 test로 확인한다. 알 수 없는 invocation ID를 생성하지 않는다. 내부 trace 이름은 최대 64자다.
 
@@ -141,7 +141,7 @@ app test Verification은 완성된 bundle hash를 대상으로 만들어지고 R
 
 운영 DB는 해당 앱 또는 종료 확인 뒤 단독 data worker만 연다. 앱 DB에는 앱의 실제 현재 schema(0 이상)와 마지막 migration 결과를 보관한다. DB 미사용 앱에는 schema 0을 허용하며 빈 migration을 강제하지 않는다. core와 supervisor는 실제 DB를 열지 않고 data worker의 검증된 결과를 받는다.
 
-DataBackup은 SQLite backup API로 WAL의 확정 내용까지 포함한 일관된 복사본을 만든 뒤 무결성·schema를 검사해 보호 `blob`으로 설치한다. 일반 문서 읽기·agent·앱 credential에 그 원문을 공개하지 않는다. backup metadata는 app·activation_seq·schema·database_hash이며 참조는 Activation.backup_hash다. 기본 최근 5개를 유지하지만 진행 중 복원 참조는 보호한다. DB backup을 첨부 파일까지 포함한 전체 복구라고 표시하지 않는다. export도 data worker가 일관된 DB 사본과 고정 blueprint·release 이력을 묶는다.
+DataBackup은 SQLite backup API로 WAL의 확정 내용까지 포함한 일관된 복사본을 만든 뒤 무결성·schema를 검사해 보호 `blob`으로 설치한다. 일반 문서 읽기·agent·앱 credential에 그 원문을 공개하지 않는다. backup metadata는 app·activation_seq·schema·database_hash이며 참조는 Activation.backup_hash다. 기본 최근 5개를 유지하지만 진행 중 복원 참조는 보호한다. DB backup을 첨부 파일까지 포함한 전체 복구라고 표시하지 않는다. export는 data worker가 일관된 DB 사본과 고정 blueprint·release 이력·각 불변 실행 bundle·정확한 SDK 의존 byte를 묶는다. secret 원값·credential은 제외하고 앱 외부 자료·첨부의 포함 여부를 명시한다.
 
 secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취급한다. runtime log buffer와 memory 표본은 메모리이며 지속 log 정본이나 derived 검색 index를 새로 두지 않는다. 플랫폼 자체 진단은 `platform/diagnostics`를 가리킨다.
 
@@ -151,7 +151,7 @@ secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취�
 
 첫 공개 묶음의 정확한 version은 1.0.0이다. 이름은 `@lophn/blueprint`, `@lophn/tokens`, `@lophn/ui-{control,overlay,layout,reading,table,chart,filter,stat,state,action}`, `@lophn/cap-{fs,net,store,problem,schedule,save,secret}`와 `documents/formats`가 정한 format Package다. Package는 component·capability·domain·format 중 한 종류다. `cap-read-model`, `cap-notify`, 개인 Package 등록은 제공하지 않는다. capability import는 grant를 주지 않는 typed client다.
 
-템플릿 선택은 명시된 `LOPHN_APP_TEMPLATE` → 설치 `templates/app` 순서이며 없으면 검증된 설치 템플릿을 제공한다. 진입 코드·blueprint·exact import map과 lock·생성 blueprint test·fixture·React 화면·root AppErrorBoundary·문제 보고와 예외 수집·coding agent 안내를 기본 연결하고 DB 사용 때만 migration을 둔다. GUI의 React/npm 의존은 고정 UI Package가 제공한 exact 목록으로 준비 단계에만 build한다. lophn 화면은 설치 SDK의 첫 소비자이며 앱 DB 구조나 한 앱 전용 prop을 SDK로 자동 승격하지 않는다.
+템플릿 선택은 명시된 `LOPHN_APP_TEMPLATE` → 설치 `templates/app` 순서이며 없으면 검증된 설치 템플릿을 제공한다. 진입 코드·blueprint·exact import map과 lock·생성 blueprint test·fixture·React 화면·root AppErrorBoundary·문제 보고와 예외 수집·coding agent 안내를 기본 연결하고 DB 사용 때만 migration을 둔다. GUI의 React/npm 의존은 고정 UI Package가 제공한 exact 목록으로 준비 단계에만 build한다. 공용 UI SDK·템플릿은 shell/wording의 message key·en-only·ICU·Intl 계약과 en catalog·placeholder 검사를 기본 build/test에 연결하고 catalog·formatter 의존 byte를 bundle에 고정한다. 화면 문구 변경은 screen/command key를 바꾸지 않는다. lophn 화면은 설치 SDK의 첫 소비자이며 앱 DB 구조나 한 앱 전용 prop을 SDK로 자동 승격하지 않는다.
 
 ## 4. concern 배치표
 
@@ -185,7 +185,7 @@ AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·c
 | 경로 | 입력 | 출력 |
 |---|---|---|
 | `GET /screens/<screen key>/<asset path>` | 고정 release·screen/size scope, 인증된 view_session, bundle 내부 path | content type과 화면 byte. traversal·scheme·authority 금지 |
-| `POST /_lophn/commands/invoke` | `{request_key,release,command,input?,proof?}` | `{result,invocation?,mode}` 또는 오류. 당시 blueprint로 검증·default 적용 |
+| `POST /_lophn/commands/invoke` | `{request_key,release?,command,input?,proof?}`; live에는 release 필수, release 없는 preview는 connection.bundle_hash에 결속 | `{result,invocation?,mode}` 또는 오류. 연결에 고정된 blueprint로 검증·default 적용 |
 | `POST /_lophn/commands/cancel` | 같은 호출의 request_key·알려진 inv ID | 취소 요청 접수 여부. 효과 취소나 종료 보장은 아님 |
 | `GET /_lophn/commands/status` | 같은 connection과 request_key·inv ID | 현재 프로세스가 아는 진행/결과 또는 unknown. handler 재실행 없음 |
 | `POST /_lophn/control/probe` | 플랫폼 인증 연결·현재 nonce | ReadyAttestation의 실제 연결 근거 |

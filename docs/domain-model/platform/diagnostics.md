@@ -8,7 +8,7 @@ lophn 자체의 안전한 운영 log·crash 관측과 상태 점검 값을 정�
 
 ## DiagnosticRecord (값)
 
-`~/.lophn/logs/`의 운영 자료이며 domain entity·ledger 감사 event가 아니다. agent run trace는 → lophn-agent/observability, 앱 문제는 → problems/reporting이다.
+→ platform/install-and-update가 시작 전에 고정한 data root `H`의 `H/logs/`에 두는 운영 자료이며 domain entity·ledger 감사 event가 아니다. agent run trace는 → lophn-agent/observability, 앱 문제는 → problems/reporting이다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
@@ -41,7 +41,9 @@ lophn 자체의 안전한 운영 log·crash 관측과 상태 점검 값을 정�
 
 ## 정책
 
-- **쓰기.** 운영 log는 비동기·크기 제한으로 쓴다. 막힌 log 출력이 API·command·무관한 앱 응답을 기다리게 하지 않는다.
+- **쓰기.** 운영 log의 기본 level은 info다. 비동기·크기 제한으로 쓰며 막힌 log 출력이 API·command·무관한 앱 응답을 기다리게 하지 않는다. → platform/diagnostics#R3, platform/diagnostics#R11
+- **보안 진단.** 권한 부여·회수·secret 사용·인증 실패·Origin 거부·scope 밖 접근을 안전한 등록 분류로 구별한다. 감사 원본·현재 상태는 소유 concern의 ledger 사실을 참조하며 log가 이를 대신하지 않는다. → platform/diagnostics#R6
+- **doctor.** worker가 설치 SDK와 bundle의 같은 version hash, credential 저장 권한, 과도한 grant·file/network 동시 grant·오래 미사용 grant, log의 미가공 key 패턴을 실제 검사한다. 결과는 HealthObservation과 안전한 DiagnosticRecord이며 원문 key·token·scope 밖 자료를 반환하지 않는다. → platform/diagnostics#R9, platform/diagnostics#R10
 - **저장소 실패.** 디스크 부족·ledger 손상은 플랫폼 실패이며 앱 problem으로 돌리지 않는다. 저장 성공을 log·메모리·JSONL로 대체하지 않는다.
 - **무인증 요청.** 대량 거절 요청을 매번 ledger event로 남기지 않는다. 제한된 안전 진단만 허용한다.
 - **상태 점검.** 준비·건강 상태 API도 → platform/identity의 인증·scope를 요구한다. 인증 전에는 안전한 일반 오류만 준다.

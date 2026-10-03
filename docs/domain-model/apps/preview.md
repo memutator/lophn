@@ -32,9 +32,9 @@ preview는 별도 entity·ID·운영 상태·ledger 표가 아니다. 같은 고
 
 ## 정책
 
-- **분리.** 운영 socket·DB·backup·실제 secret credential은 preview에 없다. 내부 테스트 데이터 변경은 가능하다. 선언·입력·scope 검사는 운영과 같은 형태로 하며 필요한 권한 효과는 대역이다.
+- **분리.** 운영 socket·DB·backup·실제 secret credential은 preview에 없다. 외부 쓰기·실제 문서 저장·다른 앱 실제 조회·loopback listen은 허용하지 않고 대역으로만 확인한다. 내부 테스트 데이터 변경은 가능하다. 선언·입력·scope 검사는 운영과 같은 형태로 하며 필요한 권한 효과는 대역이다. 살아 있는 preview가 없으면 unavailable이며 운영 앱으로 대신 호출하지 않는다.
 - **결과.** 응답·invocation·report·test 근거에 preview를 붙인다. preview 보고로 운영 Problem을 open/reopen/close하지 않는다(→ problems/reporting, problems/closing).
 - **기록.** release에 고정되기 전 preview는 inv의 release를 꾸며 만들지 않는다. bundle hash 대상의 → problems/tests Verification과 개발 진단으로 남긴다. release가 있으면 그 release의 preview Invocation을 쓴다.
 - **automation.** preview의 clock은 꺼진다. 수동 확인은 같은 command handler를 호출하며 운영 automation 회차를 만들지 않는다.
-- **결정.** preview 성공은 Grant·activation approval·운영 정상의 근거가 아니다. 활성 참조·run_enabled·운영 데이터를 바꾸지 않는다.
+- **결정.** confirm command의 실제 handler는 실행하지 않고 approval도 소비하지 않는다. 확인 동작은 대역으로만 보이며 대역 성공을 실제 실행 성공으로 표시하지 않는다. preview 성공은 Grant·activation approval·운영 정상의 근거가 아니다. 활성 참조·run_enabled·운영 데이터를 바꾸지 않는다.
 - **수명.** 별도 view session을 사용한다(→ shell/app-frame). 종료 뒤 disposable DB·연결은 폐기할 수 있으며 고정 bundle/test 근거는 각 concern의 보존 규칙을 따른다.

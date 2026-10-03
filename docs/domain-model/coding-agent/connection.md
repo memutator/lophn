@@ -72,13 +72,13 @@ ledger 정본이 아닌 로컬 설치 검사 결과다. 외부 coding agent의 r
 |---|---|---|---|---|---|
 | `coding_agent_connections` | `id, label, scope_kind, scope_app, principal, token_hash, state, revision` | PK `id` | `principal`, `token_hash` | `(state, id)`, `(scope_app, state, id)` | `scope_app` → apps/registration; principal 규칙 → platform/identity; `revision` → platform/ledger event seq |
 
-`scope_kind = all`이면 `scope_app IS NULL`, `app`이면 `scope_app IS NOT NULL`이다. `principal = 'coding_agent:' || id`를 강제한다. connection 생성·검증 hash 설치, connection·credential 회수는 각각 같은 command transaction으로 적용한다. Credential 값은 → platform/identity이며 별도 ledger credential 표·ID는 없다.
+`scope_kind = all`이면 `scope_app IS NULL`, `app`이면 `scope_app IS NOT NULL`이다. `principal = 'coding_agent:' || id`를 강제한다. token 원문 발급·보호 보관 준비는 → platform/identity의 인증 경계에서 core command 밖에 끝내며 command는 준비된 검증 hash만 받는다. connection 생성·검증 hash 설치, connection·credential 회수는 각각 같은 command transaction으로 적용한다. commit 실패의 준비 token은 사용할 수 없고 인증 경계가 정리한다. Credential 값은 → platform/identity이며 별도 ledger credential 표·ID는 없다.
 
 ## command
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `coding_agent_connection.create` | `user` | `id, label, scope`, 보호 화면 근거, idempotency key | ID 미존재; 앱 존재; 확인 대상·입력 일치 | `CodingAgentConnectionCreated` | `invalid_input`, `forbidden`, `conflict` |
+| `coding_agent_connection.create` | `user` | `id, label, scope`, 인증 경계의 준비된 token 검증 hash, 보호 화면 근거, idempotency key | ID 미존재; 앱 존재; 확인 대상·입력 일치; 인증 경계의 보호 보관 준비 확인 | `CodingAgentConnectionCreated` | `invalid_input`, `forbidden`, `conflict` |
 | `coding_agent_connection.revoke` | `user` | `connection`, 보호 화면 근거, idempotency key | `base_revision`, 현재 `active`, 확인 대상 일치 | `CodingAgentConnectionRevoked` | `not_found`, `forbidden`, `conflict` |
 
 ## event

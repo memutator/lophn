@@ -19,7 +19,7 @@ Ticket의 불변 요구, acceptance check, claim, 완료 보고와 machine check
 | `references` | TicketReference[] | 아니오 | 1~20개; 중복 금지; 불변 | 기획·설계·해석의 고정 판과 이전 결과 |
 | `adoption_questions` | 질문 ID[] | 아니오 | 1개 이상; 중복 금지; 불변; → lophn-agent/questions | 기획·설계 판을 채택한 답 |
 | `conditions` | AcceptanceCheck[] | 아니오 | 1~12개; 불변; 0부터의 목록 위치가 조건 번호 | |
-| `inspect` | string[] | 아니오 | 0~20개; 불변 | 앱 source 상대 위치 또는 고정 근거 주소; 권한 아님 |
+| `inspect` | string[] | 아니오 | 0~20개; 공백 항목 금지; 불변 | 앱 source 상대 위치 또는 고정 근거 주소; 권한 아님 |
 | `preserve` | string[] | 아니오 | 0~20개; 공백 항목 금지; 불변 | 유지할 제약; 조건의 통과 기준을 대체하지 않음 |
 | `problems` | 문제 ID[] | 아니오 | `repair`는 같은 앱의 미해결 문제 1~12개; `implementation`은 빈 목록; 중복 금지; 불변; → problems/grouping | |
 | `state` | `open \| claimed \| reported \| confirmed \| check_failed \| cancelled` | 아니오 | 생성은 `open` | |
@@ -55,6 +55,7 @@ Ticket의 불변 요구, acceptance check, claim, 완료 보고와 machine check
 ### 불변 조건
 
 - 본문·근거·채택 질문·조건·대상 문제는 생성 뒤 불변이다. 수정·공개 상태나 command가 없다. 변경은 취소 후 이전 ticket 참조를 포함한 새 ticket이다.
+- 사람 화면의 직접 생성은 → coding-agent/tickets#R26에 따라 열린 문제 하나의 repair 입력을 기존 근거에서 준비한다. 없는 재현 기준·채택 답·조건을 자동 생성하거나 생성 검사를 우회하지 않는다. 새 구현 요청·준비 근거 부족은 담당 App Engineer의 대화로 연결하며 UI용 별도 ticket 종류·생성 상태를 만들지 않는다.
 - 기획·설계 reference의 판과 채택 질문의 답이 가리킨 판이 같아야 한다. `@version` 없는 최신 주소나 이전 판의 채택 답을 새 판에 붙이면 거절한다. 채택은 approval나 grant가 아니다.
 - 구현에는 `app_test`와 실행 가능한 `test_command`가 각각 하나 이상 필요하다. 수리에는 `app_test`, 대상 문제 각각의 `reproduction_test`, `problems_closed`가 필요하다. 빈 조건을 자동 보충하지 않는다.
 - 문제당 `confirmed`·`cancelled`가 아닌 repair ticket은 최대 하나다. ticket 생성만으로 문제를 `fixing`으로 바꾸지 않는다(→ problems/grouping).
@@ -116,7 +117,7 @@ ID 없는 tagged union이다. 아래에서 해당 kind의 필드만 존재한다
 | `condition` | integer | 아니오 | 0 이상, conditions 길이 미만 | 불변 조건 번호 |
 | `result` | `pass \| fail \| inconclusive` | 아니오 | 실제 실패만 `fail`; 미실행·승인·운영 확인 대기는 `inconclusive` | |
 | `reason` | string | 아니오 | pass가 아니면 공백 금지 | |
-| `verification` | `vrf` ID | 예 | test kind에서 실행 결과가 있으면 필수; 다른 kind는 null; → problems/tests | |
+| `verification` | `vrf` ID | 예 | test kind에서 실행 결과가 있으면 필수; 보고 release의 app·bundle hash와 일치; `test_command`는 → problems/tests의 TicketTestLink가 ticket·condition 번호·고정 조건 hash·이번 completion_seq와 일치; `reproduction_test`는 해당 problem·고정 test_hash·보고 after release 일치; 다른 kind는 null | → problems/tests |
 | `targets` | `{concern, id, revision, release?}[]` | 아니오 | activation·문제 상태 비교는 대상 ID·읽은 변경 seq 필수 | 비교한 실제 대상과 release; entity 정의는 대상 concern |
 
 ## 관계
@@ -181,6 +182,7 @@ release 준비 command는 → apps/releases에서 소유하며 ticket ID·현재
 - **claim 기간.** 기본 `3,600,000ms`이며 claim 생성·명시적 갱신 시점부터 계산한다. 읽기·repair-context·release 요청은 연장하지 않는다. 만료 정리는 60초마다와 재시작 때 하되 모든 쓰기도 즉시 기한을 검사한다.
 - **claim 상실.** 만료·반납·취소 뒤 옛 claim 갱신·ticket 근거 release 준비·완료 보고를 거절한다. 같은 connection이 재claim해도 옛 seq는 `conflict`, 회수 credential은 `unauthorized`다.
 - **사람 지시.** coding agent는 사람이 연 세션에서 사람 지시로만 claim한다. 목록·시작 summary는 지시가 아니며 외부 세션 감독 entity를 만들지 않는다(→ coding-agent/guides).
+- **사람 화면.** 진행 정본은 이 파일의 여섯 상태다. → coding-agent/tickets#R27, shell/wording에 따라 영어 화면 말로 표현하고 claim 기한·연결 ID·전체 조건과 보고·test 원문은 기본에서 숨긴다. 화면 라벨을 별도 ledger 상태로 저장하지 않는다.
 - **check 판정.** 전부 pass일 때만 confirmed다. 하나라도 실제 fail이면 check_failed, 그 외 미실행·승인·운영 대기는 reported다. 일반 shell log나 완료 주장의 통과 문자열은 machine test result가 아니다.
 - **check 재접수.** 재시작 때 reported를 읽고 누락 check를 잇는다. `VerificationRecorded`, `ProblemClosed`, `ProblemReopened`, `ReleaseActivated`, `ReleaseSuperseded` 뒤 남은 조건을 재검사한다. model call은 없다.
 - **문제 경계.** `TicketConfirmed`로 문제를 닫지 않는다. 문제 작업 상태·열린 ticket 참조는 → problems/grouping이 현재 ticket을 읽어 idempotent command로 적용하고, 닫힘은 → problems/closing에서 먼저 판정한다.

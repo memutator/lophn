@@ -16,7 +16,7 @@ concerns: [problems/feedback]
 | `app` | `app` ID | 아니오 | 인증된 shell이 선택; → apps/registration | feedback 대상 |
 | `text` | 문자열 | 아니오 | redaction 후 공백 외 1~500 Unicode scalar; 저장은 blob | 사람의 글 |
 | `existing_problem` | `prb` ID | 예 | 선택한 앱과 동일; → problems/grouping | 기존 문제에 명시적으로 덧붙이기 |
-| `observed_at` | 공통 시각 | 아니오 | 버튼 시점의 app view 관측 시각 | 화면을 본 시점 |
+| `observed_at` | 공통 시각 | 아니오 | [문제 알리기]를 요청한 시각; view가 있으면 버튼 시점 app view 관측 시각 | 사람이 제보를 시작한 시점 |
 | `view_binding` | 문자열 | 예 | shell main이 발급한 app·release·mode 연결; view 없으면 null | 캡처 출처의 검증 근거 |
 | `screen_selected` | boolean | 아니오 | 선택한 안전한 화면 상태만 true | 화면 상태 포함 여부 |
 | `screenshot_selected` | boolean | 아니오 | redaction된 미리보기를 확인한 이미지에만 true | screenshot 포함 여부 |
@@ -27,7 +27,7 @@ concerns: [problems/feedback]
 - 인증된 shell의 사람 제출만 `source=feedback`, `code=_feedback`으로 접수한다. app·agent는 사람 feedback을 대신 만들지 못한다.
 - `existing_problem=null`이면 최초 Report ID로 새 group key를 만든다. 비슷한 글·같은 화면을 자동 합치지 않는다.
 - 안전한 화면 상태만 기본 선택한다. screenshot은 redaction된 미리보기를 사람이 확인한 뒤 선택한다. 비공개 영역을 확실히 redaction할 수 없으면 선택 불가다.
-- 보호 화면·다른 창은 캡처 대상이 아니다. 버튼 시점 app view만 캡처하며 제출 시점의 새 화면으로 교체하지 않는다.
+- 버튼 시점 app view만 캡처하며 제출 시점의 새 화면으로 교체하지 않는다. 요청 창의 child modal BrowserWindow인 confirmation window나 shell overlay view의 dialog가 떠 있거나 app view가 가려진 동안에는 캡처하지 않는다. 다른 창도 캡처 대상이 아니다. 보호 화면·overlay를 위해 app view를 숨기지 않는다.
 - 첨부가 없어도 글은 제출할 수 있다. 미선택·화면 없음·수집 실패·redaction은 Snapshot의 해당 항목 이유로 고정한다.
 - 사람의 포함 선택은 secret·금지 자료 저장을 허용하지 않는다. 최종 입력은 → platform/redaction을 다시 통과한다.
 - 취소한 미제출 글·화면은 ledger에 없다. feedback 보내기는 닫힘 확인이 아니다.
@@ -41,7 +41,8 @@ concerns: [problems/feedback]
 ## 정책
 
 - **화면 상태 한도.** redaction된 JSON은 최대 65,536 bytes다. URL query 값·업무 DB·command 입력 원문·read command 전체 결과를 자동 포함하지 않는다.
-- **이미지 한도.** 선택 screenshot은 PNG, 긴 변 최대 1,600px, 최대 2,097,152 bytes다. 원본은 redaction 전 영구 저장하지 않는다.
+- **이미지 한도.** 선택 screenshot은 PNG 머리를 검증하고 긴 변 최대 1,600px, 최대 2,097,152 bytes다. 원본은 redaction 전 영구 저장하지 않는다.
+- **전송 한도.** 글·상태·PNG를 포함한 feedback 전체 전송은 최대 3,145,728 bytes다. 항목별 한도와 함께 검사한다.
 - **초안.** 미제출 초안은 메모리에만 있다. shell 종료 후 복구를 보장하지 않는다.
 
 ## 정할 것

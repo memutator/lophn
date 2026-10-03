@@ -149,5 +149,5 @@ ledger 열이 아닌 마지막 관측 결과다.
 ## 정할 것
 
 - 원본 연결 문서의 agent 직접 저장 금지를 유지할지, 별도로 승인된 원본 반영 경계를 추가할지.
-- 안정 읽기 재시도 횟수·대기 시간·파일 크기·동시 처리 한도는 구현 조절값이다. 도메인 고정 숫자로 두지 않는다.
+- 준비 worker 초기 수는 documents/file-tracking#R5의 2개를 따른다. 안정 읽기 재시도 횟수·대기 시간·파일 크기·호출별 바이트·시간 한도는 architecture의 초기 구현 조절값이며 별도 도메인 고정 숫자로 두지 않는다.
 - FileOperationResult 보고에서 machine credential과 원래 user 요청의 증명 모양은 → platform/identity와 맞춘다.

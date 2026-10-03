@@ -180,12 +180,12 @@ ledger 밖 derived store에만 둔다.
 
 ## 정책
 
-- **저장.** `~/.lophn/lophn.db` 하나가 ledger이며 writer는 core command 처리 하나다. SQLite는 WAL, `synchronous=FULL`, `foreign_keys=ON`, 잠금 대기 최대 5,000ms다. WAL 불가이면 기동을 거절한다.
+- **저장.** → platform/install-and-update가 시작 전에 고정한 data root `H`의 `H/lophn.db` 하나가 ledger이며 writer는 core command 처리 하나다. SQLite는 WAL, `synchronous=FULL`, `foreign_keys=ON`, 잠금 대기 최대 5,000ms다. WAL 불가이면 기동을 거절한다.
 - **transaction.** command 하나는 `BEGIN IMMEDIATE` transaction 하나다. 외부 호출·파일 작업·hash·압축·model·앱·테스트를 기다리지 않는다. 중첩 transaction과 내부 commit은 금지한다.
 - **확정.** 성공 응답과 통지는 commit 뒤에만 나온다. 입장 queue는 메모리이며 queue 입장은 접수 확정이 아니다. 응답 유실은 미실행 증거가 아니다.
 - **읽기.** writer queue를 거치지 않고 읽기 전용 snapshot에서 자격과 결과를 확인한다. 한 응답의 자료와 `as_of_seq`는 같은 snapshot에서 얻는다.
 - **event 전달.** seq 오름차순, 적어도 한 번 전달이다. 느린 구독자는 끊고 마지막 처리 위치에서 재연결한다. 오래된 event를 조용히 건너뛰지 않는다.
-- **derived store.** `~/.lophn/derived/`의 결과와 처리 위치는 같은 로컬 transaction이다. 고정 판·생성 방식이 key이며 재생성은 완성본 교체다. 삭제해도 원본·고정 판·ID·사람의 주석·확정 결정은 바뀌지 않는다.
+- **derived store.** 같은 data root의 `H/derived/`에 결과와 처리 위치를 같은 로컬 transaction으로 둔다. 고정 판·생성 방식이 key이며 재생성은 완성본 교체다. 삭제해도 원본·고정 판·ID·사람의 주석·확정 결정은 바뀌지 않는다.
 - **derived 최신성.** source 판과 반영 위치를 반환한다. 일부 생성 성공을 전체 최신으로 표시하지 않는다. model 요약은 원문 대체가 아니며 동일 출력으로 재생성 가능하다고 가정하지 않는다.
 - **보존.** event와 확정 command 결과는 임의 삭제하지 않는다. 큰 본문 삭제는 → platform/blob-store와 해당 내용 소유 concern의 정책이 확정된 뒤에만 한다.
 
@@ -193,4 +193,4 @@ ledger 밖 derived store에만 둔다.
 
 - command JSON 크기·깊이·항목 수, 영향 행 수, 읽기·queue·구독 한도와 기한.
 - 정규화 요청 지문의 직렬화 방식과 idempotency key의 길이 한도.
-- 확정 command 결과의 보존·정리 정책. 옛 key를 새로운 효과로 받아들이는 정리는 불가하다.
+- 확정 command 결과는 → platform/ledger#R10에 따라 기간으로 삭제하지 않는다. 향후 공간 정책이 필요해도 옛 key를 새로운 효과로 받아들이는 정리는 불가하다.

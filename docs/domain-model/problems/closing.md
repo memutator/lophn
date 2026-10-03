@@ -34,7 +34,8 @@ Problem의 닫힘 근거, 보호된 사람 확인, 재발 판정 규칙을 정�
 | `choice` | enum | 아니오 | `fixed` / `not_fixed` / `not_visible` / `dismiss` | 사람의 확인 |
 | `problem` | `prb` ID | 아니오 | → problems/grouping | 정확한 대상 |
 | `basis_seq` | event seq 정수 | 아니오 | 보호 화면이 보여 준 문제 최신 seq | 비교 기준 |
-| `release` | `rel` ID | 예 | fixed/not_visible 필수; 현재 활성 release | 실제 확인한 release |
+| `release` | `rel` ID | 예 | fixed/not_visible 필수; not_fixed/dismiss도 활성 release가 있으면 필수; 없으면 null에 결속; 적용 때 현재 값과 일치 | 사람이 본 활성 release |
+| `last_report` | `rpt` ID | 예 | not_visible 필수; 해당 problem의 보호 화면이 보여 준 마지막 Report | 현상이 안 보임의 확인 대상 |
 | `confirmation` | 보호된 확인 참조 | 아니오 | 현재 입력에 묶인 일회 handle; → shell/confirmation-window | 사람 결정 근거 |
 | `note` | 문자열 | 예 | dismiss는 한 줄 필수; redaction | 이유 |
 
@@ -85,6 +86,7 @@ Report 재발 판정은 → problems/reporting의 접수 transaction 안에서 �
 - **재발 기간.** 닫힘 뒤 경과 기간에 상한이 없다. 같은 key는 언제든 같은 ID로 reopen한다.
 - **근거 부족.** app test 통과·test command 통과·배포·ticket 확인됨·고친 기록·앱 clear/success 신호만으로 닫지 않는다. after와 현재 release가 다르면 새 reproduction 또는 사람 확인이 필요하다.
 - **재평가.** VerificationRecorded·ReleaseActivated·ProblemObserved에서 조건을 다시 읽는다. event 자체가 닫힘을 대신하지 않으며 오래된 subscriber 명령은 CAS로 거절한다.
+- **부정 확인.** not_fixed는 열린 문제를 닫지 않고 닫힌 문제를 다시 연다. 부정 확인 event의 release·basis와 당시 근거를 읽어 같은 release·같은 근거의 고쳐짐 확인을 반복 요청하지 않는다. 새 고친 release 또는 새 근거가 있을 때만 다시 제안한다.
 - **notification.** 운영 ProblemOpened·ProblemReopened·ProblemClosed만 → platform/notifications의 계기다. 반복 보고·사람의 부정 확인·test result는 notification을 만들지 않는다.
 
 ## 정할 것

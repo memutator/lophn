@@ -58,7 +58,9 @@ concerns: [platform/redaction]
 - **개인정보.** 선언 필드·private 화면·필요 범위를 사용한다. 필요 없는 이름·연락처·이메일·경로는 제외하거나 그 자료 안에서만 통하는 표식으로 바꾼다. 표식은 익명화 보장이 아니다.
 - **입력 차단.** 알려진 secret 또는 패턴에 맞는 대화·질문 답은 저장·model 전송 전에 전체 전송을 막는다. 원문 대신 전용 secret 입력 안내만 남긴다.
 - **재검사.** SDK redaction을 신뢰 근거로 쓰지 않는다. 플랫폼 수집 경계와 읽기·export·model 전송에서 다시 검사한다. model 출력·summary·최종 tool 입력도 각각 검사한다.
-- **표시.** 대화·tool 상세·전후 diff·오류·notification·복사·export preview·tooltip에서 redaction된 값을 다시 드러내지 않는다. agent·설정으로 redaction을 끄지 못한다.
+- **표본.** 원값은 소유 concern이 명시한 정확한 경로만 secret 처리 뒤 최대 64자로 남기고 표본 전체는 2KiB 이하로 제한한다. 단독·중간 wildcard 경로는 거절하며 ID형 문자열은 그 표본 안에서만 통하는 가명으로 처리한다. 나머지 shape의 type·길이도 공개 정책으로 검사하고 유추 가능한 제외 구조를 남기지 않는다. → platform/redaction#R9, platform/redaction#R10, platform/redaction#R11
+- **화면 상태.** 80자를 넘는 문자열은 안전한 형태로 줄이고 private 필드는 길이·실제 표시 여부와 관계없이 통째로 제외한다. 짧은 문자열도 개인정보 검사를 생략하지 않는다. → platform/redaction#R12
+- **표시.** 대화·tool 상세·전후 diff·오류·notification·복사·export preview·tooltip에서 redaction된 값을 다시 드러내지 않고 값의 type·길이·점 개수도 숨긴다. agent·설정으로 redaction을 끄지 못한다.
 - **화면.** 보호 창·secret 입력은 수집하지 않는다. private 영역을 처리 못하면 자동 첨부하지 않는다. 사람이 미리 보고 redaction하거나 제외한 최종 자료만 접수한다(→ problems/feedback).
 - **실패.** 실패·불확실·한도 초과·미지원 매체는 원문을 저장·표시·model 전송·외부 반환하지 않고 Omission만 남긴다. `invalid_input` 또는 `unavailable`은 안전한 이유만 포함한다(→ platform/ledger).
 - **진단.** 처리 못한 exception은 오류 종류·안전 위치만 남기고 메시지·stack 원문은 제외한다. 원시 stdout·stderr·HTTP dump·crash 메모리를 자동 보관하지 않는다. model 내부 추론·재생용 서명도 수집하지 않는다.

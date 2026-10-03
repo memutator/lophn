@@ -111,7 +111,7 @@ ContentFile은 상대 경로의 Unicode codepoint 순으로 정렬하고 `path, 
 
 한 event의 해당 consumer 결과와 cursor는 한 derived SQLite transaction에 쓴다. search 행 교체와 FTS delete/insert도 같은 transaction이다. cursor는 필터로 생략한 event까지 읽어 지나간 위치를 사용하며 seq를 연속 정수로 가정하지 않는다. search 실패를 기록하고 cursor를 진행할 수 있지만 `omissions`를 반드시 반환한다. watch의 confirmed command가 수락되기 전에는 해당 event를 처리 완료로 표시하지 않는다.
 
-목록은 ledger read로 고정한 작은 metadata와 derived 통계를 조립하며 본문을 같이 싣지 않는다. 관련 목록의 무효화·메모리 cache 재파생은 500ms 동안 합친다. 이동은 출발·도착 place와 관련 Context 둘 다 갱신하고 대상 불명 event는 전체 목록 cache를 무효화한다. 요약의 입력 판이 선택 판과 다르면 `stale`이다. cache를 채우려고 model call이나 agent run을 예약하지 않는다.
+목록은 ledger read로 고정한 작은 metadata와 derived 통계를 조립하며 본문을 같이 싣지 않는다. API의 판·주체·format·hash·관측·index 정보는 내부 contract다. 사람 화면의 기본 노출은 documents/file-tracking#R9,R15·documents/versions#R9·documents/outline-and-search#R2~R4,R14와 shell/wording을 따른다. 지금 필요한 결과·다음 행동만 표시하고 기록·판 비교·처리 상세는 펼쳐 본다; 안쪽 개념 라벨을 그대로 노출하지 않으며 고정 화면 문구는 en message key로 전달한다. 관련 목록의 무효화·메모리 cache 재파생은 500ms 동안 합친다. 이동은 출발·도착 place와 관련 Context 둘 다 갱신하고 대상 불명 event는 전체 목록 cache를 무효화한다. 요약의 입력 판이 선택 판과 다르면 `stale`이다. cache를 채우려고 model call이나 agent run을 예약하지 않는다.
 
 pagination은 coordinator 메모리의 제한된 page basis에 `basis_seq, query_hash, sort, scope_basis, 선택 ver 목록`을 묶는다. opaque cursor는 그 basis와 다음 위치를 가리킨다. 본문 cursor는 `ver, module_hash, section, include_children, 줄 위치, 줄 안 codepoint 위치`를 함께 가진다. 긴 한 줄도 12,000 codepoint씩 나누며 이어 읽기에서 겹침·누락이 없다. 다른 판·조건·범위의 cursor는 `invalid_input`, basis 만료·worker 재시작·안정 기준 유지 불가는 `conflict`다. 매 페이지 현재 scope를 다시 검사한다.
 
@@ -133,7 +133,7 @@ watch rebuild는 search와 별개다. 확인된 변화는 ledger의 `context_wat
 | documents/contexts | core + coordinator·준비 worker | `documents/contexts`, `watch`, `section-comparison` | contexts·items·watch_changes; derived watch cursor·미확인 | outline·search 읽기, read·event 구독·command |
 | documents/terms | core + coordinator glossary read | `documents/terms`, `glossary` | terms·term_evidence | command·read, outline·search 읽기 |
 
-잎 concern은 9개이며 빠진 잎은 없다. `documents/contracts`는 위 네 소유 contract의 schema·결과 검사를 모으고 테스트는 각 모듈 옆에 둔다. 다른 concern의 표를 직접 조회하는 repository를 worker에 넣지 않는다.
+leaf concern은 9개이며 빠진 leaf는 없다. `documents/contracts`는 위 네 소유 contract의 schema·결과 검사를 모으고 테스트는 각 모듈 옆에 둔다. 다른 concern의 표를 직접 조회하는 repository를 worker에 넣지 않는다.
 
 ## 5. 내놓는 contract
 
@@ -152,7 +152,7 @@ watch rebuild는 search와 별개다. 확인된 변화는 ledger의 `context_wat
 
 **처리.** 준비 worker는 안전한 상대 경로·유일 경로·대표 파일 하나·바이트 수를 검사하고 같은 stream을 hash와 blob staging에 넣는다. 내구 blob 완료, canonical 목록, 정확한 format 검사를 끝낸 후 `files_hash, file_count, primary_path, content_hash, format, validation, preparation_ref`를 낸다. `preparation_ref`는 신뢰한 worker의 결과와 원래 요청·기준·blob을 묶은 작은 참조다. core는 이 참조와 작은 CAS만 검사하고 큰 목록을 다시 읽거나 hash하지 않는다.
 
-기존 문서의 FormatRef는 base_version의 정확한 계약이다. 최신 판이 달라지면 거절하고 다시 준비한다. 허용된 사람의 명시 format 변경만 새 판의 계약을 바꾼다. Operator는 기존 assignment 출력 Document에 새 Version만 쓰며 새 Document·place·format을 만들지 않는다. 원본 연결 문서는 관측 아닌 직접 저장에 `conflict`를 반환한다.
+기존 문서의 FormatRef는 base_version의 정확한 계약이다. 최신 판이 달라지면 거절하고 다시 준비한다. 허용된 사람의 명시 format 변경만 새 판의 계약을 바꾼다. Operator는 기존 assignment 출력 Document에 새 Version만 쓰며 새 Document·place·format을 만들지 않는다. 원본 연결 문서는 관측 아닌 직접 저장에 `conflict`를 반환한다. 명시 restore는 선택 판의 바이트와 정확한 FormatRef를 준비하며 최신 base_version·base_revision은 그대로 CAS한다; 원본 연결이면 사람 파일 쓰기 뒤 그 바이트의 관측 근거로만 확정한다.
 
 **출력.** prepare는 PreparedVersion, save는 `saved | unchanged`, doc·ver·고정 reference·event_seq·warnings의 SaveResult다. 최신 content_hash와 FormatRef의 name·module_hash·explicit가 전부 같으면 기존 판을 반환하고 변경 event는 없다. 첫 저장은 Document와 Version을 같은 transaction에 만든다. 새 판은 `DocumentSaved`, 첫 문서는 `DocumentCreated`, restore는 `DocumentRestored`를 함께 낸다.
 
@@ -191,7 +191,7 @@ watch rebuild는 search와 별개다. 확인된 변화는 ledger의 `context_wat
 
 | 경로 | 동작 |
 |---|---|
-| `/v1/formats/list`, `/v1/formats/get` | 내장 declaration, MIME·template·guide·examples·vocabulary |
+| `/v1/formats/list`, `/v1/formats/get` | 내장 declaration, MIME·구조·metadata 요구·template·guide·examples·vocabulary |
 | `/v1/formats/validate` | 고정 module의 validate; 저장이나 변경 event 없음 |
 | `/v1/formats/extract` | 신뢰한 문서 처리의 고정 module extract; derived 결과, Version 없음 |
 
@@ -219,6 +219,7 @@ document module 자체가 UTF-8 decode → BOM 제거 → LF → NFC를 적용�
 | `/v1/documents/read` | 고정 참조·section·include_children·줄 범위·cursor → ReadResult |
 | `/v1/documents/file` | 고정 ver·ContentFile 상대 경로 → 허용된 blob 읽기 참조·저장 MIME·바이트 수 |
 | `/v1/documents/history`, `/v1/documents/section_history` | doc·from/to·key → 고정 판 목록·같은 key 변화 |
+| `/v1/guides/list`, `/v1/guides/get`, `/v1/guides/outline`, `/v1/guides/read` | 설치 manifest의 lophn_version·content_hash 고정 참조·section/범위/cursor → BundledGuide 목록·같은 설치 안내 판의 목차·본문; offline·읽기 전용 |
 | `/v1/documents/diff` | 두 고정 ver·section? → core 밖에서 계산한 줄 단위 diff·누락 |
 | `/v1/search/query` | 문자열·place/context/format 조건·cursor → 고정 판·section/범위·snippet·score·IndexCoverage |
 | `/v1/search/status` | 허용된 대상 → 반영 ver·최신 ver·lagging·rebuilding·omissions |
@@ -230,11 +231,11 @@ document module 자체가 UTF-8 decode → BOM 제거 → LF → NFC를 적용�
 
 root 예산 1,500, place·context 3,000, document outline 2,000 estimated token·depth 2, 본문 12,000 Unicode codepoint를 초기 기본으로 쓴다. 추정 token은 codepoint 수/3의 올림이며 실제 model token이 아니다. 초과 시 complete=false·cursor·숨긴 자식 수를 반환한다. glossary 정의는 첫 page 30개이고 후보와 분리한다. 목록에는 본문·agent용 절대 경로·현재 파일 상태를 넣지 않는다. 사람의 Project 폴더 행에서는 files 통로로 파일 트리를 열고 그 파일을 문서 목록에 중복 나열하지 않는다.
 
-검색 worker는 parameterized FTS5 trigram 질의를 수행한다. 3 codepoint 미만 질의는 허용 후보의 `search_rows.title/body`에 escaped SQL LIKE를 쓰고 원본 폴더 scan으로 대체하지 않는다. 최신 반영 판의 section 제목·자체 본문과 가용 요약 텍스트를 검색한다. summary를 쓸 때 input 판·stale를 유지한다. rank는 유한한 keyword 점수이며 검색 판·최신 판이 다르면 둘 다 준다. embedding·model 검색은 없다.
+검색 worker는 parameterized FTS5 trigram 질의를 수행한다. 3 codepoint 미만 질의는 허용 후보의 `search_rows.title/body`에 escaped SQL LIKE를 쓰고 원본 폴더 scan으로 대체하지 않는다. 최신 반영 판의 section 제목·자체 본문과 가용 요약·주제 텍스트를 검색한다. 원문은 search_fts, 가용 요약·주제 cache는 동일한 trigram/짧은 LIKE 규약으로 현재 허용 대상에 한해 비교하여 결과를 합친다. cache 일치 결과는 실제 입력 판·section·input_hash·stale를 별도로 반환하고 해당 입력 판의 outline·원문으로 이어지며, 요약의 위치를 원문 일치 줄처럼 꾸미지 않는다. 요약이 없는 문서에서 이를 채우려고 model을 호출하지 않는다. rank는 유한한 keyword 점수이며 검색 판·최신 판이 다르면 둘 다 준다. embedding·model 검색은 없다.
 
-권한 밖 ID는 후보 단계에서 제거한다. 제목·snippet·본문뿐 아니라 count·rank·pagination도 허용 집합에서만 계산한다. cache의 scope를 현재 허락처럼 쓰지 않는다. Context inclusion·옛 Address·blob hash만으로 범위를 넓히지 않는다. redaction 뒤에도 고정 판·원래 범위·redacted를 유지하며 안전한 출력이 불명이면 본문을 뺀다.
+root는 활동 순, place·context는 갱신 순으로 시작하고 seq·ID로 동점을 결정한다. Context는 basis·reference·watch와 빈 관점을 API에서 구별한다. 기본 목록·검색은 현재 ledger에서 보관 문서·보관 자리를 제거하며 낡은 index 행이 남아도 이를 반환하지 않는다. 보관 해제의 검색 반영은 비동기이고 고정 판 직접 읽기는 유지한다. 권한 밖 ID는 후보 단계에서 제거한다. 제목·snippet·본문뿐 아니라 count·rank·pagination도 허용 집합에서만 계산한다. cache의 scope를 현재 허락처럼 쓰지 않는다. Context inclusion·옛 Address·blob hash만으로 범위를 넓히지 않는다. redaction 뒤에도 고정 판·원래 범위·redacted를 유지하며 안전한 출력이 불명이면 본문을 뺀다.
 
-**saved view.** 조건은 core의 `saved_views`에 보존한다. 저장·변경·보관은 각각 `view.save`, `view.update`, `view.archive`이며 아래 mutation 표를 쓴다. open은 현재 허용 문서에 place·제목·text·format·Context 포함·Series 멤버·`document_status`(active/archived/all, 기본 active)·갱신 기간 조건을 적용한다. 지원하지 않는 tag·앱 DB·문서 관계 조건은 거절한다. 결과는 별도 Document·Context item을 만들지 않는다. 정렬은 updated_desc/updated_asc/title_asc/address_asc이며 updated는 Version의 event seq·ID tie-breaker를 사용한다. cache는 정규화 조건·정렬·대상 고정 ver 목록·현재 scope가 모두 같을 때만 메모리에서 재사용한다. text 조건이면 IndexCoverage를 그대로 붙여 누락을 숨기지 않는다. 상대 갱신 기간은 open의 시각에 고정하고 같은 cursor에 유지한다.
+**saved view.** 조건은 core의 `saved_views`에 보존한다. 저장·변경·삭제는 각각 `view.save`, `view.update`, `view.delete`이며 아래 mutation 표를 쓴다. revision은 마지막 변경 event seq다. 삭제는 조건 행만 제거하며 문서·판·Context는 그대로 남고 삭제 event의 before 값은 보존한다. 삭제된 view cursor는 conflict다. open은 현재 허용 문서에 place·제목·text·format·Context 포함·`document_status`(active/archived/all, 기본 active)·갱신 기간 조건을 적용한다. 요구에 없는 Series 멤버·tag·앱 DB·문서 관계 조건은 거절한다. 결과는 별도 Document·Context item을 만들지 않는다. 정렬은 updated_desc/updated_asc/title_asc/address_asc이며 updated는 Version의 event seq·ID tie-breaker를 사용한다. cache는 정규화 조건·정렬·대상 고정 ver 목록·현재 scope가 모두 같을 때만 메모리에서 재사용한다. text 조건이면 IndexCoverage를 그대로 붙여 누락을 숨기지 않는다. 상대 갱신 기간은 open의 시각에 고정하고 같은 cursor에 유지한다.
 
 **series 다음 계산.** `series.next`는 core read 모듈에서 scope·같은 snapshot의 가족 revision·멤버·예약 key·draft를 읽는다. 많은 멤버의 자연 정렬과 NextRule 계산은 준비 worker의 순수 `series-next`에 맡겨 write queue 밖에서 끝낸다. 화면과 MCP·CLI는 이 답을 쓰고 계산을 재구현하지 않는다. 표시 정렬·descending과 무관하게 key 자연 순의 마지막 확정 멤버(보관 멤버 포함)를 기준으로 한다. draft는 마지막 멤버가 아니다. 빈 가족·해석 불가 날짜 key·안전 정수 overflow는 빈 제안이다. 정수 ±step, major/minor/patch, 1~4자리 zero padding만 계산하며 from·taken·document_name·series_revision을 반환한다. 조회는 key·doc·파일을 예약하지 않고 가입 때 다시 CAS한다.
 
@@ -253,7 +254,7 @@ root 예산 1,500, place·context 3,000, document outline 2,000 estimated token�
 | resource와 method 경로 | 등록 이름 |
 |---|---|
 | `/v1/projects/create`, `/update`, `/set_tracking`, `/archive`, `/unarchive` | `project.create`, `project.update`, `project.set_tracking`, `project.archive`, `project.unarchive` |
-| `/v1/projects/list`, `/get`, `/resolve` | 저장 문서 중심 Project read; 사람만 폴더 경로·tracking 값 포함 |
+| `/v1/projects/list`, `/get`, `/resolve` | 저장 문서 중심 Project read; 사람만 폴더 경로·tracking 값 포함; resolve는 꺼진 중첩 폴더도 가장 깊은 등록 루트로 해석 |
 | `/v1/documents/update`, `/set_source`, `/archive`, `/unarchive`, `/move`, `/rename` | `document.update`, `document.set_source`, `document.archive`, `document.unarchive`, `document.move`, `document.rename` |
 | `/v1/documents/list`, `/get`, `/resolve`, `/export` | 현재 metadata·고정 판·Address 예약 해석·사람의 Markdown/JSON 및 원문 export |
 | `/v1/contexts/create`, `/update`, `/set_item`, `/remove_item`, `/archive`, `/unarchive`, `/record_watch_change` | 대응 `context.*` 이름; 마지막은 좁은 machine 내부 제출 |
@@ -261,9 +262,9 @@ root 예산 1,500, place·context 3,000, document outline 2,000 estimated token�
 | `/v1/terms/propose`, `/define`, `/update`, `/archive`, `/unarchive` | 대응 `term.*` 이름; 정의는 사람 또는 검증된 option action만 |
 | `/v1/terms/list`, `/get` | 정의·후보 분리·고정 출현 근거 read |
 | `/v1/series/create`, `/update`, `/set_draft`, `/clear_draft`, `/add_instance`, `/update_instance`, `/remove_instance`, `/archive`, `/unarchive` | 대응 `series.*` 이름; agent 가족 mutation 없음, 허용 coding_agent/app의 가입 scope는 최종 검사 |
-| `/v1/views/save`, `/update`, `/archive` | `view.save`, `view.update`, `view.archive`; 저장·변경·보관 모두 user만 |
+| `/v1/views/save`, `/update`, `/delete` | `view.save`, `view.update`, `view.delete`; 저장·변경·삭제 모두 user만 |
 
-표의 `/update` 같은 짧은 표기는 그 행의 resource를 반복한 전체 경로다. Document 최초 save와 Series 첫 가입을 같이 요청하면 두 모듈의 검사를 같은 ledger transaction에 적용하고 일치 draft를 비운다. Series 구성·draft는 source 파일이나 Version 없는 Document가 아니다. 기존 멤버 수정은 같은 doc의 새 ver이며 멤버 추가가 아니다. Operator의 기존 출력 doc 범위를 Series 도입으로 넓히지 않는다.
+표의 `/update` 같은 짧은 표기는 그 행의 resource를 반복한 전체 경로다. project.create는 tracking.enabled=false만 허용하며, project.update로 folders를 바꾸는 경우도 project.set_tracking과 같은 미리보기의 정확한 folders·tracking·base_revision을 검사한다. Document 최초 save와 Series 첫 가입을 같이 요청하면 두 모듈의 검사를 같은 ledger transaction에 적용하고 일치 draft를 비운다. Series 구성·draft는 source 파일이나 Version 없는 Document가 아니다. 기존 멤버 수정은 같은 doc의 새 ver이며 멤버 추가가 아니다. Operator의 기존 출력 doc 범위를 Series 도입으로 넓히지 않는다.
 
 문서 영역의 실제 event 이름은 다음과 같다. 목록 read·추출·index 재생성·series.next에는 변경 event가 없다.
 
@@ -273,7 +274,7 @@ root 예산 1,500, place·context 3,000, document outline 2,000 estimated token�
 - Context: `ContextCreated`, `ContextUpdated`, `ContextItemSet`, `ContextItemRemoved`, `ContextArchived`, `ContextUnarchived`, `ContextWatchedItemChanged`.
 - Term: `TermProposed`, `TermDefined`, `TermUpdated`, `TermArchived`, `TermUnarchived`.
 - Series: `SeriesCreated`, `SeriesUpdated`, `SeriesDraftSet`, `SeriesDraftCleared`, `SeriesInstanceAdded`, `SeriesInstanceUpdated`, `SeriesInstanceRemoved`, `SeriesArchived`, `SeriesUnarchived`.
-- Saved view: `SavedViewCreated`, `SavedViewUpdated`, `SavedViewArchived`.
+- Saved view: `SavedViewCreated`, `SavedViewUpdated`, `SavedViewDeleted`.
 
 ## 6. 쓰는 contract
 

@@ -68,6 +68,8 @@ migration은 정상 domain command가 아니라 정지 유지보수다. event·I
 - **미지원·손상.** 새 schema·손상 원본은 보존하고 정상 서비스는 열지 않는다. 자동 초기화·다운그레이드·backup 덮어복원은 없다.
 - **backup snapshot.** SQLite online backup 또는 일관된 snapshot 기능을 쓴다. 열린 `lophn.db` 파일 하나만 복사하지 않는다. 복사·hash·압축·검사는 worker가 하며 원본 ledger를 쓰지 않는다.
 - **backup 참조.** GC·내용 삭제를 막고 고정 snapshot S의 모든 blob 참조를 복사한다. SQLite 무결성·blob 존재·hash를 검증한 manifest만 complete다. 일부 묶음은 복원 가능으로 표시하지 않는다.
+- **자동 backup.** 매일 1회 검증된 플랫폼 묶음을 만들고 최근 완료 묶음 7개를 보존한다. 새 실패·미완성 묶음 때문에 마지막 복원 가능 묶음을 삭제하지 않는다. → platform/backup-and-migration#R12
+- **migration 복구본.** 변환 전 schema 순번·생성 시각을 이름에 포함하며 성공 직후 자동 삭제하지 않는다. 사람이 필요 범위와 복원 가능 묶음을 확인한 명시 삭제만 허용한다. SQLite page·WAL·OS backup의 물리 흔적 제거는 보장하지 않는다. → platform/backup-and-migration#R3, platform/backup-and-migration#R18
 - **포함 범위.** ledger·참조 blob·ledger의 사용자 설정이 기본 묶음이다. 앱 업무 DB(→ apps/data), 원본 파일, OS keychain과 token 원문(→ platform/secrets, platform/identity)은 자동 포함되지 않는다. derived store는 복원 뒤 재생성한다.
 - **restore.** 모든 writer·worker 정지와 현재 자료의 별도 보존 뒤 검증 묶음으로 교체한다. 복원 시 잃을 최신 기록 범위를 확인한다. 실행 credential 재검증·재발급과 derived cursor 초기화가 필요하다. 다른 ledger의 같은 숫자 seq를 이어 쓰지 않는다.
 - **재시작.** SQLite 복구·schema 확인 뒤 정상 읽기를 연다. 전체 file scan·index·큰 hash를 기다리지 않는다. 미완료 작업은 해당 소유 concern이 관측 뒤 command로 처리한다. unknown을 성공·미실행으로 채우지 않는다.
@@ -75,6 +77,6 @@ migration은 정상 domain command가 아니라 정지 유지보수다. event·I
 
 ## 정할 것
 
-- backup manifest format version·상대 경로, 정기 backup 주기와 보존 개수·기간.
-- migration 전 backup 보존 종료와 명시 삭제 방식. SQLite page·WAL·OS backup의 물리 흔적 제거는 보장하지 않는다.
+- backup manifest 교환 구조·상대 경로의 구현 contract는 → platform architecture와 맞춘다. 정기 backup은 매일 1회·최근 완료 7개다.
+- migration 전 backup의 명시 삭제 UI·안전한 삭제 관측 방법. 명시 삭제까지 보존하며 물리 흔적 제거는 보장하지 않는다.
 - 전체 컴퓨터 이전에 앱 DB·원본·keychain을 묶는 범위와 쓰기 정지 조건.

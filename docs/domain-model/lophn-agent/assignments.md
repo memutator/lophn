@@ -38,14 +38,14 @@ Assignment의 역할 판, 실제 범위, Operator 남길 문서, 승인 묶음�
 | `enabled` | `paused` | user | 현재 revision 일치 | `AssignmentPaused` |
 | `enabled` | `paused` | machine | 실제 시작한 Run 최종 실패 연속 3회 또는 담당 앱·컨텍스트·남길 문서 archived | `AssignmentPaused` |
 | `paused` | `enabled` | user | 현재 revision 일치; 대상·남길 문서 active; Operator 책임 변경은 새 승인 적용 완료 | `AssignmentResumed` |
-| `enabled` / `paused` | `withdrawn` | user | 현재 revision 일치 | `AssignmentWithdrawn` |
+| `enabled` / `paused` | `withdrawn` | user | 현재 revision 일치; lophn·CE 전체 범위 제외 | `AssignmentWithdrawn` |
 | `enabled` / `paused` | 같은 상태 | machine | Operator 전체 변경 승인과 이전 Assignment·Role 판 일치 | `AssignmentChanged` |
 
 `withdrawn`에서 나가는 전이는 없다. 다시 맡기려면 새 Assignment와 Operator의 새 승인이 필요하다. 동일 중복 방지 키의 재전송만 기존 결과를 돌려준다.
 
 ### 불변 조건
 
-- 거두지 않은 lophn·CE 전체 Assignment는 종류별 하나다. AE는 등록된 앱마다 거두지 않은 Assignment 하나다. `AppCreated`를 받은 machine만 자동 AE 생성한다.
+- 거두지 않은 lophn·CE 전체 Assignment는 종류별 하나이며 withdraw할 수 없고 pause·resume만 가능하다. AE는 등록된 앱마다 거두지 않은 Assignment 하나다. `AppCreated`를 받은 machine만 자동 AE 생성한다.
 - Operator는 context 하나를 담당하며 같은 context에 다른 책임의 Assignment 여러 개를 허용한다. Assignment·남길 문서 수 상한은 없다.
 - Operator 호출의 app은 `read_apps`에 있고 command 이름은 Role 판의 ToolSelection.app_command에 있어야 한다. 각 실제 `(app, command)` 쌍은 승인 묶음에 고정하고 현재 앱 계약에서 `effect = read`인지 확인한다. context item에 있다고 승인된 것은 아니다.
 - 같은 document를 남길 문서로 선언한 거두지 않은 Operator Assignment는 하나뿐이다. paused도 이 독점을 유지한다.
@@ -134,7 +134,7 @@ approval request에 고정하는 전체 입력이며 큰 내용은 blob으로 �
 | `ApplyOperatorAssignment` | machine | approval ID·결정 seq, OperatorApprovalBundle | 승인 전체 입력·초안 고정 판·이전 Role/Assignment 판·대상·출력 독점; 승인 한 번 사용 | `AssignmentCreated` 또는 `AssignmentChanged` 및 필요한 Role event | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `PauseAssignment` | user 또는 machine | ID, PauseReason | 현재 revision·state; machine은 archive 또는 실패 근거 재검사 | `AssignmentPaused` | `not_found`, `conflict`, `forbidden` |
 | `ResumeAssignment` | user | ID | 현재 revision·paused; 대상·outputs active·현재 승인 유효 | `AssignmentResumed` | `not_found`, `conflict`, `forbidden` |
-| `WithdrawAssignment` | user | ID | 현재 revision; enabled 또는 paused | `AssignmentWithdrawn` | `not_found`, `conflict`, `forbidden` |
+| `WithdrawAssignment` | user | ID | 현재 revision; enabled 또는 paused; lophn·CE 전체 범위면 forbidden | `AssignmentWithdrawn` | `not_found`, `conflict`, `forbidden` |
 
 사람의 직접 pause·resume·withdraw에 추가 approval request를 붙이지 않는다. paused 변경은 paused를 유지한다. 주기 변경 시점 규칙은 → lophn-agent/scheduling이다.
 
@@ -155,7 +155,8 @@ approval request에 고정하는 전체 입력이며 큰 내용은 blob으로 �
 - **연속 실패 3회.** 모든 Assignment에서 실제 시작한 Run의 최종 `failed`가 연속 3회면 machine pause한다. 근거는 → lophn-agent/harness/run-loop의 `RunFinished` 시작 여부·결과·이유다.
 - **실패 집계.** `completed`는 실패 묶음을 끊는다. Operator의 무변화 완료도 포함한다. 미시작, 사람 중단·거절, 답 없음 `stopped`, 질문·approval 대기는 세지도 실패 묶음을 지우지도 않는다. ToolCall 실패 하나를 Run 실패로 세지 않는다.
 - **새 실패 묶음.** 가장 최근 `AssignmentResumed` seq 이후의 종료 결과부터 센다. 처음에는 `AssignmentCreated` seq 이후다. 순서는 종료 event seq이며 재시작·시간 경과·정의 변경으로 초기화하지 않는다. 실패 counter entity·표는 없다.
-- **멈춤 적용.** pause·withdraw 커밋 뒤 새 접수와 후속 호출을 막는다. 접수·진행 Run의 안전한 stopped 처리는 → lophn-agent/harness/run-loop다. 이미 일어난 효과는 취소됐다고 하지 않는다.
+- **대화 자격.** enabled·paused는 새 세션을 열 수 있고 withdrawn은 과거 세션 읽기만 가능하다. paused의 새 request는 → lophn-agent/conversation에서 담당 run 없이 보존하며 실행 접수·후속 호출은 허용하지 않는다.
+- **멈춤 적용.** pause·withdraw 커밋 뒤 새 Run 접수와 후속 호출을 막는다. 접수·진행 Run의 안전한 stopped 처리는 → lophn-agent/harness/run-loop다. 이미 일어난 효과는 취소됐다고 하지 않는다.
 - **겹침.** 사람 요청 accepted는 여러 개 가능하지만 assignment당 running·waiting_user는 합쳐 하나다. 회차는 accepted 포함 미종료 Run이 하나라도 있으면 skip한다.
 - **되돌림.** → lophn-agent/revert는 현재 pause를 해제하거나 처리한 다음 회차를 재접수하지 못한다.
 

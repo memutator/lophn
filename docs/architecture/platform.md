@@ -129,7 +129,7 @@ Linux H·관리 앱 폴더·credentials·run은 0700이며 더 넓으면 정상 
 | `platform/approvals` | `approval_requests`, `approval_uses` | request command와 소유 동작의 공통 한 번 사용 함수 |
 | `platform/notifications` | `notifications` | 전용 subscriber 생성·사람 읽음 command |
 
-identity·redaction·security·diagnostics에는 별도 ledger 표가 없다. coding agent의 token hash·회수 상태는 coding-agent/connection의 표에, provider 참조는 lophn-agent/harness/provider의 표에 둔다. 다른 concern의 표는 해당 모듈만 쓰고 platform은 `Tx`로 조합할 뿐 직접 고치지 않는다. event·command 결과·설정 이력·migration 이력의 UPDATE/DELETE 금지를 SQLite 보호로 강제한다. 일반 `audit=false` 우회는 없고 event 없는 기반 쓰기는 domain model의 네 예외로 한정한다.
+identity·redaction·security·diagnostics에는 별도 ledger 표가 없다. coding agent의 token hash·회수 상태는 coding-agent/connection의 표에, provider 참조는 lophn-agent/harness/provider에, 외부 MCP 인증 참조·판은 lophn-agent/extensions의 소유 기록에 둔다. 다른 concern의 표는 해당 모듈만 쓰고 platform은 `Tx`로 조합할 뿐 직접 고치지 않는다. event·command 결과·설정 이력·migration 이력의 UPDATE/DELETE 금지를 SQLite 보호로 강제한다. 일반 `audit=false` 우회는 없고 event 없는 기반 쓰기는 domain model의 네 예외로 한정한다.
 
 ### 3.3 ledger 밖 자료
 
@@ -145,7 +145,7 @@ OS adapter는 macOS Keychain, Windows Credential Manager, Linux Secret Service�
 | platform/api | core API loop | api·route registry | 메모리·derived WS 재생 위치 | command, read, event 구독, 인증 |
 | platform/blob-store | platform I/O worker·core | blob-store | blob 파일·blob_refs·GC 관측 파일 | blob, command, 인증 |
 | platform/identity | core·신뢰 시작 경계 | identity | 메모리 credential; 영구 connection hash는 소유 concern | 인증, read, command |
-| platform/secrets | platform I/O worker·소비 경계·core | secrets·OS adapter | keychain·secrets | secret, approval, redaction |
+| platform/secrets | platform I/O worker·소비 경계·core | secrets·OS adapter | keychain·앱 secrets; provider·외부 MCP 참조는 소유 concern | secret, 앱 grant 검사, redaction |
 | platform/redaction | platform I/O worker·각 플랫폼 경계 | redaction | 규칙 묶음·안전 결과, 원값 목록은 보호 메모리 | redaction, blob, 인증 |
 | platform/responsiveness | core·각 신뢰 worker | admission·worker scheduler·measurement | 메모리 한도·안전 측정 결과 | command, read, 앱 통로 |
 | platform/security | 모든 신뢰 입구 | policy·boundary checks | 설치 정책; 별도 보안 DB 없음 | 인증, approval, secret, redaction |
@@ -155,6 +155,16 @@ OS adapter는 macOS Keychain, Windows Credential Manager, Linux Secret Service�
 | platform/approvals | core·shell main | approvals | approval_requests·approval_uses | approval, confirmation window, command |
 | platform/notifications | core subscriber·shell main | notifications | notifications·공통 cursor | notification, event 구독, redaction |
 | platform/install-and-update | Electron main·core 시작 코드·OS installer | install-and-update | 설치 묶음·H·cache·instance lock | 인증, read, backup·migration 절차 |
+
+### 4.1 사람이 보는 경계
+
+platform read는 정확한 fact·참조·판·상태를 유지하지만 shell은 지금 판단할 결과·영향·다음 행동만 기본으로 보여 준다. ledger·seq·invocation·내부 credential·기술 key는 기본 화면의 말이 아니며 필요한 안전 상세에서만 펼친다. en·message key·formatting은 shell/wording, 모양은 shell/design-system, 정적 화면은 screens, 사용 순서는 flows가 소유한다. 플랫폼 오류·상태·설정 설명을 화면마다 다른 업무 규칙으로 해석하지 않는다. → shell#I8, shell#I9, platform/settings#R30, platform/approvals#R17
+
+SettingDefinition registry는 이름·한 줄 설명·현재값/기본값의 뜻·영향 기능·위험·되돌림·적용 시점의 message key와 schema를 함께 등록하고 설명 없는 항목은 거절한다. shell과 lophn 역할은 같은 registry의 현재값과 설명을 읽는다. lophn 제안은 questions의 고정 option action → QuestionActionEvidence 검사 → 기존 ApplySettings로만 적용하며 임의 대화 동의를 변경으로 승격하지 않는다. → platform/settings#R27, platform/settings#R28, platform/settings#R29
+
+confirmation window는 요청 창 위의 child modal BrowserWindow다. 앱 view를 숨기거나 교체하지 않고 parent의 입력만 막으며 main이 고정 정본을 읽고 일회 handle을 쓴다. 상세를 접어도 사람이 동작·대상·이유·외부 전송·보존 데이터·되돌릴 수 없는 영향을 놓치지 않는다. menu·popover·palette·dialog·tooltip과 경계 drag는 앱 view 위 shell overlay view의 몫이며 platform이 별도 view 제어 contract를 만들지 않는다. → shell/confirmation-window, shell/app-frame
+
+notification 자동 표시는 현재 focus·문서·앱을 바꾸지 않는다. OS 표시도 opt-in 최소 정보이며 사람이 대상 열기를 명시적으로 고른 때만 이동한다. 모든 근거는 다시 읽을 수 있지만 화면 전체에 기술 기록을 연속 노출하지 않는다. → platform/notifications#R9, platform/notifications#R11, platform/notifications#R12, shell/desktop
 
 ## 5. 내놓는 contract
 
@@ -414,12 +424,12 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
  → [shell main] 정본 read → confirmation window, 비공개 handle(120초)
  → [사람] 명시 선택 → [main] grant/reject command
  → [writer] handle·현재 내용·기한 검증/소비, 결정 commit
-허락 → [소유 runtime] apply_approved_action command
+허락 → [소유 runtime] apply_approved_action command(원래 caller 유지)
  → [writer] 현재 scope·CAS·원래 일·정확 action, 사용 + 소유 receipt commit
  → [소유 worker] receipt 확인 뒤 실제 일 → 결과 command → [writer] 소유 결과 commit
 ```
 
-거절·만료·취소는 실제 일을 시작하지 않는다. confirm 앱 호출의 actual call은 receipt 뒤에도 호출자→앱 direct다. 응답 유실·결과 unknown에 같은 허락으로 새 receipt를 만들지 않는다.
+거절·만료·취소는 실제 일을 시작하지 않는다. confirm 앱 호출은 user 결정과 실제 caller(user·agent·다른 앱)를 구별하고 agent ask와 confirm이 겹치면 같은 정확한 approval을 한 번만 소비한다. actual call은 receipt 뒤에도 원래 호출자→앱 direct다. 응답 유실·결과 unknown에 같은 허락으로 새 receipt를 만들지 않는다.
 
 ### 7.4 secret 교체와 전송
 
@@ -429,7 +439,7 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
  → [main] SetSecret command(이전 참조/revision)
  → [writer] CAS·참조·SecretSet commit
  → [I/O/앱 supervisor] 이전 참조 차단·OS 정리·사용 프로세스 종료 각각 관측
-사용 → [신뢰 소비 adapter] 현재 참조/판·용도·목적지·앱 approval/접수 검사
+사용 → [신뢰 소비 adapter] 현재 참조/판·용도·목적지·앱의 현재 grant 검사(호출마다 secret approval 없음)
  → [keychain 경계] 값 조회 → 실제 허용 전송 직전 인증 첨부
  → [redaction 경계] 결과 안전화 → caller/기록; 원값 반환 없음
 ```

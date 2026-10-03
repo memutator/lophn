@@ -31,7 +31,7 @@ Role의 OperatorJudgment.question·evidence·comparison_basis·update_condition�
 | 승인된 앱 명령 | Assignment.read_commands의 정확한 `(app, command)` 쌍이며 app은 read_apps, command 이름은 Role.ToolSelection.app_command에 선택된 `effect = read` 명령의 metadata·결과 | apps/blueprint, apps/runtime |
 | 자기 Question·approval 결정 | 자기 Run에 연결된 결정 | lophn-agent/questions, platform/approvals |
 
-여러 앱이 context에 있어도 범위 종류는 context 하나다. 결과 문서가 가리킨 다른 자료·context 밖 문서·전체 앱 metadata를 따라 읽지 않는다. 앱 read command가 secret 사용·외부 반출·쓰기 효과를 숨기면 제공하지 않는다.
+여러 앱이 context에 있어도 범위 종류는 context 하나다. 결과 문서가 가리킨 다른 자료·context 밖 문서·전체 앱 metadata를 따라 읽지 않는다. 앱 read command가 앱 밖 상태 변경·쓰기 효과를 숨기면 제공하지 않는다. 허락된 read가 앱의 secret·network grant로 데이터를 가져오는 것은 read이며 호출 주체가 Operator라는 이유나 secret 사용만으로 거절하거나 추가 approval을 묻지 않는다. secret 값은 앱 코드·agent에 주지 않고 전송 경계에서 붙이며 대상 host는 앱 network grant를 따른다.
 
 ### tool 선택 상한
 

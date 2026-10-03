@@ -68,7 +68,7 @@ coding agent 통로 ──────────► test runner control (Deno)
 
 ### 2.3 수집 한도
 
-기존 요구의 값은 그대로 쓰고, 아직 정하지 않은 운영 기본값은 다음으로 선택한다. 모두 collector/runner의 검증된 설정이며 요청이 상한을 넓힐 수 없다.
+problems/reporting#R12,R16·problems/feedback#R8,R9·problems/snapshots#R10,R12,R20·problems/tests#R19-R21의 첫 한도를 그대로 쓴다. 모두 collector/runner의 검증된 설정이며 요청이 상한을 넓힐 수 없다.
 
 | 항목 | 기본·상한 | 초과 처리 |
 |---|---|---|
@@ -131,7 +131,7 @@ runner 작업 폴더는 0700, spool 파일은 0600이며 credential은 포함하
 | problems/repairs | core; 제출은 coding agent 통로 | `repairs-ledger.ts` | `ProblemFixRecorded` event·summary blob | command, read, coding agent 통로 |
 | problems/closing | runner의 반응기·core; 사람 결정은 shell | `closing-reaction.ts`, `closing-ledger.ts` | `problems.closure`, 닫힘·재발 event | event 구독, command, confirmation window |
 
-잎 concern 8개 전부를 배치한다. collector가 grouping **값을 준비**하는 것과 core가 기존 Problem을 찾아 **상태를 확정**하는 것은 다르다.
+leaf concern 8개 전부를 배치한다. collector가 grouping **값을 준비**하는 것과 core가 기존 Problem을 찾아 **상태를 확정**하는 것은 다르다.
 
 ## 5. 내놓는 contract
 
@@ -164,7 +164,7 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 | RPC | command/read 이름 | 입력·출력 | 오류·권한·비교 |
 |---|---|---|---|
 | `/v1/problems/reconcile-work` | `ReconcileProblemWork` | problem·ticket·원 ticket event seq → 현재 status/work·변경 event | machine만; 문제 seq/work·현재 ticket/claim 비교; `not_found/conflict/forbidden` |
-| `/v1/problems/link-interpretation` | `LinkProblemInterpretation` | problem·고정 version/section 또는 null → 현재 참조 | 담당 App Engineer/user; scope·판 읽기 권한·문제 seq/기존 참조; `invalid_input/not_found/forbidden/conflict` |
+| `/v1/problems/link-interpretation` | `LinkProblemInterpretation` | problem·고정 version/section 또는 null → 현재 참조 | 담당 App Engineer; scope·판 읽기 권한·문제 seq/기존 참조; `invalid_input/not_found/forbidden/conflict` |
 | `/v1/problems/record-fix` | `RecordProblemFix` | problem·FixRecord·key → `ProblemFixRecorded` seq | coding_agent만; 문제 seq·before/after·결과 연결·있으면 현재 claim; `invalid_input/not_found/forbidden/conflict` |
 | `/v1/problems/close-verified` | `CloseProblemVerified` | problem·verification·예상 문제 seq/활성 release → Closure·event | machine 판정기만; 7.6 조건; `not_found/forbidden/conflict/invalid_input` |
 | `/v1/problems/apply-decision` | `ApplyProblemDecision` | UserProblemDecision·일회 confirmation → Closure 또는 부정 확인/reopen | 보호된 user 결정만; 문제 seq·release·필요 last Report·정확한 선택/입력 binding; `invalid_input/unauthorized/forbidden/not_found/conflict` |
@@ -175,7 +175,7 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 | `/v1/problems/get-snapshot` | `GetSnapshot` | snapshot·선택 항목 → 증거 메타데이터·허용된 blob 참조 | 현재 출력 redaction·scope; 없는 항목은 이유 |
 | `/v1/problems/list-fixes` | `ListProblemFixes` | problem·event seq cursor → FixRecord 이력 | subject 범위 검사; agent 로그는 설명으로만 반환 |
 
-표의 모든 경로는 POST다. 목록은 seq cursor로 페이지를 고정하고 요약 → 실제 기록 → 선택한 안전한 첨부 순서로 읽는다. blob 참조를 안다는 이유로 raw blob 접근을 허용하지 않는다. 안전한 상세는 **read**와 **redaction**을 거쳐 반환하며 로그·사람 글은 지시가 아닌 데이터로 표시한다.
+표의 모든 경로는 POST다. 목록은 seq cursor로 페이지를 고정하고 요약 → 실제 기록 → 선택한 안전한 첨부 순서로 읽는다. blob 참조를 안다는 이유로 raw blob 접근을 허용하지 않는다. 안전한 상세는 **read**와 **redaction**을 거쳐 반환하며 로그·사람 글은 지시가 아닌 데이터로 표시한다. 저장 모델을 shell에 그대로 표시하지 않는다. 기본 목록·앱 카드에는 앱·증상·진행·필요한 다음 행동만 보내고 사용자용 상세에는 현재 실제 담당과 en 수리 작업 상태를 제공하되 claim·기한·연결 식별자는 숨긴다(problems/grouping#R11,R12). 수·시각·당시 release·확인 범위는 펼친 상세로 구분하고 내부 code·stack·log는 별도 허용된 수리 조회에서만 반환한다(problems/reporting#R7, problems/closing#R13). 선언 안내는 당시 release의 message_key와 en 고정 값을 사용하고 예약 안내도 problems/problem-codes의 key·en 값을 그대로 전달한다. 화면 라벨·상태·누락 설명·확인 이유는 shell/wording에 따라 en message key로 표시하고 ledger·invocation·claim 같은 내부 이름을 화면에 내보내지 않는다.
 
 고친 기록은 before와 다른 준비된 after·공백 아닌 summary·맞는 Verification만 받는다. 결과 목록은 비어도 된다. ticket 없는 기록에는 ticket·claim seq가 모두 null이며 fixing을 만들지 않는다. 늦은 결과는 별도 Verification로 읽고 이전 FixRecord를 고치지 않는다. 앱 `clear`·agent `close`·보고 삭제·증거 UPDATE API는 없다.
 
@@ -265,7 +265,7 @@ notification 계기는 운영 `ProblemOpened / ProblemReopened / ProblemClosed`�
   → [shell] 접수된 문제 열기 / 실패 이유와 복사 가능한 글 유지
 ```
 
-1. 캡처는 앱 view만 대상으로 한다. 보호 화면·lophn dialog가 이미 떠 있거나 view가 숨겨졌으면 이미지 없이 이유를 기록한다. 캡처 await 동안 view가 교체/이동되어 당시 연결을 확인하지 못하면 이미지를 제외한다. 제출 시점 화면으로 교체하지 않는다.
+1. 캡처는 앱 view만 대상으로 한다. feedback dialog는 shell overlay view에 그리고 보호된 결정은 요청 창의 child modal BrowserWindow에서 받으며 어느 쪽도 app view를 숨기지 않는다. 보호 화면·lophn dialog가 이미 떠 있거나 view가 가려졌으면 이미지 없이 이유를 기록한다. 캡처 await 동안 view가 교체/이동되어 당시 연결을 확인하지 못하면 이미지를 제외한다. 제출 시점 화면으로 교체하지 않는다.
 2. 안전한 상태는 화면명·탭·URL path/안전 hash·입력 형태만 자동 준비한다. 실제 표시 결과·문서 판·invocation을 아는 경우만 참조로 지목하며 read 결과 전체나 URL query를 붙이지 않는다. 입력 검사로 command가 시작하지 않았으면 invocation을 만들지 않는다.
 3. 상태만 기본 선택하고 PNG는 redaction된 미리보기를 사람이 확인한 뒤 선택한다. 비공개 영역을 확실히 처리하지 못하면 선택 불가다. 원본 픽셀은 메모리에만 있고 blob/temp 파일에 먼저 쓰지 않는다. 사람이 포함을 눌러도 secret 저장 허가가 되지 않는다.
 4. main은 같은 캡처의 binding·관측 시점·선택 상태·최종 이미지 hash를 전달한다. collector는 shell 출처와 binding을 검증하고 글·상태·PNG를 다시 redaction한 뒤 글 길이·PNG header/크기·전체 전송 크기를 검사한다.
@@ -310,7 +310,7 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
 
 플랫폼 필수 검사 code는 runner의 불변 설치 자료에서 읽으며 앱 bundle/agent가 고칠 수 없다. 앱이 작성한 code별 실패 경로 test는 실제 앱 command/화면에 fixture 실패를 주입해야 한다. SDK 직접 호출만으로 실패 경로를 통과시키지 않는다.
 
-검사는 선언·blueprint/handler 일치·고정 SDK·정적/동적 code 사용·SDK 접수·선언별 실패 경로·process/view exception·깨진 view의 feedback·redaction·permission 거절이다. apps/data의 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration, read 입출력 계약, automation 허용 데이터 접근도 각 apps contract로 검사한다. 화면 없는 bundle만 화면 검사에 이유 있는 `not_applicable`을 남긴다.
+검사는 선언·blueprint/handler 일치·고정 SDK·정적/동적 code 사용·SDK 접수·선언별 실패 경로·process/view exception·깨진 view의 feedback·redaction·permission 거절이다. apps/data의 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration, read의 입력 계약·업무 및 외부 상태 불변, automation의 command·고정 입력·grant와 external/confirm 금지도 각 apps contract로 검사한다. grant된 secret의 가져오기·동기화는 대역으로 허용하며 호출마다 approval을 요구하거나 호출 주체가 automation이라는 이유로 막지 않는다. apps/blueprint가 아직 선언하지 않는 출력 schema는 필수 검사로 새로 만들지 않는다. 화면 없는 bundle만 화면 검사에 이유 있는 `not_applicable`을 남긴다.
 
 출력 `pass` 문자열이나 생성 test 파일 존재는 근거가 아니다. runner가 검사별 status/reason/evidence를 모아 모든 필수 검사 실제 통과일 때만 `pass`다. 변경된 bundle은 새 app test가 필요하며 release 준비 자체는 runner가 하지 않는다.
 

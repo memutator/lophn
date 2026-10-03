@@ -30,7 +30,7 @@ concerns: [problems/reporting]
 ### 불변 조건
 
 - 접수 뒤 UPDATE·DELETE command가 없다. 새 자료·다른 내용은 새 Report다.
-- 같은 ID·principal·content hash는 기존 접수 결과를 반환한다. 하나라도 다르면 `conflict`다.
+- 같은 ID·principal·content hash는 기존 접수 결과를 반환한다. 같은 ID의 principal 또는 content hash가 다르면 `conflict`다. 새로운 ID는 별도 발생으로 접수한다.
 - hash 입력에는 최종 Report 입력·Snapshot 입력·선택한 기존 문제 참조·blob hash가 포함된다. 서버가 묶은 problem과 event seq는 포함하지 않는다.
 - Report·Snapshot·Problem 변경·각 event는 transaction 하나다. 저장 실패를 접수 성공으로 반환하지 않는다.
 - 미선언 앱 code의 원래 보고는 `invalid_input`이다. 수집기는 원래 ID에서 결정적으로 정한 별도 `rpt` ID로 `_invalid_report` 진단을 1개만 준비한다. 실패는 → platform/diagnostics이며 재귀 보고하지 않는다.
@@ -69,10 +69,11 @@ concerns: [problems/reporting]
 - **예외 관측.** process와 view의 `error`, `unhandledrejection`, view 루트 render 오류를 자동 수집한다. 원래 실패·종료를 성공으로 바꾸지 않는다.
 - **비운영 보고.** preview·test는 운영 Problem을 생성·재발시키지 않는다. 진단 scope에만 붙는다.
 - **과다 보고.** 첫 판은 앱당 60,000ms 동안 새 보고 최대 20개를 접수한다. 같은 ID 재전송은 추가 발생으로 세지 않는다. 초과는 `unavailable`과 손실 표시이며 이미 접수한 Report를 합치거나 삭제하지 않는다.
-- **수집 대기.** 제한된 메모리 대기는 영구 접수가 아니다. 보고 재전송 때문에 원래 앱 command를 다시 호출하지 않는다. 대기·실패·접수 성공은 구별한다.
+- **수집 대기.** SDK당 32개·4,194,304 bytes, collector 전체 128개·16,777,216 bytes·동시 조립 4개다. 자동 보고 본문은 최대 262,144 bytes다. 제한된 메모리 대기는 영구 접수가 아니며 초과는 실패·손실로 표시한다.
+- **재전송.** 일시적 unavailable·응답 유실에만 첫 시도 뒤 최대 3회, 250·1,000·3,000ms 간격으로 최종 고정 내용을 다시 보낸다. 원래 앱 command 재호출과 snapshot 재조립은 하지 않는다. 대기·실패·접수 성공은 구별한다.
 - **저장 안전.** 모든 문자열·blob은 저장 전에 → platform/redaction을 통과한다.
 
 ## 정할 것
 
-- 대기 최대 개수·총 bytes, 재전송 횟수·간격, 자료 수집 timeout 기본값.
+- 자료 조립 한도는 → problems/snapshots, 대기·retry의 첫 기본값은 이 문서의 정책이다.
 - 운영 mode의 실제 credential 값 이름은 → apps/runtime과 맞춘다.

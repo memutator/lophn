@@ -14,7 +14,13 @@ concerns: [platform/settings]
 |---|---|---|---|---|
 | `key` | string | 아니오 | 등록된 항목 경로; unique | 항목 |
 | `owner` | concern ID | 아니오 | 실제 항목 정의 concern | 소유 |
-| `description` | string | 아니오 | 비어 있지 않음 | 설명 |
+| `display_name_key` | message key | 아니오 | 비어 있지 않음; → shell/wording | 사람이 읽는 이름 |
+| `description` | message key | 아니오 | 비어 있지 않음; 한 줄 설명; → shell/wording | 설명 |
+| `value_meaning_key` | message key | 아니오 | 현재 적용값을 인자로 설명; secret 원문 불가 | 현재 선택의 뜻 |
+| `default_meaning_key` | message key | 아니오 | default 없음도 설명 | 기본값의 뜻 |
+| `affected_features` | 등록된 기능 참조 목록 | 아니오 | 실제 영향 기능; 화면과 lophn 역할이 같은 registry에서 해석 | 영향 범위 |
+| `risk_key` | message key | 아니오 | 위험 없음도 명시 | 위험 설명 |
+| `revert_key` | message key | 아니오 | 선택 삭제·이전 선택 등 실제 복원 방법 | 되돌리는 방법 |
 | `value_type` | 값 schema | 아니오 | string·integer·number·boolean·array·object와 소유 concern의 구조 | 값 종류 |
 | `default` | 해당 타입 값 | 예 | default 없음이면 null; secret 원문 불가 | 내장 기본값 |
 | `required` | boolean | 아니오 | required이고 default 없음이면 사람 선택 필수 | 필수 여부 |
@@ -106,7 +112,7 @@ provider 정의·credential은 → lophn-agent/harness/provider, model catalog·
 | `ApplySettings` | user | 전체 set·delete 변경 목록, 준비된 검증 메타데이터 | 편집 시작 revision·registry 판; 모든 영향 역할 재검증 | `SettingsChanged` 또는 unchanged | `invalid_input`, `unauthorized`, `forbidden`, `conflict`, `unavailable` |
 | `ReloadSettings` | user / machine | 현재 저장 선택·내장 registry의 재검증 결과 | 준비한 revision·defaults_revision | `SettingsReloaded` 또는 unchanged | `invalid_input`, `unauthorized`, `forbidden`, `conflict`, `unavailable` |
 
-TOML parse·큰 검증 준비는 command 밖에서 한다. command는 현재 판과 작은 준비 참조를 확인하고 선택·판·event를 한 transaction에 모두 저장하거나 모두 거절한다.
+TOML parse·큰 검증 준비는 command 밖에서 한다. command는 현재 판과 작은 준비 참조를 확인하고 선택·판·event를 한 transaction에 모두 저장하거나 모두 거절한다. lophn 역할의 제안은 → lophn-agent/questions의 고정 option action으로만 `ApplySettings`에 전달하며, 실제 사람이 고른 항목·값·층·비교 판을 → platform/identity의 QuestionActionEvidence로 검증한 machine 적용만 user로 기록한다. 설명 요청·추천·자유 답은 변경이 아니다. → platform/settings#R29
 
 ## event
 
@@ -119,7 +125,8 @@ TOML parse·큰 검증 준비는 command 밖에서 한다. command는 현재 판
 
 - **층.** `builtin < common < role` 세 층만 있다. 작업 디렉터리·앱 문서·세션·환경 변수·CLI 일회 인자·외부 응답·assignment override는 일반 설정 층이 아니다.
 - **병합.** object는 항목별 병합, scalar는 높은 층 값으로 교체, array는 높은 층 전체로 교체한다. 목록 연결·중복 제거·문자열 숫자 변환·오타 자동 수정은 하지 않는다.
-- **교환 format.** 일반 설정 import·export는 UTF-8 TOML 1.0만 쓴다. 환경 변수 치환·include·command 실행·원격 URL은 불가다. TOML 파일은 두 번째 원본이나 자동 감시 대상이 아니다.
+- **공개 설명.** SettingDefinition의 이름·설명·선택과 기본값의 뜻·영향·위험·되돌림·적용 시점은 화면과 lophn 역할이 같은 registry에서 읽는다. 필수 설명이 없는 항목은 등록하지 않는다. message key·en 문구·formatting은 → shell/wording을 따른다. 기본 화면에는 지금 필요한 선택과 영향만 보이고 층·판·전체 목록은 펼쳐 조회한다. → platform/settings#R27, platform/settings#R28, shell#I8, shell#I9
+- **교환 format.** 일반 설정 import·export는 format version 1의 UTF-8 TOML 1.0만 쓴다. 미지원 version은 전체 거절하며 실제 항목 변경이 있는 update에서만 옛 key의 명시 변환을 제공한다. 환경 변수 치환·include·command 실행·원격 URL은 불가다. TOML 파일은 두 번째 원본이나 자동 감시 대상이 아니다.
 - **검증.** 각 층의 문법·알려진 key·타입·범위·허용 층을 검사하고, 병합 뒤 필수값·항목 관계·참조를 검사한다. offline 미확인은 소유 concern이 허용한 때만 표시하고 받는다.
 - **참조.** provider·catalog 보정은 common만이다. judgment·organizing slot은 common만이며 임의 provider·model·credential로 빈 필수값을 메우지 않는다.
 - **변경.** 사람의 명시적 apply만 선택을 바꾼다. agent 제안·대화의 동의 추측·외부 문서 변경은 적용 요청이 아니다.
@@ -130,6 +137,5 @@ TOML parse·큰 검증 준비는 command 밖에서 한다. command는 현재 판
 
 ## 정할 것
 
-- 설정 교환 문서의 format version과 옛 key의 명시 migration 모양.
-- 자동 reload 여부. 현재는 명시 apply·reload만 정의한다.
+- format version 1의 정확한 TOML 문서 구조와 실제 update에서 필요한 옛 key 변환 목록. 명시 apply·reload만 사용하고 자동 reload는 제공하지 않는다.
 - 소유 concern별 공개 key·기본값·범위·role 허용 목록. model slot·provider의 도메인 원본과 공통 선택을 이중 저장하지 않도록 해당 소유자와 맞춘다.

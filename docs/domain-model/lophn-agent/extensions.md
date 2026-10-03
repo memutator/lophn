@@ -23,8 +23,9 @@ Role entity에 저장하지 않고 ExtensionSettings 안에 저장한다.
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `skills` | skill 이름 배열 | 아니오 | 기본 `[]`; 중복 없음; user 지정 | 선택 skill |
-| `mcp_servers` | 서버 이름 배열 | 아니오 | 기본 `[]`; 중복 없음; 등록 서버만; user 지정 | 사용할 서버 |
+| `skills` | skill 이름 배열 | 아니오 | 기본 `[]`; 현재 유효한 정확한 이름만; 없는 이름·중복·전체 선택 거절; user 지정 | 선택 skill |
+| `mcp_servers` | 서버 이름 배열 | 아니오 | 기본 `[]`; 중복 없음; 등록 서버만; user 지정; 이 값만으로 tool을 선택하지 않음 | 연결 후보 서버 |
+| `mcp_tools` | `{server_name,original_tool}` 배열 | 아니오 | 기본 `[]`; 정확한 쌍 unique; 서버는 mcp_servers·등록 설정에 있고 tool은 현재 검증 목록에 존재; 전체·미래 선택 거절 | 선택한 개별 MCP tool |
 
 ## SkillEntry (값)
 
@@ -100,7 +101,7 @@ platform 설정에 들어가는 값이며 독립 domain entity·접두사는 없
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `effect` | `read / write / external` | 아니오 | user 명시; 다중 효과는 external > write > read | 실제 영향 |
-| `schema_hash` | sha256 | 아니오 | 이름·설명·입력 schema 기준 | 분류가 묶인 정의 |
+| `schema_hash` | sha256 | 아니오 | 이름·설명·입력 schema·MCP 행동 hints 기준 | 분류가 묶인 정의 |
 | `reversible` | boolean | 아니오 | false 기본; user 선언만으로 보장하지 않음; contract 검증 필요 | 되돌림 보장 |
 
 ## McpConnection (값)
@@ -109,6 +110,7 @@ platform 설정에 들어가는 값이며 독립 domain entity·접두사는 없
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
+| `assignment` | `asg` ID | 아니오 | → lophn-agent/assignments; (assignment, server_name)마다 connection 하나; 다른 assignment와 공유 금지 | 연결 소유 |
 | `server_name / revision` | 문자열 / 양의 정수 | 아니오 | 고정 설정 참조 | 대상 |
 | `state` | `disconnected / connecting / connected / failed_temporary / failed_auth` | 아니오 | 초기 disconnected | 상태 |
 | `last_connected_at` | 시각 | 예 | 성공 연결 시각 | 최근 성공 |
@@ -134,13 +136,13 @@ platform 설정에 들어가는 값이며 독립 domain entity·접두사는 없
 - **skill 제공.** 유효 발견과 고정 role_selections[role].skills의 교집합만; run 시작에 이름·설명·선택·본문 hash 고정. prompt에는 이름·설명만 사전순이다. 읽기 전 변경·삭제면 실패하며 다음 run부터 새 판을 쓴다.
 - **skill 읽기.** 본문 전체 및 보조 자료 제목만 반환한다. 제목으로 고른 보조 문서만 읽으며 상위 이탈·절대 경로·symlink·스크립트·실행 파일은 거절한다. 원격 검색·download·설치·자동 작성·script 실행은 없다.
 - **권한.** skill 등록·읽기는 tool·권한·MCP 연결·인증을 추가하지 않는다. 본문은 data이며 역할·안전 경계를 바꾸지 않는다. → lophn-agent/harness/safety.
-- **MCP 제공.** 고정 role_selections[role].mcp_servers와 enabled 등록 서버의 교집합만 연결·목록 제공한다. 현재 역할의 내장 허용 효과·scope를 확장하지 않으며 call마다 현재 역할 선택·enabled·설정 판을 재검사한다.
+- **MCP 제공.** 고정 role_selections[role].mcp_servers와 enabled 등록 서버의 교집합만 연결 후보로 쓴다. 전체 검증 목록 중 고정 mcp_tools의 정확한 `(server_name,original_tool)` 쌍과 현재 역할 상한·scope를 모두 통과한 tool만 제공한다. 새 tool은 자동 선택하지 않는다. call마다 현재 개별 선택·enabled·설정 판·정의 hash를 재검사하며 설정만으로 Operator의 승인 tool 목록을 늘리지 않는다.
 - **MCP 설정 소유.** 등록·삭제·enabled·목적지·역할·분류는 user만 결정한다. project·skill·역할 요청·server 응답에서 설정을 자동 수입하지 않는다. 누락·상충·잘못된 설정은 해당 서버만 제외한다. 설정 command·event·ledger 표는 → platform/settings; 새 extension ledger는 없다.
 - **MCP 환경.** stdio는 필요한 `PATH`, `HOME`, `TEMP`, `LC_ALL` 및 해당 서버 env만 받는다. 앱 secret·다른 server secret·provider credential은 전달하지 않는다.
 - **HTTP 인증.** secret은 인증을 붙이는 경계에서만 사용한다. TLS 검증 해제 없음; redirect에는 인증 헤더 제거. OAuth는 Authorization Code+S256 PKCE·브라우저·loopback 반환이며 발급자·대상에 묶고 credential별 동시 갱신은 하나다.
 - **연결 상한.** 연결 30000ms, 모든 tool list page 합산 30000ms, call 기본 60000ms. 끊김 재연결은 1000·2000·4000ms 뒤 최대 3회; 소진 뒤 user 재연결·설정 변경까지 대기. auth 거절 자동 재연결 없음. 이미 전달한 call은 재전송하지 않는다.
-- **수명.** 제거·disabled·역할 해제는 새 call 즉시 금지, 진행 call 취소 요청 뒤 연결 종료. stdio 정상 종료 5000ms 뒤 남으면 강제 종료. 실제 효과는 취소 성공으로 추정하지 않는다.
-- **목록.** MCP 판 협상 및 전체 page 수신·중복 이름·반복 cursor·schema 검증이 모두 끝난 뒤만 제공한다. 변경 통지·재연결에서 전체 재조회. 새 tool은 미분류 write로 취급하되 되돌림 보장 미확인이면 allow로 추정하지 않는다. 설명·input 변경은 옛 분류를 무효화하고 없어진 tool은 즉시 call 금지다.
+- **수명.** assignment 사용 종료·서버 제거·disabled·역할 해제·데몬 종료는 해당 (assignment, server) 새 call 즉시 금지, 진행 call 취소 요청 뒤 연결 종료. stdio 정상 종료 5000ms 뒤 남으면 강제 종료. 실제 효과는 취소 성공으로 추정하지 않는다.
+- **목록.** MCP 판 협상 및 전체 page 수신·중복 이름·반복 cursor·schema 검증이 모두 끝난 뒤만 제공한다. 변경 통지·재연결에서 전체 재조회. 새 tool은 미분류 write로 취급하되 되돌림 보장 미확인이면 allow로 추정하지 않는다. 이름·설명·input·MCP 행동 hints 변경은 옛 분류를 무효화하고 없어진 tool은 즉시 call 금지다.
 - **외부 이름.** `ext_` + server 이름 + `_` + 원래 tool 이름을 지원 문자로 canonicalize하여 최대 64자로 만든다. 충돌·축약이면 원래 server·tool 쌍의 SHA-256 앞 8자 suffix를 붙인다. 그래도 충돌이면 등록 거절한다. 원래 이름·server·설정 판을 ToolCall에 보존한다. → lophn-agent/harness/tools.
 - **판정.** 목록 노출은 실행 허용이 아니다. 현재 역할·scope·효과·input·되돌림 보장으로 call마다 → lophn-agent/harness/tool-judgment. 결과는 data로 포장하며 secret·코드·웹 검색·subagent 금지를 우회하지 않는다.
 

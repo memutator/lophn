@@ -46,10 +46,10 @@ approval 결정과 Run.source를 조회해 계산하는 값이다. 영구 허락
 | 조건 | 판정 | 처리 |
 |---|---|---|
 | 인증 실패, Assignment paused·withdrawn, Run 종료·호출 진입 불가, 모르는 동작·효과, 잘못된 입력 | `deny` | 미실행; approval request 없음 |
-| Run 고정 Role tool 밖, 현재 Assignment 읽기·쓰기 범위 밖, 승인된 Operator 앱·개별 read command 밖 | `deny` | 미실행; 한 번 승인으로 범위 확장 불가 |
+| Run 고정 Role tool 밖, 현재 Assignment 읽기·쓰기 범위 밖, 승인된 Operator 앱·개별 confirm=false read command 밖 | `deny` | 미실행; 한 번 승인으로 범위 확장 불가 |
 | 같은 Run 또는 원래 사람 요청의 handoff 계보에서 이미 사람이 거절한 같은 동작·대상·입력 | `deny` | 다시 묻지 않음; 사람의 새 독립 요청은 별도 |
 | CE의 사람 답 없는 Term 정의 확정, agent의 실제 Role·Assignment 적용, 문제 닫기·test result 작성·문서 이동·앱 등록·사람 대신 결정 | `deny` | 책임 밖; 대상 concern의 사람·machine 계약만 사용 |
-| 유효한 앱 command이며 confirm=true 또는 legacy effect=confirm | `ask` | read·undo 여부와 무관하게 apps/invocations·platform/approvals의 정확한 approval 사용 |
+| 유효한 앱 command이며 confirm=true | `ask` | read·undo 여부와 무관하게 apps/invocations·platform/approvals의 정확한 approval 사용 |
 | 유효한 앱 command이며 effect=external | `ask` | 되돌리기 지원 여부와 무관하게 외부 효과 approval |
 | 유효한 앱 command이며 effect=write, blueprint command.revert.supported=true·revert command 검증 | `allow` | 선행 기록 뒤 direct call; 복원 입력·결과 참조 보존 |
 | 유효한 앱 command이며 effect=write, undo 미지원·미확인 | `ask` | 정확한 target·input·release·CAS에 묶어 묻기 |

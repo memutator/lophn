@@ -104,7 +104,7 @@ core는 정본 action의 concern·command·대상·정확한 입력·CAS와 제�
 - **인증.** 준비 상태·건강 상태와 event 연결을 포함한 API 모두 token 또는 검증된 내부 연결을 요구한다. 공개 API로 user·machine 종류를 선택해 발급받지 못한다.
 - **사람 결정.** user token은 직접 클릭의 증거가 아니다. 필요한 일회 증거는 → shell/confirmation-window, approval 사용은 → platform/approvals다.
 - **종료.** core 재시작·감독 연결 상실 때 이전 실행 credential은 무효다. 회수는 새 요청을 막을 뿐 이미 읽은 자료·전송한 효과를 취소하지 않는다.
-- **오류.** 자격 없음·위조·회수·종료는 `unauthorized`, 유효 자격의 범위 밖은 `forbidden`, 잘못된 종류·scope는 `invalid_input`, CAS 변경은 `conflict`, 안전한 발급·보관 경로 불가는 `unavailable`이다(→ platform/ledger).
+- **오류.** 자격 없음·위조·회수·종료는 `unauthorized`, 유효 자격의 금지 동작은 `forbidden`이다. 앱 범위 credential의 다른 앱 대상 조회는 실제 부재와 동일한 `not_found`로 반환하여 존재를 숨긴다. 잘못된 종류·scope는 `invalid_input`, CAS 변경은 `conflict`, 안전한 발급·보관 경로 불가는 `unavailable`이다(→ platform/identity#R10, platform/ledger).
 
 ## 정할 것
 

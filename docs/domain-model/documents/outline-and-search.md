@@ -17,7 +17,7 @@ ledger entity가 아니다. → documents/versions의 불변 판과 → document
 | `content_hash` | sha256 | 아니오 | 해당 판의 content_hash | |
 | `module_hash` | sha256 | 아니오 | 해당 판의 정확한 FormatRef | |
 | `extraction_status` | `ready \| unsupported \| unverified \| failed` | 아니오 | 빈 ready sections와 unsupported를 구분 | |
-| `text_hash` | sha256 | 예 | 추출한 대표 텍스트의 derived blob | |
+| `text_hash` | sha256 | 예 | 추출한 대표 텍스트 UTF-8 바이트 hash; 바이트는 derived_texts에 저장 | |
 | `line_count` | integer | 예 | ready면 `>= 0` | |
 | `section_count` | integer | 아니오 | `>= 0`; 실제 section 행 수 | |
 | `failure_reason` | string | 조건부 | failed면 필수 | |
@@ -67,13 +67,13 @@ ledger entity가 아니다. → documents/versions의 불변 판과 → document
 | `file` | ContentFile 참조 | 예 | 미지원 추출이면 허용된 원문 읽기 참조 → documents/versions | |
 | `complete` | boolean | 아니오 | 요청 대상 전체가 반환됐는지 | |
 | `next_cursor` | string | 예 | complete면 null; 미완료면 이어 읽기 방법 | |
-| `redacted` | boolean | 아니오 | 출력 가림 여부 | 원문 hash·범위는 유지 |
+| `redacted` | boolean | 아니오 | 출력 redaction 여부 | 원문 hash·범위는 유지 |
 
 ## OutlinePage (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `kind` | `root \| place \| context \| document` | 아니오 | enum | |
+| `kind` | `root \| place \| context \| document \| series \| view` | 아니오 | enum | |
 | `basis_seq` | event seq | 아니오 | 목록 선택의 ledger 기준 | |
 | `entries` | object[] | 아니오 | 아래 kind별 작은 행; 본문 제외 | |
 | `complete` | boolean | 아니오 | 잘린 목록은 false | |
@@ -81,12 +81,14 @@ ledger entity가 아니다. → documents/versions의 불변 판과 → document
 
 | kind | entries의 필수 내용 |
 |---|---|
-| root | 허용된 Project·App·Context ID, title, purpose와 place 없는 문서 묶음의 건수 |
-| place | Document ID, name, title, 선택 version, FormatRef, saved_at, 발췌 또는 SummaryCache, section 수 |
+| root | 허용된 Project·App·Context ID, title, purpose, 자리별 문서 수와 자리 없는 문서 묶음의 건수; Context의 기준 항목 수·참조 앱 수·활동 |
+| place | Document ID, name, title, 선택 version, FormatRef, saved_by, saved_at, 발췌 또는 SummaryCache, section 수 |
 | context | Context 목적, target·perspective·reason, 정의 Term와 별도 후보 목록, target의 선택 판·읽기 가능 여부 |
-| document | 고정 version, FormatRef, key·title·parent·position·길이·children_count·section_status |
+| document | 고정 version과 latest_version, FormatRef, key·title·parent·position·own_ranges·subtree_range·body_hash·characters·estimated_tokens·children_count·section_status |
+| series | → documents/series의 같은 기준·정렬에 따른 key·Document title·고정 최신 ver·보관 상태; 멤버 본문은 제외 |
+| view | 현재 조건에 맞는 place와 같은 작은 문서 행; glossary 없음 |
 
-폴더 실제 경로·현재 디스크 상태는 agent outline에 포함하지 않는다. scope는 각 페이지 다시 검사한다. 안정된 기준을 유지할 수 없으면 `conflict`로 재조회한다.
+root는 활동 순, place·context는 갱신 순으로 시작하고 seq·ID로 동점을 결정한다. context는 basis·reference·watch 순서와 빈 관점을 구별한다. API의 필수 내용 전체가 기본 화면의 노출 목록은 아니며 기본/상세 분리는 requirements와 shell/wording의 en message key 규칙을 따른다. 폴더 실제 경로·현재 디스크 상태는 agent outline에 포함하지 않는다. scope는 각 페이지 다시 검사한다. 안정된 기준을 유지할 수 없으면 `conflict`로 재조회한다.
 
 ## SearchResult (값)
 
@@ -99,8 +101,12 @@ ledger entity가 아니다. → documents/versions의 불변 판과 → document
 | `ranges` | LineRange[] | 아니오 | 해당 판의 일치 위치 | |
 | `reference` | DocumentRef 또는 고정 Address | 아니오 | → documents/addressing; version 필수 | |
 | `title` | string | 아니오 | 현재 허용된 제목; 출력 redaction 적용 | |
-| `snippet` | string | 아니오 | 짧은 원문 일치 부분; 출력 redaction 적용 | |
+| `snippet` | string | 아니오 | 짧은 일치 부분; derived 일치는 match_source로 구별; 출력 redaction 적용 | |
 | `score` | number | 아니오 | 유한한 keyword 순위 값 | |
+| `match_source` | `original \| summary \| topic` | 아니오 | 원문과 derived 일치 구별 | |
+| `cache_basis` | `{version: ver ID, section: string?, input_hash: sha256, stale: boolean}` | 조건부 | summary/topic이면 필수; 실제 입력 판과 범위; 원문 일치면 null | |
+
+원문 일치는 해당 판의 ranges를 반환한다. summary/topic 일치는 원문 줄에 가짜 일치를 만들지 않고 ranges=[]와 cache_basis를 반환하며 reference는 실제 입력 고정 판을 가리킨다. cache가 최신 판보다 낡았으면 stale를 감추지 않는다.
 
 ## IndexCoverage (값)
 
@@ -133,36 +139,35 @@ cursor 최신은 모든 본문 검색 가능의 증명이 아니다. 결과 없�
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `id` | `viw` ID | 아니오 | PK | |
-| `name` | 문자열 | 아니오 | 1~80자, active인 view 사이에서 unique | 화면 이름 |
+| `name` | string | 아니오 | 공백만 있는 문자열 금지; 현재 view 사이에서 unique | 화면 이름 |
 | `place` | place 참조 | 예 | → documents/addressing | 범위. 없으면 모든 자리 |
 | `filter` | ViewFilter | 아니오 | 아래 값 | 조건 |
 | `sort` | `updated_desc` / `updated_asc` / `title_asc` / `address_asc` | 아니오 | 기본 `updated_desc` | 정렬 |
-| `limit` | 정수 | 아니오 | 1~500, 기본 100 | 한 번에 보일 수 |
-| `status` | `active` / `archived` | 아니오 | | |
-| `revision` | 정수 | 아니오 | 1부터 1씩 | 비교 기준 |
+| `revision` | event seq | 아니오 | 마지막 생성·조건·이름·정렬 변경 event seq | CAS 기준 |
 
 ### ViewFilter (값)
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `title_contains` | 문자열 | 예 | 1~200자 | 제목에 들어간 말 |
-| `text` | 문자열 | 예 | 1~200자 | full-text search 질의 |
+| `title_contains` | string | 예 | 비어 있지 않은 문자열 | 제목에 들어간 말 |
+| `text` | string | 예 | 비어 있지 않은 문자열 | full-text search 질의 |
 | `formats` | format 이름 목록 | 예 | → documents/formats | |
-| `series` | `ser` ID | 예 | → documents/series | 이 series의 멤버만 |
 | `changed_within_ms` | 정수 | 예 | 1 이상 | 최근 이 기간 안에 새 version이 생긴 문서 |
 | `context` | `ctx` ID | 예 | → documents/contexts | 이 context의 item인 문서만 |
 | `document_status` | `active` / `archived` / `all` | 아니오 | 기본 `active` | 문서의 보관 상태 |
 
 ### 불변 조건
 
-- 조건이 하나도 없는 view는 만들 수 없다.
-- 열 때의 결과는 derived다. 결과 목록, 개수, 순서를 ledger에 쓰지 않는다. 같은 조건과 같은 대상 version 목록이면 cache를 쓴다.
+- 조건은 documents/outline-and-search#R23의 문서 조건만 허용한다. 기본 document_status=active만 있는 전체 문서 view도 유효하다. page 크기는 OutlinePage의 읽기 예산으로 고르고 view의 고정 제한을 따로 저장하지 않는다.
+- 생성·조건 변경·삭제는 user만 한다. 삭제는 조건만 제거하며 Document·Version·Context를 바꾸지 않는다. 삭제된 view의 기존 cursor는 conflict로 재조회를 요구한다.
+- 열 때의 결과는 derived다. 결과 목록, 개수, 순서를 ledger에 쓰지 않는다. 같은 조건·정렬·현재 scope와 같은 대상 version 목록일 때만 cache를 쓴다.
+- 저장·변경에는 revision CAS와 같은 transaction의 event가 있다. 삭제 event의 before 값은 기록에 남기되 삭제된 view를 목록·open 결과로 반환하지 않는다.
 
 ## ledger 표
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `saved_views` | SavedView; `filter`는 JSON | PK `id` | active인 `name` | `(status)` | `place` → documents/addressing |
+| `saved_views` | SavedView; `filter`는 JSON | PK `id` | `name` | `(name)` | `place` → documents/addressing; revision → platform/ledger |
 
 이 표 말고는 없다. outline·section·FTS·summary·처리 cursor·추출 실패·재생성 상태는 ledger 밖이다. index 완료 event나 Document 상태 열을 추가하지 않는다.
 
@@ -186,17 +191,17 @@ consumer의 한 event 적용 결과·FTS 교체·cursor 갱신은 한 derived tr
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `view.save` | `user` | `name, place?, filter, sort?, limit?`, idempotency key | 같은 이름의 active view 없음 | `SavedViewCreated` | `invalid_input`, `conflict`, `forbidden` |
-| `view.update` | `user` | `view`, 바꿀 필드 | base_revision | `SavedViewUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
-| `view.archive` | `user` | `view` | base_revision, active | `SavedViewArchived` | `not_found`, `conflict` |
+| `view.save` | `user` | `id, name, place?, filter, sort?`, idempotency key | ID·같은 이름의 view 미존재 | `SavedViewCreated` | `invalid_input`, `conflict`, `forbidden` |
+| `view.update` | `user` | `view`, 바꿀 필드 | base_revision; 현재 이름 유일 | `SavedViewUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `view.delete` | `user` | `view` | base_revision; 현재 view 존재 | `SavedViewDeleted` | `not_found`, `conflict`, `forbidden` |
 
 ## event
 
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
-| `SavedViewCreated` | `viw` | `name, place, filter, sort, limit` | shell의 view 목록 |
-| `SavedViewUpdated` | `viw` | 바뀐 필드의 before·after, before_revision | lophn-agent/revert |
-| `SavedViewArchived` | `viw` | before_revision | shell의 view 목록 |
+| `SavedViewCreated` | `viw` | `name, place, filter, sort` | shell의 view 목록 |
+| `SavedViewUpdated` | `viw` | 바뀐 필드의 before·after, before_revision | shell의 view 목록 |
+| `SavedViewDeleted` | `viw` | `before_view, before_revision` | shell의 view 목록 |
 
 ## 정책
 
@@ -205,15 +210,15 @@ consumer의 한 event 적용 결과·FTS 교체·cursor 갱신은 한 derived tr
 - **기본 읽기 예산.** root 1,500 estimated token, place·context 3,000, document outline 2,000·depth 2, 본문 12,000 codepoint를 초기 기본 한도로 제안한다. 초과 목록·본문은 complete=false와 cursor다. actual model token 한도는 → lophn-agent/harness/prompt-assemble이다.
 - **기준 유지.** 목록 cursor는 기준 seq·정렬·scope·선택 판에 묶는다. 순서는 saved_at이 아닌 관련 event seq와 ID tie-breaker로 결정한다. 커서가 더는 안정된 기준을 유지하지 못하면 conflict다.
 - **추출 없음.** ready 빈 sections, unsupported, unverified, failed를 구별한다. 성공 추출의 key 부재는 missing이다. 실패·module 누락에 section을 추측하지 않는다. blob 누락은 unavailable이며 추출 실패가 원문 읽기를 막지 않는다.
-- **비동기 반영.** DocumentSaved와 문서·place·Context·Term 구성 event를 seq로 소비한다. move는 출발·도착 목록을 함께 갱신한다. 보관 문서는 기본 검색에서 제외하며 고정 판 읽기는 유지한다.
+- **비동기 반영.** DocumentSaved와 문서·place·Context·Term 구성 event를 seq로 소비한다. move는 출발·도착 목록을 함께 갱신한다. 보관 문서·보관 자리는 기본 목록과 검색에서 제외하고 해제 후 비동기로 반영한다. 검색 행이 낡아도 현재 ledger의 문서·자리 보관 상태를 읽어 기본 후보에서 제거하며 고정 판 읽기는 유지한다.
 - **재생성.** derived store를 지워도 ledger·원문 Version은 변하지 않는다. 원문과 정확한 module로 재생성하며 ledger 쓰기·전체 scan·전체 index를 기다리지 않고 선택 판을 직접 추출한다. 실패 기록 뒤 cursor가 진행돼도 omissions를 표시한다.
-- **검색.** 첫 판은 SQLite FTS5 keyword 검색이다. embedding·model 검색·앱 DB 복사는 없다. 검색 판과 최신 판이 다르면 함께 표시하고 결과의 고정 판을 읽는다.
+- **검색.** 첫 판은 SQLite FTS5 trigram keyword 검색이며 3 codepoint 미만은 escaped SQL LIKE 부분 일치로 처리한다. 최신 반영 판의 section 제목·본문과 가용 요약·주제 텍스트를 검색하고 cache 입력 판과 stale를 유지한다. embedding·model 검색·앱 DB 복사는 없다. 검색 판과 최신 판이 다르면 함께 표시하고 결과의 고정 판을 읽는다.
 - **이력·diff.** 두 고정 판의 같은 key와 줄 범위를 비교한다. key 추가·소실·본문 변경·변경 없음만 계산하며 의미 rename은 추정하지 않는다. 잘린 이력 첫 판도 직전 판을 비교한다. 복원 불가 범위는 누락 표시다.
 - **읽기 오류.** 잘못된 범위·cursor는 invalid_input, 허용 대상 부재는 not_found, 안정 기준 만료는 conflict, blob·module 접근 실패는 unavailable이다. auth 오류는 → platform/identity이다.
 
 ## 정할 것
 
-- 한국어 FTS5 tokenizer를 기본 단어 또는 n-gram·부분 일치로 정할지. 두 글자 검색과 큰 본문 실측이 필요하다.
+- 한국어 검색은 requirements의 FTS5 trigram·3 codepoint 미만 LIKE를 따른다. 두 글자 검색과 큰 본문 성능은 실측한다.
 - 초기 예산·codepoint/3 근사치를 유지할지 model별 보정을 추가할지. cursor encoding은 offset만이 아닌 기준·scope 결합이 필요하다.
 - summary cache 생성 contract·크기 상한·입력 provenance. 현재 원문 발췌가 기본이다.
 - 일관된 재생성 snapshot과 watch의 source_seq 구성 조회 contract를 → platform/ledger와 맞춘다.

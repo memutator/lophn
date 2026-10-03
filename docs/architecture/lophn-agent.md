@@ -189,10 +189,11 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | ApplyOperatorAssignment | `/v1/assignments/apply-operator` | approval·고정 OperatorApprovalBundle·CAS; role/assignment/승인 사용 원자 확정 |
 | PauseAssignment | `/v1/assignments/pause` | user 또는 machine·revision·정확한 pause 근거 |
 | ResumeAssignment | `/v1/assignments/resume` | user·paused revision·유효 대상/outputs/승인 |
-| WithdrawAssignment | `/v1/assignments/withdraw` | user·현재 revision |
-| OpenSession | `/v1/sessions/open` | user·assignment·continued_from? |
+| WithdrawAssignment | `/v1/assignments/withdraw` | user·현재 revision; lophn/CE 전체 범위는 forbidden |
+| OpenSession | `/v1/sessions/open` | user·assignment enabled/paused·현재 revision·continued_from?; withdrawn은 과거 읽기만 |
 | CloseSession | `/v1/sessions/close` | open state_seq·미종료 run 없음 |
-| ReceiveMessage | `/v1/messages/receive` | user·ID·세션·본문·mode·대상 run; request는 AcceptRun과 함께 |
+| ReceiveMessage | `/v1/messages/receive` | user·ID·세션 open·현재 assignment revision·본문·mode·대상 run; enabled request는 AcceptRun과 함께, paused request는 run 없이 보존·미실행, withdrawn 거절 |
+| ExecuteStoredRequest | `/v1/messages/execute-stored` | user의 보존 request 실행 선택·현재 enabled revision; AcceptRun/MessageAssigned 원자 확정; 같은 원문·한 담당 run |
 | RecordMessage | `/v1/messages/record` | agent/machine·세션·run·redaction MessageContent(text/visual 순서)·실제 links; 블록 전체 검사 후 원자 기록 |
 | ApplyMessages | `/v1/messages/apply` | 미반영 ID 목록·model call; StartModelCall과 함께 |
 | AssignMessage | `/v1/messages/assign` | 미반영 메시지·이전 담당/state_seq·새 run |
@@ -227,7 +228,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 
 ### 5.2 model 호출
 
-runtime 내부 interface는 `invokeModelCall(input, signal)`이다. 입력은 run 또는 명시 세션 이어가기/사람 연결 test 근거, slot·purpose, 고정 ModelSlot·provider, 보호한 prompt/context_basis hash, 출력 예약량, retry/credential 이동 관계다. 출력은 ModelCall ID, complete/partial/failed/cancelled/uncertain, 순서·대응을 보존한 text/tool requests, 종료 이유, 보고 usage·cost·안전한 오류 코드다. stream fragment는 화면용 임시 전달일 뿐 tool 요청이 아니다.
+runtime 내부 interface는 `invokeModelCall(input, signal)`이다. 입력은 run 또는 명시 세션 이어가기/사람 연결 test 근거, slot·purpose, 고정 ModelSlot·provider(연결 test는 slot=null 및 명시 선택의 CallModel 기준), 보호한 prompt/context_basis hash, 출력 예약량, retry/credential 이동 관계다. 출력은 ModelCall ID, complete/partial/failed/cancelled/uncertain, 순서·대응을 보존한 text/tool requests, 종료 이유, 보고 usage·cost·안전한 오류 코드다. stream fragment는 화면용 임시 전달일 뿐 tool 요청이 아니다.
 
 | command/read | POST 경로 | 실제 입력·결과 |
 |---|---|---|
@@ -317,7 +318,7 @@ event는 `ToolCallRequested`, `ToolCallDecided`, `ToolCallStarted`, `ToolCallFin
 
 공통 읽기·format 검사·질문·시각 블록은 각 역할 범위에서 제공한다. lophn은 기획 문서·context·제품 안내·공개 설정 조회·허락된 앱 command와 허용 handoff, AE는 담당 앱 자료·허락된 read 및 undo 지원 write command·문서·ticket 생성, CE는 context·term 정리와 Operator 초안/approval 제출, Operator는 승인한 읽기 앱/command와 기존 outputs 새 version만 사용한다. CE는 앱 command 목록을 읽되 실제 앱 command 실행은 없다. Operator는 새 output 문서 생성·handoff가 없다. 역할 판의 실제 목록과 현재 assignment 범위를 매 진입에 다시 검사한다.
 
-**판정 순서**는 인증 → run/assignment 상태 → 고정 role/tool·현재 scope → schema/정확한 target/CAS → 사람 거절 억제/반복 실패 → effect/reversibility다. 하나라도 확인 불가·역할 밖·scope 밖이면 deny다. 범위 안 read와 사람 요청/handoff의 실제 reversible 내부 write, AE ticket 생성, Operator 승인 outputs 새 version은 allow다. 앱 command는 유효한 역할·현재 허락·scope에서 confirm → external → read → undo 지원 write → 그 밖 write 순서로 판정하여 각각 ask/ask/allow/allow/ask다. 앱 undo 판정은 `command.revert.supported`와 대응 command 검증이며 성공 `{invocation,receipt,expected_revision}`를 보존한다. 앱 context 화면·주석 자리 CAS 실패는 deny다. ask라는 이유로 역할 밖 앱 운영·secret 능력을 제공하지 않는다.
+**판정 순서**는 인증 → run/assignment 상태 → 고정 role/tool·현재 scope → schema/정확한 target/CAS → 사람 거절 억제/반복 실패 → effect/reversibility다. 하나라도 확인 불가·역할 밖·scope 밖이면 deny다. 범위 안 read와 사람 요청/handoff의 실제 reversible 내부 write, AE ticket 생성, Operator 승인 outputs 새 version은 allow다. 앱 command는 유효한 역할·현재 허락·scope에서 confirm → external → read → undo 지원 write → 그 밖 write 순서로 판정하여 각각 ask/ask/allow/allow/ask다. 앱 undo 판정은 `command.revert.supported`와 대응 command 검증이며 성공 `{invocation,receipt,expected_revision}`를 보존한다. Operator는 requirements의 상한대로 confirm=false인 승인된 read만 제공하며 confirm=true는 ask 전에 deny다. 허락된 앱 read의 secret 사용·remote fetch만으로 effect를 external로 바꾸거나 추가 approval을 묻지 않는다. secret은 앱의 현재 grant로 전송 경계에서만 붙이고 host는 앱 network grant를 따른다. 앱 context 화면·주석 자리 CAS 실패는 deny다. ask라는 이유로 역할 밖 앱 운영·secret 능력을 제공하지 않는다.
 
 여러 대상은 하나라도 deny이면 전체 deny, deny 없이 ask이면 정확한 전체 대상·input·CAS·effect·기한을 묶은 approval request 하나, 모두 allow면 전체 allow다. 부분 실행 없다. ask 생성·ToolCall 연결·WaitRun은 같은 core command에서 확정한다. 승인 뒤에도 현재 scope·definition·MCP 판·target·input·CAS를 다시 검사하고 approval 한 번 사용과 실제 ledger 변경/외부 시작 접수를 원자 확정한다.
 
@@ -377,7 +378,7 @@ MCP manager는 `(assignment, server)` connection 하나를 유지하여 연속 r
 
 ### 5.6 trace·usage·eval·revert
 
-trace는 Run/Message/ModelCall/ToolCall/event의 참조 view이며 중복 원문 trace entity가 아니다. 실제 model 시도·tool 판정·승인·실패는 sampling 없이 남긴다. handoff의 송신·수신 run 연결을 따로 보이고 비용은 실제 수신 call에 귀속한다. 독립 summary·명시 connection test에 가짜 run/세션을 만들지 않는다. stream fragment는 durable trace가 아니다.
+trace는 Run/Message/ModelCall/ToolCall/event의 참조 view이며 중복 원문 trace entity가 아니다. 실제 model 시도·tool 판정·승인·실패는 sampling 없이 남긴다. handoff의 송신·수신 run 연결을 따로 보이고 비용은 실제 수신 call에 귀속한다. 독립 summary·명시 connection test에 가짜 run/세션을 만들지 않는다. 명시 test는 connection_test purpose·slot/run/session null·user command_key와 text/tool_call 종류를 기록하며 ProviderCheck.calls로 연결한다. 현재 provider·credential·선택 model을 검증한 뒤 한 시도 30초 상한을 적용하며 test tool로 앱 업무를 실행하지 않는다. stream fragment는 durable trace가 아니다.
 
 usage는 reported input/output/cache-read/cache-write/reasoning을 구별하고 포함 관계가 확인될 때만 겹친 수를 뺀다. 미보고는 null이고 0/추정으로 채우지 않는다. cost는 reported/estimated/subscription/free/unknown이다. estimated는 당시 price snapshot·보고 usage·십진수 계산·통화·context 구간/cache TTL을 보존한다. reasoning-in-output 이중 과금 없음, 필요 가격/usage 없음은 unknown, 다른 통화 자동 합산/환산 없음, 과거 비용 덮기 없음이다. late usage·청구·명시 재계산은 supplement로 추가한다. 금액 cost gate는 없다.
 
@@ -427,6 +428,8 @@ core에서 필요한 원자 결합은 범용 분산 transaction이 아니다. �
    → [runtime] 확정 결과로 새 판단 또는 tool 없는 답
    → [core command] 미반영 correction 없는 FinishRun → [shell] 확정 결과
 ```
+
+paused에서도 새 세션·request 원문 보존은 가능하지만 run/model/tool은 만들지 않는다. 사람의 명시적 ResumeAssignment 뒤 별도 ExecuteStoredRequest 선택이 있을 때만 같은 원문에 새 run을 연결한다. 재개·재시작 자체는 보존 입력 실행 계기가 아니다. correction은 현재 enabled에서만 받고 종료 경계의 담당 run 연결을 검사하며 withdrawn은 정리 전에도 새 입력을 막는다.
 
 model 응답 중 correction이 오면 응답은 보존하되 옛 응답의 미시작 tools를 not_executed로 닫는다. 이미 시작한 결과만 확인하고 새 input 판단을 받는다. 정상 종료와 입력은 같은 writer에서 순서를 정하여 종료 뒤 입력도 새 담당 run으로 보존한다.
 

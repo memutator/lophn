@@ -15,13 +15,17 @@ ledger entity가 아닌 고정 코드 묶음의 선언이다. 별도 ID·상태�
 | `name` | string | 아니오 | 빈 문자열 금지 | 선택 이름 |
 | `module_hash` | sha256 | 아니오 | 코드·의존·추출 규칙·실행 규약 전체의 소문자 64 hex 해시 | 정확한 묶음 |
 | `media_types` | string[] | 아니오 | MIME media type, 중복 금지 | 받는 유형 |
+| `structure` | JSON object | 아니오 | 검사하는 구조의 선언; 구조 없는 format은 빈 객체 | |
+| `metadata` | JSON object | 아니오 | 요구 metadata와 타입 선언; 필수값·Series 정렬 가능 필드를 구별 | |
+| `template` | ContentFile[] 또는 blob 참조 | 아니오 | 작성 시작값; → documents/versions; 빈 작성 입력도 대표 파일 하나 | |
 | `guide` | `{text: string, examples: string[]}` | 아니오 | 작성 지침·예시 | |
+| `vocabulary` | `{name: string, description: string}[]` | 아니오 | format 작성에 쓰는 말; 사람의 Context Term 정의가 아님 | |
 | `validate` | function | 아니오 | 같은 입력에서 같은 정규화 FormatValidationResult | |
 | `extract` | function | 예 | 없으면 `unsupported`; 있으면 결정적인 SectionExtractionResult | |
 
 | 내장 이름 | media type | section 추출 |
 |---|---|---|
-| `document` | `text/markdown`, `text/html` | Markdown·원본 HTML 구조 |
+| `document` | `text/markdown`, `text/x-markdown`, `text/html`, `application/xhtml+xml`, `text/plain` | Markdown·원본 HTML/XHTML 구조; plain text는 heading 없이 텍스트 읽기·검색만 제공 |
 | `pdf` | `application/pdf` | 없음; 원문 파일 |
 | `image` | `image/*` | 없음; 원문 파일 |
 | `data` | 그 밖의 media type | 없음; 원문 파일 |
@@ -69,7 +73,8 @@ ledger entity가 아닌 고정 코드 묶음의 선언이다. 별도 ID·상태�
 | `module_hash` | sha256 | 아니오 | 정확한 실행 묶음 | |
 | `status` | `ready \| unsupported \| unverified \| failed` | 아니오 | ready의 빈 sections와 unsupported를 구분 | |
 | `title` | string | 예 | 원문에서 뽑은 제목 | |
-| `text_hash` | sha256 | 조건부 | ready면 필수; 대표 텍스트 blob | |
+| `text` | string | 조건부 | ready면 필수; 정규화한 대표 텍스트; 원문 blob을 대신하지 않음 | derived 저장 입력 |
+| `text_hash` | sha256 | 조건부 | ready면 필수; text의 UTF-8 바이트 hash | |
 | `sections` | ExtractedSection[] | 아니오 | ready에서만 결과; key 전역 유일 | |
 | `failure_reason` | string | 조건부 | failed면 필수 | |
 
@@ -96,7 +101,7 @@ ledger entity가 아닌 고정 코드 묶음의 선언이다. 별도 ID·상태�
 - **지정 검사.** explicit이면 구조 error가 `invalid_input`으로 저장을 막는다. warning은 통과하고 응답에 남긴다. module 누락·실행 중단은 `unavailable`이다. 이미 성공한 디스크 쓰기는 취소하지 않는다(→ documents/file-tracking).
 - **미지정 검사.** 구조 error는 warning으로 원문 저장을 허용한다. 미지원 media type은 data로 원문을 남기고 section을 만들지 않는다. 필수 준비 실행 자체의 실패는 성공으로 꾸미지 않는다.
 - **정규화.** document 추출용 텍스트만 UTF-8 decoding, BOM 제거, LF 줄바꿈, Unicode NFC를 적용한다. 원문 blob 바이트는 바꾸지 않는다.
-- **Markdown heading.** ATX 1..6와 setext heading을 추출한다. YAML front matter·fenced code 안 heading 모양은 제외한다. 유일한 h1은 문서 제목으로 사용하고 section 트리에서 뺀다. heading 이전 본문은 `_preamble`이다.
+- **Markdown heading.** ATX 1..6와 setext heading을 추출한다. YAML front matter·fenced code·HTML pre 안 heading 모양은 제외한다. 유일한 h1은 문서 제목으로 사용하고 section 트리에서 뺀다. heading 이전 본문은 `_preamble`이다.
 - **HTML heading.** 원본의 h1..h6만 읽는다. script·style·template·nav·aria-hidden=true·textarea·head·title·pre·hidden 내부를 section 본문에서 제외한다. 유일한 h1이 없으면 HTML title을 문서 제목으로 사용한다. heading id 우선, 감싸는 section id는 그 안 첫 heading에만 적용한다. 동적 DOM·스크립트 실행 결과는 추출하지 않는다.
 - **트리·범위.** level을 건너뛰면 가장 가까운 낮은 level의 heading이 parent다. subtree는 해당 heading부터 같거나 높은 level의 다음 heading 직전까지다. heading은 body_hash에서 제외한다. text 줄·hash 범위 규약은 module 묶음 안에 고정한다.
 - **key.** Markdown의 heading 끝 `{#custom-id}`와 HTML의 명시 id를 우선한다. 자동 slug는 제목을 소문자로 바꾸고 문자·숫자·공백·하이픈만 남긴 뒤 공백을 하이픈으로 바꾼다. 비면 `section`, 같은 부모에서 중복이면 원문 순서대로 `-2`, `-3`을 붙인다. `A & B`는 `a--b`다. 조상 slug를 `/`로 잇는다. 중복 명시 key는 구조 error다.

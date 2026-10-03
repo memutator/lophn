@@ -69,7 +69,8 @@ Project의 폴더 등록, 메타데이터, tracking 규칙과 보관 상태를 �
 
 - 패턴은 목록 순서대로 적용하며 마지막 일치가 이긴다. 일치가 없으면 추적하지 않는다.
 - `.gitignore` 사용 시 ignore 대상은 제외한다. `.git` 내부, lophn 데이터 폴더, 등록 루트 밖으로 나가는 symlink는 포함 패턴으로도 다시 포함할 수 없다.
-- 최초 켜기의 기본 제안은 `include **/*.md`, `use_gitignore = true`이며 미리보기 뒤 사람의 적용 명령으로만 켠다.
+- 생성에는 `enabled = false`만 허용한다. 최초 켜기의 기본 제안은 `include **/*.md`, `use_gitignore = true`이며 미리보기 뒤 사람의 적용 명령으로만 켠다.
+- tracking을 켜거나 폴더·규칙을 바꾸는 모든 command는 같은 TrackingPreview의 정확한 folders·tracking·base_revision을 검사한다. `project.update`의 folders 변경도 이 검사를 우회하지 않는다.
 - 자동 tracking은 Project 폴더에만 적용한다. 앱 source 관리·문서 출력은 → apps/registration, apps/blueprint이다.
 
 ## TrackingPreview (값)
@@ -83,7 +84,7 @@ ledger 밖에서 계산하는 미리보기다.
 | `folders` | Folder[] | 아니오 | 적용하려는 정확한 폴더 목록 | |
 | `tracking` | TrackingRuleSet | 아니오 | 적용하려는 정확한 규칙 | |
 | `observed_at` | UTC 시각 | 아니오 | 공통 시각 형식 | |
-| `entries` | `{path: string, included: boolean, reason: string}[]` | 아니오 | 각 path는 등록 루트 상대 경로 | 포함·제외 결과 |
+| `entries` | `{folder_path: string, path: string, included: boolean, reason: string}[]` | 아니오 | folder_path는 folders의 등록 루트; path는 그 루트 상대 경로 | 여러 루트의 같은 상대 경로도 구별한 포함·제외 결과 |
 | `complete` | boolean | 아니오 | 잘린 목록은 `false` | |
 | `next_cursor` | string | 예 | `complete = true`이면 null | |
 
@@ -111,8 +112,8 @@ ledger 밖에서 계산하는 미리보기다.
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `project.create` | `user` | `id, name, title, purpose, folders, tracking`, idempotency key | 대상 ID·이름 미존재 | `ProjectCreated` | `invalid_input`, `conflict`, `forbidden` |
-| `project.update` | `user` | `project, name?, title?, purpose?, folders?` | `base_revision`; 새 이름 예약 | `ProjectUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `project.create` | `user` | `id, name, title, purpose, folders, tracking`, idempotency key | 대상 ID·이름 미존재; tracking.enabled=false | `ProjectCreated` | `invalid_input`, `conflict`, `forbidden` |
+| `project.update` | `user` | `project, name?, title?, purpose?, folders?` | `base_revision`; 새 이름 예약; folders 변경은 같은 TrackingPreview의 folders·tracking·기준 검사 | `ProjectUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `project.set_tracking` | `user` | `project, folders, tracking`와 미리보기의 기준 | `base_revision`; 활성 켜진 루트 겹침 검사 | `ProjectTrackingChanged` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `project.archive` | `user` | `project` | `base_revision`, 현재 `active` | `ProjectArchived` | `not_found`, `conflict`, `forbidden` |
 | `project.unarchive` | `user` | `project` | `base_revision`, 현재 `archived`, 루트 겹침 없음 | `ProjectUnarchived` | `not_found`, `conflict`, `forbidden` |
@@ -130,6 +131,7 @@ ledger 밖에서 계산하는 미리보기다.
 ## 정책
 
 - **등록과 권한.** Folder 등록은 디스크·coding agent 접근 권한을 주지 않는다. agent의 Project 읽기에는 실제 절대 경로를 포함하지 않는다(→ platform/identity).
+- **폴더 해석.** 주어진 위치는 가장 깊은 등록 루트로 해석한다. 꺼진 tracking의 중첩 루트도 같은 기준이며 내용 유사도로 재연결하지 않는다.
 - **보관 해제.** 활성으로 돌아오면 관측을 다시 시작하되 파일의 모든 중간 편집 복원을 보장하지 않는다(→ documents/file-tracking).
 
 ## 정할 것

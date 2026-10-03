@@ -73,10 +73,10 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
 ### 2.3 connection token 전달
 
 1. 사람은 **confirmation window**에서 label과 `all` 또는 정확한 app 하나를 확인한다.
-2. core의 connection command가 **인증** contract로 token을 만들고 connection과 검증 hash를 같은 transaction에 설치한다. 원문은 성공한 발급의 신뢰 전달 통로로 한 번만 shell main에 전달된다. 일반 API read·event·stdout에는 없다.
-3. shell main의 설치 통로가 **인증** contract의 소유자 전용 보관을 사용한다. 기본 위치는 `~/.lophn/credentials/coding-agent/<cac-id>.token`, 디렉터리 `0700`, 파일 `0600` 또는 동등한 ACL이다. symlink·다른 소유자·넓은 mode이면 사용하지 않는다.
-4. 제품 설정·wrapper는 `--connection <cac-id>` 또는 `LOPHN_CONNECTION`만 갖는다. MCP와 CLI의 credential loader가 같은 token 파일을 읽는다. token 원문은 argv·URL·환경 변수·source·안내·ledger·진단·model 문맥에 넣지 않는다.
-5. 파일 설치 실패는 connection이 생겼다는 사실과 설치 실패를 따로 보인다. 일반 조회로 token을 다시 꺼내지 않는다. 잃어버린 token이나 scope 변경은 사람이 회수 후 새 connection을 만드는 방식이다.
+2. **인증**의 신뢰 발급·보관 경계가 core command 밖에서 token을 만들고 소유자 전용 보관을 먼저 준비한다. 위치는 platform이 소유한 `~/.lophn/credentials/connections/<cac-id>/` 아래이며 디렉터리 `0700`, token 파일 `0600` 또는 동등한 ACL이다. symlink·다른 소유자·넓은 mode이면 사용하지 않는다.
+3. core의 connection command는 정확한 사람 확인·준비된 검증 hash만 받아 connection과 hash·event를 같은 transaction에 설치한다. token 원문은 command 입력·결과·일반 API read·event·stdout에 없다. commit 실패의 준비 token은 사용할 수 없고 인증 경계가 정리한다.
+4. 제품 설정·wrapper는 `--connection <cac-id>` 또는 `LOPHN_CONNECTION`만 갖는다. MCP와 CLI의 credential loader가 인증 경계가 정한 같은 token 파일을 읽는다. token 원문은 argv·URL·환경 변수·source·안내·ledger·진단·model 문맥에 넣지 않는다.
+5. 보호 보관 준비 실패는 connection을 만들지 않는다. connection 생성 뒤 제품 설정·skill 설치 실패는 별도 설치 실패로 보이며 connection을 몰래 재발급하지 않는다. 일반 조회로 token을 다시 꺼내지 않는다. 잃어버린 token이나 scope 변경은 사람이 회수 후 새 connection을 만드는 방식이다.
 
 인증 실패에 user credential fallback·자동 재발급은 없다. 회수 직후 살아 있는 MCP와 direct-call 앱 credential의 새 요청도 거절된다. 로컬 파일 삭제는 회수를 대신하지 않는다.
 
@@ -111,7 +111,7 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
 | coding-agent/repair-context | worker | `repair-context/assemble`, `select`, `budget`, `cursor` | 없음 | read, blob, redaction, outline·search 읽기 |
 | coding-agent/tickets | core, worker | `tickets/commands`, `read`, `checker` | ticket 표 9개 | command, read, event 구독, test 실행, release 준비·적용 |
 
-잎 concern 6개 모두 배치했다. 내부 경로는 `packages/coding-agent/…`로 두며 옛 `v2`, 작업 번호, `coding-agent-interface` 패키지를 새 정본 이름으로 남기지 않는다.
+leaf concern 6개 모두 배치했다. 내부 경로는 `packages/coding-agent/…`로 두며 옛 `v2`, 작업 번호, `coding-agent-interface` 패키지를 새 정본 이름으로 남기지 않는다.
 
 ## 5. 내놓는 contract
 
@@ -139,7 +139,7 @@ MCP protocol 오류는 JSON parse `-32700`, request 모양 `-32600`, 없는 meth
 
 ### 5.2 MCP 전체 목록
 
-`core`가 기본이고 `app`은 `--toolsets core,app` 또는 `LOPHN_MCP_TOOLSETS=core,app`에서만 켠다. `ops`, `catalog`, `all` 별칭은 거절한다. 전체 15개 tool이다. `op`를 표시하지 않은 tool은 단일 동작이다. 행의 op 목록이 완전한 허용 목록이며, 목록 밖 op는 없다. `?`는 선택 입력이다.
+`core`가 기본이고 `app`은 `--toolsets core,app` 또는 `LOPHN_MCP_TOOLSETS=core,app`에서만 켠다. `ops`, `catalog`, `all` 별칭은 거절한다. 아래 고정 adapter tool은 15개이며 app toolset에는 5.2 뒤의 blueprint 유래 read tool도 포함한다. `op`를 표시하지 않은 tool은 단일 동작이다. 행의 op 목록이 고정 adapter의 완전한 허용 목록이며, 목록 밖 op는 없다. `?`는 선택 입력이다.
 
 | tool / toolset | op와 입력 | data 출력 | 범위·추가 검증 |
 |---|---|---|---|
@@ -154,14 +154,18 @@ MCP protocol 오류는 JSON parse `-32700`, request 모양 `-32600`, 없는 meth
 | `lophn_context` / core | `list`, `show`, `items`, `glossary`, `of`, `propose` / context?, address?, perspective?, depth?, change?, reason?, idempotency_key? | 관점 항목·용어·문서 참조 context; propose는 고정 변경안 문서 주소·담당 agent 안내 | S; definition 직접 변경·직접 Question 생성 없음; 폴더/untracked 항목 제안 거절 |
 | `lophn_question` / core | `list`, `show` / question?, app?, state?, cursor? | 범위 안 질문의 이유·option·고정 action·상태 | S; answer op 없음, 채택은 grant가 아님 |
 | `lophn_approval` / core | `list`, `show` / approval?, app?, state?, cursor? | exact 대상·입력·영향·기한·대기/적용 상태·결정 위치 | S; allow/reject/consume op 없음 |
-| `lophn_app` / app | `list`, `show`, `register`, `source`, `validate`, `test`, `preview_start`, `preview_stop`, `release_prepare`, `status`, `blueprint`, `invocations`, `logs`, `sync_tools`, `command`, `invocation` / app?, source?, name?, title?, purpose?, planning_version?, template_version?, bundle_hash?, timeout_ms?, problems?, ticket?, claim_seq?, command?, automation?, limit?, lines?, cursor?, base_revision?, idempotency_key? | 앱·source·검사 diagnostics·Verification/진행·preview 참조·prepared release·approval·현재 상태·invocation·log·배포별 변경 결과 | register ALL, 나머지 A. app test 기본 300,000ms를 runner에 명시. invocation 최대20, log1~2,000줄. release_prepare는 현재 ticket claim과 같은 hash 통과 근거 |
+| `lophn_app` / app | `list`, `show`, `register`, `source`, `validate`, `test`, `preview_start`, `preview_stop`, `release_prepare`, `status`, `blueprint`, `invocations`, `logs`, `sync_tools`, `command`, `invocation` / app?, source?, name?, title?, purpose?, planning_version?, template_version?, bundle_hash?, timeout_ms?, problems?, ticket?, claim_seq?, command?, input?, environment?, invocation?, preview?, kind?, target?, test_hash?, check_index?, check_hash?, completion_seq?, before?, after?, basis_seq?, reports?, automation?, limit?, lines?, cursor?, base_revision?, idempotency_key? | 앱·source·검사 diagnostics·Verification/진행·preview 참조·prepared release·approval·현재 상태·invocation·log·배포별 변경 결과 | register ALL, 나머지 A. app test 기본 300,000ms를 runner에 명시. invocation 최대20, log1~2,000줄. release_prepare는 현재 ticket claim과 같은 hash 통과 근거 |
 | `lophn_sdk` / app | `catalog`, `show`, `add` / query?, package?, version?, app?, apply? | catalog 이름·최신판·종류·설명, API/type/permission/peer/예제, exact import 안내·변경/무변경/충돌 | G; apply만 A. range version·미설치 version·조용한 upgrade 거절 |
-| `lophn_problem` / app | `list`, `show`, `snapshot`, `fix_records`, `summary`, `bundle`, `more`, `record_fix`, `test` / app?, problem?, ticket?, state?, handler?, kind?, source_ref?, cursor?, before_release?, after_release?, summary_version?, verification?, test_hash?, base_revision?, idempotency_key? | 문제·snapshot·고친 기록·bounded 수리 자료·추가 근거; record_fix 접수 event; 실제 테스트 접수/결과 | S/A. more는 정본 참조만. claim·별도 repair 단계·닫힘·test result 입력 없음 |
+| `lophn_problem` / app | `list`, `show`, `snapshot`, `fix_records`, `summary`, `bundle`, `more`, `record_fix`, `test` / app?, problem?, ticket?, claim_seq?, state?, handler?, kind?, source_ref?, cursor?, before_release?, after_release?, summary_version?, verification?, test_hash?, target?, basis_seq?, reports?, base_revision?, idempotency_key? | 문제·snapshot·고친 기록·bounded 수리 자료·추가 근거; record_fix 접수 event; 실제 테스트 접수/결과 | S/A. more는 정본 참조만. claim·별도 repair 단계·닫힘·test result 입력 없음 |
 | `lophn_ticket` / app | `list`, `show`, `checks`, `claim`, `renew`, `release`, `report` / app?, state?, limit?, cursor?, ticket?, claim_seq?, completion?, base_revision?, idempotency_key? | 목록·불변 본문·조건·현재 claim/작업 가능 여부·조건별 근거; claim connection/seq/기한; 보고 접수·남은 조건 | S/A; list1~20. 후속 쓰기는 유효 claim·이번 seq 검사. create/cancel/check 판정 op 없음 |
 
-runtime은 tool 수를 늘리지 않고 `lophn_app`의 조회와 별도 동작 `command`, `invocation`으로 제공한다. `command` 입력은 app·command·JSON input·`environment: preview|production`·양의 timeout_ms?이며 기본 preview다. coding credential은 선언된 `effect=read`만 호출한다. `invocation`은 app·invocation ID·같은 environment를 받아 실제 결과·효과 불명을 읽는다. CLI의 사람용 write/external·automation은 아래 사람 통로로만 제공한다. 이 두 op도 `lophn_app` schema의 완전한 op 목록에 포함한다.
+고정 runtime adapter는 `lophn_app`의 조회와 동작 `command`, `invocation`으로 제공한다. `command` 입력은 app·command·JSON input·`environment: preview|production`·양의 timeout_ms?이며 기본 preview다. coding credential은 선언된 `effect=read`이며 `confirm=false`인 command만 호출한다. `invocation`은 app·invocation ID·같은 environment를 받아 실제 결과·효과 불명을 읽는다. CLI의 사람용 write/external·automation은 아래 사람 통로로만 제공한다. 이 두 op도 `lophn_app` schema의 완전한 op 목록에 포함한다.
 
-`readOnlyHint`는 session/index/project/document/read/series/question/approval에만 붙인다. validate 실행을 가진 format, propose를 가진 context, 나머지 혼합 tool에는 붙이지 않는다. discovery schema의 minified UTF-8 JSON과 배포에서 고정한 tokenizer로 전체 token 수를 재측정하고 결과를 배포 테스트에 둔다. 2,000 token은 목표이며 옛 측정값을 새 보장으로 재사용하지 않는다.
+app toolset에는 현재 scope 안 앱 blueprint의 read·비confirm command마다 직접 호출 tool을 추가한다(→ coding-agent/mcp-server#R34,R35). 이름은 `lophn_app_<app-id>_<command-name sha256의 앞 16자리>`로 결정적으로 생성하고 원 command 이름·설명·input schema를 그대로 쓴다. 같은 이름이 다른 command와 충돌하면 조용히 덮지 않고 discovery 실패를 반환한다. command input과 겹치지 않는 바깥 객체에 `input`, `environment`, `timeout_ms`를 두고 같은 앱 통로 client로 호출한다. registry는 app·release·blueprint 기준을 결합하며 호출 때 현재 credential·scope·release를 다시 검사한다. 판이 달라지면 옛 정의로 호출하지 않고 `conflict`와 목록 재조회를 반환한다. release·connection 변경은 `notifications/tools/list_changed`로 재발견을 안내하며 앱별 MCP 설정·별도 앱 MCP 프로세스는 만들지 않는다.
+
+secret 사용은 호출자 종류가 아니라 현재 앱 grant와 network host를 따르며 값은 **앱 통로**의 전송 경계가 붙인다. 외부 조회만 하는 command는 read, 조회해 앱에 저장하면 write, 앱 밖 상태를 바꾸면 external이다. 사람용 automation 수동 호출도 external·confirm 선언/실행 금지를 우회하지 않는다(→ apps/blueprint, apps/permissions, apps/automations).
+
+`readOnlyHint`는 session/index/project/document/read/series/question/approval 및 blueprint 유래 read tool에만 붙인다. validate 실행을 가진 format, propose를 가진 context, 나머지 혼합 tool에는 붙이지 않는다. discovery schema의 minified UTF-8 JSON과 배포에서 고정한 tokenizer로 고정 15개 및 현재 동적 목록의 token 수를 각각 재측정하고 결과를 배포 테스트에 둔다. 2,000 token은 목표이며 옛 측정값을 새 보장으로 재사용하지 않는다.
 
 ### 5.3 이 concern의 core RPC 목록
 
@@ -170,7 +174,7 @@ runtime은 tool 수를 늘리지 않고 `lophn_app`의 조회와 별도 동작 `
 | RPC (모두 POST) | 입력 → 출력 | 권한·CAS·오류 |
 |---|---|---|
 | `/v1/coding_agent_connections/list`, `/show` | filter/cursor 또는 connection → 원문·hash 없는 connection | 인증 scope; 다른 연결 token 없음 |
-| `/v1/coding_agent_connections/create` | id,label,scope,보호 화면 근거,key → connection; token은 신뢰 발급 전달만 | user만; ID 미존재·app 존재·exact 확인; invalid_input/forbidden/conflict |
+| `/v1/coding_agent_connections/create` | id,label,scope,인증 경계의 준비된 token 검증 hash,보호 화면 근거,key → connection; 원문 없음 | user만; ID 미존재·app 존재·exact 확인·보호 보관 준비; invalid_input/forbidden/conflict |
 | `/v1/coding_agent_connections/revoke` | connection,base_revision,보호 화면 근거,key → revoked connection | user만; active·revision·exact 확인; not_found/forbidden/conflict |
 | `/v1/coding_agent_sessions/summary` | app?,cursor? → CodingAgentSessionSummary | coding connection scope; worker 조립. 인증 실패를 빈 결과로 바꾸지 않음 |
 | `/v1/repair_context/summary`, `/bundle` | problem 또는 repair ticket → 요약 또는 RepairContext | 현재 connection의 모든 참조 검사; 둘 다 상태 무변경 |
@@ -219,7 +223,7 @@ connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoke
 | `problem attachment open` | problem·snapshot·첨부 참조 | 허용된 첨부의 로컬 열기. 운영 경로 대신 안전한 참조; scope·redaction 검사 |
 | `problem report|request-repair|confirm|dismiss` | report app/한 줄 증상, request problem, confirm 근거, dismiss 사유/false-alarm? | feedback 접수·복사 문장/ticket 고정 자료·결정 화면. 사람 전용; 요청은 자동 agent 시작 아님 |
 | `ticket list|show|checks|claim|renew|release|report|create|cancel` | 대응 MCP 입력; report JSON; create 불변 필드; cancel 사유 | lophn_ticket 결과. create/cancel 사람 통로만, check 판정 command 없음 |
-| `secrets status|list|lock|unlock|set|delete` | name?; set 값은 보호 화면의 안전 입력만 | 잠금·이름·허용 참조·결정 대기. 사람 전용; 값은 argv/stdout/JSON/stderr에 없음 |
+| `secrets status|list|set|delete` | name?; set 값은 보호 화면의 안전 입력만 | keychain 사용 가능 여부·이름·허용 참조·결정 대기. 잠김/누락은 OS 안내·unavailable, 자체 lock/password unlock 없음. 사람 전용; 값은 argv/stdout/JSON/stderr에 없음 |
 
 `app test`는 app test·test command·reproduction test 요청을 구별하는 `--kind`와 그 소유 contract 입력을 받는다. 일반 shell stdout를 test result로 제출하는 옵션은 없다. `ticket report`는 release·summary 문서/bytes·outputs·문제별 fix event·Verification 참조를 받되 완료 seq를 입력받지 않는다. `document history`는 from/to와 선택 section의 고정 이력이며 diff의 rename 추정은 없다.
 
@@ -268,13 +272,15 @@ Claude Code hook은 `session summary --hook --app <app>`을 사용한다. 시작
 | 실패·대표 발생 | 실패 invocation15줄; 첫·마지막·차이가 큰 발생 최대3개·전체30줄·각400자 |
 | 직전 변화·log·지난 고친 기록 | 변화12개·14줄·각100자; 기본 log45줄; 최신 고친 기록5개·10줄 |
 | 관련 문제·첨부 | 관계별5줄·전체10문제; 첨부40줄·image metadata20개; command 결과 각3행 |
-| 재현·추가 읽기·반환 | 재현6줄·500자; more5줄·최대20참조; return4줄 |
+| 재현·추가 읽기·반환 | 재현6줄·500자; more5줄・근거 목록은 추가 페이지; return4줄 |
 | summary | 문제당2줄·전체10줄·1,200자 |
 | 전체 텍스트 | ticket 모든 문제 합산24,576 UTF-8 bytes·300줄; 누락·잘림·이어 읽기 포함 |
 
 대표 발생은 Report 접수 seq의 첫·마지막을 중복 없이 고른 뒤, 고정 근거의 `(release, 실패 command, evidence 종류 집합, 보존된 stack source 위치)` fingerprint에서 앞의 대표와 항목 불일치 수가 가장 큰 후보를 고른다. 동률은 낮은 Report seq다. 현재 source를 읽어 fingerprint를 보충하지 않는다. 직전 변화는 첫 발생7일 전부터 observed_at까지의 허용된 release·문서 변경 참조를 첫 발생과 시각 거리, event seq 순서로 최대12개 고른다. 원인이라고 확정하지 않는다.
 
 budget은 **scope 검사 → 정본 read → redaction → 절별 제한 → 최종 렌더·계수 → 전체 축소 → 최종 redaction 안전 확인** 순서다. redaction 실패면 원문을 빼고 이유·실제 추가 조회를 남긴다. `TextEncoder`로 UTF-8 bytes를 세고 newline으로 logical lines를 센다. 긴 한 줄도 bytes 제한을 받는다. 초과면 log → 대표 excerpt → 첨부 metadata 순서로 줄인다. 그래도 넘으면 상태·필수 근거 ID·실제 more를 남기고 나머지는 페이지 참조로 바꾼다. Unicode code point 중간·JSON 구조 중간을 자르지 않는다. 텍스트와 구조화 sections는 같은 제한된 내용이며 원문을 JSON에 별도로 숨겨 넣지 않는다.
+
+source diff는 첫 발생 전 고정 release와 현재 고정 release의 변경 통계·관련 source 차이를 **release 준비·적용**의 허용 보존 참조로 읽는다. 보존 근거가 없으면 없는 이유만 내고 현재 source 파일을 당시 근거로 보충하지 않는다.
 
 추가 페이지는 `log`200줄, `occurrences`20개, `source_diff`300줄, `screen`24,576bytes와 공통24,576bytes·300줄 제한을 함께 받는다. image는 redaction 뒤 하나2,097,152bytes, 기본 bundle에 binary/base64를 넣지 않는다. 큰 image는 크기·미제공 이유만, 자동 원문 fallback은 없다. CLI/텍스트-only MCP는 scope 검사한 첨부 열기 참조·종류·크기로 잇는다.
 
@@ -304,8 +310,9 @@ cursor는 worker가 만든 opaque base64url payload에 서버 MAC을 붙인다. 
 ```text
 [사람] label·scope·제품·설치 범위 선택
  → [shell main / confirmation window] exact 대상 확인
- → [core] coding_agent_connection.create command → connection+hash+event
- → [shell main 설치 통로] 원문 token 소유자 전용 설치
+ → [인증의 신뢰 발급·보관 경계] token 소유자 전용 보호 보관 준비 (core command 밖)
+ → [core] coding_agent_connection.create command(준비된 hash만) → connection+hash+event
+ → [인증 경계] commit 확인; 실패한 준비는 사용 불가·정리
  → [CLI installer] 선택한 lophn 설정/skill/안내만 설치·doctor
  → [사람] coding agent 열기
  → [제품 MCP client] lophn-mcp stdio 시작 → initialize → tools/list
@@ -330,13 +337,16 @@ cursor는 worker가 만든 opaque base64url payload에 서버 MAC을 붙인다. 
 ### 7.3 지정 ticket claim과 제작·release 준비
 
 ```text
-[사람] 열린 세션에 특정 ticket 작업 지시
+[사람 화면] 열린 문제 하나의 수리 요청 또는 App Engineer에게 새 구현 요청
+ → [shell/App Engineer] 기존 고정 자료에서 ticket 입력 준비; 미정 재현·채택은 생성하지 않고 다음 행동 안내
+ → [core tickets module] 같은 ticket.create 검사 → open (외부 세션 자동 시작 없음)
+ → [사람] 열린 coding agent 세션에 특정 ticket 작업 지시
  → [MCP/CLI] ticket show·고정 채택 판·acceptance check 읽기
  → [core tickets module] ticket.claim command(base_revision,key)
  → [MCP/CLI] connection·claim_seq·60분 기한 반환
  → [coding agent] SDK 읽기 → blueprint·source 구현
  → [apps 준비 담당] 연결 source 고정 bundle
- → [test runner] 같은 hash app test·ticket test → 결과 command → Verification
+ → [test runner] 같은 hash app test → 결과 command → Verification (ticket test_command 검사는 완료 보고 뒤)
  → [apps preview] fixture preview (direct)
  → [MCP/CLI] 현재 ticket/claim 재조회; 필요하면 명시 renew command
  → [apps release 준비·적용] ticket+claim_seq+고정 hash+실제 통과 참조 요청
@@ -355,7 +365,8 @@ cursor는 worker가 만든 opaque base64url payload에 서버 MAC을 붙인다. 
  → [worker] scope/redaction·대표 선정·절별/전체 budget·more 생성
  → [MCP/CLI] bounded 자료 반환 → 필요한 종류만 more 요청 (command 없음)
  → [coding agent] 원래 증상 test·유지 제약 보존하며 source 수정
- → [test runner/apps] 실제 test·preview·release 준비
+ → [test runner/apps] 같은 hash app test·fixture preview·release 준비
+ → [test runner] 실제 준비된 before/after release·고정 reproduction test로 같은 증상 검사
  → [core problems module] 고친 기록 command·release·Verification 연결
 ```
 
@@ -369,12 +380,17 @@ ticket이 있으면 7.3의 claim을 먼저 받는다. 직접 수리는 ticket=nu
      (현재 claim·release ticket_source 검사 → claim 끝내기+reported+event)
  → [worker] TicketCompletionReported 또는 reported 재조회
  → [worker] 조건별 actual Verification·release active·problem 닫힘/고친 release 비교
-     필요한 실제 test 실행은 runner에 요청; 미실행/승인 대기는 inconclusive
+     필요한 실제 test 실행은 runner에 요청; test_command에는 이번 completion_seq·조건 번호·고정 조건 hash를 전달
+     미실행/승인 대기는 inconclusive
  → [core tickets module] ticket.record_checks command
      (completion_seq·ticket revision·읽은 대상 revision·hash CAS)
  → 전부 pass: confirmed / 실제 fail: check_failed / 나머지: reported
  → [MCP/CLI] ticket checks 읽기 → 완료 주장·보고 접수·남은 조건을 따로 반환
 ```
+
+각 test 조건의 Verification은 같은 app·보고 release bundle hash뿐 아니라 `test_command`의 TicketTestLink(ticket·조건 번호·고정 조건 hash·completion_seq), reproduction의 problem·고정 test hash·after release까지 소유 **test 실행** contract로 확인한다. 보고 전 임의 command 성공이나 다른 조건의 같은 bundle 테스트를 재사용하지 않는다.
+
+사람 화면은 → coding-agent/tickets#R27, shell/wording의 영어 화면 말로 여섯 상태를 표현한다. 제목·원래 요청/문제·현재 결과·다음 행동만 기본으로 보이며 상세 조건·보고·로그는 펼쳐 읽는다. claim과 검사 진행을 위한 별도 UI 상태를 ledger에 만들지 않는다.
 
 worker는 `VerificationRecorded`, `ProblemClosed`, `ProblemReopened`, `ReleaseActivated`, `ReleaseSuperseded` event에서 해당 reported ticket만 다시 비교한다. model 호출은 없다. 오래된 보고의 결과는 새 completion을 덮지 않는다. problem 닫힘은 먼저 **problems/closing**이 판정하며 ticket 확인됨으로 거꾸로 닫지 않는다.
 
@@ -412,7 +428,7 @@ worker는 `VerificationRecorded`, `ProblemClosed`, `ProblemReopened`, `ReleaseAc
 - 이전: CLI가 user token을 읽거나 환경 제품 이름으로 actor를 정했다. / 지금: coding-agent connection ID의 같은 token을 MCP·CLI가 쓰며 사람 credential은 shell main에만 둔다. / 이유: 통로 변경·label·작업 위치로 권한을 얻지 못하게 한다.
 - 이전: 인증 실패에 user token으로 coding token을 자동 재발급했다. / 지금: 회수·분실은 사람이 회수 후 새 connection을 만든다. / 이유: 회수 결정을 되살리지 않는다.
 - 이전: MCP의 broad read/write/run과 daemon command 안 source 순회·테스트가 섞였다. / 지금: narrow adapter, core 밖 담당 프로세스, 결과만 command다. / 이유: A1·A2와 source/data 경계를 지킨다.
-- 이전: 직전 사본은 다섯 tool 묶음만 적어 format·series·질문·runtime·출력 동작을 구현자가 다시 추측했다. / 지금: 15개 tool의 전체 op·CLI 전체 command·자기 RPC·검사·오류·출력을 명시한다. / 이유: 현재 requirements의 capability를 빠뜨리지 않고 공통 registry로 두 통로를 맞춘다.
+- 이전: 직전 사본은 다섯 tool 묶음만 적어 format·series·질문·runtime·출력 동작을 구현자가 다시 추측했다. / 지금: 고정 15개 tool의 전체 op·blueprint 유래 read tool·CLI 전체 command·자기 RPC·검사·오류·출력을 명시한다. / 이유: 현재 requirements의 capability를 빠뜨리지 않고 공통 registry로 두 통로를 맞춘다.
 - 이전: 문제 직접 claim·24시간 claim·읽기 갱신·repair attempt/workflow·host journal·receipt가 있었다. / 지금: ticket claim60분·명시 갱신, 고친 기록·Verification·invocation을 사용한다. / 이유: 불필요한 상태·ledger·권한 단계를 없앤다.
 - 이전: 수리 자료가 현재·당시 근거와 여러 크기 체계를 섞었다. / 지금: 요청 시 worker 조립·고정 basis·15절·24KiB/300줄·실제 cursor로 통일한다. / 이유: 적은 token으로 근거 전체에 닿고 없는 증거를 숨기지 않는다.
 - 이전: skill 덮어쓰기·제품별 본문 복제·앱 설정 자동 trust를 할 여지가 있었다. / 지금: hash/CAS·managed 구간·AGENTS.md 정본·네 단계 loading 검사, Codex 조각·OpenClaw 명시 읽기다. / 이유: 사람 안내·설정·workspace를 보존한다.

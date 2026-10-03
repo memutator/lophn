@@ -124,6 +124,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T6 contracts/platform: identity·handler 등록·Tx port·감독 pipe·skeleton route
 
+- 상태: 완료 (#13)
 - 등급: 기본 (모든 팀의 ledger 모듈이 구현한다. platform 팀 review 필수)
 - concern: platform/identity, platform/ledger, platform/api
 - 요구: platform/identity#R1–R3, R6, R10, R11, R14; platform/ledger#R11; platform/backup-and-migration#R1

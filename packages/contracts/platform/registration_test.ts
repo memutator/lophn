@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import { z } from "zod";
 import { ok, type Result } from "../../base/mod.ts";
+import type { ApprovalAction, ApprovalUse } from "./approvals.ts";
 import type { BlobRefRegistration, PermanentBlobReference } from "./blob.ts";
 import type { CommandRequest } from "./envelope.ts";
 import { definePort } from "./ports.ts";
@@ -128,6 +129,45 @@ function blobTypeChecks(tx: Tx, snapshot: ReadSnapshot) {
   void asyncResult;
 }
 void blobTypeChecks;
+const approvalAction: ApprovalAction = {
+  concern: "documents/versions",
+  command: "save",
+  caller: "user",
+  targets: ["doc_01arz3ndektsv4rrffq69g5fav"],
+  input: { kind: "inline", value: { title: "note" } },
+  input_hash: "a".repeat(64),
+  comparison: { seq: "41" },
+  binding_hash: "b".repeat(64),
+};
+const approvalUse: ApprovalUse = {
+  approval: "apr_01arz3ndektsv4rrffq69g5fav",
+  concern: approvalAction.concern,
+  receipt: { kind: "event", seq: "43" },
+  accepted_seq: "43",
+};
+function approvalTypeChecks(tx: Tx, snapshot: ReadSnapshot) {
+  const result: Result<ApprovalUse> = tx.useApproval(
+    approvalUse.approval,
+    approvalAction,
+    approvalUse,
+  );
+  // @ts-expect-error 사용 연결은 비동기 작업이 아니라 같은 transaction의 Result다.
+  const asyncResult: Promise<Result<ApprovalUse>> = result;
+  // @ts-expect-error read snapshot은 approval을 사용하지 않는다.
+  snapshot.useApproval(approvalUse.approval, approvalAction, approvalUse);
+  void asyncResult;
+}
+void approvalTypeChecks;
+Deno.test("platform/approvals#R7 platform/backup-and-migration#R16: Tx.useApproval은 동기 Result다", () => {
+  const useApproval: Tx["useApproval"] = (_approval, _action, use) => ok(use);
+  const result = useApproval(
+    approvalUse.approval,
+    approvalAction,
+    approvalUse,
+  );
+  assertEquals(result.ok, true);
+  if (result.ok) assertEquals(result.value.accepted_seq, "43");
+});
 Deno.test("platform/blob-store#R4 platform/ledger#R22: Tx blob 참조 등록은 동기 Result이고 event 없는 기반 쓰기에 한정한다", () => {
   const register: Tx["registerBlobRef"] = (reference) =>
     ok({

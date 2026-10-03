@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "./identity.ts";
+import type { ApprovalAction, ApprovalUse } from "./approvals.ts";
 import type { BlobRefRegistration, PermanentBlobReference } from "./blob.ts";
 import type { IdPrefix } from "./ids.ts";
 import type { PortKey } from "./ports.ts";
@@ -47,6 +48,13 @@ export interface Tx {
     subscriber: string,
     through_seq: string,
   ): Result<void>;
+  // 정확한 action 일치 확인과 approval_uses 기록을 소유 변경과 같은 transaction에서 한다.
+  // 일치하지 않거나 이미 사용됐으면 err이고 handler는 그 결과를 그대로 돌려 전체를 rollback한다.
+  useApproval(
+    approval: string,
+    action: ApprovalAction,
+    use: ApprovalUse,
+  ): Result<ApprovalUse>;
   // registry가 dispatchable을 검사한다. 새 transaction·actor·commit은 만들지 않는다.
   call<R extends CommandRoute>(
     route: R,

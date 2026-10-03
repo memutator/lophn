@@ -162,3 +162,22 @@ Deno.test(
     );
   },
 );
+
+Deno.test(
+  "platform/api#R6: withReadCommon은 안쪽 field type을 지킨다",
+  () => {
+    const output = withReadCommon(
+      z.object({ items: z.array(z.object({ id: z.string() })) }),
+    );
+    type Out = z.infer<typeof output>;
+    const good: Out = {
+      items: [{ id: "a" }],
+      as_of_seq: "1",
+      next_cursor: null,
+    };
+    // @ts-expect-error items[].id는 string이다.
+    const bad: Out = { items: [{ id: 1 }], as_of_seq: "1", next_cursor: null };
+    void bad;
+    assert(output.safeParse(good).success);
+  },
+);

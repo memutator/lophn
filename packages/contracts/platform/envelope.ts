@@ -120,10 +120,11 @@ export const readCommonSchema = readMetaSchema.extend({
 
 export type ReadCommon = z.infer<typeof readCommonSchema>;
 
-export function withReadCommon<S extends z.ZodObject>(output: S) {
-  return output.extend(readCommonSchema.shape);
+// shape를 generic으로 받아야 안쪽 field type이 넓어지지 않는다.
+export function withReadCommon<T extends z.ZodRawShape>(
+  output: z.ZodObject<T>,
+) {
+  return z.object({ ...output.shape, ...readCommonSchema.shape });
 }
 
-export type ReadOutput<R extends ReadRoute> = z.infer<
-  ReturnType<typeof withReadCommon<Extract<R["output"], z.ZodObject>>>
->;
+export type ReadOutput<R extends ReadRoute> = z.infer<R["output"]>;

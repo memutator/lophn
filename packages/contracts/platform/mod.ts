@@ -56,6 +56,8 @@ export {
   ACTOR_KINDS,
   type ActorKind,
   type CommandRoute,
+  CONFIRMATION_KINDS,
+  type ConfirmationKind,
   defineCommand,
   defineFile,
   defineRead,

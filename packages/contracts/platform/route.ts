@@ -20,10 +20,17 @@ const NAME = /^[a-z][a-z0-9_-]*$/;
 
 const errorCodeSchema = z.enum(ERROR_CODES);
 
+// confirmation window가 받는 것이 사람의 결정인지 secret 입력인지(architecture/shell 5.1).
+export const CONFIRMATION_KINDS = ["decision", "secret_input"] as const;
+
+export type ConfirmationKind = (typeof CONFIRMATION_KINDS)[number];
+
 // 사람 결정 handle이 필요한 route만 선언한다. read는 결정을 제출하지 않는다.
+// confirmation_kind를 적지 않으면 decision이다.
 export type ConfirmationDeclaration<I extends z.ZodType> = {
   confirmation: "required";
   binding: readonly (keyof z.infer<I> & string)[];
+  confirmation_kind?: ConfirmationKind;
 };
 
 type RouteBase<K extends RouteKind, I extends z.ZodType, O> = {
@@ -39,6 +46,7 @@ type RouteBase<K extends RouteKind, I extends z.ZodType, O> = {
   display_read?: string;
   confirmation?: "required";
   binding?: readonly string[];
+  confirmation_kind?: ConfirmationKind;
 };
 
 export type CommandRoute<
@@ -89,6 +97,12 @@ function define<K extends RouteKind, I extends z.ZodType, O>(
       throw new Error("route error code is outside the common seven");
     }
   }
+  if (
+    options.confirmation_kind !== undefined &&
+    options.confirmation !== "required"
+  ) {
+    throw new Error("confirmation_kind needs confirmation: required");
+  }
   if (options.confirmation !== undefined || options.binding !== undefined) {
     // 사람 결정은 제출이다. read가 결정을 받으면 표시와 제출이 한 통로로 섞인다.
     if (kind === "read") {
@@ -118,17 +132,26 @@ export function defineCommand<
 >(
   options: Omit<DefineOptions<I, O>, "compare"> & { compare?: C },
 ):
-  & Omit<CommandRoute<I, O>, "compare" | "confirmation" | "binding">
+  & Omit<
+    CommandRoute<I, O>,
+    "compare" | "confirmation" | "binding" | "confirmation_kind"
+  >
   & { compare?: C }
   & Partial<ConfirmationDeclaration<I>> {
   return define("command", options) as
-    & Omit<CommandRoute<I, O>, "compare" | "confirmation" | "binding">
+    & Omit<
+      CommandRoute<I, O>,
+      "compare" | "confirmation" | "binding" | "confirmation_kind"
+    >
     & { compare?: C }
     & Partial<ConfirmationDeclaration<I>>;
 }
 
 export function defineRead<I extends z.ZodType, O extends z.ZodType>(
-  options: Omit<DefineOptions<I, O>, "confirmation" | "binding">,
+  options: Omit<
+    DefineOptions<I, O>,
+    "confirmation" | "binding" | "confirmation_kind"
+  >,
 ): ReadRoute<I, O> {
   return define("read", options);
 }

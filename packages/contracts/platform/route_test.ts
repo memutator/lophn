@@ -119,3 +119,34 @@ Deno.test(
     );
   },
 );
+
+Deno.test(
+  "shell/confirmation-window#R1: confirmation 종류는 decision과 secret_input이고 confirmation 없이 쓰지 않는다",
+  () => {
+    const secret = defineCommand({
+      resource: "secrets",
+      method: "set",
+      name: "SetSecret",
+      input: z.strictObject({ name: z.string() }),
+      output: z.object({}),
+      actors: ["user"],
+      errors: [],
+      confirmation: "required",
+      binding: ["name"],
+      confirmation_kind: "secret_input",
+    });
+    assertEquals(secret.confirmation_kind, "secret_input");
+    assertThrows(() =>
+      defineCommand({
+        resource: "secrets",
+        method: "remove",
+        name: "RemoveSecret",
+        input: z.strictObject({ name: z.string() }),
+        output: z.object({}),
+        actors: ["user"],
+        errors: [],
+        confirmation_kind: "decision",
+      })
+    );
+  },
+);

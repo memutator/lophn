@@ -103,6 +103,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T5 contracts/platform: transport·route 정의·envelope·오류·ID·client
 
+- 상태: 완료 (#9)
 - 등급: 기본
 - concern: platform/api, platform/ledger
 - 요구: platform/api#R1–R4, R6; platform/ledger#R5, R8, R9, R12–R14, R20; platform/identity#R10–R13; platform/security#R6, R8

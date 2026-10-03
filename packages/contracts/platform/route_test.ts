@@ -1,0 +1,121 @@
+import { assert, assertEquals, assertThrows } from "@std/assert";
+import { z } from "zod";
+import {
+  ACTOR_KINDS,
+  defineCommand,
+  defineFile,
+  defineRead,
+  defineWorker,
+  routePath,
+} from "./route.ts";
+
+const input = z.strictObject({ title: z.string() });
+const output = z.object({ id: z.string() });
+
+Deno.test(
+  "platform/api#R2: 경로는 /v1/<resource>/<method> 정확히 세 구간이다",
+  () => {
+    const route = defineCommand({
+      resource: "documents",
+      method: "confirm-next",
+      name: "ConfirmNext",
+      input,
+      output,
+      actors: ["user"],
+      errors: ["invalid_input", "conflict"],
+    });
+    assertEquals(route.kind, "command");
+    assertEquals(routePath(route), "/v1/documents/confirm-next");
+    assertEquals(
+      routePath(defineRead({
+        resource: "events",
+        method: "preview_tracking",
+        name: "PreviewTracking",
+        input,
+        output,
+        actors: ["machine"],
+        errors: ["not_found"],
+      })),
+      "/v1/events/preview_tracking",
+    );
+    for (const bad of ["Documents", "1events", "a/b", ""]) {
+      assertThrows(() =>
+        defineCommand({
+          resource: bad,
+          method: "ok",
+          name: "Ok",
+          input,
+          output,
+          actors: ["user"],
+          errors: ["invalid_input"],
+        })
+      );
+    }
+  },
+);
+
+Deno.test(
+  "platform/api#R3: route kind는 command·read·file·worker이고 file은 바이트 응답이다",
+  () => {
+    const file = defineFile({
+      resource: "documents",
+      method: "read-file",
+      name: "ReadFile",
+      input,
+      contentType: "text/markdown",
+      actors: ["user"],
+      errors: ["not_found", "forbidden"],
+    });
+    assertEquals(file.kind, "file");
+    assertEquals(file.output, { contentType: "text/markdown" });
+    const worker = defineWorker({
+      resource: "diagnostics",
+      method: "check",
+      name: "Check",
+      input,
+      output,
+      actors: ["machine"],
+      errors: ["unavailable"],
+    });
+    assertEquals(worker.kind, "worker");
+    assertEquals([...ACTOR_KINDS], [
+      "user",
+      "coding_agent",
+      "agent",
+      "app",
+      "machine",
+    ]);
+  },
+);
+
+Deno.test(
+  "platform/api#R3: route 오류는 공통 7종 안이고 입력 schema type이 route에 남는다",
+  () => {
+    const route = defineCommand({
+      resource: "approvals",
+      method: "grant",
+      name: "GrantApproval",
+      input,
+      output,
+      compare: z.strictObject({ seq: z.string() }),
+      actors: ["user"],
+      errors: ["conflict"],
+      display_read: "/v1/approvals/get",
+    });
+    assertEquals(route.display_read, "/v1/approvals/get");
+    assert(route.input.safeParse({ title: "x" }).success);
+    const accepted: z.infer<typeof route.input> = { title: "x" };
+    assertEquals(accepted.title, "x");
+    assertThrows(() =>
+      defineRead({
+        resource: "approvals",
+        method: "get",
+        name: "Get",
+        input,
+        output,
+        actors: ["user"],
+        errors: ["nope" as "conflict"],
+      })
+    );
+  },
+);

@@ -995,3 +995,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q6 `deno fmt`·`deno lint` 대상에서 docs/ Markdown을 뺀다.
 - Q7 architecture/README.md 4장 표의 15행 추가는 T8 PR에서 한다.
 - Q8 `packages/contracts/mod.ts`는 code-map에 들어갔다.
+- Q9 T47 보호 credential 전달은 `mcp_cli_loader`만 허용한다. coding-agent 계획 Q6의 정함대로 TUI에는 connection 참조만 가고 token은 그 아래 MCP·CLI loader가 받는다. TUI 전용 purpose·start operation 필드는 두지 않는다.

@@ -37,8 +37,7 @@ export const credentialDeliveryRequestSchema = z.strictObject({
   connection: connectionIdSchema,
   process_generation: z.string().min(1),
   loader_identity: z.string().min(1),
-  purpose: z.enum(["mcp_cli_loader", "coding_tui"]),
-  start_operation: z.string().min(1).optional(),
+  purpose: z.literal("mcp_cli_loader"),
 });
 
 export type CredentialDeliveryRequest = z.infer<

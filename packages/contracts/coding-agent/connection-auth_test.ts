@@ -58,11 +58,18 @@ Deno.test("coding-agent/connection#R15, coding-agent/connection#R17: loader ë³´í
     purpose: "mcp_cli_loader",
   });
   assertEquals("token" in request, false);
-  credentialDeliveryRequestSchema.parse({
-    ...request,
-    purpose: "coding_tui",
-    start_operation: "start",
-  });
+  assert(
+    !credentialDeliveryRequestSchema.safeParse({
+      ...request,
+      purpose: "coding_tui",
+    }).success,
+  );
+  assert(
+    !credentialDeliveryRequestSchema.safeParse({
+      ...request,
+      start_operation: "start",
+    }).success,
+  );
   const response = credentialDeliveryResponseSchema.parse({
     token: "raw-token",
   });

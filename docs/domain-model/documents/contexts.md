@@ -143,9 +143,9 @@ ledger 밖 계산 결과의 제출 값이다.
 
 ## 정할 것
 
-- source_seq 시점 구성 근거의 조회와 현재 CAS를 → platform/ledger와 맞춘다. 작은 이전 값 event 또는 일관된 snapshot 읽기가 필요하다.
-- 현재 평면 Context 편집 외 분할·병합을 추가할지. 상위 Context·용어 상속은 현재 없다.
-- target_key canonical encoding을 다른 읽기·watch 중복 처리와 동일하게 고정한다.
+- source_seq 시점 구성은 작은 before·after 또는 blob 참조를 그 seq까지 재생해 얻고, 현재 CAS는 그 결과와 지금 revision을 함께 본다.
+- context 분할·병합은 두지 않는다. 상위 Context·용어 상속도 없고 편집은 평면이다.
+- target_key는 읽기·watch 중복 처리와 같은 canonical encoding으로 고정한다.
 
 ## agent 구성과의 경계
 

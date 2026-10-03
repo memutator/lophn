@@ -111,7 +111,7 @@ ledger entity가 아닌 고정 코드 묶음의 선언이다. 별도 ID·상태�
 
 ## 정할 것
 
-- 내장 module만 시작할지 Package → apps/sdk로 추가 설치를 허용할지.
-- 격리 실행 환경과 시간·메모리·입출력 한도. H6의 Deno 유지 결정과 → platform/security를 맞춘다.
-- 자체 본문과 하위 section 포함 본문 중 watch body_hash의 범위를 format별로 확정하고 module 묶음에 기록한다.
-- slide·data report의 초기 추출 지원과 구조화 설계 format 검사 범위. 현재 내장 목록 밖은 원문만 읽는다.
+- 첫 판은 내장 module만 쓴다. 추가 설치는 후속이다.
+- 격리 실행은 QuickJS WASM의 새 context다. guest 전역과 host binding은 막고, 시간·메모리·입출력 한도의 초기값은 architecture의 조절값이며 초과 실행만 종료한다.
+- watch body_hash는 heading을 뺀 자체 본문이다. 하위 section 본문은 넣지 않고 이 규약을 module 묶음에 기록한다.
+- slide·data report 추출과 구조화 설계 format 검사는 두지 않는다. 내장 목록 밖은 원문만 읽는다.

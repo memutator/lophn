@@ -116,7 +116,7 @@ problems/reporting#R12,R16·problems/feedback#R8,R9·problems/snapshots#R10,R12,
 | derived store | 이 concern의 전용 derived DB 없음; 요약·목록은 read에서 계산 | Problem·Verification 정본 복제 |
 | 앱 DB·keychain | 이 concern은 읽거나 쓰지 않음 | 자동 업무 데이터 snapshot, secret 사본 |
 
-runner 작업 폴더는 0700, spool 파일은 0600이며 credential은 포함하지 않는다. test code의 출력은 redaction을 거쳐야 spool과 blob에 들어간다. 자식의 임시 업무 값은 격리 scratch에만 있고 테스트가 끝나면 제거한다. 결과 command 응답을 잃으면 안전한 최종 spool은 확정 여부를 확인할 때까지 유지한다. 미확정 spool은 최대 24시간 뒤 판정 불가 복구를 확정한 뒤 제거하고, 확정된 작업 폴더는 바로 정리한다. 관측 blob은 자동 삭제 기간 없이 보존하며 문제 닫힘도 삭제 계기가 아니다. blob의 물리 배치·설치·GC는 **blob** contract만 따른다.
+runner 작업 폴더는 0700, spool 파일은 0600이며 credential은 포함하지 않는다. test code의 출력은 redaction을 거쳐야 spool과 blob에 들어간다. 자식의 임시 업무 값은 격리 scratch에만 있고 테스트가 끝나면 제거한다. 결과 command 응답을 잃으면 안전한 최종 spool은 확정 여부를 확인할 때까지 유지한다. 미확정 spool은 최대 24시간 뒤 판정 불가 복구를 확정한 뒤 제거하고, 확정된 작업 폴더는 바로 정리한다. 큰 관측 blob(첨부 이미지·로그 조각·stack)은 용량 상한을 넘으면 오래된 것부터 정리하고 변경 기록·닫힘 결정·확정된 결과 참조는 영구 보존하며 문제 닫힘도 삭제 계기가 아니다. blob의 물리 배치·설치·GC는 **blob** contract만 따른다.
 
 ## 4. concern 배치표
 
@@ -310,7 +310,7 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
 
 플랫폼 필수 검사 code는 runner의 불변 설치 자료에서 읽으며 앱 bundle/agent가 고칠 수 없다. 앱이 작성한 code별 실패 경로 test는 실제 앱 command/화면에 fixture 실패를 주입해야 한다. SDK 직접 호출만으로 실패 경로를 통과시키지 않는다.
 
-검사는 선언·blueprint/handler 일치·고정 SDK·정적/동적 code 사용·SDK 접수·선언별 실패 경로·process/view exception·깨진 view의 feedback·redaction·permission 거절이다. apps/data의 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration, read의 입력 계약·업무 및 외부 상태 불변, automation의 command·고정 입력·grant와 external/confirm 금지도 각 apps contract로 검사한다. grant된 secret의 가져오기·동기화는 대역으로 허용하며 호출마다 approval을 요구하거나 호출 주체가 automation이라는 이유로 막지 않는다. apps/blueprint가 아직 선언하지 않는 출력 schema는 필수 검사로 새로 만들지 않는다. 화면 없는 bundle만 화면 검사에 이유 있는 `not_applicable`을 남긴다.
+검사는 선언·blueprint/handler 일치·고정 SDK·정적/동적 code 사용·SDK 접수·선언별 실패 경로·process/view exception·깨진 view의 feedback·redaction·permission 거절이다. apps/data의 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration, read의 입력 계약·업무 및 외부 상태 불변, automation의 command·고정 입력·grant와 confirm 금지, external은 사람이 켤 때 command·입력·주기를 한 번 승인한 것만 허용함을 각 apps contract로 검사한다. grant된 secret의 가져오기·동기화는 대역으로 허용하며 호출마다 approval을 요구하거나 호출 주체가 automation이라는 이유로 막지 않는다. apps/blueprint가 아직 선언하지 않는 출력 schema는 필수 검사로 새로 만들지 않는다. 화면 없는 bundle만 화면 검사에 이유 있는 `not_applicable`을 남긴다.
 
 출력 `pass` 문자열이나 생성 test 파일 존재는 근거가 아니다. runner가 검사별 status/reason/evidence를 모아 모든 필수 검사 실제 통과일 때만 `pass`다. 변경된 bundle은 새 app test가 필요하며 release 준비 자체는 runner가 하지 않는다.
 
@@ -384,7 +384,7 @@ test 요청 접수·고정 입력 참조·시작 시도·runner 식별·복구 �
 - 이전: 앱 frame 없는 오류를 앱 문제가 아니라고 처리 / 지금: 앱 귀속이 확실하면 예외로 받고 발생별 key·위치 부재 이유 / 이유: 위치 미수집과 플랫폼 오류를 혼동하지 않는다.
 - 이전: 같은 지문 60초 1회·같은 code 10초 1회로 발생을 합치기 / 지금: 같은 관측 ID retry만 중복 제거하고 서로 다른 발생은 불변 Report / 이유: 전송 중복과 실제 반복 발생은 다르다.
 - 이전: preview 보고를 기록하지 않음 / 지금: preview/test 진단 scope에 Report·Snapshot을 기록하고 운영 Problem은 제외 / 이유: 수리 중 접수·보고 경로를 실제로 검사할 근거가 필요하다.
-- 이전: read 결과·행 표본·원본 screenshot 자동 첨부, 앱별 첨부 폴더와 90일 삭제 / 지금: 안전한 형태만, 사람 선택 PNG, redaction 전 메모리, 불변 blob 자동 삭제 없음 / 이유: 업무 원값 자동 수집과 과거 근거 소실을 막는다.
+- 이전: read 결과·행 표본·원본 screenshot 자동 첨부, 앱별 첨부 폴더와 90일 삭제 / 지금: 안전한 형태만, 사람 선택 PNG, redaction 전 메모리, 큰 자료는 용량 상한 초과 시 오래된 것부터 정리하고 변경 기록·결정·확정 결과는 영구 보존 / 이유: 업무 원값 자동 수집과 과거 근거 소실을 막으면서 큰 자료를 무제한으로 쌓지 않는다.
 - 이전: 앱 clear·quiet·health 성공·배포로 닫힘, 여러 상태·episode·repair attempt / 지금: reproduction+현재 activation+새 live Report 0개 또는 보호된 사람 결정, 3상태와 Closure / 이유: 조용함·주장·실제 수리 확인을 구별한다.
 - 이전: test용 host journal·lease·여러 실행 token과 broad Deno 권한 / 지금: 요청별 scratch·fixture DB·명시 permission, 신뢰 runner만 결과 command / 이유: 필요한 격리는 유지하되 별도 writer와 허가 단계를 만들지 않는다.
 - 이전: 재현 fixture 존재나 agent 로그를 검사 근거로 사용 / 지금: 동일 FrozenTest의 실제 before/after 업무 관측과 불변 Verification / 이유: pass 문자열과 실행 사실은 다르다.

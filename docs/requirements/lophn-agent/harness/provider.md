@@ -45,7 +45,7 @@ concerns: [lophn-agent/harness/provider]
 **[R7]** API key와 OAuth 접근·갱신 token의 보관과 전달은 platform/secrets를 따르며 평문 설정·환경 변수·세션·prompt·trace·오류에서 credential 값을 받아 인증하거나 노출하지 않는다.
 - 이유: 인증의 비밀 입구를 하나로 제한한다.
 - 확인: 환경 변수만 채운 경우 credential이 없고 평문 설정의 key가 거절되며 로그인·갱신·호출 실패 출력에 token 일부도 없는지 확인한다.
-- 의도: lophn-agent/harness#I1, lophn-agent#I6
+- 의도: lophn-agent/harness#I1
 
 **[R8]** 한 provider에 API key·OAuth credential 여러 개를 등록할 수 있으나 실제 호출 계정은 preset의 정확한 선택 목록과 사람 순서 안에서만 고르고 종류 우선·돌려 쓰기·최소 사용·무작위 선택은 하지 않는다.
 - 이유: 돈과 계정 선택은 사람이 정한다.
@@ -67,44 +67,44 @@ concerns: [lophn-agent/harness/provider]
 **[R11]** Claude OAuth는 S256 PKCE와 브라우저 인증 코드 붙여넣기를 사용하여 요청·응답 검증값이 일치할 때만 완료하고 계정 프로필·추론 권한만 요청하며 로컬 callback 서버는 열지 않는다.
 - 이유: 로그인 노출과 권한을 최소화한다.
 - 확인: 검증값 누락·불일치·취소에서 token이 등록되지 않고 프로필·추론 외 권한과 수신 포트가 없는지 확인한다.
-- 의도: lophn-agent/harness#I1, lophn-agent#I6
+- 의도: lophn-agent/harness#I1
 
 **[R12]** ChatGPT OAuth는 device code를 먼저 쓰고 계정에서 꺼진 경우에만 S256 PKCE와 브라우저 최종 URL 붙여넣기로 전환하며 응답 검증값 누락·불일치를 거절하고 callback 포트 1455를 열지 않는다.
 - 이유: Codex와 포트를 다투지 않고 응답의 로그인 출처를 검증한다.
 - 확인: device code 성공·계정 미지원 전환·검증값 없는 URL 거절을 테스트하고 1455가 사용 중이어도 로그인 절차가 진행되는지 확인한다.
-- 의도: lophn-agent/harness#I1, lophn-agent#I6
+- 의도: lophn-agent/harness#I1
 
 **[R13]** SuperGrok OAuth는 xAI OpenID Connect discovery로 확인한 x.ai 또는 그 하위 도메인의 HTTPS 인증 목적지에서 device code만 사용하고 신원·프로필·이메일·오프라인 갱신·Grok CLI 접근·API 접근 권한만 요청한다.
 - 이유: discovery가 알려 준 목적지도 신뢰를 검증한다.
 - 확인: HTTP·x.ai 밖의 목적지는 중단하고 callback 없이 사용자 코드 승인으로 로그인하며 요청 권한을 검사한다.
-- 의도: lophn-agent/harness#I1, lophn-agent#I6
+- 의도: lophn-agent/harness#I1
 
 **[R14]** device code는 서버 간격·만료를 따르되 간격이 없으면 5초마다 조회하고 xAI 대기 연장마다 5초를 더하며 거절·만료·취소에 중단하고 ChatGPT는 최대 15분, xAI는 만료가 없으면 최대 5분까지만 기다린다.
 - 이유: 무한 폴링과 서버 제한 위반을 막는다.
 - 확인: 가짜 시계로 간격·대기 연장·각 종료 조건을 테스트하고 마감 뒤 token 등록이 없는지 확인한다.
-- 의도: lophn-agent/harness#I1, lophn-agent#I6
+- 의도: lophn-agent/harness#I1
 
 **[R15]** 로그인과 model call은 lophn 제품 이름으로 식별하며 Claude Code·Codex·Grok CLI 위장, 과금·요금제 우회를 위한 prompt·tool·model 이름 변경, coding agent CLI 경유 호출은 하지 않는다.
 - 이유: 일시적 우회 성공보다 오래 쓸 수 있는 연결을 우선한다.
 - 확인: API key·OAuth 사이에서 제품 지시와 tool 이름이 바뀌지 않고 거절 뒤 위장 재호출이나 CLI 실행이 없는지 확인한다.
-- 의도: lophn-agent/harness#I1, lophn-agent#I6
+- 의도: lophn-agent/harness#I1
 
 **[R16]** Claude OAuth token은 Anthropic API, ChatGPT OAuth token은 데이터 거주 지역을 전달하고 서버 저장을 요청하지 않는 ChatGPT Codex backend, SuperGrok OAuth token은 xAI API에만 보내며 목적지 변경·리다이렉트로 다른 곳에 보내지 않는다.
 - 이유: 구독 token을 사용자 gateway에 노출하지 않는다.
 - 확인: API key gateway에는 OAuth token이 가지 않고 ChatGPT 요청의 거주 지역·저장하지 않음 설정을 확인한다.
-- 의도: lophn-agent/harness#I1, lophn-agent#I6
+- 의도: lophn-agent/harness#I1
 
 ### OAuth 갱신
 
 **[R17]** OAuth는 만료 60초 전부터 한 machine 경계에서 credential별로 잠근 뒤 secret을 다시 읽고 필요한 경우에만 최대 15초 갱신하며 새 token 보관 성공 뒤 잠금을 풀고 사용하고 새 갱신 token이 없으면 이전 것을 유지한다.
 - 이유: 회전 token의 동시 갱신과 저장 전 사용을 막는다.
 - 확인: 동시 호출에서 갱신 요청이 하나이고 저장 실패 때 새 token 호출이 없으며 취소 후 재시도도 저장 token을 재확인하는지 테스트한다.
-- 의도: lophn-agent/harness#I1, lophn-agent/harness#I2, lophn-agent#I6
+- 의도: lophn-agent/harness#I1
 
 **[R18]** OAuth 401은 갱신 한 번과 동일 요청 재전송 한 번으로만 복구하며 재차 401·갱신 권한 폐기·만료·재사용·계정 불일치와 API key 인증 거절은 사람의 교체나 재로그인 전까지 다시 쓰지 않는다.
 - 이유: 시간으로 고칠 수 없는 인증을 반복하지 않는다.
 - 확인: 갱신 1회·재전송 1회를 넘지 않고 재시작·시간 경과에도 폐기 인증이 살아나지 않으며 다른 credential은 쓰이는지 확인한다.
-- 의도: lophn-agent/harness#I1, lophn-agent/harness#I2, lophn-agent#I6
+- 의도: lophn-agent/harness#I1, lophn-agent/harness#I2
 
 ### 실패와 사용량 대기
 

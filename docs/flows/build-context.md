@@ -6,7 +6,7 @@ concerns: [documents/contexts, documents/outline-and-search, documents/versions,
 
 사람이 여러 문서나 앱 자료를 같은 목적 아래 묶어 agent와 함께 보고 싶다. 목적과 필요한 판단만 사람이 정하고, 자료 찾기와 작은 범위 읽기는 lophn이 맡는다.
 
-지키는 약속: documents#I5, documents#I4, lophn-agent#I1, lophn-agent#I6, lophn-agent/harness#I3.
+지키는 약속: documents#I4, lophn-agent#I1, lophn-agent#I6, lophn-agent/harness#I3.
 
 ## 흐름
 

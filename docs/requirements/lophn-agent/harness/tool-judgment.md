@@ -63,9 +63,9 @@ tool call마다 실제 되돌림 가능성·현재 책임과 범위에 따른 al
 
 ### 새 기능
 
-**[R10]** 앱 command는 현재 역할·허락·범위·입력이 유효할 때 confirm이면 effect보다 먼저 ask, 아니면 read는 allow, blueprint가 되돌리기 지원을 선언한 write는 allow, 나머지 write와 external은 ask로 판정한다.
-- 이유: 같은 blueprint 효과를 호출 주체가 달라도 일관되게 판단한다.
-- 확인: read·write 두 종류·external·confirm 조합을 검사하고 confirm read도 approval 전 호출되지 않는지 본다.
+**[R10]** 앱 command는 현재 역할·허락·범위·입력이 유효할 때 confirm이면 effect보다 먼저 ask, 아니면 read는 allow, blueprint가 되돌리기 지원을 선언한 write는 allow, 나머지 write와 external은 ask로 판정한다. 되돌림을 모르는 외부 MCP tool은 external로 보고 묻되 사람이 preset에서 그 tool을 안전하다고 표시하면 묻지 않는다. ticket 취소는 묻지 않는다.
+- 이유: 같은 blueprint 효과를 호출 주체가 달라도 일관되게 판단하고, 되돌림을 모르는 외부 효과만 묻는다.
+- 확인: read·write 두 종류·external·confirm 조합을 검사하고 confirm read도 approval 전 호출되지 않으며, 미분류 MCP tool은 묻고 preset 안전 표시 뒤에는 묻지 않는지 본다.
 - 의도: lophn-agent#I6
 
 **[R11]** 앱의 되돌리기 지원은 active release blueprint의 지원 선언과 대응 command를 기준으로 판단하고 성공 결과의 복원 receipt를 보존하며 model 주장이나 단순 undo 문구만으로 allow로 낮추지 않는다.
@@ -73,9 +73,9 @@ tool call마다 실제 되돌림 가능성·현재 책임과 범위에 따른 al
 - 확인: 지원 없는 write는 ask, 지원 선언과 대응 command가 검증된 write는 선행 기록 후 allow이며 성공 receipt가 저장되는지 본다.
 - 의도: lophn-agent#I6
 
-**[R12]** 앱 주석 되쓰기도 일반 write 판정을 거치며 apps/agent-context의 현재 화면·허용 자리 검사가 실패하면 approval로 열지 않고 deny로 처리한다.
-- 이유: 힌트라는 이름이 앱의 write 경계를 면제하지 않는다.
-- 확인: 되돌릴 수 있는 주석은 allow, 비가역 주석은 ask, 낡은 화면·없는 자리는 deny인지 본다.
+**[R12]** 앱 주석 되쓰기도 일반 write 판정을 거치며 apps/agent-context의 현재 화면·허용 자리 검사가 실패하면 approval로 열지 않고 deny로 처리한다. 되돌릴 수 있는 주석은 묻지 않는다.
+- 이유: 힌트라는 이름이 앱의 write 경계를 면제하지 않고, 되돌릴 수 있는 화면 주석을 결재로 만들지 않는다.
+- 확인: 되돌릴 수 있는 주석은 묻지 않고 바로 쓰며, 비가역 주석은 ask, 낡은 화면·없는 자리는 deny인지 본다.
 - 의도: lophn-agent#I6
 
 ## 버린 것

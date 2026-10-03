@@ -21,7 +21,7 @@ concerns: [problems/problem-codes, problems/reporting, problems/snapshots, probl
 ## 다른 갈래
 
 - 1~2에서 일부 증거 수집·redaction이 실패하면 없는 이유와 안전한 자료만 남긴다. 작은 보고와 snapshot도 저장하지 못하면 접수 실패이며 수집 성공으로 보이지 않는다. (problems/snapshots#R5, platform/redaction#R14, problems/reporting#R10)
-- 4에서 근거·채택 답·고정 reproduction이 부족하면 실행 준비를 보류하고 필요한 결정만 질문한다. 모든 요청 접수와 필수 생성 입력의 분리는 redesign/propagate#Q3, reproduction 없는 코드 수리는 redesign/propagate#Q4의 owner 충돌이다. 코드 수리를 ticket 없는 fallback으로 잇지 않는다. 사람 설정·입력 조치만 필요하면 verify-app-repair의 보호된 사람 확인으로 잇되 가짜 release·채택·검사 조건을 만들지 않는다. (lophn-agent/roles/app-engineer#R8, lophn-agent/roles/app-engineer#R16, lophn-agent/questions#R1, coding-agent/tickets#R3, coding-agent/tickets#R9, problems/repairs#R7)
+- 4에서 근거·채택 답·고정 reproduction이 부족하면 실행 준비를 보류하고 필요한 결정만 질문한다. 요청 접수는 실행 준비와 별개이며 가짜 채택·빈 조건으로 채우지 않는다. reproduction test를 만들 수 없는 코드 수리도 ticket과 claim을 거치고, 닫힘은 보호 화면에서 사람이 “내가 확인함”으로 남긴 확인을 acceptance check로 쓰되 테스트 통과와 구별한다. 코드 수리를 ticket 없는 fallback으로 잇지 않는다. 사람 설정·입력 조치만 필요하면 verify-app-repair의 보호된 사람 확인으로 잇되 가짜 release·채택·검사 조건을 만들지 않는다. (lophn-agent/roles/app-engineer#R8, lophn-agent/roles/app-engineer#R16, lophn-agent/questions#R1, coding-agent/tickets#R3, coding-agent/tickets#R9, problems/repairs#R7, problems/closing#R9)
 - 5~7에서 연결 회수·claim 만료가 생기면 옛 작업의 새 제출을 거절하고 다시 맡길 수 있게 한다. 지난 근거는 유지하며 단절을 수리 완료로 보이지 않는다. (coding-agent/connection#R8, coding-agent/tickets#R13, coding-agent/tickets#R14, coding-agent/tickets#R15)
 - 6~7에서 재현 실패·판정 불가·미실행이 있으면 실제 결과와 남은 확인을 구별한다. 보고 경로 삭제나 기대 약화로 통과시켜 닫지 않는다. (problems/tests#R4, problems/tests#R5, problems/tests#R11, problems/closing#R2)
 - 8에서 거절·취소·만료하면 적용하지 않는다. 적용 실패는 실패 근거와 이전 활성 참조를 남기고 새 업무 쓰기 전의 복구만 backup으로 처리한다. (platform/approvals#R15, apps/releases#R15, apps/data#R11, apps/data#R12)

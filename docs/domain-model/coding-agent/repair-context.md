@@ -91,6 +91,4 @@ concerns: [coding-agent/repair-context]
 
 ## 정할 것
 
-- coding-agent/repair-context#Q4
-- coding-agent/repair-context#Q5
-- redesign/coding-agent#Q21
+없음.

@@ -23,12 +23,12 @@ concerns: [problems/reporting]
 **[R3]** 유효한 운영 보고는 첫 발생부터 problems/grouping으로 보내며 발생 횟수나 severity에 따른 별도 확정 단계를 기다리지 않는다.
 - 이유: 새 모델은 확인될 때까지 숨기는 다중 상태를 두지 않는다.
 - 확인: 첫 유효 보고 하나로 문제를 읽을 수 있고 2번째 발생까지 기다리는 상태나 severity 상태가 생기지 않는다.
-- 의도: problems#I1, problems#I3
+- 의도: problems#I1
 
 **[R4]** preview와 test의 보고는 해당 진단 범위에서만 읽히고 운영 문제를 만들거나 다시 열지 않는다.
 - 이유: 수리 중 의도한 실패와 사람의 실제 사용을 분리한다.
 - 확인: 닫힌 운영 증상을 preview와 test에서 재현해도 운영 상태와 보고 수가 변하지 않는다.
-- 의도: problems#I1, problems#I5
+- 의도: problems#I1, problems#I3
 
 ### 자동 예외 수집
 
@@ -45,7 +45,7 @@ concerns: [problems/reporting]
 **[R7]** 일반 호출 응답과 비개발자 앱 화면에는 raw 오류·stack·code를 노출하지 않고 실패 설명과 다음 행동만 보여 준다.
 - 이유: 오류 원문은 수리 근거이지 사용자에게 보여 줄 업무 설명이 아니다.
 - 확인: HTTP 오류 응답·접힌 상세·tooltip에도 stack과 raw code가 없고 허용된 수리 조회에서는 platform/redaction을 거친 상세를 읽을 수 있다.
-- 의도: problems#I1, shell#I8
+- 의도: problems#I1, shell#I1
 
 ### 잘못된 보고
 
@@ -59,7 +59,7 @@ concerns: [problems/reporting]
 **[R9]** 같은 발생의 재전송은 처음 제출한 인증 주체와 내용이 같을 때 같은 접수 결과를 반환하고 주체나 내용이 달라지면 충돌로 거절한다.
 - 이유: 응답 유실이 추가 발생이나 덮어쓰기를 만들지 않아야 한다.
 - 확인: 동시 제출·응답 유실 뒤 재전송에도 보고·snapshot·문제가 하나씩이며 글이나 선택 자료를 바꾼 재전송은 충돌한다.
-- 의도: problems#I7
+- 의도: problems#I1, platform#I5
 
 **[R10]** 보고·snapshot·문제 변경은 함께 확정하고 일부만 저장한 상태를 접수 성공으로 반환하지 않는다.
 - 이유: 성공한 제보에서 증거나 문제가 나중에 없어지는 반쪽 접수를 막는다.
@@ -69,19 +69,19 @@ concerns: [problems/reporting]
 **[R11]** 이미 접수한 보고는 합치거나 수정·삭제하지 않으며 서로 다른 발생을 지문이나 시간 근접만으로 지우지 않는다.
 - 이유: 접수 중복 제거와 같은 문제 분류는 서로 다르다.
 - 확인: 같은 시각·지문이라도 서로 다른 발생은 각각 남고 SDK와 수집기가 실제 같은 관측을 공유한 재전송만 하나로 읽힌다.
-- 의도: problems#I7
+- 의도: problems#I1, platform#I5
 
 ### 과다 보고와 손실
 
 **[R12]** 첫 판에는 앱당 60,000ms 동안 새 보고를 최대 20개 접수하며 동일 발생의 재전송은 추가 건수에 넣지 않는다.
 - 이유: 폭주를 막되 이미 접수한 사실과 정상 retry를 잃지 않는다.
 - 확인: 21번째 새 보고는 접수 불가와 손실 이유를 보이고 기존 보고의 같은 재전송은 추가 발생으로 세지 않는다.
-- 의도: problems#I7
+- 의도: problems#I1, platform#I5
 
 **[R13]** 메모리 대기·전송 실패·영구 접수 성공을 구별하고 보고 재전송 때문에 원래 앱 command를 다시 호출하지 않는다.
 - 이유: 진단 재전송이 외부 효과나 데이터 변경을 중복시키면 안 된다.
 - 확인: 접수 실패 뒤 보고만 retry되고 원래 invocation은 한 번이며 대기 자료를 저장 완료로 표시하지 않는다.
-- 의도: problems#I7
+- 의도: problems#I1, platform#I5
 
 **[R14]** 자료가 없으면 source 없음·수집 꺼짐·발생 기회 없음·기한 내 미수신·수집 실패 중 실제로 확인한 이유만 표시한다.
 - 이유: 관측 부재를 정상 또는 특정 실패 원인으로 추정하지 않는다.
@@ -93,21 +93,16 @@ concerns: [problems/reporting]
 **[R15]** 앱의 문제 보고는 lophn 중앙 문제 목록으로 보내고 앱 자체의 문제 관리 화면과 별개로 허용된 발생·안전 상세·snapshot을 조회할 수 있다.
 - 이유: 제작자가 별도 문제 관리 체계를 만들지 않아도 수리가 이어져야 한다.
 - 확인: 보고한 앱에서 중앙 목록과 문제 상세로 이동해 당시 자료를 읽고 feedback·해석은 problems/feedback·problems/grouping으로 이어진다.
-- 의도: problems#I1, problems#I3
+- 의도: problems#I1
 
 ### 유한 대기와 재전송
 
 **[R16]** 첫 판의 보고 대기는 앱 SDK당 32개·4,194,304 bytes 및 collector 전체 128개·16,777,216 bytes·동시 조립 4개로 제한하고 자동 보고 본문은 262,144 bytes 이하로 받으며 일시적 접수 불가·응답 유실의 재전송은 첫 시도 뒤 최대 3회, 250·1,000·3,000ms 간격으로 같은 고정 내용만 보낸다.
 - 이유: 앱 실패 폭주와 유실된 응답이 무제한 메모리·재실행·영구 저장 주장으로 이어지지 않게 한다.
 - 확인: 각 대기·본문 한도 초과는 실패와 손실 이유를 남기고 최종 실패 뒤 retry가 멈추며 재전송은 원래 command를 호출하거나 자료를 다시 조립하지 않는다.
-- 의도: problems#I7, problems#I1
+- 의도: problems#I1, platform#I5
 
 ## 열린 질문
-
-- problems/reporting#Q1 view의 같은 지문 60초 1회 제한을 서로 다른 발생에도 적용할까.
-- problems/reporting#Q2 crash·메모리·command 실패·permission 거절·view load 실패를 별도 예약 problem code로 즉시 추가할까.
-- problems/reporting#Q3 health check·health 탭과 진단 전용 신호를 유지할까.
-- problems/reporting#Q4 보고 메모리 대기 크기·총 bytes·재전송 횟수·간격을 얼마로 둘까.
 
 ## 버린 것
 

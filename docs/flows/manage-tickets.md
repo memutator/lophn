@@ -8,7 +8,7 @@ concerns: [coding-agent/tickets, coding-agent/connection, coding-agent/mcp-serve
 
 ## 흐름
 
-1. 사람은 구현·수리의 원하는 결과나 피드백만 말한다. lophn 또는 담당 App Engineer가 모든 coding 요청을 ticket으로 정리하고 같은 앱·수리 중복·고정 채택 판·실제 acceptance check를 검사한다. 사람에게 작성 양식을 채우게 하지 않는다. 실행 준비 근거가 부족하면 질문으로 필요한 결정을 받고 Start·claim을 열지 않으며 접수와 readiness의 owner 충돌은 redesign/propagate#Q3에 남긴다. 준비 과정은 사람에게는 보이지 않는다. (coding-agent/tickets#R1, coding-agent/tickets#R2, coding-agent/tickets#R3, coding-agent/tickets#R4, coding-agent/tickets#R5, lophn-agent/roles/app-engineer#R17)
+1. 사람은 구현·수리의 원하는 결과나 피드백만 말한다. lophn 또는 담당 App Engineer가 모든 coding 요청을 ticket으로 정리하고 같은 앱·수리 중복·고정 채택 판·실제 acceptance check를 검사한다. 사람에게 작성 양식을 채우게 하지 않고 ticket 생성은 묻지 않는다. 접수는 실행 준비와 별개라 근거가 부족하면 질문으로 필요한 결정을 받고 가짜 채택·빈 조건으로 채우지 않으며 Start·claim을 열지 않는다. 준비 과정은 사람에게는 보이지 않는다. (coding-agent/tickets#R1, coding-agent/tickets#R2, coding-agent/tickets#R3, coding-agent/tickets#R4, coding-agent/tickets#R5, lophn-agent/roles/app-engineer#R17)
 2. 사람은 준비된 ticket에서 [Start]로 선택 harness의 project 터미널 TUI를 열거나 자기 터미널에서 직접 시작해 ticket을 지정한다. ticket이 있다는 이유만으로 자동 시작하지 않는다. exact 클릭·scope·폴더 검증과 첫 prompt 1회 전달은 start-coding-agent flow를 따른다. (coding-agent/sessions#R1, coding-agent/sessions#R2, coding-agent/sessions#R3, coding-agent/sessions#R5, shell/terminal#R12)
 3. coding agent는 지정 ticket의 현재 준비·범위·담당 여부를 확인한 뒤 MCP로 claim하고 고정 자료를 읽어 작업·보고한다. repair context는 필요한 만큼 읽는다. CLI 조회와 MCP claim을 섞지 않으며 session ready/working이 claim 생성·갱신·완료를 대신하지 않는다. 검사는 사람에게는 보이지 않는다. (coding-agent/tickets#R11, coding-agent/tickets#R12, coding-agent/sessions#R9, coding-agent/repair-context#R11)
 4. 세션이 버려져 claim이 만료되거나 연결이 회수되면 lophn은 claim을 놓고 ticket을 다시 열린 상태로 둔다. 자료 읽기만으로 기한을 늘리거나 단순 무호출을 만료로 추정하지 않는다. 정리 과정은 사람에게는 보이지 않는다. claim 해제 자체는 notification을 만들지 않는다. (coding-agent/tickets#R12, coding-agent/tickets#R13, coding-agent/tickets#R14, coding-agent/connection#R8, platform/notifications#R2)
@@ -17,7 +17,7 @@ concerns: [coding-agent/tickets, coding-agent/connection, coding-agent/mcp-serve
 
 ## 다른 갈래
 
-- 1에서 범위·사용 동작·acceptance check에 필요한 답이 없으면 App Engineer는 실행 준비를 보류하고 필요한 결정을 질문한다. 모든 요청 ticket 접수와 생성 필수 입력의 owner 충돌은 redesign/propagate#Q3에 남기며 가짜 채택·빈 조건·없는 reproduction을 보충하지 않는다. (lophn-agent/roles/app-engineer#R8, coding-agent/tickets#R3, coding-agent/tickets#R9)
+- 1에서 범위·사용 동작·acceptance check에 필요한 답이 없으면 App Engineer는 실행 준비를 보류하고 필요한 결정을 질문한다. 요청 접수는 실행 준비와 별개이며 가짜 채택·빈 조건·없는 reproduction을 보충하지 않는다. reproduction test를 만들 수 없는 수리는 사람의 확인을 acceptance check로 받는다. (lophn-agent/roles/app-engineer#R8, coding-agent/tickets#R3, coding-agent/tickets#R9)
 - 사람은 app-detail 화면에서 종료 전 ticket을 한 줄 사유와 함께 취소한다. lophn이 옛 claim 갱신·새 release 준비·완료 보고를 막는 과정은 사람에게는 보이지 않는다. 이미 남은 결과와 문제는 유지하며 외부 파일 편집이나 프로세스 종료까지 보장하지 않는다. (coding-agent/tickets#R22, coding-agent/tickets#R23, coding-agent/connection#R18)
 - 맡길 내용 자체를 바꾸려면 기존 ticket을 취소하고 이전 ticket을 근거로 새 ticket을 만든다. 진행 중 목표·조건을 덮어쓰지 않는다. (coding-agent/tickets#R6)
 - 3~6에서 연결이 끊기거나 응답 뒤 결과를 확인하지 못하면 최신 확인 못함과 마지막 화면을 유지하고 현재 ticket·release를 조회한다. 낡은 결과를 현재 담당 결과로 붙이거나 곧바로 재실행하지 않는다. (shell/desktop#R7, coding-agent/cli#R5, coding-agent/tickets#R15)

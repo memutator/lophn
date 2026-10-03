@@ -4,7 +4,7 @@ concerns: [lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/
 ---
 # 쓰던 구독이나 API key로 agent를 연결한다
 
-첫 agent 요청 전에 연결을 준비하거나 사용할 provider·model을 바꾸려는 사람이 시작한다. 이 흐름은 lophn-agent/harness#I1·platform#I8·shell#I3·platform#I5를 지킨다.
+첫 agent 요청 전에 연결을 준비하거나 사용할 provider·model을 바꾸려는 사람이 시작한다. 이 흐름은 lophn-agent/harness#I1·platform#I4·shell#I3·platform#I5를 지킨다.
 
 ## 흐름
 

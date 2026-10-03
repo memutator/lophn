@@ -18,6 +18,7 @@ Preset은 agent 구성의 재사용 단위다. 책임 글은 prompt이고 기계
 | `capability` | CapabilitySelection | 아니오 | 개별 tool 목록 판 고정; 제품 역할 상한 안 | tool 선택 |
 | `context` | ContextSelection[] | 아니오 | 기본 preset 표의 선택; 중복 없음; `[]`은 자동 자료 0개 | 읽을 자료 |
 | `mcp` | McpSelection | 아니오 | 서버와 정확한 개별 tool 쌍; → lophn-agent/extensions | 외부 tool 선택 |
+| `safe_tools` | `{server_name,original_tool}` 배열 | 아니오 | 기본 `[]`; 되돌림을 모르는 외부 MCP tool 중 사람이 안전하다고 표시한 정확한 쌍 | 묻지 않을 tool |
 | `skills` | string[] | 아니오 | 유효한 정확한 이름; 중복·wildcard 없음 | 절차 선택 |
 | `model` | PresetModelSelection | 예 | 미준비면 null; 실행 전 필수 | 기본 판단 model·계정 |
 | `organizing_model` | PresetModelSelection | 예 | null이면 같은 판의 model을 사용; 다른 계정 자동 선택 없음 | 제목·요약·압축용 선택 |
@@ -52,7 +53,7 @@ Preset 판 전체는 immutable blob이다. product 기본 preset은 역할별 �
 | `servers` | 서버 이름 배열 | 아니오 | 등록된 서버만; 중복 없음 | 연결 후보 |
 | `tools` | `{server_name,original_tool}` 배열 | 아니오 | 현재 유효한 정확한 쌍; 서버가 servers 안; wildcard 없음 | 선택 tool |
 
-서버 설정·인증은 → lophn-agent/extensions다. 선택을 ExtensionSettings에 복제하지 않는다. 모든 역할이 skill·MCP를 선택할 수 있지만 역할 금지·scope·effect·approval 검사보다 우선하지 않는다. Run 제공 목록은 capability의 내장·앱 선택, mcp의 정확한 tool 쌍, 선택 skill을 읽는 skill.read/skill.read_supplemental의 검증된 합집합이며 RunBasis.tools에 고정한다. MCP·skill 동작을 capability에 중복 저장하지 않는다.
+서버 설정·인증은 → lophn-agent/extensions다. 선택을 ExtensionSettings에 복제하지 않는다. 모든 역할이 skill·MCP를 선택할 수 있지만 역할 금지·scope·effect·approval 검사보다 우선하지 않는다. `safe_tools`는 그 tool을 lophn-agent/harness/tool-judgment에서 묻지 않게 할 뿐 제품이 고정한 역할 금지·상한·confirm=true를 넓히지 못한다. Run 제공 목록은 capability의 내장·앱 선택, mcp의 정확한 tool 쌍, 선택 skill을 읽는 skill.read/skill.read_supplemental의 검증된 합집합이며 RunBasis.tools에 고정한다. MCP·skill 동작을 capability에 중복 저장하지 않는다.
 
 ## PresetModelSelection (값)
 

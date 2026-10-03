@@ -4,7 +4,7 @@ concerns: [lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/
 ---
 # 계정 순서를 정하고 연결 문제를 해결한다
 
-같은 provider에 계정을 여러 개 연결하거나 사용량 제한·인증 오류·model 접근 불가로 agent 일이 진행되지 않을 때 시작한다. 이 흐름은 lophn-agent/harness#I1·lophn-agent/harness#I1·lophn-agent#I7·platform#I8을 지킨다.
+같은 provider에 계정을 여러 개 연결하거나 사용량 제한·인증 오류·model 접근 불가로 agent 일이 진행되지 않을 때 시작한다. 이 흐름은 lophn-agent/harness#I1·lophn-agent#I7·platform#I4를 지킨다.
 
 ## 흐름
 

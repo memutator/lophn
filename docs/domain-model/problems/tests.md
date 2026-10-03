@@ -135,7 +135,7 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 ## 정책
 
 - **app test 필수 검사.** 선언·SDK 보고·선언별 실제 실패 경로·정적/동적 code 사용·process 예외·view 예외·feedback·redaction, blueprint/handler 일치·permission 거절·고정 SDK를 검사한다. 화면 없는 묶음의 화면 검사는 이유 있는 `not_applicable`이다.
-- **앱 계약 검사.** 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration을 모두 확인한다(→ apps/data). read는 입력 schema·업무 및 외부 상태 불변을 확인한다(→ apps/blueprint). automation은 같은 command·입력·grant와 external/confirm 금지를 확인하며 grant된 secret의 read/write 가져오기·동기화는 대역으로 검사한다(→ apps/automations, apps/permissions). 출력 schema는 apps/blueprint에서 확정되지 않은 별도 필수 선언으로 요구하지 않는다.
+- **앱 계약 검사.** 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration을 모두 확인한다(→ apps/data). read는 입력 schema·업무 및 외부 상태 불변을 확인한다(→ apps/blueprint). automation은 같은 command·입력·grant와 confirm 금지를 확인하고 external은 사람이 automation을 켤 때 command·입력·주기를 한 번 승인한 것만 허용한다. grant된 secret의 read/write 가져오기·동기화는 대역으로 검사한다(→ apps/automations, apps/permissions). 출력 schema는 apps/blueprint에서 확정되지 않은 별도 필수 선언으로 요구하지 않는다.
 - **플랫폼 검사.** 플랫폼 필수 검사 code는 앱 묶음 밖의 고정 runner 소유이며 coding agent가 바꿀 수 없다. 앱 code·화면·blueprint·의존·테스트 변경은 새 hash와 새 app test를 요구한다.
 - **격리.** 운영 DB·backup·keychain·사람 파일·일반 홈·실제 외부 서비스 접근 금지다. 고정 source는 읽기 전용, 쓰기는 테스트 폴더·테스트 DB만 허용한다. secret·network·문서 쓰기는 고정 대역이다.
 - **시작과 복구.** 자식 시작 전에 공통 command 기록에 시작 시도를 남긴다. 이 기록만으로 실제 시작을 주장하지 않으며 runner의 spawn·started_at 관측으로 실제 시작을 구별한다. 시작한 실행이 끊기면 실제 기록과 `inconclusive`를 남긴다. 복구를 이유로 같은 요청을 몰래 재실행하지 않는다.

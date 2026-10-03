@@ -125,4 +125,4 @@ secret 사용은 ledger 변경 command가 아니다. 플랫폼 전달기가 현�
 
 - network 방향을 Deno 밖 OS 제한/플랫폼 전송부로 나누는 정책을 → platform/security와 정한다. 넓은 플래그로 조용히 우회하지 않는다.
 - secret 원값은 앱 코드에 주지 않고 플랫폼 전송부에서 붙인다(apps#I7). 인증 부착 방식별 요청 schema는 spec에서 정하며 일반 원값 조회는 만들지 않는다.
-- **H1.** automation 외부 효과의 반복 사전 허락 여부는 → apps/automations.
+- automation의 external 명령은 사람이 automation을 켤 때 command·고정 입력·주기를 한 번 승인한 범위에서만 실행한다(→ apps/automations). confirm=true 명령은 automation에서 뺀다.

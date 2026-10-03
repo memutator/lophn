@@ -6,7 +6,7 @@ concerns: [apps/blueprint, apps/permissions, apps/runtime, apps/invocations, pla
 
 사람이 만든 캘린더 등 앱의 조회나 동작을 자연어로 요청한다. 사람은 command 이름이나 별도 MCP 연결을 알 필요 없이 원하는 결과를 말하고, 꼭 필요한 결정만 직접 한다.
 
-연결된 intent: apps#I11, platform#I2, apps#I7, platform#I8, lophn-agent#I4.
+연결된 intent: apps#I7, platform#I2, platform#I4, lophn-agent#I4.
 
 ## 흐름
 

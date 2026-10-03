@@ -6,7 +6,7 @@ concerns: [platform/install-and-update, platform/backup-and-migration, platform/
 
 사람이 새 lophn 설치 패키지를 적용하려 할 때 시작한다. 플랫폼 설치를 바꾸더라도 사람의 자료와 설정, 기존 앱이 쓰는 고정 재료를 몰래 바꾸지 않는다.
 
-지키는 약속: platform#I4, platform#I1, apps#I2, lophn-agent/harness#I2, shell#I1.
+지키는 약속: platform#I7, platform#I1, apps#I2, lophn-agent/harness#I2, shell#I1.
 
 ## 흐름
 

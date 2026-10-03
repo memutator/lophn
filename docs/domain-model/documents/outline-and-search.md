@@ -207,7 +207,7 @@ consumer의 한 event 적용 결과·FTS 교체·cursor 갱신은 한 derived tr
 
 - **읽기 입력.** ID 또는 Address, 선택 ver, section·줄 범위, include_children, 크기 한도·cursor를 받는다. 최신 outline은 ledger 읽기로 판을 선택하고 부분 읽기는 그 ver를 유지한다. 다른 판의 범위·cursor는 `invalid_input`이다.
 - **권한·redaction.** 후보 ID를 현재 scope로 확인하고 제목·snippet·본문을 내보낸다(→ platform/identity, platform/redaction). 건수·순위·pagination에서도 권한 밖 존재를 새지 않는다. derived cache의 옛 권한은 승인 근거가 아니다.
-- **기본 읽기 예산.** root 1,500 estimated token, place·context 3,000, document outline 2,000·depth 2, 본문 12,000 codepoint를 초기 기본 한도로 제안한다. 초과 목록·본문은 complete=false와 cursor다. actual model token 한도는 → lophn-agent/harness/prompt-assemble이다.
+- **기본 읽기 예산.** root 1,500 estimated token, place·context 3,000, document outline 2,000·depth 2, 본문 12,000 codepoint가 초기 기본 한도다. 초과 목록·본문은 complete=false와 cursor다. actual model token 한도는 → lophn-agent/harness/prompt-assemble이다.
 - **기준 유지.** 목록 cursor는 기준 seq·정렬·scope·선택 판에 묶는다. 순서는 saved_at이 아닌 관련 event seq와 ID tie-breaker로 결정한다. 커서가 더는 안정된 기준을 유지하지 못하면 conflict다.
 - **추출 없음.** ready 빈 sections, unsupported, unverified, failed를 구별한다. 성공 추출의 key 부재는 missing이다. 실패·module 누락에 section을 추측하지 않는다. blob 누락은 unavailable이며 추출 실패가 원문 읽기를 막지 않는다.
 - **비동기 반영.** DocumentSaved와 문서·place·Context·Term 구성 event를 seq로 소비한다. move는 출발·도착 목록을 함께 갱신한다. 보관 문서·보관 자리는 기본 목록과 검색에서 제외하고 해제 후 비동기로 반영한다. 검색 행이 낡아도 현재 ledger의 문서·자리 보관 상태를 읽어 기본 후보에서 제거하며 고정 판 읽기는 유지한다.
@@ -218,7 +218,7 @@ consumer의 한 event 적용 결과·FTS 교체·cursor 갱신은 한 derived tr
 
 ## 정할 것
 
-- 한국어 검색은 requirements의 FTS5 trigram·3 codepoint 미만 LIKE를 따른다. 두 글자 검색과 큰 본문 성능은 실측한다.
-- 초기 예산·codepoint/3 근사치를 유지할지 model별 보정을 추가할지. cursor encoding은 offset만이 아닌 기준·scope 결합이 필요하다.
-- summary cache 생성 contract·크기 상한·입력 provenance. 현재 원문 발췌가 기본이다.
-- 일관된 재생성 snapshot과 watch의 source_seq 구성 조회 contract를 → platform/ledger와 맞춘다.
+- 한국어 검색은 FTS5 trigram·3 codepoint 미만 LIKE다. 두 글자 검색과 큰 본문 성능은 실측 뒤 조정한다.
+- token 추정은 Unicode codepoint 수를 3으로 나눈 올림이며 model별 보정은 두지 않는다. cursor는 기준·scope·정렬을 함께 담는다.
+- 요약이 없으면 원문 서문 발췌를 쓴다. summary cache는 후속이며 만들려고 agent run을 시작하지 않는다.
+- 재생성은 ledger 기준 seq의 일관된 snapshot에서 시작하고, watch 구성은 source_seq까지 event를 재생해 얻는다.

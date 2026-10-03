@@ -20,7 +20,7 @@ lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정�
 
 **[G4] 화면 하나에 주 행동 하나.** 화면마다 primary 버튼은 하나다(shell/design-system#R27). 여러 결정이 필요하면 화면을 나누거나 순서를 두고, 한 화면에 같은 무게의 버튼을 나란히 두지 않는다.
 
-**[G5] 사람이 정해야 하는 일은 분명하게 보인다.** 추천이나 기본값이 있어도 사람의 명시 조작 전에는 적용되지 않는다(lophn-agent/questions#R4, platform/approvals#R4). 침묵·닫기·다른 화면의 동의는 결정이 아니다.
+**[G5] 사람에게 묻는 일은 드물고 분명하다.** 되돌릴 수 없거나 심각한 일(지우기, 돈이 나가는 일, 밖으로 보내기)만 묻고 나머지는 묻지 않고 진행한다(platform I3). 물을 때는 무엇이 되돌릴 수 없는지 한 줄로 보이고, 침묵·닫기·다른 화면의 동의는 결정이 아니다. 사람이 직접 누른 [Start] 같은 동작은 그 자체가 허락이라 다시 묻지 않는다.
 
 **[G6] 안쪽 실패는 사람이 할 수 있는 행동으로 바꿔 말한다.** 오류는 원인 추측이 아니라 사람이 겪는 영향과 다음 행동 하나로 적는다(shell/wording#R10). "무엇이 실패했는지"가 아니라 "그래서 무엇을 할 수 있는지"를 먼저 보인다.
 
@@ -50,6 +50,12 @@ lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정�
 | verification(test result) | **Test result** | 이미 바이브코딩 사용자가 아는 말 |
 | context | **Focus**(사람이 지은 이름과 함께, 예: "Focus: Grocery budget") | |
 | term | **Meaning** | |
+| preset | **Preset**(예: "Preset: Grocery helper") | agent 구성 하나. 역할마다 기본 Preset이 있고 사람이 고치거나 새로 만든다. 내부 구성(prompt, capability, MCP 목록)은 펼쳐 보는 자리에만 둔다 |
+| 사람 지침(LOPHN.md) | **Instructions** | 버튼 [Instructions]로 lophn 편집기에서 연다. 파일 경로와 안쪽 version 식별자는 기본에서 숨긴다 |
+| Operator 구성 | **Operator** + 붙은 project나 app 이름 | 같은 자리에 여럿 둘 수 있다. 반복 주기는 **Repeating check** |
+| coding agent 연결 | **Connection**(고른 harness 이름, 예: "Claude Code") | 감지·설치 기록·MCP·skill 위치는 숨긴다. 사람은 harness를 고르기만 한다 |
+| 시작 | **[Start]** | Task에서 coding agent를 터미널 탭에 연다. 누르는 것이 허락이라 확인 창을 따로 두지 않는다 |
+| session | 보이지 않음; 터미널 탭과 Task 상태로만 비친다 | |
 | series | 보이지 않음 | 문서 목록의 정렬 결과로만 비친다 |
 
 이 표에 없는 개념을 화면에 써야 하면 docs/README.md의 말 규칙으로 안쪽 이름을 먼저 확인하고, 이 표에 줄을 더한다. 문서·코드의 말 규칙(docs/README.md#말)과 이 표는 서로 다른 목적이라 같은 말이 양쪽에 다르게 적힐 수 있다.
@@ -85,7 +91,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 첫 창 | **launcher** | 프로젝트·앱을 열거나 등록하고 이어서 쓴다 | 새 기본 창의 시작, `Ctrl+Shift+L` |
 | 프로젝트 | **project-workspace** | 문서·터미널·앱 패널을 같은 탭 줄에 놓고 오간다 | launcher의 프로젝트 카드 |
 | 〃 탭 내용 | **document** | 문서 하나를 읽거나 고치고 판 이력을 본다 | project-workspace의 문서 탭 |
-| 〃 탭 내용 | **terminal** | 프로젝트 폴더에서 명령을 실행한다 | project-workspace의 터미널 탭 |
+| 〃 탭 내용 | **terminal** | 프로젝트 폴더에서 명령을 실행하고, Task의 [Start]로 coding agent를 연다 | project-workspace의 터미널 탭, Task의 [Start] |
 | 〃 탭 내용 | **app-panel** | 문서 옆 탭에서 앱 화면을 쓴다 | project-workspace의 앱 패널 탭 |
 | 앱 | **app-space** | 앱 화면 전체를 쓰고 문제를 알린다 | launcher의 앱 카드, OS 바로가기 |
 | 〃 패널 | **app-detail** | 한 앱의 version·access·연결·issue·task를 보고 결정한다 | app-space의 운영 패널 진입점 |
@@ -101,6 +107,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | 전역 | **confirmation-window** | 정확한 대상과 영향을 보고 결정을 내린다 | approval·question의 action, secret 입력 |
 | 전역 | **report-problem** | 지금 화면의 이상을 글로 알린다 | app-panel/app-space의 [문제 알리기] |
 
+- **Instructions**는 화면이 아니라 진입점이다. 전역은 settings, project는 project-workspace, app은 app-detail의 [Instructions]에서 lophn 편집기(document)로 연다. **Preset**은 roles에서 고친다.
 - 모든 창은 launcher로 시작한다(shell/desktop#R24). lophn 공간의 일곱 화면은 형제이며 분류 전·거처 같은 중간 계층을 두지 않는다(shell/desktop#R28).
 - **conversation**은 독립 공간이 아니라 모든 공간에서 토글하는 도크다. 닫아도 project-workspace·app-space의 탐색은 그대로다(shell/desktop#R1).
 - **confirmation-window**는 요청한 창 위의 child modal이다. 앱 view는 숨기지 않고 입력만 막는다(shell/confirmation-window#R6). 사람의 결정은 이 화면에서만 받는다.
@@ -119,11 +126,11 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 | **연결 끊김** | 마지막으로 확인한 내용과 확인 시각을 유지하고 "최신 확인 못함"을 표시한다. 빈 결과나 최신 값으로 보이지 않는다(shell/desktop#R7) |
 | **권한 없음** | 무엇을 못 보는지와 누구에게 권한을 물어야 하는지를 적는다. 빈 화면으로 조용히 바꾸지 않는다 |
 | **오래 걸리는 일** | 전면 spinner를 쓰지 않는다. 지금 상태와, 끝나면 사람이 할 일만 남기고 화면을 막지 않는다(platform/responsiveness) |
-| **사람이 정할 일** | 선택지·추천 이유·고르지 않을 때의 결과를 먼저 보이고, 되돌릴 수 없는 일은 confirmation-window로 보낸다(lophn-agent/questions#R4) |
+| **사람이 정할 일** | 묻는 것은 드물다. 물을 때는 선택지와 추천 이유, 무엇이 되돌릴 수 없는지 한 줄을 먼저 보이고, 되돌릴 수 없는 일은 confirmation-window로 보낸다. 되돌릴 수 있는 일은 묻지 않고 진행하고 결과만 알린다(lophn-agent/questions#R4) |
 | **되돌리기** | 되돌릴 수 있는 범위와 되돌릴 수 없는 부분을 구별해 보이고, 되돌린 결과를 새 기록으로 남기며 이전 이력을 지우지 않는다(lophn-agent/revert) |
 | **달라졌음** | 결정하거나 저장하려는 대상이 열어 둔 사이 바뀌면 적용을 멈추고 "This changed since you opened it" 같은 한 문장과 최신 내용으로 가는 길만 남긴다. 자동으로 합치거나 덮어쓰지 않는다 |
 | **앱이 깨졌을 때** | 앱 view가 멈추거나 crash해도 [문제 알리기]와 다른 탭·화면은 그대로 동작한다. 깨진 화면을 고쳐진 것처럼 보이지 않는다(shell/app-frame#R21, R32) |
 
 ## 7. 디자인 값
 
-색·글꼴·간격·크기·컴포넌트의 실제 값과 접근성 기준은 `shell/design-system` requirements에 있다. 이 문서는 그 값을 반복하지 않고 가리킨다. 치수가 필요하면 `shell/design-system#R<n>`으로 가리키고 새 값을 만들지 않는다.
+색·글꼴·간격·크기·컴포넌트의 실제 값은 `shell/design-system` requirements에 있다. 이 문서는 그 값을 반복하지 않고 가리킨다. 치수가 필요하면 `shell/design-system#R<n>`으로 가리키고 새 값을 만들지 않는다.

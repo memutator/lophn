@@ -82,7 +82,7 @@ concerns: [lophn-agent/roles/app-engineer]
 **[R14]** 문제 해석은 현재 문제·snapshot·설계·release 이력·실제 test result를 비교해 원인 가설을 최대 3개로 좁히고 가설별 지지·반박 근거·부족한 자료·다음 확인을 고정 근거와 함께 남긴다.
 - 이유: 원인 추정을 확인된 사실과 구분한다.
 - 확인: 네 번째 가설 대신 부족한 근거를 설명하고 실제로 없는 테스트를 통과로 쓰지 않는지 본다.
-- 의도: lophn-agent#I2, lophn-agent#I7
+- 의도: lophn-agent#I2
 
 **[R15]** 담당 앱 문제에는 해석 문서의 고정 version·절 참조를 설정할 수 있으나 별도 진단 객체나 해석 판단으로 문제 상태를 바꾸지 않는다.
 - 이유: problems/grouping에 따라 해석은 문서 근거로 남기고 machine 상태와 분리한다.
@@ -112,19 +112,19 @@ concerns: [lophn-agent/roles/app-engineer]
 **[R20]** 인터뷰 해석·설계·가설·ticket·release 의미·handoff 판단은 judgment, 이미 정한 제목·요약은 organizing 용도이며 실제 provider·model·계정은 preset 선택을 쓴다.
 - 이유: 본문 판단을 organizing 작업에 숨기지 않는다.
 - 확인: ticket 범위 선택과 제목 정리의 용도가 구별되고 색인 파생은 documents/outline-and-search의 책임인지 본다.
-- 의도: lophn-agent#I5, lophn-agent/harness#I1
+- 의도: lophn-agent#I5
 
 ### 새 기능
 
 **[R21]** App Engineer는 담당 앱에서 사람이 agent 사용을 허락한 read와 실제 되돌리기를 지원하는 write command만 사용하며 confirm은 approval를 거치고 external과 복원 불가 write는 제공하지 않는다.
 - 이유: 담당 앱의 확인·수정에 필요한 API를 쓰되 외부 효과와 복원 불가 변경은 책임을 넓히지 않는다.
 - 확인: 담당 앱 read·복원 가능한 write는 실행되고 confirm 대기·다른 앱·external·복원 불가 write는 구별되는지 본다.
-- 의도: lophn-agent#I2, lophn-agent#I6
+- 의도: lophn-agent#I2
 
 **[R22]** 직접 coding 요청·피드백·구현·수리는 모두 coding-agent/tickets로 남기고 사람이 ticket [Start]를 누르거나 자기 터미널에서 직접 coding agent를 시작한 뒤 MCP claim→일→보고로 이어지며 시작 동작은 coding-agent/sessions가 맡는다.
 - 이유: ticket 생성과 사람의 시작 허락을 분리한다.
 - 확인: ticket 생성만으로 프로세스가 뜨지 않고 [Start]는 해당 project 터미널 TUI의 첫 prompt로 이어지며 claim·보고는 MCP의 같은 흐름인지 본다.
-- 의도: lophn-agent#I2, lophn-agent#I6
+- 의도: lophn-agent#I2
 
 ### prompt의 관점·기대 결과
 

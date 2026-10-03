@@ -136,5 +136,5 @@ ledger 밖에서 계산하는 미리보기다.
 
 ## 정할 것
 
-- 켜진 tracking 루트 겹침 금지를 유지할지, 파일별 tracking Project 선택을 추가할지.
-- glob 문법의 라이브러리·case 규칙과 중첩 `.gitignore`의 정확한 처리. 정규화·최종 경계 제외 규칙은 유지한다.
+- 켜진 tracking 루트의 겹침은 금지한다. 파일별 tracking Project 선택은 두지 않는다.
+- glob은 picomatch, `.gitignore`는 ignore 라이브러리다. 중첩 `.gitignore`도 상대 경로대로 적용하고 OS locale로 결과를 바꾸지 않는다. 정규화·최종 경계 제외 규칙은 유지한다.

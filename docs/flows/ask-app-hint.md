@@ -6,7 +6,7 @@ concerns: [shell/workspace, apps/agent-context, apps/blueprint, apps/runtime, ap
 
 사람이 코딩 테스트 앱에서 코드 입력이나 지난 attempt를 보며 힌트를 요청한다. 사람은 자료를 따로 복사하지 않고, 앱이 허락한 현재 화면과 주석 자리에서만 도움을 받는다.
 
-연결된 intent: apps#I12, shell#I1, lophn-agent/harness#I3, platform#I2, apps#I11.
+연결된 intent: apps#I9, shell#I1, lophn-agent/harness#I3, platform#I2, apps#I7.
 
 ## 흐름
 

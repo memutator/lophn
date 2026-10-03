@@ -108,9 +108,9 @@ core는 정본 action의 concern·command·대상·정확한 입력·CAS와 제�
 
 ## 정할 것
 
-- token 무작위 바이트 수, 인증 hash 알고리즘과 안전한 발급·전달의 OS별 모양.
+- token은 OS CSPRNG 32byte와 검증된 hash·constant-time 비교를 쓴다. OS별 안전 전달 모양은 → platform architecture에서 고정한다.
 - 앱 direct-call 연결·confirm 접수 실행 증명의 서명·전송 모양은 → apps/runtime와 맞춘다.
-- Host 허용 주소 목록과 request·connection·구독의 유한 한도.
+- Host 허용 주소는 실제 port를 포함한 loopback 두 가족(127.0.0.1, ::1, localhost)의 정확한 목록만 쓴다. request·connection·구독의 유한 한도는 → platform/responsiveness와 platform architecture에서 검증해 고정한다.
 
 ## coding credential 전달 결합
 

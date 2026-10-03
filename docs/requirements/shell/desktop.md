@@ -13,17 +13,17 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 **[R1]** 문서·앱 탐색을 기본 화면으로 두고 lophn-agent/conversation의 대화는 결과를 만들고 고치는 보조 패널로 열며 닫아도 문서·앱·변경 기록의 탐색을 유지한다.
 - 이유: 산출물 탐색을 대화 사용 여부에 종속시키지 않는다.
 - 확인: 대화를 한 번도 열지 않거나 닫아도 같은 산출물을 탐색해 연다.
-- 의도: shell#I1, shell#I8
+- 의도: shell#I1
 
 **[R2]** 대화는 오른쪽 400px 패널로 본문을 밀고 320px 정보 패널과 자리를 공유하여 임시로 접으며 본문 480px를 남길 수 없으면 overlay로 바꾸고 닫으면 이전 정보 패널 상태로 돌아간다.
 - 이유: 좁은 창에서도 본문과 입력을 보존한다.
 - 확인: 넓은 창은 본문 옆 패널이고 좁은 창은 overlay이며 native view 처리는 shell/app-frame을 따른다.
-- 의도: shell#I6
+- 의도: shell#I5
 
 **[R3]** lophn-agent/conversation의 결과 링크는 답 아래와 역할 상세의 만든 것에 두고 4개 이상이면 첫 3개·남은 개수·나머지 결과 보기를 배치한다.
 - 이유: 긴 결과 목록이 답을 밀어내지 않게 한다.
 - 확인: 결과 5개 중 처음 3개와 나머지 2개를 모두 열 수 있다.
-- 의도: shell#I8
+- 의도: shell#I1
 
 **[R4]** 역할 목록은 같은 열 배치를 쓰고 상세는 하는 일·만든 것·대화 탭을 공유하며 대화 가능 여부와 표시 내용은 lophn-agent/roles 및 lophn-agent/assignments를 따라 회수된 담당에는 지난 대화만 보여 주고 새 입력창을 두지 않는다.
 - 이유: 역할을 바꿔도 익숙한 위치에서 일을 찾고 소유 concern이 새 요청을 금지한 담당에는 사용할 수 없는 입력을 보이지 않는다.
@@ -38,27 +38,27 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 **[R6]** 질문·approval request 칸은 대화 입력 위에 하나만 두고 blocking 요청 우선·나머지 접수 순서로 현재 번호/전체와 앞뒤 이동을 제공하며 세션 없는 요청도 확인할 것에서 연다.
 - 이유: 여러 결정 요청 사이에서 현재 위치를 잃지 않게 한다.
 - 확인: 여러 요청을 오가도 처리·기한이 바뀌지 않으며 내용은 lophn-agent/questions·platform/approvals를 따른다.
-- 의도: shell#I8, platform#I5
+- 의도: shell#I1
 
 **[R7]** 연결 단절·갱신 실패에는 마지막 화면을 유지해 최신 확인 못함과 확인 시각을 표시하고 재연결 때 현재 기록으로 맞추며 놓친 진행 notification을 연속 재생하지 않는다.
 - 이유: 단절을 빈 결과나 정상 최신값으로 오인하지 않게 한다.
 - 확인: 단절 뒤 기존 내용을 읽고 현재 상태로 복귀하며 결정 제출 gate는 shell/confirmation-window를 따른다.
-- 의도: shell#I1
+- 의도: shell#I5
 
 **[R8]** 작성 중 말·선택 답·커서를 세션 전환·confirmation window·전송 실패·단절에 보존하고 보내는 중·접수됨·못 보냄·접수 확인 안 됨을 구별하여 불명확하면 재전송보다 접수 조회를 먼저 제시한다.
 - 이유: 전송 불명확으로 입력이 사라지거나 중복 접수되지 않게 한다.
 - 확인: confirmation window를 열었다 닫아도 초안과 커서가 남으며 접수 의미는 lophn-agent/conversation·platform/ledger를 따른다.
-- 의도: lophn-agent#I3
+- 의도: shell#I5
 
 **[R9]** 확인할 것은 기다리는 것과 지난 일로 나누고 전자는 요청 종류별 개수와 다음 행동을, 후자는 최신순 링크를 배치하며 역할·기간 filter를 제공한다.
 - 이유: 미처리 결정과 과거 기록을 구별한다.
 - 확인: 목록을 읽는 것만으로 답이나 승인이 제출되지 않으며 내용은 lophn-agent/questions·platform/approvals·platform/notifications를 따른다.
-- 의도: shell#I1, platform#I5
+- 의도: shell#I1
 
 **[R10]** 사람을 부르는 notification은 창 오른쪽 아래 한 칸에서 보기·닫기와 남은 개수를 제공하며 자동 표시가 입력 focus나 현재 문서를 바꾸지 않는다.
 - 이유: 자동 notification이 작업 focus를 빼앗지 않게 한다.
 - 확인: 3건에서 하나와 외 2건을 표시하고 계기·중복 억제는 platform/notifications를 따른다.
-- 의도: platform#I9, shell#I8
+- 의도: shell#I1
 
 **[R11]** 데스크톱 셸은 Electron으로 창·tray·로그인 자동 시작·OS notification 표시·전역 단축키·패키징을 담당하는 얇은 client로 만든다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
@@ -68,12 +68,12 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 **[R12]** lophn은 browser tab이 아니라 설치된 데스크톱 앱으로 연다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
 - 확인: OS에서 열면 데스크톱 창으로 시작한다.
-- 의도: shell#I1
+- 의도: shell#I5
 
 **[R13]** 앱 화면은 WebContentsView로 창 본문에 담고 같은 shell/app-frame 경계의 앱 전용 새 창으로도 연다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 창을 여는 방식이 격리의 예외가 되면 안 된다.
 - 확인: 기본 창과 새 창에서 같은 앱과 격리 규칙을 사용한다.
-- 의도: shell#I1, shell#I4
+- 의도: shell#I5
 
 **[R14]** 앱을 Linux .desktop·macOS app bundle·Windows shortcut으로 등록하여 OS에서 누르면 앱 전용 창을 여는 통합을 지원한다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
@@ -83,27 +83,27 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 **[R15]** Electron main은 하나이며 domain 상태를 직접 쓰지 않고 platform/identity의 사람 token으로 platform/api를 호출한다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
 - 확인: 창 두 개를 열어도 main은 하나이고 domain 쓰기는 API로 전달된다.
-- 의도: platform#I1, platform#I2
+- 의도: shell#I5
 
 **[R16]** shell renderer는 창마다 하나이며 sandbox와 context isolation을 켜고 Node 접근 없이 schema로 제한한 preload만 사용한다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 페이지가 비밀과 자료를 직접 읽지 못하게 한다.
 - 확인: renderer에서 Node·DB·비밀·사람 token을 직접 읽을 수 없다.
-- 의도: platform#I2
+- 의도: shell#I5
 
 **[R17]** Electron main은 npm·TypeScript로 build하고 shell renderer는 Deno workspace에서 SDK를 공유하여 build한다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 앱과 shell이 같은 SDK 계약으로 같은 모양을 쓰게 한다.
 - 확인: main과 renderer가 정한 build 환경에서 각각 생성되고 같은 SDK 계약을 사용한다.
-- 의도: shell#I1, shell#I2
+- 의도: shell#I3
 
 **[R18]** 창 안 명령 팔레트는 CommandOrControl+K, 전역 팔레트는 CommandOrControl+Shift+K, 창 안 런처 복귀는 CommandOrControl+Shift+L로 구별한다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 세 shortcut이 서로 다른 동작을 하여 전역 단축키를 가로채지 않게 한다.
 - 확인: 세 shortcut이 서로 다른 동작을 하고 전역 Ctrl+K를 가로채지 않는다.
-- 의도: shell#I1, shell#I2
+- 의도: shell#I1
 
 **[R19]** renderer의 허용 호출은 API schema에서 생성한 좁은 목록으로 제한하고 임의 token 발급·daemon 종료 통로는 제공하지 않되 coding-agent/connection의 고정 연결 intent는 별도로 검증한다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 화면이 임의 통로로 secret을 만들거나 daemon을 끝내지 못하게 한다.
 - 확인: 임의 발급·종료 호출은 거절되고 연결 화면의 정해진 intent만 통과한다.
-- 의도: platform#I2
+- 의도: shell#I5
 
 **[R20]** 시작할 때 daemon의 lock·프로세스 상태를 확인하여 없으면 bundle된 Deno로 시작 요청을 보내며 daemon 수명·설치는 platform/install-and-update를 따른다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
@@ -113,12 +113,12 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 **[R21]** 창과 Electron 종료는 daemon 중지로 해석하지 않고 tray의 명시 중지 행동을 두며 로그인 자동 시작은 창을 열지 않는 tray mode로 시작한다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
 - 확인: 창 닫기 후 작업이 유지되고 tray 중지만 명시적인 중지 요청을 보낸다.
-- 의도: shell#I1, apps#I5
+- 의도: shell#I5
 
 **[R22]** 기본 sidebar는 240px·접힘 56px·탐색 행 32px, 상단 바는 48px, 최소 창은 960×600px, 본문 여백은 좌우 32px·위 24px로 두고 창 1024px 미만에서는 좌우 16px로 줄인다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 창 크기가 달라도 같은 자리와 여백으로 찾게 한다.
 - 확인: 960×600·1024px 경계에서 정한 치수가 측정된다.
-- 의도: shell#I6
+- 의도: shell#I3
 
 **[R23]** 시스템 제목 표시줄 대신 상단 바를 쓰며 macOS 신호등 자리 약 80px를 비우고 Windows·Linux 오른쪽 창 버튼 자리 138px를 확보하며 조작 요소는 창 끌기에서 제외한다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
@@ -133,27 +133,27 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 **[R25]** 런처에는 48px 창 끌기 바와 프로젝트·앱 카드·프로젝트 등록을 두고 lophn 관리는 바 오른쪽 고정 진입점으로 두어 형제 카드로 만들지 않는다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
 - 확인: 런처 본문에 lophn 관리 카드가 없고 고정 진입점이 있다.
-- 의도: shell#I1, shell#I8
+- 의도: shell#I1
 
 **[R26]** 모든 공간 왼쪽 위에 런처 복귀를 두고 sidebar 접힘 때는 상단 바로 옮기며 카드의 approval 대기 개수는 색이 아니라 글자 pill로 표시한다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 어느 공간에서든 같은 자리에서 런처로 돌아가고 대기 개수를 글자로 읽게 한다.
 - 확인: 접힘 전후 복귀가 가능하고 색 없이도 대기 개수를 읽는다.
-- 의도: shell#I1, shell#I2
+- 의도: shell#I1
 
 **[R27]** 프로젝트·앱 공간의 lophn 크롬은 해당 결정 대기와 daemon 장애 안내에 한정하고 결정 행동은 shell/confirmation-window로 연다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 지금 필요한 안내만 보이고 되돌릴 수 없는 결정은 보호 화면으로만 연다.
 - 확인: 관련 없는 전역 관리 크롬이 본문을 차지하지 않는다.
-- 의도: shell#I8, shell#I3
+- 의도: shell#I1
 
 **[R28]** 프로젝트 작업대에는 프로젝트 폴더·문서·연관 컨텍스트 탐색을, lophn 공간에는 프로젝트·문서·컨텍스트·앱과 확인할 것 탐색을 배치한다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 공간마다 지금 필요한 탐색만 보이게 한다.
 - 확인: documents/projects·documents/contexts의 실제 목록으로 이동하며 없어진 거처·분류 전·컨텍스트 계층은 표시하지 않는다.
 - 의도: shell#I1
 
 **[R29]** 대화 도크를 열면 정보 패널 자리를 임시 대체하고 닫으면 전의 패널 상태를 복원한다.
-- 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
+- 이유: 대화를 열어도 쓰던 패널 상태를 잃지 않게 한다.
 - 확인: R2의 400px 도크와 320px 정보 패널이 동시에 쌓이지 않는다.
-- 의도: shell#I6, shell#I8
+- 의도: shell#I5
 
 **[R30]** 명령 팔레트 결과는 작업대에서 열린 탭·문서·파일·컨텍스트·행동, lophn 공간에서 프로젝트·컨텍스트·문서·앱·행동 순으로 묶는다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
@@ -162,9 +162,8 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 
 ## 열린 질문
 
-- shell/desktop#Q1 Electron·Deno·SQLite 기술 선택을 유지할까(H6)?
-- shell/desktop#Q2 전역 팔레트와 런처 복귀 shortcut의 범위·기능을 구별할까?
-
 ## 버린 것
 
 - 거처·분류 전·시리즈 중심 전용 탐색과 옛 milestone별 UI 제한 — 새 설계의 프로젝트·문서·앱 중심 탐색과 현재 지원 계약으로 대체한다.
+- Electron·Deno·SQLite를 다른 기술로 바꾸기 — 기존 기술 선택을 유지하기로 정했다(R11, R17).
+- 전역 팔레트와 런처 복귀를 같은 shortcut으로 묶기 — 전역 팔레트는 CommandOrControl+Shift+K, 런처 복귀는 CommandOrControl+Shift+L로 구별하기로 정했다(R18).

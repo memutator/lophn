@@ -13,22 +13,22 @@ concerns: [lophn-agent/harness/safety]
 **[R1]** 같은 요청은 tool·대상·입력이 같은 경우로 비교하여 JSON 객체 항목 순서만 무시하고 문자열 공백·배열 순서·빈 값·생략·null·값 종류는 구별한다.
 - 이유: 과도한 정규화로 다른 요청까지 차단하지 않는다.
 - 확인: 객체 순서 변경은 같고 문자열·배열·생략 차이는 다른 요청인지 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
+- 의도: lophn-agent/harness#I2
 
 **[R2]** 같은 run에서 같은 요청의 자동 retry가 모두 끝난 최종 실패를 한 번씩 세어 두 번 실패한 뒤 세 번째 요청은 미실행으로 막고 입력 변경 또는 중단을 안내한다.
 - 이유: model이 실패한 call을 끝없이 반복하지 않는다.
 - 확인: 최종 실패 두 번 뒤 세 번째 실제 진입 0개와 차단 안내를 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
+- 의도: lophn-agent/harness#I2
 
 **[R3]** 실패 수는 해당 요청 성공에만 0으로 돌아가며 다른 요청 성공·실패·model 변경·압축·재시작으로 지워지지 않고 사람 거절·미실행은 실패로 세지 않는다.
 - 이유: 우회와 복구로 실패 경계가 초기화되지 않는다.
 - 확인: 각 변경 뒤 실패 수가 유지되고 동일 요청 성공만 초기화하며 사람 거절은 수를 늘리지 않는지 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
+- 의도: lophn-agent/harness#I2
 
 **[R4]** 반복 실패 차단 안내 뒤 같은 요청을 한 번 더 요구하거나 안전 중단이 확정되면 남은 model·tool 진입을 막고 run을 이유와 함께 끝내며 retry·복구로 차단을 풀지 않는다.
 - 이유: 차단 자체의 반복도 유한하게 끝낸다.
 - 확인: 세 번째 차단 뒤 네 번째 요청에서 run이 끝나고 새 model·tool이 없는지 확인한다.
-- 의도: lophn-agent/harness#I2, lophn-agent/harness#I3
+- 의도: lophn-agent/harness#I2
 
 ### 자료와 지시
 

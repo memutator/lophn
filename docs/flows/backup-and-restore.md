@@ -6,7 +6,7 @@ concerns: [platform/backup-and-migration, platform/install-and-update, platform/
 
 매일의 자동 backup 시각이 되거나, 사람이 backup·restore·앱 export를 요청할 때 시작한다. 플랫폼 자료 복원과 앱 데이터 export, secret의 안전한 이전은 서로 다른 일이다.
 
-지키는 약속: platform#I1, platform#I3, platform#I4, platform#I8, apps#I9, documents#I8.
+지키는 약속: platform#I1, platform#I3, platform#I7, platform#I4, apps#I9, documents#I7.
 
 ## 흐름
 

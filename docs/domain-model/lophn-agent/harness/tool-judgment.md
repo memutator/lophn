@@ -50,6 +50,8 @@ approval 결정과 Run.source를 조회해 계산하는 값이다. 영구 허락
 | 같은 Run 또는 원래 사람 요청의 handoff 계보에서 이미 사람이 거절한 같은 동작·대상·입력 | `deny` | 다시 묻지 않음; 사람의 새 독립 요청은 별도 |
 | 지침 파일·그 문서 Version의 agent 변경, CE의 사람 답 없는 Term 정의 확정, agent의 실제 Preset·Assignment 적용, 문제 닫기·test result 작성·문서 이동·앱 등록·사람 대신 결정 | `deny` | 책임 밖; 대상 concern의 사람·machine 계약만 사용 |
 | 유효한 앱 command이며 confirm=true | `ask` | read·undo 여부와 무관하게 apps/invocations·platform/approvals의 정확한 approval 사용 |
+| 되돌림을 모르는 외부 MCP tool이며 Preset.safe_tools에 그 tool이 없음 | `ask` | external로 보고 묻기; MCP hint·설명은 근거 아님 |
+| 되돌림을 모르는 외부 MCP tool이며 Preset.safe_tools에 그 tool이 있음 | `allow` | 사람이 안전하다고 표시; 역할 상한·confirm=true는 그대로 deny 또는 ask |
 | 유효한 앱 command이며 effect=external | `ask` | 되돌리기 지원 여부와 무관하게 외부 효과 approval |
 | 유효한 앱 command이며 effect=write, blueprint command.revert.supported=true·revert command 검증 | `allow` | 선행 기록 뒤 direct call; 복원 입력·결과 참조 보존 |
 | 유효한 앱 command이며 effect=write, undo 미지원·미확인 | `ask` | 정확한 target·input·release·CAS에 묶어 묻기 |
@@ -62,7 +64,7 @@ approval 결정과 Run.source를 조회해 계산하는 값이다. 영구 허락
 
 ### 앱 판정 근거
 
-ToolCall.app_command binding에 `{effect, confirm, undo_contract?, app_permission_basis, blueprint_hash, release, context_binding?}`의 소유 contract 확인값을 함께 남긴다. 되돌리기 지원 판정은 → apps/blueprint의 `command.revert.supported` 값이며 true일 때 `command.revert.command`가 검증되어야 한다. 성공 결과의 `{invocation,receipt,expected_revision}`는 → apps/runtime, apps/invocations의 contract를 따라 보존한다. 단순 model 주장·설명 문자열·MCP hint는 보장이 아니다. 전체 run revert는 이 receipt로 앱의 revert command를 호출하며 순서·부분 실패는 → lophn-agent/revert가 소유한다. scope·정의·현재 화면·주석 자리 실패는 deny이며 approval로 우회하지 않는다. → apps/agent-context.
+ToolCall.app_command binding에 `{effect, confirm, undo_contract?, app_permission_basis, blueprint_hash, release, context_binding?}`의 소유 contract 확인값을 함께 남긴다. 되돌리기 지원 판정은 → apps/blueprint의 `command.revert.supported` 값이며 true일 때 `command.revert.command`가 검증되어야 한다. 성공 결과의 `{invocation,receipt,expected_revision}`는 → apps/runtime, apps/invocations의 contract를 따라 보존한다. 단순 model 주장·설명 문자열·MCP hint는 보장이 아니다. ticket 취소는 agent tool이 아니며 묻지 않는다. 전체 run revert는 이 receipt로 앱의 revert command를 호출하며 순서·부분 실패는 → lophn-agent/revert가 소유한다. scope·정의·현재 화면·주석 자리 실패는 deny이며 approval로 우회하지 않는다. → apps/agent-context.
 
 `visual.show`는 허용 세션 출력의 append-only 기록이므로 allow이며 메시지를 삭제하는 revert를 요구하지 않는다. `visual.prepare_document`는 read이고 실제 문서 저장은 해당 역할의 document write 판정을 별도로 거친다.
 

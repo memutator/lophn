@@ -45,7 +45,7 @@ project 또는 app에 붙어 preset context로 읽을 자료를 고르는 assign
 **[R7]** 승인한 기존 문서의 새 version은 회차마다 approval request를 다시 묻지 않되 문서 자리·형식을 바꾸거나 선언 밖 문서에 쓰는 것은 허용하지 않는다.
 - 이유: lophn-agent/roles/operator에 따라 assignment 승인으로 범위를 고정한다.
 - 확인: 남길 문서 저장은 진행되지만 다른 문서 저장은 approval request로 우회하지 않고 거절되는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I6
+- 의도: lophn-agent#I4
 
 **[R8]** 사람은 Operator assignment를 직접 선택해 결과 해석·수정과 필요한 의도·취향을 이야기할 수 있지만 그 답으로 정의·범위·주기·tool을 바꾸지 않으며 오래 남길 답은 승인한 문서의 새 version으로만 남긴다.
 - 이유: 업무 답과 반복 책임 변경 승인을 구분한다.
@@ -55,12 +55,12 @@ project 또는 app에 붙어 preset context로 읽을 자료를 고르는 assign
 **[R9]** 해석·판단·본문은 preset model, 제목·이미 있는 내용의 요약은 preset organizing 선택을 쓰며 organizing 선택이 없으면 같은 preset model을 쓰고 실제 provider 계정·model은 판에 고정한다.
 - 이유: 사람이 고른 구성으로 반복 판단과 정리를 수행한다.
 - 확인: Operator 둘의 서로 다른 model·계정이 실제 호출에 반영되고 공통 기본값 변경으로 바뀌지 않는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I5, lophn-agent/harness#I1
+- 의도: lophn-agent#I5
 
 **[R10]** Operator의 반복 실패와 대기 중 회차 처리는 lophn-agent/assignments와 lophn-agent/scheduling을 따르며 실패를 무시하고 계속하는 선택이나 handoff 송수신은 없다.
 - 이유: 멈춘 반복 책임이 다른 계기로 자동 재개되지 않게 한다.
 - 확인: 중단 후 새 회차와 handoff가 시작되지 않고 사람 직접 요청은 현재 assignment 상태 검사에 따르는지 본다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I2
+- 의도: lophn-agent#I4
 
 ### prompt의 관점·기대 결과
 

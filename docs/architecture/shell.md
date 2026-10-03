@@ -206,7 +206,7 @@ shell이 내놓는 최상위 contract는 **confirmation window**, **앱 화면 �
 - session `webRequest.onBeforeRequest`와 CSP에서 network를 기본 차단한다. 자기 scheme·자기 대상과 apps/permissions가 전달한 허용 fetch host만 통과시킨다. URL을 파싱해 port·redirect·WebSocket·subframe에도 적용하고 임의 loopback·file·다른 앱 주소는 거절한다. session 정책은 단일 모듈에 등록해 여러 handler가 덮어쓰지 않게 한다.
 - 문서 CSP는 `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'`이다. resource는 자기 문서 고정 판에서만 proxy한다. worker의 Node integration도 끄며 worker 요청에 session·CSP·대상·network 경계를 그대로 적용하고 요구에 없는 앱 browser worker 금지를 별도로 만들지 않는다.
 - `setWindowOpenHandler`는 deny, permission request/check/device handler는 모두 기본 false, download·fullscreen·webview 삽입·scheme 밖 navigation은 거절한다. 새 창은 main의 검증된 앱 창 intent로만 만든다.
-- 앱의 외부 링크는 HTTP/HTTPS·userinfo 없음·8192자 이하를 검사해 live·preview 모두 OS browser로 바로 연다. shell 크롬의 외부 링크는 confirmation을 거친다. 링크 기록은 origin·path만 남기고 query·fragment를 제거한다.
+- 앱의 외부 링크는 HTTP/HTTPS·userinfo 없음·8192자 이하를 검사해 live·preview 모두 확인 없이 OS browser로 바로 연다. 링크 열기는 되돌릴 수 없는 일이 아니라서 묻지 않는다. shell 크롬의 외부 링크만 confirmation을 거친다. 링크 기록은 origin·path만 남기고 query·fragment를 제거한다.
 
 **native view와 깨진 앱**
 
@@ -285,7 +285,7 @@ core RPC는 platform/api의 `POST /v1/<resource>/<method>`, event는 WebSocket `
 
 `tokens.ts` 하나에서 CSS·TS·문서값을 생성하고 모든 컴포넌트는 생성 token만 사용한다. token-only lint는 색·길이·시간·굵기·z-index·breakpoint·없는 token 참조를 막는다. theme override는 이름 추가·삭제 없이 값만 검증하고 실패한 값만 기본값으로 돌아간다. 전역 검증 결과를 shell과 앱 session에 같은 CSS 변수 집합으로 적용하되 보호 창은 설치 컴포넌트와 검증된 값만 사용한다.
 
-gallery는 컴포넌트·화면의 light·dark·좁은 폭·empty·loading·error 여섯 경우를 먼저 등록한다. 사람이 채택한 screenshot을 회귀 기준으로 저장한다. 접근성·대비·reduced-motion·키보드 focus 복원, 읽기/편집 첫 블록 위치 차이 4px 이하, 떠 있는 UI·경계 drag 중 앱 view가 사라지지 않음, 보호 창 열림 중 부모 창·앱 view 입력 차단을 별도 테스트한다. 차트 palette 변경 검증은 shell/design-system의 정한 값을 검사하며 새 색이나 차트 정책을 여기서 만들지 않는다.
+gallery는 컴포넌트·화면의 light·dark·좁은 폭·empty·loading·error 여섯 경우를 먼저 등록한다. 사람이 채택한 screenshot을 회귀 기준으로 저장한다. 키보드 focus 복원, 읽기/편집 첫 블록 위치 차이 4px 이하, 떠 있는 UI·경계 drag 중 앱 view가 사라지지 않음, 보호 창 열림 중 부모 창·앱 view 입력 차단을 별도 테스트한다. 접근성(screen reader, 대비 검증, reduced-motion)은 범위 밖이라 테스트하지 않는다. 차트 palette 변경 검증은 shell/design-system의 정한 값을 검사하며 새 색이나 차트 정책을 여기서 만들지 않는다.
 
 고정 UI 문구는 `renderer/wording/`의 en-only catalog와 shared 타입으로 main·shell·overlay·confirmation renderer에 전달한다. 모든 고정 문구는 shell/wording#R14의 `<screen>.<part>.<name>` key·ICU MessageFormat을 쓰며 날짜·숫자·상대 시각은 Intl API로 formatting한다. locale을 더할 때 같은 key의 catalog를 더하고 문장 조각을 이어 붙이지 않는다. 문구 검사는 직접 문자열·없는 key·빠진 en 값·placeholder 불일치를 오류로, 사용자 화면의 ID 접두사·snake_case·원시 enum·ledger·release·invocation·assignment 같은 안쪽 개념 이름을 경고로 처리한다. 문서·코드·별도 개발자 diagnostics는 이 경고에서 제외한다. 화면 말의 mapping과 자유 글·고정 문구 구분은 ui-ux/README.md#3,#4를 따른다. agent 자유 글은 key로 만들지 않고 en 언어 규칙만 지킨다. 기본 안내는 짧고 직접적인 1~2문장·영향·다음 행동 하나, 버튼·제목은 마침표 없음이다. 문제 문구는 problems가 확정한 값을 그대로 쓰며 shell이 placeholder·앱 이름을 다시 합성하지 않는다. 앱 기본 안내·tooltip·사용자 상세에 stack·log·원문 오류를 넣지 않는다.
 
@@ -413,7 +413,7 @@ scene별 loading은 300ms 이후 해당 자리를 유지한 skeleton으로만 �
 
 ## 9. 이전과 달라진 것
 
-- 이전: 작업대는 문서 탭만 갖고 앱과 문서는 나란히 놓지 않으며 focus native view만 표시했다. / 지금: 문서·터미널·앱 패널을 같은 탭 줄과 두 칸에 놓고 각 경계의 native view를 동시에 표시한다. / 이유: shell#I7에 맞추며 입력 focus와 표시 여부를 구별한다.
+- 이전: 작업대는 문서 탭만 갖고 앱과 문서는 나란히 놓지 않으며 focus native view만 표시했다. / 지금: 문서·터미널·앱 패널을 같은 탭 줄과 두 칸에 놓고 각 경계의 native view를 동시에 표시한다. / 이유: shell#I2에 맞추며 입력 focus와 표시 여부를 구별한다.
 - 이전: shell domain model은 없었다. / 지금: workspace의 UI layout·현재 보기 값과 terminal의 PTY runtime 값을 정의하고 ledger 표는 만들지 않는다. / 이유: 복원할 UI 편의와 업무 정본·출력·권한을 분리한다.
 - 이전: 세션은 글·결과 링크만 표시했다. / 지금: 검증된 선언형 SDK 블록·격리 문서·앱 카드 frame을 답 안에 놓는다. / 이유: 시각 자료를 읽되 agent 코드가 shell 실행 권한을 얻지 않게 한다.
 

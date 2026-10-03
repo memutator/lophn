@@ -103,9 +103,9 @@ provider·외부 MCP credential 참조·판은 각각 → lophn-agent/harness/pr
 
 ## 정할 것
 
-- secret name 문법·길이와 OS keychain adapter의 불투명 참조 모양.
+- secret name 문법·길이와 OS keychain adapter의 불투명 참조 모양. keychain이 없거나 잠기면 secret 기능만 사용 불가로 두고 파일 볼트는 쓰지 않는다.
 - OS 삭제·프로세스 종료 미완료 결과의 지속 보관과 재시도 key. 현재 참조 교체 성공과 정리 완료를 합치지 않는다.
-- H1의 남은 부분은 → apps/automations#R13이다. 첫 판 automation은 external·confirm을 선언·실행하지 못하고 가져오기·동기화 read·write의 secret 사용은 grant를 따른다. secret 사용 자체를 금지하지 않는다.
+- automation은 사람이 켤 때 command·입력·주기를 한 번 승인한 external·read·write의 secret 사용을 grant로 판단한다. confirm=true command만 automation에서 뺀다(→ apps/automations). secret 사용 자체를 금지하지 않는다.
 
 ## coding connection 보호 준비
 

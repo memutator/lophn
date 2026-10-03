@@ -4,7 +4,7 @@ concerns: [platform/install-and-update, platform/security, platform/settings, pl
 ---
 # lophn을 설치하고 처음 연다
 
-처음 lophn을 쓰거나 새 컴퓨터에 설치하는 사람이 시작한다. 설치와 로컬 자료 사용을 agent 연결 준비와 구별한다. 이 흐름은 platform#I4·platform#I6·shell#I8·shell#I9를 지킨다.
+처음 lophn을 쓰거나 새 컴퓨터에 설치하는 사람이 시작한다. 설치와 로컬 자료 사용을 agent 연결 준비와 구별한다. 이 흐름은 platform#I7·platform#I1·shell#I1·shell#I5를 지킨다.
 
 ## 흐름
 

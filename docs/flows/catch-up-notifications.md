@@ -6,7 +6,7 @@ concerns: [platform/notifications, platform/approvals, lophn-agent/questions, lo
 
 사람이 일하는 동안 notification을 받거나, 한동안 닫아 둔 lophn으로 돌아와 놓친 결과와 필요한 결정을 찾을 때 시작한다. notification을 보는 일은 결정을 내리거나 끝난 일을 다시 실행하는 일이 아니다.
 
-지키는 약속: platform#I9, platform#I5, shell#I1, shell#I8.
+지키는 약속: platform#I6, platform#I5, shell#I1.
 
 ## 흐름
 

@@ -57,7 +57,7 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 **[R9]** agent 티켓 tool은 coding-agent/tickets의 허용 읽기·생성만 제공하고 claim·연장·완료 보고·release 연결은 coding-agent/mcp-server를 가리킨다.
 - 이유: agent가 coding agent의 작업 증거를 대신 작성하지 않는다.
 - 확인: agent 목록에는 읽기·생성만 있고 claim·완료·release 연결이 없는지 확인한다.
-- 의도: lophn-agent#I6
+- 의도: lophn-agent#I2
 
 **[R10]** preset·assignment tool은 구성·판·담당 현황 읽기와 초안·approval request 제출만 제공하고 실제 생성·변경·적용은 사람 결정의 owner command로만 하며 agent가 직접 적용하지 못한다.
 - 이유: 제안과 사람의 실제 적용을 구별한다.
@@ -69,12 +69,12 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 **[R11]** 결과는 확인된 성공·실패·효과 불명확을 구별하여 한 줄 요약·구조화 내용·호출 대응·완전 여부·아직 적용되지 않은 단계를 반환한다.
 - 이유: 접수나 불명확을 완료로 보이지 않는다.
 - 확인: 성공·실패·응답 유실·접수만 된 쓰기의 결과가 각각 구별되는지 확인한다.
-- 의도: lophn-agent#I7, lophn-agent/harness#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 **[R12]** 실패는 잘못된 입력·권한 거절·없는 대상·version 충돌·일시 사용 불가·동작 실패를 기계가 구별하는 종류와 안전한 한 문장으로 반환하고 retry는 lophn-agent/harness/run-loop에 맡긴다.
 - 이유: 권한 밖 정보 노출 없이 실패 이유를 되짚는다.
 - 확인: 각 오류를 구별하며 범위 밖 대상의 이름·존재와 오류 원문이 노출되지 않는지 확인한다.
-- 의도: lophn-agent#I7, lophn-agent/harness#I3
+- 의도: lophn-agent#I7, lophn-agent/harness#I2
 
 ### 결과 크기
 
@@ -110,17 +110,17 @@ tool 정의·목록·입력 검사·효과 분류·결과와 크기·읽기 후�
 **[R18]** 앱 context 상세 읽기와 힌트·주석 되쓰기는 apps/agent-context가 선언한 read·write command를 그대로 사용하며 앱이 허락한 화면·자리·현재 화면 기준 밖의 되쓰기는 거절한다.
 - 이유: 별도 DOM 조작이나 임의 입력 통로를 만들지 않는다.
 - 확인: 선언된 자리의 힌트는 반영되고 화면 변경·선언 밖 자리은 거절되는지 본다.
-- 의도: lophn-agent#I1
+- 의도: lophn-agent#I10
 
 **[R19]** 시각 블록 tool은 lophn-agent/visuals의 선언형 명세 검사·세션 메시지 기록·확정 명세 읽기·문서 본문 준비만 제공하며 문서 저장은 기존 문서 tool로 별도 수행한다.
 - 이유: 그림 준비와 실제 문서 저장을 같은 성공으로 보이지 않는다.
 - 확인: 준비만 한 결과에는 Document·Version 생성 링크가 없고 저장 후에만 실제 링크가 생기는지 본다.
-- 의도: lophn-agent#I1
+- 의도: lophn-agent#I9
 
 **[R20]** lophn의 기능·설정 안내 tool은 동봉 안내와 platform/settings의 공개 정의·현재 적용값·출처·제약을 읽기만 하고 설정 변경 command를 agent에게 직접 제공하지 않는다.
 - 이유: 설정 설명과 사람의 선택 적용을 분리한다.
 - 확인: 설정 조회에 secret 값이 없고 변경은 lophn-agent/questions의 option action으로만 적용되는지 본다.
-- 의도: lophn-agent#I7, lophn-agent/harness#I3
+- 의도: lophn-agent#I3
 
 ## 버린 것
 

@@ -79,19 +79,14 @@ concerns: [problems/feedback]
 **[R13]** feedback 제출 화면은 기존 문제 선택 여부를 명시적으로 보여 주고 제출한 뒤 problems/grouping의 묶기 결과로 돌아갈 수 있게 한다.
 - 이유: 사람이 추가 제보를 어디에 남겼는지 확인할 수 있어야 한다.
 - 확인: 선택한 기존 문제와 선택하지 않은 제출을 각각 보내면 problems/grouping이 정한 문제를 열 수 있다.
-- 의도: problems#I2, problems#I3
+- 의도: problems#I2
 
 **[R14]** “직접 해 봤지만 안 됩니다”는 새 feedback으로 남기며 무시·오탐 판단과 수리 확인은 problems/closing의 사람 결정과 구별한다.
 - 이유: 실패 경험을 닫힘이나 별도 자동 오탐 수리로 바꾸지 않는다.
 - 확인: 직접 시도 실패 제보는 새 보고이고 무시·오탐 동작은 보호된 종료 사유를 남기며 자동 오탐 문제가 생기지 않는다.
-- 의도: problems#I2, problems#I5
+- 의도: problems#I2, problems#I3
 
 ## 열린 질문
-
-- problems/feedback#Q1 자동 준비한 screenshot과 화면 상태의 기본 포함 범위를 유지할까.
-- problems/feedback#Q2 feedback 원문·metadata·미완료 수 quota를 얼마로 제한할까.
-- problems/feedback#Q3 최근 read command 8개·각 20행/16KiB 및 invocation 10개·오류 20개를 화면 상태에 자동 붙일까.
-- problems/feedback#Q4 자동 캡처한 screenshot을 사람 선택 없이 첨부하던 규칙을 유지할까.
 
 ## 버린 것
 

@@ -129,6 +129,6 @@ bundle 안의 manifest이며 release에 별도 mutable 표로 복제하지 않�
 
 ## 정할 것
 
-- **H2.** coding agent 요청의 모든 activation에 approval을 요구할지 특정 변경만 요구할지 정한다. 현재 표는 모든 activation에 요구한다.
+- 새 release의 activation은 사람이 한 번 눌러 고른다. coding agent가 준비해도 정확한 대상 release에 대한 사람 approval 없이는 활성화하지 않는다.
 - 다른 schema의 이전 release에 시험한 호환 범위를 허용할지 정한다. 현재는 같은 schema만 바로 허용한다.
 - 선언 삭제·완화와 machine 생성 파일 변경의 경고/거절 검사 위치·대상을 problems/problem-codes, problems/tests와 맞춘다. 삭제는 problem 닫힘 증거가 아니다.

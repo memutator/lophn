@@ -187,10 +187,10 @@ ledger 밖 derived store에만 둔다.
 - **event 전달.** seq 오름차순, 적어도 한 번 전달이다. 느린 구독자는 끊고 마지막 처리 위치에서 재연결한다. 오래된 event를 조용히 건너뛰지 않는다.
 - **derived store.** 같은 data root의 `H/derived/`에 결과와 처리 위치를 같은 로컬 transaction으로 둔다. 고정 판·생성 방식이 key이며 재생성은 완성본 교체다. 삭제해도 원본·고정 판·ID·사람의 주석·확정 결정은 바뀌지 않는다.
 - **derived 최신성.** source 판과 반영 위치를 반환한다. 일부 생성 성공을 전체 최신으로 표시하지 않는다. model 요약은 원문 대체가 아니며 동일 출력으로 재생성 가능하다고 가정하지 않는다.
-- **보존.** event와 확정 command 결과는 임의 삭제하지 않는다. 큰 본문 삭제는 → platform/blob-store와 해당 내용 소유 concern의 정책이 확정된 뒤에만 한다.
+- **보존.** event와 확정 command 결과는 기간·용량으로 삭제하지 않는다. model 호출 본문·snapshot 첨부·trace 본문·운영 log 같은 큰 자료의 blob은 용량 상한을 넘으면 오래된 것부터 정리한다(→ platform/blob-store#R13).
 
 ## 정할 것
 
-- command JSON 크기·깊이·항목 수, 영향 행 수, 읽기·queue·구독 한도와 기한.
-- 정규화 요청 지문의 직렬화 방식과 idempotency key의 길이 한도.
-- 확정 command 결과는 → platform/ledger#R10에 따라 기간으로 삭제하지 않는다. 향후 공간 정책이 필요해도 옛 key를 새로운 효과로 받아들이는 정리는 불가하다.
+- command JSON 크기·깊이·항목 수, 영향 행 수, 읽기·queue·구독 한도와 기한은 무제한 금지와 제어 요청 여유를 먼저 두고 → platform/responsiveness의 검증 부하로 기본값을 고정한다.
+- 정규화 요청 지문은 RFC8785, seq는 십진 문자열, hash는 sha256을 공통으로 쓴다. idempotency key의 길이 한도는 → platform architecture와 맞춘다.
+- 확정 command 결과는 → platform/ledger#R10에 따라 기간·용량으로 삭제하지 않는다. 저장 공간이 부족하면 신규 변경을 제한하고 옛 key를 새로운 효과로 받아들이는 정리는 하지 않는다.

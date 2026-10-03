@@ -13,7 +13,7 @@ concerns: [apps/invocations]
 **[R1]** 일반 앱 호출은 apps/runtime의 직접 호출 통로에서 응답하고 invocation 기록은 응답 뒤 비동기로 남긴다.
 - 이유: ledger 지연이 앱 업무 응답까지 붙잡지 않게 한다.
 - 확인: 기록 저장을 지연시켜도 화면·CLI·agent의 일반 호출 응답이 먼저 돌아오고 그 뒤 기록이 반영된다.
-- 의도: apps#I5, platform#I3
+- 의도: apps#I5
 
 **[R2]** 확인이 필요한 명령, 업무 변경·외부 효과 명령, automation의 읽기 포함 모든 호출, 실패·거절된 읽기 명령, 앱 시작과 데이터 변경은 invocation을 남기되 화면 byte 조회와 성공한 일반 읽기는 매번 남기지 않는다.
 - 이유: 수리에 필요한 변경과 실패는 남기면서 성공 조회의 과다 기록을 피한다.
@@ -45,12 +45,12 @@ concerns: [apps/invocations]
 **[R7]** 사람 확인이 필요한 명령은 호출자 종류와 관계없이 사람이 확인한 정확한 release·명령·기본값을 적용한 입력에 묶인 approval을 실행 직전의 접수와 함께 한 번만 사용한다.
 - 이유: apps/invocations에 따라 승인하지 않은 판이나 입력과 중복 호출에 사람 결정을 쓰지 않는다.
 - 확인: 승인과 접수 저장이 함께 확정되기 전 handler는 호출되지 않고 저장 실패에서는 실행되지 않으며 같은 접수 재전송은 기존 접수만 반환한다.
-- 의도: platform#I7
+- 의도: apps#I5
 
 **[R8]** 접수 뒤 같은 confirm 호출을 재전송하거나 프로세스를 다시 시작해도 handler를 중복 실행하지 않고 release·명령·입력이나 프로세스가 달라지면 원래 확인으로 실행하지 않는다.
 - 이유: 응답 유실과 프로세스 교체가 한 번 승인한 효과를 다시 만들지 않게 한다.
 - 확인: 같은 접수를 동시에 보내면 handler가 1회만 돌며 옛 프로세스의 실행 증명을 새 프로세스에 보내거나 입력을 바꾸면 거절된다.
-- 의도: platform#I7
+- 의도: apps#I5
 
 **[R9]** confirm 접수는 실제 시작과 구분해 보여 주고 시작과 결과는 실제 관측 뒤 후행 기록으로 남긴다.
 - 이유: 먼저 저장한 접수를 이미 실행했다는 증거로 꾸미지 않는다.
@@ -87,35 +87,31 @@ concerns: [apps/invocations]
 **[R15]** invocation 상세와 요약은 platform/redaction을 따르며 문서 저장을 포함한 명령의 저장 성공은 documents/versions를 따른다.
 - 이유: 후행 관측이 비밀을 노출하거나 invocation 기록만으로 문서 저장 성공을 대신하지 않는다.
 - 확인: 실패 상세에서 secret 원값을 찾을 수 없으며 문서 확정이 실패하면 invocation 전달 여부와 무관하게 문서 저장 성공이라고 응답하지 않는다.
-- 의도: platform#I2, documents#I2
+- 의도: apps#I5
 
 ### 다른 앱과 agent 출처
 
 **[R16]** 다른 앱 또는 agent가 부른 invocation은 인증된 부른 앱과 당시 release 또는 agent run과 tool call을 남기며 알려진 부모 invocation은 연결하고 모르는 출처를 만들어 채우지 않는다.
 - 이유: 대상 앱의 결과에서 누가 어떤 업무로 호출했는지 되짚는다.
 - 확인: A→B와 agent→B 기록을 구별하고 A release 교체 뒤에도 당시 출처가 유지되며 부모 기록이 없으면 없음으로 보인다.
-- 의도: apps#I11, apps#I5
+- 의도: apps#I7, apps#I5
 
 **[R17]** 앱 쌍 허락과 agent 허락은 invocation의 원래 caller를 사람으로 바꾸지 않고 confirm approval의 사람 결정과 실제 요청자를 따로 남긴다.
 - 이유: 사람이 허락했다는 사실과 사람이 직접 호출했다는 사실을 섞지 않는다.
 - 확인: agent나 A가 요청한 confirm 호출을 사람이 승인해도 요청자는 agent나 A이고 approval은 별도 참조다.
-- 의도: apps#I11, apps#I5
+- 의도: apps#I7, apps#I5
 
 **[R18]** 다른 앱과 agent가 부른 일반 command도 R1·R2의 후행 기록과 기록 대상 규칙을 따르며 confirm은 호출자 종류와 관계없이 정확한 대상·입력의 approval을 선행 접수에 한 번 사용한다.
 - 이유: 새로운 caller가 응답 지연·유실·중복 실행 규칙을 바꾸지 않는다.
 - 확인: A→B와 agent→B의 일반 성공 read에는 매번 기록이 생기지 않고 write 기록은 응답 뒤 남으며 confirm 접수 저장 실패에는 handler가 실행되지 않는다.
-- 의도: apps#I11, platform#I7
+- 의도: apps#I7
 
 **[R19]** confirm 실행 marker는 프로세스당 4096개, 후행 기록 전달 목록은 전체 4096 메시지 또는 8MiB 중 먼저 닿는 한도, redaction한 summary는 UTF-8 최대 16KiB로 제한하고 전달의 unavailable만 1초·2초·4초부터 최대 30초 backoff로 재전송한다.
 - 이유: R5·R8의 유한 메모리와 중복 실행 방지를 실제 한도로 검사한다.
 - 확인: marker가 가득 차면 유효한 기존 marker를 버리지 않고 새 접수를 거절하며 전달 한도 초과는 안전한 손실 진단을 남기고 unauthorized·conflict·invalid_input은 반복하지 않는다.
-- 의도: apps#I5, platform#I3
+- 의도: apps#I5
 
 ## 열린 질문
-
-- apps/invocations#Q1 일반 후행 기록을 현재 제한된 메모리 재전송보다 더 오래 보장할 durable 전달 보관이 필요한가?
-- apps/invocations#Q2 전체 운영 통계를 위한 호출·실행 기회·실패 분모와 계측 공백의 별도 집계를 제공할까?
-- apps/invocations#Q3 confirm 실행 증명의 기한을 platform/identity와 얼마로 정하고 R19의 marker·전달 용량·summary·backoff 기본값을 실측 뒤 조정할 필요가 있을까?
 
 ## 버린 것
 

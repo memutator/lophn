@@ -79,4 +79,4 @@ migration은 정상 domain command가 아니라 정지 유지보수다. event·I
 
 - backup manifest 교환 구조·상대 경로의 구현 contract는 → platform architecture와 맞춘다. 정기 backup은 매일 1회·최근 완료 7개다.
 - migration 전 backup의 명시 삭제 UI·안전한 삭제 관측 방법. 명시 삭제까지 보존하며 물리 흔적 제거는 보장하지 않는다.
-- 전체 컴퓨터 이전에 앱 DB·원본·keychain을 묶는 범위와 쓰기 정지 조건.
+- 전체 컴퓨터 이전에 앱 DB·원본·keychain을 묶는 범위와 쓰기 정지 조건. 여러 컴퓨터 동기화는 첫 판에 없다(→ platform/backup-and-migration#R19).

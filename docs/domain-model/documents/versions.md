@@ -192,9 +192,9 @@ project_file과 instruction_file의 tagged union이다.
 
 ## 정할 것
 
-- 독립 산출물 가족은 → documents/series의 채택한 모델을 따른다; Operator 출력 범위를 독립 문서로 넓힐지는 별도 결정이다.
-- 문서·판 영구 삭제를 추가할지. 추가 시 고정 근거·address 예약·blob 보존 규칙도 함께 정한다.
-- 정규화 파일 목록의 canonical JSON encoding과 content_hash 입력 필드 집합. 준비 처리와 blob 참조 검증이 같은 규약을 사용해야 한다.
+- 독립 산출물 가족은 → documents/series를 따른다. Operator는 기존 출력 Document에 새 Version만 쓴다.
+- 문서·판 영구 삭제는 두지 않는다. 보관만 제공하고 고정 근거·address 예약·blob은 남긴다.
+- content_hash는 고정 필드 JSON을 codepoint 순으로 정렬한 UTF-8의 SHA-256이다. 준비 처리와 blob 참조 검증이 같은 규약을 쓴다.
 
 ## 지침 FileSource와 write 보호
 

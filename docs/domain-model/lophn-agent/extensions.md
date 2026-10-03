@@ -91,7 +91,7 @@ platform 설정에 들어가는 값이며 독립 domain entity·접두사는 없
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `effect` | `read / write / external` | 아니오 | user 명시; 다중 효과는 external > write > read | 실제 영향 |
+| `effect` | `read / write / external` | 아니오 | user 명시; 다중 효과는 external > write > read; 미분류는 external | 실제 영향 |
 | `schema_hash` | sha256 | 아니오 | 이름·설명·입력 schema·MCP 행동 hints 기준 | 분류가 묶인 정의 |
 | `reversible` | boolean | 아니오 | false 기본; user 선언만으로 보장하지 않음; contract 검증 필요 | 되돌림 보장 |
 
@@ -133,7 +133,7 @@ platform 설정에 들어가는 값이며 독립 domain entity·접두사는 없
 - **HTTP 인증.** secret은 인증을 붙이는 경계에서만 사용한다. TLS 검증 해제 없음; redirect에는 인증 헤더 제거. OAuth는 Authorization Code+S256 PKCE·브라우저·loopback 반환이며 발급자·대상에 묶고 credential별 동시 갱신은 하나다.
 - **연결 상한.** 연결 30000ms, 모든 tool list page 합산 30000ms, call 기본 60000ms. 끊김 재연결은 1000·2000·4000ms 뒤 최대 3회; 소진 뒤 user 재연결·설정 변경까지 대기. auth 거절 자동 재연결 없음. 이미 전달한 call은 재전송하지 않는다.
 - **수명.** assignment 사용 종료·서버 제거·disabled·선택 회수·데몬 종료는 해당 (assignment, server) 새 call 즉시 금지, 진행 call 취소 요청 뒤 연결 종료. stdio 정상 종료 5000ms 뒤 남으면 강제 종료. 실제 효과는 취소 성공으로 추정하지 않는다.
-- **목록.** MCP 판 협상 및 전체 page 수신·중복 이름·반복 cursor·schema 검증이 모두 끝난 뒤만 제공한다. 변경 통지·재연결에서 전체 재조회. 새 tool은 미분류 write로 취급하되 되돌림 보장 미확인이면 allow로 추정하지 않는다. 이름·설명·input·MCP 행동 hints 변경은 옛 분류를 무효화하고 없어진 tool은 즉시 call 금지다.
+- **목록.** MCP 판 협상 및 전체 page 수신·중복 이름·반복 cursor·schema 검증이 모두 끝난 뒤만 제공한다. 변경 통지·재연결에서 전체 재조회. 되돌림을 모르는 새 tool은 external로 보고 묻는다. 사람이 preset에서 그 tool을 안전하다고 표시하면 묻지 않는다. MCP hint·설명으로 분류하거나 allow로 추정하지 않는다. 이름·설명·input·MCP 행동 hints 변경은 옛 분류를 무효화하고 없어진 tool은 즉시 call 금지다.
 - **외부 이름.** `ext_` + server 이름 + `_` + 원래 tool 이름을 지원 문자로 canonicalize하여 최대 64자로 만든다. 충돌·축약이면 원래 server·tool 쌍의 SHA-256 앞 8자 suffix를 붙인다. 그래도 충돌이면 등록 거절한다. 원래 이름·server·설정 판을 ToolCall에 보존한다. → lophn-agent/harness/tools.
 - **판정.** 목록 노출은 실행 허용이 아니다. 현재 역할·scope·효과·input·되돌림 보장으로 call마다 → lophn-agent/harness/tool-judgment. 결과는 data로 포장하며 secret·코드·웹 검색·subagent 금지를 우회하지 않는다.
 

@@ -104,7 +104,7 @@ concerns: [problems/grouping]
 | `ProblemObserved` | Problem ID | `report`, `release?`, `active_release_at_acceptance?`, `previous_status` | problems/closing, coding-agent/repair-context |
 | `ProblemWorkStarted` | Problem ID | `ticket`, `claim_seq`, 근거 ticket event seq | coding-agent/tickets, coding-agent/repair-context |
 | `ProblemWorkEnded` | Problem ID | `ticket`, 종료 사유, 근거 ticket event seq | coding-agent/tickets, coding-agent/repair-context |
-| `ProblemInterpretationLinked` | Problem ID | `previous` 참조?, `current` 참조? | coding-agent/repair-context, lophn-agent/roles/app-engineer |
+| `ProblemInterpretationLinked` | Problem ID | `previous` 참조?, `current` 참조? | coding-agent/repair-context, lophn-agent |
 
 ## 정책
 

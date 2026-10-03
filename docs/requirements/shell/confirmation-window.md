@@ -20,12 +20,12 @@ concerns: [shell/confirmation-window]
 **[R2]** approval request 미리보기에는 확인하기만 두고 confirmation window는 최대 640px에서 대상·변경 → 영향·위험 → revert 가능 → 결정 순으로 지금 결정에 필요한 내용만 기본 배치하며 주체·시각·이유·근거·상세 전후는 필요할 때 펼쳐 보고 좁으면 창 안에 맞춘다.
 - 이유: 결정에 필요한 정보를 먼저 읽고 복잡한 근거는 필요할 때만 펼치게 한다.
 - 확인: 640px 및 좁은 창에서 기본 순서가 같고 상세를 펼쳐 읽을 수 있으며 배경 조작은 막힌다.
-- 의도: shell#I3, shell#I8
+- 의도: shell#I1
 
 **[R3]** 전후는 현재·바뀐 뒤를 세로 배치하고 문서는 바뀐 문단과 앞뒤 1문단에 추가·삭제 표지를 붙이며 설정은 변경 항목과 값을 보이고 전체·code diff는 별도 펼침으로 둔다.
 - 이유: 기본 확인을 patch 읽기로 만들지 않는다.
 - 확인: 색 없이 추가·삭제·생략·자료 부재를 구별하고 긴 줄은 잘리지 않는다.
-- 의도: shell#I3, shell#I8
+- 의도: shell#I1
 
 ### focus와 제출
 
@@ -37,7 +37,7 @@ concerns: [shell/confirmation-window]
 **[R5]** 열 때 결정 대상을 독립 재조회하여 platform/approvals·lophn-agent/questions의 일치 검사가 끝날 때까지 제출을 막고 대상 변경·다른 결정·조회 실패에는 옛 행동을 제거하여 이유와 최신 내용 경로만 남긴다.
 - 이유: 오래된 미리보기를 최신 결정으로 제출하지 않는다.
 - 확인: 목록을 연 뒤 대상을 바꾸거나 연결을 끊으면 옛 버튼으로 결정할 수 없다.
-- 의도: shell#I3, platform#I7
+- 의도: shell#I5
 
 ### 보호 경계
 
@@ -46,9 +46,9 @@ concerns: [shell/confirmation-window]
 - 확인: confirmation window가 열린 동안 뒤의 앱 view가 그대로 보이지만 click·키 입력이 전달되지 않고 앱 view가 confirmation window 위에 그려지는 frame이 없다.
 - 의도: shell#I3
 
-**[R7]** confirmation window는 설치된 lophn 코드만 사용하여 사용자 slot·fork로 바꾸지 못하고 사용자 theme은 shell/design-system의 접근성·대비를 통과한 값만 적용한다.
+**[R7]** confirmation window는 설치된 lophn 코드만 사용하여 사용자 slot·fork로 바꾸지 못하고 사용자 theme은 shell/design-system이 검증한 token 값만 적용한다.
 - 이유: 결정 버튼이나 대상을 사용자 컴포넌트가 위장하지 못하게 한다.
-- 확인: slot·fork를 지정해도 보호 화면은 바뀌지 않고 대비 실패 값은 기본값으로 남는다.
+- 확인: slot·fork를 지정해도 보호 화면은 바뀌지 않고 검증에 실패한 값은 기본값으로 남는다.
 - 의도: shell#I3
 
 ### 배치
@@ -63,7 +63,7 @@ concerns: [shell/confirmation-window]
 **[R9]** 확인 제출은 platform/identity가 검증한 해당 화면의 일회 handle만 사용하고 창 재사용·닫힘·다른 결정에 같은 확인을 재전송하지 않는다.
 - 이유: 화면 조작 한 번이 여러 결정을 만들지 않아야 한다.
 - 확인: 같은 handle의 두 번째 제출이 새 결정을 만들지 않는다.
-- 의도: shell#I3, platform#I7
+- 의도: shell#I5
 
 ### 배치
 
@@ -74,11 +74,9 @@ concerns: [shell/confirmation-window]
 
 ## 열린 질문
 
-- shell/confirmation-window#Q1 TTY의 직접 확인도 사람 승인으로 인정할까(H5)?
-- shell/confirmation-window#Q2 MCP sampling·elicitation을 승인 흐름에 쓸까?
-- shell/confirmation-window#Q3 앱 동작 전후를 설명·안전 preview 중 무엇으로 보여 줄까?
-
 ## 버린 것
 
 - 같은 사람 결정 경로의 중복 요구 — R1의 보호 화면 요구에 합친다.
 - confirmation window를 띄우기 전 모든 native view 숨김 — 별도 modal 창이면 앱 view가 덮을 수 없고 숨김의 UX 손해가 더 커서 버린다(R6).
+- TTY·CLI의 직접 확인과 MCP sampling·elicitation을 사람 승인으로 인정 — 승인은 confirmation window에서만 받기로 정해 두지 않는다(R1).
+- 앱 동작 전후를 안전 preview로만 표시 — 설명을 기본으로 하고 안전한 preview는 있을 때만 더하기로 정해 설명을 기본으로 둔다(R10).

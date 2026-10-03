@@ -136,8 +136,8 @@ draft는 가족 안의 준비 값이며 Document나 Version entity가 아니다.
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `series.create` | `user` | `id, place, name, title, format, order, next_rule`, idempotency key | ID·이름 미존재; 활성 place; format·order·rule 유효 | `SeriesCreated` | `invalid_input`, `conflict`, `forbidden` |
-| `series.update` | `user` | `series, title?, format?, order?, next_rule?`, 준비된 정렬 값 | base_revision; active; 현재 멤버 형식·근거 판 일치 | `SeriesUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
+| `series.create` | `user`, 허용된 `coding_agent`, `app` | `id, place, name, title, format, order, next_rule`, idempotency key | ID·이름 미존재; 활성 place; format·order·rule 유효 | `SeriesCreated` | `invalid_input`, `conflict`, `forbidden` |
+| `series.update` | `user`, 허용된 `coding_agent`, `app` | `series, title?, format?, order?, next_rule?`, 준비된 정렬 값 | base_revision; active; 현재 멤버 형식·근거 판 일치 | `SeriesUpdated` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `series.set_draft` | `user` | `series, draft` | base_revision; active; key·예정 ID·base_version·FormatRef 유효 | `SeriesDraftSet` | `invalid_input`, `not_found`, `conflict`, `forbidden` |
 | `series.clear_draft` | `user` | `series` | base_revision; active; draft 존재 | `SeriesDraftCleared` | `not_found`, `conflict`, `forbidden` |
 | `series.add_instance` | `user`, 허용된 `coding_agent`, `app` | `series, document, key, order_value?, order_version?` | base_revision; 활성 가족·문서·place; Document revision·latest_version; 같은 자리·format; key·멤버 유일 | `SeriesInstanceAdded`; 일치 draft는 `SeriesDraftCleared` | `invalid_input`, `not_found`, `conflict`, `forbidden` |

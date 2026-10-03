@@ -6,7 +6,7 @@ concerns: [lophn-agent/scheduling, lophn-agent/assignments, lophn-agent/roles/op
 
 사람이 승인한 반복 판단의 주기가 도래한다. 사람은 계속 지켜보지 않아도 맡긴 일의 결과를 나중에 읽고, 꼭 자신의 선택이 필요한 일만 확인한다.
 
-지키는 약속: lophn-agent#I1, lophn-agent#I4, lophn-agent#I6, lophn-agent#I2, documents#I5, platform#I9.
+지키는 약속: lophn-agent#I1, lophn-agent#I4, lophn-agent#I6, lophn-agent#I2, documents#I2, platform#I6.
 
 ## 흐름
 

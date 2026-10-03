@@ -13,12 +13,12 @@ concerns: [apps/data]
 **[R1]** 업무 DB는 앱마다 SQLite 파일 하나로 분리하고 운영 앱 또는 단독 앱 전용 migration·backup·restore 프로세스만 직접 연다.
 - 이유: 데이터 격리와 복구 단위를 명확히 하고 core·supervisor·agent가 앱 DB를 해석하거나 바꾸지 않게 한다.
 - 확인: 운영 앱이 사용하는 DB가 앱마다 다르며 core·supervisor·agent는 직접 열지 않고 종료 확인 뒤 단독 데이터 작업 프로세스만 연다.
-- 의도: apps#I4
+- 의도: apps#I6
 
 **[R2]** 앱 DB의 업무 transaction은 앱이 소유하며 ledger 기록과 원자적으로 함께 끝난다는 보장이나 특정 ORM·분산 transaction 사용을 강제하지 않는다.
 - 이유: 앱 데이터 저장과 플랫폼 관측의 서로 다른 경계를 정직하게 드러낸다.
 - 확인: 업무 저장과 ledger 전달 사이 실패를 만들어도 함께 rollback됐다고 표시하지 않고 ORM을 쓰지 않은 앱도 같은 데이터 규칙을 통과한다.
-- 의도: platform#I1
+- 의도: apps#I6
 
 **[R3]** 앱 DB는 실제 현재 schema 번호와 마지막 migration의 결과를 보관하고 schema 번호는 0부터 허용하며 DB를 사용하지 않는 앱에는 초기 migration을 요구하지 않는다.
 - 이유: 데이터가 없는 앱에 의미 없는 schema 1과 migration을 만들지 않는다.
@@ -40,7 +40,7 @@ concerns: [apps/data]
 **[R6]** migration은 앱 DB 쓰기만 허용된 격리 프로세스에서 각 단계의 데이터 변경과 schema 번호 갱신을 하나의 transaction으로 확정한다.
 - 이유: 반만 바뀐 데이터와 새 schema 번호가 엇갈리지 않게 한다.
 - 확인: 단계 중간 실패에서 변경과 schema 번호가 함께 rollback되고 데이터 작업의 외부 접근 제한은 apps/permissions를 따른다.
-- 의도: apps#I3, apps#I4
+- 의도: apps#I3, apps#I6
 
 **[R7]** 여러 schema 단계를 건너뛰는 migration은 현재 schema부터 목표까지 연속 경로를 순서대로 적용하고 중간 실패하면 첫 변경 전 backup으로 복원한다.
 - 이유: 일부 단계만 적용한 DB를 이전 release에 돌려주지 않는다.
@@ -50,7 +50,7 @@ concerns: [apps/data]
 **[R8]** migration은 새 파일로만 추가하며 공개한 migration 내용은 고치지 않는다.
 - 이유: 같은 release가 서로 다른 데이터 변경을 수행하지 않게 한다.
 - 확인: 공개한 변경 내용을 바꾸려 하면 거절되고 새로운 변경은 새 migration과 release에 포함된다.
-- 의도: apps#I2
+- 의도: apps#I3
 
 **[R9]** migration 이력에서는 출발·도착 schema와 변경 설명·손실 가능성·backup·실제 적용 결과와 시각을 찾을 수 있으며 호출 기록은 apps/invocations를 따른다.
 - 이유: 성공 주장만으로 변경과 복구 가능성을 추측하지 않게 한다.
@@ -77,7 +77,7 @@ concerns: [apps/data]
 **[R13]** 앱 export는 고정 blueprint·release 이력·불변 실행 bundle과 정확한 SDK 의존 byte 및 앱 DB의 일관된 복사본을 포함하되 secret 원값·credential은 포함하지 않는다.
 - 이유: 다른 머신으로 옮길 때 코드 설명과 데이터 출처를 함께 가져간다.
 - 확인: export를 열면 blueprint·release 이력·각 고정 bundle과 SDK byte 및 WAL의 확정 내용을 포함해 확인된 DB 복사본을 찾을 수 있고 secret 원값·credential이 없으며 앱 외부 자료의 포함 여부는 명시된다.
-- 의도: apps#I9
+- 의도: apps#I3
 
 **[R14]** schema 검사를 통과한 데이터는 업무 규칙까지 정확하다는 증명으로 표시하지 않는다.
 - 이유: 데이터 형태와 실제 업무 정합성은 다른 조건이다.
@@ -85,9 +85,6 @@ concerns: [apps/data]
 - 의도: apps#I3
 
 ## 열린 질문
-
-- apps/data#Q1 업무 첨부 파일을 지원할 때 backup 단위를 DB와 첨부 파일까지 넓힐까?
-- apps/data#Q2 운영 후 사람이 데이터 손실을 확인하는 별도 restore를 제공할까?
 
 ## 버린 것
 

@@ -72,6 +72,4 @@ lophn 설치 자원의 배포 값이다. ledger entity·ID·실행 상태는 없
 
 ## 정할 것
 
-- redesign/coding-agent#Q5
-- redesign/coding-agent#Q21
-- coding-agent/connection#Q2
+없음.

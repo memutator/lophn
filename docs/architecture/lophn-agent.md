@@ -116,7 +116,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | runtime 메모리 | stream 조각, AbortController, 타이머, OAuth state/PKCE verifier, credential single-flight, MCP 파이프·connection, 필수 opaque 추론 상태 | 정본 아님. opaque 상태는 같은 run/provider/model에만 쓰고 종료·메모리 유실 때 폐기한다 |
 | export·eval | 사람이 고른 export 목적지, 개발 runner의 독립 임시 workspace·DB | export는 선택·redaction 뒤 수행. 운영 derived나 ledger를 eval용으로 복제하지 않는다 |
 
-앱 DB·source·사람 원본은 저장·직접 읽기 대상이 아니다. 원본 복구 blob에는 관측 export의 32768 byte 상한을 적용하지 않는다. 기본 자동 삭제기가 없으며 정리·보존·backup은 platform 소유 contract를 따른다.
+앱 DB·source·사람 원본은 저장·직접 읽기 대상이 아니다. 원본 복구 blob에는 관측 export의 32768 byte 상한을 적용하지 않는다. 큰 자료는 용량 상한을 넘으면 오래된 것부터 정리하고 변경 기록·결정·확정 결과는 영구 보존한다. 실제 삭제·backup은 platform 소유 contract를 따른다.
 
 ## 4. concern 배치표
 
@@ -375,7 +375,7 @@ MCP manager는 `(assignment, server)` connection 하나를 유지하여 연속 r
 
 - call timeout 기본 60초, 사람이 server별 1~600초. 전달 뒤 timeout은 uncertain이지 not_executed가 아니다.
 - unexpected disconnect는 1·2·4초 최대 세 번 재연결, auth failure는 자동 재연결 없음. **이미 전달한 call은 재전송하지 않는다.** tools/list_changed·재연결은 전체 목록 재조회, 이름/설명/schema/hints 변경은 이전 사람 분류 무효, 삭제는 즉시 호출 금지, 새 tool은 자동 선택 안 됨.
-- effect는 원래 tool마다 사람이 read/write/external로 분류하고 다중 동작은 가장 넓게, 미분류는 write다. MCP readOnly/destructive/idempotent/open-world hints는 참고 data이며 권한·reversibility 보장이 아니다. owner contract로 scope/effect를 확인할 수 없으면 deny, 유효 scope의 reversibility 미확인은 ask다.
+- effect는 원래 tool마다 사람이 read/write/external로 분류하고 다중 동작은 가장 넓게, 되돌림을 모르는 미분류는 external이다. MCP readOnly/destructive/idempotent/open-world hints는 참고 data이며 권한·reversibility 보장이 아니다. owner contract로 scope/effect를 확인할 수 없으면 deny, 유효 scope에서 되돌림을 모르는 외부 MCP tool은 external로 보고 ask다. 사람이 preset에서 그 tool을 안전하다고 표시하면 묻지 않는다. 표시는 제품이 고정한 역할 상한과 confirm=true를 넓히지 못한다. ticket 취소는 묻지 않는다.
 - 서버 reverse sampling·elicitation·roots는 unsupported, server prompts/resources 자동 주입 없음. server가 요청했다고 model call·질문·local root 제공을 만들지 않는다.
 - HTTP는 HTTPS, loopback만 HTTP, TLS verification bypass 없음. 다른 host redirect에는 auth를 보내지 않는다. auth는 none/bearer/API-key/OAuth2.1 Authorization Code+S256 PKCE다. MCP OAuth만 browser+loopback callback이며 dynamic registration 미지원은 사람 등록 client를 쓴다. URL·issuer·account 변경은 옛 secret 재사용 금지, refresh single-flight다.
 - assignment 사용 종료·server detach·daemon shutdown은 새 call 차단 → 진행 call MCP cancel → connection close, stdio 5초 grace 뒤 kill이다. 실제 효과를 취소했다고 추정하지 않는다. waiting_user는 진행 call을 보유하지 않지만 assignment의 유휴 MCP connection은 다음 run 재사용을 위해 유지할 수 있다.
@@ -386,7 +386,7 @@ trace는 Run/Message/ModelCall/ToolCall/event의 참조 view이며 중복 원문
 
 usage는 reported input/output/cache-read/cache-write/reasoning을 구별하고 포함 관계가 확인될 때만 겹친 수를 뺀다. 미보고는 null이고 0/추정으로 채우지 않는다. cost는 reported/estimated/subscription/free/unknown이다. estimated는 당시 price snapshot·보고 usage·십진수 계산·통화·context 구간/cache TTL을 보존한다. reasoning-in-output 이중 과금 없음, 필요 가격/usage 없음은 unknown, 다른 통화 자동 합산/환산 없음, 과거 비용 덮기 없음이다. late usage·청구·명시 재계산은 supplement로 추가한다. 금액 cost gate는 없다.
 
-export 기본은 metadata-only·network off다. 사람의 명시 범위·목적지·내용 종류 뒤 redaction하고 **export 각 값** 32768 bytes 상한·생략 표시를 적용한다. NDJSON v1이 기본, 검증된 고정 mapping profile이 있는 배포만 OTLP/HTTP protobuf를 제공한다. event/call·복구 blob 정본은 잘라 저장하지 않는다. 자동 삭제·임의 cloud export 없음.
+export는 로컬 NDJSON v1 파일만 제공한다. 사람의 명시 범위·로컬 파일 목적지·내용 종류 뒤 redaction하고 **export 각 값** 32768 bytes 상한·생략 표시를 적용한다. network export·OTLP는 없다. event/call·복구 blob 정본은 잘라 저장하지 않는다. 큰 자료(model 호출 본문, snapshot 첨부, trace 본문, 운영 log)는 용량 상한을 넘으면 오래된 것부터 정리하고 변경 기록·결정·확정 결과는 영구 보존한다. 용량 숫자는 platform/blob-store가 정한다.
 
 eval은 제품 프로세스가 아니라 개발 runner다. versioned fixture·새 isolated DB/workspace·fake provider/clock/contract를 쓰며 운영 자료·credential·외부 MCP를 넣지 않는다. 실제 model은 사람 명시 요청만. regression 3 trials·capability 5 trials, 실제 output/state/금지 변경을 검사하며 exact tool order·성공 문장을 정답으로 삼지 않는다. 최근 세 capability suite 모두 5/5면 사람 promotion 후보일 뿐 자동 승격 없다. 별도 content judge는 readability/evidence fidelity만, calibration 30개 중 24개·10 suites 뒤 5개 review·2개 이상 불일치면 무효다. 제품 eval ledger/UI/schedule을 추가하지 않는다.
 

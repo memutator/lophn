@@ -146,6 +146,5 @@ ApprovalRequest의 고정 동작, 사람의 결정, 한 번 사용 연결을 정
 
 ## 정할 것
 
-- H5: CLI TTY confirmation을 인정할지. 현재는 confirmation window만 인정한다.
-- action 입력 정규화·binding hash의 직렬화 contract를 → platform/ledger 및 각 command 소유 concern과 맞춘다. hash와 작은 JSON/blob의 동일 입력 판정이 같아야 한다.
+- action 입력 정규화·binding hash의 직렬화 contract를 → platform/ledger 및 각 command 소유 concern과 맞춘다. hash와 작은 JSON/blob의 동일 입력 판정이 같아야 한다. 승인은 confirmation window에서만 받는다.
 - confirmation 증거의 기한·재시작 무효화·전송 형식은 → shell/confirmation-window. 증거와 approval 사용 연결은 서로 다른 값이다.

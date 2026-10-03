@@ -261,7 +261,7 @@ root는 활동 순, place·context는 갱신 순으로 시작하고 seq·ID로 �
 | `/v1/contexts/list`, `/get`, `/related`, `/export` | 현재 구성·직접 item 역조회·사람의 목적/항목/고정 참조/glossary export |
 | `/v1/terms/propose`, `/define`, `/update`, `/archive`, `/unarchive` | 대응 `term.*` 이름; 정의는 사람 또는 검증된 option action만 |
 | `/v1/terms/list`, `/get` | 정의·후보 분리·고정 출현 근거 read |
-| `/v1/series/create`, `/update`, `/set_draft`, `/clear_draft`, `/add_instance`, `/update_instance`, `/remove_instance`, `/archive`, `/unarchive` | 대응 `series.*` 이름; agent 가족 mutation 없음, 허용 coding_agent/app의 가입 scope는 최종 검사 |
+| `/v1/series/create`, `/update`, `/set_draft`, `/clear_draft`, `/add_instance`, `/update_instance`, `/remove_instance`, `/archive`, `/unarchive` | 대응 `series.*`; create·update·add_instance·update_instance는 user와 허용 coding_agent·app, 나머지 가족 변경은 user, lophn agent 가족 mutation 없음 |
 | `/v1/views/save`, `/update`, `/delete` | `view.save`, `view.update`, `view.delete`; 저장·변경·삭제 모두 user만 |
 
 표의 `/update` 같은 짧은 표기는 그 행의 resource를 반복한 전체 경로다. project.create는 tracking.enabled=false만 허용하며, project.update로 folders를 바꾸는 경우도 project.set_tracking과 같은 미리보기의 정확한 folders·tracking·base_revision을 검사한다. Document 최초 save와 Series 첫 가입을 같이 요청하면 두 모듈의 검사를 같은 ledger transaction에 적용하고 일치 draft를 비운다. Series 구성·draft는 source 파일이나 Version 없는 Document가 아니다. 기존 멤버 수정은 같은 doc의 새 ver이며 멤버 추가가 아니다. Operator의 기존 출력 doc 범위를 Series 도입으로 넓히지 않는다.

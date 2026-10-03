@@ -2,7 +2,7 @@
 
 설계하면서 나온 질문과 충돌을 모은 곳이다. 2026-10-04에 전부 정했다. 새 질문은 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할 것"에 둔다.
 
-- 모두 755건: 추천대로 626, 다르게 정함 30, 대체됨 69, 이미 정함 30
+- 모두 763건(재연결 뒤 8건 포함): 추천대로 626, 다르게 정함 30, 대체됨 69, 이미 정함 30
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
 ## 사람이 정할 것
@@ -862,3 +862,16 @@
 | intent/shell#Q7 | 정함: shell/wording#R3이 최근 결정 또는 intent와 부딪힌다: 한국어 조사 전용 요구를 locale별 완성 메시지와 placeholder 처리로… | 대체됨 | intent v3로 다시 연결하며 다시 본다 |
 | intent/shell#Q8 | 정함: shell/wording#R4이 최근 결정 또는 intent와 부딪힌다: 기술 용어 노출 예외를 제거하고 사용자용 en 라벨 적용 | 대체됨 | intent v3로 다시 연결하며 다시 본다 |
 | intent/shell#Q9 | 정함: shell/wording#R5이 최근 결정 또는 intent와 부딪힌다: 한국어 합니다체 오류 안내를 짧은 en 영향 안내로 변경 | 대체됨 | intent v3로 다시 연결하며 다시 본다 |
+
+### 재연결 뒤 (8)
+
+| id | 질문 | 판정 | 결정 |
+|---|---|---|---|
+| v3/coding-agent#Q1 | "내가 확인함"을 acceptance로 받는 계약 | 이미 정함 | problems/closing R9와 coding-agent/tickets에 들어 있다(D25) |
+| v3/coding-agent#Q2 | 외부 MCP 안전 표시의 소유 | 추천대로 | lophn-agent/presets가 정한다. coding credential에는 넣지 않는다 |
+| v3/platform#Q1 | 큰 자료 종류별 용량 상한 숫자 | 추천대로 | 구현 때 측정해 정하고 architecture 기본값으로 시작한다 |
+| v3/platform#Q2 | command·read·구독 한도 숫자 | 추천대로 | architecture 2.3의 기본값으로 시작하고 측정해 고친다 |
+| v3/platform#Q3 | redaction 한도 숫자를 요구에 적을까 | 추천대로 | architecture 기본값(1MiB, 깊이 16, 4,096항목, 5초)을 쓰고 요구에는 숫자를 적지 않는다 |
+| v3/platform#Q4 | 응답 목표 숫자를 acceptance로 고정할까 | 추천대로 | 제안 수치로 구현·측정하고 장치 결과로 조정한다 |
+| v3/problems#Q1 | snapshot 장기 보존 bytes를 누가 정하나 | 추천대로 | platform/blob-store가 정한다(D26) |
+| v3/shell#Q1 | shell/terminal#Q3 빈 질문 | 추천대로 | 요구를 만들지 않는다 |

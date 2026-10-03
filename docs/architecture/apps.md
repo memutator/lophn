@@ -90,7 +90,7 @@ Deno는 VM/container가 아니며 허락 경로 내부 데이터, 실행 중 sym
 
 automation clock은 앱 프로세스 안 `automations/clock`이 소유한다. 업무 통로가 열린 단조 시계 tick을 기준으로 1000ms마다 검사한다. on_start는 한 번, interval은 최소 60000ms이고 `started_tick + n * interval_ms`로 계산한다. 절전에서 돌아오면 가장 가까운 미래 배수만 선택하여 밀린 회차를 모두 skip한다. 재시작은 새 기준이다.
 
-같은 `(nonce,release,key)`에는 running_invocation이 하나뿐이다. 서로 다른 automation은 병렬이고 전체 동시 invocation 기본 한도는 4개다. 전체 한도만 supervisor의 메모리 permit으로 제한한다. 회차가 도래하면 broker의 즉시 permit 요청을 하고 없으면 skip한다. permit 대기열·ledger 회차 표·공유 handler 실행은 없다. permit은 실제 handler 종료나 자식 종료 확인 때 반환한다. timeout 요청만으로 살아 있는 handler의 permit을 반환하지 않는다. 준비·교체·preview·archive·run_enabled=false에서는 clock을 닫는다. 자동 retry는 0회, timeout은 600000ms이며 confirm·external 명령은 선언과 실행 모두 거절한다. secret을 쓰는 read·write 명령은 선언 이름∩grant와 정확한 net.fetch host·port 안에서 실행하며 secret 사용 자체를 거절 사유로 삼지 않는다.
+같은 `(nonce,release,key)`에는 running_invocation이 하나뿐이다. 서로 다른 automation은 병렬이고 전체 동시 invocation 기본 한도는 4개다. 전체 한도만 supervisor의 메모리 permit으로 제한한다. 회차가 도래하면 broker의 즉시 permit 요청을 하고 없으면 skip한다. permit 대기열·ledger 회차 표·공유 handler 실행은 없다. permit은 실제 handler 종료나 자식 종료 확인 때 반환한다. timeout 요청만으로 살아 있는 handler의 permit을 반환하지 않는다. 준비·교체·preview·archive·run_enabled=false에서는 clock을 닫는다. 자동 retry는 0회, timeout은 600000ms다. confirm=true 명령은 선언과 실행 모두 거절한다. external 명령은 사람이 automation을 켤 때 command·고정 입력·주기를 한 번 승인한 범위에서만 실행하고, 승인이 없거나 끈 뒤거나 범위가 다르면 그 회차는 시작하지 않는다. secret을 쓰는 명령은 선언 이름∩grant와 정확한 net.fetch host·port 안에서 실행하며 secret 사용 자체를 거절 사유로 삼지 않는다.
 
 `runtime/observations`는 stdout/stderr를 비동기로 읽는다. SDK의 실제 invocation 문맥 표시는 `[inv=<id>]`, 내부 trace는 별도 이름이다. AsyncLocalStorage 기반으로 await·timer·SQLite·fetch 뒤의 app·release·mode·invocation 문맥을 유지하며 Deno 2.9 대상 test로 확인한다. 알 수 없는 invocation ID를 생성하지 않는다. 내부 trace 이름은 최대 64자다.
 

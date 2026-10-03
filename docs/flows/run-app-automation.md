@@ -6,11 +6,11 @@ concerns: [apps/automations, apps/blueprint, apps/runtime, apps/permissions, app
 
 사람이 화면을 보고 있지 않을 때, 허락한 앱의 시작 계기나 정해진 간격이 도래한다. 사람은 앱이 수집·동기화·집계한 결과와 실제로 확인된 상태를 돌아와서 본다.
 
-지키는 약속: apps#I5, apps#I7, apps#I8, platform#I1, platform#I3, platform#I8.
+지키는 약속: apps#I5, apps#I7, apps#I6, platform#I1, platform#I3, platform#I4.
 
 ## 흐름
 
-1. 앱이 blueprint에 선언한 같은 release의 command와 검사된 고정 입력으로 automation을 준비한다. 계기는 업무 통로가 열린 때 한 번 또는 최소 60000ms 간격이다. 가져오기만 하는 read와 가져와 저장하는 write는 가능하지만 external·confirm command는 선언하거나 실행하지 못한다. 사람에게는 보이지 않는다. (apps/blueprint#R5, apps/blueprint#R14, apps/automations#R1, apps/automations#R2, apps/automations#R13)
+1. 앱이 blueprint에 선언한 같은 release의 command와 검사된 고정 입력으로 automation을 준비한다. 계기는 업무 통로가 열린 때 한 번 또는 최소 60000ms 간격이다. read·write뿐 아니라 external command도 automation으로 돌릴 수 있고, confirm=true command만 선언하거나 실행하지 못한다. 사람에게는 보이지 않는다. (apps/blueprint#R5, apps/blueprint#R14, apps/automations#R1, apps/automations#R2, apps/automations#R13)
 2. machine이 앱 실행 허용·현재 release·실제 데이터 schema와 현재 grant를 확인해 호출 가능한 때만 시작한다. 준비·교체·preview 중에는 운영 automation을 시작하지 않는다. 명령은 직접 호출과 같은 구현·입력 검사를 사용한다. 사람에게는 보이지 않는다. (apps/automations#R1, apps/automations#R4, apps/runtime#R2, apps/runtime#R3, apps/runtime#R11, apps/permissions#R2)
 3. 앱에 준 secret grant가 있으면 automation에서도 같은 허락을 사용하고 호출마다 승인받지 않는다. 외부 요청은 허락한 정확한 host·port 안에서만 보낸다. secret 값은 앱 코드·automation·agent로 전달하지 않고 lophn이 허락한 목적지로 보내기 직전에 붙인다. 사람에게는 보이지 않는다. (apps/permissions#R8, apps/permissions#R14, apps/permissions#R15, apps/permissions#R16, platform/secrets#R4, platform/secrets#R5)
 4. 앱이 수집·동기화·집계하고 자기 DB 또는 선언·grant가 있는 자기 앱 문서에 결과를 남긴다. 앱 데이터는 앱이 쓰고, 남긴 문서는 고정 판으로 보존한다. 결정적인 수집·집계에 model을 부르지 않으며 무거운 앱 일은 core의 짧은 command 밖에서 처리한다. 사람에게는 보이지 않는다. (apps/data#R1, apps/data#R2, apps/blueprint#R13, apps/permissions#R13, documents/versions#R14, platform/responsiveness#R1, platform/ledger#R4)
@@ -20,7 +20,7 @@ concerns: [apps/automations, apps/blueprint, apps/runtime, apps/permissions, app
 
 ## 다른 갈래
 
-- 1에서 external·confirm command를 automation으로 등록하려 하면 시작하지 못한다. secret 사용 자체가 external 또는 confirm이라는 이유는 아니며 가져오기·동기화는 선언 효과와 grant를 따르게 한다. (apps/blueprint#R5, apps/blueprint#R6, apps/automations#R13)
+- 1에서 external command를 쓰는 automation은 사람이 켤 때 command·고정 입력·주기를 한 번 승인한 범위에서만 돈다. confirm=true command는 automation으로 등록하지 못하고, secret 사용 자체는 external이나 confirm이 아니며 선언 효과와 grant를 따른다. (apps/blueprint#R5, apps/blueprint#R6, apps/automations#R13)
 - 2에서 앱을 사람이 멈췄거나 현재 권한·데이터 준비가 맞지 않으면 호출을 시작하지 않는다. app-detail 화면에서 필요한 행동을 확인하며 사람이 다시 실행을 허용하기 전 자동 재시작하지 않는다. (apps/automations#R4, apps/automations#R10, apps/runtime#R15, apps/runtime#R16, apps/permissions#R2)
 - 3에서 OS keychain이 없거나 잠겼으면 secret이 필요한 기능만 사용할 수 없다고 표시한다. 평문 fallback을 만들지 않고 secret 없는 로컬 앱 기능은 계속 쓸 수 있다. (platform/secrets#R8)
 - 4에서 결과 문서의 기준 판이 바뀌면 저장을 충돌로 처리하고 사람의 판을 덮어쓰지 않는다. 문서 저장과 앱 DB 변경을 하나의 원자 성공이라고 보장하지 않는다. (documents/versions#R4, apps/data#R2)

@@ -13,22 +13,22 @@ concerns: [apps/releases]
 **[R1]** release는 고정 git commit의 코드·화면·blueprint·정확한 SDK·permission 요청·데이터 변경 계약을 불변 bundle로 고정하고 실제 test result의 참조·준비 주체와 시각은 release의 불변 근거로 연결하며 테스트 뒤 bundle byte를 바꾸지 않는다.
 - 이유: 운영 내용을 개발 변경과 분리하고 출처를 되짚는다.
 - 확인: source와 SDK 최신판을 고친 뒤에도 기존 bundle hash와 선언이 그대로다.
-- 의도: apps#I2
+- 의도: apps#I3
 
 **[R2]** release 준비는 연결된 실제 source 경계에서 정확한 commit의 파일만 읽고 symlink 자체·uncommitted 변경·git 관리 정보·개발 credential·agent 도구·임시 설정을 bundle에 넣지 않는다.
 - 이유: 개발 환경과 운영 코드의 경계를 지킨다.
 - 확인: source 밖 경로와 commit에 없는 변경을 제출하면 거절하고 개발 credential과 symlink 자체가 bundle에 없다.
-- 의도: apps#I2, apps#I4
+- 의도: apps#I3, apps#I6
 
 **[R3]** release 준비는 core 밖에서 copy·hash·blueprint 검증·화면 build를 마치며 준비 도중 원본 변경을 감지하고 취소와 바이트·파일 수·시간 상한을 적용한다.
 - 이유: 무거운 준비가 lophn 응답을 막거나 서로 다른 source 판을 섞지 않는다.
 - 확인: 준비 중 source를 바꾸면 확정되지 않고 취소 또는 상한 초과 때 작업이 끝난다.
-- 의도: platform#I3, apps#I3
+- 의도: apps#I3
 
 **[R4]** 화면 build와 external source map은 준비한 bundle에 포함하고 운영 프로세스는 build나 의존 다운로드 없이 그 결과만 사용한다.
 - 이유: 동일 release의 화면과 오류 위치를 재현한다.
 - 확인: 설치 뒤 네트워크 없이 화면이 열리고 bundle 위치를 당시 앱 source 위치로 연결하며 SDK frame은 패키지와 version으로 구별한다.
-- 의도: apps#I2, platform#I6
+- 의도: apps#I3
 
 ### test와 출처
 
@@ -40,7 +40,7 @@ concerns: [apps/releases]
 **[R6]** 새 coding 작업의 release 준비는 ticket의 현재 connection·claim seq·기한을 요청 때와 긴 준비 확정 때 다시 확인하고 ticket과 당시 claim을 불변 출처로 보존한다.
 - 이유: 기존 claim 없는 수리 fallback을 새 준비의 입구로 쓰지 않는다.
 - 확인: 누락·만료·반납·connection 회수·claim 변경은 거절되고 claim 해제·ticket 취소 뒤 과거 준비 출처는 그대로 남는지 본다.
-- 의도: apps#I3, coding-agent#I4
+- 의도: apps#I3
 
 **[R7]** 사람이 자기 터미널에서 맡긴 코드 수리도 ticket과 현재 MCP claim을 거쳐 새 release를 준비하며 과거 ticket 없는 release는 가짜 ticket·claim을 보충하지 않고 당시 출처로 읽고 선택할 수 있다.
 - 이유: 새 작업 계약과 이미 남은 이력을 구별한다.
@@ -67,7 +67,7 @@ concerns: [apps/releases]
 **[R11]** 데이터 키·제약 변경과 permission·개인정보·approval 정책 변경은 각각 apps/data와 apps/permissions의 검증 및 재동의로 판단한다.
 - 이유: 서로 다른 안전 조건을 schema 비교 하나로 덮지 않는다.
 - 확인: 데이터 계약 변경과 새 접근 요청의 근거를 각각 조회한다.
-- 의도: apps#I3, apps#I4
+- 의도: apps#I3, apps#I6
 
 ### activation 경계
 
@@ -106,20 +106,14 @@ concerns: [apps/releases]
 **[R18]** 열린 problem의 code 삭제나 선언 완화는 경고로 남기되 삭제 자체를 고쳤다는 근거나 problem 닫힘으로 처리하지 않는다.
 - 이유: 검사 제거로 문제를 없앴다고 주장하지 않는다.
 - 확인: 선언이 삭제된 release를 준비해 경고를 읽고 닫힘 여부는 problems/closing에서 별도로 확인한다.
-- 의도: problems#I5
+- 의도: apps#I3
 
 **[R19]** release 준비의 기본 상한은 입력 source 64MiB·완성 bundle 256MiB·파일 10000개·전체 300000ms이며 상한 초과나 취소·worker 종료 때 부분 bundle을 release로 확정하지 않는다.
 - 이유: R3의 유한 준비 계약을 검사 가능한 기본값으로 만들고 core 응답을 보호한다.
 - 확인: 각 상한을 따로 넘기는 입력과 준비 중 취소·worker 종료에서 release가 생성되지 않고 실패 이유가 남는다.
-- 의도: apps#I3, platform#I3
+- 의도: apps#I3
 
 ## 열린 질문
-
-- apps/releases#Q1 machine 생성물 변경 거절과 설계 변경 경고를 어디서 어떤 대상으로 검사할까?
-- apps/releases#Q2 H2: coding agent의 모든 activation도 매번 사람이 승인할까?
-- apps/releases#Q3 현재 데이터와 다른 schema의 이전 release를 어디까지 허용할까?
-- apps/releases#Q4 앱 health의 정상 신호·주기 metric·비교 조건과 상태 점검 선언을 지원할까?
-- apps/releases#Q5 R19의 유한 준비 기본값을 설치·OS별 테스트 뒤 조정할 필요가 있을까?
 
 ## 버린 것
 

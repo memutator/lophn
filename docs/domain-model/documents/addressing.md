@@ -108,6 +108,6 @@ Project·App name 변경 command는 → documents/projects, apps/registration이
 
 ## 정할 것
 
-- Slug의 최종 허용 문자·최대 길이·자동 제안 방법. 현재 문법은 제안이며 제목을 강제 음역하지 않는다.
-- section percent encoding과 유일 마지막 slug 허용을 외부 CLI·MCP contract에서 동일하게 고정한다.
-- section보다 작은 code block·table 주소를 추가할지. 현재는 section과 대표 텍스트 줄 범위만 제공한다.
+- Slug 최대 길이는 spec에서 정한다. 문법은 제안이며 제목을 강제 음역하지 않고 자동 제안 뒤 사람이 고친다.
+- section percent encoding과 유일 마지막 slug는 외부 CLI·MCP에서도 이 문법과 같게 쓴다.
+- section보다 작은 code block·table 주소는 두지 않는다. section과 대표 텍스트 줄 범위만 제공한다.

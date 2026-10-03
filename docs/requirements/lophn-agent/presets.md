@@ -38,7 +38,7 @@ concerns: [lophn-agent/presets]
 **[R6]** provider 계정과 model은 preset마다 선택하고 credential 값·서버 인증·가격표는 넣지 않으며 공통 judgment·organizing 기본값은 새 preset 구성 때 복사할 후보로만 쓴다.
 - 이유: 고른 계정·model을 공통 설정 변경으로 몰래 바꾸지 않는다.
 - 확인: 다른 계정·model의 preset 둘이 각 선택으로 돌고 기본값 변경이 기존 preset이나 run을 바꾸지 않는지 본다.
-- 의도: lophn-agent#I5, lophn-agent/harness#I1
+- 의도: lophn-agent#I5
 
 ### tool과 정의 판
 
@@ -87,7 +87,13 @@ concerns: [lophn-agent/presets]
 - 확인: 초안의 책임을 읽고 무엇을 판단하고 언제 결과를 바꿀지 알 수 있으며 실제 결합은 lophn-agent/assignments를 따르는지 본다.
 - 의도: lophn-agent#I5, lophn-agent#I6
 
+**[R16]** preset은 사람이 되돌림을 모르는 외부 MCP tool을 안전하다고 표시한 목록을 둘 수 있고 그 tool은 lophn-agent/harness/tool-judgment에서 묻지 않는다. 표시는 그 tool 하나에만 적용하고 제품이 고정한 역할 금지·상한·confirm=true는 넓히지 못한다.
+- 이유: 안전하다고 본 tool을 매번 묻지 않되 제품 경계를 preset으로 풀지 않는다.
+- 확인: 표시한 tool은 묻지 않고, 표시하지 않은 미분류 tool은 물으며, Operator의 제품 상한과 confirm=true는 표시로 풀리지 않는지 본다.
+- 의도: lophn-agent#I5
+
 ## 버린 것
 - 내장 세 역할 편집·복사 금지는 I5의 재사용 구성과 맞지 않아 네 역할의 preset 편집·복사로 바꿨다.
 - Preset의 목적·상황·관점·기대 결과·OperatorJudgment 기계 값은 prompt 글로 옮겼다.
 - 역할별 model 금지와 별도 확장 선택 map은 preset의 provider·model·MCP·skill 선택으로 바꿨다.
+- 회수까지 계속 허락하는 agent grant — 되돌림을 모르는 외부 MCP tool을 안전하다고 표시하는 preset 항목만 두고, 제품 상한은 그대로다.

@@ -6,7 +6,7 @@ concerns: [platform/install-and-update, platform/responsiveness, platform/backup
 
 외부 연결이 끊기거나 provider·외부 서비스가 응답하지 않을 때 시작한다. 사람은 로컬 자료와 외부 연결이 필요 없는 앱을 계속 쓰고, 연결이 필요한 일만 별도로 다룬다.
 
-지키는 약속: platform#I6, platform#I3, apps#I8, lophn-agent/harness#I1, lophn-agent/harness#I2.
+지키는 약속: platform#I1, platform#I5, apps#I6, lophn-agent/harness#I1, lophn-agent/harness#I2.
 
 ## 흐름
 

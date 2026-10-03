@@ -4,7 +4,7 @@ concerns: [documents/projects, documents/file-tracking, documents/versions, docu
 ---
 # 첫 프로젝트 폴더를 고른다
 
-처음 문서를 관리하거나 새 작업 폴더를 lophn에 추가하려는 사람이 시작한다. 등록한 폴더와 실제 추적을 구별하며 컴퓨터 전체를 자동으로 추적하지 않는다. 이 흐름은 documents#I1·documents#I2·documents#I3·documents#I9·platform#I3·shell#I1을 지킨다.
+처음 문서를 관리하거나 새 작업 폴더를 lophn에 추가하려는 사람이 시작한다. 등록한 폴더와 실제 추적을 구별하며 컴퓨터 전체를 자동으로 추적하지 않는다. 이 흐름은 documents#I1·documents#I2·documents#I3·documents#I7·platform#I3·shell#I1을 지킨다.
 
 ## 흐름
 

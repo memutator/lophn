@@ -66,7 +66,7 @@ SQL import는 ledger/read 실행기에만 허용한다. core 모듈의 동기 �
 | event | 연결 32개·principal당 4개, batch 256개·256KiB, 연결 buffer 1MiB | 느린 구독 연결 종료; event 건너뛰기 금지 |
 | 신뢰 child | ready 10초, 정상 정지 5초, 실패 재기동 1·2·4초 후 최대 3회 | 해당 구성 요소만 사용 불가; 무한 재시작 금지 |
 | platform I/O | 무거운 작업 동시 2개, 대기 32개, principal당 4개 | `unavailable`; 작업 사이 round-robin |
-| 안전 log | info, 파일당 10MiB ×5, crash 관측 30일, 메모리 대기 1MiB | 진단만 누락 이유/계수 표시; API 대기 금지 |
+| 안전 log | info, 파일당 10MiB ×5(오래된 파일부터 정리), crash 관측 30일, 메모리 대기 1MiB | 진단만 누락 이유/계수 표시; API 대기 금지 |
 
 queue는 principal별 FIFO·principal 사이 round-robin이며 등록된 회수·정지 제어만 예약 영역에 들어간다. caller의 priority 주장은 받지 않는다. 실행 중 transaction은 priority로 끊지 않는다. read query는 등록된 indexed query와 행 한도로 제한하고, 실행이 2초를 넘는 reader는 새 입장을 닫아 unhealthy로 표시한다. native SQL을 JS 타이머로 강제 취소했다고 주장하지 않는다. writer 스레드 실패는 core 저장 실패로 다루고 임의 두 번째 writer를 만들지 않는다.
 
@@ -261,6 +261,8 @@ platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`,
 **보장:** I/O worker가 같은 바이트를 streaming hash하면서 같은 파일 시스템 임시에 쓰고 sync·0400·원자적 설치·지원 OS directory sync를 마친 뒤 반환한다. 같은 hash는 덮어쓰지 않고 기존 완성 파일을 검증하여 재사용한다. core는 준비 주체·purpose·수명·worker 완료 참조만 확인하며 파일을 다시 hash하지 않는다. 모든 영구 참조는 소유 변경 transaction에 `blob_refs`로 등록한다. hash 공유가 scope를 합치지 않는다. 출력용 원문은 redaction 전 일반 tmp/blob에 저장하지 않는다.
 
 **GC:** 기동/매일 필요 여부만 worker가 관측한다. 실제 GC는 새 준비·command 차단, 진행 준비 종료/중단, writer 정지 뒤 고정 모든 blob_refs와 대조한다. 미참조 확인 시각은 worker 관리 파일에 안전하게 남기고 그 뒤 7일 지나야 삭제한다. archive·옛 판·감사 참조는 남긴다. 재시작 tmp는 살아 있는 작업이 아님을 확인한 뒤 정리한다. backup 도중 GC·내용 삭제는 불가다.
+
+**보존:** model 호출 본문·snapshot 첨부·trace 본문·운영 log 같은 큰 자료의 blob은 종류별 용량 상한을 넘으면 오래된 것부터 정리하고 남은 참조는 내용 부재로 표시한다. 변경 기록·결정·확정 결과의 blob과 그 참조는 기간이나 용량으로 삭제하지 않는다. → platform/blob-store#R13
 
 **보장하지 않는 것:** blob 설치와 ledger commit 원자성, 나이만으로 참조 blob 삭제, 한 참조 차단이 모든 사본·backup의 물리 삭제라는 주장. disk 부족은 신규 준비·변경을 제한하지 기존 참조 blob을 지워 성공을 만들지 않는다.
 

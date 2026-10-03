@@ -4,7 +4,7 @@ concerns: [lophn-agent/observability]
 ---
 # lophn-agent/observability
 
-원본 run·호출·변경을 한 trace로 되짚는 범위, trace 화면에서 확인할 근거, 파일·네트워크 export와 보존 정책을 맡는다; 사용량 합계는 lophn-agent/harness/usage, 실제 삭제는 platform/ledger와 platform/blob-store가 맡는다.
+원본 run·호출·변경을 한 trace로 되짚는 범위, trace 화면에서 확인할 근거, 로컬 파일 export와 보존 정책을 맡는다; 사용량 합계는 lophn-agent/harness/usage, 실제 삭제는 platform/ledger와 platform/blob-store가 맡는다.
 
 ## 요구
 
@@ -67,27 +67,17 @@ concerns: [lophn-agent/observability]
 
 ### export와 범위
 
-**[R12]** 관측 기록은 platform/ledger·platform/blob-store가 관리하는 로컬 원본을 이용하며 네트워크 export와 제삼자 사용량 분석 전송은 기본으로 꺼져 있다.
+**[R12]** 관측 기록은 platform/ledger·platform/blob-store가 관리하는 로컬 원본을 이용하며 네트워크 export와 제삼자 사용량 분석 전송은 하지 않는다.
 - 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
-- 확인: 기본 설정으로 실행할 때 관측용 외부 요청은 없으며, 인터넷 없이도 trace와 비용을 조회할 수 있다.
+- 확인: 실행할 때 관측용 외부 요청은 없으며, 인터넷 없이도 trace와 비용을 조회할 수 있다.
 - 의도: lophn-agent#I7
 
-**[R13]** 네트워크 내보내기는 사용자가 대상 세션·실행과 목적지를 직접 지정했을 때만 켜고, 목적지는 HTTPS 또는 루프백 주소의 HTTP로 제한하며 프로젝트 설정과 역할은 수집 범위 확대나 목적지 변경을 하지 못한다.
+**[R14]** 로컬 파일 내보내기는 UTF-8 NDJSON으로 문서 형식 버전 1과 trace별 기록을 남긴다.
 - 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
-- 확인: 목적지 없이 켜기, 비루프백 HTTP, 프로젝트 설정을 통한 목적지 바꾸기는 거절되며 사용자가 지정한 루프백 수집기에는 선택 범위만 간다.
+- 확인: 파일의 각 줄을 독립된 JSON으로 읽어 형식 버전과 기록 관계를 복원할 수 있다.
 - 의도: lophn-agent#I7
 
-**[R14]** 로컬 파일 내보내기는 UTF-8 NDJSON으로 문서 형식 버전 1과 trace별 기록을 남기고, 네트워크 내보내기는 OpenTelemetry OTLP/HTTP의 Protobuf 형식만 지원한다.
-- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
-- 확인: 파일의 각 줄을 독립된 JSON으로 읽어 형식 버전과 기록 관계를 복원할 수 있으며, 표준 OTLP/HTTP 수집기가 Protobuf 요청을 받아 실행·모델·도구 단위를 구별한다.
-- 의도: lophn-agent#I7
-
-**[R15]** OpenTelemetry 내보내기는 실행을 agent 수행 단위로, 모델 호출과 도구 호출을 그 안의 작업 단위로 변환하고 handoff의 별도 trace는 링크로 연결하며, 적용한 GenAI Semantic Conventions 버전을 명시하고 원본 기록의 의미를 바꾸지 않는다.
-- 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
-- 확인: 같은 원본을 두 규약 버전으로 내보내도 run의 호출 수, 수행 주체와 비용은 같고, 버전과 협업 연결을 수집기에서 찾을 수 있다.
-- 의도: lophn-agent#I7
-
-**[R16]** 파일·네트워크 export는 메타데이터만 기본으로 보내고 사용자는 export마다 메시지·model 입력·model 출력·도구 입력·도구 출력 중 포함할 종류를 다시 고른다.
+**[R16]** 파일 export는 메타데이터만 기본으로 보내고 사용자는 export마다 메시지·model 입력·model 출력·도구 입력·도구 출력 중 포함할 종류를 다시 고른다.
 - 이유: 과거 판단과 실제 동작을 당시 근거로 되짚되 원본을 중복하거나 성공을 추정하지 않는다.
 - 확인: 보호된 원본에 도구 결과가 있어도 기본 export에는 본문이 없고 해당 종류를 선택한 export에만 redaction과 내용 상한을 적용한 본문이 포함된다.
 - 의도: lophn-agent#I7
@@ -126,9 +116,9 @@ concerns: [lophn-agent/observability]
 
 ### 보존
 
-**[R23]** 별도 보존 합의 전 자동 만료·삭제를 켜지 않고 원본 event와 보호된 본문은 platform/ledger·platform/blob-store의 공통 정책을 따른다.
-- 이유: 현재 domain model의 보존 결정을 임의의 숫자로 바꾸지 않는다.
-- 확인: 181일 된 상세와 15일 된 본문이 자동 만료 기본값 때문에 없어지지 않는다.
+**[R23]** 큰 자료(model 호출 본문, snapshot 첨부, trace 본문, 운영 log)는 용량 상한을 넘으면 오래된 것부터 정리하고 변경 기록·결정·확정 결과는 영구 보존한다. 용량 숫자는 platform/blob-store가 정하고 실제 삭제도 platform/ledger·platform/blob-store만 한다.
+- 이유: 관측 본문이 쌓여 디스크를 채우지 않되 무엇이 왜 바뀌었는지는 남긴다.
+- 확인: 상한을 넘긴 호출 본문·snapshot 첨부·trace 본문·운영 log는 오래된 순으로 빠지고 변경 기록·결정·확정 결과는 남는다.
 - 의도: lophn-agent#I7
 
 **[R24]** 유한 보존 정책을 적용할 때도 진행 run·미반영 입력·답 및 approval 대기·revert 근거는 삭제 대상으로 넘기지 않는다.
@@ -150,3 +140,5 @@ concerns: [lophn-agent/observability]
 
 - 다섯 종류별 local 본문 기록 opt-in — 복구·이어가기에 필요한 세션·호출 본문을 보호 처리하여 기본 저장하므로 export 선택만 유지한다.
 - subagent trace와 자동 대체 model trace 예시 — subagent와 자동 model 대체를 새 설계에서 제공하지 않는다.
+- 네트워크 export와 OTLP/HTTP Protobuf, OpenTelemetry·GenAI Semantic Conventions 변환 — MVP는 로컬 NDJSON 파일 export만 둔다.
+- 자동 만료를 두지 않고 181일 상세·15일 본문을 그대로 둔다는 보존 — 큰 자료는 용량 상한을 넘으면 오래된 것부터 정리한다.

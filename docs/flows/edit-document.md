@@ -6,7 +6,7 @@ concerns: [shell/editor, shell/workspace, documents/file-tracking, documents/ver
 
 사람이 문서를 작성하거나 밖에서 바뀐 파일을 다시 편집한다. 저장을 따로 관리하지 않아도 쓴 내용이 남고, 먼저 바뀐 원본을 덮어쓰지 않는 흐름이다.
 
-지키는 약속: documents#I1, documents#I2, documents#I9, shell#I5, platform#I1, platform#I3.
+지키는 약속: documents#I1, documents#I2, documents#I7, shell#I5, platform#I1, platform#I3.
 
 ## 흐름
 

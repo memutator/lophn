@@ -76,18 +76,16 @@ concerns: [apps/automations]
 
 ### secret과 외부 효과
 
-**[R13]** 첫 판에서는 사람 확인이 필요한 명령(confirm)과 앱 밖에 영향을 주는 명령(external)을 automation으로 선언하거나 실행할 수 없고, secret 사용은 apps/permissions의 grant를 따르며 automation이라는 이유로 막지 않는다.
-- 이유: H1이 정해지기 전 반복 허락이 일회 확인을 대신하지 않게 한다. secret은 앱에 준 grant가 허락이다.
-- 확인: external·confirm 명령을 automation에 연결하면 확인 여부를 거짓으로 바꾸어도 거절되고, grant가 있는 secret을 쓰는 read·write 명령은 automation에서 실행된다.
-- 의도: apps#I5, apps#I7
+**[R13]** external command도 automation으로 돌릴 수 있다. 사람이 그 automation을 켤 때 command·고정 입력·주기를 한 번 승인하고, 그 승인은 그 automation을 끄는 순간까지 그 회차에만 적용된다. confirm=true command는 automation으로 선언하거나 실행할 수 없다. secret 사용은 apps/permissions의 grant를 따르며 automation이라는 이유로 막지 않는다.
+- 이유: 되돌릴 수 없거나 심각한 일만 매번 묻는다(platform#I3). 반복해서 밖으로 보내는 일은 켤 때 한 번 보고 언제든 끌 수 있으면 충분하고, 호출마다 확인이 필요한 command는 반복에 맡기지 않는다. secret은 앱에 준 grant가 허락이다.
+- 확인: external automation을 켜는 승인 전에는 회차가 돌지 않고, 승인 뒤에는 같은 command·입력·주기로 추가 확인 없이 돈다. 입력·command·주기를 바꾸거나 끈 뒤 다시 켜면 새 승인을 요구한다. confirm=true command를 automation에 연결하면 거절되고, grant가 있는 secret을 쓰는 명령은 automation에서 실행된다.
+- 의도: apps#I5
 
 ## 열린 질문
 
-- apps/automations#Q1 H1의 외부 효과 반복 사전 허락을 도입할까?
-- apps/automations#Q2 달력 시각·파일 변경·event 계기와 놓친 회차 처리 중 무엇을 추가할까?
-- apps/automations#Q3 이전 최대 retry 10회와 현재 자동 retry 0회 중 어느 쪽을 유지할까?
-
 ## 버린 것
+
+- external command를 automation에서 아예 빼는 제한: automation을 켤 때 command·입력·주기를 한 번 승인하면 그 회차는 추가 확인 없이 돌고, confirm=true command만 뺀다(R13).
 
 - 중단 중 놓친 회차를 automation마다 최대 1회 보충하는 catch-up: 현재 모델은 놓친 회차를 모두 건너뛴다.
 - 앱 automation의 agent mode와 token 예산: 앱 automation과 lophn-agent/scheduling을 분리하며 비용 상한을 두지 않는다.

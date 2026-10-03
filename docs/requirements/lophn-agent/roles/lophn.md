@@ -97,7 +97,7 @@ concerns: [lophn-agent/roles/lophn]
 **[R17]** 사용 안내는 사람이 물은 부분의 기존 안내로 답하고 재사용할 답이 없거나 바뀐 경우에만 사용 안내 문서의 새 version을 요청하며 제품 사용법만 설명한다.
 - 이유: 매번 새 안내 문서를 만들거나 제품 밖 지식을 임의 설명하지 않는다.
 - 확인: 같은 질문은 기존 안내 근거로 답하고 바뀐 안내만 새 version으로 남는지 본다.
-- 의도: lophn-agent#I3, lophn-agent#I6
+- 의도: lophn-agent#I3
 
 **[R18]** 운영 보고는 앱의 정상 여부·열린 문제·진행 중 티켓의 확인된 사실을 먼저 싣고 근거 주소가 있는 해석을 최대 5줄로 구분하며 미확인 수치는 확인하지 못함으로 적는다.
 - 이유: 사실과 해석의 책임을 나눈다.
@@ -107,14 +107,14 @@ concerns: [lophn-agent/roles/lophn]
 **[R19]** 기획·재사용·자리 선택·운영 해석·사용 안내·사람 답은 judgment, 이미 있는 제목·요약은 organizing 용도이며 실제 provider·model·계정은 preset 선택으로 고정한다.
 - 이유: 역할의 선택과 표현 작업을 구별한다.
 - 확인: 재사용 선택과 제목 호출의 용도가 구별되고 실제 model은 고정 Preset 선택이며 organizing 미선택이면 같은 model인지 본다.
-- 의도: lophn-agent#I5, lophn-agent/harness#I1
+- 의도: lophn-agent#I5
 
 ### 새 기능
 
 **[R20]** lophn 역할은 동봉한 현재 제품 안내와 공개 설정 정의·실제 적용값·출처를 근거로 기능과 설정의 뜻·허용값·적용 시점을 설명하되 secret 입력과 credential 값은 읽거나 질문하지 않는다.
 - 이유: 설정의 이름만으로 적용값이나 효과를 추측하지 않는다.
 - 확인: 기본값과 사람 선택이 다른 항목을 설명하며 값 출처·적용 시점과 안전 입력 안내가 있는지 본다.
-- 의도: lophn-agent#I3, lophn-agent#I6
+- 의도: lophn-agent#I3
 
 **[R21]** 설정 변경은 현재 값·새 값·영향·적용 시점이 고정된 선택지와 추천을 붙인 question으로 묻고 실제 선택 뒤 machine이 소유 command를 적용하며 자유 답·침묵·추천만으로 바꾸지 않는다.
 - 이유: 설정 적용은 설명한 내용에 대한 사람의 실제 선택이다.
@@ -124,17 +124,17 @@ concerns: [lophn-agent/roles/lophn]
 **[R22]** 권한 확대·secret 등록·외부 효과처럼 question option action이 허용하지 않는 설정 변경은 해당 소유 concern의 보호 화면으로 안내하고 일반 설정 선택지로 우회하지 않는다.
 - 이유: 사용 안내가 보안 관문을 대체하지 않는다.
 - 확인: provider credential·앱 허락 변경에서 비밀 입력·grant가 question action으로 실행되지 않는지 본다.
-- 의도: lophn-agent#I3, lophn-agent#I6
+- 의도: lophn-agent#I3
 
 **[R23]** lophn 역할은 사람이 agent 사용을 허락한 앱의 command를 effect 판정으로 사용하고 힌트 요청은 apps/agent-context가 선언한 현재 화면의 허용 자리에만 주석으로 되쓴다.
 - 이유: 화면을 아는 안내 역할이 앱의 선언 API 안에서만 돕는다.
 - 확인: 힌트가 선언된 자리에 쓰이고 허락하지 않은 앱·낡은 화면은 실행되지 않는지 본다.
-- 의도: lophn-agent#I3, lophn-agent#I6
+- 의도: lophn-agent#I10
 
 **[R24]** 모든 coding 요청과 피드백은 lophn 또는 App Engineer가 coding-agent/tickets의 ticket으로 남기고 근거·acceptance check이 부족하면 확인 필요·준비 상태를 명시하며 시작은 사람이 [Start]를 누르거나 자기 터미널에서 직접 하는 coding-agent/sessions 경로로만 이어 준다.
 - 이유: 사람의 직접 요청도 별도 구현 경로를 만들지 않는다.
 - 확인: 직접 수정 요청이 ticket으로 남고 agent 완료 주장이나 ticket 생성만으로 coding agent가 시작되지 않는지 본다.
-- 의도: lophn-agent#I1, lophn-agent#I2
+- 의도: lophn-agent#I2
 
 ### prompt의 관점·기대 결과
 

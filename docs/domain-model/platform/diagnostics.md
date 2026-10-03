@@ -48,8 +48,8 @@ lophn 자체의 안전한 운영 log·crash 관측과 상태 점검 값을 정�
 - **무인증 요청.** 대량 거절 요청을 매번 ledger event로 남기지 않는다. 제한된 안전 진단만 허용한다.
 - **상태 점검.** 준비·건강 상태 API도 → platform/identity의 인증·scope를 요구한다. 인증 전에는 안전한 일반 오류만 준다.
 - **redaction.** token·secret·인증 header·원문 입력·scope 밖 대상은 log·crash·점검 결과에 없다. redaction 실패이면 원문 부재와 이유만 남긴다.
+- **보존.** 운영 log와 crash 기록은 용량 상한을 넘으면 오래된 것부터 정리한다. 감사 event·확정 command 결과·결정은 log로 대신하거나 log 정리로 지우지 않는다. → platform/diagnostics#R12
 
 ## 정할 것
 
-- log 매체·회전 크기·총 보존 한도·crash 기록 보존 기간.
 - 등록 component·진단 code 목록, 상태 점검 항목과 측정 기한.

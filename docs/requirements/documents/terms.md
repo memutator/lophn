@@ -13,41 +13,38 @@ context 안의 용어 이름·사람이 정한 정의·고정 본문 출현 근�
 **[R1]** Context Engineer가 낸 용어 후보에는 실제 문서 본문의 고정 판과 section 또는 줄 범위 출현 근거를 붙여 사람이 정의한 용어와 별도로 보여 준다.
 - 이유: 모델의 후보를 합의한 뜻으로 사용하면 안 된다.
 - 확인: 후보의 당시 본문을 열고 새 문서 판이 생겨도 근거를 바꿔치기하지 않으며 근거 없는 agent 후보는 거절된다.
-- 의도: documents#I7
+- 의도: documents#I6
 
 **[R2]** 용어의 이름·뜻을 확정하거나 정의된 이름·뜻을 고치는 것은 사람만 하며 agent는 후보 이름·근거만 다룬다.
 - 이유: 말을 쓰는 사람이 의미를 결정한다.
 - 확인: agent의 정의 확정·수정은 거절되고 사람이 답한 정의는 그 사람의 결정으로 반영되며 적용은 lophn-agent/questions를 따른다.
-- 의도: documents#I7
+- 의도: documents#I6
 
 **[R3]** 용어는 context마다 따로 정의하고 같은 이름의 뜻 충돌을 자동 통합·번역·상속하거나 다른 context 용어와 대응시키지 않는다.
 - 이유: 같은 말이 다른 목적에서 같은 뜻이라는 보장은 없다.
 - 확인: 두 context의 같은 이름에 다른 정의를 남길 수 있고 후보가 자동 정의나 별칭으로 합쳐지지 않는다.
-- 의도: documents#I7
+- 의도: documents#I6
 
 ### 용어 목록
 
 **[R4]** context glossary는 활성 정의와 후보를 나눠 읽고 정의는 첫 페이지 최대 30개와 cursor로 이어 볼 수 있다.
 - 이유: 큰 glossary도 합의한 뜻부터 적은 양으로 읽어야 한다.
 - 확인: 정의 35개와 후보를 읽어 정의 30개·5개를 이어 받고 후보는 별도 목록에 보인다.
-- 의도: documents#I7, documents#I4
+- 의도: documents#I6, documents#I3
 
 **[R5]** 용어 보관과 context 보관은 사람 정의·출현 근거를 지우지 않으며 이미 정의된 용어를 빈 정의의 후보로 돌리는 기능은 제공하지 않는다.
 - 이유: 보관은 뜻 삭제가 아니어야 한다.
 - 확인: 보관된 용어의 정의와 고정 근거가 남고 정의를 지워 후보로 바꾸는 요청은 제공되지 않는다.
-- 의도: documents#I7
+- 의도: documents#I6, documents#I2
 
 ### 앱의 언어
 
 **[R6]** 앱의 읽기 명령을 항목으로 가진 context의 사람 정의 용어를 앱 설명을 읽을 근거로 제공하되 앱 blueprint에 자동 복사하지 않는다.
 - 이유: 관점의 용어와 앱의 구현 계약을 구분한다.
 - 확인: 관련 context의 glossary를 읽어도 앱 blueprint가 바뀌지 않으며 읽기 범위는 lophn-agent/roles/app-engineer를 따른다.
-- 의도: documents#I7, documents#I5
+- 의도: documents#I6
 
 ## 열린 질문
-
-- documents/terms#Q1 context 사이 같은 뜻의 다른 용어를 실제 대응으로 연결할까.
-- documents/terms#Q2 기존 alias·translation을 새 Term에 유지할까.
 
 ## 버린 것
 

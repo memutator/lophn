@@ -6,7 +6,7 @@ concerns: [lophn-agent/roles/app-engineer, lophn-agent/conversation, lophn-agent
 
 사람이 쓰던 앱의 기능·화면·동작을 바꾸거나 새 공용 SDK를 사용하는 변경을 원할 때 시작한다. 새 구현을 준비하는 것과 운영 앱을 바꾸는 것은 별개다.
 
-지키는 약속: apps#I2, apps#I3, lophn-agent#I2, coding-agent#I4, coding-agent#I5, platform#I5.
+지키는 약속: apps#I2, apps#I3, lophn-agent#I2, coding-agent#I4, platform#I5.
 
 ## 흐름
 

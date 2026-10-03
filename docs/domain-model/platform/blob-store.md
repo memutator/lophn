@@ -73,10 +73,10 @@ blob 자체와 준비 파일은 ledger 표가 아니다. 참조 목록은 공통
 - **GC.** 기동 시와 매일 필요 여부를 점검하지만 실제 삭제는 정지 유지보수만 허용한다. 새 준비·command를 막고 진행 준비를 끝내거나 중단한 뒤 writer를 닫는다. 고정 ledger의 모든 `blob_refs`와 비교해 미참조 설치 blob은 미참조 확인 시각부터 7일 뒤 삭제하고, 비정상 종료의 임시 파일은 살아 있는 작업이 아님을 확인한 뒤 정리한다. 정상 동작 중 나이만 보고 삭제하지 않는다. → platform/blob-store#R8, platform/blob-store#R9, platform/blob-store#R10
 - **저장 공간.** ledger·WAL·blob·임시 준비·안전 여유의 실제 공간이 부족하면 신규 수집·변경을 제한한다. 참조 blob을 임의 삭제해 성공을 만들지 않는다. 참조 차단·실제 파일 삭제·다른 사본 잔존은 별개다. → platform/blob-store#R11, platform/blob-store#R12
 - **복구.** blob 설치와 SQLite commit은 공동 원자 작업이 아니다. 미참조 준비는 고아로 남을 수 있으나 참조된 내용의 부재는 저장소 손상이다.
-- **삭제.** 큰 근거의 기간별 삭제는 내용 소유 concern의 정책과 공통 참조 흔적 정책이 정해진 뒤에만 허용한다. event는 수정·삭제하지 않는다(→ platform/ledger).
+- **보존.** model 호출 본문·snapshot 첨부·trace 본문·운영 log 같은 큰 자료의 blob은 종류별 용량 상한을 넘으면 오래된 것부터 정리한다. 변경 기록·결정·확정 결과의 blob과 그 참조는 기간이나 용량으로 삭제하지 않는다. 정리한 blob의 남은 참조는 내용 부재로 표시하고 event는 수정·삭제하지 않는다(→ platform/ledger, platform/blob-store#R13).
 
 ## 정할 것
 
 - blob 크기·스트림·읽기 구간 한도와 준비 식별 수명의 구현 기본값은 → platform architecture의 blob contract와 맞춘다. 정지 GC의 미참조 유예는 7일로 정해졌다.
-- 상세 근거 삭제 후 참조 유지와 `content unavailable` 표현. 현재는 참조된 blob을 기간만으로 삭제하지 않는다.
+- 상세 근거 삭제 후 참조 유지와 `content unavailable` 표현. 변경 기록·결정·확정 결과의 blob은 기간·용량으로 삭제하지 않는다. 큰 자료 blob은 → platform/blob-store#R13에 따라 용량 상한으로 정리하고 남은 참조는 내용 부재로 표시한다.
 - 지원 OS의 원자 설치·sync 보장과 검증 범위.

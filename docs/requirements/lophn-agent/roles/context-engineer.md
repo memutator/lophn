@@ -67,22 +67,22 @@ concerns: [lophn-agent/roles/context-engineer]
 **[R11]** Operator 후보 검토는 최근 30일 watch 변화 4회 이상·기준 자료 뒤처짐 14일 이상·최근 30일 같은 수동 업무 4회 이상 중 하나의 근거가 있을 때 시작하되 단순 합계나 자료 수집만 있는 일은 제안하지 않는다.
 - 이유: 반복 모델 판단과 machine 계산을 분리한다.
 - 확인: 근거 횟수·기간과 판단 필요성을 설명하고 변화·일일 용어 탐색 자체로 새 Context Engineer run을 만들지 않는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I5, lophn-agent#I6
+- 의도: lophn-agent#I4, lophn-agent#I5
 
 **[R12]** Operator 초안은 prompt의 판단·제외·필요 근거·비교 기준·갱신 조건, project 또는 app 범위, preset 전체 구성과 읽을 자료, 기존 남길 문서 최소 1개·주기·승인 앱 read·전후 판과 이유를 담는다.
 - 이유: 실제 쓰기 대상과 책임을 승인 전 확인하게 한다.
 - 확인: 필요하면 최초 양식을 실제 문서 version으로 남기되 주기 결과로 표시하지 않고 적용은 lophn-agent/assignments로만 진행되는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I5, lophn-agent#I6
+- 의도: lophn-agent#I4, lophn-agent#I5
 
 **[R13]** 같은 project 또는 app에 책임이 겹치는 Operator가 있으면 새 assignment를 늘리기보다 기존 preset 판·남길 문서 변경을 제안하고 겹침 근거를 붙인다.
 - 이유: 중복 판단과 결과 문서 경쟁을 줄인다.
 - 확인: 겹친 후보에서 기존 assignment 변경 초안이 나오며 승인 없이 자동 변경되지 않는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I5, lophn-agent#I6
+- 의도: lophn-agent#I5, lophn-agent#I6
 
 **[R14]** 목적·경계·관점·term 해석·Operator 설계는 judgment 용도, 이미 정한 보고 제목·요약은 organizing 용도로 분리하고 실제 model·계정은 preset 선택을 쓴다.
 - 이유: 용어 정의나 책임 선택을 단순 정리 호출로 만들지 않는다.
 - 확인: 본문과 정리의 용도가 기록되고 실제 호출이 해당 preset의 provider·model·계정으로 가는지 본다.
-- 의도: lophn-agent#I5, lophn-agent/harness#I1
+- 의도: lophn-agent#I5
 
 ### prompt의 관점·기대 결과
 

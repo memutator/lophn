@@ -6,7 +6,7 @@ concerns: [lophn-agent/observability, lophn-agent/revert, lophn-agent/harness/us
 
 agent 결과가 마음에 들지 않거나 무엇을 왜 했고 얼마나 썼는지 알고 싶을 때 시작한다. 사람은 결과와 다음 행동부터 확인하고, 필요할 때 근거·변경·비용을 펼쳐 본다.
 
-지키는 약속: lophn-agent#I5, lophn-agent#I7, platform#I1, platform#I2, shell#I8.
+지키는 약속: lophn-agent#I7, platform#I1, platform#I2, shell#I1.
 
 ## 흐름
 
@@ -25,7 +25,7 @@ agent 결과가 마음에 들지 않거나 무엇을 왜 했고 얼마나 썼는
 - 아직 진행 중이거나 사람을 기다리는 일은 먼저 멈춰 실제 종료를 확인한 뒤 revert를 요청한다. 중단 그 자체가 이미 완료한 변경을 복원하지 않는다. (lophn-agent/revert#R1, lophn-agent/revert#R2, lophn-agent/harness/run-loop#R18)
 - 5~6에서 후속 변경·관계 충돌이 있으면 어떤 복원도 시작하지 않는다. confirmation-window 화면 대상이 바뀌거나 현재 조회가 실패하면 옛 결정 행동으로 제출할 수 없고 이유와 최신 내용 경로만 확인한다. (lophn-agent/revert#R4, shell/confirmation-window#R5)
 - 7에서 앱 호출 실패·충돌·응답 유실이 생기면 앱 복원과 ledger 복원을 하나의 transaction처럼 표시하지 않는다. conversation 화면 이미 복원된 변경·미시작 변경·불명확 결과를 각각 확인한다. (lophn-agent/revert#R11)
-- 사람이 기록 export를 원하면 포함할 본문 종류와 대상·목적지를 별도로 고른다. 기본은 metadata뿐이며 redaction 뒤 내용만 내보낸다. export 실패는 원래 일의 결과를 바꾸거나 model을 재호출하지 않는다. (lophn-agent/observability#R10, lophn-agent/observability#R13, lophn-agent/observability#R16, lophn-agent/observability#R17)
+- 사람이 기록 export를 원하면 로컬 파일로만 내보내고 포함할 본문 종류를 export마다 다시 고른다. 기본은 metadata뿐이며 redaction 뒤 내용만 내보낸다. 네트워크 export는 하지 않으며 export 실패는 원래 일의 결과를 바꾸거나 model을 재호출하지 않는다. (lophn-agent/observability#R10, lophn-agent/observability#R12, lophn-agent/observability#R16, lophn-agent/observability#R17)
 
 ## 끝
 

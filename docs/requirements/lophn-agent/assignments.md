@@ -57,47 +57,47 @@ concerns: [lophn-agent/assignments]
 **[R9]** 사람은 assignment를 멈추거나 회수할 수 있으며 멈춘 책임은 새 실행 요청을 접수하지 않고 회수된 책임은 재개하지 않으며 다시 맡기려면 새 assignment를 만든다. 거두지 않은 lophn·Context Engineer 전체 범위 assignment는 회수할 수 없고 멈춤·재개만 할 수 있다.
 - 이유: 일시 중단과 영구 책임 종료를 구분한다.
 - 확인: paused는 사람이 다시 켤 수 있지만 withdrawn은 새 요청·재개를 거절하고 과거 기록은 남는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I6, lophn-agent/harness#I2
+- 의도: lophn-agent#I4, lophn-agent#I6
 
 **[R10]** 모든 assignment에서 실제 시작한 run의 최종 실패가 연속 3회면 machine이 해당 assignment를 멈추고 실패 종류·횟수·마지막 이유·이미 완료한 일을 secret 없이 보여 준다.
 - 이유: lophn-agent/assignments에 따라 한 run 안의 tool 실패와 최종 run 실패를 구분한다.
 - 확인: 최종 실패 세 번 뒤 새 회차·실행 요청 접수·후속 호출이 막히고 무관한 assignment·앱은 계속되는지 본다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I2
+- 의도: lophn-agent#I4
 
 **[R11]** 실패 집계는 정상 완료와 Operator 무변화 완료에서 끊고 미시작·사람 중단·거절·답 없음·질문·approval 대기는 세지도 연속 묶음을 지우지도 않는다.
 - 이유: 사람의 결정과 기다림을 장애 실패로 취급하지 않는다.
 - 확인: 실패·미룸·실패·실패는 멈추고 실패·무변화 완료·실패는 멈추지 않는지 본다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I2
+- 의도: lophn-agent#I4
 
 **[R12]** 반복 실패의 멈춤과 실패 묶음은 사람의 명시적 재개만으로 풀고 시간 경과·재시작·재시도·정의 변경·다음 주기·다른 역할 handoff로 자동 해제하지 않는다.
 - 이유: 문제 있는 책임이 재시작 뒤 조용히 되살아나지 않게 한다.
 - 확인: 멈춘 책임의 정의를 바꾸거나 컴퓨터를 다시 켜도 paused이고 사람이 재개한 뒤 새 실패 집계를 시작하는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I6, lophn-agent/harness#I2
+- 의도: lophn-agent#I4, lophn-agent#I6
 
 **[R13]** 반복 실패 멈춤은 해당 assignment와 그 run의 후속 진행에만 적용하고 실패 근거 공개는 lophn-agent/observability와 platform/redaction을 따른다.
 - 이유: 하나의 판단 장애가 다른 책임의 실행을 막거나 secret을 노출하지 않는다.
 - 확인: 다른 assignment는 진행되고 원인 안내에 인증 값이 없는지 확인한다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I2
+- 의도: lophn-agent#I4
 
 **[R14]** 담당 project·app·남길 문서가 보관되면 그 assignment를 멈추며 일시적으로 접근할 수 없는 대상은 새 일을 시작하거나 호출하지 않는다.
 - 이유: 없는 대상에 반복 결과를 쓰지 않는다.
 - 확인: 보관은 machine pause로 남고 일시 장애는 변경을 만들지 않으며 진행 run 정리는 lophn-agent/harness/run-loop를 따르는지 본다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I2
+- 의도: lophn-agent#I4
 
 **[R15]** Operator의 실제 진행과 사람 기다림 실행은 lophn-agent/harness/run-loop의 겹침 규칙을 따르며 주기·사람 요청 외 앱 업무 단계나 event 변화로 책임을 자동 접수하지 않는다.
 - 이유: 범위·주기·실패 정책을 역할 밖 경로로 우회하지 않는다.
 - 확인: 앱 문제나 watch 변화가 assignment의 새 run을 만들지 않는지 확인한다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I2
+- 의도: lophn-agent#I4
 
 **[R16]** enabled·paused assignment는 대화를 열 수 있고 회수된 assignment는 지난 대화만 읽으며 새 대화·입력을 받지 않는다. paused의 입력 보존은 lophn-agent/conversation을 따르고 실행 접수·model·tool 호출이나 자동 재개를 허용하지 않는다.
 - 이유: 대화 입력과 책임 실행의 상태를 분리해 멈춘 일이 조용히 되살아나지 않게 한다.
 - 확인: paused에 보낸 말은 보존되지만 run·model·tool이 생기지 않고 withdrawn은 지난 대화 읽기만 되는지 본다.
-- 의도: lophn-agent#I4, lophn-agent/harness#I2
+- 의도: lophn-agent#I4
 
 **[R17]** 모든 assignment는 역할 종류가 같은 preset 하나의 존재하는 판을 고정해 사용하고 preset 새 판 저장만으로 연결 판을 바꾸지 않으며 명시 적용한 변경은 다음 run부터 쓴다.
 - 이유: 책임 개수와 재사용 구성 수를 구분하고 사용 중 구성을 몰래 바꾸지 않는다.
 - 확인: preset을 여러 개 만든 뒤 lophn·Context Engineer의 개수는 하나이고 공유 preset 변경이 연결된 assignment를 자동 이동하지 않는지 본다.
-- 의도: lophn-agent#I4, lophn-agent#I6, lophn-agent#I5
+- 의도: lophn-agent#I4, lophn-agent#I5
 
 ## 버린 것
 - Operator 시리즈 생성 계약은 lophn-agent/roles/operator에 따라 기존 문서 새 version만 사용하므로 제거했다.

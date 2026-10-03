@@ -91,5 +91,5 @@ Report 재발 판정은 → problems/reporting의 접수 transaction 안에서 �
 
 ## 정할 것
 
-- H4: reproduction을 만들 수 없는 repair ticket의 사람 acceptance check 허용 여부는 → coding-agent/tickets다. 코드 수리는 ticket·claim을 우회하지 않으며 보호된 사람 확인 계약은 유지한다. reproduction 없는 ticket의 실행 준비 조건은 → redesign/propagate#Q4의 owner 충돌로 남긴다.
+- H4: reproduction을 만들 수 없는 repair ticket은 보호 화면의 사람 확인을 acceptance check로 쓴다. 이 닫힘은 `user_confirmed`(내가 확인함)이며 테스트 통과(`verified`)와 구별한다. 코드 수리는 ticket·claim을 우회하지 않는다.
 - H5: CLI TTY의 사람 확인 인정 여부는 → shell/confirmation-window다. 현재는 보호 화면 근거만 유효하다.

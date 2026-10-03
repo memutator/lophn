@@ -27,8 +27,8 @@ CodingAgentConnection의 범위, credential 참조와 회수 상태를 정의한
 
 | 전 | 후 | actor | 조건 | event |
 |---|---|---|---|---|
-| 없음 | `active` | `user` | 사람 harness 연결 선택과 보호 화면의 정확한 label·scope 확인; 자동 credential 발급·keychain 준비 성공 | `CodingAgentConnectionCreated` |
-| `active` | `revoked` | `user` | 보호 화면 확인; `revision` 일치 | `CodingAgentConnectionRevoked` |
+| 없음 | `active` | `user` | 사람 harness 연결 선택이 허락; 정확한 label·scope; 확인 창 없음; 자동 credential 발급·keychain 준비 성공 | `CodingAgentConnectionCreated` |
+| `active` | `revoked` | `user` | confirmation window 확인; `revision` 일치 | `CodingAgentConnectionRevoked` |
 
 ### 불변 조건
 
@@ -67,8 +67,8 @@ CodingAgentConnection의 범위, credential 참조와 회수 상태를 정의한
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `coding_agent_connection.create` | `user` | `id, label, scope`, 인증 경계의 준비된 token 검증 hash, 보호 화면 근거, idempotency key | ID 미존재; 앱 존재; 확인 대상·입력 일치; 인증 경계의 OS keychain 보관 준비 확인 | `CodingAgentConnectionCreated` | `invalid_input`, `forbidden`, `conflict` |
-| `coding_agent_connection.revoke` | `user` | `connection`, 보호 화면 근거, idempotency key | `base_revision`, 현재 `active`, 확인 대상 일치 | `CodingAgentConnectionRevoked` | `not_found`, `forbidden`, `conflict` |
+| `coding_agent_connection.create` | `user` | `id, label, scope`, 인증 경계의 준비된 token 검증 hash, idempotency key | ID 미존재; 앱 존재; 사람이 고른 label·scope와 입력 일치; 인증 경계의 OS keychain 보관 준비 확인; 확인 창 없음 | `CodingAgentConnectionCreated` | `invalid_input`, `forbidden`, `conflict` |
+| `coding_agent_connection.revoke` | `user` | `connection`, confirmation window 근거, idempotency key | `base_revision`, 현재 `active`, 확인 대상 일치 | `CodingAgentConnectionRevoked` | `not_found`, `forbidden`, `conflict` |
 
 ## event
 
@@ -90,6 +90,4 @@ CodingAgentConnection의 범위, credential 참조와 회수 상태를 정의한
 
 ## 정할 것
 
-- redesign/coding-agent#Q13
-- coding-agent/connection#Q1
-- coding-agent/connection#Q2
+없음.

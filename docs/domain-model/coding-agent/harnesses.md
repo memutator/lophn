@@ -38,14 +38,14 @@ HarnessDefinition 배포 값, HarnessDetection·HarnessIntegrationObservation de
 | harness | MCP target·format | skill root user / app | 지침·merge·loading 제약 |
 |---|---|---|---|
 | Claude Code | user 등록 또는 app `.mcp.json`, JSON `mcpServers.lophn` command/args/env | `~/.claude/skills` / `.claude/skills` | `CLAUDE.md` 관리 구간 `@AGENTS.md`; 기존 import·permission 보존. `.claude/settings.local.json`의 lophn SessionStart만 summary용 설치 |
-| Codex | effective `CODEX_HOME`(기본 `~/.codex`)/`config.toml`, TOML `[mcp_servers.lophn]` 조각 출력 | `~/.agents/skills` / `.agents/skills` | `AGENTS.md`, 가까운 `AGENTS.override.md` 검사. TOML 자동 수정·앱 MCP/TOML 자동 생성 없음 |
+| Codex | 사람이 Codex를 고르면 effective `CODEX_HOME`(기본 `~/.codex`)/`config.toml`의 `[mcp_servers.lophn]`만 receipt와 함께 설치 | `~/.agents/skills` / `.agents/skills` | `AGENTS.md`, 가까운 `AGENTS.override.md` 검사. 앱 MCP/TOML 자동 생성 없음. 사람이 고친 hash는 무변경·충돌 |
 | OpenCode | XDG/user `opencode.json` 또는 app `opencode.json`, JSON `mcp.lophn` type=local·command 배열·environment | `~/.config/opencode/skills` / `.opencode/skills` | `AGENTS.md`; 기존 rules와 config precedence 보존 |
 | Gemini CLI | `~/.gemini/settings.json` 또는 app `.gemini/settings.json`, JSON `mcpServers.lophn` | `~/.gemini/skills` / `.gemini/skills` | 기존 `context.fileName` 목록에 AGENTS.md 참조만 추가; trust=true·skill consent 자동 확대 없음 |
 | Hermes | `$HERMES_HOME/config.yaml`(기본 `~/.hermes/config.yaml`), YAML `mcp_servers.lophn` command/args/env/cwd | `$HERMES_HOME/skills` / `.hermes/skills` | `AGENTS.md`; profile home·workspace 확인; `hermes skills trust`는 사람이 결정 |
 | pi | 미리 설치된 exact MCP adapter의 `.mcp.json` 또는 `~/.pi/agent/mcp-adapter.json`, JSON `mcpServers.lophn`, `directTools:true` | `~/.pi/agent/skills` / `.pi/skills` | `AGENTS.md`; script/proxy 필수 adapter는 사용하지 않음; native MCP와 adapter 이중 시작 금지 |
 | OpenClaw | 사람 config의 `mcp.servers.lophn` stdio command/args/cwd 조각, 지원 version/client 검사 | `~/.openclaw/skills` / 선택 agent workspace의 `skills` | workspace AGENTS.md와 app root 차이 검사; workspace 변경·본문 복제 금지; session 소유 stdio 미확인은 unknown·CLI fallback |
 
-상태 evidence target은 version 검증한 Claude effective config의 settings hooks, Codex effective CODEX_HOME의 hooks, Gemini settings hooks, Hermes home의 YAML-enabled Python plugin, OpenCode effective XDG plugin, pi effective agent dir의 extension으로 구별한다. 이 조사에서 OpenClaw 상태 hook은 미검증이다. catalog에 검증 version이 없는 status target은 설치하지 않고 unknown으로 둔다. Codex TOML 자동 수정 금지는 status hook target을 이유로 우회하지 않는다.
+상태 evidence target은 version 검증한 Claude effective config의 settings hooks, Codex effective CODEX_HOME의 hooks, Gemini settings hooks, Hermes home의 YAML-enabled Python plugin, OpenCode effective XDG plugin, pi effective agent dir의 extension으로 구별한다. 이 조사에서 OpenClaw 상태 hook은 미검증이다. catalog에 검증 version이 없는 status target은 설치하지 않고 unknown으로 둔다. Codex 사용자 config 설치는 사람이 Codex를 고른 MCP 항목과 receipt로 한정하며 status hook을 이유로 다른 TOML을 고치지 않는다.
 
 ## HarnessDetection (값)
 

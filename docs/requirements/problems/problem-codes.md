@@ -13,17 +13,17 @@ concerns: [problems/problem-codes]
 **[R1]** 앱의 예상 실패마다 2~48자의 소문자 알파벳으로 시작하고 소문자 알파벳·숫자·underscore만 쓰는 고유한 problem code를 정한다.
 - 이유: release나 업무 데이터가 달라져도 같은 실패를 알아볼 이름이 필요하다.
 - 확인: 1자·49자·hyphen·대문자·중복 이름은 선언 검사에서 거절되고, 올바른 2자와 48자 이름은 통과한다.
-- 의도: problems#I3
+- 의도: problems#I1
 
 **[R2]** 예상 실패의 선언은 shell/wording의 message key·en 규칙에 따라 사람이 겪는 영향을 설명하는 공백 아닌 고정 한 줄과 coding agent가 코드를 고칠 일인지 사람이 설정·입력을 조정할 일인지를 함께 제공한다.
 - 이유: 사람이 겪는 증상과 고칠 쪽을 같은 뜻으로 읽어야 한다.
 - 확인: message key·en 설명 또는 고칠 쪽을 뺀 선언과 줄바꿈·치환 자리표시자가 든 문구는 거절되고, 프로필 기록 누락·사용량 과소집계는 코드 수리, 계정 인증 실패는 사람 조치로 설명할 수 있다.
-- 의도: problems#I3
+- 의도: problems#I1
 
 **[R3]** 같은 problem code의 의미는 release 사이에 유지하고 다른 실패를 뜻하게 바꾸려면 새 problem code를 쓴다.
 - 이유: 과거 보고를 새 의미로 재해석하면 지난 수리 근거를 잃는다.
 - 확인: 같은 이름으로 다른 증상을 선언한 변경은 확인 대상이 되고 기존 보고의 의미는 그대로 남는다.
-- 의도: problems#I3
+- 의도: problems#I1
 
 **[R4]** 문제의 문구는 보고 당시 release의 고정 선언으로 표시하고 이후 선언이 지워져도 그 설명을 잃지 않는다.
 - 이유: 현재 앱에서 사라진 선언도 과거 발생의 설명이다.
@@ -40,35 +40,31 @@ concerns: [problems/problem-codes]
 **[R6]** 필수 플랫폼 분류는 처리되지 않은 process·view 예외, 사람이 제출한 feedback, 잘못된 앱 보고의 3종이며 각각 사람이 이해할 고정 문구를 shell/wording의 message key·en 규칙에 따라 제공한다.
 - 이유: 앱이 예상 실패를 선언하지 않아도 기본 보고 통로는 있어야 한다.
 - 확인: 선언이 0개인 앱에서 3종을 각각 발생시키면 앱 이름과 해당 고정 문구가 별개로 표시되고 앱이 사람 제출이나 플랫폼 관측을 대신하지 못한다.
-- 의도: problems#I1, shell#I9
+- 의도: problems#I1, shell#I3
 
 **[R7]** 고칠 쪽의 구분은 조치 안내일 뿐 permission·claim·문제 닫기 권한을 부여하지 않는다.
 - 이유: 사람 조치와 코드 수리를 구분해도 권한 경계를 우회하면 안 된다.
 - 확인: 사람 조치로 분류한 문제를 agent가 닫거나 그 분류만으로 권한을 얻으려 하면 거절된다.
-- 의도: problems#I3, problems#I5
+- 의도: problems#I1, problems#I3
 
 ### 보고 경로 강제
 
 **[R8]** 예상 실패가 0개인 앱도 process 예외 수집과 저장 전 redaction 경로를 갖추고 화면이 있으면 view 예외 수집과 feedback 경로도 갖춘다.
 - 이유: 빈 선언을 기본 문제 보고 기능 생략의 구실로 쓰지 않는다.
 - 확인: 선언 없는 앱에서 각 경로를 뺀 app test가 실패하고 화면 없는 앱의 화면 검사는 적용 대상 아님과 이유를 남긴다.
-- 의도: problems#I6
+- 의도: problems#I1
 
 **[R9]** 선언한 problem code마다 실제 실패 경로를 통과해 해당 보고가 접수됨을 확인하는 테스트가 최소 1개 있어야 한다.
 - 이유: SDK 보고 호출만 직접 테스트하면 실패하는 자리의 누락을 찾지 못한다.
 - 확인: 선언만 있고 실패 경로가 보고하지 않는 앱은 problems/tests의 app test를 통과하지 못하며 SDK 호출 테스트만 있어도 통과하지 않는다.
-- 의도: problems#I6
+- 의도: problems#I1
 
 **[R10]** 문제 보고 경로를 삭제하거나 원래 기대를 약화한 변경은 수리 확인으로 인정하지 않는다.
 - 이유: 증상을 숨기는 변경과 실제 수리를 구별한다.
 - 확인: 변경 뒤 테스트가 성공해도 약화가 있으면 problems/tests와 problems/closing에서 수리 근거로 채택되지 않는다.
-- 의도: problems#I5, problems#I4
+- 의도: problems#I3
 
 ## 열린 질문
-
-- problems/problem-codes#Q1 사람이 조정할 문제에 별도 앱 command·화면 조치 링크를 제공할까.
-- problems/problem-codes#Q2 health check와 사용자 label·문제 연결 검사를 별도 기능으로 유지할까.
-- problems/problem-codes#Q3 옛 runtime 예약 code 전체와 별도 오탐 code를 필수로 유지할까.
 
 ## 버린 것
 

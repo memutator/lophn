@@ -18,7 +18,7 @@ concerns: [documents/file-tracking]
 **[R2]** lophn의 원본 파일 읽기·쓰기·이름 변경·삭제·watch는 사람의 shell만 플랫폼 파일 통로로 이용하며 MCP·CLI·coding agent·lophn agent·앱에는 이 통로를 주지 않는다.
 - 이유: 저장 문서 읽기와 현재 디스크 파일 접근을 구분한다.
 - 확인: 사람은 등록 폴더를 편집하지만 각 agent·앱 자격의 요청은 거절되며 coding agent의 자기 외부 편집기는 금지하지 않는다.
-- 의도: documents#I1, platform#I2
+- 의도: documents#I1
 
 ### 관측과 준비
 
@@ -32,10 +32,10 @@ concerns: [documents/file-tracking]
 - 확인: 연속 편집은 변경이 멎은 내용으로 준비하고 삭제 후 같은 경로에 재생성한 파일을 단순 수정으로 숨기지 않는다.
 - 의도: documents#I1, documents#I2
 
-**[R5]** 파일 읽기·hash·format 검사·blob 준비는 core 밖의 제한된 worker에서 하며 초기 worker는 2개와 폴더별 공정 큐로 시작한다.
+**[R5]** 파일 읽기·hash·format 검사·blob 준비는 core 밖의 제한된 worker에서 하며 준비 worker는 2개와 폴더별 공정 큐로 시작하고 한도 초과는 미확인으로 남긴다.
 - 이유: 큰 폴더 하나가 다른 폴더나 무관한 요청을 막지 않게 한다.
 - 확인: 큰 폴더 scan 중 작은 폴더의 변경도 처리되고 동시 worker 수가 2개를 넘지 않는다; 전체 응답성은 platform/responsiveness를 따른다.
-- 의도: platform#I3, documents#I1
+- 의도: documents#I1
 
 **[R6]** 관측한 원문을 hash한 바이트와 보존할 blob 바이트는 같은 읽기 스트림이어야 하며 읽는 동안 파일이 바뀌면 재관측하거나 미확인으로 남긴다.
 - 이유: 서로 다른 순간의 hash와 내용으로 거짓 version을 만들지 않게 한다.
@@ -55,7 +55,7 @@ concerns: [documents/file-tracking]
 **[R9]** 파일 상태는 조회 때 계산하여 추적 안 함·추적 중인 판·version 대기·format 검사 실패·원본 없음·미확인을 구별하되 사람 화면은 지금 필요한 상태만 기본으로 보여 주고 관측 시각과 비교한 판은 펼쳐 본다.
 - 이유: 읽기 실패를 부재로, 낡은 표시를 현재 상태로 오해하지 않게 한다.
 - 확인: 파일 수정·삭제·권한 오류를 각각 만들어 대기·없음·미확인을 구별하고 원본 없음에도 documents/versions의 옛 판을 읽는다.
-- 의도: documents#I1
+- 의도: documents#I1, shell#I1
 
 **[R10]** lophn은 관측하지 못한 모든 중간 편집을 복원한다고 약속하지 않고 현재 확인한 내용과 누락·지연·실패를 구분한다.
 - 이유: watch와 scan이 완전한 파일 변경 이력인 것처럼 보이면 안 된다.
@@ -67,7 +67,7 @@ concerns: [documents/file-tracking]
 **[R11]** 기존 파일의 저장·이름 변경·삭제는 수정 전 hash를 시작 때와 교체 직전에 대조하고 달라졌으면 HTTP 409 충돌로 거절한다.
 - 이유: 외부 편집기의 새 내용을 조용히 덮어쓰지 않게 한다.
 - 확인: lophn 편집기를 연 뒤 외부에서 고치면 저장 요청은 충돌하고 외부 내용은 남는다; 충돌 표현은 shell/editor를 따른다.
-- 의도: documents#I1
+- 의도: documents#I7, documents#I1
 
 **[R12]** 파일 저장은 같은 파일 시스템의 임시 파일을 동기화한 뒤 원자 교체하고 이를 지원하지 않으면 비원자 쓰기로 바꾸지 않는다.
 - 이유: 저장 중 종료가 부분 본문을 원본에 남기지 않아야 한다.
@@ -77,7 +77,7 @@ concerns: [documents/file-tracking]
 **[R13]** 새 파일에 문서를 두는 작업은 확인 뒤 새로 생긴 파일도 덮지 않으며 최신 version의 바이트를 쓴 뒤 문서 자리·원본 연결을 별도로 확정한다.
 - 이유: 디스크 쓰기와 ledger 변경을 거짓 단일 transaction으로 취급하지 않는다.
 - 확인: 대상 파일을 확인과 생성 사이에 만들면 덮지 않고 연결 확정을 실패시켜도 실제 파일 쓰기 결과는 따로 보인다; 자리는 documents/addressing을 따른다.
-- 의도: documents#I1, documents#I3
+- 의도: documents#I1, documents#I7
 
 **[R14]** 파일로 둔 문서를 자리 없음으로 되돌리며 파일을 지울 때는 디스크 내용이 최신 version과 같은 경우에만 삭제한다.
 - 이유: 그사이 사람이 고친 파일을 정리 동작이 없애서는 안 된다.
@@ -94,39 +94,35 @@ concerns: [documents/file-tracking]
 **[R16]** 디스크가 권한·읽기 전용·용량·quota 때문에 바이트를 받지 못하면 HTTP 503 이용 불가로 반환하며 기록과 log에는 경로·hash·OS 오류만 남기고 본문은 넣지 않는다.
 - 이유: 디스크 실패와 적용 충돌을 구별하고 편집 본문을 감사 출력에 복제하지 않는다.
 - 확인: 권한과 디스크 용량 오류를 발생시켜 503을 확인하고 저장·이름 변경·삭제 기록에 본문이 없는지 확인한다.
-- 의도: platform#I2, platform#I4
+- 의도: documents#I1
 
 **[R17]** 한 편집 세션의 version 준비 계기는 종료나 명시 저장으로 모으되 성공한 파일 작업의 감사 기록을 편집 세션당 한 번으로 제한하지 않는다.
 - 이유: 새 모델은 실제 파일 쓰기·이름 변경·삭제 결과를 각각 확인해야 한다.
 - 확인: 같은 편집 세션에서 저장과 이름 변경을 하면 각각의 작업 결과를 확인하고 version 수는 관측 경계에 따라 늘어난다.
-- 의도: platform#I1, documents#I2
+- 의도: documents#I2
 
 ### 관측과 준비
 
 **[R18]** 파일 경로와 현재 연결 문서의 대응은 한 근거로만 관리하고 목록·추적·편집이 같은 연결을 사용한다.
 - 이유: 여러 복사본의 대응이 어긋나 다른 문서를 고치면 안 된다.
 - 확인: 원본 재연결 후 파일 목록·편집·scan에서 같은 문서를 가리키고 과거 판은 그대로 읽는다.
-- 의도: documents#I1, documents#I3
+- 의도: documents#I1, documents#I7
 
 **[R19]** lophn-agent/instructions가 지정한 전역·project·app LOPHN.md와 사람이 preset에 붙인 지침 파일은 [Instructions] 또는 명시 연결로 정확한 파일만 등록하여 안정된 바이트의 문서 version을 만들고 일반 폴더 tracking 범위를 넓히지 않는다.
 - 이유: 전역 파일도 이력은 얻되 lophn 데이터 root 전체를 추적하지 않는다.
 - 확인: 일반 tracking이 꺼졌거나 전역 파일이 data root에 있어도 지정 지침만 저장·외부 변경 관측되고 다른 파일은 추가 추적되지 않으며 없는 파일을 agent가 생성하지 않는지 본다.
-- 의도: documents#I1, documents#I2, lophn-agent#I8
+- 의도: documents#I1, documents#I2
 
 **[R20]** 지침 파일의 최초 생성·저장·복원은 사람의 파일 작업과 hash·version CAS를 사용하고 agent의 직접 파일 쓰기·문서 저장·원본 재연결은 question 제안으로만 받는다.
 - 이유: 지침을 읽는 권한은 자기 지침을 고치는 권한이 아니다.
 - 확인: 지침 대상이 Operator 출력이나 앱 출력으로도 선택되어 있어도 agent 저장은 거절되고 외부 편집 충돌을 덮어쓰지 않는지 본다.
-- 의도: documents#I1, lophn-agent#I8
+- 의도: documents#I1
 
 ## 열린 질문
-
-- documents/file-tracking#Q1 agent가 원본 연결 문서를 고치는 통로를 추가할까.
-- documents/file-tracking#Q2 초기 worker 2개를 요구로 유지할까 구현 조절값으로만 둘까.
-- documents/file-tracking#Q3 안정 읽기 재시도·파일 수·바이트·시간 한도의 초기 값을 무엇으로 할까.
-- documents/file-tracking#Q4 편집 세션당 감사 기록 한 번 규칙을 유지할까.
-- documents/file-tracking#Q5 앱의 허용된 파일 I/O도 사람 전용 원본 파일 API로 우회할까.
 
 ## 버린 것
 
 - 기본 notes 폴더·앱 source 자동 추적은 버렸다; 자동 추적은 프로젝트만 하고 원본 없는 문서는 문서별 작업 사본을 사용한다.
 - 편집 세션마다 감사 기록을 한 번만 남기는 규칙은 버렸다; 실제 파일 작업의 성공 결과를 각각 남긴다.
+- agent가 원본 연결 문서를 직접 고치는 통로는 두지 않는다; 제안 문서와 사람 편집을 유지한다.
+- 앱의 허용된 파일 I/O를 사람 전용 원본 파일 통로로 우회하지 않는다; 앱 I/O는 apps/permissions가 맡는다.

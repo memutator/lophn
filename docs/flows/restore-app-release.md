@@ -6,7 +6,7 @@ concerns: [apps/releases, apps/data, apps/runtime, problems/tests, problems/repo
 
 사람이 새 변경을 쓰다 마음에 들지 않거나 동작이 나빠져 이전 release를 다시 쓰고 싶을 때 시작한다. 이전 코드를 선택하는 것만으로 지금 데이터나 이미 생긴 외부 효과가 과거로 돌아가지는 않는다.
 
-지키는 약속: apps#I6, apps#I3, platform#I7.
+지키는 약속: apps#I3, platform#I7.
 
 ## 흐름
 

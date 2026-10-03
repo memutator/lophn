@@ -6,7 +6,7 @@ concerns: [apps/connections, apps/blueprint, apps/permissions, apps/runtime, app
 
 예를 들어 계획 앱이 내가 만든 캘린더 앱의 조회나 일정 추가 기능을 써야 한다. 사람은 어떤 앱이 어느 앱의 무엇을 왜 사용하는지만 확인하고, 연결과 호출의 복잡한 처리는 lophn에 맡긴다.
 
-연결된 intent: apps#I4, apps#I11, apps#I8, apps#I7, platform#I3, platform#I7.
+연결된 intent: apps#I4, apps#I7, apps#I6, platform#I3, platform#I7.
 
 ## 흐름
 

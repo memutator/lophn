@@ -17,7 +17,7 @@ concerns: [coding-agent/sessions, coding-agent/harnesses, coding-agent/connectio
 ## 다른 갈래
 
 - 자기 터미널 방식이면 사람이 직접 process를 시작해 ticket을 지정하고 설치된 connection의 MCP로 claim한다. lophn이 process를 시작·소유·첫 prompt 전달했다고 기록하지 않는다. (coding-agent/sessions#R8, coding-agent/tickets#R11)
-- 필수 채택·조건이 없는 요청은 가짜 근거를 채우지 않고 실행 준비를 보류한다. 모든 요청 접수와 준비의 상태 모델 충돌은 redesign/propagate#Q3에 남긴다. (coding-agent/tickets#R2, coding-agent/tickets#R3, coding-agent/tickets#R5)
+- 필수 채택·조건이 없는 요청은 가짜 근거를 채우지 않고 실행 준비를 보류한다. 요청 접수는 실행 준비와 별개이며 채택 판·조건이 갖춰지기 전에는 시작하지 않는다. (coding-agent/tickets#R2, coding-agent/tickets#R3, coding-agent/tickets#R5)
 - ticket·scope·path/profile·폴더가 바뀌면 conflict/unavailable로 멈추고 다른 harness/cwd로 fallback하지 않는다. keychain 잠김도 평문 전달로 바꾸지 않는다. (coding-agent/sessions#R4, shell/terminal#R2, platform/identity#R15)
 - 같은 시작 요청 중복은 같은 runtime만 반환한다. 준비·첫 prompt 결과가 모르면 unknown이며 재전송·재spawn·resume하지 않는다. 복원은 살아 있는 host에 재연결할 뿐 새 실행이 아니다. (coding-agent/sessions#R5, coding-agent/sessions#R10, shell/terminal#R13)
 - harness의 permission 입력은 사람의 그 TUI에서 처리한다. session 시작·종료·working 관측만으로 claim 갱신·반납·작업 완료·문제 닫힘을 만들지 않는다. (coding-agent/sessions#R9, coding-agent/tickets#R12)

@@ -23,7 +23,7 @@ concerns: [apps/registration]
 **[R3]** 앱 등록은 사람의 직접 요청 또는 lophn-agent/questions의 고정 등록 선택지 적용과 전체 범위 coding-agent/connection에서만 허용한다.
 - 이유: lophn-agent/questions·apps/registration의 등록 주체를 지켜 범위 밖 앱 생성을 막는다.
 - 확인: 전체 범위 연결은 등록되고 앱 하나 범위 연결과 lophn agent의 직접 요청은 거절된다.
-- 의도: apps#I1, coding-agent#I2
+- 의도: apps#I1
 
 ### source 연결
 
@@ -35,14 +35,14 @@ concerns: [apps/registration]
 **[R5]** source를 연결하거나 바꿔도 운영 bundle·채택한 release·업무 데이터는 바뀌지 않는다.
 - 이유: 개발 위치 변경을 운영 변경으로 취급하지 않는다.
 - 확인: source 재연결 전후 기존 release hash와 앱 데이터가 같다.
-- 의도: apps#I2
+- 의도: apps#I3
 
 ### 이름과 보관
 
 **[R6]** 앱 slug의 이름 공간과 옛 주소 안내는 documents/addressing을 따르며 lophn이 만드는 관리 폴더에는 주인 없는 기존 폴더를 자동 입양하지 않는다.
 - 이유: 사람이 열 수 있는 이름과 기존 파일의 소유권을 보존한다.
 - 확인: 같은 이름의 기존 비소유 폴더가 있을 때 내용과 소유자가 바뀌지 않는다.
-- 의도: documents#I3
+- 의도: apps#I1
 
 **[R7]** 등록 입력의 이름 추천은 slug의 대시·밑줄을 공백으로 바꾸고 단어 첫 글자를 대문자로 하되 사람이 입력한 이름을 그대로 쓴다.
 - 이유: 읽을 수 있는 기본 이름을 주면서 apps/registration의 이름 필수 조건을 지킨다.
@@ -57,16 +57,14 @@ concerns: [apps/registration]
 **[R9]** 앱 archive는 release 이력과 앱 문서 place를 삭제하지 않는다.
 - 이유: 오래 쓰는 앱의 근거와 결과를 보존한다.
 - 확인: archive 뒤 이전 release와 앱 문서를 계속 찾는다.
-- 의도: platform#I1
+- 의도: apps#I5
 
 **[R10]** 앱 등록에는 project 선택을 요구하지 않고 documents/addressing의 독립 앱 place로 조회할 수 있다.
 - 이유: 앱을 문서 project의 하위 폴더로 강제하지 않는다.
 - 확인: project가 없는 상태에서 앱을 등록해 그 앱의 독립 문서 주소와 목록을 찾는다.
-- 의도: apps#I1, documents#I3
+- 의도: apps#I1
 
 ## 열린 질문
-
-- apps/registration#Q1 앱 slug 변경 때 관리 폴더와 외부 source를 어디까지 이동할까?
 
 ## 버린 것
 

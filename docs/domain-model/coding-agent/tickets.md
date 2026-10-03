@@ -78,7 +78,7 @@ ID 없는 tagged union이다. 아래에서 해당 kind의 필드만 존재한다
 
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
-| `kind` | `test_command \| app_test \| reproduction_test \| release_active \| problems_closed` | 아니오 | enum | |
+| `kind` | `test_command \| app_test \| reproduction_test \| release_active \| problems_closed \| human_confirmation` | 아니오 | enum | |
 | `executable` | string | 아니오 (`test_command`만) | 공백 금지; 격리 환경에서 허용된 실행 파일 | shell 문자열 해석 없음 |
 | `argv` | string[] | 아니오 (`test_command`만) | 빈 목록 허용; 각 항목 그대로 전달 | |
 | `cwd` | string | 아니오 (`test_command`만) | 앱 source 상대 위치; 절대 경로·루트 밖 `..`·외부 symlink 금지 | |
@@ -87,7 +87,7 @@ ID 없는 tagged union이다. 아래에서 해당 kind의 필드만 존재한다
 | `problem` | 문제 ID | 아니오 (`reproduction_test`만) | Ticket.problems의 항목; → problems/grouping | |
 | `test_hash` | sha256 | 아니오 (`reproduction_test`만) | 고정 테스트·입력·기대값의 blob; → problems/tests, platform/blob-store | reproduction 기준 |
 
-`app_test`는 보고 release의 bundle hash에 대한 필수 app test 통과, `release_active`는 현재 active release와 보고 release의 일치, `problems_closed`는 Ticket.problems 전부의 닫힘과 이번 보고의 고친 기록·release 연결을 뜻한다. 이 세 kind는 추가 필드가 없다. 재현의 유효성·문제 닫힘 기준은 → problems/tests, problems/closing이다.
+`app_test`는 보고 release의 bundle hash에 대한 필수 app test 통과, `release_active`는 현재 active release와 보고 release의 일치, `problems_closed`는 Ticket.problems 전부의 닫힘과 이번 보고의 고친 기록·release 연결을 뜻한다. `human_confirmation`은 reproduction test를 만들 수 없는 repair에서만 사람이 confirmation window에서 한 확인이며 라벨은 "내가 확인함"이고 Verification 통과가 아니다. 이 네 kind는 추가 필드가 없다. 재현의 유효성·문제 닫힘 기준은 → problems/tests, problems/closing이다.
 
 ## TicketClaim (값)
 
@@ -117,7 +117,7 @@ ID 없는 tagged union이다. 아래에서 해당 kind의 필드만 존재한다
 | `condition` | integer | 아니오 | 0 이상, conditions 길이 미만 | 불변 조건 번호 |
 | `result` | `pass \| fail \| inconclusive` | 아니오 | 실제 실패만 `fail`; 미실행·승인·운영 확인 대기는 `inconclusive` | |
 | `reason` | string | 아니오 | pass가 아니면 공백 금지 | |
-| `verification` | `vrf` ID | 예 | test kind에서 실행 결과가 있으면 필수; 보고 release의 app·bundle hash와 일치; `test_command`는 → problems/tests의 TicketTestLink가 ticket·condition 번호·고정 조건 hash·이번 completion_seq와 일치; `reproduction_test`는 해당 problem·고정 test_hash·보고 after release 일치; 다른 kind는 null | → problems/tests |
+| `verification` | `vrf` ID | 예 | test kind에서 실행 결과가 있으면 필수; 보고 release의 app·bundle hash와 일치; `test_command`는 → problems/tests의 TicketTestLink가 ticket·condition 번호·고정 조건 hash·이번 completion_seq와 일치; `reproduction_test`는 해당 problem·고정 test_hash·보고 after release 일치; `human_confirmation`과 그 외 kind는 null | → problems/tests |
 | `targets` | `{concern, id, revision, release?}[]` | 아니오 | activation·문제 상태 비교는 대상 ID·읽은 변경 seq 필수 | 비교한 실제 대상과 release; entity 정의는 대상 concern |
 
 ## 관계
@@ -184,17 +184,14 @@ release 준비 command는 → apps/releases에서 소유하며 ticket ID·현재
 - **claim 상실.** 만료·반납·취소 뒤 옛 claim 갱신·ticket 근거 release 준비·완료 보고를 거절한다. 같은 connection이 재claim해도 옛 seq는 `conflict`, 회수 credential은 `unauthorized`다.
 - **사람 지시.** coding agent는 자기 터미널의 사람 지시 또는 [Start] 첫 prompt로 지정한 ticket만 MCP claim한다. 목록·시작 summary는 지시가 아니다. → coding-agent/sessions의 시작·상태 관측은 claim 생성·갱신·해제를 대신하지 않는다. claim 필드에 외부 session ID를 넣지 않는다. 같은 connection의 여러 session은 claim_seq로 현재 권리를 확인한다.
 - **사람 화면.** 진행 정본은 이 파일의 여섯 상태다. → coding-agent/tickets#R27, shell/wording에 따라 영어 화면 말로 표현하고 claim 기한·연결 ID·전체 조건과 보고·test 원문은 기본에서 숨긴다. 화면 라벨을 별도 ledger 상태로 저장하지 않는다.
-- **check 판정.** 전부 pass일 때만 confirmed다. 하나라도 실제 fail이면 check_failed, 그 외 미실행·승인·운영 대기는 reported다. 일반 shell log나 완료 주장의 통과 문자열은 machine test result가 아니다.
+- **check 판정.** 전부 pass일 때만 confirmed다. 하나라도 실제 fail이면 check_failed, 그 외 미실행·승인·운영 대기는 reported다. 일반 shell log나 완료 주장의 통과 문자열은 machine test result가 아니다. `human_confirmation`의 pass는 "내가 확인함"이며 Verification을 만들지 않는다.
 - **check 재접수.** 재시작 때 reported를 읽고 누락 check를 잇는다. `VerificationRecorded`, `ProblemClosed`, `ProblemReopened`, `ReleaseActivated`, `ReleaseSuperseded` 뒤 남은 조건을 재검사한다. model call은 없다.
 - **문제 경계.** `TicketConfirmed`로 문제를 닫지 않는다. 문제 작업 상태·열린 ticket 참조는 → problems/grouping이 현재 ticket을 읽어 idempotent command로 적용하고, 닫힘은 → problems/closing에서 먼저 판정한다.
 - **종료 보존.** 취소·만료는 release·문서·고친 기록·test result 삭제나 문제 닫힘이 아니다. claim은 source git lock이나 외부 프로세스 제어권이 아니다.
-- **모든 coding 작업.** 직접 요청·피드백도 lophn·App Engineer가 검사 가능한 ticket으로 정리한다. code 작업은 MCP claim→작업→보고이며 ticket 없는 수리 fallback은 없다. 과거 고친 기록은 → problems/repairs의 근거로 보존한다. 근거 부족은 무생성·다음 결정 안내이고 취소 ticket을 직접 경로로 완료 처리하지 않는다.
+- **모든 coding 작업.** 직접 요청·피드백도 lophn·App Engineer가 검사 가능한 ticket으로 정리한다. code 작업은 MCP claim→작업→보고이며 ticket 없는 수리 fallback은 없다. 과거 고친 기록은 → problems/repairs의 근거로 보존한다. 근거 부족은 무생성·다음 결정 안내이고 취소 ticket을 직접 경로로 완료 처리하지 않는다. App Engineer의 ticket 생성과 사람의 ticket 취소는 확인 창을 열지 않는다.
+- **사람 확인 acceptance.** reproduction test를 만들 수 없는 repair만 `human_confirmation`을 조건으로 둔다. 빈 reproduction을 만들어 넣지 않는다. 이 확인은 test 통과가 아니다.
 - **activation 조건.** 실제 사용까지 맡긴 구현에만 `release_active`를 명시한다. 숨은 공통 기본값은 없다. activation approval는 → apps/releases, platform/approvals이다.
 
 ## 정할 것
 
-- coding-agent/tickets#Q1
-- redesign/coding-agent#Q20
-- coding-agent/cli#Q2
-- coding-agent/tickets#Q4
-- redesign/coding-agent#Q21
+없음.

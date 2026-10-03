@@ -69,7 +69,7 @@ concerns: [platform/redaction]
 
 ## 정할 것
 
-- 첫 gitleaks commit과 credential prefix 목록; 입력·출력의 OpenAI·Anthropic·GitHub·AWS·Slack·PEM 공통 테스트 표본.
+- 첫 gitleaks commit과 credential prefix 목록은 구현 시점에 한 commit과 OpenAI·Anthropic·GitHub·AWS·Slack·JWT·PEM 공통 표본으로 고정하고 인증 형태 추가는 같은 정본에 반영한다.
 - 텍스트·JSON·이미지 한도, field path·화면 영역 모양, 처리 기한.
 - 알려진 값의 URL encoding·Base64 지원과 오탐 기준. 임의 이미지·암호화·분할된 미지 값의 완전 탐지는 보장하지 않는다.
 - 뒤늦은 원문 발견의 반환 차단 메타데이터와 상세 근거 삭제 정책은 → platform/blob-store와 맞춘다.

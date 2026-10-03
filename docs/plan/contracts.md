@@ -582,6 +582,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T31 base: 주기 시점 계산
 
+- 상태: 완료 (#8)
 - 등급: 좁은
 - concern: lophn-agent/scheduling, apps/automations (순수 계산만 base에 둔다)
 - 요구: lophn-agent/scheduling#R2, R3, R6; apps/automations#R3

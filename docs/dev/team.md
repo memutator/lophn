@@ -17,19 +17,21 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | reviewer | 다른 worker가 끝낸 작업을 요구 번호와 테스트로 확인한다 | 고치지 않고 의견만 |
 
 - planner는 최상위 concern 하나만 맡고 그 최상위 문서(intent, requirements, domain model, architecture)와 관련 flow만 읽는다. 다른 최상위는 contract와 concern id로만 본다.
-- reviewer는 implementer와 다른 model을 쓴다.
 
 ## worker 등급
 
+네 등급이다. 작업에는 등급을 적고, 등급 안의 model은 lead가 고른다.
+
 | 등급 | model | 언제 |
 |---|---|---|
+| 좁은 | space-bunny-max (`space-bunny-max`) | 범위가 좁고 지시가 분명한 작업: 정해진 파일 몇 개, 정해진 바꿈, 정해진 확인 |
+| 기본 | grok 4.7 (`grok-4-7-xhigh`), gpt-6.1-sol (`sol-6-1-high`) | 대부분의 작업, 계획, contract, review. 기본값 |
 | frontend | Opus 5.5 (`claude-opus-5-5`) | shell renderer, SDK UI 컴포넌트, ui-ux 규칙 같은 화면 작업 |
 | 최상위 | Sonnet 5.5 (`claude-sonnet-5-5`) | 가장 어려운 문제와 아래 등급이 거듭 실패한 문제에만 |
-| 상위 | gpt-6.1-sol (`sol-6-1-high`) | 판단이 큰 작업, 계획, contract, review |
-| 기본 | grok 4.7 (`grok-4-7-xhigh`)와 space-bunny-max (`space-bunny-max`)를 1:1로 | 범위가 분명하고 구체적인 작업. 기본값 |
 
-- 기본 등급의 두 model은 번갈아 배정한다. too many requests나 rate limit이 나면 그쪽 비율을 줄인다.
-- 실패하면 올린다: 기본에서 같은 작업이 두 번 실패하면 상위, 상위에서도 실패하거나 처음부터 가장 어려운 문제면 최상위.
+- 기본 등급의 두 model은 나눠 배정한다. too many requests나 rate limit이 나면 그쪽 몫을 줄인다.
+- 실패하면 올린다: 좁은 등급이 실패하면 기본, 기본에서 같은 작업이 두 번 실패하면 최상위.
+- reviewer는 implementer와 다른 model을 쓴다.
 - workflow에서는 model을 alias(`sonnet`, `opus`)가 아니라 위의 정확한 이름이나 agent type으로 지정한다. alias는 다른 판으로 풀린 적이 있다.
 
 ## 주고받기

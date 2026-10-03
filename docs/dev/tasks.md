@@ -20,7 +20,7 @@ slice 문서 안에 작업을 이 모양으로 쓴다.
 ```markdown
 ### T<n> 한 줄 제목
 
-- 담당: 기본 | 상위 | frontend   (team.md의 worker 등급)
+- 등급: 좁은 | 기본 | frontend | 최상위   (team.md의 worker 등급)
 - concern: apps/registration, apps/blueprint
 - 요구: apps/registration#R1–R4, apps/blueprint#R2
 - 자리: packages/apps/registration/, packages/contracts/apps/   (code-map.md)
@@ -32,8 +32,8 @@ slice 문서 안에 작업을 이 모양으로 쓴다.
   - flow new-app 1~3단계 E2E
 ```
 
-- 작업 하나는 기본 worker가 한 세션에 끝낼 크기다: 요구 15개 안팎, 새 파일 10개 안팎. 넘으면 나눈다.
-- 범위가 분명하고 구체적이어야 기본 worker에게 준다. 판단이 큰 작업은 상위, 화면 작업은 frontend로 표시한다.
+- 작업 하나는 기본 등급 worker가 한 세션에 끝낼 크기다: 요구 15개 안팎, 새 파일 10개 안팎. 넘으면 나눈다.
+- 파일과 바꿈이 정해진 좁은 작업은 좁은 등급, 대부분은 기본, 화면 작업은 frontend로 표시한다. 최상위는 처음부터 가장 어려운 문제에만 표시한다.
 - contract를 새로 내놓거나 바꾸는 일은 따로 integrator 작업으로 떼어 먼저 둔다.
 
 ## 완료

@@ -1,4 +1,4 @@
-// T1 시나리오 helper: fixture를 임시 폴더로 복사하고, lophn 밖에서 일어나는 변화를 만든다.
+// fixture를 임시 폴더로 복사하고, lophn 밖에서 일어나는 변화를 사본에 만든다.
 // fixture 원본은 손대지 않는다. 앞으로 일어날 일을 사본에 만들어 둔다.
 import {
   chmod,
@@ -174,9 +174,14 @@ export async function modifyKeepingSizeAndMtime(
   const original = new Uint8Array(await readFile(path));
   const info = await stat(path);
 
-  // size와 mtime을 그대로 두고 관측기가 놓치게 바이트만 바꾼다.
-  const flipped = Uint8Array.from(original, (byte) => (byte ^ 0xff));
-  await writeFile(path, flipped);
+  // size·mtime만 비교하면 놓치는 변화다. 이어지는 추출 테스트가 읽을 수 있게 UTF-8은 지키고 ASCII 글자 하나만 바꾼다.
+  const index = original.findIndex((byte) =>
+    (byte >= 0x41 && byte <= 0x5a) || (byte >= 0x61 && byte <= 0x7a)
+  );
+  if (index < 0) throw new Error(`${rel}에 바꿀 ASCII 글자가 없다`);
+  const changed = original.slice();
+  changed[index] = original[index] ^ 0x20;
+  await writeFile(path, changed);
   await utimes(path, info.atime, info.mtime);
 }
 

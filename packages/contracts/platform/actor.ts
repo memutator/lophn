@@ -12,7 +12,7 @@ function prefixed(kind: string, id: z.ZodString) {
   );
 }
 
-const actorSchema = z.union([
+export const actorSchema = z.union([
   z.enum(["user", "machine"]),
   prefixed("coding_agent", idSchema("cac")),
   prefixed("agent", idSchema("asg")),

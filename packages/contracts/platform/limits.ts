@@ -14,3 +14,7 @@ export const HEADER_MAX_BYTES = 8 * KIB;
 // architecture/platform 5.2: idempotency key는 UTF-8 1~128 bytes.
 export const IDEMPOTENCY_KEY_MIN_BYTES = 1;
 export const IDEMPOTENCY_KEY_MAX_BYTES = 128;
+
+// architecture/platform 2.3: event batch 256개·256KiB.
+export const EVENT_BATCH_MAX_COUNT = 256;
+export const EVENT_BATCH_MAX_BYTES = 256 * KIB;

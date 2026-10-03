@@ -218,3 +218,6 @@ export {
   workerResponseEnvelopeSchema,
 } from "./supervision.ts";
 export * from "./redaction.ts";
+export * from "./backups.ts";
+export * from "./diagnostics.ts";
+export * from "./install.ts";

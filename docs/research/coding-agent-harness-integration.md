@@ -10,6 +10,7 @@ concerns: [coding-agent/harnesses, coding-agent/sessions, coding-agent/connectio
 
 - Orca revision: `b601b98644656aeaa7b1c17775d0611a0d5fd06b`.
 - Paseo revision: `b5e9747e2a59b694a3e4d827202d686c2e4612c9`.
+- 경로는 `orca:`(stablyai/orca), `paseo:`(getpaseo/paseo) 저장소의 위 revision 기준이다.
 - Orca/Paseo의 소스만 조사했다. `node_modules`는 보지 않았다.
 - 이 컴퓨터에 실제 설치된 harness inventory를 실행 검사하지 않았다. 아래 detection은 두 프로그램이 감지하는 방법이다.
 - `[확인]`은 해당 revision의 코드 또는 lophn 현재 문서에서 확인한 사실이다. `[제안]`은 lophn 설계안이다. `[미확인]`은 이번 조사에서 확인하지 못한 범위이며 제품의 기능 부재를 뜻하지 않는다.
@@ -21,49 +22,49 @@ concerns: [coding-agent/harnesses, coding-agent/sessions, coding-agent/connectio
 
 | 번호 | absolute path·확인 위치 |
 |---|---|
-| O1 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/tui-agent-config-types.ts` 1–56: `TuiAgentConfig`, prompt·trust·runtime 타입 |
-| O2 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/tui-agent-config.ts` 12–23, 27–34, 63–71, 91–102, 119–126, 155–158, 262–272: config 정규화와 일곱 제품 값 |
-| O3 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/tui-agent-detection-commands.ts` 1–81: detection command builder·required commands·runtime 제외 |
-| O4 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/preflight/agent-detection.ts` 145–253: detection·PATH hydration·refresh·remote |
-| O5 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/ipc/preflight-command-exec.ts` 79–131: version availability probe와 filesystem PATH lookup의 구분 |
-| O6 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/ipc/preflight-wsl-agent-detection.ts` 1–93: WSL lookup·sentinel·Windows mount 제외·10초 timeout |
-| O7 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/local-agent-install-dir-detection.ts`: `detectCommandsInInstallDirs`; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/node-cli-command-resolution.ts` 1–140: candidate executable·bounded 설치 디렉터리 |
-| O8 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/renderer/src/store/slices/local-detected-agent-state.ts` 16–143; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/renderer/src/store/slices/runtime-detected-agents.ts` 9–150: cache·inflight·refresh |
-| O9 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/tui-agent-selection.ts` 6–107; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/global-settings-types.ts` 351–353, 408, 424: preference·disable·override |
-| O10 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/skill-install-providers.ts` 8–101; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/skills/skill-provider-destinations.ts` 23–60: managed package placement catalog |
-| O11 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/skill-install-contract.ts`: request·preview·placement·result schema; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/skills/skill-install-provenance.ts` 9–26과 receipt 읽기·쓰기: ownership receipt |
-| O12 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/skills/skill-install-transaction.ts`; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/skills/skill-remove-transaction.ts`: preview conflict·lock·staging·receipt·recovery·remove |
-| O13 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/skills-cli-agent-keys.ts` 14–95; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/agent-feature-install-commands.ts` 3–83; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/cli/handlers/skills.ts` 1–224: bundled feature skills를 community CLI로 설치 |
-| O14 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/mcp-config.ts`: config candidate·inspection schema |
-| O15 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/agent-hooks/managed-agent-hook-registry.ts`: managed hook service registry; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/claude/claude-hook-event-versions.ts`: hook event별 최소 version; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/claude/hook-service.ts` 161–195, 297–328: managed merge·remove |
-| O16 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/codex/codex-hook-service-implementation.ts` 156–271: 실제 runtime CODEX_HOME에 install·refresh; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/gemini/hook-service.ts` 152–203, 277–307: JSON hook merge·remove |
-| O17 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/hermes/hermes-home-filesystem.ts` 16–34; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/hermes/hook-service.ts` 86–113, 153–182: plugin·YAML enablement |
-| O18 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/opencode/hook-service.ts` 1–100, 155–258: XDG plugin·overlay; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/pi/titlebar-extension-service.ts` 141–215: effective pi agent dirの extensions |
-| O19 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/agent-session-resume.ts` 6–47, 195–285; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/agent-resume-argv.ts` 6–40: provider session metadata·resume argv |
-| O20 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/agent-status-types.ts`: normalized status·evidence; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/shared/tui-agent-startup.ts` 118–177: prompt injection builders |
-| O21 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/orca/src/main/cli/cli-installer.ts` 31–203: own CLI inspection·install·remove·unowned conflict |
+| O1 | `orca:src/shared/tui-agent-config-types.ts` 1–56: `TuiAgentConfig`, prompt·trust·runtime 타입 |
+| O2 | `orca:src/shared/tui-agent-config.ts` 12–23, 27–34, 63–71, 91–102, 119–126, 155–158, 262–272: config 정규화와 일곱 제품 값 |
+| O3 | `orca:src/shared/tui-agent-detection-commands.ts` 1–81: detection command builder·required commands·runtime 제외 |
+| O4 | `orca:src/main/preflight/agent-detection.ts` 145–253: detection·PATH hydration·refresh·remote |
+| O5 | `orca:src/main/ipc/preflight-command-exec.ts` 79–131: version availability probe와 filesystem PATH lookup의 구분 |
+| O6 | `orca:src/main/ipc/preflight-wsl-agent-detection.ts` 1–93: WSL lookup·sentinel·Windows mount 제외·10초 timeout |
+| O7 | `orca:src/shared/local-agent-install-dir-detection.ts`: `detectCommandsInInstallDirs`; `orca:src/shared/node-cli-command-resolution.ts` 1–140: candidate executable·bounded 설치 디렉터리 |
+| O8 | `orca:src/renderer/src/store/slices/local-detected-agent-state.ts` 16–143; `orca:src/renderer/src/store/slices/runtime-detected-agents.ts` 9–150: cache·inflight·refresh |
+| O9 | `orca:src/shared/tui-agent-selection.ts` 6–107; `orca:src/shared/global-settings-types.ts` 351–353, 408, 424: preference·disable·override |
+| O10 | `orca:src/shared/skill-install-providers.ts` 8–101; `orca:src/main/skills/skill-provider-destinations.ts` 23–60: managed package placement catalog |
+| O11 | `orca:src/shared/skill-install-contract.ts`: request·preview·placement·result schema; `orca:src/main/skills/skill-install-provenance.ts` 9–26과 receipt 읽기·쓰기: ownership receipt |
+| O12 | `orca:src/main/skills/skill-install-transaction.ts`; `orca:src/main/skills/skill-remove-transaction.ts`: preview conflict·lock·staging·receipt·recovery·remove |
+| O13 | `orca:src/shared/skills-cli-agent-keys.ts` 14–95; `orca:src/shared/agent-feature-install-commands.ts` 3–83; `orca:src/cli/handlers/skills.ts` 1–224: bundled feature skills를 community CLI로 설치 |
+| O14 | `orca:src/shared/mcp-config.ts`: config candidate·inspection schema |
+| O15 | `orca:src/main/agent-hooks/managed-agent-hook-registry.ts`: managed hook service registry; `orca:src/main/claude/claude-hook-event-versions.ts`: hook event별 최소 version; `orca:src/main/claude/hook-service.ts` 161–195, 297–328: managed merge·remove |
+| O16 | `orca:src/main/codex/codex-hook-service-implementation.ts` 156–271: 실제 runtime CODEX_HOME에 install·refresh; `orca:src/main/gemini/hook-service.ts` 152–203, 277–307: JSON hook merge·remove |
+| O17 | `orca:src/main/hermes/hermes-home-filesystem.ts` 16–34; `orca:src/main/hermes/hook-service.ts` 86–113, 153–182: plugin·YAML enablement |
+| O18 | `orca:src/main/opencode/hook-service.ts` 1–100, 155–258: XDG plugin·overlay; `orca:src/main/pi/titlebar-extension-service.ts` 141–215: effective pi agent dirの extensions |
+| O19 | `orca:src/shared/agent-session-resume.ts` 6–47, 195–285; `orca:src/shared/agent-resume-argv.ts` 6–40: provider session metadata·resume argv |
+| O20 | `orca:src/shared/agent-status-types.ts`: normalized status·evidence; `orca:src/shared/tui-agent-startup.ts` 118–177: prompt injection builders |
+| O21 | `orca:src/main/cli/cli-installer.ts` 31–203: own CLI inspection·install·remove·unowned conflict |
 
 ### Paseo 근거
 
 | 번호 | absolute path·확인 위치 |
 |---|---|
-| P1 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/protocol/src/provider-manifest.ts` 1–40, 197–258: provider definitions·builtin catalog |
-| P2 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/protocol/src/provider-config.ts` 5–139: command/runtime settings·override·custom ACP |
-| P3 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/provider-registry.ts` 68–159과 factories: configured definitions·execution/tool contracts |
-| P4 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/executable-resolution/executable-resolution.ts` 1–168: which lookup·probe classifier |
-| P5 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/providers/claude/agent.ts` 1655–1780, 3334–3343: availability·version·auth·SDK MCP/resume; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/providers/pi/agent.ts` 2673–2705: availability·auth.json diagnostic |
-| P6 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/providers/opencode/runtime-client.ts` 24–109: V1/V2 selector·minimum V2 version |
-| P7 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/provider-snapshot-manager.ts` 110–369; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/session/provider/provider-catalog-session.ts` 433–450: snapshot cache·refresh |
-| P8 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/app/src/create-agent-preferences/preferences.ts` 6–21, 93; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/app/src/provider-selection/resolve-agent-form.ts` 242–272: explicit/saved provider 선택 |
-| P9 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/agent-sdk-types.ts` 28–76, 168–189, 405–491, 587–796: MCP·capability·session·event·permission common contract |
-| P10 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/runtime-mcp-config.ts` 1–70: runtime own MCP injection |
-| P11 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/providers/codex/agent.ts` 5329–5343, 7212–7235: MCP translation·app-server launch; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/providers/opencode/opencode-agent.ts` 5147–5182: V1 MCP API registration; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/agent/providers/pi/runtime.ts` 116–142: RPC/session/MCP/extension argv |
-| P12 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/terminal/agent-hooks/agent-hook-installer.ts` 6–229; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/terminal/agent-hooks/provider-registry.ts` 22–66: hook strategy·path·merge·remove |
-| P13 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/terminal/agent-hooks/claude/claude-settings.ts` 19–113; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/terminal/agent-hooks/codex/codex-settings.ts` 25–138; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/terminal/agent-hooks/opencode/opencode-plugin.ts`: marked hook·status normalization |
-| P14 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/orchestration-skills/internal/paths.ts` 17–23; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/orchestration-skills/internal/operations.ts` 13–41, 160–269: targets·status·selection·operations |
-| P15 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/orchestration-skills/internal/sync.ts` 113–187; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/orchestration-skills/internal/controller.ts` 58–170; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/server/src/server/orchestration-skills/internal/selection-store.ts`: manifest·update/remove·queue·recovery·selection |
-| P16 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/desktop/src/integrations/cli-install/paths.ts`; `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/desktop/src/integrations/cli-install/install.ts` 21–70: own CLI shim·PATH·status |
-| P17 | `/tmp/claude-1000/-home-pyosechang-projects-lophn/feae6c3e-e963-4ccd-bd65-2ea8cbfa0f35/scratchpad/research/paseo/packages/protocol/src/agent-lifecycle.ts` 1–9: lifecycle status |
+| P1 | `paseo:packages/protocol/src/provider-manifest.ts` 1–40, 197–258: provider definitions·builtin catalog |
+| P2 | `paseo:packages/protocol/src/provider-config.ts` 5–139: command/runtime settings·override·custom ACP |
+| P3 | `paseo:packages/server/src/server/agent/provider-registry.ts` 68–159과 factories: configured definitions·execution/tool contracts |
+| P4 | `paseo:packages/server/src/executable-resolution/executable-resolution.ts` 1–168: which lookup·probe classifier |
+| P5 | `paseo:packages/server/src/server/agent/providers/claude/agent.ts` 1655–1780, 3334–3343: availability·version·auth·SDK MCP/resume; `paseo:packages/server/src/server/agent/providers/pi/agent.ts` 2673–2705: availability·auth.json diagnostic |
+| P6 | `paseo:packages/server/src/server/agent/providers/opencode/runtime-client.ts` 24–109: V1/V2 selector·minimum V2 version |
+| P7 | `paseo:packages/server/src/server/agent/provider-snapshot-manager.ts` 110–369; `paseo:packages/server/src/server/session/provider/provider-catalog-session.ts` 433–450: snapshot cache·refresh |
+| P8 | `paseo:packages/app/src/create-agent-preferences/preferences.ts` 6–21, 93; `paseo:packages/app/src/provider-selection/resolve-agent-form.ts` 242–272: explicit/saved provider 선택 |
+| P9 | `paseo:packages/server/src/server/agent/agent-sdk-types.ts` 28–76, 168–189, 405–491, 587–796: MCP·capability·session·event·permission common contract |
+| P10 | `paseo:packages/server/src/server/agent/runtime-mcp-config.ts` 1–70: runtime own MCP injection |
+| P11 | `paseo:packages/server/src/server/agent/providers/codex/agent.ts` 5329–5343, 7212–7235: MCP translation·app-server launch; `paseo:packages/server/src/server/agent/providers/opencode/opencode-agent.ts` 5147–5182: V1 MCP API registration; `paseo:packages/server/src/server/agent/providers/pi/runtime.ts` 116–142: RPC/session/MCP/extension argv |
+| P12 | `paseo:packages/server/src/terminal/agent-hooks/agent-hook-installer.ts` 6–229; `paseo:packages/server/src/terminal/agent-hooks/provider-registry.ts` 22–66: hook strategy·path·merge·remove |
+| P13 | `paseo:packages/server/src/terminal/agent-hooks/claude/claude-settings.ts` 19–113; `paseo:packages/server/src/terminal/agent-hooks/codex/codex-settings.ts` 25–138; `paseo:packages/server/src/terminal/agent-hooks/opencode/opencode-plugin.ts`: marked hook·status normalization |
+| P14 | `paseo:packages/server/src/server/orchestration-skills/internal/paths.ts` 17–23; `paseo:packages/server/src/server/orchestration-skills/internal/operations.ts` 13–41, 160–269: targets·status·selection·operations |
+| P15 | `paseo:packages/server/src/server/orchestration-skills/internal/sync.ts` 113–187; `paseo:packages/server/src/server/orchestration-skills/internal/controller.ts` 58–170; `paseo:packages/server/src/server/orchestration-skills/internal/selection-store.ts`: manifest·update/remove·queue·recovery·selection |
+| P16 | `paseo:packages/desktop/src/integrations/cli-install/paths.ts`; `paseo:packages/desktop/src/integrations/cli-install/install.ts` 21–70: own CLI shim·PATH·status |
+| P17 | `paseo:packages/protocol/src/agent-lifecycle.ts` 1–9: lifecycle status |
 
 ## 1. Orca
 
@@ -360,7 +361,7 @@ waiting permission, runtime error, unavailable provider를 하나의 status enum
 
 다음 두 표는 역할이 다르다. 첫 표의 MCP/skill/instruction 위치는 **lophn 현재 architecture가 선언한 adapter 계약**이며 Orca/Paseo로 공식 최신 제품 스펙을 재검증했다는 뜻이 아니다. 프로그램 source가 직접 보여 준 integration은 마지막 열에 따로 썼다.
 
-현재 lophn 근거: `/home/pyosechang/projects/lophn/docs/architecture/coding-agent.md` 234–255.
+현재 lophn 근거: `docs/architecture/coding-agent.md` 234–255.
 
 ### 3.1 Detection·MCP·skill·instruction·hook
 
@@ -395,7 +396,7 @@ waiting permission, runtime error, unavailable provider를 하나의 status enum
 
 ## 4. lophn domain model 제안
 
-[제안] 아래는 `/home/pyosechang/projects/lophn/docs/domain-model/README.md`의 필드·상태·관계·ledger·command·event·정책 틀에 맞춘 초안이다. 사용 흐름과 채택 이유는 requirements/flow에 두고 domain에는 데이터 규칙만 남긴다.
+[제안] 아래는 `docs/domain-model/README.md`의 필드·상태·관계·ledger·command·event·정책 틀에 맞춘 초안이다. 사용 흐름과 채택 이유는 requirements/flow에 두고 domain에는 데이터 규칙만 남긴다.
 
 새 concern을 `coding-agent/harnesses`, `coding-agent/integrations`, 필요 시 `coding-agent/sessions`로 나누는 것이 적절하다. 이는 설계안이며 docs를 생성하거나 수정하지 않았다.
 
@@ -576,7 +577,7 @@ connection은 여러 harness/target integration과 연결될 수 있다. harness
 | CodingAgentConnection | 기존 coding_agent_connections 유지 |
 | future durable launch intent/session | 이번 조사만으로 표 추가하지 않음; authority·lifecycle 결정 뒤 설계 |
 
-`/home/pyosechang/projects/lophn/docs/domain-model/README.md`의 entity 수를 catalog key 때문에 늘리지 않는다.
+`docs/domain-model/README.md`의 entity 수를 catalog key 때문에 늘리지 않는다.
 
 ### 4.9 command
 
@@ -625,7 +626,7 @@ coding credential이 자기 connection을 읽을 수 있다는 이유로 user co
 
 ## 5. 기존 connection.md에 남길 것과 바꿀 것
 
-근거: `/home/pyosechang/projects/lophn/docs/domain-model/coding-agent/connection.md` 9–97.
+근거: `docs/domain-model/coding-agent/connection.md` 9–97.
 
 ### 남길 것
 
@@ -648,9 +649,9 @@ coding credential이 자기 connection을 읽을 수 있다는 이유로 user co
 
 ### 현재 문서와 맞는 점
 
-`/home/pyosechang/projects/lophn/docs/architecture/coding-agent.md` 234–255에는 이미 adapter manifest, tested version/schema/user-app path/loading probe, owned skill/marker/key, hash-CAS, file별 result, 네 loading check가 있다. 큰 방향은 새 기능보다 빠진 domain 값을 명시하는 일이다.
+`docs/architecture/coding-agent.md` 234–255에는 이미 adapter manifest, tested version/schema/user-app path/loading probe, owned skill/marker/key, hash-CAS, file별 result, 네 loading check가 있다. 큰 방향은 새 기능보다 빠진 domain 값을 명시하는 일이다.
 
-`/home/pyosechang/projects/lophn/docs/domain-model/coding-agent/guides.md`의 배포 skill 값과 managed marker 계약도 유지한다. receipt는 그 소유 범위를 더 명시하는 local 구현 값이다.
+`docs/domain-model/coding-agent/guides.md`의 배포 skill 값과 managed marker 계약도 유지한다. receipt는 그 소유 범위를 더 명시하는 local 구현 값이다.
 
 ### 추가·명시할 내용
 
@@ -665,13 +666,13 @@ coding credential이 자기 connection을 읽을 수 있다는 이유로 user co
 
 ### 충돌하거나 범위 결정이 필요한 내용
 
-1. `/home/pyosechang/projects/lophn/docs/requirements/coding-agent/connection.md` R1은 사람이 연 session만 연동하고 lophn이 외부 프로세스/code loop를 시작하지 않는다고 한다. 터미널 탭에서 actual launch/resume 또는 future coordinator를 도입하면 이 규칙을 단계별로 변경해야 한다. catalog에 실행 계약을 기록하는 것만으로 현재 launch가 허용되는 것은 아니다.
-2. `/home/pyosechang/projects/lophn/docs/requirements/coding-agent/guides.md` R25와 architecture의 시작 hook은 Claude만 지원한다. 다른 제품 status hook을 설치한다면 summary delivery와 runtime status 수집 목적을 나누고 지원 범위를 변경해야 한다.
-3. `/home/pyosechang/projects/lophn/docs/requirements/coding-agent/cli.md` R9의 mcp config output-only, guides의 Codex app TOML 자동 생성 금지는 보존한다. catalog/install command 추가를 이 금지의 우회로 쓰지 않는다.
+1. `docs/requirements/coding-agent/connection.md` R1은 사람이 연 session만 연동하고 lophn이 외부 프로세스/code loop를 시작하지 않는다고 한다. 터미널 탭에서 actual launch/resume 또는 future coordinator를 도입하면 이 규칙을 단계별로 변경해야 한다. catalog에 실행 계약을 기록하는 것만으로 현재 launch가 허용되는 것은 아니다.
+2. `docs/requirements/coding-agent/guides.md` R25와 architecture의 시작 hook은 Claude만 지원한다. 다른 제품 status hook을 설치한다면 summary delivery와 runtime status 수집 목적을 나누고 지원 범위를 변경해야 한다.
+3. `docs/requirements/coding-agent/cli.md` R9의 mcp config output-only, guides의 Codex app TOML 자동 생성 금지는 보존한다. catalog/install command 추가를 이 금지의 우회로 쓰지 않는다.
 4. connection R16의 installed runtime/cache-only/no-download는 Orca의 npx skills 설치와 다르다. lophn signed resources를 사용한다.
 5. detection/doctor가 Paseo의 fetchCatalog처럼 runtime session을 시작하는 경우 explicit probe class·budget·permission 범위를 정해야 한다.
 6. OpenCode version selector, pi adapter/native MCP, OpenClaw gateway/workspace/session stdio 계약은 tested version별로 명시한다. 현재 표를 evergreen 공식 schema로 취급하지 않는다.
-7. preference persistence는 `/home/pyosechang/projects/lophn/docs/domain-model/platform/settings.md`를 재사용하되 machine-local profile/env path와 sync 가능한 choice를 구분한다.
+7. preference persistence는 `docs/domain-model/platform/settings.md`를 재사용하되 machine-local profile/env path와 sync 가능한 choice를 구분한다.
 
 ## 7. 사람이 정할 질문·선택지·추천
 

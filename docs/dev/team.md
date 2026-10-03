@@ -10,8 +10,8 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 | 단 | 누구 | model | 하는 일 | 고치는 것 |
 |---|---|---|---|---|
-| 1 | lead (주 세션) | Opus 5.5 | slice 목록과 순서, 팀 배정, 병합, 사람에게 묻기, 결정 기록 | `docs/plan/README.md`, `docs/dev/`, open-issues.md |
-| 2 | team member | Opus 5.5 | 맡은 범위의 문서를 읽고 계획(작업)을 쓴다. 작업을 worker에게 나눠 주고, 결과를 review하고 합쳐 lead에게 보고한다 | `docs/plan/<slice>.md`의 자기 작업, 자기 범위의 코드 |
+| 1 | lead (주 세션) | Opus 5.5 | slice 목록과 순서, 팀 배정, 팀 사이 충돌 조정, 사람에게 묻기, 결정 기록 | `docs/plan/README.md`, `docs/dev/`, open-issues.md |
+| 2 | team member | Opus 5.5 | 맡은 범위의 문서를 읽고 계획(작업)을 쓴다. 작업을 worker에게 나눠 주고, 결과를 review하고 PR로 main에 합치고 lead에게 보고한다 | `docs/plan/<slice>.md`의 자기 작업, 자기 범위의 코드 |
 | 3 | worker (team member가 띄우는 sub agent) | 아래 등급 | 작업 하나를 구현하거나 조사한다. 자기 sub agent는 띄우지 않는다 | 작업의 "자리"만 |
 
 팀은 최상위 concern 하나에 하나씩, 그리고 contracts 팀 하나다.
@@ -49,3 +49,4 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 - 정할 수 없는 것은 문서에 쓰지 않고 open-issues에 `<concern id>#Q<n>`으로 올리고 추천안으로 진행한다. 사람에게 올릴 것은 lead가 고른다(제품 방향, 비용, 되돌리기 비싼 것만).
 - contract를 바꿔야 하면 worker나 다른 팀이 직접 고치지 않고 contracts 팀에 요청한다.
 - 두 팀이 같은 파일을 고쳐야 하면 lead가 순서를 정한다. 동시에 고치지 않는다.
+- 한 team member가 동시에 돌리는 worker는 3개까지다. rate limit이 나면 줄인다.

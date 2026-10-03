@@ -67,9 +67,11 @@ spec 문서 대신 테스트가 요구를 가리킨다.
 
 ## git
 
-- main은 늘 `deno task check`가 통과한다.
-- 작업마다 worktree와 branch 하나: `<concern 이름>/<짧은 설명>`(예: `apps-registration/register-command`).
+- main은 늘 `deno task check`가 통과한다. main은 GitHub(`origin`)의 main이 정본이다.
+- 작업마다 worktree와 branch 하나: `<concern 이름>/<짧은 설명>`(예: `apps-registration/register-command`). worktree는 `.claude/worktrees/` 아래에 둔다.
 - commit 메시지는 영어 명령형 한 줄과 본문. 본문 끝에 `Refs: apps/registration#R1-R4, apps#T6`.
-- 병합 순서: contracts와 base → 선행이 없는 작업 → 나머지. 병합 전에 main으로 rebase하고 check를 다시 돈다.
-- 병합은 lead가 한다([team.md](team.md)).
-- 묻지 않고 한다: 작업이 끝나 check가 통과하면 commit하고, main에 병합하면 바로 push한다. 동시에 도는 작업은 worktree를 나눈다. 사람에게 묻는 것은 되돌릴 수 없는 git 작업(force push, 기록 지우기, branch 삭제 중 병합 안 된 것)뿐이다.
+- 끝난 작업은 branch를 push하고 PR을 연다(`gh pr create`). PR 본문에 작업 id, 통과한 check, 테스트가 가리키는 요구를 적는다.
+- 병합: `git fetch origin && git rebase origin/main` 뒤 check를 다시 돌리고 통과하면 team member가 `gh pr merge --squash --delete-branch`로 합친다. contracts PR이 먼저다.
+- 충돌이 다른 팀의 코드에 걸리면 직접 고치지 않고 그 팀에 알린다. 순서를 정할 수 없으면 lead에게 묻는다.
+- 묻지 않고 한다: commit, push, PR, 병합, worktree 만들기와 지우기. 사람에게 묻는 것은 되돌릴 수 없는 git 작업(force push to main, 기록 지우기, 병합 안 된 branch 삭제)뿐이다.
+- 계획 단계에서는 commit하지 않는다. 계획 문서는 lead가 모아 commit한다.

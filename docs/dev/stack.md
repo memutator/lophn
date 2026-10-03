@@ -25,7 +25,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 ## check 명령 하나
 
-저장소 루트의 `deno task check`가 모든 관문이다. 모든 작업은 이것을 통과해야 끝난다.
+저장소 루트의 `deno task check`가 모든 관문이다. 모든 작업은 이것을 통과해야 끝난다. skeleton slice가 이 명령을 만들기 전까지는 `deno check`, `deno test`, `node tools/check-docs.ts`를 직접 돌린다.
 
 1. `deno fmt --check`, `deno lint`
 2. `deno check` (Deno workspace 전체)

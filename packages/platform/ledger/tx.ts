@@ -156,6 +156,13 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): Tx {
       );
       return ok(undefined);
     },
+    // 실제 접수와 approval 사용을 묶는 platform#T23 전에는 성공으로 기록하지 않는다.
+    useApproval() {
+      return err({
+        code: "unavailable",
+        message: "approval 적용을 아직 사용할 수 없다",
+      });
+    },
     call<R extends CommandRoute>(route: R, input: unknown, compare: unknown) {
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },

@@ -33,6 +33,7 @@ slice는 사람이 처음부터 끝까지 해 볼 수 있는 한 줄기다. 그 
 - documents slice의 flow는 사람 갈래만 돈다. model이 끼는 단계(organize-documents 2~3, find-documents 5~6)는 agent slice E2E에서 돈다.
 - context slice는 agent 뒤라 build-context, define-terms를 model 단계까지 함께 돈다.
 - view-agent-visuals: 표·차트·도표는 agent slice, 앱 카드 갈래는 apps slice에서 돈다.
+- project-workspace: 앱 패널 단계는 apps slice E2E에서, 터미널 단계는 shell#T25가 돈다.
 - new-app은 apps와 coding-agent에 걸친다. apps slice에서는 coding agent 대신 fixture 앱으로 등록·release까지 돌리고, coding-agent slice에서 처음부터 끝까지 돈다.
 
 ## E2E

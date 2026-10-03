@@ -1,0 +1,18 @@
+{
+  "name": "lophn-shell-main",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.ts",
+    "check": "deno fmt --check --ignore=node_modules,dist . ../preload && deno lint --ignore=node_modules,dist . ../preload && tsc --noEmit -p . && node --test"
+  },
+  "dependencies": {
+    "electron": "44.5.1",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

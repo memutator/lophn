@@ -13,6 +13,12 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | Deno | 2.9.7 |
 | zod | 4.6.5 |
 | @std/assert | 1.0.19 |
+| Electron | 44.5.1 |
+| esbuild | 0.28.2 |
+| TypeScript | 7.0.2 |
+| @types/node | 24.19.1 |
+| React | 19.3.0 |
+| react-dom | 19.3.0 |
 
 ## 고른 것
 
@@ -37,6 +43,14 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | ignore | documents/file-tracking | `.gitignore` 모양 제외 규칙 |
 | QuickJS WASM (sync 빌드 하나) | documents/formats | format 검사 코드를 격리해 돌린다 |
 | parse5 | documents/formats의 HTML format 묶음 안 | HTML 문서 해석 |
+| electron 44.5.1 | apps/shell/main | shell 창과 sandbox preload. 이전 lophn과 같은 판 |
+| esbuild 0.28.2 | apps/shell/main, apps/shell/renderer | main과 preload 세 개를 CJS 한 파일로 묶고, renderer entry 세 개를 브라우저 bundle로 묶는다. sandbox preload의 외부 require는 `electron`만 남기고, renderer의 CSS Modules는 `local-css` loader가 클래스 맵으로 바꾼다 |
+| typescript 7.0.2 | apps/shell/main | `erasableSyntaxOnly`로 main과 preload를 typecheck한다. Deno 쪽은 Deno가 품은 TypeScript를 쓴다 |
+| @types/node 24.19.1 | apps/shell/main | Node 24 타입. shell main만 Node에서 돈다 |
+| zod 4.6.5 | apps/shell/main | Deno workspace와 같은 판. `packages/contracts`·`packages/base`의 `.ts` 원본이 import한 zod를 main bundle이 이 node_modules에서 resolve한다 |
+| react 19.3.0, react-dom 19.3.0 | apps/shell/renderer | shell·overlay·confirmation renderer. Deno workspace에서 `npm:`으로 고정한다 |
+| @types/react 19.3.0 | apps/shell/renderer | React 19는 타입을 함께 싣지 않는다. JSX 타입은 `jsxImportSourceTypes`로 이 패키지를 가리킨다 |
+| @luca/esbuild-deno-loader 0.11.1 | apps/shell/renderer | renderer bundle이 Deno import map과 `npm:`·`jsr:`를 esbuild로 resolve한다. CSS Modules를 만들려면 esbuild loader가 필요하고, deno bundle은 클래스 맵을 만들지 않는다 |
 
 ## check 명령 하나
 

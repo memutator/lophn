@@ -5,6 +5,7 @@ import {
   preparedBlobSchema,
 } from "./blob.ts";
 import { defineWorker } from "./route.ts";
+import { redactionCheck } from "./redaction.ts";
 import { type Frame, STREAM_CHUNK_MAX_BYTES } from "./supervision.ts";
 import { sha256Schema } from "./values.ts";
 
@@ -57,3 +58,5 @@ export const blobPrepare = defineWorker({
 });
 
 export const BLOB_PIPE_OPS = [blobPrepare] as const;
+
+export const PIPE_OPS = [blobPrepare, redactionCheck] as const;

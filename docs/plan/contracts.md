@@ -248,6 +248,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T13 contracts/shell: confirmation window
 
+- 상태: 완료 (#21)
 - 등급: 기본
 - concern: shell/confirmation-window, platform/identity
 - 요구: shell/confirmation-window#R1, R4, R6, R9; platform/identity#R14; platform/secrets#R2; shell/app-frame#R7; shell/terminal#R10

@@ -456,3 +456,26 @@ Deno.test(
     await Deno.remove(dir, { recursive: true });
   },
 );
+
+Deno.test(
+  "platform/ledger#R1: ledger는 파일 하나이고 transaction 밖의 쓰기 길을 내놓지 않는다",
+  async () => {
+    const dir = await tempDir();
+    const opened = await openedLedger(dir);
+    assert(opened.ok);
+    if (!opened.ok) return;
+    const ledger = opened.value;
+    // 쓰기는 transaction 하나로만 들어간다. 다른 SQL·파일 경로를 받는 입구가 없다.
+    assertEquals(Object.keys(ledger).sort(), ["close", "transaction"]);
+    const written = ledger.transaction(
+      { actor: "machine" },
+      (tx) => ok(tx.emit(created, "thing:a", { name: "a" })),
+    );
+    assert(written.ok);
+    ledger.close();
+    const files = [];
+    for await (const entry of Deno.readDir(dir)) files.push(entry.name);
+    assertEquals(files.filter((name) => name.endsWith(".db")), ["ledger.db"]);
+    await Deno.remove(dir, { recursive: true });
+  },
+);

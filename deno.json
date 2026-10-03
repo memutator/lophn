@@ -38,7 +38,7 @@
     }
   },
   "test": {
-    "exclude": ["e2e"]
+    "exclude": ["e2e", "apps/shell/main", "apps/shell/preload"]
   },
-  "exclude": ["tools/check-docs.ts"]
+  "exclude": ["tools/check-docs.ts", "apps/shell/main", "apps/shell/preload"]
 }

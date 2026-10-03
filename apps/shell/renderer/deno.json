@@ -1,0 +1,19 @@
+{
+  "name": "@lophn/shell-renderer",
+  "exports": "./desktop/entry.tsx",
+  "imports": {
+    "react": "npm:react@19.3.0",
+    "react-dom": "npm:react-dom@19.3.0",
+    "react-dom/client": "npm:react-dom@19.3.0/client",
+    "@types/react": "npm:@types/react@19.3.0"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "jsxImportSourceTypes": "@types/react",
+    "lib": ["ES2023", "DOM", "deno.ns"]
+  },
+  "tasks": {
+    "build": "deno run --allow-read --allow-write --allow-run build.ts"
+  }
+}

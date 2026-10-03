@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+release/
+*.tsbuildinfo
+
+# local data and caches
+.dev-data/
+.cache/
+coverage/
+test-results/
+playwright-report/
+
+# secrets and machine-local settings
+.env
+.env.*
+!.env.example
+
+# editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# agent worktrees
+.claude/worktrees/

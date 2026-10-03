@@ -22,7 +22,7 @@ architecture는 최상위 concern 하나에 파일 하나다. 잎 concern까지 
 
 ## 1. 출발점
 
-이전 lophn에서 배운 것이다([다시 시작하며 정리한 논의](../../restart-notes.md)).
+이전 lophn에서 배운 것이다.
 
 1. **병목의 원인은 "쓰는 주체가 하나"가 아니었다.** ledger와 무관한 무거운 일(파일 수천 개 순회, hash)이 daemon의 실행 흐름 안에서 동기식으로 돌았고, ledger를 쓸 필요가 없는 일(앱 조회)까지 daemon을 거쳤다.
 2. **그 해법으로 ledger를 여러 개로 쪼갠 것(앱별 host journal, lease, 실행 허가 단계, 토큰 다섯 종)은 과했다.**

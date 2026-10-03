@@ -11,17 +11,27 @@
 // - 모든 leaf concern이 docs/dev/code-map.md의 표에 코드 자리를 가진다
 // - 요구의 "- 의도:"가 있는 intent 약속을 가리킨다(--intents는 빠진 요구와 요구 없는 약속까지 적는다)
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
 const root = join(import.meta.dirname, "..");
 const docsDir = join(root, "docs");
 
 // concern 하나에 파일 하나: docs/<type>/<concern id>.md
-const perConcernTypes = ["intent", "domain-model", "requirements", "spec", "architecture"];
+const perConcernTypes = [
+  "intent",
+  "domain-model",
+  "requirements",
+  "spec",
+  "architecture",
+];
 const otherTypes = ["guide", "flow", "plan", "research"];
 // 이름으로 두는 문서: type -> 폴더
-const namedTypeDirs: Record<string, string> = { flow: "flows", plan: "plan", research: "research" };
+const namedTypeDirs: Record<string, string> = {
+  flow: "flows",
+  plan: "plan",
+  research: "research",
+};
 const allTypes = [...perConcernTypes, ...otherTypes];
 
 type Concern = {
@@ -61,21 +71,25 @@ function readConcerns(path: string): Concern[] {
       return;
     }
     if (!current) return;
-    m = raw.match(/^  (\w+):\s*(.*)$/);
+    m = raw.match(/^ {2}(\w+):\s*(.*)$/);
     if (m) {
       const [, key, value] = m;
       inExcludes = key === "excludes";
       if (key === "summary") current.summary = value.trim();
       else if (key === "entities") current.entities = parseList(value);
       else if (key === "moved_to") current.movedTo = value.trim();
-      else if (key !== "excludes") errors.push(`concerns.yaml:${line} 모르는 필드 "${key}"`);
+      else if (key !== "excludes") {
+        errors.push(`concerns.yaml:${line} 모르는 필드 "${key}"`);
+      }
       return;
     }
-    m = raw.match(/^    - (.+)$/);
+    m = raw.match(/^ {4}- (.+)$/);
     if (m && inExcludes) {
       const text = m[1];
       const arrow = text.split("->");
-      const target = arrow.length > 1 ? arrow[arrow.length - 1].trim() : undefined;
+      const target = arrow.length > 1
+        ? arrow[arrow.length - 1].trim()
+        : undefined;
       current.excludes.push({ text, target, line });
       return;
     }
@@ -88,29 +102,50 @@ function readConcerns(path: string): Concern[] {
 function checkConcerns(concerns: Concern[]): Map<string, Concern> {
   const byId = new Map<string, Concern>();
   for (const c of concerns) {
-    if (byId.has(c.id)) errors.push(`concerns.yaml:${c.line} id가 겹침: ${c.id}`);
+    if (byId.has(c.id)) {
+      errors.push(`concerns.yaml:${c.line} id가 겹침: ${c.id}`);
+    }
     byId.set(c.id, c);
     if (!/^[a-z0-9-]+(\/[a-z0-9-]+)*$/.test(c.id)) {
-      errors.push(`concerns.yaml:${c.line} id 모양이 틀림(소문자, 숫자, -, /): ${c.id}`);
+      errors.push(
+        `concerns.yaml:${c.line} id 모양이 틀림(소문자, 숫자, -, /): ${c.id}`,
+      );
     }
   }
   const entityOwner = new Map<string, string>();
   for (const c of concerns) {
     const parent = c.id.split("/").slice(0, -1).join("/");
-    if (parent && !byId.has(parent)) errors.push(`concerns.yaml:${c.line} 부모가 없음: ${c.id}`);
-    if (!c.summary && !c.movedTo) errors.push(`concerns.yaml:${c.line} summary가 없음: ${c.id}`);
+    if (parent && !byId.has(parent)) {
+      errors.push(`concerns.yaml:${c.line} 부모가 없음: ${c.id}`);
+    }
+    if (!c.summary && !c.movedTo) {
+      errors.push(`concerns.yaml:${c.line} summary가 없음: ${c.id}`);
+    }
     if (c.movedTo && !byId.has(c.movedTo)) {
-      errors.push(`concerns.yaml:${c.line} moved_to가 없는 concern을 가리킴: ${c.movedTo}`);
+      errors.push(
+        `concerns.yaml:${c.line} moved_to가 없는 concern을 가리킴: ${c.movedTo}`,
+      );
     }
     for (const e of c.excludes) {
-      if (!e.target) errors.push(`concerns.yaml:${e.line} excludes에 "-> concern id"가 없음`);
-      else if (!byId.has(e.target)) errors.push(`concerns.yaml:${e.line} excludes가 없는 concern을 가리킴: ${e.target}`);
-      else if (e.target === c.id) errors.push(`concerns.yaml:${e.line} excludes가 자기 자신을 가리킴`);
+      if (!e.target) {
+        errors.push(
+          `concerns.yaml:${e.line} excludes에 "-> concern id"가 없음`,
+        );
+      } else if (!byId.has(e.target)) {
+        errors.push(
+          `concerns.yaml:${e.line} excludes가 없는 concern을 가리킴: ${e.target}`,
+        );
+      } else if (e.target === c.id) {
+        errors.push(`concerns.yaml:${e.line} excludes가 자기 자신을 가리킴`);
+      }
     }
     for (const entity of c.entities) {
       const owner = entityOwner.get(entity);
-      if (owner) errors.push(`concerns.yaml:${c.line} entity ${entity}를 ${owner}와 ${c.id}가 함께 가짐`);
-      else entityOwner.set(entity, c.id);
+      if (owner) {
+        errors.push(
+          `concerns.yaml:${c.line} entity ${entity}를 ${owner}와 ${c.id}가 함께 가짐`,
+        );
+      } else entityOwner.set(entity, c.id);
     }
   }
   return byId;
@@ -150,7 +185,11 @@ function checkDocs(byId: Map<string, Concern>): Map<string, Set<string>> {
     }
     const type = meta.type?.trim();
     if (!type || !allTypes.includes(type)) {
-      errors.push(`docs/${rel} type이 없거나 모름: ${type ?? "(없음)"} (가능: ${allTypes.join(", ")})`);
+      errors.push(
+        `docs/${rel} type이 없거나 모름: ${type ?? "(없음)"} (가능: ${
+          allTypes.join(", ")
+        })`,
+      );
       continue;
     }
     const ids = parseList(meta.concerns ?? "");
@@ -158,17 +197,29 @@ function checkDocs(byId: Map<string, Concern>): Map<string, Set<string>> {
     for (const id of ids) {
       const c = byId.get(id);
       if (!c) errors.push(`docs/${rel} 없는 concern: ${id}`);
-      else if (c.movedTo) warnings.push(`docs/${rel} 옮겨진 concern ${id} -> ${c.movedTo}`);
+      else if (c.movedTo) {
+        warnings.push(`docs/${rel} 옮겨진 concern ${id} -> ${c.movedTo}`);
+      }
     }
     if (perConcernTypes.includes(type)) {
       const expected = `${type}/${ids[0]}.md`;
-      if (rel !== expected) errors.push(`docs/${rel} 경로가 첫 concern과 맞지 않음(기대: docs/${expected})`);
-      if (ids.length !== 1) errors.push(`docs/${rel} ${type} 문서는 concern 하나만 가진다`);
+      if (rel !== expected) {
+        errors.push(
+          `docs/${rel} 경로가 첫 concern과 맞지 않음(기대: docs/${expected})`,
+        );
+      }
+      if (ids.length !== 1) {
+        errors.push(`docs/${rel} ${type} 문서는 concern 하나만 가진다`);
+      }
     }
     const dir = namedTypeDirs[type];
     if (dir) {
       const m = rel.match(new RegExp(`^${dir}/([a-z0-9-]+)\\.md$`));
-      if (!m) errors.push(`docs/${rel} ${type} 문서는 docs/${dir}/<이름>.md에 둔다(이름은 소문자, 숫자, -)`);
+      if (!m) {
+        errors.push(
+          `docs/${rel} ${type} 문서는 docs/${dir}/<이름>.md에 둔다(이름은 소문자, 숫자, -)`,
+        );
+      }
     } else if (type in namedTypeDirs) {
       errors.push(`docs/${rel} ${type} 문서의 폴더가 틀림`);
     }
@@ -186,7 +237,9 @@ function readPromises(): Map<string, number> {
   const dir = join(docsDir, "intent");
   for (const file of listMarkdown(dir)) {
     const node = relative(dir, file).split(sep).join("/").replace(/\.md$/, "");
-    for (const m of readFileSync(file, "utf8").matchAll(/\*\*\[I(\d+)\]\*\*/g)) promises.set(`${node}#I${m[1]}`, 0);
+    for (
+      const m of readFileSync(file, "utf8").matchAll(/\*\*\[I(\d+)\]\*\*/g)
+    ) promises.set(`${node}#I${m[1]}`, 0);
   }
   return promises;
 }
@@ -198,11 +251,16 @@ function checkIntentLinks(): void {
   const dir = join(docsDir, "requirements");
   for (const file of listMarkdown(dir)) {
     const rel = relative(docsDir, file).split(sep).join("/");
-    const concern = relative(dir, file).split(sep).join("/").replace(/\.md$/, "");
+    const concern = relative(dir, file).split(sep).join("/").replace(
+      /\.md$/,
+      "",
+    );
     const lines = readFileSync(file, "utf8").split("\n");
     let current: { id: string; line: number; linked: boolean } | undefined;
     const close = () => {
-      if (current && !current.linked) missing.push(`docs/${rel}:${current.line} ${current.id}`);
+      if (current && !current.linked) {
+        missing.push(`docs/${rel}:${current.line} ${current.id}`);
+      }
     };
     lines.forEach((raw, i) => {
       const req = raw.match(/^\*\*\[(R\d+)\]\*\*/);
@@ -218,8 +276,12 @@ function checkIntentLinks(): void {
       }
       const link = raw.match(/^- 의도:\s*(.+)$/);
       if (!link || !current) return;
-      const refs = [...link[1].matchAll(/([a-z0-9-]+(?:\/[a-z0-9-]+)*)#I(\d+)/g)];
-      if (refs.length === 0) errors.push(`docs/${rel}:${i + 1} 의도에 "<intent 노드>#I<n>"이 없음`);
+      const refs = [
+        ...link[1].matchAll(/([a-z0-9-]+(?:\/[a-z0-9-]+)*)#I(\d+)/g),
+      ];
+      if (refs.length === 0) {
+        errors.push(`docs/${rel}:${i + 1} 의도에 "<intent 노드>#I<n>"이 없음`);
+      }
       for (const [ref, node] of refs) {
         if (!promises.has(ref)) {
           errors.push(`docs/${rel}:${i + 1} 없는 intent 약속: ${ref}`);
@@ -227,14 +289,18 @@ function checkIntentLinks(): void {
         }
         current.linked = true;
         promises.set(ref, promises.get(ref)! + 1);
-        if (concern !== node && !concern.startsWith(node + "/")) notAncestor.push(`docs/${rel}:${i + 1} ${current.id} -> ${ref}`);
+        if (concern !== node && !concern.startsWith(node + "/")) {
+          notAncestor.push(`docs/${rel}:${i + 1} ${current.id} -> ${ref}`);
+        }
       }
     });
     close();
   }
   const empty = [...promises].filter(([, n]) => n === 0).map(([ref]) => ref);
   if (missing.length > 0) warnings.push(`의도 없는 요구 ${missing.length}개`);
-  if (empty.length > 0) warnings.push(`요구가 없는 intent 약속 ${empty.length}개`);
+  if (empty.length > 0) {
+    warnings.push(`요구가 없는 intent 약속 ${empty.length}개`);
+  }
   if (process.argv.includes("--intents")) {
     for (const m of missing) console.log(`의도 없음 ${m}`);
     for (const e of empty) console.log(`요구 없음 ${e}`);
@@ -251,12 +317,20 @@ function checkCodeMap(byId: Map<string, Concern>): void {
     errors.push("docs/dev/code-map.md가 없음");
     return;
   }
-  const mapped = new Set([...text.matchAll(/^\| ([a-z0-9-]+(?:\/[a-z0-9-]+)+) \|/gm)].map((m) => m[1]));
+  const mapped = new Set(
+    [...text.matchAll(/^\| ([a-z0-9-]+(?:\/[a-z0-9-]+)+) \|/gm)].map((m) =>
+      m[1]
+    ),
+  );
   for (const id of leaves(byId)) {
-    if (!mapped.has(id)) errors.push(`docs/dev/code-map.md에 코드 자리가 없음: ${id}`);
+    if (!mapped.has(id)) {
+      errors.push(`docs/dev/code-map.md에 코드 자리가 없음: ${id}`);
+    }
   }
   for (const id of mapped) {
-    if (!byId.has(id)) errors.push(`docs/dev/code-map.md가 없는 concern을 가리킴: ${id}`);
+    if (!byId.has(id)) {
+      errors.push(`docs/dev/code-map.md가 없는 concern을 가리킴: ${id}`);
+    }
   }
 }
 
@@ -275,12 +349,16 @@ if (process.argv.includes("--coverage")) {
   const leafIds = leaves(byId);
   for (const type of perConcernTypes) {
     const missing = leafIds.filter((id) => !covered.get(type)?.has(id));
-    console.log(`${type}: ${leafIds.length - missing.length}/${leafIds.length}`);
+    console.log(
+      `${type}: ${leafIds.length - missing.length}/${leafIds.length}`,
+    );
     for (const id of missing) console.log(`  없음 ${id}`);
   }
 }
 
 for (const w of warnings) console.log(`경고 ${w}`);
 for (const e of errors) console.log(`오류 ${e}`);
-console.log(`concern ${byId.size}개, 오류 ${errors.length}개, 경고 ${warnings.length}개`);
+console.log(
+  `concern ${byId.size}개, 오류 ${errors.length}개, 경고 ${warnings.length}개`,
+);
 process.exit(errors.length > 0 ? 1 : 0);

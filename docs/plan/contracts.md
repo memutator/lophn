@@ -33,6 +33,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T1 Deno workspace와 check 명령
 
+- 상태: 완료 (#3)
 - 등급: 기본
 - concern: 저장소 바닥
 - 요구: 없음(docs/dev/stack.md의 "check 명령 하나"와 판 고정)
@@ -249,7 +250,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - slice: documents (organize-documents가 처음 지난다)
 - 선행: contracts#T6
 - 완료: 아래 확인이 통과한다
-  - main service `confirmation.open({request, comparison, parentWindow})`: request는 `approval_request | question_option_action | owner_decision | secret_input | shell_external_link`. owner_decision은 `{concern, decision, targets, input, comparison}`이고 decision 이름은 소유 contracts가 등록한다.
+  - main service `confirmation.open({request, comparison, parentWindow})`: request는 `approval_request | question_option_action | owner_decision | secret_input`. shell 크롬의 외부 링크는 확인 없이 OS 브라우저로 열므로(D21) 종류에 없다. owner_decision은 `{concern, decision, targets, input, comparison}`이고 decision 이름은 소유 contracts가 등록한다.
   - 결과 `{outcome: "decided", receipt} | {outcome: "dismissed"}`. secret_input 결과에는 안전 참조·저장 결과만 있다.
   - IPC 이름과 payload schema: `shell:confirmation-open`, `confirmation:display`, `confirmation:submit {displayId, decision, input?}`, `confirmation:cancel`. preload API type(`lophnShell.openConfirmation`, `lophnConfirmation.getDisplay·submit·cancel`).
   - main↔core handle 등록 message: 창 ID·대상 참조·내용 기준 hash·허용 결정 집합·기한(발급 뒤 120초와 대상 기한 중 이른 것) → handle 참조. T5 `CommandRequest.confirmation`이 쓰는 참조 schema.
@@ -396,7 +397,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - slice: documents
 - 선행: contracts#T19, contracts#T47
 - 완료: 아래 확인이 통과한다
-  - 성공 `{summary, data, next}`, 실패 `{code, message, details}`, `effect_unknown` 진단, MCP protocol 오류 -32700·-32600·-32601·-32602와 `isError`, CLI exit 0·1·2·3·4·5·6, 범위 표기 `S / A / G / ALL`, toolset 규칙(`core` 기본, `app`은 `--toolsets core,app`·`LOPHN_MCP_TOOLSETS`, `ops`·`catalog`·`all` 거절), `readOnlyHint` 규칙.
+  - 성공 `{summary, data, next}`, 실패 `{code, message, details}`, MCP 결과는 `structuredContent`와 같은 뜻의 JSON text content를 둘 다 보낸다(Codex는 structured만, Gemini CLI·OpenCode는 text만 model에 넣는다), `effect_unknown` 진단, MCP protocol 오류 -32700·-32600·-32601·-32602와 `isError`, CLI exit 0·1·2·3·4·5·6, 범위 표기 `S / A / G / ALL`, toolset 규칙(`core` 기본, `app`은 `--toolsets core,app`·`LOPHN_MCP_TOOLSETS`, `ops`·`catalog`·`all` 거절), `readOnlyHint` 규칙.
   - MCP `lophn_index`, `lophn_project`, `lophn_document`, `lophn_read`, `lophn_save`, `lophn_format`, `lophn_series`의 op와 입력 schema(document list 1~500).
   - 대응 CLI `index`, `search`, `read`, `document list|history|diff`, `save`, `format`, `project`, `series`의 위치 인자·선택값과 공통 선택값(`--json`, `--connection`, `--daemon-url`, `--app`, `--base-revision`, `--idempotency-key`, `--input`·`--input-file`).
 
@@ -791,7 +792,8 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T36, contracts#T37, contracts#T41, contracts#T48
 - 완료: 아래 확인이 통과한다
   - MCP `lophn_app`(op 16개, `environment: preview | live`, validate 출력은 prepare_bundle의 diagnostics·bundle_hash, logs는 한 번에 1~200줄과 cursor, invocation 최대 20개), `lophn_sdk`(`catalog`, `show`, `add`), `lophn_ticket`(`list`, `show`, `checks`, `claim`, `renew`, `release`, `report`; list 1~20)의 op와 입력 schema.
-  - blueprint 유래 read tool 이름 `lophn_app_<app-id>_<command 이름 sha256 앞 16자리>`와 바깥 입력 `input`, `environment`, `timeout_ms`.
+  - blueprint 유래 read tool 이름 `lophn_app_<app ID sha256 hex 앞 12자>_<command 이름 sha256 hex 앞 16자>`(39자; Gemini CLI가 `mcp_<server>_<tool>`을 63자에서 해시 없이 자르므로 줄였다). 원 앱 이름·command 이름은 description에 넣고, 충돌은 discovery 실패다. 바깥 입력은 `input`, `environment`, `timeout_ms`.
+  - `test`, `preview_start`, `release_prepare` op의 출력은 접수와 다음 read다(오래 걸리는 일을 tool 응답에서 기다리지 않는다; OpenCode 기본 tool timeout 30초).
   - CLI `app ...`, `sdk ...`, `app command|invocation|automation run`, `app start|stop|release activate`, `ticket ...`.
   - release bundle에서 빼는 개발 도구 경로 상수(`AGENTS.md`, `CLAUDE.md`, `bin/lophn`, `.mcp.json`, `.claude/settings.local.json`, 제품 skill 사본, 제품 local hook 설정). apps의 bundle 준비가 쓴다.
 

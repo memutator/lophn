@@ -6,6 +6,14 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 판은 처음 뼈대를 만들 때 그때의 최신 안정판으로 정하고 lockfile로 고정한다. 정한 판은 contracts 팀이 skeleton 첫 작업(contracts#T1) PR에서 이 문서에 적는다(예: Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 
+## 판
+
+| 것 | 판 |
+|---|---|
+| Deno | 2.9.7 |
+| zod | 4.6.5 |
+| @std/assert | 1.0.19 |
+
 ## 고른 것
 
 | 영역 | 고른 것 | 비고 |

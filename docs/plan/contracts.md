@@ -85,6 +85,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T4 base: canonical JSON·sha256·log
 
+- 상태: 완료 (#6)
 - 등급: 기본
 - concern: platform/ledger, platform/diagnostics (값만 base에 둔다)
 - 요구: platform/ledger#R13; platform/diagnostics#R2, R3, R11

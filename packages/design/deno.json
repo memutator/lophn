@@ -5,6 +5,10 @@
     "./base.css": "./base.css",
     "./tokens.css": "./generated/tokens.css"
   },
+  "imports": {
+    "postcss": "npm:postcss@8.5.28",
+    "postcss-value-parser": "npm:postcss-value-parser@4.2.0"
+  },
   "tasks": {
     "generate": "deno run --allow-read --allow-write --allow-run generate.ts",
     "check-generated": "deno run --allow-read --allow-run generate.ts --check"

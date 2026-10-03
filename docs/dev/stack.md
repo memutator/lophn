@@ -52,6 +52,8 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | @types/react 19.3.0 | apps/shell/renderer | React 19는 타입을 함께 싣지 않는다. JSX 타입은 `jsxImportSourceTypes`로 이 패키지를 가리킨다 |
 | @luca/esbuild-deno-loader 0.11.1 | apps/shell/renderer | renderer bundle이 Deno import map과 `npm:`·`jsr:`를 esbuild로 resolve한다. CSS Modules를 만들려면 esbuild loader가 필요하고, deno bundle은 클래스 맵을 만들지 않는다 |
 | intl-messageformat 12.1.2 | packages/design/wording | en 문구의 ICU MessageFormat, placeholder와 plural |
+| postcss 8.5.28 | packages/design/style-check | CSS AST와 source 줄을 읽어 token-only 검사를 `deno test`에서 돌린다. stylelint는 들이지 않는다 |
+| postcss-value-parser 4.2.0 | packages/design/style-check | 선언과 media 값의 함수·단위·token 참조를 검사하여 regex만으로 CSS 값을 해석하지 않는다 |
 
 ## check 명령 하나
 

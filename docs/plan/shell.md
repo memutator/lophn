@@ -120,6 +120,7 @@ concerns: [shell]
 
 ### T6 wording catalog, ICU, Intl, 문구 검사
 
+- 상태: 완료 (#19)
 - 등급: 기본
 - concern: shell/wording
 - 요구: shell/wording#R1, R3, R6, R7, R11, R13, R14

@@ -1,42 +1,75 @@
 // shell·overlay·confirmation entry를 각각 브라우저 bundle 하나로 만든다.
-// deno bundle은 CSS Modules를 클래스 맵으로 바꾸지 않는다. 그래서 entry가 import한
-// *.module.css를 원문 그대로 bundle 옆의 같은 이름 css 파일로 복사하고, 화면이 그 파일을
-// 읽어 클래스를 적용한다. design token과 글꼴 복사는 T4에서 더한다.
-import { copyFile, mkdir, rename } from "node:fs/promises";
+// deno bundle은 CSS Modules의 클래스 맵을 만들지 못해 esbuild로 묶는다.
+// esbuild-deno-loader는 모든 파일을 자기가 읽으므로, CSS Modules와 글꼴은 별도
+// namespace에서 esbuild loader로 넘긴다. 글꼴 파일은 T4에서 더한다.
+import * as esbuild from "esbuild";
+import { denoPlugins } from "@luca/esbuild-deno-loader";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const here = dirname(new URL(import.meta.url).pathname);
-const dist = join(here, "dist");
 
 const entries = ["desktop", "overlay", "confirmation"];
 
-export const stylesheets = entries.map((name) => ({
-  from: join(here, name, "entry.module.css"),
-  to: `${name}.css`,
-}));
+const assetLoaders: Record<string, string> = {
+  ".module.css": "local-css",
+  ".woff2": "file",
+};
 
-export async function build(outdir = dist): Promise<void> {
-  await mkdir(outdir, { recursive: true });
-  for (const name of entries) {
-    const command = new Deno.Command(Deno.execPath(), {
-      args: [
-        "bundle",
-        "--platform=browser",
-        "--outdir",
-        outdir,
-        join(here, name, "entry.tsx"),
+function assetPlugin(): esbuild.Plugin {
+  return {
+    name: "renderer-assets",
+    setup(build) {
+      build.onResolve({ filter: /\.(module\.css|woff2)$/ }, (args) => {
+        if (!args.path.startsWith(".")) return undefined;
+        const path = new URL(args.path, pathToFileURL(args.importer)).pathname;
+        const loader = Object.entries(assetLoaders).find(([ext]) =>
+          path.endsWith(ext)
+        )?.[1];
+        if (!loader) return undefined;
+        return { path, namespace: "renderer-asset", pluginData: { loader } };
+      });
+      build.onLoad(
+        { filter: /.*/, namespace: "renderer-asset" },
+        async (args) => ({
+          contents: await readFile(args.path),
+          loader: args.pluginData.loader,
+        }),
+      );
+    },
+  };
+}
+
+export async function build(outdir = join(here, "dist")): Promise<void> {
+  // 루트 deno.json의 workspace 멤버 glob은 아직 없는 폴더를 가리켜 deno-loader의
+  // workspace 탐색이 실패한다. renderer deno.json의 imports만 담은 import map을
+  // 넘기면 탐색 없이 같은 resolve를 쓴다.
+  const scratch = await mkdtemp(join(tmpdir(), "shell-renderer-map-"));
+  const configPath = join(scratch, "deno.json");
+  try {
+    const config = JSON.parse(await readFile(join(here, "deno.json"), "utf8"));
+    await writeFile(configPath, JSON.stringify({ imports: config.imports }));
+    await esbuild.build({
+      absWorkingDir: here,
+      entryPoints: entries.map((name) => ({
+        in: join(name, "entry.tsx"),
+        out: name,
+      })),
+      outdir,
+      bundle: true,
+      format: "esm",
+      jsx: "automatic",
+      assetNames: "[name]",
+      plugins: [
+        assetPlugin(),
+        // deno-loader는 자기 esbuild 타입 사본을 쓰므로 구조만 맞춘다.
+        ...(denoPlugins({ configPath }) as esbuild.Plugin[]),
       ],
-      stdout: "inherit",
-      stderr: "inherit",
     });
-    if (!(await command.output()).success) {
-      throw new Error("renderer bundle 실패");
-    }
-    // --outdir에서는 출력 이름이 entry 파일 이름을 따른다. 다음 entry가 덮어쓰기 전에 옮긴다.
-    await rename(join(outdir, "entry.js"), join(outdir, `${name}.js`));
-  }
-  for (const sheet of stylesheets) {
-    await copyFile(sheet.from, join(outdir, sheet.to));
+  } finally {
+    await rm(scratch, { recursive: true });
   }
 }
 

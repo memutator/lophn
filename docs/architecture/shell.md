@@ -59,7 +59,7 @@ main은 read·command·event·앱 direct call을 독립적인 비동기 요청�
 3. 인증이 끝나야 API 준비 상태를 읽고 event를 구독한다. core bootstrap·권한 플래그·daemon 수명은 platform이 정한다. shell은 별도 worker를 Deno `-A`로 띄워 빈자리를 메우지 않는다.
 4. 로그인 자동 시작은 `--tray` intent로 main만 띄우고 창은 열지 않는다. 모든 창을 닫아도 main·tray는 남는다. Electron까지 끝내도 daemon 중지 요청을 보내지 않는다.
 
-코드는 `apps/shell/main/`, `apps/shell/preload/`, `apps/shell/renderer/`에 둔다. main entry는 `apps/shell/main/desktop/main.ts`이며 npm·TypeScript strict로 check하고 esbuild로 main과 preload 세 종류를 각각 CJS 한 파일로 `apps/shell/main/dist/`에 묶는다. sandbox preload의 외부 require는 `electron`만 허용한다. renderer는 Deno workspace에서 SDK와 `packages/design`을 공유하고 `deno bundle --platform=browser`로 shell·overlay·confirmation entry를 `apps/shell/renderer/dist/`에 build한다. preload 세 종류는 `apps/shell/preload/`, 공유 IPC schema는 `apps/shell/ipc/`에 둔다. main과 renderer가 서로의 실행 코드나 DB 모듈을 import하지 않는다.
+코드는 `apps/shell/main/`, `apps/shell/preload/`, `apps/shell/renderer/`에 둔다. main entry는 `apps/shell/main/desktop/main.ts`이며 npm·TypeScript strict로 check하고 esbuild로 main과 preload 세 종류를 각각 CJS 한 파일로 `apps/shell/main/dist/`에 묶는다. sandbox preload의 외부 require는 `electron`만 허용한다. renderer는 Deno workspace에서 SDK와 `packages/design`을 공유하고 esbuild로 shell·overlay·confirmation entry를 `apps/shell/renderer/dist/`에 build한다. CSS Modules는 esbuild `local-css` loader가 클래스 맵으로 바꾸고, Deno import map은 esbuild-deno-loader가 resolve한다. preload 세 종류는 `apps/shell/preload/`, 공유 IPC schema는 `apps/shell/ipc/`에 둔다. main과 renderer가 서로의 실행 코드나 DB 모듈을 import하지 않는다.
 
 - `main/desktop/`: 창·tray·autostart·shortcut·설치 실행 intent. `main/workspace/`와 같은 layout adapter로 창과 공간별 UI 편의 값을 보존한다.
 - `main/confirmation/`: 보호 창·handle 수명·결정 제출 adapter.

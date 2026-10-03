@@ -34,7 +34,7 @@ concerns: [shell]
 - 완료: 아래 확인이 통과한다
   - `apps/shell/main`은 npm·TypeScript strict(`erasableSyntaxOnly`, `allowImportingTsExtensions`, `noEmit`)로 typecheck하고 esbuild로 main과 preload 세 개(shell, confirmation, app)를 각각 한 파일로 묶는다. sandbox preload는 `electron` 말고 아무것도 require하지 않는다. main은 `packages/contracts`·`packages/base`의 `.ts` 원본과 같은 판의 `zod`(4.6.5)를 쓴다.
   - `npm --prefix apps/shell/main run check`가 `tsc --noEmit`과 `node --test`를 돌고 `deno task check` 4단계에서 돈다.
-  - `apps/shell/renderer`는 Deno workspace member이고 `deno bundle --platform=browser`로 빈 React root의 shell·overlay·confirmation entry를 만든다. 작은 `*.module.css`로 CSS Modules bundle을 확인한다. design과 글꼴 복사는 T4, 공유 IPC schema는 T2에서 더한다.
+  - `apps/shell/renderer`는 Deno workspace member이고 esbuild로 빈 React root의 shell·overlay·confirmation entry를 만든다. Deno import map은 esbuild-deno-loader가 resolve하고, 작은 `*.module.css`는 `local-css` loader의 클래스 맵으로 CSS Modules bundle을 확인한다. design과 글꼴 복사는 T4, 공유 IPC schema는 T2에서 더한다.
   - main과 renderer는 서로의 실행 코드를 import하지 않는다.
   - `desktop_build_test`와 renderer의 `build_test`: `shell/desktop#R17` main build가 main과 preload 세 파일을, renderer build가 entry 세 개를 만든다. main 밖 `.ts` 테스트 fixture의 `zod` import를 `apps/shell/main/node_modules`에서 resolve해 묶는다.
   - `docs/architecture/shell.md`의 코드 자리와 이름을 code-map·apps와 맞춘다(packages/design, packages/design/wording, apps/shell/ipc, screen, view_session).

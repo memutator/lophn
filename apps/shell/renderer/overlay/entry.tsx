@@ -1,3 +1,4 @@
 import { mount } from "../entry.tsx";
+import styles from "./entry.module.css";
 
-mount("./overlay.css");
+mount(styles.root);

@@ -232,6 +232,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T12 contracts/platform: redaction
 
+- 상태: 완료 (#23)
 - 등급: 기본
 - concern: platform/redaction
 - 요구: platform/redaction#R2–R4, R6, R8–R12, R14, R15, R17

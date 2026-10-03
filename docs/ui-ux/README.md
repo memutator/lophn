@@ -2,9 +2,9 @@
 type: guide
 concerns: [shell]
 ---
-# screens
+# ui/ux
 
-모든 `screen` 문서가 따르는 전역 규칙이다. 개별 화면 문서는 이 규칙을 반복하지 않고 `screens/README.md#<번호>`로 가리킨다. 화면에 "무엇을 보여 주고 지켜야 하나"는 각 concern의 requirements가 정하고, 여기는 **어떻게 덜어 내고 어떻게 말하나**만 정한다.
+lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정적 명세는 두지 않는다. 화면에 "무엇을 보여 주고 지켜야 하나"는 각 concern의 requirements가 정하고, 여기는 **어떻게 덜어 내고 어떻게 말하나**만 정한다.
 
 ## 1. 누구를 위한 화면인가
 
@@ -70,7 +70,7 @@ things-to-confirm.count         = "{count, plural, one {# thing to confirm} othe
 **날짜·숫자·상대 시각은 Intl API로 formatting한다.** 날짜는 `Intl.DateTimeFormat`, 숫자는 `Intl.NumberFormat`(큰 수는 compact, shell/design-system#R41 참고), "3분 전" 같은 상대 시각은 `Intl.RelativeTimeFormat`을 쓰고 직접 문자열을 계산해 붙이지 않는다. en이 유일한 locale이어도 이 규칙을 지켜야 locale을 더할 때 값만 바뀌고 계산 코드는 그대로다.
 
 **무엇이 i18n 대상인가.**
-- shell이 소유한 고정 문구(버튼, 라벨, 상태, empty/error 안내)는 모두 message key 대상이다. 이 README와 각 화면 문서의 "문구" 표가 그 key와 en 값을 정의한다.
+- shell이 소유한 고정 문구(버튼, 라벨, 상태, empty/error 안내)는 모두 message key 대상이다. key와 en 값의 정본은 shell의 en catalog다(→ shell/wording).
 - 앱·problem code가 선언하는 고정 문구(명령 설명, 권한 설명, problem 안내)도 같은 key·en 규칙을 따르되, 그 문구의 소유자는 shell이 아니라 해당 concern이다(problems/problem-codes#R6, lophn-agent/harness/model#R15 같은 선례). shell은 받은 문구를 그대로 쓰고 다시 합성하지 않는다(shell/wording#R9).
 - agent가 그때 생성하는 자유 글(대화 응답, Operator 보고 본문, App Engineer의 질문 문장)은 미리 정의한 key가 없다. 이 글은 "en으로 쓴다"는 언어 요구만 따르고 message catalog에는 들어가지 않는다. 틀(머리, 버튼, 상태)과 자유 글을 같은 화면에 섞어도 틀만 key 대상이다.
 
@@ -109,7 +109,7 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 
 ## 6. 공통 패턴
 
-화면마다 다시 정의하지 않고 아래 패턴을 그대로 쓴다. 각 화면 문서의 "상태"에는 이 패턴 중 그 화면에 있는 것만 적고, 모양은 다시 적지 않는다.
+화면마다 다시 정의하지 않고 아래 패턴을 그대로 쓴다. 
 
 | 패턴 | 기본 동작 |
 |---|---|
@@ -126,4 +126,4 @@ shell/wording이 i18n의 지켜야 할 요구(en-only 시작, key 검사)를 정
 
 ## 7. 디자인 값
 
-색·글꼴·간격·크기·컴포넌트의 실제 값과 접근성 기준은 `shell/design-system` requirements에 있다. 이 문서는 그 값을 반복하지 않고 가리킨다. 개별 화면 문서가 치수를 적어야 하면 `shell/design-system#R<n>`으로 가리키고 새 값을 만들지 않는다.
+색·글꼴·간격·크기·컴포넌트의 실제 값과 접근성 기준은 `shell/design-system` requirements에 있다. 이 문서는 그 값을 반복하지 않고 가리킨다. 치수가 필요하면 `shell/design-system#R<n>`으로 가리키고 새 값을 만들지 않는다.

@@ -1,7 +1,6 @@
 ---
 type: flow
 concerns: [lophn-agent/visuals, lophn-agent/conversation, lophn-agent/roles/lophn, lophn-agent/harness/tools, shell/workspace, shell/app-frame, apps/blueprint, apps/sdk, apps/permissions, documents/formats, documents/versions, platform/redaction, platform/blob-store]
-screens: [conversation, app-card, document]
 ---
 # 답 속 표와 앱 카드를 보고 문서로 남긴다
 
@@ -11,13 +10,13 @@ screens: [conversation, app-card, document]
 
 ## 흐름
 
-1. **[screen: conversation]** 사람이 비교할 자료나 알고 싶은 운영 상황을 말한다. agent는 허용된 자료에서 필요한 근거만 읽고 확인된 사실과 해석을 구별한다. 자료 조회와 시각 명세 준비는 사람에게는 보이지 않는다. (lophn-agent/roles/lophn#R3, lophn-agent/roles/lophn#R18, lophn-agent/harness/tools#R8)
+1. conversation 화면 사람이 비교할 자료나 알고 싶은 운영 상황을 말한다. agent는 허용된 자료에서 필요한 근거만 읽고 확인된 사실과 해석을 구별한다. 자료 조회와 시각 명세 준비는 사람에게는 보이지 않는다. (lophn-agent/roles/lophn#R3, lophn-agent/roles/lophn#R18, lophn-agent/harness/tools#R8)
 2. agent가 답의 해당 위치에 선언형 표·선 또는 막대 차트·도표를 넣고, 앱을 보여 줄 때는 카드 크기를 선언한 화면만 참조한다. 제목·설명·고정 문서 판 또는 앱 command 결과의 출처를 함께 남긴다. 명세 준비는 사람에게는 보이지 않는다. (lophn-agent/visuals#R1, lophn-agent/visuals#R2, lophn-agent/visuals#R4, apps/blueprint#R19)
 3. machine이 종류·크기 상한·출처를 검사한 확정 명세를 메시지와 함께 저장하고 설치된 공용 SDK로 그린다. 임의 HTML·script를 shell 코드로 실행하지 않으며 앱 UI도 shell renderer로 가져오지 않는다. 검사·저장·격리 처리는 사람에게는 보이지 않는다. (lophn-agent/visuals#R1, lophn-agent/visuals#R2, lophn-agent/visuals#R3, lophn-agent/conversation#R13, shell/workspace#R12, shell/app-frame#R33, apps/sdk#R38)
-4. **[screen: conversation]** 사람은 글과 시각 블록을 함께 읽고 필요하면 데이터·설명·출처를 확인한다. 새 답이 와도 읽던 위치와 focus를 잃지 않는다. **[screen: app-card]** 앱 카드는 원래 앱의 허락된 화면이며 카드를 열었다고 command 실행 권한이 늘어나지 않는다. (shell/workspace#R13, apps/sdk#R38, lophn-agent/visuals#R4, apps/permissions#R27)
-5. **[screen: conversation]** 사람이 선택한 블록을 문서로 남기도록 요청한다. agent는 고정 명세·데이터·설명·출처·그 순간의 그림을 실행 코드 없는 HTML 본문으로 준비한 뒤, 별도 문서 저장 tool로 역할의 허용 범위와 format 계약에 맞춰 저장한다. 준비·검사·저장은 사람에게는 보이지 않는다. (lophn-agent/visuals#R6, lophn-agent/harness/tools#R19, lophn-agent/harness/tools#R6, lophn-agent/roles/lophn#R5, documents/formats#R4, documents/formats#R7)
+4. conversation 화면 사람은 글과 시각 블록을 함께 읽고 필요하면 데이터·설명·출처를 확인한다. 새 답이 와도 읽던 위치와 focus를 잃지 않는다. app-card 화면 앱 카드는 원래 앱의 허락된 화면이며 카드를 열었다고 command 실행 권한이 늘어나지 않는다. (shell/workspace#R13, apps/sdk#R38, lophn-agent/visuals#R4, apps/permissions#R27)
+5. conversation 화면 사람이 선택한 블록을 문서로 남기도록 요청한다. agent는 고정 명세·데이터·설명·출처·그 순간의 그림을 실행 코드 없는 HTML 본문으로 준비한 뒤, 별도 문서 저장 tool로 역할의 허용 범위와 format 계약에 맞춰 저장한다. 준비·검사·저장은 사람에게는 보이지 않는다. (lophn-agent/visuals#R6, lophn-agent/harness/tools#R19, lophn-agent/harness/tools#R6, lophn-agent/roles/lophn#R5, documents/formats#R4, documents/formats#R7)
 6. 앱 카드를 남길 때는 앱이 허락한 redaction snapshot과 고정 앱 참조만 저장한다. snapshot을 얻지 못하면 그 부재와 참조를 남기고 live 앱·credential을 복제하지 않는다. redaction과 blob 참조 등록은 사람에게는 보이지 않는다. (lophn-agent/visuals#R7, platform/redaction#R5, platform/redaction#R14, platform/blob-store#R4)
-7. **[screen: document]** 사람은 실제 저장한 문서의 고정 판을 열어 읽는다. 저장 성공과 검색 반영은 별개이며, 세션 화면을 닫거나 재시작한 뒤에도 **[screen: conversation]** 원래 메시지와 출처, 저장된 문서로 돌아온다. (documents/versions#R5, documents/versions#R6, documents/versions#R8, lophn-agent/conversation#R2, lophn-agent/conversation#R12)
+7. document 화면 사람은 실제 저장한 문서의 고정 판을 열어 읽는다. 저장 성공과 검색 반영은 별개이며, 세션 화면을 닫거나 재시작한 뒤에도 conversation 화면 원래 메시지와 출처, 저장된 문서로 돌아온다. (documents/versions#R5, documents/versions#R6, documents/versions#R8, lophn-agent/conversation#R2, lophn-agent/conversation#R12)
 
 ## 다른 갈래
 

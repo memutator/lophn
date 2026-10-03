@@ -289,7 +289,7 @@ gallery는 컴포넌트·화면의 light·dark·좁은 폭·empty·loading·erro
 
 고정 UI 문구는 `renderer/wording/`의 en-only catalog와 shared 타입으로 main·shell·overlay·confirmation renderer에 전달한다. 모든 고정 문구는 shell/wording#R14의 `<screen>.<part>.<name>` key·ICU MessageFormat을 쓰며 날짜·숫자·상대 시각은 Intl API로 formatting한다. locale을 더할 때 같은 key의 catalog를 더하고 문장 조각을 이어 붙이지 않는다. 문구 검사는 직접 문자열·없는 key·빠진 en 값·placeholder 불일치를 오류로, 사용자 화면의 ID 접두사·snake_case·원시 enum·ledger·release·invocation·assignment 같은 안쪽 개념 이름을 경고로 처리한다. 문서·코드·별도 개발자 diagnostics는 이 경고에서 제외한다. 화면 말의 mapping과 자유 글·고정 문구 구분은 screens/README.md#3,#4를 따른다. agent 자유 글은 key로 만들지 않고 en 언어 규칙만 지킨다. 기본 안내는 짧고 직접적인 1~2문장·영향·다음 행동 하나, 버튼·제목은 마침표 없음이다. 문제 문구는 problems가 확정한 값을 그대로 쓰며 shell이 placeholder·앱 이름을 다시 합성하지 않는다. 앱 기본 안내·tooltip·사용자 상세에 stack·log·원문 오류를 넣지 않는다.
 
-화면 전체 UX 규칙은 screens/README.md, 공통 시각·조작 값은 shell/design-system, 정적 화면은 docs/screens, 여러 concern을 지나는 사람 흐름은 docs/flows가 정본이다. 이 architecture의 route·adapter는 그 명세를 구현할 뿐 별도 정보 목록을 늘리지 않는다. read의 세부 단계는 메모리 presenter에 보존하되 기본에는 지금 필요한 결과·다음 행동만 표시하고 Details에서 필요한 근거를 펼친다. 내부 재검사·scan·index·redaction·retry 과정은 기본 화면에 진행 목록으로 만들지 않는다.
+화면 전체 UI/UX 규칙은 docs/ui-ux/README.md, 공통 시각·조작 값은 shell/design-system, 여러 concern을 지나는 사람 흐름은 docs/flows가 정본이다. 이 architecture의 route·adapter는 그 명세를 구현할 뿐 별도 정보 목록을 늘리지 않는다. read의 세부 단계는 메모리 presenter에 보존하되 기본에는 지금 필요한 결과·다음 행동만 표시하고 Details에서 필요한 근거를 펼친다. 내부 재검사·scan·index·redaction·retry 과정은 기본 화면에 진행 목록으로 만들지 않는다.
 
 ## 7. 흐름
 

@@ -1,7 +1,6 @@
 ---
 type: flow
 concerns: [apps/connections, apps/blueprint, apps/permissions, apps/runtime, apps/invocations, apps/sdk, platform/identity, platform/secrets, platform/approvals, shell/confirmation-window, shell/desktop]
-screens: [app-detail, confirmation-window]
 ---
 # 내 앱끼리 필요한 기능을 나눠 쓴다
 
@@ -11,13 +10,13 @@ screens: [app-detail, confirmation-window]
 
 ## 흐름
 
-1. **[screen: app-detail]** 사람은 부르는 앱이 선언한 대상 앱·command·목적을 확인한다. lophn은 현재 blueprint의 앱 연결 선언을 바탕으로 방향이 있는 앱 쌍과 필요한 command 범위를 준비한다. 선언 검사는 사람에게는 보이지 않는다. (apps/connections#R1, apps/blueprint#R22, apps/permissions#R26)
-2. **[screen: confirmation-window]** 사람이 그 방향과 범위만 허락한다. 요청한 창의 앱 view는 숨기지 않고 입력만 막는다. 앱이 이 결정을 대신 제출하거나 한 앱의 허락을 다른 앱으로 재위임하지 못한다. (apps/connections#R1, platform/approvals#R3, platform/approvals#R10, shell/confirmation-window#R6, apps/connections#R5)
+1. app-detail 화면 사람은 부르는 앱이 선언한 대상 앱·command·목적을 확인한다. lophn은 현재 blueprint의 앱 연결 선언을 바탕으로 방향이 있는 앱 쌍과 필요한 command 범위를 준비한다. 선언 검사는 사람에게는 보이지 않는다. (apps/connections#R1, apps/blueprint#R22, apps/permissions#R26)
+2. confirmation-window 화면 사람이 그 방향과 범위만 허락한다. 요청한 창의 앱 view는 숨기지 않고 입력만 막는다. 앱이 이 결정을 대신 제출하거나 한 앱의 허락을 다른 앱으로 재위임하지 못한다. (apps/connections#R1, platform/approvals#R3, platform/approvals#R10, shell/confirmation-window#R6, apps/connections#R5)
 3. lophn이 부르는 앱의 현재 선언·앱 쌍의 active grant·대상 앱의 현재 command 목록의 교집합으로 연결을 준비한다. 새 command·새 대상·반대 방향은 자동 허락하지 않으며 SDK를 import한 사실도 grant가 아니다. 연결 준비는 사람에게는 보이지 않는다. (apps/connections#R2, apps/permissions#R26, apps/runtime#R30, apps/sdk#R40)
 4. lophn은 별도 MCP 없이 대상 앱의 같은 handler·입력 검사·effect·confirm 규칙으로 호출을 준비하고 실제 caller 앱·당시 release·알려진 부모 호출을 검증한다. 입력 본문의 caller 주장이나 다른 앱의 허락을 합치지 않는다. 준비·검증은 사람에게는 보이지 않는다. (apps/connections#R3, apps/connections#R5, apps/blueprint#R7, platform/identity#R9)
-5. 준비한 command가 사람 확인을 요구하면 **[screen: confirmation-window]** 사람은 실제 호출 주체와 정확한 대상 앱·release·command·입력·영향을 보고 결정한다. 연결 허락은 이 동작의 approval을 대신하지 않는다. lophn은 실행 직전 접수에 approval을 한 번만 사용하며, 접수 처리는 사람에게는 보이지 않는다. 확인이 필요 없는 command는 이 단계를 거치지 않는다. (apps/connections#R3, platform/approvals#R1, platform/approvals#R8, apps/invocations#R7, apps/invocations#R17)
+5. 준비한 command가 사람 확인을 요구하면 confirmation-window 화면 사람은 실제 호출 주체와 정확한 대상 앱·release·command·입력·영향을 보고 결정한다. 연결 허락은 이 동작의 approval을 대신하지 않는다. lophn은 실행 직전 접수에 approval을 한 번만 사용하며, 접수 처리는 사람에게는 보이지 않는다. 확인이 필요 없는 command는 이 단계를 거치지 않는다. (apps/connections#R3, platform/approvals#R1, platform/approvals#R8, apps/invocations#R7, apps/invocations#R17)
 6. 허용된 command는 대상 앱으로 직접 가며 일반 요청·응답은 core·supervisor·ledger queue를 기다리지 않는다. secret은 대상 앱의 자체 grant에 따라 목적지로 보낼 때만 붙이고 앱 사용자 코드와 agent에는 값을 주지 않는다. 실제 결과와 caller 근거는 후행 기록으로 남긴다. 전송·secret 처리·후행 기록은 사람에게는 보이지 않는다. (apps/connections#R4, apps/runtime#R10, apps/invocations#R16, apps/invocations#R18, apps/permissions#R14, apps/permissions#R16, platform/secrets#R5)
-7. **[screen: app-detail]** 사람은 허락한 연결 범위를 확인하고 필요할 때 실제 호출 결과의 기록을 확인한다. 연결 선언과 grant, 실제 동작 결과를 혼동하지 않으며, 허락 접수만으로 command가 끝났다고 표시하지 않는다. (apps/connections#R1, apps/connections#R2, apps/invocations#R3, platform/approvals#R9)
+7. app-detail 화면 사람은 허락한 연결 범위를 확인하고 필요할 때 실제 호출 결과의 기록을 확인한다. 연결 선언과 grant, 실제 동작 결과를 혼동하지 않으며, 허락 접수만으로 command가 끝났다고 표시하지 않는다. (apps/connections#R1, apps/connections#R2, apps/invocations#R3, platform/approvals#R9)
 
 ## 다른 갈래
 

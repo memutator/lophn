@@ -1,0 +1,179 @@
+---
+type: domain-model
+concerns: [lophn-agent/harness/tools]
+---
+# lophn-agent/harness/tools
+
+ToolCall과 tool 정의·결과의 구조 및 선행·후행 기록 제약을 정의한다.
+
+## ToolCall (`tcl`)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `id` | `tcl` ID | 아니오 | PK; 최초 call은 업무 command idempotency key | 시도 |
+| `run` | `run` ID | 아니오 | → lophn-agent/harness/run-loop | 수행 run |
+| `model_call` | `mcl` ID | 아니오 | 같은 run의 완전 성공 응답; → lophn-agent/harness/usage | 요청 응답 |
+| `response_key` | 비어 있지 않은 문자열 | 아니오 | 최초 요청 `(model_call,response_key)` unique | 응답 내부 call key |
+| `response_order` | 0 이상 정수 | 아니오 | 응답 순서 불변 | 순차 처리 순서 |
+| `tool` | 비어 있지 않은 문자열 | 아니오 | 고정 목록의 정확 이름; 추측 수정 금지 | 동작 |
+| `definition_revision` | 비어 있지 않은 문자열 | 아니오 | Run.basis의 정의 판 | contract 기준 |
+| `effect` | `read / write / confirm / external` | 아니오 | 앱은 read/write/external; legacy confirm은 별도 confirm=true로 판정; model이 변경 불가 | 효과 |
+| `app_command` | AppCommandBinding | 예 | 자동 앱 tool일 때 필수 | 앱 contract 판 |
+| `confirm` | boolean | 아니오 | 앱 blueprint 값; 그 밖 기본 false; effect와 독립 | approval 강제 |
+| `extension` | `{server_name,configuration_revision,original_tool}` | 예 | 외부 MCP에만; → lophn-agent/extensions | 외부 출처 |
+| `input` | sha256 | 아니오 | redaction된 불변 blob | 인자 |
+| `output` | sha256 | 예 | 실제 결과; finished 성공에 필수 | 결과 |
+| `retry_of` | `tcl` ID | 예 | 같은 요청의 최초 ID; retry chain 금지 | 업무 중복 방지 기준 |
+| `attempt` | 0 이상 정수 | 아니오 | 최초 0; 자동 retry는 최대 1 | 시도 순번 |
+| `retry_at` | 시각 | 예 | 허용 일시 retry만; 멈춤·steering 뒤 적용 불가 | 예정 시각 |
+| `decision` | ToolDecision | 예 | 요청 후·진입 전에 필수; 판정 정의는 → lophn-agent/harness/tool-judgment | 실제 판정 snapshot |
+| `state` | `requested / started / finished` | 아니오 | 아래 전이 | 기록 상태 |
+| `started_at / finished_at` | 시각 각각 | 예 | started_at은 실제 진입; finished_at은 terminal 필수 | 시각 |
+| `duration_ms` | 0 이상 정수 ms | 예 | 단조 시계 측정값 | 실제 call 시간 |
+| `outcome` | ToolOutcome | 예 | finished에 필수; 그 외 null | 실제 결과 |
+
+### 상태
+
+| 상태 | 뜻 |
+|---|---|
+| `requested` | 요청 기록; ask 대기 call도 여기에 있음 |
+| `started` | 실제 contract 진입 |
+| `finished` | 성공·실패·미실행·불명확 확정 |
+
+| 전 | 후 | actor | 조건 | event |
+|---|---|---|---|---|
+| 없음 | `requested` | machine | 쓰기·confirm·external은 진입 전, read는 실제 읽기 뒤 기록 | `ToolCallRequested` |
+| `requested` | 같은 상태 | machine | 판정 기준·이유 기록; ask면 approval 및 Run 대기 연결 | `ToolCallDecided` |
+| `requested` | `started` | machine | 현재 run·assignment·scope·input·CAS·판정·승인 재검사; read는 실제 진입 뒤 기록 | `ToolCallStarted` |
+| `requested` | `finished` | machine | deny·사람 거절·수정·run 멈춤; 미실행 | `ToolCallFinished` |
+| `started` | `finished` | machine | 실제 결과·안전한 실패 또는 확인 불가 기록 | `ToolCallFinished` |
+| `finished` | `finished` | machine | 늦은 효과 확인 감사 보완; 기존 outcome 유지 | `ToolCallSupplemented` |
+
+### 불변 조건
+
+- tool 업무 동작 하나는 다른 concern의 contract 호출 하나다. 여러 영역의 숨은 절차는 없다. 판정·기록·approval 대기는 공통 처리다.
+- 완전한 model 응답만 처리한다. 최초 요청 중복 key는 `(model_call,response_key)`이며 retry는 최초 tcl ID를 업무 idempotency key로 유지한다.
+- confirm=false인 read는 현재 assignment·scope·멈춤 확인 뒤 직접 호출하며 요청·판정·진입·결과 기록은 뒤따른다. 읽기 응답은 ledger 저장을 기다리지 않되 다음 model 판단 전에는 결과를 저장한다.
+- write·confirm=true·legacy confirm·external은 요청 및 진입 기록 저장 성공 뒤에만 시작한다. ledger 쓰기의 대상 변경과 ToolCall 성공 기록은 같은 짧은 command transaction이다.
+- 승인 허락은 성공이 아니다. 고정 대상·input·비교 기준·효과가 달라졌으면 옛 approval을 사용하지 않는다. approval 사용과 업무 변경 또는 외부 진입은 같은 transaction에서 한 번 확정한다. → platform/approvals.
+- 다중 대상 중 deny 하나면 전체 미실행; deny 없고 ask 있으면 하나의 고정 approval로 묻는다. 일부부터 바꾸지 않는다.
+- 응답 순서대로 하나씩 처리하며 쓰기 최종 실패 뒤 남은 미시작 call은 미실행으로 닫고 새 판단을 받는다.
+- 인자를 추측해 고치거나 숫자 문자열을 숫자로 바꾸지 않는다. 정의에 없는 필드·동작은 `invalid_input`이다.
+- 밖으로 전달한 call의 응답이 없으면 미실행이 아니라 uncertain이다. 결과 조회·idempotency 보장 없이는 자동 retry하지 않는다.
+- terminal run의 늦은 결과는 감사 보완만이며 새 대상 변경·다음 model call을 만들지 않는다. 불명확 효과와 충돌할 후속 call은 확인 전 차단한다.
+
+## ToolDecision (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `verdict` | `allow / ask / deny` | 아니오 | → lophn-agent/harness/tool-judgment | 판정 |
+| `basis_seq` | seq | 아니오 | 현재 판정 기준 | 근거 |
+| `reason` | 안전한 코드 | 아니오 | 원문 secret·error 없음 | 판정 이유 |
+| `approval` | `apr` ID | 예 | ask에 필수; 다른 verdict에 null; → platform/approvals | 정확 call에 묶인 요청 |
+
+## ToolOutcome (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `kind` | `success / failure / not_executed / uncertain` | 아니오 | 진입 없는 call은 success·uncertain 불가 | 결과 |
+| `code` | 안전한 짧은 코드 | 아니오 | 사람 결정 미실행은 `human_decision`; 반복 차단은 `repeated_failure_blocked` | 이유 |
+
+## ToolDefinition (값)
+
+제품 코드 또는 검증된 extension 목록의 값이며 ledger entity가 아니다.
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `name / description / revision` | 비어 있지 않은 문자열 각각 | 아니오 | 이름 unique; 내장 name은 `<영역>.<동작>` 점 표기(예: `document.save_version`, `ticket.create`, `problem.set_interpretation`); 외부는 → lophn-agent/extensions | 정의 |
+| `input_schema / output_schema` | JSON Schema 각각 | 아니오 | 검증 가능; actor·권한을 model이 지정할 필드 없음 | 입출력 |
+| `effect` | `read / write / confirm / external` | 아니오 | 앱은 read/write/external; 없으면 목록·호출 제외 | 실제 영향 |
+| `confirm` | boolean | 아니오 | 기본 false; 앱은 blueprint의 별도 값 | 사람 확인 |
+| `app_command` | AppCommandBinding | 예 | 자동 생성 앱 tool에 필수 | 원래 command |
+| `scope_check` | contract 검사 이름 | 아니오 | 현재 대상 범위 검사 | 범위 |
+| `contract` | concern·contract 이름 | 아니오 | 업무 호출 하나만 | 대응 contract |
+| `comparison_basis` | CAS 입력 schema | 예 | write면 소유 contract의 기준 필수 | 낡은 입력 방지 |
+| `reversible` | boolean | 아니오 | 소유 concern의 보장; model 설명 아님 | revert 가능성 |
+| `idempotent / result_query` | boolean / contract 이름 | 아니오 / 예 | external·write retry 조건 | 중복·복구 |
+| `errors` | 공통 error code 배열 | 아니오 | → platform/ledger | 실패 종류 |
+
+## AppCommandBinding (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `app / release` | `app` ID / `rel` ID | 아니오 | 허락된 앱·active release; → apps/registration, apps/releases | 호출 대상 판 |
+| `command` | 문자열 | 아니오 | blueprint의 정확 이름; → apps/blueprint | 원래 command |
+| `blueprint_hash / definition_hash` | sha256 각각 | 아니오 | canonical 검증본 | 계약 지문 |
+| `permission_basis` | `{grant,scope,basis_seq}` | 아니오 | Grant.kind=`agent.commands`, app 일치·scope.commands에 command 포함·status 유효; → apps/permissions | 사람의 허락 근거 |
+| `context_binding` | JSON object | 예 | context command에 `{screen,view_session,detail}`, 주석 command에 `{screen,view_session,expected_revision,target,text}`; → apps/agent-context | 낡은 화면 검사 |
+
+생성 tool 이름은 `app_<app ULID>_<command slug>_<hash8>`로 정한다. command slug는 ASCII 영문·숫자·밑줄만, 최대 20자이며 원래 command 이름 SHA-256 앞 8자를 붙인다. 64자 이하에서 이름 충돌이면 전체 목록 검증을 실패시키고 원래 이름을 추측하지 않는다. 원래 command 이름은 binding에 보존한다. 자체 등록 순서 → 앱 `(app ID, command 이름)` 사전순 → 외부 MCP 순서이며 Run.basis에 정의 hash를 고정한다. 앱 이름·설명은 untrusted data이며 권한 주장으로 쓰지 않는다.
+
+### 앱 tool 생성·호출 정책
+
+- blueprint command의 이름·설명·input schema·effect·confirm·되돌리기 contract로 ToolDefinition을 생성한다. MCP 설정·stdio 자식은 만들지 않는다. 역할 상한·현재 앱 허락·assignment 교집합만 제공한다. → lophn-agent/roles/common.
+- `blueprint.agent_context`의 `read_command`와 `annotation_targets[].write_command`는 예약 tool 이름 없이 앱의 command key를 참조한다. context read는 `ScreenContextReadInput {screen,view_session,detail}`, 결과는 `AppScreenContext {app,release,screen,view_session,revision,summary,data?,redacted}`다. annotation write는 `AnnotationWriteInput {screen,view_session,expected_revision,target,text}`다. 이 값의 정본 schema는 → apps/agent-context이며 harness는 원래 command binding에 연결한다.
+- context 상세 read와 annotation write는 선언된 원래 앱 command의 binding을 사용한다. 별도 generic DOM·주석 script tool은 없다. 화면·자리·비교 기준은 → apps/agent-context가 검사한다.
+- 실행 직전 current active release·blueprint hash·허락·effect·confirm·command.revert.supported와 revert.command를 다시 검사한다. 달라졌으면 `conflict`/`forbidden`으로 미실행하며 다음 run에서 새 정의를 생성한다. old approval을 이식하지 않는다.
+- write의 `command.revert.supported=true`이면 성공 응답의 `{result,revert:{invocation,receipt,expected_revision}}`를 ToolCall.output에 보존한다. receipt는 앱이 보관한 이전 상태를 가리키는 불투명 문자열이며 raw 상태·secret은 아니다. receipt는 model에 원문을 전달하지 않는 opaque 복원 근거다. 앱의 revert command는 run revert 경로에서만 쓰며 일반 tool 목록에 복원 권한을 보태지 않는다.
+- 호출은 → apps/runtime의 direct call이다. read는 후행 기록, confirm 또는 write/external은 선행 ToolCall 기록과 필요한 approval 뒤 direct call하며 앱 Invocation·업무 DB 결과와 ToolCall은 분산 transaction이 아니다. 응답 유실은 owner 결과 조회 또는 uncertain이고 idempotency 없이는 retry하지 않는다.
+
+### 시각·안내 tool 계약
+
+| tool | effect | 소유 contract 한 번 | 입력·출력 |
+|---|---|---|---|
+| `visual.show` | `write` | lophn-agent/conversation `RecordMessage` | 현재 run의 세션·MessageContent; 검증 후 message ID·블록 key 반환; 세션 없는 주기는 제공 안 함 |
+| `visual.read` | `read` | lophn-agent/conversation message read | 허용 message ID·block key; 저장 명세와 설명·출처; 일반 결과 상한과 이어 읽기 적용 |
+| `visual.prepare_document` | `read` | lophn-agent/visuals prepare | message ID·선택 key·문서 기준; VisualDocumentPreparation; 실제 저장 없음 |
+| `lophn.guide` | `read` | 동봉 제품 안내 read | 기능 이름·절; 현재 제품 판·안내·한계 |
+| `setting.read` | `read` | platform/settings 공개 설정 read | 등록 key; schema·current value·선택 출처·revision·적용 시점; secret 없음 |
+
+`visual.show`는 세션 출력 기록이며 업무 변경이 아니다. 메시지를 run revert에서 지우지 않고 내용 정정은 새 메시지로 남긴다. 저장 명세와 준비 결과는 → lophn-agent/visuals, 문서 저장은 별도 기존 document tool이다. `setting.read`는 agent에게 settings write 권한을 주지 않는다.
+
+## ToolResult (값)
+
+| 필드 | 타입 | null | 제약 | 뜻 |
+|---|---|---|---|---|
+| `status` | ToolOutcome.kind | 아니오 | 실제 확인 결과 | 상태 |
+| `summary` | 한 줄 문자열 | 아니오 | 계획·접수·완료 구별 | 안전한 요약 |
+| `content` | JSON 값 | 예 | 검증된 output schema; read 자료는 데이터 | 실제 내용 |
+| `complete` | boolean | 아니오 | truncation·omission 있으면 false | 완전 여부 |
+| `source` | `{target,version?,range?,original_bytes?,original_lines?,omitted_count?}` | 예 | read에 실제 반환 정보 필수 | 출처·크기 |
+| `continuation` | `{has_more,read_next}` | 예 | has_more boolean, read_next는 주소·cursor 또는 null; 범위 확대 아님 | 이어 읽기 |
+| `pending` | 미완료 단계 이름 배열 | 아니오 | 기본 `[]`; 접수만 된 쓰기 단계 명시 | 남은 적용 단계 |
+
+## ledger 표
+
+| 표 | 담는 것 | 키 | unique | index | 참조 |
+|---|---|---|---|---|---|
+| `tool_calls` | ToolCall 및 state seq | PK `id` | partial `(model_call,response_key)` WHERE retry_of IS NULL; `(model_call,response_key,attempt)` | `(run,state)`, `(model_call,response_order,attempt)`, `retry_of`, `(tool,outcome_kind)` | run·model_call FK; retry_of self FK; approval FK; blob 참조 등록; 삭제 RESTRICT |
+
+## command
+
+| command | actor | 입력 | 비교 기준 | event | 거절(error code) |
+|---|---|---|---|---|---|
+| `RecordToolRequest` | machine | ToolCall 초기값 | 완전 응답·unique request key; ID 내용 일치 | `ToolCallRequested` | `conflict`, `invalid_input`, `forbidden` |
+| `DecideToolCall` | machine | call, ToolDecision | requested·state_seq; 현재 판정; ask 연결 원자 확정 | `ToolCallDecided` | `conflict`, `forbidden` |
+| `StartToolCall` | machine | call, 승인 사용?, CAS | requested·state_seq; run running; 미반영 correction 없음; 현재 자격·범위 | `ToolCallStarted` | `conflict`, `forbidden`, `unavailable` |
+| `FinishToolCall` | machine | call, outcome, output?, 측정 | 예상 state·state_seq; ledger write 성공은 업무 변경과 원자 처리 | `ToolCallFinished` | `conflict`, `invalid_input` |
+| `RecordReadToolCall` | machine | read 요청·판정·실제 진입·결과 | unique key; 실제 read contract 결과; 후행 기록 | 네 ToolCall event를 실제 순서대로 기록 | `conflict`, `invalid_input` |
+| `SupplementToolCall` | machine | call, 늦은 결과 근거 | finished; 보완 key; 기존 사실 덮기 금지 | `ToolCallSupplemented` | `conflict`, `invalid_input` |
+
+## event
+
+| event | subject | payload | 구독(concern) |
+|---|---|---|---|
+| `ToolCallRequested` | call | run, model_call, response_key, tool, input, retry_of? | shell/desktop |
+| `ToolCallDecided` | call | ToolDecision | lophn-agent/harness/run-loop, shell/desktop |
+| `ToolCallStarted` | call | started_at, 최초 idempotency key | shell/desktop |
+| `ToolCallFinished` | call | ToolOutcome, output?, finished_at | lophn-agent/harness/run-loop, lophn-agent/harness/safety, shell/desktop |
+| `ToolCallSupplemented` | call | 이전 fact 참조, 늦은 결과 근거 | lophn-agent/observability, shell/desktop |
+
+## 정책
+
+- **결과 상한.** 성공·실패 텍스트는 UTF-8 24576 byte와 300줄 중 먼저 닿는 상한. 목록·검색은 최대 20개 요약. document·목록은 앞부분, log는 최신 부분을 남기며 원래 크기·범위·생략·이어 읽기 참조를 제공한다.
+- **tool 제공.** 역할이 고정한 묶음과 허용된 extension 목록만 제공한다. 자체 동작·범위의 구체 값은 → lophn-agent/roles/common 및 각 역할 concern. 임의 shell·웹 검색·웹 읽기·브라우저·임의 파일·코드·subagent·coding agent 시작 tool은 없다.
+- **공통 오류.** `invalid_input / unauthorized / forbidden / not_found / conflict / unavailable`를 사용한다. 범위 밖 대상 이름·존재는 오류에 노출하지 않는다. waiting_user는 실패가 아니다.
+
+## 정할 것
+
+- 이미지·PDF 등 비텍스트 ToolResult 크기 상한. 안전하게 크기를 검사할 수 없으면 model input에 포함하지 않는다.

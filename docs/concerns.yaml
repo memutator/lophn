@@ -1,0 +1,414 @@
+# lophn concern tree
+#
+# 모든 문서(domain model, requirements, spec, flow, architecture, decision)는
+# 머리의 metadata `concerns:`로 이 파일의 id를 가리킨다. 문서 사이 링크는 파일 경로가 아니라 concern id로 잇는다.
+#
+# 규칙
+# - id는 경로다. 부모 id가 이 파일에 있어야 한다.
+# - id는 바꾸지 않는다. 옮기거나 합칠 때는 옛 id를 지우지 말고 `moved_to:`를 단다.
+# - 사실 하나는 concern 하나에만 둔다. 다른 concern이 맡는 것은 `excludes:`에 "무엇 -> concern id"로 적는다.
+# - 화면에 "무엇을 보여 주고 지켜야 하나"는 그 concern이, 화면의 모양과 배치는 shell이 맡는다.
+# - `entities:`는 이 concern이 정의하는 domain model entity다. entity 하나는 concern 하나만 가진다.
+#
+# 필드: id, summary, excludes(선택), entities(선택), moved_to(선택)
+
+concerns:
+
+# ───────────────────────── platform ─────────────────────────
+
+- id: platform
+  summary: 모든 영역이 함께 쓰는 바탕. ledger, blob, identity, secret, redaction, 응답성, 보안, backup, settings, approval, notification, 설치.
+
+- id: platform/ledger
+  summary: 단일 ledger(lophn.db)와 유일한 writer. command(짧은 transaction 하나), event(seq, type, subject, actor, run, payload), read path(write queue를 거치지 않음), 비교 기준(CAS)과 idempotency key, ID 형식, 시각 형식, 공통 error code, ledger 밖 derived data의 규칙.
+  excludes:
+    - blob 저장 -> platform/blob-store
+    - schema migration과 backup -> platform/backup-and-migration
+    - token으로 actor를 정하는 일 -> platform/identity
+
+- id: platform/api
+  summary: lophn API의 transport와 모양. loopback HTTP JSON command·read, event 구독(WebSocket), RPC 경로 규칙, 성공·오류 응답 모양, version과 호환.
+  excludes:
+    - 인증과 actor -> platform/identity
+
+- id: platform/blob-store
+  summary: sha256 content-addressed blob 저장. 불변, 중복 없음, 원자적 설치, 영구 참조 등록, GC. 무엇을 blob으로 두나는 그 내용을 소유한 concern이 정한다.
+
+- id: platform/identity
+  summary: actor 다섯 종류(user, coding_agent, agent, machine, app)와 credential(token)의 발급·보관·회수, loopback API 인증(Host, Origin 검사), credential별 scope 상한, machine 작업의 좁은 범위, user로 기록되는 machine 적용(question option)의 근거.
+  excludes:
+    - coding agent connection을 만들고 scope를 고르는 일 -> coding-agent/connection
+    - 앱 permission -> apps/permissions
+    - 사람이 직접 결정했다는 증거 -> shell/confirmation-window
+
+- id: platform/secrets
+  summary: secret 값은 OS keychain에, ledger에는 참조만. 값을 꺼내는 경계(전송 직전의 플랫폼 경계), 어떤 agent도 값을 받지 않음, keychain이 없는 환경의 처리.
+  excludes:
+    - 앱이 어떤 secret을 쓰고 누가 허락하나 -> apps/permissions
+    - provider API key와 OAuth token의 로그인·갱신 -> lophn-agent/harness/provider
+
+- id: platform/redaction
+  summary: secret과 개인정보를 저장, model 전송, 외부 반환 전에 가린다. 원본은 바꾸지 않고 내보내는 출력을 가린다. 가림에 실패하거나 안전한지 모르면 원문을 빼고 뺐다고 적는다.
+  excludes:
+    - snapshot에 무엇을 모으나 -> problems/snapshots
+
+- id: platform/responsiveness
+  summary: 무관한 일이 서로를 기다리지 않는다. 무거운 일(file scan, hash, index, model call, app 실행, test, 압축)은 core 실행 흐름 밖에서. 앱 호출은 core를 거치지 않는다. 응답 시간 목표와 측정.
+  excludes:
+    - 확인이 필요한 앱 command의 선행 기록 예외 -> apps/invocations
+
+- id: platform/security
+  summary: threat model, 격리 계층의 전체 그림, 네트워크 노출(loopback only), 데이터와 지시의 구분 원칙, 신뢰 경계.
+  excludes:
+    - 앱 sandbox의 구체 규칙 -> apps/permissions
+    - lophn agent의 prompt injection 방어 -> lophn-agent/harness/safety
+
+- id: platform/backup-and-migration
+  summary: lophn 데이터(ledger, blob, 설정) backup과 restore, ledger schema migration, 비정상 종료 뒤 재시작 복구.
+  excludes:
+    - 앱 DB migration과 앱 backup -> apps/data
+
+- id: platform/settings
+  summary: lophn 설정의 층과 우선순위, 검증, 다시 읽기, 설정 변경 기록.
+  excludes:
+    - provider 정의와 credential -> lophn-agent/harness/provider
+    - judgment·organizing model 선택 -> lophn-agent/harness/model
+
+- id: platform/diagnostics
+  summary: lophn 자체의 log, crash 기록, 상태 점검. 사람이 lophn이 왜 멈췄는지 알 수 있게 한다.
+  excludes:
+    - lophn agent run trace -> lophn-agent/observability
+    - 앱의 문제 -> problems
+
+- id: platform/approvals
+  summary: ApprovalRequest. 무엇을·왜·되돌릴 수 있나, 정확한 대상과 입력에 묶기, 한 번 사용, 기한, 취소, 결정 전달(M-14).
+  entities: [ApprovalRequest]
+  excludes:
+    - 사람의 결정을 받는 화면 -> shell/confirmation-window
+
+- id: platform/notifications
+  summary: Notification. 알림 계기 표(정해진 event에서만), 읽음, OS 알림으로 보내기.
+  entities: [Notification]
+
+- id: platform/install-and-update
+  summary: 설치, 첫 실행, lophn 자신의 업데이트, 지원 OS, 데이터 폴더 위치.
+
+# ───────────────────────── documents ─────────────────────────
+
+- id: documents
+  summary: 사람이 쓰는 글과 그 판들, 그리고 무엇을 어떤 관점으로 보나(context).
+
+- id: documents/projects
+  summary: project(폴더 등록), 이름과 slug(앱과 같은 이름 공간), tracking 규칙(무엇을 추적하나), project rename과 archive.
+  entities: [Project]
+  excludes:
+    - 옛 address 안내 -> documents/addressing
+
+- id: documents/file-tracking
+  summary: 추적 파일의 변화 감지(watch, scan, hash)와 version 준비를 core 밖에서 하고 비교 기준과 함께 제출. 사람이 lophn에서 저장할 때의 파일 쓰기(수정 전 hash 비교, 원자적 교체).
+  excludes:
+    - version 자체 -> documents/versions
+
+- id: documents/versions
+  summary: Document와 Version. 고정 판, 누가 어느 run에서 쓴 판인지, 이전 판을 새 version으로 다시 쓰기(restore), document archive.
+  entities: [Document, Version]
+
+- id: documents/formats
+  summary: 지원 format 목록, format 검사, section 추출, format module의 격리 실행, 최신 version이 정하는 저장 계약.
+
+- id: documents/outline-and-search
+  summary: outline과 full-text search(derived, 지우고 다시 만들 수 있음), 단계적 읽기(outline → section → 본문)로 적은 token에 닿기, index 반영 지연 표시, saved view(조건을 이름 붙여 저장하고 열 때마다 목록을 다시 만드는 것).
+  entities: [SavedView]
+  excludes:
+    - 읽는 쪽의 범위 검사 -> platform/identity
+    - 출력 redaction -> platform/redaction
+
+- id: documents/series
+  summary: series. 같은 가족 문서(예: 주간 보고)를 묶는 규칙, key, 정렬, 다음 문서 이름 계산. Operator가 주기마다 남기는 문서가 쌓이는 모양.
+  entities: [Series]
+  excludes:
+    - 문서와 version 자체 -> documents/versions
+
+- id: documents/addressing
+  summary: address 문법(<place>/<doc>#<section>@<version>), place(project나 앱 slug), place 없는 문서, rename·move와 옛 address 안내, ID로 부르기.
+
+- id: documents/contexts
+  summary: Context와 item, 관점(기준 / 참고 / watch), item 대상(문서, section, 앱 read command), watch 변화 감지와 ContextWatchedItemChanged.
+  entities: [Context]
+
+- id: documents/terms
+  summary: Term(용어)과 정의, 후보, 사람이 정의를 정한다.
+  entities: [Term]
+
+# ───────────────────────── apps ─────────────────────────
+
+- id: apps
+  summary: 동작이 가치인 것. 등록부터 release, 실행, 권한, 데이터, SDK까지.
+
+- id: apps/registration
+  summary: App의 가벼운 등록(이름, slug, 한 줄 목적, 기획 문서 고정 판), 등록 주체(사람, 전체 scope connection), source 폴더 연결, app archive, AppCreated.
+  entities: [App]
+  excludes:
+    - AppCreated 뒤 App Engineer assignment 생성 -> lophn-agent/assignments
+
+- id: apps/blueprint
+  summary: blueprint의 모양과 검증. 화면과 크기(전체, 패널, 카드), command(effect read / write / external, 사람 확인이 필요한지(confirm), 되돌리기 지원, tool로 쓸 수 있을 만큼의 설명, input schema), 선언하는 permission·secret·automation·문서·problem code 자리.
+  excludes:
+    - problem code 하나의 규칙 -> problems/problem-codes
+    - permission을 허락하고 강제하는 일 -> apps/permissions
+
+- id: apps/releases
+  summary: Release. 실행 묶음과 bundle hash, release 준비(같은 hash의 통과한 app test 필요), ticket과 claim seq 출처, activation 승인, 시작 확인, 이전 release로 rollback, activation 실패.
+  entities: [Release]
+  excludes:
+    - 앱 DB migration -> apps/data
+    - test 실행 -> problems/tests
+
+- id: apps/runtime
+  summary: 앱 프로세스(앱마다 하나)와 supervisor, 시작·정지·재시작, 앱 화면과 command의 direct call 통로, connection credential 검증, 실행 멈춤과 재허용.
+  excludes:
+    - 화면 틀 -> shell/app-frame
+
+- id: apps/agent-context
+  summary: 앱이 agent에게 보여 줄 현재 화면 상태의 선언과 제공, 민감한 칸 표시, 앱이 받는 되쓰기(힌트, 주석 같은) 선언.
+  excludes:
+    - agent가 context를 문맥에 넣는 방법 -> lophn-agent/harness/prompt-assemble
+    - 되쓰기를 할지 판정 -> lophn-agent/harness/tool-judgment
+
+- id: apps/connections
+  summary: 앱이 다른 앱의 command를 쓰는 선언, 앱 쌍마다 사람의 허락, 호출 경로와 기록.
+  excludes:
+    - agent가 앱 command를 tool로 쓰는 것 -> lophn-agent/harness/tools
+
+- id: apps/permissions
+  summary: Grant. permission 선언 → 사람의 grant → 실행 시 강제(file, network, secret), sandbox, revoke 뒤 재시작, secret 사용 허락과 전달.
+  entities: [Grant]
+  excludes:
+    - secret 값 보관 -> platform/secrets
+
+- id: apps/automations
+  summary: 앱이 스스로 도는 automation의 선언, 주기, 실행, 실패 처리, secret·외부 효과 제한.
+  excludes:
+    - lophn agent의 주기 -> lophn-agent/scheduling
+
+- id: apps/invocations
+  summary: Invocation. 앱 command·automation 한 번의 기록을 응답 뒤 비동기로 적기, 유실 표시, confirm command의 선행 접수와 approval 한 번 사용.
+  entities: [Invocation]
+
+- id: apps/data
+  summary: 앱 DB(앱만 쓴다), activation 때의 migration, migration 전 앱 backup, restore.
+
+- id: apps/preview
+  summary: activation 없이 실행 묶음을 띄워 화면과 동작을 보기. 운영 데이터와의 분리.
+
+- id: apps/sdk
+  summary: Package(SDK)와 version, 앱 템플릿, 앱이 SDK를 고정해서 쓰기.
+  entities: [Package]
+
+# ───────────────────────── problems ─────────────────────────
+
+- id: problems
+  summary: 앱에서 본 이상을 모으고, 묶고, 증거를 남기고, test로 고침을 확인하고, 닫는다.
+
+- id: problems/problem-codes
+  summary: problem code 하나의 모양과 규칙(이름, 설명, 사람에게 보일 문구), 필수 code, 보고 경로가 빠진 release를 막기(M-12), coding agent에게 강제하는 방법.
+
+- id: problems/reporting
+  summary: Report. 앱 SDK의 보고, 처리되지 않은 exception 자동 수집, 과다 보고 제한, 같은 보고 중복 처리.
+  entities: [Report]
+
+- id: problems/feedback
+  summary: 사람의 [문제 알리기] feedback. 글, screenshot, 화면 상태를 자동으로 붙이기.
+  excludes:
+    - 버튼과 화면 틀 -> shell/app-frame
+
+- id: problems/grouping
+  summary: Problem. 보고를 problem으로 묶기, 상태와 전이, 재발과 reopen, interpretation link(App Engineer), 열린 repair ticket 참조 하나.
+  entities: [Problem]
+
+- id: problems/snapshots
+  summary: Snapshot. 그 순간의 증거(화면, 최근 invocation, log) 조립, 없는 증거는 없다고 적기.
+  entities: [Snapshot]
+
+- id: problems/tests
+  summary: Verification(test result). test runner의 격리 실행, 종류(app test, reproduction test, test command), bundle hash 대상, runner만 기록.
+  entities: [Verification]
+
+- id: problems/repairs
+  summary: 고친 기록. ticket 없이 사람이 coding agent에게 직접 시킨 수리를 포함해, 누가 어느 release로 무엇을 고쳤다고 했는지와 그 출처, test 요청. 고쳤다는 주장일 뿐 닫힘이 아니다.
+  excludes:
+    - repair ticket -> coding-agent/tickets
+    - 실제 test 결과 -> problems/tests
+    - 닫힘 판정 -> problems/closing
+
+- id: problems/closing
+  summary: problem 닫힘 판정(reproduction test 통과 + 활성화 + 재발 없음, 또는 사람의 확인), agent는 닫지 못함, 닫힌 뒤 재발.
+
+# ───────────────────────── lophn-agent ─────────────────────────
+
+- id: lophn-agent
+  summary: lophn 안의 agent. 코드를 짜지 않는다. 역할, assignment, 세션, 사람에게 묻는 question, handoff, revert, 그리고 harness.
+
+- id: lophn-agent/roles
+  summary: 내장 역할 넷의 값. 각 역할이 하는 일과 하지 않는 일, tool 묶음, 읽기 범위, 일마다 쓰는 model slot.
+  excludes:
+    - 역할 하나의 모양 -> lophn-agent/role-definition
+
+- id: lophn-agent/roles/common
+  summary: 내장 역할 넷에 공통인 값. 모든 역할의 금지(코드 안 짬, 웹 검색 없음, subagent 없음), 공통 문서 저장 규칙, 공통 tool.
+
+- id: lophn-agent/roles/lophn
+  summary: 사람이 처음 말을 거는 역할. 기획(무엇을 만들거나 재사용하나), 문서 place 추천, 사용 안내, 운영 상황 설명.
+
+- id: lophn-agent/roles/app-engineer
+  summary: 앱 하나를 맡는 역할. 인터뷰로 설계, problem 해석, 구현·repair ticket 작성, 새 release 검토. 주기 없음.
+
+- id: lophn-agent/roles/context-engineer
+  summary: context와 term을 짜고 다듬고, Operator assignment를 제안하는 역할.
+
+- id: lophn-agent/roles/operator
+  summary: assignment된 context 하나에서 정한 반복 판단을 주기로 하고 남길 문서에 결과를 쓰는 역할.
+
+- id: lophn-agent/role-definition
+  summary: Role. 역할 하나의 모양(prompt, tool 묶음, 읽기 범위 종류, 일마다 쓰는 slot 이름(judgment / organizing), 기대 결과). 역할별 model 덮어쓰기는 없다.
+  entities: [Role]
+
+- id: lophn-agent/assignments
+  summary: Assignment. 역할을 어떤 범위에 붙이기, Operator의 남길 문서, 멈춤·재개, 반복 실패 멈춤(M-9), AppCreated에 App Engineer assignment 생성, Operator 정의 변경 승인.
+  entities: [Assignment]
+
+- id: lophn-agent/scheduling
+  summary: Operator 주기와 회차 접수(M-7), 끝나지 않은 run이 있으면 건너뛰기, 사람의 답을 기다리는 동안의 처리.
+
+- id: lophn-agent/conversation
+  summary: Session과 Message. 사람의 요청, 진행 중 수정(steering), 다음 일 맡기기, 세션 이어가기.
+  entities: [Session, Message]
+  excludes:
+    - 이어가기 summary를 만드는 방법 -> lophn-agent/harness/prompt-assemble
+
+- id: lophn-agent/handoff
+  summary: 역할 사이 handoff의 규칙. 허용 방향, 맡긴 내용(무엇·왜·제외·기대 산출물), 근거 고정 판, 사람 요청에서 이어진 run에서만, 거절 억제 범위.
+  excludes:
+    - 받는 run의 source 값 -> lophn-agent/harness/run-loop
+
+- id: lophn-agent/harness
+  summary: lophn agent를 실제로 돌리는 장치. loop, wait, provider, model, prompt 조립, tool, 판정, safety, usage.
+
+- id: lophn-agent/harness/run-loop
+  summary: Run. 접수와 시작, loop와 turn, retry, 한도, 멈춤, 끝 결과(completed / failed / stopped)와 이유, 실행 겹침 규칙, 끝난 run의 늦은 결과.
+  entities: [Run]
+
+- id: lophn-agent/harness/waiting-and-recovery
+  summary: question·approval을 기다리는 run, 기다림의 끝 표(답, 만료, 거절, 취소), 같은 run 재개, 끊긴 run 확인과 복구(M-18).
+
+- id: lophn-agent/harness/provider
+  summary: Provider. 지원 provider와 인증(API key, OAuth), OAuth 로그인·갱신, 호출 형식, 실패 분류, credential 선택과 넘어가기, 제품 식별.
+  entities: [Provider]
+
+- id: lophn-agent/harness/model
+  summary: model catalog(목록, 한계, 가격의 수집과 검증), judgment·organizing slot(공통 설정), model 한계(입력·출력·tool 지원), slot이 비었을 때.
+  excludes:
+    - 역할의 어느 일에 어느 slot을 쓰나 -> lophn-agent/roles
+
+- id: lophn-agent/harness/prompt-assemble
+  summary: context 조립 순서(고정된 것을 앞에), prompt cache, compaction, 이어가기 summary(M-19), 무엇을 넣고 무엇을 빼나.
+
+- id: lophn-agent/harness/tools
+  summary: ToolCall. tool 정의와 목록, tool 하나 = 다른 contract 호출 하나, 결과 모양과 크기, 실행 전·후 기록(읽기는 뒤따라 기록).
+  entities: [ToolCall]
+
+- id: lophn-agent/harness/tool-judgment
+  summary: tool call마다 allow / ask / deny 판정(M-17). 되돌릴 수 있나가 기준, ask를 approval request로 만들기, 거절 억제.
+
+- id: lophn-agent/harness/safety
+  summary: 같은 tool 반복 실패 멈춤, prompt injection 방어(데이터와 지시 구분), secret이 문맥에 들어오지 않게.
+
+- id: lophn-agent/harness/usage
+  summary: ModelCall과 사용량. 호출마다 input·output 원본(blob), token·cache·당시 가격으로 낸 비용, run·역할·기간별 합계, 비용 상한 없음.
+  entities: [ModelCall]
+  excludes:
+    - 가격표 수집 -> lophn-agent/harness/model
+
+- id: lophn-agent/questions
+  summary: Question. option과 추천, option에 붙은 action(사람이 고르면 machine이 user로 적용), 미루기, 기한, 채택(고정 판을 고르는 답), run 필수·세션 선택.
+  entities: [Question]
+
+- id: lophn-agent/revert
+  summary: Revert. agent run 하나가 만든 변경 전체를 되돌리기, 영역별 되돌림 가능 여부, 부분 되돌림.
+  entities: [Revert]
+
+- id: lophn-agent/visuals
+  summary: agent가 세션에 띄우는 시각 블록. 선언형 차트·표·도표, 앱 카드 끼우기, 크기 상한, 문서로 남기기.
+  excludes:
+    - 화면에 그리는 틀 -> shell/workspace
+    - 차트·표 컴포넌트 -> apps/sdk
+
+- id: lophn-agent/extensions
+  summary: lophn agent의 확장. skill(찾기, 목록에 넣기, 읽기)과 외부 MCP 서버 연결(설정, 수명, 인증, tool 이름).
+
+- id: lophn-agent/observability
+  summary: run trace. agent가 무엇을 했고 왜 그랬나를 되짚기(U-21), trace 내보내기, 기록 보존 기간 정책(실제 삭제는 platform/blob-store와 platform/ledger가 한다).
+  excludes:
+    - 사용량 합계 -> lophn-agent/harness/usage
+
+- id: lophn-agent/evaluation
+  summary: eval(개발 도구). 실제 model로 역할의 판단 품질을 재는 fixture와 채점. 제품 기능이 아니다.
+
+# ───────────────────────── coding-agent ─────────────────────────
+
+- id: coding-agent
+  summary: 사람이 쓰는 외부 coding agent(Claude Code, Codex 등)가 lophn에 붙는 통로와 맡기는 일.
+
+- id: coding-agent/connection
+  summary: CodingAgentConnection. connection 만들기·회수, scope(전체 / 앱 하나), label, token 발급, 연결 회수(M-20).
+  entities: [CodingAgentConnection]
+
+- id: coding-agent/mcp-server
+  summary: MCP server(stdio)가 내보이는 tool 목록과 입력·출력 모양, error, 범위 검사.
+
+- id: coding-agent/cli
+  summary: CLI command 목록, 출력 형식, confirmation window를 여는 방법.
+
+- id: coding-agent/guides
+  summary: skill, 세션 시작 summary, 앱 템플릿의 안내 파일. problem code 선언·ticket은 사람 지시로만 맡기 같은 규칙을 coding agent에게 알리는 방법.
+
+- id: coding-agent/repair-context
+  summary: coding agent에게 건네는 수리 묶음. problem, snapshot, ticket, release, 지난 시도로 요청 때 조립하는 derived 묶음의 내용, 절 순서, 대표 근거 고르기, 크기 상한과 추가 근거 페이지.
+  excludes:
+    - snapshot 자체 -> problems/snapshots
+    - 전송 형식 -> coding-agent/mcp-server
+
+- id: coding-agent/tickets
+  summary: Ticket. 종류(구현, repair), 요구와 acceptance check, claim과 만료(M-20), 완료 보고, check(M-8), 취소, 문제당 열린 repair ticket 하나.
+  entities: [Ticket]
+
+# ───────────────────────── shell ─────────────────────────
+
+- id: shell
+  summary: 데스크톱 앱. lophn 화면의 모양과 배치, 확인 창, 앱 화면 틀, 편집기.
+
+- id: shell/desktop
+  summary: Electron main과 화면 분리, 창, 화면 구성과 탐색, OS 통합(tray, OS 알림 표시), 사람 token 보관.
+
+- id: shell/workspace
+  summary: 프로젝트 화면의 탭 줄. 탭 종류(문서 편집기, 뷰어, 터미널, 앱 패널), 배치, 다시 열 때 복원, agent에게 넘기는 현재 보기 상태(열린 탭, 초점, 선택 영역), 세션의 시각 블록을 그리는 틀.
+
+- id: shell/terminal
+  summary: 프로젝트 폴더에서 여는 터미널 탭. 사람만 입력하고 lophn agent는 입력하지 못한다. 시작 폴더, 환경, 출력 보존.
+
+- id: shell/confirmation-window
+  summary: 사람의 결정을 받는 보호 화면. 무엇을 보여 주나(대상, 입력, 되돌릴 수 있나, option action), 일회 확인 handle.
+
+- id: shell/app-frame
+  summary: 앱 view를 감싸는 틀, 앱 view session 분리, 앱 화면이 깨져도 동작하는 [문제 알리기] 버튼.
+
+- id: shell/editor
+  summary: 문서 편집기. 저장, 외부 변경과의 충돌 표시.
+  excludes:
+    - 파일 쓰기 규칙 -> documents/file-tracking
+
+- id: shell/wording
+  summary: UI 문구 규칙과 화면 말. 개발자가 쓰는 말을 그대로 쓰고 만든 번역어를 쓰지 않는다.
+
+- id: shell/design-system
+  summary: 색, 글꼴, 간격, 컴포넌트.

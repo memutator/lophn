@@ -147,6 +147,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: skeleton
 - 선행: contracts#T3, contracts#T6
+- 상태: 완료 (#26)
 - 완료: 아래 확인이 통과한다
   - token은 주입한 무작위 source의 32 bytes base64url, 검증은 sha256 digest의 32-byte constant-time 비교다. digest를 Bearer로 받지 않는다.
   - architecture/platform 5.6 표의 `coding_agent` 줄과 마지막 절 "connection 생성은 보호 화면의 exact scope 결정"을 coding-agent/connection#R2·D19에 맞춰 고친다. 사람의 harness 연결·범위 선택이 허락이고 확인 창은 없으며, 회수만 confirmation window다(→ Q16).

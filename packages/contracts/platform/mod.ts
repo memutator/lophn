@@ -204,3 +204,16 @@ export {
 export * from "./blob.ts";
 export * from "./pipe-ops.ts";
 export * from "./confirmation-handle.ts";
+export {
+  type CoreToMainMessage,
+  coreToMainMessageSchema,
+  INTERNAL_ERROR_CLASSES,
+  type InternalErrorClass,
+  internalErrorClassSchema,
+  type MainToCoreMessage,
+  mainToCoreMessageSchema,
+  type WorkerRequest,
+  workerRequestEnvelopeSchema,
+  type WorkerResponse,
+  workerResponseEnvelopeSchema,
+} from "./supervision.ts";

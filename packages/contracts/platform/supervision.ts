@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  confirmationHandleRegisteredSchema,
+  confirmationHandleRegisterSchema,
+} from "./confirmation-handle.ts";
+import { ERROR_CODES } from "../../base/mod.ts";
 import { credentialScopeSchema } from "./identity.ts";
 import { idSchema } from "./ids.ts";
 import { atSchema, durationMsSchema } from "./values.ts";
@@ -137,16 +142,19 @@ const count = z.number().refine((n) => Number.isSafeInteger(n) && n >= 0);
 const port = z.number().int().min(1).max(65535);
 const streamChannel = uint.min(1);
 
+// 알려진 기본 kind일 뿐 닫힌 registry가 아니다. 소유 팀이 자기 kind를 등록한다.
 export const PROCESS_KINDS = [
-  "core",
-  "platform_io",
-  "documents",
-  "test_runner",
-  "agent_runtime",
-  "apps_supervisor",
+  "platform/core",
+  "platform/io",
+  "documents/worker",
+  "problems/test-runner",
+  "lophn-agent/runtime",
+  "apps/supervisor",
 ] as const;
-export type ProcessKind = (typeof PROCESS_KINDS)[number];
-export const processKindSchema = z.enum(PROCESS_KINDS);
+export const processKindSchema = z.string().regex(
+  /^(platform|documents|apps|problems|lophn-agent|coding-agent)\/[a-z][a-z0-9-]*$/,
+);
+export type ProcessKind = z.infer<typeof processKindSchema>;
 
 export const helloSchema = z.strictObject({
   type: z.literal("hello"),
@@ -175,22 +183,45 @@ export const mainHelloSchema = z.strictObject({
   core_epoch: opaque,
 });
 
-// op별 입력/출력은 소유 contracts가 주는 schema로 고정한다.
+// byte stream은 request의 channel에 묶는다. channel 0은 JSON 제어 전용이다.
+// envelope 뒤 op별 입력/출력은 소유 contracts가 주는 schema로 다시 검사한다.
+export const workerRequestEnvelopeSchema = z.strictObject({
+  type: z.literal("worker_request"),
+  request_id: opaque,
+  op: opaque,
+  channel: streamChannel.optional(),
+  payload: z.unknown(),
+});
+const workerSuccessEnvelopeSchema = z.strictObject({
+  type: z.literal("worker_response"),
+  request_id: opaque,
+  ok: z.literal(true),
+  payload: z.unknown(),
+});
+const workerFailureEnvelopeSchema = z.strictObject({
+  type: z.literal("worker_response"),
+  request_id: opaque,
+  ok: z.literal(false),
+  error: z.strictObject({
+    code: z.enum(ERROR_CODES),
+    message: z.string(),
+    details: z.record(z.string(), z.unknown()).optional(),
+  }),
+});
+export const workerResponseEnvelopeSchema = z.discriminatedUnion("ok", [
+  workerSuccessEnvelopeSchema,
+  workerFailureEnvelopeSchema,
+]);
+export type WorkerRequest = z.infer<typeof workerRequestEnvelopeSchema>;
+export type WorkerResponse = z.infer<typeof workerResponseEnvelopeSchema>;
 export function workerRequestSchema<P extends z.ZodType>(payload: P) {
-  return z.strictObject({
-    type: z.literal("worker_request"),
-    request_id: opaque,
-    op: opaque,
-    payload,
-  });
+  return workerRequestEnvelopeSchema.extend({ payload });
 }
 export function workerResponseSchema<P extends z.ZodType>(payload: P) {
-  return z.strictObject({
-    type: z.literal("worker_response"),
-    request_id: opaque,
-    op: opaque,
-    payload,
-  });
+  return z.discriminatedUnion("ok", [
+    workerSuccessEnvelopeSchema.extend({ payload }),
+    workerFailureEnvelopeSchema,
+  ]);
 }
 export const appCredentialRequestSchema = z.strictObject({
   type: z.literal("app_credential_request"),
@@ -227,17 +258,47 @@ const diagnostic = <K extends DiagnosticKind, P extends z.ZodType>(
     kind: z.literal(kind),
     payload,
   });
-// 자유 text는 넣지 않는다. 안전한 계수·등록 ID만 diagnostic 경계를 지난다.
+// domain model의 내부 exception과 저장소 실패만 분류한다. 원문 오류 이름은 받지 않는다.
+export const INTERNAL_ERROR_CLASSES = [
+  "internal_exception",
+  "disk_full",
+  "ledger_corruption",
+] as const;
+export const internalErrorClassSchema = z.enum(INTERNAL_ERROR_CLASSES);
+export type InternalErrorClass = z.infer<typeof internalErrorClassSchema>;
+const diagnosticObservation = {
+  component: processKindSchema,
+  observed_at: atSchema,
+};
+// location은 소유 팀이 등록한 ID다. 경로·stack·자유 text를 보내지 않는다.
+// 실제 등록 여부는 수신자의 registry에서 검사한다.
+const locationId = opaque.regex(/^[a-z][a-z0-9._-]*$/);
 export const diagnosticSchema = z.discriminatedUnion("kind", [
-  diagnostic("lophn_internal", z.strictObject({ count })),
-  diagnostic("unattributed_observation", z.strictObject({ count })),
+  diagnostic(
+    "lophn_internal",
+    z.strictObject({
+      ...diagnosticObservation,
+      error_class: internalErrorClassSchema,
+      location: locationId,
+      count,
+    }),
+  ),
+  diagnostic(
+    "unattributed_observation",
+    z.strictObject({ ...diagnosticObservation, count }),
+  ),
   diagnostic(
     "invalid_report",
-    z.strictObject({ report: idSchema("rpt"), count }),
+    z.strictObject({
+      ...diagnosticObservation,
+      report: idSchema("rpt"),
+      count,
+    }),
   ),
   diagnostic(
     "shell_view_lifetime",
     z.strictObject({
+      ...diagnosticObservation,
       view_id: opaque,
       generation: count,
       created: count,
@@ -250,6 +311,7 @@ export const diagnosticSchema = z.discriminatedUnion("kind", [
   diagnostic(
     "app_invocation_delivery_loss",
     z.strictObject({
+      ...diagnosticObservation,
       app: idSchema("app"),
       lost_messages: count,
       lost_bytes: count,
@@ -260,6 +322,7 @@ export const diagnosticSchema = z.discriminatedUnion("kind", [
   diagnostic(
     "app_log_line_loss",
     z.strictObject({
+      ...diagnosticObservation,
       app: idSchema("app"),
       invocation: idSchema("inv").optional(),
       dropped_lines: count,
@@ -273,15 +336,30 @@ export const parentMessageSchema = z.union([
   helloSchema,
   stopSchema,
   streamCreditSchema,
+  workerRequestEnvelopeSchema,
   appCredentialResponseSchema,
 ]);
 export const childMessageSchema = z.union([
   readySchema,
   stoppedSchema,
   streamCreditSchema,
+  workerResponseEnvelopeSchema,
   diagnosticSchema,
   appCredentialRequestSchema,
 ]);
+// 사람 결정 handle 등록은 main↔core 비공개 연결로만 오간다(architecture/platform 5.6).
+export const mainToCoreMessageSchema = z.union([
+  diagnosticSchema,
+  stopSchema,
+  confirmationHandleRegisterSchema,
+]);
+export const coreToMainMessageSchema = z.union([
+  mainHelloSchema,
+  readySchema,
+  confirmationHandleRegisteredSchema,
+]);
+export type MainToCoreMessage = z.infer<typeof mainToCoreMessageSchema>;
+export type CoreToMainMessage = z.infer<typeof coreToMainMessageSchema>;
 export type ParentMessage = z.infer<typeof parentMessageSchema>;
 export type ChildMessage = z.infer<typeof childMessageSchema>;
 export type MainHello = z.infer<typeof mainHelloSchema>;
@@ -301,7 +379,7 @@ export const kindLaunchSpecSchema = z.strictObject({
   memory_limit_bytes: count.refine((n) => n > 0),
 });
 export type KindLaunchSpec = z.infer<typeof kindLaunchSpecSchema>;
-export const runMetadataSchema = z.object({
+export const runMetadataSchema = z.strictObject({
   format: z.literal(1),
   api_port: port,
   core_epoch: opaque,

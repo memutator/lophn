@@ -3,15 +3,21 @@ import { z } from "zod";
 import {
   appCredentialRequestSchema,
   appCredentialResponseSchema,
+  childMessageSchema,
+  coreToMainMessageSchema,
   DIAGNOSTIC_KINDS,
   diagnosticSchema,
   encodeFrame,
   type Frame,
   FrameDecoder,
   helloSchema,
+  INTERNAL_ERROR_CLASSES,
   kindLaunchSpecSchema,
-  mainHelloSchema,
+  mainToCoreMessageSchema,
   memoryLimitModeSchema,
+  parentMessageSchema,
+  PROCESS_KINDS,
+  processKindSchema,
   readySchema,
   runMetadataSchema,
   stoppedSchema,
@@ -21,8 +27,9 @@ import {
   workerRequestSchema,
   workerResponseSchema,
 } from "./supervision.ts";
-
 const suffix = "01arz3ndektsv4rrffq69g5fav";
+const observedAt = "2026-10-04T00:00:00.000Z";
+const observation = { component: "platform/io", observed_at: observedAt };
 function concat(parts: Uint8Array[]) {
   const bytes = new Uint8Array(
     parts.reduce((total, part) => total + part.length, 0),
@@ -102,7 +109,7 @@ Deno.test("platform/identity#R2 platform/identity#R3 platform/identity#R6: 신�
     type: "hello",
     core_epoch: "epoch",
     process_identity: "process",
-    kind: "documents",
+    kind: "documents/worker",
     task: "task",
     scope: { operations: [], targets: {} },
     credential: "private-token",
@@ -122,38 +129,6 @@ Deno.test("platform/identity#R2 platform/identity#R3 platform/identity#R6: 신�
   assert(
     !streamCreditSchema.safeParse({ type: "credit", channel: 0, window: 1 })
       .success,
-  );
-  assert(
-    mainHelloSchema.safeParse({
-      user_token: "private",
-      api_port: 7431,
-      core_epoch: "epoch",
-    }).success,
-  );
-  const payload = z.strictObject({ owner_id: z.string() });
-  assert(
-    workerRequestSchema(payload).safeParse({
-      type: "worker_request",
-      request_id: "r",
-      op: "prepare",
-      payload: { owner_id: "id" },
-    }).success,
-  );
-  assert(
-    workerResponseSchema(payload).safeParse({
-      type: "worker_response",
-      request_id: "r",
-      op: "prepare",
-      payload: { owner_id: "id" },
-    }).success,
-  );
-  assert(
-    !workerRequestSchema(payload).safeParse({
-      type: "worker_request",
-      request_id: "r",
-      op: "prepare",
-      payload: { unknown: true },
-    }).success,
   );
   assert(
     appCredentialRequestSchema.safeParse({
@@ -184,56 +159,209 @@ Deno.test("platform/identity#R2 platform/identity#R3 platform/identity#R6: 신�
     }).success,
   );
 });
-Deno.test("platform/identity#R6: diagnostic은 고정 종류와 안전 계수·ID만 가진다", () => {
-  assertEquals(DIAGNOSTIC_KINDS.length, 6);
-  const loss = {
+Deno.test("platform/identity#R2: kind는 소유 팀 namespace에서 확장한다", () => {
+  for (
+    const kind of [...PROCESS_KINDS, "apps/release", "coding-agent/worker"]
+  ) {
+    assert(processKindSchema.safeParse(kind).success);
+  }
+  for (
+    const kind of [
+      "core",
+      "documents",
+      "shell/main",
+      "apps/Release",
+      "apps/a_b",
+      "apps/1",
+      "apps/a/b",
+      "apps/",
+    ]
+  ) {
+    assert(!processKindSchema.safeParse(kind).success);
+  }
+});
+Deno.test("platform/identity#R3: worker envelope은 요청 channel에 stream을 묶고 소유 payload를 다시 검사한다", () => {
+  const request = {
+    type: "worker_request",
+    request_id: "r",
+    op: "prepare",
+    channel: 7,
+    payload: { owner_id: "id" },
+  };
+  const response = {
+    type: "worker_response",
+    request_id: "r",
+    ok: true,
+    payload: { owner_id: "id" },
+  };
+  const failure = {
+    type: "worker_response",
+    request_id: "r",
+    ok: false,
+    error: { code: "unavailable", message: "busy", details: { retry: false } },
+  };
+  assert(parentMessageSchema.safeParse(request).success);
+  assert(childMessageSchema.safeParse(response).success);
+  assert(childMessageSchema.safeParse(failure).success);
+  const frames = new FrameDecoder().push(concat([
+    encodeFrame({ kind: "json", channel: 0, payload: request }),
+    encodeFrame({
+      kind: "bytes",
+      channel: request.channel,
+      payload: new Uint8Array([1]),
+    }),
+    encodeFrame({ kind: "end", channel: request.channel }),
+  ]));
+  assert(frames[0].kind === "json");
+  assertEquals(frames[0].payload, request);
+  assertEquals(frames.slice(1).map((frame) => frame.channel), [
+    request.channel,
+    request.channel,
+  ]);
+  const payload = z.strictObject({ owner_id: z.string() });
+  assert(workerRequestSchema(payload).safeParse(request).success);
+  assert(workerResponseSchema(payload).safeParse(failure).success);
+  assert(parentMessageSchema.safeParse({ ...request, payload: null }).success);
+  assert(
+    !workerRequestSchema(payload).safeParse({ ...request, payload: null })
+      .success,
+  );
+  assert(
+    !workerResponseSchema(payload).safeParse({ ...response, payload: null })
+      .success,
+  );
+  for (const channel of [0, -1, 1.5, 0x100000000]) {
+    assert(!parentMessageSchema.safeParse({ ...request, channel }).success);
+  }
+  for (
+    const value of [
+      { ...response, op: "prepare" },
+      { ...response, ok: false },
+      { ...failure, payload: {} },
+      { ...failure, error: { code: "raw_error", message: "bad" } },
+      { ...failure, error: { ...failure.error, stack: "raw" } },
+    ]
+  ) {
+    assert(!childMessageSchema.safeParse(value).success);
+  }
+});
+Deno.test("platform/diagnostics#R2 platform/diagnostics#R6 platform/diagnostics#R7: 내부 diagnostic에는 등록 분류·위치만 있고 모든 종류에 관측 정보가 있다", () => {
+  const internal = {
     type: "diagnostic",
-    kind: "app_invocation_delivery_loss",
+    kind: "lophn_internal",
     payload: {
-      app: `app_${suffix}`,
-      lost_messages: 2,
-      lost_bytes: 20,
-      first_lost_at: "2026-10-04T00:00:00.000Z",
-      reason: "memory_limit",
+      ...observation,
+      error_class: "internal_exception",
+      location: "supervisor.ready",
+      count: 1,
     },
   };
-  assert(diagnosticSchema.safeParse(loss).success);
-  assert(
-    !diagnosticSchema.safeParse({
-      ...loss,
-      payload: { ...loss.payload, token: "raw" },
-    }).success,
-  );
-  assert(
-    !diagnosticSchema.safeParse({
-      ...loss,
-      payload: { ...loss.payload, lost_bytes: -1 },
-    }).success,
-  );
-  assert(
-    diagnosticSchema.safeParse({
-      type: "diagnostic",
-      kind: "app_log_line_loss",
-      payload: {
-        app: `app_${suffix}`,
-        invocation: `inv_${suffix}`,
-        dropped_lines: 1,
-        reason: "buffer_limit",
-      },
-    }).success,
-  );
-  assert(
-    !diagnosticSchema.safeParse({
-      type: "diagnostic",
-      kind: "unknown",
-      payload: {},
-    }).success,
-  );
+  for (const error_class of INTERNAL_ERROR_CLASSES) {
+    assert(
+      diagnosticSchema.safeParse({
+        ...internal,
+        payload: { ...internal.payload, error_class },
+      }).success,
+    );
+  }
+  for (
+    const extra of [
+      { message: "secret" },
+      { stack: "raw" },
+      { error_class: "TypeError" },
+      { location: "/private/path" },
+      { component: "core" },
+      { observed_at: "yesterday" },
+    ]
+  ) {
+    assert(
+      !diagnosticSchema.safeParse({
+        ...internal,
+        payload: { ...internal.payload, ...extra },
+      }).success,
+    );
+  }
+  const payloads = [internal.payload, { ...observation, count: 1 }, {
+    ...observation,
+    report: `rpt_${suffix}`,
+    count: 1,
+  }, {
+    ...observation,
+    view_id: "view",
+    generation: 1,
+    created: 1,
+    hidden: 0,
+    replaced: 0,
+    disposed: 0,
+    attached: 1,
+  }, {
+    ...observation,
+    app: `app_${suffix}`,
+    lost_messages: 1,
+    lost_bytes: 1,
+    first_lost_at: observedAt,
+    reason: "memory_limit",
+  }, {
+    ...observation,
+    app: `app_${suffix}`,
+    dropped_lines: 1,
+    reason: "buffer_limit",
+  }];
+  DIAGNOSTIC_KINDS.forEach((kind, index) => {
+    const payload = payloads[index];
+    assert(
+      diagnosticSchema.safeParse({ type: "diagnostic", kind, payload }).success,
+    );
+    for (const field of ["component", "observed_at"]) {
+      const missing = Object.fromEntries(
+        Object.entries(payload).filter(([key]) => key !== field),
+      );
+      assert(
+        !diagnosticSchema.safeParse({
+          type: "diagnostic",
+          kind,
+          payload: missing,
+        }).success,
+      );
+    }
+  });
+});
+Deno.test("platform/identity#R3 platform/diagnostics#R2: main↔core의 hello·ready·diagnostic·종료 방향을 고정한다", () => {
+  const hello = { user_token: "private", api_port: 7431, core_epoch: "epoch" };
+  const lifetime = {
+    type: "diagnostic",
+    kind: "shell_view_lifetime",
+    payload: {
+      ...observation,
+      component: "platform/shell-main",
+      view_id: "view",
+      generation: 1,
+      created: 1,
+      hidden: 0,
+      replaced: 0,
+      disposed: 0,
+      attached: 1,
+    },
+  };
+  for (const value of [hello, { type: "ready" }]) {
+    assert(coreToMainMessageSchema.safeParse(value).success);
+    assert(!mainToCoreMessageSchema.safeParse(value).success);
+    assert(
+      !coreToMainMessageSchema.safeParse({ ...value, extra: true }).success,
+    );
+  }
+  for (const value of [lifetime, { type: "stop", grace_ms: 5000 }]) {
+    assert(mainToCoreMessageSchema.safeParse(value).success);
+    assert(!coreToMainMessageSchema.safeParse(value).success);
+    assert(
+      !mainToCoreMessageSchema.safeParse({ ...value, extra: true }).success,
+    );
+  }
 });
 Deno.test("platform/identity#R2 platform/identity#R6: launch spec 권한·메모리 방식과 credential 없는 run metadata", () => {
   assert(
     kindLaunchSpecSchema.safeParse({
-      kind: "documents",
+      kind: "documents/worker",
       entry: "bundle/documents.ts",
       allow_read: ["bundle"],
       allow_write: ["derived"],
@@ -246,7 +374,7 @@ Deno.test("platform/identity#R2 platform/identity#R6: launch spec 권한·메모
   );
   assert(
     !kindLaunchSpecSchema.safeParse({
-      kind: "documents",
+      kind: "documents/worker",
       entry: "bundle/documents.ts",
       allow_read: [],
       allow_write: [],
@@ -260,13 +388,13 @@ Deno.test("platform/identity#R2 platform/identity#R6: launch spec 권한·메모
   for (const mode of ["hard", "soft", "unavailable"]) {
     assert(memoryLimitModeSchema.safeParse(mode).success);
   }
-  const metadata = runMetadataSchema.parse({
+  const metadata = {
     format: 1,
     api_port: 7431,
     core_epoch: "epoch",
-    started_at: "2026-10-04T00:00:00.000Z",
-    token: "raw",
-  });
-  assert(!("token" in metadata));
+    started_at: observedAt,
+  };
+  assert(runMetadataSchema.safeParse(metadata).success);
+  assert(!runMetadataSchema.safeParse({ ...metadata, token: "raw" }).success);
   assert(!runMetadataSchema.safeParse({ ...metadata, format: 2 }).success);
 });

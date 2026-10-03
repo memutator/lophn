@@ -88,12 +88,13 @@ Deno.test("platform/blob-store#R3 platform/blob-store#R4: op payload는 supervis
     type: "worker_request",
     request_id: "request-1",
     op: BLOB_PREPARE_OP,
+    channel: 1,
     payload: input,
   });
   const response = workerResponseSchema(blobPrepare.output).parse({
     type: "worker_response",
     request_id: request.request_id,
-    op: request.op,
+    ok: true,
     payload: output,
   });
   const chunk: BlobPrepareChunk = {

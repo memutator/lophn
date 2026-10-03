@@ -66,6 +66,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T3 base: Result·오류 코드·Clock·IdSource·Random·Seq
 
+- 상태: 완료 (#5)
 - 등급: 기본
 - concern: platform/ledger, platform/api (값만 base에 둔다)
 - 요구: (작업별 요구 번호는 아래 "요구 번호" 절)

@@ -104,6 +104,7 @@ concerns: [shell]
 
 ### T5 theme override 검증과 token-only style 검사
 
+- 상태: 완료 (#24)
 - 등급: 기본
 - concern: shell/design-system
 - 요구: shell/design-system#R3, R4, R36(token 밖 스타일 검사), R40, R44

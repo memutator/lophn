@@ -44,6 +44,7 @@ concerns: [shell]
 
 ### T2 Electron main: 창, single instance, 보안 기본값, shell scheme
 
+- 상태: 완료 (#15)
 - 등급: 기본
 - concern: shell/desktop, shell/app-frame
 - 요구: shell/desktop#R11(창), R12, R16, R22(최소 창), R23, shell/app-frame#R3, R4, R23

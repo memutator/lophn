@@ -536,12 +536,12 @@ concerns: [shell]
   - 런처 카드의 approval 대기 개수는 글자 pill. 프로젝트·앱 공간의 lophn 크롬은 그 공간의 결정 대기와 daemon 장애 안내만.
   - gallery 등록과 화면 테스트.
 
-### T29 confirmation window 종류: approval, option action, revert, secret 입력, shell 외부 링크
+### T29 confirmation window 종류: approval, option action, revert, secret 입력
 
 - 등급: frontend
-- concern: shell/confirmation-window, shell/app-frame
-- 요구: shell/confirmation-window#R2(종류별 배치), R5(바뀜 표시), shell/app-frame#R7
-- 자리: apps/shell/renderer/confirmation/kinds/(approval/, option-action/, revert/, secret-input/, external-link/), apps/shell/main/confirmation/kinds/
+- concern: shell/confirmation-window
+- 요구: shell/confirmation-window#R2(종류별 배치), R5(바뀜 표시)
+- 자리: apps/shell/renderer/confirmation/kinds/(approval/, option-action/, revert/, secret-input/), apps/shell/main/confirmation/kinds/
 - 쓰는 contract: contracts#T22(approval), contracts#T23(secret), contracts#T28(question option action·revert), contracts#T29(provider credential 입력), lophn-agent#T29(option action 적용), lophn-agent#T34(revert preview·revert_run). OAuth 쪽 lophn-agent#T16은 이 작업을 선행으로 두므로 여기서는 contracts#T29 모양으로만 테스트한다
 - 내놓는 contract: 없음
 - slice: agent
@@ -551,7 +551,6 @@ concerns: [shell]
   - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
   - revert: 복원 가능·불가·충돌·남을 영향. 안전하지 않은 부분은 기본 적용에서 뺀다.
   - secret 입력: 보호 입력칸, 값은 main에서 secret contract(또는 provider credential command)로 바로 가고 어디에도 남지 않는다. 결과는 안전 참조와 저장 결과만. OAuth code·최종 URL 붙여넣기도 이 입력이다(provider 인증 방식은 lead 결정을 따른다).
-  - shell 크롬의 외부 링크: 정확한 origin을 보이고 확인 뒤 OS browser로 연다. 앱 링크 경로(T38)와 섞지 않는다.
   - gallery 등록과 종류별 테스트.
 
 ### T30 roles 화면: 하는 일, 만든 것, 대화, 작업 검토, Preset
@@ -574,9 +573,9 @@ concerns: [shell]
 ### T31 settings: provider 연결과 계정, 확장, 전역 Instructions 진입
 
 - 등급: frontend
-- concern: shell/wording, shell/desktop
-- 요구: shell/wording#R10, R13(For decisions·For summaries)
-- 자리: apps/shell/renderer/desktop/lophn-space/settings/(providers/, accounts/, extensions/, general/)
+- concern: shell/wording, shell/desktop, shell/app-frame
+- 요구: shell/wording#R10, R13(For decisions·For summaries), shell/app-frame#R7(shell 크롬 외부 링크)
+- 자리: apps/shell/renderer/desktop/lophn-space/settings/(providers/, accounts/, extensions/, general/), apps/shell/main/desktop/open-external.ts
 - 쓰는 contract: contracts#T29(provider·credential·catalog), contracts#T24(settings registry), contracts#T23(secret), platform#T25–T27(settings definitions·get·history·apply), lophn-agent#T3(provider 등록·순서), lophn-agent#T4·T5(catalog·model 기본값), lophn-agent#T6(사용량), lophn-agent#T15(연결 테스트), lophn-agent#T16(OAuth), lophn-agent#T35·T36·T38(skill·MCP·MCP OAuth)
 - 내놓는 contract: 없음
 - slice: agent
@@ -588,6 +587,7 @@ concerns: [shell]
   - model 선택 라벨은 For decisions, For summaries. 설정 값은 정의·현재 적용값·효력 시점과 기본/펼침을 나눈다.
   - 확장: 로컬 skill 폴더 등록, MCP server(stdio, Streamable HTTP, 인증 방식) 추가, 실패와 다음 행동. MCP credential은 secret 입력.
   - 전역 [Instructions] 진입(T32).
+  - shell 크롬의 외부 링크와 provider 공식 로그인 버튼은 확인 창 없이 OS browser로 연다(D21, lead 결정). main이 HTTP·HTTPS·userinfo 없음·8,192자 이하를 검사하고 기록에는 origin·path만 남긴다. 앱 링크 경로(T38)와 caller를 섞지 않는다. 이 PR에서 shell/app-frame#R7을 그렇게 고친다.
   - flow connect-provider, manage-provider-accounts, ask-lophn-help(settings 쪽), add-agent-extension 화면. gallery 등록과 화면 테스트.
 
 ### T32 [Instructions]: 지침 파일을 같은 편집기로
@@ -1004,9 +1004,9 @@ concerns: [shell]
 - slice: operations
 - 선행: shell#T3, shell#T24, shell#T51
 - 완료: 아래 확인이 통과한다
-  - tray: 창 열기, 런처, lophn 끄기, 창만 닫기를 나눈다. 모든 창을 닫아도 main·tray·core는 남는다. 끄기는 진행 중 터미널·저장·결정을 확인한 뒤 main의 명시 종료로 core 정상 정지를 시작한다(Q1).
+  - tray: 창 열기, 런처, Quit을 둔다. 모든 창을 닫아도 tray main과 그 아래 core가 남아 앱 automation과 주기 일이 계속된다. Quit은 진행 중 터미널·저장을 확인한 뒤 main과 core를 모두 멈춘다(Q1, lead 결정).
   - 로그인 자동 시작은 검증된 실행 경로와 `--tray`만 등록하고 창을 열지 않는다(Linux XDG autostart, 그 외 login item).
-  - `tray_test`, `autostart_test`, `quit_test`에 위 요구 테스트. Q1 결정대로 shell/desktop#R21과 architecture/shell의 OS 통합 절을 같은 PR에서 고친다.
+  - `tray_test`, `autostart_test`, `quit_test`에 위 요구 테스트. Q1 결정대로 shell/desktop#R21과 architecture/shell 2.1·OS 통합 절을 같은 PR에서 고친다.
 - 가져올 것: legacy `app.ts`의 `#installTray`, `autostart.ts`.
 
 ### T56 OS notification과 전역 팔레트
@@ -1083,7 +1083,7 @@ shell 최상위의 요구는 8개 leaf에 178개이고 모두 위 작업의 `요
 | shell/workspace | 13 | 13 | T13, T14, T25–T27, T35, T44 |
 | shell/terminal | 13 | 13 | T24, T25, T49 |
 | shell/confirmation-window | 10 | 10 | T22, T23, T29, T45 |
-| shell/app-frame | 36 | 36 | T2, T3, T10, T22, T29, T33, T37–T39, T42, T44, T47, T48, T52 |
+| shell/app-frame | 36 | 36 | T2, T3, T10, T22, T31, T33, T37–T39, T42, T44, T47, T48, T52 |
 | shell/editor | 17 | 17 | T14, T16–T18, T32, T36, T59 |
 | shell/wording | 14 | 14 | T6, T9, T15, T20, T23, T31, T36, T42, T43, T52, T53, T58 |
 | shell/design-system | 45 | 45 | T4, T5, T7, T8, T10–T12, T14, T28, T34 |
@@ -1100,13 +1100,13 @@ shell 최상위의 요구는 8개 leaf에 178개이고 모두 위 작업의 `요
 
 ## 질문
 
-- **Q1 Electron 종료와 core 수명.** architecture/platform과 platform#T9는 Electron main이 core를 상속 pipe로 띄우고 main 종료·pipe EOF에 core를 끝낸다. shell/desktop#R21과 architecture/shell은 "Electron 종료는 daemon 중지가 아니고 tray에 따로 중지가 있다"고 한다. 둘은 함께 성립하지 않는다. 추천: platform 쪽을 따른다. 창을 모두 닫아도 main·tray·core는 남고, tray의 [Quit lophn]이 진행 중인 일을 확인한 뒤 main과 core를 함께 끝낸다. T55 PR에서 shell/desktop#R21과 architecture/shell 2.1·OS 통합 절을 고친다.
-- **Q2 CLI의 daemon 시작과 중지(정함).** user token은 Electron main이 띄운 core의 통로로만 받는다. 그래서 `lophn daemon start|stop`(coding-agent/cli#R8, platform#T55)은 core를 직접 띄우지 않고 Electron main을 `--tray`로 띄우거나 `--quit`을 second-instance로 보낸다(T51). core는 언제나 main의 child다.
-- **Q3 현재 보기 상태 relay(정함).** agent runtime이 turn마다 현재 보기를 읽는 통로가 architecture에 없었다. shell main이 core 메모리 relay에 `CurrentViewState`를 publish하고 사람 요청 때 session↔window를 bind하며, runtime은 자기 run의 session만 `read {session}`으로 읽는다(observed_at·generation 포함, 끊김·epoch 변경은 disconnected, 주기 run은 unavailable, ledger 없음). platform#T57이 route를 더하고 architecture/platform 5.1을 고친다. lophn-agent·platform 팀 동의. 남은 확인: architecture 변경이라 lead가 platform Q14에서 확인한다.
-- **Q4 앱 화면 검사 host.** architecture/problems는 앱 화면 틀의 test mode를 쓰지만 shell 문서에는 없다. 추천: problems 팀과 합의한 `--app-screen-test` host(T46)로 하고 shell requirements를 늘리지 않는다. T46 PR에서 architecture/shell 5.2에 한 단락을 더한다. 타입과 설치 경로 규칙은 contracts#T38에 요청했다.
-- **Q5 산점 차트와 node·edge 도표(정함).** lophn-agent/visuals#R1과 apps/sdk#R17이 부딪쳤다. apps 팀이 apps/sdk#R17에 산점 차트와 node·edge 도표를 더했고(누적 면만 첫 판 밖) shell#T34가 ui-chart에 만든다.
-- **Q6 shell 크롬 외부 링크 확인.** shell/app-frame#R7은 shell 크롬의 외부 링크를 confirmation window로 확인하라고 한다. provider 공식 로그인 버튼도 여기 해당해 한 번 더 누르게 된다(G5는 되돌릴 수 있는 일을 묻지 않는다). 추천: 요구대로 확인 창에서 정확한 origin을 보이고 연다.
-- **Q7 의존성.** shell이 더하는 것: electron, esbuild(main·preload 묶기), react·react-dom, happy-dom(renderer 테스트), Radix Primitives, lucide-react, CodeMirror 6과 Lezer Markdown(읽기 renderer도 같은 parser), @xterm/xterm, node-pty(native rebuild), d3-scale·d3-shape, intl-messageformat(ICU), stylelint(token-only 검사), electron-builder. 추천: 각 작업 PR에서 판과 이유를 stack.md에 더한다. Playwright는 lead가 정한 `e2e/`의 것을 gallery screenshot도 같이 쓴다.
-- **Q8 보호 창이 아닌 확인.** 살아 있는 터미널 닫기, 저장 안 된 초안 버리기는 사람 결정이지만 플랫폼 결정(approval·권한·secret·option action)이 아니다. 추천: shell overlay dialog로 묻고 confirmation window를 쓰지 않는다.
-- **Q9 project-workspace flow의 앱 패널 단계.** documents slice E2E는 문서 단계만, 터미널 단계는 T25의 spec이 돈다. 앱 패널 단계는 앱이 있어야 하니 apps slice E2E에서 돈다(view-agent-visuals의 앱 카드 갈래처럼). plan README의 갈래 목록에 더해 달라.
-- **Q10 confirmation window의 slice(정함).** contracts#T13과 documents 팀은 confirmation window를 documents slice(파일 지우기)에 둔다. platform이 handle 발급·검증·소비를 documents slice의 platform#T56으로 떼었다. shell#T22는 platform#T56에, approval 종류(shell#T29)는 platform#T22에 기댄다.
+- **Q1 Electron 종료와 core 수명(lead 결정).** core는 Electron main 아래에서 돈다. 창을 다 닫아도 tray main이 살아 있어 앱 automation과 주기 일은 계속되고, tray의 Quit은 전부 멈춘다. T55 PR에서 shell/desktop#R21과 architecture/shell을 고친다.
+- **Q2 CLI의 daemon 시작과 중지(정함).** user token은 Electron main이 띄운 core의 통로로만 받는다. 그래서 `lophn daemon start|stop`(coding-agent/cli#R8, platform#T55)은 Electron main을 `--tray`로 띄우거나 `--quit`을 second-instance로 보낸다(T51). core는 언제나 main의 child다.
+- **Q3 현재 보기 상태 relay(lead 승인).** shell main이 core 메모리 relay에 `CurrentViewState`를 publish하고 사람 요청 때 session↔window를 bind하며, runtime은 자기 run의 session만 읽는다. platform#T57이 route를 더하고 architecture/platform 5.1을 고친다.
+- **Q4 앱 화면 검사 host(lead 결정, 추천대로).** problems 팀과 합의한 `--app-screen-test` host(T46)로 하고 shell requirements를 늘리지 않는다. T46 PR에서 architecture/shell 5.2에 한 단락을 더한다. fd 3 통로를 먼저 확인한다.
+- **Q5 산점 차트와 node·edge 도표(정함).** apps 팀이 apps/sdk#R17에 산점 차트와 node·edge 도표를 더했고(누적 면만 첫 판 밖) shell#T34가 ui-chart에 만든다.
+- **Q6 shell 크롬 외부 링크(lead가 다르게 정함).** 승인 원칙(D21)에 따라 shell 크롬의 외부 링크와 공식 로그인 버튼은 확인 없이 OS browser로 연다. T31 PR에서 shell/app-frame#R7을 고친다. confirmation window의 열기 종류에서 shell 외부 링크는 빠진다.
+- **Q7 의존성(lead 승인).** electron, esbuild, react·react-dom, happy-dom, Radix Primitives, lucide-react, CodeMirror 6과 Lezer Markdown, @xterm/xterm, node-pty, d3-scale·d3-shape, intl-messageformat, stylelint, electron-builder. 각 작업 PR에서 판과 이유를 stack.md에 적는다. node-pty native rebuild는 T24에서 먼저 확인한다.
+- **Q8 보호 창이 아닌 확인(lead 결정, 추천대로).** 살아 있는 터미널 닫기, 저장 안 된 초안 버리기는 shell overlay dialog로 묻는다.
+- **Q9 project-workspace flow의 앱 패널 단계(정함).** apps slice E2E에서 돈다. lead가 plan README의 갈래 목록에 넣었다.
+- **Q10 confirmation window의 slice(정함).** platform이 handle 발급·검증·소비를 documents slice의 platform#T56으로 떼었다. shell#T22는 platform#T56에, approval 종류(shell#T29)는 platform#T22에 기댄다.

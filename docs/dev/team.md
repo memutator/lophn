@@ -11,7 +11,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | 단 | 누구 | model | 하는 일 | 고치는 것 |
 |---|---|---|---|---|
 | 1 | lead (주 세션) | Opus 5.5 | slice 목록과 순서, 팀 배정, 팀 사이 충돌 조정, 사람에게 묻기, 결정 기록 | `docs/plan/README.md`, `docs/dev/`, open-issues.md |
-| 2 | team member | Opus 5.5 | 맡은 범위의 문서를 읽고 계획(작업)을 쓴다. 작업을 worker에게 나눠 주고, 결과를 review하고 PR로 main에 합치고 lead에게 보고한다 | `docs/plan/<slice>.md`의 자기 작업, 자기 범위의 코드 |
+| 2 | team member | GPT-6.1 Sol max (`gpt-6.1-sol-max`) | 맡은 범위의 문서를 읽고 계획(작업)을 쓴다. 작업을 worker에게 나눠 주고, 결과를 review하고 PR로 main에 합치고 lead에게 보고한다 | `docs/plan/<slice>.md`의 자기 작업, 자기 범위의 코드 |
 | 3 | worker (team member가 띄우는 sub agent) | 아래 등급 | 작업 하나를 구현하거나 조사한다. 자기 sub agent는 띄우지 않는다 | 작업의 "자리"만 |
 
 팀은 최상위 concern 하나에 하나씩, 그리고 contracts 팀 하나다.

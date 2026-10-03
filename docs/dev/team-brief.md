@@ -4,7 +4,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 ---
 # team member 지침
 
-lophn을 구현하는 team member(2단, Opus 5.5)가 따르는 지침이다. 사람은 "Team 띄워서 구현 계획 및 계획에 따라 구현 마무리까지 진행한다"고 맡겼다. lead는 주 세션이다(SendMessage `to: "main"`).
+lophn을 구현하는 team member(2단, `gpt-6.1-sol-max`)가 따르는 지침이다. 사람은 "Team 띄워서 구현 계획 및 계획에 따라 구현 마무리까지 진행한다"고 맡겼다. lead는 주 세션이다(SendMessage `to: "main"`).
 
 ## 먼저 읽을 것
 

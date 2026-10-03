@@ -10,6 +10,7 @@ concerns: [coding-agent/harnesses, coding-agent/sessions, coding-agent/connectio
 
 - Orca revision: `b601b98644656aeaa7b1c17775d0611a0d5fd06b`.
 - Paseo revision: `b5e9747e2a59b694a3e4d827202d686c2e4612c9`.
+- harness 소스 revision(9·10절): Codex `3a69ec3ef8fb87b41e99b8942af061ad58ae6732`, OpenCode `907b3bc518fa48e90e8ec24dd327d13eee71c36c`, Gemini CLI `fb972b2f87fe7d5b06d37eac711490162d98de2c`, Hermes `343500b3547e12530457c2fda60ec687e25118b4`, pi `83692682f095528f8b71652ddacff7075e36e893`, OpenClaw `37efa0b4a644b66a5987a07841e9707e1de2a7d8`, Orca `fd030c404074f1100e5eedab59aec3dac7e6d1f5`. Claude Code는 소스 clone이 아니라 공식 문서다.
 - 경로는 `orca:`(stablyai/orca), `paseo:`(getpaseo/paseo) 저장소의 위 revision 기준이다.
 - Orca/Paseo의 소스만 조사했다. `node_modules`는 보지 않았다.
 - 이 컴퓨터에 실제 설치된 harness inventory를 실행 검사하지 않았다. 아래 detection은 두 프로그램이 감지하는 방법이다.
@@ -703,3 +704,143 @@ coding credential이 자기 connection을 읽을 수 있다는 이유로 user co
 3. **local ownership receipt**: 어떤 resource를 lophn이 썼고 언제 어떤 digest로 update/remove할 수 있는가.
 
 사용자 선택은 settings, 인증 권한은 CodingAgentConnection, 실제 external session은 별도 execution contract에 둔다. Orca/Paseo의 구조는 이 분리를 뒷받침하지만 지원 집합과 write ownership 정책이 다르므로 코드의 한 registry나 installed bool을 그대로 domain model로 가져오지 않는다.
+
+## 9. harness 소스로 확인한 설치 계약
+
+조사일: 2026-10-04. clone은 `/tmp/claude-1000/lophn-research/<name>`이고 revision은 0절의 harness 소스 revision이다. checkout·pull은 하지 않았다. Orca의 옛 revision `b601b98`은 shallow clone에 없어서 fd030c4와 1.1–1.5의 차이를 diff로 계산하지 못했다. Claude Code는 소스 clone이 없고 공식 문서만 본다. `[확인]`은 그 revision의 코드, `[문서]`는 공식 문서, `[미확인]`은 이번 조사에서 확인하지 못한 범위이며 기능 부재가 아니다.
+
+### 9.1 MCP 설정 schema
+
+[확인] Codex `codex-rs/config/src/mcp_types.rs`의 `RawMcpServerConfig`는 `deny_unknown_fields`다. stdio(`command`·`args`·`env`·`env_vars`·`cwd`)와 HTTP(`url`·`bearer_token_env_var`·`http_headers`·`oauth`)를 엄격히 나눈다. default는 `enabled=true`, `required=false`, `environment_id="local"`, `startup_readiness=Connection`이다. inline `bearer_token`은 `ensure_no_inline_bearer_tokens`가 거절하고 `bearer_token_env_var`를 요구한다. `env` map 값과 `oauth.client_secret`은 그대로 config.toml에 남는다. `codex mcp add`는 `ConfigEditsBuilder::new(&codex_home)`로 base `$CODEX_HOME/config.toml`(기본 `~/.codex/config.toml`)의 `mcp_servers` 전체를 다시 직렬화하고 같은 이름은 충돌 검사 없이 교체한다. profile v2(`<name>.config.toml`, precedence 21)가 활성 writable target이어도 이 명령은 base 파일에 쓴다.
+
+[확인] OpenCode `packages/core/src/v1/config/mcp.ts`의 `ConfigMCPV1.Local`은 `type:"local"`, `command: string[]`(필수), optional `cwd`·`environment`·`enabled`·`timeout`(PositiveInt, 주석 default 5000ms)이다. `Remote`는 `type:"remote"`, `url`, optional `headers`·`oauth`(객체 또는 `false`)·`timeout`이다. `config.ts`의 `mcp`는 `Record<string, Info | {enabled:boolean}>`이고 schema decode는 `onExcessProperty:"ignore"`다. 전역 파일은 `Global.Path.config`(`$XDG_CONFIG_HOME` 또는 `~/.config` + `/opencode`)의 `opencode.json`·`opencode.jsonc`·legacy `config.json`이고, 프로젝트는 cwd에서 worktree까지 `.opencode`와 `opencode.json(c)`다(`packages/opencode/src/config/paths.ts`). `opencode mcp add`는 `mcp.ts` `addMcpToConfig`가 jsonc-parser `modify(["mcp", name])`로 그 키만 고친다. 비대화형은 항상 `Global.Path.config`의 전역 파일, 대화형은 git 프로젝트에서 project/global을 고른다. 같은 이름은 묻지 않고 교체한다.
+
+[확인] Gemini CLI `packages/core/src/config/config.ts` `MCPServerConfig`는 stdio(`command`·`args`·`env`·`cwd`), sse(`url`+`type:"sse"`), http(`url`+`type:"http"`, deprecated `httpUrl`), websocket(`tcp`), 공통 `timeout`·`trust`·`description`·`includeTools`·`excludeTools`·`oauth`·`authProviderType`·`targetAudience`·`targetServiceAccount`다. settings.json의 `mcpServers`는 scope별 파일에 있고 `loadSettings`가 system defaults < user < system < (trusted일 때만) workspace로 merge한다. `gemini mcp add`(`packages/cli/src/commands/mcp/add.ts`)의 default scope는 `project`이고 user/project만 고른다. 같은 이름은 경고 뒤 그 항목을 교체하고 `setValue`로 `mcpServers` 객체 전체를 다시 쓴다.
+
+[확인] Hermes `cli-config.yaml.example`의 `mcp_servers.<name>`는 `command`·`args`·`env`·`url`·`sampling`이고, `tools/mcp_tool_common.py`가 `enabled`와 `timeout`을 읽는다. 엄격한 schema class는 이번 조사에서 찾지 못했다[미확인]. `tools/mcp_tool_config.py` `_load_mcp_config`는 `mcp_servers`가 dict가 아니면 빈 map으로 보고, 항목별 `_interpolate_env_vars` 뒤 `validate_mcp_server_entry`가 의심 항목만 건너뛴다. `HERMES_SAFE_MODE`면 MCP 전체를 빈 map으로 둔다. 경로 계산은 `hermes_constants.py` `get_config_path`가 `HERMES_HOME`(기본 `~/.hermes`)의 config.yaml이다[확인, 함수 위치].
+
+[확인] pi `packages/coding-agent/src/core/mcp-servers.ts` `validateMcpServerConfig`는 이름 `^[A-Za-z0-9_-]+$`만 받고 stdio(`command`·`args`·`env`·`cwd`)와 http(`url`·`headers`·`oauth`·`auth.provider`)만 받는다. `type:"sse"`는 오류 문자열이다. default는 `exposure:"codemode"`, `enabled:true`, `timeout:60`초다. 파일은 `extensions/mcp/config.ts` `loadMcpConfig`가 `<agentDir>/mcp.json`(agentDir 기본 `~/.pi/agent`, `config.ts` `CONFIG_DIR_NAME`은 package의 `piConfig.configDir` 또는 `.pi`)과 trusted 프로젝트의 `<cwd>/.pi/mcp.json`이다. 프로젝트 항목은 같은 이름의 전역 항목을 통째로 교체하고, `command`·`url`·`type`이 없는 항목은 `enabled`·`exposure`·`toolExposure`만 override한다. 프로젝트 파일의 `auth`는 거절된다. 한 항목이 깨지면 그 항목만 `errors`에 남고 나머지는 로드된다. JSON parse 실패는 그 파일 전체를 건너뛰고 `errors`에 메시지를 넣는다.
+
+[확인] OpenClaw `src/config/zod-schema.root-support.ts` `McpConfigSchema`는 strictObject이고 `mcp.servers`(이름 schema는 `createMcpServersSchema`), `sessionIdleTtlMs`, `apps`만 있다. 서버 항목은 `zod-schema.mcp-server.ts` `McpServerSchema`다. `command`·`args`·`env`·`cwd`·`url`·`transport`(stdio|sse|streamable-http)·`headers`·`connectionTimeoutMs`·`requestTimeoutMs`·`auth:"oauth"`·`oauth`·`toolFilter`·`codex`를 받고 `.catchall(z.unknown())`라 알 수 없는 키는 통과한다. 단 retired alias(`timeout`, `connectTimeout`, `disabled` 등)는 superRefine이 거절하고 `disabled`는 `enabled`로 바꾸라고 한다. `oauth.identity:"per-requester"`는 HTTP URL이 있어야 하고 command·stdio와 같이 둘 수 없다. 설정 파일 경로는 `src/config/io.load.ts`가 읽는 config path다. 정확한 default 파일 위치 상수는 이번 조사에서 확인하지 못했다[미확인].
+
+[문서] Claude Code MCP는 user·local scope가 `~/.claude.json`, project scope가 프로젝트 root `.mcp.json`이다. local은 `projects.<path>.mcpServers`, user는 `~/.claude.json` 최상위다(https://code.claude.com/docs/en/mcp.md). stdio는 `type:"stdio"`·`command`·`args`·`env`, http는 `type:"http"`·`url`·`headers`다. `url`이 있는데 `type`이 없으면 그 서버만 건너뛰고 경고한다. `claude mcp add`는 default local scope로 `~/.claude.json`의 현재 프로젝트 항목에 쓰고, `--scope project|user`로 바꾼다. 같은 이름은 `already exists`로 실패한다. credential은 검사하지 않고 쓴다.
+
+### 9.2 설정 파일이 깨졌을 때
+
+[확인] Codex는 어느 layer든 TOML parse 실패를 `io::Error(InvalidData)`로 올리고 위치(path:line:column)를 붙인다(`config/src/loader/layer_io.rs` `read_config_from_path`). 파일이 없으면 `Ok(None)`이라 default다. `mcp_servers`의 서버 하나라도 schema에 안 맞으면 map 전체가 실패한다(`mcp_edit.rs`). `codex mcp add`와 config edit는 먼저 parse하고 깨진 TOML이면 쓰지 않는다. default로 덮어쓰지 않는다.
+
+[확인] OpenCode `ConfigParse.jsonc`는 JSONC 오류가 하나라도 있으면 `JsonError`를 던지고 원문과 위치를 메시지에 넣는다. 전역 로드(`config.ts` `loadGlobal`)는 그 오류를 잡고 `"failed to load global config, using defaults"`를 로그한 뒤 `{}`로 계속한다. 없는 전역 파일은 `{ "$schema": "https://opencode.ai/config.json" }`을 새로 쓴다. legacy `config`(TOML)를 읽으면 `config.json`으로 옮기고 원본을 지운다. `opencode mcp add`의 `addMcpToConfig`는 기존 파일을 읽은 뒤 jsonc `modify` 결과만 검사하고, 깨진 JSONC여도 파싱 실패로 중단한다는 코드는 없다[미확인, 쓰기 전에 거절하는지].
+
+[확인] Gemini `loadSettings`의 `load`는 JSON parse 실패·비객체 root를 severity `error`로 모으고, 그 scope는 `{}`가 된다. schema validation 실패는 severity `warning`이고 확장된 객체를 그대로 쓴다. error가 하나라도 있으면 `FatalConfigError`를 던져 시작을 멈춘다(`settings.ts` 974–981). 파일을 default로 다시 쓰지 않는다.
+
+[확인] Hermes `_load_config_impl`은 YAML 오류면 last-known-good backup을 반환하고, 그것도 없으면 `DEFAULT_CONFIG`를 `FailedConfigRead`로 표시해 cache한다. 그 fallback은 다음 last-known-good이 되지 않고 저장 대상도 아니다. 성공한 읽기마다 `backup_config(path, "good")`를 호출한다. MCP만 보면 `_load_mcp_config`가 예외를 debug 로그 뒤 `{}`로 삼킨다.
+
+[확인] pi는 9.1과 같다. 깨진 `mcp.json`은 그 파일만 건너뛰고 오류 문자열을 반환한다. 다른 파일과 정상 항목은 남는다.
+
+[확인] OpenClaw `io.load.ts`는 JSON5 parse 실패와 schema 실패를 모두 throw한다. schema 실패는 `valid:false` snapshot을 남긴 뒤 `throwInvalidConfig`(`INVALID_CONFIG`)다. 주석은 scalar/null root를 빈 config·valid로 읽지 않는다고 명시한다. 실패 읽기는 env.vars를 반영하지 않고 되돌린다. suspicious recovery는 backup이 있을 때 raw를 바꿔 한 번 더 읽는다(`maybeRecoverSuspiciousConfigRead`). 그 recovery가 lophn이 쓴 파일을 되돌리는지는 이번 조사에서 확인하지 못했다[미확인].
+
+[문서] Claude Code가 `~/.claude.json`·`.mcp.json`의 JSON parse 실패를 어떻게 처리하는지는 MCP 문서에 없다[미확인]. 문서가 말한 실패는 항목 단위다. `url` without `type`, `type:"sdk"`, reserved name은 그 서버만 건너뛴다.
+
+### 9.3 env 치환과 secret
+
+[확인] Codex `env` 값과 `oauth.client_secret`은 config.toml에 그대로 저장된다. `env_vars`는 상속할 변수 이름이고 값 치환이 아니다. `${VAR}` 치환 함수는 이번 조사에서 찾지 못했다[미확인]. secret 관례는 inline `bearer_token` 거절뿐이다.
+
+[확인] OpenCode `packages/opencode/src/config/variable.ts` `substitute`는 `{env:NAME}`과 `{file:path}`만 바꾼다. `{env:NAME}`이 없으면 빈 문자열이다. `${VAR}`는 치환하지 않는다. `{file:}`가 없으면 `missing` default `"error"`라 `InvalidError`다. remote config의 `url`·`headers`에만 적용되는 호출을 확인했다. MCP `environment` 값 전체에 적용되는지는 확인하지 못했다[미확인]. `oauth.clientSecret`은 `opencode mcp add` 대화형 경로가 config 파일에 그대로 쓴다.
+
+[확인] Gemini `packages/cli/src/utils/envVarResolver.ts` `resolveEnvVarsInString`은 `$NAME`, `${NAME}`, `${NAME:-default}`를 문자열 전체에 적용하고 `loadSettings`가 parse 직후 객체 전체에 돌린다. 정의되지 않고 default도 없으면 placeholder를 남긴다. `mcp add`가 받은 `--env KEY=value`와 `--header`는 치환 없이 settings.json에 그대로 저장된다. `trust:true`도 같은 명령의 flag로 그 항목에 기록된다.
+
+[확인] Hermes `config.py` `_expand_env_vars`는 `${VAR}`와 `${env:VAR}`를 재귀 치환한다. 값이 없으면 literal을 남기고 `env:` 형태는 warning을 남긴다. `file:`·`bitwarden:`·`vault:`는 여기서 풀지 않는다. MCP는 `_load_mcp_config`가 항목마다 `_interpolate_env_vars`를 한 번 더 호출한다. 예제의 `env.GITHUB_PERSONAL_ACCESS_TOKEN: "ghp_..."`는 값을 config.yaml에 직접 두는 형태다.
+
+[확인] pi `resolve-config-value.ts`는 `$NAME`, `${NAME}`, `!cmd`를 푼다. `$$`·`$!`는 escape다. 없는 변수는 literal로 남는다[미확인, 미정의 분기의 반환값은 resolver 뒷부분을 읽지 못했다]. `env`·`headers`·`oauth.clientSecret` 주석이 이 치환을 받는다고 적는다. `!cmd`는 프로세스 수명 cache로 shell을 실행한다.
+
+[확인] OpenClaw `io.load.ts`는 `resolveConfigForRead(..., env)` 뒤 없는 env를 `missing env var "<name>" at <path> - feature using this value will be unavailable`로 warn한다. 치환 문법(`$`인지 `${}`인지)은 이 파일에 없고 resolver 구현은 확인하지 못했다[미확인]. `env`·`headers` 값은 zod에서 `sensitive`로 표시된다. 저장은 평문 JSON5다.
+
+[문서] Claude Code `.mcp.json`과 `~/.claude.json`의 `command`·`args`·`env`·`url`·`headers`에서 `${VAR}`와 `${VAR:-default}`를 치환한다. 미정의·default 없음은 경고 후 `${VAR}` 그대로다. remote `url`·`headers`의 credential 이름(`ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `AWS_BEARER_TOKEN_BEDROCK`, `HTTPS_PROXY`, `NPM_TOKEN`)은 빈 문자열로 읽고 `:-default`도 무시한다(https://code.claude.com/docs/en/mcp.md).
+
+### 9.4 version과 auth 상태 명령
+
+[확인] Codex `cli/src/main.rs` `MultitoolCli`는 clap `version` attribute가 있어 `codex --version`은 workspace package version을 찍고 끝난다. 정확한 문자열은 workspace Cargo.toml을 읽지 않아 [미확인]이다. `codex login status`(`cli/src/login.rs` `run_login_status`)는 stderr만 쓰고, 로그인 상태면 exit 0, `Not logged in`과 config 오류는 exit 1이다. 문구는 `Logged in using ChatGPT`, `Logged in using an API key - <safe_format_key>`, `Logged in using access token`, `Logged in using personal access token`, `Logged in using workload identity`, `Logged in using Amazon Bedrock API key`, `Logged in using Amazon Bedrock AWS access keys`, `Not logged in`, `Error checking login status: …`, `Error loading configuration: …`다. `safe_format_key`는 13자 이하면 `***`, 그 외에는 앞 8자 + `***` + 뒤 5자다. config와 auth storage를 읽는다. 세션을 열지 않고 `codex-login.log`를 쓰지 않으며 browser를 열지 않는다. `load_auth`가 token을 네트워크로 갱신하는지는 [미확인]이다.
+
+[확인] OpenCode `packages/opencode/src/index.ts`는 yargs `.version("version", "show version number", InstallationVersion)`이라 `opencode --version`은 그 상수를 찍는다. 상수 정의는 읽지 못했다[미확인]. provider 인증은 `opencode providers list`(`cli/cmd/providers.ts`)가 provider와 credential 목록을 찍는다. 출력 형식과 exit code, 네트워크 호출은 handler 본문을 읽지 못해 [미확인]이다. `opencode mcp auth list`는 OAuth MCP 서버의 인증 상태만 본다. `opencode auth list`라는 명령은 이 파일에 없다.
+
+[확인] Gemini CLI의 버전 출력 코드는 `packages/cli/index.ts`에서 확인하지 못했다[미확인]. `packages/cli/src/config/auth.ts` `validateAuthMethod`는 저장된 `security.auth.selectedType`이 `LOGIN_WITH_GOOGLE`·`COMPUTE_ADC`·`USE_GEMINI`·`USE_VERTEX_AI`인지 검사하는 함수다. `gemini auth` 같은 상태 명령은 이번 조사에서 찾지 못했다[미확인]. 시작 경로(`gemini.tsx`)는 selectedType이 없거나 legacy면 default를 고르고, `GEMINI_CLI_AUTH_OVERRIDE`가 있으면 user settings의 `security.auth.selectedType`을 그 값으로 바꿔 메모리에 올린다.
+
+[확인] Hermes `hermes_cli/subcommands/auth.py`는 `hermes auth status <provider>`를 등록한다. 출력·exit code·네트워크는 handler를 읽지 못했다[미확인]. `hermes mcp list`는 설정된 MCP 이름만 본다. `--version` 처리 위치는 확인하지 못했다[미확인].
+
+[확인] pi·OpenClaw의 `--version` 출력과 auth 상태 명령은 이번 조사에서 해당 CLI 파일을 열지 못했다[미확인].
+
+[문서] Claude Code의 `claude --version`과 auth 상태 명령은 이번 조사에서 연 MCP·hooks·skills 문서에 없다[미확인].
+
+### 9.5 hook·plugin·extension·skill 위치
+
+[확인] Codex hook event는 `codex-rs/hooks/src/lib.rs` `HOOK_EVENT_NAMES`의 12개다. `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStart`, `SubagentStop`, `UserPromptSubmit`, `Stop`, `StopFailure`가 아니라 파일의 목록을 따른다. 정확한 12이름은 `HOOK_EVENT_NAMES`(23–36)이고 matcher를 받는 집합 `HOOK_EVENT_NAMES_WITH_MATCHERS`는 `UserPromptSubmit`·`Stop`·`Interrupt`를 뺀다. 로딩은 layer마다 `<hooks_config_folder>/hooks.json`과 config.toml `[hooks]`를 둘 다 읽는다(`hooks/src/engine/discovery.rs`). 둘 다 비어 있지 않으면 warning을 내고 둘 다 쓴다. JSON·TOML hook parse 실패는 warning 후 그 출처만 건너뛴다. managed hook이 required이고 실패하면 `Hooks::new`가 `failed to load required managed hooks`로 세션 시작을 멈춘다. `hooks_config_folder()`(`config/src/state.rs` 239–243)는 project layer의 `.codex` 폴더(linked worktree면 root checkout의 같은 폴더)이고 그 외 layer는 config 파일의 부모 폴더다. skill root는 `codex-rs/ext/skills/src/host_roots.rs`다. user는 `$CODEX_HOME/skills`(주석이 deprecated)와 `~/ .agents/skills`, repo는 `<project>/.codex/skills`와 project root에서 cwd까지 각 `.agents/skills`, system은 `$CODEX_HOME/skills/.system`이다. 같은 경로가 있으면 dedupe한다.
+
+[확인] OpenCode plugin은 config `plugin` 배열의 spec(문자열 또는 `[문자열, options]`)을 설치·로드한다(`packages/opencode/src/plugin/index.ts`). 실패는 그 plugin만 오류로 보고 나머지는 계속한다. hook event 이름의 고정 enum은 이 파일에 없다[미확인]. skill은 `packages/opencode/src/skill/index.ts` `discoverSkills`가 `~/.claude/skills/**/SKILL.md`, `~/.agents/skills/**/SKILL.md`, 프로젝트의 `.claude/skills`·`.agents/skills`, 그리고 config directory의 `{skill,skills}/**/SKILL.md`를 본다. config directory는 `~/.config/opencode`와 `.opencode`다. 그래서 architecture 표의 `~/.config/opencode/skills`·`.opencode/skills`는 이 경로에 포함된다. 추가로 `.claude`·`.agents`도 읽는다. 같은 이름이면 먼저 등록된 skill이 남고 나중 것은 오류로 보고 버린다(`add`).
+
+[확인] Gemini hook은 settings.json `hooks` 객체다(`settingsSchema.ts` 2595 이후). event는 `BeforeTool`, `AfterTool`, `BeforeAgent`, `AfterAgent`, `Notification`, `SessionStart`, `SessionEnd`, `PreCompress`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`이고 `additionalProperties`로 배열을 더 받는다. scope merge는 `MergeStrategy.CONCAT`이다. `hooksConfig.enabled`가 false면 hook을 실행하지 않는다는 schema 설명이 있다. 실행기 코드는 확인하지 못했다[미확인]. skill 디렉터리는 `packages/core/src/config/storage.ts`의 `getUserSkillsDir`=`<geminiDir>/skills`, `getProjectSkillsDir`=`<project>/.gemini/skills`, 그리고 `getUserAgentSkillsDir`=`<agentsDir>/skills`다. geminiDir 기본이 `~/.gemini`인지는 이 범위에서 상수 정의까지 따라가지 못했다[미확인].
+
+[확인] Hermes plugin hook 이름은 `hermes_cli/plugins.py` `VALID_HOOKS`다. 그중 세션·도구에 가까운 것은 `pre_tool_call`, `post_tool_call`, `on_session_start`, `on_session_end`, `on_session_finalize`, `on_session_reset`, `subagent_start`, `subagent_stop`, `pre_approval_request`, `post_approval_response`다. 반환값으로 막을 수 있는 것은 `pre_gateway_dispatch`와 `pre_verify`이고 approval hook은 반환을 무시한다. 설치 위치는 plugin 패키지의 `__init__.py` `register(ctx)`다. 정확한 plugin 디렉터리 상수는 확인하지 못했다[미확인]. skill은 `hermes_constants.py` `get_skills_dir()`=`$HERMES_HOME/skills`다. 프로젝트 `.hermes/skills`는 이 함수에 없다[미확인].
+
+[확인] pi extension event는 `packages/coding-agent/src/core/extensions/types.ts`의 union이다. 세션에 가까운 이름은 `session_start`, `before_agent_start`, `agent_start`, `agent_end`, `turn_start`, `turn_end`, `tool_execution_start`, `tool_execution_end`다. 전체 목록과 로드 디렉터리는 `core/extensions/loader.ts`를 열지 못해 [미확인]이다. MCP는 9.1의 `mcp.json`이다. skill 디렉터리 상수는 이번 조사에서 확인하지 못했다[미확인].
+
+[미확인] OpenClaw의 hook·plugin 로드 위치와 event 목록, skill root 계산은 이번 조사에서 해당 파일을 열지 못했다.
+
+[문서] Claude Code hook은 `~/.claude/settings.json`, `.claude/settings.json`, `.claude/settings.local.json`, managed settings, plugin `hooks/hooks.json`에 두고 서로 merge한다(https://code.claude.com/docs/en/hooks.md). 문서의 lifecycle 표는 33개 event다. `SessionStart`, `Setup`, `UserPromptSubmit`, `UserPromptExpansion`, `PreToolUse`, `PermissionRequest`, `PermissionDenied`, `PostToolUse`, `PostToolUseFailure`, `PostToolBatch`, `Notification`, `MessageDisplay`, `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `Stop`, `StopFailure`, `TeammateIdle`, `InstructionsLoaded`, `ConfigChange`, `CwdChanged`, `DirectoryAdded`, `FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `PreCompact`, `PostCompact`, `PreModelSwitch`, `PostModelSwitch`, `Elicitation`, `ElicitationResult`, `SessionEnd`. 항목은 `{matcher, hooks:[{type, command|url|server+tool|prompt}]}`이고 `type`은 `command`·`http`·`mcp_tool`·`prompt`·`agent`다. 깨진 settings.json의 동작은 이 문서에 없다[미확인]. skill은 `~/.claude/skills/<name>/SKILL.md`와 `.claude/skills/<name>/SKILL.md`다(https://code.claude.com/docs/en/skills.md). 같은 이름은 enterprise > personal > project이고 plugin skill은 `/plugin-name:skill-name`으로 둘 다 남는다.
+
+### 9.6 제품 자신의 install 명령이 쓰는 것
+
+[확인] `codex mcp add`는 9.1대로 base config.toml의 `mcp_servers` 전체를 다시 직렬화한다. 쓰기 전에 OAuth discovery 네트워크 호출을 하고 login을 시작할 수 있다. 같은 이름은 충돌 없이 교체한다. 깨진 TOML이면 쓰지 않는다. `codex logout`은 Bedrock provider 경로를 config.toml에서 지울 수 있다(`cli/src/login.rs` `run_logout`).
+
+[확인] `opencode mcp add`는 전역(비대화형) 또는 고른 scope의 `opencode.json(c)`에서 `mcp.<name>`만 jsonc edit로 바꾼다. 같은 이름은 교체다. OAuth client secret은 대화형 remote 경로에서 파일에 들어간다. 네트워크 검사는 이 명령에 없다.
+
+[확인] `gemini mcp add`는 default project scope의 settings.json에서 `mcpServers` 객체 전체를 `setValue`로 다시 쓴다. 같은 이름은 교체다. `--trust`는 그 서버의 `trust` 필드다. 프로젝트 scope를 home 디렉터리에서 쓰면 exit 1이다.
+
+[확인] `hermes mcp add`는 `hermes_cli/subcommands/mcp.py`에 `Add an MCP server (discovery-first install)`로 등록돼 있다. 어느 파일을 어떻게 병합하는지는 handler를 읽지 못했다[미확인]. `remove`·`list`·`test`·`configure`·`login`도 있다.
+
+[미확인] pi와 OpenClaw의 mcp add 구현은 이번 조사에서 열지 못했다. pi는 `/mcp` 저장이 프로젝트 override를 `projectConfig`에 쓴다고 `config.ts` 주석이 말한다.
+
+[문서] `claude mcp add`는 default local scope로 `~/.claude.json`의 현재 프로젝트 `mcpServers.<name>`을 추가하고, 같은 이름이면 실패한다. `--scope project`는 `.mcp.json`, `--scope user`는 `~/.claude.json` 최상위다. credential을 검사하지 않고 저장한다(https://code.claude.com/docs/en/mcp.md).
+
+### 9.7 harness가 스스로 설정을 다시 쓰는 경우
+
+[확인] Codex `replace_mcp_servers`는 서버 항목 전체를 다시 직렬화하므로 lophn이 소유한 조각의 바이트가 바뀐다. `set_project_trust_level`, `set_feature_enabled`, windows sandbox key 정리, model migration 기록은 edit API로 있다(`core/src/config/edit.rs`). 세션 시작이 이들을 자동 호출하는지는 [미확인]이다. 쓰기는 `resolve_symlink_write_paths`로 symlink를 따라가고 atomic rename이다. legacy `profile = "..."` 키는 로드 자체가 `InvalidData`다. 시스템 skill은 `$CODEX_HOME/skills/.system`을 marker fingerprint가 다를 때 지우고 다시 쓴다(`codex-rs/skills/src/lib.rs`). 이 경로는 lophn receipt 대상이 아니다.
+
+[확인] OpenCode는 전역 파일이 없으면 schema 한 줄짜리 파일을 만들고, legacy TOML `config`가 있으면 `config.json`으로 옮긴 뒤 원본을 지운다(`config.ts` 264–289). 둘 다 lophn이 그 파일을 쓰기 전에 파일이 없었거나 legacy 파일이 남아 있을 때의 동작이다.
+
+[확인] Gemini `migrateDeprecatedSettings`는 `loadSettings` 끝에서 매번 돈다(`settings.ts` 1017–1018). deprecated boolean이 있으면 새 키로 옮기고 옛 키를 지운 뒤 `setValue` → `saveSettings`로 그 scope 파일을 format-preserving update한다. user·workspace·system scope를 모두 돌고 system은 read-only라 warning만 낸다. `mcpServers` 키 자체를 옮기는 코드는 이 함수에서 보지 못했다. 다른 deprecated 키가 같은 파일에 있으면 파일 바이트가 바뀌어 receipt hash가 깨진다. theme 이름 `VS`/`VS2015`는 메모리에서만 바꾼다.
+
+[확인] Hermes는 성공한 config load마다 `backup_config`를 호출한다. 이것이 config.yaml 원본을 다시 쓰는지는 backup 구현을 읽지 못해 [미확인]이다. YAML이 깨지면 last-known-good을 메모리에만 올린다. `_disable_suspicious_mcp_servers`는 의심 항목을 config에서 빼는데, 그 결과를 디스크에 쓰는 호출 경로는 확인하지 못했다[미확인].
+
+[미확인] pi·OpenClaw가 로드 중에 mcp.json·config를 다시 쓰는 경로는 이번 조사에서 확인하지 못했다. OpenClaw의 suspicious recovery는 backup 내용으로 다시 읽기만 하고, 그 함수가 디스크를 고치는지는 `maybeRecoverSuspiciousConfigRead` 정의를 열지 못했다[미확인].
+
+[문서] Claude Code가 settings·`.mcp.json`을 로드 중에 다시 쓰는지, 그리고 그 쓰기가 hook·MCP 항목의 바이트를 바꾸는지 이번 조사의 문서 범위에는 없다[미확인].
+
+### 9.8 Orca fd030c4와 1.1–1.5
+
+[확인] fd030c4에서 1.1–1.5가 인용한 파일은 그대로 있다. `TuiAgentConfig`의 `detectCmd`·`launchCmd`·`promptInjectionMode`·`preflightTrust`도 `src/shared/tui-agent-config-types.ts` 20–41에 있다. `KNOWN_TUI_AGENT_DETECTION_COMMANDS`는 `reportVersion`을 builder가 채우지 않는다(`tui-agent-detection-commands.ts` 13–18). `detectInstalledAgents`·`detectInstalledAgentsWithShellPathHydration`·`refreshShellPathAndDetectAgents`·`detectRemoteAgents`도 `src/main/preflight/agent-detection.ts` 145–243에 있다. `CLAUDE_HOOK_EVENT_FIRST_VERSIONS`와 `UNRESOLVED_CLAUDE_VERSION = CLAUDE_STATUS_LINE_FIRST_VERSION`(`1.0.64`)는 `src/main/claude/claude-hook-event-versions.ts`에 있고, 주석은 알 수 없는 hook event 하나가 settings.json 전체를 버린다고 적는다.
+
+[확인] 1.1의 "일곱 제품"은 이 revision의 전체 집합이 아니다. `tui-agent-config.ts`의 `detectCmd`는 `claude`, `orca`, `codex`, `opencode`, `opencode2`, `pi`, `gemini`, `agy` 외에 `codebuddy`, `openclaude`, `traecli`, `mimo`, `omp`, `prime-agent`, `qodercli`, `aider`, `goose`, `amp`, `kilo`, `kiro-cli`, `crush`, `auggie`, `cline` 등이 더 있다. skill install provider도 `codex`·`claude`·`gemini` 외에 `cursor`·`droid`·`continue`·`trae`·`grok`·`aug`·`muse`·`zcode`가 있다(`skill-install-providers.ts`). 어느 항목이 b601b98 이후에 추가됐는지는 옛 revision이 clone에 없어 [미확인]이다. 1.1–1.5의 나머지 문장(detection이 ID 배열만 반환, cache TTL 없음, receipt 모델)은 이 revision에서 반박하는 코드를 보지 못했다. 반박이 없다는 뜻이지 문장 단위로 재검증했다는 뜻은 아니다.
+
+## 10. requirements와 다른 점(harness 소스 기준)
+
+기준은 `docs/requirements/coding-agent/harnesses.md` R1–R12와 `docs/architecture/coding-agent.md` 5.5(241–268), `docs/domain-model/coding-agent/harnesses.md`다. 아래는 소스가 그 계약과 다르게 동작하는 지점이다. 계약을 바꾸자는 제안이 아니다.
+
+1. R8·5.5는 Codex를 effective `CODEX_HOME`의 사용자 `config.toml`에만 쓰고 앱 TOML을 만들지 말라고 한다. 소스의 `codex mcp add`도 base `config.toml`에 쓰므로 위치는 같다. 다만 그 명령은 `mcp_servers` 테이블 전체를 다시 직렬화하고 같은 이름을 묻지 않고 바꾸며, 쓰기 전에 OAuth 네트워크와 login을 시작할 수 있다. lophn이 이 명령을 쓰면 R8의 "기존 server 보존"과 R12의 "인증 원문을 다루지 않음"을 만족하지 못한다. lophn의 직접 merge는 이 명령과 달라야 한다.
+
+2. R7의 receipt hash는 파일이 바뀌지 않아야 유지된다. Gemini `migrateDeprecatedSettings`는 로드마다 deprecated 키를 지우고 settings.json을 다시 쓴다. `mcpServers`만 있는 파일은 이 함수가 건드리지 않지만 같은 파일의 다른 deprecated 키가 hash를 깨뜨린다. Codex `replace_mcp_servers`와 `codex logout`의 Bedrock 정리는 config.toml 전체를 다시 쓴다. OpenCode는 없는 전역 파일을 schema 한 줄로 만들고 legacy TOML을 `config.json`으로 옮긴 뒤 지운다. 이 셋은 lophn이 쓴 뒤의 hash를 제품이 혼자 바꿀 수 있다는 뜻이다.
+
+3. R8의 "broken JSON/TOML/YAML은 무변경"과 제품의 동작이 다르다. Codex는 깨진 TOML이면 시작과 `mcp add`가 실패하고 파일을 쓰지 않는다(무변경과 같음). Gemini는 깨진 settings.json이면 `FatalConfigError`로 시작만 멈추고 파일은 그대로다. Hermes는 깨진 YAML을 last-known-good 또는 `DEFAULT_CONFIG`로 메모리에서 대체하고, 그 fallback은 저장하지 않는다. pi는 깨진 `mcp.json`만 건너뛰고 나머지 서버를 로드한다. OpenCode 전역 로드는 오류를 로그하고 `{}`로 계속한다. OpenClaw는 invalid config를 throw하고 suspicious recovery가 backup으로 다시 읽을 수 있다. lophn이 "무변경"을 지키려면 제품이 그 파일을 읽는 방식과 별도로, 쓰기 전에 parse 실패면 아무 것도 쓰지 않으면 된다. Hermes·pi·OpenCode처럼 제품을 깨진 파일로 시작시키는 쪽을 고칠 필요는 없다.
+
+4. 5.5 표의 MCP 위치와 소스의 default가 다르다. Gemini `mcp add`의 default scope는 `project`(`.gemini/settings.json`)이고 user는 flag다. 표는 `~/.gemini/settings.json` 또는 `.gemini/settings.json` 둘 다를 적으므로 모순은 아니지만, 제품 명령의 default를 따라가면 앱 파일이 된다. OpenCode `mcp add` 비대화형은 항상 전역 `~/.config/opencode/opencode.json`이다. pi의 전역 파일은 `~/.pi/agent/mcp.json`(`mcpServers`)이고 표의 `~/.pi/agent/mcp-adapter.json`·`directTools:true`는 이 revision의 검증기에 없다. `exposure` default는 `codemode`라 `direct`가 아니다. OpenClaw는 `mcp.servers.<name>`이 맞아 표와 같고, 항목 schema는 catchall이라 모르는 키를 거절하지 않는다. retired `disabled`·`timeout`은 거절한다.
+
+5. 5.5의 skill root는 소스보다 좁다. Codex는 `~/.agents/skills`와 `.agents/skills` 외에 deprecated `$CODEX_HOME/skills`와 `<project>/.codex/skills`를 계속 읽는다. 같은 이름이면 `host_roots.rs`가 경로를 dedupe할 뿐 이름 충돌의 승자는 loader 쪽이다[미확인]. OpenCode는 `~/.config/opencode/skills`·`.opencode/skills` 외에 `~/.claude/skills`, `~/.agents/skills`, 프로젝트 `.claude/skills`·`.agents/skills`를 읽고, 같은 이름은 먼저 등록된 것이 이긴다. Gemini는 `<geminiDir>/skills`·`<project>/.gemini/skills` 외에 `<agentsDir>/skills`를 더 읽는다. 표에 없는 이 경로의 동명 skill은 R7의 "동명 비관리 resource는 충돌" 대상이 된다. lophn이 그 경로를 쓰지 않아도 제품은 거기서 먼저 읽는다.
+
+6. R11의 "검증되지 않은 version-sensitive event는 자동 설치하지 않음"은 Claude에서 그대로 필요하다. Orca fd030c4의 `claude-hook-event-versions.ts`는 알 수 없는 event 하나가 Claude 1.0.23–2.1.100의 settings.json 전체를 버린다고 적고, event별 최소 버전을 둔다. 공식 hook 문서는 지금 33개 event를 나열하지만 깨진 settings의 동작을 말하지 않는다. Gemini·Hermes·pi의 event 이름은 Claude와 다르다(`BeforeTool`/`SessionStart`, `pre_tool_call`/`on_session_start`, `session_start`). 한 목록을 일곱 제품에 재사용하면 R11을 깨뜨린다.
+
+7. R3·R12의 auth probe는 제품마다 부작용이 다르다. `codex login status`는 config와 auth storage를 읽고 token을 마스킹해 stderr에 찍으며 세션·브라우저·login 로그는 열지 않는다. 네트워크 refresh는 [미확인]이다. `opencode mcp add` 대화형은 OAuth client secret을 config 파일에 쓴다. `gemini mcp add --trust`는 그 서버의 `trust:true`를 settings에 남긴다. 이 명령들을 상태 확인으로 쓰면 R3의 "관측이 설치가 아니다"와 R12의 "인증 원문을 반환·보관하지 않음"에 걸친다. 상태 확인은 읽기 전용 명령만 써야 하고, 그 명령의 출력에 마스킹되지 않은 값이 있는지는 제품별로 남아 있다[미확인: OpenCode `providers list`, Hermes `auth status`, pi, OpenClaw, Claude Code].
+
+8. R7의 외부 symlink와 Codex가 다르다. Codex `resolve_symlink_write_paths`는 symlink를 따라 최종 경로에 atomic write를 한다. lophn이 같은 파일을 Codex 방식으로 쓰면 저장소 밖의 대상이 바뀐다. R7의 "외부 symlink는 충돌"이 더 좁고, 소스와 맞추려면 lophn이 따라가지 않아야 한다.
+
+9. R4의 profile 구분과 Codex profile v2가 다르다. `<name>.config.toml`은 base 위에 overlay되고(precedence 21) profile-aware edit의 writable target이다. `codex mcp add`는 그 파일을 쓰지 않고 base `config.toml`을 쓴다. legacy `profile=` 키는 이제 로드 오류다. lophn이 base 파일만 receipt로 보면 profile overlay 쪽 MCP를 놓치고, profile 파일을 보면 `codex mcp add`가 만든 항목을 놓친다. 어느 파일을 고를지는 사람이 고른 profile의 effective config로 정해야 한다(R6).
+
+10. 1.1–1.5의 Orca "일곱 제품"은 fd030c4의 catalog와 같지 않다. 이 revision의 TUI detection과 skill provider는 20개가 넘는다. 차이의 시점(b601b98 이후인지)은 shallow clone이라 [미확인]이다. R1의 일곱 제품은 lophn catalog의 지원 범위이고 Orca catalog 전체가 아니다. Orca 구현을 가져올 때 제품 목록까지 가져오면 R1의 범위를 넘는다.

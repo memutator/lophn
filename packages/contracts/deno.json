@@ -3,7 +3,8 @@
   "exports": {
     ".": "./mod.ts",
     "./platform": "./platform/mod.ts",
-    "./shell": "./shell/mod.ts"
+    "./shell": "./shell/mod.ts",
+    "./documents": "./documents/mod.ts"
   },
   "compilerOptions": {
     "erasableSyntaxOnly": true

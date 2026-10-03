@@ -127,3 +127,4 @@ export {
   type UnavailableFrame,
   unavailableFrameSchema,
 } from "./event-stream.ts";
+export * from "./settings.ts";

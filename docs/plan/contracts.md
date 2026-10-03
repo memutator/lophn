@@ -437,6 +437,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T22 contracts/platform: approval·notification
 
+- 상태: 완료 (#30)
 - 등급: 기본
 - concern: platform/approvals, platform/notifications
 - 요구: platform/approvals#R1–R10, R12–R15; platform/notifications#R1–R5, R9, R10; platform/backup-and-migration#R16

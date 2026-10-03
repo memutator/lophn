@@ -87,7 +87,7 @@ concerns: [shell]
 - 등급: 기본
 - concern: shell/design-system
 - 요구: shell/design-system#R7, R8, R9, R10, R11, R14, R15, R16, R17, R18, R19, R20, R24, R36(생성과 불일치 검사), R38, R45
-- 자리: packages/design/tokens.ts, packages/design/generate.ts, packages/design/generated/(tokens.css, vars.ts), packages/design/fonts/, packages/design/base.css
+- 자리: packages/design/(deno.json, mod.ts, tokens.ts, tokens_test.ts, generate.ts, base.css), packages/design/generated/(tokens.css, vars.ts, values.json), packages/design/fonts/, apps/shell/renderer/(build.ts, build_test.ts, entry.tsx)
 - 쓰는 contract: 없음
 - 내놓는 contract: 없음(shell 안쪽과 SDK가 쓰는 token 모듈)
 - slice: skeleton

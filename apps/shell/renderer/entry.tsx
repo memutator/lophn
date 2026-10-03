@@ -1,4 +1,6 @@
 import { createRoot } from "react-dom/client";
+import "@lophn/design/tokens.css";
+import "@lophn/design/base.css";
 
 // 문구는 넣지 않는다. 화면 문구는 wording key로만 쓴다(shell/wording).
 export function mount(className: string): void {

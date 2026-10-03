@@ -20,9 +20,9 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 ## 누가 고치나
 
-- contract는 integrator 한 명만 고친다([team.md](team.md)).
-- 다른 팀은 바꿀 것이 생기면 integrator에게 요청한다: 무엇을, 왜, 영향받는 쪽.
-- integrator는 바꾸기 전에 그 contract를 쓰는 쪽을 모두 찾아 같은 변경에서 고치거나, 고칠 팀에게 작업을 만든다.
+- contract는 contracts 팀만 고친다([team.md](team.md)).
+- 다른 팀은 바꿀 것이 생기면 contracts 팀에 요청한다: 무엇을, 왜, 영향받는 쪽.
+- contracts 팀은 바꾸기 전에 그 contract를 쓰는 쪽을 모두 찾아 같은 변경에서 고치거나, 고칠 팀에게 작업을 만든다.
 
 ## 바꾸는 법
 

@@ -18,8 +18,8 @@ apps/                 실행 entry. 조립만 하고 업무 규칙을 두지 않
   cli/                lophn CLI
   mcp/                lophn-mcp (stdio MCP server)
 packages/
-  contracts/<최상위>/ 최상위 사이 contract(type과 schema). integrator만 고친다
-  base/               id, clock, Result와 오류 코드, canonical JSON, log. integrator만 고친다
+  contracts/<최상위>/ 최상위 사이 contract(type과 schema). contracts 팀만 고친다
+  base/               id, clock, Result와 오류 코드, canonical JSON, log. contracts 팀만 고친다
   design/             token, 컴포넌트, wording catalog
   sdk/                앱이 import하는 공개 SDK(ui-*, cap-*, format-*, blueprint)
   <최상위>/<leaf 경로>/  concern 하나의 코드

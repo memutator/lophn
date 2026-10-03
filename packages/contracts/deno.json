@@ -4,7 +4,8 @@
     ".": "./mod.ts",
     "./platform": "./platform/mod.ts",
     "./shell": "./shell/mod.ts",
-    "./documents": "./documents/mod.ts"
+    "./documents": "./documents/mod.ts",
+    "./coding-agent": "./coding-agent/mod.ts"
   },
   "compilerOptions": {
     "erasableSyntaxOnly": true

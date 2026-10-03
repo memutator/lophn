@@ -72,3 +72,4 @@ spec 문서 대신 테스트가 요구를 가리킨다.
 - commit 메시지는 영어 명령형 한 줄과 본문. 본문 끝에 `Refs: apps/registration#R1-R4, apps#T6`.
 - 병합 순서: contracts와 base → 선행이 없는 작업 → 나머지. 병합 전에 main으로 rebase하고 check를 다시 돈다.
 - 병합은 lead가 한다([team.md](team.md)).
+- 묻지 않고 한다: 작업이 끝나 check가 통과하면 commit하고, main에 병합하면 바로 push한다. 동시에 도는 작업은 worktree를 나눈다. 사람에게 묻는 것은 되돌릴 수 없는 git 작업(force push, 기록 지우기, branch 삭제 중 병합 안 된 것)뿐이다.

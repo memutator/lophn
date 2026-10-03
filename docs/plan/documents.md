@@ -525,10 +525,10 @@ concerns: [documents]
 - concern: documents/file-tracking, documents/versions
 - 요구: documents/file-tracking#R19, R20, documents/versions#R19, R20
 - 자리: packages/documents/file-tracking/ (FileTarget·FileObservationBasis의 instruction_file 가지, 등록 파일 관측), packages/documents/versions/ (instruction_file source·VersionSource, 지침 문서 write 보호)
-- 쓰는 contract: lophn-agent instructions(InstructionLocation·Attachment exact 등록 read, 지침 대상 판정), platform 인증·command
+- 쓰는 contract: contracts#T27의 InstructionLocation·Attachment exact 등록 read와 지침 대상 판정 port(T15·T16의 instruction_file 참조를 이 type으로 좁힘), platform 인증·command
 - 내놓는 contract: 파일 쓰기와 저장 준비 contract의 instruction_file 가지, 지침 대상(등록 locator 또는 preset 첨부)의 현재 확정 판 read와 지침 문서 여부 표시(lophn-agent/instructions#R3, R6이 씀)
 - slice: agent
-- 선행: T12, T19, contracts#?(지침 등록 값 InstructionLocation·Attachment; lophn-agent 구현 T18은 이 작업 뒤)
+- 선행: T12, T19, contracts#T27(지침 등록 값 InstructionLocation·Attachment와 지침 대상 판정 port; lophn-agent 구현 T18은 이 작업 뒤)
 - 완료:
   - 전역 `~/.lophn/LOPHN.md`·project·app LOPHN.md·preset 첨부 지침은 exact 등록 파일만 관측(data root 재귀 tracking·부모 순회·cwd 추측 없음), owner·실제 열린 파일·symlink·UTF-8·hash 검사
   - 최초 생성은 미존재 CAS, 저장·복원은 base_hash와 base_version CAS 뒤 재관측으로 새 판. 파일이 없으면 첫 저장 전에는 version 없음, agent가 빈 파일을 만들지 않음

@@ -12,7 +12,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 - **한 slice 앞서 간다.** slice X의 contract 작업은 slice X의 다른 팀 작업보다 먼저 main에 들어간다(contracts.md 병합 순서). 다른 팀은 자기 작업의 `선행:`에 여기 작업 id를 적는다.
 - **요청을 받아 작업에 넣는다.** 다른 팀이 보낸 contract 요청은 해당 작업의 `받은 요청:` 줄에 팀 이름으로 적는다. 바꿀 것이 생기면 같은 작업을 고치거나 새 작업을 더한다.
-- **소유 팀이 review한다.** contract PR을 열면 그 contract의 소유 팀에 review를 요청한다(이름·필드·오류가 architecture 5장과 domain model 그대로인지). 주로 쓰는 팀 하나에도 알린다. 소유 팀의 답 없이 합치지 않는다. 답이 늦으면 lead에게 알린다.
+- **소유 팀이 review한다.** contracts 팀 member가 review 기록을 남기고 합친 뒤, 그 contract의 소유 팀에 review를 요청한다(이름·필드·오류가 architecture 5장과 domain model 그대로인지). 기다리는 팀을 막지 않기 위해서다. 소유 팀이 고칠 것을 보내면 후속 contracts PR로 고친다.
 - **쓰는 쪽을 함께 고친다.** contract를 바꿀 때는 쓰는 코드를 모두 찾아 같은 PR에서 고치거나, 고칠 팀에 작업을 만들고 알린다(contracts.md).
 
 ## contract 코드 공통 규칙
@@ -270,6 +270,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T14 contracts/documents: 공통 값·Address·project·자리 이름 port
 
+- 상태: 완료 (#28)
 - 등급: 기본
 - concern: documents/addressing, documents/projects
 - 요구: documents/addressing#R1–R4, R10; documents/projects#R1–R5, R7, R9, R12

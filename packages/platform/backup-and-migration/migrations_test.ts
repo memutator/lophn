@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertThrows } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, sha256Hex } from "../../base/mod.ts";
 import type { SchemaStep } from "../../contracts/platform/mod.ts";
@@ -200,6 +200,78 @@ end;`,
       triggers.some((trigger) => trigger["name"] === "releases_no_delete"),
     );
     await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R1 #R4 #R5: owner step bootstrap은 history REPLACE와 domain 쓰기를 함께 rollback한다",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    try {
+      assert(
+        (await applyMigrations(path, [STEPS[0]], {
+          clock: manualClock(START),
+        })).ok,
+      );
+      const before = history(path);
+      const db = new DatabaseSync(path);
+      try {
+        db.exec("pragma recursive_triggers=OFF");
+        assertEquals(
+          db.prepare("pragma journal_mode").get()?.journal_mode,
+          "wal",
+        );
+        for (
+          const sql of [
+            "insert or replace into schema_migrations select * from schema_migrations",
+            "replace into schema_migrations select * from schema_migrations",
+            "insert into schema_migrations select * from schema_migrations where 1 on conflict (version) do update set content_hash = 'changed'",
+            "insert into schema_migrations select * from schema_migrations where 1 on conflict (version) do update set content_hash = excluded.content_hash",
+          ]
+        ) {
+          assertThrows(() => db.exec(sql), Error, "immutable");
+          assertEquals(
+            db.prepare("select * from schema_migrations order by version")
+              .all(),
+            before,
+          );
+        }
+        // 이전 bootstrap만 있는 설치를 재현해 upgrade 전 bootstrap도 검증한다.
+        db.exec("drop trigger schema_migrations_no_duplicate_insert");
+      } finally {
+        db.close();
+      }
+      const malicious: SchemaStep = {
+        id: "replace-history",
+        sql: `
+insert into notes (id, body) values (1, 'must rollback');
+pragma recursive_triggers=OFF;
+replace into schema_migrations (version, step_id, content_hash, applied_at)
+values (1, 'changed', 'changed', 'changed');`,
+      };
+      const refused = await applyMigrations(path, [STEPS[0], malicious], {
+        clock: manualClock(START),
+      });
+      assert(!refused.ok);
+      assertEquals(refused.error.code, "unavailable");
+      assertEquals(history(path), before);
+      const checked = new DatabaseSync(path, { readOnly: true });
+      try {
+        assertEquals(checked.prepare("select * from notes").all(), []);
+      } finally {
+        checked.close();
+      }
+      assert(
+        (await applyMigrations(path, STEPS, {
+          clock: manualClock(START),
+        })).ok,
+      );
+      assertEquals(history(path).slice(0, 1), before);
+      assertEquals(history(path).length, 2);
+    } finally {
+      await Deno.remove(dir, { recursive: true });
+    }
   },
 );
 

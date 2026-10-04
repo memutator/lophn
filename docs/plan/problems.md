@@ -50,6 +50,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음(schema와 catalog는 contracts/problems 상수; 이 package는 검사 함수를 problems 안에만 내놓는다)
 - slice: apps
 - 선행: contracts#T32
+- 상태: 완료 (#47)
 - 완료:
   - `model_test.ts`: code 정규식(1자·49자·hyphen·대문자 거절, 2자·48자 통과), blueprint 안 중복 거절, message_key·en·fixer 누락·공백·CR/LF·치환 자리표시자 거절, `_`로 시작하는 선언 거절(R1, R2, R5)
   - 예약 3종(`_exception`, `_feedback`, `_invalid_report`)의 key·en·fixer가 catalog와 같고, 앱 선언 0개에서도 3종이 별개로 나온다(R6)

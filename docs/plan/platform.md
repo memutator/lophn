@@ -333,6 +333,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: platform#T9
+- 상태: 완료 (#138)
 - 완료: 아래 확인이 통과한다
   - command 입장 전체 256·principal당 64·제어용 16 예약·시작 대기 5초, read 실행 2·대기 64·principal당 8, HTTP 동시 128·principal당 16, event 연결 32·principal당 4. 초과는 `unavailable`이고 caller의 priority 주장을 받지 않는다(R3).
   - 회수·정지 제어는 예약 영역으로 들어간다는 테스트
@@ -354,6 +355,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - `worker` route(problems의 report·request-test 등)는 같은 길로 JSON 결과·공통 오류를 그대로 돌려준다.
   - core는 바이트를 해석·저장하지 않고 응답 크기 상한과 timeout을 route마다 등록값으로 둔다. worker가 없거나 ready가 아니면 `unavailable`이다.
   - `forward_test.ts`에 위 요구 테스트
+- 상태: 완료 (#137)
 
 ### T13 blob 준비와 설치
 
@@ -731,6 +733,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T31 app credential과 앱 secret의 grant 검사
 
+- 상태: 완료 (#136)
 - 등급: 기본
 - concern: platform/identity, platform/secrets
 - 요구: platform/secrets#R10
@@ -744,6 +747,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 앱 direct 연결과 confirm 실행 증명은 새 token 종류가 아니라 apps가 서명하는 진술이다(→ Q15). platform은 `credential_ref`·기한과 core epoch만 준다. identity domain model의 "정할 것"을 같은 PR에서 이 내용으로 채운다.
   - 앱 secret 전송은 현재 grant만 보고, 호출마다 approval을 요구하지 않고, caller가 사람·agent·automation·다른 앱이라는 이유로 막지 않는다(R10).
   - `app_secret_test.ts`에 R10 테스트, flow manage-app-permissions의 secret 단계 통합 테스트
+  - R10 끝단(실제 grant 판정)은 apps#T4가 SecretAllowance를 채울 때 증명한다. platform 쪽은 port가 등록되지 않으면 attach·refresh가 forbidden인 fail closed다.
 
 ### T32 confirm 앱 command의 approval 사용
 

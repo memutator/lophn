@@ -25,6 +25,24 @@ export const en = {
   "common.button.view": "View",
   "common.label.more-waiting": "{count, plural, one {+# more} other {+# more}}",
   "common.palette.no-results": "Nothing matches your search.",
+  "common.label.sort-by": "Sort by",
+  "common.label.original-order": "Original order",
+  "common.button.sort-ascending": "Sort ascending",
+  "common.button.sort-descending": "Sort descending",
+  "common.button.columns": "Columns",
+  "common.button.previous-page": "Previous page",
+  "common.button.next-page": "Next page",
+  "common.label.row-range": "{start, number}–{end, number} of {total, number}",
+  "common.label.other": "Other",
+  "common.button.show-table": "Show table",
+  "common.button.show-chart": "Show chart",
+  "common.label.date-with-weekday": "{date} ({weekday})",
+  "common.label.value-range": "{start}–{end}",
+  "common.heading.group": "Group",
+  "common.heading.count": "Count",
+  "common.chart.too-many-groups":
+    "This chart can show up to {max, number} groups at once.",
+  "common.chart.unreadable": "This chart couldn't be drawn from its data.",
 } as const;
 
 export type Catalog = typeof en;

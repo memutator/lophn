@@ -223,6 +223,79 @@ Deno.test("shell/design-system#R43: renderer build가 @lophn/design/components�
   }
 });
 
+Deno.test("apps/sdk#R4: 공개 table·여섯 chart 예제는 React 한 벌·정본 CSS·로컬 fonts로 실제 renderer에서 동작한다", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "shell-renderer-sdk-"));
+  const dom = new Window({ url: "http://localhost/" });
+  const restore = installDom(dom);
+  (globalThis as unknown as Record<string, unknown>)
+    .IS_REACT_ACT_ENVIRONMENT = false;
+  let unmount = () => {};
+  try {
+    await build(dir, [{ in: join("testdata", "sdk-entry.tsx"), out: "sdk" }]);
+    const js = await readFile(join(dir, "sdk.js"), "utf8");
+    const css = await readFile(join(dir, "sdk.css"), "utf8");
+    assertEquals(
+      js.match(
+        /exports\.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE =/g,
+      )
+        ?.length,
+      1,
+    );
+    assert(css.includes("--chart-line: 2px"));
+    assert(css.includes("--chart-series-0: #3987e5"));
+    assert(css.includes("--color-surface-base: #161615"));
+    assert(css.includes("PretendardVariable.woff2"));
+    assert(css.includes("JetBrainsMonoVariable.woff2"));
+    assert(!/https?:\/\//.test(css));
+    for (const font of ["PretendardVariable", "JetBrainsMonoVariable"]) {
+      assertEquals(
+        await readFile(join(dir, `${font}.woff2`)),
+        await readFile(
+          new URL(
+            `../../../packages/design/fonts/${font}.woff2`,
+            import.meta.url,
+          ),
+        ),
+      );
+    }
+    const sheet = dom.document.createElement("style");
+    sheet.textContent = css;
+    dom.document.head.append(sheet);
+    const host = dom.document.createElement("div");
+    dom.document.body.append(host);
+    const entry = await import(pathToFileURL(join(dir, "sdk.js")).href);
+    unmount = entry.mount(host as unknown as HTMLElement);
+    for (let round = 0; round < 10; round++) {
+      if (host.querySelectorAll("svg[data-chart]").length === 6) break;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    assertEquals(
+      [...host.querySelectorAll("svg[data-chart]")].map((svg) =>
+        svg.getAttribute("data-chart")
+      ).sort(),
+      ["bar", "distribution", "graph", "line", "scatter", "stacked"],
+    );
+    assert(
+      host.querySelector("table")?.textContent?.includes("Example customer"),
+    );
+    assert(!/NaN|Infinity/.test(host.innerHTML));
+    const toggle = [...host.querySelectorAll("button")].find((button) =>
+      button.textContent === "Show table"
+    );
+    assert(toggle);
+    toggle.click();
+    for (let round = 0; round < 5; round++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    assertEquals(host.querySelectorAll("table").length, 2);
+  } finally {
+    unmount();
+    restore();
+    await dom.happyDOM.close();
+    await rm(dir, { recursive: true });
+  }
+});
+
 Deno.test("shell/app-frame#R24: import maps preserve each config relative base and reject conflicts", () => {
   const imports: Record<string, string> = {};
   mergeImports(

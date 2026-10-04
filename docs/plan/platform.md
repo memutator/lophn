@@ -390,6 +390,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T15 redaction 규칙 엔진
 
+- 상태: 완료 (#71)
 - 등급: 기본
 - concern: platform/redaction
 - 요구: platform/redaction#R1, R2, R3, R4, R5, R6, R14, R16, R17
@@ -667,6 +668,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T30 test 자식 메모리 상한 adapter
 
+- 상태: 완료 (#69)
 - 등급: 기본
 - concern: platform/security
 - 요구: platform/security#R3, problems/tests#R20

@@ -22,9 +22,14 @@ type Report = (
   message: string,
 ) => void;
 
+const PURE_CONTRACT = "packages/contracts/apps/blueprint-scope.ts";
+const PERMISSIONS = "packages/apps/permissions/";
+
 // Zod-bearing mod.ts 대신 정본 하나만 공개 wrapper에 허용한다.
+// permissions는 host 판정 정본(blueprint-scope)만 직접 쓴다. Zod mod.ts는 아니다.
 export function blueprintEntryImport(file: string, target: string): boolean {
-  return file === BLUEPRINT_WRAPPER && target === BLUEPRINT_ENTRY;
+  if (file === BLUEPRINT_WRAPPER && target === BLUEPRINT_ENTRY) return true;
+  return file.startsWith(PERMISSIONS) && target === PURE_CONTRACT;
 }
 
 export function checkBlueprintGraph(

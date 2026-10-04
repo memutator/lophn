@@ -62,6 +62,7 @@ concerns: [documents]
 
 ### T3 document format 추출 규칙
 
+- 상태: 완료 (#74)
 - 등급: 기본
 - concern: documents/formats
 - 요구: documents/formats#R1, R2, R3, R9, R10, R11, R12, R13, R14, R15, R16, R17

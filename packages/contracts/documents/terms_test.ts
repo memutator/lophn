@@ -20,7 +20,6 @@ const context = "ctx_01arz3ndektsv4rrffq69g5fav";
 const term = "trm_01arz3ndektsv4rrffq69g5fav";
 const document = "doc_01arz3ndektsv4rrffq69g5fav";
 const version = "ver_01arz3ndektsv4rrffq69g5fav";
-const question = "qst_01arz3ndektsv4rrffq69g5fav";
 const evidence = [{
   document,
   version,

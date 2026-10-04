@@ -1,6 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../../packages/base/mod.ts";
 import type { SecretPreparation } from "../../../packages/contracts/platform/mod.ts";
+import {
+  SECRET_EXPORT_OP,
+  SECRET_IMPORT_OP,
+} from "../../../packages/contracts/platform/mod.ts";
 import { createKnownSecretRegistry } from "../../../packages/platform/redaction/mod.ts";
 import {
   createFakeKeychain,
@@ -10,11 +14,7 @@ import {
   randomSealedRef,
   secretToolRunner,
 } from "../../../packages/platform/secrets/mod.ts";
-import {
-  createSecretPipe,
-  SECRET_EXPORT_OP,
-  SECRET_IMPORT_OP,
-} from "./secrets.ts";
+import { createSecretPipe } from "./secrets.ts";
 import { createSecretTransfer } from "../../../packages/platform/secrets/mod.ts";
 
 function store(): PreparationStore {
@@ -143,13 +143,13 @@ Deno.test("platform/secrets#R9: secret.export와 secret.import는 암호 callbac
       request_id: "e1",
       op: SECRET_EXPORT_OP,
       payload: {
-        records: [{
+        context: input.context,
+        secrets: [{
           name: "service.key",
-          sealedRef: stored.value,
-          revision: 1,
+          sealed_ref: stored.value,
+          purpose: "app_secret",
+          owner: "service.key",
         }],
-        purpose: "app_secret",
-        owner: "service.key",
       },
     },
     () => Promise.resolve("export-passphrase"),
@@ -158,26 +158,28 @@ Deno.test("platform/secrets#R9: secret.export와 secret.import는 암호 callbac
   const file = JSON.stringify(exported.payload);
   assert(!file.includes("moved-value"));
   assert(!file.includes("export-passphrase"));
+  // 암호문은 JSON이 아니라 byte chunk로만 나온다. pipe 응답은 크기만 담는다.
+  assertEquals(
+    (exported.payload as { ciphertext_bytes: number }).ciphertext_bytes > 0,
+    true,
+  );
 
   const imported = await pipe.handle(
     {
       request_id: "i1",
       op: SECRET_IMPORT_OP,
-      payload: {
-        bytes: (exported.payload as { bytes: Uint8Array }).bytes,
-        current: [],
-      },
+      payload: { context: input.context, current: [] },
     },
     () => Promise.resolve("export-passphrase"),
   );
-  assert(imported.ok);
-  assert(!JSON.stringify(imported.payload).includes("moved-value"));
+  assert(!imported.ok);
+  assertEquals(imported.error.code, "invalid_input");
 
   const missing = await pipe.handle(
     {
       request_id: "i2",
       op: SECRET_IMPORT_OP,
-      payload: { bytes: new Uint8Array(), current: [] },
+      payload: { context: input.context, current: [] },
     },
     () => Promise.resolve(undefined),
   );

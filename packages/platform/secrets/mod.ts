@@ -41,6 +41,7 @@ export {
   createSecretAttach,
   SECRET_SEND,
   type SecretAttach,
+  type SecretReferenceLookup,
 } from "./attach.ts";
 export { attachAllowed, destinationHost, sameDestination } from "./model.ts";
 export {

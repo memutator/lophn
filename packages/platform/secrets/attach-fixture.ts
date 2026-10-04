@@ -10,7 +10,7 @@ import { defineCommand } from "../../contracts/platform/mod.ts";
 import { z } from "zod";
 import { defineSyncCommand } from "../ledger/mod.ts";
 import { createFakeKeychain } from "./adapters/fake-keychain.ts";
-import type { SecretAllowance } from "./attach.ts";
+import type { SecretReferenceLookup } from "./attach.ts";
 import type { RefreshSubmission } from "./refresh.ts";
 import { createSecretWork, type PreparationStore } from "./work.ts";
 import { createKnownSecretRegistry } from "../redaction/mod.ts";
@@ -58,10 +58,11 @@ export function refreshInput(
   };
 }
 
-export function allowance(current = use()): SecretAllowance {
+export function references(current = use()): SecretReferenceLookup {
   return {
     current: () =>
       Promise.resolve(ok({
+        name: "provider-a",
         sealedRef: current.sealed_ref,
         revision: current.revision,
         purpose: current.purpose,
@@ -69,6 +70,9 @@ export function allowance(current = use()): SecretAllowance {
       })),
   };
 }
+
+export const granted = () => ok(undefined);
+export const alive = () => true;
 
 export function storeValue(keychain: ReturnType<typeof createFakeKeychain>) {
   return keychain.store({

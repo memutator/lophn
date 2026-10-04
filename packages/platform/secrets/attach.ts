@@ -4,6 +4,8 @@
 import { err, type Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
+  ProcessLivenessCheck,
+  SecretAllowanceCheck,
   SecretSendInput,
   SecretSendOutput,
   SecretValue,
@@ -14,21 +16,17 @@ import { attachAllowed } from "./model.ts";
 
 export const SECRET_SEND = "secret.send";
 
-export type SecretAllowance = {
-  // 현재 참조·판·용도와 사람이 허용한 목적지. 앱 사용은 현재 grant를 반영한 결과만 온다.
+// 현재 참조·판·용도·허용 목적지. grant 판정(SecretAllowance)과 분리한다.
+export type SecretReferenceLookup = {
   current(use: SecretSendInput["use"]): Promise<
     Result<{
+      name: string;
       sealedRef: string;
       revision: number;
       purpose: SecretSendInput["use"]["purpose"];
       destination: SecretSendInput["use"]["destination"];
     }>
   >;
-};
-
-export type ProcessLiveness = {
-  // credential에 묶인 process가 아직 살아 있는지(platform/secrets#R5).
-  alive(process: string): Promise<boolean>;
 };
 
 export type SecretAttach = {
@@ -50,26 +48,34 @@ const CONFLICT = {
 
 export function createSecretAttach(options: {
   keychain: KeychainAdapter;
-  allowance: SecretAllowance;
-  processes: ProcessLiveness;
+  references: SecretReferenceLookup;
+  // contract port. 앱 사용의 현재 grant를 판정한다.
+  allowance: SecretAllowanceCheck;
+  // contract port. context의 process가 살아 있는지 답한다.
+  processes: ProcessLivenessCheck;
 }): SecretAttach {
   return {
     async send(input, transmit) {
       const admitted = admit(input.context);
       if (!admitted.ok) return admitted;
-      if (!(await options.processes.alive(input.context.conditions.process!))) {
-        return err(FORBIDDEN);
-      }
-      const allowed = await options.allowance.current(input.use);
-      if (!allowed.ok) return allowed;
+      if (!options.processes(input.context)) return err(FORBIDDEN);
+      const current = await options.references.current(input.use);
+      if (!current.ok) return current;
+      const granted = options.allowance({
+        context: input.context,
+        name: current.value.name,
+        purpose: input.use.purpose,
+        destination: input.use.destination,
+      });
+      if (!granted.ok) return granted;
       const verdict = attachAllowed(
-        allowed.value,
+        current.value,
         input.use,
-        allowed.value.destination,
+        current.value.destination,
       );
       if (verdict === "conflict") return err(CONFLICT);
       if (verdict !== "ok") return err(FORBIDDEN);
-      const loaded = await options.keychain.load(allowed.value.sealedRef);
+      const loaded = await options.keychain.load(current.value.sealedRef);
       if (!loaded.ok) {
         return err({
           code: "unavailable",

@@ -5,10 +5,12 @@ import { createFakeKeychain } from "./adapters/fake-keychain.ts";
 import { createSecretAttach } from "./attach.ts";
 import { createSecretRefresh } from "./refresh.ts";
 import {
-  allowance,
+  alive,
   context,
   fakeTx,
+  granted,
   ownerCommand,
+  references,
   refreshInput,
   storeValue,
   submission,
@@ -24,8 +26,9 @@ Deno.test("platform/secrets#R5: 허용된 전송은 callback 메모리에만 값
   assert(saved.ok);
   const attach = createSecretAttach({
     keychain,
-    allowance: allowance(use({ sealed_ref: saved.value })),
-    processes: { alive: () => Promise.resolve(true) },
+    references: references(use({ sealed_ref: saved.value })),
+    allowance: granted,
+    processes: alive,
   });
   let seen = "";
   const sent = await attach.send(
@@ -52,8 +55,9 @@ Deno.test("platform/secrets#R5 platform/security#R9: redirect의 다른 host에�
   assert(saved.ok);
   const attach = createSecretAttach({
     keychain,
-    allowance: allowance(use({ sealed_ref: saved.value })),
-    processes: { alive: () => Promise.resolve(true) },
+    references: references(use({ sealed_ref: saved.value })),
+    allowance: granted,
+    processes: alive,
   });
   let called = false;
   const redirected = await attach.send(
@@ -84,8 +88,9 @@ Deno.test("platform/security#R9: 같은 host redirect는 다시 검사해 통과
   const current = use({ sealed_ref: saved.value });
   const attach = createSecretAttach({
     keychain,
-    allowance: allowance(current),
-    processes: { alive: () => Promise.resolve(true) },
+    references: references(current),
+    allowance: granted,
+    processes: alive,
   });
   const again = await attach.send(
     {
@@ -114,8 +119,9 @@ Deno.test("platform/secrets#R5: 외부 MCP 고정 연결도 다른 연결에는 
   });
   const attach = createSecretAttach({
     keychain,
-    allowance: allowance(current),
-    processes: { alive: () => Promise.resolve(true) },
+    references: references(current),
+    allowance: granted,
+    processes: alive,
   });
   const moved = await attach.send(
     {
@@ -144,8 +150,9 @@ Deno.test("platform/secrets#R5: 죽은 process·다른 scope·오래된 판은 �
   const current = use({ sealed_ref: saved.value });
   const dead = createSecretAttach({
     keychain,
-    allowance: allowance(current),
-    processes: { alive: () => Promise.resolve(false) },
+    references: references(current),
+    allowance: granted,
+    processes: () => false,
   });
   const ended = await dead.send(
     {
@@ -161,8 +168,9 @@ Deno.test("platform/secrets#R5: 죽은 process·다른 scope·오래된 판은 �
 
   const narrow = createSecretAttach({
     keychain,
-    allowance: allowance(current),
-    processes: { alive: () => Promise.resolve(true) },
+    references: references(current),
+    allowance: granted,
+    processes: alive,
   });
   const borrowed = await narrow.send(
     {
@@ -193,6 +201,8 @@ Deno.test("platform/secrets#R3: agent가 받는 갱신 거절에는 이름·사�
   const refresh = createSecretRefresh({
     work: work(),
     submit: submission(),
+    allowance: granted,
+    processes: alive,
     transaction: (run) => Promise.resolve(run(fakeTx())),
   });
   const rejected = await refresh.store(
@@ -219,6 +229,8 @@ Deno.test("platform/secrets#R11: 갱신 성공은 값 없는 준비와 CAS만 �
   const refresh = createSecretRefresh({
     work: work(keychain),
     submit: submission(command),
+    allowance: granted,
+    processes: alive,
     transaction: (run) => {
       const tx = fakeTx((route, input, compare) => {
         submitted = { input, compare };
@@ -253,6 +265,8 @@ Deno.test("platform/secrets#R11: 제출이 실패하면 이전 참조를 유지�
   const refresh = createSecretRefresh({
     work: work(keychain),
     submit: submission(),
+    allowance: granted,
+    processes: alive,
     transaction: (run) =>
       Promise.resolve(
         run(fakeTx(() => err({ code: "conflict", message: "판이 다르다" }))),
@@ -273,6 +287,8 @@ Deno.test("platform/secrets#R11: 오래된 판의 갱신 제출은 keychain을 �
   const refresh = createSecretRefresh({
     work: work(keychain),
     submit: submission(),
+    allowance: granted,
+    processes: alive,
     transaction: () =>
       Promise.resolve(ok({ sealed_ref: "x", revision: 3, configured: true })),
   });

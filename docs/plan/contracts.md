@@ -688,6 +688,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T33 contracts/apps: blueprint·permission·agent-context
 
+- 상태: 완료 (#57)
 - 등급: 기본
 - concern: apps/blueprint, apps/permissions, apps/agent-context, apps/sdk
 - 요구: apps/blueprint#R1, R4–R7, R10–R16, R18–R22; apps/agent-context#R1–R5; apps/automations#R1, R2, R13; apps/connections#R1; apps/permissions#R3, R5, R7–R10, R12–R14, R26, R27; apps/sdk#R2–R4, R7, R34

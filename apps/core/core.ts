@@ -107,7 +107,7 @@ async function open(
       CREDENTIAL_SCHEMA,
       ...assembled.value.schemaSteps,
     ],
-    { clock },
+    { clock, recovery: { root: root.path } },
   );
   if (!migrated.ok) return migrated;
   const epoch = hex(random, 16);

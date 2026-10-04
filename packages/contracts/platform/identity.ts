@@ -25,6 +25,16 @@ export const credentialScopeSchema = z.strictObject({
 });
 export type CredentialScope = z.infer<typeof credentialScopeSchema>;
 
+// OS의 realpath 판정은 host에 남기고 정규 절대 경로 모양만 검사한다.
+const cwdConditionSchema = z.string().min(1).refine(
+  (value) =>
+    !/\p{Cc}/u.test(value) &&
+    (/^\//.test(value) || /^[A-Za-z]:[\\/]/.test(value) ||
+      /^\\\\[^\\]+\\[^\\]+/.test(value)) &&
+    !value.split(/[\\/]/).some((part) => part === "." || part === ".."),
+  { message: "expected normalized absolute path" },
+);
+
 export const credentialConditionsSchema = z.strictObject({
   run: idSchema("run").optional(),
   assignment: idSchema("asg").optional(),
@@ -33,6 +43,8 @@ export const credentialConditionsSchema = z.strictObject({
   process: z.string().min(1).optional(),
   mode: z.string().min(1).optional(),
   task: z.string().min(1).optional(),
+  // coding agent의 현재 위치 근거. 인증 경계가 연결·session 기록에서 정하며 요청 body·header 값이 아니다.
+  cwd: cwdConditionSchema.optional(),
 });
 export type CredentialConditions = z.infer<typeof credentialConditionsSchema>;
 

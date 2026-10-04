@@ -15,6 +15,11 @@ export * from "./search.ts";
 export * from "./guides.ts";
 export * from "./file-values.ts";
 export * from "./files.ts";
+export * from "./contexts.ts";
+export * from "./context-reads.ts";
+export * from "./context-routes.ts";
+export * from "./terms.ts";
+export * from "./term-routes.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
 import { FORMAT_ROUTES } from "./formats.ts";
@@ -24,6 +29,10 @@ import { HISTORY_ROUTES } from "./history.ts";
 import { SEARCH_ROUTES } from "./search.ts";
 import { GUIDE_ROUTES } from "./guides.ts";
 import { FILE_EVENTS, FILE_ROUTES } from "./files.ts";
+import { CONTEXT_ROUTES } from "./context-routes.ts";
+import { CONTEXT_EVENTS } from "./contexts.ts";
+import { TERM_ROUTES } from "./term-routes.ts";
+import { TERM_EVENTS } from "./terms.ts";
 
 export const DOCUMENT_READ_ROUTES = [
   ...OUTLINE_ROUTES,
@@ -70,6 +79,8 @@ export const ROUTES = [
   ...FORMAT_ROUTES,
   ...DOCUMENT_READ_ROUTES,
   ...FILE_ROUTES,
+  ...CONTEXT_ROUTES,
+  ...TERM_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -80,4 +91,6 @@ export const EVENTS = [
   projectUnarchived,
   ...DOCUMENT_EVENTS,
   ...FILE_EVENTS,
+  ...CONTEXT_EVENTS,
+  ...TERM_EVENTS,
 ] as const;

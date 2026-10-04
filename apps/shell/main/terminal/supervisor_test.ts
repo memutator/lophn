@@ -23,7 +23,10 @@ function runtime(state: TerminalRuntime["state"]): TerminalRuntime {
   };
 }
 
-function fakeHost(): HostProcess & { lines: string[]; exit: (code: number | null) => void } {
+function fakeHost(): HostProcess & {
+  lines: string[];
+  exit: (code: number | null) => void;
+} {
   const listeners: Array<(code: number | null) => void> = [];
   const host = {
     lines: [] as string[],
@@ -83,7 +86,10 @@ test("shell/terminal#R9: host가 이미 없으면 요청은 host_lost이고 입�
     spawnHost: () => child,
   });
   child.exit(1);
-  const reply: TerminalReply = await supervisor.request({ type: "input", text: "echo secret" });
+  const reply: TerminalReply = await supervisor.request({
+    type: "input",
+    text: "echo secret",
+  });
   assert.equal(reply.ok, false);
   if (reply.ok) return;
   assert.equal(reply.reason, "host_lost");

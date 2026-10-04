@@ -62,10 +62,8 @@ if (fileURLToPath(import.meta.url) === process.argv[1]) {
     [
       join(here, "node_modules/@electron/rebuild/lib/cli.js"),
       "-f",
-      "-w",
-      "node-pty",
-      "-o",
-      ".",
+      "-m",
+      join(here, "node_modules/node-pty"),
     ],
     { cwd: here, stdio: "inherit" },
   );

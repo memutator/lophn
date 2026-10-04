@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { resolveLoginShell, stripPlatformEnv } from "../../terminal-host/env.ts";
+import {
+  resolveLoginShell,
+  stripPlatformEnv,
+} from "../../terminal-host/env.ts";
 
 test("shell/terminal#R5: 일반 shell 환경에서 token·handle·내부 endpoint를 뺀다", () => {
   const cleaned = stripPlatformEnv({

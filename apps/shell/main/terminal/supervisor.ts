@@ -38,7 +38,11 @@ export function createSupervisor(options: {
     lost = true;
     for (const [id, resolve] of pending) {
       pending.delete(id);
-      resolve({ ok: false, reason: "host_lost", message: "terminal host exited" });
+      resolve({
+        ok: false,
+        reason: "host_lost",
+        message: "terminal host exited",
+      });
       void id;
     }
     for (const runtime of runtimes.values()) {
@@ -51,13 +55,19 @@ export function createSupervisor(options: {
   });
 
   function onLine(line: string): void {
-    let parsed: { id?: string; reply?: TerminalReply; runtime?: TerminalRuntime };
+    let parsed: {
+      id?: string;
+      reply?: TerminalReply;
+      runtime?: TerminalRuntime;
+    };
     try {
       parsed = JSON.parse(line) as typeof parsed;
     } catch {
       return;
     }
-    if (parsed.runtime) runtimes.set(parsed.runtime.terminal_ref, parsed.runtime);
+    if (parsed.runtime) {
+      runtimes.set(parsed.runtime.terminal_ref, parsed.runtime);
+    }
     if (parsed.id && parsed.reply) {
       const resolve = pending.get(parsed.id);
       if (resolve) {
@@ -120,7 +130,9 @@ async function readLines(
 ): Promise<void> {
   let buffer = "";
   for await (const piece of stream) {
-    buffer += typeof piece === "string" ? piece : new TextDecoder().decode(piece);
+    buffer += typeof piece === "string"
+      ? piece
+      : new TextDecoder().decode(piece);
     let nl = buffer.indexOf("\n");
     while (nl >= 0) {
       const line = buffer.slice(0, nl);

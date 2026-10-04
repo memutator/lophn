@@ -5,16 +5,16 @@ import type { ZodType } from "zod";
 
 import {
   type TerminalClose,
+  terminalCloseSchema,
   type TerminalInput,
+  terminalInputSchema,
   type TerminalOpen,
+  terminalOpenSchema,
   type TerminalReply,
   type TerminalResize,
-  type TerminalRuntime,
-  terminalCloseSchema,
-  terminalInputSchema,
-  terminalOpenSchema,
   terminalResizeSchema,
   terminalRestartSchema,
+  type TerminalRuntime,
 } from "../../ipc/terminal.ts";
 import {
   checkCaller,
@@ -29,7 +29,9 @@ export type FocusTable = {
 };
 
 export type FolderSource = {
-  folders(project: string): Promise<readonly { folder_ref: string; path: string }[]>;
+  folders(
+    project: string,
+  ): Promise<readonly { folder_ref: string; path: string }[]>;
 };
 
 export type TerminalIpc = {
@@ -92,35 +94,66 @@ export function createTerminalIpc(deps: {
         });
       }),
     input: (event, input) =>
-      guarded<TerminalInput>(event, terminalInputSchema, input, async (value) => {
-        if (!deps.focus.focused(event.sender.id, value.terminal_ref)) {
-          return { ok: false, reason: "host_lost", message: "terminal is not focused" };
-        }
-        return await deps.host.request({ type: "input", ...value });
-      }),
-    resize: (event, input) =>
-      guarded<TerminalResize>(event, terminalResizeSchema, input, async (value) => {
-        if (!deps.focus.focused(event.sender.id, value.terminal_ref)) {
-          return { ok: false, reason: "host_lost", message: "terminal is not focused" };
-        }
-        return await deps.host.request({ type: "resize", ...value });
-      }),
-    close: (event, input) =>
-      guarded<TerminalClose>(event, terminalCloseSchema, input, async (value) => {
-        if (deps.confirmClose) {
-          const allowed = await deps.confirmClose(
-            runningStub(value.terminal_ref, value.generation),
-          );
-          if (!allowed) {
-            return { ok: false, reason: "host_lost", message: "close cancelled" };
+      guarded<TerminalInput>(
+        event,
+        terminalInputSchema,
+        input,
+        async (value) => {
+          if (!deps.focus.focused(event.sender.id, value.terminal_ref)) {
+            return {
+              ok: false,
+              reason: "host_lost",
+              message: "terminal is not focused",
+            };
           }
-        }
-        return await deps.host.request({ type: "close", ...value });
-      }),
+          return await deps.host.request({ type: "input", ...value });
+        },
+      ),
+    resize: (event, input) =>
+      guarded<TerminalResize>(
+        event,
+        terminalResizeSchema,
+        input,
+        async (value) => {
+          if (!deps.focus.focused(event.sender.id, value.terminal_ref)) {
+            return {
+              ok: false,
+              reason: "host_lost",
+              message: "terminal is not focused",
+            };
+          }
+          return await deps.host.request({ type: "resize", ...value });
+        },
+      ),
+    close: (event, input) =>
+      guarded<TerminalClose>(
+        event,
+        terminalCloseSchema,
+        input,
+        async (value) => {
+          if (deps.confirmClose) {
+            const allowed = await deps.confirmClose(
+              runningStub(value.terminal_ref, value.generation),
+            );
+            if (!allowed) {
+              return {
+                ok: false,
+                reason: "host_lost",
+                message: "close cancelled",
+              };
+            }
+          }
+          return await deps.host.request({ type: "close", ...value });
+        },
+      ),
     restart: (event, input) =>
       guarded(event, terminalRestartSchema, input, async (value) => {
         if (!deps.focus.focused(event.sender.id, value.terminal_ref)) {
-          return { ok: false, reason: "host_lost", message: "terminal is not focused" };
+          return {
+            ok: false,
+            reason: "host_lost",
+            message: "terminal is not focused",
+          };
         }
         return await deps.host.request({ type: "restart", ...value });
       }),

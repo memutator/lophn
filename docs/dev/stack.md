@@ -1,14 +1,6 @@
 ---
 type: guide
-concerns: [
-  platform,
-  documents,
-  apps,
-  problems,
-  lophn-agent,
-  coding-agent,
-  shell,
-]
+concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell]
 ---
 
 # 기술 스택과 개발 환경

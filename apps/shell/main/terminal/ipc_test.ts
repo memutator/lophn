@@ -121,16 +121,26 @@ test("shell/terminal#R10: 닫기 확인을 취소하면 host에 close를 보내�
     host: {
       request: async (message) => {
         sent.push(message);
-        return await Promise.resolve({ ok: false, reason: "host_lost", message: "no" });
+        return await Promise.resolve({
+          ok: false,
+          reason: "host_lost",
+          message: "no",
+        });
       },
     },
     confirmClose: async () => false,
   });
-  const reply = await holding.close(event(sender), { terminal_ref: "term_1", generation: 1 });
+  const reply = await holding.close(event(sender), {
+    terminal_ref: "term_1",
+    generation: 1,
+  });
   assert.equal(reply.ok, true);
   if (!reply.ok) return;
   assert.equal(reply.value.ok, false);
   if (reply.value.ok) return;
   assert.equal(reply.value.message, "close cancelled");
-  assert.equal(sent.some((item) => (item as { type?: string }).type === "close"), false);
+  assert.equal(
+    sent.some((item) => (item as { type?: string }).type === "close"),
+    false,
+  );
 });

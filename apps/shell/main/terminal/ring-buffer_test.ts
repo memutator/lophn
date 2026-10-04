@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { MAX_BYTES, MAX_LINES, RingBuffer } from "../../terminal-host/ring-buffer.ts";
+import {
+  MAX_BYTES,
+  MAX_LINES,
+  RingBuffer,
+} from "../../terminal-host/ring-buffer.ts";
 
 test("shell/terminal#R7: 10,000줄을 넘으면 오래된 chunk부터 빼고 dropped를 켠다", () => {
   const buffer = new RingBuffer();

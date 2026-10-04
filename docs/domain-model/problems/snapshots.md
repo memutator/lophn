@@ -77,7 +77,7 @@ Report 순간의 증거와 각 항목의 누락 이유를 불변 Snapshot으로 
 | `observed_at` | 공통 시각 | 아니오 | 실제 캡처 시각; 버튼 시점 binding과 일치 | 당시 화면 시점 |
 | `state` | sha256 blob 참조 | 예 | redaction된 JSON; 화면명·선택 탭·입력 형태; 한도 → problems/feedback | 안전한 화면 상태 |
 | `state_missing_reason` | MissingReason | 예 | state가 null일 때 필수 | 상태 없는 이유 |
-| `screenshot` | sha256 blob 참조 | 예 | 사람이 선택한 redaction PNG; 한도 → problems/feedback | 선택 이미지 |
+| `screenshot` | sha256 blob 참조 | 예 | 사람이 선택한 PNG; 한도 → problems/feedback | 선택 이미지 |
 | `screenshot_missing_reason` | MissingReason | 예 | screenshot이 null일 때 필수 | 이미지 없는 이유 |
 
 ## 관계

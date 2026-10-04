@@ -617,6 +617,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T27 contracts/lophn-agent: preset·assignment
 
+- 상태: 완료 (#101)
 - 등급: 기본
 - concern: lophn-agent/presets, lophn-agent/assignments, lophn-agent/instructions
 - 요구: lophn-agent/presets#R1–R3, R5–R7, R9, R11, R13, R15, R16; lophn-agent/assignments#R2–R6, R9, R10, R16, R17; lophn-agent/extensions#R30, R31; lophn-agent/scheduling#R1, R3; lophn-agent/harness/provider#R8; lophn-agent/harness/model#R8; lophn-agent/harness/tools#R10; lophn-agent/roles/context-engineer#R12
@@ -1162,4 +1163,5 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q31 T48 `lophn_project` current의 architecture 표 `cwd?`는 MCP 프로세스 고정 `--cwd`가 credential 조건이 되는 값이라 caller 입력이 아니다(추천안). tool 입력은 `project.resolve_cwd`의 빈 객체를 그대로 쓰고, 근거가 없으면 fail-closed다. note·tag는 documents 저장 입력에 없어 tool 입력으로 받지 않는다.
 - Q32 T23 보호 export·import는 공개 route가 아닌 machine pipe op이고 원값·암호·암호문을 JSON에 싣지 않는다(추천안, platform 요청). import 결과는 이름마다 새 준비와 기록 CAS(sealed_ref·revision, 없던 이름은 둘 다 null)다. 앱 secret 사용의 현재 grant 판정 `SecretAllowance`와 process 생존 `ProcessLiveness`는 다른 최상위가 구현하는 seam이라 contract port로 둔다. 실제 KDF·암호화·keychain 기록·grant 판정은 owner runtime 책임이다.
 - Q33 T40 예외 지문 입력은 오류 이름과 상위 최대 3개 앱 frame의 상대 path·function뿐이고 hash는 collector가 canonical JSON sha256으로 낸다(추천안). work 종료 사유는 released·expired·completion_reported·cancelled 넷, 목록·상세의 증상·다음 행동 문구는 host가 채운 문자열, closure confirmation은 일회 handle 참조 문자열, 문제 결정 등록 이름은 problem_decision, 표시 read는 problems/get이다. section key는 documents 정본을 재사용한다.
+- Q34 T27 preset·assignment의 prompt는 원문이 아니라 sha256이고, PresetCreated는 그 hash와 함께 판 전체 `definition`을 싣는다(추천안). instruction-attachments의 `in_use`는 현재 assignment가 그 preset revision을 쓰는지다. `InstructionLocation.place`는 documents가 정한 등록 자리 문자열이고 경로 문법 검사는 documents가 한다. `InstructionAttachments`·`OperatorOutput` port는 동기 Result다. Operator 적용의 confirmation binding은 approval·decision_seq·bundle이고 표시 read는 assignments/read다. ChangeAssignmentPreset의 compare role은 lophn·app_engineer·context_engineer만이다. schema의 모양 검사는 이름 중복·참조 존재·현재 권한·승인 한 번 사용·출력 독점 판정을 대신하지 않는다.
 - Q35 T38 화면 검사 host 입력은 `{bundle_screens_dir, screens[{key, path}], app_socket_path, deadline_ms}`이고 관측은 `{load, errors, feedback_check, blocked_requests}`다(추천안). 통로는 상속 fd 3의 JSON lines, 시작 flag는 `--app-screen-test`다. runner가 찾는 실행 파일은 Linux `/opt/lophn/desktop/lophn-desktop`, macOS `Lophn.app/Contents/Resources/desktop/lophn-desktop`, Windows `Lophn/resources/desktop/lophn-desktop.exe`다. `connectionState`는 apps/runtime의 preparing·stopped·running·unavailable다. shell partition 이름은 `persist:shell`이다. `lophnApp`의 portable entry는 Zod 없는 `shell/app-bridge`다. screenshot 미리보기는 사람이 고른 hash만 두고 redaction 불가 이유·가림 값은 두지 않는다(D32).

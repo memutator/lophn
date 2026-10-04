@@ -552,6 +552,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T26 contracts/lophn-agent: run·session·message·occurrence
 
+- 상태: 완료 (#60)
 - 등급: 기본
 - concern: lophn-agent/harness/run-loop, lophn-agent/harness/waiting-and-recovery, lophn-agent/conversation, lophn-agent/scheduling
 - 요구: lophn-agent/conversation#R1–R5, R7–R10, R12–R14, R16, R17; lophn-agent/harness/run-loop#R1–R3, R6, R7, R18–R20; lophn-agent/harness/waiting-and-recovery#R1, R3, R5–R7, R10; lophn-agent/scheduling#R1, R4–R7; lophn-agent/handoff#R3, R8; lophn-agent/harness/prompt-assemble#R19, R20; lophn-agent/roles/operator#R6

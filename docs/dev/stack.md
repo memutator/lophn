@@ -56,6 +56,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | postcss-value-parser 4.2.0 | packages/design/style-check | 선언과 media 값의 함수·단위·token 참조를 검사하여 regex만으로 CSS 값을 해석하지 않는다 |
 | @radix-ui/react-select 2.3.7, @radix-ui/react-tabs 1.1.21, @radix-ui/react-checkbox 1.3.11, @radix-ui/react-switch 1.3.7 | packages/design/components | 선택·탭·checkbox·switch의 열고 닫기, 키보드, focus 복귀를 검증된 primitive로 둔다(shell/design-system#R43). React는 renderer와 같은 19.3.0 한 벌로 묶는다 |
 | lucide-react 1.51.0 | packages/design/components | 한 벌의 아이콘을 선 1.5, 14·16·20px로 쓴다(shell/design-system#R43) |
+| @lezer/markdown 1.7.2 (@lezer/common 1.5.3, @lezer/highlight 1.2.5를 함께 끌어온다) | packages/design/reading | Markdown 읽기 renderer의 parser. 편집기(CodeMirror 6)와 같은 Lezer Markdown 하나로 읽기·편집 위치 차이를 줄이고 parser를 둘 들이지 않는다. tree를 React 글과 element로만 그려 HTML을 실행하지 않는다. marked·HTML parser는 들이지 않는다 |
 | happy-dom 20.14.5 | packages/design/components_test.ts | 컴포넌트 옆 `*_test.tsx`를 DOM·event·keyboard·computed style로 `deno test` 안에서 돌린다 |
 | esbuild 0.28.2, @luca/esbuild-deno-loader 0.11.1 | packages/design/components_test.ts | Deno가 CSS Modules를 읽지 못해 컴포넌트 테스트를 renderer와 같은 `local-css` loader로 한 bundle에 묶어 happy-dom에서 돌린다 |
 

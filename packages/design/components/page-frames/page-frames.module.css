@@ -1,0 +1,175 @@
+/* 관측 대상. padding·border가 없어 관측 폭이 곧 칸 폭이다. */
+.frame {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: var(--space-0);
+}
+
+.pad {
+  box-sizing: border-box;
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+}
+
+.frame[data-pad="narrow"] .pad,
+.tableFrame[data-pad="narrow"] .pad {
+  padding: var(--space-8) var(--layout-pane-padding-narrow);
+}
+
+/* 최대폭 기둥은 auto 여백 대신 가운데 정렬로 가용 영역 가운데에 둔다. */
+.center {
+  display: flex;
+  justify-content: center;
+}
+
+/* 머리와 본문 사이 24px. */
+.head {
+  margin: var(--space-0) var(--space-0) var(--space-8);
+}
+
+.column {
+  flex: 0 1 var(--page-form);
+  min-width: var(--space-0);
+  max-width: var(--page-form);
+}
+
+.column[data-frame="launcher"] {
+  flex-basis: var(--page-launcher);
+  max-width: var(--page-launcher);
+}
+
+.column[data-frame="overview"] {
+  flex-basis: var(--page-overview);
+  max-width: var(--page-overview);
+}
+
+.dashboard {
+  flex: 0 1 var(--page-dashboard-max);
+  min-width: var(--space-0);
+  max-width: var(--page-dashboard-max);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--page-dashboard-columns), minmax(0, 1fr));
+  row-gap: var(--space-6);
+  column-gap: var(--space-6);
+}
+
+.cell {
+  min-width: var(--space-0);
+}
+
+.cell[data-span="1"] {
+  grid-column: span 1;
+}
+.cell[data-span="2"] {
+  grid-column: span 2;
+}
+.cell[data-span="3"] {
+  grid-column: span 3;
+}
+.cell[data-span="4"] {
+  grid-column: span 4;
+}
+.cell[data-span="5"] {
+  grid-column: span 5;
+}
+.cell[data-span="6"] {
+  grid-column: span 6;
+}
+.cell[data-span="7"] {
+  grid-column: span 7;
+}
+.cell[data-span="8"] {
+  grid-column: span 8;
+}
+.cell[data-span="9"] {
+  grid-column: span 9;
+}
+.cell[data-span="10"] {
+  grid-column: span 10;
+}
+.cell[data-span="11"] {
+  grid-column: span 11;
+}
+.cell[data-span="12"] {
+  grid-column: span 12;
+}
+
+.listDetail {
+  display: grid;
+  grid-template-columns: var(--page-list) minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-height: var(--space-0);
+}
+
+/* 영역 구분은 테두리 하나만 쓴다(R5). */
+.list {
+  min-height: var(--space-0);
+  overflow: auto;
+  border-inline-end: var(--border-width) solid var(--color-border-subtle);
+}
+
+.detail {
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
+.tableFrame {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.tableBody {
+  flex: 1 1 auto;
+  min-height: var(--space-0);
+  width: 100%;
+}
+
+/* 목차가 옆이면 본문+48px+목차 묶음을, 아니면 본문만 가운데 둔다. */
+.reading {
+  display: flex;
+  justify-content: center;
+  column-gap: var(--space-11);
+}
+
+.readingBody {
+  flex: 0 1 var(--page-reading-default);
+  min-width: var(--space-0);
+  max-width: var(--page-reading-default);
+}
+
+.reading[data-width="narrow"] .readingBody {
+  flex-basis: var(--page-reading-narrow);
+  max-width: var(--page-reading-narrow);
+}
+
+.reading[data-width="wide"] .readingBody {
+  flex-basis: var(--page-reading-wide);
+  max-width: var(--page-reading-wide);
+}
+
+.reading[data-toc="side"] .readingBody {
+  flex-shrink: 0;
+}
+
+.tocHead {
+  margin: var(--space-0) var(--space-0) var(--space-8);
+}
+
+.tocSide {
+  position: sticky;
+  top: var(--space-8);
+  align-self: flex-start;
+  flex: none;
+  width: var(--page-toc);
+}
+
+.article {
+  min-width: var(--space-0);
+}

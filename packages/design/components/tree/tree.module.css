@@ -1,0 +1,69 @@
+.tree {
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.row {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  /* 들임 칸 사이에 간격을 두지 않아 깊이마다 정확히 12px만 더한다. */
+  column-gap: var(--space-0);
+  height: var(--tree-row);
+  padding: var(--space-0) var(--space-4) var(--space-0) var(--space-2);
+  cursor: pointer;
+  outline: none;
+}
+
+.row:hover {
+  background: var(--color-surface-subtle);
+}
+
+/* 다중 선택은 배경으로, 현재 항목은 왼쪽 2px 표시로 색 없이도 구별한다. */
+.row[data-selected] {
+  background: var(--color-selection);
+}
+
+.row[data-current] {
+  font-weight: var(--font-weight-medium);
+}
+
+.marker {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  left: var(--space-0);
+  width: var(--tree-marker);
+  background: var(--color-text-primary);
+}
+
+/* 키보드 focus는 행 안쪽 2px. 이웃 행에 겹치지 않는다. */
+.row:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-width) * -1);
+}
+
+.indent {
+  flex: none;
+  align-self: stretch;
+  width: var(--tree-indent);
+}
+
+.twisty {
+  display: inline-flex;
+  flex: none;
+  justify-content: center;
+  width: var(--icon-size-small);
+  margin-right: var(--space-2);
+  color: var(--color-text-secondary);
+}
+
+.label {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

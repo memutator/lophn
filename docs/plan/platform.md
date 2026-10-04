@@ -410,6 +410,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T16 redaction 안전 필드, 표본, 화면 shape
 
+- 상태: 완료 (#81)
 - 등급: 기본
 - concern: platform/redaction
 - 요구: platform/redaction#R7, R8, R9, R10, R11, R12

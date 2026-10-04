@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema } from "../platform/mod.ts";
+import { idSchema, jsonObjectSchema } from "../platform/mod.ts";
 import { pointer } from "./blueprint-scope.ts";
 
 export const SUMMARY_MAX_BYTES = 2048;
@@ -63,7 +63,7 @@ export const appScreenContextSchema = z.object({
   view_session: opaqueSchema,
   revision: opaqueSchema,
   summary: summarySchema,
-  data: z.record(z.string(), z.json()).nullable().optional(),
+  data: jsonObjectSchema.nullable().optional(),
   redacted: z.array(jsonPointerSchema),
 });
 export type AppScreenContext = z.infer<typeof appScreenContextSchema>;

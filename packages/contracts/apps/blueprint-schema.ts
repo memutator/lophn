@@ -4,6 +4,7 @@
 
 import {
   asJson,
+  defineOwn,
   exactKeys,
   INPUT_KEYS,
   INPUT_TYPES,
@@ -16,7 +17,6 @@ import {
   type JsonValue,
   lengthOf,
   matchesType,
-  nonBlank,
   numberBound,
   ownKeys,
   rejectSurrogate,
@@ -83,16 +83,13 @@ export function validateSchemaNode(
       const names = ownKeys(value.properties);
       if (!names) return invalid(`${path}.properties has an unsupported key`);
       for (const name of names) {
-        if (!nonBlank(name)) {
-          return invalid(`${path}.properties has a blank key`);
-        }
         const property = validateSchemaNode(
           value.properties[name],
           `${path}.properties.${name}`,
           visiting,
         );
         if (!property.ok) return property;
-        properties[name] = property.value;
+        defineOwn(properties, name, property.value);
       }
     }
     schema.properties = Object.fromEntries(
@@ -290,9 +287,9 @@ export function checkValue(
           `${path}.${key}`,
         );
         if (!checked.ok) return checked;
-        output[key] = checked.value;
+        defineOwn(output, key, checked.value);
       } else if (Object.hasOwn(properties[key]!, "default")) {
-        output[key] = properties[key]!.default as JsonValue;
+        defineOwn(output, key, properties[key]!.default as JsonValue);
       } else if (schema.required?.includes(key)) {
         return invalid(`${path}.${key} is required`);
       }

@@ -230,9 +230,17 @@ export function isObject(value: unknown): value is Record<string, unknown> {
 
 export function ownKeys(value: Record<string, unknown>): string[] | undefined {
   if (Object.getOwnPropertySymbols(value).length > 0) return;
-  const keys = Object.keys(value);
-  if (keys.some((key) => key === "__proto__" || key === "prototype")) return;
-  return keys;
+  return Object.keys(value);
+}
+
+// JSON key는 prototype setter를 호출하지 않는 own data property로 복사한다.
+export function defineOwn<T>(object: Record<string, T>, key: string, value: T) {
+  Object.defineProperty(object, key, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
 }
 
 export function rejectSurrogate(value: string): boolean {
@@ -375,7 +383,7 @@ export function copyJson(
     if (rejectSurrogate(key)) return;
     const copied = copyJson(value[key], seen);
     if (copied === undefined && value[key] !== null) return;
-    copy[key] = copied as JsonValue;
+    defineOwn(copy, key, copied as JsonValue);
   }
   seen.delete(value);
   return copy;

@@ -1,7 +1,11 @@
 // 의존성 없는 blueprint 정본(apps/blueprint#R16).
 // Zod·Deno·node·npm·jsr·IO·앱 코드 실행이 없다.
 
-import type { JsonObject, JsonValue } from "./blueprint-types.ts";
+import {
+  defineOwn,
+  type JsonObject,
+  type JsonValue,
+} from "./blueprint-types.ts";
 
 export function canonicalJson(value: JsonValue): string {
   if (value === null) return "null";
@@ -39,7 +43,7 @@ export function normalizeJson(value: JsonValue): JsonValue {
   if (value !== null && typeof value === "object") {
     const copy: JsonObject = {};
     for (const key of Object.keys(value).sort()) {
-      copy[key] = normalizeJson(value[key] as JsonValue);
+      defineOwn(copy, key, normalizeJson(value[key] as JsonValue));
     }
     return copy;
   }

@@ -122,6 +122,26 @@ Deno.test("apps/permissions#R6: a link aimed at a protected root rejects the who
   );
 });
 
+Deno.test("apps/permissions#R6: a link whose target cannot be resolved is denied by its lexical path", async () => {
+  const paths = resolver(
+    { "/data/box": "/data/box" },
+    new Set(["/data/box"]),
+    { "/data/box": [{ link: "/data/box/dangling" }] },
+  );
+  const result = await resolveRequirement(
+    {
+      kind: "fs.write",
+      scope: { path: "/data/box", recursive: true },
+      reason: "box",
+    },
+    roots,
+    paths,
+  );
+  assert(result.ok);
+  if (!result.ok || result.value.kind !== "fs.write") return;
+  assertEquals(result.value.scope.outsideLinks, ["/data/box/dangling"]);
+});
+
 Deno.test("apps/permissions#R7: a parent covering home credentials, data root, another app or source is rejected", async () => {
   for (
     const path of [

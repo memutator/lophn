@@ -138,8 +138,10 @@ export async function resolveRequirement(
     const outsideLinks: string[] = [];
     if (directory) {
       for (const found of await paths.linksIn(scope.path)) {
+        // 대상을 못 푸는 link는 나중에 어디든 가리킬 수 있다. lexical 경로를 deny한다.
         if (found.target === undefined) {
-          return fail("forbidden", "link target cannot be resolved");
+          outsideLinks.push(found.link);
+          continue;
         }
         if (containsProtected(found.target, roots)) {
           return fail("forbidden", "link points at a protected root");

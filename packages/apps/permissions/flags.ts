@@ -137,7 +137,9 @@ export function appFlags(
     flag("deny-write", denyWrite),
     flag("deny-net", denyNet),
   ];
-  const args: string[] = [...FIXED, "--allow-net=lophn.invalid"];
+  // net grant는 없다. --allow-net을 내지 않으므로 net은 모두 닫히고,
+  // --deny-net은 플랫폼 port를 한 번 더 막는 방어선이다.
+  const args: string[] = [...FIXED];
   for (const part of parts) {
     if (!part.ok) return part;
     if (part.value !== undefined) args.push(part.value);

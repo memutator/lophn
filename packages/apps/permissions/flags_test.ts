@@ -55,11 +55,7 @@ Deno.test("apps/permissions#R18: generated flags ban broad grants and keep the f
   for (const flag of FORBIDDEN) assert(!has(flags.value.args, flag));
   for (const flag of REQUIRED) assert(flags.value.args.includes(flag));
   assert(flags.value.args.some((arg) => arg.startsWith("--allow-read=")));
-  assert(
-    !flags.value.args.some((arg) =>
-      arg.startsWith("--allow-net=") && arg !== "--allow-net=lophn.invalid"
-    ),
-  );
+  assert(!flags.value.args.some((arg) => arg.startsWith("--allow-net")));
 });
 
 Deno.test("apps/permissions#R18: migration flags allow only the bundle read and the app data area", () => {
@@ -112,7 +108,7 @@ Deno.test("apps/permissions#R19: net.fetch and secret add no net or env flag", (
   const flags = appFlags([fetch, secret], app, platform, denies);
   assert(flags.ok);
   if (!flags.ok) return;
-  assert(flags.value.args.includes("--allow-net=lophn.invalid"));
+  assert(!flags.value.args.some((arg) => arg.startsWith("--allow-net")));
   assert(!flags.value.args.some((arg) => arg.includes("example.com")));
   assert(!flags.value.args.some((arg) => arg.startsWith("--allow-env")));
 });

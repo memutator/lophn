@@ -14,6 +14,7 @@ import { registerShellScheme } from "./security.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
 import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
+import { createSupervisor, spawnNodeHost } from "../terminal/supervisor.ts";
 
 const here = dirname(__filename);
 const dataRoot = resolveDataRoot();
@@ -37,7 +38,13 @@ const core = startCoreConnection({
       isDestroyed: () => window.isDestroyed(),
     })),
 });
+const terminals = createSupervisor({
+  // build가 host를 main과 같은 dist에 묶는다. 생성만 하고 첫 요청 때 띄운다.
+  entry: join(here, "terminal-host.cjs"),
+  spawnHost: spawnNodeHost,
+});
 app.once("will-quit", () => {
+  terminals.stop();
   core.shutdown();
   overlays.dispose();
 });

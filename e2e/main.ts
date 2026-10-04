@@ -2,8 +2,10 @@
 // 있으면 그 이름의 flow만 고른다. 예: deno task e2e skeleton
 const flows = Deno.args.filter((arg) => !arg.startsWith("-"));
 const paths = flows.length === 0
-  ? ["e2e/harness_test.ts", "e2e/flows/"]
-  : flows.map((flow) => `e2e/flows/${flow}_test.ts`);
+  ? ["e2e/harness_test.ts", "e2e/flows/", "e2e/shell/"]
+  : flows.map((flow) =>
+    flow === "shell" ? "e2e/shell/" : `e2e/flows/${flow}_test.ts`
+  );
 
 const child = new Deno.Command(Deno.execPath(), {
   args: ["test", "--allow-all", "--unstable-unsafe-proto", ...paths],

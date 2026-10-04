@@ -10,6 +10,17 @@ export {
 } from "./model.ts";
 export { projectsSchemaSteps } from "./schema.ts";
 export { createProjectCommands } from "./commands.ts";
+export { directoryScanner, openedFileEscapes } from "./scan.ts";
+export {
+  decideTracking,
+  type GitignoreRule,
+  type TrackingDecision,
+} from "./rules.ts";
+export {
+  type DirectoryEntry,
+  previewTracking,
+  type RootScanner,
+} from "./work.ts";
 export {
   createProjectReads,
   initialTrackingProposal,

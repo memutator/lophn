@@ -19,27 +19,6 @@ type LedgerRegistration = {
   reads?: readonly unknown[];
 };
 
-// host가 고정한 authenticated current cwd. credential schema에는 cwd가 없어
-// credential_ref에 실어 reader Worker까지 전달한다. 접두가 없으면 근거가 없다.
-export const AUTHENTICATED_CWD_PREFIX = "cwd:";
-
-export function authenticatedCwdRef(
-  credentialRef: string,
-  cwd: string,
-): string {
-  return `${credentialRef}\n${AUTHENTICATED_CWD_PREFIX}${
-    encodeURIComponent(cwd)
-  }`;
-}
-
-function fixedCwd(credentialRef: string): string | null {
-  const line = credentialRef.split("\n").find((part) =>
-    part.startsWith(AUTHENTICATED_CWD_PREFIX)
-  );
-  if (line === undefined) return null;
-  return decodeURIComponent(line.slice(AUTHENTICATED_CWD_PREFIX.length));
-}
-
 // 현재 credential의 operation 목록만 대조한다. owner target 검사는 public seam이 없다(Q13).
 function currentAuthorizer(environment: LedgerEnvironment): ProjectAuthorizer {
   return (ctx, operation) => {
@@ -73,9 +52,6 @@ export function createLedgerRegistration(
   const deps: ProjectReadDeps = {
     authorize,
     documents: emptyDocuments,
-    currentCwd(ctx) {
-      return ok(fixedCwd(ctx.credential_ref));
-    },
   };
   const reads = createProjectReads(deps);
   return {
@@ -83,6 +59,7 @@ export function createLedgerRegistration(
     commands: [
       commands.create,
       commands.update,
+      commands.setTracking,
       commands.archive,
       commands.unarchive,
     ],

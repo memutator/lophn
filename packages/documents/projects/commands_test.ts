@@ -2,6 +2,7 @@ import { assert, assertEquals, assertThrows } from "@std/assert";
 import { ok, type Result } from "../../base/mod.ts";
 import type { RequestContext } from "../../contracts/platform/mod.ts";
 import { createProjectCommands } from "./mod.ts";
+import type { TrackingPreview } from "../../contracts/documents/mod.ts";
 import { ids, projectFixture, userContext } from "./testing-fixture.ts";
 
 const commands = createProjectCommands({ authorize: () => ok(undefined) });
@@ -284,7 +285,7 @@ Deno.test("documents/projects#R1: stale CAS, conflicts and thrown SQL roll back"
           base_revision: created.value.revision,
         })
       ),
-      "invalid_input",
+      "conflict",
     );
     assertThrows(() =>
       fixture.transaction((tx) => {
@@ -324,6 +325,175 @@ Deno.test("documents/projects#R11: metadata update emits the same seq as the new
       after: { title: "Renamed title", purpose: "next" },
     });
     assertEquals(updated.value.folders, folders);
+  } finally {
+    fixture.close();
+  }
+});
+
+function previewFor(
+  revision: string,
+  nextFolders: { path: string; description: string }[],
+  nextTracking: TrackingPreview["tracking"],
+  id = ids.project,
+): TrackingPreview {
+  return {
+    project: id,
+    base_revision: revision,
+    folders: nextFolders,
+    tracking: nextTracking,
+    observed_at: "2026-10-04T00:00:00.000Z",
+    entries: [],
+    complete: true,
+    next_cursor: null,
+  };
+}
+
+Deno.test("documents/projects#R3: tracking stays off at create and the proposal turns markdown on", () => {
+  const fixture = projectFixture();
+  try {
+    const created = create(fixture);
+    assert(created.ok);
+    assertEquals(created.value.tracking.enabled, false);
+    const proposal = {
+      enabled: true,
+      patterns: [{ effect: "include" as const, glob: "**/*.md" }],
+      use_gitignore: true,
+    };
+    const applied = fixture.transaction((tx) =>
+      commands.setTracking.handle(tx, userContext(), {
+        project: ids.project,
+        folders,
+        tracking: proposal,
+        preview: previewFor(created.value.revision, folders, proposal),
+      }, { base_revision: created.value.revision })
+    );
+    assert(applied.ok);
+    assertEquals(applied.value.tracking, proposal);
+    assertEquals(fixture.emitted.at(-1)?.type, "ProjectTrackingChanged");
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/projects#R6: apply conflicts unless folders, tracking, and base revision match the preview", () => {
+  const fixture = projectFixture();
+  try {
+    const created = create(fixture);
+    assert(created.ok);
+    const proposal = {
+      enabled: true,
+      patterns: [{ effect: "include" as const, glob: "**/*.md" }],
+      use_gitignore: true,
+    };
+    const seen = previewFor(created.value.revision, folders, proposal);
+    code(
+      fixture.transaction((tx) =>
+        commands.setTracking.handle(tx, userContext(), {
+          project: ids.project,
+          folders,
+          tracking: { ...proposal, use_gitignore: false },
+          preview: seen,
+        }, { base_revision: created.value.revision })
+      ),
+      "conflict",
+    );
+    code(
+      fixture.transaction((tx) =>
+        commands.setTracking.handle(tx, userContext(), {
+          project: ids.project,
+          folders,
+          tracking: proposal,
+          preview: { ...seen, base_revision: "9" },
+        }, { base_revision: created.value.revision })
+      ),
+      "conflict",
+    );
+    const moved = [{ path: "/work/other", description: "" }];
+    code(
+      fixture.transaction((tx) =>
+        commands.update.handle(tx, userContext(), {
+          project: ids.project,
+          folders: moved,
+          preview: previewFor(
+            created.value.revision,
+            folders,
+            created.value.tracking,
+          ),
+        }, { base_revision: created.value.revision })
+      ),
+      "conflict",
+    );
+    const changed = fixture.transaction((tx) =>
+      commands.update.handle(tx, userContext(), {
+        project: ids.project,
+        folders: moved,
+        preview: previewFor(
+          created.value.revision,
+          moved,
+          created.value.tracking,
+        ),
+      }, { base_revision: created.value.revision })
+    );
+    assert(changed.ok);
+    assertEquals(changed.value.folders, moved);
+    assertEquals(changed.value.tracking.enabled, false);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/projects#R7: an enabled root cannot overlap another enabled root", () => {
+  const fixture = projectFixture();
+  try {
+    const created = create(fixture);
+    assert(created.ok);
+    const sibling = fixture.transaction((tx) =>
+      commands.create.handle(tx, userContext(), {
+        id: ids.other,
+        name: "other",
+        title: "Other",
+        purpose: "",
+        folders: [{ path: "/work/notes/deep", description: "" }],
+        tracking,
+      }, {})
+    );
+    assert(sibling.ok);
+    const proposal = {
+      enabled: true,
+      patterns: [{ effect: "include" as const, glob: "**/*.md" }],
+      use_gitignore: true,
+    };
+    const first = fixture.transaction((tx) =>
+      commands.setTracking.handle(tx, userContext(), {
+        project: ids.project,
+        folders,
+        tracking: proposal,
+        preview: previewFor(created.value.revision, folders, proposal),
+      }, { base_revision: created.value.revision })
+    );
+    assert(first.ok);
+    code(
+      fixture.transaction((tx) =>
+        commands.setTracking.handle(tx, userContext(), {
+          project: ids.other,
+          folders: sibling.value.folders,
+          tracking: proposal,
+          preview: previewFor(
+            sibling.value.revision,
+            sibling.value.folders,
+            proposal,
+            ids.other,
+          ),
+        }, { base_revision: sibling.value.revision })
+      ),
+      "conflict",
+    );
+    assertEquals(
+      fixture.sql.get("SELECT tracking_enabled FROM projects WHERE id = ?", [
+        ids.other,
+      ])?.tracking_enabled,
+      0,
+    );
   } finally {
     fixture.close();
   }

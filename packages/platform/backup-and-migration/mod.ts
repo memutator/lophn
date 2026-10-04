@@ -1,4 +1,22 @@
 export {
+  BACKUP_DIR_NAME,
+  BACKUP_INTERVAL_MS,
+  BACKUP_KEEP_COMPLETE,
+  BACKUP_MANIFEST_NAME,
+  BACKUP_PENDING_NAME,
+  BACKUP_STAMP,
+  type BackupBlobCopy,
+  backupBlobPath,
+  type BackupDeps,
+  backupDue,
+  backupStamp,
+  createBackup,
+  findBackup,
+  listBackups,
+  readManifest,
+  retainBackups,
+} from "./backup.ts";
+export {
   type AppliedMigration,
   applyMigrations,
   type MigrationDeps,

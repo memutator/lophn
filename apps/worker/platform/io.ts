@@ -15,6 +15,14 @@ import {
   createBlobStoreWork,
   systemQuota,
 } from "../../../packages/platform/blob-store/mod.ts";
+import {
+  BACKUP_INTERVAL_MS,
+  backupDue,
+  backupStamp,
+  createBackup,
+} from "../../../packages/platform/backup-and-migration/mod.ts";
+import { systemClock } from "../../../packages/base/mod.ts";
+import { DatabaseSync } from "node:sqlite";
 import { type BlobPipe, type BlobPipeRequest, createBlobPipe } from "./blob.ts";
 import {
   createSettingsPipe,
@@ -25,6 +33,9 @@ import {
   SETTINGS_EXPORT_OP,
   SETTINGS_IMPORT_OP,
 } from "../../../packages/contracts/platform/mod.ts";
+
+// 하루 backup check 주기. 차례가 지나면 만든다. 만들기가 늦어도 다음 check가 본다.
+export const BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 export type PlatformIoOptions = {
   root: string;
@@ -281,6 +292,38 @@ export async function createPlatformIo(
   return session;
 }
 
+// 하루 backup 만들기(R8, R9). ledger 파일 이름은 데이터 root의 lophn.db다
+// (architecture 3.1). schema 판은 설치된 마지막 migration version이다.
+async function runDailyBackup(root: string): Promise<void> {
+  const ledgerPath = `${root}/lophn.db`;
+  const stamp = backupStamp(systemClock.now());
+  if (!stamp.ok) return;
+  const version = installedSchemaVersion(root);
+  await createBackup(ledgerPath, {
+    root,
+    schemaVersion: version,
+    stamp: stamp.value,
+    now: () => systemClock.now(),
+  });
+}
+
+// 설치된 마지막 schema 판. migration 이력은 schema_migrations 표다. 아직 없으면 0이다.
+function installedSchemaVersion(root: string): number {
+  try {
+    const db = new DatabaseSync(`${root}/lophn.db`, { readOnly: true });
+    try {
+      const found = db.prepare(
+        "select coalesce(max(version), 0) as version from schema_migrations",
+      ).get() as { version: number | bigint };
+      return Number(found.version);
+    } finally {
+      db.close();
+    }
+  } catch {
+    return 0;
+  }
+}
+
 export async function runPlatformIo(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
   console.log = console.info = console.debug = (...args: unknown[]) =>
@@ -292,5 +335,26 @@ export async function runPlatformIo(root: string): Promise<void> {
     // Product authority is supplied by core/T9 composition, not inferred from hello.
     currentAuthority: () => undefined,
   });
-  await session.run();
+  // 하루 backup은 I/O worker의 몫이다(platform/backup-and-migration#R9,
+  // responsiveness#R1). core command 흐름 밖에서 주기 check를 돌리고, 차례면
+  // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
+  const backupScheduler = createIoScheduler();
+  const timer = setInterval(() => {
+    const due = backupDue(root, systemClock.now(), BACKUP_INTERVAL_MS);
+    if (!due) return;
+    const submission = backupScheduler.submit("backup", async () => {
+      return await runDailyBackup(root);
+    });
+    if (!submission.ok) return;
+    void submission.value.result.catch(() => {
+      // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다(R12). 만들기 자체가
+      // manifest 전에 실패하면 pending folder만 남는다.
+    });
+  }, BACKUP_CHECK_INTERVAL_MS);
+  try {
+    await session.run();
+  } finally {
+    clearInterval(timer);
+    backupScheduler.close();
+  }
 }

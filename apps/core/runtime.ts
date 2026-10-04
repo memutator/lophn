@@ -5,6 +5,7 @@ import type {
   RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
+import { backupsGet } from "../../packages/contracts/platform/mod.ts";
 import type { ReadHandler } from "../../packages/platform/api/mod.ts";
 import {
   createWorkspaceRelay,
@@ -37,6 +38,10 @@ import {
   finishBlobRead,
   planBlobRead,
 } from "../../packages/platform/blob-store/mod.ts";
+import {
+  findBackup,
+  listBackups,
+} from "../../packages/platform/backup-and-migration/mod.ts";
 import { authorize } from "../../packages/platform/identity/mod.ts";
 import type { Assembled } from "./registration.ts";
 
@@ -119,9 +124,15 @@ export async function openRuntime(input: {
     return subscriptions;
   }
   const status = platformStatusReads(input.source, input.clock);
+  const dataRoot = input.ledgerPath.slice(
+    0,
+    input.ledgerPath.lastIndexOf("/"),
+  );
+  const backups = backupReads(dataRoot);
   const reads = new Map<string, ReadHandler>([
     ["platform/status", status.status],
     ["platform/health", status.health],
+    ...backups.map(([key, handler]): [string, ReadHandler] => [key, handler]),
     [
       "blobs/read",
       (ctx, body) => blobReadHandler(input.ledgerPath, input.blob, ctx, body),
@@ -198,6 +209,37 @@ async function runSessionOf(
   if (!result.ok) return result;
   const output = result.value as { run?: { session?: string | null } };
   return ok(output.run?.session ?? null);
+}
+
+// worker가 확인한 backup manifest 읽기(T41). 인증은 API 입구가 이미 끝냈고
+// dispatcher가 schema·output 검사를 한다. 여기서는 data root의 backup folder만
+// 읽는다. 복사·hash 같은 무거운 준비는 I/O worker의 몫이다(responsiveness#R1).
+function backupReads(
+  dataRoot: string,
+): [string, ReadHandler][] {
+  return [
+    [
+      "backups/list",
+      (_ctx, _input) => ok({ backups: listBackups(dataRoot).backups }),
+    ],
+    [
+      "backups/get",
+      (_ctx, input) => {
+        const parsed = backupsGet.input.safeParse(input);
+        if (!parsed.success) {
+          return err({
+            code: "invalid_input",
+            message: "invalid read body",
+          });
+        }
+        const found = findBackup(dataRoot, parsed.data.created_at);
+        if (found === undefined) {
+          return err({ code: "not_found", message: "backup이 없다" });
+        }
+        return ok({ manifest: found });
+      },
+    ],
+  ];
 }
 
 // openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.

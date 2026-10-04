@@ -146,7 +146,7 @@ export const projectResolve = defineRead({
     "unavailable",
   ],
 });
-// host가 고정한 authenticated current cwd 근거만 쓴다. caller path는 없다.
+// host가 고정한 authenticated current cwd 근거(CredentialConditions.cwd)만 쓴다. caller path는 없다.
 export const projectResolveCwd = defineRead({
   resource: "projects",
   method: "resolve_cwd",

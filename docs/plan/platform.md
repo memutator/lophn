@@ -733,6 +733,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T31 app credential과 앱 secret의 grant 검사
 
+- 상태: 완료 (#136)
 - 등급: 기본
 - concern: platform/identity, platform/secrets
 - 요구: platform/secrets#R10
@@ -746,6 +747,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 앱 direct 연결과 confirm 실행 증명은 새 token 종류가 아니라 apps가 서명하는 진술이다(→ Q15). platform은 `credential_ref`·기한과 core epoch만 준다. identity domain model의 "정할 것"을 같은 PR에서 이 내용으로 채운다.
   - 앱 secret 전송은 현재 grant만 보고, 호출마다 approval을 요구하지 않고, caller가 사람·agent·automation·다른 앱이라는 이유로 막지 않는다(R10).
   - `app_secret_test.ts`에 R10 테스트, flow manage-app-permissions의 secret 단계 통합 테스트
+  - R10 끝단(실제 grant 판정)은 apps#T4가 SecretAllowance를 채울 때 증명한다. platform 쪽은 port가 등록되지 않으면 attach·refresh가 forbidden인 fail closed다.
 
 ### T32 confirm 앱 command의 approval 사용
 

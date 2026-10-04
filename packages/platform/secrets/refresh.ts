@@ -49,8 +49,8 @@ export type SecretRefresh = {
 export function createSecretRefresh(options: {
   work: SecretWork;
   submit: RefreshSubmission;
-  // contract port. 목적지·용도의 현재 허용을 판정한다.
-  allowance: SecretAllowanceCheck;
+  // contract port. 목적지·용도의 현재 허용을 판정한다. 등록되지 않으면 fail closed다.
+  allowance?: SecretAllowanceCheck;
   // contract port. context의 process가 살아 있는지 답한다.
   processes: ProcessLivenessCheck;
   // 제출은 소유 command를 같은 transaction에서 부른다. 실패는 이전 참조를 유지한다.
@@ -63,6 +63,13 @@ export function createSecretRefresh(options: {
       const admitted = admit(input.context);
       if (!admitted.ok) return admitted;
       if (!options.processes(input.context)) {
+        return err({
+          code: "forbidden",
+          message: "secret 갱신을 허용하지 않는다",
+        });
+      }
+      // SecretAllowance port 없음은 갱신 허용이 아니라 거절이다.
+      if (!options.allowance) {
         return err({
           code: "forbidden",
           message: "secret 갱신을 허용하지 않는다",

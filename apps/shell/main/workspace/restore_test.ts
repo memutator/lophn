@@ -3,11 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { validateLayout } from "./layout.ts";
-import {
-  type RestoreTargets,
-  restoreLayout,
-  restoreTab,
-} from "./restore.ts";
+import { restoreLayout, restoreTab, type RestoreTargets } from "./restore.ts";
 
 const DOC = "doc_01h455vb4pex5v6nkc6gd5fdw1";
 const VER = "ver_01h455vb4pex5v6nkc6gd5fdw1";
@@ -59,11 +55,18 @@ test("shell/workspace#R7: 사용할 수 없는 앱은 이유를 가진 자리표
     app: () => Promise.resolve(false),
   };
   const panel = await restoreTab(
-    { kind: "app_panel", key: "t1", app: PRJ.replace("prj_", "app_"), surface: "board" },
+    {
+      kind: "app_panel",
+      key: "t1",
+      app: PRJ.replace("prj_", "app_"),
+      surface: "board",
+    },
     targets,
   );
   assert.equal(panel.kind, "placeholder");
-  if (panel.kind === "placeholder") assert.equal(panel.reason, "app_unavailable");
+  if (panel.kind === "placeholder") {
+    assert.equal(panel.reason, "app_unavailable");
+  }
 });
 
 test("shell/workspace#R7: 권한이 없는 문서는 자리표시다", async () => {
@@ -76,7 +79,9 @@ test("shell/workspace#R7: 권한이 없는 문서는 자리표시다", async () 
     targets,
   );
   assert.equal(viewer.kind, "placeholder");
-  if (viewer.kind === "placeholder") assert.equal(viewer.reason, "no_permission");
+  if (viewer.kind === "placeholder") {
+    assert.equal(viewer.reason, "no_permission");
+  }
 });
 
 test("shell/workspace#R6: 살아 있는 대상은 그대로 복원한다", async () => {

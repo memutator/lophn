@@ -145,8 +145,8 @@ export async function restorePane(
   const selectedRestored = selected === null
     ? null
     : tabs.some((restored) =>
-      restored.kind === "tab" && restored.tab.key === selected
-    )
+        restored.kind === "tab" && restored.tab.key === selected
+      )
     ? selected
     : firstAlive
     ? firstAlive.tab.key

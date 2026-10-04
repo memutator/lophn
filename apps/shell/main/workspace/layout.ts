@@ -2,12 +2,12 @@
 // 보존의 순수 동작만 둔다. schema 원본은 schema.ts가 정한다.
 import {
   type InformationPanel,
+  informationPanelSchema,
   LAYOUT_SCHEMA_VERSION,
   type LayoutFile,
+  layoutFileSchema,
   type LayoutTab,
   type WorkspaceLayout,
-  informationPanelSchema,
-  layoutFileSchema,
   workspaceLayoutSchema,
 } from "./schema.ts";
 

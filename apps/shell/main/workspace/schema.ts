@@ -53,7 +53,8 @@ export const layoutPaneSchema = z.strictObject({
   tabs: z.array(layoutTabSchema).max(200),
   selected_tab: tabKey.nullable(),
 }).refine(
-  (pane) => pane.selected_tab === null ||
+  (pane) =>
+    pane.selected_tab === null ||
     pane.tabs.some((tab) => tab.key === pane.selected_tab),
   { message: "selected_tab is not in tabs" },
 );

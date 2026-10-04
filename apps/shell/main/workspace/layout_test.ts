@@ -51,7 +51,12 @@ function sampleLayout() {
         selected_tab: "t1",
       },
       {
-        tabs: [{ kind: "document_viewer", key: "t3", document: DOC, version: VER }],
+        tabs: [{
+          kind: "document_viewer",
+          key: "t3",
+          document: DOC,
+          version: VER,
+        }],
         selected_tab: "t3",
       },
     ],
@@ -109,7 +114,8 @@ test("shell/workspace#R8: 모르는 필드와 쓰기 kind 밖 참조는 거절�
     "strict가 아니면 모르는 필드가 통과한다",
   );
   const badTab = structuredClone(base.layout);
-  (badTab.panes[0]!.tabs[0] as Record<string, unknown>).output = "terminal text";
+  (badTab.panes[0]!.tabs[0] as Record<string, unknown>).output =
+    "terminal text";
   assert.equal(validateLayout(badTab).ok, false);
 });
 
@@ -121,8 +127,14 @@ function workspaceWith(
 }
 
 test("shell/workspace#R7: 미지원 schema와 손상 파일은 안전한 오류다", () => {
-  assert.equal(parseReason({ schema_version: 2, layout: {} }), "unsupported_schema");
-  assert.equal(parseReason({ schema_version: 1, layout: { broken: true } }), "corrupt");
+  assert.equal(
+    parseReason({ schema_version: 2, layout: {} }),
+    "unsupported_schema",
+  );
+  assert.equal(
+    parseReason({ schema_version: 1, layout: { broken: true } }),
+    "corrupt",
+  );
   assert.equal(parseReason("not json layout"), "corrupt");
 });
 
@@ -140,7 +152,9 @@ test("shell/workspace#R6: layout.json은 창이 닫혀도 남아 복원에 쓰�
     const sample = sampleLayout();
     assert.ok(sample.ok);
     if (!sample.ok) return;
-    const write = await store.write(JSON.stringify(toLayoutFile(sample.layout)));
+    const write = await store.write(
+      JSON.stringify(toLayoutFile(sample.layout)),
+    );
     assert.ok(write.ok, `쓰기 실패: ${JSON.stringify(write)}`);
     const read = await store.read();
     assert.ok(read.ok && read.value?.ok);
@@ -160,7 +174,9 @@ test("shell/workspace#R6: layout.json은 원자 교체로 쓰고 폴더 0700 파
     const sample = sampleLayout();
     assert.ok(sample.ok);
     if (!sample.ok) return;
-    const first = await store.write(JSON.stringify(toLayoutFile(sample.layout)));
+    const first = await store.write(
+      JSON.stringify(toLayoutFile(sample.layout)),
+    );
     assert.ok(first.ok);
     const dirStat = await stat(join(root, "shell"));
     assert.equal(dirStat.mode & 0o777, DIR_MODE, "폴더는 0700이다");
@@ -192,7 +208,8 @@ test("shell/workspace#R6: 쓰기 실패 때 기존 파일을 그대로 둔다", 
     await mkdir(dirname(file), { recursive: true });
     await writeFile(file, JSON.stringify(toLayoutFile(sample.layout)));
     const store = createLayoutStore(root, {
-      rename: () => Promise.reject(Object.assign(new Error("no"), { code: "EACCES" })),
+      rename: () =>
+        Promise.reject(Object.assign(new Error("no"), { code: "EACCES" })),
     });
     const result = await store.write("{}");
     assert.equal(result.ok, false);

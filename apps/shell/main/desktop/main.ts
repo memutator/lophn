@@ -14,6 +14,7 @@ import { registerShellScheme } from "./security.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
 import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
+import { createSupervisor, spawnNodeHost } from "../terminal/supervisor.ts";
 
 const here = dirname(__filename);
 const dataRoot = resolveDataRoot();
@@ -37,7 +38,12 @@ const core = startCoreConnection({
       isDestroyed: () => window.isDestroyed(),
     })),
 });
+const terminals = createSupervisor({
+  entry: join(here, "..", "..", "terminal-host", "main.js"),
+  spawnHost: spawnNodeHost,
+});
 app.once("will-quit", () => {
+  terminals.stop();
   core.shutdown();
   overlays.dispose();
 });

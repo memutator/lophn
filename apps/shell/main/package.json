@@ -4,15 +4,18 @@
   "type": "module",
   "scripts": {
     "build": "node build.ts",
+    "rebuild": "electron-rebuild -f -w node-pty -o .",
     "dev": "node build.ts && electron dist/main.cjs",
-    "check": "deno fmt --check --ignore=node_modules,dist . ../preload ../ipc && deno lint --ignore=node_modules,dist . ../preload ../ipc && tsc --noEmit -p . && node --test --test-reporter=spec 'desktop/*_test.ts' 'app-frame/**/*_test.ts' 'workspace/*_test.ts' 'build_test.ts' && deno check --config=desktop/core/deno.json desktop/main.ts desktop/core/allowlist.ts desktop/core/client.ts desktop/core/connection.ts desktop/core/events.ts desktop/core/node-io.ts desktop/core/routes.ts desktop/core/supervise.ts && deno test --allow-all --config=desktop/core/deno.json desktop/core/ confirmation/"
+    "check": "deno fmt --check --ignore=node_modules,dist . ../preload ../ipc && deno lint --ignore=node_modules,dist . ../preload ../ipc && tsc --noEmit -p . && node --test --test-reporter=spec 'desktop/*_test.ts' 'app-frame/**/*_test.ts' 'workspace/*_test.ts' 'terminal/*_test.ts' 'build_test.ts' && deno check --config=desktop/core/deno.json desktop/main.ts desktop/core/allowlist.ts desktop/core/client.ts desktop/core/connection.ts desktop/core/events.ts desktop/core/node-io.ts desktop/core/routes.ts desktop/core/supervise.ts && deno test --allow-all --config=desktop/core/deno.json desktop/core/ confirmation/"
   },
   "dependencies": {
     "electron": "44.5.1",
+    "node-pty": "1.1.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/node": "24.19.1",
+    "@electron/rebuild": "4.2.0",
     "esbuild": "0.28.2",
     "typescript": "7.0.2"
   }

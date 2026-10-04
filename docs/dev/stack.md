@@ -1,6 +1,14 @@
 ---
 type: guide
-concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell]
+concerns: [
+  platform,
+  documents,
+  apps,
+  problems,
+  lophn-agent,
+  coding-agent,
+  shell,
+]
 ---
 
 # 기술 스택과 개발 환경
@@ -32,7 +40,7 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 | shell                                     | Electron, Node 24 LTS                                               | `apps/shell/main`만 npm과 package-lock. 이전 lophn은 Electron 44                                                                                              |
 | ledger, 앱 DB, derived store              | SQLite (Deno의 `node:sqlite`), WAL, FTS5                            |                                                                                                                                                               |
 | renderer, SDK UI                          | React, CodeMirror 6                                                 | 이전 lophn shell과 같다                                                                                                                                       |
-| 터미널                                    | xterm.js, node-pty(ConPTY)                                          |                                                                                                                                                               |
+| 터미널                                    | xterm.js, node-pty 1.1.0(POSIX PTY, Windows ConPTY)                 | Electron 44.5.1(Node 24.21, NODE_MODULE_VERSION 149)용 linux prebuild는 없다. `@electron/rebuild` 4.2.0이 electron 헤더로 `node-pty`를 다시 빌드한다          |
 | schema                                    | Zod 한 가지                                                         | contracts와 경계 검사. 예외: 앱이 import하는 blueprint 검증기는 의존성 없는 순수 TS(`packages/contracts/apps/blueprint.ts`, `@lophn/blueprint`가 다시 내보냄) |
 | format, lint                              | `deno fmt`, `deno lint`                                             | 저장소 전체(npm 쪽 포함)                                                                                                                                      |
 | 테스트                                    | `deno test`; shell main은 `node --test`; E2E는 Playwright(Electron) |                                                                                                                                                               |
@@ -67,6 +75,8 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 | hash-wasm 4.12.0                                                                                                                    | packages/platform/secrets                                             | 머신 이전 보호 파일의 Argon2id. WebCrypto에는 Argon2가 없고 AES-256-GCM은 WebCrypto를 쓴다(platform/secrets#R9)                                                                                                                                                                                                                        |
 | happy-dom 20.14.5                                                                                                                   | packages/design/component-tests.ts, apps/shell/renderer/build_test.ts | 공통 컴포넌트·SDK 옆 `*_test.tsx`와 실제 공개 예제 bundle을 DOM·event·keyboard·computed style로 `deno test` 안에서 돌린다                                                                                                                                                                                                              |
 | esbuild 0.28.2, @luca/esbuild-deno-loader 0.11.1                                                                                    | packages/design/component-tests.ts, apps/shell/renderer               | Deno가 CSS Modules를 읽지 못해 공통 UI·SDK 테스트를 renderer와 같은 `local-css` loader로 한 bundle에 묶어 happy-dom에서 돌린다. 공개 token CSS·로컬 woff2와 string·subpath package exports도 함께 resolve한다                                                                                                                          |
+| node-pty 1.1.0                                                                                                                      | apps/shell/terminal-host                                              | 사람 shell의 POSIX PTY와 Windows ConPTY. 1.1.0 prebuild는 darwin·win32뿐이고 linux와 Electron 44(Node 24.21, modules 149)용은 없다. install이 현재 Node용으로 node-gyp하고 `npm run rebuild`(`@electron/rebuild` 4.2.0)가 Electron 헤더로 다시 만든다. renderer는 이 모듈을 부르지 않는다 |
+| @electron/rebuild 4.2.0                                                                                                             | apps/shell/main                                                       | node-pty native module을 Electron 44.5.1 ABI로 다시 빌드한다. 그 판의 prebuild가 없기 때문이다                                                                                                                                                                                                                                        |
 
 ## check 명령 하나
 

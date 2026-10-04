@@ -42,10 +42,10 @@ const relativePath = z.string().min(1).refine(
 );
 
 // OS path resolution and granted Deno permission scopes remain runner checks.
-export const testMethodSchema = z.strictObject({
+const testMethodFields = {
   argv: z.array(
     z.string().refine((value) =>
-      !value.includes("\u0000") && !/[\r\n]/.test(value)
+      value.length > 0 && !value.includes("\u0000") && !/[\r\n]/.test(value)
     ),
   )
     .min(3).refine(
@@ -66,7 +66,9 @@ export const testMethodSchema = z.strictObject({
   timeout_ms: integer.min(1).max(TEST_EXECUTION_LIMITS.timeout_ms),
   expected_exit_code: integer,
   environment: sha256Schema,
-});
+};
+export const testMethodSchema = z.object(testMethodFields);
+export const testMethodInputSchema = z.strictObject(testMethodFields);
 export type TestMethod = z.infer<typeof testMethodSchema>;
 
 const targetFields = {
@@ -86,10 +88,12 @@ const ticketFields = {
 export const ticketTestLinkSchema = z.object(ticketFields);
 export const ticketTestLinkInputSchema = z.strictObject(ticketFields);
 export type TicketTestLink = z.infer<typeof ticketTestLinkSchema>;
-const failurePathSchema = z.strictObject({
+const failurePathFields = {
   code: problemCodeSchema,
   test_hash: sha256Schema,
-});
+};
+const failurePathSchema = z.object(failurePathFields);
+const failurePathInputSchema = z.strictObject(failurePathFields);
 const frozenTestFields = {
   code: sha256Schema,
   input: sha256Schema,
@@ -105,9 +109,6 @@ type FrozenTestValue = z.infer<z.ZodObject<typeof frozenTestFields>>;
 const validFrozenTest = (value: FrozenTestValue) => {
   const appTest = value.blueprint !== null &&
     value.sdk_dependencies !== null && value.failure_paths !== null &&
-    value.failure_paths.length > 0 &&
-    new Set(value.failure_paths.map((path) => path.code)).size ===
-      value.failure_paths.length &&
     value.symptom === null;
   const reproduction = value.symptom !== null && value.blueprint === null &&
     value.sdk_dependencies === null && value.failure_paths === null;
@@ -116,10 +117,16 @@ const validFrozenTest = (value: FrozenTestValue) => {
     value.symptom === null;
   return appTest || reproduction || command;
 };
-export const frozenTestSchema = z.strictObject(frozenTestFields).refine(
+// Declaration coverage needs the frozen blueprint, so the runner checks it.
+export const frozenTestSchema = z.object(frozenTestFields).refine(
   validFrozenTest,
   { message: "invalid frozen test for its kind" },
 );
+export const frozenTestInputSchema = z.strictObject({
+  ...frozenTestFields,
+  method: testMethodInputSchema,
+  failure_paths: z.array(failurePathInputSchema).nullable(),
+}).refine(validFrozenTest, { message: "invalid frozen test for its kind" });
 export type FrozenTest = z.infer<typeof frozenTestSchema>;
 
 const executionFields = {
@@ -144,7 +151,7 @@ const executionFields = {
   truncated: z.boolean(),
   redaction_notes: z.array(nonempty),
 };
-export const executionEvidenceSchema = z.strictObject(executionFields).refine(
+export const executionEvidenceSchema = z.object(executionFields).refine(
   (value) => value.ended_at >= value.started_at,
   { message: "execution ends before it starts" },
 ).refine(
@@ -154,6 +161,18 @@ export const executionEvidenceSchema = z.strictObject(executionFields).refine(
   (value) => value.end_reason !== "exited" || value.exit_code !== null,
   { message: "exited termination requires an exit code" },
 );
+export const executionEvidenceInputSchema = z.strictObject(executionFields)
+  .refine(
+    (value) => value.ended_at >= value.started_at,
+    { message: "execution ends before it starts" },
+  ).refine(
+    (value) =>
+      (value.output === null) === (value.output_missing_reason !== null),
+    { message: "missing output requires a reason" },
+  ).refine(
+    (value) => value.end_reason !== "exited" || value.exit_code !== null,
+    { message: "exited termination requires an exit code" },
+  );
 export type ExecutionEvidence = z.infer<typeof executionEvidenceSchema>;
 export const executionEvidenceListSchema = z.array(executionEvidenceSchema).min(
   1,

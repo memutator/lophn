@@ -3,8 +3,10 @@ import { ERROR_CODES, fingerprint } from "../../base/mod.ts";
 import { routePath } from "../platform/route.ts";
 import {
   EVENTS,
+  executionEvidenceInputSchema,
   executionEvidenceListSchema,
   executionEvidenceSchema,
+  frozenTestInputSchema,
   frozenTestSchema,
   getTestRequest,
   getVerification,
@@ -13,6 +15,7 @@ import {
   requestTest,
   ROUTES,
   TEST_EXECUTION_LIMITS,
+  testMethodInputSchema,
   testMethodSchema,
   ticketTestLinkInputSchema,
   verificationRecorded,
@@ -131,6 +134,39 @@ Deno.test("problems/tests#R2: fixed inputs and output evidence references pass",
   };
   assertEquals(frozenTestSchema.safeParse(appTest).success, true);
   assertEquals(
+    frozenTestInputSchema.safeParse({ ...appTest, failure_paths: [] }).success,
+    true,
+  );
+  assertEquals(
+    frozenTestInputSchema.safeParse({
+      ...appTest,
+      failure_paths: [
+        { code: "account_auth", test_hash: hash },
+        { code: "account_auth", test_hash: "b".repeat(64) },
+      ],
+    }).success,
+    true,
+  );
+  for (
+    const value of [
+      { ...appTest, unknown: true },
+      { ...appTest, method: { ...method, unknown: true } },
+      {
+        ...appTest,
+        failure_paths: [{ ...appTest.failure_paths[0], unknown: true }],
+      },
+    ]
+  ) assertEquals(frozenTestInputSchema.safeParse(value).success, false);
+  assertEquals(
+    frozenTestSchema.safeParse({
+      ...appTest,
+      unknown: true,
+      method: { ...method, unknown: true },
+      failure_paths: [{ ...appTest.failure_paths[0], unknown: true }],
+    }).success,
+    true,
+  );
+  assertEquals(
     frozenTestSchema.safeParse({
       ...appTest,
       blueprint: null,
@@ -149,21 +185,24 @@ Deno.test("problems/tests#R2: fixed inputs and output evidence references pass",
     }).success,
     true,
   );
-  for (
-    const value of [
-      { ...appTest, failure_paths: [] },
-      { ...appTest, blueprint: null },
-      { ...appTest, symptom: hash },
-      {
-        ...appTest,
-        failure_paths: [
-          { code: "account_auth", test_hash: hash },
-          { code: "account_auth", test_hash: hash },
-        ],
-      },
-    ]
-  ) assertEquals(frozenTestSchema.safeParse(value).success, false);
+  assertEquals(
+    frozenTestSchema.safeParse({ ...appTest, blueprint: null }).success,
+    false,
+  );
+  assertEquals(
+    frozenTestSchema.safeParse({ ...appTest, symptom: hash }).success,
+    false,
+  );
   assertEquals(executionEvidenceSchema.safeParse(execution).success, true);
+  assertEquals(
+    executionEvidenceInputSchema.safeParse({ ...execution, unknown: true })
+      .success,
+    false,
+  );
+  assertEquals(
+    executionEvidenceSchema.safeParse({ ...execution, unknown: true }).success,
+    true,
+  );
   assertEquals(
     verificationSchema.parse({ ...verification, extra_output: true }).target
       .bundle_hash,
@@ -339,6 +378,7 @@ Deno.test("problems/tests#R16, problems/tests#R19, problems/tests#R20: bounded D
       { ...method, cwd: "C:\\home" },
       { ...method, argv: ["sh", "-c", "deno test"] },
       { ...method, argv: ["native-test"] },
+      { ...method, argv: ["deno", "test", ""] },
       { ...method, argv: ["deno", "test", "--allow-all", "test.ts"] },
       { ...method, argv: ["deno", "test", "--allow-read", "test.ts"] },
       { ...method, argv: ["deno", "test", "--allow-read=*", "test.ts"] },
@@ -347,7 +387,7 @@ Deno.test("problems/tests#R16, problems/tests#R19, problems/tests#R20: bounded D
       { ...method, argv: ["deno", "test", "../test.ts"] },
       { ...method, unknown: true },
     ]
-  ) assertEquals(testMethodSchema.safeParse(value).success, false);
+  ) assertEquals(testMethodInputSchema.safeParse(value).success, false);
   assertEquals(TEST_EXECUTION_LIMITS, {
     concurrent: 2,
     preparing: 16,

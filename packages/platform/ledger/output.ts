@@ -19,7 +19,10 @@ function copyJson(raw: unknown, ancestors = new Set<object>()): Json {
     }
     return raw;
   }
-  if (typeof raw !== "object" || ancestors.has(raw)) {
+  if (typeof raw !== "object") {
+    throw new TypeError(`output requires JSON values (got ${typeof raw})`);
+  }
+  if (ancestors.has(raw)) {
     throw new TypeError("output requires acyclic JSON values");
   }
   if (Object.getOwnPropertySymbols(raw).length > 0) {

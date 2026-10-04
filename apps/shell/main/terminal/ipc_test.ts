@@ -34,7 +34,8 @@ function setup(focused: boolean) {
     registry,
     focus: { focused: () => focused },
     folders: {
-      folders: async () => [{ folder_ref: "fld_a", path: "/work/a" }],
+      folders: () =>
+        Promise.resolve([{ folder_ref: "fld_a", path: "/work/a" }]),
     },
     host: {
       request: async (message) => {
@@ -61,7 +62,7 @@ function setup(focused: boolean) {
         return await Promise.resolve(reply);
       },
     },
-    confirmClose: async () => true,
+    confirmClose: () => Promise.resolve(true),
   });
   return { sender, ipc, sent };
 }
@@ -109,7 +110,7 @@ test("shell/app-frame#R4: subframe sender의 terminal IPC는 거절한다", asyn
 });
 
 test("shell/terminal#R10: 닫기 확인을 취소하면 host에 close를 보내지 않는다", async () => {
-  const { sender, ipc, sent } = setup(true);
+  const { sender, sent } = setup(true);
   const holding = createTerminalIpc({
     registry: (() => {
       const registry = new ContentsRegistry();
@@ -117,7 +118,7 @@ test("shell/terminal#R10: 닫기 확인을 취소하면 host에 close를 보내�
       return registry;
     })(),
     focus: { focused: () => true },
-    folders: { folders: async () => [] },
+    folders: { folders: () => Promise.resolve([]) },
     host: {
       request: async (message) => {
         sent.push(message);
@@ -128,7 +129,7 @@ test("shell/terminal#R10: 닫기 확인을 취소하면 host에 close를 보내�
         });
       },
     },
-    confirmClose: async () => false,
+    confirmClose: () => Promise.resolve(false),
   });
   const reply = await holding.close(event(sender), {
     terminal_ref: "term_1",

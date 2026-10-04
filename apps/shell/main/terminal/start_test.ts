@@ -60,7 +60,7 @@ function fakePty(fail = false): HostDeps["pty"] & { spawned: Fake[] } {
   };
 }
 
-function deps(pty: HostDeps["pty"], folders: { path: string }[]): HostDeps {
+function deps(pty: HostDeps["pty"], _folders: { path: string }[]): HostDeps {
   return {
     pty,
     env: {
@@ -79,7 +79,6 @@ function deps(pty: HostDeps["pty"], folders: { path: string }[]): HostDeps {
     schedule: (done) => done(),
     controlFd: 7,
   };
-  void folders;
 }
 
 function open(project = "prj_1", folder?: string) {
@@ -224,13 +223,12 @@ test("shell/terminal#R10: 종료 확인에 실패하면 결과 불명이고 성�
   const pty = fakePty();
   const original = pty.group.bind(pty);
   pty.group = (pid) => {
-    const group = original(pid);
+    original(pid);
     return {
       pid,
       alive: () => true,
       kill: () => ({ confirmed: false, reason: "still_alive" }),
     };
-    void group;
   };
   const host = createHost(deps(pty, []));
   const opened = await host.handle(open());

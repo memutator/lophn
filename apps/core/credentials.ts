@@ -26,12 +26,27 @@ export function recordCredential(
       message: "credential 기록을 만들지 못했다",
     });
   }
+  // writer의 유일한 연결이다. 열린 transaction 밖에서 자체 transaction으로 확정한다.
+  // 열린 transaction 안에서 부르면 실행기의 commit 경계가 깨지므로 거절한다.
+  if (connection.inTransaction()) {
+    return err({
+      code: "internal",
+      message: "credential 기록을 열린 transaction 안에서 남길 수 없다",
+    });
+  }
   try {
+    connection.exec("begin immediate");
     connection.sql.run(
       `insert into credentials (credential_ref, context, state) values (?, ?, 'active')`,
       [parsed.data.credential_ref, JSON.stringify(parsed.data)],
     );
+    connection.exec("commit");
   } catch {
+    try {
+      if (connection.inTransaction()) connection.exec("rollback");
+    } catch {
+      // rollback도 실패하면 연결은 다음 command에서 거절된다.
+    }
     return err({
       code: "unavailable",
       message: "credential 기록을 남기지 못했다",

@@ -80,6 +80,8 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
 
   const opened = await open(options, root.value, locked.value, clock, random);
   if (!opened.ok) {
+    // 기동이 실패하면 위치 metadata를 남기지 않고 lock을 푼다.
+    await removeRunMetadata(root.value.run);
     await locked.value.release();
     return opened;
   }
@@ -146,7 +148,11 @@ async function open(
     components() {
       return [
         ["ledger", { available: true }],
-        ["api", { available: ready }],
+        // unavailable 관측은 안전한 이유가 있어야 한다(healthObservationSchema).
+        ["api", {
+          available: ready,
+          ...(ready ? {} : { reason: "API가 아직 요청을 받지 않는다" }),
+        }],
         ["writer", {
           available: runtime !== undefined,
           ...(runtime ? {} : { reason: "writer가 아직 없다" }),
@@ -203,7 +209,6 @@ async function open(
     } catch {
       await server.stop();
       await runtime.close();
-      await removeRunMetadata(root.run);
       return err({
         code: "unavailable",
         message: "I/O worker 감독을 시작하지 못했다",
@@ -216,7 +221,6 @@ async function open(
   if (startedIo && !startedIo.ok) {
     await server.stop();
     await runtime.close();
-    await removeRunMetadata(root.run);
     return startedIo;
   }
   ready = true;

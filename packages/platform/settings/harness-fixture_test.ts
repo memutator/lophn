@@ -7,9 +7,11 @@ import {
   type Tx,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
+  createSettingsCommands,
   SettingRegistry,
   settingsDefinitionsRead,
   settingsGetRead,
+  settingsHistoryRead,
 } from "./mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "./schema.ts";
 
@@ -93,20 +95,27 @@ export const recordChoice = defineCommand({
 const recordChoiceCommand: CommandDefinition<typeof recordChoice> = {
   route: recordChoice,
   handle(tx: Tx, _ctx, input) {
+    // 이미 apply가 넣은 선택을 범위 밖 값으로 바꾸는 seed도 같은 command로 남긴다(R22).
     tx.sql.run(
-      "insert into setting_choices (layer, key, value) values ('common', ?, ?)",
+      "insert into setting_choices (layer, key, value) values ('common', ?, ?) on conflict (layer, key) do update set value = excluded.value",
       [input.key, input.value],
     );
     return ok({ recorded: true });
   },
 };
 
-// settings 설정의 선택 없는 시작을 본다. apply는 T26이다.
+// settings 설정의 apply·reload·history·read를 같은 registry로 등록한다(R17-R25).
 export function createLedgerTestRegistration() {
   const registry = new SettingRegistry([width, tracking, harnessChoice]);
+  const commands = createSettingsCommands(registry);
   return {
     schemaSteps: SETTINGS_SCHEMA_STEPS,
+    commands: [commands.apply, commands.reload],
     testCommands: [recordChoiceCommand],
-    reads: [settingsDefinitionsRead(registry), settingsGetRead(registry)],
+    reads: [
+      settingsDefinitionsRead(registry),
+      settingsGetRead(registry),
+      settingsHistoryRead(registry),
+    ],
   };
 }

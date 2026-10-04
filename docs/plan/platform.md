@@ -308,6 +308,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T10 core import 정적 검사
 
+- 상태: 완료 (#126)
 - 등급: 좁은
 - concern: platform/responsiveness
 - 요구: platform/responsiveness#R1
@@ -612,6 +613,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T26 settings apply, reload, 이력
 
+- 상태: 완료 (#131)
 - 등급: 기본
 - concern: platform/settings
 - 요구: platform/settings#R7, R17, R18, R19, R20, R21, R22, R23, R24, R25

@@ -474,6 +474,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T48 contracts/coding-agent: MCP·CLI 공통 출력과 문서 tool
 
+- 상태: 완료 (#94)
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R1, R3–R16; coding-agent/cli#R2–R5, R11–R15, R20, R22

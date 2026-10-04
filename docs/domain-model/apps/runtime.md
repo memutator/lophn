@@ -16,7 +16,7 @@ App 필드의 정본은 → apps/registration이다. runtime은 `run_enabled`의
 |---|---|---|---|---|
 | `app` | `app` ID | 아니오 | → apps/registration | 앱 |
 | `release` | `rel` ID | 예 | live에는 필수; preview는 PreviewInput.release가 있으면 동일 값, 준비 전 bundle이면 없음 → apps/releases, apps/preview | 고정 release 참조 |
-| `mode` | `live` / `preview` | 아니오 | preview 규칙 → apps/preview | 프로세스 종류 |
+| `mode` | `live` / `preview` / `test` | 아니오 | preview 규칙 → apps/preview; test는 problems runner가 띄운다 | 프로세스 종류 |
 | `process_nonce` | 무작위 문자열 | 아니오 | 시작마다 새 값; 재사용 금지; counter 아님 | 프로세스 구분값 |
 | `endpoint` | 로컬 socket 주소 | 예 | 준비·실제 연결 확인 뒤 공개; 사용자 전용 경로 | direct call 주소 |
 | `ready` | boolean | 아니오 | hash·handler·schema·실제 연결 검사 통과 때 true | 시작 준비 |
@@ -58,7 +58,7 @@ core가 서명하는 앱 호출용 제한 credential이다. credential 보관·�
 | `app` | `app` ID | 아니오 | 요청/프로세스와 일치 | 대상 |
 | `release` | `rel` ID | 예 | live에는 필수; release 없는 preview는 부재이고 bundle_hash로 결속 | 코드 기준 |
 | `bundle_hash` | sha256 | 아니오 | release가 있으면 release와 일치; 없으면 PreviewInput·실제 묶음과 일치 | 내용 기준 |
-| `mode` | `live` / `preview` | 아니오 | 프로세스와 일치 | 운영/preview |
+| `mode` | `live` / `preview` / `test` | 아니오 | 프로세스와 일치 | 운영/preview/test |
 | `process_nonce` | 무작위 문자열 | 아니오 | 현재 RuntimeObservation과 일치 | 재시작 경계 |
 | `actor` | actor | 아니오 | 원래 credential의 actor | 호출자 |
 | `credential_ref` | 불투명 credential 식별자 | 아니오 | → platform/identity; 원문 token 아님 | scope·회수 근거 |

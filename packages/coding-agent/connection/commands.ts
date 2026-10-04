@@ -107,10 +107,10 @@ export function createConnectionCommands(): {
     },
     revoke: {
       route: connectionRevoke,
-      // ledger executor는 confirmation route를 아직 unavailable로 막는다.
-      // 근거 검사는 revokeConnection이 하고, 이 handle은 근거 없이 거절한다.
+      // 사람 결정 확인은 ledger executor가 transaction 안에서 검증·소비한다.
+      // 이 route는 confirmation: "required"라 handle 없이는 여기 오지 않는다.
       handle(tx, ctx, input, compare) {
-        return revokeConnection(tx, ctx, input, compare, undefined);
+        return applyRevoke(tx, ctx, input, compare);
       },
     },
   };
@@ -123,10 +123,19 @@ export function revokeConnection(
   compare: { base_revision: string },
   confirmation: string | undefined,
 ): Result<{ connection: Connection }> {
-  const actor = requireUser(ctx);
-  if (!actor.ok) return actor;
   const evidence = requireConfirmation(confirmation);
   if (!evidence.ok) return evidence;
+  return applyRevoke(tx, ctx, input, compare);
+}
+
+function applyRevoke(
+  tx: Tx,
+  ctx: RequestContext,
+  input: { connection: string; base_revision: string },
+  compare: { base_revision: string },
+): Result<{ connection: Connection }> {
+  const actor = requireUser(ctx);
+  if (!actor.ok) return actor;
   if (compare.base_revision !== input.base_revision) {
     return conflict("connection revision changed");
   }

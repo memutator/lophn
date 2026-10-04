@@ -6,7 +6,6 @@ import {
   defineEvent,
   defineRead,
   idempotencyKeySchema,
-  jsonObjectSchema,
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
@@ -79,7 +78,9 @@ function activationSchemas(strict: boolean) {
     expected_grants_seq: z.number().int().nonnegative().max(
       Number.MAX_SAFE_INTEGER,
     ),
-    expected_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    expected_schema: z.number().int().nonnegative().max(
+      Number.MAX_SAFE_INTEGER,
+    ),
     backup_hash: sha256Schema.nullable(),
     data_change_invocation: invocationIdSchema.nullable(),
   });

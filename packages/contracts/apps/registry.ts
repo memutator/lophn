@@ -35,6 +35,7 @@ import {
   invocationStarted,
 } from "./invocations.ts";
 import {
+  RELEASE_ROUTES,
   releaseActivated,
   releaseActivationFailed,
   releaseActivationStarted,
@@ -43,7 +44,6 @@ import {
   releaseDataRestored,
   releasePrepared,
   releaseSuperseded,
-  RELEASE_ROUTES,
 } from "./releases.ts";
 
 export const ROUTES = [

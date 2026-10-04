@@ -10,31 +10,6 @@ import {
   bundleManifestSchema,
   dataChangeSchema,
   dataResultSchema,
-  releaseActivationFailed,
-  releaseActivationStarted,
-  releaseActivated,
-  releaseBackupRecorded,
-  releasesCompare,
-  releasesCompareInputSchema,
-  releasesCompareOutputSchema,
-  releasesGet,
-  releasesGetInputSchema,
-  releasesGetOutputSchema,
-  releasesList,
-  releasesListInputSchema,
-  releasesListOutputSchema,
-  releaseCompleteActivation,
-  releaseDataChanged,
-  releaseDataRestored,
-  releaseFailActivation,
-  releasePreparation,
-  releasePrepare,
-  releaseCancelPreparation,
-  releasePrepareBundle,
-  releasePrepared,
-  releaseRecordBackup,
-  releaseRecordDataChange,
-  releaseRecordDataRestore,
   RELEASE_BUNDLE_MAX_BYTES,
   RELEASE_EVENTS,
   RELEASE_FILE_MAX_COUNT,
@@ -42,10 +17,31 @@ import {
   RELEASE_ROUTES,
   RELEASE_SOURCE_MAX_BYTES,
   RELEASE_STATUSES,
+  releaseActivated,
+  releaseActivationFailed,
+  releaseActivationStarted,
+  releaseBackupRecorded,
+  releaseCancelPreparation,
+  releaseCompleteActivation,
+  releaseDataChanged,
+  releaseDataRestored,
+  releaseFailActivation,
+  releasePreparation,
+  releasePrepare,
+  releasePrepareBundle,
+  releasePrepared,
+  releaseRecordBackup,
+  releaseRecordDataChange,
+  releaseRecordDataRestore,
   releaseSchema,
+  releasesCompareInputSchema,
+  releasesCompareOutputSchema,
+  releasesGetInputSchema,
+  releasesGetOutputSchema,
+  releasesListInputSchema,
+  releasesListOutputSchema,
   releaseStartActivation,
   releaseSuperseded,
-  releaseStatusValueSchema,
   ticketSourceInputSchema,
   ticketSourceSchema,
 } from "./releases.ts";
@@ -221,7 +217,9 @@ Deno.test("apps/releases#R1: status 전이와 activation 조건을 검사한다"
     releaseSchema.parse({ ...release, status });
   }
   // activating과 failed는 activation 필수다.
-  assert(!releaseSchema.safeParse({ ...release, status: "activating" }).success);
+  assert(
+    !releaseSchema.safeParse({ ...release, status: "activating" }).success,
+  );
   assert(!releaseSchema.safeParse({ ...release, status: "failed" }).success);
   releaseSchema.parse({
     ...release,
@@ -262,7 +260,9 @@ Deno.test("apps/releases#R6, apps/releases#R7: ticket_source는 ticket과 claim 
 
 Deno.test("apps/releases#R5: tests 참조는 vrf ID고 같은 bundle hash의 통과 app test다", () => {
   releaseSchema.parse({ ...release, tests: [VRF] });
-  assert(!releaseSchema.safeParse({ ...release, tests: ["vrf_wrong"] }).success);
+  assert(
+    !releaseSchema.safeParse({ ...release, tests: ["vrf_wrong"] }).success,
+  );
   assert(!releaseSchema.safeParse({ ...release, tests: ["abc"] }).success);
 });
 

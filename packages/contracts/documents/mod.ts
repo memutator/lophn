@@ -5,6 +5,8 @@ export * from "./places.ts";
 export * from "./versions.ts";
 export * from "./document-files.ts";
 export * from "./documents.ts";
+export * from "./sections.ts";
+export * from "./formats.ts";
 
 export * from "./outline.ts";
 export * from "./read.ts";
@@ -12,6 +14,7 @@ export * from "./search.ts";
 export * from "./guides.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
+import { FORMAT_ROUTES } from "./formats.ts";
 import { OUTLINE_ROUTES } from "./outline.ts";
 import { READ_ROUTES } from "./read.ts";
 import { HISTORY_ROUTES } from "./history.ts";
@@ -54,6 +57,7 @@ export const ROUTES = [
   projectResolve,
   projectPreviewTracking,
   ...DOCUMENT_ROUTES,
+  ...FORMAT_ROUTES,
   ...DOCUMENT_READ_ROUTES,
 ] as const;
 

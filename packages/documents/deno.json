@@ -1,5 +1,8 @@
 {
   "name": "@lophn/documents",
   "exports": "./mod.ts",
-  "compilerOptions": { "erasableSyntaxOnly": true }
+  "compilerOptions": { "erasableSyntaxOnly": true },
+  "imports": {
+    "parse5": "npm:parse5@8.0.1"
+  }
 }

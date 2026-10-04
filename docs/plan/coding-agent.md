@@ -223,7 +223,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T12 CLI 뼈대
 
-- 상태: 완료 (#173)
+- 상태: 진행 (#173) — 남은 것: R1·R5 테스트(dispatch 배선 뒤), core dispatch(T36)
 - 등급: 기본
 - concern: coding-agent/cli
 - 요구: coding-agent/cli#R1, R2, R3, R4, R5, R39

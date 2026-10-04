@@ -244,7 +244,11 @@ Deno.test("coding-agent/mcp-server#R18: 질문과 approval은 list·show만 있�
   });
   for (
     const op of [
+      // R18이 이름으로 금지하는 op(답·허락·거절·사용)와 owner command.
       "answer",
+      "allow",
+      "reject",
+      "consume",
       "defer",
       "cancel",
       "expire",
@@ -278,7 +282,17 @@ Deno.test("coding-agent/mcp-server#R18: 질문과 approval은 list·show만 있�
     approval: "apr_01arz3ndektsv4rrffq69g5fav",
   });
   for (
-    const op of ["grant", "reject", "expire", "cancel", "apply", "create"]
+    const op of [
+      // R18의 allow·reject·consume과 owner command.
+      "allow",
+      "reject",
+      "consume",
+      "grant",
+      "expire",
+      "cancel",
+      "apply",
+      "create",
+    ]
   ) {
     assertEquals(
       approval.input.safeParse({

@@ -3,12 +3,15 @@ import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import { TopBar } from "../desktop/top-bar/top-bar.tsx";
-import { Breadcrumbs } from "../desktop/top-bar/breadcrumbs.tsx";
+import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
+import { LauncherButton } from "./launcher-button.tsx";
+import { startPointerDrag } from "./drag.ts";
 import {
   applyDrag,
   breadcrumbs,
   clampSidebar,
-  type DragOutcome,
+  closeTab,
+  INFO_PANEL_WIDTH,
   infoPanelPlacement,
   moveTab,
   normalizePane,
@@ -125,7 +128,6 @@ export function Workspace(
     collapsedByUser: false,
   });
   const [userChoseWidth, setUserChoseWidth] = useState(false);
-  const [dragStart, setDragStart] = useState<number | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
   const frameRef = useRef<HTMLDivElement>(null);
@@ -165,36 +167,21 @@ export function Workspace(
 
   const sidebarShown = sidebarView(measuredWindow, sidebar, userChoseWidth);
   const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
+  const focused = view.panes[view.focusedPane];
+  const contentWidth = mainSize?.width ?? bodyWidth;
+  const infoPlacement = infoPanelPlacement(
+    infoOpen,
+    contentWidth,
+    view.panes.length,
+  );
+  const panesWidth = infoPlacement === "docked"
+    ? contentWidth - INFO_PANEL_WIDTH
+    : contentWidth;
 
-  const openDocument = (document: DocumentRow) => {
-    setView((current) => {
-      const pane = current.focusedPane;
-      const existing = current.panes[pane]!;
-      if (existing.tabs.some((tab) => tab.key === document.id)) {
-        return {
-          ...current,
-          panes: current.panes.map((item, index) =>
-            index === pane ? { ...item, selected: document.id } : item
-          ),
-        };
-      }
-      const tab: TabItem = {
-        key: document.id,
-        kind: "document_editor",
-        title: document.title,
-      };
-      return {
-        ...current,
-        panes: current.panes.map((item, index) =>
-          index === pane
-            ? { tabs: [...item.tabs, tab], selected: document.id }
-            : item
-        ),
-      };
-    });
-  };
-
-  const persist = (next: WorkspaceView) => {
+  const persist = (
+    next: WorkspaceView,
+    info: { open: boolean; tab: InfoTab } = { open: infoOpen, tab: infoTab },
+  ) => {
     void source.saveLayout({
       project: projectId,
       panes: next.panes.map((pane) => ({
@@ -203,7 +190,7 @@ export function Workspace(
       })),
       split_ratio: next.splitRatio,
       focused_pane: next.focusedPane,
-      information_panel: { open: infoOpen, tab: infoTab },
+      information_panel: info,
     });
   };
 
@@ -212,69 +199,95 @@ export function Workspace(
     persist(next);
   };
 
+  const openDocument = (document: DocumentRow) => {
+    const pane = view.focusedPane;
+    const existing = view.panes[pane]!;
+    const has = existing.tabs.some((tab) => tab.key === document.id);
+    const tab: TabItem = {
+      key: document.id,
+      kind: "document_editor",
+      title: document.title,
+    };
+    update({
+      ...view,
+      panes: view.panes.map((item, index) =>
+        index === pane
+          ? {
+            tabs: has ? item.tabs : [...item.tabs, tab],
+            selected: document.id,
+          }
+          : item
+      ),
+    });
+  };
+
+  const setInfo = (open: boolean, tab: InfoTab) => {
+    setInfoOpen(open);
+    setInfoTab(tab);
+    persist(view, { open, tab });
+  };
+
   return (
     <div className={styles.workspace} data-space="project" ref={frameRef}>
-      <TopBar
-        leading={sidebarShown.launcherInTopBar
-          ? (
-            <button
-              type="button"
-              data-launcher-back=""
-              onClick={onLauncher}
-            >
-              {t("project-workspace.button.launcher")}
-            </button>
-          )
-          : <Breadcrumbs crumbs={crumbs} />}
-        onLophn={onLophn}
+      <Sidebar
+        mode={sidebarShown.mode}
+        width={sidebarShown.width}
+        project={loaded.project}
+        documents={loaded.documents}
+        contexts={loaded.contexts}
+        current={focused?.selected ?? null}
+        onLauncher={onLauncher}
+        onToggle={() =>
+          setSidebar((current) => ({
+            ...current,
+            collapsedByUser: sidebarShown.mode !== "collapsed",
+          }))}
+        onOpenDocument={openDocument}
+        onResizeStart={(event) => {
+          const start = sidebar.chosenWidth;
+          const startShown = sidebarShown.width;
+          let last = start;
+          startPointerDrag(event, {
+            move: (dx) => {
+              last = clampSidebar(startShown + dx);
+              setSidebar((current) => ({ ...current, chosenWidth: last }));
+            },
+            finish: (outcome) => {
+              const applied = applyDrag(start, last, outcome);
+              setSidebar((current) => ({ ...current, chosenWidth: applied }));
+              if (outcome.type === "drag-end") setUserChoseWidth(true);
+            },
+          });
+        }}
       />
-      <div className={styles.row}>
-        <Sidebar
-          mode={sidebarShown.mode}
-          width={sidebarShown.width}
-          project={loaded.project}
-          documents={loaded.documents}
-          contexts={loaded.contexts}
-          onLauncher={onLauncher}
-          onToggle={() =>
-            setSidebar((current) => ({
-              ...current,
-              collapsedByUser: sidebarShown.mode !== "collapsed",
-            }))}
-          onOpenDocument={openDocument}
-        />
-        {sidebarShown.mode === "open"
+      <div className={styles.main}>
+        <div className={styles.topBar}>
+          <TopBar
+            leading={
+              <span className={styles.leading}>
+                {sidebarShown.launcherInTopBar
+                  ? <LauncherButton onLauncher={onLauncher} />
+                  : null}
+                <Breadcrumbs crumbs={crumbs} />
+              </span>
+            }
+            onLophn={onLophn}
+          />
+        </div>
+        {loaded.failed
           ? (
-            <SidebarResizer
-              width={sidebarShown.width}
-              onDrag={(next) =>
-                setSidebar((current) => ({ ...current, chosenWidth: next }))}
-              onCommit={(outcome) => {
-                const applied = applyDrag(
-                  dragStart ?? sidebar.chosenWidth,
-                  sidebar.chosenWidth,
-                  outcome,
-                );
-                setSidebar((current) => ({ ...current, chosenWidth: applied }));
-                setUserChoseWidth(outcome.type === "drag-end");
-                setDragStart(null);
-              }}
-              onStart={() => setDragStart(sidebar.chosenWidth)}
-            />
+            <p className={styles.notice} data-load-failed="">
+              {t("project-workspace.error.load-failed")}
+            </p>
           )
           : null}
-        <div className={styles.main} ref={mainRef}>
-          {loaded.failed
-            ? (
-              <p className={styles.notice} data-load-failed="">
-                {t("project-workspace.error.load-failed")}
-              </p>
-            )
-            : null}
+        <div className={styles.content} ref={mainRef}>
           <Panes
             view={view}
-            bodyWidth={mainSize?.width ?? bodyWidth}
+            bodyWidth={panesWidth}
             windowWidth={measuredWindow}
+            infoOpen={infoOpen}
+            onToggleInfo={() => setInfo(!infoOpen, infoTab)}
             onSelect={(pane, key) =>
               update({
                 ...view,
@@ -283,78 +296,19 @@ export function Workspace(
                   index === pane ? { ...item, selected: key } : item
                 ),
               })}
-            onClose={(pane, key) =>
-              update({
-                ...view,
-                panes: view.panes.map((item, index) =>
-                  index === pane
-                    ? normalizePane({
-                      tabs: item.tabs.filter((tab) => tab.key !== key),
-                      selected: item.selected,
-                    })
-                    : item
-                ),
-              })}
+            onClose={(pane, key) => update(closeTab(view, pane, key))}
             onFocus={(pane) => update({ ...view, focusedPane: pane })}
             onMove={(key, toPane) => update(moveTab(view, key, toPane))}
             onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
           />
           <InfoPanel
-            placement={infoPanelPlacement(
-              infoOpen,
-              bodyWidth,
-              view.panes.length,
-            )}
+            placement={infoPlacement}
             tab={infoTab}
-            onTab={setInfoTab}
+            onTab={(tab) => setInfo(infoOpen, tab)}
           />
         </div>
       </div>
     </div>
-  );
-}
-
-interface SidebarResizerProps {
-  width: number;
-  onStart: () => void;
-  onDrag: (width: number) => void;
-  onCommit: (outcome: DragOutcome) => void;
-}
-
-// sidebar 폭 drag. drag-end의 마지막 값만 적용하고 drag-cancel은 되돌린다.
-function SidebarResizer(
-  { width, onStart, onDrag, onCommit }: SidebarResizerProps,
-) {
-  return (
-    <div
-      data-sidebar-resizer=""
-      role="separator"
-      onPointerDown={(event) => {
-        onStart();
-        const startX = event.clientX;
-        const startWidth = width;
-        let last = startWidth;
-        const move = (next: PointerEvent) => {
-          last = clampSidebar(startWidth + next.clientX - startX);
-          onDrag(last);
-        };
-        const up = () => {
-          globalThis.removeEventListener("pointermove", move);
-          globalThis.removeEventListener("pointerup", up);
-          globalThis.removeEventListener("pointercancel", cancel);
-          onCommit({ type: "drag-end", x: last, y: 0 });
-        };
-        const cancel = () => {
-          globalThis.removeEventListener("pointermove", move);
-          globalThis.removeEventListener("pointerup", up);
-          globalThis.removeEventListener("pointercancel", cancel);
-          onCommit({ type: "drag-cancel" });
-        };
-        globalThis.addEventListener("pointermove", move);
-        globalThis.addEventListener("pointerup", up);
-        globalThis.addEventListener("pointercancel", cancel);
-      }}
-    />
   );
 }
 

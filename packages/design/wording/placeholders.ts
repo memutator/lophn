@@ -88,7 +88,9 @@ export type PlaceholderKinds = {
   "project-workspace.button.close-tab": Record<never, never>;
   "project-workspace.button.collapse-sidebar": Record<never, never>;
   "project-workspace.button.expand-sidebar": Record<never, never>;
+  "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
+  "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
@@ -101,6 +103,10 @@ export type PlaceholderKinds = {
   "project-workspace.label.info-tab-contexts": Record<never, never>;
   "project-workspace.label.info-tab-info": Record<never, never>;
   "project-workspace.label.info-tab-versions": Record<never, never>;
+  "project-workspace.label.drop-here": Record<never, never>;
+  "project-workspace.label.drop-side": Record<never, never>;
+  "project-workspace.label.path": Record<never, never>;
+  "project-workspace.label.tabs": Record<never, never>;
   "project-workspace.sidebar.label": Record<never, never>;
   "project-workspace.label.kind-app-panel": Record<never, never>;
   "project-workspace.label.kind-document-editor": Record<never, never>;

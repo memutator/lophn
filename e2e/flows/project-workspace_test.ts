@@ -92,6 +92,8 @@ Deno.test({
           padTop: cs(body)?.paddingTop,
           panes: q('[data-panes]')?.getAttribute('data-panes'),
           launcherInHeader: !!document.querySelector('header [data-launcher-back]'),
+          iconControls: [...document.querySelectorAll('[data-sidebar-toggle], [data-launcher-back], [data-close], [data-info-toggle]')]
+            .map((el) => ({ text: el.textContent, stroke: el.querySelector('svg')?.getAttribute('stroke-width') ?? null })),
           pageScrollX: document.documentElement.scrollWidth > innerWidth + 1,
           width: innerWidth,
         });
@@ -105,6 +107,7 @@ Deno.test({
         padTop: string;
         panes: string;
         launcherInHeader: boolean;
+        iconControls: { text: string; stroke: string | null }[];
         pageScrollX: boolean;
         width: number;
       };
@@ -113,6 +116,11 @@ Deno.test({
       assertEquals(frame.sidebar.mode, "collapsed");
       assertEquals(frame.sidebar.width, "56px");
       assertEquals(frame.launcherInHeader, true);
+      // 아이콘 조작은 글자 없이 Lucide 선 1.5 아이콘만 그린다(design-system#R43).
+      assert(frame.iconControls.length >= 4, "아이콘 조작이 모자란다");
+      for (const control of frame.iconControls) {
+        assertEquals(control, { text: "", stroke: "1.5" });
+      }
       assertEquals(frame.bar, "48px");
       assertEquals(frame.strip, "36px");
       assertEquals(frame.row, "32px");

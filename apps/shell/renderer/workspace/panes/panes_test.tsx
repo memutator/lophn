@@ -87,10 +87,9 @@ Deno.test("shell/workspace#R4: 칸이 480px 아래면 한 칸 보기가 되고 �
     wide.container.querySelector("[data-panes]")?.getAttribute("data-panes"),
     "2",
   );
-  const widths = [...wide.container.querySelectorAll("[data-pane]")].map((
-    pane,
-  ) => Number.parseFloat(style(pane as HTMLElement).width));
-  assertEquals(widths[0]! > widths[1]!, true);
+  // 저장된 0.6 비율로 다시 나눈다.
+  const left = wide.container.querySelector("[data-pane='0']") as HTMLElement;
+  assertEquals(left.style.width, `${Math.round(1999 * 0.6)}px`);
 });
 
 Deno.test("shell/editor#R5: 경계는 1px, 잡는 영역은 8px, 두 번 누르면 50:50이다", () => {
@@ -128,7 +127,7 @@ Deno.test("shell/workspace#R3: 키보드로 탭을 다른 칸으로 옮긴다", 
   using view = renderPanes(twoPanes(), 1600, 1600, {
     onMove: (key, toPane) => moves.push(`${key}->${toPane}`),
   });
-  const strip = view.container.querySelector("[data-tab-strip]") as HTMLElement;
+  const strip = view.container.querySelector("[data-tab-list]") as HTMLElement;
   act(() => {
     strip.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -140,4 +139,112 @@ Deno.test("shell/workspace#R3: 키보드로 탭을 다른 칸으로 옮긴다", 
     );
   });
   assertEquals(moves, ["doc->1"]);
+});
+
+function dragEvent(type: string): Event {
+  return new Event(type, { bubbles: true, cancelable: true });
+}
+
+Deno.test("shell/workspace#R3: drag로 탭을 다른 칸으로 옮긴다", () => {
+  const moves: string[] = [];
+  using view = renderPanes(twoPanes(), 1600, 1600, {
+    onMove: (key, toPane) => moves.push(`${key}->${toPane}`),
+  });
+  const panes = [
+    ...view.container.querySelectorAll("[data-pane]"),
+  ] as HTMLElement[];
+  const source = panes[0]!.querySelector("[data-tab='view']") as HTMLElement;
+  act(() => {
+    source.dispatchEvent(dragEvent("dragstart"));
+  });
+  act(() => {
+    panes[1]!.dispatchEvent(dragEvent("dragover"));
+  });
+  assertEquals(panes[1]!.querySelector("[data-drop]") !== null, true);
+  act(() => {
+    panes[1]!.dispatchEvent(dragEvent("drop"));
+  });
+  assertEquals(moves, ["view->1"]);
+  assertEquals(view.container.querySelector("[data-drop]"), null);
+});
+
+Deno.test("shell/workspace#R3: 한 칸에서 탭을 오른쪽 자리로 끌면 칸을 나눈다", () => {
+  const moves: string[] = [];
+  const one: WorkspaceView = {
+    panes: [{ tabs: [tab("doc"), tab("view")], selected: "doc" }],
+    splitRatio: 0.5,
+    focusedPane: 0,
+  };
+  using view = renderPanes(one, 1600, 1600, {
+    onMove: (key, toPane) => moves.push(`${key}->${toPane}`),
+  });
+  assertEquals(view.container.querySelector("[data-side-drop]"), null);
+  const source = view.container.querySelector(
+    "[data-tab='view']",
+  ) as HTMLElement;
+  act(() => source.dispatchEvent(dragEvent("dragstart")));
+  const side = view.container.querySelector("[data-side-drop]") as HTMLElement;
+  act(() => side.dispatchEvent(dragEvent("dragover")));
+  act(() => side.dispatchEvent(dragEvent("drop")));
+  assertEquals(moves, ["view->1"]);
+});
+
+Deno.test("shell/workspace#R3: 칸 나누기는 글자 없는 Lucide 아이콘 버튼이다", () => {
+  const moves: string[] = [];
+  const one: WorkspaceView = {
+    panes: [{ tabs: [tab("doc"), tab("view")], selected: "view" }],
+    splitRatio: 0.5,
+    focusedPane: 0,
+  };
+  using view = renderPanes(one, 1600, 1600, {
+    onMove: (key, toPane) => moves.push(`${key}->${toPane}`),
+  });
+  const split = view.container.querySelector(
+    "[data-split-pane]",
+  ) as HTMLElement;
+  assertEquals(split.textContent, "");
+  assertEquals(split.getAttribute("aria-label"), "Open in side pane");
+  assertEquals(split.querySelector("svg")?.getAttribute("stroke-width"), "1.5");
+  act(() => split.click());
+  assertEquals(moves, ["view->1"]);
+});
+
+function pointer(type: string, clientX: number): PointerEvent {
+  return new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX,
+    button: 0,
+  });
+}
+
+Deno.test("shell/editor#R5: 경계 drag는 drag-end에서만 비율을 저장하고 drag-cancel은 되돌린다", () => {
+  const ratios: number[] = [];
+  using view = renderPanes(twoPanes(), 1601, 1601, {
+    onRatio: (ratio) => ratios.push(ratio),
+  });
+  const divider = () =>
+    view.container.querySelector("[data-divider]") as HTMLElement;
+  const leftWidth = () =>
+    (view.container.querySelector("[data-pane='0']") as HTMLElement).style
+      .width;
+  act(() => {
+    divider().dispatchEvent(pointer("pointerdown", 800));
+    view.container.ownerDocument.dispatchEvent(pointer("pointermove", 900));
+  });
+  // drag 중에는 미리보기만 바뀌고 저장하지 않는다.
+  assertEquals(leftWidth(), "900px");
+  assertEquals(ratios, []);
+  act(() => {
+    view.container.ownerDocument.dispatchEvent(pointer("pointercancel", 900));
+  });
+  assertEquals(leftWidth(), "800px");
+  assertEquals(ratios, []);
+  act(() => {
+    divider().dispatchEvent(pointer("pointerdown", 800));
+    view.container.ownerDocument.dispatchEvent(pointer("pointermove", 2000));
+    view.container.ownerDocument.dispatchEvent(pointer("pointerup", 2000));
+  });
+  // 각 칸 480px를 지킨다.
+  assertEquals(ratios, [1120 / 1600]);
 });

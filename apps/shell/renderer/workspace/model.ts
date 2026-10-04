@@ -35,6 +35,8 @@ export const SPLIT_EQUAL = 0.5;
 
 /** 정보 패널이 dock되려면 남는 본문 폭(design-system#R25). */
 export const INFO_PANEL_BODY_MIN = 720;
+/** 정보 패널 폭. */
+export const INFO_PANEL_WIDTH = 320;
 
 export type SidebarMode = "open" | "collapsed" | "hidden";
 
@@ -149,6 +151,11 @@ export function moveTab(
   key: string,
   toPane: number,
 ): WorkspaceView {
+  // 한 칸에서 오른쪽으로 옮기면 새 칸을 연다. 탭이 하나뿐이면 나눌 것이 없다.
+  if (toPane === 1 && view.panes.length === 1) {
+    if (view.panes[0]!.tabs.length < 2) return view;
+    view = { ...view, panes: [...view.panes, { tabs: [], selected: null }] };
+  }
   if (toPane < 0 || toPane >= view.panes.length) return view;
   const fromPane = view.panes.findIndex((pane) =>
     pane.tabs.some((tab) => tab.key === key)
@@ -167,58 +174,74 @@ export function moveTab(
     }
     return pane;
   });
-  return { ...view, panes, focusedPane: toPane };
-}
-
-export interface TabStripLayout {
-  /** 줄 안 가로 scroll offset. 선택 탭이 보이도록 가둔다(workspace#R2). */
-  readonly scroll: number;
-  /** 줄 전체 폭. 줄 폭보다 크면 scroll이 생긴다. */
-  readonly contentWidth: number;
-}
-
-/** 탭 하나의 폭. 고정 탭은 36px, 나머지는 120~220px 안에서 줄 폭을 나눈다. */
-export function tabWidth(
-  tab: TabItem,
-  stripWidth: number,
-  count: number,
-): number {
-  if (tab.pinned) return TAB_PINNED;
-  const flexible = Math.max(1, count);
-  return Math.min(
-    TAB_MAX,
-    Math.max(TAB_MIN, Math.floor(stripWidth / flexible)),
-  );
+  const moved = { ...view, panes, focusedPane: toPane };
+  const kept = dropEmptyPane(moved);
+  return kept === moved ? moved : { ...kept, focusedPane: 0 };
 }
 
 /**
- * 넘치는 탭 줄의 scroll. 선택 탭이 줄 안에 들어오게 offset을 가두고 페이지
- * 가로 scroll은 만들지 않는다(workspace#R2).
+ * 넘치는 탭 줄의 scroll offset. 선택 탭의 [start, end)가 줄 안에 들어오게 가두고
+ * 페이지 가로 scroll은 만들지 않는다(workspace#R2). 탭 폭은 내용에 따라 120~220px라서
+ * 화면이 잰 위치를 넘긴다.
  */
-export function tabStripScroll(
-  tabs: readonly TabItem[],
-  selected: string | null,
-  stripWidth: number,
+export function revealScroll(
+  start: number,
+  end: number,
+  viewport: number,
   current: number,
-): TabStripLayout {
-  let contentWidth = 0;
-  let selectedStart = 0;
-  let selectedEnd = 0;
-  for (const tab of tabs) {
-    const width = tabWidth(tab, stripWidth, tabs.length);
-    if (tab.key === selected) {
-      selectedStart = contentWidth;
-      selectedEnd = contentWidth + width;
-    }
-    contentWidth += width;
-  }
-  const max = Math.max(0, contentWidth - stripWidth);
+  contentWidth: number,
+): number {
+  const max = Math.max(0, contentWidth - viewport);
   let scroll = Math.min(Math.max(0, current), max);
-  if (selected !== null) {
-    if (selectedEnd - scroll > stripWidth) scroll = selectedEnd - stripWidth;
-    if (selectedStart < scroll) scroll = selectedStart;
+  if (end - scroll > viewport) scroll = end - viewport;
+  if (start < scroll) scroll = start;
+  return Math.min(Math.max(0, scroll), max);
+}
+
+/** 탭을 닫는다. 두 칸 중 한 칸이 비면 남은 칸 하나로 돌아간다. */
+export function closeTab(
+  view: WorkspaceView,
+  pane: number,
+  key: string,
+): WorkspaceView {
+  const panes = view.panes.map((item, index) =>
+    index === pane
+      ? normalizePane({
+        tabs: item.tabs.filter((tab) => tab.key !== key),
+        selected: item.selected === key
+          ? neighbourOf(item.tabs, key)
+          : item.selected,
+      })
+      : item
+  );
+  return dropEmptyPane({ ...view, panes });
+}
+
+// 닫은 탭 자리에서 오른쪽, 없으면 왼쪽 탭을 고른다.
+function neighbourOf(tabs: readonly TabItem[], key: string): string | null {
+  const index = tabs.findIndex((tab) => tab.key === key);
+  const next = tabs[index + 1] ?? tabs[index - 1];
+  return next ? next.key : null;
+}
+
+function dropEmptyPane(view: WorkspaceView): WorkspaceView {
+  if (view.panes.length < 2) return view;
+  const kept = view.panes.filter((pane) => pane.tabs.length > 0);
+  if (kept.length === view.panes.length) return view;
+  if (kept.length === 0) {
+    return { ...view, panes: [{ tabs: [], selected: null }], focusedPane: 0 };
   }
-  return { scroll: Math.min(Math.max(0, scroll), max), contentWidth };
+  return { ...view, panes: kept, focusedPane: 0 };
+}
+
+/**
+ * 한 칸의 선택 탭을 새 오른쪽 칸으로 보낸다(workspace#R3). 탭이 둘 이상일 때만
+ * 나눈다. 이미 두 칸이면 그대로다.
+ */
+export function splitPane(view: WorkspaceView): WorkspaceView {
+  if (view.panes.length !== 1) return view;
+  const selected = view.panes[0]!.selected;
+  return selected === null ? view : moveTab(view, selected, 1);
 }
 
 export interface SplitLayout {

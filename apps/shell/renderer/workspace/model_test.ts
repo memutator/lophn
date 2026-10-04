@@ -5,15 +5,16 @@ import {
   bodyPaddingX,
   breadcrumbs,
   clampSidebar,
+  closeTab,
   infoPanelPlacement,
   moveTab,
   type PaneState,
   ratioFromDrag,
+  revealScroll,
   sidebarView,
   splitLayout,
+  splitPane,
   type TabItem,
-  tabStripScroll,
-  tabWidth,
   type WorkspaceView,
 } from "./model.ts";
 
@@ -58,22 +59,15 @@ function tab(key: string, pinned = false): TabItem {
   return { key, kind: "document_editor", title: key, pinned };
 }
 
-Deno.test("shell/editor#R3: 탭 폭은 120~220px, 고정 탭은 36px다", () => {
-  assertEquals(tabWidth(tab("a", true), 1000, 4), 36);
-  assertEquals(tabWidth(tab("a"), 1000, 2), 220);
-  assertEquals(tabWidth(tab("a"), 400, 4), 120);
-  assertEquals(tabWidth(tab("a"), 600, 4), 150);
-});
-
 Deno.test("shell/workspace#R2: 넘치는 탭 줄은 줄 안에서 scroll하고 선택 탭을 드러낸다", () => {
-  const tabs = Array.from({ length: 20 }, (_, index) => tab(`t${index}`));
-  const far = tabStripScroll(tabs, "t19", 400, 0);
-  assertEquals(far.contentWidth, 2400);
-  assertEquals(far.scroll, 2000);
-  const near = tabStripScroll(tabs, "t0", 400, 2000);
-  assertEquals(near.scroll, 0);
-  const middle = tabStripScroll(tabs, "t5", 400, 0);
-  assertEquals(middle.scroll, 320);
+  // 120px 탭 20개, 줄 폭 400px.
+  assertEquals(revealScroll(2280, 2400, 400, 0, 2400), 2000);
+  assertEquals(revealScroll(0, 120, 400, 2000, 2400), 0);
+  assertEquals(revealScroll(600, 720, 400, 0, 2400), 320);
+  // 이미 보이는 탭이면 scroll을 그대로 둔다.
+  assertEquals(revealScroll(240, 360, 400, 100, 2400), 100);
+  // 줄이 넘치지 않으면 scroll은 0이다.
+  assertEquals(revealScroll(0, 120, 400, 50, 300), 0);
 });
 
 function viewOf(panes: PaneState[], ratio = 0.5, focused = 0): WorkspaceView {
@@ -159,4 +153,43 @@ Deno.test("shell/workspace#R1: 상단 경로는 focus 칸의 활성 탭을 따�
 Deno.test("shell/workspace#R3: drag-end의 마지막 DTO만 적용하고 drag-cancel은 되돌린다", () => {
   assertEquals(applyDrag(240, 320, { type: "drag-end", x: 320, y: 0 }), 320);
   assertEquals(applyDrag(240, 320, { type: "drag-cancel" }), 240);
+});
+
+Deno.test("shell/workspace#R3: 한 칸에서 옆 칸으로 보내면 칸을 나누고 탭 하나뿐이면 나누지 않는다", () => {
+  const one = viewOf([{ tabs: [tab("a"), tab("b")], selected: "b" }]);
+  const split = splitPane(one);
+  assertEquals(split.panes.map((pane) => pane.tabs.map((item) => item.key)), [
+    ["a"],
+    ["b"],
+  ]);
+  assertEquals(split.focusedPane, 1);
+  assertEquals(moveTab(one, "a", 1).panes[1]!.selected, "a");
+  const lone = viewOf([{ tabs: [tab("a")], selected: "a" }]);
+  assertEquals(splitPane(lone), lone);
+});
+
+Deno.test("shell/workspace#R3: 한 칸이 비면 남은 칸 하나로 돌아가고 닫은 탭 옆 탭을 고른다", () => {
+  const view = viewOf(
+    [
+      { tabs: [tab("a"), tab("b"), tab("c")], selected: "b" },
+      { tabs: [tab("d")], selected: "d" },
+    ],
+    0.5,
+    1,
+  );
+  const closed = closeTab(view, 0, "b");
+  assertEquals(closed.panes[0]!.selected, "c");
+  const merged = closeTab(view, 1, "d");
+  assertEquals(merged.panes.length, 1);
+  assertEquals(merged.focusedPane, 0);
+  const moved = moveTab(
+    viewOf([{ tabs: [tab("a")], selected: "a" }, {
+      tabs: [tab("b")],
+      selected: "b",
+    }]),
+    "a",
+    1,
+  );
+  assertEquals(moved.panes.length, 1);
+  assertEquals(moved.panes[0]!.tabs.map((item) => item.key), ["b", "a"]);
 });

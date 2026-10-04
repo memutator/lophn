@@ -67,6 +67,7 @@ export {
   type Timer,
 } from "./shared.ts";
 export { folderOpenIcon, Icon, type IconProps } from "./icon.tsx";
+export { workspaceIcons } from "./workspace-icons.ts";
 export {
   domResizeSource,
   type ResizeSource,

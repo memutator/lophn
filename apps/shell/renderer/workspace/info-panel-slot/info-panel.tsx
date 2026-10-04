@@ -1,6 +1,6 @@
 import { t } from "@lophn/wording";
 
-import type { InfoPanelPlacement } from "../model.ts";
+import { INFO_PANEL_WIDTH, type InfoPanelPlacement } from "../model.ts";
 import styles from "./info-panel.module.css";
 
 export type InfoTab = "info" | "versions" | "contexts";
@@ -33,14 +33,15 @@ export function InfoPanel({ placement, tab, onTab }: InfoPanelProps) {
         placement === "overlay" ? styles.overlay : ""
       }`}
       data-info-panel={placement}
+      style={{ width: `${INFO_PANEL_WIDTH}px` }}
     >
-      <div className={styles.tabs} role="tablist">
+      <div className={styles.head} role="tablist">
         {TABS.map((item) => (
           <button
             key={item}
             type="button"
             role="tab"
-            className={styles.tab}
+            className={styles.trigger}
             aria-selected={item === tab}
             data-info-tab={item}
             onClick={() => onTab(item)}

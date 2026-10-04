@@ -71,7 +71,7 @@ Deno.test("shell/desktop#R28: 작업대는 프로젝트의 폴더·문서·컨�
   );
   assertEquals(
     view.container.querySelector("[data-folder]")?.textContent,
-    "/work/lophn",
+    "lophn",
   );
   assertEquals(
     view.container.querySelector("[data-document]")?.textContent,
@@ -143,7 +143,8 @@ Deno.test("shell/desktop#R26: sidebar가 접히면 런처 복귀가 상단 바�
   );
   const header = view.container.querySelector("header") as HTMLElement;
   const button = header.querySelector("[data-launcher-back]") as HTMLElement;
-  assertEquals(button?.textContent, "Launcher");
+  assertEquals(button.getAttribute("aria-label"), "Launcher");
+  assertEquals(button.textContent, "");
   act(() => button.click());
   assertEquals(back, ["launcher"]);
 });
@@ -169,4 +170,110 @@ Deno.test("shell/workspace#R1: 상단 경로는 focus 칸의 활성 탭을 따�
     node,
   ) => node.textContent);
   assertEquals(crumbs, ["lophn", "notes"]);
+});
+
+function pointer(type: string, clientX: number): PointerEvent {
+  return new PointerEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX,
+    button: 0,
+  });
+}
+
+Deno.test("shell/design-system#R24: sidebar drag는 drag-end의 마지막 폭을 적용하고 drag-cancel은 되돌린다", async () => {
+  const { source } = sourceOf();
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+    />,
+  );
+  await flush();
+  const width = () =>
+    (view.container.querySelector("[data-sidebar]") as HTMLElement).style
+      .width;
+  const resizer = () =>
+    view.container.querySelector("[data-sidebar-resizer]") as HTMLElement;
+  act(() => {
+    resizer().dispatchEvent(pointer("pointerdown", 240));
+    view.container.ownerDocument.dispatchEvent(pointer("pointermove", 300));
+    view.container.ownerDocument.dispatchEvent(pointer("pointermove", 1000));
+  });
+  // drag 중에도 200~400px 안에 머문다.
+  assertEquals(width(), "400px");
+  act(() => {
+    view.container.ownerDocument.dispatchEvent(pointer("pointermove", 320));
+    view.container.ownerDocument.dispatchEvent(pointer("pointerup", 320));
+  });
+  assertEquals(width(), "320px");
+
+  act(() => {
+    resizer().dispatchEvent(pointer("pointerdown", 320));
+    view.container.ownerDocument.dispatchEvent(pointer("pointermove", 380));
+  });
+  assertEquals(width(), "380px");
+  act(() => {
+    view.container.ownerDocument.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+  });
+  assertEquals(width(), "320px");
+});
+
+Deno.test("shell/design-system#R25: 정보 패널은 아이콘 버튼으로 열고 본문 폭이 모자라면 overlay다", async () => {
+  const { source, saved } = sourceOf();
+  using wide = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+    />,
+  );
+  await flush();
+  const toggle = wide.container.querySelector(
+    "[data-info-toggle]",
+  ) as HTMLElement;
+  assertEquals(toggle.textContent, "");
+  assertEquals(toggle.getAttribute("aria-label"), "Info panel");
+  act(() => toggle.click());
+  assertEquals(
+    wide.container.querySelector("[data-info-panel]")?.getAttribute(
+      "data-info-panel",
+    ),
+    "docked",
+  );
+  const last = saved[saved.length - 1] as {
+    information_panel: { open: boolean };
+  };
+  assertEquals(last.information_panel.open, true);
+
+  using narrow = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1000}
+      bodyWidth={700}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+    />,
+  );
+  await flush();
+  act(() =>
+    (narrow.container.querySelector("[data-info-toggle]") as HTMLElement)
+      .click()
+  );
+  assertEquals(
+    narrow.container.querySelector("[data-info-panel]")?.getAttribute(
+      "data-info-panel",
+    ),
+    "overlay",
+  );
 });

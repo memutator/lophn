@@ -1,89 +1,170 @@
+import { type ReactNode, useLayoutEffect, useRef } from "react";
+import {
+  Icon,
+  iconPixels,
+  type IconProps,
+  Tooltip,
+  workspaceIcons,
+} from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import {
+  revealScroll,
   TAB_KIND_LABEL,
+  TAB_MAX,
+  TAB_MIN,
+  TAB_PINNED,
   type TabItem,
-  tabStripScroll,
-  tabWidth,
+  type TabKind,
 } from "../model.ts";
 import styles from "./tab-strip.module.css";
+
+const KIND_ICON: Record<TabKind, IconProps["icon"]> = {
+  document_editor: workspaceIcons.documentEditor,
+  document_viewer: workspaceIcons.documentViewer,
+  terminal: workspaceIcons.terminal,
+  app_panel: workspaceIcons.appPanel,
+};
+
+/** drag 중인 탭의 key를 실어 나르는 dataTransfer 종류. */
+export const TAB_DRAG_TYPE = "application/x-lophn-tab";
 
 export interface TabStripProps {
   tabs: readonly TabItem[];
   selected: string | null;
-  /** 줄 폭. 테스트가 고정하고 화면은 관측값을 넘긴다. */
-  width: number;
-  /** 현재 scroll offset. 선택 탭이 보이도록 가둔다. */
-  scroll: number;
+  /** 두 칸 중 focus 칸이면 활성 탭 위에 2px 표시를 둔다(editor#R3). */
   focused: boolean;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
   /** 키보드로 다른 칸으로 옮긴다(workspace#R3). */
   onMoveToPane?: (key: string, direction: "left" | "right") => void;
+  /** 탭 drag 시작과 끝. 끝나면 null이다. */
+  onDragTab?: (key: string | null) => void;
+  /** 줄 오른쪽 끝의 조작(칸 나누기, 정보 패널). */
+  end?: ReactNode;
+  label?: string;
 }
 
-// 탭 줄. 종류는 글자로 구별하고 넘치면 줄 안에서만 scroll한다(workspace#R1, R2).
+// 탭 줄. 종류는 아이콘과 글자로 구별하고 넘치면 줄 안에서만 scroll한다(workspace#R1, R2).
 export function TabStrip(
-  { tabs, selected, width, scroll, focused, onSelect, onClose, onMoveToPane }:
-    TabStripProps,
+  {
+    tabs,
+    selected,
+    focused,
+    onSelect,
+    onClose,
+    onMoveToPane,
+    onDragTab,
+    end,
+    label,
+  }: TabStripProps,
 ) {
-  const layout = tabStripScroll(tabs, selected, width, scroll);
+  const listRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list || selected === null) return;
+    const tab = list.querySelector<HTMLElement>(
+      `[data-tab="${CSS.escape(selected)}"]`,
+    );
+    if (!tab) return;
+    list.scrollLeft = revealScroll(
+      tab.offsetLeft,
+      tab.offsetLeft + tab.offsetWidth,
+      list.clientWidth,
+      list.scrollLeft,
+      list.scrollWidth,
+    );
+  }, [selected, tabs]);
+  const closeLabel = t("project-workspace.button.close-tab");
   return (
-    <div
-      className={styles.strip}
-      role="tablist"
-      data-tab-strip=""
-      data-focused={focused ? "true" : "false"}
-      style={{ width: `${width}px` }}
-      onKeyDown={(event) => {
-        if (!onMoveToPane || !selected) return;
-        if (
-          event.altKey &&
-          (event.key === "ArrowLeft" || event.key === "ArrowRight")
-        ) {
-          event.preventDefault();
-          onMoveToPane(selected, event.key === "ArrowLeft" ? "left" : "right");
-        }
-      }}
-    >
+    <div className={styles.bar} data-tab-strip="">
       <div
-        className={styles.scroll}
-        data-scroll={layout.scroll}
-        style={{ transform: `translateX(-${layout.scroll}px)` }}
+        ref={listRef}
+        className={styles.list}
+        role="tablist"
+        aria-label={label}
+        data-tab-list=""
+        onKeyDown={(event) => {
+          if (!onMoveToPane || !selected) return;
+          if (
+            event.altKey &&
+            (event.key === "ArrowLeft" || event.key === "ArrowRight")
+          ) {
+            event.preventDefault();
+            onMoveToPane(
+              selected,
+              event.key === "ArrowLeft" ? "left" : "right",
+            );
+          }
+        }}
       >
-        {tabs.map((tab) => (
-          <div
-            key={tab.key}
-            className={`${styles.tab} ${
-              tab.key === selected ? styles.selected : ""
-            }`}
-            role="tab"
-            aria-selected={tab.key === selected}
-            data-tab={tab.key}
-            data-kind={tab.kind}
-            tabIndex={tab.key === selected ? 0 : -1}
-            style={{ width: `${tabWidth(tab, width, tabs.length)}px` }}
-            onClick={() => onSelect(tab.key)}
-          >
-            <span className={styles.kind} data-kind-label="">
-              {t(TAB_KIND_LABEL[tab.kind])}
-            </span>
-            <span className={styles.title}>{tab.title}</span>
-            <button
-              type="button"
-              className={styles.close}
-              data-close=""
-              aria-label={t("project-workspace.button.close-tab")}
-              onClick={(event) => {
-                event.stopPropagation();
-                onClose(tab.key);
+        {tabs.map((tab) => {
+          const active = tab.key === selected;
+          const kind = t(TAB_KIND_LABEL[tab.kind]);
+          return (
+            <div
+              key={tab.key}
+              className={[
+                styles.tab,
+                active ? styles.active : "",
+                active && focused ? styles.focusBar : "",
+                tab.pinned ? styles.pinned : "",
+              ].join(" ")}
+              role="tab"
+              aria-selected={active}
+              data-tab={tab.key}
+              data-kind={tab.kind}
+              tabIndex={active ? 0 : -1}
+              style={tab.pinned
+                ? { width: `${TAB_PINNED}px`, minWidth: `${TAB_PINNED}px` }
+                : { minWidth: `${TAB_MIN}px`, maxWidth: `${TAB_MAX}px` }}
+              draggable={onDragTab !== undefined}
+              onClick={() => onSelect(tab.key)}
+              onDragStart={(event) => {
+                event.dataTransfer?.setData(TAB_DRAG_TYPE, tab.key);
+                if (event.dataTransfer) {
+                  event.dataTransfer.effectAllowed = "move";
+                }
+                onDragTab?.(tab.key);
               }}
+              onDragEnd={() => onDragTab?.(null)}
             >
-              {t("common.button.close")}
-            </button>
-          </div>
-        ))}
+              <Icon
+                icon={KIND_ICON[tab.kind]}
+                pixels={iconPixels("small")}
+                className={styles.icon}
+              />
+              {tab.pinned ? null : (
+                <>
+                  <span className={styles.title}>{tab.title}</span>
+                  <span className={styles.kind} data-kind-label="">
+                    {kind}
+                  </span>
+                  <Tooltip content={closeLabel}>
+                    <button
+                      type="button"
+                      className={styles.close}
+                      data-close=""
+                      tabIndex={-1}
+                      aria-label={closeLabel}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onClose(tab.key);
+                      }}
+                    >
+                      <Icon
+                        icon={workspaceIcons.close}
+                        pixels={iconPixels("small")}
+                      />
+                    </button>
+                  </Tooltip>
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
+      {end ? <div className={styles.end}>{end}</div> : null}
     </div>
   );
 }

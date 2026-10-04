@@ -988,6 +988,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T47 doctor와 보안 진단
 
+- 상태: 완료 (#180)
 - 등급: 기본
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R4, R5, R6, R9, R10

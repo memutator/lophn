@@ -378,7 +378,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T14 blob 참조 등록과 읽기
 
-- 상태: 완료 (#150)
+- 상태: 완료 (#150) — 후속 완료 (#175): 256KiB 읽기 창이 감독 control frame 한도를 넘지 않는다
 - 등급: 기본
 - concern: platform/blob-store, platform/identity
 - 요구: platform/blob-store#R4, R5, R6, R7, platform/identity#R9
@@ -394,6 +394,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 참조된 blob이 없거나 hash가 다르면 `unavailable`, 빈 내용을 돌려주지 않는다(R6).
   - 부분 읽기는 전체 크기·실제 구간·잘림을 함께 돌려준다. JSON 구간 최대 256KiB(R7).
   - `refs_test.ts`, `read_test.ts`에 위 요구 테스트
+- 후속(#175): 256KiB 읽기 창을 실제 I/O worker로 읽으면 worker 응답의 base64가 감독 control frame 한도(256KiB)를 넘어 세션이 닫히고 읽기가 `corrupt`로 끝났다. fake `bytes.read`는 이 경로를 지나지 않아 잡지 못했다. `blob.read`의 바이트를 JSON control frame 대신 요청 channel의 byte chunk frame으로 돌려 두 한도를 함께 지킨다(architecture 5.5).
 
 ### T15 redaction 규칙 엔진
 
@@ -1139,4 +1140,5 @@ slice별 작업 수: skeleton 10, documents 7, agent 15, context 1, apps 3, codi
 - **Q16 coding connection 생성 결정(정함).** architecture/platform 5.6 표(`coding_agent`는 "confirmation window의 connection 결정 뒤 발급")와 마지막 절("보호 화면의 exact scope 결정")이 coding-agent/connection#R2·D19(사람의 harness 연결·범위 선택이 허락, 확인 창 없음, 회수만 confirmation window)와 부딪힌다. platform/identity#R5도 "사람의 harness 연결 선택"이다. architecture를 R2에 맞춰 T5 PR에서 고친다.
 - **Q17 confirmation handle 시점(정함).** documents slice의 파일 지우기(organize-documents)가 confirmation window를 쓴다. 그래서 handle 발급·검증·소비를 T56(documents slice)으로 떼었고, approval의 허락·거절만 T22(agent slice)에 남겼다.
 - **Q18 Tx approval 적용 연결(정함).** contracts#T22의 필수 `Tx.useApproval`과 T1 실행기가 함께 합쳐지기 전에 생긴 누락을 복구한다. T23의 정확한 action 검사·`approval_uses` 기록이 들어오기 전에는 `unavailable`로 거절하며, 성공한 사용이나 receipt를 만들지 않는다. T23에서 이 거절을 실제 구현으로 바꾼다.
+- **Q20 blob 읽기 응답 통로(추천안, T14 후속).** 256KiB 읽기 창(blob-store#R7)을 base64로 JSON control frame에 실으면 감독 control frame 한도(256KiB, contracts#T6)를 넘는다. control frame 한도는 제어 메시지의 상한을 지키려고 있는 것이고 바이트는 byte chunk frame의 몫이다(Q2, Q6). 그래서 한도를 올리지 않고 core↔I/O worker의 `blob.read` 바이트만 요청 channel의 byte chunk frame으로 옮겼다. `/v1/blobs/read`의 BlobReadResult(base64)는 그대로다.
 - **Q19 command 행·CAS 한도(lead 결정).** caller의 변경 행 수 주장과 compare의 top-level key 수는 실제 한도가 아니다. 변경 행은 `Tx.sql`·`emit`·`advanceSubscriberCursor`의 SQL마다 같은 연결 `total_changes()`의 앞뒤 차이로 event·cursor 행과 RETURNING·trigger 변경까지 실제로 세어 transaction 안에서 누적하고 1,000개 초과면 전체 rollback한다. `Tx.sql.get`·`all`로 행을 바꾸면 SQL 문장 모양과 상관없이 거절하고 rollback한다. 실행기의 `command_results` 한 행만 이 수에서 뺀다. CAS는 handler 전에 parse된 compare의 leaf 수를 중첩 object·배열까지 재귀로 세어 256개 초과면 `invalid_input`으로 거절하고 handler를 부르지 않는다. 실제 비교 횟수가 아니라 받은 비교 대상의 상한이다. 모든 owner handler에 필수 preflight member를 더하지 않고 `CommandDefinition`·`Tx` contract는 그대로 둔다. 동작이 숨고 비동기·복사에서 새어 나가는 compare proxy는 쓰지 않는다.

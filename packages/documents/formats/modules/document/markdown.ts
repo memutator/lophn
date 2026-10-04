@@ -33,9 +33,6 @@ function atx(line: string, lineNumber: number): HeadingSpan | null {
   if (match === null) return null;
   const marks = match[2] ?? "";
   const rest = match[4] ?? "";
-  if (marks.length > 0 && match[3] === undefined && rest.length === 0) {
-    // closing sequence 없는 `#`만 있는 줄도 ATX heading이다.
-  }
   const shown = displayTitle(rest);
   return {
     title: shown.title,

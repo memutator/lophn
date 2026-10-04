@@ -136,6 +136,7 @@ export type PragmaCheck = {
   journalMode: string;
   synchronous: bigint;
   foreignKeys: bigint;
+  recursiveTriggers: bigint;
   busyTimeout: bigint;
 };
 
@@ -150,7 +151,7 @@ function pragmaValue(db: DatabaseSync, sql: string): bigint | string {
   throw new Error("pragma 반환을 읽을 수 없다");
 }
 
-// 요구가 정한 네 값. synchronous=FULL은 SQLite가 2로 돌려준다.
+// synchronous=FULL은 SQLite가 2로 돌려준다. REPLACE의 delete도 trigger를 거쳐야 한다.
 const SYNCHRONOUS_FULL = 2n;
 const BUSY_TIMEOUT_MS = 5000n;
 
@@ -164,17 +165,20 @@ export function configure(db: DatabaseSync): Result<void> {
   }
   db.prepare("pragma synchronous=FULL").run();
   db.prepare("pragma foreign_keys=ON").run();
+  db.prepare("pragma recursive_triggers=ON").run();
   db.prepare("pragma busy_timeout=5000").run();
   const applied: PragmaCheck = {
     journalMode: String(pragmaValue(db, "pragma journal_mode")),
     synchronous: BigInt(pragmaValue(db, "pragma synchronous")),
     foreignKeys: BigInt(pragmaValue(db, "pragma foreign_keys")),
+    recursiveTriggers: BigInt(pragmaValue(db, "pragma recursive_triggers")),
     busyTimeout: BigInt(pragmaValue(db, "pragma busy_timeout")),
   };
   if (
     applied.journalMode !== "wal" ||
     applied.synchronous !== SYNCHRONOUS_FULL ||
     applied.foreignKeys !== 1n ||
+    applied.recursiveTriggers !== 1n ||
     applied.busyTimeout !== BUSY_TIMEOUT_MS
   ) {
     return err({

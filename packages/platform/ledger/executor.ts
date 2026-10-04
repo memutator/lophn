@@ -28,6 +28,7 @@ import type {
 } from "./writer-message.ts";
 import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
 import { runTransaction, type TxDeps } from "./tx.ts";
+import { authorizeSubscriberCursor } from "./subscriber-registration.ts";
 import {
   actorKind,
   authorityTarget,
@@ -65,6 +66,18 @@ function requestContext(
   return run === null ? ctx : { ...ctx, run };
 }
 
+// handler가 scope·conditions를 바꿔도 Tx owner gate는 이 snapshot을 본다.
+function authoritySnapshot(ctx: RequestContext): Result<RequestContext> {
+  try {
+    return ok(structuredClone(ctx));
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "subscriber 검사를 사용할 수 없다",
+    });
+  }
+}
+
 export async function digestOf(
   command: string,
   envelope: Omit<FingerprintInput, "command">,
@@ -82,10 +95,11 @@ type Session = {
   tx: Tx;
   seal: () => void;
   now: () => string;
+  checkCursor: (subscriber: string) => Result<void>;
 };
 
 function applyCommand(
-  { record, tx, seal, now }: Session,
+  { record, tx, seal, now, checkCursor }: Session,
   ctx: AuthenticatedContext,
   envelope: CommandEnvelope,
   definition: CommandDefinition,
@@ -125,7 +139,7 @@ function applyCommand(
       message: "사람 결정 확인을 아직 사용할 수 없다",
     });
   }
-  const cas = casAgrees(record, compare, input);
+  const cas = casAgrees(record, compare, input, checkCursor);
   if (!cas.ok) return cas;
   const before = headSeq(record);
   if (!before.ok) return before;
@@ -175,6 +189,7 @@ export function commitCommand(
 ): Result<CommandSuccess> {
   // checkCredential은 BEGIN IMMEDIATE 뒤 한 번만 부른다. Tx와 handler는 같은 current를 본다(R3, R11).
   let current: AuthenticatedContext | undefined;
+  let authority: RequestContext | undefined;
   try {
     return runTransaction(
       connection,
@@ -182,16 +197,36 @@ export function commitCommand(
         const credential = deps.checkCredential(ctx);
         if (!credential.ok) return credential;
         current = credential.value;
+        const request = authoritySnapshot(
+          requestContext(
+            credential.value,
+            effectiveRun(credential.value, envelope.run),
+          ),
+        );
+        if (!request.ok) return request;
+        authority = request.value;
         return ok({
           actor: credential.value.actor,
           run: effectiveRun(credential.value, envelope.run),
+          request: request.value,
         });
       },
       deps,
       (tx, seal) => {
         if (current === undefined) return err(internalError());
         return applyCommand(
-          { record: connection.sql, tx, seal, now: () => deps.clock.now() },
+          {
+            record: connection.sql,
+            tx,
+            seal,
+            now: () => deps.clock.now(),
+            checkCursor: (subscriber) =>
+              authorizeSubscriberCursor(
+                deps.subscriberGate,
+                subscriber,
+                authority,
+              ),
+          },
           current,
           envelope,
           definition,

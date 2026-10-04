@@ -298,6 +298,7 @@ concerns: [shell]
   - 상단 경로는 focus 칸 활성 탭을 따른다.
   - `tab-strip_test`, `panes_test`에 위 요구 테스트.
 - 가져올 것: legacy `renderer/src/workbench`(model, pane·tab·split UI), `spaces/ProjectSpace.tsx` 골격, `ui-layout`의 SplitPane·Resizer·TabBar. 구 target·address 계약은 가져오지 않는다.
+- 상태: 완료 (#172)
 
 ### T15 launcher: 프로젝트 등록과 추적 미리보기
 

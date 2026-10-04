@@ -142,7 +142,6 @@ export const agentTraceExport = defineCommand({
   errors: readErrors,
 });
 
-const tokenCount = count.nullable();
 
 // TokenUsage·CallCost 정본은 model-call-values.ts다(ModelCall 기록과 같은 값).
 const CALL_COST_KINDS = COST_KINDS;

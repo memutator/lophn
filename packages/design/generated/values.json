@@ -324,6 +324,42 @@
         "collapsed": "56px"
       }
     },
+    "control": {
+      "sm": {
+        "height": "28px",
+        "padX": "8px",
+        "icon": "14px"
+      },
+      "md": {
+        "height": "32px",
+        "padX": "12px",
+        "icon": "16px"
+      },
+      "lg": {
+        "height": "36px",
+        "padX": "14px",
+        "icon": "16px"
+      },
+      "gap": "6px"
+    },
+    "icon": {
+      "size": {
+        "small": "14px",
+        "base": "16px",
+        "large": "20px"
+      },
+      "stroke": 1.5
+    },
+    "field": {
+      "gap": "6px"
+    },
+    "tab": {
+      "indicator": "2px",
+      "contentGap": "24px"
+    },
+    "loading": {
+      "delay": "300ms"
+    },
     "floating": {
       "surface": {
         "light": "#ffffff",

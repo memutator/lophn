@@ -59,3 +59,26 @@ Deno.test("shell/desktop#R17: renderer build가 entry 세 개와 scope된 CSS Mo
     await rm(dir, { recursive: true });
   }
 });
+
+Deno.test("shell/design-system#R43: renderer build가 @lophn/design/components의 Radix·Lucide·wording을 React 한 벌로 묶는다", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "shell-renderer-components-"));
+  try {
+    await build(dir, [{
+      in: join("testdata", "components-entry.tsx"),
+      out: "components",
+    }]);
+    const js = await readFile(join(dir, "components.js"), "utf8");
+    const css = await readFile(join(dir, "components.css"), "utf8");
+    const react = js.match(
+      /exports\.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE =/g,
+    );
+    assertEquals(react?.length, 1);
+    assert(js.includes("Reload"), "wording catalog is not bundled");
+    assert(js.includes("lucide-react"), "Lucide is not bundled");
+    const scoped = css.match(/^\.(button_[A-Za-z]+)/m)?.[1];
+    assert(scoped, "component CSS Modules class is missing");
+    assert(js.includes(`"${scoped}"`), "component class map is missing");
+  } finally {
+    await rm(dir, { recursive: true });
+  }
+});

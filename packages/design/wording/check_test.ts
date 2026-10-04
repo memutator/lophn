@@ -82,3 +82,98 @@ Deno.test("shell/wording#R7: 저장소 화면 코드와 catalog에 문구 오류
   const errors = errorsOf(await checkRepo(root.replace(/\/$/, "")));
   assertEquals(errors, []);
 });
+
+Deno.test("shell/wording#R7: TSX generic과 속성 안 화살표 함수는 문구가 아니고 그 뒤 직접 문구는 오류다", () => {
+  const clean = [
+    "export function A({ go }: Props) {",
+    "  const ref = useRef<HTMLButtonElement>(null);",
+    "  const icons: Record<Tone, Icon> = ICONS;",
+    '  return <button ref={ref} onClick={() => go(a > b)} type="button">',
+    '    {t("common.button.reload")}',
+    "  </button>;",
+    "}",
+  ].join("\n");
+  assertEquals(errorsOf(checkSource("a.tsx", clean)), []);
+  const literal = [
+    "const ref = useRef<HTMLDivElement>(null);",
+    "const a = <p onClick={() => go()}>Saved<b>now</b> later</p>;",
+    "const b = <>Fragment text</>;",
+  ].join("\n");
+  const lines = errorsOf(checkSource("b.tsx", literal)).map((finding) =>
+    finding.line
+  );
+  assertEquals([...new Set(lines)], [2, 3]);
+});
+
+Deno.test("shell/wording#R7: 저장소 검사는 design components를 읽고 *_test.tsx fixture는 화면 코드로 보지 않는다", async () => {
+  const directory = await Deno.makeTempDir();
+  try {
+    const components = `${directory}/packages/design/components/button`;
+    await Deno.mkdir(components, { recursive: true });
+    await Deno.writeTextFile(
+      `${components}/button.tsx`,
+      "export const A = () => <button>Save</button>;",
+    );
+    await Deno.writeTextFile(
+      `${components}/button_test.tsx`,
+      "export const B = () => <button>Fixture</button>;",
+    );
+    const files = errorsOf(await checkRepo(directory)).map((finding) =>
+      finding.file
+    );
+    assertEquals(files, ["packages/design/components/button/button.tsx"]);
+  } finally {
+    await Deno.remove(directory, { recursive: true });
+  }
+});
+
+Deno.test("shell/wording#R7: 표현식 문자열 속 괄호와 닫은 자식 태그 뒤 부모 텍스트의 직접 문구도 오류다", () => {
+  for (
+    const source of [
+      'const a = <button onClick={() => save("}")}>Save</button>;',
+      'const b = <p><b>{t("common.button.reload")}</b> Raw text</p>;',
+      'const c = <button onClick={() => save("{")}>Save</button>;',
+      "const d = <button onClick={() => save('\\'}')}>Save</button>;",
+      "const e = <button onClick={() => save(`${x}}`)}>Save</button>;",
+      'const f = <div>{/* } */}<span title="Hi">x</span> Trailing</div>;',
+    ]
+  ) {
+    const rules = errorsOf(checkSource("c.tsx", source)).map((finding) =>
+      finding.rule
+    );
+    assert(
+      rules.includes("literal-text") || rules.includes("literal-attribute"),
+      source,
+    );
+  }
+  const trailing = errorsOf(
+    checkSource(
+      "d.tsx",
+      'const b = <p><b>{t("common.button.reload")}</b> Raw text</p>;',
+    ),
+  );
+  assertEquals(trailing.map((finding) => finding.rule), ["literal-text"]);
+});
+
+Deno.test("shell/wording#R7: 문자열 괄호·template·주석·정규식·generic·화살표와 t(key)만 쓴 TSX는 오류가 없다", () => {
+  const clean = [
+    "// <p>Not markup</p> in a comment",
+    "/* } { <b>also</b> */",
+    "export function A({ go }: Props) {",
+    "  const ref = useRef<HTMLButtonElement>(null);",
+    "  const pattern = /[<{\"'`]/g;",
+    '  const brace = "}" + "{" + `${"}"}`;',
+    "  const map: Record<string, number> = {};",
+    "  return (",
+    '    <div onClick={() => go("}", `{${brace}}`, a > b)}>',
+    "      {/* comment } */}",
+    '      <button type="button" onClick={() => go("{")}>',
+    '        {t("common.button.reload")}',
+    "      </button>",
+    '      <span>{ref.current ? t("common.button.reload") : null}</span>',
+    "    </div>",
+    "  );",
+    "}",
+  ].join("\n");
+  assertEquals(errorsOf(checkSource("clean.tsx", clean)), []);
+});

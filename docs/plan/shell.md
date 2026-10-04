@@ -141,6 +141,7 @@ concerns: [shell]
 
 ### T8 공통 컴포넌트: 조작과 상태
 
+- 상태: 완료 (#43)
 - 등급: frontend
 - concern: shell/design-system
 - 요구: shell/design-system#R1, R2, R5, R6, R26, R27, R28, R29, R34, R43

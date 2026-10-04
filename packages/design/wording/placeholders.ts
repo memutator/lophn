@@ -12,6 +12,16 @@ export type PlaceholderKinds = {
   "settings.models.for-summaries": Record<never, never>;
   "common.activity.agent": Record<never, never>;
   "common.activity.app": Record<never, never>;
+  "common.error.load-failed": {
+    target: "string";
+  };
+  "common.button.reload": Record<never, never>;
+  "common.stale.label": {
+    age: "string";
+  };
+  "common.author.label": {
+    author: "string";
+  };
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

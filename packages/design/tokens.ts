@@ -144,6 +144,21 @@ export const tokens = {
     panePadding: { narrow: "16px", wide: "32px" },
     sidebar: { min: "200px", max: "400px", collapsed: "56px" },
   },
+  // 컨트롤 sm·md·lg 높이·좌우 여백·아이콘과 라벨 간격(R26).
+  control: {
+    sm: { height: "28px", padX: "8px", icon: "14px" },
+    md: { height: "32px", padX: "12px", icon: "16px" },
+    lg: { height: "36px", padX: "14px", icon: "16px" },
+    gap: "6px",
+  },
+  // Lucide 기본 크기 16·20px과 선 1.5, 정한 14px(R43, R26).
+  icon: { size: { small: "14px", base: "16px", large: "20px" }, stroke: 1.5 },
+  // 라벨 위·도움말 아래 6px(R28).
+  field: { gap: "6px" },
+  // 일반 탭의 활성 밑줄과 본문 간격(R29).
+  tab: { indicator: "2px", contentGap: "24px" },
+  // 첫 조회의 loading 표시는 이 시간 뒤에만 보인다(R1).
+  loading: { delay: "300ms" },
   floating: {
     surface: { light: "#ffffff", dark: "#1d1d1b" },
     hover: { light: "#f3f2ef", dark: "#2a2a28" },

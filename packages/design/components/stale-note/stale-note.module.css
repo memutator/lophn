@@ -1,0 +1,6 @@
+.note {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-variant-numeric: var(--font-numeric);
+}

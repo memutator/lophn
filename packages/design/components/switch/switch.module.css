@@ -1,0 +1,56 @@
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-height: var(--control-md-height);
+}
+
+.label {
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.track {
+  box-sizing: border-box;
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  width: var(--control-sm-height);
+  height: var(--icon-size-base);
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-1);
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-border-strong);
+  cursor: pointer;
+  transition: background-color var(--motion-duration-short) var(--motion-ease);
+}
+
+.track[data-state="checked"] {
+  background: var(--color-ink-background);
+}
+
+.track:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.track:disabled {
+  background: var(--color-surface-muted);
+  cursor: not-allowed;
+}
+
+.thumb {
+  display: block;
+  width: var(--space-5);
+  height: var(--space-5);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-base);
+  transition: transform var(--motion-duration-short) var(--motion-ease);
+}
+
+.thumb[data-state="checked"] {
+  transform: translateX(var(--space-5));
+}

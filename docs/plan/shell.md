@@ -939,6 +939,7 @@ concerns: [shell]
 
 ### T51 창 없는 시작과 종료 intent
 
+- 상태: 완료 (#140)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R21(창 없는 tray mode, 명시 중지)

@@ -68,6 +68,14 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 | happy-dom 20.14.5                                                                                                                   | packages/design/component-tests.ts, apps/shell/renderer/build_test.ts | 공통 컴포넌트·SDK 옆 `*_test.tsx`와 실제 공개 예제 bundle을 DOM·event·keyboard·computed style로 `deno test` 안에서 돌린다                                                                                                                                                                                                              |
 | esbuild 0.28.2, @luca/esbuild-deno-loader 0.11.1                                                                                    | packages/design/component-tests.ts, apps/shell/renderer               | Deno가 CSS Modules를 읽지 못해 공통 UI·SDK 테스트를 renderer와 같은 `local-css` loader로 한 bundle에 묶어 happy-dom에서 돌린다. 공개 token CSS·로컬 woff2와 string·subpath package exports도 함께 resolve한다                                                                                                                          |
 
+MCP discovery schema의 token 재측정(coding-agent/mcp-server#R4)은 의존성을 더하지
+않는다. Sentry MCP처럼 tiktoken cl100k_base를 들이는 것이 원 기준이지만, lockfile이
+frozen이라 배포 테스트가 tokenizer package를 요구하면 check마다 npm 반입이 붙는다.
+그래서 `packages/coding-agent/mcp-server/measure_tokens_test.ts`는 minified UTF-8
+JSON의 바이트 수를 잰다. 2,000 token 목표는 cl100k_base의 JSON schema 압축 비율
+(1 token ≈ 3 bytes)로 바이트 상한 6,000에 해당한다. tokenizer package를 들일 때는
+이 측정을 실제 encoding으로 바꾼다.
+
 ## check 명령 하나
 
 저장소 루트의 `deno task check`가 모든 관문이다. 모든 작업은 이것을 통과해야

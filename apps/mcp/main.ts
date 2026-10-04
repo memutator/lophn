@@ -74,7 +74,9 @@ export function startMcpServer(
     stderr: Deno.stderr.writable,
   };
   const args = options.args ?? Deno.args;
-  const source = options.env ?? Deno.env.toObject();
+  // 환경은 필요한 이름만 get한다. argv의 --allow-env가 이름 나열이므로 전체 읽기
+  // toObject()는 NotCapable이다(connection#R16).
+  const source = options.env ?? readEnv();
   const label = optionValue(args, "--label") ?? source["LOPHN_AGENT_LABEL"] ??
     undefined;
   const toolsets = parseToolsets(
@@ -170,6 +172,25 @@ function optionValue(
   const index = args.indexOf(name);
   if (index < 0 || index + 1 >= args.length) return undefined;
   return args[index + 1];
+}
+
+// 허용 목록의 이름만 get한다. 전체 읽기 toObject()는 NotCapable이다(connection#R16).
+function readEnv(): Record<string, string | undefined> {
+  const names = [
+    "LOPHN_AGENT_LABEL",
+    "LOPHN_MCP_TOOLSETS",
+    LOPHN_CONNECTION,
+    LOPHN_DAEMON_URL,
+  ];
+  const source: Record<string, string | undefined> = {};
+  for (const name of names) {
+    try {
+      source[name] = Deno.env.get(name);
+    } catch {
+      source[name] = undefined;
+    }
+  }
+  return source;
 }
 
 export { isEffectUnknown };

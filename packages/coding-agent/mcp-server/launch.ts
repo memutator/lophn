@@ -44,6 +44,14 @@ const CWD_ARG = "--cwd";
 export function helperArg(helperPath: string): string {
   return `--allow-run=${helperPath}`;
 }
+
+// loopback endpoint를 Deno --allow-net 값으로 바꾼다. Deno는 URL을 받지 않고
+// host:port만 받는다.
+function netValue(endpoint: string): string {
+  const rest = endpoint.replace(/^https?:\/\//, "");
+  return rest.replace(/\/.*$/, "");
+}
+
 // 실행 argv를 분리 배열로 만든다. 환경 허용 목록에 token 이름은 없다. helper 경로는
 // credential provider가 결정하므로 argv에 넣지 않는다.
 export function mcpLaunchArgv(inputs: McpLaunchInputs): {
@@ -54,7 +62,8 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
   const resources = inputs.resources.replace(/\/$/, "");
   const entry = `${resources}/apps/mcp/main.ts`;
   const config = `${resources}/deno.json`;
-  const net = [inputs.coreEndpoint, ...(inputs.appEndpoints ?? [])].join(",");
+  const net = [netValue(inputs.coreEndpoint), ...(inputs.appEndpoints ?? []).map(netValue)]
+    .join(",");
   const read = [
     resources,
     inputs.cache,

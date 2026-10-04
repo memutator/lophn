@@ -14,6 +14,7 @@ import {
   createPreparationRegistry,
   objectPathFor,
   preparedOf,
+  systemQuota,
   tmpDirFor,
 } from "./mod.ts";
 
@@ -310,4 +311,16 @@ Deno.test("platform/blob-store#R1: 다른 주체·목적의 같은 hash는 별�
   const duplicate = registry.register(first.value, clock.nowMs());
   assertEquals(duplicate.ok, false);
   if (!duplicate.ok) assertEquals(duplicate.error.code, "conflict");
+});
+
+Deno.test("platform/blob-store#R12: I/O worker 권한(run·sys 없음)에서 quota 관측을 부른다", async () => {
+  // 제품 launch spec(apps/core/core.ts platformIoSpec)은 allow_run·sys를 열지 않는다.
+  // 이 권한 모양에서 실제 관측 경로가 NotCapable로 떨어지지 않고 undefined(관측 불가)로 끝나는지 본다.
+  // 권한은 test runner가 정한다: deno task check의 test 스텝은 sys·run을 열지 않는다.
+  const quota = systemQuota();
+  const observed = await quota.availableBytes(
+    Deno.makeTempDirSync({ prefix: "blob-quota-" }),
+  );
+  // sys 권한이 없으면 undefined고 있으면 실제 여유다. 어느 쪽이든 throw하지 않는다(R12 unavailable을 위해).
+  if (observed !== undefined) assert(observed > 0);
 });

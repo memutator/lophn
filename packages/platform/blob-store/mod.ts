@@ -14,6 +14,7 @@ export {
 export {
   createFakeQuota,
   type DiskQuota,
+  statfsBytes,
   systemQuota,
   unavailableQuota,
 } from "./adapters/quota.ts";

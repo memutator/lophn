@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { actorSchema } from "./actor.ts";
 import { idSchema } from "./ids.ts";
+import { jsonObjectSchema } from "./json-values.ts";
 import { atSchema } from "./values.ts";
 
 // 대상 범위의 내용은 소유 concern이 검사한다. platform은 JSON 경계만 정한다.
@@ -9,7 +10,7 @@ export const credentialScopeSchema = z.strictObject({
     (values) => new Set(values).size === values.length,
     { message: "duplicate operation" },
   ),
-  targets: z.record(z.string(), z.json()),
+  targets: jsonObjectSchema,
 });
 export type CredentialScope = z.infer<typeof credentialScopeSchema>;
 

@@ -555,7 +555,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 등급: 기본
 - concern: lophn-agent/harness/run-loop, lophn-agent/harness/waiting-and-recovery, lophn-agent/conversation, lophn-agent/scheduling
 - 요구: lophn-agent/conversation#R1–R5, R7–R10, R12–R14, R16, R17; lophn-agent/harness/run-loop#R1–R3, R6, R7, R18–R20; lophn-agent/harness/waiting-and-recovery#R1, R3, R5–R7, R10; lophn-agent/scheduling#R1, R4–R7; lophn-agent/handoff#R3, R8; lophn-agent/harness/prompt-assemble#R19, R20; lophn-agent/roles/operator#R6
-- 자리: `packages/contracts/lophn-agent/` — `mod.ts`, `registry.ts`, `runs.ts`, `run-values.ts`, `run-reads.ts`, `run-wait.ts`, `sessions.ts`, `messages.ts`, `message-content.ts`, `occurrences.ts`, `scope.ts`, `question-submission.ts`, `resolved-model.ts`, `visuals.ts`, 각 `_test.ts`; `packages/contracts/platform/json-values.ts`와 approval JSON map 재사용·회귀 테스트
+- 자리: `packages/contracts/lophn-agent/` — `mod.ts`, `registry.ts`, `runs.ts`, `run-values.ts`, `run-reads.ts`, `run-wait.ts`, `sessions.ts`, `messages.ts`, `message-content.ts`, `occurrences.ts`, `scope.ts`, `question-submission.ts`, `resolved-model.ts`, `visuals.ts`, 각 `_test.ts`; `packages/contracts/platform/json-values.ts`와 approval·credential target JSON map 재사용·회귀 테스트
 - 쓰는 contract: T5, T6, T7, T22, T25
 - 내놓는 contract: agent run
 - 받은 요청: lophn-agent(A1, A2의 session·message, A7의 MessageContent, AgentAppScope), shell(요청·steering·stop·재개)
@@ -567,7 +567,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - `AgentAppScope {role, assignment, apps: [{app, commands, effects, revert_required, confirm_allowed}]}`: StartRun 때 `agent:<asg>` credential의 conditions로 실린다.
   - event `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished` 여섯 개, `Session*` 3개, `Message*` 4개, `AssignmentScheduleAdvanced`. `CheckpointRun`·`ConfirmNextRun`은 event를 만들지 않는다.
   - `WaitRun`은 새 question 또는 approval의 정확한 생성 입력을 받고 요청 생성·`waiting_on` 연결을 한 transaction에서 한다. 기존 ID만 받는 계약으로 줄이지 않는다. question 제출 값과 `ResolvedModel`은 T26에서 먼저 정의하고 T28·T29가 재사용한다.
-  - ordered `MessageContent`가 쓰는 정확한 `VisualBlock`과 상한은 T26에서 먼저 정의하고 T30이 같은 schema를 재사용한다. `__proto__` 같은 JSON own key·nested key는 파싱에서 지우지 않고 canonical byte·hash 근거로 보존한다. 이 값 검증은 blob 내용 확인·현재 scope·redaction·원자 기록 같은 owner runtime 검증을 대신하지 않는다.
+  - ordered `MessageContent`가 쓰는 정확한 `VisualBlock`과 상한은 T26에서 먼저 정의하고 T30이 같은 schema를 재사용한다. `__proto__` 같은 JSON own key·nested key는 파싱에서 지우지 않고 canonical byte·hash와 credential target restriction 근거로 보존한다. 이 값 검증은 blob 내용 확인·현재 scope·redaction·원자 기록 같은 owner runtime 검증을 대신하지 않는다.
 
 ### T27 contracts/lophn-agent: preset·assignment
 

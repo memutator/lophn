@@ -1,4 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
+import { canonicalize } from "../../base/mod.ts";
 import { formatActor, parseActor } from "./actor.ts";
 import {
   authenticatedContextSchema,
@@ -64,6 +65,44 @@ Deno.test("platform/identity#R2 platform/identity#R3 platform/ledger#R11: scope�
     !credentialConditionsSchema.safeParse({ ...conditions, override: true })
       .success,
   );
+});
+Deno.test("platform/identity#R2 platform/identity#R3: target restriction의 own JSON key를 context에서도 보존한다", () => {
+  const targets = JSON.parse(
+    '{"__proto__":{"run":"required"},"nested":{"__proto__":{"app":"required"}},"constructor":{"prototype":false}}',
+  );
+  const scoped = { operations: ["ReadDocument"], targets };
+  const parsedScope = credentialScopeSchema.parse(scoped);
+  const parsedContext = authenticatedContextSchema.parse({
+    principal: "test",
+    actor: "user",
+    scope: scoped,
+    conditions: {},
+    credential_ref: "ref",
+  });
+  for (const parsed of [parsedScope, parsedContext.scope]) {
+    assertEquals(Object.keys(parsed.targets), Object.keys(targets));
+    assertEquals(Object.entries(parsed.targets), Object.entries(targets));
+    assertEquals(canonicalize(parsed.targets), canonicalize(targets));
+    assertEquals(Object.getPrototypeOf(parsed.targets), Object.prototype);
+  }
+});
+Deno.test("platform/identity#R2 platform/identity#R3: target scope는 JSON object만 받고 값을 변환하지 않는다", () => {
+  for (
+    const targets of [null, [], { value: undefined }, { value: Infinity }, {
+      value: 1n,
+    }, new Date()]
+  ) {
+    assert(!credentialScopeSchema.safeParse({ ...scope, targets }).success);
+    assert(
+      !authenticatedContextSchema.safeParse({
+        principal: "test",
+        actor: "user",
+        scope: { ...scope, targets },
+        conditions: {},
+        credential_ref: "ref",
+      }).success,
+    );
+  }
 });
 Deno.test("platform/identity#R6 platform/identity#R14: context는 credential_ref만 가지며 token·클릭 증거를 받지 않는다", () => {
   const context = {

@@ -1,8 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
-import type { Result } from "../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../packages/contracts/platform/mod.ts";
-import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
-import type { CommandEnvelope } from "../../../packages/platform/ledger/writer-message.ts";
+import type { Result } from "../../packages/base/mod.ts";
+import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import {
+  type CommandEnvelope,
+  createLedgerHarness,
+  type LedgerHarness,
+} from "./testing/ledger.ts";
 import {
   APP,
   blob,
@@ -17,11 +20,11 @@ import {
   requester,
   runner,
   verification,
-} from "../../../packages/problems/tests/fixtures.ts";
-import { FAILING_BLOB_FIELD } from "../../../packages/problems/tests/harness-registration_test.ts";
+} from "../../packages/problems/tests/fixtures.ts";
+import { FAILING_BLOB_FIELD } from "../../packages/problems/tests/harness-registration_test.ts";
 
 const registration = new URL(
-  "../../../packages/problems/tests/harness-registration_test.ts",
+  "../../packages/problems/tests/harness-registration_test.ts",
   import.meta.url,
 );
 const nowMs = Date.parse("2026-10-04T00:00:00.000Z");

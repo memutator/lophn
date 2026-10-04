@@ -146,6 +146,8 @@ let evidenceSerial = 0;
 let previousAdmission: unknown;
 let previousEvidence: unknown;
 
+// platform authorize(identity/model.ts)는 credential의 domain target(request_key 등)을
+// 고정 조건이 아니라는 이유로 거절한다. 그 gap이 풀릴 때까지 platform에 알려 둔다.
 // platform authorize는 domain target을 거절한다. 테스트 command가 같은 Worker에
 // scope를 심고, 공식 handler는 그 scope로 owner 검사를 본다.
 function withSubmittedScope(command: CommandDefinition): CommandDefinition {
@@ -154,7 +156,11 @@ function withSubmittedScope(command: CommandDefinition): CommandDefinition {
     handle(tx, ctx, input, compare) {
       return command.handle(
         tx,
-        submittedScope === null ? ctx : { ...ctx, scope: submittedScope },
+        submittedScope === null ? ctx : {
+          ...ctx,
+          // operations는 실제 credential 그대로 두고 domain targets만 더한다.
+          scope: { ...ctx.scope, targets: submittedScope.targets },
+        },
         input,
         compare,
       );

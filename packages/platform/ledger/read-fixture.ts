@@ -83,33 +83,46 @@ export function storageRegression(ctx: RequestContext): Result<unknown>[] {
     };
     db.close = () => {
       closes++;
-      close();
+      // close 실패는 실제 native handle을 열어 둔다. adapter guard가 막아야 한다.
       if (closeFails) throw new Error("private close failure");
+      close();
     };
-    const connection = createReaderConnection(db);
-    const definition = createReaderRegistration().reads[0];
-    results.push(
-      executeRead(connection, definition, new Map(), ctx, { action: "rows" }),
-    );
-    if (closes !== 1) throw new Error("failed snapshot was not closed");
-    results.push(
-      executeRead(connection, definition, new Map(), ctx, { action: "rows" }),
-    );
-    for (
-      const operation of [
-        () => connection.sql.get("select 1", []),
-        () => connection.sql.all("select 1", []),
-      ]
-    ) {
-      try {
-        operation();
-        throw new Error("unusable SQL ran");
-      } catch (error) {
-        if (!(error instanceof ReaderStorageError)) throw error;
+    try {
+      const connection = createReaderConnection(db);
+      const definition = createReaderRegistration().reads[0];
+      results.push(
+        executeRead(connection, definition, new Map(), ctx, { action: "rows" }),
+      );
+      if (closes !== 1) throw new Error("failed snapshot was not closed");
+      if (db.isOpen !== closeFails) throw new Error("native close differs");
+      results.push(
+        executeRead(connection, definition, new Map(), ctx, { action: "rows" }),
+      );
+      for (
+        const operation of [
+          () => connection.begin(),
+          () => connection.sql.get("select 1", []),
+          () => connection.sql.all("select 1", []),
+        ]
+      ) {
+        try {
+          operation();
+          throw new Error("unusable SQL ran");
+        } catch (error) {
+          if (!(error instanceof ReaderStorageError)) throw error;
+          if (error.message.includes("private")) {
+            throw new Error("unsafe error");
+          }
+        }
       }
+      connection.end();
+      connection.close();
+      connection.close();
+      if (closes !== 1) throw new Error("cleanup repeated close");
+    } finally {
+      // 남아 있는 native handle은 테스트만 가진 원래 close로 정리한다.
+      if (db.isOpen) close();
     }
-    connection.end();
-    if (closes !== 1) throw new Error("cleanup repeated close");
   }
   return results;
 }

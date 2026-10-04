@@ -164,14 +164,20 @@ export const recordWideNoteCommand = defineSyncCommand(
 );
 
 // 비strict output. schema strip·-0·transform이 raw 비JSON을 숨기지 못하는지 본다(테스트 전용).
+// 앞 셋은 저장·송신되는 정상 mode다. 나머지는 모두 internal이어야 한다.
+export const LOOSE_VALID_MODES = ["ok", "strip-extra", "plus-zero"] as const;
+
 export const LOOSE_NOTE_MODES = [
-  "ok",
+  ...LOOSE_VALID_MODES,
   "strip-function",
   "strip-symbol",
   "undefined",
   "minus-zero",
   "transform",
   "details-strip",
+  "number-zero",
+  "strip-zero",
+  "details-zero",
 ] as const;
 
 export const recordLooseNote = defineCommand({
@@ -187,6 +193,7 @@ export const recordLooseNote = defineCommand({
     seq: z.string(),
     sign: z.number().refine((value) => Object.is(value, -0)).optional(),
     label: z.string().transform((value) => value.length).optional(),
+    count: z.number().optional(),
   }),
   compare: z.unknown(),
   actors: ["user", "machine"],
@@ -211,6 +218,20 @@ export const recordLooseNoteCommand = defineSyncCommand(
         return ok({ ...base, sign: -0 });
       case "transform":
         return ok({ ...base, label: "abc" } as never);
+      case "strip-extra":
+        return ok({ ...base, note: "dropped" } as never);
+      case "plus-zero":
+        return ok({ ...base, count: 0 });
+      case "number-zero":
+        return ok({ ...base, count: -0 });
+      case "strip-zero":
+        return ok({ ...base, dropped: -0 } as never);
+      case "details-zero":
+        return err({
+          code: "conflict",
+          message: "거절",
+          details: { count: -0 },
+        });
       case "details-strip":
         return err({
           code: "conflict",

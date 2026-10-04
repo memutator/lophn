@@ -103,7 +103,8 @@ function checked<T>(
   return result;
 }
 
-function createSql(db: DatabaseSync, alive: () => boolean): Sql {
+// 같은 leaf의 reader·writer 모두 owner가 가진 연결 수명 guard를 반드시 넘긴다.
+export function createSql(db: DatabaseSync, alive: () => boolean): Sql {
   return {
     run(sql, params) {
       return checked(db, alive, sql, () => {

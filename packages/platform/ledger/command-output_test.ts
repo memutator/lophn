@@ -9,7 +9,7 @@ import {
 import { deps, fileLedger, looseFixtureCase, user } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
 import type { LedgerConnection } from "./sqlite.ts";
-import { LOOSE_NOTE_MODES } from "./test-commands.ts";
+import { LOOSE_NOTE_MODES, LOOSE_VALID_MODES } from "./test-commands.ts";
 import { openWriter, runCommand } from "./writer.ts";
 
 const fixture = new URL("./writer-fixture.ts", import.meta.url);
@@ -83,6 +83,27 @@ const cases: Case[] = [
     raw: () => ok({ value: new Date(0) }),
   },
   {
+    label: "number-zero",
+    output: z.object({ value: z.number() }),
+    raw: () => ok({ value: -0 }),
+  },
+  {
+    label: "strip-zero",
+    output: z.object({ value: z.string() }),
+    raw: () => ok({ value: "valid", dropped: -0 }),
+  },
+  {
+    label: "details-zero",
+    output: z.object({ value: z.string() }),
+    raw: () =>
+      err({ code: "conflict", message: "거절", details: { count: -0 } }),
+  },
+  {
+    label: "error-strip-zero",
+    output: z.object({ value: z.string() }),
+    raw: () => err({ code: "conflict", message: "거절", dropped: -0 }),
+  },
+  {
     label: "details-strip",
     output: z.object({ value: z.string() }),
     raw: () => err({ code: "conflict", message: "거절", hint: () => "x" }),
@@ -153,28 +174,51 @@ Deno.test("platform/ledger#R3: 직접 정의·wrapper handler의 raw 비JSON·�
   await Deno.remove(dir, { recursive: true });
 });
 
-Deno.test("platform/ledger#R3: 실제 Worker의 strip·undefined·-0·transform·details strip은 internal이고 같은 Worker 다음 command는 된다", async () => {
+Deno.test("platform/ledger#R3: 실제 Worker의 strip·undefined·-0·transform·details 비JSON은 internal이고 다음 command는 되며 정상 strip·+0은 저장값과 같다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "lophn-output-" });
   const { path, connection } = await fileLedger(dir);
   connection.close();
   const writer = openWriter(path, fixture);
-  for (const mode of LOOSE_NOTE_MODES.filter((m) => m !== "ok")) {
+  const valid: readonly string[] = LOOSE_VALID_MODES;
+  const sent = new Map<string, unknown>();
+  for (const mode of LOOSE_NOTE_MODES.filter((m) => !valid.includes(m))) {
     const result = await writer.command(
       user(),
       looseFixtureCase(mode, mode, `loose-${mode}`),
     );
     assert(!result.ok, mode);
     if (!result.ok) assertEquals(result.error.code, "internal", mode);
+    // 같은 Worker의 다음 command는 계속 된다.
+    const next = await writer.command(
+      user(),
+      looseFixtureCase(`after-${mode}`, "ok", `after-${mode}`),
+    );
+    assert(next.ok, `after ${mode}`);
+    if (next.ok) sent.set(`after-${mode}`, next.value.result);
   }
-  const kept = await writer.command(
-    user(),
-    looseFixtureCase("kept", "ok", "loose-ok"),
-  );
-  assert(kept.ok);
+  for (const mode of LOOSE_VALID_MODES) {
+    const result = await writer.command(
+      user(),
+      looseFixtureCase(mode, mode, `loose-${mode}`),
+    );
+    assert(result.ok, mode);
+    if (result.ok) sent.set(`loose-${mode}`, result.value.result);
+  }
   await writer.close();
+  const strip = sent.get("loose-strip-extra") as Record<string, unknown>;
+  assertEquals(Object.keys(strip).sort(), ["name", "seq"]);
+  const zero = sent.get("loose-plus-zero") as Record<string, unknown>;
+  assert(Object.is(zero["count"], 0));
   const { connection: reader } = await fileLedger(dir);
-  assertEquals(count(reader, "events"), 1n);
-  assertEquals(count(reader, "command_results"), 1n);
+  for (const [key, result] of sent) {
+    const row = reader.sql.get(
+      "select result from command_results where idempotency_key = ?",
+      [key],
+    );
+    assertEquals(JSON.parse(String(row?.["result"])), result, key);
+  }
+  assertEquals(count(reader, "events"), BigInt(sent.size));
+  assertEquals(count(reader, "command_results"), BigInt(sent.size));
   reader.close();
   await Deno.remove(dir, { recursive: true });
 });

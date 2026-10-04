@@ -1,5 +1,4 @@
 import {
-  canonicalize,
   err,
   formatSeq,
   internalError,
@@ -13,7 +12,7 @@ import {
   type Sql,
 } from "../../contracts/platform/mod.ts";
 import type { CredentialTarget } from "../identity/mod.ts";
-import type { z } from "zod";
+import { validateOutput } from "./output.ts";
 
 export function isThenable(value: unknown): boolean {
   return typeof value === "object" && value !== null && "then" in value &&
@@ -170,30 +169,10 @@ export function authorityTarget(
   return target;
 }
 
-// 저장·송신할 JSON을 schema보다 먼저 정한다(R3, R5). schema strip·transform이 함수·symbol·
-// undefined를 지우거나 -0을 바꾸기 전에 raw 값 그대로 RFC 8785 JSON이어야 한다.
-// schema를 지난 값도 다시 JSON으로 만들고, 그 JSON이 다시 schema를 지나 같은 JSON이어야 한다.
-function wire<S extends z.ZodType>(
-  schema: S,
-  raw: unknown,
-): Result<z.output<S>> {
-  try {
-    const parsed = schema.safeParse(JSON.parse(canonicalize(raw)));
-    if (!parsed.success) return err(internalError());
-    const text = canonicalize(parsed.data);
-    const stored: unknown = JSON.parse(text);
-    const again = schema.safeParse(stored);
-    if (!again.success || canonicalize(again.data) !== text) {
-      return err(internalError());
-    }
-    return ok(stored as z.output<S>);
-  } catch {
-    return err(internalError());
-  }
-}
-
+// 저장·송신할 JSON은 같은 leaf의 validateOutput이 정한다(R3, R5). raw 비JSON·-0은 schema strip 전에
+// internal이고, schema를 지난 최종 JSON이 다시 schema를 지나 같은 값이어야 한다.
 function failureBody(raw: unknown): Result<never> {
-  const body = wire(errorBodySchema, { error: raw });
+  const body = validateOutput(errorBodySchema, { error: raw });
   if (!body.ok) return body;
   return err(body.value.error);
 }
@@ -219,7 +198,7 @@ export function handlerResult(
   const flag = result.ok;
   if (flag === false) return failureBody(result.error);
   if (flag !== true || !("value" in result)) return err(internalError());
-  return wire(definition.route.output, result.value);
+  return validateOutput(definition.route.output, result.value);
 }
 
 export function eventSpan(

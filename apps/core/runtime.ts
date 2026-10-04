@@ -28,6 +28,16 @@ import type {
   WriterRequest,
   WriterResponse,
 } from "../../packages/platform/ledger/writer-message.ts";
+import type {
+  BlobFieldDefinition,
+  BlobReadInput,
+  PreparedBlob,
+} from "../../packages/contracts/platform/mod.ts";
+import {
+  finishBlobRead,
+  planBlobRead,
+} from "../../packages/platform/blob-store/mod.ts";
+import { authorize } from "../../packages/platform/identity/mod.ts";
 import type { Assembled } from "./registration.ts";
 
 export type CoreRuntime = {
@@ -38,6 +48,8 @@ export type CoreRuntime = {
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
+  notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
+  prunePrepared(nowMs: number): Promise<Result<void>>;
   readers: ReaderPool;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
@@ -61,6 +73,17 @@ export async function openRuntime(input: {
   modules: readonly string[];
   assembled: Assembled;
   source: StatusSource;
+  // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
+  blob?: {
+    fields: readonly BlobFieldDefinition[];
+    read(
+      hash: string,
+      offset: number,
+      length: number,
+    ): Promise<
+      Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>
+    >;
+  };
 }): Promise<Result<CoreRuntime>> {
   const openedWriter = openProductWriter(input.ledgerPath, {
     modules: [...input.modules],
@@ -99,6 +122,10 @@ export async function openRuntime(input: {
   const reads = new Map<string, ReadHandler>([
     ["platform/status", status.status],
     ["platform/health", status.health],
+    [
+      "blobs/read",
+      (ctx, body) => blobReadHandler(input.ledgerPath, input.blob, ctx, body),
+    ],
     // reader Worker가 등록한 ledger read. 팀 read는 그 뒤에 같은 풀로 붙는다.
     ...["commands/result", "events/list"].map((
       key,
@@ -143,6 +170,8 @@ export async function openRuntime(input: {
     writer: openedWriter.writer,
     confirmation: openedWriter.confirmation,
     record: openedWriter.record,
+    notePrepared: openedWriter.notePrepared,
+    prunePrepared: openedWriter.prunePrepared,
     readers: readers.value,
     reads,
     memory,
@@ -183,6 +212,8 @@ function openProductWriter(
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
+  notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
+  prunePrepared(nowMs: number): Promise<Result<void>>;
 } {
   const worker = new Worker(new URL("./writer-worker.ts", import.meta.url), {
     type: "module",
@@ -281,6 +312,22 @@ function openProductWriter(
         });
       });
     },
+    notePrepared(prepared, nowMs) {
+      return send({
+        id: nextId++,
+        op: "blob-prepared",
+        prepared,
+        nowMs,
+      } as unknown as WriterRequest).then(blobNoted);
+    },
+    prunePrepared(nowMs) {
+      return send({
+        id: nextId++,
+        op: "blob-prune",
+        nowMs,
+      } as unknown as WriterRequest).then(blobNoted);
+    },
+
     record(context) {
       return send({
         id: nextId++,
@@ -296,6 +343,65 @@ function openProductWriter(
       });
     },
   };
+}
+
+function blobNoted(message: WriterResponse): Result<void> {
+  if ((message.op as string) === "blob-noted") return ok(undefined);
+  if (message.op === "failed") return err(message.body);
+  return err({
+    code: "unavailable",
+    message: "준비 참조를 writer에 알리지 못했다",
+  });
+}
+
+// /v1/blobs/read. 참조 행은 ledger snapshot에서, 바이트는 그 뒤 I/O worker에서 읽는다.
+// scope는 시작과 바이트 반환 직전에 다시 검사한다(platform/blob-store#R5).
+function blobReadHandler(
+  ledgerPath: string,
+  blob: {
+    fields: readonly BlobFieldDefinition[];
+    read(
+      hash: string,
+      offset: number,
+      length: number,
+    ): Promise<
+      Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>
+    >;
+  } | undefined,
+  ctx: RequestContext,
+  body: unknown,
+): Promise<Result<unknown>> {
+  if (!blob) {
+    return Promise.resolve(
+      err({ code: "unavailable", message: "blob 읽기가 없다" }),
+    );
+  }
+  const opened = openConnection(ledgerPath);
+  if (!opened.ok) return Promise.resolve(opened);
+  const judging = {
+    fields: blob.fields,
+    authorize: (
+      current: RequestContext,
+      reference: { owner_kind: string; owner_key: string },
+    ) =>
+      authorize(current, "blobs/read", {
+        owner_kind: reference.owner_kind,
+        owner_key: reference.owner_key,
+      }),
+  };
+  // 참조 판정만 snapshot에서 하고 바로 닫는다. 바이트는 그 뒤에 읽는다.
+  const plan = planBlobRead(
+    opened.value.sql,
+    judging,
+    ctx,
+    body as BlobReadInput,
+  );
+  opened.value.close();
+  if (!plan.ok) return Promise.resolve(plan);
+  if (plan.value.kind === "answer") {
+    return Promise.resolve(ok(plan.value.result));
+  }
+  return finishBlobRead({ ...judging, bytes: blob }, ctx, plan.value);
 }
 
 function currentCredential(

@@ -37,6 +37,12 @@ export type BlobStoreWork = {
   ): Promise<Result<PreparedInstall>>;
   // 준비 참조가 가리키는 완성 blob의 관측값.
   installed(hash: string): Promise<Result<{ hash: string; sizeBytes: number }>>;
+  // 설치된 blob의 그 구간. 없으면 not_found다. hash는 경로로만 쓴다.
+  read(
+    hash: string,
+    offset: number,
+    length: number,
+  ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
 };
 
 export type BlobStoreDeps = {
@@ -202,6 +208,9 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
     installed(hash) {
       return observeBlob(deps.root, hash);
     },
+    read(hash, offset, length) {
+      return readBlobRange(deps.root, hash, offset, length);
+    },
   };
 
   function fail(
@@ -242,6 +251,38 @@ async function installSync(
     return ok(undefined);
   } catch {
     return err({ code: "unavailable", message: "blob sync에 실패했다" });
+  }
+}
+
+async function readBlobRange(
+  root: string,
+  hash: string,
+  offset: number,
+  length: number,
+): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>> {
+  const path = `${root}/${BLOB_STORE_OBJECTS_DIR}/${hash.slice(0, 2)}/${
+    hash.slice(2)
+  }`;
+  try {
+    const file = await Deno.open(path, { read: true });
+    try {
+      const stat = await file.stat();
+      const bytes = new Uint8Array(length);
+      await file.seek(offset, Deno.SeekMode.Start);
+      const read = await file.read(bytes);
+      return ok({
+        hash,
+        sizeBytes: stat.size,
+        bytes: bytes.subarray(0, read ?? 0),
+      });
+    } finally {
+      file.close();
+    }
+  } catch (thrown) {
+    if (thrown instanceof Deno.errors.NotFound) {
+      return err({ code: "not_found", message: "blob이 없다" });
+    }
+    return err({ code: "unavailable", message: "blob을 읽지 못했다" });
   }
 }
 

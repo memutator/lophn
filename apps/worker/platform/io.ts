@@ -80,6 +80,8 @@ export async function createPlatformIo(
     // bytes frame은 요청의 channel에 묶인다. 내용을 해석하지 않는다.
     onFrame(frame) {
       if (frame.kind !== "bytes") return;
+      // 빈 chunk는 내용이 아니다. 준비는 요청 json 앞에 온 chunk만 쓴다.
+      if (frame.payload.length === 0) return;
       const entry = pending.get(frame.channel) ?? { chunks: [] };
       entry.chunks.push(frame.payload);
       pending.set(frame.channel, entry);
@@ -93,6 +95,7 @@ export async function createPlatformIo(
       };
       // settings 교환은 channel에 묶인 byte chunk로 온다. import는 문서를 모아
       // parse하고, export는 JSON payload의 mutations를 stringify한다(R3, R26).
+      // byte chunk는 요청 json보다 먼저 도착해 있다.
       if (
         request.op === SETTINGS_IMPORT_OP || request.op === SETTINGS_EXPORT_OP
       ) {
@@ -176,7 +179,11 @@ export async function createPlatformIo(
         );
         return;
       }
-      if (request.op !== "blob.prepare" || request.channel === undefined) {
+      // blob.read는 channel이 없다. blob.prepare만 channel의 chunk를 쓴다.
+      if (
+        request.op !== "blob.prepare" && request.op !== "blob.read" ||
+        request.op === "blob.prepare" && request.channel === undefined
+      ) {
         const authority = options.currentAuthority();
         if (!session.credentialUsable || !authority) {
           await session.send({
@@ -217,19 +224,25 @@ export async function createPlatformIo(
         return;
       }
       const channel = request.channel;
-      const entry = pending.get(channel) ?? { chunks: [] };
-      pending.delete(channel);
       const pipeRequest = {
         request_id: request.request_id,
         op: request.op,
         payload: request.payload,
       };
+      // byte chunk는 요청 json보다 먼저 도착해 있다. 여기서 기다리면 dispatch가
+      // 뒤 frame을 시작하지 못한다.
+      const entry = channel === undefined
+        ? { chunks: [] as Uint8Array[] }
+        : pending.get(channel) ?? { chunks: [] };
+      if (channel !== undefined) pending.delete(channel);
       const submission = scheduler.submit(
         "blob",
         async () => {
           const stream = new ReadableStream<Uint8Array>({
             start(controller) {
-              for (const chunk of entry.chunks) controller.enqueue(chunk);
+              for (const chunk of entry.chunks) {
+                if (chunk.length > 0) controller.enqueue(chunk);
+              }
               controller.close();
             },
           });

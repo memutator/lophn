@@ -164,6 +164,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-test실행의 `request-test`(core 접수 쪽), `record-verification`, `get-test-request`, `get-verification`, `list-verifications`, event `VerificationRecorded`
 - slice: apps
 - 선행: contracts#T32, platform#T2, platform#T3, platform#T5
+- 상태: 완료 (#76)
 - 완료:
   - `model_test.ts`: kind별 필드 규칙(app_test는 problem·before/after 없음·reports 빈 목록, reproduction은 problem·report 1개 이상·basis_seq·서로 다른 before/after·target=after, test_command만 ticket), TestMethod timeout 필수 1~300,000ms
   - runner machine만 `RecordVerification`; agent·앱·test 자식 credential은 `forbidden`(R1)

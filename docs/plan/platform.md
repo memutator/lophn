@@ -456,6 +456,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T17 notification 반응 처리기와 생성·읽음
 
+- 상태: 완료 (#177)
 - 등급: 기본
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2, R3, R4, R5, R6, R7, R8, R11
@@ -473,6 +474,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 읽음·클릭이 승인·답·닫힘을 만들지 않고 새 run·닫힌 세션 재개를 만들지 않는다(R6, R7). 전달 실패로 버리지 않고 model call을 쓰지 않는다(R8). 발생 순서대로 모두 다시 읽을 수 있다(R11).
   - `notifications_test.ts`에 위 요구 테스트
   - flow answer-question·resume-agent-session의 notification 단계 통합 테스트
+  - open-issues의 platform/notifications#Q4는 lead 결정 (b)로 해소했다: compare `{processed_through_seq}`를 유지하고 contracts의 `createNotificationInputSchema`에 `subscriber: z.literal("notifications")`를 둔다. 낡은 cursor 위치의 생성은 conflict다.
 
 ### T18 Tx 안에서 다른 owner의 등록 command 부르기
 
@@ -900,6 +902,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 내놓는 contract: backups(`/v1/backups/list·get`, manifest format 1)
 - slice: operations
 - 선행: platform#T14, platform#T40, contracts#T45
+- 상태: 완료 (#169)
 - 완료: 아래 확인이 통과한다
   - 하루 한 번 I/O worker가 SQLite online backup으로 snapshot S를 만들고 S의 모든 `blob_refs` blob과 사람의 설정 선택을 함께 담는다(R8, R9).
   - 그동안 GC·삭제를 막고 integrity·blob 존재·실제 sha256을 모두 통과한 묶음만 `complete=true`(R10).
@@ -957,6 +960,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 참조 차단·반환 차단·OS 삭제·다른 사본 잔존을 구별해 표시한다(R11). backup 중 GC 불가.
   - `gc_test.ts`에 위 요구 테스트
 
+- 상태: 진행 (#181) — 남은 것: 정지 유지보수 조립에서 collectGarbage·trimCapacity 부르기, 준비 purpose가 capacity category 기록
+
 ### T45 secret export와 import
 
 - 상태: 완료 (#92)
@@ -987,6 +992,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T47 doctor와 보안 진단
 
+- 상태: 진행 (#180) — 남은 것: core.ts에 doctor·diagnostics source 연결, apps grant 위험 read·SDK hash contract가 생기면 관측 파일 대신 그 read로 교체
 - 등급: 기본
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R4, R5, R6, R9, R10
@@ -1136,6 +1142,7 @@ slice별 작업 수: skeleton 10, documents 7, agent 15, context 1, apps 3, codi
 - **Q12 ledger 식별(lead 결정: 추천대로).** restore 뒤 derived가 다른 ledger의 같은 seq를 이어 처리하지 않으려면(backup-and-migration#R14) 소유 worker가 ledger 교체를 알아야 한다. 추천: `platform/status`에 `ledger_id`(ledger를 만들거나 복원할 때마다 새 값)를 두고 derived 출처에 함께 적는다.
 - **Q13 공통 오류 코드 수(lead 결정).** internal을 포함한 7개다. lead가 docs/dev/architecture.md를 고쳤다.
 - **Q14 workspace relay(lead 결정).** shell 팀 제안을 받아 T57(agent slice)로 더했다. core 메모리에만 두고 shell main이 쓰고 agent runtime이 자기 session만 읽는다. architecture/platform 5.1을 같은 PR에서 고친다.
+- **Q16 doctor 관측 원본(진행, T47 #180).** apps의 grant 위험 read와 SDK hash contract가 아직 없어 doctor는 데이터 root의 관측 파일(grants.json, sdk.json, credential 파일, logs/)을 임시 입력으로 읽고, core.ts에는 doctor·diagnostics source를 연결하지 않았다. contract가 생기면 관측 파일을 그 read로 바꾸고 core.ts에 연결한다.
 - **Q15 앱 연결 진술(lead 결정: 추천대로).** apps 팀 제안: AppConnection·ConfirmExecutionProof는 새 token·actor가 아니라 core 안 apps 제어 adapter가 core 시작마다 만든 Ed25519 key로 서명한 진술이고, 기한은 AppConnection 최대 10분(원래 credential 기한 이하), proof 120초다. platform은 `credential_ref`·기한만 주고 회수는 소유 event(grant 회수, assignment 멈춤, connection 회수, run 종료)와 core epoch로 판단한다. 추천: 동의한다. 별도 platform 회수 event는 만들지 않는다.
 - **Q16 coding connection 생성 결정(정함).** architecture/platform 5.6 표(`coding_agent`는 "confirmation window의 connection 결정 뒤 발급")와 마지막 절("보호 화면의 exact scope 결정")이 coding-agent/connection#R2·D19(사람의 harness 연결·범위 선택이 허락, 확인 창 없음, 회수만 confirmation window)와 부딪힌다. platform/identity#R5도 "사람의 harness 연결 선택"이다. architecture를 R2에 맞춰 T5 PR에서 고친다.
 - **Q17 confirmation handle 시점(정함).** documents slice의 파일 지우기(organize-documents)가 confirmation window를 쓴다. 그래서 handle 발급·검증·소비를 T56(documents slice)으로 떼었고, approval의 허락·거절만 T22(agent slice)에 남겼다.

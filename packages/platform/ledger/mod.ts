@@ -22,7 +22,7 @@ export {
 } from "./commands.ts";
 export { type RunAdmission, runAdmission } from "./run-admission.ts";
 export { commandResultRead } from "./command-results.ts";
-export { openWriter } from "./writer.ts";
+export { openWriter, runCommand } from "./writer.ts";
 export {
   createWriterRegistration,
   type CredentialCheck,

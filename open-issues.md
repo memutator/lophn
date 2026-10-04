@@ -4,7 +4,7 @@
 `<concern id>#Q<n>`으로 여기에 올리고, 사람이 정해야 하는 것만 "사람이 정할
 것"에 둔다.
 
-- 모두 763건(재연결 뒤 8건 포함): 추천대로 626, 다르게 정함 30, 대체됨 69, 이미
+- 모두 764건(재연결 뒤 8건 포함): 추천대로 626, 다르게 정함 31, 대체됨 69, 이미
   정함 30
 - 사람이 정한 큰 결정은 아래 "정한 원칙"에 있다. 문서는 이 결정을 따른다.
 
@@ -54,7 +54,7 @@
 
 ## 결정 기록
 
-### platform (86)
+### platform (87)
 
 | id                               | 질문                                                                                                                                                     | 판정        | 결정                                                                                                                                                                                                                         |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -124,6 +124,7 @@
 | platform/notifications#Q1        | 닫힌 세션 뒤 관련 notification을 어떻게 골라 묶어 보여 줄까.                                                                                             | 추천대로    | 개별 근거를 유지하고 발생 순서대로 모두 이어 읽기                                                                                                                                                                            |
 | platform/notifications#Q2        | OS 전달 retry 간격과 실패 표시 시점을 어떻게 정할까.                                                                                                     | 추천대로    | 자동 retry 없이 다음 화면 조회에서 즉시 안전한 실패 이유 표시                                                                                                                                                                |
 | platform/notifications#Q3        | OS notification 기본 제공을 어떻게 정할까.                                                                                                               | 추천대로    | opt-in; 최소 제목과 대상 열기만                                                                                                                                                                                              |
+| platform/notifications#Q4        | create_notification의 compare가 contracts에서 발판 CAS(subscriber가 input에 있어야 한다)로 적혀 machine 봉투가 어디서도 통과하지 못한다. 어느 쪽으로 맞출까.                                                                                             | 다르게 정함 | lead 결정: (b) — compare {processed_through_seq}를 유지하고 contracts의 createNotificationInputSchema에 subscriber: z.literal("notifications")를 더한다. 진행 역행 금지는 handler의 advanceSubscriberCursor가 transaction마다 이미 돌려주고, idempotency 지문은 input.processed_through_seq가 고정한다. CAS는 cursor 검사를 지키고, 낡은 위치의 생성은 conflict다. |
 | platform/redaction#Q1            | 첫 gitleaks commit과 credential prefix 목록을 무엇으로 고정할까?                                                                                         | 추천대로    | 구현 시점에 한 commit과 OpenAI·Anthropic·GitHub·AWS·Slack·JWT·PEM 공통 표본을 고정하고 인증 형태 추가는 같은 정본에 반영                                                                                                     |
 | platform/redaction#Q2            | 알려진 secret의 URL encoding·Base64도 자동 검출할까?                                                                                                     | 추천대로    | 첫 판은 exact value·패턴·명시 비공개 제외를 적용하고 encoding 지원은 누출·오탐 테스트 뒤 추가하며 완전 탐지는 약속하지 않음                                                                                                  |
 | platform/redaction#Q3            | 수집한 비밀을 패턴 redaction만으로 충분히 막을 수 있을까?                                                                                                | 추천대로    | 패턴만을 안전 근거로 삼지 않고 수집 최소화·알려진 값·명시 정책을 함께 적용                                                                                                                                                   |

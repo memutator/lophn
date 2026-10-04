@@ -65,8 +65,8 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
   --connection <cac-id> --toolsets core,app --cwd <submission-root>
 ```
 
-- OS keychain 접근은 Deno의 광범위 run/FFI가 아니라 platform/identity·platform/secrets의 trusted credential loader가 제공하는 보호된 process-local 통로다. MCP·CLI에 keychain 전체 조회·user token·임의 secret 권한을 주지 않는다. 이 전달 contract의 구체는 해당 concern에서 확정한다.
-- MCP에는 `-A`, 무제한 read/write/env/run, `--allow-run`, `--allow-write`, `--allow-ffi`를 주지 않는다. format·빌드·테스트·source 배포는 담당 프로세스에 요청한다. loopback net permission은 listen과 connect를 구별하지 못하므로 MCP 코드는 listener를 만들지 않는다.
+- OS keychain 접근은 Deno의 광범위 run/FFI가 아니라 platform/identity의 helper `lophn-credential`(OS keychain 도구 실행만 허용한 고정 권한 compile binary, 설치 묶음의 고정 절대 경로)이다. MCP·CLI에는 `--allow-run=<helper 절대 경로>`만 준다. 통로는 stdin의 `CredentialDeliveryRequest`(connection·process generation·loader identity·purpose `mcp_cli_loader`)와 stdout의 token이고 timeout은 5초다. 잠김·Secret Service 없음·timeout·누락은 이유가 다른 unavailable이다(contracts/coding-agent `connection-auth`). MCP·CLI에 keychain 전체 조회·user token·임의 secret 권한을 주지 않는다. 같은 OS 사용자의 다른 프로세스가 helper를 부를 수 있는 한계는 platform/security#R2 범위 밖으로 받아들인다.
+- MCP에는 `-A`, 무제한 read/write/env/run, helper 밖의 `--allow-run`, `--allow-write`, `--allow-ffi`를 주지 않는다. format·빌드·테스트·source 배포는 담당 프로세스에 요청한다. loopback net permission은 listen과 connect를 구별하지 못하므로 MCP 코드는 listener를 만들지 않는다.
 - Deno 파일 권한만으로 submission root 안의 symlink·금지 영역까지 안전하다고 보지 않는다. 명시 제출 파일과 연결 source는 realpath로 재검사한다. 운영 data·backup·추적 원본·다른 앱 source로 이어지는 경로는 거절한다. 원본 자료는 고정 Version 참조로 읽는다.
 - 연결 source가 없는 문서 작업은 사람이 선택한 제출 workspace만 read allowlist에 넣는다. agent가 이미 가진 bytes를 제출할 수도 있다. core에는 클라이언트 파일 경로를 보내 서버가 읽게 하지 않는다.
 - 일반 CLI도 같은 제한이다. installer mode에만 선택한 제품 설정·skill root·해당 source의 관리 파일에 좁은 write permission을 추가한다. 기존 code를 고치는 permission은 없다. doctor의 MCP probe는 절대 Deno executable 하나의 run permission만 추가한다.
@@ -78,8 +78,8 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
 1. 사람은 연결할 harness·profile·user/app 설치 target·label·all 또는 app 하나의 scope를 선택한다. 그 선택이 허락이며 confirmation window는 열지 않는다. token 생성·복사·붙여 넣기는 없다.
 2. 인증의 trusted 경계가 core 밖에서 token을 자동 발급하고 OS keychain에 connection principal의 항목으로 보호 보관을 준비한다. 잠김·누락은 unavailable이고 평문 파일 fallback은 없다.
 3. core command는 준비된 검증 hash와 정확한 사람 결정만 받아 connection·hash·event를 한 transaction에 기록한다. 원문 token은 command 입력·결과·API·event·stdout에 없다. commit 실패의 준비 keychain 항목은 사용 불가·정리한다.
-4. 생성 성공 뒤 installer가 선택 target의 MCP·skill을 설치한다. 설정·wrapper에는 `--connection <cac-id>` 또는 `LOPHN_CONNECTION` 참조만 쓴다. MCP server·CLI 시작 때 trusted loader가 keychain에서 꺼내 process-local 통로로 전달하며 일곱 제품 config의 `env`에도 token은 없다.
-5. lophn이 [Start]로 여는 TUI에도 같은 connection credential을 시작 시 보호된 통로로 붙인다. first prompt·argv·일반 env·PTY·log·model 문맥에 token 원문을 넣지 않는다. 자식 MCP/CLI는 보호 참조로 같은 actor를 확인한다.
+4. 생성 성공 뒤 installer가 선택 target의 MCP·skill을 설치한다. 설정·wrapper에는 `--connection <cac-id>` 또는 `LOPHN_CONNECTION` 참조만 쓴다. MCP server·CLI 시작 때 `lophn-credential` helper가 keychain에서 꺼내 그 프로세스에만 전달하며 일곱 제품 config의 `env`에도 token은 없다.
+5. lophn이 [Start]로 여는 TUI 프로세스에는 `LOPHN_CONNECTION=<cac-id>` 참조만 가고 token은 가지 않는다. 그 아래에서 harness가 띄운 lophn MCP·CLI가 4의 helper로 같은 connection credential을 받는다. TUI 전용 보호 전달은 없다. first prompt·argv·일반 env·PTY·log·model 문맥에 token 원문을 넣지 않는다.
 6. 보관 준비 실패는 무생성이다. connection 생성 뒤 설치 실패는 connection 성공·component별 partial 실패로 분리하고 재발급하지 않는다. 설치 제거는 revoke가 아니며 scope 변경·분실은 사람이 기존 connection 회수 뒤 새 연결을 선택한다.
 
 인증 실패에 user credential fallback·자동 재발급은 없다. 회수 직후 살아 있는 MCP와 direct-call 앱 credential의 새 요청도 거절된다. keychain 항목·설치 파일 삭제는 회수를 대신하지 않는다. harness/profile/session은 credential entity 필드가 아니다.
@@ -99,7 +99,7 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
 | 감지·설치/loading·session 관측 | derived memory/disposable local cache | environment/profile/catalog/generation별; stale/unknown 유지. 새 ledger 표 없음 |
 | LocalIntegrationReceipt·recovery journal | `~/.lophn/integrations/` private local metadata | installer만. exact target·owned path/key/marker·last-written hash, component별 commit·복구; 운영 ledger 아님 |
 | default/enabled/profile 선택 | platform/settings | 사용자 선택과 native local path 분리; 감지가 저장 선택을 덮지 않음 |
-| token 원문 | OS keychain의 인증 경계 | 자동 발급·보호된 process-local 전달. backup·git·release·config 제외. coding-agent module은 token 파일·keychain secret 표를 만들지 않음 |
+| token 원문 | OS keychain의 인증 경계 | 자동 발급·`lophn-credential` helper로 MCP·CLI에만 전달. backup·git·release·config 제외. coding-agent module은 token 파일·keychain secret 표를 만들지 않음 |
 | 배포 skill·템플릿 | `<resources>/skills/<name>/SKILL.md`, `<resources>/templates/app/`; 서명된 설치 manifest | version·content hash 고정. 같은 version 내용 변경은 배포 테스트 실패 |
 | 설치 사본 | 사람이 선택한 제품 skill root·제품 설정 | installer만. 동명 사람 파일은 충돌, 조용한 교체 금지 |
 | 앱 공통 안내 | `<source>/AGENTS.md` | `<!-- begin lophn-managed -->`와 `<!-- end lophn-managed -->` 사이 하나만 갱신 |

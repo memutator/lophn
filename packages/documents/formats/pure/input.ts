@@ -1,9 +1,63 @@
-import type {
-  FormatDiagnostic,
-  FormatValidationResult,
-  SectionExtractionResult,
-} from "../../../contracts/documents/mod.ts";
 import { decodeUtf8 } from "./utf8.ts";
+
+// guest 묶음은 contracts를 import하지 않는다. 필드 모양은 host schema와 같다.
+export type GuestDiagnostic = {
+  severity: "error" | "warning";
+  code: string;
+  message: string;
+  file: string | null;
+  start_line: number | null;
+  end_line: number | null;
+  column: number | null;
+};
+
+export type GuestValidation = {
+  input_hash: string;
+  module_hash: string;
+  status: "passed" | "failed";
+  diagnostics: GuestDiagnostic[];
+  error_count: number;
+  warning_count: number;
+};
+
+export type GuestSection = {
+  key: string;
+  title: string;
+  parent: string | null;
+  position: number;
+  level: number;
+  anchor: string | null;
+  own_ranges: { start_line: number; end_line: number }[];
+  subtree_range: { start_line: number; end_line: number };
+  characters: number;
+  body_hash: string;
+};
+
+export type GuestExtraction =
+  | {
+    input_hash: string;
+    module_hash: string;
+    status: "ready";
+    title: string | null;
+    text: string;
+    text_hash: string;
+    sections: GuestSection[];
+  }
+  | {
+    input_hash: string;
+    module_hash: string;
+    status: "unsupported";
+    title: null;
+    sections: [];
+  }
+  | {
+    input_hash: string;
+    module_hash: string;
+    status: "failed";
+    title: null;
+    failure_reason: string;
+    sections: [];
+  };
 
 const SHA256 = /^[0-9a-f]{64}$/;
 // deno-lint-ignore no-control-regex -- 경로에 control character를 막는다.
@@ -36,7 +90,7 @@ export type InputIssue = {
   column?: number;
 };
 
-function diagnostic(issue: InputIssue): FormatDiagnostic {
+function diagnostic(issue: InputIssue): GuestDiagnostic {
   return {
     severity: "error",
     code: issue.code,
@@ -51,7 +105,7 @@ function diagnostic(issue: InputIssue): FormatDiagnostic {
 export function failedValidation(
   input: FormatModuleInput,
   issues: readonly InputIssue[],
-): FormatValidationResult {
+): GuestValidation {
   return {
     input_hash: input.input_hash,
     module_hash: input.module_hash,
@@ -64,7 +118,7 @@ export function failedValidation(
 
 export function passedValidation(
   input: FormatModuleInput,
-): FormatValidationResult {
+): GuestValidation {
   return {
     input_hash: input.input_hash,
     module_hash: input.module_hash,
@@ -78,7 +132,7 @@ export function passedValidation(
 export function failedExtraction(
   input: FormatModuleInput,
   reason: string,
-): SectionExtractionResult {
+): GuestExtraction {
   return {
     input_hash: input.input_hash,
     module_hash: input.module_hash,

@@ -170,7 +170,13 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 완료: 아래 확인이 통과한다
   - `EventEnvelope {seq, type, subject, actor, run, payload, at}`와 `defineEvent(type, {subject, payload})`. type은 `<Entity><과거형 동사>` PascalCase.
   - `/v1/events/list {after_seq, types?, subjects?, limit?}` → `{events, scanned_through_seq, head_seq, as_of_seq, next_cursor, omitted?}`, `/v1/events/advance-cursor`(`AdvanceSubscriberCursor`, 반응 key `(subscriber, cause_seq, reaction)`). `Tx.advanceSubscriberCursor(subscriber, through_seq)`로 반응 command와 cursor를 같은 transaction에 확정한다.
-  - WS `GET /v1/events/subscribe`, subprotocol `lophn.events.1`, frame `subscribe {from_seq(포함), types, subjects, subscriber?, limit}`·`events`·`ack`·`unavailable`, close 1013(느린 구독)·1008(자격 회수), batch 256개·256KiB. 처리 위치 P 다음 `from_seq` 계산 helper.
+  - WS `GET /v1/events/subscribe`, subprotocol `lophn.events.1`, frame `subscribe {from_seq?(명시하면 포함), types, subjects, subscriber?, limit}`·`events`·`ack`·`unavailable`, close 1013(느린 구독)·1008(자격 회수), batch 256개·256KiB. 이름 없는 구독은 `from_seq`가 필수이고 이름 있는 재연결의 생략은 현재 principal·이름의 저장 ack 다음 위치다. 처리 위치 P 다음 `from_seq` 계산 helper.
+
+#### T7 구현 메모: 이름 있는 재연결의 시작 위치
+
+- 상태: 완료 (#52)
+- 타입: `event-stream.ts`의 `subscribeFrameSchema.from_seq`를 `seqSchema.optional()`로 바꾸고, `from_seq`와 `subscriber`가 둘 다 없을 때를 `.refine`로 거절한다. 이름 있는 구독은 명시 from 없이 통과하고 그때 출력에 `from_seq` 키를 만들지 않는다. `clientEventFrameSchema`·`eventFrameSchema`의 discriminatedUnion과 `parseClientEventFrame` 경로가 그대로 이 모양을 쓴다.
+- 뜻: architecture/platform 5.4의 named reconnect(명시 from이 없으면 저장 ack 다음부터 시작)가 wire schema에서 가능하다. schema는 시작 seq를 정하지 않고 `'0'`을 주입하지 않는다. 현재 인증 principal·이름으로 저장된 ack 위치, 그 +1, 저장 없음의 `'0'` 해석은 platform runtime의 몫이다(contracts에 IO·helper를 더하지 않는다). 명시 from은 그대로 포함 위치다.
 
 #### T7 구현 메모: event 노출 정책
 
@@ -1044,3 +1050,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q17 T7 follow-up은 schema-only event 선언과 별도 `EventVisibilityDefinition`을 둔다(추천안). core가 event type별 owner policy를 고정하며 duplicate는 안전한 기동 오류, 미등록은 fail-closed다. 같은 read snapshot·현재 인증 context·그 event envelope를 전달하고 subject와 payload 참조 전체의 현재 visibility를 owner가 검사한다. `ok(false)`·안전한 `not_found`·`forbidden`은 scanned cursor를 진행하는 omission이며 다른 오류·throw·Promise·invalid Result는 전체 batch 안전 오류다. 이 계약의 type 테스트는 실제 registry·권한·runtime async guard 구현을 대신하지 않는다.
 - Q18 T6 diagnostics follow-up은 기존 supervision 고정 Diagnostic catalog를 `platform.diagnostics.write`의 strict `{records, dropped}` 입력으로 재사용한다(추천안, platform 소비 review 완료). public DiagnosticRecord·raw LogRecord를 입력으로 쓰지 않으며 JSON control 전용·batch 256개·대기 1MiB·frame 256KiB를 유지한다. `{accepted, dropped}`는 ingress acceptance와 누락 계수일 뿐 durable 성공이 아니다. request 수·ID 결합, 현재 process/task/scope·등록 ID·redaction·fire-and-forget queue는 host가 검사하고 HTTP·`PIPE_OPS`·공용 Tx/ReadSnapshot을 넓히지 않는다.
 - Q19 T18은 실제 선행 T15의 고정 Version·ContentFile과 shared Section shape를 써서 T17 format 실행과 별도 PR로 진행한다(추천안, documents 소비 review 완료). root·series·history만 ledger metadata read, documents/file만 고정 ver/path의 stored bytes file이며 extraction·cache·본문·comparison·guide는 core 밖 worker다. whole/found의 text=null은 terminal redacted omission, unverified/unsupported는 같은 고정 원문 file fallback으로 구별하고 user full Version history와 agent/app source:null projection을 나눈다. guide는 설치 version/title/hash tuple과 manifest path를 결합한다. 최종 schema의 pagination·256KiB·exact ref 검사와 현재 auth/scope·redaction·cursor binding·복원·설치 membership의 host 책임을 섞지 않는다. 이 PR은 T17 execution/routes/status를 포함하지 않으며 T17 완료로 세지 않는다.
+- Q20 T7 named reconnect follow-up은 architecture/platform 5.4의 저장 ack 재개를 표현하도록 `from_seq`를 optional로 두되 `from_seq`와 `subscriber`가 둘 다 없는 입력은 strict schema·union·parser에서 `invalid_input`으로 거절한다(추천안). 이름 있는 생략에는 schema default를 넣지 않고 명시 seq의 포함 의미는 보존한다(platform 소비 source/type/runtime probe review 완료). 현재 인증 principal·이름의 저장 ack 조회, ack+1과 저장 없음 0, 현재 자격·scope 재검사는 platform runtime 책임이며 새 IO·Tx member·공개 route를 더하지 않는다.

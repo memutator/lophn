@@ -22,13 +22,20 @@ const filterFields = {
 };
 
 // from_seq는 포함한다. 빈 배열은 제한하지 않는다.
+// 이름 있는 구독은 명시 from이 없으면 저장 ack 다음부터 시작한다(architecture/platform 5.4).
+// schema는 그 시작 seq를 정하지 않는다. "저장 ack + 1"과 "저장 없으면 0"의 해석은
+// platform runtime의 몫이고, 여기서는 '0'을 주입하지 않는다. 현재 principal·이름으로
+// 저장된 위치와 그 재연결을 잇는 일도 runtime이 한다.
 export const subscribeFrameSchema = z.strictObject({
   type: z.literal("subscribe"),
-  from_seq: seqSchema,
+  from_seq: seqSchema.optional(),
   ...filterFields,
   subscriber: z.string().min(1).optional(),
   limit: eventBatchLimitSchema.optional(),
-});
+}).refine(
+  (frame) => frame.from_seq !== undefined || frame.subscriber !== undefined,
+  { message: "subscribe needs from_seq or a named subscriber" },
+);
 
 export type SubscribeFrame = z.infer<typeof subscribeFrameSchema>;
 

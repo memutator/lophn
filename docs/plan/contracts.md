@@ -984,6 +984,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T43 contracts/coding-agent: MCP·CLI의 session·설치·안내
 
+- 상태: 완료 (#126)
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli, coding-agent/guides
 - 요구: coding-agent/guides#R2, R23, R24; coding-agent/cli#R9, R10, R40
@@ -1002,6 +1003,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T44 contracts/coding-agent: repair context·문제 tool
 
+- 상태: 완료 (#132)
 - 등급: 기본
 - concern: coding-agent/repair-context
 - 요구: coding-agent/repair-context#R3–R12, R15, R17; coding-agent/mcp-server#R24, R25

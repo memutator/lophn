@@ -314,6 +314,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T17 safety: 같은 요청, 반복 실패, 자료 포장
 
+- 상태: 완료 (#129)
 - 등급: 좁은
 - concern: lophn-agent/harness/safety
 - 요구: lophn-agent/harness/safety#R1, R2, R3, R4, R5, R6, R7, R8, R9

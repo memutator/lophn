@@ -65,3 +65,25 @@ Deno.test(
     assertEquals(schema.includes(": "), false);
   },
 );
+
+Deno.test(
+  "coding-agent/mcp-server#R4: 편 union의 discriminator enum은 literal 목록이다",
+  () => {
+    // op·kind union을 편 뒤 discriminator의 enum은 literal string 목록이어야 한다(R4).
+    // JSON Schema enum 항목은 literal이고 property schema를 넣으면 유효 입력이 거절된다.
+    const entries = toolEntries(["core"]);
+    const index = entries.find((entry) => entry.name === "lophn_index")!;
+    const schema = index.inputSchema as {
+      properties: Record<string, { enum?: unknown[] }>;
+    };
+    const opEnum = schema.properties.op.enum!;
+    assertEquals(opEnum.length > 0, true);
+    assertEquals(opEnum.every((item) => typeof item === "string"), true);
+    // 유효 op literal이 enum에 살아 있어야 한다(거절되지 않는다).
+    assertEquals(index.description.includes("index"), true);
+    assertEquals(
+      opEnum.every((item) => index.description.includes(item as string)),
+      true,
+    );
+  },
+);

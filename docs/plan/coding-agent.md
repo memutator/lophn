@@ -273,7 +273,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 ### T11 MCP stdio server 뼈대
 
 - 상태: 완료 (#163)
-- 후속 schema token 재측정: 진행 (#167) — 남은 것: 2,000 token 목표 미도달("## 질문" Q20의 다음 수단)
+- 후속 schema token 재측정: 진행 (#167) — 남은 것: 2,000 token 목표 미도달("##
+  질문" Q20의 다음 수단)
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/connection
 - 요구: coding-agent/mcp-server#R1, R2, R3, R4, R5, R6, R7;
@@ -308,9 +309,10 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     1.0.21(cl100k_base)로 바꿨고 discovery schema에서 description
     중복·pattern·range 제약·$schema·default를 걷어내고 op·kind union을 GitHub
     MCP처럼 discriminator enum + 합친 properties로 폈다. 전(원본 toJSONSchema)
-    12,268 token / 43,393 bytes → 후 5,152 token / 21,360 bytes(전체 toolset),
-    core 3,501 token. 2,000 token 목표에 못 미치는 남은 차이와 다음 수단은 "##
-    질문"에 있다
+    12,268 token / 43,393 bytes → 후 4,704 token / 19,488 bytes(전체 toolset),
+    core 3,273 token. 2,000 token 목표에 못 미치는 남은 차이와 다음 수단은 "##
+    질문"에 있다. 펴기는 op·kind union의 member마다 있던 required를 걷어낸다
+    (discriminator만 required로 남긴다. member별 임의 필드는 그대로 임의다)
   - core에 닿지 않아도 initialize·tools/list가 답하고, 기동부터 tools/list
     응답까지 2,000ms 안(Codex·OpenCode 기동 timeout 30초보다 넉넉히)을 측정
     테스트로 둔다. Codex는 env를 whitelist하므로 connection·toolsets는
@@ -1611,11 +1613,13 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - **Q20 discovery schema의 2,000 token 목표 차이.** (추천안)
   coding-agent/mcp-server#R4의 전체 2,000 token 목표는 schema만 줄여서는 못
   이룬다. 실제 tokenizer(js-tiktoken 1.0.21의 cl100k_base)로 전 12,268 token /
-  43,393 bytes → 후 5,152 token / 21,360 bytes(전체 toolset), core 3,501
-  token이다. 남은 차이는 약 3,150 token으로, 도구 목록 자체(lophn 문제·승인·문서
-  주소 등 도메인 이름과 필수 필드)가 차지한다. 다음 수단(추천 순서): 1) toolset
-  기본을 끄고 started tool만 내보내기(core 3,501 token이라 목표에 여전히 못
-  미치지만 R3의 기본 core만 정책과 맞다), 2) Sentry MCP처럼 검색·실행 catalog
-  tool 몇 개로 통합해 tool 수를 줄인다(T13 이후 tool 자리를 다시 정할 때), 3)
-  목표를 요구 문서에서 완화해 측정치 기록으로 바꾼다. 추천: 1·2를 T13(문서 읽기
-  tool) 설계 시 함께 판단하고 그때까지 측정치를 테스트가 출력하게 둔다.
+  43,393 bytes → 후 4,704 token / 19,488 bytes(전체 toolset), core 3,273
+  token이다. 남은 차이는 약 2,700 token으로, 도구 목록 자체(lophn 문제·승인·문서
+  주소 등 도메인 이름과 필수 필드)가 차지한다. 펴기는 op·kind union의 member마다
+  있던 required를 걷어낸다(discriminator만 required로 남긴다). 다음 수단(추천
+  순서): 1) toolset 기본을 끄고 started tool만 내보내기(core 3,273 token이라
+  목표에 여전히 못 미치지만 R3의 기본 core만 정책과 맞다), 2) Sentry MCP처럼
+  검색·실행 catalog tool 몇 개로 통합해 tool 수를 줄인다(T13 이후 tool 자리를
+  다시 정할 때), 3) 목표를 요구 문서에서 완화해 측정치 기록으로 바꾼다. 추천:
+  1·2를 T13(문서 읽기 tool) 설계 시 함께 판단하고 그때까지 측정치를 테스트가
+  출력하게 둔다.

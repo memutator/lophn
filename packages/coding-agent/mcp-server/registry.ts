@@ -227,8 +227,11 @@ function flattenMembers(
   const properties: Record<string, unknown> = {
     [disc]: {
       type: "string",
+      // enum 항목은 literal이므로 const 값을 꺼내 literal 목록으로 쓴다.
       enum: members.map((member) =>
-        (member as { properties: Record<string, unknown> }).properties[disc]
+        ((member as { properties: Record<string, unknown> }).properties[
+          disc
+        ] as { const: string }).const
       ),
     },
   };

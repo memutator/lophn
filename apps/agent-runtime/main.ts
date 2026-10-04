@@ -13,6 +13,7 @@ import {
   startRuntime,
   type Startup,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { startCatalogRefresher } from "./catalog.ts";
 
 // core가 감독하는 agent runtime. ledger writer는 core만 소유하고 이 프로세스는 read만 한다.
 export type Runtime = {
@@ -34,6 +35,8 @@ export async function startAgentRuntime(input: {
   // 테스트가 core 대신 응답을 끼운다. 없으면 hello의 loopback port로 붙는다.
   read?: CoreRead;
   fetch?: typeof fetch;
+  // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다(T3와 같은 근원).
+  dataRoot?: string;
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Deno.stdin.readable,
@@ -69,6 +72,16 @@ export async function startAgentRuntime(input: {
           startup = started.value;
           // ready는 감독이 읽기 전에 나간다. 전송 완료를 기다리면 역압이 기동을 막는다.
           void send(child, { type: "ready" });
+          // catalog 자동 갱신은 기동을 막지 않는 single-flight다(R4). 끈 날에는
+          // 내부에서 자동 요청이 나가지 않는다(R6).
+          const root = runtimeDataRoot(input.dataRoot);
+          if (root !== undefined) {
+            const refresher = startCatalogRefresher({
+              dataRoot: root,
+              ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
+            });
+            refresher.kickAutoUpdate();
+          }
         } else {
           // 진단 쓰기가 막혀도 기동 실패는 바로 돌려준다.
           void diagnostics.write(started.error.message);
@@ -144,6 +157,14 @@ function coreRead(
     if (!listed.ok) return listed;
     return ok(listed.value);
   };
+}
+
+// derived 위치의 root. core의 resolveDataRoot와 같은 근원(env)에서 결정한다.
+function runtimeDataRoot(injected?: string): string | undefined {
+  if (injected !== undefined && injected.length > 0) return injected;
+  const lophnHome = Deno.env.get("LOPHN_HOME");
+  if (lophnHome !== undefined && lophnHome.length > 0) return lophnHome;
+  return undefined;
 }
 
 // 감독 pipe로 제어 frame을 보낸다. 감독이 먼저 닫았으면 조용히 끝난다.

@@ -1,4 +1,8 @@
-import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
+import { z } from "zod";
+import {
+  defineSetting,
+  type KindLaunchSpec,
+} from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import {
   createProviderCommands,
@@ -18,7 +22,7 @@ export function agentRuntimeLaunchSpec(input: {
     allow_read: [input.dataRoot],
     // derived만 쓴다. ledger·blob·원본은 쓰지 않는다.
     allow_write: [`${input.dataRoot}/derived/lophn-agent`],
-    // core loopback만. provider·MCP host는 등록될 때 더한다.
+    // core loopback만. provider·MCP host와 공개 models.dev는 등록될 때 더한다.
     allow_net: [`127.0.0.1:${input.apiPort}`],
     allow_run: [],
     allow_sys: [],
@@ -28,9 +32,39 @@ export function agentRuntimeLaunchSpec(input: {
   };
 }
 
+// catalog 자동 갱신 on/off 정의 등록(contracts#T24 settings registry). 사람이
+// 끄면 정상본·snapshot만 쓴다(R6). machine_local이고 다음 기동부터 적용한다.
+export const catalogAutoUpdateSetting = defineSetting({
+  key: "lophn-agent.model.catalog_auto_update",
+  owner: "lophn-agent/harness/model",
+  display_name_key: "settings.lophn-agent.catalog_auto_update.name",
+  description: "Automatic public model catalog refresh.",
+  value_meaning_key: "settings.lophn-agent.catalog_auto_update.value",
+  default_meaning_key: "settings.lophn-agent.catalog_auto_update.default",
+  affected_features: ["lophn-agent/harness/model"],
+  risk_key: "settings.lophn-agent.catalog_auto_update.risk",
+  revert_key: "settings.lophn-agent.catalog_auto_update.revert",
+  constraints: {},
+  required: false,
+  layers: ["common"],
+  apply_at: "next_run",
+  apply_at_key: "settings.lophn-agent.catalog_auto_update.apply_at",
+  machine_local: true,
+  default_present: true,
+  default: true,
+  value_type: z.boolean(),
+});
+
+// derived catalog read는 아직 등록하지 않는다(plan/lophn-agent Q28). pool read
+// handler는 동기 Result를 돌려주므로 파일 읽기도 동기여야 하는데, core module
+// graph의 동기 file API는 platform/responsiveness#R1 검사가 막는다. apiRead
+// 경로는 snapshot을 받지 않아 as_of_seq를 만들어야 하는데 이 read는 파생되는
+// 값이라 그럴 수 없다. 등록 자리 결정은 open-issues에 남긴다.
+
 // provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
 const commands = createProviderCommands();
 const reads = createProviderReads();
+
 export const lophnAgentDefinitions = {
   schemaSteps: providerSchemaSteps,
   commands: [

@@ -100,7 +100,7 @@ concerns: [documents]
   - 옛 Version이 가리키는 module은 hash로만 찾고 이름으로 최신 module을 찾지 않는다. 누락·실행 실패·미지원을 구별하고 대체 추출을 하지 않는다
   - `/v1/formats/list`, `/get`(선언·template·guide·예시·vocabulary), `/validate`(파일·줄·열 위치, Version 없음), `/extract`
   - `runner_test.ts`에 formats#R18: 금지 접근마다 실패, 무한 loop kill, 대형 출력 거절, 반복 결과 같음. formats#R19: fixture 하나 실패나 순환 부모 출력 module은 쓰이지 않음. formats#R20: module 누락·runner 실패의 이유 구별. formats#R8: 검사만으로 판 수가 늘지 않음(API 통합 테스트)
-- 상태: 진행 (#156) — 남은 것: platform blob `format_module` 보존(platform#T14).
+- 상태: 완료 (#174)
 
 ### T5 address 문법과 이름 예약
 

@@ -15,6 +15,14 @@ import {
   createBlobStoreWork,
   systemQuota,
 } from "../../../packages/platform/blob-store/mod.ts";
+import {
+  BACKUP_INTERVAL_MS,
+  backupDue,
+  backupStamp,
+  createBackup,
+} from "../../../packages/platform/backup-and-migration/mod.ts";
+import { type Clock, systemClock } from "../../../packages/base/mod.ts";
+import { DatabaseSync } from "node:sqlite";
 import { type BlobPipe, type BlobPipeRequest, createBlobPipe } from "./blob.ts";
 import {
   createSettingsPipe,
@@ -25,6 +33,9 @@ import {
   SETTINGS_EXPORT_OP,
   SETTINGS_IMPORT_OP,
 } from "../../../packages/contracts/platform/mod.ts";
+
+// 하루 backup check 주기. 차례가 지나면 만든다. 만들기가 늦어도 다음 check가 본다.
+export const BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 export type PlatformIoOptions = {
   root: string;
@@ -260,7 +271,15 @@ export async function createPlatformIo(
         });
         return;
       }
-      const response = result.value;
+      const handled = result.value;
+      // 읽은 바이트는 JSON control frame에 넣지 않는다. 256KiB 창의 base64가
+      // control frame 한도를 넘기 때문이다. 요청 channel의 byte chunk로 먼저 보낸다.
+      if (handled.response.ok && handled.bytes !== undefined) {
+        for (const chunk of handled.bytes.chunks) {
+          await session.sendBytes(handled.bytes.channel, chunk);
+        }
+      }
+      const response = handled.response;
       await session.send(
         response.ok
           ? {
@@ -281,6 +300,114 @@ export async function createPlatformIo(
   return session;
 }
 
+// 하루 backup 만들기(R8, R9). ledger 파일 이름은 데이터 root의 lophn.db다
+// (architecture 3.1). schema 판은 설치된 마지막 migration version이다.
+async function runDailyBackup(root: string, clock: Clock): Promise<void> {
+  const ledgerPath = `${root}/lophn.db`;
+  const stamp = backupStamp(clock.now());
+  if (!stamp.ok) return;
+  const version = installedSchemaVersion(root);
+  await createBackup(ledgerPath, {
+    root,
+    schemaVersion: version,
+    stamp: stamp.value,
+    now: () => clock.now(),
+  });
+}
+
+// 설치된 마지막 schema 판. migration 이력은 schema_migrations 표다. 아직 없으면 0이다.
+function installedSchemaVersion(root: string): number {
+  try {
+    const db = new DatabaseSync(`${root}/lophn.db`, { readOnly: true });
+    try {
+      const found = db.prepare(
+        "select coalesce(max(version), 0) as version from schema_migrations",
+      ).get() as { version: number | bigint };
+      return Number(found.version);
+    } finally {
+      db.close();
+    }
+  } catch {
+    return 0;
+  }
+}
+
+export type BackupTick = {
+  // check 한 번. due면 만들기를 scheduler에 낸다. 만들기가 아직 끝나지 않으면
+  // 건너뛴다: 두 snapshot이 겹치지 않는다(R9). completion이 끝나면 다시 본다(R12).
+  tick(): void;
+  // 만들기가 진행 중인지. 테스트가 끝남을 기다린다.
+  readonly inFlight: boolean;
+  // 진행 중 만들기가 끝날 때까지 기다린다(테스트용).
+  settle(): Promise<void>;
+  close(): void;
+};
+
+// 하루 backup의 주기 check. entry가 interval마다 tick()을 부른다. 만들기는
+// scheduler에 낸다: 복사·hash가 응답을 막지 않는다(responsiveness#R1).
+export function createBackupTick(
+  root: string,
+  clock: Clock = systemClock,
+): BackupTick {
+  const backupScheduler = createIoScheduler();
+  let inFlight = false;
+  const settled: Promise<void>[] = [];
+  return {
+    tick() {
+      if (inFlight) return;
+      // due 판정 전에 세운다. 판정을 기다리는 동안 온 다음 tick이 같이 submit하지 않는다(R9).
+      inFlight = true;
+      void (async () => {
+        let due = false;
+        try {
+          due = await backupDue(
+            root,
+            clock.now(),
+            BACKUP_INTERVAL_MS,
+          );
+        } catch {
+          // 판정을 읽지 못하면 이번 check는 건너뛴다. 다음 tick이 다시 본다.
+          inFlight = false;
+          return;
+        }
+        if (!due) {
+          inFlight = false;
+          return;
+        }
+        const submission = backupScheduler.submit("backup", async () => {
+          return await runDailyBackup(root, clock);
+        });
+        if (!submission.ok) {
+          inFlight = false;
+          return;
+        }
+        settled.push(
+          submission.value.result.then(() => {}, () => {}).finally(() => {
+            // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다(R12). 만들기
+            // 자체가 manifest 전에 실패하면 pending folder만 남는다.
+            inFlight = false;
+          }),
+        );
+      })();
+    },
+    get inFlight() {
+      return inFlight;
+    },
+    async settle() {
+      // tick의 내부 async가 백견을 만들기 전까지 기다린다(await backupDue가
+      // microtask에서 suspend한다). 그 뒤 진행 작업이 있으면 끝남을 기다린다.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      while (settled.length) {
+        const wait = settled.shift();
+        if (wait !== undefined) await wait;
+      }
+    },
+    close() {
+      backupScheduler.close();
+    },
+  };
+}
+
 export async function runPlatformIo(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
   console.log = console.info = console.debug = (...args: unknown[]) =>
@@ -292,5 +419,15 @@ export async function runPlatformIo(root: string): Promise<void> {
     // Product authority is supplied by core/T9 composition, not inferred from hello.
     currentAuthority: () => undefined,
   });
-  await session.run();
+  // 하루 backup은 I/O worker의 몫이다(platform/backup-and-migration#R9,
+  // responsiveness#R1). core command 흐름 밖에서 주기 check를 돌리고, 차례면
+  // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
+  const backup = createBackupTick(root);
+  const timer = setInterval(() => backup.tick(), BACKUP_CHECK_INTERVAL_MS);
+  try {
+    await session.run();
+  } finally {
+    clearInterval(timer);
+    backup.close();
+  }
 }

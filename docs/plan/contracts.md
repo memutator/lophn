@@ -311,6 +311,14 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
   - `/v1/projects/{create,update,set_tracking,archive,unarchive,list,get,resolve,preview_tracking}`, `TrackingPreview`, event `ProjectCreated`·`ProjectUpdated`·`ProjectTrackingChanged`·`ProjectArchived`·`ProjectUnarchived`.
   - port `PlaceNameReservation`(같은 transaction에서 이름 예약·현재 예약 확인).
 
+#### T14 구현 메모: project read seam
+
+- 상태: 완료 (#72)
+- concern: documents/projects
+- 요구: documents/projects#R3, R7, R8, R9, R10
+- 자리: `packages/contracts/documents/projects.ts`, `project-routes.ts`, `projects_test.ts`, `address.ts`
+- coding agent cwd resolve(`project.resolve_cwd`)는 path 없는 입력과 host가 고정한 authenticated current cwd 근거로 project ID만 돌려준다. 근거가 없으면 fail-closed다. 감독 tracking root read(`project.tracking_roots`)는 machine 전용이고 활성·tracking enabled root만 담는다. `initial_tracking_proposal`은 저장된 tracking과 별도 output이다. list·resolve cursor drift는 conflict다. Project read의 자료 참조는 고정 version이다. 실제 cwd 근거·자격·scope·snapshot 판정은 documents/platform runtime 책임이다.
+
 ### T15 contracts/documents: document·version·파일 준비 결과
 
 - 상태: 완료 (#39)
@@ -1094,3 +1102,4 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q23 T51은 T33의 단일 공개 entry를 다시 내보내는 exact apps wrapper만 leaf-contract 예외로 둔다(추천안, apps 요청). contract·SDK·wrapper의 reachable graph는 실제 존재하는 상대 `.ts`만 허용하고 contract 순수 파일 목록·SDK 자기 blueprint directory를 벗어나는 의존을 거절한다. private contract helper의 외부 직접 소비, workspace alias, test 모듈과 계산 import는 허용하지 않는다. 기존 leaf-contract·이식성·계산 import reader 규칙은 일반 코드에서 그대로 유지하며 dependency 검사를 arbitrary IO·앱 실행 부재·runtime isolation 증명으로 쓰지 않는다.
 - Q21 T33은 외부 dependency 없는 relative-only `blueprint.ts`를 공개 정본으로 두고 내부 pure 모듈을 400줄 이하로 나눈다(추천안, apps 소비 review 완료). no-input은 undefined만 허용하고 hash의 JSON null 표현을 app/release/command/schema binding으로 쓰지 않는다. InputSchema의 string property key는 별도 reserved/nonblank 제한 없이 own property로 복사하여 정규 값·default·enum·hash를 보존한다. AppScreenContext.data의 own/nested JSON key도 공통 guard로 보존한다. standalone description은 optional JSON string이며 command.input의 명시 description만 nonblank다. 공개 catalog는 domain의 pkg ID·1..N exact versions·additive Package/PackageVersion이고 설치 strict 입력은 T37이다. SemVer core는 문자열로 검사하여 safe-integer 제한을 새로 넣지 않으며 numeric prerelease 선행 0만 거절한다. Grant scope 이름과 structural blueprint scope를 구분하고 실제 권한·effect·byte hash·설치 membership·view/revision CAS·redaction은 owner runtime/tests가 검사한다. external automation 허용은 이미 정한 D23과 apps/automations#R13을 따른다.
 - Q22 T26은 `WaitRun`의 새 question/approval 생성 입력과 `RunBasis`의 정확한 `ResolvedModel`, ordered `MessageContent`의 정확한 `VisualBlock` 값을 먼저 정의한다(추천안). T28·T29·T30은 같은 schema를 재사용하며 ID-only wait·축약 model·unknown visual placeholder를 두지 않는다. Run event는 정본 여섯 개이고 checkpoint·confirm-next에는 event가 없다. revision은 정본의 positive integer, event/CAS seq는 decimal string으로 구별한다. AgentAppScope의 effects는 허용 effect set이며 command별 평행 배열로 줄이지 않는다. schema의 ID·hash·CAS 모양 검사는 실제 새 요청 생성과 waiting_on의 원자 연결, 현재 권한·기록·scope·release·redaction·복구 clock 판정을 대신하지 않는다.
+- Q24 T14 project read seam은 coding agent cwd resolve를 path 없는 입력·host 고정 cwd 근거·project ID만으로 두고 근거가 없으면 fail-closed로 거절한다(추천안, documents#T7 요청). 감독 tracking root read는 machine 전용 활성·enabled root다. initial_tracking_proposal은 실제 tracking과 별도 output이고 list·resolve cursor drift는 conflict다. Project read 자료 참조는 고정 version이다. 실제 cwd 근거·자격·scope·snapshot 판정은 documents/platform runtime 책임이다.

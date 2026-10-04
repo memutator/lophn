@@ -2,9 +2,18 @@ import type { Clock, Result } from "../../base/mod.ts";
 import { err, ok, sha256Hex } from "../../base/mod.ts";
 import type { SchemaStep, Sql } from "../../contracts/platform/mod.ts";
 import { type LedgerConnection, openConnection } from "../ledger/mod.ts";
+import { createRecoveryCopy, recoveryStamp } from "./recovery.ts";
+import { type MigrationVerification, verifyMigrated } from "./verification.ts";
 
 export type MigrationDeps = {
   clock: Clock;
+  // 없으면 복구본을 만들지 않는다(테스트 harness가 쓴다). 있으면 미적용 step이
+  // 있을 때 변환 전 schema가 있으면 반드시 만들고 무결성 검사를 통과한 뒤에만
+  // 변환을 시작한다(R3). 변환 전 schema 0인 새 설치는 복구본 대상이 없다.
+  recovery?: {
+    // 복구본 폴더의 밑. <root>/backups/migrations/ 밑으로 둔다.
+    root: string;
+  };
 };
 
 export type AppliedMigration = {
@@ -104,6 +113,23 @@ export async function applyMigrations(
     const recorded = readRecorded(connection.sql);
     const checked = checkHistory(recorded, planned);
     if (!checked.ok) return checked;
+    const unapplied = steps.length - recorded.length;
+    if (
+      unapplied > 0 && deps.recovery !== undefined &&
+      // 새 설치(변환 전 schema 0)는 남길 변환 전 자료가 없어 복구본을 만들지 않는다.
+      recorded.length > 0
+    ) {
+      // 복구본은 변환 전 schema 순번과 시각을 name에 넣는다(R3).
+      const stamp = recoveryStamp(deps.clock.now());
+      if (!stamp.ok) return stamp;
+      const recovery = await createRecoveryCopy(path, {
+        root: deps.recovery.root,
+        schemaVersion: recorded.length,
+        stamp: stamp.value,
+      });
+      // 복구본 만들기나 검사가 실패하면 원본을 변환하지 않고 시작을 거절한다(R3).
+      if (!recovery.ok) return recovery;
+    }
     for (let index = recorded.length; index < steps.length; index++) {
       const applied = applyStep(
         connection,
@@ -113,10 +139,48 @@ export async function applyMigrations(
       );
       if (!applied.ok) return applied;
     }
+    // 완료 뒤 FK·무결성·불변 보호를 검사한다(R5). 실패면 원본이 이미 rollback됐다.
+    const verified = verifyMigrated(connection.sql, {
+      guarded: guardedTables(steps),
+    });
+    if (!verified.ok) return verified;
     return ok(undefined);
   } finally {
     connection.close();
   }
+}
+
+// step SQL이 만드는 trigger를 sqlite_master에서 읽을 표로 모은다. trigger가 없는
+// step은 건너뛴다. IMMUTABLE 표는 no_update·no_delete·insert guard가 있어야 한다.
+function guardedTables(
+  steps: readonly SchemaStep[],
+): MigrationVerification["guarded"] {
+  const guarded: {
+    table: string;
+    kinds: readonly ("no_update" | "no_delete" | "no_duplicate_insert")[];
+  }[] = [];
+  const seen = new Set<string>();
+  for (const step of steps) {
+    for (const table of guardedTablesOf(step.sql)) {
+      if (seen.has(table)) continue;
+      seen.add(table);
+      guarded.push({ table, kinds: ["no_update", "no_delete"] });
+    }
+  }
+  return guarded;
+}
+
+// trigger 본문의 표 이름은 sqlite_master query로만 확실하다. 여기서는 step SQL의
+// create trigger <table>_no_update를 읽는다.
+function guardedTablesOf(step: string): string[] {
+  const tables: string[] = [];
+  const trigger =
+    /create\s+trigger\s+(?:if\s+not\s+exists\s+)?([A-Za-z_][A-Za-z0-9_]*)_no_update/g;
+  let match: RegExpExecArray | null;
+  while ((match = trigger.exec(step)) !== null) {
+    tables.push(match[1]);
+  }
+  return tables;
 }
 
 // 변환과 이력은 한 transaction이다. 실패하면 그 단계 전체가 rollback된다(b&m R4).

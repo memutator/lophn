@@ -699,6 +699,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T57 현재 보기 전달(workspace relay)
 
+- 상태: 완료 (#148)
 - 등급: 기본
 - concern: platform/api, platform/identity
 - 요구: platform/identity#R3, R8, platform/redaction#R5, lophn-agent/harness/prompt-assemble#R28
@@ -869,6 +870,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T40 migration 완성: 정지, 복구본, 검증
 
+- 상태: 완료 (#149)
 - 등급: 기본
 - concern: platform/backup-and-migration
 - 요구: platform/backup-and-migration#R2, R3, R5, R7, R18

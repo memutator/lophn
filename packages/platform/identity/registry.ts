@@ -11,10 +11,12 @@ import {
   type AuthenticatedContext,
   authenticatedContextSchema,
   type CredentialConditions,
-  type CredentialScope,
+  credentialScopeSchema,
   parseActor,
 } from "../../contracts/platform/mod.ts";
+import { agentAppScopeSchema } from "../../contracts/lophn-agent/mod.ts";
 import {
+  type AgentCredentialScope,
   authorize,
   conditionsMatch,
   type CredentialTarget,
@@ -25,17 +27,18 @@ import {
 } from "./model.ts";
 
 export type CredentialIssue = {
-  // user·machine은 종류 문자열이고 app은 app:<id> Actor다.
-  actor: "user" | "machine" | `app:${string}`;
+  // user·machine은 종류 문자열이고 agent·app은 kind:id Actor다. agent runtime
+  // 경계만 agent credential을, app supervisor만 app credential을 발급한다.
+  actor: "user" | "machine" | `agent:${string}` | `app:${string}`;
   principal: string;
-  scope: CredentialScope;
+  scope: AgentCredentialScope;
   conditions: CredentialConditions;
   expires_at?: string;
   test_runner?: boolean;
 };
 
 export type CurrentCredential = {
-  scope: CredentialScope;
+  scope: AgentCredentialScope;
   conditions: CredentialConditions;
 };
 
@@ -44,7 +47,10 @@ export type CredentialRegistryOptions = {
   random: RandomSource;
   clock: Clock;
   operations: readonly OperationPolicy[];
+  // 발급 때 한 번. 실패는 발급 거절(unauthorized)이다.
   current?: (ctx: AuthenticatedContext) => Result<CurrentCredential>;
+  // 매 사용. 실패는 그 사용만 거절하고 발급은 막지 않는다.
+  live?: (ctx: AuthenticatedContext) => Result<CurrentCredential>;
   logger?: Logger;
 };
 
@@ -110,22 +116,40 @@ export class CredentialRegistry {
   ): Promise<Result<{ token: string; credential_ref: string }>> {
     let userReserved = false;
     try {
-      const parsed = authenticatedContextSchema.safeParse({
-        principal: input.principal,
-        actor: input.actor,
-        scope: input.scope,
-        conditions: input.conditions,
-        credential_ref: "pending",
-        ...(input.expires_at === undefined
-          ? {}
-          : { expires_at: input.expires_at }),
+      // agent 상한은 lophn-agent의 AgentAppScope 그대로다. platform contracts가
+      // scope.ts를 import하면 순환이므로 발급 경계가 그 schema로 검증한다.
+      const parsedScope = credentialScopeSchema.safeParse({
+        operations: input.scope.operations,
+        targets: input.scope.targets,
       });
       const kind = actorKind(input.actor);
+      const boundAgent = input.scope.agent === undefined
+        ? undefined
+        : agentAppScopeSchema.safeParse(input.scope.agent);
+      const parsed = parsedScope.success
+        ? authenticatedContextSchema.safeParse({
+          principal: input.principal,
+          actor: input.actor,
+          scope: parsedScope.data,
+          conditions: input.conditions,
+          credential_ref: "pending",
+          ...(input.expires_at === undefined
+            ? {}
+            : { expires_at: input.expires_at }),
+        })
+        : undefined;
       if (
-        !parsed.success ||
-        (kind !== "user" && kind !== "machine" && kind !== "app")
+        !parsed?.success || boundAgent?.success === false ||
+        (kind !== "user" && kind !== "machine" && kind !== "app" &&
+          kind !== "agent")
       ) return invalid();
-      const context = parsed.data;
+      const context: AuthenticatedContext & { scope: AgentCredentialScope } = {
+        ...parsed.data,
+        scope: {
+          ...parsed.data.scope,
+          ...(boundAgent?.success ? { agent: boundAgent.data } : {}),
+        },
+      };
       if (
         input.test_runner !== undefined &&
         typeof input.test_runner !== "boolean"
@@ -159,22 +183,39 @@ export class CredentialRegistry {
           context.scope.targets.process !== context.conditions.process ||
           context.scope.targets.mode !== context.conditions.mode
         ) return invalid();
+      } else if (context.scope.agent !== undefined) return invalid();
+      // agent credential은 유효 assignment·run에 묶인다. scope.agent는 lophn-agent가
+      // 계산한 상한 그대로이며 그 assignment와 같아야 한다. platform은 내용을 해석하지 않는다.
+      if (kind === "agent") {
+        if (
+          !boundAgent?.success || !context.conditions.run ||
+          context.conditions.assignment !==
+            input.actor.slice("agent:".length) ||
+          boundAgent.data.assignment !== context.conditions.assignment ||
+          context.scope.targets.assignment !== context.conditions.assignment ||
+          context.scope.targets.run !== context.conditions.run
+        ) return invalid();
       }
       if (
         context.expires_at !== undefined &&
         Date.parse(context.expires_at) <= this.#options.clock.nowMs()
       ) return invalid();
-      const ceiling = {
+      const ceiling: AgentCredentialScope = {
         operations: operationCeiling(
           input.actor,
           this.#options.operations,
           input.test_runner,
         ),
         targets: {},
+        // agent 상한은 발급 scope가 정한다. 동작 상한만 여기서 더 좁힌다.
+        ...(context.scope.agent === undefined
+          ? {}
+          : { agent: context.scope.agent }),
       };
       if (!scopeWithin(context.scope, ceiling)) return invalid();
-      if (this.#options.current) {
-        const current = this.#options.current(structuredClone(context));
+      const restrict = this.#options.current ?? this.#options.live;
+      if (restrict) {
+        const current = restrict(structuredClone(context));
         if (!current.ok) return unauthorized();
         if (
           !conditionsMatch(context.conditions, current.value.conditions) ||
@@ -224,7 +265,11 @@ export class CredentialRegistry {
     }
   }
 
-  async authenticate(bearer: string): Promise<Result<AuthenticatedContext>> {
+  async authenticate(
+    bearer: string,
+  ): Promise<
+    Result<AuthenticatedContext & { scope: AgentCredentialScope }>
+  > {
     try {
       if (typeof bearer !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(bearer)) {
         return this.#denied();
@@ -243,7 +288,7 @@ export class CredentialRegistry {
 
   revalidate(
     ctx: Pick<AuthenticatedContext, "credential_ref">,
-  ): Result<AuthenticatedContext> {
+  ): Result<AuthenticatedContext & { scope: AgentCredentialScope }> {
     const record = this.#records.get(ctx.credential_ref);
     return record ? this.#context(record) : this.#denied();
   }
@@ -289,7 +334,9 @@ export class CredentialRegistry {
     return ok(undefined);
   }
 
-  #context(record: CredentialRecord): Result<AuthenticatedContext> {
+  #context(
+    record: CredentialRecord,
+  ): Result<AuthenticatedContext & { scope: AgentCredentialScope }> {
     if (
       record.state !== "active" || record.epoch !== this.#options.epoch ||
       (record.context.expires_at !== undefined &&
@@ -297,8 +344,9 @@ export class CredentialRegistry {
     ) return this.#denied();
     const context = structuredClone(record.context);
     try {
-      if (this.#options.current) {
-        const current = this.#options.current(structuredClone(context));
+      const live = this.#options.live ?? this.#options.current;
+      if (live) {
+        const current = live(structuredClone(context));
         if (
           !current.ok ||
           !conditionsMatch(context.conditions, current.value.conditions)

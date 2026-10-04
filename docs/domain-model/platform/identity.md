@@ -27,7 +27,7 @@ actor는 token으로 정하며 본문·label·제품 이름·환경 변수로 �
 | `token` | 불투명 string | 아니오 | 충분한 무작위성; 신뢰 인증 경계에서 자동 발급·OS keychain 보관; 일반 조회·ledger·event에는 원문 없음 | 인증 값 |
 | `principal` | string | 아니오 | 서버가 만든 안정된 주체 식별; token 회전과 독립 | idempotency 범위 |
 | `actor` | Actor | 아니오 | 서버가 발급 때 결정 | 주체 |
-| `scope` | CredentialScope | 아니오 | 해당 actor의 상한 이하 | 허용 범위 |
+| `scope` | CredentialScope | 아니오 | 해당 actor의 상한 이하; agent는 시작 때 고정한 AgentAppScope를 싣고 발급 뒤 넓히지 못함 | 허용 범위 |
 | `conditions` | CredentialConditions | 아니오 | 실제 시작 대상에 묶임; 현재 조건과 교집합 | 사용 조건 |
 | `state` | `active` / `revoked` / `ended` | 아니오 | revoked·ended에서 active로 복구 불가 | 유효 상태 |
 
@@ -45,6 +45,7 @@ actor는 token으로 정하며 본문·label·제품 이름·환경 변수로 �
 |---|---|---|---|---|
 | `operations` | 등록된 동작 이름 집합 | 아니오 | actor 종류 상한과 현재 허용 동작의 교집합 | 동작 범위 |
 | `targets` | 등록된 대상 범위 | 아니오 | connection·assignment·앱·배정 작업의 범위 이내 | 대상 범위 |
+| `agent` | AgentAppScope | 예 | agent이면 필수; 다른 actor이면 없음; lophn-agent가 계산한 시작 scope 그대로; platform은 해석하지 않고 상한을 넓히지 못하게만 함(→ lophn-agent/roles) | agent 앱 범위 |
 
 | actor | 상한 |
 |---|---|

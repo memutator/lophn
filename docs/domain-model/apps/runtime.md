@@ -95,9 +95,9 @@ core가 서명하는 앱 호출용 제한 credential이다. credential 보관·�
 |---|---|---|---|---|---|
 | `app.enable_execution` | user | app | App 최신 seq; active 보관 상태; active_release 존재 | `AppExecutionEnabled` | `conflict`, `invalid_input`, `not_found` |
 | `app.disable_execution` | user | app | App 최신 seq | `AppExecutionDisabled` | `conflict`, `not_found` |
-| `app.record_started` | machine | app,ReadyAttestation | 현재 release·nonce·run_enabled·activation 상태 | `AppStarted` | `conflict`, `invalid_input` |
-| `app.record_stopped` | machine | app,release,process_nonce,종료 확인 | 같은 자식의 종료 관측 | `AppStopped` | `conflict`, `invalid_input` |
-| `app.record_unavailable` | machine | app,release,process_nonce?,reason | 현재 관측 대상; run_enabled를 바꾸지 않음 | `AppUnavailable` | `conflict`, `invalid_input` |
+| `app.record_started` | machine | app,ReadyAttestation,process_nonce,started_at | 같은 관측의 중복은 app·release·자식 nonce·시작 시각·관측 종류로 가림. 사람 편집 CAS 없음 | `AppStarted` | `conflict`, `invalid_input` |
+| `app.record_stopped` | machine | app,release,process_nonce,started_at,종료 확인 | 같은 자식의 종료 관측. 사람 편집 CAS 없음 | `AppStopped` | `conflict`, `invalid_input` |
+| `app.record_unavailable` | machine | app,release,process_nonce?,started_at?,reason | 현재 관측 대상; run_enabled를 바꾸지 않음. 자식이 없는 관측은 nonce·시작 시각 없음 | `AppUnavailable` | `conflict`, `invalid_input` |
 
 이 command는 → apps/registration의 `apps`와 → platform/ledger의 event만 쓴다. process_nonce·endpoint는 현재 연결에서 관리하며 별도 정본 표는 없다.
 

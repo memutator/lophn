@@ -1,4 +1,5 @@
 export {
+  type AgentCredentialScope,
   authorize,
   authorizeConditions,
   CONDITION_TARGET_KEYS,
@@ -36,3 +37,10 @@ export {
   type AppCredentialResponse,
   createAppCredentialIssuer,
 } from "./app-credential.ts";
+export {
+  type ChosenQuestionOption,
+  type QuestionEvidenceUse,
+  questionEvidenceUse,
+  type QuestionOptionSource,
+  verifyQuestionEvidence,
+} from "./question-evidence.ts";

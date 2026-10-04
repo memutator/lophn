@@ -23,6 +23,7 @@
     "npm:happy-dom@20.14.5": "20.14.5",
     "npm:intl-messageformat@12.1.2": "12.1.2",
     "npm:lucide-react@1.51.0": "1.51.0_@types+react@19.3.0_react@19.3.0",
+    "npm:parse5@8.0.1": "8.0.1",
     "npm:postcss-value-parser@4.2.0": "4.2.0",
     "npm:postcss@8.5.28": "8.5.28",
     "npm:react-dom@19.3.0": "19.3.0_react@19.3.0",
@@ -801,6 +802,9 @@
     "entities@7.0.1": {
       "integrity": "sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA=="
     },
+    "entities@8.1.0": {
+      "integrity": "sha512-kxL7msIffSuh9aaFAMD7rxAIuTRMAHMeBtgHW2yUdWw732ZNh4MehkF2gdjvtdmikkaIP9bFDDJOPlsvm7avrA=="
+    },
     "esbuild@0.28.2": {
       "integrity": "sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA==",
       "optionalDependencies": [
@@ -844,7 +848,7 @@
         "@types/whatwg-mimetype",
         "@types/ws",
         "buffer-image-size",
-        "entities",
+        "entities@7.0.1",
         "whatwg-mimetype",
         "ws"
       ]
@@ -869,6 +873,12 @@
     "nanoid@3.3.19": {
       "integrity": "sha512-Y2tUNy4ouw6tq5oDSKeQYGOyhkUBhNOcGV/02KC+6kd9eDGqdZd++mjMiIDilrBYvjEnCYvVtsuHCuP+okSfug==",
       "bin": true
+    },
+    "parse5@8.0.1": {
+      "integrity": "sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==",
+      "dependencies": [
+        "entities@8.1.0"
+      ]
     },
     "picocolors@1.1.1": {
       "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
@@ -1020,6 +1030,11 @@
         "dependencies": [
           "npm:@formatjs/icu-messageformat-parser@3.5.20",
           "npm:intl-messageformat@12.1.2"
+        ]
+      },
+      "packages/documents": {
+        "dependencies": [
+          "npm:parse5@8.0.1"
         ]
       }
     }

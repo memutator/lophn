@@ -1,4 +1,4 @@
-import type { HeadingSpan, LineRange } from "../../pure/sections.ts";
+import type { HeadingSpan, LineRange } from "../../pure/module.ts";
 
 export type MarkdownScan = {
   headings: HeadingSpan[];
@@ -53,7 +53,9 @@ function setext(
   if (index + 1 >= lines.length) return null;
   const underline = SETEXT.exec(lines[index + 1] ?? "");
   const text = lines[index] ?? "";
-  if (underline === null || isBlank(text) || text.startsWith("    ")) return null;
+  if (underline === null || isBlank(text) || text.startsWith("    ")) {
+    return null;
+  }
   if (/^ {0,3}(```|~~~)/.test(text)) return null;
   const marks = underline[2] ?? "";
   const shown = displayTitle(text.trim());
@@ -89,7 +91,8 @@ export function scanMarkdown(text: string): MarkdownScan {
       const close = FENCE.exec(line);
       if (
         close !== null && (close[2] ?? "").startsWith(fence.mark) &&
-        (close[2] ?? "").length >= fence.length && (close[3] ?? "").trim() === ""
+        (close[2] ?? "").length >= fence.length &&
+        (close[3] ?? "").trim() === ""
       ) fence = null;
       index += 1;
       continue;

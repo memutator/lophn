@@ -1,9 +1,13 @@
-import { parse, type DefaultTreeAdapterTypes } from "npm:parse5@8.0.1";
-import type { HeadingSpan } from "../../pure/sections.ts";
+import { type DefaultTreeAdapterTypes, parse } from "parse5";
+import type { HeadingSpan, LineRange } from "../../pure/module.ts";
 
 type Node = DefaultTreeAdapterTypes.Node;
 type Element = DefaultTreeAdapterTypes.Element;
 type TextNode = DefaultTreeAdapterTypes.TextNode;
+type Location = {
+  startLine: number;
+  endLine: number;
+};
 
 const HEADING = /^h([1-6])$/;
 const EXCLUDED = new Set([
@@ -20,19 +24,9 @@ const EXCLUDED = new Set([
 export type HtmlExtract = {
   text: string;
   headings: HeadingSpan[];
+  omitted: LineRange[];
   title: string | null;
 };
-
-type Cursor = { line: number; column: number };
-
-function advance(cursor: Cursor, value: string): void {
-  for (const character of value) {
-    if (character === "\n") {
-      cursor.line += 1;
-      cursor.column = 1;
-    } else cursor.column += 1;
-  }
-}
 
 function attribute(element: Element, name: string): string | null {
   const found = element.attrs.find((item) => item.name === name);
@@ -45,9 +39,21 @@ function hidden(element: Element): boolean {
 }
 
 function isElement(node: Node): node is Element {
-  return node.nodeName !== "#text" && node.nodeName !== "#comment" &&
-    node.nodeName !== "#documentType" && node.nodeName !== "#document" &&
-    node.nodeName !== "#document-fragment";
+  return !node.nodeName.startsWith("#");
+}
+
+function locationOf(node: Node): Location | null {
+  const located = node as Node & { sourceCodeLocation?: Location | null };
+  return located.sourceCodeLocation ?? null;
+}
+
+function rangeOf(node: Node): LineRange | null {
+  const location = locationOf(node);
+  if (location === null) return null;
+  return {
+    start_line: location.startLine,
+    end_line: location.endLine,
+  };
 }
 
 function textOf(node: Node): string {
@@ -59,41 +65,19 @@ function textOf(node: Node): string {
 function documentTitle(root: Node): string | null {
   let title: string | null = null;
   const visit = (node: Node): void => {
-    if (!isElement(node)) return;
-    if (node.tagName === "title" && title === null) {
+    if (isElement(node) && node.tagName === "title" && title === null) {
       title = textOf(node).replace(/\s+/g, " ").trim();
     }
-    for (const child of node.childNodes) visit(child);
+    const kids = (node as { childNodes?: Node[] }).childNodes ?? [];
+    for (const child of kids) visit(child);
   };
   visit(root);
-  return title === null || title.length === 0 ? null : title;
-}
-
-type Piece = { text: string; heading: Element | null };
-
-function visiblePieces(
-  node: Node,
-  inheritedHidden: boolean,
-  wrapperUsed: Set<Element>,
-  out: Piece[],
-): void {
-  if (node.nodeName === "#text") {
-    if (!inheritedHidden) out.push({ text: (node as TextNode).value, heading: null });
-    return;
-  }
-  if (!isElement(node)) return;
-  if (EXCLUDED.has(node.tagName) || inheritedHidden || hidden(node)) return;
-  const heading = HEADING.test(node.tagName);
-  if (heading) out.push({ text: "", heading: node });
-  for (const child of node.childNodes) {
-    visiblePieces(child, inheritedHidden, wrapperUsed, out);
-  }
-  if (heading) out.push({ text: "\n", heading: null });
+  return title === null || title === "" ? null : title;
 }
 
 function headingAnchor(
   element: Element,
-  wrapperUsed: Map<Element, true>,
+  claimed: Set<Element>,
 ): string | null {
   const own = attribute(element, "id");
   if (own !== null && own.length > 0) return own;
@@ -101,8 +85,8 @@ function headingAnchor(
   while (parent !== null && isElement(parent)) {
     if (parent.tagName === "section") {
       const id = attribute(parent, "id");
-      if (id !== null && id.length > 0 && !wrapperUsed.has(parent)) {
-        wrapperUsed.set(parent, true);
+      if (id !== null && id.length > 0 && !claimed.has(parent)) {
+        claimed.add(parent);
         return id;
       }
       return null;
@@ -112,31 +96,70 @@ function headingAnchor(
   return null;
 }
 
-// 정적 parse만 한다. script·style·template·nav·textarea·head·title·pre·hidden은 본문에서 뺀다.
-export function extractHtml(source: string): HtmlExtract {
-  const document = parse(source);
-  const pieces: Piece[] = [];
-  const claimed = new Map<Element, true>();
-  visiblePieces(document, false, new Set(), pieces);
-  const cursor: Cursor = { line: 1, column: 1 };
-  let text = "";
-  const headings: HeadingSpan[] = [];
-  for (const piece of pieces) {
-    if (piece.heading !== null) {
-      const title = textOf(piece.heading).replace(/\s+/g, " ").trim();
-      const start = cursor.line;
-      headings.push({
-        title,
-        level: Number(piece.heading.tagName.slice(1)),
-        startLine: start,
-        endLine: start,
-        anchor: headingAnchor(piece.heading, claimed),
-      });
-      continue;
+function collect(
+  node: Node,
+  inheritedHidden: boolean,
+  claimed: Set<Element>,
+  headings: HeadingSpan[],
+  omitted: LineRange[],
+): void {
+  if (!isElement(node)) {
+    const kids = (node as { childNodes?: Node[] }).childNodes ?? [];
+    for (const child of kids) {
+      collect(child, inheritedHidden, claimed, headings, omitted);
     }
-    text += piece.text;
-    advance(cursor, piece.text);
+    return;
   }
-  if (!text.endsWith("\n")) text += "\n";
-  return { text, headings, title: documentTitle(document) };
+  const excluded = EXCLUDED.has(node.tagName) || inheritedHidden ||
+    hidden(node);
+  if (excluded) {
+    const range = rangeOf(node);
+    if (range !== null) omitted.push(range);
+    return;
+  }
+  const match = HEADING.exec(node.tagName);
+  if (match !== null) {
+    const location = locationOf(node);
+    const line = location?.startLine ?? 1;
+    headings.push({
+      title: textOf(node).replace(/\s+/g, " ").trim(),
+      level: Number(match[1]),
+      startLine: line,
+      endLine: location?.endLine ?? line,
+      anchor: headingAnchor(node, claimed),
+    });
+  }
+  for (const child of node.childNodes) {
+    collect(child, inheritedHidden, claimed, headings, omitted);
+  }
+}
+
+// 정적 parse만 한다. script는 실행하지 않고 제외 구역은 본문에서 뺀다.
+const XML_DECLARATION = /^<\?xml\b[^?]*\?>\s*/;
+
+export function extractHtml(source: string): HtmlExtract {
+  // HTML parser는 XML 선언을 만나면 나머지를 주석으로 버린다. 줄 수는 유지한다.
+  const declaration = XML_DECLARATION.exec(source);
+  const skipped = declaration?.[0] ?? "";
+  const lineOffset = skipped.length === 0 ? 0 : skipped.split("\n").length - 1;
+  const document = parse(source.slice(skipped.length), {
+    sourceCodeLocationInfo: true,
+  });
+  const headings: HeadingSpan[] = [];
+  const omitted: LineRange[] = [];
+  collect(document, false, new Set(), headings, omitted);
+  const shift = (line: number) => line + lineOffset;
+  return {
+    text: source,
+    headings: headings.map((heading) => ({
+      ...heading,
+      startLine: shift(heading.startLine),
+      endLine: shift(heading.endLine),
+    })),
+    omitted: omitted.map((range) => ({
+      start_line: shift(range.start_line),
+      end_line: shift(range.end_line),
+    })),
+    title: documentTitle(document),
+  };
 }

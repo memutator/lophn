@@ -1,8 +1,9 @@
 import type {
-  ExtractedSection,
+  FormatDiagnostic,
+  FormatValidationResult,
   SectionExtractionResult,
 } from "../../../contracts/documents/mod.ts";
-import type { FormatModuleInput } from "./input.ts";
+import type { FormatModuleInput, InputIssue } from "./input.ts";
 import { sha256Text } from "./sha256.ts";
 
 export type LineRange = { start_line: number; end_line: number };
@@ -29,7 +30,7 @@ type Built = {
   own: LineRange[];
 };
 
-const CONTROL = /[\u0000-\u001f\u007f]/;
+const CONTROL = /\p{Cc}/u;
 
 function linesOf(text: string): string[] {
   return text.split("\n");
@@ -39,14 +40,17 @@ function codePoints(value: string): number {
   return [...value].length;
 }
 
-function slugFromTitle(title: string): string {
+// 문자·숫자·공백·하이픈만 남긴다. `&`는 버리고 남은 공백은 각각 하이픈이 되어 `A & B`는 `a--b`가 된다.
+export function slugFromTitle(title: string): string {
   const kept = [...title.toLowerCase()].filter((character) => {
     if (character === " " || character === "-" || character === "\t") {
       return true;
     }
     return /^\p{L}$/u.test(character) || /^\p{N}$/u.test(character);
   }).join("");
-  const slug = kept.replace(/[ \t]+/g, "-");
+  const slug = [...kept].map((character) =>
+    character === " " || character === "\t" ? "-" : character
+  ).join("");
   return slug.length === 0 ? "section" : slug;
 }
 
@@ -85,12 +89,6 @@ function subtract(
   return kept;
 }
 
-function headingLine(span: HeadingSpan): LineRange | null {
-  return span.startLine <= span.endLine
-    ? { start_line: span.startLine, end_line: span.startLine }
-    : null;
-}
-
 export type SectionBuild = {
   text: string;
   headings: readonly HeadingSpan[];
@@ -100,19 +98,24 @@ export type SectionBuild = {
   omitted: readonly LineRange[];
 };
 
+export type SectionDiagnostic = {
+  file: string;
+  line: number;
+  message: string;
+};
+
 export type SectionTree =
   | {
     ok: true;
     title: string | null;
-    sections: ExtractedSection[];
-    diagnostics: { file: string; line: number; message: string }[];
+    sections: SectionExtractionResult extends { sections: infer S } ? S
+      : never;
+    diagnostics: SectionDiagnostic[];
   }
-  | { ok: false; reason: string; file?: string; line?: number };
+  | { ok: false; reason: string; line?: number };
 
 // heading span으로 key·parent·범위·본문 hash를 만든다. 가짜 parent는 만들지 않는다.
-export function buildSections(
-  source: SectionBuild,
-): SectionTree {
+export function buildSections(source: SectionBuild): SectionTree {
   const lines = linesOf(source.text);
   const spans = [...source.headings].sort((left, right) =>
     left.startLine - right.startLine
@@ -124,13 +127,13 @@ export function buildSections(
   const siblingCounts = new Map<string, Map<string, number>>();
   const stack: Built[] = [];
   const built: Built[] = [];
-  const diagnostics: { file: string; line: number; message: string }[] = [];
+  const diagnostics: SectionDiagnostic[] = [];
   const explicitKeys = new Map<string, number>();
 
   for (const [position, span] of spans.entries()) {
-    while (
-      stack.length > 0 && stack[stack.length - 1]!.level >= span.level
-    ) stack.pop();
+    while (stack.length > 0 && stack[stack.length - 1]!.level >= span.level) {
+      stack.pop();
+    }
     const parent = stack.length === 0 ? null : stack[stack.length - 1]!;
     const explicit = span.anchor !== null && span.anchor.length > 0;
     const slug = explicit ? span.anchor! : slugFromTitle(span.title);
@@ -142,8 +145,7 @@ export function buildSections(
       };
     }
     const base = parent === null ? slug : `${parent.key}/${slug}`;
-    const seen = explicitKeys.get(base);
-    if (explicit && seen !== undefined) {
+    if (explicit && explicitKeys.has(base)) {
       diagnostics.push({
         file: "",
         line: span.startLine,
@@ -160,14 +162,13 @@ export function buildSections(
     }
     const count = (counts.get(slug) ?? 0) + 1;
     counts.set(slug, count);
-    const key = explicit || count === 1 ? uniqueKey(used, base) : uniqueKey(
-      used,
-      `${base}-${count}`,
-    );
+    const key = explicit || count === 1
+      ? uniqueKey(used, base)
+      : uniqueKey(used, `${base}-${count}`);
     const next = spans.slice(position + 1).find((item) =>
       item.level <= span.level
     );
-    const endLine = (next === undefined ? lines.length : next.startLine - 1);
+    const endLine = next === undefined ? lines.length : next.startLine - 1;
     const node: Built = {
       title: span.title,
       level: span.level,
@@ -189,16 +190,7 @@ export function buildSections(
     const children = built.filter((item) => item.parent === node.key);
     const holes = [
       ...omitted,
-      ...(headingLine({
-        title: node.title,
-        level: node.level,
-        startLine: node.startLine,
-        endLine: node.endLine,
-        anchor: node.anchor,
-      }) === null ? [] : [{
-        start_line: node.startLine,
-        end_line: node.startLine,
-      }]),
+      { start_line: node.startLine, end_line: node.startLine },
       ...children.map((child) => ({
         start_line: child.startLine,
         end_line: child.endLine,
@@ -211,9 +203,7 @@ export function buildSections(
   }
 
   const preambleEnd = spans[0]?.startLine ?? lines.length + 1;
-  const preambleHoles = omitted.filter((range) =>
-    range.end_line < preambleEnd
-  );
+  const preambleHoles = omitted.filter((range) => range.end_line < preambleEnd);
   if (source.documentTitle !== null && spans[0] !== undefined) {
     preambleHoles.push({
       start_line: spans[0].startLine,
@@ -223,10 +213,8 @@ export function buildSections(
   const preambleRanges = subtract(
     { start_line: 1, end_line: Math.max(1, preambleEnd - 1) },
     preambleHoles,
-  ).filter((range) =>
-    bodyOf(lines, range).replace(/\s+/g, "").length > 0
-  );
-  const sections: ExtractedSection[] = [];
+  ).filter((range) => bodyOf(lines, range).replace(/\s+/g, "").length > 0);
+  const sections: Extract<SectionTree, { ok: true }>["sections"] = [];
   if (preambleRanges.length > 0) {
     const subtree = {
       start_line: 1,
@@ -264,12 +252,7 @@ export function buildSections(
       body_hash: sha256Text(bodies.join("\n")),
     });
   }
-  return {
-    ok: true,
-    title: source.documentTitle,
-    sections,
-    diagnostics,
-  };
+  return { ok: true, title: source.documentTitle, sections, diagnostics };
 }
 
 export function readyExtraction(
@@ -285,5 +268,48 @@ export function readyExtraction(
     text,
     text_hash: sha256Text(text),
     sections: tree.sections,
+  };
+}
+
+export function unsupportedExtraction(
+  input: FormatModuleInput,
+): SectionExtractionResult {
+  return {
+    input_hash: input.input_hash,
+    module_hash: input.module_hash,
+    status: "unsupported",
+    title: null,
+    sections: [],
+  };
+}
+
+function diagnostic(
+  issue: InputIssue,
+  file: string | undefined,
+): FormatDiagnostic {
+  return {
+    severity: "error",
+    code: issue.code,
+    message: issue.message,
+    file: issue.file ?? file ?? null,
+    start_line: issue.line ?? null,
+    end_line: issue.line ?? null,
+    column: issue.column ?? null,
+  };
+}
+
+export function validationFrom(
+  input: FormatModuleInput,
+  issues: readonly InputIssue[],
+  file?: string,
+): FormatValidationResult {
+  const diagnostics = issues.map((issue) => diagnostic(issue, file));
+  return {
+    input_hash: input.input_hash,
+    module_hash: input.module_hash,
+    status: diagnostics.length === 0 ? "passed" : "failed",
+    diagnostics,
+    error_count: diagnostics.length,
+    warning_count: 0,
   };
 }

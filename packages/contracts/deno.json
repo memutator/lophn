@@ -6,6 +6,7 @@
     "./shell": "./shell/mod.ts",
     "./documents": "./documents/mod.ts",
     "./apps": "./apps/mod.ts",
+    "./problems": "./problems/mod.ts",
     "./coding-agent": "./coding-agent/mod.ts"
   },
   "compilerOptions": {

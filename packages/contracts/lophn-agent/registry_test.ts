@@ -32,6 +32,22 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/messages/list",
     "/v1/assignment-occurrences/process",
     "/v1/assignment-occurrences/list",
+    "/v1/questions/create",
+    "/v1/questions/answer",
+    "/v1/questions/defer",
+    "/v1/questions/cancel",
+    "/v1/questions/expire",
+    "/v1/questions/apply-option",
+    "/v1/questions/read",
+    "/v1/questions/list",
+    "/v1/handoffs/submit",
+    "/v1/handoffs/status",
+    "/v1/handoffs/result",
+    "/v1/reverts/checkpoint",
+    "/v1/reverts/finish",
+    "/v1/reverts/apply",
+    "/v1/reverts/preview",
+    "/v1/reverts/list",
   ]);
   assertEquals(lophnAgent.ROUTES, ROUTES);
   for (const route of ROUTES) {
@@ -57,6 +73,14 @@ Deno.test("lophn-agent/harness/run-loop#R6: public events omit checkpoint and co
     "MessageApplied",
     "MessageAssigned",
     "AssignmentScheduleAdvanced",
+    "QuestionCreated",
+    "QuestionAnswered",
+    "QuestionExpired",
+    "QuestionCancelled",
+    "RevertStarted",
+    "RevertApplied",
+    "RevertBlocked",
+    "RevertFinished",
   ]);
   assertEquals(lophnAgent.EVENTS, EVENTS);
   for (const event of EVENTS) assert(ALL_EVENTS.includes(event));

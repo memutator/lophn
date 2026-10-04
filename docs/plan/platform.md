@@ -647,6 +647,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T28 data 직렬화와 출처 유지
 
+- 상태: 완료 (#124)
+
 - 등급: 기본
 - concern: platform/security
 - 요구: platform/security#R10, R11

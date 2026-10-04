@@ -465,3 +465,114 @@ Deno.test("coding-agent/tickets#R2: duplicate conditions are rejected before wri
   ]);
   code(led, "invalid_input");
 });
+
+Deno.test("coding-agent/tickets#R3: ready create refuses a version basis no question adopts", () => {
+  const ledger = ticketFixture({
+    // 질문 답이 존재하지만 version VER을 채택하지 않는다.
+    adoptions: new Map([[QUESTION, { document: DOC, version: "ver_other" }]]),
+  });
+  try {
+    const denied = ledger.transaction((tx) =>
+      commands.create.handle(
+        tx,
+        userContext(),
+        createInput({
+          references: [{
+            kind: "version",
+            target: VER,
+            address: {
+              place: "project",
+              document: "leaf-redaction",
+              section: null,
+              version: 1,
+            },
+            section: null,
+          }],
+          adoption_questions: [QUESTION],
+          conditions: [
+            { kind: "app_test" },
+            {
+              kind: "test_command",
+              executable: "deno",
+              argv: ["task", "test"],
+              cwd: ".",
+              timeout_ms: 60_000,
+              expected_exit_code: 0,
+            },
+          ],
+        }),
+        {},
+      )
+    );
+    code(denied, "invalid_input");
+    const written = ledger.sql.get("SELECT COUNT(*) AS count FROM tickets", []);
+    assertEquals(Number(written?.count), 0);
+  } finally {
+    ledger.close();
+  }
+});
+
+Deno.test("coding-agent/tickets#R3: make_ready refuses a version basis no question adopts", () => {
+  const ledger = ticketFixture({
+    adoptions: new Map([[QUESTION, { document: DOC, version: "ver_other" }]]),
+  });
+  try {
+    const created = ledger.transaction((tx) =>
+      commands.create.handle(
+        tx,
+        userContext(),
+        createInput({
+          readiness: "needs_confirmation",
+          needs: ["confirm the repro is gone"],
+        }),
+        {},
+      )
+    );
+    assert(created.ok);
+    if (!created.ok) return;
+    const denied = ledger.transaction((tx) =>
+      commands.make_ready.handle(
+        tx,
+        userContext(),
+        {
+          ticket: created.value.ticket,
+          base_revision: created.value.revision,
+          references: [{
+            kind: "version",
+            target: VER,
+            address: {
+              place: "project",
+              document: "leaf-redaction",
+              section: null,
+              version: 1,
+            },
+            section: null,
+          }],
+          adoption_questions: [QUESTION],
+          conditions: [
+            { kind: "app_test" },
+            {
+              kind: "test_command",
+              executable: "deno",
+              argv: ["task", "test"],
+              cwd: ".",
+              timeout_ms: 60_000,
+              expected_exit_code: 0,
+            },
+          ],
+          inspect: ["src/leaf.ts"],
+          preserve: ["docs/leaf.md"],
+        },
+        { base_revision: created.value.revision },
+      )
+    );
+    code(denied, "invalid_input");
+    const readiness = ledger.sql.get(
+      "SELECT readiness FROM tickets",
+      [],
+    );
+    assertEquals(String(readiness?.readiness), "needs_confirmation");
+  } finally {
+    ledger.close();
+  }
+});

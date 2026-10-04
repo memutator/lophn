@@ -116,6 +116,11 @@ function createTicket(
       adopted.set(question, adoption);
     }
   }
+  // R3: ready 생성도 make_ready와 같은 근거 일치 검사를 거친다.
+  if (readiness.value === "ready") {
+    const matched = adoptionMatches(input.references, adopted);
+    if (!matched.ok) return matched;
+  }
   if (input.conditions.length > 0) {
     const parsed = conditionInputsValid(input.conditions);
     if (!parsed.ok) return parsed;
@@ -140,7 +145,7 @@ function createTicket(
       }
     }
   }
-  return writeCreate(tx, input, adopted, readiness.value);
+  return writeCreate(tx, input, readiness.value);
 }
 
 function notFound(message: string): Result<never> {
@@ -157,7 +162,6 @@ function reserved(tx: Tx, problem: string): boolean {
 function writeCreate(
   tx: Tx,
   input: TicketCreateInput,
-  adopted: ReadonlyMap<string, QuestionAdoption>,
   readiness: "needs_confirmation" | "ready",
 ): Result<TicketCreateOutput> {
   // ID는 입력이 아니라 ledger ID source가 만든다(T18: createShape에 id가 없다).
@@ -232,7 +236,6 @@ function writeCreate(
       ],
     );
   });
-  void adopted;
   return ok({ ticket: id, state: "open", readiness, revision: seq });
 }
 

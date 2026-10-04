@@ -20,7 +20,7 @@ concerns: [coding-agent/tickets]
 - 확인: 각 상한과 하나 초과·공백·없는 근거를 비교하고 부적합 입력은 경고가 아니라 무생성으로 거절된다.
 - 의도: coding-agent#I3
 
-**[R2]** ticket은 `readiness: needs_confirmation | ready`와 `needs`(필요한 확인 1~200자 한 줄 1~12개)를 함께 가진다. `needs_confirmation`은 근거·채택 답·조건이 비거나 일부여도 되지만 `ready`는 그 셋을 모두 채우고 `needs`가 비어야 한다. ready 전환은 `ticket.make_ready` command로 묶음을 한 번만 채우며 그 뒤 불변이다.
+**[R28]** ticket은 `readiness: needs_confirmation | ready`와 `needs`(필요한 확인 1~200자 한 줄 1~12개)를 함께 가진다. `needs_confirmation`은 근거·채택 답·조건이 비거나 일부여도 되지만 `ready`는 그 셋을 모두 채우고 `needs`가 비어야 한다. ready 전환은 `ticket.make_ready` command로 묶음을 한 번만 채우며 그 뒤 불변이다.
 - 이유: App Engineer가 준비 중인 ticket과 검사 가능한 계약이 완성된 ticket을 구별한다.
 - 확인: `ready`인데 근거·채택 답·조건이 비거나 `needs`가 남은 입력은 거절되고 make_ready 뒤 재전환 command가 없다.
 - 의도: coding-agent#I3

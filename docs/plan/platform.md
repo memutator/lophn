@@ -284,6 +284,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T9 core entry: data root, 시작·종료, status·health
 
+- 상태: 완료 (#111)
 - 등급: 기본
 - concern: platform/install-and-update, platform/ledger, platform/diagnostics
 - 요구: platform/install-and-update#R7, R9, R10, R12, platform/ledger#R21, platform/diagnostics#R8

@@ -108,6 +108,7 @@ export function casAgrees(
   sql: Sql,
   compare: unknown,
   input: unknown,
+  checkCursor: (subscriber: string) => Result<void>,
 ): Result<void> {
   if (
     compare === null || typeof compare !== "object" || Array.isArray(compare)
@@ -123,6 +124,9 @@ export function casAgrees(
   if (typeof subscriber !== "string" || typeof seq !== "string") {
     return err({ code: "invalid_input", message: "cursor CAS가 없다" });
   }
+  // owner 거절과 CAS 불일치를 구별하기 전에 현재 자격으로 cursor read도 검사한다.
+  const allowed = checkCursor(subscriber);
+  if (!allowed.ok) return allowed;
   const row = sql.get(
     "select processed_through_seq from subscriber_cursors where subscriber = ?",
     [subscriber],

@@ -366,6 +366,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T20 contracts/apps: App 등록·실행 상태
 
+- 상태: 완료 (#41)
 - 등급: 기본
 - concern: apps/registration, apps/runtime
 - 요구: apps/registration#R2–R4, R8, R10; apps/runtime#R2, R13, R14, R18, R22, R25–R28; apps/automations#R4, R10; apps/data#R13

@@ -9,6 +9,7 @@ import {
   blobPrepareInputSchema,
   blobReadPipeInputSchema,
   type PreparedBlob,
+  STREAM_CHUNK_MAX_BYTES,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
   type BlobStoreWork,
@@ -28,13 +29,21 @@ export type BlobPipeResponse =
     error: { code: ErrorCode; message: string };
   };
 
+// blob.read의 바이트는 JSON control frame에 담지 않는다. 256KiB 창의 base64는
+// control frame 한도(256KiB)를 넘기 때문이다. 바이트는 요청 channel의 byte chunk
+// frame으로 따로 가고, JSON에는 hash·크기만 남는다.
+export type BlobPipeBytes = {
+  channel: number;
+  chunks: Uint8Array[];
+};
+
 export type BlobPipe = {
   // bytes callback은 core가 보낸 byte chunk frame을 해석 없이 넘길 때 부른다(Q6).
   // core는 해석·hash 없이 backpressure를 지키며 넘긴다.
   handle(
     request: BlobPipeRequest,
     bytes: () => Promise<ReadableStream<Uint8Array> | undefined>,
-  ): Promise<BlobPipeResponse>;
+  ): Promise<{ response: BlobPipeResponse; bytes?: BlobPipeBytes }>;
 };
 
 const REJECTED = {
@@ -53,21 +62,25 @@ export function createBlobPipe(deps: {
         return await readBlob(deps.work, request);
       }
       if (request.op !== BLOB_PREPARE_OP) {
-        return failed(request.request_id, REJECTED);
+        return { response: failed(request.request_id, REJECTED) };
       }
       const parsed = blobPrepareInputSchema.safeParse(request.payload);
       if (!parsed.success) {
-        return failed(request.request_id, {
-          code: "invalid_input",
-          message: "blob 준비 입력이 schema와 다르다",
-        });
+        return {
+          response: failed(request.request_id, {
+            code: "invalid_input",
+            message: "blob 준비 입력이 schema와 다르다",
+          }),
+        };
       }
       const stream = await bytes();
       if (stream === undefined) {
-        return failed(request.request_id, {
-          code: "invalid_input",
-          message: "blob 내용 bytes가 없다",
-        });
+        return {
+          response: failed(request.request_id, {
+            code: "invalid_input",
+            message: "blob 내용 bytes가 없다",
+          }),
+        };
       }
       const result = await deps.work.prepare(
         {
@@ -79,56 +92,73 @@ export function createBlobPipe(deps: {
         stream,
       );
       if (!result.ok) {
-        return failed(request.request_id, result.error);
+        return { response: failed(request.request_id, result.error) };
       }
       return {
-        request_id: request.request_id,
-        ok: true,
-        payload: result.value.prepared,
+        response: {
+          request_id: request.request_id,
+          ok: true,
+          payload: result.value.prepared,
+        },
       };
     },
   };
 }
 
 // 등록된 hash의 그 구간만 읽는다. hash는 경로로만 쓰고 다시 계산하지 않는다.
-type BlobReadPayload = { hash: string; size_bytes: number; bytes: string };
+// 바이트는 JSON이 아니라 요청 channel의 byte chunk로 돌려준다.
+type BlobReadPayload = { hash: string; size_bytes: number; channel: number };
 
 async function readBlob(
   work: BlobStoreWork,
   request: BlobPipeRequest,
-): Promise<BlobPipeResponse> {
+): Promise<{ response: BlobPipeResponse; bytes?: BlobPipeBytes }> {
   const parsed = blobReadPipeInputSchema.safeParse(request.payload);
   if (!parsed.success) {
-    return failed(request.request_id, {
-      code: "invalid_input",
-      message: "blob 읽기 입력이 schema와 다르다",
-    });
+    return {
+      response: failed(request.request_id, {
+        code: "invalid_input",
+        message: "blob 읽기 입력이 schema와 다르다",
+      }),
+    };
   }
   const result = await work.read(
     parsed.data.hash,
     parsed.data.offset,
     parsed.data.length,
   );
-  if (!result.ok) return failed(request.request_id, result.error);
+  if (!result.ok) {
+    return { response: failed(request.request_id, result.error) };
+  }
   return {
-    request_id: request.request_id,
-    ok: true,
-    payload: {
-      hash: result.value.hash,
-      size_bytes: result.value.sizeBytes,
-      bytes: base64Of(result.value.bytes),
+    response: {
+      request_id: request.request_id,
+      ok: true,
+      payload: {
+        hash: result.value.hash,
+        size_bytes: result.value.sizeBytes,
+        channel: parsed.data.channel,
+      },
+    },
+    bytes: {
+      channel: parsed.data.channel,
+      chunks: chunksOf(result.value.bytes),
     },
   };
 }
 
-// 한 번에 펼치면 큰 구간에서 호출 인자 한도를 넘는다. 256KiB는 그 안이지만 구간을 나눠 인코딩한다.
-function base64Of(bytes: Uint8Array): string {
-  let text = "";
-  const step = 0x8000;
-  for (let i = 0; i < bytes.length; i += step) {
-    text += String.fromCharCode(...bytes.subarray(i, i + step));
+// byte chunk frame 상한으로 나눈다. 256KiB 창은 한 chunk에 들어간다.
+function chunksOf(bytes: Uint8Array): Uint8Array[] {
+  if (bytes.length === 0) return [];
+  const chunks: Uint8Array[] = [];
+  for (
+    let offset = 0;
+    offset < bytes.length;
+    offset += STREAM_CHUNK_MAX_BYTES
+  ) {
+    chunks.push(bytes.subarray(offset, offset + STREAM_CHUNK_MAX_BYTES));
   }
-  return btoa(text);
+  return chunks;
 }
 
 function failed(

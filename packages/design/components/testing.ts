@@ -2,7 +2,7 @@
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { ResizeSource, Size } from "./resize.ts";
-import type { Timer } from "./shared.ts";
+import type { Clock, Timer } from "./shared.ts";
 
 export interface Rendered extends Disposable {
   readonly container: HTMLElement;
@@ -50,6 +50,12 @@ export async function settle(): Promise<void> {
   }
 }
 
+// 열린 Radix 층의 focus 복귀 timer가 다음 test로 새지 않게 unmount 뒤 비운다.
+export async function unmountSettled(view: Rendered): Promise<void> {
+  view.unmount();
+  await settle();
+}
+
 export async function pressAsync(target: Element, key: string): Promise<void> {
   act(() => {
     target.dispatchEvent(
@@ -82,7 +88,7 @@ export function one(root: ParentNode, selector: string): HTMLElement {
   return found as HTMLElement;
 }
 
-export interface ManualTimer extends Timer {
+export interface ManualTimer extends Timer, Clock {
   advance(ms: number): void;
   pending(): number;
 }
@@ -102,6 +108,7 @@ export function manualTimer(): ManualTimer {
       queue.delete(handle as number);
     },
     pending: () => queue.size,
+    now: () => now,
     advance(ms) {
       const until = now + ms;
       for (;;) {

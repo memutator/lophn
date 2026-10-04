@@ -175,8 +175,17 @@ export const tokens = {
   tree: { row: "28px", indent: "12px", marker: "2px", indentCap: 8 },
   // 수치 타일 한 줄 최대 개수(R31).
   stat: { perRow: 4 },
-  // 명령 팔레트 항목 높이(R39). 팔레트 화면은 떠 있는 표면 작업이 쓴다.
-  palette: { item: "36px" },
+  // 명령 팔레트 항목 높이(R39)와 폭·위 여백(R33).
+  palette: { item: "36px", width: "640px", top: "20%" },
+  // 떠 있는 표면의 지연·행·폭·시간(R33, R35). dialog 안 여백 24px은 space 값을 쓴다.
+  tooltip: { delay: "400ms" },
+  menu: { row: "32px" },
+  dialog: { width: { default: "480px", wide: "640px" } },
+  toast: {
+    width: "360px",
+    duration: { default: "5000ms", brief: "2000ms" },
+  },
+  chip: { width: "360px" },
   floating: {
     surface: { light: "#ffffff", dark: "#1d1d1b" },
     hover: { light: "#f3f2ef", dark: "#2a2a28" },

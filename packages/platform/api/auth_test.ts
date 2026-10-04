@@ -1,13 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { createLogger } from "../../base/mod.ts";
 import { ERROR_HTTP_STATUS } from "../../contracts/platform/mod.ts";
-import {
-  call,
-  listen,
-  registry,
-  USER,
-  value,
-} from "./harness_test.ts";
+import { call, listen, registry, USER, value } from "./harness_test.ts";
 import { gateRequest } from "./mod.ts";
 
 const HEALTH = "/v1/platform/health";

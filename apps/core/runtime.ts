@@ -220,11 +220,12 @@ function backupReads(
   return [
     [
       "backups/list",
-      (_ctx, _input) => ok({ backups: listBackups(dataRoot).backups }),
+      async (_ctx, _input) =>
+        ok({ backups: (await listBackups(dataRoot)).backups }),
     ],
     [
       "backups/get",
-      (_ctx, input) => {
+      async (_ctx, input) => {
         const parsed = backupsGet.input.safeParse(input);
         if (!parsed.success) {
           return err({
@@ -232,7 +233,7 @@ function backupReads(
             message: "invalid read body",
           });
         }
-        const found = findBackup(dataRoot, parsed.data.created_at);
+        const found = await findBackup(dataRoot, parsed.data.created_at);
         if (found === undefined) {
           return err({ code: "not_found", message: "backup이 없다" });
         }

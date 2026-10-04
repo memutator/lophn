@@ -1,4 +1,3 @@
-import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import {
   BACKUP_EXCLUSIONS,
@@ -59,12 +58,12 @@ export type BackupBlobCopy = { hash: string; sizeBytes: number };
 
 // backup 폴더의 manifest를 strict하게 읽는다. 사람이 볼 상태라도 형식이 다르면
 // 이 folder를 목록에서 뺀다(만들기 중·불완전 folder다).
-export function readManifest(
+export async function readManifest(
   directory: string,
-): BackupManifest | undefined {
+): Promise<BackupManifest | undefined> {
   let text: string;
   try {
-    text = Deno.readTextFileSync(`${directory}/${BACKUP_MANIFEST_NAME}`);
+    text = await Deno.readTextFile(`${directory}/${BACKUP_MANIFEST_NAME}`);
   } catch {
     return undefined;
   }
@@ -79,10 +78,10 @@ export function readManifest(
 }
 
 // 밑의 폴더 중 stamp 이름만 산다. backups/migrations 같은 다른 이름은 뺀다.
-function stampFolders(backupsRoot: string): string[] {
+async function stampFolders(backupsRoot: string): Promise<string[]> {
   const names: string[] = [];
   try {
-    for (const entry of Deno.readDirSync(backupsRoot)) {
+    for await (const entry of Deno.readDir(backupsRoot)) {
       if (entry.isDirectory && BACKUP_STAMP.test(entry.name)) {
         names.push(entry.name);
       }
@@ -95,11 +94,13 @@ function stampFolders(backupsRoot: string): string[] {
 
 // /v1/backups/list. manifest이 있는 folder만 산다. 만들기 중 folder는 manifest
 // 전이라 목록에 없다. 실패·미완성 manifest도 완료 것과 구별해 내놓는다(R10, R12).
-export function listBackups(root: string): { backups: BackupManifest[] } {
+export async function listBackups(
+  root: string,
+): Promise<{ backups: BackupManifest[] }> {
   const backupsRoot = `${root}/${BACKUP_DIR_NAME}`;
   const found: BackupManifest[] = [];
-  for (const stamp of stampFolders(backupsRoot)) {
-    const manifest = readManifest(`${backupsRoot}/${stamp}`);
+  for (const stamp of await stampFolders(backupsRoot)) {
+    const manifest = await readManifest(`${backupsRoot}/${stamp}`);
     if (manifest !== undefined) found.push(manifest);
   }
   found.sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -107,13 +108,13 @@ export function listBackups(root: string): { backups: BackupManifest[] } {
 }
 
 // /v1/backups/get. created_at이 같은 manifest 한 개를 찾는다.
-export function findBackup(
+export async function findBackup(
   root: string,
   createdAt: string,
-): BackupManifest | undefined {
+): Promise<BackupManifest | undefined> {
   const backupsRoot = `${root}/${BACKUP_DIR_NAME}`;
-  for (const stamp of stampFolders(backupsRoot)) {
-    const manifest = readManifest(`${backupsRoot}/${stamp}`);
+  for (const stamp of await stampFolders(backupsRoot)) {
+    const manifest = await readManifest(`${backupsRoot}/${stamp}`);
     if (manifest?.created_at === createdAt) return manifest;
   }
   return undefined;
@@ -127,8 +128,8 @@ export async function retainBackups(
 ): Promise<Result<void>> {
   const backupsRoot = `${root}/${BACKUP_DIR_NAME}`;
   const complete: string[] = [];
-  for (const stamp of stampFolders(backupsRoot)) {
-    if (readManifest(`${backupsRoot}/${stamp}`)?.complete === true) {
+  for (const stamp of await stampFolders(backupsRoot)) {
+    if ((await readManifest(`${backupsRoot}/${stamp}`))?.complete === true) {
       complete.push(stamp);
     }
   }
@@ -192,51 +193,68 @@ async function copyBlobs(
 }
 
 // blob_refs와 through_seq는 snapshot S에 고정된다. 열린 원본에서 따로 읽으면
-// vacuum과 시점이 어긋나므로, S를 만든 copy 안에서 읽는다(R8, R9).
-function snapshotRefs(copyPath: string): Result<
-  { hash: string; sizeBytes: number }[]
-> {
-  try {
-    const db = new DatabaseSync(copyPath, { readOnly: true });
-    try {
-      const prepared = db.prepare(
-        "select hash, size_bytes from blob_refs order by hash",
-      );
-      // seq는 아니지만 size가 큰 수일 수 있다. platform/ledger#R9와 같은 판정.
-      prepared.setReadBigInts(true);
-      return ok(
-        prepared.all().map((row) => ({
-          hash: String(row["hash"]),
-          sizeBytes: Number(row["size_bytes"]),
-        })),
-      );
-    } finally {
-      db.close();
-    }
-  } catch {
+// vacuum과 시점이 어갇나무로, S를 만든 copy 안에서 읽는다(R8, R9). SQLite
+// 연결은 ledger 연결(sql 경계)로 열고, 이 모듈은 DatabaseSync를 import하지 않는다.
+function snapshotRefs(
+  copyPath: string,
+): Result<{ hash: string; sizeBytes: number }[]> {
+  const opened = openConnection(copyPath);
+  if (!opened.ok) {
     return err({
       code: "unavailable",
       message: "snapshot blob 참조를 읽지 못했다",
     });
   }
+  const connection = opened.value;
+  try {
+    return ok(
+      connection.sql.all(
+        "select hash, size_bytes from blob_refs order by hash",
+        [],
+      ).map((row) => ({
+        hash: String(row["hash"]),
+        sizeBytes: Number(row["size_bytes"]),
+      })),
+    );
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "snapshot blob 참조를 읽지 못했다",
+    });
+  } finally {
+    connection.close();
+  }
 }
 
 function snapshotThroughSeq(copyPath: string): Result<string> {
+  const opened = openConnection(copyPath);
+  if (!opened.ok) {
+    return err({ code: "unavailable", message: "snapshot seq를 읽지 못했다" });
+  }
+  const connection = opened.value;
   try {
-    const db = new DatabaseSync(copyPath, { readOnly: true });
-    try {
-      const prepared = db.prepare(
-        "select coalesce(max(seq), 0) as seq from events",
-      );
-      // seq는 JS 안전 정수를 넘는다(platform/ledger#R9).
-      prepared.setReadBigInts(true);
-      const head = prepared.get();
-      return ok(String(head?.["seq"] ?? "0"));
-    } finally {
-      db.close();
-    }
+    const head = connection.sql.get(
+      "select coalesce(max(seq), 0) as seq from events",
+      [],
+    );
+    return ok(String(head?.["seq"] ?? "0"));
   } catch {
     return err({ code: "unavailable", message: "snapshot seq를 읽지 못했다" });
+  } finally {
+    connection.close();
+  }
+}
+
+// copy의 SQLite 무결성 검사. pragma는 handler SQL이 못 사용하미로 ledger 연결의
+// integrityOk 경계로 보다. copy는 검사 외에 쓰지 않는다.
+function verifyCopyIntegrity(copyPath: string): boolean {
+  const opened = openConnection(copyPath);
+  if (!opened.ok) return false;
+  const connection = opened.value;
+  try {
+    return connection.integrityOk();
+  } finally {
+    connection.close();
   }
 }
 
@@ -305,11 +323,9 @@ export async function createBackup(
   const opened = openConnection(ledgerPath);
   if (!opened.ok) return opened;
   const connection = opened.value;
-  let vacuumed = false;
   let failure: Result<never> | undefined;
   try {
     connection.exec(`vacuum into '${directory}/${BACKUP_LEDGER_PATH}'`);
-    vacuumed = true;
   } catch {
     failure = err({
       code: "unavailable",
@@ -319,28 +335,21 @@ export async function createBackup(
     connection.close();
   }
   if (failure !== undefined) return failure;
-  void vacuumed;
-  // blob_refs와 through_seq는 S를 만든 copy 안에서 읽는다.
+  // blob_refs와 through_seq는 S를 만든 copy 안에서 읽는다. copy 연결도 ledger
+  // 실행기 규칙을 따른다: node:sqlite은 ledger 쪽에서만 열고, 여기는 sql 경계로
+  // 읽는다. copy는 검사를 위해 다시 연다(openConnection은 writable이지만 copy에
+  // 쓰지 않는다).
   const refs = snapshotRefs(`${directory}/${BACKUP_LEDGER_PATH}`);
   if (!refs.ok) return refs;
-  const throughSeq = snapshotThroughSeq(`${directory}/${BACKUP_LEDGER_PATH}`);
+  const throughSeq = snapshotThroughSeq(
+    `${directory}/${BACKUP_LEDGER_PATH}`,
+  );
   if (!throughSeq.ok) return throughSeq;
-  // copy의 SQLite integrity_check를 직접 본다(R10).
-  let integrity = false;
-  try {
-    const db = new DatabaseSync(`${directory}/${BACKUP_LEDGER_PATH}`, {
-      readOnly: true,
-    });
-    try {
-      const rows = db.prepare("pragma integrity_check").all();
-      integrity = rows.length === 1 && rows[0]?.["integrity_check"] === "ok";
-    } finally {
-      db.close();
-    }
-  } catch {
-    integrity = false;
-  }
-  if (!integrity) {
+  // copy의 SQLite 무결성 검사도 ledger 경계의 integrityOk로 본다(R10).
+  const integrityPassed = verifyCopyIntegrity(
+    `${directory}/${BACKUP_LEDGER_PATH}`,
+  );
+  if (!integrityPassed) {
     return err({
       code: "unavailable",
       message: "snapshot 무결성 검사가 실패했다",
@@ -390,12 +399,14 @@ export function backupBlobPath(hash: string): string {
 
 // 하루가 지났는지 판정한다(R12: 매일 1회). 마지막 완료 manifest의 created_at에서
 // 24시간이 지났으면 만들 차례다. 완료 manifest가 없으면 처음 만든다.
-export function backupDue(
+export async function backupDue(
   root: string,
   now: string,
   everyMs: number,
-): boolean {
-  const latest = listBackups(root).backups.find((entry) => entry.complete);
+): Promise<boolean> {
+  const latest = (await listBackups(root)).backups.find((entry) =>
+    entry.complete
+  );
   if (latest === undefined) return true;
   const at = Date.parse(now);
   const then = Date.parse(latest.created_at);

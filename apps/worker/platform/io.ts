@@ -340,16 +340,18 @@ export async function runPlatformIo(root: string): Promise<void> {
   // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
   const backupScheduler = createIoScheduler();
   const timer = setInterval(() => {
-    const due = backupDue(root, systemClock.now(), BACKUP_INTERVAL_MS);
-    if (!due) return;
-    const submission = backupScheduler.submit("backup", async () => {
-      return await runDailyBackup(root);
-    });
-    if (!submission.ok) return;
-    void submission.value.result.catch(() => {
-      // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다(R12). 만들기 자체가
-      // manifest 전에 실패하면 pending folder만 남는다.
-    });
+    void (async () => {
+      const due = await backupDue(root, systemClock.now(), BACKUP_INTERVAL_MS);
+      if (!due) return;
+      const submission = backupScheduler.submit("backup", async () => {
+        return await runDailyBackup(root);
+      });
+      if (!submission.ok) return;
+      void submission.value.result.catch(() => {
+        // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다(R12). 만들기 자체가
+        // manifest 전에 실패하면 pending folder만 남는다.
+      });
+    })();
   }, BACKUP_CHECK_INTERVAL_MS);
   try {
     await session.run();

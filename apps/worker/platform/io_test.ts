@@ -1,5 +1,4 @@
 import { assert, assertEquals } from "@std/assert";
-import { DatabaseSync } from "node:sqlite";
 import {
   DIAGNOSTICS_WRITE_OP,
   encodeFrame,
@@ -270,7 +269,7 @@ Deno.test(
         "../../../packages/platform/backup-and-migration/mod.ts"
       );
       assertEquals(
-        backupDue(root, new Date().toISOString(), 24 * 60 * 60 * 1000),
+        await backupDue(root, new Date().toISOString(), 24 * 60 * 60 * 1000),
         false,
       );
       assertEquals(entries, ["20260102T000000000Z"]);

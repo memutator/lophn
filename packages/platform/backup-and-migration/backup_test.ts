@@ -157,7 +157,7 @@ Deno.test(
     assert(!backup.ok);
     if (!backup.ok) assertEquals(backup.error.code, "unavailable");
     // manifest 전이므로 이 folder는 목록에 없다.
-    const listed = listBackups(dir);
+    const listed = await listBackups(dir);
     assertEquals(listed.backups.length, 0);
     await Deno.remove(dir, { recursive: true });
   },
@@ -186,7 +186,7 @@ Deno.test(
       `${dir}/backups/${stamp.value}/${BACKUP_PENDING_NAME}`,
     );
     assert(pending.isFile);
-    const listed = listBackups(dir);
+    const listed = await listBackups(dir);
     assertEquals(listed.backups.length, 0);
     await Deno.remove(dir, { recursive: true });
   },
@@ -235,7 +235,7 @@ Deno.test(
       });
       assert(backup.ok);
     }
-    const listed = listBackups(dir);
+    const listed = await listBackups(dir);
     assertEquals(listed.backups.length, BACKUP_KEEP_COMPLETE);
     await Deno.remove(dir, { recursive: true });
   },
@@ -276,7 +276,7 @@ Deno.test(
     });
     assert(!failed.ok);
     // 마지막 완료 7개는 그대로다(R12).
-    const listed = listBackups(dir);
+    const listed = await listBackups(dir);
     assertEquals(listed.backups.length, BACKUP_KEEP_COMPLETE);
     // 실패 folder는 남고, pending 표시가 붙어 GC가 대상에서 뺀다.
     const pending = await Deno.stat(
@@ -315,7 +315,7 @@ Deno.test(
     const kept = await retainBackups(dir, BACKUP_KEEP_COMPLETE);
     assert(kept.ok);
     // 완료 7개만 남는다. 실패 folder는 그대로다.
-    const listed = listBackups(dir);
+    const listed = await listBackups(dir);
     assertEquals(listed.backups.length, BACKUP_KEEP_COMPLETE);
     const pending = await Deno.stat(`${dir}/backups/20260201T000000000Z`);
     assert(pending.isDirectory);
@@ -419,7 +419,7 @@ Deno.test(
     const { path, version } = await ledger(dir);
     // 완료 묶음이 없으면 처음 만든다.
     assertEquals(
-      backupDue(
+      await backupDue(
         dir,
         "2026-01-01T00:00:00.000Z",
         BACKUP_INTERVAL_MS,
@@ -437,7 +437,7 @@ Deno.test(
     assert(backup.ok);
     // 같은 날에는 차례가 아니다.
     assertEquals(
-      backupDue(
+      await backupDue(
         dir,
         "2026-01-01T12:00:00.000Z",
         BACKUP_INTERVAL_MS,
@@ -446,7 +446,7 @@ Deno.test(
     );
     // 24시간이 지났으면 차례다.
     assertEquals(
-      backupDue(
+      await backupDue(
         dir,
         "2026-01-02T00:00:02.000Z",
         BACKUP_INTERVAL_MS,

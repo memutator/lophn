@@ -103,6 +103,7 @@ Deno.test("apps/runtime#R2, apps/runtime#R13, apps/runtime#R25: 모르는 field�
     app: APP,
     release: REL,
     process_nonce: "nonce-1",
+    started_at: "2026-10-04T00:00:00.000Z",
     termination_confirmed: true,
   });
   appRecordUnavailableInputSchema.parse({ app: APP, release: REL, reason });

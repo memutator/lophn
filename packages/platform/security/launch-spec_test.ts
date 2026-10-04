@@ -11,6 +11,7 @@ function spec(over: Record<string, unknown> = {}) {
     allow_write: ["/home/user/.lophn/blobs"],
     allow_net: ["127.0.0.1:7431"],
     allow_run: ["/opt/lophn/deno"],
+    allow_sys: [],
     allow_env: ["LOPHN_HOME"],
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,
@@ -42,6 +43,7 @@ Deno.test("platform/security#R3: 전체 허용·ffi·와일드카드·상대 경
     spec({ allow_write: ["*"] }),
     spec({ allow_net: ["*"] }),
     spec({ allow_run: ["/opt/*"] }),
+    spec({ allow_sys: ["*"] }),
     spec({ entry: "worker.ts" }),
     spec({ entry: "/opt/lophn/worker.ts --allow-all" }),
     spec({ allow_read: ["blobs"] }),
@@ -54,13 +56,20 @@ Deno.test("platform/security#R3: 전체 허용·ffi·와일드카드·상대 경
   for (const input of rejected) assert(!checkLaunchSpec(input).ok);
 
   const empty = checkLaunchSpec(
-    spec({ allow_read: [], allow_write: [], allow_net: [], allow_run: [] }),
+    spec({
+      allow_read: [],
+      allow_write: [],
+      allow_net: [],
+      allow_run: [],
+      allow_sys: [],
+    }),
   );
   assert(empty.ok);
   const argv = launchArgv(empty.value);
   assert(!argv.some((arg) => arg.startsWith("--allow-read")));
   assert(!argv.some((arg) => arg.startsWith("--allow-write")));
   assert(!argv.some((arg) => arg.startsWith("--allow-net")));
+  assert(!argv.some((arg) => arg.startsWith("--allow-sys")));
   assert(!argv.some((arg) => arg.includes("--allow-all")));
   assert(!argv.some((arg) => arg.includes("--allow-ffi")));
 });
@@ -97,6 +106,7 @@ Deno.test("platform/security#R1: launchArgv는 등록한 항목만 정확히 쉼
   const checked = checkLaunchSpec(spec({
     allow_read: ["/opt/lophn", "/opt/lophn/skills"],
     allow_env: ["LOPHN_HOME", "LOPHN_MODE"],
+    allow_sys: ["statfs"],
   }));
   assert(checked.ok);
   assertEquals(launchArgv(checked.value), [
@@ -108,6 +118,7 @@ Deno.test("platform/security#R1: launchArgv는 등록한 항목만 정확히 쉼
     "--allow-write=/home/user/.lophn/blobs",
     "--allow-net=127.0.0.1:7431",
     "--allow-run=/opt/lophn/deno",
+    "--allow-sys=statfs",
     "--allow-env=LOPHN_HOME,LOPHN_MODE",
     entry,
   ]);

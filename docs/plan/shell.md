@@ -82,6 +82,7 @@ concerns: [shell]
   - `npm run dev -- --home <dir>`로 개발 데이터 root를 받는다(인자 이름은 platform과 맞춘다).
   - `core_client_test`, `allowlist_test`, `supervise_test`(가짜 core)에 위 요구 테스트.
 - 가져올 것: legacy `daemon-lifecycle.ts`의 시작·대기 순서 원리만. `daemon-client.ts`, `paths.ts`의 token·port 파일 방식은 가져오지 않는다.
+- 상태: 완료 (#119)
 
 ### T4 design token 원본과 생성
 

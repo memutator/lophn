@@ -163,6 +163,14 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 자리: `packages/contracts/platform/identity.ts`, `identity_test.ts`
 - `CredentialConditions`에 optional `cwd`(정규 절대 경로)를 둔다. `project.resolve_cwd`가 읽는 host 고정 근거다. 인증 경계가 coding agent 연결·session 기록(시작 계획의 cwd 또는 등록한 제출 root)에서 정하고 요청 body·header·MCP 자기 주장 값은 쓰지 않는다. 없으면 resolve_cwd는 fail-closed다. realpath·현재 자격 판정은 platform runtime 책임이다.
 
+#### T6 구현 메모: owner target 판정 port
+
+- 상태: 완료 (#82)
+- concern: platform/identity
+- 요구: platform/identity#R3, R8
+- 자리: `packages/contracts/platform/target-authorization.ts`, `target-authorization_test.ts`
+- `TargetAuthorization` port key와 동기 `TargetAuthorizer(ctx, operation, target) => Result<void>`. owner handler가 domain target을 `tx.port`·`snapshot.port`로 판정한다. platform이 ctx의 고정 조건 target을 채워 owner target과 합치고 scope.targets의 모든 key가 있고 일치해야 ok, 아니면 forbidden이다. 공용 Tx·ReadSnapshot member는 넓히지 않는다.
+
 ### T7 contracts/platform: event envelope·구독
 
 - 상태: 완료 (#10)
@@ -1114,3 +1122,4 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q24 T14 project read seam은 coding agent cwd resolve를 path 없는 입력·host 고정 cwd 근거·project ID만으로 두고 근거가 없으면 fail-closed로 거절한다(추천안, documents#T7 요청). 감독 tracking root read는 machine 전용 활성·enabled root다. initial_tracking_proposal은 실제 tracking과 별도 output이고 list·resolve cursor drift는 conflict다. Project read 자료 참조는 고정 version이다. 실제 cwd 근거·자격·scope·snapshot 판정은 documents/platform runtime 책임이다.
 - Q26 T19 series.next는 selector만 받는 core read이고 NextSuggestion 계산(`suggestNextKey`·`compareSeriesKeys`)은 저장 없는 순수 함수로 둔다(추천안). 멤버·예약 key·draft·revision은 host가 같은 snapshot에서 읽어 계산한다. format_field 변경은 준비한 instances를 update 입력에 두고 정렬 근거는 SeriesUpdated.order_basis다. view.open은 worker이며 text 조건일 때만 IndexCoverage를 요구하고 glossary를 두지 않는다. 가족 구성·이름·key 예약·권한·CAS의 진실은 host가 검사한다.
 - Q28 T14 resolve_cwd의 cwd 근거는 `AuthenticatedContext.conditions.cwd`(optional 정규 절대 경로)로 둔다(추천안, documents#T7 요청). 인증 경계가 coding agent 연결·session 기록에서 정하며 caller가 보낸 경로·credential_ref encoding을 근거로 쓰지 않는다. 다른 actor에는 넣지 않고, 없으면 fail-closed다.
+- Q29 owner domain target 판정은 Tx·ReadSnapshot의 새 member가 아니라 `TargetAuthorization` port(`port(key)`)로 둔다(추천안, platform·documents Q13·problems 요청). 다른 팀 test double을 깨지 않고 event 공개 hook의 snapshot에서도 같은 key로 쓴다. 동기 Result이고 누락·불일치·주입 없음은 fail-closed forbidden이다.

@@ -78,17 +78,17 @@ export async function createLedgerHarness(
         message: "테스트 clock/seed가 올바르지 않다",
       });
     }
-    const credentials = options.credentials ?? [];
-    if (
-      credentials.some((ctx) =>
-        !authenticatedContextSchema.safeParse(ctx).success
-      )
-    ) {
+    // 첫 await 전에 snapshot을 고정해 writer와 나중에 뜨는 readers가 같게 본다.
+    const parsedCredentials = authenticatedContextSchema.array().safeParse(
+      options.credentials ?? [],
+    );
+    if (!parsedCredentials.success) {
       return err({
         code: "invalid_input",
         message: "테스트 credential이 올바르지 않다",
       });
     }
+    const credentials = parsedCredentials.data;
     const modules = options.registrationModules.map((url) => {
       if (!(url instanceof URL) || url.protocol !== "file:") {
         throw new Error("registration needs a file URL");

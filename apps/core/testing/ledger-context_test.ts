@@ -87,6 +87,29 @@ Deno.test("platform/ledger#R11 platform/ledger#R14: unbound read의 명시 run�
   }
 });
 
+Deno.test("platform/identity#R3 platform/ledger#R13 platform/ledger#R14: startup credential snapshot은 첫 await 전에 고정한다", async () => {
+  const targets = JSON.parse('{"__proto__":{"task":["exact"]}}');
+  const restricted = { ...ctx, scope: { ...ctx.scope, targets } };
+  const opening = createLedgerHarness({
+    registrationModules: [fixture],
+    credentials: [restricted],
+  });
+  delete targets.__proto__;
+  const h = value(await opening);
+  try {
+    code(await h.command(ctx, envelope("startup-denied")), "forbidden");
+    for (let index = 0; index < 2; index++) {
+      code(await h.read(readRoute, ctx, {}), "forbidden");
+    }
+    assertEquals(
+      value(await h.inspect("select count(*) as n from command_results"))[0].n,
+      0n,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
 Deno.test("platform/identity#R3 platform/ledger#R13 platform/ledger#R14: current target own key restriction과 issued snapshot을 보존한다", async () => {
   const h = value(
     await createLedgerHarness({

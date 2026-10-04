@@ -15,7 +15,8 @@ export type DataRoot = {
 function refused(): Result<never> {
   return err({
     code: "unavailable",
-    message: "데이터 root의 소유자·권한·symlink 검사를 통과하지 못해 기동을 거절한다",
+    message:
+      "데이터 root의 소유자·권한·symlink 검사를 통과하지 못해 기동을 거절한다",
   });
 }
 

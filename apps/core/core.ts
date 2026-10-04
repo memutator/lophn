@@ -7,7 +7,10 @@ import {
   coreToMainMessageSchema,
   mainToCoreMessageSchema,
 } from "../../packages/contracts/platform/mod.ts";
-import { startApiServer, type ApiServer } from "../../packages/platform/api/mod.ts";
+import {
+  type ApiServer,
+  startApiServer,
+} from "../../packages/platform/api/mod.ts";
 import { applyMigrations } from "../../packages/platform/backup-and-migration/mod.ts";
 import {
   platformStatusReads,
@@ -46,7 +49,10 @@ export type CoreOptions = {
   clock?: Clock;
   random?: RandomSource;
   // Electron main이 물려 준 stdin/stdout. 테스트가 파이프를 끼운다.
-  parent?: { stdin: ReadableStream<Uint8Array>; stdout: WritableStream<Uint8Array> };
+  parent?: {
+    stdin: ReadableStream<Uint8Array>;
+    stdout: WritableStream<Uint8Array>;
+  };
   // I/O worker 감독. 없으면 그 구성 요소는 불가 이유로 남는다.
   supervise?: (workers: readonly KindLaunchSpec[]) => Promise<void>;
 };
@@ -55,6 +61,8 @@ export type Core = {
   port: number;
   epoch: string;
   dataRoot: string;
+  // 부모 pipe의 종료 감시가 끝나면 resolve된다. 부모가 없으면 이미 끝난 상태다.
+  done: Promise<void>;
   // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다(ledger R21).
   shutdown(): Promise<void>;
 };
@@ -137,7 +145,10 @@ async function open(
         ["api", { available: ready }],
         [
           "writer",
-          { available: false, reason: "command dispatch가 아직 조립되지 않았다" },
+          {
+            available: false,
+            reason: "command dispatch가 아직 조립되지 않았다",
+          },
         ],
         [
           "io",
@@ -179,7 +190,10 @@ async function open(
     } catch {
       await server.stop();
       await removeRunMetadata(root.run);
-      return err({ code: "unavailable", message: "I/O worker 감독을 시작하지 못했다" });
+      return err({
+        code: "unavailable",
+        message: "I/O worker 감독을 시작하지 못했다",
+      });
     }
   }
   ready = true;
@@ -193,6 +207,7 @@ async function open(
     port: server.port,
     epoch,
     dataRoot: root.path,
+    done: Promise.resolve(),
     async shutdown() {
       if (stopped) return;
       stopped = true;
@@ -208,7 +223,9 @@ async function open(
     await core.shutdown();
     return greeted;
   }
-  if (parent) watchParent(parent, () => core.shutdown());
+  core.done = parent
+    ? watchParent(parent, () => core.shutdown())
+    : Promise.resolve();
   return ok(core);
 }
 
@@ -245,7 +262,24 @@ async function greet(
   });
   try {
     await writer.writeJson(frame.data);
+    // 부모가 읽기 시작해야 흐른다. 기동은 그 읽기를 기다리지 않는다.
     const out = parent.stdout.getWriter();
+    void flush(out, buffered);
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "부모 pipe에 hello를 쓰지 못했다",
+    });
+  }
+  return ok(undefined);
+}
+
+// 백프레셔로 기동을 막지 않게 hello 이후의 흐름만 기다린다.
+async function flush(
+  out: WritableStreamDefaultWriter<Uint8Array>,
+  buffered: Uint8Array[],
+): Promise<void> {
+  try {
     for (const bytes of buffered) {
       let rest = bytes;
       while (rest.length > 0) {
@@ -255,12 +289,8 @@ async function greet(
       }
     }
   } catch {
-    return err({
-      code: "unavailable",
-      message: "부모 pipe에 hello를 쓰지 못했다",
-    });
+    // 부모가 이미 닫았으면 hello는 전달되지 않는다. 종료 감시가 그 뒤를 본다.
   }
-  return ok(undefined);
 }
 
 function hex(random: RandomSource, bytes: number): string {
@@ -273,10 +303,12 @@ function hex(random: RandomSource, bytes: number): string {
 function watchParent(
   parent: NonNullable<CoreOptions["parent"]>,
   shutdown: () => Promise<void>,
-): void {
-  void (async () => {
+): Promise<void> {
+  return (async () => {
     try {
-      for await (const frame of readFrames({ read: streamReader(parent.stdin) })) {
+      for await (
+        const frame of readFrames({ read: streamReader(parent.stdin) })
+      ) {
         if (await handleParent(frame, shutdown)) return;
       }
     } catch {

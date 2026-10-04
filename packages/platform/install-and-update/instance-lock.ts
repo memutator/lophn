@@ -49,14 +49,15 @@ export async function acquireInstanceLock(
   }
   let released = false;
   return ok({
-    async release() {
-      if (released) return;
+    release(): Promise<void> {
+      if (released) return Promise.resolve();
       released = true;
       try {
         file.unlock();
       } finally {
         file.close();
       }
+      return Promise.resolve();
     },
   });
 }

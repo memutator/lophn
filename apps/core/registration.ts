@@ -24,6 +24,7 @@ export type TeamModule = {
   createCoreRegistration?: () => TeamRegistration;
   createLedgerRegistration?: (environment: never) => unknown;
   problemsTestDefinitions?: unknown;
+  codingAgentConnectionDefinitions?: unknown;
 };
 
 type Loose = {
@@ -48,6 +49,15 @@ function broken(what: string): Result<never> {
     ok: false,
     error: { code: "internal", message: `등록 모양이 올바르지 않다: ${what}` },
   };
+}
+
+// 팀은 port를 배열로도, 이름 있는 객체로도 내보낸다. 있는 값만 모은다.
+function portList(ports: unknown): TxPortRegistration[] {
+  if (!ports) return [];
+  const values = Array.isArray(ports) ? ports : Object.values(ports);
+  return values.filter((port): port is TxPortRegistration =>
+    !!port && typeof port === "object"
+  );
 }
 
 function asLoose(value: unknown): Loose | undefined {
@@ -85,7 +95,9 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
       ? asLoose(team.createLedgerRegistration({} as never))
       : undefined;
     const fromProblems = asLoose(team.problemsTestDefinitions);
-    const registration = asLoose(direct) ?? fromLedger ?? fromProblems;
+    const fromCodingAgent = asLoose(team.codingAgentConnectionDefinitions);
+    const registration = asLoose(direct) ?? fromLedger ?? fromProblems ??
+      fromCodingAgent;
     if (!registration) continue;
     for (const step of registration.schemaSteps ?? registration.schema ?? []) {
       if (typeof step.id !== "string" || typeof step.sql !== "string") {
@@ -108,11 +120,15 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
       if (typeof resource !== "string" || typeof method !== "string") {
         return broken("read");
       }
-      const check = taken(reads, `${resource}/${method}`, read as ReadDefinition);
+      const check = taken(
+        reads,
+        `${resource}/${method}`,
+        read as ReadDefinition,
+      );
       if (!check.ok) return check;
       assembled.reads.push(check.value);
     }
-    for (const port of registration.ports ?? []) assembled.ports.push(port);
+    for (const port of portList(registration.ports)) assembled.ports.push(port);
     for (const worker of registration.workers ?? []) {
       const check = taken(workers, worker.kind, worker);
       if (!check.ok) return check;

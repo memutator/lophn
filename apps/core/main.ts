@@ -1,3 +1,4 @@
+import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { problemsTestDefinitions } from "./problems.ts";
@@ -6,6 +7,7 @@ import { problemsTestDefinitions } from "./problems.ts";
 const TEAMS = [
   { createLedgerRegistration },
   { problemsTestDefinitions },
+  { codingAgentConnectionDefinitions },
 ];
 
 const portArg = Deno.args.find((arg) => arg.startsWith("--port="));
@@ -23,5 +25,11 @@ if (!started.ok) {
 }
 const core = started.value;
 
-Deno.addSignalListener("SIGINT", () => void core.shutdown().then(() => Deno.exit(0)));
-Deno.addSignalListener("SIGTERM", () => void core.shutdown().then(() => Deno.exit(0)));
+Deno.addSignalListener(
+  "SIGINT",
+  () => void core.shutdown().then(() => Deno.exit(0)),
+);
+Deno.addSignalListener(
+  "SIGTERM",
+  () => void core.shutdown().then(() => Deno.exit(0)),
+);

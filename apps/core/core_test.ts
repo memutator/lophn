@@ -4,7 +4,7 @@ import {
   encodeFrame,
   FrameDecoder,
 } from "../../packages/contracts/platform/mod.ts";
-import { startCore, type Core } from "./core.ts";
+import { type Core, startCore } from "./core.ts";
 
 const CLOCK = manualClock(Date.parse("2026-10-04T00:00:00.000Z"));
 
@@ -129,8 +129,8 @@ Deno.test("platform/install-and-update#R12: 창 닫기가 아니라 부모의 �
     payload: { type: "stop", grace_ms: 1000 },
   }));
   await writer.close();
-  await frames.done;
-  await waitFor(() => missing(`${dir}/run/location.json`));
+  await core.done;
+  assert(await missing(`${dir}/run/location.json`));
   await Deno.remove(dir, { recursive: true });
 });
 
@@ -150,7 +150,12 @@ Deno.test("platform/diagnostics#R8: status와 health는 인증을 요구하고 �
     assertEquals(health.status, 401);
     assert(!JSON.stringify(anonymous.body).includes(core.dataRoot));
 
-    const authed = await post(core, "/v1/platform/status", {}, hello.value.user_token);
+    const authed = await post(
+      core,
+      "/v1/platform/status",
+      {},
+      hello.value.user_token,
+    );
     assertEquals(authed.status, 200);
     const body = authed.body as {
       ready: boolean;
@@ -166,7 +171,12 @@ Deno.test("platform/diagnostics#R8: status와 health는 인증을 요구하고 �
     assert(body.components.length > 0);
     assertEquals(body.components[0].observed_at, "2026-10-04T00:00:00.000Z");
 
-    const checked = await post(core, "/v1/platform/health", {}, hello.value.user_token);
+    const checked = await post(
+      core,
+      "/v1/platform/health",
+      {},
+      hello.value.user_token,
+    );
     assertEquals(checked.status, 200);
     const observation = checked.body as { observed_at: string };
     assertEquals(observation.observed_at, "2026-10-04T00:00:00.000Z");
@@ -224,9 +234,15 @@ async function post(
 function readParent(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
   const decoder = new FrameDecoder();
-  const pending: { user_token: string; api_port: number; core_epoch: string }[] = [];
+  const pending: {
+    user_token: string;
+    api_port: number;
+    core_epoch: string;
+  }[] = [];
   return {
-    async next(): Promise<{ value: { user_token: string; api_port: number; core_epoch: string } }> {
+    async next(): Promise<
+      { value: { user_token: string; api_port: number; core_epoch: string } }
+    > {
       while (pending.length === 0) {
         const chunk = await reader.read();
         if (chunk.done) throw new Error("parent closed before hello");
@@ -253,12 +269,4 @@ async function missing(path: string): Promise<boolean> {
     if (thrown instanceof Deno.errors.NotFound) return true;
     throw thrown;
   }
-}
-
-async function waitFor(check: () => Promise<boolean>): Promise<void> {
-  for (let i = 0; i < 50; i++) {
-    if (await check()) return;
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-  throw new Error("조건이 성립하지 않았다");
 }

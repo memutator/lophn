@@ -339,6 +339,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T16 contracts/documents: 파일 쓰기
 
+- 상태: 완료 (#70)
 - 등급: 기본
 - concern: documents/file-tracking
 - 요구: documents/file-tracking#R2, R9, R11, R15, R16

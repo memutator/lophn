@@ -7,7 +7,10 @@ import {
   type LedgerHarness,
 } from "./testing/ledger.ts";
 
-const registration = new URL("./coding-agent.ts", import.meta.url);
+const registration = new URL(
+  "../../packages/coding-agent/connection/harness-registration_test.ts",
+  import.meta.url,
+);
 const APP = "app_01arz3ndektsv4rrffq69g5fav";
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 const DIGEST = "a".repeat(64);

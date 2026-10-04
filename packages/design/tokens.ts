@@ -70,6 +70,12 @@ export const tokens = {
       { light: "#e34948", dark: "#e66767", lightNeedsLabelOrTable: false },
     ],
     other: { light: "#a3a29c", dark: "#6b6a65" },
+    line: "2px",
+    gap: "2px",
+    ring: "2px",
+    bar: { max: "24px", radius: "4px" },
+    point: "4px",
+    height: "240px",
   },
   diff: {
     addLine: { light: "#e6f4e4", dark: "#15261a" },

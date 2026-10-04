@@ -5,7 +5,9 @@
 import { type ErrorCode } from "../../../packages/base/mod.ts";
 import {
   BLOB_PREPARE_OP,
+  BLOB_READ_OP,
   blobPrepareInputSchema,
+  blobReadPipeInputSchema,
   type PreparedBlob,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
@@ -19,7 +21,7 @@ export type BlobPipeRequest = {
 };
 
 export type BlobPipeResponse =
-  | { request_id: string; ok: true; payload: PreparedBlob }
+  | { request_id: string; ok: true; payload: PreparedBlob | BlobReadPayload }
   | {
     request_id: string;
     ok: false;
@@ -47,6 +49,9 @@ export function createBlobPipe(deps: {
 }): BlobPipe {
   return {
     async handle(request, bytes) {
+      if (request.op === BLOB_READ_OP) {
+        return await readBlob(deps.work, request);
+      }
       if (request.op !== BLOB_PREPARE_OP) {
         return failed(request.request_id, REJECTED);
       }
@@ -83,6 +88,47 @@ export function createBlobPipe(deps: {
       };
     },
   };
+}
+
+// 등록된 hash의 그 구간만 읽는다. hash는 경로로만 쓰고 다시 계산하지 않는다.
+type BlobReadPayload = { hash: string; size_bytes: number; bytes: string };
+
+async function readBlob(
+  work: BlobStoreWork,
+  request: BlobPipeRequest,
+): Promise<BlobPipeResponse> {
+  const parsed = blobReadPipeInputSchema.safeParse(request.payload);
+  if (!parsed.success) {
+    return failed(request.request_id, {
+      code: "invalid_input",
+      message: "blob 읽기 입력이 schema와 다르다",
+    });
+  }
+  const result = await work.read(
+    parsed.data.hash,
+    parsed.data.offset,
+    parsed.data.length,
+  );
+  if (!result.ok) return failed(request.request_id, result.error);
+  return {
+    request_id: request.request_id,
+    ok: true,
+    payload: {
+      hash: result.value.hash,
+      size_bytes: result.value.sizeBytes,
+      bytes: base64Of(result.value.bytes),
+    },
+  };
+}
+
+// 한 번에 펼치면 큰 구간에서 호출 인자 한도를 넘는다. 256KiB는 그 안이지만 구간을 나눠 인코딩한다.
+function base64Of(bytes: Uint8Array): string {
+  let text = "";
+  const step = 0x8000;
+  for (let i = 0; i < bytes.length; i += step) {
+    text += String.fromCharCode(...bytes.subarray(i, i + step));
+  }
+  return btoa(text);
 }
 
 function failed(

@@ -50,6 +50,7 @@ if (!opened.ok) {
     checkCredential: registration.checkCredential,
     subscriberGate: registration.subscriberGate,
     confirmation: registration.confirmation,
+    onTx: registration.onTx,
   };
   let chain = Promise.resolve();
   worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
@@ -157,6 +158,19 @@ async function handle(
     worker.close();
     return;
   }
+  if (data.op === "blob-prepared") {
+    registration.noteBlobTime(data.nowMs);
+    registration.preparations.register(data.prepared, data.nowMs);
+    registration.preparations.prune(data.nowMs);
+    worker.postMessage({ id: data.id, op: "blob-noted" } as never);
+    return;
+  }
+  if (data.op === "blob-prune") {
+    registration.noteBlobTime(data.nowMs);
+    registration.preparations.prune(data.nowMs);
+    worker.postMessage({ id: data.id, op: "blob-noted" } as never);
+    return;
+  }
   if (data.op === "read-result") {
     worker.postMessage({
       id: data.id,
@@ -171,6 +185,7 @@ async function handle(
     return;
   }
   try {
+    registration.noteRequest(data.ctx);
     const body = await executeCommand(
       connection,
       deps,
@@ -185,5 +200,7 @@ async function handle(
       op: "failed",
       body: internalError(),
     });
+  } finally {
+    registration.noteRequest(undefined);
   }
 }

@@ -460,9 +460,11 @@ concerns: [shell]
   - 정확한 경로·대상은 숨기지 않고 고정폭 원문으로 보인다. 그 밖의 내부 식별자·hash는 Details.
   - 첫 owner decision: documents의 파일 지우기.
   - `layout_test`에 위 요구 테스트.
+- 상태: 완료 (#154). desktop/main.ts·supervise 연결과 IPC 등록은 아직 없다(T22가 넘긴 것).
 
 ### T24 터미널 host와 PTY
 
+- 상태: 진행 (#160)
 - 등급: 기본
 - concern: shell/terminal
 - 요구: shell/terminal#R1, R2, R3, R4(일반 shell), R5(일반 shell 비주입), R7, R8, R9, R10, R11

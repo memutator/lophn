@@ -235,6 +235,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
   - `tools/fake-provider/`를 함께 띄우고 그 loopback 주소를 `LOPHN_FAKE_PROVIDER_URL`로 core에 넘긴다(그 값으로 개발 provider 정의를 seed하는 일은 lophn-agent#T3). 실제 provider는 `LOPHN_LIVE_PROVIDER=1`일 때만 쓴다.
   - Ctrl+C에 띄운 프로세스를 정리한다.
   - `dev_test.ts`: 데이터 root가 저장소 밖으로 가지 않고 인자가 정해진 대로 만들어진다.
+- 상태: 완료 (#147)
 
 ### T10 E2E harness와 skeleton smoke
 

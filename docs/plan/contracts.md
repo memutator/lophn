@@ -617,6 +617,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T27 contracts/lophn-agent: preset·assignment
 
+- 상태: 완료 (#101)
 - 등급: 기본
 - concern: lophn-agent/presets, lophn-agent/assignments, lophn-agent/instructions
 - 요구: lophn-agent/presets#R1–R3, R5–R7, R9, R11, R13, R15, R16; lophn-agent/assignments#R2–R6, R9, R10, R16, R17; lophn-agent/extensions#R30, R31; lophn-agent/scheduling#R1, R3; lophn-agent/harness/provider#R8; lophn-agent/harness/model#R8; lophn-agent/harness/tools#R10; lophn-agent/roles/context-engineer#R12

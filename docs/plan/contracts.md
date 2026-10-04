@@ -552,7 +552,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 #### T23 구현 메모: 보호 export·import와 사용 판정 port
 
-- 상태: 완료 (#PRNUM)
+- 상태: 완료 (#93)
 - concern: platform/secrets
 - 요구: platform/secrets#R5, R9
 - 자리: `packages/contracts/platform/secret-exchange.ts`, `secret-exchange_test.ts`

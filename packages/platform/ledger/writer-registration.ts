@@ -5,6 +5,7 @@ import type {
   CommandDefinition,
   PermanentBlobReference,
 } from "../../contracts/platform/mod.ts";
+import type { TxPortRegistration } from "./tx-ports.ts";
 import type { TxCall } from "./tx.ts";
 
 // BEGIN 다음 현재 자격을 다시 본다. 부모 메시지의 주장은 쓰지 않는다.
@@ -18,7 +19,7 @@ export type WriterRegistration = {
   commands: readonly CommandDefinition[];
   clock: Clock;
   ids: IdSource;
-  ports: ReadonlyMap<unknown, unknown>;
+  ports: readonly TxPortRegistration[];
   registerBlobRef: (
     reference: BlobRefRegistration,
   ) => Result<PermanentBlobReference>;

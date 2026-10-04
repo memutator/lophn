@@ -57,7 +57,7 @@ export function deps(clock: Clock = manualClock(START)): TxDeps & {
   return {
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
-    ports: new Map(),
+    ports: [],
     registerBlobRef: () => err({ code: "unavailable", message: "blob 없음" }),
     call: () => err({ code: "unavailable", message: "dispatch 없음" }),
     checkCredential: (ctx) => {

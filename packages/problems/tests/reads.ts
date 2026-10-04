@@ -4,6 +4,7 @@ import type {
   ReadSnapshot,
   RequestContext,
 } from "../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../contracts/platform/mod.ts";
 import {
   getTestRequest,
   getVerification,
@@ -161,7 +162,11 @@ export function readVerification(
     }
   }
   if (!row) return err({ code: "not_found", message: NOT_FOUND });
-  const allowed = canReadVerification(ctx, String(row.app));
+  const allowed = canReadVerification(
+    ctx,
+    String(row.app),
+    snapshot.port(TargetAuthorization),
+  );
   if (!allowed.ok) return allowed;
   if (!verificationScope(ctx, row)) {
     return err({ code: "not_found", message: NOT_FOUND });

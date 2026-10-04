@@ -10,7 +10,8 @@ import {
   readVerificationList,
   verificationRecordedVisibility,
 } from "./reads.ts";
-import { ctx, memorySql } from "./support.ts";
+import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+import { ctx, memorySql, strictTargetAuthorizer } from "./support.ts";
 import { VERIFICATION_PAGE_CAP } from "./model.ts";
 import { canonicalJson } from "./canonical.ts";
 import { verification } from "./fixtures.ts";
@@ -26,7 +27,8 @@ function snapshot(
   return {
     sql,
     as_of_seq: asOf,
-    port: () => {
+    port<T>(key: { readonly name: string }): T {
+      if (key === TargetAuthorization) return strictTargetAuthorizer() as T;
       throw new Error("no port");
     },
   };
@@ -141,6 +143,7 @@ Deno.test("problems/tests#R2: release 없는 bundle hash 결과를 읽는다", (
       operations: ["GetVerification", "blob.read"],
       targets: { app: APP },
     },
+    conditions: { app: APP },
   });
   const read = readVerification(snap, reader, {
     verification: "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
@@ -155,6 +158,7 @@ Deno.test("problems/tests#R2: release 없는 bundle hash 결과를 읽는다", (
       principal: "user-1",
       actor: "user",
       scope: { operations: ["GetVerification"], targets: { app: OTHER } },
+      conditions: { app: OTHER },
     }),
     {
       verification: "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
@@ -278,6 +282,7 @@ Deno.test("problems/tests#R5: 제한 target이 다른 결과는 없는 것과 �
         request_hash: "b".repeat(64),
       },
     },
+    conditions: { app: APP },
   });
   const read = readVerification(snap, restricted, {
     verification: "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",

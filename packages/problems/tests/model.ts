@@ -4,6 +4,7 @@ import type { LophnError } from "../../base/mod.ts";
 import type {
   CredentialScope,
   RequestContext,
+  TargetAuthorizer,
 } from "../../contracts/platform/mod.ts";
 import {
   type ExecutionEvidence,
@@ -200,16 +201,28 @@ type TestAuthority = {
 export function canRecordVerification(
   ctx: RequestContext,
   admission: TestAuthority,
+  authorize: TargetAuthorizer,
 ): Result<true> {
-  return checkTestAuthority(ctx, admission, RECORD_VERIFICATION);
+  return checkTestAuthority(ctx, admission, RECORD_VERIFICATION, authorize);
 }
 
 // actor 종류나 body 주장, conditions.task만으로는 열지 않는다.
 // owner-local lifecycle과 결과 쓰기는 서로 독립된 operation이다.
+// domain target은 TargetAuthorization port가 scope.targets 전체와 맞춘다.
+// 고정 조건 key를 owner target에 다시 넣지 않는다. port가 ctx conditions로 채운다.
+// port는 scope에 없는 key를 요구하지 않는다. 빠진 domain key는 owner가 닫는다.
+const DOMAIN_TARGET_KEYS = [
+  "app",
+  "request_principal",
+  "request_key",
+  "request_hash",
+] as const;
+
 export function checkTestAuthority(
   ctx: RequestContext,
   admission: TestAuthority,
   operation: string,
+  authorize: TargetAuthorizer,
 ): Result<true> {
   if (ctx.actor !== "machine") {
     return err({ code: "forbidden", message: FORBIDDEN });
@@ -221,24 +234,21 @@ export function checkTestAuthority(
     return err({ code: "forbidden", message: FORBIDDEN });
   }
   if (
-    !targetMatches(ctx.scope, "app", admission.app) ||
-    !targetMatches(
-      ctx.scope,
-      "request_principal",
-      admission.request_principal,
+    DOMAIN_TARGET_KEYS.some((key) =>
+      !targetMatches(ctx.scope, key, admission[key])
     ) ||
-    !targetMatches(ctx.scope, "request_key", admission.request_key) ||
-    !targetMatches(ctx.scope, "request_hash", admission.request_hash)
-  ) {
-    return err({ code: "forbidden", message: FORBIDDEN });
-  }
-  if (
     Object.keys(ctx.scope.targets).some((key) =>
-      !["app", "request_principal", "request_key", "request_hash"].includes(key)
-    ) || !scopeCovers(ctx.scope, admission)
+      !DOMAIN_TARGET_KEYS.includes(key as never)
+    )
   ) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
+  const allowed = authorize(ctx, operation, {
+    request_principal: admission.request_principal,
+    request_key: admission.request_key,
+    request_hash: admission.request_hash,
+  });
+  if (!allowed.ok) return err({ code: "forbidden", message: FORBIDDEN });
   return ok(true);
 }
 
@@ -249,13 +259,18 @@ export function canReadOwnRequest(ctx: RequestContext): Result<true> {
   return ok(true);
 }
 
+// 단건 read의 행 불일치는 port가 not_found로 숨기지 못한다.
+// port는 operation과 app 조건만 판정하고, domain 행은 verificationScope가 숨긴다.
 export function canReadVerification(
   ctx: RequestContext,
   app: string,
+  authorize: TargetAuthorizer,
 ): Result<{ detail: boolean }> {
   if (!hasOperation(ctx.scope, READ_VERIFICATION)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
+  const allowed = authorize(ctx, READ_VERIFICATION, {});
+  if (!allowed.ok) return err({ code: "forbidden", message: FORBIDDEN });
   if (!targetMatches(ctx.scope, "app", app)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }

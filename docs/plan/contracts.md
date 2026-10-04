@@ -170,7 +170,12 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 완료: 아래 확인이 통과한다
   - `EventEnvelope {seq, type, subject, actor, run, payload, at}`와 `defineEvent(type, {subject, payload})`. type은 `<Entity><과거형 동사>` PascalCase.
   - `/v1/events/list {after_seq, types?, subjects?, limit?}` → `{events, scanned_through_seq, head_seq, as_of_seq, next_cursor, omitted?}`, `/v1/events/advance-cursor`(`AdvanceSubscriberCursor`, 반응 key `(subscriber, cause_seq, reaction)`). `Tx.advanceSubscriberCursor(subscriber, through_seq)`로 반응 command와 cursor를 같은 transaction에 확정한다.
-  - WS `GET /v1/events/subscribe`, subprotocol `lophn.events.1`, frame `subscribe {from_seq(포함), types, subjects, subscriber?, limit}`·`events`·`ack`·`unavailable`, close 1013(느린 구독)·1008(자격 회수), batch 256개·256KiB. 처리 위치 P 다음 `from_seq` 계산 helper.
+  - WS `GET /v1/events/subscribe`, subprotocol `lophn.events.1`, frame `subscribe {from_seq?(명시하면 포함), types, subjects, subscriber?, limit}`·`events`·`ack`·`unavailable`, close 1013(느린 구독)·1008(자격 회수), batch 256개·256KiB. 이름 없는 구독은 `from_seq`가 필수이고 이름 있는 재연결의 생략은 현재 principal·이름의 저장 ack 다음 위치다. 처리 위치 P 다음 `from_seq` 계산 helper.
+
+#### T7 구현 메모: 이름 있는 재연결의 시작 위치
+
+- 타입: `event-stream.ts`의 `subscribeFrameSchema.from_seq`를 `seqSchema.optional()`로 바꾸고, `from_seq`와 `subscriber`가 둘 다 없을 때를 `.refine`로 거절한다. 이름 있는 구독은 명시 from 없이 통과하고 그때 출력에 `from_seq` 키를 만들지 않는다. `clientEventFrameSchema`·`eventFrameSchema`의 discriminatedUnion과 `parseClientEventFrame` 경로가 그대로 이 모양을 쓴다.
+- 뜻: architecture/platform 5.4의 named reconnect(명시 from이 없으면 저장 ack 다음부터 시작)가 wire schema에서 가능하다. schema는 시작 seq를 정하지 않고 `'0'`을 주입하지 않는다. 현재 인증 principal·이름으로 저장된 ack 위치, 그 +1, 저장 없음의 `'0'` 해석은 platform runtime의 몫이다(contracts에 IO·helper를 더하지 않는다). 명시 from은 그대로 포함 위치다.
 
 #### T7 구현 메모: event 노출 정책
 

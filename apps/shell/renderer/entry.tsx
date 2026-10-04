@@ -1,10 +1,14 @@
+import type { ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import "@lophn/design/tokens.css";
 import "@lophn/design/base.css";
 
 // 문구는 넣지 않는다. 화면 문구는 wording key로만 쓴다(shell/wording).
-export function mount(className: string): void {
+// 아직 화면이 없는 entry는 className 문자열만 넘긴다.
+export function mount(node: ReactNode): void {
   const root = document.getElementById("root");
   if (!root) return;
-  createRoot(root).render(<div className={className} />);
+  createRoot(root).render(
+    typeof node === "string" ? <div className={node} /> : node,
+  );
 }

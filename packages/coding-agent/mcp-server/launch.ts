@@ -44,7 +44,6 @@ const CWD_ARG = "--cwd";
 export function helperArg(helperPath: string): string {
   return `--allow-run=${helperPath}`;
 }
-
 // 실행 argv를 분리 배열로 만든다. 환경 허용 목록에 token 이름은 없다. helper 경로는
 // credential provider가 결정하므로 argv에 넣지 않는다.
 export function mcpLaunchArgv(inputs: McpLaunchInputs): {
@@ -53,7 +52,7 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
   env: Record<string, string>;
 } {
   const resources = inputs.resources.replace(/\/$/, "");
-  const entry = `${resources}/packages/coding-agent/mcp/main.ts`;
+  const entry = `${resources}/apps/mcp/main.ts`;
   const config = `${resources}/deno.json`;
   const net = [inputs.coreEndpoint, ...(inputs.appEndpoints ?? [])].join(",");
   const read = [

@@ -46,7 +46,11 @@ export function effectUnknownResult(error: LophnError): McpToolResult {
         code: unknown.data.code,
         details: unknown.data.details,
       },
-      next: [`commands/result?idempotency_key=${unknown.data.details["idempotency_key"]}`],
+      next: [
+        `commands/result?idempotency_key=${
+          unknown.data.details["idempotency_key"]
+        }`,
+      ],
     },
     true,
   );

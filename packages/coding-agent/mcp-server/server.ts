@@ -5,19 +5,12 @@
 import type { Toolset } from "../../contracts/coding-agent/mod.ts";
 import {
   agentResultSchema,
+  mcpToolResult,
   parseToolsets,
 } from "../../contracts/coding-agent/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
-import {
-  findTool,
-  resolveRoute,
-  toolEntries,
-} from "./registry.ts";
-import {
-  effectUnknownResult,
-  failureResult,
-  successResult,
-} from "./result.ts";
+import { findTool, resolveRoute, toolEntries } from "./registry.ts";
+import { effectUnknownResult, failureResult, successResult } from "./result.ts";
 
 // MCP 초기화에 답하는 server 정보다. protocol 버전은 client가 보낸 것을 그대로 돌려준다.
 const SERVER_INFO = { name: "lophn-mcp", version: "0.1.0" };
@@ -49,10 +42,6 @@ const PROTOCOL_ERRORS = {
   invalidParams: -32602,
 } as const;
 
-export type ToolCaller = (
-  route: Parameters<typeof resolveRoute>[0] extends string ? never : never,
-) => never;
-
 // server가 소유한 상태다. label 순서의 마지막 항목이 여기에 남는다(connection#R3).
 export type McpServer = {
   // enable한 toolset이다. discovery에 나올 tool을 정한다.
@@ -72,7 +61,9 @@ export type HandleDeps = {
 };
 
 // protocol 처리와 tool 실행을 나눈다. stdin 줄 하나가 여기로 들어온다.
-export function createHandler(deps: HandleDeps): (line: string) => Promise<JsonRpcResponse | undefined> {
+export function createHandler(
+  deps: HandleDeps,
+): (line: string) => Promise<JsonRpcResponse | undefined> {
   const toolsets = deps.toolsets ?? parseToolsets(undefined);
   return async (line) => {
     const parsed = parseRequest(line);
@@ -175,7 +166,10 @@ async function callResponse(
   request: JsonRpcRequest,
   callTool: HandleDeps["callTool"],
 ): Promise<JsonRpcResponse> {
-  const params = (request.params ?? {}) as { name?: unknown; arguments?: unknown };
+  const params = (request.params ?? {}) as {
+    name?: unknown;
+    arguments?: unknown;
+  };
   if (typeof params.name !== "string" || params.name === "") {
     return errorResponse(
       request.id,
@@ -185,23 +179,50 @@ async function callResponse(
       },
     );
   }
-  const resolved = resolveRoute(params.name, opOf(params.name, params.arguments));
-  if (!resolved) {
-    // 표에 없는 tool은 protocol 오류다. 표에 있고 op만 틀린 것은 실행 전 isError다(R6).
-    const tool = findTool(params.name);
-    if (!tool) {
-      return errorResponse(
-        request.id,
-        { code: PROTOCOL_ERRORS.invalidParams, message: "없는 tool이다" },
-      );
-    }
-    return okResponse(request.id ?? null, await callTool(params.name, params.arguments));
+  const args = (params.arguments ?? {}) as Record<string, unknown>;
+  const resolved = resolveRoute(params.name, opOf(args));
+  if (!findTool(params.name)) {
+    return errorResponse(
+      request.id,
+      { code: PROTOCOL_ERRORS.invalidParams, message: "없는 tool이다" },
+    );
   }
-  return okResponse(request.id ?? null, await callTool(params.name, params.arguments));
+  if (!resolved) {
+    // 표에 있고 op만 틀린 것은 실행 전 isError다(R6). 다른 동작으로 추측해
+    // 실행하지 않는다.
+    return okResponse(
+      request.id,
+      failureResult({
+        code: "invalid_input",
+        message: "tool 표에 없는 op다",
+        details: { tool: params.name, op: opOf(args) },
+      }),
+    );
+  }
+  // tool 입력은 route 표의 input으로 실행 전 검사한다(R6). 소유 route의
+  // envelope 검사와 같은 기준이다.
+  const input = resolved.route.input.safeParse(args);
+  if (!input.success) {
+    const field = input.error.issues[0]?.path.join(".") ?? "";
+    return okResponse(
+      request.id,
+      failureResult({
+        code: "invalid_input",
+        message: field === ""
+          ? "tool 입력이 맞지 않다"
+          : `${field}: 입력이 맞지 않다`,
+        details: { tool: params.name, op: resolved.op ?? null },
+      }),
+    );
+  }
+  return okResponse(
+    request.id,
+    mcpToolResult(await callTool(params.name, input.data)),
+  );
 }
 
 // 단일 동작 tool은 arguments에 op가 없다. 여러 op tool은 arguments.op로 고른다.
-function opOf(_toolName: string, args: unknown): string | undefined {
+function opOf(args: unknown): string | undefined {
   const params = (args ?? {}) as { op?: unknown };
   return typeof params.op === "string" ? params.op : undefined;
 }

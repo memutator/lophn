@@ -498,6 +498,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T21 contracts/documents: context·term
 
+- 상태: 완료 (#84)
 - 등급: 기본
 - concern: documents/contexts, documents/terms
 - 요구: documents/contexts#R1, R2, R9–R11, R14; documents/terms#R1, R4

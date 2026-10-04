@@ -936,6 +936,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 미완료 invocation·release activation·run·approval 대기를 소유 concern이 실제 관측으로 점검하게 하고, 모르면 unknown과 근거를 남긴다. 전역 barrier가 없다(R16).
   - `startup_test.ts`에 위 요구 테스트, flow work-offline·resume-agent-session의 재시작 단계 통합 테스트
 
+- 상태: 진행 (#162) — 남은 것: 소유 concern의 복구 command(invocation·release activation·run·approval 대기)가 연결되면 점검이 실제 관측으로 확정한다
+
 ### T44 blob GC와 보존 정리
 
 - 등급: 기본

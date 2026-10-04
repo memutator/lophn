@@ -68,6 +68,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 `POST /v1/problems/record-report`, event `ReportRecorded`, `SnapshotRecorded`, `ProblemOpened`, `ProblemObserved`
 - slice: apps
 - 선행: contracts#T39, contracts#T6, platform#T1, platform#T2, platform#T4, platform#T9, platform#T14
+- 상태: 완료 (#179)
 - 완료:
   - `commands_test.ts`(메모리 SQLite): 같은 ID·principal·content hash 재전송은 원래 결과, principal이나 내용이 다르면 `conflict`, 동시 제출에도 Report·Snapshot·Problem이 하나씩(R9)
   - 저장 중 실패 주입 시 Report·Snapshot·Problem·event가 하나도 남지 않고 실패를 돌려준다(R10)

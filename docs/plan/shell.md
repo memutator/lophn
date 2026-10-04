@@ -216,6 +216,7 @@ concerns: [shell]
   - 조작 표면만 focus를 옮기고 닫으면 연 요소로 돌아온다. tooltip·drag·notification은 원래 focus를 유지한다.
   - shell·overlay renderer에서 `require`·`process`·Node·DB·사람 token을 직접 읽을 수 없고 임의 IPC channel·method를 호출할 수 없다. sandbox를 끄는 우회 없이 검사한다.
   - 요구 번호로 시작하는 테스트가 `deno task e2e`에서 통과하고 `deno task check`도 통과한다. gallery·screenshot baseline 회귀는 만들지 않는다.
+- 상태: 완료 (#165)
 - 분리 이유: T10·T11의 구현은 harness가 준비되기 전에도 단위 테스트로 검증하고 병합한다. 실제 Electron 보장은 취소하지 않고 harness와 떠 있는 표면이 main에 든 뒤 이 작업에서 확인한다.
 
 ### T11 공통 컴포넌트: 떠 있는 표면
@@ -297,6 +298,7 @@ concerns: [shell]
   - 상단 경로는 focus 칸 활성 탭을 따른다.
   - `tab-strip_test`, `panes_test`에 위 요구 테스트.
 - 가져올 것: legacy `renderer/src/workbench`(model, pane·tab·split UI), `spaces/ProjectSpace.tsx` 골격, `ui-layout`의 SplitPane·Resizer·TabBar. 구 target·address 계약은 가져오지 않는다.
+- 상태: 완료 (#172)
 
 ### T15 launcher: 프로젝트 등록과 추적 미리보기
 
@@ -505,6 +507,7 @@ concerns: [shell]
 
 ### T26 현재 보기 상태 수집과 relay publish
 
+- 상태: 완료 (#178)
 - 등급: 기본
 - concern: shell/workspace
 - 요구: shell/workspace#R9, R10

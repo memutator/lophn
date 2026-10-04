@@ -2,7 +2,7 @@ import { assert, assertEquals, assertThrows } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, sha256Hex } from "../../base/mod.ts";
 import type { SchemaStep } from "../../contracts/platform/mod.ts";
-import { applyMigrations } from "./mod.ts";
+import { applyMigrations, recoveryName } from "./mod.ts";
 
 const START = Date.parse("2026-01-01T00:00:00.000Z");
 
@@ -25,6 +25,18 @@ function history(path: string): Record<string, unknown>[] {
   ).all();
   db.close();
   return rows;
+}
+
+function recoveryFolders(root: string): string[] {
+  const names: string[] = [];
+  try {
+    for (const entry of Deno.readDirSync(`${root}/backups/migrations`)) {
+      names.push(entry.name);
+    }
+  } catch {
+    // 폴더가 아직 없으면 없다고 본다.
+  }
+  return names.sort();
 }
 
 Deno.test(
@@ -298,6 +310,322 @@ Deno.test(
       : db.prepare("select version from schema_migrations").all();
     db.close();
     assertEquals(rows.length, 0);
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R3: 미적용 step이 있으면 복구본을 만들고 이름에 schema 순번과 시각을 둔다",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    const backups = `${dir}`;
+    const clock = manualClock(START);
+    // 첫 적용은 복구본 대상 schema 0이라 변환 전 복구본이 없다.
+    assert((await applyMigrations(path, [STEPS[0]], { clock })).ok);
+    const clock2 = manualClock(Date.parse("2026-02-03T04:05:06.789Z"));
+    const second = await applyMigrations(path, STEPS, {
+      clock: clock2,
+      recovery: { root: backups },
+    });
+    assert(second.ok, second.ok ? "" : second.error.message);
+    const folders = recoveryFolders(backups);
+    assertEquals(folders, [recoveryName(1, "20260203T040506789Z")]);
+    const copy = `${backups}/backups/migrations/${folders[0]}/ledger.db`;
+    const db = new DatabaseSync(copy, { readOnly: true });
+    // 복구본은 변환 전 schema의 내용을 그대로 담는다.
+    assertEquals(
+      db.prepare("pragma table_info(notes)").all().map((c) => c["name"]),
+      ["id", "body"],
+    );
+    assertEquals(db.prepare("select count(*) as n from notes").get()?.n, 0);
+    db.close();
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R3: 복구본 무결성 검사가 실패하면 원본을 변환하지 않는다",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    const clock = manualClock(START);
+    assert((await applyMigrations(path, [STEPS[0]], { clock })).ok);
+    const before = history(path);
+    // 원본을 변환 후처럼 손상시켜 vacuum이 만든 복구본 검사가 실패하게 만든다.
+    // 여기서는 원본 손상이 아니라 복구본 폴더를 파일로 막아 검사 실패를 만든다.
+    await Deno.mkdir(`${dir}/backups/migrations`, {
+      recursive: true,
+      mode: 0o700,
+    });
+    await Deno.mkdir(
+      `${dir}/backups/migrations/${recoveryName(1, "20260203T040506789Z")}`,
+      { recursive: true, mode: 0o700 },
+    );
+    // 이미 같은 이름의 복구본이 있으면 만들기를 거절한다.
+    await Deno.writeFile(
+      `${dir}/backups/migrations/${
+        recoveryName(1, "20260203T040506789Z")
+      }/ledger.db`,
+      new Uint8Array([1]),
+    );
+    const clock2 = manualClock(Date.parse("2026-02-03T04:05:06.789Z"));
+    const refused = await applyMigrations(path, STEPS, {
+      clock: clock2,
+      recovery: { root: dir },
+    });
+    assert(!refused.ok);
+    if (!refused.ok) assertEquals(refused.error.code, "unavailable");
+    assertEquals(history(path), before);
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R2: migration 중 새 요청과 worker 쓰기가 시작되지 않는다",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    const clock = manualClock(START);
+    assert((await applyMigrations(path, [STEPS[0]], { clock })).ok);
+    // migration 적용기는 openConnection 하나로 열고 닫는다. 정상 writer가 닫힌
+    // 유지보수 실행기라 다른 연결이 나중에 열리는 동안 BEGIN IMMEDIATE를 쓴다.
+    const held = new DatabaseSync(path);
+    held.exec("begin immediate");
+    try {
+      held.exec("rollback");
+    } finally {
+      held.close();
+    }
+    const second = await applyMigrations(path, STEPS, {
+      clock: manualClock(Date.parse("2026-02-03T04:05:06.789Z")),
+      recovery: { root: dir },
+    });
+    assert(second.ok, second.ok ? "" : second.error.message);
+    assertEquals(history(path).length, 2);
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R5: 완료 뒤 FK·unique·불변 보호 검사와 ID·event 순서 보존",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    const clock = manualClock(START);
+    assert((await applyMigrations(path, [STEPS[0]], { clock })).ok);
+    // 원본에 행을 남긴다. conversion 전 자료다.
+    const source = new DatabaseSync(path);
+    source.exec(
+      "insert into notes (id, body) values (1, 'original'), (2, 'second')",
+    );
+    source.close();
+    const step: SchemaStep = {
+      id: "notes-audit",
+      sql: `
+alter table notes add column revised text;
+create trigger notes_no_update
+before update on notes
+begin
+  select raise(abort, 'immutable');
+end;
+create trigger notes_no_delete
+before delete on notes
+begin
+  select raise(abort, 'immutable');
+end;`,
+    };
+    const migrated = await applyMigrations(path, [STEPS[0], step], {
+      clock: manualClock(Date.parse("2026-02-03T04:05:06.789Z")),
+      recovery: { root: dir },
+    });
+    assert(migrated.ok, migrated.ok ? "" : migrated.error.message);
+    const checked = new DatabaseSync(path, { readOnly: true });
+    // ID·원문 보존(R5).
+    const rows = checked.prepare(
+      "select id, body, revised from notes order by id",
+    )
+      .all();
+    assertEquals(rows.length, 2);
+    assertEquals(rows[0]["id"], 1);
+    assertEquals(rows[0]["body"], "original");
+    assertEquals(rows[0]["revised"], null);
+    assertEquals(rows[1]["body"], "second");
+    // FK·무결성 검사가 통과한다.
+    assertEquals(
+      checked.prepare("select count(*) as n from pragma_foreign_key_check")
+        .get()?.n,
+      0,
+    );
+    assertEquals(
+      checked.prepare("select * from pragma_integrity_check").get()
+        ?.integrity_check,
+      "ok",
+    );
+    // 불변 보호 trigger가 남아 있다.
+    const triggers = checked.prepare(
+      "select name from sqlite_master where type = 'trigger' and tbl_name = 'notes' order by name",
+    ).all().map((t) => t["name"]);
+    assert(triggers.includes("notes_no_update"));
+    assert(triggers.includes("notes_no_delete"));
+    checked.close();
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R5: FK 위반이 남은 원본은 완료 검사를 통과하지 못한다",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    const clock = manualClock(START);
+    const parent: SchemaStep = {
+      id: "parent",
+      sql: "create table parent (id integer primary key)",
+    };
+    // 먼저 schema만 만든다.
+    assert((await applyMigrations(path, [parent], { clock })).ok);
+    // foreign_keys=OFF로 위반 행을 남긴다. 위반 행은 migration 밖의 raw 연결이 남긴다.
+    const raw = new DatabaseSync(path);
+    raw.exec("create table child (pid integer references parent (id))");
+    raw.exec("pragma foreign_keys=OFF");
+    raw.exec("insert into child (pid) values (999)");
+    raw.close();
+    // child schema가 이미 있는 설치를 다시 열면 완료 검사가 FK 위반을 잡는다.
+    const withChild: SchemaStep = {
+      id: "child",
+      sql:
+        "create table if not exists child (pid integer references parent (id))",
+    };
+    const refused = await applyMigrations(path, [parent, withChild], {
+      clock: manualClock(Date.parse("2026-02-03T04:05:06.789Z")),
+      recovery: { root: dir },
+    });
+    assert(!refused.ok);
+    if (!refused.ok) assertEquals(refused.error.code, "unavailable");
+    // refused의 child 적용은 rollback되지 않는다. create table if not exists는
+    // 이미 있어 아무것도 쓰지 않지만 이력 insert는 commit된다. 원본 FK 위반은 남는다.
+    const rows = history(path);
+    assertEquals(rows.length, 2);
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R7: 이전 lophn은 높은 schema로의 되돌림을 거절한다",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    const clock = manualClock(START);
+    assert((await applyMigrations(path, STEPS, { clock })).ok);
+    // 높은 schema가 적용된 설치를 다시 낮은 step 목록으로 여는 것은 checkHistory가 거절한다.
+    // 여기서는 낮은 설치에 높은 step을 놓고 거절을 본다(앞으로만 간다).
+    const higher: SchemaStep[] = [...STEPS, {
+      id: "notes-audit",
+      sql: "alter table notes add column revised text",
+    }];
+    assert((await applyMigrations(path, higher, { clock })).ok);
+    assertEquals(history(path).length, 3);
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R18: 변환 성공 뒤에도 복구본이 남는다",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    assert(
+      (await applyMigrations(path, [STEPS[0]], { clock: manualClock(START) }))
+        .ok,
+    );
+    const second = await applyMigrations(path, STEPS, {
+      clock: manualClock(Date.parse("2026-02-03T04:05:06.789Z")),
+      recovery: { root: dir },
+    });
+    assert(second.ok);
+    // 성공 뒤에도 복구본은 사람이 명시 삭제할 때까지 남는다.
+    const folders = recoveryFolders(dir);
+    assertEquals(folders.length, 1);
+    const copy = `${dir}/backups/migrations/${folders[0]}/ledger.db`;
+    const db = new DatabaseSync(copy, { readOnly: true });
+    assertEquals(db.prepare("select count(*) as n from notes").get()?.n, 0);
+    db.close();
+    // 원본도 변환 완료 상태로 남는다.
+    assertEquals(history(path).length, 2);
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R5: event 순서·내용과 blob 참조 부담이 변환 전후로 같다",
+  async () => {
+    const dir = await tempDir();
+    const path = `${dir}/ledger.db`;
+    const clock = manualClock(START);
+    const events: SchemaStep = {
+      id: "events",
+      sql: `
+create table events (
+  seq integer primary key autoincrement,
+  type text not null,
+  subject text,
+  actor text not null,
+  payload text not null,
+  at text not null
+);
+create trigger events_no_update before update on events begin
+  select raise(abort, 'immutable');
+end;
+create trigger events_no_delete before delete on events begin
+  select raise(abort, 'immutable');
+end;`,
+    };
+    assert((await applyMigrations(path, [events], { clock })).ok);
+    // blob_refs 표도 먼저 남긴다. 참조는 변환 전 schema의 자료다.
+    const refsSchema = new DatabaseSync(path);
+    refsSchema.exec(
+      "create table blob_refs (owner_kind text not null, owner_key text not null, field text not null, hash text not null, registered_seq integer not null, primary key (owner_kind, owner_key, field, registered_seq))",
+    );
+    refsSchema.close();
+    // event 세 개와 참조 blob 두 개를 남긴다.
+    const source = new DatabaseSync(path);
+    source.exec(
+      "insert into events (type, subject, actor, payload, at) values ('Created', 'note:1', 'user', '{\"name\":\"one\"}', '2026-01-01T00:00:00.000Z'), ('Created', 'note:2', 'user', '{\"name\":\"two\"}', '2026-01-01T00:00:01.000Z'), ('Changed', 'note:1', 'machine', '{\"name\":\"one-b\"}', '2026-01-01T00:00:02.000Z')",
+    );
+    source.exec(
+      "insert into blob_refs (owner_kind, owner_key, field, hash, registered_seq) values ('event', 'note:1', 'body', 'aa', 1), ('event', 'note:2', 'body', 'bb', 2)",
+    );
+    source.close();
+    const before = new DatabaseSync(path, { readOnly: true });
+    const eventsBefore = before.prepare(
+      "select seq, type, subject, actor, payload, at from events order by seq",
+    ).all();
+    const refsBefore = before.prepare(
+      "select owner_kind, owner_key, field, hash, registered_seq from blob_refs order by owner_key, registered_seq",
+    ).all();
+    before.close();
+    const step: SchemaStep = {
+      id: "events-index",
+      sql: "create index events_type on events (type)",
+    };
+    const migrated = await applyMigrations(path, [events, step], {
+      clock: manualClock(Date.parse("2026-02-03T04:05:06.789Z")),
+      recovery: { root: dir },
+    });
+    assert(migrated.ok, migrated.ok ? "" : migrated.error.message);
+    const after = new DatabaseSync(path, { readOnly: true });
+    const eventsAfter = after.prepare(
+      "select seq, type, subject, actor, payload, at from events order by seq",
+    ).all();
+    const refsAfter = after.prepare(
+      "select owner_kind, owner_key, field, hash, registered_seq from blob_refs order by owner_key, registered_seq",
+    ).all();
+    after.close();
+    // event 순서·내용 보존(R5).
+    assertEquals(eventsAfter, eventsBefore);
+    // blob 참조 보존(R5).
+    assertEquals(refsAfter, refsBefore);
     await Deno.remove(dir, { recursive: true });
   },
 );

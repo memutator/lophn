@@ -117,7 +117,7 @@ async function open(
       CREDENTIAL_SCHEMA,
       ...assembled.value.schemaSteps,
     ],
-    { clock },
+    { clock, recovery: { root: root.path } },
   );
   if (!migrated.ok) return migrated;
   const epoch = hex(random, 16);
@@ -198,6 +198,7 @@ async function open(
       clock,
       writer: runtime.writer,
       reads: runtime.reads,
+      memory: runtime.memory.handlers,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
@@ -263,6 +264,8 @@ async function open(
       stopped = true;
       // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
       ready = false;
+      // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
+      runtime?.memory.disconnect();
       await server.stop();
       if (io) await io.stopAll();
       await runtime?.close();

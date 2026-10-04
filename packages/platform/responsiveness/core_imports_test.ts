@@ -66,6 +66,8 @@ const EXTERNAL_FETCH = /(?<![\w.$])fetch\s*\(/;
 // 여는 내장 format read(declaration·module_hash)는 T4 registry 계약대로
 // declaration 모듈만 graph에 있어도 된다(Q10). core ledger command인 apps
 // 모듈(registration 등록 포함)은 T9 registry 계약대로 graph에 있어도 된다(Q3).
+// lophn-agent의 ledger registration 모듈(harness/provider의 command·read·schema)도
+// core가 조립한다(architecture/lophn-agent 3.1). runtime 쪽 코드만 거르는다.
 const IMPLEMENTATION_PREFIXES = [
   "packages/apps/entrypoint/",
   "packages/apps/runtime/entrypoint/",
@@ -84,7 +86,7 @@ const IMPLEMENTATION_PREFIXES = [
   "packages/documents/formats/reads.ts",
   "packages/documents/formats/runner/",
   "packages/documents/formats/work.ts",
-  "packages/lophn-agent/",
+  "packages/lophn-agent/roles/",
 ];
 
 function isImplementationImport(path: string): boolean {

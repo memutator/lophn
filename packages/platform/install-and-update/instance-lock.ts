@@ -7,7 +7,7 @@ export type InstanceLock = {
   release(): Promise<void>;
 };
 
-const LOCK_NAME = "instance.lock";
+export const INSTANCE_LOCK_NAME = "instance.lock";
 
 type Lockable = Deno.FsFile & {
   tryLock(exclusive?: boolean): Promise<boolean>;
@@ -18,7 +18,7 @@ export async function acquireInstanceLock(
 ): Promise<Result<InstanceLock>> {
   let file: Deno.FsFile;
   try {
-    file = await Deno.open(`${runDir}/${LOCK_NAME}`, {
+    file = await Deno.open(`${runDir}/${INSTANCE_LOCK_NAME}`, {
       create: true,
       read: true,
       write: true,

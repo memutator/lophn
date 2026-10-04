@@ -442,6 +442,7 @@ concerns: [shell]
   - 사용자 theme은 T5가 검증한 token 값만, slot·fork는 읽지 않는다.
   - `coordinator_test`, `handle_test`(가짜 core)와 `e2e/shell/confirmation_test.ts`(부모 앱 view가 보이지만 click·키가 가지 않음, CLI·MCP 동의가 결정이 안 됨)에 위 요구 테스트.
 - 가져올 것: 없음(legacy는 native message box와 view 숨김을 썼다).
+- 상태: 완료 (#145). desktop/main.ts·supervise 연결은 다음 작업. 창을 실제로 띄우는 IPC 등록은 아직 없다.
 
 ### T23 confirmation window 화면: 배치, 상세, 전후 비교, owner decision
 
@@ -459,6 +460,7 @@ concerns: [shell]
   - 정확한 경로·대상은 숨기지 않고 고정폭 원문으로 보인다. 그 밖의 내부 식별자·hash는 Details.
   - 첫 owner decision: documents의 파일 지우기.
   - `layout_test`에 위 요구 테스트.
+- 상태: 완료 (#154). desktop/main.ts·supervise 연결과 IPC 등록은 아직 없다(T22가 넘긴 것).
 
 ### T24 터미널 host와 PTY
 

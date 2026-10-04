@@ -1,6 +1,13 @@
 import { DatabaseSync } from "node:sqlite";
-import type { Result } from "../../base/mod.ts";
-import type { Sql, SqlRow, Tx } from "../../contracts/platform/mod.ts";
+import { ok, type Result } from "../../base/mod.ts";
+import {
+  type PortKey,
+  type Sql,
+  type SqlRow,
+  TargetAuthorization,
+  type TargetAuthorizer,
+  type Tx,
+} from "../../contracts/platform/mod.ts";
 import { addressingSchemaSteps } from "../addressing/mod.ts";
 import { projectsSchemaSteps } from "./schema.ts";
 
@@ -12,7 +19,12 @@ export type Emitted = {
 };
 
 // leaf unit fixture. writer Worker·current credential·core API 증거는 아니다.
-export function projectFixture() {
+const allowAll: TargetAuthorizer = () => ok(undefined);
+
+export function projectFixture(
+  authorize: TargetAuthorizer = allowAll,
+) {
+  const authorizer = { current: authorize };
   const directory = Deno.makeTempDirSync({ prefix: "projects-test-" });
   const db = new DatabaseSync(`${directory}/ledger.sqlite`);
   db.exec(
@@ -66,8 +78,12 @@ export function projectFixture() {
         newId: () => {
           throw new Error("project commands do not mint ids");
         },
-        port: () => {
-          throw new Error("project commands do not use a static port");
+        port<T>(key: PortKey<T>): T {
+          guard();
+          if (!Object.is(key, TargetAuthorization)) {
+            throw new Error("unregistered project port");
+          }
+          return authorizer.current as T;
         },
         registerBlobRef: () => {
           throw new Error("unused");
@@ -105,14 +121,20 @@ export function projectFixture() {
       return {
         sql: base,
         as_of_seq,
-        port: () => {
-          throw new Error("unused");
+        port<T>(key: PortKey<T>): T {
+          if (!Object.is(key, TargetAuthorization)) {
+            throw new Error("unregistered project port");
+          }
+          return authorizer.current as T;
         },
       };
     },
     close() {
       db.close();
       Deno.removeSync(directory, { recursive: true });
+    },
+    use(next: TargetAuthorizer) {
+      authorizer.current = next;
     },
   };
 }

@@ -698,3 +698,102 @@ Deno.test("documents/projects#R3 R6 R7: set_tracking applies the preview and tra
     await opened.close();
   }
 });
+
+Deno.test("documents/projects#R1 documents/projects#R9: scope.targets가 가리키는 Project만 command와 read를 통과한다", async () => {
+  const matched = {
+    ...user,
+    credential_ref: "test:test-user:matched",
+    scope: {
+      operations,
+      targets: { project: project, before_project: project },
+    },
+  };
+  const matchedRead = {
+    ...matched,
+    credential_ref: "test:test-user:matched-read",
+    scope: { operations, targets: { project } },
+  };
+  const otherProject = {
+    ...user,
+    credential_ref: "test:test-user:other-project",
+    scope: { operations, targets: { project: other } },
+  };
+  const opened = await harness([user, matched, matchedRead, otherProject]);
+  try {
+    code(
+      await opened.command(
+        otherProject,
+        envelope("project.create", "other-target-create", {
+          id: project,
+          name: "notes",
+          title: "Notes",
+          purpose: "keep notes",
+          folders,
+          tracking,
+        }),
+      ),
+      "forbidden",
+    );
+    const created = commandResult(await create(opened));
+    const revision = (created.result as { revision: string }).revision;
+    code(
+      await opened.command(
+        otherProject,
+        envelope("project.update", "other-target-update", {
+          project,
+          title: "Changed",
+        }, { base_revision: revision }),
+      ),
+      "forbidden",
+    );
+    const updated = commandResult(
+      await opened.command(
+        matched,
+        envelope("project.update", "matched-update", {
+          project,
+          title: "Changed",
+        }, { base_revision: revision }),
+      ),
+    );
+    assertEquals(
+      (updated.result as { title: string }).title,
+      "Changed",
+    );
+    code(
+      await opened.read(
+        { resource: "projects", method: "get" },
+        otherProject,
+        { project },
+      ),
+      "not_found",
+    );
+    const got = value(
+      await opened.read(
+        { resource: "projects", method: "get" },
+        matchedRead,
+        { project },
+      ),
+    ) as { project: { id: string; title: string } };
+    assertEquals(got.project.id, project);
+    assertEquals(got.project.title, "Changed");
+    const hidden = value(
+      await opened.read(
+        { resource: "projects", method: "list" },
+        otherProject,
+        {},
+      ),
+    ) as { projects: { id: string }[] };
+    assertEquals(hidden.projects.map((item) => item.id), []);
+    const listed = value(
+      await opened.read(
+        { resource: "projects", method: "list" },
+        matchedRead,
+        {},
+      ),
+    ) as { projects: { id: string }[]; omitted?: unknown };
+    assertEquals(listed.projects.map((item) => item.id), [project]);
+    assertEquals("omitted" in listed, false);
+  } finally {
+    await opened.close();
+  }
+});

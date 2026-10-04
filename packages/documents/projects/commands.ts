@@ -32,11 +32,7 @@ import {
   sameJson,
   trackingChanged,
 } from "./tracking-apply.ts";
-import {
-  authorizeProject,
-  type ProjectAuthorizer,
-  type ProjectCandidate,
-} from "./authorization.ts";
+import { authorizeProject, type ProjectCandidate } from "./authorization.ts";
 
 function forbidden(): Result<never> {
   return err({ code: "forbidden", message: "project changes are user only" });
@@ -78,7 +74,7 @@ function reserveName(tx: Tx, project: Project): Result<void> {
   );
 }
 
-export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
+export function createProjectCommands(): {
   create: CommandDefinition<typeof projectCreate>;
   update: CommandDefinition<typeof projectUpdate>;
   setTracking: CommandDefinition<typeof projectSetTracking>;
@@ -96,7 +92,7 @@ export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
         if (!roots.ok) return roots;
         const candidate: ProjectCandidate = { ...input, status: "active" };
         const access = authorizeProject(
-          deps?.authorize,
+          tx.port,
           ctx,
           projectCreate.name,
           {
@@ -167,7 +163,7 @@ export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
           folders,
         };
         const access = authorizeProject(
-          deps?.authorize,
+          tx.port,
           ctx,
           projectUpdate.name,
           {
@@ -252,7 +248,7 @@ export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
           tracking: input.tracking,
         };
         const access = authorizeProject(
-          deps?.authorize,
+          tx.port,
           ctx,
           projectSetTracking.name,
           {
@@ -301,7 +297,6 @@ export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
           input.project,
           compare.base_revision,
           "archive",
-          deps?.authorize,
         );
       },
     },
@@ -314,7 +309,6 @@ export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
           input.project,
           compare.base_revision,
           "unarchive",
-          deps?.authorize,
         );
       },
     },
@@ -327,7 +321,6 @@ function transition(
   id: string,
   base: string,
   action: "archive" | "unarchive",
-  authorize: ProjectAuthorizer | undefined,
 ): Result<Project> {
   const actor = requireUser(ctx);
   if (!actor.ok) return actor;
@@ -340,7 +333,7 @@ function transition(
     status: action === "archive" ? "archived" : "active",
   };
   const access = authorizeProject(
-    authorize,
+    tx.port,
     ctx,
     action === "archive" ? projectArchive.name : projectUnarchive.name,
     {

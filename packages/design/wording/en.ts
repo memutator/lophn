@@ -42,6 +42,15 @@ export const en = {
   "common.heading.count": "Count",
   "common.chart.too-many-groups":
     "This chart can show up to {max, number} groups at once.",
+  "launcher.connection.starting": "lophn is getting ready.",
+  "launcher.connection.failed": "lophn couldn't get ready.",
+  "launcher.connection.disconnected":
+    "lophn can't refresh this page right now.",
+  "launcher.connection.confirmed-at": "Last checked {when}.",
+  "launcher.button.retry": "Try again",
+  "launcher.button.reconnect": "Reconnect",
+  "launcher.button.lophn": "lophn",
+  "launcher.empty.no-cards": "Nothing to open yet.",
   "common.chart.unreadable": "This chart couldn't be drawn from its data.",
   "confirmation-window.title.confirm": "Confirm",
   "confirmation-window.body.checking": "Checking this request.",

@@ -66,6 +66,16 @@ export type PlaceholderKinds = {
   "common.chart.too-many-groups": {
     max: "number";
   };
+  "launcher.connection.starting": Record<never, never>;
+  "launcher.connection.failed": Record<never, never>;
+  "launcher.connection.disconnected": Record<never, never>;
+  "launcher.connection.confirmed-at": {
+    when: "string";
+  };
+  "launcher.button.retry": Record<never, never>;
+  "launcher.button.reconnect": Record<never, never>;
+  "launcher.button.lophn": Record<never, never>;
+  "launcher.empty.no-cards": Record<never, never>;
   "common.chart.unreadable": Record<never, never>;
   "confirmation-window.title.confirm": Record<never, never>;
   "confirmation-window.body.checking": Record<never, never>;

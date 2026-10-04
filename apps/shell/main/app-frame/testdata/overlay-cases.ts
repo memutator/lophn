@@ -229,6 +229,31 @@ test("shell/app-frame#R24: IPC rejects forged caller, window, frame, origin, gen
   f.controller.dispose();
 });
 
+test("shell/design-system#R33: notification toast action selects an enabled choice while tooltip and drag cannot select", () => {
+  const f = fixture();
+  const v = f.views[0]!;
+  const select = (
+    identity: { surfaceId: string; generation: number },
+    choiceId = "yes",
+  ) =>
+    f.controller.result(f.event(v.wc.object), {
+      ...identity,
+      type: "selected",
+      choiceId,
+    }).ok;
+  const notification = f.open("notification", "notification");
+  assert.equal(select(notification, "no"), false);
+  assert.equal(select(notification, "missing"), false);
+  assert(select(notification));
+  const last = f.shell.messages.at(-1)! as { type: string; choiceId: string };
+  assert.deepEqual([last.type, last.choiceId], ["selected", "yes"]);
+  assert.equal(v.wc.focuses() + f.shell.focuses(), 0);
+  for (const kind of ["tooltip", "drag"] as const) {
+    assert.equal(select(f.open(kind, kind)), false);
+  }
+  f.controller.dispose();
+});
+
 test("shell/design-system#R2: only interactive surfaces focus and restore shell on close", () => {
   const f = fixture();
   const v = f.views[0]!;

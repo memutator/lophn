@@ -1,9 +1,12 @@
 import { assert, assertEquals } from "@std/assert";
+import { z } from "zod";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import {
+  defineRead,
   encodeFrame,
   FrameDecoder,
 } from "../../packages/contracts/platform/mod.ts";
+import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { type Core, startCore } from "./core.ts";
 
 const CLOCK = manualClock(Date.parse("2026-10-04T00:00:00.000Z"));
@@ -197,6 +200,79 @@ Deno.test("platform/diagnostics#R8: status와 health는 인증을 요구하고 �
     await core.shutdown();
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test("platform/api#R2: 팀 등록 route는 HTTP로 닿고 등록하지 않은 경로는 not_found다", async () => {
+  const dir = await home();
+  const parentIn = new TransformStream<Uint8Array, Uint8Array>();
+  const parentOut = new TransformStream<Uint8Array, Uint8Array>();
+  const core = await boot(dir, {
+    teams: [{ codingAgentConnectionDefinitions }],
+    teamModules: [new URL("./coding-agent.ts", import.meta.url).href],
+    parent: { stdin: parentIn.readable, stdout: parentOut.writable },
+  });
+  try {
+    const frames = readParent(parentOut.readable);
+    const hello = await frames.next();
+    const listed = await post(
+      core,
+      "/v1/coding_agent_connections/list",
+      {},
+      hello.value.user_token,
+    );
+    assertEquals(listed.status, 200);
+    assert(
+      Array.isArray(
+        (listed.body as { connections?: unknown }).connections,
+      ),
+    );
+
+    const missing = await post(
+      core,
+      "/v1/coding_agent_connections/unknown",
+      {},
+      hello.value.user_token,
+    );
+    assertEquals(missing.status, 404);
+    assertEquals(
+      (missing.body as { error?: { code?: string } }).error?.code,
+      "not_found",
+    );
+    await frames.return();
+  } finally {
+    await core.shutdown();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/api#R2: platform 기본 route와 같은 경로를 팀이 등록하면 core는 기동하지 않는다", async () => {
+  const dir = await home();
+  const duplicate = defineRead({
+    resource: "platform",
+    method: "status",
+    name: "DuplicateStatus",
+    input: z.object({}),
+    output: z.object({}),
+    actors: ["user"],
+    errors: ["not_found"],
+  });
+  const started = await startCore({
+    lophnHome: dir,
+    port: 0,
+    teams: [{
+      createCoreRegistration: () => ({
+        reads: [{
+          route: duplicate,
+          handle: () => ({ ok: true as const, value: {} }),
+        }],
+      }),
+    }],
+    clock: CLOCK,
+    superviseIo: false,
+  });
+  assert(!started.ok);
+  assertEquals(started.ok ? "" : started.error.code, "internal");
+  await Deno.remove(dir, { recursive: true });
 });
 
 Deno.test("platform/ledger#R21: 종료는 새 입장을 닫고 위치 metadata를 지운 뒤 lock을 푼다", async () => {

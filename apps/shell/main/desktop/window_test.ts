@@ -19,6 +19,7 @@ test("shell/desktop#R11: 같은 데이터 root의 두 번째 시작은 lock을 �
   const result = startSingleInstance({
     dataRoot: "/home/data",
     onOpenWindow: () => {},
+    onQuitIntent: () => {},
     app: {
       requestSingleInstanceLock: (data) => {
         locks.push(data.dataRoot);
@@ -41,6 +42,7 @@ test("shell/desktop#R12: 두 번째 시작은 새 기본 창 하나만 열고 ar
   startSingleInstance({
     dataRoot: "/home/data",
     onOpenWindow: () => opened.push("open-window"),
+    onQuitIntent: () => opened.push("quit-intent"),
     app: {
       requestSingleInstanceLock: () => true,
       quit: () => {},
@@ -53,11 +55,31 @@ test("shell/desktop#R12: 두 번째 시작은 새 기본 창 하나만 열고 ar
     "lophn",
     "https://evil.example/steal",
     "/etc/passwd",
-    "--quit",
-    "--tray",
     "rm -rf",
   ]);
   assert.deepEqual(opened, ["open-window"]);
+});
+
+test("shell/desktop#R21: second-instance argv --quit은 종료 intent를 부르고 창을 열지 않는다", () => {
+  const opened: string[] = [];
+  const quits: string[] = [];
+  let fire: ((...args: unknown[]) => void) | undefined;
+  startSingleInstance({
+    dataRoot: "/home/data",
+    onOpenWindow: () => opened.push("open-window"),
+    onQuitIntent: () => quits.push("quit-intent"),
+    app: {
+      requestSingleInstanceLock: () => true,
+      quit: () => {},
+      on: (_event, fn) => {
+        fire = fn;
+      },
+    },
+  });
+  // Electron은 (event, argv, workingDirectory, additionalData)로 보낸다.
+  fire?.({}, ["lophn", "--quit"], "/work", { dataRoot: "/home/data" });
+  assert.deepEqual(quits, ["quit-intent"]);
+  assert.deepEqual(opened, []);
 });
 
 test("shell/desktop#R20: --home은 개발 데이터 root를 정하고 LOPHN_HOME보다 앞선다", () => {

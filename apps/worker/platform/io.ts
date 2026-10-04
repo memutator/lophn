@@ -21,7 +21,7 @@ import {
   backupStamp,
   createBackup,
 } from "../../../packages/platform/backup-and-migration/mod.ts";
-import { systemClock } from "../../../packages/base/mod.ts";
+import { type Clock, systemClock } from "../../../packages/base/mod.ts";
 import { DatabaseSync } from "node:sqlite";
 import { type BlobPipe, type BlobPipeRequest, createBlobPipe } from "./blob.ts";
 import {
@@ -294,16 +294,16 @@ export async function createPlatformIo(
 
 // 하루 backup 만들기(R8, R9). ledger 파일 이름은 데이터 root의 lophn.db다
 // (architecture 3.1). schema 판은 설치된 마지막 migration version이다.
-async function runDailyBackup(root: string): Promise<void> {
+async function runDailyBackup(root: string, clock: Clock): Promise<void> {
   const ledgerPath = `${root}/lophn.db`;
-  const stamp = backupStamp(systemClock.now());
+  const stamp = backupStamp(clock.now());
   if (!stamp.ok) return;
   const version = installedSchemaVersion(root);
   await createBackup(ledgerPath, {
     root,
     schemaVersion: version,
     stamp: stamp.value,
-    now: () => systemClock.now(),
+    now: () => clock.now(),
   });
 }
 
@@ -324,6 +324,77 @@ function installedSchemaVersion(root: string): number {
   }
 }
 
+export type BackupTick = {
+  // check 한 번. due면 만들기를 scheduler에 낸다. 만들기가 아직 끝나지 않으면
+  // 건너뛴다: 두 snapshot이 겹치지 않는다(R9). completion이 끝나면 다시 본다(R12).
+  tick(): void;
+  // 만들기가 진행 중인지. 테스트가 끝남을 기다린다.
+  readonly inFlight: boolean;
+  // 진행 중 만들기가 끝날 때까지 기다린다(테스트용).
+  settle(): Promise<void>;
+  close(): void;
+};
+
+// 하루 backup의 주기 check. entry가 interval마다 tick()을 부른다. 만들기는
+// scheduler에 낸다: 복사·hash가 응답을 막지 않는다(responsiveness#R1).
+export function createBackupTick(
+  root: string,
+  clock: Clock = systemClock,
+): BackupTick {
+  const backupScheduler = createIoScheduler();
+  let inFlight = false;
+  const settled: Promise<void>[] = [];
+  return {
+    tick() {
+      if (inFlight) return;
+      void (async () => {
+        let due = false;
+        try {
+          due = await backupDue(
+            root,
+            clock.now(),
+            BACKUP_INTERVAL_MS,
+          );
+        } catch {
+          // 판정을 읽지 못하면 이번 check는 건너뛴다. 다음 tick이 다시 본다.
+          return;
+        }
+        if (!due) return;
+        inFlight = true;
+        const submission = backupScheduler.submit("backup", async () => {
+          return await runDailyBackup(root, clock);
+        });
+        if (!submission.ok) {
+          inFlight = false;
+          return;
+        }
+        settled.push(
+          submission.value.result.then(() => {}, () => {}).finally(() => {
+            // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다(R12). 만들기
+            // 자체가 manifest 전에 실패하면 pending folder만 남는다.
+            inFlight = false;
+          }),
+        );
+      })();
+    },
+    get inFlight() {
+      return inFlight;
+    },
+    async settle() {
+      // tick의 내부 async가 백견을 만들기 전까지 기다린다(await backupDue가
+      // microtask에서 suspend한다). 그 뒤 진행 작업이 있으면 끝남을 기다린다.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      while (settled.length) {
+        const wait = settled.shift();
+        if (wait !== undefined) await wait;
+      }
+    },
+    close() {
+      backupScheduler.close();
+    },
+  };
+}
+
 export async function runPlatformIo(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
   console.log = console.info = console.debug = (...args: unknown[]) =>
@@ -338,25 +409,12 @@ export async function runPlatformIo(root: string): Promise<void> {
   // 하루 backup은 I/O worker의 몫이다(platform/backup-and-migration#R9,
   // responsiveness#R1). core command 흐름 밖에서 주기 check를 돌리고, 차례면
   // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
-  const backupScheduler = createIoScheduler();
-  const timer = setInterval(() => {
-    void (async () => {
-      const due = await backupDue(root, systemClock.now(), BACKUP_INTERVAL_MS);
-      if (!due) return;
-      const submission = backupScheduler.submit("backup", async () => {
-        return await runDailyBackup(root);
-      });
-      if (!submission.ok) return;
-      void submission.value.result.catch(() => {
-        // 실패한 새 묶음 때문에 마지막 완료를 지우지 않는다(R12). 만들기 자체가
-        // manifest 전에 실패하면 pending folder만 남는다.
-      });
-    })();
-  }, BACKUP_CHECK_INTERVAL_MS);
+  const backup = createBackupTick(root);
+  const timer = setInterval(() => backup.tick(), BACKUP_CHECK_INTERVAL_MS);
   try {
     await session.run();
   } finally {
     clearInterval(timer);
-    backupScheduler.close();
+    backup.close();
   }
 }

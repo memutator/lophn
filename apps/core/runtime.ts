@@ -5,7 +5,6 @@ import type {
   RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
-import { backupsGet } from "../../packages/contracts/platform/mod.ts";
 import type { ReadHandler } from "../../packages/platform/api/mod.ts";
 import {
   createWorkspaceRelay,
@@ -226,14 +225,16 @@ function backupReads(
     [
       "backups/get",
       async (_ctx, input) => {
-        const parsed = backupsGet.input.safeParse(input);
-        if (!parsed.success) {
+        // dispatcher가 route.input을 이미 검사해 parsed.data를 넘긴다.
+        // 여기서 safeParse를 반복하지 않는다.
+        const created = (input as { created_at?: string }).created_at;
+        if (typeof created !== "string") {
           return err({
             code: "invalid_input",
-            message: "invalid read body",
+            message: "created_at이 없다",
           });
         }
-        const found = await findBackup(dataRoot, parsed.data.created_at);
+        const found = await findBackup(dataRoot, created);
         if (found === undefined) {
           return err({ code: "not_found", message: "backup이 없다" });
         }

@@ -1,4 +1,4 @@
-import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
+import { err, formatSeq, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import {
   BACKUP_EXCLUSIONS,
   BACKUP_LEDGER_PATH,
@@ -25,6 +25,11 @@ export const BACKUP_DIR_NAME = "backups";
 
 // 최근 완료 묶음 보존 수(R12).
 export const BACKUP_KEEP_COMPLETE = 7;
+
+// SQL literal에 들어가는 문자열. quote 두 개로 escape한다('' = quote 하나).
+function sqlQuote(value: string): string {
+  return value.replace(/'/g, "''");
+}
 
 // clock 시각(YYYY-MM-DDTHH:mm:ss.sssZ)을 filename-safe 폴더 stamp로 바꾼다.
 export function backupStamp(at: string): Result<string> {
@@ -149,34 +154,47 @@ export async function retainBackups(
 }
 
 // snapshot S의 blob을 <stamp>/blobs/sha256/<2>/<62>로 복사하고 실제 바이트를
-// 다시 검증한다(R10). 원본 blob은 0400 파일이므로 그대로 읽어 옮긴다.
+// 다시 검증한다(R10). 원본 blob은 0400 파일이므로 그대로 읽어 온긴다. 같은 blob을
+// 가리키는 blob_refs 행이 여러 개여도 복사는 한 번이다(같은 hash 대상 재쓰기 금지).
 async function copyBlobs(
   root: string,
   directory: string,
-  refs: readonly { hash: string; sizeBytes: number }[],
+  refs: readonly { hash: string; sizeBytes: bigint }[],
 ): Promise<Result<BackupBlobCopy[]>> {
-  const blobs: BackupBlobCopy[] = [];
+  // 같은 hash가 여러 참조에 있으면 첫 size만 본다. 등록 size가 다르면 이미
+  // 검사가 실패한다(R10). dedupe는 검사 전에 보든다.
+  const seen = new Map<string, bigint>();
   for (const ref of refs) {
-    const source = `${root}/blobs/sha256/${ref.hash.slice(0, 2)}/${
-      ref.hash.slice(2)
-    }`;
-    let bytes: Uint8Array;
-    try {
-      bytes = await Deno.readFile(source);
-    } catch {
-      // blob 존재 실패다. 참조가 남아도 실제 내용이 빠진 묶음은 미완성이다(R10).
-      return err({ code: "unavailable", message: "snapshot blob이 없다" });
-    }
-    // 실제 sha256을 다시 계산한다. 등록 hash·size와 다르면 검증 실패다(R10).
-    const digest = await sha256Hex(bytes);
-    if (digest !== ref.hash || bytes.length !== ref.sizeBytes) {
+    const known = seen.get(ref.hash);
+    if (known !== undefined && known !== ref.sizeBytes) {
       return err({
         code: "unavailable",
         message: "blob 내용이 등록 hash와 다르다",
       });
     }
-    const target = `${directory}/blobs/sha256/${ref.hash.slice(0, 2)}/${
-      ref.hash.slice(2)
+    if (known === undefined) seen.set(ref.hash, ref.sizeBytes);
+  }
+  const blobs: BackupBlobCopy[] = [];
+  for (const [hash, registered] of seen) {
+    const source = `${root}/blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`;
+    let bytes: Uint8Array;
+    try {
+      bytes = await Deno.readFile(source);
+    } catch {
+      // blob 존재 실패다. 참조가 남앴도 실제 내용이 빠진 묶음은 미완성이다(R10).
+      return err({ code: "unavailable", message: "snapshot blob이 없다" });
+    }
+    // 실제 sha256을 다시 계산한다. 등록 hash·size와 다르면 검증 실패다(R10).
+    // size_bytes는 ledger 연결이 bigint로 돌려주므로 Number로 명시히 좁힌다.
+    const digest = await sha256Hex(bytes);
+    if (digest !== hash || bytes.length !== Number(registered)) {
+      return err({
+        code: "unavailable",
+        message: "blob 내용이 등록 hash와 다르다",
+      });
+    }
+    const target = `${directory}/blobs/sha256/${hash.slice(0, 2)}/${
+      hash.slice(2)
     }`;
     try {
       await Deno.mkdir(target.slice(0, target.lastIndexOf("/")), {
@@ -187,17 +205,17 @@ async function copyBlobs(
     } catch {
       return err({ code: "unavailable", message: "blob 복사에 실패했다" });
     }
-    blobs.push({ hash: ref.hash, sizeBytes: bytes.length });
+    blobs.push({ hash, sizeBytes: bytes.length });
   }
   return ok(blobs);
 }
 
 // blob_refs와 through_seq는 snapshot S에 고정된다. 열린 원본에서 따로 읽으면
-// vacuum과 시점이 어갇나무로, S를 만든 copy 안에서 읽는다(R8, R9). SQLite
+// vacuum과 시점이 어긋나므로, S를 만든 copy 안에서 읽는다(R8, R9). SQLite
 // 연결은 ledger 연결(sql 경계)로 열고, 이 모듈은 DatabaseSync를 import하지 않는다.
 function snapshotRefs(
   copyPath: string,
-): Result<{ hash: string; sizeBytes: number }[]> {
+): Result<{ hash: string; sizeBytes: bigint }[]> {
   const opened = openConnection(copyPath);
   if (!opened.ok) {
     return err({
@@ -212,8 +230,10 @@ function snapshotRefs(
         "select hash, size_bytes from blob_refs order by hash",
         [],
       ).map((row) => ({
+        // size_bytes는 setReadBigInts가 bigint로 돌려준다. dedupe 검사에선 bigint를
+        // 그대로 본다.
         hash: String(row["hash"]),
-        sizeBytes: Number(row["size_bytes"]),
+        sizeBytes: row["size_bytes"] as bigint,
       })),
     );
   } catch {
@@ -237,7 +257,15 @@ function snapshotThroughSeq(copyPath: string): Result<string> {
       "select coalesce(max(seq), 0) as seq from events",
       [],
     );
-    return ok(String(head?.["seq"] ?? "0"));
+    // seq는 setReadBigInts가 bigint로 돌려준다. API는 십진 문자열로만 오간다(base formatSeq).
+    const raw = head?.["seq"];
+    if (typeof raw !== "bigint") {
+      return err({
+        code: "unavailable",
+        message: "snapshot seq\ub97c \uc77d\uc9c0 \ubabb\ud588\ub2e4",
+      });
+    }
+    return ok(formatSeq(raw));
   } catch {
     return err({ code: "unavailable", message: "snapshot seq를 읽지 못했다" });
   } finally {
@@ -245,7 +273,7 @@ function snapshotThroughSeq(copyPath: string): Result<string> {
   }
 }
 
-// copy의 SQLite 무결성 검사. pragma는 handler SQL이 못 사용하미로 ledger 연결의
+// copy의 SQLite 무결성 검사. pragma는 handler SQL이 못 쓰므로 ledger 연결의
 // integrityOk 경계로 보다. copy는 검사 외에 쓰지 않는다.
 function verifyCopyIntegrity(copyPath: string): boolean {
   const opened = openConnection(copyPath);
@@ -267,6 +295,7 @@ async function installManifest(
     await Deno.writeTextFile(
       `${directory}/${BACKUP_MANIFEST_NAME}`,
       JSON.stringify(manifest, null, "  ") + "\n",
+      { mode: 0o600 },
     );
   } catch {
     return err({ code: "unavailable", message: "manifest를 남기지 못했다" });
@@ -314,6 +343,7 @@ export async function createBackup(
     await Deno.writeTextFile(
       `${directory}/${BACKUP_PENDING_NAME}`,
       "pending\n",
+      { mode: 0o600 },
     );
   } catch {
     return err({ code: "unavailable", message: "진행 표시를 남기지 못했다" });
@@ -325,7 +355,11 @@ export async function createBackup(
   const connection = opened.value;
   let failure: Result<never> | undefined;
   try {
-    connection.exec(`vacuum into '${directory}/${BACKUP_LEDGER_PATH}'`);
+    // exec는 raw SQL이다. path가 SQL literal에 그대로 들어가지 않게 ''으로
+    // escape한다(R10 확인: path의 곧은 따옴표는 syntax error가 난다).
+    connection.exec(
+      `vacuum into '${(sqlQuote(`${directory}/${BACKUP_LEDGER_PATH}`))}'`,
+    );
   } catch {
     failure = err({
       code: "unavailable",

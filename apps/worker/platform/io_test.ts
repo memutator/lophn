@@ -12,7 +12,7 @@ import {
 import { manualClock } from "../../../packages/base/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../../packages/platform/ledger/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../../packages/platform/settings/mod.ts";
-import { createPlatformIo } from "./io.ts";
+import { createBackupTick, createPlatformIo } from "./io.ts";
 
 const hello = {
   type: "hello",
@@ -225,27 +225,31 @@ Deno.test("platform/diagnostics#R3 platform/redaction#R15 real product pipe EOF 
   }
 });
 
-// backup scheduler 지평(platform/backup-and-migration#R12, platform/responsiveness#R1).
-// product entry의 daily check는 완료 manifest가 하루 안이면 아무것도 만들지 않는다.
+// backup scheduler 지평(platform/backup-and-migration#R9, R12,
+// platform/responsiveness#R1). product entry의 tick은 만들기가 진행 중이면
+// 건너뛴다: 두 snapshot이 겹치지 않는다(R9). completion이 끝나면 다음 tick이
+// 다시 본다(R12).
 Deno.test(
-  "platform/backup-and-migration#R12: entry의 daily check는 하루 안이면 만들지 않는다",
+  "platform/backup-and-migration#R9 #R12: entry의 tick은 만들기가 진행 중이면 건너뛴다",
   async () => {
     const root = await Deno.makeTempDir({ prefix: "io-backup-" });
     try {
-      // 실제 ledger와 blob을 준비한다.
+      // 실제 ledger를 준비한다(빈 events 표 대신 schema가 설치된 진짜 원본).
       const path = `${root}/lophn.db`;
       const steps = [...LEDGER_SCHEMA_STEPS, ...SETTINGS_SCHEMA_STEPS];
       const applied = await applyMigrations(path, steps, {
         clock: manualClock(Date.parse("2026-01-01T00:00:00.000Z")),
       });
       assert(applied.ok);
-      // 완료 manifest를 남긴다(created_at이 지금이다).
+      // manual clock: backupDue가 거짓이 되는 최근 완료 manifest를 남긴다.
+      const now = Date.now();
+      const clock = manualClock(now);
       const directory = `${root}/backups/20260102T000000000Z`;
       const manifest = {
         format: 1,
         schema_version: steps.length,
         through_seq: "0",
-        created_at: new Date(Date.now() - 1000).toISOString(),
+        created_at: new Date(now - 1000).toISOString(),
         ledger_hash: "0".repeat(64),
         ledger_path: "ledger.db",
         blobs: [],
@@ -259,20 +263,39 @@ Deno.test(
         `${directory}/${BACKUP_MANIFEST_NAME}`,
         JSON.stringify(manifest),
       );
-      // backupDue가 거짓이면 만들 차례가 아니다. entry의 check도 이 판정을 쓴다.
-      const entries: string[] = [];
-      for await (const entry of Deno.readDir(`${root}/backups`)) {
-        entries.push(entry.name);
+      // backupDue가 거짓이므로 이 check는 아무것도 만들지 않는다.
+      const entry = createBackupTick(root, clock);
+      entry.tick();
+      await entry.settle();
+      const entries1: string[] = [];
+      for await (const folder of Deno.readDir(`${root}/backups`)) {
+        entries1.push(folder.name);
       }
-      // 하루가 지나지 않았으므로 새 stamp folder가 더 생기지 않는다.
-      const { backupDue } = await import(
+      // 24시간을 앞당긴다. 이번 tick은 만든다.
+      clock.advance(24 * 60 * 60 * 1000);
+      entry.tick();
+      // 만들기가 진행 중이다. 도중 tick은 겹치는 만들기를 시작하지 않는다(R9).
+      // tick을 연달아 부른다. inFlight가 참이면 뒤 tick은 건너뛴다.
+      entry.tick();
+      entry.tick();
+      await entry.settle();
+      assertEquals(entry.inFlight, false);
+      // completion이 끝났다. completion이 만든 완료 manifest folder를 센다.
+      const entries2: string[] = [];
+      for await (const folder of Deno.readDir(`${root}/backups`)) {
+        entries2.push(folder.name);
+      }
+      // 하나만 늘었다. 겹치는 만들기가 없었다(R9).
+      assertEquals(entries2.length, 2);
+      // 만들기가 실제로 통과했다(R12 확인): 완료 manifest가 생겼다.
+      const listed = (await import(
         "../../../packages/platform/backup-and-migration/mod.ts"
+      )).listBackups;
+      const backups = (await listed(root)).backups.filter((item) =>
+        item.complete
       );
-      assertEquals(
-        await backupDue(root, new Date().toISOString(), 24 * 60 * 60 * 1000),
-        false,
-      );
-      assertEquals(entries, ["20260102T000000000Z"]);
+      assertEquals(backups.length, 2);
+      entry.close();
     } finally {
       await Deno.remove(root, { recursive: true });
     }

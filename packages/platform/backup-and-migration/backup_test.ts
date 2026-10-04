@@ -456,3 +456,123 @@ Deno.test(
     await Deno.remove(dir, { recursive: true });
   },
 );
+
+Deno.test(
+  "platform/backup-and-migration#R8 #R10: event와 blob이 있는 ledger의 manifest가 seqSchema를 통과하고 기록된다",
+  async () => {
+    const dir = await tempDir();
+    const { path, version } = await ledger(dir);
+    // event 두 개 + blob 두 개의 실제 원본이다. 빈 ledger가 아니다.
+    const one = await seedBlob(dir, "event body one");
+    const two = await seedBlob(dir, "event body two");
+    const stamp = backupStamp("2026-02-01T03:04:05.678Z");
+    assert(stamp.ok);
+    const backup = await createBackup(path, {
+      root: dir,
+      schemaVersion: version,
+      stamp: stamp.value,
+      now: () => "2026-02-01T03:04:06.000Z",
+    });
+    assert(backup.ok);
+    const manifest = backup.value;
+    // events seq는 bigint로 읽힌다. manifest는 십진 문자열로 남는다(seqSchema).
+    assertEquals(manifest.through_seq, "2");
+    // size_bytes도 oracle 대로가 아니라 실제 바이트 길이다.
+    assertEquals(manifest.blobs.length, 2);
+    for (const blob of manifest.blobs) {
+      assertEquals(typeof blob.size_bytes, "number");
+      assert(Number.isSafeInteger(blob.size_bytes));
+      assert(blob.size_bytes > 0);
+    }
+    // manifest.json 파일이 실제로 남는다. JSON.parse도 bigint 예외 없이 통과한다.
+    const written = await manifestOf(dir, stamp.value);
+    assertEquals(written["through_seq"], "2");
+    // 원본 events seq와 같다. bigint -> string 변환을 명시히 좁힌 결과다.
+    const db = new DatabaseSync(
+      `${dir}/backups/${stamp.value}/ledger.db`,
+      { readOnly: true },
+    );
+    const copySeq = db.prepare(
+      "select max(seq) as seq from events",
+    ).get() as { seq: number | bigint };
+    db.close();
+    assertEquals(String(copySeq["seq"]), manifest.through_seq);
+    void one;
+    void two;
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R10: 같은 blob을 가리키는 참조가 여러 개면 한 번만 복사한다",
+  async () => {
+    const dir = await tempDir();
+    const { path, version } = await ledger(dir);
+    const hash = await seedBlob(dir, "shared blob body");
+    // 같은 hash를 두 번째 참조로 다시 등록한다. hash는 PK에 있으므로 다른 owner다.
+    const db = new DatabaseSync(`${dir}/lophn.db`);
+    try {
+      db.prepare(
+        "insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes, registered_seq) values (?, ?, ?, ?, ?, ?)",
+      ).run(
+        "document_version",
+        "doc_2",
+        "file",
+        hash,
+        new TextEncoder().encode("shared blob body").length,
+        1,
+      );
+    } finally {
+      db.close();
+    }
+    const stamp = backupStamp("2026-02-02T03:04:05.678Z");
+    assert(stamp.ok);
+    const backup = await createBackup(path, {
+      root: dir,
+      schemaVersion: version,
+      stamp: stamp.value,
+      now: () => "2026-02-02T03:04:06.000Z",
+    });
+    assert(backup.ok);
+    // 중복 참조도 manifest blob은 하나다(이미 등록된 원본 blob이 1개라서도 아니다).
+    assertEquals(backup.value.blobs.length, 1);
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R9: root 경로에 quote가 있어도 snapshot을 만든다",
+  async () => {
+    // temp dir 이름에 곧은 quote를 넣는다. 사람이 준 home이 이런 값을 가질 수 있으므로
+    // path를 SQL literal에 직접 넣지 않는다.
+    const base = await tempDir();
+    const dir = `${base}/quo'te-root`;
+    await Deno.mkdir(dir, { recursive: true });
+    try {
+      const { path, version } = await ledger(dir);
+      const stamp = backupStamp("2026-02-03T03:04:05.678Z");
+      assert(stamp.ok);
+      const backup = await createBackup(path, {
+        root: dir,
+        schemaVersion: version,
+        stamp: stamp.value,
+        now: () => "2026-02-03T03:04:06.000Z",
+      });
+      assert(backup.ok);
+      // vacuum into가 quote를 escape해 snapshot이 실제로 남는다.
+      const copy = new DatabaseSync(
+        `${dir}/backups/${stamp.value}/ledger.db`,
+        { readOnly: true },
+      );
+      const rows = copy.prepare(
+        "select count(*) as n from sqlite_master",
+      ).get() as { n: number };
+      copy.close();
+      assert(rows.n > 0);
+      await Deno.remove(base, { recursive: true });
+    } catch (error) {
+      await Deno.remove(base, { recursive: true }).catch(() => {});
+      throw error;
+    }
+  },
+);

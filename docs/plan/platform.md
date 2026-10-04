@@ -870,6 +870,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T40 migration 완성: 정지, 복구본, 검증
 
+- 상태: 완료 (#149)
 - 등급: 기본
 - concern: platform/backup-and-migration
 - 요구: platform/backup-and-migration#R2, R3, R5, R7, R18

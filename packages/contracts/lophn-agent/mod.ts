@@ -19,4 +19,8 @@ export * from "./preset-values.ts";
 export * from "./presets.ts";
 export * from "./assignment-values.ts";
 export * from "./assignments.ts";
+export * from "./tool-values.ts";
+export * from "./tool-calls.ts";
+export * from "./traces.ts";
+export * from "./mcp-settings.ts";
 export { EVENTS, ROUTES } from "./registry.ts";

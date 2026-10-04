@@ -7,6 +7,8 @@ import { HANDOFF_ROUTES } from "./handoffs.ts";
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
 import { PRESET_EVENTS, PRESET_ROUTES } from "./presets.ts";
 import { ASSIGNMENT_EVENTS, ASSIGNMENT_ROUTES } from "./assignments.ts";
+import { TOOL_CALL_EVENTS, TOOL_CALL_ROUTES } from "./tool-calls.ts";
+import { TRACE_ROUTES } from "./traces.ts";
 
 export const ROUTES = [
   ...RUN_COMMANDS,
@@ -18,6 +20,8 @@ export const ROUTES = [
   ...REVERT_ROUTES,
   ...PRESET_ROUTES,
   ...ASSIGNMENT_ROUTES,
+  ...TOOL_CALL_ROUTES,
+  ...TRACE_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -29,4 +33,5 @@ export const EVENTS = [
   ...REVERT_EVENTS,
   ...PRESET_EVENTS,
   ...ASSIGNMENT_EVENTS,
+  ...TOOL_CALL_EVENTS,
 ] as const;

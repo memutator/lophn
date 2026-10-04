@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  type App,
-  appGet,
-  appList,
-} from "../../contracts/apps/mod.ts";
+import { type App, appGet, appList } from "../../contracts/apps/mod.ts";
 import type { ReadDefinition } from "../../contracts/platform/mod.ts";
 import { authorizeApp } from "./model.ts";
 import { loadApp, loadApps } from "./store.ts";

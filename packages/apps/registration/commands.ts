@@ -17,9 +17,9 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { createPlaceNameReservation } from "../../documents/addressing/mod.ts";
+import { placeNameReservation } from "../../contracts/documents/mod.ts";
 import { resolveSourcePath } from "./adapters/source-path.ts";
-import { authorizeApp, type AppAccessTarget } from "./model.ts";
+import { type AppAccessTarget, authorizeApp } from "./model.ts";
 import { insertApp, loadApp, replaceApp } from "./store.ts";
 
 function forbidden(message: string): Result<never> {
@@ -47,6 +47,14 @@ function requireWriter(ctx: RequestContext): Result<void> {
     : forbidden("app changes are user or coding connection only");
 }
 
+// 등록은 전체 범위 요청만 받는다(R3). 앱 하나 scope의 conditions.app은
+// 새 앱 id를 가리킬 수 없으므로 connection scope가 앱이면 거른다.
+function requireWholeScope(ctx: RequestContext): Result<void> {
+  return ctx.conditions.app === undefined
+    ? ok(undefined)
+    : forbidden("app registration is a whole-scope request only");
+}
+
 function requireUser(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "user"
     ? ok(undefined)
@@ -66,9 +74,9 @@ function accessTarget(
 }
 
 // 등록 뒤 place 예약은 documents/addressing을 따른다(R6, R10). Project와 같은
-// 이름 공간이라 Project slug와 겹치면 conflict다.
+// 이름 공간이라 Project slug와 겹치면 conflict다. 구현은 core 조립이 등록한 port다.
 export function reserveSlug(tx: Tx, app: App): Result<void> {
-  return createPlaceNameReservation(tx).reserve(
+  return tx.port(placeNameReservation).reserve(
     app.slug,
     { kind: "app", id: app.id },
     app.revision,
@@ -87,9 +95,8 @@ export function createAppCommands(): {
       handle(tx, ctx, input) {
         const actor = requireWriter(ctx);
         if (!actor.ok) return actor;
-        // 등록은 전체 범위 요청만 받는다(R3). 앱 하나 scope connection의
-        // conditions.app은 등록 대상 조건이 없어 platform 검사가 놓친다.
-        // target.app을 새 앱 id로 채우면 conditions.app과 다른 값이라 거절된다.
+        const whole = requireWholeScope(ctx);
+        if (!whole.ok) return whole;
         const id = tx.newId("app");
         const candidate: App = {
           id,

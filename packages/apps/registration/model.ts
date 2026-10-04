@@ -115,9 +115,7 @@ export function suggestAppName(slug: string): string {
     .map((word) =>
       // 한 토큰 안에 소문자가 있으면(예: usageReport) 첫 글자만 대문자로 맞춘다.
       // 소문자가 없으면(MAHAS, usage2) 사람이 쓴 대·소문자를 보존한다.
-      /[a-z]/.test(word)
-        ? word.charAt(0).toUpperCase() + word.slice(1)
-        : word
+      /[a-z]/.test(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word
     )
     .join(" ")
     .trim();

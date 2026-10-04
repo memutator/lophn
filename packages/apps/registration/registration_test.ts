@@ -43,6 +43,10 @@ async function createLedgerHarness(options: {
 }
 
 const registration = new URL("../../../apps/core/apps.ts", import.meta.url);
+const documents = new URL(
+  "../../../apps/core/documents.ts",
+  import.meta.url,
+);
 
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 
@@ -53,10 +57,15 @@ const operations = [
   "app.unarchive",
   "app.list",
   "app.get",
+  // place_names 이름 공간을 나누는(R6) project command다.
+  "project.create",
   "CommandResult",
 ];
 
-function credential(actor = "user", overrides: Partial<AuthenticatedContext> = {}): AuthenticatedContext {
+function credential(
+  actor = "user",
+  overrides: Partial<AuthenticatedContext> = {},
+): AuthenticatedContext {
   return {
     actor,
     principal: "test-user",
@@ -108,7 +117,8 @@ async function harness(
 ): Promise<LedgerHarness> {
   return value(
     await createLedgerHarness({
-      registrationModules: [registration],
+      // place_names 표와 project command는 documents 등록의 몫이다(R6).
+      registrationModules: [documents, registration],
       credentials,
     }),
   );
@@ -128,7 +138,11 @@ async function create(
 ) {
   return await opened.command(
     user,
-    envelope("app.create", idempotency, createInput(slug, "Usage", planning_version)),
+    envelope(
+      "app.create",
+      idempotency,
+      createInput(slug, "Usage", planning_version),
+    ),
   );
 }
 
@@ -136,15 +150,28 @@ Deno.test("apps/registration#R1: screenless and screen apps register apart from 
   const opened = await harness();
   try {
     commandResult(await create(opened, "collector"));
-    commandResult(await opened.command(
-      user,
-      envelope("app.create", "create-screen", createInput("viewer", "Viewer")),
-    ));
-    const stored = rows(await opened.inspect("select id, slug, status from apps order by id", []));
+    commandResult(
+      await opened.command(
+        user,
+        envelope(
+          "app.create",
+          "create-screen",
+          createInput("viewer", "Viewer"),
+        ),
+      ),
+    );
+    const stored = rows(
+      await opened.inspect("select id, slug, status from apps order by id", []),
+    );
     assertEquals(stored.length, 2);
     assertEquals(stored.every((row) => row.status === "active"), true);
     // 문서 등록과 별개 표다.
-    const places = rows(await opened.inspect("select kind, target from place_names order by kind", []));
+    const places = rows(
+      await opened.inspect(
+        "select kind, target from place_names order by kind",
+        [],
+      ),
+    );
     assertEquals(places.every((row) => row.kind === "app"), true);
   } finally {
     await opened.close();
@@ -186,7 +213,10 @@ Deno.test("apps/registration#R2: register without source, release or planning ve
     ) as {
       apps: { slug: string; source_path: string | null }[];
     };
-    assertEquals(listed.apps.map((app) => app.slug).sort(), ["bare", "planned"]);
+    assertEquals(listed.apps.map((app) => app.slug).sort(), [
+      "bare",
+      "planned",
+    ]);
     assertEquals(listed.apps.every((app) => app.source_path === null), true);
   } finally {
     await opened.close();
@@ -197,11 +227,12 @@ Deno.test("apps/registration#R3: wide-scope connection registers, app-scope conn
   const opened = await harness([user, coding]);
   try {
     // 전체 범위 coding connection의 등록은 user 등록과 같다.
-    const registered = commandResult(await opened.command(
-      coding,
-      envelope("app.create", "create-coded", createInput("coded", "Coded")),
-    ));
-    assertEquals((registered.result as { id: string }).id, (registered.result as { id: string }).id);
+    const registered = commandResult(
+      await opened.command(
+        coding,
+        envelope("app.create", "create-coded", createInput("coded", "Coded")),
+      ),
+    );
     const stored = rows(await opened.inspect("select slug from apps", []));
     assertEquals(stored.map((row) => row.slug), ["coded"]);
     // 앱 하나 scope connection의 conditions.app은 새 앱 id와 같을 수 없다.
@@ -214,7 +245,11 @@ Deno.test("apps/registration#R3: wide-scope connection registers, app-scope conn
     code(
       await opened.command(
         appScoped,
-        envelope("app.create", "create-scoped", createInput("scoped", "Scoped")),
+        envelope(
+          "app.create",
+          "create-scoped",
+          createInput("scoped", "Scoped"),
+        ),
       ),
       "forbidden",
     );
@@ -243,27 +278,33 @@ Deno.test("apps/registration#R4: connect a git folder outside the managed store 
       await Deno.mkdir(`${folder}/.git`);
       const created = commandResult(await create(opened));
       const id = (created.result as { id: string }).id;
-      const base = value(await opened.read(
-        { resource: "apps", method: "get" },
-        user,
-        { app: id },
-      )) as { app: { revision: string } };
-      const connected = commandResult(await opened.command(
-        user,
-        envelope(
-          "app.connect_source",
-          "connect-usage",
-          { app: id, source_path: folder },
-          { base_revision: base.app.revision },
+      const base = value(
+        await opened.read(
+          { resource: "apps", method: "get" },
+          user,
+          { app: id },
         ),
-      ));
+      ) as { app: { revision: string } };
+      const connected = commandResult(
+        await opened.command(
+          user,
+          envelope(
+            "app.connect_source",
+            "connect-usage",
+            { app: id, source_path: folder },
+            { base_revision: base.app.revision },
+          ),
+        ),
+      );
       const result = connected.result as { source_path: string | null };
       assertEquals(result.source_path, folder);
-      const got = value(await opened.read(
-        { resource: "apps", method: "get" },
-        user,
-        { app: id },
-      )) as { app: { source_path: string | null } };
+      const got = value(
+        await opened.read(
+          { resource: "apps", method: "get" },
+          user,
+          { app: id },
+        ),
+      ) as { app: { source_path: string | null; revision: string } };
       assertEquals(got.app.source_path, folder);
       // git 폴더가 아니면 연결하지 않는다.
       const bare = await Deno.makeTempDir({
@@ -277,7 +318,7 @@ Deno.test("apps/registration#R4: connect a git folder outside the managed store 
               "app.connect_source",
               "connect-bare",
               { app: id, source_path: bare },
-              { base_revision: base.app.revision },
+              { base_revision: got.app.revision },
             ),
           ),
           "invalid_input",
@@ -303,39 +344,49 @@ Deno.test("apps/registration#R5: reconnecting source keeps active_release and ap
       await Deno.mkdir(`${moved}/.git`);
       const created = commandResult(await create(opened));
       const id = (created.result as { id: string }).id;
-      const before = value(await opened.read(
-        { resource: "apps", method: "get" },
-        user,
-        { app: id },
-      )) as { app: { revision: string } };
-      commandResult(await opened.command(
-        user,
-        envelope(
-          "app.connect_source",
-          "connect-first",
-          { app: id, source_path: folder },
-          { base_revision: before.app.revision },
+      const before = value(
+        await opened.read(
+          { resource: "apps", method: "get" },
+          user,
+          { app: id },
         ),
-      ));
-      const first = value(await opened.read(
-        { resource: "apps", method: "get" },
-        user,
-        { app: id },
-      )) as { app: { revision: string; active_release: string | null } };
-      commandResult(await opened.command(
-        user,
-        envelope(
-          "app.connect_source",
-          "connect-second",
-          { app: id, source_path: moved },
-          { base_revision: first.app.revision },
+      ) as { app: { revision: string } };
+      commandResult(
+        await opened.command(
+          user,
+          envelope(
+            "app.connect_source",
+            "connect-first",
+            { app: id, source_path: folder },
+            { base_revision: before.app.revision },
+          ),
         ),
-      ));
-      const second = value(await opened.read(
-        { resource: "apps", method: "get" },
-        user,
-        { app: id },
-      )) as {
+      );
+      const first = value(
+        await opened.read(
+          { resource: "apps", method: "get" },
+          user,
+          { app: id },
+        ),
+      ) as { app: { revision: string; active_release: string | null } };
+      commandResult(
+        await opened.command(
+          user,
+          envelope(
+            "app.connect_source",
+            "connect-second",
+            { app: id, source_path: moved },
+            { base_revision: first.app.revision },
+          ),
+        ),
+      );
+      const second = value(
+        await opened.read(
+          { resource: "apps", method: "get" },
+          user,
+          { app: id },
+        ),
+      ) as {
         app: {
           source_path: string | null;
           active_release: string | null;
@@ -347,10 +398,12 @@ Deno.test("apps/registration#R5: reconnecting source keeps active_release and ap
       // active_release는 source 재연결 전후 같다.
       assertEquals(second.app.active_release, first.app.active_release);
       // 상태와 run 허용도 건드리지 않는다.
-      const stored = rows(await opened.inspect(
-        "select status, run_enabled from apps where id = ?",
-        [id],
-      ));
+      const stored = rows(
+        await opened.inspect(
+          "select status, run_enabled from apps where id = ?",
+          [id],
+        ),
+      );
       assertEquals(stored[0]?.status, "active");
       assertEquals(Number(stored[0]?.run_enabled), 0);
     } finally {
@@ -367,30 +420,36 @@ Deno.test("apps/registration#R6: a slug owned by an existing folder conflicts an
   try {
     // documents의 project가 같은 이름 공간을 쓴다. 비소유 project 폴더가 먼저 있다.
     const projectId = "prj_01arz3ndektsv4rrffq69g5fav";
-    commandResult(await opened.command(
-      user,
-      envelope("project.create", "create-project", {
-        id: projectId,
-        name: "shared",
-        title: "Shared",
-        purpose: "keep notes",
-        folders: [],
-        tracking: { enabled: false, patterns: [], use_gitignore: false },
-      }),
-    ));
-    const folderBefore = rows(await opened.inspect(
-      "select kind, target, reserved_seq from place_names where slug = ?",
-      ["shared"],
-    ));
+    commandResult(
+      await opened.command(
+        user,
+        envelope("project.create", "create-project", {
+          id: projectId,
+          name: "shared",
+          title: "Shared",
+          purpose: "keep notes",
+          folders: [],
+          tracking: { enabled: false, patterns: [], use_gitignore: false },
+        }),
+      ),
+    );
+    const folderBefore = rows(
+      await opened.inspect(
+        "select kind, target, reserved_seq from place_names where slug = ?",
+        ["shared"],
+      ),
+    );
     assertEquals(folderBefore.length, 1);
     assertEquals(folderBefore[0]?.kind, "project");
     assertEquals(folderBefore[0]?.target, projectId);
     code(await create(opened, "shared", "create-app-shared"), "conflict");
     // 비소유 폴더의 내용과 주인이 바뀌지 않는다.
-    const folderAfter = rows(await opened.inspect(
-      "select kind, target, reserved_seq from place_names where slug = ?",
-      ["shared"],
-    ));
+    const folderAfter = rows(
+      await opened.inspect(
+        "select kind, target, reserved_seq from place_names where slug = ?",
+        ["shared"],
+      ),
+    );
     assertEquals(folderAfter, folderBefore);
     const apps = rows(await opened.inspect("select id from apps", []));
     assertEquals(apps, []);
@@ -399,36 +458,68 @@ Deno.test("apps/registration#R6: a slug owned by an existing folder conflicts an
   }
 });
 
-Deno.test("apps/registration#R7: suggested name from the slug and the entered name wins", () => {
+Deno.test("apps/registration#R7: suggested name from the slug and the entered name wins", async () => {
   assertEquals(suggestAppName("usage-report"), "Usage Report");
   assertEquals(suggestAppName("usage_report"), "Usage Report");
   assertEquals(suggestAppName("mahas"), "Mahas");
   assertEquals(suggestAppName("MAHAS"), "MAHAS");
   assertEquals(suggestAppName("-leading--trailing_"), "Leading Trailing");
   // 사람이 입력한 이름은 그대로 쓴다.
+  const opened = await harness();
+  try {
+    commandResult(
+      await opened.command(
+        user,
+        envelope("app.create", "create-mahas", {
+          slug: "mahas",
+          name: "MAHAS",
+          description: "keep mahas",
+        }),
+      ),
+    );
+    const got = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        {
+          app: rows(await opened.inspect("select id from apps", []))[0]
+            ?.id as string,
+        },
+      ),
+    ) as { app: { name: string } };
+    assertEquals(got.app.name, "MAHAS");
+  } finally {
+    await opened.close();
+  }
 });
 
 Deno.test("apps/registration#R8: archive stores run_enabled=false and unarchive keeps it", async () => {
-  const opened = await harness();
+  const opened = await harness([user, coding]);
   try {
     const created = commandResult(await create(opened));
     const id = (created.result as { id: string }).id;
-    const active = value(await opened.read(
-      { resource: "apps", method: "get" },
-      user,
-      { app: id },
-    )) as { app: { revision: string } };
-    commandResult(await opened.command(
-      user,
-      envelope("app.archive", "archive-usage", { app: id }, {
-        base_revision: active.app.revision,
-      }),
-    ));
-    const archived = value(await opened.read(
-      { resource: "apps", method: "get" },
-      user,
-      { app: id },
-    )) as { app: { status: string; run_enabled: boolean; revision: string } };
+    const active = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { revision: string } };
+    commandResult(
+      await opened.command(
+        user,
+        envelope("app.archive", "archive-usage", { app: id }, {
+          base_revision: active.app.revision,
+        }),
+      ),
+    );
+    const archived = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { status: string; run_enabled: boolean; revision: string } };
     assertEquals(archived.app.status, "archived");
     assertEquals(archived.app.run_enabled, false);
     // coding agent의 보관 해제는 route actors에서 거른다.
@@ -441,17 +532,21 @@ Deno.test("apps/registration#R8: archive stores run_enabled=false and unarchive 
       ),
       "forbidden",
     );
-    commandResult(await opened.command(
-      user,
-      envelope("app.unarchive", "unarchive-usage", { app: id }, {
-        base_revision: archived.app.revision,
-      }),
-    ));
-    const unarchived = value(await opened.read(
-      { resource: "apps", method: "get" },
-      user,
-      { app: id },
-    )) as { app: { status: string; run_enabled: boolean } };
+    commandResult(
+      await opened.command(
+        user,
+        envelope("app.unarchive", "unarchive-usage", { app: id }, {
+          base_revision: archived.app.revision,
+        }),
+      ),
+    );
+    const unarchived = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { status: string; run_enabled: boolean } };
     assertEquals(unarchived.app.status, "active");
     assertEquals(unarchived.app.run_enabled, false);
   } finally {
@@ -464,27 +559,35 @@ Deno.test("apps/registration#R9: archive keeps the place and the history", async
   try {
     const created = commandResult(await create(opened));
     const id = (created.result as { id: string }).id;
-    const active = value(await opened.read(
-      { resource: "apps", method: "get" },
-      user,
-      { app: id },
-    )) as { app: { revision: string } };
-    commandResult(await opened.command(
-      user,
-      envelope("app.archive", "archive-usage", { app: id }, {
-        base_revision: active.app.revision,
-      }),
-    ));
+    const active = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { revision: string } };
+    commandResult(
+      await opened.command(
+        user,
+        envelope("app.archive", "archive-usage", { app: id }, {
+          base_revision: active.app.revision,
+        }),
+      ),
+    );
     // place와 event 이력은 archive 뒤에도 찾는다.
-    const places = rows(await opened.inspect(
-      "select kind, target from place_names where slug = ?",
-      ["usage"],
-    ));
+    const places = rows(
+      await opened.inspect(
+        "select kind, target from place_names where slug = ?",
+        ["usage"],
+      ),
+    );
     assertEquals(places, [{ kind: "app", target: id }]);
-    const events = rows(await opened.inspect(
-      "select type from events where subject = ? order by seq",
-      [id],
-    ));
+    const events = rows(
+      await opened.inspect(
+        "select type from events where subject = ? order by seq",
+        [id],
+      ),
+    );
     assertEquals(events.map((row) => row.type), ["AppCreated", "AppArchived"]);
   } finally {
     await opened.close();
@@ -495,26 +598,34 @@ Deno.test("apps/registration#R10: register without a project and read the indepe
   const opened = await harness();
   try {
     commandResult(await create(opened, "standalone", "create-standalone"));
-    const created = commandResult(await create(opened, "lonely", "create-lonely"));
+    const created = commandResult(
+      await create(opened, "lonely", "create-lonely"),
+    );
     const id = (created.result as { id: string }).id;
     // project 선택 없이 등록됐다.
-    const places = rows(await opened.inspect(
-      "select kind, target from place_names where slug = ?",
-      ["standalone"],
-    ));
+    const places = rows(
+      await opened.inspect(
+        "select kind, target from place_names where slug = ?",
+        ["standalone"],
+      ),
+    );
     assertEquals(places.length, 1);
     assertEquals(places[0]?.kind, "app");
-    const got = value(await opened.read(
-      { resource: "apps", method: "get" },
-      user,
-      { app: id },
-    )) as { app: { slug: string } };
+    const got = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { slug: string } };
     assertEquals(got.app.slug, "lonely");
-    const listed = value(await opened.read(
-      { resource: "apps", method: "list" },
-      user,
-      { status: "active" },
-    )) as { apps: { slug: string }[] };
+    const listed = value(
+      await opened.read(
+        { resource: "apps", method: "list" },
+        user,
+        { status: "active" },
+      ),
+    ) as { apps: { slug: string }[] };
     assertEquals(listed.apps.map((app) => app.slug).sort(), [
       "lonely",
       "standalone",
@@ -552,20 +663,24 @@ Deno.test("apps/registration#R5: a stale base_revision conflicts", async () => {
       await Deno.mkdir(`${folder}/.git`);
       const created = commandResult(await create(opened));
       const id = (created.result as { id: string }).id;
-      const current = value(await opened.read(
-        { resource: "apps", method: "get" },
-        user,
-        { app: id },
-      )) as { app: { revision: string } };
-      commandResult(await opened.command(
-        user,
-        envelope(
-          "app.connect_source",
-          "connect-first",
-          { app: id, source_path: folder },
-          { base_revision: current.app.revision },
+      const current = value(
+        await opened.read(
+          { resource: "apps", method: "get" },
+          user,
+          { app: id },
         ),
-      ));
+      ) as { app: { revision: string } };
+      commandResult(
+        await opened.command(
+          user,
+          envelope(
+            "app.connect_source",
+            "connect-first",
+            { app: id, source_path: folder },
+            { base_revision: current.app.revision },
+          ),
+        ),
+      );
       // 낡은 base_revision은 conflict다.
       code(
         await opened.command(

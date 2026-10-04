@@ -73,7 +73,5 @@ export function replaceApp(tx: Pick<Tx, "sql">, app: App): Result<void> {
       app.id,
     ],
   );
-  return Number(changed.changes) === 1
-    ? ok(undefined)
-    : invalidStored();
+  return Number(changed.changes) === 1 ? ok(undefined) : invalidStored();
 }

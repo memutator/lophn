@@ -1,15 +1,22 @@
-import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
 import {
+  appsSchemaSteps,
   createAppCommands,
   createAppsReads,
-  appsSchemaSteps,
+  lookupAppRegistration,
 } from "../../packages/apps/registration/mod.ts";
+import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
+import {
+  type PlaceNameReservation,
+  placeNameReservation,
+} from "../../packages/contracts/documents/mod.ts";
+import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
+import type { TxPortRegistration } from "../../packages/platform/ledger/mod.ts";
 
 type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
-  ports?: readonly unknown[];
+  ports?: readonly TxPortRegistration[];
 };
 
 // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
@@ -19,8 +26,8 @@ export function createLedgerRegistration(
   const commands = createAppCommands();
   const reads = createAppsReads();
   return {
-    // place_names 예약은 documents/addressing 표를 쓴다(R6, R10).
-    schemaSteps: [...addressingSchemaSteps, ...appsSchemaSteps],
+    // place_names 표는 documents 등록의 몫이다(R6, R10).
+    schemaSteps: [...appsSchemaSteps],
     commands: [
       commands.create,
       commands.connectSource,
@@ -28,7 +35,22 @@ export function createLedgerRegistration(
       commands.unarchive,
     ],
     reads: [reads.list, reads.get],
-    ports: [],
+    // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
+    // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
+    ports: [
+      {
+        key: appRegistrationLookup,
+        create: (tx) => ({
+          get: (app: string) => lookupAppRegistration(tx.sql, app),
+        }),
+      },
+      // documents가 하나로 나눈 place 이름 공간이다(dm#C7). documents 조립도 같은
+      // 구현을 등록하므로 harness 등록을 겹치지 않게 documents만 실지 등록했다.
+      {
+        key: placeNameReservation,
+        create: (tx) => createPlaceNameReservation(tx) as PlaceNameReservation,
+      },
+    ],
   };
 }
 

@@ -4,12 +4,13 @@ import {
   appArchive,
   appConnectSource,
   appCreate,
+  appDisableExecution,
+  appEnableExecution,
   appGet,
   appList,
   appSchema,
   appUnarchive,
-} from "./apps.ts";
-import { appDisableExecution, appEnableExecution } from "./runtime.ts";
+} from "./mod.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 const app = {

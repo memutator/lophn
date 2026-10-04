@@ -5,6 +5,7 @@ import {
   assertStrictEquals,
 } from "@std/assert";
 import { ERROR_CODES, ok } from "../../base/mod.ts";
+import { ALL_EVENTS, ALL_ROUTES } from "../mod.ts";
 import {
   definePort,
   type PortKey,
@@ -96,6 +97,12 @@ Deno.test("apps/registration#R2, apps/registration#R3, apps/registration#R4, app
   assertEquals(appGet.name, "app.get");
   assertEquals(appGet.input.parse({ app: APP }), { app: APP });
   assertEquals(appGet.output.parse({ ...META, app: created }).app, created);
+  for (const route of ROUTES) {
+    assertEquals(ALL_ROUTES.filter((entry) => entry === route).length, 1);
+  }
+  for (const event of EVENTS) {
+    assertEquals(ALL_EVENTS.filter((entry) => entry === event).length, 1);
+  }
   for (
     const route of [
       appCreate,

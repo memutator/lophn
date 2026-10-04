@@ -12,14 +12,17 @@ export const confirmationRefSchema = z.string().regex(CONFIRMATION_REF);
 export type ConfirmationRef = z.infer<typeof confirmationRefSchema>;
 
 // 소유 contracts가 등록하는 결정 이름. 등록 표는 소유 contracts가 갖는다.
-export const decisionNameSchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
+// command route 이름(RevokeCodingAgentConnection)과 snake_case 선언(delete_file)을 모두 담는다.
+const DECISION_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+export const decisionNameSchema = z.string().regex(DECISION_NAME);
 
 export type DecisionName = z.infer<typeof decisionNameSchema>;
 
 export function defineDecision(name: string): DecisionName {
   const parsed = decisionNameSchema.safeParse(name);
   if (!parsed.success) {
-    throw new Error("decision name must be snake_case");
+    throw new Error("decision name must be a command or snake_case name");
   }
   return parsed.data;
 }

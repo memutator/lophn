@@ -308,6 +308,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T10 core import 정적 검사
 
+- 상태: 완료 (#126)
 - 등급: 좁은
 - concern: platform/responsiveness
 - 요구: platform/responsiveness#R1
@@ -438,6 +439,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: confirmation handle(main↔core 발급·사용 메시지, command 요청의 `confirmation`)
 - slice: documents
 - 선행: platform#T2, platform#T9, contracts#T13
+- 상태: 완료 (#117)
 - 완료: 아래 확인이 통과한다
   - handle은 main↔core 비공개 통로에서만 발급되는 메모리 값이고 core epoch·main 연결·window·정확한 대상·내용 기준·허용 결정·120초에 묶인다. ledger·fingerprint·event·log에 원문이 없다.
   - 사람 클릭이 필요한 command(documents의 파일 지우기, approval 결정 등)는 등록 때 handle 필요를 선언하고, writer가 transaction 안에서 현재 상태와 함께 검증·소비한다. handle이 없거나 대상·내용이 다르면 거절한다(R3, R5).
@@ -600,6 +602,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: settings(SettingDefinition 등록 interface, EffectiveSetting, settings definitions·get route)
 - slice: agent
 - 선행: platform#T9, contracts#T24
+- 상태: 완료 (#122)
 - 완료: 아래 확인이 통과한다
   - 각 concern이 공개한 항목만 받는다. 설명·종류·기본값·허용값·단위·층·적용 시점이 없으면 등록 거절(R1, R4).
   - `builtin < common` 두 층만, object 항목별·scalar/array 전체 교체, 생략과 null·빈 목록·false 구별(R5, R8, R9). 작업 폴더·세션·환경 변수·CLI 인자는 층이 아니다(R6).
@@ -644,6 +647,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - `toml_test.ts`, `definitions_test.ts`에 위 요구 테스트, flow ask-lophn-help의 설정 단계 통합 테스트
 
 ### T28 data 직렬화와 출처 유지
+
+- 상태: 완료 (#124)
 
 - 등급: 기본
 - concern: platform/security

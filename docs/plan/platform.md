@@ -727,6 +727,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T31 app credential과 앱 secret의 grant 검사
 
+- 상태: 완료 (#136)
 - 등급: 기본
 - concern: platform/identity, platform/secrets
 - 요구: platform/secrets#R10

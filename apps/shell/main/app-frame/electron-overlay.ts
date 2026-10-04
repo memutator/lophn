@@ -102,9 +102,18 @@ export function electronOverlays() {
         },
         host: {
           addChildView(view) {
+            // 창이 destroy된 뒤 온 정리(retire→remove)는 view 작업을 건너뛴다.
+            if (window.isDestroyed() || window.webContents.isDestroyed()) {
+              native.delete(view);
+              return;
+            }
             window.contentView.addChildView(native.get(view)!);
           },
           removeChildView(view) {
+            if (window.isDestroyed() || window.webContents.isDestroyed()) {
+              native.delete(view);
+              return;
+            }
             window.contentView.removeChildView(native.get(view)!);
             native.delete(view);
           },

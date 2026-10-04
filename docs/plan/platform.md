@@ -535,6 +535,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - concern: platform/approvals
 - 요구: platform/approvals#R1, R2, R6, R12, R13, R14, R17
 - 자리: packages/platform/approvals/
+- 상태: 완료 (#166)
 - 쓰는 contract: approval, blob, redaction
 - 내놓는 contract: approval(ApprovalAction·ApprovalEffect, binding hash, approvals get·list·create·expire·cancel route)
 - slice: agent

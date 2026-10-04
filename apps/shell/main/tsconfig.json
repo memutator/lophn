@@ -31,7 +31,6 @@
   "exclude": [
     "../../../packages",
     "desktop/core",
-    "desktop/main.ts",
-    "confirmation/canonical_parity_test.ts"
+    "desktop/main.ts"
   ]
 }

@@ -6,6 +6,7 @@ import {
   copyFixture,
   descendantPids,
   displayAvailable,
+  e2eEnabled,
   electronArgs,
   pickPageTarget,
   processAlive,
@@ -88,4 +89,10 @@ Deno.test("skeleton: 프로세스 트리는 정확한 pid만 모으고 없는 pi
 Deno.test("skeleton: 신호는 기록된 pid에만 보내고 없는 pid는 건너뛴다", () => {
   // 없는 pid에 보내도 예외가 나지 않는다. 넓은 패턴 정리는 쓰지 않는다.
   signalPids([2_000_000_000], "SIGTERM");
+});
+
+Deno.test("skeleton: flow는 deno task e2e가 켠 LOPHN_E2E와 화면이 있을 때만 돈다", () => {
+  assertEquals(e2eEnabled({ DISPLAY: ":0" }), false);
+  assertEquals(e2eEnabled({ DISPLAY: ":0", LOPHN_E2E: "1" }), true);
+  assertEquals(e2eEnabled({ LOPHN_E2E: "1" }), false);
 });

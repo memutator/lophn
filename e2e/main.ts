@@ -7,6 +7,7 @@ const paths = flows.length === 0
 
 const child = new Deno.Command(Deno.execPath(), {
   args: ["test", "--allow-all", "--unstable-unsafe-proto", ...paths],
+  env: { LOPHN_E2E: "1" },
   stdin: "inherit",
   stdout: "inherit",
   stderr: "inherit",

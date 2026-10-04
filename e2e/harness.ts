@@ -4,6 +4,16 @@
 // 실제 ~/.lophn은 읽지도 쓰지도 않는다.
 
 /** 화면이 없으면(DISPLAY 없음) E2E를 건너뛴다. */
+/** `deno task e2e`가 켠다. check의 test 단계에서는 flow가 Electron을 띄우지 않는다. */
+export const E2E_FLAG = "LOPHN_E2E";
+
+/** flow를 돌릴지. `deno task e2e`로 불렸고 화면이 있을 때만 돈다. */
+export function e2eEnabled(
+  env: { DISPLAY?: string; LOPHN_E2E?: string } = Deno.env.toObject(),
+): boolean {
+  return env[E2E_FLAG] === "1" && displayAvailable(env);
+}
+
 export function displayAvailable(
   env: { DISPLAY?: string } = Deno.env.toObject(),
 ): boolean {

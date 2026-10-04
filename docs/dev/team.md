@@ -11,7 +11,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | 단 | 누구 | model | 하는 일 | 고치는 것 |
 |---|---|---|---|---|
 | 1 | lead (주 세션) | Opus 5.5 | slice 목록과 순서, 팀 배정, 팀 사이 충돌 조정, 사람에게 묻기, 결정 기록 | `docs/plan/README.md`, `docs/dev/`, open-issues.md |
-| 2 | team member | GPT-6.1 Sol max (`gpt-6.1-sol-max`) | 맡은 범위의 문서를 읽고 계획(작업)을 쓴다. 작업을 worker에게 나눠 주고, 결과를 review하고 PR로 main에 합치고 lead에게 보고한다 | `docs/plan/<slice>.md`의 자기 작업, 자기 범위의 코드 |
+| 2 | team member | Opus 5.5 medium (`subagent_type: "claude"`, `model: "opus"`) | 맡은 범위의 문서를 읽고 계획(작업)을 쓴다. 작업을 worker에게 나눠 주고, 결과를 review하고 PR로 main에 합치고 lead에게 보고한다 | `docs/plan/<slice>.md`의 자기 작업, 자기 범위의 코드 |
 | 3 | worker (team member가 띄우는 sub agent) | 아래 등급 | 작업 하나를 구현하거나 조사한다. 자기 sub agent는 띄우지 않는다 | 작업의 "자리"만 |
 
 팀은 최상위 concern 하나에 하나씩, 그리고 contracts 팀 하나다.
@@ -29,18 +29,15 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 ## worker 등급
 
-네 등급이다. worker(3단)에 쓴다. 작업에는 등급을 적고, 등급 안의 model은 team member가 고른다.
+두 등급이다. worker(3단)에 쓴다. 작업에는 등급을 적는다. 띄우는 worker의 7할은 기본, 3할은 좁은 등급이다.
 
 | 등급 | model | 언제 |
 |---|---|---|
-| 좁은 | space-bunny-max (`space-bunny-max`) | 범위가 좁고 지시가 분명한 작업: 정해진 파일 몇 개, 정해진 바꿈, 정해진 확인 |
-| 기본 | grok 4.7 (`grok-4-7-xhigh`), gpt-6.1-sol (`sol-6-1-high`) | 대부분의 작업, 계획, contract, review. 기본값 |
-| frontend | Opus 5.5 (`claude-opus-5-5`) | shell renderer, SDK UI 컴포넌트, ui-ux 규칙 같은 화면 작업 |
-| 최상위 | Sonnet 5.5 (`claude-sonnet-5-5`) | 가장 어려운 문제와 아래 등급이 거듭 실패한 문제에만 |
+| 기본 | grok 4.7 (`grok-4-7-xhigh`) | 대부분의 작업: 구현, 화면, contract, review. 기본값 |
+| 좁은 | space-bunny-max (`space-bunny-max`) | 쉬운 작업: 범위가 좁고 지시가 분명한 것, 정해진 파일 몇 개, 정해진 바꿈, 정해진 확인 |
 
-- 기본 등급의 두 model은 나눠 배정한다. too many requests나 rate limit이 나면 그쪽 몫을 줄인다.
-- 실패하면 올린다: 좁은 등급이 실패하면 기본, 기본에서 같은 작업이 두 번 실패하면 최상위.
-- workflow에서는 model을 alias(`sonnet`, `opus`)가 아니라 위의 정확한 이름이나 agent type으로 지정한다. alias는 다른 판으로 풀린 적이 있다.
+- 실패하면 올린다: 좁은 등급이 실패하면 기본. 기본에서 같은 작업이 두 번 실패하면 team member가 작업을 더 잘게 나누거나 직접 고친다.
+- rate limit이 나면 그 model의 몫을 줄이고 lead에게 알린다.
 
 ## 주고받기
 

@@ -66,7 +66,11 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
       const markBlobs = blobs.length;
       const tx = {
         sql: sqlOf(guard),
-        emit(_event: { type: string }, subject: string | null, payload: unknown) {
+        emit(
+          _event: { type: string },
+          subject: string | null,
+          payload: unknown,
+        ) {
           guard();
           seq += 1n;
           const value = seq.toString();
@@ -232,6 +236,8 @@ export function preparedInput(
 }
 
 export function keep<T>(result: Result<T>): T {
-  if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`);
+  if (!result.ok) {
+    throw new Error(`${result.error.code}: ${result.error.message}`);
+  }
   return result.value;
 }

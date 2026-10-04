@@ -99,7 +99,10 @@ export function createVersionReads(): {
           );
           if (!decision.ok) return decision;
           if (decision.value === null) continue;
-          const version = loadVersion(snapshot.sql as never, document.latest_version);
+          const version = loadVersion(
+            snapshot.sql as never,
+            document.latest_version,
+          );
           if (!version.ok) return version;
           if (version.value === null) {
             return err({ code: "internal", message: "latest version missing" });

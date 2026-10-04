@@ -60,7 +60,11 @@ export function authorizeDocument(
   if (typeof authorize !== "function") return dependencyUnavailable();
   try {
     const result = synchronousResult<void>(
-      (authorize as TargetAuthorizer)(ctx, operation, authorizationTarget(target)),
+      (authorize as TargetAuthorizer)(
+        ctx,
+        operation,
+        authorizationTarget(target),
+      ),
     );
     return result.ok && result.value !== undefined
       ? dependencyUnavailable()
@@ -71,7 +75,9 @@ export function authorizeDocument(
 }
 
 // scope.targets의 document·place key. 판정은 port가 한다.
-function authorizationTarget(target: DocumentAccessTarget): AuthorizationTarget {
+function authorizationTarget(
+  target: DocumentAccessTarget,
+): AuthorizationTarget {
   const value: Record<string, string> = { document: target.document.id };
   const place = target.document.place;
   if (place !== null) {

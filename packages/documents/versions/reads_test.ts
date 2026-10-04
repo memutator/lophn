@@ -91,7 +91,10 @@ Deno.test("documents/versions#R8: get은 지정 판과 고정 참조를 돌려�
 Deno.test("documents/versions#R8: history는 판마다 주체·시각·run을 담는다", () => {
   const fixture = versionFixture();
   try {
-    const agent = userContext(`agent:${ids.run.replace("run_", "asg_")}`, ids.run);
+    const agent = userContext(
+      `agent:${ids.run.replace("run_", "asg_")}`,
+      ids.run,
+    );
     const first = preparedInput(ids.doc, [file("a.md", true)]);
     const saved = keep(
       fixture.transaction((tx) =>
@@ -120,7 +123,9 @@ Deno.test("documents/versions#R9: 권한 밖 문서의 read는 없는 것으로 
   const fixture = versionFixture();
   try {
     save(fixture, "save-1");
-    fixture.use(() => err({ code: "forbidden", message: "대상이 범위 밖이다" }));
+    fixture.use(() =>
+      err({ code: "forbidden", message: "대상이 범위 밖이다" })
+    );
     const listed = keep(
       reads.list.handle(fixture.snapshot() as never, userContext(), {}),
     );

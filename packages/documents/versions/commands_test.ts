@@ -17,7 +17,9 @@ function save(
   fixture: ReturnType<typeof versionFixture>,
   input: ReturnType<typeof preparedInput>,
   actor = userContext(),
-  compare: { base_version: string | null } = { base_version: input.base_version },
+  compare: { base_version: string | null } = {
+    base_version: input.base_version,
+  },
 ) {
   return fixture.transaction((tx) =>
     commands.save.handle(tx, actor, input as never, compare)
@@ -42,7 +44,9 @@ Deno.test("documents/versions#R1: 첫 저장은 문서와 1번 판을 한 transa
     assertEquals(version?.["file_count"], 2);
     // 경로별 원문 행은 준비 worker가 파일 목록을 확정하며 남긴다(documents T8).
     // 저장은 정규화 목록 blob 참조를 판에 묶는다.
-    const blobs = fixture.blobs.filter((blob) => blob.owner_key === result.version);
+    const blobs = fixture.blobs.filter((blob) =>
+      blob.owner_key === result.version
+    );
     assertEquals(blobs.map((blob) => blob.field), ["files"]);
     assertEquals(blobs[0].hash, HASH);
     const types = fixture.emitted.map((event) => event.type);
@@ -60,7 +64,9 @@ Deno.test("documents/versions#R1: 첫 저장은 문서와 1번 판을 한 transa
 Deno.test("documents/versions#R2: 확정 판의 원문과 저장 주체는 새 판 뒤에도 그대로다", () => {
   const fixture = versionFixture();
   try {
-    const first = keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)])));
+    const first = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+    );
     const before = fixture.sql.get("SELECT * FROM versions WHERE id = ?", [
       first.version,
     ]);
@@ -94,7 +100,9 @@ Deno.test("documents/versions#R2: 확정 판의 원문과 저장 주체는 새 �
 Deno.test("documents/versions#R3: 같은 내용과 format 계약의 저장은 기존 판을 돌려주고 event가 없다", () => {
   const fixture = versionFixture();
   try {
-    const first = keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)])));
+    const first = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+    );
     const again = preparedInput(ids.doc, [file("a.md", true)], {
       base_version: first.version,
       metadata: undefined,
@@ -132,7 +140,9 @@ Deno.test("documents/versions#R3: 같은 내용과 format 계약의 저장은 �
 Deno.test("documents/versions#R4: 최신 판이 바뀐 뒤의 늦은 저장은 충돌하고 새 판을 덮지 않는다", () => {
   const fixture = versionFixture();
   try {
-    const first = keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)])));
+    const first = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+    );
     const winner = preparedInput(ids.doc, [file("a.md", true)], {
       base_version: first.version,
       content_hash: "cd".repeat(32),
@@ -162,8 +172,13 @@ Deno.test("documents/versions#R4: 최신 판이 바뀐 뒤의 늦은 저장은 �
 Deno.test("documents/versions#R6: 저장 주체와 agent run이 판에 남는다", () => {
   const fixture = versionFixture();
   try {
-    const agent = userContext(`agent:${ids.run.replace("run_", "asg_")}`, ids.run);
-    const result = keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)]), agent));
+    const agent = userContext(
+      `agent:${ids.run.replace("run_", "asg_")}`,
+      ids.run,
+    );
+    const result = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)]), agent),
+    );
     const row = fixture.sql.get(
       "SELECT saved_by, saved_at, run FROM versions WHERE id = ?",
       [result.version],
@@ -188,7 +203,9 @@ Deno.test("documents/versions#R6: 저장 주체와 agent run이 판에 남는다
 Deno.test("documents/versions#R7: 저장 주체는 인증된 자격이고 주장한 작업 위치는 source가 되지 않는다", () => {
   const fixture = versionFixture();
   try {
-    const result = keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)])));
+    const result = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+    );
     const row = fixture.sql.get(
       "SELECT saved_by, source FROM versions WHERE id = ?",
       [result.version],
@@ -202,7 +219,11 @@ Deno.test("documents/versions#R7: 저장 주체는 인증된 자격이고 주장
     assertEquals(document?.["source_kind"], null);
     // 자격과 다른 app 주장을 거절한다.
     const claimed = preparedInput(ids.other, [file("a.md", true)], {
-      source: { kind: "app", app: ids.app, release: "rel_01arz3ndektsv4rrffq69g5fav" },
+      source: {
+        kind: "app",
+        app: ids.app,
+        release: "rel_01arz3ndektsv4rrffq69g5fav",
+      },
     });
     const rejected = save(fixture, claimed);
     assert(!rejected.ok);
@@ -216,7 +237,10 @@ Deno.test("documents/versions#R11: 사람은 문서를 보관하고 보관 해�
   const fixture = versionFixture();
   try {
     keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)])));
-    const agent = userContext(`agent:${ids.run.replace("run_", "asg_")}`, ids.run);
+    const agent = userContext(
+      `agent:${ids.run.replace("run_", "asg_")}`,
+      ids.run,
+    );
     const denied = fixture.transaction((tx) =>
       commands.archive.handle(
         tx,
@@ -309,7 +333,10 @@ Deno.test("documents/versions#R4: 권한 판정이 거절하면 저장하지 않
     const result = save(fixture, preparedInput(ids.doc, [file("a.md", true)]));
     assert(!result.ok);
     assertEquals(result.error.code, "forbidden");
-    const count = fixture.sql.get("SELECT COUNT(*) AS count FROM documents", []);
+    const count = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM documents",
+      [],
+    );
     assertEquals(count?.["count"], 0);
   } finally {
     fixture.close();

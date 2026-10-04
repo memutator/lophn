@@ -109,7 +109,9 @@ export function versionFromRow(row: SqlRow): Result<VersionRow> {
   const explicit = integer(row, "format_explicit");
   const number = integer(row, "number");
   const fileCount = integer(row, "file_count");
-  if (explicit === undefined || number === undefined || fileCount === undefined) {
+  if (
+    explicit === undefined || number === undefined || fileCount === undefined
+  ) {
     return invalidRow();
   }
   const value: VersionRow = {

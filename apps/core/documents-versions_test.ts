@@ -19,7 +19,9 @@ function prepared(base: string | null, key: string, content = HASH) {
     content_hash: content,
     preparation_ref: `prep-${key}`,
     idempotency_key: key,
-    ...(base === null ? { metadata: { title: "Notes", place: null, name: null } } : {}),
+    ...(base === null
+      ? { metadata: { title: "Notes", place: null, name: null } }
+      : {}),
     format: { name: "document", module_hash: HASH, explicit: false },
     validation: {
       input_hash: content,
@@ -44,7 +46,12 @@ async function open(): Promise<{ harness: CoreHarness; token: string }> {
     actor: "user",
     principal: "user-1",
     scope: {
-      operations: ["document.save", "document.list", "document.get", "document.history"],
+      operations: [
+        "document.save",
+        "document.list",
+        "document.get",
+        "document.history",
+      ],
       targets: {},
     },
     conditions: {},
@@ -105,11 +112,19 @@ Deno.test("documents/versions#R1 #R8 #R9: core에서 문서를 만들고 판을 
       section: null,
     });
 
-    const listed = await post(harness, "documents/list", { status: "active" }, token);
+    const listed = await post(
+      harness,
+      "documents/list",
+      { status: "active" },
+      token,
+    );
     const listedText = await listed.text();
     assertEquals(listed.status, 200, listedText);
     const page = JSON.parse(listedText) as {
-      documents: { document: { id: string }; latest_version: { id: string; saved_by: string } }[];
+      documents: {
+        document: { id: string };
+        latest_version: { id: string; saved_by: string };
+      }[];
     };
     assertEquals(page.documents.length, 1);
     assertEquals(page.documents[0].document.id, DOC);
@@ -124,7 +139,9 @@ Deno.test("documents/versions#R1 #R8 #R9: core에서 문서를 만들고 판을 
     );
     const gotText = await got.text();
     assertEquals(got.status, 200, gotText);
-    const detail = JSON.parse(gotText) as { version: { number: number; content_hash: string } };
+    const detail = JSON.parse(gotText) as {
+      version: { number: number; content_hash: string };
+    };
     assertEquals(detail.version.number, 1);
     assertEquals(detail.version.content_hash, HASH);
 
@@ -141,11 +158,20 @@ Deno.test("documents/versions#R1 #R8 #R9: core에서 문서를 만들고 판을 
     assertEquals(second.status, "saved");
     assert(second.version !== first.version);
 
-    const history = await post(harness, "documents/history", { document: DOC }, token);
+    const history = await post(
+      harness,
+      "documents/history",
+      { document: DOC },
+      token,
+    );
     const historyText = await history.text();
     assertEquals(history.status, 200, historyText);
-    const versions = (JSON.parse(historyText) as { versions: { id: string }[] }).versions;
-    assertEquals(versions.map((version) => version.id), [first.version, second.version]);
+    const versions =
+      (JSON.parse(historyText) as { versions: { id: string }[] }).versions;
+    assertEquals(versions.map((version) => version.id), [
+      first.version,
+      second.version,
+    ]);
   } finally {
     await harness.close();
   }

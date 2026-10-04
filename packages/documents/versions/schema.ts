@@ -6,7 +6,8 @@ const idCheck = (prefix: string) =>
   `id GLOB '${prefix}_*' AND length(id) = ${prefix.length + 1 + 26}`;
 const hashCheck = (column: string) =>
   `${column} GLOB '[0-9a-f]*' AND length(${column}) = 64`;
-const SEQ = "length(revision) > 0 AND substr(revision, 1, 1) BETWEEN '1' AND '9'" +
+const SEQ =
+  "length(revision) > 0 AND substr(revision, 1, 1) BETWEEN '1' AND '9'" +
   " AND revision NOT GLOB '*[^0-9]*'" +
   " AND (length(revision) < 19 OR" +
   " (length(revision) = 19 AND revision <= '9223372036854775807'))";

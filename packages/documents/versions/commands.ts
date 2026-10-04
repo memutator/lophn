@@ -57,13 +57,22 @@ export const versionFilesField = defineBlobField({
   general_read: false,
 });
 
-const SAVE_ACTORS = ["user", "coding_agent", "agent", "app", "machine"] as const;
+const SAVE_ACTORS = [
+  "user",
+  "coding_agent",
+  "agent",
+  "app",
+  "machine",
+] as const;
 
 function rejected(code: string, message: string): Result<never> {
   return err({ code: code as "conflict", message });
 }
 
-function actorAllowed(ctx: RequestContext, allowed: readonly string[]): boolean {
+function actorAllowed(
+  ctx: RequestContext,
+  allowed: readonly string[],
+): boolean {
   const kind = parseActor(ctx.actor)?.kind;
   return kind !== undefined && allowed.includes(kind);
 }
@@ -323,7 +332,10 @@ function storeVersion(
   return ok(undefined);
 }
 
-function filesBlob(ctx: RequestContext, prepared: PreparedVersion): PreparedBlob {
+function filesBlob(
+  ctx: RequestContext,
+  prepared: PreparedVersion,
+): PreparedBlob {
   return {
     preparation: prepared.preparation_ref,
     hash: prepared.files_hash,
@@ -376,7 +388,10 @@ function transition(
 }
 
 // place slug는 문서가 보관하지 않는다. 고정 참조는 문서 ID와 판 ID로 돌려준다.
-function referenceOf(document: Document, version: { id: string; number: number }) {
+function referenceOf(
+  document: Document,
+  version: { id: string; number: number },
+) {
   return { document: document.id, version: version.id, section: null };
 }
 

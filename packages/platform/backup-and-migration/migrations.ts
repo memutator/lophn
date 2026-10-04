@@ -8,7 +8,8 @@ import { type MigrationVerification, verifyMigrated } from "./verification.ts";
 export type MigrationDeps = {
   clock: Clock;
   // 없으면 복구본을 만들지 않는다(테스트 harness가 쓴다). 있으면 미적용 step이
-  // 있을 때 반드시 만들고 무결성 검사를 통과한 뒤에만 변환을 시작한다(R3).
+  // 있을 때 변환 전 schema가 있으면 반드시 만들고 무결성 검사를 통과한 뒤에만
+  // 변환을 시작한다(R3). 변환 전 schema 0인 새 설치는 복구본 대상이 없다.
   recovery?: {
     // 복구본 폴더의 밑. <root>/backups/migrations/ 밑으로 둔다.
     root: string;
@@ -113,7 +114,11 @@ export async function applyMigrations(
     const checked = checkHistory(recorded, planned);
     if (!checked.ok) return checked;
     const unapplied = steps.length - recorded.length;
-    if (unapplied > 0 && deps.recovery !== undefined) {
+    if (
+      unapplied > 0 && deps.recovery !== undefined &&
+      // 새 설치(변환 전 schema 0)는 남길 변환 전 자료가 없어 복구본을 만들지 않는다.
+      recorded.length > 0
+    ) {
       // 복구본은 변환 전 schema 순번과 시각을 name에 넣는다(R3).
       const stamp = recoveryStamp(deps.clock.now());
       if (!stamp.ok) return stamp;
@@ -147,7 +152,9 @@ export async function applyMigrations(
 
 // step SQL이 만드는 trigger를 sqlite_master에서 읽을 표로 모은다. trigger가 없는
 // step은 건너뛴다. IMMUTABLE 표는 no_update·no_delete·insert guard가 있어야 한다.
-function guardedTables(steps: readonly SchemaStep[]): MigrationVerification["guarded"] {
+function guardedTables(
+  steps: readonly SchemaStep[],
+): MigrationVerification["guarded"] {
   const guarded: {
     table: string;
     kinds: readonly ("no_update" | "no_delete" | "no_duplicate_insert")[];
@@ -167,7 +174,8 @@ function guardedTables(steps: readonly SchemaStep[]): MigrationVerification["gua
 // create trigger <table>_no_update를 읽는다.
 function guardedTablesOf(step: string): string[] {
   const tables: string[] = [];
-  const trigger = /create\s+trigger\s+(?:if\s+not\s+exists\s+)?([A-Za-z_][A-Za-z0-9_]*)_no_update/g;
+  const trigger =
+    /create\s+trigger\s+(?:if\s+not\s+exists\s+)?([A-Za-z_][A-Za-z0-9_]*)_no_update/g;
   let match: RegExpExecArray | null;
   while ((match = trigger.exec(step)) !== null) {
     tables.push(match[1]);

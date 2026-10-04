@@ -277,7 +277,7 @@ platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`,
 | actor | 발급·보관 | 현재 상한과 종료 |
 |---|---|---|
 | `user` | Electron main이 core를 시작한 상속 pipe에 core가 한 번 발급; main 메모리 | 사람용 동작; 클릭 증거는 별도. main 연결 종료·core 재시작 시 폐기 |
-| `coding_agent:<cac>` | 사람이 harness 연결과 범위를 고른 뒤 발급; git 밖 connection 저장소에 한 번 안전 전달 | 전체/앱 하나의 협업 scope ∩ 현재 connection 상태; 회수는 confirmation window이며 회수되면 새 사용 즉시 차단 |
+| `coding_agent:<cac>` | confirmation window의 connection 결정 뒤 발급; git 밖 connection 저장소에 한 번 안전 전달 | 전체/앱 하나의 협업 scope ∩ 현재 connection 상태; 회수되면 새 사용 즉시 차단 |
 | `agent:<asg>` | 유효 assignment·run 시작에서 신뢰 agent runtime에 발급 | 시작 역할·tool·scope ∩ 현재 제한; run 종료·멈춤·감독 상실 시 종료 |
 | `app:<app>` | core가 supervisor의 신뢰 앱 runtime 경계에 고정 app·release·process·mode로 발급 | 자기 선언 보고·산출물; 사용자 코드에는 token 없음; 종료·판 교체·회수 시 폐기 |
 | `machine` | 신뢰 worker에 task·대상·결과 command를 고정하여 발급 | 자기 배정 작업만; 실제 test runner만 test 결과 제출; 작업/프로세스 종료 시 폐기 |
@@ -531,4 +531,4 @@ diagnostics는 안전 구성 요소·시각·분류·위치·redaction 설명만
 
 일반 설정 원본은 builtin/common 선택이며 Preset 계정·model·prompt·자료·MCP·skill·지침 연결의 원본은 → lophn-agent/presets의 고정 판이다. 공통 judgment/organizing 값은 생성 후보만 제공한다. coding enabled·nullable 기본 harness·profile 선택은 → coding-agent/harnesses로 검증하고 machine-local executable·effective roots·receipt·관측은 TOML export와 분리한다.
 
-connection 생성은 사람이 harness 연결과 범위를 고른 뒤 → 신뢰 인증 경계의 token/keychain 준비 → connection 검증 hash commit → trusted loader 사용 순서다. 회수만 confirmation window를 거친다. commit 전·실패 token은 무효이며 고아 값을 정리한다. OS keychain 누락·잠김은 unavailable; 평문 token 파일·일반 env fallback은 없다. loader는 current connection·scope·catalog adapter·실제 child generation을 확인하고 process-local 보호 통로로 MCP/CLI 인증 adapter에만 전달한다. TUI [Start]는 기존 connection 사용 허락이며 credential 발급·scope 확대 허락을 대신하지 않는다. revoke는 keychain 삭제 완료와 별도로 모든 새 요청에서 즉시 적용한다. → platform/identity#R5,R15, platform/secrets#R12
+connection 생성은 보호 화면의 exact scope 결정 → 신뢰 인증 경계의 token/keychain 준비 → connection 검증 hash commit → trusted loader 사용 순서다. commit 전·실패 token은 무효이며 고아 값을 정리한다. OS keychain 누락·잠김은 unavailable; 평문 token 파일·일반 env fallback은 없다. loader는 current connection·scope·catalog adapter·실제 child generation을 확인하고 process-local 보호 통로로 MCP/CLI 인증 adapter에만 전달한다. TUI [Start]는 기존 connection 사용 허락이며 credential 발급·scope 확대 허락을 대신하지 않는다. revoke는 keychain 삭제 완료와 별도로 모든 새 요청에서 즉시 적용한다. → platform/identity#R5,R15, platform/secrets#R12

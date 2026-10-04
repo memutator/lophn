@@ -86,7 +86,7 @@ CodingAgentConnection의 범위, credential 참조와 회수 상태를 정의한
 - **회수 적용.** 회수 직후 새 읽기·쓰기를 거절한다. 직접 앱 credential도 원래 connection 회수를 따른다(→ apps/runtime). 남은 claim 해제는 → coding-agent/tickets이며 정리를 기다리는 동안에도 회수된 credential을 허용하지 않는다.
 - **교체.** token 분실·scope 변경은 기존 connection 회수 뒤 새 connection 생성으로만 처리한다. MCP·CLI는 같은 credential을 쓰고 user credential로 자동 fallback하지 않는다.
 - **설치 분리.** 생성 성공 뒤 → coding-agent/harnesses가 선택 target MCP·skill 설치를 이어 한다. 실패는 partial로 보이고 credential은 남는다. 설치 제거는 revoke가 아니며 revoke도 설치 파일 삭제나 process 종료가 아니다.
-- **전달.** 설정·wrapper에는 connection 참조만 둔다. MCP/CLI 시작 때 인증 경계가 OS keychain에서 꺼내고 lophn TUI 시작 때 보호된 process-local 통로로 붙인다. token을 argv·일반 env·prompt·PTY·log·model에 넣지 않는다. keychain 잠김·누락은 unavailable이며 평문 파일 fallback은 없다.
+- **전달.** 설정·wrapper에는 connection 참조만 둔다. MCP/CLI 시작 때 인증 경계의 helper `lophn-credential`이 OS keychain에서 꺼내 그 프로세스에만 준다. lophn이 [Start]로 연 TUI에는 connection 참조만 가고 token은 그 아래 MCP/CLI가 같은 helper로 받는다. token을 argv·일반 env·prompt·PTY·log·model에 넣지 않는다. keychain 잠김·누락은 unavailable이며 평문 파일 fallback은 없다.
 
 ## 정할 것
 

@@ -19,3 +19,9 @@ export {
   type DiagnosticHost,
   type DiagnosticIngress,
 } from "./pipe.ts";
+export {
+  type ComponentStatus,
+  PLATFORM_STATUS_ROUTES,
+  platformStatusReads,
+  type StatusSource,
+} from "./status.ts";

@@ -20,14 +20,14 @@ export {
 export { identityCurrentRead } from "./reads.ts";
 export { confirmationBinding } from "./confirmation-binding.ts";
 export {
-  ConfirmationRegistry,
   type ConfirmationBinding,
+  ConfirmationRegistry,
   type ConfirmationRegistryOptions,
   type ConfirmationUse,
 } from "./confirmation.ts";
 export {
-  confirmationBridge,
   type ConfirmationBridge,
+  confirmationBridge,
   disconnectedConfirmationBridge,
 } from "./confirmation-bridge.ts";
 export { consumeRouteConfirmation } from "./confirmation-route.ts";

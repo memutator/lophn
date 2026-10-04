@@ -74,14 +74,18 @@ Deno.test("platform/approvals#R5: 다른 대상·다른 내용·다른 결정은
     binding: { target: request().target_ref, content: HASH },
   };
   assert(!handles.reserve({ ...use, decision: "reject" }).ok);
-  assert(!handles.reserve({
-    ...use,
-    binding: { ...use.binding, target: "other" },
-  }).ok);
-  assert(!handles.reserve({
-    ...use,
-    binding: { ...use.binding, content: "cd".repeat(32) },
-  }).ok);
+  assert(
+    !handles.reserve({
+      ...use,
+      binding: { ...use.binding, target: "other" },
+    }).ok,
+  );
+  assert(
+    !handles.reserve({
+      ...use,
+      binding: { ...use.binding, content: "cd".repeat(32) },
+    }).ok,
+  );
   assert(handles.reserve(use).ok);
   assertEquals(handles.reserve(use).ok, false);
   handles.consume(use.ref);
@@ -100,17 +104,21 @@ Deno.test("platform/approvals#R4: 창 닫기·연결 종료는 handle을 무효�
     binding: { target: request().target_ref, content: HASH },
   });
   assert(!closed.ok);
-  assert(handles.reserve({
-    ref: second.value.confirmation,
-    decision: "grant",
-    binding: { target: request().target_ref, content: HASH },
-  }).ok);
+  assert(
+    handles.reserve({
+      ref: second.value.confirmation,
+      decision: "grant",
+      binding: { target: request().target_ref, content: HASH },
+    }).ok,
+  );
   handles.clear();
-  assert(!handles.reserve({
-    ref: second.value.confirmation,
-    decision: "grant",
-    binding: { target: request().target_ref, content: HASH },
-  }).ok);
+  assert(
+    !handles.reserve({
+      ref: second.value.confirmation,
+      decision: "grant",
+      binding: { target: request().target_ref, content: HASH },
+    }).ok,
+  );
 });
 
 Deno.test("platform/approvals#R7: 기한이 지나면 소비하지 않고 끝난 handle은 commit 실패로 되살리지 않는다", () => {

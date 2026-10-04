@@ -8,7 +8,11 @@ import { confirmationBinding } from "./confirmation-binding.ts";
 // 넘긴 뒤 worker가 conflict를 내도 handle은 소비된 채다. 사람이 다시 확인한다.
 export async function consumeRouteConfirmation(
   bridge: ConfirmationBridge,
-  route: { confirmation?: "required"; binding?: readonly string[]; name: string },
+  route: {
+    confirmation?: "required";
+    binding?: readonly string[];
+    name: string;
+  },
   input: unknown,
   confirmation: string | undefined,
 ): Promise<Result<void>> {

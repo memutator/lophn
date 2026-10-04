@@ -5,7 +5,7 @@ import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../apps/core/testing/ledger.ts";
-import { confirmationBinding } from "../identity/confirmation-binding.ts";
+import { confirmationBinding } from "../identity/mod.ts";
 import { guardedRoute } from "../../../apps/core/testing/confirmation-registration_test.ts";
 
 const NOW = Date.UTC(2026, 0, 1);
@@ -20,7 +20,11 @@ const ctx: AuthenticatedContext = {
   conditions: {},
 };
 
-function envelope(key: string, input: unknown = INPUT, extra: Record<string, unknown> = {}) {
+function envelope(
+  key: string,
+  input: unknown = INPUT,
+  extra: Record<string, unknown> = {},
+) {
   return {
     command: "guarded_apply",
     input,
@@ -70,7 +74,9 @@ Deno.test("platform/approvals#R3: 사람 결정 확인이 없으면 confirmation
     const denied = await h.command(ctx, envelope("k1"));
     assert(!denied.ok);
     assertEquals(denied.error.code, "forbidden");
-    const rows = await h.inspect("select count(*) as n from confirmation_probe");
+    const rows = await h.inspect(
+      "select count(*) as n from confirmation_probe",
+    );
     assert(rows.ok);
     assertEquals(rows.value[0].n, 0n);
   } finally {
@@ -82,20 +88,29 @@ Deno.test("platform/approvals#R5: 대상·내용이 다른 확인은 거절하�
   const h = await open();
   try {
     const other = await issue(h, { ...INPUT, content: "cd".repeat(32) });
-    const mismatched = await h.command(ctx, envelope("k1", INPUT, {
-      confirmation: other.confirmation,
-    }));
+    const mismatched = await h.command(
+      ctx,
+      envelope("k1", INPUT, {
+        confirmation: other.confirmation,
+      }),
+    );
     assert(!mismatched.ok);
     assertEquals(mismatched.error.code, "forbidden");
     const right = await issue(h);
-    const applied = await h.command(ctx, envelope("k2", INPUT, {
-      confirmation: right.confirmation,
-    }));
+    const applied = await h.command(
+      ctx,
+      envelope("k2", INPUT, {
+        confirmation: right.confirmation,
+      }),
+    );
     assert(applied.ok, applied.ok ? undefined : JSON.stringify(applied.error));
     assertEquals(applied.value.replayed, false);
-    const reused = await h.command(ctx, envelope("k3", INPUT, {
-      confirmation: right.confirmation,
-    }));
+    const reused = await h.command(
+      ctx,
+      envelope("k3", INPUT, {
+        confirmation: right.confirmation,
+      }),
+    );
     assert(!reused.ok);
     assertEquals(reused.error.code, "forbidden");
   } finally {
@@ -107,11 +122,17 @@ Deno.test("platform/approvals#R4: 창을 닫으면 그 handle은 결정이 되�
   const h = await open();
   try {
     const issued = await issue(h);
-    const closed = await h.confirmation({ action: "close-window", windowId: "win-1" });
+    const closed = await h.confirmation({
+      action: "close-window",
+      windowId: "win-1",
+    });
     assert(closed.ok);
-    const denied = await h.command(ctx, envelope("k1", INPUT, {
-      confirmation: issued.confirmation,
-    }));
+    const denied = await h.command(
+      ctx,
+      envelope("k1", INPUT, {
+        confirmation: issued.confirmation,
+      }),
+    );
     assert(!denied.ok);
     assertEquals(denied.error.code, "forbidden");
   } finally {
@@ -123,9 +144,12 @@ Deno.test("platform/ledger#R13: 같은 key의 재전달은 소비한 handle 없�
   const h = await open();
   try {
     const issued = await issue(h);
-    const first = await h.command(ctx, envelope("k1", INPUT, {
-      confirmation: issued.confirmation,
-    }));
+    const first = await h.command(
+      ctx,
+      envelope("k1", INPUT, {
+        confirmation: issued.confirmation,
+      }),
+    );
     assert(first.ok);
     const replay = await h.command(ctx, envelope("k1"));
     assert(replay.ok, replay.ok ? undefined : JSON.stringify(replay.error));
@@ -149,17 +173,25 @@ Deno.test("platform/ledger#R13: commit 실패는 handle을 소비하지 않아 �
   try {
     const failing = { target: INPUT.target, content: "fail" };
     const issued = await issue(h, failing);
-    const failed = await h.command(ctx, envelope("k1", failing, {
-      confirmation: issued.confirmation,
-    }));
+    const failed = await h.command(
+      ctx,
+      envelope("k1", failing, {
+        confirmation: issued.confirmation,
+      }),
+    );
     assert(!failed.ok);
     assertEquals(failed.error.code, "conflict");
-    const recovered = await h.command(ctx, envelope("k2", failing, {
-      confirmation: issued.confirmation,
-    }));
+    const recovered = await h.command(
+      ctx,
+      envelope("k2", failing, {
+        confirmation: issued.confirmation,
+      }),
+    );
     assert(!recovered.ok);
     assertEquals(recovered.error.code, "conflict");
-    const rows = await h.inspect("select count(*) as n from confirmation_probe");
+    const rows = await h.inspect(
+      "select count(*) as n from confirmation_probe",
+    );
     assert(rows.ok);
     assertEquals(rows.value[0].n, 0n);
   } finally {

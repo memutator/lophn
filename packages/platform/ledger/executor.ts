@@ -9,17 +9,19 @@ import {
   type AuthenticatedContext,
   type CommandDefinition,
   commandsResult,
-  idempotencyKeySchema,
-  confirmationRefSchema,
   type ConfirmationRef,
+  confirmationRefSchema,
+  idempotencyKeySchema,
   type RequestContext,
   type Sql,
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import { authorizeConditions } from "../identity/mod.ts";
-import { confirmationBinding } from "../identity/confirmation-binding.ts";
-import type { ConfirmationBridge } from "../identity/confirmation-bridge.ts";
-import type { ConfirmationUse } from "../identity/confirmation.ts";
+import {
+  confirmationBinding,
+  type ConfirmationBridge,
+  type ConfirmationUse,
+} from "../identity/mod.ts";
 import {
   commandFingerprint,
   countCas,
@@ -192,7 +194,9 @@ function reserveConfirmation(
   session: Session,
   envelope: CommandEnvelope,
 ): Result<void> {
-  if (envelope.confirmation === undefined && envelope.decisionName === undefined) {
+  if (
+    envelope.confirmation === undefined && envelope.decisionName === undefined
+  ) {
     return ok(undefined);
   }
   const registry = session.confirmation;
@@ -314,8 +318,9 @@ export function commitCommand(
     }
     return err(internalError());
   } finally {
-    if (committed && reserved !== undefined) deps.confirmation?.consume(reserved);
-    else if (reserved !== undefined) deps.confirmation?.release(reserved);
+    if (committed && reserved !== undefined) {
+      deps.confirmation?.consume(reserved);
+    } else if (reserved !== undefined) deps.confirmation?.release(reserved);
   }
 }
 
@@ -361,13 +366,11 @@ export async function executeCommand(
   if (definition.route.confirmation === "required" && binding === undefined) {
     return err({ code: "forbidden", message: "사람 결정 확인이 없다" });
   }
-  const confirmed: CommandEnvelope = binding === undefined
-    ? envelope
-    : {
-      ...envelope,
-      decisionName: definition.route.name,
-      decision: binding,
-    };
+  const confirmed: CommandEnvelope = binding === undefined ? envelope : {
+    ...envelope,
+    decisionName: definition.route.name,
+    decision: binding,
+  };
   const digest = await digestOf(definition.route.name, {
     input: parsedInput.data,
     compare: parsedCompare.data,

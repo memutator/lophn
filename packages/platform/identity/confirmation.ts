@@ -133,7 +133,10 @@ export class ConfirmationRegistry {
   #live(ref: string): Result<Entry> {
     const entry = this.#entries.get(ref);
     if (entry === undefined) {
-      return err({ code: "forbidden", message: "확인이 없거나 이미 소비되었다" });
+      return err({
+        code: "forbidden",
+        message: "확인이 없거나 이미 소비되었다",
+      });
     }
     if (this.#clock.nowMs() >= entry.expiresAtMs) {
       this.#entries.delete(ref);

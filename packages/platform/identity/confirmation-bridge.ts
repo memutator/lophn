@@ -1,9 +1,6 @@
 import { err, type Result } from "../../base/mod.ts";
 import type { ConfirmationRef } from "../../contracts/platform/mod.ts";
-import {
-  ConfirmationRegistry,
-  type ConfirmationUse,
-} from "./confirmation.ts";
+import { ConfirmationRegistry, type ConfirmationUse } from "./confirmation.ts";
 
 // writer Worker는 handle 원문을 갖지 않는다. core 프로세스의 registry에 동기 호출로 묻는다.
 // 다리의 메서드는 모두 동기라 transaction 안에서 await 없이 검증·소비할 수 있다.

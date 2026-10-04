@@ -141,7 +141,10 @@ async function handleParent(
     request: message.data,
   });
   if (!issued.ok) return false;
-  const registered = issued.value as { confirmation: string; expires_at: string };
+  const registered = issued.value as {
+    confirmation: string;
+    expires_at: string;
+  };
   const reply = coreToMainMessageSchema.safeParse({
     type: "confirmation_handle_registered",
     confirmation: registered.confirmation,

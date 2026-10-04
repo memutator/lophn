@@ -5,7 +5,7 @@ import type {
   CommandDefinition,
   PermanentBlobReference,
 } from "../../contracts/platform/mod.ts";
-import type { ConfirmationBridge } from "../identity/confirmation-bridge.ts";
+import type { ConfirmationBridge } from "../identity/mod.ts";
 import type { SubscriberGate } from "./subscriber-registration.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";
 import type { TxCall } from "./tx.ts";

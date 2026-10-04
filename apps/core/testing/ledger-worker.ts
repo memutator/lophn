@@ -99,7 +99,10 @@ async function start() {
     }
     const parsed = confirmationHandleRegisterSchema.safeParse(request.request);
     if (!parsed.success) {
-      return err({ code: "invalid_input", message: "확인 등록이 올바르지 않다" });
+      return err({
+        code: "invalid_input",
+        message: "확인 등록이 올바르지 않다",
+      });
     }
     const issued = registry.issue(parsed.data);
     return issued.ok ? ok(issued.value) : issued;

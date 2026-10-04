@@ -54,7 +54,9 @@ if (!opened.ok) {
   let chain = Promise.resolve();
   worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     const data = event.data;
-    chain = chain.then(() => handle(connection, deps, commands, registration, data)).catch(
+    chain = chain.then(() =>
+      handle(connection, deps, commands, registration, data)
+    ).catch(
       () => {
         worker.postMessage({
           id: data.id,
@@ -92,19 +94,37 @@ async function handle(
     const registry = registration.confirmationRegistry;
     if (data.action === "clear") {
       registry.clear();
-      worker.postMessage({ id: data.id, op: "confirmation", body: { ok: true, value: null } } as never);
+      worker.postMessage(
+        {
+          id: data.id,
+          op: "confirmation",
+          body: { ok: true, value: null },
+        } as never,
+      );
       return;
     }
     if (data.action === "close-window") {
       registry.closeWindow(data.windowId ?? "");
-      worker.postMessage({ id: data.id, op: "confirmation", body: { ok: true, value: null } } as never);
+      worker.postMessage(
+        {
+          id: data.id,
+          op: "confirmation",
+          body: { ok: true, value: null },
+        } as never,
+      );
       return;
     }
     const parsed = confirmationHandleRegisterSchema.safeParse(data.request);
-    const issued = parsed.success
-      ? registry.issue(parsed.data)
-      : { ok: false as const, error: { code: "invalid_input" as const, message: "확인 등록이 올바르지 않다" } };
-    worker.postMessage({ id: data.id, op: "confirmation", body: issued } as never);
+    const issued = parsed.success ? registry.issue(parsed.data) : {
+      ok: false as const,
+      error: {
+        code: "invalid_input" as const,
+        message: "확인 등록이 올바르지 않다",
+      },
+    };
+    worker.postMessage(
+      { id: data.id, op: "confirmation", body: issued } as never,
+    );
     return;
   }
   if (data.op === "record-credential") {

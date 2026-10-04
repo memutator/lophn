@@ -232,7 +232,10 @@ function openProductWriter(
         };
         if (reply.op === "confirmation") return reply.body;
         if (message.op === "failed") return err(message.body);
-        return err({ code: "unavailable", message: "확인 등록을 전달하지 못했다" });
+        return err({
+          code: "unavailable",
+          message: "확인 등록을 전달하지 못했다",
+        });
       });
     },
     record(context) {

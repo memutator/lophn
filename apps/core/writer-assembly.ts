@@ -41,7 +41,9 @@ type Loose = {
 export async function assembleWriter(
   boot: WriterBoot,
   connection: LedgerConnection,
-): Promise<WriterRegistration & { confirmationRegistry: ConfirmationRegistry }> {
+): Promise<
+  WriterRegistration & { confirmationRegistry: ConfirmationRegistry }
+> {
   const clock = manualClock(boot.nowMs);
   const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
   const ports: TxPortRegistration[] = [];

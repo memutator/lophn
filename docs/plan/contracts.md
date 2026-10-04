@@ -358,8 +358,8 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 - 등급: 기본
 - concern: documents/outline-and-search
-- 요구: documents/outline-and-search#R1, R3–R8, R10–R12, R14, R18, R22, R23, R26
-- 자리: `packages/contracts/documents/` — `outline.ts`, `read.ts`, `search.ts`, `guides.ts`, 각 `_test.ts`
+- 요구: documents/outline-and-search#R1, R3–R8, R10–R12, R14, R18–R23, R26
+- 자리: `packages/contracts/documents/` — `outline.ts`, `read.ts`, `history.ts`, `search.ts`, `guides.ts`, shared `sections.ts`·read helper와 각 `_test.ts`
 - 쓰는 contract: T5, T14, T15
 - 내놓는 contract: outline·search 읽기
 - 받은 요청: documents(OutlinePage, ReadResult, SearchResult, IndexCoverage, Section, LineRange, BundledGuide, cursor), lophn-agent, coding-agent, shell
@@ -368,6 +368,18 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 완료: 아래 확인이 통과한다
   - `/v1/outline/{root,place,context,document,series}`, `/v1/documents/{read,file,history,section_history,diff}`, `/v1/search/{query,status}`, `/v1/guides/{list,get,outline,read}`.
   - 예산 상수(root 1,500, place·context 3,000, document 2,000 추정 token·depth 2, 본문 12,000 codepoint, 추정 token = codepoint/3 올림), glossary 첫 page 30개.
+  - root·series·history는 ledger metadata `read`; place·context·document outline, 본문·검색/status·section history·diff는 exact module의 extraction·derived cache·값 IO를 core 밖에서 조립하는 `worker`; guide는 설치 manifest/files를 offline으로 읽는 `worker`다. documents/file만 stored bytes `file`이다.
+  - documents/file 입력은 고정 ver ID와 ContentFile 상대 path다. platform file metadata는 `application/octet-stream` fallback이며 실제 Content-Type·바이트 수는 해당 판의 ContentFile.media_type·bytes다. 현재 disk·absolute path·hash-only 참조로 대체하지 않는다.
+  - kind별 agent outline projection은 본문·disk source를 제외하고 SummaryCache와 최대 200 codepoint 원문 excerpt를 JSON에서 구별한다. Context는 빈 basis/reference/watch와 정의 Term·후보를 보존하며 Section은 shared sections.ts의 output shape와 고정 ver·estimated_tokens·children_count를 쓴다.
+  - complete/cursor·module hash/FormatRef·고정 ref coupling은 withReadCommon 이후 최종 public schema에서 검사한다. 읽기 예산으로 metadata 크기를 제한할 수 없으므로 serialized UTF-8 public JSON에도 256KiB bound를 둔다. input/nested input은 strict, output/nested output은 additive다.
+  - cursor는 opaque이며 runtime이 ver/module/section/range/query/sort/current scope/basis/core epoch, 긴 한 줄의 line 안 codepoint 위치에 결합한다. schema가 decode·binding을 검증한다고 하지 않는다. 조건·판 mismatch는 invalid_input, basis 유지 불가·worker 재시작은 conflict이며 current scope는 매 page 재검사한다.
+  - 검색 빈 결과에도 IndexCoverage가 필수다. original은 실제 ranges·cache_basis=null, summary/topic은 ranges=[]와 실제 입력 cache_basis·고정 reference를 준다. seq 관계·lagging의 가능한 모순만 schema가 검사하고 현재 권한·선택 판 반영의 진실은 host가 검사한다.
+  - 이력·diff는 documents/outline-and-search#R19–R21도 확인한다. 같은 exact key와 before/after 고정 판만 비교하며 cropped 첫 row도 predecessor를 가질 수 있다. module/blob 복원 실패는 omissions 또는 unavailable이고 empty success로 꾸미지 않는다. guide는 doc/ver/place를 자동 생성하지 않는다.
+  - place·context는 빈 entries에도 search의 같은 IndexCoverage를 필수로 준다. root·series에는 derived coverage를 붙이지 않는다. original search match는 최소 한 실제 range를 요구하며 modified section history는 서로 다른 고정 version만 허용한다.
+  - ReadResult/guide read는 failure_reason·omission_reason을 필수 nullable로 둔다. unverified는 safe failure_reason과 해당 판 원문 file, unsupported는 원문 file을 요구하고 missing/unverified/unsupported는 빈 ranges·text=null·terminal이다. 원문 blob 접근도 불가하면 unavailable이다. whole/found의 text=null은 redacted=true·safe omission_reason·terminal로 명시하며 원래 ranges를 유지한다. 빈 text는 빈 ranges, text 반환은 omission_reason=null이다. document/guide outline도 nonready는 빈 entries·terminal과 같은 fallback 규칙이다.
+  - reason은 trusted host의 safe reason으로 만들며 raw exception·guest stderr·본문을 복사하지 않는다. host가 authenticated authority/current scope·redaction을 검사하며 안전화 failure를 원문 file 참조로 우회하지 않는다. schema는 auth·복원·redaction을 실행하거나 그 진실을 증명하지 않는다.
+  - guide identity는 설치 lophn_version·title·content_hash tuple이며 manifest list는 중복 tuple을 거절한다. get/outline/read 입력과 file fallback은 같은 title/version/hash, outline/read fallback은 같은 manifest path도 유지한다. 다른 title은 같은 hash여도 별도 안내다. 실제 설치 manifest membership은 host가 검사한다.
+  - history의 user full Version output은 유지한다. agentHistoryVersionSchema는 additive version metadata·app-source/null projection과 agent/run·app/source invariant를 제공한다. authenticated agent/coding_agent/app의 owner handler는 file/instruction source를 source:null로 실제 projection하여 절대 경로를 내보내지 않는다. schema가 현재 actor를 확인하거나 projection을 수행한다고 하지 않는다.
 
 ### T19 contracts/documents: series·saved view
 

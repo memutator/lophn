@@ -895,7 +895,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 #### T39 구현 메모: 병합 뒤 review 정정
 
-- 상태: 완료 (#PRNUM)
+- 상태: 완료 (#97)
 - concern: problems/grouping, problems/feedback, problems/snapshots
 - 요구: problems/grouping#R6; problems/feedback#R8; problems/snapshots#R20
 - 기존 문제를 고른 feedback은 자기 rpt로 새 feedback key를 달 수 없다. screenshot blob 권한은 key 순서와 무관한 canonical 값으로 비교한다. 항목별 상한 합보다 큰 snapshot_large_bytes 검사는 schema에서 빼고 collector 조립 runtime 책임으로 둔다(상수는 유지).

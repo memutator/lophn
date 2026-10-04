@@ -29,13 +29,22 @@ export interface EventSink {
 export interface EventSocket {
   send(text: string): void;
   close(): void;
+  /** socket이 open되면 부른다. subscribe는 open 뒤에 보낸다. */
+  onOpen(listener: () => void): void;
   onMessage(listener: (text: string) => void): void;
   onClose(listener: () => void): void;
 }
 
 export interface SocketFactory {
-  /** token은 factory 안에만 있고 이 인자에 실리지 않는다. */
-  open(url: string, protocol: string): EventSocket;
+  /**
+   * 구독 socket을 연다. header는 token을 아는 caller가 closure로 묶어 함께 준다.
+   * token은 URL에 실지 않는다.
+   */
+  open(
+    url: string,
+    protocol: string,
+    headers?: Record<string, string>,
+  ): EventSocket;
 }
 
 export interface Subscription {
@@ -51,6 +60,8 @@ export interface SubscribeOptions {
   /** hello로 받은 epoch. 응답 epoch와 다르면 그 응답을 버린다. */
   epoch: string;
   socket: SocketFactory;
+  /** open할 때 socket에 실 header. token을 아는 caller가 준다. */
+  headers?: () => Record<string, string>;
   sink: EventSink;
   clock: Clock;
   /** core를 다시 띄우면 올린다. 낮은 generation의 늦은 응답은 버린다. */
@@ -105,11 +116,30 @@ export function subscribe(options: SubscribeOptions): Subscription {
       stale();
       return;
     }
-    socket = options.socket.open(
-      `ws://127.0.0.1:${options.session.apiPort}${EVENT_SUBSCRIBE_PATH}`,
-      EVENT_SUBSCRIBE_SUBPROTOCOL,
-    );
-    socket.onMessage((text) => {
+    let current: EventSocket;
+    try {
+      current = options.socket.open(
+        `ws://127.0.0.1:${options.session.apiPort}${EVENT_SUBSCRIBE_PATH}`,
+        EVENT_SUBSCRIBE_SUBPROTOCOL,
+        options.headers?.(),
+      );
+    } catch {
+      socket = undefined;
+      stale();
+      return;
+    }
+    socket = current;
+    current.onOpen(() => {
+      if (stopped || mine !== active) return;
+      // open되기 전에는 send하지 않는다. open 뒤에 구독을 보낸다.
+      current.send(JSON.stringify({
+        type: "subscribe",
+        from_seq: from.value,
+        types: [],
+        subjects: [],
+      }));
+    });
+    current.onMessage((text) => {
       if (stopped || mine !== active) return;
       const frame = parseEventFrame(text);
       if (!frame.ok || frame.value.type === "ack") return;
@@ -120,17 +150,11 @@ export function subscribe(options: SubscribeOptions): Subscription {
       cursor = frame.value.scanned_through_seq;
       confirmedAt = options.clock.now();
     });
-    socket.onClose(() => {
+    current.onClose(() => {
       if (mine !== active) return;
-      socket = undefined;
+      if (socket === current) socket = undefined;
       stale();
     });
-    socket.send(JSON.stringify({
-      type: "subscribe",
-      from_seq: from.value,
-      types: [],
-      subjects: [],
-    }));
   };
 
   attach(options.epoch);

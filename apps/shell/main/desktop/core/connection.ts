@@ -8,6 +8,7 @@ import type { RpcFetch } from "../../../../../packages/contracts/platform/mod.ts
 
 import { type CoreSession, openSession } from "./client.ts";
 import { type Clock, type SocketFactory, subscribe } from "./events.ts";
+import { type IpcEvent } from "../ipc-guard.ts";
 import {
   type CoreProcess,
   type LaunchOptions,
@@ -34,6 +35,10 @@ export interface ConnectionOptions {
   clock: Clock;
   /** 상태를 밀 대상. 창이 없으면 메모리에만 남긴다. */
   targets?: () => readonly StateTarget[];
+  /** sender 검사에 쓰는 등록 contents. registry가 없으면 sender를 보지 않는다. */
+  contentsRegistry?: {
+    checkCaller(event: IpcEvent): { ok: true } | { ok: false };
+  };
   /** 테스트가 가짜 core를 끼운다. */
   start?: (options: LaunchOptions) => CoreProcess;
 }
@@ -56,7 +61,6 @@ export function startCoreConnection(
   const state: ConnectionState = { state: "starting", confirmedAt: null };
   let session: CoreSession | undefined;
   const core = (options.start ?? spawnCore)(options.launch);
-
   const push = () => {
     for (const target of options.targets?.() ?? []) {
       if (!target.isDestroyed()) target.send(CORE_STATE_CHANNEL, { ...state });
@@ -75,6 +79,9 @@ export function startCoreConnection(
     subscribe({
       session,
       epoch: hello.core_epoch,
+      // token은 이 closure에만 묶여 URL·renderer로 나가지 않는다.
+      // Node의 WebSocket(undici)은 headers 옵션으로 Bearer를 싣는다.
+      headers: () => ({ Authorization: `Bearer ${hello.user_token}` }),
       socket: options.sockets,
       clock: options.clock,
       sink: {
@@ -95,7 +102,17 @@ export function startCoreConnection(
     push();
   });
 
-  options.ipc.handle(CORE_CALL_CHANNEL, async (_event, input) => {
+  options.ipc.handle(CORE_CALL_CHANNEL, async (event, input) => {
+    // sender 검사는 guardIpc의 checkCaller로 본다. 등록 registry가 없으면 보지 않는다.
+    if (options.contentsRegistry !== undefined) {
+      const caller = options.contentsRegistry.checkCaller(event as IpcEvent);
+      if (!caller.ok) {
+        return {
+          ok: false,
+          error: { code: "forbidden", message: "허용되지 않은 sender다" },
+        };
+      }
+    }
     const parsed = coreCallSchema.safeParse(input);
     if (!parsed.success || session === undefined) {
       return {

@@ -25,7 +25,12 @@ export function resolveDataRoot(
   if (fromArg !== undefined && fromArg !== "" && !fromArg.startsWith("--")) {
     return fromArg;
   }
-  const override = (given.env ?? process.env)[HOME_ENV];
+  // 빈 env 입력은 프로세스 환경으로 폴백해야 LOPHN_HOME이 살아 남는다.
+  const env = given.env;
+  const override =
+    (env === undefined || Object.keys(env).length === 0 ? process.env : env)[
+      HOME_ENV
+    ];
   if (override !== undefined && override !== "") return override;
   return join(given.home ?? home, ".lophn");
 }

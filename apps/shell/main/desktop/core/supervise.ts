@@ -13,6 +13,9 @@ import {
 /** 창 닫기와 무관한 core 종료 요청. tray의 명시 중지와 OS 종료가 이 값을 쓴다. */
 export const STOP_GRACE_MS = 5_000;
 
+/** hello가 이 안에 오지 않으면 core 시작이 실패다. */
+export const HELLO_TIMEOUT_MS = 30_000;
+
 // architecture/platform 2.4. core 자신은 설치 코드·data root·loopback·고정 child만 연다.
 export const CORE_PERMISSION_FLAGS = [
   "--allow-read=apps/core,packages",
@@ -55,7 +58,9 @@ export function coreLaunch(options: LaunchOptions): CoreSpawn {
   return {
     command: options.denoBinary,
     args: [...flags, entry, `--port=${port}`],
-    env: { ...options.env, LOPHN_HOME: options.dataRoot },
+    // spawn에 기본 env는 없다. PATH가 사라지면 `deno`를 못 찾으므로 프로세스
+    // 환경을 바탕으로 LOPHN_HOME만 덮어쓴다. credential은 env에 넣지 않는다.
+    env: { ...process.env, ...options.env, LOPHN_HOME: options.dataRoot },
   };
 }
 
@@ -76,12 +81,22 @@ export interface CoreProcess {
 export interface CoreChild {
   stdin: { write(bytes: Uint8Array): void };
   stdout: { on(event: "data", listener: (chunk: Uint8Array) => void): void };
-  on(event: "exit", listener: () => void): void;
+  on(event: "exit" | "error", listener: (error?: Error) => void): void;
   kill(): void;
 }
 
 /** 길이 prefix frame으로 hello를 받고, 명시 stop만 보낸다. */
-export function supervise(child: CoreChild): CoreProcess {
+export function supervise(
+  child: CoreChild,
+  timers: {
+    setTimeout(fn: () => void, ms: number): unknown;
+    clearTimeout(id: unknown): void;
+  } = {
+    setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms),
+    clearTimeout: (id) =>
+      globalThis.clearTimeout(id as ReturnType<typeof setTimeout>),
+  },
+): CoreProcess {
   const decoder = new FrameDecoder();
   const messages = new Set<(payload: unknown) => void>();
   let phase: CorePhase = "starting";
@@ -95,9 +110,17 @@ export function supervise(child: CoreChild): CoreProcess {
   // 아무도 await하지 않아도 거부가 프로세스를 죽이지 않게 한다.
   hello.catch(() => {});
 
+  // hello가 오지 않는 core는 준비 화면만 막는다. 시간 안에 끝낸다.
+  const helloTimer = timers.setTimeout(() => {
+    if (!helloSent) {
+      fail(new Error(`core hello가 ${HELLO_TIMEOUT_MS}ms 안에 오지 않았다`));
+    }
+  }, HELLO_TIMEOUT_MS);
+
   const fail = (error: Error) => {
     if (phase === "stopped") return;
     phase = "stopped";
+    timers.clearTimeout(helloTimer);
     if (!helloSent) rejectHello(error);
     try {
       child.kill();
@@ -130,6 +153,7 @@ export function supervise(child: CoreChild): CoreProcess {
         }
         helloSent = true;
         phase = "ready";
+        timers.clearTimeout(helloTimer);
         resolveHello(parsed.data as MainHello);
         continue;
       }
@@ -139,7 +163,13 @@ export function supervise(child: CoreChild): CoreProcess {
   child.on("exit", () => {
     if (phase === "stopped") return;
     phase = "stopped";
+    timers.clearTimeout(helloTimer);
     if (!helloSent) rejectHello(new Error("core가 hello 전에 끝났다"));
+  });
+  // spawn 실패(ENOENT 등)는 exit와 다른 error event다. 받지 않으면 Electron
+  // main이 uncaught로 죽는다.
+  child.on("error", (error) => {
+    fail(error ?? new Error("core를 시작하지 못했다"));
   });
 
   return {
@@ -162,6 +192,13 @@ export function supervise(child: CoreChild): CoreProcess {
           encodeFrame({ kind: "json", channel: 0, payload: message }),
         );
       } catch { /* pipe가 이미 닫힘 */ }
+      // grace가 지나도 core가 끝나지 않으면 강제로 끝낸다.
+      timers.setTimeout(() => {
+        if (phase !== "stopped") {
+          phase = "stopped";
+          child.kill();
+        }
+      }, graceMs);
     },
     ended() {
       phase = "stopped";

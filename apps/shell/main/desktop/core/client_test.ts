@@ -126,9 +126,11 @@ test("shell/desktop#R19: 고정 연결 intent는 연결 화면만 통과한다",
 function socket(): EventSocket & {
   sent: string[];
   drop(): void;
+  open(): void;
   receive(text: string): void;
 } {
   const messages: ((text: string) => void)[] = [];
+  const opens: (() => void)[] = [];
   const closes: (() => void)[] = [];
   return {
     sent: [],
@@ -136,6 +138,9 @@ function socket(): EventSocket & {
       this.sent.push(text);
     },
     close() {},
+    onOpen(listener) {
+      opens.push(listener);
+    },
     onMessage(listener) {
       messages.push(listener);
     },
@@ -144,6 +149,9 @@ function socket(): EventSocket & {
     },
     drop() {
       for (const listener of closes) listener();
+    },
+    open() {
+      for (const listener of opens) listener();
     },
     receive(text) {
       for (const listener of messages) listener(text);
@@ -184,6 +192,10 @@ test("shell/desktop#R7: 구독이 끊기면 마지막 확인 시각과 함께 �
   await new Promise((resolve) => setTimeout(resolve, 20));
   assert.equal(sub.cursor, "4");
   assert.ok(opened);
+  // open되기 전에는 subscribe를 보내지 않는다.
+  assert.equal(opened.sent.length, 0);
+  opened.open();
+  assert.equal(JSON.parse(opened.sent[0]!).from_seq, "5");
   assert.equal(JSON.stringify(opened.sent).includes(TOKEN), false);
   opened.drop();
   assert.deepEqual(notices, [{
@@ -221,6 +233,7 @@ test("shell/desktop#R7: 다시 붙으면 cursor 다음부터 따라잡고 epoch�
     },
   });
   await new Promise((resolve) => setTimeout(resolve, 20));
+  opened[0]!.open();
   assert.equal(JSON.parse(opened[0]!.sent[0]!).from_seq, "5");
   sub.reconnect("epoch-2");
   const before = opened.length;

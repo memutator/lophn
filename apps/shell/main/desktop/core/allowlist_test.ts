@@ -35,8 +35,7 @@ test("shell/desktop#R19: 임의 credential 발급과 daemon 종료 통로는 없
   assert.equal(isAllowed("read", "platform", "status"), true);
 });
 
-test("shell/app-frame#R23: allowlist 항목은 token·비밀 필드를 노출하지 않는다", () => {
+test("shell/desktop#R19: allowlist 이름은 route 이름 그대로다", () => {
   const name = lookupCall("read", "platform", "status");
   assert.equal(name, "read:platform/status");
-  assert.equal(JSON.stringify(name).includes("user_token"), false);
 });

@@ -178,7 +178,7 @@ leaf concern 12개 모두 배치하며 다른 concern의 table에 직접 접근�
 
 **연결 요청.** `POST /v1/apps/connect`는 `{app,mode,screens,screen_sizes,commands,caller?,preview_nonce?}`를 받는다. core의 read 경로 밖 제어 어댑터가 supervisor의 현재 연결을 확인하고 `인증` contract로 원래 credential의 actor·scope를 제한한다. 출력은 현재 direct endpoint와 서명된 AppConnection이다. endpoint·nonce는 ledger에 저장하지 않는다. release 없는 preview는 bundle 기준의 개발 연결만 발급하며 가짜 rel ID를 만들지 않는다. 화면 연결의 endpoint와 credential은 Electron main에만 둔다.
 
-AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·credential_ref·screen/size/command 범위·인증된 caller·기한을 묶는다. mode는 `live`·`preview`·`test`다. Authorization과 confirm proof는 `{payload, signature}` envelope다. payload는 그 값의 JSON이고 signature는 raw 64byte Ed25519의 base64url이다. 서명 key는 core 안 apps 제어 어댑터가 core 시작마다 만들고, 앱은 시작 입력의 공개 검증 key만 받아 매 요청을 로컬 검증한다. 재시작·activation·grant 변경·credential 회수/축소는 이전 통로 종료와 새 nonce로 나눈다. 본문 actor·effect·mode 주장은 권한 근거가 아니다.
+AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·credential_ref·screen/size/command 범위·인증된 caller·기한을 묶는다. mode는 `live`·`preview`·`test`다. Authorization과 confirm proof는 `{payload, signature}` envelope다. 서명 대상은 payload의 RFC 8785 canonical JSON UTF-8이고 signature는 raw 64byte Ed25519의 base64url이다. key 순서가 달라도 같은 payload는 같은 서명 bytes다. 서명 key는 core 안 apps 제어 어댑터가 core 시작마다 만들고, 앱은 시작 입력의 공개 검증 key만 받아 매 요청을 로컬 검증한다. 재시작·activation·grant 변경·credential 회수/축소는 이전 통로 종료와 새 nonce로 나눈다. 본문 actor·effect·mode 주장은 권한 근거가 아니다.
 
 **direct socket 경로.** 아래 경로는 core API가 아니다. caller가 직접 앱 socket으로 보내며 Authorization에 AppConnection을 쓴다. request_key는 호출 식별이고 일반 업무의 exactly-once 보장이 아니다.
 

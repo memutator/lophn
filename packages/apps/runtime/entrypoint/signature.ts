@@ -1,5 +1,7 @@
 // AppConnection·ConfirmExecutionProof 서명(apps Q5).
-// signature는 raw 64byte Ed25519의 base64url이고, 앱은 공개 검증 key만 받는다.
+// 서명 대상은 payload의 RFC 8785 canonical JSON UTF-8이고,
+// signature는 raw 64byte Ed25519의 base64url이다. 앱은 공개 검증 key만 받는다.
+import { canonicalize } from "../../../base/canonical-json.ts";
 
 const SIGNATURE = /^[A-Za-z0-9_-]{86}$/;
 
@@ -39,7 +41,7 @@ export async function verifySigned<T>(
 }
 
 export function canonicalPayload(value: unknown): string {
-  return JSON.stringify(value);
+  return canonicalize(value);
 }
 
 function base64Url(value: string): Uint8Array<ArrayBuffer> | undefined {

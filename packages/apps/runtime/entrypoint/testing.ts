@@ -1,4 +1,5 @@
 import { manualClock, sha256Hex } from "@lophn/base";
+import { canonicalPayload } from "./signature.ts";
 import { type Blueprint, validateBlueprint } from "../../blueprint/mod.ts";
 import type { RegisteredHandler } from "../../invocations/mod.ts";
 import { ensureSchedulePort } from "./schedule.ts";
@@ -69,7 +70,7 @@ export function blueprint(): Blueprint {
 // 테스트 서명은 sha256 64hex를 base64url 자리(86)로 맞춘다.
 // 실제 Ed25519 검증은 decodeVerifyKey가 하고, 테스트는 shaKey를 주입한다.
 export async function sign(payload: unknown): Promise<string> {
-  const digest = await sha256Hex(JSON.stringify(payload));
+  const digest = await sha256Hex(canonicalPayload(payload));
   return JSON.stringify({
     payload,
     signature: digest + "A".repeat(22),

@@ -1,6 +1,6 @@
 // blob 준비·설치의 요구 테스트(platform/blob-store#R1, R2, R3, R12).
 
-import { assert, assertEquals, assertRejects } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { manualClock } from "../../base/mod.ts";
 import {
   BLOB_PREPARATION_TTL_MS,
@@ -9,7 +9,6 @@ import {
 import {
   BLOB_READ_ONLY_MODE,
   BLOB_STORE_OBJECTS_DIR,
-  BLOB_STORE_TMP_DIR,
   createBlobStoreWork,
   createFakeQuota,
   createPreparationRegistry,
@@ -33,7 +32,10 @@ function streamOf(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
 async function sha256HexOf(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+    bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer,
   );
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -137,7 +139,10 @@ Deno.test("platform/blob-store#R2: stream 중단은 실패로 끝나고 반쪽 b
       purpose: PURPOSE,
     }, broken).then(
       (value) => value,
-      () => ({ ok: false as const, error: { code: "unavailable" as const, message: "stream interrupted" } }),
+      () => ({
+        ok: false as const,
+        error: { code: "unavailable" as const, message: "stream interrupted" },
+      }),
     );
     assertEquals(result.ok, false);
     // 반쪽 blob이 설치되지 않는다.
@@ -291,7 +296,11 @@ Deno.test("platform/blob-store#R1: 다른 주체·목적의 같은 hash는 별�
     { hash: base.hash, sizeBytes: base.size_bytes },
   );
   const second = preparedOf(
-    { preparation: base.preparation, principal: "coding_agent", purpose: PURPOSE },
+    {
+      preparation: base.preparation,
+      principal: "coding_agent",
+      purpose: PURPOSE,
+    },
     { hash: base.hash, sizeBytes: base.size_bytes },
   );
   assert(first.ok && second.ok);

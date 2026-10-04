@@ -188,8 +188,10 @@ async function open(
       clock,
       writer: runtime.writer,
       reads: runtime.reads,
+      memory: runtime.memory.handlers,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
+      registry: runtime.registry,
     });
   } catch {
     await runtime.close();
@@ -250,6 +252,8 @@ async function open(
       stopped = true;
       // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
       ready = false;
+      // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
+      runtime?.memory.disconnect();
       await server.stop();
       if (io) await io.stopAll();
       await runtime?.close();

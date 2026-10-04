@@ -44,9 +44,8 @@ export {
 export { acceptSocket, attachSession, type SocketDeps } from "./socket.ts";
 export {
   createWorkspaceRelay,
-  type WorkspaceRelay,
-  type WorkspaceRelayDeps,
   WORKSPACE_MAX_WINDOWS,
   WORKSPACE_MEMORY_ROUTES,
-  WORKSPACE_VIEW_STATE_FIELDS,
+  type WorkspaceRelay,
+  type WorkspaceRelayDeps,
 } from "./workspace.ts";

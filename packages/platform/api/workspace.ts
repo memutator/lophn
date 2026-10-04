@@ -1,14 +1,17 @@
 import { err, type Result } from "../../base/mod.ts";
-import type { AuthenticatedContext, Route } from "../../contracts/platform/mod.ts";
+import type {
+  AuthenticatedContext,
+  Route,
+} from "../../contracts/platform/mod.ts";
 import {
-  currentViewStateSchema,
-  SUMMARY_MAX_BYTES,
+  WORKSPACE_ROUTES,
   type WorkspaceReadOutput,
   workspaceReadOutputSchema,
-  WORKSPACE_ROUTES,
 } from "../../contracts/shell/workspace.ts";
-import type { CredentialRegistry } from "../identity/mod.ts";
-import { createRedactionEngine } from "../redaction/mod.ts";
+import {
+  createRedactionEngine,
+  type KnownSecretRegistry,
+} from "../redaction/mod.ts";
 import { createKnownSecretRegistry } from "../redaction/mod.ts";
 import type { MemoryHandler } from "./dispatch.ts";
 
@@ -31,29 +34,29 @@ type WindowState = {
 
 export type WorkspaceRelayDeps = {
   // run → session 확인. 없으면 read는 fail-closed다(T57, identity R3).
-  runSession?: (ctx: AuthenticatedContext, run: string) => Promise<
-    Result<string | null>
-  > | Result<string | null>;
+  runSession?: (ctx: AuthenticatedContext, run: string) =>
+    | Promise<
+      Result<string | null>
+    >
+    | Result<string | null>;
 };
 
 export type WorkspaceRelay = {
   routes: readonly Route[];
   handlers: Map<string, MemoryHandler>;
+  // redaction 알려진 값 registry. 등록된 secret이 relay 반환에 새지 않게 한다(T57).
+  registry: KnownSecretRegistry;
   // main 연결이 끊기거나 core epoch가 바뀌면 그 main의 값을 모두 disconnected로 바꾼다(T57).
   disconnect(): void;
 };
 
 const VISIBLE_VIEW_FIELDS = [
-  "window_ref",
-  "generation",
-  "observed_at",
-  "project",
-  "tabs",
-  "focused_pane",
-  "selection",
-  "app_view",
   "availability",
-  "omissions",
+  "observed_at",
+  "generation",
+  "summary",
+  "next_page",
+  "tab_page",
 ] as const;
 
 export function createWorkspaceRelay(
@@ -88,7 +91,9 @@ export function createWorkspaceRelay(
       tab_pages: unknown[][];
     };
     // 같은 main이 한 창의 publish를 다시 보내면 대체한다. 다른 값은 관여하지 않는다.
-    if (!windows.has(record.window_ref) && windows.size >= WORKSPACE_MAX_WINDOWS) {
+    if (
+      !windows.has(record.window_ref) && windows.size >= WORKSPACE_MAX_WINDOWS
+    ) {
       return err({ code: "conflict", message: "workspace window limit" });
     }
     windows.set(record.window_ref, { ...record, session: null });
@@ -194,7 +199,12 @@ export function createWorkspaceRelay(
     return { ok: true, value: output.data as WorkspaceReadOutput };
   });
 
-  return { routes: WORKSPACE_MEMORY_ROUTES, handlers, disconnect };
+  return {
+    routes: WORKSPACE_MEMORY_ROUTES,
+    handlers,
+    registry: known,
+    disconnect,
+  };
 }
 
 function absent(
@@ -209,12 +219,6 @@ function absent(
   return { ok: true, value: shaped.data as WorkspaceReadOutput };
 }
 
-// ok 헬퍼. resource 누수 없이odied 부재가 없도록 ctx를 그대로 value로 둔다.
-function ok(ctx: AuthenticatedContext): Result<unknown> {
+function ok(_ctx: AuthenticatedContext): Result<unknown> {
   return { ok: true, value: {} };
 }
-
-// 현재 보기 상태(shell.md §5.3)와 publish 값의 대조. publish input과
-// currentViewStateSchema가 같은 가지를 두는지 확인하는 데만 쓴다.
-export const WORKSPACE_VIEW_STATE_FIELDS = currentViewStateSchema.shape;
-export { SUMMARY_MAX_BYTES };

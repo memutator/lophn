@@ -814,6 +814,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 받은 요청: apps(C-apps-4), problems(invocation 도착 여부 read)
 - slice: apps
 - 선행: contracts#T34
+- 상태: 완료 (#121)
 - 완료: 아래 확인이 통과한다
   - `/v1/invocations/{accept_confirm,record_started,record_finished,record_denied,list,get}`, `Invocation`, operation `command | start | data_change`, trigger `direct | automation | activation | restart`, status `accepted | running | succeeded | failed | denied | unknown`, summary 16KiB.
   - event `InvocationAccepted`, `InvocationStarted`, `InvocationFinished`, `InvocationDenied`.

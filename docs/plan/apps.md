@@ -124,7 +124,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 요구: apps/runtime#R3, R5, R8, R10, R11, R12, R22, R31, apps/blueprint#R8, R12, apps/invocations#R4, R14, apps/sdk#R27, R28
 - 자리: packages/apps/runtime/entrypoint/ (main.ts, startup.ts, direct-server.ts, control.ts, screens.ts, verify.ts), packages/apps/invocations/context.ts, packages/sdk/cap-schedule/ (handlers.ts, context.ts, trace.ts, results.ts, mod.ts)
 - 쓰는 contract: contracts#T34(앱 통로 wire, 초기 JSON, AppConnection 검증, createAppChannelClient), problems의 앱 SDK 보고와 exception observer(앱 code load 전에 설치)
-- 내놓는 contract: direct socket `GET /screens/<screen>/<path>`, `POST /_lophn/commands/{invoke,cancel,status}`, `POST /_lophn/control/{probe,open,close,shutdown}`의 앱 쪽 구현. mode live·preview·test(test는 problems runner가 띄움)
+- 내놓는 contract: direct socket `GET /screens/<screen>/<path>`, `POST /_lophn/commands/{invoke,cancel}`, `GET /_lophn/commands/status`, `POST /_lophn/control/{probe,open,close,shutdown}`의 앱 쪽 구현. mode live·preview·test(test는 problems runner가 띄움)
 - slice: apps
 - 선행: apps#T2, contracts#T34, platform#T5, problems#T5
 - 완료:
@@ -135,6 +135,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `cap-schedule/context_test.ts`(Deno 2.9): await·timer·SQLite·fetch 뒤 app·release·mode·invocation 문맥 유지, 모르는 invocation ID를 만들지 않음(apps/sdk#R27), trace 이름 64자 허용·65자 거절과 inv ID와 구별(apps/sdk#R28)
   - `cap-schedule/results_test.ts`: read 결과가 정상 0행과 미수집·부분 범위·신선도 부족을 구별하고, 조건·정렬·데이터 기준이 바뀐 이어 읽기 cursor를 거절(apps/invocations#R14)
   - socket은 사용자 전용 Unix socket HTTP/1.1이고 화면 socket 위치는 앱 view에 노출되지 않는다(R5, 통합은 T10)
+- 상태: 완료 (#114)
 
 ### T8 supervisor 프로세스 수명
 

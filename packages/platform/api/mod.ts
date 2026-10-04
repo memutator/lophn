@@ -42,3 +42,11 @@ export {
   startApiServer,
 } from "./server.ts";
 export { acceptSocket, attachSession, type SocketDeps } from "./socket.ts";
+export {
+  createWorkspaceRelay,
+  type WorkspaceRelay,
+  type WorkspaceRelayDeps,
+  WORKSPACE_MAX_WINDOWS,
+  WORKSPACE_MEMORY_ROUTES,
+  WORKSPACE_VIEW_STATE_FIELDS,
+} from "./workspace.ts";

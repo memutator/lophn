@@ -29,4 +29,10 @@ export {
   recoveryName,
   recoveryStamp,
 } from "./recovery.ts";
+export {
+  checkRestart,
+  type RestartCheck,
+  type RestartDeps,
+  type RestartObservation,
+} from "./restart.ts";
 export { verifyMigrated } from "./verification.ts";

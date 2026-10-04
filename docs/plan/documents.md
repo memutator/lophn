@@ -124,6 +124,7 @@ concerns: [documents]
 
 ### T6 Document·Version ledger
 
+- 상태: 완료 (#164)
 - 등급: 기본
 - concern: documents/versions
 - 요구: documents/versions#R1, R2, R3, R4, R5, R6, R7, R8, R9, R11, R12

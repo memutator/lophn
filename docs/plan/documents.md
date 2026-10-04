@@ -14,7 +14,7 @@ concerns: [documents]
 - 프로세스 배치(architecture/documents 2장): core 안에서는 command·read 모듈만 돈다. documents worker(coordinator 1)와 준비 worker 2 slot, 호출마다 뜨는 format runner(최대 2)는 `apps/worker/`의 kind로 조립한다. 무거운 일(scan, hash, blob 준비, 추출, diff, 검색)은 core에서 하지 않는다.
 - ledger 표 DDL은 그 leaf 코드에 두고 platform의 migration 등록 contract로 올린다. derived store(`~/.lophn/derived/documents.sqlite`) 표는 outline-and-search의 adapter가 소유하고 coordinator만 쓴다.
 - 테스트 이름은 요구 번호로 시작한다: `Deno.test("documents/versions#R3: 같은 내용과 format 계약의 저장은 기존 판을 돌려준다", ...)`. 시각·id·무작위 값은 `packages/base`의 interface로 주입한다. 파일 시나리오는 `fixtures/projects/`를 임시 폴더에 복사해 쓴다.
-- 통합 테스트는 core를 메모리 SQLite와 임시 data root로 띄우고 API(`POST /v1/<resource>/<method>`)로 부른다. documents worker가 필요한 테스트는 실제 coordinator·준비 worker 프로세스를 띄운다.
+- 통합 테스트는 core를 임시 폴더의 파일 SQLite(WAL)와 임시 data root로 띄우고 API(`POST /v1/<resource>/<method>`)로 부른다. documents worker가 필요한 테스트는 실제 coordinator·준비 worker 프로세스를 띄운다. public route가 없고 core harness가 아직 없는 T5는 leaf의 test-only `node:sqlite` fixture에 contract Sql을 주입한다.
 - core 등록은 `apps/core/documents.ts`, worker kind 조립은 `apps/worker/documents/`만 고친다. registry는 platform이 만든다(lead 결정 Q1).
 
 ## slice: skeleton
@@ -101,6 +101,7 @@ concerns: [documents]
 
 ### T5 address 문법과 이름 예약
 
+- 상태: 완료 (#53)
 - 등급: 기본
 - concern: documents/addressing
 - 요구: documents/addressing#R1, R2, R10
@@ -114,6 +115,9 @@ concerns: [documents]
   - project·app slug는 하나의 이름 공간, 문서 이름은 자리 안에서 유일, 현재·옛 예약 이름은 다른 대상에 재사용 불가(예약 행은 지우거나 target을 바꾸지 않음)
   - 이름 검사: `_`로 시작, address 구분자, 공백, 제어 문자 거절, 최대 길이(질문 Q5). 제목에서 영문 이름 제안, 첫 파일 이름을 재료로 씀, 한글 제목은 그대로 둠
   - `model_test.ts`에 addressing#R1, R10, `commands_test.ts`에 addressing#R2(project 이름을 app이, 옛 문서 이름을 다른 문서가 쓰면 conflict, 보관 뒤에도 예약 유지)
+- 구현 메모: public contract의 Slug·PlaceRef·Address·DocumentRef schema와 parse/format을 소비·re-export한다. `addressingSchemaSteps`는 예약 표·index와 UPDATE/DELETE/중복 INSERT 거절 trigger를 제공한다(INSERT OR REPLACE도 target을 바꾸지 못함). 같은 target의 재예약은 helper의 no-op이며 최초 reserved_seq를 유지한다.
+- 구현 경계: `createPlaceNameReservation(tx: Pick<Tx, "sql">)`와 `createDocumentNameReservation(tx: Pick<Tx, "sql">)`는 caller가 넘긴 현재 guarded Tx.sql에만 묶인다. 별도 connection·BEGIN/COMMIT·owner 표가 없다. SQL 실패는 platform 경계까지 throw를 전달한다. core entry·actual tx.port factory 조립은 T5가 구현하지 않는다(Q7).
+- 통합 확인 후속: T5 완료 증거는 contract 소비·순수 이름 제안·WAL 예약 persistence와 주입한 guarded Tx의 rollback/lifetime까지다. 실제 writer Worker·current credential·core tx.port 조립은 아직 미검증이다. platform의 public `apps/core/testing/ledger.ts` harness가 main에 들어오면 T5 정정 또는 T7의 작은 통합 테스트로 owner 변경과 예약의 같은 rollback·seal 뒤 retained port 차단·다음 Tx fresh binding을 확인한다.
 
 ### T6 Document·Version ledger
 
@@ -638,9 +642,11 @@ lead가 2026-10-04에 모두 정했다.
 - **Q2 의존성.** 정함: picomatch, ignore, QuickJS WASM sync 빌드, parse5를 승인했다(stack.md에 반영됨). Markdown heading scanner, guest 안의 sha256, bounded Myers diff는 직접 쓴다.
 - **Q3 E2E 자리와 소유.** 정함: `e2e/flows/<flow>_test.ts`, documents·context slice E2E는 documents 팀(plan README "E2E" 표).
 - **Q4 model이 끼는 flow 단계.** 정함: documents slice는 사람 갈래만 돌고 organize-documents 2~3·find-documents 5~6은 agent slice E2E(lophn-agent 팀)에서 돈다. context slice는 agent 뒤라 build-context·define-terms를 model 단계까지 documents 팀이 돈다(T27).
-- **Q5 이름 최대 길이.** 정함: 문서 이름 100 codepoint, place slug 64 codepoint, 자동 제안은 소문자 ASCII·숫자·하이픈. 코드와 테스트가 정본이다.
+- **Q5 이름 최대 길이.** 처음엔 문서 이름 100 codepoint·place slug 64 codepoint로 정했으나 contracts#T14에서 lead가 둘 다 63으로 바꿨다. T5는 main public contract의 `SLUG_MAX_LENGTH=63`을 그대로 소비한다. place·document가 같은 Slug를 쓰므로 별도 최대 길이나 schema를 만들지 않는다. 자동 제안은 소문자 ASCII·숫자·하이픈이며 코드와 테스트가 정본이다.
 - **Q6 설치 안내 글과 자리.** 정함: 글은 lophn-agent 팀, 설치 묶음의 `guides/` 자리는 platform/install-and-update. documents는 reader와 읽기 경로만(T29).
 - **Q7 다른 최상위와 한 Tx로 묶기.** 정함: 소유 팀의 동기 Tx 경로를 쓴다. 자리 이름 예약은 `tx.port`(contracts#T14·T6), lophn-agent의 문서 저장·question option 적용은 다른 owner의 등록 command를 같은 Tx로 부르는 `tx.call`(contracts#T6, platform#T18), Operator 출력 판정은 contracts#T27의 판정을 document.save가 부른다(T32).
+  - T5 경계: current guarded Tx.sql을 받는 factory를 내놓는다. 현재 platform의 static ports map은 per-command factory injection과 같지 않으며 이 runtime 조립 보정은 platform이 맡는다. raw DB나 이전 Tx를 붙잡은 static port로 우회하지 않는다. lead 결정: port·harness를 T5 병합 선행으로 추가하지 않고 factory·예약 규칙을 먼저 합친다. 실제 writer Worker·current credential·core tx.port 통합은 public harness의 main 병합 뒤 T5 정정 또는 T7 통합 테스트로 확인한다.
 - **Q8 derived가 필요한 검사.** 정함: route handler가 command 전에 coordinator로 고정 판을 읽어 확인하고 command는 고정 판 존재와 참조만 CAS한다.
 - **Q9 첫 저장의 event.** 정함: 첫 저장은 DocumentCreated와 DocumentSaved(previous_version null)를 함께 낸다.
 - **Q10 SDK format Package.** 정함: `@lophn/format-document` 하나(이름·MIME·template·guide·FormatRef, 검사 코드 없음). 코드는 apps#T29, 내용은 T3·T4의 선언에서 만든다.
+- **Q11 T5 이름 제안의 작은 동작.** 추천·적용: 제목에서 ASCII 재료가 나오면 먼저 쓰고, 없으면 첫 파일의 basename에서 마지막 확장자를 뺀 재료를 쓴다. 그마저 없으면 `document`, 숫자로 시작하면 `document-` prefix를 쓴다. non-ASCII를 transliteration하지 않으며 title은 그대로 둔다. 63에서 자른 뒤 끝 하이픈을 뺀다. 이유: IO·locale·무작위 없이 항상 schema-valid 제안을 주고 사람이 최종 이름을 고를 수 있게 한다. 중복 이름 suffix 탐색·예약은 순수 제안에 넣지 않는다.

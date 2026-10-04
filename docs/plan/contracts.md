@@ -239,6 +239,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T10 E2E harness와 skeleton smoke
 
+- 상태: 완료 (#152)
 - 등급: 기본
 - concern: 저장소 바닥
 - 요구: 없음(docs/dev/tasks.md "테스트"의 E2E)
@@ -962,6 +963,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - `test`, `preview_start`, `release_prepare` op의 출력은 접수와 다음 read다(오래 걸리는 일을 tool 응답에서 기다리지 않는다; OpenCode 기본 tool timeout 30초).
   - CLI `app ...`, `sdk ...`, `app command|invocation|automation run`, `app start|stop|release activate`, `ticket ...`.
   - release bundle에서 빼는 개발 도구 경로 상수(`AGENTS.md`, `CLAUDE.md`, `bin/lophn`, `.mcp.json`, `.claude/settings.local.json`, 제품 skill 사본, 제품 local hook 설정). apps의 bundle 준비가 쓴다.
+- 상태: 완료 (#151)
 
 ## coding-agent
 

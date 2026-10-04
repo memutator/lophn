@@ -900,6 +900,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 내놓는 contract: backups(`/v1/backups/list·get`, manifest format 1)
 - slice: operations
 - 선행: platform#T14, platform#T40, contracts#T45
+- 상태: 완료 (#169)
 - 완료: 아래 확인이 통과한다
   - 하루 한 번 I/O worker가 SQLite online backup으로 snapshot S를 만들고 S의 모든 `blob_refs` blob과 사람의 설정 선택을 함께 담는다(R8, R9).
   - 그동안 GC·삭제를 막고 integrity·blob 존재·실제 sha256을 모두 통과한 묶음만 `complete=true`(R10).

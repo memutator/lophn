@@ -60,11 +60,17 @@ const COMPRESSION =
   /\b(?:zlib|brotli|gzip|gunzip|deflate|inflate|CompressionStream|DecompressionStream)\b/;
 const EXTERNAL_FETCH = /(?<![\w.$])fetch\s*\(/;
 
-// format 구현(documents/formats), model 구현(lophn-agent), 앱 구현(packages/apps,
-// apps/core 밖의 apps)의 code를 core가 import하지 않는다. format 처리는 문서
-// worker가, model 호출은 lophn agent 프로세스가, 앱 실행은 앱 프로세스가 맡는다.
+// format 구���(documents/formats), model 구현(lophn-agent), 앱 실행 구현의 code를
+// core가 import하지 않는다. format 처리는 문서 worker가, model 호출은 lophn agent
+// 프로세스가, 앱 실행은 앱 프로세스가 맡는다. core ledger command인 apps
+// 모듈(registration 등록 포함)은 T9 registry 계약대로 graph에 있어도 된다(Q3).
 const IMPLEMENTATION_PREFIXES = [
-  "packages/apps/",
+  "packages/apps/entrypoint/",
+  "packages/apps/runtime/entrypoint/",
+  "packages/apps/invocations/context.ts",
+  "packages/apps/automations/clock.ts",
+  "packages/apps/agent-context/redaction.ts",
+  "packages/apps/connections/client.ts",
   "packages/documents/formats/",
   "packages/lophn-agent/",
 ];

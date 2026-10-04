@@ -146,7 +146,7 @@ shell 소유 ledger 표는 없다. `approval_requests/approval_uses`, `notificat
 | shell/app-frame | main·shell renderer·content renderer | app-frame/view registry, scheme proxy, session, visibility, feedback screen | 앱별 browser partition·문서 메모리 session·임시 capture | 앱 화면 틀, 앱 통로, 문제 보고, redaction, blob |
 | shell/editor | shell renderer·main | editor/CodeMirror, file adapter, close guard | documents의 원본·working copy; 미전달 초안 메모리 | 파일 쓰기, outline·search 읽기, read, event 구독 |
 | shell/wording | shell·confirmation renderer; main의 OS 문구 | wording catalog, status presenter, 고정 문구 검사 | build된 문구 catalog; 별도 ledger 없음 | read, 문제 보고, notification, redaction |
-| shell/design-system | shell·confirmation·content renderer; build 도구 | tokens, components, reading, gallery, theme validator | 코드 정본·생성 CSS/TS·로컬 font·시각 회귀 기준 | settings는 read·command로; SDK 배포는 apps/sdk |
+| shell/design-system | shell·confirmation·content renderer; build 도구 | tokens, components, reading, theme validator | 코드 정본·생성 CSS/TS·로컬 font | settings는 read·command로; SDK 배포는 apps/sdk |
 
 ## 5. 내놓는 contract
 
@@ -285,7 +285,7 @@ core RPC는 platform/api의 `POST /v1/<resource>/<method>`, event는 WebSocket `
 
 `tokens.ts` 하나에서 CSS·TS·문서값을 생성하고 모든 컴포넌트는 생성 token만 사용한다. token-only lint는 색·길이·시간·굵기·z-index·breakpoint·없는 token 참조를 막는다. theme override는 이름 추가·삭제 없이 값만 검증하고 실패한 값만 기본값으로 돌아간다. 전역 검증 결과를 shell과 앱 session에 같은 CSS 변수 집합으로 적용하되 보호 창은 설치 컴포넌트와 검증된 값만 사용한다.
 
-gallery는 컴포넌트·화면의 light·dark·좁은 폭·empty·loading·error 여섯 경우를 먼저 등록한다. 사람이 채택한 screenshot을 회귀 기준으로 저장한다. 키보드 focus 복원, 읽기/편집 첫 블록 위치 차이 4px 이하, 떠 있는 UI·경계 drag 중 앱 view가 사라지지 않음, 보호 창 열림 중 부모 창·앱 view 입력 차단을 별도 테스트한다. 접근성(screen reader, 대비 검증, reduced-motion)은 범위 밖이라 테스트하지 않는다. 차트 palette 변경 검증은 shell/design-system의 정한 값을 검사하며 새 색이나 차트 정책을 여기서 만들지 않는다.
+화면은 Playwright E2E로 동작을 검사한다. 키보드 focus 복원, 읽기/편집 첫 블록 위치 차이 4px 이하, 떠 있는 UI·경계 drag 중 앱 view가 사라지지 않음, 보호 창 열림 중 부모 창·앱 view 입력 차단을 별도 테스트한다. 접근성(screen reader, 대비 검증, reduced-motion)은 범위 밖이라 테스트하지 않는다. 차트 palette 변경 검증은 shell/design-system의 정한 값을 검사하며 새 색이나 차트 정책을 여기서 만들지 않는다.
 
 고정 UI 문구는 `packages/design/wording/`의 en-only catalog와 shared 타입으로 main·shell·overlay·confirmation renderer에 전달한다. 모든 고정 문구는 shell/wording#R14의 `<screen>.<part>.<name>` key·ICU MessageFormat을 쓰며 날짜·숫자·상대 시각은 Intl API로 formatting한다. locale을 더할 때 같은 key의 catalog를 더하고 문장 조각을 이어 붙이지 않는다. 문구 검사는 직접 문자열·없는 key·빠진 en 값·placeholder 불일치를 오류로, 사용자 화면의 ID 접두사·snake_case·원시 enum·ledger·release·invocation·assignment 같은 안쪽 개념 이름을 경고로 처리한다. 문서·코드·별도 개발자 diagnostics는 이 경고에서 제외한다. 화면 말의 mapping과 자유 글·고정 문구 구분은 ui-ux/README.md#3,#4를 따른다. agent 자유 글은 key로 만들지 않고 en 언어 규칙만 지킨다. 기본 안내는 짧고 직접적인 1~2문장·영향·다음 행동 하나, 버튼·제목은 마침표 없음이다. 문제 문구는 problems가 확정한 값을 그대로 쓰며 shell이 placeholder·앱 이름을 다시 합성하지 않는다. 앱 기본 안내·tooltip·사용자 상세에 stack·log·원문 오류를 넣지 않는다.
 
@@ -409,7 +409,7 @@ OS notification 클릭 → main: 현재 notification read → 확인할 것/결�
 
 scene별 loading은 300ms 이후 해당 자리를 유지한 skeleton으로만 표시한다. 한 API 실패로 전체 창을 가리지 않는다. protection만 의도적으로 부모 입력을 막는다. 없는 자료·결과 불명·미검증을 성공·0으로 채우지 않는다. main log에는 코드·안전한 대상 참조·generation·영향만 남기고 사람 token·secret·본문·URL query·raw image를 넣지 않는다.
 
-검증은 main의 IPC sender 위조·subframe·다른 scheme/host·path traversal, 앱/문서/preview session 교차 읽기, 보호 창 열림 중 부모 창·여러 패널·카드 view의 입력 차단, PTY 환경의 credential 제외·제어 문자열·출력 상한·host crash·child 잔존, 요청 창과 current-view generation 경쟁, 시각 블록 script 거절·카드 스크롤 bounds, handle 중복·만료·재시작, view crash·무한 loop 중 feedback, 자동 저장/외부 변경/창 닫기 충돌, 재연결 backlog와 불명 접수 등을 대상 옆 테스트로 둔다. 지원 OS에서 실제 Chromium sandbox와 OS 통합·설치·update를 확인하며 mock screenshot만으로 완료라고 하지 않는다.
+검증은 main의 IPC sender 위조·subframe·다른 scheme/host·path traversal, 앱/문서/preview session 교차 읽기, 보호 창 열림 중 부모 창·여러 패널·카드 view의 입력 차단, PTY 환경의 credential 제외·제어 문자열·출력 상한·host crash·child 잔존, 요청 창과 current-view generation 경쟁, 시각 블록 script 거절·카드 스크롤 bounds, handle 중복·만료·재시작, view crash·무한 loop 중 feedback, 자동 저장/외부 변경/창 닫기 충돌, 재연결 backlog와 불명 접수 등을 대상 옆 테스트로 둔다. 지원 OS에서 실제 Chromium sandbox와 OS 통합·설치·update를 확인하며 mock 동작 검사만으로 완료라고 하지 않는다.
 
 ## 9. 이전과 달라진 것
 

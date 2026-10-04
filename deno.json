@@ -55,7 +55,8 @@
       "e2e",
       "apps/shell/main",
       "apps/shell/preload",
-      "packages/design/components/**/*_test.tsx"
+      "packages/design/components/**/*_test.tsx",
+      "packages/design/reading/**/*_test.tsx"
     ]
   },
   "exclude": [

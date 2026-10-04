@@ -1,0 +1,284 @@
+/* 읽기 본문 16/28(shell/design-system#R16). Markdown·code·diff·목차가 함께 쓴다. */
+.markdown {
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-reading-size);
+  line-height: var(--type-reading-line);
+  letter-spacing: var(--type-tracking-normal);
+  overflow-wrap: break-word;
+}
+
+.markdown > :first-child {
+  margin-top: var(--space-0);
+}
+
+/* 제목 1단 20px, 2단 16px/600/위 40px, 3단 16px/600/secondary, 4단 14px(R39). */
+.h1 {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.h2 {
+  margin: var(--space-0) var(--space-0) var(--space-4);
+  margin-top: var(--space-10);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.h3 {
+  margin: var(--space-8) var(--space-0) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.h4 {
+  margin: var(--space-6) var(--space-0) var(--space-2);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.paragraph {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+}
+
+.list {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  padding: var(--space-0) var(--space-0) var(--space-0) var(--space-8);
+}
+
+.list .list {
+  margin-bottom: var(--space-0);
+}
+
+.list .paragraph {
+  margin: var(--space-0);
+}
+
+.task {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  list-style: none;
+}
+
+.taskMark {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  color: var(--color-text-secondary);
+}
+
+.quote {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  padding: var(--space-0) var(--space-0) var(--space-0) var(--space-6);
+  border-left: var(--border-width) solid var(--color-border-strong);
+  color: var(--color-text-secondary);
+}
+
+.rule {
+  margin: var(--space-9) var(--space-0);
+  border: none;
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.inlineCode {
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+}
+
+.link {
+  color: var(--color-link);
+  text-decoration: underline;
+}
+
+.image {
+  max-width: 100%;
+  height: auto;
+}
+
+.html {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  white-space: pre-wrap;
+}
+
+.table {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  text-align: left;
+}
+
+.table th {
+  font-weight: var(--font-weight-semibold);
+}
+
+.table .center {
+  text-align: center;
+}
+
+.table .right {
+  text-align: right;
+  font-variant-numeric: var(--font-numeric);
+}
+
+.codeBlock {
+  margin: var(--space-0) var(--space-0) var(--space-6);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.codeHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-2) var(--space-0) var(--space-5);
+}
+
+.language {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.pre {
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-5) var(--space-5);
+  overflow-x: auto;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  white-space: pre;
+}
+
+/* diff 글자는 중립 primary이고 색 없이도 +/− 기호로 읽는다(R14, R2). */
+.diff {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.diffRow[data-diff="add"] {
+  background: var(--diff-add-line);
+}
+
+.diffRow[data-diff="delete"] {
+  background: var(--diff-delete-line);
+}
+
+.lineNumber {
+  width: var(--space-11);
+  padding: var(--space-0) var(--space-4);
+  color: var(--color-text-muted);
+  text-align: right;
+  font-variant-numeric: var(--font-numeric);
+  user-select: none;
+}
+
+.sign {
+  width: var(--space-6);
+  text-align: center;
+  user-select: none;
+}
+
+.diffText {
+  padding: var(--space-0) var(--space-5) var(--space-0) var(--space-2);
+  white-space: pre-wrap;
+}
+
+.word {
+  color: var(--color-text-primary);
+}
+
+.diffRow[data-diff="add"] .word {
+  background: var(--diff-add-word);
+}
+
+.diffRow[data-diff="delete"] .word {
+  background: var(--diff-delete-word);
+}
+
+.identical {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.toc {
+  font-family: var(--font-sans);
+}
+
+.tocTitle {
+  margin: var(--space-0) var(--space-0) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.tocList {
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.tocItem[data-level="3"] {
+  padding-left: var(--space-5);
+}
+
+.tocButton {
+  display: block;
+  width: 100%;
+  margin: var(--space-0);
+  padding: var(--space-1) var(--space-0);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tocButton:hover,
+.tocButton[aria-current] {
+  color: var(--color-text-primary);
+}
+
+.tocButton[aria-current] {
+  font-weight: var(--font-weight-medium);
+}
+
+.tocButton:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}

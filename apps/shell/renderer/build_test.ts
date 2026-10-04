@@ -78,6 +78,11 @@ Deno.test("shell/design-system#R43: renderer build가 @lophn/design/components�
     const scoped = css.match(/^\.(button_[A-Za-z]+)/m)?.[1];
     assert(scoped, "component CSS Modules class is missing");
     assert(js.includes(`"${scoped}"`), "component class map is missing");
+    // 읽기 renderer의 Lezer Markdown parser와 공유 reading CSS Modules도 같은 bundle에 들어간다.
+    assert(js.includes("ATXHeading1"), "Lezer Markdown is not bundled");
+    const reading = css.match(/^\.(reading_markdown[A-Za-z0-9_]*)/m)?.[1];
+    assert(reading, "reading CSS Modules class is missing");
+    assert(js.includes(`"${reading}"`), "reading class map is missing");
   } finally {
     await rm(dir, { recursive: true });
   }

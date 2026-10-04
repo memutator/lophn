@@ -1,4 +1,4 @@
-// Deno는 CSS Modules를 직접 읽지 못한다. components/의 *_test.tsx를 renderer와 같은
+// Deno는 CSS Modules를 직접 읽지 못한다. components/·reading/의 *_test.tsx를 renderer와 같은
 // esbuild local-css loader로 한 bundle에 묶고(React 한 벌), happy-dom 위에서 그 bundle을
 // 불러 test를 등록한다. 이 파일이 import되는 동안 등록하므로 test 이름은 원본 그대로다.
 import { assert, assertEquals } from "@std/assert";
@@ -9,7 +9,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const design = new URL("./", import.meta.url);
-const components = new URL("./components/", design);
+// 컴포넌트와 읽기 renderer의 *_test.tsx를 같은 bundle에서 돌린다.
+const testRoots = [
+  new URL("./components/", design),
+  new URL("./reading/", design),
+];
 const root = new URL("../../", design);
 
 async function testFiles(directory: URL): Promise<URL[]> {
@@ -157,7 +161,8 @@ function installDom(window: Window): void {
 const outdir = await Deno.makeTempDir({ prefix: "design-components-" });
 let bundled = { js: "", css: "" };
 try {
-  const { js, css } = await bundleTests(outdir, await testFiles(components));
+  const files = (await Promise.all(testRoots.map(testFiles))).flat();
+  const { js, css } = await bundleTests(outdir, files);
   bundled = {
     js: await Deno.readTextFile(js),
     css: await Deno.readTextFile(css),

@@ -34,3 +34,12 @@ export const systemTimer: Timer = {
   set: (callback, ms) => setTimeout(callback, ms),
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
+
+// 개발자 ID와 code 복사는 OS clipboard를 쓴다. 테스트가 바꿔 끼우도록 인자로 받는다.
+export interface Clipboard {
+  writeText(text: string): Promise<void>;
+}
+
+export const systemClipboard: Clipboard = {
+  writeText: (text) => navigator.clipboard.writeText(text),
+};

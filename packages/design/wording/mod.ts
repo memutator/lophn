@@ -6,4 +6,5 @@ export {
   formatDateTooltip,
   formatNumber,
   formatRelativeTime,
+  type NumberStyle,
 } from "./intl.ts";

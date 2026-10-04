@@ -113,6 +113,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: skeleton
 - 선행: platform#T1
+- 상태: 완료 (#40)
 - 완료: 아래 확인이 통과한다
   - reader Worker 2개가 각자 `readOnly` 연결과 `PRAGMA query_only=ON`을 쓴다. writer queue와 다른 queue다.
   - 응답 하나가 짧은 read transaction 하나이고, 자료와 `as_of_seq`를 같은 snapshot에서 얻는다.

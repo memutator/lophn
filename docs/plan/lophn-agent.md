@@ -66,6 +66,7 @@ lophn-agent 팀의 작업 전부다. 범위는 `docs/intent/lophn-agent*`, `docs
 
 ### T2 fake provider
 
+- 상태: 완료 (#37)
 - 등급: 기본
 - concern: lophn-agent/harness/provider
 - 요구: 없음(개발 도구, [stack.md](../dev/stack.md) "tools/fake-provider")

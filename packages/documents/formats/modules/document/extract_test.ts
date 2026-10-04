@@ -1,13 +1,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { encodeUtf8 } from "../../pure/utf8.ts";
 import {
-  extractFormat,
   formatDeclaration,
   formatDeclarations,
   formatForMediaType,
   MODULE_HASH_PLACEHOLDER,
-  validateFormat,
 } from "../../model.ts";
+import { extractFormat, validateFormat } from "../../guest.ts";
 import type { FormatModuleFile, FormatModuleInput } from "../../pure/input.ts";
 import { sha256Text } from "../../pure/sha256.ts";
 

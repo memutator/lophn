@@ -465,6 +465,7 @@ concerns: [shell]
 
 ### T24 터미널 host와 PTY
 
+- 상태: 진행 (#160)
 - 등급: 기본
 - concern: shell/terminal
 - 요구: shell/terminal#R1, R2, R3, R4(일반 shell), R5(일반 shell 비주입), R7, R8, R9, R10, R11

@@ -60,9 +60,11 @@ const COMPRESSION =
   /\b(?:zlib|brotli|gzip|gunzip|deflate|inflate|CompressionStream|DecompressionStream)\b/;
 const EXTERNAL_FETCH = /(?<![\w.$])fetch\s*\(/;
 
-// format 구���(documents/formats), model 구현(lophn-agent), 앱 실행 구현의 code를
-// core가 import하지 않는다. format 처리는 문서 worker가, model 호출은 lophn agent
-// 프로세스가, 앱 실행은 앱 프로세스가 맡는다. core ledger command인 apps
+// format 구현(guest 계산, module 묶음, runner client), model 구현(lophn-agent),
+// 앱 실행 구현의 code를 core가 import하지 않는다. format 처리는 문서 worker가,
+// model 호출은 lophn agent 프로세스가, 앱 실행은 앱 프로세스가 맡는다. core가
+// 여는 내장 format read(declaration·module_hash)는 T4 registry 계약대로
+// declaration 모듈만 graph에 있어도 된다(Q10). core ledger command인 apps
 // 모듈(registration 등록 포함)은 T9 registry 계약대로 graph에 있어도 된다(Q3).
 // lophn-agent의 ledger registration 모듈(harness/provider의 command·read·schema)도
 // core가 조립한다(architecture/lophn-agent 3.1). runtime 쪽 코드만 거르는다.
@@ -73,7 +75,17 @@ const IMPLEMENTATION_PREFIXES = [
   "packages/apps/automations/clock.ts",
   "packages/apps/agent-context/redaction.ts",
   "packages/apps/connections/client.ts",
-  "packages/documents/formats/",
+  "packages/documents/formats/adapters/",
+  "packages/documents/formats/check.ts",
+  "packages/documents/formats/guest/bundle.ts",
+  "packages/documents/formats/guest.ts",
+  "packages/documents/formats/modules/",
+  "packages/documents/formats/pure/input.ts",
+  "packages/documents/formats/pure/module.ts",
+  "packages/documents/formats/pure/utf8.ts",
+  "packages/documents/formats/reads.ts",
+  "packages/documents/formats/runner/",
+  "packages/documents/formats/work.ts",
   "packages/lophn-agent/roles/",
 ];
 

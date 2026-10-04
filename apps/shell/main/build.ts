@@ -16,7 +16,7 @@ const shared = {
   platform: "node" as const,
   format: "cjs" as const,
   outExtension: { ".js": ".cjs" },
-  external: ["electron"],
+  external: ["electron", "node-pty"],
   nodePaths: [join(here, "node_modules")],
   // Deno workspace 이름은 esbuild가 모른다. 저장소 패키지로 묶는다.
   plugins: [lophnPackages(join(here, "../../.."))],
@@ -41,6 +41,7 @@ function lophnPackages(repoRoot: string): esbuild.Plugin {
 
 const entries: BuildEntry[] = [
   { in: join(here, "desktop/main.ts"), out: "main" },
+  { in: join(shell, "terminal-host/cli.ts"), out: "terminal-host" },
   { in: join(shell, "preload/shell.ts"), out: "preload-shell" },
   { in: join(shell, "preload/confirmation.ts"), out: "preload-confirmation" },
   { in: join(shell, "preload/app.ts"), out: "preload-app" },
@@ -56,5 +57,17 @@ export function build(
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
+  const { spawnSync } = await import("node:child_process");
+  const rebuilt = spawnSync(
+    process.execPath,
+    [
+      join(here, "node_modules/@electron/rebuild/lib/cli.js"),
+      "-f",
+      "-m",
+      join(here, "node_modules/node-pty"),
+    ],
+    { cwd: here, stdio: "inherit" },
+  );
+  if (rebuilt.status !== 0) process.exit(rebuilt.status ?? 1);
   await build(join(here, "dist"));
 }

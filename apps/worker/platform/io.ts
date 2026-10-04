@@ -347,6 +347,8 @@ export function createBackupTick(
   return {
     tick() {
       if (inFlight) return;
+      // due 판정 전에 세운다. 판정을 기다리는 동안 온 다음 tick이 같이 submit하지 않는다(R9).
+      inFlight = true;
       void (async () => {
         let due = false;
         try {
@@ -357,10 +359,13 @@ export function createBackupTick(
           );
         } catch {
           // 판정을 읽지 못하면 이번 check는 건너뛴다. 다음 tick이 다시 본다.
+          inFlight = false;
           return;
         }
-        if (!due) return;
-        inFlight = true;
+        if (!due) {
+          inFlight = false;
+          return;
+        }
         const submission = backupScheduler.submit("backup", async () => {
           return await runDailyBackup(root, clock);
         });

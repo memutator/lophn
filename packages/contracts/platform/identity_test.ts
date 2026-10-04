@@ -80,11 +80,47 @@ Deno.test("platform/identity#R2 platform/identity#R3: target restriction의 own 
     credential_ref: "ref",
   });
   for (const parsed of [parsedScope, parsedContext.scope]) {
-    assertEquals(Object.keys(parsed.targets), Object.keys(targets));
-    assertEquals(Object.entries(parsed.targets), Object.entries(targets));
+    assertEquals(
+      Object.keys(parsed.targets).sort(),
+      Object.keys(targets).sort(),
+    );
+    assertEquals(
+      Object.entries(parsed.targets).sort(([a], [b]) => a.localeCompare(b)),
+      Object.entries(targets).sort(([a], [b]) => a.localeCompare(b)),
+    );
     assertEquals(canonicalize(parsed.targets), canonicalize(targets));
     assertEquals(Object.getPrototypeOf(parsed.targets), Object.prototype);
   }
+});
+Deno.test("platform/identity#R2 platform/identity#R3: parsed credential target은 caller와 서로 mutation을 공유하지 않는다", () => {
+  const targets = JSON.parse(
+    '{"__proto__":{"run":"required"},"nested":{"__proto__":[{"app":"required"}]}}',
+  );
+  const scoped = { operations: ["ReadDocument"], targets };
+  const parsedScope = credentialScopeSchema.parse(scoped);
+  const parsedContext = authenticatedContextSchema.parse({
+    principal: "test",
+    actor: "user",
+    scope: scoped,
+    conditions: {},
+    credential_ref: "ref",
+  });
+  const original = canonicalize(targets);
+  parsedScope.targets.extra = "parsed-only";
+  targets.__proto__.run = "changed";
+  targets.nested.__proto__[0].app = "changed";
+  assertEquals(canonicalize(parsedContext.scope.targets), original);
+  assertEquals(
+    canonicalize(parsedScope.targets),
+    canonicalize({
+      ...JSON.parse(original),
+      extra: "parsed-only",
+    }),
+  );
+  assert(!Object.hasOwn(targets, "extra"));
+  parsedContext.scope.targets.extra = "context-only";
+  assert(!Object.hasOwn(targets, "extra"));
+  assertEquals(parsedScope.targets.extra, "parsed-only");
 });
 Deno.test("platform/identity#R2 platform/identity#R3: target scope는 JSON object만 받고 값을 변환하지 않는다", () => {
   for (

@@ -567,7 +567,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - `AgentAppScope {role, assignment, apps: [{app, commands, effects, revert_required, confirm_allowed}]}`: StartRun 때 `agent:<asg>` credential의 conditions로 실린다.
   - event `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished` 여섯 개, `Session*` 3개, `Message*` 4개, `AssignmentScheduleAdvanced`. `CheckpointRun`·`ConfirmNextRun`은 event를 만들지 않는다.
   - `WaitRun`은 새 question 또는 approval의 정확한 생성 입력을 받고 요청 생성·`waiting_on` 연결을 한 transaction에서 한다. 기존 ID만 받는 계약으로 줄이지 않는다. question 제출 값과 `ResolvedModel`은 T26에서 먼저 정의하고 T28·T29가 재사용한다.
-  - ordered `MessageContent`가 쓰는 정확한 `VisualBlock`과 상한은 T26에서 먼저 정의하고 T30이 같은 schema를 재사용한다. `__proto__` 같은 JSON own key·nested key는 파싱에서 지우지 않고 canonical byte·hash와 credential target restriction 근거로 보존한다. 이 값 검증은 blob 내용 확인·현재 scope·redaction·원자 기록 같은 owner runtime 검증을 대신하지 않는다.
+  - ordered `MessageContent`가 쓰는 정확한 `VisualBlock`과 상한은 T26에서 먼저 정의하고 T30이 같은 schema를 재사용한다. `__proto__` 같은 JSON own key·nested key는 파싱에서 지우지 않고 canonical byte·hash와 credential target restriction 근거로 보존한다. credential targets는 caller mutation과 분리한 JSON snapshot으로 파싱한다. 이 값 검증은 blob 내용 확인·현재 scope·redaction·원자 기록 같은 owner runtime 검증을 대신하지 않는다.
 
 ### T27 contracts/lophn-agent: preset·assignment
 

@@ -109,9 +109,10 @@ export function notificationsEngine(
               source_seq: through,
               source_event: event.type,
               processed_through_seq: through,
+              subscriber: NOTIFICATION_SUBSCRIBER,
             },
             idempotency_key: key.value,
-            compare: {},
+            compare: { processed_through_seq: scanned },
             prepared: [],
           });
           if (!created.ok) return created;

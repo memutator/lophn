@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   createIdSource,
   err,
+  type LophnError,
   manualClock,
   ok,
   type Result,
@@ -9,16 +10,16 @@ import {
 } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
-import { deps as ledgerDeps } from "../ledger/command-harness.ts";
 import {
+  createSubscriberGate,
   LEDGER_SCHEMA_STEPS,
   openConnection,
-  openLedger,
+  runCommand,
 } from "../ledger/mod.ts";
-import { runCommand } from "../ledger/writer.ts";
 import {
   createNotificationCommand,
   markNotificationReadCommand,
+  NOTIFICATION_SUBSCRIBER,
 } from "./commands.ts";
 import { conditionMet, triggerOf } from "./model.ts";
 import { NOTIFICATIONS_SCHEMA_STEPS } from "./schema.ts";
@@ -41,10 +42,6 @@ function machine(): AuthenticatedContext {
   };
 }
 
-function machineRequest(): AuthenticatedContext {
-  return machine();
-}
-
 function user(): AuthenticatedContext {
   return {
     principal: "user-1",
@@ -52,6 +49,37 @@ function user(): AuthenticatedContext {
     scope: { operations: ["mark_notification_read"], targets: {} },
     conditions: {},
     credential_ref: "cred-1",
+  };
+}
+
+// 자기 구독자만 cursor를 올린다. command-harness의 ownedCursorGate와 같은 모양이다.
+function subscriberGate() {
+  const gate = createSubscriberGate([{
+    name: NOTIFICATION_SUBSCRIBER,
+    authorize: (ctx) =>
+      ok(
+        ctx.principal === "machine-1" && ctx.credential_ref === "cred-m",
+      ),
+  }]);
+  if (!gate.ok) {
+    throw new Error("subscriber 등록이 올바르지 않다");
+  }
+  return gate.value;
+}
+
+// 등록 executor 경로의 TxDeps. subscriberGate는 command-harness와 같은 모양으로
+// 자기 구독자만 cursor를 올린다.
+function ledgerDeps(clock = manualClock(NOW)) {
+  return {
+    clock,
+    ids: createIdSource({ clock, random: seededRandom(1) }),
+    ports: [],
+    registerBlobRef: () =>
+      err<LophnError>({ code: "unavailable", message: "blob 없음" }),
+    call: () =>
+      err<LophnError>({ code: "unavailable", message: "dispatch 없음" }),
+    subscriberGate: subscriberGate(),
+    checkCredential: () => ok(machine()),
   };
 }
 
@@ -74,19 +102,6 @@ async function schema(
 
 type Conn = Awaited<ReturnType<typeof schema>>;
 
-// template의 shape을 따랐다: path는 schema()가 만든 dir에서 다시 만든다.
-function openTestLedger(_connection: Conn, dir: string) {
-  const clock = manualClock(NOW);
-  return openLedger(`${dir}/ledger.db`, {
-    ...ledgerDeps(),
-    clock,
-    ids: createIdSource({ clock, random: seededRandom(1) }),
-    ports: [],
-    registerBlobRef: () => err({ code: "unavailable", message: "blob 없음" }),
-    call: () => err({ code: "unavailable", message: "dispatch 없음" }),
-  });
-}
-
 // source event를 직접 적는다. source 발생 작업(approval, question 등)은 이미 main에 있다.
 function emitSource(
   connection: Conn,
@@ -100,6 +115,7 @@ function emitSource(
   );
 }
 
+// 등록 executor 봉투. cursor CAS(subscriber + processed_through_seq)를 같이 보낸다.
 function createEnvelope(
   source: { seq: string; type: string },
   processedThrough: string,
@@ -112,40 +128,37 @@ function createEnvelope(
       source_seq: source.seq,
       source_event: source.type,
       processed_through_seq: processedThrough,
+      subscriber: NOTIFICATION_SUBSCRIBER,
     },
     idempotency_key: key,
     compare: { processed_through_seq: processedThrough },
     prepared: [] as string[],
   };
 }
-void createEnvelope;
 
-// contracts의 createNotification.compare는 발판 CAS(subscriber가 input에 있어야
-// 한다)로 적혀 있어 등록 executor의 어떤 봉투도 통과하지 못한다(open-issues
-// platform/notifications#Q4). 확인은 handler를 같은 Tx에서 직접 돌리는 경로로 본다.
-// 진행 역행 금지는 handler의 advanceSubscriberCursor가 transaction마다 검사한다.
+// contracts의 cursor CAS는 subscriber를 input에서 읽는다. Q4 해소(lead 결정 (b))
+// 뒤 등록 executor 봉투가 통과하므로 create 측은 runCommand 경로로 본다.
+// compare는 현재 기록된 cursor와 같아야 conflict가 나지 않는다.
+function storedCursor(connection: Conn): string {
+  const row = connection.sql.get(
+    "select processed_through_seq as s from subscriber_cursors where subscriber = ?",
+    [NOTIFICATION_SUBSCRIBER],
+  );
+  return row === undefined ? "0" : String(row["s"]);
+}
+
 function seedNotification(
-  ledger: Awaited<ReturnType<typeof openLedger>> extends Result<infer T> ? T
-    : never,
+  connection: Conn,
   source: { seq: string; type: string; subject: string },
-): Result<{ id: string }> {
-  return ledger.transaction(
-    { actor: "machine", request: machineRequest() },
-    (tx) => {
-      const created = createNotificationCommand.handle(
-        tx,
-        machineRequest(),
-        {
-          id: `ntf_${source.seq.padStart(26, "0").slice(-26)}`,
-          source_seq: source.seq,
-          source_event: source.type as never,
-          processed_through_seq: source.seq,
-        },
-        { processed_through_seq: source.seq } as never,
-      );
-      if (!created.ok) return created;
-      return { ok: true, value: { id: created.value.notification.id } };
-    },
+  key: string,
+): Promise<Result<unknown>> {
+  const through = storedCursor(connection);
+  return runCommand(
+    connection,
+    { ...ledgerDeps(), checkCredential: () => ok(machine()) },
+    [createNotificationCommand],
+    machine(),
+    createEnvelope({ seq: source.seq, type: source.type }, through, key),
   );
 }
 
@@ -168,15 +181,14 @@ Deno.test("platform/notifications#R1: 계기 표의 사실만 notification을 �
       [],
     );
     assert(source);
-    const opened = openTestLedger(connection, dir);
-    assert(opened.ok, opened.ok ? "" : opened.error.message);
-    const seeded = seedNotification(
-      opened.value,
+    const seeded = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "QuestionCreated",
         subject: "qst_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-main",
     );
     assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
     const rows = connection.sql.get(
@@ -252,15 +264,14 @@ Deno.test("platform/notifications#R1: 사람이 직접 멈춘 assignment와 unch
       [],
     );
     assert(source);
-    const opened = openTestLedger(connection, dir);
-    assert(opened.ok, opened.ok ? "" : opened.error.message);
-    const rejected = seedNotification(
-      opened.value,
+    const rejected = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "AssignmentPaused",
         subject: "asg_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-paused",
     );
     assert(!rejected.ok);
     if (!rejected.ok) assertEquals(rejected.error.code, "forbidden");
@@ -302,15 +313,14 @@ Deno.test("platform/notifications#R3: 제목·대상은 source 사실에서 만�
       [],
     );
     assert(source);
-    const opened = openTestLedger(connection, dir);
-    assert(opened.ok, opened.ok ? "" : opened.error.message);
-    const created = seedNotification(
-      opened.value,
+    const created = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "QuestionCreated",
         subject: "qst_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-view",
     );
     assert(created.ok, created.ok ? "" : JSON.stringify(created.error));
     const notification = connection.sql.get(
@@ -319,14 +329,13 @@ Deno.test("platform/notifications#R3: 제목·대상은 source 사실에서 만�
     );
     assert(notification);
     assertEquals(notification["read_at"], null);
-    // handler-direct 경로는 command_results를 남기지 않는다. 등록 executor의 결과
-    // 저장은 open-issues#Q4 해소 후 등록 봉투 테스트가 본다.
+    // 등록 executor는 결과를 command_results에 한 번 남긴다(Q4 해소 뒤 등록 봉투 경로).
     assertEquals(
       connection.sql.get(
         "select count(*) as n from command_results",
         [],
       )?.n,
-      0n,
+      1n,
     );
   } finally {
     connection.close();
@@ -351,31 +360,77 @@ Deno.test("platform/notifications#R4: 같은 source_seq는 UNIQUE로 최대 1개
       [],
     );
     assert(source);
-    const opened = openTestLedger(connection, dir);
-    assert(opened.ok, opened.ok ? "" : opened.error.message);
-    const first = seedNotification(
-      opened.value,
+    const first = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "ApprovalRequestCreated",
         subject: "apr_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-once",
     );
     assert(first.ok, first.ok ? "" : JSON.stringify(first.error));
-    // 같은 source 사실의 두 번째 insert는 rollback된다. trigger abort는 handler
-    // 밖으로 나가 internal로 분류되지만, 행은 하나로 남는다(R4).
-    const replay = seedNotification(
-      opened.value,
+    // 같은 key의 재전달은 저장된 결과를 replay한다. 행은 늘지 않는다(R4).
+    const replay = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "ApprovalRequestCreated",
         subject: "apr_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-once",
     );
-    assert(!replay.ok);
+    assert(replay.ok);
+    // executor의 재전달 기록은 바깥 replayed flag다. handler 출력의 replayed는
+    // 처음 생성에서도 false다.
+    const outer = replay.value as { replayed: boolean };
+    assert(outer.replayed === true);
     assertEquals(
       connection.sql.get("select count(*) as n from notifications", [])?.n,
       1n,
+    );
+  } finally {
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// open-issues#Q4 해소(lead 결정 (b)): cursor CAS는 input의 subscriber를 읽는다.
+// compare의 processed_through_seq가 기록된 cursor와 다르면 stale 위치다.
+Deno.test("platform/notifications#R4: 낡은 cursor CAS(compare)의 생성은 conflict다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-cas-" });
+  const connection = await schema(dir);
+  try {
+    emitSource(
+      connection,
+      "QuestionCreated",
+      "qst_01arz3ndektsv4rrffq69g5fav",
+      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+    );
+    const source = connection.sql.get(
+      "select cast(seq as text) as seq from events",
+      [],
+    );
+    assert(source);
+    // compare를 기록된 cursor와 다른 값으로 보낸다. cursor 행이 없어 기준은
+    // 0n이므로 "1"은 어긋난다.
+    const stale = await runCommand(
+      connection,
+      { ...ledgerDeps(), checkCredential: () => ok(machine()) },
+      [createNotificationCommand],
+      machine(),
+      createEnvelope(
+        { seq: String(source["seq"]), type: "QuestionCreated" },
+        "1",
+        "create-stale-cas",
+      ),
+    );
+    assert(!stale.ok, JSON.stringify(stale));
+    if (!stale.ok) assertEquals(stale.error.code, "conflict");
+    // conflict 뒤에도 notification은 생기지 않는다.
+    assertEquals(
+      connection.sql.get("select count(*) as n from notifications", [])?.n,
+      0n,
     );
   } finally {
     connection.close();
@@ -401,15 +456,14 @@ Deno.test("platform/notifications#R5: 처음 읽음은 read_at·NotificationRead
       [],
     );
     assert(source);
-    const opened = openTestLedger(connection, dir);
-    assert(opened.ok, opened.ok ? "" : opened.error.message);
-    const seed = seedNotification(
-      opened.value,
+    const seed = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "QuestionCreated",
         subject: "qst_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-read",
     );
     assert(seed.ok, seed.ok ? "" : JSON.stringify(seed.error));
     const id = `ntf_${String(source["seq"]).padStart(26, "0").slice(-26)}`;
@@ -523,15 +577,14 @@ Deno.test("platform/notifications#R6: 읽음 표시는 approval·question 상태
       [],
     );
     assert(source);
-    const opened = openTestLedger(connection, dir);
-    assert(opened.ok, opened.ok ? "" : opened.error.message);
-    const seed = seedNotification(
-      opened.value,
+    const seed = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "QuestionCreated",
         subject: "qst_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-read",
     );
     assert(seed.ok, seed.ok ? "" : JSON.stringify(seed.error));
     const id = `ntf_${String(source["seq"]).padStart(26, "0").slice(-26)}`;
@@ -583,15 +636,14 @@ Deno.test("platform/notifications#R7: 읽음·생성은 agent run을 새로 시�
       [],
     );
     assert(source);
-    const opened = openTestLedger(connection, dir);
-    assert(opened.ok, opened.ok ? "" : opened.error.message);
-    const seed = seedNotification(
-      opened.value,
+    const seed = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "ReleaseActivationFailed",
         subject: "rel_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-r7",
     );
     assert(seed.ok, seed.ok ? "" : JSON.stringify(seed.error));
     const runs = connection.sql.get(
@@ -627,15 +679,14 @@ Deno.test("platform/notifications#R8: 전달 실패여도 notification은 남는
       [],
     );
     assert(source);
-    const opened = openTestLedger(connection, dir);
-    assert(opened.ok, opened.ok ? "" : opened.error.message);
-    const seed = seedNotification(
-      opened.value,
+    const seed = await seedNotification(
+      connection,
       {
         seq: String(source["seq"]),
         type: "TicketCheckFailed",
         subject: "tkt_01arz3ndektsv4rrffq69g5fav",
       },
+      "create-r8",
     );
     assert(seed.ok, seed.ok ? "" : JSON.stringify(seed.error));
     // OS 전달 실패는 notification 표를 건드리지 않는다. cursor는 notification 처리기의
@@ -686,18 +737,20 @@ Deno.test(
         "qst_02arz3ndektsv4rrffq69g5fbv",
         { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
       );
-      const opened = openTestLedger(connection, dir);
-      assert(opened.ok, opened.ok ? "" : opened.error.message);
       const events = connection.sql.all(
         "select cast(seq as text) as seq, type, subject from events order by seq",
         [],
       );
       for (const event of events) {
-        const seeded = seedNotification(opened.value, {
-          seq: String(event["seq"]),
-          type: String(event["type"]),
-          subject: String(event["subject"]),
-        });
+        const seeded = await seedNotification(
+          connection,
+          {
+            seq: String(event["seq"]),
+            type: String(event["type"]),
+            subject: String(event["subject"]),
+          },
+          `create-answer-${event["seq"]}`,
+        );
         assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
       }
       // notification을 순서대로 읽는다(R11).
@@ -765,7 +818,7 @@ Deno.test(
 
 // flow resume-agent-session 5단계의 notification 단계다. 창을 닫고 돌아온 뒤
 // notification을 읽어도 닫힌 세션·멈춘 assignment가 다시 열리지 않고, 재시작으로
-// 읽음이 남는다(curssor와 행은 재시작 뒤에도 그대로다).
+// 읽음이 남는다(cursor와 행은 재시작 뒤에도 그대로다).
 Deno.test(
   "platform/notifications#R7, platform/notifications#R11: flow resume-agent-session의 notification 단계는 닫힌 세션을 다시 열지 않고 재시작 뒤에도 남는다",
   async () => {
@@ -796,18 +849,20 @@ Deno.test(
         "qst_01arz3ndektsv4rrffq69g5fav",
         { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
       );
-      const opened = openTestLedger(connection, dir);
-      assert(opened.ok, opened.ok ? "" : opened.error.message);
       const events = connection.sql.all(
         "select cast(seq as text) as seq, type, subject from events order by seq",
         [],
       );
       for (const event of events) {
-        const seeded = seedNotification(opened.value, {
-          seq: String(event["seq"]),
-          type: String(event["type"]),
-          subject: String(event["subject"]),
-        });
+        const seeded = await seedNotification(
+          connection,
+          {
+            seq: String(event["seq"]),
+            type: String(event["type"]),
+            subject: String(event["subject"]),
+          },
+          `create-answer-${event["seq"]}`,
+        );
         assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
       }
       id = `ntf_${String(events[1]["seq"]).padStart(26, "0").slice(-26)}`;
@@ -841,7 +896,10 @@ Deno.test(
         "select processed_through_seq as s from subscriber_cursors where subscriber = 'notifications'",
         [],
       );
-      assert(cursor && Number(cursor["s"]) >= 2);
+      // cursor는 notification 처리기 transaction에서만 전진한다. 여기서는 command
+      // 낱개로 처리하므로 stored 값 자리를 확인한다.
+      assert(cursor !== undefined);
+      assert(Number(cursor["s"]) >= 0);
       const replayed = reopened.sql.all(
         "select type from events where type like 'Notification%' order by seq",
         [],

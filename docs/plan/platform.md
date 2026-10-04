@@ -473,6 +473,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 읽음·클릭이 승인·답·닫힘을 만들지 않고 새 run·닫힌 세션 재개를 만들지 않는다(R6, R7). 전달 실패로 버리지 않고 model call을 쓰지 않는다(R8). 발생 순서대로 모두 다시 읽을 수 있다(R11).
   - `notifications_test.ts`에 위 요구 테스트
   - flow answer-question·resume-agent-session의 notification 단계 통합 테스트
+  - open-issues의 platform/notifications#Q4는 lead 결정 (b)로 해소했다: compare `{processed_through_seq}`를 유지하고 contracts의 `createNotificationInputSchema`에 `subscriber: z.literal("notifications")`를 둔다. 낡은 cursor 위치의 생성은 conflict다.
 
 ### T18 Tx 안에서 다른 owner의 등록 command 부르기
 

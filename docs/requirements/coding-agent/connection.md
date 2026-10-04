@@ -94,7 +94,7 @@ concerns: [coding-agent/connection]
 - 확인: 네트워크를 끄고 cache-only 실행으로 초기화와 tool 발견이 성공한다.
 - 의도: coding-agent#I1
 
-**[R17]** MCP server와 CLI는 connection 참조로 시작할 때 인증 경계의 OS keychain에서 credential을 받고 lophn 시작 TUI에도 보호된 통로로 붙이며 설정·wrapper·source·안내·ledger·진단·prompt·일반 환경 변수에 token 원문을 쓰지 않는다.
+**[R17]** MCP server와 CLI는 connection 참조로 시작할 때 인증 경계의 OS keychain에서 credential을 받고 lophn 시작 TUI에는 connection 참조만 넘겨 그 아래 MCP·CLI가 같은 방법으로 받게 하며 설정·wrapper·source·안내·ledger·진단·prompt·일반 환경 변수에 token 원문을 쓰지 않는다.
 - 이유: source 배포와 release가 token을 퍼뜨리면 안 된다.
 - 확인: wrapper의 actor는 connection이며 설정·source·release·진단·PTY 출력에 token 원문이 없고 keychain 잠김·누락에서는 평문 파일이나 user credential fallback 없이 unavailable이다.
 - 의도: coding-agent#I1

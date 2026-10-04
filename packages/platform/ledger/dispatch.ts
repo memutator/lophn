@@ -5,7 +5,11 @@ import type {
   CommandRoute,
   Tx,
 } from "../../contracts/platform/mod.ts";
+<<<<<<< HEAD
 import { authorizeConditions } from "../identity/mod.ts";
+=======
+import { authorize } from "../identity/mod.ts";
+>>>>>>> origin/main
 import { countCas, withinCommandLimits } from "./fingerprint.ts";
 import {
   actorKind,
@@ -114,7 +118,11 @@ function admit(
   if (kind === undefined || !definition.route.actors.includes(kind)) {
     return err({ code: "forbidden", message: "actor 종류가 command 밖이다" });
   }
+<<<<<<< HEAD
   const allowed = authorizeConditions(
+=======
+  const allowed = authorize(
+>>>>>>> origin/main
     ctx,
     definition.route.name,
     authorityTarget(ctx, run ?? undefined),

@@ -136,3 +136,4 @@ function ledger(connection: LedgerConnection, deps: LedgerDeps): Ledger {
     },
   };
 }
+export { defineSyncCommand } from "./handler.ts";

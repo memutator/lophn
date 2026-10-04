@@ -1,10 +1,4 @@
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
-
-// port를 주입하지 않은 Tx·snapshot은 owner 판정을 통과시키지 않는다.
-export const TARGET_AUTHORIZATION_UNAVAILABLE: Result<never> = err({
-  code: "forbidden",
-  message: "target authorization unavailable",
-});
 import {
   type ActorKind,
   type AuthenticatedContext,
@@ -98,6 +92,12 @@ export function conditionsMatch(
 }
 
 // ledger 입구 gate가 판정하는 고정 조건. domain key는 owner가 판정한다.
+// port를 주입하지 않은 Tx·snapshot은 owner 판정을 통과시키지 않는다.
+export const TARGET_AUTHORIZATION_UNAVAILABLE: Result<never> = err({
+  code: "forbidden",
+  message: "target authorization unavailable",
+});
+
 export const CONDITION_TARGET_KEYS = [
   "app",
   "task",

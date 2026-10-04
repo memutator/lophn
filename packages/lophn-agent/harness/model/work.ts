@@ -8,8 +8,11 @@ import {
 import type { Result } from "../../../base/mod.ts";
 import { err, ok } from "../../../base/mod.ts";
 import type {
+  Input,
   Output,
   ReadDefinition,
+  ReadSnapshot,
+  RequestContext,
 } from "../../../contracts/platform/mod.ts";
 import { parseActor } from "../../../contracts/platform/mod.ts";
 import {
@@ -316,77 +319,79 @@ export type CatalogReadDeps = {
 // catalog의 read 정의. derived 파일을 읽고, 정상 파일이 없으면 동봉 snapshot에서
 // 다시 만든다(plan 완료 1). refresh는 runtime 작업이므로 read는 여기 없다.
 export function createCatalogRead(deps?: Partial<CatalogReadDeps>) {
-  return (): ReadDefinition<typeof modelCatalogRead> => {
-    const files = deps?.files as SyncFiles | undefined;
-    return {
-      route: modelCatalogRead,
-      handle(snapshot, ctx, input) {
-        if (typeof files?.readTextFile !== "function") {
-          return err({
-            code: "unavailable",
-            message: "catalog read 파일 reader가 없다",
-          });
-        }
-        const actor = parseActor(ctx.actor);
-        if (
-          actor === undefined || !modelCatalogRead.actors.includes(actor.kind)
-        ) {
-          return err({
-            code: "forbidden",
-            message: "catalog read actor 아니다",
-          });
-        }
-        let catalog: CatalogEntry[];
-        let state: CatalogState;
-        try {
-          catalog = parseEntries(files.readTextFile("catalog.json")) ?? [];
-          state = parseState(files.readTextFile("catalog-state.json")) ??
-            undefined as unknown as CatalogState;
-        } catch {
-          return err({
-            code: "unavailable",
-            message: "catalog 파일을 읽지 못했다",
-          });
-        }
-        if (!state) {
-          // 정상 파일이 없으면 동봉 snapshot에서 다시 만든다(plan 완료 1).
-          const snapshotLoader = deps?.loadSnapshot;
-          if (typeof snapshotLoader !== "function") {
-            return err({
-              code: "unavailable",
-              message: "catalog가 준비되지 않았다",
-            });
-          }
-          const fallback = snapshotLoader();
-          const validated = validateCatalogResponse(fallback);
-          if (!validated.ok) return validated;
-          catalog = validated.value;
-        }
-        const visible = catalog.filter((entry) =>
-          (input.provider_definition === undefined ||
-            entry.provider_definition === input.provider_definition) &&
-          (input.model_name === undefined ||
-            entry.model_name === input.model_name)
-        );
-        const views: Output<typeof modelCatalogRead>["entries"] = [];
-        for (const entry of visible) {
-          const checked = catalogEntryOutputSchema.safeParse(entry);
-          if (!checked.success) {
-            return err({
-              code: "internal",
-              message: "catalog 항목이 올바르지 않다",
-            });
-          }
-          views.push(checked.data);
-        }
-        return ok({
-          state,
-          entries: views,
-          as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
+  const files = deps?.files as SyncFiles | undefined;
+  return {
+    route: modelCatalogRead,
+    handle(
+      snapshot: ReadSnapshot,
+      ctx: RequestContext,
+      input: Input<typeof modelCatalogRead>,
+    ) {
+      if (typeof files?.readTextFile !== "function") {
+        return err({
+          code: "unavailable",
+          message: "catalog read 파일 reader가 없다",
         });
-      },
-    };
+      }
+      const actor = parseActor(ctx.actor);
+      if (
+        actor === undefined || !modelCatalogRead.actors.includes(actor.kind)
+      ) {
+        return err({
+          code: "forbidden",
+          message: "catalog read actor 아니다",
+        });
+      }
+      let catalog: CatalogEntry[];
+      let state: CatalogState;
+      try {
+        catalog = parseEntries(files.readTextFile("catalog.json")) ?? [];
+        state = parseState(files.readTextFile("catalog-state.json")) ??
+          undefined as unknown as CatalogState;
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "catalog 파일을 읽지 못했다",
+        });
+      }
+      if (!state) {
+        // 정상 파일이 없으면 동봉 snapshot에서 다시 만든다(plan 완료 1).
+        const snapshotLoader = deps?.loadSnapshot;
+        if (typeof snapshotLoader !== "function") {
+          return err({
+            code: "unavailable",
+            message: "catalog가 준비되지 않았다",
+          });
+        }
+        const fallback = snapshotLoader();
+        const validated = validateCatalogResponse(fallback);
+        if (!validated.ok) return validated;
+        catalog = validated.value;
+      }
+      const visible = catalog.filter((entry) =>
+        (input.provider_definition === undefined ||
+          entry.provider_definition === input.provider_definition) &&
+        (input.model_name === undefined ||
+          entry.model_name === input.model_name)
+      );
+      const views: Output<typeof modelCatalogRead>["entries"] = [];
+      for (const entry of visible) {
+        const checked = catalogEntryOutputSchema.safeParse(entry);
+        if (!checked.success) {
+          return err({
+            code: "internal",
+            message: "catalog 항목이 올바르지 않다",
+          });
+        }
+        views.push(checked.data);
+      }
+      return ok({
+        state,
+        entries: views,
+        as_of_seq: snapshot.as_of_seq,
+        next_cursor: null,
+      });
+    },
   };
 }
 

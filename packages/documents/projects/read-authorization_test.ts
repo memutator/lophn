@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { ProjectAuthorizer } from "./authorization.ts";
+import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
 import { createProjectCommands } from "./commands.ts";
 import { ids, keep, projectFixture, userContext } from "./testing-fixture.ts";
 const input = {
@@ -11,7 +11,7 @@ const input = {
   folders: [{ path: "/work/notes", description: "notes" }],
   tracking: { enabled: false as const, patterns: [], use_gitignore: false },
 };
-const commands = createProjectCommands({ authorize: () => ok(undefined) });
+const commands = createProjectCommands();
 function code(result: Result<unknown>, expected: string) {
   assert(!result.ok);
   assertEquals(result.error.code, expected);
@@ -43,7 +43,7 @@ const malformed = [
   () => {
     throw new Error("private detail");
   },
-] as unknown as (ProjectAuthorizer | undefined)[];
+] as unknown as (TargetAuthorizer | undefined)[];
 
 Deno.test("documents/projects#R8: per-document authorization determines counts and projections in the same snapshot", () => {
   const fixture = projectFixture();
@@ -51,29 +51,29 @@ Deno.test("documents/projects#R8: per-document authorization determines counts a
     const project = seed(fixture);
     const snapshot = fixture.snapshot();
     const seen: string[] = [];
+    const authorize: TargetAuthorizer = (_ctx, operation, target) => {
+      assert(["project.get", "project.list"].includes(operation));
+      assertEquals(target.project, project.id);
+      const kind = "document" in target ? "document" : "project";
+      seen.push(kind);
+      if (kind === "document") {
+        assert(documents.some((doc) => doc.document === target.document));
+        assertEquals(target.version, ids.version);
+        return target.document === ids.doc
+          ? ok(undefined)
+          : err({ code: "not_found", message: "hidden" });
+      }
+      return ok(undefined);
+    };
     const deps: ProjectReadDeps = {
       documents(received, id) {
         assertEquals(received, snapshot);
         assertEquals(id, project.id);
         return ok(documents);
       },
-      authorize(_ctx, operation, target) {
-        assert(["project.get", "project.list"].includes(operation));
-        assert(target.kind === "project" || target.kind === "document");
-        assertEquals(target.project, project);
-        seen.push(target.kind);
-        if (target.kind === "document") {
-          assert(
-            documents.some((doc) => doc.document === target.document.document),
-          );
-          return target.document.document === ids.doc
-            ? ok(undefined)
-            : err({ code: "not_found", message: "hidden" });
-        }
-        return ok(undefined);
-      },
     };
     const reads = createProjectReads(deps);
+    fixture.use(authorize);
     const user = keep(
       reads.get.handle(snapshot, userContext(), { project: project.id }),
     );
@@ -120,14 +120,13 @@ Deno.test("documents/projects#R9: get and list recheck current project and docum
     let documentAllowed = true;
     const reads = createProjectReads({
       documents: () => ok(documents),
-      authorize(_ctx, _operation, target) {
-        assert(target.kind === "project" || target.kind === "document");
-        return target.project.id === ids.project && projectAllowed &&
-            (target.kind === "project" || documentAllowed)
-          ? ok(undefined)
-          : err({ code: "forbidden", message: "scope changed" });
-      },
     });
+    const authorize: TargetAuthorizer = (_ctx, _operation, target) =>
+      target.project === ids.project && projectAllowed &&
+        (!("document" in target) || documentAllowed)
+        ? ok(undefined)
+        : err({ code: "forbidden", message: "scope changed" });
+    fixture.use(authorize);
     const get = () =>
       reads.get.handle(fixture.snapshot(), userContext(), {
         project: ids.project,
@@ -158,7 +157,6 @@ Deno.test("documents/projects#R9: malformed document candidates and dependency f
       });
     code(
       get({
-        authorize: () => ok(undefined),
         documents: () =>
           ok([{ document: "private bad ref" }] as unknown as DocumentRef[]),
       }),
@@ -166,10 +164,6 @@ Deno.test("documents/projects#R9: malformed document candidates and dependency f
     );
     const unfixed = createProjectReads({
       documents: () => ok([{ ...documents[0]!, version: null }]),
-      authorize(_ctx, _operation, target) {
-        assertEquals(target.kind, "project");
-        return ok(undefined);
-      },
     });
     for (const actor of ["user", "agent:asg_01arz3ndektsv4rrffq69g5fav"]) {
       const ctx = userContext(actor);
@@ -187,41 +181,60 @@ Deno.test("documents/projects#R9: malformed document candidates and dependency f
       }),
       "internal",
     );
+    const brokenPort = () => {
+      const snapshot = fixture.snapshot();
+      snapshot.port = (() => {
+        throw new Error("unregistered project port");
+      }) as typeof snapshot.port;
+      return snapshot;
+    };
+    const readsFor = (deps: ProjectReadDeps) => createProjectReads(deps);
     for (const authorize of malformed) {
+      fixture.use(authorize as TargetAuthorizer);
       code(
-        get({
-          authorize: authorize as ProjectAuthorizer,
-          documents: () => ok(documents),
-        }),
+        readsFor({ documents: () => ok(documents) }).get.handle(
+          fixture.snapshot(),
+          userContext(),
+          { project: ids.project },
+        ),
         "unavailable",
       );
     }
     code(
-      get({ authorize: () => ok(undefined) } as unknown as ProjectReadDeps),
+      readsFor({ documents: () => ok(documents) }).get.handle(
+        brokenPort(),
+        userContext(),
+        { project: ids.project },
+      ),
+      "unavailable",
+    );
+    code(
+      get({} as unknown as ProjectReadDeps),
       "unavailable",
     );
     code(
       get({
-        authorize: () => ok(undefined),
         documents: (async () =>
           await ok(documents)) as unknown as ProjectReadDeps["documents"],
       }),
       "unavailable",
     );
     for (const failure of ["internal", "unavailable"] as const) {
+      fixture.use((_ctx, _op, target) =>
+        "document" in target
+          ? err({ code: failure, message: "dependency failure" })
+          : ok(undefined)
+      );
       code(
-        get({
-          documents: () => ok(documents),
-          authorize: (_ctx, _op, target) =>
-            target.kind === "document"
-              ? err({ code: failure, message: "dependency failure" })
-              : ok(undefined),
-        }),
+        readsFor({ documents: () => ok(documents) }).get.handle(
+          fixture.snapshot(),
+          userContext(),
+          { project: ids.project },
+        ),
         failure,
       );
     }
     const reads = createProjectReads({
-      authorize: () => ok(undefined),
       documents: () => ok([]),
     });
     for (const actor of ["machine", "unknown"]) {
@@ -256,14 +269,13 @@ Deno.test("documents/projects#R9: pagination binds query credential snapshot and
     let projectAllowed = true;
     const reads = createProjectReads({
       documents: () => ok(documents),
-      authorize(_ctx, _op, target) {
-        assert(target.kind === "project" || target.kind === "document");
-        return (target.project.id !== ids.other || projectAllowed) &&
-            (target.kind !== "document" || documentAllowed)
-          ? ok(undefined)
-          : err({ code: "forbidden", message: "scope changed" });
-      },
     });
+    const authorize: TargetAuthorizer = (_ctx, _op, target) =>
+      (target.project !== ids.other || projectAllowed) &&
+        (!("document" in target) || documentAllowed)
+        ? ok(undefined)
+        : err({ code: "forbidden", message: "scope changed" });
+    fixture.use(authorize);
     const ctx = userContext("agent:asg_01arz3ndektsv4rrffq69g5fav");
     const snapshot = fixture.snapshot();
     const first = keep(reads.list.handle(snapshot, ctx, { limit: 1 }));

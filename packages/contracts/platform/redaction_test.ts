@@ -32,7 +32,6 @@ const input = {
   audience: "external" as const,
   safe_fields: ["code", "items[0].name"],
   private_fields: ["token"],
-  private_regions: [{ x: 0, y: 0, width: 10, height: 8 }],
 };
 
 const passed = {
@@ -113,7 +112,7 @@ Deno.test("platform/redaction#R11 platform/redaction#R14: 모르는 field·틀�
       { ...input, safe_fields: ["items.*.name"] },
       { ...input, private_fields: ["token.*"] },
       { ...input, safe_fields: ["token", "token"] },
-      { ...input, private_regions: [{ x: 0, y: 0, width: 0, height: 1 }] },
+      { ...input, private_regions: [] },
       { source: { concern: "problems" } },
     ]
   ) assert(!redactionInputSchema.safeParse(invalid).success);

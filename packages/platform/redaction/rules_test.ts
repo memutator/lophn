@@ -33,7 +33,6 @@ function input(scope: string, media = "text/plain"): RedactionInput {
     audience: "model",
     safe_fields: [],
     private_fields: [],
-    private_regions: [],
   };
 }
 

@@ -964,8 +964,8 @@ concerns: [shell]
 - slice: problems
 - 선행: shell#T10, shell#T37, shell#T42, shell#T44, problems#T15
 - 완료: 아래 확인이 통과한다
-  - [Report a problem]은 앱 공간 바·패널·카드의 독립 버튼이다. 누르면 main이 버튼 시점 `{view_session, generation, app, release, mode, screen path, observedAt}`를 고정하고 그 앱 view의 `capturePage`를 먼저 요청한 뒤 overlay에 dialog를 연다. 앱 view는 그대로 보인다. confirmation window·lophn dialog가 이미 떠 있거나 가려졌거나 다른 창이면 캡처하지 않고 이유만 남긴다. 캡처는 1500ms까지, 늦으면 버린다.
-  - raw capture는 main과 문제 보고 경계만 갖고 dialog에는 redaction된 PNG만. 글·화면 상태·screenshot을 미리 보고 각각 뺄 수 있다. screenshot 기본은 꺼짐, 미리보기를 본 뒤 켬. 미선택·화면 없음·수집 실패·redaction 제외·저장 실패의 이유를 보이고 첨부 없이 글만 보낼 수 있다.
+  - [Report a problem]은 앱 공간 바·패널·카드의 독립 버튼이다. 누르면 main이 버튼 시점 `{view_session, generation, app, release, mode, screen path, observedAt}`를 고정하고 그 앱 view의 `capturePage`를 먼저 요청한 뒤 overlay에 dialog를 연다. 앱 view는 그대로 보인다. 앱 view가 가려졌거나 다른 창이면 캡처하지 않고 이유만 남긴다. 캡처는 1500ms까지, 늦으면 버린다.
+  - capture한 PNG를 가리지 않고 그대로 dialog 미리보기에 보인다. 글·화면 상태·screenshot을 미리 보고 각각 뺄 수 있다. screenshot 기본은 꺼짐, 미리보기를 본 뒤 켬. 미선택·화면 없음·수집 실패·저장 실패의 이유를 보이고 첨부 없이 글만 보낼 수 있다.
   - 미제출·접수 대기·접수 완료를 구별하고, 실패에는 복사 가능한 글과 이유. 초안은 메모리에만. 취소는 저장하지 않고 이미 접수한 것은 닫아도 지우지 않는다. 기존 문제 선택 여부를 보이고 접수 뒤 묶인 Issue로 갈 수 있다.
   - 앱 view가 crash·무한 loop여도 버튼과 dialog가 동작한다. 안내에 stack·log·원문 오류가 없고 문제 문구는 problems가 정한 값 그대로.
   - contracts/problems 문구 상수 key를 wording 검사의 알려진 key로 잇는다.

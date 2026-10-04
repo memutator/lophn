@@ -127,6 +127,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 SDK `reportProblem(code, details?) → {report_id, completion}`, `installExceptionObserver(transport)`
 - slice: apps
 - 선행: contracts#T39
+- 상태: 완료 (#99)
 - 완료:
   - `reportProblem`은 Report ID를 첫 전송 전에 고정하고 실제 invocation 문맥을 붙인 뒤 업무 응답을 막지 않는다; completion은 값으로 끝나 전송 실패가 새 `unhandledrejection`을 만들지 않는다(R1, R13)
   - 대기 32개·4,194,304 bytes 초과는 새 입력 거절, 원문을 디스크에 쓰지 않는다; retry는 일시적 `unavailable`·응답 유실에만 첫 시도 뒤 250/1,000/3,000ms 최대 3회, 같은 고정 내용만(R16)
@@ -342,7 +343,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 쓰는 contract: shell 앱 화면 틀의 feedback binding(app, release, mode, 관측 시점, 선택, 최종 이미지 hash), 인증(shell user), redaction
 - 내놓는 contract: C-문제보고의 `POST /v1/problems/submit-feedback`
 - slice: problems
-- 선행: problems#T4, contracts#T38, platform#T16, platform#T37 (shell#T52 화면은 이 작업 뒤; binding은 contracts#T38 모양으로 테스트)
+- 선행: problems#T4, contracts#T38, platform#T16 (shell#T52 화면은 이 작업 뒤; binding은 contracts#T38 모양으로 테스트)
 - 완료:
   - 인증된 shell user만 `source=feedback`, `code=_feedback`; app·agent 제출은 거절; 글은 redaction 뒤 공백 외 1~500 Unicode scalar(R1)
   - 명세가 없거나 HTTP 200이었던 경우도 거절하지 않는다(R2)
@@ -538,7 +539,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 | platform | worker 전달 route, blob 준비·참조 등록·보존 종류, redaction 엔진·안전 필드 | platform#T12, T13, T14, T15, T16 (documents) | T2, T3, T8, T15, T17 |
 | platform | confirmation handle 발급·검증·소비 | platform#T56 (documents) | T21 |
 | platform | Tx 안 다른 owner command dispatch, settings registry, test 자식 메모리 상한 | platform#T18, T25, T30 (agent) | T8, T17, T19 |
-| platform | screenshot redaction 경계, 진단 분류, 운영 문제 notification 계기 | platform#T37, T38, T39 (problems) | T15, T23 |
+| platform | 진단 분류, 운영 문제 notification 계기 | platform#T38, T39 (problems) | T15, T23 |
 | platform | blob GC와 보존 정리 | platform#T44 (operations) | T26 |
 | apps | blueprint 타입 | apps#T2 | T9 |
 | apps | bundle 고정·읽기 전용 사본 | apps#T6 | T3, T8, T9 |

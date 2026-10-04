@@ -4,10 +4,7 @@ import {
   documentRefOutputSchema,
   type Project,
 } from "../../contracts/documents/mod.ts";
-import type {
-  ReadSnapshot,
-  RequestContext,
-} from "../../contracts/platform/mod.ts";
+import type { RequestContext } from "../../contracts/platform/mod.ts";
 
 const basisSchema = z.strictObject({
   seq: z.string(),
@@ -38,7 +35,7 @@ export type ProjectPageBasis = {
 };
 
 export function projectPageBasis(
-  snapshot: ReadSnapshot,
+  snapshot: { as_of_seq: string },
   ctx: RequestContext,
   status: "active" | "archived" | undefined,
   limit: number,

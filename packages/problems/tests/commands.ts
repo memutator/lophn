@@ -5,6 +5,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../contracts/platform/mod.ts";
 import { requestTest } from "../../contracts/problems/mod.ts";
 import {
   connectionOf,
@@ -138,7 +139,7 @@ export function appendRequestObservation(
     current_runner: recovery && same && runner === ctx.principal
       ? same.previous_runner ?? ""
       : runner,
-  });
+  }, tx.port(TargetAuthorization));
   if (!proved.ok) return proved;
   if (observation.request_hash !== accepted.request_hash) {
     return err({ code: "conflict", message: CONFLICT });
@@ -239,6 +240,7 @@ export function appendActualSideStart(
       app: accepted.payload.app,
       current_runner: runner,
     },
+    tx.port(TargetAuthorization),
   );
   if (!proved.ok) return proved;
   if (ctx.actor !== "machine" || ctx.principal !== runner) {

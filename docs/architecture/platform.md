@@ -323,7 +323,7 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 
 ### 5.8 redaction
 
-**입력:** `redaction.check`의 RedactionInput(source,media_type,audience,safe_fields,private_fields,private_regions), 현재 scope, 제한된 원문 메모리. **출력:** RedactionResult(rule_revision,status,content,redacted_items,omissions). **오류:** 한도·미지원·불확실·검사 실패는 안전 Omission과 `invalid_input/unavailable`; 원문을 통과시키지 않는다.
+**입력:** `redaction.check`의 RedactionInput(source,media_type,audience,safe_fields,private_fields), 현재 scope, 제한된 원문 메모리. **출력:** RedactionResult(rule_revision,status,content,redacted_items,omissions). **오류:** 한도·미지원·불확실·검사 실패는 안전 Omission과 `invalid_input/unavailable`; 원문을 통과시키지 않는다.
 
 | 경계 | 수행 위치와 순서 |
 |---|---|
@@ -333,11 +333,10 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 | model input | agent runtime의 플랫폼 경계에서 scope·data 출처 → redaction → 실제 전송과 동일 bytes 기록; 인증 header 제외 |
 | model output·산출물·trace | 저장·tool 사용·화면 표시 각각 전에 재검사; 내부 추론·재생 서명은 수집 제외 |
 | notification·복사·export·tooltip | source 사실에서 안전 제목/대상만 만들고 현재 규칙 검사; 원문 보기 없음 |
-| screenshot | 보호 화면·secret 입력 수집 금지; private 영역 처리 불가면 이미지 대신 Omission |
 
 고정한 gitleaks credential prefix·PEM 규칙 묶음의 content hash를 입력/출력이 함께 사용한다. 새 규칙은 fixture 검증 뒤 묶음 전체를 교체한다. OpenAI·Anthropic·GitHub·AWS·Slack key, JWT·PEM 공통 fixture를 포함하되 이것이 provider 지원 목록은 아니다. Authorization/Cookie·URL 인증·JSON secret/token/password/credential 값은 중첩 구조에서 제거한다. 모든 secret 대체는 길이·종류와 무관한 `*` 하나다.
 
-텍스트/JSON 검사 단위 1MiB·깊이 16·4,096 항목, 처리 5초를 기본으로 한다. 큰 문서/stream은 worker가 조각 사이 알려진 값의 최장 길이에 따른 보류 구간을 유지하여 검사된 prefix만 내보낸다. 보류가 한도를 넘거나 안전을 확인 못하면 그 범위 전체를 제외한다. 이미지의 자동 OCR 완전 탐지는 보장하지 않으며 private 영역을 확정 처리할 수 없는 이미지는 제외한다.
+텍스트/JSON 검사 단위 1MiB·깊이 16·4,096 항목, 처리 5초를 기본으로 한다. 큰 문서/stream은 worker가 조각 사이 알려진 값의 최장 길이에 따른 보류 구간을 유지하여 검사된 prefix만 내보낸다. 보류가 한도를 넘거나 안전을 확인 못하면 그 범위 전체를 제외한다. 이미지의 자동 OCR 완전 탐지는 보장하지 않는다. 사람이 고른 feedback screenshot은 redaction 대상이 아니다(D32).
 
 표본은 명시 원값 경로만 secret 처리 후 최대 64자·전체 2KiB, ID형 문자열은 그 표본 안 가명으로 처리한다. 전체/중간 wildcard 원값 선언은 거절한다. 화면 문자열 80자 초과는 안전 shape로 줄이며 private 필드는 길이와 무관하게 제외한다. 짧은 이메일도 예외가 아니다. shape의 type·길이와 가명 비교 범위도 공개 정책으로 검사한다.
 

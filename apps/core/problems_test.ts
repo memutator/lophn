@@ -36,14 +36,10 @@ function credential(
   return { ...base, credential_ref: ref };
 }
 
-// platform authorize는 scope target을 conditions와만 맞춘다.
+// ledger gate는 고정 조건만 보고 domain target은 owner port가 판정한다.
 // 준비·port 확인 command는 target 없는 credential로 통과시키고,
 // owner command는 app·request target이 있는 credential을 쓴다.
-const requesterCtx = credential({
-  ...requester(),
-  scope: { operations: ["RequestTest"], targets: {} },
-}, "cred-requester");
-const requestScope = requester().scope;
+const requesterCtx = credential(requester(), "cred-requester");
 const runnerCtx = credential({
   ...runner(),
   scope: {
@@ -52,14 +48,13 @@ const runnerCtx = credential({
       "problems.tests.observe-request",
       "problems.tests.start-side",
     ],
-    targets: {},
+    targets: runner().scope.targets,
   },
 }, "cred-runner");
-const ownerScope = runner().scope;
 const setupCtx = credential({
   ...requester(),
   scope: {
-    operations: ["problems.tests.set-admission", "problems.tests.set-scope"],
+    operations: ["problems.tests.set-admission"],
     targets: {},
   },
 }, "cred-setup");
@@ -69,7 +64,6 @@ const runnerSetupCtx = credential({
     operations: [
       "problems.tests.set-evidence",
       "problems.tests.check-ports",
-      "problems.tests.set-scope",
       "problems.tests.set-blob-failure",
     ],
     targets: {},
@@ -98,33 +92,6 @@ function envelope(
     idempotency_key: key,
     prepared: [],
   };
-}
-
-async function useScope(
-  h: LedgerHarness,
-  ctx: AuthenticatedContext,
-  key: string,
-  scope: AuthenticatedContext["scope"],
-) {
-  const targets = scope.targets;
-  value(
-    await h.command(
-      ctx,
-      envelope("problems.tests.set-scope", key, {
-        operations: scope.operations,
-        app: typeof targets.app === "string" ? targets.app : null,
-        request_principal: typeof targets.request_principal === "string"
-          ? targets.request_principal
-          : null,
-        request_key: typeof targets.request_key === "string"
-          ? targets.request_key
-          : null,
-        request_hash: typeof targets.request_hash === "string"
-          ? targets.request_hash
-          : null,
-      }),
-    ),
-  );
 }
 
 function value<T>(result: Result<T>): T {
@@ -172,7 +139,6 @@ Deno.test("problems/tests#R3 R5: 같은 요청은 같은 접수고 다른 hash�
         }),
       ),
     );
-    await useScope(h, setupCtx, "scope-request-1", requestScope);
     const first = value(
       await h.command(
         requesterCtx,
@@ -202,7 +168,6 @@ Deno.test("problems/tests#R3 R5: 같은 요청은 같은 접수고 다른 hash�
         }),
       ),
     );
-    await useScope(h, setupCtx, "scope-request-changed", requestScope);
     code(
       await h.command(
         requesterCtx,
@@ -238,7 +203,6 @@ Deno.test("problems/tests#R1 R2 R4: runner만 lifecycle 뒤 결과를 남기고 
         }),
       ),
     );
-    await useScope(h, setupCtx, "scope-request-run", requestScope);
     value(
       await h.command(
         requesterCtx,
@@ -261,7 +225,6 @@ Deno.test("problems/tests#R1 R2 R4: runner만 lifecycle 뒤 결과를 남기고 
         envelope("problems.tests.observe-request", "observe-run", {
           observation,
           proof: proof(),
-          scope: ownerScope,
         }),
       ),
     );
@@ -289,7 +252,6 @@ Deno.test("problems/tests#R1 R2 R4: runner만 lifecycle 뒤 결과를 남기고 
             started_at: executed.started_at,
           },
           proof: proof(),
-          scope: ownerScope,
         }),
       ),
     );
@@ -311,7 +273,6 @@ Deno.test("problems/tests#R1 R2 R4: runner만 lifecycle 뒤 결과를 남기고 
         }),
       ),
     );
-    await useScope(h, runnerSetupCtx, "scope-record-run", ownerScope);
     const recorded = value(
       await h.command(
         runnerCtx,
@@ -373,7 +334,7 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
       actor: "user",
       scope: {
         ...runner().scope,
-        operations: [...runner().scope.operations, "problems.tests.set-scope"],
+        operations: [...runner().scope.operations],
       },
     }, "cred-user-runner"),
     credential({
@@ -381,7 +342,7 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
       actor: agent,
       scope: {
         ...runner().scope,
-        operations: [...runner().scope.operations, "problems.tests.set-scope"],
+        operations: [...runner().scope.operations],
       },
     }, "cred-agent"),
     credential({
@@ -389,7 +350,7 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
       actor: appActor,
       scope: {
         ...runner().scope,
-        operations: [...runner().scope.operations, "problems.tests.set-scope"],
+        operations: [...runner().scope.operations],
       },
     }, "cred-app"),
     credential({
@@ -399,7 +360,6 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
         operations: [
           "observe_test_request",
           "recover_test_request",
-          "problems.tests.set-scope",
         ],
       },
     }, "cred-no-record"),
@@ -407,7 +367,7 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
       ...runner(),
       scope: {
         ...runner().scope,
-        operations: [...runner().scope.operations, "problems.tests.set-scope"],
+        operations: [...runner().scope.operations],
         targets: { ...runner().scope.targets, request_key: "other-key" },
       },
     }, "cred-other-key"),
@@ -422,7 +382,6 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
         }),
       ),
     );
-    await useScope(h, setupCtx, "scope-request-deny", requestScope);
     value(
       await h.command(
         requesterCtx,
@@ -444,7 +403,6 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
             reason: "attempt",
           },
           proof: proof(),
-          scope: ownerScope,
         }),
       ),
     );
@@ -462,7 +420,6 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
             started_at: executed.started_at,
           },
           proof: proof(),
-          scope: ownerScope,
         }),
       ),
     );
@@ -476,7 +433,6 @@ Deno.test("problems/tests#R1: RecordVerification scope가 없는 credential과 �
     );
     const body = { verification: verification(), blobs: blob() };
     for (const [index, ctx] of deniedActors.entries()) {
-      await useScope(h, runnerSetupCtx, `scope-deny-${index}`, ctx.scope);
       code(
         await h.command(
           ctx,
@@ -543,7 +499,6 @@ Deno.test("problems/tests#R3: blob 등록 실패와 handler err는 결과 행을
         }),
       ),
     );
-    await useScope(h, setupCtx, "scope-request-rollback", requestScope);
     value(
       await h.command(
         requesterCtx,
@@ -565,7 +520,6 @@ Deno.test("problems/tests#R3: blob 등록 실패와 handler err는 결과 행을
             reason: "attempt",
           },
           proof: proof(),
-          scope: ownerScope,
         }),
       ),
     );
@@ -583,7 +537,6 @@ Deno.test("problems/tests#R3: blob 등록 실패와 handler err는 결과 행을
             started_at: executed.started_at,
           },
           proof: proof(),
-          scope: ownerScope,
         }),
       ),
     );
@@ -610,7 +563,6 @@ Deno.test("problems/tests#R3: blob 등록 실패와 handler err는 결과 행을
         }),
       ),
     );
-    await useScope(h, runnerSetupCtx, "scope-record-fail-blob", ownerScope);
     code(
       await h.command(
         runnerCtx,
@@ -633,7 +585,6 @@ Deno.test("problems/tests#R3: blob 등록 실패와 handler err는 결과 행을
         }),
       ),
     );
-    await useScope(h, runnerSetupCtx, "scope-record-handler-err", ownerScope);
     code(
       await h.command(
         runnerCtx,

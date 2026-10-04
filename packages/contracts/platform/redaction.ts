@@ -61,21 +61,12 @@ export const redactionSourceSchema = z.strictObject({
 });
 export type RedactionSource = z.infer<typeof redactionSourceSchema>;
 
-export const privateRegionSchema = z.strictObject({
-  x: z.number().int().nonnegative(),
-  y: z.number().int().nonnegative(),
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
-});
-export type PrivateRegion = z.infer<typeof privateRegionSchema>;
-
 export const redactionInputSchema = z.strictObject({
   source: redactionSourceSchema,
   media_type: z.string().min(1),
   audience: redactionAudienceSchema,
   safe_fields: fieldPathsSchema,
   private_fields: fieldPathsSchema,
-  private_regions: z.array(privateRegionSchema),
 });
 export type RedactionInput = z.infer<typeof redactionInputSchema>;
 

@@ -601,6 +601,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: settings(SettingDefinition 등록 interface, EffectiveSetting, settings definitions·get route)
 - slice: agent
 - 선행: platform#T9, contracts#T24
+- 상태: 완료 (#122)
 - 완료: 아래 확인이 통과한다
   - 각 concern이 공개한 항목만 받는다. 설명·종류·기본값·허용값·단위·층·적용 시점이 없으면 등록 거절(R1, R4).
   - `builtin < common` 두 층만, object 항목별·scalar/array 전체 교체, 생략과 null·빈 목록·false 구별(R5, R8, R9). 작업 폴더·세션·환경 변수·CLI 인자는 층이 아니다(R6).
@@ -645,6 +646,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - `toml_test.ts`, `definitions_test.ts`에 위 요구 테스트, flow ask-lophn-help의 설정 단계 통합 테스트
 
 ### T28 data 직렬화와 출처 유지
+
+- 상태: 완료 (#124)
 
 - 등급: 기본
 - concern: platform/security

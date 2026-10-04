@@ -815,6 +815,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 받은 요청: apps(C-apps-4), problems(invocation 도착 여부 read)
 - slice: apps
 - 선행: contracts#T34
+- 상태: 완료 (#121)
 - 완료: 아래 확인이 통과한다
   - `/v1/invocations/{accept_confirm,record_started,record_finished,record_denied,list,get}`, `Invocation`, operation `command | start | data_change`, trigger `direct | automation | activation | restart`, status `accepted | running | succeeded | failed | denied | unknown`, summary 16KiB.
   - event `InvocationAccepted`, `InvocationStarted`, `InvocationFinished`, `InvocationDenied`.
@@ -963,6 +964,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T42 contracts/coding-agent: session summary·TUI 시작
 
+- 상태: 완료 (#123)
 - 등급: 기본
 - concern: coding-agent/sessions, coding-agent/harnesses
 - 요구: coding-agent/sessions#R3, R6, R7; coding-agent/harnesses#R1, R3, R9, R10

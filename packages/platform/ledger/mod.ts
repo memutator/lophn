@@ -10,6 +10,21 @@ import { type LedgerConnection, openConnection } from "./sqlite.ts";
 import { runTransaction, type TxCall, type TxDeps } from "./tx.ts";
 
 export { LEDGER_SCHEMA_STEPS };
+
+export { LEDGER_COMMANDS } from "./commands.ts";
+export { commandResultRead } from "./command-results.ts";
+export { openWriter } from "./writer.ts";
+export {
+  createWriterRegistration,
+  type CredentialCheck,
+  type WriterRegistration,
+} from "./writer-registration.ts";
+export type {
+  CommandEnvelope,
+  CommandSuccess,
+  StoredCommandResult,
+  Writer,
+} from "./writer.ts";
 export { openConnection };
 export type { LedgerConnection };
 export { createReaderPool } from "./reader-pool.ts";

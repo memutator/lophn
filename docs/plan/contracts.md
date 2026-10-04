@@ -493,6 +493,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T25 contracts/shell: 현재 보기 상태
 
+- 상태: 완료 (#38)
 - 등급: 기본
 - concern: shell/workspace
 - 요구: shell/workspace#R1, R3, R9–R11; platform/redaction#R12

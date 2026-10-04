@@ -5,11 +5,9 @@ import {
   lookupAppRegistration,
 } from "../../packages/apps/registration/mod.ts";
 import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
-import {
-  createInvocationsCommands,
-  createInvocationsReads,
-  invocationsSchemaSteps,
-} from "../../packages/apps/invocations/mod.ts";
+import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
+import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
+import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.ts";
 import {
   type PlaceNameReservation,
   placeNameReservation,

@@ -7,13 +7,13 @@ import { test } from "node:test";
 import { build } from "./build.ts";
 
 const outputs = [
-  "main.js",
-  "preload-shell.js",
-  "preload-confirmation.js",
-  "preload-app.js",
+  "main.cjs",
+  "preload-shell.cjs",
+  "preload-confirmation.cjs",
+  "preload-app.cjs",
 ];
 
-test("shell/desktop#R17: build가 main과 preload 세 파일을 만들고 밖의 zod import를 묶는다", async () => {
+test("shell/desktop#R17: build가 main과 preload 세 파일을 .cjs로 만들고 밖의 zod import를 묶는다", async () => {
   const dir = await mkdtemp(join(tmpdir(), "shell-build-"));
   const fixture = join(dir, "fixture.ts");
   await writeFile(
@@ -22,11 +22,11 @@ test("shell/desktop#R17: build가 main과 preload 세 파일을 만들고 밖의
   );
   try {
     await build(dir, [{ in: fixture, out: "fixture" }]);
-    for (const name of [...outputs, "fixture.js"]) {
+    for (const name of [...outputs, "fixture.cjs"]) {
       const text = await readFile(join(dir, name), "utf8");
       assert.ok(text.length > 0, `${name}가 비어 있다`);
     }
-    const fixtureJs = await readFile(join(dir, "fixture.js"), "utf8");
+    const fixtureJs = await readFile(join(dir, "fixture.cjs"), "utf8");
     assert.equal(fixtureJs.includes('require("zod")'), false);
     assert.match(fixtureJs, /ZodString/);
     for (const name of outputs.filter((n) => n.startsWith("preload-"))) {

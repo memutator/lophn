@@ -474,6 +474,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T48 contracts/coding-agent: MCP·CLI 공통 출력과 문서 tool
 
+- 상태: 완료 (#94)
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R1, R3–R16; coding-agent/cli#R2–R5, R11–R15, R20, R22
@@ -550,6 +551,15 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - event `SecretSet`, `SecretRemoved`.
   - main↔core private comparison request·response는 표시 revision으로 이전 참조 CAS를 얻고, parent/child·HTTP·renderer에는 열지 않는다.
 
+#### T23 구현 메모: 보호 export·import와 사용 판정 port
+
+- 상태: 완료 (#93)
+- concern: platform/secrets
+- 요구: platform/secrets#R5, R9
+- 자리: `packages/contracts/platform/secret-exchange.ts`, `secret-exchange_test.ts`
+- machine pipe op `secret.export`(고른 참조 목록 → 암호문 크기, bytes는 byte chunk)·`secret.import`(현재 참조 → `{name, preparation, compare}` 기록 목록)를 `SECRET_PIPE_OPS`에 더한다. 원값·암호·암호문은 schema 밖 callback·byte chunk다.
+- port `SecretAllowance`(앱 사용의 현재 grant 판정, apps 구현)와 `ProcessLiveness`(context process의 현재 생존, 감독 owner 구현). 판정은 동기이고 모르면 거절이다.
+
 ### T24 contracts/platform: settings registry
 
 - 상태: 완료 (#12)
@@ -607,6 +617,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T27 contracts/lophn-agent: preset·assignment
 
+- 상태: 완료 (#101)
 - 등급: 기본
 - concern: lophn-agent/presets, lophn-agent/assignments, lophn-agent/instructions
 - 요구: lophn-agent/presets#R1–R3, R5–R7, R9, R11, R13, R15, R16; lophn-agent/assignments#R2–R6, R9, R10, R16, R17; lophn-agent/extensions#R30, R31; lophn-agent/scheduling#R1, R3; lophn-agent/harness/provider#R8; lophn-agent/harness/model#R8; lophn-agent/harness/tools#R10; lophn-agent/roles/context-engineer#R12
@@ -771,6 +782,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T34 contracts/apps: 앱 통로·앱 시작 입력
 
+- 상태: 완료 (#95)
 - 등급: 기본
 - concern: apps/runtime, apps/connections, apps/agent-context
 - 요구: apps/runtime#R2, R5, R7–R9, R11, R12, R15, R18, R31; apps/connections#R5–R7; apps/invocations#R7, R8, R14, R16, R17, R19; apps/automations#R5, R6, R9, R12; apps/sdk#R23, R27, R28, R30, R31, R40; apps/preview#R3, R7
@@ -857,6 +869,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T39 contracts/problems: 문제 보고
 
+- 상태: 완료 (#67)
 - 등급: 기본
 - concern: problems/reporting, problems/snapshots, problems/feedback, problems/grouping
 - 요구: problems/reporting#R2, R8, R12, R14, R16; problems/snapshots#R2, R4, R10, R12, R20; problems/feedback#R1, R8–R11
@@ -867,12 +880,30 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - slice: apps (problems 팀은 apps slice 전에 필요하다고 했다)
 - 선행: contracts#T32
 - 완료: 아래 확인이 통과한다
-  - SDK 모양 `reportProblem(code, details?)` → `{report_id, completion}`, completion `pending | accepted {...} | failed {reason}`.
+  - SDK 모양 `reportProblem(code, details?)` → `{report_id, completion}`, completion은 `accepted {acceptance} | failed {reason}` 최종 값으로 resolve하고 transport 실패로 reject하지 않는다. `pending`은 별도 메모리 `ReportStatus`에만 둔다.
   - `/v1/problems/{report,observe-exception,submit-feedback,record-report}`, `Report`, `Snapshot`(InvocationEvidence, ErrorEvidence, LogEvidence, ScreenEvidence, MissingReason), `GroupKey`, `Feedback`(글 1~500 scalar, 화면 상태 65536 bytes, PNG 긴 변 1600px·2097152 bytes, 전체 3145728 bytes).
   - event `ReportRecorded`, `SnapshotRecorded`, `ProblemOpened`, `ProblemObserved`.
+- 구현 detail / 작은 wire 추천안 (번호 질문·owner 조율은 coordinator가 맡는다):
+  - `report`, `observe-exception`, `submit-feedback`은 collector `worker` route다. ledger queue에는 machine 전용 `record-report`만 보낸다. 성공 inner output은 공통 `{report, snapshot, problem, diagnostic_scope}`이며 live는 problem 필수/scope null, preview·test는 problem null/발급 scope 필수다. RecordReport의 event 범위·replayed는 platform command response envelope만 제공한다.
+  - 최초 자동 ingress는 report ID·관측 시각·안전한 code/text/details·실제 invocation만 받는다. observer 최초 ingress는 `exception-observation.ts`의 오류 이름/message/raw stack·각 누락 이유를 받아 SDK/process/view의 실제 exception을 전달하고 `_exception`은 collector가 정한다. frames/hash/blob/prepared reference는 최초 ingress에 없다. 절대 source path를 포함할 수 있는 raw stack은 authenticated observer→collector의 262,144 bytes 이하 bounded 메모리에만 있고 저장·ledger·공개 오류·diagnostics·export에는 내보내지 않는다. collector가 당시 release/source map/redaction을 적용해 relative source frame과 최대 16,384 bytes의 redacted stack typed blob을 저장형 ErrorEvidence로 준비한다. app/release/mode/principal/source는 body에 없고 인증 경계가 현재 process/view context를 별도로 전달한다. feedback 대상 app은 shell의 명시적 선택이며 credential/view scope로 다시 검사한다.
+  - `ReportInput`에는 server problem이 없고 `PreparedReport`에는 report input/snapshot/group key/명시적 existing problem/typed blob source/원출처 evidence가 있다. 원출처 evidence는 platform `AuthenticatedContext`와 실제 app/release/bundle/mode/diagnostic scope/binding, 최초 report ID/hash를 forwarding한다. 이것은 caller proof가 아니다. core는 trusted 전달 경로·collector machine scope·최초 principal·현재 자격·당시 선언·최종 ID/hash·release/CAS를 runtime에서 검사한다. schema의 field 일치 검사는 인증을 대신하지 않는다.
+  - content hash 입력 schema는 최종 report input(content_hash 자체 제외), snapshot, group key, explicit existing problem, purpose/hash 목록이다. server problem/event seq·일시적 preparation handle·forwarding metadata는 제외한다. caller는 canonical JSON/hash 비교를 runtime에서 하고 동일 retry는 최초 고정 내용만 보낸다. `_invalid_report` ID의 결정적 생성·원래 rpt와 분리는 collector 책임이다.
+  - source=feedback의 최종 report input/output/content hash 입력에는 `_feedback`과 nonnull text hash가 필수이고 RecordReport는 report_text의 typed authority까지 검사한다. 자동 app/exception report는 화면 state·PNG hash/authority를 저장할 수 없으며 실제 missing reason은 유지한다. source=feedback에서 기존 문제를 선택하면 declared·exception 등 그 기존 GroupKey를 그대로 허용한다. 새 feedback key는 자기 최초 rpt다. canonical app+key uniqueness·실제 선택 문제 app/key 조회·source map 지문·reopen은 runtime/T40 범위다.
+  - Snapshot은 항목마다 값 또는 MissingReason 정확히 하나이며 별도 lifecycle을 두지 않는다. 알려진 invocation ID/미도착 이유, 각 로그 실제 수집 시각/알려진 범위/정상 0줄, source 위치 없음 이유를 유지한다. 로그는 총 65,536 bytes만 제한하고 T20의 한 줄 300자 제한을 가져오지 않는다.
+  - `report-blobs.ts`는 platform prepared/permanent reference를 사용하고 hash/size/purpose를 묶는다. schema는 typed prepared metadata 일치·항목 bytes·snapshot 준비 총 bytes·feedback JSON와 첨부 합계 bytes를 검사한다. permanent reference의 실제 size/purpose/권한, 실제 UTF-8 JSON bytes, PNG header/dimensions/bytes, redaction, 사람 선택·button view binding·관측 시각은 trusted host가 검증한다. PNG binary는 blob/file/IPC에 있고 generic JSON에 base64를 넣지 않는다. text-only/all-missing snapshot은 유효하다.
+  - `sdk-report.ts`는 Zod/contracts root runtime import 없는 portable type/policy entry이며 raw ExceptionObservationInput/Error·MissingReason/invocation 구조는 공개 schema 타입과 bidirectional assignability 테스트로 맞춘다. common error와 transport-only `response_lost`를 구별하고 unavailable/lost만 `[250,1000,3000]`ms로 최대 3회 retry한다. 실제 SDK queue/observer는 problems#T5가 구현하며 observer는 원래 실패를 삼키거나 preventDefault하지 않는다.
+  - 공개 mod/registry에 네 route·네 event를 추가하고 T32의 고정 다섯 route/VerificationRecorded identity membership을 보존했다. requirement-numbered schema 테스트와 doc check/full check로 확인한다.
+
+#### T39 구현 메모: 병합 뒤 review 정정
+
+- 상태: 완료 (#97)
+- concern: problems/grouping, problems/feedback, problems/snapshots
+- 요구: problems/grouping#R6; problems/feedback#R8; problems/snapshots#R20
+- 기존 문제를 고른 feedback은 자기 rpt로 새 feedback key를 달 수 없다. screenshot blob 권한은 key 순서와 무관한 canonical 값으로 비교한다. 항목별 상한 합보다 큰 snapshot_large_bytes 검사는 schema에서 빼고 collector 조립 runtime 책임으로 둔다(상수는 유지).
 
 ### T40 contracts/problems: problem command·read
 
+- 상태: 완료 (#98)
 - 등급: 기본
 - concern: problems/grouping, problems/repairs, problems/closing
 - 요구: problems/grouping#R1–R4, R8; problems/repairs#R1, R2; problems/closing#R6–R9, R13
@@ -1121,10 +1152,15 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q23 T51은 T33의 단일 공개 entry를 다시 내보내는 exact apps wrapper만 leaf-contract 예외로 둔다(추천안, apps 요청). contract·SDK·wrapper의 reachable graph는 실제 존재하는 상대 `.ts`만 허용하고 contract 순수 파일 목록·SDK 자기 blueprint directory를 벗어나는 의존을 거절한다. private contract helper의 외부 직접 소비, workspace alias, test 모듈과 계산 import는 허용하지 않는다. 기존 leaf-contract·이식성·계산 import reader 규칙은 일반 코드에서 그대로 유지하며 dependency 검사를 arbitrary IO·앱 실행 부재·runtime isolation 증명으로 쓰지 않는다.
 - Q21 T33은 외부 dependency 없는 relative-only `blueprint.ts`를 공개 정본으로 두고 내부 pure 모듈을 400줄 이하로 나눈다(추천안, apps 소비 review 완료). no-input은 undefined만 허용하고 hash의 JSON null 표현을 app/release/command/schema binding으로 쓰지 않는다. InputSchema의 string property key는 별도 reserved/nonblank 제한 없이 own property로 복사하여 정규 값·default·enum·hash를 보존한다. AppScreenContext.data의 own/nested JSON key도 공통 guard로 보존한다. standalone description은 optional JSON string이며 command.input의 명시 description만 nonblank다. 공개 catalog는 domain의 pkg ID·1..N exact versions·additive Package/PackageVersion이고 설치 strict 입력은 T37이다. SemVer core는 문자열로 검사하여 safe-integer 제한을 새로 넣지 않으며 numeric prerelease 선행 0만 거절한다. Grant scope 이름과 structural blueprint scope를 구분하고 실제 권한·effect·byte hash·설치 membership·view/revision CAS·redaction은 owner runtime/tests가 검사한다. external automation 허용은 이미 정한 D23과 apps/automations#R13을 따른다.
 - Q22 T26은 `WaitRun`의 새 question/approval 생성 입력과 `RunBasis`의 정확한 `ResolvedModel`, ordered `MessageContent`의 정확한 `VisualBlock` 값을 먼저 정의한다(추천안). T28·T29·T30은 같은 schema를 재사용하며 ID-only wait·축약 model·unknown visual placeholder를 두지 않는다. Run event는 정본 여섯 개이고 checkpoint·confirm-next에는 event가 없다. revision은 정본의 positive integer, event/CAS seq는 decimal string으로 구별한다. AgentAppScope의 effects는 허용 effect set이며 command별 평행 배열로 줄이지 않는다. schema의 ID·hash·CAS 모양 검사는 실제 새 요청 생성과 waiting_on의 원자 연결, 현재 권한·기록·scope·release·redaction·복구 clock 판정을 대신하지 않는다.
+
 - Q24 T14 project read seam은 coding agent cwd resolve를 path 없는 입력·host 고정 cwd 근거·project ID만으로 두고 근거가 없으면 fail-closed로 거절한다(추천안, documents#T7 요청). 감독 tracking root read는 machine 전용 활성·enabled root다. initial_tracking_proposal은 실제 tracking과 별도 output이고 list·resolve cursor drift는 conflict다. Project read 자료 참조는 고정 version이다. 실제 cwd 근거·자격·scope·snapshot 판정은 documents/platform runtime 책임이다.
+- Q25 T34는 `POST /v1/apps/connect`를 ledger command가 아닌 memory route `app.connect`로 두고 direct·broker 경로는 core route 목록 밖의 path 상수로 둔다(추천안). AppConnection.caller는 AppCallOrigin·AgentCallOrigin만, InvocationCaller는 감사 projection이라 path·nonce·credential을 복제하지 않는다. 앱 시작 stdin은 app·release·bundle_hash·mode·process_nonce·두 socket·data_path·broker_credential 한 줄이고 token·secret·검증 key는 없다. read 결과의 원천 상태는 coverage(complete|partial|uncollected)·freshness(fresh|stale|unknown)·opaque continuation이고 이어 읽기 거절 판정은 handler 몫이다. broker의 invocation 사실·문서 저장·문제 보고는 각 owner contract의 앱 쪽 입력만 정하고 그 contract를 재정의하지 않는다. capability 거절의 forbidden은 permission 이름과 scope를 details에 요구한다. AppCallOrigin.path는 최초 caller부터 현재 caller까지 최대 7개이고 다음 대상을 더한 앱 수가 8을 넘으면 거절한다. connect 입력의 screen_sizes는 요청 screen의 부분집합만 schema가 보고 선언 대조는 runtime이 한다. AppCallOrigin.path는 최초 caller부터 현재 caller까지 최대 7개이고 다음 대상을 더한 앱 수가 8을 넘으면 거절한다. connect 입력의 screen_sizes는 요청 screen의 부분집합만 schema가 보고 선언 대조는 runtime이 한다.
 - Q26 T19 series.next는 selector만 받는 core read이고 NextSuggestion 계산(`suggestNextKey`·`compareSeriesKeys`)은 저장 없는 순수 함수로 둔다(추천안). 멤버·예약 key·draft·revision은 host가 같은 snapshot에서 읽어 계산한다. format_field 변경은 준비한 instances를 update 입력에 두고 정렬 근거는 SeriesUpdated.order_basis다. view.open은 worker이며 text 조건일 때만 IndexCoverage를 요구하고 glossary를 두지 않는다. 가족 구성·이름·key 예약·권한·CAS의 진실은 host가 검사한다.
 - Q27 T21 context·term은 문서의 command·read·event 이름을 그대로 두고, `term.define`은 user actor만 받는다(추천안). 질문 option action 적용은 platform/identity의 QuestionActionEvidence(정본 값은 contracts#T28)를 platform이 검증해 user 변경으로 기록하므로 documents 입력에 별도 근거 field를 두지 않는다. context export는 목적·직접 항목·선택 이유·문서 항목의 고정 version과 사람 정의 glossary만 싣고 하위 context·관계 지도·본문은 넣지 않는다. watch 비교 값의 unchanged·unverified는 제출 schema에 있으나 확인된 변화 event는 content_changed·section_added·section_missing만이다. outline이 이미 가진 읽기용 target·evidence schema와 이름을 겹치지 않게 command 값은 `contextTargetRecordSchema`·`termEvidenceRecordSchema`로 둔다.
 - Q28 T14 resolve_cwd의 cwd 근거는 `AuthenticatedContext.conditions.cwd`(optional 정규 절대 경로)로 둔다(추천안, documents#T7 요청). 인증 경계가 coding agent 연결·session 기록에서 정하며 caller가 보낸 경로·credential_ref encoding을 근거로 쓰지 않는다. 다른 actor에는 넣지 않고, 없으면 fail-closed다.
 - Q29 owner domain target 판정은 Tx·ReadSnapshot의 새 member가 아니라 `TargetAuthorization` port(`port(key)`)로 둔다(추천안, platform·documents Q13·problems 요청). 다른 팀 test double을 깨지 않고 event 공개 hook의 snapshot에서도 같은 key로 쓴다. 동기 Result이고 누락·불일치·주입 없음은 fail-closed forbidden이다.
-
 - Q30 T28 answer·revert_run의 confirmation binding은 사람이 고른 결정 자체(question·created_seq·answer, revert id·run·allow_partial·preview_hash)로 두고 표시는 questions/read·reverts/preview를 짝짓는다(추천안). option action의 전제 비교는 고정 action.comparison·binding_hash가 맡으며 confirmation handle의 binding과 중복시키지 않는다. question 종료 이유는 deferred·cancelled·superseded 셋으로 두고 기한 도달은 QuestionExpired로만 남긴다. handoff 결과는 고정 version 또는 산출물 없음 이유 중 정확히 하나다. revert preview의 groups는 사람이 본 전체 묶음 근거이고 적용 입력의 groups는 그 source seq·소유 CAS·준비 참조만 담는다.
+- Q31 T48 `lophn_project` current의 architecture 표 `cwd?`는 MCP 프로세스 고정 `--cwd`가 credential 조건이 되는 값이라 caller 입력이 아니다(추천안). tool 입력은 `project.resolve_cwd`의 빈 객체를 그대로 쓰고, 근거가 없으면 fail-closed다. note·tag는 documents 저장 입력에 없어 tool 입력으로 받지 않는다.
+- Q32 T23 보호 export·import는 공개 route가 아닌 machine pipe op이고 원값·암호·암호문을 JSON에 싣지 않는다(추천안, platform 요청). import 결과는 이름마다 새 준비와 기록 CAS(sealed_ref·revision, 없던 이름은 둘 다 null)다. 앱 secret 사용의 현재 grant 판정 `SecretAllowance`와 process 생존 `ProcessLiveness`는 다른 최상위가 구현하는 seam이라 contract port로 둔다. 실제 KDF·암호화·keychain 기록·grant 판정은 owner runtime 책임이다.
+- Q33 T40 예외 지문 입력은 오류 이름과 상위 최대 3개 앱 frame의 상대 path·function뿐이고 hash는 collector가 canonical JSON sha256으로 낸다(추천안). work 종료 사유는 released·expired·completion_reported·cancelled 넷, 목록·상세의 증상·다음 행동 문구는 host가 채운 문자열, closure confirmation은 일회 handle 참조 문자열, 문제 결정 등록 이름은 problem_decision, 표시 read는 problems/get이다. section key는 documents 정본을 재사용한다.
+- Q34 T27 preset·assignment의 prompt는 원문이 아니라 sha256이고, PresetCreated는 그 hash와 함께 판 전체 `definition`을 싣는다(추천안). instruction-attachments의 `in_use`는 현재 assignment가 그 preset revision을 쓰는지다. `InstructionLocation.place`는 documents가 정한 등록 자리 문자열이고 경로 문법 검사는 documents가 한다. `InstructionAttachments`·`OperatorOutput` port는 동기 Result다. Operator 적용의 confirmation binding은 approval·decision_seq·bundle이고 표시 read는 assignments/read다. ChangeAssignmentPreset의 compare role은 lophn·app_engineer·context_engineer만이다. schema의 모양 검사는 이름 중복·참조 존재·현재 권한·승인 한 번 사용·출력 독점 판정을 대신하지 않는다.

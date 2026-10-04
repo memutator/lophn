@@ -213,7 +213,7 @@ concerns: [documents]
   - 미리보기는 포함·제외 파일과 이유를 root와 묶어 page로 돌려주고, 적용은 미리 본 folders·tracking·base_revision과 같아야 한다(다르면 conflict). 디스크에 새로 생긴 파일은 적용한 규칙으로 판정
   - set_tracking에서 활성 켜진 root 겹침 conflict
   - `model_test.ts`에 projects#R4, R5, `work_test.ts`·`commands_test.ts`에 projects#R3, R6, R7, API 통합 테스트
-- 진행: 규칙 판정(picomatch·ignore, `.git`·lophn data·root 밖 symlink 차단), scan port 위의 미리보기 판정·page 조립, `project.set_tracking`·folders 변경의 미리보기 일치·겹침 conflict·`ProjectTrackingChanged`, harness 통합 테스트를 #PRNUM에 합쳤다. 남은 것: documents worker(T2)가 scan port를 채우고 `/v1/projects/preview_tracking` route를 연결하는 것과 그 API 통합 테스트.
+- 진행: 규칙 판정(picomatch·ignore, `.git`·lophn data·root 밖 symlink 차단), scan port 위의 미리보기 판정·page 조립, `project.set_tracking`·folders 변경의 미리보기 일치·겹침 conflict·`ProjectTrackingChanged`, harness 통합 테스트를 #90에 합쳤다. 남은 것: documents worker(T2)가 scan port를 채우고 `/v1/projects/preview_tracking` route를 연결하는 것과 그 API 통합 테스트.
 
 ### T11 파일 관측에서 Version까지
 

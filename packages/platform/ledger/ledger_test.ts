@@ -68,7 +68,7 @@ Deno.test("platform/ledger#R2: WAL이 아니면 기동을 거절한다", async (
 });
 
 Deno.test(
-  "platform/ledger#R2: 파일 ledger는 WAL·FULL·외래 키·5초 대기를 확인하고 연다",
+  "platform/ledger#R2: 파일 ledger는 WAL·FULL·외래 키·recursive trigger·5초 대기를 확인하고 연다",
   async () => {
     const dir = await tempDir();
     const path = `${dir}/ledger.db`;
@@ -80,6 +80,10 @@ Deno.test(
     const sync = db.prepare("pragma synchronous").get()?.["synchronous"];
     const fk = db.prepare("pragma foreign_keys").get()?.["foreign_keys"];
     const busy = db.prepare("pragma busy_timeout").get()?.["timeout"];
+    const recursive = db.prepare("pragma recursive_triggers").get()?.[
+      "recursive_triggers"
+    ];
+    assertEquals(Number(recursive), 1);
     assertEquals(mode, "wal");
     assertEquals(Number(sync), 2);
     assertEquals(Number(fk), 1);

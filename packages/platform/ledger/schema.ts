@@ -55,4 +55,29 @@ create table subscriber_cursors (
   processed_through_seq integer not null check (processed_through_seq >= 0)
 );`,
   },
+  {
+    id: "immutable-insert-guards",
+    sql: `
+create trigger events_no_duplicate_insert
+before insert on events
+when exists (select 1 from events where seq = new.seq)
+begin
+  select raise(abort, 'immutable');
+end;
+create trigger command_results_no_duplicate_insert
+before insert on command_results
+when exists (
+  select 1 from command_results
+  where principal = new.principal and idempotency_key = new.idempotency_key
+)
+begin
+  select raise(abort, 'immutable');
+end;
+create trigger if not exists schema_migrations_no_duplicate_insert
+before insert on schema_migrations
+when exists (select 1 from schema_migrations where version = new.version)
+begin
+  select raise(abort, 'immutable');
+end;`,
+  },
 ];

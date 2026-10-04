@@ -123,6 +123,8 @@ export const createNotificationInputSchema = z.strictObject({
   source_seq: seqSchema,
   source_event: triggerEventSchema,
   processed_through_seq: seqSchema,
+  // cursor CAS가 자기 구독자를 input에서 읽는다(events advance-cursor와 같은 모양).
+  subscriber: z.literal("notifications"),
 });
 export const createNotificationOutputSchema = z.object({
   notification: notificationSchema,

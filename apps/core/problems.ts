@@ -11,6 +11,23 @@ import {
   testEvidencePort,
   verificationRecordedVisibility,
 } from "../../packages/problems/tests/mod.ts";
+import type {
+  ReaderRegistration,
+  TxPortRegistration,
+} from "../../packages/platform/ledger/mod.ts";
+import {
+  defineBlobField,
+  defineBlobPurpose,
+} from "../../packages/contracts/platform/mod.ts";
+import {
+  getReportRead,
+  getSnapshotRead,
+  listReportsRead,
+} from "../../packages/problems/reporting/reads.ts";
+import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
+import { SNAPSHOTS_SCHEMA_STEPS } from "../../packages/problems/snapshots/mod.ts";
+import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
+import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
 
 // owner definitions만 내보낸다. port 구현과 writer 조립은 core가 맡는다.
 export const problemsTestDefinitions = {
@@ -22,3 +39,54 @@ export const problemsTestDefinitions = {
   visibility: [verificationRecordedVisibility],
   ports: { admission: testAdmissionPort, evidence: testEvidencePort },
 };
+
+// 보고 등록: record-report와 reports·snapshots ledger. read는 reader Worker가
+// createReaderRegistration으로 붙인다(#142). blob purpose 상한은
+// contracts/report-blobs의 항목 상한을 정의하는 몫이다.
+const REPORT_SIZE = {
+  report_text: 262_144,
+  report_details: 262_144,
+  snapshot_stack: 16_384,
+  snapshot_logs: 65_536,
+  feedback_state: 65_536,
+  feedback_screenshot: 2_097_152,
+} as const;
+
+const REPORT_BLOB_FIELD_FIELDS = [
+  "report_text",
+  "report_details",
+  "snapshot_stack",
+  "snapshot_logs",
+  "feedback_state",
+  "feedback_screenshot",
+];
+
+export const problemsReportDefinitions = {
+  schema: [...REPORTS_SCHEMA_STEPS, ...SNAPSHOTS_SCHEMA_STEPS],
+  blobFields: REPORT_BLOB_FIELD_FIELDS.map((field) =>
+    defineBlobField({
+      owner_kind: "report",
+      field,
+      retention: { kind: "permanent" },
+      general_read: false,
+    })
+  ),
+  blobPurposes: REPORT_BLOB_PURPOSES.map((purpose) =>
+    defineBlobPurpose({
+      purpose,
+      max_size_bytes: REPORT_SIZE[purpose],
+    })
+  ),
+  commands: [recordReportCommand],
+  reads: [listReportsRead, getReportRead, getSnapshotRead],
+  ports: {} as Record<string, TxPortRegistration>,
+};
+
+// reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
+// 실행 port는 없다.
+export function createReaderRegistration(): ReaderRegistration {
+  return {
+    reads: [listReportsRead, getReportRead, getSnapshotRead],
+    ports: new Map(),
+  };
+}

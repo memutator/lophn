@@ -37,11 +37,11 @@ MCP / CLI ─────── HTTP POST / WebSocket ───────→�
 shell main / MCP / CLI / agent runtime ── 앱 통로 ──→ 앱 프로세스 (core를 경유하지 않음)
 ```
 
-상시 최상위 Deno 프로세스는 core, platform I/O worker, 문서 worker, agent runtime, 앱 supervisor의 5개다. test runner는 배정 작업이 있을 때 bounded하게 띄우는 여섯 번째 종류다. Electron main이 core를 띄우고 지켜본다. core는 다른 다섯 종류의 신뢰 child를 지켜보며 앱 child·format child·test child의 세부 감독은 해당 소유자에게 맡긴다. 창 닫기는 플랫폼 종료가 아니다. Electron main의 명시적 종료가 core 종료를 시작한다.
+core가 상시 감독하는 신뢰 child는 platform I/O worker, 문서 worker, agent runtime, 앱 supervisor, 그리고 kind 정책이 상시인 worker다. test runner처럼 요청 시 정책인 kind는 배정 작업이 있을 때만 bounded하게 띄운다. Electron main이 core를 띄우고 지켜본다. core는 이 신뢰 child를 지켜보며 앱 child·format child·test child의 세부 감독은 해당 소유자에게 맡긴다. 창 닫기는 플랫폼 종료가 아니다. Electron main의 명시적 종료가 core 종료를 시작한다.
 
 ### 2.2 core의 내부 모듈과 스레드
 
-예상 코드 경로는 `packages/platform/` 아래 `api`, `identity`, `commands`, `ledger`, `reads`, `events`, `supervisor`, `blob-store`, `secrets`, `redaction`, `approvals`, `notifications`, `settings`, `diagnostics`, `backup-and-migration`, `install-and-update`다. 다른 최상위의 ledger 모듈은 `packages/<concern>/ledger/`에 두고 registry가 command/read/event schema를 가져온다. 코드 경로에 작업 번호나 시기를 넣지 않는다.
+코드 자리는 code-map을 따른다. command·read·event는 `packages/platform/ledger/`, 신뢰 child 감독은 `packages/platform/responsiveness/`에 둔다. 그 밖의 platform 모듈은 `packages/platform/` 아래 `api`, `identity`, `blob-store`, `secrets`, `redaction`, `approvals`, `notifications`, `settings`, `diagnostics`, `backup-and-migration`, `install-and-update`다. 다른 최상위의 ledger 모듈은 `packages/<concern>/ledger/`에 두고 registry가 command/read/event schema를 가져온다. 코드 경로에 작업 번호나 시기를 넣지 않는다.
 
 - **API event loop.** Deno HTTP 서버가 `127.0.0.1`과 `::1`에만 bind한다. 기본 port는 7431이다. SQL·hash·파일 순회·압축·keychain 호출·앱 import를 여기서 하지 않는다. body를 유한하게 읽고 등록된 schema로 검증한 뒤 작은 메시지를 Worker에 보낸다.
 - **writer Worker 하나.** Deno Worker 안의 내장 `node:sqlite`(SQLite 3.53, FTS5) 연결 하나가 유일한 정상 writer다. `journal_mode=WAL`의 실제 반환을 확인하고 `synchronous=FULL`, `foreign_keys=ON`, `busy_timeout=5000`을 설정한다. command handler는 동기 함수이며 `Tx`만 받는다. `await`, 파일·socket·process handle, 중첩 transaction, 자체 commit을 허용하지 않는다.
@@ -85,7 +85,7 @@ queue는 principal별 FIFO·principal 사이 round-robin이며 등록된 회수�
 | agent runtime | 설치 runtime 코드·허용 provider 경계·scope 있는 contract | 임의 shell·파일·코드 실행·credential을 model/외부 MCP에 전달 |
 | 앱 supervisor | 설치 runtime·앱 실행 자료와 고정 child spawn | ledger 쓰기·machine 자격을 앱 사용자 코드에 전달 |
 
-감독 pipe는 부모가 생성하여 해당 child에 상속한다. child가 임의 loopback 주소나 PID만으로 감독을 주장할 수 없다. 최초 메시지는 core epoch·불투명 process identity·배정 task·scope 상한이다. credential은 그 연결로 한 번 전달한다. ready는 실제 준비가 끝난 child만 보내며 작업 성공과 다르다. child 결과는 배정된 command로 제출한다. stdout/stderr는 제어 통로나 성공 근거로 쓰지 않으며 원시 출력 자동 보관도 하지 않는다.
+감독 pipe는 부모가 만든 child의 stdin(부모→자식)과 stdout(자식→부모)이다. 둘 다 길이 prefix binary frame(JSON 제어 frame과 byte chunk frame)만 싣고, Electron main↔core도 같은 frame을 쓴다. child가 임의 loopback 주소나 PID만으로 감독을 주장할 수 없다. 최초 메시지는 core epoch·불투명 process identity·배정 task·scope 상한이다. credential은 그 연결로 한 번 전달하고 argv에는 넣지 않는다. ready는 실제 준비가 끝난 child만 보내며 작업 성공과 다르다. child 결과는 배정된 command로 제출한다. stdout은 감독 frame 전용이고 그 밖의 출력은 stderr로 보낸다. stderr는 제어 통로나 성공 근거가 아니며 원시 출력 자동 보관도 하지 않는다. frame이 아닌 stdout 바이트는 protocol 위반으로 그 child를 멈춘다.
 
 부모 pipe EOF는 즉시 새 작업·credential 사용을 막고 child 종료를 시작한다. core 연결 상실 때 앱 supervisor는 앱 child까지 종료한다. Linux/macOS에서는 실제 child handle과 process group, Windows에서는 Job Object의 자식 종료를 사용하여 부모 사망과 자식 잔존을 배포 테스트로 확인한다. 종료 확인이 없는 옛 실행과 겹쳐 새 작업을 띄우지 않는다. PID 파일만 보고 같은 PID의 다른 프로세스를 죽이지 않는다.
 
@@ -275,7 +275,7 @@ platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`,
 | actor | 발급·보관 | 현재 상한과 종료 |
 |---|---|---|
 | `user` | Electron main이 core를 시작한 상속 pipe에 core가 한 번 발급; main 메모리 | 사람용 동작; 클릭 증거는 별도. main 연결 종료·core 재시작 시 폐기 |
-| `coding_agent:<cac>` | confirmation window의 connection 결정 뒤 발급; git 밖 connection 저장소에 한 번 안전 전달 | 전체/앱 하나의 협업 scope ∩ 현재 connection 상태; 회수되면 새 사용 즉시 차단 |
+| `coding_agent:<cac>` | 사람이 harness 연결과 범위를 고른 뒤 발급; git 밖 connection 저장소에 한 번 안전 전달 | 전체/앱 하나의 협업 scope ∩ 현재 connection 상태; 회수는 confirmation window이며 회수되면 새 사용 즉시 차단 |
 | `agent:<asg>` | 유효 assignment·run 시작에서 신뢰 agent runtime에 발급 | 시작 역할·tool·scope ∩ 현재 제한; run 종료·멈춤·감독 상실 시 종료 |
 | `app:<app>` | core가 supervisor의 신뢰 앱 runtime 경계에 고정 app·release·process·mode로 발급 | 자기 선언 보고·산출물; 사용자 코드에는 token 없음; 종료·판 교체·회수 시 폐기 |
 | `machine` | 신뢰 worker에 task·대상·결과 command를 고정하여 발급 | 자기 배정 작업만; 실제 test runner만 test 결과 제출; 작업/프로세스 종료 시 폐기 |
@@ -529,4 +529,4 @@ diagnostics는 안전 구성 요소·시각·분류·위치·redaction 설명만
 
 일반 설정 원본은 builtin/common 선택이며 Preset 계정·model·prompt·자료·MCP·skill·지침 연결의 원본은 → lophn-agent/presets의 고정 판이다. 공통 judgment/organizing 값은 생성 후보만 제공한다. coding enabled·nullable 기본 harness·profile 선택은 → coding-agent/harnesses로 검증하고 machine-local executable·effective roots·receipt·관측은 TOML export와 분리한다.
 
-connection 생성은 보호 화면의 exact scope 결정 → 신뢰 인증 경계의 token/keychain 준비 → connection 검증 hash commit → trusted loader 사용 순서다. commit 전·실패 token은 무효이며 고아 값을 정리한다. OS keychain 누락·잠김은 unavailable; 평문 token 파일·일반 env fallback은 없다. loader는 current connection·scope·catalog adapter·실제 child generation을 확인하고 process-local 보호 통로로 MCP/CLI 인증 adapter에만 전달한다. TUI [Start]는 기존 connection 사용 허락이며 credential 발급·scope 확대 허락을 대신하지 않는다. revoke는 keychain 삭제 완료와 별도로 모든 새 요청에서 즉시 적용한다. → platform/identity#R5,R15, platform/secrets#R12
+connection 생성은 사람이 harness 연결과 범위를 고른 뒤 → 신뢰 인증 경계의 token/keychain 준비 → connection 검증 hash commit → trusted loader 사용 순서다. 회수만 confirmation window를 거친다. commit 전·실패 token은 무효이며 고아 값을 정리한다. OS keychain 누락·잠김은 unavailable; 평문 token 파일·일반 env fallback은 없다. loader는 current connection·scope·catalog adapter·실제 child generation을 확인하고 process-local 보호 통로로 MCP/CLI 인증 adapter에만 전달한다. TUI [Start]는 기존 connection 사용 허락이며 credential 발급·scope 확대 허락을 대신하지 않는다. revoke는 keychain 삭제 완료와 별도로 모든 새 요청에서 즉시 적용한다. → platform/identity#R5,R15, platform/secrets#R12

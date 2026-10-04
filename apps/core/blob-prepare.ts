@@ -10,6 +10,7 @@ import {
 } from "../../packages/base/mod.ts";
 import {
   BLOB_PREPARE_OP,
+  BLOB_READ_MAX_BYTES,
   BLOB_READ_OP,
   type BlobPrepareChunk,
   type Frame,
@@ -170,6 +171,12 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
         }
         const chunks = collected.chunks;
         const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+        if (total > length) {
+          return err({
+            code: "unavailable",
+            message: "blob 읽기 바이트가 요청한 길이를 넘는다",
+          });
+        }
         const bytes = new Uint8Array(total);
         let written = 0;
         for (const chunk of chunks) {
@@ -187,7 +194,12 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
     // worker가 돌려준 byte chunk frame. 읽기 요청이 모으고 있는 channel만 받는다.
     take(frame) {
       if (frame.kind !== "bytes") return;
-      incoming.get(frame.channel)?.push(frame.payload);
+      // 받는 쪽 상한: 요청 창(256KiB)을 넘게 쌓지 않는다. 넘으면 readBytes가 거절한다.
+      const chunks = incoming.get(frame.channel);
+      if (!chunks) return;
+      const held = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      if (held > BLOB_READ_MAX_BYTES) return;
+      chunks.push(frame.payload);
     },
   };
 }

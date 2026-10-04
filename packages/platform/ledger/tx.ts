@@ -18,6 +18,11 @@ import {
   isTransactionLost,
   type LedgerConnection,
 } from "./sqlite.ts";
+import {
+  createTxPortLookup,
+  type TxPortLookup,
+  type TxPortRegistration,
+} from "./tx-ports.ts";
 
 export type TxCall = <R extends CommandRoute>(
   route: R,
@@ -28,7 +33,7 @@ export type TxCall = <R extends CommandRoute>(
 export type TxDeps = {
   clock: Clock;
   ids: IdSource;
-  ports: ReadonlyMap<unknown, unknown>;
+  ports: readonly TxPortRegistration[];
   // blob 참조 등록은 platform#T14가 맡는다. 여기서는 주입만 받는다.
   registerBlobRef: (reference: BlobRefRegistration) => Result<
     PermanentBlobReference
@@ -198,6 +203,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     if (thrown !== undefined) throw sqlFailure(thrown.error, fail);
     return value as T;
   };
+  const ports: { current?: TxPortLookup } = {};
   const tx: Tx = {
     sql: {
       run: (text, params) => measured(true, () => sql.run(text, params)),
@@ -243,11 +249,8 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       return deps.ids.newId(prefix);
     },
     port<T>(key: PortKey<T>): T {
-      live();
-      if (!deps.ports.has(key)) {
-        throw new TxRejected(err(internalError()));
-      }
-      return deps.ports.get(key) as T;
+      if (ports.current === undefined) throw fail(err(internalError()));
+      return ports.current.port(key);
     },
     registerBlobRef(reference) {
       live();
@@ -296,10 +299,14 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },
   };
+  ports.current = createTxPortLookup(deps.ports, tx, live, (result) => {
+    throw fail(result);
+  });
   return {
     tx,
     seal: () => {
       open = false;
+      ports.current?.seal();
     },
     failure: () => sticky,
   };

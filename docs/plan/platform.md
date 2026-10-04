@@ -21,7 +21,7 @@ code-map의 platform 줄을 따른다. architecture 2.2의 모듈 이름(`comman
 | 신뢰 child 권한 정책, data 직렬화, child 메모리 상한 adapter | packages/platform/security/ |
 | core 조립, data root, 시작·종료, 팀 등록 registry | apps/core/ (조립과 registry), packages/platform/install-and-update/ (규칙) |
 | worker kind registry | apps/worker/ (entry와 kind 목록) |
-| platform I/O worker | apps/worker/platform/ (kind `platform-io`) |
+| platform I/O worker | apps/worker/platform/ (kind `platform/io`) |
 
 ## 내놓는 contract
 
@@ -103,6 +103,24 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - handler는 `await`·파일·socket을 쓸 수 없다(동기 함수 타입과 테스트, R4). 등록되지 않은 command 이름·SQL·경로를 받지 않는다(R20).
   - `AdvanceSubscriberCursor`(감소 불가)와 `commands/result` read handler(자기 principal만)
   - `commands_test.ts`에 R3–R6, R12, R13, R20 테스트(테스트 전용 command 정의로)
+
+### T58 command port를 같은 transaction의 factory로 묶기
+
+- 등급: 좁은
+- concern: platform/ledger
+- 요구: platform/ledger#R3, R4, R12, R13
+- 자리: packages/platform/ledger/
+- 쓰는 contract: 등록 interface(Tx.port)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: platform#T2
+- 상태: 완료 (#58)
+- 완료: 아래 확인이 통과한다
+  - owner port는 `defineTxPort(key, (tx) => 구현)`으로 등록한다. factory는 `BEGIN IMMEDIATE`와 현재 자격 확인 뒤 그 command의 guarded `Tx`를 받는다. 같은 Tx·같은 key는 한 번만 만들고 cache하며 다음 command는 새 구현이다.
+  - malformed 등록·중복 key는 handler 전에 `internal`로 거절한다. factory가 없거나, 자기 key나 순환을 다시 보거나, throw·Promise·thenable·반환값/throw 값의 then 검사 실패를 내면 `internal`이고 handler가 삼켜도 commit하지 않는다. SQL side effect가 있으면 전체 rollback이다(R3, R12).
+  - factory 반환 객체·함수는 감싸거나 복사하지 않는다. frozen·class·배열·순환은 원본 그대로다. 효과는 붙잡힌 guarded Tx의 sql·emit·now·newId·port가 seal 뒤에 거절하는 것으로 막는다. 순수 값이나 Tx 밖 side effect를 가둔다고 하지 않는다. 변경 행 한도는 port가 쓰는 같은 guarded `Tx.sql`에 누적한다(R4, R12).
+  - read snapshot의 정적 port map은 그대로다. 실제 writer Worker fixture도 이 등록을 쓴다.
+  - `tx-ports_test.ts`, `tx-ports-failure_test.ts`에 R3, R4, R12, R13 테스트
 
 ### T3 read 처리: reader Worker와 snapshot
 
@@ -206,6 +224,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T8 platform I/O worker와 안전 log
 
+- 상태: 완료 (#59)
 - 등급: 기본
 - concern: platform/responsiveness, platform/diagnostics, platform/redaction
 - 요구: platform/responsiveness#R4, platform/diagnostics#R2, R3, R11, R12, platform/redaction#R15
@@ -215,7 +234,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: skeleton
 - 선행: platform#T7
 - 완료: 아래 확인이 통과한다
-  - `apps/worker/main.ts`는 kind로 고르는 entry와 kind 목록(registry)이다. 각 팀은 `apps/worker/<팀>/`만 고친다(lead 결정, Q4). 이 작업은 `apps/worker/platform/`의 `platform-io`만 만든다.
+  - `apps/worker/main.ts`는 kind로 고르는 entry와 kind 목록(registry)이다. 각 팀은 `apps/worker/<팀>/`만 고친다(lead 결정, Q4). 이 작업은 `apps/worker/platform/`의 `platform/io`만 만든다. kind 이름은 supervisor contract의 고정 목록과 같다.
   - 무거운 작업 동시 2개, 대기 32개, principal당 4개, principal 사이 round-robin(responsiveness R4)
   - core와 신뢰 child의 log·diagnostic 메시지를 I/O worker가 `H/logs/`에 비동기로 쓴다. info 기본, 파일당 10MiB×5, 메모리 대기 1MiB, 넘치면 버리고 개수만 센다. log가 막혀도 API가 기다리지 않는다(diagnostics R2, R3, R11, R12).
   - 기록에는 구성 요소·시각·종류·안전 위치·설명만 있고 stdout·stderr·HTTP dump·crash 메모리·credential을 남기지 않는다(redaction R15).

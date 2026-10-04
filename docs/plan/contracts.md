@@ -347,6 +347,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T17 contracts/documents: format 실행
 
+- 상태: 완료 (#44)
 - 등급: 기본
 - concern: documents/formats
 - 요구: documents/formats#R1–R5, R8, R10–R17, R20
@@ -359,6 +360,13 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 완료: 아래 확인이 통과한다
   - `/v1/formats/{list,get,validate,extract}`, 정확한 module_hash 입력, 검사 결과(passed/failed, 위치 있는 diagnostics), 추출 결과(`ready | unsupported | unverified | failed`와 section 값).
   - 내장 format별 media type 상수.
+- 구현: list·get은 read, validate·extract는 core queue 밖 worker다. 실행 입력은 exact `{name,module_hash}`와 `DocumentFileInput` 목록, canonical ContentFile 목록의 `input_hash`, `explicit`, optional opaque `cursor`다. latest-name fallback은 없다. guest 입력에 content ref·principal·credential·TTL·absolute path를 싣지 않는다.
+  - `FormatDeclaration`은 function 없는 JSON이다. support는 `extracts` boolean이다. `FormatRef`·`FormatDiagnostic`·`FormatValidationResult`는 versions.ts를 재사용한다.
+  - pure `SectionExtractionResult`와 public page를 분리한다. page는 각 응답에 `input_hash`·exact `module_hash`를 유지하고 `complete`·`next_cursor`를 둔다. ready page는 전체 `text_hash`·`total_text_characters`·`total_sections`와 fragment offset을 유지하며 text fragment는 12,000 codepoint다. validation page의 inline diagnostics 개수는 전체 count와 같다고 검사하지 않는다. public JSON UTF-8은 256KiB다. guest 초기값은 memory 64MiB, call 5s, input 16MiB, output 8MiB다.
+  - list·get 최종 output은 read common(`as_of_seq`, `next_cursor`, optional `omitted`) 위에 public JSON 256KiB를 다시 건다. declaration 자체 schema는 그 metadata를 요구하지 않는다. template은 ContentFile 목록(비지 않음, path 유일, primary 하나)이다. structure·metadata는 공통 JSON guard로 own/nested key를 보존하며 byte bound에서 성공 parse key 삭제를 허용하지 않는다. non-JSON·cycle은 safeParse failure이고 일반 declaration JSON에 deep-copy snapshot을 약속하지 않는다.
+  - validation page의 total은 `error_count + warning_count`다. offset+fragment ≤ total, 현재 fragment의 severity 개수 ≤ 전체 count, complete는 끝이 total과 같을 때만이다. 뒤 page의 fragment 개수를 전체 count와 같다고 하지 않는다. ready extraction은 두 stream이 끝날 때만 complete다. 미완료 page는 text 또는 section이 하나 이상 진행한다. ready가 아니면 total_sections 0, 빈 text·sections, offset 0, hash null, complete와 null cursor다. failure_reason은 failed에만 필수다. 빈 ready text는 빈 sections만 가능하다.
+  - cursor는 host가 원래 정규화 조건(explicit 포함), 같은 전체 검사 결과 basis, 현재 principal·scope, core epoch에 결합해 다시 검사한다. core·coordinator·worker 재시작이나 basis 소실은 conflict다. 한도를 넘는 자를 수 없는 item은 unavailable이며 조용히 자르지 않는다. 새 public blob authority는 없다. 이 결합과 재시작 판정은 이 schema가 구현하지 않는다.
+  - section 결과 검사는 key 유일, parent 존재·비순환, text line bound, parent subtree containment다. hash 계산·fixture·OS 격리는 schema 통과로 보장하지 않는다. cursor의 principal·scope·epoch 재검사는 host다.
 
 ### T18 contracts/documents: outline·read·search·history·diff·guide
 
@@ -552,11 +560,12 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T26 contracts/lophn-agent: run·session·message·occurrence
 
+- 상태: 완료 (#60)
 - 등급: 기본
 - concern: lophn-agent/harness/run-loop, lophn-agent/harness/waiting-and-recovery, lophn-agent/conversation, lophn-agent/scheduling
 - 요구: lophn-agent/conversation#R1–R5, R7–R10, R12–R14, R16, R17; lophn-agent/harness/run-loop#R1–R3, R6, R7, R18–R20; lophn-agent/harness/waiting-and-recovery#R1, R3, R5–R7, R10; lophn-agent/scheduling#R1, R4–R7; lophn-agent/handoff#R3, R8; lophn-agent/harness/prompt-assemble#R19, R20; lophn-agent/roles/operator#R6
-- 자리: `packages/contracts/lophn-agent/` — `mod.ts`, `runs.ts`, `sessions.ts`, `messages.ts`, `occurrences.ts`, `scope.ts`, 각 `_test.ts`
-- 쓰는 contract: T5, T6, T7, T25
+- 자리: `packages/contracts/lophn-agent/` — `mod.ts`, `registry.ts`, `runs.ts`, `run-values.ts`, `run-reads.ts`, `run-wait.ts`, `sessions.ts`, `messages.ts`, `message-content.ts`, `occurrences.ts`, `scope.ts`, `question-submission.ts`, `resolved-model.ts`, `visuals.ts`, 각 `_test.ts`; `packages/contracts/platform/json-values.ts`와 approval·credential target JSON map 재사용·회귀 테스트
+- 쓰는 contract: T5, T6, T7, T22, T25
 - 내놓는 contract: agent run
 - 받은 요청: lophn-agent(A1, A2의 session·message, A7의 MessageContent, AgentAppScope), shell(요청·steering·stop·재개)
 - slice: agent
@@ -565,7 +574,9 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - `/v1/runs/{accept,start,checkpoint,finish,stop,confirm-next,wait,resolve-wait,correct-waiting,recover,read,list,result}`, `/v1/assignment-occurrences/{process,list}`, `/v1/sessions/{open,change-work-place,close,read,list}`, `/v1/messages/{receive,execute-stored,record,apply,assign,list}`.
   - `Run`, run source(사람 Message / 주기 회차 / handoff), `Session`, `Message`(mode correction·request), `MessageContent`(text·visual 블록 순서).
   - `AgentAppScope {role, assignment, apps: [{app, commands, effects, revert_required, confirm_allowed}]}`: StartRun 때 `agent:<asg>` credential의 conditions로 실린다.
-  - event `Run*` 7개, `Session*` 3개, `Message*` 4개, `AssignmentScheduleAdvanced`.
+  - event `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished` 여섯 개, `Session*` 3개, `Message*` 4개, `AssignmentScheduleAdvanced`. `CheckpointRun`·`ConfirmNextRun`은 event를 만들지 않는다.
+  - `WaitRun`은 새 question 또는 approval의 정확한 생성 입력을 받고 요청 생성·`waiting_on` 연결을 한 transaction에서 한다. 기존 ID만 받는 계약으로 줄이지 않는다. question 제출 값과 `ResolvedModel`은 T26에서 먼저 정의하고 T28·T29가 재사용한다.
+  - ordered `MessageContent`가 쓰는 정확한 `VisualBlock`과 상한은 T26에서 먼저 정의하고 T30이 같은 schema를 재사용한다. `__proto__` 같은 JSON own key·nested key는 파싱에서 지우지 않고 canonical byte·hash와 credential target restriction 근거로 보존한다. credential targets는 caller mutation과 분리한 JSON snapshot으로 파싱한다. 이 값 검증은 blob 내용 확인·현재 scope·redaction·원자 기록 같은 owner runtime 검증을 대신하지 않는다.
 
 ### T27 contracts/lophn-agent: preset·assignment
 
@@ -598,7 +609,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T26
 - 완료: 아래 확인이 통과한다
   - `/v1/questions/{create,answer,defer,cancel,expire,apply-option,read,list}`, `/v1/handoffs/{submit,status,result}`, `/v1/reverts/{checkpoint,finish,apply,preview,list}`.
-  - `QuestionOptionAction {concern, command, targets, input, comparison}`(owner가 dispatchable command를 등록), `QuestionActionEvidence`. answer·revert_run은 confirmation과 표시 read(questions/read, reverts/preview)를 짝짓는다.
+  - `QuestionOptionAction {concern, command, targets, input, comparison}`(owner가 dispatchable command를 등록), `QuestionActionEvidence`. question 생성·option 값은 T26의 정확한 제출 schema를 재사용한다. answer·revert_run은 confirmation과 표시 read(questions/read, reverts/preview)를 짝짓는다.
   - event `QuestionCreated`, `QuestionAnswered`, `QuestionExpired`, `QuestionCancelled`, `RevertStarted`, `RevertApplied`, `RevertBlocked`, `RevertFinished`.
 
 ### T29 contracts/lophn-agent: provider·credential·model call·catalog
@@ -614,7 +625,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T23, contracts#T26
 - 완료: 아래 확인이 통과한다
   - `/v1/providers/{register,change,record-check,read,list,login-begin,login-complete,login-cancel,test}`, `/v1/provider-credentials/{register,change,refresh-result,record-availability,list}`, `/v1/model-calls/{start,finish,supplement,read,list}`, `/v1/agent-model-defaults/{change,read}`, `/v1/agent-model-catalog/{read,refresh}`.
-  - protocol 이름 `anthropic-messages`, `openai-responses`, `openai-chat-completions`. ModelCall 결과 `complete / partial / failed / cancelled / uncertain`, cost 종류 `reported / estimated / subscription / free / unknown`.
+  - protocol 이름 `anthropic-messages`, `openai-responses`, `openai-chat-completions`. ModelCall 결과 `complete / partial / failed / cancelled / uncertain`, cost 종류 `reported / estimated / subscription / free / unknown`. RunBasis에 고정하는 `ResolvedModel`·가격 값은 T26의 schema를 재사용한다.
   - event `ProviderRegistered`, `ProviderChanged`, `ProviderChecked`, `ModelDefaultsChanged`, `ModelCallStarted`, `ModelCallFinished`, `ModelCallSupplemented`.
 
 ### T30 contracts/lophn-agent: tool call·trace·usage·visual block
@@ -630,7 +641,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T24, contracts#T26
 - 완료: 아래 확인이 통과한다
   - `/v1/tool-calls/{request,decide,start,finish,record-read,supplement,read,list}`, `/v1/agent-traces/{read,export}`, `/v1/agent-usage/read`. tool 결과 `success / failure / not_executed / uncertain`.
-  - `VisualBlock`(표, bar·line·scatter, node·edge 도표, 앱 카드 참조)과 상한.
+  - `VisualBlock`(표, bar·line·scatter, node·edge 도표, 앱 카드 참조)과 상한은 ordered `MessageContent`를 위해 T26에서 먼저 정의한 정확한 값 schema를 재사용한다.
   - event `ToolCallRequested`, `ToolCallDecided`, `ToolCallStarted`, `ToolCallFinished`, `ToolCallSupplemented`.
   - 외부 MCP 서버 설정 정의(transport stdio·Streamable HTTP, 인증 none·bearer·API-key·OAuth 2.1, call timeout 1~600초, tool 분류 read·write·external)를 T24의 `SettingDefinition` 모양으로 둔다. ToolCall의 MCP 출처 field(server, 원래 이름, 설정 판, canonical 이름 `ext_<server>_<tool>`).
   - 내장 tool 이름과 입력 schema는 다른 최상위가 부르지 않으므로 contract로 두지 않는다(lophn-agent/harness/tools 안쪽). 역할별 tool 목록 요구(roles/*)도 그래서 이 작업의 요구에 넣지 않았다.
@@ -688,10 +699,11 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T33 contracts/apps: blueprint·permission·agent-context
 
+- 상태: 완료 (#57)
 - 등급: 기본
 - concern: apps/blueprint, apps/permissions, apps/agent-context, apps/sdk
-- 요구: apps/blueprint#R1, R4–R6, R10–R16, R18–R22; apps/agent-context#R1–R5; apps/automations#R1, R2, R13; apps/connections#R1; apps/permissions#R3, R5, R7–R10, R12–R14, R26, R27; apps/sdk#R2–R4, R7, R34
-- 자리: `packages/contracts/apps/` — `blueprint.ts`(의존성 없는 정식 검증기), `permissions.ts`, `agent-context.ts`, `packages.ts`, 각 `_test.ts`
+- 요구: apps/blueprint#R1, R4–R7, R10–R16, R18–R22; apps/agent-context#R1–R5; apps/automations#R1, R2, R13; apps/connections#R1; apps/permissions#R3, R5, R7–R10, R12–R14, R26, R27; apps/sdk#R2–R4, R7, R34
+- 자리: `packages/contracts/apps/` — `blueprint.ts`(공개 정본, 상대 import만), `permissions.ts`, `agent-context.ts`, `packages.ts`, 각 `_test.ts`
 - 쓰는 contract: T32(problem code 선언)
 - 내놓는 contract: blueprint(4장 표 밖, T8에서 4장 표에 더함), 앱 통로의 agent-context 값
 - 받은 요청: apps(C-apps-2, agent-context 값), problems(release의 problem code 선언), lophn-agent(agent_context·annotation_targets·카드 화면), coding-agent(blueprint read)
@@ -699,9 +711,18 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T32
 - 완료: 아래 확인이 통과한다
   - `Blueprint`, `ScreenDeclaration(sizes full | panel | card)`, `CommandDeclaration(effect read | write | external, confirm, input, revert)`, `CommandRevertDeclaration`, InputSchema 부분집합, `PermissionRequirement`, `AutomationDeclaration`, `DocumentDeclaration`, `SDKDependency`, `AgentContextDeclaration`, `AnnotationTargetDeclaration`, `AppCommandUseDeclaration`, `PermissionScope` 종류(fs.read, fs.write, net.fetch, net.listen, secret.use, document.save, app.call, agent.commands, automation.run).
-  - blueprint 검증기는 apps/blueprint#R16에 따라 의존성 없는 하나의 정식 schema다. import 없는 순수 TS로 쓰고(Zod 없음) 이 파일 하나가 정본이며 `@lophn/blueprint`(packages/sdk)는 이것을 다시 내보낸다(apps 팀 합의, lead 승인).
-  - 검증기에 들어갈 것(apps 팀 요청): InputSchema 부분집합(type 하나, enum, default, properties·required·`additionalProperties: false`, items, min/max Items·Length, minimum/maximum; `$ref`·`oneOf`·`format`·모르는 keyword 거절), default 적용 뒤 RFC 8785 정규 JSON의 sha256 input hash, 목록 key 정렬·object key 정렬·중복 거절·모르는 field와 옛 `context` 거절, revert 규칙(read·external은 supported=false, write의 supported=true면 같은 blueprint의 다른 write command), automation(`on_start` 또는 `interval_ms` ≥ 60000, command confirm=false, 고정 입력이 schema 통과), agent_context(read_command는 effect=read·confirm=false, write_command는 effect=write), app_connections(자기 앱 금지, commands 중복·wildcard 금지). 요구별 판정 테스트는 apps#T2가 apps 요구 번호로 쓴다.
-  - `ScreenContextReadInput`, `AppScreenContext`(summary 2048 bytes), `AnnotationWriteInput`, `Package(kind component | capability | domain | format)`, `PackageVersion`.
+  - blueprint 검증기는 apps/blueprint#R16에 따라 의존성 없는 하나의 정식 schema다. Zod·Deno·node·npm·jsr·IO·앱 실행이 없고, 공개 이름은 `blueprint.ts` 하나다. 파일 400줄 제한 때문에 구현은 같은 디렉터리의 순수 모듈(`blueprint-types.ts`, `blueprint-json.ts`, `blueprint-schema.ts`, `blueprint-scope.ts`, `blueprint-commands.ts`, `blueprint-uses.ts`, `blueprint-value.ts`)로 나뉘며 서로 상대 import만 한다. `@lophn/blueprint`(packages/sdk)는 이 공개 이름을 다시 내보낸다(apps 팀 합의, lead 승인).
+  - 공개 함수: `validateBlueprint(value, options?: { app?: string })`, `validateInput(schema, value?)`, `canonicalInputHash(schema, value?)`. 결과는 `{ ok: true, value } | { ok: false, error: { code: "invalid_input", message } }`이고 base `Result`에 대입된다. 입력은 바꾸지 않고 정규 복사본을 돌려준다.
+  - `options.app`이 있으면 string이고 `app_` + Crockford ULID여야 한다. number·array·object·`toString` spoof는 coerce하지 않고 `invalid_input`이다. 이 값은 host가 넣는 불변 owner다. 자기 앱 connection 거절은 owner가 있을 때만 한다. `options.app`이 없으면 self-app 검사가 끝났다고 하지 않는다.
+  - JSON Pointer는 RFC 6901이다. `~` 다음이 `0` 또는 `1`이 아니면 거절한다. `hostOf`는 DNS·IPv4·IPv6 lexical host 하나이고 Grant schema와 같은 함수를 쓴다. `net.listen` host는 `localhost`, `127.0.0.1`, `::1`만이다.
+  - standalone InputSchema.description은 빈 문자열을 포함한 optional JSON string이고 command.input에 명시한 description은 root·properties·items 모두 nonblank다(부재를 필수로 만들지 않음). enum은 default를 채운 정규 값과 비교한다. integer bound는 finite number이고 실제 값은 safe integer다. schema cycle·non-JSON·lone surrogate는 throw 없이 `invalid_input`이다.
+  - SemVer numeric prerelease의 선행 0(`1.0.0-01`, `alpha.01`)은 거절하고 `0`, `alpha.0`, build `01`은 받는다. app connection command는 trim된 exact key다.
+  - `blueprint.ts`가 structural `PermissionKind`, `PermissionScope`, `PermissionRequirement`, `AgentContextDeclaration`, `AnnotationTargetDeclaration`을 내보낸다. `mod.ts`의 Zod Grant 이름은 `GrantPermissionKind`, `GrantPermissionScope`, `GrantPermissionRequirement`다. Zod agent-context 선언 입력은 `AgentContextDeclarationInput`, `AnnotationTargetDeclarationInput`이다.
+  - `schema === null`은 `undefined`만 받는다(JSON `null` 아님). 입력 없음의 hash는 정규 JSON `null`의 SHA-256이고, `type: "null"`에 명시 null을 넣은 hash와 같다. 이 hash는 app·release·command·schema를 묶지 않는다.
+  - InputSchema.properties는 문서의 string key를 받으며 `__proto__`·`prototype`·빈/공백/control key에 별도 제한을 만들지 않는다. 순수 복사·default·enum·정규화는 own data property로 기록하여 key 삭제·prototype 변경 없이 canonical 값과 hash를 보존한다. AppScreenContext.data도 공통 JSON guard로 own/nested key를 보존하며 일반 data의 deep copy·redaction·현재 view/revision 검증을 schema 보장으로 세지 않는다.
+  - 검증기에 들어갈 것(apps 팀 요청): InputSchema 부분집합(type 하나, enum, default, properties·required·없는 `additionalProperties`는 false로 정규화, items, min/max Items·Length, minimum/maximum; `$ref`·`oneOf`·`format`·모르는 keyword 거절), default를 재귀 적용한 뒤 RFC 8785 정규 JSON의 sha256 input hash(object key는 UTF-16 정렬, 숫자·문자열 인코딩은 `JSON.stringify`, SHA-256은 WebCrypto), 목록 key 정렬·object key 정렬·중복 거절·모르는 field와 옛 `context` 거절, revert 규칙(read·external은 supported=false, write의 supported=true면 같은 blueprint의 다른 write command), automation(`on_start` 또는 `interval_ms` ≥ 60000, command confirm=false, 고정 입력이 schema 통과, external effect 허용), agent_context(read_command는 effect=read·confirm=false, write_command는 effect=write), app_connections(owner가 있으면 자기 앱 금지, commands는 비어 있지 않은 exact key, 중복·wildcard 금지), SDK dependency는 exact SemVer, document.save key는 선언된 document와 같고 format은 `{name, module_hash, explicit}`.
+  - `automation.run` Grant scope `{automation, command, input_hash, when}`는 `GrantPermissionScope`에만 있고 `blueprint.permissions`에는 없다. blueprint permission kind는 fs.read, fs.write, net.fetch, net.listen, secret.use, document.save뿐이다. 실제 실행·권한·효과 판정 테스트는 apps#T2와 각 owner가 apps 요구 번호로 쓴다.
+  - `ScreenContextReadInput`, `AppScreenContext`(summary 2048 bytes, data 생략/object/null), `AnnotationWriteInput`; additive catalog 출력 `Package {id(pkg), name, description, kind, versions}`·`PackageVersion {version, bundle_hash, guide_hash}`. 설치 command의 strict 입력은 T37과 분리한다.
 
 ### T34 contracts/apps: 앱 통로·앱 시작 입력
 
@@ -1030,7 +1051,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ## 질문
 
-lead가 모두 답했다(docs/dev에 반영됨).
+기존 질문은 lead 답을 docs/dev에 반영했다. 후속 contract 값 결정은 아래 추천안과 각 PR에 남긴다.
 
 - Q1 contracts → base 한 방향 import 허용. code-map에 반영.
 - Q2 공통 오류 코드는 internal 포함 7개. docs/dev/architecture.md에 반영.
@@ -1047,7 +1068,10 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q13 T15 prepare 파일은 metadata와 prepared blob 또는 기존 permanent 참조를 함께 받는다(documents 소비 review 완료). hash 단독 주장은 원문 권한이 아니며 trusted worker가 principal·현재 owner/key/field 권한·prepared TTL을 검사한다. 새 파일은 `document_file` purpose·hash·size, 기존 참조는 hash를 입력과 결합한다. prepare format만 생략 가능하고 신규 MIME 기본 implicit/기존 base_version exact 계약을 worker가 고르며 결과는 exact FormatRef 필수다. agent 목록에서 disk source·files를 빼도 place/name·agent/run invariant를 유지한다. export는 고정 manifest 뒤 T18의 documents/file을 통해 원문 bytes/MIME를 읽고 JSON에 bytes를 중복 싣지 않는다.
 - Q14 T20의 `App.revision`은 해당 App의 마지막 변경 event seq이고, 전역 read snapshot의 `as_of_seq`로 대신하지 않는다(apps·documents 소비 review 완료). App get/list와 등록·source·보관·실행 허용 command 결과에서 revision을 보존해 CAS를 조립한다. logs는 source/buffer 없음 `none`, 수집 꺼짐 `off`, 예산 안 완료 못 함 `timeout`, 조회 성공 `ok`로 구별한다(apps·problems 합의). `ok`의 빈 lines도 정상이며 부분 확보·cap은 `truncated=true`; `collected_at`은 실제 수집 시각 또는 null이다. 입력의 `max_bytes`는 positive safe integer이며 runtime 200줄·줄당 300자 cap과 snapshot caller 30줄·65,536bytes를 섞지 않는다. 현재 scope·supervisor 신원·실제 관측·redaction과 writer 최종 CAS는 구현이 검사한다.
 - Q15 T32의 `Verification.request_principal`은 actor kind가 아닌 인증 주체의 stable opaque 참조로 정하고 공백뿐인 값은 거절한다(problems·apps 소비 review 완료). `GetTestRequest`는 인증 principal와 key로 기존 accepted command record를 읽고, `RecordVerification`은 같은 request의 principal·hash와 대조한다. 별도 request lifecycle entity를 만들지 않는다. `TestMethod.argv`는 executable을 제외한 `['test', ...]`이며 runner만 고정 absolute Deno executable을 고른다. schema의 argv·cwd 검사는 lexical 입력 한도일 뿐 현재 grant scope·realpath/symlink·OS lifecycle/memory 격리·실제 test 판정을 증명하지 않는다. 빈 failure_paths는 선언이 없는 경우의 값이고 전체 선언 coverage와 hash 일치는 runner가 검사한다. 공용 Tx member는 더하지 않는다.
+- Q16 T17 format 실행의 public 응답은 전체 검사 결과와 분리된 bounded page로 정한다(추천안, documents 소비 review 완료). 전체 status·hash·counts는 같은 result basis에서 고정하고 fragment offset·complete·cursor만 진행한다. complete는 validation의 diagnostics 끝과 extraction의 text·section 두 stream 끝에서만 true다. cursor는 operation·canonical ContentFile-list input_hash·exact module_hash·원래 정규화 조건(explicit 포함)·현재 principal/scope·core epoch·같은 전체 결과 basis에 결합한다. mismatch는 invalid_input이고 core epoch가 같아도 core/coordinator/worker 재시작이나 basis 만료·소실은 conflict다. 매 page 현재 scope를 다시 검사하며 자를 수 없는 큰 diagnostic/section은 unavailable로 반환한다. guest를 page마다 다시 실행해 결과를 섞지 않는다. 이 runtime 결합과 authority 검사는 schema가 대신하지 않고 public hash-only read나 Tx member는 더하지 않는다.
 - Q17 T7 follow-up은 schema-only event 선언과 별도 `EventVisibilityDefinition`을 둔다(추천안). core가 event type별 owner policy를 고정하며 duplicate는 안전한 기동 오류, 미등록은 fail-closed다. 같은 read snapshot·현재 인증 context·그 event envelope를 전달하고 subject와 payload 참조 전체의 현재 visibility를 owner가 검사한다. `ok(false)`·안전한 `not_found`·`forbidden`은 scanned cursor를 진행하는 omission이며 다른 오류·throw·Promise·invalid Result는 전체 batch 안전 오류다. 이 계약의 type 테스트는 실제 registry·권한·runtime async guard 구현을 대신하지 않는다.
 - Q18 T6 diagnostics follow-up은 기존 supervision 고정 Diagnostic catalog를 `platform.diagnostics.write`의 strict `{records, dropped}` 입력으로 재사용한다(추천안, platform 소비 review 완료). public DiagnosticRecord·raw LogRecord를 입력으로 쓰지 않으며 JSON control 전용·batch 256개·대기 1MiB·frame 256KiB를 유지한다. `{accepted, dropped}`는 ingress acceptance와 누락 계수일 뿐 durable 성공이 아니다. request 수·ID 결합, 현재 process/task/scope·등록 ID·redaction·fire-and-forget queue는 host가 검사하고 HTTP·`PIPE_OPS`·공용 Tx/ReadSnapshot을 넓히지 않는다.
 - Q19 T18은 실제 선행 T15의 고정 Version·ContentFile과 shared Section shape를 써서 T17 format 실행과 별도 PR로 진행한다(추천안, documents 소비 review 완료). root·series·history만 ledger metadata read, documents/file만 고정 ver/path의 stored bytes file이며 extraction·cache·본문·comparison·guide는 core 밖 worker다. whole/found의 text=null은 terminal redacted omission, unverified/unsupported는 같은 고정 원문 file fallback으로 구별하고 user full Version history와 agent/app source:null projection을 나눈다. guide는 설치 version/title/hash tuple과 manifest path를 결합한다. 최종 schema의 pagination·256KiB·exact ref 검사와 현재 auth/scope·redaction·cursor binding·복원·설치 membership의 host 책임을 섞지 않는다. 이 PR은 T17 execution/routes/status를 포함하지 않으며 T17 완료로 세지 않는다.
 - Q20 T7 named reconnect follow-up은 architecture/platform 5.4의 저장 ack 재개를 표현하도록 `from_seq`를 optional로 두되 `from_seq`와 `subscriber`가 둘 다 없는 입력은 strict schema·union·parser에서 `invalid_input`으로 거절한다(추천안). 이름 있는 생략에는 schema default를 넣지 않고 명시 seq의 포함 의미는 보존한다(platform 소비 source/type/runtime probe review 완료). 현재 인증 principal·이름의 저장 ack 조회, ack+1과 저장 없음 0, 현재 자격·scope 재검사는 platform runtime 책임이며 새 IO·Tx member·공개 route를 더하지 않는다.
+- Q21 T33은 외부 dependency 없는 relative-only `blueprint.ts`를 공개 정본으로 두고 내부 pure 모듈을 400줄 이하로 나눈다(추천안, apps 소비 review 완료). no-input은 undefined만 허용하고 hash의 JSON null 표현을 app/release/command/schema binding으로 쓰지 않는다. InputSchema의 string property key는 별도 reserved/nonblank 제한 없이 own property로 복사하여 정규 값·default·enum·hash를 보존한다. AppScreenContext.data의 own/nested JSON key도 공통 guard로 보존한다. standalone description은 optional JSON string이며 command.input의 명시 description만 nonblank다. 공개 catalog는 domain의 pkg ID·1..N exact versions·additive Package/PackageVersion이고 설치 strict 입력은 T37이다. SemVer core는 문자열로 검사하여 safe-integer 제한을 새로 넣지 않으며 numeric prerelease 선행 0만 거절한다. Grant scope 이름과 structural blueprint scope를 구분하고 실제 권한·effect·byte hash·설치 membership·view/revision CAS·redaction은 owner runtime/tests가 검사한다. external automation 허용은 이미 정한 D23과 apps/automations#R13을 따른다.
+- Q22 T26은 `WaitRun`의 새 question/approval 생성 입력과 `RunBasis`의 정확한 `ResolvedModel`, ordered `MessageContent`의 정확한 `VisualBlock` 값을 먼저 정의한다(추천안). T28·T29·T30은 같은 schema를 재사용하며 ID-only wait·축약 model·unknown visual placeholder를 두지 않는다. Run event는 정본 여섯 개이고 checkpoint·confirm-next에는 event가 없다. revision은 정본의 positive integer, event/CAS seq는 decimal string으로 구별한다. AgentAppScope의 effects는 허용 effect set이며 command별 평행 배열로 줄이지 않는다. schema의 ID·hash·CAS 모양 검사는 실제 새 요청 생성과 waiting_on의 원자 연결, 현재 권한·기록·scope·release·redaction·복구 clock 판정을 대신하지 않는다.

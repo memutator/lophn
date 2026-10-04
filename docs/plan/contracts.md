@@ -702,6 +702,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T49 contracts/coding-agent: 질문·approval·context tool
 
+- 상태: 완료 (#110)
 - 등급: 좁은
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R17, R18; coding-agent/cli#R18, R19, R21
@@ -1140,3 +1141,4 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q30 T28 answer·revert_run의 confirmation binding은 사람이 고른 결정 자체(question·created_seq·answer, revert id·run·allow_partial·preview_hash)로 두고 표시는 questions/read·reverts/preview를 짝짓는다(추천안). option action의 전제 비교는 고정 action.comparison·binding_hash가 맡으며 confirmation handle의 binding과 중복시키지 않는다. question 종료 이유는 deferred·cancelled·superseded 셋으로 두고 기한 도달은 QuestionExpired로만 남긴다. handoff 결과는 고정 version 또는 산출물 없음 이유 중 정확히 하나다. revert preview의 groups는 사람이 본 전체 묶음 근거이고 적용 입력의 groups는 그 source seq·소유 CAS·준비 참조만 담는다.
 - Q31 T48 `lophn_project` current의 architecture 표 `cwd?`는 MCP 프로세스 고정 `--cwd`가 credential 조건이 되는 값이라 caller 입력이 아니다(추천안). tool 입력은 `project.resolve_cwd`의 빈 객체를 그대로 쓰고, 근거가 없으면 fail-closed다. note·tag는 documents 저장 입력에 없어 tool 입력으로 받지 않는다.
 - Q32 T23 보호 export·import는 공개 route가 아닌 machine pipe op이고 원값·암호·암호문을 JSON에 싣지 않는다(추천안, platform 요청). import 결과는 이름마다 새 준비와 기록 CAS(sealed_ref·revision, 없던 이름은 둘 다 null)다. 앱 secret 사용의 현재 grant 판정 `SecretAllowance`와 process 생존 `ProcessLiveness`는 다른 최상위가 구현하는 seam이라 contract port로 둔다. 실제 KDF·암호화·keychain 기록·grant 판정은 owner runtime 책임이다.
+- Q39 T49 coding agent의 질문·approval·context tool은 owner route 입력을 그대로 재사용한다(추천안). 그래서 architecture 표의 `state?`는 owner 이름 `status`로, owner가 받지 않는 `app?` filter와 `items`의 `depth?`는 두지 않는다. `propose`는 route가 아니라 owner command 입력을 빌린 변경 union(create·rename·set_item·remove_item·term_propose·term_update)이고 term.define·보관·분할·병합은 사람 몫이라 없다. 변경안 문서 저장 자리는 documents host 몫이다.

@@ -1,6 +1,7 @@
 export * from "./values.ts";
 export * from "./address.ts";
 export * from "./projects.ts";
+export * from "./project-routes.ts";
 export * from "./places.ts";
 export * from "./versions.ts";
 export * from "./document-files.ts";
@@ -31,18 +32,22 @@ export const DOCUMENT_READ_ROUTES = [
 
 import {
   projectArchive,
-  projectArchived,
   projectCreate,
-  projectCreated,
   projectGet,
   projectList,
   projectPreviewTracking,
   projectResolve,
+  projectResolveCwd,
   projectSetTracking,
-  projectTrackingChanged,
+  projectTrackingRoots,
   projectUnarchive,
-  projectUnarchived,
   projectUpdate,
+} from "./project-routes.ts";
+import {
+  projectArchived,
+  projectCreated,
+  projectTrackingChanged,
+  projectUnarchived,
   projectUpdated,
 } from "./projects.ts";
 
@@ -55,6 +60,8 @@ export const ROUTES = [
   projectList,
   projectGet,
   projectResolve,
+  projectResolveCwd,
+  projectTrackingRoots,
   projectPreviewTracking,
   ...DOCUMENT_ROUTES,
   ...FORMAT_ROUTES,

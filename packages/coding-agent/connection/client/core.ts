@@ -87,9 +87,13 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
         token: credential.value.token,
         fetch: fetchImpl,
       });
+      // command 계약의 envelope은 strict object다. command 호출은 input과
+      // key만 받으므로 나머지 필드는 계약 기본값으로 채운다.
       const sent = await client.call(route, {
         input: body.input,
         idempotency_key: body.idempotency_key,
+        compare: {},
+        prepared: [],
       } as never);
       if (sent.ok) return sent;
       const failed = sent.error;

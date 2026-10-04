@@ -2,16 +2,19 @@ import { systemClock } from "../../packages/base/clock.ts";
 import { cryptoRandom } from "../../packages/base/random.ts";
 import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
 import { err, ok } from "../../packages/base/mod.ts";
+import { FORMAT_ROUTES } from "../../packages/contracts/documents/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
   Frame,
   KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
+import { ROUTES } from "../../packages/contracts/platform/mod.ts";
 import {
   type ApiServer,
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
+import { RouteRegistry } from "../../packages/platform/api/routes.ts";
 import { applyMigrations } from "../../packages/platform/backup-and-migration/mod.ts";
 import { type StatusSource } from "../../packages/platform/diagnostics/mod.ts";
 import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
@@ -190,6 +193,9 @@ async function open(
       reads: runtime.reads,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
+      // platform route에 documents format read를 더한다. 나머지 documents route는
+      // 각 팀 작업이 registry에 더한다(platform/api#R6).
+      registry: new RouteRegistry([...ROUTES, ...FORMAT_ROUTES]),
     });
   } catch {
     await runtime.close();

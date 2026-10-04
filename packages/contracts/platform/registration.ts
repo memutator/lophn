@@ -83,11 +83,14 @@ export interface ReadSnapshot {
 
 export type ReadDefinition<R extends ReadRoute = ReadRoute> = {
   route: R;
+  // ledger snapshot 없이 handler가 자기 결과를 내놓는 read. core가 pool 밖에서 바로 연다.
+  // pool의 실행은 동기 Result만 받으므로 async handler는 direct여야 한다.
+  direct?: boolean;
   handle(
     snapshot: ReadSnapshot,
     ctx: RequestContext,
     input: Input<R>,
-  ): Result<Output<R>>;
+  ): Result<Output<R>> | Promise<Result<Output<R>>>;
 };
 
 // event를 읽는 자격이 그 event를 볼 수 있는지 owner가 정한다. event 구독과 list가 event마다 부른다.

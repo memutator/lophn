@@ -2,6 +2,8 @@ import type { Clock, Result } from "../../packages/base/mod.ts";
 import { err, internalError, ok } from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
+  ReadDefinition,
+  ReadSnapshot,
   RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
@@ -45,6 +47,22 @@ export type CoreRuntime = {
 const WRITER_DEAD = {
   code: "unavailable" as const,
   message: "writer가 끝났다",
+};
+
+// direct read의 handle은 snapshot을 쓰지 않는다. 개체는 만들어지고, 쓰면 실패다.
+const DIRECT_SNAPSHOT: ReadSnapshot = {
+  sql: {
+    get: () => {
+      throw new Error("direct read has no ledger snapshot");
+    },
+    all: () => {
+      throw new Error("direct read has no ledger snapshot");
+    },
+  },
+  as_of_seq: "0",
+  port: () => {
+    throw new Error("unregistered read port");
+  },
 };
 
 // lock과 schema step 다음이다. writer·reader Worker, event 배포, API read를 연다.
@@ -97,10 +115,24 @@ export async function openRuntime(input: {
           body,
         ),
     ]),
-    ...input.assembled.reads.map((read): [string, ReadHandler] => [
-      `${read.route.resource}/${read.route.method}`,
-      (ctx, body) => readers.value.read(read.route, ctx, body),
-    ]),
+    ...input.assembled.reads.map((read): [string, ReadHandler] => {
+      const definition = read as ReadDefinition;
+      // direct read는 ledger snapshot 없이 core에서 바로 연다(format read).
+      // 나머지는 reader Worker pool로 돌리고 pool의 동기 Result를 기다린다.
+      if (definition.direct === true) {
+        return [
+          `${read.route.resource}/${read.route.method}`,
+          (ctx, body) =>
+            Promise.resolve(
+              definition.handle(DIRECT_SNAPSHOT, ctx, body),
+            ),
+        ];
+      }
+      return [
+        `${read.route.resource}/${read.route.method}`,
+        (ctx, body) => readers.value.read(read.route, ctx, body),
+      ];
+    }),
   ]);
   const events = createReaderEventBackend(
     readers.value,

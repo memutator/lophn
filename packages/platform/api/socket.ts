@@ -16,6 +16,8 @@ import { errorBody, failure } from "./request.ts";
 export type SocketDeps = {
   backend: EventBackend;
   store?: SubscriptionStore;
+  // 연결이 끝날 때 부르는 hook. admission의 연결 자리를 돌려준다.
+  onClose?: () => void;
 };
 
 // upgrade는 GET /v1/events/subscribe, subprotocol lophn.events.1만 받는다.
@@ -77,9 +79,11 @@ export function attachSession(
   };
   socket.onclose = () => {
     session?.close();
+    deps.onClose?.();
   };
   socket.onerror = () => {
     session?.close();
+    deps.onClose?.();
   };
 
   async function onMessage(text: string) {

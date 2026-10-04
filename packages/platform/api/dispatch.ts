@@ -70,6 +70,12 @@ export type DispatchDeps = {
   bodyLimit?: (route: Route) => number;
   bodyTimeoutMs: number;
   jsonMaxBytes: number;
+  // command 입장 대기(256·principal당 64·제어용 16 예약·5초). 없으면 줄 없이 바로 보낸다.
+  admitCommand?: (
+    ctx: AuthenticatedContext,
+    name: string,
+    work: () => Promise<HttpResult>,
+  ) => Promise<HttpResult>;
 };
 
 export type HttpResult =
@@ -189,7 +195,23 @@ async function command(
       ? {}
       : { confirmation: request.confirmation }),
   };
-  const result = await deps.writer.command(ctx, envelope);
+  const result = await (deps.admitCommand
+    ? deps.admitCommand(
+      ctx,
+      route.name,
+      () => sendCommand(deps.writer!, ctx, envelope, route),
+    )
+    : sendCommand(deps.writer, ctx, envelope, route));
+  return result;
+}
+
+async function sendCommand(
+  writer: Writer,
+  ctx: AuthenticatedContext,
+  envelope: CommandEnvelope,
+  route: CommandRoute,
+): Promise<HttpResult> {
+  const result = await writer.command(ctx, envelope);
   if (!result.ok) return rejected(result.error);
   // 성공은 등록된 결과 객체를 그대로 200으로 낸다. 추가 포장은 없다(platform/api#R3).
   const output = route.output.safeParse(result.value.result);

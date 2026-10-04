@@ -181,6 +181,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T4 event 배포, 구독, 반응 cursor
 
+- 상태: 완료 (#68)
 - 등급: 기본
 - concern: platform/ledger, platform/api
 - 요구: platform/ledger#R15, R16, R17, R18, platform/api#R5, R7

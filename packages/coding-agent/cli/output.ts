@@ -1,16 +1,12 @@
 // CLI 출력 계층(architecture/coding-agent 5.1, cli#R2·R3). 기계 출력과 진단은
 // 분리한다. --json이면 stdout에 JSON 하나와 마지막 newline만 쓰고 stderr에는
-// redaction된 진단만 보낸다. 사람 출력은 같은 data를 줄로 표현한다.
+// redaction된 진단만 보낸다. 사람 출력은 같은 data를 줄로 표현한다. redaction은
+// 조립이 끼워 준다(mcp-server/stdio의 같은 모양, entry가 자기 기준으로 거른다).
 import type {
   AgentFailure,
   AgentResult,
 } from "../../contracts/coding-agent/mod.ts";
 import { CLI_EXITS, cliExit } from "../../contracts/coding-agent/mod.ts";
-import {
-  createKnownSecretRegistry,
-  type KnownSecretRegistry,
-} from "../../platform/redaction/mod.ts";
-import { createRedactionStream } from "../../platform/redaction/mod.ts";
 
 export type OutputWriter = {
   result(result: AgentResult): Promise<void>;
@@ -24,7 +20,8 @@ export type OutputOptions = {
   // stdout·stderr을 바꿔 끼운다. 기본은 process의 것이다.
   stdout?: WritableStream<Uint8Array>;
   stderr?: WritableStream<Uint8Array>;
-  registry?: KnownSecretRegistry;
+  // 진단·실패 message·details를 거치는 함수다. 끼우지 않으면 거르지 않는다.
+  redact?: (text: string) => string;
 };
 
 const encoder = new TextEncoder();
@@ -41,18 +38,11 @@ async function write(
   }
 }
 
-// 실페 details와 message에서 raw secret을 지운다. 어느 쪽에도 원문을 쓰지 않는다(R3).
-function redactText(registry: KnownSecretRegistry, text: string): string {
-  const stream = createRedactionStream(registry);
-  stream.push(text);
-  return stream.finish();
-}
-
 export function createOutput(options: OutputOptions): OutputWriter {
   const json = options.json;
   const stdout = options.stdout ?? Deno.stdout.writable;
   const stderr = options.stderr ?? Deno.stderr.writable;
-  const registry = options.registry ?? createKnownSecretRegistry();
+  const redact = options.redact ?? ((text) => text);
   async function emitResult(result: AgentResult): Promise<void> {
     if (json) {
       await write(stdout, `${JSON.stringify(result)}\n`);
@@ -74,11 +64,11 @@ export function createOutput(options: OutputOptions): OutputWriter {
       await write(stdout, `${JSON.stringify({ error: failure })}\n`);
       return;
     }
-    await write(stderr, `${redactText(registry, failure.message)}\n`);
+    await write(stderr, `${redact(failure.message)}\n`);
     if (failure.details !== undefined) {
       await write(
         stderr,
-        `${redactText(registry, JSON.stringify(failure.details))}\n`,
+        `${redact(JSON.stringify(failure.details))}\n`,
       );
     }
   }
@@ -86,7 +76,7 @@ export function createOutput(options: OutputOptions): OutputWriter {
     result: emitResult,
     failure: emitFailure,
     async diagnostic(message) {
-      await write(stderr, `${redactText(registry, message)}\n`);
+      await write(stderr, `${redact(message)}\n`);
     },
     exitCode(failure) {
       return cliExit(failure);

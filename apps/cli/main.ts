@@ -26,8 +26,23 @@ import {
   resolveDaemonAddress,
 } from "../../packages/coding-agent/connection/client/daemon.ts";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
+import {
+  createKnownSecretRegistry,
+  createRedactionStream,
+} from "../../packages/platform/redaction/mod.ts";
 
 const VERSION = "0.1.0";
+
+// 조립이 끼워 주는 redaction이다(mcp-server/stdio의 같은 모양). 알려진 secret
+// registry를 process 수명으로 두고 실패 진단·details를 거친다.
+function redactor(): (text: string) => string {
+  const registry = createKnownSecretRegistry();
+  return (text) => {
+    const stream = createRedactionStream(registry);
+    stream.push(text);
+    return stream.finish();
+  };
+}
 
 function inputOf(parsed: ParsedArgs): Result<unknown, AgentFailure> {
   if (parsed.input === undefined && parsed.inputFile === undefined) {
@@ -58,7 +73,7 @@ function safeJson(text: string): Result<unknown, AgentFailure> {
 
 export async function cliMain(argv: readonly string[]): Promise<number> {
   const parsed = parseArgs(argv);
-  const output = createOutput({ json: parsed.json });
+  const output = createOutput({ json: parsed.json, redact: redactor() });
   if (parsed.help) {
     await emitHelp(parsed, output);
   }

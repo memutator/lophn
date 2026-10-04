@@ -8,7 +8,6 @@ import {
   packageRegisterVersion,
   packageRegisterVersionInputSchema,
   packagesGuide,
-  packagesList,
   packagesListInputSchema,
   packagesListOutputSchema,
   packagesUsage,

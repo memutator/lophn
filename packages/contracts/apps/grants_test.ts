@@ -12,12 +12,10 @@ import {
   grantRevoked,
   grantRevokeInputSchema,
   grantSchema,
-  grantsList,
   grantsListInputSchema,
   grantsListOutputSchema,
 } from "./grants.ts";
 import { EVENTS, ROUTES } from "./registry.ts";
-import { ALL_EVENTS, ALL_ROUTES } from "../mod.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 const OTHER_APP = "app_01h455vb4pex5v6nkc6gd5fdw2";

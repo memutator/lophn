@@ -6,7 +6,6 @@ import {
   defineEvent,
   defineRead,
   seqSchema,
-  sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
 import {

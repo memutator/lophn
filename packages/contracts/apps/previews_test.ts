@@ -6,7 +6,6 @@ import {
   previewInputSchema,
   previewObservationSchema,
   previewsGet,
-  previewsGetInputSchema,
   previewsGetOutputSchema,
   previewsStart,
   previewsStartInputSchema,
@@ -20,7 +19,6 @@ import { ROUTES } from "./registry.ts";
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 const REL = "rel_01h455vb4pex5v6nkc6gd5fdw1";
 const HASH = "ab".repeat(32);
-const AT = "2026-10-04T00:00:00.000Z";
 
 const input = {
   app: APP,

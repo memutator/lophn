@@ -34,12 +34,7 @@ import {
   invocationFinished,
   invocationStarted,
 } from "./invocations.ts";
-import {
-  GRANT_EVENTS,
-  GRANT_ROUTES,
-  grantCreated,
-  grantRevoked,
-} from "./grants.ts";
+import { GRANT_EVENTS, GRANT_ROUTES } from "./grants.ts";
 import { PACKAGE_EVENTS, PACKAGE_ROUTES } from "./package-routes.ts";
 import { PREVIEW_ROUTES } from "./previews.ts";
 

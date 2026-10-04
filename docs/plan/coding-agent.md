@@ -517,6 +517,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T18 ticket core: 표·생성·readiness·read
 
+- 상태: 완료 (#183)
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R25

@@ -1,11 +1,14 @@
 export {
   authorize,
+  authorizeConditions,
+  CONDITION_TARGET_KEYS,
   conditionsMatch,
   type CredentialTarget,
   intersectScope,
   operationCeiling,
   type OperationPolicy,
   scopeWithin,
+  TARGET_AUTHORIZATION_UNAVAILABLE,
 } from "./model.ts";
 export {
   constantTimeDigestEqual,

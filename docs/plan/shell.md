@@ -507,6 +507,7 @@ concerns: [shell]
 
 ### T26 현재 보기 상태 수집과 relay publish
 
+- 상태: 완료 (#178)
 - 등급: 기본
 - concern: shell/workspace
 - 요구: shell/workspace#R9, R10

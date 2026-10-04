@@ -93,11 +93,10 @@ async function addPackage(
   const config = JSON.parse(
     await readFile(new URL("deno.json", directory), "utf8"),
   );
-  for (
-    const [key, value] of Object.entries(
-      config.exports as Record<string, string>,
-    )
-  ) {
+  const exports = typeof config.exports === "string"
+    ? { ".": config.exports }
+    : config.exports as Record<string, string>;
+  for (const [key, value] of Object.entries(exports)) {
     const specifier = key === "."
       ? config.name
       : `${config.name}/${key.slice(2)}`;
@@ -129,13 +128,16 @@ export async function build(
       config.imports ?? {},
       pathToFileURL(join(here, "deno.json")),
     );
-    // @lophn/design/components가 쓰는 Radix·Lucide와 @lophn/wording도 같은 map에서 찾는다.
+    // 공통 UI와 SDK가 쓰는 React·Radix·Lucide·d3·wording을 같은 map에서 찾는다.
     const design = new URL(
       "../../../packages/design/",
       pathToFileURL(`${here}/`),
     );
     await addPackage(imports, design);
     await addPackage(imports, new URL("wording/", design));
+    for (const name of ["tokens", "ui-table", "ui-chart"]) {
+      await addPackage(imports, new URL(`../sdk/${name}/`, design));
+    }
     await writeFile(configPath, JSON.stringify({ imports }));
     for (const entry of entryPoints) {
       const directory = entryPoints === defaultEntries

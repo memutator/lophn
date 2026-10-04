@@ -19,6 +19,10 @@ import {
   type LedgerConnection,
 } from "./sqlite.ts";
 import {
+  authorizeSubscriberCursor,
+  type SubscriberGate,
+} from "./subscriber-registration.ts";
+import {
   createTxPortLookup,
   type TxPortLookup,
   type TxPortRegistration,
@@ -40,11 +44,15 @@ export type TxDeps = {
   >;
   // 다른 owner command dispatch는 platform#T18이 맡는다. 여기서는 주입만 받는다.
   call: TxCall;
+  // 현재 자격의 subscriber owner 검사. 없으면 cursor는 올리지 않는다.
+  subscriberGate?: SubscriberGate;
 };
 
 type TxContext = {
   actor: string;
   run: string | null;
+  // command 실행기의 현재 자격 snapshot. lowlevel transaction에는 없다.
+  request?: RequestContext;
 };
 
 // handler 안에서는 throw로만 거절을 알릴 수 있다. 경계에서 Result로 바꾼다.
@@ -258,6 +266,12 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     },
     advanceSubscriberCursor(subscriber, throughSeq) {
       live();
+      const allowed = authorizeSubscriberCursor(
+        deps.subscriberGate,
+        subscriber,
+        ctx.request,
+      );
+      if (!allowed.ok) throw fail(allowed);
       const parsed = parseSeq(throughSeq);
       if (!parsed.ok || parsed.value < 0n) {
         return err({ code: "invalid_input", message: "seq가 아니다" });

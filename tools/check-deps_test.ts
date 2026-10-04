@@ -258,6 +258,21 @@ test("testing 거절: 제품 코드·tsx 테스트 이름", {
   "apps/shell/main_test.tsx": 'import "../core/testing/mod.ts";',
 }, ["testing", "testing", "testing"]);
 
+test("testing 내부 조립 통과: public entry·Worker·types", {
+  "apps/core/testing/ledger.ts": 'import "./ledger-channel.ts";',
+  "apps/core/testing/ledger-channel.ts": 'import "./ledger-types.ts";',
+  "apps/core/testing/ledger-worker.ts": 'import "./ledger-types.ts";',
+}, []);
+test("testing public entry 통과: 다른 팀 테스트", {
+  "packages/documents/projects/commands_test.ts":
+    'import "../../../apps/core/testing/ledger.ts";',
+}, []);
+test("testing 내부 helper도 외부 제품에서는 거절", {
+  "apps/core/main.ts": 'import "./testing/ledger-types.ts";',
+  "packages/platform/ledger/mod.ts":
+    'import "../../../apps/core/testing/ledger.ts";',
+}, ["testing", "testing"]);
+
 // 규칙 7
 for (
   const name of [

@@ -35,7 +35,8 @@ export const appRegistrationSchema = z.object({
 });
 export type AppRegistration = z.infer<typeof appRegistrationSchema>;
 
-// 같은 transaction에서 앱이 있고 active인지 확인한다. 구현은 apps가 주입한다.
+// Tx.port 또는 ReadSnapshot.port가 같은 transaction·snapshot의 구현을 주입한다.
+// archived도 돌려주므로 호출한 concern이 필요한 status를 검사한다.
 export interface AppRegistrationLookup {
   get(app: z.infer<typeof appIdSchema>): Result<AppRegistration | null>;
 }
@@ -52,10 +53,15 @@ const appFields = {
   planning_version: versionIdSchema.nullable(),
   source_path: absolutePathSchema.nullable(),
   active_release: releaseIdSchema.nullable(),
+  // App의 마지막 변경 seq이며 read snapshot 전체의 as_of_seq와 다르다.
+  revision: revisionSchema,
   run_enabled: z.boolean(),
   status: archiveStateSchema,
 };
-export const appSchema = z.object(appFields);
+export const appSchema = z.object(appFields).refine(
+  (value) => value.status !== "archived" || !value.run_enabled,
+  { message: "archived app cannot enable execution" },
+);
 export type App = z.infer<typeof appSchema>;
 
 export const appCompareSchema = z.strictObject({

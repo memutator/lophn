@@ -5,6 +5,7 @@ import {
   defineEvent,
   defineRead,
   defineWorker,
+  idSchema,
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
@@ -24,10 +25,12 @@ export const RUNTIME_STATES = [
 ] as const;
 export const runtimeStateValueSchema = z.enum(RUNTIME_STATES);
 
-export const runtimeReasonSchema = z.object({
+const runtimeReasonFields = {
   code: z.string().min(1),
   summary: z.string().min(1),
-});
+};
+export const runtimeReasonInputSchema = z.strictObject(runtimeReasonFields);
+export const runtimeReasonSchema = z.object(runtimeReasonFields);
 export type RuntimeReason = z.infer<typeof runtimeReasonSchema>;
 
 // 화면 상태 projection. ledger에 저장하지 않는다(domain-model apps/runtime).
@@ -63,14 +66,18 @@ export const runtimeObservationSchema = z.object({
 );
 export type RuntimeObservation = z.infer<typeof runtimeObservationSchema>;
 
-export const readyAttestationSchema = z.object({
+const readyAttestationFields = {
   release: releaseIdSchema.nullable(),
   bundle_hash: sha256Schema,
   commands: z.array(z.string().min(1)),
   data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   process_nonce: z.string().min(1),
   connection_ok: z.literal(true),
-});
+};
+export const readyAttestationInputSchema = z.strictObject(
+  readyAttestationFields,
+);
+export const readyAttestationSchema = z.object(readyAttestationFields);
 export type ReadyAttestation = z.infer<typeof readyAttestationSchema>;
 
 export const appEnableExecution = defineCommand({
@@ -96,7 +103,10 @@ export const appDisableExecution = defineCommand({
 
 export const appRecordStartedInputSchema = z.strictObject({
   app: appIdSchema,
-  attestation: readyAttestationSchema,
+  attestation: readyAttestationInputSchema.refine(
+    (value) => value.release !== null,
+    { message: "AppStarted needs a live release" },
+  ),
 });
 export const appRecordStoppedInputSchema = z.strictObject({
   app: appIdSchema,
@@ -108,7 +118,7 @@ export const appRecordUnavailableInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
   process_nonce: z.string().min(1).optional(),
-  reason: runtimeReasonSchema,
+  reason: runtimeReasonInputSchema,
 });
 
 export const appRecordStarted = defineCommand({
@@ -119,7 +129,7 @@ export const appRecordStarted = defineCommand({
   output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
   compare: z.strictObject({ base_revision: revisionSchema }),
   actors: ["machine"],
-  errors: ["conflict", "invalid_input", "not_found"],
+  errors: ["conflict", "invalid_input"],
 });
 export const appRecordStopped = defineCommand({
   resource: "apps",
@@ -129,7 +139,7 @@ export const appRecordStopped = defineCommand({
   output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
   compare: z.strictObject({ base_revision: revisionSchema }),
   actors: ["machine"],
-  errors: ["conflict", "invalid_input", "not_found"],
+  errors: ["conflict", "invalid_input"],
 });
 export const appRecordUnavailable = defineCommand({
   resource: "apps",
@@ -139,7 +149,7 @@ export const appRecordUnavailable = defineCommand({
   output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
   compare: z.strictObject({ base_revision: revisionSchema }),
   actors: ["machine"],
-  errors: ["conflict", "invalid_input", "not_found"],
+  errors: ["conflict", "invalid_input"],
 });
 
 const readActors = ["user", "coding_agent", "agent", "app"] as const;
@@ -170,12 +180,20 @@ export const appRuntime = defineRead({
 export const LOG_LINE_MAX_COUNT = 200;
 export const LOG_LINE_MAX_LENGTH = 300;
 export const logLineSchema = z.string().max(LOG_LINE_MAX_LENGTH);
+export const APP_LOG_STATES = ["none", "off", "timeout", "ok"] as const;
+export const appLogStateSchema = z.enum(APP_LOG_STATES);
+export type AppLogState = z.infer<typeof appLogStateSchema>;
 export const appLogsInputSchema = z.strictObject({
   app: appIdSchema,
-  invocation: z.string().min(1).optional(),
+  invocation: idSchema("inv").optional(),
   limit: z.number().int().min(1).max(LOG_LINE_MAX_COUNT).optional(),
+  max_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
+    .optional(),
 });
+// none=source 없음, off=수집 꺼짐, timeout=예산 초과, ok=조회 성공이다.
+// 부분 확보와 cap은 truncated로 구별하므로 ok도 완전 수집을 뜻하지 않는다.
 export const appLogsOutputSchema = withReadCommon(z.object({
+  state: appLogStateSchema,
   lines: z.array(logLineSchema).max(LOG_LINE_MAX_COUNT),
   collected_at: atSchema.nullable(),
   truncated: z.boolean(),

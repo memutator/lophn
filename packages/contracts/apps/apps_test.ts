@@ -1,6 +1,16 @@
-import { assert, assertEquals, assertNotStrictEquals } from "@std/assert";
-import { ERROR_CODES } from "../../base/mod.ts";
-import { definePort, type Tx } from "../platform/mod.ts";
+import {
+  assert,
+  assertEquals,
+  assertNotStrictEquals,
+  assertStrictEquals,
+} from "@std/assert";
+import { ERROR_CODES, ok } from "../../base/mod.ts";
+import {
+  definePort,
+  type PortKey,
+  type ReadSnapshot,
+  type Tx,
+} from "../platform/mod.ts";
 import { eventEnvelopeSchema } from "../platform/events.ts";
 import { routePath } from "../platform/route.ts";
 import {
@@ -41,6 +51,7 @@ const created = {
   planning_version: null,
   source_path: null,
   active_release: null,
+  revision: "4",
   run_enabled: false,
   status: "active" as const,
 };
@@ -82,6 +93,9 @@ Deno.test("apps/registration#R2, apps/registration#R3, apps/registration#R4, app
   assertEquals(appArchive.actors, ["user"]);
   assertEquals(appUnarchive.actors, ["user"]);
   assertEquals(appList.actors, ["user", "coding_agent", "agent", "app"]);
+  assertEquals(appGet.name, "app.get");
+  assertEquals(appGet.input.parse({ app: APP }), { app: APP });
+  assertEquals(appGet.output.parse({ ...META, app: created }).app, created);
   for (
     const route of [
       appCreate,
@@ -196,6 +210,7 @@ Deno.test("apps/registration#R8: archive와 unarchive는 run_enabled false를 �
     run_enabled: false,
   });
   assertEquals(archived.run_enabled, false);
+  assert(!appSchema.safeParse({ ...archived, run_enabled: true }).success);
   eventEnvelopeSchema(appArchived).parse({
     seq: "6",
     type: "AppArchived",
@@ -262,7 +277,23 @@ Deno.test("apps/registration#R2, apps/registration#R4, apps/registration#R10: �
     }).success,
   );
   assert(!appInputSchema.safeParse({ app: OTHER }).success);
+  assert(!appInputSchema.safeParse({ app: APP, extra: true }).success);
   assert(!appListInputSchema.safeParse({ status: "running" }).success);
+  assert(!appListInputSchema.safeParse({ extra: true }).success);
+  assert(
+    appCreateInputSchema.safeParse({
+      slug: "a".repeat(63),
+      name: "App",
+      description: "Purpose",
+    }).success,
+  );
+  assert(
+    !appCreateInputSchema.safeParse({
+      slug: "a".repeat(64),
+      name: "App",
+      description: "Purpose",
+    }).success,
+  );
   assert(!appSchema.safeParse({ ...created, id: OTHER }).success);
 });
 
@@ -272,9 +303,37 @@ Deno.test("apps/registration#R10: Tx 안 앱 존재·status·slug 검사는 type
     appRegistrationLookup,
     definePort<AppRegistrationLookup>(appRegistrationLookup.name),
   );
-  const useInTransaction = (tx: Tx): AppRegistrationLookup =>
+  const useInTransaction = (tx: Pick<Tx, "port">): AppRegistrationLookup =>
     tx.port(appRegistrationLookup);
-  assertEquals(typeof useInTransaction, "function");
+  const useInSnapshot = (
+    snapshot: Pick<ReadSnapshot, "port">,
+  ): AppRegistrationLookup => snapshot.port(appRegistrationLookup);
+  const lookup: AppRegistrationLookup = {
+    get: (app) =>
+      ok(
+        app === APP
+          ? { id: APP, slug: "usage-dashboard", status: "archived" }
+          : null,
+      ),
+  };
+  // fixture만 generic 주입을 흉내 낸다. 앱 구현은 transaction별 port resolver를 쓴다.
+  const context: Pick<Tx, "port"> = {
+    port: <T>(key: PortKey<T>): T => {
+      assertStrictEquals(key, appRegistrationLookup);
+      return lookup as T;
+    },
+  };
+  assertStrictEquals(useInTransaction(context), lookup);
+  assertStrictEquals(useInSnapshot(context), lookup);
+  assertEquals(
+    lookup.get(APP),
+    ok({
+      id: APP,
+      slug: "usage-dashboard",
+      status: "archived",
+    }),
+  );
+  assertEquals(lookup.get("app_01h455vb4pex5v6nkc6gd5fdw2"), ok(null));
   const found = appRegistrationSchema.parse({
     id: APP,
     slug: "usage-dashboard",

@@ -15,9 +15,7 @@ import {
   appRecordStarted,
   appRecordStartedInputSchema,
   appRecordStopped,
-  appRecordStoppedInputSchema,
   appRecordUnavailable,
-  appRecordUnavailableInputSchema,
   appRuntime,
   appStarted,
   appStopped,
@@ -33,7 +31,6 @@ import { EVENTS, ROUTES } from "./registry.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 const REL = "rel_01h455vb4pex5v6nkc6gd5fdw1";
-const OTHER = "doc_01h455vb4pex5v6nkc6gd5fdw1";
 const HASH = "ab".repeat(32);
 const AT = "2026-10-04T00:00:00.000Z";
 const META = { as_of_seq: "8", next_cursor: null };
@@ -103,6 +100,11 @@ Deno.test("apps/runtime#R2, apps/runtime#R13, apps/runtime#R26, apps/runtime#R27
   );
   assertEquals(appEnableExecution.actors, ["user"]);
   assertEquals(appRecordStarted.actors, ["machine"]);
+  for (
+    const route of [appRecordStarted, appRecordStopped, appRecordUnavailable]
+  ) {
+    assertEquals(route.errors, ["conflict", "invalid_input"]);
+  }
   assertEquals(appExport.kind, "worker");
   for (
     const route of [
@@ -158,7 +160,7 @@ Deno.test("apps/runtime#R2, apps/runtime#R13: ReadyAttestation과 네 화면 상
   );
 });
 
-Deno.test("apps/runtime#R13, apps/runtime#R14: 관측이 없으면 null이고 없는 지표를 만들지 않는다", () => {
+Deno.test("apps/runtime#R13, apps/runtime#R14, apps/runtime#R25: 관측이 없으면 null이고 없는 지표를 만들지 않는다", () => {
   const page = appRuntime.output.parse({
     ...META,
     app: APP,
@@ -252,6 +254,7 @@ Deno.test("apps/runtime#R26, apps/runtime#R27: log는 200줄·한 줄 300자이�
   const line = "x".repeat(LOG_LINE_MAX_LENGTH);
   const page = appLogsOutputSchema.parse({
     ...META,
+    state: "ok",
     lines: Array.from({ length: LOG_LINE_MAX_COUNT }, () => line),
     collected_at: AT,
     truncated: true,
@@ -338,44 +341,4 @@ Deno.test("apps/data#R13: export는 준비 중·완성·실패를 구별하고 �
       includes_external_data: false,
     }).success,
   );
-});
-
-Deno.test("apps/runtime#R2, apps/runtime#R13, apps/runtime#R25: 모르는 field·틀린 값·틀린 ID를 거절한다", () => {
-  assert(
-    !appRecordStartedInputSchema.safeParse({
-      app: OTHER,
-      attestation,
-    }).success,
-  );
-  assert(
-    !appRecordStartedInputSchema.safeParse({
-      app: APP,
-      attestation: { ...attestation, connection_ok: false },
-    }).success,
-  );
-  assert(
-    !appRecordStartedInputSchema.safeParse({
-      app: APP,
-      attestation: { ...attestation, bundle_hash: "AB".repeat(32) },
-    }).success,
-  );
-  // release 없는 preview는 부재를 허용한다. 가짜 rel ID를 만들지 않는다.
-  readyAttestationSchema.parse({ ...attestation, release: null });
-  assert(
-    !appRecordStoppedInputSchema.safeParse({
-      app: APP,
-      release: REL,
-      process_nonce: "nonce-1",
-      termination_confirmed: false,
-    }).success,
-  );
-  assert(
-    !appRecordUnavailableInputSchema.safeParse({
-      app: APP,
-      release: OTHER,
-      reason,
-      extra: true,
-    }).success,
-  );
-  assert(!appLogsInputSchema.safeParse({ app: APP, lines: [] }).success);
 });

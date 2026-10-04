@@ -1,0 +1,10 @@
+{
+  "name": "@lophn/lophn-agent",
+  "exports": {
+    ".": "./roles/lophn/mod.ts",
+    "./roles/lophn": "./roles/lophn/mod.ts"
+  },
+  "compilerOptions": {
+    "erasableSyntaxOnly": true
+  }
+}

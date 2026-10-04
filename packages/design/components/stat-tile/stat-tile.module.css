@@ -1,0 +1,53 @@
+.row {
+  display: grid;
+  grid-template-columns: repeat(var(--stat-per-row), minmax(0, 1fr));
+  row-gap: var(--space-6);
+  column-gap: var(--space-6);
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--space-2);
+  min-width: var(--space-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+.label {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.number {
+  color: var(--color-text-primary);
+  font-size: var(--type-display-size);
+  line-height: var(--type-display-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+  font-variant-numeric: var(--font-numeric);
+}
+
+.unit {
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+/* 변화량도 중립색이다. 방향은 아이콘 모양과 부호로 읽는다. */
+.change {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-variant-numeric: var(--font-numeric);
+}

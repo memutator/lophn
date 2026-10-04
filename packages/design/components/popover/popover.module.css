@@ -1,0 +1,45 @@
+.popover {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: var(--radix-popover-trigger-width);
+  max-height: var(--radix-popover-content-available-height);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--floating-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-popover);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  overflow: auto;
+  z-index: var(--z-popover);
+}
+
+.row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--control-gap);
+  height: var(--menu-row);
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-4);
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.row:hover:not(:disabled),
+.row:focus-visible {
+  background: var(--floating-hover);
+  outline: none;
+}
+
+.row:disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}

@@ -5,6 +5,9 @@
     "moduleResolution": "nodenext",
     "lib": ["ES2023"],
     "types": ["node"],
+    "paths": {
+      "zod": ["./node_modules/zod/index.d.ts"]
+    },
     "strict": true,
     "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,

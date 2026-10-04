@@ -16,12 +16,28 @@ export type PlaceholderKinds = {
     target: "string";
   };
   "common.button.reload": Record<never, never>;
+  "common.overlay.unavailable": Record<never, never>;
+  "common.button.retry": Record<never, never>;
   "common.stale.label": {
     age: "string";
   };
   "common.author.label": {
     author: "string";
   };
+  "common.heading.column-unit": {
+    header: "string";
+    unit: "string";
+  };
+  "common.button.copy-id": Record<never, never>;
+  "common.button.copy-code": Record<never, never>;
+  "common.copy.failed": Record<never, never>;
+  "common.label.on-this-page": Record<never, never>;
+  "common.button.close": Record<never, never>;
+  "common.button.view": Record<never, never>;
+  "common.label.more-waiting": {
+    count: "plural";
+  };
+  "common.palette.no-results": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

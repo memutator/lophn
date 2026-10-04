@@ -46,6 +46,27 @@ Deno.test("shell/wording#R14: 날짜·숫자·상대 시각은 Intl로만 만든
   assertEquals(formatRelativeTime(earlier, now, "en"), "3 minutes ago");
 });
 
+Deno.test("shell/wording#R14: 표 칸은 compact 없이, 변화량은 부호를 붙여 Intl로 만든다", () => {
+  assertEquals(
+    formatNumber(1_234_567, "en", { notation: "standard" }),
+    "1,234,567",
+  );
+  assertEquals(formatNumber(1_234_567, "en"), "1.2M");
+  assertEquals(formatNumber(12, "en", { sign: true }), "+12");
+  assertEquals(formatNumber(-3.5, "en", { sign: true }), "-3.5");
+  assertEquals(formatNumber(0, "en", { sign: true }), "0");
+  const date = new Date("2026-09-26T13:05:00Z");
+  const options = {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  } as const;
+  assertEquals(
+    formatDate(date, "en", options),
+    new Intl.DateTimeFormat("en", options).format(date),
+  );
+});
+
 Deno.test("shell/wording#R1: 고정 문구는 message key로만 나오고 버튼·제목은 마침표가 없다", () => {
   assertEquals(
     t("common.notification.body"),

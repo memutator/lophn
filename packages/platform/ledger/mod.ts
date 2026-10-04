@@ -7,9 +7,26 @@ import type {
 } from "../../contracts/platform/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
 import { type LedgerConnection, openConnection } from "./sqlite.ts";
+import type { TxPortRegistration } from "./tx-ports.ts";
 import { runTransaction, type TxCall, type TxDeps } from "./tx.ts";
 
 export { LEDGER_SCHEMA_STEPS };
+
+export { LEDGER_COMMANDS } from "./commands.ts";
+export { commandResultRead } from "./command-results.ts";
+export { openWriter } from "./writer.ts";
+export {
+  createWriterRegistration,
+  type CredentialCheck,
+  type WriterRegistration,
+} from "./writer-registration.ts";
+export { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
+export type {
+  CommandEnvelope,
+  CommandSuccess,
+  StoredCommandResult,
+  Writer,
+} from "./writer.ts";
 export { openConnection };
 export type { LedgerConnection };
 export { createReaderPool } from "./reader-pool.ts";
@@ -19,7 +36,7 @@ export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
 export type LedgerDeps = {
   clock: Clock;
   ids: IdSource;
-  ports?: ReadonlyMap<unknown, unknown>;
+  ports?: readonly TxPortRegistration[];
   // blob 참조 등록은 platform#T14, command dispatch는 platform#T18이 넘긴다.
   registerBlobRef: (
     reference: BlobRefRegistration,
@@ -49,7 +66,7 @@ function ledger(connection: LedgerConnection, deps: LedgerDeps): Ledger {
   const txDeps: TxDeps = {
     clock: deps.clock,
     ids: deps.ids,
-    ports: deps.ports ?? new Map(),
+    ports: deps.ports ?? [],
     registerBlobRef: deps.registerBlobRef,
     call: deps.call,
   };

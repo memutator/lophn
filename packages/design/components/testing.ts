@@ -1,7 +1,8 @@
 // 컴포넌트 테스트 전용. components_test.ts가 happy-dom 위에서 bundle해 돌린다.
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import type { Timer } from "./shared.ts";
+import type { ResizeSource, Size } from "./resize.ts";
+import type { Clock, Timer } from "./shared.ts";
 
 export interface Rendered extends Disposable {
   readonly container: HTMLElement;
@@ -49,6 +50,12 @@ export async function settle(): Promise<void> {
   }
 }
 
+// 열린 Radix 층의 focus 복귀 timer가 다음 test로 새지 않게 unmount 뒤 비운다.
+export async function unmountSettled(view: Rendered): Promise<void> {
+  view.unmount();
+  await settle();
+}
+
 export async function pressAsync(target: Element, key: string): Promise<void> {
   act(() => {
     target.dispatchEvent(
@@ -81,7 +88,7 @@ export function one(root: ParentNode, selector: string): HTMLElement {
   return found as HTMLElement;
 }
 
-export interface ManualTimer extends Timer {
+export interface ManualTimer extends Timer, Clock {
   advance(ms: number): void;
   pending(): number;
 }
@@ -101,6 +108,7 @@ export function manualTimer(): ManualTimer {
       queue.delete(handle as number);
     },
     pending: () => queue.size,
+    now: () => now,
     advance(ms) {
       const until = now + ms;
       for (;;) {
@@ -112,6 +120,32 @@ export function manualTimer(): ManualTimer {
         act(() => due[1].callback());
       }
       now = until;
+    },
+  };
+}
+
+export interface ManualResize extends ResizeSource {
+  // 관측 중인 element 수.
+  observed(): number;
+  // element(없으면 관측 중인 모두)에 새 크기를 알린다.
+  resize(size: Partial<Size>, element?: Element): void;
+}
+
+// 칸 크기를 테스트가 정한다. 알림은 act 안에서 부른다.
+export function manualResize(): ManualResize {
+  const listeners = new Map<Element, (size: Size) => void>();
+  return {
+    observe(element, onSize) {
+      listeners.set(element, onSize);
+      return () => listeners.delete(element);
+    },
+    observed: () => listeners.size,
+    resize({ width = 0, height = 0 }, element) {
+      act(() => {
+        for (const [target, onSize] of listeners) {
+          if (!element || element === target) onSize({ width, height });
+        }
+      });
     },
   };
 }

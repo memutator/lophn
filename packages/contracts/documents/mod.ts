@@ -8,8 +8,26 @@ export * from "./documents.ts";
 export * from "./sections.ts";
 export * from "./formats.ts";
 
+export * from "./outline.ts";
+export * from "./read.ts";
+export * from "./search.ts";
+export * from "./guides.ts";
+
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
 import { FORMAT_ROUTES } from "./formats.ts";
+import { OUTLINE_ROUTES } from "./outline.ts";
+import { READ_ROUTES } from "./read.ts";
+import { HISTORY_ROUTES } from "./history.ts";
+import { SEARCH_ROUTES } from "./search.ts";
+import { GUIDE_ROUTES } from "./guides.ts";
+
+export const DOCUMENT_READ_ROUTES = [
+  ...OUTLINE_ROUTES,
+  ...READ_ROUTES,
+  ...HISTORY_ROUTES,
+  ...SEARCH_ROUTES,
+  ...GUIDE_ROUTES,
+] as const;
 
 import {
   projectArchive,
@@ -40,6 +58,7 @@ export const ROUTES = [
   projectPreviewTracking,
   ...DOCUMENT_ROUTES,
   ...FORMAT_ROUTES,
+  ...DOCUMENT_READ_ROUTES,
 ] as const;
 
 export const EVENTS = [

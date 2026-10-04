@@ -37,11 +37,11 @@ MCP / CLI ─────── HTTP POST / WebSocket ───────→�
 shell main / MCP / CLI / agent runtime ── 앱 통로 ──→ 앱 프로세스 (core를 경유하지 않음)
 ```
 
-상시 최상위 Deno 프로세스는 core, platform I/O worker, 문서 worker, agent runtime, 앱 supervisor의 5개다. test runner는 배정 작업이 있을 때 bounded하게 띄우는 여섯 번째 종류다. Electron main이 core를 띄우고 지켜본다. core는 다른 다섯 종류의 신뢰 child를 지켜보며 앱 child·format child·test child의 세부 감독은 해당 소유자에게 맡긴다. 창 닫기는 플랫폼 종료가 아니다. Electron main의 명시적 종료가 core 종료를 시작한다.
+core가 상시 감독하는 신뢰 child는 platform I/O worker, 문서 worker, agent runtime, 앱 supervisor, 그리고 kind 정책이 상시인 worker다. problems의 report collector와 test runner control은 상시 worker다. 실제 test를 실행하는 test child만 요청마다 bounded하게 띄운다. test runner처럼 요청 시 정책인 다른 kind도 배정 작업이 있을 때만 bounded하게 띄운다. Electron main이 core를 띄우고 지켜본다. core는 이 신뢰 child를 지켜보며 앱 child·format child·test child의 세부 감독은 해당 소유자에게 맡긴다. 창 닫기는 플랫폼 종료가 아니다. Electron main의 명시적 종료가 core 종료를 시작한다.
 
 ### 2.2 core의 내부 모듈과 스레드
 
-예상 코드 경로는 `packages/platform/` 아래 `api`, `identity`, `commands`, `ledger`, `reads`, `events`, `supervisor`, `blob-store`, `secrets`, `redaction`, `approvals`, `notifications`, `settings`, `diagnostics`, `backup-and-migration`, `install-and-update`다. 다른 최상위의 ledger 모듈은 `packages/<concern>/ledger/`에 두고 registry가 command/read/event schema를 가져온다. 코드 경로에 작업 번호나 시기를 넣지 않는다.
+코드 자리는 code-map을 따른다. command·read·event는 `packages/platform/ledger/`, 신뢰 child 감독은 `packages/platform/responsiveness/`에 둔다. 그 밖의 platform 모듈은 `packages/platform/` 아래 `api`, `identity`, `blob-store`, `secrets`, `redaction`, `approvals`, `notifications`, `settings`, `diagnostics`, `backup-and-migration`, `install-and-update`다. 다른 최상위의 ledger 모듈은 `packages/<concern>/ledger/`에 두고 registry가 command/read/event schema를 가져온다. 코드 경로에 작업 번호나 시기를 넣지 않는다.
 
 - **API event loop.** Deno HTTP 서버가 `127.0.0.1`과 `::1`에만 bind한다. 기본 port는 7431이다. SQL·hash·파일 순회·압축·keychain 호출·앱 import를 여기서 하지 않는다. body를 유한하게 읽고 등록된 schema로 검증한 뒤 작은 메시지를 Worker에 보낸다.
 - **writer Worker 하나.** Deno Worker 안의 내장 `node:sqlite`(SQLite 3.53, FTS5) 연결 하나가 유일한 정상 writer다. `journal_mode=WAL`의 실제 반환을 확인하고 `synchronous=FULL`, `foreign_keys=ON`, `busy_timeout=5000`을 설정한다. command handler는 동기 함수이며 `Tx`만 받는다. `await`, 파일·socket·process handle, 중첩 transaction, 자체 commit을 허용하지 않는다.
@@ -59,7 +59,7 @@ SQL import는 ledger/read 실행기에만 허용한다. core 모듈의 동기 �
 | 경계 | 기본값 | 초과 처리 |
 |---|---|---|
 | RPC JSON | 256KiB, 깊이 16, 전체 object/array 항목 4,096개 | `invalid_input`; 큰 내용은 prepared blob |
-| 작은 command | 변경 행 최대 1,000개, CAS 대상 최대 256개 | 실행 전에 전체 거절; 잘라서 부분 적용하지 않음 |
+| 작은 command | 변경 행 최대 1,000개, CAS 대상 최대 256개 | parsed compare의 leaf 256개 초과는 handler 전 거절; `Tx`의 `sql`·`emit`·`advanceSubscriberCursor` 실제 변경 행(`total_changes` 차이) 누적 1,000개 초과나 `get`·`all`의 변경은 전체 rollback; 부분 적용하지 않음 |
 | command 입장 | 전체 256개, principal당 64개, 그중 제어용 16개 예약, 실행 시작 대기 5초 | `unavailable`; queue 입장은 durable 접수 아님 |
 | read | 실행 2개, 대기 64개, principal당 대기 8개, 최대 500행·1MiB 응답 | 페이지 또는 명시적 한도 오류 |
 | HTTP | header 8KiB, 동시 요청 128개·principal당 16개, body 수신 5초 | 한도 오류; chunked도 누적 bytes로 검사 |
@@ -76,6 +76,8 @@ queue는 principal별 FIFO·principal 사이 round-robin이며 등록된 회수�
 
 신뢰 child는 설치 묶음의 고정 진입점을 설치된 Deno로 `run --cached-only --frozen --no-prompt` 실행한다. shell 문자열을 실행하지 않는다. 필요한 경로만 `--allow-read=<...>`, `--allow-write=<...>`, 필요한 loopback/외부 host만 `--allow-net=<...>`으로 열고 argv에는 credential을 넣지 않는다. 일반 `--allow-all`·`--allow-ffi`·전체 환경 접근은 없다. core의 `--allow-run`은 설치된 Deno binary와 플랫폼 OS adapter 진입점만, child의 subprocess 권한은 해당 소유 concern의 고정 child launcher만이다.
 
+core 자신(부모)의 실행 permission에는 두 개의 정확한 이름을 추가로 연다. 둘 다 Deno 2.9.7을 실측해 확인했다. ① `--allow-run=/usr/bin/kill` — 신뢰 child를 Linux `setsid` session leader로 띄운 뒤(`node:child_process.spawn`의 `detached:true`가 pid=pgid=session을 만든다) 그 process group을 끝낼 유일한 통로다. `Deno.kill(-pid, ...)`은 scoped `--allow-run`으로는 `NotCapable`이고 unscoped `--allow-run`을 요구해 위 좁힌 권한과 부딪히므로 쓰지 않는다. 대신 이 고정 OS adapter 진입점을 `argv`만(`-9 -- -<pid>` 같은 음수 group pid), `shell:false`, `env:{}`로 부른다. core는 첫 child를 띄우기 전에 자기 실제 pid(`Deno.pid`)에 신호 0을 보내 이 adapter를 확인하고, 없거나 `NotCapable`이면 어떤 child도 띄우지 않는다(별도 존재 확인용 `--allow-read`는 열지 않는다). group 종료는 leader exit만으로 성공이 아니다. leader가 스스로 끝나든 stop 기한 뒤 강제로 끝내든 같은 경계를 지난다: group에 SIGKILL, leader exit 확인, 신호 0이 "No such process"를 돌려줄 때까지의 group 소멸 확인. 각 단계는 실제 경과 시간으로 bounded하고, 어느 단계든 실패하거나 확인할 수 없으면 그 kind는 unavailable이며 옛 handle을 쥔 채 새 child를 띄우지 않는다. leader 하나만 죽이는 대체 경로는 없다. ② `--allow-env=NODE_V8_COVERAGE` — Deno의 `node:child_process` 호환 코드가 child env를 명시해도 내부에서 그 이름 하나를 무조건 읽어(`copyProcessEnvToEnv`) 권한이 없으면 spawn 자체가 `NotCapable`로 막힌다. 같은 코드는 부모에 그 값이 있으면 child env에 복사하므로, supervisor는 그 이름을 값 없는 key로 두어 복사를 막는다. child env는 kind launch spec의 좁힌 화이트리스트 그대로다. 이 실측은 T7 범위이고 macOS·Windows adapter는 범위 밖이다(아래 fail-closed).
+
 | 신뢰 프로세스 | 플랫폼이 열어 주는 범위 | 플랫폼이 열지 않는 것 |
 |---|---|---|
 | core | 설치 코드 읽기, ledger·WAL·run 제어 자료, loopback listener, 고정 child spawn | 원본 root·앱 DB·keychain·외부 네트워크 |
@@ -85,9 +87,9 @@ queue는 principal별 FIFO·principal 사이 round-robin이며 등록된 회수�
 | agent runtime | 설치 runtime 코드·허용 provider 경계·scope 있는 contract | 임의 shell·파일·코드 실행·credential을 model/외부 MCP에 전달 |
 | 앱 supervisor | 설치 runtime·앱 실행 자료와 고정 child spawn | ledger 쓰기·machine 자격을 앱 사용자 코드에 전달 |
 
-감독 pipe는 부모가 생성하여 해당 child에 상속한다. child가 임의 loopback 주소나 PID만으로 감독을 주장할 수 없다. 최초 메시지는 core epoch·불투명 process identity·배정 task·scope 상한이다. credential은 그 연결로 한 번 전달한다. ready는 실제 준비가 끝난 child만 보내며 작업 성공과 다르다. child 결과는 배정된 command로 제출한다. stdout/stderr는 제어 통로나 성공 근거로 쓰지 않으며 원시 출력 자동 보관도 하지 않는다.
+감독 pipe는 부모가 만든 child의 stdin(부모→자식)과 stdout(자식→부모)이다. 둘 다 길이 prefix binary frame(JSON 제어 frame과 byte chunk frame)만 싣고, Electron main↔core도 같은 frame을 쓴다. child가 임의 loopback 주소나 PID만으로 감독을 주장할 수 없다. 최초 메시지는 core epoch·불투명 process identity·배정 task·scope 상한이다. credential은 그 연결로 한 번 전달하고 argv에는 넣지 않는다. ready는 실제 준비가 끝난 child만 보내며 작업 성공과 다르다. child 결과는 배정된 command로 제출한다. stdout은 감독 frame 전용이고 그 밖의 출력은 stderr로 보낸다. stderr는 제어 통로나 성공 근거가 아니며 원시 출력 자동 보관도 하지 않는다. frame이 아닌 stdout 바이트는 protocol 위반으로 그 child를 멈춘다.
 
-부모 pipe EOF는 즉시 새 작업·credential 사용을 막고 child 종료를 시작한다. core 연결 상실 때 앱 supervisor는 앱 child까지 종료한다. Linux/macOS에서는 실제 child handle과 process group, Windows에서는 Job Object의 자식 종료를 사용하여 부모 사망과 자식 잔존을 배포 테스트로 확인한다. 종료 확인이 없는 옛 실행과 겹쳐 새 작업을 띄우지 않는다. PID 파일만 보고 같은 PID의 다른 프로세스를 죽이지 않는다.
+부모 pipe EOF는 즉시 새 작업·credential 사용을 막고 child 종료를 시작한다. child helper는 handler가 끝나기를 기다리지 않고 stdin을 계속 읽어 EOF·stop·protocol 위반을 바로 보며, 미리 읽어 둔 frame은 수와 byte 합의 상한을 넘으면 protocol 실패로 끝낸다. 이때 내리는 것은 session의 사용 허가이고, handler가 이미 복사한 credential 값을 지우지는 못한다. core 연결 상실 때 앱 supervisor는 앱 child까지 종료한다. Linux는 실제 child handle과 process group(위 OS adapter)으로 부모 사망과 자식 잔존을 실측 확인했다. macOS는 같은 설계(session leader + 고정 kill adapter)를 따르되 그 OS adapter 실측은 아직 없고, Windows는 Job Object가 그 자리를 맡되 역시 실측이 없다. 실측이 없는 조합은 실행 불가로 처리하고 "된다"고 주장하지 않는다. 종료 확인이 없는 옛 실행과 겹쳐 새 작업을 띄우지 않는다. PID 파일만 보고 같은 PID의 다른 프로세스를 죽이지 않는다.
 
 앱 sandbox·화면 Electron 설정·test/format 코드의 세부 권한은 소유 contract를 따른다. OS sandbox를 끈 Ubuntu 개발 테스트는 배포 격리 통과가 아니다. 각 OS에서 강제할 수 없는 조합은 실행 불가로 처리한다.
 

@@ -18,7 +18,6 @@ import {
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import { placeNameReservation } from "../../contracts/documents/mod.ts";
-import { resolveSourcePath } from "./adapters/source-path.ts";
 import { type AppAccessTarget, authorizeApp } from "./model.ts";
 import { insertApp, loadApp, replaceApp } from "./store.ts";
 
@@ -147,10 +146,10 @@ export function createAppCommands(): {
         if (current.value.revision !== compare.base_revision) {
           return conflict("app revision changed");
         }
-        const resolved = resolveSourcePath(input.source_path);
-        if (resolved === undefined) {
-          return invalid("source must be an existing git folder");
-        }
+        // 경로 문법은 contract가 이미 판정했으므로 그대로 저장한다. 폴더 확인은
+        // core에 두지 않는다(R4, architecture/apps 배치표). bundle 준비 때 release
+        // worker가 연결된 실제 source 경계를 읽고, 없는 source는 준비 실패가 된다.
+        const resolved = input.source_path;
         const changed: App = { ...current.value, source_path: resolved };
         const access = authorizeApp(
           tx.port,

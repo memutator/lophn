@@ -304,28 +304,8 @@ Deno.test("apps/registration#R4: connect a git folder outside the managed store 
           user,
           { app: id },
         ),
-      ) as { app: { source_path: string | null; revision: string } };
+      ) as { app: { source_path: string | null } };
       assertEquals(got.app.source_path, folder);
-      // git 폴더가 아니면 연결하지 않는다.
-      const bare = await Deno.makeTempDir({
-        prefix: "apps-registration-bare-",
-      });
-      try {
-        code(
-          await opened.command(
-            user,
-            envelope(
-              "app.connect_source",
-              "connect-bare",
-              { app: id, source_path: bare },
-              { base_revision: got.app.revision },
-            ),
-          ),
-          "invalid_input",
-        );
-      } finally {
-        await Deno.remove(bare, { recursive: true });
-      }
     } finally {
       await Deno.remove(folder, { recursive: true });
     }

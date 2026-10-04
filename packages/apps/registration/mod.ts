@@ -10,6 +10,5 @@ export {
 export { createAppCommands, reserveSlug } from "./commands.ts";
 export { createAppsReads } from "./reads.ts";
 export { appsSchemaSteps } from "./schema.ts";
-export { resolveSourcePath } from "./adapters/source-path.ts";
 export { lookupAppRegistration } from "./lookup.ts";
 export { loadApp, loadApps } from "./store.ts";

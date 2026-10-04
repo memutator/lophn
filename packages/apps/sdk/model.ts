@@ -1,5 +1,5 @@
 // domain-model apps/sdk의 값과 판정. IO는 없다.
-import { semver } from "../../contracts/apps/blueprint-scope.ts";
+import { packageVersionNameSchema } from "../../contracts/apps/mod.ts";
 
 // 첫 공개 묶음에서 제공하지 않는 이름(apps/sdk#R4). cap-read-model은 앱 사이
 // command 호출이 cap-schedule과 apps/connections를 따르므로 만들지 않았고,
@@ -120,6 +120,6 @@ export function parseLophnSdkSpecifier(
   if (!match) return undefined;
   const name = match[1];
   const version = match[2];
-  if (!semver(version)) return undefined;
+  if (!packageVersionNameSchema.safeParse(version).success) return undefined;
   return { name, version };
 }

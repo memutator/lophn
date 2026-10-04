@@ -10,11 +10,16 @@ import {
   type CommandDefinition,
   commandsResult,
   idempotencyKeySchema,
+  confirmationRefSchema,
+  type ConfirmationRef,
   type RequestContext,
   type Sql,
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import { authorizeConditions } from "../identity/mod.ts";
+import { confirmationBinding } from "../identity/confirmation-binding.ts";
+import type { ConfirmationBridge } from "../identity/confirmation-bridge.ts";
+import type { ConfirmationUse } from "../identity/confirmation.ts";
 import {
   commandFingerprint,
   countCas,
@@ -50,6 +55,8 @@ export type CredentialCheck = (
 
 export type CommandExecutorDeps = TxDeps & {
   checkCredential: CredentialCheck;
+  // 사람 결정 확인. 없으면 confirmation route는 쓸 수 없다(architecture/platform 5.6).
+  confirmation?: ConfirmationBridge;
 };
 
 // envelope.run이 없으면 current credential의 묶인 run을 잃지 않는다(R3, R11).
@@ -97,10 +104,13 @@ type Session = {
   seal: () => void;
   now: () => string;
   checkCursor: (subscriber: string) => Result<void>;
+  confirmation: ConfirmationBridge | undefined;
+  // 이번 transaction이 예약한 handle. commit 성공만 소비한다.
+  reserved: ConfirmationRef | undefined;
 };
 
 function applyCommand(
-  { record, tx, seal, now, checkCursor }: Session,
+  session: Session,
   ctx: AuthenticatedContext,
   envelope: CommandEnvelope,
   definition: CommandDefinition,
@@ -108,6 +118,7 @@ function applyCommand(
   input: unknown,
   compare: unknown,
 ): Result<CommandSuccess> {
+  const { record, tx, seal, now, checkCursor } = session;
   if (
     envelope.run !== undefined &&
     ctx.conditions.run !== undefined &&
@@ -134,12 +145,9 @@ function applyCommand(
     // 재전달은 저장된 결과를 돌려준다. 확인 창이 없어도 현재 자격 뒤 결과를 준다(R13).
     return replay(stored.value);
   }
-  if (definition.route.confirmation === "required") {
-    return err({
-      code: "unavailable",
-      message: "사람 결정 확인을 아직 사용할 수 없다",
-    });
-  }
+  // 재전달은 여기까지 오지 않는다. 이미 소비한 handle로 새 변경을 시작하지 않는다(R13).
+  const reserved = reserveConfirmation(session, envelope);
+  if (!reserved.ok) return reserved;
   const cas = casAgrees(record, compare, input, checkCursor);
   if (!cas.ok) return cas;
   const before = headSeq(record);
@@ -178,6 +186,39 @@ function applyCommand(
   });
 }
 
+// handle은 transaction 안에서 현재 상태와 함께 예약한다. commit이 끝나면 소비하고,
+// 실패면 살아 있는 handle의 예약만 푼다. 만료·종료 handle은 되살리지 않는다.
+function reserveConfirmation(
+  session: Session,
+  envelope: CommandEnvelope,
+): Result<void> {
+  if (envelope.confirmation === undefined && envelope.decisionName === undefined) {
+    return ok(undefined);
+  }
+  const registry = session.confirmation;
+  if (registry === undefined) {
+    return err({
+      code: "unavailable",
+      message: "사람 결정 확인을 사용할 수 없다",
+    });
+  }
+  const parsedRef = confirmationRefSchema.safeParse(envelope.confirmation);
+  const decision = envelope.decisionName;
+  const binding = envelope.decision;
+  if (
+    !parsedRef.success || decision === undefined || binding === undefined ||
+    typeof binding.target !== "string" || typeof binding.content !== "string"
+  ) {
+    return err({ code: "forbidden", message: "사람 결정 확인이 없다" });
+  }
+  const ref = parsedRef.data;
+  const use: ConfirmationUse = { ref, decision, binding };
+  const reserved = registry.reserve(use);
+  if (!reserved.ok) return reserved;
+  session.reserved = ref;
+  return ok(undefined);
+}
+
 // 이번 command가 낸 event만 본다. rollback으로 빈 번호가 있으면 before+1이 아니다.
 export function commitCommand(
   connection: LedgerConnection,
@@ -193,9 +234,11 @@ export function commitCommand(
   // checkCredential은 BEGIN IMMEDIATE 뒤 한 번만 부른다. Tx와 handler는 같은 current를 본다(R3, R11).
   let current: AuthenticatedContext | undefined;
   let authority: RequestContext | undefined;
+  let reserved: ConfirmationRef | undefined;
+  let committed = false;
   try {
     const txDeps = { ...deps };
-    return runTransaction(
+    const outcome = runTransaction(
       connection,
       () => {
         const credential = deps.checkCredential(ctx);
@@ -233,19 +276,22 @@ export function commitCommand(
         if (current === undefined || authority === undefined) {
           return err(internalError());
         }
-        return applyCommand(
-          {
-            record: connection.sql,
-            tx,
-            seal,
-            now: () => deps.clock.now(),
-            checkCursor: (subscriber) =>
-              authorizeSubscriberCursor(
-                deps.subscriberGate,
-                subscriber,
-                authority,
-              ),
-          },
+        const session: Session = {
+          record: connection.sql,
+          tx,
+          seal,
+          now: () => deps.clock.now(),
+          checkCursor: (subscriber) =>
+            authorizeSubscriberCursor(
+              deps.subscriberGate,
+              subscriber,
+              authority,
+            ),
+          confirmation: deps.confirmation,
+          reserved: undefined,
+        };
+        const applied = applyCommand(
+          session,
           current,
           envelope,
           definition,
@@ -253,13 +299,23 @@ export function commitCommand(
           input,
           compare,
         );
+        reserved = session.reserved;
+        return applied;
       },
     );
+    // runTransaction은 commit이 끝난 뒤에야 ok를 돌려준다. 그 전에는 소비하지 않는다.
+    committed = outcome.ok;
+    return outcome;
   } catch (thrown) {
+    // commit이 예외로 끝나면 살아 있는 handle의 예약만 푼다. 종료·만료 handle은 되살리지 않는다.
+    if (reserved !== undefined) deps.confirmation?.release(reserved);
     if (isStorageUnavailable(thrown)) {
       return err({ code: "unavailable", message: "ledger에 기록할 수 없다" });
     }
     return err(internalError());
+  } finally {
+    if (committed && reserved !== undefined) deps.confirmation?.consume(reserved);
+    else if (reserved !== undefined) deps.confirmation?.release(reserved);
   }
 }
 
@@ -299,12 +355,25 @@ export async function executeCommand(
   }
   const limits = withinCommandLimits(countCas(parsedCompare.data));
   if (!limits.ok) return limits;
+  const binding = definition.route.confirmation === "required"
+    ? await confirmationBinding(definition.route, parsedInput.data)
+    : undefined;
+  if (definition.route.confirmation === "required" && binding === undefined) {
+    return err({ code: "forbidden", message: "사람 결정 확인이 없다" });
+  }
+  const confirmed: CommandEnvelope = binding === undefined
+    ? envelope
+    : {
+      ...envelope,
+      decisionName: definition.route.name,
+      decision: binding,
+    };
   const digest = await digestOf(definition.route.name, {
     input: parsedInput.data,
     compare: parsedCompare.data,
     run: envelope.run ?? null,
     prepared: envelope.prepared,
-    decision: envelope.decision ?? null,
+    decision: binding ?? envelope.decision ?? null,
   });
   if (!digest.ok) return digest;
   return commitCommand(
@@ -313,7 +382,7 @@ export async function executeCommand(
     commands,
     definition,
     ctx,
-    envelope,
+    confirmed,
     digest.value,
     parsedInput.data,
     parsedCompare.data,

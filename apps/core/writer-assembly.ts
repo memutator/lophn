@@ -13,6 +13,10 @@ import type {
 } from "../../packages/contracts/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import {
+  confirmationBridge,
+  ConfirmationRegistry,
+} from "../../packages/platform/identity/mod.ts";
+import {
   LEDGER_COMMANDS,
   type LedgerConnection,
   type TxPortRegistration,
@@ -37,7 +41,7 @@ type Loose = {
 export async function assembleWriter(
   boot: WriterBoot,
   connection: LedgerConnection,
-): Promise<WriterRegistration> {
+): Promise<WriterRegistration & { confirmationRegistry: ConfirmationRegistry }> {
   const clock = manualClock(boot.nowMs);
   const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
   const ports: TxPortRegistration[] = [];
@@ -54,8 +58,15 @@ export async function assembleWriter(
     }
     ports.push(...portList(loose?.ports));
   }
+  const random = seededRandom(boot.seed + 1);
+  const confirmationRegistry = new ConfirmationRegistry({
+    clock,
+    random: (bytes) => random.fill(bytes),
+  });
   return {
     commands,
+    confirmation: confirmationBridge(confirmationRegistry),
+    confirmationRegistry,
     clock,
     ids: createIdSource({ clock, random: seededRandom(boot.seed) }),
     ports,

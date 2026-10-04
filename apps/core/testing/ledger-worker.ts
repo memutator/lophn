@@ -14,6 +14,7 @@ import {
   type WorkerSelf,
 } from "../../../packages/platform/ledger/writer-loop.ts";
 import type { WriterResponse } from "../../../packages/platform/ledger/writer-message.ts";
+import { confirmationHandleRegisterSchema } from "../../../packages/contracts/platform/mod.ts";
 import { assemble } from "./ledger-registration.ts";
 import type { TestBoot, TestRequest } from "./ledger-types.ts";
 
@@ -83,6 +84,27 @@ async function start() {
   };
   self.postMessage({ id: 0, result: ok(undefined) });
 
+  function confirmationOp(request: TestRequest): Result<unknown> {
+    if (request.op !== "confirmation" || boot.role !== "writer") {
+      return unavailable();
+    }
+    const registry = registration.confirmation;
+    if (request.action === "clear") {
+      registry.clear();
+      return ok(undefined);
+    }
+    if (request.action === "close-window") {
+      registry.closeWindow(request.windowId ?? "");
+      return ok(undefined);
+    }
+    const parsed = confirmationHandleRegisterSchema.safeParse(request.request);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "확인 등록이 올바르지 않다" });
+    }
+    const issued = registry.issue(parsed.data);
+    return issued.ok ? ok(issued.value) : issued;
+  }
+
   async function writerRequest(request: TestRequest): Promise<Result<unknown>> {
     return await new Promise((resolve) => {
       complete = (reply) => {
@@ -116,6 +138,8 @@ async function start() {
       case "command":
       case "read-result":
         return adapter ? await writerRequest(request) : unavailable();
+      case "confirmation":
+        return confirmationOp(request);
       case "close":
         if (adapter) return await writerRequest(request);
         reader.close();

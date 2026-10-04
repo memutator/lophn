@@ -28,6 +28,11 @@ import type { Assembled } from "./registration.ts";
 
 export type CoreRuntime = {
   writer: Writer;
+  confirmation(body: {
+    action: "issue" | "close-window" | "clear";
+    request?: unknown;
+    windowId?: string;
+  }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
   readers: ReaderPool;
   reads: Map<string, ReadHandler>;
@@ -107,6 +112,7 @@ export async function openRuntime(input: {
   });
   return ok({
     writer: openedWriter.writer,
+    confirmation: openedWriter.confirmation,
     record: openedWriter.record,
     readers: readers.value,
     reads,
@@ -128,6 +134,11 @@ function openProductWriter(
   extra: { modules: string[]; nowMs: number; seed: number },
 ): {
   writer: Writer;
+  confirmation(body: {
+    action: "issue" | "close-window" | "clear";
+    request?: unknown;
+    windowId?: string;
+  }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
 } {
   const worker = new Worker(new URL("./writer-worker.ts", import.meta.url), {
@@ -203,6 +214,26 @@ function openProductWriter(
         if (dead !== undefined) return;
         await send({ id: nextId++, op: "close" });
       },
+    },
+    // main↔core 비공개 통로의 확인 등록을 writer 프로세스의 registry로 넘긴다.
+    confirmation(body: {
+      action: "issue" | "close-window" | "clear";
+      request?: unknown;
+      windowId?: string;
+    }) {
+      return send({
+        id: nextId++,
+        op: "confirmation",
+        ...body,
+      } as unknown as WriterRequest).then((message) => {
+        const reply = message as unknown as {
+          op: string;
+          body: Result<unknown>;
+        };
+        if (reply.op === "confirmation") return reply.body;
+        if (message.op === "failed") return err(message.body);
+        return err({ code: "unavailable", message: "확인 등록을 전달하지 못했다" });
+      });
     },
     record(context) {
       return send({

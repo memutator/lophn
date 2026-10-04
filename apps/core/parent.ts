@@ -89,21 +89,33 @@ async function flush(
   }
 }
 
+export type ParentConfirmation = {
+  confirmation(body: {
+    action: "issue" | "close-window" | "clear";
+    request?: unknown;
+    windowId?: string;
+  }): Promise<Result<unknown>>;
+  reply(message: unknown): Promise<void>;
+};
+
 // pipe EOF나 main의 명시 종료가 core 종료를 시작한다(install-and-update R12).
+// confirmation 등록은 이 비공개 통로에서만 받고 writer의 registry로 넘긴다.
 export function watchParent(
   parent: ParentPipe,
   shutdown: () => Promise<void>,
+  confirmation?: ParentConfirmation,
 ): Promise<void> {
   return (async () => {
     try {
       for await (
         const frame of readFrames({ read: streamReader(parent.stdin) })
       ) {
-        if (await handleParent(frame, shutdown)) return;
+        if (await handleParent(frame, shutdown, confirmation)) return;
       }
     } catch {
       // frame이 아닌 바이트는 protocol 위반이다. 종료로 다룬다.
     }
+    await confirmation?.confirmation({ action: "clear" });
     await shutdown();
   })();
 }
@@ -111,12 +123,47 @@ export function watchParent(
 async function handleParent(
   frame: Frame,
   shutdown: () => Promise<void>,
+  confirmation: ParentConfirmation | undefined,
 ): Promise<boolean> {
   if (frame.kind !== "json") return false;
   const message = mainToCoreMessageSchema.safeParse(frame.payload);
-  if (!message.success || message.data.type !== "stop") return false;
-  await shutdown();
-  return true;
+  if (!message.success) return false;
+  if (message.data.type === "stop") {
+    await confirmation?.confirmation({ action: "clear" });
+    await shutdown();
+    return true;
+  }
+  if (message.data.type !== "confirmation_handle_register" || !confirmation) {
+    return false;
+  }
+  const issued = await confirmation.confirmation({
+    action: "issue",
+    request: message.data,
+  });
+  if (!issued.ok) return false;
+  const registered = issued.value as { confirmation: string; expires_at: string };
+  const reply = coreToMainMessageSchema.safeParse({
+    type: "confirmation_handle_registered",
+    confirmation: registered.confirmation,
+    expires_at: registered.expires_at,
+  });
+  if (reply.success) await confirmation.reply(reply.data);
+  return false;
+}
+
+export async function writeParent(
+  parent: ParentPipe,
+  message: unknown,
+): Promise<void> {
+  const buffered: Uint8Array[] = [];
+  const writer = createFrameWriter({
+    write: (bytes) => {
+      buffered.push(bytes.slice());
+      return Promise.resolve(bytes.length);
+    },
+  });
+  await writer.writeJson(message);
+  await flush(parent.stdout.getWriter(), buffered);
 }
 
 function streamReader(

@@ -3,6 +3,7 @@ export * from "./address.ts";
 export * from "./projects.ts";
 export * from "./places.ts";
 export * from "./versions.ts";
+export * from "./document-files.ts";
 export * from "./documents.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
@@ -43,4 +44,5 @@ export const EVENTS = [
   projectTrackingChanged,
   projectArchived,
   projectUnarchived,
+  ...DOCUMENT_EVENTS,
 ] as const;

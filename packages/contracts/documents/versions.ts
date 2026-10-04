@@ -124,7 +124,7 @@ export const contentFilesOutputSchema = z.array(contentFileOutputSchema).min(1)
     new Set(files.map((f) => f.path)).size === files.length
   );
 
-// exact 登録参照の解釈と権限は instructions の owner が検証する。
+// exact 등록 참조의 해석과 권한은 instructions owner가 검증한다.
 export const instructionTargetSchema = z.string().min(1);
 const projectFileFields = {
   kind: z.literal("project_file"),
@@ -234,16 +234,20 @@ export const documentMetadataOutputSchema = z.object({
   ...metadataFields,
   place: placeRefOutputSchema.nullable(),
 }).refine((v) => v.place === null || v.name !== null);
-export const documentSchema = z.object({
+const documentFields = {
   id: documentIdSchema,
   ...documentMetadataOutputSchema.shape,
   file_source: fileSourceOutputSchema.nullable(),
   latest_version: versionIdSchema,
   revision: revisionSchema,
   status: archiveStateSchema,
-}).refine((v) => v.place === null || v.name !== null);
+};
+export const documentSummarySchema = z.object(documentFields);
+export const documentSchema = documentSummarySchema.refine((value) =>
+  value.place === null || value.name !== null
+);
 export type Document = z.infer<typeof documentSchema>;
-export const versionSchema = z.object({
+const versionFields = {
   id: versionIdSchema,
   document: documentIdSchema,
   number: versionNumberSchema,
@@ -254,7 +258,11 @@ export const versionSchema = z.object({
   saved_at: atSchema,
   run: runIdSchema.nullable(),
   source: versionSourceOutputSchema.nullable(),
-}).refine((v) => !v.saved_by.startsWith("agent:") || v.run !== null).refine(
+};
+export const versionSummarySchema = z.object(versionFields);
+export const versionSchema = versionSummarySchema.refine((value) =>
+  !value.saved_by.startsWith("agent:") || value.run !== null
+).refine(
   (v) =>
     !v.saved_by.startsWith("app:") ||
     (v.source?.kind === "app" && v.saved_by === `app:${v.source.app}`),

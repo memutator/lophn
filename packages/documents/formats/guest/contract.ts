@@ -1,6 +1,10 @@
 // guest 실행 규약. module_hash가 이 버전을 덮으므로 규약을 바꾸면 번호를 올린다.
 export const GUEST_CONTRACT_VERSION = 1;
 
+// 추출 규약 번호. 추출 규칙을 바꾸면 이 번호를 올리고, 같은 hash 아래 규칙을
+// 덮어쓰지 않는다. 정본은 이 자리고 module-hash.ts·bundle.ts가 같은 근원으로 쓴다.
+export const EXTRACTION_RULES_VERSION = 1;
+
 // architecture/documents 2.2 초기 조절값. domain 원문 크기 제한이 아니다.
 export const GUEST_MEMORY_BYTES = 64 * 1024 * 1024;
 export const GUEST_CALL_TIMEOUT_MS = 5_000;

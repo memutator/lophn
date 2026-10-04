@@ -5,10 +5,13 @@ import {
   BLOB_PIPE_OPS,
   BLOB_PREPARE_CHUNK_MAX_BYTES,
   BLOB_PREPARE_OP,
+  BLOB_READ_OP,
   blobPrepare,
   type BlobPrepareChunk,
   blobPrepareInputSchema,
   blobPrepareSchemas,
+  blobReadPipe,
+  blobReadPipeInputSchema,
 } from "./pipe-ops.ts";
 import {
   encodeFrame,
@@ -115,6 +118,45 @@ Deno.test("platform/blob-store#R3 platform/blob-store#R4: op payload는 supervis
   );
   decoder.finish();
   assertEquals(BLOB_PREPARE_CHUNK_MAX_BYTES, 1_048_576);
+
+  // 읽기 응답의 바이트는 JSON이 아니라 요청 channel의 byte chunk frame이다.
+  // 256KiB 창의 base64는 JSON control frame 한도를 넘긴다.
+  const readInput = { hash, offset: 0, length: 3, channel: 2 };
+  assertEquals(blobReadPipeInputSchema.parse(readInput), readInput);
+  assert(
+    !blobReadPipeInputSchema.safeParse({ hash, offset: 0, length: 3 }).success,
+  );
+  const readRequest = workerRequestSchema(blobReadPipeInputSchema).parse({
+    type: "worker_request",
+    request_id: "request-2",
+    op: BLOB_READ_OP,
+    payload: readInput,
+  });
+  const readResponse = workerResponseSchema(blobReadPipe.output).parse({
+    type: "worker_response",
+    request_id: readRequest.request_id,
+    ok: true,
+    payload: { hash, size_bytes: 3, channel: 2 },
+  });
+  assert(
+    !blobReadPipe.output.safeParse({ hash, size_bytes: 3, bytes: "YWJj" })
+      .success,
+  );
+  const readFrames = [
+    { kind: "json" as const, channel: 0 as const, payload: readRequest },
+    {
+      kind: "bytes" as const,
+      channel: 2,
+      payload: new Uint8Array([97, 98, 99]),
+    },
+    { kind: "json" as const, channel: 0 as const, payload: readResponse },
+  ];
+  const readDecoder = new FrameDecoder();
+  assertEquals(
+    readFrames.flatMap((frame) => readDecoder.push(encodeFrame(frame))),
+    readFrames,
+  );
+  readDecoder.finish();
   assertThrows(() =>
     encodeFrame({
       ...chunk,

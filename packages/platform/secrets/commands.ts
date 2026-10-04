@@ -10,7 +10,7 @@ import {
   setSecret,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { defineSyncCommand } from "../ledger/handler.ts";
+import { defineSyncCommand } from "../ledger/mod.ts";
 import { applyRemove, applySet, type SecretRecord, toStatus } from "./model.ts";
 
 function readSecret(tx: Tx, name: string): SecretRecord | undefined {

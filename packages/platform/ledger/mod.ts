@@ -14,7 +14,13 @@ import { runTransaction, type TxCall, type TxDeps } from "./tx.ts";
 
 export { LEDGER_SCHEMA_STEPS };
 
-export { LEDGER_COMMANDS } from "./commands.ts";
+export {
+  admitAgentRun,
+  LEDGER_COMMANDS,
+  type RunDisposition,
+  type RunMarkedCommand,
+} from "./commands.ts";
+export { type RunAdmission, runAdmission } from "./run-admission.ts";
 export { commandResultRead } from "./command-results.ts";
 export { openWriter } from "./writer.ts";
 export {

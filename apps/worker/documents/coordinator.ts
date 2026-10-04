@@ -14,6 +14,7 @@ import {
   type ChildStreams,
   startChild,
 } from "../../../packages/platform/responsiveness/mod.ts";
+import { type SlotSupervisor, supervisePreparationSlots } from "./slots.ts";
 import {
   type Candidate,
   CANDIDATE_LIMIT,
@@ -36,6 +37,9 @@ export type CoordinatorOptions = {
   submitResult(candidate: Candidate): Promise<void>;
   // 안정 읽기까지의 대기와 req id는 주입받는다.
   deps: CoordinatorDepsLike;
+  // 준비 slot 감독. 없으면 coordinator가 자기 것으로 만든다.
+  // 테스트가 backoff sleep과 재시작 한도를 바꿔 끼운다.
+  slots?: SlotSupervisor;
 };
 
 export type ScanRootInput = {
@@ -67,6 +71,9 @@ export function createCoordinator(
       state: "idle",
     });
   }
+  // crash한 slot은 같은 이름의 새 프로세스로 채운다. 재시작은 한도와 backoff 뒤다.
+  const supervisor = options.slots ??
+    supervisePreparationSlots({ spawn: options.spawnPreparation });
   let lastServed = -1;
   let stopped = false;
   let drained = false;
@@ -114,14 +121,15 @@ export function createCoordinator(
       }
       drained = false;
       lastServed = scheduled.next;
-      let worker: Awaited<ReturnType<typeof options.spawnPreparation>>;
+      const slot = pickSlot(slots, false);
+      if (!slot) continue;
+      let worker: ChildSession;
       try {
-        worker = await options.spawnPreparation(
-          pickSlot(slots, false)?.name ?? "",
-        );
+        worker = await supervisor.acquire(slot.name);
       } catch {
-        // 준비 worker를 못 띄우면 이 배분은 unavailable이다. 큐에 되돌리지 않는다.
-        continue;
+        // 준비 worker를 못 띄우거나 재시작 한도를 넘기면 이 배분은 unavailable이다.
+        // 큐에 되돌리지 않고, 같은 배분을 바로 다시 시도하지 않는다.
+        return;
       }
       const result = {
         batch: scheduled.batch,
@@ -136,6 +144,8 @@ export function createCoordinator(
         });
       } catch {
         // IPC 종료는 이 배분의 unavailable이다. 성공으로 바꾸지 않는다.
+        // crash한 slot은 다음 배분이 새 프로세스로 다시 채운다.
+        supervisor.release(slot.name);
         continue;
       }
       for (const candidate of scheduled.batch) {
@@ -179,7 +189,7 @@ export function createCoordinator(
     stop() {
       stopped = true;
       wake?.();
-      return Promise.resolve();
+      return supervisor.stop();
     },
   };
 }

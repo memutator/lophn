@@ -158,7 +158,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 선행: contracts#T5
 - 완료: 아래 확인이 통과한다
   - `EventEnvelope {seq, type, subject, actor, run, payload, at}`와 `defineEvent(type, {subject, payload})`. type은 `<Entity><과거형 동사>` PascalCase.
-  - `/v1/events/list {after_seq, types?, subjects?, limit?}` → `{events, scanned_through_seq, head_seq}`, `/v1/events/advance-cursor`(`AdvanceSubscriberCursor`, 반응 key `(subscriber, cause_seq, reaction)`). `Tx.advanceSubscriberCursor(subscriber, through_seq)`로 반응 command와 cursor를 같은 transaction에 확정한다.
+  - `/v1/events/list {after_seq, types?, subjects?, limit?}` → `{events, scanned_through_seq, head_seq, as_of_seq, next_cursor, omitted?}`, `/v1/events/advance-cursor`(`AdvanceSubscriberCursor`, 반응 key `(subscriber, cause_seq, reaction)`). `Tx.advanceSubscriberCursor(subscriber, through_seq)`로 반응 command와 cursor를 같은 transaction에 확정한다.
   - WS `GET /v1/events/subscribe`, subprotocol `lophn.events.1`, frame `subscribe {from_seq(포함), types, subjects, subscriber?, limit}`·`events`·`ack`·`unavailable`, close 1013(느린 구독)·1008(자격 회수), batch 256개·256KiB. 처리 위치 P 다음 `from_seq` 계산 helper.
 
 ### T8 contracts 모음·전역 유일성·coverage 도구
@@ -996,3 +996,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q7 architecture/README.md 4장 표의 15행 추가는 T8 PR에서 한다.
 - Q8 `packages/contracts/mod.ts`는 code-map에 들어갔다.
 - Q9 T47 보호 credential 전달은 `mcp_cli_loader`만 허용한다. coding-agent 계획 Q6의 정함대로 TUI에는 connection 참조만 가고 token은 그 아래 MCP·CLI loader가 받는다. TUI 전용 purpose·start operation 필드는 두지 않는다.
+- Q10 T7의 HTTP `events/list` 출력에도 공통 read metadata를 붙인다. `scanned_through_seq`는 구독 처리 위치, `head_seq`는 event head이고, `as_of_seq`는 read snapshot 위치라 서로 대신하지 않는다. WS `events` frame은 read 응답이 아니므로 바꾸지 않는다(platform T3/T4 요청).

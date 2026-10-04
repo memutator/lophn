@@ -5,7 +5,8 @@ import type {
   CommandRoute,
   Tx,
 } from "../../contracts/platform/mod.ts";
-import { authorize } from "../identity/mod.ts";
+import { authorizeConditions } from "../identity/mod.ts";
+import { admitAgentRun, runDisposition } from "./commands.ts";
 import { countCas, withinCommandLimits } from "./fingerprint.ts";
 import {
   actorKind,
@@ -58,6 +59,13 @@ export function createCommandDispatch(
     }
     const checked = admit(definition.value, ctx, run, input, compare);
     if (!checked.ok) return checked;
+    // 안쪽 call도 바깥 run 판정을 다시 받는다. 끝난 run의 새 대상 변경은 거절한다(R11).
+    const admitted = admitAgentRun(
+      tx,
+      request,
+      runDisposition(definition.value),
+    );
+    if (!admitted.ok) return admitted;
     const compared = casAgrees(
       tx.sql,
       checked.value.compare,
@@ -114,7 +122,7 @@ function admit(
   if (kind === undefined || !definition.route.actors.includes(kind)) {
     return err({ code: "forbidden", message: "actor 종류가 command 밖이다" });
   }
-  const allowed = authorize(
+  const allowed = authorizeConditions(
     ctx,
     definition.route.name,
     authorityTarget(ctx, run ?? undefined),

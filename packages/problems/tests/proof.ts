@@ -1,6 +1,7 @@
 import { hashCanonical } from "./canonical.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { RequestContext } from "../../contracts/platform/mod.ts";
+import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
 import { atSchema, sha256Schema } from "../../contracts/platform/mod.ts";
 import type { Input } from "../../contracts/platform/mod.ts";
 import type { requestTest } from "../../contracts/problems/mod.ts";
@@ -48,16 +49,22 @@ export function checkLifecycleProof(
     app: string;
     current_runner: string;
   },
+  authorize: TargetAuthorizer,
 ): Result<true> {
   const operation = expected.phase === "recovery"
     ? "recover_test_request"
     : "observe_test_request";
-  const allowed = checkTestAuthority(ctx, {
-    ...expected,
-    runner_principal: expected.phase === "recovery"
-      ? ctx.principal
-      : expected.current_runner,
-  }, operation);
+  const allowed = checkTestAuthority(
+    ctx,
+    {
+      ...expected,
+      runner_principal: expected.phase === "recovery"
+        ? ctx.principal
+        : expected.current_runner,
+    },
+    operation,
+    authorize,
+  );
   if (!allowed.ok) return allowed;
   if (!proof) {
     return err({ code: "forbidden", message: FORBIDDEN });

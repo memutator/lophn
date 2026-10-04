@@ -9,6 +9,7 @@ import {
   type RequestContext,
   type Sql,
   subjectSchema,
+  TargetAuthorization,
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import type { z } from "zod";
@@ -22,6 +23,7 @@ import {
   authorizeSubscriberCursor,
   type SubscriberGate,
 } from "./subscriber-registration.ts";
+import { targetAuthorizationPort } from "./target-authorization.ts";
 import type { CommandDispatch } from "./dispatch.ts";
 import {
   createTxPortLookup,
@@ -39,7 +41,7 @@ export type TxDeps = {
   clock: Clock;
   ids: IdSource;
   ports: readonly TxPortRegistration[];
-  // blob 참조 등록은 platform#T14가 맡는다. 여기서는 주입만 받는다.
+  // blob 참조 등록은 platform/blob-store가 맡는다. 여기서는 주입만 받는다.
   registerBlobRef: (reference: BlobRefRegistration) => Result<
     PermanentBlobReference
   >;
@@ -48,6 +50,8 @@ export type TxDeps = {
   call: TxCall;
   // 현재 자격의 subscriber owner 검사. 없으면 cursor는 올리지 않는다.
   subscriberGate?: SubscriberGate;
+  // transaction이 열리고 닫힐 때 그 Tx를 알린다. blob 등록이 같은 sql을 쓰기 위해서다.
+  onTx?(tx: Tx | undefined): void;
 };
 
 type TxContext = {
@@ -59,8 +63,10 @@ type TxContext = {
 
 // handler 안에서는 throw로만 거절을 알릴 수 있다. 경계에서 Result로 바꾼다.
 class TxRejected extends Error {
-  constructor(readonly result: Result<never>) {
+  readonly result: Result<never>;
+  constructor(result: Result<never>) {
     super("tx rejected");
+    this.result = result;
   }
 }
 
@@ -214,7 +220,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     return value as T;
   };
   const ports: { current?: TxPortLookup } = {};
-  const tx: Tx = {
+  const tx: Tx & { portLookup?: TxPortLookup } = {
     sql: {
       run: (text, params) => measured(true, () => sql.run(text, params)),
       get: (text, params) => measured(false, () => sql.get(text, params)),
@@ -320,14 +326,20 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },
   };
-  ports.current = createTxPortLookup(deps.ports, tx, live, (result) => {
+  const ownerPorts = deps.ports.some((port) => port.key === TargetAuthorization)
+    ? deps.ports
+    : [targetAuthorizationPort(ctx.request), ...deps.ports];
+  ports.current = createTxPortLookup(ownerPorts, tx, live, (result) => {
     throw fail(result);
   });
+  tx.portLookup = ports.current;
+  deps.onTx?.(tx);
   return {
     tx,
     seal: () => {
       open = false;
       ports.current?.seal();
+      deps.onTx?.(undefined);
     },
     failure: () => sticky,
   };

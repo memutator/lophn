@@ -51,6 +51,7 @@ export function serveWriter(
     call: registration.call,
     checkCredential: registration.checkCredential,
     subscriberGate: registration.subscriberGate,
+    confirmation: registration.confirmation,
   };
   let chain = Promise.resolve();
   worker.onmessage = (event: MessageEvent<WriterRequest>) => {
@@ -65,6 +66,11 @@ export function serveWriter(
       connection.close();
       worker.postMessage({ id: data.id, op: "closed" });
       worker.close();
+      return;
+    }
+    if (data.op === "blob-prepared" || data.op === "blob-prune") {
+      // 준비 참조 알림은 core writer가 맡는다. ledger loop는 받지 않는다.
+      worker.postMessage({ id: data.id, op: "blob-noted" });
       return;
     }
     if (data.op === "read-result") {

@@ -1,7 +1,8 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/migrations.ts";
-import { authorize } from "../../../packages/platform/identity/mod.ts";
+import { authorizeConditions } from "../../../packages/platform/identity/mod.ts";
+import { authorityTarget } from "../../../packages/platform/ledger/command-outcome.ts";
 import { openReaderConnection } from "../../../packages/platform/ledger/reader-connection.ts";
 import {
   executeRead,
@@ -13,6 +14,7 @@ import {
   type WorkerSelf,
 } from "../../../packages/platform/ledger/writer-loop.ts";
 import type { WriterResponse } from "../../../packages/platform/ledger/writer-message.ts";
+import { confirmationHandleRegisterSchema } from "../../../packages/contracts/platform/mod.ts";
 import { assemble } from "./ledger-registration.ts";
 import type { TestBoot, TestRequest } from "./ledger-types.ts";
 
@@ -82,12 +84,36 @@ async function start() {
   };
   self.postMessage({ id: 0, result: ok(undefined) });
 
+  function confirmationOp(request: TestRequest): Result<unknown> {
+    if (request.op !== "confirmation" || boot.role !== "writer") {
+      return unavailable();
+    }
+    const registry = registration.confirmation;
+    if (request.action === "clear") {
+      registry.clear();
+      return ok(undefined);
+    }
+    if (request.action === "close-window") {
+      registry.closeWindow(request.windowId ?? "");
+      return ok(undefined);
+    }
+    const parsed = confirmationHandleRegisterSchema.safeParse(request.request);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "확인 등록이 올바르지 않다",
+      });
+    }
+    const issued = registry.issue(parsed.data);
+    return issued.ok ? ok(issued.value) : issued;
+  }
+
   async function writerRequest(request: TestRequest): Promise<Result<unknown>> {
     return await new Promise((resolve) => {
       complete = (reply) => {
         complete = undefined;
         resolve(
-          reply.op === "closed"
+          reply.op === "closed" || reply.op === "blob-noted"
             ? ok(undefined)
             : reply.op === "failed"
             ? err(reply.body)
@@ -115,6 +141,8 @@ async function start() {
       case "command":
       case "read-result":
         return adapter ? await writerRequest(request) : unavailable();
+      case "confirmation":
+        return confirmationOp(request);
       case "close":
         if (adapter) return await writerRequest(request);
         reader.close();
@@ -131,10 +159,10 @@ async function start() {
         const ctx = run === undefined
           ? current.value
           : { ...current.value, run };
-        const allowed = authorize(
+        const allowed = authorizeConditions(
           ctx,
           definition.read.route.name,
-          ctx.conditions,
+          authorityTarget(ctx, run),
         );
         if (!allowed.ok) return allowed;
         return executeRead(

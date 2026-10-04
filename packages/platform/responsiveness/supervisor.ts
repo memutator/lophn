@@ -13,6 +13,7 @@ import {
   spawnProcess,
   type SpawnRequest,
 } from "./process.ts";
+import type { FrameWriter } from "./frames.ts";
 import { type RunDeps, runOnce } from "./run.ts";
 import {
   type ChildCallbacks,
@@ -64,6 +65,14 @@ export type Supervisor = {
   stop(kind: string): Promise<boolean>;
   stopAll(): Promise<boolean>;
   observation(kind: string): HealthObservation;
+  // ready인 child에 json frame을 쓴다. 없으면 unavailable이다.
+  send(kind: string, payload: unknown): Promise<StartResult>;
+  // ready인 child에 byte chunk frame을 쓴다. core는 내용을 해석하지 않는다(Q6).
+  sendBytes(
+    kind: string,
+    channel: number,
+    payload: Uint8Array,
+  ): Promise<StartResult>;
 };
 
 type Deps = RunDeps & {
@@ -181,6 +190,17 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     });
   }
 
+  // ready child의 writer에만 쓴다. 재기동 중이면 진행 작업을 다시 보내지 않는다.
+  function writeTo(
+    kind: string,
+    write: (writer: FrameWriter) => Promise<void>,
+  ): Promise<StartResult> {
+    const slot = slots.get(kind);
+    const writer = slot?.phase === "ready" ? slot.attempt?.writer : undefined;
+    if (!writer) return Promise.resolve(UNAVAILABLE);
+    return write(writer).then(() => ({ ok: true as const }), () => UNAVAILABLE);
+  }
+
   return {
     start: (spec, hello, callbacks) => launch(spec, hello, callbacks, false),
     updateSpec: (spec, hello, callbacks) =>
@@ -192,6 +212,12 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
       const kinds = new Set([...slots.keys(), ...locks.keys()]);
       const results = await Promise.all([...kinds].map(stop));
       return results.every((confirmed) => confirmed);
+    },
+    send(kind, payload) {
+      return writeTo(kind, (writer) => writer.writeJson(payload));
+    },
+    sendBytes(kind, channel, payload) {
+      return writeTo(kind, (writer) => writer.writeBytes(channel, payload));
     },
     observation(kind) {
       const slot = slots.get(kind);

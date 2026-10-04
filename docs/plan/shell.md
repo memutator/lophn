@@ -82,6 +82,7 @@ concerns: [shell]
   - `npm run dev -- --home <dir>`로 개발 데이터 root를 받는다(인자 이름은 platform과 맞춘다).
   - `core_client_test`, `allowlist_test`, `supervise_test`(가짜 core)에 위 요구 테스트.
 - 가져올 것: legacy `daemon-lifecycle.ts`의 시작·대기 순서 원리만. `daemon-client.ts`, `paths.ts`의 token·port 파일 방식은 가져오지 않는다.
+- 상태: 완료 (#119)
 
 ### T4 design token 원본과 생성
 
@@ -161,6 +162,7 @@ concerns: [shell]
 
 ### T9 launcher 첫 창
 
+- 상태: 완료 (#141)
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/desktop#R7(core 단절 표시), R22(상단 바 48px), R24(새 창은 런처, 창 제목), R25(48px 끌기 바, 고정 lophn 진입점 자리), shell/wording#R1, R10
@@ -214,6 +216,7 @@ concerns: [shell]
   - 조작 표면만 focus를 옮기고 닫으면 연 요소로 돌아온다. tooltip·drag·notification은 원래 focus를 유지한다.
   - shell·overlay renderer에서 `require`·`process`·Node·DB·사람 token을 직접 읽을 수 없고 임의 IPC channel·method를 호출할 수 없다. sandbox를 끄는 우회 없이 검사한다.
   - 요구 번호로 시작하는 테스트가 `deno task e2e`에서 통과하고 `deno task check`도 통과한다. gallery·screenshot baseline 회귀는 만들지 않는다.
+- 상태: 완료 (#165)
 - 분리 이유: T10·T11의 구현은 harness가 준비되기 전에도 단위 테스트로 검증하고 병합한다. 실제 Electron 보장은 취소하지 않고 harness와 떠 있는 표면이 main에 든 뒤 이 작업에서 확인한다.
 
 ### T11 공통 컴포넌트: 떠 있는 표면
@@ -257,6 +260,7 @@ concerns: [shell]
 
 ### T13 workspace layout 저장과 복원
 
+- 상태: 완료 (#146)
 - 등급: 기본
 - concern: shell/workspace, shell/desktop
 - 요구: shell/workspace#R6, R7, R8, shell/desktop#R24(이어서)
@@ -294,6 +298,7 @@ concerns: [shell]
   - 상단 경로는 focus 칸 활성 탭을 따른다.
   - `tab-strip_test`, `panes_test`에 위 요구 테스트.
 - 가져올 것: legacy `renderer/src/workbench`(model, pane·tab·split UI), `spaces/ProjectSpace.tsx` 골격, `ui-layout`의 SplitPane·Resizer·TabBar. 구 target·address 계약은 가져오지 않는다.
+- 상태: 완료 (#172)
 
 ### T15 launcher: 프로젝트 등록과 추적 미리보기
 
@@ -439,6 +444,7 @@ concerns: [shell]
   - 사용자 theme은 T5가 검증한 token 값만, slot·fork는 읽지 않는다.
   - `coordinator_test`, `handle_test`(가짜 core)와 `e2e/shell/confirmation_test.ts`(부모 앱 view가 보이지만 click·키가 가지 않음, CLI·MCP 동의가 결정이 안 됨)에 위 요구 테스트.
 - 가져올 것: 없음(legacy는 native message box와 view 숨김을 썼다).
+- 상태: 완료 (#145). desktop/main.ts·supervise 연결은 다음 작업. 창을 실제로 띄우는 IPC 등록은 아직 없다.
 
 ### T23 confirmation window 화면: 배치, 상세, 전후 비교, owner decision
 
@@ -456,9 +462,11 @@ concerns: [shell]
   - 정확한 경로·대상은 숨기지 않고 고정폭 원문으로 보인다. 그 밖의 내부 식별자·hash는 Details.
   - 첫 owner decision: documents의 파일 지우기.
   - `layout_test`에 위 요구 테스트.
+- 상태: 완료 (#154). desktop/main.ts·supervise 연결과 IPC 등록은 아직 없다(T22가 넘긴 것).
 
 ### T24 터미널 host와 PTY
 
+- 상태: 진행 (#160)
 - 등급: 기본
 - concern: shell/terminal
 - 요구: shell/terminal#R1, R2, R3, R4(일반 shell), R5(일반 shell 비주입), R7, R8, R9, R10, R11
@@ -619,6 +627,7 @@ concerns: [shell]
 
 ### T33 격리 문서 view
 
+- 상태: 완료 (#144)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R1(문서), R2(문서), R8, R10, R11(문서 host), R14, R17
@@ -937,6 +946,7 @@ concerns: [shell]
 
 ### T51 창 없는 시작과 종료 intent
 
+- 상태: 완료 (#140)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R21(창 없는 tray mode, 명시 중지)
@@ -964,8 +974,8 @@ concerns: [shell]
 - slice: problems
 - 선행: shell#T10, shell#T37, shell#T42, shell#T44, problems#T15
 - 완료: 아래 확인이 통과한다
-  - [Report a problem]은 앱 공간 바·패널·카드의 독립 버튼이다. 누르면 main이 버튼 시점 `{view_session, generation, app, release, mode, screen path, observedAt}`를 고정하고 그 앱 view의 `capturePage`를 먼저 요청한 뒤 overlay에 dialog를 연다. 앱 view는 그대로 보인다. confirmation window·lophn dialog가 이미 떠 있거나 가려졌거나 다른 창이면 캡처하지 않고 이유만 남긴다. 캡처는 1500ms까지, 늦으면 버린다.
-  - raw capture는 main과 문제 보고 경계만 갖고 dialog에는 redaction된 PNG만. 글·화면 상태·screenshot을 미리 보고 각각 뺄 수 있다. screenshot 기본은 꺼짐, 미리보기를 본 뒤 켬. 미선택·화면 없음·수집 실패·redaction 제외·저장 실패의 이유를 보이고 첨부 없이 글만 보낼 수 있다.
+  - [Report a problem]은 앱 공간 바·패널·카드의 독립 버튼이다. 누르면 main이 버튼 시점 `{view_session, generation, app, release, mode, screen path, observedAt}`를 고정하고 그 앱 view의 `capturePage`를 먼저 요청한 뒤 overlay에 dialog를 연다. 앱 view는 그대로 보인다. 앱 view가 가려졌거나 다른 창이면 캡처하지 않고 이유만 남긴다. 캡처는 1500ms까지, 늦으면 버린다.
+  - capture한 PNG를 가리지 않고 그대로 dialog 미리보기에 보인다. 글·화면 상태·screenshot을 미리 보고 각각 뺄 수 있다. screenshot 기본은 꺼짐, 미리보기를 본 뒤 켬. 미선택·화면 없음·수집 실패·저장 실패의 이유를 보이고 첨부 없이 글만 보낼 수 있다.
   - 미제출·접수 대기·접수 완료를 구별하고, 실패에는 복사 가능한 글과 이유. 초안은 메모리에만. 취소는 저장하지 않고 이미 접수한 것은 닫아도 지우지 않는다. 기존 문제 선택 여부를 보이고 접수 뒤 묶인 Issue로 갈 수 있다.
   - 앱 view가 crash·무한 loop여도 버튼과 dialog가 동작한다. 안내에 stack·log·원문 오류가 없고 문제 문구는 problems가 정한 값 그대로.
   - contracts/problems 문구 상수 key를 wording 검사의 알려진 key로 잇는다.

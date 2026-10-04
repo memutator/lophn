@@ -6,15 +6,31 @@ import {
   defineCommand,
   definePort,
   defineRead,
+  type JsonValue,
   type ReadDefinition,
+  TargetAuthorization,
   type Tx,
   withReadCommon,
 } from "../../../packages/contracts/platform/mod.ts";
+import { CONDITION_TARGET_KEYS } from "../../../packages/platform/identity/mod.ts";
+import { runAdmission } from "../../../packages/platform/ledger/mod.ts";
 import {
   defineTxPort,
   type LedgerTestEnvironment,
   type LedgerTestRegistration,
 } from "./ledger.ts";
+
+function domainTargets(
+  targets: Record<string, JsonValue>,
+): Record<string, JsonValue> {
+  const domain: Record<string, JsonValue> = {};
+  for (const key of Object.getOwnPropertyNames(targets)) {
+    if (!(CONDITION_TARGET_KEYS as readonly string[]).includes(key)) {
+      domain[key] = targets[key];
+    }
+  }
+  return domain;
+}
 
 const input = z.object({
   key: z.string(),
@@ -95,6 +111,12 @@ export function createLedgerTestRegistration(
         current.value.actor !== ctx.actor ||
         current.value.scope.operations.join() !== ctx.scope.operations.join()
       ) throw new Error("not current context");
+      const allowed = tx.port(TargetAuthorization)(
+        ctx,
+        createRoute.name,
+        domainTargets(current.value.scope.targets),
+      );
+      if (!allowed.ok) return allowed;
       const implementation = tx.port(portKey);
       if (
         implementation !== tx.port(portKey) ||
@@ -169,6 +191,12 @@ export function createLedgerTestRegistration(
   const reads: ReadDefinition[] = [{
     route: readRoute,
     handle(snapshot, ctx) {
+      const allowed = snapshot.port(TargetAuthorization)(
+        ctx,
+        readRoute.name,
+        domainTargets(ctx.scope.targets),
+      );
+      if (!allowed.ok) return allowed;
       let sealed = false;
       try {
         snapshot.sql.all(
@@ -196,19 +224,23 @@ export function createLedgerTestRegistration(
     schemaSteps: [{
       id: "owner-tables",
       sql:
-        "create table owners (key text primary key); create table blob_refs (owner_key text primary key, hash text not null, registered_seq integer references events(seq));",
+        "create table owners (key text primary key); create table owner_blob_refs (owner_key text primary key, hash text not null, registered_seq integer references events(seq));",
     }],
     commands,
     testCommands,
     reads,
-    ports: [defineTxPort(portKey, (tx) =>
-      Object.freeze({
-        serial: ++serial,
-        tx,
-        write: (key: string) => {
-          tx.sql.run("insert into owners values (?)", [key]);
-        },
-      }))],
+    ports: [
+      defineTxPort(portKey, (tx) =>
+        Object.freeze({
+          serial: ++serial,
+          tx,
+          write: (key: string) => {
+            tx.sql.run("insert into owners values (?)", [key]);
+          },
+        })),
+      // agent command는 run 판정이 있어야 한다. 이 등록의 테스트는 진행 중 run만 본다.
+      defineTxPort(runAdmission, () => ({ status: () => "active" as const })),
+    ],
     readPorts: new Map([[readPort, "reader-local-port"]]),
     registerBlobRef(tx, ctx, reference) {
       escapedBlobTx = tx;
@@ -216,7 +248,7 @@ export function createLedgerTestRegistration(
         reference.source.kind !== "prepared" ||
         reference.source.blob.principal !== ctx.principal
       ) return err({ code: "forbidden", message: "blob owner가 다르다" });
-      tx.sql.run("insert into blob_refs values (?, ?, ?)", [
+      tx.sql.run("insert into owner_blob_refs values (?, ?, ?)", [
         reference.owner_key,
         reference.source.blob.hash,
         BigInt(reference.registered_seq),

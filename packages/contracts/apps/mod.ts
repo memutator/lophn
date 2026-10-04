@@ -25,3 +25,15 @@ export {
   SUMMARY_MAX_BYTES,
 } from "./agent-context.ts";
 export * from "./packages.ts";
+export * from "./channel.ts";
+export * from "./channel-values.ts";
+export * from "./direct-socket.ts";
+export * from "./broker.ts";
+export * from "./channel-client.ts";
+export * from "./app-start.ts";
+export * from "./invocations.ts";
+export * from "./grants.ts";
+export * from "./package-routes.ts";
+export * from "./previews.ts";
+export * from "./releases.ts";
+export * from "./data-job.ts";

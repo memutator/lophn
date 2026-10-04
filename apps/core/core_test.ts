@@ -1,0 +1,360 @@
+import { assert, assertEquals } from "@std/assert";
+import { z } from "zod";
+import { manualClock, seededRandom } from "../../packages/base/mod.ts";
+import {
+  defineRead,
+  encodeFrame,
+  FrameDecoder,
+} from "../../packages/contracts/platform/mod.ts";
+import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
+import { type Core, startCore } from "./core.ts";
+
+const CLOCK = manualClock(Date.parse("2026-10-04T00:00:00.000Z"));
+
+async function home(): Promise<string> {
+  return await Deno.makeTempDir({ prefix: "lophn-core-" });
+}
+
+async function boot(
+  dir: string,
+  extra: Partial<Parameters<typeof startCore>[0]> = {},
+): Promise<Core> {
+  const started = await startCore({
+    lophnHome: dir,
+    port: 0,
+    teams: [],
+    clock: CLOCK,
+    random: seededRandom(3),
+    superviseIo: false,
+    ...extra,
+  });
+  assert(started.ok, started.ok ? "" : started.error.message);
+  return started.value;
+}
+
+async function mode(path: string): Promise<number> {
+  return (await Deno.lstat(path)).mode! & 0o777;
+}
+
+Deno.test("platform/install-and-update#R7: LOPHN_HOME 없으면 ~/.lophn, 있으면 그 경로 하나로 고정한다", async () => {
+  const base = await Deno.makeTempDir({ prefix: "lophn-home-" });
+  const specified = `${base}/explicit`;
+  const core = await boot(specified);
+  try {
+    assertEquals(core.dataRoot, await Deno.realPath(specified));
+    const ledger = await Deno.stat(`${core.dataRoot}/lophn.db`);
+    assert(ledger.isFile);
+    const elsewhere = await Deno.makeTempDir({ prefix: "lophn-other-" });
+    try {
+      assert(!core.dataRoot.startsWith(elsewhere));
+    } finally {
+      await Deno.remove(elsewhere, { recursive: true });
+    }
+  } finally {
+    await core.shutdown();
+    await Deno.remove(base, { recursive: true });
+  }
+});
+
+Deno.test("platform/install-and-update#R9: root·apps·run이 0700보다 넓거나 symlink면 기동을 거절한다", async () => {
+  const wide = await Deno.makeTempDir({ prefix: "lophn-wide-" });
+  await Deno.chmod(wide, 0o755);
+  const widened = await startCore({
+    lophnHome: wide,
+    port: 0,
+    teams: [],
+    superviseIo: false,
+  });
+  assert(!widened.ok);
+  assertEquals(widened.ok ? "" : widened.error.code, "unavailable");
+
+  const target = await Deno.makeTempDir({ prefix: "lophn-target-" });
+  const link = `${wide}-link`;
+  await Deno.symlink(target, link);
+  const linked = await startCore({
+    lophnHome: link,
+    port: 0,
+    teams: [],
+    superviseIo: false,
+  });
+  assert(!linked.ok);
+
+  const owned = await Deno.makeTempDir({ prefix: "lophn-owned-" });
+  const core = await boot(owned);
+  try {
+    assertEquals(await mode(core.dataRoot), 0o700);
+    assertEquals(await mode(`${core.dataRoot}/apps`), 0o700);
+    assertEquals(await mode(`${core.dataRoot}/run`), 0o700);
+  } finally {
+    await core.shutdown();
+    await Deno.remove(owned, { recursive: true });
+    await Deno.remove(wide, { recursive: true });
+    await Deno.remove(target, { recursive: true });
+    await Deno.remove(link);
+  }
+});
+
+Deno.test("platform/install-and-update#R10: 같은 데이터 폴더의 두 번째 core는 writer를 열지 않는다", async () => {
+  const dir = await home();
+  const first = await boot(dir);
+  try {
+    const second = await startCore({
+      lophnHome: dir,
+      port: 0,
+      teams: [],
+      clock: CLOCK,
+      superviseIo: false,
+    });
+    assert(!second.ok);
+    assertEquals(second.ok ? "" : second.error.code, "conflict");
+    const other = await home();
+    const independent = await boot(other);
+    try {
+      assert(independent.dataRoot !== first.dataRoot);
+    } finally {
+      await independent.shutdown();
+      await Deno.remove(other, { recursive: true });
+    }
+  } finally {
+    await first.shutdown();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/install-and-update#R12: 창 닫기가 아니라 부모의 명시 종료나 pipe EOF가 core를 끝낸다", async () => {
+  const dir = await home();
+  const parentIn = new TransformStream<Uint8Array, Uint8Array>();
+  const parentOut = new TransformStream<Uint8Array, Uint8Array>();
+  const core = await boot(dir, {
+    parent: {
+      stdin: parentIn.readable,
+      stdout: parentOut.writable,
+    },
+  });
+  const frames = readParent(parentOut.readable);
+  const hello = await frames.next();
+  assertEquals(hello.value.core_epoch, core.epoch);
+  assertEquals(hello.value.api_port, core.port);
+  assertEquals(typeof hello.value.user_token, "string");
+
+  const writer = parentIn.writable.getWriter();
+  await writer.write(encodeFrame({
+    kind: "json",
+    channel: 0,
+    payload: { type: "stop", grace_ms: 1000 },
+  }));
+  await writer.close();
+  await core.done;
+  assert(await missing(`${dir}/run/location.json`));
+  await Deno.remove(dir, { recursive: true });
+});
+
+Deno.test("platform/diagnostics#R8: status와 health는 인증을 요구하고 인증 뒤에 관측 시각을 준다", async () => {
+  const dir = await home();
+  const parentIn = new TransformStream<Uint8Array, Uint8Array>();
+  const parentOut = new TransformStream<Uint8Array, Uint8Array>();
+  const core = await boot(dir, {
+    parent: { stdin: parentIn.readable, stdout: parentOut.writable },
+  });
+  try {
+    const frames = readParent(parentOut.readable);
+    const hello = await frames.next();
+    const anonymous = await post(core, "/v1/platform/status", {});
+    assertEquals(anonymous.status, 401);
+    const health = await post(core, "/v1/platform/health", {});
+    assertEquals(health.status, 401);
+    assert(!JSON.stringify(anonymous.body).includes(core.dataRoot));
+
+    const authed = await post(
+      core,
+      "/v1/platform/status",
+      {},
+      hello.value.user_token,
+    );
+    assertEquals(authed.status, 200);
+    const body = authed.body as {
+      ready: boolean;
+      schema: number;
+      data_root: string;
+      ledger_id: string;
+      components: { component: string; observed_at: string }[];
+    };
+    assertEquals(body.ready, true);
+    assert(body.schema > 0);
+    assertEquals(body.data_root, core.dataRoot);
+    assert(body.ledger_id.length > 0);
+    assert(body.components.length > 0);
+    assertEquals(body.components[0].observed_at, "2026-10-04T00:00:00.000Z");
+
+    const checked = await post(
+      core,
+      "/v1/platform/health",
+      {},
+      hello.value.user_token,
+    );
+    assertEquals(checked.status, 200);
+    const observation = checked.body as { observed_at: string };
+    assertEquals(observation.observed_at, "2026-10-04T00:00:00.000Z");
+    await frames.return();
+  } finally {
+    await core.shutdown();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/api#R2: 팀 등록 route는 HTTP로 닿고 등록하지 않은 경로는 not_found다", async () => {
+  const dir = await home();
+  const parentIn = new TransformStream<Uint8Array, Uint8Array>();
+  const parentOut = new TransformStream<Uint8Array, Uint8Array>();
+  const core = await boot(dir, {
+    teams: [{ codingAgentConnectionDefinitions }],
+    teamModules: [new URL("./coding-agent.ts", import.meta.url).href],
+    parent: { stdin: parentIn.readable, stdout: parentOut.writable },
+  });
+  try {
+    const frames = readParent(parentOut.readable);
+    const hello = await frames.next();
+    const listed = await post(
+      core,
+      "/v1/coding_agent_connections/list",
+      {},
+      hello.value.user_token,
+    );
+    assertEquals(listed.status, 200);
+    assert(
+      Array.isArray(
+        (listed.body as { connections?: unknown }).connections,
+      ),
+    );
+
+    const missing = await post(
+      core,
+      "/v1/coding_agent_connections/unknown",
+      {},
+      hello.value.user_token,
+    );
+    assertEquals(missing.status, 404);
+    assertEquals(
+      (missing.body as { error?: { code?: string } }).error?.code,
+      "not_found",
+    );
+    await frames.return();
+  } finally {
+    await core.shutdown();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/api#R2: platform 기본 route와 같은 경로를 팀이 등록하면 core는 기동하지 않는다", async () => {
+  const dir = await home();
+  const duplicate = defineRead({
+    resource: "platform",
+    method: "status",
+    name: "DuplicateStatus",
+    input: z.object({}),
+    output: z.object({}),
+    actors: ["user"],
+    errors: ["not_found"],
+  });
+  const started = await startCore({
+    lophnHome: dir,
+    port: 0,
+    teams: [{
+      createCoreRegistration: () => ({
+        reads: [{
+          route: duplicate,
+          handle: () => ({ ok: true as const, value: {} }),
+        }],
+      }),
+    }],
+    clock: CLOCK,
+    superviseIo: false,
+  });
+  assert(!started.ok);
+  assertEquals(started.ok ? "" : started.error.code, "internal");
+  await Deno.remove(dir, { recursive: true });
+});
+
+Deno.test("platform/ledger#R21: 종료는 새 입장을 닫고 위치 metadata를 지운 뒤 lock을 푼다", async () => {
+  const dir = await home();
+  const core = await boot(dir);
+  const meta = JSON.parse(await Deno.readTextFile(`${dir}/run/location.json`));
+  assertEquals(meta.api_port, core.port);
+  assertEquals(meta.core_epoch, core.epoch);
+  assertEquals(meta.format, 1);
+  assert(!("token" in meta) && !("credential" in meta));
+
+  await core.shutdown();
+  assert(await missing(`${dir}/run/location.json`));
+  const during = await post(core, "/v1/platform/status", {});
+  assert(during.status === 0 || during.status >= 400);
+
+  const again = await boot(dir);
+  try {
+    assertEquals(again.dataRoot, core.dataRoot);
+  } finally {
+    await again.shutdown();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+async function post(
+  core: Core,
+  path: string,
+  body: unknown,
+  token?: string,
+): Promise<{ status: number; body: unknown }> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${core.port}${path}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+    return { status: response.status, body: await response.json() };
+  } catch {
+    return { status: 0, body: undefined };
+  }
+}
+
+function readParent(stream: ReadableStream<Uint8Array>) {
+  const reader = stream.getReader();
+  const decoder = new FrameDecoder();
+  const pending: {
+    user_token: string;
+    api_port: number;
+    core_epoch: string;
+  }[] = [];
+  return {
+    async next(): Promise<
+      { value: { user_token: string; api_port: number; core_epoch: string } }
+    > {
+      while (pending.length === 0) {
+        const chunk = await reader.read();
+        if (chunk.done) throw new Error("parent closed before hello");
+        for (const frame of decoder.push(chunk.value)) {
+          if (frame.kind === "json") pending.push(frame.payload as never);
+        }
+      }
+      return { value: pending.shift()! };
+    },
+    async return() {
+      await reader.cancel();
+    },
+    get done() {
+      return reader.closed;
+    },
+  };
+}
+
+async function missing(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return false;
+  } catch (thrown) {
+    if (thrown instanceof Deno.errors.NotFound) return true;
+    throw thrown;
+  }
+}

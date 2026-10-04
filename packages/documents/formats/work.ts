@@ -5,6 +5,7 @@ import {
   GUEST_CALL_TIMEOUT_MS,
   RUNNER_CONCURRENCY,
   RUNNER_HEAP_MIB,
+  runnerWasmPath,
 } from "./guest/contract.ts";
 import {
   readMessage,
@@ -71,11 +72,12 @@ export type RunnerClientOptions = {
 };
 
 function runnerFlags(heapMib: number): string[] {
+  // 읽기 권한은 runner entry와 내장 QuickJS wasm 파일로만 좁힌다(planning documents T4).
   return [
     "run",
     "--frozen",
     "--no-prompt",
-    "--allow-read",
+    `--allow-read=${RUNNER.pathname},${runnerWasmPath()}`,
     `--v8-flags=--max-old-space-size=${heapMib}`,
     RUNNER.pathname,
   ];

@@ -1,0 +1,174 @@
+/* legacy ui-layout SplitPane. 칸마다 탭 줄과 따로 scroll하는 본문. */
+.panes {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.pane {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.sized {
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+/* 본문 여백 위 24px, 좌우 32px. 창 1024px 미만이나 칸 640px 미만은 16px. */
+.body {
+  position: relative;
+  box-sizing: border-box;
+  flex: 1;
+  min-height: var(--space-0);
+  overflow: auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+  background: var(--color-surface-base);
+  font-family: var(--font-sans);
+}
+
+.narrow {
+  padding-right: var(--layout-pane-padding-narrow);
+  padding-left: var(--layout-pane-padding-narrow);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--page-reading-default);
+  margin: var(--space-0) auto;
+}
+
+.heading {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.meta {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.placeholderWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-base);
+  text-align: center;
+}
+
+.placeholderIcon {
+  color: var(--color-text-muted);
+}
+
+.placeholderText {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 경계 1px. 가운데 8px가 잡는 영역이고 올리거나 잡으면 2px 선이 보인다. */
+.divider {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  width: var(--border-width);
+  background: var(--color-border-base);
+  outline: none;
+  touch-action: none;
+}
+
+.grab {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  left: 50%;
+  width: var(--space-4);
+  transform: translateX(-50%);
+  cursor: col-resize;
+  z-index: var(--z-sticky);
+}
+
+.divider::after {
+  content: "";
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  left: 50%;
+  width: var(--border-focus-width);
+  transform: translateX(-50%);
+  background: var(--color-focus);
+  opacity: 0;
+  pointer-events: none;
+  z-index: var(--z-sticky);
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.divider:hover::after,
+.divider[data-dragging]::after {
+  opacity: 1;
+}
+
+/* drag한 탭이 내려앉을 칸. */
+.drop {
+  position: absolute;
+  inset: var(--space-0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-selection);
+  box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
+  pointer-events: none;
+  z-index: var(--z-sticky);
+}
+
+/* 한 칸에서 탭을 끌면 오른쪽 1/3이 새 칸 자리다. */
+.sideDrop {
+  position: absolute;
+  top: var(--control-lg-height);
+  right: var(--space-0);
+  bottom: var(--space-0);
+  width: 33.333%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-sticky);
+}
+
+.sideDrop[data-over] {
+  background: var(--color-selection);
+  box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
+}
+
+.dropLabel {
+  color: var(--color-link);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}

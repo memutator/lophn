@@ -284,6 +284,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T9 core entry: data root, 시작·종료, status·health
 
+- 상태: 완료 (#111)
 - 등급: 기본
 - concern: platform/install-and-update, platform/ledger, platform/diagnostics
 - 요구: platform/install-and-update#R7, R9, R10, R12, platform/ledger#R21, platform/diagnostics#R8
@@ -307,6 +308,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T10 core import 정적 검사
 
+- 상태: 완료 (#126)
 - 등급: 좁은
 - concern: platform/responsiveness
 - 요구: platform/responsiveness#R1
@@ -331,6 +333,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: platform#T9
+- 상태: 완료 (#138)
 - 완료: 아래 확인이 통과한다
   - command 입장 전체 256·principal당 64·제어용 16 예약·시작 대기 5초, read 실행 2·대기 64·principal당 8, HTTP 동시 128·principal당 16, event 연결 32·principal당 4. 초과는 `unavailable`이고 caller의 priority 주장을 받지 않는다(R3).
   - 회수·정지 제어는 예약 영역으로 들어간다는 테스트
@@ -352,6 +355,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - `worker` route(problems의 report·request-test 등)는 같은 길로 JSON 결과·공통 오류를 그대로 돌려준다.
   - core는 바이트를 해석·저장하지 않고 응답 크기 상한과 timeout을 route마다 등록값으로 둔다. worker가 없거나 ready가 아니면 `unavailable`이다.
   - `forward_test.ts`에 위 요구 테스트
+- 상태: 완료 (#137)
 
 ### T13 blob 준비와 설치
 
@@ -370,9 +374,11 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 실제 디스크 여유가 부족하면 새 준비를 `unavailable`로 막고 참조 blob을 지우지 않는다(R12).
   - 문서 worker 같은 신뢰 child는 감독 pipe의 byte chunk frame으로 보내고, core는 해석·hash 없이 backpressure를 지키며 I/O worker로 넘긴다(→ Q6).
   - `prepare_test.ts`에 위 요구 테스트
+- 상태: 완료 (#133)
 
 ### T14 blob 참조 등록과 읽기
 
+- 상태: 완료 (#150)
 - 등급: 기본
 - concern: platform/blob-store, platform/identity
 - 요구: platform/blob-store#R4, R5, R6, R7, platform/identity#R9
@@ -437,6 +443,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: confirmation handle(main↔core 발급·사용 메시지, command 요청의 `confirmation`)
 - slice: documents
 - 선행: platform#T2, platform#T9, contracts#T13
+- 상태: 완료 (#117)
 - 완료: 아래 확인이 통과한다
   - handle은 main↔core 비공개 통로에서만 발급되는 메모리 값이고 core epoch·main 연결·window·정확한 대상·내용 기준·허용 결정·120초에 묶인다. ledger·fingerprint·event·log에 원문이 없다.
   - 사람 클릭이 필요한 command(documents의 파일 지우기, approval 결정 등)는 등록 때 handle 필요를 선언하고, writer가 transaction 안에서 현재 상태와 함께 검증·소비한다. handle이 없거나 대상·내용이 다르면 거절한다(R3, R5).
@@ -506,6 +513,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T20 secret 전송 부착과 갱신 결과 저장
 
+- 상태: 완료 (#96)
 - 등급: 기본
 - concern: platform/secrets, platform/security
 - 요구: platform/secrets#R3, R5, R11, platform/security#R9
@@ -527,6 +535,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - concern: platform/approvals
 - 요구: platform/approvals#R1, R2, R6, R12, R13, R14, R17
 - 자리: packages/platform/approvals/
+- 상태: 완료 (#166)
 - 쓰는 contract: approval, blob, redaction
 - 내놓는 contract: approval(ApprovalAction·ApprovalEffect, binding hash, approvals get·list·create·expire·cancel route)
 - slice: agent
@@ -581,6 +590,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: agent credential 발급(agent runtime 경계)
 - slice: agent
 - 선행: platform#T9, contracts#T28(QuestionActionEvidence), contracts#T26(`runs/read`), lophn-agent의 question contract
+- 상태: 완료 (#130)
 - 완료: 아래 확인이 통과한다
   - 유효 assignment·run 시작에서 agent runtime에 `agent:<asg>` credential을 주고 run 종료·멈춤·감독 상실에 끝낸다. agent runtime 자체는 machine credential을 받는다.
   - agent scope에는 lophn-agent가 계산한 AgentAppScope(contracts/lophn-agent 타입)가 실리고 AuthenticatedContext로 apps 연결 검사에 전달된다. platform은 그 내용을 해석하지 않고 상한을 넓히지 못하게만 한다(lophn-agent 요청). identity domain model의 CredentialScope를 같은 PR에서 고친다.
@@ -598,6 +608,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: settings(SettingDefinition 등록 interface, EffectiveSetting, settings definitions·get route)
 - slice: agent
 - 선행: platform#T9, contracts#T24
+- 상태: 완료 (#122)
 - 완료: 아래 확인이 통과한다
   - 각 concern이 공개한 항목만 받는다. 설명·종류·기본값·허용값·단위·층·적용 시점이 없으면 등록 거절(R1, R4).
   - `builtin < common` 두 층만, object 항목별·scalar/array 전체 교체, 생략과 null·빈 목록·false 구별(R5, R8, R9). 작업 폴더·세션·환경 변수·CLI 인자는 층이 아니다(R6).
@@ -608,6 +619,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T26 settings apply, reload, 이력
 
+- 상태: 완료 (#131)
 - 등급: 기본
 - concern: platform/settings
 - 요구: platform/settings#R7, R17, R18, R19, R20, R21, R22, R23, R24, R25
@@ -634,6 +646,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: settings(TOML import·export pipe 작업)
 - slice: agent
 - 선행: platform#T26, platform#T24
+- 상태: 진행 (#153) — 남은 것: R29(machine이 질문 고정 option action 근거를 검증한 apply는 ApplySettings route actors에 machine이 필요해 contract 변경이 먼저다)와 flow ask-lophn-help 설정 단계 통합 테스트
 - 완료: 아래 확인이 통과한다
   - UTF-8 TOML 1.0 format 1만 worker에서 parse·redaction·전체 검증 뒤 `ApplySettings`로 제출한다. JSON5·YAML·환경 치환·include·command·원격 URL은 거절, 모르는 format은 거절(R3, R26).
   - definitions read는 이름·한 줄 설명·현재·기본값의 뜻·영향·위험·되돌림·적용 시점을 주고 설명 없는 항목은 공개하지 않는다(R27, R28).
@@ -642,6 +655,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - `toml_test.ts`, `definitions_test.ts`에 위 요구 테스트, flow ask-lophn-help의 설정 단계 통합 테스트
 
 ### T28 data 직렬화와 출처 유지
+
+- 상태: 완료 (#124)
 
 - 등급: 기본
 - concern: platform/security
@@ -687,6 +702,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T57 현재 보기 전달(workspace relay)
 
+- 상태: 완료 (#148)
 - 등급: 기본
 - concern: platform/api, platform/identity
 - 요구: platform/identity#R3, R8, platform/redaction#R5, lophn-agent/harness/prompt-assemble#R28
@@ -721,6 +737,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T31 app credential과 앱 secret의 grant 검사
 
+- 상태: 완료 (#136)
 - 등급: 기본
 - concern: platform/identity, platform/secrets
 - 요구: platform/secrets#R10
@@ -734,6 +751,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 앱 direct 연결과 confirm 실행 증명은 새 token 종류가 아니라 apps가 서명하는 진술이다(→ Q15). platform은 `credential_ref`·기한과 core epoch만 준다. identity domain model의 "정할 것"을 같은 PR에서 이 내용으로 채운다.
   - 앱 secret 전송은 현재 grant만 보고, 호출마다 approval을 요구하지 않고, caller가 사람·agent·automation·다른 앱이라는 이유로 막지 않는다(R10).
   - `app_secret_test.ts`에 R10 테스트, flow manage-app-permissions의 secret 단계 통합 테스트
+  - R10 끝단(실제 grant 판정)은 apps#T4가 SecretAllowance를 채울 때 증명한다. platform 쪽은 port가 등록되지 않으면 attach·refresh가 forbidden인 fail closed다.
 
 ### T32 confirm 앱 command의 approval 사용
 
@@ -806,6 +824,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T55 lophn daemon 시작·중지와 로컬 상태
 
+- 상태: 완료 (#157)
 - 등급: 기본
 - concern: platform/install-and-update
 - 요구: platform/install-and-update#R10, R12
@@ -821,18 +840,6 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - `daemon_test.ts`에 R10, R12 테스트
 
 ## problems
-
-### T37 screenshot과 보고 수집의 redaction 경계
-
-- 등급: 기본
-- concern: platform/redaction
-- 요구: platform/redaction#R13
-- 자리: packages/platform/redaction/
-- 쓰는 contract: redaction, problems의 snapshot 수집 입력
-- 내놓는 contract: 없음
-- slice: problems
-- 선행: platform#T16, problems의 snapshot contract
-- 완료: `screenshot_test.ts`에 R13 테스트(보호 화면·secret 입력 미수집, private 영역 처리 불가면 이미지 대신 Omission), flow report-app-problem의 redaction 단계 통합 테스트
 
 ### T38 lophn 내부 오류의 진단 분류
 
@@ -867,6 +874,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T40 migration 완성: 정지, 복구본, 검증
 
+- 상태: 완료 (#149)
 - 등급: 기본
 - concern: platform/backup-and-migration
 - 요구: platform/backup-and-migration#R2, R3, R5, R7, R18
@@ -929,6 +937,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 미완료 invocation·release activation·run·approval 대기를 소유 concern이 실제 관측으로 점검하게 하고, 모르면 unknown과 근거를 남긴다. 전역 barrier가 없다(R16).
   - `startup_test.ts`에 위 요구 테스트, flow work-offline·resume-agent-session의 재시작 단계 통합 테스트
 
+- 상태: 진행 (#162) — 남은 것: 소유 concern의 복구 command(invocation·release activation·run·approval 대기)가 연결되면 점검이 실제 관측으로 확정한다
+
 ### T44 blob GC와 보존 정리
 
 - 등급: 기본
@@ -948,6 +958,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T45 secret export와 import
 
+- 상태: 완료 (#92)
 - 등급: 기본
 - concern: platform/secrets
 - 요구: platform/secrets#R9
@@ -1097,7 +1108,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 | platform/install-and-update | 15 | 15 | T9, T43, T48, T49, T50, T54, T55 |
 | platform/ledger | 23 | 23 | T1, T2, T3, T4, T9, T18, T24, T42 |
 | platform/notifications | 12 | 12 | T17, T29, T33, T36, T39, T46, T53, T54 |
-| platform/redaction | 17 | 17 | T8, T15, T16, T37, T57 |
+| platform/redaction | 16 | 16 | T8, T15, T16, T57 |
 | platform/responsiveness | 10 | 10 | T8, T10, T11, T12, T51, T52, T54 |
 | platform/secrets | 12 | 12 | T19, T20, T31, T34, T45 |
 | platform/security | 11 | 11 | T6, T7, T20, T28, T30, T48 |

@@ -167,6 +167,8 @@ export async function createLedgerHarness(
     return ok({
       command: (ctx, envelope) =>
         request(writer, { op: "command", ctx, envelope }),
+      // main↔core 비공개 통로의 발급과 같다. writer 프로세스의 registry에만 남는다.
+      confirmation: (body) => request(writer, { op: "confirmation", ...body }),
       read: (route, ctx, input) =>
         request(readers[readerIndex++ % 2], { op: "read", route, ctx, input }),
       readResult: (ctx, key) =>

@@ -1,11 +1,11 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
-import { ok, type Result } from "../../base/mod.ts";
+import type { Result } from "../../base/mod.ts";
 import type { RequestContext } from "../../contracts/platform/mod.ts";
 import { createProjectCommands } from "./mod.ts";
 import type { TrackingPreview } from "../../contracts/documents/mod.ts";
 import { ids, projectFixture, userContext } from "./testing-fixture.ts";
 
-const commands = createProjectCommands({ authorize: () => ok(undefined) });
+const commands = createProjectCommands();
 const folders = [
   { path: "/work/notes", description: "notes" },
   { path: "/work/other", description: "" },

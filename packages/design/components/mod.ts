@@ -66,7 +66,8 @@ export {
   systemTimer,
   type Timer,
 } from "./shared.ts";
-export { Icon, type IconProps } from "./icon.tsx";
+export { folderOpenIcon, Icon, type IconProps } from "./icon.tsx";
+export { workspaceIcons } from "./workspace-icons.ts";
 export {
   domResizeSource,
   type ResizeSource,
@@ -150,3 +151,10 @@ export {
   type ToastTone,
 } from "./toast/toast.tsx";
 export { Chip, type ChipItem, type ChipProps } from "./chip/chip.tsx";
+export {
+  connectionFailedIcon,
+  connectionStaleIcon,
+  launcherEmptyIcon,
+  lophnEntryIcon,
+  retryIcon,
+} from "./chrome-icons.ts";

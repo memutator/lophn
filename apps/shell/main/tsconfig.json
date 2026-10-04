@@ -3,10 +3,16 @@
     "target": "ES2023",
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "lib": ["ES2023"],
-    "types": ["node"],
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "node"
+    ],
     "paths": {
-      "zod": ["./node_modules/zod/index.d.ts"]
+      "zod": [
+        "./node_modules/zod/index.d.ts"
+      ]
     },
     "strict": true,
     "erasableSyntaxOnly": true,
@@ -17,5 +23,14 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true
   },
-  "include": ["**/*.ts", "../preload/**/*.ts"]
+  "include": [
+    "**/*.ts",
+    "../preload/**/*.ts",
+    "../ipc/**/*.ts"
+  ],
+  "exclude": [
+    "../../../packages",
+    "desktop/core",
+    "desktop/main.ts"
+  ]
 }

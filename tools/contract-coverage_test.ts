@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import {
   eventsBySection,
+  missingItems,
   routePresence,
   routesBySection,
   sectionFive,
@@ -93,4 +94,58 @@ Deno.test("contracts#T8: 경로가 route 목록에 있으면 있음이다", () =
   const routes = [{ resource: "platform", method: "status" }];
   assertEquals(routePresence("/v1/platform/status", routes), "있음");
   assertEquals(routePresence("/v1/platform/health", routes), "없음");
+});
+
+Deno.test("contracts#T46: 빠진 route와 event를 절마다 센다", () => {
+  const routes = [{ resource: "projects", method: "create" }];
+  const events = [{ type: "SecretSet" }];
+  const missing = missingItems(
+    [
+      {
+        topLevel: "sample",
+        routes: [
+          {
+            heading: "5.1 표의 경로",
+            paths: ["/v1/projects/create", "/v1/releases/list"],
+          },
+        ],
+        events: [
+          { heading: "5.3 event", types: ["SecretSet", "ReleasePrepared"] },
+        ],
+      },
+    ],
+    routes,
+    events,
+  );
+  assertEquals(missing, [
+    {
+      topLevel: "sample",
+      heading: "5.1 표의 경로",
+      kind: "route",
+      name: "/v1/releases/list",
+    },
+    {
+      topLevel: "sample",
+      heading: "5.3 event",
+      kind: "event",
+      name: "ReleasePrepared",
+    },
+  ]);
+});
+
+Deno.test("contracts#T46: 빠짐이 없으면 빈 목록이다", () => {
+  const routes = [{ resource: "projects", method: "create" }];
+  const events = [{ type: "SecretSet" }];
+  const missing = missingItems(
+    [
+      {
+        topLevel: "sample",
+        routes: [{ heading: "5.1", paths: ["/v1/projects/create"] }],
+        events: [{ heading: "5.3", types: ["SecretSet"] }],
+      },
+    ],
+    routes,
+    events,
+  );
+  assertEquals(missing, []);
 });

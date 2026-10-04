@@ -20,6 +20,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T1 앱 등록, source 연결, 보관
 
+- 상태: 완료 (#143)
 - 등급: 기본
 - concern: apps/registration
 - 요구: apps/registration#R1–R10
@@ -87,6 +88,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T5 SDK catalog과 설치
 
+- 상태: 완료 (#170)
 - 등급: 기본
 - concern: apps/sdk
 - 요구: apps/sdk#R2, R3, R4, R6, R8, R9, R11, R12, R13
@@ -124,7 +126,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 요구: apps/runtime#R3, R5, R8, R10, R11, R12, R22, R31, apps/blueprint#R8, R12, apps/invocations#R4, R14, apps/sdk#R27, R28
 - 자리: packages/apps/runtime/entrypoint/ (main.ts, startup.ts, direct-server.ts, control.ts, screens.ts, verify.ts), packages/apps/invocations/context.ts, packages/sdk/cap-schedule/ (handlers.ts, context.ts, trace.ts, results.ts, mod.ts)
 - 쓰는 contract: contracts#T34(앱 통로 wire, 초기 JSON, AppConnection 검증, createAppChannelClient), problems의 앱 SDK 보고와 exception observer(앱 code load 전에 설치)
-- 내놓는 contract: direct socket `GET /screens/<screen>/<path>`, `POST /_lophn/commands/{invoke,cancel,status}`, `POST /_lophn/control/{probe,open,close,shutdown}`의 앱 쪽 구현. mode live·preview·test(test는 problems runner가 띄움)
+- 내놓는 contract: direct socket `GET /screens/<screen>/<path>`, `POST /_lophn/commands/{invoke,cancel}`, `GET /_lophn/commands/status`, `POST /_lophn/control/{probe,open,close,shutdown}`의 앱 쪽 구현. mode live·preview·test(test는 problems runner가 띄움)
 - slice: apps
 - 선행: apps#T2, contracts#T34, platform#T5, problems#T5
 - 완료:
@@ -135,9 +137,11 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `cap-schedule/context_test.ts`(Deno 2.9): await·timer·SQLite·fetch 뒤 app·release·mode·invocation 문맥 유지, 모르는 invocation ID를 만들지 않음(apps/sdk#R27), trace 이름 64자 허용·65자 거절과 inv ID와 구별(apps/sdk#R28)
   - `cap-schedule/results_test.ts`: read 결과가 정상 0행과 미수집·부분 범위·신선도 부족을 구별하고, 조건·정렬·데이터 기준이 바뀐 이어 읽기 cursor를 거절(apps/invocations#R14)
   - socket은 사용자 전용 Unix socket HTTP/1.1이고 화면 socket 위치는 앱 view에 노출되지 않는다(R5, 통합은 T10)
+- 상태: 완료 (#114)
 
 ### T8 supervisor 프로세스 수명
 
+- 상태: 완료 (#118)
 - 등급: 최상위
 - concern: apps/runtime
 - 요구: apps/runtime#R1, R2, R4, R6, R7, R16, R17, R18, R19, R20, R21, R23, R24
@@ -198,6 +202,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 완료:
   - `model_test.ts`: 상태 전이(없음·accepted→running→succeeded/failed/unknown, denied), terminal 뒤 늦은 start가 running으로 되돌리지 않음, 같은 사실 재전송은 같은 결과·다른 종료 사실은 conflict(R6), accepted만 있으면 started_at 없음(R9), 알려진 ID만 unknown으로 확정·모르는 호출은 만들지 않음(R10)
   - `reads_test.ts`: release 교체 뒤에도 당시 release·operation·trigger·mode·actor·caller가 그대로(R3), command를 지운 새 release 뒤에도 당시 blueprint로 설명(apps/releases#R17), A→B와 agent→B의 caller(app·release·parent / run·tool_call) 구별과 부모 없으면 없음(R16), confirm에서 actor·caller는 요청자이고 approval은 별도 참조(R17), succeeded는 handler 반환일 뿐 업무 정확성 필드를 두지 않음(R13), summary 16KiB·redaction 뒤 secret 없음(R15)
+  - 상태: 완료 (#161)
 
 ### T12 invocation 후행 전달과 confirm 실행
 
@@ -529,7 +534,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - **Q4 앞 slice flow의 앱 단계.** 정했다: organize-documents의 앱 보관 단계는 T1(documents slice)에서 돈다. 나머지 앱 단계(project-workspace, build-context, approve-action, view-agent-visuals)는 T27에서 돈다.
 - **Q5 AppConnection 서명·기한·회수.** 정했다(platform Q15): 앱 direct 연결과 confirm proof는 apps가 서명하는 진술이다. platform은 credential_ref·기한·core epoch만 준다. 서명은 core 안 apps 제어 어댑터가 core 시작마다 만드는 Ed25519 key로 하고, 공개 key는 앱 초기 JSON에 넣는다. AppConnection 기한은 원래 credential 이하·최대 10분, proof는 120초다. 회수는 소유 event와 core epoch로 판단해 관련 통로를 닫고 새 nonce로 재시작한다.
 - **Q6 format SDK Package.** 정했다(documents Q10): @lophn/format-document 하나다(T29).
-- **Q7 test mode 진입점.** 정했다: problems test runner는 같은 진입점과 같은 두 socket HTTP protocol을 쓰고, runner가 broker와 caller 역할을 한다. domain-model/apps/runtime의 mode에 test를 더하는 일은 T7 PR에서 한다.
+- **Q7 test mode 진입점.** 정했다: problems test runner는 같은 진입점과 같은 두 socket HTTP protocol을 쓰고, runner가 broker와 caller 역할을 한다. domain-model/apps/runtime의 mode에 test를 더한다. 시작 입력·AppConnection·broker child의 mode는 `live`·`preview`·`test`이고, `POST /v1/apps/connect`와 RuntimeObservation·화면 틀은 live·preview만 받는다.
 - **Q8 core 조립 자리.** 정했다: apps는 `apps/core/apps.ts`와 `apps/worker/apps/`만 고친다.
 - **Q9 apps slice 시작 시점.** 정했다: 선행이 모두 main에 합쳐진 작업은 slice와 상관없이 시작한다(docs/dev/team-brief.md).
 - **Q10 apps slice에서의 ticket claim.** 정했다: coding-agent#T18·T19·T20과 contracts#T41이 apps slice에 있다. T19와 T27이 그것을 쓴다.

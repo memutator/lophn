@@ -5,6 +5,8 @@ export {
   type HttpResult,
   type MemoryHandler,
   type ReadHandler,
+  type WorkerRouteTarget,
+  type WorkerTargets,
 } from "./dispatch.ts";
 export {
   allowedHosts,
@@ -42,3 +44,10 @@ export {
   startApiServer,
 } from "./server.ts";
 export { acceptSocket, attachSession, type SocketDeps } from "./socket.ts";
+export {
+  createWorkspaceRelay,
+  WORKSPACE_MAX_WINDOWS,
+  WORKSPACE_MEMORY_ROUTES,
+  type WorkspaceRelay,
+  type WorkspaceRelayDeps,
+} from "./workspace.ts";

@@ -49,6 +49,7 @@ lophn-agent 팀의 작업 전부다. 범위는 `docs/intent/lophn-agent*`, `docs
 
 ### T1 agent runtime entry 뼈대
 
+- 상태: 완료 (#120)
 - 등급: 기본
 - concern: lophn-agent/harness/run-loop
 - 요구: lophn-agent/harness/run-loop#R8
@@ -93,6 +94,8 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T3 provider와 credential ledger
 
+- 상태: 완료 (#155)
+
 - 등급: 기본
 - concern: lophn-agent/harness/provider
 - 요구: lophn-agent/harness/provider#R2, R4, R5, R6, R7, R8, R9, R11, R28
@@ -107,7 +110,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - `providers`, `provider_credentials`, `provider_credential_model_blocks` 표와 schema step
   - provider_test.ts에 R2, R4–R9, R28 테스트와 R11 삭제 확인(Anthropic provider에 OAuth 인증 방식이 없음): 원격 HTTP·무인증 거절과 127.0.0.1·::1·localhost 허용, 같은 key·같은 계정+조직 중복 거절, 사람만 등록·교체·순서 변경, 확인되지 않은 계정 정보를 추측하지 않음, credential 값이 read·event·오류에 없음, 연결 가능한 provider와 쓸 credential이 있는 provider 구별, 미준비 preset 비활성
   - 통합 테스트: core를 메모리 SQLite로 띄워 API로 입력·출력·오류(conflict, forbidden, invalid_input)
-  - 개발 seed: `LOPHN_FAKE_PROVIDER_URL`이 있으면 `.dev-data/`에 fake provider의 세 protocol을 loopback provider로 등록한다(contracts#T9)
+  - dev seed는 contracts#T9가 한다: `LOPHN_FAKE_PROVIDER_URL`이 있으면 fake provider의 세 protocol을 loopback provider로 등록한다(lead 결정)
 
 ### T4 model catalog
 
@@ -313,6 +316,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T17 safety: 같은 요청, 반복 실패, 자료 포장
 
+- 상태: 완료 (#129)
 - 등급: 좁은
 - concern: lophn-agent/harness/safety
 - 요구: lophn-agent/harness/safety#R1, R2, R3, R4, R5, R6, R7, R8, R9

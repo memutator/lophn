@@ -11,7 +11,7 @@ try {
     in: fileURLToPath(new URL("./testdata/overlay-cases.ts", import.meta.url)),
     out: "overlay-cases",
   }]);
-  await import(pathToFileURL(join(dir, "overlay-cases.js")).href);
+  await import(pathToFileURL(join(dir, "overlay-cases.cjs")).href);
 } finally {
   await rm(dir, { recursive: true });
 }

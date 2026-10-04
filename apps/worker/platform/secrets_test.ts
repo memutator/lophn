@@ -1,6 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../../packages/base/mod.ts";
 import type { SecretPreparation } from "../../../packages/contracts/platform/mod.ts";
+import {
+  SECRET_EXPORT_OP,
+  SECRET_IMPORT_OP,
+} from "../../../packages/contracts/platform/mod.ts";
 import { createKnownSecretRegistry } from "../../../packages/platform/redaction/mod.ts";
 import {
   createFakeKeychain,
@@ -11,6 +15,7 @@ import {
   secretToolRunner,
 } from "../../../packages/platform/secrets/mod.ts";
 import { createSecretPipe } from "./secrets.ts";
+import { createSecretTransfer } from "../../../packages/platform/secrets/mod.ts";
 
 function store(): PreparationStore {
   return {
@@ -34,13 +39,15 @@ const input = {
 Deno.test("platform/secrets#R2: 보호 입력은 secret.prepare callback으로만 받고 다른 경로는 거절한다", async () => {
   const keychain = createFakeKeychain();
   const registry = createKnownSecretRegistry();
-  const pipe = createSecretPipe(createSecretWork({
-    keychain,
-    preparations: store(),
-    registry,
-    processes: { ended: () => Promise.resolve(false) },
-    preparationId: () => "prep-1",
-  }));
+  const pipe = createSecretPipe({
+    work: createSecretWork({
+      keychain,
+      preparations: store(),
+      registry,
+      processes: { ended: () => Promise.resolve(false) },
+      preparationId: () => "prep-1",
+    }),
+  });
   const value = "protected-input-value";
   const prepared = await pipe.handle(
     { request_id: "r1", op: "secret.prepare", payload: input },
@@ -103,4 +110,79 @@ Deno.test("platform/secrets#R8: 실제 Linux Secret Service가 없으면 secret 
   assert(removed.ok);
   const gone = await adapter.load(stored.value);
   assert(!gone.ok);
+});
+
+Deno.test("platform/secrets#R9: secret.export와 secret.import는 암호 callback으로만 받고 원값을 payload에 두지 않는다", async () => {
+  const keychain = createFakeKeychain();
+  const stored = await keychain.store({
+    name: "service.key",
+    purpose: "app_secret",
+    owner: "service.key",
+    value: new TextEncoder().encode("moved-value"),
+  });
+  assert(stored.ok);
+  const registry = createKnownSecretRegistry();
+  const work = createSecretWork({
+    keychain,
+    preparations: store(),
+    registry,
+    processes: { ended: () => Promise.resolve(false) },
+    preparationId: () => "prep-move",
+  });
+  const pipe = createSecretPipe({
+    work,
+    transfer: createSecretTransfer({
+      keychain,
+      registry,
+      prepare: (input, value) => work.prepare(input, value),
+      context: input.context,
+    }),
+  });
+  const exported = await pipe.handle(
+    {
+      request_id: "e1",
+      op: SECRET_EXPORT_OP,
+      payload: {
+        context: input.context,
+        secrets: [{
+          name: "service.key",
+          sealed_ref: stored.value,
+          purpose: "app_secret",
+          owner: "service.key",
+        }],
+      },
+    },
+    () => Promise.resolve("export-passphrase"),
+  );
+  assert(exported.ok);
+  const file = JSON.stringify(exported.payload);
+  assert(!file.includes("moved-value"));
+  assert(!file.includes("export-passphrase"));
+  // 암호문은 JSON이 아니라 byte chunk로만 나온다. pipe 응답은 크기만 담는다.
+  assertEquals(
+    (exported.payload as { ciphertext_bytes: number }).ciphertext_bytes > 0,
+    true,
+  );
+
+  const imported = await pipe.handle(
+    {
+      request_id: "i1",
+      op: SECRET_IMPORT_OP,
+      payload: { context: input.context, current: [] },
+    },
+    () => Promise.resolve("export-passphrase"),
+  );
+  assert(!imported.ok);
+  assertEquals(imported.error.code, "invalid_input");
+
+  const missing = await pipe.handle(
+    {
+      request_id: "i2",
+      op: SECRET_IMPORT_OP,
+      payload: { context: input.context, current: [] },
+    },
+    () => Promise.resolve(undefined),
+  );
+  assert(!missing.ok);
+  assertEquals(missing.error.code, "invalid_input");
 });

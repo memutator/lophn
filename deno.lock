@@ -4,10 +4,12 @@
     "jsr:@luca/esbuild-deno-loader@0.11.1": "0.11.1",
     "jsr:@std/assert@1.0.19": "1.0.19",
     "jsr:@std/bytes@^1.0.2": "1.0.6",
+    "jsr:@std/collections@^1.0.9": "1.4.0",
     "jsr:@std/encoding@^1.0.5": "1.0.11",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "jsr:@std/internal@^1.0.14": "1.0.14",
     "jsr:@std/path@^1.0.6": "1.1.6",
+    "jsr:@std/toml@1.0.2": "1.0.2",
     "npm:@formatjs/icu-messageformat-parser@3.5.20": "3.5.20",
     "npm:@lezer/markdown@1.7.2": "1.7.2",
     "npm:@radix-ui/react-checkbox@1.3.11": "1.3.11_@types+react@19.3.0_react@19.3.0_react-dom@19.3.0",
@@ -25,11 +27,14 @@
     "npm:d3-shape@3.2.0": "3.2.0",
     "npm:esbuild@0.28.2": "0.28.2",
     "npm:happy-dom@20.14.5": "20.14.5",
+    "npm:hash-wasm@4.12.0": "4.12.0",
     "npm:ignore@7.0.12": "7.0.12",
     "npm:intl-messageformat@12.1.2": "12.1.2",
+    "npm:js-tiktoken@1.0.21": "1.0.21",
     "npm:lucide-react@1.51.0": "1.51.0_@types+react@19.3.0_react@19.3.0",
     "npm:parse5@8.0.1": "8.0.1",
     "npm:picomatch@4.0.7": "4.0.7",
+    "npm:playwright@1.55.0": "1.55.0",
     "npm:postcss-value-parser@4.2.0": "4.2.0",
     "npm:postcss@8.5.28": "8.5.28",
     "npm:quickjs-emscripten@0.32.0": "0.32.0",
@@ -55,6 +60,9 @@
     "@std/bytes@1.0.6": {
       "integrity": "f6ac6adbd8ccd99314045f5703e23af0a68d7f7e58364b47d2c7f408aeb5820a"
     },
+    "@std/collections@1.4.0": {
+      "integrity": "bd7f74966e11de11b1f0420b7e8cb7bb381d8af7872b738443b92050db28c9c0"
+    },
     "@std/encoding@1.0.11": {
       "integrity": "e7cef2f0b3153bccc17431e7c864a1de03a4b6d9647389c43e08aaa775d37385"
     },
@@ -65,6 +73,12 @@
       "integrity": "c68485c2a4dfbb5ae3cc74fae4e8c4e5d874cf8a8ed12927917235c758b46cbe",
       "dependencies": [
         "jsr:@std/internal@^1.0.14"
+      ]
+    },
+    "@std/toml@1.0.2": {
+      "integrity": "5892ba489c5b512265a384238a8fe8dddbbb9498b4b210ef1b9f0336a423a39b",
+      "dependencies": [
+        "jsr:@std/collections"
       ]
     }
   },
@@ -839,6 +853,9 @@
         "tslib"
       ]
     },
+    "base64-js@1.5.1": {
+      "integrity": "sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA=="
+    },
     "buffer-image-size@0.6.4": {
       "integrity": "sha512-nEh+kZOPY1w+gcCMobZ6ETUp9WfibndnosbpwB1iJk/8Gt5ZF2bhS6+B6bPYz424KtwsR6Rflc3tCz1/ghX2dQ==",
       "dependencies": [
@@ -939,6 +956,11 @@
       "scripts": true,
       "bin": true
     },
+    "fsevents@2.3.2": {
+      "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+      "os": ["darwin"],
+      "scripts": true
+    },
     "get-nonce@1.0.1": {
       "integrity": "sha512-FJhYRoDaiatfEkUK8HKlicmu/3SGFD51q3itKDGoSTysQJBnfOcxU5GxnhE1E6soB76MbT0MBtnKJuXyAx+96Q=="
     },
@@ -954,6 +976,9 @@
         "ws"
       ]
     },
+    "hash-wasm@4.12.0": {
+      "integrity": "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ=="
+    },
     "ignore@7.0.12": {
       "integrity": "sha512-/8UvqAPU9DGTI9k4mxtf49U37Isfwr8Uts96+SBHIkFxPJnHS0Ew4f00sM4Scd8V8EjM0jUNtVDdv1kPdt35lg=="
     },
@@ -965,6 +990,12 @@
       "dependencies": [
         "@formatjs/fast-memoize",
         "@formatjs/icu-messageformat-parser"
+      ]
+    },
+    "js-tiktoken@1.0.21": {
+      "integrity": "sha512-biOj/6M5qdgx5TKjDnFT1ymSpM5tbd3ylwDtrQvFQSu0Z7bBYko2dF+W/aUkXUPuk6IVpRxk/3Q2sHOzGlS36g==",
+      "dependencies": [
+        "base64-js"
       ]
     },
     "lucide-react@1.51.0_@types+react@19.3.0_react@19.3.0": {
@@ -992,6 +1023,20 @@
     },
     "picomatch@4.0.7": {
       "integrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="
+    },
+    "playwright-core@1.55.0": {
+      "integrity": "sha512-GvZs4vU3U5ro2nZpeiwyb0zuFaqb9sUiAJuyrWpcGouD8y9/HLgGbNRjIph7zU9D3hnPaisMl9zG9CgFi/biIg==",
+      "bin": true
+    },
+    "playwright@1.55.0": {
+      "integrity": "sha512-sdCWStblvV1YU909Xqx0DhOjPZE4/5lJsIS84IfN9dAZfcl/CIZ5O8l3o0j7hPMjDvqoTF8ZUcc+i/GL5erstA==",
+      "dependencies": [
+        "playwright-core"
+      ],
+      "optionalDependencies": [
+        "fsevents"
+      ],
+      "bin": true
     },
     "postcss-value-parser@4.2.0": {
       "integrity": "sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ=="
@@ -1117,6 +1162,10 @@
   "workspace": {
     "dependencies": [
       "jsr:@std/assert@1.0.19",
+      "jsr:@std/toml@1.0.2",
+      "npm:hash-wasm@4.12.0",
+      "npm:js-tiktoken@1.0.21",
+      "npm:playwright@1.55.0",
       "npm:zod@4.6.5"
     ],
     "members": {

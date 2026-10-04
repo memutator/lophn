@@ -2,7 +2,6 @@ import type { Clock, IdSource, Result } from "../../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
   BlobRefRegistration,
-  CommandDefinition,
   PermanentBlobReference,
   ReadDefinition,
   ReadRoute,
@@ -15,6 +14,7 @@ import type {
 import type {
   CommandEnvelope,
   CommandSuccess,
+  RunMarkedCommand,
   StoredCommandResult,
   TxPortRegistration,
 } from "../../../packages/platform/ledger/mod.ts";
@@ -25,8 +25,8 @@ export type LedgerTestEnvironment = {
 
 export type LedgerTestRegistration = {
   schemaSteps?: readonly SchemaStep[];
-  commands?: readonly CommandDefinition[];
-  testCommands?: readonly CommandDefinition[];
+  commands?: readonly RunMarkedCommand[];
+  testCommands?: readonly RunMarkedCommand[];
   reads?: readonly ReadDefinition[];
   ports?: readonly TxPortRegistration[];
   readPorts?: ReadonlyMap<unknown, unknown>;
@@ -57,6 +57,11 @@ export type LedgerHarness = {
     ctx: AuthenticatedContext,
     envelope: CommandEnvelope,
   ): Promise<Result<CommandSuccess>>;
+  confirmation(body: {
+    action: "issue" | "close-window" | "clear";
+    request?: unknown;
+    windowId?: string;
+  }): Promise<Result<unknown>>;
   read(
     route: Pick<ReadRoute, "resource" | "method">,
     ctx: RequestContext,
@@ -111,6 +116,12 @@ export type TestRequest =
       params: readonly SqlParam[];
     }
     | { op: "close" }
+    | {
+      op: "confirmation";
+      action: "issue" | "close-window" | "clear";
+      request?: unknown;
+      windowId?: string;
+    }
   );
 export type TestResponse = { id: number; result: Result<unknown> };
 export type TestRequestBody = TestRequest extends infer R

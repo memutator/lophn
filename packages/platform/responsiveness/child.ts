@@ -187,15 +187,18 @@ export function startChild(
 
   // handler는 받은 순서대로 하나씩 돈다. 끝난 뒤(terminal) 대기 중인 것은 시작하지 않는다.
   async function dispatch() {
-    while (!terminal) {
+    while (true) {
       const work = pending.shift();
       if (!work) {
+        // terminal 뒤에 대기하면 이 promise가 세션을 붙잡는다.
+        if (terminal) return;
         await new Promise<void>((resolve) => {
           wakeDispatch = resolve;
         });
         wakeDispatch = undefined;
         continue;
       }
+      if (terminal) return;
       size.pendingFrames -= 1;
       size.pendingBytes -= work.bytes;
       size.activeFrames = 1;

@@ -90,6 +90,17 @@ export type ReadDefinition<R extends ReadRoute = ReadRoute> = {
   ): Result<Output<R>>;
 };
 
+// ledger snapshot 없이 handler가 자기 결과를 내놓는 API read. core가 reader pool 밖에서
+// 바로 열고, dispatcher가 기다리므로 handler는 async여도 된다. 경로 해석은 같은
+// route registry에서 한다. pool read처럼 동기일 필요가 없다.
+export type ApiReadDefinition<R extends ReadRoute = ReadRoute> = {
+  route: R;
+  handle(
+    ctx: RequestContext,
+    input: Input<R>,
+  ): Result<Output<R>> | Promise<Result<Output<R>>>;
+};
+
 // event를 읽는 자격이 그 event를 볼 수 있는지 owner가 정한다. event 구독과 list가 event마다 부른다.
 //
 // 소비:

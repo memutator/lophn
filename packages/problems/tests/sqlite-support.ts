@@ -7,7 +7,8 @@ import type {
   SqlRow,
   Tx,
 } from "../../contracts/platform/mod.ts";
-import { schemaSql } from "./support.ts";
+import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+import { schemaSql, strictTargetAuthorizer } from "./support.ts";
 
 // T59 writer 전에는 contract Sql과 rollback 경계만 probe한다.
 export function fileLedger() {
@@ -40,7 +41,8 @@ export function fileLedger() {
     sql,
     now: () => "2026-10-04T00:00:00.000Z",
     newId: () => "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
-    port: () => {
+    port<T>(key: { readonly name: string }): T {
+      if (key === TargetAuthorization) return strictTargetAuthorizer() as T;
       throw new Error("no port");
     },
     emit(_event, subject, payload) {

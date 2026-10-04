@@ -85,7 +85,11 @@ Deno.test(
         expires_at: "2026-10-04",
       }).success,
     );
-    assertThrows(() => defineDecision("DeleteFile"));
+    assertEquals(
+      defineDecision("RevokeCodingAgentConnection"),
+      "RevokeCodingAgentConnection",
+    );
+    assertThrows(() => defineDecision("delete-file"));
   },
 );
 

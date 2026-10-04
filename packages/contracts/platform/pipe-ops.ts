@@ -10,6 +10,8 @@ import { type Frame, STREAM_CHUNK_MAX_BYTES } from "./supervision.ts";
 import { sha256Schema } from "./values.ts";
 
 export const BLOB_PREPARE_OP = "blob.prepare";
+// 바이트 읽기는 I/O worker만 한다. core는 hash와 구간만 넘긴다.
+export const BLOB_READ_OP = "blob.read";
 export const BLOB_PREPARE_CHUNK_MAX_BYTES = STREAM_CHUNK_MAX_BYTES;
 
 // bytes는 supervision 요청의 channel에 묶인다. JSON payload에는 stream을 넣지 않는다.
@@ -57,6 +59,26 @@ export const blobPrepare = defineWorker({
   ],
 });
 
-export const BLOB_PIPE_OPS = [blobPrepare] as const;
+export const blobReadPipeInputSchema = z.strictObject({
+  hash: sha256Schema,
+  offset: z.number().int().nonnegative(),
+  length: z.number().int().nonnegative(),
+});
 
-export const PIPE_OPS = [blobPrepare, redactionCheck] as const;
+export const blobReadPipe = defineWorker({
+  resource: "blobs",
+  method: "read",
+  name: BLOB_READ_OP,
+  input: blobReadPipeInputSchema,
+  output: z.strictObject({
+    hash: sha256Schema,
+    size_bytes: z.number().int().nonnegative(),
+    bytes: z.string(),
+  }),
+  actors: ["machine"],
+  errors: ["not_found", "unavailable"],
+});
+
+export const BLOB_PIPE_OPS = [blobPrepare, blobReadPipe] as const;
+
+export const PIPE_OPS = [blobPrepare, blobReadPipe, redactionCheck] as const;

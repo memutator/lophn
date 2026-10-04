@@ -7,7 +7,7 @@
 // sandbox를 끄는 우회(--no-sandbox 등) 없이 검사한다. 화면이 없으면 건너뛴다.
 import { assert, assertEquals } from "@std/assert";
 
-import { displayAvailable, READY_TIMEOUT_MS } from "../harness.ts";
+import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import { launchShell } from "../run.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(
@@ -81,7 +81,7 @@ const PROBE = `(() => {
 Deno.test({
   name:
     "e2e shell/desktop#R16: desktop renderer에서 require·process·Node 모듈에 직접 접근할 수 없다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
@@ -148,7 +148,7 @@ Deno.test({
 Deno.test({
   name:
     "e2e shell/desktop#R16: overlay renderer에서도 require·process·Node 모듈에 직접 접근할 수 없다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
@@ -215,7 +215,7 @@ Deno.test({
 Deno.test({
   name:
     "e2e shell/app-frame#R24: desk renderer에서 임의 IPC channel을 부를 수 없고 overlay api만 노출된다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
@@ -283,7 +283,7 @@ Deno.test({
 Deno.test({
   name:
     "e2e shell/app-frame#R24: overlay renderer에서 스푸핑한 IPC caller는 거절된다(guardIpc가 임의 sender를 막는다)",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
@@ -359,7 +359,7 @@ Deno.test({
 Deno.test({
   name:
     "e2e shell/desktop#R16: shell·overlay renderer에서 사람 token과 DB 파일에 직접 접근할 수 없다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {

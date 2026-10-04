@@ -11,7 +11,7 @@
 // 화면이 없으면 건너뛴다.
 import { assert, assertEquals } from "@std/assert";
 
-import { displayAvailable, READY_TIMEOUT_MS } from "../harness.ts";
+import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import { launchShell, type PageSession, type RunningShell } from "../run.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(
@@ -123,7 +123,7 @@ async function launchWithOverlay(): Promise<{
 Deno.test({
   name:
     "e2e shell/app-frame#R24: dialog를 열면 overlay view bounds가 창 본문 전체가 되고 아래 창 view가 보이며 닫은 뒤에도 붙어 있다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
@@ -237,7 +237,7 @@ Deno.test({
 Deno.test({
   name:
     "e2e shell/app-frame#R24 + shell/design-system#R20: dialog 안 menu는 같은 overlay root의 sibling section이고 popover 층이 dialog 위에 보인다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
@@ -304,7 +304,7 @@ Deno.test({
 Deno.test({
   name:
     "e2e shell/app-frame#R29: 경계 drag가 창 본문 전체 rect로 그리고 아래 view를 숨기거나 떼지 않는다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
@@ -384,7 +384,7 @@ Deno.test({
 Deno.test({
   name:
     "e2e shell/app-frame#R29: 연속 resize 때 overlay view bounds 적용이 16ms 이상 간격으로 묶인다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {
@@ -447,7 +447,7 @@ Deno.test({
 Deno.test({
   name:
     "e2e shell/design-system#R2: dialog를 열면 overlay view로 focus가 옮겨지고 닫으면 desktop renderer로 돌아온다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {

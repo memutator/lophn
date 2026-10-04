@@ -483,6 +483,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T19 secret 참조와 OS keychain adapter
 
+- 상태: 완료 (#85)
 - 등급: 최상위
 - concern: platform/secrets
 - 요구: platform/secrets#R1, R2, R4, R6, R7, R8

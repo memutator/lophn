@@ -705,6 +705,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T49 contracts/coding-agent: 질문·approval·context tool
 
+- 상태: 완료 (#110)
 - 등급: 좁은
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R17, R18; coding-agent/cli#R18, R19, R21
@@ -1173,3 +1174,4 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q35 T38 화면 검사 host 입력은 `{bundle_screens_dir, screens[{key, path}], app_socket_path, deadline_ms}`이고 관측은 `{load, errors, feedback_check, blocked_requests}`다(추천안). 통로는 상속 fd 3의 JSON lines, 시작 flag는 `--app-screen-test`다. runner가 찾는 실행 파일은 Linux `/opt/lophn/desktop/lophn-desktop`, macOS `Lophn.app/Contents/Resources/desktop/lophn-desktop`, Windows `Lophn/resources/desktop/lophn-desktop.exe`다. `connectionState`는 apps/runtime의 preparing·stopped·running·unavailable다. shell partition 이름은 `persist:shell`이다. `lophnApp`의 portable entry는 Zod 없는 `shell/app-bridge`다. screenshot 미리보기는 사람이 고른 hash만 두고 redaction 불가 이유·가림 값은 두지 않는다(D32).
 - Q36 T30 tool call·trace·usage는 domain 필드를 strict schema로 두고 export는 업무 event 없는 user command, MCP 서버 설정은 T24 SettingDefinition 하나로 둔다(추천안). 결과 kind는 success·failure·not_executed·uncertain, 비용 kind는 reported·estimated·subscription·free·unknown이다. canonical 외부 이름은 `ext_<server>_<tool>`(영문·숫자·밑줄·하이픈, 64자 이하)이고 인증 secret은 `sec:` 참조만 싣는다. VisualBlock은 T26 schema를 재사용하며 복제하지 않는다. schema의 모양 검사는 현재 scope·definition·MCP 판·approval 한 번 사용·owner transaction·redaction을 대신하지 않는다.
 - Q37 T29 provider credential 원값은 schema에 두지 않고 platform secret 준비(purpose `provider_credential`)와 sealed 참조만 싣는다(추천안). OAuth product는 chatgpt(`device_code_then_pkce_paste_url`)와 supergrok(`device_code`)만이고 Claude OAuth 자리는 없다(D31). login 완료는 일회 handle과 opaque submission을 secret_input confirmation으로 받고 code를 저장하지 않는다. connection test는 30000ms 고정이고 그 ModelCall은 run·session·model_use·preset가 null이다. ModelCall·RunBasis는 T26의 ResolvedModel·PriceBasis를 그대로 재사용한다(Q22). 시작 call의 cost kind는 unknown이고, catalog entry·state는 ledger entity가 아닌 read 값이다. ModelDefaultsChanged의 subject는 null이다. schema의 모양 검사는 실제 credential 저장·현재 권한·login 일회 사용·catalog 출처 판정을 대신하지 않는다.
+- Q39 T49 coding agent의 질문·approval·context tool은 owner route 입력을 그대로 재사용한다(추천안). 그래서 architecture 표의 `state?`는 owner 이름 `status`로, owner가 받지 않는 `app?` filter와 `items`의 `depth?`는 두지 않는다. `propose`는 route가 아니라 owner command 입력을 빌린 변경 union(create·rename·set_item·remove_item·term_propose·term_update)이고 term.define·보관·분할·병합은 사람 몫이라 없다. 변경안 문서 저장 자리는 documents host 몫이다.

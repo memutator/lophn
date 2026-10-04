@@ -43,7 +43,7 @@ concerns: [documents]
 
 ### T2 documents worker 프로세스 뼈대
 
-- 상태: 진행 (#125) — 남은 것: 준비 worker의 실제 scan·hash·diff와 결과 command 제출(core 비동기 dispatch 포함), crash 시 slot의 새 프로세스 refill은 core 쪽 감독 seam이 필요하다(T11)
+- 상태: 완료 (#128) — 준비 worker의 실제 scan·hash·diff와 결과 command 제출은 T11 몫이다
 - 등급: 기본
 - concern: documents/file-tracking
 - 요구: documents/file-tracking#R5
@@ -227,6 +227,7 @@ concerns: [documents]
 - 내놓는 contract: `/v1/files/status`(FileStatus)
 - slice: documents
 - 선행: T8, T10, platform#T4(event 구독)
+- T2에서 넘어온 것: 준비 worker의 실제 scan·hash·diff와 그 결과 command 제출, `/v1/projects/preview_tracking` route 연결(T10 진행 줄)
 - 완료:
   - root별 `Deno.watchFs(recursive)` 신호는 힌트. 시작·절전 복귀·watch 넘침·단절·규칙·폴더 변경·보관 해제에 전체 대조, 평소 60초마다 root scan(진행 중이면 합침), root당 후보 10,000개 초과면 `rescan_required` 하나
   - canonical 경로별 후보 합치기, 750ms 조용하면 관측, 안정 읽기 최대 3회. 열기 전·후 실제 경로·file identity·size·mtime 비교, 같은 stream에서 hash와 blob. 안정 확인 실패는 unverified로 두고 다음 파일로

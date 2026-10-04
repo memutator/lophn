@@ -43,6 +43,7 @@ concerns: [documents]
 
 ### T2 documents worker 프로세스 뼈대
 
+- 상태: 완료 (#128) — 준비 worker의 실제 scan·hash·diff와 결과 command 제출은 T11 몫이다
 - 등급: 기본
 - concern: documents/file-tracking
 - 요구: documents/file-tracking#R5
@@ -99,7 +100,7 @@ concerns: [documents]
   - 옛 Version이 가리키는 module은 hash로만 찾고 이름으로 최신 module을 찾지 않는다. 누락·실행 실패·미지원을 구별하고 대체 추출을 하지 않는다
   - `/v1/formats/list`, `/get`(선언·template·guide·예시·vocabulary), `/validate`(파일·줄·열 위치, Version 없음), `/extract`
   - `runner_test.ts`에 formats#R18: 금지 접근마다 실패, 무한 loop kill, 대형 출력 거절, 반복 결과 같음. formats#R19: fixture 하나 실패나 순환 부모 출력 module은 쓰이지 않음. formats#R20: module 누락·runner 실패의 이유 구별. formats#R8: 검사만으로 판 수가 늘지 않음(API 통합 테스트)
-- 진행: T2 없이 되는 부분(QuickJS host, 호출마다 runner 프로세스, module 묶음과 module_hash, 출력 재검사, hash로만 module 조회, R18–R20 runner_test)을 #87에 합쳤다. 남은 것: apps/worker/documents format-runner kind와 runner 읽기 권한을 QuickJS wasm 파일로 좁히기(T2), `/v1/formats/*` route 등록과 R8 API 통합 테스트(platform#T9), platform blob `format_module` 보존(platform#T14).
+- 상태: 완료 (#174)
 
 ### T5 address 문법과 이름 예약
 
@@ -123,6 +124,7 @@ concerns: [documents]
 
 ### T6 Document·Version ledger
 
+- 상태: 완료 (#164)
 - 등급: 기본
 - concern: documents/versions
 - 요구: documents/versions#R1, R2, R3, R4, R5, R6, R7, R8, R9, R11, R12
@@ -159,7 +161,7 @@ concerns: [documents]
   - resolve: 가장 깊은 등록 root(꺼진 중첩 root 포함), 내용 유사도로 재연결하지 않음. coding agent가 cwd로 resolve하면 project 참조만 돌려주고 경로·원본 연결은 만들지 않음
   - 이름 변경은 같은 transaction에서 place 예약, 보관은 문서·판을 지우거나 일괄 보관하지 않음
   - `commands_test.ts`, `reads_test.ts`, `model_test.ts`에 각 요구 번호 테스트, API 통합 테스트
-- 착수 경계: Q12(contracts Q24, #72)가 들어왔고 `project.resolve_cwd`·`project.tracking_roots`·사람 read의 `initial_tracking_proposal`·list/resolve conflict·고정 version ref를 public harness(platform#T59) 통합 테스트로 소비한다. cwd 근거는 `ctx.conditions.cwd`다(Q14, #77). 근거가 없으면 fail-closed이고 caller path fallback은 없다. Q13의 owner target 검사는 public seam이 없어 현재 credential의 operation 목록 대조만 한다.
+- 착수 경계: Q12(contracts Q24, #72)가 들어왔고 `project.resolve_cwd`·`project.tracking_roots`·사람 read의 `initial_tracking_proposal`·list/resolve conflict·고정 version ref를 public harness(platform#T59) 통합 테스트로 소비한다. cwd 근거는 `ctx.conditions.cwd`다(Q14, #77). 근거가 없으면 fail-closed이고 caller path fallback은 없다. Q13의 owner target 검사는 해소(#82, #91)되어 command는 tx.port(TargetAuthorization), read와 event 반응은 snapshot.port(TargetAuthorization)로 domain target을 판정한다.
 
 ### T8 저장 준비 경로
 
@@ -226,6 +228,7 @@ concerns: [documents]
 - 내놓는 contract: `/v1/files/status`(FileStatus)
 - slice: documents
 - 선행: T8, T10, platform#T4(event 구독)
+- T2에서 넘어온 것: 준비 worker의 실제 scan·hash·diff와 그 결과 command 제출, `/v1/projects/preview_tracking` route 연결(T10 진행 줄)
 - 완료:
   - root별 `Deno.watchFs(recursive)` 신호는 힌트. 시작·절전 복귀·watch 넘침·단절·규칙·폴더 변경·보관 해제에 전체 대조, 평소 60초마다 root scan(진행 중이면 합침), root당 후보 10,000개 초과면 `rescan_required` 하나
   - canonical 경로별 후보 합치기, 750ms 조용하면 관측, 안정 읽기 최대 3회. 열기 전·후 실제 경로·file identity·size·mtime 비교, 같은 stream에서 hash와 blob. 안정 확인 실패는 unverified로 두고 다음 파일로
@@ -656,5 +659,5 @@ lead가 2026-10-04에 모두 정했다.
 - **Q10 SDK format Package.** 정함: `@lophn/format-document` 하나(이름·MIME·template·guide·FormatRef, 검사 코드 없음). 코드는 apps#T29, 내용은 T3·T4의 선언에서 만든다.
 - **Q11 T5 이름 제안의 작은 동작.** 추천·적용: 제목에서 ASCII 재료가 나오면 먼저 쓰고, 없으면 첫 파일의 basename에서 마지막 확장자를 뺀 재료를 쓴다. 그마저 없으면 `document`, 숫자로 시작하면 `document-` prefix를 쓴다. non-ASCII를 transliteration하지 않으며 title은 그대로 둔다. 63에서 자른 뒤 끝 하이픈을 뺀다. 이유: IO·locale·무작위 없이 항상 schema-valid 제안을 주고 사람이 최종 이름을 고를 수 있게 한다. 중복 이름 suffix 탐색·예약은 순수 제안에 넣지 않는다.
 - **Q12 T7 public Project read seam.** 해소(#72). `project.resolve_cwd`는 input `{}`와 host 고정 cwd로 project ID와 read common만 돌려주고 근거가 없으면 fail-closed다. `project.tracking_roots`는 machine 전용 활성·enabled root다. `initial_tracking_proposal`은 저장된 tracking과 별도 output이고 list·resolve cursor drift는 conflict다. Project read 자료 참조는 고정 version이다.
-- **Q13 T7 owner target 검사 주입.** 남은 것: public authorizer seam이 없어 등록은 현재 credential의 operation 목록만 대조한다. owner target을 platform authorizer에 연결하는 자리는 아직 없다. callback 부재·Promise·잘못된 반환은 fail-closed이고 요청이 주장한 scope는 authority가 아니다.
+- **Q13 T7 owner target 검사 주입.** 해소(#82, #91). owner는 Tx·ReadSnapshot의 TargetAuthorization port로 domain target을 판정하고, port 부재·Promise·잘못된 반환은 fail-closed다.
 - **Q14 T7 authenticated cwd 근거.** 해소(#77).

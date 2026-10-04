@@ -51,6 +51,7 @@ export function serveWriter(
     call: registration.call,
     checkCredential: registration.checkCredential,
     subscriberGate: registration.subscriberGate,
+    confirmation: registration.confirmation,
   };
   let chain = Promise.resolve();
   worker.onmessage = (event: MessageEvent<WriterRequest>) => {

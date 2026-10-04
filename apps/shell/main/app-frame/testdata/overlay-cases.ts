@@ -389,3 +389,19 @@ test("shell/app-frame#R29: resize latest frame reads current body once and retir
   stale();
   assert.equal(next.bounds.length, 0);
 });
+
+test("shell/app-frame#R22: dispose after the window closed skips the destroyed view and shell", () => {
+  const f = fixture();
+  const v = f.views[0]!;
+  f.open("dialog");
+  assert(f.controller.subscribe(f.event(v.wc.object), {}).ok);
+  // 창이 닫혀 shell과 view webContents가 이미 destroy된 뒤의 정리다.
+  f.shell.object.close();
+  v.wc.object.close();
+  f.controller.dispose();
+  assert.equal((f.shell.messages.at(-1) as { type?: string })?.type, undefined);
+  assert(v.released);
+  // dispose가 이미 destroy된 view를 다시 건드리지 않는다.
+  f.controller.dispose();
+  assert(v.released);
+});

@@ -25,6 +25,11 @@ import { type WebPreferences, webPreferences } from "../desktop/security.ts";
 import { latestFrame } from "./frame.ts";
 import { type ViewHost, viewOrder } from "./view-order.ts";
 
+// notification은 focus를 옮기지 않지만 toast 행동은 고른 결과를 돌려준다. tooltip·drag는 고를 것이 없다.
+function selectable(kind: OverlayOpen["kind"]): boolean {
+  return interactive(kind) || kind === "notification";
+}
+
 export const OVERLAY_URL = "lophn-shell://overlay/index.html";
 export interface OverlayContents extends CallerContents {
   loadURL(url: string): Promise<void>;
@@ -337,7 +342,7 @@ export function createOverlay(options: OverlayOptions) {
       } else {
         if (
           result.type === "selected" &&
-          (!interactive(surface.kind) ||
+          (!selectable(surface.kind) ||
             !surface.model.choices.some((choice) =>
               choice.id === result.choiceId && !choice.disabled
             ))

@@ -1,7 +1,19 @@
 import { z } from "zod";
+import { canonicalize } from "../../base/mod.ts";
 import { actorSchema } from "./actor.ts";
 import { idSchema } from "./ids.ts";
+import { type JsonObject, jsonObjectSchema } from "./json-values.ts";
 import { atSchema } from "./values.ts";
+
+// 발급 때 고정한 target이 caller mutation으로 바뀌지 않게 own key를 보존하며 복사한다.
+const credentialTargetsSchema = jsonObjectSchema.transform((value, ctx) => {
+  try {
+    return JSON.parse(canonicalize(value)) as JsonObject;
+  } catch {
+    ctx.addIssue({ code: "custom", message: "expected canonical JSON object" });
+    return z.NEVER;
+  }
+});
 
 // 대상 범위의 내용은 소유 concern이 검사한다. platform은 JSON 경계만 정한다.
 export const credentialScopeSchema = z.strictObject({
@@ -9,7 +21,7 @@ export const credentialScopeSchema = z.strictObject({
     (values) => new Set(values).size === values.length,
     { message: "duplicate operation" },
   ),
-  targets: z.record(z.string(), z.json()),
+  targets: credentialTargetsSchema,
 });
 export type CredentialScope = z.infer<typeof credentialScopeSchema>;
 

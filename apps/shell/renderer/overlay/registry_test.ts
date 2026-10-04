@@ -8,10 +8,31 @@ import type {
   OverlaySnapshot,
   OverlaySurface,
 } from "../../ipc/overlay.ts";
-import { overlayRegistry } from "./registry.ts";
+import {
+  overlayRegistry,
+  type SurfaceActions,
+  type SurfaceMount,
+} from "./registry.ts";
 import { overlayConsumer } from "./consumer.ts";
 
+// 표면 모양은 surfaces/의 test가 본다. 여기서는 host·결과·수명만 보는 stub mount를 쓴다.
+function stubMount() {
+  const mounted = new Map<string, SurfaceActions>();
+  const log: string[] = [];
+  const mount: SurfaceMount = (host, surface, actions) => {
+    const id = `${surface.surfaceId}@${surface.generation}`;
+    host.textContent = surface.model.label;
+    mounted.set(surface.surfaceId, actions);
+    log.push(`mount ${id}`);
+    return () => {
+      log.push(`unmount ${id}`);
+    };
+  };
+  return { mount, mounted, log };
+}
+
 function fixture() {
+  const stub = stubMount();
   const window = new Window();
   const document = window.document;
   const root = document.createElement("main");
@@ -36,9 +57,15 @@ function fixture() {
       };
     },
   };
-  const registry = overlayRegistry(root as unknown as HTMLElement, api, {
-    surface: "surface",
-  }, () => {});
+  const registry = overlayRegistry(
+    root as unknown as HTMLElement,
+    api,
+    {
+      surface: "surface",
+    },
+    () => {},
+    stub.mount,
+  );
   function surface(kind: OverlayKind, id = kind): OverlaySurface {
     return {
       kind,
@@ -62,6 +89,7 @@ function fixture() {
     for (const listener of listeners) listener(event);
   }
   return {
+    stub,
     window,
     document,
     root,
@@ -101,25 +129,33 @@ Deno.test("shell/design-system#R20: overlay registry renders sibling z tokens an
     assertEquals(node.style.top, "20px");
   }
   assertEquals(f.root.querySelectorAll("script").length, 0);
+  assertEquals(f.root.querySelectorAll("[data-kind=backdrop]").length, 0);
+  f.stub.mounted.get("popover")!.select("yes");
+  f.stub.mounted.get("dialog")!.close();
+  assertEquals(f.results, [
+    { surfaceId: "popover", generation: 1, type: "selected", choiceId: "yes" },
+    { surfaceId: "dialog", generation: 1, type: "closed" },
+  ]);
   f.registry.dispose();
   assertEquals(f.listeners.size, 0);
 });
 
-Deno.test("shell/design-system#R2: interactive focus differs from tooltip drag notification and restores connected opener", async () => {
+Deno.test("shell/design-system#R2: registry hosts never move focus and consumer restores the opener only on its matching terminal", async () => {
   const f = fixture();
   const opener = f.document.createElement("button");
   f.document.body.append(opener);
   opener.focus();
   const consumer = overlayConsumer(f.api, () => {}, () => {});
-  for (const kind of ["tooltip", "drag", "notification"] as const) {
+  for (const kind of ["tooltip", "drag", "notification", "menu"] as const) {
     f.emit([f.surface(kind)]);
     assert(f.document.activeElement === opener);
-    assertEquals(f.root.querySelectorAll("button").length, 0);
   }
   const input: OverlayOpen = f.surface("menu");
   await consumer.open(input, opener as unknown as HTMLElement);
   f.emit([f.surface("menu")]);
-  assert(f.document.activeElement === f.root.querySelector("button"));
+  const inside = f.document.createElement("button");
+  f.root.firstElementChild!.append(inside);
+  inside.focus();
   for (const listener of f.listeners) {
     listener({
       requestId: "menu",
@@ -128,7 +164,7 @@ Deno.test("shell/design-system#R2: interactive focus differs from tooltip drag n
       type: "closed",
     });
   }
-  assert(f.document.activeElement === f.root.querySelector("button"));
+  assert(f.document.activeElement === inside);
   for (const listener of f.listeners) {
     listener({
       requestId: "menu",
@@ -140,30 +176,6 @@ Deno.test("shell/design-system#R2: interactive focus differs from tooltip drag n
   }
   assert(f.document.activeElement === opener);
   consumer.dispose();
-  f.registry.dispose();
-});
-
-Deno.test("shell/design-system#R20: popup outside modal closes on focus movement and sheet dismisses outside without backdrop", () => {
-  const f = fixture();
-  const external = f.document.createElement("button");
-  f.document.body.append(external);
-  f.emit([f.surface("dialog"), f.surface("popover")]);
-  external.focus();
-  assert(
-    f.results.some((result) =>
-      (result as { surfaceId: string }).surfaceId === "popover"
-    ),
-  );
-  f.emit([f.surface("sheet")]);
-  external.dispatchEvent(
-    new f.window.PointerEvent("pointerdown", { bubbles: true }),
-  );
-  assert(
-    f.results.some((result) =>
-      (result as { surfaceId: string }).surfaceId === "sheet"
-    ),
-  );
-  assertEquals(f.root.querySelectorAll("[data-kind=backdrop]").length, 0);
   f.registry.dispose();
 });
 
@@ -275,6 +287,7 @@ Deno.test("shell/app-frame#R24: registry result rejection is observed sanitized 
     f.api,
     {},
     (error) => errors.push(error),
+    f.stub.mount,
   );
   f.api.result = () => Promise.reject(new Error("credential secret"));
   registry.update({
@@ -282,23 +295,25 @@ Deno.test("shell/app-frame#R24: registry result rejection is observed sanitized 
     bounds: { x: 0, y: 0, width: 500, height: 500 },
     surfaces: [f.surface("menu")],
   });
-  const button = f.root.querySelector("button")!;
-  button.click();
+  const choose = f.stub.mounted.get("menu")!;
+  choose.select("yes");
   await Promise.resolve();
   await Promise.resolve();
   assertEquals(errors.length, 1);
   assert(!JSON.stringify(errors).includes("secret"));
-  f.api.result = () => Promise.resolve({ ok: true, value: null });
-  button.click();
+  f.api.result = (input) => {
+    f.results.push(input);
+    return Promise.resolve({ ok: true, value: null });
+  };
+  choose.select("yes");
   await Promise.resolve();
   assertEquals(errors.length, 1);
-  assertEquals(button.getAttribute("role"), "menuitem");
-  registry.update({
+  assertEquals(f.results, [{
+    surfaceId: "menu",
     generation: 1,
-    bounds: { x: 0, y: 0, width: 500, height: 500 },
-    surfaces: [f.surface("tooltip")],
-  });
-  assertEquals(f.root.firstElementChild?.getAttribute("role"), "tooltip");
+    type: "selected",
+    choiceId: "yes",
+  }]);
   registry.dispose();
 });
 
@@ -354,9 +369,10 @@ Deno.test("shell/app-frame#R24: observers receive ready errors and disposal supp
     f.api,
     {},
     (failure) => errors.push(failure),
+    f.stub.mount,
   );
   f.emit([f.surface("menu")]);
-  f.root.querySelector("button")!.click();
+  f.stub.mounted.get("menu")!.select("yes");
   registry.dispose();
   rejectResult(new Error("secret"));
   await Promise.resolve();

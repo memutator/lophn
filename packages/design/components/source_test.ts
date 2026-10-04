@@ -55,9 +55,26 @@ export function rhythmAllowed(
   return false;
 }
 
+// 그림자는 떠 있는 표면만 쓴다. 목록·menu·tooltip·popover·toast·chip은 popover, dialog·sheet·palette는
+// dialog 그림자다(R18, R45). 카드와 그 밖의 표면에는 그림자가 없다.
+const POPOVER_SHADOW = "var(--shadow-popover)";
+const DIALOG_SHADOW = "var(--shadow-dialog)";
+const SHADOWS = new Map([
+  ["components/select/select.module.css", POPOVER_SHADOW],
+  ["components/tooltip/tooltip.module.css", POPOVER_SHADOW],
+  ["components/menu/menu.module.css", POPOVER_SHADOW],
+  ["components/popover/popover.module.css", POPOVER_SHADOW],
+  ["components/toast/toast.module.css", POPOVER_SHADOW],
+  ["components/chip/chip.module.css", POPOVER_SHADOW],
+  ["components/dialog/dialog.module.css", DIALOG_SHADOW],
+  ["components/sheet/sheet.module.css", DIALOG_SHADOW],
+  ["components/palette/palette.module.css", DIALOG_SHADOW],
+]);
+
 Deno.test("shell/design-system#R6: 컴포넌트 CSS에 그라데이션·glass·그림자·대문자·장식 움직임이 없다", async () => {
   const files = await designSources([".css"]);
   assert(files.length >= 16);
+  const shadowed = new Set<string>();
   for (const file of files) {
     const name = relative(file);
     const root = postcss.parse(await Deno.readTextFile(file));
@@ -73,11 +90,8 @@ Deno.test("shell/design-system#R6: 컴포넌트 CSS에 그라데이션·glass·�
         assert(decl.value !== "uppercase", where);
       }
       if (decl.prop === "box-shadow") {
-        // 그림자는 떠 있는 Select 목록의 popover 그림자만 쓴다(R18).
-        assertEquals(
-          [name, decl.value],
-          ["components/select/select.module.css", "var(--shadow-popover)"],
-        );
+        assertEquals(decl.value, SHADOWS.get(name), where);
+        shadowed.add(name);
       }
       if (decl.prop.startsWith("animation")) {
         assertEquals(name, "components/skeleton/skeleton.module.css", where);
@@ -91,6 +105,7 @@ Deno.test("shell/design-system#R6: 컴포넌트 CSS에 그라데이션·glass·�
       ]);
     });
   }
+  assertEquals([...shadowed].sort(), [...SHADOWS.keys()].sort());
 });
 
 Deno.test("shell/design-system#R6: 컴포넌트 간격은 정한 리듬 token만 쓴다", async () => {

@@ -152,6 +152,16 @@
   --tree-indent-cap: 8;
   --stat-per-row: 4;
   --palette-item: 36px;
+  --palette-width: 640px;
+  --palette-top: 20%;
+  --tooltip-delay: 400ms;
+  --menu-row: 32px;
+  --dialog-width-default: 480px;
+  --dialog-width-wide: 640px;
+  --toast-width: 360px;
+  --toast-duration-default: 5000ms;
+  --toast-duration-brief: 2000ms;
+  --chip-width: 360px;
   --floating-surface: #ffffff;
   --floating-hover: #f3f2ef;
   --floating-backdrop: rgba(13,13,13,0.4);

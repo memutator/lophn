@@ -141,6 +141,13 @@ export {
   type CredentialScope,
   credentialScopeSchema,
 } from "./identity.ts";
+export {
+  type JsonObject,
+  jsonObjectSchema,
+  type JsonPrimitive,
+  type JsonValue,
+  jsonValueSchema,
+} from "./json-values.ts";
 export { definePort, type PortKey } from "./ports.ts";
 export {
   type CommandDefinition,

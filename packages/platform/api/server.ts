@@ -236,7 +236,10 @@ function controlCommand(_ctx: AuthenticatedContext, name: string): boolean {
 function commandRefused(): { status: number; json: unknown } {
   return {
     status: ERROR_HTTP_STATUS.unavailable,
-    json: errorBody({ code: "unavailable", message: "admission 한도를 넘었다" }),
+    json: errorBody({
+      code: "unavailable",
+      message: "admission 한도를 넘었다",
+    }),
   };
 }
 

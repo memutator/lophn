@@ -196,8 +196,11 @@ async function command(
       : { confirmation: request.confirmation }),
   };
   const result = await (deps.admitCommand
-    ? deps.admitCommand(ctx, route.name, () =>
-      sendCommand(deps.writer!, ctx, envelope, route))
+    ? deps.admitCommand(
+      ctx,
+      route.name,
+      () => sendCommand(deps.writer!, ctx, envelope, route),
+    )
     : sendCommand(deps.writer, ctx, envelope, route));
   return result;
 }

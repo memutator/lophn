@@ -42,8 +42,10 @@ Deno.test("platform/responsiveness#R3: command 입장은 전체 256·principal�
     const normalLimit = COMMAND_ADMISSION_TOTAL - COMMAND_CONTROL_RESERVED;
     for (let i = 0; i < normalLimit - COMMAND_ADMISSION_PRINCIPAL; i++) {
       queued.push(
-        admission.admit(`p-${Math.floor(i / 16)}-${i % 16}`, () =>
-          Promise.resolve()),
+        admission.admit(
+          `p-${Math.floor(i / 16)}-${i % 16}`,
+          () => Promise.resolve(),
+        ),
       );
     }
     assertEquals(admission.command.queued, normalLimit);

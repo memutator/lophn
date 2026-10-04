@@ -114,6 +114,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: skeleton
 - 선행: platform#T1
 - 상태: 완료 (#40)
+- 정정: reader output과 error body는 shared `output.ts`로 raw JSON 안전성을 schema strip·metadata 덮어쓰기 전에 검사한다. function·symbol·undefined·bigint·cycle·비plain object·NaN·Infinity·negative zero는 `internal`로 거절하고 JSON extra key strip은 허용한다. schema 뒤 최종 JSON을 다시 schema로 검사해 값 불변을 확인하며, handler 직후 snapshot 종료와 실제 reader Worker의 다음 read를 보존한다.
 - 완료: 아래 확인이 통과한다
   - reader Worker 2개가 각자 `readOnly` 연결과 `PRAGMA query_only=ON`을 쓴다. writer queue와 다른 queue다.
   - 응답 하나가 짧은 read transaction 하나이고, 자료와 `as_of_seq`를 같은 snapshot에서 얻는다.

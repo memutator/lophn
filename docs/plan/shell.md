@@ -1122,3 +1122,4 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
 - **Q8 보호 창이 아닌 확인(lead 결정, 추천대로).** 살아 있는 터미널 닫기, 저장 안 된 초안 버리기는 shell overlay dialog로 묻는다.
 - **Q9 project-workspace flow의 앱 패널 단계(정함).** apps slice E2E에서 돈다. lead가 plan README의 갈래 목록에 넣었다.
 - **Q10 confirmation window의 slice(정함).** platform이 handle 발급·검증·소비를 documents slice의 platform#T56으로 떼었다. shell#T22는 platform#T56에, approval 종류(shell#T29)는 platform#T22에 기댄다.
+- **Q11 chip의 polite 전달(정함).** 접근성을 범위 밖에 둔 D22와 맞지 않아 shell/design-system#R35에서 "polite로 전달"을 뺐다. T11은 live region·announcer를 만들지 않고 키보드·Escape·focus 복귀만 둔다.

@@ -5,7 +5,8 @@
     "./components": "./components/mod.ts",
     "./reading": "./reading/mod.ts",
     "./base.css": "./base.css",
-    "./tokens.css": "./generated/tokens.css"
+    "./tokens.css": "./generated/tokens.css",
+    "./component-tests": "./component-tests.ts"
   },
   "imports": {
     "postcss": "npm:postcss@8.5.28",

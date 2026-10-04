@@ -21,6 +21,10 @@ export const en = {
   "common.button.copy-code": "Copy code",
   "common.copy.failed": "Couldn't copy. Try again.",
   "common.label.on-this-page": "On this page",
+  "common.button.close": "Close",
+  "common.button.view": "View",
+  "common.label.more-waiting": "{count, plural, one {+# more} other {+# more}}",
+  "common.palette.no-results": "Nothing matches your search.",
 } as const;
 
 export type Catalog = typeof en;

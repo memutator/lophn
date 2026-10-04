@@ -158,7 +158,7 @@ export async function build(
       });
     }
     // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.
-    for (const name of ["desktop", "overlay"]) {
+    for (const name of ["desktop", "overlay", "confirmation"]) {
       await mkdir(join(outdir, name), { recursive: true });
       await copyFile(
         join(here, name, "index.html"),

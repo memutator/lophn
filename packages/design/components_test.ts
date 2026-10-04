@@ -7,6 +7,10 @@ const bundled = await registerComponentTests([
   new URL("./reading/", import.meta.url),
   new URL("../sdk/ui-table/", import.meta.url),
   new URL("../sdk/ui-chart/", import.meta.url),
+  new URL(
+    "../../apps/shell/renderer/confirmation/screens/",
+    import.meta.url,
+  ),
 ]);
 
 Deno.test("shell/design-system#R43: 컴포넌트 test bundle은 React 한 벌과 scope된 CSS Modules class map을 쓴다", () => {

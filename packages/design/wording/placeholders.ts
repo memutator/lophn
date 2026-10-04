@@ -87,6 +87,22 @@ export type PlaceholderKinds = {
   "confirmation-window.button.cancel": Record<never, never>;
   "confirmation-window.button.refresh": Record<never, never>;
   "confirmation-window.button.decide": Record<never, never>;
+  "confirmation-window.heading.subject": Record<never, never>;
+  "confirmation-window.heading.effect": Record<never, never>;
+  "confirmation-window.heading.revert": Record<never, never>;
+  "confirmation-window.revert.possible": Record<never, never>;
+  "confirmation-window.revert.impossible": Record<never, never>;
+  "confirmation-window.label.current": Record<never, never>;
+  "confirmation-window.label.next": Record<never, never>;
+  "confirmation-window.change.none": Record<never, never>;
+  "confirmation-window.change.missing": Record<never, never>;
+  "confirmation-window.change.omitted": Record<never, never>;
+  "confirmation-window.label.full": Record<never, never>;
+  "confirmation-window.label.details": Record<never, never>;
+  "confirmation-window.file-delete.title": Record<never, never>;
+  "confirmation-window.file-delete.subject": Record<never, never>;
+  "confirmation-window.file-delete.effect": Record<never, never>;
+  "confirmation-window.button.delete-file": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

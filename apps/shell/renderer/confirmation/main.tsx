@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 
 import type { ConfirmationFrameApi } from "./frame/api.ts";
-import { ConfirmationFrame } from "./frame/frame.tsx";
+import { ConfirmationScreen } from "./screen.tsx";
 
 type Bridge = {
   lophnConfirmation?: ConfirmationFrameApi;
@@ -13,7 +13,7 @@ export function mountConfirmation(
   api: ConfirmationFrameApi,
   theme: Record<string, string>,
 ): void {
-  createRoot(root).render(<ConfirmationFrame api={api} theme={theme} />);
+  createRoot(root).render(<ConfirmationScreen api={api} theme={theme} />);
 }
 
 const bridge = globalThis as unknown as Bridge;

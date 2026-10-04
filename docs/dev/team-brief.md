@@ -56,6 +56,8 @@ Agent tool로 띄운다. worker는 자기 sub agent를 띄우지 않는다.
 | frontend | `subagent_type: "claude"`, `model: "opus"` |
 | 최상위 | `subagent_type: "claude"`, `model: "sonnet"`. worker가 자기 model이 `claude-sonnet-5-5`인지 첫 줄에 말하게 하고, 아니면 lead에게 알린다 |
 
+review는 diff를 직접 읽거나 다른 model worker에게 맡긴다. code-review Skill은 쓰지 않는다(worker를 따로 띄워 몫을 쓴다).
+
 worker의 Bash는 명령마다 cwd가 main checkout으로 돌아갈 수 있다. 그래서 worker 프롬프트 맨 앞에 "모든 명령과 파일 경로는 worktree 절대 경로다(`git -C <worktree>`, `cd <worktree> && ...`). main checkout은 고치지 않는다"를 넣는다. 테스트의 fixture·Worker entry·temp 경로는 `import.meta.url`이나 temp dir 기준으로 잡는다.
 
 worker 프롬프트에는 작업 블록 그대로, 읽을 파일(필요한 것만), worktree 경로, 지킬 규칙(`AGENTS.md`, `docs/dev/architecture.md`), 완료 기준, 보고 모양(바꾼 자리, 통과한 check, 테스트가 가리키는 요구, 남은 것)을 넣는다. 기본 등급이 같은 작업을 두 번 실패하면 최상위로 올린다.

@@ -1,9 +1,13 @@
 import { z } from "zod";
+
+function unique<T>(values: readonly T[]): boolean {
+  return new Set(values).size === values.length;
+}
+
 import { defineMemory } from "../platform/route.ts";
-import { agentAppScopeSchema } from "../lophn-agent/scope.ts";
 import {
   actorSchema,
-  APP_CALL_PATH_MAX,
+  APP_CALL_DEPTH_LIMIT,
   appIdSchema,
   atSchema,
   commandKeySchema,
@@ -19,7 +23,6 @@ import {
   screenSizeSchema,
   sha256Schema,
   toolCallIdSchema,
-  unique,
 } from "./channel-values.ts";
 
 // 다른 앱 호출의 인증된 출처. 본문 주장은 받지 않는다(domain-model apps/connections).
@@ -30,7 +33,7 @@ export const appCallOriginSchema = z.strictObject({
   process_nonce: processNonceSchema,
   grant: grantIdSchema,
   parent_invocation: invocationIdSchema.nullable(),
-  path: z.array(appIdSchema).max(APP_CALL_PATH_MAX),
+  path: z.array(appIdSchema).max(APP_CALL_DEPTH_LIMIT - 1),
 }).refine((value) => unique(value.path), { message: "duplicate app in path" })
   .refine(
     (value) => value.path.length === 0 || value.path.at(-1) === value.app,
@@ -122,14 +125,12 @@ function connectionShape(value: {
   release: string | null;
   screens: readonly string[];
   screen_sizes: Record<string, readonly string[]>;
-  caller: { kind: string } | null;
 }): boolean {
   if (value.mode === "live" && value.release === null) return false;
-  const sizes = Object.keys(value.screen_sizes);
-  return sizes.every((screen) => value.screens.includes(screen)) &&
-    value.screens.every((screen) => sizes.includes(screen)) &&
-    (value.mode === "preview" || value.caller === null ||
-      value.caller.kind === "app" || value.caller.kind === "agent");
+  // screen_sizes는 요청한 screen의 부분집합이다. 선언 대조는 supervisor가 한다.
+  return Object.keys(value.screen_sizes).every((screen) =>
+    value.screens.includes(screen)
+  );
 }
 
 // core가 서명하는 제한 credential. live는 release가 필수다(domain-model apps/runtime).
@@ -163,23 +164,17 @@ const connectFields = {
   }),
   caller: callOriginSchema.optional(),
   preview_nonce: processNonceSchema.optional(),
-  // agent 연결은 역할·assignment 범위와 교집합으로 발급한다(T26 AgentAppScope).
-  agent_scope: agentAppScopeSchema.optional(),
 };
 
 function connectShape(value: {
   mode: "live" | "preview";
   screens: readonly string[];
   screen_sizes: Record<string, readonly string[]>;
-  caller?: { kind: string };
   preview_nonce?: string;
-  agent_scope?: unknown;
 }): boolean {
-  const sizes = Object.keys(value.screen_sizes);
-  return value.screens.every((screen) => sizes.includes(screen)) &&
-    sizes.every((screen) => value.screens.includes(screen)) &&
-    (value.mode === "preview") === (value.preview_nonce !== undefined) &&
-    (value.caller?.kind === "agent") === (value.agent_scope !== undefined);
+  return Object.keys(value.screen_sizes).every((screen) =>
+    value.screens.includes(screen)
+  ) && (value.mode === "preview") === (value.preview_nonce !== undefined);
 }
 
 export const appConnectInputSchema = z.strictObject(connectFields).refine(
@@ -212,10 +207,11 @@ export const appConnect = defineMemory({
   ],
 });
 
-// 다음 대상이 path에 이미 있거나 추가 뒤 8개 앱을 넘으면 handler 전에 거절한다.
+// path는 최초 caller부터 현재 caller까지다. 다음 대상을 더한 앱 수가 8을 넘거나
+// 현재 path에 이미 있으면 handler 전에 거절한다(apps/connections#R7).
 export function appCallDepthAllowed(
   path: readonly string[],
   target: string,
 ): boolean {
-  return path.length < APP_CALL_PATH_MAX && !path.includes(target);
+  return path.length < APP_CALL_DEPTH_LIMIT && !path.includes(target);
 }

@@ -4,6 +4,7 @@ import {
   commandInvokeOutputSchema,
   commandRevertResultSchema,
   commandStatusOutputSchema,
+  controlProbeInputSchema,
   controlShutdownInputSchema,
   DIRECT_SOCKET_PATHS,
   readSourceStateSchema,
@@ -124,5 +125,29 @@ Deno.test("apps/runtime#R15, apps/runtime#R31, apps/preview#R3: 화면 path와 �
       grace_ms: 0,
     }).success,
     false,
+  );
+});
+
+Deno.test("apps/runtime#R11, apps/invocations#R7: 모르는 field와 틀린 ID 접두사를 거절한다", () => {
+  assert(
+    commandInvokeInputSchema.safeParse({
+      request_key: "call-1",
+      release: REL,
+      command: "usage.save",
+      actor: "user",
+    }).success === false,
+  );
+  assert(
+    commandInvokeInputSchema.safeParse({
+      request_key: "call-1",
+      release: "app_01h455vb4pex5v6nkc6gd5fdw1",
+      command: "usage.save",
+    }).success === false,
+  );
+  assert(
+    controlProbeInputSchema.safeParse({
+      process_nonce: "nonce-1",
+      extra: 1,
+    }).success === false,
   );
 });

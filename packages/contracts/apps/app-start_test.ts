@@ -55,3 +55,13 @@ Deno.test("apps/runtime#R2, apps/runtime#R7, apps/runtime#R8, apps/invocations#R
     }).success === false,
   );
 });
+
+Deno.test("apps/runtime#R7: 모르는 field와 틀린 ID 접두사를 거절한다", () => {
+  assert(
+    appStartInputSchema.safeParse({ ...start, token: "secret" }).success ===
+      false,
+  );
+  assert(
+    appStartInputSchema.safeParse({ ...start, app: REL }).success === false,
+  );
+});

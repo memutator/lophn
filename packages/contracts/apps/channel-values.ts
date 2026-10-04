@@ -45,8 +45,6 @@ export const SHUTDOWN_GRACE_MS = 10_000;
 export const CONFIRM_MARKER_LIMIT = 4096;
 // 앱끼리 이어 부르는 깊이(apps/connections#R7).
 export const APP_CALL_DEPTH_LIMIT = 8;
-// path는 현재 caller까지라 다음 대상을 더하기 전 최대 7개다.
-export const APP_CALL_PATH_MAX = APP_CALL_DEPTH_LIMIT - 1;
 // automation 전체 동시 invocation 기본 한도(apps/automations#R6).
 export const AUTOMATION_CONCURRENCY_LIMIT = 4;
 // automation 호출 기본 timeout(apps/automations#R9).
@@ -83,10 +81,6 @@ export const opaqueSchema = z.string().min(1).refine(
   (value) => !/\p{Cc}/u.test(value),
   { message: "opaque value contains a control character" },
 );
-
-export function unique<T>(values: readonly T[]): boolean {
-  return new Set(values).size === values.length;
-}
 
 export const grantIdSchema = idSchema("grt");
 export const invocationIdSchema = idSchema("inv");

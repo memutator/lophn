@@ -109,9 +109,26 @@ Deno.test("apps/runtime#R5, apps/runtime#R9, apps/runtime#R18, apps/connections#
       process_nonce: "nonce-1",
       mode: "live",
       key: "usage",
-      expected_version: null,
+      base_version: null,
       idempotency_key: "save-1",
     }).success,
+  );
+  assert(
+    brokerDocumentSaveInputSchema.safeParse({
+      process_nonce: "nonce-1",
+      mode: "live",
+      key: "usage",
+      base_version: "doc_01h455vb4pex5v6nkc6gd5fdw1",
+      idempotency_key: "save-1",
+    }).success === false,
+  );
+  assert(
+    brokerProblemReportInputSchema.safeParse({
+      process_nonce: "nonce-1",
+      mode: "live",
+      code: "usage_stale",
+      unknown: true,
+    }).success === false,
   );
   const permit = brokerAutomationTryAcquireOutputSchema.parse({
     permit: false,

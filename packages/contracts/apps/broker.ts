@@ -1,5 +1,14 @@
+function unique<T>(values: readonly T[]): boolean {
+  return new Set(values).size === values.length;
+}
+
 import { z } from "zod";
-import { errorBodySchema, secretNameSchema } from "../platform/mod.ts";
+import { versionIdSchema } from "../documents/values.ts";
+import {
+  errorBodySchema,
+  idSchema,
+  secretNameSchema,
+} from "../platform/mod.ts";
 import { problemCodeSchema } from "../problems/problem-codes.ts";
 import { appConnectOutputSchema } from "./channel.ts";
 import {
@@ -15,7 +24,6 @@ import {
   runtimeModeSchema,
   sha256Schema,
   TRACE_NAME_MAX_CHARS,
-  unique,
 } from "./channel-values.ts";
 import { readyAttestationInputSchema } from "./runtime.ts";
 
@@ -104,15 +112,21 @@ export const brokerSecretUseInputSchema = z.strictObject({
 export const brokerSecretUseOutputSchema = z.object({ used: z.literal(true) });
 
 // 문서 저장 client의 앱 쪽 입력. 실제 확정은 documents/versions를 따른다.
+// 문서 key는 blueprint DocumentDeclaration.key와 같다. 선언 대조는 runtime이다.
+export const documentKeySchema = z.string().min(1).refine(
+  (value) => value.trim().length > 0 && !/\p{Cc}/u.test(value),
+  { message: "document key cannot be blank or contain controls" },
+);
+
 export const brokerDocumentSaveInputSchema = z.strictObject({
   ...childFields,
-  key: commandKeySchema,
-  expected_version: z.string().min(1).nullable(),
+  key: documentKeySchema,
+  base_version: versionIdSchema.nullable(),
   idempotency_key: z.string().min(1),
 });
 export const brokerDocumentSaveOutputSchema = z.object({
   saved: z.boolean(),
-  version: z.string().min(1).nullable(),
+  version: versionIdSchema.nullable(),
 });
 
 // 자기 앱의 선언 code 보고. problem을 닫는 통로는 없다(apps/sdk#R26).
@@ -123,7 +137,7 @@ export const brokerProblemReportInputSchema = z.strictObject({
   trace: z.string().max(TRACE_NAME_MAX_CHARS).optional(),
 });
 export const brokerProblemReportOutputSchema = z.object({
-  report_id: z.string().min(1),
+  report_id: idSchema("rpt"),
 });
 
 // source 자식 신원으로 제한된 다른 앱 connection 준비. 업무 payload는 중계하지 않는다.

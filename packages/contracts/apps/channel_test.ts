@@ -11,10 +11,10 @@ import {
   confirmExecutionProofSchema,
   invocationCallerSchema,
 } from "./channel.ts";
-import { APP_CALL_DEPTH_LIMIT, APP_CALL_PATH_MAX } from "./channel-values.ts";
+import { APP_CALL_DEPTH_LIMIT } from "./channel-values.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
-const OTHER = "app_01h455vb4pex5v6nkc6gd5fdw2";
+const OTHER = "app_01h455vb4pex5v6nkc6gd5fdw8";
 const REL = "rel_01h455vb4pex5v6nkc6gd5fdw1";
 const GRANT = "grt_01h455vb4pex5v6nkc6gd5fdw1";
 const INV = "inv_01h455vb4pex5v6nkc6gd5fdw1";
@@ -109,14 +109,33 @@ Deno.test("apps/connections#R5, apps/connections#R7, apps/invocations#R16, apps/
     appCallOriginSchema.safeParse({ ...origin, path: [APP, APP] }).success ===
       false,
   );
+  const chain = [
+    APP,
+    "app_01h455vb4pex5v6nkc6gd5fdw2",
+    "app_01h455vb4pex5v6nkc6gd5fdw3",
+    "app_01h455vb4pex5v6nkc6gd5fdw4",
+    "app_01h455vb4pex5v6nkc6gd5fdw5",
+    "app_01h455vb4pex5v6nkc6gd5fdw6",
+    "app_01h455vb4pex5v6nkc6gd5fdw7",
+  ];
+  assert(
+    appCallOriginSchema.safeParse({ ...origin, app: chain[6], path: chain })
+      .success,
+  );
   assert(
     appCallOriginSchema.safeParse({
       ...origin,
-      path: Array.from({ length: APP_CALL_PATH_MAX + 1 }, () => OTHER),
+      app: OTHER,
+      path: [...chain, OTHER],
     }).success === false,
   );
   assertEquals(APP_CALL_DEPTH_LIMIT, 8);
-  assertEquals(appCallDepthAllowed([APP], OTHER), true);
+  // path 7개에 새 앱을 더하면 8개라 허용, 8개 체인에 새 앱은 9개라 거절.
+  assertEquals(appCallDepthAllowed(chain, OTHER), true);
+  assertEquals(
+    appCallDepthAllowed([...chain, OTHER], "app_01h455vb4pex5v6nkc6gd5fdwa"),
+    false,
+  );
   assertEquals(appCallDepthAllowed([APP, OTHER], APP), false);
   const caller = invocationCallerSchema.parse({
     kind: "app",
@@ -148,4 +167,68 @@ Deno.test("apps/runtime#R11: connect는 ledger command가 아닌 memory route다
   assertEquals(appConnect.kind, "memory");
   assertEquals(routePath(appConnect), "/v1/apps/connect");
   assertEquals(appConnect.name, "app.connect");
+});
+
+Deno.test("apps/runtime#R11, apps/connections#R5: 모르는 field와 틀린 ID 접두사를 거절한다", () => {
+  assert(
+    appConnectInputSchema.safeParse({
+      app: APP,
+      mode: "live",
+      screens: ["usage"],
+      screen_sizes: { usage: ["full"] },
+      commands: ["usage.list"],
+      extra: true,
+    }).success === false,
+  );
+  assert(
+    appConnectInputSchema.safeParse({
+      app: "rel_01h455vb4pex5v6nkc6gd5fdw1",
+      mode: "live",
+      screens: ["usage"],
+      screen_sizes: { usage: ["full"] },
+      commands: ["usage.list"],
+    }).success === false,
+  );
+  assert(
+    appCallOriginSchema.safeParse({
+      kind: "app",
+      app: APP,
+      release: "app_01h455vb4pex5v6nkc6gd5fdw1",
+      process_nonce: "nonce-1",
+      grant: GRANT,
+      parent_invocation: null,
+      path: [APP],
+    }).success === false,
+  );
+  assert(
+    confirmExecutionProofSchema.safeParse({
+      invocation: "apr_01h455vb4pex5v6nkc6gd5fdw1",
+      process_nonce: "nonce-1",
+      release: REL,
+      command: "usage.save",
+      input_hash: HASH,
+      caller: { kind: "direct" },
+      expires_at: AT,
+      note: "x",
+    }).success === false,
+  );
+  // screen_sizes는 요청 screen의 부분집합이면 된다. 선언 대조는 runtime이다.
+  assert(
+    appConnectInputSchema.safeParse({
+      app: APP,
+      mode: "live",
+      screens: ["usage", "report"],
+      screen_sizes: { usage: ["full"] },
+      commands: ["usage.list"],
+    }).success,
+  );
+  assert(
+    appConnectInputSchema.safeParse({
+      app: APP,
+      mode: "live",
+      screens: ["usage"],
+      screen_sizes: { report: ["card"] },
+      commands: ["usage.list"],
+    }).success === false,
+  );
 });

@@ -3,10 +3,8 @@ import { jsonValueSchema } from "../platform/mod.ts";
 import { revisionSchema } from "../documents/values.ts";
 import { readyAttestationSchema } from "./runtime.ts";
 import {
-  appConnectionSchema,
   appScreenRequestSchema,
   confirmExecutionProofInputSchema,
-  invocationCallerSchema,
 } from "./channel.ts";
 import {
   commandKeySchema,
@@ -123,10 +121,3 @@ export const controlShutdownInputSchema = z.strictObject({
 export const controlShutdownOutputSchema = z.object({
   accepted: z.literal(true),
 });
-
-// direct 호출은 Authorization의 서명된 AppConnection으로 신원을 정한다.
-export const directRequestSchema = z.strictObject({
-  connection: appConnectionSchema,
-  caller: invocationCallerSchema,
-});
-export type DirectRequest = z.infer<typeof directRequestSchema>;

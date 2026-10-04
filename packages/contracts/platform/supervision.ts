@@ -382,6 +382,8 @@ export const kindLaunchSpecSchema = z.strictObject({
   allow_write: z.array(opaque.refine((value) => value !== "*")),
   allow_net: z.array(opaque.refine((value) => value !== "*")),
   allow_run: z.array(opaque.refine((value) => !value.includes("*"))),
+  // sys의 항목은 이름 하나다(예: statfs). 와일드카드는 받지 않는다.
+  allow_sys: z.array(opaque.refine((value) => !value.includes("*"))),
   allow_env: z.array(opaque.regex(/^[A-Za-z_][A-Za-z0-9_]*$/)),
   policy: z.enum(["always", "on_request"]),
   memory_limit_bytes: count.refine((n) => n > 0),

@@ -372,6 +372,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 실제 디스크 여유가 부족하면 새 준비를 `unavailable`로 막고 참조 blob을 지우지 않는다(R12).
   - 문서 worker 같은 신뢰 child는 감독 pipe의 byte chunk frame으로 보내고, core는 해석·hash 없이 backpressure를 지키며 I/O worker로 넘긴다(→ Q6).
   - `prepare_test.ts`에 위 요구 테스트
+- 상태: 완료 (#133)
 
 ### T14 blob 참조 등록과 읽기
 

@@ -26,6 +26,7 @@ export function spec(over: Record<string, unknown> = {}) {
     allow_write: [] as string[],
     allow_net: [] as string[],
     allow_run: [] as string[],
+    allow_sys: [] as string[],
     allow_env: [] as string[],
     policy: "always",
     memory_limit_bytes: 1024,

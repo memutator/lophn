@@ -11,6 +11,7 @@ import {
   user,
 } from "./command-harness.ts";
 import { defineSyncCommand } from "./handler.ts";
+import { defineTxPort } from "./tx-ports.ts";
 import { recordNote } from "./test-commands.ts";
 import { openWriter, runCommand } from "./writer.ts";
 import { resetCredentialMirror, revokeCredential } from "./writer-fixture.ts";
@@ -239,7 +240,7 @@ Deno.test("platform/ledger#R3: tx.newId와 tx.port는 등록한 source·port를 
   const { connection } = await fileLedger(dir);
   const port = definePort<{ mark: string }>("note");
   const bound = deps();
-  bound.ports = new Map([[port, { mark: "fixed" }]]);
+  bound.ports = [defineTxPort(port, () => ({ mark: "fixed" }))];
   const handler = defineSyncCommand(recordNote, (tx) => {
     return ok({ name: tx.newId("doc"), seq: tx.port(port).mark });
   });

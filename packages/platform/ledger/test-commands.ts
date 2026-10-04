@@ -7,7 +7,7 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
 
-const noteCreated = defineEvent("NoteCreated", {
+export const noteCreated = defineEvent("NoteCreated", {
   subject: z.string(),
   payload: z.strictObject({ name: z.string() }),
 });

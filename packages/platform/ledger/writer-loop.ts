@@ -119,7 +119,7 @@ export function unavailableRegistration(): WriterRegistration {
         throw new Error("id 없음");
       },
     },
-    ports: new Map(),
+    ports: [],
     registerBlobRef: () => denied,
     call: () => denied,
     checkCredential: () => denied,

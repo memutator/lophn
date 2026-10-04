@@ -1,6 +1,7 @@
 import { err, ok } from "../../base/mod.ts";
 import { createIdSource, manualClock, seededRandom } from "../../base/mod.ts";
 import { definePort } from "../../contracts/platform/mod.ts";
+import { defineTxPort } from "./tx-ports.ts";
 import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import { advanceSubscriberCursorCommand } from "./commands.ts";
 import {
@@ -121,7 +122,7 @@ serveWriter(
     ],
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
-    ports: new Map([[notePort, { mark: "fixed" }]]),
+    ports: [defineTxPort(notePort, () => ({ mark: "fixed" }))],
     registerBlobRef: () => err({ code: "unavailable", message: "blob 없음" }),
     call: () => err({ code: "unavailable", message: "dispatch 없음" }),
     checkCredential(ctx: AuthenticatedContext) {

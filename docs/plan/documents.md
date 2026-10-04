@@ -101,6 +101,7 @@ concerns: [documents]
 
 ### T5 address 문법과 이름 예약
 
+- 상태: 완료 (#53)
 - 등급: 기본
 - concern: documents/addressing
 - 요구: documents/addressing#R1, R2, R10

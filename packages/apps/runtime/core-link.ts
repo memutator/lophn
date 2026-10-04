@@ -6,6 +6,8 @@ export type RuntimeRecord =
   | {
     method: "record_started";
     app: string;
+    process_nonce: string;
+    started_at: string;
     attestation: {
       release: string | null;
       bundle_hash: string;
@@ -20,12 +22,14 @@ export type RuntimeRecord =
     app: string;
     release: string;
     process_nonce: string;
+    started_at: string;
   }
   | {
     method: "record_unavailable";
     app: string;
     release: string;
     process_nonce?: string;
+    started_at?: string;
     reason: { code: string; summary: string };
   };
 

@@ -2,7 +2,7 @@
 // 이전 자식의 종료를 확인하기 전에는 다음 자식을 띄우지 않는다.
 import type { Clock } from "../../../base/mod.ts";
 import type { FlagSet } from "../../permissions/mod.ts";
-import type { CoreLink } from "../core-link.ts";
+import type { CoreLink, RuntimeRecord } from "../core-link.ts";
 import type { ChildIdentity } from "../processes/identity.ts";
 import { sameChild } from "../processes/identity.ts";
 import type { AppEnvironment } from "../processes/spawn.ts";
@@ -54,9 +54,13 @@ export type SupervisorDeps = {
   socketPaths: () => { broker: string; direct: string };
   nonce: () => string;
   credential: () => string;
-  verifyKey: string;
+  // hello 뒤에 채워지므로 기동 시점에 읽는다.
+  verifyKey: () => string;
   spawn: (request: SpawnRequest) => Promise<AppChild>;
-  probe: (child: AppChild, direct: string) => Promise<ProbeResult>;
+  probe: (
+    child: AppChild,
+    direct: string,
+  ) => Promise<ProbeResult> | ProbeResult;
   // 테스트가 시간을 건너뛰게 한다. 운영에서는 실제 대기.
   wait: (ms: number) => Promise<void>;
   readyTimeoutMs?: number;
@@ -101,7 +105,7 @@ export type AppObservation = {
   ready: boolean;
   accepting: boolean;
   reason?: { code: string; summary: string };
-  restarting: boolean;
+  recordFailed?: string;
 };
 
 type AppRuntime = {
@@ -109,6 +113,8 @@ type AppRuntime = {
   tracked: Tracked | undefined;
   exits: UnexpectedExit[];
   held: { code: string; summary: string } | undefined;
+  // 마지막 record가 실패하면 그 앱의 관측 실패로 남긴다. supervisor는 계속 돈다.
+  recordFailed: string | undefined;
   // 진행 중인 reconcile이 있으면 다음 요청은 그 뒤로 붙는다.
   pending: Promise<void>;
 };
@@ -140,6 +146,22 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
   const timeout = deps.readyTimeoutMs ?? 30_000;
   let closed = false;
 
+  function startedAt(ms: number): string {
+    return new Date(ms).toISOString();
+  }
+
+  // record 실패는 그 앱의 관측 실패다. throw하지 않아 다른 앱으로 번지지 않는다.
+  async function record(runtime: AppRuntime, entry: RuntimeRecord) {
+    try {
+      const result = await deps.core.record(entry);
+      if (!result.ok) runtime.recordFailed = result.error.message;
+    } catch (error) {
+      runtime.recordFailed = error instanceof Error
+        ? error.message
+        : "record failed";
+    }
+  }
+
   function runtimeOf(app: string): AppRuntime {
     const found = apps.get(app);
     if (found) return found;
@@ -148,6 +170,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       tracked: undefined,
       exits: [],
       held: undefined,
+      recordFailed: undefined,
       pending: Promise.resolve(),
     };
     apps.set(app, created);
@@ -191,7 +214,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         broker: sockets.broker,
         direct: sockets.direct,
         credential: deps.credential(),
-        verifyKey: deps.verifyKey,
+        verifyKey: deps.verifyKey(),
       }),
       identity,
     });
@@ -215,18 +238,9 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     ]);
     if (!sameChild(identity, child.identity)) return;
     if (!probe.ok || probe.bundleHash !== desired.bundleHash) {
-      tracked.intended = "restart";
-      await child.terminate();
-      runtime.tracked = undefined;
-      await deps.core.record({
-        method: "record_unavailable",
-        app: desired.app,
-        release: desired.release,
-        process_nonce: nonce,
-        reason: {
-          code: "start_failed",
-          summary: probe.ok ? "bundle mismatch" : probe.reason,
-        },
+      await failStart(runtime, tracked, {
+        code: "start_failed",
+        summary: probe.ok ? "bundle mismatch" : probe.reason,
       });
       return;
     }
@@ -235,21 +249,17 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     const commandsMatch = declared.length === reported.length &&
       declared.every((key, index) => key === reported[index]);
     if (!commandsMatch || probe.dataSchema !== desired.dataSchema) {
-      tracked.intended = "restart";
-      await child.terminate();
-      runtime.tracked = undefined;
-      await deps.core.record({
-        method: "record_unavailable",
-        app: desired.app,
-        release: desired.release,
-        process_nonce: nonce,
-        reason: { code: "start_failed", summary: "handler or schema mismatch" },
+      await failStart(runtime, tracked, {
+        code: "start_failed",
+        summary: "handler or schema mismatch",
       });
       return;
     }
-    await deps.core.record({
+    await record(runtime, {
       method: "record_started",
       app: desired.app,
+      process_nonce: nonce,
+      started_at: startedAt(identity.startedAtMs),
       attestation: {
         release: desired.release,
         bundle_hash: probe.bundleHash,
@@ -258,6 +268,26 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         process_nonce: nonce,
         connection_ok: true,
       },
+    });
+  }
+
+  // 시작 실패는 종료를 확인한 뒤에만 자식을 놓는다. 확인되지 않으면 다음 시작을 막는다.
+  async function failStart(
+    runtime: AppRuntime,
+    tracked: Tracked,
+    reason: { code: string; summary: string },
+  ) {
+    tracked.intended = "restart";
+    const confirmed = await tracked.child.terminate();
+    if (!confirmed) return;
+    runtime.tracked = undefined;
+    await record(runtime, {
+      method: "record_unavailable",
+      app: tracked.desired.app,
+      release: tracked.desired.release,
+      process_nonce: tracked.child.identity.processNonce,
+      started_at: startedAt(tracked.child.identity.startedAtMs),
+      reason,
     });
   }
 
@@ -270,7 +300,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     runtime.exits = recentExits(runtime.exits, deps.clock.nowMs());
     if (crashLoop(runtime.exits, deps.clock.nowMs())) {
       runtime.held = CRASH_LOOP;
-      await deps.core.record({
+      await record(runtime, {
         method: "record_unavailable",
         app: desired.app,
         release: desired.release,
@@ -279,11 +309,16 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       return;
     }
     const current = runtime.tracked;
+    // 종료를 확인하지 못한 자식이 남아 있으면 재허용이어도 그 종료를 먼저 다시 확인한다.
+    if (current && current.intended !== undefined) {
+      const confirmed = await stopTracked(runtime, current.intended);
+      if (!confirmed) return;
+    }
     if (
-      current && current.desired.release === desired.release &&
-      current.desired.bundleHash === desired.bundleHash
+      runtime.tracked && runtime.tracked.desired.release === desired.release &&
+      runtime.tracked.desired.bundleHash === desired.bundleHash
     ) return;
-    if (current) {
+    if (runtime.tracked) {
       const confirmed = await stopTracked(runtime, "release_change");
       if (!confirmed) return;
     }
@@ -306,20 +341,22 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       if (!desired || !desired.runEnabled || desired.archived || closed) return;
       if (crashLoop(runtime.exits, now)) {
         runtime.held = CRASH_LOOP;
-        await deps.core.record({
+        await record(runtime, {
           method: "record_unavailable",
           app: desired.app,
           release: desired.release,
           process_nonce: tracked.child.identity.processNonce,
+          started_at: startedAt(tracked.child.identity.startedAtMs),
           reason: CRASH_LOOP,
         });
         return;
       }
-      await deps.core.record({
+      await record(runtime, {
         method: "record_unavailable",
         app: desired.app,
         release: desired.release,
         process_nonce: tracked.child.identity.processNonce,
+        started_at: startedAt(tracked.child.identity.startedAtMs),
         reason: { code: "unexpected_exit", summary: "the app process exited" },
       });
       await deps.wait(backoffMs(runtime.exits.length));
@@ -358,7 +395,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         accepting: tracked !== undefined && tracked.intended === undefined &&
           !runtime.held,
         ...(runtime.held ? { reason: runtime.held } : {}),
-        restarting: false,
+        ...(runtime.recordFailed ? { recordFailed: runtime.recordFailed } : {}),
       };
     },
     async stop() {

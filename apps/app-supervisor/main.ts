@@ -8,10 +8,8 @@ import {
   attachControlLink,
   createSupervisor,
 } from "../../packages/apps/runtime/supervisor/mod.ts";
-import type {
-  CoreLink,
-  RuntimeRecord,
-} from "../../packages/apps/runtime/core-link.ts";
+import type { CoreLink } from "../../packages/apps/runtime/core-link.ts";
+import { readRecordState, recordInput } from "./record.ts";
 
 const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
   async read(buffer) {
@@ -25,49 +23,41 @@ const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
 
 function coreLink(baseUrl: string, token: () => string): CoreLink {
   return {
-    async record(record: RuntimeRecord) {
-      const method = record.method;
-      const input = record.method === "record_started"
-        ? { app: record.app, attestation: record.attestation }
-        : record.method === "record_stopped"
-        ? {
-          app: record.app,
-          release: record.release,
-          process_nonce: record.process_nonce,
-          termination_confirmed: true,
-        }
-        : {
-          app: record.app,
-          release: record.release,
-          ...(record.process_nonce
-            ? { process_nonce: record.process_nonce }
-            : {}),
-          reason: record.reason,
-        };
-      const response = await fetch(`${baseUrl}/v1/apps/${method}`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token()}`,
-        },
-        body: JSON.stringify({
-          input,
-          idempotency_key: crypto.randomUUID(),
-          compare: {},
-          prepared: [],
-        }),
-      });
-      if (!response.ok) {
+    async record(record) {
+      const input = recordInput(record);
+      let response: Response;
+      try {
+        response = await fetch(`${baseUrl}/v1/apps/${record.method}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token()}`,
+          },
+          body: JSON.stringify({
+            input,
+            idempotency_key: crypto.randomUUID(),
+            prepared: [],
+          }),
+        });
+      } catch {
         return {
           ok: false,
-          error: { code: "unavailable", message: "core record failed" },
+          error: { code: "unavailable", message: "core is unreachable" },
         };
       }
-      const body = await response.json();
-      return {
-        ok: true,
-        value: { state: String(body.output?.state?.state ?? "") },
-      };
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        return {
+          ok: false,
+          error: {
+            code: "unavailable",
+            message: "core record response is not valid",
+          },
+        };
+      }
+      return readRecordState({ status: response.status, body });
     },
   };
 }
@@ -86,10 +76,12 @@ const supervisor = createSupervisor({
   ),
   deno: () => Deno.env.get("LOPHN_DENO") ?? Deno.execPath(),
   environment: {
-    home: Deno.env.get("HOME") ?? "",
-    denoDir: Deno.env.get("DENO_DIR") ?? "",
-    xdgCacheHome: Deno.env.get("XDG_CACHE_HOME") ?? "",
-    path: Deno.env.get("PATH") ?? "",
+    ...(Deno.env.get("HOME") ? { home: Deno.env.get("HOME") } : {}),
+    ...(Deno.env.get("DENO_DIR") ? { denoDir: Deno.env.get("DENO_DIR") } : {}),
+    ...(Deno.env.get("XDG_CACHE_HOME")
+      ? { xdgCacheHome: Deno.env.get("XDG_CACHE_HOME") }
+      : {}),
+    ...(Deno.env.get("PATH") ? { path: Deno.env.get("PATH") } : {}),
   },
   socketPaths: () => {
     const created = createSocketDirectory({
@@ -108,7 +100,8 @@ const supervisor = createSupervisor({
   },
   nonce: () => crypto.randomUUID(),
   credential: () => received.credential,
-  verifyKey: received.verifyKey,
+  // hello가 오기 전에는 빈 값이다. 자식 기동 시점에 읽으므로 hello 뒤 값이 간다.
+  verifyKey: () => received.verifyKey,
   async spawn(request) {
     const child = await spawnApp({
       deno: request.deno,
@@ -137,4 +130,19 @@ const link = attachControlLink(supervisor, stdin, (hello) => {
   received.credential = hello.credential;
   received.verifyKey = hello.verifyKey;
 });
+
+// supervisor가 예상 밖으로 죽어도 detached 앱 자식을 남기지 않는다.
+let stopping = false;
+const shutdown = () => {
+  if (stopping) return;
+  stopping = true;
+  void supervisor.stop();
+};
+Deno.addSignalListener("SIGINT", shutdown);
+Deno.addSignalListener("SIGTERM", shutdown);
+globalThis.addEventListener("unhandledrejection", (event) => {
+  event.preventDefault();
+  shutdown();
+});
+
 await link.closed;

@@ -40,14 +40,16 @@ type FakeChild = AppChild & {
 };
 
 function harness(options: {
-  probe?: (index: number) => ProbeResult;
+  probe?: (index: number) => ProbeResult | Promise<ProbeResult>;
   confirm?: boolean;
+  core?: CoreLink;
+  wait?: (ms: number) => Promise<void>;
 } = {}): Harness {
   const clock = manualClock(0);
   const records: RuntimeRecord[] = [];
   const children: FakeChild[] = [];
   let nonce = 0;
-  const core: CoreLink = {
+  const core: CoreLink = options.core ?? {
     record(record): Promise<Result<{ state: string }>> {
       records.push(record);
       return Promise.resolve({ ok: true, value: { state: "recorded" } });
@@ -61,7 +63,7 @@ function harness(options: {
     socketPaths: () => ({ broker: "/run/b.sock", direct: "/run/a.sock" }),
     nonce: () => `nonce-${nonce++}`,
     credential: () => "broker-credential",
-    verifyKey: "v".repeat(43),
+    verifyKey: () => "v".repeat(43),
     readyTimeoutMs: 30_000,
     spawn(request): Promise<AppChild> {
       let resolveExit: (code: number | null) => void = () => {};
@@ -98,7 +100,7 @@ function harness(options: {
       };
       return Promise.resolve(result);
     },
-    wait: () => Promise.resolve(),
+    wait: options.wait ?? (() => Promise.resolve()),
   });
   return {
     records,
@@ -264,4 +266,93 @@ Deno.test("apps/runtime#R21: 한 앱이 시작에 실패해도 다른 앱은 응
   );
   assert(otherStarted);
   assertEquals(env.supervisor.observation(other)?.ready, true);
+});
+
+Deno.test("apps/runtime#R1: 종료를 확인하지 못하면 다음 자식을 띄우지 않는다", async () => {
+  const env = harness({
+    confirm: false,
+    probe: () => ({ ok: false, reason: "start failed" }),
+  });
+  await env.supervisor.reconcile(desired());
+  assertEquals(env.spawned, 1);
+  assertEquals(env.child(0).stopRequests, 1);
+  // 종료 확인이 안 됐으므로 다시 맞춰도 새 자식을 띄우지 않는다.
+  await env.supervisor.reconcile(
+    desired({ release: "rel_00000000000000000000000002" }),
+  );
+  assertEquals(env.spawned, 1);
+});
+
+Deno.test("apps/runtime#R16: 종료 확인에 실패한 멈춤도 다시 허용하면 종료를 재시도하고 시작한다", async () => {
+  let confirm = false;
+  const env = harness({
+    probe: () => ({
+      ok: true,
+      commands: ["ping"],
+      dataSchema: 1,
+      bundleHash: "ab".repeat(32),
+    }),
+  });
+  const real = env.child;
+  await env.supervisor.reconcile(desired());
+  // 첫 종료 확인은 실패하게 가로챈다.
+  const first = real(0);
+  const original = first.terminate;
+  first.terminate = () => {
+    if (!confirm) return Promise.resolve(false);
+    return original.call(first);
+  };
+  await env.supervisor.reconcile(desired({ runEnabled: false }));
+  assertEquals(env.spawned, 1);
+  // 다시 허용하면 남은 자식의 종료를 확인하고 새 자식을 띄운다.
+  confirm = true;
+  await env.supervisor.reconcile(desired({ runEnabled: true }));
+  assertEquals(env.spawned, 2);
+});
+
+Deno.test("apps/runtime#R21: 한 앱의 record 실패가 다른 앱을 멈추지 않는다", async () => {
+  const records: RuntimeRecord[] = [];
+  const env = harness({
+    core: {
+      record(record) {
+        records.push(record);
+        if (record.app === APP) {
+          return Promise.resolve({
+            ok: false,
+            error: { code: "unavailable", message: "core rejected" },
+          });
+        }
+        return Promise.resolve({ ok: true, value: { state: "running" } });
+      },
+    },
+  });
+  const other = "app_00000000000000000000000002";
+  await env.supervisor.reconcile(desired());
+  await env.supervisor.reconcile(desired({ app: other }));
+  assert(
+    records.some((record) =>
+      record.app === other && record.method === "record_started"
+    ),
+  );
+  assertEquals(env.supervisor.observation(other)?.ready, true);
+  assertEquals(env.supervisor.observation(APP)?.recordFailed, "core rejected");
+});
+
+Deno.test("apps/runtime#R2: probe가 30초 안에 끝나지 않으면 시작 실패다", async () => {
+  let waited = 0;
+  const env = harness({
+    probe: () => new Promise(() => {}),
+    wait: (ms) => {
+      waited += ms;
+      return Promise.resolve();
+    },
+  });
+  await env.supervisor.reconcile(desired());
+  assert(waited >= 30_000);
+  const failed = env.records.find((record) =>
+    record.method === "record_unavailable"
+  );
+  assert(failed && failed.method === "record_unavailable");
+  assertEquals(failed.reason.code, "start_failed");
+  assertEquals(env.alive(), 0);
 });

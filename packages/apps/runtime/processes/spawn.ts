@@ -4,10 +4,10 @@
 import type { FlagSet } from "../../permissions/mod.ts";
 
 export type AppEnvironment = {
-  home: string;
-  denoDir: string;
-  xdgCacheHome: string;
-  path: string;
+  home?: string;
+  denoDir?: string;
+  xdgCacheHome?: string;
+  path?: string;
 };
 
 export type AppLaunch = {
@@ -37,14 +37,14 @@ export function flagsAccepted(flags: FlagSet): boolean {
   return flags.args.every((flag) => !FORBIDDEN.includes(flagName(flag)));
 }
 
-// 자식 환경. parent의 API token은 여기 없다.
+// 자식 환경. 없는 값은 빈 문자열로 넘기지 않는다. parent의 API token은 여기 없다.
 export function appEnv(environment: AppEnvironment): Record<string, string> {
-  return {
-    HOME: environment.home,
-    DENO_DIR: environment.denoDir,
-    XDG_CACHE_HOME: environment.xdgCacheHome,
-    PATH: environment.path,
-  };
+  const env: Record<string, string> = {};
+  if (environment.home) env.HOME = environment.home;
+  if (environment.denoDir) env.DENO_DIR = environment.denoDir;
+  if (environment.xdgCacheHome) env.XDG_CACHE_HOME = environment.xdgCacheHome;
+  if (environment.path) env.PATH = environment.path;
+  return env;
 }
 
 export function appArgv(launch: AppLaunch): string[] {

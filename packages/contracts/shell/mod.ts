@@ -26,19 +26,32 @@ export {
 import { WORKSPACE_ROUTES } from "./workspace.ts";
 
 export {
+  APP_VIEW_MODES,
   type AppView,
+  appViewSchema,
   type CurrentViewState,
+  currentViewStateSchema,
+  omissionSchema,
   type Selection,
+  selectionSchema,
   SUMMARY_MAX_BYTES,
+  summarySchema,
+  TAB_KINDS,
   TAB_PAGE_SIZE,
+  tabPageOutputSchema,
+  tabPageSchema,
+  VIEW_AVAILABILITY,
   VIEW_STRING_MAX_CHARS,
   type ViewOmission,
   type ViewTab,
+  viewTabSchema,
+  windowRefSchema,
   WORKSPACE_ROUTES,
   workspaceBind,
   workspacePublish,
   workspaceRead,
   type WorkspaceReadOutput,
+  workspaceReadOutputSchema,
   workspaceUnpublish,
 } from "./workspace.ts";
 export {

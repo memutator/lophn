@@ -195,7 +195,7 @@ export function defineWorker<I extends z.ZodType, O extends z.ZodType>(
 }
 
 // ledger를 쓰지 않는 core 메모리 route(shell/workspace 현재 보기 relay).
-// 사람 결정 handle을 받지 않는다. 결정은 ledger command만 제출한다.
+// 사람 결정 handle을 받지 않는다. 사람 결정 확인은 confirmation 선언 route에서 처리한다.
 export function defineMemory<I extends z.ZodType, O extends z.ZodType>(
   options: Omit<
     DefineOptions<I, O>,

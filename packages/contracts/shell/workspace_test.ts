@@ -12,9 +12,11 @@ import {
   VIEW_STRING_MAX_CHARS,
   viewTabSchema,
   WORKSPACE_ROUTES,
+  workspaceBind,
   workspacePublish,
   workspaceRead,
   workspaceReadOutputSchema,
+  workspaceUnpublish,
 } from "./workspace.ts";
 
 const ULID = "01arz3ndektsv4rrffq69g5fav";
@@ -294,12 +296,12 @@ Deno.test(
       }).success,
     );
     assert(
-      !workspaceReadOutputSchema.safeParse({
+      workspaceReadOutputSchema.safeParse({
         availability: "current",
         observed_at: AT,
         generation: 3,
         summary: "open notes",
-        body: "document text",
+        trace: "safe",
       }).success,
     );
     assert(
@@ -307,5 +309,34 @@ Deno.test(
         availability: "unavailable",
       }).success,
     );
+    assert(workspacePublish.output.safeParse({ accepted: true }).success);
+    assert(workspaceBind.output.safeParse({ accepted: true }).success);
+    assert(workspaceUnpublish.output.safeParse({ accepted: true }).success);
+    const page = Array.from({ length: 20 }, (_, index) => ({
+      ...editor,
+      key: `page-${index}`,
+      note: "kept",
+    }));
+    assert(
+      workspaceReadOutputSchema.safeParse({
+        availability: "current",
+        observed_at: AT,
+        generation: 3,
+        summary: "open notes",
+        next_page: 1,
+        tab_page: page,
+      }).success,
+    );
+    assert(
+      !workspaceReadOutputSchema.safeParse({
+        availability: "current",
+        observed_at: AT,
+        generation: 3,
+        summary: "open notes",
+        tab_page: [...page, { ...editor, key: "page-20" }],
+      }).success,
+    );
+    // page는 요청 index다. next_page는 다음 index이고, 요약만 주는 첫 read는 tab_page를 생략한다.
+    assert(workspaceRead.input.safeParse({ session: SES, page: 0 }).success);
   },
 );

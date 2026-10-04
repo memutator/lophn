@@ -90,6 +90,36 @@ export type ViewTab = z.infer<typeof viewTabSchema>;
 
 export const tabPageSchema = z.array(viewTabSchema).max(TAB_PAGE_SIZE);
 
+// 출력은 additive다. 입력 strict union과 같은 가지·제약만 두고 모르는 field는 거절하지 않는다.
+const viewTabOutputSchema = z.discriminatedUnion("kind", [
+  z.object({
+    ...tabBase,
+    kind: z.literal("document_editor"),
+    document: documentIdSchema,
+  }),
+  z.object({
+    ...tabBase,
+    kind: z.literal("document_viewer"),
+    document: documentIdSchema,
+    version: versionIdSchema,
+  }),
+  z.object({
+    ...tabBase,
+    kind: z.literal("terminal"),
+    project_folder: viewString,
+  }),
+  z.object({
+    ...tabBase,
+    kind: z.literal("app_panel"),
+    app: appIdSchema,
+    surface: viewString,
+  }),
+]);
+
+export const tabPageOutputSchema = z.array(viewTabOutputSchema).max(
+  TAB_PAGE_SIZE,
+);
+
 // 문서 선택은 판·절·줄 범위만. 선택 본문은 없다.
 export const selectionSchema = z.strictObject({
   document: documentIdSchema,
@@ -153,7 +183,7 @@ export const workspacePublish = defineMemory({
     summary: summarySchema,
     tab_pages: z.array(tabPageSchema),
   }),
-  output: z.strictObject({}),
+  output: z.object({}),
   actors: ["user"],
   errors,
 });
@@ -166,7 +196,7 @@ export const workspaceBind = defineMemory({
     session: sessionIdSchema,
     window_ref: windowRefSchema,
   }),
-  output: z.strictObject({}),
+  output: z.object({}),
   actors: ["user"],
   errors,
 });
@@ -176,20 +206,23 @@ export const workspaceUnpublish = defineMemory({
   method: "unpublish",
   name: "workspace.unpublish",
   input: z.strictObject({ window_ref: windowRefSchema }),
-  output: z.strictObject({}),
+  output: z.object({}),
   actors: ["user"],
   errors,
 });
 
-const currentReadSchema = z.strictObject({
+// next_page는 다음 page의 index다. page를 준 read는 그 index의 tab_page를 돌려준다.
+// 요약만 주는 첫 read는 tab_page를 생략한다(shell/workspace#R10).
+const currentReadSchema = z.object({
   availability: z.literal("current"),
   observed_at: atSchema,
   generation: generationSchema,
   summary: summarySchema,
   next_page: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+  tab_page: tabPageOutputSchema.optional(),
 });
 
-const absentReadSchema = z.strictObject({
+const absentReadSchema = z.object({
   availability: z.enum(["disconnected", "unavailable"]),
   reason: viewString,
 });

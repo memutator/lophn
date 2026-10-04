@@ -42,7 +42,29 @@ export const en = {
   "common.heading.count": "Count",
   "common.chart.too-many-groups":
     "This chart can show up to {max, number} groups at once.",
+  "launcher.connection.starting": "lophn is getting ready.",
+  "launcher.connection.failed": "lophn couldn't get ready.",
+  "launcher.connection.disconnected":
+    "lophn can't refresh this page right now.",
+  "launcher.connection.confirmed-at": "Last checked {when}.",
+  "launcher.button.retry": "Try again",
+  "launcher.button.reconnect": "Reconnect",
+  "launcher.button.lophn": "lophn",
+  "launcher.empty.no-cards": "Nothing to open yet.",
   "common.chart.unreadable": "This chart couldn't be drawn from its data.",
+  "confirmation-window.title.confirm": "Confirm",
+  "confirmation-window.body.checking": "Checking this request.",
+  "confirmation-window.body.review": "Review this request before you decide.",
+  "confirmation-window.body.stale":
+    "This request changed. Open the latest version.",
+  "confirmation-window.body.expired": "This confirmation expired.",
+  "confirmation-window.body.unknown":
+    "The result is not known yet. It was not sent again.",
+  "confirmation-window.body.second":
+    "Check the effect and scope again before you decide.",
+  "confirmation-window.button.cancel": "Cancel",
+  "confirmation-window.button.refresh": "Open latest",
+  "confirmation-window.button.decide": "Decide",
 } as const;
 
 export type Catalog = typeof en;

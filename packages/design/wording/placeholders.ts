@@ -66,7 +66,27 @@ export type PlaceholderKinds = {
   "common.chart.too-many-groups": {
     max: "number";
   };
+  "launcher.connection.starting": Record<never, never>;
+  "launcher.connection.failed": Record<never, never>;
+  "launcher.connection.disconnected": Record<never, never>;
+  "launcher.connection.confirmed-at": {
+    when: "string";
+  };
+  "launcher.button.retry": Record<never, never>;
+  "launcher.button.reconnect": Record<never, never>;
+  "launcher.button.lophn": Record<never, never>;
+  "launcher.empty.no-cards": Record<never, never>;
   "common.chart.unreadable": Record<never, never>;
+  "confirmation-window.title.confirm": Record<never, never>;
+  "confirmation-window.body.checking": Record<never, never>;
+  "confirmation-window.body.review": Record<never, never>;
+  "confirmation-window.body.stale": Record<never, never>;
+  "confirmation-window.body.expired": Record<never, never>;
+  "confirmation-window.body.unknown": Record<never, never>;
+  "confirmation-window.body.second": Record<never, never>;
+  "confirmation-window.button.cancel": Record<never, never>;
+  "confirmation-window.button.refresh": Record<never, never>;
+  "confirmation-window.button.decide": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

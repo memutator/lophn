@@ -8,8 +8,10 @@ import type {
   Frame,
   KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
+import { ROUTES } from "../../packages/contracts/platform/mod.ts";
 import {
   type ApiServer,
+  RouteRegistry,
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
 import { applyMigrations } from "../../packages/platform/backup-and-migration/mod.ts";
@@ -99,6 +101,14 @@ async function open(
 ): Promise<Result<Core>> {
   const assembled = assemble(options.teams);
   if (!assembled.ok) return assembled;
+  // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
+  // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
+  let routes: RouteRegistry;
+  try {
+    routes = new RouteRegistry([...ROUTES, ...assembled.value.routes]);
+  } catch {
+    return err({ code: "internal", message: "route 등록이 겹친다" });
+  }
   const ledgerPath = `${root.path}/lophn.db`;
   const migrated = await applyMigrations(
     ledgerPath,
@@ -107,7 +117,7 @@ async function open(
       CREDENTIAL_SCHEMA,
       ...assembled.value.schemaSteps,
     ],
-    { clock },
+    { clock, recovery: { root: root.path } },
   );
   if (!migrated.ok) return migrated;
   const epoch = hex(random, 16);
@@ -188,8 +198,10 @@ async function open(
       clock,
       writer: runtime.writer,
       reads: runtime.reads,
+      memory: runtime.memory.handlers,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
+      registry: routes,
     });
   } catch {
     await runtime.close();
@@ -250,6 +262,8 @@ async function open(
       stopped = true;
       // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
       ready = false;
+      // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
+      runtime?.memory.disconnect();
       await server.stop();
       if (io) await io.stopAll();
       await runtime?.close();

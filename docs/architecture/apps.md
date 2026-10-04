@@ -44,7 +44,7 @@ secret 인증 전송·문서 저장·문제 보고와 다른 앱 연결 준비�
 
 이는 상시 공유 supervisor 1개와 운영 앱 N개에 필요할 때만 작업 프로세스를 더한 구성이다. 앱마다 별도 신뢰 host나 ledger writer를 두지 않는다. core 밖에 두었더라도 supervisor의 event loop에서 디렉터리 순회·큰 hash·build·SQLite backup을 하지 않는다. release worker가 앱 작성 코드를 실행할 때에는 더 좁은 추출/build 자식으로 내려보낸다. 앱 작성 코드와 migration에는 부모의 machine credential을 전달하지 않고 부모가 검증한 작업 결과만 command로 제출한다.
 
-core↔supervisor는 전용 pipe의 JSON line과 자식 handle을 함께 사용한다. 제어 pipe는 caller가 선택한 일반 IPC 경로가 아니다. supervisor는 앱의 broker 제어 연결을 길게 유지한다. core 연결 EOF이면 새 호출과 automation부터 닫고 자식을 끝낸다. 앱도 broker 제어 연결 EOF이면 닫고 종료한다. socket 주소·PID만으로 생존을 판정하지 않는다. 자식 handle, 시작 nonce, OS 시작 신원과 실제 응답을 대조한다. 종료를 확인할 수 없으면 다음 writer를 시작하지 않는다.
+core↔supervisor는 platform pipe(길이 prefix frame)와 자식 handle을 함께 사용한다. 제어 pipe는 caller가 선택한 일반 IPC 경로가 아니다. supervisor는 앱의 broker 제어 연결을 길게 유지한다. core 연결 EOF이면 새 호출과 automation부터 닫고 자식을 끝낸다. 앱도 broker 제어 연결 EOF이면 닫고 종료한다. socket 주소·PID만으로 생존을 판정하지 않는다. 자식 handle, 시작 nonce, OS 시작 신원과 실제 응답을 대조한다. 종료를 확인할 수 없으면 다음 writer를 시작하지 않는다.
 
 ### 2.2 두 로컬 socket과 시작 준비
 

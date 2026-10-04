@@ -90,7 +90,7 @@ export const removeSecretInputSchema = z.strictObject({
   name: secretNameSchema,
 });
 
-// 사람 secret 관리는 secret_input 보호 입력에서만 시작한다.
+// 사람 secret 관리는 secret_input 보호 입력에서만 시작한다(#27).
 export const setSecret = defineCommand({
   resource: "secrets",
   method: "set",
@@ -192,6 +192,9 @@ export const secretUseSchema = z.strictObject(useFields).refine(
 );
 export type SecretUse = z.infer<typeof secretUseSchema>;
 
+// 원값은 JSON payload가 아니라 callback 메모리 인자다. pipe schema에는 없다.
+export type SecretValue = Uint8Array | string;
+
 export const secretPrepareInputSchema = z.strictObject({
   context: secretAdapterContextSchema,
   purpose: secretPurposeSchema,
@@ -226,15 +229,14 @@ export type SecretStoreRefreshOutput = z.infer<
   typeof secretStoreRefreshOutputSchema
 >;
 
-// 원값이 JSON 결과나 agent 문맥으로 퍼지지 않게 callback 메모리에만 둔다.
 export type SecretPrepareValueCallback = (
-  value: Uint8Array | string,
+  value: SecretValue,
 ) => Promise<Result<SecretPreparation>>;
 export type SecretSendValueCallback = (
-  value: Uint8Array | string,
+  value: SecretValue,
 ) => Promise<Result<SecretSendOutput>>;
 export type SecretStoreRefreshValueCallback = (
-  value: Uint8Array | string,
+  value: SecretValue,
 ) => Promise<Result<SecretStoreRefreshOutput>>;
 
 const pipeErrors = [
@@ -244,9 +246,9 @@ const pipeErrors = [
   "conflict",
   "unavailable",
 ] as const;
+
+// 공개 HTTP route가 아니다. supervision worker envelope의 op로만 부른다.
 export const SECRET_PREPARE_OP = "secret.prepare";
-export const SECRET_SEND_OP = "secret.send";
-export const SECRET_STORE_REFRESH_OP = "secret.store-refresh";
 export const secretPrepare = defineWorker({
   resource: "secrets",
   method: "prepare",
@@ -256,6 +258,8 @@ export const secretPrepare = defineWorker({
   actors: ["machine"],
   errors: pipeErrors,
 });
+
+export const SECRET_SEND_OP = "secret.send";
 export const secretSend = defineWorker({
   resource: "secrets",
   method: "send",
@@ -265,6 +269,8 @@ export const secretSend = defineWorker({
   actors: ["machine"],
   errors: pipeErrors,
 });
+
+export const SECRET_STORE_REFRESH_OP = "secret.store-refresh";
 export const secretStoreRefresh = defineWorker({
   resource: "secrets",
   method: "store-refresh",
@@ -285,6 +291,7 @@ export const SECRET_EXCHANGE_FORMAT = {
   cipher: "AES-256-GCM",
   nonce_bytes: 12,
 } as const;
+
 export const SECRET_ROUTES = [
   listSecrets,
   setSecret,

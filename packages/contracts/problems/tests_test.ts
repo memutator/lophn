@@ -1,5 +1,6 @@
 import { assertEquals } from "@std/assert";
 import { ERROR_CODES, fingerprint } from "../../base/mod.ts";
+import { ALL_EVENTS, ALL_ROUTES } from "../mod.ts";
 import { routePath } from "../platform/route.ts";
 import {
   EVENTS,
@@ -80,7 +81,11 @@ Deno.test("problems/tests#R2: route and event table matches architecture 5.3 and
     ],
   );
   assertEquals(EVENTS.map((event) => event.type), ["VerificationRecorded"]);
+  for (const event of EVENTS) {
+    assertEquals(ALL_EVENTS.filter((entry) => entry === event).length, 1);
+  }
   for (const route of ROUTES) {
+    assertEquals(ALL_ROUTES.filter((entry) => entry === route).length, 1);
     for (const error of route.errors) {
       assertEquals(ERROR_CODES.includes(error), true);
     }

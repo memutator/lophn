@@ -89,7 +89,9 @@ function intersectAgent(
   current: AgentAppScope | undefined,
 ): AgentAppScope | "disjoint" | undefined {
   if (initial === undefined || current === undefined) return undefined;
-  if (initial.role !== current.role || initial.assignment !== current.assignment) {
+  if (
+    initial.role !== current.role || initial.assignment !== current.assignment
+  ) {
     return "disjoint";
   }
   const apps = [];

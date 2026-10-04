@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { ERROR_CODES } from "../../base/mod.ts";
+import { canonicalize, ERROR_CODES, fingerprint } from "../../base/mod.ts";
 import { eventEnvelopeSchema } from "./events.ts";
 import { routePath } from "./route.ts";
 import {
@@ -143,6 +143,30 @@ Deno.test("platform/approvals#R5: binding_hash는 RFC 8785 정규화의 sha256�
   assertEquals(await approvalBindingHash(action), hash);
   assert(
     await approvalBindingHash({ ...action, command: "move" }) !== hash,
+  );
+});
+
+Deno.test("platform/approvals#R5: inline input과 comparison의 own JSON key를 hash 전에 보존한다", async () => {
+  const value = JSON.parse('{"__proto__":"kept","nested":{"__proto__":42}}');
+  const comparison = JSON.parse('{"__proto__":{"seq":"41"}}');
+  const input = {
+    ...action,
+    input: { kind: "inline" as const, value },
+    comparison,
+  };
+  const parsed = approvalActionSchema.parse(input);
+  assertEquals(parsed.input.kind, "inline");
+  if (parsed.input.kind === "inline") {
+    assertEquals(canonicalize(parsed.input.value), canonicalize(value));
+    assertEquals(
+      await fingerprint(parsed.input.value),
+      await fingerprint(value),
+    );
+  }
+  assertEquals(canonicalize(parsed.comparison), canonicalize(comparison));
+  assertEquals(
+    await approvalBindingHash(parsed),
+    await approvalBindingHash(input),
   );
 });
 

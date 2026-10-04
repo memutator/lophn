@@ -260,6 +260,30 @@ export const vars = {
   },
   "palette": {
     "item": "var(--palette-item)",
+    "width": "var(--palette-width)",
+    "top": "var(--palette-top)",
+  },
+  "tooltip": {
+    "delay": "var(--tooltip-delay)",
+  },
+  "menu": {
+    "row": "var(--menu-row)",
+  },
+  "dialog": {
+    "width": {
+      "default": "var(--dialog-width-default)",
+      "wide": "var(--dialog-width-wide)",
+    },
+  },
+  "toast": {
+    "width": "var(--toast-width)",
+    "duration": {
+      "default": "var(--toast-duration-default)",
+      "brief": "var(--toast-duration-brief)",
+    },
+  },
+  "chip": {
+    "width": "var(--chip-width)",
   },
   "floating": {
     "surface": "var(--floating-surface)",

@@ -1,0 +1,54 @@
+.backdrop {
+  position: fixed;
+  inset: var(--space-0);
+  background: var(--floating-backdrop);
+  z-index: var(--z-backdrop);
+}
+
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 100%;
+  max-height: 100%;
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  background: var(--floating-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-dialog);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  overflow: auto;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-dialog);
+}
+
+.default {
+  width: var(--dialog-width-default);
+}
+
+.wide {
+  width: var(--dialog-width-wide);
+}
+
+.title {
+  margin: var(--space-0);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.body {
+  color: var(--color-text-secondary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}

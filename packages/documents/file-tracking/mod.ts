@@ -1,0 +1,38 @@
+// documents/file-tracking: 문서 worker 프로세스의 작업 배분과 IPC 요청 배분.
+// core↔coordinator↔준비 worker는 내부 IPC다(planning documents T2). 밖으로 내놓는
+// contract는 없다. codec은 contracts/platform supervision 하나다.
+export {
+  type Candidate,
+  CANDIDATE_LIMIT,
+  type CandidateOutcome,
+  type CandidateQueue,
+  type CoordinatorDepsLike,
+  directoryBatch,
+  DISPATCH_BATCH,
+  dispatchBatch,
+  emptyQueue,
+  enqueueCandidate,
+  type InFlight,
+  isSamePath,
+  pickSlot,
+  PREPARATION_SLOTS,
+  type PrepareSlot,
+  QUIET_MS,
+  type ScanBudget,
+  type ScanRoot,
+  type SlotPriority,
+  type SlotState,
+  STABLE_READ_RETRIES,
+  stableReadsLeft,
+  SUBMIT_CONCURRENCY,
+  type SubmitSlotState,
+  takeSubmitSlots,
+} from "./model.ts";
+export {
+  batchToChunks,
+  type IpcWriter,
+  markUnavailable,
+  type RequestPayload,
+  sendPreparationRequest,
+  type WorkerPreparing,
+} from "./ipc.ts";

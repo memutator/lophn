@@ -43,6 +43,7 @@ concerns: [documents]
 
 ### T2 documents worker 프로세스 뼈대
 
+- 상태: 진행 (#125) — 남은 것: 준비 worker의 실제 scan·hash·diff와 결과 command 제출(core 비동기 dispatch 포함), crash 시 slot의 새 프로세스 refill은 core 쪽 감독 seam이 필요하다(T11)
 - 등급: 기본
 - concern: documents/file-tracking
 - 요구: documents/file-tracking#R5

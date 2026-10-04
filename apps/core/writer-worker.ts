@@ -49,11 +49,14 @@ if (!opened.ok) {
     call: registration.call,
     checkCredential: registration.checkCredential,
     subscriberGate: registration.subscriberGate,
+    confirmation: registration.confirmation,
   };
   let chain = Promise.resolve();
   worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
     const data = event.data;
-    chain = chain.then(() => handle(connection, deps, commands, data)).catch(
+    chain = chain.then(() =>
+      handle(connection, deps, commands, registration, data)
+    ).catch(
       () => {
         worker.postMessage({
           id: data.id,
@@ -69,14 +72,61 @@ type WorkerMessage = WriterRequest | {
   id: number;
   op: "record-credential";
   context: unknown;
+} | {
+  id: number;
+  op: "confirmation";
+  action: "issue" | "close-window" | "clear";
+  request?: unknown;
+  windowId?: string;
 };
 
 async function handle(
   connection: LedgerConnection,
   deps: Parameters<typeof executeCommand>[1],
   commands: Map<string, CommandDefinition>,
+  registration: Awaited<ReturnType<typeof assembleWriter>>,
   data: WorkerMessage,
 ): Promise<void> {
+  if (data.op === "confirmation") {
+    const { confirmationHandleRegisterSchema } = await import(
+      "../../packages/contracts/platform/mod.ts"
+    );
+    const registry = registration.confirmationRegistry;
+    if (data.action === "clear") {
+      registry.clear();
+      worker.postMessage(
+        {
+          id: data.id,
+          op: "confirmation",
+          body: { ok: true, value: null },
+        } as never,
+      );
+      return;
+    }
+    if (data.action === "close-window") {
+      registry.closeWindow(data.windowId ?? "");
+      worker.postMessage(
+        {
+          id: data.id,
+          op: "confirmation",
+          body: { ok: true, value: null },
+        } as never,
+      );
+      return;
+    }
+    const parsed = confirmationHandleRegisterSchema.safeParse(data.request);
+    const issued = parsed.success ? registry.issue(parsed.data) : {
+      ok: false as const,
+      error: {
+        code: "invalid_input" as const,
+        message: "확인 등록이 올바르지 않다",
+      },
+    };
+    worker.postMessage(
+      { id: data.id, op: "confirmation", body: issued } as never,
+    );
+    return;
+  }
   if (data.op === "record-credential") {
     const { recordCredential } = await import("./credentials.ts");
     const { authenticatedContextSchema } = await import(

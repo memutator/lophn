@@ -216,6 +216,7 @@ concerns: [shell]
 
 ### T12 공통 컴포넌트: 표, 트리, 목록, 카드, 수치, 페이지 틀, 읽기
 
+- 상태: 완료 (#50)
 - 등급: frontend
 - concern: shell/design-system
 - 요구: shell/design-system#R16(읽기 글자), R21, R22, R23, R30, R31, R32, R39, R42

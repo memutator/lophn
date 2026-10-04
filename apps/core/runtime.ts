@@ -145,6 +145,12 @@ export async function openRuntime(input: {
       `${read.route.resource}/${read.route.method}`,
       (ctx, body) => readers.value.read(read.route, ctx, body),
     ]),
+    // pool 밖에서 바로 여는 read(format read). ledger snapshot 없이 handler가
+    // 자기 결과를 내놓고, dispatcher가 기다리므로 Promise Result도 받는다.
+    ...input.assembled.apiReads.map((read): [string, ReadHandler] => [
+      `${read.route.resource}/${read.route.method}`,
+      (ctx, body) => Promise.resolve(read.handle(ctx, body)),
+    ]),
   ]);
   const events = createReaderEventBackend(
     readers.value,

@@ -16,6 +16,15 @@ import {
   systemQuota,
 } from "../../../packages/platform/blob-store/mod.ts";
 import { type BlobPipe, type BlobPipeRequest, createBlobPipe } from "./blob.ts";
+import {
+  createSettingsPipe,
+  type SettingsPipe,
+  type SettingsPipeRequest,
+} from "./settings.ts";
+import {
+  SETTINGS_EXPORT_OP,
+  SETTINGS_IMPORT_OP,
+} from "../../../packages/contracts/platform/mod.ts";
 
 export type PlatformIoOptions = {
   root: string;
@@ -24,6 +33,8 @@ export type PlatformIoOptions = {
   currentAuthority(): DiagnosticAuthority | undefined;
   // blob 준비 통로. 없으면 blob.prepare는 거절한다.
   blob?: BlobPipe;
+  // settings 교환 통로. 없으면 settings.import·export는 거절한다.
+  settings?: SettingsPipe;
   // 준비 파일 접미사. 내용에서 파생하지 않는다.
   suffix?: () => string;
 };
@@ -44,6 +55,7 @@ export async function createPlatformIo(
     }),
     suffix: options.suffix ?? (() => crypto.randomUUID()),
   });
+  const settings = options.settings ?? createSettingsPipe();
   // blob 준비는 요청 json에 앞서(뒤에) 오는 byte chunk를 channel별로 모은다(Q6).
   // core는 해석·hash 없이 넘기고, 이 worker만 모아 내용을 만든다.
   const pending = new Map<
@@ -81,6 +93,93 @@ export async function createPlatformIo(
       const request = message as unknown as BlobPipeRequest & {
         channel?: number;
       };
+      // settings 교환은 channel에 묶인 byte chunk로 온다. import는 문서를 모아
+      // parse하고, export는 JSON payload의 mutations를 stringify한다(R3, R26).
+      // byte chunk는 요청 json보다 먼저 도착해 있다.
+      if (
+        request.op === SETTINGS_IMPORT_OP || request.op === SETTINGS_EXPORT_OP
+      ) {
+        const settingsRequest = message as unknown as SettingsPipeRequest & {
+          channel?: number;
+        };
+        const channel = settingsRequest.channel;
+        const entry = channel === undefined
+          ? { chunks: [] as Uint8Array[] }
+          : pending.get(channel) ?? { chunks: [] as Uint8Array[] };
+        if (channel !== undefined) pending.delete(channel);
+        const submission = scheduler.submit("settings", async () => {
+          if (settingsRequest.op === SETTINGS_EXPORT_OP) {
+            return await settings.handle(
+              {
+                request_id: settingsRequest.request_id,
+                op: settingsRequest.op,
+                payload: settingsRequest.payload,
+              },
+              () => Promise.resolve(undefined),
+            );
+          }
+          const stream = new ReadableStream<Uint8Array>({
+            start(controller) {
+              for (const chunk of entry.chunks) controller.enqueue(chunk);
+              controller.close();
+            },
+          });
+          const sink: Uint8Array[] = [];
+          await stream.pipeTo(
+            new WritableStream<Uint8Array>({
+              write(chunk) {
+                sink.push(chunk);
+              },
+            }),
+          );
+          const total = sink.reduce((sum, chunk) => sum + chunk.length, 0);
+          const document = new Uint8Array(total);
+          let offset = 0;
+          for (const chunk of sink) {
+            document.set(chunk, offset);
+            offset += chunk.length;
+          }
+          return await settings.handle(
+            {
+              request_id: settingsRequest.request_id,
+              op: settingsRequest.op,
+              payload: settingsRequest.payload,
+            },
+            () => Promise.resolve(document),
+          );
+        });
+        const result = submission.ok
+          ? await submission.value.result
+          : submission;
+        if (!session.credentialUsable) return;
+        if (!result.ok) {
+          await session.send({
+            type: "worker_response",
+            request_id: message.request_id,
+            ok: false,
+            error: result.error,
+          });
+          return;
+        }
+        const response = result.value;
+        await session.send(
+          response.ok
+            ? {
+              type: "worker_response",
+              request_id: message.request_id,
+              ok: true,
+              payload: response.payload,
+            }
+            : {
+              type: "worker_response",
+              request_id: message.request_id,
+              ok: false,
+              error: response.error,
+            },
+        );
+        return;
+      }
+      // blob.read는 channel이 없다. blob.prepare만 channel의 chunk를 쓴다.
       if (
         request.op !== "blob.prepare" && request.op !== "blob.read" ||
         request.op === "blob.prepare" && request.channel === undefined

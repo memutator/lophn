@@ -5,6 +5,7 @@ import {
   GUEST_CALL_TIMEOUT_MS,
   RUNNER_CONCURRENCY,
   RUNNER_HEAP_MIB,
+  runnerWasmPath,
 } from "./guest/contract.ts";
 import {
   readMessage,
@@ -14,23 +15,6 @@ import {
 } from "./runner/protocol.ts";
 
 const RUNNER = new URL("./runner/main.ts", import.meta.url);
-
-// runner가 읽는 내장 wasm. quickjs-emscripten specifier resolve로 Deno npm cache의
-// @jitl/quickjs-wasmfile-release-sync를 찾는다. cache 위치를 새로 두지 않는다.
-export function runnerWasmPath(): string {
-  const resolved = import.meta.resolve("quickjs-emscripten");
-  const match = resolved.match(
-    /^(file:\/\/\/.+\/npm\/registry\.npmjs\.org\/)quickjs-emscripten(\/[^/]+)\/dist\//,
-  );
-  if (!match) {
-    throw new Error("quickjs-emscripten cache layout is not recognized");
-  }
-  return decodeURIComponent(
-    `${match[1]}@jitl/quickjs-wasmfile-release-sync${
-      match[2]
-    }/dist/emscripten-module.wasm`,
-  ).slice("file://".length);
-}
 
 export type FormatRunFailure = "missing_module" | "runner_failed" | "rejected";
 

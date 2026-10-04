@@ -235,6 +235,8 @@ async function open(
       memory: runtime.memory.handlers,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
+      // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
+      // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
     });
   } catch {

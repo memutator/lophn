@@ -1,5 +1,5 @@
 .frame {
-  max-width: var(--layout-confirmation-max, 640px);
+  max-width: var(--dialog-width-wide);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

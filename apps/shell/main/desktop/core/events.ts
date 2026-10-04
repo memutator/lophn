@@ -4,9 +4,9 @@ import {
   EVENT_SUBSCRIBE_PATH,
   EVENT_SUBSCRIBE_SUBPROTOCOL,
   eventsList,
+  nextFromSeq,
   parseEventFrame,
 } from "../../../../../packages/contracts/platform/mod.ts";
-import { nextFromSeq } from "../../../../../packages/base/mod.ts";
 
 import type { CoreSession } from "./client.ts";
 

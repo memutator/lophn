@@ -5,10 +5,6 @@ import {
   type RpcClient,
   type RpcFetch,
 } from "../../../../../packages/contracts/platform/mod.ts";
-import {
-  type ErrorCode,
-  type Result,
-} from "../../../../../packages/base/mod.ts";
 
 import { isAllowed, lookupCall } from "./allowlist.ts";
 import { routeByName } from "./routes.ts";
@@ -22,7 +18,12 @@ export interface CoreSession {
     resource: string,
     method: string,
     body: unknown,
-  ): Promise<Result<unknown>>;
+  ): Promise<
+    { ok: true; value: unknown } | {
+      ok: false;
+      error: { code: string; message: string };
+    }
+  >;
 }
 
 export interface SessionInput {
@@ -55,7 +56,7 @@ export function openSession(input: SessionInput): CoreSession {
         return {
           ok: false,
           error: {
-            code: "forbidden" as ErrorCode,
+            code: "forbidden",
             message: "허용되지 않은 호출이다",
           },
         };

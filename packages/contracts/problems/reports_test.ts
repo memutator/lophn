@@ -322,6 +322,32 @@ Deno.test("problems/grouping#R6: selected feedback reuses declared or exception 
         .success,
       false,
     );
+    // 기존 문제를 고른 feedback은 자기 rpt로 새 feedback key를 달 수 없다.
+    const ownKey = {
+      kind: "feedback",
+      code: "_feedback",
+      discriminator: feedback.report.id,
+    };
+    assertEquals(
+      recordReportInputSchema.safeParse({ ...feedback, group_key: ownKey })
+        .success,
+      false,
+    );
+    assertEquals(
+      recordReportInputSchema.safeParse({
+        ...feedback,
+        group_key: ownKey,
+        existing_problem: null,
+      }).success,
+      true,
+    );
+    assertEquals(
+      recordReportInputSchema.safeParse({
+        ...feedback,
+        group_key: { ...ownKey, discriminator: id("rpt") },
+      }).success,
+      feedback.report.id !== id("rpt"),
+    );
   }
   assertEquals(
     groupKeyInputSchema.safeParse({

@@ -116,7 +116,7 @@ core의 problems 정의는 고정 blob purpose와 permanent/general_read=false f
 
 | 위치 | 저장할 것 | 쓰지 않을 것 |
 |---|---|---|
-| platform의 `~/.lophn/blobs/` | redaction된 글·JSON·stack·로그·PNG, FrozenTest와 code/input/expected/environment, 실제 execution/output/observations, FixRecord summary | raw 오류·원본 screenshot·실제 secret |
+| platform의 `~/.lophn/blobs/` | redaction된 글·JSON·stack·로그, 사람이 고른 PNG, FrozenTest와 code/input/expected/environment, 실제 execution/output/observations, FixRecord summary | raw 오류·선택하지 않은 screenshot·실제 secret |
 | `~/.lophn/work/problems/tests/<vrf-id>/` | 고정 요청 manifest, `before/after/single/source/`, side별 `scratch/`·fixture DB, redaction 완료 result spool | 운영 DB·backup 사본, 앱별 journal, credential 파일 |
 | collector·SDK·shell 메모리 | 미확정 입력, 원문을 redaction하는 동안의 buffer, feedback 초안·캡처, 동일 retry용 최종 내용 | 영구 접수됐다는 주장 |
 | derived store | 이 concern의 전용 derived DB 없음; 요약·목록은 read에서 계산 | Problem·Verification 정본 복제 |

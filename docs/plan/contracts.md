@@ -894,8 +894,16 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - `sdk-report.ts`는 Zod/contracts root runtime import 없는 portable type/policy entry이며 raw ExceptionObservationInput/Error·MissingReason/invocation 구조는 공개 schema 타입과 bidirectional assignability 테스트로 맞춘다. common error와 transport-only `response_lost`를 구별하고 unavailable/lost만 `[250,1000,3000]`ms로 최대 3회 retry한다. 실제 SDK queue/observer는 problems#T5가 구현하며 observer는 원래 실패를 삼키거나 preventDefault하지 않는다.
   - 공개 mod/registry에 네 route·네 event를 추가하고 T32의 고정 다섯 route/VerificationRecorded identity membership을 보존했다. requirement-numbered schema 테스트와 doc check/full check로 확인한다.
 
+#### T39 구현 메모: 병합 뒤 review 정정
+
+- 상태: 완료 (#97)
+- concern: problems/grouping, problems/feedback, problems/snapshots
+- 요구: problems/grouping#R6; problems/feedback#R8; problems/snapshots#R20
+- 기존 문제를 고른 feedback은 자기 rpt로 새 feedback key를 달 수 없다. screenshot blob 권한은 key 순서와 무관한 canonical 값으로 비교한다. 항목별 상한 합보다 큰 snapshot_large_bytes 검사는 schema에서 빼고 collector 조립 runtime 책임으로 둔다(상수는 유지).
+
 ### T40 contracts/problems: problem command·read
 
+- 상태: 완료 (#98)
 - 등급: 기본
 - concern: problems/grouping, problems/repairs, problems/closing
 - 요구: problems/grouping#R1–R4, R8; problems/repairs#R1, R2; problems/closing#R6–R9, R13
@@ -1154,4 +1162,5 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q30 T28 answer·revert_run의 confirmation binding은 사람이 고른 결정 자체(question·created_seq·answer, revert id·run·allow_partial·preview_hash)로 두고 표시는 questions/read·reverts/preview를 짝짓는다(추천안). option action의 전제 비교는 고정 action.comparison·binding_hash가 맡으며 confirmation handle의 binding과 중복시키지 않는다. question 종료 이유는 deferred·cancelled·superseded 셋으로 두고 기한 도달은 QuestionExpired로만 남긴다. handoff 결과는 고정 version 또는 산출물 없음 이유 중 정확히 하나다. revert preview의 groups는 사람이 본 전체 묶음 근거이고 적용 입력의 groups는 그 source seq·소유 CAS·준비 참조만 담는다.
 - Q31 T48 `lophn_project` current의 architecture 표 `cwd?`는 MCP 프로세스 고정 `--cwd`가 credential 조건이 되는 값이라 caller 입력이 아니다(추천안). tool 입력은 `project.resolve_cwd`의 빈 객체를 그대로 쓰고, 근거가 없으면 fail-closed다. note·tag는 documents 저장 입력에 없어 tool 입력으로 받지 않는다.
 - Q32 T23 보호 export·import는 공개 route가 아닌 machine pipe op이고 원값·암호·암호문을 JSON에 싣지 않는다(추천안, platform 요청). import 결과는 이름마다 새 준비와 기록 CAS(sealed_ref·revision, 없던 이름은 둘 다 null)다. 앱 secret 사용의 현재 grant 판정 `SecretAllowance`와 process 생존 `ProcessLiveness`는 다른 최상위가 구현하는 seam이라 contract port로 둔다. 실제 KDF·암호화·keychain 기록·grant 판정은 owner runtime 책임이다.
+- Q33 T40 예외 지문 입력은 오류 이름과 상위 최대 3개 앱 frame의 상대 path·function뿐이고 hash는 collector가 canonical JSON sha256으로 낸다(추천안). work 종료 사유는 released·expired·completion_reported·cancelled 넷, 목록·상세의 증상·다음 행동 문구는 host가 채운 문자열, closure confirmation은 일회 handle 참조 문자열, 문제 결정 등록 이름은 problem_decision, 표시 read는 problems/get이다. section key는 documents 정본을 재사용한다.
 - Q34 T27 preset·assignment의 prompt는 원문이 아니라 sha256이고, PresetCreated는 그 hash와 함께 판 전체 `definition`을 싣는다(추천안). instruction-attachments의 `in_use`는 현재 assignment가 그 preset revision을 쓰는지다. `InstructionLocation.place`는 documents가 정한 등록 자리 문자열이고 경로 문법 검사는 documents가 한다. `InstructionAttachments`·`OperatorOutput` port는 동기 Result다. Operator 적용의 confirmation binding은 approval·decision_seq·bundle이고 표시 read는 assignments/read다. ChangeAssignmentPreset의 compare role은 lophn·app_engineer·context_engineer만이다. schema의 모양 검사는 이름 중복·참조 존재·현재 권한·승인 한 번 사용·출력 독점 판정을 대신하지 않는다.

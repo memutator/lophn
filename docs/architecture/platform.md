@@ -333,7 +333,6 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 | model input | agent runtime의 플랫폼 경계에서 scope·data 출처 → redaction → 실제 전송과 동일 bytes 기록; 인증 header 제외 |
 | model output·산출물·trace | 저장·tool 사용·화면 표시 각각 전에 재검사; 내부 추론·재생 서명은 수집 제외 |
 | notification·복사·export·tooltip | source 사실에서 안전 제목/대상만 만들고 현재 규칙 검사; 원문 보기 없음 |
-| screenshot | 보호 화면·secret 입력 수집 금지; private 영역 처리 불가면 이미지 대신 Omission |
 
 고정한 gitleaks credential prefix·PEM 규칙 묶음의 content hash를 입력/출력이 함께 사용한다. 새 규칙은 fixture 검증 뒤 묶음 전체를 교체한다. OpenAI·Anthropic·GitHub·AWS·Slack key, JWT·PEM 공통 fixture를 포함하되 이것이 provider 지원 목록은 아니다. Authorization/Cookie·URL 인증·JSON secret/token/password/credential 값은 중첩 구조에서 제거한다. 모든 secret 대체는 길이·종류와 무관한 `*` 하나다.
 

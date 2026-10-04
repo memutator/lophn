@@ -10,7 +10,6 @@ import { err, ok } from "../../../base/mod.ts";
 import type {
   Input,
   Output,
-  ReadDefinition,
   ReadSnapshot,
   RequestContext,
 } from "../../../contracts/platform/mod.ts";

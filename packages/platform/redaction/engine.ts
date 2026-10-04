@@ -14,6 +14,7 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { matchCredential, patternRevision } from "./patterns.ts";
 import type { KnownSecretRegistry } from "./registry.ts";
+import { selectSafeFields } from "./fields.ts";
 import { redactStructure, redactStructuredText } from "./structure.ts";
 
 // 세션 입력·질문 답은 contract audience에 없다. source.scope로 받는다.
@@ -210,19 +211,61 @@ export function createRedactionEngine(
       "body",
     );
     redactedLocations.push(...textLocations);
+    const droppedFields: string[] = [];
+
+    // secret을 지운 뒤에 선언 필드만 남긴다. 미선언·private는 구조째 뺀다(R8).
+    if (
+      input.media_type === "application/json" &&
+      (input.safe_fields.length > 0 || input.private_fields.length > 0)
+    ) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        return omitted(revision, {
+          location: "body",
+          reason: "uncertain",
+          message: "Declared fields could not be applied.",
+        });
+      }
+      const selected = selectSafeFields(
+        parsed,
+        input.safe_fields,
+        input.private_fields,
+      );
+      if (!selected) {
+        return omitted(revision, {
+          location: "body",
+          reason: "uncertain",
+          message: "Declared fields could not be applied.",
+        });
+      }
+      value = selected.value;
+      droppedFields.push(...selected.dropped);
+    } else {
+      value = cleaned;
+    }
 
     if (timedOut()) return timedOutResult(revision);
 
-    const content: RedactionContent = { kind: "inline", value: cleaned };
-    const items: RedactedItem[] = [...new Set(redactedLocations)].map((
+    const output = typeof value === "string" ? value : JSON.stringify(value);
+    const content: RedactionContent = { kind: "inline", value: output };
+    const items: RedactedItem[] = [
+      ...new Set([...redactedLocations, ...droppedFields]),
+    ].map((location) => ({ location }));
+    const omissions: RedactionOmission[] = [...new Set(droppedFields)].map((
       location,
-    ) => ({ location }));
+    ) => ({
+      location,
+      reason: "private",
+      message: "A declared private or undeclared field was omitted.",
+    }));
     return {
       rule_revision: revision,
-      status: "passed",
+      status: omissions.length > 0 ? "partial" : "passed",
       content,
       redacted_items: items,
-      omissions: [],
+      omissions,
     };
   }
 

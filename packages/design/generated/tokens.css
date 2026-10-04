@@ -42,6 +42,13 @@
   --chart-series-6: #4a3aa7;
   --chart-series-7: #e34948;
   --chart-other: #a3a29c;
+  --chart-line: 2px;
+  --chart-gap: 2px;
+  --chart-ring: 2px;
+  --chart-bar-max: 24px;
+  --chart-bar-radius: 4px;
+  --chart-point: 4px;
+  --chart-height: 240px;
   --diff-add-line: #e6f4e4;
   --diff-add-word: #bfe3b9;
   --diff-delete-line: #fbe9e7;

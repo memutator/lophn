@@ -851,6 +851,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T38 contracts/shell: 앱 화면 틀·앱 preload bridge·feedback IPC
 
+- 상태: 완료 (#105)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R1, R5, R6, R8, R11–R15, R22, R33, R34

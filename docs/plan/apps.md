@@ -55,6 +55,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T3 permission scope와 Deno flag 계산
 
+- 상태: 완료 (#73)
 - 등급: 기본
 - concern: apps/permissions, apps/blueprint
 - 요구: apps/permissions#R5, R6, R7, R8, R9, R10, R11, R12, R18, R19, R25, apps/blueprint#R9
@@ -533,3 +534,5 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - **Q9 apps slice 시작 시점.** 정했다: 선행이 모두 main에 합쳐진 작업은 slice와 상관없이 시작한다(docs/dev/team-brief.md).
 - **Q10 apps slice에서의 ticket claim.** 정했다: coding-agent#T18·T19·T20과 contracts#T41이 apps slice에 있다. T19와 T27이 그것을 쓴다.
 - **Q11 ui-chart 지원 종류.** lophn-agent/visuals#R1(산점 차트, node·edge 도표)과 apps/sdk#R17(산점도는 첫 판 밖)이 부딪쳤다. shell·lophn-agent 팀과 맞춰 apps/sdk#R17과 domain-model/apps/sdk의 SharedVisualInput에 산점 차트와 node·edge 도표를 더했다(누적 면만 첫 판 밖). 구현은 shell#T34다.
+
+- **Q12 폴더 direct grant를 broker로 옮길지.** T3는 하위 포함 폴더의 직접 grant를 허용하고, grant 때 폴더 밖을 가리키는 lexical link만 `--deny-read`/`--deny-write`로 넣는다. 다른 프로세스가 grant 계산 뒤 link를 심는 것은 `permissions.limit.symlink-changes`로 공개한다. broker cap-fs(T13)가 생기면 폴더 direct grant를 broker로 옮길지 정한다. 추천안: 옮긴다. broker가 실제 경로를 매번 확인하면 그 TOCTOU 한계가 사라진다. 결정은 T13에서 한다.

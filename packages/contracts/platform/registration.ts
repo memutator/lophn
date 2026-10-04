@@ -83,11 +83,19 @@ export interface ReadSnapshot {
 
 export type ReadDefinition<R extends ReadRoute = ReadRoute> = {
   route: R;
-  // ledger snapshot 없이 handler가 자기 결과를 내놓는 read. core가 pool 밖에서 바로 연다.
-  // pool의 실행은 동기 Result만 받으므로 async handler는 direct여야 한다.
-  direct?: boolean;
   handle(
     snapshot: ReadSnapshot,
+    ctx: RequestContext,
+    input: Input<R>,
+  ): Result<Output<R>>;
+};
+
+// ledger snapshot 없이 handler가 자기 결과를 내놓는 API read. core가 reader pool 밖에서
+// 바로 열고, dispatcher가 기다리므로 handler는 async여도 된다. 경로 해석은 같은
+// route registry에서 한다. pool read처럼 동기일 필요가 없다.
+export type ApiReadDefinition<R extends ReadRoute = ReadRoute> = {
+  route: R;
+  handle(
     ctx: RequestContext,
     input: Input<R>,
   ): Result<Output<R>> | Promise<Result<Output<R>>>;

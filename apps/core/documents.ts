@@ -1,14 +1,19 @@
-import { ok, type Result } from "../../packages/base/mod.ts";
+import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
   formatGet,
+  formatGetInputSchema,
   formatList,
 } from "../../packages/contracts/documents/mod.ts";
+import type { ApiReadDefinition } from "../../packages/contracts/platform/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
-import type { ReadDefinition } from "../../packages/contracts/platform/mod.ts";
 import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
-import { createFormatHandlers } from "../../packages/documents/formats/reads.ts";
-import { runnerWasmPath } from "../../packages/documents/formats/work.ts";
+import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
+import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
+import {
+  formatDeclaration,
+  formatDeclarations,
+} from "../../packages/documents/formats/model.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
 import {
   createProjectReads,
@@ -20,6 +25,7 @@ type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
+  apiReads?: readonly unknown[];
   workers?: readonly KindLaunchSpec[];
 };
 
@@ -28,17 +34,17 @@ function emptyDocuments(): Result<readonly DocumentRef[]> {
   return ok([]);
 }
 
-// format read는 ledger snapshot을 쓰지 않는다. direct라 core가 pool 밖에서 바로 열고,
+// format read는 ledger snapshot을 쓰지 않는다. core가 reader pool 밖에서 바로 열고,
 // dispatcher가 기다리므로 async get도 그대로 연다.
-function formatReads(): ReadDefinition[] {
-  const handlers = createFormatHandlers();
+// 게스트 실행 코드(runs the format modules)는 문서 worker·runner의 몫이다(platform.md 6장,
+// responsiveness#R1). core가 여는 것은 내장 declaration 읽기뿐이다.
+function formatReads(): ApiReadDefinition[] {
   return [
     {
       route: formatList,
-      direct: true,
-      handle(_snapshot, _ctx, _input) {
+      handle(_ctx, _input) {
         return ok({
-          formats: handlers.list(),
+          formats: formatDeclarations(),
           as_of_seq: "0",
           next_cursor: null,
         });
@@ -46,12 +52,34 @@ function formatReads(): ReadDefinition[] {
     },
     {
       route: formatGet,
-      direct: true,
-      handle(_snapshot, _ctx, input) {
-        // handlers.get의 bare declaration에 read common(판 기준·cursor)을 더한다.
-        return handlers.get(input).then((got) =>
-          got.ok ? ok({ ...got.value, as_of_seq: "0", next_cursor: null }) : got
-        );
+      handle(_ctx, input) {
+        // 이름으로 내장 declaration을 찾고, module_hash는 같은 declaration만 읽는다.
+        // hash로 최신 module을 대체하지 않는다(누락·실행 실패·미지원은 runner 몫).
+        const parsed = formatGetInputSchema.safeParse(input);
+        if (!parsed.success) {
+          return err({
+            code: "invalid_input",
+            message: "format get input is invalid",
+          });
+        }
+        if (parsed.data.module_hash !== BUILTIN_MODULE_HASH) {
+          return err({
+            code: "not_found",
+            message: "format module is missing",
+          });
+        }
+        const declaration = formatDeclaration(parsed.data.name);
+        if (declaration.module_hash !== parsed.data.module_hash) {
+          return err({
+            code: "not_found",
+            message: "format module is missing",
+          });
+        }
+        return ok({
+          ...declaration,
+          as_of_seq: "0",
+          next_cursor: null,
+        });
       },
     },
   ];
@@ -148,8 +176,9 @@ export function createLedgerRegistration(
       reads.resolve,
       reads.resolveCwd,
       reads.trackingRoots,
-      ...formatReads(),
     ],
+    // format read는 snapshot 없이 바로 연다. 경로는 같은 조립에서 registry로 모은다.
+    apiReads: formatReads(),
     // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
     // core가 root를 좁히는 T11 교체는 core 쪽 감독 seam이 넣는다.
     workers: registerWorkers(),

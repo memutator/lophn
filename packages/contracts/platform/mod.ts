@@ -97,6 +97,7 @@ export {
   type EventDefinition,
   type EventEnvelope,
   eventEnvelopeBaseSchema,
+  type EventEnvelopeFor,
   eventEnvelopeSchema,
   eventsList,
   eventsListInputSchema,
@@ -144,6 +145,7 @@ export { definePort, type PortKey } from "./ports.ts";
 export {
   type CommandDefinition,
   type Compare,
+  type EventVisibilityDefinition,
   type Input,
   type Output,
   type ReadDefinition,

@@ -669,6 +669,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T30 contracts/lophn-agent: tool call·trace·usage·visual block
 
+- 상태: 완료 (#107)
 - 등급: 기본
 - concern: lophn-agent/harness/tools, lophn-agent/observability, lophn-agent/visuals
 - 요구: lophn-agent/harness/tools#R1–R4, R6–R16, R18–R20; lophn-agent/harness/tool-judgment#R1–R3, R5, R8–R12; lophn-agent/harness/run-loop#R13, R15; lophn-agent/harness/waiting-and-recovery#R2, R3, R5, R10; lophn-agent/extensions#R6, R7, R12, R13, R16, R19, R22, R23, R25–R29; lophn-agent/observability#R1–R10, R14, R16–R20, R25, R26; lophn-agent/harness/usage#R5–R10; lophn-agent/visuals#R1–R7

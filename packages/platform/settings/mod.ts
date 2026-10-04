@@ -5,7 +5,6 @@ export {
   mergeValue,
   offlineAllowed,
   requiresOwnerCheck,
-  SECRET_PATTERNS,
   secretInValue,
   validateChoice,
   validateConstraints,

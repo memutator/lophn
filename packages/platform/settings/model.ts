@@ -2,6 +2,7 @@
 // 메시지는 항목·기대·고칠 방법만 알리고 secret 원문과 입력 문서 전체를 담지 않는다(R14).
 
 import { err, ok, type Result } from "../../base/mod.ts";
+import { matchCredential } from "../redaction/mod.ts";
 import type {
   EffectiveSetting,
   JsonValue,
@@ -10,20 +11,9 @@ import type {
   SettingsValidationError,
 } from "../../contracts/platform/mod.ts";
 
-export const SECRET_PATTERNS: readonly RegExp[] = [
-  /sk-[A-Za-z0-9]{20,}/,
-  /sk-ant-[A-Za-z0-9_-]{20,}/,
-  /gh[pousr]_[A-Za-z0-9]{20,}/,
-  /AKIA[0-9A-Z]{16}/,
-  /xox[baprs]-[A-Za-z0-9-]{10,}/,
-  /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/,
-  /-----BEGIN (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY-----/,
-];
-
-// platform/redaction의 CREDENTIAL_PATTERNS와 같은 shape이다. redaction mod.ts가
-// matchCredential을 내보내지 않아 settings가 같은 규칙을 따로 둔다. 갱신은 두 자리를 같이 바꾼다.
+// secret 원문 판정은 platform/redaction의 credential 규칙 하나를 쓴다.
 export function containsCredentialSecret(text: string): boolean {
-  return SECRET_PATTERNS.some((pattern) => pattern.test(text));
+  return matchCredential(text) !== undefined;
 }
 
 export function secretInValue(value: unknown): boolean {

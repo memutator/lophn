@@ -14,7 +14,7 @@ import {
   projectTrackingRoots,
   userProjectSchema,
 } from "../../contracts/documents/mod.ts";
-import { absolutePathSchema } from "../../contracts/documents/values.ts";
+import { absolutePathSchema } from "../../contracts/documents/mod.ts";
 import {
   parseActor,
   type ReadDefinition,

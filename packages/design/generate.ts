@@ -74,14 +74,24 @@ export function renderVars(flat: readonly FlatToken[]): string {
       else node = (node[key] ??= {}) as Tree;
     });
   }
+  // 이름 목록은 token-names.ts로 나눠 각 생성 TS가 400줄을 넘지 않게 하고 기존 import 길은 다시 내보낸다.
   return [
     `// ${notice}`,
+    'export { tokenNames } from "./token-names.ts";',
+    'export type { TokenName } from "./token-names.ts";',
     `export const vars = ${JSON.stringify(tree, null, 2)} as const;`,
+    "export type TokenVars = typeof vars;",
+    "",
+  ].join("\n");
+}
+
+export function renderTokenNames(flat: readonly FlatToken[]): string {
+  return [
+    `// ${notice}`,
     `export const tokenNames = ${
       JSON.stringify(flat.map((token) => token.name), null, 2)
     } as const;`,
     "export type TokenName = (typeof tokenNames)[number];",
-    "export type TokenVars = typeof vars;",
     "",
   ].join("\n");
 }
@@ -106,6 +116,7 @@ export async function generate(): Promise<Record<string, string>> {
   return {
     "tokens.css": renderCss(flat),
     "vars.ts": await formatVars(renderVars(flat)),
+    "token-names.ts": await formatVars(renderTokenNames(flat)),
     "values.json": JSON.stringify({ _generated: notice, tokens }, null, 2) +
       "\n",
   };

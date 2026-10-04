@@ -14,6 +14,11 @@ export const en = {
   "common.button.reload": "Reload",
   "common.stale.label": "Last updated {age}",
   "common.author.label": "Written by {author}",
+  "common.heading.column-unit": "{header} ({unit})",
+  "common.button.copy-id": "Copy ID",
+  "common.button.copy-code": "Copy code",
+  "common.copy.failed": "Couldn't copy. Try again.",
+  "common.label.on-this-page": "On this page",
 } as const;
 
 export type Catalog = typeof en;

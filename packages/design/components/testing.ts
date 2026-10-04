@@ -1,6 +1,7 @@
 // 컴포넌트 테스트 전용. components_test.ts가 happy-dom 위에서 bundle해 돌린다.
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import type { ResizeSource, Size } from "./resize.ts";
 import type { Timer } from "./shared.ts";
 
 export interface Rendered extends Disposable {
@@ -112,6 +113,32 @@ export function manualTimer(): ManualTimer {
         act(() => due[1].callback());
       }
       now = until;
+    },
+  };
+}
+
+export interface ManualResize extends ResizeSource {
+  // 관측 중인 element 수.
+  observed(): number;
+  // element(없으면 관측 중인 모두)에 새 크기를 알린다.
+  resize(size: Partial<Size>, element?: Element): void;
+}
+
+// 칸 크기를 테스트가 정한다. 알림은 act 안에서 부른다.
+export function manualResize(): ManualResize {
+  const listeners = new Map<Element, (size: Size) => void>();
+  return {
+    observe(element, onSize) {
+      listeners.set(element, onSize);
+      return () => listeners.delete(element);
+    },
+    observed: () => listeners.size,
+    resize({ width = 0, height = 0 }, element) {
+      act(() => {
+        for (const [target, onSize] of listeners) {
+          if (!element || element === target) onSize({ width, height });
+        }
+      });
     },
   };
 }

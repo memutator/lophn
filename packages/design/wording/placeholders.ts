@@ -22,6 +22,14 @@ export type PlaceholderKinds = {
   "common.author.label": {
     author: "string";
   };
+  "common.heading.column-unit": {
+    header: "string";
+    unit: "string";
+  };
+  "common.button.copy-id": Record<never, never>;
+  "common.button.copy-code": Record<never, never>;
+  "common.copy.failed": Record<never, never>;
+  "common.label.on-this-page": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

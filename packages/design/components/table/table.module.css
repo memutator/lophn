@@ -1,0 +1,104 @@
+/* 관측 대상인 scroll 칸. padding·border가 없어 관측 높이가 곧 보이는 높이다. */
+.scroller {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-spacing: var(--space-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.head,
+.numberHead {
+  position: sticky;
+  top: var(--space-0);
+  z-index: var(--z-sticky);
+  height: var(--table-row-compact);
+  padding: var(--space-0) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  background: var(--color-surface-base);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.numberHead {
+  text-align: right;
+}
+
+/* 줄무늬 없이 1px subtle 구분선만 둔다. */
+.row {
+  height: var(--table-row-compact);
+  background: var(--color-surface-base);
+}
+
+.table[data-density="comfortable"] .row {
+  height: var(--table-row-comfortable);
+}
+
+.row > td {
+  padding: var(--space-0) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  vertical-align: middle;
+}
+
+/* 첫 칸과 끝 칸은 16px. */
+.table th:first-child,
+.row > td:first-child {
+  padding-left: var(--space-6);
+}
+
+.table th:last-child,
+.row > td:last-child {
+  padding-right: var(--space-6);
+}
+
+.text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.number {
+  text-align: right;
+  font-variant-numeric: var(--font-numeric);
+  white-space: nowrap;
+}
+
+.id {
+  white-space: nowrap;
+}
+
+.idValue {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.code {
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  color: var(--color-text-secondary);
+}
+
+.spacer > td {
+  padding: var(--space-0);
+  border: none;
+}

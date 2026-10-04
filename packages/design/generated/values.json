@@ -360,6 +360,40 @@
     "loading": {
       "delay": "300ms"
     },
+    "page": {
+      "reading": {
+        "narrow": "600px",
+        "default": "680px",
+        "wide": "800px"
+      },
+      "toc": "220px",
+      "dashboard": {
+        "max": "1440px",
+        "columns": 12
+      },
+      "list": "360px",
+      "form": "640px",
+      "launcher": "1040px",
+      "overview": "800px"
+    },
+    "table": {
+      "row": {
+        "compact": "36px",
+        "comfortable": "44px"
+      }
+    },
+    "tree": {
+      "row": "28px",
+      "indent": "12px",
+      "marker": "2px",
+      "indentCap": 8
+    },
+    "stat": {
+      "perRow": 4
+    },
+    "palette": {
+      "item": "36px"
+    },
     "floating": {
       "surface": {
         "light": "#ffffff",

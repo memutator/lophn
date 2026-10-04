@@ -34,6 +34,17 @@ import {
   invocationFinished,
   invocationStarted,
 } from "./invocations.ts";
+import {
+  RELEASE_ROUTES,
+  releaseActivated,
+  releaseActivationFailed,
+  releaseActivationStarted,
+  releaseBackupRecorded,
+  releaseDataChanged,
+  releaseDataRestored,
+  releasePrepared,
+  releaseSuperseded,
+} from "./releases.ts";
 
 export const ROUTES = [
   appConnect,
@@ -53,6 +64,7 @@ export const ROUTES = [
   appAutomations,
   appExport,
   ...INVOCATION_ROUTES,
+  ...RELEASE_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -69,4 +81,12 @@ export const EVENTS = [
   invocationStarted,
   invocationFinished,
   invocationDenied,
+  releasePrepared,
+  releaseActivationStarted,
+  releaseBackupRecorded,
+  releaseDataChanged,
+  releaseDataRestored,
+  releaseActivated,
+  releaseSuperseded,
+  releaseActivationFailed,
 ] as const;

@@ -822,6 +822,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T36 contracts/apps: release 준비·적용·data job
 
+- 상태: 완료 (#134)
 - 등급: 기본
 - concern: apps/releases, apps/data
 - 요구: apps/releases#R1, R4–R10, R12–R16, R18, R19; apps/data#R3, R9, R10; apps/blueprint#R17
@@ -1003,6 +1004,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T44 contracts/coding-agent: repair context·문제 tool
 
+- 상태: 완료 (#132)
 - 등급: 기본
 - concern: coding-agent/repair-context
 - 요구: coding-agent/repair-context#R3–R12, R15, R17; coding-agent/mcp-server#R24, R25
@@ -1035,6 +1037,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T46 contract 덮기를 check 관문에
 
+- 상태: 완료 (#115)
 - 등급: 좁은
 - concern: 저장소 바닥
 - 요구: 없음(architecture/README.md 4장)

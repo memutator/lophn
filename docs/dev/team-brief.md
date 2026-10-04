@@ -4,7 +4,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 ---
 # team member 지침
 
-lophn을 구현하는 team member(2단, `gpt-6.1-sol-max`)가 따르는 지침이다. 사람은 "Team 띄워서 구현 계획 및 계획에 따라 구현 마무리까지 진행한다"고 맡겼다. lead는 주 세션이다(SendMessage `to: "main"`).
+lophn을 구현하는 team member(2단, Opus 5.5 medium)가 따르는 지침이다. 사람은 "Team 띄워서 구현 계획 및 계획에 따라 구현 마무리까지 진행한다"고 맡겼다. lead는 주 세션이다(SendMessage `to: "main"`).
 
 ## 먼저 읽을 것
 
@@ -46,21 +46,18 @@ Agent tool로 띄운다. worker는 자기 sub agent를 띄우지 않는다.
 
 - 선행이 허용하는 작업은 몫 안에서 모두 동시에 띄운다. harness가 team member를 포함해 동시에 20개까지만 돌리므로 worker 몫은 lead가 팀마다 나눈다. 몫이 모자라면 lead에게 말한다. 한 작업에 worker 하나, worktree 하나다. 문서 요약만 하는 worker는 쓰지 않는다.
 - 같은 파일을 고치는 작업은 동시에 띄우지 않는다. 띄울 작업이 없으면 기다린다.
-- Claude worker(frontend, 최상위)는 팀마다 동시에 2개까지다. Anthropic rate limit(429)이 나면 Claude worker부터 줄인다. grok, sol, space-bunny는 그 한도와 상관없다.
 - worker의 Bash가 막히면 그 확인은 team member가 직접 돌린다.
 
-| 등급 | Agent tool |
-|---|---|
-| 좁은 | `subagent_type: "space-bunny-max"` |
-| 기본 | `subagent_type: "grok-4-7-xhigh"` 또는 `"sol-6-1-high"`(번갈아, rate limit이 나면 그쪽을 줄인다) |
-| frontend | `subagent_type: "claude"`, `model: "opus"` |
-| 최상위 | `subagent_type: "claude"`, `model: "sonnet"`. worker가 자기 model이 `claude-sonnet-5-5`인지 첫 줄에 말하게 하고, 아니면 lead에게 알린다 |
+| 등급 | Agent tool | 비율 |
+|---|---|---|
+| 기본 | `subagent_type: "grok-4-7-xhigh"` | 7할 |
+| 좁은(쉬운 작업) | `subagent_type: "space-bunny-max"` | 3할 |
 
 review는 diff를 직접 읽거나 다른 model worker에게 맡긴다. code-review Skill은 쓰지 않는다(worker를 따로 띄워 몫을 쓴다).
 
 worker의 Bash는 명령마다 cwd가 main checkout으로 돌아갈 수 있다. 그래서 worker 프롬프트 맨 앞에 "모든 명령과 파일 경로는 worktree 절대 경로다(`git -C <worktree>`, `cd <worktree> && ...`). main checkout은 고치지 않는다"를 넣는다. 테스트의 fixture·Worker entry·temp 경로는 `import.meta.url`이나 temp dir 기준으로 잡는다.
 
-worker 프롬프트에는 작업 블록 그대로, 읽을 파일(필요한 것만), worktree 경로, 지킬 규칙(`AGENTS.md`, `docs/dev/architecture.md`), 완료 기준, 보고 모양(바꾼 자리, 통과한 check, 테스트가 가리키는 요구, 남은 것)을 넣는다. 기본 등급이 같은 작업을 두 번 실패하면 최상위로 올린다.
+worker 프롬프트에는 작업 블록 그대로, 읽을 파일(필요한 것만), worktree 경로, 지킬 규칙(`AGENTS.md`, `docs/dev/architecture.md`), 완료 기준, 보고 모양(바꾼 자리, 통과한 check, 테스트가 가리키는 요구, 남은 것)을 넣는다. 좁은 등급이 실패하면 기본으로 올린다. 기본 등급이 같은 작업을 두 번 실패하면 작업을 더 잘게 나누거나 직접 고친다.
 
 ## 팀 사이
 

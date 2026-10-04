@@ -124,6 +124,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T60 확정 ledger key의 REPLACE·UPSERT 우회 차단
 
+- 상태: 완료 (#62)
 - 등급: 좁은
 - concern: platform/ledger, platform/backup-and-migration
 - 요구: platform/ledger#R2, R10, platform/backup-and-migration#R1, R4, R5, R6
@@ -141,6 +142,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T59 다른 팀의 public ledger integration test harness
 
+- 상태: 완료 (#65)
 - 등급: 기본
 - concern: platform/ledger
 - 요구: platform/ledger#R1, R2, R3, R4, R10, R13, R14, R20, R21, R22

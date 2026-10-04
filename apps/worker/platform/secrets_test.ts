@@ -34,13 +34,15 @@ const input = {
 Deno.test("platform/secrets#R2: 보호 입력은 secret.prepare callback으로만 받고 다른 경로는 거절한다", async () => {
   const keychain = createFakeKeychain();
   const registry = createKnownSecretRegistry();
-  const pipe = createSecretPipe(createSecretWork({
-    keychain,
-    preparations: store(),
-    registry,
-    processes: { ended: () => Promise.resolve(false) },
-    preparationId: () => "prep-1",
-  }));
+  const pipe = createSecretPipe({
+    work: createSecretWork({
+      keychain,
+      preparations: store(),
+      registry,
+      processes: { ended: () => Promise.resolve(false) },
+      preparationId: () => "prep-1",
+    }),
+  });
   const value = "protected-input-value";
   const prepared = await pipe.handle(
     { request_id: "r1", op: "secret.prepare", payload: input },

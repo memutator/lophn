@@ -37,3 +37,19 @@ export {
   type ProcessWatch,
   type SecretWork,
 } from "./work.ts";
+export {
+  createSecretAttach,
+  type ProcessLiveness,
+  SECRET_SEND,
+  type SecretAllowance,
+  type SecretAttach,
+} from "./attach.ts";
+export { attachAllowed, destinationHost, sameDestination } from "./model.ts";
+export {
+  createSecretRefresh,
+  type OwnerCredential,
+  type OwnerCredentialCommand,
+  type RefreshSubmission,
+  SECRET_STORE_REFRESH,
+  type SecretRefresh,
+} from "./refresh.ts";

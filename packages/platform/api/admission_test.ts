@@ -1,9 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok } from "../../base/mod.ts";
-import {
-  advanceSubscriberCursor,
-  ERROR_HTTP_STATUS,
-} from "../../contracts/platform/mod.ts";
+import { ERROR_HTTP_STATUS } from "../../contracts/platform/mod.ts";
 import type { CommandEnvelope, Writer } from "../ledger/mod.ts";
 import { type Admission, createAdmission } from "../responsiveness/mod.ts";
 import { call, listen } from "./harness_test.ts";
@@ -36,17 +33,29 @@ Deno.test("platform#T11: command 입장은 admission queue를 지나고 control 
   };
   const made_writer: Writer = {
     command: async (_ctx, envelope: CommandEnvelope) => {
-      seen.push({ lane: "command:" + envelope.command, name: envelope.command });
+      seen.push({
+        lane: "command:" + envelope.command,
+        name: envelope.command,
+      });
+      await Promise.resolve();
       return {
         ok: false,
         error: { code: "unavailable", message: "writer unavailable" },
       };
     },
-    readResult: async () => ({
-      ok: false,
-      error: { code: "unavailable", message: "read-result unavailable" },
-    }),
-    close: async () => undefined,
+    readResult: async () => {
+      await Promise.resolve();
+      return {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message: "read-result unavailable",
+        } as const,
+      };
+    },
+    close: async () => {
+      await Promise.resolve();
+    },
   };
   const opened = await listen({
     admission: wrapped,

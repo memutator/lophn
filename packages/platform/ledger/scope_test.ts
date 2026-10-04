@@ -1,13 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
 import {
-  eventsList,
   type EventVisibilityDefinition,
-  type ReadSnapshot,
   type RequestContext,
   type Subject,
 } from "../../contracts/platform/mod.ts";
-import { commands, deps, fileLedger, note, NOW, user } from "./command-harness.ts";
+import { commands, deps, fileLedger, note, user } from "./command-harness.ts";
 import { fixtureEvent } from "./event-fixture.ts";
 import { createEventVisibilityRegistry } from "./event-visibility.ts";
 import { createListEventsRead, scanEvents } from "./events.ts";
@@ -42,7 +40,7 @@ Deno.test("platform/identity#R8: event list는 subject·type을 scope로 먼저 
   try {
     const subjects: Subject[] = [];
     const read = createListEventsRead({
-      registry: registry((snapshot, _ctx, event) =>
+      registry: registry((_snapshot, _ctx, event) =>
         ok(fixtureEvent.payload.parse(event.payload).name !== "hidden")
       ),
       current: () => ok(user()),
@@ -101,7 +99,7 @@ Deno.test("platform/identity#R8: 구독은 허용하지 않은 event를 envelope
   assert(reader.ok);
   let saw = 0;
   const read = createListEventsRead({
-    registry: registry((snapshot, _ctx, event) => {
+    registry: registry((_snapshot, _ctx, event) => {
       saw++;
       return ok(fixtureEvent.payload.parse(event.payload).name !== "hidden");
     }),
@@ -135,10 +133,12 @@ Deno.test("platform/identity#R8: 구독은 허용하지 않은 event를 envelope
     user(),
     { position: "0", inclusive: true },
     {
-      registry: registry(() => err({
-        code: "unavailable",
-        message: "owner unavailable",
-      }) as never),
+      registry: registry(() =>
+        err({
+          code: "unavailable",
+          message: "owner unavailable",
+        }) as never
+      ),
     },
   );
   assert(!denied.ok);
@@ -165,7 +165,7 @@ Deno.test("platform/identity#R8: platform read는 target scope 안 근거만 펼
       },
     };
     const read = createListEventsRead({
-      registry: registry((snapshot, _ctx, event) => {
+      registry: registry((_snapshot, _ctx, event) => {
         seen.push(String(event.subject));
         return ok(fixtureEvent.payload.parse(event.payload).name !== "hidden");
       }),

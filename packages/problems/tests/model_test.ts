@@ -2,6 +2,9 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import { testMethodInputSchema } from "../../contracts/problems/mod.ts";
 import {
   canonicalRequest,
+  canReadVerification,
+  canRecordVerification,
+  checkTestAuthority,
   connectionOf,
   type PreparedResultEvidence,
   projectRequest,
@@ -10,6 +13,7 @@ import {
   type TestConnection,
   timeoutBounds,
 } from "./model.ts";
+import { ctx, strictTargetAuthorizer } from "./support.ts";
 import { expectedBundle, judgeRecordable } from "./judge.ts";
 
 const HASH = "a".repeat(64);
@@ -364,4 +368,89 @@ Deno.test("problems/tests#R5: 요청 기록은 미실행·실패·시작·결과
   ]);
   assertEquals(started?.started_at, "2026-10-04T00:00:02.000Z");
   assertEquals(started?.result_ref, "vrf_01ary8h2z3n4p5q6r7s8t9v0wx");
+});
+
+const ADMISSION = {
+  runner_principal: "runner-1",
+  app: APP,
+  request_principal: "user-1",
+  request_key: "key-1",
+  request_hash: HASH,
+};
+
+function machine(
+  targets: Record<string, string>,
+  operations = ["RecordVerification"],
+) {
+  return ctx({
+    principal: "runner-1",
+    actor: "machine",
+    scope: { operations, targets },
+    conditions: targets.app === undefined ? {} : { app: targets.app },
+  });
+}
+
+Deno.test("problems/tests#R1: domain target이 빠지거나 다르거나 더 있으면 forbidden이다", () => {
+  const authorize = strictTargetAuthorizer();
+  const matched = canRecordVerification(
+    machine({
+      app: APP,
+      request_principal: "user-1",
+      request_key: "key-1",
+      request_hash: HASH,
+    }),
+    ADMISSION,
+    authorize,
+  );
+  assert(matched.ok);
+  const missing: Record<string, string> = {
+    app: APP,
+    request_principal: "user-1",
+    request_key: "key-1",
+  };
+  const different: Record<string, string> = {
+    app: APP,
+    request_principal: "user-1",
+    request_key: "other",
+    request_hash: HASH,
+  };
+  const extra: Record<string, string> = {
+    app: APP,
+    request_principal: "user-1",
+    request_key: "key-1",
+    request_hash: HASH,
+    task: "tsk_01ary8h2z3n4p5q6r7s8t9v0wt",
+  };
+  for (const targets of [missing, different, extra]) {
+    const rejected = checkTestAuthority(
+      machine(targets),
+      ADMISSION,
+      "RecordVerification",
+      authorize,
+    );
+    assertFalse(rejected.ok);
+    assertEquals(rejected.ok ? "" : rejected.error.code, "forbidden");
+  }
+  const read = canReadVerification(
+    machine({ app: APP, request_key: "key-1" }, ["GetVerification"]),
+    { app: "other-app", request_key: "key-1" },
+    authorize,
+  );
+  assertFalse(read.ok);
+  assertEquals(read.ok ? "" : read.error.code, "forbidden");
+  const appOnly = canReadVerification(
+    machine({ app: APP }, ["GetVerification"]),
+    { app: APP },
+    authorize,
+  );
+  assert(appOnly.ok);
+  const narrowedMismatch = canReadVerification(
+    machine({ app: APP, request_key: "key-1" }, ["GetVerification"]),
+    { app: APP, request_key: "key-2" },
+    authorize,
+  );
+  assertEquals(
+    narrowedMismatch.ok ? "" : narrowedMismatch.error.code,
+    "forbidden",
+  );
 });

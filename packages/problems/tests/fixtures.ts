@@ -79,6 +79,7 @@ export function requester(): RequestContext {
     principal: "user-1",
     actor: "user",
     scope: { operations: ["RequestTest"], targets: { app: APP } },
+    conditions: { app: APP },
   });
 }
 
@@ -99,6 +100,7 @@ export function runner(principal = "runner-1"): RequestContext {
         request_hash: REQUEST_HASH,
       },
     },
+    conditions: { app: APP },
   });
 }
 

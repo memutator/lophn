@@ -70,7 +70,7 @@ Deno.test("problems/tests#R1 R2 R3 R5: file WAL bigint handler 접수→시작�
     assertEquals(pending.value.request.started_at, null);
     const wide = (1n << 53n) + 3n;
     ledger.sql.run(
-      "insert into test_requests select ?, request_principal, request_key, request_hash, 'start_attempt', accepted, preparation_failed, '2026-10-04T00:00:00.000Z', 0, result_ref, runner_principal, previous_runner, 'unknown', payload from test_requests where seq=1",
+      "insert into test_requests select ?, request_principal, request_key, request_hash, 'actual_started', accepted, preparation_failed, '2026-10-04T00:00:00.000Z', 0, result_ref, runner_principal, previous_runner, 'unknown', payload from test_requests where seq=1",
       [wide],
     );
     assertEquals(loadRecords(ledger.sql, "user-1", "key-1")[1].seq, wide);
@@ -187,6 +187,7 @@ Deno.test("problems/tests#R1 R2 R3 R5: file WAL bigint handler 접수→시작�
           request_hash: REQUEST_HASH,
         },
       },
+      conditions: { app: APP },
     });
     assert(
       readVerification(ledger.snapshot(first.value.seq), reader, {
@@ -333,6 +334,7 @@ Deno.test("problems/tests#R5: scope predicates는 forbidden 51행 뒤 allowed �
         operations: ["ListVerifications", "GetVerification"],
         targets: { app: APP, request_principal: "allowed" },
       },
+      conditions: { app: APP },
     });
     const list = readVerificationList(ledger.snapshot("53"), reader, {
       app: APP,

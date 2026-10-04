@@ -1,13 +1,16 @@
 import type { Result } from "../../base/mod.ts";
 import { ok } from "../../base/mod.ts";
+import { err } from "../../base/mod.ts";
 import type {
   BlobRefRegistration,
   RequestContext,
   Sql,
   SqlParams,
   SqlRow,
+  TargetAuthorizer,
   Tx,
 } from "../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../contracts/platform/mod.ts";
 import { TEST_SCHEMA_STEPS } from "./schema.ts";
 
 type Memory = { rows: Map<string, SqlRow[]> };
@@ -119,6 +122,47 @@ export function memorySql(): Sql & { rows: (name: string) => SqlRow[] } {
   return sql;
 }
 
+const FORBIDDEN = "이 credential로는 할 수 없다";
+
+// platform authorize가 ledger gate에서 건너뛰는 고정 조건 key.
+const CONDITION_TARGET_KEYS = [
+  "app",
+  "task",
+  "run",
+  "assignment",
+  "release",
+  "process",
+  "mode",
+] as const;
+
+// packages/problems는 packages/platform을 import하지 않는다.
+// 단위 테스트 Tx는 platform createTargetAuthorizer와 같은 strict 판정을 contracts 타입으로 쓴다.
+// ctx의 고정 조건 값으로 owner target을 덮어 합친 뒤, scope.targets의 모든 key가
+// 있고 같을 때만 ok다. owner target의 여분 key는 막지 않는다.
+export function strictTargetAuthorizer(): TargetAuthorizer {
+  return (ctx, operation, target) => {
+    if (!ctx.scope.operations.includes(operation)) {
+      return err({ code: "forbidden", message: FORBIDDEN });
+    }
+    const merged: Record<string, unknown> = { ...target };
+    for (const key of CONDITION_TARGET_KEYS) {
+      const value = key === "run"
+        ? ctx.run ?? ctx.conditions.run
+        : ctx.conditions[key];
+      if (value !== undefined) merged[key] = value;
+    }
+    for (const key of Object.keys(ctx.scope.targets)) {
+      if (
+        !Object.hasOwn(merged, key) ||
+        JSON.stringify(merged[key]) !== JSON.stringify(ctx.scope.targets[key])
+      ) {
+        return err({ code: "forbidden", message: FORBIDDEN });
+      }
+    }
+    return ok(undefined);
+  };
+}
+
 export function fakeTx(options: {
   now?: string;
   ids?: string[];
@@ -141,7 +185,10 @@ export function fakeTx(options: {
     events,
     now: () => options.now ?? "2026-10-04T00:00:00.000Z",
     newId: () => ids.shift() ?? "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
-    port: () => {
+    port<T>(key: { readonly name: string }): T {
+      if (key === TargetAuthorization) {
+        return strictTargetAuthorizer() as T;
+      }
       throw new Error("no port");
     },
     registerBlobRef: (reference) =>

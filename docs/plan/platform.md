@@ -139,6 +139,25 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 다른 principal의 같은 key·새 key·새 migration version은 정상이며 malicious migration의 history REPLACE와 domain 쓰기는 함께 rollback된다. 기존 history/hash를 먼저 검증하는 흐름을 유지한다(b&m R1, R4, R6).
   - `ledger_test.ts`, `sqlite-storage_test.ts`, `immutable_test.ts`, `migrations_test.ts`의 실제 파일 SQLite·WAL 회귀 테스트가 통과하고 각 파일은 400줄 이하다.
 
+### T59 다른 팀의 public ledger integration test harness
+
+- 등급: 기본
+- concern: platform/ledger
+- 요구: platform/ledger#R1, R2, R3, R4, R10, R13, R14, R20, R21, R22
+- 자리: apps/core/testing/, tools/check-deps.ts, tools/check-deps_test.ts
+- 쓰는 contract: 등록 interface, AuthenticatedContext, Tx, ReadSnapshot
+- 내놓는 contract: 없음(테스트 전용 public entry)
+- slice: skeleton
+- 선행: platform#T58, platform#T60
+- 완료: 아래 확인이 통과한다
+  - 다른 팀 `*_test.ts`는 `apps/core/testing/ledger.ts` 하나로 static URL registration을 넘긴다. fixture URL은 caller의 `import.meta.url` 기준이고 함수와 PortKey identity는 각 Worker 안에서 다시 조립한다.
+  - harness가 임시 directory와 실제 파일 SQLite/WAL을 소유한다. writer Worker 하나는 migration 뒤 실제 serveWriter/executor를 쓰며 reader Worker 둘은 readOnly/query_only 연결과 실제 executeRead를 쓴다.
+  - 다섯 actor의 지정 scope/conditions를 현재 테스트 credential map으로 제어한다. set/revoke는 모든 Worker ack 뒤 다음 호출을 열고 command와 read는 현재 principal/actor/ref binding·만료·run 조건을 다시 검사한다. current targets의 own key restriction과 발급 snapshot을 보존하고 read의 명시 run과 current bound run을 구별한다.
+  - Tx-local port factory와 guarded Tx/current context를 받는 blob callback, extra test-only lifecycle command를 지원한다. handler·이전 callback의 context mutation은 blob callback의 current snapshot을 바꾸지 못하며 callback의 blob_refs·domain·event·결과는 같은 transaction에서 rollback된다. 제품 credential 발급·core/API entry·T14 blob prepare/read·Tx.call dispatch·event visibility/replay는 만들지 않는다.
+  - inspect는 실제 read-only snapshot을 읽고 idle writer와 직렬된 write probe는 성공/실패 모두 rollback한다. 테스트 SQL control은 제품 WriterRequest에 추가하지 않는다.
+  - 중복 command name/read key/schema id/route와 singleton registration은 안전하게 기동 실패한다. 유한 pending cap·ready/request timeout, structured clone/Worker/partial startup 실패와 idempotent close의 Worker·파일 cleanup을 검증한다.
+  - 최소 public 사용 예제, file/WAL·atomic rollback·현재 credential·read metadata·per-Tx port identity·immutable REPLACE probe 회귀와 testing 내부 import 허용/제품 외부 import 거절 회귀가 통과한다.
+
 ### T3 read 처리: reader Worker와 snapshot
 
 - 등급: 기본

@@ -252,7 +252,10 @@ export async function checkRepo(root: string): Promise<Violation[]> {
           `shell은 contracts·design·sdk만 import: ${specifier}`,
         );
       }
-      if (!test && target && inside(target, "apps/core/testing")) {
+      if (
+        !test && !inside(file, "apps/core/testing") && target &&
+        inside(target, "apps/core/testing")
+      ) {
         add(
           file,
           line,

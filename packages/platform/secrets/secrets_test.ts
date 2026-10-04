@@ -14,6 +14,7 @@ import { createFakeKeychain } from "./adapters/fake-keychain.ts";
 import {
   createLinuxSecretServiceAdapter,
   type SecretToolRunner,
+  sessionEnv,
 } from "./adapters/linux-secret-service.ts";
 import { unavailableAdapter } from "./adapters/keychain.ts";
 import { removeSecretCommand, setSecretCommand } from "./commands.ts";
@@ -539,4 +540,19 @@ Deno.test("platform/secrets#R6: 현재 참조가 아닌 준비는 고아로 구�
   const found = await store.orphans(["current"]);
   assert(found.ok);
   assertEquals(found.value, ["orphan"]);
+});
+
+Deno.test("platform/secrets#R1 platform/secrets#R8: secret-tool 자식 env는 session bus 주소만 받는다", () => {
+  const parent: Record<string, string> = {
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus",
+    XDG_RUNTIME_DIR: "/run/user/1000",
+    PATH: "/usr/bin",
+    LOPHN_TOKEN: "lophn-secret-value",
+    HOME: "/home/someone",
+  };
+  assertEquals(sessionEnv((name) => parent[name]), {
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus",
+    XDG_RUNTIME_DIR: "/run/user/1000",
+    PATH: "/usr/bin",
+  });
 });

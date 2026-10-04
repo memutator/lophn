@@ -75,7 +75,21 @@ export function createLinuxSecretServiceAdapter(options: {
   };
 }
 
-// 제품 실행. 값은 secret-tool stdin으로만 보내고 자식 env는 비운다.
+// session bus를 찾는 데 필요한 값만 넘긴다. secret 값은 env에 없다.
+const SESSION_ENV = ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR", "PATH"];
+
+export function sessionEnv(
+  read: (name: string) => string | undefined,
+): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const name of SESSION_ENV) {
+    const value = read(name);
+    if (value !== undefined) env[name] = value;
+  }
+  return env;
+}
+
+// 제품 실행. 값은 secret-tool stdin으로만 보내고 자식 env는 session bus 주소만 남긴다.
 export function secretToolRunner(): SecretToolRunner {
   return {
     async run(args, stdin) {
@@ -86,6 +100,7 @@ export function secretToolRunner(): SecretToolRunner {
           stdout: "piped",
           stderr: "null",
           clearEnv: true,
+          env: sessionEnv((name) => Deno.env.get(name)),
         });
         const child = command.spawn();
         if (stdin !== undefined) {

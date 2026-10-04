@@ -3,6 +3,7 @@ import { manualClock } from "../../base/mod.ts";
 import {
   REDACTION_REPLACEMENT,
   type RedactionInput,
+  redactionResultSchema,
 } from "../../contracts/platform/mod.ts";
 import { createRedactionEngine } from "./mod.ts";
 import { patternRevision } from "./patterns.ts";
@@ -96,8 +97,9 @@ Deno.test("R2 OpenAI·Anthropic·GitHub·AWS·Slack key·JWT·PEM은 입력과 �
     assertEquals(inbound.rule_revision, revision);
     assertEquals(outbound.rule_revision, revision);
     assertEquals(inbound.status, "omitted");
-    assert(!body(inbound).includes(secret));
-    assert(body(inbound).includes("protected secret input"));
+    assertEquals(inbound.content, null);
+    assert(!JSON.stringify(inbound).includes(secret));
+    assert(inbound.omissions[0]?.message.includes("protected secret input"));
     assert(!body(outbound).includes(secret));
     assert(body(outbound).includes(REDACTION_REPLACEMENT));
   }
@@ -160,10 +162,10 @@ Deno.test("R4 세션 입력과 질문 답에서 secret이면 전체 제출을 �
       "please store session-secret at the end",
     );
     assertEquals(result.status, "omitted");
-    const value = body(result);
-    assert(!value.includes("session-secret"));
-    assert(!value.includes("please store"));
-    assert(value.includes("protected secret input"));
+    assertEquals(result.content, null);
+    assert(redactionResultSchema.safeParse(result).success);
+    const guidance = result.omissions[0]?.message ?? "";
+    assert(guidance.includes("protected secret input"));
     assertEquals(result.omissions[0]?.reason, "secret_detected");
     assert(!JSON.stringify(result).includes("session-secret"));
   }

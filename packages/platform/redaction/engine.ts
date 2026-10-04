@@ -79,7 +79,7 @@ function blocked(revision: string): RedactionResult {
   return {
     rule_revision: revision,
     status: "omitted",
-    content: { kind: "inline", value: PROTECTED_INPUT_MESSAGE },
+    content: null,
     redacted_items: [],
     omissions: [{
       location: "submission",

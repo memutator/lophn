@@ -1,4 +1,4 @@
-export { installExceptionObserver } from "./exception-observer.ts";
+export { createExceptionObserver } from "./exception-observer.ts";
 export type {
   ExceptionObserver,
   ExceptionObserverDeps,

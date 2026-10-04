@@ -3,6 +3,7 @@ import type {
   ExceptionObservationError,
   ExceptionObservationInput,
   ExceptionObserverTransport,
+  InstallExceptionObserver,
   ObservationInvocationEvidence,
   ObservationMissingReason,
   ReportCompletion,
@@ -10,7 +11,6 @@ import type {
 import { deliver, freezeDeep, queueRejection, utf8Length } from "./deliver.ts";
 
 const REPORT_PREFIX = "rpt";
-const ULID_LENGTH = 26;
 
 export type ExceptionObserverDeps = {
   now: () => string;
@@ -47,30 +47,38 @@ function observeError(reason: unknown): ExceptionObservationError {
   };
 }
 
-export type ExceptionObserver = {
-  uninstall(): void;
+export type ExceptionObserver = InstallExceptionObserver & {
   completion(reportId: string): Promise<ReportCompletion> | null;
 };
 
-export function installExceptionObserver(
-  transport: ExceptionObserverTransport,
+// The app entry point calls the returned function with its transport before
+// app code loads; the call returns the uninstall function.
+export function createExceptionObserver(
   deps: ExceptionObserverDeps,
 ): ExceptionObserver {
+  const completions = new Map<string, Promise<ReportCompletion>>();
+  const install = (transport: ExceptionObserverTransport): () => void =>
+    listen(transport, deps, completions);
+  return Object.assign(install, {
+    completion(reportId: string) {
+      return completions.get(reportId) ?? null;
+    },
+  });
+}
+
+function listen(
+  transport: ExceptionObserverTransport,
+  deps: ExceptionObserverDeps,
+  completions: Map<string, Promise<ReportCompletion>>,
+): () => void {
   const target = deps.target ?? globalThis;
   const queue = new Map<string, Pending>();
-  const completions = new Map<string, Promise<ReportCompletion>>();
   let pendingBytes = 0;
   let installed = true;
 
   const capture = (kind: "error" | "unhandledrejection", reason: unknown) => {
     if (!installed) return;
     const reportId = deps.newId(REPORT_PREFIX);
-    if (
-      !reportId.startsWith(`${REPORT_PREFIX}_`) ||
-      reportId.length !== REPORT_PREFIX.length + 1 + ULID_LENGTH
-    ) {
-      throw new Error("report id source returned a non-report id");
-    }
     const input: ExceptionObservationInput = freezeDeep(structuredClone({
       report_id: reportId,
       observed_at: deps.now(),
@@ -121,15 +129,10 @@ export function installExceptionObserver(
   target.addEventListener("error", onError);
   target.addEventListener("unhandledrejection", onRejection);
 
-  return {
-    uninstall() {
-      if (!installed) return;
-      installed = false;
-      target.removeEventListener("error", onError);
-      target.removeEventListener("unhandledrejection", onRejection);
-    },
-    completion(reportId: string) {
-      return completions.get(reportId) ?? null;
-    },
+  return () => {
+    if (!installed) return;
+    installed = false;
+    target.removeEventListener("error", onError);
+    target.removeEventListener("unhandledrejection", onRejection);
   };
 }

@@ -6,7 +6,7 @@ import type {
   ExceptionObserverTransport,
   ReportAcceptance,
 } from "@lophn/contracts/problems/sdk-report";
-import { installExceptionObserver } from "./exception-observer.ts";
+import { createExceptionObserver } from "./exception-observer.ts";
 
 const START = Date.parse("2026-10-04T12:00:00.000Z");
 
@@ -30,7 +30,7 @@ function observer(
   sleeps: number[] = [],
 ) {
   const target = new EventTarget();
-  const installed = installExceptionObserver(transport, {
+  const observe = createExceptionObserver({
     now: () => formatAt(START),
     newId: idSource(),
     sleep: (ms) => {
@@ -40,6 +40,8 @@ function observer(
     currentInvocation: () => null,
     target,
   });
+  const uninstall = observe(transport);
+  const installed = { uninstall, completion: observe.completion };
   return { target, installed };
 }
 

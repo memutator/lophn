@@ -11,7 +11,6 @@ import type {
 import { deliver, freezeDeep, queueRejection, utf8Length } from "./deliver.ts";
 
 const REPORT_PREFIX = "rpt";
-const ULID_LENGTH = 26;
 
 export type ProblemReporterDeps = {
   transport: ReportTransport;
@@ -37,19 +36,28 @@ export function createProblemReporter(
     details?: SafeReportDetails,
   ): ReportProblemResult => {
     const reportId = deps.newId(REPORT_PREFIX);
-    if (
-      !reportId.startsWith(`${REPORT_PREFIX}_`) ||
-      reportId.length !== REPORT_PREFIX.length + 1 + ULID_LENGTH
-    ) {
-      throw new Error("report id source returned a non-report id");
+    let input: Readonly<ReportProblemInput>;
+    try {
+      input = freezeDeep(structuredClone({
+        report_id: reportId,
+        code,
+        observed_at: deps.now(),
+        details,
+        invocation: deps.currentInvocation(),
+      }));
+    } catch {
+      // Never throw into the app's business path; uncloneable details fail as a value.
+      return {
+        report_id: reportId,
+        completion: Promise.resolve({
+          status: "failed",
+          reason: {
+            code: "invalid_input",
+            message: "report details are not plain data",
+          },
+        }),
+      };
     }
-    const input = freezeDeep(structuredClone({
-      report_id: reportId,
-      code,
-      observed_at: deps.now(),
-      details,
-      invocation: deps.currentInvocation(),
-    }));
     const bytes = utf8Length(input);
     const overCount = queue.size >= REPORTING_LIMITS.sdk_pending_count;
     const overBytes = pendingBytes + bytes > REPORTING_LIMITS.sdk_pending_bytes;

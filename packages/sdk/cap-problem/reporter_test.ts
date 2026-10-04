@@ -292,3 +292,26 @@ Deno.test("problems/reporting#R1: 보고는 업무 응답을 막지 않고 compl
   await pending;
   assertEquals(completed, true);
 });
+
+Deno.test("problems/reporting#R13: clone할 수 없는 details는 업무 경로에 throw하지 않고 실패 값으로 끝난다", async () => {
+  let sent = 0;
+  const report = createProblemReporter({
+    transport: () => {
+      sent++;
+      return Promise.reject(new Error("unused"));
+    },
+    now: () => "2026-10-05T00:00:00.000Z",
+    newId: () => "rpt_00000000000000000000000009",
+    sleep: () => Promise.resolve(),
+    currentInvocation: () => null,
+  });
+  const bad = { fn: () => 1 } as unknown as Record<string, never>;
+  const result = report("app.broken", bad);
+  assertEquals(result.report_id, "rpt_00000000000000000000000009");
+  const completion = await result.completion;
+  assertEquals(completion.status, "failed");
+  if (completion.status === "failed") {
+    assertEquals(completion.reason.code, "invalid_input");
+  }
+  assertEquals(sent, 0);
+});

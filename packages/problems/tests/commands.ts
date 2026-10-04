@@ -30,6 +30,7 @@ import {
   appendSideStart,
   currentRunner,
   loadRecords,
+  loadSideStarts,
 } from "./records.ts";
 
 const CONFLICT = "같은 요청의 내용이 다르다";
@@ -117,42 +118,75 @@ export function appendRequestObservation(
   const accepted = existing.find((record) => record.phase === "accepted");
   if (!accepted) return err({ code: "not_found", message: NOT_FOUND });
   const runner = currentRunner(existing);
+  const recovery = observation.phase === "recovery";
+  const same = existing.find((record) =>
+    record.phase === observation.phase &&
+    record.reason === observation.reason &&
+    record.at ===
+      (observation.phase === "start_attempt" || recovery
+        ? observation.at
+        : null) &&
+    record.runner_principal === ctx.principal &&
+    (record.previous_runner ?? null) === observation.previous_runner
+  );
   const proved = checkLifecycleProof(ctx, proof, {
     phase: observation.phase,
     request_principal: observation.request_principal,
     request_key: observation.request_key,
     request_hash: observation.request_hash,
     app: accepted.payload.app,
-    current_runner: runner,
+    current_runner: recovery && same && runner === ctx.principal
+      ? same.previous_runner ?? ""
+      : runner,
   });
   if (!proved.ok) return proved;
   if (observation.request_hash !== accepted.request_hash) {
     return err({ code: "conflict", message: CONFLICT });
   }
-  if (terminal(existing) && observation.phase !== "recovery") {
+  if (
+    observation.runner_principal !== ctx.principal ||
+    (!recovery && observation.previous_runner !== null)
+  ) {
+    return err({ code: "forbidden", message: FORBIDDEN });
+  }
+  if (same && (!recovery || runner === ctx.principal)) return ok(same.seq);
+  if (terminal(existing)) return err({ code: "conflict", message: CONFLICT });
+  if (
+    observation.phase === "preparation_failed" &&
+    loadSideStarts(
+        tx.sql,
+        observation.request_principal,
+        observation.request_key,
+        accepted.request_hash,
+      ).length > 0
+  ) {
     return err({ code: "conflict", message: CONFLICT });
   }
-  if (observation.phase === "recovery") {
+  if (recovery) {
     if (
-      observation.previous_runner !== runner ||
-      !observation.runner_principal ||
-      observation.runner_principal === runner ||
-      observation.reason.trim() === "" ||
-      !observation.at || !atOk(observation.at)
+      observation.previous_runner !== runner || ctx.principal === runner ||
+      observation.reason.trim() === "" || !observation.at ||
+      !atOk(observation.at)
     ) {
       return err({ code: "conflict", message: CONFLICT });
     }
+  } else if (
+    observation.phase === "start_attempt" &&
+    (!observation.at || !atOk(observation.at))
+  ) {
+    return err({
+      code: "invalid_input",
+      message: "테스트 요청이 올바르지 않다",
+    });
   }
-  const same = existing.find((record) =>
-    record.phase === observation.phase &&
-    record.reason === observation.reason &&
-    record.runner_principal === (
-        observation.phase === "recovery"
-          ? observation.runner_principal
-          : accepted.runner_principal
-      )
-  );
-  if (same) return ok(same.seq);
+  if (
+    existing.some((record) =>
+      record.phase === "recovery" || record.phase === "start_unknown"
+    ) &&
+    observation.phase === "start_attempt"
+  ) {
+    return err({ code: "conflict", message: CONFLICT });
+  }
   return appendRecord(tx, {
     request_principal: observation.request_principal,
     request_key: observation.request_key,
@@ -166,9 +200,8 @@ export function appendRequestObservation(
         : null,
     start_unknown: observation.phase === "start_unknown",
     result_ref: null,
-    runner_principal: observation.phase === "recovery"
-      ? observation.runner_principal
-      : accepted.runner_principal,
+    runner_principal: ctx.principal,
+    previous_runner: observation.previous_runner,
     reason: observation.reason,
     payload: accepted.payload,
   });
@@ -197,10 +230,7 @@ export function appendActualSideStart(
   const runner = currentRunner(existing);
   const proved = checkLifecycleProof(
     ctx,
-    proof && {
-      ...proof,
-      phase: "start_attempt",
-    },
+    proof,
     {
       phase: "start_attempt",
       request_principal: start.request_principal,
@@ -217,7 +247,34 @@ export function appendActualSideStart(
   if (start.request_hash !== accepted.request_hash) {
     return err({ code: "conflict", message: CONFLICT });
   }
-  if (terminal(existing)) return err({ code: "conflict", message: CONFLICT });
+  const priorSide = tx.sql.get(
+    `select * from test_side_starts where request_principal = ? and request_key = ? and request_hash = ? and side = ?`,
+    [
+      start.request_principal,
+      start.request_key,
+      start.request_hash,
+      start.side,
+    ],
+  );
+  if (priorSide) {
+    if (
+      priorSide.bundle_hash !== start.bundle_hash ||
+      priorSide.test_hash !== start.test_hash ||
+      priorSide.started_at !== start.started_at
+    ) return err({ code: "conflict", message: CONFLICT });
+    return ok(BigInt(String(priorSide.seq)));
+  }
+  if (
+    terminal(existing) ||
+    existing.some((record) =>
+      record.phase === "recovery" || record.phase === "start_unknown"
+    ) ||
+    !existing.some((record) =>
+      record.phase === "start_attempt" && record.runner_principal === runner
+    )
+  ) {
+    return err({ code: "conflict", message: CONFLICT });
+  }
   if (
     !sideAllowed(accepted.payload, start.side) || !atOk(start.started_at) ||
     !hashOk(start.test_hash) || !hashOk(start.bundle_hash)
@@ -250,8 +307,7 @@ export function appendActualSideStart(
     started_at: start.started_at,
   });
   if (!stored.ok) return stored;
-  if (stored.value === 0n) return ok(0n);
-  return appendRecord(tx, {
+  const summary = appendRecord(tx, {
     request_principal: start.request_principal,
     request_key: start.request_key,
     request_hash: accepted.request_hash,
@@ -265,6 +321,7 @@ export function appendActualSideStart(
     reason: "started",
     payload: accepted.payload,
   });
+  return summary.ok ? stored : summary;
 }
 
 export const requestTestCommand: CommandDefinition<typeof requestTest> = {

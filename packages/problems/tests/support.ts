@@ -48,8 +48,15 @@ export function memorySql(): Sql & { rows: (name: string) => SqlRow[] } {
         : table(statement);
       let rows = [...(memory.rows.get(name) ?? [])];
       if (statement.includes("where app = ?")) {
-        const [app, problem, , ticket, , kind, , after, asOf, limit] = params;
-        return rows.filter((row) =>
+        const [app, problem, , ticket, , kind, , after, asOf] = params;
+        const limit = params[params.length - 1];
+        const columns = [...statement.matchAll(/([a-z_]+) is \?/g)].map((
+          match,
+        ) => match[1]);
+        const scoped = rows.filter((row) =>
+          columns.every((column, index) => row[column] === params[9 + index])
+        );
+        return scoped.filter((row) =>
           row.app === app &&
           (problem === null || row.problem === problem) &&
           (ticket === null || row.ticket === ticket) &&
@@ -65,6 +72,14 @@ export function memorySql(): Sql & { rows: (name: string) => SqlRow[] } {
       if (statement.includes("request_principal = ?")) {
         rows = rows.filter((row) =>
           row.request_principal === params[0] && row.request_key === params[1]
+        );
+      }
+      if (
+        statement.includes("test_side_starts") &&
+        statement.includes("and side = ?")
+      ) {
+        rows = rows.filter((row) =>
+          row.request_hash === params[2] && row.side === params[3]
         );
       }
       if (statement.includes("verifications where id")) {

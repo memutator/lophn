@@ -19,7 +19,7 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 | `target` | TestTarget | 아니오 | 실행 전에 고정; reproduction은 after 대상 | 실제 대상 묶음 |
 | `problem` | `prb` ID | 예 | reproduction에서만 필수; 같은 앱; → problems/grouping | 재현할 문제 |
 | `basis_seq` | event seq 정수 | 예 | reproduction에서만 필수; 양의 정수 | 요청 때 읽은 문제 최신 변경 seq |
-| `reports` | `rpt` ID 목록 | 아니오 | reproduction은 1개 이상, 나머지는 빈 목록; 해당 problem; → problems/reporting | 원래 증상 근거 |
+| `reports` | `rpt` ID 목록 | 아니오 | reproduction은 중복 없는 1개 이상, 나머지는 빈 목록; 해당 problem; → problems/reporting | 원래 증상 근거 |
 | `before` / `after` | `rel` ID | 예 | reproduction에서만 모두 필수; 서로 다름·같은 앱; → apps/releases | 이전·고친 release |
 | `ticket` | TicketTestLink | 예 | test_command에서만 허용 | 티켓 조건 연결 |
 | `test` | sha256 blob 참조 | 아니오 | FrozenTest JSON; 실행 전에 고정; → platform/blob-store | 같은 테스트·입력·기대값·실행 방법 |
@@ -116,9 +116,9 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `test_requests` | 접수·준비 실패·시작 시도·실제 시작 summary·시작 확인 불가·runner 교체·결과 참조의 append-only 기록. 큐 entity가 아니다 | `seq` PK | 없음. 조회는 `(request_principal, request_key, seq)` | `(request_principal, request_key, seq)` | UPDATE·DELETE 없음. cross-owner 표 FK는 두지 않고 신뢰 prepared proof가 참조를 검사한다 |
+| `test_requests` | 접수·준비 실패·시작 시도·실제 시작 summary·시작 확인 불가·runner 교체·결과 참조의 append-only 기록. 큐 entity가 아니다 | `seq` PK | accepted만 principal/key 중복 거절. phase는 unique가 아니다 | `(request_principal, request_key, seq)` | UPDATE·DELETE 없음. cross-owner 표 FK는 두지 않고 신뢰 prepared proof가 참조를 검사한다 |
 | `test_side_starts` | requester principal·key·accepted hash와 시작 당시 runner에 묶인 side 시작. `side`, `bundle_hash`, `test_hash`, `started_at` | `seq` PK | `(request_principal, request_key, request_hash, side)` | `(request_principal, request_key, request_hash, seq)` | UPDATE·DELETE 없음. recovery가 이 행을 지우거나 다시 실행하지 않는다 |
-| `verifications` | Verification; target·ticket link는 열, 나머지 큰 내용은 hash | `id` PK | `(request_principal, request_key)` | `(app, kind, target_bundle_hash, result)`, `(problem, basis_seq)`, `(ticket, completion_seq, check_index)` | blob 영구 참조 → platform/blob-store. apps·releases·problems·tickets 표가 생기기 전에는 cross-owner FK를 만들지 않는다 |
+| `verifications` | Verification 전체 `verification_canonical`, target·ticket link 열, 큰 내용 hash | `id` PK | `(request_principal, request_key)` | `(app, kind, target_bundle_hash, result)`, `(problem, basis_seq)`, `(ticket, completion_seq, check_index)` | blob 영구 참조 → platform/blob-store. apps·releases·problems·tickets 표가 생기기 전에는 cross-owner FK를 만들지 않는다 |
 | `verification_reports` | reproduction의 원래 보고 연결 | `(verification, report)` PK | PK | `(report)` | `verification → verifications.id`. `reports` 표 FK는 그 표가 생긴 뒤 결정한다 |
 
 ## command
@@ -146,6 +146,20 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 - **자원 한도.** 실제 동시 실행 2개·준비 대기 16개, 안전 출력 side당 1,048,576 bytes, 전체 메모리 process당 536,870,912 bytes·Deno heap 268,435,456 bytes다. 전체 process 경계 강제 불가이면 시작 전 unavailable이며 출력 초과는 drain을 계속하며 잘림을 남긴다.
 - **임시 자료.** 확정된 작업 폴더는 즉시 정리한다. redaction 완료 미확정 spool은 확정 여부를 확인할 때까지 최대 24시간 유지한 뒤 판정 불가 복구를 확정하고 정리한다. 실제 시작 여부를 모르면 Verification을 만들지 않고 요청 조회에 확인 불가를 남긴다. 확정 result blob은 자동 삭제하지 않는다.
 - **권한.** 일반 shell의 agent 테스트 로그는 → problems/repairs의 설명일 뿐 Verification으로 등록하지 않는다. 이 event는 notification을 만들지 않는다.
+
+## owner 검증 경계
+
+- 접수의 `canonicalRequest` JSON SHA256와 prepared request hash를 동기 비교한다. prepared `before_target={release,bundle_hash}`는 신뢰 tx.port가 읽은 before release이고, 요청의 before와 저장 before bundle을 함께 묶는다. public before bundle 주장은 받지 않는다.
+- Verification 전체 canonical JSON은 `verification_canonical`로 저장한다. 같은 현재 runner·request-specific `RecordVerification` scope에서 전체 canonical이 같으면 원 event seq를 반환한다. 이 retry는 evidence 준비·blob TTL·재등록에 의존하지 않는다. result·reason·연결·ticket·reports·execution·observations 변경은 conflict다.
+- 신규 결과는 prepared 전체 canonical, FrozenTest canonical SHA256=test, ExecutionEvidence 목록 canonical SHA256=execution, 관측 JSON canonical SHA256=observations를 검사한다. IO 없는 sync SHA256를 쓰며 plain JSON·depth 32·16,384 node·256KiB를 canonicalize 전에 제한한다. 종류별 업무 판정은 신뢰 runner 준비 결과이고 T9·T18이 세부 판정을 맡는다.
+- lifecycle helper는 public wire가 아니다. 현재 machine credential의 owner-local `observe_test_request` operation만 관측·side 시작에 필요하다. recovery는 독립된 `recover_test_request` operation만 필요하고 proof의 previous binding·next runner, 현재 ctx principal, request app/principal/key/hash를 함께 비교한다. `RecordVerification`은 결과 쓰기만 허용하며 result-only credential은 관측·runner 교체를 하지 못한다. 반대로 lifecycle-only credential은 결과를 쓰지 못한다. body의 next runner는 인증이 아니다. exact recovery retry는 현재 binding과 원 기록을 검증한 뒤 원 request seq이고, 다음 recovery는 새 CAS 행이다.
+- actual side 시작은 저장 start_attempt 뒤만 가능하다. start_unknown·recovery 뒤 새 시작은 금지다. 기존 side의 동일 재관측은 원 side seq를 돌려주고 저장 runner·시작 사실을 바꾸지 않는다. result_ref·preparation_failed 뒤 신규 lifecycle은 거절한다.
+- request-level preparation_failed는 실제 side가 하나라도 시작했으면 conflict이며, 준비 실패 요청은 신규 Verification을 만들지 않는다. partial reproduction의 다른 side 미시작을 전체 준비 실패로 기록하지 않는다.
+- reports는 순서가 보존되는 중복 없는 관계 목록이다. 신규 접수·결과의 중복은 invalid_input이며 link는 parent canonical 목록에 있는 report만 result_ref append 전에 등록한다.
+- partial reproduction은 실제 side 집합 외 다른 side의 `observations.execution_not_started={side,reason}`를 필요로 한다. prepared 미시작 이유도 이 영구 JSON과 같아야 하며 inconclusive만 가능하다.
+- 모든 owner 표는 UPDATE·DELETE와 PK/unique 충돌의 REPLACE·INSERT OR REPLACE·UPSERT를 거절한다. recursive_triggers=ON의 implicit rowid replacement도 시험한다. test_requests는 두 actual_started·여러 recovery를 append할 수 있다.
+- `test`, `execution`, `observations`, frozen code/input/expected/method environment, execution_0/1 environment/output, blueprint/sdk_dependencies/symptom은 `verification`의 exact field로 영구 등록한다. failure_paths의 각 index는 `owner_kind=verification_failure_path`, `owner_key=<vrf ID>:<canonical nonnegative index>`, `field=test`다. 같은 code 여러 path도 다른 hash를 보존한다. 부모와 index/hash 전체 집합, principal·purpose를 owner가 검사하고 actual 설치·권한은 tx.registerBlobRef가 검사한다. 고정 field/purpose 정의는 core entry가 내놓으며 모두 permanent·general_read=false다. subordinate key의 부모 권한 해석은 platform blob authorizer 조립이 맡고 새 임의 interface는 만들지 않는다.
+- GetTestRequest는 자기 principal의 request 기록을 읽는다. request seq는 event seq가 아니므로 event가 없는 accepted 요청도 as_of_seq=0에서 보인다. Verification read/list는 recorded_seq 이하 snapshot만 읽고 목록은 허용 target SQL predicates를 LIMIT 전에 적용한다. unknown targets는 fail closed다. event visibility는 request-specific scope 전체·ticket 전체·recorded_seq=event seq·snapshot을 검사한다. 일반 detail은 hash 참조이며 blob 본문은 별도 blob.read 권한으로 읽는다.
 
 ## 정할 것
 

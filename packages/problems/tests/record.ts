@@ -1,3 +1,4 @@
+import { canonicalHash, canonicalJson } from "./canonical.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   CommandDefinition,
@@ -31,7 +32,7 @@ const FORBIDDEN = "이 credential로는 할 수 없다";
 
 function storedVerification(tx: Tx, principal: string, key: string) {
   return tx.sql.get(
-    `select id, request_hash, result, reason, execution, observations, test
+    `select verification_canonical, recorded_seq
      from verifications
      where request_principal = ? and request_key = ?`,
     [principal, key],
@@ -42,7 +43,10 @@ export function handleRecordVerification(
   tx: Tx,
   ctx: RequestContext,
   input: Input<typeof recordVerification>,
-  evidence: PreparedResultEvidence | null,
+  preparation:
+    | PreparedResultEvidence
+    | null
+    | (() => PreparedResultEvidence | null),
 ): Result<{ verification: string; seq: string }> {
   const verification = input.verification;
   const records = loadRecords(
@@ -61,7 +65,34 @@ export function handleRecordVerification(
     request_hash: verification.request_hash,
   });
   if (!allowed.ok) return allowed;
+  let canonical: string;
+  try {
+    canonical = canonicalJson(verification);
+  } catch {
+    return err({ code: "invalid_input", message: CONFLICT });
+  }
+  const prior = storedVerification(
+    tx,
+    verification.request_principal,
+    verification.request_key,
+  );
+  if (prior) {
+    if (prior.verification_canonical !== canonical) {
+      return err({ code: "conflict", message: CONFLICT });
+    }
+    return ok({
+      verification: verification.id,
+      seq: String(prior.recorded_seq),
+    });
+  }
+  if (new Set(verification.reports).size !== verification.reports.length) {
+    return err({
+      code: "invalid_input",
+      message: "테스트 요청이 올바르지 않다",
+    });
+  }
   if (
+    records.some((record) => record.phase === "preparation_failed") ||
     verification.request_hash !== accepted.request_hash ||
     !sameConnection(
       { ...verification, before_bundle_hash: null },
@@ -70,43 +101,32 @@ export function handleRecordVerification(
   ) {
     return err({ code: "conflict", message: CONFLICT });
   }
+  const evidence = typeof preparation === "function"
+    ? preparation()
+    : preparation;
   if (
     !evidence ||
     evidence.request_principal !== verification.request_principal ||
     evidence.request_key !== verification.request_key ||
     evidence.request_hash !== verification.request_hash ||
     evidence.runner_principal !== ctx.principal ||
+    evidence.verification_canonical !== canonical ||
     evidence.test !== verification.test ||
     evidence.execution !== verification.execution ||
     evidence.observations !== verification.observations
   ) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
-  const prior = storedVerification(
-    tx,
-    verification.request_principal,
-    verification.request_key,
-  );
-  if (prior) {
+  try {
     if (
-      String(prior.id) !== verification.id ||
-      String(prior.request_hash) !== verification.request_hash ||
-      String(prior.result) !== verification.result ||
-      String(prior.reason) !== verification.reason ||
-      String(prior.execution) !== verification.execution ||
-      String(prior.observations) !== verification.observations ||
-      String(prior.test) !== verification.test
+      canonicalHash(evidence.frozen) !== verification.test ||
+      canonicalHash(evidence.execution_evidence) !== verification.execution ||
+      canonicalHash(evidence.observations_json) !== verification.observations
     ) {
       return err({ code: "conflict", message: CONFLICT });
     }
-    const seq = tx.sql.get(
-      `select recorded_seq from verifications where id = ?`,
-      [verification.id],
-    );
-    return ok({
-      verification: verification.id,
-      seq: String(seq?.recorded_seq),
-    });
+  } catch {
+    return err({ code: "invalid_input", message: CONFLICT });
   }
   const starts = loadSideStarts(
     tx.sql,
@@ -114,7 +134,12 @@ export function handleRecordVerification(
     verification.request_key,
     verification.request_hash,
   );
-  const judged = judgeRecordable(verification, evidence, starts);
+  const judged = judgeRecordable(
+    verification,
+    evidence,
+    starts,
+    accepted.payload,
+  );
   if (!judged.ok) return judged;
   const other = tx.sql.get(`select id from verifications where id = ?`, [
     verification.id,
@@ -139,7 +164,6 @@ export function handleRecordVerification(
   const registered = registerVerificationBlobs(
     tx,
     ctx.principal,
-    verification.id,
     input.blobs,
     required,
     eventSeq,
@@ -152,8 +176,8 @@ export function handleRecordVerification(
        target_bundle_hash, target_release, problem, basis_seq,
        before_release, after_release, ticket, ticket_check_index,
        ticket_check_hash, ticket_completion_seq, test, execution, result,
-       reason, observations, recorded_seq
-     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       reason, observations, recorded_seq, verification_canonical
+     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       verification.id,
       verification.request_principal,
@@ -177,6 +201,7 @@ export function handleRecordVerification(
       verification.reason,
       verification.observations,
       eventSeq,
+      canonical,
     ],
   );
   for (const report of verification.reports) {
@@ -212,7 +237,7 @@ export const recordVerificationCommand: CommandDefinition<
       tx,
       ctx,
       input,
-      tx.port(testEvidencePort)(input),
+      () => tx.port(testEvidencePort)(input),
     );
   },
 };

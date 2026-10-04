@@ -26,7 +26,7 @@ export function loadRecords(
   const rows = sql.all(
     `select seq, request_principal, request_key, request_hash, phase, accepted,
             preparation_failed, at, start_unknown, result_ref, runner_principal,
-            reason, payload
+            reason, previous_runner, payload
      from test_requests
      where request_principal = ? and request_key = ?
      order by seq`,
@@ -50,6 +50,9 @@ export function loadRecords(
         ? null
         : String(row.runner_principal),
       reason: String(row.reason),
+      previous_runner: row.previous_runner == null
+        ? null
+        : String(row.previous_runner),
       payload: JSON.parse(String(row.payload)) as TestConnection,
     }];
   });
@@ -69,8 +72,8 @@ export function appendRecord(
     `insert into test_requests (
        seq, request_principal, request_key, request_hash, phase, accepted,
        preparation_failed, at, start_unknown, result_ref, runner_principal,
-       reason, payload
-     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       reason, previous_runner, payload
+     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       seq.value,
       record.request_principal,
@@ -84,6 +87,7 @@ export function appendRecord(
       record.result_ref,
       record.runner_principal,
       record.reason,
+      record.previous_runner ?? null,
       JSON.stringify(record.payload),
     ],
   );
@@ -131,7 +135,17 @@ export function appendSideStart(
       existing.test_hash === start.test_hash &&
       existing.started_at === start.started_at &&
       existing.runner_principal === start.runner_principal;
-    return same ? ok(0n) : err({ code: "conflict", message: CONFLICT });
+    if (!same) return err({ code: "conflict", message: CONFLICT });
+    const row = tx.sql.get(
+      `select seq from test_side_starts where request_principal = ? and request_key = ? and request_hash = ? and side = ?`,
+      [
+        start.request_principal,
+        start.request_key,
+        start.request_hash,
+        start.side,
+      ],
+    );
+    return nextSeq(row?.seq);
   }
   const raw = tx.sql.get(
     `select coalesce(max(seq), 0) + 1 as seq from test_side_starts`,

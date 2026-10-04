@@ -1,7 +1,7 @@
-import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+import { canonicalJson } from "./canonical.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 import type {
-  AuthenticatedContext,
   CredentialScope,
   RequestContext,
 } from "../../contracts/platform/mod.ts";
@@ -38,7 +38,6 @@ export type RequestPhase = (typeof REQUEST_PHASES)[number];
 
 const INVALID = "테스트 요청이 올바르지 않다";
 const FORBIDDEN = "이 credential로는 할 수 없다";
-const NOT_FOUND = "기록을 찾을 수 없다";
 export type TestConnection = {
   kind: Verification["kind"];
   app: string;
@@ -66,6 +65,7 @@ export type RequestRecord = {
   result_ref: string | null;
   runner_principal: string | null;
   reason: string;
+  previous_runner?: string | null;
   payload: TestConnection;
 };
 
@@ -78,6 +78,7 @@ export type PreparedAdmission = {
   canonical: string;
   runner_principal: string;
   before_bundle_hash: string | null;
+  before_target: { release: string; bundle_hash: string } | null;
   app_in_scope: boolean;
   refs_ok: boolean;
   unavailable: boolean;
@@ -107,6 +108,7 @@ export type PreparedResultEvidence = {
   test: string;
   execution: string;
   observations: string;
+  observations_json: unknown;
   frozen: FrozenTest;
   execution_evidence: ExecutionEvidence[];
   actually_started: boolean;
@@ -138,6 +140,14 @@ export function canonicalRequest(
     before_bundle_hash?: string | null;
   },
 ): Result<string> {
+  try {
+    canonicalJson(input);
+  } catch {
+    return err({ code: "invalid_input", message: INVALID });
+  }
+  if (new Set(input.reports).size !== input.reports.length) {
+    return err({ code: "invalid_input", message: INVALID });
+  }
   const { before_bundle_hash: _before, ...publicConnection } = connectionOf({
     ...input,
     before_bundle_hash: input.before_bundle_hash ?? null,
@@ -148,7 +158,7 @@ export function canonicalRequest(
   });
   if (!parsed.success) return err({ code: "invalid_input", message: INVALID });
   try {
-    return ok(canonicalize(connectionOf({
+    return ok(canonicalJson(connectionOf({
       ...parsed.data,
       before_bundle_hash: null,
     })));
@@ -179,16 +189,27 @@ function targetMatches(
     JSON.stringify(scope.targets[key]) === JSON.stringify(expected);
 }
 
-// actor 종류나 body 주장, conditions.task만으로는 열지 않는다.
+type TestAuthority = {
+  runner_principal: string;
+  app: string;
+  request_principal: string;
+  request_key: string;
+  request_hash: string;
+};
+
 export function canRecordVerification(
   ctx: RequestContext,
-  admission: {
-    runner_principal: string;
-    app: string;
-    request_principal: string;
-    request_key: string;
-    request_hash: string;
-  },
+  admission: TestAuthority,
+): Result<true> {
+  return checkTestAuthority(ctx, admission, RECORD_VERIFICATION);
+}
+
+// actor 종류나 body 주장, conditions.task만으로는 열지 않는다.
+// owner-local lifecycle과 결과 쓰기는 서로 독립된 operation이다.
+export function checkTestAuthority(
+  ctx: RequestContext,
+  admission: TestAuthority,
+  operation: string,
 ): Result<true> {
   if (ctx.actor !== "machine") {
     return err({ code: "forbidden", message: FORBIDDEN });
@@ -196,7 +217,7 @@ export function canRecordVerification(
   if (ctx.principal !== admission.runner_principal) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
-  if (!hasOperation(ctx.scope, RECORD_VERIFICATION)) {
+  if (!hasOperation(ctx.scope, operation)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
   if (
@@ -208,6 +229,13 @@ export function canRecordVerification(
     ) ||
     !targetMatches(ctx.scope, "request_key", admission.request_key) ||
     !targetMatches(ctx.scope, "request_hash", admission.request_hash)
+  ) {
+    return err({ code: "forbidden", message: FORBIDDEN });
+  }
+  if (
+    Object.keys(ctx.scope.targets).some((key) =>
+      !["app", "request_principal", "request_key", "request_hash"].includes(key)
+    ) || !scopeCovers(ctx.scope, admission)
   ) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
@@ -258,34 +286,6 @@ export function scopeCovers(
   return targetMatches(scope, "app", facts.app);
 }
 
-export function checkAdmission(
-  input: TestConnection,
-  prepared: PreparedAdmission | null,
-): Result<{ request_hash: string; runner_principal: string }> {
-  const canonical = canonicalRequest(input);
-  if (!canonical.ok) return canonical;
-  if (!prepared) return err({ code: "forbidden", message: FORBIDDEN });
-  if (prepared.unavailable) {
-    return err({ code: "unavailable", message: "테스트 준비를 할 수 없다" });
-  }
-  if (!prepared.app_in_scope || !prepared.refs_ok) {
-    return err({ code: "not_found", message: NOT_FOUND });
-  }
-  if (
-    prepared.canonical !== canonical.value ||
-    prepared.request_hash.length !== 64
-  ) {
-    return err({ code: "forbidden", message: FORBIDDEN });
-  }
-  if (!prepared.runner_principal) {
-    return err({ code: "forbidden", message: FORBIDDEN });
-  }
-  return ok({
-    request_hash: prepared.request_hash,
-    runner_principal: prepared.runner_principal,
-  });
-}
-
 export function parseVerification(value: unknown): Result<Verification> {
   const parsed = verificationInputSchema.safeParse(value);
   if (!parsed.success) return err({ code: "invalid_input", message: INVALID });
@@ -325,31 +325,6 @@ export function projectRequest(
     result_ref: result?.result_ref ?? null,
     reason: latest.reason,
   };
-}
-
-export function visibilityAllows(
-  ctx: AuthenticatedContext,
-  subjectApp: string,
-  referenced: { app: string; problem?: string; ticket?: string },
-): Result<boolean> {
-  if (!hasOperation(ctx.scope, READ_VERIFICATION)) return ok(false);
-  if (!targetMatches(ctx.scope, "app", subjectApp)) return ok(false);
-  if (referenced.app !== subjectApp) return ok(false);
-  if (
-    referenced.problem &&
-    ctx.scope.targets.problem !== undefined &&
-    !targetMatches(ctx.scope, "problem", referenced.problem)
-  ) {
-    return ok(false);
-  }
-  if (
-    referenced.ticket &&
-    ctx.scope.targets.ticket !== undefined &&
-    !targetMatches(ctx.scope, "ticket", referenced.ticket)
-  ) {
-    return ok(false);
-  }
-  return ok(true);
 }
 
 export type { LophnError };

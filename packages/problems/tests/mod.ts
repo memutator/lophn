@@ -16,7 +16,6 @@ export {
   canReadOwnRequest,
   canReadVerification,
   canRecordVerification,
-  checkAdmission,
   connectionOf,
   LIST_VERIFICATIONS,
   parseVerification,
@@ -48,3 +47,4 @@ export {
 export { expectedBundle, judgeRecordable } from "./judge.ts";
 export { testAdmissionPort, testEvidencePort } from "./ports.ts";
 export { TEST_SCHEMA_STEPS } from "./schema.ts";
+export { TEST_BLOB_FIELDS, TEST_BLOB_PURPOSES } from "./blobs.ts";

@@ -1,3 +1,4 @@
+import { hashCanonical } from "./canonical.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { RequestContext } from "../../contracts/platform/mod.ts";
 import { atSchema, sha256Schema } from "../../contracts/platform/mod.ts";
@@ -5,6 +6,7 @@ import type { Input } from "../../contracts/platform/mod.ts";
 import type { requestTest } from "../../contracts/problems/mod.ts";
 import {
   canonicalRequest,
+  checkTestAuthority,
   type PreparedAdmission,
   type RequestPhase,
   type TestConnection,
@@ -12,7 +14,6 @@ import {
 
 const FORBIDDEN = "이 credential로는 할 수 없다";
 const CONFLICT = "같은 요청의 내용이 다르다";
-const INVALID = "테스트 요청이 올바르지 않다";
 
 const HASH = /^[0-9a-f]{64}$/;
 
@@ -32,7 +33,8 @@ export type LifecycleProof = {
   request_hash: string;
   app: string;
   current_runner: string;
-  operation: "observe_test_request";
+  next_runner: string | null;
+  operation: "observe_test_request" | "recover_test_request";
 };
 
 export function checkLifecycleProof(
@@ -47,18 +49,31 @@ export function checkLifecycleProof(
     current_runner: string;
   },
 ): Result<true> {
-  if (ctx.actor !== "machine" || !proof) {
+  const operation = expected.phase === "recovery"
+    ? "recover_test_request"
+    : "observe_test_request";
+  const allowed = checkTestAuthority(ctx, {
+    ...expected,
+    runner_principal: expected.phase === "recovery"
+      ? ctx.principal
+      : expected.current_runner,
+  }, operation);
+  if (!allowed.ok) return allowed;
+  if (!proof) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
   if (
-    proof.operation !== "observe_test_request" ||
+    proof.operation !== operation ||
     proof.machine_principal !== ctx.principal ||
     proof.phase !== expected.phase ||
     proof.request_principal !== expected.request_principal ||
     proof.request_key !== expected.request_key ||
     proof.request_hash !== expected.request_hash ||
     proof.app !== expected.app ||
-    proof.current_runner !== expected.current_runner
+    proof.current_runner !== expected.current_runner ||
+    (expected.phase === "recovery"
+      ? proof.next_runner !== ctx.principal
+      : proof.next_runner !== null)
   ) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
@@ -105,16 +120,23 @@ export function checkPreparedAdmission(
     prepared.request_key !== input.request_key ||
     prepared.app !== input.app ||
     prepared.canonical !== canonical.value ||
+    prepared.request_hash !== hashCanonical(canonical.value) ||
     !sha256Schema.safeParse(prepared.request_hash).success ||
     prepared.runner_principal.trim() === ""
   ) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
   if (input.kind === "reproduction") {
-    if (!hashOk(prepared.before_bundle_hash ?? "")) {
+    if (
+      !hashOk(prepared.before_bundle_hash ?? "") ||
+      prepared.before_target?.release !== input.before ||
+      prepared.before_target?.bundle_hash !== prepared.before_bundle_hash
+    ) {
       return err({ code: "forbidden", message: FORBIDDEN });
     }
-  } else if (prepared.before_bundle_hash !== null) {
+  } else if (
+    prepared.before_bundle_hash !== null || prepared.before_target !== null
+  ) {
     return err({ code: "conflict", message: CONFLICT });
   }
   return ok({ ...prepared, canonical_input: canonical.value });
@@ -135,5 +157,3 @@ export function terminal(records: { phase: RequestPhase }[]): boolean {
     record.phase === "result_ref" || record.phase === "preparation_failed"
   );
 }
-
-export const INVALID_INPUT = INVALID;

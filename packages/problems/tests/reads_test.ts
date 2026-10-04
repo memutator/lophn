@@ -12,6 +12,8 @@ import {
 } from "./reads.ts";
 import { ctx, memorySql } from "./support.ts";
 import { VERIFICATION_PAGE_CAP } from "./model.ts";
+import { canonicalJson } from "./canonical.ts";
+import { verification } from "./fixtures.ts";
 
 const HASH = "c".repeat(64);
 const APP = "app_01ary8h2z3n4p5q6r7s8t9v0wa";
@@ -97,7 +99,7 @@ Deno.test("problems/tests#R5: GetTestRequest는 자기 key만 읽고 시작과 �
 Deno.test("problems/tests#R2: release 없는 bundle hash 결과를 읽는다", () => {
   const snap = snapshot();
   snap.sql.run(
-    `insert into verifications (id, request_principal, request_key, request_hash, kind, app, target_bundle_hash, target_release, problem, basis_seq, before_release, after_release, ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution, result, reason, observations, recorded_seq) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `insert into verifications (id, request_principal, request_key, request_hash, kind, app, target_bundle_hash, target_release, problem, basis_seq, before_release, after_release, ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution, result, reason, observations, recorded_seq, verification_canonical) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
       "user-1",
@@ -121,6 +123,15 @@ Deno.test("problems/tests#R2: release 없는 bundle hash 결과를 읽는다", (
       "ran",
       HASH,
       "3",
+      canonicalJson(
+        verification({
+          request_hash: HASH,
+          target: { bundle_hash: HASH, release: null },
+          test: HASH,
+          execution: HASH,
+          observations: HASH,
+        }),
+      ),
     ],
   );
   const reader: RequestContext = ctx({
@@ -161,10 +172,11 @@ Deno.test("problems/tests#R5: list는 범위 밖 count를 세지 않고 고정 c
     random: seededRandom(1),
   });
   for (let index = 1; index <= VERIFICATION_PAGE_CAP + 2; index++) {
+    const id = ids.newId("vrf");
     snap.sql.run(
-      `insert into verifications (id, request_principal, request_key, request_hash, kind, app, target_bundle_hash, target_release, problem, basis_seq, before_release, after_release, ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution, result, reason, observations, recorded_seq) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `insert into verifications (id, request_principal, request_key, request_hash, kind, app, target_bundle_hash, target_release, problem, basis_seq, before_release, after_release, ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution, result, reason, observations, recorded_seq, verification_canonical) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        ids.newId("vrf"),
+        id,
         "user-1",
         `key-${index}`,
         HASH,
@@ -186,6 +198,18 @@ Deno.test("problems/tests#R5: list는 범위 밖 count를 세지 않고 고정 c
         "ran",
         HASH,
         String(index),
+        canonicalJson(
+          verification({
+            id,
+            request_key: `key-${index}`,
+            request_hash: HASH,
+            app: index === 1 ? OTHER : APP,
+            target: { bundle_hash: HASH, release: null },
+            test: HASH,
+            execution: HASH,
+            observations: HASH,
+          }),
+        ),
       ],
     );
   }
@@ -207,7 +231,7 @@ Deno.test("problems/tests#R5: list는 범위 밖 count를 세지 않고 고정 c
 Deno.test("problems/tests#R5: 제한 target이 다른 결과는 없는 것과 같다", () => {
   const snap = snapshot();
   snap.sql.run(
-    `insert into verifications (id, request_principal, request_key, request_hash, kind, app, target_bundle_hash, target_release, problem, basis_seq, before_release, after_release, ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution, result, reason, observations, recorded_seq) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `insert into verifications (id, request_principal, request_key, request_hash, kind, app, target_bundle_hash, target_release, problem, basis_seq, before_release, after_release, ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution, result, reason, observations, recorded_seq, verification_canonical) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
       "user-1",
@@ -231,6 +255,15 @@ Deno.test("problems/tests#R5: 제한 target이 다른 결과는 없는 것과 �
       "ran",
       HASH,
       "3",
+      canonicalJson(
+        verification({
+          request_hash: HASH,
+          target: { bundle_hash: HASH, release: null },
+          test: HASH,
+          execution: HASH,
+          observations: HASH,
+        }),
+      ),
     ],
   );
   const restricted = ctx({
@@ -277,7 +310,7 @@ Deno.test("problems/tests#R5: 잘못된 cursor는 invalid_input이다", () => {
 Deno.test("problems/tests#R2: 저장된 결과와 다른 event payload는 보이지 않는다", () => {
   const snap = snapshot();
   snap.sql.run(
-    `insert into verifications (id, request_principal, request_key, request_hash, kind, app, target_bundle_hash, target_release, problem, basis_seq, before_release, after_release, ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution, result, reason, observations, recorded_seq) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `insert into verifications (id, request_principal, request_key, request_hash, kind, app, target_bundle_hash, target_release, problem, basis_seq, before_release, after_release, ticket, ticket_check_index, ticket_check_hash, ticket_completion_seq, test, execution, result, reason, observations, recorded_seq, verification_canonical) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
       "user-1",
@@ -301,6 +334,15 @@ Deno.test("problems/tests#R2: 저장된 결과와 다른 event payload는 보이
       "ran",
       HASH,
       "3",
+      canonicalJson(
+        verification({
+          request_hash: HASH,
+          target: { bundle_hash: HASH, release: null },
+          test: HASH,
+          execution: HASH,
+          observations: HASH,
+        }),
+      ),
     ],
   );
   const reader = ctx({

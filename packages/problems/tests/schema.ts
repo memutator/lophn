@@ -34,6 +34,7 @@ create table test_requests (
   start_unknown integer not null check (start_unknown in (0, 1)),
   result_ref text,
   runner_principal text,
+  previous_runner text,
   reason text not null,
   payload text not null,
   check (
@@ -55,7 +56,7 @@ when exists (
     or (
       existing.request_principal = new.request_principal
       and existing.request_key = new.request_key
-      and existing.phase = new.phase
+      and existing.phase = 'accepted' and new.phase = 'accepted'
     )
 )
 begin
@@ -81,10 +82,10 @@ create trigger test_side_starts_no_replace
 before insert on test_side_starts
 when exists (
   select 1 from test_side_starts existing
-  where existing.request_principal = new.request_principal
+  where existing.seq = new.seq or (existing.request_principal = new.request_principal
     and existing.request_key = new.request_key
     and existing.request_hash = new.request_hash
-    and existing.side = new.side
+    and existing.side = new.side)
 )
 begin
   select raise(abort, 'immutable');
@@ -116,6 +117,7 @@ create table verifications (
   reason text not null,
   observations text not null,
   recorded_seq text not null,
+  verification_canonical text not null,
   unique (request_principal, request_key)
 );
 create index verifications_app on verifications (
@@ -130,6 +132,8 @@ create trigger verifications_no_replace
 before insert on verifications
 when exists (
   select 1 from verifications existing where existing.id = new.id
+    or (existing.request_principal = new.request_principal
+      and existing.request_key = new.request_key)
 )
 begin
   select raise(abort, 'immutable');
@@ -141,6 +145,17 @@ create table verification_reports (
   foreign key (verification) references verifications (id)
 );
 create index verification_reports_report on verification_reports (report);
+create trigger verification_reports_bound_insert
+before insert on verification_reports
+when not exists (
+  select 1 from verifications parent, json_each(parent.verification_canonical, '$.reports') item
+  where parent.id = new.verification and item.value = new.report
+) or exists (
+  select 1 from test_requests where phase = 'result_ref' and result_ref = new.verification
+)
+begin
+  select raise(abort, 'immutable');
+end;
 ${IMMUTABLE("verification_reports")}
 create trigger verification_reports_no_replace
 before insert on verification_reports

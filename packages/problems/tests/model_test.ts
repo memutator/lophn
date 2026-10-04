@@ -2,9 +2,7 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import { testMethodInputSchema } from "../../contracts/problems/mod.ts";
 import {
   canonicalRequest,
-  checkAdmission,
   connectionOf,
-  type PreparedAdmission,
   type PreparedResultEvidence,
   projectRequest,
   type RequestRecord,
@@ -75,23 +73,6 @@ function command(): TestConnection {
       check_hash: HASH,
       completion_seq: "8",
     },
-  };
-}
-
-function admission(input: TestConnection): PreparedAdmission {
-  const canonical = canonicalRequest(input);
-  assert(canonical.ok);
-  return {
-    request_principal: "user-1",
-    request_key: "key-1",
-    app: input.app,
-    request_hash: HASH,
-    canonical: canonical.value,
-    runner_principal: "runner-1",
-    before_bundle_hash: input.kind === "reproduction" ? HASH : null,
-    app_in_scope: true,
-    refs_ok: true,
-    unavailable: false,
   };
 }
 
@@ -170,6 +151,7 @@ Deno.test("problems/tests#R4: 시작 전·근거 부족은 pass가 되지 않는
     request_hash: HASH,
     runner_principal: "runner-1",
     verification_canonical: "",
+    observations_json: {},
     test: HASH,
     execution: HASH,
     observations: HASH,
@@ -276,6 +258,7 @@ Deno.test("problems/tests#R4: 시작 전·근거 부족은 pass가 되지 않는
       }],
     }),
     [beforeOnly],
+    reproduction(),
   );
   assertFalse(oneSide.ok);
   const inconclusive = judgeRecordable(
@@ -294,10 +277,14 @@ Deno.test("problems/tests#R4: 시작 전·근거 부족은 pass가 되지 않는
         end_reason: "exited",
         exit_code: 0,
       }],
+      observations_json: {
+        execution_not_started: { side: "after", reason: "after start_failed" },
+      },
       unstarted_reason: "after start_failed",
       unstarted_side: "after",
     }),
     [beforeOnly],
+    reproduction(),
   );
   assert(inconclusive.ok);
   const bundle = expectedBundle(reproduction(), "before", HASH);
@@ -377,19 +364,4 @@ Deno.test("problems/tests#R5: 요청 기록은 미실행·실패·시작·결과
   ]);
   assertEquals(started?.started_at, "2026-10-04T00:00:02.000Z");
   assertEquals(started?.result_ref, "vrf_01ary8h2z3n4p5q6r7s8t9v0wx");
-});
-
-Deno.test("problems/tests#R2: 준비 proof 없이 접수를 열지 않는다", () => {
-  const input = appTest();
-  assertFalse(checkAdmission(input, null).ok);
-  const prepared = admission(input);
-  assert(checkAdmission(input, prepared).ok);
-  assertEquals(
-    checkAdmission(input, { ...prepared, canonical: "other" }).ok,
-    false,
-  );
-  assertEquals(
-    checkAdmission({ ...input, test: HASH_B }, prepared).ok,
-    false,
-  );
 });

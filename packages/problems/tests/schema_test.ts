@@ -4,6 +4,7 @@ import { schemaSql } from "./support.ts";
 
 function open(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA recursive_triggers=ON");
   db.exec(schemaSql());
   return db;
 }
@@ -142,8 +143,8 @@ Deno.test("problems/tests#R5: side 시작과 verification도 replace가 거절�
        target_bundle_hash, target_release, problem, basis_seq, before_release,
        after_release, ticket, ticket_check_index, ticket_check_hash,
        ticket_completion_seq, test, execution, result, reason, observations,
-       recorded_seq
-     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       recorded_seq, verification_canonical
+     ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
     "user-1",
@@ -167,6 +168,7 @@ Deno.test("problems/tests#R5: side 시작과 verification도 replace가 거절�
     "ran",
     "a".repeat(64),
     "3",
+    '{"reports":["rpt_01ary8h2z3n4p5q6r7s8t9v0we"]}',
   );
   assertThrows(() =>
     db.prepare(`delete from verifications where id = ?`).run(

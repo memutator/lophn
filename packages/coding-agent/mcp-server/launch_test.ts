@@ -43,9 +43,15 @@ Deno.test(
       argv2.args[argv2.args.length - 1],
       "/opt/lophn/resources/apps/mcp/main.ts",
     );
-    assertEquals(argv2.args.includes("--config=/opt/lophn/resources/deno.json"), true);
+    assertEquals(
+      argv2.args.includes("--config=/opt/lophn/resources/deno.json"),
+      true,
+    );
     // --allow-net은 Deno가 받는 host:port다. URL은 받지 않는다.
-    assertEquals(argv.args.includes("--allow-net=127.0.0.1:8642,127.0.0.1:9001"), true);
+    assertEquals(
+      argv.args.includes("--allow-net=127.0.0.1:8642,127.0.0.1:9001"),
+      true,
+    );
   },
 );
 

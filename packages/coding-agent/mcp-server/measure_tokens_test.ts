@@ -43,10 +43,14 @@ Deno.test(
   () => {
     // 기본 core만 켠 discovery가 전체 tool보다 작은지 본다(R3).
     const core = JSON.stringify(toolEntries(["core"]));
-    const whole = JSON.stringify(toolEntries(STATIC_TOOLS.map((t) => t.toolset)));
+    const whole = JSON.stringify(
+      toolEntries(STATIC_TOOLS.map((t) => t.toolset)),
+    );
     assertEquals(measureTokens(core).bytes < measureTokens(whole).bytes, true);
     console.log(
-      `MCP core discovery: ${measureTokens(core).bytes} bytes ≈ ${measureTokens(core).tokens} token`,
+      `MCP core discovery: ${measureTokens(core).bytes} bytes ≈ ${
+        measureTokens(core).tokens
+      } token`,
     );
   },
 );

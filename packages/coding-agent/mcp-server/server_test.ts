@@ -31,9 +31,9 @@ function deps(calls: { tool?: string; args?: unknown }[] = []) {
       onClientInfo: (name) => {
         clientName = name;
       },
-      callTool: async (toolName, args) => {
+      callTool: (toolName, args) => {
         calls.push({ tool: toolName, args });
-        return call;
+        return Promise.resolve(call);
       },
     }),
     clientName: () => clientName,
@@ -50,7 +50,7 @@ Deno.test(
       onClientInfo: (name) => {
         names.push(name);
       },
-      callTool: async () => call,
+      callTool: () => Promise.resolve(call),
     });
     const sent = await handler(
       JSON.stringify({
@@ -77,9 +77,9 @@ Deno.test("coding-agent/mcp-server#R1: tools/list는 core에 닿지 않고 답�
   let coreTouches = 0;
   const handler = createHandler({
     toolsets: ["core"],
-    callTool: async () => {
+    callTool: () => {
       coreTouches++;
-      return call;
+      return Promise.resolve(call);
     },
   });
   const before = Date.now();
@@ -98,7 +98,7 @@ Deno.test("coding-agent/mcp-server#R1: tools/list는 core에 닿지 않고 답�
 Deno.test("coding-agent/mcp-server#R1: notification(id 없는 요청)은 응답을 내지 않는다", async () => {
   const handler = createHandler({
     toolsets: ["core"],
-    callTool: async () => call,
+    callTool: () => Promise.resolve(call),
   });
   const sent = await handler(
     JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
@@ -109,7 +109,7 @@ Deno.test("coding-agent/mcp-server#R1: notification(id 없는 요청)은 응답�
 Deno.test("coding-agent/mcp-server#R7: protocol 오류는 parse·request·method·params를 구별한다", async () => {
   const handler = createHandler({
     toolsets: ["core"],
-    callTool: async () => call,
+    callTool: () => Promise.resolve(call),
   });
   const parse = await handler("{not json");
   assertEquals(parse?.error?.code, -32700);

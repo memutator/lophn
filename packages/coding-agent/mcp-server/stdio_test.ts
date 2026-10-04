@@ -18,22 +18,6 @@ function streams() {
   };
 }
 
-async function readText(
-  readable: ReadableStream<Uint8Array>,
-  until: (buffer: string) => boolean,
-): Promise<string> {
-  const decoder = new TextDecoder();
-  let buffer = "";
-  const reader = readable.getReader();
-  while (!until(buffer)) {
-    const read = await reader.read();
-    if (read.done) break;
-    buffer += decoder.decode(read.value, { stream: true });
-  }
-  reader.releaseLock();
-  return buffer;
-}
-
 // 쓰기를 마친 뒤 닫힌 스트림의 남은 chunk를 읽는다. for-await drain은 닫힘이
 // 필요하므로 sink가 닫지 않는 stderr에는 첫 chunk 읽기와 cancel을 쓴다.
 async function firstChunk(

@@ -62,7 +62,10 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
   const resources = inputs.resources.replace(/\/$/, "");
   const entry = `${resources}/apps/mcp/main.ts`;
   const config = `${resources}/deno.json`;
-  const net = [netValue(inputs.coreEndpoint), ...(inputs.appEndpoints ?? []).map(netValue)]
+  const net = [
+    netValue(inputs.coreEndpoint),
+    ...(inputs.appEndpoints ?? []).map(netValue),
+  ]
     .join(",");
   const read = [
     resources,

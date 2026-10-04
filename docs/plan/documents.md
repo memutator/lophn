@@ -141,7 +141,7 @@ concerns: [documents]
 
 ### T7 Project ledger
 
-- 상태: 완료 (#PRNUM)
+- 상태: 완료 (#79)
 - 등급: 기본
 - concern: documents/projects
 - 요구: documents/projects#R1, R2, R3, R7, R8, R9, R10, R11

@@ -333,6 +333,13 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 완료: 아래 확인이 통과한다
   - `/v1/formats/{list,get,validate,extract}`, 정확한 module_hash 입력, 검사 결과(passed/failed, 위치 있는 diagnostics), 추출 결과(`ready | unsupported | unverified | failed`와 section 값).
   - 내장 format별 media type 상수.
+- 구현: list·get은 read, validate·extract는 core queue 밖 worker다. 실행 입력은 exact `{name,module_hash}`와 `DocumentFileInput` 목록, canonical ContentFile 목록의 `input_hash`, `explicit`, optional opaque `cursor`다. latest-name fallback은 없다. guest 입력에 content ref·principal·credential·TTL·absolute path를 싣지 않는다.
+  - `FormatDeclaration`은 function 없는 JSON이다. support는 `extracts` boolean이다. `FormatRef`·`FormatDiagnostic`·`FormatValidationResult`는 versions.ts를 재사용한다.
+  - pure `SectionExtractionResult`와 public page를 분리한다. page는 각 응답에 `input_hash`·exact `module_hash`를 유지하고 `complete`·`next_cursor`를 둔다. ready page는 전체 `text_hash`·`total_text_characters`·`total_sections`와 fragment offset을 유지하며 text fragment는 12,000 codepoint다. validation page의 inline diagnostics 개수는 전체 count와 같다고 검사하지 않는다. public JSON UTF-8은 256KiB다. guest 초기값은 memory 64MiB, call 5s, input 16MiB, output 8MiB다.
+  - list·get 최종 output은 read common(`as_of_seq`, `next_cursor`, optional `omitted`) 위에 public JSON 256KiB를 다시 건다. declaration 자체 schema는 그 metadata를 요구하지 않는다. template은 ContentFile 목록(비지 않음, path 유일, primary 하나)이다.
+  - validation page의 total은 `error_count + warning_count`다. offset+fragment ≤ total, 현재 fragment의 severity 개수 ≤ 전체 count, complete는 끝이 total과 같을 때만이다. 뒤 page의 fragment 개수를 전체 count와 같다고 하지 않는다. ready extraction은 두 stream이 끝날 때만 complete다. 미완료 page는 text 또는 section이 하나 이상 진행한다. ready가 아니면 total_sections 0, 빈 text·sections, offset 0, hash null, complete와 null cursor다. failure_reason은 failed에만 필수다. 빈 ready text는 빈 sections만 가능하다.
+  - cursor는 host가 원래 정규화 조건(explicit 포함), 같은 전체 검사 결과 basis, 현재 principal·scope, core epoch에 결합해 다시 검사한다. core·coordinator·worker 재시작이나 basis 소실은 conflict다. 한도를 넘는 자를 수 없는 item은 unavailable이며 조용히 자르지 않는다. 새 public blob authority는 없다. 이 결합과 재시작 판정은 이 schema가 구현하지 않는다.
+  - section 결과 검사는 key 유일, parent 존재·비순환, text line bound, parent subtree containment다. hash 계산·fixture·OS 격리는 schema 통과로 보장하지 않는다. cursor의 principal·scope·epoch 재검사는 host다.
 
 ### T18 contracts/documents: outline·read·search·history·diff·guide
 

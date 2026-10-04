@@ -5,8 +5,11 @@ export * from "./places.ts";
 export * from "./versions.ts";
 export * from "./document-files.ts";
 export * from "./documents.ts";
+export * from "./sections.ts";
+export * from "./formats.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
+import { FORMAT_ROUTES } from "./formats.ts";
 
 import {
   projectArchive,
@@ -36,6 +39,7 @@ export const ROUTES = [
   projectResolve,
   projectPreviewTracking,
   ...DOCUMENT_ROUTES,
+  ...FORMAT_ROUTES,
 ] as const;
 
 export const EVENTS = [

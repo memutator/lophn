@@ -38,21 +38,46 @@ export const eventUnavailable = () =>
     message: "event 조회를 사용할 수 없다",
   });
 
-// unknown hook 결과는 omission으로 바꾸지 않는다. extra field도 허용하지 않는다.
+function observe(value: unknown): void {
+  try {
+    void Promise.resolve(value).then(() => undefined, () => undefined);
+  } catch {
+    // 잘못된 then inspection도 hook 성공으로 바꾸지 않는다.
+  }
+}
+
+// hook 결과 inspection도 경계 안에서 거절한다. getter·extra field로 검사를 바꾸지 못한다.
 export function exactResult(value: unknown): Result<unknown> {
-  if (value instanceof Promise) void value.catch(() => undefined);
-  if (
-    !value || typeof value !== "object" || "then" in value ||
-    Object.getOwnPropertySymbols(value).length ||
-    (Object.getPrototypeOf(value) !== Object.prototype &&
-      Object.getPrototypeOf(value) !== null)
-  ) return eventUnavailable();
-  const keys = Object.keys(value).sort().join(",");
-  const result = value as Record<string, unknown>;
-  if (result.ok === true && keys === "ok,value") return ok(result.value);
-  if (result.ok === false && keys === "error,ok") {
-    const parsed = validateOutput(errorBodySchema, { error: result.error });
-    if (parsed.ok) return err(parsed.value.error);
+  try {
+    if (value instanceof Promise || (value && "then" in Object(value))) {
+      observe(value);
+      return eventUnavailable();
+    }
+    if (!value || typeof value !== "object") return eventUnavailable();
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      return eventUnavailable();
+    }
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(descriptors);
+    if (
+      keys.some((key) =>
+        typeof key !== "string" || !descriptors[key].enumerable ||
+        !("value" in descriptors[key])
+      )
+    ) return eventUnavailable();
+    const shape = (keys as string[]).sort().join(",");
+    if (shape === "ok,value" && descriptors.ok.value === true) {
+      return ok(descriptors.value.value);
+    }
+    if (shape === "error,ok" && descriptors.ok.value === false) {
+      const parsed = validateOutput(errorBodySchema, {
+        error: descriptors.error.value,
+      });
+      if (parsed.ok) return err(parsed.value.error);
+    }
+  } catch (thrown) {
+    observe(thrown);
   }
   return eventUnavailable();
 }

@@ -1,10 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  advanceSubscriberCursor,
-  type CommandDefinition,
-  type RequestContext,
-} from "../../contracts/platform/mod.ts";
-import { defineSyncCommand } from "./handler.ts";
+import type { RequestContext } from "../../contracts/platform/mod.ts";
 import { exactResult } from "./event-visibility.ts";
 
 export type SubscriberBinding = {
@@ -46,8 +41,9 @@ export function createSubscriberGate(
       if (allowed.value === false) {
         return err({ code: "forbidden", message: "subscriber 주체가 아니다" });
       }
-    } catch {
-      // owner 원문은 command 오류에 넣지 않는다.
+    } catch (thrown) {
+      // thrown Promise도 관측하되 owner 원문은 command 오류에 넣지 않는다.
+      exactResult(thrown);
     }
     return err({
       code: "unavailable",
@@ -56,17 +52,28 @@ export function createSubscriberGate(
   });
 }
 
-export function createAdvanceSubscriberCursorCommand(
-  gate: SubscriberGate,
-): CommandDefinition<typeof advanceSubscriberCursor> {
-  return defineSyncCommand(advanceSubscriberCursor, (tx, ctx, input) => {
-    const allowed = gate(input.subscriber, ctx);
-    if (!allowed.ok) return allowed;
-    const advanced = tx.advanceSubscriberCursor(
-      input.subscriber,
-      input.scanned_through_seq,
-    );
-    if (!advanced.ok) return advanced;
-    return ok({ processed_through_seq: input.scanned_through_seq });
+// current snapshot을 매 호출 복사해 handler·이전 gate의 mutation이 권한을 넓히지 못한다.
+export function authorizeSubscriberCursor(
+  gate: SubscriberGate | undefined,
+  subscriber: string,
+  request: RequestContext | undefined,
+): Result<void> {
+  if (gate !== undefined && request !== undefined) {
+    try {
+      const allowed = exactResult(gate(subscriber, structuredClone(request)));
+      if (allowed.ok && allowed.value === undefined) return ok(undefined);
+      if (!allowed.ok && allowed.error.code === "forbidden") {
+        return err({ code: "forbidden", message: "subscriber 주체가 아니다" });
+      }
+      if (!allowed.ok && allowed.error.code === "unauthorized") {
+        return err({ code: "unauthorized", message: "subscriber 자격이 없다" });
+      }
+    } catch (thrown) {
+      exactResult(thrown);
+    }
+  }
+  return err({
+    code: "unavailable",
+    message: "subscriber 검사를 사용할 수 없다",
   });
 }

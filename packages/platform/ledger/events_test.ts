@@ -22,10 +22,8 @@ import { openReaderConnection } from "./reader-connection.ts";
 import { executeRead } from "./reads.ts";
 import { runCommand } from "./writer.ts";
 
-const scratch =
-  "/tmp/claude-1000/-home-pyosechang-projects-lophn/68cbca68-64dc-464d-8a08-34f5c09553b9/scratchpad";
 async function ledger() {
-  const dir = await Deno.makeTempDir({ dir: scratch, prefix: "events-" });
+  const dir = await Deno.makeTempDir({ prefix: "events-" });
   return { dir, ...await fileLedger(dir) };
 }
 function registry(

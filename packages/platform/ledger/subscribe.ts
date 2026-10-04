@@ -42,7 +42,7 @@ const invalid = () =>
 const unavailable = () =>
   err({ code: "unavailable" as const, message: "event 구독을 사용할 수 없다" });
 
-// named omission은 내부 reconnect seam이다. wire parser는 현재 contract만 따른다.
+// 명시 from은 그 순번을 포함한다. 이름만 있으면 저장 ack 다음, 둘 다 없으면 invalid다.
 export async function resolveSubscriptionStart(
   ctx: RequestContext,
   start: SubscribeStart,
@@ -70,12 +70,7 @@ export async function createEventSession(
   sink: EventSink,
   store?: SubscriptionStore,
 ): Promise<Result<EventSession>> {
-  if (
-    !subscribeFrameSchema.safeParse({
-      ...start,
-      from_seq: start.from_seq ?? "0",
-    }).success
-  ) return invalid();
+  if (!subscribeFrameSchema.safeParse(start).success) return invalid();
   try {
     const current = await backend.current(claimed.credential_ref);
     if (!current.ok) return unavailable();

@@ -50,6 +50,7 @@ export function serveWriter(
     registerBlobRef: registration.registerBlobRef,
     call: registration.call,
     checkCredential: registration.checkCredential,
+    subscriberGate: registration.subscriberGate,
   };
   let chain = Promise.resolve();
   worker.onmessage = (event: MessageEvent<WriterRequest>) => {

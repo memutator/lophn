@@ -9,11 +9,7 @@ import {
   ok,
   seededRandom,
 } from "../../base/mod.ts";
-import {
-  type BlobRefRegistration,
-  defineEvent,
-  definePort,
-} from "../../contracts/platform/mod.ts";
+import { defineEvent } from "../../contracts/platform/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
 
@@ -278,6 +274,7 @@ Deno.test(
   },
 );
 
+<<<<<<< HEAD
 Deno.test(
   "platform/ledger#R22: subscriber 처리 위치는 event 없이 기록되고 줄이면 거절한다",
   async () => {
@@ -387,6 +384,48 @@ Deno.test(
     if (result.ok) assertEquals(result.value.hash, hash);
     assertEquals(seen.length, 1);
     opened.value.close();
+=======
+Deno.test("platform/ledger#R23: 별도 SQLite 패키지 없이 내장 SQLite로 연다", async () => {
+  const dir = await tempDir();
+  const opened = await openedLedger(dir);
+  assert(opened.ok);
+  if (!opened.ok) return;
+  const version = opened.value.transaction(
+    { actor: "user" },
+    (tx) => ok(tx.sql.get("select sqlite_version() as v", [])),
+  );
+  assert(version.ok);
+  if (version.ok) assertEquals(version.value?.["v"], "3.53.2");
+  const fts = opened.value.transaction({ actor: "user" }, (tx) =>
+    ok(
+      tx.sql.get("select sqlite_compileoption_used('ENABLE_FTS5') as v", []),
+    ));
+  assert(fts.ok);
+  if (fts.ok) assertEquals(fts.value?.["v"], 1n);
+  opened.value.close();
+  await Deno.remove(dir, { recursive: true });
+});
+
+Deno.test(
+  "platform/ledger#R1: ledger는 파일 하나이고 transaction 밖의 쓰기 길을 내놓지 않는다",
+  async () => {
+    const dir = await tempDir();
+    const opened = await openedLedger(dir);
+    assert(opened.ok);
+    if (!opened.ok) return;
+    const ledger = opened.value;
+    // 쓰기는 transaction 하나로만 들어간다. 다른 SQL·파일 경로를 받는 입구가 없다.
+    assertEquals(Object.keys(ledger).sort(), ["close", "transaction"]);
+    const written = ledger.transaction(
+      { actor: "machine" },
+      (tx) => ok(tx.emit(created, "thing:a", { name: "a" })),
+    );
+    assert(written.ok);
+    ledger.close();
+    const files = [];
+    for await (const entry of Deno.readDir(dir)) files.push(entry.name);
+    assertEquals(files.filter((name) => name.endsWith(".db")), ["ledger.db"]);
+>>>>>>> ed78663 (Enforce current subscriber ownership at the shared transaction boundary)
     await Deno.remove(dir, { recursive: true });
   },
 );

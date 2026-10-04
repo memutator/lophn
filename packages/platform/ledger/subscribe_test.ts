@@ -22,8 +22,6 @@ import {
 import { createSubscriptionStore } from "./subscription-store.ts";
 import { runCommand } from "./writer.ts";
 
-const scratch =
-  "/tmp/claude-1000/-home-pyosechang-projects-lophn/68cbca68-64dc-464d-8a08-34f5c09553b9/scratchpad";
 const start = {
   type: "subscribe" as const,
   from_seq: "0",
@@ -57,7 +55,7 @@ function batch(seq: string, size = 1): EventBatch {
 }
 
 Deno.test("platform/ledger#R15: injected periodic catch-up는 유실 wake 뒤 actual WAL reader에서 replay한다", async () => {
-  const dir = await Deno.makeTempDir({ dir: scratch, prefix: "subscribe-" });
+  const dir = await Deno.makeTempDir({ prefix: "subscribe-" });
   const { path, connection } = await fileLedger(dir);
   const pool = await createReaderPool(path, [
     new URL("./event-fixture.ts", import.meta.url),
@@ -195,7 +193,7 @@ Deno.test("platform/api#R7 platform/identity#R7: buffered send 직전 recheck와
 });
 
 Deno.test("platform/api#R5 platform/ledger#R15: named ack는 principal/name/credential·sent bound·nondecreasing이며 delivered만으로 저장하지 않는다", async () => {
-  const dir = await Deno.makeTempDir({ dir: scratch, prefix: "ack-" });
+  const dir = await Deno.makeTempDir({ prefix: "ack-" });
   const opened = await createSubscriptionStore(
     `${dir}/derived/api-subscriptions`,
   );
@@ -271,7 +269,7 @@ Deno.test("platform/api#R5 platform/ledger#R15: named ack는 principal/name/cred
 });
 
 Deno.test("platform/ledger#R17 platform/ledger#R18: actual derived SQLite ack+provenance failure는 함께 rollback하며 reopen·삭제가 ledger를 바꾸지 않는다", async () => {
-  const dir = await Deno.makeTempDir({ dir: scratch, prefix: "derived-" });
+  const dir = await Deno.makeTempDir({ prefix: "derived-" });
   const { path, connection } = await fileLedger(dir);
   await runCommand(connection, deps(), commands, user(), note("original"));
   const directory = `${dir}/derived/api-subscriptions`;

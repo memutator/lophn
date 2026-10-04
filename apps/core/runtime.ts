@@ -65,7 +65,9 @@ export async function openRuntime(input: {
   // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
   const readerModules: URL[] = [];
   for (const url of input.modules) {
-    const module = (await import(url)) as { createReaderRegistration?: unknown };
+    const module = (await import(url)) as {
+      createReaderRegistration?: unknown;
+    };
     if (typeof module.createReaderRegistration === "function") {
       readerModules.push(new URL(url));
     }

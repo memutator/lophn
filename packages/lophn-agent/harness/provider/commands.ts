@@ -1,21 +1,21 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   providerChanged,
-  providerChecked,
-  providerRegistered,
   type ProviderCheck,
+  providerChecked,
   type ProviderCredential,
   type ProviderDefinition,
   type ProviderRecord,
+  providerRegistered,
 } from "../../../contracts/lophn-agent/mod.ts";
 import {
-  changeProviderCredentials,
   changeProvider,
+  changeProviderCredentials,
   recordProviderAvailability,
   recordProviderCheck,
   refreshProviderCredential,
-  registerProviderCredential,
   registerProvider,
+  registerProviderCredential,
 } from "../../../contracts/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
@@ -278,14 +278,25 @@ export function createProviderCommands(): {
         if (!record.ok) return record;
         tx.sql.run(
           "update providers set name = ?, enabled = ?, revision = ? where id = ? and revision = ?",
-          [name, enabled ? 1 : 0, revision.value, input.provider, compare.revision],
+          [
+            name,
+            enabled ? 1 : 0,
+            revision.value,
+            input.provider,
+            compare.revision,
+          ],
         );
         return ok({ provider: record.value });
       },
     },
     registerCredential: {
       route: registerProviderCredential,
-      handle(tx, ctx, input: Input<typeof registerProviderCredential>, compare) {
+      handle(
+        tx,
+        ctx,
+        input: Input<typeof registerProviderCredential>,
+        compare,
+      ) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
         const current = requireProvider(tx, input.provider);
@@ -463,7 +474,12 @@ export function createProviderCommands(): {
     },
     refreshCredential: {
       route: refreshProviderCredential,
-      handle(tx, _ctx, input: Input<typeof refreshProviderCredential>, compare) {
+      handle(
+        tx,
+        _ctx,
+        input: Input<typeof refreshProviderCredential>,
+        compare,
+      ) {
         const current = requireProvider(tx, input.provider);
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
@@ -532,7 +548,12 @@ export function createProviderCommands(): {
     },
     recordAvailability: {
       route: recordProviderAvailability,
-      handle(tx, _ctx, input: Input<typeof recordProviderAvailability>, compare) {
+      handle(
+        tx,
+        _ctx,
+        input: Input<typeof recordProviderAvailability>,
+        compare,
+      ) {
         const current = requireProvider(tx, input.provider);
         if (!current.ok) return current;
         const same = checkRevision(current.value, compare);
@@ -553,14 +574,21 @@ export function createProviderCommands(): {
         if (input.model_block !== null) {
           const blocks = [
             ...modelBlocksFromRow(tx.sql, input.provider, input.key)
-              .filter((block) => block.model_name !== input.model_block!.model_name),
+              .filter((block) =>
+                block.model_name !== input.model_block!.model_name
+              ),
             input.model_block,
           ];
           refreshModelBlocks(tx, input.provider, input.key, blocks);
           next = { ...next, model_blocks: blocks };
         } else if (input.model_block === null && input.state === "available") {
           // 회복은 해당 model block만 지운다. 다른 model block은 남는다(provider#R22).
-          refreshModelBlocks(tx, input.provider, input.key, existing.model_blocks);
+          refreshModelBlocks(
+            tx,
+            input.provider,
+            input.key,
+            existing.model_blocks,
+          );
         }
         const checked = assertCredential(next);
         if (!checked.ok) return checked;
@@ -582,7 +610,9 @@ export function createProviderCommands(): {
             ...current.value,
             revision: revision.value,
             credentials: current.value.credentials.map((c) =>
-              c.key === checked.value.key ? withBlocks(checked.value, input.provider, tx) : c
+              c.key === checked.value.key
+                ? withBlocks(checked.value, input.provider, tx)
+                : c
             ),
           },
         });
@@ -602,7 +632,12 @@ export function createProviderCommands(): {
         if (!revision.ok) return revision;
         tx.sql.run(
           "update providers set last_check = ?, revision = ? where id = ? and revision = ?",
-          [JSON.stringify(check), revision.value, input.provider, compare.revision],
+          [
+            JSON.stringify(check),
+            revision.value,
+            input.provider,
+            compare.revision,
+          ],
         );
         return ok({
           provider: {
@@ -631,4 +666,3 @@ function withBlocks(
 function secretNameForProvider(provider: string): string {
   return `provider.${provider.replace(/^pvd_/, "")}`;
 }
-

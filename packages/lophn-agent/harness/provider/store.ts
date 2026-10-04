@@ -9,7 +9,10 @@ function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored provider" });
 }
 
-export function loadProvider(sql: Query, id: string): Result<ProviderRecord | null> {
+export function loadProvider(
+  sql: Query,
+  id: string,
+): Result<ProviderRecord | null> {
   const row = sql.get(
     "select id, name, definition_key, definition, endpoint, protocol, enabled, last_check, revision from providers where id = ?",
     [id],

@@ -1,22 +1,15 @@
 import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import {
   type ProviderCredential,
-  type ProviderRecord,
   providerCredentialList,
   providerList,
   providerRead,
+  type ProviderRecord,
 } from "../../../contracts/lophn-agent/mod.ts";
-import {
-  type ReadDefinition,
-  type RequestContext,
-} from "../../../contracts/platform/mod.ts";
+import type { ReadDefinition } from "../../../contracts/platform/mod.ts";
 import { listProviders, loadProvider } from "./store.ts";
 
 const PAGE = 50;
-
-function forbidden(): Result<never> {
-  return err({ code: "forbidden", message: "provider read is not allowed" });
-}
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "provider not found" });

@@ -48,7 +48,9 @@ async function post(
 Deno.test("T3-integration: core API rejects unauthenticated, invalid input and unknown provider", async () => {
   const opened = await createCoreHarness({
     teams: [{ lophnAgentDefinitions }],
-    teamModules: [new URL("../../../../apps/core/lophn-agent.ts", import.meta.url).href],
+    teamModules: [
+      new URL("../../../../apps/core/lophn-agent.ts", import.meta.url).href,
+    ],
   });
   assert(opened.ok);
   const harness = opened.value;
@@ -101,7 +103,9 @@ Deno.test("T3-integration: core API rejects unauthenticated, invalid input and u
 Deno.test("T3-integration: registered loopback provider serves read, rejects agent actor", async () => {
   const opened = await createCoreHarness({
     teams: [{ lophnAgentDefinitions }],
-    teamModules: [new URL("../../../../apps/core/lophn-agent.ts", import.meta.url).href],
+    teamModules: [
+      new URL("../../../../apps/core/lophn-agent.ts", import.meta.url).href,
+    ],
   });
   assert(opened.ok);
   const harness = opened.value;
@@ -155,9 +159,15 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
     assertEquals(registeredBody.provider?.revision, 1);
 
     // user read는 200이다. read body는 등록된 인자 객체 그대로다.
-    const read = await post(harness.port, user.value.token, "providers", "read", {
-      provider: "pvd_01arz3ndektsv4rrffq69g5fav",
-    });
+    const read = await post(
+      harness.port,
+      user.value.token,
+      "providers",
+      "read",
+      {
+        provider: "pvd_01arz3ndektsv4rrffq69g5fav",
+      },
+    );
     assertEquals(read.status, 200);
     const readBody = await read.json() as {
       provider?: { name?: string };
@@ -192,22 +202,30 @@ Deno.test("T3-integration: registered loopback provider serves read, rejects age
       },
     );
     assertEquals(duplicate.status, 409);
-    const duplicateBody = await duplicate.json() as { error?: { code?: string } };
+    const duplicateBody = await duplicate.json() as {
+      error?: { code?: string };
+    };
     assertEquals(duplicateBody.error?.code, "conflict");
 
     // register는 user route다. agent actor는 403 forbidden이다.
-    const asAgent = await post(harness.port, agent.value.token, "providers", "register", {
-      input: {
-        id: "pvd_01arz3ndektsv4rrffq69g5fbv",
-        name: "no",
-        definition: ANTHROPIC_DEFINITION,
-        endpoint: "http://127.0.0.1:8080/v1",
-        protocol: "anthropic-messages",
+    const asAgent = await post(
+      harness.port,
+      agent.value.token,
+      "providers",
+      "register",
+      {
+        input: {
+          id: "pvd_01arz3ndektsv4rrffq69g5fbv",
+          name: "no",
+          definition: ANTHROPIC_DEFINITION,
+          endpoint: "http://127.0.0.1:8080/v1",
+          protocol: "anthropic-messages",
+        },
+        idempotency_key: "k-3",
+        compare: {},
+        prepared: [],
       },
-      idempotency_key: "k-3",
-      compare: {},
-      prepared: [],
-    });
+    );
     assertEquals(asAgent.status, 403);
     const agentBody = await asAgent.json() as { error?: { code?: string } };
     assertEquals(agentBody.error?.code, "forbidden");

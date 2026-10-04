@@ -1,14 +1,14 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  PROVIDER_AUTH_KINDS,
   type ProviderCheck,
+  type ProviderCredential,
   providerCredentialSchema,
+  type ProviderDefinition,
   providerDefinitionSchema,
   providerProtocolSchema,
-  type ProviderCredential,
-  type ProviderDefinition,
   type ProviderRecord,
   providerRecordSchema,
-  PROVIDER_AUTH_KINDS,
 } from "../../../contracts/lophn-agent/mod.ts";
 import type { SqlRow } from "../../../contracts/platform/mod.ts";
 
@@ -46,9 +46,13 @@ function bool(value: unknown): boolean {
   return value === 1 || value === 1n || value === true;
 }
 
-export function credentialFromRow(sql: {
-  all(query: string, params?: readonly unknown[]): SqlRow[];
-}, provider: string, key: string): Result<CredentialRow | null> {
+export function credentialFromRow(
+  sql: {
+    all(query: string, params?: readonly unknown[]): SqlRow[];
+  },
+  provider: string,
+  key: string,
+): Result<CredentialRow | null> {
   const rows = sql.all(
     "select key, kind, label, secret_name, secret_sealed_ref, secret_revision, revision, order_index, enabled, account, organization, plan, dedup_fingerprint, dedup_product, state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at from provider_credentials where provider = ? and key = ?",
     [provider, key],
@@ -96,15 +100,20 @@ export function credentialFromRow(sql: {
 }
 
 // model_blocks는 credential 옆의 별도 표다. credential을 읽을 때 함께 모은다.
-export function modelBlocksFromRow(sql: {
-  all(query: string, params?: readonly unknown[]): SqlRow[];
-}, provider: string, key: string): ProviderCredential["model_blocks"] {
+export function modelBlocksFromRow(
+  sql: {
+    all(query: string, params?: readonly unknown[]): SqlRow[];
+  },
+  provider: string,
+  key: string,
+): ProviderCredential["model_blocks"] {
   return sql.all(
     "select model_name, reason, until from provider_credential_model_blocks where provider = ? and credential_key = ? order by model_name",
     [provider, key],
   ).map((row) => ({
     model_name: String(row["model_name"]),
-    reason: row["reason"] as ProviderCredential["model_blocks"][number]["reason"],
+    reason:
+      row["reason"] as ProviderCredential["model_blocks"][number]["reason"],
     until: row["until"] === null ? null : String(row["until"]),
   }));
 }
@@ -199,13 +208,21 @@ export function providerFromRow(sql: {
   );
   const credentials: ProviderCredential[] = [];
   for (const credentialRow of credentialRows) {
-    const loaded = credentialFromRow(sql, String(row["id"]), String(
-      credentialRow["key"],
-    ));
+    const loaded = credentialFromRow(
+      sql,
+      String(row["id"]),
+      String(
+        credentialRow["key"],
+      ),
+    );
     if (!loaded.ok) return loaded;
     if (loaded.value === null) return invalidStored();
     const value = toCredentialValue(loaded.value);
-    value.model_blocks = modelBlocksFromRow(sql, String(row["id"]), loaded.value.key);
+    value.model_blocks = modelBlocksFromRow(
+      sql,
+      String(row["id"]),
+      loaded.value.key,
+    );
     const checked = assertCredential(value);
     if (!checked.ok) return checked;
     credentials.push(checked.value);

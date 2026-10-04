@@ -1,20 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
-import { type Result } from "../../../../packages/base/mod.ts";
+import { canonicalize, sha256Hex } from "../../../../packages/base/mod.ts";
+import type { Result } from "../../../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../../../packages/contracts/platform/mod.ts";
-import { confirmationBinding } from "../../../../packages/platform/identity/mod.ts";
 import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../../apps/core/testing/ledger.ts";
-import {
-  changeProvider,
-  changeProviderCredentials,
-  recordProviderAvailability,
-  recordProviderCheck,
-  registerProvider,
-  registerProviderCredential,
-  refreshProviderCredential,
-} from "../../../../packages/contracts/lophn-agent/mod.ts";
 
 const NOW = Date.UTC(2026, 0, 1);
 const FINGERPRINT = "a".repeat(64);
@@ -90,7 +81,11 @@ const machineCred: AuthenticatedContext = {
 };
 
 let idempotency = 0;
-function envelope(command: string, input: unknown, extra: Record<string, unknown> = {}) {
+function envelope(
+  command: string,
+  input: unknown,
+  extra: Record<string, unknown> = {},
+) {
   idempotency++;
   return {
     command,
@@ -115,7 +110,9 @@ function code(result: Result<unknown>, expected: string) {
   }
 }
 
-async function open(credentials: readonly AuthenticatedContext[]): Promise<LedgerHarness> {
+async function open(
+  credentials: readonly AuthenticatedContext[],
+): Promise<LedgerHarness> {
   const opened = await createLedgerHarness({
     registrationModules: [
       new URL("./registration_test.ts", import.meta.url),
@@ -130,15 +127,21 @@ async function issueCredentialConfirmation(
   h: LedgerHarness,
   input: { provider: string; key: string; preparation: typeof PREPARATION },
 ): Promise<string> {
-  const binding = await confirmationBinding(registerProviderCredential, input);
-  assert(binding);
+  // route가 선언한 binding field만 내용 기준으로 묶는다(connection-binding과 같다).
+  const bound: Record<string, unknown> = {
+    provider: input.provider,
+    key: input.key,
+    preparation: input.preparation,
+  };
+  const content = await sha256Hex(canonicalize(bound));
+  const target = input.provider;
   const issued = await h.confirmation({
     action: "issue",
     request: {
       type: "confirmation_handle_register",
       window_id: "win-1",
-      target_ref: binding.target,
-      content_hash: binding.content,
+      target_ref: target,
+      content_hash: content,
       allowed_decisions: ["RegisterProviderCredential"],
       expires_at: new Date(NOW + 600_000).toISOString(),
     },
@@ -146,7 +149,6 @@ async function issueCredentialConfirmation(
   assert(issued.ok, issued.ok ? undefined : JSON.stringify(issued.error));
   return (issued.value as { confirmation: string }).confirmation;
 }
-
 
 Deno.test("T3: registers a loopback Anthropic provider with api_key credentials", async () => {
   const h = await open([userCred, machineCred]);
@@ -162,7 +164,10 @@ Deno.test("T3: registers a loopback Anthropic provider with api_key credentials"
         protocol: "anthropic-messages",
       }),
     );
-    assert(registered.ok, registered.ok ? undefined : JSON.stringify(registered.error));
+    assert(
+      registered.ok,
+      registered.ok ? undefined : JSON.stringify(registered.error),
+    );
 
     const handle = await issueCredentialConfirmation(h, {
       provider: "pvd_01arz3ndektsv4rrffq69g5fav",
@@ -183,14 +188,28 @@ Deno.test("T3: registers a loopback Anthropic provider with api_key credentials"
         dedup_fingerprint: FINGERPRINT,
       }, { confirmation: handle, compare: { revision: 1 } }),
     );
-    assert(credentialed.ok, credentialed.ok ? undefined : JSON.stringify(credentialed.error));
+    assert(
+      credentialed.ok,
+      credentialed.ok ? undefined : JSON.stringify(credentialed.error),
+    );
 
-    const read = value(await h.read({ resource: "providers", method: "read" }, userCred, {
-      provider: "pvd_01arz3ndektsv4rrffq69g5fav",
-    }));
-    const record = (read as Record<string, unknown>)["provider"] as { credentials: { secret_ref: { name: string } }[] };
-    const credential = (record as { credentials: { secret_ref: { name: string; sealed_ref: string } | null }[] }).credentials[0]!;
-    assertEquals(credential.secret_ref?.name, "provider.01arz3ndektsv4rrffq69g5fav");
+    const read = value(
+      await h.read({ resource: "providers", method: "read" }, userCred, {
+        provider: "pvd_01arz3ndektsv4rrffq69g5fav",
+      }),
+    );
+    const record = (read as Record<string, unknown>)["provider"] as {
+      credentials: { secret_ref: { name: string } }[];
+    };
+    const credential = (record as {
+      credentials: {
+        secret_ref: { name: string; sealed_ref: string } | null;
+      }[];
+    }).credentials[0]!;
+    assertEquals(
+      credential.secret_ref?.name,
+      "provider.01arz3ndektsv4rrffq69g5fav",
+    );
     // sealed_ref은 참조일 뿐 credential 값이 아니다(R7).
     assert(typeof credential.secret_ref?.sealed_ref === "string");
   } finally {
@@ -231,20 +250,30 @@ Deno.test("T3 R4: records availability, keeps revoked from reuse, allows loopbac
         protocol: "openai-chat-completions",
       }),
     );
-    assert(register.ok, register.ok ? undefined : JSON.stringify(register.error));
+    assert(
+      register.ok,
+      register.ok ? undefined : JSON.stringify(register.error),
+    );
     const changed = await h.command(
       userCred,
       envelope("ChangeProvider", {
         provider: "pvd_01arz3ndektsv4rrffq69g5fdv",
         enabled: false,
-      } , { compare: { revision: 1 } }),
+      }, { compare: { revision: 1 } }),
     );
     assert(changed.ok, changed.ok ? undefined : JSON.stringify(changed.error));
 
     // 사람이 끈 provider에는 새 호출을 보내지 않는다(R4). 여기서는 read로 확인한다.
-    const read = value(await h.read({ resource: "providers", method: "list" }, userCred, {}));
-    const providers = (read as Record<string, unknown>)["providers"] as { enabled: boolean; id: string }[];
-    const ollama = providers.find((p) => p.id === "pvd_01arz3ndektsv4rrffq69g5fdv");
+    const read = value(
+      await h.read({ resource: "providers", method: "list" }, userCred, {}),
+    );
+    const providers = (read as Record<string, unknown>)["providers"] as {
+      enabled: boolean;
+      id: string;
+    }[];
+    const ollama = providers.find((p) =>
+      p.id === "pvd_01arz3ndektsv4rrffq69g5fdv"
+    );
     assertEquals(ollama?.enabled, false);
   } finally {
     await h.close();
@@ -264,7 +293,10 @@ Deno.test("T3 R6: only a person can register, replace, or order credentials", as
         protocol: "anthropic-messages",
       }),
     );
-    assert(register.ok, register.ok ? undefined : JSON.stringify(register.error));
+    assert(
+      register.ok,
+      register.ok ? undefined : JSON.stringify(register.error),
+    );
     const handle = await issueCredentialConfirmation(h, {
       provider: "pvd_01arz3ndektsv4rrffq69g5fev",
       key: "key-a",
@@ -440,11 +472,13 @@ Deno.test("T3 R8: multiple credentials on one provider", async () => {
       );
       assert(cmd.ok, cmd.ok ? undefined : JSON.stringify(cmd.error));
     }
-    const read = value(await h.read(
-      { resource: "provider-credentials", method: "list" },
-      userCred,
-      { provider: "pvd_01arz3ndektsv4rrffq69g5fhv" },
-    ));
+    const read = value(
+      await h.read(
+        { resource: "provider-credentials", method: "list" },
+        userCred,
+        { provider: "pvd_01arz3ndektsv4rrffq69g5fhv" },
+      ),
+    );
     const credentials = (read as Record<string, unknown>)["credentials"] as {
       key: string;
       order: number;
@@ -469,7 +503,10 @@ Deno.test("T3 R28: check result is stored without credentials and preset stays u
         protocol: "openai-chat-completions",
       }),
     );
-    assert(register.ok, register.ok ? undefined : JSON.stringify(register.error));
+    assert(
+      register.ok,
+      register.ok ? undefined : JSON.stringify(register.error),
+    );
     const checked = await h.command(
       machineCred,
       envelope("RecordProviderCheck", {
@@ -488,11 +525,12 @@ Deno.test("T3 R28: check result is stored without credentials and preset stays u
       }, { compare: { revision: 1 } }),
     );
     const outcome = value(checked);
-    const record = (outcome["result"] as Record<string, unknown>)["provider"] as {
-      last_check: { result: string } | null;
-      credentials: unknown[];
-      enabled: boolean;
-    };
+    const record =
+      (outcome["result"] as Record<string, unknown>)["provider"] as {
+        last_check: { result: string } | null;
+        credentials: unknown[];
+        enabled: boolean;
+      };
     assertEquals(record.last_check?.result, "success");
     // 연결 가능한 provider와 지금 쓸 credential이 있는 provider는 다르다(R4).
     // 이 provider는 연결돼 있지만 credential이 없어 미준비 preset은 비활성으로 남는다(R28).
@@ -522,7 +560,11 @@ Deno.test("T3 R11-delete: no Claude OAuth — D31 removed it from first release"
       envelope("RegisterProvider", {
         id: "pvd_01arz3ndektsv4rrffq69g5fpv",
         name: "bad",
-        definition: { ...ANTHROPIC_DEFINITION, auth_kinds: ["oauth"], oauth: claudeOAuth },
+        definition: {
+          ...ANTHROPIC_DEFINITION,
+          auth_kinds: ["oauth"],
+          oauth: claudeOAuth,
+        },
         endpoint: "https://api.anthropic.com",
         protocol: "anthropic-messages",
       }),
@@ -546,7 +588,10 @@ Deno.test("T3 R4-revoke: revoked credential needs a replacement to become availa
         protocol: "anthropic-messages",
       }),
     );
-    assert(register.ok, register.ok ? undefined : JSON.stringify(register.error));
+    assert(
+      register.ok,
+      register.ok ? undefined : JSON.stringify(register.error),
+    );
     const handle = await issueCredentialConfirmation(h, {
       provider: "pvd_01arz3ndektsv4rrffq69g5fqv",
       key: "key-a",
@@ -591,11 +636,13 @@ Deno.test("T3 R4-revoke: revoked credential needs a replacement to become availa
       }, { compare: { revision: 3 } }),
     );
     code(reused, "conflict");
-    const read = value(await h.read(
-      { resource: "provider-credentials", method: "list" },
-      userCred,
-      { provider: "pvd_01arz3ndektsv4rrffq69g5fqv" },
-    ));
+    const read = value(
+      await h.read(
+        { resource: "provider-credentials", method: "list" },
+        userCred,
+        { provider: "pvd_01arz3ndektsv4rrffq69g5fqv" },
+      ),
+    );
     const credentials = (read as Record<string, unknown>)["credentials"] as {
       key: string;
       state: string;

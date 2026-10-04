@@ -1,4 +1,4 @@
-import type { KindLaunchSpec, ReadSnapshot } from "../../packages/contracts/platform/mod.ts";
+import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import {
   createProviderCommands,

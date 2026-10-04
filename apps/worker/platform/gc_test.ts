@@ -126,13 +126,11 @@ function depsOf(
       await Deno.remove(`${root}/blobs/tmp/${name}`);
       return ok(undefined);
     },
-    nowMs: () => nowMs ?? NOW,
+    nowMs: () => NOW,
     graceMs: over.graceMs,
     ...over,
   };
 }
-
-const nowMs = NOW;
 // R10: 기동·매일 관측은 파일을 지우지 않고 수만 센다.
 Deno.test("platform/blob-store#R10: 관측은 지우지 않고 수만 센다", async () => {
   const root = await Deno.makeTempDir({ prefix: "blob-gc-observe-" });
@@ -419,6 +417,196 @@ Deno.test("platform/blob-store#R13: trim은 backup 중에 거절한다", async (
     assertEquals(outcome.ok, false);
     if (!outcome.ok) assertEquals(outcome.error.code, "conflict");
     assert(await blobExists(root, A));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// R9 + R13: 준비 등록·준비 중 tmp·유예기간 안의 blob은 trim 대상에서 뺀다.
+Deno.test("platform/blob-store#R9: trim은 준비 중과 유예기간 안의 blob을 남긴다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "blob-gc-trim-fresh-" });
+  try {
+    // 크기만 겹쳐 넣는다. 파일 본문은 실제 240MiB를 쓰지 않는다.
+    const big = 240 * 1024 * 1024;
+    await seedBlob(root, A, AGED);
+    await seedBlob(root, B, NOW - 1000);
+    const outcome = await trimCapacity(
+      depsOf(root, {
+        listInstalled: async () => {
+          await Promise.resolve();
+          return ok([
+            {
+              hash: A,
+              observedAtMs: AGED,
+              sizeBytes: big,
+              registeredAtMs: AGED,
+            },
+            {
+              hash: B,
+              observedAtMs: AGED,
+              sizeBytes: big,
+              registeredAtMs: AGED,
+            },
+          ]);
+        },
+        // B는 준비 등록 중이다(R9: 준비 중이면 지우지 않는다).
+        preparationRefs: async () => {
+          await Promise.resolve();
+          return ok([{ hash: B }]);
+        },
+      }),
+      new Map([
+        [A, { category: "trace_body", permanent: false }],
+        [B, { category: "trace_body", permanent: false }],
+      ]),
+    );
+    assert(outcome.ok);
+    if (outcome.ok) {
+      // 초과분(480MiB - 256MiB)에서 A만 정리되고, 준비 등록 중의 B는 남는다.
+      // 준비 참조는 trim 대상에서 빠진다(R9).
+      assertEquals(outcome.value.deleted, [A]);
+    }
+    assert(await blobExists(root, B));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("platform/blob-store#R9: trim은 유예기간 안 blob만 남기고 오래된 것은 정리한다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "blob-gc-trim-window-" });
+  try {
+    const big = 240 * 1024 * 1024;
+    await seedBlob(root, A, AGED);
+    // 둘 다 준비 중이 아니다(tmp는 비어 있다). 유예기간 안(fresh)만 남는다.
+    const fresh = NOW - 1000;
+    await seedBlob(root, B, fresh);
+    const outcome = await trimCapacity(
+      depsOf(root, {
+        listInstalled: async () => {
+          await Promise.resolve();
+          return ok([
+            {
+              hash: A,
+              observedAtMs: AGED,
+              sizeBytes: big,
+              registeredAtMs: AGED,
+            },
+            {
+              hash: B,
+              observedAtMs: fresh,
+              sizeBytes: big,
+              registeredAtMs: fresh,
+            },
+          ]);
+        },
+      }),
+      new Map([
+        [A, { category: "trace_body", permanent: false }],
+        [B, { category: "trace_body", permanent: false }],
+      ]),
+    );
+    assert(outcome.ok);
+    if (outcome.ok) {
+      // 유예기간 안의 B를 정리하면 7일 윈도가 무의미해진다. 오래된 A만 지운다.
+      assertEquals(outcome.value.deleted, [A]);
+    }
+    assert(await blobExists(root, B));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// R13 fail-closed: 할당 밖 category가 있으면 아무것도 지우지 않는다.
+Deno.test("platform/blob-store#R13: 상한 밖 category가 있으면 아무것도 지우지 않는다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "blob-gc-trim-badcat-" });
+  try {
+    const big = 240 * 1024 * 1024;
+    await seedBlob(root, A, AGED);
+    const outcome = await trimCapacity(
+      depsOf(root, {
+        listInstalled: async () => {
+          await Promise.resolve();
+          return ok([{
+            hash: A,
+            observedAtMs: AGED,
+            sizeBytes: big,
+            registeredAtMs: AGED,
+          }]);
+        },
+      }),
+      // capacityRuleOf가 모르는 category다.
+      new Map([[A, { category: "not_a_category", permanent: false }]]),
+    );
+    assertEquals(outcome.ok, false);
+    if (!outcome.ok) assertEquals(outcome.error.code, "invalid_input");
+    assert(await blobExists(root, A));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// R13 fail-closed: 할당이 없는 설치 blob이 있으면 아무것도 지우지 않는다.
+Deno.test("platform/blob-store#R13: 할당이 없는 설치 blob이 있으면 아무것도 지우지 않는다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "blob-gc-trim-noassign-" });
+  try {
+    const big = 240 * 1024 * 1024;
+    await seedBlob(root, A, AGED);
+    await seedBlob(root, B, AGED);
+    const outcome = await trimCapacity(
+      depsOf(root, {
+        listInstalled: async () => {
+          await Promise.resolve();
+          return ok([
+            {
+              hash: A,
+              observedAtMs: AGED,
+              sizeBytes: big,
+              registeredAtMs: AGED,
+            },
+            {
+              hash: B,
+              observedAtMs: AGED,
+              sizeBytes: big,
+              registeredAtMs: AGED,
+            },
+          ]);
+        },
+      }),
+      // B의 종류를 모른다.
+      new Map([[A, { category: "trace_body", permanent: false }]]),
+    );
+    assertEquals(outcome.ok, false);
+    if (!outcome.ok) assertEquals(outcome.error.code, "unavailable");
+    // 둘 다 남는다(fail-closed: 모르는 것 옆에서 지우지 않는다).
+    assert(await blobExists(root, A));
+    assert(await blobExists(root, B));
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// R11: backup 폴더의 blob 사본이 남는지 실제로 관측한다(R11 사본 잔존).
+Deno.test("platform/blob-store#R11: backup 폴더의 사본 잔존을 답한다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "blob-gc-copyremain-" });
+  try {
+    await seedBlob(root, A, AGED);
+    // backup 폴더의 완료된 stamp 폴더에 A의 사본이 남아 있다.
+    const stamp = `${root}/backups/20260101T000000000Z`;
+    await Deno.mkdir(`${stamp}/blobs/sha256/${A.slice(0, 2)}`, {
+      recursive: true,
+    });
+    await Deno.writeFile(
+      `${stamp}/blobs/sha256/${A.slice(0, 2)}/${A.slice(2)}`,
+      new Uint8Array([1, 2, 3, 4]),
+    );
+    const outcome = await collectGarbage(depsOf(root));
+    assert(outcome.ok);
+    if (outcome.ok) {
+      // 파일은 지웠지만 backup 폴더의 사본이 남는다(R11 사본 잔존).
+      assertEquals(outcome.value.deleted, [A]);
+      assertEquals(outcome.value.copiesRemain, true);
+    }
+    assert(!(await blobExists(root, A)));
   } finally {
     await Deno.remove(root, { recursive: true });
   }

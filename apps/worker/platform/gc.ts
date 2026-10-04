@@ -59,6 +59,9 @@ export type GcDeps = {
   // 임시 준비 파일 관측·정리. 진행 중 아님을 확인한 뒤에만 지운다(R9).
   listTmp(): Promise<Result<readonly { name: string; observedAtMs: number }[]>>;
   removeTmp(name: string): Promise<Result<void>>;
+  // 준비 등록(garbage 조립이 아닌 live 준비) 중 hash 관측. 준비 중 blob은
+  // 어느 정리의 대상도 아니다(R9). 없으면 tmp 관측만으로 준비를 판정한다.
+  preparationRefs?(): Promise<Result<readonly { hash: string }[]>>;
   nowMs(): number;
   graceMs?: number;
   // 관측의 유예기간은 삭제와 같다. 테스트가 짧게 줄인다.
@@ -114,8 +117,9 @@ export async function clearTemporary(
 // 실제 GC(R8, R9, R11, R13). 정지 유지보수에서만 부른다. 세 순서:
 // backup.pending이 있으면 거절(backup 중 GC 불가) → 고정 참조 대조 →
 // 유예기간 통과분만 파일 삭제. writer 정지·새 준비 차단은 부르는 쪽(core
-// 조립·I/O worker의 scheduler)이 세운다. 참조된 blob은 blocked에 세고
-// 지우지 않는다(R8).
+// 조립·I/O worker의 scheduler)이 세운다. 관측과 삭제 사이의 경합(writer
+// 정지 뒤 참조가 늘지 않음)도 부르는 쪽의 몫이다. 참조된 blob은 blocked에
+// 세고 지우지 않는다(R8).
 export async function collectGarbage(
   deps: GcDeps,
 ): Promise<Result<GcOutcome>> {
@@ -146,22 +150,31 @@ export async function collectGarbage(
   );
   const deleted: string[] = [];
   const failed: { hash: string; code: string }[] = [];
+  let copiesRemain = false;
   for (const blob of deletable) {
     const removed = await deps.removeBlob(blob.hash);
-    if (removed.ok) deleted.push(blob.hash);
-    else failed.push({ hash: blob.hash, code: removed.error.code });
+    if (removed.ok) {
+      deleted.push(blob.hash);
+      // backup 폴더에 사본이 남는지(R11). 사본의 잔존은 삭제와 다르다.
+      if (!copiesRemain && await backupCopyExists(deps.root, blob.hash)) {
+        copiesRemain = true;
+      }
+    } else failed.push({ hash: blob.hash, code: removed.error.code });
   }
   return ok({
     deleted,
     blocked,
     failed,
-    // backup 폴더의 blob 사본은 이번 GC의 대상이 아니다. 잔존은 삭제가 아니다(R11).
-    copiesRemain: false,
+    copiesRemain,
   });
 }
 
 // 종류별 보존 정리(R13). capacity field의 큰 자료가 상한을 넘으면 오래된
 // 것부터 정리한다. permanent field(변경 기록·결정·확정 결과)는 대상에서 뺀다.
+// 준비 중(tmp 또는 준비 등록)과 R9 7일 유예기간 안의 blob은 정리 대상에서
+// 뺀다. 할당에 없거나 상한 밖 category가 있으면 아무것도 지우지 않고
+// fail-closed다. 관측과 삭제 사이의 경합(writer 정지·새 준비 차단)은 부르는
+// 쪽(정지 유지보수 조립)이 세운다.
 export async function trimCapacity(
   deps: GcDeps,
   // hash → 종류 할당. 준비 purpose에서 온다(아직 기록하는 준비가 없다).
@@ -175,8 +188,38 @@ export async function trimCapacity(
       message: "backup이 진행 중이라 보존 정리를 실행하지 않는다",
     });
   }
+  // 할당 밖 category는 fail-closed다. 잘못된 category로 지우지 않는다.
+  const categories = new Set(
+    Object.keys(BLOB_CAPACITY_MAX_BYTES),
+  );
+  for (const [hash, known] of assignment) {
+    if (!categories.has(known.category)) {
+      return err({
+        code: "invalid_input",
+        message: `blob ${hash.slice(0, 8)}의 category가 상한 밖이다`,
+      });
+    }
+  }
   const installed = await deps.listInstalled();
   if (!installed.ok) return installed;
+  // 할당이 없는 설치 blob도 fail-closed다. 어느 종류인지 모르면 지우지 않는다.
+  for (const blob of installed.value) {
+    if (!assignment.has(blob.hash)) {
+      return err({
+        code: "unavailable",
+        message: `blob ${blob.hash.slice(0, 8)}의 종류를 모른다`,
+      });
+    }
+  }
+  const grace = deps.graceMs ?? BLOB_UNREFERENCED_GRACE_MS;
+  const now = deps.nowMs();
+  // 준비 등록 중 hash(R9). 준비 중 blob은 trim 대상에서 뺀다.
+  let preparing: ReadonlySet<string> = new Set();
+  if (deps.preparationRefs) {
+    const preparation = await deps.preparationRefs();
+    if (!preparation.ok) return preparation;
+    preparing = referencedOf(preparation.value);
+  }
   const explicit = Object.entries(BLOB_CAPACITY_MAX_BYTES).map((
     [category, maxBytes],
   ) => ({ category, maxBytes }));
@@ -189,7 +232,7 @@ export async function trimCapacity(
   const usage = explicit
     .filter((entry) => used.has(entry.category))
     .map((entry) => ({
-      category: entry.category as never,
+      category: entry.category as keyof typeof BLOB_CAPACITY_MAX_BYTES,
       usedBytes: used.get(entry.category) ?? 0,
       maxBytes: entry.maxBytes,
     }));
@@ -199,18 +242,52 @@ export async function trimCapacity(
       if (known === undefined) return undefined;
       return {
         ...blob,
-        category: known.category as never,
+        category: known.category as keyof typeof BLOB_CAPACITY_MAX_BYTES,
         permanent: known.permanent,
       };
     })
-    .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined);
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
+    // 준비 중(등록 또는 tmp 파일 시각)과 R9 유예기간 안의 blob은 정리
+    // 대상에서 뺀다(R9).
+    .filter((entry) =>
+      !preparing.has(entry.hash) &&
+      staleTemporary(entry.observedAtMs, now, grace)
+    );
   const targets = trimTargets(usage, candidates);
   const deleted: string[] = [];
   const failed: { hash: string; code: string }[] = [];
+  let copiesRemain = false;
   for (const hash of targets) {
     const removed = await deps.removeBlob(hash);
-    if (removed.ok) deleted.push(hash);
-    else failed.push({ hash, code: removed.error.code });
+    if (removed.ok) {
+      deleted.push(hash);
+      // backup 폴더에 사본이 남는지(R11). 사본의 잔존은 삭제와 다르다.
+      if (!copiesRemain && await backupCopyExists(deps.root, hash)) {
+        copiesRemain = true;
+      }
+    } else failed.push({ hash, code: removed.error.code });
   }
-  return ok({ deleted, blocked: [], failed, copiesRemain: false });
+  return ok({ deleted, blocked: [], failed, copiesRemain });
+}
+
+// backup 폴더의 blob 사본 잔존 관측(R11). backups/<stamp>/blobs/sha256/<2>/<62>.
+async function backupCopyExists(root: string, hash: string): Promise<boolean> {
+  try {
+    for await (const stamp of Deno.readDir(`${root}/backups`)) {
+      if (!stamp.isDirectory) continue;
+      try {
+        await Deno.stat(
+          `${root}/backups/${stamp.name}/blobs/sha256/${hash.slice(0, 2)}/${
+            hash.slice(2)
+          }`,
+        );
+        return true;
+      } catch {
+        // 이 stamp 폴더에 사본은 없다. 다음을 본다.
+      }
+    }
+  } catch {
+    // backups 폴더 자체가 없으면 사본도 없다.
+  }
+  return false;
 }

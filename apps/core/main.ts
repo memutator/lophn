@@ -3,13 +3,17 @@ import { startCore } from "./core.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
-import { problemsTestDefinitions } from "./problems.ts";
+import {
+  problemsReportDefinitions,
+  problemsTestDefinitions,
+} from "./problems.ts";
 
 // 최상위 팀마다 등록 파일 하나. main은 이 목록만 부른다.
 const TEAMS = [
   { createLedgerRegistration },
   { createLedgerRegistration: createAppsRegistration },
   { problemsTestDefinitions },
+  { problemsReportDefinitions },
   { codingAgentConnectionDefinitions },
   { lophnAgentDefinitions },
 ];

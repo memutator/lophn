@@ -25,11 +25,8 @@
     "npm:d3-shape@3.2.0": "3.2.0",
     "npm:esbuild@0.28.2": "0.28.2",
     "npm:happy-dom@20.14.5": "20.14.5",
-<<<<<<< HEAD
     "npm:hash-wasm@4.12.0": "4.12.0",
-=======
     "npm:ignore@7.0.12": "7.0.12",
->>>>>>> origin/main
     "npm:intl-messageformat@12.1.2": "12.1.2",
     "npm:lucide-react@1.51.0": "1.51.0_@types+react@19.3.0_react@19.3.0",
     "npm:parse5@8.0.1": "8.0.1",
@@ -958,13 +955,11 @@
         "ws"
       ]
     },
-<<<<<<< HEAD
     "hash-wasm@4.12.0": {
       "integrity": "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ=="
-=======
+    },
     "ignore@7.0.12": {
       "integrity": "sha512-/8UvqAPU9DGTI9k4mxtf49U37Isfwr8Uts96+SBHIkFxPJnHS0Ew4f00sM4Scd8V8EjM0jUNtVDdv1kPdt35lg=="
->>>>>>> origin/main
     },
     "internmap@2.0.3": {
       "integrity": "sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg=="

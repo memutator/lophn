@@ -10,6 +10,7 @@ import {
   appUnarchive,
   appUnarchived,
 } from "./apps.ts";
+import { appConnect } from "./channel.ts";
 import {
   appAutomations,
   appDisableExecution,
@@ -28,6 +29,7 @@ import {
 } from "./runtime.ts";
 
 export const ROUTES = [
+  appConnect,
   appCreate,
   appConnectSource,
   appArchive,

@@ -363,11 +363,11 @@ Deno.test("documents/addressing#R2: storage failures propagate unchanged to plat
 // move·rename 테스트. guarded Tx와 온전한 Tx가 필요해 versions fixture를 쓴다(R8, R9).
 import { createDocumentChangeCommands } from "./commands.ts";
 import {
+  type Emitted,
   ids,
   userContext,
   versionFixture,
-} from "../versions/testing-fixture.ts";
-import type { Emitted } from "../versions/testing-fixture.ts";
+} from "../versions/mod.ts";
 
 const commands = createDocumentChangeCommands();
 const docId = ids.doc;

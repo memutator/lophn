@@ -15,19 +15,19 @@ import type {
   RequestContext,
 } from "../../contracts/platform/mod.ts";
 import { z } from "zod";
-import { authorizeDocument } from "../versions/mod.ts";
 import {
+  authorizeDocument,
   loadDocument,
   loadLatestVersion,
   loadVersionByNumber,
-} from "../versions/store.ts";
+} from "../versions/mod.ts";
 import {
   createDocumentNameReservation,
   createPlaceNameReservation,
 } from "./commands.ts";
 
-function notFound(): Result<never> {
-  return err({ code: "not_found", message: "address does not resolve" });
+function notFound(message = "address does not resolve"): Result<never> {
+  return err({ code: "not_found", message });
 }
 
 const resolveOutputSchema = z.object({
@@ -38,16 +38,21 @@ const resolveOutputSchema = z.object({
 type ResolveOutput = Result<z.output<typeof resolveOutputSchema>>;
 
 // 현재 target에 대한 범위를 다시 검사한다. 안내로 권한을 넓히지 않는다(addressing#R6).
+// 범위 밖은 존재를 알려주지 않는다. not_found와 정확히 같은 응답으로 답한다(platform/identity#R10).
 function allowed(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   operation: string,
   document: { id: string; place: PlaceRef | null },
-): boolean {
-  return authorizeDocument(snapshot.port, ctx, operation, {
+): Result<null> {
+  const decision = authorizeDocument(snapshot.port, ctx, operation, {
     kind: "document",
     document: document as never,
-  }).ok;
+  });
+  // forbidden·not_found는 모두 부재로 답한다. 범위 밖은 존재를 알려주지 않는다.
+  if (!decision.ok && decision.error.code === "forbidden") return notFound();
+  if (!decision.ok) return decision;
+  return ok(null);
 }
 
 export function createAddressingReads(): {
@@ -91,15 +96,11 @@ function resolveAddress(
   const loaded = loadDocument(snapshot.sql as never, name.value.document);
   if (!loaded.ok) return loaded as never;
   if (loaded.value === null) return notFound();
+  const decision = allowed(snapshot, ctx, documentResolve.name, loaded.value);
+  if (!decision.ok) return decision as never;
   const document = loaded.value;
   const version = pickVersion(snapshot, document.id, reference.version);
   if (!version.ok) return version as never;
-  if (!allowed(snapshot, ctx, documentResolve.name, document)) {
-    return err({
-      code: "forbidden",
-      message: "address target is out of scope",
-    });
-  }
   const slug = liveSlug(snapshot, document.place);
   const current = document.place === null
     ? {
@@ -136,15 +137,11 @@ function resolveRef(
   const loaded = loadDocument(snapshot.sql as never, reference.document);
   if (!loaded.ok) return loaded as never;
   if (loaded.value === null) return notFound();
+  const decision = allowed(snapshot, ctx, documentResolve.name, loaded.value);
+  if (!decision.ok) return decision as never;
   const document = loaded.value;
   const version = pickVersion(snapshot, document.id, null);
   if (!version.ok) return version as never;
-  if (!allowed(snapshot, ctx, documentResolve.name, document)) {
-    return err({
-      code: "forbidden",
-      message: "address target is out of scope",
-    });
-  }
   const versionRef = reference.version ?? version.value.id;
   return ok({
     resolved: {

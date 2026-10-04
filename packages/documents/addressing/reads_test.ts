@@ -2,11 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err } from "../../base/mod.ts";
 import type { Address } from "../../contracts/documents/mod.ts";
 import { createAddressingReads } from "./reads.ts";
-import {
-  ids,
-  userContext,
-  versionFixture,
-} from "../versions/testing-fixture.ts";
+import { ids, userContext, versionFixture } from "../versions/mod.ts";
 
 const reads = createAddressingReads();
 const project = "prj_01arz3ndektsv4rrffq69g5fav";
@@ -264,7 +260,7 @@ Deno.test("documents/addressing#R7: 보관·자리 없음이 된 대상도 예�
   }
 });
 
-Deno.test("documents/addressing#R6 documents/addressing#R9: 옛 address도 현재 scope로 검사하고 권한을 넓히지 않는다", () => {
+Deno.test("documents/addressing#R6: 옛 address도 현재 scope로 검사하고 권한을 넓히지 않는다", () => {
   const fixture = versionFixture();
   try {
     seedPlace(fixture, "mahas", project);
@@ -273,8 +269,22 @@ Deno.test("documents/addressing#R6 documents/addressing#R9: 옛 address도 현�
     fixture.use(() =>
       err({ code: "forbidden", message: "대상이 범위 밖이다" })
     );
-    const resolved = resolve(fixture, testAddress("mahas", "report"));
-    code(resolved, "forbidden");
+    // 범위 밖은 존재를 알려주지 않는다. not_found와 정확히 같은 응답이다(platform/identity#R10).
+    const outOfScope = resolve(fixture, testAddress("mahas", "report"));
+    code(outOfScope, "not_found");
+    const absent = resolve(fixture, testAddress("missing", "report"));
+    assertEquals(outOfScope, absent);
+    // 판을 지정해도 범위 검사가 먼저다. 판 존재를 leak하지 않는다.
+    const versionOutOfScope = resolve(
+      fixture,
+      { ...testAddress("mahas", "report"), version: 1 },
+    );
+    assertEquals(versionOutOfScope, absent);
+    const versionAbsent = resolve(
+      fixture,
+      { ...testAddress("mahas", "report"), version: 9 },
+    );
+    assertEquals(versionOutOfScope, versionAbsent);
   } finally {
     fixture.close();
   }

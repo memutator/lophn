@@ -21,8 +21,11 @@ import {
   type Seq,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { authorizeDocument } from "../versions/mod.ts";
-import { loadDocument, replaceDocument } from "../versions/store.ts";
+import {
+  authorizeDocument,
+  loadDocument,
+  replaceDocument,
+} from "../versions/mod.ts";
 import { type DocumentName, documentNameSchema } from "./model.ts";
 
 function invalidInput(): Result<never> {

@@ -166,7 +166,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 내놓는 contract: C-연결
 - slice: documents
 - 조사: docs/research/coding-agent-connection-credential.md
-- 선행: contracts#T47, contracts#T6, platform#T2, platform#T3, platform#T4, platform#T5
+- 선행: contracts#T47, contracts#T6, contracts#T20, platform#T2, platform#T3, platform#T4, platform#T5
 - 완료:
   - `model_test.ts`: ConnectionScope(all이면 app null, app이면 필수), principal = `coding_agent:<id>`, state active→revoked만, 재활성화 없음(R2, R8)
   - `commands_test.ts`(메모리 SQLite): create는 user actor만·확인 창 근거 없이·준비된 hash만 받고 원문 입력 필드가 없다; 없는 앱·공백 label·coding_agent actor의 발급은 거절(R2, R3)
@@ -692,7 +692,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-harness-integration.md, docs/research/coding-agent-connection-credential.md
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48, platform#T35, contracts#T24
 - 완료:
-  - MCP·CLI 시작 때 connection 참조로 platform 신뢰 loader에서 credential을 한 번 받는 production provider. 회수 확인은 core의 매 요청 hash 검사이고 loader를 다시 읽지 않는다. keychain 잠김·Secret Service 없음·timeout은 서로 다른 이유의 `unavailable`, 평문 파일·user credential fallback·자동 재발급 없음(connection#R9, R17, mcp-server#R36; 조사 T3)
+  - MCP·CLI 시작 때 connection 참조로 helper `lophn-credential`(contracts/coding-agent `CREDENTIAL_HELPER`)에 `CredentialDeliveryRequest`(purpose `mcp_cli_loader`)를 stdin으로 보내 credential을 한 번 받는 production provider. 회수 확인은 core의 매 요청 hash 검사이고 loader를 다시 읽지 않는다. keychain 잠김·Secret Service 없음·timeout·누락(`locked`, `no_secret_service`, `timeout`, `not_found`)은 서로 다른 이유의 `unavailable`, 평문 파일·user credential fallback·자동 재발급 없음(connection#R9, R17, mcp-server#R36; 조사 T3)
   - keychain 항목은 service `lophn`, account `coding-agent/<cac>`(platform 합의). MCP·CLI는 platform의 helper `lophn-credential`(고정 권한으로 compile한 binary)을 `--allow-run=<helper 절대 경로>` 하나로만 부르고 connection 참조를 stdin, token을 stdout으로 받는다. helper timeout 5초. architecture/coding-agent 2.2의 run 금지 문장을 이 PR에서 "helper 하나만 허용"으로 고친다(질문 Q17)
   - 설정·wrapper·source·진단·stderr·PTY 출력에 token 원문이 없다는 테스트(connection#R17)
   - 사람 선택(harness·profile·설치 범위·label·scope) → 신뢰 경계 token·keychain → core create(hash만, 확인 창 없음) → 선택 target 설치 → doctor 흐름을 shell#T50이 부를 순서 그대로 test driver로 통합 테스트(fake keychain). token 생성·붙여넣기 단계가 없다(connection#R2)
@@ -938,7 +938,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ## 질문
 
-- **Q1 사람 전용 CLI command의 actor.** CLI는 user token 파일을 읽지 않는다(architecture 1절). core에 user actor로 쓰는 사람 전용 command(`ticket create|cancel`, `problem report|request-repair`, `connection list|show`)는 무엇으로 인증하나. 추천: core에 쓰는 사람 전용 command는 결정 화면 링크(`lophn://…`, contracts/shell)로 shell 화면에 넘기고 사람이 그 화면에서 누르면 shell main이 user credential로 쓴다. 로컬 파일만 쓰는 `harness …`, `skills …`, `mcp config`, `doctor`는 credential 없이, `daemon …`은 platform의 로컬 시작 contract로 한다. problems 팀도 같은 방식을 추천했다(feedback은 shell 사람 제출만, problems/feedback#R1). platform 팀에 확인 요청을 보냈다.
+- **Q1 사람 전용 CLI command의 actor.** (정함, 추천안) CLI는 user token 파일을 읽지 않는다(architecture 1절). core에 user actor로 쓰는 사람 전용 command(`ticket create|cancel`, `problem report|request-repair`, `connection list|show`)는 무엇으로 인증하나. 추천: core에 쓰는 사람 전용 command는 결정 화면 링크(`lophn://…`, contracts/shell)로 shell 화면에 넘기고 사람이 그 화면에서 누르면 shell main이 user credential로 쓴다. 로컬 파일만 쓰는 `harness …`, `skills …`, `mcp config`, `doctor`는 credential 없이, `daemon …`은 platform의 로컬 시작 contract로 한다. problems 팀도 같은 방식을 추천했다(feedback은 shell 사람 제출만, problems/feedback#R1). platform 팀에 확인 요청을 보냈다.
 - **Q2 앱 log 줄 수.** coding-agent/mcp-server#R32, cli#R24는 요청 1~2,000줄인데 apps/runtime#R27은 한 번에 200줄이다. 추천: 한 번에 1~200줄과 cursor 이어 읽기로 맞추고 T21 PR에서 두 요구를 고친다(MCP 출력 상한에도 맞다).
 - **Q3 command environment 이름.** architecture 5.2의 `preview|production`을 apps·shell wire의 `preview|live`로 맞춘다(apps 팀 합의). T21 PR에서 architecture를 고친다.
 - **Q4 validate op.** apps에 별도 blueprint 검사 RPC가 없어 `validate`를 `prepare_bundle`의 diagnostics·bundle_hash로 잇는다(apps 팀 합의).
@@ -948,12 +948,12 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - **Q8 MCP tool과 lophn agent tool의 공통 계약.** coding-agent/mcp-server#R2의 "공통 tool 계약"은 core RPC의 actor×동작 허용 목록(platform 인증)으로 읽는다. 추천: MCP registry와 lophn agent tool registry는 따로 두고 둘 다 같은 core RPC와 허용 목록을 쓴다.
 - **Q9 core→worker 요청 전달.** `/v1/coding_agent_sessions/summary`와 `/v1/repair_context/*`는 core가 받고 coding-agent worker가 조립한다. platform#T12(file·worker 전달 route)를 쓴다(T35, T43 선행).
 - **Q10 fake coding agent 자리.** `tools/fake-coding-agent/`를 개발 도구로 둔다(code-map의 tools/). apps·problems 팀 E2E도 쓴다.
-- **Q11 ticket readiness(lead 결정).** `readiness: needs_confirmation | ready`를 T18에서 넣고 coding-agent/tickets#R2, R5, R6, R11, R26과 domain model을 같은 PR에서 고친다. needs_confirmation → ready는 새 command `ticket.make_ready`(근거·채택 답·조건을 한 번만 채우고 그 뒤 불변), event `TicketMadeReady`.
+- **Q11 ticket readiness(lead 결정).** (정함) `readiness: needs_confirmation | ready`를 T18에서 넣고 coding-agent/tickets#R2, R5, R6, R11, R26과 domain model을 같은 PR에서 고친다. needs_confirmation → ready는 새 command `ticket.make_ready`(근거·채택 답·조건을 한 번만 채우고 그 뒤 불변), event `TicketMadeReady`.
 - **Q12 daemon 시작·중지 contract.** (정함) platform#T55(coding-agent slice)가 launcher 시작·single-instance 종료·`H/run` metadata·`H/logs`를 내놓는다. metadata schema는 platform이 contracts 팀에 요청한다.
 - **Q13 project 읽기 필드.** coding-agent/mcp-server#R9·cli#R22는 "등록 폴더·label·폴더별 문서 수"를 보이라고 하지만 documents/projects#R9와 projects#Q2 결정은 agent·coding agent에게 절대 경로·폴더별 문서 수를 주지 않고 label을 없앴다. 추천: documents 쪽을 따르고 T13 PR에서 두 요구를 고친다.
 - **Q14 context 변경 제안의 전달.** (정함) coding agent 제출로 run을 만드는 통로는 일부러 없다(lophn-agent/run-loop#R1, handoff#R1·R5). propose는 변경안 문서 주소와 "사람이 Context Engineer에게 맡기라"는 안내만 돌려준다. coding-agent/cli#R19의 "담당 agent가 … 연결하게 하며"는 사람이 그 주소로 요청하면 Context Engineer가 질문으로 잇는다는 뜻으로 T17 PR에서 문장을 맞춘다.
-- **Q15 다른 제품의 시작 summary hook.** 조사(T7)에서 Codex·Gemini CLI의 SessionStart hook도 출력을 context에 넣는다는 것이 확인됐다. coding-agent/guides#R25는 summary hook을 Claude Code에만 둔다. 추천: 첫 판은 R25대로 Claude Code만 두고, 나머지는 명시 summary 조회 안내를 유지한다. 확대는 별도 결정으로 남긴다.
+- **Q15 다른 제품의 시작 summary hook.** (정함, 추천안) 조사(T7)에서 Codex·Gemini CLI의 SessionStart hook도 출력을 context에 넣는다는 것이 확인됐다. coding-agent/guides#R25는 summary hook을 Claude Code에만 둔다. 추천: 첫 판은 R25대로 Claude Code만 두고, 나머지는 명시 summary 조회 안내를 유지한다. 확대는 별도 결정으로 남긴다.
 - **Q16 blueprint 유래 tool 이름.** architecture 5.2의 `lophn_app_<app-id>_<sha16>`은 app ID가 30자(`app_` + ULID)라 Gemini CLI의 63자 상한(`mcp_lophn_` 포함)을 넘어 가운데가 해시 없이 잘린다(조사 T1). 추천: `lophn_app_<app ID sha256 앞 12자>_<command 이름 sha256 앞 16자>`(39자). T23 PR에서 architecture 5.2와 mcp-server#R34 확인 문장을 고치고 contracts#T50의 이름 규칙도 같이 바꾼다. contracts 팀에 알렸다.
-- **Q17 MCP 안의 keychain loader와 실행 권한.** (정함) MCP server는 harness가 직접 띄워 lophn 부모 프로세스가 없고, FFI 없이 keychain을 읽으려면 OS 명령 실행이 필요하다(조사 T3). platform#T34가 helper `lophn-credential`(OS keychain 도구 실행만 허용한 고정 권한 compile binary, 설치 묶음의 고정 절대 경로)을 만들고 MCP·CLI에는 `--allow-run=<helper 절대 경로>`만 준다. 통로는 stdin 참조·stdout token, timeout 5초, 잠김·Secret Service 없음·timeout은 다른 이유의 unavailable. 같은 OS 사용자의 다른 프로세스가 helper를 부를 수 있는 한계는 platform/security#R2 범위 밖으로 받아들인다. architecture/coding-agent 2.2는 T36 PR에서 고친다.
+- **Q17 MCP 안의 keychain loader와 실행 권한.** (정함) MCP server는 harness가 직접 띄워 lophn 부모 프로세스가 없고, FFI 없이 keychain을 읽으려면 OS 명령 실행이 필요하다(조사 T3). platform#T34가 helper `lophn-credential`(OS keychain 도구 실행만 허용한 고정 권한 compile binary, 설치 묶음의 고정 절대 경로)을 만들고 MCP·CLI에는 `--allow-run=<helper 절대 경로>`만 준다. 통로는 stdin 참조·stdout token, timeout 5초, 잠김·Secret Service 없음·timeout은 다른 이유의 unavailable. 같은 OS 사용자의 다른 프로세스가 helper를 부를 수 있는 한계는 platform/security#R2 범위 밖으로 받아들인다. contracts Q9(`mcp_cli_loader`만, `CredentialDeliveryRequest`·실패 이유 넷)에 맞춰 architecture/coding-agent 2.2·2.3, domain-model connection·sessions, connection#R17을 T9 PR에서 고쳤다.
 - **Q18 문제마다의 human_confirmation.** coding-agent/tickets#R9는 수리 문제마다 reproduction test 또는 사람 확인을 허용하지만 domain model의 human_confirmation은 추가 필드가 없어, 문제가 여럿이면 어느 문제를 대신하는지 알 수 없다(조사 T4). 추천: human_confirmation에 `problem`(Ticket.problems의 항목)을 두고 ready 검사는 "문제마다 reproduction_test 또는 human_confirmation 하나"로 한다. T18 PR에서 domain model을 고친다.
 - **Q19 pi MCP 설치 자리.** architecture 5.5와 domain model harnesses 표는 pi에 "미리 설치된 exact MCP adapter의 `.mcp.json` 또는 `~/.pi/agent/mcp-adapter.json`, `directTools:true`"를 적었지만 조사 revision(8369268)의 pi는 native `~/.pi/agent/mcp.json`과 trusted `<cwd>/.pi/mcp.json`을 쓰고 그 adapter 파일·필드가 없다(조사 T5). 추천: catalog는 검증 version별 target을 갖고 T31 PR에서 두 문서 표를 native 형식으로 고친다.

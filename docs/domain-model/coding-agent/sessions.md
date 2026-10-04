@@ -33,7 +33,7 @@ readiness deadline은 10,000ms이며 adapter가 정한 검증 신호를 쓰되 �
 | `project`, `folder_ref`, `cwd` | project·등록 폴더 참조·absolute path | 아니오 | → documents/projects; 앱 연결 source가 해당 project에 속하고 선택 폴더 검증 | 터미널 작업 자리 |
 | `method` | `terminal_tui` | 아니오 | 사람 [Start]에만 실행 | 자기 터미널은 안내이며 이 plan의 spawn 없음 |
 | `executable`, `argv` | absolute path·string[] | 아니오 | shell 문자열 조합 금지; 실행 직전 candidate 재확인 | |
-| `env_names`, `credential_handle` | 안전한 이름[]·보호 참조 | 아니오 | token 원문 없음; 인증 경계의 process-local 전달 | |
+| `env_names` | 안전한 이름[] | 아니오 | token 원문 없음; connection 참조는 `LOPHN_CONNECTION`만 | TUI 아래 MCP/CLI가 helper로 credential을 받음 |
 | `first_prompt` | text | 아니오 | ticket 읽을 참조·MCP claim→작업→보고 지시만; data 인용과 지시 구별 | body·log·secret 복제 없음 |
 | `human_start_handle`, `operation_id` | local one-use handle·local key | 아니오 | exact ticket/harness/method와 클릭에 묶음; shell main이 검증 | approval entity 아님 |
 
@@ -90,7 +90,7 @@ local runtime notification은 target/runtime_ref/native ID의 안전한 참조·
 
 ## 정책
 
-- **권한 전달.** 인증 경계가 시작할 때 keychain의 connection credential을 보호된 process-local 통로로 붙인다. token을 argv·prompt·일반 env·PTY·log·model context에 넣지 않는다. MCP/CLI 자식은 같은 connection의 보호 참조로 인증한다.
+- **권한 전달.** TUI 프로세스에는 `LOPHN_CONNECTION=<cac>` 참조만 넘기고 token은 넘기지 않는다. 그 아래 MCP/CLI 자식이 인증 경계의 helper `lophn-credential`로 keychain의 같은 connection credential을 받는다(→ coding-agent/connection). token을 argv·prompt·일반 env·PTY·log·model context에 넣지 않는다.
 - **종료와 claim.** process 종료·수집 장애만으로 claim 반납/갱신을 하지 않는다. 명시 반납·60분 만료·connection 회수는 기존 ticket 계약이다.
 - **재시작.** shell/terminal 복원과 새 coding process 시작은 다르다. 자동 spawn·resume·첫 prompt 재전송은 없다. 재관측이 없으면 unknown이다.
 - **나중 범위.** headless·자동 시작·preset 사전 허락·coordinator·durable execution intent는 이번 enum·command·ledger에 예약하지 않는다. 사람이 실제 범위를 열 때 authority와 lifecycle을 별도로 설계한다.

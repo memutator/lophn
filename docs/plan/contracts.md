@@ -321,6 +321,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T17 contracts/documents: format 실행
 
+- 상태: 완료 (#44)
 - 등급: 기본
 - concern: documents/formats
 - 요구: documents/formats#R1–R5, R8, R10–R17, R20

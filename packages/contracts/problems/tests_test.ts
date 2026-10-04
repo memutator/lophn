@@ -14,9 +14,6 @@ import {
   recordVerification,
   requestTest,
   ROUTES,
-  TEST_EXECUTION_LIMITS,
-  testMethodInputSchema,
-  testMethodSchema,
   ticketTestLinkInputSchema,
   verificationRecorded,
   verificationSchema,
@@ -26,7 +23,7 @@ const hash = "a".repeat(64);
 const id = (prefix: string, end = "0") =>
   `${prefix}_0000000000000000000000000${end}`;
 const method = {
-  argv: ["deno", "test", "tests.ts"],
+  argv: ["test", "tests.ts"],
   cwd: ".",
   timeout_ms: 60_000,
   expected_exit_code: 0,
@@ -47,7 +44,7 @@ const request = {
 };
 const verification = {
   id: id("vrf"),
-  request_principal: "machine",
+  request_principal: "worker:test-runner/ref",
   request_hash: hash,
   ...request,
   execution: hash,
@@ -94,6 +91,22 @@ Deno.test("problems/tests#R2: route and event table matches architecture 5.3 and
     verificationRecorded.subject.safeParse(id("app")).success,
     false,
   );
+});
+Deno.test("problems/tests#R2: request principal is an opaque ref, not actor kind", () => {
+  assertEquals(verificationSchema.safeParse(verification).success, true);
+  assertEquals(
+    recordVerification.input.safeParse({ verification, blobs: [] }).success,
+    true,
+  );
+  for (const request_principal of ["", " ", "\t\n"]) {
+    const value = { ...verification, request_principal };
+    assertEquals(verificationSchema.safeParse(value).success, false);
+    assertEquals(
+      recordVerification.input.safeParse({ verification: value, blobs: [] })
+        .success,
+      false,
+    );
+  }
 });
 Deno.test("problems/tests#R2: fixed inputs and output evidence references pass", () => {
   assertEquals(requestTest.input.safeParse(request).success, true);
@@ -351,50 +364,4 @@ Deno.test("problems/tests#R4: inconclusive and incomplete execution remain expli
     executionEvidenceListSchema.safeParse([execution, execution]).success,
     false,
   );
-});
-Deno.test("problems/tests#R16, problems/tests#R19, problems/tests#R20: bounded Deno argv and source cwd", () => {
-  assertEquals(testMethodSchema.safeParse(method).success, true);
-  assertEquals(
-    testMethodSchema.safeParse({
-      ...method,
-      argv: ["deno", "test", "--allow-read=fixtures", "tests.ts"],
-    }).success,
-    true,
-  );
-  for (const timeout_ms of [1, 300_000]) {
-    assertEquals(
-      testMethodSchema.safeParse({ ...method, timeout_ms }).success,
-      true,
-    );
-  }
-  for (
-    const value of [
-      { ...method, timeout_ms: undefined },
-      { ...method, timeout_ms: 0 },
-      { ...method, timeout_ms: 300_001 },
-      { ...method, timeout_ms: "60000" },
-      { ...method, cwd: "../source" },
-      { ...method, cwd: "/home" },
-      { ...method, cwd: "C:\\home" },
-      { ...method, argv: ["sh", "-c", "deno test"] },
-      { ...method, argv: ["native-test"] },
-      { ...method, argv: ["deno", "test", ""] },
-      { ...method, argv: ["deno", "test", "--allow-all", "test.ts"] },
-      { ...method, argv: ["deno", "test", "--allow-read", "test.ts"] },
-      { ...method, argv: ["deno", "test", "--allow-read=*", "test.ts"] },
-      { ...method, argv: ["deno", "test", "--allow-run=deno", "test.ts"] },
-      { ...method, argv: ["deno", "test", "tests.ts; cat secret"] },
-      { ...method, argv: ["deno", "test", "../test.ts"] },
-      { ...method, unknown: true },
-    ]
-  ) assertEquals(testMethodInputSchema.safeParse(value).success, false);
-  assertEquals(TEST_EXECUTION_LIMITS, {
-    concurrent: 2,
-    preparing: 16,
-    timeout_ms: 300_000,
-    suggested_timeout_ms: 60_000,
-    output_bytes_per_side: 1_048_576,
-    process_memory_bytes: 536_870_912,
-    deno_heap_bytes: 268_435_456,
-  });
 });

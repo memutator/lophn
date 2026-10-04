@@ -5,7 +5,6 @@ import { idSchema } from "../platform/ids.ts";
 import { blobRefRegistrationSchema } from "../platform/blob.ts";
 import { defineCommand, defineRead } from "../platform/route.ts";
 import { memoryLimitModeSchema } from "../platform/supervision.ts";
-import { actorSchema } from "../platform/actor.ts";
 import { atSchema, seqSchema, sha256Schema } from "../platform/values.ts";
 import { problemCodeSchema } from "./problem-codes.ts";
 
@@ -41,6 +40,7 @@ const relativePath = z.string().min(1).refine(
   { message: "path must stay inside source" },
 );
 
+// Only the runner selects the fixed absolute Deno executable; argv excludes it.
 // OS path resolution and granted Deno permission scopes remain runner checks.
 const testMethodFields = {
   argv: z.array(
@@ -48,10 +48,10 @@ const testMethodFields = {
       value.length > 0 && !value.includes("\u0000") && !/[\r\n]/.test(value)
     ),
   )
-    .min(3).refine(
+    .min(2).refine(
       (argv) =>
-        argv[0] === "deno" && argv[1] === "test" &&
-        argv.slice(2).every((arg) =>
+        argv[0] === "test" &&
+        argv.slice(1).every((arg) =>
           !/^(?:--allow-all|--allow-(?:read|write|net|env|import)|--prompt)$/
             .test(arg) &&
           !/^(?:-A|-[RWNE]|--allow-(?:run|ffi|sys)(?:=|$))/.test(arg) &&
@@ -59,7 +59,7 @@ const testMethodFields = {
           !/[;&|`]|\$\(/.test(arg) &&
           !/^[\\/]|^[A-Za-z]:|\\/.test(arg) &&
           !arg.split("/").includes("..")
-        ) && argv.slice(2).some((arg) => !arg.startsWith("-")),
+        ) && argv.slice(1).some((arg) => !arg.startsWith("-")),
       { message: "only fixed Deno test entrypoints are supported" },
     ),
   cwd: relativePath,
@@ -199,7 +199,8 @@ const connectionFields = {
 const verificationFields = {
   id: idSchema("vrf"),
   request_key: idempotencyKeySchema,
-  request_principal: actorSchema,
+  // RecordVerification compares this opaque ref with the accepted request record.
+  request_principal: nonempty,
   request_hash: sha256Schema,
   ...connectionFields,
   execution: sha256Schema,
@@ -253,6 +254,7 @@ export const recordVerificationOutputSchema = z.object({
   verification: idSchema("vrf"),
   seq: positiveSeq,
 });
+// GetTestRequest reads by AuthenticatedContext.principal + key, not actor kind.
 export const getTestRequestInputSchema = z.strictObject({
   request_key: idempotencyKeySchema,
 });

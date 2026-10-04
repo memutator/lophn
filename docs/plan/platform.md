@@ -378,7 +378,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T14 blob 참조 등록과 읽기
 
-- 상태: 완료 (#150)
+- 상태: 완료 (#150) — 후속 완료 (#175): 256KiB 읽기 창이 감독 control frame 한도를 넘지 않는다
 - 등급: 기본
 - concern: platform/blob-store, platform/identity
 - 요구: platform/blob-store#R4, R5, R6, R7, platform/identity#R9
@@ -394,7 +394,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 참조된 blob이 없거나 hash가 다르면 `unavailable`, 빈 내용을 돌려주지 않는다(R6).
   - 부분 읽기는 전체 크기·실제 구간·잘림을 함께 돌려준다. JSON 구간 최대 256KiB(R7).
   - `refs_test.ts`, `read_test.ts`에 위 요구 테스트
-- 후속: 256KiB 읽기 창을 실제 I/O worker로 읽으면 worker 응답의 base64가 감독 control frame 한도(256KiB)를 넘어 세션이 닫히고 읽기가 `corrupt`로 끝났다. fake `bytes.read`는 이 경로를 지나지 않아 잡지 못했다. `blob.read`의 바이트를 JSON control frame 대신 요청 channel의 byte chunk frame으로 돌려 두 한도를 함께 지킨다(architecture 5.5).
+- 후속(#175): 256KiB 읽기 창을 실제 I/O worker로 읽으면 worker 응답의 base64가 감독 control frame 한도(256KiB)를 넘어 세션이 닫히고 읽기가 `corrupt`로 끝났다. fake `bytes.read`는 이 경로를 지나지 않아 잡지 못했다. `blob.read`의 바이트를 JSON control frame 대신 요청 channel의 byte chunk frame으로 돌려 두 한도를 함께 지킨다(architecture 5.5).
 
 ### T15 redaction 규칙 엔진
 

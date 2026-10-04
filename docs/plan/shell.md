@@ -460,6 +460,7 @@ concerns: [shell]
   - 정확한 경로·대상은 숨기지 않고 고정폭 원문으로 보인다. 그 밖의 내부 식별자·hash는 Details.
   - 첫 owner decision: documents의 파일 지우기.
   - `layout_test`에 위 요구 테스트.
+- 상태: 완료 (#154). desktop/main.ts·supervise 연결과 IPC 등록은 아직 없다(T22가 넘긴 것).
 
 ### T24 터미널 host와 PTY
 

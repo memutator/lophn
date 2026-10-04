@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
-import { WORKSPACE_ROUTES } from "../../contracts/shell/workspace.ts";
+import { WORKSPACE_ROUTES } from "../../contracts/shell/mod.ts";
 import { type CredentialIssue, CredentialRegistry } from "../identity/mod.ts";
 import { createWorkspaceRelay, WORKSPACE_MAX_WINDOWS } from "./workspace.ts";
 import { RouteRegistry, startApiServer } from "./mod.ts";

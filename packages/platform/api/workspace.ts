@@ -7,7 +7,7 @@ import {
   WORKSPACE_ROUTES,
   type WorkspaceReadOutput,
   workspaceReadOutputSchema,
-} from "../../contracts/shell/workspace.ts";
+} from "../../contracts/shell/mod.ts";
 import {
   createRedactionEngine,
   type KnownSecretRegistry,

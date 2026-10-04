@@ -71,6 +71,14 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 | node-pty 1.1.0                                                                                                                      | apps/shell/terminal-host                                              | 사람 shell의 POSIX PTY와 Windows ConPTY. 1.1.0 prebuild는 darwin·win32뿐이고 linux와 Electron 44(Node 24.21, modules 149)용은 없다. install이 현재 Node용으로 node-gyp하고 `npm run rebuild`(`@electron/rebuild` 4.2.0)가 Electron 헤더로 다시 만든다. renderer는 이 모듈을 부르지 않는다 |
 | @electron/rebuild 4.2.0                                                                                                             | apps/shell/main                                                       | node-pty native module을 Electron 44.5.1 ABI로 다시 빌드한다. 그 판의 prebuild가 없기 때문이다                                                                                                                                                                                                                                        |
 
+MCP discovery schema의 token 재측정(coding-agent/mcp-server#R4)은 의존성을 더하지
+않는다. Sentry MCP처럼 tiktoken cl100k_base를 들이는 것이 원 기준이지만, lockfile이
+frozen이라 배포 테스트가 tokenizer package를 요구하면 check마다 npm 반입이 붙는다.
+그래서 `packages/coding-agent/mcp-server/measure_tokens_test.ts`는 minified UTF-8
+JSON의 바이트 수를 잰다. 2,000 token 목표는 cl100k_base의 JSON schema 압축 비율
+(1 token ≈ 3 bytes)로 바이트 상한 6,000에 해당한다. tokenizer package를 들일 때는
+이 측정을 실제 encoding으로 바꾼다.
+
 ## check 명령 하나
 
 저장소 루트의 `deno task check`가 모든 관문이다. 모든 작업은 이것을 통과해야

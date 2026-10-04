@@ -199,6 +199,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T11 MCP stdio server 뼈대
 
+- 상태: 완료 (#163)
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/connection
 - 요구: coding-agent/mcp-server#R1, R2, R3, R4, R5, R6, R7; coding-agent/connection#R3, R16

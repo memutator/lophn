@@ -13,6 +13,7 @@ import {
   withReadCommon,
 } from "../../../packages/contracts/platform/mod.ts";
 import { CONDITION_TARGET_KEYS } from "../../../packages/platform/identity/mod.ts";
+import { runAdmission } from "../../../packages/platform/ledger/mod.ts";
 import {
   defineTxPort,
   type LedgerTestEnvironment,
@@ -228,14 +229,18 @@ export function createLedgerTestRegistration(
     commands,
     testCommands,
     reads,
-    ports: [defineTxPort(portKey, (tx) =>
-      Object.freeze({
-        serial: ++serial,
-        tx,
-        write: (key: string) => {
-          tx.sql.run("insert into owners values (?)", [key]);
-        },
-      }))],
+    ports: [
+      defineTxPort(portKey, (tx) =>
+        Object.freeze({
+          serial: ++serial,
+          tx,
+          write: (key: string) => {
+            tx.sql.run("insert into owners values (?)", [key]);
+          },
+        })),
+      // agent command는 run 판정이 있어야 한다. 이 등록의 테스트는 진행 중 run만 본다.
+      defineTxPort(runAdmission, () => ({ status: () => "active" as const })),
+    ],
     readPorts: new Map([[readPort, "reader-local-port"]]),
     registerBlobRef(tx, ctx, reference) {
       escapedBlobTx = tx;

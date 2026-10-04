@@ -333,6 +333,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: platform#T9
+- 상태: 완료 (#138)
 - 완료: 아래 확인이 통과한다
   - command 입장 전체 256·principal당 64·제어용 16 예약·시작 대기 5초, read 실행 2·대기 64·principal당 8, HTTP 동시 128·principal당 16, event 연결 32·principal당 4. 초과는 `unavailable`이고 caller의 priority 주장을 받지 않는다(R3).
   - 회수·정지 제어는 예약 영역으로 들어간다는 테스트
@@ -372,6 +373,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 실제 디스크 여유가 부족하면 새 준비를 `unavailable`로 막고 참조 blob을 지우지 않는다(R12).
   - 문서 worker 같은 신뢰 child는 감독 pipe의 byte chunk frame으로 보내고, core는 해석·hash 없이 backpressure를 지키며 I/O worker로 넘긴다(→ Q6).
   - `prepare_test.ts`에 위 요구 테스트
+- 상태: 완료 (#133)
 
 ### T14 blob 참조 등록과 읽기
 
@@ -585,6 +587,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: agent credential 발급(agent runtime 경계)
 - slice: agent
 - 선행: platform#T9, contracts#T28(QuestionActionEvidence), contracts#T26(`runs/read`), lophn-agent의 question contract
+- 상태: 완료 (#130)
 - 완료: 아래 확인이 통과한다
   - 유효 assignment·run 시작에서 agent runtime에 `agent:<asg>` credential을 주고 run 종료·멈춤·감독 상실에 끝낸다. agent runtime 자체는 machine credential을 받는다.
   - agent scope에는 lophn-agent가 계산한 AgentAppScope(contracts/lophn-agent 타입)가 실리고 AuthenticatedContext로 apps 연결 검사에 전달된다. platform은 그 내용을 해석하지 않고 상한을 넓히지 못하게만 한다(lophn-agent 요청). identity domain model의 CredentialScope를 같은 PR에서 고친다.

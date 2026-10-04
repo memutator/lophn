@@ -14,6 +14,10 @@ function sample(shell: Step["when"]): Step[] {
   return [
     { name: "fmt", command: ["deno", "fmt", "--check"] },
     { name: "lint", command: ["deno", "lint"] },
+    {
+      name: "coverage",
+      command: ["deno", "run", "tools/contract-coverage.ts"],
+    },
     { name: "check", command: ["deno", "check"] },
     { name: "test", command: ["deno", "test"] },
     { name: "shell", command: ["npm", "run", "check"], when: shell },
@@ -30,11 +34,11 @@ Deno.test("tools/check: 단계를 적은 순서로 모두 돌린다", async () =
   assertEquals(ok, true);
   assertEquals(
     calls.map((c) => c[0]),
-    ["deno", "deno", "deno", "deno", "node"],
+    ["deno", "deno", "deno", "deno", "deno", "node"],
   );
   assertEquals(
     calls.map((c) => c[1]),
-    ["fmt", "lint", "check", "test", "tools/check-docs.ts"],
+    ["fmt", "lint", "run", "check", "test", "tools/check-docs.ts"],
   );
 });
 
@@ -43,8 +47,18 @@ Deno.test("tools/check: 하나라도 실패하면 전체가 실패하고 나머�
   const { results, ok } = await runSteps(sample(absent), runner);
   assertEquals(ok, false);
   assertEquals(results.find((r) => r.name === "fmt")?.status, "실패");
-  assertEquals(results.filter((r) => r.status === "통과").length, 4);
-  assertEquals(calls.length, 5);
+  assertEquals(results.filter((r) => r.status === "통과").length, 5);
+  assertEquals(calls.length, 6);
+});
+
+Deno.test("tools/check: coverage 빠짐은 실패다(contracts#T46)", async () => {
+  const { calls, runner } = fakeRunner({
+    "deno run tools/contract-coverage.ts": 1,
+  });
+  const { results, ok } = await runSteps(sample(absent), runner);
+  assertEquals(ok, false);
+  assertEquals(results.find((r) => r.name === "coverage")?.status, "실패");
+  assertEquals(calls.length, 6);
 });
 
 Deno.test("tools/check: 건너뛴 단계는 실패로 세지 않고 표에 이유를 남긴다", async () => {

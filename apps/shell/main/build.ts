@@ -18,7 +18,26 @@ const shared = {
   outExtension: { ".js": ".cjs" },
   external: ["electron"],
   nodePaths: [join(here, "node_modules")],
+  // Deno workspace 이름은 esbuild가 모른다. 저장소 패키지로 묶는다.
+  plugins: [lophnPackages(join(here, "../../.."))],
 };
+
+/** `@lophn/<name>`를 `packages/<name>/mod.ts`로 푼다. 하위 경로는 그 패키지 안의 파일이다. */
+function lophnPackages(repoRoot: string): esbuild.Plugin {
+  return {
+    name: "lophn-packages",
+    setup(build) {
+      build.onResolve({ filter: /^@lophn\// }, (args) => {
+        const rest = args.path.slice("@lophn/".length);
+        const slash = rest.indexOf("/");
+        const name = slash < 0 ? rest : rest.slice(0, slash);
+        const sub = slash < 0 ? "mod.ts" : rest.slice(slash + 1);
+        const file = sub.endsWith(".ts") ? sub : `${sub}.ts`;
+        return { path: join(repoRoot, "packages", name, file) };
+      });
+    },
+  };
+}
 
 const entries: BuildEntry[] = [
   { in: join(here, "desktop/main.ts"), out: "main" },

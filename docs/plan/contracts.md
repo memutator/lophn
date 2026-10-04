@@ -642,7 +642,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T11
 - 완료: 아래 확인이 통과한다
   - `ProblemCodeDeclaration {code ^[a-z][a-z0-9_]{1,47}$, message_key, message, fixer}`, 예약 code 3개(`_exception`, `_feedback`, `_invalid_report`)와 message key·en 값.
-  - `/v1/problems/{request-test,record-verification,get-test-request,get-verification,list-verifications}`, `Verification`, `TestTarget`, `FrozenTest`, `TestMethod`(argv·cwd·timeout_ms·기대 종료값·환경 hash), `TicketTestLink {ticket, check_index, check_hash, completion_seq}`(check_index는 ticket 조건의 position, check_hash는 그 조건의 RFC 8785 정규 JSON sha256; problems·coding-agent 이름 차이를 problems 쪽 이름으로 정했다), `ExecutionEvidence`, kind `app_test / reproduction / test_command`, 결과 `inconclusive` 포함.
+  - `/v1/problems/{request-test,record-verification,get-test-request,get-verification,list-verifications}`, `Verification`, `TestTarget`, `FrozenTest`, `TestMethod`(실행 파일을 제외한 argv `['test', ...]`·cwd·timeout_ms·기대 종료값·환경 hash), `TicketTestLink {ticket, check_index, check_hash, completion_seq}`(check_index는 ticket 조건의 position, check_hash는 그 조건의 RFC 8785 정규 JSON sha256; problems·coding-agent 이름 차이를 problems 쪽 이름으로 정했다), `ExecutionEvidence`, kind `app_test / reproduction / test_command`, 결과 `inconclusive` 포함. `request_principal`은 actor kind가 아닌 stable opaque 참조이며 GetTestRequest는 인증 principal+key로 읽고 RecordVerification은 accepted request record와 대조한다. runner만 고정 absolute Deno executable을 선택하고 현재 permission scope·realpath/symlink·lifecycle·memory·실제 판정을 검사한다.
   - test child 관측 frame `{side, test_hash, name, actual, symptom_reproduced?, expectation_met?, reason}`, frame 65,536 bytes·side 1MiB.
   - event `VerificationRecorded`.
 

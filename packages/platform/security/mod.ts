@@ -11,3 +11,12 @@ export {
   PROCESS_MEMORY_LIMIT_BYTES,
   systemMemoryProbe,
 } from "./memory-limit.ts";
+export {
+  DATA_END_MARKER,
+  DATA_START_MARKER,
+  dataEnvelope,
+  type DataOrigin,
+  defuseBoundaryMarkers,
+  serializeDataEnvelope,
+} from "./data-envelope.ts";
+export { compactedEnvelope, handoffEnvelope } from "./data-summary.ts";

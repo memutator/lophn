@@ -66,7 +66,9 @@ Deno.test("apps/runtime#R2, apps/runtime#R13, apps/runtime#R26, apps/runtime#R27
     "export",
   ];
   assertEquals(
-    ROUTES.filter((route) => methods.includes(route.method)).map((
+    ROUTES.filter((route) =>
+      route.resource === "apps" && methods.includes(route.method)
+    ).map((
       route,
     ) => [route.kind, routePath(route), route.name]),
     [

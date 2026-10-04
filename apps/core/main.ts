@@ -2,6 +2,7 @@ import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { startCore } from "./core.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import { problemsTestDefinitions } from "./problems.ts";
 
 // 최상위 팀마다 등록 파일 하나. main은 이 목록만 부른다.
@@ -10,6 +11,7 @@ const TEAMS = [
   { createLedgerRegistration: createAppsRegistration },
   { problemsTestDefinitions },
   { codingAgentConnectionDefinitions },
+  { lophnAgentDefinitions },
 ];
 
 const portArg = Deno.args.find((arg) => arg.startsWith("--port="));
@@ -28,6 +30,7 @@ const started = await startCore({
     new URL("./apps.ts", import.meta.url).href,
     new URL("./problems.ts", import.meta.url).href,
     new URL("./coding-agent.ts", import.meta.url).href,
+    new URL("./lophn-agent.ts", import.meta.url).href,
   ],
   parent,
 });

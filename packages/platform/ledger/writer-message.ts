@@ -13,6 +13,9 @@ export type CommandEnvelope = {
   prepared: readonly string[];
   // 일회 handle 원문이 아니라 사람 결정의 대상·내용이다. 지문에만 들어간다.
   decision?: { target: unknown; content: unknown };
+  // confirmation route의 일회 참조와 사람이 고른 결정. 지문에는 들어가지 않는다.
+  confirmation?: string;
+  decisionName?: string;
 };
 
 export type CommandSuccess = {

@@ -209,7 +209,8 @@ export function canRecordVerification(
 // actor 종류나 body 주장, conditions.task만으로는 열지 않는다.
 // owner-local lifecycle과 결과 쓰기는 서로 독립된 operation이다.
 // domain target은 TargetAuthorization port가 scope.targets 전체와 맞춘다.
-// 고정 조건 key를 owner target에 다시 넣지 않는다. port가 ctx conditions로 채운다.
+// app은 owner target에도 넣는다. ctx conditions에 app이 있으면 port가 그 값으로 덮어
+// 판정하고, 없으면 admission의 app으로 scope와 맞춘다.
 // port는 scope에 없는 key를 요구하지 않는다. 빠진 domain key는 owner가 닫는다.
 const DOMAIN_TARGET_KEYS = [
   "app",
@@ -244,6 +245,7 @@ export function checkTestAuthority(
     return err({ code: "forbidden", message: FORBIDDEN });
   }
   const allowed = authorize(ctx, operation, {
+    app: admission.app,
     request_principal: admission.request_principal,
     request_key: admission.request_key,
     request_hash: admission.request_hash,
@@ -259,21 +261,21 @@ export function canReadOwnRequest(ctx: RequestContext): Result<true> {
   return ok(true);
 }
 
-// 단건 read의 행 불일치는 port가 not_found로 숨기지 못한다.
-// port는 operation과 app 조건만 판정하고, domain 행은 verificationScope가 숨긴다.
+// 단건 read는 scope 밖 행을 먼저 not_found로 숨긴 뒤(reads.ts verificationScope),
+// 행의 사실 전체를 target으로 port에 넘긴다. 좁힌 scope도 자기 행은 읽는다.
 export function canReadVerification(
   ctx: RequestContext,
-  app: string,
+  facts: Record<string, string | null> & { app: string },
   authorize: TargetAuthorizer,
 ): Result<{ detail: boolean }> {
   if (!hasOperation(ctx.scope, READ_VERIFICATION)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
-  const allowed = authorize(ctx, READ_VERIFICATION, {});
-  if (!allowed.ok) return err({ code: "forbidden", message: FORBIDDEN });
-  if (!targetMatches(ctx.scope, "app", app)) {
+  if (!targetMatches(ctx.scope, "app", facts.app)) {
     return err({ code: "forbidden", message: FORBIDDEN });
   }
+  const allowed = authorize(ctx, READ_VERIFICATION, facts);
+  if (!allowed.ok) return err({ code: "forbidden", message: FORBIDDEN });
   return ok({ detail: hasOperation(ctx.scope, READ_BLOB_DETAIL) });
 }
 

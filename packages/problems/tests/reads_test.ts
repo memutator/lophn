@@ -294,6 +294,30 @@ Deno.test("problems/tests#R5: 제한 target이 다른 결과는 없는 것과 �
   assert(listed.ok);
   assertEquals(listed.value.verifications.length, 0);
   assertEquals(listed.value.next_cursor, null);
+  const own = ctx({
+    ...restricted,
+    principal: "user-1",
+    scope: {
+      ...restricted.scope,
+      targets: {
+        app: APP,
+        request_principal: "user-1",
+        request_key: "key-1",
+        request_hash: HASH,
+      },
+    },
+  });
+  const ownRead = readVerification(snap, own, {
+    verification: "vrf_01ary8h2z3n4p5q6r7s8t9v0wx",
+    detail: false,
+  });
+  assert(ownRead.ok);
+  const noOperation = readVerification(
+    snap,
+    ctx({ ...own, scope: { ...own.scope, operations: [] } }),
+    { verification: "vrf_01ary8h2z3n4p5q6r7s8t9v0wx", detail: false },
+  );
+  assertEquals(noOperation.ok ? "" : noOperation.error.code, "forbidden");
 });
 
 Deno.test("problems/tests#R5: 잘못된 cursor는 invalid_input이다", () => {

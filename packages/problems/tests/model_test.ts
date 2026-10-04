@@ -433,15 +433,24 @@ Deno.test("problems/tests#R1: domain target이 빠지거나 다르거나 더 있
   }
   const read = canReadVerification(
     machine({ app: APP, request_key: "key-1" }, ["GetVerification"]),
-    "other-app",
+    { app: "other-app", request_key: "key-1" },
     authorize,
   );
   assertFalse(read.ok);
   assertEquals(read.ok ? "" : read.error.code, "forbidden");
   const appOnly = canReadVerification(
     machine({ app: APP }, ["GetVerification"]),
-    APP,
+    { app: APP },
     authorize,
   );
   assert(appOnly.ok);
+  const narrowedMismatch = canReadVerification(
+    machine({ app: APP, request_key: "key-1" }, ["GetVerification"]),
+    { app: APP, request_key: "key-2" },
+    authorize,
+  );
+  assertEquals(
+    narrowedMismatch.ok ? "" : narrowedMismatch.error.code,
+    "forbidden",
+  );
 });

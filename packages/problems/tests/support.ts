@@ -136,44 +136,25 @@ const CONDITION_TARGET_KEYS = [
 ] as const;
 
 // packages/problems는 packages/platform을 import하지 않는다.
-// 단위 테스트 Tx는 contracts 타입의 strict authorizer를 쓴다.
-// 고정 조건은 ctx에서 채우고, domain key는 owner target에 있을 때만 scope와 맞춘다.
+// 단위 테스트 Tx는 platform createTargetAuthorizer와 같은 strict 판정을 contracts 타입으로 쓴다.
+// ctx의 고정 조건 값으로 owner target을 덮어 합친 뒤, scope.targets의 모든 key가
+// 있고 같을 때만 ok다. owner target의 여분 key는 막지 않는다.
 export function strictTargetAuthorizer(): TargetAuthorizer {
   return (ctx, operation, target) => {
     if (!ctx.scope.operations.includes(operation)) {
       return err({ code: "forbidden", message: FORBIDDEN });
     }
-    const provided: Record<string, unknown> = { ...target };
+    const merged: Record<string, unknown> = { ...target };
     for (const key of CONDITION_TARGET_KEYS) {
       const value = key === "run"
         ? ctx.run ?? ctx.conditions.run
         : ctx.conditions[key];
-      if (value !== undefined) {
-        if (
-          Object.hasOwn(provided, key) &&
-          JSON.stringify(provided[key]) !== JSON.stringify(value)
-        ) {
-          return err({ code: "forbidden", message: FORBIDDEN });
-        }
-        provided[key] = value;
-      }
+      if (value !== undefined) merged[key] = value;
     }
     for (const key of Object.keys(ctx.scope.targets)) {
-      if (!CONDITION_TARGET_KEYS.includes(key as never)) continue;
       if (
-        !Object.hasOwn(provided, key) ||
-        JSON.stringify(provided[key]) !==
-          JSON.stringify(ctx.scope.targets[key])
-      ) {
-        return err({ code: "forbidden", message: FORBIDDEN });
-      }
-    }
-    for (const key of Object.keys(provided)) {
-      if (CONDITION_TARGET_KEYS.includes(key as never)) continue;
-      if (
-        !Object.hasOwn(ctx.scope.targets, key) ||
-        JSON.stringify(provided[key]) !==
-          JSON.stringify(ctx.scope.targets[key])
+        !Object.hasOwn(merged, key) ||
+        JSON.stringify(merged[key]) !== JSON.stringify(ctx.scope.targets[key])
       ) {
         return err({ code: "forbidden", message: FORBIDDEN });
       }

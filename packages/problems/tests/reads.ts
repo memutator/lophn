@@ -44,6 +44,41 @@ function verificationScope(
   ) && scopeCovers(ctx.scope, row);
 }
 
+const ROW_TARGET_KEYS = [
+  "request_principal",
+  "request_key",
+  "request_hash",
+  "problem",
+  "ticket",
+] as const;
+
+function rowFacts(
+  row: Record<string, unknown>,
+): Record<string, string | null> & { app: string } {
+  const facts: Record<string, string | null> & { app: string } = {
+    app: String(row.app),
+  };
+  for (const key of ROW_TARGET_KEYS) {
+    facts[key] = row[key] === null || row[key] === undefined
+      ? null
+      : String(row[key]);
+  }
+  return facts;
+}
+
+// operation과 app이 맞지 않으면 행의 domain 범위를 보기 전에 forbidden이다.
+function hasReadOperation(ctx: RequestContext): boolean {
+  return ctx.scope.operations.includes("GetVerification");
+}
+
+function sameApp(
+  ctx: RequestContext,
+  row: Record<string, unknown>,
+): boolean {
+  return JSON.stringify(ctx.scope.targets.app) === JSON.stringify(row.app);
+}
+const FORBIDDEN_READ = "이 credential로는 할 수 없다";
+
 function rowToVerification(row: Record<string, unknown>): Verification {
   return {
     id: String(row.id),
@@ -162,15 +197,18 @@ export function readVerification(
     }
   }
   if (!row) return err({ code: "not_found", message: NOT_FOUND });
-  const allowed = canReadVerification(
-    ctx,
-    String(row.app),
-    snapshot.port(TargetAuthorization),
-  );
-  if (!allowed.ok) return allowed;
+  if (!hasReadOperation(ctx) || !sameApp(ctx, row)) {
+    return err({ code: "forbidden", message: FORBIDDEN_READ });
+  }
   if (!verificationScope(ctx, row)) {
     return err({ code: "not_found", message: NOT_FOUND });
   }
+  const allowed = canReadVerification(
+    ctx,
+    rowFacts(row),
+    snapshot.port(TargetAuthorization),
+  );
+  if (!allowed.ok) return allowed;
   const verification = withReports(snapshot, row);
   if (!verification.ok) return verification;
   if (input.detail && !allowed.value.detail) {

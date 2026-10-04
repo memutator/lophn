@@ -37,6 +37,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T2 blueprint 정규 schema와 @lophn/blueprint
 
+- 상태: 완료 (#66)
 - 등급: 기본
 - concern: apps/blueprint, apps/sdk
 - 요구: apps/blueprint#R1, R4, R5, R6, R7, R10, R11, R15, R16, R18, R19, R20, R21, R22, apps/sdk#R5

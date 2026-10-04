@@ -893,6 +893,13 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - `sdk-report.ts`는 Zod/contracts root runtime import 없는 portable type/policy entry이며 raw ExceptionObservationInput/Error·MissingReason/invocation 구조는 공개 schema 타입과 bidirectional assignability 테스트로 맞춘다. common error와 transport-only `response_lost`를 구별하고 unavailable/lost만 `[250,1000,3000]`ms로 최대 3회 retry한다. 실제 SDK queue/observer는 problems#T5가 구현하며 observer는 원래 실패를 삼키거나 preventDefault하지 않는다.
   - 공개 mod/registry에 네 route·네 event를 추가하고 T32의 고정 다섯 route/VerificationRecorded identity membership을 보존했다. requirement-numbered schema 테스트와 doc check/full check로 확인한다.
 
+#### T39 구현 메모: 병합 뒤 review 정정
+
+- 상태: 완료 (#PRNUM)
+- concern: problems/grouping, problems/feedback, problems/snapshots
+- 요구: problems/grouping#R6; problems/feedback#R8; problems/snapshots#R20
+- 기존 문제를 고른 feedback은 자기 rpt로 새 feedback key를 달 수 없다. screenshot blob 권한은 key 순서와 무관한 canonical 값으로 비교한다. 항목별 상한 합보다 큰 snapshot_large_bytes 검사는 schema에서 빼고 collector 조립 runtime 책임으로 둔다(상수는 유지).
+
 ### T40 contracts/problems: problem command·read
 
 - 등급: 기본

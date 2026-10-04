@@ -13,13 +13,15 @@
     "@std/toml": "jsr:@std/toml@1.0.2",
     "zod": "npm:zod@4.6.5",
     "@std/assert": "jsr:@std/assert@1.0.19",
-    "hash-wasm": "npm:hash-wasm@4.12.0"
+    "hash-wasm": "npm:hash-wasm@4.12.0",
+    "playwright": "npm:playwright@1.55.0"
   },
   "tasks": {
     "check": "deno run --allow-all tools/check.ts",
     "contracts:coverage": "deno run --allow-read tools/contract-coverage.ts",
     "dev": "deno run --allow-all tools/dev.ts dev",
-    "dev:core": "deno run --allow-all tools/dev.ts dev:core"
+    "dev:core": "deno run --allow-all tools/dev.ts dev:core",
+    "e2e": "deno run --allow-all e2e/main.ts"
   },
   "fmt": {
     "include": [
@@ -58,7 +60,6 @@
   },
   "test": {
     "exclude": [
-      "e2e",
       "apps/shell/main",
       "apps/shell/preload",
       "packages/design/components/**/*_test.tsx",

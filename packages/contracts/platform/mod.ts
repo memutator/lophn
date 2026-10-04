@@ -155,6 +155,7 @@ export {
   type TargetAuthorizer,
 } from "./target-authorization.ts";
 export {
+  type ApiReadDefinition,
   type CommandDefinition,
   type Compare,
   type EventVisibilityDefinition,

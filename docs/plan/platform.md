@@ -822,6 +822,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T55 lophn daemon 시작·중지와 로컬 상태
 
+- 상태: 완료 (#157)
 - 등급: 기본
 - concern: platform/install-and-update
 - 요구: platform/install-and-update#R10, R12

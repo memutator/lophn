@@ -85,7 +85,7 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 1. `npm --prefix apps/shell/main run check` (tsc --noEmit, node --test)
 1. `node tools/check-docs.ts`
 
-E2E는 `deno task e2e`로 따로 돈다. Playwright의 Electron 실행이 Deno에서 안 되면
+E2E는 `deno task e2e`로 따로 돈다. flow는 `deno task e2e`가 켠 `LOPHN_E2E=1`과 화면이 있을 때만 돌고, `deno task check`의 test 단계에서는 건너뛴다. `deno task check`의 test 단계는 `e2e/flows`를 빼고 돈다(Electron 실행 파일과 화면이 필요해서다). Playwright의 Electron 실행이 Deno에서 안 되면
 `e2e/`에만 Node `package.json`을 두는 예외를 쓴다. slice를 끝낼 때
 돈다([tasks.md](tasks.md)).
 

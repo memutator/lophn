@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "protocol": "messages",
+  "synthetic": true,
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/messages",
+        "headers": { "content-type": "application/json" },
+        "body": { "model": "fixture-model" }
+      },
+      "response": {
+        "status": 429,
+        "headers": {
+          "content-type": "application/json",
+          "retry-after": "10"
+        },
+        "body": "{\"error\":{\"type\":\"rate_limit_error\"}}"
+      }
+    }
+  ]
+}

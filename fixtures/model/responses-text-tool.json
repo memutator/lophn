@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "protocol": "responses",
+  "synthetic": true,
+  "interactions": [
+    {
+      "request": {
+        "method": "POST",
+        "path": "/responses",
+        "headers": { "content-type": "application/json" },
+        "body": { "model": "fixture-model", "stream": false, "store": false }
+      },
+      "response": {
+        "status": 200,
+        "headers": { "content-type": "application/json" },
+        "body": "{\"id\":\"resp_fixture\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"text\":\"fixture text\"}]},{\"type\":\"function_call\",\"call_id\":\"call_fixture\",\"name\":\"echo\",\"arguments\":\"{\\\"value\\\":\\\"ok\\\"}\"}],\"usage\":{\"input_tokens\":20,\"input_tokens_details\":{\"cached_tokens\":4},\"output_tokens\":6}}"
+      }
+    }
+  ]
+}

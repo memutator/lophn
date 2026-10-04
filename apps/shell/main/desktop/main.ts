@@ -5,7 +5,9 @@ import { dirname, join } from "node:path";
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
 import { startCoreConnection } from "./core/connection.ts";
 import { nodeFetch, nodeSockets } from "./core/node-io.ts";
+import { resolveLaunchMode } from "./launch-mode.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
+import { requestQuit } from "./quit.ts";
 import { registerShellScheme } from "./security.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
@@ -40,10 +42,18 @@ const instance = startSingleInstance({
   app,
   dataRoot,
   onOpenWindow: () => openDesktopWindow(),
+  onQuitIntent: () =>
+    requestQuit({
+      windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
+      shutdownCore: () => core.shutdown(),
+      quitApp: () => app.quit(),
+    }),
 });
 
 // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다(desktop#R21).
 app.on("window-all-closed", () => {});
+
+const mode = resolveLaunchMode({ argv: process.argv });
 
 if (instance.acquired) {
   app.whenReady().then(() => {
@@ -59,7 +69,8 @@ if (instance.acquired) {
             }),
         ),
     );
-    openDesktopWindow();
+    // 창 없는 시작은 main과 core만 띄운다(desktop#R21).
+    if (!mode.tray) openDesktopWindow();
   });
 }
 

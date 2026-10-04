@@ -73,7 +73,9 @@ Deno.test("platform/ledger#R3 R4 R22: Tx port/blob callback의 domain event resu
       ),
       "conflict",
     );
-    for (const table of ["owners", "events", "command_results", "blob_refs"]) {
+    for (
+      const table of ["owners", "events", "command_results", "owner_blob_refs"]
+    ) {
       assertEquals(
         value(await h.inspect(`select count(*) as n from ${table}`))[0].n,
         0n,
@@ -81,7 +83,11 @@ Deno.test("platform/ledger#R3 R4 R22: Tx port/blob callback의 domain event resu
     }
     value(await h.command(ctx, envelope("blob", { key: "blob", blob: true })));
     assertEquals(
-      value(await h.inspect("select owner_key, registered_seq from blob_refs")),
+      value(
+        await h.inspect(
+          "select owner_key, registered_seq from owner_blob_refs",
+        ),
+      ),
       [{ owner_key: "blob", registered_seq: 1n }],
     );
     assertEquals(

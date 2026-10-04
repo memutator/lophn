@@ -653,6 +653,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T29 contracts/lophn-agent: provider·credential·model call·catalog
 
+- 상태: 완료 (#109)
 - 등급: 기본
 - concern: lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/harness/usage
 - 요구: lophn-agent/harness/provider#R1–R6, R8, R9, R11–R13, R16, R19–R23, R25–R27, R29, R30; lophn-agent/harness/model#R1–R3, R5, R7–R13, R15–R20; lophn-agent/harness/usage#R2–R9; lophn-agent/harness/prompt-assemble#R1, R8, R9, R19, R25, R26, R28; lophn-agent/instructions#R7, R8; lophn-agent/harness/run-loop#R11

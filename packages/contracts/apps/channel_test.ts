@@ -1,4 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
+import { canonicalize } from "@lophn/base";
 import { routePath } from "../platform/route.ts";
 import {
   appCallDepthAllowed,
@@ -9,7 +10,11 @@ import {
   appConnectOutputSchema,
   appScreenRequestSchema,
   confirmExecutionProofSchema,
+  confirmProofSigningBytes,
+  connectionSigningBytes,
   invocationCallerSchema,
+  signedConfirmProofSchema,
+  signedConnectionSchema,
 } from "./channel.ts";
 import { APP_CALL_DEPTH_LIMIT } from "./channel-values.ts";
 
@@ -63,6 +68,13 @@ Deno.test("apps/runtime#R5, apps/runtime#R31, apps/preview#R7: POST /v1/apps/con
     connection,
   });
   assertEquals(output.connection.mode, "live");
+  assert(
+    appConnectInputSchema.safeParse({ ...input, mode: "test" }).success ===
+      false,
+  );
+  assert(
+    appConnectionSchema.safeParse({ ...connection, mode: "test" }).success,
+  );
   assertEquals(
     routePath({ resource: "apps", method: "connect" }),
     "/v1/apps/connect",
@@ -230,5 +242,107 @@ Deno.test("apps/runtime#R11, apps/connections#R5: 모르는 field와 틀린 ID �
       screen_sizes: { report: ["card"] },
       commands: ["usage.list"],
     }).success === false,
+  );
+});
+
+Deno.test("apps/runtime#R11: 서명 envelope는 payload와 base64url signature만 싣는다", async () => {
+  const signature = "A".repeat(86);
+  const signed = signedConnectionSchema.parse({
+    payload: connection,
+    signature,
+  });
+  assertEquals(
+    connectionSigningBytes(signed.payload),
+    canonicalize(connection),
+  );
+  assert(
+    signedConnectionSchema.safeParse({ payload: connection }).success === false,
+  );
+  assert(
+    signedConnectionSchema.safeParse({
+      payload: connection,
+      signature: "short",
+    }).success === false,
+  );
+  const proof = confirmExecutionProofSchema.parse({
+    invocation: INV,
+    process_nonce: "nonce-1",
+    release: REL,
+    command: "usage.save",
+    input_hash: HASH,
+    caller: { kind: "direct" },
+    expires_at: AT,
+  });
+  const signedProof = signedConfirmProofSchema.parse({
+    payload: proof,
+    signature,
+  });
+  assertEquals(confirmProofSigningBytes(signedProof.payload).length > 0, true);
+  const key = await crypto.subtle.generateKey("Ed25519", true, [
+    "sign",
+    "verify",
+  ]) as CryptoKeyPair;
+  const bytes = new TextEncoder().encode(connectionSigningBytes(connection));
+  const raw = new Uint8Array(
+    await crypto.subtle.sign("Ed25519", key.privateKey, bytes),
+  );
+  const alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  let encoded = "";
+  for (let index = 0; index < raw.length; index += 3) {
+    const a = raw[index] ?? 0;
+    const b = raw[index + 1] ?? 0;
+    const c = raw[index + 2] ?? 0;
+    encoded += alphabet[a >> 2];
+    encoded += alphabet[((a & 3) << 4) | (b >> 4)];
+    if (index + 1 < raw.length) encoded += alphabet[((b & 15) << 2) | (c >> 6)];
+    if (index + 2 < raw.length) encoded += alphabet[c & 63];
+  }
+  assert(
+    signedConnectionSchema.safeParse({
+      payload: connection,
+      signature: encoded,
+    }).success,
+  );
+  assert(
+    await crypto.subtle.verify(
+      "Ed25519",
+      key.publicKey,
+      raw,
+      bytes,
+    ),
+  );
+});
+
+Deno.test("apps/runtime#R11: 서명 대상은 key 순서가 달라도 같은 canonical bytes다", () => {
+  const swapped: Record<string, unknown> = {};
+  for (const key of Object.keys(connection).reverse()) {
+    swapped[key] = (connection as Record<string, unknown>)[key];
+  }
+  assertEquals(
+    connectionSigningBytes(swapped as typeof connection),
+    connectionSigningBytes(connection),
+  );
+  const proof = confirmExecutionProofSchema.parse({
+    invocation: INV,
+    process_nonce: "nonce-1",
+    release: REL,
+    command: "usage.save",
+    input_hash: HASH,
+    caller: { kind: "direct" },
+    expires_at: AT,
+  });
+  const reversed: Record<string, unknown> = {};
+  for (const key of Object.keys(proof).reverse()) {
+    reversed[key] = (proof as Record<string, unknown>)[key];
+  }
+  assertEquals(
+    confirmProofSigningBytes(reversed as typeof proof),
+    confirmProofSigningBytes(proof),
+  );
+  assertEquals(canonicalize({ "10": 10, "2": 2 }), '{"10":10,"2":2}');
+  assertEquals(
+    canonicalize({ "2": 2, "10": 10, nested: { b: 1, a: 2 } }),
+    canonicalize({ nested: { a: 2, b: 1 }, "10": 10, "2": 2 }),
   );
 });

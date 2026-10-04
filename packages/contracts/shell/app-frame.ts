@@ -6,9 +6,9 @@ import {
   appScreenRequestSchema,
 } from "../apps/channel.ts";
 import {
-  runtimeModeSchema,
   screenKeySchema,
   screenSizeSchema,
+  viewModeSchema,
 } from "../apps/channel-values.ts";
 
 // view ID는 main이 만든 메모리 식별이다. credential이 아니다(architecture/shell 5.2).
@@ -40,7 +40,7 @@ export { type AppScreenRequest, appScreenRequestSchema };
 // live는 release가 필수다. preview는 release 없는 준비 전 bundle을 허용한다.
 const openFields = {
   app: idSchema("app"),
-  mode: runtimeModeSchema,
+  mode: viewModeSchema,
   release: idSchema("rel").nullable(),
   screen: screenKeySchema,
   size: screenSizeSchema,
@@ -86,7 +86,7 @@ const viewStateFields = {
   view_session: viewSessionSchema,
   app: idSchema("app"),
   release: idSchema("rel").nullable(),
-  mode: runtimeModeSchema,
+  mode: viewModeSchema,
   screen: screenKeySchema,
   size: screenSizeSchema,
   connectionState: z.enum(VIEW_CONNECTION_STATES),
@@ -110,7 +110,7 @@ export type AppFrame = {
 
 export const appViewOpenSchema = z.strictObject({
   app: idSchema("app"),
-  mode: runtimeModeSchema,
+  mode: viewModeSchema,
   release: idSchema("rel").optional(),
   screen: screenKeySchema,
   size: screenSizeSchema,

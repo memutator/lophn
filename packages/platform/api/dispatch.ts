@@ -19,6 +19,10 @@ import {
 import type { CommandEnvelope, Writer } from "../ledger/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
 import {
+  type ConfirmationBridge,
+  consumeRouteConfirmation,
+} from "../identity/mod.ts";
+import {
   contentTypeJson,
   errorBody,
   failure,
@@ -60,6 +64,8 @@ export type DispatchDeps = {
   reads?: ReadonlyMap<string, ReadHandler>;
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
+  // file route의 사람 결정 확인. 없으면 confirmation file route는 넘기지 않는다.
+  confirmation?: ConfirmationBridge;
   // 동작별 body 상한. 없으면 RPC JSON 256KiB.
   bodyLimit?: (route: Route) => number;
   bodyTimeoutMs: number;
@@ -147,7 +153,10 @@ export async function dispatchHttp(
     if (isMemoryRoute(route)) {
       return await memory(route, parsed.value, ctx, deps);
     }
-    if (isFileRoute(route)) return await file(route, parsed.value, ctx, deps);
+    if (isFileRoute(route)) {
+      const split = fileConfirmation(parsed.value);
+      return await file(route, split.input, split.confirmation, ctx, deps);
+    }
     return rejected({ code: "not_found", message: "route not found" });
   } catch (thrown) {
     return rejected(asInternalError(thrown));
@@ -176,6 +185,9 @@ async function command(
     compare: request.compare,
     prepared: request.prepared,
     ...(request.run === undefined ? {} : { run: request.run }),
+    ...(request.confirmation === undefined
+      ? {}
+      : { confirmation: request.confirmation }),
   };
   const result = await deps.writer.command(ctx, envelope);
   if (!result.ok) return rejected(result.error);
@@ -229,15 +241,49 @@ async function memory(
   return { status: 200, json: result.value };
 }
 
+// file route 입력은 confirmation을 선언하지 않는다. 요청 본문의 별도 field로만 받고
+// route schema에 넘기기 전에 뗀다.
+function fileConfirmation(value: unknown): {
+  input: unknown;
+  confirmation: string | undefined;
+} {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return { input: value, confirmation: undefined };
+  }
+  const record = value as Record<string, unknown>;
+  const confirmation = typeof record.confirmation === "string"
+    ? record.confirmation
+    : undefined;
+  if (!("confirmation" in record)) return { input: value, confirmation };
+  const { confirmation: _dropped, ...input } = record;
+  return { input, confirmation };
+}
+
 async function file(
   route: FileRoute,
   value: unknown,
+  confirmation: string | undefined,
   ctx: AuthenticatedContext,
   deps: DispatchDeps,
 ): Promise<HttpResult> {
   const parsed = route.input.safeParse(value);
   if (!parsed.success) {
     return rejected({ code: "invalid_input", message: "invalid file body" });
+  }
+  if (route.confirmation === "required") {
+    if (!deps.confirmation) {
+      return rejected({
+        code: "unavailable",
+        message: "사람 결정 확인을 사용할 수 없다",
+      });
+    }
+    const consumed = await consumeRouteConfirmation(
+      deps.confirmation,
+      route,
+      parsed.data,
+      confirmation,
+    );
+    if (!consumed.ok) return rejected(consumed.error);
   }
   const handler = deps.files?.get(routeKey(route));
   if (!handler) {

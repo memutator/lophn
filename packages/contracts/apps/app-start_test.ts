@@ -23,6 +23,7 @@ const start = {
   direct_socket: "/run/user/lophn/a-1.sock",
   data_path: "/home/user/.lophn/apps/data.db",
   broker_credential: "child-credential",
+  verify_key: "A".repeat(43),
 };
 
 Deno.test("apps/runtime#R2, apps/runtime#R7, apps/runtime#R8, apps/invocations#R19: 시작 입력 한 줄과 socket·marker 상한", () => {
@@ -53,6 +54,22 @@ Deno.test("apps/runtime#R2, apps/runtime#R7, apps/runtime#R8, apps/invocations#R
       ...start,
       direct_socket: `/${"a".repeat(SOCKET_PATH_MAX_BYTES)}`,
     }).success === false,
+  );
+});
+
+Deno.test("apps/runtime#R7, apps/runtime#R11: test mode 시작은 release 없이 되고 verify_key가 없으면 거절한다", () => {
+  assert(
+    appStartInputSchema.safeParse({
+      ...start,
+      mode: "test",
+      release: null,
+    }).success,
+  );
+  const { verify_key: _key, ...withoutKey } = start;
+  assert(appStartInputSchema.safeParse(withoutKey).success === false);
+  assert(
+    appStartInputSchema.safeParse({ ...start, verify_key: "short" }).success ===
+      false,
   );
 });
 

@@ -46,6 +46,8 @@ if (instance.acquired) {
 }
 
 function rendererDist(): string {
+  // build 결과에서 here는 apps/shell/main/dist이고 renderer dist는 형제 concern
+  // 폴더 바로 아래다: apps/shell/renderer/dist.
   return join(here, "..", "..", "renderer", "dist");
 }
 
@@ -53,14 +55,15 @@ function openDesktopWindow(): void {
   openWindow({
     platform: process.platform,
     packaged: app.isPackaged,
-    preload: join(here, "..", "preload-shell.js"),
+    // build가 preload를 같은 dist에 .cjs로 낸다.
+    preload: join(here, "preload-shell.cjs"),
     url: DESKTOP_URL,
     windows: {
       create: (config: WindowConfig) => {
         const window = new BrowserWindow(config);
         overlays.attach(
           window,
-          join(here, "..", "preload-shell.js"),
+          join(here, "preload-shell.cjs"),
           app.isPackaged,
         );
         return wrap(window);

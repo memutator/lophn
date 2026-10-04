@@ -17,6 +17,10 @@ import {
   type Tx,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
+  confirmationBridge,
+  ConfirmationRegistry,
+} from "../../../packages/platform/identity/mod.ts";
+import {
   LEDGER_COMMANDS,
   LEDGER_SCHEMA_STEPS,
   type TxPortRegistration,
@@ -75,6 +79,12 @@ export async function assemble(boot: TestBoot) {
     registrations.push(registration);
   }
   const clock = one("clock") ?? manualClock(boot.nowMs);
+  const random = seededRandom(boot.seed + 1);
+  const confirmationRegistry = new ConfirmationRegistry({
+    clock,
+    random: (bytes) => random.fill(bytes),
+  });
+  const confirmation = confirmationBridge(confirmationRegistry);
   const ids = one("ids") ??
     createIdSource({ clock, random: seededRandom(boot.seed) });
   const blob = one("registerBlobRef");
@@ -178,6 +188,7 @@ export async function assemble(boot: TestBoot) {
     ids,
     ports,
     checkCredential,
+    confirmation,
     registerBlobRef: (reference) =>
       active && blob
         ? blob(active.tx, structuredClone(active.ctx), reference)
@@ -186,5 +197,13 @@ export async function assemble(boot: TestBoot) {
     call: () =>
       err({ code: "unavailable", message: "Tx.call은 실행기가 dispatch한다" }),
   };
-  return { credentials, clock, steps, reads, writer, checkCredential };
+  return {
+    credentials,
+    clock,
+    steps,
+    reads,
+    writer,
+    checkCredential,
+    confirmation: confirmationRegistry,
+  };
 }

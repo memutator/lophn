@@ -7,7 +7,9 @@ export const problemMessageKeySchema = z.string().regex(
 export const problemMessageSchema = z.string().regex(/\S/).refine(
   (value) => !/[\r\n{}]/.test(value),
   { message: "problem message must be a fixed single line" },
-);
+).refine((value) => value.isWellFormed(), {
+  message: "problem message must contain Unicode scalar values",
+});
 export const PROBLEM_FIXERS = ["coding_agent", "user"] as const;
 export const problemFixerSchema = z.enum(PROBLEM_FIXERS);
 export type ProblemFixer = z.infer<typeof problemFixerSchema>;

@@ -9,6 +9,7 @@ import {
   type RequestContext,
   type Sql,
   subjectSchema,
+  TargetAuthorization,
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import type { z } from "zod";
@@ -18,6 +19,12 @@ import {
   isTransactionLost,
   type LedgerConnection,
 } from "./sqlite.ts";
+import {
+  authorizeSubscriberCursor,
+  type SubscriberGate,
+} from "./subscriber-registration.ts";
+import { targetAuthorizationPort } from "./target-authorization.ts";
+import type { CommandDispatch } from "./dispatch.ts";
 import {
   createTxPortLookup,
   type TxPortLookup,
@@ -38,19 +45,26 @@ export type TxDeps = {
   registerBlobRef: (reference: BlobRefRegistration) => Result<
     PermanentBlobReference
   >;
-  // 다른 owner command dispatch는 platform#T18이 맡는다. 여기서는 주입만 받는다.
+  // 다른 owner command dispatch. 없으면 등록된 command를 부르지 않는다.
+  dispatch?: CommandDispatch;
   call: TxCall;
+  // 현재 자격의 subscriber owner 검사. 없으면 cursor는 올리지 않는다.
+  subscriberGate?: SubscriberGate;
 };
 
 type TxContext = {
   actor: string;
   run: string | null;
+  // command 실행기의 현재 자격 snapshot. lowlevel transaction에는 없다.
+  request?: RequestContext;
 };
 
 // handler 안에서는 throw로만 거절을 알릴 수 있다. 경계에서 Result로 바꾼다.
 class TxRejected extends Error {
-  constructor(readonly result: Result<never>) {
+  readonly result: Result<never>;
+  constructor(result: Result<never>) {
     super("tx rejected");
+    this.result = result;
   }
 }
 
@@ -258,6 +272,12 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     },
     advanceSubscriberCursor(subscriber, throughSeq) {
       live();
+      const allowed = authorizeSubscriberCursor(
+        deps.subscriberGate,
+        subscriber,
+        ctx.request,
+      );
+      if (!allowed.ok) throw fail(allowed);
       const parsed = parseSeq(throughSeq);
       if (!parsed.ok || parsed.value < 0n) {
         return err({ code: "invalid_input", message: "seq가 아니다" });
@@ -296,10 +316,18 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     },
     call<R extends CommandRoute>(route: R, input: unknown, compare: unknown) {
       live();
+      if (deps.dispatch !== undefined) {
+        return deps.dispatch.call(tx, route, input, compare) as Result<
+          z.output<R["output"]>
+        >;
+      }
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },
   };
-  ports.current = createTxPortLookup(deps.ports, tx, live, (result) => {
+  const ownerPorts = deps.ports.some((port) => port.key === TargetAuthorization)
+    ? deps.ports
+    : [targetAuthorizationPort(ctx.request), ...deps.ports];
+  ports.current = createTxPortLookup(ownerPorts, tx, live, (result) => {
     throw fail(result);
   });
   return {

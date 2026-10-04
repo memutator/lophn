@@ -33,7 +33,7 @@ function emitMany(tx: Tx, times: number) {
 
 function advanceMany(tx: Tx, times: number) {
   for (let i = 1; i <= times; i += 1) {
-    const moved = tx.advanceSubscriberCursor("notifications", String(i));
+    const moved = tx.advanceSubscriberCursor("limit", String(i));
     if (!moved.ok) throw new Error("cursor");
   }
 }

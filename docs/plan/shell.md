@@ -653,6 +653,7 @@ concerns: [shell]
   - 같은 입력 계약을 앱 화면과 세션 시각 블록이 쓴다. loading·empty·error 표시가 있고 임의 script를 실행하지 않는다.
   - package 옆 테스트.
 - 가져올 것: legacy `packages/sdk/ui-chart`(LineChart, BarChart, geometry, palette), `ui-table`. d3-scale·d3-shape를 stack.md에 더한다.
+- 상태: 완료 (#64)
 
 ### T35 세션 시각 블록 renderer
 

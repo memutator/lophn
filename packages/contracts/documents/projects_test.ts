@@ -7,28 +7,33 @@ import {
   foldersSchema,
   INITIAL_TRACKING_PROPOSAL,
   PROJECT_EVENTS,
-  PROJECT_ROUTES,
-  projectArchive,
   projectCompareSchema,
-  projectCreate,
   projectCreated,
   projectCreateInputSchema,
-  projectGet,
   projectInputSchema,
   projectPreviewTrackingInputSchema,
-  projectResolve,
-  projectSetTracking,
   projectSetTrackingInputSchema,
-  projectSetTrackingRequestSchema,
   projectTrackingChanged,
   projectUpdated,
   projectUpdateInputSchema,
-  projectUpdateRequestSchema,
   trackingPreviewOutputSchema,
   trackingPreviewSchema,
   trackingRuleSetSchema,
   userProjectSchema,
 } from "./projects.ts";
+import {
+  PROJECT_ROUTES,
+  projectArchive,
+  projectCreate,
+  projectGet,
+  projectList,
+  projectResolve,
+  projectResolveCwd,
+  projectSetTracking,
+  projectSetTrackingRequestSchema,
+  projectTrackingRoots,
+  projectUpdateRequestSchema,
+} from "./project-routes.ts";
 
 const project = "prj_01arz3ndektsv4rrffq69g5fav";
 const folders = [{ path: "/work/docs", description: "Documents" }];
@@ -58,7 +63,7 @@ const create = {
 };
 
 // deno-fmt-ignore
-const projectRoutePaths = ["/v1/projects/create", "/v1/projects/update", "/v1/projects/set_tracking", "/v1/projects/archive", "/v1/projects/unarchive", "/v1/projects/list", "/v1/projects/get", "/v1/projects/resolve", "/v1/projects/preview_tracking"];
+const projectRoutePaths = ["/v1/projects/create", "/v1/projects/update", "/v1/projects/set_tracking", "/v1/projects/archive", "/v1/projects/unarchive", "/v1/projects/list", "/v1/projects/get", "/v1/projects/resolve", "/v1/projects/resolve_cwd", "/v1/projects/tracking_roots", "/v1/projects/preview_tracking"];
 // deno-fmt-ignore
 const projectEventTypes = ["ProjectCreated", "ProjectUpdated", "ProjectTrackingChanged", "ProjectArchived", "ProjectUnarchived"];
 
@@ -353,6 +358,97 @@ Deno.test("documents/projects#R9: agent Project schema exposes stored refs witho
   );
   assert(!projectGet.input.safeParse({ project, path: "/work" }).success);
   assertEquals(projectResolve.actors, ["user"]);
+  assert(
+    !agentProjectSchema.safeParse({
+      ...metadata,
+      documents: [{
+        document: "doc_01arz3ndektsv4rrffq69g5fav",
+        version: null,
+        section: null,
+      }],
+    }).success,
+  );
+});
+
+Deno.test("documents/projects#R8: user Project read keeps the initial proposal separate from stored tracking", () => {
+  const stored = {
+    enabled: false,
+    patterns: [] as { effect: "include" | "exclude"; glob: string }[],
+    use_gitignore: false,
+  };
+  const value = {
+    id: project,
+    name: "mahas",
+    title: "마하스",
+    purpose: "Reports",
+    revision: "1",
+    status: "active" as const,
+    folders,
+    tracking: stored,
+    document_count: 0,
+    documents: [],
+    initial_tracking_proposal: INITIAL_TRACKING_PROPOSAL,
+  };
+  const parsed = userProjectSchema.parse(value);
+  assertEquals(parsed.initial_tracking_proposal, INITIAL_TRACKING_PROPOSAL);
+  assertEquals(parsed.tracking, stored);
+  assert(
+    !userProjectSchema.safeParse({
+      ...value,
+      initial_tracking_proposal: undefined,
+    }).success,
+  );
+  const { tracking: _tracking, ...withoutTracking } = value;
+  assert(!userProjectSchema.safeParse(withoutTracking).success);
+});
+
+Deno.test("documents/projects#R9: coding agent cwd resolve returns only a project id", () => {
+  assert(projectResolveCwd.input.safeParse({}).success);
+  assert(!projectResolveCwd.input.safeParse({ path: "/work/docs" }).success);
+  assertEquals(projectResolveCwd.actors, ["coding_agent"]);
+  assertEquals(projectResolve.actors, ["user"]);
+  const output = projectResolveCwd.output.parse({
+    project,
+    as_of_seq: "1",
+    next_cursor: null,
+  });
+  assertEquals(output.project, project);
+  const stripped = projectResolveCwd.output.parse({
+    project,
+    folder_path: "/work/docs",
+    as_of_seq: "1",
+    next_cursor: null,
+  });
+  assertEquals(stripped.project, project);
+  assert(!("folder_path" in stripped));
+  assert(projectResolveCwd.errors.includes("forbidden"));
+  assert(projectResolveCwd.errors.includes("not_found"));
+  assert(!projectResolveCwd.errors.includes("internal"));
+});
+
+Deno.test("documents/projects#R7: machine tracking roots are active enabled roots in one snapshot", () => {
+  assert(projectTrackingRoots.input.safeParse({}).success);
+  assert(!projectTrackingRoots.input.safeParse({ project }).success);
+  assertEquals(projectTrackingRoots.actors, ["machine"]);
+  const output = projectTrackingRoots.output.parse({
+    roots: [{ project, revision: "1", path: "/work/docs" }],
+    as_of_seq: "1",
+    next_cursor: null,
+  });
+  assertEquals(output.roots, [{ project, revision: "1", path: "/work/docs" }]);
+  assert(
+    !projectTrackingRoots.output.safeParse({
+      roots: [{ project, revision: "0", path: "/work/docs" }],
+      as_of_seq: "1",
+      next_cursor: null,
+    }).success,
+  );
+});
+
+Deno.test("documents/projects#R10: list and resolve reject a cursor that no longer matches their snapshot", () => {
+  assert(projectList.errors.includes("conflict"));
+  assert(projectResolve.errors.includes("conflict"));
+  assert(!projectResolve.input.safeParse({}).success);
 });
 
 Deno.test("documents/projects#R12: file placement consumers can read enabled state and exact include rules", () => {
@@ -377,6 +473,7 @@ Deno.test("documents/projects#R12: file placement consumers can read enabled sta
       ...projectValue,
       document_count: 0,
       documents: [],
+      initial_tracking_proposal: INITIAL_TRACKING_PROPOSAL,
     },
     as_of_seq: "1",
     next_cursor: null,

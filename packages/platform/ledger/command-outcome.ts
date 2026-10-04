@@ -11,7 +11,10 @@ import {
   errorBodySchema,
   type Sql,
 } from "../../contracts/platform/mod.ts";
-import type { CredentialTarget } from "../identity/mod.ts";
+import {
+  CONDITION_TARGET_KEYS,
+  type CredentialTarget,
+} from "../identity/mod.ts";
 import { validateOutput } from "./output.ts";
 
 export function isThenable(value: unknown): boolean {
@@ -108,6 +111,7 @@ export function casAgrees(
   sql: Sql,
   compare: unknown,
   input: unknown,
+  checkCursor: (subscriber: string) => Result<void>,
 ): Result<void> {
   if (
     compare === null || typeof compare !== "object" || Array.isArray(compare)
@@ -123,6 +127,9 @@ export function casAgrees(
   if (typeof subscriber !== "string" || typeof seq !== "string") {
     return err({ code: "invalid_input", message: "cursor CAS가 없다" });
   }
+  // owner 거절과 CAS 불일치를 구별하기 전에 현재 자격으로 cursor read도 검사한다.
+  const allowed = checkCursor(subscriber);
+  if (!allowed.ok) return allowed;
   const row = sql.get(
     "select processed_through_seq from subscriber_cursors where subscriber = ?",
     [subscriber],
@@ -142,23 +149,13 @@ export function headSeq(sql: Sql): Result<bigint> {
   return ok(head);
 }
 
-const CONDITION_KEYS = [
-  "app",
-  "task",
-  "run",
-  "assignment",
-  "release",
-  "process",
-  "mode",
-] as const;
-
 // scope.targets에 있는 고정 조건만 넘긴다. 도메인 대상은 owner handler가 본다.
 export function authorityTarget(
   ctx: AuthenticatedContext,
   run: string | undefined,
 ): CredentialTarget {
   const target: CredentialTarget = {};
-  for (const key of CONDITION_KEYS) {
+  for (const key of CONDITION_TARGET_KEYS) {
     const value = key === "run" && run !== undefined
       ? run
       : ctx.conditions[key];

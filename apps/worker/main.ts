@@ -1,6 +1,7 @@
 import { runPlatformIo } from "./platform/io.ts";
 import { runCoordinator } from "./documents/coordinator.ts";
 import { runPreparation } from "./documents/preparation.ts";
+import { runReleaseWorker } from "./apps/release.ts";
 
 const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
@@ -8,6 +9,7 @@ const WORKER_ENTRIES: Readonly<
   "platform/io": runPlatformIo,
   "documents/worker": runCoordinator,
   "documents/preparation": runPreparation,
+  "apps/release": runReleaseWorker,
 };
 
 export async function runWorker(kind: string, root: string): Promise<void> {

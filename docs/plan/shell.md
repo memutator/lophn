@@ -231,6 +231,7 @@ concerns: [shell]
   - 트리 행 28px, 깊이당 12px, 8단부터 더 들이지 않음. 카드는 독립 객체만, 그림자 없음, 수치 타일 한 줄 최대 4개.
   - Markdown 읽기 renderer는 HTML을 실행하지 않는다. parser는 편집기와 같은 Lezer Markdown을 쓴다(읽기·편집 위치 차이를 줄이고 parser를 둘 들이지 않는다). 제목 1단 20px, 2단 16px/600/위 40px, 3단 16px/600/secondary, 4단 14px, palette 항목 36px.
   - 컴포넌트 옆 테스트.
+- 소비 연결: R23의 읽기 폭은 controlled frame과 주입한 setting interface까지 검증한다. 전역 선택 저장·문서 메뉴·다른 문서와 재시작 반영은 shell#T16이 platform settings에 연결해 검증하며 localStorage를 별도 정본으로 만들지 않는다.
 - 가져올 것: legacy `ui-layout`(page frames, Tree, ScrollArea), `ui-table`, `ui-stat`, `ui-reading`(Markdown, TocTree, CodeBlock, DiffView). `marked` 의존은 가져오지 않는다.
 
 ### T13 workspace layout 저장과 복원
@@ -292,16 +293,17 @@ concerns: [shell]
 ### T16 문서 읽기와 편집기
 
 - 등급: frontend
-- concern: shell/editor
-- 요구: shell/editor#R4, R7, R8, R9, R10, R11, R16
+- concern: shell/editor, shell/design-system
+- 요구: shell/editor#R4, R7, R8, R9, R10, R11, R16, shell/design-system#R23(전역 읽기 폭·문서 메뉴)
 - 자리: apps/shell/renderer/editor/(markdown-editor.tsx, live-preview.ts, preview.ts, commands.ts, find/, link-picker/, problems-gutter/, document-head.tsx)
-- 쓰는 contract: documents#T14(outline·본문 읽기), documents#T6(문서·판), documents#T9(address)
+- 쓰는 contract: documents#T14(outline·본문 읽기), documents#T6(문서·판), documents#T9(address), contracts#T24(settings registry), platform#T25–T27(settings definitions·get·apply)
 - 내놓는 contract: 없음
 - slice: documents
-- 선행: shell#T12, shell#T14, documents#T14, documents#T6
+- 선행: shell#T12, shell#T14, documents#T14, documents#T6, contracts#T24, platform#T25, platform#T26, platform#T27
 - 완료: 아래 확인이 통과한다
   - CodeMirror 6은 `apps/shell/renderer/editor/`에만 있고 SDK에 공개하지 않는다.
   - 읽기와 편집이 같은 기둥·읽기 폭·16px/28px와 같은 제목·목록·인용·코드 스타일을 쓴다. 전환 전후 첫 블록 위치 차이 4px 이하(`e2e/shell/read-edit_test.ts`로 잰다).
+  - 문서 메뉴에서 600/680/800px 읽기 폭을 바꾸면 platform settings의 전역 선택을 저장한다. T12의 setting interface로 다른 문서와 재시작 뒤 같은 폭을 적용하고 모르는 저장값은 기본 폭으로 읽는다. `editor_test`와 읽기 E2E에서 메뉴·다른 문서·재시작 반영을 검증한다.
   - 편집 mode는 머리의 편집/읽기 버튼과 커서만 바뀐다. Markdown 표지는 커서가 그 요소 안일 때만 muted로 보인다.
   - 코드는 고정폭·muted 배경·문법 강조 없음, 인용 막대 2px, 체크박스 16px, 이미지 실패에 아이콘과 alt, 16:9 skeleton, frontmatter 두 열.
   - 찾기 줄 36px·입력 28px, 형식 문제 gutter 24px·아이콘 14px·목록 최대 200px, 링크 고르기 320px popover(overlay).

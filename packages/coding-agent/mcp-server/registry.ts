@@ -71,11 +71,28 @@ export function resolveRoute(
 ): ResolvedRoute | undefined {
   const tool = findTool(toolName);
   if (!tool) return undefined;
-  // op를 표시하지 않은 tool은 단일 동작이다(architecture 5.2).
+  // op를 표시하지 않은 tool은 단일 동작이다(architecture 5.2). 표 값이 input
+  // schema라면 read route 입력 자체가 tool의 소유 입력이다.
   if (tool.ops.length === 0) {
     const route = OWNER_ROUTES[toolName];
     if (!route) return undefined;
-    return { tool, op: undefined, route: route as unknown as Route };
+    // Route 모양(kind·resource·method)은 그 값을 쓴다. 소유 표가 input schema만
+    // 내는 tool(lophn_read·lophn_save)은 read route 입력으로 감싼다.
+    const shaped = route as {
+      kind?: unknown;
+      resource?: unknown;
+      method?: unknown;
+      safeParse?: unknown;
+    };
+    const isRoute = typeof shaped.kind === "string" &&
+      typeof shaped.resource === "string" &&
+      typeof shaped.method === "string";
+    const isSchema = typeof shaped.safeParse === "function";
+    if (!isRoute && !isSchema) return undefined;
+    const owned: Route = isRoute
+      ? (route as unknown as Route)
+      : ({ kind: "read", input: route as unknown as z.ZodType } as Route);
+    return { tool, op: undefined, route: owned };
   }
   if (op === undefined) return undefined;
   const found = OWNER_ROUTES[toolName]?.[op];

@@ -25,7 +25,6 @@ function createLineReader(stdin: ReadableStream<Uint8Array>): {
 } {
   const reader = stdin.getReader();
   let pending = "";
-  let pendingBytes = 0;
   return {
     async next(): Promise<LineOutcome> {
       while (true) {
@@ -33,27 +32,25 @@ function createLineReader(stdin: ReadableStream<Uint8Array>): {
         if (newline >= 0) {
           const line = pending.slice(0, newline);
           pending = pending.slice(newline + 1);
-          pendingBytes = encoder.encode(pending).length;
+          if (encoder.encode(line).length > MAX_LINE_BYTES) {
+            // 상한을 넘은 줄은 통째로 버린다. 잘린 반 줄을 메시지로 내지 않는다.
+            return { kind: "oversize" };
+          }
           return { kind: "line", line };
-        }
-        if (pendingBytes > MAX_LINE_BYTES) {
-          pending = "";
-          pendingBytes = 0;
-          // 상한을 넘은 줄은 통째로 버린다. 잘린 반 줄을 메시지로 내지 않는다.
-          return { kind: "oversize" };
         }
         const read = await reader.read();
         if (read.done) {
           if (pending.trim() !== "") {
             const line = pending;
             pending = "";
-            pendingBytes = 0;
+            if (encoder.encode(line).length > MAX_LINE_BYTES) {
+              return { kind: "oversize" };
+            }
             return { kind: "line", line };
           }
           return { kind: "eof" };
         }
         if (read.value.length === 0) continue;
-        pendingBytes += read.value.length;
         pending += decoder.decode(read.value, { stream: true });
       }
     },

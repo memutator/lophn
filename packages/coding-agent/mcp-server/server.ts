@@ -69,6 +69,8 @@ export function createHandler(
     const parsed = parseRequest(line);
     if (!parsed.ok) return errorResponse(parsed.id, parsed.error);
     const request = parsed.request;
+    // notification(id 없는 요청)은 상태를 바꾸지 않으므로 응답도 없다.
+    if (request.id === undefined) return undefined;
     switch (request.method) {
       case "initialize":
         return initializeResponse(request, deps.onClientInfo);
@@ -105,6 +107,16 @@ function parseRequest(line: string): ParsedRequest {
       ok: false,
       id: null,
       error: { code: PROTOCOL_ERRORS.parse, message: "JSON을 읽지 못했다" },
+    };
+  }
+  if (typeof body !== "object" || body === null) {
+    return {
+      ok: false,
+      id: null,
+      error: {
+        code: PROTOCOL_ERRORS.invalidRequest,
+        message: "요청 모양이 맞지 않다",
+      },
     };
   }
   const checked = body as {

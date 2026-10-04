@@ -3,6 +3,8 @@
   "exports": "./mod.ts",
   "compilerOptions": { "erasableSyntaxOnly": true },
   "imports": {
-    "parse5": "npm:parse5@8.0.1"
+    "ignore": "npm:ignore@7.0.12",
+    "parse5": "npm:parse5@8.0.1",
+    "picomatch": "npm:picomatch@4.0.7"
   }
 }

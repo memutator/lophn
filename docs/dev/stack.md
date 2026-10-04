@@ -39,8 +39,8 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 | 의존성 | 쓰는 곳 | 이유 |
 |---|---|---|
-| picomatch | documents/file-tracking | tracking 규칙의 glob |
-| ignore | documents/file-tracking | `.gitignore` 모양 제외 규칙 |
+| picomatch 4.0.7 | documents/file-tracking, documents/projects | tracking 규칙의 glob. OS locale과 무관하게 대소문자를 구분한다 |
+| ignore 7.0.12 | documents/file-tracking, documents/projects | `.gitignore` 모양 제외 규칙. 중첩 파일은 깊은 쪽부터 적용한다 |
 | QuickJS WASM (sync 빌드 하나) | documents/formats | format 검사 코드를 격리해 돌린다 |
 | parse5 | documents/formats의 HTML format 묶음 안 | HTML 문서 해석 |
 | electron 44.5.1 | apps/shell/main | shell 창과 sandbox preload. 이전 lophn과 같은 판 |

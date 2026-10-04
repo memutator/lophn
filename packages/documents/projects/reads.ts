@@ -14,6 +14,7 @@ import {
   projectTrackingRoots,
   userProjectSchema,
 } from "../../contracts/documents/mod.ts";
+import { absolutePathSchema } from "../../contracts/documents/values.ts";
 import {
   parseActor,
   type ReadDefinition,
@@ -41,8 +42,6 @@ export type ProjectReadDeps = {
     snapshot: ReadSnapshot,
     project: string,
   ): Result<readonly DocumentRef[]>;
-  // host가 고정한 authenticated current cwd. 없으면 resolve_cwd는 거절한다.
-  currentCwd?: (ctx: RequestContext) => Result<string | null>;
 };
 
 const PAGE = 50;
@@ -312,16 +311,11 @@ export function createProjectReads(deps: ProjectReadDeps): {
             message: "cwd resolve is coding agent only",
           });
         }
-        if (typeof deps?.currentCwd !== "function") return unavailable();
-        let cwd: Result<string | null>;
-        try {
-          cwd = synchronousResult(deps.currentCwd(ctx));
-        } catch {
-          return unavailable();
+        // 인증 경계가 채운 cwd만 쓴다. 없거나 모양이 아니면 fail-closed다.
+        const cwd = ctx.conditions.cwd;
+        if (cwd === undefined || !absolutePathSchema.safeParse(cwd).success) {
+          return notFound();
         }
-        if (!cwd.ok) return cwd;
-        // caller path fallback은 없다. 고정 근거가 없으면 거절한다.
-        if (cwd.value === null) return notFound();
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
         const roots = projects.value.flatMap((project) =>
@@ -330,7 +324,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
             path: folder.path,
           }))
         );
-        const found = deepestRegisteredRoot(cwd.value, roots);
+        const found = deepestRegisteredRoot(cwd, roots);
         if (!found.ok) return found;
         if (found.value === null) return notFound();
         const project = projects.value.find((item) =>

@@ -47,7 +47,11 @@ function credential(actor = "user"): AuthenticatedContext {
     principal: "test-user",
     credential_ref: `test:test-user:${actor}`,
     scope: {
-      operations: ["SettingsDefinitions", "GetSettings", "settings.tests.record_choice"],
+      operations: [
+        "SettingsDefinitions",
+        "GetSettings",
+        "settings.tests.record_choice",
+      ],
       targets: {},
     },
     conditions: {},
@@ -79,7 +83,10 @@ function recordChoice(
   value: string,
   idempotencyKey: string,
 ): CommandEnvelope {
-  return envelope("settings.tests.record_choice", idempotencyKey, { key, value });
+  return envelope("settings.tests.record_choice", idempotencyKey, {
+    key,
+    value,
+  });
 }
 
 Deno.test("platform/settings#R2, platform/settings#R10: 선택 원본은 ledger에 두고 항목마다 적용값·층·선택을 조회한다", async () => {
@@ -91,18 +98,36 @@ Deno.test("platform/settings#R2, platform/settings#R10: 선택 원본은 ledger�
   const harness = opened.value;
   try {
     // 사용자 선택을 원본 표에 기록한다(R2).
-    value(await harness.command(user, recordChoice("shell.reading_width", "90", "choice-90")));
+    value(
+      await harness.command(
+        user,
+        recordChoice("shell.reading_width", "90", "choice-90"),
+      ),
+    );
     const get = value(
       await harness.read({ resource: "settings", method: "get" }, user, {}),
-    ) as { settings: { key: string; resolved: boolean; value: unknown; source_layer: string | null; choices: unknown[] }[]; revision: number };
-    const width = get.settings.find((setting) => setting.key === "shell.reading_width");
+    ) as {
+      settings: {
+        key: string;
+        resolved: boolean;
+        value: unknown;
+        source_layer: string | null;
+        choices: unknown[];
+      }[];
+      revision: number;
+    };
+    const width = get.settings.find((setting) =>
+      setting.key === "shell.reading_width"
+    );
     assert(width !== undefined);
     assertEquals(width.resolved, true);
     assertEquals(width.value, 90);
     assertEquals(width.source_layer, "common");
     assertEquals(width.choices.length, 1);
     // 선택하지 않은 항목은 내장 기본값을 따른다.
-    const tracking = get.settings.find((setting) => setting.key === "documents.tracking");
+    const tracking = get.settings.find((setting) =>
+      setting.key === "documents.tracking"
+    );
     assert(tracking !== undefined);
     assertEquals(tracking.resolved, true);
     assertEquals(tracking.source_layer, "builtin");
@@ -121,12 +146,25 @@ Deno.test("platform/settings#R2: 명시 선택과 선택 기록 삭제를 구별
   if (!opened.ok) throw new Error(opened.error.code);
   const harness = opened.value;
   try {
-    value(await harness.command(user, recordChoice("coding.harness", "null", "choice-null")));
+    value(
+      await harness.command(
+        user,
+        recordChoice("coding.harness", "null", "choice-null"),
+      ),
+    );
     const get = value(
       await harness.read({ resource: "settings", method: "get" }, user, {
         keys: ["coding.harness"],
       }),
-    ) as { settings: { key: string; resolved: boolean; value: unknown; source_layer: string | null; choices: unknown[] }[] };
+    ) as {
+      settings: {
+        key: string;
+        resolved: boolean;
+        value: unknown;
+        source_layer: string | null;
+        choices: unknown[];
+      }[];
+    };
     const harness_choice = get.settings[0];
     assertEquals(harness_choice.resolved, true);
     assertEquals(harness_choice.value, null);
@@ -137,7 +175,15 @@ Deno.test("platform/settings#R2: 명시 선택과 선택 기록 삭제를 구별
       await harness.read({ resource: "settings", method: "get" }, user, {
         keys: ["documents.tracking"],
       }),
-    ) as { settings: { key: string; resolved: boolean; value: unknown; source_layer: string | null; choices: unknown[] }[] };
+    ) as {
+      settings: {
+        key: string;
+        resolved: boolean;
+        value: unknown;
+        source_layer: string | null;
+        choices: unknown[];
+      }[];
+    };
     assertEquals(absent.settings[0].resolved, true);
     assertEquals(absent.settings[0].source_layer, "builtin");
     assertEquals(absent.settings[0].choices.length, 0);
@@ -161,7 +207,9 @@ Deno.test("platform/settings#R6, platform/settings#R16: 작업 자료·환경변
         {},
       ),
     ) as { definitions: { key: string; layers: string[] }[] };
-    const layers = definitions.definitions.flatMap((definition) => definition.layers);
+    const layers = definitions.definitions.flatMap((definition) =>
+      definition.layers
+    );
     assertEquals([...new Set(layers)], ["common"]);
     assert(
       !definitions.definitions.some((definition) =>
@@ -170,10 +218,21 @@ Deno.test("platform/settings#R6, platform/settings#R16: 작업 자료·환경변
       ),
     );
     // 작업 자료·환경변수 출처 항목은 등록되지 않는다.
-    assertFalse(definitions.definitions.some((definition) => definition.key === "session.work_dir"));
-    assertFalse(definitions.definitions.some((definition) => definition.key === "env.path"));
+    assertFalse(
+      definitions.definitions.some((definition) =>
+        definition.key === "session.work_dir"
+      ),
+    );
+    assertFalse(
+      definitions.definitions.some((definition) =>
+        definition.key === "env.path"
+      ),
+    );
     const choices = rows(
-      await harness.inspect("select count(*) as count from setting_choices", []),
+      await harness.inspect(
+        "select count(*) as count from setting_choices",
+        [],
+      ),
     );
     assertEquals(Number(choices[0]?.["count"]), 0);
   } finally {

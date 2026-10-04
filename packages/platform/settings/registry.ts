@@ -5,10 +5,7 @@ import type {
   SettingDefinition,
   SettingsValidationError,
 } from "../../contracts/platform/mod.ts";
-import {
-  containsCredentialSecret,
-  defaultsRevisionText,
-} from "./model.ts";
+import { containsCredentialSecret, defaultsRevisionText } from "./model.ts";
 
 const MESSAGE_KEY_FIELDS = [
   "display_name_key",
@@ -20,10 +17,6 @@ const MESSAGE_KEY_FIELDS = [
 ] as const;
 
 const KEY_PATTERN = /^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)+$/;
-
-function invalid(message: string): Result<never> {
-  return err({ code: "invalid_input", message });
-}
 
 // 뜻·종류·기본값·허용값·층·적용 시점이 없으면 등록을 거절한다(R1, R4).
 export function validateDefinition(
@@ -65,7 +58,10 @@ export function validateDefinition(
     typeof definition.revert_key !== "string" ||
     definition.revert_key.length === 0
   ) {
-    return err({ code: "invalid_input", message: "설정 항목 revert_key가 없다" });
+    return err({
+      code: "invalid_input",
+      message: "설정 항목 revert_key가 없다",
+    });
   }
   if (definition.value_type === undefined || definition.value_type === null) {
     return err({

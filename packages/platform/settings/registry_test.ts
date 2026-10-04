@@ -38,7 +38,9 @@ const width: SettingDefinition<z.ZodNumber> = {
   machine_local: false,
 };
 
-const tracked: SettingDefinition<z.ZodObject<{ patterns: z.ZodArray<z.ZodString> }>> = {
+const tracked: SettingDefinition<
+  z.ZodObject<{ patterns: z.ZodArray<z.ZodString> }>
+> = {
   key: "documents.tracking",
   owner: "documents/tracking",
   display_name_key: "settings.tracking.name",
@@ -121,11 +123,21 @@ function validation(result: Result<unknown>) {
 Deno.test("platform/settings#R1, platform/settings#R4: 설명·종류·기본값·허용값·층·적용 시점이 없으면 등록을 거절한다", () => {
   assertEquals(SettingRegistry, SettingRegistry);
   assertEquals(
-    code(validateDefinition({ ...width, description: undefined as unknown as string })),
+    code(
+      validateDefinition({
+        ...width,
+        description: undefined as unknown as string,
+      }),
+    ),
     "invalid_input",
   );
   assertEquals(
-    code(validateDefinition({ ...width, value_type: undefined as unknown as z.ZodNumber })),
+    code(
+      validateDefinition({
+        ...width,
+        value_type: undefined as unknown as z.ZodNumber,
+      }),
+    ),
     "invalid_input",
   );
   assertEquals(
@@ -137,7 +149,12 @@ Deno.test("platform/settings#R1, platform/settings#R4: 설명·종류·기본값
     "invalid_input",
   );
   assertEquals(
-    code(validateDefinition({ ...width, apply_at: undefined as unknown as "current_check" })),
+    code(
+      validateDefinition({
+        ...width,
+        apply_at: undefined as unknown as "current_check",
+      }),
+    ),
     "invalid_input",
   );
   assertEquals(
@@ -163,7 +180,9 @@ Deno.test("platform/settings#R4: 필수 선택은 임의 값으로 채우지 않
 });
 
 Deno.test("platform/settings#R8: 낮은 두 원소 목록에 높은 한 원소 목록은 한 원소만 남는다", () => {
-  const merged = mergeValue(tracked, { patterns: ["a.md", "b.md"] }, { patterns: ["c.md"] });
+  const merged = mergeValue(tracked, { patterns: ["a.md", "b.md"] }, {
+    patterns: ["c.md"],
+  });
   assertEquals(merged, { patterns: ["c.md"] });
 });
 
@@ -189,12 +208,20 @@ Deno.test("platform/settings#R8, platform/settings#R9: 생략은 낮은 층을 �
 
 Deno.test("platform/settings#R9: nullable 기본 harness를 null로 저장한 것과 선택 기록 삭제를 구별한다", () => {
   const registry = new SettingRegistry([nullableDefault]);
-  const explicit = effectiveSetting(nilDefault(registry), choice("coding.harness", null), 3);
+  const explicit = effectiveSetting(
+    nilDefault(registry),
+    choice("coding.harness", null),
+    3,
+  );
   assertEquals(explicit.resolved, true);
   assertEquals(explicit.value, null);
   assertEquals(explicit.source_layer, "common");
   assertEquals(explicit.choices.length, 1);
-  const chosen = effectiveSetting(nullableDefault, choice("coding.harness", "c1"), 3);
+  const chosen = effectiveSetting(
+    nullableDefault,
+    choice("coding.harness", "c1"),
+    3,
+  );
   assertEquals(chosen.value, "c1");
   assertEquals(chosen.source_layer, "common");
   const builtin = effectiveSetting(nullableDefault, undefined, 3);
@@ -204,21 +231,38 @@ Deno.test("platform/settings#R9: nullable 기본 harness를 null로 저장한 �
   assertEquals(builtin.choices.length, 0);
 });
 
-function nilDefault(_registry: SettingRegistry): SettingDefinition<z.ZodNullable<z.ZodString>> {
+function nilDefault(
+  _registry: SettingRegistry,
+): SettingDefinition<z.ZodNullable<z.ZodString>> {
   return nullableDefault;
 }
 
 Deno.test("platform/settings#R2: 내장 기본값을 바꾸면 선택하지 않은 항목만 새 기본값을 따른다", () => {
   const before = new SettingRegistry([tracked]);
-  const chosen = effectiveSetting(tracked, choice("documents.tracking", { patterns: ["user.md"] }), 1);
+  const chosen = effectiveSetting(
+    tracked,
+    choice("documents.tracking", { patterns: ["user.md"] }),
+    1,
+  );
   assertEquals(chosen.source_layer, "common");
   // default 변경을 반영한 registry
-  const after = new SettingRegistry([{ ...tracked, default: { patterns: ["new-default.md"] } }]);
-  const defaultChanged = effectiveSetting(after.definition("documents.tracking") ?? tracked, undefined, 2);
+  const after = new SettingRegistry([{
+    ...tracked,
+    default: { patterns: ["new-default.md"] },
+  }]);
+  const defaultChanged = effectiveSetting(
+    after.definition("documents.tracking") ?? tracked,
+    undefined,
+    2,
+  );
   assertEquals(defaultChanged.value, { patterns: ["new-default.md"] });
   assertEquals(defaultChanged.source_layer, "builtin");
   // 선택한 항목은 여전히 사용자 선택을 유지한다
-  const kept = effectiveSetting(tracked, choice("documents.tracking", { patterns: ["user.md"] }), 2);
+  const kept = effectiveSetting(
+    tracked,
+    choice("documents.tracking", { patterns: ["user.md"] }),
+    2,
+  );
   assertEquals(kept.value, { patterns: ["user.md"] });
   assert(before.defaultsRevision !== after.defaultsRevision);
 });
@@ -234,9 +278,14 @@ Deno.test("platform/settings#R10: 항목마다 적용값·정한 층·선택 근
 
 Deno.test("platform/settings#R11, platform/settings#R14: 문법 단계 오류는 항목·기대·고칠 방법을 알린다", () => {
   const registry = new SettingRegistry([width, tracked]);
-  const unknownCode = code(validateChoice(registry.definitions, choice("shell.width", 90)));
+  const unknownCode = code(
+    validateChoice(registry.definitions, choice("shell.width", 90)),
+  );
   assertEquals(unknownCode, "invalid_input");
-  const typeError = validateChoice(registry.definitions, choice("shell.reading_width", "wide"));
+  const typeError = validateChoice(
+    registry.definitions,
+    choice("shell.reading_width", "wide"),
+  );
   assertEquals(code(typeError), "invalid_input");
   const detail = validation(typeError);
   assertEquals(detail.key, "shell.reading_width");
@@ -247,15 +296,25 @@ Deno.test("platform/settings#R11, platform/settings#R14: 문법 단계 오류는
 Deno.test("platform/settings#R11, platform/settings#R12: 타입이 다르면 변환 없이 거절한다", () => {
   const registry = new SettingRegistry([width]);
   assertEquals(
-    code(validateChoice(registry.definitions, choice("shell.reading_width", "80"))),
+    code(
+      validateChoice(registry.definitions, choice("shell.reading_width", "80")),
+    ),
     "invalid_input",
   );
   assertEquals(
-    code(validateChoice(registry.definitions, choice("shell.reading_width", 300))),
+    code(
+      validateChoice(registry.definitions, choice("shell.reading_width", 300)),
+    ),
     "invalid_input",
   );
   assertEquals(
-    code(validateChoice(registry.definitions, { layer: "common", key: "shell.reading_width", value: 90.5 })),
+    code(
+      validateChoice(registry.definitions, {
+        layer: "common",
+        key: "shell.reading_width",
+        value: 90.5,
+      }),
+    ),
     "invalid_input",
   );
 });
@@ -263,13 +322,18 @@ Deno.test("platform/settings#R11, platform/settings#R12: 타입이 다르면 변
 Deno.test("platform/settings#R11: 허용 층 밖 입력은 거절한다", () => {
   const registry = new SettingRegistry([width]);
   assertEquals(
-    code(validateChoice(registry.definitions, { layer: "session", key: "shell.reading_width", value: 90 })),
+    code(
+      validateChoice(registry.definitions, {
+        layer: "session",
+        key: "shell.reading_width",
+        value: 90,
+      }),
+    ),
     "invalid_input",
   );
 });
 
 Deno.test("platform/settings#R11, platform/settings#R13: 숫자 범위와 대상 관계는 constraints 선언에 따른다", () => {
-  const registry = new SettingRegistry([width, tracked]);
   assertEquals(
     code(validateConstraints(width, 39)),
     "invalid_input",
@@ -279,10 +343,20 @@ Deno.test("platform/settings#R11, platform/settings#R13: 숫자 범위와 대상
     "invalid_input",
   );
   assertEquals(validateConstraints(width, 40).ok, true);
-  assert(requiresOwnerCheck({ ...tracked, constraints: { target_ref: "documents.tracking_root" } }));
+  assert(
+    requiresOwnerCheck({
+      ...tracked,
+      constraints: { target_ref: "documents.tracking_root" },
+    }),
+  );
   assertFalse(requiresOwnerCheck(tracked));
   assertFalse(offlineAllowed(width, { offline_unconfirmed: true }));
-  assert(offlineAllowed({ ...width, constraints: { allow_offline_unconfirmed: true } }, { offline_unconfirmed: true }));
+  assert(
+    offlineAllowed({
+      ...width,
+      constraints: { allow_offline_unconfirmed: true },
+    }, { offline_unconfirmed: true }),
+  );
 });
 
 Deno.test("platform/settings#R13: offline 미확인은 소유 concern이 허용할 때만 받는다", () => {
@@ -310,7 +384,12 @@ Deno.test("platform/settings#R15: secret 원문을 거절하고 문자열 검사
 });
 
 Deno.test("platform/settings#R16: 권한·안전 규칙을 푸는 항목은 일반 설정 층에 없다", () => {
-  const registry = new SettingRegistry([width, tracked, nullableDefault, noDefault]);
+  const registry = new SettingRegistry([
+    width,
+    tracked,
+    nullableDefault,
+    noDefault,
+  ]);
   const allKeys = registry.definitions.map((definition) => definition.key);
   assertFalse(allKeys.includes("security.danger"));
   assertFalse(allKeys.includes("identity.allow_all"));
@@ -321,6 +400,8 @@ Deno.test("platform/settings#R16: 권한·안전 규칙을 푸는 항목은 일�
 Deno.test("platform/settings#R1: defaults_revision은 항목·기본값 판이 바뀌면 바뀐다", () => {
   const base = defaultsRevisionText([width, tracked]);
   assertEquals(defaultsRevisionText([width, tracked]), base);
-  assert(defaultsRevisionText([{ ...tracked, default: { patterns: [] } }]) !== base);
+  assert(
+    defaultsRevisionText([{ ...tracked, default: { patterns: [] } }]) !== base,
+  );
   assert(defaultsRevisionText([tracked]) !== base);
 });

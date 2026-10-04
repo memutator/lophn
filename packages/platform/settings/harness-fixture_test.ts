@@ -7,9 +7,9 @@ import {
   type Tx,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
+  SettingRegistry,
   settingsDefinitionsRead,
   settingsGetRead,
-  SettingRegistry,
 } from "./mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "./schema.ts";
 
@@ -34,7 +34,9 @@ const width: SettingDefinition<z.ZodNumber> = {
   machine_local: false,
 };
 
-const tracking: SettingDefinition<z.ZodObject<{ patterns: z.ZodArray<z.ZodString> }>> = {
+const tracking: SettingDefinition<
+  z.ZodObject<{ patterns: z.ZodArray<z.ZodString> }>
+> = {
   key: "documents.tracking",
   owner: "documents/tracking",
   display_name_key: "settings.tracking.name",

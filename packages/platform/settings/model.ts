@@ -54,13 +54,17 @@ function validationError(
 }
 
 function unwrapType(schema: unknown): unknown {
-  let current = schema as { def?: { innerType?: unknown }; unwrap?: () => unknown };
+  let current = schema as {
+    def?: { innerType?: unknown };
+    unwrap?: () => unknown;
+  };
   while (
     current !== null && typeof current === "object" &&
     typeof (current as { unwrap?: unknown }).unwrap === "function"
   ) {
     try {
-      current = (current as { unwrap: () => unknown }).unwrap() as typeof current;
+      current = (current as { unwrap: () => unknown })
+        .unwrap() as typeof current;
     } catch {
       return current;
     }
@@ -84,11 +88,6 @@ function typeName(schema: unknown): string {
   return typeof constructor?.name === "string"
     ? constructor.name.replace(/^Zod/, "").replace("$ZodType", "").toLowerCase()
     : "unknown";
-}
-
-function typeFor(value: unknown): "object" | "array" | "scalar" {
-  if (value === null || typeof value !== "object") return "scalar";
-  return Array.isArray(value) ? "array" : "object";
 }
 
 // value_type의 껍질을 벗긴 뒤 object면 항목별, array면 전체, 그 외 scalar 교체다(R8, R9).
@@ -119,10 +118,10 @@ export function mergeValue(
         ? higher as Record<string, unknown>
         : {};
     const merged: Record<string, unknown> = {};
-    for (const key of new Set([...Object.keys(base), ...Object.keys(override)])) {
-      merged[key] = Object.hasOwn(override, key)
-        ? override[key]
-        : base[key];
+    for (
+      const key of new Set([...Object.keys(base), ...Object.keys(override)])
+    ) {
+      merged[key] = Object.hasOwn(override, key) ? override[key] : base[key];
     }
     return merged;
   }
@@ -135,7 +134,12 @@ export function mergeChoices(
 ): JsonValue | null {
   const merged = choices.length
     ? choices.slice(1).reduce<unknown>(
-      (lower, higher) => (higher === undefined ? lower : mergeValue(definition, lower, higher)),
+      (
+        lower,
+        higher,
+      ) => (higher === undefined
+        ? lower
+        : mergeValue(definition, lower, higher)),
       choices[0],
     )
     : null;
@@ -254,7 +258,10 @@ export function validateChoice(
   });
 }
 
-function findSecretPath(value: unknown, path: number | string = "value"): number | string | undefined {
+function findSecretPath(
+  value: unknown,
+  path: number | string = "value",
+): number | string | undefined {
   switch (typeof value) {
     case "string":
       return containsCredentialSecret(value) ? path : undefined;
@@ -306,7 +313,9 @@ export function validateConstraints(
   // contract fixture 관례(minimum/maximimum)와 짧은 키(min/max)를 같은 선언으로 본다.
   const min = constraints["min"] ?? constraints["minimum"];
   const max = constraints["max"] ?? constraints["maximum"];
-  if (typeof resolved === "number" && typeof min === "number" && resolved < min) {
+  if (
+    typeof resolved === "number" && typeof min === "number" && resolved < min
+  ) {
     return err({
       code: "invalid_input",
       message: "설정 값이 허용 범위 밖이다",
@@ -320,7 +329,9 @@ export function validateConstraints(
       },
     });
   }
-  if (typeof resolved === "number" && typeof max === "number" && resolved > max) {
+  if (
+    typeof resolved === "number" && typeof max === "number" && resolved > max
+  ) {
     return err({
       code: "invalid_input",
       message: "설정 값이 허용 범위 밖이다",
@@ -387,8 +398,10 @@ function hashText(text: string): string {
     h1 = Math.imul(h1 ^ code, 2654435761);
     h2 = Math.imul(h2 ^ code, 1597334677);
   }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^
+    Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^
+    Math.imul(h1 ^ (h1 >>> 13), 3266489909);
   const combined = 4294967296 * (2097151 & h2) + (h1 >>> 0);
   return combined.toString(16).padStart(14, "0");
 }

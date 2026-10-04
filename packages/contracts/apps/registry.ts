@@ -1,0 +1,58 @@
+import {
+  appArchive,
+  appArchived,
+  appConnectSource,
+  appCreate,
+  appCreated,
+  appGet,
+  appList,
+  appSourceConnected,
+  appUnarchive,
+  appUnarchived,
+} from "./apps.ts";
+import {
+  appAutomations,
+  appDisableExecution,
+  appEnableExecution,
+  appExecutionDisabled,
+  appExecutionEnabled,
+  appExport,
+  appLogs,
+  appRecordStarted,
+  appRecordStopped,
+  appRecordUnavailable,
+  appRuntime,
+  appStarted,
+  appStopped,
+  appUnavailable,
+} from "./runtime.ts";
+
+export const ROUTES = [
+  appCreate,
+  appConnectSource,
+  appArchive,
+  appUnarchive,
+  appEnableExecution,
+  appDisableExecution,
+  appRecordStarted,
+  appRecordStopped,
+  appRecordUnavailable,
+  appList,
+  appGet,
+  appRuntime,
+  appLogs,
+  appAutomations,
+  appExport,
+] as const;
+
+export const EVENTS = [
+  appCreated,
+  appSourceConnected,
+  appArchived,
+  appUnarchived,
+  appExecutionEnabled,
+  appExecutionDisabled,
+  appStarted,
+  appStopped,
+  appUnavailable,
+] as const;

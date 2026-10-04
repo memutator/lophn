@@ -1,10 +1,12 @@
 // 최상위 contracts를 다시 내보내고 route·event 목록을 모은다. 정의는 각 최상위에 둔다.
 
+export * as apps from "./apps/mod.ts";
 export * as codingAgent from "./coding-agent/mod.ts";
 export * as documents from "./documents/mod.ts";
 export * as platform from "./platform/mod.ts";
 export * as shell from "./shell/mod.ts";
 
+import { EVENTS as appsEvents, ROUTES as appsRoutes } from "./apps/mod.ts";
 import {
   EVENTS as codingAgentEvents,
   ROUTES as codingAgentRoutes,
@@ -24,6 +26,7 @@ export const ALL_ROUTES = [
   ...shellRoutes,
   ...documentsRoutes,
   ...codingAgentRoutes,
+  ...appsRoutes,
 ];
 
 export const ALL_EVENTS = [
@@ -31,4 +34,5 @@ export const ALL_EVENTS = [
   ...shellEvents,
   ...documentsEvents,
   ...codingAgentEvents,
+  ...appsEvents,
 ];

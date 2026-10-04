@@ -1,0 +1,75 @@
+.root {
+  display: flex;
+  flex-direction: column;
+}
+
+.list {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.tab {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--control-gap);
+  margin: var(--space-0);
+  /* 밑줄과 같은 두께의 투명 윗선으로 글자 상자를 위아래 대칭에 둔다. */
+  border: none;
+  border-top: var(--tab-indicator) solid transparent;
+  border-bottom: var(--tab-indicator) solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sm {
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--control-sm-pad-x);
+}
+
+.md {
+  height: var(--control-md-height);
+  padding: var(--space-0) var(--control-md-pad-x);
+}
+
+.lg {
+  height: var(--control-lg-height);
+  padding: var(--space-0) var(--control-lg-pad-x);
+}
+
+.tab:hover {
+  color: var(--color-text-primary);
+}
+
+.tab[data-state="active"] {
+  border-bottom-color: var(--color-text-primary);
+  color: var(--color-text-primary);
+}
+
+.tab:disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.tab:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.panel {
+  margin-top: var(--tab-content-gap);
+}
+
+.panel:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}

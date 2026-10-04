@@ -298,3 +298,31 @@ Deno.test("shell/design-system#R45: floating shadow는 popover·dialog 두 개�
     ),
   });
 });
+
+Deno.test("shell/design-system#R26: 컨트롤 sm·md·lg 높이·좌우 여백·아이콘과 라벨 간격을 고정한다", () => {
+  assertEquals(tokens.control, {
+    sm: { height: "28px", padX: "8px", icon: "14px" },
+    md: { height: "32px", padX: "12px", icon: "16px" },
+    lg: { height: "36px", padX: "14px", icon: "16px" },
+    gap: "6px",
+  });
+});
+
+Deno.test("shell/design-system#R43: 아이콘은 16·20px과 정한 14px, 선 1.5다", () => {
+  assertEquals(tokens.icon, {
+    size: { small: "14px", base: "16px", large: "20px" },
+    stroke: 1.5,
+  });
+});
+
+Deno.test("shell/design-system#R1: 첫 조회 loading 지연은 300ms다", () => {
+  assertEquals(tokens.loading, { delay: "300ms" });
+});
+
+Deno.test("shell/design-system#R28: 라벨 위·도움말 아래 간격은 6px다", () => {
+  assertEquals(tokens.field, { gap: "6px" });
+});
+
+Deno.test("shell/design-system#R29: 일반 탭 밑줄은 2px, 본문 간격은 24px다", () => {
+  assertEquals(tokens.tab, { indicator: "2px", contentGap: "24px" });
+});

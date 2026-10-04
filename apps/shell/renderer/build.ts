@@ -54,7 +54,54 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
   };
 }
 
-export async function build(outdir = join(here, "dist")): Promise<void> {
+const defaultEntries = entries.map((name) => ({
+  in: join(name, "entry.tsx"),
+  out: name,
+}));
+
+// 같은 specifier가 다른 판을 가리키면 React가 두 벌이 될 수 있어 build를 멈춘다.
+function addImport(
+  imports: Record<string, string>,
+  key: string,
+  value: string,
+): void {
+  if (imports[key] !== undefined && imports[key] !== value) {
+    throw new Error(`import map conflict for ${key}`);
+  }
+  imports[key] = value;
+}
+
+// workspace package의 exports를 이름으로, 고정 imports를 그대로 map에 더한다.
+async function addPackage(
+  imports: Record<string, string>,
+  directory: URL,
+): Promise<void> {
+  const config = JSON.parse(
+    await readFile(new URL("deno.json", directory), "utf8"),
+  );
+  for (
+    const [key, value] of Object.entries(
+      config.exports as Record<string, string>,
+    )
+  ) {
+    const specifier = key === "."
+      ? config.name
+      : `${config.name}/${key.slice(2)}`;
+    addImport(imports, specifier, new URL(value, directory).href);
+  }
+  for (
+    const [key, value] of Object.entries(
+      (config.imports ?? {}) as Record<string, string>,
+    )
+  ) {
+    addImport(imports, key, value);
+  }
+}
+
+export async function build(
+  outdir = join(here, "dist"),
+  entryPoints: readonly { in: string; out: string }[] = defaultEntries,
+): Promise<void> {
   // 없는 workspace 폴더의 탐색을 피하되 임시 map에서도 로컬 import의 기준 경로를 유지한다.
   const scratch = await mkdtemp(join(tmpdir(), "shell-renderer-map-"));
   const configPath = join(scratch, "deno.json");
@@ -70,30 +117,17 @@ export async function build(outdir = join(here, "dist")): Promise<void> {
           : value,
       ]),
     );
+    // @lophn/design/components가 쓰는 Radix·Lucide와 @lophn/wording도 같은 map에서 찾는다.
     const design = new URL(
       "../../../packages/design/",
       pathToFileURL(`${here}/`),
     );
-    const designConfig = JSON.parse(
-      await readFile(new URL("deno.json", design), "utf8"),
-    );
-    for (
-      const [key, value] of Object.entries(
-        designConfig.exports as Record<string, string>,
-      )
-    ) {
-      const specifier = key === "."
-        ? designConfig.name
-        : `${designConfig.name}/${key.slice(2)}`;
-      imports[specifier] = new URL(value, design).href;
-    }
+    await addPackage(imports, design);
+    await addPackage(imports, new URL("wording/", design));
     await writeFile(configPath, JSON.stringify({ imports }));
     await esbuild.build({
       absWorkingDir: here,
-      entryPoints: entries.map((name) => ({
-        in: join(name, "entry.tsx"),
-        out: name,
-      })),
+      entryPoints: [...entryPoints],
       outdir,
       bundle: true,
       format: "esm",

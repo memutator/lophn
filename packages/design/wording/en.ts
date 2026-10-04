@@ -10,6 +10,10 @@ export const en = {
   "settings.models.for-summaries": "For summaries",
   "common.activity.agent": "Agent activity",
   "common.activity.app": "App activity",
+  "common.error.load-failed": "Couldn't load {target}.",
+  "common.button.reload": "Reload",
+  "common.stale.label": "Last updated {age}",
+  "common.author.label": "Written by {author}",
 } as const;
 
 export type Catalog = typeof en;

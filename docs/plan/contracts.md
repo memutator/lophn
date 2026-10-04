@@ -313,6 +313,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 #### T14 구현 메모: project read seam
 
+- 상태: 완료 (#72)
 - concern: documents/projects
 - 요구: documents/projects#R3, R7, R8, R9, R10
 - 자리: `packages/contracts/documents/projects.ts`, `project-routes.ts`, `projects_test.ts`, `address.ts`

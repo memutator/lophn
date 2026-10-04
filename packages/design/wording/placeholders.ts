@@ -75,6 +75,7 @@ export type PlaceholderKinds = {
   "launcher.button.retry": Record<never, never>;
   "launcher.button.reconnect": Record<never, never>;
   "launcher.button.lophn": Record<never, never>;
+  "launcher.label.wordmark": Record<never, never>;
   "launcher.empty.no-cards": Record<never, never>;
   "common.chart.unreadable": Record<never, never>;
   "confirmation-window.title.confirm": Record<never, never>;

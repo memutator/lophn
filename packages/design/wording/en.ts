@@ -50,6 +50,7 @@ export const en = {
   "launcher.button.retry": "Try again",
   "launcher.button.reconnect": "Reconnect",
   "launcher.button.lophn": "lophn",
+  "launcher.label.wordmark": "lophn",
   "launcher.empty.no-cards": "Nothing to open yet.",
   "common.chart.unreadable": "This chart couldn't be drawn from its data.",
   "confirmation-window.title.confirm": "Confirm",

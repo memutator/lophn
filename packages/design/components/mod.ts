@@ -151,3 +151,10 @@ export {
   type ToastTone,
 } from "./toast/toast.tsx";
 export { Chip, type ChipItem, type ChipProps } from "./chip/chip.tsx";
+export {
+  connectionFailedIcon,
+  connectionStaleIcon,
+  launcherEmptyIcon,
+  lophnEntryIcon,
+  retryIcon,
+} from "./chrome-icons.ts";

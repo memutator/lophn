@@ -8,6 +8,9 @@ import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
 import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.ts";
+import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
+import { createSdkReads } from "../../packages/apps/sdk/reads.ts";
+import { sdkSchemaSteps } from "../../packages/apps/sdk/schema.ts";
 import {
   type PlaceNameReservation,
   placeNameReservation,
@@ -33,9 +36,15 @@ export function createLedgerRegistration(
   const reads = createAppsReads();
   const invocations = createInvocationsCommands();
   const invocationReads = createInvocationsReads();
+  const sdk = createSdkCommands();
+  const sdkReads = createSdkReads();
   return {
     // place_names 표는 documents 등록의 몫이다(R6, R10).
-    schemaSteps: [...appsSchemaSteps, ...invocationsSchemaSteps],
+    schemaSteps: [
+      ...appsSchemaSteps,
+      ...invocationsSchemaSteps,
+      ...sdkSchemaSteps,
+    ],
     commands: [
       commands.create,
       commands.connectSource,
@@ -44,8 +53,17 @@ export function createLedgerRegistration(
       invocations.recordStarted,
       invocations.recordFinished,
       invocations.recordDenied,
+      sdk.registerVersion,
     ],
-    reads: [reads.list, reads.get, invocationReads.list, invocationReads.get],
+    reads: [
+      reads.list,
+      reads.get,
+      invocationReads.list,
+      invocationReads.get,
+      sdkReads.list,
+      sdkReads.versions,
+      sdkReads.usage,
+    ],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [
@@ -69,12 +87,16 @@ export function createLedgerRegistration(
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createAppsReads();
   const invocations = createInvocationsReads();
+  const sdkReads = createSdkReads();
   return {
     reads: [
       reads.list,
       reads.get,
       invocations.list,
       invocations.get,
+      sdkReads.list,
+      sdkReads.versions,
+      sdkReads.usage,
     ],
     ports: new Map(),
   };

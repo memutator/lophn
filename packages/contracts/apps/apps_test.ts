@@ -60,6 +60,7 @@ const created = {
 Deno.test("apps/registration#R2, apps/registration#R3, apps/registration#R4, apps/registration#R8, apps/registration#R10: route와 event 이름은 architecture 5.4와 같다", () => {
   assertEquals(
     ROUTES.filter((route) =>
+      route.resource === "apps" &&
       [
         "create",
         "connect_source",

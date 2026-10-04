@@ -25,6 +25,7 @@ export type TeamModule = {
   createLedgerRegistration?: (environment: never) => unknown;
   problemsTestDefinitions?: unknown;
   codingAgentConnectionDefinitions?: unknown;
+  lophnAgentDefinitions?: unknown;
 };
 
 type Loose = {
@@ -96,8 +97,9 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
       : undefined;
     const fromProblems = asLoose(team.problemsTestDefinitions);
     const fromCodingAgent = asLoose(team.codingAgentConnectionDefinitions);
+    const fromLophnAgent = asLoose(team.lophnAgentDefinitions);
     const registration = asLoose(direct) ?? fromLedger ?? fromProblems ??
-      fromCodingAgent;
+      fromCodingAgent ?? fromLophnAgent;
     if (!registration) continue;
     for (const step of registration.schemaSteps ?? registration.schema ?? []) {
       if (typeof step.id !== "string" || typeof step.sql !== "string") {

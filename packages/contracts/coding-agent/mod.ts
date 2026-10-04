@@ -103,6 +103,30 @@ export {
   cliSeriesNextSchema,
   cliSeriesShowSchema,
 } from "./cli-core.ts";
+export {
+  CLI_DECISION_COMMANDS,
+  CLI_DECISION_NAMES,
+  cliApprovalListSchema,
+  cliApprovalOpenSchema,
+  cliApprovalShowSchema,
+  cliContextGlossarySchema,
+  cliContextItemsSchema,
+  cliContextListSchema,
+  cliContextOfSchema,
+  cliContextShowSchema,
+  type CliDecisionName,
+  cliQuestionListSchema,
+  cliQuestionOpenSchema,
+  cliQuestionShowSchema,
+} from "./cli-decisions.ts";
+export {
+  contextProposeFields,
+  decisionLink,
+  MCP_DECISION_ROUTES,
+  MCP_DECISION_TOOLS,
+  mcpDecisionTool,
+  type McpDecisionToolName,
+} from "./mcp-decisions.ts";
 export { EVENTS, ROUTES } from "./registry.ts";
 export {
   ACCEPTANCE_KINDS,

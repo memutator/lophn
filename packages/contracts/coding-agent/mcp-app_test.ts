@@ -2,9 +2,9 @@ import { assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
 import { APP, HASH, REL, TKT } from "./ticket-fixtures.ts";
 import {
-  appCommandToolInputSchema,
   APP_TOOL_NAME_LENGTH,
   APP_TOOL_NAME_PREFIX,
+  appCommandToolInputSchema,
   appToolName,
   MCP_APP_ROUTES,
   MCP_APP_TOOLS,

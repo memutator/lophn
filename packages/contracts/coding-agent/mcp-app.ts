@@ -3,7 +3,7 @@ import { appConnectSource, appCreate, appGet, appList } from "../apps/apps.ts";
 import { invocationsGet, invocationsList } from "../apps/invocations.ts";
 import { appLogs, appRuntime, RUNTIME_MODES } from "../apps/runtime.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
-import { releasePrepareBundle, releasePreparation } from "../apps/releases.ts";
+import { releasePreparation, releasePrepareBundle } from "../apps/releases.ts";
 import { requestTest } from "../problems/tests.ts";
 import {
   packagesGuide,

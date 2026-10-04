@@ -17,8 +17,8 @@ import {
   ticketShowInputSchema,
 } from "./ticket-routes.ts";
 import {
-  ticketRenewClaim,
   ticketReleaseClaim,
+  ticketRenewClaim,
   ticketReportCompletion,
 } from "./ticket-claims.ts";
 import { cliCommonSchema } from "./cli-core.ts";

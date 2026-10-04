@@ -179,6 +179,7 @@ concerns: [shell]
 
 ### T10 shell overlay view
 
+- 상태: 완료 (#54)
 - 등급: 기본
 - concern: shell/app-frame, shell/design-system
 - 요구: shell/app-frame#R24, R29(경계 drag 중 pointer, 16ms 묶기), shell/design-system#R2(focus 복귀), R20

@@ -411,6 +411,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T16 redaction 안전 필드, 표본, 화면 shape
 
+- 상태: 완료 (#81)
 - 등급: 기본
 - concern: platform/redaction
 - 요구: platform/redaction#R7, R8, R9, R10, R11, R12
@@ -467,6 +468,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T18 Tx 안에서 다른 owner의 등록 command 부르기
 
+- 상태: 완료 (#83)
 - 등급: 기본
 - concern: platform/ledger
 - 요구: platform/ledger#R3, R12, R13
@@ -483,6 +485,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T19 secret 참조와 OS keychain adapter
 
+- 상태: 완료 (#85)
 - 등급: 최상위
 - concern: platform/secrets
 - 요구: platform/secrets#R1, R2, R4, R6, R7, R8
@@ -503,6 +506,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T20 secret 전송 부착과 갱신 결과 저장
 
+- 상태: 완료 (#96)
 - 등급: 기본
 - concern: platform/secrets, platform/security
 - 요구: platform/secrets#R3, R5, R11, platform/security#R9
@@ -833,6 +837,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T38 lophn 내부 오류의 진단 분류
 
+- 상태: 완료 (#80)
 - 등급: 좁은
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R1
@@ -944,6 +949,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T45 secret export와 import
 
+- 상태: 완료 (#92)
 - 등급: 기본
 - concern: platform/secrets
 - 요구: platform/secrets#R9

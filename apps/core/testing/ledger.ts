@@ -18,8 +18,10 @@
  * ```
  * 실제 임시 파일 SQLite/WAL, writer Worker/serveWriter/executor, reader Worker
  * 2개, 현재 테스트 credential, Tx-local port와 blob callback을 지원한다.
- * 제품 core/API/credential 발급, event visibility/replay, Tx.call dispatch,
- * T14 blob prepare/read는 지원하지 않는다. SQL control은 테스트 wire에만 있다.
+ * 제품 core/API/credential 발급, event visibility/replay,
+ * T14 blob prepare/read는 지원하지 않는다. 등록 command의 Tx.call은
+ * writer executor가 같은 transaction에서 dispatch한다.
+ * SQL control은 테스트 wire에만 있다.
  */
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { authenticatedContextSchema } from "../../../packages/contracts/platform/mod.ts";

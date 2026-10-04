@@ -1,3 +1,10 @@
+export {
+  type Classification,
+  classifyFailure,
+  classifyReport,
+  type FailureObservation,
+  type ReportObservation,
+} from "./classify.ts";
 export { createLogFiles, LOG_FILE_COUNT, LOG_FILE_MAX_BYTES } from "./files.ts";
 export {
   createSafeLog,

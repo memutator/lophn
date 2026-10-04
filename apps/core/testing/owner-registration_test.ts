@@ -6,15 +6,30 @@ import {
   defineCommand,
   definePort,
   defineRead,
+  type JsonValue,
   type ReadDefinition,
+  TargetAuthorization,
   type Tx,
   withReadCommon,
 } from "../../../packages/contracts/platform/mod.ts";
+import { CONDITION_TARGET_KEYS } from "../../../packages/platform/identity/mod.ts";
 import {
   defineTxPort,
   type LedgerTestEnvironment,
   type LedgerTestRegistration,
 } from "./ledger.ts";
+
+function domainTargets(
+  targets: Record<string, JsonValue>,
+): Record<string, JsonValue> {
+  const domain: Record<string, JsonValue> = {};
+  for (const key of Object.getOwnPropertyNames(targets)) {
+    if (!(CONDITION_TARGET_KEYS as readonly string[]).includes(key)) {
+      domain[key] = targets[key];
+    }
+  }
+  return domain;
+}
 
 const input = z.object({
   key: z.string(),
@@ -95,6 +110,12 @@ export function createLedgerTestRegistration(
         current.value.actor !== ctx.actor ||
         current.value.scope.operations.join() !== ctx.scope.operations.join()
       ) throw new Error("not current context");
+      const allowed = tx.port(TargetAuthorization)(
+        ctx,
+        createRoute.name,
+        domainTargets(current.value.scope.targets),
+      );
+      if (!allowed.ok) return allowed;
       const implementation = tx.port(portKey);
       if (
         implementation !== tx.port(portKey) ||
@@ -169,6 +190,12 @@ export function createLedgerTestRegistration(
   const reads: ReadDefinition[] = [{
     route: readRoute,
     handle(snapshot, ctx) {
+      const allowed = snapshot.port(TargetAuthorization)(
+        ctx,
+        readRoute.name,
+        domainTargets(ctx.scope.targets),
+      );
+      if (!allowed.ok) return allowed;
       let sealed = false;
       try {
         snapshot.sql.all(

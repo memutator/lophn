@@ -243,3 +243,67 @@ export const recordLooseNoteCommand = defineSyncCommand(
     }
   },
 );
+
+export const markAlpha = defineCommand({
+  resource: "alpha",
+  method: "mark",
+  name: "MarkAlpha",
+  input: z.strictObject({ name: z.string() }),
+  output: z.strictObject({ name: z.string(), seq: z.string() }),
+  compare: z.strictObject({ seq: z.string().optional() }).optional(),
+  actors: ["user"],
+  errors: ["invalid_input", "conflict", "forbidden"],
+});
+
+export const markBeta = defineCommand({
+  resource: "beta",
+  method: "mark",
+  name: "MarkBeta",
+  input: z.strictObject({ name: z.string() }),
+  output: z.strictObject({ name: z.string(), seq: z.string() }),
+  compare: z.strictObject({}),
+  actors: ["user"],
+  errors: ["invalid_input", "conflict", "forbidden"],
+});
+
+// alpha 기록은 events의 alpha subject다. 부른 쪽은 이 표를 직접 보지 않는다.
+function alphaHead(tx: Tx, name: string): string | undefined {
+  const row = tx.sql.get(
+    "select seq from events where subject = ? order by seq desc limit 1",
+    [`alpha:${name}`],
+  );
+  const seq = row?.["seq"];
+  if (typeof seq === "bigint" || typeof seq === "number") return String(seq);
+  return typeof seq === "string" ? seq : undefined;
+}
+
+export const markAlphaCommand = defineSyncCommand(
+  markAlpha,
+  (tx, _ctx, input, compare) => {
+    const current = alphaHead(tx, input.name);
+    // 기준이 있으면 지금 행과 비교한다. 하나라도 다르면 이 command만 거절한다(R12).
+    if (compare?.seq !== undefined && compare.seq !== current) {
+      return err({
+        code: "conflict",
+        message: "CAS 기준이 현재 기록과 다르다",
+      });
+    }
+    const seq = tx.emit(noteCreated, `alpha:${input.name}`, {
+      name: input.name,
+    });
+    return ok({ name: input.name, seq });
+  },
+  { dispatchable: true },
+);
+
+export const markBetaCommand = defineSyncCommand(
+  markBeta,
+  (tx, _ctx, input) => {
+    const called = tx.call(markAlpha, input, {});
+    if (!called.ok) return called;
+    const seq = tx.emit(noteCreated, `beta:${input.name}`, {
+      name: input.name,
+    });
+    return ok({ name: input.name, seq });
+  },
+);

@@ -7,6 +7,12 @@ import {
   rootsOverlap,
   validateFolderRoots,
 } from "./model.ts";
+import {
+  decideTracking,
+  gitignoreExcludes,
+  matchTrackingPatterns,
+  symlinkEscapesRoot,
+} from "./rules.ts";
 
 const roots = [
   { project: "a", path: "/work/notes" },
@@ -127,4 +133,81 @@ Deno.test("documents/projects#R2: equivalent normalized folder roots are unique"
       .ok,
   );
   assert(!validateFolderRoots(folders(["/work//notes"])).ok);
+});
+
+const patterns = [
+  { effect: "include" as const, glob: "**/*.md" },
+  { effect: "exclude" as const, glob: "secret/**" },
+  { effect: "include" as const, glob: "secret/keep.md" },
+];
+
+Deno.test("documents/projects#R4: last matching glob wins and unmatched paths are excluded", () => {
+  assertEquals(matchTrackingPatterns("notes/plan.md", patterns), {
+    included: true,
+    reason: "include **/*.md",
+  });
+  assertEquals(matchTrackingPatterns("secret/draft.md", patterns), {
+    included: false,
+    reason: "exclude secret/**",
+  });
+  assertEquals(matchTrackingPatterns("secret/keep.md", patterns), {
+    included: true,
+    reason: "include secret/keep.md",
+  });
+  assertEquals(
+    matchTrackingPatterns("notes/plan.txt", patterns).included,
+    false,
+  );
+  // 대소문자를 구분한다. Notes/Plan.MD는 **/*.md에 안 맞는다.
+  assertEquals(matchTrackingPatterns("Notes/Plan.md", patterns).included, true);
+  assertEquals(
+    matchTrackingPatterns("Notes/Plan.MD", patterns).included,
+    false,
+  );
+  const again = matchTrackingPatterns("secret/keep.md", patterns);
+  assertEquals(again, matchTrackingPatterns("secret/keep.md", patterns));
+});
+
+Deno.test("documents/projects#R5: gitignore, .git, lophn data, and outside symlinks stay excluded", () => {
+  const rules = [
+    { directory: "", text: "ignored.md\nbuild/\n" },
+    { directory: "nested", text: "!build/keep.md\nlocal.md\n" },
+  ];
+  assertEquals(gitignoreExcludes("ignored.md", rules), true);
+  assertEquals(gitignoreExcludes("build/out.md", rules), true);
+  assertEquals(gitignoreExcludes("nested/local.md", rules), true);
+  assertEquals(gitignoreExcludes("keep.md", rules), false);
+  const blocked = (relativePath: string) =>
+    value(decideTracking({
+      relativePath,
+      patterns: [{ effect: "include", glob: "**/*" }],
+      useGitignore: true,
+      gitignore: rules,
+      escapesRoot: false,
+      enabled: true,
+    }));
+  assertEquals(blocked(".git/notes.md").included, false);
+  assertEquals(blocked("repo/.git/config").reason, "inside .git");
+  assertEquals(blocked(".lophn/documents/x.md").reason, "inside lophn data");
+  assertEquals(blocked("ignored.md").reason, "gitignore");
+  assertEquals(blocked("notes/plan.md").included, true);
+  const escaped = value(decideTracking({
+    relativePath: "link/outside.md",
+    patterns: [{ effect: "include", glob: "**/*" }],
+    useGitignore: false,
+    gitignore: [],
+    escapesRoot: true,
+    enabled: true,
+  }));
+  assertEquals(escaped, { included: false, reason: "symlink outside root" });
+  assertEquals(
+    value(symlinkEscapesRoot("/work/notes", "/work/notes/file.md")),
+    false,
+  );
+  assertEquals(value(symlinkEscapesRoot("/work/notes", "/work/notes")), false);
+  assertEquals(
+    value(symlinkEscapesRoot("/work/notes", "/other/file.md")),
+    true,
+  );
+  assert(!symlinkEscapesRoot("/work/notes", "relative").ok);
 });

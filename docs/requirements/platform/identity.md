@@ -88,7 +88,7 @@ concerns: [platform/identity]
 - 확인: machine의 임의 user 주장·다른 option·변경된 입력·이미 적용한 답을 거절하고 실제 고정 option만 한 번 user로 기록되는지 확인하며 approval request의 결정 주체는 platform/approvals, grant의 주체는 apps/permissions, 직접 확인은 shell/confirmation-window를 따른다.
 - 의도: platform#I3, platform#I4
 
-**[R15]** coding MCP·CLI 시작과 lophn의 coding TUI 시작은 신뢰 loader가 현재 connection·scope·process 결합을 확인한 뒤 keychain credential을 보호된 process-local 통로로 전달하며 일반 shell·renderer·모델·설정·argv·PTY·공통 환경에 원문을 넘기지 않는다.
+**[R15]** coding MCP·CLI 시작은 신뢰 loader가 현재 connection·scope·process 결합을 확인한 뒤 keychain credential을 보호된 process-local 통로로 전달하며 일반 shell·renderer·모델·설정·argv·PTY·공통 환경에 원문을 넘기지 않는다. lophn의 coding TUI 시작에는 connection 참조만 가고 token은 그 아래 MCP·CLI loader가 받는다.
 - 이유: 설치 파일과 session을 자동 준비하더라도 사람 권한이나 app secret은 상속하지 않는다.
 - 확인: 허용 loader·등록된 자식만 동일 connection을 쓰고 임의 connection 참조·회수·다른 scope·잘못된 자식에서는 실패하며 보호 loader 불가에는 평문 fallback이 없는지 본다.
 - 의도: platform#I4

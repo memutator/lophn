@@ -95,7 +95,7 @@ core는 정본 action의 concern·command·대상·정확한 입력·CAS와 제�
 ## 정책
 
 - **자격 보관.** user token은 shell main만, app·assignment·worker token은 신뢰 프로세스 메모리만 가진다. renderer·대상 앱 코드·format module·테스트 코드에 플랫폼 credential을 주지 않는다.
-- **coding agent token.** 사람의 정확한 harness 연결 결정 뒤 인증 경계가 자동 발급·OS keychain 보관 준비를 수행하고 connection command에는 검증 hash만 제출한다. commit 전 준비 token은 인증에 쓰이지 않으며 commit 실패·중단은 고아 keychain 값을 정리한다. 설정·wrapper에는 connection 참조만 둔다. 신뢰 MCP/CLI loader와 확인된 TUI child가 같은 connection의 보호된 process-local 통로로 인증한다. ledger의 hash·즉시 회수는 → coding-agent/connection이다.
+- **coding agent token.** 사람의 정확한 harness 연결 결정 뒤 인증 경계가 자동 발급·OS keychain 보관 준비를 수행하고 connection command에는 검증 hash만 제출한다. commit 전 준비 token은 인증에 쓰이지 않으며 commit 실패·중단은 고아 keychain 값을 정리한다. 설정·wrapper에는 connection 참조만 둔다. 신뢰 MCP/CLI loader만 같은 connection의 보호된 process-local 통로로 인증한다. coding TUI에는 connection 참조만 가고 token은 그 아래 MCP·CLI loader가 받는다. ledger의 hash·즉시 회수는 → coding-agent/connection이다.
 - **원문 차단.** token은 argv·URL·cookie·공통 환경 변수·오류·skill·안내·model 문맥에 넣지 않는다. token hash를 인증 값으로 받지 않는다.
 - **재검사.** 회수·멈춤·현재 금지는 새 읽기·쓰기·앱 연결·구독·blob 읽기 전에 적용한다. scope는 원래 credential보다 넓어지지 않는다. 해시·주소·handoff는 권한이 아니다.
 - **읽기 범위.** 본문뿐 아니라 제목·주소·존재·목차·summary·개수·관계·근거를 scope로 제한한다. 여러 앱 자료 연결이 권한을 합쳐주지 않는다. 범위 밖과 없는 대상의 안전한 거절은 내용을 노출하지 않는다.

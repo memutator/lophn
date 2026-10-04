@@ -11,7 +11,6 @@ import {
   removeSecretInputSchema,
   SECRET_EVENTS,
   SECRET_EXCHANGE_FORMAT,
-  SECRET_PIPE_OPS,
   SECRET_PURPOSES,
   SECRET_ROUTES,
   secretAdapterContextSchema,
@@ -30,6 +29,7 @@ import {
   setSecretCompareSchema,
   setSecretInputSchema,
 } from "./secrets.ts";
+import { SECRET_PIPE_OPS } from "./secret-exchange.ts";
 
 const preparation = {
   preparation: "prepared-a",
@@ -77,6 +77,8 @@ Deno.test("platform/secrets#R4, platform/secrets#R6, platform/secrets#R7: routeì
     "secret.prepare",
     "secret.send",
     "secret.store-refresh",
+    "secret.export",
+    "secret.import",
   ]);
   for (const event of SECRET_EVENTS) {
     assert(event.subject.safeParse("secret:service.key").success);

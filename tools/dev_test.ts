@@ -7,14 +7,14 @@ import {
   type DevOptions,
   fakeProviderReady,
   type Mode,
-  type Purpose,
-  type SpawnPlan,
-  shouldStartFakeProvider,
-  runDev,
   planCore,
   planFakeProvider,
   planShell,
+  type Purpose,
+  runDev,
+  shouldStartFakeProvider,
   signalNames,
+  type SpawnPlan,
 } from "./dev.ts";
 
 function readyLine(url: string): string {
@@ -34,7 +34,11 @@ function fakeChild(lines: string[], exitCode: number = 0): Deno.ChildProcess {
     status: Promise.resolve({ code: exitCode, success: exitCode === 0 }),
     stdin: null,
     stdout: stream,
-    stderr: new ReadableStream<Uint8Array>({ start(c) { c.close(); } }),
+    stderr: new ReadableStream<Uint8Array>({
+      start(c) {
+        c.close();
+      },
+    }),
     kill: () => {},
     ref: () => {},
     unref: () => {},
@@ -46,13 +50,16 @@ function recorder(options: {
   fakeReady?: string | null;
   exitCode?: number;
 } = {}) {
-  const plans: { plan: SpawnPlan; purpose: Purpose; parentEnv?: unknown }[] = [];
+  const plans: { plan: SpawnPlan; purpose: Purpose; parentEnv?: unknown }[] =
+    [];
   const children: Deno.ChildProcess[] = [];
   const spawn = (plan: SpawnPlan, purpose: Purpose): Deno.ChildProcess => {
     plans.push({ plan, purpose });
     const child = purpose === "fake"
       ? fakeChild(
-        options.fakeReady === null ? [] : [readyLine(options.fakeReady ?? "http://127.0.0.1:45999")],
+        options.fakeReady === null
+          ? []
+          : [readyLine(options.fakeReady ?? "http://127.0.0.1:45999")],
         options.exitCode ?? 0,
       )
       : fakeChild([], options.exitCode ?? 0);
@@ -226,7 +233,11 @@ Deno.test("deno task dev:core: --port=<n> 인자를 core에 흘려 보낸다(pla
   assertEquals(plan.env.LOPHN_HOME, "/repo/.dev-data");
   // port 인자가 없으면 core가 자기 기본으로 띄운다.
   const planNoPort = planCore("/repo", { dataRoot: "/repo/.dev-data" });
-  assertEquals(planNoPort.args, ["run", "--allow-all", "/repo/apps/core/main.ts"]);
+  assertEquals(planNoPort.args, [
+    "run",
+    "--allow-all",
+    "/repo/apps/core/main.ts",
+  ]);
 });
 
 Deno.test("deno task dev: fake provider는 tools/fake-provider/main.ts를 deno run --allow-net으로 띄운다", () => {
@@ -256,7 +267,11 @@ Deno.test("deno task dev: fake provider ready 한 줄을 읽는다", async () =>
   const ready = await fakeProviderReady(stream);
   assertEquals(ready, { ready: true, url: "http://127.0.0.1:5000" });
 
-  const empty = new ReadableStream<Uint8Array>({ start(c) { c.close(); } });
+  const empty = new ReadableStream<Uint8Array>({
+    start(c) {
+      c.close();
+    },
+  });
   assertEquals(await fakeProviderReady(empty), null);
 
   const broken = new ReadableStream<Uint8Array>({

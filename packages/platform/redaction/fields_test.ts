@@ -26,7 +26,6 @@ function input(overrides: Partial<RedactionInput> = {}): RedactionInput {
     audience: "external",
     safe_fields: ["code"],
     private_fields: ["token"],
-    private_regions: [],
     ...overrides,
   };
 }

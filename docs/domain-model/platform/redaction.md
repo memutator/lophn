@@ -15,7 +15,6 @@ concerns: [platform/redaction]
 | `audience` | `storage` / `display` / `model` / `external` | 아니오 | 각 수신자의 scope 별도 검사(→ platform/identity) | 출력 대상 |
 | `safe_fields` | 필드 경로 목록 | 아니오 | 소유 concern이 선언; 자동 전체 수집 불가 | 남길 필드 |
 | `private_fields` | 필드 경로 목록 | 아니오 | 빈 목록 허용; 해당 필드 통째로 제외 | 비공개 필드 |
-| `private_regions` | 화면 영역 목록 | 아니오 | 이미지이면 적용; 보호 창·secret 입력은 수집 자체 금지 | 비공개 화면 |
 
 원문은 필요한 동안 제한된 메모리에만 준비한다. 일반 blob·log·임시 파일에 먼저 저장하지 않는다. 사람 원본 문서의 보존은 → documents/versions이며 redaction은 원본을 몰래 바꾸지 않는다.
 
@@ -61,7 +60,7 @@ concerns: [platform/redaction]
 - **표본.** 원값은 소유 concern이 명시한 정확한 경로만 secret 처리 뒤 최대 64자로 남기고 표본 전체는 2KiB 이하로 제한한다. 단독·중간 wildcard 경로는 거절하며 ID형 문자열은 그 표본 안에서만 통하는 가명으로 처리한다. 나머지 shape의 type·길이도 공개 정책으로 검사하고 유추 가능한 제외 구조를 남기지 않는다. → platform/redaction#R9, platform/redaction#R10, platform/redaction#R11
 - **화면 상태.** 80자를 넘는 문자열은 안전한 형태로 줄이고 private 필드는 길이·실제 표시 여부와 관계없이 통째로 제외한다. 짧은 문자열도 개인정보 검사를 생략하지 않는다. → platform/redaction#R12
 - **표시.** 대화·tool 상세·전후 diff·오류·notification·복사·export preview·tooltip에서 redaction된 값을 다시 드러내지 않고 값의 type·길이·점 개수도 숨긴다. agent·설정으로 redaction을 끄지 못한다.
-- **화면.** 보호 창·secret 입력은 수집하지 않는다. private 영역을 처리 못하면 자동 첨부하지 않는다. 사람이 미리 보고 redaction하거나 제외한 최종 자료만 접수한다(→ problems/feedback).
+- **화면.** screenshot은 redaction하지 않는다. 사람이 미리 보고 고른 이미지만 그대로 첨부한다(D32, → problems/feedback). 화면 상태 글은 다른 글과 같이 redaction한다.
 - **실패.** 실패·불확실·한도 초과·미지원 매체는 원문을 저장·표시·model 전송·외부 반환하지 않고 Omission만 남긴다. `invalid_input` 또는 `unavailable`은 안전한 이유만 포함한다(→ platform/ledger).
 - **진단.** 처리 못한 exception은 오류 종류·안전 위치만 남기고 메시지·stack 원문은 제외한다. 원시 stdout·stderr·HTTP dump·crash 메모리를 자동 보관하지 않는다. model 내부 추론·재생용 서명도 수집하지 않는다.
 - **불변 자료.** 새 secret·강한 정책으로 과거 event·blob을 다시 쓰지 않는다. 뒤늦게 드러난 원문은 반환을 막고 redaction된 읽기만 허용한다. 삭제 감사에는 상세 값을 다시 복사하지 않는다.

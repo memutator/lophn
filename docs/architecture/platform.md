@@ -59,7 +59,7 @@ SQL import는 ledger/read 실행기에만 허용한다. core 모듈의 동기 �
 | 경계 | 기본값 | 초과 처리 |
 |---|---|---|
 | RPC JSON | 256KiB, 깊이 16, 전체 object/array 항목 4,096개 | `invalid_input`; 큰 내용은 prepared blob |
-| 작은 command | 변경 행 최대 1,000개, CAS 대상 최대 256개 | 실행 전에 전체 거절; 잘라서 부분 적용하지 않음 |
+| 작은 command | 변경 행 최대 1,000개, CAS 대상 최대 256개 | parsed compare의 leaf 256개 초과는 handler 전 거절; `Tx`의 `sql`·`emit`·`advanceSubscriberCursor` 실제 변경 행(`total_changes` 차이) 누적 1,000개 초과나 `get`·`all`의 변경은 전체 rollback; 부분 적용하지 않음 |
 | command 입장 | 전체 256개, principal당 64개, 그중 제어용 16개 예약, 실행 시작 대기 5초 | `unavailable`; queue 입장은 durable 접수 아님 |
 | read | 실행 2개, 대기 64개, principal당 대기 8개, 최대 500행·1MiB 응답 | 페이지 또는 명시적 한도 오류 |
 | HTTP | header 8KiB, 동시 요청 128개·principal당 16개, body 수신 5초 | 한도 오류; chunked도 누적 bytes로 검사 |

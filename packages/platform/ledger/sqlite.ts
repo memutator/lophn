@@ -47,6 +47,9 @@ export type LedgerConnection = {
   inTransaction(): boolean;
   // handler SQL은 pragma를 못 쓰므로 무결성 검사는 연결이 직접 한다.
   integrityOk(): boolean;
+  // rollback이 실패하면 연결을 다시 쓰지 않는다.
+  fault(): void;
+  failed(): boolean;
   close(): void;
 };
 
@@ -54,6 +57,13 @@ class SqlRejected extends Error {}
 
 // handler SQL이 transaction을 끝내면 실행기의 commit과 어긋난다.
 class TransactionLost extends Error {}
+
+// fault·close 뒤의 연결이다. native close가 실패해 handle이 남아도 다시 쓰지 않는다.
+class ConnectionUnavailable extends Error {
+  constructor() {
+    super("ledger connection unusable");
+  }
+}
 
 function cell(value: unknown): SqlParam {
   if (
@@ -78,7 +88,13 @@ function statement(db: DatabaseSync, sql: string): StatementSync {
   return prepared;
 }
 
-function checked<T>(db: DatabaseSync, sql: string, fn: () => T): T {
+function checked<T>(
+  db: DatabaseSync,
+  alive: () => boolean,
+  sql: string,
+  fn: () => T,
+): T {
+  if (!alive()) throw new ConnectionUnavailable();
   if (rejects(sql)) throw new SqlRejected();
   const wasOpen = db.isTransaction;
   const result = fn();
@@ -87,10 +103,10 @@ function checked<T>(db: DatabaseSync, sql: string, fn: () => T): T {
   return result;
 }
 
-export function createSql(db: DatabaseSync): Sql {
+function createSql(db: DatabaseSync, alive: () => boolean): Sql {
   return {
     run(sql, params) {
-      return checked(db, sql, () => {
+      return checked(db, alive, sql, () => {
         const result = statement(db, sql).run(...params);
         return {
           changes: result.changes,
@@ -99,13 +115,18 @@ export function createSql(db: DatabaseSync): Sql {
       });
     },
     get(sql, params) {
-      return checked(db, sql, () => {
+      return checked(db, alive, sql, () => {
         const found = statement(db, sql).get(...params);
         return found === undefined ? undefined : row(found);
       });
     },
     all(sql, params) {
-      return checked(db, sql, () => statement(db, sql).all(...params).map(row));
+      return checked(
+        db,
+        alive,
+        sql,
+        () => statement(db, sql).all(...params).map(row),
+      );
     },
   };
 }
@@ -188,19 +209,39 @@ export function openConnection(path: string): Result<LedgerConnection> {
     db.close();
     return configured;
   }
+  // fault·close가 먼저 dead를 세운다. 그 뒤 native close가 실패해도 모든 입구가 닫힌다.
+  let dead = false;
+  const alive = () => !dead;
   return ok({
-    sql: createSql(db),
+    sql: createSql(db, alive),
     exec(sql: string) {
+      if (dead) throw new ConnectionUnavailable();
       db.exec(sql);
     },
     inTransaction() {
-      return db.isTransaction;
+      return !dead && db.isTransaction;
     },
     integrityOk() {
+      if (dead) return false;
       const rows = db.prepare("pragma integrity_check").all();
       return rows.length === 1 && rows[0]?.["integrity_check"] === "ok";
     },
+    fault() {
+      if (dead) return;
+      dead = true;
+      try {
+        db.close();
+      } catch {
+        // 닫기 실패도 재사용하지 않는다. 다시 닫으려 하지 않는다.
+      }
+    },
+    failed() {
+      return dead;
+    },
     close() {
+      // fault()가 이미 poison·close를 시도했으면 다시 닫지 않는다.
+      if (dead) return;
+      dead = true;
       db.close();
     },
   });
@@ -212,4 +253,36 @@ export function isSqlRejected(thrown: unknown): boolean {
 
 export function isTransactionLost(thrown: unknown): boolean {
   return thrown instanceof TransactionLost;
+}
+
+// disk·I/O·잠금 대기는 입력을 소비하지 않는 unavailable이다(platform/ledger#R6).
+// 제약 위반·거절 SQL은 여기 넣지 않는다. 그건 handler 결과로 rollback된다.
+// primary code의 낮은 8bit와 SQLITE_* 이름. reader 분류와 같다.
+const STORAGE_CODES = new Set([5, 6, 8, 10, 11, 13, 14, 15, 26]);
+const STORAGE_NAMES =
+  /^SQLITE_(BUSY|LOCKED|READONLY|IOERR|CORRUPT|FULL|CANTOPEN|PROTOCOL|NOTADB)(_|$)/;
+const STORAGE_MARKERS = [
+  "disk i/o",
+  "database or disk is full",
+  "database is locked",
+  "unable to open",
+  "disk image is malformed",
+  "readonly database",
+];
+
+export function isStorageUnavailable(thrown: unknown): boolean {
+  if (thrown instanceof ConnectionUnavailable) return true;
+  if (thrown instanceof SqlRejected || thrown instanceof TransactionLost) {
+    return false;
+  }
+  if (thrown !== null && typeof thrown === "object") {
+    const { errcode, code } = thrown as { errcode?: unknown; code?: unknown };
+    if (typeof errcode === "number" && STORAGE_CODES.has(errcode & 255)) {
+      return true;
+    }
+    if (typeof code === "string" && STORAGE_NAMES.test(code)) return true;
+  }
+  if (!(thrown instanceof Error)) return false;
+  const message = thrown.message.toLowerCase();
+  return STORAGE_MARKERS.some((marker) => message.includes(marker));
 }

@@ -97,7 +97,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 완료: 아래 확인이 통과한다
   - writer는 Deno Worker 하나 안의 유일한 쓰기 연결이다. API 쪽과 작은 메시지로 주고받는다.
   - 처리 순서: fingerprint(RFC 8785, token·handle 원문 제외)를 transaction 전에 계산 → `BEGIN IMMEDIATE` → 현재 자격 재검사 hook → `(principal,key)` 조회 → 같은 fingerprint면 저장 결과를 `replayed:true`로 → 다르면 `conflict` → 등록 handler(동기, Tx만) → event·결과 저장 → commit → event 배포에 wake-up 힌트(R3, R5, R13).
-  - CAS 하나라도 다르면 전체 `conflict`, 변경 행 1,000개·CAS 256개 초과는 실행 전 거절(R12).
+  - CAS 하나라도 다르면 전체 `conflict`다. handler 전에 parse된 compare의 leaf 수를 중첩 object·배열까지 재귀로 세어 256개 초과면 `invalid_input`이고 handler를 부르지 않는다. 변경 행은 `Tx.sql`·`emit`·`advanceSubscriberCursor`의 SQL마다 앞뒤 연결 `total_changes()`의 실제 차이(event·cursor 행, RETURNING·trigger 포함)를 transaction 안에서 누적하고 1,000개 초과면 전체 rollback한다. `Tx.sql.get`·`all`이 행을 바꾸면 거절하고 rollback한다. handler가 이 거절을 삼켜도 commit하지 않는다(R12, → Q19).
   - disk·I/O 오류·5,000ms 잠금 초과는 `unavailable`이고 입력을 소비하거나 메모리로 대신하지 않는다(R6).
   - handler는 `await`·파일·socket을 쓸 수 없다(동기 함수 타입과 테스트, R4). 등록되지 않은 command 이름·SQL·경로를 받지 않는다(R20).
   - `AdvanceSubscriberCursor`(감소 불가)와 `commands/result` read handler(자기 principal만)
@@ -1060,3 +1060,4 @@ slice별 작업 수: skeleton 10, documents 7, agent 15, context 1, apps 3, codi
 - **Q16 coding connection 생성 결정(정함).** architecture/platform 5.6 표(`coding_agent`는 "confirmation window의 connection 결정 뒤 발급")와 마지막 절("보호 화면의 exact scope 결정")이 coding-agent/connection#R2·D19(사람의 harness 연결·범위 선택이 허락, 확인 창 없음, 회수만 confirmation window)와 부딪힌다. platform/identity#R5도 "사람의 harness 연결 선택"이다. architecture를 R2에 맞춰 T5 PR에서 고친다.
 - **Q17 confirmation handle 시점(정함).** documents slice의 파일 지우기(organize-documents)가 confirmation window를 쓴다. 그래서 handle 발급·검증·소비를 T56(documents slice)으로 떼었고, approval의 허락·거절만 T22(agent slice)에 남겼다.
 - **Q18 Tx approval 적용 연결(정함).** contracts#T22의 필수 `Tx.useApproval`과 T1 실행기가 함께 합쳐지기 전에 생긴 누락을 복구한다. T23의 정확한 action 검사·`approval_uses` 기록이 들어오기 전에는 `unavailable`로 거절하며, 성공한 사용이나 receipt를 만들지 않는다. T23에서 이 거절을 실제 구현으로 바꾼다.
+- **Q19 command 행·CAS 한도(lead 결정).** caller의 변경 행 수 주장과 compare의 top-level key 수는 실제 한도가 아니다. 변경 행은 `Tx.sql`·`emit`·`advanceSubscriberCursor`의 SQL마다 같은 연결 `total_changes()`의 앞뒤 차이로 event·cursor 행과 RETURNING·trigger 변경까지 실제로 세어 transaction 안에서 누적하고 1,000개 초과면 전체 rollback한다. `Tx.sql.get`·`all`로 행을 바꾸면 SQL 문장 모양과 상관없이 거절하고 rollback한다. 실행기의 `command_results` 한 행만 이 수에서 뺀다. CAS는 handler 전에 parse된 compare의 leaf 수를 중첩 object·배열까지 재귀로 세어 256개 초과면 `invalid_input`으로 거절하고 handler를 부르지 않는다. 실제 비교 횟수가 아니라 받은 비교 대상의 상한이다. 모든 owner handler에 필수 preflight member를 더하지 않고 `CommandDefinition`·`Tx` contract는 그대로 둔다. 동작이 숨고 비동기·복사에서 새어 나가는 compare proxy는 쓰지 않는다.

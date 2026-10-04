@@ -21,6 +21,11 @@ create table providers (
 ) strict;
 create index providers_enabled_id on providers (enabled, id);
 create index providers_definition_key_id on providers (definition_key, id);
+create trigger providers_no_identity_change
+before update of id on providers
+begin
+  select raise(abort, 'provider identity is immutable');
+end;
 create trigger providers_no_delete
 before delete on providers
 begin
@@ -63,7 +68,12 @@ create table provider_credentials (
 ) strict;
 create index provider_credentials_state_until_order
   on provider_credentials (provider, state, until, order_index);
-create trigger provider_credentials_no_update_identity
+create trigger provider_credentials_no_delete
+before delete on provider_credentials
+begin
+  select raise(abort, 'credentials are revoked by state, not deleted');
+end;
+create trigger provider_credentials_identity_immutable
 before update of provider, key, kind on provider_credentials
 begin
   select raise(abort, 'credential identity is immutable');
@@ -80,6 +90,11 @@ create table provider_credential_model_blocks (
 ) strict;
 create index provider_credential_model_blocks_until
   on provider_credential_model_blocks (provider, credential_key, until);
+create trigger provider_credential_model_blocks_no_update
+before update on provider_credential_model_blocks
+begin
+  select raise(abort, 'model blocks are replaced, not updated');
+end;
 create trigger provider_credential_model_blocks_no_delete
 before delete on provider_credential_model_blocks
 begin

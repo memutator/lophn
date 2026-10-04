@@ -550,6 +550,15 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - event `SecretSet`, `SecretRemoved`.
   - main↔core private comparison request·response는 표시 revision으로 이전 참조 CAS를 얻고, parent/child·HTTP·renderer에는 열지 않는다.
 
+#### T23 구현 메모: 보호 export·import와 사용 판정 port
+
+- 상태: 완료 (#PRNUM)
+- concern: platform/secrets
+- 요구: platform/secrets#R5, R9
+- 자리: `packages/contracts/platform/secret-exchange.ts`, `secret-exchange_test.ts`
+- machine pipe op `secret.export`(고른 참조 목록 → 암호문 크기, bytes는 byte chunk)·`secret.import`(현재 참조 → `{name, preparation, compare}` 기록 목록)를 `SECRET_PIPE_OPS`에 더한다. 원값·암호·암호문은 schema 밖 callback·byte chunk다.
+- port `SecretAllowance`(앱 사용의 현재 grant 판정, apps 구현)와 `ProcessLiveness`(context process의 현재 생존, 감독 owner 구현). 판정은 동기이고 모르면 거절이다.
+
 ### T24 contracts/platform: settings registry
 
 - 상태: 완료 (#12)
@@ -1128,3 +1137,4 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q29 owner domain target 판정은 Tx·ReadSnapshot의 새 member가 아니라 `TargetAuthorization` port(`port(key)`)로 둔다(추천안, platform·documents Q13·problems 요청). 다른 팀 test double을 깨지 않고 event 공개 hook의 snapshot에서도 같은 key로 쓴다. 동기 Result이고 누락·불일치·주입 없음은 fail-closed forbidden이다.
 
 - Q30 T28 answer·revert_run의 confirmation binding은 사람이 고른 결정 자체(question·created_seq·answer, revert id·run·allow_partial·preview_hash)로 두고 표시는 questions/read·reverts/preview를 짝짓는다(추천안). option action의 전제 비교는 고정 action.comparison·binding_hash가 맡으며 confirmation handle의 binding과 중복시키지 않는다. question 종료 이유는 deferred·cancelled·superseded 셋으로 두고 기한 도달은 QuestionExpired로만 남긴다. handoff 결과는 고정 version 또는 산출물 없음 이유 중 정확히 하나다. revert preview의 groups는 사람이 본 전체 묶음 근거이고 적용 입력의 groups는 그 source seq·소유 CAS·준비 참조만 담는다.
+- Q32 T23 보호 export·import는 공개 route가 아닌 machine pipe op이고 원값·암호·암호문을 JSON에 싣지 않는다(추천안, platform 요청). import 결과는 이름마다 새 준비와 기록 CAS(sealed_ref·revision, 없던 이름은 둘 다 null)다. 앱 secret 사용의 현재 grant 판정 `SecretAllowance`와 process 생존 `ProcessLiveness`는 다른 최상위가 구현하는 seam이라 contract port로 둔다. 실제 KDF·암호화·keychain 기록·grant 판정은 owner runtime 책임이다.

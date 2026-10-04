@@ -28,6 +28,7 @@ import {
 import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
 import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
 import {
+  type BlobPrepareRelay,
   createBlobPrepareRelay,
   type PreparedRelayResult,
 } from "./blob-prepare.ts";
@@ -63,6 +64,13 @@ export type CoreOptions = {
   notePrepared?: (prepared: PreparedRelayResult, nowMs: number) => void;
 };
 
+export type BlobPrepareCall = {
+  principal: string;
+  purpose: string;
+  expectedHash?: string;
+  bytes: ReadableStream<Uint8Array>;
+};
+
 export type Core = {
   port: number;
   epoch: string;
@@ -72,6 +80,9 @@ export type Core = {
   // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다(ledger R21).
   shutdown(): Promise<void>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
+  // 신뢰 프로세스의 blob.prepare 호출. HTTP route가 아니다(Q6).
+  // I/O worker가 설치하고 writer 메모리에 준비 참조를 남긴 뒤에 끝난다.
+  prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
   acceptTestCredential?(
     context: AuthenticatedContext,
@@ -157,7 +168,13 @@ async function open(
   const io = options.superviseIo === false ? undefined : createSupervisor({
     clock,
     denoCommand: Deno.execPath(),
-    env: (kind) => ({ LOPHN_WORKER_KIND: kind, LOPHN_HOME: root.path }),
+    env: (kind) => ({
+      LOPHN_WORKER_KIND: kind,
+      LOPHN_HOME: root.path,
+      // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
+      ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+      ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+    }),
   });
   let ready = false;
   const stopPrune: { run?: () => void } = {};
@@ -193,6 +210,8 @@ async function open(
       ];
     },
   };
+  // 읽기 의존은 runtime보다 먼저 만들어 둔다. relay는 I/O worker가 뜬 뒤에 채운다.
+  const blobRead = blobReadDeps(assembled.value);
   const openedRuntime = await openRuntime({
     ledgerPath,
     clock,
@@ -201,7 +220,7 @@ async function open(
     modules: options.teamModules ?? [],
     assembled: assembled.value,
     source,
-    blob: blobReadDeps(root.path, assembled.value),
+    blob: blobRead.deps,
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
@@ -243,7 +262,14 @@ async function open(
       });
     }
   }
-  const blobRelay = io ? blobRelayFor(io, clock) : undefined;
+  const blobRelay = io
+    ? blobRelayFor(
+      io,
+      clock,
+      (prepared, nowMs) => runtime.notePrepared(prepared, nowMs),
+    )
+    : undefined;
+  if (blobRelay) blobRead.use(blobRelay.readBytes);
   // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
   // 파일 GC는 하지 않고 메모리 참조만 떨어뜨린다.
   const timer = setInterval(() => {
@@ -285,6 +311,11 @@ async function open(
     dataRoot: root.path,
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
+    prepareBlob: (call) =>
+      blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+        code: "unavailable",
+        message: "blob 준비 통로가 없다",
+      })),
     async shutdown() {
       if (stopped) return;
       stopped = true;
@@ -348,16 +379,26 @@ function seedOf(random: RandomSource): number {
 // platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
 // sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측(R12)에만 쓴다. node:fs statfs는
 // Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
+function repoRoot(): string {
+  return new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
+}
+
+function denoDir(): string {
+  const home = Deno.env.get("HOME");
+  return home ? `${home}/.cache/deno` : "/tmp";
+}
+
 function platformIoSpec(dataRoot: string): KindLaunchSpec {
   return {
     kind: "platform/io",
     entry: new URL("./io-entry.ts", import.meta.url).pathname,
-    allow_read: [dataRoot],
+    // 데이터 root 밖은 코드와 deno 캐시만 읽는다. 쓰기는 데이터 root뿐이다.
+    allow_read: [dataRoot, repoRoot(), denoDir()],
     allow_write: [dataRoot],
     allow_net: [],
     allow_run: [],
     allow_sys: ["statfs"],
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
+    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };
@@ -365,41 +406,55 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
 
 // Q6 바이트 흐름. core가 relay를 만들어 I/O worker의 callback으로 넣는다.
 // 준비 성공은 writer 메모리에도 알려 등록 판정이 같은 참조를 보게 한다.
-// 소유 concern이 등록한 blob field와 파일 바이트 관측. hash는 경로로만 쓰고 다시 계산하지 않는다.
+// 바이트는 core가 열지 않는다. I/O worker의 blob.read가 읽고 core는 결과만 받는다.
 function blobReadDeps(
-  dataRoot: string,
   assembled: { blobFields?: readonly BlobFieldDefinition[] },
-) {
+): {
+  deps: {
+    fields: readonly BlobFieldDefinition[];
+    read(
+      hash: string,
+      offset: number,
+      length: number,
+    ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
+  };
+  use(
+    read: (
+      hash: string,
+      offset: number,
+      length: number,
+    ) => Promise<
+      Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>
+    >,
+  ): void;
+} {
+  const reader: {
+    current?: (
+      hash: string,
+      offset: number,
+      length: number,
+    ) => Promise<
+      Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>
+    >;
+  } = {};
   return {
-    fields: assembled.blobFields ?? [],
-    async read(hash: string, offset: number, length: number) {
-      const path = `${dataRoot}/blobs/sha256/${hash.slice(0, 2)}/${
-        hash.slice(2)
-      }`;
-      try {
-        const file = await Deno.open(path, { read: true });
-        try {
-          const stat = await file.stat();
-          const bytes = new Uint8Array(length);
-          await file.seek(offset, Deno.SeekMode.Start);
-          const read = await file.read(bytes);
-          return ok({
-            hash,
-            sizeBytes: stat.size,
-            bytes: bytes.subarray(0, read ?? 0),
-          });
-        } finally {
-          file.close();
+    deps: {
+      fields: assembled.blobFields ?? [],
+      read(hash, offset, length) {
+        const current = reader.current;
+        if (!current) {
+          return Promise.resolve(err({
+            code: "unavailable",
+            message: "blob 읽기 통로가 없다",
+          }));
         }
-      } catch (thrown) {
-        if (thrown instanceof Deno.errors.NotFound) {
-          return err({ code: "not_found" as const, message: "blob이 없다" });
-        }
-        return err({
-          code: "unavailable" as const,
-          message: "blob을 읽지 못했다",
-        });
-      }
+        return current(hash, offset, length).catch(() =>
+          err({ code: "unavailable", message: "blob을 읽지 못했다" })
+        );
+      },
+    },
+    use(read) {
+      reader.current = read;
     },
   };
 }
@@ -407,12 +462,18 @@ function blobReadDeps(
 function blobRelayFor(
   io: ReturnType<typeof createSupervisor>,
   clock: Clock,
+  note: (
+    prepared: PreparedRelayResult,
+    nowMs: number,
+  ) => Promise<Result<void>>,
 ): {
   callbacks: {
     onMessage(message: ChildMessage): void;
     onFrame(frame: Frame): void;
   };
   prune(nowMs: number): void;
+  prepare(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
+  readBytes: BlobPrepareRelay["readBytes"];
 } {
   const registry = createPreparationRegistry();
   const responses: { queue: Map<string, unknown> } = { queue: new Map() };
@@ -429,6 +490,7 @@ function blobRelayFor(
     responses,
     registry,
     nowMs: () => clock.nowMs(),
+    note,
   });
   return {
     callbacks: {
@@ -440,14 +502,24 @@ function blobRelayFor(
           payload?: PreparedRelayResult;
           error?: { code: string; message: string };
         };
+        // 등록은 prepare()가 응답을 받은 뒤 한다. 여기서 다시 하면 같은 키가 conflict다.
         responses.queue.set(response.request_id, response);
-        if (response.ok && response.payload) {
-          registry.register(response.payload, clock.nowMs());
-        }
       },
       onFrame() {},
     },
     prune: (nowMs) => relay.prune(nowMs),
+    prepare: (call) =>
+      relay.prepare(
+        {
+          principal: call.principal,
+          purpose: call.purpose,
+          expectedHash: call.expectedHash,
+        },
+        call.bytes,
+      ).catch(() =>
+        err({ code: "unavailable", message: "blob 준비를 넘기지 못했다" })
+      ),
+    readBytes: (hash, offset, length) => relay.readBytes(hash, offset, length),
   };
 }
 

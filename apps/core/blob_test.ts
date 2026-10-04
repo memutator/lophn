@@ -3,7 +3,8 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
-import { createCoreHarness } from "./testing/core.ts";
+import { manualClock, seededRandom } from "../../packages/base/mod.ts";
+import { startCore } from "./core.ts";
 import { defineBlobField } from "../../packages/contracts/platform/mod.ts";
 
 const HASH_BYTES = new TextEncoder().encode("blob body");
@@ -22,14 +23,21 @@ const sealed = defineBlobField({
 });
 
 Deno.test("platform/blob-store#R5 #R6 #R7 platform/identity#R9: core는 등록된 blob만 읽고 권한 밖과 부재를 거절한다", async () => {
-  const harness = await createCoreHarness({
+  const home = await Deno.makeTempDir({ prefix: "lophn-blob-read-" });
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
     teams: [{
       createCoreRegistration: () => ({ blobFields: [field, sealed] }),
     }],
+    clock: manualClock(Date.UTC(2024, 0, 1)),
+    random: seededRandom(1),
+    testCredentials: true,
   });
-  assert(harness.ok);
+  assert(started.ok);
+  const core = started.value;
   try {
-    const allowed = await harness.value.credential({
+    const allowed = await credential(core, {
       actor: "user",
       principal: "user-1",
       scope: {
@@ -39,7 +47,7 @@ Deno.test("platform/blob-store#R5 #R6 #R7 platform/identity#R9: core는 등록�
       conditions: {},
     });
     assert(allowed.ok);
-    const denied = await harness.value.credential({
+    const denied = await credential(core, {
       actor: "user",
       principal: "user-2",
       scope: {
@@ -50,15 +58,13 @@ Deno.test("platform/blob-store#R5 #R6 #R7 platform/identity#R9: core는 등록�
     });
     assert(denied.ok);
     const hash = await sha256(HASH_BYTES);
-    const directory = `${harness.value.dataRoot}/blobs/sha256/${
-      hash.slice(0, 2)
-    }`;
+    const directory = `${core.dataRoot}/blobs/sha256/${hash.slice(0, 2)}`;
     await Deno.mkdir(directory, { recursive: true });
     await Deno.writeFile(`${directory}/${hash.slice(2)}`, HASH_BYTES);
-    seedRef(harness.value.dataRoot, field.owner_kind, "file", hash);
-    seedRef(harness.value.dataRoot, sealed.owner_kind, "archive", hash);
+    seedRef(core.dataRoot, field.owner_kind, "file", hash);
+    seedRef(core.dataRoot, sealed.owner_kind, "archive", hash);
 
-    const read = await post(harness.value.port, {
+    const read = await post(core.port, {
       owner_kind: field.owner_kind,
       owner_key: "ver_1",
       field: field.field,
@@ -78,7 +84,7 @@ Deno.test("platform/blob-store#R5 #R6 #R7 platform/identity#R9: core는 등록�
     assertEquals(body.size_bytes, HASH_BYTES.length);
 
     // hash를 알아도 scope 밖 주체는 읽지 못한다(R5, identity R9).
-    const forbidden = await post(harness.value.port, {
+    const forbidden = await post(core.port, {
       owner_kind: field.owner_kind,
       owner_key: "ver_1",
       field: field.field,
@@ -88,7 +94,7 @@ Deno.test("platform/blob-store#R5 #R6 #R7 platform/identity#R9: core는 등록�
     assertEquals(forbidden.status, 403);
 
     // 일반 읽기를 막은 field는 허용 주체도 읽지 못한다.
-    const sealedRead = await post(harness.value.port, {
+    const sealedRead = await post(core.port, {
       owner_kind: sealed.owner_kind,
       owner_key: "ver_1",
       field: sealed.field,
@@ -99,7 +105,7 @@ Deno.test("platform/blob-store#R5 #R6 #R7 platform/identity#R9: core는 등록�
 
     // 참조된 파일이 없으면 unavailable이고 빈 내용을 주지 않는다(R6).
     await Deno.remove(`${directory}/${hash.slice(2)}`);
-    const gone = await post(harness.value.port, {
+    const gone = await post(core.port, {
       owner_kind: field.owner_kind,
       owner_key: "ver_1",
       field: field.field,
@@ -113,9 +119,53 @@ Deno.test("platform/blob-store#R5 #R6 #R7 platform/identity#R9: core는 등록�
     );
     assertEquals((gone.body as { reason?: string }).reason, "missing");
   } finally {
-    await harness.value.close();
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
   }
 });
+
+async function credential(
+  core: {
+    acceptTestCredential?(
+      context: {
+        principal: string;
+        actor: "user";
+        credential_ref: string;
+        scope: { operations: string[]; targets: Record<string, string> };
+        conditions: Record<string, never>;
+      },
+      token: string,
+    ): Promise<{ ok: boolean }>;
+    record(context: {
+      principal: string;
+      actor: "user";
+      credential_ref: string;
+      scope: { operations: string[]; targets: Record<string, string> };
+      conditions: Record<string, never>;
+    }): Promise<{ ok: boolean }>;
+  },
+  input: {
+    actor: "user";
+    principal: string;
+    scope: { operations: string[]; targets: Record<string, string> };
+    conditions: Record<string, never>;
+  },
+): Promise<{ ok: true; value: { token: string } } | { ok: false }> {
+  const token = input.principal === "user-1" ? "a".repeat(43) : "b".repeat(43);
+  const context = {
+    principal: input.principal,
+    actor: input.actor,
+    credential_ref: `cred_${input.principal}`,
+    scope: input.scope,
+    conditions: input.conditions,
+  };
+  assert(core.acceptTestCredential);
+  const accepted = await core.acceptTestCredential(context, token);
+  if (!accepted.ok) return { ok: false };
+  const recorded = await core.record(context);
+  if (!recorded.ok) return { ok: false };
+  return { ok: true, value: { token } };
+}
 
 // 등록 transaction이 만든 참조 행과 같은 모양으로 심는다. 등록 자체는
 // refs_sqlite_test.ts가 같은 transaction에서 검증한다.

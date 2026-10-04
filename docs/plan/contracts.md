@@ -377,7 +377,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 선행: contracts#T14
 - 완료: 아래 확인이 통과한다
   - `/v1/apps/{create,connect_source,archive,unarchive,enable_execution,disable_execution,record_started,record_stopped,record_unavailable,list,get,runtime,logs,automations,export}`.
-  - `App`, `RuntimeState {state: preparing | stopped | running | unavailable, termination_pending, reason?}`, `RuntimeObservation`, `ReadyAttestation`, logs 출력 `{lines, collected_at, truncated}`(최대 200줄).
+  - `App`(필수 revision은 그 App의 마지막 변경 event seq), `RuntimeState {state: preparing | stopped | running | unavailable, termination_pending, reason?}`, `RuntimeObservation`, `ReadyAttestation`. logs 입력은 `limit?`, `max_bytes?`(positive safe integer), 출력은 `{state: none | off | timeout | ok, lines, collected_at, truncated}`(최대 200줄·줄당 300자). `ok`의 빈 lines도 정상이고 부분 확보나 cap은 `truncated=true`다. snapshot caller는 `limit=30`, `max_bytes=65_536`을 쓴다.
   - event `AppCreated`, `AppSourceConnected`, `AppArchived`, `AppUnarchived`, `AppExecutionEnabled`, `AppExecutionDisabled`, `AppStarted`, `AppStopped`, `AppUnavailable`.
 
 ### T47 contracts/coding-agent: connection

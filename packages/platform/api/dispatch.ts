@@ -15,6 +15,9 @@ import {
   type ReadRoute,
   type Route,
   routePath,
+  type WorkerRequest,
+  type WorkerResponse,
+  type WorkerRoute,
 } from "../../contracts/platform/mod.ts";
 import type { CommandEnvelope, Writer } from "../ledger/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
@@ -56,6 +59,14 @@ export type FileHandler = (
   input: unknown,
 ) => Result<Uint8Array> | Promise<Result<Uint8Array>>;
 
+// file·worker route가 등록된 worker kind의 감독 pipe로 넘기는 통로. 준비 여부·기한·응답
+// 상한은 route마다 등록값이고 응답 envelope는 core가 해석하지 않는다(platform#T12).
+export type WorkerRouteTarget = {
+  forward(request: WorkerRequest): Promise<Result<WorkerResponse, LophnError>>;
+};
+
+export type WorkerTargets = ReadonlyMap<string, WorkerRouteTarget>;
+
 // T9가 조립한다. 없는 handler는 그 route를 제공하지 않는 것이다.
 export type DispatchDeps = {
   credentials: CredentialRegistry;
@@ -64,6 +75,7 @@ export type DispatchDeps = {
   reads?: ReadonlyMap<string, ReadHandler>;
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
+  workers?: WorkerTargets;
   // file route의 사람 결정 확인. 없으면 confirmation file route는 넘기지 않는다.
   confirmation?: ConfirmationBridge;
   // 동작별 body 상한. 없으면 RPC JSON 256KiB.
@@ -127,10 +139,6 @@ export async function dispatchHttp(
   if (request.method !== "POST") {
     return rejected({ code: "invalid_input", message: "method not allowed" });
   }
-  if (isWorkerRoute(route)) {
-    // pipe 작업은 HTTP JSON route가 아니다(architecture/platform 5.1).
-    return rejected({ code: "not_found", message: "route not found" });
-  }
   const maxBytes = deps.bodyLimit?.(route) ?? deps.jsonMaxBytes;
   const body = await readLimitedBody(request, {
     maxBytes,
@@ -156,6 +164,10 @@ export async function dispatchHttp(
     if (isFileRoute(route)) {
       const split = fileConfirmation(parsed.value);
       return await file(route, split.input, split.confirmation, ctx, deps);
+    }
+    if (isWorkerRoute(route)) {
+      const split = fileConfirmation(parsed.value);
+      return await worker(route, split.input, split.confirmation, ctx, deps);
     }
     return rejected({ code: "not_found", message: "route not found" });
   } catch (thrown) {
@@ -285,21 +297,116 @@ async function file(
     );
     if (!consumed.ok) return rejected(consumed.error);
   }
-  const handler = deps.files?.get(routeKey(route));
-  if (!handler) {
+  // file route도 등록된 worker kind로 넘긴다. 등록된 바이트 응답 통로가 없으면 unavailable이다.
+  const target = deps.workers?.get(routeKey(route));
+  if (!target) {
     return rejected({ code: "unavailable", message: "file unavailable" });
   }
-  const result = await handler(ctx, parsed.data);
-  if (!result.ok) return rejected(result.error);
+  const envelope: WorkerRequest = {
+    type: "worker_request",
+    request_id: `${ctx.credential_ref}/${deps.clock.nowMs()}`,
+    op: route.name,
+    payload: parsed.data,
+  };
+  const answer = await target.forward(envelope);
+  if (!answer.ok) return rejected(answer.error);
+  const response = answer.value;
+  if (response.request_id !== envelope.request_id) {
+    return rejected({ code: "internal", message: "worker response mismatch" });
+  }
+  if (!response.ok) {
+    return rejected({
+      code: response.error.code,
+      message: response.error.message,
+      ...(response.error.details === undefined
+        ? {}
+        : { details: response.error.details }),
+    });
+  }
+  // 성공 payload는 원본 bytes다. core는 바이트를 해석·저장하지 않는다(plan platform#T12).
+  if (!validBytesPayload(response.payload)) {
+    return rejected(asInternalError(new Error("file bytes")));
+  }
   return {
     status: 200,
-    bytes: result.value,
+    bytes: new Uint8Array(response.payload.bytes),
     contentType: route.output.contentType,
   };
+}
+
+// file route와 같은 길이다. worker route의 JSON 결과·공통 오류는 envelope를 벗기지 않고
+// route 등록 schema로 검사한 뒤 그대로 200·공통 상태로 낸다(platform/api#R3).
+async function worker(
+  route: WorkerRoute,
+  value: unknown,
+  confirmation: string | undefined,
+  ctx: AuthenticatedContext,
+  deps: DispatchDeps,
+): Promise<HttpResult> {
+  const parsed = route.input.safeParse(value);
+  if (!parsed.success) {
+    return rejected({ code: "invalid_input", message: "invalid worker body" });
+  }
+  const target = deps.workers?.get(routeKey(route));
+  if (!target) {
+    return rejected({ code: "unavailable", message: "worker unavailable" });
+  }
+  if (route.confirmation === "required") {
+    if (!deps.confirmation) {
+      return rejected({
+        code: "unavailable",
+        message: "사람 결정 확인을 사용할 수 없다",
+      });
+    }
+    // 소비는 넘기기 전이다. 넘긴 뒤 worker가 conflict를 내도 handle은 소비된 채다(ledger#R22).
+    const consumed = await consumeRouteConfirmation(
+      deps.confirmation,
+      route,
+      parsed.data,
+      confirmation,
+    );
+    if (!consumed.ok) return rejected(consumed.error);
+  }
+  const envelope: WorkerRequest = {
+    type: "worker_request",
+    request_id: `${ctx.credential_ref}/${deps.clock.nowMs()}`,
+    op: route.name,
+    payload: parsed.data,
+  };
+  const answer = await target.forward(envelope);
+  if (!answer.ok) return rejected(answer.error);
+  const response = answer.value;
+  if (response.request_id !== envelope.request_id) {
+    return rejected({ code: "internal", message: "worker response mismatch" });
+  }
+  if (!response.ok) {
+    return rejected({
+      code: response.error.code,
+      message: response.error.message,
+      ...(response.error.details === undefined
+        ? {}
+        : { details: response.error.details }),
+    });
+  }
+  const output = route.output.safeParse(response.payload);
+  if (!output.success) {
+    return rejected(asInternalError(new Error("worker output")));
+  }
+  return { status: 200, json: output.data };
 }
 
 export function registeredPath(
   route: { resource: string; method: string },
 ): string {
   return routePath(route);
+}
+
+// file route의 성공 payload. worker가 돌려주는 원본 bytes다. core는 해석하지 않는다.
+function validBytesPayload(value: unknown): value is { bytes: number[] } {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return Array.isArray(record.bytes) &&
+    record.bytes.every((byte) => typeof byte === "number");
 }

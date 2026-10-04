@@ -1,18 +1,26 @@
-import type { Clock, Logger } from "../../base/mod.ts";
+import type { Clock, Logger, LophnError, Result } from "../../base/mod.ts";
 import {
   DEFAULT_API_PORT,
   EVENT_SUBSCRIBE_PATH,
   RPC_JSON_MAX_BYTES,
+  type WorkerRequest,
+  type WorkerResponse,
 } from "../../contracts/platform/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
+import type { ConfirmationBridge } from "../identity/mod.ts";
 import type { EventBackend, SubscriptionStore } from "../ledger/mod.ts";
 import type { Writer } from "../ledger/mod.ts";
+import {
+  forwardToWorker,
+  type WorkerRouteTarget as ResponsivenessTarget,
+} from "../responsiveness/mod.ts";
 import {
   type DispatchDeps,
   dispatchHttp,
   type FileHandler,
   type MemoryHandler,
   type ReadHandler,
+  type WorkerTargets,
 } from "./dispatch.ts";
 import {
   BODY_TIMEOUT_MS,
@@ -35,6 +43,9 @@ export type ApiServerOptions = {
   reads?: ReadonlyMap<string, ReadHandler>;
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
+  workers?: ReadonlyMap<string, ResponsivenessTarget>;
+  // file·worker route의 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
+  confirmation?: ConfirmationBridge;
   events?: EventBackend;
   subscriptions?: SubscriptionStore;
   bodyLimit?: DispatchDeps["bodyLimit"];
@@ -60,6 +71,10 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     reads: options.reads,
     memory: options.memory,
     files: options.files,
+    workers: options.workers === undefined
+      ? undefined
+      : adaptedWorkers(options.workers),
+    confirmation: options.confirmation,
     bodyLimit: options.bodyLimit,
     bodyTimeoutMs: BODY_TIMEOUT_MS,
     jsonMaxBytes: RPC_JSON_MAX_BYTES,
@@ -185,6 +200,24 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
 
 function json(reason: ReturnType<typeof failure>): Response {
   return Response.json(errorBody(reason.error), { status: reason.status });
+}
+
+// 감독 pipe 통로(forwardToWorker)를 dispatch가 기다리는 모양으로 맞춘다.
+// 준비 여부·기한·응답 상한은 responsiveness의 forwardToWorker가 본다.
+function adaptedWorkers(
+  workers: ReadonlyMap<string, ResponsivenessTarget>,
+): WorkerTargets {
+  const adapted = new Map<string, {
+    forward(
+      request: WorkerRequest,
+    ): Promise<Result<WorkerResponse, LophnError>>;
+  }>();
+  for (const [name, target] of workers) {
+    adapted.set(name, {
+      forward: (request) => forwardToWorker(target, request),
+    });
+  }
+  return adapted;
 }
 
 export { EVENT_SUBSCRIBE_PATH };

@@ -120,8 +120,10 @@ async function state(
   ) as { defaults_revision: string };
   return {
     revision: Number(rows[0]?.["revision"] ?? 0),
-    defaults_revision: String(rows[0]?.["defaults_revision"] ??
-      definitions.defaults_revision),
+    defaults_revision: String(
+      rows[0]?.["defaults_revision"] ??
+        definitions.defaults_revision,
+    ),
   };
 }
 
@@ -191,8 +193,18 @@ Deno.test("platform/settings#R22: reload 실패는 마지막 성공 판을 유�
         applyEnvelope(
           "apply-good",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 70 },
-            { layer: "common", key: "documents.tracking", action: "set", value: { patterns: ["user/*.md"] } },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 70,
+            },
+            {
+              layer: "common",
+              key: "documents.tracking",
+              action: "set",
+              value: { patterns: ["user/*.md"] },
+            },
           ],
           0,
           defaults,
@@ -211,7 +223,9 @@ Deno.test("platform/settings#R22: reload 실패는 마지막 성공 판을 유�
       }),
     );
     const before = await state(harness);
-    const rejected = failure(await harness.command(machine, reloadEnvelope("reload-broken", defaults)));
+    const rejected = failure(
+      await harness.command(machine, reloadEnvelope("reload-broken", defaults)),
+    );
     assertEquals(rejected.code, "invalid_input");
     // 마지막 성공 판이 유지된다(R22).
     const kept = await state(harness);
@@ -224,9 +238,13 @@ Deno.test("platform/settings#R22: reload 실패는 마지막 성공 판을 유�
         [],
       ),
     );
-    const keptChoices = new Map(rows.map((row) => [String(row["key"]), JSON.parse(String(row["value"]))]));
+    const keptChoices = new Map(
+      rows.map((row) => [String(row["key"]), JSON.parse(String(row["value"]))]),
+    );
     assertEquals(keptChoices.get("shell.reading_width"), 9);
-    assertEquals(keptChoices.get("documents.tracking"), { patterns: ["user/*.md"] });
+    assertEquals(keptChoices.get("documents.tracking"), {
+      patterns: ["user/*.md"],
+    });
   } finally {
     await harness.close();
   }
@@ -255,7 +273,12 @@ Deno.test("platform/settings#R23: 첫 시작에 유효한 판이 없어도 read�
         applyEnvelope(
           "apply-from-empty",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 60 },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 60,
+            },
           ],
           0,
           defaults,
@@ -284,8 +307,18 @@ Deno.test("platform/settings#R24, platform/settings#R25: 적용 결과는 즉시
         applyEnvelope(
           "apply-mixed",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 90 },
-            { layer: "common", key: "coding.harness", action: "set", value: "codex" },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 90,
+            },
+            {
+              layer: "common",
+              key: "coding.harness",
+              action: "set",
+              value: "codex",
+            },
           ],
           0,
           defaults,
@@ -297,8 +330,12 @@ Deno.test("platform/settings#R24, platform/settings#R25: 적용 결과는 즉시
       applied: { key: string; apply_at: string }[];
     };
     // 즉시 효력(current_check)과 다음 run 효력(next_run)이 나뉜다(R25).
-    const width = result.applied.find((entry) => entry.key === "shell.reading_width");
-    const harness_ = result.applied.find((entry) => entry.key === "coding.harness");
+    const width = result.applied.find((entry) =>
+      entry.key === "shell.reading_width"
+    );
+    const harness_ = result.applied.find((entry) =>
+      entry.key === "coding.harness"
+    );
     assertEquals(width?.apply_at, "current_check");
     assertEquals(harness_?.apply_at, "next_run");
     // event의 적용 시점도 같다. reload가 next_run 항목만 다시 연결하지 않는다(R25).

@@ -1,7 +1,10 @@
 // CLI 출력 계층(architecture/coding-agent 5.1, cli#R2·R3). 기계 출력과 진단은
 // 분리한다. --json이면 stdout에 JSON 하나와 마지막 newline만 쓰고 stderr에는
 // redaction된 진단만 보낸다. 사람 출력은 같은 data를 줄로 표현한다.
-import type { AgentFailure, AgentResult } from "../../contracts/coding-agent/mod.ts";
+import type {
+  AgentFailure,
+  AgentResult,
+} from "../../contracts/coding-agent/mod.ts";
 import { CLI_EXITS, cliExit } from "../../contracts/coding-agent/mod.ts";
 import {
   createKnownSecretRegistry,
@@ -29,7 +32,10 @@ export type OutputOptions = {
 
 const encoder = new TextEncoder();
 
-async function write(writer: WritableStream<Uint8Array>, text: string): Promise<void> {
+async function write(
+  writer: WritableStream<Uint8Array>,
+  text: string,
+): Promise<void> {
   const stream = writer.getWriter();
   try {
     await stream.write(encoder.encode(text));

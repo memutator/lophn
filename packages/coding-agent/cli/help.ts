@@ -29,7 +29,19 @@ const CORE_HELP: readonly CommandHelp[] = [
     command: "index",
     purpose: "root·place·context·document·section 목차와 반영 지연을 읽는다",
     required: [],
-    optional: ["--input", "--input-file", "--connection", "--daemon-url", "--app", "op", "place", "context", "reference", "depth", "--base-revision"],
+    optional: [
+      "--input",
+      "--input-file",
+      "--connection",
+      "--daemon-url",
+      "--app",
+      "op",
+      "place",
+      "context",
+      "reference",
+      "depth",
+      "--base-revision",
+    ],
     jsonExample: { command: "index", op: "root", json: true },
     mutate: false,
     humanOnly: false,
@@ -52,7 +64,11 @@ const CORE_HELP: readonly CommandHelp[] = [
     purpose: "고정 판의 정확한 본문을 section·범위로 읽는다",
     required: ["reference"],
     optional: ["--input", "--input-file", "version", "section", "cursor"],
-    jsonExample: { command: "read", reference: { document: "doc-x", version: "ver-1" }, json: true },
+    jsonExample: {
+      command: "read",
+      reference: { document: "doc-x", version: "ver-1" },
+      json: true,
+    },
     mutate: false,
     humanOnly: false,
     confirmation: false,
@@ -62,8 +78,21 @@ const CORE_HELP: readonly CommandHelp[] = [
     command: "document list",
     purpose: "place·보관 상태 선택으로 문서 목록을 1~500 한도로 읽는다",
     required: [],
-    optional: ["--input", "--input-file", "place", "unplaced", "status", "limit", "cursor"],
-    jsonExample: { command: "document list", status: "active", limit: 20, json: true },
+    optional: [
+      "--input",
+      "--input-file",
+      "place",
+      "unplaced",
+      "status",
+      "limit",
+      "cursor",
+    ],
+    jsonExample: {
+      command: "document list",
+      status: "active",
+      limit: 20,
+      json: true,
+    },
     mutate: false,
     humanOnly: false,
     confirmation: false,
@@ -85,7 +114,13 @@ const CORE_HELP: readonly CommandHelp[] = [
     purpose: "두 고정 판의 줄 단위 차이를 읽는다",
     required: ["document", "before", "after"],
     optional: ["--input", "--input-file", "section", "cursor"],
-    jsonExample: { command: "document diff", document: "doc-x", before: "ver-1", after: "ver-2", json: true },
+    jsonExample: {
+      command: "document diff",
+      document: "doc-x",
+      before: "ver-1",
+      after: "ver-2",
+      json: true,
+    },
     mutate: false,
     humanOnly: false,
     confirmation: false,
@@ -95,8 +130,24 @@ const CORE_HELP: readonly CommandHelp[] = [
     command: "save",
     purpose: "파일 묶음을 정본 문서로 저장한다. 첫 파일이 primary다",
     required: ["<files...>"],
-    optional: ["--input", "--input-file", "place", "slug", "title", "format", "series", "key", "--base-revision", "--idempotency-key"],
-    jsonExample: { command: "save", paths: ["docs/plan.md"], title: "plan", json: true },
+    optional: [
+      "--input",
+      "--input-file",
+      "place",
+      "slug",
+      "title",
+      "format",
+      "series",
+      "key",
+      "--base-revision",
+      "--idempotency-key",
+    ],
+    jsonExample: {
+      command: "save",
+      paths: ["docs/plan.md"],
+      title: "plan",
+      json: true,
+    },
     mutate: true,
     humanOnly: false,
     confirmation: false,
@@ -118,7 +169,12 @@ const CORE_HELP: readonly CommandHelp[] = [
     purpose: "format 선언 하나를 읽는다",
     required: ["name", "module_hash"],
     optional: ["--input", "--input-file"],
-    jsonExample: { command: "format show", name: "markdown", module_hash: "00", json: true },
+    jsonExample: {
+      command: "format show",
+      name: "markdown",
+      module_hash: "00",
+      json: true,
+    },
     mutate: false,
     humanOnly: false,
     confirmation: false,
@@ -129,7 +185,12 @@ const CORE_HELP: readonly CommandHelp[] = [
     purpose: "파일 bytes를 format으로 검사해 diagnostics를 낸다",
     required: ["<files...>"],
     optional: ["--input", "--input-file", "name", "paths"],
-    jsonExample: { command: "format validate", name: "markdown", paths: ["docs/plan.md"], json: true },
+    jsonExample: {
+      command: "format validate",
+      name: "markdown",
+      paths: ["docs/plan.md"],
+      json: true,
+    },
     mutate: false,
     humanOnly: false,
     confirmation: false,
@@ -184,7 +245,11 @@ const CORE_HELP: readonly CommandHelp[] = [
     purpose: "series 하나의 규칙과 정렬된 인스턴스를 읽는다",
     required: ["selector"],
     optional: ["--input", "--input-file", "cursor"],
-    jsonExample: { command: "series show", selector: { series: "ser-x" }, json: true },
+    jsonExample: {
+      command: "series show",
+      selector: { series: "ser-x" },
+      json: true,
+    },
     mutate: false,
     humanOnly: false,
     confirmation: false,
@@ -195,7 +260,11 @@ const CORE_HELP: readonly CommandHelp[] = [
     purpose: "다음 key와 title 제안을 읽는다. 저장은 하지 않는다",
     required: ["selector"],
     optional: ["--input", "--input-file"],
-    jsonExample: { command: "series next", selector: { series: "ser-x" }, json: true },
+    jsonExample: {
+      command: "series next",
+      selector: { series: "ser-x" },
+      json: true,
+    },
     mutate: false,
     humanOnly: false,
     confirmation: false,
@@ -253,7 +322,11 @@ const DECISION_HELP: readonly CommandHelp[] = [
     purpose: "문서를 참조하는 context를 읽는다",
     required: ["target"],
     optional: ["--input", "--input-file", "status"],
-    jsonExample: { command: "context of", target: { kind: "document", document: "doc-x" }, json: true },
+    jsonExample: {
+      command: "context of",
+      target: { kind: "document", document: "doc-x" },
+      json: true,
+    },
     mutate: false,
     humanOnly: false,
     confirmation: false,
@@ -264,7 +337,12 @@ const DECISION_HELP: readonly CommandHelp[] = [
     purpose: "고정 변경안과 이유를 접수한다. 적용은 하지 않는다",
     required: ["change", "reason"],
     optional: ["--input", "--input-file", "--idempotency-key"],
-    jsonExample: { command: "context propose", change: { kind: "set_item" }, reason: "why", json: true },
+    jsonExample: {
+      command: "context propose",
+      change: { kind: "set_item" },
+      reason: "why",
+      json: true,
+    },
     mutate: true,
     humanOnly: false,
     confirmation: false,
@@ -274,7 +352,14 @@ const DECISION_HELP: readonly CommandHelp[] = [
     command: "question list",
     purpose: "허용된 질문 목록을 읽는다",
     required: [],
-    optional: ["--input", "--input-file", "run", "assignment", "status", "cursor"],
+    optional: [
+      "--input",
+      "--input-file",
+      "run",
+      "assignment",
+      "status",
+      "cursor",
+    ],
     jsonExample: { command: "question list", json: true },
     mutate: false,
     humanOnly: false,
@@ -327,7 +412,8 @@ const DECISION_HELP: readonly CommandHelp[] = [
   },
   {
     command: "approval open",
-    purpose: "approval의 결정 화면 링크와 대기 사실을 낸다. 허락을 입력받지 않는다",
+    purpose:
+      "approval의 결정 화면 링크와 대기 사실을 낸다. 허락을 입력받지 않는다",
     required: ["approval"],
     optional: ["--input", "--input-file"],
     jsonExample: { command: "approval open", approval: "apr-x", json: true },
@@ -380,8 +466,12 @@ function setupPurpose(name: string): string {
     case "session plan":
       return "ticket의 TUI 시작 plan을 stdin으로 만든다";
     default:
-      if (name.startsWith("harness ")) return `harness ${name.slice("harness ".length)}를 다룬다`;
-      if (name.startsWith("skills ")) return `skill을 ${name.slice("skills ".length)}한다`;
+      if (name.startsWith("harness ")) {
+        return `harness ${name.slice("harness ".length)}를 다룬다`;
+      }
+      if (name.startsWith("skills ")) {
+        return `skill을 ${name.slice("skills ".length)}한다`;
+      }
       return `${name}을 다룬다`;
   }
 }
@@ -393,11 +483,15 @@ function setupRequired(name: string): string[] {
   if (name === "connection create") return ["label", "scope"];
   if (name === "mcp config") return ["--target", "--scope", "connection"];
   if (name === "session plan") return ["plan_input"];
-  if (name === "harness plan" || name === "harness install" ||
-    name === "harness update" || name === "harness remove") {
+  if (
+    name === "harness plan" || name === "harness install" ||
+    name === "harness update" || name === "harness remove"
+  ) {
     return ["--target", "components"];
   }
-  if (name === "harness install") return ["--target", "components", "operation_id"];
+  if (name === "harness install") {
+    return ["--target", "components", "operation_id"];
+  }
   if (name === "connection install" || name === "skills install") {
     return ["--target"];
   }
@@ -405,9 +499,19 @@ function setupRequired(name: string): string[] {
 }
 
 function setupMutates(name: string): boolean {
-  return ["daemon start", "daemon stop", "connection create", "connection revoke",
-    "connection install", "harness plan", "harness install", "harness update",
-    "harness remove", "skills install", "session plan"].includes(name);
+  return [
+    "daemon start",
+    "daemon stop",
+    "connection create",
+    "connection revoke",
+    "connection install",
+    "harness plan",
+    "harness install",
+    "harness update",
+    "harness remove",
+    "skills install",
+    "session plan",
+  ].includes(name);
 }
 
 function setupNext(name: string): string[] {
@@ -422,7 +526,11 @@ function setupNext(name: string): string[] {
   return [];
 }
 
-const CLI_HELP: readonly CommandHelp[] = [...CORE_HELP, ...DECISION_HELP, ...SETUP_HELP];
+const CLI_HELP: readonly CommandHelp[] = [
+  ...CORE_HELP,
+  ...DECISION_HELP,
+  ...SETUP_HELP,
+];
 
 export function commandHelp(command: string): CommandHelp | undefined {
   return CLI_HELP.find((entry) => entry.command === command);
@@ -477,7 +585,9 @@ export function helpText(
 ): AgentResult {
   if (command === undefined) {
     const lines = CLI_HELP.map((entry) =>
-      `  ${entry.command}${entry.humanOnly ? " (사람 전용)" : ""}${entry.mutate ? " (변경)" : ""} — ${entry.purpose}`
+      `  ${entry.command}${entry.humanOnly ? " (사람 전용)" : ""}${
+        entry.mutate ? " (변경)" : ""
+      } — ${entry.purpose}`
     );
     return {
       summary: `lophn <group> <command> — ${CLI_HELP.length}개 command`,

@@ -178,7 +178,9 @@ export function splitCommand(
   if (parts.length > 2) {
     return err({
       code: "invalid_input",
-      message: `command는 <group> <command> 모양이다: ${parts.length - 1}부분을 받았다`,
+      message: `command는 <group> <command> 모양이다: ${
+        parts.length - 1
+      }부분을 받았다`,
     });
   }
   return ok({ group: parts[0], name: parts[1] });

@@ -1,8 +1,7 @@
 // 제출은 main이 소유 command에 handle을 붙여 보낸다. renderer 입력의
 // confirmation 필드는 받지 않는다. 결과가 불명이면 같은 key의 receipt만 다시 본다.
-import type { Route } from "../../../../packages/contracts/platform/mod.ts";
-
 import type { LiveHandle } from "./handle.ts";
+import type { CommandRouteRef } from "./types.ts";
 import type { SubmitPort, SubmitReceipt } from "./coordinator.ts";
 
 export interface CommandCaller {
@@ -19,7 +18,7 @@ export interface CommandCaller {
 
 export interface DecisionRoute {
   readonly decision: string;
-  readonly route: Route;
+  readonly route: CommandRouteRef;
   /** command input을 고정 정본에서 만든다. renderer가 보낸 본문은 쓰지 않는다. */
   input(canonical: unknown, decision: string): Record<string, unknown>;
   compare(canonical: unknown): Record<string, unknown>;

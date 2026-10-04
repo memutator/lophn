@@ -67,6 +67,16 @@ export type PlaceholderKinds = {
     max: "number";
   };
   "common.chart.unreadable": Record<never, never>;
+  "confirmation-window.title.confirm": Record<never, never>;
+  "confirmation-window.body.checking": Record<never, never>;
+  "confirmation-window.body.review": Record<never, never>;
+  "confirmation-window.body.stale": Record<never, never>;
+  "confirmation-window.body.expired": Record<never, never>;
+  "confirmation-window.body.unknown": Record<never, never>;
+  "confirmation-window.body.second": Record<never, never>;
+  "confirmation-window.button.cancel": Record<never, never>;
+  "confirmation-window.button.refresh": Record<never, never>;
+  "confirmation-window.button.decide": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

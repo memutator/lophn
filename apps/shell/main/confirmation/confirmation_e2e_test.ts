@@ -80,7 +80,12 @@ test("shell/confirmation-window#R6: 부모 앱 view가 보이지만 click·키 �
             allowed: ["grant_approval_request"],
             expiresAt: null,
             secondConfirm: false,
-            display: { titleKey: "t", bodyKey: "b" },
+            request: {
+              kind: "approval_request" as const,
+              approval: "apr_00000000000000000000000001",
+              created_seq: "1",
+              binding_hash: "a".repeat(64),
+            },
           },
         }),
     },

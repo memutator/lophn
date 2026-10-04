@@ -1,6 +1,7 @@
 // 제출 직전 검사. 통과해야만 handle을 쓴다. 실패하면 옛 버튼을 없앨지 함께 알린다.
 import { contentBasis, type LiveHandle } from "./handle.ts";
 import type { CanonPort, Gate } from "./coordinator.ts";
+import type { ConfirmationRequest } from "./types.ts";
 
 export interface SubmitCheck {
   readonly handle: LiveHandle;
@@ -18,8 +19,8 @@ export type SubmitCheckResult =
     ok: false;
     drop: boolean;
     gate: Gate;
-    /** null이면 표시를 비운다. 읽기에 성공하면 최신 표시를 남긴다. */
-    display: unknown;
+    /** null이면 request를 비운다. 읽기에 성공하면 최신 request를 남긴다. */
+    request: ConfirmationRequest | null;
     clearDisplay: boolean;
     error: { code: string; message: string };
   };
@@ -32,7 +33,7 @@ export function checkSubmission(input: SubmitCheck): SubmitCheckResult {
       ok: false,
       drop: true,
       gate: { state: "expired" },
-      display: null,
+      request: null,
       clearDisplay: false,
       error: { code: "conflict", message: "확인 기한이 지났다" },
     };
@@ -42,7 +43,7 @@ export function checkSubmission(input: SubmitCheck): SubmitCheckResult {
       ok: false,
       drop: true,
       gate: { state: "stale", reason: STALE },
-      display: null,
+      request: null,
       clearDisplay: false,
       error: { code: "unavailable", message: STALE },
     };
@@ -52,7 +53,7 @@ export function checkSubmission(input: SubmitCheck): SubmitCheckResult {
       ok: false,
       drop: true,
       gate: { state: "stale", reason: input.read.error.message },
-      display: null,
+      request: null,
       clearDisplay: true,
       error: input.read.error,
     };
@@ -67,7 +68,7 @@ export function checkSubmission(input: SubmitCheck): SubmitCheckResult {
       ok: false,
       drop: true,
       gate: { state: "stale", reason: STALE },
-      display: input.read.value.display,
+      request: input.read.value.request,
       clearDisplay: false,
       error: { code: "conflict", message: STALE },
     };
@@ -81,7 +82,7 @@ export function checkSubmission(input: SubmitCheck): SubmitCheckResult {
         decisions: input.read.value.allowed,
         second: true,
       },
-      display: input.read.value.display,
+      request: input.read.value.request,
       clearDisplay: false,
       error: { code: "conflict", message: "영향과 범위를 다시 확인해야 한다" },
     };

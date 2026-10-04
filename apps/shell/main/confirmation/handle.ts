@@ -2,13 +2,13 @@
 // 발급·검증·소비는 core(platform#T56)가 하고, 여기는 그 참조의 수명만 맡는다.
 import { createHash } from "node:crypto";
 
-import {
-  CONFIRMATION_HANDLE_TTL_MS,
-  type ConfirmationHandleRegister,
-  type ConfirmationRef,
-} from "../../../../packages/contracts/platform/mod.ts";
-
 import { canonicalize } from "./canonical.ts";
+import type { ConfirmationHandleRegister, ConfirmationRef } from "./types.ts";
+
+export type { ConfirmationHandleRegister, ConfirmationRef } from "./types.ts";
+
+/** contracts CONFIRMATION_HANDLE_TTL_MS. 발급 시각에서 120초. */
+const CONFIRMATION_HANDLE_TTL_MS = 120_000;
 
 export const HANDLE_TTL_MS = CONFIRMATION_HANDLE_TTL_MS;
 

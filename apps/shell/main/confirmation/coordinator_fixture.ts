@@ -1,4 +1,4 @@
-import type { ConfirmationRef } from "../../../../packages/contracts/platform/mod.ts";
+import type { ConfirmationRef } from "./types.ts";
 
 import { type Canonical, createCoordinator } from "./coordinator.ts";
 import type { CoreHandlePort } from "./handle.ts";
@@ -150,9 +150,11 @@ export function fake(): Fake {
         allowed: ["grant_approval_request", "reject_approval_request"],
         expiresAt: null,
         secondConfirm: false,
-        display: {
-          titleKey: "confirmation-window.frame.title",
-          bodyKey: "body",
+        request: {
+          kind: "approval_request",
+          approval: INTENT.approval,
+          created_seq: "1",
+          binding_hash: "a".repeat(64),
         },
       },
     },

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { ConfirmationHandleRegister } from "../../../../packages/contracts/platform/mod.ts";
+import type { ConfirmationHandleRegister } from "./handle.ts";
 
 import {
   contentBasis,

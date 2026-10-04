@@ -7,12 +7,13 @@ import type {
   SubmitReceipt,
 } from "./coordinator.ts";
 import type { HandleTable, LiveHandle } from "./handle.ts";
+import type { ConfirmationRequest } from "./types.ts";
 
 export interface DecidingWindow {
   readonly intent: Parameters<CanonPort["read"]>[0];
   displayId: string;
   gate: Gate;
-  display: unknown;
+  request: ConfirmationRequest | null;
   secondPending: boolean;
 }
 
@@ -69,8 +70,8 @@ export async function decide(input: {
   if (!checked.ok) {
     if (checked.drop) await input.invalidate(live);
     live.gate = checked.gate;
-    if (checked.clearDisplay || checked.display !== null) {
-      live.display = checked.display;
+    if (checked.clearDisplay || checked.request !== null) {
+      live.request = checked.request;
     }
     input.publish(live);
     return checked;

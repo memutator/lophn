@@ -83,8 +83,12 @@ test("shell/confirmation-window#R5: 대상이 바뀌면 옛 버튼으로 결정�
   assert.equal(submitted.ok, false);
   assert.equal(env.submitted.length, 0);
   assert.equal(confirm.gate(opened.value.windowId)?.state, "stale");
-  const shown = env.windows[0]?.sent.at(-1) as { gate: { state: string } };
-  assert.equal(shown.gate.state, "stale");
+  const shown = env.windows[0]?.sent.at(-1) as { request?: unknown };
+  assert.equal(
+    shown.request === undefined || "created_seq" in (shown.request as object),
+    true,
+  );
+  assert.equal(JSON.stringify(shown).includes("gate"), false);
 });
 
 test("shell/confirmation-window#R9: 같은 handle의 두 번째 제출은 새 결정을 만들지 않는다", async () => {

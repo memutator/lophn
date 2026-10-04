@@ -1,7 +1,10 @@
 // 보호 창의 수명. 자동으로 띄우지 않고, 요청한 창의 사람이 연다.
 // 표시와 제출은 독립 read로 고정한 같은 자료에서만 만든다.
-import type { ConfirmationIntent } from "../../../../packages/contracts/shell/confirmation.ts";
-import type { ConfirmationRef } from "../../../../packages/contracts/platform/mod.ts";
+import type {
+  ConfirmationIntent,
+  ConfirmationRef,
+  ConfirmationRequest,
+} from "./types.ts";
 
 import {
   contentBasis,
@@ -34,7 +37,8 @@ export interface Canonical {
   readonly expiresAt: string | null;
   /** 위험한 결정은 영향과 scope를 다시 보이는 별도 단계가 있다. */
   readonly secondConfirm: boolean;
-  readonly display: unknown;
+  /** confirmationDisplaySchema의 request. */
+  readonly request: ConfirmationRequest;
 }
 
 export interface CanonPort {
@@ -96,7 +100,7 @@ export interface OpenedView {
   readonly windowId: string;
   readonly displayId: string;
   readonly gate: Gate;
-  readonly display: unknown;
+  readonly request: ConfirmationRequest | null;
 }
 
 interface LiveWindow {
@@ -106,7 +110,7 @@ interface LiveWindow {
   displayId: string;
   basis: string;
   gate: Gate;
-  display: unknown;
+  request: ConfirmationRequest | null;
   secondPending: boolean;
 }
 
@@ -123,10 +127,10 @@ export function createCoordinator(options: CoordinatorOptions) {
 
   const publish = (live: LiveWindow) => {
     if (live.opened.window.isDestroyed()) return;
+    if (live.request === null || live.displayId === "") return;
     live.opened.window.webContents.send("confirmation:display", {
       displayId: live.displayId,
-      gate: live.gate,
-      display: live.display,
+      request: live.request,
     });
   };
 
@@ -174,7 +178,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     if (live.basis !== "" && live.basis !== basis) {
       await invalidate(live, "replaced");
       live.gate = { state: "stale", reason: STALE };
-      live.display = read.value.display;
+      live.request = read.value.request;
       publish(live);
       return { ok: false, error: { code: "conflict", message: STALE } };
     }
@@ -184,7 +188,7 @@ export function createCoordinator(options: CoordinatorOptions) {
       current.epoch === options.epoch() &&
       current.expiresAtMs > options.clock.now()
     ) {
-      live.display = read.value.display;
+      live.request = read.value.request;
       live.gate = {
         state: "ready",
         decisions: read.value.allowed,
@@ -209,7 +213,7 @@ export function createCoordinator(options: CoordinatorOptions) {
     }
     live.displayId = `dsp_${++displaySerial}`;
     live.basis = basis;
-    live.display = read.value.display;
+    live.request = read.value.request;
     live.secondPending = read.value.secondConfirm;
     live.gate = {
       state: "ready",
@@ -281,7 +285,7 @@ export function createCoordinator(options: CoordinatorOptions) {
         displayId: "",
         basis: "",
         gate: { state: "checking" },
-        display: null,
+        request: null,
         secondPending: false,
       };
       windows.set(opened.windowId, live);
@@ -293,7 +297,7 @@ export function createCoordinator(options: CoordinatorOptions) {
             windowId: opened.windowId,
             displayId: live.displayId,
             gate: live.gate,
-            display: live.display,
+            request: live.request,
           },
         };
       }
@@ -303,7 +307,7 @@ export function createCoordinator(options: CoordinatorOptions) {
           windowId: opened.windowId,
           displayId: live.displayId,
           gate: live.gate,
-          display: live.display,
+          request: live.request,
         },
       };
     },

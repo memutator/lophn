@@ -25,30 +25,34 @@ function click(dom: Window, selector: string): void {
   }
 }
 
-function view(state: "ready" | "stale", second = false): ConfirmationView {
+function view(second = false): ConfirmationView {
   return {
     displayId: "dsp_1",
-    gate: {
-      state,
-      decisions: state === "ready" ? ["grant_approval_request"] : undefined,
-      second,
-      reason: state === "stale" ? "changed" : undefined,
+    step: second ? "second" : undefined,
+    request: {
+      kind: "approval_request",
+      approval: "apr_00000000000000000000000001",
+      created_seq: "1",
+      binding_hash: "a".repeat(64),
     },
-    display: state === "ready"
-      ? {
-        titleKey: "confirmation-window.frame.title",
-        bodyKey: "confirmation-window.frame.body",
-      }
-      : null,
   };
 }
 
-async function render(state: "ready" | "stale" = "ready", second = false) {
+async function render(mode: "ready" | "stale" = "ready", second = false) {
   const dom = installDom();
   const submitted: { decision: string; confirmedSecond?: boolean }[] = [];
   const cancelled = { n: 0 };
   const api: ConfirmationFrameApi = {
-    getDisplay: () => Promise.resolve(view(state, second)),
+    getDisplay: () =>
+      Promise.resolve(
+        mode === "stale"
+          ? {
+            displayId: "dsp_1",
+            request: { kind: "secret_input", owner: "person", purpose: "none" },
+            step: "stale" as const,
+          }
+          : view(second),
+      ),
     submit: (input) => {
       submitted.push(input);
       return Promise.resolve({ ok: true });
@@ -78,10 +82,7 @@ Deno.test("shell/confirmation-window#R4: 첫 화면은 설명이고 결정 버�
   const decision = dom.document.querySelector("[data-decision]");
   assert(heading !== null);
   assertEquals(decision?.getAttribute("autofocus"), null);
-  assertEquals(
-    dom.document.querySelector("p")?.getAttribute("data-copy") !== null,
-    true,
-  );
+  assertEquals(heading.textContent, "confirmation-window.title.confirm");
 });
 
 Deno.test("shell/confirmation-window#R4: Enter는 제출하지 않고 Escape·닫기는 결정이 아니다", async () => {

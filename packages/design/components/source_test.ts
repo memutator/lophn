@@ -2,9 +2,15 @@
 import { assert, assertEquals } from "@std/assert";
 import postcss from "postcss";
 
-// 공통 컴포넌트와 읽기 renderer를 같은 규칙으로 본다.
+// 공통 컴포넌트·읽기 renderer·공개 SDK UI도 같은 규칙으로 본다.
 const design = new URL("../", import.meta.url);
-const roots = [new URL("components/", design), new URL("reading/", design)];
+const packages = new URL("../", design);
+const roots = [
+  new URL("components/", design),
+  new URL("reading/", design),
+  new URL("sdk/ui-table/", packages),
+  new URL("sdk/ui-chart/", packages),
+];
 
 async function sources(directory: URL, suffix: string[]): Promise<URL[]> {
   const found: URL[] = [];
@@ -24,7 +30,9 @@ async function designSources(suffix: string[]): Promise<URL[]> {
 }
 
 function relative(url: URL): string {
-  return url.href.slice(design.href.length);
+  return url.href.startsWith(design.href)
+    ? url.href.slice(design.href.length)
+    : url.href.slice(packages.href.length);
 }
 
 const SPACING = /^(margin|padding|gap|row-gap|column-gap)(-|$)/;
@@ -52,7 +60,8 @@ export function rhythmAllowed(
   if (RHYTHM.test(part)) return true;
   if (SECTION.test(part)) return SECTION_USE.has(`${file} ${prop}`);
   if (PANE.test(part)) return PANE_USE.has(`${file} ${prop}`);
-  return false;
+  return part === "auto" && file === "sdk/ui-chart/chart.module.css" &&
+    prop === "margin-left";
 }
 
 // 그림자는 떠 있는 표면만 쓴다. 목록·menu·tooltip·popover·toast·chip은 popover, dialog·sheet·palette는
@@ -69,6 +78,7 @@ const SHADOWS = new Map([
   ["components/dialog/dialog.module.css", DIALOG_SHADOW],
   ["components/sheet/sheet.module.css", DIALOG_SHADOW],
   ["components/palette/palette.module.css", DIALOG_SHADOW],
+  ["sdk/ui-chart/chart.module.css", POPOVER_SHADOW],
 ]);
 
 Deno.test("shell/design-system#R6: 컴포넌트 CSS에 그라데이션·glass·그림자·대문자·장식 움직임이 없다", async () => {
@@ -91,6 +101,14 @@ Deno.test("shell/design-system#R6: 컴포넌트 CSS에 그라데이션·glass·�
       }
       if (decl.prop === "box-shadow") {
         assertEquals(decl.value, SHADOWS.get(name), where);
+        if (name === "sdk/ui-chart/chart.module.css") {
+          assertEquals(decl.parent?.type, "rule", where);
+          assertEquals(
+            (decl.parent as postcss.Rule).selector,
+            ".tooltip",
+            where,
+          );
+        }
         shadowed.add(name);
       }
       if (decl.prop.startsWith("animation")) {
@@ -148,6 +166,45 @@ Deno.test("shell/design-system#R17: 섹션 32~48px과 칸 여백은 정한 파�
 
 const ALLOWED_IMPORT =
   /^(react|react-dom\/client|lucide-react|@radix-ui\/react-[a-z-]+|@lophn\/wording|\.{1,2}\/.+)$/;
+const SDK_IMPORT = /^@lophn\/(design(\/components)?|tokens|ui-table|ui-chart)$/;
+const PUBLIC_CSS = new Set([
+  "@lophn/tokens/base.css",
+  "@lophn/tokens/tokens.css",
+]);
+const PUBLIC_CSS_FILE = "sdk/ui-chart/examples/sales-dashboard.tsx";
+// d3는 SVG를 조작하지 않고 정한 계산 모듈에서만 scale·path를 만든다.
+const D3_IMPORTS = new Map([
+  ["sdk/ui-chart/geometry.ts", ["d3-scale"]],
+  ["sdk/ui-chart/bins.ts", ["d3-scale"]],
+  ["sdk/ui-chart/bar-plot.tsx", ["d3-scale"]],
+  ["sdk/ui-chart/line-chart.tsx", ["d3-scale", "d3-shape"]],
+  ["sdk/ui-chart/graph-layout.ts", ["d3-shape"]],
+]);
+
+function importAllowed(file: string, specifier: string): boolean {
+  return ALLOWED_IMPORT.test(specifier) ||
+    (file.startsWith("sdk/") && SDK_IMPORT.test(specifier)) ||
+    (file === PUBLIC_CSS_FILE && PUBLIC_CSS.has(specifier)) ||
+    (D3_IMPORTS.get(file)?.includes(specifier) ?? false);
+}
+
+Deno.test("shell/design-system#R43: SDK 재료와 공개 CSS는 정한 파일에서만 허용한다", () => {
+  assert(importAllowed("sdk/ui-chart/geometry.ts", "d3-scale"));
+  assert(importAllowed("sdk/ui-chart/line-chart.tsx", "d3-shape"));
+  assert(importAllowed("sdk/ui-chart/chart-frame.tsx", "@lophn/ui-table"));
+  assert(importAllowed(PUBLIC_CSS_FILE, "@lophn/tokens/tokens.css"));
+  assert(!importAllowed("components/button/button.tsx", "@lophn/ui-chart"));
+  assert(!importAllowed("sdk/ui-table/data-table.tsx", "d3-scale"));
+  assert(!importAllowed("sdk/ui-chart/geometry.ts", "d3-selection"));
+  assert(
+    !importAllowed("sdk/ui-chart/line-chart.tsx", "@lophn/tokens/base.css"),
+  );
+  assert(!importAllowed(PUBLIC_CSS_FILE, "@lophn/tokens/custom.css"));
+  assert(!importAllowed("sdk/ui-chart/line-chart.tsx", "@lophn/contracts"));
+  assert(rhythmAllowed("sdk/ui-chart/chart.module.css", "margin-left", "auto"));
+  assert(!rhythmAllowed("sdk/ui-chart/chart.module.css", "padding", "auto"));
+});
+
 // Markdown parser는 편집기와 같은 Lezer Markdown 하나이고, 읽기 model 한 파일만 부른다.
 const PARSER_IMPORT = "@lezer/markdown";
 const PARSER_FILE = "reading/markdown/parse.ts";
@@ -163,18 +220,26 @@ Deno.test("shell/design-system#R43: 컴포넌트 재료는 CSS Modules·Radix Pr
     const name = relative(file);
     if (/_test\.tsx?$/.test(name)) continue;
     const source = await Deno.readTextFile(file);
-    for (const match of source.matchAll(/from\s+"([^"]+)"/g)) {
+    for (const match of source.matchAll(/(?:from\s+|import\s+)"([^"]+)"/g)) {
       if (match[1] === PARSER_IMPORT) {
         assertEquals(name, PARSER_FILE);
         parsers += 1;
         continue;
       }
-      assert(ALLOWED_IMPORT.test(match[1]), `${name}: ${match[1]}`);
+      assert(importAllowed(name, match[1]), `${name}: ${match[1]}`);
       if (match[1].endsWith(".css")) {
-        assert(match[1].endsWith(".module.css"), `${name}: ${match[1]}`);
+        assert(
+          match[1].endsWith(".module.css") ||
+            name === PUBLIC_CSS_FILE && PUBLIC_CSS.has(match[1]),
+          `${name}: ${match[1]}`,
+        );
       }
     }
     assert(!FORBIDDEN_ICONS.test(source), `${name}: decorative icon`);
+    assert(
+      !/\beval\s*\(|\bnew\s+Function\s*\(/.test(source),
+      `${name}: script`,
+    );
     assert(!/\bstyle=\{/.test(source), `${name}: inline style`);
     assert(
       !/dangerouslySetInnerHTML|innerHTML|outerHTML/.test(source),

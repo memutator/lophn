@@ -122,6 +122,44 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - read snapshot의 정적 port map은 그대로다. 실제 writer Worker fixture도 이 등록을 쓴다.
   - `tx-ports_test.ts`, `tx-ports-failure_test.ts`에 R3, R4, R12, R13 테스트
 
+### T60 확정 ledger key의 REPLACE·UPSERT 우회 차단
+
+- 상태: 완료 (#62)
+- 등급: 좁은
+- concern: platform/ledger, platform/backup-and-migration
+- 요구: platform/ledger#R2, R10, platform/backup-and-migration#R1, R4, R5, R6
+- 자리: packages/platform/ledger/sqlite.ts, packages/platform/ledger/schema.ts, packages/platform/ledger/ledger_test.ts, packages/platform/ledger/sqlite-storage_test.ts, packages/platform/ledger/immutable_test.ts, packages/platform/backup-and-migration/migrations.ts, packages/platform/backup-and-migration/migrations_test.ts
+- 쓰는 contract: 등록 interface(SchemaStep)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: platform#T58
+- 완료: 아래 확인이 통과한다
+  - 연결은 기존 WAL·FULL·외래 키·5초 대기와 함께 `recursive_triggers=ON`의 실제 값 1을 확인하고 적용되지 않으면 `unavailable`로 기동을 거절한다. handler의 PRAGMA 거절은 유지한다(R2).
+  - `common-tables` SQL과 hash는 바꾸지 않고 `immutable-insert-guards` step으로 events seq·command 결과의 principal/key·schema 이력 version의 duplicate INSERT를 거절한다. migration bootstrap도 같은 이력 guard를 설치한다(R10, b&m R1).
+  - 새 DB와 common-tables만 적용한 DB upgrade에서 원래 SQL·hash·이력·event·결과가 보존되고 각 표의 INSERT OR REPLACE·REPLACE INTO·UPSERT(동일 내용 포함)는 실패한다. native recursive trigger OFF에서도 duplicate guard가 작동하고 configured 연결의 UPDATE·DELETE도 실패한다(R10, b&m R5).
+  - 다른 principal의 같은 key·새 key·새 migration version은 정상이며 malicious migration의 history REPLACE와 domain 쓰기는 함께 rollback된다. 기존 history/hash를 먼저 검증하는 흐름을 유지한다(b&m R1, R4, R6).
+  - `ledger_test.ts`, `sqlite-storage_test.ts`, `immutable_test.ts`, `migrations_test.ts`의 실제 파일 SQLite·WAL 회귀 테스트가 통과하고 각 파일은 400줄 이하다.
+
+### T59 다른 팀의 public ledger integration test harness
+
+- 상태: 완료 (#65)
+- 등급: 기본
+- concern: platform/ledger
+- 요구: platform/ledger#R1, R2, R3, R4, R10, R13, R14, R20, R21, R22
+- 자리: apps/core/testing/, tools/check-deps.ts, tools/check-deps_test.ts
+- 쓰는 contract: 등록 interface, AuthenticatedContext, Tx, ReadSnapshot
+- 내놓는 contract: 없음(테스트 전용 public entry)
+- slice: skeleton
+- 선행: platform#T58, platform#T60
+- 완료: 아래 확인이 통과한다
+  - 다른 팀 `*_test.ts`는 `apps/core/testing/ledger.ts` 하나로 static URL registration을 넘긴다. fixture URL은 caller의 `import.meta.url` 기준이고 함수와 PortKey identity는 각 Worker 안에서 다시 조립한다.
+  - harness가 임시 directory와 실제 파일 SQLite/WAL을 소유한다. writer Worker 하나는 migration 뒤 실제 serveWriter/executor를 쓰며 reader Worker 둘은 readOnly/query_only 연결과 실제 executeRead를 쓴다.
+  - 다섯 actor의 지정 scope/conditions를 현재 테스트 credential map으로 제어한다. set/revoke는 모든 Worker ack 뒤 다음 호출을 열고 command와 read는 현재 principal/actor/ref binding·만료·run 조건을 다시 검사한다. startup과 set의 credential snapshot을 첫 await 전에 고정하고 current targets의 own key restriction을 보존한다. read의 명시 run과 current bound run을 구별한다.
+  - Tx-local port factory와 guarded Tx/current context를 받는 blob callback, extra test-only lifecycle command를 지원한다. handler·이전 callback의 context mutation은 blob callback의 current snapshot을 바꾸지 못하며 callback의 blob_refs·domain·event·결과는 같은 transaction에서 rollback된다. 제품 credential 발급·core/API entry·T14 blob prepare/read·Tx.call dispatch·event visibility/replay는 만들지 않는다.
+  - inspect는 실제 read-only snapshot을 읽고 idle writer와 직렬된 write probe는 성공/실패 모두 rollback한다. 테스트 SQL control은 제품 WriterRequest에 추가하지 않는다.
+  - 중복 command name/read key/schema id/route와 singleton registration은 안전하게 기동 실패한다. 유한 pending cap·ready/request timeout, structured clone/Worker/partial startup 실패와 idempotent close의 Worker·파일 cleanup을 검증한다.
+  - 최소 public 사용 예제, file/WAL·atomic rollback·현재 credential·read metadata·per-Tx port identity·immutable REPLACE probe 회귀와 testing 내부 import 허용/제품 외부 import 거절 회귀가 통과한다.
+
 ### T3 read 처리: reader Worker와 snapshot
 
 - 등급: 기본
@@ -143,6 +181,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T4 event 배포, 구독, 반응 cursor
 
+- 상태: 완료 (#68)
 - 등급: 기본
 - concern: platform/ledger, platform/api
 - 요구: platform/ledger#R15, R16, R17, R18, platform/api#R5, R7
@@ -157,7 +196,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - batch 256개·256KiB, 연결 buffer 1MiB를 넘는 느린 연결은 `unavailable` frame 뒤 1013으로 닫는다. 회수된 자격은 1008(R16).
   - 이름 있는 구독의 ack는 자기 principal·이름에 묶여 `H/derived/api-subscriptions/`에 위치와 출처(DerivedProvenance)를 같은 로컬 transaction으로 저장한다. 후퇴·미관측 ack는 거절한다. 지워도 ledger는 그대로다(api R7, ledger R17, R18).
   - 등록 subscriber의 반응 cursor는 domain command와 같은 transaction에서 Tx로 올리고, idempotency 기준은 `(subscriber, cause_seq, reaction)`이다(R15).
-  - `events_test.ts`, `subscribe_test.ts`에 위 요구 테스트
+  - cursor CAS read와 갱신 SQL 전에 BEGIN 뒤 current credential의 full context로 owner를 검사한다. handler·이전 gate의 context mutation은 다음 검사에 반영하지 않는다. gate가 없거나 거절·malformed·Promise·thenable·getter/proxy inspection 실패·throw이면 sticky rollback이고, handler가 그 거절을 삼켜도 event·domain 변경·command 결과를 commit하지 않는다. owner 원문 오류는 숨기며 actor·run만 있는 transaction은 cursor를 올리지 못한다.
+  - `events_test.ts`, `subscribe_test.ts`, `reaction_test.ts`, `subscriber-guard_test.ts`, `ledger-infrastructure_test.ts`에 위 요구 테스트와 실제 writer Worker 회귀
 
 ### T5 identity: credential 발급·검증·회수
 
@@ -627,6 +667,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T30 test 자식 메모리 상한 adapter
 
+- 상태: 완료 (#69)
 - 등급: 기본
 - concern: platform/security
 - 요구: platform/security#R3, problems/tests#R20

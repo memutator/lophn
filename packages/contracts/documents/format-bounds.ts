@@ -27,7 +27,14 @@ export function jsonUtf8ByteLength(value: unknown): number {
 
 export function publicJsonBound<T extends z.ZodType>(schema: T) {
   return schema.refine(
-    (value) => jsonUtf8ByteLength(value) <= FORMAT_PUBLIC_JSON_MAX_BYTES,
+    (value) => {
+      try {
+        return jsonUtf8ByteLength(value) <= FORMAT_PUBLIC_JSON_MAX_BYTES;
+      } catch {
+        // 앞의 JSON guard가 거절한 값도 refinement에서 throw하지 않는다.
+        return false;
+      }
+    },
     { message: "public JSON exceeds 256KiB UTF-8" },
   );
 }

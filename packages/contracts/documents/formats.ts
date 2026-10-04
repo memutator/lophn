@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { defineRead, defineWorker, withReadCommon } from "../platform/mod.ts";
+import {
+  defineRead,
+  defineWorker,
+  jsonObjectSchema,
+  withReadCommon,
+} from "../platform/mod.ts";
 import { contentFilesOutputSchema } from "./versions.ts";
 import { documentFilesInputSchema } from "./document-files.ts";
 import { sha256Schema } from "../platform/values.ts";
@@ -49,23 +54,12 @@ export const DATA_MEDIA_TYPE = "*/*";
 const mediaTypeSchema = z.string().regex(
   /^[\w!#$&^.+*-]+\/[\w!#$&^.+*-]+$/,
 );
-const jsonValue: z.ZodType<unknown> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number(),
-    z.boolean(),
-    z.null(),
-    z.array(jsonValue),
-    z.record(z.string(), jsonValue),
-  ])
-);
-const jsonObject = z.record(z.string(), jsonValue);
 const declarationFields = {
   name: builtinFormatNameSchema,
   module_hash: sha256Schema,
   media_types: z.array(mediaTypeSchema).min(1),
-  structure: jsonObject,
-  metadata: jsonObject,
+  structure: jsonObjectSchema,
+  metadata: jsonObjectSchema,
   template: contentFilesOutputSchema,
   guide: z.object({
     text: z.string(),

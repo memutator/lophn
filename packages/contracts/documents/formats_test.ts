@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { ERROR_CODES } from "../../base/mod.ts";
+import { canonicalize, ERROR_CODES } from "../../base/mod.ts";
 import { routePath } from "../platform/mod.ts";
 import { documentFilesInputSchema } from "./document-files.ts";
 import { declaration, hash, input, section } from "./format-fixtures_test.ts";
@@ -107,6 +107,67 @@ Deno.test("documents/formats#R1: built-in format routes expose four names", () =
         },
       ],
     }).success,
+  );
+});
+
+Deno.test("documents/formats#R8: declaration JSON keeps own keys and public bytes", () => {
+  const json = JSON.parse(
+    '{"__proto__":{"type":"fixed"},"nested":{"__proto__":{"required":true}},"constructor":{"prototype":false}}',
+  );
+  const value = { ...declaration, structure: json, metadata: json };
+  const before = canonicalize(json);
+  const parsed = formatDeclarationSchema.parse(value);
+  assertEquals(canonicalize(parsed.structure), before);
+  assertEquals(canonicalize(parsed.metadata), before);
+  assertEquals(Object.getPrototypeOf(parsed.structure), Object.prototype);
+  const common = { as_of_seq: "1", next_cursor: null };
+  const listed = formatList.output.parse({ ...common, formats: [value] });
+  const fetched = formatGet.output.parse({ ...value, ...common });
+  assertEquals(canonicalize(listed.formats[0].structure), before);
+  assertEquals(canonicalize(fetched.metadata), before);
+  assertEquals(canonicalize(json), before);
+  const cyclic: Record<string, unknown> = {};
+  cyclic.self = cyclic;
+  for (
+    const invalid of [
+      { item: undefined },
+      { item: Infinity },
+      { item: 1n },
+      new Date(),
+      cyclic,
+    ]
+  ) {
+    assert(
+      !formatDeclarationSchema.safeParse({ ...value, structure: invalid })
+        .success,
+    );
+    assert(
+      !formatList.output.safeParse({
+        ...common,
+        formats: [{ ...value, metadata: invalid }],
+      }).success,
+    );
+    assert(
+      !formatGet.output.safeParse({ ...value, ...common, structure: invalid })
+        .success,
+    );
+  }
+  const oversized = JSON.parse(
+    `{"__proto__":"${"x".repeat(256 * 1024)}"}`,
+  );
+  assert(
+    !formatDeclarationSchema.safeParse({ ...value, metadata: oversized })
+      .success,
+  );
+  assert(
+    !formatList.output.safeParse({
+      ...common,
+      formats: [{ ...value, structure: oversized }],
+    }).success,
+  );
+  assert(
+    !formatGet.output.safeParse({ ...value, ...common, metadata: oversized })
+      .success,
   );
 });
 

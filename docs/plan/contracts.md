@@ -163,6 +163,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 #### T7 구현 메모: event 노출 정책
 
+- 상태: 완료 (#46)
 - 타입: `events.ts`의 `EventEnvelopeFor<D>`(envelope에서 `type`·`subject`·`payload`만 등록 event로 좁힌 값), `registration.ts`의 `EventVisibilityDefinition<D> = {event, handle(snapshot, ctx, event) → Result<boolean>}`, 둘 다 `platform/mod.ts`가 공개한다. `EventDefinition`·`defineEvent`·`Tx`·`ReadSnapshot`·`events/list` 입출력은 바꾸지 않았다. 등록 모양과 호출 형태(동기 `Result`, 읽기 전용 `ReadSnapshot`)만 고정하는 type이다. policy 구현은 자기 concern의 `definePort`로 만든 port를 `snapshot.port`로 받아 기존 길로만 읽는다.
 - 소비: core registry는 event type마다 owner policy 하나를 고정하고 같은 type에 policy가 두 개면 기동을 거부한다(safe 시작 오류). policy나 event가 등록되어 있지 않으면 fail-closed다(숨김).
 - 검사 대상: hook은 같은 `ReadSnapshot`, 지금 인증된 `RequestContext`(`ctx.credential_ref`로 현재 scope를 다시 검사), 그리고 검사 중인 그 envelope 하나를 받는다. 본문뿐 아니라 제목·주소·존재·개수·관계·근거가 새지 않게 subject와 payload가 참조하는 것을 전부 본다(platform/identity#R8).

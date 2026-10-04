@@ -2,10 +2,10 @@
 // 소유 route로 core에 닿고, propose는 변경안 접수, open은 결정 화면 링크다.
 // context·term 정의·assignment 관리는 화면의 몫이며 표에 없다(cli#R16).
 import {
+  CLI_DECISION_COMMANDS,
   cliApprovalListSchema,
   cliApprovalOpenSchema,
   cliApprovalShowSchema,
-  CLI_DECISION_COMMANDS,
   cliContextGlossarySchema,
   cliContextItemsSchema,
   cliContextListSchema,
@@ -22,8 +22,14 @@ import {
   outlineContext,
   termList,
 } from "../../../contracts/documents/mod.ts";
-import { approvalsGet, approvalsList } from "../../../contracts/platform/mod.ts";
-import { questionList, questionRead } from "../../../contracts/lophn-agent/mod.ts";
+import {
+  approvalsGet,
+  approvalsList,
+} from "../../../contracts/platform/mod.ts";
+import {
+  questionList,
+  questionRead,
+} from "../../../contracts/lophn-agent/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
 export const CONTEXT_COMMANDS: readonly CommandEntry[] = [

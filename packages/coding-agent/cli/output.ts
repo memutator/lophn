@@ -10,10 +10,7 @@ import {
   createKnownSecretRegistry,
   type KnownSecretRegistry,
 } from "../../platform/redaction/mod.ts";
-import {
-  createRedactionStream,
-  type RedactionStream,
-} from "../../platform/redaction/mod.ts";
+import { createRedactionStream } from "../../platform/redaction/mod.ts";
 
 export type OutputWriter = {
   result(result: AgentResult): Promise<void>;
@@ -58,28 +55,28 @@ export function createOutput(options: OutputOptions): OutputWriter {
   const registry = options.registry ?? createKnownSecretRegistry();
   async function emitResult(result: AgentResult): Promise<void> {
     if (json) {
-      write(stdout, `${JSON.stringify(result)}\n`);
+      await write(stdout, `${JSON.stringify(result)}\n`);
       return;
     }
-    write(stdout, `${result.summary}\n`);
+    await write(stdout, `${result.summary}\n`);
     for (const line of humanLines(result)) {
-      write(stdout, `${line}\n`);
+      await write(stdout, `${line}\n`);
     }
     if (result.next.length > 0) {
-      write(stdout, "다음 조회:\n");
+      await write(stdout, "다음 조회:\n");
       for (const item of result.next) {
-        write(stdout, `  ${item}\n`);
+        await write(stdout, `  ${item}\n`);
       }
     }
   }
   async function emitFailure(failure: AgentFailure): Promise<void> {
     if (json) {
-      write(stdout, `${JSON.stringify({ error: failure })}\n`);
+      await write(stdout, `${JSON.stringify({ error: failure })}\n`);
       return;
     }
-    write(stderr, `${redactText(registry, failure.message)}\n`);
+    await write(stderr, `${redactText(registry, failure.message)}\n`);
     if (failure.details !== undefined) {
-      write(
+      await write(
         stderr,
         `${redactText(registry, JSON.stringify(failure.details))}\n`,
       );
@@ -89,7 +86,7 @@ export function createOutput(options: OutputOptions): OutputWriter {
     result: emitResult,
     failure: emitFailure,
     async diagnostic(message) {
-      write(stderr, `${redactText(registry, message)}\n`);
+      await write(stderr, `${redactText(registry, message)}\n`);
     },
     exitCode(failure) {
       return cliExit(failure);

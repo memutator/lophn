@@ -13,7 +13,6 @@ import {
   searchQuery,
   searchStatus,
 } from "../../../contracts/documents/mod.ts";
-import type { Route } from "../../../contracts/platform/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
 export const INDEX_COMMANDS: readonly CommandEntry[] = [

@@ -10,11 +10,6 @@ export {
   VERSION_COMMAND,
 } from "./parser.ts";
 export type { CommandRef, ParsedArgs } from "./parser.ts";
-export { createOutput, CLI_EXITS } from "./output.ts";
+export { CLI_EXITS, createOutput } from "./output.ts";
 export type { OutputOptions, OutputWriter } from "./output.ts";
-export {
-  COMMAND_HELP,
-  commandHelp,
-  helpJson,
-  helpText,
-} from "./help.ts";
+export { COMMAND_HELP, commandHelp, helpJson, helpText } from "./help.ts";

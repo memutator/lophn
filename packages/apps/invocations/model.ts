@@ -1,11 +1,14 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { REDACTION_MAX_DEPTH, REDACTION_REPLACEMENT } from "../../contracts/platform/mod.ts";
+import {
+  REDACTION_MAX_DEPTH,
+  REDACTION_REPLACEMENT,
+} from "../../contracts/platform/mod.ts";
 import {
   type Invocation,
+  INVOCATION_SUMMARY_MAX_BYTES,
   type InvocationRecordDeniedInput,
   type InvocationRecordFinishedInput,
   type InvocationRecordStartedInput,
-  INVOCATION_SUMMARY_MAX_BYTES,
 } from "../../contracts/apps/mod.ts";
 
 function conflict(message: string): Result<never> {

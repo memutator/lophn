@@ -1,8 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  type Invocation,
-  invocationSchema,
-} from "../../contracts/apps/mod.ts";
+import { type Invocation, invocationSchema } from "../../contracts/apps/mod.ts";
 
 function invalidStored(): Result<never> {
   return err({ code: "internal", message: "invalid stored invocation" });
@@ -18,7 +15,9 @@ function jsonValue(value: unknown): Result<unknown> {
   }
 }
 
-export function invocationFromRow(row: Record<string, unknown>): Result<Invocation> {
+export function invocationFromRow(
+  row: Record<string, unknown>,
+): Result<Invocation> {
   const caller = jsonValue(row.caller);
   if (!caller.ok) return caller;
   const operation = jsonValue(row.operation);

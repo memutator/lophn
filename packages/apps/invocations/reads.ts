@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  type Invocation,
+  INVOCATION_STATUSES,
   invocationsGet,
   invocationsList,
-  type Invocation,
-  INVOCATION_LIST_MAX_COUNT,
-  INVOCATION_STATUSES,
 } from "../../contracts/apps/mod.ts";
 import type { ReadDefinition } from "../../contracts/platform/mod.ts";
 import { loadInvocation, loadInvocations } from "./store.ts";
@@ -13,7 +12,10 @@ import { loadInvocation, loadInvocations } from "./store.ts";
 const PAGE = 50;
 
 function invalidCursor(): Result<never> {
-  return err({ code: "invalid_input", message: "invalid invocation list cursor" });
+  return err({
+    code: "invalid_input",
+    message: "invalid invocation list cursor",
+  });
 }
 
 const cursorSchema = z.strictObject({

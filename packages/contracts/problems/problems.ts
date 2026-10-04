@@ -37,7 +37,6 @@ export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 // grouping#R8: 진행은 열림·고치는 중·닫힘 세 가지뿐이고 열린 repair ticket은 최대 하나다.
 export const PROBLEM_LIST_LIMIT = 100;
 
-
 const interpretationFields = {
   version: idSchema("ver"),
   section: sectionKeySchema.nullable(),

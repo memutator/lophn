@@ -5,7 +5,10 @@ import {
   questionActionEvidenceSchema,
   questionOptionSchema,
 } from "../../contracts/lophn-agent/mod.ts";
-import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
+import type {
+  AuthenticatedContext,
+  Sql,
+} from "../../contracts/platform/mod.ts";
 
 // 정본 질문에서 사람이 실제로 고른 option. lophn-agent의 question option action read가 채운다.
 // platform은 질문 상태를 직접 읽지 않고 이 값만 검증한다.
@@ -22,11 +25,10 @@ export type QuestionOptionSource = (
   question: string,
 ) => Result<ChosenQuestionOption>;
 
-// 같은 질문 option은 user로 한 번만 기록한다. 적용 확정은 ledger commit 성공 뒤다.
+// 같은 질문 option은 user로 한 번만 기록한다. 기록은 command transaction 안의
+// question_evidence 표다. rollback이면 행이 없고, commit이면 재시작 뒤에도 남는다.
 export type QuestionEvidenceUse = {
   reserve(question: string, option: string): Result<void>;
-  commit(question: string, option: string): void;
-  release(question: string, option: string): void;
 };
 
 // machine이 user로 기록할 수 있는 유일한 예외(identity R14). 정본 option의 고정 action과
@@ -70,30 +72,27 @@ export async function verifyQuestionEvidence(
   return use.reserve(claimed.data.question, claimed.data.option);
 }
 
-export function questionEvidenceUse(): QuestionEvidenceUse {
-  const used = new Set<string>();
-  const pending = new Set<string>();
-  const key = (question: string, option: string) =>
-    `${question}\u0000${option}`;
+// command transaction의 SQL로 기록한다. primary key가 일회를 강제하고
+// 불변 trigger가 기록 뒤 수정을 막는다. 같은 transaction이 rollback되면 행이 없다.
+export function questionEvidenceUse(
+  sql: Pick<Sql, "run">,
+  at: string,
+): QuestionEvidenceUse {
   return {
     reserve(question, option) {
-      const id = key(question, option);
-      if (used.has(id) || pending.has(id)) {
+      const key = `${question}\u0000${option}`;
+      try {
+        sql.run(
+          "insert into question_evidence (evidence_key, question, option, at) values (?, ?, ?, ?)",
+          [key, question, option, at],
+        );
+      } catch {
         return err({
           code: "conflict",
           message: "질문 option은 이미 적용했다",
         });
       }
-      pending.add(id);
       return ok(undefined);
-    },
-    commit(question, option) {
-      const id = key(question, option);
-      pending.delete(id);
-      used.add(id);
-    },
-    release(question, option) {
-      pending.delete(key(question, option));
     },
   };
 }

@@ -70,17 +70,49 @@ export function intersectScope(
       disjoint ||= !same(targets[key], limit);
     }
   }
+  const agent = intersectAgent(initial.agent, current.agent);
+  // agent 상한이 어긋나면 동작도 없다. 상한을 통째로 버리고 동작만 남기지 않는다.
+  if (agent === "disjoint") disjoint = true;
   return {
     operations: disjoint
       ? []
       : initial.operations.filter((name) => current.operations.includes(name)),
     targets,
-    // agent 상한은 시작 때 고정한다. 현재 제한이 다른 scope를 주면 교집합이 없다.
-    ...(initial.agent !== undefined && current.agent !== undefined &&
-        same(initial.agent, current.agent)
-      ? { agent: structuredClone(initial.agent) }
-      : {}),
+    ...(agent !== undefined && agent !== "disjoint" ? { agent } : {}),
   };
+}
+
+// agent 상한은 시작 scope와 현재 제한의 교집합이다. 넓히지 못하고 좁히기만 한다.
+// role·assignment가 다르면 교집합이 없다. app별 command·effect도 겹치는 것만 남긴다.
+function intersectAgent(
+  initial: AgentAppScope | undefined,
+  current: AgentAppScope | undefined,
+): AgentAppScope | "disjoint" | undefined {
+  if (initial === undefined || current === undefined) return undefined;
+  if (initial.role !== current.role || initial.assignment !== current.assignment) {
+    return "disjoint";
+  }
+  const apps = [];
+  for (const entry of initial.apps) {
+    const limit = current.apps.find((other) => other.app === entry.app);
+    if (limit === undefined) continue;
+    const commands = entry.commands.filter((name) =>
+      limit.commands.includes(name)
+    );
+    const effects = entry.effects.filter((effect) =>
+      limit.effects.includes(effect)
+    );
+    if (commands.length === 0 || effects.length === 0) continue;
+    apps.push({
+      app: entry.app,
+      commands,
+      effects,
+      // 둘 중 하나라도 요구하면 교집합도 요구한다. 제한을 풀지 않는다.
+      revert_required: entry.revert_required || limit.revert_required,
+      confirm_allowed: entry.confirm_allowed && limit.confirm_allowed,
+    });
+  }
+  return { role: initial.role, assignment: initial.assignment, apps };
 }
 
 export function operationCeiling(

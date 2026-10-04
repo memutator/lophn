@@ -35,7 +35,7 @@ import type {
 } from "./writer-message.ts";
 import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
 import { createCommandDispatch } from "./dispatch.ts";
-import { admitAgentRun, runMark } from "./commands.ts";
+import { admitAgentRun, runDisposition } from "./commands.ts";
 import { runTransaction, type TxDeps } from "./tx.ts";
 import { authorizeSubscriberCursor } from "./subscriber-registration.ts";
 import {
@@ -157,7 +157,7 @@ function applyCommand(
   const admitted = admitAgentRun(
     tx,
     requestContext(ctx, effectiveRun(ctx, envelope.run)),
-    runMark(definition),
+    runDisposition(definition),
   );
   if (!admitted.ok) return admitted;
   const before = headSeq(record);

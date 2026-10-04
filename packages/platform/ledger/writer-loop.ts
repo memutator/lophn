@@ -1,7 +1,6 @@
 import { err, internalError } from "../../base/mod.ts";
 import type { CommandDefinition } from "../../contracts/platform/mod.ts";
 import { executeCommand, readOwnResult } from "./executor.ts";
-import { bindRunMarks } from "./commands.ts";
 import { openConnection } from "./sqlite.ts";
 import type { WriterRegistration } from "./writer-registration.ts";
 import type { WriterRequest, WriterResponse } from "./writer-message.ts";
@@ -40,7 +39,6 @@ export function serveWriter(
     return;
   }
   const connection = opened.value;
-  bindRunMarks(registration.runMarks ?? {});
   const commands = new Map<string, CommandDefinition>();
   for (const definition of registration.commands) {
     commands.set(definition.route.name, definition);

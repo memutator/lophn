@@ -8,10 +8,10 @@ import {
   sha256Hex,
 } from "../../base/mod.ts";
 import {
-  agentCredentialScopeSchema,
   type AuthenticatedContext,
   authenticatedContextSchema,
   type CredentialConditions,
+  credentialScopeSchema,
 } from "../../contracts/platform/mod.ts";
 import { agentAppScopeSchema } from "../../contracts/lophn-agent/mod.ts";
 import {
@@ -109,15 +109,20 @@ export class CredentialRegistry {
   ): Promise<Result<{ token: string; credential_ref: string }>> {
     let userReserved = false;
     try {
-      const parsedScope = agentCredentialScopeSchema.safeParse(input.scope);
+      // agent 상한은 lophn-agent의 AgentAppScope 그대로다. platform contracts가
+      // scope.ts를 import하면 순환이므로 발급 경계가 그 schema로 검증한다.
+      const parsedScope = credentialScopeSchema.safeParse({
+        operations: input.scope.operations,
+        targets: input.scope.targets,
+      });
+      const boundAgent = input.scope.agent === undefined
+        ? undefined
+        : agentAppScopeSchema.safeParse(input.scope.agent);
       const parsed = parsedScope.success
         ? authenticatedContextSchema.safeParse({
           principal: input.principal,
           actor: input.actor,
-          scope: {
-            operations: parsedScope.data.operations,
-            targets: parsedScope.data.targets,
-          },
+          scope: parsedScope.data,
           conditions: input.conditions,
           credential_ref: "pending",
           ...(input.expires_at === undefined
@@ -126,14 +131,10 @@ export class CredentialRegistry {
         })
         : undefined;
       if (
-        !parsed?.success ||
+        !parsed?.success || boundAgent?.success === false ||
         (input.actor !== "user" && input.actor !== "machine" &&
           !input.actor.startsWith("agent:"))
       ) return invalid();
-      const boundAgent = parsedScope.data?.agent === undefined
-        ? undefined
-        : agentAppScopeSchema.safeParse(parsedScope.data.agent);
-      if (boundAgent && !boundAgent.success) return invalid();
       const context: AuthenticatedContext & { scope: AgentCredentialScope } = {
         ...parsed.data,
         scope: {
@@ -164,12 +165,11 @@ export class CredentialRegistry {
       // agent credential은 유효 assignment·run에 묶인다. scope.agent는 lophn-agent가
       // 계산한 상한 그대로이며 그 assignment와 같아야 한다. platform은 내용을 해석하지 않는다.
       if (input.actor.startsWith("agent:")) {
-        const bound = agentAppScopeSchema.safeParse(context.scope.agent);
         if (
-          !bound.success || !context.conditions.run ||
+          !boundAgent?.success || !context.conditions.run ||
           context.conditions.assignment !==
             input.actor.slice("agent:".length) ||
-          context.scope.agent?.assignment !== context.conditions.assignment ||
+          boundAgent.data.assignment !== context.conditions.assignment ||
           context.scope.targets.assignment !== context.conditions.assignment ||
           context.scope.targets.run !== context.conditions.run
         ) return invalid();

@@ -42,6 +42,26 @@ function chosen(
     ok<ChosenQuestionOption>({ option: { key, action: fixed }, reversible });
 }
 
+// 기록은 ledger 표다. 여기서는 그 표의 primary key와 같은 제약만 흉내 낸다.
+// rollback은 행을 지우고, 영속·재시작은 ledger 테스트가 실제 표로 본다.
+function memoryTable() {
+  const rows = new Set<string>();
+  return {
+    run(text: string, params: readonly unknown[]) {
+      if (!text.startsWith("insert")) {
+        throw new Error("question evidence는 insert만 한다");
+      }
+      const key = String(params[0]);
+      if (rows.has(key)) throw new Error("constraint");
+      rows.add(key);
+      return { changes: 1, lastInsertRowid: rows.size };
+    },
+    drop(question: string, option: string) {
+      rows.delete(`${question}\u0000${option}`);
+    },
+  };
+}
+
 async function verify(
   source: QuestionOptionSource,
   submitted: OptionAction = action,
@@ -50,8 +70,9 @@ async function verify(
     option: "adopt",
   },
   ctx: AuthenticatedContext = machine(),
+  table: ReturnType<typeof memoryTable> = memoryTable(),
 ) {
-  const use = questionEvidenceUse();
+  const use = questionEvidenceUse(table, "2026-01-01T00:00:00.000Z");
   const result = await verifyQuestionEvidence(
     ctx,
     evidence,
@@ -59,41 +80,41 @@ async function verify(
     source,
     use,
   );
-  return { result, use };
+  return { result, table };
 }
 
 Deno.test("platform/identity#R14: 사람이 고른 고정 option의 되돌릴 수 있는 action만 한 번 user로 기록한다", async () => {
   const first = await verify(chosen());
   assert(first.result.ok);
   // 같은 질문 option의 두 번째 적용은 거절한다.
-  const again = await verifyQuestionEvidence(
-    machine(),
-    { question: QST, option: "adopt" },
-    action,
+  const again = await verify(
     chosen(),
-    first.use,
-  );
-  assertEquals(code(again), "conflict");
-  // commit 실패는 예약을 풀어 다시 적용할 수 있다.
-  first.use.release(QST, "adopt");
-  const retried = await verifyQuestionEvidence(
-    machine(),
-    { question: QST, option: "adopt" },
     action,
-    chosen(),
-    first.use,
+    { question: QST, option: "adopt" },
+    machine(),
+    first.table,
   );
-  assert(retried.ok);
-  first.use.commit(QST, "adopt");
+  assertEquals(code(again.result), "conflict");
+  // rollback은 행을 지운다. 그러면 다시 적용할 수 있다.
+  first.table.drop(QST, "adopt");
+  const retried = await verify(
+    chosen(),
+    action,
+    { question: QST, option: "adopt" },
+    machine(),
+    first.table,
+  );
+  assert(retried.result.ok);
+  // 기록이 남으면 재적용은 거절된다.
   assertEquals(
     code(
-      await verifyQuestionEvidence(
-        machine(),
-        { question: QST, option: "adopt" },
-        action,
+      (await verify(
         chosen(),
-        first.use,
-      ),
+        action,
+        { question: QST, option: "adopt" },
+        machine(),
+        first.table,
+      )).result,
     ),
     "conflict",
   );

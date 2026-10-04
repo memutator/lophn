@@ -171,12 +171,7 @@ export async function assemble(boot: TestBoot) {
     return found;
   }
   let active: { tx: Tx; ctx: RequestContext } | undefined;
-  const runMarks: Record<string, { audit?: boolean; skip?: boolean }> = {};
-  for (const registration of registrations) {
-    Object.assign(runMarks, registration.runMarks ?? {});
-  }
   const writer: WriterRegistration = {
-    runMarks,
     commands: commands.map((definition) => ({
       ...definition,
       handle(tx, ctx, input, compare) {

@@ -2,7 +2,6 @@ import type { Clock, IdSource, Result } from "../../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
   BlobRefRegistration,
-  CommandDefinition,
   PermanentBlobReference,
   ReadDefinition,
   ReadRoute,
@@ -15,6 +14,7 @@ import type {
 import type {
   CommandEnvelope,
   CommandSuccess,
+  RunMarkedCommand,
   StoredCommandResult,
   TxPortRegistration,
 } from "../../../packages/platform/ledger/mod.ts";
@@ -25,10 +25,8 @@ export type LedgerTestEnvironment = {
 
 export type LedgerTestRegistration = {
   schemaSteps?: readonly SchemaStep[];
-  // command 이름별 run 판정 표시. ledger가 감사 보완과 gate 밖 쓰기를 구분한다.
-  runMarks?: Readonly<Record<string, { audit?: boolean; skip?: boolean }>>;
-  commands?: readonly CommandDefinition[];
-  testCommands?: readonly CommandDefinition[];
+  commands?: readonly RunMarkedCommand[];
+  testCommands?: readonly RunMarkedCommand[];
   reads?: readonly ReadDefinition[];
   ports?: readonly TxPortRegistration[];
   readPorts?: ReadonlyMap<unknown, unknown>;

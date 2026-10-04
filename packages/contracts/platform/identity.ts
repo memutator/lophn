@@ -27,18 +27,6 @@ const credentialScopeFields = {
 export const credentialScopeSchema = z.strictObject(credentialScopeFields);
 export type CredentialScope = z.infer<typeof credentialScopeSchema>;
 
-// agent credential만 싣는다. 내용은 lophn-agent의 AgentAppScope이며 platform은 해석하지
-// 않고 발급 뒤 상한을 넓히지 못하게만 한다(domain-model platform/identity CredentialScope).
-// scope.ts를 여기서 import하면 contracts 순환이 되므로 모양만 받고 검증은 발급 경계가 한다.
-export const agentCredentialScopeSchema = z.strictObject({
-  ...credentialScopeFields,
-  agent: z.object({
-    role: z.string(),
-    assignment: idSchema("asg"),
-    apps: z.array(z.object({}).catchall(z.unknown())),
-  }).optional(),
-});
-
 // OS의 realpath 판정은 host에 남기고 정규 절대 경로 모양만 검사한다.
 const cwdConditionSchema = z.string().min(1).refine(
   (value) =>

@@ -15,10 +15,18 @@ import {
   type LedgerTestEnvironment,
   type LedgerTestRegistration,
 } from "../../../apps/core/testing/ledger.ts";
-import { type CredentialIssue, CredentialRegistry } from "../identity/mod.ts";
+import {
+  type CredentialIssue,
+  CredentialRegistry,
+  questionEvidenceUse,
+} from "../identity/mod.ts";
 import { manualClock, seededRandom } from "../../base/mod.ts";
 import { defineSyncCommand } from "./handler.ts";
-import { runAdmission } from "./mod.ts";
+import { LEDGER_SCHEMA_STEPS, runAdmission } from "./mod.ts";
+import { applyMigrations } from "../backup-and-migration/mod.ts";
+import { openConnection } from "./sqlite.ts";
+import { runCommand } from "./writer.ts";
+import { deps } from "./command-harness.ts";
 
 const ASG = "asg_01arz3ndektsv4rrffq69g5fav";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
@@ -150,17 +158,19 @@ export function createLedgerTestRegistration(
         "create table run_status (run text primary key, status text not null)",
     }],
     ports: [admissionPort],
-    // 감사 보완과 gate 밖 쓰기를 command 이름과 분리한다. gate가 이 표만 본다.
-    runMarks: {
-      "agent.audit": { audit: true },
-      "agent.status": { skip: true },
-    },
     testCommands: [
       { route: changeRoute, handle: handle(changed), dispatchable: true },
-      { route: auditRoute, handle: handle(audited), dispatchable: true },
+      // 감사 보완은 command 정의에 붙는다. gate가 이 표시만 본다.
+      {
+        route: auditRoute,
+        handle: handle(audited),
+        dispatchable: true,
+        runDisposition: { audit: true },
+      },
       nested,
       {
         route: setStatus,
+        runDisposition: { skip: true },
         handle: (
           tx: Tx,
           _ctx: unknown,
@@ -336,5 +346,163 @@ Deno.test("platform/ledger#R11: run 상태를 확인할 수 없으면 새 대상
     assertEquals((count.value as { n: bigint }[])[0].n, 0n);
   } finally {
     await h.close();
+  }
+});
+
+// run 판정 port는 run ledger가 등록한다. 그 전에는 agent command가 막힌다.
+Deno.test("platform/ledger#R11: run 판정 port가 없으면 agent의 새 대상 변경은 거절한다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "lophn-agent-gate-" });
+  const path = `${dir}/ledger.db`;
+  try {
+    const applied = await applyMigrations(path, LEDGER_SCHEMA_STEPS, {
+      clock: manualClock(Date.UTC(2026, 0, 1)),
+    });
+    assert(applied.ok);
+    const opened = openConnection(path);
+    assert(opened.ok);
+    const connection = opened.value;
+    const change = defineSyncCommand(
+      changeRoute,
+      (tx: Tx) => ok({ seq: tx.emit(changed, RUN, {}) }),
+    );
+    const audit = {
+      ...defineSyncCommand(
+        auditRoute,
+        (tx: Tx) => ok({ seq: tx.emit(audited, RUN, {}) }),
+      ),
+      runDisposition: { audit: true },
+    };
+    const ctx = await issuedAgent();
+    const base = deps();
+    const denied = await runCommand(
+      connection,
+      base,
+      [change],
+      ctx,
+      envelope("agent.change", "no-port"),
+    );
+    assertEquals(denied.ok ? "" : denied.error.code, "unavailable");
+    // 사람·machine command는 run 판정 밖이다. port가 없어도 통과한다.
+    const person: AuthenticatedContext = {
+      actor: "machine",
+      principal: "task:apply",
+      credential_ref: "m",
+      scope: { operations: ["agent.change"], targets: { task: "apply" } },
+      conditions: { task: "apply", process: "worker" },
+    };
+    const passed = await runCommand(
+      connection,
+      base,
+      [change],
+      person,
+      envelope("agent.change", "machine"),
+    );
+    assert(passed.ok, JSON.stringify(passed));
+    // 끝난 run의 감사 보완은 표시가 command에 붙어 있으면 통과한다.
+    const finished = defineTxPort(runAdmission, () => ({
+      status: () => "finished" as const,
+    }));
+    const auditedOk = await runCommand(
+      connection,
+      { ...base, ports: [finished] },
+      [audit],
+      ctx,
+      envelope("agent.audit", "audit-marked"),
+    );
+    assert(auditedOk.ok, JSON.stringify(auditedOk));
+    connection.close();
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+const QST = "qst_01arz3ndektsv4rrffq69g5fav";
+
+const evidenceRoute = defineCommand({
+  resource: "agent",
+  method: "evidence",
+  name: "agent.evidence",
+  input: z.object({ question: z.string(), option: z.string() }),
+  output: z.object({ recorded: z.boolean() }),
+  actors: ACTOR_KINDS,
+  errors: ["conflict"],
+});
+
+const evidenceCommand = defineSyncCommand(
+  evidenceRoute,
+  (tx: Tx, _ctx, input) => {
+    const recorded = questionEvidenceUse(tx.sql, tx.now()).reserve(
+      input.question,
+      input.option,
+    );
+    return recorded.ok ? ok({ recorded: true }) : recorded;
+  },
+);
+
+function evidenceEnvelope(key: string) {
+  return {
+    command: "agent.evidence",
+    input: { question: QST, option: "adopt" },
+    compare: {},
+    idempotency_key: key,
+    prepared: [] as string[],
+  };
+}
+
+// 일회 적용은 ledger 표에 남는다. rollback은 행을 지우고, 재시작 뒤에도 거절한다.
+Deno.test("platform/identity#R14: 질문 option 적용은 재시작 뒤에도 한 번만 남는다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "lophn-evidence-" });
+  const path = `${dir}/ledger.db`;
+  const ctx: AuthenticatedContext = {
+    actor: "machine",
+    principal: "task:apply",
+    credential_ref: "m",
+    scope: { operations: ["agent.evidence"], targets: { task: "apply" } },
+    conditions: { task: "apply", process: "worker" },
+  };
+  try {
+    const applied = await applyMigrations(path, LEDGER_SCHEMA_STEPS, {
+      clock: manualClock(Date.UTC(2026, 0, 1)),
+    });
+    assert(applied.ok);
+    const first = openConnection(path);
+    assert(first.ok);
+    const recorded = await runCommand(
+      first.value,
+      deps(),
+      [evidenceCommand],
+      ctx,
+      evidenceEnvelope("once"),
+    );
+    assert(recorded.ok, JSON.stringify(recorded));
+    // 같은 writer의 두 번째 적용은 거절한다.
+    const again = await runCommand(
+      first.value,
+      deps(),
+      [evidenceCommand],
+      ctx,
+      evidenceEnvelope("twice"),
+    );
+    assertEquals(again.ok ? "" : again.error.code, "conflict");
+    first.value.close();
+    // 연결을 닫고 다시 열어도 표가 남아 거절한다.
+    const reopened = openConnection(path);
+    assert(reopened.ok);
+    const afterRestart = await runCommand(
+      reopened.value,
+      deps(),
+      [evidenceCommand],
+      ctx,
+      evidenceEnvelope("restarted"),
+    );
+    assertEquals(afterRestart.ok ? "" : afterRestart.error.code, "conflict");
+    const rows = reopened.value.sql.all(
+      "select question, option from question_evidence",
+      [],
+    );
+    assertEquals(rows, [{ question: QST, option: "adopt" }]);
+    reopened.value.close();
+  } finally {
+    await Deno.remove(dir, { recursive: true });
   }
 });

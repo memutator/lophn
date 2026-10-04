@@ -202,7 +202,7 @@ Deno.test("platform/ledger#R11: agent scope는 apps 연결 검사로 전달되�
     ),
     "forbidden",
   );
-  // 교집합은 시작 scope를 유지하고, 현재 제한이 다른 scope면 그 상한을 버린다.
+  // 같은 상한은 그대로 남고, 현재 제한이 넓혀도 시작 상한을 넘지 않는다.
   assertEquals(
     intersectScope(ctx.scope, {
       operations: ["identity/current"],
@@ -217,6 +217,25 @@ Deno.test("platform/ledger#R11: agent scope는 apps 연결 검사로 전달되�
       targets: { assignment: ASG, run: RUN },
       agent: widerScope,
     }).agent,
-    undefined,
+    agentScope,
   );
+  // 현재 제한이 좁히면 교집합만 남는다. 상한을 통째로 버리지 않는다.
+  const narrowed = intersectScope(ctx.scope, {
+    operations: ["identity/current"],
+    targets: { assignment: ASG, run: RUN },
+    agent: {
+      ...agentScope,
+      apps: [{ ...agentScope.apps[0], commands: [] }],
+    },
+  });
+  assertEquals(narrowed.agent?.apps, []);
+  assertEquals(narrowed.operations, ["identity/current"]);
+  // role이 다르면 교집합이 없고 동작도 남지 않는다.
+  const foreign = intersectScope(ctx.scope, {
+    operations: ["identity/current"],
+    targets: { assignment: ASG, run: RUN },
+    agent: { ...agentScope, role: "operator" },
+  });
+  assertEquals(foreign.agent, undefined);
+  assertEquals(foreign.operations, []);
 });

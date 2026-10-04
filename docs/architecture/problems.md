@@ -97,12 +97,18 @@ problems/reporting#R12,R16·problems/feedback#R8,R9·problems/snapshots#R10,R12,
 | `reports` | `problems/reporting-ledger.ts` | 불변 Report, 원주체·content hash·당시 실행 범위·Snapshot 참조 |
 | `snapshots` | `problems/snapshots-ledger.ts` | 증거 값과 항목별 누락 이유, 큰 내용은 blob hash |
 | `problems` | `problems/grouping-ledger.ts` | app+canonical group key unique, 3상태, work·interpretation·closure |
-| `verifications` | `problems/tests-ledger.ts` | 불변 Verification, 요청 principal/key/hash, 고정 대상·test·execution·관측 hash |
-| `verification_reports` | `problems/tests-ledger.ts` | reproduction과 원래 Report 연결 |
+| `test_requests` | `packages/problems/tests` | 접수·준비 실패·시작 시도·실제 시작·시작 확인 불가·runner 교체·결과 참조. append-only이며 상태를 바꾸는 큐가 아니다 |
+| `test_side_starts` | `packages/problems/tests` | 접수 hash·시작 당시 runner·side·bundle·test·실제 시작 시각. recovery는 바꾸지 않는다 |
+| `verifications` | `packages/problems/tests` | 불변 Verification 전체 canonical, 요청 principal/key/hash, 고정 대상·test·execution·관측 hash |
+| `verification_reports` | `packages/problems/tests` | reproduction과 원래 Report 연결 |
 | `events`의 `ProblemFixRecorded` | payload는 `problems/repairs-ledger.ts`, 표는 platform | FixRecord; 전용 repair 표 없음; 식별은 event seq |
-| 공통 `command_results`, `subscriber_cursors` | platform | test 접수·시작·복구와 event 반응 위치; problems 전용 queue 표 없음 |
+| 공통 `command_results`, `subscriber_cursors` | platform | command idempotency와 event 반응 위치. test 요청 정본은 `test_requests`다 |
 
 `reports`·`snapshots`·`problems`의 신규 변경과 event 및 영구 blob 참조 등록은 `RecordReport` transaction 하나다. 첫 접수 시도 전에 collector가 최종 Report·Snapshot·선택 문제·blob hash를 canonical JSON으로 hash한다. 서버가 정한 problem ID와 event seq는 그 hash에 넣지 않는다. 같은 ID·원주체·내용이면 원래 결과, 다른 내용이면 `conflict`다.
+
+tests owner는 bounded canonical JSON sync SHA256로 request·FrozenTest·execution·observations를 저장 hash에 묶는다. 전체 Verification canonical retry는 준비 TTL 이후에도 원 event seq이며 현재 runner/request scope를 다시 검사한다. lifecycle은 아직 public wire가 아니며 `RecordVerification`과 독립된 owner-local observe/recover operation과 trusted proof의 이전/새 runner binding을 인증 ctx·CAS에 결합한다. start_attempt 없는 actual 시작과 start_unknown/recovery 뒤 새 side 시작은 금지다. 같은 phase는 unique가 아니어서 두 reproduction actual_started와 여러 recovery를 append한다. owner 표의 PK·unique·implicit rowid replacement는 immutable trigger로 막는다. 실제 side 시작 뒤 request-level preparation_failed는 conflict이고 준비 실패 요청은 신규 결과가 없다. reports 중복은 invalid_input이며 parent canonical에 선언한 link만 result_ref 전에 등록하고 read는 canonical 순서와 link set 일치를 지킨다.
+
+core의 problems 정의는 고정 blob purpose와 permanent/general_read=false field도 내놓는다. failure path는 `verification_failure_path`, `<vrf ID>:<index>`, `test`로 영구 등록해서 같은 code의 여러 hash를 보존한다. 부모 권한 해석은 platform blob authorizer가 조립한다. GetTestRequest의 request seq는 event seq가 아니고 accepted는 event 없는 snapshot 0에서도 보인다. Verification list는 request-specific scope를 SQL LIMIT 전에 적용하며 event visibility는 전체 scope·ticket·recorded_seq/event seq와 snapshot을 비교한다. 세부 불변 조건은 domain-model/problems/tests가 정한다.
 
 문제의 수·처음/최근 시각·대표 보고·최신 변경 seq는 Report와 event로 조회한다. 별도 counter 정본이나 health 상태를 만들지 않는다. `work`는 하나지만 ticket은 여러 문제를 가리킬 수 있다. 닫힘·feedback·problem code에는 전용 표가 없다.
 
@@ -373,7 +379,7 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
 | source map·binding 출처 불명 | map/frame 부재는 이유·Report별 key; 실행 귀속 자체가 불명인 관측은 platform/diagnostics |
 | 디스크 부족 | 기존 blob 삭제로 숨기지 않음. 큰 신규 항목 제외/작은 접수 실패, 공간·내보내기·한도 조정 안내 |
 
-test 요청 접수·고정 입력 참조·시작 시도·runner 식별·복구 처리 위치는 **command**의 공통 기록으로 관리한다. 시작 시도를 확정하기 전 자식을 띄우지 않되 그 기록만으로 실제 execution을 만들지 않는다. runner가 spawn 성공·실제 started_at을 관측한 사실과 감독의 자식 lifecycle을 복구 근거로 쓴다. 시작 여부 자체를 모르면 실제 시작/성공을 꾸미지 않고 공통 요청 조회에 확인 불가로 남긴다.
+test 요청 접수·고정 입력 참조·시작 시도·runner 식별·복구 처리 위치는 problems 소유 `test_requests`의 append-only 기록이다. side별 실제 시작은 `test_side_starts`다. platform 공통 command 기록은 이 정본이 아니다. 시작 시도를 확정하기 전 자식을 띄우지 않되 그 기록만으로 실제 execution을 만들지 않는다. runner가 spawn 성공·실제 started_at을 관측한 사실과 감독의 자식 lifecycle을 복구 근거로 쓴다. 시작 여부 자체를 모르면 실제 시작/성공을 꾸미지 않고 GetTestRequest에 확인 불가로 남긴다. lifecycle wire는 T8 입구가 맡는다.
 
 이미 시작한 요청은 재시작으로 처음부터 다시 돌리지 않는다. 재실행은 새 request key·Verification ID다. 복구 runner도 해당 요청의 결과 기록만 가능한 machine scope를 받으며 테스트 자식은 받지 않는다. 작업 폴더가 결과 정본이 되지 않고 유일한 확정 사실은 ledger다.
 

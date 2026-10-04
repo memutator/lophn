@@ -22,6 +22,16 @@ import {
   type TxPortRegistration,
   type WriterRegistration,
 } from "../../packages/platform/ledger/mod.ts";
+import {
+  type BlobFieldDefinition,
+  type RequestContext,
+  type Tx,
+} from "../../packages/contracts/platform/mod.ts";
+import {
+  createBlobRegistrar,
+  createPreparationRegistry,
+  type PreparationRegistry,
+} from "../../packages/platform/blob-store/mod.ts";
 import type { TeamModule } from "./registration.ts";
 
 export type WriterBoot = {
@@ -34,6 +44,7 @@ export type WriterBoot = {
 type Loose = {
   commands?: readonly CommandDefinition[];
   ports?: readonly TxPortRegistration[] | Record<string, unknown>;
+  blobFields?: readonly BlobFieldDefinition[];
 };
 
 // writer Worker 안에서 팀 등록을 다시 조립한다.
@@ -42,12 +53,19 @@ export async function assembleWriter(
   boot: WriterBoot,
   connection: LedgerConnection,
 ): Promise<
-  WriterRegistration & { confirmationRegistry: ConfirmationRegistry }
+  WriterRegistration & {
+    confirmationRegistry: ConfirmationRegistry;
+    preparations: PreparationRegistry;
+    noteRequest(ctx: RequestContext | undefined): void;
+    noteBlobTime(nowMs: number): void;
+    onTx(tx: Tx | undefined): void;
+  }
 > {
   const clock = manualClock(boot.nowMs);
   const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
   const ports: TxPortRegistration[] = [];
   const names = new Set(commands.map((command) => command.route.name));
+  const blobFields: BlobFieldDefinition[] = [];
   for (const url of boot.modules) {
     const team: TeamModule = await import(url);
     const loose = teamRegistration(team);
@@ -59,7 +77,14 @@ export async function assembleWriter(
       commands.push(command);
     }
     ports.push(...portList(loose?.ports));
+    blobFields.push(...loose?.blobFields ?? []);
   }
+  const preparations = createPreparationRegistry();
+  // writer는 command를 한 줄로 처리하므로 진행 중인 요청의 자격을 여기 둔다.
+  let currentRequest: RequestContext | undefined;
+  let currentTx: Tx | undefined;
+  // writer clock은 기동 시각에 고정된다. 만기 판정은 core가 알린 최신 시각을 쓴다.
+  let blobNowMs = boot.nowMs;
   const random = seededRandom(boot.seed + 1);
   const confirmationRegistry = new ConfirmationRegistry({
     clock,
@@ -72,8 +97,32 @@ export async function assembleWriter(
     clock,
     ids: createIdSource({ clock, random: seededRandom(boot.seed) }),
     ports,
-    registerBlobRef: () =>
-      err({ code: "unavailable", message: "blob 참조 등록은 아직 없다" }),
+    // 준비 참조는 writer 메모리에 있다. core가 준비 성공을 알리고, 등록은 그 메모리를 본다(R4).
+    registerBlobRef: (reference) => {
+      const tx = currentTx;
+      if (!tx) {
+        return err({
+          code: "unavailable",
+          message: "blob 등록 transaction이 없다",
+        });
+      }
+      return createBlobRegistrar({
+        preparations,
+        fields: blobFields,
+        nowMs: () => blobNowMs,
+        current: () => currentRequest,
+      })(tx.sql, reference);
+    },
+    preparations,
+    noteRequest(ctx: RequestContext | undefined) {
+      currentRequest = ctx;
+    },
+    noteBlobTime(nowMs: number) {
+      if (nowMs > blobNowMs) blobNowMs = nowMs;
+    },
+    onTx(tx: Tx | undefined) {
+      currentTx = tx;
+    },
     call: () => err({ code: "unavailable", message: "Tx.call dispatch 없음" }),
     checkCredential: (ctx) => checkCredential(connection, ctx),
   };

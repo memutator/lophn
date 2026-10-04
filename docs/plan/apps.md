@@ -201,6 +201,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 완료:
   - `model_test.ts`: 상태 전이(없음·accepted→running→succeeded/failed/unknown, denied), terminal 뒤 늦은 start가 running으로 되돌리지 않음, 같은 사실 재전송은 같은 결과·다른 종료 사실은 conflict(R6), accepted만 있으면 started_at 없음(R9), 알려진 ID만 unknown으로 확정·모르는 호출은 만들지 않음(R10)
   - `reads_test.ts`: release 교체 뒤에도 당시 release·operation·trigger·mode·actor·caller가 그대로(R3), command를 지운 새 release 뒤에도 당시 blueprint로 설명(apps/releases#R17), A→B와 agent→B의 caller(app·release·parent / run·tool_call) 구별과 부모 없으면 없음(R16), confirm에서 actor·caller는 요청자이고 approval은 별도 참조(R17), succeeded는 handler 반환일 뿐 업무 정확성 필드를 두지 않음(R13), summary 16KiB·redaction 뒤 secret 없음(R15)
+  - 상태: 완료 (#161)
 
 ### T12 invocation 후행 전달과 confirm 실행
 

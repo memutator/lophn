@@ -113,7 +113,7 @@ async function start() {
       complete = (reply) => {
         complete = undefined;
         resolve(
-          reply.op === "closed"
+          reply.op === "closed" || reply.op === "blob-noted"
             ? ok(undefined)
             : reply.op === "failed"
             ? err(reply.body)

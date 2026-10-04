@@ -10,6 +10,7 @@ import {
 } from "../../packages/base/mod.ts";
 import {
   BLOB_PREPARE_OP,
+  BLOB_READ_OP,
   type BlobPrepareChunk,
 } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -23,13 +24,19 @@ export type BlobPrepareRelay = {
     input: { principal: string; purpose: string; expectedHash?: string },
     bytes: ReadableStream<Uint8Array>,
   ): Promise<Result<PreparedRelayResult>>;
-  // 살아 있는 준비 참조인지 메모리 판정. 파일을 다시 보지 않는다.
+  // 준비 성공을 writer에 알린 뒤 끝난다. 알림이 실패하면 준비도 실패다.
   live(
     prepared: { hash: string; principal: string; purpose: string },
     nowMs: number,
   ): boolean;
   // 만기 참조를 떨어뜨린다.
   prune(nowMs: number): void;
+  // I/O worker가 설치한 blob의 구간을 읽는다. core는 파일을 열지 않는다.
+  readBytes(
+    hash: string,
+    offset: number,
+    length: number,
+  ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
   readonly size: number;
 };
 
@@ -51,6 +58,8 @@ export type BlobRelayDeps = {
   // 준비 참조 registry. 등록은 worker_response 성공 때 한다.
   registry: PreparationRegistry;
   nowMs(): number;
+  // writer 메모리에 같은 참조를 남긴다. 등록 판정은 그 메모리를 본다.
+  note(prepared: PreparedRelayResult, nowMs: number): Promise<Result<void>>;
 };
 
 export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
@@ -60,20 +69,8 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
       channelCounter = channelCounter % 0xffffffff + 1;
       const channel = channelCounter;
       const requestId = `blob-prepare-${channel}-${deps.nowMs()}`;
-      // 요청 json을 먼저 보내고 byte chunk를 뒤에 묶는다.
-      await deps.send({
-        type: "worker_request",
-        request_id: requestId,
-        op: BLOB_PREPARE_OP,
-        channel,
-        payload: {
-          principal: input.principal,
-          purpose: input.purpose,
-          ...(input.expectedHash !== undefined
-            ? { expected_hash: input.expectedHash }
-            : {}),
-        },
-      });
+      // child dispatch는 frame을 하나씩 처리한다. byte chunk를 요청 json보다 먼저
+      // 보내야 worker가 요청을 볼 때 이미 내용이 모여 있다(Q6).
       const chunks: BlobPrepareChunk[] = [];
       const reader = bytes.getReader();
       for (;;) {
@@ -87,6 +84,19 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
       for (const chunk of chunks) {
         await deps.sendBytes(chunk.channel, chunk.payload);
       }
+      await deps.send({
+        type: "worker_request",
+        request_id: requestId,
+        op: BLOB_PREPARE_OP,
+        channel,
+        payload: {
+          principal: input.principal,
+          purpose: input.purpose,
+          ...(input.expectedHash !== undefined
+            ? { expected_hash: input.expectedHash }
+            : {}),
+        },
+      });
       const answered = await waitFor(deps.responses, requestId);
       if (!answered.ok) {
         return err(answered.error);
@@ -104,6 +114,9 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
         deps.nowMs(),
       );
       if (!registered.ok) return registered;
+      // writer가 이 참조를 보기 전에 끝나면 등록 command가 살아 있는 준비를 못 찾는다.
+      const noted = await deps.note(payload, deps.nowMs());
+      if (!noted.ok) return noted;
       return ok(payload);
     },
     live(prepared, nowMs) {
@@ -112,6 +125,27 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
     },
     prune(nowMs) {
       deps.registry.prune(nowMs);
+    },
+    async readBytes(hash, offset, length) {
+      channelCounter = channelCounter % 0xffffffff + 1;
+      const requestId = `blob-read-${channelCounter}-${deps.nowMs()}`;
+      await deps.send({
+        type: "worker_request",
+        request_id: requestId,
+        op: BLOB_READ_OP,
+        payload: { hash, offset, length },
+      });
+      const answered = await waitFor(deps.responses, requestId);
+      if (!answered.ok) return err(answered.error);
+      const payload = answered.payload as {
+        hash: string;
+        size_bytes: number;
+        bytes: string;
+      };
+      const raw = atob(payload.bytes);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      return ok({ hash: payload.hash, sizeBytes: payload.size_bytes, bytes });
     },
     get size() {
       return deps.registry.size;

@@ -259,3 +259,5 @@ export * from "./approvals.ts";
 export * from "./notifications.ts";
 export * from "./secrets.ts";
 export * from "./secret-exchange.ts";
+// settings 교환 TOML의 비공개 pipe op이다. 공개 HTTP route 배열에는 들어가지 않는다.
+export * from "./settings-exchange.ts";

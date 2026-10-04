@@ -22,6 +22,7 @@ import {
   actorSchema,
   authenticatedContextSchema,
 } from "../../../packages/contracts/platform/mod.ts";
+import type { PreparedBlob } from "../../../packages/contracts/platform/mod.ts";
 import { type Core, startCore } from "../core.ts";
 import type { TeamModule } from "../registration.ts";
 
@@ -46,6 +47,8 @@ export type CoreHarness = {
   credential(
     input: CoreHarnessCredential,
   ): Promise<Result<{ token: string; context: AuthenticatedContext }>>;
+  // 준비 참조를 writer 메모리에 심는다. I/O worker 없이 등록 경로를 시험할 때 쓴다.
+  notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   close(): Promise<void>;
 };
 
@@ -102,6 +105,12 @@ export async function createCoreHarness(
       const recorded = await core.record(built.value);
       if (!recorded.ok) return recorded;
       return ok({ token, context: built.value });
+    },
+    async notePrepared(prepared, nowMs) {
+      if (!core.notePrepared) {
+        return err({ code: "unavailable", message: "준비 참조 입구가 없다" });
+      }
+      return await core.notePrepared(prepared, nowMs);
     },
     async close() {
       await core.shutdown();

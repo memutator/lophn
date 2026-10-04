@@ -586,6 +586,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: agent credential 발급(agent runtime 경계)
 - slice: agent
 - 선행: platform#T9, contracts#T28(QuestionActionEvidence), contracts#T26(`runs/read`), lophn-agent의 question contract
+- 상태: 완료 (#130)
 - 완료: 아래 확인이 통과한다
   - 유효 assignment·run 시작에서 agent runtime에 `agent:<asg>` credential을 주고 run 종료·멈춤·감독 상실에 끝낸다. agent runtime 자체는 machine credential을 받는다.
   - agent scope에는 lophn-agent가 계산한 AgentAppScope(contracts/lophn-agent 타입)가 실리고 AuthenticatedContext로 apps 연결 검사에 전달된다. platform은 그 내용을 해석하지 않고 상한을 넓히지 못하게만 한다(lophn-agent 요청). identity domain model의 CredentialScope를 같은 PR에서 고친다.

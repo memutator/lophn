@@ -1,4 +1,5 @@
 export {
+  type AgentCredentialScope,
   authorize,
   authorizeConditions,
   CONDITION_TARGET_KEYS,
@@ -31,3 +32,10 @@ export {
   disconnectedConfirmationBridge,
 } from "./confirmation-bridge.ts";
 export { consumeRouteConfirmation } from "./confirmation-route.ts";
+export {
+  type ChosenQuestionOption,
+  type QuestionEvidenceUse,
+  questionEvidenceUse,
+  type QuestionOptionSource,
+  verifyQuestionEvidence,
+} from "./question-evidence.ts";

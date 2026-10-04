@@ -158,6 +158,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T9 connection core: 표·생성·회수·read·principal 해석
 
+- 상태: 완료 (#86)
 - 등급: 기본
 - concern: coding-agent/connection
 - 요구: coding-agent/connection#R2, R3, R4, R5, R7, R8

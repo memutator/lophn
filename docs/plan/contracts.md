@@ -457,6 +457,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T23 contracts/platform: secret
 
+- 상태: 완료 (#36)
 - 등급: 기본
 - concern: platform/secrets
 - 요구: platform/secrets#R1–R9, R11, R12

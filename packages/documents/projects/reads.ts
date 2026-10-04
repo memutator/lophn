@@ -32,12 +32,10 @@ import {
   authorizeProject,
   denied,
   dependencyUnavailable,
-  type ProjectAuthorizer,
   synchronousResult,
 } from "./authorization.ts";
 
 export type ProjectReadDeps = {
-  authorize: ProjectAuthorizer;
   documents(
     snapshot: ReadSnapshot,
     project: string,
@@ -105,7 +103,7 @@ function allowed(
   project: Project,
 ): Result<{ project: Project; documents: readonly FixedDocumentRef[] } | null> {
   if (typeof deps?.documents !== "function") return dependencyUnavailable();
-  const decision = authorizeProject(deps?.authorize, ctx, operation, {
+  const decision = authorizeProject(snapshot.port, ctx, operation, {
     kind: "project",
     project,
   });
@@ -123,7 +121,7 @@ function allowed(
   for (const candidate of documents.value) {
     const parsed = fixedDocumentRefOutputSchema.safeParse(candidate);
     if (!parsed.success) return invalidProjection();
-    const access = authorizeProject(deps.authorize, ctx, operation, {
+    const access = authorizeProject(snapshot.port, ctx, operation, {
       kind: "document",
       project,
       document: { ...parsed.data, version: parsed.data.version },
@@ -159,10 +157,9 @@ export function createProjectReads(deps: ProjectReadDeps): {
       handle(snapshot, ctx, input) {
         const actor = requireReadActor(ctx);
         if (!actor.ok) return actor;
-        if (
-          typeof deps?.authorize !== "function" ||
-          typeof deps?.documents !== "function"
-        ) return dependencyUnavailable();
+        if (typeof deps?.documents !== "function") {
+          return dependencyUnavailable();
+        }
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
         const visible: (UserProject | AgentProject)[] = [];
@@ -189,7 +186,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
         }
         const limit = input.limit ?? PAGE;
         const basis = projectPageBasis(
-          snapshot,
+          { as_of_seq: snapshot.as_of_seq },
           ctx,
           input.status,
           limit,
@@ -221,10 +218,9 @@ export function createProjectReads(deps: ProjectReadDeps): {
       handle(snapshot, ctx, input) {
         const actor = requireReadActor(ctx);
         if (!actor.ok) return actor;
-        if (
-          typeof deps?.authorize !== "function" ||
-          typeof deps?.documents !== "function"
-        ) return dependencyUnavailable();
+        if (typeof deps?.documents !== "function") {
+          return dependencyUnavailable();
+        }
         const project = loadProject(snapshot.sql, input.project);
         if (!project.ok) return project;
         if (project.value === null) return notFound();
@@ -259,10 +255,9 @@ export function createProjectReads(deps: ProjectReadDeps): {
             message: "project resolve is user only",
           });
         }
-        if (
-          typeof deps?.authorize !== "function" ||
-          typeof deps?.documents !== "function"
-        ) return dependencyUnavailable();
+        if (typeof deps?.documents !== "function") {
+          return dependencyUnavailable();
+        }
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
         const roots = projects.value.flatMap((project) =>
@@ -356,7 +351,6 @@ export function createProjectReads(deps: ProjectReadDeps): {
             message: "tracking roots are machine only",
           });
         }
-        if (typeof deps?.authorize !== "function") return unavailable();
         const projects = loadProjects(snapshot.sql);
         if (!projects.ok) return projects;
         const roots: { project: string; revision: string; path: string }[] = [];
@@ -365,7 +359,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
             continue;
           }
           const access = authorizeProject(
-            deps.authorize,
+            snapshot.port,
             ctx,
             projectTrackingRoots.name,
             { kind: "project", project },

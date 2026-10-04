@@ -6,6 +6,7 @@ import type {
 import { decodeUtf8 } from "./utf8.ts";
 
 const SHA256 = /^[0-9a-f]{64}$/;
+// deno-lint-ignore no-control-regex -- 경로에 control character를 막는다.
 const RELATIVE_PATH = /^(?!\/)(?![A-Za-z]:)[^\\\u0000-\u001f\u007f]+$/;
 
 export type FormatModuleFile = {
@@ -104,7 +105,10 @@ function byteArray(value: readonly number[]): boolean {
 // 파일 모양과 primary 하나만 본다. media type 해석은 module이 한다.
 export function primaryFile(
   input: FormatModuleInput,
-): { ok: true; primary: FormatModuleFile } | { ok: false; issues: InputIssue[] } {
+): { ok: true; primary: FormatModuleFile } | {
+  ok: false;
+  issues: InputIssue[];
+} {
   const issues: InputIssue[] = [];
   if (!SHA256.test(input.input_hash) || !SHA256.test(input.module_hash)) {
     issues.push({

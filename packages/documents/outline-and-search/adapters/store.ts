@@ -3,7 +3,7 @@
 // read 연결은 query_only로 열어 쓰기가 없다.
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type { SchemaStep } from "../../../contracts/platform/mod.ts";
+import type { SchemaStep, SqlParams } from "../../../contracts/platform/mod.ts";
 import { outlineAndSearchSchemaSteps } from "../schema.ts";
 
 export type DerivedStoreWrite = {
@@ -22,12 +22,12 @@ export type DerivedRead = {
 };
 
 export type DerivedSql = {
-  run(sql: string, params: readonly unknown[]): {
+  run(sql: string, params: SqlParams): {
     changes: number | bigint;
     lastInsertRowid: number | bigint;
   };
-  get(sql: string, params: readonly unknown[]): Record<string, unknown> | undefined;
-  all(sql: string, params: readonly unknown[]): Record<string, unknown>[];
+  get(sql: string, params: SqlParams): Record<string, unknown> | undefined;
+  all(sql: string, params: SqlParams): Record<string, unknown>[];
 };
 
 export type DerivedOpen = Result<DerivedStore>;

@@ -12,6 +12,9 @@ import { runTransaction, type TxCall, type TxDeps } from "./tx.ts";
 export { LEDGER_SCHEMA_STEPS };
 export { openConnection };
 export type { LedgerConnection };
+export { createReaderPool } from "./reader-pool.ts";
+export type { ReaderHealth, ReaderPool } from "./reader-pool.ts";
+export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
 
 export type LedgerDeps = {
   clock: Clock;

@@ -32,7 +32,7 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 | shell                                     | Electron, Node 24 LTS                                               | `apps/shell/main`만 npm과 package-lock. 이전 lophn은 Electron 44                                                                                              |
 | ledger, 앱 DB, derived store              | SQLite (Deno의 `node:sqlite`), WAL, FTS5                            |                                                                                                                                                               |
 | renderer, SDK UI                          | React, CodeMirror 6                                                 | 이전 lophn shell과 같다                                                                                                                                       |
-| 터미널                                    | xterm.js, node-pty(ConPTY)                                          |                                                                                                                                                               |
+| 터미널                                    | xterm.js, node-pty 1.1.0(POSIX PTY, Windows ConPTY)                 | Electron 44.5.1(Node 24.21, NODE_MODULE_VERSION 149)용 linux prebuild는 없다. `@electron/rebuild` 4.2.0이 electron 헤더로 `node-pty`를 다시 빌드한다          |
 | schema                                    | Zod 한 가지                                                         | contracts와 경계 검사. 예외: 앱이 import하는 blueprint 검증기는 의존성 없는 순수 TS(`packages/contracts/apps/blueprint.ts`, `@lophn/blueprint`가 다시 내보냄) |
 | format, lint                              | `deno fmt`, `deno lint`                                             | 저장소 전체(npm 쪽 포함)                                                                                                                                      |
 | 테스트                                    | `deno test`; shell main은 `node --test`; E2E는 Playwright(Electron) |                                                                                                                                                               |
@@ -65,9 +65,19 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 | d3-scale 4.0.2, d3-shape 3.2.0                                                                                                      | packages/sdk/ui-chart                                                 | 여섯 차트의 scale·tick·선 경로 계산만 맡긴다(shell/design-system#R12, apps/sdk#R17). DOM은 React SVG로 그리고 script·HTML renderer는 들이지 않는다                                                                                                                                                                                     |
 | @types/d3-scale 4.0.9, @types/d3-shape 3.2.0                                                                                        | packages/sdk/ui-chart                                                 | 고정한 d3 계산 API의 TypeScript 타입                                                                                                                                                                                                                                                                                                   |
 | hash-wasm 4.12.0                                                                                                                    | packages/platform/secrets                                             | 머신 이전 보호 파일의 Argon2id. WebCrypto에는 Argon2가 없고 AES-256-GCM은 WebCrypto를 쓴다(platform/secrets#R9)                                                                                                                                                                                                                        |
-| @std/toml 1.0.2                                                                                                                     | packages/platform/settings                                            | settings 교환 TOML의 parse·stringify. TOML 1.0만 해석하고 YAML·JSON5·null을 거절하며 환경 치환·include·command 실행 경로가 없다. export는 null 값을 거절한다(TOML 1.0에 null이 없다)                                                                                                                                           |
+| @std/toml 1.0.2                                                                                                                     | packages/platform/settings                                            | settings 교환 TOML의 parse·stringify. TOML 1.0만 해석하고 YAML·JSON5·null을 거절하며 환경 치환·include·command 실행 경로가 없다. export는 null 값을 거절한다(TOML 1.0에 null이 없다)                                                                                                                                                   |
 | happy-dom 20.14.5                                                                                                                   | packages/design/component-tests.ts, apps/shell/renderer/build_test.ts | 공통 컴포넌트·SDK 옆 `*_test.tsx`와 실제 공개 예제 bundle을 DOM·event·keyboard·computed style로 `deno test` 안에서 돌린다                                                                                                                                                                                                              |
 | esbuild 0.28.2, @luca/esbuild-deno-loader 0.11.1                                                                                    | packages/design/component-tests.ts, apps/shell/renderer               | Deno가 CSS Modules를 읽지 못해 공통 UI·SDK 테스트를 renderer와 같은 `local-css` loader로 한 bundle에 묶어 happy-dom에서 돌린다. 공개 token CSS·로컬 woff2와 string·subpath package exports도 함께 resolve한다                                                                                                                          |
+| node-pty 1.1.0                                                                                                                      | apps/shell/terminal-host                                              | 사람 shell의 POSIX PTY와 Windows ConPTY. 1.1.0 prebuild는 darwin·win32뿐이고 linux와 Electron 44(Node 24.21, modules 149)용은 없다. install이 현재 Node용으로 node-gyp하고 `npm run rebuild`(`@electron/rebuild` 4.2.0)가 Electron 헤더로 다시 만든다. renderer는 이 모듈을 부르지 않는다                                              |
+| @electron/rebuild 4.2.0                                                                                                             | apps/shell/main                                                       | node-pty native module을 Electron 44.5.1 ABI로 다시 빌드한다. 그 판의 prebuild가 없기 때문이다                                                                                                                                                                                                                                         |
+| js-tiktoken 1.0.21                                                                                                                  | packages/coding-agent/mcp-server                                      | discovery schema의 token 수를 cl100k_base로 재측정한다(coding-agent/mcp-server#R4). Sentry MCP가 같은 encoding을 쓴다. 순수 JS라 npm 반입이 가볍다                                                                                                                                                                                     |
+
+MCP discovery schema의 token 재측정(coding-agent/mcp-server#R4)은
+`npm:js-tiktoken@1.0.21`의 cl100k_base encoding으로 잰다. Sentry MCP가 JSON
+schema를 model이 읽는 token 수로 재는 것이 원 기준이고, lockfile이 frozen이라
+판을 `deno.lock`으로 고정했다. 배포 테스트
+`packages/coding-agent/mcp-server/measure_tokens_test.ts`가 이 encoding으로
+전·후 token 수를 남긴다.
 
 ## check 명령 하나
 
@@ -85,9 +95,17 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 1. `npm --prefix apps/shell/main run check` (tsc --noEmit, node --test)
 1. `node tools/check-docs.ts`
 
-E2E는 `deno task e2e`로 따로 돈다. flow는 `deno task e2e`가 켠 `LOPHN_E2E=1`과 화면이 있을 때만 돌고, `deno task check`의 test 단계에서는 건너뛴다. `deno task check`의 test 단계는 `e2e/flows`를 빼고 돈다(Electron 실행 파일과 화면이 필요해서다). Playwright의 Electron 실행이 Deno에서 안 되면
-`e2e/`에만 Node `package.json`을 두는 예외를 쓴다. slice를 끝낼 때
+E2E는 `deno task e2e`로 따로 돈다. flow는 `deno task e2e`가 켠 `LOPHN_E2E=1`과
+화면이 있을 때만 돌고, `deno task check`의 test 단계에서는 건너뛴다.
+`deno task check`의 test 단계는 `e2e/flows`를 빼고 돈다(Electron 실행 파일과
+화면이 필요해서다). Playwright의 Electron 실행이 Deno에서 안 되면 `e2e/`에만
+Node `package.json`을 두는 예외를 쓴다. slice를 끝낼 때
 돈다([tasks.md](tasks.md)).
+
+메모리 상한이 자식 프로세스를 실제로 죽이는지 보는 테스트(`packages/platform/security/memory_limit_test.ts`)는
+`LOPHN_MEMORY_KILL=1`일 때만 돈다. 커널이 fixture를 죽일 때마다 데스크톱에 메모리 부족 알림이 떠서
+`deno task check`에서는 건너뛴다. 상한을 바꾼 PR은 `LOPHN_MEMORY_KILL=1 deno test --allow-all
+packages/platform/security/memory_limit_test.ts`로 따로 돌린다.
 
 ## 개발 환경
 

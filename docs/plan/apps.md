@@ -88,6 +88,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T5 SDK catalog과 설치
 
+- 상태: 완료 (#170)
 - 등급: 기본
 - concern: apps/sdk
 - 요구: apps/sdk#R2, R3, R4, R6, R8, R9, R11, R12, R13

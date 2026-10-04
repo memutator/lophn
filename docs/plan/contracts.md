@@ -829,6 +829,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T39 contracts/problems: 문제 보고
 
+- 상태: 완료 (#67)
 - 등급: 기본
 - concern: problems/reporting, problems/snapshots, problems/feedback, problems/grouping
 - 요구: problems/reporting#R2, R8, R12, R14, R16; problems/snapshots#R2, R4, R10, R12, R20; problems/feedback#R1, R8–R11

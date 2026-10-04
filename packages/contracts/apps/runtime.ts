@@ -1,0 +1,266 @@
+import { z } from "zod";
+import {
+  atSchema,
+  defineCommand,
+  defineEvent,
+  defineRead,
+  defineWorker,
+  sha256Schema,
+  withReadCommon,
+} from "../platform/mod.ts";
+import { appIdSchema, revisionSchema } from "../documents/values.ts";
+import {
+  appCompareSchema,
+  appInputSchema,
+  appSchema,
+  releaseIdSchema,
+} from "./apps.ts";
+
+export const RUNTIME_STATES = [
+  "preparing",
+  "stopped",
+  "running",
+  "unavailable",
+] as const;
+export const runtimeStateValueSchema = z.enum(RUNTIME_STATES);
+
+export const runtimeReasonSchema = z.object({
+  code: z.string().min(1),
+  summary: z.string().min(1),
+});
+export type RuntimeReason = z.infer<typeof runtimeReasonSchema>;
+
+// 화면 상태 projection. ledger에 저장하지 않는다(domain-model apps/runtime).
+export const runtimeStateSchema = z.object({
+  state: runtimeStateValueSchema,
+  termination_pending: z.boolean(),
+  reason: runtimeReasonSchema.optional(),
+}).refine(
+  (value) => value.state !== "unavailable" || value.reason !== undefined,
+  { message: "unavailable state needs a reason" },
+);
+export type RuntimeState = z.infer<typeof runtimeStateSchema>;
+
+export const RUNTIME_MODES = ["live", "preview"] as const;
+
+// 현재 supervisor 연결의 메모리 값. 관측이 없으면 null이다.
+// live는 release가 필수이고, ready가 아니면 reason이 필수다.
+export const runtimeObservationSchema = z.object({
+  app: appIdSchema,
+  release: releaseIdSchema.nullable(),
+  mode: z.enum(RUNTIME_MODES),
+  process_nonce: z.string().min(1),
+  endpoint: z.string().min(1).nullable(),
+  ready: z.boolean(),
+  accepting: z.boolean(),
+  reason: runtimeReasonSchema.optional(),
+}).refine(
+  (value) => value.mode !== "live" || value.release !== null,
+  { message: "live observation needs a release" },
+).refine(
+  (value) => value.ready || value.reason !== undefined,
+  { message: "observation that is not ready needs a reason" },
+);
+export type RuntimeObservation = z.infer<typeof runtimeObservationSchema>;
+
+export const readyAttestationSchema = z.object({
+  release: releaseIdSchema.nullable(),
+  bundle_hash: sha256Schema,
+  commands: z.array(z.string().min(1)),
+  data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  process_nonce: z.string().min(1),
+  connection_ok: z.literal(true),
+});
+export type ReadyAttestation = z.infer<typeof readyAttestationSchema>;
+
+export const appEnableExecution = defineCommand({
+  resource: "apps",
+  method: "enable_execution",
+  name: "app.enable_execution",
+  input: appInputSchema,
+  output: appSchema,
+  compare: appCompareSchema,
+  actors: ["user"],
+  errors: ["conflict", "invalid_input", "not_found"],
+});
+export const appDisableExecution = defineCommand({
+  resource: "apps",
+  method: "disable_execution",
+  name: "app.disable_execution",
+  input: appInputSchema,
+  output: appSchema,
+  compare: appCompareSchema,
+  actors: ["user"],
+  errors: ["conflict", "not_found"],
+});
+
+export const appRecordStartedInputSchema = z.strictObject({
+  app: appIdSchema,
+  attestation: readyAttestationSchema,
+});
+export const appRecordStoppedInputSchema = z.strictObject({
+  app: appIdSchema,
+  release: releaseIdSchema,
+  process_nonce: z.string().min(1),
+  termination_confirmed: z.literal(true),
+});
+export const appRecordUnavailableInputSchema = z.strictObject({
+  app: appIdSchema,
+  release: releaseIdSchema,
+  process_nonce: z.string().min(1).optional(),
+  reason: runtimeReasonSchema,
+});
+
+export const appRecordStarted = defineCommand({
+  resource: "apps",
+  method: "record_started",
+  name: "app.record_started",
+  input: appRecordStartedInputSchema,
+  output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
+  compare: z.strictObject({ base_revision: revisionSchema }),
+  actors: ["machine"],
+  errors: ["conflict", "invalid_input", "not_found"],
+});
+export const appRecordStopped = defineCommand({
+  resource: "apps",
+  method: "record_stopped",
+  name: "app.record_stopped",
+  input: appRecordStoppedInputSchema,
+  output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
+  compare: z.strictObject({ base_revision: revisionSchema }),
+  actors: ["machine"],
+  errors: ["conflict", "invalid_input", "not_found"],
+});
+export const appRecordUnavailable = defineCommand({
+  resource: "apps",
+  method: "record_unavailable",
+  name: "app.record_unavailable",
+  input: appRecordUnavailableInputSchema,
+  output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
+  compare: z.strictObject({ base_revision: revisionSchema }),
+  actors: ["machine"],
+  errors: ["conflict", "invalid_input", "not_found"],
+});
+
+const readActors = ["user", "coding_agent", "agent", "app"] as const;
+const readErrors = [
+  "invalid_input",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "unavailable",
+] as const;
+
+// 현재 supervisor 관측. 관측이 없으면 observation은 null이다.
+export const appRuntime = defineRead({
+  resource: "apps",
+  method: "runtime",
+  name: "app.runtime",
+  input: appInputSchema,
+  output: withReadCommon(z.object({
+    app: appIdSchema,
+    state: runtimeStateSchema,
+    observation: runtimeObservationSchema.nullable(),
+    observed_at: atSchema.nullable(),
+  })),
+  actors: readActors,
+  errors: readErrors,
+});
+
+export const LOG_LINE_MAX_COUNT = 200;
+export const LOG_LINE_MAX_LENGTH = 300;
+export const logLineSchema = z.string().max(LOG_LINE_MAX_LENGTH);
+export const appLogsInputSchema = z.strictObject({
+  app: appIdSchema,
+  invocation: z.string().min(1).optional(),
+  limit: z.number().int().min(1).max(LOG_LINE_MAX_COUNT).optional(),
+});
+export const appLogsOutputSchema = withReadCommon(z.object({
+  lines: z.array(logLineSchema).max(LOG_LINE_MAX_COUNT),
+  collected_at: atSchema.nullable(),
+  truncated: z.boolean(),
+}));
+export const appLogs = defineRead({
+  resource: "apps",
+  method: "logs",
+  name: "app.logs",
+  input: appLogsInputSchema,
+  output: appLogsOutputSchema,
+  actors: readActors,
+  errors: readErrors,
+});
+
+// 선언·실행 가능 여부·실제 관측을 구분해 보여 준다(apps/automations#R10).
+export const automationViewSchema = z.object({
+  key: z.string().min(1),
+  declared: z.boolean(),
+  runnable: z.boolean(),
+  observed: z.boolean(),
+  release: releaseIdSchema.nullable(),
+  reason: runtimeReasonSchema.optional(),
+});
+export type AutomationView = z.infer<typeof automationViewSchema>;
+export const appAutomations = defineRead({
+  resource: "apps",
+  method: "automations",
+  name: "app.automations",
+  input: appInputSchema,
+  output: withReadCommon(z.object({
+    app: appIdSchema,
+    automations: z.array(automationViewSchema),
+    observed_at: atSchema.nullable(),
+  })),
+  actors: readActors,
+  errors: readErrors,
+});
+
+// 단독 data worker가 준비한다. 준비 중·완성·실패를 구별한다(architecture/apps 5.4).
+export const EXPORT_STATES = ["preparing", "ready", "failed"] as const;
+export const appExport = defineWorker({
+  resource: "apps",
+  method: "export",
+  name: "app.export",
+  input: appInputSchema,
+  output: z.object({
+    app: appIdSchema,
+    state: z.enum(EXPORT_STATES),
+    reason: runtimeReasonSchema.optional(),
+    includes_external_data: z.boolean(),
+  }).refine(
+    (value) => value.state !== "failed" || value.reason !== undefined,
+    { message: "failed export needs a reason" },
+  ),
+  actors: ["user"],
+  errors: ["invalid_input", "not_found", "unavailable"],
+});
+
+export const appExecutionEnabled = defineEvent("AppExecutionEnabled", {
+  subject: appIdSchema,
+  payload: z.object({ run_enabled: z.literal(true) }),
+});
+export const appExecutionDisabled = defineEvent("AppExecutionDisabled", {
+  subject: appIdSchema,
+  payload: z.object({ run_enabled: z.literal(false) }),
+});
+export const appStarted = defineEvent("AppStarted", {
+  subject: appIdSchema,
+  payload: z.object({
+    release: releaseIdSchema,
+    process_nonce: z.string().min(1),
+    data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  }),
+});
+export const appStopped = defineEvent("AppStopped", {
+  subject: appIdSchema,
+  payload: z.object({
+    release: releaseIdSchema,
+    process_nonce: z.string().min(1),
+  }),
+});
+export const appUnavailable = defineEvent("AppUnavailable", {
+  subject: appIdSchema,
+  payload: z.object({
+    release: releaseIdSchema,
+    reason: runtimeReasonSchema,
+  }),
+});

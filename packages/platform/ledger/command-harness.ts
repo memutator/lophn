@@ -15,6 +15,7 @@ import { applyMigrations } from "../backup-and-migration/mod.ts";
 import { advanceSubscriberCursorCommand } from "./commands.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
 import { openConnection } from "./sqlite.ts";
+import { createSubscriberGate } from "./subscriber-registration.ts";
 import { recordNoteCommand } from "./test-commands.ts";
 import type { TxDeps } from "./tx.ts";
 
@@ -60,6 +61,7 @@ export function deps(clock: Clock = manualClock(START)): TxDeps & {
     ports: [],
     registerBlobRef: () => err({ code: "unavailable", message: "blob 없음" }),
     call: () => err({ code: "unavailable", message: "dispatch 없음" }),
+    subscriberGate: ownedCursorGate(),
     checkCredential: (ctx) => {
       if (ctx.expires_at !== undefined && ctx.expires_at < clock.now()) {
         return err({ code: "unauthorized", message: "자격이 만료되었다" });
@@ -67,6 +69,28 @@ export function deps(clock: Clock = manualClock(START)): TxDeps & {
       return ok(ctx);
     },
   };
+}
+
+// 테스트가 명시한 현재 자격만 cursor를 올린다. 등록 밖 이름·다른 자격은 거절한다.
+function ownedCursorGate() {
+  const gate = createSubscriberGate([{
+    name: "notifications",
+    authorize: (ctx) =>
+      ok(
+        (ctx.principal === "user-1" || ctx.principal === "machine-1") &&
+          (ctx.credential_ref === "cred-1" || ctx.credential_ref === "cred-m"),
+      ),
+  }, {
+    name: "notes",
+    authorize: (ctx) =>
+      ok(ctx.principal === "user-1" && ctx.credential_ref === "cred-1"),
+  }, {
+    name: "limit",
+    authorize: (ctx) =>
+      ok(ctx.principal === "user-1" && ctx.credential_ref === "cred-1"),
+  }]);
+  if (!gate.ok) throw new Error("subscriber gate");
+  return gate.value;
 }
 
 export async function fileLedger(dir: string) {

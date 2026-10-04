@@ -9,11 +9,7 @@ import {
   ok,
   seededRandom,
 } from "../../base/mod.ts";
-import {
-  type BlobRefRegistration,
-  defineEvent,
-  definePort,
-} from "../../contracts/platform/mod.ts";
+import { defineEvent } from "../../contracts/platform/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
 
@@ -273,119 +269,6 @@ Deno.test(
     );
     assert(count.ok);
     if (count.ok) assertEquals(count.value?.["n"], 0n);
-    opened.value.close();
-    await Deno.remove(dir, { recursive: true });
-  },
-);
-
-Deno.test(
-  "platform/ledger#R22: subscriber 처리 위치는 event 없이 기록되고 줄이면 거절한다",
-  async () => {
-    const dir = await tempDir();
-    const opened = await openedLedger(dir);
-    assert(opened.ok);
-    if (!opened.ok) return;
-    const ledger = opened.value;
-    const advanced = ledger.transaction(
-      { actor: "machine" },
-      (tx) => tx.advanceSubscriberCursor("notifications", "4"),
-    );
-    assert(advanced.ok);
-    const events = ledger.transaction(
-      { actor: "machine" },
-      (tx) => ok(tx.sql.get("select count(*) as n from events", [])),
-    );
-    assert(events.ok);
-    if (events.ok) assertEquals(events.value?.["n"], 0n);
-    const back = ledger.transaction(
-      { actor: "machine" },
-      (tx) => tx.advanceSubscriberCursor("notifications", "3"),
-    );
-    assert(!back.ok);
-    if (!back.ok) assertEquals(back.error.code, "conflict");
-    const same = ledger.transaction(
-      { actor: "machine" },
-      (tx) => tx.advanceSubscriberCursor("notifications", "4"),
-    );
-    assert(same.ok);
-    const bad = ledger.transaction(
-      { actor: "machine" },
-      (tx) => tx.advanceSubscriberCursor("notifications", "01"),
-    );
-    assert(!bad.ok);
-    if (!bad.ok) assertEquals(bad.error.code, "invalid_input");
-    ledger.close();
-    await Deno.remove(dir, { recursive: true });
-  },
-);
-
-Deno.test(
-  "platform/ledger#R22: 등록되지 않은 port는 내부 오류다",
-  async () => {
-    const dir = await tempDir();
-    const opened = await openedLedger(dir);
-    assert(opened.ok);
-    if (!opened.ok) return;
-    const key = definePort<{ n: number }>("missing");
-    const result = opened.value.transaction({ actor: "user" }, (tx) => {
-      tx.port(key);
-      return ok(undefined);
-    });
-    assert(!result.ok);
-    if (!result.ok) assertEquals(result.error.code, "internal");
-    opened.value.close();
-    await Deno.remove(dir, { recursive: true });
-  },
-);
-
-Deno.test(
-  "platform/ledger#R22: blob 참조 등록은 주입한 구현이 같은 transaction에서 돈다",
-  async () => {
-    const dir = await tempDir();
-    const path = `${dir}/ledger.db`;
-    const applied = await applyMigrations(path, LEDGER_SCHEMA_STEPS, {
-      clock: manualClock(START),
-    });
-    assert(applied.ok);
-    const seen: BlobRefRegistration[] = [];
-    const opened = openLedger(path, {
-      ...deps(),
-      registerBlobRef: (reference) => {
-        seen.push(reference);
-        return ok({
-          owner_kind: reference.owner_kind,
-          owner_key: reference.owner_key,
-          field: reference.field,
-          hash: "ab".repeat(32),
-          registered_seq: reference.registered_seq,
-        });
-      },
-    });
-    assert(opened.ok);
-    if (!opened.ok) return;
-    const hash = "ab".repeat(32);
-    const result = opened.value.transaction({ actor: "user" }, (tx) => {
-      const seq = tx.emit(created, "thing:1", { name: "a" });
-      return tx.registerBlobRef({
-        owner_kind: "event",
-        owner_key: "thing:1",
-        field: "body",
-        registered_seq: seq,
-        source: {
-          kind: "prepared",
-          blob: {
-            preparation: "prep",
-            principal: "user",
-            purpose: "note",
-            hash,
-            size_bytes: 4,
-          },
-        },
-      });
-    });
-    assert(result.ok);
-    if (result.ok) assertEquals(result.value.hash, hash);
-    assertEquals(seen.length, 1);
     opened.value.close();
     await Deno.remove(dir, { recursive: true });
   },

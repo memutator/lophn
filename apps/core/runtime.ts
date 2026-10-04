@@ -62,8 +62,20 @@ export async function openRuntime(input: {
     nowMs: input.nowMs,
     seed: input.seed,
   });
+  // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
+  const readerModules: URL[] = [];
+  for (const url of input.modules) {
+    const module = (await import(url)) as {
+      createReaderRegistration?: unknown;
+    };
+    if (typeof module.createReaderRegistration === "function") {
+      readerModules.push(new URL(url));
+    }
+  }
   const readers = await createReaderPool(input.ledgerPath, [
     new URL("./reader-registration.ts", import.meta.url),
+    // createReaderRegistration을 내보내는 팀 read도 같은 풀로 붙는다.
+    ...readerModules,
   ]);
   if (!readers.ok) {
     await openedWriter.writer.close();

@@ -179,6 +179,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T10 daemon 찾기·대상 앱·credential provider·core client (MCP·CLI 공통)
 
+- 상태: 완료 (#139)
 - 등급: 기본
 - concern: coding-agent/connection
 - 요구: coding-agent/connection#R9, R11, R15

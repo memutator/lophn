@@ -66,7 +66,7 @@ export {
   systemTimer,
   type Timer,
 } from "./shared.ts";
-export { Icon, type IconProps } from "./icon.tsx";
+export { folderOpenIcon, Icon, type IconProps } from "./icon.tsx";
 export {
   domResizeSource,
   type ResizeSource,

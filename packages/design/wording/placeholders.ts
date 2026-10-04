@@ -38,6 +38,35 @@ export type PlaceholderKinds = {
     count: "plural";
   };
   "common.palette.no-results": Record<never, never>;
+  "common.label.sort-by": Record<never, never>;
+  "common.label.original-order": Record<never, never>;
+  "common.button.sort-ascending": Record<never, never>;
+  "common.button.sort-descending": Record<never, never>;
+  "common.button.columns": Record<never, never>;
+  "common.button.previous-page": Record<never, never>;
+  "common.button.next-page": Record<never, never>;
+  "common.label.row-range": {
+    start: "number";
+    end: "number";
+    total: "number";
+  };
+  "common.label.other": Record<never, never>;
+  "common.button.show-table": Record<never, never>;
+  "common.button.show-chart": Record<never, never>;
+  "common.label.date-with-weekday": {
+    date: "string";
+    weekday: "string";
+  };
+  "common.label.value-range": {
+    start: "string";
+    end: "string";
+  };
+  "common.heading.group": Record<never, never>;
+  "common.heading.count": Record<never, never>;
+  "common.chart.too-many-groups": {
+    max: "number";
+  };
+  "common.chart.unreadable": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

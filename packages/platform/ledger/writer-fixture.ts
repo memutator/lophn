@@ -4,6 +4,7 @@ import { definePort } from "../../contracts/platform/mod.ts";
 import { defineTxPort } from "./tx-ports.ts";
 import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import { advanceSubscriberCursorCommand } from "./commands.ts";
+import { createSubscriberGate } from "./subscriber-registration.ts";
 import {
   recordLooseNoteCommand,
   recordNoteCommand,
@@ -111,6 +112,24 @@ export function resetScopeMirror(ledgerPath: string): void {
 
 export const writerNotePort = notePort;
 
+const cursorGate = createSubscriberGate([{
+  name: "notifications",
+  authorize: (ctx) =>
+    ok(
+      ctx.actor === "machine" && ctx.principal === "machine-1" &&
+        ctx.credential_ref === "cred-m" &&
+        ctx.scope.operations.includes("AdvanceSubscriberCursor"),
+    ),
+}, {
+  name: "notes",
+  authorize: (ctx) =>
+    ok(
+      ctx.principal === "user-1" && ctx.credential_ref === "cred-1" &&
+        ctx.scope.operations.includes("AdvanceSubscriberCursor"),
+    ),
+}]);
+if (!cursorGate.ok) throw new Error("subscriber gate");
+
 serveWriter(
   self as unknown as Parameters<typeof serveWriter>[0],
   createWriterRegistration({
@@ -125,6 +144,7 @@ serveWriter(
     ports: [defineTxPort(notePort, () => ({ mark: "fixed" }))],
     registerBlobRef: () => err({ code: "unavailable", message: "blob 없음" }),
     call: () => err({ code: "unavailable", message: "dispatch 없음" }),
+    subscriberGate: cursorGate.value,
     checkCredential(ctx: AuthenticatedContext) {
       if (revokedRefs().has(ctx.credential_ref)) {
         return err({ code: "unauthorized", message: "자격이 회수되었다" });

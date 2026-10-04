@@ -224,7 +224,7 @@ export function createLedgerTestRegistration(
     schemaSteps: [{
       id: "owner-tables",
       sql:
-        "create table owners (key text primary key); create table blob_refs (owner_key text primary key, hash text not null, registered_seq integer references events(seq));",
+        "create table owners (key text primary key); create table owner_blob_refs (owner_key text primary key, hash text not null, registered_seq integer references events(seq));",
     }],
     commands,
     testCommands,
@@ -248,7 +248,7 @@ export function createLedgerTestRegistration(
         reference.source.kind !== "prepared" ||
         reference.source.blob.principal !== ctx.principal
       ) return err({ code: "forbidden", message: "blob owner가 다르다" });
-      tx.sql.run("insert into blob_refs values (?, ?, ?)", [
+      tx.sql.run("insert into owner_blob_refs values (?, ?, ?)", [
         reference.owner_key,
         reference.source.blob.hash,
         BigInt(reference.registered_seq),

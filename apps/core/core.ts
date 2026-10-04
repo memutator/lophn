@@ -25,6 +25,12 @@ import {
 } from "../../packages/platform/install-and-update/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
 import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
+import {
+  createBlobPrepareRelay,
+  type PreparedRelayResult,
+} from "./blob-prepare.ts";
+import { createPreparationRegistry } from "../../packages/platform/blob-store/mod.ts";
+import type { BlobFieldDefinition } from "../../packages/contracts/platform/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
@@ -51,6 +57,8 @@ export type CoreOptions = {
   superviseIo?: boolean;
   // 테스트 harness만 true로 둔다. main.ts는 이 입구를 열지 않는다.
   testCredentials?: boolean;
+  // 테스트가 준비 참조를 writer 메모리에 심는 입구. 제품 기동에는 없다.
+  notePrepared?: (prepared: PreparedRelayResult, nowMs: number) => void;
 };
 
 export type Core = {
@@ -66,6 +74,11 @@ export type Core = {
   acceptTestCredential?(
     context: AuthenticatedContext,
     token: string,
+  ): Promise<Result<void>>;
+  // testCredentials일 때만 있다. 준비 참조를 writer 메모리에 알린다.
+  notePrepared?(
+    prepared: PreparedRelayResult,
+    nowMs: number,
   ): Promise<Result<void>>;
 };
 
@@ -137,6 +150,7 @@ async function open(
     env: (kind) => ({ LOPHN_WORKER_KIND: kind, LOPHN_HOME: root.path }),
   });
   let ready = false;
+  let coreCleanup: (() => void) | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
   const source: StatusSource = {
@@ -177,6 +191,7 @@ async function open(
     modules: options.teamModules ?? [],
     assembled: assembled.value,
     source,
+    blob: blobReadDeps(root.path, assembled.value),
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
@@ -217,8 +232,22 @@ async function open(
       });
     }
   }
+  const blobRelay = io ? blobRelayFor(io, clock) : undefined;
+  // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
+  // 파일 GC는 하지 않고 메모리 참조만 떨어뜨린다.
+  const timer = setInterval(() => {
+    blobRelay?.prune(clock.nowMs());
+    runtime?.prunePrepared(clock.nowMs());
+  }, 60_000);
+  coreCleanup = () => clearInterval(timer);
   const startedIo = io
-    ? await startPlatformIo(io, root.path, epoch, server.port)
+    ? await startPlatformIo(
+      io,
+      root.path,
+      epoch,
+      server.port,
+      blobRelay?.callbacks,
+    )
     : undefined;
   if (startedIo && !startedIo.ok) {
     await server.stop();
@@ -252,6 +281,7 @@ async function open(
       ready = false;
       await server.stop();
       if (io) await io.stopAll();
+      coreCleanup?.();
       await runtime?.close();
       await removeRunMetadata(root.run);
       await lock.release();
@@ -274,6 +304,11 @@ async function open(
       token: string,
     ): Promise<Result<void>>;
   };
+  if (options.testCredentials && runtime) {
+    const noting = runtime;
+    core.notePrepared = (prepared, nowMs) =>
+      noting.notePrepared(prepared, nowMs);
+  }
   if (accepting.acceptTestCredential) {
     core.acceptTestCredential = (context, token) =>
       accepting.acceptTestCredential!(context, token);
@@ -314,6 +349,94 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
     allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
+  };
+}
+
+// Q6 바이트 흐름. core가 relay를 만들어 I/O worker의 callback으로 넣는다.
+// 준비 성공은 writer 메모리에도 알려 등록 판정이 같은 참조를 보게 한다.
+// 소유 concern이 등록한 blob field와 파일 바이트 관측. hash는 경로로만 쓰고 다시 계산하지 않는다.
+function blobReadDeps(
+  dataRoot: string,
+  assembled: { blobFields?: readonly BlobFieldDefinition[] },
+) {
+  return {
+    fields: assembled.blobFields ?? [],
+    async read(hash: string, offset: number, length: number) {
+      const path = `${dataRoot}/blobs/sha256/${hash.slice(0, 2)}/${
+        hash.slice(2)
+      }`;
+      try {
+        const file = await Deno.open(path, { read: true });
+        try {
+          const stat = await file.stat();
+          const bytes = new Uint8Array(length);
+          await file.seek(offset, Deno.SeekMode.Start);
+          const read = await file.read(bytes);
+          return ok({
+            hash,
+            sizeBytes: stat.size,
+            bytes: bytes.subarray(0, read ?? 0),
+          });
+        } finally {
+          file.close();
+        }
+      } catch (thrown) {
+        if (thrown instanceof Deno.errors.NotFound) {
+          return err({ code: "not_found" as const, message: "blob이 없다" });
+        }
+        return err({
+          code: "unavailable" as const,
+          message: "blob을 읽지 못했다",
+        });
+      }
+    },
+  };
+}
+
+function blobRelayFor(
+  io: ReturnType<typeof createSupervisor>,
+  clock: Clock,
+): {
+  callbacks: {
+    onMessage(message: ChildMessage): void;
+    onFrame(frame: Frame): void;
+  };
+  prune(nowMs: number): void;
+} {
+  const registry = createPreparationRegistry();
+  const responses: { queue: Map<string, unknown> } = { queue: new Map() };
+  const relay = createBlobPrepareRelay({
+    // 해석·hash 없이 I/O worker로 넘긴다(Q6). backpressure는 frame writer가 지킨다.
+    send: async (payload) => {
+      const sent = await io.send("platform/io", payload);
+      if (!sent.ok) throw new Error("blob 준비를 넘기지 못했다");
+    },
+    sendBytes: async (channel, chunk) => {
+      const sent = await io.sendBytes("platform/io", channel, chunk);
+      if (!sent.ok) throw new Error("blob 바이트를 넘기지 못했다");
+    },
+    responses,
+    registry,
+    nowMs: () => clock.nowMs(),
+  });
+  return {
+    callbacks: {
+      onMessage(message) {
+        if (message.type !== "worker_response") return;
+        const response = message as unknown as {
+          request_id: string;
+          ok: boolean;
+          payload?: PreparedRelayResult;
+          error?: { code: string; message: string };
+        };
+        responses.queue.set(response.request_id, response);
+        if (response.ok && response.payload) {
+          registry.register(response.payload, clock.nowMs());
+        }
+      },
+      onFrame() {},
+    },
+    prune: (nowMs) => relay.prune(nowMs),
   };
 }
 

@@ -29,3 +29,25 @@ export {
   createPreparationRegistry,
   type PreparationRegistry,
 } from "./registry.ts";
+export {
+  type BlobAuthorizer,
+  claimedHash,
+  fieldDefined,
+  generalReadAllowed,
+  observedMatches,
+  preparedMatches,
+  readAnswer,
+  readWindow,
+  unavailableAnswer,
+} from "./refs.ts";
+export { createBlobRegistrar, registerBlobRef } from "./register.ts";
+export {
+  type BlobBytes,
+  createBlobRead,
+  decideRead,
+  finishBlobRead,
+  planBlobRead,
+  readBlob,
+  type StoredBlobRef,
+  storedRef,
+} from "./read.ts";

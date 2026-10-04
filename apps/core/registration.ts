@@ -1,5 +1,6 @@
 import type { Clock, IdSource, Result } from "../../packages/base/mod.ts";
 import type {
+  BlobFieldDefinition,
   CommandDefinition,
   KindLaunchSpec,
   ReadDefinition,
@@ -15,6 +16,7 @@ export type TeamRegistration = {
   reads?: readonly ReadDefinition[];
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
+  blobFields?: readonly BlobFieldDefinition[];
   clock?: Clock;
   ids?: IdSource;
 };
@@ -35,6 +37,7 @@ type Loose = {
   reads?: readonly { route?: { resource?: unknown; method?: unknown } }[];
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
+  blobFields?: readonly BlobFieldDefinition[];
 };
 
 export type Assembled = {
@@ -43,6 +46,7 @@ export type Assembled = {
   reads: ReadDefinition[];
   ports: TxPortRegistration[];
   workers: KindLaunchSpec[];
+  blobFields: BlobFieldDefinition[];
 };
 
 function broken(what: string): Result<never> {
@@ -85,6 +89,7 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
     reads: [],
     ports: [],
     workers: [],
+    blobFields: [],
   };
   const schema = new Set<string>();
   const commands = new Set<string>();
@@ -131,6 +136,7 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
       assembled.reads.push(check.value);
     }
     for (const port of portList(registration.ports)) assembled.ports.push(port);
+    assembled.blobFields.push(...registration.blobFields ?? []);
     for (const worker of registration.workers ?? []) {
       const check = taken(workers, worker.kind, worker);
       if (!check.ok) return check;

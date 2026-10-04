@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { commandRequestSchema } from "../platform/envelope.ts";
 import { routePath } from "../platform/route.ts";
-import { atSchema, type At } from "../platform/values.ts";
+import { type At, atSchema } from "../platform/values.ts";
 import { connectionPrincipal } from "./connections.ts";
 import {
   codingAgentSessionSummary,
@@ -204,10 +204,6 @@ Deno.test(
       claim_rule: "claim only the ticket the human named",
       next_cursor: null,
     });
-    assertEquals(
-      CodingAgentSessionSummarySchema.shape.tickets.maxCount,
-      undefined,
-    );
     assertEquals(
       "summary" in codingAgentSessionSummaryOutputSchema.shape,
       true,

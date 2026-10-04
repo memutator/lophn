@@ -28,6 +28,19 @@ function fresh(clockMs = NOW) {
   });
 }
 
+function clockAt(clockMs = NOW) {
+  const clock = manualClock(clockMs);
+  return {
+    clock,
+    registry: new CredentialRegistry({
+      epoch: "core-one",
+      clock,
+      random,
+      operations: POLICIES,
+    }),
+  };
+}
+
 function request(over: Record<string, unknown> = {}) {
   return {
     type: "app_credential_request",
@@ -136,19 +149,51 @@ Deno.test("platform/identity#R10: 앱 credential의 다른 앱 대상 조회는 
   assertEquals(code(outside), "not_found");
 });
 
-Deno.test("platform/identity#R7: 응답 기한이 지나면 인증이 unauthorized다", async () => {
+Deno.test("platform/identity#R7: 응답 기한이 지나면 같은 registry의 인증이 unauthorized다", async () => {
+  const { clock, registry } = clockAt();
   const expires_at = new Date(NOW + 60_000).toISOString();
-  const registry = fresh();
   const appIssuer = issuer(registry, { expires_at });
   const responded = value(await appIssuer.request(request()));
-  const ctx = await registry.authenticate(responded.credential);
-  assert(ctx.ok);
-  assertEquals(ctx.value.expires_at, expires_at);
-  // 기한 뒤 clock에서는 unauthorized다.
-  const late = fresh(NOW + 61_000);
-  const lateIssuer = issuer(late, { expires_at });
-  const lateResponded = await lateIssuer.request(request());
-  assertEquals(code(lateResponded), "invalid_input");
+  const before = await registry.authenticate(responded.credential);
+  assert(before.ok);
+  assertEquals(before.value.expires_at, expires_at);
+  // 주입 clock을 기한 뒤로 흐른다. 같은 registry에서 unauthorized가 된다.
+  clock.advance(61_000);
+  const late = await registry.authenticate(responded.credential);
+  assertEquals(late.ok, false);
+  assertEquals(late.ok ? undefined : late.error.code, "unauthorized");
+});
+
+Deno.test("platform/identity#R7: 판 교체·앱 종료 때 그 release·app의 모든 app credential을 폐기한다", async () => {
+  const registry = fresh();
+  const appIssuer = issuer(registry);
+  // 같은 app·release의 process A·B.
+  const processA = value(
+    await appIssuer.request(request({ request_id: "rA", process: "proc-a" })),
+  );
+  const processB = value(
+    await appIssuer.request(request({ request_id: "rB", process: "proc-b" })),
+  );
+  // 다른 release의 credential은 유지된다.
+  const otherRelease = "rel_00000000000000000000000001";
+  const other = value(
+    await appIssuer.request(
+      request({ request_id: "rC", release: otherRelease, process: "proc-c" }),
+    ),
+  );
+  assert((await registry.authenticate(processA.credential)).ok);
+  assert((await registry.authenticate(processB.credential)).ok);
+  assert((await registry.authenticate(other.credential)).ok);
+  // 판 교체: 그 release의 모든 app credential이 폐기된다.
+  assertEquals(appIssuer.endRelease(RELEASE), 2);
+  assertEquals((await registry.authenticate(processA.credential)).ok, false);
+  assertEquals((await registry.authenticate(processB.credential)).ok, false);
+  assert((await registry.authenticate(other.credential)).ok);
+  // 앱 종료: 그 앱의 남은 credential도 폐기된다.
+  assertEquals(appIssuer.endApp(APP), 1);
+  assertEquals((await registry.authenticate(other.credential)).ok, false);
+  assertEquals(appIssuer.endRelease(otherRelease), 0);
+  assertEquals(appIssuer.endApp(APP), 0);
 });
 
 Deno.test("platform/identity#R2: 요청마다 새 credential이고 이전 token도 살아 있다", async () => {

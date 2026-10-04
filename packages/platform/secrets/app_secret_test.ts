@@ -1,6 +1,6 @@
-// 앱 secret 사용의 grant 검사(platform/secrets#R10)와 flow
-// manage-app-permissions의 secret 단계 통합. 인증은 플랫폼이 붙이고
-// 원값은 어느 호출자에게도 가지 않는다.
+// 앱 secret 사용의 grant 검사(platform/secrets#R10). 인증은 플랫폼이 붙이고
+// 원값은 어느 호출자에게도 가지 않는다. 아래 대역은 실제 grant 판정이 아니라
+// SecretAllowance port의 계약 소비(요청 모양·결과 전파)를 확인하는 대역이다.
 
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
@@ -9,6 +9,7 @@ import { LEDGER_SCHEMA_STEPS, openLedger } from "../ledger/mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
 import { createIdSource, manualClock, seededRandom } from "../../base/mod.ts";
 import { createFakeKeychain } from "./adapters/fake-keychain.ts";
+import { setSecretCommand } from "./commands.ts";
 import { createSecretAttach } from "./attach.ts";
 import type { SecretReferenceLookup } from "./attach.ts";
 import { SECRET_SCHEMA_STEPS } from "./schema.ts";
@@ -51,8 +52,8 @@ function references(sealedRef = "sealed-1"): SecretReferenceLookup {
   };
 }
 
-// 현재 grant 판정. apps가 구현하는 SecretAllowance port의 테스트 대역이다.
-// 같은 grant의 read·write·external command를 네 호출 경로에서 판정하는 모양이다.
+// SecretAllowance port 계약 소비 대역. 실제 grant 판정은 apps T4의 grant ledger가
+// 하고, 여기서는 port가 받는 요청 모양과 결과 전파만 확인한다.
 type Grant = { name: string; destinations: readonly string[] };
 
 function grantAllowance(
@@ -78,7 +79,46 @@ function grantAllowance(
   };
 }
 
-Deno.test("platform/secrets#R10: 현재 grant의 secret 전송은 caller 종류와 무관하게 허용된다", async () => {
+Deno.test("platform/secrets#R10: SecretAllowance port가 등록되지 않으면 전송은 forbidden이다", async () => {
+  const keychain = createFakeKeychain();
+  const saved = await keychain.store({
+    name: NAME,
+    purpose: "app_secret",
+    owner: NAME,
+    value: new TextEncoder().encode(VALUE),
+  });
+  assert(saved.ok);
+  // port 없는 attach. 값이 어느 경로로도 나가지 않는다.
+  const attach = createSecretAttach({
+    keychain,
+    references: references(saved.value),
+    processes: () => true,
+  });
+  let handed = false;
+  const refused = await attach.send(
+    {
+      context: appContext(),
+      use: {
+        sealed_ref: saved.value,
+        revision: 1,
+        purpose: "app_secret",
+        destination,
+      },
+      operation: "webhook.call",
+      body: {},
+    },
+    () => {
+      handed = true;
+      return Promise.resolve(ok({ sent: true }));
+    },
+  );
+  assert(!refused.ok);
+  assertEquals(refused.error.code, "forbidden");
+  assertEquals(handed, false);
+  assertFalse(JSON.stringify(refused.error).includes(VALUE));
+});
+
+Deno.test("platform/secrets#R10: SecretAllowance port 계약 소비 - port가 허용하면 caller 종류와 무관하게 전송한다", async () => {
   const keychain = createFakeKeychain();
   const saved = await keychain.store({
     name: NAME,
@@ -143,7 +183,7 @@ Deno.test("platform/secrets#R10: 현재 grant의 secret 전송은 caller 종류�
   }
 });
 
-Deno.test("platform/secrets#R10: grant가 없으면 caller와 무관하게 거절하고 값을 넘기지 않는다", async () => {
+Deno.test("platform/secrets#R10: SecretAllowance port 계약 소비 - port가 거절하면 caller와 무관하게 forbidden이고 값을 넘기지 않는다", async () => {
   const keychain = createFakeKeychain();
   const saved = await keychain.store({
     name: NAME,
@@ -193,7 +233,7 @@ Deno.test("platform/secrets#R10: grant가 없으면 caller와 무관하게 거�
   }
 });
 
-Deno.test("platform/secrets#R10: grant 회수 뒤 같은 전송은 forbidden이고 callback 메모리에서만 값이 산다", async () => {
+Deno.test("platform/secrets#R10: SecretAllowance port 계약 소비 - port가 회수 뒤 forbidden을 돌려주면 같은 전송이 거절된다", async () => {
   const keychain = createFakeKeychain();
   const saved = await keychain.store({
     name: NAME,
@@ -297,9 +337,10 @@ Deno.test("platform/secrets#R10: 32 bytes가 아닌 참조와 Purposes가 다른
   assertEquals(mismatched.error.code, "forbidden");
 });
 
-// flow manage-app-permissions의 secret 단계 통합. 사람이 secret을 저장하고
-// 앱이 현재 grant 안에서 전송하는 흐름을 ledger와 함께 본다.
-Deno.test("platform/secrets#R10 flow manage-app-permissions: 사람 secret 저장과 앱 전송이 현재 grant 안에서 이어진다", async () => {
+// flow manage-app-permissions의 secret 단계는 실제 grant 판정으로 증명하지 않는다.
+// 아래 테스트는 사람이 secret을 저장하고 앱이 전송하는 흐름을
+// SecretAllowance port 계약 소비로 이어 본다.
+Deno.test("platform/secrets#R10: 사람 secret 저장과 앱 전송이 port 계약 안에서 이어진다", async () => {
   // 1. 사람이 secret을 저장하는 단계(platform/secrets#R1·R2·R5).
   const keychain = createFakeKeychain();
   const stored = await keychain.store({
@@ -309,7 +350,7 @@ Deno.test("platform/secrets#R10 flow manage-app-permissions: 사람 secret 저�
     value: new TextEncoder().encode(VALUE),
   });
   assert(stored.ok);
-  // 2. 현재 grant를 만드는 단계. 사람 결정으로 grant가 열린다.
+  // 2. 현재 grant를 만드는 단계. 사람 결정으로 grant가 열린다(port 대역이 이를 흉내 낸다).
   let grants: Grant[] = [{ name: NAME, destinations: [destination.origin] }];
   // 3. 앱이 현재 grant 안에서 secret을 전송하는 단계.
   const attach = createSecretAttach({
@@ -373,9 +414,9 @@ Deno.test("platform/secrets#R10 flow manage-app-permissions: 사람 secret 저�
   assertEquals(blocked.error.code, "forbidden");
 });
 
-// R10 확인의 read·write·external command 네 경로: 같은 grant로 LEDGER에
-// 저장된 값을 read하는 경로는 setSecretCommand로 만든 참조에서만 통과한다.
-Deno.test("platform/secrets#R10 flow manage-app-permissions: ledger 저장 참조와 grant 검사가 함께 통과한다", async () => {
+// 사람 secret 저장은 SetSecret command 경로로 증명한다. 준비 참조만 저장하고
+// 값은 ledger에 없는 SetSecret 계약이 참조 상태를 만든다.
+Deno.test("platform/secrets#R10: SetSecret 참조 상태와 grant 검사가 함께 통과한다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "app-secret-flow-" });
   try {
     const path = `${dir}/ledger.db`;
@@ -396,20 +437,35 @@ Deno.test("platform/secrets#R10 flow manage-app-permissions: ledger 저장 참�
     });
     assert(opened.ok);
     const ledger = opened.value;
-    // 사람이 SetSecret으로 저장한 참조 상태만 확인한다. 값은 ledger에 없다.
-    const seeded = () =>
-      ledger.transaction({ actor: "user" }, (tx) => {
-        tx.sql.run(
-          "insert into secret_preparations (preparation, sealed_ref, purpose, owner) values (?, ?, ?, ?)",
-          ["prep-1", "sealed-app-1", "app_secret", NAME],
-        );
-        tx.sql.run(
-          "insert into secrets (name, sealed_ref, revision) values (?, ?, ?)",
-          [NAME, "sealed-app-1", 1],
-        );
-        return ok(undefined);
-      });
-    assert(seeded());
+    // 사람이 SetSecret command로 참조 상태를 만든다. 값은 ledger에 없다.
+    const set = ledger.transaction({ actor: "user" }, (tx) => {
+      tx.sql.run(
+        "insert into secret_preparations (preparation, sealed_ref, purpose, owner) values (?, ?, ?, ?)",
+        ["prep-1", "sealed-app-1", "app_secret", NAME],
+      );
+      return setSecretCommand.handle(
+        tx,
+        {
+          principal: "user",
+          actor: "user",
+          scope: { operations: [], targets: {} },
+          conditions: {},
+          credential_ref: "c",
+        },
+        {
+          name: NAME,
+          preparation: {
+            preparation: "prep-1",
+            sealed_ref: "sealed-app-1",
+            purpose: "app_secret" as const,
+            owner: NAME,
+          },
+        },
+        { sealed_ref: null, revision: null },
+      );
+    });
+    assert(set.ok, set.ok ? undefined : JSON.stringify(set.error));
+    assertEquals(set.value, { name: NAME, configured: true, revision: 1 });
     const statusRows = ledger.transaction({ actor: "user" }, (tx) => {
       const rows = tx.sql.all(
         "select name, sealed_ref, revision from secrets",

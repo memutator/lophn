@@ -183,7 +183,7 @@ export class CredentialRegistry {
           context.scope.targets.process !== context.conditions.process ||
           context.scope.targets.mode !== context.conditions.mode
         ) return invalid();
-      } else if (context.scope.agent !== undefined) return invalid();
+      }
       // agent credential은 유효 assignment·run에 묶인다. scope.agent는 lophn-agent가
       // 계산한 상한 그대로이며 그 assignment와 같아야 한다. platform은 내용을 해석하지 않는다.
       if (kind === "agent") {
@@ -195,7 +195,7 @@ export class CredentialRegistry {
           context.scope.targets.assignment !== context.conditions.assignment ||
           context.scope.targets.run !== context.conditions.run
         ) return invalid();
-      }
+      } else if (context.scope.agent !== undefined) return invalid();
       if (
         context.expires_at !== undefined &&
         Date.parse(context.expires_at) <= this.#options.clock.nowMs()
@@ -311,7 +311,7 @@ export class CredentialRegistry {
   }
 
   endBy(
-    condition: "task" | "process" | "run" | "assignment",
+    condition: "app" | "task" | "process" | "run" | "assignment" | "release",
     value: string,
   ): number {
     let ended = 0;

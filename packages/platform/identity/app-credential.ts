@@ -25,6 +25,10 @@ export type AppCredentialIssuer = {
   request(message: unknown): Promise<Result<AppCredentialResponse>>;
   // 판 교체·앱 종료 때 그 supervisor process의 자격을 폐기한다.
   endProcess(process: string): number;
+  // 판 교체 때 그 release의 모든 app credential을 폐기한다.
+  endRelease(release: string): number;
+  // 앱 종료 때 그 앱의 모든 app credential을 폐기한다.
+  endApp(app: string): number;
   // 회수는 registry 기록으로만 한다. token 원문을 받지 않는다.
   revoke(credentialRef: string): Result<void>;
   end(credentialRef: string): Result<void>;
@@ -95,6 +99,8 @@ export function createAppCredentialIssuer(options: {
   return {
     request,
     endProcess: (process) => options.registry.endBy("process", process),
+    endRelease: (release) => options.registry.endBy("release", release),
+    endApp: (app) => options.registry.endBy("app", app),
     revoke: (credentialRef) => options.registry.revoke(credentialRef),
     end: (credentialRef) => options.registry.end(credentialRef),
   };

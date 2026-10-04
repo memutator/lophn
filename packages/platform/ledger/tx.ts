@@ -22,6 +22,7 @@ import {
   authorizeSubscriberCursor,
   type SubscriberGate,
 } from "./subscriber-registration.ts";
+import type { CommandDispatch } from "./dispatch.ts";
 import {
   createTxPortLookup,
   type TxPortLookup,
@@ -42,7 +43,8 @@ export type TxDeps = {
   registerBlobRef: (reference: BlobRefRegistration) => Result<
     PermanentBlobReference
   >;
-  // 다른 owner command dispatch는 platform#T18이 맡는다. 여기서는 주입만 받는다.
+  // 다른 owner command dispatch. 없으면 등록된 command를 부르지 않는다.
+  dispatch?: CommandDispatch;
   call: TxCall;
   // 현재 자격의 subscriber owner 검사. 없으면 cursor는 올리지 않는다.
   subscriberGate?: SubscriberGate;
@@ -310,6 +312,11 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     },
     call<R extends CommandRoute>(route: R, input: unknown, compare: unknown) {
       live();
+      if (deps.dispatch !== undefined) {
+        return deps.dispatch.call(tx, route, input, compare) as Result<
+          z.output<R["output"]>
+        >;
+      }
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },
   };

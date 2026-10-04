@@ -2,6 +2,6 @@
 import { registerComponentTests } from "@lophn/design/component-tests";
 
 await registerComponentTests(
-  [new URL("./", import.meta.url)],
+  [new URL("./", import.meta.url), new URL("../workspace/", import.meta.url)],
   [new URL("../deno.json", import.meta.url)],
 );

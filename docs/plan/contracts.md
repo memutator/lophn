@@ -631,6 +631,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T32 contracts/problems: problem code 선언·test 실행
 
+- 상태: 완료 (#42)
 - 등급: 기본
 - concern: problems/problem-codes, problems/tests
 - 요구: problems/problem-codes#R1, R2, R5, R6; problems/tests#R2, R4, R16, R19, R20
@@ -642,7 +643,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T11
 - 완료: 아래 확인이 통과한다
   - `ProblemCodeDeclaration {code ^[a-z][a-z0-9_]{1,47}$, message_key, message, fixer}`, 예약 code 3개(`_exception`, `_feedback`, `_invalid_report`)와 message key·en 값.
-  - `/v1/problems/{request-test,record-verification,get-test-request,get-verification,list-verifications}`, `Verification`, `TestTarget`, `FrozenTest`, `TestMethod`(argv·cwd·timeout_ms·기대 종료값·환경 hash), `TicketTestLink {ticket, check_index, check_hash, completion_seq}`(check_index는 ticket 조건의 position, check_hash는 그 조건의 RFC 8785 정규 JSON sha256; problems·coding-agent 이름 차이를 problems 쪽 이름으로 정했다), `ExecutionEvidence`, kind `app_test / reproduction / test_command`, 결과 `inconclusive` 포함.
+  - `/v1/problems/{request-test,record-verification,get-test-request,get-verification,list-verifications}`, `Verification`, `TestTarget`, `FrozenTest`, `TestMethod`(실행 파일을 제외한 argv `['test', ...]`·cwd·timeout_ms·기대 종료값·환경 hash), `TicketTestLink {ticket, check_index, check_hash, completion_seq}`(check_index는 ticket 조건의 position, check_hash는 그 조건의 RFC 8785 정규 JSON sha256; problems·coding-agent 이름 차이를 problems 쪽 이름으로 정했다), `ExecutionEvidence`, kind `app_test / reproduction / test_command`, 결과 `inconclusive` 포함. `request_principal`은 actor kind가 아닌 stable opaque 참조이며 GetTestRequest는 인증 principal+key로 읽고 RecordVerification은 accepted request record와 대조한다. runner만 고정 absolute Deno executable을 선택하고 현재 permission scope·realpath/symlink·lifecycle·memory·실제 판정을 검사한다.
   - test child 관측 frame `{side, test_hash, name, actual, symptom_reproduced?, expectation_met?, reason}`, frame 65,536 bytes·side 1MiB.
   - event `VerificationRecorded`.
 
@@ -1006,3 +1007,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q12 T25 relay는 core-local raw JSON `memory` route로 둔다(platform·shell 소비 review 완료). command의 ledger queue/idempotency, read의 SQLite snapshot, worker의 child dispatch를 UI relay에 빌리지 않는다. publish와 nested 입력은 strict safe refs만 받고, 출력은 additive다. current read는 summary-only 첫 응답 또는 요청 index의 `tab_page`(최대 20개)를 주며 `next_page`는 다음 index다. 실제 registry·generation·창/session binding·scope·redaction·단절 처리는 shell#T26과 platform#T57이 검사한다.
 - Q13 T15 prepare 파일은 metadata와 prepared blob 또는 기존 permanent 참조를 함께 받는다(documents 소비 review 완료). hash 단독 주장은 원문 권한이 아니며 trusted worker가 principal·현재 owner/key/field 권한·prepared TTL을 검사한다. 새 파일은 `document_file` purpose·hash·size, 기존 참조는 hash를 입력과 결합한다. prepare format만 생략 가능하고 신규 MIME 기본 implicit/기존 base_version exact 계약을 worker가 고르며 결과는 exact FormatRef 필수다. agent 목록에서 disk source·files를 빼도 place/name·agent/run invariant를 유지한다. export는 고정 manifest 뒤 T18의 documents/file을 통해 원문 bytes/MIME를 읽고 JSON에 bytes를 중복 싣지 않는다.
 - Q14 T20의 `App.revision`은 해당 App의 마지막 변경 event seq이고, 전역 read snapshot의 `as_of_seq`로 대신하지 않는다(apps·documents 소비 review 완료). App get/list와 등록·source·보관·실행 허용 command 결과에서 revision을 보존해 CAS를 조립한다. logs는 source/buffer 없음 `none`, 수집 꺼짐 `off`, 예산 안 완료 못 함 `timeout`, 조회 성공 `ok`로 구별한다(apps·problems 합의). `ok`의 빈 lines도 정상이며 부분 확보·cap은 `truncated=true`; `collected_at`은 실제 수집 시각 또는 null이다. 입력의 `max_bytes`는 positive safe integer이며 runtime 200줄·줄당 300자 cap과 snapshot caller 30줄·65,536bytes를 섞지 않는다. 현재 scope·supervisor 신원·실제 관측·redaction과 writer 최종 CAS는 구현이 검사한다.
+- Q15 T32의 `Verification.request_principal`은 actor kind가 아닌 인증 주체의 stable opaque 참조로 정하고 공백뿐인 값은 거절한다(problems·apps 소비 review 완료). `GetTestRequest`는 인증 principal와 key로 기존 accepted command record를 읽고, `RecordVerification`은 같은 request의 principal·hash와 대조한다. 별도 request lifecycle entity를 만들지 않는다. `TestMethod.argv`는 executable을 제외한 `['test', ...]`이며 runner만 고정 absolute Deno executable을 고른다. schema의 argv·cwd 검사는 lexical 입력 한도일 뿐 현재 grant scope·realpath/symlink·OS lifecycle/memory 격리·실제 test 판정을 증명하지 않는다. 빈 failure_paths는 선언이 없는 경우의 값이고 전체 선언 coverage와 hash 일치는 runner가 검사한다. 공용 Tx member는 더하지 않는다.

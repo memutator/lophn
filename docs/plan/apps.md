@@ -20,6 +20,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T1 앱 등록, source 연결, 보관
 
+- 상태: 완료 (#143)
 - 등급: 기본
 - concern: apps/registration
 - 요구: apps/registration#R1–R10

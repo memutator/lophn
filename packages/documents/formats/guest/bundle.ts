@@ -1,13 +1,13 @@
-// guest 계산을 재현 가능한 단일 script로 묶고 module_hash를 계산한다.
-// hash는 묶음 코드, 고정 의존 버전, 추출 규칙 버전, guest 실행 규약 버전을 덮는다.
-import { sha256Text } from "../pure/sha256.ts";
-import { GUEST_CONTRACT_VERSION } from "./contract.ts";
+// guest 계산을 재현 가능한 단일 script로 묶는다. moduleHash의 정본은
+// module-hash.ts다. 추출 규약·guest 실행 규약 버전은 contract.ts가 정한다.
+import {
+  EXTRACTION_RULES_VERSION,
+  GUEST_CONTRACT_VERSION,
+} from "./contract.ts";
+import { moduleHash } from "./module-hash.ts";
 
 const ENTRY = new URL("./entry.ts", import.meta.url);
 const BUNDLE = new URL("./bundle.js", import.meta.url);
-
-// 추출 규칙을 바꾸면 이 번호를 올린다. 같은 hash 아래 규칙을 덮어쓰지 않는다.
-export const EXTRACTION_RULES_VERSION = 1;
 
 const PINNED_DEPENDENCIES = [
   "parse5@8.0.1",
@@ -63,14 +63,7 @@ export async function writeGuestBundle(): Promise<string> {
   return source;
 }
 
-export function moduleHash(bundle: string): string {
-  return sha256Text(JSON.stringify({
-    contract: GUEST_CONTRACT_VERSION,
-    extraction: EXTRACTION_RULES_VERSION,
-    dependencies: PINNED_DEPENDENCIES,
-    bundle,
-  }));
-}
+export { moduleHash };
 
 if (import.meta.main) {
   const source = await writeGuestBundle();

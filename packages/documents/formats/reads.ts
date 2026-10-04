@@ -8,6 +8,7 @@ import {
   formatGetInputSchema,
 } from "../../contracts/documents/mod.ts";
 import { checkExtraction, checkValidation } from "./check.ts";
+import { moduleFrom } from "./module-store.ts";
 import { findModule, type StoredModule } from "./modules.ts";
 import { formatDeclaration, formatDeclarations } from "./model.ts";
 import type { FormatModuleInput } from "./pure/input.ts";
@@ -42,15 +43,30 @@ function unavailable(message: string): Result<never, LophnError> {
   return err({ code: "unavailable", message });
 }
 
+// 옛 module은 보존 목록(preserved)이나 blob 보존 읽기(bytes)에서 찾는다.
+// 둘 다 없으면 내장 module만 찾는다. 없는 hash는 누락이고 최신 module로 대체하지 않는다.
+export type PreservedModules = {
+  preserved?: readonly StoredModule[];
+  bytes?: import("./module-store.ts").ModuleBytes;
+};
+
 export function createFormatHandlers(
-  preserved: readonly StoredModule[] = [],
+  source: PreservedModules = {},
 ): FormatHandlers {
+  const preserved = source.preserved ?? [];
+  const bytes = source.bytes;
+  const lookup = async (hash: string) => {
+    const looked = await findModule(hash, preserved);
+    if (looked.found || bytes === undefined) return looked;
+    // blob 보존의 참조에서 hash로 되찾는다. 없는 hash는 누락이다(R20).
+    return await moduleFrom(hash, bytes);
+  };
   return {
     list: () => formatDeclarations(),
     get: async (input) => {
       const parsed = formatGetInputSchema.safeParse(input);
       if (!parsed.success) return invalid("format get input is invalid");
-      const looked = await findModule(parsed.data.module_hash, preserved);
+      const looked = await lookup(parsed.data.module_hash);
       if (!looked.found) return notFound("format module is missing");
       const declaration = formatDeclaration(parsed.data.name);
       if (declaration.module_hash !== parsed.data.module_hash) {
@@ -62,7 +78,7 @@ export function createFormatHandlers(
       if (input.input.module_hash !== input.module_hash) {
         return invalid("input module_hash does not match the call");
       }
-      const looked = await findModule(input.module_hash, preserved);
+      const looked = await lookup(input.module_hash);
       if (!looked.found) return notFound("format module is missing");
       const request: RunnerRequest = {
         operation: input.operation,

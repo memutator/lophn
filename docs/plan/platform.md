@@ -455,6 +455,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T17 notification 반응 처리기와 생성·읽음
 
+- 상태: 완료 (#177)
 - 등급: 기본
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2, R3, R4, R5, R6, R7, R8, R11

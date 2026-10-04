@@ -44,7 +44,7 @@ secret 인증 전송·문서 저장·문제 보고와 다른 앱 연결 준비�
 
 이는 상시 공유 supervisor 1개와 운영 앱 N개에 필요할 때만 작업 프로세스를 더한 구성이다. 앱마다 별도 신뢰 host나 ledger writer를 두지 않는다. core 밖에 두었더라도 supervisor의 event loop에서 디렉터리 순회·큰 hash·build·SQLite backup을 하지 않는다. release worker가 앱 작성 코드를 실행할 때에는 더 좁은 추출/build 자식으로 내려보낸다. 앱 작성 코드와 migration에는 부모의 machine credential을 전달하지 않고 부모가 검증한 작업 결과만 command로 제출한다.
 
-core↔supervisor는 전용 pipe의 JSON line과 자식 handle을 함께 사용한다. 제어 pipe는 caller가 선택한 일반 IPC 경로가 아니다. supervisor는 앱의 broker 제어 연결을 길게 유지한다. core 연결 EOF이면 새 호출과 automation부터 닫고 자식을 끝낸다. 앱도 broker 제어 연결 EOF이면 닫고 종료한다. socket 주소·PID만으로 생존을 판정하지 않는다. 자식 handle, 시작 nonce, OS 시작 신원과 실제 응답을 대조한다. 종료를 확인할 수 없으면 다음 writer를 시작하지 않는다.
+core↔supervisor는 platform pipe(길이 prefix frame)와 자식 handle을 함께 사용한다. 제어 pipe는 caller가 선택한 일반 IPC 경로가 아니다. supervisor는 앱의 broker 제어 연결을 길게 유지한다. core 연결 EOF이면 새 호출과 automation부터 닫고 자식을 끝낸다. 앱도 broker 제어 연결 EOF이면 닫고 종료한다. socket 주소·PID만으로 생존을 판정하지 않는다. 자식 handle, 시작 nonce, OS 시작 신원과 실제 응답을 대조한다. 종료를 확인할 수 없으면 다음 writer를 시작하지 않는다.
 
 ### 2.2 두 로컬 socket과 시작 준비
 
@@ -52,7 +52,7 @@ core↔supervisor는 전용 pipe의 JSON line과 자식 handle을 함께 사용�
 
 Linux는 `$XDG_RUNTIME_DIR/lophn/`을 먼저 쓰고 없으면 OS 사용자별 임시 디렉터리 `lophn-<uid>/`를 0700으로 생성한다. 소켓은 사용자 전용이며 app slug를 경로에 넣지 않는다. 생성 전에 UTF-8 경로가 104byte 미만인지 검사한다. 부족하면 짧은 사용자 전용 위치를 사용하거나 시작을 거절한다. Windows도 우선 고정 Deno의 AF_UNIX 지원을 설치 테스트로 확인하고 같은 두 socket contract를 사용한다. 지원하지 않으면 사용자 전용 ACL의 named pipe HTTP 어댑터를 사용하는 추천안을 적용하며, 그 어댑터의 검증 전에는 `unavailable`이고 TCP로 몰래 바꾸지 않는다.
 
-시작 초기 JSON은 stdin 한 줄이다. app·release·bundle_hash·mode·process_nonce·두 socket·data 경로·고정 blueprint·공개 검증 key·해당 자식의 broker credential을 포함한다. token과 secret은 argv·환경·공용 파일에 쓰지 않는다. 초기 JSON에 secret 값은 없다. `Deno.Command`는 `clearEnv:true`이고 HOME·DENO_DIR·XDG_CACHE_HOME·PATH 중 실행에 필요한 값만 선택한다. Deno 실행 파일은 설정된 `LOPHN_DENO` 또는 현재 `Deno.execPath()`이다. 앱에 환경 읽기 permission을 주지는 않는다.
+시작 초기 JSON은 stdin 한 줄이다. app·release·bundle_hash·mode·process_nonce·두 socket·data 경로·고정 blueprint·Ed25519 공개 검증 key(`verify_key`, raw 32byte의 base64url)·해당 자식의 broker credential을 포함한다. mode는 `live`·`preview`·`test`다. token과 secret은 argv·환경·공용 파일에 쓰지 않는다. 초기 JSON에 secret 값은 없다. `Deno.Command`는 `clearEnv:true`이고 HOME·DENO_DIR·XDG_CACHE_HOME·PATH 중 실행에 필요한 값만 선택한다. Deno 실행 파일은 설정된 `LOPHN_DENO` 또는 현재 `Deno.execPath()`이다. 앱에 환경 읽기 permission을 주지는 않는다.
 
 시작은 항상 `ready=false, accepting=false`로 한다. 작업 프로세스가 실제 bundle byte를 확인하고 앱 entrypoint가 실제 등록한 command 목록과 실제 DB schema를 보고한다. supervisor는 ReadyAttestation의 release·hash·nonce·command 목록·schema를 시작 요청과 대조하고 direct socket에 인증된 준비 probe를 보낸다. 30000ms 안에 모두 확인하지 못하면 시작 실패다. 준비 모드는 업무 쓰기·외부 동작·automation을 닫는다. activation의 새 앱은 ledger commit 전까지 준비 probe만 받는다. 이미 채택된 release의 재시작도 현재 실행 허용·grant를 확인한 뒤 통로를 연다. 시작 준비 성공은 업무 correctness나 problem 닫힘이 아니다.
 
@@ -178,7 +178,7 @@ leaf concern 12개 모두 배치하며 다른 concern의 table에 직접 접근�
 
 **연결 요청.** `POST /v1/apps/connect`는 `{app,mode,screens,screen_sizes,commands,caller?,preview_nonce?}`를 받는다. core의 read 경로 밖 제어 어댑터가 supervisor의 현재 연결을 확인하고 `인증` contract로 원래 credential의 actor·scope를 제한한다. 출력은 현재 direct endpoint와 서명된 AppConnection이다. endpoint·nonce는 ledger에 저장하지 않는다. release 없는 preview는 bundle 기준의 개발 연결만 발급하며 가짜 rel ID를 만들지 않는다. 화면 연결의 endpoint와 credential은 Electron main에만 둔다.
 
-AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·credential_ref·screen/size/command 범위·인증된 caller·기한을 묶는다. 서명 방식·key·credential 수명은 `인증` contract가 정한다. 앱은 공개 검증 key만 받으며 매 요청을 로컬 검증한다. 재시작·activation·grant 변경·credential 회수/축소는 이전 통로 종료와 새 nonce로 나눈다. 본문 actor·effect·mode 주장은 권한 근거가 아니다.
+AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·credential_ref·screen/size/command 범위·인증된 caller·기한을 묶는다. mode는 `live`·`preview`·`test`다. Authorization과 confirm proof는 `{payload, signature}` envelope다. 서명 대상은 payload의 RFC 8785 canonical JSON UTF-8이고 signature는 raw 64byte Ed25519의 base64url이다. key 순서가 달라도 같은 payload는 같은 서명 bytes다. 서명 key는 core 안 apps 제어 어댑터가 core 시작마다 만들고, 앱은 시작 입력의 공개 검증 key만 받아 매 요청을 로컬 검증한다. 재시작·activation·grant 변경·credential 회수/축소는 이전 통로 종료와 새 nonce로 나눈다. 본문 actor·effect·mode 주장은 권한 근거가 아니다.
 
 **direct socket 경로.** 아래 경로는 core API가 아니다. caller가 직접 앱 socket으로 보내며 Authorization에 AppConnection을 쓴다. request_key는 호출 식별이고 일반 업무의 exactly-once 보장이 아니다.
 

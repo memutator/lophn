@@ -66,7 +66,9 @@ Deno.test("apps/runtime#R2, apps/runtime#R13, apps/runtime#R26, apps/runtime#R27
     "export",
   ];
   assertEquals(
-    ROUTES.filter((route) => methods.includes(route.method)).map((
+    ROUTES.filter((route) =>
+      route.resource === "apps" && methods.includes(route.method)
+    ).map((
       route,
     ) => [route.kind, routePath(route), route.name]),
     [
@@ -125,7 +127,12 @@ Deno.test("apps/runtime#R2, apps/runtime#R13, apps/runtime#R26, apps/runtime#R27
 
 Deno.test("apps/runtime#R2, apps/runtime#R13: ReadyAttestation과 네 화면 상태가 통과한다", () => {
   readyAttestationSchema.parse(attestation);
-  appRecordStartedInputSchema.parse({ app: APP, attestation });
+  appRecordStartedInputSchema.parse({
+    app: APP,
+    process_nonce: attestation.process_nonce,
+    started_at: "2026-10-04T00:00:00.000Z",
+    attestation,
+  });
   assertEquals(
     runtimeStateSchema.parse({
       state: "preparing",

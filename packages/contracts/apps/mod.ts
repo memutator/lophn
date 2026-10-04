@@ -31,3 +31,6 @@ export * from "./direct-socket.ts";
 export * from "./broker.ts";
 export * from "./channel-client.ts";
 export * from "./app-start.ts";
+export * from "./invocations.ts";
+export * from "./releases.ts";
+export * from "./data-job.ts";

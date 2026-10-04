@@ -54,7 +54,7 @@ runtime에서 진행 중인 run map이 없어도 StartRun은 중복 시작을 �
 
 ### 2.3 실제 격리
 
-배포 코드에는 역할별 실행 스크립트 대신 `packages/lophn-agent/runtime/main.ts` 하나를 둔다. core가 현재 사람이 등록한 목적지·경로로 Deno 권한 목록을 만든다.
+배포 코드에는 역할별 실행 스크립트 대신 `apps/agent-runtime/main.ts` 하나를 둔다. core가 현재 사람이 등록한 목적지·경로로 Deno 권한 목록을 만든다.
 
 | Deno 권한 | 허용하는 것 | 허용하지 않는 것 |
 |---|---|---|
@@ -72,14 +72,16 @@ Deno `--allow-run`은 **자식 executable 자체의 OS 파일·네트워크 권�
 
 ### 2.4 코드 모듈
 
-- `packages/lophn-agent/runtime/`: `selector.ts`, `loop.ts`, `waiting.ts`, `recovery.ts`, `schedule.ts`, `prompt.ts`, `compaction.ts`, `safety.ts`, `tool-executor.ts`, `app-tools.ts`, `turn-context.ts`, `visuals.ts`, `tool-judgment.ts`, `usage.ts`.
-- `packages/lophn-agent/provider/`: `messages.ts`, `responses.ts`, `chat-completions.ts`, `stream.ts`, `failures.ts`, `credentials.ts`, `oauth.ts`, `auth-transport.ts`. 세 adapter는 공통 interface의 요청/응답 번역만 맡는다.
-- `packages/lophn-agent/extensions/`: `skills.ts`, `mcp-connections.ts`, `mcp-tools.ts`, `mcp-auth.ts`.
-- `packages/lophn-agent/roles/`: 공통·lophn·AE·CE·Operator의 제품 고정 규칙과 금지·상한. 기계 구성 선택은 presets 모듈, 관점·기대 결과는 prompt 자산이다.
-- `packages/lophn-agent/presets/`: schema·제품 기본 preset·구성 검증·tool 묶음 전개. `instructions/`는 LOPHN.md 위치 resolve·문서 읽기·층 순서·크기 gate이며 임의 파일 tool이 아니다.
-- `packages/lophn-agent/contracts/`: agent run·model 호출의 TypeScript schema와 client. `packages/lophn-agent/observability/`는 trace view·export, `evaluation/`는 개발 fixture runner다.
-- core의 `packages/lophn-agent/ledger/<concern>/`에 그 concern의 command·read·SQL을 함께 둔다. core가 로드하는 순수 transaction 함수이며 runtime이 ledger를 열어 쓰는 모듈이 아니다. 테스트는 대상 모듈 옆에 둔다.
-- 시점 계산은 기존 앱 runtime scheduler의 순수 계산 모듈을 재사용한다. agent의 `schedule.ts`는 agent 회차 접수 규칙·command만 덧붙인다. 별도 scheduler daemon이나 앱의 automation queue를 만들지 않는다.
+모듈 자리는 [code-map.md](../dev/code-map.md)가 정본이다. concern 하나의 코드는 `packages/lophn-agent/<leaf 경로>/`에 두고, 실행 entry는 `apps/agent-runtime/`이다. core가 로드하는 command·read·SQL은 그 concern 모듈 안에 있으며 별도 `ledger/` 자리를 두지 않는다. runtime이 ledger를 열어 쓰는 모듈이 아니다. 테스트는 대상 모듈 옆에 둔다.
+
+- `harness/run-loop/`: selector, loop, 기동 순서. `harness/waiting-and-recovery/`는 대기·복구, `scheduling/`은 회차 접수 규칙·command다.
+- `harness/prompt-assemble/`: prompt 조립·compaction. `harness/safety/`는 같은 요청·반복 실패·자료 포장, `harness/tools/`는 tool executor·앱 tool, `harness/tool-judgment/`는 판정, `harness/usage/`는 사용량, `visuals/`는 선언 명세다.
+- `harness/provider/`: messages·responses·chat-completions adapter, stream, 실패 분류, credential, OAuth, 인증 전송. 세 adapter는 공통 interface의 요청/응답 번역만 맡는다.
+- `extensions/`: skill 읽기, MCP 연결·tool·인증.
+- `roles/`: 공통·lophn·AE·CE·Operator의 제품 고정 규칙과 금지·상한. 기계 구성 선택은 presets 모듈, 관점·기대 결과는 prompt 자산이다.
+- `presets/`: schema·제품 기본 preset·구성 검증·tool 묶음 전개. `instructions/`는 LOPHN.md 위치 resolve·문서 읽기·층 순서·크기 gate이며 임의 파일 tool이 아니다.
+- agent run·model 호출의 TypeScript schema와 client는 `packages/contracts`가 소유한다. `observability/`는 trace view·export, `evaluation/`는 개발 fixture runner다.
+- 시점 계산은 기존 앱 runtime scheduler의 순수 계산 모듈을 재사용한다. `scheduling/`은 agent 회차 접수 규칙·command만 덧붙인다. 별도 scheduler daemon이나 앱의 automation queue를 만들지 않는다.
 
 ## 3. 저장
 
@@ -87,7 +89,7 @@ Deno `--allow-run`은 **자식 executable 자체의 OS 파일·네트워크 권�
 
 모든 표는 platform의 단일 `~/.lophn/lophn.db`에 있고 core writer만 쓴다. 아래 모듈이 표 schema·command·read를 소유한다. 여러 영역을 함께 확정할 때 같은 core transaction에서 소유 함수들을 호출하며 네트워크·hash·파일 작업은 하지 않는다.
 
-| core 모듈 (`packages/lophn-agent/ledger/` 아래) | 소유 표 | 함께 확정하는 경계 |
+| core 모듈 (`packages/lophn-agent/` 아래) | 소유 표 | 함께 확정하는 경계 |
 |---|---|---|
 | `presets/` | `presets`, `preset_revisions` | 사람이 저장한 preset 판; Operator assignment는 검토 판을 참조해 별도 승인 적용 |
 | `assignments/` | `assignments`, `assignment_revisions`, `assignment_outputs`, `assignment_read_apps`, `assignment_read_commands` | outputs 독점·승인 사용·preset 판; 실제 시작한 실패 3회 pause |
@@ -129,24 +131,24 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | lophn-agent/roles/app-engineer | runtime | `roles/app-engineer` | Preset·assignment·Run basis | agent run, 앱 통로, command |
 | lophn-agent/roles/context-engineer | runtime | `roles/context-engineer` | Preset·Run basis | agent run, outline·search 읽기, approval |
 | lophn-agent/roles/operator | runtime | `roles/operator` | Preset·승인한 outputs·Run basis | agent run, 앱 통로, command |
-| lophn-agent/presets | core·runtime | `ledger/presets`, `presets` | presets·preset_revisions | command, read, approval |
+| lophn-agent/presets | core·runtime | `presets` | presets·preset_revisions | command, read, approval |
 | lophn-agent/instructions | runtime·documents worker·shell editor | `instructions` | LOPHN.md·Document/Version 정본은 documents; call 판은 ContextBasis | 문서 파일 읽기·편집·version, question |
-| lophn-agent/assignments | core·runtime | `ledger/assignments` | assignments·판·outputs·허용 앱/command | command, read, event 구독 |
-| lophn-agent/scheduling | runtime·core | `runtime/schedule`, `ledger/scheduling` | occurrences·assignment.last_due_at | agent run, command, event 구독 |
-| lophn-agent/conversation | core·runtime | `ledger/conversation` | sessions·messages·blob | agent run, command, read |
-| lophn-agent/visuals | runtime·core·shell renderer | `runtime/visuals`, `ledger/conversation`, SDK renderer | Message.body의 선언 명세·blob; 화면은 derived | message 기록·read, 문서 준비·저장, 앱 card view |
-| lophn-agent/handoff | runtime·core | `runtime/handoff`, run 접수 검사 | Run.source·고정 근거 blob | agent run, command, read |
-| lophn-agent/harness/run-loop | runtime·core | `runtime/selector`, `loop`, `ledger/harness/run-loop` | runs·basis·result | agent run, model 호출 |
-| lophn-agent/harness/waiting-and-recovery | runtime·core | `waiting`, `recovery`, 대응 ledger 모듈 | runs·run_wait_resolutions | agent run, approval, read |
-| lophn-agent/harness/provider | runtime·core | `provider/*`, `ledger/harness/provider` | providers·credentials·model_blocks·keychain 참조 | model 호출, secret 전송 부착 |
-| lophn-agent/harness/model | runtime·core | `runtime/catalog`, `ledger/harness/model` | agent_model_defaults·derived catalog | model 호출, command, read |
-| lophn-agent/harness/prompt-assemble | runtime | `prompt`, `compaction` | context_basis·call blob·derived summary | model 호출, redaction, blob |
-| lophn-agent/harness/tools | runtime·core | `tool-executor`, `ledger/harness/tools` | tool_calls·input/output blob | agent run, command, read, 앱 통로 |
-| lophn-agent/harness/tool-judgment | runtime·core | `tool-judgment`, call 진입 검사 | ToolCall 판정 근거 | approval, 인증, command |
-| lophn-agent/harness/safety | runtime | `safety` | 확정 ToolCall·출처 근거 | redaction, agent run |
-| lophn-agent/harness/usage | runtime·core | `usage`, `ledger/harness/usage` | model_calls·supplements·derived 합계 | model 호출, command, blob |
-| lophn-agent/questions | core·runtime | `ledger/questions`, `runtime/question-actions` | questions·답/action blob | agent run, command, confirmation window |
-| lophn-agent/revert | core·runtime | `ledger/revert`, `runtime/revert-prepare` | reverts·변경/source/compensation | command, read, blob |
+| lophn-agent/assignments | core·runtime | `assignments` | assignments·판·outputs·허용 앱/command | command, read, event 구독 |
+| lophn-agent/scheduling | runtime·core | `scheduling` | occurrences·assignment.last_due_at | agent run, command, event 구독 |
+| lophn-agent/conversation | core·runtime | `conversation` | sessions·messages·blob | agent run, command, read |
+| lophn-agent/visuals | runtime·core·shell renderer | `visuals`, SDK renderer | Message.body의 선언 명세·blob; 화면은 derived | message 기록·read, 문서 준비·저장, 앱 card view |
+| lophn-agent/handoff | runtime·core | `handoff`, run 접수 검사 | Run.source·고정 근거 blob | agent run, command, read |
+| lophn-agent/harness/run-loop | runtime·core | `harness/run-loop` | runs·basis·result | agent run, model 호출 |
+| lophn-agent/harness/waiting-and-recovery | runtime·core | `harness/waiting-and-recovery` | runs·run_wait_resolutions | agent run, approval, read |
+| lophn-agent/harness/provider | runtime·core | `harness/provider` | providers·credentials·model_blocks·keychain 참조 | model 호출, secret 전송 부착 |
+| lophn-agent/harness/model | runtime·core | `harness/model` | agent_model_defaults·derived catalog | model 호출, command, read |
+| lophn-agent/harness/prompt-assemble | runtime | `harness/prompt-assemble` | context_basis·call blob·derived summary | model 호출, redaction, blob |
+| lophn-agent/harness/tools | runtime·core | `harness/tools` | tool_calls·input/output blob | agent run, command, read, 앱 통로 |
+| lophn-agent/harness/tool-judgment | runtime·core | `harness/tool-judgment` | ToolCall 판정 근거 | approval, 인증, command |
+| lophn-agent/harness/safety | runtime | `harness/safety` | 확정 ToolCall·출처 근거 | redaction, agent run |
+| lophn-agent/harness/usage | runtime·core | `harness/usage` | model_calls·supplements·derived 합계 | model 호출, command, blob |
+| lophn-agent/questions | core·runtime | `questions` | questions·답/action blob | agent run, command, confirmation window |
+| lophn-agent/revert | core·runtime | `revert` | reverts·변경/source/compensation | command, read, blob |
 | lophn-agent/extensions | runtime·MCP 자식 | `extensions/*` | platform settings 값·skill·derived 진단 | secret 전송 부착, model 호출의 tool 경계 |
 | lophn-agent/observability | runtime·core read | `observability/*` | event/call 참조·derived trace/export | read, redaction, blob |
 | lophn-agent/evaluation | 개발 runner | `evaluation/*` | versioned fixture·독립 workspace/DB | 가짜 agent run·model 호출 contract |

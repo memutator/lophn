@@ -21,7 +21,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 | 등급 | model | 언제 |
 |---|---|---|
-| 기본 | glm-flash-max (`glm-flash-max`), hive-flash-max (`hive-flash-max`) | 대부분의 작업. 둘을 번갈아 쓴다 |
+| 기본 | glm-flash-max (`glm-flash-max`) | 대부분의 작업과 review |
 | 어려운 | grok 4.7 (`grok-4-7-xhigh`) | 설계 판단이 큰 작업, 보안·동시성·transaction 경계, 기본 등급이 실패한 작업, 큰 PR의 review |
 
 - 실패하면 올린다: 기본 등급이 같은 작업을 한 번 실패하면 어려운 등급으로. 어려운 등급도 두 번 실패하면 lead가 작업을 더 잘게 나눈다.

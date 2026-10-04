@@ -27,6 +27,24 @@ import {
   appStopped,
   appUnavailable,
 } from "./runtime.ts";
+import {
+  INVOCATION_ROUTES,
+  invocationAccepted,
+  invocationDenied,
+  invocationFinished,
+  invocationStarted,
+} from "./invocations.ts";
+import {
+  RELEASE_ROUTES,
+  releaseActivated,
+  releaseActivationFailed,
+  releaseActivationStarted,
+  releaseBackupRecorded,
+  releaseDataChanged,
+  releaseDataRestored,
+  releasePrepared,
+  releaseSuperseded,
+} from "./releases.ts";
 
 export const ROUTES = [
   appConnect,
@@ -45,6 +63,8 @@ export const ROUTES = [
   appLogs,
   appAutomations,
   appExport,
+  ...INVOCATION_ROUTES,
+  ...RELEASE_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -57,4 +77,16 @@ export const EVENTS = [
   appStarted,
   appStopped,
   appUnavailable,
+  invocationAccepted,
+  invocationStarted,
+  invocationFinished,
+  invocationDenied,
+  releasePrepared,
+  releaseActivationStarted,
+  releaseBackupRecorded,
+  releaseDataChanged,
+  releaseDataRestored,
+  releaseActivated,
+  releaseSuperseded,
+  releaseActivationFailed,
 ] as const;

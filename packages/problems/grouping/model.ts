@@ -7,7 +7,7 @@ import {
   problemOpened,
 } from "../../contracts/problems/mod.ts";
 import type { Tx } from "../../contracts/platform/mod.ts";
-import { findProblem, type ProblemRow } from "../reporting/model.ts";
+import { findProblem, type ProblemRow } from "../reporting/mod.ts";
 
 const INVALID_KEY = "grouping 값이 올바르지 않다";
 

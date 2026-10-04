@@ -4,15 +4,10 @@ import type { RecordReportInput } from "../../contracts/problems/mod.ts";
 import { canonicalize } from "../../base/mod.ts";
 import { handleRecordReport, recordReportCommand } from "./commands.ts";
 import { listReportsRead } from "./reads.ts";
-import {
-  emitObserved,
-  emitOpened,
-  existingProblem,
-} from "../grouping/model.ts";
-import { insertSnapshot } from "../snapshots/model.ts";
-import { SNAPSHOTS_SCHEMA_STEPS } from "../snapshots/schema.ts";
+import { emitObserved, emitOpened, existingProblem } from "../grouping/mod.ts";
+import { insertSnapshot, SNAPSHOTS_SCHEMA_STEPS } from "../snapshots/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "./schema.ts";
-import { fileLedger } from "../tests/sqlite-support.ts";
+import { fileLedger } from "../tests/mod.ts";
 
 const APP = "app_01ary8h2z3n4p5q6r7s8t9v0wa";
 

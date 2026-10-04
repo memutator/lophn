@@ -506,6 +506,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T20 secret 전송 부착과 갱신 결과 저장
 
+- 상태: 완료 (#aborted:)
 - 등급: 기본
 - concern: platform/secrets, platform/security
 - 요구: platform/secrets#R3, R5, R11, platform/security#R9

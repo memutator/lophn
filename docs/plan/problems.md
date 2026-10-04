@@ -127,6 +127,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 SDK `reportProblem(code, details?) → {report_id, completion}`, `installExceptionObserver(transport)`
 - slice: apps
 - 선행: contracts#T39
+- 상태: 완료 (#99)
 - 완료:
   - `reportProblem`은 Report ID를 첫 전송 전에 고정하고 실제 invocation 문맥을 붙인 뒤 업무 응답을 막지 않는다; completion은 값으로 끝나 전송 실패가 새 `unhandledrejection`을 만들지 않는다(R1, R13)
   - 대기 32개·4,194,304 bytes 초과는 새 입력 거절, 원문을 디스크에 쓰지 않는다; retry는 일시적 `unavailable`·응답 유실에만 첫 시도 뒤 250/1,000/3,000ms 최대 3회, 같은 고정 내용만(R16)

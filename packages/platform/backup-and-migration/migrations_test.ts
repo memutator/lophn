@@ -2,10 +2,7 @@ import { assert, assertEquals, assertThrows } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, sha256Hex } from "../../base/mod.ts";
 import type { SchemaStep } from "../../contracts/platform/mod.ts";
-import {
-  applyMigrations,
-  recoveryName,
-} from "./mod.ts";
+import { applyMigrations, recoveryName } from "./mod.ts";
 
 const START = Date.parse("2026-01-01T00:00:00.000Z");
 
@@ -357,14 +354,19 @@ Deno.test(
     const before = history(path);
     // 원본을 변환 후처럼 손상시켜 vacuum이 만든 복구본 검사가 실패하게 만든다.
     // 여기서는 원본 손상이 아니라 복구본 폴더를 파일로 막아 검사 실패를 만든다.
-    await Deno.mkdir(`${dir}/backups/migrations`, { recursive: true, mode: 0o700 });
+    await Deno.mkdir(`${dir}/backups/migrations`, {
+      recursive: true,
+      mode: 0o700,
+    });
     await Deno.mkdir(
       `${dir}/backups/migrations/${recoveryName(1, "20260203T040506789Z")}`,
       { recursive: true, mode: 0o700 },
     );
     // 이미 같은 이름의 복구본이 있으면 만들기를 거절한다.
     await Deno.writeFile(
-      `${dir}/backups/migrations/${recoveryName(1, "20260203T040506789Z")}/ledger.db`,
+      `${dir}/backups/migrations/${
+        recoveryName(1, "20260203T040506789Z")
+      }/ledger.db`,
       new Uint8Array([1]),
     );
     const clock2 = manualClock(Date.parse("2026-02-03T04:05:06.789Z"));
@@ -440,7 +442,9 @@ end;`,
     assert(migrated.ok, migrated.ok ? "" : migrated.error.message);
     const checked = new DatabaseSync(path, { readOnly: true });
     // ID·원문 보존(R5).
-    const rows = checked.prepare("select id, body, revised from notes order by id")
+    const rows = checked.prepare(
+      "select id, body, revised from notes order by id",
+    )
       .all();
     assertEquals(rows.length, 2);
     assertEquals(rows[0]["id"], 1);
@@ -479,10 +483,6 @@ Deno.test(
       id: "parent",
       sql: "create table parent (id integer primary key)",
     };
-    const child: SchemaStep = {
-      id: "child",
-      sql: "create table child (pid integer references parent (id))",
-    };
     // 먼저 schema만 만든다.
     assert((await applyMigrations(path, [parent], { clock })).ok);
     // foreign_keys=OFF로 위반 행을 남긴다. 위반 행은 migration 밖의 raw 연결이 남긴다.
@@ -494,7 +494,8 @@ Deno.test(
     // child schema가 이미 있는 설치를 다시 열면 완료 검사가 FK 위반을 잡는다.
     const withChild: SchemaStep = {
       id: "child",
-      sql: "create table if not exists child (pid integer references parent (id))",
+      sql:
+        "create table if not exists child (pid integer references parent (id))",
     };
     const refused = await applyMigrations(path, [parent, withChild], {
       clock: manualClock(Date.parse("2026-02-03T04:05:06.789Z")),
@@ -534,7 +535,10 @@ Deno.test(
   async () => {
     const dir = await tempDir();
     const path = `${dir}/ledger.db`;
-    assert((await applyMigrations(path, [STEPS[0]], { clock: manualClock(START) })).ok);
+    assert(
+      (await applyMigrations(path, [STEPS[0]], { clock: manualClock(START) }))
+        .ok,
+    );
     const second = await applyMigrations(path, STEPS, {
       clock: manualClock(Date.parse("2026-02-03T04:05:06.789Z")),
       recovery: { root: dir },
@@ -580,7 +584,9 @@ end;`,
     assert((await applyMigrations(path, [events], { clock })).ok);
     // blob_refs 표도 먼저 남긴다. 참조는 변환 전 schema의 자료다.
     const refsSchema = new DatabaseSync(path);
-    refsSchema.exec("create table blob_refs (owner_kind text not null, owner_key text not null, field text not null, hash text not null, registered_seq integer not null, primary key (owner_kind, owner_key, field, registered_seq))");
+    refsSchema.exec(
+      "create table blob_refs (owner_kind text not null, owner_key text not null, field text not null, hash text not null, registered_seq integer not null, primary key (owner_kind, owner_key, field, registered_seq))",
+    );
     refsSchema.close();
     // event 세 개와 참조 blob 두 개를 남긴다.
     const source = new DatabaseSync(path);

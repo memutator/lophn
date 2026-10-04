@@ -84,7 +84,10 @@ export async function createRecoveryCopy(
   // target이 이미 있으면 vacuum이 실패한다. 이미 같은 stamp가 있으면 거절한다.
   try {
     await Deno.stat(copyPath);
-    return err({ code: "unavailable", message: "같은 이름의 복구본이 이미 있다" });
+    return err({
+      code: "unavailable",
+      message: "같은 이름의 복구본이 이미 있다",
+    });
   } catch (thrown) {
     if (!(thrown instanceof Deno.errors.NotFound)) {
       return err({

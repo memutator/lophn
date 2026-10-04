@@ -5,10 +5,10 @@ export {
 } from "./migrations.ts";
 export {
   createRecoveryCopy,
-  recoveryName,
   RECOVERY_STAMP,
-  recoveryStamp,
   type RecoveryCopy,
   type RecoveryDeps,
+  recoveryName,
+  recoveryStamp,
 } from "./recovery.ts";
 export { verifyMigrated } from "./verification.ts";

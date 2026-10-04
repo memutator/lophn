@@ -1,4 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
+import { canonicalize } from "@lophn/base";
 import { routePath } from "../platform/route.ts";
 import {
   appCallDepthAllowed,
@@ -252,7 +253,7 @@ Deno.test("apps/runtime#R11: 서명 envelope는 payload와 base64url signature�
   });
   assertEquals(
     connectionSigningBytes(signed.payload),
-    JSON.stringify(connection),
+    canonicalize(connection),
   );
   assert(
     signedConnectionSchema.safeParse({ payload: connection }).success === false,
@@ -310,5 +311,38 @@ Deno.test("apps/runtime#R11: 서명 envelope는 payload와 base64url signature�
       raw,
       bytes,
     ),
+  );
+});
+
+Deno.test("apps/runtime#R11: 서명 대상은 key 순서가 달라도 같은 canonical bytes다", () => {
+  const swapped: Record<string, unknown> = {};
+  for (const key of Object.keys(connection).reverse()) {
+    swapped[key] = (connection as Record<string, unknown>)[key];
+  }
+  assertEquals(
+    connectionSigningBytes(swapped as typeof connection),
+    connectionSigningBytes(connection),
+  );
+  const proof = confirmExecutionProofSchema.parse({
+    invocation: INV,
+    process_nonce: "nonce-1",
+    release: REL,
+    command: "usage.save",
+    input_hash: HASH,
+    caller: { kind: "direct" },
+    expires_at: AT,
+  });
+  const reversed: Record<string, unknown> = {};
+  for (const key of Object.keys(proof).reverse()) {
+    reversed[key] = (proof as Record<string, unknown>)[key];
+  }
+  assertEquals(
+    confirmProofSigningBytes(reversed as typeof proof),
+    confirmProofSigningBytes(proof),
+  );
+  assertEquals(canonicalize({ "10": 10, "2": 2 }), '{"10":10,"2":2}');
+  assertEquals(
+    canonicalize({ "2": 2, "10": 10, nested: { b: 1, a: 2 } }),
+    canonicalize({ nested: { a: 2, b: 1 }, "10": 10, "2": 2 }),
   );
 });

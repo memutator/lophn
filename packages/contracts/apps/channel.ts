@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canonicalize } from "@lophn/base";
 
 function unique<T>(values: readonly T[]): boolean {
   return new Set(values).size === values.length;
@@ -192,7 +193,8 @@ export const appConnectOutputSchema = z.object({
 export type AppConnectOutput = z.infer<typeof appConnectOutputSchema>;
 
 // Authorization과 confirm proof가 싣는 서명 envelope.
-// payload는 정규 JSON이고 signature는 raw 64byte Ed25519의 base64url이다(apps Q5).
+// 서명 대상은 payload의 RFC 8785 canonical JSON UTF-8이고,
+// signature는 raw 64byte Ed25519의 base64url이다(apps Q5).
 const signatureSchema = z.string().regex(/^[A-Za-z0-9_-]{86}$/);
 
 export const signedConnectionSchema = z.strictObject({
@@ -208,11 +210,11 @@ export const signedConfirmProofSchema = z.strictObject({
 export type SignedConfirmProof = z.infer<typeof signedConfirmProofSchema>;
 
 export function connectionSigningBytes(connection: AppConnection): string {
-  return JSON.stringify(connection);
+  return canonicalize(connection);
 }
 
 export function confirmProofSigningBytes(proof: ConfirmExecutionProof): string {
-  return JSON.stringify(proof);
+  return canonicalize(proof);
 }
 
 // core read 경로 밖 제어 어댑터. ledger queue를 거치지 않는다(architecture/apps 5.1).

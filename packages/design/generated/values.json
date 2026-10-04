@@ -392,7 +392,31 @@
       "perRow": 4
     },
     "palette": {
-      "item": "36px"
+      "item": "36px",
+      "width": "640px",
+      "top": "20%"
+    },
+    "tooltip": {
+      "delay": "400ms"
+    },
+    "menu": {
+      "row": "32px"
+    },
+    "dialog": {
+      "width": {
+        "default": "480px",
+        "wide": "640px"
+      }
+    },
+    "toast": {
+      "width": "360px",
+      "duration": {
+        "default": "5000ms",
+        "brief": "2000ms"
+      }
+    },
+    "chip": {
+      "width": "360px"
     },
     "floating": {
       "surface": {

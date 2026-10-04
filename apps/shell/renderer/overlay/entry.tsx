@@ -3,6 +3,7 @@ import "@lophn/design/base.css";
 import { t } from "@lophn/wording";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { overlayRegistry } from "./registry.ts";
+import { surfaceMount } from "./surfaces/surface.tsx";
 import styles from "./entry.module.css";
 
 declare global {
@@ -20,9 +21,15 @@ if (root) {
   retry.textContent = t("common.button.retry");
   status.append(text, retry);
   document.body.append(status);
-  const registry = overlayRegistry(root, globalThis.lophnShell, styles, () => {
-    status.hidden = false;
-  });
+  const registry = overlayRegistry(
+    root,
+    globalThis.lophnShell,
+    styles,
+    () => {
+      status.hidden = false;
+    },
+    surfaceMount(),
+  );
   retry.addEventListener("click", () => {
     status.hidden = true;
     registry.retryReady();

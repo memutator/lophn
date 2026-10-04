@@ -51,3 +51,22 @@ export {
   type StoredBlobRef,
   storedRef,
 } from "./read.ts";
+export {
+  backupPendingFolders,
+  BLOB_CAPACITY_MAX_BYTES,
+  capacityMax,
+  capacityRuleOf,
+  type CapacityUsage,
+  capacityUsage,
+  deletableOf,
+  type GcDisposition,
+  gracePassed,
+  type InstalledBlob,
+  type PrunedReason,
+  referencedOf,
+  type RetentionRule,
+  retentionRules,
+  staleTemporary,
+  trimTargets,
+  unreferencedOf,
+} from "./gc.ts";

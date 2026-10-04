@@ -15,13 +15,19 @@ import {
   createBlobStoreWork,
   systemQuota,
 } from "../../../packages/platform/blob-store/mod.ts";
+import { observeBlobGc } from "./gc.ts";
 import {
   BACKUP_INTERVAL_MS,
   backupDue,
   backupStamp,
   createBackup,
 } from "../../../packages/platform/backup-and-migration/mod.ts";
-import { type Clock, systemClock } from "../../../packages/base/mod.ts";
+import {
+  type Clock,
+  ok,
+  type Result,
+  systemClock,
+} from "../../../packages/base/mod.ts";
 import { DatabaseSync } from "node:sqlite";
 import { type BlobPipe, type BlobPipeRequest, createBlobPipe } from "./blob.ts";
 import {
@@ -36,6 +42,9 @@ import {
 
 // 하루 backup check 주기. 차례가 지나면 만든다. 만들기가 늦어도 다음 check가 본다.
 export const BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+
+// blob GC check 주기(R10: 기동 시와 매일). 관측은 삭제가 아니다.
+export const GC_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 export type PlatformIoOptions = {
   root: string;
@@ -332,6 +341,84 @@ function installedSchemaVersion(root: string): number {
   }
 }
 
+// GC 관측의 설치 blob 파일 목록(R10). hash 폴더 2자 아래 나머지 62자다.
+// core는 파일을 열지 않는다(responsiveness#R1). 관측 실패는 없다고 본다.
+export async function listInstalledBlobs(
+  root: string,
+): Promise<
+  Result<
+    readonly {
+      hash: string;
+      observedAtMs: number;
+      sizeBytes: number;
+      registeredAtMs: number;
+    }[]
+  >
+> {
+  const objects = `${root}/blobs/sha256`;
+  const found: {
+    hash: string;
+    observedAtMs: number;
+    sizeBytes: number;
+    registeredAtMs: number;
+  }[] = [];
+  let prefixes: string[];
+  try {
+    prefixes = [...Deno.readDirSync(objects)].map((entry) => entry.name);
+  } catch {
+    return ok([]);
+  }
+  for (const prefix of prefixes) {
+    let names: string[];
+    try {
+      names = [...Deno.readDirSync(`${objects}/${prefix}`)].map((
+        entry,
+      ) => entry.name);
+    } catch {
+      continue;
+    }
+    for (const suffix of names) {
+      try {
+        const stat = await Deno.stat(`${objects}/${prefix}/${suffix}`);
+        if (!stat.isFile) continue;
+        const at = stat.mtime?.getTime() ?? 0;
+        found.push({
+          hash: `${prefix}${suffix}`,
+          observedAtMs: at,
+          sizeBytes: stat.size,
+          registeredAtMs: at,
+        });
+      } catch {
+        // 관측 중 사라진 파일은 목록에서 뺀다.
+      }
+    }
+  }
+  return ok(found);
+}
+
+// backup 폴더의 pending 표시 관측(T41). GC는 이것이 남아 있으면 실행하지 않는다.
+export async function listBackupPending(
+  root: string,
+): Promise<Result<readonly { name: string; pending: boolean }[]>> {
+  const entries: { name: string; pending: boolean }[] = [];
+  try {
+    for await (const entry of Deno.readDir(`${root}/backups`)) {
+      if (!entry.isDirectory) continue;
+      let pending = false;
+      try {
+        await Deno.stat(`${root}/backups/${entry.name}/backup.pending`);
+        pending = true;
+      } catch {
+        // 표시가 없으면 완료·다른 것으로 본다.
+      }
+      entries.push({ name: entry.name, pending });
+    }
+  } catch {
+    return ok([]);
+  }
+  return ok(entries);
+}
+
 export type BackupTick = {
   // check 한 번. due면 만들기를 scheduler에 낸다. 만들기가 아직 끝나지 않으면
   // 건너뛴다: 두 snapshot이 겹치지 않는다(R9). completion이 끝나면 다시 본다(R12).
@@ -424,10 +511,25 @@ export async function runPlatformIo(root: string): Promise<void> {
   // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
   const backup = createBackupTick(root);
   const timer = setInterval(() => backup.tick(), BACKUP_CHECK_INTERVAL_MS);
+  // blob GC 관측(R10). 실제 삭제는 정지 유지보수에서만 한다. 관측이 실패해도
+  // session을 끝내지 않는다: 다음 check가 다시 본다.
+  const gcTimer = setInterval(async () => {
+    await observeBlobGc({
+      root,
+      listInstalled: () => listInstalledBlobs(root),
+      listReferences: () => Promise.resolve(ok([])),
+      listBackupPending: () => listBackupPending(root),
+      removeBlob: () => Promise.resolve(ok(undefined)),
+      listTmp: () => Promise.resolve(ok([])),
+      removeTmp: () => Promise.resolve(ok(undefined)),
+      nowMs: () => Date.now(),
+    });
+  }, GC_CHECK_INTERVAL_MS);
   try {
     await session.run();
   } finally {
     clearInterval(timer);
+    clearInterval(gcTimer);
     backup.close();
   }
 }

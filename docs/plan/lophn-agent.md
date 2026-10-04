@@ -49,6 +49,7 @@ lophn-agent 팀의 작업 전부다. 범위는 `docs/intent/lophn-agent*`, `docs
 
 ### T1 agent runtime entry 뼈대
 
+- 상태: 완료 (#120)
 - 등급: 기본
 - concern: lophn-agent/harness/run-loop
 - 요구: lophn-agent/harness/run-loop#R8

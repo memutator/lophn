@@ -1,0 +1,5 @@
+{
+  "name": "@lophn/cap-schedule",
+  "version": "1.0.0",
+  "exports": "./mod.ts"
+}

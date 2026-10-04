@@ -5,6 +5,7 @@ import type {
   CommandDefinition,
   PermanentBlobReference,
 } from "../../contracts/platform/mod.ts";
+import type { ConfirmationBridge } from "../identity/mod.ts";
 import type { SubscriberGate } from "./subscriber-registration.ts";
 import type { TxPortRegistration } from "./tx-ports.ts";
 import type { TxCall } from "./tx.ts";
@@ -28,6 +29,8 @@ export type WriterRegistration = {
   checkCredential: CredentialCheck;
   // 없으면 cursor 갱신은 SQL 전에 거절한다. allow-all로 채우지 않는다.
   subscriberGate?: SubscriberGate;
+  // 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
+  confirmation?: ConfirmationBridge;
 };
 
 export function createWriterRegistration(

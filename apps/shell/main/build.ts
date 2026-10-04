@@ -1,6 +1,7 @@
 // main과 preload 세 개를 각각 CJS 한 파일로 묶는다.
 // sandbox preload는 Node 모듈을 못 읽으므로 electron 말고는 아무것도 묶인 채 남기면 안 된다.
 // 저장소의 .ts 원본이 import한 zod는 npm 쪽 node_modules에서 찾는다.
+// package.json의 "type": "module"이 .js를 ESM으로 읽으므로 출력은 .cjs로 낸다.
 import * as esbuild from "esbuild";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,6 +15,7 @@ const shared = {
   bundle: true,
   platform: "node" as const,
   format: "cjs" as const,
+  outExtension: { ".js": ".cjs" },
   external: ["electron"],
   nodePaths: [join(here, "node_modules")],
 };

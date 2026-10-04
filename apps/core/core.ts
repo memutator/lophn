@@ -24,7 +24,7 @@ import {
 import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
 import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
-import { greet, type ParentPipe, watchParent } from "./parent.ts";
+import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { testCredentialFront } from "./test-credentials.ts";
@@ -261,7 +261,10 @@ async function open(
     return greeted;
   }
   core.done = parent
-    ? watchParent(parent, () => core.shutdown())
+    ? watchParent(parent, () => core.shutdown(), {
+      confirmation: (body) => runtime!.confirmation(body),
+      reply: (message) => writeParent(parent, message),
+    })
     : Promise.resolve();
   const accepting = registry as CredentialRegistry & {
     acceptTestCredential?(

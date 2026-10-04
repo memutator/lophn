@@ -27,6 +27,13 @@ import {
   appStopped,
   appUnavailable,
 } from "./runtime.ts";
+import {
+  INVOCATION_ROUTES,
+  invocationAccepted,
+  invocationDenied,
+  invocationFinished,
+  invocationStarted,
+} from "./invocations.ts";
 
 export const ROUTES = [
   appConnect,
@@ -45,6 +52,7 @@ export const ROUTES = [
   appLogs,
   appAutomations,
   appExport,
+  ...INVOCATION_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -57,4 +65,8 @@ export const EVENTS = [
   appStarted,
   appStopped,
   appUnavailable,
+  invocationAccepted,
+  invocationStarted,
+  invocationFinished,
+  invocationDenied,
 ] as const;

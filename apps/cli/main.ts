@@ -56,7 +56,7 @@ function safeJson(text: string): Result<unknown, AgentFailure> {
   }
 }
 
-async function cliMain(argv: readonly string[]): Promise<number> {
+export async function cliMain(argv: readonly string[]): Promise<number> {
   const parsed = parseArgs(argv);
   const output = createOutput({ json: parsed.json });
   if (parsed.help) {

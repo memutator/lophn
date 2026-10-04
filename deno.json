@@ -29,7 +29,8 @@
       "node_modules",
       ".dev-data",
       ".claude",
-      "dist"
+      "dist",
+      "packages/documents/formats/guest/bundle.js"
     ]
   },
   "lint": {
@@ -42,7 +43,8 @@
       "node_modules",
       ".dev-data",
       ".claude",
-      "dist"
+      "dist",
+      "packages/documents/formats/guest/bundle.js"
     ],
     "rules": {
       "exclude": [

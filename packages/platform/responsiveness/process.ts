@@ -1,15 +1,31 @@
+import { spawn as spawnNode } from "node:child_process";
+import { settledWithin } from "./deadline.ts";
+import {
+  confirmGroupGone,
+  GROUP_CONFIRM_MS,
+  signalGroup,
+  supportsProcessGroupEnforcement,
+} from "./group.ts";
+import {
+  fromReadable,
+  type SpawnedPipe,
+  type SpawnedWriter,
+  toWriter,
+} from "./pipe.ts";
+
+export { checkKillAdapter, supportsProcessGroupEnforcement } from "./group.ts";
+export type { SpawnedPipe, SpawnedWriter } from "./pipe.ts";
+
 export type Spawned = {
   pid: number;
-  stdin: {
-    write(bytes: Uint8Array): Promise<void>;
-    close(): Promise<void>;
-  };
-  stdout: { read(buffer: Uint8Array): Promise<number | null> };
-  stderr: { read(buffer: Uint8Array): Promise<number | null> };
-  // 정상 종료 code. 신호로 죽으면 null.
+  stdin: SpawnedWriter;
+  stdout: SpawnedPipe;
+  stderr: SpawnedPipe;
+  // 실제 leader의 종료 code. 신호로 죽으면 null. leader exit는 group 종료의 증거가 아니다.
   exited: Promise<number | null>;
-  // 새 process group 전체를 끝낸다. PID 파일은 쓰지 않는다.
-  killGroup(signal: "SIGTERM" | "SIGKILL"): void;
+  // group 전체에 SIGKILL을 보내고 leader exit와 group 소멸을 확인한다. true만 종료 확인이다.
+  // leader가 스스로 끝나도 자동으로 같은 경계를 지나며, 여러 번 불러도 같은 결과를 돌려준다.
+  terminate(): Promise<boolean>;
 };
 
 export type SpawnRequest = {
@@ -18,69 +34,64 @@ export type SpawnRequest = {
   env: Record<string, string>;
 };
 
-function shellQuote(value: string): string {
-  return "'" + value.replaceAll("'", "'\\''") + "'";
+// Deno 2.9.7의 node:child_process는 env를 명시해도 부모의 NODE_V8_COVERAGE를 child에 복사한다
+// (copyProcessEnvToEnv). 그 이름을 own key로 두되 값이 없으면 복사도 전달도 하지 않는다.
+// launch spec이 그 이름을 직접 넘긴 경우만 그대로 간다.
+export function narrowEnv(
+  env: Record<string, string>,
+): Record<string, string> {
+  return { NODE_V8_COVERAGE: undefined, ...env } as unknown as Record<
+    string,
+    string
+  >;
 }
 
-type Pipe = { read(buffer: Uint8Array): Promise<number | null> };
+// SIGKILL 뒤 leader의 exit status를 기다리는 한도.
+export const LEADER_EXIT_MS = 1_000;
 
-function fromWeb(stream: ReadableStream<Uint8Array>): Pipe {
-  const reader = stream.getReader();
-  let pending: Uint8Array | undefined;
-  let pendingOffset = 0;
-  return {
-    async read(buffer) {
-      while (true) {
-        if (!pending || pendingOffset >= pending.length) {
-          const next = await reader.read();
-          if (next.done) return null;
-          pending = next.value;
-          pendingOffset = 0;
-        }
-        const count = Math.min(buffer.length, pending.length - pendingOffset);
-        buffer.set(pending.subarray(pendingOffset, pendingOffset + count));
-        pendingOffset += count;
-        return count;
-      }
-    },
-  };
-}
-
-// setsid --fork로 새 session의 그룹 리더를 만든다. Deno.Command는 그룹을 만들지 않는다.
-// env -i로 넘긴 이름만 자식에 남는다. 전체 환경을 복사하지 않는다.
-// command와 args는 argv로 넘긴다. shell 문자열로 실행하지 않는다.
+// detached:true가 setsid를 호출해 pid=pgid=session leader가 된다(Deno 2.9.7 실측).
+// group 종료는 이 handle이 띄운 pid만 대상으로 한다. PID 파일은 읽지도 쓰지도 않는다.
 export function spawnProcess(request: SpawnRequest): Spawned {
-  const assignments = Object.entries(request.env)
-    .map(([key, value]) => `${shellQuote(key)}=${shellQuote(value)}`)
-    .join(" ");
-  const argv = [request.command, ...request.args].map(shellQuote).join(" ");
-  const child = new Deno.Command("/usr/bin/setsid", {
-    args: ["--fork", "/bin/sh", "-c", `exec env -i ${assignments} ${argv}`],
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-    clearEnv: true,
-    env: { PATH: "/usr/bin:/bin" },
-  }).spawn();
-  const stdin = child.stdin.getWriter();
+  if (!supportsProcessGroupEnforcement(Deno.build.os)) {
+    throw new Error(
+      "process group enforcement is only verified on linux; refusing to spawn",
+    );
+  }
+  const child = spawnNode(request.command, request.args, {
+    detached: true,
+    shell: false,
+    env: narrowEnv(request.env),
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  // spawn 실패(ENOENT 등)의 'error'를 받지 않으면 core 전체가 죽는다. 실패는 pid로 판정한다.
+  child.on("error", () => {});
   const pid = child.pid;
+  if (pid === undefined || !Number.isSafeInteger(pid) || pid <= 1) {
+    throw new Error("spawn did not return a pid");
+  }
+  const exited = new Promise<number | null>((resolve) => {
+    child.on("exit", (code, signal) => resolve(signal ? null : code));
+  });
+
+  // leader exit와 강제 종료가 모두 이 한 경계를 거친다. leader가 이미 끝났어도 같은 group의
+  // 손자는 남아 있을 수 있으므로 group에 SIGKILL을 보내고 비었는지 확인한다.
+  // leader-only kill로 성공을 만들지 않는다: adapter가 실패하면 false다.
+  let reaping: Promise<boolean> | undefined;
+  const reap = () =>
+    reaping ??= (async () => {
+      const sent = await signalGroup(pid);
+      if (sent === "failed") return false;
+      if (!(await settledWithin(exited, LEADER_EXIT_MS))) return false;
+      return await confirmGroupGone(pid, GROUP_CONFIRM_MS);
+    })().catch(() => false);
+  void exited.then(reap);
+
   return {
     pid,
-    stdin: {
-      write: (bytes) => stdin.write(bytes).then(() => {}),
-      close: () => stdin.close(),
-    },
-    stdout: fromWeb(child.stdout),
-    stderr: fromWeb(child.stderr),
-    exited: child.status.then((status) => status.code),
-    killGroup(signal) {
-      try {
-        Deno.kill(-pid, signal);
-      } catch {
-        try {
-          child.kill(signal);
-        } catch { /* 이미 끝난 process */ }
-      }
-    },
+    stdin: toWriter(child.stdin!),
+    stdout: fromReadable(child.stdout!),
+    stderr: fromReadable(child.stderr!),
+    exited,
+    terminate: reap,
   };
 }

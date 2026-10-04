@@ -71,3 +71,44 @@ Deno.test("platform/security#R2: spec은 kind의 선언 범위를 검사할 뿐 
   const ffi = checkLaunchSpec({ ...spec(), allow_ffi: true });
   assert(!ffi.ok);
 });
+
+Deno.test("platform/security#R3: 한 grant 항목이 쉼표·제어 문자로 다른 항목을 끼워 넣지 못한다", () => {
+  const smuggled = [
+    spec({ allow_read: ["/opt/lophn,/"] }),
+    spec({ allow_write: ["/home/user/.lophn/blobs,/"] }),
+    spec({ allow_run: ["/opt/lophn/deno,/bin/sh"] }),
+    spec({ allow_net: ["127.0.0.1:7431,example.com"] }),
+    spec({ allow_env: ["LOPHN_HOME,HOME"] }),
+    spec({ allow_read: ["/opt/lophn\u0000/"] }),
+    spec({ allow_read: ["/opt/lophn\n/"] }),
+    spec({ allow_env: ["LOPHN_HOME\r"] }),
+    spec({ allow_net: ["127.0.0.1\t:7431"] }),
+    spec({ allow_run: ["/opt/lophn/deno\u007f"] }),
+    spec({ entry: "/opt/lophn/worker.ts\n" }),
+  ];
+  for (const input of smuggled) {
+    const checked = checkLaunchSpec(input);
+    assert(!checked.ok, JSON.stringify(input));
+    assertEquals(checked.error.code, "invalid_input");
+  }
+});
+
+Deno.test("platform/security#R1: launchArgv는 등록한 항목만 정확히 쉼표로 잇는다", () => {
+  const checked = checkLaunchSpec(spec({
+    allow_read: ["/opt/lophn", "/opt/lophn/skills"],
+    allow_env: ["LOPHN_HOME", "LOPHN_MODE"],
+  }));
+  assert(checked.ok);
+  assertEquals(launchArgv(checked.value), [
+    "run",
+    "--cached-only",
+    "--frozen",
+    "--no-prompt",
+    "--allow-read=/opt/lophn,/opt/lophn/skills",
+    "--allow-write=/home/user/.lophn/blobs",
+    "--allow-net=127.0.0.1:7431",
+    "--allow-run=/opt/lophn/deno",
+    "--allow-env=LOPHN_HOME,LOPHN_MODE",
+    entry,
+  ]);
+});

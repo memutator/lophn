@@ -101,6 +101,27 @@ export function parseFieldDeclaration(
   return parsed.data;
 }
 
+function subtreeHasPrivate(
+  value: unknown,
+  privateFields: ReadonlySet<string>,
+  location: string,
+): boolean {
+  if (privateFields.has(location)) return true;
+  if (value === null || typeof value !== "object") return false;
+  if (Array.isArray(value)) {
+    return value.some((item, index) =>
+      subtreeHasPrivate(item, privateFields, `${location}[${index}]`)
+    );
+  }
+  return Object.keys(value).some((key) =>
+    subtreeHasPrivate(
+      (value as Record<string, unknown>)[key],
+      privateFields,
+      location === "" ? key : `${location}.${key}`,
+    )
+  );
+}
+
 export function selectSafeFields(
   value: unknown,
   safeFields: readonly string[],
@@ -109,10 +130,15 @@ export function selectSafeFields(
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
   }
+  const blocked = new Set(privateFields);
   const kept = new Set<string>();
   const next: Record<string, unknown> = {};
+  const dropped: string[] = [];
   for (const path of safeFields) {
-    if (privateFields.includes(path)) continue;
+    if (blocked.has(path)) {
+      dropped.push(path);
+      continue;
+    }
     const segments = segmentsOf(path);
     if (!segments) return undefined;
     const leaf = segments.reduce<unknown>(
@@ -121,11 +147,16 @@ export function selectSafeFields(
     );
     if (leaf === undefined) continue;
     const key = segments[segments.length - 1].key;
-    if (personalKey(key)) continue;
+    if (personalKey(key) || subtreeHasPrivate(leaf, blocked, path)) {
+      dropped.push(path);
+      continue;
+    }
     writeAt(next, segments, leaf);
     kept.add(path);
   }
-  const dropped = privateFields.filter((path) => !kept.has(path));
+  for (const path of privateFields) {
+    if (!kept.has(path) && !dropped.includes(path)) dropped.push(path);
+  }
   return { value: next, dropped };
 }
 

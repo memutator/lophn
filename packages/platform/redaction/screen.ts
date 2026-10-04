@@ -1,6 +1,9 @@
 import { REDACTION_SCREEN_STRING_MAX_CHARS } from "../../contracts/platform/mod.ts";
 import { personalKey, selectSafeFields } from "./fields.ts";
 
+// 80자를 넘는 화면 문자열의 안전 shape. 원문 길이는 담지 않는다(R7, R12).
+export const SCREEN_LONG_STRING = { kind: "long_string" } as const;
+
 // 화면 문자열 80자 초과는 안전 shape, private 필드는 통째로 뺀다(R12).
 // 짧은 이메일·이름·연락처·경로도 개인정보 검사를 생략하지 않는다.
 
@@ -17,9 +20,14 @@ function personal(value: string, key: string): boolean {
     personalKey(key);
 }
 
-function shapeString(value: string, key: string): string | undefined {
+function shapeString(
+  value: string,
+  key: string,
+): string | typeof SCREEN_LONG_STRING | undefined {
   if (personal(value, key)) return undefined;
-  if (value.length > REDACTION_SCREEN_STRING_MAX_CHARS) return undefined;
+  if (value.length > REDACTION_SCREEN_STRING_MAX_CHARS) {
+    return SCREEN_LONG_STRING;
+  }
   return value;
 }
 

@@ -13,7 +13,7 @@ import {
   selectSafeFields,
 } from "./fields.ts";
 import { createKnownSecretRegistry } from "./registry.ts";
-import { redactScreen } from "./screen.ts";
+import { redactScreen, SCREEN_LONG_STRING } from "./screen.ts";
 
 const EMAIL = "a@b.co";
 const LONG = "x".repeat(REDACTION_SCREEN_STRING_MAX_CHARS);
@@ -121,6 +121,15 @@ Deno.test("R9 필드명 변경은 익명화가 아니고 가명 비교 범위는
   assert(hidden);
   assertEquals(hidden.value, {});
   assertEquals(JSON.stringify(hidden.value).includes("email"), false);
+
+  const nested = selectSafeFields(
+    { profile: { code: "ok", token: "tiny" } },
+    ["profile"],
+    ["profile.token"],
+  );
+  assert(nested);
+  assertEquals(nested.value, {});
+  assert(nested.dropped.includes("profile"));
 });
 
 Deno.test("R12 81자 문자열과 private 필드는 빼고 80자·짧은 이메일은 안전 검사에서 예외가 아니다", () => {
@@ -139,12 +148,14 @@ Deno.test("R12 81자 문자열과 private 필드는 빼고 80자·짧은 이메�
   assert(shaped.ok);
   const value = shaped.value as Record<string, unknown>;
   assertEquals(value.title, LONG);
-  assertEquals("body" in value, false);
+  // 81자는 원문 없이 안전 shape로 줄인다. 길이는 shape에 없다.
+  assertEquals(value.body, SCREEN_LONG_STRING);
+  assertEquals(JSON.stringify(value.body).includes("81"), false);
   assertEquals("email" in value, false);
   assertEquals("note" in value, false);
   assertEquals("token" in value, false);
   assert(shaped.omitted.includes("token"));
-  assert(shaped.omitted.includes("body"));
+  assertEquals(shaped.omitted.includes("body"), false);
   assert(shaped.omitted.includes("note"));
   assert(!JSON.stringify(value).includes(EMAIL));
   assert(!JSON.stringify(value).includes(LONGER));

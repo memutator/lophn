@@ -4,6 +4,7 @@ import {
   REDACTION_SAMPLE_MAX_BYTES,
   REDACTION_SAMPLE_MAX_CHARS,
 } from "../../contracts/platform/mod.ts";
+import { createKnownSecretRegistry } from "./registry.ts";
 import { redactSample, samplePathsAllowed } from "./samples.ts";
 
 const UUID = "550e8400-e29b-41d4-a716-446655440000";
@@ -43,6 +44,19 @@ Deno.test("R10 UUID·16자 hex·ULID는 표본 안 가명이고 명시 경로는
   assert(!encoded.includes(HEX));
   assert(!encoded.includes(ULID));
   assert(sample.bytes <= REDACTION_SAMPLE_MAX_BYTES);
+
+  const secret = "sk-openaiKeyValue1234567890abcd";
+  const padded = `${secret}${"z".repeat(REDACTION_SAMPLE_MAX_CHARS)}`;
+  const registry = createKnownSecretRegistry();
+  registry.register([secret]);
+  const masked = redactSample({ note: padded }, ["note"], [], [], registry);
+  assert(masked.ok);
+  if (masked.ok) {
+    const note = (masked.value as { note: string }).note;
+    assertEquals(note.length <= REDACTION_SAMPLE_MAX_CHARS, true);
+    assert(!note.includes(secret));
+    assert(!note.includes(secret.slice(0, 12)));
+  }
 
   const unmarked = redactSample({ secretish: "not-declared" }, ["title"]);
   assert(unmarked.ok);

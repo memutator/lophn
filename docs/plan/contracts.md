@@ -555,8 +555,8 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 등급: 기본
 - concern: lophn-agent/harness/run-loop, lophn-agent/harness/waiting-and-recovery, lophn-agent/conversation, lophn-agent/scheduling
 - 요구: lophn-agent/conversation#R1–R5, R7–R10, R12–R14, R16, R17; lophn-agent/harness/run-loop#R1–R3, R6, R7, R18–R20; lophn-agent/harness/waiting-and-recovery#R1, R3, R5–R7, R10; lophn-agent/scheduling#R1, R4–R7; lophn-agent/handoff#R3, R8; lophn-agent/harness/prompt-assemble#R19, R20; lophn-agent/roles/operator#R6
-- 자리: `packages/contracts/lophn-agent/` — `mod.ts`, `runs.ts`, `sessions.ts`, `messages.ts`, `occurrences.ts`, `scope.ts`, 각 `_test.ts`
-- 쓰는 contract: T5, T6, T7, T25
+- 자리: `packages/contracts/lophn-agent/` — `mod.ts`, `registry.ts`, `runs.ts`, `run-values.ts`, `run-reads.ts`, `run-wait.ts`, `sessions.ts`, `messages.ts`, `message-content.ts`, `occurrences.ts`, `scope.ts`, `question-submission.ts`, `resolved-model.ts`, `visuals.ts`, 각 `_test.ts`; `packages/contracts/platform/json-values.ts`와 approval JSON map 재사용·회귀 테스트
+- 쓰는 contract: T5, T6, T7, T22, T25
 - 내놓는 contract: agent run
 - 받은 요청: lophn-agent(A1, A2의 session·message, A7의 MessageContent, AgentAppScope), shell(요청·steering·stop·재개)
 - slice: agent
@@ -565,7 +565,9 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - `/v1/runs/{accept,start,checkpoint,finish,stop,confirm-next,wait,resolve-wait,correct-waiting,recover,read,list,result}`, `/v1/assignment-occurrences/{process,list}`, `/v1/sessions/{open,change-work-place,close,read,list}`, `/v1/messages/{receive,execute-stored,record,apply,assign,list}`.
   - `Run`, run source(사람 Message / 주기 회차 / handoff), `Session`, `Message`(mode correction·request), `MessageContent`(text·visual 블록 순서).
   - `AgentAppScope {role, assignment, apps: [{app, commands, effects, revert_required, confirm_allowed}]}`: StartRun 때 `agent:<asg>` credential의 conditions로 실린다.
-  - event `Run*` 7개, `Session*` 3개, `Message*` 4개, `AssignmentScheduleAdvanced`.
+  - event `RunAccepted`, `RunStarted`, `RunWaited`, `RunResumed`, `RunRecovered`, `RunFinished` 여섯 개, `Session*` 3개, `Message*` 4개, `AssignmentScheduleAdvanced`. `CheckpointRun`·`ConfirmNextRun`은 event를 만들지 않는다.
+  - `WaitRun`은 새 question 또는 approval의 정확한 생성 입력을 받고 요청 생성·`waiting_on` 연결을 한 transaction에서 한다. 기존 ID만 받는 계약으로 줄이지 않는다. question 제출 값과 `ResolvedModel`은 T26에서 먼저 정의하고 T28·T29가 재사용한다.
+  - ordered `MessageContent`가 쓰는 정확한 `VisualBlock`과 상한은 T26에서 먼저 정의하고 T30이 같은 schema를 재사용한다. `__proto__` 같은 JSON own key·nested key는 파싱에서 지우지 않고 canonical byte·hash 근거로 보존한다. 이 값 검증은 blob 내용 확인·현재 scope·redaction·원자 기록 같은 owner runtime 검증을 대신하지 않는다.
 
 ### T27 contracts/lophn-agent: preset·assignment
 
@@ -598,7 +600,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T26
 - 완료: 아래 확인이 통과한다
   - `/v1/questions/{create,answer,defer,cancel,expire,apply-option,read,list}`, `/v1/handoffs/{submit,status,result}`, `/v1/reverts/{checkpoint,finish,apply,preview,list}`.
-  - `QuestionOptionAction {concern, command, targets, input, comparison}`(owner가 dispatchable command를 등록), `QuestionActionEvidence`. answer·revert_run은 confirmation과 표시 read(questions/read, reverts/preview)를 짝짓는다.
+  - `QuestionOptionAction {concern, command, targets, input, comparison}`(owner가 dispatchable command를 등록), `QuestionActionEvidence`. question 생성·option 값은 T26의 정확한 제출 schema를 재사용한다. answer·revert_run은 confirmation과 표시 read(questions/read, reverts/preview)를 짝짓는다.
   - event `QuestionCreated`, `QuestionAnswered`, `QuestionExpired`, `QuestionCancelled`, `RevertStarted`, `RevertApplied`, `RevertBlocked`, `RevertFinished`.
 
 ### T29 contracts/lophn-agent: provider·credential·model call·catalog
@@ -614,7 +616,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T23, contracts#T26
 - 완료: 아래 확인이 통과한다
   - `/v1/providers/{register,change,record-check,read,list,login-begin,login-complete,login-cancel,test}`, `/v1/provider-credentials/{register,change,refresh-result,record-availability,list}`, `/v1/model-calls/{start,finish,supplement,read,list}`, `/v1/agent-model-defaults/{change,read}`, `/v1/agent-model-catalog/{read,refresh}`.
-  - protocol 이름 `anthropic-messages`, `openai-responses`, `openai-chat-completions`. ModelCall 결과 `complete / partial / failed / cancelled / uncertain`, cost 종류 `reported / estimated / subscription / free / unknown`.
+  - protocol 이름 `anthropic-messages`, `openai-responses`, `openai-chat-completions`. ModelCall 결과 `complete / partial / failed / cancelled / uncertain`, cost 종류 `reported / estimated / subscription / free / unknown`. RunBasis에 고정하는 `ResolvedModel`·가격 값은 T26의 schema를 재사용한다.
   - event `ProviderRegistered`, `ProviderChanged`, `ProviderChecked`, `ModelDefaultsChanged`, `ModelCallStarted`, `ModelCallFinished`, `ModelCallSupplemented`.
 
 ### T30 contracts/lophn-agent: tool call·trace·usage·visual block
@@ -630,7 +632,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T24, contracts#T26
 - 완료: 아래 확인이 통과한다
   - `/v1/tool-calls/{request,decide,start,finish,record-read,supplement,read,list}`, `/v1/agent-traces/{read,export}`, `/v1/agent-usage/read`. tool 결과 `success / failure / not_executed / uncertain`.
-  - `VisualBlock`(표, bar·line·scatter, node·edge 도표, 앱 카드 참조)과 상한.
+  - `VisualBlock`(표, bar·line·scatter, node·edge 도표, 앱 카드 참조)과 상한은 ordered `MessageContent`를 위해 T26에서 먼저 정의한 정확한 값 schema를 재사용한다.
   - event `ToolCallRequested`, `ToolCallDecided`, `ToolCallStarted`, `ToolCallFinished`, `ToolCallSupplemented`.
   - 외부 MCP 서버 설정 정의(transport stdio·Streamable HTTP, 인증 none·bearer·API-key·OAuth 2.1, call timeout 1~600초, tool 분류 read·write·external)를 T24의 `SettingDefinition` 모양으로 둔다. ToolCall의 MCP 출처 field(server, 원래 이름, 설정 판, canonical 이름 `ext_<server>_<tool>`).
   - 내장 tool 이름과 입력 schema는 다른 최상위가 부르지 않으므로 contract로 두지 않는다(lophn-agent/harness/tools 안쪽). 역할별 tool 목록 요구(roles/*)도 그래서 이 작업의 요구에 넣지 않았다.
@@ -1030,7 +1032,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ## 질문
 
-lead가 모두 답했다(docs/dev에 반영됨).
+기존 질문은 lead 답을 docs/dev에 반영했다. 후속 contract 값 결정은 아래 추천안과 각 PR에 남긴다.
 
 - Q1 contracts → base 한 방향 import 허용. code-map에 반영.
 - Q2 공통 오류 코드는 internal 포함 7개. docs/dev/architecture.md에 반영.
@@ -1051,3 +1053,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q18 T6 diagnostics follow-up은 기존 supervision 고정 Diagnostic catalog를 `platform.diagnostics.write`의 strict `{records, dropped}` 입력으로 재사용한다(추천안, platform 소비 review 완료). public DiagnosticRecord·raw LogRecord를 입력으로 쓰지 않으며 JSON control 전용·batch 256개·대기 1MiB·frame 256KiB를 유지한다. `{accepted, dropped}`는 ingress acceptance와 누락 계수일 뿐 durable 성공이 아니다. request 수·ID 결합, 현재 process/task/scope·등록 ID·redaction·fire-and-forget queue는 host가 검사하고 HTTP·`PIPE_OPS`·공용 Tx/ReadSnapshot을 넓히지 않는다.
 - Q19 T18은 실제 선행 T15의 고정 Version·ContentFile과 shared Section shape를 써서 T17 format 실행과 별도 PR로 진행한다(추천안, documents 소비 review 완료). root·series·history만 ledger metadata read, documents/file만 고정 ver/path의 stored bytes file이며 extraction·cache·본문·comparison·guide는 core 밖 worker다. whole/found의 text=null은 terminal redacted omission, unverified/unsupported는 같은 고정 원문 file fallback으로 구별하고 user full Version history와 agent/app source:null projection을 나눈다. guide는 설치 version/title/hash tuple과 manifest path를 결합한다. 최종 schema의 pagination·256KiB·exact ref 검사와 현재 auth/scope·redaction·cursor binding·복원·설치 membership의 host 책임을 섞지 않는다. 이 PR은 T17 execution/routes/status를 포함하지 않으며 T17 완료로 세지 않는다.
 - Q20 T7 named reconnect follow-up은 architecture/platform 5.4의 저장 ack 재개를 표현하도록 `from_seq`를 optional로 두되 `from_seq`와 `subscriber`가 둘 다 없는 입력은 strict schema·union·parser에서 `invalid_input`으로 거절한다(추천안). 이름 있는 생략에는 schema default를 넣지 않고 명시 seq의 포함 의미는 보존한다(platform 소비 source/type/runtime probe review 완료). 현재 인증 principal·이름의 저장 ack 조회, ack+1과 저장 없음 0, 현재 자격·scope 재검사는 platform runtime 책임이며 새 IO·Tx member·공개 route를 더하지 않는다.
+- Q22 T26은 `WaitRun`의 새 question/approval 생성 입력과 `RunBasis`의 정확한 `ResolvedModel`, ordered `MessageContent`의 정확한 `VisualBlock` 값을 먼저 정의한다(추천안). T28·T29·T30은 같은 schema를 재사용하며 ID-only wait·축약 model·unknown visual placeholder를 두지 않는다. Run event는 정본 여섯 개이고 checkpoint·confirm-next에는 event가 없다. revision은 정본의 positive integer, event/CAS seq는 decimal string으로 구별한다. AgentAppScope의 effects는 허용 effect set이며 command별 평행 배열로 줄이지 않는다. schema의 ID·hash·CAS 모양 검사는 실제 새 요청 생성과 waiting_on의 원자 연결, 현재 권한·기록·scope·release·redaction·복구 clock 판정을 대신하지 않는다.

@@ -298,7 +298,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 선행: contracts#T11, contracts#T14
 - 완료: 아래 확인이 통과한다
   - `/v1/documents/{prepare,save,restore,update,set_source,archive,unarchive,move,rename,list,get,resolve,export}`.
-  - `PreparedVersion`, `FileObservationBasis`, `SaveResult(saved | unchanged)`, `FormatRef`, `Document`, `Version`, `ContentFile`.
+  - `PreparedVersion`, `FileObservationBasis`, `SaveResult(saved | unchanged)`, `FormatRef`, `Document`, `Version`, `ContentFile`, `DocumentFileInput`(prepared blob 또는 기존 permanent 참조). prepare 입력은 hash metadata만 받지 않고 trusted content 참조의 purpose·hash·bytes를 결합한다. format 입력은 신규 MIME 기본 implicit 또는 기존 base_version의 exact contract를 쓰기 위해 생략할 수 있고 PreparedVersion 결과의 FormatRef는 필수다.
   - event `DocumentCreated`, `DocumentSaved`, `DocumentUpdated`, `DocumentSourceChanged`, `DocumentArchived`, `DocumentUnarchived`, `DocumentRestored`, `DocumentMoved`, `DocumentRenamed`.
   - document.move·rename은 `QuestionActionEvidence`로 actor=user 적용 경로를 갖는다(값 type은 T28, 여기서는 dispatchable 표시).
 

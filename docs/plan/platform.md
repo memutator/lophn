@@ -185,6 +185,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T7 supervisor: 신뢰 child 감독과 pipe
 
+- 상태: 완료 (#55)
 - 등급: 기본
 - concern: platform/responsiveness, platform/security, platform/backup-and-migration
 - 요구: platform/security#R1, R2, R3, platform/backup-and-migration#R17
@@ -194,7 +195,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: skeleton
 - 선행: contracts#T6
 - 완료: 아래 확인이 통과한다
-  - 감독 통로는 부모가 만든 child의 stdin(부모→자식)·stdout(자식→부모) pipe 위의 길이 prefix binary frame이다(JSON 제어 frame과 byte chunk frame, codec은 contracts#T6). child helper는 console 출력을 stderr로 돌리고 frame이 아닌 stdout 바이트는 protocol 위반으로 그 child를 멈춘다. stderr는 제어·성공 근거로 쓰지 않는다(→ Q2). argv에 credential이 없다. architecture 2.4의 해당 문장을 같은 PR에서 고친다.
+  - 감독 통로는 부모가 만든 child의 stdin(부모→자식)·stdout(자식→부모) pipe 위의 길이 prefix binary frame이다(JSON 제어 frame과 byte chunk frame, codec은 contracts#T6). child entry는 console 출력을 stderr로 돌리고 helper는 전역 console을 바꾸지 않는다. frame이 아닌 stdout 바이트는 protocol 위반으로 그 child를 멈춘다. stderr는 제어·성공 근거로 쓰지 않는다(→ Q2). argv에 credential이 없다. architecture 2.4의 해당 문장을 같은 PR에서 고친다.
   - Electron main↔core도 같은 frame을 쓴다. shell main의 diagnostic도 이 통로로 보낸다.
   - child는 `deno run --cached-only --frozen --no-prompt`와 kind별로 좁힌 `--allow-read/--allow-write/--allow-net`만 받는다. `--allow-all`·전체 환경은 없다. 권한 표는 TrustClass와 architecture 2.4 표를 따른다(security R1–R3).
   - hello(core epoch, process identity, task, scope 상한, credential) → ready 10초 → stop 5초 뒤 실제 handle 강제 종료. 실패 재기동은 1·2·4초 뒤 최대 3회, 그 뒤 그 구성 요소만 사용 불가.

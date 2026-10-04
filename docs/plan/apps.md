@@ -529,7 +529,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - **Q4 앞 slice flow의 앱 단계.** 정했다: organize-documents의 앱 보관 단계는 T1(documents slice)에서 돈다. 나머지 앱 단계(project-workspace, build-context, approve-action, view-agent-visuals)는 T27에서 돈다.
 - **Q5 AppConnection 서명·기한·회수.** 정했다(platform Q15): 앱 direct 연결과 confirm proof는 apps가 서명하는 진술이다. platform은 credential_ref·기한·core epoch만 준다. 서명은 core 안 apps 제어 어댑터가 core 시작마다 만드는 Ed25519 key로 하고, 공개 key는 앱 초기 JSON에 넣는다. AppConnection 기한은 원래 credential 이하·최대 10분, proof는 120초다. 회수는 소유 event와 core epoch로 판단해 관련 통로를 닫고 새 nonce로 재시작한다.
 - **Q6 format SDK Package.** 정했다(documents Q10): @lophn/format-document 하나다(T29).
-- **Q7 test mode 진입점.** 정했다: problems test runner는 같은 진입점과 같은 두 socket HTTP protocol을 쓰고, runner가 broker와 caller 역할을 한다. domain-model/apps/runtime의 mode에 test를 더하는 일은 T7 PR에서 한다.
+- **Q7 test mode 진입점.** 정했다: problems test runner는 같은 진입점과 같은 두 socket HTTP protocol을 쓰고, runner가 broker와 caller 역할을 한다. domain-model/apps/runtime의 mode에 test를 더한다. 시작 입력·AppConnection·broker child의 mode는 `live`·`preview`·`test`이고, `POST /v1/apps/connect`와 RuntimeObservation·화면 틀은 live·preview만 받는다.
 - **Q8 core 조립 자리.** 정했다: apps는 `apps/core/apps.ts`와 `apps/worker/apps/`만 고친다.
 - **Q9 apps slice 시작 시점.** 정했다: 선행이 모두 main에 합쳐진 작업은 slice와 상관없이 시작한다(docs/dev/team-brief.md).
 - **Q10 apps slice에서의 ticket claim.** 정했다: coding-agent#T18·T19·T20과 contracts#T41이 apps slice에 있다. T19와 T27이 그것을 쓴다.

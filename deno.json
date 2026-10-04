@@ -16,7 +16,8 @@
   },
   "tasks": {
     "check": "deno run --allow-all tools/check.ts",
-    "contracts:coverage": "deno run --allow-read tools/contract-coverage.ts"
+    "contracts:coverage": "deno run --allow-read tools/contract-coverage.ts",
+    "dev:core": "LOPHN_HOME=.dev-data deno run --allow-all apps/core/main.ts"
   },
   "fmt": {
     "include": [

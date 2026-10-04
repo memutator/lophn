@@ -12,6 +12,7 @@ import {
   BLOB_PREPARE_OP,
   BLOB_READ_OP,
   type BlobPrepareChunk,
+  type Frame,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   type PreparationRegistry,
@@ -38,6 +39,8 @@ export type BlobPrepareRelay = {
     length: number,
   ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
   readonly size: number;
+  // worker→core byte chunk frame. 읽기 응답의 바이트를 channel별로 모은다.
+  take(frame: Frame): void;
 };
 
 export type PreparedRelayResult = {
@@ -64,6 +67,18 @@ export type BlobRelayDeps = {
 
 export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
   let channelCounter = 0;
+  // worker→core 읽기 응답의 byte chunk를 channel별로 모은다. 요청 동안만 산다.
+  const incoming = new Map<number, Uint8Array[]>();
+  function collect(channel: number): { chunks: Uint8Array[]; stop(): void } {
+    const chunks: Uint8Array[] = [];
+    incoming.set(channel, chunks);
+    return {
+      chunks,
+      stop() {
+        incoming.delete(channel);
+      },
+    };
+  }
   return {
     async prepare(input, bytes) {
       channelCounter = channelCounter % 0xffffffff + 1;
@@ -128,27 +143,51 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
     },
     async readBytes(hash, offset, length) {
       channelCounter = channelCounter % 0xffffffff + 1;
-      const requestId = `blob-read-${channelCounter}-${deps.nowMs()}`;
-      await deps.send({
-        type: "worker_request",
-        request_id: requestId,
-        op: BLOB_READ_OP,
-        payload: { hash, offset, length },
-      });
-      const answered = await waitFor(deps.responses, requestId);
-      if (!answered.ok) return err(answered.error);
-      const payload = answered.payload as {
-        hash: string;
-        size_bytes: number;
-        bytes: string;
-      };
-      const raw = atob(payload.bytes);
-      const bytes = new Uint8Array(raw.length);
-      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-      return ok({ hash: payload.hash, sizeBytes: payload.size_bytes, bytes });
+      const channel = channelCounter;
+      const requestId = `blob-read-${channel}-${deps.nowMs()}`;
+      const collected = collect(channel);
+      try {
+        await deps.send({
+          type: "worker_request",
+          request_id: requestId,
+          op: BLOB_READ_OP,
+          payload: { hash, offset, length, channel },
+        });
+        const answered = await waitFor(deps.responses, requestId);
+        if (!answered.ok) return err(answered.error);
+        const payload = answered.payload as {
+          hash: string;
+          size_bytes: number;
+          channel: number;
+        };
+        // 바이트는 JSON이 아니라 같은 channel의 byte chunk frame으로 온다.
+        // control frame 한도(256KiB)보다 큰 창을 담기 위해서다.
+        if (payload.channel !== channel) {
+          return err({
+            code: "unavailable",
+            message: "blob 읽기 channel이 다르다",
+          });
+        }
+        const chunks = collected.chunks;
+        const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+        const bytes = new Uint8Array(total);
+        let written = 0;
+        for (const chunk of chunks) {
+          bytes.set(chunk, written);
+          written += chunk.length;
+        }
+        return ok({ hash: payload.hash, sizeBytes: payload.size_bytes, bytes });
+      } finally {
+        collected.stop();
+      }
     },
     get size() {
       return deps.registry.size;
+    },
+    // worker가 돌려준 byte chunk frame. 읽기 요청이 모으고 있는 channel만 받는다.
+    take(frame) {
+      if (frame.kind !== "bytes") return;
+      incoming.get(frame.channel)?.push(frame.payload);
     },
   };
 }

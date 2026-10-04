@@ -260,7 +260,15 @@ export async function createPlatformIo(
         });
         return;
       }
-      const response = result.value;
+      const handled = result.value;
+      // 읽은 바이트는 JSON control frame에 넣지 않는다. 256KiB 창의 base64가
+      // control frame 한도를 넘기 때문이다. 요청 channel의 byte chunk로 먼저 보낸다.
+      if (handled.response.ok && handled.bytes !== undefined) {
+        for (const chunk of handled.bytes.chunks) {
+          await session.sendBytes(handled.bytes.channel, chunk);
+        }
+      }
+      const response = handled.response;
       await session.send(
         response.ok
           ? {

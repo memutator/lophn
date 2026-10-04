@@ -5,7 +5,10 @@ import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { startCore } from "./core.ts";
-import { defineBlobField } from "../../packages/contracts/platform/mod.ts";
+import {
+  BLOB_READ_MAX_BYTES,
+  defineBlobField,
+} from "../../packages/contracts/platform/mod.ts";
 
 const HASH_BYTES = new TextEncoder().encode("blob body");
 
@@ -124,6 +127,72 @@ Deno.test("platform/blob-store#R5 #R6 #R7 platform/identity#R9: core는 등록�
   }
 });
 
+// 한 창의 상한(256KiB)을 그대로 읽는다. worker 응답은 base64로 커지므로 감독
+// control frame 한도와 맞물린다. fake bytes.read는 이 경로를 지나지 않는다.
+Deno.test("platform/blob-store#R7: core는 256KiB 읽기 창 전체를 실제 I/O worker로 돌려준다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-blob-window-" });
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [{
+      createCoreRegistration: () => ({ blobFields: [field] }),
+    }],
+    clock: manualClock(Date.UTC(2024, 0, 1)),
+    random: seededRandom(1),
+    testCredentials: true,
+  });
+  assert(started.ok);
+  const core = started.value;
+  try {
+    const allowed = await credential(core, {
+      actor: "user",
+      principal: "user-1",
+      scope: {
+        operations: ["blobs/read"],
+        targets: { owner_key: "ver_1" },
+      },
+      conditions: {},
+    });
+    assert(allowed.ok);
+    const body = new Uint8Array(BLOB_READ_MAX_BYTES);
+    for (let i = 0; i < body.length; i++) body[i] = i % 251;
+    const hash = await sha256(body);
+    const directory = `${core.dataRoot}/blobs/sha256/${hash.slice(0, 2)}`;
+    await Deno.mkdir(directory, { recursive: true });
+    await Deno.writeFile(`${directory}/${hash.slice(2)}`, body);
+    seedRef(core.dataRoot, field.owner_kind, "file", hash, body.length);
+
+    const read = await post(core.port, {
+      owner_kind: field.owner_kind,
+      owner_key: "ver_1",
+      field: field.field,
+      offset_bytes: 0,
+      length_bytes: body.length,
+    }, allowed.value.token);
+    assertEquals(read.status, 200);
+    const answer = read.body as {
+      status: string;
+      bytes?: string;
+      length_bytes?: number;
+      size_bytes?: number;
+      truncated?: boolean;
+      reason?: string;
+    };
+    assertEquals(answer.status, "available");
+    assertEquals(answer.truncated, false);
+    assertEquals(answer.length_bytes, BLOB_READ_MAX_BYTES);
+    assertEquals(answer.size_bytes, BLOB_READ_MAX_BYTES);
+    const decoded = Uint8Array.from(
+      atob(answer.bytes ?? ""),
+      (c) => c.charCodeAt(0),
+    );
+    assertEquals(decoded, body);
+  } finally {
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
 async function credential(
   core: {
     acceptTestCredential?(
@@ -174,6 +243,7 @@ function seedRef(
   ownerKind: string,
   name: string,
   hash: string,
+  sizeBytes: number = HASH_BYTES.length,
 ): void {
   const db = new DatabaseSync(`${dataRoot}/lophn.db`);
   try {
@@ -187,7 +257,7 @@ function seedRef(
     db.prepare(
       `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes, registered_seq)
        values (?, 'ver_1', ?, ?, ?, ?)`,
-    ).run(ownerKind, name, hash, HASH_BYTES.length, seq.seq);
+    ).run(ownerKind, name, hash, sizeBytes, seq.seq);
   } finally {
     db.close();
   }

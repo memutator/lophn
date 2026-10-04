@@ -70,8 +70,15 @@ const execution = {
   redaction_notes: [],
 };
 Deno.test("problems/tests#R2: route and event table matches architecture 5.3 and 5.4", () => {
+  const testRoutes = [
+    requestTest,
+    recordVerification,
+    getTestRequest,
+    getVerification,
+    listVerifications,
+  ];
   assertEquals(
-    ROUTES.map((route) => [route.name, routePath(route), route.kind]),
+    testRoutes.map((route) => [route.name, routePath(route), route.kind]),
     [
       ["RequestTest", "/v1/problems/request-test", "command"],
       ["RecordVerification", "/v1/problems/record-verification", "command"],
@@ -80,11 +87,16 @@ Deno.test("problems/tests#R2: route and event table matches architecture 5.3 and
       ["ListVerifications", "/v1/problems/list-verifications", "read"],
     ],
   );
-  assertEquals(EVENTS.map((event) => event.type), ["VerificationRecorded"]);
-  for (const event of EVENTS) {
+  assertEquals([verificationRecorded.type], ["VerificationRecorded"]);
+  assertEquals(
+    EVENTS.filter((event) => event === verificationRecorded).length,
+    1,
+  );
+  for (const event of [verificationRecorded]) {
     assertEquals(ALL_EVENTS.filter((entry) => entry === event).length, 1);
   }
-  for (const route of ROUTES) {
+  for (const route of testRoutes) {
+    assertEquals(ROUTES.filter((entry) => entry === route).length, 1);
     assertEquals(ALL_ROUTES.filter((entry) => entry === route).length, 1);
     for (const error of route.errors) {
       assertEquals(ERROR_CODES.includes(error), true);

@@ -377,6 +377,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T14 blob 참조 등록과 읽기
 
+- 상태: 완료 (#150)
 - 등급: 기본
 - concern: platform/blob-store, platform/identity
 - 요구: platform/blob-store#R4, R5, R6, R7, platform/identity#R9

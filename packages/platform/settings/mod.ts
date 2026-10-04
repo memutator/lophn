@@ -9,6 +9,7 @@ export {
   validateChoice,
   validateConstraints,
 } from "./model.ts";
+export { createSettingsCommands, settingsHistoryRead } from "./apply.ts";
 export { SettingRegistry, validateDefinition } from "./registry.ts";
 export { settingsDefinitionsRead, settingsGetRead } from "./reads.ts";
 export { SETTINGS_SCHEMA_STEPS } from "./schema.ts";

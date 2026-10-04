@@ -7,9 +7,11 @@ import {
   type Tx,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
+  createSettingsCommands,
   SettingRegistry,
   settingsDefinitionsRead,
   settingsGetRead,
+  settingsHistoryRead,
 } from "./mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "./schema.ts";
 
@@ -101,12 +103,18 @@ const recordChoiceCommand: CommandDefinition<typeof recordChoice> = {
   },
 };
 
-// settings 설정의 선택 없는 시작을 본다. apply는 T26이다.
+// settings 설정의 apply·reload·history·read를 같은 registry로 등록한다(R17-R25).
 export function createLedgerTestRegistration() {
   const registry = new SettingRegistry([width, tracking, harnessChoice]);
+  const commands = createSettingsCommands(registry);
   return {
     schemaSteps: SETTINGS_SCHEMA_STEPS,
+    commands: [commands.apply, commands.reload],
     testCommands: [recordChoiceCommand],
-    reads: [settingsDefinitionsRead(registry), settingsGetRead(registry)],
+    reads: [
+      settingsDefinitionsRead(registry),
+      settingsGetRead(registry),
+      settingsHistoryRead(registry),
+    ],
   };
 }

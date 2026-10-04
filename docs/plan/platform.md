@@ -790,6 +790,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T38 lophn 내부 오류의 진단 분류
 
+- 상태: 완료 (#80)
 - 등급: 좁은
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R1

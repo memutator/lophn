@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import { TopBar } from "../desktop/top-bar/top-bar.tsx";
+import { LophnEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
 import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
@@ -271,7 +271,7 @@ export function Workspace(
                 <Breadcrumbs crumbs={crumbs} />
               </span>
             }
-            onLophn={onLophn}
+            trailing={<LophnEntry onLophn={onLophn} />}
           />
         </div>
         {loaded.failed

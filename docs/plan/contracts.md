@@ -964,6 +964,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T42 contracts/coding-agent: session summary·TUI 시작
 
+- 상태: 완료 (#123)
 - 등급: 기본
 - concern: coding-agent/sessions, coding-agent/harnesses
 - 요구: coding-agent/sessions#R3, R6, R7; coding-agent/harnesses#R1, R3, R9, R10

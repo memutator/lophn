@@ -923,7 +923,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T41 contracts/coding-agent: ticket
 
-- 상태: 완료 (#110)
+- 상태: 완료 (#113)
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R1, R2, R4, R7, R10, R12, R19, R22

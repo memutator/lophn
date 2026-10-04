@@ -13,24 +13,29 @@ import {
 } from "../../platform/redaction/mod.ts";
 
 export type OutputWriter = {
-  result(result: AgentResult): void;
-  failure(failure: AgentFailure): void;
-  diagnostic(message: string): void;
+  result(result: AgentResult): Promise<void>;
+  failure(failure: AgentFailure): Promise<void>;
+  diagnostic(message: string): Promise<void>;
   exitCode(failure: AgentFailure | undefined): number;
 };
 
 export type OutputOptions = {
   json: boolean;
   // stdout·stderr을 바꿔 끼운다. 기본은 process의 것이다.
-  stdout?: Deno.Writer;
-  stderr?: Deno.Writer;
+  stdout?: WritableStream<Uint8Array>;
+  stderr?: WritableStream<Uint8Array>;
   registry?: KnownSecretRegistry;
 };
 
 const encoder = new TextEncoder();
 
-function write(writer: Deno.Writer, text: string): void {
-  void writer.write(encoder.encode(text));
+async function write(writer: WritableStream<Uint8Array>, text: string): Promise<void> {
+  const stream = writer.getWriter();
+  try {
+    await stream.write(encoder.encode(text));
+  } finally {
+    stream.releaseLock();
+  }
 }
 
 // 실페 details와 message에서 raw secret을 지운다. 어느 쪽에도 원문을 쓰지 않는다(R3).
@@ -42,10 +47,10 @@ function redactText(registry: KnownSecretRegistry, text: string): string {
 
 export function createOutput(options: OutputOptions): OutputWriter {
   const json = options.json;
-  const stdout = options.stdout ?? Deno.stdout;
-  const stderr = options.stderr ?? Deno.stderr;
+  const stdout = options.stdout ?? Deno.stdout.writable;
+  const stderr = options.stderr ?? Deno.stderr.writable;
   const registry = options.registry ?? createKnownSecretRegistry();
-  function emitResult(result: AgentResult): void {
+  async function emitResult(result: AgentResult): Promise<void> {
     if (json) {
       write(stdout, `${JSON.stringify(result)}\n`);
       return;
@@ -61,7 +66,7 @@ export function createOutput(options: OutputOptions): OutputWriter {
       }
     }
   }
-  function emitFailure(failure: AgentFailure): void {
+  async function emitFailure(failure: AgentFailure): Promise<void> {
     if (json) {
       write(stdout, `${JSON.stringify({ error: failure })}\n`);
       return;
@@ -75,9 +80,9 @@ export function createOutput(options: OutputOptions): OutputWriter {
     }
   }
   return {
-    result(emitResult),
-    failure(emitFailure),
-    diagnostic(message) {
+    result: emitResult,
+    failure: emitFailure,
+    async diagnostic(message) {
       write(stderr, `${redactText(registry, message)}\n`);
     },
     exitCode(failure) {

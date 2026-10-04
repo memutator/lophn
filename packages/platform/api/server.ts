@@ -1,12 +1,15 @@
 import type { Clock, Logger } from "../../base/mod.ts";
 import {
+  type AuthenticatedContext,
   DEFAULT_API_PORT,
+  ERROR_HTTP_STATUS,
   EVENT_SUBSCRIBE_PATH,
   RPC_JSON_MAX_BYTES,
 } from "../../contracts/platform/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
 import type { EventBackend, SubscriptionStore } from "../ledger/mod.ts";
 import type { Writer } from "../ledger/mod.ts";
+import { type Admission, createAdmission } from "../responsiveness/mod.ts";
 import {
   type DispatchDeps,
   dispatchHttp,
@@ -38,9 +41,11 @@ export type ApiServerOptions = {
   events?: EventBackend;
   subscriptions?: SubscriptionStore;
   bodyLimit?: DispatchDeps["bodyLimit"];
-  // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는다.
+  // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는��.
   logger?: Logger;
   registry?: RouteRegistry;
+  // command·HTTP·event 입장 한도(responsiveness 2.3 표). 없으면 createAdmission()이다.
+  admission?: Admission;
 };
 
 export type ApiServer = {
@@ -53,6 +58,7 @@ const LOOPBACK = ["127.0.0.1", "::1"] as const;
 export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
   const requested = options.port ?? DEFAULT_API_PORT;
   const registry = options.registry ?? new RouteRegistry();
+  const admission = options.admission ?? createAdmission();
   const deps: DispatchDeps = {
     credentials: options.credentials,
     clock: options.clock,
@@ -63,6 +69,16 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     bodyLimit: options.bodyLimit,
     bodyTimeoutMs: BODY_TIMEOUT_MS,
     jsonMaxBytes: RPC_JSON_MAX_BYTES,
+    // command 입장 대기. 회수·정지 제어 command만 control lane(예약 16)으로 들어가고
+    // 나머지는 normal lane이다. 거절은 queue 입장에서 unavailable이다.
+    admitCommand: async (ctx, name, work) => {
+      const admitted = await admission.admit(
+        ctx.principal,
+        () => work().then(() => undefined),
+        controlCommand(ctx, name) ? "control" : "normal",
+      );
+      return admitted ? await work() : commandRefused();
+    },
   };
   let settled = false;
   return new Promise((resolve, reject) => {
@@ -148,39 +164,80 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
             message: "event subscription unavailable",
           }));
         }
+        // event 연결 한도(32·principal당 4)는 upgrade 전에 결정한다. queue 없다.
+        const connection = admission.enterEvent(decision.context.principal);
+        if (!connection.ok) {
+          return json(failure(connection.error));
+        }
         const accepted = acceptSocket(request);
         if (!accepted.ok) {
+          connection.value.release();
           return Response.json(accepted.body, { status: accepted.status });
         }
         attachSession(accepted.socket, decision.context, {
           backend: options.events,
           store: options.subscriptions,
+          onClose: connection.value.release,
         });
         return accepted.response;
       }
-      const entry = registry.lookup(url.pathname);
-      if (!entry) {
-        return json(failure({
-          code: "not_found",
-          message: "route not found",
-        }));
+      // HTTP 동시 요청 한도(128·principal당 16)는 인증 뒤 같은 시점에 결정한다. queue 없다.
+      const arrival = admission.enterHttp(decision.context.principal);
+      if (!arrival.ok) {
+        return json(failure(arrival.error));
       }
-      const result = await dispatchHttp(request, entry, decision.context, deps);
-      if ("bytes" in result) {
-        return new Response(
-          result.bytes.buffer.slice(
-            result.bytes.byteOffset,
-            result.bytes.byteOffset + result.bytes.byteLength,
-          ) as ArrayBuffer,
-          {
-            status: result.status,
-            headers: { "content-type": result.contentType },
-          },
+      try {
+        const entry = registry.lookup(url.pathname);
+        if (!entry) {
+          return json(failure({
+            code: "not_found",
+            message: "route not found",
+          }));
+        }
+        const result = await dispatchHttp(
+          request,
+          entry,
+          decision.context,
+          deps,
         );
+        if ("bytes" in result) {
+          return new Response(
+            result.bytes.buffer.slice(
+              result.bytes.byteOffset,
+              result.bytes.byteOffset + result.bytes.byteLength,
+            ) as ArrayBuffer,
+            {
+              status: result.status,
+              headers: { "content-type": result.contentType },
+            },
+          );
+        }
+        return Response.json(result.json, { status: result.status });
+      } finally {
+        arrival.value.release();
       }
-      return Response.json(result.json, { status: result.status });
     }
   });
+}
+
+// 회수·정지 제어만 예약 영역(responsiveness R3)으로 입장시킨다. caller의 priority 주장은
+// 입력에 없다. 입장 영역은 route가 등록한 command 이름으로 정한다.
+const CONTROL_OPERATIONS = new Set([
+  "cancel_approval_request",
+  "reject_approval_request",
+  "expire_approval_request",
+  "removeSecret",
+]);
+
+function controlCommand(_ctx: AuthenticatedContext, name: string): boolean {
+  return CONTROL_OPERATIONS.has(name);
+}
+
+function commandRefused(): { status: number; json: unknown } {
+  return {
+    status: ERROR_HTTP_STATUS.unavailable,
+    json: errorBody({ code: "unavailable", message: "admission 한도를 넘었다" }),
+  };
 }
 
 function json(reason: ReturnType<typeof failure>): Response {

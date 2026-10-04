@@ -109,7 +109,7 @@ core는 정본 action의 concern·command·대상·정확한 입력·CAS와 제�
 ## 정할 것
 
 - token은 OS CSPRNG 32byte와 검증된 hash·constant-time 비교를 쓴다. OS별 안전 전달 모양은 → platform architecture에서 고정한다.
-- 앱 direct-call 연결·confirm 접수 실행 증명의 서명·전송 모양은 → apps/runtime와 맞춘다.
+- 앱 direct-call 연결·confirm 접수 실행 증명은 새 token·actor 종류가 아니라 core 안 apps 제어 adapter가 core 시작마다 만든 Ed25519 key로 서명한 진술이다. 서명 모양은 → apps/runtime와 맞춘다. platform은 `credential_ref`·기한·core epoch만 주고 AppConnection 기한은 원래 credential 기한 이하·최대 10분, proof는 120초다. 회수는 소유 event(GrantRevoked, assignment 멈춤, connection 회수, run 종료)와 core epoch로 판단하고 별도 platform 회수 event는 만들지 않는다. 공개 key는 앱 초기 JSON의 verify_key다.
 - Host 허용 주소는 실제 port를 포함한 loopback 두 가족(127.0.0.1, ::1, localhost)의 정확한 목록만 쓴다. request·connection·구독의 유한 한도는 → platform/responsiveness와 platform architecture에서 검증해 고정한다.
 
 ## coding credential 전달 결합

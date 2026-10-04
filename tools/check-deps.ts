@@ -1,4 +1,5 @@
 // 실행: deno run --allow-read tools/check-deps.ts [root]
+import { blueprintEntryImport, checkBlueprintGraph } from "./deps-blueprint.ts";
 import { readImports } from "./deps-imports.ts";
 import {
   directory,
@@ -110,6 +111,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
   const members = await readMembers(root, files);
   const violations: Violation[] = [];
   const edges: Edge[] = [];
+  const sources = new Map<string, string>();
   const add = (file: string, line: number, rule: string, message: string) =>
     violations.push({ file, line, rule, message });
 
@@ -140,11 +142,9 @@ export async function checkRepo(root: string): Promise<Violation[]> {
     if (!/\.tsx?$/.test(file)) continue;
     const test = file.endsWith("_test.ts");
     const sourceLeaf = leaf(file, members, allFiles);
-    for (
-      const { specifier, line } of readImports(
-        await Deno.readTextFile(`${root}/${file}`),
-      )
-    ) {
+    const source = await Deno.readTextFile(`${root}/${file}`);
+    sources.set(file, source);
+    for (const { specifier, line } of readImports(source)) {
       const relative = specifier.startsWith("./") ||
         specifier.startsWith("../");
       const absoluteTarget = relative
@@ -209,7 +209,10 @@ export async function checkRepo(root: string): Promise<Violation[]> {
         const top = file.split("/")[1];
         const targetTop = target.split("/")[1];
         if (targetTop === "contracts") {
-          if (!/^packages\/contracts\/[^/]+\/mod\.ts$/.test(target)) {
+          if (
+            !/^packages\/contracts\/[^/]+\/mod\.ts$/.test(target) &&
+            !blueprintEntryImport(file, target)
+          ) {
             add(
               file,
               line,
@@ -265,6 +268,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
       }
     }
   }
+  checkBlueprintGraph(sources, add);
   for (const edge of cyclicEdges(edges)) {
     add(
       edge.file,

@@ -38,6 +38,21 @@ export {
   type SecretWork,
 } from "./work.ts";
 export {
+  createSecretAttach,
+  SECRET_SEND,
+  type SecretAttach,
+  type SecretReferenceLookup,
+} from "./attach.ts";
+export { attachAllowed, destinationHost, sameDestination } from "./model.ts";
+export {
+  createSecretRefresh,
+  type OwnerCredential,
+  type OwnerCredentialCommand,
+  type RefreshSubmission,
+  SECRET_STORE_REFRESH,
+  type SecretRefresh,
+} from "./refresh.ts";
+export {
   createSecretTransfer,
   type ImportCommit,
   type SecretSelection,

@@ -150,9 +150,7 @@ Deno.test("platform/secrets#R9: import 실패는 기존 참조를 유지하고 �
     context: context(),
   }).exportSelected({
     selection: {
-      records: [record],
-      purpose: "app_secret",
-      owner: "service.key",
+      records: [{ ...record, purpose: "app_secret", owner: "service.key" }],
     },
     passphrase: PASSPHRASE,
   });

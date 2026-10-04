@@ -1,7 +1,9 @@
-import { command } from "./fixture.ts";
+import { blueprint, command, screen } from "./fixture.ts";
 import type {
+  AutomationDeclaration,
   Blueprint,
   CommandDeclaration,
+  CommandEffect,
   ScreenDeclaration,
 } from "./mod.ts";
 
@@ -106,3 +108,50 @@ const wide: ScreenDeclaration = {
   sizes: ["wide"],
 };
 void wide;
+
+const badEffect = command(
+  "lookup",
+  // @ts-expect-error effect는 read·write·external만이다
+  "fetch",
+);
+void badEffect;
+
+const badConfirm = command("send", "external", {
+  // @ts-expect-error confirm은 boolean이다
+  confirm: "yes",
+});
+void badConfirm;
+
+const manyEffects = command("send", "external", {
+  // @ts-expect-error effect는 하나다
+  effect: ["external", "write"],
+});
+void manyEffects;
+
+const badScreen = screen({
+  // @ts-expect-error size는 full·panel·card만이다
+  sizes: ["wide"],
+});
+void badScreen;
+
+const badBlueprint = blueprint({
+  // @ts-expect-error 옛 context 필드는 Blueprint에 없다
+  context: [],
+});
+void badBlueprint;
+
+const wrongWhen: AutomationDeclaration = {
+  key: "sync",
+  label: "Sync",
+  // @ts-expect-error automation when은 interval 또는 on_start다
+  when: { kind: "cron" },
+  command: "lookup",
+};
+void wrongWhen;
+
+const effectSlot: CommandEffect = "read";
+void effectSlot;
+const badEffectSlot =
+  // @ts-expect-error CommandEffect에 fetch는 없다
+  "fetch" satisfies CommandEffect;
+void badEffectSlot;

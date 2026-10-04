@@ -6,6 +6,7 @@ import type {
   CommandDeclaration,
   ScreenDeclaration,
 } from "./mod.ts";
+import { validateBlueprint } from "./mod.ts";
 
 const home = screen();
 const lookup = command("lookup", "read");
@@ -33,67 +34,98 @@ function authored(
   return defineAgentContext(value, refs);
 }
 
+function host(
+  value: AgentContextDeclaration,
+  refs: { screens: ScreenDeclaration[]; commands: CommandDeclaration[] },
+) {
+  return {
+    name: "agent context",
+    description: "agent context declaration",
+    screens: refs.screens,
+    commands: refs.commands,
+    automatic_tasks: [],
+    permissions: [],
+    problem_codes: [],
+    documents: [],
+    agent_context: [value],
+    app_connections: [],
+    sdk_dependencies: [],
+  };
+}
+
 Deno.test("apps/blueprint#R22: defineAgentContext는 supported write와 다른 undo를 받고 잘못된 참조를 거절한다", () => {
   const before = structuredClone(declaration);
   const refsBefore = structuredClone(references);
+  const accepted = validateBlueprint(host(declaration, references));
+  assertEquals(accepted.ok, true);
   const defined = authored(declaration, references);
   assertEquals(defined, declaration);
   assertEquals(declaration, before);
   assertEquals(references, refsBefore);
 
-  assertThrows(
-    () =>
-      authored(declaration, {
-        screens: references.screens,
-        commands: [note, undo],
-      }),
-    TypeError,
-  );
-  assertThrows(
-    () =>
-      authored({
+  const cases: Array<[
+    AgentContextDeclaration,
+    { screens: ScreenDeclaration[]; commands: CommandDeclaration[] },
+    string,
+  ]> = [
+    [
+      declaration,
+      { screens: references.screens, commands: [note, undo] },
+      "agent context read command must be read and confirm false",
+    ],
+    [
+      {
         ...declaration,
         annotation_targets: [{
           key: "hint",
           label: "Hint",
           write_command: "missing",
         }],
-      }, references),
-    TypeError,
-  );
-  assertThrows(
-    () =>
-      authored(declaration, {
+      },
+      references,
+      "annotation target command must be write",
+    ],
+    [
+      declaration,
+      {
         screens: references.screens,
         commands: [
           command("lookup", "read", { confirm: true }),
           note,
           undo,
         ],
-      }),
-    TypeError,
-  );
-  assertThrows(
-    () => authored({ ...declaration, sensitive_paths: ["secret"] }, references),
-    TypeError,
-  );
-  assertThrows(
-    () =>
-      authored({
+      },
+      "agent context read command must be read and confirm false",
+    ],
+    [
+      { ...declaration, sensitive_paths: ["secret"] },
+      references,
+      "sensitive path must be a JSON Pointer",
+    ],
+    [
+      {
         ...declaration,
         annotation_targets: [
           declaration.annotation_targets[0]!,
           { ...declaration.annotation_targets[0]! },
         ],
-      }, references),
-    TypeError,
-  );
-  assertThrows(
-    () =>
-      authored(declaration, {
+      },
+      references,
+      "duplicate annotation target",
+    ],
+    [
+      declaration,
+      {
         screens: [{ ...home, sizes: [] }],
         commands: references.commands,
-      }),
-    TypeError,
-  );
+      },
+      "screen sizes must be nonempty",
+    ],
+  ];
+  for (const [value, refs, message] of cases) {
+    const result = validateBlueprint(host(value, refs));
+    assertEquals(result.ok, false);
+    if (!result.ok) assertEquals(result.error.message, message);
+    assertThrows(() => authored(value, refs), TypeError, message);
+  }
 });

@@ -64,6 +64,29 @@ Deno.test("lophn-agent/harness/run-loop#R2: public entry registers the exact run
     "/v1/assignments/read",
     "/v1/assignments/list",
     "/v1/assignments/outputs",
+    "/v1/providers/register",
+    "/v1/providers/change",
+    "/v1/providers/record-check",
+    "/v1/providers/read",
+    "/v1/providers/list",
+    "/v1/providers/login-begin",
+    "/v1/providers/login-complete",
+    "/v1/providers/login-cancel",
+    "/v1/providers/test",
+    "/v1/provider-credentials/register",
+    "/v1/provider-credentials/change",
+    "/v1/provider-credentials/refresh-result",
+    "/v1/provider-credentials/record-availability",
+    "/v1/provider-credentials/list",
+    "/v1/model-calls/start",
+    "/v1/model-calls/finish",
+    "/v1/model-calls/supplement",
+    "/v1/model-calls/read",
+    "/v1/model-calls/list",
+    "/v1/agent-model-defaults/change",
+    "/v1/agent-model-defaults/read",
+    "/v1/agent-model-catalog/read",
+    "/v1/agent-model-catalog/refresh",
   ]);
   assertEquals(lophnAgent.ROUTES, ROUTES);
   for (const route of ROUTES) {
@@ -104,6 +127,13 @@ Deno.test("lophn-agent/harness/run-loop#R6: public events omit checkpoint and co
     "AssignmentPaused",
     "AssignmentResumed",
     "AssignmentWithdrawn",
+    "ProviderRegistered",
+    "ProviderChanged",
+    "ProviderChecked",
+    "ModelDefaultsChanged",
+    "ModelCallStarted",
+    "ModelCallFinished",
+    "ModelCallSupplemented",
   ]);
   assertEquals(lophnAgent.EVENTS, EVENTS);
   for (const event of EVENTS) assert(ALL_EVENTS.includes(event));

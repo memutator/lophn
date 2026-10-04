@@ -1,4 +1,10 @@
 export * from "./problem-codes.ts";
 export * from "./tests.ts";
 export * from "./test-frames.ts";
+export * from "./reports.ts";
+export * from "./exception-observation.ts";
+export * from "./snapshots.ts";
+export * from "./feedback.ts";
+export * from "./report-blobs.ts";
+export * from "./sdk-report.ts";
 export { EVENTS, ROUTES } from "./registry.ts";

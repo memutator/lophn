@@ -162,6 +162,7 @@ concerns: [shell]
 
 ### T9 launcher 첫 창
 
+- 상태: 완료 (#141)
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/desktop#R7(core 단절 표시), R22(상단 바 48px), R24(새 창은 런처, 창 제목), R25(48px 끌기 바, 고정 lophn 진입점 자리), shell/wording#R1, R10
@@ -938,6 +939,7 @@ concerns: [shell]
 
 ### T51 창 없는 시작과 종료 intent
 
+- 상태: 완료 (#140)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R21(창 없는 tray mode, 명시 중지)

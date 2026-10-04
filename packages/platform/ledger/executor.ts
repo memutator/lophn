@@ -27,6 +27,7 @@ import type {
   StoredCommandResult,
 } from "./writer-message.ts";
 import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
+import { createCommandDispatch } from "./dispatch.ts";
 import { runTransaction, type TxDeps } from "./tx.ts";
 import { authorizeSubscriberCursor } from "./subscriber-registration.ts";
 import {
@@ -158,6 +159,7 @@ function applyCommand(
   if (!handled.ok) return handled;
   const span = eventSpan(record, before.value);
   if (!span.ok) return span;
+  // 안쪽 command는 결과를 저장하지 않는다. 바깥 command 하나만 남긴다(R13).
   storeCommandResult(record, {
     principal: ctx.principal,
     key: envelope.idempotency_key,
@@ -180,6 +182,7 @@ function applyCommand(
 export function commitCommand(
   connection: LedgerConnection,
   deps: CommandExecutorDeps,
+  commands: ReadonlyMap<string, CommandDefinition>,
   definition: CommandDefinition,
   ctx: AuthenticatedContext,
   envelope: CommandEnvelope,
@@ -191,6 +194,7 @@ export function commitCommand(
   let current: AuthenticatedContext | undefined;
   let authority: RequestContext | undefined;
   try {
+    const txDeps = { ...deps };
     return runTransaction(
       connection,
       () => {
@@ -205,15 +209,29 @@ export function commitCommand(
         );
         if (!request.ok) return request;
         authority = request.value;
+        txDeps.dispatch = createCommandDispatch(
+          commands,
+          credential.value,
+          effectiveRun(credential.value, envelope.run),
+          request.value,
+          (subscriber) =>
+            authorizeSubscriberCursor(
+              deps.subscriberGate,
+              subscriber,
+              request.value,
+            ),
+        );
         return ok({
           actor: credential.value.actor,
           run: effectiveRun(credential.value, envelope.run),
           request: request.value,
         });
       },
-      deps,
+      txDeps,
       (tx, seal) => {
-        if (current === undefined) return err(internalError());
+        if (current === undefined || authority === undefined) {
+          return err(internalError());
+        }
         return applyCommand(
           {
             record: connection.sql,
@@ -291,6 +309,7 @@ export async function executeCommand(
   return commitCommand(
     connection,
     deps,
+    commands,
     definition,
     ctx,
     envelope,

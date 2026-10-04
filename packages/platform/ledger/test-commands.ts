@@ -243,3 +243,55 @@ export const recordLooseNoteCommand = defineSyncCommand(
     }
   },
 );
+
+export const markAlpha = defineCommand({
+  resource: "alpha",
+  method: "mark",
+  name: "MarkAlpha",
+  input: z.strictObject({ name: z.string() }),
+  output: z.strictObject({ name: z.string(), seq: z.string() }),
+  compare: z.strictObject({ name_hash: z.string().optional() }).optional(),
+  actors: ["user"],
+  errors: ["invalid_input", "conflict", "forbidden"],
+});
+
+export const markBeta = defineCommand({
+  resource: "beta",
+  method: "mark",
+  name: "MarkBeta",
+  input: z.strictObject({ name: z.string() }),
+  output: z.strictObject({ name: z.string(), seq: z.string() }),
+  compare: z.strictObject({}),
+  actors: ["user"],
+  errors: ["invalid_input", "conflict", "forbidden"],
+});
+
+export const markAlphaCommand = defineSyncCommand(
+  markAlpha,
+  (tx, _ctx, input, compare) => {
+    const nameHash = compare?.name_hash;
+    if (nameHash !== undefined && nameHash !== input.name) {
+      return err({
+        code: "conflict",
+        message: "CAS 기준이 현재 기록과 다르다",
+      });
+    }
+    const seq = tx.emit(noteCreated, `alpha:${input.name}`, {
+      name: input.name,
+    });
+    return ok({ name: input.name, seq });
+  },
+  { dispatchable: true },
+);
+
+export const markBetaCommand = defineSyncCommand(
+  markBeta,
+  (tx, _ctx, input) => {
+    const called = tx.call(markAlpha, input, {});
+    if (!called.ok) return called;
+    const seq = tx.emit(noteCreated, `beta:${input.name}`, {
+      name: input.name,
+    });
+    return ok({ name: input.name, seq });
+  },
+);

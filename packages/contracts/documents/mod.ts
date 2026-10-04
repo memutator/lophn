@@ -20,6 +20,8 @@ export * from "./context-reads.ts";
 export * from "./context-routes.ts";
 export * from "./terms.ts";
 export * from "./term-routes.ts";
+export * from "./series.ts";
+export * from "./views.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
 import { FORMAT_ROUTES } from "./formats.ts";
@@ -33,6 +35,8 @@ import { CONTEXT_ROUTES } from "./context-routes.ts";
 import { CONTEXT_EVENTS } from "./contexts.ts";
 import { TERM_ROUTES } from "./term-routes.ts";
 import { TERM_EVENTS } from "./terms.ts";
+import { SERIES_EVENTS, SERIES_ROUTES } from "./series.ts";
+import { VIEW_EVENTS, VIEW_ROUTES } from "./views.ts";
 
 export const DOCUMENT_READ_ROUTES = [
   ...OUTLINE_ROUTES,
@@ -81,6 +85,8 @@ export const ROUTES = [
   ...FILE_ROUTES,
   ...CONTEXT_ROUTES,
   ...TERM_ROUTES,
+  ...SERIES_ROUTES,
+  ...VIEW_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -93,4 +99,6 @@ export const EVENTS = [
   ...FILE_EVENTS,
   ...CONTEXT_EVENTS,
   ...TERM_EVENTS,
+  ...SERIES_EVENTS,
+  ...VIEW_EVENTS,
 ] as const;

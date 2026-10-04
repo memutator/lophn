@@ -308,6 +308,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T10 core import 정적 검사
 
+- 상태: 완료 (#126)
 - 등급: 좁은
 - concern: platform/responsiveness
 - 요구: platform/responsiveness#R1
@@ -646,6 +647,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - `toml_test.ts`, `definitions_test.ts`에 위 요구 테스트, flow ask-lophn-help의 설정 단계 통합 테스트
 
 ### T28 data 직렬화와 출처 유지
+
+- 상태: 완료 (#124)
 
 - 등급: 기본
 - concern: platform/security

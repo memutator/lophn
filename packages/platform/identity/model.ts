@@ -1,4 +1,10 @@
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+
+// port를 주입하지 않은 Tx·snapshot은 owner 판정을 통과시키지 않는다.
+export const TARGET_AUTHORIZATION_UNAVAILABLE: Result<never> = err({
+  code: "forbidden",
+  message: "target authorization unavailable",
+});
 import {
   type ActorKind,
   type AuthenticatedContext,
@@ -91,10 +97,30 @@ export function conditionsMatch(
   );
 }
 
+// ledger 입구 gate가 판정하는 고정 조건. domain key는 owner가 판정한다.
+export const CONDITION_TARGET_KEYS = [
+  "app",
+  "task",
+  "run",
+  "assignment",
+  "release",
+  "process",
+  "mode",
+] as const;
+
+export function authorizeConditions(
+  ctx: AuthenticatedContext,
+  operation: string,
+  target: CredentialTarget = {},
+): Result<void> {
+  return authorize(ctx, operation, target, { domain: "skip" });
+}
+
 export function authorize(
   ctx: AuthenticatedContext,
   operation: string,
   target: CredentialTarget = {},
+  options?: { domain?: "strict" | "skip" },
 ): Result<void> {
   const parts = parseActor(ctx.actor);
   const app = parts?.kind === "app" ? parts.id : ctx.conditions.app;
@@ -104,22 +130,18 @@ export function authorize(
   if (!ctx.scope.operations.includes(operation)) {
     return err({ code: "forbidden", message: "operation forbidden" });
   }
-  for (const [key, limit] of Object.entries(ctx.scope.targets)) {
+  for (const key of Object.keys(ctx.scope.targets)) {
+    // 고정 조건이 아닌 domain key는 owner가 판정한다. __proto__ own key는 gate가 거절한다.
+    if (
+      options?.domain === "skip" && key !== "__proto__" &&
+      !(CONDITION_TARGET_KEYS as readonly string[]).includes(key)
+    ) continue;
+    const limit = ctx.scope.targets[key];
     if (!Object.hasOwn(target, key) || !matches(limit, target[key])) {
       return err({ code: "forbidden", message: "target forbidden" });
     }
   }
-  for (
-    const key of [
-      "app",
-      "task",
-      "run",
-      "assignment",
-      "release",
-      "process",
-      "mode",
-    ] as const
-  ) {
+  for (const key of CONDITION_TARGET_KEYS) {
     if (
       ctx.conditions[key] !== undefined && target[key] !== undefined &&
       ctx.conditions[key] !== target[key]

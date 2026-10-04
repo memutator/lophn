@@ -11,7 +11,10 @@ import {
   errorBodySchema,
   type Sql,
 } from "../../contracts/platform/mod.ts";
-import type { CredentialTarget } from "../identity/mod.ts";
+import {
+  CONDITION_TARGET_KEYS,
+  type CredentialTarget,
+} from "../identity/mod.ts";
 import { validateOutput } from "./output.ts";
 
 export function isThenable(value: unknown): boolean {
@@ -146,23 +149,13 @@ export function headSeq(sql: Sql): Result<bigint> {
   return ok(head);
 }
 
-const CONDITION_KEYS = [
-  "app",
-  "task",
-  "run",
-  "assignment",
-  "release",
-  "process",
-  "mode",
-] as const;
-
 // scope.targets에 있는 고정 조건만 넘긴다. 도메인 대상은 owner handler가 본다.
 export function authorityTarget(
   ctx: AuthenticatedContext,
   run: string | undefined,
 ): CredentialTarget {
   const target: CredentialTarget = {};
-  for (const key of CONDITION_KEYS) {
+  for (const key of CONDITION_TARGET_KEYS) {
     const value = key === "run" && run !== undefined
       ? run
       : ctx.conditions[key];

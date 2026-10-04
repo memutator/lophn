@@ -9,6 +9,7 @@ import {
   type RequestContext,
   type Sql,
   subjectSchema,
+  TargetAuthorization,
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import type { z } from "zod";
@@ -22,6 +23,7 @@ import {
   authorizeSubscriberCursor,
   type SubscriberGate,
 } from "./subscriber-registration.ts";
+import { targetAuthorizationPort } from "./target-authorization.ts";
 import type { CommandDispatch } from "./dispatch.ts";
 import {
   createTxPortLookup,
@@ -59,8 +61,10 @@ type TxContext = {
 
 // handler 안에서는 throw로만 거절을 알릴 수 있다. 경계에서 Result로 바꾼다.
 class TxRejected extends Error {
-  constructor(readonly result: Result<never>) {
+  readonly result: Result<never>;
+  constructor(result: Result<never>) {
     super("tx rejected");
+    this.result = result;
   }
 }
 
@@ -320,7 +324,10 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },
   };
-  ports.current = createTxPortLookup(deps.ports, tx, live, (result) => {
+  const ownerPorts = deps.ports.some((port) => port.key === TargetAuthorization)
+    ? deps.ports
+    : [targetAuthorizationPort(ctx.request), ...deps.ports];
+  ports.current = createTxPortLookup(ownerPorts, tx, live, (result) => {
     throw fail(result);
   });
   return {

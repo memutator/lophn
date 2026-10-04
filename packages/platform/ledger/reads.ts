@@ -6,8 +6,10 @@ import {
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
+  TargetAuthorization,
 } from "../../contracts/platform/mod.ts";
 import type { ReaderConnection } from "./reader-connection.ts";
+import { createTargetAuthorizer } from "./target-authorization.ts";
 import { validateOutput } from "./output.ts";
 
 export const READ_MAX_ROWS = 500;
@@ -105,6 +107,9 @@ function executeSnapshot(
     }
     const asOfSeq = connection.begin();
     active = true;
+    const authorizer = ports.has(TargetAuthorization)
+      ? undefined
+      : createTargetAuthorizer(ctx);
     const snapshot: ReadSnapshot = {
       sql: {
         get(query, params) {
@@ -119,8 +124,11 @@ function executeSnapshot(
       as_of_seq: asOfSeq,
       port<T>(key: unknown): T {
         requireActive();
-        if (!ports.has(key)) throw new Error("unregistered read port");
-        return ports.get(key) as T;
+        if (ports.has(key)) return ports.get(key) as T;
+        if (key === TargetAuthorization && authorizer !== undefined) {
+          return authorizer as T;
+        }
+        throw new Error("unregistered read port");
       },
     };
     let rawResult: unknown;

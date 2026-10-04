@@ -1,6 +1,7 @@
 import type { Clock, IdSource, Result } from "../../packages/base/mod.ts";
 import type {
   ApiReadDefinition,
+  BlobFieldDefinition,
   CommandDefinition,
   FileRoute,
   KindLaunchSpec,
@@ -26,6 +27,7 @@ export type TeamRegistration = {
   workerRoutes?: readonly WorkerRoute[];
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
+  blobFields?: readonly BlobFieldDefinition[];
   clock?: Clock;
   ids?: IdSource;
 };
@@ -49,6 +51,7 @@ type Loose = {
   workerRoutes?: readonly { resource?: unknown; method?: unknown }[];
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
+  blobFields?: readonly BlobFieldDefinition[];
 };
 
 export type Assembled = {
@@ -61,6 +64,7 @@ export type Assembled = {
   routes: Route[];
   ports: TxPortRegistration[];
   workers: KindLaunchSpec[];
+  blobFields: BlobFieldDefinition[];
 };
 
 // command·read·file·worker route를 같은 경로 집합에 넣는다. 같은 resource/method는 거절한다.
@@ -115,6 +119,7 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
     routes: [],
     ports: [],
     workers: [],
+    blobFields: [],
   };
   const schema = new Set<string>();
   const commands = new Set<string>();
@@ -191,6 +196,7 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
       assembled.routes.push(route.value);
     }
     for (const port of portList(registration.ports)) assembled.ports.push(port);
+    assembled.blobFields.push(...registration.blobFields ?? []);
     for (const worker of registration.workers ?? []) {
       const check = taken(workers, worker.kind, worker);
       if (!check.ok) return check;

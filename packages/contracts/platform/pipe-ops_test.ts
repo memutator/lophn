@@ -32,10 +32,10 @@ const output = {
 };
 
 Deno.test("platform/blob-store#R3 platform/blob-store#R4: blob.prepare 이름과 pipe payload는 architecture 5장과 같다", () => {
-  assertEquals(BLOB_PIPE_OPS.map((op) => [op.kind, op.name]), [[
-    "worker",
-    "blob.prepare",
-  ]]);
+  assertEquals(BLOB_PIPE_OPS.map((op) => [op.kind, op.name]), [
+    ["worker", "blob.prepare"],
+    ["worker", "blob.read"],
+  ]);
   assertEquals(BLOB_PREPARE_OP, "blob.prepare");
   assertEquals(blobPrepareInputSchema.parse(input), input);
   assert(

@@ -81,6 +81,26 @@ begin
 end;`,
   },
   {
+    // blob 영구 참조(platform/blob-store#R4). 소유 변경과 같은 transaction에서만 넣고,
+    // 등록된 참조는 지우거나 바꾸지 않는다. hash 대상은 파일이므로 FK가 없다.
+    id: "blob-refs",
+    sql: `
+create table blob_refs (
+  owner_kind text not null,
+  owner_key text not null,
+  field text not null,
+  hash text not null,
+  size_bytes integer not null check (size_bytes >= 0),
+  registered_seq integer not null,
+  primary key (owner_kind, owner_key, field, hash),
+  foreign key (registered_seq) references events (seq)
+);
+create index blob_refs_hash on blob_refs (hash);
+create index blob_refs_owner on blob_refs (owner_kind, owner_key);
+create index blob_refs_seq on blob_refs (registered_seq);
+${IMMUTABLE("blob_refs")}`,
+  },
+  {
     // 질문 option의 user 기록은 command transaction 안에서 한 번만 남긴다(identity R14).
     // rollback이면 행이 없고, 재시작·다른 writer에서도 같은 key는 거절된다.
     id: "question-evidence",

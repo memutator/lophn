@@ -181,6 +181,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T4 event 배포, 구독, 반응 cursor
 
+- 상태: 완료 (#68)
 - 등급: 기본
 - concern: platform/ledger, platform/api
 - 요구: platform/ledger#R15, R16, R17, R18, platform/api#R5, R7
@@ -195,7 +196,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - batch 256개·256KiB, 연결 buffer 1MiB를 넘는 느린 연결은 `unavailable` frame 뒤 1013으로 닫는다. 회수된 자격은 1008(R16).
   - 이름 있는 구독의 ack는 자기 principal·이름에 묶여 `H/derived/api-subscriptions/`에 위치와 출처(DerivedProvenance)를 같은 로컬 transaction으로 저장한다. 후퇴·미관측 ack는 거절한다. 지워도 ledger는 그대로다(api R7, ledger R17, R18).
   - 등록 subscriber의 반응 cursor는 domain command와 같은 transaction에서 Tx로 올리고, idempotency 기준은 `(subscriber, cause_seq, reaction)`이다(R15).
-  - `events_test.ts`, `subscribe_test.ts`에 위 요구 테스트
+  - cursor CAS read와 갱신 SQL 전에 BEGIN 뒤 current credential의 full context로 owner를 검사한다. handler·이전 gate의 context mutation은 다음 검사에 반영하지 않는다. gate가 없거나 거절·malformed·Promise·thenable·getter/proxy inspection 실패·throw이면 sticky rollback이고, handler가 그 거절을 삼켜도 event·domain 변경·command 결과를 commit하지 않는다. owner 원문 오류는 숨기며 actor·run만 있는 transaction은 cursor를 올리지 못한다.
+  - `events_test.ts`, `subscribe_test.ts`, `reaction_test.ts`, `subscriber-guard_test.ts`, `ledger-infrastructure_test.ts`에 위 요구 테스트와 실제 writer Worker 회귀
 
 ### T5 identity: credential 발급·검증·회수
 

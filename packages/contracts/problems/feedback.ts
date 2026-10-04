@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canonicalize } from "../../base/mod.ts";
 import { atSchema, defineWorker, idSchema } from "../platform/mod.ts";
 import { snapshotInputSchema } from "./snapshots.ts";
 import {
@@ -73,11 +74,8 @@ export const submitFeedbackInputSchema = z.strictObject({
     : screenshot !== null && screenshot.blob.hash === screen.screenshot &&
       value.blobs.some((blob) =>
         blob.purpose === "feedback_screenshot" &&
-        JSON.stringify(blob) === JSON.stringify(screenshot.blob)
-      )) &&
-    blobMetadataBytes(value.blobs.filter((blob) =>
-        blob.purpose !== "report_text" && blob.purpose !== "report_details"
-      )) <= REPORTING_LIMITS.snapshot_large_bytes;
+        canonicalize(blob) === canonicalize(screenshot.blob)
+      ));
 }).refine((value) =>
   new TextEncoder().encode(JSON.stringify(value)).length +
       blobMetadataBytes(value.blobs) <= REPORTING_LIMITS.feedback_total_bytes

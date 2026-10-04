@@ -49,8 +49,8 @@ const CONFLICT = {
 export function createSecretAttach(options: {
   keychain: KeychainAdapter;
   references: SecretReferenceLookup;
-  // contract port. 앱 사용의 현재 grant를 판정한다.
-  allowance: SecretAllowanceCheck;
+  // contract port. 앱 사용의 현재 grant를 판정한다. 등록되지 않으면 fail closed다.
+  allowance?: SecretAllowanceCheck;
   // contract port. context의 process가 살아 있는지 답한다.
   processes: ProcessLivenessCheck;
 }): SecretAttach {
@@ -59,6 +59,8 @@ export function createSecretAttach(options: {
       const admitted = admit(input.context);
       if (!admitted.ok) return admitted;
       if (!options.processes(input.context)) return err(FORBIDDEN);
+      // SecretAllowance port 없음은 전송 허용이 아니라 거절이다.
+      if (!options.allowance) return err(FORBIDDEN);
       const current = await options.references.current(input.use);
       if (!current.ok) return current;
       const granted = options.allowance({

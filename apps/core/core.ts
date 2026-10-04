@@ -300,6 +300,8 @@ function seedOf(random: RandomSource): number {
 }
 
 // platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
+// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측(R12)에만 쓴다. node:fs statfs는
+// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
 function platformIoSpec(dataRoot: string): KindLaunchSpec {
   return {
     kind: "platform/io",
@@ -308,6 +310,7 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
     allow_write: [dataRoot],
     allow_net: [],
     allow_run: [],
+    allow_sys: ["statfs"],
     allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,

@@ -313,8 +313,8 @@ Deno.test("platform/blob-store#R1: 다른 주체·목적의 같은 hash는 별�
   if (!duplicate.ok) assertEquals(duplicate.error.code, "conflict");
 });
 
-Deno.test("platform/blob-store#R12: I/O worker 권한(run·sys 없음)에서 quota 관측을 부른다", async () => {
-  // 제품 launch spec(apps/core/core.ts platformIoSpec)은 allow_run·sys를 열지 않는다.
+Deno.test("platform/blob-store#R12: I/O worker 권한(run 없음)에서 quota 관측을 부른다", async () => {
+  // 제품 launch spec(apps/core/core.ts platformIoSpec)은 allow_run을 열지 않는다.
   // 이 권한 모양에서 실제 관측 경로가 NotCapable로 떨어지지 않고 undefined(관측 불가)로 끝나는지 본다.
   // 권한은 test runner가 정한다: deno task check의 test 스텝은 sys·run을 열지 않는다.
   const quota = systemQuota();
@@ -323,4 +323,41 @@ Deno.test("platform/blob-store#R12: I/O worker 권한(run·sys 없음)에서 quo
   );
   // sys 권한이 없으면 undefined고 있으면 실제 여유다. 어느 쪽이든 throw하지 않는다(R12 unavailable을 위해).
   if (observed !== undefined) assert(observed > 0);
+});
+
+Deno.test("platform/blob-store#R12: 제품 spec 권한(statfs sys 포함)의 child에서 양수 여유를 읽고 준비가 성공한다", async () => {
+  // 제품 platformIoSpec: --allow-read/write(root), --allow-sys=statfs, run·net 없음.
+  // 이 권한의 child가 statfs로 양수 여유를 관측하고 work.prepare가 성공하는지 본다.
+  const entry = new URL("./prepare-worker-probe.ts", import.meta.url).pathname;
+  const dataRoot = await Deno.makeTempDir({ prefix: "blob-worker-cap-" });
+  try {
+    const cmd = new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        "--cached-only",
+        "--no-prompt",
+        `--allow-read=${dataRoot}`,
+        `--allow-write=${dataRoot}`,
+        "--allow-sys=statfs",
+        entry,
+        dataRoot,
+      ],
+      clearEnv: true,
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const child = cmd.spawn();
+    const [out, err, status] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.status,
+    ]);
+    assertEquals(status.code, 0, err.slice(0, 400));
+    // child 출력은 여유 관측과 준비 성공만 가린다. 경로·내용은 출력하지 않는다.
+    assert(out.includes("observed=positive"));
+    assert(out.includes("prepare=ok"));
+  } finally {
+    await Deno.remove(dataRoot, { recursive: true });
+  }
 });

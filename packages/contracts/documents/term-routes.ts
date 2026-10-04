@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  defineCommand,
-  defineRead,
-  idSchema,
-  seqSchema,
-} from "../platform/mod.ts";
+import { defineCommand, defineRead } from "../platform/mod.ts";
 import { publicPage, publicRead, readCursorSchema } from "./read-values.ts";
 import { contextIdSchema } from "./contexts.ts";
 import {
@@ -58,18 +53,7 @@ export const termPropose = defineCommand({
   actors: editorActors,
   errors: commandErrors,
 });
-// QuestionActionEvidence라는 값은 lophn-agent에 없다. 검증된 option action 적용은
-// 사람 결정 actor(user)와 그 question·option·answered seq를 함께 제출한다.
-export const questionActionEvidenceSchema = z.strictObject({
-  question: idSchema("qst"),
-  option_key: z.string().min(1),
-  answered_seq: seqSchema,
-});
-export const termDefineRequestFields = {
-  input: termDefineInputSchema,
-  compare: termCompareSchema,
-  question_action: questionActionEvidenceSchema.optional(),
-};
+// 질문 option action 적용은 platform이 QuestionActionEvidence를 검증해 user 변경으로 기록한다.
 export const termDefine = defineCommand({
   resource: "terms",
   method: "define",

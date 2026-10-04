@@ -10,7 +10,6 @@ import {
 } from "./terms.ts";
 import {
   GLOSSARY_PAGE_LIMIT,
-  questionActionEvidenceSchema,
   TERM_ROUTES,
   termDefine,
   termListOutputSchema,
@@ -54,20 +53,6 @@ Deno.test("documents/terms#R2: route and event names match architecture and defi
   }
   assertEquals(termDefine.actors, ["user"]);
   assertEquals(termUpdate.actors, ["user", "agent"]);
-  assert(
-    questionActionEvidenceSchema.safeParse({
-      question,
-      option_key: "accept",
-      answered_seq: "12",
-    }).success,
-  );
-  assert(
-    !questionActionEvidenceSchema.safeParse({
-      question: question.replace("qst_", "run_"),
-      option_key: "accept",
-      answered_seq: "12",
-    }).success,
-  );
 });
 
 Deno.test("documents/terms#R1: an agent candidate requires fixed occurrence evidence", () => {

@@ -466,6 +466,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T18 Tx 안에서 다른 owner의 등록 command 부르기
 
+- 상태: 완료 (#83)
 - 등급: 기본
 - concern: platform/ledger
 - 요구: platform/ledger#R3, R12, R13

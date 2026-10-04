@@ -134,17 +134,28 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     ? team.createLedgerRegistration({} as never)
     : undefined;
   const value = direct ?? fromLedger ?? team.problemsTestDefinitions ??
-    team.codingAgentConnectionDefinitions;
+    team.codingAgentConnectionDefinitions ?? team.lophnAgentDefinitions;
   if (!value || typeof value !== "object") return undefined;
   return value as Loose;
 }
 
+// 팀은 port를 배열로도, 이름 있는 객체로도 내보낸다. 있는 값만 모은다.
+// 등록 모양은 {key, create}다. read snapshot 전용 port 구현(fromTx·fromSnapshot,
+// create가 없는 problems·coding-agent 모양)은 writer에서 판정에 쓰지 않으므로 거른다.
+// 없는 create를 등록하면 tx-ports가 registry 전체를 닫으므로 다른 팀의 command까지 죽는다.
 function portList(ports: unknown): TxPortRegistration[] {
   if (!ports) return [];
   const values = Array.isArray(ports) ? ports : Object.values(ports);
-  return values.filter((port): port is TxPortRegistration =>
-    !!port && typeof port === "object"
-  );
+  return values.filter((port): port is TxPortRegistration => {
+    if (!port || typeof port !== "object") return false;
+    const key = (port as TxPortRegistration).key;
+    const create = (port as TxPortRegistration).create;
+    return (
+      key !== null && typeof key === "object" &&
+      typeof key.name === "string" && key.name.length > 0 &&
+      typeof create === "function"
+    );
+  });
 }
 
 // BEGIN IMMEDIATE 안에서 부른다. 기록에 없는 ref나 제출 binding이 다른 ref는 거절한다.

@@ -7,6 +7,10 @@ import type {
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import type { ReadHandler } from "../../packages/platform/api/mod.ts";
 import {
+  createWorkspaceRelay,
+  type WorkspaceRelay,
+} from "../../packages/platform/api/mod.ts";
+import {
   platformStatusReads,
   type StatusSource,
 } from "../../packages/platform/diagnostics/mod.ts";
@@ -48,6 +52,7 @@ export type CoreRuntime = {
   prunePrepared(nowMs: number): Promise<Result<void>>;
   readers: ReaderPool;
   reads: Map<string, ReadHandler>;
+  memory: WorkspaceRelay;
   events: ReturnType<typeof createReaderEventBackend>;
   subscriptions: SubscriptionStore;
   wake(): void;
@@ -149,6 +154,12 @@ export async function openRuntime(input: {
     const timer = setInterval(catchUp, 200);
     return () => clearInterval(timer);
   });
+  // 현재 보기 relay는 ledger 밖 core 메모리다(T57). run→session 확인은 reader가
+  // 등록한 runs/read handler로 한다. 아직 없으면 fail-closed다(identity R3).
+  const runRead = reads.get("runs/read");
+  const memory = createWorkspaceRelay({
+    runSession: runRead && ((ctx, run) => runSessionOf(runRead, ctx, run)),
+  });
   return ok({
     writer: openedWriter.writer,
     confirmation: openedWriter.confirmation,
@@ -157,6 +168,7 @@ export async function openRuntime(input: {
     prunePrepared: openedWriter.prunePrepared,
     readers: readers.value,
     reads,
+    memory,
     events,
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),
@@ -167,6 +179,19 @@ export async function openRuntime(input: {
       await openedWriter.writer.close();
     },
   });
+}
+
+// run → session 확인. 등록된 runs/read handler를 그대로 부른다.
+// 다른 session은 부재와 같다(identity R3, R8).
+async function runSessionOf(
+  handler: ReadHandler,
+  ctx: AuthenticatedContext,
+  run: string,
+): Promise<Result<string | null>> {
+  const result = await handler(ctx, { run });
+  if (!result.ok) return result;
+  const output = result.value as { run?: { session?: string | null } };
+  return ok(output.run?.session ?? null);
 }
 
 // openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.

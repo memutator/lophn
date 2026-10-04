@@ -12,7 +12,7 @@ export const ACTOR_KINDS = [
 
 export type ActorKind = (typeof ACTOR_KINDS)[number];
 
-export const ROUTE_KINDS = ["command", "read", "file", "worker"] as const;
+export const ROUTE_KINDS = ["command", "read", "file", "worker", "memory"] as const;
 
 export type RouteKind = (typeof ROUTE_KINDS)[number];
 
@@ -70,7 +70,13 @@ export type WorkerRoute<
   O extends z.ZodType = z.ZodType,
 > = RouteBase<"worker", I, O>;
 
-export type Route = CommandRoute | ReadRoute | FileRoute | WorkerRoute;
+// core 메모리 route. ledger queue를 거치지 않고 입력·출력을 그대로 JSON으로 주고받는다.
+export type MemoryRoute<
+  I extends z.ZodType = z.ZodType,
+  O extends z.ZodType = z.ZodType,
+> = RouteBase<"memory", I, O>;
+
+export type Route = CommandRoute | ReadRoute | FileRoute | WorkerRoute | MemoryRoute;
 
 type DefineOptions<I extends z.ZodType, O> = {
   resource: string;
@@ -175,6 +181,17 @@ export function defineWorker<I extends z.ZodType, O extends z.ZodType>(
   return define("worker", options) as
     & WorkerRoute<I, O>
     & Partial<ConfirmationDeclaration<I>>;
+}
+
+// ledger를 쓰지 않는 core 메모리 route(shell/workspace 현재 보기 relay).
+// 사람 결정 handle을 받지 않는다. 결정은 ledger command만 제출한다.
+export function defineMemory<I extends z.ZodType, O extends z.ZodType>(
+  options: Omit<
+    DefineOptions<I, O>,
+    "confirmation" | "binding" | "confirmation_kind"
+  >,
+): MemoryRoute<I, O> {
+  return define("memory", options);
 }
 
 export function routePath(route: { resource: string; method: string }): string {

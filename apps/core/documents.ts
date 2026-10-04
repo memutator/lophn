@@ -6,6 +6,7 @@ import {
   formatList,
 } from "../../packages/contracts/documents/mod.ts";
 import type { ApiReadDefinition } from "../../packages/contracts/platform/mod.ts";
+import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
 import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
@@ -15,6 +16,13 @@ import {
   formatDeclarations,
 } from "../../packages/documents/formats/model.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
+import { createVersionCommands } from "../../packages/documents/versions/commands.ts";
+import { createVersionReads } from "../../packages/documents/versions/reads.ts";
+import { versionsSchemaSteps } from "../../packages/documents/versions/schema.ts";
+import {
+  versionFileField,
+  versionFilesField,
+} from "../../packages/documents/versions/commands.ts";
 import {
   createProjectReads,
   type ProjectReadDeps,
@@ -27,6 +35,7 @@ type LedgerRegistration = {
   reads?: readonly unknown[];
   apiReads?: readonly unknown[];
   workers?: readonly KindLaunchSpec[];
+  blobFields?: readonly unknown[];
 };
 
 // 문서 목록은 versions concern의 read다. seam이 없어 빈 목록만 준다.
@@ -157,18 +166,28 @@ export function createLedgerRegistration(
 ): LedgerRegistration {
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
+  const versions = createVersionCommands();
+  const versionReads = createVersionReads();
   const deps: ProjectReadDeps = {
     documents: emptyDocuments,
   };
   const reads = createProjectReads(deps);
   return {
-    schemaSteps: [...addressingSchemaSteps, ...projectsSchemaSteps],
+    schemaSteps: [
+      ...addressingSchemaSteps,
+      ...projectsSchemaSteps,
+      ...versionsSchemaSteps,
+    ],
     commands: [
       commands.create,
       commands.update,
       commands.setTracking,
       commands.archive,
       commands.unarchive,
+      versions.save,
+      versions.update,
+      versions.archive,
+      versions.unarchive,
     ],
     reads: [
       reads.list,
@@ -176,7 +195,12 @@ export function createLedgerRegistration(
       reads.resolve,
       reads.resolveCwd,
       reads.trackingRoots,
+      versionReads.list,
+      versionReads.get,
+      versionReads.history,
     ],
+    // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
+    blobFields: [versionFileField, versionFilesField],
     // format read는 snapshot 없이 바로 연다. 경로는 같은 조립에서 registry로 모은다.
     apiReads: formatReads(),
     // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
@@ -197,6 +221,15 @@ function registerWorkers(): KindLaunchSpec[] {
   if (root === undefined || !root.startsWith("/")) return [];
   const runner = formatRunnerSpec();
   return runner ? [...workerSpecs(root), runner] : workerSpecs(root);
+}
+
+// reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.
+export function createReaderRegistration(): ReaderRegistration {
+  const reads = createVersionReads();
+  return {
+    reads: [reads.list, reads.get, reads.history],
+    ports: new Map(),
+  };
 }
 
 // public harness는 이 이름을 부른다. 제품 등록과 같은 함수다.

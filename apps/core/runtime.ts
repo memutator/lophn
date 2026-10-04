@@ -8,7 +8,6 @@ import { authenticatedContextSchema } from "../../packages/contracts/platform/mo
 import type { ReadHandler } from "../../packages/platform/api/mod.ts";
 import {
   createWorkspaceRelay,
-  RouteRegistry,
   type WorkspaceRelay,
 } from "../../packages/platform/api/mod.ts";
 import {
@@ -42,7 +41,6 @@ export type CoreRuntime = {
   readers: ReaderPool;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
-  registry: RouteRegistry;
   events: ReturnType<typeof createReaderEventBackend>;
   subscriptions: SubscriptionStore;
   wake(): void;
@@ -69,8 +67,20 @@ export async function openRuntime(input: {
     nowMs: input.nowMs,
     seed: input.seed,
   });
+  // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
+  const readerModules: URL[] = [];
+  for (const url of input.modules) {
+    const module = (await import(url)) as {
+      createReaderRegistration?: unknown;
+    };
+    if (typeof module.createReaderRegistration === "function") {
+      readerModules.push(new URL(url));
+    }
+  }
   const readers = await createReaderPool(input.ledgerPath, [
     new URL("./reader-registration.ts", import.meta.url),
+    // createReaderRegistration을 내보내는 팀 read도 같은 풀로 붙는다.
+    ...readerModules,
   ]);
   if (!readers.ok) {
     await openedWriter.writer.close();
@@ -123,7 +133,6 @@ export async function openRuntime(input: {
   const memory = createWorkspaceRelay({
     runSession: runRead && ((ctx, run) => runSessionOf(runRead, ctx, run)),
   });
-  const registry = new RouteRegistry([]);
   return ok({
     writer: openedWriter.writer,
     confirmation: openedWriter.confirmation,
@@ -131,7 +140,6 @@ export async function openRuntime(input: {
     readers: readers.value,
     reads,
     memory,
-    registry,
     events,
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),

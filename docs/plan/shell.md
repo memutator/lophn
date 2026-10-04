@@ -259,6 +259,7 @@ concerns: [shell]
 
 ### T13 workspace layout 저장과 복원
 
+- 상태: 완료 (#146)
 - 등급: 기본
 - concern: shell/workspace, shell/desktop
 - 요구: shell/workspace#R6, R7, R8, shell/desktop#R24(이어서)
@@ -621,6 +622,7 @@ concerns: [shell]
 
 ### T33 격리 문서 view
 
+- 상태: 완료 (#144)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R1(문서), R2(문서), R8, R10, R11(문서 host), R14, R17

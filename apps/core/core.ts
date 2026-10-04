@@ -8,8 +8,10 @@ import type {
   Frame,
   KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
+import { ROUTES } from "../../packages/contracts/platform/mod.ts";
 import {
   type ApiServer,
+  RouteRegistry,
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
 import { applyMigrations } from "../../packages/platform/backup-and-migration/mod.ts";
@@ -99,6 +101,14 @@ async function open(
 ): Promise<Result<Core>> {
   const assembled = assemble(options.teams);
   if (!assembled.ok) return assembled;
+  // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
+  // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
+  let routes: RouteRegistry;
+  try {
+    routes = new RouteRegistry([...ROUTES, ...assembled.value.routes]);
+  } catch {
+    return err({ code: "internal", message: "route 등록이 겹친다" });
+  }
   const ledgerPath = `${root.path}/lophn.db`;
   const migrated = await applyMigrations(
     ledgerPath,
@@ -191,7 +201,7 @@ async function open(
       memory: runtime.memory.handlers,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
-      registry: runtime.registry,
+      registry: routes,
     });
   } catch {
     await runtime.close();

@@ -27,6 +27,12 @@ export {
   type SupervisorOptions,
 } from "./supervisor.ts";
 export {
+  forwardToWorker,
+  type WorkerRouteHandle,
+  type WorkerRouteLimits,
+  type WorkerRouteTarget,
+} from "./forward.ts";
+export {
   createIoScheduler,
   IO_CONCURRENCY,
   IO_PRINCIPAL_LIMIT,

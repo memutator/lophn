@@ -5,6 +5,8 @@ export {
   type HttpResult,
   type MemoryHandler,
   type ReadHandler,
+  type WorkerRouteTarget,
+  type WorkerTargets,
 } from "./dispatch.ts";
 export {
   allowedHosts,

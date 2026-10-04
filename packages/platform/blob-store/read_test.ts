@@ -218,7 +218,7 @@ Deno.test("platform/blob-store#R7: 구간 한도를 넘으면 실제 범위와 �
       fields: [OPEN],
       authorize: () => ok(undefined),
       bytes: {
-        read: (_hash, offset, length) =>
+        read: (_hash, _offset, length) =>
           Promise.resolve(
             ok({ hash: HASH, sizeBytes: size, bytes: new Uint8Array(length) }),
           ) as Promise<

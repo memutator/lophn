@@ -160,7 +160,7 @@ async function open(
     env: (kind) => ({ LOPHN_WORKER_KIND: kind, LOPHN_HOME: root.path }),
   });
   let ready = false;
-  let coreCleanup: (() => void) | undefined;
+  const stopPrune: { run?: () => void } = {};
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
   const source: StatusSource = {
@@ -250,7 +250,7 @@ async function open(
     blobRelay?.prune(clock.nowMs());
     runtime?.prunePrepared(clock.nowMs());
   }, 60_000);
-  coreCleanup = () => clearInterval(timer);
+  stopPrune.run = () => clearInterval(timer);
   const startedIo = io
     ? await startPlatformIo(
       io,
@@ -292,7 +292,7 @@ async function open(
       ready = false;
       await server.stop();
       if (io) await io.stopAll();
-      coreCleanup?.();
+      stopPrune.run?.();
       await runtime?.close();
       await removeRunMetadata(root.run);
       await lock.release();

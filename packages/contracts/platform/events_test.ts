@@ -1,7 +1,7 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { z } from "zod";
 import { nextFromSeq } from "../../base/mod.ts";
-import { commandRequestSchema } from "./envelope.ts";
+import { commandRequestSchema, readCommonSchema } from "./envelope.ts";
 import {
   advanceSubscriberCursor,
   advanceSubscriberCursorCompareSchema,
@@ -129,9 +129,28 @@ Deno.test(
       events: [envelope()],
       scanned_through_seq: "140",
       head_seq: "140",
+      as_of_seq: "140",
+      next_cursor: null,
     };
-    assert(eventsList.output.safeParse(output).success);
+    const parsed = eventsList.output.parse(output);
+    assert(readCommonSchema.safeParse(parsed).success);
     assert(eventsList.output.safeParse({ ...output, later: true }).success);
+    assert(
+      eventsList.output.safeParse({
+        ...output,
+        omitted: [{ reason: "page_limit", count: 1 }],
+      }).success,
+    );
+    assert(
+      !eventsList.output.safeParse({ ...output, as_of_seq: undefined }).success,
+    );
+    assert(
+      !eventsList.output.safeParse({ ...output, next_cursor: undefined })
+        .success,
+    );
+    assert(
+      !eventsList.output.safeParse({ ...output, as_of_seq: "0140" }).success,
+    );
     // 처리 위치 P 다음은 from_seq이고, 그 직전 값이 list의 after_seq다.
     const from = nextFromSeq("140");
     assert(from.ok);

@@ -4,6 +4,7 @@ import { ID_PREFIXES, type IdPrefix, idSchema } from "./ids.ts";
 import { atSchema, seqSchema } from "./values.ts";
 import { actorSchema } from "./actor.ts";
 import { EVENT_BATCH_MAX_BYTES, EVENT_BATCH_MAX_COUNT } from "./limits.ts";
+import { withReadCommon } from "./envelope.ts";
 
 // 소유 concern이 등록하는 `<Entity><과거형 동사>` 이름(domain-model platform/ledger).
 const EVENT_TYPE = /^[A-Z][A-Za-z0-9]*$/;
@@ -104,11 +105,11 @@ export const eventsListInputSchema = z.strictObject({
   ...filterSchema,
 });
 
-export const eventsListOutputSchema = z.object({
+export const eventsListOutputSchema = withReadCommon(z.object({
   events: z.array(eventEnvelopeBaseSchema).max(EVENT_BATCH_MAX_COUNT),
   scanned_through_seq: seqSchema,
   head_seq: seqSchema,
-});
+}));
 
 export const eventsList = defineRead({
   resource: "events",

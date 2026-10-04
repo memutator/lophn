@@ -519,8 +519,8 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: contracts#T18
 - 완료:
   - lophn 기능·화면·설정·provider 연결·agent 역할·질문과 approval·revert·확장(skill·MCP)·지침 파일 안내를 사람이 쓰는 영어 화면 말로 쓴다(제품 사용법만, 내부 개념 이름 없음)
-  - guides_test.ts에 roles/lophn#R17, R20 테스트: 안내마다 기능 이름·절·현재 제품 판이 있고 BundledGuide 형식 검사를 통과, 설정 항목 이름은 settings registry의 정의와 맞음, secret 값·내부 ledger 말 없음
-  - documents#T29의 `/v1/guides/*`로 읽힌다
+  - guides_test.ts·guide-bytes_test.ts·settings-explanation_test.ts에 roles/lophn#R17, R20 테스트: 안내마다 기능 이름·절·조립에서 받은 현재 제품 판이 있고 실제 UTF-8 bytes·hash·files가 고정되며 BundledGuide 형식 검사를 통과, 설정 항목 wording key는 공개 settings definition 입력과 맞음, secret 값·내부 ledger 말 없음. synthetic definition 테스트는 registry 실물 검증과 구분한다
+  - T30은 영어 안내 자산과 고정 BundledGuide·relative files를 내놓는다. `/v1/guides/*` route는 documents#T29, 설치 manifest/files 조립은 platform#T48이 맡고 실제 HTTP·설치 E2E는 그 작업들의 E2E에서 확인한다(질문 Q27)
 
 ### T31 lophn 역할: 기획과 안내
 
@@ -1014,3 +1014,4 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - **Q24 handoff 재전송과 현재 권한** (추천으로 진행). handoff#R9는 재전송 replay와 수신 assignment가 회수된 뒤의 상세 읽기를 구별하지 않았다. 추천: replay는 저장된 결과만 돌려주고 새 입력·run을 만들지 않으며, 상세 조회는 그때의 현재 권한으로 다시 검사한다. 영향: T32.
 - **Q25 handoff 설명의 우회 복사** (추천으로 진행). handoff#R3·R4는 무엇·왜 문자열에 대화 원문·secret을 붙여 넘기는 경우를 막는 방법이 없다. 추천: 구조화한 출처 검증과 기존 safety 포장·redaction을 적용하고, byte 상한만으로 의미상 복사를 막는다고 하지 않는다. 영향: T32. 근거: docs/research/handoff-and-delegation.md.
 - **Q26 fake provider 개발 entry와 dev 조립** (정함, lead·contracts). T2 완료에 `deno task dev` 조립을 요구하면서 contracts#T9가 T2를 선행으로 두어 순환한다. T2는 `tools/fake-provider/main.ts`의 ready `{url}`·HTTP script/log·child smoke를 완료하고, contracts#T9는 그 entry를 함께 띄워 주소를 `LOPHN_FAKE_PROVIDER_URL`로 core에 넘긴다. root task와 dev launcher는 contracts 팀만 고친다. 실제 dev 동작 범위는 줄이지 않는다.
+- **Q27 동봉 안내 자산과 route·설치 조립** (정함, lead). T30은 영어 guide 자산, 조립에서 받은 제품 판·실제 UTF-8 bytes·hash·relative files의 고정, BundledGuide contract 호환을 완료한다. `/v1/guides/*` route는 documents#T29, 설치 manifest/files 조립은 platform#T48 소유이며 실제 HTTP·설치 E2E는 그 작업들이 끝난 뒤 그쪽 E2E에서 확인한다. 개별 settings registry가 main에 없으면 공개 definition 입력의 wording key를 그대로 투영하며 synthetic contract 테스트를 registry 실물 검증으로 표시하지 않는다. hash는 guide마다 primary Markdown 하나의 raw UTF-8 bytes SHA-256을 content_hash와 blob_hash에 함께 쓰는 추천으로 진행한다(platform이 현재 충돌 없음 확인, T48 구현 정본은 아직 없음). BOM·줄바꿈·Unicode normalization을 하지 않고 host가 매 요청 실제 packaged bytes와 manifest membership을 확인한다. 실제 제품 안내·읽기 범위는 줄이지 않는다.

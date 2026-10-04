@@ -89,27 +89,37 @@ Deno.test("platform/ledger#R3: 다른 owner command는 같은 transaction의 seq
 Deno.test("platform/ledger#R12: 불린 command의 CAS가 다르면 바깥 event도 없다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "lophn-dispatch-" });
   const { connection } = await fileLedger(dir);
+  const bound = deps();
+  const first = await runCommand(
+    connection,
+    bound,
+    table,
+    caller(),
+    beta("a", "cas-first"),
+  );
+  assert(first.ok);
   const mismatch = defineSyncCommand(markBeta, (tx, _ctx, input) => {
-    const called = tx.call(markAlpha, input, { name_hash: "other" });
+    const called = tx.call(markAlpha, input, { seq: "9" });
     if (!called.ok) return called;
     return ok({ name: input.name, seq: called.value.seq });
   });
   const result = await runCommand(
     connection,
-    deps(),
+    bound,
     [markAlphaCommand, mismatch],
     caller(),
-    beta("a"),
+    beta("a", "cas-stale"),
   );
   assert(!result.ok);
   if (!result.ok) assertEquals(result.error.code, "conflict");
+  // 앞 확정은 남고, 낡은 CAS의 안쪽·바깥 event는 없다.
   assertEquals(
     connection.sql.get("select count(*) as n from events", [])?.["n"],
-    0n,
+    2n,
   );
   assertEquals(
     connection.sql.get("select count(*) as n from command_results", [])?.["n"],
-    0n,
+    1n,
   );
   connection.close();
   await Deno.remove(dir, { recursive: true });
@@ -232,6 +242,28 @@ Deno.test("platform/ledger#R3: 등록되지 않은 이름, 자기 자신 순환,
   );
   assert(!mutual.ok);
   if (!mutual.ok) assertEquals(mutual.error.code, "invalid_input");
+
+  // 바깥 command 자신도 경로에 있다. 안쪽이 그 이름을 다시 부르면 거절한다.
+  const reenter = defineSyncCommand(markAlpha, (tx, _ctx, input) => {
+    const called = tx.call(markBeta, input, {});
+    if (!called.ok) return called;
+    return ok(called.value);
+  }, { dispatchable: true });
+  const reentered = await runCommand(
+    connection,
+    deps(),
+    [reenter, markBetaCommand],
+    caller(),
+    {
+      command: "MarkAlpha",
+      input: { name: "reenter" },
+      idempotency_key: "reenter",
+      compare: {},
+      prepared: [],
+    },
+  );
+  assert(!reentered.ok);
+  if (!reentered.ok) assertEquals(reentered.error.code, "invalid_input");
 
   const loop = defineSyncCommand(markAlpha, (tx, _ctx, input) => {
     const called = tx.call(markAlpha, input, {});

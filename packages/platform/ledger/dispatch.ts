@@ -35,7 +35,9 @@ export function createCommandDispatch(
   run: string | null,
   request: AuthenticatedContext,
   checkCursor: (subscriber: string) => Result<void>,
+  outer?: string,
 ): CommandDispatch {
+  // 바깥 이름은 순환 검사용이다. 깊이 4는 안쪽 call만 센다.
   const stack: string[] = [];
   const call: CommandDispatch["call"] = (tx, route, input, compare) => {
     if (stack.length >= CALL_MAX_DEPTH) {
@@ -47,7 +49,8 @@ export function createCommandDispatch(
     const definition = lookup(commands, route);
     if (!definition.ok) return definition;
     const name = definition.value.route.name;
-    if (stack.includes(name)) {
+    // 바깥 command도 경로다. 안쪽이 그 이름을 다시 부르면 순환이다.
+    if (name === outer || stack.includes(name)) {
       return err({
         code: "invalid_input",
         message: "command가 자기 자신을 다시 부른다",

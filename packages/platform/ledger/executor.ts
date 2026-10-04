@@ -220,6 +220,7 @@ export function commitCommand(
               subscriber,
               request.value,
             ),
+          definition.route.name,
         );
         return ok({
           actor: credential.value.actor,

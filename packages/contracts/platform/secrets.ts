@@ -16,14 +16,14 @@ export type SecretPurpose = z.infer<typeof secretPurposeSchema>;
 
 // 이름은 event subject에도 들어가므로 공통 subject key의 문법을 유지한다.
 export const secretNameSchema = z.string().regex(/^[A-Za-z0-9_.:-]+$/);
-const opaqueRefSchema = z.string().min(1);
+export const secretOpaqueRefSchema = z.string().min(1);
 export const secretRevisionSchema = z.number().int().positive().max(
   Number.MAX_SAFE_INTEGER,
 );
 
 const preparationFields = {
-  preparation: opaqueRefSchema,
-  sealed_ref: opaqueRefSchema,
+  preparation: secretOpaqueRefSchema,
+  sealed_ref: secretOpaqueRefSchema,
   purpose: secretPurposeSchema,
   owner: z.string().min(1),
 };
@@ -33,7 +33,7 @@ export const secretPreparationInputSchema = z.strictObject(preparationFields);
 
 export const secretReferenceSchema = z.object({
   name: secretNameSchema,
-  sealed_ref: opaqueRefSchema,
+  sealed_ref: secretOpaqueRefSchema,
   revision: secretRevisionSchema,
 });
 export type SecretReference = z.infer<typeof secretReferenceSchema>;
@@ -79,7 +79,7 @@ export const setSecretInputSchema = z.strictObject({
   message: "preparation must belong to the app secret name",
 });
 export const secretCompareSchema = z.strictObject({
-  sealed_ref: opaqueRefSchema,
+  sealed_ref: secretOpaqueRefSchema,
   revision: secretRevisionSchema,
 });
 export const setSecretCompareSchema = z.union([
@@ -218,7 +218,7 @@ export const secretDestinationSchema = z.discriminatedUnion("kind", [
 export type SecretDestination = z.infer<typeof secretDestinationSchema>;
 
 const useFields = {
-  sealed_ref: opaqueRefSchema,
+  sealed_ref: secretOpaqueRefSchema,
   revision: secretRevisionSchema,
   purpose: secretPurposeSchema,
   destination: secretDestinationSchema,
@@ -260,7 +260,7 @@ export type SecretStoreRefreshInput = z.infer<
   typeof secretStoreRefreshInputSchema
 >;
 export const secretStoreRefreshOutputSchema = z.object({
-  sealed_ref: opaqueRefSchema,
+  sealed_ref: secretOpaqueRefSchema,
   revision: secretRevisionSchema,
   configured: z.literal(true),
 });
@@ -278,7 +278,7 @@ export type SecretStoreRefreshValueCallback = (
   value: SecretValue,
 ) => Promise<Result<SecretStoreRefreshOutput>>;
 
-const pipeErrors = [
+export const secretPipeErrors = [
   "invalid_input",
   "unauthorized",
   "forbidden",
@@ -295,7 +295,7 @@ export const secretPrepare = defineWorker({
   input: secretPrepareInputSchema,
   output: secretPreparationSchema,
   actors: ["machine"],
-  errors: pipeErrors,
+  errors: secretPipeErrors,
 });
 
 export const SECRET_SEND_OP = "secret.send";
@@ -306,7 +306,7 @@ export const secretSend = defineWorker({
   input: secretSendInputSchema,
   output: secretSendOutputSchema,
   actors: ["machine"],
-  errors: pipeErrors,
+  errors: secretPipeErrors,
 });
 
 export const SECRET_STORE_REFRESH_OP = "secret.store-refresh";
@@ -317,7 +317,7 @@ export const secretStoreRefresh = defineWorker({
   input: secretStoreRefreshInputSchema,
   output: secretStoreRefreshOutputSchema,
   actors: ["machine"],
-  errors: pipeErrors,
+  errors: secretPipeErrors,
 });
 
 export const SECRET_EXCHANGE_FORMAT = {
@@ -338,8 +338,3 @@ export const SECRET_ROUTES = [
   secretCleanup,
 ] as const;
 export const SECRET_EVENTS = [secretSet, secretRemoved] as const;
-export const SECRET_PIPE_OPS = [
-  secretPrepare,
-  secretSend,
-  secretStoreRefresh,
-] as const;

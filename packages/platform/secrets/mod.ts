@@ -37,3 +37,15 @@ export {
   type ProcessWatch,
   type SecretWork,
 } from "./work.ts";
+export {
+  createSecretTransfer,
+  type ImportCommit,
+  type SecretSelection,
+  type SecretTransfer,
+} from "./export.ts";
+export {
+  openExchange,
+  sealExchange,
+  type SecretExchangeFile,
+  type SecretExchangeItem,
+} from "./exchange.ts";

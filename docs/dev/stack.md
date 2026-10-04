@@ -39,9 +39,9 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 
 | 의존성 | 쓰는 곳 | 이유 |
 |---|---|---|
-| picomatch | documents/file-tracking | tracking 규칙의 glob |
-| ignore | documents/file-tracking | `.gitignore` 모양 제외 규칙 |
-| QuickJS WASM (sync 빌드 하나) | documents/formats | format 검사 코드를 격리해 돌린다 |
+| picomatch 4.0.7 | documents/file-tracking, documents/projects | tracking 규칙의 glob. OS locale과 무관하게 대소문자를 구분한다 |
+| ignore 7.0.12 | documents/file-tracking, documents/projects | `.gitignore` 모양 제외 규칙. 중첩 파일은 깊은 쪽부터 적용한다 |
+| quickjs-emscripten 0.32.0 sync release (`@jitl/quickjs-wasmfile-release-sync`) | documents/formats | format 검사 코드를 격리해 돌린다. 호출마다 새 runtime·context. debug·asyncify 빌드는 쓰지 않는다 |
 | parse5 | documents/formats의 HTML format 묶음 안 | HTML 문서 해석 |
 | electron 44.5.1 | apps/shell/main | shell 창과 sandbox preload. 이전 lophn과 같은 판 |
 | esbuild 0.28.2 | apps/shell/main, apps/shell/renderer | main과 preload 세 개를 CJS 한 파일로 묶고, renderer entry 세 개를 브라우저 bundle로 묶는다. sandbox preload의 외부 require는 `electron`만 남기고, renderer의 CSS Modules는 `local-css` loader가 클래스 맵으로 바꾼다 |
@@ -60,6 +60,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | @lezer/markdown 1.7.2 (@lezer/common 1.5.3, @lezer/highlight 1.2.5를 함께 끌어온다) | packages/design/reading | Markdown 읽기 renderer의 parser. 편집기(CodeMirror 6)와 같은 Lezer Markdown 하나로 읽기·편집 위치 차이를 줄이고 parser를 둘 들이지 않는다. tree를 React 글과 element로만 그려 HTML을 실행하지 않는다. marked·HTML parser는 들이지 않는다 |
 | d3-scale 4.0.2, d3-shape 3.2.0 | packages/sdk/ui-chart | 여섯 차트의 scale·tick·선 경로 계산만 맡긴다(shell/design-system#R12, apps/sdk#R17). DOM은 React SVG로 그리고 script·HTML renderer는 들이지 않는다 |
 | @types/d3-scale 4.0.9, @types/d3-shape 3.2.0 | packages/sdk/ui-chart | 고정한 d3 계산 API의 TypeScript 타입 |
+| hash-wasm 4.12.0 | packages/platform/secrets | 머신 이전 보호 파일의 Argon2id. WebCrypto에는 Argon2가 없고 AES-256-GCM은 WebCrypto를 쓴다(platform/secrets#R9) |
 | happy-dom 20.14.5 | packages/design/component-tests.ts, apps/shell/renderer/build_test.ts | 공통 컴포넌트·SDK 옆 `*_test.tsx`와 실제 공개 예제 bundle을 DOM·event·keyboard·computed style로 `deno test` 안에서 돌린다 |
 | esbuild 0.28.2, @luca/esbuild-deno-loader 0.11.1 | packages/design/component-tests.ts, apps/shell/renderer | Deno가 CSS Modules를 읽지 못해 공통 UI·SDK 테스트를 renderer와 같은 `local-css` loader로 한 bundle에 묶어 happy-dom에서 돌린다. 공개 token CSS·로컬 woff2와 string·subpath package exports도 함께 resolve한다 |
 

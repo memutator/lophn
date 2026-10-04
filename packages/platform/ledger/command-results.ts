@@ -12,14 +12,14 @@ import {
   type ReadSnapshot,
   type RequestContext,
 } from "../../contracts/platform/mod.ts";
-import { authorize } from "../identity/mod.ts";
+import { authorizeConditions } from "../identity/mod.ts";
 
 // commands/result는 자기 principal만 본다(architecture/platform 5.1, Q11).
 // snapshot SQL만 쓴다. writer queue를 기다리지 않는다.
 export const commandResultRead: ReadDefinition<typeof commandsResult> = {
   route: commandsResult,
   handle(snapshot: ReadSnapshot, ctx: RequestContext, input) {
-    const allowed = authorize(ctx, commandsResult.name);
+    const allowed = authorizeConditions(ctx, commandsResult.name);
     if (!allowed.ok) return allowed;
     const row = snapshot.sql.get(
       `select principal, idempotency_key, fingerprint, result, first_seq, last_seq, at

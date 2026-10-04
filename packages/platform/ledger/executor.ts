@@ -14,7 +14,7 @@ import {
   type Sql,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { authorize } from "../identity/mod.ts";
+import { authorizeConditions } from "../identity/mod.ts";
 import {
   commandFingerprint,
   countCas,
@@ -119,7 +119,7 @@ function applyCommand(
   if (kind === undefined || !definition.route.actors.includes(kind)) {
     return err({ code: "forbidden", message: "actor 종류가 command 밖이다" });
   }
-  const allowed = authorize(
+  const allowed = authorizeConditions(
     ctx,
     definition.route.name,
     authorityTarget(ctx, envelope.run),
@@ -333,7 +333,7 @@ export function readOwnResult(
   const credential = checkCredential(ctx);
   if (!credential.ok) return credential;
   const current = credential.value;
-  const allowed = authorize(current, commandsResult.name);
+  const allowed = authorizeConditions(current, commandsResult.name);
   if (!allowed.ok) return allowed;
   let row: ReturnType<Sql["get"]>;
   try {

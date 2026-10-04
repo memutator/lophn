@@ -1,11 +1,12 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  type Folder,
   type Project,
   projectArchive,
   projectArchived,
   projectCreate,
   projectCreated,
+  projectSetTracking,
+  projectTrackingChanged,
   projectUnarchive,
   projectUnarchived,
   projectUpdate,
@@ -19,13 +20,18 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { createPlaceNameReservation } from "../addressing/mod.ts";
 import {
-  enabledRoots,
   insertProject,
   loadProject,
-  loadProjects,
+  replaceChildren,
   replaceMetadata,
 } from "./store.ts";
-import { overlappingEnabledRoots, validateFolderRoots } from "./model.ts";
+import { validateFolderRoots } from "./model.ts";
+import {
+  enabledOverlap,
+  previewMatches,
+  sameJson,
+  trackingChanged,
+} from "./tracking-apply.ts";
 import {
   authorizeProject,
   type ProjectAuthorizer,
@@ -75,6 +81,7 @@ function reserveName(tx: Tx, project: Project): Result<void> {
 export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
   create: CommandDefinition<typeof projectCreate>;
   update: CommandDefinition<typeof projectUpdate>;
+  setTracking: CommandDefinition<typeof projectSetTracking>;
   archive: CommandDefinition<typeof projectArchive>;
   unarchive: CommandDefinition<typeof projectUnarchive>;
 } {
@@ -131,18 +138,33 @@ export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
       handle(tx, ctx, input, compare) {
         const actor = requireUser(ctx);
         if (!actor.ok) return actor;
-        if (input.folders !== undefined || input.preview !== undefined) {
-          return invalid("folder changes require tracking preview");
-        }
         const current = loadProject(tx.sql, input.project);
         if (!current.ok) return current;
         if (current.value === null) return notFound();
+        const folders = input.folders ?? current.value.folders;
+        if (input.folders !== undefined) {
+          const roots = validateFolderRoots(input.folders);
+          if (!roots.ok) return roots;
+          if (
+            input.preview === undefined ||
+            !previewMatches(
+              input.preview,
+              input.project,
+              compare.base_revision,
+              input.folders,
+              current.value.tracking,
+            )
+          ) {
+            return conflict("folder change does not match its preview");
+          }
+        }
         const { revision: _revision, ...metadata } = current.value;
         const next: ProjectCandidate = {
           ...metadata,
           name: input.name ?? current.value.name,
           title: input.title ?? current.value.title,
           purpose: input.purpose ?? current.value.purpose,
+          folders,
         };
         const access = authorizeProject(
           deps?.authorize,
@@ -158,9 +180,15 @@ export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
         if (current.value.revision !== compare.base_revision) {
           return conflict("project revision changed");
         }
-        const fields = (["name", "title", "purpose"] as const).filter((field) =>
-          input[field] !== undefined && input[field] !== current.value![field]
-        );
+        if (input.folders !== undefined && next.tracking.enabled) {
+          const overlap = enabledOverlap(tx, next, current.value.id);
+          if (!overlap.ok) return overlap;
+        }
+        const fields = (["name", "title", "purpose", "folders"] as const)
+          .filter((field) =>
+            input[field] !== undefined &&
+            !sameJson(input[field], current.value![field])
+          );
         if (fields.length === 0) {
           return invalid("update does not change project");
         }
@@ -185,6 +213,82 @@ export function createProjectCommands(deps: { authorize: ProjectAuthorizer }): {
         }
         const stored = replaceMetadata(tx, project);
         if (!stored.ok) return stored;
+        if (fields.includes("folders")) {
+          replaceChildren(
+            tx,
+            project.id,
+            project.folders,
+            project.tracking.patterns,
+          );
+        }
+        return ok(project);
+      },
+    },
+    setTracking: {
+      route: projectSetTracking,
+      handle(tx, ctx, input, compare) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const current = loadProject(tx.sql, input.project);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const roots = validateFolderRoots(input.folders);
+        if (!roots.ok) return roots;
+        if (
+          !previewMatches(
+            input.preview,
+            input.project,
+            compare.base_revision,
+            input.folders,
+            input.tracking,
+          )
+        ) {
+          return conflict("tracking apply does not match its preview");
+        }
+        const { revision: _revision, ...metadata } = current.value;
+        const next: ProjectCandidate = {
+          ...metadata,
+          folders: input.folders,
+          tracking: input.tracking,
+        };
+        const access = authorizeProject(
+          deps?.authorize,
+          ctx,
+          projectSetTracking.name,
+          {
+            kind: "command",
+            before: current.value,
+            after: next,
+          },
+        );
+        if (!access.ok) return access;
+        if (current.value.revision !== compare.base_revision) {
+          return conflict("project revision changed");
+        }
+        if (
+          sameJson(current.value.folders, input.folders) &&
+          sameJson(current.value.tracking, input.tracking)
+        ) {
+          return invalid("tracking does not change");
+        }
+        if (next.tracking.enabled && next.status === "active") {
+          const overlap = enabledOverlap(tx, next, current.value.id);
+          if (!overlap.ok) return overlap;
+        }
+        const seq = tx.emit(
+          projectTrackingChanged,
+          next.id,
+          trackingChanged(current.value, next),
+        );
+        const project: Project = { ...next, revision: seq };
+        const stored = replaceMetadata(tx, project);
+        if (!stored.ok) return stored;
+        replaceChildren(
+          tx,
+          project.id,
+          project.folders,
+          project.tracking.patterns,
+        );
         return ok(project);
       },
     },
@@ -254,20 +358,8 @@ function transition(
     return conflict("project status changed");
   }
   if (action === "unarchive" && current.value.tracking.enabled) {
-    const projects = loadProjects(tx.sql);
-    if (!projects.ok) return projects;
-    const overlap = overlappingEnabledRoots([
-      ...enabledRoots(projects.value),
-      ...current.value.folders.map((folder: Folder) => ({
-        project: current.value!.id,
-        path: folder.path,
-        enabled: true,
-      })),
-    ]);
+    const overlap = enabledOverlap(tx, current.value, current.value.id);
     if (!overlap.ok) return overlap;
-    if (overlap.value !== null) {
-      return conflict("enabled tracking roots overlap");
-    }
   }
   const seq = tx.emit(
     action === "archive" ? projectArchived : projectUnarchived,

@@ -257,3 +257,4 @@ export * from "./install.ts";
 export * from "./approvals.ts";
 export * from "./notifications.ts";
 export * from "./secrets.ts";
+export * from "./secret-exchange.ts";

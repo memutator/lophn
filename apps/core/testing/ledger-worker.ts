@@ -1,7 +1,8 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/migrations.ts";
-import { authorize } from "../../../packages/platform/identity/mod.ts";
+import { authorizeConditions } from "../../../packages/platform/identity/mod.ts";
+import { authorityTarget } from "../../../packages/platform/ledger/command-outcome.ts";
 import { openReaderConnection } from "../../../packages/platform/ledger/reader-connection.ts";
 import {
   executeRead,
@@ -131,10 +132,10 @@ async function start() {
         const ctx = run === undefined
           ? current.value
           : { ...current.value, run };
-        const allowed = authorize(
+        const allowed = authorizeConditions(
           ctx,
           definition.read.route.name,
-          ctx.conditions,
+          authorityTarget(ctx, run),
         );
         if (!allowed.ok) return allowed;
         return executeRead(

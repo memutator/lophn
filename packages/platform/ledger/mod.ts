@@ -23,6 +23,10 @@ export {
   type WriterRegistration,
 } from "./writer-registration.ts";
 export { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
+export {
+  createTargetAuthorizer,
+  targetAuthorizationPort,
+} from "./target-authorization.ts";
 export type {
   CommandEnvelope,
   CommandSuccess,

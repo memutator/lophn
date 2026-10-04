@@ -1,0 +1,588 @@
+import { assert, assertEquals } from "@std/assert";
+import { suggestAppName } from "./model.ts";
+import type { Result } from "../../base/mod.ts";
+import type {
+  AuthenticatedContext,
+  SqlRow,
+} from "../../contracts/platform/mod.ts";
+
+// harness 값 타입만 선언한다. platform ledger 모듈을 type-check하지 않기 위해서다.
+type CommandEnvelope = {
+  command: string;
+  input: unknown;
+  idempotency_key: string;
+  compare: unknown;
+  prepared: readonly string[];
+};
+type CommandSuccess = { result: unknown; replayed: boolean };
+type LedgerHarness = {
+  command(
+    ctx: AuthenticatedContext,
+    envelope: CommandEnvelope,
+  ): Promise<Result<CommandSuccess>>;
+  read(
+    route: { resource: string; method: string },
+    ctx: AuthenticatedContext,
+    input: unknown,
+  ): Promise<Result<unknown>>;
+  inspect(
+    query: string,
+    params?: readonly unknown[],
+  ): Promise<Result<SqlRow[]>>;
+  revokeCredential(credentialRef: string): Promise<Result<void>>;
+  setCredential(ctx: AuthenticatedContext): Promise<Result<void>>;
+  close(): Promise<void>;
+};
+async function createLedgerHarness(options: {
+  registrationModules: readonly URL[];
+  credentials: readonly AuthenticatedContext[];
+}): Promise<Result<LedgerHarness>> {
+  const specifier = "../../../apps/core/testing/ledger.ts";
+  const harness = await import(specifier);
+  return harness.createLedgerHarness(options);
+}
+
+const registration = new URL("../../../apps/core/apps.ts", import.meta.url);
+
+const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
+
+const operations = [
+  "app.create",
+  "app.connect_source",
+  "app.archive",
+  "app.unarchive",
+  "app.list",
+  "app.get",
+  "CommandResult",
+];
+
+function credential(actor = "user", overrides: Partial<AuthenticatedContext> = {}): AuthenticatedContext {
+  return {
+    actor,
+    principal: "test-user",
+    credential_ref: `test:test-user:${actor}`,
+    scope: { operations, targets: {} },
+    conditions: {},
+    ...overrides,
+  };
+}
+
+const user = credential();
+const coding = credential(`coding_agent:${CAC}`);
+
+function value<T>(result: Result<T>): T {
+  assert(result.ok, result.ok ? undefined : JSON.stringify(result.error));
+  return result.value;
+}
+
+function commandResult(result: Result<CommandSuccess>): CommandSuccess {
+  return value(result);
+}
+
+function rows(result: Result<SqlRow[]>): SqlRow[] {
+  return value(result);
+}
+
+function code(result: Result<unknown>, expected: string) {
+  assert(!result.ok);
+  assertEquals(result.error.code, expected);
+}
+
+function envelope(
+  command: string,
+  key: string,
+  input: unknown,
+  compare: unknown = {},
+): CommandEnvelope {
+  return {
+    command,
+    input,
+    compare,
+    idempotency_key: key,
+    prepared: [],
+  };
+}
+
+async function harness(
+  credentials: readonly AuthenticatedContext[] = [user],
+): Promise<LedgerHarness> {
+  return value(
+    await createLedgerHarness({
+      registrationModules: [registration],
+      credentials,
+    }),
+  );
+}
+
+function createInput(slug: string, name: string, planning_version?: string) {
+  return planning_version === undefined
+    ? { slug, name, description: "collect usage" }
+    : { slug, name, description: "collect usage", planning_version };
+}
+
+async function create(
+  opened: LedgerHarness,
+  slug = "usage",
+  idempotency = "create-usage",
+  planning_version?: string,
+) {
+  return await opened.command(
+    user,
+    envelope("app.create", idempotency, createInput(slug, "Usage", planning_version)),
+  );
+}
+
+Deno.test("apps/registration#R1: screenless and screen apps register apart from documents", async () => {
+  const opened = await harness();
+  try {
+    commandResult(await create(opened, "collector"));
+    commandResult(await opened.command(
+      user,
+      envelope("app.create", "create-screen", createInput("viewer", "Viewer")),
+    ));
+    const stored = rows(await opened.inspect("select id, slug, status from apps order by id", []));
+    assertEquals(stored.length, 2);
+    assertEquals(stored.every((row) => row.status === "active"), true);
+    // 문서 등록과 별개 표다.
+    const places = rows(await opened.inspect("select kind, target from place_names order by kind", []));
+    assertEquals(places.every((row) => row.kind === "app"), true);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: register without source, release or planning version, look back both ways", async () => {
+  const opened = await harness();
+  try {
+    const bare = commandResult(await create(opened, "bare"));
+    const bareId = (bare.result as { id: string }).id;
+    const version = "ver_01arz3ndektsv4rrffq69g5fav";
+    const planned = commandResult(
+      await create(opened, "planned", "create-planned", version),
+    );
+    const plannedId = (planned.result as { id: string }).id;
+    const got = value(
+      await opened.read({ resource: "apps", method: "get" }, user, {
+        app: plannedId,
+      }),
+    ) as {
+      app: {
+        planning_version: string | null;
+        source_path: string | null;
+        active_release: string | null;
+      };
+    };
+    assertEquals(got.app.planning_version, version);
+    assertEquals(got.app.source_path, null);
+    assertEquals(got.app.active_release, null);
+    const bareGot = value(
+      await opened.read({ resource: "apps", method: "get" }, user, {
+        app: bareId,
+      }),
+    ) as { app: { planning_version: string | null } };
+    assertEquals(bareGot.app.planning_version, null);
+    const listed = value(
+      await opened.read({ resource: "apps", method: "list" }, user, {}),
+    ) as {
+      apps: { slug: string; source_path: string | null }[];
+    };
+    assertEquals(listed.apps.map((app) => app.slug).sort(), ["bare", "planned"]);
+    assertEquals(listed.apps.every((app) => app.source_path === null), true);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R3: wide-scope connection registers, app-scope connection and agent request are denied", async () => {
+  const opened = await harness([user, coding]);
+  try {
+    // 전체 범위 coding connection의 등록은 user 등록과 같다.
+    const registered = commandResult(await opened.command(
+      coding,
+      envelope("app.create", "create-coded", createInput("coded", "Coded")),
+    ));
+    assertEquals((registered.result as { id: string }).id, (registered.result as { id: string }).id);
+    const stored = rows(await opened.inspect("select slug from apps", []));
+    assertEquals(stored.map((row) => row.slug), ["coded"]);
+    // 앱 하나 scope connection의 conditions.app은 새 앱 id와 같을 수 없다.
+    const appId = (registered.result as { id: string }).id;
+    const appScoped = credential(`coding_agent:${CAC}`, {
+      credential_ref: `test:test-user:app-scoped`,
+      conditions: { app: appId },
+    });
+    await opened.setCredential(appScoped);
+    code(
+      await opened.command(
+        appScoped,
+        envelope("app.create", "create-scoped", createInput("scoped", "Scoped")),
+      ),
+      "forbidden",
+    );
+    // lophn agent의 직접 요청은 route actors에서 거른다.
+    const agent = credential("agent:asg_01arz3ndektsv4rrffq69g5fav");
+    await opened.setCredential(agent);
+    code(
+      await opened.command(
+        agent,
+        envelope("app.create", "create-agent", createInput("agent", "Agent")),
+      ),
+      "forbidden",
+    );
+    const after = rows(await opened.inspect("select slug from apps", []));
+    assertEquals(after.map((row) => row.slug), ["coded"]);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R4: connect a git folder outside the managed store and read the real path back", async () => {
+  const opened = await harness();
+  try {
+    const folder = await Deno.makeTempDir({ prefix: "apps-registration-src-" });
+    try {
+      await Deno.mkdir(`${folder}/.git`);
+      const created = commandResult(await create(opened));
+      const id = (created.result as { id: string }).id;
+      const base = value(await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      )) as { app: { revision: string } };
+      const connected = commandResult(await opened.command(
+        user,
+        envelope(
+          "app.connect_source",
+          "connect-usage",
+          { app: id, source_path: folder },
+          { base_revision: base.app.revision },
+        ),
+      ));
+      const result = connected.result as { source_path: string | null };
+      assertEquals(result.source_path, folder);
+      const got = value(await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      )) as { app: { source_path: string | null } };
+      assertEquals(got.app.source_path, folder);
+      // git 폴더가 아니면 연결하지 않는다.
+      const bare = await Deno.makeTempDir({
+        prefix: "apps-registration-bare-",
+      });
+      try {
+        code(
+          await opened.command(
+            user,
+            envelope(
+              "app.connect_source",
+              "connect-bare",
+              { app: id, source_path: bare },
+              { base_revision: base.app.revision },
+            ),
+          ),
+          "invalid_input",
+        );
+      } finally {
+        await Deno.remove(bare, { recursive: true });
+      }
+    } finally {
+      await Deno.remove(folder, { recursive: true });
+    }
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R5: reconnecting source keeps active_release and app data", async () => {
+  const opened = await harness();
+  try {
+    const folder = await Deno.makeTempDir({ prefix: "apps-registration-src-" });
+    const moved = await Deno.makeTempDir({ prefix: "apps-registration-src-" });
+    try {
+      await Deno.mkdir(`${folder}/.git`);
+      await Deno.mkdir(`${moved}/.git`);
+      const created = commandResult(await create(opened));
+      const id = (created.result as { id: string }).id;
+      const before = value(await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      )) as { app: { revision: string } };
+      commandResult(await opened.command(
+        user,
+        envelope(
+          "app.connect_source",
+          "connect-first",
+          { app: id, source_path: folder },
+          { base_revision: before.app.revision },
+        ),
+      ));
+      const first = value(await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      )) as { app: { revision: string; active_release: string | null } };
+      commandResult(await opened.command(
+        user,
+        envelope(
+          "app.connect_source",
+          "connect-second",
+          { app: id, source_path: moved },
+          { base_revision: first.app.revision },
+        ),
+      ));
+      const second = value(await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      )) as {
+        app: {
+          source_path: string | null;
+          active_release: string | null;
+          revision: string;
+        };
+      };
+      assertEquals(second.app.source_path, moved);
+      assertEquals(second.app.active_release, null);
+      // active_release는 source 재연결 전후 같다.
+      assertEquals(second.app.active_release, first.app.active_release);
+      // 상태와 run 허용도 건드리지 않는다.
+      const stored = rows(await opened.inspect(
+        "select status, run_enabled from apps where id = ?",
+        [id],
+      ));
+      assertEquals(stored[0]?.status, "active");
+      assertEquals(Number(stored[0]?.run_enabled), 0);
+    } finally {
+      await Deno.remove(folder, { recursive: true });
+      await Deno.remove(moved, { recursive: true });
+    }
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R6: a slug owned by an existing folder conflicts and the folder stays", async () => {
+  const opened = await harness();
+  try {
+    // documents의 project가 같은 이름 공간을 쓴다. 비소유 project 폴더가 먼저 있다.
+    const projectId = "prj_01arz3ndektsv4rrffq69g5fav";
+    commandResult(await opened.command(
+      user,
+      envelope("project.create", "create-project", {
+        id: projectId,
+        name: "shared",
+        title: "Shared",
+        purpose: "keep notes",
+        folders: [],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      }),
+    ));
+    const folderBefore = rows(await opened.inspect(
+      "select kind, target, reserved_seq from place_names where slug = ?",
+      ["shared"],
+    ));
+    assertEquals(folderBefore.length, 1);
+    assertEquals(folderBefore[0]?.kind, "project");
+    assertEquals(folderBefore[0]?.target, projectId);
+    code(await create(opened, "shared", "create-app-shared"), "conflict");
+    // 비소유 폴더의 내용과 주인이 바뀌지 않는다.
+    const folderAfter = rows(await opened.inspect(
+      "select kind, target, reserved_seq from place_names where slug = ?",
+      ["shared"],
+    ));
+    assertEquals(folderAfter, folderBefore);
+    const apps = rows(await opened.inspect("select id from apps", []));
+    assertEquals(apps, []);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R7: suggested name from the slug and the entered name wins", () => {
+  assertEquals(suggestAppName("usage-report"), "Usage Report");
+  assertEquals(suggestAppName("usage_report"), "Usage Report");
+  assertEquals(suggestAppName("mahas"), "Mahas");
+  assertEquals(suggestAppName("MAHAS"), "MAHAS");
+  assertEquals(suggestAppName("-leading--trailing_"), "Leading Trailing");
+  // 사람이 입력한 이름은 그대로 쓴다.
+});
+
+Deno.test("apps/registration#R8: archive stores run_enabled=false and unarchive keeps it", async () => {
+  const opened = await harness();
+  try {
+    const created = commandResult(await create(opened));
+    const id = (created.result as { id: string }).id;
+    const active = value(await opened.read(
+      { resource: "apps", method: "get" },
+      user,
+      { app: id },
+    )) as { app: { revision: string } };
+    commandResult(await opened.command(
+      user,
+      envelope("app.archive", "archive-usage", { app: id }, {
+        base_revision: active.app.revision,
+      }),
+    ));
+    const archived = value(await opened.read(
+      { resource: "apps", method: "get" },
+      user,
+      { app: id },
+    )) as { app: { status: string; run_enabled: boolean; revision: string } };
+    assertEquals(archived.app.status, "archived");
+    assertEquals(archived.app.run_enabled, false);
+    // coding agent의 보관 해제는 route actors에서 거른다.
+    code(
+      await opened.command(
+        coding,
+        envelope("app.unarchive", "unarchive-coded", { app: id }, {
+          base_revision: archived.app.revision,
+        }),
+      ),
+      "forbidden",
+    );
+    commandResult(await opened.command(
+      user,
+      envelope("app.unarchive", "unarchive-usage", { app: id }, {
+        base_revision: archived.app.revision,
+      }),
+    ));
+    const unarchived = value(await opened.read(
+      { resource: "apps", method: "get" },
+      user,
+      { app: id },
+    )) as { app: { status: string; run_enabled: boolean } };
+    assertEquals(unarchived.app.status, "active");
+    assertEquals(unarchived.app.run_enabled, false);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R9: archive keeps the place and the history", async () => {
+  const opened = await harness();
+  try {
+    const created = commandResult(await create(opened));
+    const id = (created.result as { id: string }).id;
+    const active = value(await opened.read(
+      { resource: "apps", method: "get" },
+      user,
+      { app: id },
+    )) as { app: { revision: string } };
+    commandResult(await opened.command(
+      user,
+      envelope("app.archive", "archive-usage", { app: id }, {
+        base_revision: active.app.revision,
+      }),
+    ));
+    // place와 event 이력은 archive 뒤에도 찾는다.
+    const places = rows(await opened.inspect(
+      "select kind, target from place_names where slug = ?",
+      ["usage"],
+    ));
+    assertEquals(places, [{ kind: "app", target: id }]);
+    const events = rows(await opened.inspect(
+      "select type from events where subject = ? order by seq",
+      [id],
+    ));
+    assertEquals(events.map((row) => row.type), ["AppCreated", "AppArchived"]);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R10: register without a project and read the independent place", async () => {
+  const opened = await harness();
+  try {
+    commandResult(await create(opened, "standalone", "create-standalone"));
+    const created = commandResult(await create(opened, "lonely", "create-lonely"));
+    const id = (created.result as { id: string }).id;
+    // project 선택 없이 등록됐다.
+    const places = rows(await opened.inspect(
+      "select kind, target from place_names where slug = ?",
+      ["standalone"],
+    ));
+    assertEquals(places.length, 1);
+    assertEquals(places[0]?.kind, "app");
+    const got = value(await opened.read(
+      { resource: "apps", method: "get" },
+      user,
+      { app: id },
+    )) as { app: { slug: string } };
+    assertEquals(got.app.slug, "lonely");
+    const listed = value(await opened.read(
+      { resource: "apps", method: "list" },
+      user,
+      { status: "active" },
+    )) as { apps: { slug: string }[] };
+    assertEquals(listed.apps.map((app) => app.slug).sort(), [
+      "lonely",
+      "standalone",
+    ]);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R3: the same key replays and a different payload conflicts", async () => {
+  const opened = await harness();
+  try {
+    const first = commandResult(await create(opened, "same", "create-same"));
+    assertEquals(first.replayed, false);
+    const replayed = commandResult(await create(opened, "same", "create-same"));
+    assertEquals(replayed.replayed, true);
+    assertEquals(replayed.result, first.result);
+    const stored = code(
+      await create(opened, "other", "create-same"),
+      "conflict",
+    );
+    void stored;
+    const appCount = rows(await opened.inspect("select id from apps", []));
+    assertEquals(appCount.length, 1);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R5: a stale base_revision conflicts", async () => {
+  const opened = await harness();
+  try {
+    const folder = await Deno.makeTempDir({ prefix: "apps-registration-src-" });
+    try {
+      await Deno.mkdir(`${folder}/.git`);
+      const created = commandResult(await create(opened));
+      const id = (created.result as { id: string }).id;
+      const current = value(await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      )) as { app: { revision: string } };
+      commandResult(await opened.command(
+        user,
+        envelope(
+          "app.connect_source",
+          "connect-first",
+          { app: id, source_path: folder },
+          { base_revision: current.app.revision },
+        ),
+      ));
+      // 낡은 base_revision은 conflict다.
+      code(
+        await opened.command(
+          user,
+          envelope(
+            "app.connect_source",
+            "connect-stale",
+            { app: id, source_path: folder },
+            { base_revision: "1" },
+          ),
+        ),
+        "conflict",
+      );
+    } finally {
+      await Deno.remove(folder, { recursive: true });
+    }
+  } finally {
+    await opened.close();
+  }
+});

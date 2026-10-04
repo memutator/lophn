@@ -958,6 +958,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 참조 차단·반환 차단·OS 삭제·다른 사본 잔존을 구별해 표시한다(R11). backup 중 GC 불가.
   - `gc_test.ts`에 위 요구 테스트
 
+- 상태: 완료 (#181)
+
 ### T45 secret export와 import
 
 - 상태: 완료 (#92)

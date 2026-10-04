@@ -55,7 +55,10 @@ const unavailable = () =>
 // normal lane은 예약을 쓸 수 없으므로 전체에서 예약을 뺀 자리만 본다.
 const NORMAL_LIMIT = COMMAND_ADMISSION_TOTAL - COMMAND_CONTROL_RESERVED;
 
-export function createAdmission(): Admission {
+export function createAdmission(
+  // 테스트가 기한을 줄일 때만 쓴다. 기본값은 architecture 2.3의 고정 값이다.
+  startWaitMs: number = COMMAND_START_WAIT_MS,
+): Admission {
   const queues = new Map<string, Job[]>();
   const principals: string[] = [];
   const control: Job[] = [];
@@ -102,13 +105,15 @@ export function createAdmission(): Admission {
     return undefined;
   }
 
-  // control 예약 영역을 먼저 채우고 남은 슬롯으로 normal queue를 꺼낸다.
+  // control을 먼저 꺼내고 남은 슬롯으로 normal queue를 꺼낸다.
   function pump() {
     while (active < COMMAND_ADMISSION_TOTAL) {
       const job = control.shift() ?? takeNormal();
       if (!job) break;
       active++;
       clearTimeout(job.timer);
+      // 슬롯을 준 시점이 입장이다. work의 처음은 여기서 시작한다.
+      job.settle(true);
       void job.work().catch(() => undefined).finally(() => {
         active--;
         pump();
@@ -137,7 +142,7 @@ export function createAdmission(): Admission {
       settle,
       timer: setTimeout(
         lane === "control" ? () => dropControl(job) : () => dropNormal(job),
-        COMMAND_START_WAIT_MS,
+        startWaitMs,
       ),
     };
     // settle은 pump가 슬롯을 줄 때와 timer가 자를 때 두 곳에서만 온다.

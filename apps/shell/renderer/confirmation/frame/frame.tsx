@@ -1,22 +1,7 @@
 import { useEffect, useState } from "react";
+import { t } from "@lophn/wording";
 
 import type { ConfirmationFrameApi, ConfirmationView } from "./api.ts";
-
-// wording catalog key. en 값은 packages/design/wording/en.ts에 있다.
-// renderer가 catalog 모듈을 직접 import하면 상대 경로가 worktree 밖으로 나간다.
-function copy(key: ConfirmationCopy): string {
-  return key;
-}
-
-type ConfirmationCopy =
-  | "confirmation-window.title.confirm"
-  | "confirmation-window.body.checking"
-  | "confirmation-window.body.review"
-  | "confirmation-window.body.stale"
-  | "confirmation-window.body.second"
-  | "confirmation-window.button.cancel"
-  | "confirmation-window.button.refresh"
-  | "confirmation-window.button.decide";
 
 export interface FrameProps {
   api: ConfirmationFrameApi;
@@ -27,7 +12,7 @@ export interface FrameProps {
 /**
  * 첫 focus는 설명. 결정 기본 선택은 없고 Enter로 제출하지 않는다.
  * 닫기·Escape는 cancel이며 결정이 아니다.
- * 문구는 wording key만 쓴다. 결정 이름은 화면에 쓰지 않는다.
+ * 문구는 wording catalog의 en 문장이다. 결정 이름은 화면에 쓰지 않는다.
  */
 export function ConfirmationFrame(
   { api, theme }: FrameProps,
@@ -72,16 +57,16 @@ export function ConfirmationFrame(
       data-state={second ? "second" : showingStale ? "stale" : "ready"}
     >
       <h1 tabIndex={-1} ref={focusFirst}>
-        {copy("confirmation-window.title.confirm")}
+        {t("confirmation-window.title.confirm")}
       </h1>
       <p tabIndex={0} autoFocus>
         {showingStale
-          ? copy("confirmation-window.body.stale")
+          ? t("confirmation-window.body.stale")
           : second
-          ? copy("confirmation-window.body.second")
+          ? t("confirmation-window.body.second")
           : view === null
-          ? copy("confirmation-window.body.checking")
-          : copy("confirmation-window.body.review")}
+          ? t("confirmation-window.body.checking")
+          : t("confirmation-window.body.review")}
       </p>
       {second
         ? (
@@ -99,7 +84,7 @@ export function ConfirmationFrame(
               });
             }}
           >
-            {copy("confirmation-window.body.second")}
+            {t("confirmation-window.body.second")}
           </button>
         )
         : null}
@@ -122,7 +107,7 @@ export function ConfirmationFrame(
               );
             }}
           >
-            {copy("confirmation-window.button.decide")}
+            {t("confirmation-window.button.decide")}
           </button>
         ))}
       </div>
@@ -136,7 +121,7 @@ export function ConfirmationFrame(
               void api.getDisplay().then(setView).catch(() => setStale(true));
             }}
           >
-            {copy("confirmation-window.button.refresh")}
+            {t("confirmation-window.button.refresh")}
           </button>
         )
         : null}
@@ -145,7 +130,7 @@ export function ConfirmationFrame(
         data-action="cancel"
         onClick={() => void api.cancel()}
       >
-        {copy("confirmation-window.button.cancel")}
+        {t("confirmation-window.button.cancel")}
       </button>
     </section>
   );

@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node build.ts",
     "dev": "node build.ts && electron dist/main.js",
-    "check": "deno fmt --check --ignore=node_modules,dist . ../preload ../ipc && deno lint --ignore=node_modules,dist . ../preload ../ipc && tsc --noEmit -p . && node --test --test-reporter=spec 'desktop/*_test.ts' 'app-frame/**/*_test.ts' 'build_test.ts' && deno check --config=desktop/core/deno.json desktop/main.ts desktop/core/allowlist.ts desktop/core/client.ts desktop/core/connection.ts desktop/core/events.ts desktop/core/node-io.ts desktop/core/routes.ts desktop/core/supervise.ts && deno test --allow-all --config=desktop/core/deno.json desktop/core/ confirmation/"
+    "check": "deno fmt --check --ignore=node_modules,dist . ../preload ../ipc && deno lint --ignore=node_modules,dist . ../preload ../ipc && tsc --noEmit -p . && node --test --test-reporter=spec 'desktop/*_test.ts' 'app-frame/**/*_test.ts' 'workspace/*_test.ts' 'build_test.ts' && deno check --config=desktop/core/deno.json desktop/main.ts desktop/core/allowlist.ts desktop/core/client.ts desktop/core/connection.ts desktop/core/events.ts desktop/core/node-io.ts desktop/core/routes.ts desktop/core/supervise.ts && deno test --allow-all --config=desktop/core/deno.json desktop/core/ confirmation/"
   },
   "dependencies": {
     "electron": "44.5.1",

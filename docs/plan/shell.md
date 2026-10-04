@@ -259,6 +259,7 @@ concerns: [shell]
 
 ### T13 workspace layout 저장과 복원
 
+- 상태: 완료 (#146)
 - 등급: 기본
 - concern: shell/workspace, shell/desktop
 - 요구: shell/workspace#R6, R7, R8, shell/desktop#R24(이어서)

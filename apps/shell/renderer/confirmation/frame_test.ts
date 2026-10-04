@@ -82,7 +82,10 @@ Deno.test("shell/confirmation-window#R4: 첫 화면은 설명이고 결정 버�
   const decision = dom.document.querySelector("[data-decision]");
   assert(heading !== null);
   assertEquals(decision?.getAttribute("autofocus"), null);
-  assertEquals(heading.textContent, "confirmation-window.title.confirm");
+  assertEquals(heading.textContent, "Confirm");
+  const body = dom.document.querySelector("p");
+  assert(body !== null);
+  assertEquals(body.textContent, "Review this request before you decide.");
 });
 
 Deno.test("shell/confirmation-window#R4: Enter는 제출하지 않고 Escape·닫기는 결정이 아니다", async () => {
@@ -109,12 +112,22 @@ Deno.test("shell/confirmation-window#R4: 2차 확인은 별도 단계이고 그 
     dom.document.querySelector("[data-state]")?.getAttribute("data-state"),
     "second",
   );
+  assertEquals(
+    dom.document.querySelector("p")?.textContent,
+    "Check the effect and scope again before you decide.",
+  );
 });
 
 Deno.test("shell/confirmation-window#R5: 대상이 바뀌면 옛 결정 버튼이 없다", async () => {
   const { dom } = await render("stale");
   assertEquals(dom.document.querySelectorAll("[data-decision]").length, 0);
-  assert(dom.document.querySelector("[data-action=refresh]") !== null);
+  const refresh = dom.document.querySelector("[data-action=refresh]");
+  assert(refresh !== null);
+  assertEquals(refresh.textContent, "Open latest");
+  assertEquals(
+    dom.document.querySelector("p")?.textContent,
+    "This request changed. Open the latest version.",
+  );
 });
 
 Deno.test("shell/confirmation-window#R7: 화면은 slot·fork 없이 검증된 token만 style로 쓴다", async () => {

@@ -300,3 +300,48 @@ Deno.test("platform/secrets#R11: 오래된 판의 갱신 제출은 keychain을 �
   assertEquals(stale.error.code, "conflict");
   assertEquals(keychain.stored.size, 0);
 });
+
+Deno.test("platform/secrets#R10 platform/secrets#R11: SecretAllowance port가 등록되지 않으면 전송·갱신은 forbidden이다", async () => {
+  const keychain = createFakeKeychain();
+  const saved = await storeValue(keychain);
+  assert(saved.ok);
+  const attach = createSecretAttach({
+    keychain,
+    references: references(use({ sealed_ref: saved.value })),
+    processes: alive,
+  });
+  let handed = false;
+  const refused = await attach.send(
+    {
+      context: context(["secret.send"]),
+      use: use({ sealed_ref: saved.value }),
+      operation: "model.call",
+      body: { prompt: "safe" },
+    },
+    () => {
+      handed = true;
+      return Promise.resolve(ok({ sent: true }));
+    },
+  );
+  assert(!refused.ok);
+  assertEquals(refused.error.code, "forbidden");
+  assertEquals(handed, false);
+  const refresh = createSecretRefresh({
+    work: work(keychain),
+    submit: submission(),
+    processes: alive,
+    transaction: (run) => Promise.resolve(run(fakeTx())),
+  });
+  let taken = false;
+  const denied = await refresh.store(
+    refreshInput(),
+    () => {
+      taken = true;
+      return Promise.resolve(VALUE);
+    },
+  );
+  assert(!denied.ok);
+  assertEquals(denied.error.code, "forbidden");
+  assertEquals(taken, false);
+  assertEquals(keychain.stored.size, 1);
+});

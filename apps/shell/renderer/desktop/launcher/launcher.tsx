@@ -1,11 +1,5 @@
 import { t } from "@lophn/wording";
-import {
-  EmptyState,
-  IconButton,
-  launcherEmptyIcon,
-  lophnEntryIcon,
-  Tooltip,
-} from "@lophn/design/components";
+import { EmptyState, launcherEmptyIcon } from "@lophn/design/components";
 
 import type { CoreSource } from "../connection/connection.ts";
 import {
@@ -14,7 +8,7 @@ import {
   retryConnection,
   useConnection,
 } from "../connection/connection.tsx";
-import { TopBar, Wordmark } from "../top-bar/top-bar.tsx";
+import { LophnEntry, TopBar, Wordmark } from "../top-bar/top-bar.tsx";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import styles from "./launcher.module.css";
 
@@ -26,23 +20,6 @@ export interface LauncherProps {
   onLophn: () => void;
   /** 상단 바가 비울 OS 창 조작 자리. 기본은 지금 renderer의 OS다. */
   platform?: WindowPlatform;
-}
-
-// 바 오른쪽의 고정 진입점. 형제 카드가 아니라 아이콘 하나이고 이름은 tooltip과 aria-label이다(desktop#R25).
-function LophnEntry({ onLophn }: { onLophn: () => void }) {
-  const label = t("launcher.button.lophn");
-  return (
-    <Tooltip content={label}>
-      <IconButton
-        icon={lophnEntryIcon}
-        label={label}
-        variant="secondary"
-        size="md"
-        data-entry="lophn"
-        onClick={onLophn}
-      />
-    </Tooltip>
-  );
 }
 
 // 이전 lophn 런처 모양: 48px 바 아래 1040px 가운데 기둥. 준비 전·실패는 기둥 대신 연결 화면을

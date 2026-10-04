@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { t } from "@lophn/wording";
+import { IconButton, lophnEntryIcon, Tooltip } from "@lophn/design/components";
 
 import { currentPlatform, type WindowPlatform } from "./platform.ts";
 import styles from "./top-bar.module.css";
@@ -28,4 +30,21 @@ export function TopBar(
 /** 바 왼쪽의 제품 이름. */
 export function Wordmark({ children }: { children: ReactNode }) {
   return <span className={styles.wordmark}>{children}</span>;
+}
+
+// 바 오른쪽의 고정 진입점. 형제 카드가 아니라 아이콘 하나이고 이름은 tooltip과 aria-label이다(desktop#R25).
+export function LophnEntry({ onLophn }: { onLophn: () => void }) {
+  const label = t("launcher.button.lophn");
+  return (
+    <Tooltip content={label}>
+      <IconButton
+        icon={lophnEntryIcon}
+        label={label}
+        variant="secondary"
+        size="md"
+        data-entry="lophn"
+        onClick={onLophn}
+      />
+    </Tooltip>
+  );
 }

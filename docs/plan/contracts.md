@@ -155,6 +155,22 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - `accepted`는 ingress/queue acceptance일 뿐 log 저장 성공이나 ledger 확정이 아니다. 실제 request 수 이하 검사·drop count 계산·request ID 결합은 host가 한다. core는 fire-and-forget으로 전달하고 log 때문에 기다리지 않는다.
 - core→platform I/O private 인증 pipe의 JSON control 요청에만 쓰며 channel field·공개 HTTP route·`PIPE_OPS` 등록은 없다. 현재 process·task·scope와 component/location/ID registry membership, 고정 safe phrase 또는 null+omission public 진단으로의 redaction은 platform runtime 책임이다.
 
+#### T6 구현 메모: coding agent cwd 조건
+
+- 상태: 완료 (#77)
+- concern: platform/identity, documents/projects
+- 요구: platform/identity#R3; documents/projects#R9
+- 자리: `packages/contracts/platform/identity.ts`, `identity_test.ts`
+- `CredentialConditions`에 optional `cwd`(정규 절대 경로)를 둔다. `project.resolve_cwd`가 읽는 host 고정 근거다. 인증 경계가 coding agent 연결·session 기록(시작 계획의 cwd 또는 등록한 제출 root)에서 정하고 요청 body·header·MCP 자기 주장 값은 쓰지 않는다. 없으면 resolve_cwd는 fail-closed다. realpath·현재 자격 판정은 platform runtime 책임이다.
+
+#### T6 구현 메모: owner target 판정 port
+
+- 상태: 완료 (#82)
+- concern: platform/identity
+- 요구: platform/identity#R3, R8
+- 자리: `packages/contracts/platform/target-authorization.ts`, `target-authorization_test.ts`
+- `TargetAuthorization` port key와 동기 `TargetAuthorizer(ctx, operation, target) => Result<void>`. owner handler가 domain target을 `tx.port`·`snapshot.port`로 판정한다. platform이 ctx의 고정 조건 target을 채워 owner target과 합치고 scope.targets의 모든 key가 있고 일치해야 ok, 아니면 forbidden이다. 공용 Tx·ReadSnapshot member는 넓히지 않는다.
+
 ### T7 contracts/platform: event envelope·구독
 
 - 상태: 완료 (#10)
@@ -311,6 +327,14 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
   - `/v1/projects/{create,update,set_tracking,archive,unarchive,list,get,resolve,preview_tracking}`, `TrackingPreview`, event `ProjectCreated`·`ProjectUpdated`·`ProjectTrackingChanged`·`ProjectArchived`·`ProjectUnarchived`.
   - port `PlaceNameReservation`(같은 transaction에서 이름 예약·현재 예약 확인).
 
+#### T14 구현 메모: project read seam
+
+- 상태: 완료 (#72)
+- concern: documents/projects
+- 요구: documents/projects#R3, R7, R8, R9, R10
+- 자리: `packages/contracts/documents/projects.ts`, `project-routes.ts`, `projects_test.ts`, `address.ts`
+- coding agent cwd resolve(`project.resolve_cwd`)는 path 없는 입력과 host가 고정한 authenticated current cwd 근거로 project ID만 돌려준다. 근거가 없으면 fail-closed다. 감독 tracking root read(`project.tracking_roots`)는 machine 전용이고 활성·tracking enabled root만 담는다. `initial_tracking_proposal`은 저장된 tracking과 별도 output이다. list·resolve cursor drift는 conflict다. Project read의 자료 참조는 고정 version이다. 실제 cwd 근거·자격·scope·snapshot 판정은 documents/platform runtime 책임이다.
+
 ### T15 contracts/documents: document·version·파일 준비 결과
 
 - 상태: 완료 (#39)
@@ -331,6 +355,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T16 contracts/documents: 파일 쓰기
 
+- 상태: 완료 (#70)
 - 등급: 기본
 - concern: documents/file-tracking
 - 요구: documents/file-tracking#R2, R9, R11, R15, R16
@@ -398,6 +423,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T19 contracts/documents: series·saved view
 
+- 상태: 완료 (#75)
 - 등급: 기본
 - concern: documents/series, documents/outline-and-search
 - 요구: documents/series#R1–R8, R11, R12
@@ -723,6 +749,23 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - 검증기에 들어갈 것(apps 팀 요청): InputSchema 부분집합(type 하나, enum, default, properties·required·없는 `additionalProperties`는 false로 정규화, items, min/max Items·Length, minimum/maximum; `$ref`·`oneOf`·`format`·모르는 keyword 거절), default를 재귀 적용한 뒤 RFC 8785 정규 JSON의 sha256 input hash(object key는 UTF-16 정렬, 숫자·문자열 인코딩은 `JSON.stringify`, SHA-256은 WebCrypto), 목록 key 정렬·object key 정렬·중복 거절·모르는 field와 옛 `context` 거절, revert 규칙(read·external은 supported=false, write의 supported=true면 같은 blueprint의 다른 write command), automation(`on_start` 또는 `interval_ms` ≥ 60000, command confirm=false, 고정 입력이 schema 통과, external effect 허용), agent_context(read_command는 effect=read·confirm=false, write_command는 effect=write), app_connections(owner가 있으면 자기 앱 금지, commands는 비어 있지 않은 exact key, 중복·wildcard 금지), SDK dependency는 exact SemVer, document.save key는 선언된 document와 같고 format은 `{name, module_hash, explicit}`.
   - `automation.run` Grant scope `{automation, command, input_hash, when}`는 `GrantPermissionScope`에만 있고 `blueprint.permissions`에는 없다. blueprint permission kind는 fs.read, fs.write, net.fetch, net.listen, secret.use, document.save뿐이다. 실제 실행·권한·효과 판정 테스트는 apps#T2와 각 owner가 apps 요구 번호로 쓴다.
   - `ScreenContextReadInput`, `AppScreenContext`(summary 2048 bytes, data 생략/object/null), `AnnotationWriteInput`; additive catalog 출력 `Package {id(pkg), name, description, kind, versions}`·`PackageVersion {version, bundle_hash, guide_hash}`. 설치 command의 strict 입력은 T37과 분리한다.
+
+### T51 blueprint 공개 entry와 순수 dependency 검사
+
+- 등급: 좁은
+- concern: apps/blueprint, apps/sdk, 저장소 바닥
+- 요구: apps/blueprint#R16; apps/sdk#R5
+- 자리: `tools/check-deps.ts`, `tools/deps-blueprint.ts`, `tools/deps-blueprint_test.ts`, `tools/deps-imports.ts`
+- 쓰는 contract: T33 공개 `packages/contracts/apps/blueprint.ts`
+- 내놓는 contract: 없음
+- 받은 요청: apps(T2의 SDK와 apps blueprint wrapper가 Zod-bearing mod.ts 대신 순수 정본을 다시 내보내야 함)
+- slice: apps
+- 선행: contracts#T2, contracts#T33
+- 상태: 완료 (#63)
+- 완료: 아래 확인이 통과한다
+  - exact `packages/apps/blueprint/mod.ts` → `packages/contracts/apps/blueprint.ts`만 기존 leaf-contract의 예외다. 다른 leaf·private helper·전체 contract 모음은 허용하지 않는다.
+  - 공개 정본, apps wrapper, SDK blueprint entry의 reachable import·export graph는 상대 `.ts`와 실제 존재하는 순수 모듈만 쓴다. contract는 T33의 여덟 순수 파일, SDK는 자기 blueprint directory와 정본만 참조한다. Zod·base·runtime·다른 SDK·workspace alias·remote·test 모듈·계산 import는 거절한다.
+  - apps/blueprint#R16·apps/sdk#R5 positive/negative fixture와 기존 T2 negative 테스트, `deno task check`가 통과한다. dependency 검사만으로 임의 source의 IO·앱 실행 부재나 runtime sandbox를 증명했다고 하지 않는다.
 
 ### T34 contracts/apps: 앱 통로·앱 시작 입력
 
@@ -1073,5 +1116,10 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q18 T6 diagnostics follow-up은 기존 supervision 고정 Diagnostic catalog를 `platform.diagnostics.write`의 strict `{records, dropped}` 입력으로 재사용한다(추천안, platform 소비 review 완료). public DiagnosticRecord·raw LogRecord를 입력으로 쓰지 않으며 JSON control 전용·batch 256개·대기 1MiB·frame 256KiB를 유지한다. `{accepted, dropped}`는 ingress acceptance와 누락 계수일 뿐 durable 성공이 아니다. request 수·ID 결합, 현재 process/task/scope·등록 ID·redaction·fire-and-forget queue는 host가 검사하고 HTTP·`PIPE_OPS`·공용 Tx/ReadSnapshot을 넓히지 않는다.
 - Q19 T18은 실제 선행 T15의 고정 Version·ContentFile과 shared Section shape를 써서 T17 format 실행과 별도 PR로 진행한다(추천안, documents 소비 review 완료). root·series·history만 ledger metadata read, documents/file만 고정 ver/path의 stored bytes file이며 extraction·cache·본문·comparison·guide는 core 밖 worker다. whole/found의 text=null은 terminal redacted omission, unverified/unsupported는 같은 고정 원문 file fallback으로 구별하고 user full Version history와 agent/app source:null projection을 나눈다. guide는 설치 version/title/hash tuple과 manifest path를 결합한다. 최종 schema의 pagination·256KiB·exact ref 검사와 현재 auth/scope·redaction·cursor binding·복원·설치 membership의 host 책임을 섞지 않는다. 이 PR은 T17 execution/routes/status를 포함하지 않으며 T17 완료로 세지 않는다.
 - Q20 T7 named reconnect follow-up은 architecture/platform 5.4의 저장 ack 재개를 표현하도록 `from_seq`를 optional로 두되 `from_seq`와 `subscriber`가 둘 다 없는 입력은 strict schema·union·parser에서 `invalid_input`으로 거절한다(추천안). 이름 있는 생략에는 schema default를 넣지 않고 명시 seq의 포함 의미는 보존한다(platform 소비 source/type/runtime probe review 완료). 현재 인증 principal·이름의 저장 ack 조회, ack+1과 저장 없음 0, 현재 자격·scope 재검사는 platform runtime 책임이며 새 IO·Tx member·공개 route를 더하지 않는다.
+- Q23 T51은 T33의 단일 공개 entry를 다시 내보내는 exact apps wrapper만 leaf-contract 예외로 둔다(추천안, apps 요청). contract·SDK·wrapper의 reachable graph는 실제 존재하는 상대 `.ts`만 허용하고 contract 순수 파일 목록·SDK 자기 blueprint directory를 벗어나는 의존을 거절한다. private contract helper의 외부 직접 소비, workspace alias, test 모듈과 계산 import는 허용하지 않는다. 기존 leaf-contract·이식성·계산 import reader 규칙은 일반 코드에서 그대로 유지하며 dependency 검사를 arbitrary IO·앱 실행 부재·runtime isolation 증명으로 쓰지 않는다.
 - Q21 T33은 외부 dependency 없는 relative-only `blueprint.ts`를 공개 정본으로 두고 내부 pure 모듈을 400줄 이하로 나눈다(추천안, apps 소비 review 완료). no-input은 undefined만 허용하고 hash의 JSON null 표현을 app/release/command/schema binding으로 쓰지 않는다. InputSchema의 string property key는 별도 reserved/nonblank 제한 없이 own property로 복사하여 정규 값·default·enum·hash를 보존한다. AppScreenContext.data의 own/nested JSON key도 공통 guard로 보존한다. standalone description은 optional JSON string이며 command.input의 명시 description만 nonblank다. 공개 catalog는 domain의 pkg ID·1..N exact versions·additive Package/PackageVersion이고 설치 strict 입력은 T37이다. SemVer core는 문자열로 검사하여 safe-integer 제한을 새로 넣지 않으며 numeric prerelease 선행 0만 거절한다. Grant scope 이름과 structural blueprint scope를 구분하고 실제 권한·effect·byte hash·설치 membership·view/revision CAS·redaction은 owner runtime/tests가 검사한다. external automation 허용은 이미 정한 D23과 apps/automations#R13을 따른다.
 - Q22 T26은 `WaitRun`의 새 question/approval 생성 입력과 `RunBasis`의 정확한 `ResolvedModel`, ordered `MessageContent`의 정확한 `VisualBlock` 값을 먼저 정의한다(추천안). T28·T29·T30은 같은 schema를 재사용하며 ID-only wait·축약 model·unknown visual placeholder를 두지 않는다. Run event는 정본 여섯 개이고 checkpoint·confirm-next에는 event가 없다. revision은 정본의 positive integer, event/CAS seq는 decimal string으로 구별한다. AgentAppScope의 effects는 허용 effect set이며 command별 평행 배열로 줄이지 않는다. schema의 ID·hash·CAS 모양 검사는 실제 새 요청 생성과 waiting_on의 원자 연결, 현재 권한·기록·scope·release·redaction·복구 clock 판정을 대신하지 않는다.
+- Q24 T14 project read seam은 coding agent cwd resolve를 path 없는 입력·host 고정 cwd 근거·project ID만으로 두고 근거가 없으면 fail-closed로 거절한다(추천안, documents#T7 요청). 감독 tracking root read는 machine 전용 활성·enabled root다. initial_tracking_proposal은 실제 tracking과 별도 output이고 list·resolve cursor drift는 conflict다. Project read 자료 참조는 고정 version이다. 실제 cwd 근거·자격·scope·snapshot 판정은 documents/platform runtime 책임이다.
+- Q26 T19 series.next는 selector만 받는 core read이고 NextSuggestion 계산(`suggestNextKey`·`compareSeriesKeys`)은 저장 없는 순수 함수로 둔다(추천안). 멤버·예약 key·draft·revision은 host가 같은 snapshot에서 읽어 계산한다. format_field 변경은 준비한 instances를 update 입력에 두고 정렬 근거는 SeriesUpdated.order_basis다. view.open은 worker이며 text 조건일 때만 IndexCoverage를 요구하고 glossary를 두지 않는다. 가족 구성·이름·key 예약·권한·CAS의 진실은 host가 검사한다.
+- Q28 T14 resolve_cwd의 cwd 근거는 `AuthenticatedContext.conditions.cwd`(optional 정규 절대 경로)로 둔다(추천안, documents#T7 요청). 인증 경계가 coding agent 연결·session 기록에서 정하며 caller가 보낸 경로·credential_ref encoding을 근거로 쓰지 않는다. 다른 actor에는 넣지 않고, 없으면 fail-closed다.
+- Q29 owner domain target 판정은 Tx·ReadSnapshot의 새 member가 아니라 `TargetAuthorization` port(`port(key)`)로 둔다(추천안, platform·documents Q13·problems 요청). 다른 팀 test double을 깨지 않고 event 공개 hook의 snapshot에서도 같은 key로 쓴다. 동기 Result이고 누락·불일치·주입 없음은 fail-closed forbidden이다.

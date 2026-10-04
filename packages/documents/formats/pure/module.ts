@@ -1,9 +1,11 @@
 import type {
-  FormatDiagnostic,
-  FormatValidationResult,
-  SectionExtractionResult,
-} from "../../../contracts/documents/mod.ts";
-import type { FormatModuleInput, InputIssue } from "./input.ts";
+  FormatModuleInput,
+  GuestDiagnostic,
+  GuestExtraction,
+  GuestSection,
+  GuestValidation,
+  InputIssue,
+} from "./input.ts";
 import { sha256Text } from "./sha256.ts";
 
 export type LineRange = { start_line: number; end_line: number };
@@ -108,8 +110,7 @@ export type SectionTree =
   | {
     ok: true;
     title: string | null;
-    sections: SectionExtractionResult extends { sections: infer S } ? S
-      : never;
+    sections: GuestSection[];
     diagnostics: SectionDiagnostic[];
   }
   | { ok: false; reason: string; line?: number };
@@ -259,7 +260,7 @@ export function readyExtraction(
   input: FormatModuleInput,
   text: string,
   tree: Extract<SectionTree, { ok: true }>,
-): SectionExtractionResult {
+): GuestExtraction {
   return {
     input_hash: input.input_hash,
     module_hash: input.module_hash,
@@ -273,7 +274,7 @@ export function readyExtraction(
 
 export function unsupportedExtraction(
   input: FormatModuleInput,
-): SectionExtractionResult {
+): GuestExtraction {
   return {
     input_hash: input.input_hash,
     module_hash: input.module_hash,
@@ -286,7 +287,7 @@ export function unsupportedExtraction(
 function diagnostic(
   issue: InputIssue,
   file: string | undefined,
-): FormatDiagnostic {
+): GuestDiagnostic {
   return {
     severity: "error",
     code: issue.code,
@@ -302,7 +303,7 @@ export function validationFrom(
   input: FormatModuleInput,
   issues: readonly InputIssue[],
   file?: string,
-): FormatValidationResult {
+): GuestValidation {
   const diagnostics = issues.map((issue) => diagnostic(issue, file));
   return {
     input_hash: input.input_hash,

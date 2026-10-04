@@ -39,9 +39,7 @@ export {
 } from "./work.ts";
 export {
   createSecretAttach,
-  type ProcessLiveness,
   SECRET_SEND,
-  type SecretAllowance,
   type SecretAttach,
 } from "./attach.ts";
 export { attachAllowed, destinationHost, sameDestination } from "./model.ts";
@@ -53,3 +51,15 @@ export {
   SECRET_STORE_REFRESH,
   type SecretRefresh,
 } from "./refresh.ts";
+export {
+  createSecretTransfer,
+  type ImportCommit,
+  type SecretSelection,
+  type SecretTransfer,
+} from "./export.ts";
+export {
+  openExchange,
+  sealExchange,
+  type SecretExchangeFile,
+  type SecretExchangeItem,
+} from "./exchange.ts";

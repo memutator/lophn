@@ -218,6 +218,7 @@ concerns: [shell]
 
 ### T11 공통 컴포넌트: 떠 있는 표면
 
+- 상태: 완료 (#61)
 - 등급: frontend
 - concern: shell/design-system
 - 요구: shell/design-system#R20, R33, R35(chip 모양), R38, R45

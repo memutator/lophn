@@ -95,8 +95,9 @@ export const recordChoice = defineCommand({
 const recordChoiceCommand: CommandDefinition<typeof recordChoice> = {
   route: recordChoice,
   handle(tx: Tx, _ctx, input) {
+    // 이미 apply가 넣은 선택을 범위 밖 값으로 바꾸는 seed도 같은 command로 남긴다(R22).
     tx.sql.run(
-      "insert into setting_choices (layer, key, value) values ('common', ?, ?)",
+      "insert into setting_choices (layer, key, value) values ('common', ?, ?) on conflict (layer, key) do update set value = excluded.value",
       [input.key, input.value],
     );
     return ok({ recorded: true });

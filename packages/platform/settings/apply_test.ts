@@ -356,3 +356,57 @@ Deno.test("platform/settings#R20: 이력은 주체·시각·항목·전후·영�
     await harness.close();
   }
 });
+
+// flow connect-provider의 설정 단계(5단계와 갈래) 통합 테스트다. preset 저장은
+// 고정 새 판이고 기존 판을 자동 변경하지 않으며(platform/settings#R7), 적용 판이
+// 바뀌었거나 검증에 실패하면 변경을 함께 거절하고 이전 성공값을 유지한다
+// (platform/settings#R18, platform/settings#R19, platform/settings#R22).
+Deno.test("platform/settings#R7, platform/settings#R22: flow connect-provider 설정 단계는 새 판을 저장하고 기존 판과 함께 거절한다", async () => {
+  const opened = await createLedgerHarness({
+    registrationModules: [registration],
+    credentials: [user],
+  });
+  if (!opened.ok) throw new Error(opened.error.code);
+  const harness = opened.value;
+  try {
+    const defaults0 = (await state(harness)).defaults_revision;
+    // 사람이 고른 선택(5단계)을 고정 새 판으로 저장한다.
+    value(
+      await harness.command(
+        user,
+        applyEnvelope(
+          "flow-apply-first",
+          [
+            { layer: "common", key: "coding.harness", action: "set", value: "codex" },
+          ],
+          0,
+          defaults0,
+        ),
+      ),
+    );
+    // 다른 편집자가 아직 오래된 판(0)으로 저장을 시도하면 함께 거절이다(R19 갈래).
+    const stale = failure(
+      await harness.command(
+        user,
+        applyEnvelope(
+          "flow-apply-stale",
+          [
+            { layer: "common", key: "coding.harness", action: "set", value: "other" },
+          ],
+          0,
+          defaults0,
+        ),
+      ),
+    );
+    assertEquals(stale.code, "conflict");
+    // 이전 성공값이 유지된다(R22 갈래).
+    const read = value(
+      await harness.read({ resource: "settings", method: "get" }, user, {
+        keys: ["coding.harness"],
+      }),
+    ) as { settings: { key: string; value: unknown }[] };
+    assertEquals(read.settings[0].value, "codex");
+  } finally {
+    await harness.close();
+  }
+});

@@ -1,6 +1,6 @@
 // docs/architecture/*.md의 "## 5." 절에서 route 경로와 event 이름을 읽어
 // ALL_ROUTES·ALL_EVENTS에 있는 것·없는 것을 최상위·절마다 보인다.
-// 보고만 하고 exit 0이다. 빠짐을 실패로 세는 관문은 contracts#T46.
+// 빠짐이 있으면 exit 1이다(관문, contracts#T46).
 
 import { ALL_EVENTS, ALL_ROUTES } from "@lophn/contracts";
 
@@ -35,6 +35,49 @@ export type ArchitectureCoverage = {
   routes: SectionRoutes[];
   events: SectionEvents[];
 };
+
+export type MissingItem = {
+  topLevel: string;
+  heading: string;
+  kind: "route" | "event";
+  name: string;
+};
+
+// 빠짐을 모은다. 관문이 이 목록으로 실패를 센다.
+export function missingItems(
+  docs: ArchitectureCoverage[],
+  routes: readonly { resource: string; method: string }[] = ALL_ROUTES,
+  events: readonly { type: string }[] = ALL_EVENTS,
+): MissingItem[] {
+  const missing: MissingItem[] = [];
+  for (const doc of docs) {
+    for (const section of doc.routes) {
+      for (const path of section.paths) {
+        if (routePresence(path, routes) === "없음") {
+          missing.push({
+            topLevel: doc.topLevel,
+            heading: section.heading,
+            kind: "route",
+            name: path,
+          });
+        }
+      }
+    }
+    for (const section of doc.events) {
+      for (const type of section.types) {
+        if (eventPresence(type, events) === "없음") {
+          missing.push({
+            topLevel: doc.topLevel,
+            heading: section.heading,
+            kind: "event",
+            name: type,
+          });
+        }
+      }
+    }
+  }
+  return missing;
+}
 
 // "## 5."부터 "## 6." 직전까지. 5장이 없으면 빈 문자열.
 export function sectionFive(markdown: string): string {
@@ -256,4 +299,16 @@ export function renderCoverage(
 if (import.meta.main) {
   const docs = await readArchitecture();
   console.log(renderCoverage(docs));
+  const missing = missingItems(docs);
+  if (missing.length > 0) {
+    console.error(
+      `contract 빠짐 ${missing.length}개. 각 architecture 5장의 경로·event가 contracts에 있어야 한다:`,
+    );
+    for (const item of missing) {
+      console.error(
+        `  [${item.topLevel}/${item.heading}] ${item.kind} ${item.name}`,
+      );
+    }
+    Deno.exit(1);
+  }
 }

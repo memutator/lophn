@@ -41,6 +41,11 @@ export const steps: Step[] = [
     name: "deps",
     command: ["deno", "run", "--allow-read", "tools/check-deps.ts"],
   },
+  // architecture 5장의 경로·event가 contracts에 있는지 센다. 빠짐이 있으면 실패다(contracts#T46).
+  {
+    name: "coverage",
+    command: ["deno", "run", "--allow-read", "tools/contract-coverage.ts"],
+  },
   // workspace 전체와 tools를 본다. check-docs.ts는 Node로만 돌아 deno.json에서 빼고 docs 단계가 실행으로 확인한다.
   { name: "check", command: ["deno", "check"] },
   {

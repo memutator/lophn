@@ -123,6 +123,8 @@ async function logLines(directory: string | undefined): Promise<string[]> {
 
 // 데이터 root의 관측 파일을 읽어 doctor 관측을 만든다. 파일 내용은 분류로만
 // 남고 반환값에 원문이 없다.
+// 이 관측 파일(grants.json, sdk.json, credential 파일, logs/)은 임시 입력이다.
+// apps의 grant 위험 read와 SDK hash contract가 생기면 그 read로 바꾼다.
 export async function observeDoctor(
   files: DoctorFiles,
   facts: DoctorFacts = {},

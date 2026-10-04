@@ -116,6 +116,7 @@ concerns: [documents]
   - `model_test.ts`에 addressing#R1, R10, `commands_test.ts`에 addressing#R2(project 이름을 app이, 옛 문서 이름을 다른 문서가 쓰면 conflict, 보관 뒤에도 예약 유지)
 - 구현 메모: public contract의 Slug·PlaceRef·Address·DocumentRef schema와 parse/format을 소비·re-export한다. `addressingSchemaSteps`는 예약 표·index와 UPDATE/DELETE/중복 INSERT 거절 trigger를 제공한다(INSERT OR REPLACE도 target을 바꾸지 못함). 같은 target의 재예약은 helper의 no-op이며 최초 reserved_seq를 유지한다.
 - 구현 경계: `createPlaceNameReservation(tx: Pick<Tx, "sql">)`와 `createDocumentNameReservation(tx: Pick<Tx, "sql">)`는 caller가 넘긴 현재 guarded Tx.sql에만 묶인다. 별도 connection·BEGIN/COMMIT·owner 표가 없다. SQL 실패는 platform 경계까지 throw를 전달한다. core entry·actual tx.port factory 조립은 T5가 구현하지 않는다(Q7).
+- 통합 확인 후속: T5 완료 증거는 contract 소비·순수 이름 제안·WAL 예약 persistence와 주입한 guarded Tx의 rollback/lifetime까지다. 실제 writer Worker·current credential·core tx.port 조립은 아직 미검증이다. platform의 public `apps/core/testing/ledger.ts` harness가 main에 들어오면 T5 정정 또는 T7의 작은 통합 테스트로 owner 변경과 예약의 같은 rollback·seal 뒤 retained port 차단·다음 Tx fresh binding을 확인한다.
 
 ### T6 Document·Version ledger
 
@@ -643,7 +644,7 @@ lead가 2026-10-04에 모두 정했다.
 - **Q5 이름 최대 길이.** 처음엔 문서 이름 100 codepoint·place slug 64 codepoint로 정했으나 contracts#T14에서 lead가 둘 다 63으로 바꿨다. T5는 main public contract의 `SLUG_MAX_LENGTH=63`을 그대로 소비한다. place·document가 같은 Slug를 쓰므로 별도 최대 길이나 schema를 만들지 않는다. 자동 제안은 소문자 ASCII·숫자·하이픈이며 코드와 테스트가 정본이다.
 - **Q6 설치 안내 글과 자리.** 정함: 글은 lophn-agent 팀, 설치 묶음의 `guides/` 자리는 platform/install-and-update. documents는 reader와 읽기 경로만(T29).
 - **Q7 다른 최상위와 한 Tx로 묶기.** 정함: 소유 팀의 동기 Tx 경로를 쓴다. 자리 이름 예약은 `tx.port`(contracts#T14·T6), lophn-agent의 문서 저장·question option 적용은 다른 owner의 등록 command를 같은 Tx로 부르는 `tx.call`(contracts#T6, platform#T18), Operator 출력 판정은 contracts#T27의 판정을 document.save가 부른다(T32).
-  - T5 경계: current guarded Tx.sql을 받는 factory를 내놓는다. 현재 platform의 static ports map은 per-command factory injection과 같지 않으며 이 runtime 조립 보정은 platform이 맡는다. raw DB나 이전 Tx를 붙잡은 static port로 우회하지 않는다.
+  - T5 경계: current guarded Tx.sql을 받는 factory를 내놓는다. 현재 platform의 static ports map은 per-command factory injection과 같지 않으며 이 runtime 조립 보정은 platform이 맡는다. raw DB나 이전 Tx를 붙잡은 static port로 우회하지 않는다. lead 결정: port·harness를 T5 병합 선행으로 추가하지 않고 factory·예약 규칙을 먼저 합친다. 실제 writer Worker·current credential·core tx.port 통합은 public harness의 main 병합 뒤 T5 정정 또는 T7 통합 테스트로 확인한다.
 - **Q8 derived가 필요한 검사.** 정함: route handler가 command 전에 coordinator로 고정 판을 읽어 확인하고 command는 고정 판 존재와 참조만 CAS한다.
 - **Q9 첫 저장의 event.** 정함: 첫 저장은 DocumentCreated와 DocumentSaved(previous_version null)를 함께 낸다.
 - **Q10 SDK format Package.** 정함: `@lophn/format-document` 하나(이름·MIME·template·guide·FormatRef, 검사 코드 없음). 코드는 apps#T29, 내용은 T3·T4의 선언에서 만든다.

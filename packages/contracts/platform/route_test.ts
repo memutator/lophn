@@ -4,8 +4,10 @@ import {
   ACTOR_KINDS,
   defineCommand,
   defineFile,
+  defineMemory,
   defineRead,
   defineWorker,
+  ROUTE_KINDS,
   routePath,
 } from "./route.ts";
 
@@ -55,7 +57,7 @@ Deno.test(
 );
 
 Deno.test(
-  "platform/api#R3: route kind는 command·read·file·worker이고 file은 바이트 응답이다",
+  "platform/api#R3 shell/workspace#R10: route kind는 command·read·file·worker·memory이고 file은 바이트 응답이다",
   () => {
     const file = defineFile({
       resource: "documents",
@@ -78,6 +80,36 @@ Deno.test(
       errors: ["unavailable"],
     });
     assertEquals(worker.kind, "worker");
+    const memory = defineMemory({
+      resource: "workspace",
+      method: "publish",
+      name: "Publish",
+      input,
+      output,
+      actors: ["user"],
+      errors: ["unavailable"],
+    });
+    assertEquals(memory.kind, "memory");
+    assertThrows(() =>
+      defineMemory({
+        resource: "workspace",
+        method: "bind",
+        name: "Bind",
+        input,
+        output,
+        actors: ["user"],
+        errors: ["conflict"],
+        confirmation: "required",
+        binding: ["title"],
+      } as never)
+    );
+    assertEquals([...ROUTE_KINDS], [
+      "command",
+      "read",
+      "file",
+      "worker",
+      "memory",
+    ]);
     assertEquals([...ACTOR_KINDS], [
       "user",
       "coding_agent",

@@ -1,7 +1,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import { createRpcClient, type RpcFetch } from "./client.ts";
-import { defineCommand, defineFile, defineRead } from "./route.ts";
+import {
+  defineCommand,
+  defineFile,
+  defineMemory,
+  defineRead,
+} from "./route.ts";
 
 const command = defineCommand({
   resource: "documents",
@@ -216,5 +221,51 @@ Deno.test(
     }).call(read, {});
     assert(listed.ok);
     if (listed.ok) assertEquals(listed.value, { items: [] });
+  },
+);
+
+Deno.test(
+  "shell/workspace#R10: memory route는 ledger envelope 없이 raw JSON을 주고받는다",
+  async () => {
+    const memory = defineMemory({
+      resource: "workspace",
+      method: "read",
+      name: "ReadView",
+      input: z.strictObject({ session: z.string() }),
+      output: z.strictObject({
+        availability: z.literal("current"),
+        summary: z.string(),
+      }),
+      actors: ["agent"],
+      errors: ["not_found"],
+    });
+    const sent: Sent[] = [];
+    const client = createRpcClient({
+      baseUrl: "http://127.0.0.1:7431",
+      token: "tok",
+      fetch: scripted((call) => {
+        sent.push(call);
+        return {
+          status: 200,
+          body: json({ availability: "current", summary: "open notes" }),
+        };
+      }),
+    });
+    const result = await client.call(memory, { session: "ses_1" });
+    assert(result.ok);
+    if (result.ok) {
+      assertEquals(result.value, {
+        availability: "current",
+        summary: "open notes",
+      });
+    }
+    assertEquals(sent[0].url, "http://127.0.0.1:7431/v1/workspace/read");
+    assertEquals(sent[0].init.body, json({ session: "ses_1" }));
+    const rejected = await client.call(memory, {
+      session: "ses_1",
+      body: "document text",
+    } as { session: string });
+    assert(!rejected.ok);
+    if (!rejected.ok) assertEquals(rejected.error.code, "invalid_input");
   },
 );

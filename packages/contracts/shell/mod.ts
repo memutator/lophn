@@ -23,6 +23,24 @@ export {
   type LophnConfirmation,
   type LophnShell,
 } from "./confirmation.ts";
+import { WORKSPACE_ROUTES } from "./workspace.ts";
+
+export {
+  type AppView,
+  type CurrentViewState,
+  type Selection,
+  SUMMARY_MAX_BYTES,
+  TAB_PAGE_SIZE,
+  VIEW_STRING_MAX_CHARS,
+  type ViewOmission,
+  type ViewTab,
+  WORKSPACE_ROUTES,
+  workspaceBind,
+  workspacePublish,
+  workspaceRead,
+  type WorkspaceReadOutput,
+  workspaceUnpublish,
+} from "./workspace.ts";
 export {
   type LaunchIntent,
   launchIntentSchema,
@@ -34,6 +52,6 @@ export {
 } from "./launch.ts";
 
 // 확인 창을 여는 계기는 core event(ApprovalRequestCreated, QuestionCreated) 구독이다.
-// shell은 ledger route와 event를 내놓지 않는다.
-export const ROUTES = [] as const;
+// shell은 ledger command·event를 내놓지 않는다. 현재 보기 relay만 core 메모리 route다.
+export const ROUTES = WORKSPACE_ROUTES;
 export const EVENTS = [] as const;

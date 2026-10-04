@@ -16,7 +16,7 @@ concerns: [shell]
 
 - main(npm): Electron API는 작은 adapter interface 뒤에 두고 `node --test`에서 가짜를 끼운다. 시각·id·무작위 값은 주입한다.
 - renderer와 `packages/design`: `deno test`와 happy-dom으로 컴포넌트 동작을 본다. 실제 화면의 동작은 Playwright E2E로 검사한다.
-- 실제 Electron(native view, overlay, modal, sandbox, PTY): `e2e/` harness(contracts#T10)의 `e2e/shell/*_test.ts`. `deno task e2e`로 돈다.
+- 실제 Electron(native view, overlay, modal, sandbox, PTY): `e2e/` harness(contracts#T10)의 `e2e/shell/*_test.ts`. `deno task e2e`로 돈다. harness를 기다리는 확인을 별도 작업으로 나눈 경우 구현 작업의 단위 테스트를 실제 Electron 확인으로 세지 않고, 그 확인 작업의 선행과 완료 기준에 남긴다.
 - 테스트 이름은 요구 번호로 시작한다: `shell/terminal#R7: 숨긴 탭의 출력이 10,000줄을 넘으면 오래된 줄부터 뺀다`.
 
 ## skeleton
@@ -141,6 +141,7 @@ concerns: [shell]
 
 ### T8 공통 컴포넌트: 조작과 상태
 
+- 상태: 완료 (#43)
 - 등급: frontend
 - concern: shell/design-system
 - 요구: shell/design-system#R1, R2, R5, R6, R26, R27, R28, R29, R34, R43
@@ -178,6 +179,7 @@ concerns: [shell]
 
 ### T10 shell overlay view
 
+- 상태: 완료 (#54)
 - 등급: 기본
 - concern: shell/app-frame, shell/design-system
 - 요구: shell/app-frame#R24, R29(경계 drag 중 pointer, 16ms 묶기), shell/design-system#R2(focus 복귀), R20
@@ -190,14 +192,33 @@ concerns: [shell]
   - 창마다 투명 WebContentsView 하나(`lophn-shell://overlay/index.html`, 배경 `#00000000`)를 contentView 맨 위에 둔다. view를 붙일 때마다 overlay를 다시 맨 위로 올리고 z-order는 main의 한 모듈만 바꾼다.
   - `shell:overlay-open {kind, anchorRect, model}` → overlay가 그리고 결과는 `shell:overlay-result`로 연 쪽에 돌아온다. overlay는 command를 보내지 않는다. menu·popover·tooltip은 그 사각형만, dialog·palette·경계 drag는 창 본문 전체를 bounds로 쓴다.
   - 조작 표면만 keyboard focus를 가져가고 닫히면 연 요소로 돌린다. tooltip·drag·notification은 focus를 옮기지 않는다. 같은 창의 표면은 sibling DOM으로 쌓임 순서를 지킨다.
-  - 경계 drag 중 overlay가 pointer를 받고 bounds 갱신은 16ms에 한 번으로 묶는다.
+  - 경계 drag 중 overlay가 pointer capture로 받은 validated pointer DTO를 연 쪽에 16ms마다 한 번 relay한다. 창 resize 때 overlay 자신의 bounds 갱신도 16ms마다 묶는다. pane·sidebar layout 연결은 T14, 실제 앱 native bounds 적용은 T39가 맡는다.
   - overlay crash 때 다시 만들어 맨 위에 두고 열려 있던 표면은 닫힘으로 알린다.
-  - `overlay_test`(가짜 view)와 `e2e/shell/overlay_test.ts`(menu를 연 동안과 닫은 뒤 아래 view가 보임)에 위 요구 테스트.
-  - renderer에서 `require`·`process`·token을 읽을 수 없음(`e2e/shell/sandbox_test.ts`, shell/desktop#R16).
+  - `overlay_test`(가짜 view), IPC caller·schema·generation 테스트와 renderer 컴포넌트 테스트에 위 요구 테스트. build 테스트는 sandbox preload에 `electron` 외 require가 없는지 검사한다.
+- 실제 Electron 확인: 아래 T61이 `contracts#T10` harness로 overlay·sandbox를 검사한다. T10의 단위 테스트 통과는 native view·sandbox E2E 완료가 아니다.
 - 가져올 것: 없음(legacy는 view를 숨겼다). legacy `viewHost.ts`의 hold coalescing은 쓰지 않는다.
+
+### T61 shell overlay·sandbox 실제 Electron 확인
+
+- 등급: 기본
+- concern: shell/app-frame, shell/desktop, shell/design-system
+- 요구: shell/app-frame#R24, R29(경계 drag 중 pointer, 16ms 묶기), shell/desktop#R16, shell/design-system#R2(focus 복귀), R20
+- 자리: e2e/shell/overlay_test.ts, e2e/shell/sandbox_test.ts
+- 쓰는 contract: contracts#T10(Electron·Playwright E2E harness)
+- 내놓는 contract: 없음
+- slice: documents
+- 선행: shell#T10, shell#T11, contracts#T10
+- 완료: 아래 확인이 통과한다
+  - 실제 Electron에서 menu·dialog를 연 동안과 닫은 뒤 아래 native view가 보이며 attach·crash 재생성 뒤에도 overlay가 맨 위에 있다. dialog 안 menu는 같은 overlay의 sibling으로 그 위에 보인다.
+  - 경계 drag의 pointer를 overlay가 창 본문 전체에서 받고 앱 view는 숨기거나 detach하지 않는다. 연속 resize의 bounds 적용은 16ms마다 한 번으로 묶인다.
+  - 조작 표면만 focus를 옮기고 닫으면 연 요소로 돌아온다. tooltip·drag·notification은 원래 focus를 유지한다.
+  - shell·overlay renderer에서 `require`·`process`·Node·DB·사람 token을 직접 읽을 수 없고 임의 IPC channel·method를 호출할 수 없다. sandbox를 끄는 우회 없이 검사한다.
+  - 요구 번호로 시작하는 테스트가 `deno task e2e`에서 통과하고 `deno task check`도 통과한다. gallery·screenshot baseline 회귀는 만들지 않는다.
+- 분리 이유: T10·T11의 구현은 harness가 준비되기 전에도 단위 테스트로 검증하고 병합한다. 실제 Electron 보장은 취소하지 않고 harness와 떠 있는 표면이 main에 든 뒤 이 작업에서 확인한다.
 
 ### T11 공통 컴포넌트: 떠 있는 표면
 
+- 상태: 완료 (#61)
 - 등급: frontend
 - concern: shell/design-system
 - 요구: shell/design-system#R20, R33, R35(chip 모양), R38, R45
@@ -215,6 +236,7 @@ concerns: [shell]
 
 ### T12 공통 컴포넌트: 표, 트리, 목록, 카드, 수치, 페이지 틀, 읽기
 
+- 상태: 완료 (#50)
 - 등급: frontend
 - concern: shell/design-system
 - 요구: shell/design-system#R16(읽기 글자), R21, R22, R23, R30, R31, R32, R39, R42
@@ -230,6 +252,7 @@ concerns: [shell]
   - 트리 행 28px, 깊이당 12px, 8단부터 더 들이지 않음. 카드는 독립 객체만, 그림자 없음, 수치 타일 한 줄 최대 4개.
   - Markdown 읽기 renderer는 HTML을 실행하지 않는다. parser는 편집기와 같은 Lezer Markdown을 쓴다(읽기·편집 위치 차이를 줄이고 parser를 둘 들이지 않는다). 제목 1단 20px, 2단 16px/600/위 40px, 3단 16px/600/secondary, 4단 14px, palette 항목 36px.
   - 컴포넌트 옆 테스트.
+- 소비 연결: R23의 읽기 폭은 controlled frame과 주입한 setting interface까지 검증한다. 전역 선택 저장·문서 메뉴·다른 문서와 재시작 반영은 shell#T16이 platform settings에 연결해 검증하며 localStorage를 별도 정본으로 만들지 않는다.
 - 가져올 것: legacy `ui-layout`(page frames, Tree, ScrollArea), `ui-table`, `ui-stat`, `ui-reading`(Markdown, TocTree, CodeBlock, DiffView). `marked` 의존은 가져오지 않는다.
 
 ### T13 workspace layout 저장과 복원
@@ -267,6 +290,7 @@ concerns: [shell]
   - 탭 줄 36px, 탭 120~220px·고정 탭 36px·닫기 20px, 넘치면 줄 안 scroll로 선택 탭을 보임, 페이지 가로 scroll 없음. 종류를 글자로 구별한다(문서 편집기, 뷰어, 터미널, 앱 패널 자리).
   - 좌우 1칸 또는 2칸, 경계 1px·잡는 영역 8px, 두 번 누르면 50:50. drag와 키보드로 다른 칸으로 옮기기. 칸마다 탭 순서·선택과 focus 하나.
   - 칸 하나가 480px 아래가 되면 분할 비율·탭 소속을 보존한 한 칸 보기, 넓어지면 원래 배치. 정보 패널은 본문 720px 또는 두 칸과 경계를 남길 때만 붙이고 아니면 overlay.
+  - T10의 validated pointer DTO를 pane·sidebar의 shell layout에 연결한다. drag-end의 마지막 DTO를 적용한 뒤 완료하고 drag-cancel 때 취소한다. 실제 앱 native bounds 적용은 T39가 맡는다.
   - 상단 경로는 focus 칸 활성 탭을 따른다.
   - `tab-strip_test`, `panes_test`에 위 요구 테스트.
 - 가져올 것: legacy `renderer/src/workbench`(model, pane·tab·split UI), `spaces/ProjectSpace.tsx` 골격, `ui-layout`의 SplitPane·Resizer·TabBar. 구 target·address 계약은 가져오지 않는다.
@@ -291,16 +315,17 @@ concerns: [shell]
 ### T16 문서 읽기와 편집기
 
 - 등급: frontend
-- concern: shell/editor
-- 요구: shell/editor#R4, R7, R8, R9, R10, R11, R16
+- concern: shell/editor, shell/design-system
+- 요구: shell/editor#R4, R7, R8, R9, R10, R11, R16, shell/design-system#R23(전역 읽기 폭·문서 메뉴)
 - 자리: apps/shell/renderer/editor/(markdown-editor.tsx, live-preview.ts, preview.ts, commands.ts, find/, link-picker/, problems-gutter/, document-head.tsx)
-- 쓰는 contract: documents#T14(outline·본문 읽기), documents#T6(문서·판), documents#T9(address)
+- 쓰는 contract: documents#T14(outline·본문 읽기), documents#T6(문서·판), documents#T9(address), contracts#T24(settings registry), platform#T25–T27(settings definitions·get·apply)
 - 내놓는 contract: 없음
 - slice: documents
-- 선행: shell#T12, shell#T14, documents#T14, documents#T6
+- 선행: shell#T12, shell#T14, documents#T14, documents#T6, contracts#T24, platform#T25, platform#T26, platform#T27
 - 완료: 아래 확인이 통과한다
   - CodeMirror 6은 `apps/shell/renderer/editor/`에만 있고 SDK에 공개하지 않는다.
   - 읽기와 편집이 같은 기둥·읽기 폭·16px/28px와 같은 제목·목록·인용·코드 스타일을 쓴다. 전환 전후 첫 블록 위치 차이 4px 이하(`e2e/shell/read-edit_test.ts`로 잰다).
+  - 문서 메뉴에서 600/680/800px 읽기 폭을 바꾸면 platform settings의 전역 선택을 저장한다. T12의 setting interface로 다른 문서와 재시작 뒤 같은 폭을 적용하고 모르는 저장값은 기본 폭으로 읽는다. `editor_test`와 읽기 E2E에서 메뉴·다른 문서·재시작 반영을 검증한다.
   - 편집 mode는 머리의 편집/읽기 버튼과 커서만 바뀐다. Markdown 표지는 커서가 그 요소 안일 때만 muted로 보인다.
   - 코드는 고정폭·muted 배경·문법 강조 없음, 인용 막대 2px, 체크박스 16px, 이미지 실패에 아이콘과 alt, 16:9 skeleton, frontmatter 두 열.
   - 찾기 줄 36px·입력 28px, 형식 문제 gutter 24px·아이콘 14px·목록 최대 200px, 링크 고르기 320px popover(overlay).
@@ -718,7 +743,7 @@ concerns: [shell]
 - 완료: 아래 확인이 통과한다
   - renderer가 ResizeObserver로 칸·카드의 사각형을 보내고 붙이기·숨기기·폐기는 main 한 모듈만 한다. 창 본문·칸·카드 경계와 교차를 검사하고 view가 경계 밖에 보이는 frame이 없다. 스크롤 밖 카드는 떼어 낸다.
   - 프로젝트 두 칸에 보이는 native view를 동시에 붙이고 키보드 focus는 한 view 또는 shell에만 둔다. 다른 공간으로 가면 그 공간에서 안 보이는 view만 숨긴다.
-  - 탭 전환은 옛 view를 먼저 숨기고 새 view가 준비되면 붙인다. resize는 16ms마다 묶는다.
+  - 탭 전환은 옛 view를 먼저 숨기고 새 view가 준비되면 붙인다. T10 pointer DTO로 갱신된 T14 pane·sidebar layout과 resize를 받아 실제 앱 native view의 bounds 적용을 16ms마다 한 번으로 묶는다.
   - 좁은 창에서 대화·정보 패널·운영 패널이 본문을 덮으면 앱 view를 숨기지 않고 덮이지 않는 영역으로 bounds를 줄인다. 닫으면 원래 bounds.
   - 앱 view는 배정된 경계 안에서 자기 페이지 머리부터 그리고 바깥 크롬은 shell이 그린다.
   - `visibility_test`와 `e2e/shell/native-view_test.ts`(두 view 동시 표시, drag 중 view가 보임, 전환 중 겹친 frame 없음, 1024px 미만 bounds 축소)에 위 요구 테스트.
@@ -1067,14 +1092,14 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
 
 | concern | 요구 수 | 덮은 수 | 작업 |
 |---|---|---|---|
-| shell/desktop | 30 | 30 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59 |
+| shell/desktop | 30 | 30 | T1–T3, T9, T13–T15, T19–T21, T27, T28, T30, T36, T37, T42, T47, T50, T51, T54–T57, T59, T61 |
 | shell/workspace | 13 | 13 | T13, T14, T25–T27, T35, T44 |
 | shell/terminal | 13 | 13 | T24, T25, T49 |
 | shell/confirmation-window | 10 | 10 | T22, T23, T29, T45 |
-| shell/app-frame | 36 | 36 | T2, T3, T10, T22, T31, T33, T37–T39, T42, T44, T47, T48, T52 |
+| shell/app-frame | 36 | 36 | T2, T3, T10, T22, T31, T33, T37–T39, T42, T44, T47, T48, T52, T61 |
 | shell/editor | 17 | 17 | T14, T16–T18, T32, T36, T59 |
 | shell/wording | 14 | 14 | T6, T9, T15, T20, T23, T31, T36, T42, T43, T52, T53, T58 |
-| shell/design-system | 44 | 44 | T4, T5, T8, T10–T12, T14, T28, T34 |
+| shell/design-system | 44 | 44 | T4, T5, T8, T10–T12, T14, T28, T34, T61 |
 
 다른 최상위의 요구 가운데 소유 팀과 합의해 shell 작업이 구현하는 것:
 
@@ -1098,3 +1123,4 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
 - **Q8 보호 창이 아닌 확인(lead 결정, 추천대로).** 살아 있는 터미널 닫기, 저장 안 된 초안 버리기는 shell overlay dialog로 묻는다.
 - **Q9 project-workspace flow의 앱 패널 단계(정함).** apps slice E2E에서 돈다. lead가 plan README의 갈래 목록에 넣었다.
 - **Q10 confirmation window의 slice(정함).** platform이 handle 발급·검증·소비를 documents slice의 platform#T56으로 떼었다. shell#T22는 platform#T56에, approval 종류(shell#T29)는 platform#T22에 기댄다.
+- **Q11 chip의 polite 전달(정함).** 접근성을 범위 밖에 둔 D22와 맞지 않아 shell/design-system#R35에서 "polite로 전달"을 뺐다. T11은 live region·announcer를 만들지 않고 키보드·Escape·focus 복귀만 둔다.

@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { nextFromSeq } from "../../base/mod.ts";
 import { eventEnvelopeBaseSchema } from "./events.ts";
 import {
+  clientEventFrameSchema,
   EVENT_CLOSE_CREDENTIAL_REVOKED,
   EVENT_CLOSE_SLOW_CONSUMER,
   EVENT_SUBSCRIBE_PATH,
@@ -94,6 +95,98 @@ Deno.test(
     assert(
       eventsFrameSchema.safeParse({ ...frame, later: true }).success,
     );
+  },
+);
+
+Deno.test(
+  "platform/api#R5: 이름 있는 재연결은 명시 from이 없어도 시작 seq를 주입하지 않고 통과한다",
+  () => {
+    const named = {
+      type: "subscribe",
+      types: [],
+      subjects: [],
+      subscriber: "shell-display",
+    };
+    const parsed = subscribeFrameSchema.safeParse(named);
+    assert(parsed.success);
+    // schema는 재연결 시작 seq를 정하지 않는다. "저장 ack + 1"과 "저장 없으면 0"은
+    // platform runtime이 현재 principal·이름의 저장 위치로 정한다.
+    if (parsed.success) {
+      assert(!("from_seq" in parsed.data));
+      assertEquals(parsed.data.subscriber, "shell-display");
+    }
+    const viaUnion = clientEventFrameSchema.safeParse(named);
+    assert(viaUnion.success);
+    if (viaUnion.success) assert(!("from_seq" in viaUnion.data));
+    const viaEventParser = parseEventFrame(JSON.stringify(named));
+    assert(viaEventParser.ok);
+    if (viaEventParser.ok) assert(!("from_seq" in viaEventParser.value));
+    const viaParser = parseClientEventFrame(JSON.stringify(named));
+    assert(viaParser.ok);
+    if (viaParser.ok) {
+      assert(!("from_seq" in viaParser.value));
+      assertEquals(viaParser.value.subscriber, "shell-display");
+    }
+    // 모르는 field와 존재하지 않는 frame도 그대로 거절한다.
+    assert(!subscribeFrameSchema.safeParse({ ...named, extra: 1 }).success);
+    assert(!clientEventFrameSchema.safeParse({ ...named, extra: 1 }).success);
+    assert(!parseClientEventFrame(JSON.stringify({ ...named, extra: 1 })).ok);
+  },
+);
+
+Deno.test(
+  "platform/ledger#R15: 이름 없는 구독은 명시 from이 없으면 거절한다",
+  () => {
+    const unnamed = { type: "subscribe", types: [], subjects: [] };
+    assert(!subscribeFrameSchema.safeParse(unnamed).success);
+    assert(!clientEventFrameSchema.safeParse(unnamed).success);
+    const parsed = parseClientEventFrame(JSON.stringify(unnamed));
+    assert(!parsed.ok);
+    if (!parsed.ok) assertEquals(parsed.error.code, "invalid_input");
+    // 빈 이름은 이름 있는 구독이 아니다.
+    assert(
+      !subscribeFrameSchema.safeParse({ ...unnamed, subscriber: "" }).success,
+    );
+    assert(
+      !subscribeFrameSchema.safeParse({
+        ...unnamed,
+        subscriber: "",
+        from_seq: "0",
+      }).success,
+    );
+    assert(
+      !subscribeFrameSchema.safeParse({ ...unnamed, from_seq: null }).success,
+    );
+    // from_seq가 명시된 경우 name이 없어도 통과한다. 명시 from은 포함 위치다.
+    for (const from_seq of ["0", "140", (2n ** 53n + 1n).toString()]) {
+      for (const subscriber of [undefined, "shell-display"]) {
+        const frame = {
+          ...unnamed,
+          from_seq,
+          ...(subscriber === undefined ? {} : { subscriber }),
+        };
+        assert(subscribeFrameSchema.safeParse(frame).success);
+        assert(clientEventFrameSchema.safeParse(frame).success);
+        const parsed = parseClientEventFrame(JSON.stringify(frame));
+        assert(parsed.ok);
+        if (parsed.ok && parsed.value.type === "subscribe") {
+          assertEquals(parsed.value.from_seq, from_seq);
+          assertEquals(parsed.value.subscriber, subscriber);
+        }
+      }
+    }
+    for (const from_seq of ["0101", "-1", "", 0, 1.5, null]) {
+      for (const subscriber of [undefined, "shell-display"]) {
+        const frame = {
+          ...unnamed,
+          from_seq,
+          ...(subscriber === undefined ? {} : { subscriber }),
+        };
+        assert(!subscribeFrameSchema.safeParse(frame).success);
+        assert(!clientEventFrameSchema.safeParse(frame).success);
+        assert(!parseClientEventFrame(JSON.stringify(frame)).ok);
+      }
+    }
   },
 );
 

@@ -54,63 +54,115 @@ function assetPlugin(imports: Record<string, string>): esbuild.Plugin {
   };
 }
 
-export async function build(outdir = join(here, "dist")): Promise<void> {
+const defaultEntries = entries.map((name) => ({
+  in: join(name, "entry.tsx"),
+  out: name,
+}));
+
+// 같은 specifier가 다른 판을 가리키면 React가 두 벌이 될 수 있어 build를 멈춘다.
+function addImport(
+  imports: Record<string, string>,
+  key: string,
+  value: string,
+): void {
+  if (imports[key] !== undefined && imports[key] !== value) {
+    throw new Error(`import map conflict for ${key}`);
+  }
+  imports[key] = value;
+}
+
+export function mergeImports(
+  imports: Record<string, string>,
+  values: Record<string, string>,
+  configUrl: URL,
+): void {
+  for (const [key, value] of Object.entries(values)) {
+    addImport(
+      imports,
+      key,
+      value.startsWith(".") ? new URL(value, configUrl).href : value,
+    );
+  }
+}
+
+// workspace package의 exports를 이름으로, 고정 imports를 그대로 map에 더한다.
+async function addPackage(
+  imports: Record<string, string>,
+  directory: URL,
+): Promise<void> {
+  const config = JSON.parse(
+    await readFile(new URL("deno.json", directory), "utf8"),
+  );
+  for (
+    const [key, value] of Object.entries(
+      config.exports as Record<string, string>,
+    )
+  ) {
+    const specifier = key === "."
+      ? config.name
+      : `${config.name}/${key.slice(2)}`;
+    addImport(imports, specifier, new URL(value, directory).href);
+  }
+  mergeImports(imports, config.imports ?? {}, new URL("deno.json", directory));
+}
+
+export async function build(
+  outdir = join(here, "dist"),
+  entryPoints: readonly { in: string; out: string }[] = defaultEntries,
+): Promise<void> {
   // 없는 workspace 폴더의 탐색을 피하되 임시 map에서도 로컬 import의 기준 경로를 유지한다.
   const scratch = await mkdtemp(join(tmpdir(), "shell-renderer-map-"));
   const configPath = join(scratch, "deno.json");
   try {
     const config = JSON.parse(await readFile(join(here, "deno.json"), "utf8"));
-    const imports: Record<string, string> = Object.fromEntries(
-      Object.entries(config.imports as Record<string, string>).map((
-        [key, value],
-      ) => [
-        key,
-        value.startsWith(".")
-          ? new URL(value, pathToFileURL(join(here, "deno.json"))).href
-          : value,
-      ]),
+    const rootConfig = JSON.parse(
+      await readFile(join(here, "../../../deno.json"), "utf8"),
     );
+    const imports: Record<string, string> = {};
+    mergeImports(
+      imports,
+      rootConfig.imports ?? {},
+      pathToFileURL(join(here, "../../../deno.json")),
+    );
+    mergeImports(
+      imports,
+      config.imports ?? {},
+      pathToFileURL(join(here, "deno.json")),
+    );
+    // @lophn/design/components가 쓰는 Radix·Lucide와 @lophn/wording도 같은 map에서 찾는다.
     const design = new URL(
       "../../../packages/design/",
       pathToFileURL(`${here}/`),
     );
-    const designConfig = JSON.parse(
-      await readFile(new URL("deno.json", design), "utf8"),
-    );
-    for (
-      const [key, value] of Object.entries(
-        designConfig.exports as Record<string, string>,
-      )
-    ) {
-      const specifier = key === "."
-        ? designConfig.name
-        : `${designConfig.name}/${key.slice(2)}`;
-      imports[specifier] = new URL(value, design).href;
-    }
+    await addPackage(imports, design);
+    await addPackage(imports, new URL("wording/", design));
     await writeFile(configPath, JSON.stringify({ imports }));
-    await esbuild.build({
-      absWorkingDir: here,
-      entryPoints: entries.map((name) => ({
-        in: join(name, "entry.tsx"),
-        out: name,
-      })),
-      outdir,
-      bundle: true,
-      format: "esm",
-      jsx: "automatic",
-      assetNames: "[name]",
-      plugins: [
-        assetPlugin(imports),
-        // deno-loader는 자기 esbuild 타입 사본을 쓰므로 구조만 맞춘다.
-        ...(denoPlugins({ configPath }) as esbuild.Plugin[]),
-      ],
-    });
+    for (const entry of entryPoints) {
+      const directory = entryPoints === defaultEntries
+        ? join(outdir, entry.out)
+        : outdir;
+      await esbuild.build({
+        absWorkingDir: here,
+        entryPoints: [entry],
+        outdir: directory,
+        bundle: true,
+        format: "esm",
+        jsx: "automatic",
+        assetNames: "[name]",
+        plugins: [
+          assetPlugin(imports),
+          ...(denoPlugins({ configPath }) as esbuild.Plugin[]),
+        ],
+      });
+    }
     // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.
-    await mkdir(join(outdir, "desktop"), { recursive: true });
-    await copyFile(
-      join(here, "desktop", "index.html"),
-      join(outdir, "desktop", "index.html"),
-    );
+    for (const name of ["desktop", "overlay"]) {
+      await mkdir(join(outdir, name), { recursive: true });
+      await copyFile(
+        join(here, name, "index.html"),
+        join(outdir, name, "index.html"),
+      );
+    }
   } finally {
     await rm(scratch, { recursive: true });
   }

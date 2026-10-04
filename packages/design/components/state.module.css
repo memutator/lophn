@@ -1,0 +1,26 @@
+/* empty·error는 내용 자리 안에서 같은 위계로 놓인다. 제목 크기나 삽화를 쓰지 않는다. */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-0);
+}
+
+.icon {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.critical {
+  flex: none;
+  color: var(--status-critical-marker);
+}
+
+.message {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-regular);
+}

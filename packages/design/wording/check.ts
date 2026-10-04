@@ -12,6 +12,7 @@ import {
   SNAKE_WORD,
   TEXT_ATTRIBUTES,
 } from "./rules.ts";
+import { scan } from "./scan.ts";
 
 export type Severity = "error" | "warning";
 
@@ -29,97 +30,6 @@ export type CheckOptions = {
 };
 
 const CALLED = new Set(["t"]);
-
-type Segment =
-  | { kind: "code"; text: string }
-  | { kind: "text"; text: string }
-  | { kind: "string"; text: string; quote: string };
-
-// JSX를 문자열 literal과 텍스트로 대충 나눈다. 검사 대상은 고정 문구라 표현식 안은 코드로 둔다.
-// `<`는 태그 시작만 태그로 본다. 비교식의 `<`는 코드 그대로 둔다.
-function tagAt(source: string, from: number): number {
-  let cursor = from;
-  while (cursor < source.length) {
-    const next = source.indexOf("<", cursor);
-    if (next === -1) return -1;
-    if (/[A-Za-z/!]/.test(source[next + 1] ?? "")) return next;
-    cursor = next + 1;
-  }
-  return -1;
-}
-
-function segments(source: string): Segment[] {
-  const out: Segment[] = [];
-  let cursor = 0;
-  while (cursor < source.length) {
-    const next = tagAt(source, cursor);
-    if (next === -1) {
-      out.push({ kind: "code", text: source.slice(cursor) });
-      break;
-    }
-    out.push({ kind: "code", text: source.slice(cursor, next) });
-    const close = source.indexOf(">", next);
-    if (close === -1) {
-      out.push({ kind: "code", text: source.slice(next) });
-      break;
-    }
-    const tag = source.slice(next, close + 1);
-    out.push({ kind: "code", text: tag });
-    if (tag.startsWith("</") || tag.endsWith("/>")) {
-      cursor = close + 1;
-      continue;
-    }
-    let pos = close + 1;
-    while (pos < source.length && source[pos] !== "<") {
-      if (source[pos] === "{") {
-        // `{식}`은 텍스트가 아니다. 중첩 중괄호까지 코드로 읽는다.
-        let depth = 1;
-        const start = pos;
-        pos += 1;
-        while (pos < source.length && depth > 0) {
-          if (source[pos] === "{") depth += 1;
-          else if (source[pos] === "}") depth -= 1;
-          pos += 1;
-        }
-        out.push({ kind: "code", text: source.slice(start, pos) });
-        continue;
-      }
-      const textStart = pos;
-      while (
-        pos < source.length && source[pos] !== "<" && source[pos] !== "{"
-      ) {
-        pos += 1;
-      }
-      const text = source.slice(textStart, pos);
-      if (text.length > 0) out.push({ kind: "text", text });
-    }
-    cursor = pos;
-  }
-  return out.flatMap(splitStrings);
-}
-
-function splitStrings(segment: Segment): Segment[] {
-  if (segment.kind !== "code") return [segment];
-  const out: Segment[] = [];
-  const pattern = /"([^"\\]|\\.)*"|'([^'\\]|\\.)*'/g;
-  let cursor = 0;
-  for (const match of segment.text.matchAll(pattern)) {
-    const start = match.index ?? 0;
-    if (start > cursor) {
-      out.push({ kind: "code", text: segment.text.slice(cursor, start) });
-    }
-    out.push({
-      kind: "string",
-      text: match[0].slice(1, -1),
-      quote: match[0][0],
-    });
-    cursor = start + match[0].length;
-  }
-  if (cursor < segment.text.length) {
-    out.push({ kind: "code", text: segment.text.slice(cursor) });
-  }
-  return out;
-}
 
 function lineOf(source: string, index: number): number {
   return source.slice(0, index).split("\n").length;
@@ -170,11 +80,8 @@ export function checkSource(
       message,
     });
 
-  const parts = segments(source);
-  let offset = 0;
-  for (const part of parts) {
-    const index = offset;
-    offset += part.kind === "string" ? part.text.length + 2 : part.text.length;
+  for (const part of scan(source)) {
+    const index = part.start;
     if (part.kind === "text" && visibleText(part.text)) {
       add(
         index,
@@ -287,7 +194,12 @@ function checkCatalog(
   }
 }
 
-const SOURCE_GLOBS = ["apps/shell/renderer", "packages/sdk"];
+const SOURCE_GLOBS = [
+  "apps/shell/renderer",
+  "packages/sdk",
+  "packages/design/components",
+  "packages/design/reading",
+];
 
 async function collect(root: string): Promise<string[]> {
   const files: string[] = [];
@@ -306,7 +218,12 @@ async function collect(root: string): Promise<string[]> {
           continue;
         }
         await visit(path);
-      } else if (entry.name.endsWith(".tsx")) files.push(path);
+      } else if (
+        entry.name.endsWith(".tsx") && !entry.name.endsWith("_test.tsx")
+      ) {
+        // 테스트의 fixture 문구는 사용자 화면이 아니다.
+        files.push(path);
+      }
     }
   }
   for (const glob of SOURCE_GLOBS) await visit(`${root}/${glob}`);

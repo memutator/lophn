@@ -18,10 +18,23 @@ export function formatDateTooltip(value: Date, locale = "en"): string {
   }).format(value);
 }
 
-export function formatNumber(value: number, locale = "en"): string {
-  const options: Intl.NumberFormatOptions = Math.abs(value) >= COMPACT_FROM
-    ? { notation: "compact" }
-    : {};
+export interface NumberStyle {
+  // auto는 10만 이상을 compact로 줄인다(shell/design-system#R41). 표 칸처럼 값을 비교하는 곳은 standard.
+  notation?: "auto" | "standard";
+  // 변화량은 0이 아닐 때 +/− 부호를 붙인다.
+  sign?: boolean;
+}
+
+export function formatNumber(
+  value: number,
+  locale = "en",
+  { notation = "auto", sign = false }: NumberStyle = {},
+): string {
+  const options: Intl.NumberFormatOptions = {};
+  if (notation === "auto" && Math.abs(value) >= COMPACT_FROM) {
+    options.notation = "compact";
+  }
+  if (sign) options.signDisplay = "exceptZero";
   return new Intl.NumberFormat(locale, options).format(value);
 }
 

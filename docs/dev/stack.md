@@ -54,6 +54,12 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 | intl-messageformat 12.1.2 | packages/design/wording | en 문구의 ICU MessageFormat, placeholder와 plural |
 | postcss 8.5.28 | packages/design/style-check | CSS AST와 source 줄을 읽어 token-only 검사를 `deno test`에서 돌린다. stylelint는 들이지 않는다 |
 | postcss-value-parser 4.2.0 | packages/design/style-check | 선언과 media 값의 함수·단위·token 참조를 검사하여 regex만으로 CSS 값을 해석하지 않는다 |
+| @radix-ui/react-select 2.3.7, @radix-ui/react-tabs 1.1.21, @radix-ui/react-checkbox 1.3.11, @radix-ui/react-switch 1.3.7 | packages/design/components | 선택·탭·checkbox·switch의 열고 닫기, 키보드, focus 복귀를 검증된 primitive로 둔다(shell/design-system#R43). React는 renderer와 같은 19.3.0 한 벌로 묶는다 |
+| @radix-ui/react-tooltip 1.2.16, @radix-ui/react-popover 1.1.23, @radix-ui/react-dropdown-menu 2.1.24, @radix-ui/react-dialog 1.1.23 | packages/design/components | tooltip·popover·menu·dialog·sheet·palette의 열고 닫기, 바깥 click·Escape·focus 이동 닫기, focus 복귀를 검증된 primitive로 둔다(shell/design-system#R33, R43). tooltip 지연과 toast 시간은 주입한 timer로 재고 Radix 내부 timer를 쓰지 않는다. toast는 끌 수 없는 live region과 내부 timer 때문에 Radix Toast를 들이지 않고 직접 그린다 |
+| lucide-react 1.51.0 | packages/design/components | 한 벌의 아이콘을 선 1.5, 14·16·20px로 쓴다(shell/design-system#R43) |
+| @lezer/markdown 1.7.2 (@lezer/common 1.5.3, @lezer/highlight 1.2.5를 함께 끌어온다) | packages/design/reading | Markdown 읽기 renderer의 parser. 편집기(CodeMirror 6)와 같은 Lezer Markdown 하나로 읽기·편집 위치 차이를 줄이고 parser를 둘 들이지 않는다. tree를 React 글과 element로만 그려 HTML을 실행하지 않는다. marked·HTML parser는 들이지 않는다 |
+| happy-dom 20.14.5 | packages/design/components_test.ts | 컴포넌트 옆 `*_test.tsx`를 DOM·event·keyboard·computed style로 `deno test` 안에서 돌린다 |
+| esbuild 0.28.2, @luca/esbuild-deno-loader 0.11.1 | packages/design/components_test.ts | Deno가 CSS Modules를 읽지 못해 컴포넌트 테스트를 renderer와 같은 `local-css` loader로 한 bundle에 묶어 happy-dom에서 돌린다 |
 
 ## check 명령 하나
 

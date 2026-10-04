@@ -1,28 +1,19 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { ReadSnapshot } from "../../contracts/platform/mod.ts";
-import { createSql } from "./sqlite.ts";
+import { createSql, isStorageUnavailable } from "./sqlite.ts";
 import {
   READ_MAX_ROWS,
   ReaderStorageError,
   ReadLimitExceeded,
 } from "./reads.ts";
 
-// SQLite extended error의 낮은 8bit는 primary storage error다.
-const STORAGE_CODES = new Set([5, 6, 8, 10, 11, 13, 14, 15, 26]);
-const STORAGE_NAMES =
-  /^SQLITE_(BUSY|LOCKED|READONLY|IOERR|CORRUPT|FULL|CANTOPEN|PROTOCOL|NOTADB)(_|$)/;
-
 export function readerStorage<T>(operation: () => T): T {
   try {
     return operation();
   } catch (error) {
-    if (error && typeof error === "object") {
-      const { errcode, code } = error as { errcode?: unknown; code?: unknown };
-      if (
-        (typeof errcode === "number" && STORAGE_CODES.has(errcode & 255)) ||
-        (typeof code === "string" && STORAGE_NAMES.test(code))
-      ) throw new ReaderStorageError("reader storage unavailable");
+    if (isStorageUnavailable(error)) {
+      throw new ReaderStorageError("reader storage unavailable");
     }
     throw error;
   }
@@ -73,8 +64,14 @@ export function openReaderConnection(path: string): Result<ReaderConnection> {
 export function createReaderConnection(
   connection: DatabaseSync,
 ): ReaderConnection {
-  const sql = createSql(connection);
   let usable = true;
+  const sql = createSql(connection, () => usable);
+  const close = () => {
+    if (!usable) return;
+    // native close가 실패해도 같은 handle로 다음 snapshot을 열지 않는다.
+    usable = false;
+    connection.close();
+  };
   const requireUsable = () => {
     if (!usable) throw new ReaderStorageError("reader connection unusable");
   };
@@ -119,12 +116,9 @@ export function createReaderConnection(
         if (connection.isTransaction) connection.exec("rollback");
       } catch {
         // rollback 실패 뒤 같은 connection에서 다음 snapshot을 시작하지 않는다.
-        usable = false;
-        closeFailedSnapshot(() => connection.close());
+        closeFailedSnapshot(close);
       }
     },
-    close() {
-      connection.close();
-    },
+    close,
   };
 }

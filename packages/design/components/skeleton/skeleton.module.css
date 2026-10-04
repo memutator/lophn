@@ -1,0 +1,38 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.bone {
+  display: block;
+  border-radius: var(--radius-xs);
+  background: var(--color-surface-muted);
+  animation: pulse var(--motion-pulse) var(--motion-ease) infinite;
+}
+
+/* 줄 자리는 본문 줄높이를 지키고 막대만 안쪽에 그려 줄끼리 붙지 않게 한다. */
+.line {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--type-body-line);
+  padding: var(--space-1) var(--space-0);
+  background-clip: content-box;
+}
+
+.control {
+  width: 100%;
+  height: var(--control-md-height);
+  border-radius: var(--radius-sm);
+}
+
+.icon {
+  width: var(--icon-size-large);
+  height: var(--icon-size-large);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}

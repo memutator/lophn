@@ -1,0 +1,54 @@
+.control {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--type-tracking-normal);
+}
+
+.control::placeholder {
+  color: var(--color-text-muted);
+}
+
+.control:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.control:disabled {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.control[data-invalid] {
+  border-color: var(--status-critical-marker);
+}
+
+.sm {
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--control-sm-pad-x);
+}
+
+.md {
+  height: var(--control-md-height);
+  padding: var(--space-0) var(--control-md-pad-x);
+}
+
+.lg {
+  height: var(--control-lg-height);
+  padding: var(--space-0) var(--control-lg-pad-x);
+}
+
+.multiline {
+  padding: var(--space-3) var(--control-md-pad-x);
+  resize: vertical;
+}

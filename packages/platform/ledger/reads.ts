@@ -8,6 +8,7 @@ import {
   type RequestContext,
 } from "../../contracts/platform/mod.ts";
 import type { ReaderConnection } from "./reader-connection.ts";
+import { validateOutput } from "./output.ts";
 
 export const READ_MAX_ROWS = 500;
 export const READ_MAX_BYTES = 1024 * 1024;
@@ -25,27 +26,10 @@ function synchronousResult(value: unknown): Result<unknown> {
   const result = value as Record<string, unknown>;
   if (result.ok === true && "value" in result) return ok(result.value);
   if (result.ok === false) {
-    const parsed = errorBodySchema.safeParse({ error: result.error });
-    if (parsed.success) {
-      // schema의 unknown details에도 function·cycle·bigint를 외부로 내보내지 않는다.
-      const serialized = serializeResponse(parsed.data);
-      const json = JSON.parse(serialized);
-      if (errorBodySchema.safeParse(json).success) return err(json.error);
-    }
+    const body = validateOutput(errorBodySchema, { error: result.error });
+    if (body.ok) return err(body.value.error);
   }
   throw new Error("read handler returned an invalid Result");
-}
-
-function serializeResponse(value: unknown): string {
-  return JSON.stringify(value, (_key, item) => {
-    if (
-      typeof item === "function" || typeof item === "symbol" ||
-      typeof item === "bigint"
-    ) {
-      throw new Error("read response is not JSON");
-    }
-    return item;
-  });
 }
 
 // 배열의 각 항목이 한 row다. 중첩된 목록도 응답 한도에 포함한다.
@@ -161,15 +145,14 @@ function executeSnapshot(
     if (!result.value || typeof result.value !== "object") {
       throw new Error("read output must be an object");
     }
-    const output = definition.route.output.safeParse({
-      ...result.value,
+    const output = validateOutput(definition.route.output, result.value, {
       as_of_seq: asOfSeq,
     });
-    if (!output.success || !readCommonSchema.safeParse(output.data).success) {
+    if (!output.ok || !readCommonSchema.safeParse(output.value).success) {
       throw new Error("read output schema differs");
     }
-    const serialized = serializeResponse(output.data);
-    const value = JSON.parse(serialized);
+    const value = output.value;
+    const serialized = JSON.stringify(value);
     const bytes = new TextEncoder().encode(serialized).length;
     if (responseRows(value) > READ_MAX_ROWS || bytes > READ_MAX_BYTES) {
       return err({

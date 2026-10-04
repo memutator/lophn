@@ -97,6 +97,7 @@ export {
   type EventDefinition,
   type EventEnvelope,
   eventEnvelopeBaseSchema,
+  type EventEnvelopeFor,
   eventEnvelopeSchema,
   eventsList,
   eventsListInputSchema,
@@ -140,10 +141,18 @@ export {
   type CredentialScope,
   credentialScopeSchema,
 } from "./identity.ts";
+export {
+  type JsonObject,
+  jsonObjectSchema,
+  type JsonPrimitive,
+  type JsonValue,
+  jsonValueSchema,
+} from "./json-values.ts";
 export { definePort, type PortKey } from "./ports.ts";
 export {
   type CommandDefinition,
   type Compare,
+  type EventVisibilityDefinition,
   type Input,
   type Output,
   type ReadDefinition,
@@ -224,6 +233,21 @@ export {
 export * from "./redaction.ts";
 export * from "./backups.ts";
 export * from "./diagnostics.ts";
+// 비공개 pipe op이다. 공개 HTTP route 배열에는 들어가지 않는다.
+export {
+  DIAGNOSTICS_WRITE_MAX_PENDING_BYTES,
+  DIAGNOSTICS_WRITE_MAX_RECORDS,
+  DIAGNOSTICS_WRITE_OP,
+  diagnosticsWrite,
+  type DiagnosticsWriteInput,
+  diagnosticsWriteInputSchema,
+  type DiagnosticsWriteOutput,
+  diagnosticsWriteOutputSchema,
+  type DiagnosticsWriteRequest,
+  diagnosticsWriteRequestSchema,
+  type DiagnosticsWriteResponse,
+  diagnosticsWriteResponseSchema,
+} from "./diagnostics-write.ts";
 export * from "./install.ts";
 export * from "./approvals.ts";
 export * from "./notifications.ts";

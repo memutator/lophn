@@ -54,7 +54,10 @@
     "exclude": [
       "e2e",
       "apps/shell/main",
-      "apps/shell/preload"
+      "apps/shell/preload",
+      "packages/design/components/**/*_test.tsx",
+      "packages/design/reading/**/*_test.tsx",
+      "apps/shell/renderer/**/*_test.tsx"
     ]
   },
   "exclude": [

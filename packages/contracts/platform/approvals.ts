@@ -4,6 +4,7 @@ import { actorSchema } from "./actor.ts";
 import { withReadCommon } from "./envelope.ts";
 import { defineEvent } from "./events.ts";
 import { idSchema } from "./ids.ts";
+import { jsonObjectSchema } from "./json-values.ts";
 import { defineCommand, defineRead } from "./route.ts";
 import { atSchema, seqSchema, sha256Schema } from "./values.ts";
 
@@ -14,8 +15,6 @@ const concernSchema = z.string().regex(/^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)*$/);
 const commandNameSchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
 
 const nonemptyTextSchema = z.string().regex(/\S/);
-
-const jsonObjectSchema = z.record(z.string(), z.json());
 
 // 대상은 정확한 고정 ID다. 이름·slug만으로 묶지 않는다.
 const targetSchema = z.string().regex(/^[a-z]{3}_[0-7][0-9a-hjkmnp-tv-z]{25}$/);

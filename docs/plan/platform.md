@@ -21,7 +21,7 @@ code-map의 platform 줄을 따른다. architecture 2.2의 모듈 이름(`comman
 | 신뢰 child 권한 정책, data 직렬화, child 메모리 상한 adapter | packages/platform/security/ |
 | core 조립, data root, 시작·종료, 팀 등록 registry | apps/core/ (조립과 registry), packages/platform/install-and-update/ (규칙) |
 | worker kind registry | apps/worker/ (entry와 kind 목록) |
-| platform I/O worker | apps/worker/platform/ (kind `platform-io`) |
+| platform I/O worker | apps/worker/platform/ (kind `platform/io`) |
 
 ## 내놓는 contract
 
@@ -94,14 +94,51 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: skeleton
 - 선행: platform#T1, contracts#T5
+- 상태: 완료 (#49)
 - 완료: 아래 확인이 통과한다
   - writer는 Deno Worker 하나 안의 유일한 쓰기 연결이다. API 쪽과 작은 메시지로 주고받는다.
   - 처리 순서: fingerprint(RFC 8785, token·handle 원문 제외)를 transaction 전에 계산 → `BEGIN IMMEDIATE` → 현재 자격 재검사 hook → `(principal,key)` 조회 → 같은 fingerprint면 저장 결과를 `replayed:true`로 → 다르면 `conflict` → 등록 handler(동기, Tx만) → event·결과 저장 → commit → event 배포에 wake-up 힌트(R3, R5, R13).
-  - CAS 하나라도 다르면 전체 `conflict`, 변경 행 1,000개·CAS 256개 초과는 실행 전 거절(R12).
+  - CAS 하나라도 다르면 전체 `conflict`다. handler 전에 parse된 compare의 leaf 수를 중첩 object·배열까지 재귀로 세어 256개 초과면 `invalid_input`이고 handler를 부르지 않는다. 변경 행은 `Tx.sql`·`emit`·`advanceSubscriberCursor`의 SQL마다 앞뒤 연결 `total_changes()`의 실제 차이(event·cursor 행, RETURNING·trigger 포함)를 transaction 안에서 누적하고 1,000개 초과면 전체 rollback한다. `Tx.sql.get`·`all`이 행을 바꾸면 거절하고 rollback한다. handler가 이 거절을 삼켜도 commit하지 않는다(R12, → Q19).
   - disk·I/O 오류·5,000ms 잠금 초과는 `unavailable`이고 입력을 소비하거나 메모리로 대신하지 않는다(R6).
   - handler는 `await`·파일·socket을 쓸 수 없다(동기 함수 타입과 테스트, R4). 등록되지 않은 command 이름·SQL·경로를 받지 않는다(R20).
   - `AdvanceSubscriberCursor`(감소 불가)와 `commands/result` read handler(자기 principal만)
   - `commands_test.ts`에 R3–R6, R12, R13, R20 테스트(테스트 전용 command 정의로)
+
+### T58 command port를 같은 transaction의 factory로 묶기
+
+- 등급: 좁은
+- concern: platform/ledger
+- 요구: platform/ledger#R3, R4, R12, R13
+- 자리: packages/platform/ledger/
+- 쓰는 contract: 등록 interface(Tx.port)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: platform#T2
+- 상태: 완료 (#58)
+- 완료: 아래 확인이 통과한다
+  - owner port는 `defineTxPort(key, (tx) => 구현)`으로 등록한다. factory는 `BEGIN IMMEDIATE`와 현재 자격 확인 뒤 그 command의 guarded `Tx`를 받는다. 같은 Tx·같은 key는 한 번만 만들고 cache하며 다음 command는 새 구현이다.
+  - malformed 등록·중복 key는 handler 전에 `internal`로 거절한다. factory가 없거나, 자기 key나 순환을 다시 보거나, throw·Promise·thenable·반환값/throw 값의 then 검사 실패를 내면 `internal`이고 handler가 삼켜도 commit하지 않는다. SQL side effect가 있으면 전체 rollback이다(R3, R12).
+  - factory 반환 객체·함수는 감싸거나 복사하지 않는다. frozen·class·배열·순환은 원본 그대로다. 효과는 붙잡힌 guarded Tx의 sql·emit·now·newId·port가 seal 뒤에 거절하는 것으로 막는다. 순수 값이나 Tx 밖 side effect를 가둔다고 하지 않는다. 변경 행 한도는 port가 쓰는 같은 guarded `Tx.sql`에 누적한다(R4, R12).
+  - read snapshot의 정적 port map은 그대로다. 실제 writer Worker fixture도 이 등록을 쓴다.
+  - `tx-ports_test.ts`, `tx-ports-failure_test.ts`에 R3, R4, R12, R13 테스트
+
+### T60 확정 ledger key의 REPLACE·UPSERT 우회 차단
+
+- 상태: 완료 (#62)
+- 등급: 좁은
+- concern: platform/ledger, platform/backup-and-migration
+- 요구: platform/ledger#R2, R10, platform/backup-and-migration#R1, R4, R5, R6
+- 자리: packages/platform/ledger/sqlite.ts, packages/platform/ledger/schema.ts, packages/platform/ledger/ledger_test.ts, packages/platform/ledger/sqlite-storage_test.ts, packages/platform/ledger/immutable_test.ts, packages/platform/backup-and-migration/migrations.ts, packages/platform/backup-and-migration/migrations_test.ts
+- 쓰는 contract: 등록 interface(SchemaStep)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: platform#T58
+- 완료: 아래 확인이 통과한다
+  - 연결은 기존 WAL·FULL·외래 키·5초 대기와 함께 `recursive_triggers=ON`의 실제 값 1을 확인하고 적용되지 않으면 `unavailable`로 기동을 거절한다. handler의 PRAGMA 거절은 유지한다(R2).
+  - `common-tables` SQL과 hash는 바꾸지 않고 `immutable-insert-guards` step으로 events seq·command 결과의 principal/key·schema 이력 version의 duplicate INSERT를 거절한다. migration bootstrap도 같은 이력 guard를 설치한다(R10, b&m R1).
+  - 새 DB와 common-tables만 적용한 DB upgrade에서 원래 SQL·hash·이력·event·결과가 보존되고 각 표의 INSERT OR REPLACE·REPLACE INTO·UPSERT(동일 내용 포함)는 실패한다. native recursive trigger OFF에서도 duplicate guard가 작동하고 configured 연결의 UPDATE·DELETE도 실패한다(R10, b&m R5).
+  - 다른 principal의 같은 key·새 key·새 migration version은 정상이며 malicious migration의 history REPLACE와 domain 쓰기는 함께 rollback된다. 기존 history/hash를 먼저 검증하는 흐름을 유지한다(b&m R1, R4, R6).
+  - `ledger_test.ts`, `sqlite-storage_test.ts`, `immutable_test.ts`, `migrations_test.ts`의 실제 파일 SQLite·WAL 회귀 테스트가 통과하고 각 파일은 400줄 이하다.
 
 ### T3 read 처리: reader Worker와 snapshot
 
@@ -114,6 +151,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: skeleton
 - 선행: platform#T1
 - 상태: 완료 (#40)
+- 정정: 완료 (#45). reader output과 error body는 shared `output.ts`로 raw JSON 안전성을 schema strip·metadata 덮어쓰기 전에 검사한다. function·symbol·undefined·bigint·cycle·비plain object·NaN·Infinity·negative zero는 `internal`로 거절하고 JSON extra key strip은 허용한다. schema 뒤 최종 JSON을 다시 schema로 검사해 값 불변을 확인하며, handler 직후 snapshot 종료와 실제 reader Worker의 다음 read를 보존한다.
 - 완료: 아래 확인이 통과한다
   - reader Worker 2개가 각자 `readOnly` 연결과 `PRAGMA query_only=ON`을 쓴다. writer queue와 다른 queue다.
   - 응답 하나가 짧은 read transaction 하나이고, 자료와 `as_of_seq`를 같은 snapshot에서 얻는다.
@@ -183,6 +221,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T7 supervisor: 신뢰 child 감독과 pipe
 
+- 상태: 완료 (#55)
 - 등급: 기본
 - concern: platform/responsiveness, platform/security, platform/backup-and-migration
 - 요구: platform/security#R1, R2, R3, platform/backup-and-migration#R17
@@ -192,7 +231,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: skeleton
 - 선행: contracts#T6
 - 완료: 아래 확인이 통과한다
-  - 감독 통로는 부모가 만든 child의 stdin(부모→자식)·stdout(자식→부모) pipe 위의 길이 prefix binary frame이다(JSON 제어 frame과 byte chunk frame, codec은 contracts#T6). child helper는 console 출력을 stderr로 돌리고 frame이 아닌 stdout 바이트는 protocol 위반으로 그 child를 멈춘다. stderr는 제어·성공 근거로 쓰지 않는다(→ Q2). argv에 credential이 없다. architecture 2.4의 해당 문장을 같은 PR에서 고친다.
+  - 감독 통로는 부모가 만든 child의 stdin(부모→자식)·stdout(자식→부모) pipe 위의 길이 prefix binary frame이다(JSON 제어 frame과 byte chunk frame, codec은 contracts#T6). child entry는 console 출력을 stderr로 돌리고 helper는 전역 console을 바꾸지 않는다. frame이 아닌 stdout 바이트는 protocol 위반으로 그 child를 멈춘다. stderr는 제어·성공 근거로 쓰지 않는다(→ Q2). argv에 credential이 없다. architecture 2.4의 해당 문장을 같은 PR에서 고친다.
   - Electron main↔core도 같은 frame을 쓴다. shell main의 diagnostic도 이 통로로 보낸다.
   - child는 `deno run --cached-only --frozen --no-prompt`와 kind별로 좁힌 `--allow-read/--allow-write/--allow-net`만 받는다. `--allow-all`·전체 환경은 없다. 권한 표는 TrustClass와 architecture 2.4 표를 따른다(security R1–R3).
   - hello(core epoch, process identity, task, scope 상한, credential) → ready 10초 → stop 5초 뒤 실제 handle 강제 종료. 실패 재기동은 1·2·4초 뒤 최대 3회, 그 뒤 그 구성 요소만 사용 불가.
@@ -203,6 +242,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T8 platform I/O worker와 안전 log
 
+- 상태: 완료 (#59)
 - 등급: 기본
 - concern: platform/responsiveness, platform/diagnostics, platform/redaction
 - 요구: platform/responsiveness#R4, platform/diagnostics#R2, R3, R11, R12, platform/redaction#R15
@@ -212,7 +252,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: skeleton
 - 선행: platform#T7
 - 완료: 아래 확인이 통과한다
-  - `apps/worker/main.ts`는 kind로 고르는 entry와 kind 목록(registry)이다. 각 팀은 `apps/worker/<팀>/`만 고친다(lead 결정, Q4). 이 작업은 `apps/worker/platform/`의 `platform-io`만 만든다.
+  - `apps/worker/main.ts`는 kind로 고르는 entry와 kind 목록(registry)이다. 각 팀은 `apps/worker/<팀>/`만 고친다(lead 결정, Q4). 이 작업은 `apps/worker/platform/`의 `platform/io`만 만든다. kind 이름은 supervisor contract의 고정 목록과 같다.
   - 무거운 작업 동시 2개, 대기 32개, principal당 4개, principal 사이 round-robin(responsiveness R4)
   - core와 신뢰 child의 log·diagnostic 메시지를 I/O worker가 `H/logs/`에 비동기로 쓴다. info 기본, 파일당 10MiB×5, 메모리 대기 1MiB, 넘치면 버리고 개수만 센다. log가 막혀도 API가 기다리지 않는다(diagnostics R2, R3, R11, R12).
   - 기록에는 구성 요소·시각·종류·안전 위치·설명만 있고 stdout·stderr·HTTP dump·crash 메모리·credential을 남기지 않는다(redaction R15).
@@ -1059,3 +1099,4 @@ slice별 작업 수: skeleton 10, documents 7, agent 15, context 1, apps 3, codi
 - **Q16 coding connection 생성 결정(정함).** architecture/platform 5.6 표(`coding_agent`는 "confirmation window의 connection 결정 뒤 발급")와 마지막 절("보호 화면의 exact scope 결정")이 coding-agent/connection#R2·D19(사람의 harness 연결·범위 선택이 허락, 확인 창 없음, 회수만 confirmation window)와 부딪힌다. platform/identity#R5도 "사람의 harness 연결 선택"이다. architecture를 R2에 맞춰 T5 PR에서 고친다.
 - **Q17 confirmation handle 시점(정함).** documents slice의 파일 지우기(organize-documents)가 confirmation window를 쓴다. 그래서 handle 발급·검증·소비를 T56(documents slice)으로 떼었고, approval의 허락·거절만 T22(agent slice)에 남겼다.
 - **Q18 Tx approval 적용 연결(정함).** contracts#T22의 필수 `Tx.useApproval`과 T1 실행기가 함께 합쳐지기 전에 생긴 누락을 복구한다. T23의 정확한 action 검사·`approval_uses` 기록이 들어오기 전에는 `unavailable`로 거절하며, 성공한 사용이나 receipt를 만들지 않는다. T23에서 이 거절을 실제 구현으로 바꾼다.
+- **Q19 command 행·CAS 한도(lead 결정).** caller의 변경 행 수 주장과 compare의 top-level key 수는 실제 한도가 아니다. 변경 행은 `Tx.sql`·`emit`·`advanceSubscriberCursor`의 SQL마다 같은 연결 `total_changes()`의 앞뒤 차이로 event·cursor 행과 RETURNING·trigger 변경까지 실제로 세어 transaction 안에서 누적하고 1,000개 초과면 전체 rollback한다. `Tx.sql.get`·`all`로 행을 바꾸면 SQL 문장 모양과 상관없이 거절하고 rollback한다. 실행기의 `command_results` 한 행만 이 수에서 뺀다. CAS는 handler 전에 parse된 compare의 leaf 수를 중첩 object·배열까지 재귀로 세어 256개 초과면 `invalid_input`으로 거절하고 handler를 부르지 않는다. 실제 비교 횟수가 아니라 받은 비교 대상의 상한이다. 모든 owner handler에 필수 preflight member를 더하지 않고 `CommandDefinition`·`Tx` contract는 그대로 둔다. 동작이 숨고 비동기·복사에서 새어 나가는 compare proxy는 쓰지 않는다.

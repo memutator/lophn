@@ -8,7 +8,8 @@
     "./apps": "./apps/mod.ts",
     "./problems": "./problems/mod.ts",
     "./problems/sdk-report": "./problems/sdk-report.ts",
-    "./coding-agent": "./coding-agent/mod.ts"
+    "./coding-agent": "./coding-agent/mod.ts",
+    "./lophn-agent": "./lophn-agent/mod.ts"
   },
   "compilerOptions": {
     "erasableSyntaxOnly": true

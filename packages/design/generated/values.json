@@ -324,6 +324,100 @@
         "collapsed": "56px"
       }
     },
+    "control": {
+      "sm": {
+        "height": "28px",
+        "padX": "8px",
+        "icon": "14px"
+      },
+      "md": {
+        "height": "32px",
+        "padX": "12px",
+        "icon": "16px"
+      },
+      "lg": {
+        "height": "36px",
+        "padX": "14px",
+        "icon": "16px"
+      },
+      "gap": "6px"
+    },
+    "icon": {
+      "size": {
+        "small": "14px",
+        "base": "16px",
+        "large": "20px"
+      },
+      "stroke": 1.5
+    },
+    "field": {
+      "gap": "6px"
+    },
+    "tab": {
+      "indicator": "2px",
+      "contentGap": "24px"
+    },
+    "loading": {
+      "delay": "300ms"
+    },
+    "page": {
+      "reading": {
+        "narrow": "600px",
+        "default": "680px",
+        "wide": "800px"
+      },
+      "toc": "220px",
+      "dashboard": {
+        "max": "1440px",
+        "columns": 12
+      },
+      "list": "360px",
+      "form": "640px",
+      "launcher": "1040px",
+      "overview": "800px"
+    },
+    "table": {
+      "row": {
+        "compact": "36px",
+        "comfortable": "44px"
+      }
+    },
+    "tree": {
+      "row": "28px",
+      "indent": "12px",
+      "marker": "2px",
+      "indentCap": 8
+    },
+    "stat": {
+      "perRow": 4
+    },
+    "palette": {
+      "item": "36px",
+      "width": "640px",
+      "top": "20%"
+    },
+    "tooltip": {
+      "delay": "400ms"
+    },
+    "menu": {
+      "row": "32px"
+    },
+    "dialog": {
+      "width": {
+        "default": "480px",
+        "wide": "640px"
+      }
+    },
+    "toast": {
+      "width": "360px",
+      "duration": {
+        "default": "5000ms",
+        "brief": "2000ms"
+      }
+    },
+    "chip": {
+      "width": "360px"
+    },
     "floating": {
       "surface": {
         "light": "#ffffff",

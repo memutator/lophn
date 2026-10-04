@@ -144,6 +144,48 @@ export const tokens = {
     panePadding: { narrow: "16px", wide: "32px" },
     sidebar: { min: "200px", max: "400px", collapsed: "56px" },
   },
+  // 컨트롤 sm·md·lg 높이·좌우 여백·아이콘과 라벨 간격(R26).
+  control: {
+    sm: { height: "28px", padX: "8px", icon: "14px" },
+    md: { height: "32px", padX: "12px", icon: "16px" },
+    lg: { height: "36px", padX: "14px", icon: "16px" },
+    gap: "6px",
+  },
+  // Lucide 기본 크기 16·20px과 선 1.5, 정한 14px(R43, R26).
+  icon: { size: { small: "14px", base: "16px", large: "20px" }, stroke: 1.5 },
+  // 라벨 위·도움말 아래 6px(R28).
+  field: { gap: "6px" },
+  // 일반 탭의 활성 밑줄과 본문 간격(R29).
+  tab: { indicator: "2px", contentGap: "24px" },
+  // 첫 조회의 loading 표시는 이 시간 뒤에만 보인다(R1).
+  loading: { delay: "300ms" },
+  // 페이지 틀 폭(R21, R22)과 목차 폭(R23). 목차 간격 48px은 space 값을 쓴다.
+  page: {
+    reading: { narrow: "600px", default: "680px", wide: "800px" },
+    toc: "220px",
+    dashboard: { max: "1440px", columns: 12 },
+    list: "360px",
+    form: "640px",
+    launcher: "1040px",
+    overview: "800px",
+  },
+  // 표 행 높이. 밀도 선택은 표에서만 둔다(R30, R44).
+  table: { row: { compact: "36px", comfortable: "44px" } },
+  // 트리 행·깊이당 들임·현재 표시 폭과 들임 상한(R32).
+  tree: { row: "28px", indent: "12px", marker: "2px", indentCap: 8 },
+  // 수치 타일 한 줄 최대 개수(R31).
+  stat: { perRow: 4 },
+  // 명령 팔레트 항목 높이(R39)와 폭·위 여백(R33).
+  palette: { item: "36px", width: "640px", top: "20%" },
+  // 떠 있는 표면의 지연·행·폭·시간(R33, R35). dialog 안 여백 24px은 space 값을 쓴다.
+  tooltip: { delay: "400ms" },
+  menu: { row: "32px" },
+  dialog: { width: { default: "480px", wide: "640px" } },
+  toast: {
+    width: "360px",
+    duration: { default: "5000ms", brief: "2000ms" },
+  },
+  chip: { width: "360px" },
   floating: {
     surface: { light: "#ffffff", dark: "#1d1d1b" },
     hover: { light: "#f3f2ef", dark: "#2a2a28" },

@@ -56,6 +56,19 @@ Deno.test("problems/problem-codes#R2: fixed message, key and fixer are required"
     ]
   ) assertEquals(problemCodeDeclarationSchema.safeParse(value).success, false);
 });
+Deno.test("problems/problem-codes#R2: fixed messages keep Unicode scalar values", () => {
+  for (const message of ["bad\uD800text", "bad\uDC00text", "\uDC00\uD800"]) {
+    assertEquals(problemMessageSchema.safeParse(message).success, false);
+    assertEquals(
+      problemCodeDeclarationSchema.safeParse({ ...declaration, message })
+        .success,
+      false,
+    );
+  }
+  for (const message of ["Account error.", "문제를 확인하세요.", "𐐀 record."]) {
+    assertEquals(problemMessageSchema.safeParse(message).success, true);
+  }
+});
 Deno.test("problems/problem-codes#R5, problems/problem-codes#R6: platform-only reserved catalog", () => {
   assertEquals(RESERVED_PROBLEM_CODES, [
     {

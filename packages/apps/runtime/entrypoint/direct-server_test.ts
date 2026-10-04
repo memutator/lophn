@@ -51,7 +51,7 @@ Deno.test("apps/runtime#R11 apps/runtime#R8 apps/runtime#R31 apps/blueprint#R7: 
     blueprint: blueprint(),
     key: shaKey(),
     clock,
-    ids: { newId: () => "inv_01h455vb4pex5v6nkc6gd5fdw1" },
+    ids: { newId: () => "inv_01h455vb4pex5v6nkc6gd5fdw9" },
     broker: () => Promise.resolve({ status: 200, body: { accepted: true } }),
     dataSchema: 0,
     screenBytes: (screen, path) =>
@@ -223,6 +223,14 @@ Deno.test("apps/runtime#R11 apps/runtime#R8 apps/runtime#R31 apps/blueprint#R7: 
       "evil.example",
     );
     assertEquals(foreign.status, 400);
+
+    const postedStatus = await post(
+      socket,
+      "/_lophn/commands/status",
+      await sign(connection()),
+      { request_key: "i", invocation: "inv_01h455vb4pex5v6nkc6gd5fdw9" },
+    );
+    assertEquals(postedStatus.status, 400);
     assertEquals(schedule.current(), null);
   } finally {
     await server.shutdown();
@@ -292,7 +300,7 @@ async function call(
       `content-length: ${new TextEncoder().encode(body).byteLength}`,
     );
   }
-  const payload = `${headers.join("\r\n")}\r\n\r\n${body ?? ""}`;
+  const payload = headers.join("\r\n") + "\r\n\r\n" + (body ?? "");
   await conn.write(new TextEncoder().encode(payload));
   const bytes = await readAll(conn);
   conn.close();

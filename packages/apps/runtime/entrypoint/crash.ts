@@ -1,30 +1,24 @@
-// 처리되지 않은 exception은 보고를 시도한 뒤 stderr에 원래 실패를 남기고 exit 1.
-export type CrashReport = (
-  reason: unknown,
-  kind: "error" | "unhandledrejection",
-) => Promise<void>;
-
+// 처리되지 않은 exception은 stderr에 원래 실패를 남기고 exit 1.
+// 보고는 앱 code load 전에 설치한 exception observer가 한 번 한다.
 export function installCrashExit(deps: {
-  report: CrashReport;
   writeStderr: (text: string) => void;
   exit: (code: number) => void;
+  target?: EventTarget;
 }): void {
-  const fail = (reason: unknown, kind: "error" | "unhandledrejection") => {
+  const fail = (reason: unknown) => {
     const text = reason instanceof Error
       ? `${reason.name}: ${reason.message}\n${reason.stack ?? ""}`
       : String(reason);
-    deps.report(reason, kind).catch(() => undefined).finally(() => {
-      deps.writeStderr(text);
-      deps.exit(1);
-    });
+    deps.writeStderr(text);
+    deps.exit(1);
   };
-  globalThis.addEventListener("error", (event) => {
+  const target = deps.target ?? globalThis;
+  target.addEventListener("error", (event) => {
     event.preventDefault();
-    fail((event as ErrorEvent).error, "error");
+    fail((event as ErrorEvent).error);
   });
-  globalThis.addEventListener("unhandledrejection", (event) => {
+  target.addEventListener("unhandledrejection", (event) => {
     event.preventDefault();
-    const rejection = event as PromiseRejectionEvent;
-    fail(rejection.reason, "unhandledrejection");
+    fail((event as PromiseRejectionEvent).reason);
   });
 }

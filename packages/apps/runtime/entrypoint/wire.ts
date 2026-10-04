@@ -154,7 +154,7 @@ export type AppConnection = {
   app: string;
   release: string | null;
   bundle_hash: string;
-  mode: "live" | "preview";
+  mode: "live" | "preview" | "test";
   process_nonce: string;
   actor: string;
   credential_ref: string;
@@ -193,7 +193,8 @@ export function parseAppConnection(value: unknown): AppConnection | undefined {
     typeof source.bundle_hash === "string" && SHA.test(source.bundle_hash)
       ? source.bundle_hash
       : undefined;
-  const mode = source.mode === "live" || source.mode === "preview"
+  const mode = source.mode === "live" || source.mode === "preview" ||
+      source.mode === "test"
     ? source.mode
     : undefined;
   const nonce = text(source.process_nonce, "process nonce");

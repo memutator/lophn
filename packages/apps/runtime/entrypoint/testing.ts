@@ -52,6 +52,7 @@ export function blueprint(): Blueprint {
         },
       }),
       command("usage.save", "write"),
+      command("usage.batch", "write"),
     ],
     automatic_tasks: [],
     permissions: [],
@@ -65,17 +66,20 @@ export function blueprint(): Blueprint {
   return parsed.value;
 }
 
+// 테스트 서명은 sha256 64hex를 base64url 자리(86)로 맞춘다.
+// 실제 Ed25519 검증은 decodeVerifyKey가 하고, 테스트는 shaKey를 주입한다.
 export async function sign(payload: unknown): Promise<string> {
+  const digest = await sha256Hex(JSON.stringify(payload));
   return JSON.stringify({
     payload,
-    signature: await sha256Hex(JSON.stringify(payload)),
+    signature: digest + "A".repeat(22),
   });
 }
 
 export function shaKey() {
   return {
     verify: async (payload: string, signature: string) =>
-      await sha256Hex(payload) === signature,
+      signature === (await sha256Hex(payload)) + "A".repeat(22),
   };
 }
 
@@ -91,7 +95,7 @@ export function connection(overrides: Record<string, unknown> = {}) {
     screens: ["usage"],
     screen_sizes: { usage: ["full", "panel"] },
     caller: null,
-    commands: ["usage.read", "usage.save"],
+    commands: ["usage.read", "usage.save", "usage.batch"],
     expires_at: "2026-10-04T00:01:00.000Z",
     ...overrides,
   };
@@ -110,6 +114,8 @@ export function installHandlers(handlers: RegisteredHandler[]): {
   return { current: () => port.current() };
 }
 
+export const VERIFY_KEY = "A".repeat(43);
+
 export function startLine(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
     app: APP,
@@ -121,6 +127,7 @@ export function startLine(overrides: Record<string, unknown> = {}): string {
     direct_socket: "/tmp/a.sock",
     data_path: "/tmp/data",
     broker_credential: "child-cred",
+    verify_key: VERIFY_KEY,
     ...overrides,
   }) + "\n";
 }

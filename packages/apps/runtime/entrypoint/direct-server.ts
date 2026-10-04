@@ -61,10 +61,20 @@ export function startDirectServer(state: RuntimeState) {
       return jsonResponse(control.status, control.body);
     }
     if (request.path.startsWith("/_lophn/commands/")) {
+      if (request.path.endsWith("/status") && request.method !== "GET") {
+        return jsonResponse(400, {
+          error: { code: "invalid_input", message: "status is GET" },
+        });
+      }
+      if (!request.path.endsWith("/status") && request.method !== "POST") {
+        return jsonResponse(400, {
+          error: { code: "invalid_input", message: "command is POST" },
+        });
+      }
       const outcome = await handleInvoke(
         state,
         request.path,
-        request.body,
+        request.method === "GET" ? request.url.searchParams : request.body,
         verified.connection,
       );
       if (outcome.error) {

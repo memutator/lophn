@@ -33,10 +33,16 @@ const STATUS: Record<string, number> = {
 export async function handleInvoke(
   state: RuntimeState,
   path: string,
-  raw: Uint8Array,
+  raw: Uint8Array | URLSearchParams,
   connection: AppConnection,
 ): Promise<InvokeResult> {
   if (state.closed) return fail(503, "unavailable", "process is closed");
+  if (path.endsWith("/status")) {
+    return reference(state, path, queryObject(raw));
+  }
+  if (!(raw instanceof Uint8Array)) {
+    return fail(400, "invalid_input", "command body is missing");
+  }
   if (raw.byteLength > COMMAND_BODY_MAX_BYTES) {
     return fail(400, "invalid_input", "command body exceeds 1MiB", {
       hint: "pass a blob or version reference instead of the body",
@@ -94,6 +100,20 @@ export async function handleInvoke(
   return await runHandler(state, parsed.value.request_key, verified.value);
 }
 
+function queryObject(raw: Uint8Array | URLSearchParams): unknown {
+  if (raw instanceof URLSearchParams) {
+    return {
+      request_key: raw.get("request_key"),
+      invocation: raw.get("invocation"),
+    };
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(raw));
+  } catch {
+    return undefined;
+  }
+}
+
 function reference(
   state: RuntimeState,
   path: string,
@@ -133,7 +153,7 @@ function known(state: RuntimeState, invocation: string): InvokeResult {
     body: {
       result: { result: found.result ?? null },
       ...(recordedInvocation(found) ? { invocation: found.id } : {}),
-      mode: state.identity.mode === "test" ? "preview" : state.identity.mode,
+      mode: state.identity.mode,
     },
   };
 }
@@ -196,7 +216,7 @@ async function runHandler(
     body: {
       result: { result: result ?? null },
       ...(recordedInvocation(record) ? { invocation: id } : {}),
-      mode: state.identity.mode === "test" ? "preview" : state.identity.mode,
+      mode: state.identity.mode,
     },
   };
 }

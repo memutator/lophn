@@ -39,16 +39,19 @@ function endpoint(value: unknown): string | undefined {
     : undefined;
 }
 
+const VERIFY_KEY = /^[A-Za-z0-9_-]{43}$/;
+
 export type AppStart = {
   app: string;
   release: string | null;
   bundle_hash: string;
-  mode: "live" | "preview";
+  mode: "live" | "preview" | "test";
   process_nonce: string;
   broker_socket: string;
   direct_socket: string;
   data_path: string;
   broker_credential: string;
+  verify_key: string;
 };
 
 export function parseAppStart(line: string): AppStart | undefined {
@@ -73,6 +76,7 @@ export function parseAppStart(line: string): AppStart | undefined {
       "direct_socket",
       "data_path",
       "broker_credential",
+      "verify_key",
     ])
   ) return;
   const app = id(source.app, "app");
@@ -81,7 +85,8 @@ export function parseAppStart(line: string): AppStart | undefined {
     typeof source.bundle_hash === "string" && SHA.test(source.bundle_hash)
       ? source.bundle_hash
       : undefined;
-  const mode = source.mode === "live" || source.mode === "preview"
+  const mode = source.mode === "live" || source.mode === "preview" ||
+      source.mode === "test"
     ? source.mode
     : undefined;
   const nonce = typeof source.process_nonce === "string" &&
@@ -98,9 +103,14 @@ export function parseAppStart(line: string): AppStart | undefined {
       source.broker_credential.length > 0
     ? source.broker_credential
     : undefined;
+  const verifyKey = typeof source.verify_key === "string" &&
+      VERIFY_KEY.test(source.verify_key)
+    ? source.verify_key
+    : undefined;
   if (
     !app || release === undefined || !bundle || !mode || !nonce || !broker ||
-    !direct || !data || !credential || (mode === "live" && release === null)
+    !direct || !data || !credential || !verifyKey ||
+    (mode === "live" && release === null)
   ) return;
   return {
     app,
@@ -112,5 +122,6 @@ export function parseAppStart(line: string): AppStart | undefined {
     direct_socket: direct,
     data_path: data,
     broker_credential: credential,
+    verify_key: verifyKey,
   };
 }

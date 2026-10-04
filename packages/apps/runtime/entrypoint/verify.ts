@@ -103,7 +103,7 @@ export async function verifyConnection(
   if (connection.release !== identity.release) {
     return { ok: false, error: reject("conflict", "release mismatch") };
   }
-  if (connection.mode !== identity.mode && identity.mode !== "test") {
+  if (connection.mode !== identity.mode) {
     return { ok: false, error: reject("conflict", "mode mismatch") };
   }
   if (connection.expires_at !== null && connection.expires_at <= clock.now()) {

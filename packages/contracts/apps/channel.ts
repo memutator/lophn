@@ -10,6 +10,7 @@ import {
   APP_CALL_DEPTH_LIMIT,
   appIdSchema,
   atSchema,
+  type ChannelMode,
   commandKeySchema,
   endpointSchema,
   grantIdSchema,
@@ -121,7 +122,7 @@ const connectionFields = {
 };
 
 function connectionShape(value: {
-  mode: "live" | "preview";
+  mode: ChannelMode;
   release: string | null;
   screens: readonly string[];
   screen_sizes: Record<string, readonly string[]>;
@@ -167,11 +168,12 @@ const connectFields = {
 };
 
 function connectShape(value: {
-  mode: "live" | "preview";
+  mode: ChannelMode;
   screens: readonly string[];
   screen_sizes: Record<string, readonly string[]>;
   preview_nonce?: string;
 }): boolean {
+  if (value.mode === "test") return false;
   return Object.keys(value.screen_sizes).every((screen) =>
     value.screens.includes(screen)
   ) && (value.mode === "preview") === (value.preview_nonce !== undefined);
@@ -188,6 +190,30 @@ export const appConnectOutputSchema = z.object({
   connection: appConnectionSchema,
 });
 export type AppConnectOutput = z.infer<typeof appConnectOutputSchema>;
+
+// Authorization과 confirm proof가 싣는 서명 envelope.
+// payload는 정규 JSON이고 signature는 raw 64byte Ed25519의 base64url이다(apps Q5).
+const signatureSchema = z.string().regex(/^[A-Za-z0-9_-]{86}$/);
+
+export const signedConnectionSchema = z.strictObject({
+  payload: appConnectionSchema,
+  signature: signatureSchema,
+});
+export type SignedConnection = z.infer<typeof signedConnectionSchema>;
+
+export const signedConfirmProofSchema = z.strictObject({
+  payload: confirmExecutionProofSchema,
+  signature: signatureSchema,
+});
+export type SignedConfirmProof = z.infer<typeof signedConfirmProofSchema>;
+
+export function connectionSigningBytes(connection: AppConnection): string {
+  return JSON.stringify(connection);
+}
+
+export function confirmProofSigningBytes(proof: ConfirmExecutionProof): string {
+  return JSON.stringify(proof);
+}
 
 // core read 경로 밖 제어 어댑터. ledger queue를 거치지 않는다(architecture/apps 5.1).
 export const appConnect = defineMemory({

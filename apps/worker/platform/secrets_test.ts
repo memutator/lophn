@@ -10,7 +10,12 @@ import {
   randomSealedRef,
   secretToolRunner,
 } from "../../../packages/platform/secrets/mod.ts";
-import { createSecretPipe } from "./secrets.ts";
+import {
+  createSecretPipe,
+  SECRET_EXPORT_OP,
+  SECRET_IMPORT_OP,
+} from "./secrets.ts";
+import { createSecretTransfer } from "../../../packages/platform/secrets/mod.ts";
 
 function store(): PreparationStore {
   return {
@@ -103,4 +108,77 @@ Deno.test("platform/secrets#R8: 실제 Linux Secret Service가 없으면 secret 
   assert(removed.ok);
   const gone = await adapter.load(stored.value);
   assert(!gone.ok);
+});
+
+Deno.test("platform/secrets#R9: secret.export와 secret.import는 암호 callback으로만 받고 원값을 payload에 두지 않는다", async () => {
+  const keychain = createFakeKeychain();
+  const stored = await keychain.store({
+    name: "service.key",
+    purpose: "app_secret",
+    owner: "service.key",
+    value: new TextEncoder().encode("moved-value"),
+  });
+  assert(stored.ok);
+  const registry = createKnownSecretRegistry();
+  const work = createSecretWork({
+    keychain,
+    preparations: store(),
+    registry,
+    processes: { ended: () => Promise.resolve(false) },
+    preparationId: () => "prep-move",
+  });
+  const pipe = createSecretPipe(
+    work,
+    createSecretTransfer({
+      keychain,
+      registry,
+      prepare: (input, value) => work.prepare(input, value),
+      context: input.context,
+    }),
+  );
+  const exported = await pipe.handle(
+    {
+      request_id: "e1",
+      op: SECRET_EXPORT_OP,
+      payload: {
+        records: [{
+          name: "service.key",
+          sealedRef: stored.value,
+          revision: 1,
+        }],
+        purpose: "app_secret",
+        owner: "service.key",
+      },
+    },
+    () => Promise.resolve("export-passphrase"),
+  );
+  assert(exported.ok);
+  const file = JSON.stringify(exported.payload);
+  assert(!file.includes("moved-value"));
+  assert(!file.includes("export-passphrase"));
+
+  const imported = await pipe.handle(
+    {
+      request_id: "i1",
+      op: SECRET_IMPORT_OP,
+      payload: {
+        bytes: (exported.payload as { bytes: Uint8Array }).bytes,
+        current: [],
+      },
+    },
+    () => Promise.resolve("export-passphrase"),
+  );
+  assert(imported.ok);
+  assert(!JSON.stringify(imported.payload).includes("moved-value"));
+
+  const missing = await pipe.handle(
+    {
+      request_id: "i2",
+      op: SECRET_IMPORT_OP,
+      payload: { bytes: new Uint8Array(), current: [] },
+    },
+    () => Promise.resolve(undefined),
+  );
+  assert(!missing.ok);
+  assertEquals(missing.error.code, "invalid_input");
 });

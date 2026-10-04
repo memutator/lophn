@@ -108,9 +108,9 @@ export function createConnectionCommands(): {
     revoke: {
       route: connectionRevoke,
       // 사람 결정 확인은 ledger executor가 transaction 안에서 검증·소비한다.
-      // 여기 도달했다는 것이 그 확인이 이 command의 대상·내용과 맞다는 뜻이다.
+      // 이 route는 confirmation: "required"라 handle 없이는 여기 오지 않는다.
       handle(tx, ctx, input, compare) {
-        return revokeConnection(tx, ctx, input, compare, "verified");
+        return applyRevoke(tx, ctx, input, compare);
       },
     },
   };
@@ -123,13 +123,19 @@ export function revokeConnection(
   compare: { base_revision: string },
   confirmation: string | undefined,
 ): Result<{ connection: Connection }> {
+  const evidence = requireConfirmation(confirmation);
+  if (!evidence.ok) return evidence;
+  return applyRevoke(tx, ctx, input, compare);
+}
+
+function applyRevoke(
+  tx: Tx,
+  ctx: RequestContext,
+  input: { connection: string; base_revision: string },
+  compare: { base_revision: string },
+): Result<{ connection: Connection }> {
   const actor = requireUser(ctx);
   if (!actor.ok) return actor;
-  // executor가 검증한 뒤에는 참조 schema를 다시 요구하지 않는다. 직접 호출은 여전히 근거가 필요하다.
-  if (confirmation !== "verified") {
-    const evidence = requireConfirmation(confirmation);
-    if (!evidence.ok) return evidence;
-  }
   if (compare.base_revision !== input.base_revision) {
     return conflict("connection revision changed");
   }

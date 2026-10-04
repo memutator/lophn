@@ -160,6 +160,25 @@ Deno.test("coding-agent/connection#R2 #R8: revoke with confirmation evidence mak
     code(
       await harness.command(
         revoker,
+        envelope("RevokeCodingAgentConnection", "bare", {
+          connection: CAC,
+          base_revision: revision,
+        }, { base_revision: revision }),
+      ),
+      "forbidden",
+    );
+    const untouched = value(
+      await harness.command(
+        revoker,
+        envelope("coding_agent_connections.read_auth", "auth-bare", {
+          principal: `coding_agent:${CAC}`,
+        }),
+      ),
+    ).result as { state: string };
+    assertEquals(untouched.state, "active");
+    code(
+      await harness.command(
+        revoker,
         envelope("coding_agent_connections.revoke_with_evidence", "stale", {
           connection: CAC,
           base_revision: "9",

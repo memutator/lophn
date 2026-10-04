@@ -43,7 +43,7 @@ concerns: [documents]
 
 ### T2 documents worker 프로세스 뼈대
 
-- 상태: 완료 (#PR) — 준비 worker의 실제 scan·hash·diff와 결과 command 제출은 T11 몫이다
+- 상태: 완료 (#128) — 준비 worker의 실제 scan·hash·diff와 결과 command 제출은 T11 몫이다
 - 등급: 기본
 - concern: documents/file-tracking
 - 요구: documents/file-tracking#R5

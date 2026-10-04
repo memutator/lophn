@@ -23,9 +23,11 @@ export type SyncHandler<R extends CommandRoute> = (
 export function defineSyncCommand<R extends CommandRoute>(
   route: R,
   handle: SyncHandler<R>,
+  options: { dispatchable?: boolean } = {},
 ): CommandDefinition<R> {
   return {
     route,
+    dispatchable: options.dispatchable,
     handle(tx, ctx, input, compare) {
       let result: unknown;
       try {

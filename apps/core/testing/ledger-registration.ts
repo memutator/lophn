@@ -182,8 +182,9 @@ export async function assemble(boot: TestBoot) {
       active && blob
         ? blob(active.tx, structuredClone(active.ctx), reference)
         : err({ code: "unavailable", message: "테스트 blob callback이 없다" }),
+    // Tx.call은 writer executor가 등록 표로 dispatch한다. 이 stub은 실행기가 쓰지 않는다.
     call: () =>
-      err({ code: "unavailable", message: "Tx.call dispatch는 아직 없다" }),
+      err({ code: "unavailable", message: "Tx.call은 실행기가 dispatch한다" }),
   };
   return { credentials, clock, steps, reads, writer, checkCredential };
 }

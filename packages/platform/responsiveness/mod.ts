@@ -26,3 +26,12 @@ export {
   type Supervisor,
   type SupervisorOptions,
 } from "./supervisor.ts";
+export {
+  createIoScheduler,
+  IO_CONCURRENCY,
+  IO_PRINCIPAL_LIMIT,
+  IO_QUEUE_LIMIT,
+  IO_QUEUE_TIMEOUT_MS,
+  type IoJob,
+  type IoScheduler,
+} from "./scheduler.ts";

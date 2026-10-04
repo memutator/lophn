@@ -21,7 +21,7 @@ code-map의 platform 줄을 따른다. architecture 2.2의 모듈 이름(`comman
 | 신뢰 child 권한 정책, data 직렬화, child 메모리 상한 adapter | packages/platform/security/ |
 | core 조립, data root, 시작·종료, 팀 등록 registry | apps/core/ (조립과 registry), packages/platform/install-and-update/ (규칙) |
 | worker kind registry | apps/worker/ (entry와 kind 목록) |
-| platform I/O worker | apps/worker/platform/ (kind `platform-io`) |
+| platform I/O worker | apps/worker/platform/ (kind `platform/io`) |
 
 ## 내놓는 contract
 
@@ -121,6 +121,24 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - factory 반환 객체·함수는 감싸거나 복사하지 않는다. frozen·class·배열·순환은 원본 그대로다. 효과는 붙잡힌 guarded Tx의 sql·emit·now·newId·port가 seal 뒤에 거절하는 것으로 막는다. 순수 값이나 Tx 밖 side effect를 가둔다고 하지 않는다. 변경 행 한도는 port가 쓰는 같은 guarded `Tx.sql`에 누적한다(R4, R12).
   - read snapshot의 정적 port map은 그대로다. 실제 writer Worker fixture도 이 등록을 쓴다.
   - `tx-ports_test.ts`, `tx-ports-failure_test.ts`에 R3, R4, R12, R13 테스트
+
+### T60 확정 ledger key의 REPLACE·UPSERT 우회 차단
+
+- 상태: 완료 (#62)
+- 등급: 좁은
+- concern: platform/ledger, platform/backup-and-migration
+- 요구: platform/ledger#R2, R10, platform/backup-and-migration#R1, R4, R5, R6
+- 자리: packages/platform/ledger/sqlite.ts, packages/platform/ledger/schema.ts, packages/platform/ledger/ledger_test.ts, packages/platform/ledger/sqlite-storage_test.ts, packages/platform/ledger/immutable_test.ts, packages/platform/backup-and-migration/migrations.ts, packages/platform/backup-and-migration/migrations_test.ts
+- 쓰는 contract: 등록 interface(SchemaStep)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: platform#T58
+- 완료: 아래 확인이 통과한다
+  - 연결은 기존 WAL·FULL·외래 키·5초 대기와 함께 `recursive_triggers=ON`의 실제 값 1을 확인하고 적용되지 않으면 `unavailable`로 기동을 거절한다. handler의 PRAGMA 거절은 유지한다(R2).
+  - `common-tables` SQL과 hash는 바꾸지 않고 `immutable-insert-guards` step으로 events seq·command 결과의 principal/key·schema 이력 version의 duplicate INSERT를 거절한다. migration bootstrap도 같은 이력 guard를 설치한다(R10, b&m R1).
+  - 새 DB와 common-tables만 적용한 DB upgrade에서 원래 SQL·hash·이력·event·결과가 보존되고 각 표의 INSERT OR REPLACE·REPLACE INTO·UPSERT(동일 내용 포함)는 실패한다. native recursive trigger OFF에서도 duplicate guard가 작동하고 configured 연결의 UPDATE·DELETE도 실패한다(R10, b&m R5).
+  - 다른 principal의 같은 key·새 key·새 migration version은 정상이며 malicious migration의 history REPLACE와 domain 쓰기는 함께 rollback된다. 기존 history/hash를 먼저 검증하는 흐름을 유지한다(b&m R1, R4, R6).
+  - `ledger_test.ts`, `sqlite-storage_test.ts`, `immutable_test.ts`, `migrations_test.ts`의 실제 파일 SQLite·WAL 회귀 테스트가 통과하고 각 파일은 400줄 이하다.
 
 ### T3 read 처리: reader Worker와 snapshot
 
@@ -224,6 +242,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T8 platform I/O worker와 안전 log
 
+- 상태: 완료 (#59)
 - 등급: 기본
 - concern: platform/responsiveness, platform/diagnostics, platform/redaction
 - 요구: platform/responsiveness#R4, platform/diagnostics#R2, R3, R11, R12, platform/redaction#R15
@@ -233,7 +252,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: skeleton
 - 선행: platform#T7
 - 완료: 아래 확인이 통과한다
-  - `apps/worker/main.ts`는 kind로 고르는 entry와 kind 목록(registry)이다. 각 팀은 `apps/worker/<팀>/`만 고친다(lead 결정, Q4). 이 작업은 `apps/worker/platform/`의 `platform-io`만 만든다.
+  - `apps/worker/main.ts`는 kind로 고르는 entry와 kind 목록(registry)이다. 각 팀은 `apps/worker/<팀>/`만 고친다(lead 결정, Q4). 이 작업은 `apps/worker/platform/`의 `platform/io`만 만든다. kind 이름은 supervisor contract의 고정 목록과 같다.
   - 무거운 작업 동시 2개, 대기 32개, principal당 4개, principal 사이 round-robin(responsiveness R4)
   - core와 신뢰 child의 log·diagnostic 메시지를 I/O worker가 `H/logs/`에 비동기로 쓴다. info 기본, 파일당 10MiB×5, 메모리 대기 1MiB, 넘치면 버리고 개수만 센다. log가 막혀도 API가 기다리지 않는다(diagnostics R2, R3, R11, R12).
   - 기록에는 구성 요소·시각·종류·안전 위치·설명만 있고 stdout·stderr·HTTP dump·crash 메모리·credential을 남기지 않는다(redaction R15).

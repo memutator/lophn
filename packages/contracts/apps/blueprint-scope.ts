@@ -251,14 +251,6 @@ function numericId(value: string): boolean {
 export function semver(value: unknown): value is string {
   if (typeof value !== "string" || !SEMVER.test(value)) return false;
   const match = SEMVER.exec(value);
-  const core = [match?.[1], match?.[2], match?.[3]];
-  if (
-    core.some((part) =>
-      part === undefined || !Number.isSafeInteger(Number(part))
-    )
-  ) {
-    return false;
-  }
   const pre = match?.[4];
   if (pre === undefined) return true;
   return pre.split(".").every((part) =>

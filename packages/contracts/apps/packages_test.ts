@@ -39,7 +39,15 @@ Deno.test("apps/sdk#R2: a package has one component capability domain or format 
 
 Deno.test("apps/sdk#R7: only one exact SemVer is accepted", () => {
   assert(packageVersionNameSchema.safeParse("1.0.0").success);
-  for (const version of ["1.0.0-0", "1.0.0-alpha.0", "1.0.0+build.01"]) {
+  for (
+    const version of [
+      "1.0.0-0",
+      "1.0.0-alpha.0",
+      "1.0.0+build.01",
+      "9007199254740993.0.0",
+      `0.${"9".repeat(64)}.0`,
+    ]
+  ) {
     assertEquals(packageVersionNameSchema.safeParse(version).success, true);
   }
   for (

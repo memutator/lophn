@@ -105,7 +105,13 @@ function runLimited(
   });
 }
 
-Deno.test("problems/tests#R20: 상한을 넘는 fixture는 실제로 죽고 survived를 남기지 않는다", async () => {
+// 실제로 커널이 fixture를 죽이므로 데스크톱에 메모리 부족 알림이 뜬다.
+// LOPHN_MEMORY_KILL=1일 때만 돌고, deno task check에서는 건너뛴다.
+Deno.test({
+  name:
+    "problems/tests#R20: 상한을 넘는 fixture는 실제로 죽고 survived를 남기지 않는다",
+  ignore: Deno.env.get("LOPHN_MEMORY_KILL") !== "1",
+}, async () => {
   const limited = await applyMemoryLimit(Deno.execPath(), [
     "run",
     "--allow-read",

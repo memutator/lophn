@@ -102,6 +102,11 @@ E2E는 `deno task e2e`로 따로 돈다. flow는 `deno task e2e`가 켠 `LOPHN_E
 Node `package.json`을 두는 예외를 쓴다. slice를 끝낼 때
 돈다([tasks.md](tasks.md)).
 
+메모리 상한이 자식 프로세스를 실제로 죽이는지 보는 테스트(`packages/platform/security/memory_limit_test.ts`)는
+`LOPHN_MEMORY_KILL=1`일 때만 돈다. 커널이 fixture를 죽일 때마다 데스크톱에 메모리 부족 알림이 떠서
+`deno task check`에서는 건너뛴다. 상한을 바꾼 PR은 `LOPHN_MEMORY_KILL=1 deno test --allow-all
+packages/platform/security/memory_limit_test.ts`로 따로 돌린다.
+
 ## 개발 환경
 
 - `deno task dev`: core, agent runtime, app supervisor, shell을 개발 데이터

@@ -2,6 +2,11 @@ export * from "./values.ts";
 export * from "./address.ts";
 export * from "./projects.ts";
 export * from "./places.ts";
+export * from "./versions.ts";
+export * from "./document-files.ts";
+export * from "./documents.ts";
+
+import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
 
 import {
   projectArchive,
@@ -30,6 +35,7 @@ export const ROUTES = [
   projectGet,
   projectResolve,
   projectPreviewTracking,
+  ...DOCUMENT_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -38,4 +44,5 @@ export const EVENTS = [
   projectTrackingChanged,
   projectArchived,
   projectUnarchived,
+  ...DOCUMENT_EVENTS,
 ] as const;

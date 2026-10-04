@@ -379,3 +379,22 @@ export const projectUnarchived = defineEvent("ProjectUnarchived", {
   subject: projectIdSchema,
   payload: z.object({ before_revision: revisionSchema }),
 });
+
+export const PROJECT_ROUTES = [
+  projectCreate,
+  projectUpdate,
+  projectSetTracking,
+  projectArchive,
+  projectUnarchive,
+  projectList,
+  projectGet,
+  projectResolve,
+  projectPreviewTracking,
+] as const;
+export const PROJECT_EVENTS = [
+  projectCreated,
+  projectUpdated,
+  projectTrackingChanged,
+  projectArchived,
+  projectUnarchived,
+] as const;

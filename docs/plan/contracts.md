@@ -287,6 +287,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T15 contracts/documents: document·version·파일 준비 결과
 
+- 상태: 완료 (#39)
 - 등급: 기본
 - concern: documents/versions, documents/file-tracking
 - 요구: documents/versions#R1, R3, R6, R8–R10, R16
@@ -298,7 +299,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 선행: contracts#T11, contracts#T14
 - 완료: 아래 확인이 통과한다
   - `/v1/documents/{prepare,save,restore,update,set_source,archive,unarchive,move,rename,list,get,resolve,export}`.
-  - `PreparedVersion`, `FileObservationBasis`, `SaveResult(saved | unchanged)`, `FormatRef`, `Document`, `Version`, `ContentFile`.
+  - `PreparedVersion`, `FileObservationBasis`, `SaveResult(saved | unchanged)`, `FormatRef`, `Document`, `Version`, `ContentFile`, `DocumentFileInput`(prepared blob 또는 기존 permanent 참조). prepare 입력은 hash metadata만 받지 않고 trusted content 참조의 purpose·hash·bytes를 결합한다. format 입력은 신규 MIME 기본 implicit 또는 기존 base_version의 exact contract를 쓰기 위해 생략할 수 있고 PreparedVersion 결과의 FormatRef는 필수다.
   - event `DocumentCreated`, `DocumentSaved`, `DocumentUpdated`, `DocumentSourceChanged`, `DocumentArchived`, `DocumentUnarchived`, `DocumentRestored`, `DocumentMoved`, `DocumentRenamed`.
   - document.move·rename은 `QuestionActionEvidence`로 actor=user 적용 경로를 갖는다(값 type은 T28, 여기서는 dispatchable 표시).
 
@@ -1002,3 +1003,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q10 T7의 HTTP `events/list` 출력에도 공통 read metadata를 붙인다. `scanned_through_seq`는 구독 처리 위치, `head_seq`는 event head이고, `as_of_seq`는 read snapshot 위치라 서로 대신하지 않는다. WS `events` frame은 read 응답이 아니므로 바꾸지 않는다(platform T3/T4 요청).
 - Q11 T23 secret 이름은 event subject의 key와 같은 `[A-Za-z0-9_.:-]+`로 정한다(추천안, 새 길이 한도는 두지 않음). 공개 status에는 안전한 revision만 주고, 교체·제거의 이전 sealed_ref CAS는 main↔core private comparison read로만 얻는다(lead·platform·shell 합의). 요청의 `expected_revision`이 현재와 다르면 `conflict`로 재표시하고, 성공 compare는 그 revision과 같아야 하며 writer가 최종 CAS를 다시 검사한다. 이 read를 HTTP·renderer·agent·app·parent/child worker op로 넓히지 않는다. raw secret은 trusted callback 메모리 인자에만 두고 adapter context는 supervisor가 주입한 현재 process·task·scope를 재검사한다.
 - Q12 T25 relay는 core-local raw JSON `memory` route로 둔다(platform·shell 소비 review 완료). command의 ledger queue/idempotency, read의 SQLite snapshot, worker의 child dispatch를 UI relay에 빌리지 않는다. publish와 nested 입력은 strict safe refs만 받고, 출력은 additive다. current read는 summary-only 첫 응답 또는 요청 index의 `tab_page`(최대 20개)를 주며 `next_page`는 다음 index다. 실제 registry·generation·창/session binding·scope·redaction·단절 처리는 shell#T26과 platform#T57이 검사한다.
+- Q13 T15 prepare 파일은 metadata와 prepared blob 또는 기존 permanent 참조를 함께 받는다(documents 소비 review 완료). hash 단독 주장은 원문 권한이 아니며 trusted worker가 principal·현재 owner/key/field 권한·prepared TTL을 검사한다. 새 파일은 `document_file` purpose·hash·size, 기존 참조는 hash를 입력과 결합한다. prepare format만 생략 가능하고 신규 MIME 기본 implicit/기존 base_version exact 계약을 worker가 고르며 결과는 exact FormatRef 필수다. agent 목록에서 disk source·files를 빼도 place/name·agent/run invariant를 유지한다. export는 고정 manifest 뒤 T18의 documents/file을 통해 원문 bytes/MIME를 읽고 JSON에 bytes를 중복 싣지 않는다.

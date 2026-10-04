@@ -6,6 +6,8 @@ import {
   agentProjectSchema,
   foldersSchema,
   INITIAL_TRACKING_PROPOSAL,
+  PROJECT_EVENTS,
+  PROJECT_ROUTES,
   projectArchive,
   projectCompareSchema,
   projectCreate,
@@ -55,42 +57,37 @@ const create = {
   tracking: { enabled: false, patterns: [], use_gitignore: true },
 };
 
+// deno-fmt-ignore
+const projectRoutePaths = ["/v1/projects/create", "/v1/projects/update", "/v1/projects/set_tracking", "/v1/projects/archive", "/v1/projects/unarchive", "/v1/projects/list", "/v1/projects/get", "/v1/projects/resolve", "/v1/projects/preview_tracking"];
+// deno-fmt-ignore
+const projectEventTypes = ["ProjectCreated", "ProjectUpdated", "ProjectTrackingChanged", "ProjectArchived", "ProjectUnarchived"];
+
 Deno.test("documents/projects#R1: route and event names match architecture and mutations are user-only", () => {
-  assertEquals(ROUTES.map(routePath), [
-    "/v1/projects/create",
-    "/v1/projects/update",
-    "/v1/projects/set_tracking",
-    "/v1/projects/archive",
-    "/v1/projects/unarchive",
-    "/v1/projects/list",
-    "/v1/projects/get",
-    "/v1/projects/resolve",
-    "/v1/projects/preview_tracking",
-  ]);
+  assertEquals(PROJECT_ROUTES.map(routePath), projectRoutePaths);
+  assertEquals(PROJECT_EVENTS.map((event) => event.type), projectEventTypes);
   assertEquals(
-    ROUTES.filter((route) => route.kind === "command").map((route) =>
+    ROUTES.filter((route) => route.resource === "projects").map(routePath),
+    projectRoutePaths,
+  );
+  assertEquals(
+    ROUTES.filter((route) =>
+      route.resource === "projects" && route.kind === "command"
+    ).map((route) => route.name),
+    PROJECT_ROUTES.filter((route) => route.kind === "command").map((route) =>
       route.name
     ),
-    [
-      "project.create",
-      "project.update",
-      "project.set_tracking",
-      "project.archive",
-      "project.unarchive",
-    ],
   );
-  assertEquals(EVENTS.map((event) => event.type), [
-    "ProjectCreated",
-    "ProjectUpdated",
-    "ProjectTrackingChanged",
-    "ProjectArchived",
-    "ProjectUnarchived",
-  ]);
-  for (const route of ROUTES) {
+  assertEquals(
+    EVENTS.filter((event) => event.type.startsWith("Project")).map((event) =>
+      event.type
+    ),
+    PROJECT_EVENTS.map((event) => event.type),
+  );
+  for (const route of PROJECT_ROUTES) {
     assert(route.errors.every((code) => ERROR_CODES.includes(code)));
     if (route.kind === "command") assertEquals(route.actors, ["user"]);
   }
-  for (const event of EVENTS) {
+  for (const event of PROJECT_EVENTS) {
     assert(event.subject.safeParse(project).success);
     assert(!event.subject.safeParse(project.replace("prj_", "app_")).success);
   }

@@ -16,6 +16,6 @@ lophn을 구현하는 사람과 agent가 함께 지키는 것이다. 무엇을 �
 | [team.md](team.md) | 역할, worker 등급과 model, 주고받는 법 |
 | [research.md](research.md) | agent 관련 주제는 오픈소스 3개 이상을 코드로 조사한다. 참고 주소 |
 | [legacy.md](legacy.md) | 이전 lophn 코드에서 가져와도 되는 것 |
-| [team-brief.md](team-brief.md) | team member가 계획하고 구현하는 순서와 worker 띄우는 법 |
+| [team-brief.md](team-brief.md) | worker가 작업 하나를 구현하고 PR을 올리는 법 |
 
 순서: contracts와 base, 뼈대(`skeleton` slice)를 먼저 만들고 그다음 slice들을 병렬로 진행한다.

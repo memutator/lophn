@@ -41,7 +41,7 @@ export type TxDeps = {
   clock: Clock;
   ids: IdSource;
   ports: readonly TxPortRegistration[];
-  // blob 참조 등록은 platform#T14가 맡는다. 여기서는 주입만 받는다.
+  // blob 참조 등록은 platform/blob-store가 맡는다. 여기서는 주입만 받는다.
   registerBlobRef: (reference: BlobRefRegistration) => Result<
     PermanentBlobReference
   >;
@@ -50,6 +50,8 @@ export type TxDeps = {
   call: TxCall;
   // 현재 자격의 subscriber owner 검사. 없으면 cursor는 올리지 않는다.
   subscriberGate?: SubscriberGate;
+  // transaction이 열리고 닫힐 때 그 Tx를 알린다. blob 등록이 같은 sql을 쓰기 위해서다.
+  onTx?(tx: Tx | undefined): void;
 };
 
 type TxContext = {
@@ -331,11 +333,13 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     throw fail(result);
   });
   tx.portLookup = ports.current;
+  deps.onTx?.(tx);
   return {
     tx,
     seal: () => {
       open = false;
       ports.current?.seal();
+      deps.onTx?.(undefined);
     },
     failure: () => sticky,
   };

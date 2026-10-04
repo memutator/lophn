@@ -378,6 +378,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T14 blob 참조 등록과 읽기
 
+- 상태: 완료 (#150)
 - 등급: 기본
 - concern: platform/blob-store, platform/identity
 - 요구: platform/blob-store#R4, R5, R6, R7, platform/identity#R9
@@ -644,6 +645,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: settings(TOML import·export pipe 작업)
 - slice: agent
 - 선행: platform#T26, platform#T24
+- 상태: 진행 (#153) — 남은 것: R29(machine이 질문 고정 option action 근거를 검증한 apply는 ApplySettings route actors에 machine이 필요해 contract 변경이 먼저다)와 flow ask-lophn-help 설정 단계 통합 테스트
 - 완료: 아래 확인이 통과한다
   - UTF-8 TOML 1.0 format 1만 worker에서 parse·redaction·전체 검증 뒤 `ApplySettings`로 제출한다. JSON5·YAML·환경 치환·include·command·원격 URL은 거절, 모르는 format은 거절(R3, R26).
   - definitions read는 이름·한 줄 설명·현재·기본값의 뜻·영향·위험·되돌림·적용 시점을 주고 설명 없는 항목은 공개하지 않는다(R27, R28).
@@ -821,6 +823,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T55 lophn daemon 시작·중지와 로컬 상태
 
+- 상태: 완료 (#157)
 - 등급: 기본
 - concern: platform/install-and-update
 - 요구: platform/install-and-update#R10, R12

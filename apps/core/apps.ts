@@ -5,12 +5,18 @@ import {
   lookupAppRegistration,
 } from "../../packages/apps/registration/mod.ts";
 import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
+import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
+import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
+import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.ts";
 import {
   type PlaceNameReservation,
   placeNameReservation,
 } from "../../packages/contracts/documents/mod.ts";
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
-import type { TxPortRegistration } from "../../packages/platform/ledger/mod.ts";
+import type {
+  ReaderRegistration,
+  TxPortRegistration,
+} from "../../packages/platform/ledger/mod.ts";
 
 type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
@@ -25,16 +31,21 @@ export function createLedgerRegistration(
 ): LedgerRegistration {
   const commands = createAppCommands();
   const reads = createAppsReads();
+  const invocations = createInvocationsCommands();
+  const invocationReads = createInvocationsReads();
   return {
     // place_names 표는 documents 등록의 몫이다(R6, R10).
-    schemaSteps: [...appsSchemaSteps],
+    schemaSteps: [...appsSchemaSteps, ...invocationsSchemaSteps],
     commands: [
       commands.create,
       commands.connectSource,
       commands.archive,
       commands.unarchive,
+      invocations.recordStarted,
+      invocations.recordFinished,
+      invocations.recordDenied,
     ],
-    reads: [reads.list, reads.get],
+    reads: [reads.list, reads.get, invocationReads.list, invocationReads.get],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [
@@ -51,6 +62,21 @@ export function createLedgerRegistration(
         create: (tx) => createPlaceNameReservation(tx) as PlaceNameReservation,
       },
     ],
+  };
+}
+
+// reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다. 실행 port는 없다.
+export function createReaderRegistration(): ReaderRegistration {
+  const reads = createAppsReads();
+  const invocations = createInvocationsReads();
+  return {
+    reads: [
+      reads.list,
+      reads.get,
+      invocations.list,
+      invocations.get,
+    ],
+    ports: new Map(),
   };
 }
 

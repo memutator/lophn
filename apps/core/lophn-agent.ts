@@ -3,8 +3,14 @@ import {
   defineSetting,
   type KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
+import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import {
+  createProviderCommands,
+  createProviderReads,
+  providerSchemaSteps,
+} from "../../packages/lophn-agent/harness/provider/mod.ts";
 
-// agent runtime 등록 뼈대. command·read·schema는 나중 작업이 이 객체에 더한다.
+// agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
 // 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
 export function agentRuntimeLaunchSpec(input: {
   dataRoot: string;
@@ -49,10 +55,35 @@ export const catalogAutoUpdateSetting = defineSetting({
   value_type: z.boolean(),
 });
 
-// core read는 derived catalog 상태를 읽는다(architecture §5.3). read 정의는
-// model leaf의 몫이라 core graph에 leaf 구현이 들어오지 않게 reader worker
-// 모듈이 부른다(contracts#T29 route, T5의 reads.ts 자리). 등록은 T5가 온다.
+// derived catalog read는 아직 등록하지 않는다(plan/lophn-agent Q28). pool read
+// handler는 동기 Result를 돌려주므로 파일 읽기도 동기여야 하는데, core module
+// graph의 동기 file API는 platform/responsiveness#R1 검사가 막는다. apiRead
+// 경로는 snapshot을 받지 않아 as_of_seq를 만들어야 하는데 이 read는 파생되는
+// 값이라 그럴 수 없다. 등록 자리 결정은 open-issues에 남긴다.
+
+// provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
+const commands = createProviderCommands();
+const reads = createProviderReads();
 
 export const lophnAgentDefinitions = {
+  schemaSteps: providerSchemaSteps,
+  commands: [
+    commands.register,
+    commands.change,
+    commands.registerCredential,
+    commands.changeCredentials,
+    commands.refreshCredential,
+    commands.recordAvailability,
+    commands.recordCheck,
+  ],
+  reads: [reads.read, reads.list, reads.credentialList],
   workers: [],
 };
+
+// reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider read는 event를 보지 않는다.
+export function createReaderRegistration(): ReaderRegistration {
+  return {
+    reads: [reads.read, reads.list, reads.credentialList],
+    ports: new Map(),
+  };
+}

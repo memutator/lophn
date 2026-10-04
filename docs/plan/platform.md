@@ -223,6 +223,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T6 API 입구: HTTP·WebSocket transport와 인증 검사
 
+- 상태: 완료 (#78)
 - 등급: 기본
 - concern: platform/api, platform/identity, platform/security, platform/diagnostics
 - 요구: platform/api#R1, R2, R3, R4, R6, platform/identity#R11, R12, R13, platform/security#R6, R7, R8, platform/diagnostics#R7
@@ -410,6 +411,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T16 redaction 안전 필드, 표본, 화면 shape
 
+- 상태: 완료 (#81)
 - 등급: 기본
 - concern: platform/redaction
 - 요구: platform/redaction#R7, R8, R9, R10, R11, R12
@@ -466,6 +468,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T18 Tx 안에서 다른 owner의 등록 command 부르기
 
+- 상태: 완료 (#83)
 - 등급: 기본
 - concern: platform/ledger
 - 요구: platform/ledger#R3, R12, R13
@@ -832,6 +835,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T38 lophn 내부 오류의 진단 분류
 
+- 상태: 완료 (#80)
 - 등급: 좁은
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R1

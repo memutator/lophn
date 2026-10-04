@@ -16,11 +16,13 @@ export {
   suggestName,
 } from "./model.ts";
 export {
+  createDocumentChangeCommands,
   createDocumentNameReservation,
   createPlaceNameReservation,
   type DocumentNameReservation,
 } from "./commands.ts";
 export { addressingSchemaSteps } from "./schema.ts";
+export { createAddressingReads } from "./reads.ts";
 export {
   type PlaceName,
   type PlaceNameReservation,

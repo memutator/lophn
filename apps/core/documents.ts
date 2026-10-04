@@ -9,6 +9,10 @@ import type { ApiReadDefinition } from "../../packages/contracts/platform/mod.ts
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
+import {
+  createAddressingReads,
+  createDocumentChangeCommands,
+} from "../../packages/documents/addressing/mod.ts";
 import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
 import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
 import {
@@ -167,7 +171,9 @@ export function createLedgerRegistration(
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
   const versions = createVersionCommands();
+  const addressing = createDocumentChangeCommands();
   const versionReads = createVersionReads();
+  const addressReads = createAddressingReads();
   const deps: ProjectReadDeps = {
     documents: emptyDocuments,
   };
@@ -188,6 +194,8 @@ export function createLedgerRegistration(
       versions.update,
       versions.archive,
       versions.unarchive,
+      addressing.move,
+      addressing.rename,
     ],
     reads: [
       reads.list,
@@ -198,6 +206,7 @@ export function createLedgerRegistration(
       versionReads.list,
       versionReads.get,
       versionReads.history,
+      addressReads.resolve,
     ],
     // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
     blobFields: [versionFileField, versionFilesField],
@@ -226,8 +235,9 @@ function registerWorkers(): KindLaunchSpec[] {
 // reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createVersionReads();
+  const addressReads = createAddressingReads();
   return {
-    reads: [reads.list, reads.get, reads.history],
+    reads: [reads.list, reads.get, reads.history, addressReads.resolve],
     ports: new Map(),
   };
 }

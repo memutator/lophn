@@ -12,6 +12,8 @@ export const en = {
   "common.activity.app": "App activity",
   "common.error.load-failed": "Couldn't load {target}.",
   "common.button.reload": "Reload",
+  "common.overlay.unavailable": "This action couldn't be completed. Try again.",
+  "common.button.retry": "Try again",
   "common.stale.label": "Last updated {age}",
   "common.author.label": "Written by {author}",
   "common.heading.column-unit": "{header} ({unit})",

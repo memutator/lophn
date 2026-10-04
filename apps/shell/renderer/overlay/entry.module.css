@@ -1,3 +1,36 @@
+html,
+body {
+  background: transparent;
+  margin: var(--space-0);
+}
 .root {
   display: contents;
+}
+.surface {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  overflow: auto;
+}
+.drag {
+  background: transparent;
+  padding: var(--space-0);
+  touch-action: none;
+}
+.tooltip,
+.notification {
+  pointer-events: none;
+}
+
+.status {
+  position: fixed;
+  inset: var(--space-4);
+  z-index: var(--z-toast);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
 }

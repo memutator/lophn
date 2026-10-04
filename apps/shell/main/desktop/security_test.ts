@@ -17,7 +17,7 @@ import {
   webPreferences,
 } from "./security.ts";
 import { createShellHandler, safeJoin, SHELL_CSP } from "./shell-protocol.ts";
-import { shellApi } from "../../preload/shell-api.ts";
+import { createShellApi } from "../../preload/shell-api.ts";
 
 test("shell/app-frame#R3: 모든 view에 sandbox·context isolation·web security를 켜고 Node integration을 끈다", () => {
   for (const packaged of [false, true]) {
@@ -74,7 +74,17 @@ test("shell/desktop#R12: shell scheme은 secure·standard·fetch 지원으로 �
 });
 
 test("shell/desktop#R16: shell preload는 contextBridge 값만 노출하고 ipcRenderer가 없다", () => {
-  assert.deepEqual(Object.keys(shellApi), []);
+  const shellApi = createShellApi({
+    invoke: () => Promise.resolve(null),
+    on() {},
+    removeListener() {},
+  }, "shell");
+  assert.deepEqual(Object.keys(shellApi), [
+    "open",
+    "close",
+    "result",
+    "subscribe",
+  ]);
   assert.equal("ipcRenderer" in shellApi, false);
 });
 

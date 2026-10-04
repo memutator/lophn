@@ -142,6 +142,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T59 다른 팀의 public ledger integration test harness
 
+- 상태: 완료 (#65)
 - 등급: 기본
 - concern: platform/ledger
 - 요구: platform/ledger#R1, R2, R3, R4, R10, R13, R14, R20, R21, R22

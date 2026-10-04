@@ -207,9 +207,15 @@ export function createProjectReads(deps: ProjectReadDeps): {
           next_cursor: next < visible.length
             ? nextProjectCursor(next, basis)
             : null,
-          omitted: next < visible.length
-            ? [{ reason: "page_limit" as const, count: visible.length - next }]
-            : undefined,
+          // undefined 필드는 platform 출력 검사에서 거절된다. 없으면 key를 뺀다.
+          ...(next < visible.length
+            ? {
+              omitted: [{
+                reason: "page_limit" as const,
+                count: visible.length - next,
+              }],
+            }
+            : {}),
         });
       },
     },

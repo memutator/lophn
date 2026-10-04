@@ -776,6 +776,23 @@ Deno.test("documents/projects#R1 documents/projects#R9: scope.targets가 가리�
     ) as { project: { id: string; title: string } };
     assertEquals(got.project.id, project);
     assertEquals(got.project.title, "Changed");
+    const hidden = value(
+      await opened.read(
+        { resource: "projects", method: "list" },
+        otherProject,
+        {},
+      ),
+    ) as { projects: { id: string }[] };
+    assertEquals(hidden.projects.map((item) => item.id), []);
+    const listed = value(
+      await opened.read(
+        { resource: "projects", method: "list" },
+        matchedRead,
+        {},
+      ),
+    ) as { projects: { id: string }[]; omitted?: unknown };
+    assertEquals(listed.projects.map((item) => item.id), [project]);
+    assertEquals("omitted" in listed, false);
   } finally {
     await opened.close();
   }

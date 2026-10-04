@@ -1,12 +1,12 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 import {
+  type ConnectionState,
+  connectionStateSchema,
   CORE_CALL_CHANNEL,
   CORE_STATE_CHANNEL,
-  connectionStateSchema,
-  coreCallSchema,
-  type ConnectionState,
   type CoreCall,
+  coreCallSchema,
 } from "../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../ipc/core-api.ts";
 import { createShellApi } from "./shell-api.ts";

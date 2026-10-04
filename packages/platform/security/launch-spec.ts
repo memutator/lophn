@@ -1,7 +1,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  kindLaunchSpecSchema,
   type KindLaunchSpec,
+  kindLaunchSpecSchema,
 } from "../../contracts/platform/mod.ts";
 
 // spec은 각 팀의 모듈이 선언하고 supervisor가 여기서 거절한다.
@@ -26,6 +26,13 @@ function absolutePaths(name: string, values: readonly string[]) {
   return undefined;
 }
 
+// grant는 CLI에서 `--allow-x=a,b`의 쉼표 목록으로 합쳐진다. 한 항목 안의 쉼표는 등록하지 않은
+// 항목(예: `/opt/lophn,/`의 `/`)을 끼워 넣는다. NUL·줄바꿈 같은 제어 문자도 받지 않는다.
+// deno-lint-ignore no-control-regex
+const UNSAFE_GRANT = /[,\u0000-\u001f\u007f]/;
+// deno-lint-ignore no-control-regex
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
 function forbiddenFlag(value: string): boolean {
   return FORBIDDEN_FLAGS.some((flag) => value.includes(flag));
 }
@@ -40,6 +47,7 @@ export function checkLaunchSpec(
     return reject("entry must be an absolute path");
   }
   if (forbiddenFlag(spec.entry)) return reject("forbidden flag in entry");
+  if (CONTROL.test(spec.entry)) return reject("control character in entry");
   const bad = absolutePaths("allow_read", spec.allow_read) ??
     absolutePaths("allow_write", spec.allow_write) ??
     absolutePaths("allow_run", spec.allow_run);
@@ -52,6 +60,9 @@ export function checkLaunchSpec(
     ...spec.allow_env,
   ];
   if (grants.some(forbiddenFlag)) return reject("forbidden flag in permission");
+  if (grants.some((grant) => UNSAFE_GRANT.test(grant))) {
+    return reject("permission entry must be a single item");
+  }
   for (const host of spec.allow_net) {
     if (host.includes("*") || host.includes(" ")) {
       return reject("allow_net must name a host without a wildcard");

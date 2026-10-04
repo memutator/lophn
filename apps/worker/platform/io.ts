@@ -17,11 +17,14 @@ import {
 } from "../../../packages/platform/blob-store/mod.ts";
 import { type BlobPipe, type BlobPipeRequest, createBlobPipe } from "./blob.ts";
 import {
+  createSettingsPipe,
   type SettingsPipe,
   type SettingsPipeRequest,
-  createSettingsPipe,
 } from "./settings.ts";
-import { SETTINGS_EXPORT_OP, SETTINGS_IMPORT_OP } from "../../../packages/contracts/platform/mod.ts";
+import {
+  SETTINGS_EXPORT_OP,
+  SETTINGS_IMPORT_OP,
+} from "../../../packages/contracts/platform/mod.ts";
 
 export type PlatformIoOptions = {
   root: string;
@@ -90,7 +93,9 @@ export async function createPlatformIo(
       };
       // settings 교환은 channel에 묶인 byte chunk로 온다. import는 문서를 모아
       // parse하고, export는 JSON payload의 mutations를 stringify한다(R3, R26).
-      if (request.op === SETTINGS_IMPORT_OP || request.op === SETTINGS_EXPORT_OP) {
+      if (
+        request.op === SETTINGS_IMPORT_OP || request.op === SETTINGS_EXPORT_OP
+      ) {
         const settingsRequest = message as unknown as SettingsPipeRequest & {
           channel?: number;
         };
@@ -99,7 +104,6 @@ export async function createPlatformIo(
           ? { chunks: [] as Uint8Array[] }
           : pending.get(channel) ?? { chunks: [] as Uint8Array[] };
         if (channel !== undefined) pending.delete(channel);
-        const collected: Uint8Array[] = [];
         const submission = scheduler.submit("settings", async () => {
           if (settingsRequest.op === SETTINGS_EXPORT_OP) {
             return await settings.handle(
@@ -141,7 +145,9 @@ export async function createPlatformIo(
             () => Promise.resolve(document),
           );
         });
-        const result = submission.ok ? await submission.value.result : submission;
+        const result = submission.ok
+          ? await submission.value.result
+          : submission;
         if (!session.credentialUsable) return;
         if (!result.ok) {
           await session.send({

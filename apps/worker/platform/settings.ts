@@ -57,7 +57,7 @@ function failure(
   return { request_id, ok: false, error: { code, message } };
 }
 
-export type SettingsPipeDeps = {};
+export type SettingsPipeDeps = Record<PropertyKey, never>;
 
 export function createSettingsPipe(_deps: SettingsPipeDeps = {}): SettingsPipe {
   return {
@@ -145,11 +145,15 @@ export function createSettingsPipe(_deps: SettingsPipeDeps = {}): SettingsPipe {
           },
         };
       }
-      return failure(request.request_id, "invalid_input", "settings pipe op가 아니다");
+      return failure(
+        request.request_id,
+        "invalid_input",
+        "settings pipe op가 아니다",
+      );
     },
   };
 }
 
 // import payload 모양은 contract의 settingsImportInputSchema가 고정한다. 여기서는
 // bytes callback만 보므로 스키마 검사는 core ingress가 한다.
-export type { SettingsImportInput, SettingsExportInput };
+export type { SettingsExportInput, SettingsImportInput };

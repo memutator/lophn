@@ -6,9 +6,9 @@
 import { parse, stringify } from "@std/toml";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  type SettingMutation,
   SETTINGS_EXCHANGE_FORMAT,
   SETTINGS_EXCHANGE_FORMAT_VERSION,
-  type SettingMutation,
 } from "../../contracts/platform/mod.ts";
 import { containsCredentialSecret } from "./model.ts";
 
@@ -181,7 +181,9 @@ export function parseSettingsTOML(
         "UTF-8 TOML 1.0이 아니다. JSON5·YAML·환경 치환·include·command·원격 URL은 교환 문서가 아니다",
     });
   }
-  if (document === null || typeof document !== "object" || Array.isArray(document)) {
+  if (
+    document === null || typeof document !== "object" || Array.isArray(document)
+  ) {
     return err({
       code: "invalid_input",
       message: "교환 문서가 TOML 표가 아니다",
@@ -189,11 +191,16 @@ export function parseSettingsTOML(
   }
   const record = document as Record<string, unknown>;
   const exchange = record[EXCHANGE_TABLE];
-  if (exchange === undefined || exchange === null || typeof exchange !== "object") {
+  if (
+    exchange === undefined || exchange === null || typeof exchange !== "object"
+  ) {
     return err({
       code: "invalid_input",
       message: "교환 문서에 format 표가 없다",
-      details: { expected: `[${EXCHANGE_TABLE}] with format_version ${SETTINGS_EXCHANGE_FORMAT_VERSION}` },
+      details: {
+        expected:
+          `[${EXCHANGE_TABLE}] with format_version ${SETTINGS_EXCHANGE_FORMAT_VERSION}`,
+      },
     });
   }
   const meta = exchange as Record<string, unknown>;
@@ -222,7 +229,9 @@ export function parseSettingsTOML(
     });
   }
   const settings = record["settings"];
-  if (settings === undefined || settings === null || typeof settings !== "object") {
+  if (
+    settings === undefined || settings === null || typeof settings !== "object"
+  ) {
     return err({
       code: "invalid_input",
       message: "교환 문서에 설정 표가 없다",
@@ -231,7 +240,9 @@ export function parseSettingsTOML(
   }
   const mutations: SettingMutation[] = [];
   const seen = new Set<string>();
-  for (const [key, entry] of Object.entries(settings as Record<string, unknown>)) {
+  for (
+    const [key, entry] of Object.entries(settings as Record<string, unknown>)
+  ) {
     if (seen.has(key)) {
       return err({
         code: "invalid_input",
@@ -295,7 +306,12 @@ export function parseSettingsTOML(
     const value = table["value"];
     const checked = rejectUnsafeStrings(value, key);
     if (!checked.ok) return checked;
-    mutations.push({ layer: "common", key, action: "set", value: value as never });
+    mutations.push({
+      layer: "common",
+      key,
+      action: "set",
+      value: value as never,
+    });
   }
   if (mutations.length === 0) {
     return err({

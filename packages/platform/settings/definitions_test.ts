@@ -1,9 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import {
-  settingsDefinitionsRead,
-  settingsGetRead,
-} from "./reads.ts";
+import { settingsDefinitionsRead, settingsGetRead } from "./reads.ts";
 import { SettingRegistry, validateDefinition } from "./registry.ts";
 import type { SettingDefinition } from "../../contracts/platform/mod.ts";
 
@@ -111,7 +108,9 @@ Deno.test("platform/settings#R27: 공개 설정마다 이름·한 줄 설명·�
 Deno.test("platform/settings#R27: keys로 가리킨 항목만 준다", () => {
   const registry = new SettingRegistry([width, tracked]);
   const read = settingsDefinitionsRead(registry);
-  const result = read.handle(snapshot(), ctx(), { keys: ["shell.reading_width"] });
+  const result = read.handle(snapshot(), ctx(), {
+    keys: ["shell.reading_width"],
+  });
   assert(result.ok);
   const definitions = result.value.definitions as { key: string }[];
   assertEquals(definitions.length, 1);
@@ -152,7 +151,10 @@ Deno.test("platform/settings#R28: 설정 화면과 lophn 역할이 같은 regist
 Deno.test("platform/settings#R30: settingsGet은 적용값·출처 층·적용 시점을 주고 조회 정보를 유지한다", () => {
   const registry = new SettingRegistry([width, tracked]);
   const read = settingsGetRead(registry);
-  const stateRow = { revision: 3, defaults_revision: registry.defaultsRevision };
+  const stateRow = {
+    revision: 3,
+    defaults_revision: registry.defaultsRevision,
+  };
   const rows = [
     { layer: "common", key: "shell.reading_width", value: JSON.stringify(90) },
   ];

@@ -3,10 +3,7 @@ import {
   SETTINGS_EXCHANGE_FORMAT,
   SETTINGS_EXCHANGE_FORMAT_VERSION,
 } from "./settings.ts";
-import {
-  workerRequestSchema,
-  workerResponseSchema,
-} from "./supervision.ts";
+import { workerRequestSchema, workerResponseSchema } from "./supervision.ts";
 import { settingMutationSchema } from "./settings.ts";
 
 // settings 교환 TOML의 import·export pipe 작업(T27 내놓는 contract).

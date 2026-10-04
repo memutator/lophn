@@ -3,15 +3,23 @@ import { z } from "zod";
 import { SETTINGS_EXCHANGE_FORMAT_VERSION } from "../../contracts/platform/mod.ts";
 import { exportSettingsTOML, parseSettingsTOML } from "./toml.ts";
 
-function failure<T>(result: { ok: boolean; error?: { code: string; message: string } }): {
+function failure<T>(
+  result: { ok: boolean; error?: { code: string; message: string } },
+): {
   code: string;
   message: string;
 } {
   assert(!result.ok, "거절을 기다렸다");
-  return { code: (result as { error: { code: string; message: string } }).error.code, message: (result as { error: { code: string; message: string } }).error.message };
+  return {
+    code: (result as { error: { code: string; message: string } }).error.code,
+    message:
+      (result as { error: { code: string; message: string } }).error.message,
+  };
 }
 
-function value<T>(result: { ok: boolean; value?: T; error?: { code: string; message: string } }): T {
+function value<T>(
+  result: { ok: boolean; value?: T; error?: { code: string; message: string } },
+): T {
   assert(result.ok, result.ok ? undefined : JSON.stringify(result.error));
   return result.value as T;
 }
@@ -94,7 +102,10 @@ Deno.test("platform/settings#R26: JSON5·YAML·빈 문서는 TOML parse에서 �
   assertEquals(failure(yaml).code, "invalid_input");
   // 빈 문서.
   assertEquals(failure(parseSettingsTOML("")).code, "invalid_input");
-  assertEquals(failure(parseSettingsTOML("# 주석만 있다")).code, "invalid_input");
+  assertEquals(
+    failure(parseSettingsTOML("# 주석만 있다")).code,
+    "invalid_input",
+  );
 });
 
 Deno.test("platform/settings#R26: 모르는 format version은 전체를 거절한다", () => {
@@ -176,7 +187,12 @@ Deno.test("platform/settings#R3: 등록 항목 값을 export하고 같은 문서
   const exported = value(
     exportSettingsTOML({
       mutations: [
-        { layer: "common", key: "shell.reading_width", action: "set", value: 90 },
+        {
+          layer: "common",
+          key: "shell.reading_width",
+          action: "set",
+          value: 90,
+        },
         {
           layer: "common",
           key: "documents.tracking",
@@ -189,8 +205,10 @@ Deno.test("platform/settings#R3: 등록 항목 값을 export하고 같은 문서
   );
   // export한 문서에 format 표와 세 항목이 있다.
   assert(exported.includes('format = "TOML"'));
-  assert(exported.includes(`format_version = ${SETTINGS_EXCHANGE_FORMAT_VERSION}`));
-  assert(exported.includes('remove = true'));
+  assert(
+    exported.includes(`format_version = ${SETTINGS_EXCHANGE_FORMAT_VERSION}`),
+  );
+  assert(exported.includes("remove = true"));
   // 같은 문서를 다시 parse하면 같은 mutation이 나온다(R26 왕복).
   const imported = value(parseSettingsTOML(exported));
   assertEquals(imported.format_version, 1);
@@ -256,7 +274,12 @@ Deno.test("platform/settings#R3: export된 문서는 format 표를 유지한다"
   const exported = value(
     exportSettingsTOML({
       mutations: [
-        { layer: "common", key: "shell.reading_width", action: "set", value: 90 },
+        {
+          layer: "common",
+          key: "shell.reading_width",
+          action: "set",
+          value: 90,
+        },
       ],
     }),
   );

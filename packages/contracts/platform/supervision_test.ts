@@ -367,6 +367,7 @@ Deno.test("platform/identity#R2 platform/identity#R6: launch spec 권한·메모
       allow_write: ["derived"],
       allow_net: ["127.0.0.1:7431"],
       allow_run: ["/installed/deno"],
+      allow_sys: ["statfs"],
       allow_env: ["HOME"],
       policy: "always",
       memory_limit_bytes: 1024,
@@ -380,6 +381,22 @@ Deno.test("platform/identity#R2 platform/identity#R6: launch spec 권한·메모
       allow_write: [],
       allow_net: [],
       allow_run: ["*"],
+      allow_sys: [],
+      allow_env: ["HOME"],
+      policy: "always",
+      memory_limit_bytes: 1024,
+    }).success,
+  );
+  // sys 항목도 와일드카드를 받지 않는다.
+  assert(
+    !kindLaunchSpecSchema.safeParse({
+      kind: "documents/worker",
+      entry: "bundle/documents.ts",
+      allow_read: [],
+      allow_write: [],
+      allow_net: [],
+      allow_run: [],
+      allow_sys: ["*"],
       allow_env: ["HOME"],
       policy: "always",
       memory_limit_bytes: 1024,

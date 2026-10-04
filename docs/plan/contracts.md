@@ -690,8 +690,8 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 - 등급: 기본
 - concern: apps/blueprint, apps/permissions, apps/agent-context, apps/sdk
-- 요구: apps/blueprint#R1, R4–R6, R10–R16, R18–R22; apps/agent-context#R1–R5; apps/automations#R1, R2, R13; apps/connections#R1; apps/permissions#R3, R5, R7–R10, R12–R14, R26, R27; apps/sdk#R2–R4, R7, R34
-- 자리: `packages/contracts/apps/` — `blueprint.ts`(의존성 없는 정식 검증기), `permissions.ts`, `agent-context.ts`, `packages.ts`, 각 `_test.ts`
+- 요구: apps/blueprint#R1, R4–R7, R10–R16, R18–R22; apps/agent-context#R1–R5; apps/automations#R1, R2, R13; apps/connections#R1; apps/permissions#R3, R5, R7–R10, R12–R14, R26, R27; apps/sdk#R2–R4, R7, R34
+- 자리: `packages/contracts/apps/` — `blueprint.ts`(공개 정본, 상대 import만), `permissions.ts`, `agent-context.ts`, `packages.ts`, 각 `_test.ts`
 - 쓰는 contract: T32(problem code 선언)
 - 내놓는 contract: blueprint(4장 표 밖, T8에서 4장 표에 더함), 앱 통로의 agent-context 값
 - 받은 요청: apps(C-apps-2, agent-context 값), problems(release의 problem code 선언), lophn-agent(agent_context·annotation_targets·카드 화면), coding-agent(blueprint read)
@@ -699,9 +699,17 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 선행: contracts#T32
 - 완료: 아래 확인이 통과한다
   - `Blueprint`, `ScreenDeclaration(sizes full | panel | card)`, `CommandDeclaration(effect read | write | external, confirm, input, revert)`, `CommandRevertDeclaration`, InputSchema 부분집합, `PermissionRequirement`, `AutomationDeclaration`, `DocumentDeclaration`, `SDKDependency`, `AgentContextDeclaration`, `AnnotationTargetDeclaration`, `AppCommandUseDeclaration`, `PermissionScope` 종류(fs.read, fs.write, net.fetch, net.listen, secret.use, document.save, app.call, agent.commands, automation.run).
-  - blueprint 검증기는 apps/blueprint#R16에 따라 의존성 없는 하나의 정식 schema다. import 없는 순수 TS로 쓰고(Zod 없음) 이 파일 하나가 정본이며 `@lophn/blueprint`(packages/sdk)는 이것을 다시 내보낸다(apps 팀 합의, lead 승인).
-  - 검증기에 들어갈 것(apps 팀 요청): InputSchema 부분집합(type 하나, enum, default, properties·required·`additionalProperties: false`, items, min/max Items·Length, minimum/maximum; `$ref`·`oneOf`·`format`·모르는 keyword 거절), default 적용 뒤 RFC 8785 정규 JSON의 sha256 input hash, 목록 key 정렬·object key 정렬·중복 거절·모르는 field와 옛 `context` 거절, revert 규칙(read·external은 supported=false, write의 supported=true면 같은 blueprint의 다른 write command), automation(`on_start` 또는 `interval_ms` ≥ 60000, command confirm=false, 고정 입력이 schema 통과), agent_context(read_command는 effect=read·confirm=false, write_command는 effect=write), app_connections(자기 앱 금지, commands 중복·wildcard 금지). 요구별 판정 테스트는 apps#T2가 apps 요구 번호로 쓴다.
-  - `ScreenContextReadInput`, `AppScreenContext`(summary 2048 bytes), `AnnotationWriteInput`, `Package(kind component | capability | domain | format)`, `PackageVersion`.
+  - blueprint 검증기는 apps/blueprint#R16에 따라 의존성 없는 하나의 정식 schema다. Zod·Deno·node·npm·jsr·IO·앱 실행이 없고, 공개 이름은 `blueprint.ts` 하나다. 파일 400줄 제한 때문에 구현은 같은 디렉터리의 순수 모듈(`blueprint-types.ts`, `blueprint-json.ts`, `blueprint-schema.ts`, `blueprint-scope.ts`, `blueprint-commands.ts`, `blueprint-uses.ts`, `blueprint-value.ts`)로 나뉘며 서로 상대 import만 한다. `@lophn/blueprint`(packages/sdk)는 이 공개 이름을 다시 내보낸다(apps 팀 합의, lead 승인).
+  - 공개 함수: `validateBlueprint(value, options?: { app?: string })`, `validateInput(schema, value?)`, `canonicalInputHash(schema, value?)`. 결과는 `{ ok: true, value } | { ok: false, error: { code: "invalid_input", message } }`이고 base `Result`에 대입된다. 입력은 바꾸지 않고 정규 복사본을 돌려준다.
+  - `options.app`이 있으면 string이고 `app_` + Crockford ULID여야 한다. number·array·object·`toString` spoof는 coerce하지 않고 `invalid_input`이다. 이 값은 host가 넣는 불변 owner다. 자기 앱 connection 거절은 owner가 있을 때만 한다. `options.app`이 없으면 self-app 검사가 끝났다고 하지 않는다.
+  - JSON Pointer는 RFC 6901이다. `~` 다음이 `0` 또는 `1`이 아니면 거절한다. `hostOf`는 DNS·IPv4·IPv6 lexical host 하나이고 Grant schema와 같은 함수를 쓴다. `net.listen` host는 `localhost`, `127.0.0.1`, `::1`만이다.
+  - standalone InputSchema.description은 빈 문자열을 포함한 optional JSON string이고 command.input에 명시한 description은 root·properties·items 모두 nonblank다(부재를 필수로 만들지 않음). enum은 default를 채운 정규 값과 비교한다. integer bound는 finite number이고 실제 값은 safe integer다. schema cycle·non-JSON·lone surrogate는 throw 없이 `invalid_input`이다.
+  - SemVer numeric prerelease의 선행 0(`1.0.0-01`, `alpha.01`)은 거절하고 `0`, `alpha.0`, build `01`은 받는다. app connection command는 trim된 exact key다.
+  - `blueprint.ts`가 structural `PermissionKind`, `PermissionScope`, `PermissionRequirement`, `AgentContextDeclaration`, `AnnotationTargetDeclaration`을 내보낸다. `mod.ts`의 Zod Grant 이름은 `GrantPermissionKind`, `GrantPermissionScope`, `GrantPermissionRequirement`다. Zod agent-context 선언 입력은 `AgentContextDeclarationInput`, `AnnotationTargetDeclarationInput`이다.
+  - `schema === null`은 `undefined`만 받는다(JSON `null` 아님). 입력 없음의 hash는 정규 JSON `null`의 SHA-256이고, `type: "null"`에 명시 null을 넣은 hash와 같다. 이 hash는 app·release·command·schema를 묶지 않는다.
+  - 검증기에 들어갈 것(apps 팀 요청): InputSchema 부분집합(type 하나, enum, default, properties·required·없는 `additionalProperties`는 false로 정규화, items, min/max Items·Length, minimum/maximum; `$ref`·`oneOf`·`format`·모르는 keyword 거절), default를 재귀 적용한 뒤 RFC 8785 정규 JSON의 sha256 input hash(object key는 UTF-16 정렬, 숫자·문자열 인코딩은 `JSON.stringify`, SHA-256은 WebCrypto), 목록 key 정렬·object key 정렬·중복 거절·모르는 field와 옛 `context` 거절, revert 규칙(read·external은 supported=false, write의 supported=true면 같은 blueprint의 다른 write command), automation(`on_start` 또는 `interval_ms` ≥ 60000, command confirm=false, 고정 입력이 schema 통과, external effect 허용), agent_context(read_command는 effect=read·confirm=false, write_command는 effect=write), app_connections(owner가 있으면 자기 앱 금지, commands는 비어 있지 않은 exact key, 중복·wildcard 금지), SDK dependency는 exact SemVer, document.save key는 선언된 document와 같고 format은 `{name, module_hash, explicit}`.
+  - `automation.run` Grant scope `{automation, command, input_hash, when}`는 `GrantPermissionScope`에만 있고 `blueprint.permissions`에는 없다. blueprint permission kind는 fs.read, fs.write, net.fetch, net.listen, secret.use, document.save뿐이다. 실제 실행·권한·효과 판정 테스트는 apps#T2와 각 owner가 apps 요구 번호로 쓴다.
+  - `ScreenContextReadInput`, `AppScreenContext`(summary 2048 bytes, data 생략/object/null), `AnnotationWriteInput`; additive catalog 출력 `Package {id(pkg), name, description, kind, versions}`·`PackageVersion {version, bundle_hash, guide_hash}`. 설치 command의 strict 입력은 T37과 분리한다.
 
 ### T34 contracts/apps: 앱 통로·앱 시작 입력
 

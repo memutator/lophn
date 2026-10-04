@@ -27,7 +27,7 @@ actor는 token으로 정하며 본문·label·제품 이름·환경 변수로 �
 | `token` | 불투명 string | 아니오 | 충분한 무작위성; 신뢰 인증 경계에서 자동 발급·OS keychain 보관; 일반 조회·ledger·event에는 원문 없음 | 인증 값 |
 | `principal` | string | 아니오 | 서버가 만든 안정된 주체 식별; token 회전과 독립 | idempotency 범위 |
 | `actor` | Actor | 아니오 | 서버가 발급 때 결정 | 주체 |
-| `scope` | CredentialScope | 아니오 | 해당 actor의 상한 이하 | 허용 범위 |
+| `scope` | CredentialScope | 아니오 | 해당 actor의 상한 이하; agent는 시작 때 고정한 AgentAppScope를 싣고 발급 뒤 넓히지 못함 | 허용 범위 |
 | `conditions` | CredentialConditions | 아니오 | 실제 시작 대상에 묶임; 현재 조건과 교집합 | 사용 조건 |
 | `state` | `active` / `revoked` / `ended` | 아니오 | revoked·ended에서 active로 복구 불가 | 유효 상태 |
 
@@ -45,6 +45,7 @@ actor는 token으로 정하며 본문·label·제품 이름·환경 변수로 �
 |---|---|---|---|---|
 | `operations` | 등록된 동작 이름 집합 | 아니오 | actor 종류 상한과 현재 허용 동작의 교집합 | 동작 범위 |
 | `targets` | 등록된 대상 범위 | 아니오 | connection·assignment·앱·배정 작업의 범위 이내 | 대상 범위 |
+| `agent` | AgentAppScope | 예 | agent이면 필수; 다른 actor이면 없음; lophn-agent가 계산한 시작 scope 그대로; platform은 해석하지 않고 상한을 넓히지 못하게만 함(→ lophn-agent/roles) | agent 앱 범위 |
 
 | actor | 상한 |
 |---|---|
@@ -109,7 +110,7 @@ core는 정본 action의 concern·command·대상·정확한 입력·CAS와 제�
 ## 정할 것
 
 - token은 OS CSPRNG 32byte와 검증된 hash·constant-time 비교를 쓴다. OS별 안전 전달 모양은 → platform architecture에서 고정한다.
-- 앱 direct-call 연결·confirm 접수 실행 증명의 서명·전송 모양은 → apps/runtime와 맞춘다.
+- 앱 direct-call 연결·confirm 접수 실행 증명은 새 token·actor 종류가 아니라 core 안 apps 제어 adapter가 core 시작마다 만든 Ed25519 key로 서명한 진술이다. 서명 모양은 → apps/runtime와 맞춘다. platform은 `credential_ref`·기한·core epoch만 주고 AppConnection 기한은 원래 credential 기한 이하·최대 10분, proof는 120초다. 회수는 소유 event(GrantRevoked, assignment 멈춤, connection 회수, run 종료)와 core epoch로 판단하고 별도 platform 회수 event는 만들지 않는다. 공개 key는 앱 초기 JSON의 verify_key다.
 - Host 허용 주소는 실제 port를 포함한 loopback 두 가족(127.0.0.1, ::1, localhost)의 정확한 목록만 쓴다. request·connection·구독의 유한 한도는 → platform/responsiveness와 platform architecture에서 검증해 고정한다.
 
 ## coding credential 전달 결합

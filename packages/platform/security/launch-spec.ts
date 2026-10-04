@@ -57,6 +57,7 @@ export function checkLaunchSpec(
     ...spec.allow_write,
     ...spec.allow_net,
     ...spec.allow_run,
+    ...spec.allow_sys,
     ...spec.allow_env,
   ];
   if (grants.some(forbiddenFlag)) return reject("forbidden flag in permission");
@@ -86,6 +87,7 @@ export function launchArgv(spec: KindLaunchSpec): string[] {
     ...flag("allow-write", spec.allow_write),
     ...flag("allow-net", spec.allow_net),
     ...flag("allow-run", spec.allow_run),
+    ...flag("allow-sys", spec.allow_sys),
     ...flag("allow-env", spec.allow_env),
     spec.entry,
   ];

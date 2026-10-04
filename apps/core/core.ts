@@ -4,9 +4,11 @@ import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
 import { err, ok } from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
+  ChildMessage,
+  Frame,
   KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
-import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
+import { ROUTES } from "../../packages/contracts/platform/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -99,6 +101,14 @@ async function open(
 ): Promise<Result<Core>> {
   const assembled = assemble(options.teams);
   if (!assembled.ok) return assembled;
+  // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
+  // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
+  let routes: RouteRegistry;
+  try {
+    routes = new RouteRegistry([...ROUTES, ...assembled.value.routes]);
+  } catch {
+    return err({ code: "internal", message: "route 등록이 겹친다" });
+  }
   const ledgerPath = `${root.path}/lophn.db`;
   const migrated = await applyMigrations(
     ledgerPath,
@@ -190,8 +200,7 @@ async function open(
       reads: runtime.reads,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
-      // 팀 command·read의 route도 등록값에서 온다. 조립은 모든 최상위 route 모음 하나로.
-      registry: new RouteRegistry(ALL_ROUTES),
+      registry: routes,
     });
   } catch {
     await runtime.close();
@@ -302,6 +311,8 @@ function seedOf(random: RandomSource): number {
 }
 
 // platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
+// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측(R12)에만 쓴다. node:fs statfs는
+// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
 function platformIoSpec(dataRoot: string): KindLaunchSpec {
   return {
     kind: "platform/io",
@@ -310,6 +321,7 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
     allow_write: [dataRoot],
     allow_net: [],
     allow_run: [],
+    allow_sys: ["statfs"],
     allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
@@ -321,20 +333,29 @@ function startPlatformIo(
   dataRoot: string,
   epoch: string,
   port: number,
+  // blob 준비 중계. worker_response와 byte chunk 소비를 묶는다(Q6).
+  blob?: {
+    onMessage(message: ChildMessage): void;
+    onFrame(frame: Frame): void;
+  },
 ): Promise<Result<void>> {
-  return io.start(platformIoSpec(dataRoot), {
-    type: "hello",
-    core_epoch: epoch,
-    process_identity: epoch,
-    kind: "platform/io",
-    task: "diagnostics",
-    scope: { operations: [], targets: {} },
-    credential: "platform-io",
-    api_port: port,
-  }, {
-    // platform/io 응답은 core가 아직 소비하지 않는다. 감독과 상태만 본다.
-    onMessage() {},
-  }).then((started) =>
+  return io.start(
+    platformIoSpec(dataRoot),
+    {
+      type: "hello",
+      core_epoch: epoch,
+      process_identity: epoch,
+      kind: "platform/io",
+      task: "diagnostics",
+      scope: { operations: [], targets: {} },
+      credential: "platform-io",
+      api_port: port,
+    },
+    blob ?? {
+      // platform/io 응답은 core가 아직 소비하지 않는다. 감독과 상태만 본다.
+      onMessage() {},
+    },
+  ).then((started) =>
     started.ok ? ok(undefined) : err({
       code: started.code,
       message: "platform/io worker를 시작하지 못했다",

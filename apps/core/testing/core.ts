@@ -2,18 +2,26 @@
  * 다른 팀의 *_test.ts가 쓰는 test-only public entry. 제품 main.ts에는 없다.
  *
  * 임시 데이터 root로 core 전체를 띄우고, 다섯 actor 어느 것이든 지정 scope·
- * conditions의 테스트 credential을 만든다. coding_agent 발급(T34) 전에도
- * MCP·CLI 테스트가 이 credential로 붙는다.
+ * conditions의 테스트 credential을 만든다. 제품 registry는 user·machine만
+ * 발급하므로, agent·app·coding_agent는 테스트 전용 기록으로만 심는다.
  */
-import { manualClock, seededRandom } from "../../../packages/base/mod.ts";
+import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../packages/base/mod.ts";
 import type { Result } from "../../../packages/base/mod.ts";
 import { err, ok } from "../../../packages/base/mod.ts";
 import type {
   ActorKind,
+  AuthenticatedContext,
   CredentialConditions,
   CredentialScope,
 } from "../../../packages/contracts/platform/mod.ts";
-import { CredentialRegistry } from "../../../packages/platform/identity/mod.ts";
+import {
+  actorSchema,
+  authenticatedContextSchema,
+} from "../../../packages/contracts/platform/mod.ts";
 import { type Core, startCore } from "../core.ts";
 import type { TeamModule } from "../registration.ts";
 
@@ -25,8 +33,8 @@ export type CoreHarnessCredential = {
 };
 
 export type CoreHarnessOptions = {
-  // 팀이 자기 등록 모듈을 넘긴다. 제품 등록과 같은 모양이다.
   teams?: readonly TeamModule[];
+  teamModules?: readonly string[];
   nowMs?: number;
   seed?: number;
 };
@@ -35,23 +43,25 @@ export type CoreHarness = {
   port: number;
   epoch: string;
   dataRoot: string;
-  // 지정 scope·conditions의 테스트 credential. 제품 발급 경로와 별개다.
-  credential(input: CoreHarnessCredential): Promise<Result<{ token: string }>>;
+  credential(
+    input: CoreHarnessCredential,
+  ): Promise<Result<{ token: string; context: AuthenticatedContext }>>;
   close(): Promise<void>;
 };
 
-const ACTORS: readonly ActorKind[] = [
-  "user",
-  "coding_agent",
-  "agent",
-  "app",
-  "machine",
-];
+type RecordingCore = Core & {
+  record(context: AuthenticatedContext): Promise<Result<void>>;
+  acceptTestCredential?(
+    context: AuthenticatedContext,
+    token: string,
+  ): Promise<Result<void>>;
+};
 
 export async function createCoreHarness(
   options: CoreHarnessOptions = {},
 ): Promise<Result<CoreHarness>> {
-  const nowMs = options.nowMs ?? Date.UTC(2026, 9, 4);
+  // ULID 시각은 48bit다. 2026년은 그 범위를 넘으므로 기본 시계를 그 안에 둔다.
+  const nowMs = options.nowMs ?? Date.UTC(2024, 0, 1);
   const seed = options.seed ?? 1;
   const clock = manualClock(nowMs);
   const directory = await Deno.makeTempDir({ prefix: "lophn-core-harness-" });
@@ -59,47 +69,89 @@ export async function createCoreHarness(
     lophnHome: directory,
     port: 0,
     teams: options.teams ?? [],
+    teamModules: options.teamModules,
     clock,
     random: seededRandom(seed),
+    testCredentials: true,
+    superviseIo: false,
   });
   if (!started.ok) {
     await Deno.remove(directory, { recursive: true });
     return started;
   }
-  const core: Core = started.value;
-  const random = seededRandom(seed + 1);
+  const core = started.value as RecordingCore;
+  const random = seededRandom(seed + 7);
+  const ids = createIdSource({ clock, random });
+  let sequence = 0;
   return ok({
     port: core.port,
     epoch: core.epoch,
     dataRoot: core.dataRoot,
     async credential(input) {
-      // user·machine만 이 registry가 발급한다. agent·app·coding_agent 발급은 각 소유 작업이 맡는다.
-      if (input.actor !== "user" && input.actor !== "machine") {
+      const built = buildContext(input, ids, sequence++);
+      if (!built.ok) return built;
+      const token = tokenOf(random);
+      if (!core.acceptTestCredential) {
         return err({
           code: "unavailable",
-          message: "그 actor의 테스트 credential 발급은 아직 없다",
+          message: "테스트 credential 입구가 없다",
         });
       }
-      // 요청한 operation만 상한으로 인정한다. 그 밖의 scope 확대는 registry가 거절한다.
-      const registry = new CredentialRegistry({
-        epoch: core.epoch,
-        clock,
-        random,
-        operations: input.scope.operations.map((name) => ({
-          name,
-          actors: ACTORS,
-          kind: input.actor === "machine"
-            ? "command" as const
-            : "read" as const,
-        })),
-      });
-      const issued = await registry.issue({ ...input, actor: input.actor });
-      if (!issued.ok) return issued;
-      return ok({ token: issued.value.token });
+      const accepted = await core.acceptTestCredential(built.value, token);
+      if (!accepted.ok) return accepted;
+      const recorded = await core.record(built.value);
+      if (!recorded.ok) return recorded;
+      return ok({ token, context: built.value });
     },
     async close() {
       await core.shutdown();
       await Deno.remove(directory, { recursive: true });
     },
   });
+}
+
+function buildContext(
+  input: CoreHarnessCredential,
+  ids: { newId(prefix: string): string },
+  sequence: number,
+): Result<AuthenticatedContext> {
+  // actor id는 "cac_<ulid>" 전체다. 접두사를 떼면 schema를 통과하지 못한다.
+  const actor = input.actor === "user" || input.actor === "machine"
+    ? input.actor
+    : `${input.actor}:${ids.newId(prefixOf(input.actor))}`;
+  if (!actorSchema.safeParse(actor).success) {
+    return err({
+      code: "invalid_input",
+      message: "테스트 actor가 올바르지 않다",
+    });
+  }
+  const parsed = authenticatedContextSchema.safeParse({
+    principal: input.principal,
+    actor,
+    scope: input.scope,
+    conditions: input.conditions,
+    credential_ref: `test-${sequence}`,
+  });
+  if (!parsed.success) {
+    return err({
+      code: "invalid_input",
+      message: "테스트 credential이 올바르지 않다",
+    });
+  }
+  return ok(parsed.data);
+}
+
+function prefixOf(actor: ActorKind): string {
+  if (actor === "coding_agent") return "cac";
+  if (actor === "agent") return "asg";
+  return "app";
+}
+
+function tokenOf(random: { fill(bytes: Uint8Array): void }): string {
+  const bytes = new Uint8Array(32);
+  random.fill(bytes);
+  return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll(
+    "/",
+    "_",
+  ).replaceAll("=", "");
 }

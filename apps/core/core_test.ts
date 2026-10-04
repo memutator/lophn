@@ -22,6 +22,7 @@ async function boot(
     teams: [],
     clock: CLOCK,
     random: seededRandom(3),
+    superviseIo: false,
     ...extra,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
@@ -55,14 +56,24 @@ Deno.test("platform/install-and-update#R7: LOPHN_HOME 없으면 ~/.lophn, 있으
 Deno.test("platform/install-and-update#R9: root·apps·run이 0700보다 넓거나 symlink면 기동을 거절한다", async () => {
   const wide = await Deno.makeTempDir({ prefix: "lophn-wide-" });
   await Deno.chmod(wide, 0o755);
-  const widened = await startCore({ lophnHome: wide, port: 0, teams: [] });
+  const widened = await startCore({
+    lophnHome: wide,
+    port: 0,
+    teams: [],
+    superviseIo: false,
+  });
   assert(!widened.ok);
   assertEquals(widened.ok ? "" : widened.error.code, "unavailable");
 
   const target = await Deno.makeTempDir({ prefix: "lophn-target-" });
   const link = `${wide}-link`;
   await Deno.symlink(target, link);
-  const linked = await startCore({ lophnHome: link, port: 0, teams: [] });
+  const linked = await startCore({
+    lophnHome: link,
+    port: 0,
+    teams: [],
+    superviseIo: false,
+  });
   assert(!linked.ok);
 
   const owned = await Deno.makeTempDir({ prefix: "lophn-owned-" });
@@ -89,6 +100,7 @@ Deno.test("platform/install-and-update#R10: 같은 데이터 폴더의 두 번�
       port: 0,
       teams: [],
       clock: CLOCK,
+      superviseIo: false,
     });
     assert(!second.ok);
     assertEquals(second.ok ? "" : second.error.code, "conflict");

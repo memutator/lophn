@@ -18,7 +18,16 @@ const parent = Deno.stdin.isTerminal()
   ? undefined
   : { stdin: Deno.stdin.readable, stdout: Deno.stdout.writable };
 
-const started = await startCore({ port, teams: TEAMS, parent });
+const started = await startCore({
+  port,
+  teams: TEAMS,
+  teamModules: [
+    new URL("./documents.ts", import.meta.url).href,
+    new URL("./problems.ts", import.meta.url).href,
+    new URL("./coding-agent.ts", import.meta.url).href,
+  ],
+  parent,
+});
 if (!started.ok) {
   console.error(`core: ${started.error.message}`);
   Deno.exit(1);

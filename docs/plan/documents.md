@@ -199,6 +199,7 @@ concerns: [documents]
   - 자리 변경은 FileSource·디스크 파일·tracking 규칙을 바꾸지 않는다
   - 옛 address도 현재 scope로 검사하고 안내로 권한을 넓히지 않는다
   - `reads_test.ts`, `commands_test.ts`에 각 요구 번호 테스트(이름·자리를 여러 번 바꾼 뒤 처음 address로 지정 판에 닿기)
+- 상태: 완료 (#176)
 
 ### T10 tracking 규칙과 미리보기
 

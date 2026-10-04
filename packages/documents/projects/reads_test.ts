@@ -1,12 +1,13 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
 import type { DocumentRef } from "../../contracts/documents/mod.ts";
+import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
 import { initialTrackingProposal } from "./mod.ts";
 import { createProjectReads, type ProjectReadDeps } from "./reads.ts";
 import { createProjectCommands } from "./commands.ts";
 import { ids, projectFixture, userContext } from "./testing-fixture.ts";
 
-const commands = createProjectCommands({ authorize: () => ok(undefined) });
+const commands = createProjectCommands();
 const hidden = "doc_01arz3ndektsv4rrffq69g5faw";
 const visibleDoc: DocumentRef = {
   document: ids.doc,
@@ -19,15 +20,15 @@ const secretDoc: DocumentRef = {
   section: null,
 };
 
+function authorizeFor(allowed: Set<string>): TargetAuthorizer {
+  return (_ctx, _operation, target) =>
+    typeof target.project === "string" && allowed.has(target.project)
+      ? ok(undefined)
+      : err({ code: "forbidden", message: "outside current scope" });
+}
+
 function deps(allowed: Set<string>): ProjectReadDeps {
   return {
-    authorize(_ctx, _operation, target) {
-      return allowed.has(
-          target.kind === "command" ? target.after.id : target.project.id,
-        )
-        ? ok(undefined)
-        : err({ code: "forbidden", message: "outside current scope" });
-    },
     documents(_snapshot, project) {
       if (!allowed.has(project)) return ok([secretDoc]);
       return ok(project === ids.project ? [visibleDoc] : []);
@@ -71,10 +72,15 @@ Deno.test("documents/projects#R8: user read returns folders, count and tracking"
   const fixture = projectFixture();
   try {
     seed(fixture);
+    fixture.use(authorizeFor(new Set([ids.project, ids.other])));
     const reads = createProjectReads(deps(new Set([ids.project, ids.other])));
-    const got = reads.get.handle(fixture.snapshot(), userContext(), {
-      project: ids.project,
-    });
+    const got = reads.get.handle(
+      fixture.snapshot(),
+      userContext(),
+      {
+        project: ids.project,
+      },
+    );
     assert(got.ok);
     const project = got.value.project;
     assert("folders" in project);
@@ -104,7 +110,9 @@ Deno.test("documents/projects#R9: nonuser output hides paths and outside project
   const fixture = projectFixture();
   try {
     seed(fixture);
-    const reads = createProjectReads(deps(new Set([ids.project])));
+    const allowed = new Set([ids.project]);
+    fixture.use(authorizeFor(allowed));
+    const reads = createProjectReads(deps(allowed));
     const agent = "agent:asg_01arz3ndektsv4rrffq69g5fav";
     const listed = reads.list.handle(
       fixture.snapshot(),
@@ -144,17 +152,21 @@ Deno.test("documents/projects#R9: dependency failures stay visible", () => {
   try {
     seed(fixture);
     const unavailable = createProjectReads({
-      authorize: () => err({ code: "unavailable", message: "credential" }),
       documents: () => ok([]),
     });
+    const deniedCredential = fixture.snapshot();
+    deniedCredential.port = (() => () =>
+      err({
+        code: "unavailable",
+        message: "credential",
+      })) as typeof deniedCredential.port;
     const failed = unavailable.list.handle(
-      fixture.snapshot(),
+      deniedCredential,
       userContext(),
       {},
     );
     assert(!failed.ok && failed.error.code === "unavailable");
     const broken = createProjectReads({
-      authorize: () => ok(undefined),
       documents: () => err({ code: "internal", message: "document refs" }),
     });
     const internal = broken.get.handle(fixture.snapshot(), userContext(), {
@@ -170,7 +182,9 @@ Deno.test("documents/projects#R10: resolve uses the deepest root and links nothi
   const fixture = projectFixture();
   try {
     seed(fixture);
-    const reads = createProjectReads(deps(new Set([ids.project, ids.other])));
+    const allowed = new Set([ids.project, ids.other]);
+    fixture.use(authorizeFor(allowed));
+    const reads = createProjectReads(deps(allowed));
     const resolved = reads.resolve.handle(fixture.snapshot(), userContext(), {
       path: "/work/notes/deep/file.md",
     });

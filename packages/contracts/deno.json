@@ -8,6 +8,7 @@
     "./apps": "./apps/mod.ts",
     "./problems": "./problems/mod.ts",
     "./problems/sdk-report": "./problems/sdk-report.ts",
+    "./shell/app-bridge": "./shell/app-bridge-types.ts",
     "./coding-agent": "./coding-agent/mod.ts",
     "./lophn-agent": "./lophn-agent/mod.ts"
   },

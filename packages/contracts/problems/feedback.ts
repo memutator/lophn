@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { canonicalize } from "../../base/mod.ts";
 import { atSchema, defineWorker, idSchema } from "../platform/mod.ts";
 import { snapshotInputSchema } from "./snapshots.ts";
 import {
@@ -73,18 +74,16 @@ export const submitFeedbackInputSchema = z.strictObject({
     : screenshot !== null && screenshot.blob.hash === screen.screenshot &&
       value.blobs.some((blob) =>
         blob.purpose === "feedback_screenshot" &&
-        JSON.stringify(blob) === JSON.stringify(screenshot.blob)
-      )) &&
-    blobMetadataBytes(value.blobs.filter((blob) =>
-        blob.purpose !== "report_text" && blob.purpose !== "report_details"
-      )) <= REPORTING_LIMITS.snapshot_large_bytes;
+        canonicalize(blob) === canonicalize(screenshot.blob)
+      ));
 }).refine((value) =>
   new TextEncoder().encode(JSON.stringify(value)).length +
       blobMetadataBytes(value.blobs) <= REPORTING_LIMITS.feedback_total_bytes
 );
 export type SubmitFeedbackInput = z.infer<typeof submitFeedbackInputSchema>;
-// Current shell/view authorization, selected hash binding, PNG header and final
-// redaction are trusted host checks; supplied metadata is not permission.
+// Current shell/view authorization, selected hash binding, PNG header and
+// text/state redaction are trusted host checks; supplied metadata is not
+// permission. The chosen screenshot is attached as-is without redaction (D32).
 export const submitFeedback = defineWorker({
   resource: "problems",
   method: "submit-feedback",

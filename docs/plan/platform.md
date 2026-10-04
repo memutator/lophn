@@ -506,6 +506,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T20 secret 전송 부착과 갱신 결과 저장
 
+- 상태: 완료 (#96)
 - 등급: 기본
 - concern: platform/secrets, platform/security
 - 요구: platform/secrets#R3, R5, R11, platform/security#R9
@@ -822,18 +823,6 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ## problems
 
-### T37 screenshot과 보고 수집의 redaction 경계
-
-- 등급: 기본
-- concern: platform/redaction
-- 요구: platform/redaction#R13
-- 자리: packages/platform/redaction/
-- 쓰는 contract: redaction, problems의 snapshot 수집 입력
-- 내놓는 contract: 없음
-- slice: problems
-- 선행: platform#T16, problems의 snapshot contract
-- 완료: `screenshot_test.ts`에 R13 테스트(보호 화면·secret 입력 미수집, private 영역 처리 불가면 이미지 대신 Omission), flow report-app-problem의 redaction 단계 통합 테스트
-
 ### T38 lophn 내부 오류의 진단 분류
 
 - 상태: 완료 (#80)
@@ -1098,7 +1087,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 | platform/install-and-update | 15 | 15 | T9, T43, T48, T49, T50, T54, T55 |
 | platform/ledger | 23 | 23 | T1, T2, T3, T4, T9, T18, T24, T42 |
 | platform/notifications | 12 | 12 | T17, T29, T33, T36, T39, T46, T53, T54 |
-| platform/redaction | 17 | 17 | T8, T15, T16, T37, T57 |
+| platform/redaction | 16 | 16 | T8, T15, T16, T57 |
 | platform/responsiveness | 10 | 10 | T8, T10, T11, T12, T51, T52, T54 |
 | platform/secrets | 12 | 12 | T19, T20, T31, T34, T45 |
 | platform/security | 11 | 11 | T6, T7, T20, T28, T30, T48 |

@@ -26,13 +26,9 @@ export {
   initialTrackingProposal,
   type ProjectReadDeps,
 } from "./reads.ts";
-export {
-  createProjectEventVisibility,
-  type ProjectEventAccess,
-} from "./visibility.ts";
+export { createProjectEventVisibility } from "./visibility.ts";
 export type {
   ProjectAccessTarget,
-  ProjectAuthorizer,
   ProjectCandidate,
   ProjectEvent,
 } from "./authorization.ts";

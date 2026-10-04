@@ -4,8 +4,12 @@
 
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
+  SecretExportInput,
+  SecretImportInput,
+  SecretImportOutput,
   SecretPreparation,
   SecretPrepareInput,
+  SecretValue,
 } from "../../contracts/platform/mod.ts";
 import type { KnownSecretRegistry } from "../redaction/mod.ts";
 import type { KeychainAdapter } from "./adapters/keychain.ts";
@@ -18,10 +22,13 @@ import {
 import type { SecretRecord } from "./model.ts";
 
 export type SecretSelection = {
-  // 사람이 명시적으로 고른 현재 참조. 값은 여기 없다.
-  records: readonly SecretRecord[];
-  purpose: SecretPrepareInput["purpose"];
-  owner: string;
+  // 사람이 명시적으로 고른 현재 참조. 값은 여기 없고 항목마다 용도·소유가 있다.
+  records: readonly {
+    name: string;
+    sealedRef: string;
+    purpose: SecretPrepareInput["purpose"];
+    owner: string;
+  }[];
 };
 
 export type ImportCommit = {
@@ -43,6 +50,17 @@ export type SecretTransfer = {
     passphrase: string;
     current: (name: string) => SecretRecord | undefined;
   }): Promise<Result<readonly ImportCommit[]>>;
+  // contract callback. 암호·암호문은 인자로만 오고 응답에는 크기·준비만 남는다.
+  // 암호문 bytes는 결과로 돌려 callback·byte chunk에만 둔다. JSON 응답에는 크기만 간다.
+  exportBytes(
+    input: SecretExportInput,
+    passphrase: SecretValue,
+  ): Promise<Result<Uint8Array>>;
+  importBytes(
+    input: SecretImportInput,
+    passphrase: SecretValue,
+    ciphertext: Uint8Array,
+  ): Promise<Result<SecretImportOutput>>;
 };
 
 export function createSecretTransfer(options: {
@@ -73,8 +91,8 @@ export function createSecretTransfer(options: {
         if (!loaded.ok) return loaded;
         items.push({
           name: record.name,
-          purpose: request.selection.purpose,
-          owner: request.selection.owner,
+          purpose: record.purpose,
+          owner: record.owner,
           value: loaded.value,
         });
       }
@@ -87,6 +105,46 @@ export function createSecretTransfer(options: {
         return err({ code: "internal", message: "보호 파일이 원값을 담는다" });
       }
       return sealed;
+    },
+    async exportBytes(input, passphrase) {
+      const exported = await this.exportSelected({
+        selection: {
+          records: input.secrets.map((secret) => ({
+            name: secret.name,
+            sealedRef: secret.sealed_ref,
+            purpose: secret.purpose,
+            owner: secret.owner,
+          })),
+        },
+        passphrase: textOf(passphrase),
+      });
+      if (!exported.ok) return exported;
+      return ok(exported.value.bytes);
+    },
+    async importBytes(input, passphrase, ciphertext) {
+      const byName = new Map(input.current.map((reference) => [
+        reference.name,
+        {
+          name: reference.name,
+          sealedRef: reference.sealed_ref,
+          revision: reference.revision,
+        },
+      ]));
+      const imported = await this.importSelected({
+        file: { bytes: ciphertext },
+        passphrase: textOf(passphrase),
+        current: (name) => byName.get(name),
+      });
+      if (!imported.ok) return imported;
+      return ok({
+        commits: imported.value.map((commit) => ({
+          name: commit.name,
+          preparation: commit.preparation,
+          compare: commit.current === undefined
+            ? { sealed_ref: null, revision: null }
+            : commit.current,
+        })),
+      });
     },
     async importSelected(request) {
       const status = await options.keychain.status();
@@ -142,6 +200,10 @@ async function dropPreparations(
     }
     await keychain.remove(commit.preparation.sealed_ref);
   }
+}
+
+function textOf(value: SecretValue): string {
+  return typeof value === "string" ? value : new TextDecoder().decode(value);
 }
 
 function plaintextLeft(

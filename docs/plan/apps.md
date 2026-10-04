@@ -55,6 +55,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T3 permission scope와 Deno flag 계산
 
+- 상태: 완료 (#73)
 - 등급: 기본
 - concern: apps/permissions, apps/blueprint
 - 요구: apps/permissions#R5, R6, R7, R8, R9, R10, R11, R12, R18, R19, R25, apps/blueprint#R9

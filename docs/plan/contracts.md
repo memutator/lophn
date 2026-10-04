@@ -144,6 +144,17 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
   - route: `/v1/platform/status`(출력에 ledger 생성·복원마다 바뀌는 `ledger_id`), `/v1/platform/health`, `/v1/identity/current`, `/v1/commands/result`. `/v1/commands/result`는 자기 principal의 결과만 읽는다(platform·problems 합의).
   - type 수준 테스트: 예시 CommandDefinition이 `deno check`를 통과하고 async handler는 거절된다.
 
+#### T6 구현 메모: 비공개 diagnostics write
+
+- 상태: 완료 (#48)
+- concern: platform/diagnostics
+- 요구: platform/diagnostics#R2–R5, R7, R8
+- 자리: `packages/contracts/platform/diagnostics-write.ts`, `diagnostics-write_test.ts`, `diagnostics-write-pipe_test.ts`
+- platform#T8이 받는 비공개 pipe op `platform.diagnostics.write`다. supervision의 고정 strict Diagnostic catalog 여섯 종류를 records 원소로 재사용하고 자유 형태 DiagnosticRecord·LogRecord·원문 message·stack·fields·blob·byte stream은 받지 않는다.
+- 입력은 `{records, dropped}`, 출력은 `{accepted, dropped}`이고 count는 nonnegative safe integer다. batch 최대 256개, `accepted` 최대 256, host queue 대기 상한 1MiB, 전체 JSON control frame은 기존 256KiB다. 빈 records의 drop-count-only 요청도 허용한다.
+- `accepted`는 ingress/queue acceptance일 뿐 log 저장 성공이나 ledger 확정이 아니다. 실제 request 수 이하 검사·drop count 계산·request ID 결합은 host가 한다. core는 fire-and-forget으로 전달하고 log 때문에 기다리지 않는다.
+- core→platform I/O private 인증 pipe의 JSON control 요청에만 쓰며 channel field·공개 HTTP route·`PIPE_OPS` 등록은 없다. 현재 process·task·scope와 component/location/ID registry membership, 고정 safe phrase 또는 null+omission public 진단으로의 redaction은 platform runtime 책임이다.
+
 ### T7 contracts/platform: event envelope·구독
 
 - 상태: 완료 (#10)
@@ -1018,3 +1029,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q14 T20의 `App.revision`은 해당 App의 마지막 변경 event seq이고, 전역 read snapshot의 `as_of_seq`로 대신하지 않는다(apps·documents 소비 review 완료). App get/list와 등록·source·보관·실행 허용 command 결과에서 revision을 보존해 CAS를 조립한다. logs는 source/buffer 없음 `none`, 수집 꺼짐 `off`, 예산 안 완료 못 함 `timeout`, 조회 성공 `ok`로 구별한다(apps·problems 합의). `ok`의 빈 lines도 정상이며 부분 확보·cap은 `truncated=true`; `collected_at`은 실제 수집 시각 또는 null이다. 입력의 `max_bytes`는 positive safe integer이며 runtime 200줄·줄당 300자 cap과 snapshot caller 30줄·65,536bytes를 섞지 않는다. 현재 scope·supervisor 신원·실제 관측·redaction과 writer 최종 CAS는 구현이 검사한다.
 - Q15 T32의 `Verification.request_principal`은 actor kind가 아닌 인증 주체의 stable opaque 참조로 정하고 공백뿐인 값은 거절한다(problems·apps 소비 review 완료). `GetTestRequest`는 인증 principal와 key로 기존 accepted command record를 읽고, `RecordVerification`은 같은 request의 principal·hash와 대조한다. 별도 request lifecycle entity를 만들지 않는다. `TestMethod.argv`는 executable을 제외한 `['test', ...]`이며 runner만 고정 absolute Deno executable을 고른다. schema의 argv·cwd 검사는 lexical 입력 한도일 뿐 현재 grant scope·realpath/symlink·OS lifecycle/memory 격리·실제 test 판정을 증명하지 않는다. 빈 failure_paths는 선언이 없는 경우의 값이고 전체 선언 coverage와 hash 일치는 runner가 검사한다. 공용 Tx member는 더하지 않는다.
 - Q17 T7 follow-up은 schema-only event 선언과 별도 `EventVisibilityDefinition`을 둔다(추천안). core가 event type별 owner policy를 고정하며 duplicate는 안전한 기동 오류, 미등록은 fail-closed다. 같은 read snapshot·현재 인증 context·그 event envelope를 전달하고 subject와 payload 참조 전체의 현재 visibility를 owner가 검사한다. `ok(false)`·안전한 `not_found`·`forbidden`은 scanned cursor를 진행하는 omission이며 다른 오류·throw·Promise·invalid Result는 전체 batch 안전 오류다. 이 계약의 type 테스트는 실제 registry·권한·runtime async guard 구현을 대신하지 않는다.
+- Q18 T6 diagnostics follow-up은 기존 supervision 고정 Diagnostic catalog를 `platform.diagnostics.write`의 strict `{records, dropped}` 입력으로 재사용한다(추천안, platform 소비 review 완료). public DiagnosticRecord·raw LogRecord를 입력으로 쓰지 않으며 JSON control 전용·batch 256개·대기 1MiB·frame 256KiB를 유지한다. `{accepted, dropped}`는 ingress acceptance와 누락 계수일 뿐 durable 성공이 아니다. request 수·ID 결합, 현재 process/task/scope·등록 ID·redaction·fire-and-forget queue는 host가 검사하고 HTTP·`PIPE_OPS`·공용 Tx/ReadSnapshot을 넓히지 않는다.

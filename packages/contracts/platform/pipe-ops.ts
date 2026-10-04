@@ -59,10 +59,13 @@ export const blobPrepare = defineWorker({
   ],
 });
 
+// 읽은 바이트는 JSON이 아니라 이 channel의 byte chunk frame으로 돌아온다.
+// 256KiB 창의 base64는 JSON control frame 한도(256KiB)를 넘기 때문이다.
 export const blobReadPipeInputSchema = z.strictObject({
   hash: sha256Schema,
   offset: z.number().int().nonnegative(),
   length: z.number().int().nonnegative(),
+  channel: z.number().int().min(1).max(0xffffffff),
 });
 
 export const blobReadPipe = defineWorker({
@@ -73,7 +76,7 @@ export const blobReadPipe = defineWorker({
   output: z.strictObject({
     hash: sha256Schema,
     size_bytes: z.number().int().nonnegative(),
-    bytes: z.string(),
+    channel: z.number().int().min(1).max(0xffffffff),
   }),
   actors: ["machine"],
   errors: ["not_found", "unavailable"],

@@ -1,0 +1,149 @@
+[
+  {
+    "provider_definition": "openai",
+    "model_name": "gpt-5",
+    "context_limit": 400000,
+    "input_limit": 272000,
+    "output_limit": 128000,
+    "supports_tools": true,
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
+    "reasoning": {
+      "mode": "named",
+      "levels": ["minimal", "low", "medium", "high"],
+      "minimum_budget": null,
+      "maximum_budget": null,
+      "default_level": "medium"
+    },
+    "preview": false,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "1.25",
+          "output": "10",
+          "cache_read": "0.125",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "2026-10-release",
+      "checked_at": "2026-10-05T00:00:00.000Z"
+    }
+  },
+  {
+    "provider_definition": "anthropic",
+    "model_name": "claude-sonnet-4-5",
+    "context_limit": 200000,
+    "input_limit": 190000,
+    "output_limit": 64000,
+    "supports_tools": true,
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
+    "reasoning": {
+      "mode": "budget",
+      "levels": [],
+      "minimum_budget": 1024,
+      "maximum_budget": 64000,
+      "default_level": null
+    },
+    "preview": false,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": 200000,
+          "cache_ttl_ms": 300000,
+          "input": "3",
+          "output": "15",
+          "cache_read": "0.3",
+          "cache_write": "3.75",
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "2026-10-release",
+      "checked_at": "2026-10-05T00:00:00.000Z"
+    }
+  },
+  {
+    "provider_definition": "openrouter",
+    "model_name": "anthropic/claude-sonnet-4-5",
+    "context_limit": 200000,
+    "input_limit": null,
+    "output_limit": 64000,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "reasoning": {
+      "mode": "unknown",
+      "levels": [],
+      "minimum_budget": null,
+      "maximum_budget": null,
+      "default_level": null
+    },
+    "preview": null,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "3.2",
+          "output": "16",
+          "cache_read": null,
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "2026-10-release",
+      "checked_at": "2026-10-05T00:00:00.000Z"
+    }
+  },
+  {
+    "provider_definition": "ollama",
+    "model_name": "qwen3:8b",
+    "context_limit": 40960,
+    "input_limit": 40960,
+    "output_limit": 8192,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "reasoning": {
+      "mode": "toggle",
+      "levels": [],
+      "minimum_budget": null,
+      "maximum_budget": null,
+      "default_level": null
+    },
+    "preview": null,
+    "deprecated": null,
+    "source": "release_snapshot",
+    "source_revision": "2026-10-release",
+    "checked_at": "2026-10-05T00:00:00.000Z",
+    "received_at": "2026-10-05T00:00:00.000Z",
+    "price_basis": null
+  }
+]

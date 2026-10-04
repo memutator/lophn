@@ -11,6 +11,10 @@ import {
   type WorkspaceRelay,
 } from "../../packages/platform/api/mod.ts";
 import {
+  type DiagnosticListSource,
+  diagnosticsCheckRead,
+  diagnosticsListRead,
+  type DoctorSource,
   platformStatusReads,
   type StatusSource,
 } from "../../packages/platform/diagnostics/mod.ts";
@@ -37,6 +41,10 @@ import {
   finishBlobRead,
   planBlobRead,
 } from "../../packages/platform/blob-store/mod.ts";
+import {
+  findBackup,
+  listBackups,
+} from "../../packages/platform/backup-and-migration/mod.ts";
 import { authorize } from "../../packages/platform/identity/mod.ts";
 import type { Assembled } from "./registration.ts";
 
@@ -73,6 +81,10 @@ export async function openRuntime(input: {
   modules: readonly string[];
   assembled: Assembled;
   source: StatusSource;
+  // doctor 관측. 없으면 diagnostics/check는 등록하지 않는다(R9, R10).
+  doctor?: DoctorSource;
+  // 기록된 안전 진단. 없으면 diagnostics/list는 등록하지 않는다(R5).
+  diagnostics?: DiagnosticListSource;
   // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
   blob?: {
     fields: readonly BlobFieldDefinition[];
@@ -119,9 +131,26 @@ export async function openRuntime(input: {
     return subscriptions;
   }
   const status = platformStatusReads(input.source, input.clock);
+  // doctor의 무거운 검사는 worker가 한다. core는 그 관측만 읽는다(R9, R10).
+  const doctor = input.doctor
+    ? diagnosticsCheckRead(input.doctor, input.clock)
+    : undefined;
+  const diagnosticList = input.diagnostics
+    ? diagnosticsListRead(input.diagnostics)
+    : undefined;
+  const dataRoot = input.ledgerPath.slice(
+    0,
+    input.ledgerPath.lastIndexOf("/"),
+  );
+  const backups = backupReads(dataRoot);
   const reads = new Map<string, ReadHandler>([
     ["platform/status", status.status],
     ["platform/health", status.health],
+    ...(doctor ? [["diagnostics/check", doctor] as [string, ReadHandler]] : []),
+    ...(diagnosticList
+      ? [["diagnostics/list", diagnosticList] as [string, ReadHandler]]
+      : []),
+    ...backups.map(([key, handler]): [string, ReadHandler] => [key, handler]),
     [
       "blobs/read",
       (ctx, body) => blobReadHandler(input.ledgerPath, input.blob, ctx, body),
@@ -198,6 +227,40 @@ async function runSessionOf(
   if (!result.ok) return result;
   const output = result.value as { run?: { session?: string | null } };
   return ok(output.run?.session ?? null);
+}
+
+// worker가 확인한 backup manifest 읽기(T41). 인증은 API 입구가 이미 끝냈고
+// dispatcher가 schema·output 검사를 한다. 여기서는 data root의 backup folder만
+// 읽는다. 복사·hash 같은 무거운 준비는 I/O worker의 몫이다(responsiveness#R1).
+function backupReads(
+  dataRoot: string,
+): [string, ReadHandler][] {
+  return [
+    [
+      "backups/list",
+      async (_ctx, _input) =>
+        ok({ backups: (await listBackups(dataRoot)).backups }),
+    ],
+    [
+      "backups/get",
+      async (_ctx, input) => {
+        // dispatcher가 route.input을 이미 검사해 parsed.data를 넘긴다.
+        // 여기서 safeParse를 반복하지 않는다.
+        const created = (input as { created_at?: string }).created_at;
+        if (typeof created !== "string") {
+          return err({
+            code: "invalid_input",
+            message: "created_at이 없다",
+          });
+        }
+        const found = await findBackup(dataRoot, created);
+        if (found === undefined) {
+          return err({ code: "not_found", message: "backup이 없다" });
+        }
+        return ok({ manifest: found });
+      },
+    ],
+  ];
 }
 
 // openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.

@@ -1,0 +1,141 @@
+/* legacy ui-layout TabBar. 아래 경계는 inset 선이라 활성 탭 바탕이 덮는다. */
+.bar {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  height: var(--control-lg-height);
+  min-width: var(--space-0);
+  background: var(--color-surface-subtle);
+  box-shadow: inset 0 calc(var(--border-width) * -1) 0 var(--color-border-base);
+  font-family: var(--font-sans);
+}
+
+/* 넘치면 줄 안에서만 scroll한다. scrollbar는 그리지 않는다. */
+.list {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: var(--space-0);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.list::-webkit-scrollbar {
+  display: none;
+}
+
+/* 내용 폭, 120~220px. 폭은 model 값이 inline으로 준다(token 없음). */
+.tab {
+  position: relative;
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--control-gap);
+  padding: var(--space-0) var(--space-2) var(--space-0) var(--space-5);
+  border-right: var(--border-width) solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-regular);
+  cursor: default;
+  user-select: none;
+  outline: none;
+}
+
+.tab:focus-visible {
+  box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
+}
+
+.pinned {
+  justify-content: center;
+  padding: var(--space-0);
+}
+
+.active {
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  border-right-color: var(--color-border-base);
+  box-shadow: calc(var(--border-width) * -1) 0 0 var(--color-border-base);
+}
+
+/* 두 칸 중 focus 칸의 활성 탭 위 2px 표시. */
+.focusBar::before {
+  content: "";
+  position: absolute;
+  top: var(--space-0);
+  left: var(--space-0);
+  right: var(--space-0);
+  height: var(--tab-indicator);
+  background: var(--color-focus);
+}
+
+.icon {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.active .icon {
+  color: var(--color-text-secondary);
+}
+
+.title {
+  flex: 0 1 auto;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 종류 글자. 제목이 먼저 줄어든다. */
+.kind {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-regular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-7);
+  height: var(--space-7);
+  margin: var(--space-0) var(--space-0) var(--space-0) auto;
+  padding: var(--space-0);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.close:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.active .close,
+.tab:hover .close,
+.close:focus-visible {
+  opacity: 1;
+}
+
+.end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-0) var(--space-2);
+}

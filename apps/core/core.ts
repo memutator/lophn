@@ -520,7 +520,10 @@ function blobRelayFor(
         // 등록은 prepare()가 응답을 받은 뒤 한다. 여기서 다시 하면 같은 키가 conflict다.
         responses.queue.set(response.request_id, response);
       },
-      onFrame() {},
+      // worker가 돌려준 읽기 바이트는 JSON이 아니라 byte chunk frame이다.
+      onFrame(frame) {
+        relay.take(frame);
+      },
     },
     prune: (nowMs) => relay.prune(nowMs),
     prepare: (call) =>

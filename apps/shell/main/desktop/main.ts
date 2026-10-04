@@ -101,7 +101,10 @@ function openDesktopWindow(): void {
     packaged: app.isPackaged,
     // build가 preload를 같은 dist에 .cjs로 낸다.
     preload: join(here, "preload-shell.cjs"),
-    url: DESKTOP_URL,
+    // 개발 확인 전용. 제품 실행은 이 변수를 주지 않는다.
+    url: process.env.LOPHN_DEV_SEED === "1"
+      ? `${DESKTOP_URL}?dev-seed=1`
+      : DESKTOP_URL,
     windows: {
       create: (config: WindowConfig) => {
         const window = new BrowserWindow(config);

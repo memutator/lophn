@@ -1,0 +1,68 @@
+import { err, ok, type Result } from "../../base/mod.ts";
+import type { Package, PackageVersion } from "../../contracts/apps/mod.ts";
+import type { Sql, SqlRow, Tx } from "../../contracts/platform/mod.ts";
+import { packageFromRow, versionFromRow } from "./rows.ts";
+
+type Query = Pick<Sql, "get" | "all">;
+
+// 이름으로 패키지 기본 행을 찾는다. 없는 이름은 null이다.
+export function loadPackageRow(sql: Query, name: string): SqlRow | undefined {
+  return sql.get("SELECT * FROM packages WHERE name = ?", [name]);
+}
+
+// 잡힌 version 값. 등록된 판만 남는다(자동 최신 선택은 없다).
+export function loadVersions(sql: Query, packageId: string): PackageVersion[] {
+  const rows = sql.all(
+    "SELECT * FROM package_versions WHERE package = ? ORDER BY version",
+    [packageId],
+  );
+  const versions: PackageVersion[] = [];
+  for (const row of rows) {
+    const version = versionFromRow(row);
+    if (!version.ok) continue;
+    versions.push(version.value);
+  }
+  return versions;
+}
+
+// 이름 → catalog 값(잡힌 version 포함). 없는 이름은 null이다.
+export function loadPackage(
+  sql: Query,
+  name: string,
+): Result<Package | null> {
+  const row = loadPackageRow(sql, name);
+  if (row === undefined) return ok(null);
+  const versions = loadVersions(sql, row["id"] as string);
+  if (versions.length === 0) {
+    return err({ code: "internal", message: "package has no version" });
+  }
+  return packageFromRow(row, versions);
+}
+
+// catalog 전체 행. 페이징은 reads.ts의 cursor가 한다.
+export function loadAllPackageRows(sql: Query): SqlRow[] {
+  return sql.all("SELECT * FROM packages ORDER BY name", []);
+}
+
+// release의 고정 blueprint sdk_dependencies에서 사용처를 찾는다(apps/sdk#R6).
+// blueprint blob의 내용은 releases 조립이 잠그므로 여기서는 잡힌 참조만 본다.
+// releases 모듈이 없는 동안은 사용처가 비어 있고, T27·T6이 실제 사용처를 잠근다.
+export function loadUsages(
+  _sql: Query,
+  _name: string,
+  _version: string,
+): { app: string; release: string }[] {
+  return [];
+}
+
+// register_version command의 저장. 이미 잡힌 version인지 본다.
+export function loadStoredVersion(
+  tx: Pick<Tx, "sql">,
+  packageId: string,
+  version: string,
+): SqlRow | undefined {
+  return tx.sql.get(
+    "SELECT * FROM package_versions WHERE package = ? AND version = ?",
+    [packageId, version],
+  );
+}

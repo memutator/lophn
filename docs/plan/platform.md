@@ -378,7 +378,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T14 blob 참조 등록과 읽기
 
-- 상태: 완료 (#150)
+- 상태: 완료 (#150) — 후속 완료 (#175): 256KiB 읽기 창이 감독 control frame 한도를 넘지 않는다
 - 등급: 기본
 - concern: platform/blob-store, platform/identity
 - 요구: platform/blob-store#R4, R5, R6, R7, platform/identity#R9
@@ -394,6 +394,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 참조된 blob이 없거나 hash가 다르면 `unavailable`, 빈 내용을 돌려주지 않는다(R6).
   - 부분 읽기는 전체 크기·실제 구간·잘림을 함께 돌려준다. JSON 구간 최대 256KiB(R7).
   - `refs_test.ts`, `read_test.ts`에 위 요구 테스트
+- 후속(#175): 256KiB 읽기 창을 실제 I/O worker로 읽으면 worker 응답의 base64가 감독 control frame 한도(256KiB)를 넘어 세션이 닫히고 읽기가 `corrupt`로 끝났다. fake `bytes.read`는 이 경로를 지나지 않아 잡지 못했다. `blob.read`의 바이트를 JSON control frame 대신 요청 channel의 byte chunk frame으로 돌려 두 한도를 함께 지킨다(architecture 5.5).
 
 ### T15 redaction 규칙 엔진
 
@@ -535,6 +536,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - concern: platform/approvals
 - 요구: platform/approvals#R1, R2, R6, R12, R13, R14, R17
 - 자리: packages/platform/approvals/
+- 상태: 완료 (#166)
 - 쓰는 contract: approval, blob, redaction
 - 내놓는 contract: approval(ApprovalAction·ApprovalEffect, binding hash, approvals get·list·create·expire·cancel route)
 - slice: agent
@@ -898,6 +900,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 내놓는 contract: backups(`/v1/backups/list·get`, manifest format 1)
 - slice: operations
 - 선행: platform#T14, platform#T40, contracts#T45
+- 상태: 완료 (#169)
 - 완료: 아래 확인이 통과한다
   - 하루 한 번 I/O worker가 SQLite online backup으로 snapshot S를 만들고 S의 모든 `blob_refs` blob과 사람의 설정 선택을 함께 담는다(R8, R9).
   - 그동안 GC·삭제를 막고 integrity·blob 존재·실제 sha256을 모두 통과한 묶음만 `complete=true`(R10).
@@ -985,6 +988,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T47 doctor와 보안 진단
 
+- 상태: 진행 (#180) — 남은 것: core.ts에 doctor·diagnostics source 연결, apps grant 위험 read·SDK hash contract가 생기면 관측 파일 대신 그 read로 교체
 - 등급: 기본
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R4, R5, R6, R9, R10
@@ -1134,8 +1138,10 @@ slice별 작업 수: skeleton 10, documents 7, agent 15, context 1, apps 3, codi
 - **Q12 ledger 식별(lead 결정: 추천대로).** restore 뒤 derived가 다른 ledger의 같은 seq를 이어 처리하지 않으려면(backup-and-migration#R14) 소유 worker가 ledger 교체를 알아야 한다. 추천: `platform/status`에 `ledger_id`(ledger를 만들거나 복원할 때마다 새 값)를 두고 derived 출처에 함께 적는다.
 - **Q13 공통 오류 코드 수(lead 결정).** internal을 포함한 7개다. lead가 docs/dev/architecture.md를 고쳤다.
 - **Q14 workspace relay(lead 결정).** shell 팀 제안을 받아 T57(agent slice)로 더했다. core 메모리에만 두고 shell main이 쓰고 agent runtime이 자기 session만 읽는다. architecture/platform 5.1을 같은 PR에서 고친다.
+- **Q16 doctor 관측 원본(진행, T47 #180).** apps의 grant 위험 read와 SDK hash contract가 아직 없어 doctor는 데이터 root의 관측 파일(grants.json, sdk.json, credential 파일, logs/)을 임시 입력으로 읽고, core.ts에는 doctor·diagnostics source를 연결하지 않았다. contract가 생기면 관측 파일을 그 read로 바꾸고 core.ts에 연결한다.
 - **Q15 앱 연결 진술(lead 결정: 추천대로).** apps 팀 제안: AppConnection·ConfirmExecutionProof는 새 token·actor가 아니라 core 안 apps 제어 adapter가 core 시작마다 만든 Ed25519 key로 서명한 진술이고, 기한은 AppConnection 최대 10분(원래 credential 기한 이하), proof 120초다. platform은 `credential_ref`·기한만 주고 회수는 소유 event(grant 회수, assignment 멈춤, connection 회수, run 종료)와 core epoch로 판단한다. 추천: 동의한다. 별도 platform 회수 event는 만들지 않는다.
 - **Q16 coding connection 생성 결정(정함).** architecture/platform 5.6 표(`coding_agent`는 "confirmation window의 connection 결정 뒤 발급")와 마지막 절("보호 화면의 exact scope 결정")이 coding-agent/connection#R2·D19(사람의 harness 연결·범위 선택이 허락, 확인 창 없음, 회수만 confirmation window)와 부딪힌다. platform/identity#R5도 "사람의 harness 연결 선택"이다. architecture를 R2에 맞춰 T5 PR에서 고친다.
 - **Q17 confirmation handle 시점(정함).** documents slice의 파일 지우기(organize-documents)가 confirmation window를 쓴다. 그래서 handle 발급·검증·소비를 T56(documents slice)으로 떼었고, approval의 허락·거절만 T22(agent slice)에 남겼다.
 - **Q18 Tx approval 적용 연결(정함).** contracts#T22의 필수 `Tx.useApproval`과 T1 실행기가 함께 합쳐지기 전에 생긴 누락을 복구한다. T23의 정확한 action 검사·`approval_uses` 기록이 들어오기 전에는 `unavailable`로 거절하며, 성공한 사용이나 receipt를 만들지 않는다. T23에서 이 거절을 실제 구현으로 바꾼다.
+- **Q20 blob 읽기 응답 통로(추천안, T14 후속).** 256KiB 읽기 창(blob-store#R7)을 base64로 JSON control frame에 실으면 감독 control frame 한도(256KiB, contracts#T6)를 넘는다. control frame 한도는 제어 메시지의 상한을 지키려고 있는 것이고 바이트는 byte chunk frame의 몫이다(Q2, Q6). 그래서 한도를 올리지 않고 core↔I/O worker의 `blob.read` 바이트만 요청 channel의 byte chunk frame으로 옮겼다. `/v1/blobs/read`의 BlobReadResult(base64)는 그대로다.
 - **Q19 command 행·CAS 한도(lead 결정).** caller의 변경 행 수 주장과 compare의 top-level key 수는 실제 한도가 아니다. 변경 행은 `Tx.sql`·`emit`·`advanceSubscriberCursor`의 SQL마다 같은 연결 `total_changes()`의 앞뒤 차이로 event·cursor 행과 RETURNING·trigger 변경까지 실제로 세어 transaction 안에서 누적하고 1,000개 초과면 전체 rollback한다. `Tx.sql.get`·`all`로 행을 바꾸면 SQL 문장 모양과 상관없이 거절하고 rollback한다. 실행기의 `command_results` 한 행만 이 수에서 뺀다. CAS는 handler 전에 parse된 compare의 leaf 수를 중첩 object·배열까지 재귀로 세어 256개 초과면 `invalid_input`으로 거절하고 handler를 부르지 않는다. 실제 비교 횟수가 아니라 받은 비교 대상의 상한이다. 모든 owner handler에 필수 preflight member를 더하지 않고 `CommandDefinition`·`Tx` contract는 그대로 둔다. 동작이 숨고 비동기·복사에서 새어 나가는 compare proxy는 쓰지 않는다.

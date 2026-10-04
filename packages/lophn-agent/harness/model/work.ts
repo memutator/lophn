@@ -10,6 +10,7 @@ import { err, ok } from "../../../base/mod.ts";
 import type {
   Input,
   Output,
+  ReadDefinition,
   ReadSnapshot,
   RequestContext,
 } from "../../../contracts/platform/mod.ts";
@@ -317,7 +318,9 @@ export type CatalogReadDeps = {
 
 // catalog의 read 정의. derived 파일을 읽고, 정상 파일이 없으면 동봉 snapshot에서
 // 다시 만든다(plan 완료 1). refresh는 runtime 작업이므로 read는 여기 없다.
-export function createCatalogRead(deps?: Partial<CatalogReadDeps>) {
+export function createCatalogRead(
+  deps?: Partial<CatalogReadDeps>,
+): ReadDefinition<typeof modelCatalogRead> {
   const files = deps?.files as SyncFiles | undefined;
   return {
     route: modelCatalogRead,
@@ -325,7 +328,7 @@ export function createCatalogRead(deps?: Partial<CatalogReadDeps>) {
       snapshot: ReadSnapshot,
       ctx: RequestContext,
       input: Input<typeof modelCatalogRead>,
-    ) {
+    ): Result<Output<typeof modelCatalogRead>> {
       if (typeof files?.readTextFile !== "function") {
         return err({
           code: "unavailable",

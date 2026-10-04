@@ -3,9 +3,6 @@ import {
   defineSetting,
   type KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
-import {
-  createCatalogRead,
-} from "../../packages/lophn-agent/harness/model/mod.ts";
 
 // agent runtime 등록 뼈대. command·read·schema는 나중 작업이 이 객체에 더한다.
 // 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
@@ -52,11 +49,10 @@ export const catalogAutoUpdateSetting = defineSetting({
   value_type: z.boolean(),
 });
 
-// core read는 derived catalog 상태를 읽는다(architecture §5.3). refresh는
-// runtime 작업이므로 여기 read만 등록한다.
-export const catalogReadDefinition = createCatalogRead();
+// core read는 derived catalog 상태를 읽는다(architecture §5.3). read 정의는
+// model leaf의 몫이라 core graph에 leaf 구현이 들어오지 않게 reader worker
+// 모듈이 부른다(contracts#T29 route, T5의 reads.ts 자리). 등록은 T5가 온다.
 
 export const lophnAgentDefinitions = {
   workers: [],
-  reads: [catalogReadDefinition],
 };

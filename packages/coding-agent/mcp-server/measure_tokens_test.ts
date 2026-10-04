@@ -3,8 +3,8 @@
 // 목록). 2,000 token 목표(R4)는 전체 toolset 대상이고, schema만 줄여서는 못 미치므로
 // 전·후 수치와 남은 차이는 docs/plan/coding-agent.md의 T11 블록과 "## 질문"에 남는다.
 import { assertEquals } from "@std/assert";
-import { Tiktoken } from "npm:js-tiktoken";
-import cl100k_base from "npm:js-tiktoken/ranks/cl100k_base";
+import { Tiktoken } from "js-tiktoken";
+import cl100k_base from "js-tiktoken/ranks/cl100k_base";
 import {
   findTool,
   inputSchema,

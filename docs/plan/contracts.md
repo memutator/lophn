@@ -144,6 +144,16 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
   - route: `/v1/platform/status`(출력에 ledger 생성·복원마다 바뀌는 `ledger_id`), `/v1/platform/health`, `/v1/identity/current`, `/v1/commands/result`. `/v1/commands/result`는 자기 principal의 결과만 읽는다(platform·problems 합의).
   - type 수준 테스트: 예시 CommandDefinition이 `deno check`를 통과하고 async handler는 거절된다.
 
+#### T6 구현 메모: 비공개 diagnostics write
+
+- concern: platform/diagnostics
+- 요구: platform/diagnostics#R2–R5, R7, R8
+- 자리: `packages/contracts/platform/diagnostics-write.ts`, `diagnostics-write_test.ts`, `diagnostics-write-pipe_test.ts`
+- platform#T8이 받는 비공개 pipe op `platform.diagnostics.write`다. supervision의 고정 strict Diagnostic catalog 여섯 종류를 records 원소로 재사용하고 자유 형태 DiagnosticRecord·LogRecord·원문 message·stack·fields·blob·byte stream은 받지 않는다.
+- 입력은 `{records, dropped}`, 출력은 `{accepted, dropped}`이고 count는 nonnegative safe integer다. batch 최대 256개, `accepted` 최대 256, host queue 대기 상한 1MiB, 전체 JSON control frame은 기존 256KiB다. 빈 records의 drop-count-only 요청도 허용한다.
+- `accepted`는 ingress/queue acceptance일 뿐 log 저장 성공이나 ledger 확정이 아니다. 실제 request 수 이하 검사·drop count 계산·request ID 결합은 host가 한다. core는 fire-and-forget으로 전달하고 log 때문에 기다리지 않는다.
+- core→platform I/O private 인증 pipe의 JSON control 요청에만 쓰며 channel field·공개 HTTP route·`PIPE_OPS` 등록은 없다. 현재 process·task·scope와 component/location/ID registry membership, 고정 safe phrase 또는 null+omission public 진단으로의 redaction은 platform runtime 책임이다.
+
 ### T7 contracts/platform: event envelope·구독
 
 - 상태: 완료 (#10)

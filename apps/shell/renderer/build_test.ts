@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Window } from "happy-dom";
+import { installDom } from "@lophn/design/component-tests";
 import type { OverlayEvent } from "../ipc/overlay.ts";
 
 import { build, mergeImports } from "./build.ts";
@@ -36,23 +37,20 @@ Deno.test("shell/app-frame#R24: default entry HTML script stylesheet and font UR
     const overlay = await readFile(join(dir, "overlay", "overlay.js"), "utf8");
     assert(overlay.includes("overlayRegistry"));
     assert(!/require\("electron"\)/.test(overlay));
-    const dom = new Window();
+    const dom = new Window({ url: "http://localhost/" });
     dom.document.body.innerHTML = '<div id="root"></div>';
     const target = globalThis as unknown as Record<string, unknown>;
-    const previous = new Map(
-      ["document", "lophnShell"].map((
-        key,
-      ) => [key, Object.getOwnPropertyDescriptor(target, key)]),
-    );
     let listener: (event: OverlayEvent) => void = () => {};
     let failure: (error: { code: "unavailable"; message: string }) => void =
       () => {};
     let subscriptions = 0;
     let releases = 0;
-    Object.defineProperty(target, "document", {
-      configurable: true,
-      value: dom.document,
-    });
+    const results: unknown[] = [];
+    // entry는 Deno의 globalThis에 pagehide를 듣는다. DOM global을 올리기 전 Event를 잡아 둔다.
+    const PageEvent = Event;
+    // React와 Radix가 쓰는 DOM global을 이 probe 동안만 올린다.
+    const restore = installDom(dom);
+    target.IS_REACT_ACT_ENVIRONMENT = false;
     Object.defineProperty(target, "lophnShell", {
       configurable: true,
       value: {
@@ -64,9 +62,17 @@ Deno.test("shell/app-frame#R24: default entry HTML script stylesheet and font UR
             releases++;
           };
         },
-        result: () => Promise.resolve({ ok: true, value: null }),
+        result: (input: unknown) => {
+          results.push(input);
+          return Promise.resolve({ ok: true, value: null });
+        },
       },
     });
+    const rendered = async () => {
+      for (let round = 0; round < 5; round++) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    };
     try {
       await import(pathToFileURL(join(dir, "overlay", "overlay.js")).href);
       listener({
@@ -85,10 +91,26 @@ Deno.test("shell/app-frame#R24: default entry HTML script stylesheet and font UR
           },
         }],
       });
+      await rendered();
       const root = dom.document.getElementById("root")!;
       assert(root.className !== "root" && root.className.length > 0);
-      assertEquals(root.querySelector("button")?.textContent, "Owner choice");
-      assert(dom.document.activeElement === root.querySelector("button"));
+      const host = root.querySelector("[data-kind=menu]")!;
+      assertEquals(host.getAttribute("style")?.includes("--z-popover"), true);
+      const menu = host.querySelector("[role=menu]")!;
+      assertEquals(
+        menu.querySelector("[role=menuitem]")?.textContent,
+        "Owner choice",
+      );
+      assert(menu.contains(dom.document.activeElement));
+      (menu.querySelector("[role=menuitem]") as unknown as { click(): void })
+        .click();
+      await rendered();
+      assertEquals(results, [{
+        surfaceId: "entry",
+        generation: 1,
+        type: "selected",
+        choiceId: "yes",
+      }]);
       const status = dom.document.querySelector("aside")!;
       assert(status.hidden);
       failure({ code: "unavailable", message: "Overlay is unavailable" });
@@ -101,15 +123,16 @@ Deno.test("shell/app-frame#R24: default entry HTML script stylesheet and font UR
       assert(status.hidden);
       assertEquals(subscriptions, 2);
       assertEquals(releases, 1);
-      globalThis.dispatchEvent(new Event("pagehide"));
+      globalThis.dispatchEvent(new PageEvent("pagehide"));
+      await rendered();
       assertEquals(root.children.length, 0);
       assertEquals(releases, 2);
       assertEquals(dom.document.querySelector("aside"), null);
+      assertEquals(results.length, 1);
     } finally {
-      for (const [key, descriptor] of previous) {
-        if (descriptor) Object.defineProperty(target, key, descriptor);
-        else delete target[key];
-      }
+      delete target.lophnShell;
+      restore();
+      await dom.happyDOM.close();
     }
   } finally {
     await rm(dir, { recursive: true });
@@ -156,12 +179,15 @@ Deno.test("shell/desktop#R17: renderer build가 entry 세 개와 scope된 CSS Mo
     for (const name of outputs) {
       const js = await readFile(join(dir, name, `${name}.js`), "utf8");
       const css = await readFile(join(dir, name, `${name}.css`), "utf8");
-      const scoped = css.match(/^\.([a-zA-Z0-9_-]*root[a-zA-Z0-9_-]*)/m)?.[1];
-      assert(scoped, `${name}.css에 scope된 class가 없다`);
-      assert(scoped !== "root", `${name}.css의 class가 원문 그대로다`);
+      // overlay는 공통 컴포넌트 CSS도 묶으므로 root 이름의 class 가운데 entry가 쓰는 것을 찾는다.
+      const scoped = [
+        ...css.matchAll(/^\.([a-zA-Z0-9_-]*root[a-zA-Z0-9_-]*)/gm),
+      ].map((match) => match[1]);
+      assert(scoped.length > 0, `${name}.css에 scope된 class가 없다`);
+      assert(!scoped.includes("root"), `${name}.css의 class가 원문 그대로다`);
       assert(
-        js.includes(scoped),
-        `${name}.js의 클래스 맵이 ${scoped}을 가리키지 않는다`,
+        scoped.some((item) => js.includes(item)),
+        `${name}.js의 클래스 맵이 scope된 root class를 가리키지 않는다`,
       );
     }
   } finally {

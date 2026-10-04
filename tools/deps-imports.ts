@@ -126,6 +126,22 @@ function tokens(source: string): Token[] {
   return result;
 }
 
+// 순수 graph에서 계산 import로 dependency 검사를 우회하지 못하게 한다.
+export function computedImports(source: string): number[] {
+  const list = tokens(source);
+  return list.flatMap((token, index) => {
+    if (
+      token.string || token.value !== "import" ||
+      [".", "?"].includes(list[index - 1]?.value) ||
+      list[index + 1]?.value !== "("
+    ) return [];
+    return list[index + 2]?.string &&
+        [")", ","].includes(list[index + 3]?.value)
+      ? []
+      : [token.line];
+  });
+}
+
 export function readImports(source: string): ImportSpecifier[] {
   const list = tokens(source);
   const imports: ImportSpecifier[] = [];

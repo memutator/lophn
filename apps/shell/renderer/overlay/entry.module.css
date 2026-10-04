@@ -6,23 +6,20 @@ body {
 .root {
   display: contents;
 }
+/* host는 main이 정한 rect와 층만 맡고 표면 모양은 공통 컴포넌트가 그린다. */
 .surface {
   position: absolute;
   box-sizing: border-box;
-  background: var(--color-surface-base);
-  color: var(--color-text-primary);
-  border-radius: var(--radius-md);
-  padding: var(--space-4);
-  overflow: auto;
 }
 .drag {
-  background: transparent;
-  padding: var(--space-0);
   touch-action: none;
 }
 .tooltip,
 .notification {
   pointer-events: none;
+}
+.notification > * {
+  pointer-events: auto;
 }
 
 .status {

@@ -239,6 +239,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T10 E2E harness와 skeleton smoke
 
+- 상태: 완료 (#152)
 - 등급: 기본
 - concern: 저장소 바닥
 - 요구: 없음(docs/dev/tasks.md "테스트"의 E2E)

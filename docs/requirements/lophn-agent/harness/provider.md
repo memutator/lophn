@@ -10,9 +10,9 @@ concerns: [lophn-agent/harness/provider]
 
 ### 지원과 연결
 
-**[R1]** 첫 판은 Anthropic·OpenAI·xAI·OpenRouter·Groq·DeepSeek·Google Gemini API key, Claude·ChatGPT·SuperGrok OAuth, Ollama·LM Studio·llama.cpp 로컬 연결을 지원 대상으로 삼되 OAuth는 lophn 이름의 사용 허용과 실제 텍스트·tool call이 확인된 경로만 활성화한다.
-- 이유: 이미 가진 계정과 로컬 model을 쓰면서 검증되지 않은 구독 경로를 지원으로 가장하지 않는다.
-- 확인: 이름을 적은 연결마다 텍스트와 tool call을 확인하고 미검증 OAuth는 비활성화하며 Google 계정 OAuth·Vertex AI·AWS 인증을 지원으로 안내하지 않는다.
+**[R1]** 첫 판은 Anthropic·OpenAI·xAI·OpenRouter·Groq·DeepSeek·Google Gemini API key, ChatGPT·SuperGrok OAuth, Ollama·LM Studio·llama.cpp 로컬 연결을 지원 대상으로 삼되 OAuth는 lophn 이름의 사용 허용과 실제 텍스트·tool call이 확인된 경로만 활성화한다.
+- 이유: Anthropic은 제3자 앱의 Claude.ai 로그인과 구독 credential 중개를 금지하므로 Claude 구독 지원을 가장하지 않고 API key로만 연결한다. 이미 가진 계정과 로컬 model을 쓰면서 검증되지 않은 구독 경로를 지원으로 가장하지 않는다.
+- 확인: 이름을 적은 연결마다 텍스트와 tool call을 확인하고 미검증 OAuth는 비활성화하며 Claude 구독·Google 계정 OAuth·Vertex AI·AWS 인증을 지원으로 안내하지 않는다.
 - 의도: lophn-agent/harness#I1
 
 **[R2]** provider는 표시 이름·호출 목적지·호출 형식·지원 인증 방식·model 목록 조회 목적지를 정의하여 개수 상한 없이 추가하며 model catalog 정의보다 lophn 보정을, 그보다 사람 설정을 우선한다.
@@ -64,14 +64,9 @@ concerns: [lophn-agent/harness/provider]
 
 ### OAuth 로그인
 
-**[R11]** Claude OAuth는 S256 PKCE와 브라우저 인증 코드 붙여넣기를 사용하여 요청·응답 검증값이 일치할 때만 완료하고 계정 프로필·추론 권한만 요청하며 로컬 callback 서버는 열지 않는다.
-- 이유: 로그인 노출과 권한을 최소화한다.
-- 확인: 검증값 누락·불일치·취소에서 token이 등록되지 않고 프로필·추론 외 권한과 수신 포트가 없는지 확인한다.
-- 의도: lophn-agent/harness#I1
-
-**[R12]** ChatGPT OAuth는 device code를 먼저 쓰고 계정에서 꺼진 경우에만 S256 PKCE와 브라우저 최종 URL 붙여넣기로 전환하며 응답 검증값 누락·불일치를 거절하고 callback 포트 1455를 열지 않는다.
-- 이유: Codex와 포트를 다투지 않고 응답의 로그인 출처를 검증한다.
-- 확인: device code 성공·계정 미지원 전환·검증값 없는 URL 거절을 테스트하고 1455가 사용 중이어도 로그인 절차가 진행되는지 확인한다.
+**[R12]** ChatGPT OAuth는 공식 Sign in with ChatGPT로 실제 lophn 앱 이름의 dynamic client 등록을 하고 발급된 client_id를 재사용하며, 사람이 시작한 browser와 127.0.0.1 loopback callback으로 진행하고 state·nonce와 S256 검증값이 일치하고 id_token 서명·issuer·audience·만료가 확인될 때만 완료한다.
+- 이유: 다른 프로그램의 client와 backend-api를 가장하지 않고 발급된 client와 검증된 id_token으로 로그인 출처를 검증한다.
+- 확인: 검증값 누락·불일치와 서명·issuer·audience·만료가 맞지 않는 id_token을 거절하고 발급된 client_id 밖의 client를 쓰지 않는지 확인한다.
 - 의도: lophn-agent/harness#I1
 
 **[R13]** SuperGrok OAuth는 xAI OpenID Connect discovery로 확인한 x.ai 또는 그 하위 도메인의 HTTPS 인증 목적지에서 device code만 사용하고 신원·프로필·이메일·오프라인 갱신·Grok CLI 접근·API 접근 권한만 요청한다.
@@ -89,9 +84,9 @@ concerns: [lophn-agent/harness/provider]
 - 확인: API key·OAuth 사이에서 제품 지시와 tool 이름이 바뀌지 않고 거절 뒤 위장 재호출이나 CLI 실행이 없는지 확인한다.
 - 의도: lophn-agent/harness#I1
 
-**[R16]** Claude OAuth token은 Anthropic API, ChatGPT OAuth token은 데이터 거주 지역을 전달하고 서버 저장을 요청하지 않는 ChatGPT Codex backend, SuperGrok OAuth token은 xAI API에만 보내며 목적지 변경·리다이렉트로 다른 곳에 보내지 않는다.
-- 이유: 구독 token을 사용자 gateway에 노출하지 않는다.
-- 확인: API key gateway에는 OAuth token이 가지 않고 ChatGPT 요청의 거주 지역·저장하지 않음 설정을 확인한다.
+**[R16]** ChatGPT OAuth token은 데이터 거주 지역을 전달하고 서버 저장을 요청하지 않는 공개 `api.openai.com/v1/responses`·`store=false`·`stream=true`에만 보내며 SuperGrok OAuth token은 xAI API에만 보낸다. 목적지 변경·리다이렉트로 다른 곳에 보내지 않고 backend-api는 쓰지 않는다.
+- 이유: 구독 token을 사용자 gateway나 검증되지 않은 backend에 노출하지 않는다.
+- 확인: API key gateway에는 OAuth token이 가지 않고 ChatGPT 요청의 거주 지역·`store=false`·`stream=true`를 확인하며 backend-api 요청이 없는지 확인한다.
 - 의도: lophn-agent/harness#I1
 
 ### OAuth 갱신
@@ -152,7 +147,7 @@ concerns: [lophn-agent/harness/provider]
 
 ### 과금과 첫 준비
 
-**[R27]** provider는 선택 계정과 API 과금·구독 한도·추가 사용량 과금을 구별하여 API key는 API 과금, Claude OAuth는 추가 사용량, ChatGPT·SuperGrok OAuth는 구독으로 전달하며 확정되지 않은 청구액은 모름으로 남긴다.
+**[R27]** provider는 선택 계정과 API 과금·구독 한도를 구별하여 API key는 API 과금, ChatGPT·SuperGrok OAuth는 구독으로 전달하며 확정되지 않은 청구액은 모름으로 남긴다.
 - 이유: API 가격 곱셈을 구독 실제 청구액으로 오해하지 않게 한다.
 - 확인: 같은 OpenAI model의 key·ChatGPT 호출 경로가 구별되고 비용 계산은 lophn-agent/harness/usage에서 확인한다.
 - 의도: lophn-agent/harness#I3

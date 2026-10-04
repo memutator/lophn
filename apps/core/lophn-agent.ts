@@ -15,6 +15,7 @@ export function agentRuntimeLaunchSpec(input: {
     // core loopback만. provider·MCP host는 등록될 때 더한다.
     allow_net: [`127.0.0.1:${input.apiPort}`],
     allow_run: [],
+    allow_sys: [],
     allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,

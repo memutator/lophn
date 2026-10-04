@@ -17,5 +17,10 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true
   },
-  "include": ["**/*.ts", "../preload/**/*.ts"]
+  "include": ["**/*.ts", "../preload/**/*.ts", "../ipc/**/*.ts"],
+  "exclude": [
+    "../../../packages",
+    "desktop/core",
+    "desktop/main.ts"
+  ]
 }

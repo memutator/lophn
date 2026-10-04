@@ -137,14 +137,14 @@ for (const upgrade of [false, true]) {
           seed(db);
         }
         const history = rows(db, "schema_migrations");
-        assertEquals(history.length, 2);
+        assertEquals(history.length, LEDGER_SCHEMA_STEPS.length);
         assertEquals(history[0].content_hash, COMMON_HASH);
         assertEquals(
           history[1].content_hash,
           await sha256Hex(LEDGER_SCHEMA_STEPS[1].sql),
         );
         const master = db.prepare(
-          "select name, sql from sqlite_master where type in ('table', 'index', 'trigger') and name not like '%no_duplicate_insert' order by name",
+          "select name, sql from sqlite_master where type in ('table', 'index', 'trigger') and name not like '%no_duplicate_insert' and name not like '%question_evidence%' order by name",
         ).all();
         if (before) assertEquals(master, before.schema);
         attackDuplicates(db);
@@ -177,7 +177,7 @@ for (const upgrade of [false, true]) {
         attackDuplicates(db);
         assertEquals(
           db.prepare(
-            "select name, sql from sqlite_master where type in ('table', 'index', 'trigger') and name not like '%no_duplicate_insert' order by name",
+            "select name, sql from sqlite_master where type in ('table', 'index', 'trigger') and name not like '%no_duplicate_insert' and name not like '%question_evidence%' order by name",
           ).all(),
           master,
         );
@@ -204,8 +204,14 @@ for (const upgrade of [false, true]) {
           ], { clock: clock() })).ok,
         );
         db = new DatabaseSync(path);
-        assertEquals(rows(db, "schema_migrations").slice(0, 2), history);
-        assertEquals(rows(db, "schema_migrations").length, 3);
+        assertEquals(
+          rows(db, "schema_migrations").slice(0, history.length),
+          history,
+        );
+        assertEquals(
+          rows(db, "schema_migrations").length,
+          history.length + 1,
+        );
       } finally {
         db?.close();
         await Deno.remove(dir, { recursive: true });

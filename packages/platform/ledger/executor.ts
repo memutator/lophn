@@ -35,6 +35,7 @@ import type {
 } from "./writer-message.ts";
 import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
 import { createCommandDispatch } from "./dispatch.ts";
+import { admitAgentRun, runDisposition } from "./commands.ts";
 import { runTransaction, type TxDeps } from "./tx.ts";
 import { authorizeSubscriberCursor } from "./subscriber-registration.ts";
 import {
@@ -152,6 +153,13 @@ function applyCommand(
   if (!reserved.ok) return reserved;
   const cas = casAgrees(record, compare, input, checkCursor);
   if (!cas.ok) return cas;
+  // agent의 command는 자격에 묶인 run만이다. 끝난 run은 감사 보완만 통과한다(R11).
+  const admitted = admitAgentRun(
+    tx,
+    requestContext(ctx, effectiveRun(ctx, envelope.run)),
+    runDisposition(definition),
+  );
+  if (!admitted.ok) return admitted;
   const before = headSeq(record);
   if (!before.ok) return before;
   let raw: unknown;

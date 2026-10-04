@@ -16,13 +16,15 @@ const credentialTargetsSchema = jsonObjectSchema.transform((value, ctx) => {
 });
 
 // 대상 범위의 내용은 소유 concern이 검사한다. platform은 JSON 경계만 정한다.
-export const credentialScopeSchema = z.strictObject({
+const credentialScopeFields = {
   operations: z.array(z.string().min(1)).refine(
     (values) => new Set(values).size === values.length,
     { message: "duplicate operation" },
   ),
   targets: credentialTargetsSchema,
-});
+};
+
+export const credentialScopeSchema = z.strictObject(credentialScopeFields);
 export type CredentialScope = z.infer<typeof credentialScopeSchema>;
 
 // OS의 realpath 판정은 host에 남기고 정규 절대 경로 모양만 검사한다.

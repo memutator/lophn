@@ -6,8 +6,10 @@ import type {
   AuthenticatedContext,
   KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
+import { ALL_ROUTES } from "../../packages/contracts/mod.ts";
 import {
   type ApiServer,
+  RouteRegistry,
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
 import { applyMigrations } from "../../packages/platform/backup-and-migration/mod.ts";
@@ -188,6 +190,8 @@ async function open(
       reads: runtime.reads,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
+      // 팀 command·read의 route도 등록값에서 온다. 조립은 모든 최상위 route 모음 하나로.
+      registry: new RouteRegistry(ALL_ROUTES),
     });
   } catch {
     await runtime.close();

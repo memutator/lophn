@@ -85,7 +85,7 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     ? team.createLedgerRegistration({} as never)
     : undefined;
   const value = direct ?? fromLedger ?? team.problemsTestDefinitions ??
-    team.codingAgentConnectionDefinitions;
+    team.codingAgentConnectionDefinitions ?? team.lophnAgentDefinitions;
   if (!value || typeof value !== "object") return undefined;
   return value as Loose;
 }

@@ -631,6 +631,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T32 contracts/problems: problem code 선언·test 실행
 
+- 상태: 완료 (#42)
 - 등급: 기본
 - concern: problems/problem-codes, problems/tests
 - 요구: problems/problem-codes#R1, R2, R5, R6; problems/tests#R2, R4, R16, R19, R20

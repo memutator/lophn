@@ -14,6 +14,7 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { matchCredential, patternRevision } from "./patterns.ts";
 import type { KnownSecretRegistry } from "./registry.ts";
+import { selectSafeFields } from "./fields.ts";
 import { redactStructure, redactStructuredText } from "./structure.ts";
 
 // 세션 입력·질문 답은 contract audience에 없다. source.scope로 받는다.
@@ -195,6 +196,23 @@ export function createRedactionEngine(
       }
       value = structured.value;
       redactedLocations.push(...structured.redacted);
+      // 선언한 안전 필드만 남긴다. 미선언 값과 private 필드는 구조째 뺀다(R8).
+      if (input.safe_fields.length > 0 || input.private_fields.length > 0) {
+        const selected = selectSafeFields(
+          value,
+          input.safe_fields,
+          input.private_fields,
+        );
+        if (!selected) {
+          return omitted(revision, {
+            location: "body",
+            reason: "uncertain",
+            message: "Declared fields could not be applied.",
+          });
+        }
+        value = selected.value;
+        redactedLocations.push(...selected.dropped);
+      }
     }
 
     if (timedOut()) return timedOutResult(revision);

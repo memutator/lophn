@@ -508,6 +508,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T30 동봉 제품 안내 글
 
+- 상태: 완료 (#56)
 - 등급: 기본
 - concern: lophn-agent/roles/lophn
 - 요구: lophn-agent/roles/lophn#R17, R20

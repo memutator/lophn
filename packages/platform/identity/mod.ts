@@ -33,6 +33,11 @@ export {
 } from "./confirmation-bridge.ts";
 export { consumeRouteConfirmation } from "./confirmation-route.ts";
 export {
+  type AppCredentialIssuer,
+  type AppCredentialResponse,
+  createAppCredentialIssuer,
+} from "./app-credential.ts";
+export {
   type ChosenQuestionOption,
   type QuestionEvidenceUse,
   questionEvidenceUse,

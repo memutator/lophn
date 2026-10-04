@@ -162,6 +162,7 @@ concerns: [shell]
 
 ### T9 launcher 첫 창
 
+- 상태: 완료 (#141)
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/desktop#R7(core 단절 표시), R22(상단 바 48px), R24(새 창은 런처, 창 제목), R25(48px 끌기 바, 고정 lophn 진입점 자리), shell/wording#R1, R10
@@ -258,6 +259,7 @@ concerns: [shell]
 
 ### T13 workspace layout 저장과 복원
 
+- 상태: 완료 (#146)
 - 등급: 기본
 - concern: shell/workspace, shell/desktop
 - 요구: shell/workspace#R6, R7, R8, shell/desktop#R24(이어서)
@@ -620,6 +622,7 @@ concerns: [shell]
 
 ### T33 격리 문서 view
 
+- 상태: 완료 (#144)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R1(문서), R2(문서), R8, R10, R11(문서 host), R14, R17
@@ -938,6 +941,7 @@ concerns: [shell]
 
 ### T51 창 없는 시작과 종료 intent
 
+- 상태: 완료 (#140)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R21(창 없는 tray mode, 명시 중지)

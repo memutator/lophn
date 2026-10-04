@@ -1,4 +1,5 @@
 import { mount } from "../entry.tsx";
-import styles from "./entry.module.css";
+import { Desktop } from "./main.tsx";
+import { windowCoreSource } from "./connection/connection.ts";
 
-mount(styles.root);
+mount(<Desktop source={windowCoreSource()} />);

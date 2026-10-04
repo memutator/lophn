@@ -2,6 +2,8 @@
 import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import { dirname, join } from "node:path";
 
+import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
+
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
 import { startCoreConnection } from "./core/connection.ts";
 import { nodeFetch, nodeSockets } from "./core/node-io.ts";
@@ -14,6 +16,7 @@ import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
 const here = dirname(__filename);
 const dataRoot = resolveDataRoot();
 const overlays = electronOverlays();
+const windows = new Set<BrowserWindow>();
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
 const core = startCoreConnection({
   launch: {
@@ -26,6 +29,11 @@ const core = startCoreConnection({
   fetch: nodeFetch,
   sockets: nodeSockets(),
   clock: { now: () => Date.now() },
+  targets: () =>
+    [...windows].map((window) => ({
+      send: (channel, payload) => window.webContents.send(channel, payload),
+      isDestroyed: () => window.isDestroyed(),
+    })),
 });
 app.once("will-quit", () => {
   core.shutdown();
@@ -84,6 +92,14 @@ function openDesktopWindow(): void {
           join(here, "preload-shell.cjs"),
           app.isPackaged,
         );
+        windows.add(window);
+        window.on("closed", () => windows.delete(window));
+        // 연결 전에 뜬 창은 지금 상태를 바로 받는다. 이후 변화는 targets가 민다.
+        window.webContents.on("did-finish-load", () => {
+          if (!window.isDestroyed()) {
+            window.webContents.send(CORE_STATE_CHANNEL, { ...core.state });
+          }
+        });
         return wrap(window);
       },
     },

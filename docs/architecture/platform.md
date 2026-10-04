@@ -205,8 +205,14 @@ command body는 `{input,idempotency_key,compare,run?,prepared:[],confirmation?}`
 | command | `/v1/settings/apply`, `/v1/settings/reload` | `ApplySettings`, `ReloadSettings`; 검증 준비 참조 |
 | read | `/v1/diagnostics/list`, `/v1/diagnostics/check` | 안전 진단·doctor 현재 관측; 무거운 검사는 worker |
 | read | `/v1/backups/list`, `/v1/backups/get` | worker가 확인한 manifest·완료/검사 상태 |
+| memory | `/v1/workspace/publish` | shell main(user)의 창 상태 등록; 요약 2KiB·탭 page 20개 |
+| memory | `/v1/workspace/bind` | session → 창 결합; user만 |
+| memory | `/v1/workspace/unpublish` | 창 상태 제거; user만 |
+| memory | `/v1/workspace/read` | 결합 session의 현재 보기; agent만; 반환 전 redaction |
 
 위 목록은 platform 소유 경로의 전부다. 다른 최상위의 실제 command/read/file 경로는 그 소유 architecture의 contract 목록으로 registry에 등록하며 여기서 이름을 새로 정하지 않는다. 앱 화면·command·업무 DB를 이 HTTP API로 프록시하지 않는다. 동일 major에서 선택 필드 추가만 허용하고 필수 입력·기존 의미·오류 분류·event 의미 변경은 새 major다.
+
+`memory` route(command/read처럼 경로를 갖지만 ledger queue·reader와 event를 쓰지 않는다)는 API loop 안의 작은 handler로 바로 돌며 인증·body 한도·schema 검사는 다른 route와 같다. 현재 보기 relay(`/v1/workspace/*`, contracts/shell/workspace.ts)가 이 kind다. relay 값은 core 메모리에만 있고 ledger·blob·log에 가지 않는다. main 연결이 끊기거나 core epoch가 바뀌면 그 main의 relay 값은 모두 `disconnected`이며 결합 없는 주기 run은 `unavailable`이다. 옛 값을 `current`로 주지 않는다(prompt-assemble#R28). shell renderer는 이 경로를 shell allowlist로 부르지 않고 main이 직접 보낸다.
 
 blob prepare, 큰 redaction, TOML parse/import/export, backup 생성·restore·GC, secret 보호 입력·export/import는 신뢰 프로세스의 **검증된 pipe 작업 호출**이다. 일반 HTTP JSON에 raw stream·secret 원값·임의 파일 경로를 받는 별도 업로드 route를 두지 않는다. 이 작업은 ledger command가 아니며 job entity·업무 queue를 새로 만들지 않는다. 실패 시 worker의 관측 결과만 반환하고 domain 확정이 필요한 단계는 아래 command로 따로 제출한다.
 

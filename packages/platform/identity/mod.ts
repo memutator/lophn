@@ -18,3 +18,16 @@ export {
   type CurrentCredential,
 } from "./registry.ts";
 export { identityCurrentRead } from "./reads.ts";
+export { confirmationBinding } from "./confirmation-binding.ts";
+export {
+  type ConfirmationBinding,
+  ConfirmationRegistry,
+  type ConfirmationRegistryOptions,
+  type ConfirmationUse,
+} from "./confirmation.ts";
+export {
+  type ConfirmationBridge,
+  confirmationBridge,
+  disconnectedConfirmationBridge,
+} from "./confirmation-bridge.ts";
+export { consumeRouteConfirmation } from "./confirmation-route.ts";

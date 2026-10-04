@@ -1,6 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
+import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+import { connectionRevoke } from "../../packages/contracts/coding-agent/mod.ts";
 import {
   type CommandEnvelope,
   createLedgerHarness,
@@ -158,6 +160,25 @@ Deno.test("coding-agent/connection#R2 #R8: revoke with confirmation evidence mak
     code(
       await harness.command(
         revoker,
+        envelope("RevokeCodingAgentConnection", "bare", {
+          connection: CAC,
+          base_revision: revision,
+        }, { base_revision: revision }),
+      ),
+      "forbidden",
+    );
+    const untouched = value(
+      await harness.command(
+        revoker,
+        envelope("coding_agent_connections.read_auth", "auth-bare", {
+          principal: `coding_agent:${CAC}`,
+        }),
+      ),
+    ).result as { state: string };
+    assertEquals(untouched.state, "active");
+    code(
+      await harness.command(
+        revoker,
         envelope("coding_agent_connections.revoke_with_evidence", "stale", {
           connection: CAC,
           base_revision: "9",
@@ -185,14 +206,35 @@ Deno.test("coding-agent/connection#R2 #R8: revoke with confirmation evidence mak
       ),
     ).result as { found: boolean; state: string; token_digest: string };
     assertEquals(auth, { found: true, state: "revoked", token_digest: DIGEST });
+    const binding = await confirmationBinding(connectionRevoke, {
+      connection: CAC,
+      base_revision: revision,
+    });
+    assert(binding);
+    const issued = value(
+      await harness.confirmation({
+        action: "issue",
+        request: {
+          type: "confirmation_handle_register",
+          window_id: "win-revoke",
+          target_ref: binding.target,
+          content_hash: binding.content,
+          allowed_decisions: ["RevokeCodingAgentConnection"],
+          expires_at: new Date(Date.UTC(2025, 0, 1) + 600_000).toISOString(),
+        },
+      }),
+    ) as { confirmation: string };
     const direct = await harness.command(
       revoker,
-      envelope("RevokeCodingAgentConnection", "direct", {
-        connection: CAC,
-        base_revision: revision,
-      }, { base_revision: revision }),
+      {
+        ...envelope("RevokeCodingAgentConnection", "direct", {
+          connection: CAC,
+          base_revision: revision,
+        }, { base_revision: revision }),
+        confirmation: issued.confirmation,
+      },
     );
-    code(direct, "unavailable");
+    code(direct, "conflict");
   } finally {
     await harness.close();
   }

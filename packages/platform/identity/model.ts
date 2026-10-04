@@ -1,4 +1,5 @@
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+import { type AgentAppScope } from "../../contracts/lophn-agent/mod.ts";
 import {
   type ActorKind,
   type AuthenticatedContext,
@@ -6,6 +7,10 @@ import {
   type CredentialScope,
   parseActor,
 } from "../../contracts/platform/mod.ts";
+
+// agent credential이 싣는 상한. lophn-agent가 계산한 AgentAppScope이며 platform은
+// 내용을 해석하지 않고 발급 뒤 넓히지 못하게만 한다(domain-model platform/identity).
+export type AgentCredentialScope = CredentialScope & { agent?: AgentAppScope };
 
 export type OperationPolicy = {
   name: string;
@@ -30,9 +35,14 @@ function matches(limit: unknown, value: unknown): boolean {
 }
 
 export function scopeWithin(
-  scope: CredentialScope,
-  ceiling: CredentialScope,
+  scope: AgentCredentialScope,
+  ceiling: AgentCredentialScope,
 ): boolean {
+  // agent 상한은 시작 scope가 정한다. 현재 제한이 그 상한과 다른 scope를 주면 거절한다.
+  if (
+    ceiling.agent !== undefined &&
+    (!scope.agent || !same(scope.agent, ceiling.agent))
+  ) return false;
   return scope.operations.every((name) => ceiling.operations.includes(name)) &&
     Object.entries(ceiling.targets).every(([key, limit]) =>
       Object.hasOwn(scope.targets, key) && matches(limit, scope.targets[key])
@@ -40,9 +50,9 @@ export function scopeWithin(
 }
 
 export function intersectScope(
-  initial: CredentialScope,
-  current: CredentialScope,
-): CredentialScope {
+  initial: AgentCredentialScope,
+  current: AgentCredentialScope,
+): AgentCredentialScope {
   const targets = structuredClone(initial.targets);
   let disjoint = false;
   for (const [key, limit] of Object.entries(current.targets)) {
@@ -65,6 +75,11 @@ export function intersectScope(
       ? []
       : initial.operations.filter((name) => current.operations.includes(name)),
     targets,
+    // agent 상한은 시작 때 고정한다. 현재 제한이 다른 scope를 주면 교집합이 없다.
+    ...(initial.agent !== undefined && current.agent !== undefined &&
+        same(initial.agent, current.agent)
+      ? { agent: structuredClone(initial.agent) }
+      : {}),
   };
 }
 

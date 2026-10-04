@@ -134,6 +134,7 @@ export {
 } from "./event-stream.ts";
 export * from "./settings.ts";
 export {
+  agentCredentialScopeSchema,
   type AuthenticatedContext,
   authenticatedContextSchema,
   type CredentialConditions,

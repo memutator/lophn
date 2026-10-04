@@ -19,6 +19,8 @@ export type CredentialCheck = (
 // Worker entry가 command 표와 권한을 조립한다. T9 core entry가 authority를 넣는다.
 export type WriterRegistration = {
   commands: readonly CommandDefinition[];
+  // command 이름별 run 판정 표시. 감사 보완과 gate 밖 쓰기를 이름과 분리한다(R11).
+  runMarks?: Readonly<Record<string, { audit?: boolean; skip?: boolean }>>;
   clock: Clock;
   ids: IdSource;
   ports: readonly TxPortRegistration[];

@@ -457,6 +457,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T23 contracts/platform: secret
 
+- 상태: 완료 (#36)
 - 등급: 기본
 - concern: platform/secrets
 - 요구: platform/secrets#R1–R9, R11, R12
@@ -471,6 +472,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - 내부 pipe 작업 `secret.prepare`, `secret.send`(전송 부착), 갱신 결과 저장의 입력·출력·오류. 값 field는 callback 메모리 type으로만 둔다.
   - export·import 형식 상수(format 1, Argon2id 64MiB·3회·parallelism 1·salt 16 bytes, AES-256-GCM nonce 12 bytes).
   - event `SecretSet`, `SecretRemoved`.
+  - main↔core private comparison request·response는 표시 revision으로 이전 참조 CAS를 얻고, parent/child·HTTP·renderer에는 열지 않는다.
 
 ### T24 contracts/platform: settings registry
 
@@ -997,3 +999,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q8 `packages/contracts/mod.ts`는 code-map에 들어갔다.
 - Q9 T47 보호 credential 전달은 `mcp_cli_loader`만 허용한다. coding-agent 계획 Q6의 정함대로 TUI에는 connection 참조만 가고 token은 그 아래 MCP·CLI loader가 받는다. TUI 전용 purpose·start operation 필드는 두지 않는다.
 - Q10 T7의 HTTP `events/list` 출력에도 공통 read metadata를 붙인다. `scanned_through_seq`는 구독 처리 위치, `head_seq`는 event head이고, `as_of_seq`는 read snapshot 위치라 서로 대신하지 않는다. WS `events` frame은 read 응답이 아니므로 바꾸지 않는다(platform T3/T4 요청).
+- Q11 T23 secret 이름은 event subject의 key와 같은 `[A-Za-z0-9_.:-]+`로 정한다(추천안, 새 길이 한도는 두지 않음). 공개 status에는 안전한 revision만 주고, 교체·제거의 이전 sealed_ref CAS는 main↔core private comparison read로만 얻는다(lead·platform·shell 합의). 요청의 `expected_revision`이 현재와 다르면 `conflict`로 재표시하고, 성공 compare는 그 revision과 같아야 하며 writer가 최종 CAS를 다시 검사한다. 이 read를 HTTP·renderer·agent·app·parent/child worker op로 넓히지 않는다. raw secret은 trusted callback 메모리 인자에만 두고 adapter context는 supervisor가 주입한 현재 process·task·scope를 재검사한다.

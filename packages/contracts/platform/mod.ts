@@ -225,3 +225,4 @@ export * from "./diagnostics.ts";
 export * from "./install.ts";
 export * from "./approvals.ts";
 export * from "./notifications.ts";
+export * from "./secrets.ts";

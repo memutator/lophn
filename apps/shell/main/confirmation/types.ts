@@ -1,0 +1,65 @@
+// shell tsc는 packages를 보지 않는다. confirmation이 contracts를 import하면
+// packages/base까지 graph에 들어가므로, 통로에 필요한 모양만 여기 둔다.
+// 값은 contracts/platform·contracts/shell과 같아야 한다.
+
+/** base64url 32 bytes. contracts confirmationRefSchema와 같다. */
+export type ConfirmationRef = string;
+
+/** contracts shell confirmationIntentSchema의 네 종류. */
+export type ConfirmationIntent =
+  | { kind: "approval_request"; approval: string }
+  | {
+    kind: "question_option_action";
+    question: string;
+    option_key: string;
+  }
+  | { kind: "owner_decision"; concern: string; decision: string }
+  | { kind: "secret_input"; owner: string; purpose: string };
+
+/**
+ * confirmationDisplaySchema의 request. 표시 IPC는 이 객체만 보낸다.
+ * handle 원문·gate 내부 상태는 넣지 않는다.
+ */
+export type ConfirmationRequest =
+  | {
+    kind: "approval_request";
+    approval: string;
+    created_seq: string;
+    binding_hash: string;
+  }
+  | {
+    kind: "question_option_action";
+    question: string;
+    option_key: string;
+    created_seq: string;
+    binding_hash: string;
+  }
+  | {
+    kind: "owner_decision";
+    concern: string;
+    decision: string;
+    targets: string[];
+    input: { kind: "inline"; value: Record<string, unknown> } | {
+      kind: "blob";
+      sha256: string;
+    };
+    comparison: Record<string, unknown>;
+  }
+  | { kind: "secret_input"; owner: string; purpose: string };
+
+/** command route 중 제출이 쓰는 조각. contracts Route 전체는 끌어오지 않는다. */
+export interface CommandRouteRef {
+  readonly kind: "command";
+  readonly resource: string;
+  readonly method: string;
+}
+
+/** main↔core 등록 메시지. contracts confirmationHandleRegisterSchema와 같다. */
+export interface ConfirmationHandleRegister {
+  readonly type: "confirmation_handle_register";
+  readonly window_id: string;
+  readonly target_ref: string;
+  readonly content_hash: string;
+  readonly allowed_decisions: readonly string[];
+  readonly expires_at: string;
+}

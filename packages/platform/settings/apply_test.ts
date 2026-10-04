@@ -87,20 +87,6 @@ function applyEnvelope(
   };
 }
 
-function reloadEnvelope(
-  key: string,
-  revision: number,
-  defaults: string,
-): CommandEnvelope {
-  return {
-    command: "ReloadSettings",
-    input: {},
-    idempotency_key: key,
-    compare: { revision, defaults_revision: defaults },
-    prepared: [],
-  };
-}
-
 async function state(
   harness: LedgerHarness,
 ): Promise<{ revision: number; defaults_revision: string }> {
@@ -120,8 +106,10 @@ async function state(
   ) as { defaults_revision: string };
   return {
     revision: Number(rows[0]?.["revision"] ?? 0),
-    defaults_revision: String(rows[0]?.["defaults_revision"] ??
-      definitions.defaults_revision),
+    defaults_revision: String(
+      rows[0]?.["defaults_revision"] ??
+        definitions.defaults_revision,
+    ),
   };
 }
 
@@ -134,12 +122,17 @@ async function choices(
       [],
     ),
   );
-  return new Map(rows.map((row) => [String(row["key"]), JSON.parse(String(row["value"]))]));
+  return new Map(
+    rows.map((row) => [String(row["key"]), JSON.parse(String(row["value"]))]),
+  );
 }
 
 async function historyCount(harness: LedgerHarness): Promise<number> {
   const rows = value(
-    await harness.inspect("select count(*) as count from setting_revisions", []),
+    await harness.inspect(
+      "select count(*) as count from setting_revisions",
+      [],
+    ),
   );
   return Number(rows[0]?.["count"]);
 }
@@ -176,7 +169,12 @@ Deno.test("platform/settings#R17, platform/settings#R18: 명시 apply만 판을 
         applyEnvelope(
           "apply-two",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 90 },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 90,
+            },
             {
               layer: "common",
               key: "documents.tracking",
@@ -212,8 +210,18 @@ Deno.test("platform/settings#R17, platform/settings#R18: 명시 apply만 판을 
         applyEnvelope(
           "apply-broken",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 91 },
-            { layer: "common", key: "shell.reading_width", action: "set", value: "wide" },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 91,
+            },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: "wide",
+            },
           ],
           1,
           defaults,
@@ -246,7 +254,12 @@ Deno.test("platform/settings#R19: 편집을 시작한 판이 현재 판과 다�
         applyEnvelope(
           "apply-first",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 70 },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 70,
+            },
           ],
           0,
           defaults,
@@ -260,7 +273,12 @@ Deno.test("platform/settings#R19: 편집을 시작한 판이 현재 판과 다�
         applyEnvelope(
           "apply-stale",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 100 },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 100,
+            },
           ],
           0,
           defaults,
@@ -296,7 +314,12 @@ Deno.test("platform/settings#R20: 이력은 주체·시각·항목·전후·영�
         applyEnvelope(
           "apply-history",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 100 },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 100,
+            },
           ],
           0,
           defaults,
@@ -322,9 +345,7 @@ Deno.test("platform/settings#R20: 이력은 주체·시각·항목·전후·영�
     };
     assertEquals(history.revisions.length, 2);
     // revision 0 초기 record(선택 없는 시작)와 apply 판이 같이 읽힌다.
-    const revision = history.revisions.find((entry) =>
-      entry.revision === 1
-    );
+    const revision = history.revisions.find((entry) => entry.revision === 1);
     assert(revision !== undefined);
     assertEquals(revision.revision, 1);
     assertEquals(revision.previous_revision, 0);
@@ -343,7 +364,12 @@ Deno.test("platform/settings#R20: 이력은 주체·시각·항목·전후·영�
         applyEnvelope(
           "apply-same",
           [
-            { layer: "common", key: "shell.reading_width", action: "set", value: 100 },
+            {
+              layer: "common",
+              key: "shell.reading_width",
+              action: "set",
+              value: 100,
+            },
           ],
           1,
           defaults,
@@ -377,7 +403,12 @@ Deno.test("platform/settings#R7, platform/settings#R22: flow connect-provider �
         applyEnvelope(
           "flow-apply-first",
           [
-            { layer: "common", key: "coding.harness", action: "set", value: "codex" },
+            {
+              layer: "common",
+              key: "coding.harness",
+              action: "set",
+              value: "codex",
+            },
           ],
           0,
           defaults0,
@@ -391,7 +422,12 @@ Deno.test("platform/settings#R7, platform/settings#R22: flow connect-provider �
         applyEnvelope(
           "flow-apply-stale",
           [
-            { layer: "common", key: "coding.harness", action: "set", value: "other" },
+            {
+              layer: "common",
+              key: "coding.harness",
+              action: "set",
+              value: "other",
+            },
           ],
           0,
           defaults0,

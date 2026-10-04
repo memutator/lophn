@@ -29,6 +29,7 @@ const spec = {
   allow_write: [],
   allow_net: [],
   allow_run: [deno],
+  allow_sys: [],
   allow_env: ["LOPHN_FIXTURE_MODE"],
   policy: "always",
   memory_limit_bytes: 1024,

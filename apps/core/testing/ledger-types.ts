@@ -2,7 +2,6 @@ import type { Clock, IdSource, Result } from "../../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
   BlobRefRegistration,
-  CommandDefinition,
   PermanentBlobReference,
   ReadDefinition,
   ReadRoute,
@@ -15,6 +14,7 @@ import type {
 import type {
   CommandEnvelope,
   CommandSuccess,
+  RunMarkedCommand,
   StoredCommandResult,
   TxPortRegistration,
 } from "../../../packages/platform/ledger/mod.ts";
@@ -25,8 +25,8 @@ export type LedgerTestEnvironment = {
 
 export type LedgerTestRegistration = {
   schemaSteps?: readonly SchemaStep[];
-  commands?: readonly CommandDefinition[];
-  testCommands?: readonly CommandDefinition[];
+  commands?: readonly RunMarkedCommand[];
+  testCommands?: readonly RunMarkedCommand[];
   reads?: readonly ReadDefinition[];
   ports?: readonly TxPortRegistration[];
   readPorts?: ReadonlyMap<unknown, unknown>;

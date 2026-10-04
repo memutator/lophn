@@ -80,4 +80,17 @@ begin
   select raise(abort, 'immutable');
 end;`,
   },
+  {
+    // 질문 option의 user 기록은 command transaction 안에서 한 번만 남긴다(identity R14).
+    // rollback이면 행이 없고, 재시작·다른 writer에서도 같은 key는 거절된다.
+    id: "question-evidence",
+    sql: `
+create table question_evidence (
+  evidence_key text primary key,
+  question text not null,
+  option text not null,
+  at text not null
+);
+${IMMUTABLE("question_evidence")}`,
+  },
 ];

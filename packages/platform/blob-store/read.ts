@@ -217,7 +217,9 @@ export function readBlob(
 ): Promise<Result<BlobReadResult>> {
   const plan = planBlobRead(sql, deps, ctx, input);
   if (!plan.ok) return Promise.resolve(plan);
-  if (plan.value.kind === "answer") return Promise.resolve(ok(plan.value.result));
+  if (plan.value.kind === "answer") {
+    return Promise.resolve(ok(plan.value.result));
+  }
   return finishBlobRead(deps, ctx, plan.value);
 }
 

@@ -1031,6 +1031,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T46 contract 덮기를 check 관문에
 
+- 상태: 완료 (#115)
 - 등급: 좁은
 - concern: 저장소 바닥
 - 요구: 없음(architecture/README.md 4장)

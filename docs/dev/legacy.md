@@ -15,7 +15,6 @@ concerns: [shell, apps]
 | `apps/desktop/main/` | `apps/shell/main/` | 창, tray, single instance, 패키징 설정, native view 다루기 |
 | `apps/desktop/renderer/` | `apps/shell/renderer/` | 화면 컴포넌트, 편집기(CodeMirror) 설정 |
 | `packages/sdk/tokens`, `packages/sdk/ui-*` | `packages/design/`, `packages/sdk/ui-*` | token, UI 컴포넌트 |
-| `apps/gallery/` | `apps/shell/gallery/` | 컴포넌트 gallery와 screenshot |
 
 가져올 때 지킬 것:
 

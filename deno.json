@@ -4,7 +4,6 @@
     "./packages/sdk/*",
     "./apps/*",
     "./apps/shell/renderer",
-    "./apps/shell/gallery",
     "./packages/design/wording"
   ],
   "lock": {

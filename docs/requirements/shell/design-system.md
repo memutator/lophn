@@ -37,7 +37,7 @@ shell과 앱에서 함께 쓰는 색·글꼴·간격·크기·컴포넌트·load
 
 **[R6]** 그라데이션·glass·neon·emoji 아이콘·중첩 카드·카드 그림자·중앙 hero·거대한 제목·700 이상 굵기·대문자 남발·장식 아이콘·임의 값·가짜 데이터·전면 spinner·무의미 움직임·AI 반짝임·값의 색 글자를 금지한다.
 - 이유: 장식과 임의 값이 개인 도구의 읽기 밀도를 해치지 않게 한다.
-- 확인: 금지 목록으로 갤러리와 화면을 검토하여 해당 표현이 없다.
+- 확인: 실제 화면의 E2E에서 금지 목록에 해당하는 표현이 없는지 검사한다.
 - 의도: shell#I1
 
 **[R7]** 본문 텍스트는 primary·secondary·muted 세 단계의 중립색을 쓰며 disabled 색은 비활성 표시 외 정보 전달에 쓰지 않는다.
@@ -177,7 +177,7 @@ shell과 앱에서 함께 쓰는 색·글꼴·간격·크기·컴포넌트·load
 
 **[R34]** empty는 아이콘20px·한 문장·행동 하나와 삽화 없음, error는 영향과 다음 행동, stale는 마지막 갱신 나이, agent가 쓴 내용은 작은 작성자 표식으로 표현한다.
 - 이유: 데이터 없음·실패·오래된 값·agent 작성 사실을 구별한다.
-- 확인: 각 데이터의 상태는 소유 concern을 따르되 실제 네 상태와 작성자를 갤러리에서 구별한다.
+- 확인: 각 데이터의 상태는 소유 concern을 따르되 실제 화면의 E2E에서 네 상태와 작성자를 구별한다.
 - 의도: shell#I1
 
 **[R35]** 사람의 답이 필요한 chip은 폭360px 하나에 나머지 개수를 붙여 polite로 전달하고 자동으로 사라지지 않으며 보기 또는 닫기를 제공한다.
@@ -185,14 +185,9 @@ shell과 앱에서 함께 쓰는 색·글꼴·간격·크기·컴포넌트·load
 - 확인: 3건에서 하나와 외2건이 보이고 계기·중복 억제는 platform/notifications, 도크 질문 배치는 shell/desktop을 따른다.
 - 의도: shell#I1
 
-**[R36]** 디자인 token 원본 하나에서 CSS 변수·TypeScript 타입·문서값을 생성하고 token-only lint·light/dark screenshot regression 및 palette 변경 시 재검증을 필수로 한다.
+**[R36]** 디자인 token 원본 하나에서 CSS 변수·TypeScript 타입·문서값을 생성하고 token-only lint 및 palette 변경 시 재검증을 필수로 한다.
 - 이유: token 원본과 실제 스타일·문서 값의 불일치를 자동으로 막는다.
 - 확인: 수동 복사값 불일치와 token 밖 스타일이 검사에서 실패한다.
-- 의도: shell#I3
-
-**[R37]** 컴포넌트·화면은 갤러리에 먼저 등록하여 light·dark·좁은 폭·empty·loading·error의 6경우 screenshot을 검토하고 사람이 채택한 모습을 시각 회귀 기준으로 남긴다.
-- 이유: 정상 화면뿐 아니라 모든 상태를 사람이 검토한 기준으로 유지한다.
-- 확인: 금지 목록과 간격 리듬 검토를 통과한 여섯 상태의 기준이 있다.
 - 의도: shell#I3
 
 **[R38]** floating 표면은 light #ffffff/dark #1d1d1b·hover #f3f2ef/#2a2a28, backdrop rgba(13,13,13,0.4)/rgba(0,0,0,0.6), 잉크 hover #32322f/#d9d8d2를 쓰며 checkbox·switch 선택은 잉크·badge 글자는 중립색으로 둔다.
@@ -224,7 +219,7 @@ shell과 앱에서 함께 쓰는 색·글꼴·간격·크기·컴포넌트·load
 
 **[R43]** 초기 UI 동작 재료는 CSS Modules·Radix Primitives·Lucide를 사용하여 아이콘 기본 크기16/20px·선 굵기1.5로 통일하되 별도로 정한14px 아이콘 치수는 유지한다.
 - 이유: 같은 동작을 검증된 primitive와 한 icon 벌로 유지한다.
-- 확인: gallery에서 menu·dialog·tab의 키보드 조작과 한 아이콘 스타일이 검증된다.
+- 확인: 실제 화면의 E2E에서 menu·dialog·tab의 키보드 조작과 한 아이콘 스타일이 검증된다.
 - 의도: shell#I3
 
 **[R44]** 기본 글꼴은 Pretendard·밀도 선택은 표에서만 제공하고 사용자 강조색 값은 R4의 검증을 통과한 전역 token override로만 받는다.
@@ -243,7 +238,8 @@ shell과 앱에서 함께 쓰는 색·글꼴·간격·크기·컴포넌트·load
 
 ## 버린 것
 
-- 읽기 메타 패널과 agent 두 차례 검토만으로 일반 baseline 채택 — 메타 패널은 원문의 뒤 결정으로 폐기되었고 과거 개별 허락은 일반 승인 규칙이 아니다.
+- gallery 등록·여섯 경우 screenshot 회귀·사람 baseline 채택 요구(R37) — 사람이 gallery와 screenshot 작업을 취소했다. 화면 확인은 Playwright E2E 동작 검사로만 한다.
+- 읽기 메타 패널 — 원문의 뒤 결정으로 폐기되었다.
 - UI customization의 slot·fork — 초기에는 token override만 두고 slot·fork 계약은 실제 두 번째 소비자와 앱 SDK 사례 뒤로 미루기로 정했다(R3, R4).
 - 1280px 분할 칸의 읽기 폭 456px — 16px 양쪽 여백을 적용한 488px로 정했다(R42).
 - 입력 경계의 WCAG 비텍스트 3:1 대비 강화 검사 — 접근성은 범위 밖이라 대비 강화 검사를 두지 않는다.

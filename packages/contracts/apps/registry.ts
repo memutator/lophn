@@ -34,6 +34,14 @@ import {
   invocationFinished,
   invocationStarted,
 } from "./invocations.ts";
+import {
+  GRANT_EVENTS,
+  GRANT_ROUTES,
+  grantCreated,
+  grantRevoked,
+} from "./grants.ts";
+import { PACKAGE_EVENTS, PACKAGE_ROUTES } from "./package-routes.ts";
+import { PREVIEW_ROUTES } from "./previews.ts";
 
 export const ROUTES = [
   appConnect,
@@ -53,6 +61,9 @@ export const ROUTES = [
   appAutomations,
   appExport,
   ...INVOCATION_ROUTES,
+  ...GRANT_ROUTES,
+  ...PACKAGE_ROUTES,
+  ...PREVIEW_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -69,4 +80,6 @@ export const EVENTS = [
   invocationStarted,
   invocationFinished,
   invocationDenied,
+  ...GRANT_EVENTS,
+  ...PACKAGE_EVENTS,
 ] as const;

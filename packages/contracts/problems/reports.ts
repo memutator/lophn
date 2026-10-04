@@ -17,7 +17,7 @@ import {
   invocationEvidenceInputSchema,
   snapshotInputSchema,
 } from "./snapshots.ts";
-import { blobMetadataBytes, reportBlobsInputSchema } from "./report-blobs.ts";
+import { reportBlobsInputSchema } from "./report-blobs.ts";
 import { REPORTING_LIMITS } from "./sdk-report.ts";
 import { exceptionObservationInputSchema } from "./exception-observation.ts";
 
@@ -205,8 +205,10 @@ export const recordReportInputSchema = z.strictObject({
     (value.existing_problem === null || feedback && report.mode === "live") &&
     (feedback && value.existing_problem !== null ||
       report.code === value.group_key.code) &&
-    (value.group_key.kind !== "feedback" || value.existing_problem !== null ||
-      value.group_key.discriminator === report.id) &&
+    // 새 feedback key는 자기 최초 rpt다. 기존 문제를 고르면 그 문제 key를 쓰고 자기 key를 새로 달지 않는다.
+    (value.group_key.kind !== "feedback" ||
+      (value.existing_problem === null) ===
+        (value.group_key.discriminator === report.id)) &&
     (report.source === "feedback" ||
       value.snapshot.screen?.state == null &&
         value.snapshot.screen?.screenshot == null);
@@ -224,12 +226,9 @@ export const recordReportInputSchema = z.strictObject({
     hash === null
       ? !blobs.some((blob) => blob.purpose === purpose)
       : blobs.some((blob) => blob.purpose === purpose && blob.hash === hash)
-  ) &&
-    blobMetadataBytes(
-        blobs.filter((blob) =>
-          blob.purpose !== "report_text" && blob.purpose !== "report_details"
-        ),
-      ) <= REPORTING_LIMITS.snapshot_large_bytes;
+  );
+  // 큰 자료 준비 총량(snapshot_large_bytes)은 항목별 상한 합보다 커서 schema로는 걸리지 않는다.
+  // 조립 중 실제 잘림·timeout·제외 이유 판정은 collector runtime 책임이다.
 }, { message: "all content hashes need matching bounded blob authority" });
 export type RecordReportInput = z.infer<typeof recordReportInputSchema>;
 export type PreparedReport = RecordReportInput;

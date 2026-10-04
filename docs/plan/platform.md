@@ -206,6 +206,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T8 platform I/O worker와 안전 log
 
+- 상태: 완료 (#59)
 - 등급: 기본
 - concern: platform/responsiveness, platform/diagnostics, platform/redaction
 - 요구: platform/responsiveness#R4, platform/diagnostics#R2, R3, R11, R12, platform/redaction#R15

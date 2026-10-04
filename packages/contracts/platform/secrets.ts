@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Result } from "../../base/mod.ts";
+import { ERROR_CODES, type Result } from "../../base/mod.ts";
 import { withReadCommon } from "./envelope.ts";
 import { defineEvent } from "./events.ts";
 import { authenticatedContextSchema } from "./identity.ts";
@@ -86,11 +86,48 @@ export const setSecretCompareSchema = z.union([
   z.strictObject({ sealed_ref: z.null(), revision: z.null() }),
   secretCompareSchema,
 ]);
+
+// main↔core 비공개 비교 read. HTTP list에 raw·sealed를 더하지 않는다.
+// expected_revision이 현재 revision과 다르면 conflict다. ok compare의 revision은
+// 요청과 같고, 마지막 writer CAS도 검사한다.
+const opaqueRequestId = z.string().min(1);
+export const secretComparisonRequestSchema = z.strictObject({
+  type: z.literal("secret_comparison_request"),
+  request_id: opaqueRequestId,
+  name: secretNameSchema,
+  expected_revision: secretRevisionSchema.nullable(),
+});
+export type SecretComparisonRequest = z.infer<
+  typeof secretComparisonRequestSchema
+>;
+const secretComparisonErrorSchema = z.strictObject({
+  code: z.enum(ERROR_CODES),
+  message: z.string(),
+});
+export const secretComparisonResponseSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    type: z.literal("secret_comparison_response"),
+    request_id: opaqueRequestId,
+    name: secretNameSchema,
+    ok: z.literal(true),
+    compare: setSecretCompareSchema,
+  }),
+  z.strictObject({
+    type: z.literal("secret_comparison_response"),
+    request_id: opaqueRequestId,
+    name: secretNameSchema,
+    ok: z.literal(false),
+    error: secretComparisonErrorSchema,
+  }),
+]);
+export type SecretComparisonResponse = z.infer<
+  typeof secretComparisonResponseSchema
+>;
 export const removeSecretInputSchema = z.strictObject({
   name: secretNameSchema,
 });
 
-// 사람 secret 관리는 secret_input 보호 입력에서만 시작한다(#27).
+// 사람 secret 관리는 secret_input 보호 입력에서만 시작한다(platform/secrets#R2).
 export const setSecret = defineCommand({
   resource: "secrets",
   method: "set",
@@ -195,6 +232,8 @@ export type SecretUse = z.infer<typeof secretUseSchema>;
 // 원값은 JSON payload가 아니라 callback 메모리 인자다. pipe schema에는 없다.
 export type SecretValue = Uint8Array | string;
 
+// context는 caller 주장을 믿지 않는다. 신뢰한 supervisor가 주입하고,
+// 현재 process·task·scope를 다시 검사한다.
 export const secretPrepareInputSchema = z.strictObject({
   context: secretAdapterContextSchema,
   purpose: secretPurposeSchema,

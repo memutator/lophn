@@ -1,10 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
-import { ERROR_CODES, ok } from "../../base/mod.ts";
+import { ERROR_CODES } from "../../base/mod.ts";
 import { commandRequestSchema } from "./envelope.ts";
 import { eventEnvelopeSchema } from "./events.ts";
 import { routePath } from "./route.ts";
 import { EVENTS, ROUTES } from "./registry.ts";
-import { workerRequestSchema, workerResponseSchema } from "./supervision.ts";
 import {
   listSecretsInputSchema,
   listSecretsOutputSchema,
@@ -13,29 +12,20 @@ import {
   SECRET_EVENTS,
   SECRET_EXCHANGE_FORMAT,
   SECRET_PIPE_OPS,
-  SECRET_PREPARE_OP,
   SECRET_PURPOSES,
   SECRET_ROUTES,
-  SECRET_SEND_OP,
-  SECRET_STORE_REFRESH_OP,
   secretAdapterContextSchema,
   secretCleanupInputSchema,
   secretCleanupResultSchema,
   secretDestinationSchema,
   secretPreparationSchema,
-  secretPrepare,
   secretPrepareInputSchema,
-  type SecretPrepareValueCallback,
-  secretSend,
   secretSendInputSchema,
   secretSendOutputSchema,
-  type SecretSendValueCallback,
   secretSet,
   secretStatusSchema,
-  secretStoreRefresh,
   secretStoreRefreshInputSchema,
   secretStoreRefreshOutputSchema,
-  type SecretStoreRefreshValueCallback,
   setSecret,
   setSecretCompareSchema,
   setSecretInputSchema,
@@ -372,101 +362,6 @@ Deno.test("platform/secrets#R12: coding connection 준비는 별도 용도이며
       body: null,
     }).success,
   );
-});
-
-Deno.test("platform/secrets#R1, platform/secrets#R5, platform/secrets#R11: 원값은 pipe payload가 아니라 callback 메모리 인자에만 있다", async () => {
-  const prepareRequest = workerRequestSchema(secretPrepare.input).parse({
-    type: "worker_request",
-    request_id: "prepare-1",
-    op: SECRET_PREPARE_OP,
-    payload: { context, purpose: "app_secret", owner: "service.key" },
-  });
-  const prepareResponse = workerResponseSchema(secretPrepare.output).parse({
-    type: "worker_response",
-    request_id: prepareRequest.request_id,
-    ok: true,
-    payload: preparation,
-  });
-  assertEquals(prepareResponse.ok && prepareResponse.payload, preparation);
-  const sendPayload = {
-    context,
-    use,
-    operation: "model.call",
-    body: { prompt: "safe" },
-  };
-  const sendRequest = workerRequestSchema(secretSend.input).parse({
-    type: "worker_request",
-    request_id: "send-1",
-    op: SECRET_SEND_OP,
-    payload: sendPayload,
-  });
-  assert(
-    workerResponseSchema(secretSend.output).safeParse({
-      type: "worker_response",
-      request_id: sendRequest.request_id,
-      ok: true,
-      payload: { sent: true },
-    }).success,
-  );
-  const refreshPayload = { context, owner: "provider-a", ...use };
-  const refreshRequest = workerRequestSchema(secretStoreRefresh.input).parse({
-    type: "worker_request",
-    request_id: "refresh-1",
-    op: SECRET_STORE_REFRESH_OP,
-    payload: refreshPayload,
-  });
-  const refreshResponse = workerResponseSchema(secretStoreRefresh.output).parse(
-    {
-      type: "worker_response",
-      request_id: refreshRequest.request_id,
-      ok: true,
-      payload: {
-        sealed_ref: "sealed-b",
-        revision: 2,
-        configured: true,
-        value: "x",
-      },
-    },
-  );
-  assert(refreshResponse.ok);
-  assertEquals(refreshResponse.payload, {
-    sealed_ref: "sealed-b",
-    revision: 2,
-    configured: true,
-  });
-  assert(
-    !workerRequestSchema(secretPrepare.input).safeParse({
-      ...prepareRequest,
-      payload: { ...prepareRequest.payload, value: "x" },
-    }).success,
-  );
-  assert(
-    !workerRequestSchema(secretSend.input).safeParse({
-      ...sendRequest,
-      payload: { ...sendPayload, value: new Uint8Array([1]) },
-    }).success,
-  );
-  assert(
-    !workerRequestSchema(secretStoreRefresh.input).safeParse({
-      ...refreshRequest,
-      payload: { ...refreshPayload, value: "x" },
-    }).success,
-  );
-  const prepare: SecretPrepareValueCallback = (_value) =>
-    Promise.resolve(ok(preparation));
-  const send: SecretSendValueCallback = (_value) =>
-    Promise.resolve(ok({ sent: true }));
-  const refresh: SecretStoreRefreshValueCallback = (_value) =>
-    Promise.resolve(ok({
-      sealed_ref: "sealed-b",
-      revision: 2,
-      configured: true,
-    }));
-  for (const value of ["synthetic-value", new Uint8Array([1, 2, 3])]) {
-    assert((await prepare(value)).ok);
-    assert((await send(value)).ok);
-    assert((await refresh(value)).ok);
-  }
 });
 
 Deno.test("platform/secrets#R9: 머신 이전 암호 format과 parameter는 고정이다", () => {

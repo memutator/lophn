@@ -6,6 +6,10 @@ import {
 import { ERROR_CODES } from "../../base/mod.ts";
 import { credentialScopeSchema } from "./identity.ts";
 import { idSchema } from "./ids.ts";
+import {
+  secretComparisonRequestSchema,
+  secretComparisonResponseSchema,
+} from "./secrets.ts";
 import { atSchema, durationMsSchema } from "./values.ts";
 
 export const FRAME_KINDS = { json: 1, bytes: 2, end: 3, abort: 4 } as const;
@@ -347,16 +351,20 @@ export const childMessageSchema = z.union([
   diagnosticSchema,
   appCredentialRequestSchema,
 ]);
-// 사람 결정 handle 등록은 main↔core 비공개 연결로만 오간다(architecture/platform 5.6).
+// 사람 결정 handle 등록과 secret 비교 read는 main↔core 비공개 연결로만 오간다
+// (architecture/platform 5.6). 비교 op는 이 연결에서 main 신원을 인증하며
+// renderer HTTP token과 worker context를 신뢰하지 않는다.
 export const mainToCoreMessageSchema = z.union([
   diagnosticSchema,
   stopSchema,
   confirmationHandleRegisterSchema,
+  secretComparisonRequestSchema,
 ]);
 export const coreToMainMessageSchema = z.union([
   mainHelloSchema,
   readySchema,
   confirmationHandleRegisteredSchema,
+  secretComparisonResponseSchema,
 ]);
 export type MainToCoreMessage = z.infer<typeof mainToCoreMessageSchema>;
 export type CoreToMainMessage = z.infer<typeof coreToMainMessageSchema>;

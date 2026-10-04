@@ -16,6 +16,8 @@ export type PlaceholderKinds = {
     target: "string";
   };
   "common.button.reload": Record<never, never>;
+  "common.overlay.unavailable": Record<never, never>;
+  "common.button.retry": Record<never, never>;
   "common.stale.label": {
     age: "string";
   };

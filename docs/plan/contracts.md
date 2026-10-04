@@ -287,6 +287,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T15 contracts/documents: document·version·파일 준비 결과
 
+- 상태: 완료 (#39)
 - 등급: 기본
 - concern: documents/versions, documents/file-tracking
 - 요구: documents/versions#R1, R3, R6, R8–R10, R16

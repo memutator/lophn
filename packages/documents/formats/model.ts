@@ -11,16 +11,12 @@ import {
 } from "../../contracts/documents/mod.ts";
 import { sha256Bytes } from "./pure/sha256.ts";
 import { BUILTIN_MODULE_HASH } from "./guest/module-hash.ts";
-
-import type { FormatKind } from "./guest.ts";
+import type { BUILTIN_FORMAT_NAMES } from "../../contracts/documents/mod.ts";
 
 const DOCUMENT_TYPES = new Set<string>(DOCUMENT_MEDIA_TYPES);
 
 // 묶음 코드·의존·추출 규칙·guest 실행 규약의 sha256. guest/module-hash.ts가 정본이다.
 export const MODULE_HASH_PLACEHOLDER = BUILTIN_MODULE_HASH;
-
-export { extractFormat, validateFormat } from "./guest.ts";
-export type { FormatKind } from "./guest.ts";
 
 const EMPTY_TEMPLATE_HASH = sha256Bytes([]);
 
@@ -33,6 +29,10 @@ function template(path: string, mediaType: string): ContentFile {
     primary: true,
   };
 }
+
+// 내장 format 이름. guest.ts·runner protocol.ts가 같은 집합을 다시 적지 않게
+// contracts의 고정 목록을 쓴다.
+type FormatKind = (typeof BUILTIN_FORMAT_NAMES)[number];
 
 const DECLARATIONS: Record<FormatKind, FormatDeclaration> = {
   document: {

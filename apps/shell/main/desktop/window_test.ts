@@ -60,6 +60,23 @@ test("shell/desktop#R12: 두 번째 시작은 새 기본 창 하나만 열고 ar
   assert.deepEqual(opened, ["open-window"]);
 });
 
+test("shell/desktop#R20: --home은 개발 데이터 root를 정하고 LOPHN_HOME보다 앞선다", () => {
+  assert.equal(
+    resolveDataRoot(
+      { argv: ["electron", "--home", "/tmp/dev-data"], env: {} },
+      "/home/person",
+    ),
+    "/tmp/dev-data",
+  );
+  assert.equal(
+    resolveDataRoot(
+      { argv: ["electron"], env: { LOPHN_HOME: "/env/root" } },
+      "/home/person",
+    ),
+    "/env/root",
+  );
+});
+
 test("shell/desktop#R15: userData는 session 전에 데이터 root의 shell/browser로 잡는다", () => {
   const order: string[] = [];
   const root = resolveDataRoot({ LOPHN_HOME: "/data/root" }, "/unused");

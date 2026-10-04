@@ -150,6 +150,11 @@ export {
 } from "./json-values.ts";
 export { definePort, type PortKey } from "./ports.ts";
 export {
+  type AuthorizationTarget,
+  TargetAuthorization,
+  type TargetAuthorizer,
+} from "./target-authorization.ts";
+export {
   type CommandDefinition,
   type Compare,
   type EventVisibilityDefinition,

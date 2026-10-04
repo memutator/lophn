@@ -62,6 +62,9 @@ function formatReads(): ApiReadDefinition[] {
             message: "format get input is invalid",
           });
         }
+        // 내장 declaration의 hash와 보존된 module의 hash를 찾는다. 없는 hash는
+        // not_found다. blob 보존 읽기는 문서 worker의 몫이므로, core가 여는 것은
+        // 내장 declaration뿐이다(Q10). 없는 hash는 최신 module로 대체하지 않는다.
         if (parsed.data.module_hash !== BUILTIN_MODULE_HASH) {
           return err({
             code: "not_found",

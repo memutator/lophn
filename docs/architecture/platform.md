@@ -264,7 +264,7 @@ platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`,
 
 **입력:** 신뢰 pipe의 `blob.prepare`는 principal·등록 purpose·bytes stream·예상 hash 선택값을 받는다. `blob.read`는 hash 단독이 아니라 허용 owner·고정 판·field에서 해석한 참조·바이트 구간을 받는다. 최대 준비 blob은 1GiB, 스트림 chunk는 1MiB, JSON read의 실제 구간은 최대 256KiB, 준비 참조는 10분 수명이다. 소유 concern은 더 낮은 한도를 등록할 수 있다.
 
-**출력:** 준비는 `PreparedBlob(preparation,principal,purpose,hash,size_bytes)`, 읽기는 BlobReadResult와 base64 bytes다. **오류:** 예상 hash/크기/구간 오류는 `invalid_input`, disk·sync·참조 blob 부재/손상은 `unavailable`, 소유 범위 위반은 안전한 공통 거절이다.
+**출력:** 준비는 `PreparedBlob(preparation,principal,purpose,hash,size_bytes)`다. `/v1/blobs/read`의 읽기는 BlobReadResult와 base64 bytes다. core↔I/O worker의 `blob.read`는 그 바이트를 JSON control frame에 담지 않는다. 256KiB 읽기 창의 base64가 control frame 한도(256KiB)를 넘기기 때문이다. worker는 요청이 준 channel의 byte chunk frame으로 바이트를 돌려주고 JSON에는 hash·크기·channel만 남긴다. **오류:** 예상 hash/크기/구간 오류는 `invalid_input`, disk·sync·참조 blob 부재/손상은 `unavailable`, 소유 범위 위반은 안전한 공통 거절이다.
 
 **보장:** I/O worker가 같은 바이트를 streaming hash하면서 같은 파일 시스템 임시에 쓰고 sync·0400·원자적 설치·지원 OS directory sync를 마친 뒤 반환한다. 같은 hash는 덮어쓰지 않고 기존 완성 파일을 검증하여 재사용한다. core는 준비 주체·purpose·수명·worker 완료 참조만 확인하며 파일을 다시 hash하지 않는다. 모든 영구 참조는 소유 변경 transaction에 `blob_refs`로 등록한다. hash 공유가 scope를 합치지 않는다. 출력용 원문은 redaction 전 일반 tmp/blob에 저장하지 않는다.
 

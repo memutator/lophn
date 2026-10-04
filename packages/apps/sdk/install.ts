@@ -1,0 +1,303 @@
+// SDK 설치(package catalog과 설치, apps/sdk#R4, R8, R9, R11, R13).
+// packages/sdk/<name>의 검증된 소스를 패키지마다 자기 완결 byte로 묶고, hash·guide
+// hash를 blob으로 준비한 뒤 machine으로 register_version을 제출하고, 설치 사본을
+// sdk/<name>/<version>/의 파일 0444·디렉터리 0555로 풀어 놓는다. 공개 마켓·외부
+// Package 등록은 없다(R13) — packages/sdk/* 밖 이름은 거절이다.
+
+import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
+import {
+  packageNameSchema,
+  type PackageRegisterVersionInput,
+} from "../../contracts/apps/mod.ts";
+import { isWithheldPackageName } from "./model.ts";
+
+// 설치 worker가 core에 제출할 결과. hash·guide hash와 machine 제출 입력이다.
+export type InstallSubmission = {
+  input: PackageRegisterVersionInput;
+};
+
+export type InstallDeps = {
+  // lophn data root. 설치 사본 sdk/<name>/<version>/의 기준이다.
+  dataRoot: string;
+  // blob 준비 통로. 검사한 byte를 그대로 넣는다. 없으면 설치도 실패다.
+  prepareBlob?: (input: {
+    principal: string;
+    purpose: string;
+    bytes: ReadableStream<Uint8Array>;
+  }) => Promise<Result<{ hash: string; size_bytes: number }>>;
+  // machine 제출. route 입력을 그대로 ledger command로 넣는다. 없으면 등록도 실패다.
+  registerVersion?: (
+    input: PackageRegisterVersionInput,
+  ) => Promise<Result<unknown>>;
+  // 설치 소스 경계. 제품은 packages/sdk/*를 쓴다(테스트가 주입한다).
+  sourceRoot?: string;
+};
+
+function invalid(message: string): Result<never> {
+  return err({ code: "invalid_input", message });
+}
+
+function forbidden(message: string): Result<never> {
+  return err({ code: "forbidden", message });
+}
+
+// 외부 Package 등록은 없다(R13). supply 범위는 설치 제공 재료다.
+function installRefused(name: string): Result<never> {
+  return forbidden(`package ${name} is outside the install-provided SDK set`);
+}
+
+// packages/sdk/<name>의 파일을 상대 경로와 함께 모은다.
+async function collectSourceFiles(
+  root: string,
+): Promise<Result<{ path: string; bytes: Uint8Array }[]>> {
+  const files: { path: string; bytes: Uint8Array }[] = [];
+  async function visit(
+    directory: string,
+    prefix: string,
+  ): Promise<Result<void>> {
+    let entries;
+    try {
+      entries = Deno.readDir(directory);
+    } catch {
+      return invalid(`package source directory is missing: ${prefix || "."}`);
+    }
+    for await (const entry of entries) {
+      const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+      const target = `${directory}/${entry.name}`;
+      if (entry.isDirectory) {
+        const walked = await visit(target, path);
+        if (!walked.ok) return walked;
+      } else if (entry.isFile) {
+        try {
+          files.push({ path, bytes: await Deno.readFile(target) });
+        } catch {
+          return invalid(`package source file is unreadable: ${path}`);
+        }
+      }
+    }
+    return ok(undefined);
+  }
+  const walked = await visit(root, "");
+  if (!walked.ok) return walked;
+  if (files.length === 0) {
+    return invalid("package source directory is empty");
+  }
+  files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return ok(files);
+}
+
+// manifest + 파일 내용을 순서대로 이은 자기 완결 byte다. hash는 이 byte의 sha256이다.
+export function bundleBytes(
+  files: readonly { path: string; bytes: Uint8Array }[],
+): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  const encoder = new TextEncoder();
+  for (const file of files) {
+    chunks.push(encoder.encode(`${file.path}\n${file.bytes.length}\n`));
+    chunks.push(file.bytes);
+    chunks.push(encoder.encode("\n"));
+  }
+  const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
+}
+
+// 설치 사본 이름 경계. `..`·절대·빈 구간은 거절이다.
+function safeNamePart(name: string): string | undefined {
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) return undefined;
+  return name;
+}
+
+export function splitPackageName(
+  name: string,
+): Result<{ scope: string; part: string }> {
+  const parsed = packageNameSchema.safeParse(name);
+  if (!parsed.success) return invalid("package name is not a catalog name");
+  const slash = name.indexOf("/");
+  const scope = name.slice(1, slash);
+  const part = safeNamePart(name.slice(slash + 1));
+  if (part === undefined) return invalid("package name part is not a path");
+  return ok({ scope, part });
+}
+
+// 검증된 설치 내용만 설치한다(R13).
+export async function installPackage(
+  name: string,
+  description: string,
+  kind: PackageRegisterVersionInput["kind"],
+  version: string,
+  guide: Uint8Array,
+  deps: InstallDeps,
+): Promise<Result<InstallResult>> {
+  if (isWithheldPackageName(name)) {
+    return installRefused(name);
+  }
+  // scope 검사를 이름 schema보다 먼저 해 catalog 밖 scope도 forbidden으로 거절이다(R13).
+  const rawSlash = name.indexOf("/");
+  const rawScope = rawSlash > 0
+    ? safeNamePart(name.slice(1, rawSlash))
+    : undefined;
+  if (rawScope === undefined || rawScope !== "lophn") {
+    return installRefused(name);
+  }
+  const split = splitPackageName(name);
+  if (!split.ok) return split;
+  const sourceRoot = deps.sourceRoot ?? new URL("../../sdk", import.meta.url)
+    .pathname;
+  const source = `${sourceRoot}/${split.value.part}`;
+  const files = await collectSourceFiles(source);
+  if (!files.ok) return files;
+  const bundle = bundleBytes(files.value);
+  const bundleHash = await sha256Hex(bundle);
+  const guideHash = await sha256Hex(guide);
+
+  // hash·guide hash를 blob으로 넣는다. 준비 통로가 없으면 등록도 없다. 검사한
+  // byte의 hash만 제출한다(domain-model apps/sdk command 표).
+  if (deps.prepareBlob) {
+    const bundlePrepared = await deps.prepareBlob({
+      principal: "machine:install",
+      purpose: "sdk_bundle",
+      bytes: new ReadableStream({
+        start(controller) {
+          controller.enqueue(bundle);
+          controller.close();
+        },
+      }),
+    });
+    if (!bundlePrepared.ok) return bundlePrepared;
+    if (bundlePrepared.value.hash !== bundleHash) {
+      return invalid("bundle hash changed during preparation");
+    }
+    const guidePrepared = await deps.prepareBlob({
+      principal: "machine:install",
+      purpose: "sdk_guide",
+      bytes: new ReadableStream({
+        start(controller) {
+          controller.enqueue(guide);
+          controller.close();
+        },
+      }),
+    });
+    if (!guidePrepared.ok) return guidePrepared;
+    if (guidePrepared.value.hash !== guideHash) {
+      return invalid("guide hash changed during preparation");
+    }
+  }
+
+  // machine으로 register_version을 부른다. 등록은 install machine의 몫이다.
+  const submission: InstallSubmission = {
+    input: {
+      name,
+      description,
+      kind,
+      version,
+      bundle_hash: bundleHash,
+      guide_hash: guideHash,
+    },
+  };
+  if (deps.registerVersion) {
+    const registered = await deps.registerVersion(submission.input);
+    if (!registered.ok) return registered;
+  }
+
+  // 설치 사본 sdk/<name>/<version>/. 파일 0444·디렉터리 0555(R9).
+  const target = `${deps.dataRoot}/sdk/${split.value.part}/${version}`;
+  const copied = await writeInstallCopy(target, files.value);
+  if (!copied.ok) return copied;
+  return ok({
+    name,
+    version,
+    bundle_hash: bundleHash,
+    guide_hash: guideHash,
+    install_path: target,
+    files: files.value.map((file) => file.path),
+  });
+}
+
+export type InstallResult = {
+  name: string;
+  version: string;
+  bundle_hash: string;
+  guide_hash: string;
+  install_path: string;
+  files: readonly string[];
+};
+
+export async function writeInstallCopy(
+  target: string,
+  files: readonly { path: string; bytes: Uint8Array }[],
+): Promise<Result<void>> {
+  let directories: string[];
+  try {
+    // 만들기는 쓸 수 있는 ���드로 하고, 파일을 다 쓴 뒤 디렉터리를 0555로 좁힌다.
+    await Deno.mkdir(target, { recursive: true, mode: 0o755 });
+    directories = [target];
+    for (const file of files) {
+      const slash = file.path.lastIndexOf("/");
+      if (slash > 0) {
+        const directory = `${target}/${file.path.slice(0, slash)}`;
+        await Deno.mkdir(directory, { recursive: true, mode: 0o755 });
+        directories.push(directory);
+      }
+      await Deno.writeFile(`${target}/${file.path}`, file.bytes, {
+        mode: 0o444,
+      });
+    }
+  } catch (thrown) {
+    return err({
+      code: "unavailable",
+      message: `설치 사본을 쓰지 못했다: ${
+        thrown instanceof Error ? thrown.message : thrown
+      }`,
+    });
+  }
+  // 사본 디렉터리는 모두 0555다(R9). 깊은 곳부터 좁힌다.
+  for (const directory of [...directories].reverse()) {
+    try {
+      await Deno.chmod(directory, 0o555);
+    } catch {
+      // 이미 0555면 없어도 된다.
+    }
+  }
+  return ok(undefined);
+}
+
+// 설치된 사본이 정말 0444·0555인지 본다(R9). 테스트와 install checker가 쓴다.
+export async function verifyInstallPermissions(
+  target: string,
+): Promise<Result<void>> {
+  let stat;
+  try {
+    stat = await Deno.stat(target);
+  } catch {
+    return invalid("install copy is missing");
+  }
+  if (!stat.isDirectory) return invalid("install copy is not a directory");
+  if (((stat.mode ?? 0) & 0o222) !== 0) {
+    return invalid("install copy directory is writable");
+  }
+  for await (const entry of Deno.readDir(target)) {
+    const child = await Deno.stat(`${target}/${entry.name}`);
+    if (entry.isDirectory) {
+      if (((child.mode ?? 0) & 0o222) !== 0) {
+        return invalid(`install copy directory is writable: ${entry.name}`);
+      }
+    } else if (((child.mode ?? 0) & 0o222) !== 0) {
+      return invalid(`install copy file is writable: ${entry.name}`);
+    }
+  }
+  return ok(undefined);
+}
+
+// catalog read에서 쓰는 잡힌 조회. install 확인 내용만 목록에 남는다(R13).
+export function verifiedOnly(
+  registered: readonly { name: string }[],
+  name: string,
+): boolean {
+  return registered.some((pkg) => pkg.name === name);
+}

@@ -14,7 +14,10 @@ import {
   RouteRegistry,
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
-import { applyMigrations } from "../../packages/platform/backup-and-migration/mod.ts";
+import {
+  applyMigrations,
+  checkRestart,
+} from "../../packages/platform/backup-and-migration/mod.ts";
 import { type StatusSource } from "../../packages/platform/diagnostics/mod.ts";
 import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
 import {
@@ -144,6 +147,13 @@ async function open(
     { clock, recovery: { root: root.path } },
   );
   if (!migrated.ok) return migrated;
+  // 중단 작업 점검 → cursor 복원 치는 R11 순서다. SQLite 복구·schema 점검 뒤
+  // 정상 read를 열고 전체 scan·index·큰 hash를 기다리지 않는다(R15). 소유
+  // concern의 복구 command가 아직 없는 영역은 unknown 관측값과 근거를 남기고
+  // 읽기 열기를 막지 않는다(R16). 점검 관측은 status에 더하지 않는다: 상태는
+  // 구성 요소 관측이고 소유 concern 관측은 복구 command로 남는다.
+  const restart = await checkRestart(ledgerPath, { clock });
+  if (!restart.ok) return restart;
   const epoch = hex(random, 16);
   const productRegistry = new CredentialRegistry({
     epoch,
@@ -510,7 +520,10 @@ function blobRelayFor(
         // 등록은 prepare()가 응답을 받은 뒤 한다. 여기서 다시 하면 같은 키가 conflict다.
         responses.queue.set(response.request_id, response);
       },
-      onFrame() {},
+      // worker가 돌려준 읽기 바이트는 JSON이 아니라 byte chunk frame이다.
+      onFrame(frame) {
+        relay.take(frame);
+      },
     },
     prune: (nowMs) => relay.prune(nowMs),
     prepare: (call) =>

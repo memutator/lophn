@@ -83,7 +83,7 @@ lophn-agent 팀의 작업 전부다. 범위는 `docs/intent/lophn-agent*`, `docs
   - 받은 요청 log(인증 header 값 제외)를 테스트가 읽어 단언할 수 있다. script와 다른 요청, 응답 소진, 남은 응답, 0회 호출은 모두 실패이고 요청 수를 정확히 단언한다(정상 'ok'로 넘기거나 응답을 순환하지 않음)
   - 응답은 실제 HTTP·SSE로 내보내 세 adapter의 parser를 그대로 지난다(프로세스 안 가짜 client 아님). 오류·partial·reset·여러 tool·opaque 상태는 raw protocol fixture로 쓰고, chunk 경계·지연·reset·Retry-After 같은 분류 header를 보존한다
   - 녹화는 테스트에서 자동으로 하지 않는다. 별도 record 명령만 사람 지시와 `LOPHN_LIVE_PROVIDER=1`로 돌고, 합성 최소 입력·event별 redaction·secret scan·사람 diff 검토 뒤 fixture로 채택한다(질문 Q22). 합성 token도 평문 설정으로 넣지 않는다
-  - `deno task dev`가 fake provider를 함께 띄운다
+  - 개발 entry가 loopback 주소를 ready JSON `{url}` 한 줄로 내고 HTTP로 script·요청 log를 받으며 child smoke가 돈다. `deno task dev`의 동시 기동과 `LOPHN_FAKE_PROVIDER_URL` 전달은 이 작업을 선행으로 둔 contracts#T9가 조립한다(질문 Q26)
   - fake provider 자체 테스트
 
 ## agent
@@ -1012,3 +1012,4 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - **Q23 질문 답의 secret 판정 실패** (추천으로 진행). questions#R11은 secret 판정기가 동작하지 않거나 사람이 안전 입력을 취소했을 때를 정하지 않았다. 추천: 일반 저장 전에 fail closed, 그 답을 answered로 두지 않고 질문은 미답으로 남긴다. 영향: T24. 근거: docs/research/questions-and-hitl.md.
 - **Q24 handoff 재전송과 현재 권한** (추천으로 진행). handoff#R9는 재전송 replay와 수신 assignment가 회수된 뒤의 상세 읽기를 구별하지 않았다. 추천: replay는 저장된 결과만 돌려주고 새 입력·run을 만들지 않으며, 상세 조회는 그때의 현재 권한으로 다시 검사한다. 영향: T32.
 - **Q25 handoff 설명의 우회 복사** (추천으로 진행). handoff#R3·R4는 무엇·왜 문자열에 대화 원문·secret을 붙여 넘기는 경우를 막는 방법이 없다. 추천: 구조화한 출처 검증과 기존 safety 포장·redaction을 적용하고, byte 상한만으로 의미상 복사를 막는다고 하지 않는다. 영향: T32. 근거: docs/research/handoff-and-delegation.md.
+- **Q26 fake provider 개발 entry와 dev 조립** (정함, lead·contracts). T2 완료에 `deno task dev` 조립을 요구하면서 contracts#T9가 T2를 선행으로 두어 순환한다. T2는 `tools/fake-provider/main.ts`의 ready `{url}`·HTTP script/log·child smoke를 완료하고, contracts#T9는 그 entry를 함께 띄워 주소를 `LOPHN_FAKE_PROVIDER_URL`로 core에 넘긴다. root task와 dev launcher는 contracts 팀만 고친다. 실제 dev 동작 범위는 줄이지 않는다.

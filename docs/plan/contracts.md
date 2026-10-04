@@ -161,6 +161,15 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
   - `/v1/events/list {after_seq, types?, subjects?, limit?}` → `{events, scanned_through_seq, head_seq, as_of_seq, next_cursor, omitted?}`, `/v1/events/advance-cursor`(`AdvanceSubscriberCursor`, 반응 key `(subscriber, cause_seq, reaction)`). `Tx.advanceSubscriberCursor(subscriber, through_seq)`로 반응 command와 cursor를 같은 transaction에 확정한다.
   - WS `GET /v1/events/subscribe`, subprotocol `lophn.events.1`, frame `subscribe {from_seq(포함), types, subjects, subscriber?, limit}`·`events`·`ack`·`unavailable`, close 1013(느린 구독)·1008(자격 회수), batch 256개·256KiB. 처리 위치 P 다음 `from_seq` 계산 helper.
 
+#### T7 구현 메모: event 노출 정책
+
+- 상태: 완료 (#46)
+- 타입: `events.ts`의 `EventEnvelopeFor<D>`(envelope에서 `type`·`subject`·`payload`만 등록 event로 좁힌 값), `registration.ts`의 `EventVisibilityDefinition<D> = {event, handle(snapshot, ctx, event) → Result<boolean>}`, 둘 다 `platform/mod.ts`가 공개한다. `EventDefinition`·`defineEvent`·`Tx`·`ReadSnapshot`·`events/list` 입출력은 바꾸지 않았다. 등록 모양과 호출 형태(동기 `Result`, 읽기 전용 `ReadSnapshot`)만 고정하는 type이다. policy 구현은 자기 concern의 `definePort`로 만든 port를 `snapshot.port`로 받아 기존 길로만 읽는다.
+- 소비: core registry는 event type마다 owner policy 하나를 고정하고 같은 type에 policy가 두 개면 기동을 거부한다(safe 시작 오류). policy나 event가 등록되어 있지 않으면 fail-closed다(숨김).
+- 검사 대상: hook은 같은 `ReadSnapshot`, 지금 인증된 `RequestContext`(`ctx.credential_ref`로 현재 scope를 다시 검사), 그리고 검사 중인 그 envelope 하나를 받는다. 본문뿐 아니라 제목·주소·존재·개수·관계·근거가 새지 않게 subject와 payload가 참조하는 것을 전부 본다(platform/identity#R8).
+- 숨김과 실패: `ok(false)`나 안전한 `not_found`·`forbidden`은 그 event를 빼는 것이고 batch는 계속 진행한다. `scanned_through_seq`는 숨긴 event를 지나간 위치도 반영한다(platform/ledger#R15). `unavailable`·`internal`, throw, Promise, Result가 아닌 값은 숨김으로 바꾸지 않고 전체 batch를 안전하게 실패시킨다(platform/api#R7). 그 밖의 오류 코드도 owner denied로 삼키지 않고 runtime이 안전 batch 오류로 처리한다.
+- 책임: 구현은 core 조립과 owner가 맡는다. 이 type은 runtime 권한 검사나 async guard를 강제하지 않는다.
+
 ### T8 contracts 모음·전역 유일성·coverage 도구
 
 - 상태: 완료 (#17)
@@ -1008,3 +1017,4 @@ lead가 모두 답했다(docs/dev에 반영됨).
 - Q13 T15 prepare 파일은 metadata와 prepared blob 또는 기존 permanent 참조를 함께 받는다(documents 소비 review 완료). hash 단독 주장은 원문 권한이 아니며 trusted worker가 principal·현재 owner/key/field 권한·prepared TTL을 검사한다. 새 파일은 `document_file` purpose·hash·size, 기존 참조는 hash를 입력과 결합한다. prepare format만 생략 가능하고 신규 MIME 기본 implicit/기존 base_version exact 계약을 worker가 고르며 결과는 exact FormatRef 필수다. agent 목록에서 disk source·files를 빼도 place/name·agent/run invariant를 유지한다. export는 고정 manifest 뒤 T18의 documents/file을 통해 원문 bytes/MIME를 읽고 JSON에 bytes를 중복 싣지 않는다.
 - Q14 T20의 `App.revision`은 해당 App의 마지막 변경 event seq이고, 전역 read snapshot의 `as_of_seq`로 대신하지 않는다(apps·documents 소비 review 완료). App get/list와 등록·source·보관·실행 허용 command 결과에서 revision을 보존해 CAS를 조립한다. logs는 source/buffer 없음 `none`, 수집 꺼짐 `off`, 예산 안 완료 못 함 `timeout`, 조회 성공 `ok`로 구별한다(apps·problems 합의). `ok`의 빈 lines도 정상이며 부분 확보·cap은 `truncated=true`; `collected_at`은 실제 수집 시각 또는 null이다. 입력의 `max_bytes`는 positive safe integer이며 runtime 200줄·줄당 300자 cap과 snapshot caller 30줄·65,536bytes를 섞지 않는다. 현재 scope·supervisor 신원·실제 관측·redaction과 writer 최종 CAS는 구현이 검사한다.
 - Q15 T32의 `Verification.request_principal`은 actor kind가 아닌 인증 주체의 stable opaque 참조로 정하고 공백뿐인 값은 거절한다(problems·apps 소비 review 완료). `GetTestRequest`는 인증 principal와 key로 기존 accepted command record를 읽고, `RecordVerification`은 같은 request의 principal·hash와 대조한다. 별도 request lifecycle entity를 만들지 않는다. `TestMethod.argv`는 executable을 제외한 `['test', ...]`이며 runner만 고정 absolute Deno executable을 고른다. schema의 argv·cwd 검사는 lexical 입력 한도일 뿐 현재 grant scope·realpath/symlink·OS lifecycle/memory 격리·실제 test 판정을 증명하지 않는다. 빈 failure_paths는 선언이 없는 경우의 값이고 전체 선언 coverage와 hash 일치는 runner가 검사한다. 공용 Tx member는 더하지 않는다.
+- Q17 T7 follow-up은 schema-only event 선언과 별도 `EventVisibilityDefinition`을 둔다(추천안). core가 event type별 owner policy를 고정하며 duplicate는 안전한 기동 오류, 미등록은 fail-closed다. 같은 read snapshot·현재 인증 context·그 event envelope를 전달하고 subject와 payload 참조 전체의 현재 visibility를 owner가 검사한다. `ok(false)`·안전한 `not_found`·`forbidden`은 scanned cursor를 진행하는 omission이며 다른 오류·throw·Promise·invalid Result는 전체 batch 안전 오류다. 이 계약의 type 테스트는 실제 registry·권한·runtime async guard 구현을 대신하지 않는다.

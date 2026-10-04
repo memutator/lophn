@@ -407,6 +407,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 ### T19 contracts/documents: series·saved view
 
+- 상태: 완료 (#75)
 - 등급: 기본
 - concern: documents/series, documents/outline-and-search
 - 요구: documents/series#R1–R8, R11, R12

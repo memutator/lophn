@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   appIdSchema,
+  type ChannelMode,
   CONFIRM_MARKER_LIMIT,
   endpointSchema,
   processNonceSchema,
@@ -33,10 +34,13 @@ const startFields = {
   data_path: z.string().min(1),
   // 해당 자식의 broker credential. secret 값이 아니다.
   broker_credential: z.string().min(1),
+  // AppConnection·ConfirmExecutionProof를 검증하는 Ed25519 공개 key.
+  // raw 32byte의 base64url. 서명 key·token·secret은 없다(apps Q5).
+  verify_key: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
 };
 
 function startShape(value: {
-  mode: "live" | "preview";
+  mode: ChannelMode;
   release: string | null;
 }): boolean {
   return value.mode !== "live" || value.release !== null;

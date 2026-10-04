@@ -41,7 +41,7 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 |---|---|---|
 | picomatch | documents/file-tracking | tracking 규칙의 glob |
 | ignore | documents/file-tracking | `.gitignore` 모양 제외 규칙 |
-| QuickJS WASM (sync 빌드 하나) | documents/formats | format 검사 코드를 격리해 돌린다 |
+| quickjs-emscripten 0.32.0 sync release (`@jitl/quickjs-wasmfile-release-sync`) | documents/formats | format 검사 코드를 격리해 돌린다. 호출마다 새 runtime·context. debug·asyncify 빌드는 쓰지 않는다 |
 | parse5 | documents/formats의 HTML format 묶음 안 | HTML 문서 해석 |
 | electron 44.5.1 | apps/shell/main | shell 창과 sandbox preload. 이전 lophn과 같은 판 |
 | esbuild 0.28.2 | apps/shell/main, apps/shell/renderer | main과 preload 세 개를 CJS 한 파일로 묶고, renderer entry 세 개를 브라우저 bundle로 묶는다. sandbox preload의 외부 require는 `electron`만 남기고, renderer의 CSS Modules는 `local-css` loader가 클래스 맵으로 바꾼다 |

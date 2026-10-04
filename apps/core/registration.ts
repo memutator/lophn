@@ -39,6 +39,7 @@ export type TeamModule = {
   problemsTestDefinitions?: unknown;
   codingAgentConnectionDefinitions?: unknown;
   lophnAgentDefinitions?: unknown;
+  ticketDefinitions?: unknown;
 };
 
 type Loose = {

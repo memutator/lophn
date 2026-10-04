@@ -165,7 +165,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 #### T6 구현 메모: owner target 판정 port
 
-- 상태: 완료 (#PRNUM)
+- 상태: 완료 (#82)
 - concern: platform/identity
 - 요구: platform/identity#R3, R8
 - 자리: `packages/contracts/platform/target-authorization.ts`, `target-authorization_test.ts`

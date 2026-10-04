@@ -44,3 +44,31 @@
   outline: var(--border-focus-width) solid var(--color-focus);
   outline-offset: var(--border-focus-offset);
 }
+
+.leading button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: var(--control-md-height);
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-4);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.leading button:hover {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+}
+
+.leading button:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}

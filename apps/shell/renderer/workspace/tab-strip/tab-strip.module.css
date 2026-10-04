@@ -1,0 +1,99 @@
+.strip {
+  box-sizing: border-box;
+  position: relative;
+  height: var(--control-lg-height);
+  overflow: hidden;
+  background: var(--color-surface-floor);
+  border-bottom: var(--border-width) solid var(--color-border-base);
+}
+
+.scroll {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tab {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--space-3);
+  height: 100%;
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-4);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.tab:hover {
+  background: var(--color-surface-subtle);
+}
+
+.tab:focus-visible,
+.close:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.selected {
+  color: var(--color-text-primary);
+}
+
+.selected::after {
+  content: "";
+  position: absolute;
+  top: var(--space-0);
+  left: var(--space-0);
+  right: var(--space-0);
+  height: var(--tab-indicator);
+  background: var(--color-ink-background);
+}
+
+.kind {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.title {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.close {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--space-7);
+  height: var(--space-7);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+}

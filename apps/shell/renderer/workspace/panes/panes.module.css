@@ -1,0 +1,63 @@
+.panes {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.focused {
+  box-shadow: inset var(--space-0) var(--space-1) var(--space-0)
+    var(--color-ink-background);
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: var(--space-0);
+  padding: var(--space-8) var(--space-9);
+  overflow: auto;
+}
+
+.narrow {
+  padding-left: var(--space-6);
+  padding-right: var(--space-6);
+}
+
+.empty {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.placeholder {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.divider {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--border-width);
+  background: var(--color-border-base);
+  cursor: col-resize;
+}
+
+.grab {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  left: var(--space-3);
+  width: var(--space-4);
+  margin-left: calc(var(--space-3) * -1);
+}

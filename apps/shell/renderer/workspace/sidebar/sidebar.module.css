@@ -1,0 +1,138 @@
+.sidebar {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  height: 100%;
+  min-width: var(--space-0);
+  overflow: hidden;
+  background: var(--color-surface-floor);
+  border-right: var(--border-width) solid var(--color-border-base);
+}
+
+.hidden {
+  display: none;
+}
+
+.head {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--space-11);
+  padding: var(--space-0) var(--space-4);
+}
+
+.collapsed .head {
+  justify-content: center;
+  padding: var(--space-0);
+}
+
+.back,
+.toggle {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-md-height);
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-4);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.back:hover,
+.toggle:hover {
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+}
+
+.back:focus-visible,
+.toggle:focus-visible,
+.row:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-0);
+  overflow-y: auto;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+}
+
+.heading {
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-5);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--type-tracking-normal);
+  text-transform: uppercase;
+}
+
+.collapsed .heading,
+.collapsed .row {
+  display: none;
+}
+
+.row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: var(--control-md-height);
+  margin: var(--space-0);
+  padding: var(--space-0) var(--space-5);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.row:hover {
+  background: var(--color-surface-subtle);
+}
+
+.empty {
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-5);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.collapsed .empty {
+  display: none;
+}
+
+.resizer {
+  position: absolute;
+  top: var(--space-0);
+  bottom: var(--space-0);
+  width: var(--space-3);
+  margin-left: calc(var(--space-3) * -1);
+  cursor: col-resize;
+}

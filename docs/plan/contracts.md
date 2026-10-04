@@ -735,6 +735,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 받은 요청: apps(T2의 SDK와 apps blueprint wrapper가 Zod-bearing mod.ts 대신 순수 정본을 다시 내보내야 함)
 - slice: apps
 - 선행: contracts#T2, contracts#T33
+- 상태: 완료 (#63)
 - 완료: 아래 확인이 통과한다
   - exact `packages/apps/blueprint/mod.ts` → `packages/contracts/apps/blueprint.ts`만 기존 leaf-contract의 예외다. 다른 leaf·private helper·전체 contract 모음은 허용하지 않는다.
   - 공개 정본, apps wrapper, SDK blueprint entry의 reachable import·export graph는 상대 `.ts`와 실제 존재하는 순수 모듈만 쓴다. contract는 T33의 여덟 순수 파일, SDK는 자기 blueprint directory와 정본만 참조한다. Zod·base·runtime·다른 SDK·workspace alias·remote·test 모듈·계산 import는 거절한다.

@@ -625,6 +625,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T28 contracts/lophn-agent: question·handoff·revert
 
+- 상태: 완료 (#88)
 - 등급: 기본
 - concern: lophn-agent/questions, lophn-agent/handoff, lophn-agent/revert
 - 요구: lophn-agent/questions#R2–R4, R6–R10, R13, R14, R16; lophn-agent/handoff#R1–R3, R8, R9; lophn-agent/revert#R1, R3, R4, R6, R7, R10, R11; lophn-agent/roles/app-engineer#R7; lophn-agent/roles/lophn#R5, R21, R22

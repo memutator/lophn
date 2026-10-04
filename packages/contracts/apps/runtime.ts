@@ -9,7 +9,7 @@ import {
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
-import { appIdSchema, revisionSchema } from "../documents/values.ts";
+import { appIdSchema } from "../documents/values.ts";
 import {
   appCompareSchema,
   appInputSchema,
@@ -101,23 +101,38 @@ export const appDisableExecution = defineCommand({
   errors: ["conflict", "not_found"],
 });
 
+// record_*는 관측 사실의 기록이다. 사람 편집의 CAS(base_revision)가 필요 없고,
+// 같은 관측의 중복은 (app, release, 자식 nonce, 시작 시각, 관측 종류)로 가린다.
+// 자식이 없는 관측(crash loop로 멈춘 상태)은 nonce·시작 시각이 없다.
+const observationIdentity = {
+  process_nonce: z.string().min(1).optional(),
+  started_at: atSchema.optional(),
+};
+
 export const appRecordStartedInputSchema = z.strictObject({
   app: appIdSchema,
+  ...observationIdentity,
   attestation: readyAttestationInputSchema.refine(
     (value) => value.release !== null,
     { message: "AppStarted needs a live release" },
   ),
-});
+}).refine(
+  (value) =>
+    value.process_nonce === value.attestation.process_nonce &&
+    value.started_at !== undefined,
+  { message: "started observation needs its child identity" },
+);
 export const appRecordStoppedInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
   process_nonce: z.string().min(1),
+  started_at: atSchema,
   termination_confirmed: z.literal(true),
 });
 export const appRecordUnavailableInputSchema = z.strictObject({
   app: appIdSchema,
   release: releaseIdSchema,
-  process_nonce: z.string().min(1).optional(),
+  ...observationIdentity,
   reason: runtimeReasonInputSchema,
 });
 
@@ -127,7 +142,6 @@ export const appRecordStarted = defineCommand({
   name: "app.record_started",
   input: appRecordStartedInputSchema,
   output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
-  compare: z.strictObject({ base_revision: revisionSchema }),
   actors: ["machine"],
   errors: ["conflict", "invalid_input"],
 });
@@ -137,7 +151,6 @@ export const appRecordStopped = defineCommand({
   name: "app.record_stopped",
   input: appRecordStoppedInputSchema,
   output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
-  compare: z.strictObject({ base_revision: revisionSchema }),
   actors: ["machine"],
   errors: ["conflict", "invalid_input"],
 });
@@ -147,7 +160,6 @@ export const appRecordUnavailable = defineCommand({
   name: "app.record_unavailable",
   input: appRecordUnavailableInputSchema,
   output: z.object({ app: appIdSchema, state: runtimeStateSchema }),
-  compare: z.strictObject({ base_revision: revisionSchema }),
   actors: ["machine"],
   errors: ["conflict", "invalid_input"],
 });

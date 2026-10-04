@@ -139,6 +139,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T8 supervisor 프로세스 수명
 
+- 상태: 완료 (#118)
 - 등급: 최상위
 - concern: apps/runtime
 - 요구: apps/runtime#R1, R2, R4, R6, R7, R16, R17, R18, R19, R20, R21, R23, R24

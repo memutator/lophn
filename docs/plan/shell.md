@@ -162,6 +162,7 @@ concerns: [shell]
 
 ### T9 launcher 첫 창
 
+- 상태: 완료 (#141)
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/desktop#R7(core 단절 표시), R22(상단 바 48px), R24(새 창은 런처, 창 제목), R25(48px 끌기 바, 고정 lophn 진입점 자리), shell/wording#R1, R10

@@ -116,7 +116,7 @@ core의 problems 정의는 고정 blob purpose와 permanent/general_read=false f
 
 | 위치 | 저장할 것 | 쓰지 않을 것 |
 |---|---|---|
-| platform의 `~/.lophn/blobs/` | redaction된 글·JSON·stack·로그·PNG, FrozenTest와 code/input/expected/environment, 실제 execution/output/observations, FixRecord summary | raw 오류·원본 screenshot·실제 secret |
+| platform의 `~/.lophn/blobs/` | redaction된 글·JSON·stack·로그, 사람이 고른 PNG, FrozenTest와 code/input/expected/environment, 실제 execution/output/observations, FixRecord summary | raw 오류·선택하지 않은 screenshot·실제 secret |
 | `~/.lophn/work/problems/tests/<vrf-id>/` | 고정 요청 manifest, `before/after/single/source/`, side별 `scratch/`·fixture DB, redaction 완료 result spool | 운영 DB·backup 사본, 앱별 journal, credential 파일 |
 | collector·SDK·shell 메모리 | 미확정 입력, 원문을 redaction하는 동안의 buffer, feedback 초안·캡처, 동일 retry용 최종 내용 | 영구 접수됐다는 주장 |
 | derived store | 이 concern의 전용 derived DB 없음; 요약·목록은 read에서 계산 | Problem·Verification 정본 복제 |
@@ -265,7 +265,7 @@ notification 계기는 운영 `ProblemOpened / ProblemReopened / ProblemClosed`�
 ```text
 [shell 앱 화면 틀] 버튼
   → [shell main] dialog 전 app view·시점·release/mode·binding·안전 상태 고정
-  → [shell/redaction] PNG·비공개 영역 처리 → [사람] 글·상태·이미지 미리보기/선택
+  → [사람] 글·상태·이미지 미리보기/선택
   → [shell main→collector] SubmitFeedback → 최종 redaction·snapshot·hash
   → [core command] RecordReport → _feedback의 새 key 또는 선택 문제 key
   → [shell] 접수된 문제 열기 / 실패 이유와 복사 가능한 글 유지
@@ -273,8 +273,8 @@ notification 계기는 운영 `ProblemOpened / ProblemReopened / ProblemClosed`�
 
 1. 캡처는 앱 view만 대상으로 한다. feedback dialog는 shell overlay view에 그리고 보호된 결정은 요청 창의 child modal BrowserWindow에서 받으며 어느 쪽도 app view를 숨기지 않는다. 보호 화면·lophn dialog가 이미 떠 있거나 view가 가려졌으면 이미지 없이 이유를 기록한다. 캡처 await 동안 view가 교체/이동되어 당시 연결을 확인하지 못하면 이미지를 제외한다. 제출 시점 화면으로 교체하지 않는다.
 2. 안전한 상태는 화면명·탭·URL path/안전 hash·입력 형태만 자동 준비한다. 실제 표시 결과·문서 판·invocation을 아는 경우만 참조로 지목하며 read 결과 전체나 URL query를 붙이지 않는다. 입력 검사로 command가 시작하지 않았으면 invocation을 만들지 않는다.
-3. 상태만 기본 선택하고 PNG는 redaction된 미리보기를 사람이 확인한 뒤 선택한다. 비공개 영역을 확실히 처리하지 못하면 선택 불가다. 원본 픽셀은 메모리에만 있고 blob/temp 파일에 먼저 쓰지 않는다. 사람이 포함을 눌러도 secret 저장 허가가 되지 않는다.
-4. main은 같은 캡처의 binding·관측 시점·선택 상태·최종 이미지 hash를 전달한다. collector는 shell 출처와 binding을 검증하고 글·상태·PNG를 다시 redaction한 뒤 글 길이·PNG header/크기·전체 전송 크기를 검사한다.
+3. 상태만 기본 선택하고 PNG는 미리보기를 사람이 확인한 뒤 선택한다. PNG는 가리지 않는다(D32). 픽셀은 메모리에만 있고 blob/temp 파일에 먼저 쓰지 않는다. 사람이 포함을 눌러도 secret 저장 허가가 되지 않는다.
+4. main은 같은 캡처의 binding·관측 시점·선택 상태·최종 이미지 hash를 전달한다. collector는 shell 출처와 binding을 검증하고 글·상태를 다시 redaction한 뒤 글 길이·PNG header/크기·전체 전송 크기를 검사한다. PNG는 redaction하지 않는다.
 5. 첨부 실패/제외여도 글은 접수한다. 기존 문제는 같은 앱의 명시적 선택일 때만 쓴다. 취소하면 미제출 메모리를 버리며 이미 접수한 Report는 삭제하지 않는다. feedback 제출은 사람 닫힘 확인이 아니다.
 
 ### 7.3 snapshot 조립·문제 묶기·재발
@@ -294,7 +294,7 @@ notification 계기는 운영 `ProblemOpened / ProblemReopened / ProblemClosed`�
 | invocation | SDK/view의 실제 `inv`와 binding; **read**로 해당 ID의 기록 도착 확인 | ID를 알면 그대로+미도착 이유; 모르면 연결 모름; 시간 근접 추정 금지 |
 | 오류 | 플랫폼 관측; process 상대 source, view는 당시 bundle source map; stack 최대 16,384 bytes | 이름/메시지/위치별 이유; map path·symlink로 묶음 밖 파일 읽기 금지 |
 | 로그 | 앱 supervisor의 redaction 완료 buffer를 contract로 받음; 실제 inv로 가능한 만큼 좁힌 최근 30줄 | 없음/수집 꺼짐/기한 내 미수신/실패/잘림을 구별; 정상 0줄은 값 |
-| 화면 | shell이 고정하고 사람이 고른 안전 상태·PNG | automation/미선택/숨김/실패/redaction 제외 이유; 앱 선언을 픽셀 관측으로 승격하지 않음 |
+| 화면 | shell이 고정하고 사람이 고른 안전 상태·PNG | automation/미선택/숨김/실패 이유; 앱 선언을 픽셀 관측으로 승격하지 않음 |
 
 collector는 한도 안에서 source 읽기를 병행하고 모든 항목에 값 또는 공백 아닌 이유 하나를 만든다. observed_at과 captured_at, 화면의 실제 관측 시각·로그 범위가 다르면 그대로 둔다. blob 저장 실패 항목은 제외 이유로 고정한다. snapshot은 전체 시스템의 한 시각 원자 캡처가 아니다.
 
@@ -390,7 +390,7 @@ test 요청 접수·고정 입력 참조·시작 시도·runner 식별·복구 �
 - 이전: 앱 frame 없는 오류를 앱 문제가 아니라고 처리 / 지금: 앱 귀속이 확실하면 예외로 받고 발생별 key·위치 부재 이유 / 이유: 위치 미수집과 플랫폼 오류를 혼동하지 않는다.
 - 이전: 같은 지문 60초 1회·같은 code 10초 1회로 발생을 합치기 / 지금: 같은 관측 ID retry만 중복 제거하고 서로 다른 발생은 불변 Report / 이유: 전송 중복과 실제 반복 발생은 다르다.
 - 이전: preview 보고를 기록하지 않음 / 지금: preview/test 진단 scope에 Report·Snapshot을 기록하고 운영 Problem은 제외 / 이유: 수리 중 접수·보고 경로를 실제로 검사할 근거가 필요하다.
-- 이전: read 결과·행 표본·원본 screenshot 자동 첨부, 앱별 첨부 폴더와 90일 삭제 / 지금: 안전한 형태만, 사람 선택 PNG, redaction 전 메모리, 큰 자료는 용량 상한 초과 시 오래된 것부터 정리하고 변경 기록·결정·확정 결과는 영구 보존 / 이유: 업무 원값 자동 수집과 과거 근거 소실을 막으면서 큰 자료를 무제한으로 쌓지 않는다.
+- 이전: read 결과·행 표본·원본 screenshot 자동 첨부, 앱별 첨부 폴더와 90일 삭제 / 지금: 안전한 형태만, 사람 선택 PNG(가리지 않음), 글·상태는 redaction 전 메모리, 큰 자료는 용량 상한 초과 시 오래된 것부터 정리하고 변경 기록·결정·확정 결과는 영구 보존 / 이유: 업무 원값 자동 수집과 과거 근거 소실을 막으면서 큰 자료를 무제한으로 쌓지 않는다.
 - 이전: 앱 clear·quiet·health 성공·배포로 닫힘, 여러 상태·episode·repair attempt / 지금: reproduction+현재 activation+새 live Report 0개 또는 보호된 사람 결정, 3상태와 Closure / 이유: 조용함·주장·실제 수리 확인을 구별한다.
 - 이전: test용 host journal·lease·여러 실행 token과 broad Deno 권한 / 지금: 요청별 scratch·fixture DB·명시 permission, 신뢰 runner만 결과 command / 이유: 필요한 격리는 유지하되 별도 writer와 허가 단계를 만들지 않는다.
 - 이전: 재현 fixture 존재나 agent 로그를 검사 근거로 사용 / 지금: 동일 FrozenTest의 실제 before/after 업무 관측과 불변 Verification / 이유: pass 문자열과 실행 사실은 다르다.

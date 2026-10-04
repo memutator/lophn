@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { ProjectAuthorizer, ProjectEvent } from "./authorization.ts";
+import type { ProjectEvent } from "./authorization.ts";
+import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
 import { createProjectCommands } from "./commands.ts";
 import { createProjectEventVisibility } from "./visibility.ts";
 import { ids, keep, projectFixture, userContext } from "./testing-fixture.ts";
@@ -12,7 +13,7 @@ const input = {
   folders: [{ path: "/work/notes", description: "notes" }],
   tracking: { enabled: false as const, patterns: [], use_gitignore: false },
 };
-const commands = createProjectCommands({ authorize: () => ok(undefined) });
+const commands = createProjectCommands();
 function code(result: Result<unknown>, expected: string) {
   assert(!result.ok);
   assertEquals(result.error.code, expected);
@@ -34,7 +35,7 @@ const malformed = [
   () => {
     throw new Error("private detail");
   },
-] as unknown as (ProjectAuthorizer | undefined)[];
+] as unknown as (TargetAuthorizer | undefined)[];
 
 function event(): ProjectEvent {
   return {
@@ -54,7 +55,7 @@ function event(): ProjectEvent {
 Deno.test("documents/projects#R9: raw events hide nonusers and authorize current project plus historical envelope", () => {
   const fixture = projectFixture();
   try {
-    let project = seed(fixture);
+    const project = seed(fixture);
     const historical = event();
     const updated: ProjectEvent = {
       ...historical,
@@ -66,20 +67,18 @@ Deno.test("documents/projects#R9: raw events hide nonusers and authorize current
         after: { folders: input.folders },
       },
     };
-    const visibility = createProjectEventVisibility({
-      authorize(_ctx, operation, target) {
-        assert(target.kind === "event");
-        assertEquals(target.project, project);
-        assertEquals(operation, target.event.type);
-        assertEquals(
-          target.event,
-          target.event.type === "ProjectCreated" ? historical : updated,
-        );
-        return target.project.purpose === "revoked"
-          ? err({ code: "forbidden", message: "scope changed" })
-          : ok(undefined);
-      },
-    });
+    let current = project;
+    const seen: ProjectEvent[] = [];
+    const authorize: TargetAuthorizer = (_ctx, operation, target) => {
+      assertEquals(target.project, current.id);
+      assertEquals(operation, target.event_type);
+      seen.push(operation === "ProjectCreated" ? historical : updated);
+      return current.purpose === "revoked"
+        ? err({ code: "forbidden", message: "scope changed" })
+        : ok(undefined);
+    };
+    fixture.use(authorize);
+    const visibility = createProjectEventVisibility();
     assertEquals(
       keep(
         visibility.created.handle(
@@ -100,7 +99,9 @@ Deno.test("documents/projects#R9: raw events hide nonusers and authorize current
       ),
       true,
     );
-    project = keep(
+    assertEquals(seen, [historical, updated]);
+    fixture.use(() => ok(undefined));
+    current = keep(
       fixture.transaction((tx) =>
         commands.update.handle(tx, userContext(), {
           project: ids.project,
@@ -108,6 +109,7 @@ Deno.test("documents/projects#R9: raw events hide nonusers and authorize current
         }, { base_revision: project.revision })
       ),
     );
+    fixture.use(authorize);
     assertEquals(
       keep(
         visibility.created.handle(
@@ -118,11 +120,11 @@ Deno.test("documents/projects#R9: raw events hide nonusers and authorize current
       ),
       false,
     );
-    const closed = createProjectEventVisibility({
-      authorize: () => {
-        throw new Error("nonuser must not authorize");
-      },
-    });
+    const closed = createProjectEventVisibility();
+    const refuse: TargetAuthorizer = () => {
+      throw new Error("nonuser must not authorize");
+    };
+    fixture.use(refuse);
     for (
       const actor of [
         "machine",
@@ -143,6 +145,7 @@ Deno.test("documents/projects#R9: raw events hide nonusers and authorize current
         false,
       );
     }
+    fixture.use(authorize);
     const absent = { ...historical, subject: ids.other } as Extract<
       ProjectEvent,
       { type: "ProjectCreated" }
@@ -153,11 +156,11 @@ Deno.test("documents/projects#R9: raw events hide nonusers and authorize current
       ),
       false,
     );
+    const visibilityClosed = createProjectEventVisibility();
     for (const authorize of malformed) {
+      fixture.use(authorize as TargetAuthorizer);
       code(
-        createProjectEventVisibility({
-          authorize: authorize as ProjectAuthorizer,
-        }).created.handle(
+        visibilityClosed.created.handle(
           fixture.snapshot(),
           userContext(),
           historical as Extract<ProjectEvent, { type: "ProjectCreated" }>,
@@ -165,12 +168,22 @@ Deno.test("documents/projects#R9: raw events hide nonusers and authorize current
         "unavailable",
       );
     }
+    const missingPort = fixture.snapshot();
+    missingPort.port = (() => {
+      throw new Error("unregistered project port");
+    }) as typeof missingPort.port;
+    code(
+      visibilityClosed.created.handle(
+        missingPort,
+        userContext(),
+        historical as Extract<ProjectEvent, { type: "ProjectCreated" }>,
+      ),
+      "unavailable",
+    );
     for (const failure of ["internal", "unavailable"] as const) {
+      fixture.use(() => err({ code: failure, message: "dependency failure" }));
       code(
-        createProjectEventVisibility({
-          authorize: () =>
-            err({ code: failure, message: "dependency failure" }),
-        }).created.handle(
+        visibilityClosed.created.handle(
           fixture.snapshot(),
           userContext(),
           historical as Extract<ProjectEvent, { type: "ProjectCreated" }>,
@@ -198,18 +211,16 @@ Deno.test("documents/projects#R9: archive events authorize exact envelope and mi
     const archived = { ...common, type: "ProjectArchived" as const };
     const unarchived = { ...common, type: "ProjectUnarchived" as const };
     const calls: string[] = [];
-    const visibility = createProjectEventVisibility({
-      authorize(_ctx, operation, target) {
-        assert(target.kind === "event");
-        assertEquals(target.project, project);
-        assertEquals(
-          target.event,
-          operation === "ProjectArchived" ? archived : unarchived,
-        );
-        calls.push(operation);
-        return ok(undefined);
-      },
-    });
+    const seenEvents: ProjectEvent[] = [];
+    const authorize: TargetAuthorizer = (_ctx, operation, target) => {
+      assertEquals(target.project, project.id);
+      assertEquals(target.event_type, operation);
+      seenEvents.push(operation === "ProjectArchived" ? archived : unarchived);
+      calls.push(operation);
+      return ok(undefined);
+    };
+    fixture.use(authorize);
+    const visibility = createProjectEventVisibility();
     assertEquals(
       keep(
         visibility.archived.handle(fixture.snapshot(), userContext(), archived),
@@ -227,11 +238,14 @@ Deno.test("documents/projects#R9: archive events authorize exact envelope and mi
       true,
     );
     assertEquals(calls, ["ProjectArchived", "ProjectUnarchived"]);
-    const missing = createProjectEventVisibility(
-      undefined as unknown as { authorize: ProjectAuthorizer },
-    );
+    assertEquals(seenEvents, [archived, unarchived]);
+    const missing = createProjectEventVisibility();
+    const missingPort = fixture.snapshot();
+    missingPort.port = (() => {
+      throw new Error("unregistered project port");
+    }) as typeof missingPort.port;
     code(
-      missing.archived.handle(fixture.snapshot(), userContext(), archived),
+      missing.archived.handle(missingPort, userContext(), archived),
       "unavailable",
     );
     assertEquals(
@@ -244,11 +258,16 @@ Deno.test("documents/projects#R9: archive events authorize exact envelope and mi
       ),
       false,
     );
-    const denied = createProjectEventVisibility({
-      authorize: () => err({ code: "not_found", message: "hidden" }),
-    });
+    const denied = createProjectEventVisibility();
+    fixture.use(() => err({ code: "not_found", message: "hidden" }));
     assertEquals(
-      keep(denied.archived.handle(fixture.snapshot(), userContext(), archived)),
+      keep(
+        denied.archived.handle(
+          fixture.snapshot(),
+          userContext(),
+          archived,
+        ),
+      ),
       false,
     );
   } finally {

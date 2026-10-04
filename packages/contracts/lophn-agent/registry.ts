@@ -5,6 +5,13 @@ import { OCCURRENCE_EVENTS, OCCURRENCE_ROUTES } from "./occurrences.ts";
 import { QUESTION_COMMANDS, QUESTION_EVENTS } from "./questions.ts";
 import { HANDOFF_ROUTES } from "./handoffs.ts";
 import { REVERT_EVENTS, REVERT_ROUTES } from "./reverts.ts";
+import { PRESET_EVENTS, PRESET_ROUTES } from "./presets.ts";
+import { ASSIGNMENT_EVENTS, ASSIGNMENT_ROUTES } from "./assignments.ts";
+import { MODEL_CALL_EVENTS, MODEL_CALL_ROUTES } from "./model-calls.ts";
+import { MODEL_EVENTS, MODEL_ROUTES } from "./models.ts";
+import { PROVIDER_EVENTS, PROVIDER_ROUTES } from "./providers.ts";
+import { TOOL_CALL_EVENTS, TOOL_CALL_ROUTES } from "./tool-calls.ts";
+import { TRACE_ROUTES } from "./traces.ts";
 
 export const ROUTES = [
   ...RUN_COMMANDS,
@@ -14,6 +21,13 @@ export const ROUTES = [
   ...QUESTION_COMMANDS,
   ...HANDOFF_ROUTES,
   ...REVERT_ROUTES,
+  ...PRESET_ROUTES,
+  ...ASSIGNMENT_ROUTES,
+  ...PROVIDER_ROUTES,
+  ...MODEL_CALL_ROUTES,
+  ...MODEL_ROUTES,
+  ...TOOL_CALL_ROUTES,
+  ...TRACE_ROUTES,
 ] as const;
 
 export const EVENTS = [
@@ -23,4 +37,10 @@ export const EVENTS = [
   ...OCCURRENCE_EVENTS,
   ...QUESTION_EVENTS,
   ...REVERT_EVENTS,
+  ...PRESET_EVENTS,
+  ...ASSIGNMENT_EVENTS,
+  ...PROVIDER_EVENTS,
+  ...MODEL_EVENTS,
+  ...MODEL_CALL_EVENTS,
+  ...TOOL_CALL_EVENTS,
 ] as const;

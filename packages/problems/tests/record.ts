@@ -6,6 +6,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../contracts/platform/mod.ts";
 import {
   recordVerification,
   verificationRecorded,
@@ -63,7 +64,7 @@ export function handleRecordVerification(
     request_principal: verification.request_principal,
     request_key: verification.request_key,
     request_hash: verification.request_hash,
-  });
+  }, tx.port(TargetAuthorization));
   if (!allowed.ok) return allowed;
   let canonical: string;
   try {

@@ -171,6 +171,7 @@ Deno.test("problems/tests#R2 R3: file two-side reproduction은 before release bi
         ...caller.scope,
         operations: ["GetVerification", "ListVerifications"],
       },
+      conditions: { app: caller.scope.targets.app as string },
     };
     const read = readVerification(ledger.snapshot("1"), reader, {
       verification: value.id,

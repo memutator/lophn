@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Project } from "../../contracts/documents/mod.ts";
 import type { RequestContext, Tx } from "../../contracts/platform/mod.ts";
-import type { ProjectAuthorizer } from "./authorization.ts";
+import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
 import { createProjectCommands } from "./commands.ts";
 import { ids, keep, projectFixture, userContext } from "./testing-fixture.ts";
 
@@ -14,7 +14,7 @@ const input = {
   folders: [{ path: "/work/notes", description: "notes" }],
   tracking: { enabled: false as const, patterns: [], use_gitignore: false },
 };
-const commands = createProjectCommands({ authorize: () => ok(undefined) });
+const commands = createProjectCommands();
 function code(result: Result<unknown>, expected: string) {
   assert(!result.ok);
   assertEquals(result.error.code, expected);
@@ -40,8 +40,8 @@ function noWrites(tx: Tx): Tx {
     },
   };
 }
-function mutations(authorize: ProjectAuthorizer, project: Project) {
-  const handlers = createProjectCommands({ authorize });
+function mutations(project: Project) {
+  const handlers = createProjectCommands();
   return [
     (tx: Tx, ctx: RequestContext) =>
       handlers.create.handle(tx, ctx, {
@@ -71,9 +71,11 @@ Deno.test("documents/projects#R1: all mutations reject nonusers before authoriza
   const fixture = projectFixture();
   try {
     const project = seed(fixture);
-    const reject: ProjectAuthorizer = () => {
+    let authorized = false;
+    fixture.use(() => {
+      authorized = true;
       throw new Error("must not authorize nonuser");
-    };
+    });
     for (
       const actor of [
         "machine",
@@ -83,7 +85,7 @@ Deno.test("documents/projects#R1: all mutations reject nonusers before authoriza
         "app:app_01arz3ndektsv4rrffq69g5fav",
       ]
     ) {
-      for (const mutation of mutations(reject, project)) {
+      for (const mutation of mutations(project)) {
         code(
           fixture.transaction((tx) =>
             mutation(noWrites(tx), userContext(actor))
@@ -92,6 +94,7 @@ Deno.test("documents/projects#R1: all mutations reject nonusers before authoriza
         );
       }
     }
+    assertEquals(authorized, false);
     assertEquals(fixture.emitted.length, 1);
     assertEquals(fixture.sql.all("SELECT slug FROM place_names", []).length, 1);
   } finally {
@@ -104,37 +107,21 @@ Deno.test("documents/projects#R1: scoped mutation decisions receive full before 
   try {
     let project = seed(fixture);
     const seen: string[] = [];
-    const reject: ProjectAuthorizer = (ctx, operation, target) => {
+    const reject: TargetAuthorizer = (ctx, operation, target) => {
       assertEquals(ctx.credential_ref, "current");
-      assertEquals(target.kind, "command");
-      assert(target.kind === "command");
-      assertEquals(Object.keys(target.after).sort(), [
-        "folders",
-        "id",
-        "name",
-        "purpose",
-        "status",
-        "title",
-        "tracking",
-      ]);
-      assertEquals(target.after.folders, input.folders);
-      assertEquals(target.after.tracking, input.tracking);
       if (operation === "project.create") {
-        assertEquals(target.before, null);
-        assertEquals(target.after.id, ids.other);
+        assertEquals(target, { project: ids.other });
       } else {
-        assertEquals(target.before, project);
-        assertEquals(target.after.id, project.id);
-        if (operation === "project.update") {
-          assertEquals(target.after.name, "renamed");
-          assertEquals(target.after.purpose, "next");
-          assertEquals(target.after.title, "Next");
-        }
+        assertEquals(target, {
+          project: project.id,
+          before_project: project.id,
+        });
       }
       seen.push(operation);
       return err({ code: "forbidden", message: "outside current scope" });
     };
-    for (const mutation of mutations(reject, project).slice(0, 3)) {
+    fixture.use(reject);
+    for (const mutation of mutations(project).slice(0, 3)) {
       code(
         fixture.transaction((tx) => mutation(noWrites(tx), userContext())),
         "forbidden",
@@ -142,6 +129,7 @@ Deno.test("documents/projects#R1: scoped mutation decisions receive full before 
     }
     assertEquals(fixture.emitted.length, 1);
     assertEquals(fixture.sql.all("SELECT slug FROM place_names", []).length, 1);
+    fixture.use(() => ok(undefined));
     project = keep(
       fixture.transaction((tx) =>
         commands.archive.handle(tx, userContext(), { project: project.id }, {
@@ -149,7 +137,8 @@ Deno.test("documents/projects#R1: scoped mutation decisions receive full before 
         })
       ),
     );
-    const unarchive = mutations(reject, project)[3]!;
+    fixture.use(reject);
+    const unarchive = mutations(project)[3]!;
     code(
       fixture.transaction((tx) => unarchive(noWrites(tx), userContext())),
       "forbidden",
@@ -175,14 +164,14 @@ Deno.test("documents/projects#R1: owner denial precedes CAS state and tracking o
   try {
     let project = seed(fixture);
     const seen: string[] = [];
-    const denied = createProjectCommands({
-      authorize(_ctx, operation, target) {
-        assert(target.kind === "command");
-        assertEquals(target.before, project);
-        seen.push(operation);
-        return err({ code: "forbidden", message: "outside current scope" });
-      },
-    });
+    const denied = createProjectCommands();
+    const deny: TargetAuthorizer = (_ctx, operation, target) => {
+      assertEquals(target.before_project, project.id);
+      assertEquals(target.project, project.id);
+      seen.push(operation);
+      return err({ code: "forbidden", message: "outside current scope" });
+    };
+    fixture.use(deny);
     const stale = { base_revision: "999" };
     code(
       fixture.transaction((tx) =>
@@ -218,6 +207,7 @@ Deno.test("documents/projects#R1: owner denial precedes CAS state and tracking o
       ),
       "forbidden",
     );
+    fixture.use(() => ok(undefined));
     keep(fixture.transaction((tx) =>
       commands.create.handle(tx, userContext(), {
         ...input,
@@ -235,6 +225,7 @@ Deno.test("documents/projects#R1: owner denial precedes CAS state and tracking o
     );
     fixture.sql.run("UPDATE projects SET tracking_enabled = 1", []);
     project = { ...project, tracking: { ...project.tracking, enabled: true } };
+    fixture.use(deny);
     code(
       fixture.transaction((tx) =>
         denied.unarchive.handle(noWrites(tx), userContext(), {
@@ -243,6 +234,7 @@ Deno.test("documents/projects#R1: owner denial precedes CAS state and tracking o
       ),
       "forbidden",
     );
+    fixture.use(() => ok(undefined));
     code(
       fixture.transaction((tx) =>
         commands.unarchive.handle(noWrites(tx), userContext(), {
@@ -275,22 +267,38 @@ const malformed = [
   () => {
     throw new Error("private detail");
   },
-] as unknown as (ProjectAuthorizer | undefined)[];
+] as unknown as (TargetAuthorizer | undefined)[];
+
+function missingPort(tx: Tx): Tx {
+  return {
+    ...tx,
+    port: (() => {
+      throw new Error("unregistered project port");
+    }) as Tx["port"],
+  };
+}
 
 Deno.test("documents/projects#R1: missing async and malformed mutation authorizers fail closed", () => {
   const fixture = projectFixture();
   try {
     let project = seed(fixture);
     for (const authorize of malformed) {
-      for (
-        const mutation of mutations(authorize as ProjectAuthorizer, project)
-          .slice(0, 3)
-      ) {
+      fixture.use(authorize as TargetAuthorizer);
+      for (const mutation of mutations(project).slice(0, 3)) {
         code(
           fixture.transaction((tx) => mutation(noWrites(tx), userContext())),
           "unavailable",
         );
       }
+    }
+    fixture.use(() => ok(undefined));
+    for (const mutation of mutations(project).slice(0, 3)) {
+      code(
+        fixture.transaction((tx) =>
+          mutation(missingPort(noWrites(tx)), userContext())
+        ),
+        "unavailable",
+      );
     }
     project = keep(
       fixture.transaction((tx) =>
@@ -300,16 +308,20 @@ Deno.test("documents/projects#R1: missing async and malformed mutation authorize
       ),
     );
     for (const authorize of malformed) {
+      fixture.use(authorize as TargetAuthorizer);
       code(
         fixture.transaction((tx) =>
-          mutations(authorize as ProjectAuthorizer, project)[3]!(
-            noWrites(tx),
-            userContext(),
-          )
+          mutations(project)[3]!(noWrites(tx), userContext())
         ),
         "unavailable",
       );
     }
+    code(
+      fixture.transaction((tx) =>
+        mutations(project)[3]!(missingPort(noWrites(tx)), userContext())
+      ),
+      "unavailable",
+    );
   } finally {
     fixture.close();
   }

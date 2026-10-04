@@ -44,6 +44,7 @@
 | D29 | docs/flows/jobs.md는 지웠다. product.md P1은 flow를 가리킨다. |
 | D30 | 열린 질문은 전부 정했다. 판정은 아래 "결정 기록"에 있다. |
 | D31 | provider 로그인: Anthropic은 API key만 쓴다(Claude OAuth는 첫 판에서 뺀다. Anthropic이 제3자 앱의 Claude.ai 로그인을 금지한다). ChatGPT는 공식 Sign in with ChatGPT로, xAI는 SuperGrok OAuth로 로그인한다(xAI가 OAuth를 열었다). 그 밖은 API key와 로컬 연결이다. |
+| D32 | screenshot redaction을 하지 않는다. 문제 보고는 사람이 자기 앱을 쓰다 직접 보내는 피드백이므로, screenshot은 사람이 미리 보고 고른 것만 가리지 않은 그대로 첨부한다. 보호 화면·private 영역 판정과 첨부 차단(platform/redaction 옛 R13, platform#T37)은 뺀다. 글·화면 상태의 redaction은 그대로다. |
 
 큰 질문(H1–H8, G1–G3)의 답은 D23–D25와 D29에 있다. G1(git)과 G2(problem 문서 타입 없음)도 정했다.
 

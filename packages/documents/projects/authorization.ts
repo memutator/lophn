@@ -7,9 +7,12 @@ import type {
   projectUnarchived,
   projectUpdated,
 } from "../../contracts/documents/mod.ts";
-import type {
-  EventEnvelopeFor,
-  RequestContext,
+import {
+  type AuthorizationTarget,
+  type EventEnvelopeFor,
+  type RequestContext,
+  TargetAuthorization,
+  type TargetAuthorizer,
 } from "../../contracts/platform/mod.ts";
 
 export type ProjectCandidate = Omit<Project, "revision">;
@@ -19,6 +22,7 @@ export type ProjectEvent =
   | EventEnvelopeFor<typeof projectArchived>
   | EventEnvelopeFor<typeof projectUnarchived>;
 
+// command는 현재 Project와 전체 변경 후보를, read·event는 Project 또는 고정 DocumentRef를 판정한다.
 export type ProjectAccessTarget =
   | { kind: "command"; before: Project | null; after: ProjectCandidate }
   | { kind: "project"; project: Project }
@@ -29,12 +33,7 @@ export type ProjectAccessTarget =
   }
   | { kind: "event"; project: Project; event: ProjectEvent };
 
-// core가 현재 credential을 재검사한다. ctx.scope 자체는 authority가 아니다.
-export type ProjectAuthorizer = (
-  ctx: RequestContext,
-  operation: string,
-  target: ProjectAccessTarget,
-) => Result<void>;
+export type ProjectAuthorizer = TargetAuthorizer;
 
 export function dependencyUnavailable(): Result<never> {
   return err({
@@ -67,21 +66,50 @@ export function synchronousResult<T>(value: unknown): Result<T> {
   return dependencyUnavailable();
 }
 
+// TargetAuthorization이 없으면, Promise거나 반환이 Result가 아니면 fail-closed다.
 export function authorizeProject(
-  authorize: ProjectAuthorizer | undefined,
+  port: (<T>(key: { readonly name: string }) => T) | undefined,
   ctx: RequestContext,
   operation: string,
   target: ProjectAccessTarget,
 ): Result<void> {
+  let authorize: unknown;
+  try {
+    authorize = port?.(TargetAuthorization);
+  } catch {
+    return dependencyUnavailable();
+  }
   if (typeof authorize !== "function") return dependencyUnavailable();
   try {
-    const result = synchronousResult<void>(authorize(ctx, operation, target));
+    const result = synchronousResult<void>(
+      (authorize as TargetAuthorizer)(
+        ctx,
+        operation,
+        authorizationTarget(target),
+      ),
+    );
     return result.ok && result.value !== undefined
       ? dependencyUnavailable()
       : result;
   } catch {
     return dependencyUnavailable();
   }
+}
+
+// scope.targets key. command는 현재 Project와 변경 후보의 project를 모두 포함한다.
+function authorizationTarget(target: ProjectAccessTarget): AuthorizationTarget {
+  const value: Record<string, string> = {
+    project: target.kind === "command" ? target.after.id : target.project.id,
+  };
+  if (target.kind === "command" && target.before !== null) {
+    value.before_project = target.before.id;
+  }
+  if (target.kind === "document") {
+    value.document = target.document.document;
+    value.version = target.document.version;
+  }
+  if (target.kind === "event") value.event_type = target.event.type;
+  return value;
 }
 
 export function denied(result: Result<unknown>): boolean {

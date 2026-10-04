@@ -90,7 +90,7 @@ concerns: [problems/snapshots]
 
 ### 선택한 화면 자료
 
-**[R15]** 화면 증거는 problems/feedback에서 사람이 선택한 당시의 안전한 상태와 PNG만 보존하고 미선택·화면 없음·숨김·수집 실패·redaction 제외를 표시한다.
+**[R15]** 화면 증거는 problems/feedback에서 사람이 선택한 당시의 안전한 상태와 PNG만 보존하고 미선택·화면 없음·숨김·수집 실패를 표시한다. PNG는 가리지 않는다(D32).
 - 이유: automation이나 깨진 view에도 없는 화면을 만들지 않는다.
 - 확인: 화면 없는 automation과 보호 화면이 떠 있는 feedback은 화면 없음 또는 수집 불가를 보이고 이미지 크기·선택은 problems/feedback을 따른다.
 - 의도: problems#I2

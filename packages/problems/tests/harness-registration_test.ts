@@ -58,25 +58,9 @@ export const FAILING_BLOB_FIELD = "frozen_code";
 // port가 돌려주는 준비 값. Worker module 상태에만 있고 Deno.test는 없다.
 let admissionValue: PreparedAdmission | null = null;
 let evidenceValue: PreparedResultEvidence | null = null;
-let submittedScope: RequestContext["scope"] | null = null;
 let failBlobField: string | null = null;
 
 const jsonText = z.string();
-const setScope = defineCommand({
-  resource: "problems",
-  method: "set-test-scope",
-  name: "problems.tests.set-scope",
-  input: z.object({
-    operations: z.array(z.string()),
-    app: z.string().nullable(),
-    request_principal: z.string().nullable(),
-    request_key: z.string().nullable(),
-    request_hash: z.string().nullable(),
-  }),
-  output: z.object({ ready: z.boolean() }),
-  actors: ["user", "machine", "coding_agent", "agent", "app"],
-  errors: [],
-});
 const setAdmission = defineCommand({
   resource: "problems",
   method: "set-test-admission",
@@ -102,7 +86,6 @@ const observeRequest = defineCommand({
   input: z.object({
     observation: z.unknown(),
     proof: z.unknown(),
-    scope: z.unknown(),
   }),
   output: z.object({ seq: z.string() }),
   actors: ["machine"],
@@ -115,7 +98,6 @@ const startSide = defineCommand({
   input: z.object({
     start: z.unknown(),
     proof: z.unknown(),
-    scope: z.unknown(),
   }),
   output: z.object({ seq: z.string() }),
   actors: ["machine"],
@@ -146,52 +128,10 @@ let evidenceSerial = 0;
 let previousAdmission: unknown;
 let previousEvidence: unknown;
 
-// platform authorize(identity/model.ts)는 credential의 domain target(request_key 등)을
-// 고정 조건이 아니라는 이유로 거절한다. 그 gap이 풀릴 때까지 platform에 알려 둔다.
-// platform authorize는 domain target을 거절한다. 테스트 command가 같은 Worker에
-// scope를 심고, 공식 handler는 그 scope로 owner 검사를 본다.
-function withSubmittedScope(command: CommandDefinition): CommandDefinition {
-  return {
-    route: command.route,
-    handle(tx, ctx, input, compare) {
-      return command.handle(
-        tx,
-        submittedScope === null ? ctx : {
-          ...ctx,
-          // operations는 실제 credential 그대로 두고 domain targets만 더한다.
-          scope: { ...ctx.scope, targets: submittedScope.targets },
-        },
-        input,
-        compare,
-      );
-    },
-  };
-}
-
 export function createLedgerTestRegistration(
   _environment: LedgerTestEnvironment,
 ): LedgerTestRegistration {
   const testCommands: CommandDefinition[] = [
-    {
-      route: setScope,
-      handle(_tx, _ctx, raw) {
-        const parsed = setScope.input.parse(raw);
-        const targets: Record<string, string> = {};
-        for (
-          const key of [
-            "app",
-            "request_principal",
-            "request_key",
-            "request_hash",
-          ] as const
-        ) {
-          const value = parsed[key];
-          if (value !== null) targets[key] = value;
-        }
-        submittedScope = { operations: parsed.operations, targets };
-        return ok({ ready: true });
-      },
-    },
     {
       route: setAdmission,
       handle(_tx, _ctx, raw) {
@@ -218,11 +158,10 @@ export function createLedgerTestRegistration(
         const parsed = observeRequest.input.parse(raw) as {
           observation: ObservationInput;
           proof: LifecycleProof | null;
-          scope: RequestContext["scope"];
         };
         const stored = appendRequestObservation(
           tx,
-          { ...ctx, scope: parsed.scope },
+          ctx,
           parsed.observation,
           parsed.proof,
         );
@@ -235,11 +174,10 @@ export function createLedgerTestRegistration(
         const parsed = startSide.input.parse(raw) as {
           start: SideStartInput;
           proof: LifecycleProof | null;
-          scope: RequestContext["scope"];
         };
         const stored = appendActualSideStart(
           tx,
-          { ...ctx, scope: parsed.scope },
+          ctx,
           parsed.start,
           parsed.proof,
         );
@@ -289,10 +227,7 @@ export function createLedgerTestRegistration(
         );`,
       },
     ],
-    commands: [
-      withSubmittedScope(requestTestCommand),
-      withSubmittedScope(recordVerificationCommand),
-    ],
+    commands: [requestTestCommand, recordVerificationCommand],
     testCommands,
     reads: [getTestRequestRead, getVerificationRead, listVerificationsRead],
     ports: [

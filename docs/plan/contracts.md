@@ -285,7 +285,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - slice: documents
 - 선행: contracts#T11
 - 완료: 아래 확인이 통과한다
-  - pipe 작업 `redaction.check`: `RedactionInput {source, media_type, audience, safe_fields, private_fields, private_regions}` → `RedactionResult {rule_revision, status, content, redacted_items, omissions}`, `Omission`.
+  - pipe 작업 `redaction.check`: `RedactionInput {source, media_type, audience, safe_fields, private_fields}`(D32로 private_regions 뺌) → `RedactionResult {rule_revision, status, content, redacted_items, omissions}`, `Omission`.
   - 상수: 검사 단위 1MiB·깊이 16·항목 4,096·5초, 대체 문자 `*` 하나, 표본 64자·전체 2KiB, 화면 문자열 80자.
   - entry가 끼워 주는 `Redactor` interface, 안전 필드·private 필드·표본 경로 선언 모양, 자료 직렬화 interface와 `TrustClass`(platform 2차).
 
@@ -617,6 +617,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T27 contracts/lophn-agent: preset·assignment
 
+- 상태: 완료 (#101)
 - 등급: 기본
 - concern: lophn-agent/presets, lophn-agent/assignments, lophn-agent/instructions
 - 요구: lophn-agent/presets#R1–R3, R5–R7, R9, R11, R13, R15, R16; lophn-agent/assignments#R2–R6, R9, R10, R16, R17; lophn-agent/extensions#R30, R31; lophn-agent/scheduling#R1, R3; lophn-agent/harness/provider#R8; lophn-agent/harness/model#R8; lophn-agent/harness/tools#R10; lophn-agent/roles/context-engineer#R12
@@ -652,6 +653,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T29 contracts/lophn-agent: provider·credential·model call·catalog
 
+- 상태: 완료 (#109)
 - 등급: 기본
 - concern: lophn-agent/harness/provider, lophn-agent/harness/model, lophn-agent/harness/usage
 - 요구: lophn-agent/harness/provider#R1–R6, R8, R9, R11–R13, R16, R19–R23, R25–R27, R29, R30; lophn-agent/harness/model#R1–R3, R5, R7–R13, R15–R20; lophn-agent/harness/usage#R2–R9; lophn-agent/harness/prompt-assemble#R1, R8, R9, R19, R25, R26, R28; lophn-agent/instructions#R7, R8; lophn-agent/harness/run-loop#R11
@@ -668,6 +670,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T30 contracts/lophn-agent: tool call·trace·usage·visual block
 
+- 상태: 완료 (#107)
 - 등급: 기본
 - concern: lophn-agent/harness/tools, lophn-agent/observability, lophn-agent/visuals
 - 요구: lophn-agent/harness/tools#R1–R4, R6–R16, R18–R20; lophn-agent/harness/tool-judgment#R1–R3, R5, R8–R12; lophn-agent/harness/run-loop#R13, R15; lophn-agent/harness/waiting-and-recovery#R2, R3, R5, R10; lophn-agent/extensions#R6, R7, R12, R13, R16, R19, R22, R23, R25–R29; lophn-agent/observability#R1–R10, R14, R16–R20, R25, R26; lophn-agent/harness/usage#R5–R10; lophn-agent/visuals#R1–R7
@@ -850,6 +853,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T38 contracts/shell: 앱 화면 틀·앱 preload bridge·feedback IPC
 
+- 상태: 완료 (#105)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R1, R5, R6, R8, R11–R15, R22, R33, R34
@@ -889,7 +893,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
   - content hash 입력 schema는 최종 report input(content_hash 자체 제외), snapshot, group key, explicit existing problem, purpose/hash 목록이다. server problem/event seq·일시적 preparation handle·forwarding metadata는 제외한다. caller는 canonical JSON/hash 비교를 runtime에서 하고 동일 retry는 최초 고정 내용만 보낸다. `_invalid_report` ID의 결정적 생성·원래 rpt와 분리는 collector 책임이다.
   - source=feedback의 최종 report input/output/content hash 입력에는 `_feedback`과 nonnull text hash가 필수이고 RecordReport는 report_text의 typed authority까지 검사한다. 자동 app/exception report는 화면 state·PNG hash/authority를 저장할 수 없으며 실제 missing reason은 유지한다. source=feedback에서 기존 문제를 선택하면 declared·exception 등 그 기존 GroupKey를 그대로 허용한다. 새 feedback key는 자기 최초 rpt다. canonical app+key uniqueness·실제 선택 문제 app/key 조회·source map 지문·reopen은 runtime/T40 범위다.
   - Snapshot은 항목마다 값 또는 MissingReason 정확히 하나이며 별도 lifecycle을 두지 않는다. 알려진 invocation ID/미도착 이유, 각 로그 실제 수집 시각/알려진 범위/정상 0줄, source 위치 없음 이유를 유지한다. 로그는 총 65,536 bytes만 제한하고 T20의 한 줄 300자 제한을 가져오지 않는다.
-  - `report-blobs.ts`는 platform prepared/permanent reference를 사용하고 hash/size/purpose를 묶는다. schema는 typed prepared metadata 일치·항목 bytes·snapshot 준비 총 bytes·feedback JSON와 첨부 합계 bytes를 검사한다. permanent reference의 실제 size/purpose/권한, 실제 UTF-8 JSON bytes, PNG header/dimensions/bytes, redaction, 사람 선택·button view binding·관측 시각은 trusted host가 검증한다. PNG binary는 blob/file/IPC에 있고 generic JSON에 base64를 넣지 않는다. text-only/all-missing snapshot은 유효하다.
+  - `report-blobs.ts`는 platform prepared/permanent reference를 사용하고 hash/size/purpose를 묶는다. schema는 typed prepared metadata 일치·항목 bytes·snapshot 준비 총 bytes·feedback JSON와 첨부 합계 bytes를 검사한다. permanent reference의 실제 size/purpose/권한, 실제 UTF-8 JSON bytes, PNG header/dimensions/bytes, 사람 선택·button view binding·관측 시각은 trusted host가 검증한다. PNG binary는 blob/file/IPC에 있고 generic JSON에 base64를 넣지 않는다. text-only/all-missing snapshot은 유효하다.
   - `sdk-report.ts`는 Zod/contracts root runtime import 없는 portable type/policy entry이며 raw ExceptionObservationInput/Error·MissingReason/invocation 구조는 공개 schema 타입과 bidirectional assignability 테스트로 맞춘다. common error와 transport-only `response_lost`를 구별하고 unavailable/lost만 `[250,1000,3000]`ms로 최대 3회 retry한다. 실제 SDK queue/observer는 problems#T5가 구현하며 observer는 원래 실패를 삼키거나 preventDefault하지 않는다.
   - 공개 mod/registry에 네 route·네 event를 추가하고 T32의 고정 다섯 route/VerificationRecorded identity membership을 보존했다. requirement-numbered schema 테스트와 doc check/full check로 확인한다.
 
@@ -1162,3 +1166,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - Q31 T48 `lophn_project` current의 architecture 표 `cwd?`는 MCP 프로세스 고정 `--cwd`가 credential 조건이 되는 값이라 caller 입력이 아니다(추천안). tool 입력은 `project.resolve_cwd`의 빈 객체를 그대로 쓰고, 근거가 없으면 fail-closed다. note·tag는 documents 저장 입력에 없어 tool 입력으로 받지 않는다.
 - Q32 T23 보호 export·import는 공개 route가 아닌 machine pipe op이고 원값·암호·암호문을 JSON에 싣지 않는다(추천안, platform 요청). import 결과는 이름마다 새 준비와 기록 CAS(sealed_ref·revision, 없던 이름은 둘 다 null)다. 앱 secret 사용의 현재 grant 판정 `SecretAllowance`와 process 생존 `ProcessLiveness`는 다른 최상위가 구현하는 seam이라 contract port로 둔다. 실제 KDF·암호화·keychain 기록·grant 판정은 owner runtime 책임이다.
 - Q33 T40 예외 지문 입력은 오류 이름과 상위 최대 3개 앱 frame의 상대 path·function뿐이고 hash는 collector가 canonical JSON sha256으로 낸다(추천안). work 종료 사유는 released·expired·completion_reported·cancelled 넷, 목록·상세의 증상·다음 행동 문구는 host가 채운 문자열, closure confirmation은 일회 handle 참조 문자열, 문제 결정 등록 이름은 problem_decision, 표시 read는 problems/get이다. section key는 documents 정본을 재사용한다.
+- Q34 T27 preset·assignment의 prompt는 원문이 아니라 sha256이고, PresetCreated는 그 hash와 함께 판 전체 `definition`을 싣는다(추천안). instruction-attachments의 `in_use`는 현재 assignment가 그 preset revision을 쓰는지다. `InstructionLocation.place`는 documents가 정한 등록 자리 문자열이고 경로 문법 검사는 documents가 한다. `InstructionAttachments`·`OperatorOutput` port는 동기 Result다. Operator 적용의 confirmation binding은 approval·decision_seq·bundle이고 표시 read는 assignments/read다. ChangeAssignmentPreset의 compare role은 lophn·app_engineer·context_engineer만이다. schema의 모양 검사는 이름 중복·참조 존재·현재 권한·승인 한 번 사용·출력 독점 판정을 대신하지 않는다.
+- Q35 T38 화면 검사 host 입력은 `{bundle_screens_dir, screens[{key, path}], app_socket_path, deadline_ms}`이고 관측은 `{load, errors, feedback_check, blocked_requests}`다(추천안). 통로는 상속 fd 3의 JSON lines, 시작 flag는 `--app-screen-test`다. runner가 찾는 실행 파일은 Linux `/opt/lophn/desktop/lophn-desktop`, macOS `Lophn.app/Contents/Resources/desktop/lophn-desktop`, Windows `Lophn/resources/desktop/lophn-desktop.exe`다. `connectionState`는 apps/runtime의 preparing·stopped·running·unavailable다. shell partition 이름은 `persist:shell`이다. `lophnApp`의 portable entry는 Zod 없는 `shell/app-bridge`다. screenshot 미리보기는 사람이 고른 hash만 두고 redaction 불가 이유·가림 값은 두지 않는다(D32).
+- Q36 T30 tool call·trace·usage는 domain 필드를 strict schema로 두고 export는 업무 event 없는 user command, MCP 서버 설정은 T24 SettingDefinition 하나로 둔다(추천안). 결과 kind는 success·failure·not_executed·uncertain, 비용 kind는 reported·estimated·subscription·free·unknown이다. canonical 외부 이름은 `ext_<server>_<tool>`(영문·숫자·밑줄·하이픈, 64자 이하)이고 인증 secret은 `sec:` 참조만 싣는다. VisualBlock은 T26 schema를 재사용하며 복제하지 않는다. schema의 모양 검사는 현재 scope·definition·MCP 판·approval 한 번 사용·owner transaction·redaction을 대신하지 않는다.
+- Q37 T29 provider credential 원값은 schema에 두지 않고 platform secret 준비(purpose `provider_credential`)와 sealed 참조만 싣는다(추천안). OAuth product는 chatgpt(`device_code_then_pkce_paste_url`)와 supergrok(`device_code`)만이고 Claude OAuth 자리는 없다(D31). login 완료는 일회 handle과 opaque submission을 secret_input confirmation으로 받고 code를 저장하지 않는다. connection test는 30000ms 고정이고 그 ModelCall은 run·session·model_use·preset가 null이다. ModelCall·RunBasis는 T26의 ResolvedModel·PriceBasis를 그대로 재사용한다(Q22). 시작 call의 cost kind는 unknown이고, catalog entry·state는 ledger entity가 아닌 read 값이다. ModelDefaultsChanged의 subject는 null이다. schema의 모양 검사는 실제 credential 저장·현재 권한·login 일회 사용·catalog 출처 판정을 대신하지 않는다.

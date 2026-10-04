@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sectionKeySchema } from "../documents/values.ts";
 import {
   defineCommand,
   defineEvent,
@@ -36,11 +37,6 @@ export type ProblemStatus = z.infer<typeof problemStatusSchema>;
 // grouping#R8: 진행은 열림·고치는 중·닫힘 세 가지뿐이고 열린 repair ticket은 최대 하나다.
 export const PROBLEM_LIST_LIMIT = 100;
 
-// documents/values의 section key와 같다. documents를 import하면 순환이 된다.
-const sectionKeySchema = z.string().min(1).refine(
-  (value) => !/\p{Cc}/u.test(value),
-  { message: "invalid section key" },
-);
 
 const interpretationFields = {
   version: idSchema("ver"),

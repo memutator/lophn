@@ -13,7 +13,7 @@ import {
   type LophnConfirmation,
   type LophnShell,
 } from "./confirmation.ts";
-import { EVENTS, ROUTES } from "./mod.ts";
+import { EVENTS } from "./mod.ts";
 
 const APR = "apr_01arz3ndektsv4rrffq69g5fav";
 const QST = "qst_01arz3ndektsv4rrffq69g5fav";
@@ -41,7 +41,6 @@ Deno.test(
     assert(
       !CONFIRMATION_REQUEST_KINDS.includes("shell_external_link" as never),
     );
-    assertEquals(ROUTES, []);
     assertEquals(EVENTS, []);
     for (const code of CONFIRMATION_ERRORS) assert(ERROR_CODES.includes(code));
   },

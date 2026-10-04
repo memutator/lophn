@@ -4,6 +4,8 @@ import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
 import { err, ok } from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
+  ChildMessage,
+  Frame,
   KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -317,20 +319,29 @@ function startPlatformIo(
   dataRoot: string,
   epoch: string,
   port: number,
+  // blob 준비 중계. worker_response와 byte chunk 소비를 묶는다(Q6).
+  blob?: {
+    onMessage(message: ChildMessage): void;
+    onFrame(frame: Frame): void;
+  },
 ): Promise<Result<void>> {
-  return io.start(platformIoSpec(dataRoot), {
-    type: "hello",
-    core_epoch: epoch,
-    process_identity: epoch,
-    kind: "platform/io",
-    task: "diagnostics",
-    scope: { operations: [], targets: {} },
-    credential: "platform-io",
-    api_port: port,
-  }, {
-    // platform/io 응답은 core가 아직 소비하지 않는다. 감독과 상태만 본다.
-    onMessage() {},
-  }).then((started) =>
+  return io.start(
+    platformIoSpec(dataRoot),
+    {
+      type: "hello",
+      core_epoch: epoch,
+      process_identity: epoch,
+      kind: "platform/io",
+      task: "diagnostics",
+      scope: { operations: [], targets: {} },
+      credential: "platform-io",
+      api_port: port,
+    },
+    blob ?? {
+      // platform/io 응답은 core가 아직 소비하지 않는다. 감독과 상태만 본다.
+      onMessage() {},
+    },
+  ).then((started) =>
     started.ok ? ok(undefined) : err({
       code: started.code,
       message: "platform/io worker를 시작하지 못했다",

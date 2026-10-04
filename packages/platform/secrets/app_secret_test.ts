@@ -25,8 +25,9 @@ const destination = {
 };
 
 // 앱 secret 전송 context. actor는 machine이고 process·task가 고정된다.
-function appContext(over: Partial<AuthenticatedContext> = {}):
-  AuthenticatedContext {
+function appContext(
+  over: Partial<AuthenticatedContext> = {},
+): AuthenticatedContext {
   return {
     principal: `app:${APP}`,
     actor: "machine",
@@ -77,7 +78,6 @@ function grantAllowance(
   };
 }
 
-
 Deno.test("platform/secrets#R10: 현재 grant의 secret 전송은 caller 종류와 무관하게 허용된다", async () => {
   const keychain = createFakeKeychain();
   const saved = await keychain.store({
@@ -91,9 +91,20 @@ Deno.test("platform/secrets#R10: 현재 grant의 secret 전송은 caller 종류�
   // 플랫폼 경계는 context process·task만 검사하고 caller 종류는 보지 않는다.
   const callers = [
     ["human-screen", appContext()],
-    ["agent", appContext({ conditions: { process: "agent-runtime", task: "app-ops" } })],
-    ["automation", appContext({ conditions: { process: "automation-clock", task: "app-ops" } })],
-    ["other-app", appContext({ conditions: { process: "app-runtime-2", task: "app-ops" } })],
+    [
+      "agent",
+      appContext({ conditions: { process: "agent-runtime", task: "app-ops" } }),
+    ],
+    [
+      "automation",
+      appContext({
+        conditions: { process: "automation-clock", task: "app-ops" },
+      }),
+    ],
+    [
+      "other-app",
+      appContext({ conditions: { process: "app-runtime-2", task: "app-ops" } }),
+    ],
   ] as const;
   for (const [caller, context] of callers) {
     const attach = createSecretAttach({
@@ -119,7 +130,9 @@ Deno.test("platform/secrets#R10: 현재 grant의 secret 전송은 caller 종류�
         body: {},
       },
       (value) => {
-        seen = typeof value === "string" ? value : new TextDecoder().decode(value);
+        seen = typeof value === "string"
+          ? value
+          : new TextDecoder().decode(value);
         return Promise.resolve(ok({ sent: true }));
       },
     );
@@ -146,11 +159,15 @@ Deno.test("platform/secrets#R10: grant가 없으면 caller와 무관하게 거�
     allowance: grantAllowance([]),
     processes: () => true,
   });
-  for (const context of [
-    appContext(),
-    appContext({ conditions: { process: "agent-runtime", task: "app-ops" } }),
-    appContext({ conditions: { process: "automation-clock", task: "app-ops" } }),
-  ]) {
+  for (
+    const context of [
+      appContext(),
+      appContext({ conditions: { process: "agent-runtime", task: "app-ops" } }),
+      appContext({
+        conditions: { process: "automation-clock", task: "app-ops" },
+      }),
+    ]
+  ) {
     let handed = false;
     const refused = await attach.send(
       {
@@ -186,7 +203,10 @@ Deno.test("platform/secrets#R10: grant 회수 뒤 같은 전송은 forbidden이�
   });
   assert(saved.ok);
   // 회수 전: grant가 있다.
-  let grants: readonly Grant[] = [{ name: NAME, destinations: [destination.origin] }];
+  let grants: readonly Grant[] = [{
+    name: NAME,
+    destinations: [destination.origin],
+  }];
   const attach = createSecretAttach({
     keychain,
     references: references(saved.value),
@@ -367,7 +387,10 @@ Deno.test("platform/secrets#R10 flow manage-app-permissions: ledger 저장 참�
     assert(applied.ok);
     const opened = openLedger(path, {
       clock: manualClock(START),
-      ids: createIdSource({ clock: manualClock(START), random: seededRandom(1) }),
+      ids: createIdSource({
+        clock: manualClock(START),
+        random: seededRandom(1),
+      }),
       registerBlobRef: () => err({ code: "unavailable", message: "blob 없음" }),
       call: () => err({ code: "unavailable", message: "dispatch 없음" }),
     });
@@ -388,7 +411,10 @@ Deno.test("platform/secrets#R10 flow manage-app-permissions: ledger 저장 참�
       });
     assert(seeded());
     const statusRows = ledger.transaction({ actor: "user" }, (tx) => {
-      const rows = tx.sql.all("select name, sealed_ref, revision from secrets", []);
+      const rows = tx.sql.all(
+        "select name, sealed_ref, revision from secrets",
+        [],
+      );
       return ok(Array.isArray(rows) ? rows : []);
     });
     assert(statusRows.ok);

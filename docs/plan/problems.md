@@ -50,6 +50,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음(schema와 catalog는 contracts/problems 상수; 이 package는 검사 함수를 problems 안에만 내놓는다)
 - slice: apps
 - 선행: contracts#T32
+- 상태: 완료 (#47)
 - 완료:
   - `model_test.ts`: code 정규식(1자·49자·hyphen·대문자 거절, 2자·48자 통과), blueprint 안 중복 거절, message_key·en·fixer 누락·공백·CR/LF·치환 자리표시자 거절, `_`로 시작하는 선언 거절(R1, R2, R5)
   - 예약 3종(`_exception`, `_feedback`, `_invalid_report`)의 key·en·fixer가 catalog와 같고, 앱 선언 0개에서도 3종이 별개로 나온다(R6)
@@ -595,3 +596,4 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - **Q14 RequestTest 기록을 누가 어디서 읽나.** 정함(platform 계획 Q11): `command_results`는 자기 principal만 읽으니 접수·시작 시도·runner 식별·복구는 problems 소유 append-only 요청 기록 표에 둔다. domain-model/problems/tests는 "별도 test 큐 entity는 만들지 않는다"고 하므로 T7 PR에서 domain model과 architecture/problems 3.1 표를 고친다. 상태를 바꾸는 큐가 아니라 단계별 불변 기록이다.
 - **Q15 CLI의 사람 `problem report`.** 정함(lead, coding-agent 팀 동의): problems/feedback#R1(인증된 shell의 사람 제출만)과 D27에 따라 problems의 `submit-feedback`은 shell user credential과 shell 출처만 받는다. coding-agent#T44가 고쳐, 사람 전용 `problem report|request-repair|confirm|dismiss`는 core에 쓰지 않고 shell 화면 링크(문제 알리기, ticket 준비, 결정)와 대기 사실만 출력하며 coding credential은 거절한다.
 - **Q16 문제 read와 release 준비 사이의 순환.** apps#T19(release 준비) ← coding-agent#T19(claim 검사) ← coding-agent#T18(ticket 생성의 문제 확인) ← problems#T6 ← apps#T19(선언 문구)로 고리가 생겼다. 정함: 선언 문구를 T27로 떼어 T6은 apps#T19를 기다리지 않는다.
+- **Q17 `requiredReportPaths`의 입력.** 지금은 검증된 `problem_codes`와 명시적 `has_view` boolean만 받는 최소 bundle descriptor를 쓴다. 추천: apps/blueprint wire(contracts#T33)가 정해지면 그 wire에서 `has_view`를 채워 이 함수를 그대로 쓴다. 그전까지 blueprint schema를 새로 만들지 않는다.

@@ -64,6 +64,8 @@ const EXTERNAL_FETCH = /(?<![\w.$])fetch\s*\(/;
 // core가 import하지 않는다. format 처리는 문서 worker가, model 호출은 lophn agent
 // 프로세스가, 앱 실행은 앱 프로세스가 맡는다. core ledger command인 apps
 // 모듈(registration 등록 포함)은 T9 registry 계약대로 graph에 있어도 된다(Q3).
+// lophn-agent의 ledger registration 모듈(harness/provider의 command·read·schema)도
+// core가 조립한다(architecture/lophn-agent 3.1). runtime 쪽 코드만 거르는다.
 const IMPLEMENTATION_PREFIXES = [
   "packages/apps/entrypoint/",
   "packages/apps/runtime/entrypoint/",
@@ -72,7 +74,7 @@ const IMPLEMENTATION_PREFIXES = [
   "packages/apps/agent-context/redaction.ts",
   "packages/apps/connections/client.ts",
   "packages/documents/formats/",
-  "packages/lophn-agent/",
+  "packages/lophn-agent/roles/",
 ];
 
 function isImplementationImport(path: string): boolean {

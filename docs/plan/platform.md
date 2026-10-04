@@ -355,6 +355,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - `worker` route(problems의 report·request-test 등)는 같은 길로 JSON 결과·공통 오류를 그대로 돌려준다.
   - core는 바이트를 해석·저장하지 않고 응답 크기 상한과 timeout을 route마다 등록값으로 둔다. worker가 없거나 ready가 아니면 `unavailable`이다.
   - `forward_test.ts`에 위 요구 테스트
+- 상태: 완료 (#137)
 
 ### T13 blob 준비와 설치
 

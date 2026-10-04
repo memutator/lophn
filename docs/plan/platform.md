@@ -114,6 +114,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: skeleton
 - 선행: platform#T2
+- 상태: 완료 (#58)
 - 완료: 아래 확인이 통과한다
   - owner port는 `defineTxPort(key, (tx) => 구현)`으로 등록한다. factory는 `BEGIN IMMEDIATE`와 현재 자격 확인 뒤 그 command의 guarded `Tx`를 받는다. 같은 Tx·같은 key는 한 번만 만들고 cache하며 다음 command는 새 구현이다.
   - malformed 등록·중복 key는 handler 전에 `internal`로 거절한다. factory가 없거나, 자기 key나 순환을 다시 보거나, throw·Promise·thenable·반환값/throw 값의 then 검사 실패를 내면 `internal`이고 handler가 삼켜도 commit하지 않는다. SQL side effect가 있으면 전체 rollback이다(R3, R12).

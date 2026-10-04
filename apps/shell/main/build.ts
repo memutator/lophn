@@ -41,6 +41,7 @@ function lophnPackages(repoRoot: string): esbuild.Plugin {
 
 const entries: BuildEntry[] = [
   { in: join(here, "desktop/main.ts"), out: "main" },
+  { in: join(shell, "terminal-host/cli.ts"), out: "terminal-host" },
   { in: join(shell, "preload/shell.ts"), out: "preload-shell" },
   { in: join(shell, "preload/confirmation.ts"), out: "preload-confirmation" },
   { in: join(shell, "preload/app.ts"), out: "preload-app" },

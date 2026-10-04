@@ -36,7 +36,8 @@ function fakeHost(): HostProcess & {
         host.lines.push(data);
       },
     },
-    stdout: null,
+    // 빈 iterable이어야 supervisor의 줄 읽기가 끝나지 않고 기다리며 테스트를 붙잡지 않는다.
+    stdout: (async function* () {})(),
     kill() {
       host.killed = true;
       return true;
@@ -57,6 +58,7 @@ test("shell/terminal#R9: host exit는 살아 있던 터미널을 unknown으로 �
     entry: "host.js",
     spawnHost: () => child,
   });
+  void supervisor.request({ type: "open" });
   supervisor.note(runtime("running"));
   child.exit(null);
   const [gone] = supervisor.runtimes();
@@ -72,6 +74,7 @@ test("shell/terminal#R10: Electron 종료는 host에 종료를 보내고 확인 
     entry: "host.js",
     spawnHost: () => child,
   });
+  void supervisor.request({ type: "open" });
   supervisor.note(runtime("running"));
   const gone = supervisor.stop();
   assert.equal(child.killed, true);
@@ -85,6 +88,7 @@ test("shell/terminal#R9: host가 이미 없으면 요청은 host_lost이고 입�
     entry: "host.js",
     spawnHost: () => child,
   });
+  void supervisor.request({ type: "open" });
   child.exit(1);
   const reply: TerminalReply = await supervisor.request({
     type: "input",

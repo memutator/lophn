@@ -39,7 +39,8 @@ const core = startCoreConnection({
     })),
 });
 const terminals = createSupervisor({
-  entry: join(here, "..", "..", "terminal-host", "main.js"),
+  // build가 host를 main과 같은 dist에 묶는다. 생성만 하고 첫 요청 때 띄운다.
+  entry: join(here, "terminal-host.cjs"),
   spawnHost: spawnNodeHost,
 });
 app.once("will-quit", () => {

@@ -88,7 +88,7 @@ test("shell/terminal#R9: host crash는 결과 불명이고 shell을 자동으로
   const listeners: Array<(code: number | null) => void> = [];
   const child: HostProcess = {
     stdin: { write() {} },
-    stdout: null,
+    stdout: (async function* () {})(),
     killed: false,
     kill() {
       return true;
@@ -117,6 +117,7 @@ test("shell/terminal#R9: host crash는 결과 불명이고 shell을 자동으로
     output_seq: 3,
     dropped_output: false,
   };
+  void supervisor.request({ type: "open" });
   supervisor.note(running);
   for (const listener of listeners) listener(null);
   const [gone] = supervisor.runtimes();

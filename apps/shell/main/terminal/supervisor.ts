@@ -27,14 +27,25 @@ export function createSupervisor(options: {
   spawnHost: SpawnHost;
   entry: string;
 }): Supervisor {
-  const child = options.spawnHost(options.entry);
+  // 창이 뜨자마자 host를 띄우지 않는다. 첫 요청이 child를 만든다.
+  let child: HostProcess | undefined;
   const pending = new Map<string, (reply: TerminalReply) => void>();
   const runtimes = new Map<string, TerminalRuntime>();
   let lost = false;
 
-  const stdout = child.stdout;
-  if (stdout) void readLines(stdout, (line) => onLine(line));
-  child.on("exit", () => {
+  function ensure(): HostProcess | undefined {
+    if (lost) return undefined;
+    if (child && !child.killed) return child;
+    child = options.spawnHost(options.entry);
+    const stdout = child.stdout;
+    if (stdout) {
+      void readLines(stdout, (line) => onLine(line));
+    }
+    child.on("exit", () => onExit());
+    return child;
+  }
+
+  function onExit(): void {
     lost = true;
     for (const [id, resolve] of pending) {
       pending.delete(id);
@@ -52,7 +63,7 @@ export function createSupervisor(options: {
         runtime.exit_code = null;
       }
     }
-  });
+  }
 
   function onLine(line: string): void {
     let parsed: {
@@ -79,7 +90,8 @@ export function createSupervisor(options: {
 
   return {
     request(message) {
-      if (lost || child.killed || !child.stdin) {
+      const current = ensure();
+      if (!current || current.killed || !current.stdin) {
         return Promise.resolve({
           ok: false,
           reason: "host_lost",
@@ -90,7 +102,7 @@ export function createSupervisor(options: {
       const body = JSON.stringify({ ...(message as object), id }) + "\n";
       return new Promise((resolve) => {
         pending.set(id, resolve);
-        child.stdin?.write(body);
+        current.stdin?.write(body);
       });
     },
     note(runtime) {
@@ -106,7 +118,7 @@ export function createSupervisor(options: {
     stop() {
       lost = true;
       try {
-        child.kill("SIGTERM");
+        child?.kill("SIGTERM");
       } catch {
         // 이미 죽은 host는 unknown으로 남긴다.
       }
@@ -144,8 +156,14 @@ async function readLines(
 }
 
 export function spawnNodeHost(entry: string): ChildProcess {
+  // Electron main에서 process.execPath는 Electron이다. 이 표시가 없으면
+  // host가 두 번째 Electron 앱으로 떠 second-instance가 된다.
   return spawn(process.execPath, [entry], {
     stdio: ["pipe", "pipe", "inherit"],
-    env: { ...process.env, LOPHN_TERMINAL_HOST: "1" },
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: "1",
+      LOPHN_TERMINAL_HOST: "1",
+    },
   });
 }

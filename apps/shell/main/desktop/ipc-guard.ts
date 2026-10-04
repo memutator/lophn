@@ -115,7 +115,10 @@ export function checkInput<T>(
   } catch {
     return err(fail("invalid_input", "input is not serializable"));
   }
-  if (encoded === undefined || encoded.length > MAX_IPC_BYTES) {
+  if (
+    encoded === undefined ||
+    new TextEncoder().encode(encoded).byteLength > MAX_IPC_BYTES
+  ) {
     return err(fail("invalid_input", "input exceeds 64 KiB"));
   }
   const parsed = schema.safeParse(input);

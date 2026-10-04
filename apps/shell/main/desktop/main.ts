@@ -2,6 +2,7 @@
 import { app, BrowserWindow, protocol } from "electron";
 import { dirname, join } from "node:path";
 
+import { electronOverlays } from "../app-frame/electron-overlay.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
 import { registerShellScheme } from "./security.ts";
 import { startSingleInstance } from "./single-instance.ts";
@@ -10,6 +11,8 @@ import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
 
 const here = dirname(__filename);
 const dataRoot = resolveDataRoot();
+const overlays = electronOverlays();
+app.once("will-quit", () => overlays.dispose());
 
 // session이 생기기 전에 userData를 잡아야 Chromium 저장이 데이터 root 안에 있다.
 app.setPath("userData", browserDataPath(dataRoot));
@@ -53,7 +56,15 @@ function openDesktopWindow(): void {
     preload: join(here, "..", "preload-shell.js"),
     url: DESKTOP_URL,
     windows: {
-      create: (config: WindowConfig) => wrap(new BrowserWindow(config)),
+      create: (config: WindowConfig) => {
+        const window = new BrowserWindow(config);
+        overlays.attach(
+          window,
+          join(here, "..", "preload-shell.js"),
+          app.isPackaged,
+        );
+        return wrap(window);
+      },
     },
   });
 }

@@ -1,5 +1,11 @@
-import { contextBridge } from "electron";
+import { contextBridge, ipcRenderer } from "electron";
 
-import { shellApi } from "./shell-api.ts";
+import { createShellApi } from "./shell-api.ts";
 
-contextBridge.exposeInMainWorld("lophnShell", shellApi);
+const location =
+  (globalThis as unknown as { location: { host: string } }).location;
+const role = location.host === "overlay" ? "overlay" : "shell";
+contextBridge.exposeInMainWorld(
+  "lophnShell",
+  createShellApi(ipcRenderer, role),
+);

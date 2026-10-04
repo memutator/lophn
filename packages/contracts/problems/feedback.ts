@@ -81,8 +81,9 @@ export const submitFeedbackInputSchema = z.strictObject({
       blobMetadataBytes(value.blobs) <= REPORTING_LIMITS.feedback_total_bytes
 );
 export type SubmitFeedbackInput = z.infer<typeof submitFeedbackInputSchema>;
-// Current shell/view authorization, selected hash binding, PNG header and final
-// redaction are trusted host checks; supplied metadata is not permission.
+// Current shell/view authorization, selected hash binding, PNG header and
+// text/state redaction are trusted host checks; supplied metadata is not
+// permission. The chosen screenshot is attached as-is without redaction (D32).
 export const submitFeedback = defineWorker({
   resource: "problems",
   method: "submit-feedback",

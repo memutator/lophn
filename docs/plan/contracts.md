@@ -285,7 +285,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - slice: documents
 - 선행: contracts#T11
 - 완료: 아래 확인이 통과한다
-  - pipe 작업 `redaction.check`: `RedactionInput {source, media_type, audience, safe_fields, private_fields, private_regions}` → `RedactionResult {rule_revision, status, content, redacted_items, omissions}`, `Omission`.
+  - pipe 작업 `redaction.check`: `RedactionInput {source, media_type, audience, safe_fields, private_fields}`(D32로 private_regions 뺌) → `RedactionResult {rule_revision, status, content, redacted_items, omissions}`, `Omission`.
   - 상수: 검사 단위 1MiB·깊이 16·항목 4,096·5초, 대체 문자 `*` 하나, 표본 64자·전체 2KiB, 화면 문자열 80자.
   - entry가 끼워 주는 `Redactor` interface, 안전 필드·private 필드·표본 경로 선언 모양, 자료 직렬화 interface와 `TrustClass`(platform 2차).
 

@@ -57,6 +57,7 @@ const operations = [
   "project.resolve",
   "project.resolve_cwd",
   "project.tracking_roots",
+  "project.set_tracking",
   "CommandResult",
 ];
 
@@ -430,15 +431,10 @@ Deno.test("documents/projects#R9: resolve_cwd returns only the project id from t
   const opened = await harness([user, agent]);
   try {
     commandResult(await create(opened));
-    const { authenticatedCwdRef } = await import(
-      "../../../apps/core/documents.ts"
-    );
     const fixed = {
       ...agent,
-      credential_ref: authenticatedCwdRef(
-        agent.credential_ref,
-        "/work/notes/deep/file.md",
-      ),
+      credential_ref: `${agent.credential_ref}:cwd`,
+      conditions: { cwd: "/work/notes/deep/file.md" },
     };
     value(await opened.setCredential(fixed));
     const resolved = value(
@@ -595,6 +591,106 @@ Deno.test("documents/projects#R10: list rejects a cursor whose snapshot no longe
         { resource: "projects", method: "list" },
         user,
         { limit: 1, cursor: page.next_cursor },
+      ),
+      "conflict",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("documents/projects#R3 R6 R7: set_tracking applies the preview and tracking_roots lists enabled roots", async () => {
+  const machine = credential("machine");
+  const opened = await harness([user, machine]);
+  try {
+    const created = commandResult(await create(opened));
+    const revision = (created.result as { revision: string }).revision;
+    const enabledFolders = [
+      { path: "/work/notes", description: "outer" },
+      { path: "/work/other", description: "side" },
+    ];
+    const proposal = {
+      enabled: true,
+      patterns: [{ effect: "include", glob: "**/*.md" }],
+      use_gitignore: true,
+    };
+    const preview = {
+      project,
+      base_revision: revision,
+      folders: enabledFolders,
+      tracking: proposal,
+      observed_at: "2026-10-04T00:00:00.000Z",
+      entries: [],
+      complete: true,
+      next_cursor: null,
+    };
+    code(
+      await opened.command(
+        user,
+        envelope("project.set_tracking", "mismatch", {
+          project,
+          folders: enabledFolders,
+          tracking: { ...proposal, use_gitignore: false },
+          preview,
+        }, { base_revision: revision }),
+      ),
+      "invalid_input",
+    );
+    const applied = commandResult(
+      await opened.command(
+        user,
+        envelope("project.set_tracking", "apply", {
+          project,
+          folders: enabledFolders,
+          tracking: proposal,
+          preview,
+        }, { base_revision: revision }),
+      ),
+    );
+    assertEquals(
+      (applied.result as { tracking: { enabled: boolean } }).tracking.enabled,
+      true,
+    );
+    const listed = value(
+      await opened.read(
+        { resource: "projects", method: "tracking_roots" },
+        machine,
+        {},
+      ),
+    ) as { roots: { project: string; path: string }[] };
+    assertEquals(listed.roots.map((root) => root.path), [
+      "/work/notes",
+      "/work/other",
+    ]);
+    const child = commandResult(
+      await opened.command(
+        user,
+        envelope("project.create", "create-child", {
+          id: other,
+          name: "child",
+          title: "Child",
+          purpose: "",
+          folders: [{ path: "/work/notes/deep/inner", description: "" }],
+          tracking: { enabled: false, patterns: [], use_gitignore: false },
+        }),
+      ),
+    );
+    const childRevision = (child.result as { revision: string }).revision;
+    const childFolders = [{ path: "/work/notes/deep/inner", description: "" }];
+    code(
+      await opened.command(
+        user,
+        envelope("project.set_tracking", "overlap", {
+          project: other,
+          folders: childFolders,
+          tracking: proposal,
+          preview: {
+            ...preview,
+            project: other,
+            base_revision: childRevision,
+            folders: childFolders,
+          },
+        }, { base_revision: childRevision }),
       ),
       "conflict",
     );

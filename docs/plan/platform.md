@@ -122,6 +122,24 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - read snapshot의 정적 port map은 그대로다. 실제 writer Worker fixture도 이 등록을 쓴다.
   - `tx-ports_test.ts`, `tx-ports-failure_test.ts`에 R3, R4, R12, R13 테스트
 
+### T60 확정 ledger key의 REPLACE·UPSERT 우회 차단
+
+- 상태: 완료 (#62)
+- 등급: 좁은
+- concern: platform/ledger, platform/backup-and-migration
+- 요구: platform/ledger#R2, R10, platform/backup-and-migration#R1, R4, R5, R6
+- 자리: packages/platform/ledger/sqlite.ts, packages/platform/ledger/schema.ts, packages/platform/ledger/ledger_test.ts, packages/platform/ledger/sqlite-storage_test.ts, packages/platform/ledger/immutable_test.ts, packages/platform/backup-and-migration/migrations.ts, packages/platform/backup-and-migration/migrations_test.ts
+- 쓰는 contract: 등록 interface(SchemaStep)
+- 내놓는 contract: 없음
+- slice: skeleton
+- 선행: platform#T58
+- 완료: 아래 확인이 통과한다
+  - 연결은 기존 WAL·FULL·외래 키·5초 대기와 함께 `recursive_triggers=ON`의 실제 값 1을 확인하고 적용되지 않으면 `unavailable`로 기동을 거절한다. handler의 PRAGMA 거절은 유지한다(R2).
+  - `common-tables` SQL과 hash는 바꾸지 않고 `immutable-insert-guards` step으로 events seq·command 결과의 principal/key·schema 이력 version의 duplicate INSERT를 거절한다. migration bootstrap도 같은 이력 guard를 설치한다(R10, b&m R1).
+  - 새 DB와 common-tables만 적용한 DB upgrade에서 원래 SQL·hash·이력·event·결과가 보존되고 각 표의 INSERT OR REPLACE·REPLACE INTO·UPSERT(동일 내용 포함)는 실패한다. native recursive trigger OFF에서도 duplicate guard가 작동하고 configured 연결의 UPDATE·DELETE도 실패한다(R10, b&m R5).
+  - 다른 principal의 같은 key·새 key·새 migration version은 정상이며 malicious migration의 history REPLACE와 domain 쓰기는 함께 rollback된다. 기존 history/hash를 먼저 검증하는 흐름을 유지한다(b&m R1, R4, R6).
+  - `ledger_test.ts`, `sqlite-storage_test.ts`, `immutable_test.ts`, `migrations_test.ts`의 실제 파일 SQLite·WAL 회귀 테스트가 통과하고 각 파일은 400줄 이하다.
+
 ### T3 read 처리: reader Worker와 snapshot
 
 - 등급: 기본

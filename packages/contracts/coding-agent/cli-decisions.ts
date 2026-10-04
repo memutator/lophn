@@ -9,9 +9,11 @@ import {
 } from "../documents/mod.ts";
 import { approvalsGet, approvalsList } from "../platform/approvals.ts";
 import { questionList, questionRead } from "../lophn-agent/mod.ts";
-import { thingsToConfirmLinkSchema } from "../shell/mod.ts";
 import { cliCommonSchema } from "./cli-core.ts";
 import { contextProposeFields } from "./mcp-decisions.ts";
+
+// 대기 위치는 사람이 결정하는 화면이다. 창을 직접 열거나 승인 입력을 받지 않는다.
+export { decisionLink } from "./mcp-decisions.ts";
 
 const common = cliCommonSchema.shape;
 const withCommon = <T extends z.ZodRawShape>(
@@ -100,8 +102,3 @@ export const CLI_DECISION_COMMANDS = [
 ] as const;
 
 export type CliDecisionName = (typeof CLI_DECISION_NAMES)[number];
-
-// 대기 위치는 사람이 결정하는 화면이다. 창을 직접 열거나 승인 입력을 받지 않는다.
-export function decisionLink(id: string): string {
-  return thingsToConfirmLinkSchema.parse(`lophn://things-to-confirm/${id}`);
-}

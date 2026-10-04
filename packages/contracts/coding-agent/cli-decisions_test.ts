@@ -1,5 +1,14 @@
 import { assertEquals } from "@std/assert";
+import {
+  contextGet,
+  contextList,
+  contextRelated,
+  outlineContext,
+  termList,
+} from "../documents/mod.ts";
 import { doc, version } from "../documents/document-fixtures.ts";
+import { approvalsGet, approvalsList } from "../platform/approvals.ts";
+import { questionList, questionRead } from "../lophn-agent/mod.ts";
 import {
   CLI_DECISION_COMMANDS,
   CLI_DECISION_NAMES,
@@ -224,4 +233,152 @@ Deno.test("coding-agent/cli#R21: 질문·approval은 list·show·open이고 open
       .success,
     false,
   );
+});
+
+Deno.test("coding-agent/cli#R18, coding-agent/cli#R21: command 입력은 owner route 입력을 그대로 쓰고 위치 인자를 만들지 않는다", () => {
+  // CLI가 MCP가 고른 op 밖의 입력 field를 만들지 않는다(계획 Q39).
+  const common = ["command", ...Object.keys(cliCommonSchema.shape)];
+  const fields = (schema: { shape: Record<string, unknown> }) =>
+    Object.keys(schema.shape).filter((field) => !common.includes(field)).sort();
+
+  assertEquals(fields(cliContextListSchema), [
+    "cursor",
+    "limit",
+    "status",
+  ]);
+  assertEquals(fields(cliContextListSchema), [
+    ...Object.keys(contextList.input.shape).sort(),
+  ]);
+  assertEquals(fields(cliContextShowSchema), ["context"]);
+  assertEquals(
+    fields(cliContextShowSchema),
+    Object.keys(contextGet.input.shape).sort(),
+  );
+  assertEquals(fields(cliContextGlossarySchema), [
+    "context",
+    "cursor",
+    "limit",
+  ]);
+  assertEquals(
+    fields(cliContextGlossarySchema),
+    Object.keys(termList.input.shape).sort(),
+  );
+  assertEquals(fields(cliContextOfSchema), [
+    "cursor",
+    "limit",
+    "status",
+    "target",
+  ]);
+  assertEquals(
+    fields(cliContextOfSchema),
+    Object.keys(contextRelated.input.shape).sort(),
+  );
+  assertEquals(fields(cliQuestionListSchema), [
+    "assignment",
+    "cursor",
+    "run",
+    "status",
+  ]);
+  assertEquals(
+    fields(cliQuestionListSchema),
+    Object.keys(questionList.input.shape).sort(),
+  );
+  assertEquals(fields(cliQuestionShowSchema), ["question"]);
+  assertEquals(
+    fields(cliQuestionShowSchema),
+    Object.keys(questionRead.input.shape).sort(),
+  );
+  assertEquals(fields(cliApprovalListSchema), ["limit", "run", "status"]);
+  assertEquals(
+    fields(cliApprovalListSchema),
+    Object.keys(approvalsList.input.shape).sort(),
+  );
+  assertEquals(fields(cliApprovalShowSchema), ["approval"]);
+  assertEquals(
+    fields(cliApprovalShowSchema),
+    Object.keys(approvalsGet.input.shape).sort(),
+  );
+  // items는 outline.context 입력에 CLI 관점을 더한 것이고 owner의 depth는 없다.
+  const items = fields(cliContextItemsSchema);
+  assertEquals(
+    items.filter((field) => field !== "perspective"),
+    [...Object.keys(outlineContext.input.shape).sort()],
+  );
+  for (
+    const schema of [
+      cliContextListSchema,
+      cliQuestionListSchema,
+      cliApprovalListSchema,
+    ]
+  ) {
+    assertEquals(
+      schema.safeParse({ command: "", depth: 2 }).success,
+      false,
+    );
+  }
+  assertEquals(
+    cliContextItemsSchema.safeParse({
+      command: "context items",
+      context: CTX,
+      depth: 2,
+    }).success,
+    false,
+  );
+  // --app은 CLI 공통 선택값이라 tool filter가 아니다(architecture 5.4).
+  cliContextListSchema.parse({
+    command: "context list",
+    app: "app_01arz3ndektsv4rrffq69g5fav",
+  });
+});
+
+Deno.test("coding-agent/cli#R19: propose는 고정 변경안·이유만 받고 그것만으로 context·용어를 바꾸지 않는다", () => {
+  const propose = CLI_DECISION_COMMANDS[5];
+  // 제안 입력은 변경안·이유·idempotency key뿐이고 결과로 적용할 CAS를 받지 않는다.
+  assertEquals(
+    Object.keys(propose.shape).filter((field) =>
+      !["command", ...Object.keys(cliCommonSchema.shape)].includes(field)
+    ).sort(),
+    ["change", "reason"],
+  );
+  // 관점 변경·분할·병합은 owner command가 없어 union에도 없다.
+  for (
+    const change of [
+      {
+        kind: "perspective",
+        context: CTX,
+        target: { kind: "document", document: doc, section: null },
+        perspective: "watch",
+      },
+      { kind: "split", context: CTX },
+      { kind: "merge", context: CTX, from: CTX },
+      { kind: "adopt", term: TRM, definition: "정한 뜻" },
+      { kind: "archive", context: CTX },
+      { kind: "unarchive", context: CTX },
+    ]
+  ) {
+    assertEquals(
+      propose.safeParse({ command: "context propose", change, reason: "r" })
+        .success,
+      false,
+    );
+  }
+  // 적용 command처럼 보이는 이름은 이 schema가 받지 않는다.
+  for (
+    const command of [
+      "context rename",
+      "context set-item",
+      "context remove-item",
+      "context term-propose",
+      "context term-update",
+    ]
+  ) {
+    assertEquals(
+      propose.safeParse({
+        command,
+        change: proposeChange,
+        reason: "r",
+      }).success,
+      false,
+    );
+  }
 });

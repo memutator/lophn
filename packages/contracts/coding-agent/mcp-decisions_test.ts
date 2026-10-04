@@ -1,5 +1,15 @@
 import { assert, assertEquals } from "@std/assert";
+import { ERROR_CODES } from "../../base/mod.ts";
 import { doc, version } from "../documents/document-fixtures.ts";
+import {
+  contextGet,
+  contextList,
+  contextRelated,
+  outlineContext,
+  termList,
+} from "../documents/mod.ts";
+import { questionList, questionRead } from "../lophn-agent/mod.ts";
+import { approvalsGet, approvalsList } from "../platform/approvals.ts";
 import {
   MCP_DECISION_ROUTES,
   MCP_DECISION_TOOLS,
@@ -13,6 +23,19 @@ const tool = (name: string) => {
   const found = mcpDecisionTool(name);
   if (!found) throw new Error(name);
   return found;
+};
+
+// tool op 하나가 받는 field. `op`는 tool 것이므로 뺀다.
+const branchFields = (input: unknown, op: string) => {
+  const union = input as {
+    options: { shape: Record<string, unknown> }[];
+  };
+  const branch = union.options.find((option) => {
+    const value = (option.shape.op as unknown as { value?: string }).value;
+    return value === op;
+  });
+  if (!branch) throw new Error(op);
+  return Object.keys(branch.shape).filter((field) => field !== "op").sort();
 };
 
 const documentItem = (perspective: "basis" | "reference" | "watch") => ({
@@ -158,13 +181,23 @@ Deno.test("coding-agent/mcp-server#R17: propose는 고정 변경안·이유만 �
     }).success,
     false,
   );
-  assertEquals(
-    context.input.safeParse({
-      ...propose,
-      change: { kind: "split", context: CTX },
-    }).success,
-    false,
-  );
+  // 분할·병합·채택·관점 변경·보관은 owner command가 없어 union에도 없다.
+  for (
+    const change of [
+      { kind: "split", context: CTX },
+      { kind: "merge", context: CTX, from: CTX },
+      { kind: "perspective", context: CTX },
+      { kind: "adopt", term: TRM, definition: "정한 뜻" },
+      { kind: "archive", context: CTX },
+      { kind: "unarchive", context: CTX },
+      { kind: "term_archive", term: TRM },
+    ]
+  ) {
+    assertEquals(
+      context.input.safeParse({ ...propose, change }).success,
+      false,
+    );
+  }
   assertEquals(
     context.input.safeParse({
       op: "propose",
@@ -176,6 +209,23 @@ Deno.test("coding-agent/mcp-server#R17: propose는 고정 변경안·이유만 �
   assertEquals(
     context.input.safeParse({
       op: "propose",
+      change: { kind: "rename", context: CTX, title: "이름" },
+    }).success,
+    false,
+  );
+  // propose는 대상을 적용하는 CAS·change id를 받지 않는다.
+  assertEquals(
+    context.input.safeParse({
+      ...propose,
+      change: { kind: "rename", context: CTX, title: "이름" },
+      base_revision: "4",
+    }).success,
+    false,
+  );
+  assertEquals(
+    context.input.safeParse({
+      ...propose,
+      change_id: "doc_01arz3ndektsv4rrffq69g5fav",
       change: { kind: "rename", context: CTX, title: "이름" },
     }).success,
     false,
@@ -260,4 +310,156 @@ Deno.test("coding-agent/mcp-server#R18: op는 owner read route를 가리킨다",
     ["change", "idempotency_key", "reason"],
   );
   assert(mcpDecisionTool("lophn_save") === undefined);
+});
+
+Deno.test("coding-agent/mcp-server#R17, coding-agent/mcp-server#R18: op 입력은 owner route 입력을 그대로 쓰고 모르는 filter를 만들지 않는다", () => {
+  // owner read가 받지 않는 filter는 tool에도 없다. architecture 표의 state는
+  // owner 이름 status이고 app filter는 owner route에 없다(계획 Q39).
+  assertEquals(branchFields(tool("lophn_context").input, "list"), [
+    "cursor",
+    "limit",
+    "status",
+  ]);
+  assertEquals(branchFields(tool("lophn_context").input, "list"), [
+    ...Object.keys(contextList.input.shape).sort(),
+  ]);
+  assertEquals(branchFields(tool("lophn_context").input, "show"), [
+    "context",
+  ]);
+  assertEquals(branchFields(tool("lophn_context").input, "glossary"), [
+    "context",
+    "cursor",
+    "limit",
+  ]);
+  assertEquals(branchFields(tool("lophn_question").input, "list"), [
+    "assignment",
+    "cursor",
+    "run",
+    "status",
+  ]);
+  assertEquals(branchFields(tool("lophn_question").input, "list"), [
+    ...Object.keys(questionList.input.shape).sort(),
+  ]);
+  assertEquals(branchFields(tool("lophn_approval").input, "list"), [
+    "limit",
+    "run",
+    "status",
+  ]);
+  assertEquals(branchFields(tool("lophn_approval").input, "list"), [
+    ...Object.keys(approvalsList.input.shape).sort(),
+  ]);
+  // items는 outline.context 입력에 tool 관점을 더한 것이고 owner의 depth는 없다.
+  const items = branchFields(tool("lophn_context").input, "items");
+  assertEquals(
+    items.filter((field) => field !== "perspective"),
+    [...Object.keys(outlineContext.input.shape).sort()],
+  );
+  assertEquals(branchFields(tool("lophn_context").input, "of"), [
+    "cursor",
+    "limit",
+    "status",
+    "target",
+  ]);
+  // MCP tool마다 app filter와 depth를 거절한다.
+  for (
+    const [name, op] of [
+      ["lophn_context", "list"],
+      ["lophn_question", "list"],
+      ["lophn_approval", "list"],
+    ] as const
+  ) {
+    assertEquals(
+      tool(name).input.safeParse({ op, app: "app_01arz3ndektsv4rrffq69g5fav" })
+        .success,
+      false,
+    );
+  }
+  assertEquals(
+    tool("lophn_context").input.safeParse({
+      op: "items",
+      context: CTX,
+      depth: 2,
+    }).success,
+    false,
+  );
+  // 틀린 ID 접두사는 owner route가 거절하므로 tool도 거절한다.
+  assertEquals(
+    tool("lophn_context").input.safeParse({ op: "show", context: TRM }).success,
+    false,
+  );
+  assertEquals(
+    tool("lophn_context").input.safeParse({
+      op: "of",
+      target: { kind: "app_command", app: CTX, command: "run" },
+    }).success,
+    false,
+  );
+  assertEquals(
+    tool("lophn_question").input.safeParse({ op: "show", question: CTX })
+      .success,
+    false,
+  );
+  assertEquals(
+    tool("lophn_approval").input.safeParse({ op: "show", approval: CTX })
+      .success,
+    false,
+  );
+});
+
+Deno.test("coding-agent/mcp-server#R17, coding-agent/mcp-server#R18: 읽기 op는 documents·lophn-agent·platform read route와 같은 출력 schema를 쓴다", () => {
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_context.list.output,
+    contextList.output,
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_context.show.output,
+    contextGet.output,
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_context.items.output,
+    outlineContext.output,
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_context.glossary.output,
+    termList.output,
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_context.of.output,
+    contextRelated.output,
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_question.show.output,
+    questionRead.output,
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_question.list.output,
+    questionList.output,
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_approval.show.output,
+    approvalsGet.output,
+  );
+  assertEquals(
+    MCP_DECISION_ROUTES.lophn_approval.list.output,
+    approvalsList.output,
+  );
+});
+
+Deno.test("coding-agent/mcp-server#R17, coding-agent/mcp-server#R18: op의 read route 오류 코드는 공통 7종 안이다", () => {
+  const known = new Set<string>(ERROR_CODES);
+  for (
+    const route of [
+      MCP_DECISION_ROUTES.lophn_context.list,
+      MCP_DECISION_ROUTES.lophn_context.show,
+      MCP_DECISION_ROUTES.lophn_context.items,
+      MCP_DECISION_ROUTES.lophn_context.glossary,
+      MCP_DECISION_ROUTES.lophn_context.of,
+      MCP_DECISION_ROUTES.lophn_question.list,
+      MCP_DECISION_ROUTES.lophn_question.show,
+      MCP_DECISION_ROUTES.lophn_approval.list,
+      MCP_DECISION_ROUTES.lophn_approval.show,
+    ]
+  ) {
+    for (const code of route.errors) assert(known.has(code));
+  }
 });

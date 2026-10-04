@@ -743,6 +743,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T34 contracts/apps: 앱 통로·앱 시작 입력
 
+- 상태: 완료 (#95)
 - 등급: 기본
 - concern: apps/runtime, apps/connections, apps/agent-context
 - 요구: apps/runtime#R2, R5, R7–R9, R11, R12, R15, R18, R31; apps/connections#R5–R7; apps/invocations#R7, R8, R14, R16, R17, R19; apps/automations#R5, R6, R9, R12; apps/sdk#R23, R27, R28, R30, R31, R40; apps/preview#R3, R7

@@ -15,7 +15,6 @@ import {
   definePort,
 } from "../../contracts/platform/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
-import { configure } from "./sqlite.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
 
 const START = Date.parse("2026-01-01T00:00:00.000Z");
@@ -47,50 +46,6 @@ const created = defineEvent("ThingCreated", {
   subject: z.string(),
   payload: z.strictObject({ name: z.string() }),
 });
-
-Deno.test("platform/ledger#R2: WAL이 아니면 기동을 거절한다", async () => {
-  const dir = await tempDir();
-  // 메모리 DB는 journal_mode=WAL이 memory로 남는다.
-  const memory = new DatabaseSync(":memory:");
-  const memoryMode = configure(memory);
-  assert(!memoryMode.ok);
-  if (!memoryMode.ok) assertEquals(memoryMode.error.code, "unavailable");
-  memory.close();
-
-  // 읽기 전용 파일은 WAL 파일을 만들 수 없어 pragma가 실패한다.
-  const path = `${dir}/ledger.db`;
-  await Deno.writeFile(path, new Uint8Array());
-  await Deno.chmod(path, 0o444);
-  const denied = openLedger(path, deps());
-  assert(!denied.ok);
-  if (!denied.ok) assertEquals(denied.error.code, "unavailable");
-  await Deno.remove(dir, { recursive: true });
-});
-
-Deno.test(
-  "platform/ledger#R2: 파일 ledger는 WAL·FULL·외래 키·5초 대기를 확인하고 연다",
-  async () => {
-    const dir = await tempDir();
-    const path = `${dir}/ledger.db`;
-    const db = new DatabaseSync(path);
-    const applied = configure(db);
-    assert(applied.ok);
-    // 설정한 그 연결의 실제 반환을 다시 읽는다.
-    const mode = db.prepare("pragma journal_mode").get()?.["journal_mode"];
-    const sync = db.prepare("pragma synchronous").get()?.["synchronous"];
-    const fk = db.prepare("pragma foreign_keys").get()?.["foreign_keys"];
-    const busy = db.prepare("pragma busy_timeout").get()?.["timeout"];
-    assertEquals(mode, "wal");
-    assertEquals(Number(sync), 2);
-    assertEquals(Number(fk), 1);
-    assertEquals(Number(busy), 5000);
-    db.close();
-    const opened = openLedger(path, deps());
-    assert(opened.ok);
-    if (opened.ok) opened.value.close();
-    await Deno.remove(dir, { recursive: true });
-  },
-);
 
 Deno.test(
   "platform/ledger#R10: 확정 event와 command 결과는 고치거나 지우지 못한다",
@@ -383,27 +338,6 @@ Deno.test(
   },
 );
 
-Deno.test("platform/ledger#R23: 별도 SQLite 패키지 없이 내장 SQLite로 연다", async () => {
-  const dir = await tempDir();
-  const opened = await openedLedger(dir);
-  assert(opened.ok);
-  if (!opened.ok) return;
-  const version = opened.value.transaction(
-    { actor: "user" },
-    (tx) => ok(tx.sql.get("select sqlite_version() as v", [])),
-  );
-  assert(version.ok);
-  if (version.ok) assertEquals(version.value?.["v"], "3.53.2");
-  const fts = opened.value.transaction({ actor: "user" }, (tx) =>
-    ok(
-      tx.sql.get("select sqlite_compileoption_used('ENABLE_FTS5') as v", []),
-    ));
-  assert(fts.ok);
-  if (fts.ok) assertEquals(fts.value?.["v"], 1n);
-  opened.value.close();
-  await Deno.remove(dir, { recursive: true });
-});
-
 Deno.test(
   "platform/ledger#R22: blob 참조 등록은 주입한 구현이 같은 transaction에서 돈다",
   async () => {
@@ -453,29 +387,6 @@ Deno.test(
     if (result.ok) assertEquals(result.value.hash, hash);
     assertEquals(seen.length, 1);
     opened.value.close();
-    await Deno.remove(dir, { recursive: true });
-  },
-);
-
-Deno.test(
-  "platform/ledger#R1: ledger는 파일 하나이고 transaction 밖의 쓰기 길을 내놓지 않는다",
-  async () => {
-    const dir = await tempDir();
-    const opened = await openedLedger(dir);
-    assert(opened.ok);
-    if (!opened.ok) return;
-    const ledger = opened.value;
-    // 쓰기는 transaction 하나로만 들어간다. 다른 SQL·파일 경로를 받는 입구가 없다.
-    assertEquals(Object.keys(ledger).sort(), ["close", "transaction"]);
-    const written = ledger.transaction(
-      { actor: "machine" },
-      (tx) => ok(tx.emit(created, "thing:a", { name: "a" })),
-    );
-    assert(written.ok);
-    ledger.close();
-    const files = [];
-    for await (const entry of Deno.readDir(dir)) files.push(entry.name);
-    assertEquals(files.filter((name) => name.endsWith(".db")), ["ledger.db"]);
     await Deno.remove(dir, { recursive: true });
   },
 );

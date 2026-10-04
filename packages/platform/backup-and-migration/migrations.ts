@@ -20,6 +20,12 @@ create table if not exists schema_migrations (
   content_hash text not null,
   applied_at text not null
 );
+create trigger if not exists schema_migrations_no_duplicate_insert
+before insert on schema_migrations
+when exists (select 1 from schema_migrations where version = new.version)
+begin
+  select raise(abort, 'immutable');
+end;
 create trigger if not exists schema_migrations_no_update
 before update on schema_migrations
 begin

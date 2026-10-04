@@ -218,7 +218,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     return value as T;
   };
   const ports: { current?: TxPortLookup } = {};
-  const tx: Tx = {
+  const tx: Tx & { portLookup?: TxPortLookup } = {
     sql: {
       run: (text, params) => measured(true, () => sql.run(text, params)),
       get: (text, params) => measured(false, () => sql.get(text, params)),
@@ -330,6 +330,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
   ports.current = createTxPortLookup(ownerPorts, tx, live, (result) => {
     throw fail(result);
   });
+  tx.portLookup = ports.current;
   return {
     tx,
     seal: () => {

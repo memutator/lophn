@@ -840,6 +840,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T37 contracts/apps: grant·package·preview
 
+- 상태: 완료 (#135)
 - 등급: 기본
 - concern: apps/permissions, apps/sdk, apps/preview
 - 요구: apps/permissions#R1, R3, R5–R14, R21, R26–R29; apps/preview#R1–R3, R7, R9; apps/sdk#R3–R8, R13
@@ -1037,6 +1038,7 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 
 ### T46 contract 덮기를 check 관문에
 
+- 상태: 완료 (#115)
 - 등급: 좁은
 - concern: 저장소 바닥
 - 요구: 없음(architecture/README.md 4장)

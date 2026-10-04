@@ -1,9 +1,15 @@
 // 조립만 한다. 창·single instance·scheme 규칙은 각 모듈에 있다.
-import { app, BrowserWindow, protocol } from "electron";
+import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import { dirname, join } from "node:path";
 
+import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
+
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
+import { startCoreConnection } from "./core/connection.ts";
+import { nodeFetch, nodeSockets } from "./core/node-io.ts";
+import { resolveLaunchMode } from "./launch-mode.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
+import { requestQuit } from "./quit.ts";
 import { registerShellScheme } from "./security.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
@@ -12,7 +18,29 @@ import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
 const here = dirname(__filename);
 const dataRoot = resolveDataRoot();
 const overlays = electronOverlays();
-app.once("will-quit", () => overlays.dispose());
+const windows = new Set<BrowserWindow>();
+// 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
+const core = startCoreConnection({
+  launch: {
+    repoRoot: join(here, "..", "..", "..", ".."),
+    dataRoot,
+    denoBinary: "deno",
+    packaged: app.isPackaged,
+  },
+  ipc: { handle: (channel, listener) => ipcMain.handle(channel, listener) },
+  fetch: nodeFetch,
+  sockets: nodeSockets(),
+  clock: { now: () => Date.now() },
+  targets: () =>
+    [...windows].map((window) => ({
+      send: (channel, payload) => window.webContents.send(channel, payload),
+      isDestroyed: () => window.isDestroyed(),
+    })),
+});
+app.once("will-quit", () => {
+  core.shutdown();
+  overlays.dispose();
+});
 
 // session이 생기기 전에 userData를 잡아야 Chromium 저장이 데이터 root 안에 있다.
 app.setPath("userData", browserDataPath(dataRoot));
@@ -22,10 +50,18 @@ const instance = startSingleInstance({
   app,
   dataRoot,
   onOpenWindow: () => openDesktopWindow(),
+  onQuitIntent: () =>
+    requestQuit({
+      windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
+      shutdownCore: () => core.shutdown(),
+      quitApp: () => app.quit(),
+    }),
 });
 
 // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다(desktop#R21).
 app.on("window-all-closed", () => {});
+
+const mode = resolveLaunchMode({ argv: process.argv });
 
 if (instance.acquired) {
   app.whenReady().then(() => {
@@ -41,7 +77,8 @@ if (instance.acquired) {
             }),
         ),
     );
-    openDesktopWindow();
+    // 창 없는 시작은 main과 core만 띄운다(desktop#R21).
+    if (!mode.tray) openDesktopWindow();
   });
 }
 
@@ -66,6 +103,14 @@ function openDesktopWindow(): void {
           join(here, "preload-shell.cjs"),
           app.isPackaged,
         );
+        windows.add(window);
+        window.on("closed", () => windows.delete(window));
+        // 연결 전에 뜬 창은 지금 상태를 바로 받는다. 이후 변화는 targets가 민다.
+        window.webContents.on("did-finish-load", () => {
+          if (!window.isDestroyed()) {
+            window.webContents.send(CORE_STATE_CHANNEL, { ...core.state });
+          }
+        });
         return wrap(window);
       },
     },

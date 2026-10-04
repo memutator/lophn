@@ -19,6 +19,8 @@ type PortFailure = (result: Result<never>) => never;
 
 export type TxPortLookup = {
   port<T>(key: PortKey<T>): T;
+  // 등록 여부만 본다. 없으면 false이고 throw하지 않는다.
+  present(key: PortKey<unknown>): boolean;
   seal(): void;
 };
 
@@ -89,6 +91,7 @@ export function createTxPortLookup(
 
   return {
     port,
+    present: (key) => factories.has(key),
     seal() {
       open = false;
       cache.clear();

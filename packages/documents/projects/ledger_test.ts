@@ -29,6 +29,7 @@ type LedgerHarness = {
     params?: readonly unknown[],
   ): Promise<Result<SqlRow[]>>;
   revokeCredential(credentialRef: string): Promise<Result<void>>;
+  setCredential(ctx: AuthenticatedContext): Promise<Result<void>>;
   close(): Promise<void>;
 };
 async function createLedgerHarness(options: {
@@ -41,7 +42,7 @@ async function createLedgerHarness(options: {
 }
 
 const registration = new URL(
-  "../../../apps/core/documents/projects.ts",
+  "../../../apps/core/documents.ts",
   import.meta.url,
 );
 const project = "prj_01arz3ndektsv4rrffq69g5fav";
@@ -54,6 +55,8 @@ const operations = [
   "project.list",
   "project.get",
   "project.resolve",
+  "project.resolve_cwd",
+  "project.tracking_roots",
   "CommandResult",
 ];
 
@@ -414,6 +417,186 @@ Deno.test("documents/projects#R1: revoked credential cannot read the project", a
     code(
       await opened.read({ resource: "projects", method: "list" }, user, {}),
       "unauthorized",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+const codingAgent = "coding_agent:cac_01arz3ndektsv4rrffq69g5fav";
+
+Deno.test("documents/projects#R9: resolve_cwd returns only the project id from the fixed cwd", async () => {
+  const agent = credential(codingAgent);
+  const opened = await harness([user, agent]);
+  try {
+    commandResult(await create(opened));
+    const { authenticatedCwdRef } = await import(
+      "../../../apps/core/documents.ts"
+    );
+    const fixed = {
+      ...agent,
+      credential_ref: authenticatedCwdRef(
+        agent.credential_ref,
+        "/work/notes/deep/file.md",
+      ),
+    };
+    value(await opened.setCredential(fixed));
+    const resolved = value(
+      await opened.read(
+        { resource: "projects", method: "resolve_cwd" },
+        fixed,
+        {},
+      ),
+    ) as { project: string };
+    assertEquals(resolved.project, project);
+    assertEquals("folder_path" in resolved, false);
+    code(
+      await opened.read(
+        { resource: "projects", method: "resolve_cwd" },
+        user,
+        {},
+      ),
+      "forbidden",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("documents/projects#R9: resolve_cwd fails closed without a fixed cwd", async () => {
+  const agent = credential(codingAgent);
+  const opened = await harness([user, agent]);
+  try {
+    commandResult(await create(opened));
+    code(
+      await opened.read(
+        { resource: "projects", method: "resolve_cwd" },
+        agent,
+        {},
+      ),
+      "not_found",
+    );
+    code(
+      await opened.read(
+        { resource: "projects", method: "resolve_cwd" },
+        agent,
+        { path: "/work/notes/file.md" },
+      ),
+      "invalid_input",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("documents/projects#R7: tracking_roots lists only active enabled roots", async () => {
+  const machine = credential("machine");
+  const opened = await harness([user, machine]);
+  try {
+    commandResult(await create(opened));
+    const listed = value(
+      await opened.read(
+        { resource: "projects", method: "tracking_roots" },
+        machine,
+        {},
+      ),
+    ) as { roots: unknown[]; as_of_seq: string };
+    // create는 tracking.enabled=false만 받는다. 켜진 root가 없으면 빈 목록이다.
+    assertEquals(listed.roots, []);
+    assert(listed.as_of_seq.length > 0);
+    code(
+      await opened.read(
+        { resource: "projects", method: "tracking_roots" },
+        user,
+        {},
+      ),
+      "forbidden",
+    );
+    code(
+      await opened.read(
+        { resource: "projects", method: "tracking_roots" },
+        machine,
+        { project },
+      ),
+      "invalid_input",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("documents/projects#R8: user read carries the proposal apart from stored tracking", async () => {
+  const opened = await harness();
+  try {
+    commandResult(await create(opened));
+    const got = value(
+      await opened.read(
+        { resource: "projects", method: "get" },
+        user,
+        { project },
+      ),
+    ) as {
+      project: {
+        tracking: { enabled: boolean };
+        initial_tracking_proposal: { enabled: boolean; patterns: unknown[] };
+      };
+    };
+    assertEquals(got.project.tracking.enabled, false);
+    assertEquals(got.project.initial_tracking_proposal.enabled, true);
+    assertEquals(
+      got.project.initial_tracking_proposal.patterns.length > 0,
+      true,
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("documents/projects#R10: list rejects a cursor whose snapshot no longer matches", async () => {
+  const opened = await harness();
+  try {
+    commandResult(await create(opened));
+    commandResult(
+      await opened.command(
+        user,
+        envelope("project.create", "create-second", {
+          id: other,
+          name: "second",
+          title: "Second",
+          purpose: "",
+          folders: [],
+          tracking: { enabled: false, patterns: [], use_gitignore: false },
+        }),
+      ),
+    );
+    const page = value(
+      await opened.read(
+        { resource: "projects", method: "list" },
+        user,
+        { limit: 1 },
+      ),
+    ) as { next_cursor: string | null };
+    assert(page.next_cursor !== null);
+    commandResult(
+      await opened.command(
+        user,
+        envelope("project.create", "create-third", {
+          id: "prj_01arz3ndektsv4rrffq69g5fax",
+          name: "third",
+          title: "Third",
+          purpose: "",
+          folders: [],
+          tracking: { enabled: false, patterns: [], use_gitignore: false },
+        }),
+      ),
+    );
+    code(
+      await opened.read(
+        { resource: "projects", method: "list" },
+        user,
+        { limit: 1, cursor: page.next_cursor },
+      ),
+      "conflict",
     );
   } finally {
     await opened.close();

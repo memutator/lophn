@@ -3,12 +3,15 @@ import {
   type AgentProject,
   agentProjectSchema,
   type DocumentRef,
-  documentRefOutputSchema,
+  type FixedDocumentRef,
+  fixedDocumentRefOutputSchema,
   INITIAL_TRACKING_PROPOSAL,
   type Project,
   projectGet,
   projectList,
   projectResolve,
+  projectResolveCwd,
+  projectTrackingRoots,
   userProjectSchema,
 } from "../../contracts/documents/mod.ts";
 import {
@@ -38,6 +41,8 @@ export type ProjectReadDeps = {
     snapshot: ReadSnapshot,
     project: string,
   ): Result<readonly DocumentRef[]>;
+  // host가 고정한 authenticated current cwd. 없으면 resolve_cwd는 거절한다.
+  currentCwd?: (ctx: RequestContext) => Result<string | null>;
 };
 
 const PAGE = 50;
@@ -57,7 +62,7 @@ function isUser(ctx: RequestContext): boolean {
   return parseActor(ctx.actor)?.kind === "user";
 }
 
-function countAllowed(documents: readonly DocumentRef[]): Result<number> {
+function countAllowed(documents: readonly FixedDocumentRef[]): Result<number> {
   const count = rowCount({ count: documents.length });
   return count.ok
     ? count
@@ -67,7 +72,7 @@ function countAllowed(documents: readonly DocumentRef[]): Result<number> {
 function projectView(
   ctx: RequestContext,
   project: Project,
-  documents: readonly DocumentRef[],
+  documents: readonly FixedDocumentRef[],
 ): Result<UserProject | AgentProject> {
   const parsedDocs = documents;
   if (isUser(ctx)) {
@@ -77,6 +82,7 @@ function projectView(
       ...project,
       document_count: count.value,
       documents: parsedDocs,
+      initial_tracking_proposal: INITIAL_TRACKING_PROPOSAL,
     });
     return view.success ? ok(view.data) : invalidProjection();
   }
@@ -98,7 +104,7 @@ function allowed(
   ctx: RequestContext,
   operation: string,
   project: Project,
-): Result<{ project: Project; documents: readonly DocumentRef[] } | null> {
+): Result<{ project: Project; documents: readonly FixedDocumentRef[] } | null> {
   if (typeof deps?.documents !== "function") return dependencyUnavailable();
   const decision = authorizeProject(deps?.authorize, ctx, operation, {
     kind: "project",
@@ -114,12 +120,10 @@ function allowed(
   }
   if (!documents.ok) return documents;
   if (!Array.isArray(documents.value)) return invalidProjection();
-  const visible: DocumentRef[] = [];
+  const visible: FixedDocumentRef[] = [];
   for (const candidate of documents.value) {
-    const parsed = documentRefOutputSchema.safeParse(candidate);
-    if (!parsed.success || parsed.data.version === null) {
-      return invalidProjection();
-    }
+    const parsed = fixedDocumentRefOutputSchema.safeParse(candidate);
+    if (!parsed.success) return invalidProjection();
     const access = authorizeProject(deps.authorize, ctx, operation, {
       kind: "document",
       project,
@@ -147,6 +151,8 @@ export function createProjectReads(deps: ProjectReadDeps): {
   list: ReadDefinition<typeof projectList>;
   get: ReadDefinition<typeof projectGet>;
   resolve: ReadDefinition<typeof projectResolve>;
+  resolveCwd: ReadDefinition<typeof projectResolveCwd>;
+  trackingRoots: ReadDefinition<typeof projectTrackingRoots>;
 } {
   return {
     list: {
@@ -297,8 +303,98 @@ export function createProjectReads(deps: ProjectReadDeps): {
         });
       },
     },
+    resolveCwd: {
+      route: projectResolveCwd,
+      handle(snapshot, ctx, _input) {
+        if (parseActor(ctx.actor)?.kind !== "coding_agent") {
+          return err({
+            code: "forbidden",
+            message: "cwd resolve is coding agent only",
+          });
+        }
+        if (typeof deps?.currentCwd !== "function") return unavailable();
+        let cwd: Result<string | null>;
+        try {
+          cwd = synchronousResult(deps.currentCwd(ctx));
+        } catch {
+          return unavailable();
+        }
+        if (!cwd.ok) return cwd;
+        // caller path fallback은 없다. 고정 근거가 없으면 거절한다.
+        if (cwd.value === null) return notFound();
+        const projects = loadProjects(snapshot.sql);
+        if (!projects.ok) return projects;
+        const roots = projects.value.flatMap((project) =>
+          project.folders.map((folder) => ({
+            project: project.id,
+            path: folder.path,
+          }))
+        );
+        const found = deepestRegisteredRoot(cwd.value, roots);
+        if (!found.ok) return found;
+        if (found.value === null) return notFound();
+        const project = projects.value.find((item) =>
+          item.id === found.value!.project
+        );
+        if (project === undefined) return notFound();
+        const access = allowed(
+          deps,
+          snapshot,
+          ctx,
+          projectResolveCwd.name,
+          project,
+        );
+        if (!access.ok) return access;
+        if (access.value === null) return notFound();
+        return ok({
+          project: project.id,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
+    trackingRoots: {
+      route: projectTrackingRoots,
+      handle(snapshot, ctx, _input) {
+        if (parseActor(ctx.actor)?.kind !== "machine") {
+          return err({
+            code: "forbidden",
+            message: "tracking roots are machine only",
+          });
+        }
+        if (typeof deps?.authorize !== "function") return unavailable();
+        const projects = loadProjects(snapshot.sql);
+        if (!projects.ok) return projects;
+        const roots: { project: string; revision: string; path: string }[] = [];
+        for (const project of projects.value) {
+          if (project.status !== "active" || !project.tracking.enabled) {
+            continue;
+          }
+          const access = authorizeProject(
+            deps.authorize,
+            ctx,
+            projectTrackingRoots.name,
+            { kind: "project", project },
+          );
+          if (denied(access)) continue;
+          if (!access.ok) return access;
+          for (const folder of project.folders) {
+            roots.push({
+              project: project.id,
+              revision: project.revision,
+              path: folder.path,
+            });
+          }
+        }
+        return ok({
+          roots,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
   };
 }
 
-// 기본 제안은 저장된 tracking과 다른 값이다. public read output에 실을 seam은 없다.
+// 사람 Project read의 initial_tracking_proposal은 이 값이다. 저장된 tracking과 섞지 않는다.
 export const initialTrackingProposal = INITIAL_TRACKING_PROPOSAL;

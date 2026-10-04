@@ -280,3 +280,15 @@ Deno.test("problems/feedback#R11: frozen record content needs every blob authori
   input.origin.context.authentication.actor = "user";
   assertEquals(recordReportInputSchema.safeParse(input).success, true);
 });
+Deno.test("problems/feedback#R8: screenshot blob authority matches by value regardless of key order", () => {
+  const input = screenFeedback();
+  const png = input.screenshot!.blob as Record<string, unknown>;
+  const reordered = Object.fromEntries(Object.entries(png).reverse());
+  assertEquals(
+    submitFeedbackInputSchema.safeParse({
+      ...input,
+      screenshot: { ...input.screenshot, blob: reordered },
+    }).success,
+    true,
+  );
+});

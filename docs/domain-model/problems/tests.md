@@ -116,14 +116,16 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `verifications` | Verification; target·ticket link는 열, 나머지 큰 내용은 hash | `id` PK | `(request_principal, request_key)` | `(app, kind, target_bundle_hash, result)`, `(problem, basis_seq)`, `(ticket, completion_seq, check_index)` | `app → apps.id`, `target_release/before/after → releases.id`, `problem → problems.id`, `ticket → tickets.id`; 삭제 RESTRICT; blob 영구 참조 → platform/blob-store |
-| `verification_reports` | reproduction의 원래 보고 연결 | `(verification, report)` PK | PK | `(report)` | `verification → verifications.id`, `report → reports.id`; 삭제 RESTRICT |
+| `test_requests` | 접수·준비 실패·시작 시도·실제 시작 summary·시작 확인 불가·runner 교체·결과 참조의 append-only 기록. 큐 entity가 아니다 | `seq` PK | 없음. 조회는 `(request_principal, request_key, seq)` | `(request_principal, request_key, seq)` | UPDATE·DELETE 없음. cross-owner 표 FK는 두지 않고 신뢰 prepared proof가 참조를 검사한다 |
+| `test_side_starts` | requester principal·key·accepted hash와 시작 당시 runner에 묶인 side 시작. `side`, `bundle_hash`, `test_hash`, `started_at` | `seq` PK | `(request_principal, request_key, request_hash, side)` | `(request_principal, request_key, request_hash, seq)` | UPDATE·DELETE 없음. recovery가 이 행을 지우거나 다시 실행하지 않는다 |
+| `verifications` | Verification; target·ticket link는 열, 나머지 큰 내용은 hash | `id` PK | `(request_principal, request_key)` | `(app, kind, target_bundle_hash, result)`, `(problem, basis_seq)`, `(ticket, completion_seq, check_index)` | blob 영구 참조 → platform/blob-store. apps·releases·problems·tickets 표가 생기기 전에는 cross-owner FK를 만들지 않는다 |
+| `verification_reports` | reproduction의 원래 보고 연결 | `(verification, report)` PK | PK | `(report)` | `verification → verifications.id`. `reports` 표 FK는 그 표가 생긴 뒤 결정한다 |
 
 ## command
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `RequestTest` | user / coding_agent / 범위 제한 machine | request key, kind, app, target, 고정 test, 종류별 연결 | 주체·키·request hash; app 범위; 대상 hash·ticket 완료 seq; reproduction의 문제 basis seq | 실행 접수·시작 흔적은 → platform/ledger의 공통 command 기록; domain event 없음 | `invalid_input`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `unavailable` |
+| `RequestTest` | user / coding_agent / 범위 제한 machine | request key, kind, app, target, 고정 test, 종류별 연결 | 주체·키·request hash; app 범위; 대상 hash·ticket 완료 seq; reproduction의 문제 basis seq | domain event 없음. 접수 정본은 `test_requests`다. 시작 시도·runner 교체는 T8 입구가 owner-local helper로만 append하고, side 사실은 `test_side_starts`다 | `invalid_input`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `unavailable` |
 | `RecordVerification` | test runner의 machine | 고정 Verification | 요청 key·hash·대상·test hash와 runner scope; 같은 결과 ID 내용 | `VerificationRecorded` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
 
 ## event
@@ -138,7 +140,7 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 - **앱 계약 검사.** 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration을 모두 확인한다(→ apps/data). read는 입력 schema·업무 및 외부 상태 불변을 확인한다(→ apps/blueprint). automation은 같은 command·입력·grant와 confirm 금지를 확인하고 external은 사람이 automation을 켤 때 command·입력·주기를 한 번 승인한 것만 허용한다. grant된 secret의 read/write 가져오기·동기화는 대역으로 검사한다(→ apps/automations, apps/permissions). 출력 schema는 apps/blueprint에서 확정되지 않은 별도 필수 선언으로 요구하지 않는다.
 - **플랫폼 검사.** 플랫폼 필수 검사 code는 앱 묶음 밖의 고정 runner 소유이며 coding agent가 바꿀 수 없다. 앱 code·화면·blueprint·의존·테스트 변경은 새 hash와 새 app test를 요구한다.
 - **격리.** 운영 DB·backup·keychain·사람 파일·일반 홈·실제 외부 서비스 접근 금지다. 고정 source는 읽기 전용, 쓰기는 테스트 폴더·테스트 DB만 허용한다. secret·network·문서 쓰기는 고정 대역이다.
-- **시작과 복구.** 자식 시작 전에 공통 command 기록에 시작 시도를 남긴다. 이 기록만으로 실제 시작을 주장하지 않으며 runner의 spawn·started_at 관측으로 실제 시작을 구별한다. 시작한 실행이 끊기면 실제 기록과 `inconclusive`를 남긴다. 복구를 이유로 같은 요청을 몰래 재실행하지 않는다.
+- **시작과 복구.** 접수·준비 실패·시작 시도·실제 시작·시작 확인 불가·runner 교체·결과 참조는 problems 소유 `test_requests`에 append-only로 남긴다. 이 표는 상태를 바꾸는 큐가 아니라 단계별 불변 기록이다. 시작 시도 행만으로 실제 시작을 주장하지 않으며, `actual_started`는 그 side 시작의 summary이고, 실행 사실은 `test_side_starts`다. single과 reproduction after의 bundle은 target bundle이고, reproduction before는 접수 proof가 before release에 고정한 bundle이다. 같은 side의 같은 값은 재관측이고, bundle·test·시각이 다르면 conflict다. recovery는 이 행을 지우거나 다시 실행하지 않는다. 결과 execution의 side 집합은 저장된 시작과 같아야 한다. 한쪽 reproduction만 시작했으면 시작한 side의 사실과 다른 side의 미시작 이유가 있는 inconclusive만 기록한다. GetTestRequest.started_at는 저장된 실제 시작 중 최초 시각이다. 시작한 실행이 끊기면 실제 기록과 `inconclusive`를 남긴다. 복구는 새 runner principal을 별도 행으로 남기고, 이전 runner는 그 요청의 결과를 쓰지 못한다. 같은 요청을 몰래 재실행하지 않는다.
 - **낡은 근거.** 문제·ticket이 바뀐 뒤 끝난 결과도 실행 사실로 보존한다. 닫힘·ticket 확인 시 별도 CAS를 적용한다.
 - **실행 범위.** 첫 판은 Deno test 진입점과 플랫폼 harness의 앱 command·화면 fixture만 받는다. 임의 native 실행 파일과 shell 해석은 시작 전 거절한다. private IPC 관측 JSON은 side/test hash/허용 검사 이름을 검증하고 frame당 65,536 bytes·side당 총 1,048,576 bytes다. 잘못된·누락된·초과한 관측은 inconclusive다.
 - **자원 한도.** 실제 동시 실행 2개·준비 대기 16개, 안전 출력 side당 1,048,576 bytes, 전체 메모리 process당 536,870,912 bytes·Deno heap 268,435,456 bytes다. 전체 process 경계 강제 불가이면 시작 전 unavailable이며 출력 초과는 drain을 계속하며 잘림을 남긴다.
@@ -149,4 +151,4 @@ test runner가 실제로 돌린 테스트의 불변 Verification과 종류별 �
 
 - 지원 runtime별 테스트 진입점·판정 protocol, observations JSON schema의 세부. 종료값만으로 reproduction 증상을 증명하는 형식은 허용하지 않는다.
 - process 전체 메모리 경계를 강제하는 OS별 adapter는 → platform/security와 맞춘다. 첫 한도값과 작업 폴더 정책은 위에 정의한다.
-- 공통 command 기록의 요청·시작·복구 필드 지원은 → platform/ledger와 맞춘다. 별도 test 큐 entity는 만들지 않는다.
+- 공통 `command_results`는 platform 소유이며 이 concern이 읽지 않는다. 요청·시작·복구의 정본은 `test_requests`다. 상태를 바꾸는 test 큐 entity는 만들지 않는다. lifecycle command wire는 아직 없고, 관측 append는 신뢰 entry가 owner-local helper로만 남긴다.

@@ -97,10 +97,11 @@ problems/reporting#R12,R16·problems/feedback#R8,R9·problems/snapshots#R10,R12,
 | `reports` | `problems/reporting-ledger.ts` | 불변 Report, 원주체·content hash·당시 실행 범위·Snapshot 참조 |
 | `snapshots` | `problems/snapshots-ledger.ts` | 증거 값과 항목별 누락 이유, 큰 내용은 blob hash |
 | `problems` | `problems/grouping-ledger.ts` | app+canonical group key unique, 3상태, work·interpretation·closure |
-| `verifications` | `problems/tests-ledger.ts` | 불변 Verification, 요청 principal/key/hash, 고정 대상·test·execution·관측 hash |
-| `verification_reports` | `problems/tests-ledger.ts` | reproduction과 원래 Report 연결 |
+| `test_requests` | `packages/problems/tests` | 접수·준비 실패·시작 시도·실제 시작·시작 확인 불가·runner 교체·결과 참조. append-only이며 상태를 바꾸는 큐가 아니다 |
+| `verifications` | `packages/problems/tests` | 불변 Verification, 요청 principal/key/hash, 고정 대상·test·execution·관측 hash |
+| `verification_reports` | `packages/problems/tests` | reproduction과 원래 Report 연결 |
 | `events`의 `ProblemFixRecorded` | payload는 `problems/repairs-ledger.ts`, 표는 platform | FixRecord; 전용 repair 표 없음; 식별은 event seq |
-| 공통 `command_results`, `subscriber_cursors` | platform | test 접수·시작·복구와 event 반응 위치; problems 전용 queue 표 없음 |
+| 공통 `command_results`, `subscriber_cursors` | platform | command idempotency와 event 반응 위치. test 요청 정본은 `test_requests`다 |
 
 `reports`·`snapshots`·`problems`의 신규 변경과 event 및 영구 blob 참조 등록은 `RecordReport` transaction 하나다. 첫 접수 시도 전에 collector가 최종 Report·Snapshot·선택 문제·blob hash를 canonical JSON으로 hash한다. 서버가 정한 problem ID와 event seq는 그 hash에 넣지 않는다. 같은 ID·원주체·내용이면 원래 결과, 다른 내용이면 `conflict`다.
 
@@ -373,7 +374,7 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
 | source map·binding 출처 불명 | map/frame 부재는 이유·Report별 key; 실행 귀속 자체가 불명인 관측은 platform/diagnostics |
 | 디스크 부족 | 기존 blob 삭제로 숨기지 않음. 큰 신규 항목 제외/작은 접수 실패, 공간·내보내기·한도 조정 안내 |
 
-test 요청 접수·고정 입력 참조·시작 시도·runner 식별·복구 처리 위치는 **command**의 공통 기록으로 관리한다. 시작 시도를 확정하기 전 자식을 띄우지 않되 그 기록만으로 실제 execution을 만들지 않는다. runner가 spawn 성공·실제 started_at을 관측한 사실과 감독의 자식 lifecycle을 복구 근거로 쓴다. 시작 여부 자체를 모르면 실제 시작/성공을 꾸미지 않고 공통 요청 조회에 확인 불가로 남긴다.
+test 요청 접수·고정 입력 참조·시작 시도·runner 식별·복구 처리 위치는 problems 소유 `test_requests`의 append-only 기록이다. side별 실제 시작은 `test_side_starts`다. platform 공통 command 기록은 이 정본이 아니다. 시작 시도를 확정하기 전 자식을 띄우지 않되 그 기록만으로 실제 execution을 만들지 않는다. runner가 spawn 성공·실제 started_at을 관측한 사실과 감독의 자식 lifecycle을 복구 근거로 쓴다. 시작 여부 자체를 모르면 실제 시작/성공을 꾸미지 않고 GetTestRequest에 확인 불가로 남긴다. lifecycle wire는 T8 입구가 맡는다.
 
 이미 시작한 요청은 재시작으로 처음부터 다시 돌리지 않는다. 재실행은 새 request key·Verification ID다. 복구 runner도 해당 요청의 결과 기록만 가능한 machine scope를 받으며 테스트 자식은 받지 않는다. 작업 폴더가 결과 정본이 되지 않고 유일한 확정 사실은 ledger다.
 

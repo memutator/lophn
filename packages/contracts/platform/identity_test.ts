@@ -66,6 +66,18 @@ Deno.test("platform/identity#R2 platform/identity#R3 platform/ledger#R11: scope�
       .success,
   );
 });
+Deno.test("platform/identity#R3 documents/projects#R9: cwd 시작 조건은 정규 절대 경로만 받는다", () => {
+  for (
+    const cwd of ["/home/me/src", "C:\\work\\repo", "\\\\host\\share\\repo"]
+  ) {
+    assert(credentialConditionsSchema.safeParse({ cwd }).success, cwd);
+  }
+  for (
+    const cwd of ["", "src", "./src", "/home/me/../etc", "/a/./b", "/a\u0000b"]
+  ) {
+    assert(!credentialConditionsSchema.safeParse({ cwd }).success, cwd);
+  }
+});
 Deno.test("platform/identity#R2 platform/identity#R3: target restriction의 own JSON key를 context에서도 보존한다", () => {
   const targets = JSON.parse(
     '{"__proto__":{"run":"required"},"nested":{"__proto__":{"app":"required"}},"constructor":{"prototype":false}}',

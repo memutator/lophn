@@ -223,6 +223,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T6 API 입구: HTTP·WebSocket transport와 인증 검사
 
+- 상태: 완료 (#78)
 - 등급: 기본
 - concern: platform/api, platform/identity, platform/security, platform/diagnostics
 - 요구: platform/api#R1, R2, R3, R4, R6, platform/identity#R11, R12, R13, platform/security#R6, R7, R8, platform/diagnostics#R7

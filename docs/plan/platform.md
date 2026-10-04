@@ -94,6 +94,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: skeleton
 - 선행: platform#T1, contracts#T5
+- 상태: 완료 (#49)
 - 완료: 아래 확인이 통과한다
   - writer는 Deno Worker 하나 안의 유일한 쓰기 연결이다. API 쪽과 작은 메시지로 주고받는다.
   - 처리 순서: fingerprint(RFC 8785, token·handle 원문 제외)를 transaction 전에 계산 → `BEGIN IMMEDIATE` → 현재 자격 재검사 hook → `(principal,key)` 조회 → 같은 fingerprint면 저장 결과를 `replayed:true`로 → 다르면 `conflict` → 등록 handler(동기, Tx만) → event·결과 저장 → commit → event 배포에 wake-up 힌트(R3, R5, R13).

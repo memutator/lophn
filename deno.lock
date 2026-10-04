@@ -30,6 +30,7 @@
     "npm:hash-wasm@4.12.0": "4.12.0",
     "npm:ignore@7.0.12": "7.0.12",
     "npm:intl-messageformat@12.1.2": "12.1.2",
+    "npm:js-tiktoken@*": "1.0.21",
     "npm:lucide-react@1.51.0": "1.51.0_@types+react@19.3.0_react@19.3.0",
     "npm:parse5@8.0.1": "8.0.1",
     "npm:picomatch@4.0.7": "4.0.7",
@@ -852,6 +853,9 @@
         "tslib"
       ]
     },
+    "base64-js@1.5.1": {
+      "integrity": "sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA=="
+    },
     "buffer-image-size@0.6.4": {
       "integrity": "sha512-nEh+kZOPY1w+gcCMobZ6ETUp9WfibndnosbpwB1iJk/8Gt5ZF2bhS6+B6bPYz424KtwsR6Rflc3tCz1/ghX2dQ==",
       "dependencies": [
@@ -986,6 +990,12 @@
       "dependencies": [
         "@formatjs/fast-memoize",
         "@formatjs/icu-messageformat-parser"
+      ]
+    },
+    "js-tiktoken@1.0.21": {
+      "integrity": "sha512-biOj/6M5qdgx5TKjDnFT1ymSpM5tbd3ylwDtrQvFQSu0Z7bBYko2dF+W/aUkXUPuk6IVpRxk/3Q2sHOzGlS36g==",
+      "dependencies": [
+        "base64-js"
       ]
     },
     "lucide-react@1.51.0_@types+react@19.3.0_react@19.3.0": {
@@ -1154,6 +1164,7 @@
       "jsr:@std/assert@1.0.19",
       "jsr:@std/toml@1.0.2",
       "npm:hash-wasm@4.12.0",
+      "npm:js-tiktoken@*",
       "npm:playwright@1.55.0",
       "npm:zod@4.6.5"
     ],

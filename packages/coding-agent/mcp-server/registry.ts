@@ -131,15 +131,112 @@ function describeTool(tool: StaticTool): string {
   return `${tool.name}: ${tool.ops.join(", ")}`;
 }
 
-// discovery schema는 zod 4의 toJSONSchema로 만든다. minified UTF-8 JSON으로
-// token 수를 재기 때문에 space가 없다. 변환 실패는 발견 실패다(조용히 빈 schema로
-// 덮지 않는다).
+// discovery schema는 zod 4의 toJSONSchema(io "input")로 만들고 여기서 모델이 몰라도
+// 되는 것을 걷어낸다(R4). 본뜬 모양은 GitHub MCP server의 한 tool 여러 동작이다:
+// discriminatedUnion(oneOf, op const)을 op enum + 합친 properties로 편다. tool·op 수는
+// 그대로고 실행 입력 검사는 소유 route의 zod 입력을 그대로 쓴다(R6). 걷어내는 것:
+// - $schema(draft 선언), default(서버가 적용한다), additionalProperties(서버가 검사한다)
+// - ID 충족 pattern과 minLength·maxLength·safe-integer min·max(서버가 같은 검사를
+//   실행 전에 하고 이유를 돌려준다. model은 id를 이전 read에서 복사한다)
+// 변환 실패는 발견 실패다(조용히 빈 schema로 덮지 않는다).
 export function inputSchema(input: z.ZodType): Record<string, unknown> {
   try {
-    return z.toJSONSchema(input) as Record<string, unknown>;
+    return flattenUnion(z.toJSONSchema(input, { io: "input" })) as Record<
+      string,
+      unknown
+    >;
   } catch {
     throw new Error("tool input schema 변환 실패");
   }
+}
+
+function stripConstraints(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(stripConstraints);
+  if (typeof node !== "object" || node === null) return node;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node)) {
+    if (
+      key === "$schema" || key === "default" ||
+      key === "additionalProperties" || key === "pattern" ||
+      key === "minLength" || key === "maxLength"
+    ) continue;
+    if (
+      (key === "minimum" || key === "maximum") &&
+      typeof value === "number" && Math.abs(value) > 1e15
+    ) continue;
+    out[key] = stripConstraints(value);
+  }
+  return out;
+}
+
+// oneOf를 enum discriminator로 편다. 모든 member가 같은 const discriminator를 두는
+// union만 편다(op·kind). member 사이에 같은 이름·모양인 property는 하나로 합치고,
+// 모양이 다르면 anyOf로 남긴다. primitive는 그대로 두고 array는 map한다(string을
+// Object.entries로 돌면 index 재귀가 되므로 object만 내려간다).
+function flattenUnion(node: unknown): unknown {
+  const stripped = stripConstraints(node);
+  if (Array.isArray(stripped)) {
+    return stripped.map((item) => flattenUnion(item));
+  }
+  if (typeof stripped !== "object" || stripped === null) return stripped;
+  const obj = stripped as Record<string, unknown>;
+  const members = (obj.oneOf ?? obj.anyOf) as unknown[] | undefined;
+  if (Array.isArray(members)) {
+    const disc = discriminatorOf(members);
+    if (disc) return flattenMembers(members, disc);
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    out[key] = flattenUnion(value);
+  }
+  return out;
+}
+
+function discriminatorOf(members: unknown[]): string | undefined {
+  const names = ["op", "kind"];
+  for (const disc of names) {
+    const ok = members.every((member) => hasDiscriminator(member, disc));
+    if (ok && members.length > 0) return disc;
+  }
+  return undefined;
+}
+
+function hasDiscriminator(member: unknown, disc: string): boolean {
+  if (typeof member !== "object" || member === null) return false;
+  const properties = (member as Record<string, unknown>).properties as
+    | Record<string, unknown>
+    | undefined;
+  const prop = properties?.[disc] as { const?: unknown } | undefined;
+  return typeof prop?.const === "string";
+}
+
+function flattenMembers(
+  members: unknown[],
+  disc: string,
+): Record<string, unknown> {
+  const merged = new Map<string, Map<string, unknown>>();
+  for (const member of members) {
+    const { properties } = member as { properties?: Record<string, unknown> };
+    for (const [key, value] of Object.entries(properties ?? {})) {
+      if (key === disc) continue;
+      if (!merged.has(key)) merged.set(key, new Map());
+      const variants = merged.get(key)!;
+      variants.set(JSON.stringify(value), value);
+    }
+  }
+  const properties: Record<string, unknown> = {
+    [disc]: {
+      type: "string",
+      enum: members.map((member) =>
+        (member as { properties: Record<string, unknown> }).properties[disc]
+      ),
+    },
+  };
+  for (const [key, variants] of merged) {
+    const values = [...variants.values()];
+    properties[key] = values.length === 1 ? values[0] : { anyOf: values };
+  }
+  return { type: "object", properties, required: [disc] };
 }
 
 export type McpToolName =

@@ -333,6 +333,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: platform#T9
+- 상태: 완료 (#138)
 - 완료: 아래 확인이 통과한다
   - command 입장 전체 256·principal당 64·제어용 16 예약·시작 대기 5초, read 실행 2·대기 64·principal당 8, HTTP 동시 128·principal당 16, event 연결 32·principal당 4. 초과는 `unavailable`이고 caller의 priority 주장을 받지 않는다(R3).
   - 회수·정지 제어는 예약 영역으로 들어간다는 테스트

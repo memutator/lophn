@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { COST_KINDS, tokenUsageSchema } from "./model-call-values.ts";
 import {
   atSchema,
   defineCommand,
@@ -141,48 +142,11 @@ export const agentTraceExport = defineCommand({
   errors: readErrors,
 });
 
-const tokenCount = count.nullable();
 
-export const tokenUsageSchema = z.strictObject({
-  input: tokenCount,
-  output: tokenCount,
-  cache_read: tokenCount,
-  cache_write: tokenCount,
-  reasoning: tokenCount,
-  cache_in_input: z.boolean().nullable(),
-  reasoning_in_output: z.boolean().nullable(),
-  definition_revision: nonempty,
-});
-export type TokenUsage = z.infer<typeof tokenUsageSchema>;
-
-export const CALL_COST_KINDS = [
-  "reported",
-  "estimated",
-  "subscription",
-  "free",
-  "unknown",
-] as const;
-
+// TokenUsage·CallCost 정본은 model-call-values.ts다(ModelCall 기록과 같은 값).
+const CALL_COST_KINDS = COST_KINDS;
 const decimal = z.string().regex(/^(0|[1-9][0-9]{0,17})(\.[0-9]{1,6})?$/);
 const currency = z.string().regex(/^[A-Z]{3}$/);
-
-export const callCostSchema = z.strictObject({
-  kind: z.enum(CALL_COST_KINDS),
-  amount: decimal.nullable(),
-  currency: currency.nullable(),
-  basis: hash.nullable(),
-  confirmed_at: atSchema.nullable(),
-}).refine((value) => {
-  const priced = value.kind === "reported" || value.kind === "estimated" ||
-    value.kind === "free";
-  if (!priced) return value.amount === null;
-  if (value.amount === null || value.currency === null) return false;
-  return value.kind !== "free" || value.amount === "0";
-}, { message: "cost amount does not match kind" }).refine(
-  (value) => value.kind !== "estimated" || value.basis !== null,
-  { message: "estimated cost needs a basis" },
-);
-export type CallCost = z.infer<typeof callCostSchema>;
 
 const usageGroupSchema = z.strictObject({
   run: idSchema("run").nullable(),

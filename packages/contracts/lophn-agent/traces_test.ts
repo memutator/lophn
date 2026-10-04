@@ -10,10 +10,9 @@ import {
   agentUsageRead,
   agentUsageReadInputSchema,
   agentUsageReadOutputSchema,
-  callCostSchema,
-  tokenUsageSchema,
   TRACE_ROUTES,
 } from "./traces.ts";
+import { callCostSchema, tokenUsageSchema } from "./model-call-values.ts";
 
 const run = "run_01arz3ndektsv4rrffq69g5fav";
 const hash = "ab".repeat(32);
@@ -120,7 +119,7 @@ Deno.test("lophn-agent/harness/usage#R6: unknown token counts stay null and cost
       kind,
       amount: kind === "free" ? "0" : priced ? "1.5" : null,
       currency: priced ? "USD" : null,
-      basis: kind === "estimated" ? hash : null,
+      basis: kind === "estimated" ? { price: hash } : null,
       confirmed_at: null,
     }).success;
     assertEquals(ok, kind !== "estimated");
@@ -130,7 +129,7 @@ Deno.test("lophn-agent/harness/usage#R6: unknown token counts stay null and cost
       kind: "estimated",
       amount: "1.5",
       currency: "USD",
-      basis: hash,
+      basis: { price: hash },
       confirmed_at: null,
     }).success,
   );

@@ -1,7 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, ok, type Result, seededRandom } from "../../base/mod.ts";
+import { z } from "zod";
 import {
   type ConfirmationHandleRegister,
+  defineFile,
   ERROR_HTTP_STATUS,
   type WorkerRequest,
   type WorkerResponse,
@@ -31,17 +33,22 @@ import { call, value } from "./harness_test.ts";
 const AT = "2026-10-04T00:00:00.000Z";
 
 // 기본 harness USER(actor user, scope identity/current)는 files route를 못 쓴다.
-// files.read·files.delete 작업이 scope에 있는 credential을 따로 발급한다.
+// files.read·files.delete·files.rename 작업이 scope에 있는 credential을 따로 발급한다.
 const USER: CredentialIssue = {
   actor: "user",
   principal: "user",
-  scope: { operations: ["files.read", "files.delete"], targets: {} },
+  scope: {
+    operations: ["files.read", "files.delete", "files.rename"],
+    targets: {},
+  },
   conditions: { process: "main-generation" },
 };
 
 const POLICIES: OperationPolicy[] = [
   { name: "files.read", actors: ["user"], kind: "read" },
   { name: "files.delete", actors: ["user"], kind: "read" },
+  { name: "files.rename", actors: ["user"], kind: "read" },
+  { name: "identity/current", actors: ["user"], kind: "read" },
 ];
 
 function openRegistry(): {
@@ -221,7 +228,9 @@ Deno.test("platform/api#R3: file route 실패는 JSON 공통 오류다", async (
     assertEquals(response.status, 404);
     const body = await response.json();
     assertEquals(body.error.code, "not_found");
-    assertEquals(body.error.message, "파일이 없다");
+    // worker 문장은 새지 않는다. 코드별 고정 message로 바꾼다(platform/api#R4).
+    assertEquals(body.error.message, "대상이 없다");
+    assertEquals(body.error.details, undefined);
   } finally {
     await opened.server.stop();
   }
@@ -313,7 +322,9 @@ Deno.test("platform/api#R3: worker route의 공통 오류는 envelope를 벗기�
     assertEquals(response.status, ERROR_HTTP_STATUS.conflict);
     const body = await response.json();
     assertEquals(body.error.code, "conflict");
-    assertEquals(body.error.message, "파일이 이미 바뀌었다");
+    // worker 문장은 새지 않는다. 코드별 고정 message로 바꾼다(platform/api#R4).
+    assertEquals(body.error.message, "대상이 이미 바뀌었다");
+    assertEquals(body.error.details, undefined);
   } finally {
     await opened.server.stop();
   }
@@ -394,6 +405,16 @@ Deno.test("platform/api#R3: worker가 없으면 unavailable이다", async () => 
     assertEquals(response.status, ERROR_HTTP_STATUS.unavailable);
     const body = await response.json();
     assertEquals(body.error.code, "unavailable");
+
+    // 초기 404 gate는 없다. 등록된 worker kind가 없어도 입력 검사는 먼저 거친다.
+    const invalid = await call(opened.base, "/v1/files/read", {
+      method: "POST",
+      token: opened.token,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ wrong: "shape" }),
+    });
+    assertEquals(invalid.status, ERROR_HTTP_STATUS.invalid_input);
+    assertEquals((await invalid.json()).error.code, "invalid_input");
   } finally {
     await opened.server.stop();
   }
@@ -583,5 +604,171 @@ Deno.test("platform/api#R3: worker route는 사람 결정 확인을 소비한 �
     assertEquals(forwarded, 1);
   } finally {
     await opened.server.stop();
+  }
+});
+
+// scope가 files 작업 밖인 credential은 worker·file route를 치지 못한다. worker에 닿지 않는다.
+Deno.test("platform/api#R2: credential scope 밖 동작은 worker에 닿지 않고 forbidden이다", async () => {
+  // 같은 registry에서 scope가 files 작업 밖인 credential을 발급한다.
+  const made = openRegistry();
+  const issued = value(
+    await made.credentials.issue({
+      actor: "user",
+      principal: "user",
+      scope: { operations: ["identity/current"], targets: {} },
+      conditions: { process: "main-generation" },
+    }),
+  );
+  let forwarded = 0;
+  const workers = new Map([
+    [
+      "files/read",
+      target({
+        observation: () => ({
+          component: "documents/worker",
+          available: true,
+          observed_at: AT,
+        }),
+        forward: () => {
+          forwarded += 1;
+          throw new Error("must not forward");
+        },
+      }),
+    ],
+    [
+      "files/delete",
+      target({
+        observation: () => ({
+          component: "documents/worker",
+          available: true,
+          observed_at: AT,
+        }),
+        forward: () => {
+          forwarded += 1;
+          throw new Error("must not forward");
+        },
+      }),
+    ],
+  ]);
+  // 확인 bridge는 없다. scope 검사가 먼저 막으므로 확인 없는 files.delete도 forbidden이다.
+  const server = await startApiServer({
+    port: 0,
+    clock: made.clock,
+    credentials: made.credentials,
+    workers,
+    registry: new RouteRegistry([...DOCUMENT_ROUTES]),
+  });
+  const opened = {
+    server,
+    base: `http://127.0.0.1:${server.port}`,
+    token: issued.token,
+  };
+  try {
+    for (
+      const [path, requestBody] of [
+        ["/v1/files/read", JSON.stringify({ target: FILE_TARGET })],
+        ["/v1/files/delete", JSON.stringify(DELETE_INPUT)],
+      ] as const
+    ) {
+      const response = await call(opened.base, path, {
+        method: "POST",
+        token: issued.token,
+        headers: { "content-type": "application/json" },
+        body: requestBody,
+      });
+      assertEquals(response.status, ERROR_HTTP_STATUS.forbidden, path);
+      assertEquals((await response.json()).error.code, "forbidden");
+    }
+    assertEquals(forwarded, 0);
+  } finally {
+    await opened.server.stop();
+  }
+});
+
+// file route도 사람 결정 확인의 binding이 등록 내용과 다르면 worker를 부르지 않는다.
+Deno.test("platform/api#R3: file route는 확인 binding이 다르면 worker를 부르지 않고 forbidden이다", async () => {
+  // documents agreement에는 confirmation이 필요한 file kind route가 없다. 같은 모양의
+  // review file route를 따로 등록한다. binding은 request_key·target·base_hash다.
+  const reviewFile = defineFile({
+    resource: "files",
+    method: "review",
+    name: "files.review",
+    input: z.strictObject({
+      request_key: z.string().min(1),
+      target: z.unknown(),
+      base_hash: z.string(),
+    }),
+    contentType: "application/octet-stream",
+    actors: ["user"] as const,
+    errors: ["invalid_input", "forbidden", "not_found", "unavailable"] as const,
+    confirmation: "required",
+    binding: ["request_key", "target", "base_hash"],
+  });
+  const clock = manualClock(Date.parse("2026-10-04T00:00:00.000Z"));
+  const random = seededRandom(7);
+  const handles = new ConfirmationRegistry({
+    clock,
+    random: (bytes) => random.fill(bytes),
+  });
+  const bridge = confirmationBridge(handles);
+  const binding = await confirmationBinding(reviewFile, DELETE_INPUT);
+  assert(binding !== undefined);
+  const request: ConfirmationHandleRegister = {
+    type: "confirmation_handle_register",
+    window_id: "win-1",
+    target_ref: binding.target,
+    content_hash: binding.content,
+    allowed_decisions: ["files.review"],
+    expires_at: new Date(Date.parse("2026-10-04T00:05:00.000Z")).toISOString(),
+  };
+  const issued = handles.issue(request);
+  assert(issued.ok, issued.ok ? undefined : JSON.stringify(issued.error));
+  let forwarded = 0;
+  const made = openRegistry();
+  const issuedToken = value(await made.credentials.issue(USER)).token;
+  const server = await startApiServer({
+    port: 0,
+    clock: made.clock,
+    credentials: made.credentials,
+    workers: new Map([
+      [
+        "files/review",
+        target({
+          observation: () => ({
+            component: "documents/worker",
+            available: true,
+            observed_at: AT,
+          }),
+          forward: () => {
+            forwarded += 1;
+            throw new Error("must not forward");
+          },
+        }),
+      ],
+    ]),
+    confirmation: bridge,
+    registry: new RouteRegistry([reviewFile]),
+  });
+  try {
+    // 등록된 handle은 DELETE_INPUT에 묶였다. base_hash가 다른 입력은 binding이 다르다.
+    const response = await call(
+      `http://127.0.0.1:${server.port}`,
+      "/v1/files/review",
+      {
+        method: "POST",
+        token: issuedToken,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...DELETE_INPUT,
+          base_hash: "b".repeat(64),
+          confirmation: issued.value.confirmation,
+        }),
+      },
+    );
+    assertEquals(response.status, ERROR_HTTP_STATUS.forbidden);
+    assertEquals((await response.json()).error.code, "forbidden");
+    assertEquals(forwarded, 0);
+  } finally {
+    await server.stop();
   }
 });

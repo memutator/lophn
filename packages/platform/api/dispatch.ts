@@ -2,6 +2,7 @@ import {
   asInternalError,
   type Clock,
   err,
+  type ErrorCode,
   type LophnError,
   ok,
   type Result,
@@ -22,8 +23,11 @@ import {
 import type { CommandEnvelope, Writer } from "../ledger/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
 import {
+  authorizeConditions,
+  CONDITION_TARGET_KEYS,
   type ConfirmationBridge,
   consumeRouteConfirmation,
+  type CredentialTarget,
 } from "../identity/mod.ts";
 import {
   contentTypeJson,
@@ -122,6 +126,31 @@ function actorKind(actor: string): Route["actors"][number] | undefined {
     kind === "app" || kind === "machine"
   ) return kind;
   return undefined;
+}
+
+// credential scope의 고정 조건 target만 operation과 함께 검사한다. domain key는
+// owner가 판정하는 것이라 api 경계에서는 건너뛴다(command·read의 ledger 검사와 같다).
+function scopeTarget(ctx: AuthenticatedContext): CredentialTarget {
+  const target: CredentialTarget = {};
+  for (const key of CONDITION_TARGET_KEYS) {
+    const value = ctx.conditions[key];
+    if (value !== undefined && Object.hasOwn(ctx.scope.targets, key)) {
+      target[key] = value;
+    }
+  }
+  return target;
+}
+
+// worker·file route도 credential operation scope를 먼저 검사한다. 범위 밖이면 worker에 닿지 않는다.
+function scopeAllowed(
+  ctx: AuthenticatedContext,
+  operation: string,
+): Result<void, RequestFailure> {
+  const allowed = authorizeConditions(ctx, operation, scopeTarget(ctx));
+  if (!allowed.ok) {
+    return err(failure(allowed.error));
+  }
+  return ok(undefined);
 }
 
 export async function dispatchHttp(
@@ -282,6 +311,9 @@ async function file(
   if (!parsed.success) {
     return rejected({ code: "invalid_input", message: "invalid file body" });
   }
+  // credential operation scope를 먼저 본다. 범위 밖이면 worker에 닿지 않는다.
+  const scoped = scopeAllowed(ctx, route.name);
+  if (!scoped.ok) return fromFailure(scoped.error);
   if (route.confirmation === "required") {
     if (!deps.confirmation) {
       return rejected({
@@ -314,15 +346,7 @@ async function file(
   if (response.request_id !== envelope.request_id) {
     return rejected({ code: "internal", message: "worker response mismatch" });
   }
-  if (!response.ok) {
-    return rejected({
-      code: response.error.code,
-      message: response.error.message,
-      ...(response.error.details === undefined
-        ? {}
-        : { details: response.error.details }),
-    });
-  }
+  if (!response.ok) return rejected(commonWorkerError(response.error));
   // 성공 payload는 원본 bytes다. core는 바이트를 해석·저장하지 않는다(plan platform#T12).
   if (!validBytesPayload(response.payload)) {
     return rejected(asInternalError(new Error("file bytes")));
@@ -347,6 +371,9 @@ async function worker(
   if (!parsed.success) {
     return rejected({ code: "invalid_input", message: "invalid worker body" });
   }
+  // credential operation scope를 먼저 본다. 범위 밖이면 worker에 닿지 않는다.
+  const scoped = scopeAllowed(ctx, route.name);
+  if (!scoped.ok) return fromFailure(scoped.error);
   const target = deps.workers?.get(routeKey(route));
   if (!target) {
     return rejected({ code: "unavailable", message: "worker unavailable" });
@@ -379,15 +406,7 @@ async function worker(
   if (response.request_id !== envelope.request_id) {
     return rejected({ code: "internal", message: "worker response mismatch" });
   }
-  if (!response.ok) {
-    return rejected({
-      code: response.error.code,
-      message: response.error.message,
-      ...(response.error.details === undefined
-        ? {}
-        : { details: response.error.details }),
-    });
-  }
+  if (!response.ok) return rejected(commonWorkerError(response.error));
   const output = route.output.safeParse(response.payload);
   if (!output.success) {
     return rejected(asInternalError(new Error("worker output")));
@@ -409,4 +428,24 @@ function validBytesPayload(value: unknown): value is { bytes: number[] } {
   const record = value as Record<string, unknown>;
   return Array.isArray(record.bytes) &&
     record.bytes.every((byte) => typeof byte === "number");
+}
+
+// worker 오류는 코드만 믿고 message·details는 버린다. worker 문장이 caller에게 새지 않는다
+// (platform/api#R4, platform/redaction). 코드별 안전한 고정 message로 바꾼다.
+const WORKER_ERROR_MESSAGES: Record<ErrorCode, string> = {
+  invalid_input: "입력이 계약과 다르다",
+  unauthorized: "credential이 필요하다",
+  forbidden: "operation이 금지되었다",
+  not_found: "대상이 없다",
+  conflict: "대상이 이미 바뀌었다",
+  unavailable: "worker가 사용할 수 없다",
+  internal: "internal error",
+};
+
+function commonWorkerError(error: {
+  code: ErrorCode;
+  message: string;
+  details?: Record<string, unknown>;
+}): LophnError {
+  return { code: error.code, message: WORKER_ERROR_MESSAGES[error.code] };
 }

@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
-import { ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
   ACTOR_KINDS,
   type AuthenticatedContext,
@@ -17,6 +17,7 @@ import {
 } from "../../../apps/core/testing/ledger.ts";
 import { type CredentialIssue, CredentialRegistry } from "../identity/mod.ts";
 import { manualClock, seededRandom } from "../../base/mod.ts";
+import { defineSyncCommand } from "./handler.ts";
 import { runAdmission } from "./mod.ts";
 
 const ASG = "asg_01arz3ndektsv4rrffq69g5fav";
@@ -44,7 +45,12 @@ function agent(): AuthenticatedContext & {
     principal: `agent:${ASG}`,
     credential_ref: "agent-1",
     scope: {
-      operations: ["agent.change", "agent.audit", "agent.status"],
+      operations: [
+        "agent.change",
+        "agent.audit",
+        "agent.status",
+        "agent.nested",
+      ],
       targets: { assignment: ASG, run: RUN },
       agent: agentScope,
     },
@@ -81,6 +87,32 @@ const audited = defineEvent("AgentAuditRecorded", {
   subject: z.string(),
   payload: z.strictObject({}),
 });
+
+// tx.call로 agent.change를 다시 부르는 안쪽 command. 끝난 run의 늦은 제출이 안쪽 dispatch에서
+//도 run 판정을 다시 받는지 본다(R11).
+const nestedRoute = defineCommand({
+  resource: "agent",
+  method: "nested",
+  name: "agent.nested",
+  input: z.object({}),
+  output: z.object({ seq: z.string().nullable() }),
+  actors: ACTOR_KINDS,
+  errors: ["forbidden"],
+});
+const nested = defineSyncCommand(
+  nestedRoute,
+  (tx: Tx, _ctx, input, _compare) => {
+    const called = tx.call(
+      changeRoute,
+      input as Record<string, never>,
+      {},
+    );
+    return called.ok
+      ? ok({ seq: called.value.seq ?? null })
+      : err(called.error);
+  },
+  { dispatchable: true },
+);
 
 // 테스트가 정하는 run 상태. lophn-agent의 run 유효성 read가 채우는 자리다.
 // writer Worker가 따로 뜨므로 상태는 ledger 표로 공유한다.
@@ -124,8 +156,9 @@ export function createLedgerTestRegistration(
       "agent.status": { skip: true },
     },
     testCommands: [
-      { route: changeRoute, handle: handle(changed) },
-      { route: auditRoute, handle: handle(audited) },
+      { route: changeRoute, handle: handle(changed), dispatchable: true },
+      { route: auditRoute, handle: handle(audited), dispatchable: true },
+      nested,
       {
         route: setStatus,
         handle: (
@@ -153,6 +186,7 @@ async function issuedAgent(): Promise<AuthenticatedContext> {
       { name: "agent.change", actors: ["agent"], kind: "command" },
       { name: "agent.audit", actors: ["agent"], kind: "command" },
       { name: "agent.status", actors: ["agent"], kind: "command" },
+      { name: "agent.nested", actors: ["agent"], kind: "command" },
     ],
   });
   const claim = agent();
@@ -257,28 +291,35 @@ Deno.test("platform/ledger#R11: agent command는 자격에 묶인 run만 바꾸�
 Deno.test("platform/ledger#R11: 끝난 run의 늦은 제출은 안쪽 command의 새 대상 변경도 거절한다", async () => {
   const { h, ctx } = await open();
   try {
+    // 진행 중 run에서는 안쪽 call이 통과한다.
+    const marked = await setRun(h, ctx, "active");
+    assert(marked.ok, JSON.stringify(marked));
+    const nestedActive = await h.command(
+      ctx,
+      envelope("agent.nested", "nested-active"),
+    );
+    assert(nestedActive.ok, JSON.stringify(nestedActive));
+
+    // 끝난 run에서는 바깥 command와 안쪽 call 모두 새 대상 변경을 거절한다.
     const finished = await setRun(h, ctx, "finished");
     assert(finished.ok, JSON.stringify(finished));
-    // 바깥 command가 감사를 가장해도 안쪽 call은 run 판정을 다시 받는다.
-    const nested = defineCommand({
-      resource: "agent",
-      method: "nested",
-      name: "agent.nested",
-      input: z.object({}),
-      output: z.object({}),
-      actors: ACTOR_KINDS,
-      errors: ["forbidden"],
-    });
-    // 등록 밖 command는 dispatch가 거절한다. 끝난 run의 직접 제출만 확인한다.
-    assert(nested);
-    const direct = await h.command(
+    const outer = await h.command(
       ctx,
-      envelope("agent.change", "nested-late"),
+      envelope("agent.change", "outer-late"),
     );
-    assertEquals(direct.ok ? "" : direct.error.code, "forbidden");
-    const count = await h.inspect("select count(*) as n from events");
-    assert(count.ok);
-    assertEquals((count.value as { n: bigint }[])[0].n, 0n);
+    assertEquals(outer.ok ? "" : outer.error.code, "forbidden");
+    const inner = await h.command(
+      ctx,
+      envelope("agent.nested", "nested-late"),
+    );
+    assertEquals(inner.ok ? "" : inner.error.code, "forbidden");
+
+    const rows = await h.inspect("select type from events order by seq");
+    assert(rows.ok);
+    assertEquals(
+      (rows.value as { type: string }[]).map((row) => row.type),
+      ["AgentChangeApplied"],
+    );
   } finally {
     await h.close();
   }

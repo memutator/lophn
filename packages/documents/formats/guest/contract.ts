@@ -12,3 +12,21 @@ export const RUNNER_HEAP_MIB = 256;
 export const RUNNER_CONCURRENCY = 2;
 
 export const BUNDLE_PATH = new URL("./bundle.js", import.meta.url);
+
+// runner host가 읽는 내장 wasm. quickjs-emscripten specifier resolve로 Deno npm
+// cache의 @jitl/quickjs-wasmfile-release-sync를 찾는다. cache 위치를 새로 두지 않는다.
+// runner client의 spawn flags와 launcher의 launch spec이 같은 근원으로 쓴다.
+export function runnerWasmPath(): string {
+  const resolved = import.meta.resolve("quickjs-emscripten");
+  const match = resolved.match(
+    /^(file:\/\/\/.+\/npm\/registry\.npmjs\.org\/)quickjs-emscripten(\/[^/]+)\/dist\//,
+  );
+  if (!match) {
+    throw new Error("quickjs-emscripten cache layout is not recognized");
+  }
+  return decodeURIComponent(
+    `${match[1]}@jitl/quickjs-wasmfile-release-sync${
+      match[2]
+    }/dist/emscripten-module.wasm`,
+  ).slice("file://".length);
+}

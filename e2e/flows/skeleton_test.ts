@@ -3,7 +3,7 @@
 // 화면이 없으면(DISPLAY 없음) 건너뛴다.
 import { assert, assertEquals } from "@std/assert";
 
-import { displayAvailable, READY_TIMEOUT_MS } from "../harness.ts";
+import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import { launchShell, type RunningShell } from "../run.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
@@ -47,7 +47,7 @@ async function waitFor(
 Deno.test({
   name:
     "skeleton: shell 창이 뜨고 core 준비 상태가 보이며 종료하면 core가 정상 종료한다",
-  ignore: !displayAvailable(),
+  ignore: !e2eEnabled(),
   sanitizeOps: false,
   sanitizeResources: false,
   async fn() {

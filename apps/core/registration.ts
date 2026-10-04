@@ -1,5 +1,6 @@
 import type { Clock, IdSource, Result } from "../../packages/base/mod.ts";
 import type {
+  ApiReadDefinition,
   CommandDefinition,
   FileRoute,
   KindLaunchSpec,
@@ -16,6 +17,9 @@ export type TeamRegistration = {
   schemaSteps?: readonly SchemaStep[];
   commands?: readonly CommandDefinition[];
   reads?: readonly ReadDefinition[];
+  // ledger snapshot 없이 core가 바로 여는 read. dispatcher가 기다리므로 async여도 된다.
+  // 경로는 같은 registry에서 모으므로 reads·files와 겹치면 거절한다.
+  apiReads?: readonly ApiReadDefinition[];
   // HTTP route registry가 command·read와 같은 출처에서 모으는 file·worker route.
   // command·read route는 definitions에서 온다. 여기 적힌 것은 그것과 겹치면 거절한다.
   files?: readonly FileRoute[];
@@ -40,6 +44,7 @@ type Loose = {
   schema?: readonly { id?: unknown; sql?: unknown }[];
   commands?: readonly { route?: { name?: unknown } }[];
   reads?: readonly { route?: { resource?: unknown; method?: unknown } }[];
+  apiReads?: readonly { route?: { resource?: unknown; method?: unknown } }[];
   files?: readonly { resource?: unknown; method?: unknown }[];
   workerRoutes?: readonly { resource?: unknown; method?: unknown }[];
   ports?: readonly TxPortRegistration[];
@@ -50,6 +55,8 @@ export type Assembled = {
   schemaSteps: SchemaStep[];
   commands: CommandDefinition[];
   reads: ReadDefinition[];
+  // pool 밖에서 바로 여는 read. dispatcher가 기다린다.
+  apiReads: ApiReadDefinition[];
   // command·read·file·worker route를 한 목록으로 모은 것. HTTP registry의 출처다.
   routes: Route[];
   ports: TxPortRegistration[];
@@ -104,6 +111,7 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
     schemaSteps: [],
     commands: [],
     reads: [],
+    apiReads: [],
     routes: [],
     ports: [],
     workers: [],
@@ -157,6 +165,19 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
       const route = routeOf(routes, check.value.route);
       if (!route.ok) return route;
       assembled.reads.push(check.value);
+      assembled.routes.push(route.value);
+    }
+    for (const read of registration.apiReads ?? []) {
+      const resource = read.route?.resource;
+      const method = read.route?.method;
+      if (typeof resource !== "string" || typeof method !== "string") {
+        return broken("api read");
+      }
+      const check = taken(reads, `${resource}/${method}`, read);
+      if (!check.ok) return check;
+      const route = routeOf(routes, check.value.route as Route);
+      if (!route.ok) return route;
+      assembled.apiReads.push(check.value as ApiReadDefinition);
       assembled.routes.push(route.value);
     }
     for (const file of registration.files ?? []) {

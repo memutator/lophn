@@ -99,8 +99,10 @@ secret 선언 자리는 `permissions`의 `{kind:"secret.use",scope:{name},reason
 | `key` | 문자열 | 아니오 | 빈 문자열 금지; 목록 안 unique | automation 이름 |
 | `label` | 문자열 | 아니오 | 빈 문자열 금지 | 화면 이름 |
 | `when` | `{kind:"on_start"}` / `{kind:"interval",interval_ms:integer}` | 아니오 | interval_ms ≥ 60000; 다른 필드 금지 | 계기 |
-| `command` | 문자열 | 아니오 | 같은 blueprint commands.key; confirm=false; external 아님 | 같은 handler 참조 |
+| `command` | 문자열 | 아니오 | 같은 blueprint commands.key; confirm=false; external도 허용 | 같은 handler 참조 |
 | `input` | JSON 값 | 예 | 명령 schema 통과; default를 채운 고정 입력; 입력 없는 명령이면 부재 | 반복 입력 |
+
+external automation의 켜기 approval과 command·입력·주기 결속은 → apps/automations#R13, apps/permissions가 맡는다. 선언 검증은 grant를 주지 않는다.
 
 ## DocumentDeclaration (값)
 

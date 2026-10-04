@@ -254,7 +254,7 @@ root는 활동 순, place·context는 갱신 순으로 시작하고 seq·ID로 �
 | resource와 method 경로 | 등록 이름 |
 |---|---|
 | `/v1/projects/create`, `/update`, `/set_tracking`, `/archive`, `/unarchive` | `project.create`, `project.update`, `project.set_tracking`, `project.archive`, `project.unarchive` |
-| `/v1/projects/list`, `/get`, `/resolve` | 저장 문서 중심 Project read; 사람만 폴더 경로·tracking 값 포함; resolve는 꺼진 중첩 폴더도 가장 깊은 등록 루트로 해석 |
+| `/v1/projects/list`, `/get`, `/resolve`, `/resolve_cwd`, `/tracking_roots` | 저장 문서 중심 Project read; 사람만 폴더 경로·tracking 값 포함; resolve는 꺼진 중첩 폴더도 가장 깊은 등록 루트로 해석; resolve_cwd는 coding agent의 고정 cwd로 project ID만; tracking_roots는 machine의 활성·켠 root |
 | `/v1/documents/update`, `/set_source`, `/archive`, `/unarchive`, `/move`, `/rename` | `document.update`, `document.set_source`, `document.archive`, `document.unarchive`, `document.move`, `document.rename` |
 | `/v1/documents/list`, `/get`, `/resolve`, `/export` | 현재 metadata·고정 판·Address 예약 해석·사람의 Markdown/JSON 및 원문 export |
 | `/v1/contexts/create`, `/update`, `/set_item`, `/remove_item`, `/archive`, `/unarchive`, `/record_watch_change` | 대응 `context.*` 이름; 마지막은 좁은 machine 내부 제출 |

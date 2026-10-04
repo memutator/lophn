@@ -39,6 +39,15 @@ export const documentRefSchema = z.strictObject(documentRefFields);
 export const documentRefOutputSchema = z.object(documentRefFields);
 export type DocumentRef = z.infer<typeof documentRefSchema>;
 
+// Project read가 돌려주는 자료 참조는 해석 시점의 판이 고정된다.
+const fixedDocumentRefFields = {
+  document: documentIdSchema,
+  version: versionIdSchema,
+  section: sectionKeySchema.nullable(),
+};
+export const fixedDocumentRefOutputSchema = z.object(fixedDocumentRefFields);
+export type FixedDocumentRef = z.infer<typeof fixedDocumentRefOutputSchema>;
+
 export const SECTION_STATUSES = [
   "whole",
   "found",

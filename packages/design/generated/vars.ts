@@ -68,6 +68,15 @@ export const vars = {
       "7": "var(--chart-series-7)",
     },
     "other": "var(--chart-other)",
+    "line": "var(--chart-line)",
+    "gap": "var(--chart-gap)",
+    "ring": "var(--chart-ring)",
+    "bar": {
+      "max": "var(--chart-bar-max)",
+      "radius": "var(--chart-bar-radius)",
+    },
+    "point": "var(--chart-point)",
+    "height": "var(--chart-height)",
   },
   "diff": {
     "addLine": "var(--diff-add-line)",

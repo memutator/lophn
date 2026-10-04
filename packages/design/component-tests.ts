@@ -27,7 +27,7 @@ async function readConfig(url: URL): Promise<Record<string, unknown>> {
   return JSON.parse(await Deno.readTextFile(url));
 }
 
-// workspace root·design·wording과 부른 쪽 config의 고정 import, design·wording 이름을 한 map으로 합친다.
+// 고정 imports와 공통 UI·SDK의 공개 exports를 한 map에 모아 React 중복과 판 충돌을 막는다.
 async function importMap(
   configs: readonly URL[],
 ): Promise<Record<string, string>> {
@@ -39,7 +39,12 @@ async function importMap(
     imports[key] = value;
   };
   const wording = new URL("wording/", design);
-  const packages = [design, wording];
+  const sdk = new URL("../sdk/", design);
+  const packages = [
+    design,
+    wording,
+    ...["tokens/", "ui-table/", "ui-chart/"].map((path) => new URL(path, sdk)),
+  ];
   const files = [
     new URL("deno.json", root),
     ...packages.map((dir) => new URL("deno.json", dir)),
@@ -55,11 +60,10 @@ async function importMap(
   for (const directory of packages) {
     const config = await readConfig(new URL("deno.json", directory));
     const name = config.name as string;
-    for (
-      const [key, value] of Object.entries(
-        config.exports as Record<string, string>,
-      )
-    ) {
+    const exports = typeof config.exports === "string"
+      ? { ".": config.exports }
+      : config.exports as Record<string, string>;
+    for (const [key, value] of Object.entries(exports)) {
       add(
         key === "." ? name : `${name}/${key.slice(2)}`,
         new URL(value, directory).href,
@@ -69,22 +73,28 @@ async function importMap(
   return imports;
 }
 
-function cssModules(): esbuild.Plugin {
+function componentAssets(imports: Record<string, string>): esbuild.Plugin {
   return {
-    name: "component-css",
+    name: "component-assets",
     setup(build) {
-      build.onResolve({ filter: /\.css$/ }, (args) => {
+      build.onResolve({ filter: /\.(css|woff2)$/ }, (args) => {
+        const mapped = imports[args.path];
         const base = args.importer.startsWith("file:")
           ? args.importer
           : pathToFileURL(args.importer).href;
-        const path = fileURLToPath(new URL(args.path, base));
-        return { path, namespace: "component-css" };
+        const url = new URL(mapped ?? args.path, base);
+        if (url.protocol !== "file:") return undefined;
+        return { path: fileURLToPath(url), namespace: "component-asset" };
       });
       build.onLoad(
-        { filter: /.*/, namespace: "component-css" },
+        { filter: /.*/, namespace: "component-asset" },
         async (args) => ({
-          contents: await Deno.readTextFile(args.path),
-          loader: args.path.endsWith(".module.css") ? "local-css" : "css",
+          contents: await Deno.readFile(args.path),
+          loader: args.path.endsWith(".module.css")
+            ? "local-css"
+            : args.path.endsWith(".css")
+            ? "css"
+            : "file",
           resolveDir: dirname(args.path),
         }),
       );
@@ -98,10 +108,8 @@ async function bundleTests(
   configs: readonly URL[],
 ): Promise<{ js: string; css: string }> {
   const configPath = join(outdir, "deno.json");
-  await Deno.writeTextFile(
-    configPath,
-    JSON.stringify({ imports: await importMap(configs) }),
-  );
+  const imports = await importMap(configs);
+  await Deno.writeTextFile(configPath, JSON.stringify({ imports }));
   const entry = join(outdir, "entry.ts");
   await Deno.writeTextFile(
     entry,
@@ -117,8 +125,9 @@ async function bundleTests(
       // act()는 React development build에서만 동작한다.
       define: { "process.env.NODE_ENV": '"development"' },
       logLevel: "error",
+      assetNames: "[name]",
       plugins: [
-        cssModules(),
+        componentAssets(imports),
         ...(denoPlugins({ configPath }) as esbuild.Plugin[]),
       ],
     });

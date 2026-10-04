@@ -1,20 +1,20 @@
-// contracts#T10 harness가 생기기 전의 동작 검사.
-// 실제 Electron PTY는 harness의 e2e/shell에서 다시 확인한다.
-// secret 모양 출력이 저장소·진단 문자열에 남지 않는지, host crash가 unknown인지 본다.
+// shell#T24: secret 모양 출력이 진단으로 나가지 않고, host crash는 unknown이다.
+// 실제 Electron 창의 PTY는 contracts#T10 harness 위에서 아직 띄우지 않는다.
+// renderer 터미널 화면(shell#T25)이 생기기 전에는 창에 붙일 IPC가 없다.
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createHost } from "../../terminal-host/main.ts";
+import { createHost } from "../../apps/shell/terminal-host/main.ts";
 import type {
   PtyHandle,
   PtySpawnOptions,
-} from "../../terminal-host/pty.ts";
+} from "../../apps/shell/terminal-host/pty.ts";
 import {
   createSupervisor,
   type HostProcess,
-} from "./supervisor.ts";
-import type { TerminalRuntime } from "../../ipc/terminal.ts";
+} from "../../apps/shell/main/terminal/supervisor.ts";
+import type { TerminalRuntime } from "../../apps/shell/ipc/terminal.ts";
 
 test("shell/terminal#R5: secret 모양 출력은 host 메모리 밖에 진단으로 나가지 않는다", async () => {
   const logs: string[] = [];

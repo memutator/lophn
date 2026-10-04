@@ -3,7 +3,6 @@ import { z } from "zod";
 
 const ref = z.string().min(1).max(80).regex(/^[A-Za-z0-9_-]+$/);
 const generation = z.number().int().positive();
-const text = z.string().max(8192);
 
 export const terminalOpenSchema = z.object({
   project: ref,
@@ -13,7 +12,7 @@ export const terminalOpenSchema = z.object({
 export const terminalInputSchema = z.object({
   terminal_ref: ref,
   generation,
-  text,
+  text: z.string().max(8192),
 }).strict();
 
 export const terminalResizeSchema = z.object({
@@ -33,10 +32,19 @@ export const terminalRestartSchema = z.object({
   generation,
 }).strict();
 
-export type TerminalOpen = z.infer<typeof terminalOpenSchema>;
-export type TerminalInput = z.infer<typeof terminalInputSchema>;
-export type TerminalResize = z.infer<typeof terminalResizeSchema>;
-export type TerminalClose = z.infer<typeof terminalCloseSchema>;
+export type TerminalOpen = { project: string; folder_ref?: string };
+export type TerminalInput = {
+  terminal_ref: string;
+  generation: number;
+  text: string;
+};
+export type TerminalResize = {
+  terminal_ref: string;
+  generation: number;
+  columns: number;
+  rows: number;
+};
+export type TerminalClose = { terminal_ref: string; generation: number };
 
 export type TerminalStateName = "starting" | "running" | "exited" | "unknown";
 
@@ -80,11 +88,7 @@ export type TerminalReject = {
   message: string;
 };
 
-export type TerminalAccept = {
-  ok: true;
-  runtime: TerminalRuntime;
-};
-
+export type TerminalAccept = { ok: true; runtime: TerminalRuntime };
 export type TerminalReply = TerminalAccept | TerminalReject;
 
 export const TERMINAL_OUTPUT_CHANNEL = "shell:terminal-output";

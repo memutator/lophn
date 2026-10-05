@@ -381,7 +381,7 @@ concerns: [shell]
 
 ### T19 documents 화면: 검색, saved view, series
 
-- 상태: 완료 (#PR) — 이어보냄: write-series의 새 멤버 쓰기(편집기 저장·series draft) → shell#T17. series 정렬은 key 순만 고른다(format 정렬 값 필드를 선언한 format이 아직 없다). Q14
+- 상태: 완료 (#265) — 이어보냄: write-series의 새 멤버 쓰기(편집기 저장·series draft) → shell#T17. series 정렬은 key 순만 고른다(format 정렬 값 필드를 선언한 format이 아직 없다). Q14
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R1(문서 탐색이 기본), R28(lophn 공간 탐색)

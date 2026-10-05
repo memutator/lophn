@@ -11,6 +11,7 @@ export { redactSample, samplePathsAllowed } from "./samples.ts";
 export { redactScreen } from "./screen.ts";
 export {
   createKnownSecretRegistry,
+  type KnownSecretMatcher,
   type KnownSecretRegistry,
 } from "./registry.ts";
 export { createRedactionStream, type RedactionStream } from "./stream.ts";

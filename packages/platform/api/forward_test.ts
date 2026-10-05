@@ -195,6 +195,84 @@ Deno.test("platform/api#R3: file route는 인증·한도·schema 뒤 worker로 �
   }
 });
 
+// 계약: file 응답은 저장된 ContentFile.media_type을 싣고 route의 octet-stream은 fallback이다.
+async function fileMediaType(
+  payload: Record<string, unknown>,
+): Promise<{ status: number; contentType: string | null; text: string }> {
+  const opened = await openWorkerServer(
+    new Map([
+      [
+        "files/read",
+        target({
+          observation: () => ({
+            component: "documents/worker",
+            available: true,
+            observed_at: AT,
+          }),
+          // deno-lint-ignore require-await -- WorkerRouteHandle.forward의 모양을 그대로 따르는 fake다.
+          forward: async (request) => okResponse(request, payload),
+        }),
+      ],
+    ]),
+  );
+  try {
+    const response = await call(opened.base, "/v1/files/read", {
+      method: "POST",
+      token: opened.token,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ target: FILE_TARGET }),
+    });
+    return {
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      text: await response.text(),
+    };
+  } finally {
+    await opened.server.stop();
+  }
+}
+
+Deno.test("platform/api#R3: file route는 worker가 준 저장된 media type을 Content-Type으로 보낸다", async () => {
+  const markdown = await fileMediaType({
+    bytes: [35, 32, 0xec, 0x9b, 0x90],
+    media_type: "text/markdown",
+  });
+  assertEquals(markdown.status, 200);
+  assertEquals(markdown.contentType, "text/markdown");
+  const png = await fileMediaType({
+    bytes: [1, 2, 3],
+    media_type: "image/png",
+  });
+  assertEquals(png.contentType, "image/png");
+  // 내용을 보고 고르지 않는다: markdown 본문이어도 저장된 값이 octet-stream이면 그대로다.
+  const stored = await fileMediaType({
+    bytes: [...new TextEncoder().encode("# 제목")],
+    media_type: "application/octet-stream",
+  });
+  assertEquals(stored.contentType, "application/octet-stream");
+  // media type이 없으면 route 등록값(fallback)이다.
+  const absent = await fileMediaType({ bytes: [1] });
+  assertEquals(absent.contentType, "application/octet-stream");
+});
+
+Deno.test("platform/api#R3: file route는 형식이 어긋난 media type을 fallback으로 바꾸지 않고 internal로 거절한다", async () => {
+  for (
+    const media_type of [
+      "text/markdown\r\nset-cookie: a=b",
+      "text/markdown; charset=utf-8",
+      "text",
+      "",
+      " text/plain",
+      7,
+    ]
+  ) {
+    const rejected = await fileMediaType({ bytes: [1, 2], media_type });
+    assertEquals(rejected.status, 500, String(media_type));
+    assertEquals(JSON.parse(rejected.text).error.code, "internal");
+    assertEquals(rejected.text.includes("set-cookie"), false);
+  }
+});
+
 Deno.test("platform/api#R3: file route 실패는 JSON 공통 오류다", async () => {
   const opened = await openWorkerServer(
     new Map([

@@ -43,6 +43,11 @@ export { openConnection };
 export type { LedgerConnection };
 export { createReaderPool } from "./reader-pool.ts";
 export type { ReaderHealth, ReaderPool } from "./reader-pool.ts";
+export {
+  KNOWN_SECRETS,
+  type KnownSecretChannel,
+  type KnownSecretMatch,
+} from "./known-secrets.ts";
 export type { ReaderRegistration, ReaderRegistrationModule } from "./reads.ts";
 export { createListEventsRead, scanEvents } from "./events.ts";
 export type { EventBatch, EventScan } from "./events.ts";

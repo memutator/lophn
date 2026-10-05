@@ -473,6 +473,14 @@ Deno.test("documents/versions#R18: 사람이 남기려는 안내는 일반 문�
       size_bytes: copiedText.length,
     }, AT);
     assert(noted.ok, noted.ok ? "" : noted.error.message);
+    const notedFile = await opened.core.notePrepared({
+      preparation: "prep-file-guide-copy",
+      principal: "user-1",
+      purpose: "document_file",
+      hash: HASH,
+      size_bytes: copiedText.length,
+    }, AT);
+    assert(notedFile.ok, notedFile.ok ? "" : notedFile.error.message);
     const saved = await post(opened.core, "documents/save", {
       input: {
         document: DOC,
@@ -482,6 +490,14 @@ Deno.test("documents/versions#R18: 사람이 남기려는 안내는 일반 문�
         primary_path: "projects.md",
         content_hash: copyHash,
         preparation_ref: "prep-guide-copy",
+        files: [{
+          path: "projects.md",
+          blob_hash: HASH,
+          bytes: copiedText.length,
+          media_type: "text/markdown",
+          primary: true,
+          preparation_ref: "prep-file-guide-copy",
+        }],
         idempotency_key: "guide-copy",
         metadata: { title: "My projects notes", place: null, name: null },
         format: { name: "document", module_hash: HASH, explicit: false },

@@ -62,7 +62,7 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 
 **[R11]** 데스크톱 셸은 Electron으로 창·tray·로그인 자동 시작·OS notification 표시·전역 단축키·패키징을 담당하는 얇은 client로 만든다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
-- 확인: Electron 창을 닫아도 platform/install-and-update가 소유한 daemon 동작과 분리된다.
+- 확인: Electron 창을 모두 닫아도 tray main과 그 아래 core의 동작이 이어진다.
 - 의도: shell#I1
 
 **[R12]** lophn은 browser tab이 아니라 설치된 데스크톱 앱으로 연다.
@@ -110,9 +110,9 @@ Electron main과 창별 shell 화면의 분리, 창 구성·탐색·tray·OS 통
 - 확인: 이미 daemon이 있을 때 중복 시작하지 않고 없을 때 하나를 시작한다.
 - 의도: shell#I1
 
-**[R21]** 창과 Electron 종료는 daemon 중지로 해석하지 않고 tray의 명시 중지 행동을 두며 로그인 자동 시작은 창을 열지 않는 tray mode로 시작한다.
+**[R21]** 창 닫기는 종료로 해석하지 않아 모든 창을 닫아도 tray main과 그 아래 core가 남고, tray의 Quit은 진행 중 터미널·저장을 확인한 뒤 main과 core를 함께 멈추며, 로그인 자동 시작은 검증된 실행 경로와 창을 열지 않는 tray mode로 시작한다.
 - 이유: 화면의 치수와 조작을 일정하게 하여 본래의 일과 결정을 방해하지 않는다.
-- 확인: 창 닫기 후 작업이 유지되고 tray 중지만 명시적인 중지 요청을 보낸다.
+- 확인: 창 닫기 후 앱 automation과 주기 일이 이어지고, tray Quit과 `--quit`만 core 정상 종료 순서를 밟으며, 진행 중 터미널·저장이 있으면 확인에서 취소할 수 있다.
 - 의도: shell#I5
 
 **[R22]** 기본 sidebar는 240px·접힘 56px·탐색 행 32px, 상단 바는 48px, 최소 창은 960×600px, 본문 여백은 좌우 32px·위 24px로 두고 창 1024px 미만에서는 좌우 16px로 줄인다.

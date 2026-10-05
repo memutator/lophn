@@ -7,12 +7,14 @@ export type PlaceholderKinds = {
   "common.author.label": {
     author: "string";
   };
+  "common.button.cancel": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-page": Record<never, never>;
   "common.button.previous-page": Record<never, never>;
+  "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
   "common.button.retry": Record<never, never>;
   "common.button.show-chart": Record<never, never>;
@@ -50,6 +52,11 @@ export type PlaceholderKinds = {
     total: "number";
   };
   "common.label.sort-by": Record<never, never>;
+  "common.label.tray-launcher": Record<never, never>;
+  "common.label.tray-open": Record<never, never>;
+  "common.label.tray-quit": Record<never, never>;
+  "common.label.tray-start-at-login": Record<never, never>;
+  "common.label.tray-tooltip": Record<never, never>;
   "common.label.value-range": {
     start: "string";
     end: "string";
@@ -58,9 +65,13 @@ export type PlaceholderKinds = {
   "common.notification.title": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;
   "common.palette.no-results": Record<never, never>;
+  "common.quit.saves": Record<never, never>;
+  "common.quit.terminals": Record<never, never>;
+  "common.quit.terminals-and-saves": Record<never, never>;
   "common.stale.label": {
     age: "string";
   };
+  "common.title.quit": Record<never, never>;
   "confirmation-window.body.checking": Record<never, never>;
   "confirmation-window.body.expired": Record<never, never>;
   "confirmation-window.body.review": Record<never, never>;

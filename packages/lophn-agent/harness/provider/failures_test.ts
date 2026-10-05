@@ -2,12 +2,14 @@
 // 실제 provider를 부르지 않고 오류 본문 원문을 어디에도 남기지 않는다(R19).
 import { assert, assertEquals } from "@std/assert";
 import {
+  classifyHttpFailure,
+  classifyStreamFailure,
+  errorFactsFromBody,
   type FailureInput,
   failureVerdict,
   isMemoryCeilingMessage,
   isOverflowMessage,
   outcomeFromVerdict,
-  type ResetSource,
   retryAfterMs,
 } from "./failures.ts";
 
@@ -302,7 +304,7 @@ Deno.test("lophn-agent/harness/provider#R23: 알리지 않는 provider의 초과
 
 // ── R24: usage_wait는 reset까지 또는 1시간이다 ──────────────────────────
 
-Deno.test("lophn-agent/harness/provider#R24: 확인된 reset 시각은 retry_at 교재로 전달되고 until은 임의가 아니다", () => {
+Deno.test("lophn-agent/harness/provider#R24: 확인된 reset 시각은 retry_at로 전달되고 긴 reset은 그 시각까지 usage_wait다", () => {
   // reset이 확인된 temporary에는 usage_wait until이 없다.
   const temporary = failureVerdict(base({
     status: 429,
@@ -310,12 +312,97 @@ Deno.test("lophn-agent/harness/provider#R24: 확인된 reset 시각은 retry_at 
   }));
   assertEquals(temporary.retry_at_ms, NOW + 5_000);
   assertEquals(temporary.until_ms, null);
-  // reset이 확인된 긴 429의 until은 시각 전달이 아니라 default다. reset 시각을
-  // 서버가 주지 않으면(미상) 1시간이다(R24).
+  // reset이 확인된 긴 429의 until은 서버 reset 시각이다. 시각을 서버가 주지
+  // 않으면(미상) 1시간이다(R24).
   const waiting = failureVerdict(base({
     status: 429,
     headers: { "x-ratelimit-reset": "7200" },
   }));
   assertEquals(waiting.code, "credential_unavailable");
-  assertEquals(waiting.until_ms, NOW + 3_600_000);
+  assertEquals(waiting.until_ms, NOW + 7_200_000);
+  const unknown = failureVerdict(base({ status: 429, headers: {} }));
+  assertEquals(unknown.until_ms, NOW + 3_600_000);
+});
+
+// ── HTTP 응답·본문 안 오류 분류(R19–R23) ─────────────────────────────────
+
+Deno.test("lophn-agent/harness/provider#R19: 오류 본문에서 code·문구 조각만 읽고 원문을 돌려주지 않는다", () => {
+  assertEquals(
+    errorFactsFromBody(
+      '{"error":{"type":"invalid_request_error","code":"context_length_exceeded","message":"m","extra":"SECRET"}}',
+    ),
+    { code: "context_length_exceeded", message: "m" },
+  );
+  assertEquals(
+    errorFactsFromBody('{"type":"error","error":{"type":"overloaded_error"}}'),
+    { code: "overloaded_error" },
+  );
+  assertEquals(errorFactsFromBody(null), {});
+  assertEquals(errorFactsFromBody('{"error":42}'), {});
+  const verdict = classifyHttpFailure({
+    status: 418,
+    headers: new Headers(),
+    body: '{"error":{"message":"SECRET-TEXT"}}',
+    nowMs: NOW,
+  });
+  assertEquals(verdict.code, "unknown");
+  assert(!JSON.stringify(verdict).includes("SECRET"));
+  // 구조화 code가 아닌 값은 provider_code로 남기지 않는다.
+  assertEquals(verdict.provider_code, null);
+});
+
+Deno.test("lophn-agent/harness/provider#R21: 402와 Anthropic invalid_request_error의 문맥 초과 문구를 구별한다", () => {
+  const payment = classifyHttpFailure({
+    status: 402,
+    headers: {},
+    body: null,
+    nowMs: NOW,
+  });
+  assertEquals(payment.code, "credential_unavailable");
+  assertEquals(payment.unavailable_reason, "quota");
+  const overflow = classifyHttpFailure({
+    status: 400,
+    headers: {},
+    body:
+      '{"type":"error","error":{"type":"invalid_request_error","message":"prompt is too long: 300000 tokens"}}',
+    nowMs: NOW,
+  });
+  assertEquals(overflow.code, "context_exceeded");
+});
+
+Deno.test("lophn-agent/harness/provider#R22: 404는 model 없음이 확인될 때만 model_unavailable이다", () => {
+  const model = classifyHttpFailure({
+    status: 404,
+    headers: {},
+    body:
+      '{"type":"error","error":{"type":"not_found_error","message":"model: x"}}',
+    nowMs: NOW,
+  });
+  assertEquals(model.code, "model_unavailable");
+  const other = classifyHttpFailure({
+    status: 404,
+    headers: {},
+    body: '{"error":{"message":"route"}}',
+    nowMs: NOW,
+  });
+  assertEquals(other.code, "unknown");
+});
+
+Deno.test("lophn-agent/harness/provider#R20: stream 안 오류는 문서화된 type만 분류하고 나머지는 unknown이다", () => {
+  assertEquals(
+    classifyStreamFailure({ type: "overloaded_error", nowMs: NOW }).code,
+    "temporary",
+  );
+  assertEquals(
+    classifyStreamFailure({ type: "api_error", nowMs: NOW }).code,
+    "temporary",
+  );
+  // 429에 해당하는 stream 오류는 header가 없으니 reset 미상이다(R21).
+  const rate = classifyStreamFailure({ type: "rate_limit_error", nowMs: NOW });
+  assertEquals(rate.code, "credential_unavailable");
+  assertEquals(rate.until_ms, NOW + 3_600_000);
+  const weird = classifyStreamFailure({ type: "weird_error", nowMs: NOW });
+  assertEquals(weird.code, "unknown");
+  assertEquals(weird.http_status, null);
+  assertEquals(classifyStreamFailure({ nowMs: NOW }).code, "unknown");
 });

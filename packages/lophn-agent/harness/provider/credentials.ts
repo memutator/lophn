@@ -4,6 +4,11 @@
 // 이동은 고정 목록의 같은 provider·model 뒤 계정만 허용한다(R10). 앞 계정 회복에
 // 돌아가지 않는다.
 
+import {
+  type ModelBlock,
+  USAGE_WAIT_DEFAULT_MS,
+} from "../../../contracts/lophn-agent/mod.ts";
+import type { FailureVerdict } from "./failures.ts";
 import type {
   CallModel,
   ModelOutcome,
@@ -148,4 +153,69 @@ export function credentialMatchesModel(
 ): boolean {
   return model.provider === provider && model.name !== "" &&
     entry.key === model.credential_key;
+}
+
+// ---- 실패 분류 → credential 사용 가능 상태(R21, R22, R24) ----
+
+// RecordProviderAvailability 입력 중 provider·key 밖의 값이다.
+export type AvailabilityChange = {
+  state: ProviderCredential["state"];
+  unavailable_reason: ProviderCredential["unavailable_reason"];
+  until: string | null;
+  model_block: ModelBlock | null;
+};
+
+// 실패 판정이 credential 상태를 바꾸는가. 바꾸지 않으면 null이다.
+// - credential_unavailable: 인증 거절·확인된 plan 거절은 rejected, 사용량·잔액은
+//   usage_wait(reset 시각까지 또는 1시간, R24). 인증 폐기(revoked)는 token refresh
+//   쪽이 정하므로 여기서 revoked를 만들지 않는다(R21).
+// - model_unavailable: 그 credential+model 조합만 막고 credential 상태는 그대로다(R22).
+// - 그 밖(일시·문맥 초과·잘못된 요청·거절·취소·원인 불명)은 상태를 바꾸지 않는다. 원인
+//   불명을 인증 실패로 올리지 않는다(R19).
+export function availabilityFromVerdict(
+  verdict: Pick<
+    FailureVerdict,
+    "code" | "unavailable_reason" | "until_ms" | "provider_code"
+  >,
+  current: Pick<
+    ProviderCredential,
+    "state" | "unavailable_reason" | "until"
+  >,
+  facts: { modelName: string; nowMs: number },
+  at: (ms: number) => string,
+): AvailabilityChange | null {
+  if (verdict.code === "credential_unavailable") {
+    const reason = verdict.unavailable_reason;
+    if (reason === null || reason === "refresh_revoked") return null;
+    if (reason === "quota") {
+      const until = verdict.until_ms ?? facts.nowMs + USAGE_WAIT_DEFAULT_MS;
+      return {
+        state: "usage_wait",
+        unavailable_reason: "quota",
+        until: at(until),
+        model_block: null,
+      };
+    }
+    return {
+      state: "rejected",
+      unavailable_reason: reason,
+      until: null,
+      model_block: null,
+    };
+  }
+  if (verdict.code === "model_unavailable") {
+    return {
+      state: current.state,
+      unavailable_reason: current.unavailable_reason,
+      until: current.until,
+      model_block: {
+        model_name: facts.modelName,
+        reason: verdict.provider_code === "model_not_available"
+          ? "account_model_access"
+          : "not_found",
+        until: null,
+      },
+    };
+  }
+  return null;
 }

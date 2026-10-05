@@ -2,6 +2,7 @@
 // 본다. 실제 provider를 부르지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import {
+  availabilityFromVerdict,
   billingRouteOf,
   credentialUsable,
   nextCredential,
@@ -9,8 +10,8 @@ import {
   type SelectionEntry,
 } from "./credentials.ts";
 import type { ProviderCredential } from "../../../contracts/lophn-agent/mod.ts";
+import { failureVerdict } from "./failures.ts";
 const NOW = Date.UTC(2026, 0, 1);
-const PVDR = "pvd_01arz3ndektsv4rrffq69g5fav";
 const MODEL = "gpt";
 
 const at = (ms: number) => new Date(ms).toISOString();
@@ -293,4 +294,97 @@ Deno.test("lophn-agent/harness/provider#R27: 과금 근거가 없으면 모름�
     billingRouteOf(credential("key-a", { kind: "none", secret_ref: null })),
     "unknown",
   );
+});
+
+// ── R21, R22, R24: 실패 분류가 credential 상태로 옮겨지는 규칙 ───────────
+
+const verdictAt = (status: number, headers: Record<string, string> = {}) =>
+  failureVerdict({ kind: "http", status, headers, nowMs: NOW });
+
+Deno.test("lophn-agent/harness/provider#R21: 인증 거절은 rejected, 사용량 429는 reset 또는 1시간 usage_wait이고 revoked는 만들지 않는다", () => {
+  const current = credential("key-a");
+  const auth = availabilityFromVerdict(
+    verdictAt(401),
+    current,
+    { modelName: MODEL, nowMs: NOW },
+    at,
+  );
+  assertEquals(auth?.state, "rejected");
+  assertEquals(auth?.unavailable_reason, "authentication");
+  assertEquals(auth?.until, null);
+  const unknownReset = availabilityFromVerdict(
+    verdictAt(429),
+    current,
+    { modelName: MODEL, nowMs: NOW },
+    at,
+  );
+  assertEquals(unknownReset?.state, "usage_wait");
+  assertEquals(unknownReset?.until, at(NOW + 3_600_000));
+  const known = availabilityFromVerdict(
+    verdictAt(429, { "retry-after": "120" }),
+    current,
+    { modelName: MODEL, nowMs: NOW },
+    at,
+  );
+  assertEquals(known?.until, at(NOW + 120_000));
+  const plan = availabilityFromVerdict(
+    failureVerdict({
+      kind: "http",
+      status: 403,
+      headers: {},
+      code: "plan_access",
+      nowMs: NOW,
+    }),
+    current,
+    { modelName: MODEL, nowMs: NOW },
+    at,
+  );
+  assertEquals(plan?.unavailable_reason, "plan_access");
+  assert(
+    [auth, unknownReset, known, plan].every((change) =>
+      change?.state !== "revoked"
+    ),
+  );
+});
+
+Deno.test("lophn-agent/harness/provider#R22: model 사용 불가는 그 model block만 더하고 credential 상태는 그대로다", () => {
+  const waiting = credential("key-a", {
+    state: "usage_wait",
+    unavailable_reason: "quota",
+    until: at(NOW + 1000),
+  });
+  const change = availabilityFromVerdict(
+    failureVerdict({
+      kind: "http",
+      status: 404,
+      headers: {},
+      code: "model_not_found",
+      nowMs: NOW,
+    }),
+    waiting,
+    { modelName: MODEL, nowMs: NOW },
+    at,
+  );
+  assertEquals(change?.state, "usage_wait");
+  assertEquals(change?.until, waiting.until);
+  assertEquals(change?.model_block, {
+    model_name: MODEL,
+    reason: "not_found",
+    until: null,
+  });
+});
+
+Deno.test("lophn-agent/harness/provider#R19: 일시·문맥 초과·원인 불명은 credential 상태를 바꾸지 않는다", () => {
+  const current = credential("key-a");
+  for (const status of [503, 418]) {
+    assertEquals(
+      availabilityFromVerdict(
+        verdictAt(status),
+        current,
+        { modelName: MODEL, nowMs: NOW },
+        at,
+      ),
+      null,
+    );
+  }
 });

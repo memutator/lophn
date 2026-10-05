@@ -7,7 +7,6 @@
 
 import type { TokenUsage } from "../../../../contracts/lophn-agent/mod.ts";
 import type { ToolCall } from "./messages.ts";
-import { verifyStateFree } from "./compat.ts";
 import type { SseFrame } from "./stream.ts";
 
 // 요청 item. prompt-assemble이 준 Anthropic 블록을 Responses item으로 바꾼다.
@@ -114,17 +113,13 @@ export function buildRequest(input: {
   if (input.tools?.length) {
     body.tools = input.tools;
   }
-  // T14: reasoning 재전송 대상이 있으면 state-free 계속을 검증한다. 메모리 상태가
+  // T14: reasoning 재전송 대상이 있으면 state-free 계속을 검증한다(검증의 실제
+  // 호출 자리는 invoke.ts다). 메모리 상태가
   // 없을 때(restart·compaction)도 Responses는 계속 가능하다 — reasoning item을
   // 빼도 function_call·call_id 대응이 남는다(architecture §5.2). 통과하지 못하는
   // protocol(서명 필수 Anthropic)은 messages.ts의 reasoningFor가 실패를 낸다(Q7).
   if (input.reasoning?.length) {
     body.reasoning = { include: ["reasoning.encrypted_content"] };
-    void verifyStateFree({
-      protocol: "openai-responses",
-      pendingReasoning: true,
-      reasoningRequired: false,
-    });
   }
   return { body };
 }

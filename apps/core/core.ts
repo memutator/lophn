@@ -73,6 +73,10 @@ import {
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
+import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
+import { startDocumentsFeed } from "./documents-feed.ts";
+import { eventOperations } from "./event-operations.ts";
+import type { InternalSubscription } from "./internal-subscription.ts";
 import { createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
@@ -165,6 +169,9 @@ export type Core = {
   ): Promise<Result<void>>;
   // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
   sweepTicketClaims(): Promise<void>;
+  // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
+  // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
+  documentsFeed?: InternalSubscription;
   // testCredentials일 때만 있다. 확인 창 handle을 writer registry에 발급한다.
   confirmation?(body: {
     action: "issue" | "close-window" | "clear";
@@ -204,6 +211,9 @@ async function open(
   // documents coordinator 요청 통로. FileStatus 조회가 이 통로로 묻는다.
   const documentsChannel = createDocumentsChannel();
   const ledgerPath = `${root.path}/lophn.db`;
+  // writer·reader가 import하는 팀 module. 문서 worker route를 서빙하는 reader는 항상 붙는다.
+  const modules = withDocumentsReader(options.teamModules ?? []);
+  const eventNames = await eventOperations(modules);
   const assembled = assemble(options.teams, {
     status: statusMemoryVia(documentsChannel),
     // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
@@ -261,6 +271,12 @@ async function open(
       },
       { name: "document.save", actors: ["machine"], kind: "command" },
       { name: "document.prepare", actors: ["machine"], kind: "command" },
+      // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
+      ...eventNames.map((name): OperationPolicy => ({
+        name,
+        actors: ["user"],
+        kind: "read",
+      })),
       // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
       ...allRoutes.filter((route) => route.actors.includes("user")).map((
         route,
@@ -334,7 +350,7 @@ async function open(
     writerClock: options.writerClock ?? "fixed",
     seed: seedOf(random),
     // 문서 worker route를 서빙하는 reader 등록은 항상 붙는다(documents-reader.ts).
-    modules: withDocumentsReader(options.teamModules ?? []),
+    modules,
     assembled: assembled.value,
     source,
     blob: blobRead.deps,
@@ -356,6 +372,13 @@ async function open(
   if (!sweepCredential.ok) {
     await runtime.close();
     return sweepCredential;
+  }
+  // documents 구독자(machine:documents-feed)의 자격 기록. token이 없는 core 내부 자격이라
+  // HTTP로는 이 principal이 될 수 없고, reader가 이 ledger 기록으로 event 공개를 판단한다.
+  const feedCredential = await runtime.record(DOCUMENTS_FEED_CONTEXT);
+  if (!feedCredential.ok) {
+    await runtime.close();
+    return feedCredential;
   }
   // 문서 관측 제출 machine credential. 발급(greet과 같은 issue → revalidate →
   // record 규칙) 뒤 token이 documents/worker hello에 싣는다. 지우지 못한 token은
@@ -620,7 +643,7 @@ async function open(
           next,
         ),
       known: active,
-      intervalMs: DOCUMENTS_ROOTS_INTERVAL_MS,
+      retryMs: DOCUMENTS_ROOTS_RETRY_MS,
     });
     basisSync = watchObservationBasis({
       read: (input) =>
@@ -631,11 +654,18 @@ async function open(
           chunk,
           DOCUMENTS_BASIS_TIMEOUT_MS,
         ),
-      intervalMs: DOCUMENTS_BASIS_INTERVAL_MS,
+      retryMs: DOCUMENTS_BASIS_RETRY_MS,
     });
     // 시작 근거는 worker가 뜬 직후 바로 보낸다. 닿지 못하면 다음 확인이 다시 시도한다.
     void basisSync.check();
   }
+  // core 안 documents 구독자. documents event가 오면 root 집합과 관측 근거를 맞춘다. documents
+  // worker가 없는 core에서도 구독은 열려 있고, 맞출 대상이 없으면 아무것도 하지 않는다.
+  const documentsFeed = startDocumentsFeed({
+    runtime,
+    roots: () => rootsWatch,
+    basis: () => basisSync,
+  });
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
   const parent = options.parent;
@@ -648,6 +678,7 @@ async function open(
       epoch,
       (scope) => productRegistry.issue(scope),
       allRoutes,
+      eventNames,
     )
     : Promise.resolve(ok(undefined));
   let stopped = false;
@@ -658,6 +689,7 @@ async function open(
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
+    ...(options.testCredentials ? { documentsFeed } : {}),
     blobBuffer,
     childBlobPrepare: (kind, send) =>
       createChildBlobPrepare({
@@ -690,6 +722,7 @@ async function open(
       try {
         // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
         ready = false;
+        documentsFeed.stop();
         rootsWatch?.stop();
         basisSync?.stop();
         closeChildBlob?.();
@@ -901,11 +934,10 @@ function withDocumentsReader(modules: readonly string[]): string[] {
   return modules.includes(reader) ? [...modules] : [...modules, reader];
 }
 
-// 활성 tracking root 변화 확인 주기. root 변경은 드물어서 짧은 read 하나면 된다.
-const DOCUMENTS_ROOTS_INTERVAL_MS = 2_000;
-
-// 관측 근거 확인 주기. ledger snapshot이 그대로면 연결 page를 다시 읽지 않는다.
-const DOCUMENTS_BASIS_INTERVAL_MS = 1_000;
+// 확인은 documents 구독자의 event가 깨운다(documents-feed.ts). 읽기·재시작·보내기가 실패했을
+// 때만 이 대기 뒤에 다시 확인한다.
+const DOCUMENTS_ROOTS_RETRY_MS = 2_000;
+const DOCUMENTS_BASIS_RETRY_MS = 1_000;
 const DOCUMENTS_BASIS_TIMEOUT_MS = 15_000;
 
 // 관측 근거 읽기의 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.

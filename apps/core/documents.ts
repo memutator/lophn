@@ -11,7 +11,11 @@ import type {
   ReadDefinition,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import type {
+  EventRegistration,
+  ReaderRegistration,
+} from "../../packages/platform/ledger/mod.ts";
+import { createDocumentsEventRegistration } from "./documents-events.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
 import {
@@ -424,6 +428,12 @@ function registerWorkers(): KindLaunchSpec[] {
   if (root === undefined || !root.startsWith("/")) return [];
   const runner = formatRunnerSpec();
   return runner ? [...workerSpecs(root), runner] : workerSpecs(root);
+}
+
+// event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
+// 만든다(platform/ledger#R15, documents plan Q17).
+export function createEventRegistration(): EventRegistration {
+  return createDocumentsEventRegistration();
 }
 
 // reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.

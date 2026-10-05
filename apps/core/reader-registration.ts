@@ -6,23 +6,19 @@ import type {
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import {
   commandResultRead,
-  createEventVisibilityRegistry,
   createListEventsRead,
   type ReaderRegistration,
 } from "../../packages/platform/ledger/mod.ts";
 
-// reader Worker가 이 모듈만 import한다. 팀 read는 core가 API read로 붙인다.
+// reader Worker가 이 모듈을 먼저 import한다. 팀 read는 core가 API read로 붙인다.
 // event 조회는 ledger의 credential 기록으로 제출 context를 다시 검증한다.
+// events/list의 registry는 reader Worker가 모든 팀 module의 `createEventRegistration`
+// (event 정의와 공개 정책)을 모은 뒤에 넘긴다. 여기에 팀 목록을 적지 않는다.
 export function createReaderRegistration(): ReaderRegistration {
-  const registry = createEventVisibilityRegistry([], []);
-  if (!registry.ok) throw new Error("event visibility 등록이 비어 있지 않다");
   return {
-    reads: [
-      commandResultRead,
-      createListEventsRead({
-        registry: registry.value,
-        current: currentFromLedger,
-      }),
+    reads: [commandResultRead],
+    eventReads: (registry) => [
+      createListEventsRead({ registry, current: currentFromLedger }),
     ],
     ports: new Map(),
   };

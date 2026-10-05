@@ -18,11 +18,12 @@ export type BasisSyncDeps = {
   read: BasisRead;
   // chunk 하나를 coordinator에 보낸다. 닿지 못하면 err다.
   push(chunk: unknown): Promise<Result<unknown>>;
-  intervalMs: number;
+  // 읽기·보내기가 실패했을 때 다시 확인하기까지의 대기. 성공이면 timer를 두지 않는다.
+  retryMs: number;
 };
 
 export type BasisSync = {
-  // 한 번 맞춘다. timer와 시험이 같은 함수를 부른다.
+  // 한 번 맞춘다. event 구독자(machine:documents-feed)와 시험이 같은 함수를 부른다.
   check(): Promise<void>;
   // coordinator가 새로 떴다. 다음 확인이 근거 전체를 다시 보낸다.
   invalidate(): void;
@@ -103,6 +104,8 @@ export async function readObservationBasis(
   });
 }
 
+// 근거는 주기로 읽지 않는다. 구독자가 documents event로 깨우고 (다시) 구독할 때 한 번 맞춘다
+// (documents plan Q17). 읽기·보내기가 실패하면 retryMs 뒤 다시 한다.
 export function watchObservationBasis(deps: BasisSyncDeps): BasisSync {
   // 마지막으로 coordinator가 받은 근거와 그때의 snapshot. 보내기 실패는 둘 다 버려
   // 다음 확인이 전체를 다시 보낸다.
@@ -110,10 +113,20 @@ export function watchObservationBasis(deps: BasisSyncDeps): BasisSync {
   let sentSeq: string | undefined;
   let stopped = false;
   let running: Promise<void> | undefined;
+  let again = false;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  function retryLater() {
+    if (stopped || retry !== undefined) return;
+    retry = setTimeout(() => {
+      retry = undefined;
+      void check();
+    }, deps.retryMs);
+  }
 
   async function once(): Promise<void> {
     const read = await readObservationBasis(deps.read, sentSeq);
-    if (stopped || !read.ok) return;
+    if (stopped) return;
+    if (!read.ok) return retryLater();
     if ("unchanged" in read.value) return;
     const { payload, as_of_seq } = read.value;
     const chunks = chunkObservationBasis(sent, payload);
@@ -123,7 +136,7 @@ export function watchObservationBasis(deps: BasisSyncDeps): BasisSync {
         // coordinator가 일부만 받았을 수 있다. 다음에는 처음부터 보낸다.
         sent = undefined;
         sentSeq = undefined;
-        return;
+        return retryLater();
       }
     }
     sent = payload;
@@ -131,14 +144,23 @@ export function watchObservationBasis(deps: BasisSyncDeps): BasisSync {
   }
 
   function check(): Promise<void> {
-    // 겹친 확인은 하나로 합친다: 보내는 도중에 또 보내지 않는다.
-    running ??= once().finally(() => {
+    // 겹친 확인은 하나로 합친다: 보내는 도중에 또 보내지 않는다. 다만 도는 중에 온 신호는
+    // 이미 읽은 값 뒤의 변화일 수 있어서, 끝난 뒤 한 번 더 확인한다.
+    if (running) {
+      again = true;
+      return running;
+    }
+    running = (async () => {
+      do {
+        again = false;
+        await once();
+      } while (again && !stopped);
+    })().finally(() => {
       running = undefined;
     });
     return running;
   }
 
-  const timer = setInterval(() => void check(), deps.intervalMs);
   return {
     check,
     invalidate() {
@@ -147,7 +169,8 @@ export function watchObservationBasis(deps: BasisSyncDeps): BasisSync {
     },
     stop() {
       stopped = true;
-      clearInterval(timer);
+      clearTimeout(retry);
+      retry = undefined;
     },
   };
 }

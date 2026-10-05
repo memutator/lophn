@@ -600,7 +600,7 @@ Deno.test("coding-agent/connection#R14: 제거는 receipt의 lophn 소유 조각
   assertEquals(parsed.mcpServers, { other: { command: "keep" } });
 });
 
-async function hermesConfigPath(fx: Fixture): Promise<string> {
+function hermesConfigPath(fx: Fixture): string {
   const root = rootOf("hermes_home", {
     home: fx.home,
     env: fx.env,
@@ -617,7 +617,7 @@ async function hermesFirstInstall(
   check: (text: string) => void,
 ): Promise<void> {
   const fx = await fixture();
-  const path = await hermesConfigPath(fx);
+  const path = hermesConfigPath(fx);
   if (initial !== null) await write(path, initial);
   const first = await installAll(fx, "hermes", "user");
   assertEquals(first.outcomes["mcp:user"], "changed");

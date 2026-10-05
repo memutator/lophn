@@ -294,7 +294,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T15 provider 실패 분류, credential 사용 가능 상태, 연결 test
 
-- 상태: 진행 (#249) — 남은 것: `/v1/providers/test` route를 runtime에 연결(ConnectionTestPort를 ledger command·read로 채우고 secret 부착 transport 조립, apps/agent-runtime 자리), 실제 계정 연결은 사람이 `LOPHN_LIVE_PROVIDER=1`로 확인
+- 상태: 완료 (#249) — 이어보냄: `/v1/providers/test` route를 agent runtime에 연결(ledger command·read로 ConnectionTestPort 조립, secret attach transport) → T26. 실제 provider 확인(LOPHN_LIVE_PROVIDER=1)은 사람이 따로 돌린다
 - 등급: 기본
 - concern: lophn-agent/harness/provider
 - 요구: lophn-agent/harness/provider#R10, R19, R20, R21, R22, R23, R24, R27, R29, R30
@@ -473,6 +473,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md, docs/research/provider-adapters.md
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
+- T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다
 - 완료:
   - loop_test.ts에 R8–R13, R15, R23–R25 테스트(fake provider·clock·owner contract): model이 응답하지 않아도 core read·다른 assignment가 진행, turn 순서와 조립 뒤 입력·멈춤 재확인, 수정 입력은 다음 tool 전에 새 판단, 불완전 응답의 tool 0개와 잘림을 다음 판단에 전달, 모든 call이 확인된 read일 때만 병렬·하나라도 아니면 요청 순서 순차·결과는 요청 순서, 없는 tool·잘못된 인자는 call별 결과·인자 보정 없음, 순차 write·external 거절·최종 실패 뒤 나머지 미실행 이유·독립 read 결과 보존, 멈춤 뒤 새 model·tool·retry 차단·진행 호출 중단 요청·미시작 call 미실행 결과 합성, 일시 실패만 최대 2회(서버 시각을 지키고 없으면 2초·4초, fake clock으로 서버 시각 전 재시도 없음)·부분 응답 미채택, tool retry는 read·멱등 write만 1회 1초±10%와 재판정, provider 끄기·MCP 제거 뒤 새 진입 차단
   - flow steer-agent-work의 agent 갈래

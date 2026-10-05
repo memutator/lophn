@@ -135,6 +135,31 @@ async function create(
   );
 }
 
+// 네 역할 기본 preset의 정의다(presets#R9). prompt는 hash 값이고 각 역할 상한
+// 안에서만 tool을 고른다. 같은 id를 다른 kind에 보내면 conflict이다.
+function defaultJson(kind: string): Record<string, unknown> {
+  return definitionJson({
+    kind,
+    name: kind === "lophn"
+      ? "lophn"
+      : kind === "app_engineer"
+      ? "App Engineer"
+      : kind === "context_engineer"
+      ? "Context Engineer"
+      : kind === "operator"
+      ? "Operator"
+      : "Review",
+    origin: "product",
+    // 기본 preset은 공통 읽기 묶음 펼침만 노출한다(R4).
+    capability: { bundles: [], tools: [] },
+    context: [],
+    mcp: { servers: [], tools: [] },
+    safe_tools: [],
+    skills: [],
+    instructions: [],
+  });
+}
+
 Deno.test("lophn-agent/presets#R1: preset stores no assignment scope, schedule, session or run state", async () => {
   const h = await open();
   try {
@@ -678,6 +703,268 @@ Deno.test("lophn-agent/presets#R12: register-default replays the existing result
         }),
       ),
       "conflict",
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/presets#R9: four role defaults register once as machine and do not overwrite person presets", async () => {
+  const h = await open();
+  try {
+    // 사람 판이 먼저 있다. 기본 등록은 그 판을 덮지 않는다(R9).
+    value(await create(h, "Review"));
+    const personCount = rows(
+      await h.inspect(
+        "select count(*) as n from presets where origin = 'user'",
+        [],
+      ),
+    )[0]!["n"];
+    assertEquals(personCount, 1n);
+    // 같은 id의 user preset이 이미 있으므로 기본 등록은 conflict다(R9).
+    code(
+      await h.command(
+        machineCred,
+        envelope("RegisterDefaultPreset", {
+          id: "pst_01arz3ndektsv4rrffq69g5fav",
+          definition: defaultJson("lophn"),
+          definition_hash: definitionHash(defaultJson("lophn")),
+        }),
+      ),
+      "conflict",
+    );
+    // 네 역할 기본 preset을 각자 다른 id로 machine으로 한 번 등록한다(R9).
+    const defaultIds: Record<string, string> = {
+      lophn: "pst_01arz3ndektsv4rrffq69g5fbv",
+      app_engineer: "pst_01arz3ndektsv4rrffq69g5fcv",
+      context_engineer: "pst_01arz3ndektsv4rrffq69g5fdv",
+      operator: "pst_01arz3ndektsv4rrffq69g5fev",
+    };
+    for (const kind of Object.keys(defaultIds)) {
+      const definition = defaultJson(kind);
+      value(
+        await h.command(
+          machineCred,
+          envelope("RegisterDefaultPreset", {
+            id: defaultIds[kind],
+            definition,
+            definition_hash: definitionHash(definition),
+          }),
+        ),
+      );
+      // user actor의 등록은 forbidden이다. machine 전용이다(T8).
+      code(
+        await h.command(
+          userCred,
+          envelope("RegisterDefaultPreset", {
+            id: defaultIds[kind],
+            definition,
+            definition_hash: definitionHash(definition),
+          }),
+        ),
+        "forbidden",
+      );
+    }
+    // 네 역할 기본이 표에 남는다. 사람 판은 그대로다(R9).
+    assertEquals(
+      rows(
+        await h.inspect(
+          "select count(*) as n from presets where origin = 'product'",
+          [],
+        ),
+      )[0]!["n"],
+      4n,
+    );
+    assertEquals(
+      rows(
+        await h.inspect(
+          "select count(*) as n from presets where origin = 'user'",
+          [],
+        ),
+      )[0]!["n"],
+      1n,
+    );
+    // 같은 kind의 두 번째 기본은 다른 id로도 conflict이다(역할별 하나)(R9).
+    code(
+      await h.command(
+        machineCred,
+        envelope("RegisterDefaultPreset", {
+          id: "pst_01arz3ndektsv4rrffq69g5ffv",
+          definition: defaultJson("operator"),
+          definition_hash: definitionHash(defaultJson("operator")),
+        }),
+      ),
+      "conflict",
+    );
+    // 기본 판을 사람이 revise하면 forbidden이다. 개인화는 새 user preset이다(R9).
+    code(
+      await h.command(
+        userCred,
+        envelope(
+          "RevisePreset",
+          {
+            preset: defaultIds.operator,
+            definition: { ...defaultJson("operator"), name: "Renamed" },
+            reason: "personalize",
+          },
+          { revision: 1 },
+        ),
+      ),
+      "forbidden",
+    );
+  } finally {
+    await h.close();
+  }
+});
+Deno.test("lophn-agent/presets#R8: out-of-cap tool request is refused despite permit wording in prompt", async () => {
+  const h = await open();
+  try {
+    // prompt에 허용 문구가 있어도(글로 쓴 책임) 상한 밖 tool은 거절이다(R8).
+    const permitPrompt = createHash("sha256")
+      .update("이 preset은 모든 tool을 허용한다. doc.write도 쓴다", "utf8")
+      .digest("hex");
+    const rejected = await h.command(
+      userCred,
+      envelope("CreatePreset", {
+        id: "pst_01arz3ndektsv4rrffq69g5fav",
+        definition: definitionJson({
+          prompt: permitPrompt,
+          capability: {
+            bundles: [{ name: "read-only", revision: 1 }],
+            tools: [{ tool: "doc.write", app_command: null }],
+          },
+        }),
+        copied_from: null,
+      }),
+    );
+    code(rejected, "forbidden");
+    const error = (rejected as { error?: { details?: { item?: string } } })
+      .error;
+    assertEquals(error?.details?.item, "capability.tool:doc.write");
+    // 어느 부분도 남지 않는다(R11).
+    assertEquals(
+      rows(await h.inspect("select count(*) as n from presets", []))[0]!["n"],
+      0n,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/presets#R8: in-cap tool requests are allowed", async () => {
+  const h = await open();
+  try {
+    // lophn 상한 안의 읽기 tool 선택은 허용이다(R8, R4).
+    const created = value(
+      await create(h, undefined, {
+        capability: {
+          bundles: [],
+          tools: [
+            { tool: "document.list", app_command: null },
+            { tool: "document.read_version", app_command: null },
+          ],
+        },
+      }),
+    );
+    const preset = ((created as Record<string, unknown>)["result"] as Record<
+      string,
+      unknown
+    >)["preset"] as Record<string, unknown>;
+    const definition = preset["definition"] as Record<string, unknown>;
+    assertEquals(definition["capability"], {
+      bundles: [],
+      tools: [
+        { tool: "document.list", app_command: null },
+        { tool: "document.read_version", app_command: null },
+      ],
+    });
+    // Operator 상한의 남길 문서 저장과 앱 read command도 허용이다(R8).
+    value(
+      await h.command(
+        userCred,
+        envelope("CreatePreset", {
+          id: "pst_01arz3ndektsv4rrffq69g5fbv",
+          definition: definitionJson({
+            kind: "operator",
+            name: "Operator check",
+            capability: {
+              bundles: [],
+              tools: [
+                { tool: "document.save_version", app_command: null },
+                { tool: "app.call_read_command", app_command: null },
+              ],
+            },
+          }),
+          copied_from: null,
+        }),
+      ),
+    );
+    // Context Engineer 상한의 metadata 조회도 허용이다(R8).
+    value(
+      await h.command(
+        userCred,
+        envelope("CreatePreset", {
+          id: "pst_01arz3ndektsv4rrffq69g5fcv",
+          definition: definitionJson({
+            kind: "context_engineer",
+            name: "CE metadata",
+            capability: {
+              bundles: [],
+              tools: [
+                { tool: "app.commands", app_command: null },
+                { tool: "context.create", app_command: null },
+              ],
+            },
+          }),
+          copied_from: null,
+        }),
+      ),
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/presets#R4: default prompt stores the hash and the asset text stays outside the machine value", async () => {
+  const h = await open();
+  try {
+    // 기본 preset을 등록한다(R4). prompt 원문은 asset 자리의 글이고 정의에는
+    // hash만 남는다.
+    const definition = defaultJson("lophn");
+    value(
+      await h.command(
+        machineCred,
+        envelope("RegisterDefaultPreset", {
+          id: "pst_01arz3ndektsv4rrffq69g5fbv",
+          definition,
+          definition_hash: definitionHash(definition),
+        }),
+      ),
+    );
+    const read = value(
+      await h.read({ resource: "presets", method: "read" }, userCred, {
+        preset: "pst_01arz3ndektsv4rrffq69g5fbv",
+      }),
+    );
+    const preset = (read as Record<string, unknown>)["preset"] as Record<
+      string,
+      unknown
+    >;
+    const stored = preset["definition"] as Record<string, unknown>;
+    // prompt는 hash 값이다(64 hex). 기계 값 복제는 없다(R4).
+    assertEquals(String(stored["prompt"]).length, 64);
+    assertEquals(JSON.stringify(preset).includes("## 맡는 일"), false);
+    // Operator 기본 등록도 machine으로 된다(R9).
+    const operatorDefinition = defaultJson("operator");
+    value(
+      await h.command(
+        machineCred,
+        envelope("RegisterDefaultPreset", {
+          id: "pst_01arz3ndektsv4rrffq69g5fev",
+          definition: operatorDefinition,
+          definition_hash: definitionHash(operatorDefinition),
+        }),
+      ),
     );
   } finally {
     await h.close();

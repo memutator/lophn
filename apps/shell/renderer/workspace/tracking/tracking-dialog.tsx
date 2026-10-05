@@ -373,6 +373,15 @@ function PreviewStatus(
         true,
       );
     }
+    if (reason.kind === "failed") {
+      return problem(
+        t("project-workspace.tracking.preview-failed", {
+          project: projectTitle,
+        }),
+        "preview-failed",
+        true,
+      );
+    }
     return problem(
       reason.folder === null
         ? t("project-workspace.tracking.unreadable-many")

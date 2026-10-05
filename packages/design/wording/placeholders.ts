@@ -502,6 +502,9 @@ export type PlaceholderKinds = {
     path: "string";
   };
   "project-workspace.tracking.preparing": Record<never, never>;
+  "project-workspace.tracking.preview-failed": {
+    project: "string";
+  };
   "project-workspace.tracking.stale": Record<never, never>;
   "project-workspace.tracking.unreadable-many": Record<never, never>;
   "project-workspace.tracking.unreadable-one": {

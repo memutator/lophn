@@ -452,6 +452,8 @@ export const en = {
   "project-workspace.tracking.overlap":
     "{other} already tracks {path}, so tracking stays off here. Stop tracking it in {other} first.",
   "project-workspace.tracking.preparing": "Checking which files match.",
+  "project-workspace.tracking.preview-failed":
+    "The file check for {project} didn't finish, so tracking stays off. Try again.",
   "project-workspace.tracking.stale":
     "The rules changed. Preview again before turning tracking on.",
   "project-workspace.tracking.unreadable-many":

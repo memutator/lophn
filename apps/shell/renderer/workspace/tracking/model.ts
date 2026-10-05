@@ -169,16 +169,21 @@ export function applyFailure(
   return overlap ? { kind: "overlap", ...overlap } : { kind: "changed" };
 }
 
-/** 미리보기를 못 만든 이유. 접근 문제는 그 폴더를 이름으로 말한다. */
+/**
+ * 미리보기를 못 만든 이유. 폴더를 읽지 못한 것(unavailable·forbidden)만 그 폴더를 이름으로
+ * 말하고, 다른 실패는 원인을 추측하지 않는다(shell/wording#R10).
+ */
 export type PreviewFailure =
   | { kind: "unreadable"; folder: string | null }
-  | { kind: "changed" };
+  | { kind: "changed" }
+  | { kind: "failed" };
 
 export function previewFailure(
   code: string,
   folders: readonly { readonly path: string }[],
 ): PreviewFailure {
   if (code === "conflict") return { kind: "changed" };
+  if (code !== "unavailable" && code !== "forbidden") return { kind: "failed" };
   return {
     kind: "unreadable",
     folder: folders.length === 1 ? folders[0]!.path : null,

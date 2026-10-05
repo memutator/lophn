@@ -14,6 +14,9 @@ import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
 import type { LauncherSource } from "./launcher/source.ts";
 import type { TrackingSource } from "../workspace/tracking/source.ts";
+import type { IntentApi } from "../../ipc/shortcuts.ts";
+import { DesktopIntents } from "./intents.tsx";
+import type { LophnTarget } from "./palette/lophn-scope.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -36,6 +39,8 @@ export interface DesktopProps {
   projects?: LauncherSource;
   /** 작업대의 파일 추적 켜기 통로. */
   tracking?: TrackingSource;
+  /** main이 시키는 것(전역 팔레트, OS notification 클릭). 없으면 받지 않는다. */
+  intents?: IntentApi;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -52,6 +57,7 @@ export function Desktop(
     palette,
     projects,
     tracking,
+    intents,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -59,9 +65,25 @@ export function Desktop(
   const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
   const lophnSpace = () => setRoute(openLophn());
-  const thingsToConfirm = () => {
+  // lophn 공간의 형제로 간다. 이미 lophn 공간이어도 그 자리를 다시 연다.
+  const visit = (next: Route) => {
     setVisits((value) => value + 1);
-    setRoute(openLophn("things-to-confirm"));
+    setRoute(next);
+  };
+  const thingsToConfirm = () => visit(openLophn("things-to-confirm"));
+  // 전역 팔레트에서 고른 대상. lophn 공간 팔레트와 같은 목적지로만 간다(desktop#R30).
+  const go = (target: LophnTarget) => {
+    if (target.kind === "launcher") launcher();
+    else if (target.kind === "project") setRoute(openProject(target.id));
+    else if (target.kind === "screen") visit(openLophn(target.screen));
+    else if (target.kind === "context") visit(openLophn("contexts"));
+    else if (target.kind === "app") visit(openLophn("apps"));
+    else {
+      visit(openLophn("documents", {
+        document: target.document,
+        version: target.version,
+      }));
+    }
   };
   // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 런처의 연결 화면을 보이고, 준비되면 그때
   // 작업대를 열어 읽는다.
@@ -89,6 +111,7 @@ export function Desktop(
         key={visits}
         source={lophn}
         screen={route.screen}
+        initialRead={route.read}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
@@ -110,6 +133,16 @@ export function Desktop(
     <PaletteProvider deps={palette} onLauncher={launcher}>
       {space}
       <NotificationChip onView={thingsToConfirm} />
+      {intents
+        ? (
+          <DesktopIntents
+            intents={intents}
+            lophn={lophn}
+            onThingsToConfirm={thingsToConfirm}
+            go={go}
+          />
+        )
+        : null}
     </PaletteProvider>
   );
 }

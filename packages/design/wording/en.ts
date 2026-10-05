@@ -57,7 +57,11 @@ export const en = {
   "common.label.palette-tab-detail": "{kind} \u00b7 {pane}",
   "common.label.row-range": "{start, number}–{end, number} of {total, number}",
   "common.label.sort-by": "Sort by",
+  "common.label.tray-global-search-unavailable":
+    "Search from anywhere isn't available",
   "common.label.tray-launcher": "Launcher",
+  "common.label.tray-notifications-unavailable":
+    "Desktop notifications aren't available",
   "common.label.tray-open": "Open lophn",
   "common.label.tray-quit": "Quit lophn",
   "common.label.tray-start-at-login": "Start at login",

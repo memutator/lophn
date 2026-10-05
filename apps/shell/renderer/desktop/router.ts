@@ -9,6 +9,8 @@ export interface Route {
   readonly project?: string;
   /** lophn 공간의 형제. 없으면 documents다(desktop#R1). */
   readonly screen?: LophnScreen;
+  /** documents 화면에서 바로 읽을 문서. 전역 팔레트의 문서 행이 쓴다. */
+  readonly read?: { readonly document: string; readonly version: string };
 }
 
 export const LAUNCHER: Route = { space: "launcher" };
@@ -20,8 +22,14 @@ export function routeTitle(route: Route): string {
   return "lophn — lophn";
 }
 
-export function openLophn(screen?: LophnScreen): Route {
-  return screen === undefined ? { space: "lophn" } : { space: "lophn", screen };
+export function openLophn(
+  screen?: LophnScreen,
+  read?: Route["read"],
+): Route {
+  if (screen === undefined) return { space: "lophn" };
+  return read === undefined
+    ? { space: "lophn", screen }
+    : { space: "lophn", screen, read };
 }
 
 /** 프로젝트 작업대로 이동한다. */

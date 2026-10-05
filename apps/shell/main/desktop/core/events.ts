@@ -3,6 +3,7 @@
 import {
   EVENT_SUBSCRIBE_PATH,
   EVENT_SUBSCRIBE_SUBPROTOCOL,
+  type EventEnvelope,
   eventsList,
   nextFromSeq,
   parseEventFrame,
@@ -24,6 +25,11 @@ export interface ConnectionNotice {
 export interface EventSink {
   stale(notice: ConnectionNotice): void;
   caughtUp(): void;
+  /**
+   * socket으로 지금 도착한 event. 붙을 때·재연결 때 따라잡은 목록은 cursor만 옮기고 여기로
+   * 보내지 않는다. 놓친 진행을 연속 재생하지 않는다(shell/desktop#R7).
+   */
+  arrived?(events: readonly EventEnvelope[]): void;
 }
 
 export interface EventSocket {
@@ -72,6 +78,8 @@ export interface SubscribeOptions {
 export function subscribe(options: SubscribeOptions): Subscription {
   const generation = options.generation ?? 1;
   let cursor = "0";
+  // 붙을 때 본 head. 이 seq까지는 따라잡기 backlog라 지금 도착한 것으로 보내지 않는다.
+  let backlogThrough = 0n;
   let confirmedAt: number | null = null;
   let stopped = false;
   let socket: EventSocket | undefined;
@@ -104,6 +112,7 @@ export function subscribe(options: SubscribeOptions): Subscription {
       return;
     }
     cursor = output.data.scanned_through_seq;
+    backlogThrough = BigInt(output.data.head_seq);
     confirmedAt = options.clock.now();
     options.sink.caughtUp();
     openSocket(mine, epoch);
@@ -149,6 +158,11 @@ export function subscribe(options: SubscribeOptions): Subscription {
       }
       cursor = frame.value.scanned_through_seq;
       confirmedAt = options.clock.now();
+      // 한 page로 다 따라잡지 못한 나머지도 socket으로 오므로 head 뒤의 것만 보낸다.
+      const fresh = frame.value.events.filter((event) =>
+        BigInt(event.seq) > backlogThrough
+      );
+      if (fresh.length > 0) options.sink.arrived?.(fresh);
     });
     current.onClose(() => {
       if (mine !== active) return;

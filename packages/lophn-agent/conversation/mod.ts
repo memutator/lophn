@@ -10,4 +10,8 @@ export {
   createConversationCommands,
 } from "./commands.ts";
 export { createConversationReads } from "./reads.ts";
-export { type MessageBodyEnvironment, messageBodyRead } from "./body-read.ts";
+export {
+  type MessageBodyEnvironment,
+  messageBodyRead,
+  readBodyBytes,
+} from "./body-read.ts";

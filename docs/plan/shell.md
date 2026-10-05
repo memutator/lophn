@@ -354,7 +354,7 @@ concerns: [shell]
 - T16에서 넘어온 것: `e2e/shell/read-edit_test.ts`를 headless harness로 실제 실행하고, 제품 core가 settings route·`shell.reading_width`·outline/document·documents/read를 서빙하면 읽기 폭의 재시작 반영 확인을 더한다(#238, Q13)
 - shell#T16에서 넘어온 것: `apps/shell/renderer/editor/document-view.tsx`의 초안(`draft`)을 파일 통로로 보내고, 저장 상태 변경을 머리 메타 줄(상태 줄, editor#R11)에 보인다. 준비 결과의 `FormatDiagnostic`을 `problems-gutter/problems.ts`의 `editorProblems`로 바꿔 `DocumentView`의 `problems`에 넘긴다.
 - shell#T55에서 넘어온 것: 저장 중 변경 수를 끄기 확인(`apps/shell/main/desktop/quit.ts`의 `QuitWork.pendingSaves`, 지금 main은 0)에 잇는다(tray Quit 확인과 터미널 수는 #233)
-- shell#T15에서 넘어온 것: documents#T12가 `/v1/projects/preview_tracking`과 `/v1/files/list`를 서빙하면 temp LOPHN_HOME 실제 core 테스트(`apps/shell/renderer/desktop/launcher/core-source-real-core_test.ts`)에 temp 폴더의 추적 미리보기(포함·제외 이유)와 `set_tracking` 켜기, 작업대 팔레트 파일 묶음(`coreWorkspaceSource.files`)을 더한다(Q17).
+- shell#T15에서 넘어온 것: documents#T12가 `/v1/projects/preview_tracking`과 `/v1/files/list`를 서빙하면 temp LOPHN_HOME 실제 core 테스트(`apps/shell/renderer/desktop/launcher/core-source-real-core_test.ts`)에 temp 폴더의 추적 미리보기(포함·제외 이유)와 `set_tracking` 켜기, 작업대 팔레트 파일 묶음(`coreWorkspaceSource.files`)을 더한다(Q18).
 - shell#T19에서 넘어온 것: flow write-series 2·5단계의 새 멤버 쓰기. documents 화면(`apps/shell/renderer/desktop/lophn-space/series/series-detail.tsx`)은 이미 있는 같은 자리·format 문서에 key를 붙여 멤버로 더한다. 다음 key 제안으로 새 문서를 만들어 쓰는 길(편집기 저장과 `series.set_draft`·`clear_draft`의 draft 보존, 저장 상태와 판 확정 구별)은 파일 통로와 함께 잇는다.
 - 완료: 아래 확인이 통과한다
   - 저장 버튼 없이 고침을 main의 파일 adapter로 보낸다(target, base_hash, request_key, 바이트). main이 파일 통로를 부르고 renderer는 경로·port를 모른다.
@@ -1058,6 +1058,7 @@ concerns: [shell]
 
 ### T56 OS notification과 전역 팔레트
 
+- 상태: 완료 (#287) — 이어보냄: OS notification opt-in 켜고 끄는 화면 → shell#T58, OS 표시 경로를 쓰는 전달 실패 안내 → platform#T46. 막힌 것(Q17(6)): 제품 core가 platform notifications를 조립하지 않아 `NotificationCreated`가 오지 않는다(platform)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R7(놓친 notification 재생 없음), R10(OS 표시), R18(전역 CommandOrControl+Shift+K)
@@ -1176,6 +1177,7 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (4) 새 데이터 root에는 lophn 역할 assignment가 없다(CreateBuiltinAssignment는 machine 전용이고 부르는 자리가 없다). 도크는 "lophn isn't set up for conversations yet."를 보인다. 만드는 쪽은 lophn-agent다. → core 기동이 만든다(lophn-agent Q37, #281). 새 temp 데이터 root에서도 도크가 새 대화를 열고 보낸다(실제 core round trip 테스트).
   - (5) headless 확인용으로 main이 `LOPHN_SHELL_START=conversation`이면 lophn 공간을 도크를 연 채로 연다(개발 전용, stack.md).
 - **Q16 질문 칸·things-to-confirm의 답 경로와 읽을 수 없는 자료(T28, 추천안으로 진행).**
+  - (2026-10 lophn-agent Q38, #288로 닫힘) (1), (2), (5)는 core 쪽이 닫혔다. 일반 답 route `AnswerQuestion`(`questions/answer`)은 `{question, created_seq, answer}`이고 answer는 `{kind:"option", option_key}` 또는 `{kind:"text", text}`이며 확인 handle 없이 받는다(action이 있는 선택지는 forbidden). action 답은 `AnswerQuestionAction`(`questions/answer-action`) `{question, created_seq, answer:{kind:"option", option_key}, binding_hash, evidence:{question, option}}`+confirmation handle(binding: question·created_seq·answer·binding_hash). 취소는 `closed_reason_text`(글). 질문 글은 `ReadQuestionText`(`questions/text`, 입력 `{question}`)로 읽는다. shell은 이 모양으로 바꾸고 칸의 자리표 글과 hash 계산을 걷어낸다.
   - (1) T28 완료 기준은 action 없는 질문의 선택 답·자유 답을 일반 답 경로로 보내라고 하지만, contracts의 AnswerQuestion은 모든 답에 `confirmation: "required"`를 둔다. 그래서 지금 제품 core는 칸에서 보낸 일반 답을 거절하고 칸은 "This answer can't be sent from here."를 보인다. 미루기·취소·읽음 표시는 그대로 된다. 추천: lophn-agent/contracts가 domain model("action option이면 confirmation window 증거 소비")대로 confirmation을 action 선택지의 답에만 요구하게 route를 나눈다(일반 답 route와 action 답 route). 그 전까지 칸은 다른 길로 답을 보내지 않는다.
   - (2) 질문의 본문·이유·선택지 설명·추천 이유 blob은 `general_read: false`라 어느 actor도 읽지 못한다. 칸은 선택지 이름(inline)과 추천·기한만 보이고 본문 자리에 "This question's text can't be shown here yet."를 둔다. 추천: lophn-agent가 사람(user) 화면 읽기용 field를 연다(secret 판정 답은 그대로 막는다).
   - (3) 제품 core(`apps/core`)는 platform approvals·notifications 모듈을 조립하지 않아 `approvals/list`·`notifications/list`가 없다. 화면은 질문만 보이고 결정 개수 자리에 "Couldn't load decisions right now.", notification 탭에 "Couldn't load notifications right now."를 둔다. 0건이나 빈 목록으로 말하지 않는다. chip은 읽은 것이 없어 뜨지 않는다. core 조립은 platform 작업이 필요하다. lead가 배정한다.
@@ -1183,7 +1185,15 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (5) 자유 답과 취소 이유는 대화 도크(Q15)와 같이 글의 hash만 보낸다. 사람 글을 blob으로 올리는 길이 생기면 같은 hash로 보낸다.
   - (6) "blocking"은 그 요청을 `waiting_on`으로 기다리며 멈춘 run이 있는 요청으로 읽는다. 기간 filter의 시각은 생성·닫힘 event의 `at`(events.list)이고, 읽지 못한 요청은 기간으로 빼지 않는다. 역할은 run의 assignment 역할이다.
   - (7) headless 확인용으로 main이 `LOPHN_SHELL_START=things-to-confirm`이면 lophn 공간의 things-to-confirm부터 연다(개발 전용, stack.md).
-- **Q17 프로젝트 등록과 추적 켜기의 제품 경로(T15, 추천안으로 진행).**
+- **Q17 전역 팔레트의 동작, OS 기능 실패 안내 자리, notification 원천(T56, 추천안으로 진행).**
+  - (1) 전역 팔레트 CommandOrControl+Shift+K는 가장 최근에 focus를 받은 창(없으면 새 기본 창)을 앞으로 가져와 지금 공간과 상관없이 lophn 전체 팔레트(프로젝트·컨텍스트·문서·앱·행동)를 연다. 이미 열린 팔레트는 닫지 않는다. 창 안 팔레트 CommandOrControl+K는 지금 공간의 행을 여닫고 런처에서는 아무것도 열지 않는다. main이 창에 시키는 것은 `shell:intent` channel의 이름(`global-palette`, `things-to-confirm`)뿐이고, 막 연 창에서는 preload가 마지막 하나를 들고 있다가 첫 구독에 넘긴다.
+  - (2) 전역 팔레트 등록 실패와 OS notification 실패는 tray menu의 누를 수 없는 안내 줄 하나씩으로 보이고 log에 남긴다. 다른 key를 대신 잡거나 다시 시도하지 않는다. settings의 OS notification 항목(T58)이 생기면 같은 상태를 거기서도 보일 수 있다.
+  - (3) OS notification 클릭은 things-to-confirm을 연다. notification별 결과로 바로 가지 않고 things-to-confirm의 행이 결과를 연다. 읽음·결정 command는 보내지 않는다.
+  - (4) opt-in 정의 `shell.os_notifications`(boolean, 기본 false)는 `apps/core/shell.ts`에 두었다. main은 새 notification이 도착할 때마다 settings.get으로 지금 값을 읽고, 읽지 못하면 꺼짐으로 본다. 켜고 끄는 화면은 T58이다.
+  - (5) 재연결 backlog 판정: main 구독은 붙을 때 `events.list`의 `head_seq`를 기억하고 socket으로 온 event 중 그 뒤의 것만 "지금 도착"으로 넘긴다. 한 page로 다 따라잡지 못한 나머지도 socket으로 오기 때문이다.
+  - (6) 제품 core가 platform notifications를 조립하지 않아(Q16(3)) 지금은 `NotificationCreated`가 오지 않는다. main은 실제 event 구독에 붙어 있으므로 core 조립이 들어오면 추가 연결 없이 표시된다. 그 확인은 platform 조립 작업과 platform#T46(flow catch-up-notifications)이 한다.
+  - (7) `apps/shell/renderer/editor/reading-width.ts`의 settings.apply compare에 `defaults_revision`이 없던 버그는 #285가 고쳤다(실제 core 시험 포함).
+- **Q18 프로젝트 등록과 추적 켜기의 제품 경로(T15, 추천안으로 진행).**
   - (1) 제품 core는 아직 `/v1/projects/preview_tracking`과 `/v1/files/list`를 서빙하지 않는다(둘 다 `not_found` "route not found"). shell 쪽은 contract대로 이었다: 추적 켜기 창은 worker `projects/preview_tracking`을 끝 page까지 모으고, 켜기는 미리 본 폴더·규칙과 complete인 마지막 page를 `projects/set_tracking`에 `compare.base_revision`과 함께 보낸다. 이 모양은 가짜 core 통로 테스트(`workspace/tracking/core-source_test.ts`)가 보고, 화면은 주입한 통로로 테스트한다. 실제 core의 등록·목록·작업대 읽기는 temp LOPHN_HOME core 테스트(`desktop/launcher/core-source-real-core_test.ts`)가 본다. 미리보기·켜기와 팔레트 파일 묶음의 실제 core 확인은 documents#T12 뒤 shell#T17로 넘긴다. 그 전까지 미리보기는 "The file check for … didn't finish"를 보이고 추적을 켜지 않는다.
   - (2) Q13과 같은 이유로 renderer allowlist에 `worker:projects/preview_tracking`을 더 열었다. 폴더를 scan해 포함·제외만 돌려주는 읽기다. 적용은 command `projects/set_tracking`이다.
   - (3) 등록 창은 이름·목적·폴더만 묻는다. 안쪽 짧은 이름(slug)은 이름에서 만들고 이미 쓰는 이름이면 번호를 붙이며 펼친 상세에만 보인다. 등록은 `tracking {enabled:false, patterns:[], use_gitignore:false}`로 만들고, 규칙을 고른 적 없는 프로젝트의 첫 켜기는 read의 `initial_tracking_proposal`(Markdown과 .gitignore)을 보인다.

@@ -16,13 +16,12 @@ import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 import { presetDefinitionJson } from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
 import {
   agentRun,
-  BODY,
   cred,
   hashOf,
   id,
+  sha256Text,
 } from "../../../packages/lophn-agent/questions/testing/mod.ts";
 import {
-  EMPTY_TEXT_BLOB,
   screenAnswerText,
   SECURE_INPUT_GUIDANCE,
 } from "../../../packages/lophn-agent/questions/mod.ts";
@@ -252,7 +251,7 @@ function option(key: string, extra: Record<string, unknown> = {}) {
   return {
     key,
     label: `Option ${key}`,
-    description_blob: BODY(key.length + 40),
+    description: `Description of ${key}`,
     evidence: [],
     adoption: null,
     action: null,
@@ -277,8 +276,8 @@ type CreateOverrides = Partial<{
   id: string;
   run: string;
   session: string | null;
-  prompt_blob: string;
-  reason_blob: string;
+  prompt: string;
+  reason: string;
   options: unknown[];
   recommendation: unknown;
   expires_at: string | null;
@@ -289,8 +288,8 @@ function questionInput(n: number, overrides: CreateOverrides = {}) {
     id: id("qst", n),
     run: RUN_1,
     session: null,
-    prompt_blob: BODY(n),
-    reason_blob: BODY(n + 100),
+    prompt: `Prompt ${n}`,
+    reason: `Reason ${n}`,
     options: [],
     recommendation: null,
     expires_at: null,
@@ -323,27 +322,30 @@ async function created(
 }
 
 type Answer =
-  | { kind: "option"; option_key: string; text_blob: null }
-  | { kind: "text"; option_key: null; text_blob: string };
+  | { kind: "option"; option_key: string }
+  | { kind: "text"; text: string };
 
-const pick = (key: string): Answer => ({
-  kind: "option",
-  option_key: key,
-  text_blob: null,
-});
-const say = (blob: string): Answer => ({
-  kind: "text",
-  option_key: null,
-  text_blob: blob,
-});
+const pick = (key: string): Answer => ({ kind: "option", option_key: key });
+const say = (text: string): Answer => ({ kind: "text", text });
+const said = (n: number): Answer => say(`free answer ${n}`);
 
-// 사람 확인 handle. route가 선언한 binding field(question·created_seq·answer)가
-// 내용 기준이다. shell의 confirmation window가 사람의 클릭 뒤 발급하는 것과 같다.
+// 저장된 답은 글 대신 그 blob의 hash를 가리킨다.
+const storedAnswer = (chosen: Answer) =>
+  chosen.kind === "option"
+    ? { kind: "option", option_key: chosen.option_key, text_blob: null }
+    : { kind: "text", option_key: null, text_blob: sha256Text(chosen.text) };
+
+const CANCEL_TEXT = "The premise changed.";
+
+// 사람 확인 handle. AnswerQuestionAction이 선언한 binding field(question·created_seq·
+// answer·binding_hash)가 내용 기준이다. shell의 confirmation window가 사람의 클릭 뒤
+// 발급하는 것과 같다.
 async function handleFor(
   h: LedgerHarness,
   question: string,
   createdSeq: string,
   answer: Answer,
+  bindingHash: string,
 ): Promise<string> {
   const issued = await h.confirmation({
     action: "issue",
@@ -355,8 +357,9 @@ async function handleFor(
         question,
         created_seq: createdSeq,
         answer,
+        binding_hash: bindingHash,
       }),
-      allowed_decisions: ["AnswerQuestion"],
+      allowed_decisions: ["AnswerQuestionAction"],
       expires_at: new Date(NOW + 86_400_000 * 3).toISOString(),
     },
   });
@@ -364,6 +367,8 @@ async function handleFor(
   return (issued.value as { confirmation: string }).confirmation;
 }
 
+// binding_hash가 있으면 사람 확인을 거친 action 답(AnswerQuestionAction)이고, 없으면
+// 확인 없는 일반 답(AnswerQuestion)이다.
 async function answer(
   h: LedgerHarness,
   question: string,
@@ -376,20 +381,30 @@ async function answer(
   } = {},
 ) {
   const binding = options.binding_hash ?? null;
+  if (binding === null) {
+    return h.command(
+      options.ctx ?? userCred,
+      env(
+        "AnswerQuestion",
+        { question, created_seq: createdSeq, answer: chosen },
+        { created_seq: createdSeq },
+      ),
+    );
+  }
   const handle = options.confirmation ??
-    await handleFor(h, question, createdSeq, chosen);
+    await handleFor(h, question, createdSeq, chosen, binding);
   return h.command(
     options.ctx ?? userCred,
     env(
-      "AnswerQuestion",
+      "AnswerQuestionAction",
       {
         question,
         created_seq: createdSeq,
         answer: chosen,
         binding_hash: binding,
-        evidence: binding === null ? null : {
+        evidence: {
           question,
-          option: chosen.option_key,
+          option: (chosen as { option_key: string }).option_key,
         },
       },
       { created_seq: createdSeq },
@@ -426,7 +441,7 @@ function cancel(
       question,
       created_seq: createdSeq,
       closed_reason: reason,
-      closed_reason_blob: BODY(77),
+      closed_reason_text: CANCEL_TEXT,
     }, { created_seq: createdSeq }),
   );
 }
@@ -443,7 +458,7 @@ type QuestionView = {
     | null;
   expires_at: string | null;
   status: string;
-  answer: Answer | null;
+  answer: ReturnType<typeof storedAnswer> | null;
   closed_reason: string | null;
   closed_reason_blob: string | null;
   created_seq: string;
@@ -484,9 +499,9 @@ Deno.test("lophn-agent/questions#R1: a question already answered in the run is n
   const h = await ready();
   try {
     const first = await created(h, 1);
-    value(await answer(h, first.id, first.created_seq, say(BODY(50))));
+    value(await answer(h, first.id, first.created_seq, said(50)));
     // 같은 본문을 같은 run에 다시 묻는 질문은 받지 않는다.
-    code(await ask(h, 2, { prompt_blob: BODY(1) }), "conflict");
+    code(await ask(h, 2, { prompt: "Prompt 1" }), "conflict");
     // 본문이 다른 새 결정은 질문할 수 있다.
     const second = await created(h, 3);
     assertEquals(second.status, "pending");
@@ -503,7 +518,7 @@ Deno.test("lophn-agent/questions#R1: one question carries one decision and one a
     // 두 번째 선택은 같은 질문에 붙지 않는다. 먼저 받은 답이 그대로다.
     code(await answer(h, q.id, q.created_seq, pick("b")), "conflict");
     const read = await readQuestion(h, q.id);
-    assertEquals(read.answer, pick("a"));
+    assertEquals(read.answer, storedAnswer(pick("a")));
     assertEquals((await eventsOf(h, "QuestionAnswered", q.id)).length, 1);
   } finally {
     await h.close();
@@ -558,7 +573,7 @@ Deno.test("lophn-agent/questions#R2: a run waits on at most one question and a s
       };
     assertEquals(ce.status, "pending");
     // 답이 와서 닫히면 같은 run은 다시 질문할 수 있다.
-    value(await answer(h, first.id, first.created_seq, say(BODY(60))));
+    value(await answer(h, first.id, first.created_seq, said(60)));
     assertEquals((await created(h, 4)).status, "pending");
     // 세션을 지정하려면 run의 세션이어야 한다.
     await finishRun(h, RUN_1);
@@ -581,7 +596,7 @@ Deno.test("lophn-agent/questions#R3: free input, choices with free input, one re
   try {
     // 선택지 없는 질문은 자유 입력으로만 답한다.
     const free = await created(h, 1);
-    value(await answer(h, free.id, free.created_seq, say(BODY(61))));
+    value(await answer(h, free.id, free.created_seq, said(61)));
     assertEquals((await readQuestion(h, free.id)).status, "answered");
     // 선택지가 있어도 자유 입력으로 답할 수 있다. 개수 상한은 없다.
     const keys = Array.from({ length: 12 }, (_, index) => `opt-${index}`);
@@ -589,7 +604,7 @@ Deno.test("lophn-agent/questions#R3: free input, choices with free input, one re
       options: keys.map((key) => option(key)),
       recommendation: {
         option_key: "opt-3",
-        explanation_blob: BODY(70),
+        explanation: "Explanation 70",
       },
     });
     const record = await readQuestion(h, many.id);
@@ -597,18 +612,24 @@ Deno.test("lophn-agent/questions#R3: free input, choices with free input, one re
     // 모든 선택지에 설명이 있고 추천은 하나와 그 이유다.
     assert(record.options.every((one) => one.description_blob.length === 64));
     assertEquals(record.recommendation?.option_key, "opt-3");
-    assertEquals(record.recommendation?.explanation_blob, BODY(70));
+    assertEquals(
+      record.recommendation?.explanation_blob,
+      sha256Text("Explanation 70"),
+    );
     // 추천은 답도 적용도 아니다.
     assertEquals(record.status, "pending");
     assertEquals(record.answer, null);
     assertEquals(record.applied, false);
-    value(await answer(h, many.id, many.created_seq, say(BODY(62))));
-    assertEquals((await readQuestion(h, many.id)).answer, say(BODY(62)));
+    value(await answer(h, many.id, many.created_seq, said(62)));
+    assertEquals(
+      (await readQuestion(h, many.id)).answer,
+      storedAnswer(said(62)),
+    );
     // 없는 선택지를 추천하거나 같은 key를 두 번 쓴 질문은 만들 수 없다.
     code(
       await ask(h, 3, {
         options: [option("a")],
-        recommendation: { option_key: "zzz", explanation_blob: BODY(71) },
+        recommendation: { option_key: "zzz", explanation: "Explanation 71" },
       }),
       "invalid_input",
     );
@@ -638,19 +659,25 @@ Deno.test("lophn-agent/questions#R4: a pending question shows its display and de
           ]),
         }),
       ],
-      recommendation: { option_key: "a", explanation_blob: BODY(72) },
+      recommendation: { option_key: "a", explanation: "Explanation 72" },
       expires_at: at(60_000),
     });
     const record = await readQuestion(h, q.id);
     // 기본 화면 자료: 질문·선택지 설명·추천 이유·선택 뒤 동작·기한.
-    assertEquals(record.prompt_blob, BODY(1));
-    assertEquals(record.options[0]!.description_blob, BODY(41));
-    assertEquals(record.recommendation?.explanation_blob, BODY(72));
+    assertEquals(record.prompt_blob, sha256Text("Prompt 1"));
+    assertEquals(
+      record.options[0]!.description_blob,
+      sha256Text("Description of a"),
+    );
+    assertEquals(
+      record.recommendation?.explanation_blob,
+      sha256Text("Explanation 72"),
+    );
     assert(record.options[1]!.action !== null);
     assertEquals(record.options[0]!.action, null);
     assertEquals(record.expires_at, at(60_000));
     // 상세 자료: 질문의 이유·관련 run·세션.
-    assertEquals(record.reason_blob, BODY(101));
+    assertEquals(record.reason_blob, sha256Text("Reason 1"));
     assertEquals(record.run, RUN_1);
     assertEquals(record.session, null);
     // 선택하는 것만으로는 답이 아니다. 명시 답 전에는 아무 동작도 없다.
@@ -684,7 +711,7 @@ Deno.test("lophn-agent/questions#R4: the list narrows by run, assignment and sta
   try {
     const a = await created(h, 1);
     await ask(h, 2, { run: RUN_2 }).then(value);
-    value(await answer(h, a.id, a.created_seq, say(BODY(63))));
+    value(await answer(h, a.id, a.created_seq, said(63)));
     const list = async (ctx: AuthenticatedContext, input: unknown) =>
       (value(
         await h.read({ resource: "questions", method: "list" }, ctx, input),
@@ -760,7 +787,7 @@ Deno.test("lophn-agent/questions#R5: question content is never overwritten, a ch
     const original = await readQuestion(h, q.id);
     assertEquals(original.options.map((one) => one.key), ["a"]);
     assertEquals(original.closed_reason, "superseded");
-    assertEquals(original.closed_reason_blob, BODY(77));
+    assertEquals(original.closed_reason_blob, sha256Text(CANCEL_TEXT));
     assertEquals(
       (await readQuestion(h, replaced.id)).options.map((one) => one.key),
       ["a", "b"],
@@ -776,35 +803,14 @@ Deno.test("lophn-agent/questions#R6: only the person's explicit answer to the na
     const q = await created(h, 1, { options: [option("a")] });
     // agent·machine·다른 자격은 답하지 못한다.
     for (const ctx of [agentFor(RUN_1), machineCred]) {
-      const handle = await handleFor(h, q.id, q.created_seq, pick("a"));
       code(
-        await answer(h, q.id, q.created_seq, pick("a"), {
-          ctx,
-          confirmation: handle,
-        }),
+        await answer(h, q.id, q.created_seq, pick("a"), { ctx }),
         "forbidden",
       );
     }
     // 빈 답과 없는 선택지는 답이 아니다.
-    code(
-      await answer(h, q.id, q.created_seq, say(EMPTY_TEXT_BLOB)),
-      "invalid_input",
-    );
+    code(await answer(h, q.id, q.created_seq, say("  \n ")), "invalid_input");
     code(await answer(h, q.id, q.created_seq, pick("zzz")), "invalid_input");
-    // 사람 확인 없는 제출은 답이 아니다.
-    code(
-      await h.command(
-        userCred,
-        env("AnswerQuestion", {
-          question: q.id,
-          created_seq: q.created_seq,
-          answer: pick("a"),
-          binding_hash: null,
-          evidence: null,
-        }, { created_seq: q.created_seq }),
-      ),
-      "forbidden",
-    );
     assertEquals((await readQuestion(h, q.id)).status, "pending");
     assertEquals((await eventsOf(h, "QuestionAnswered")).length, 0);
     // 미루기와 취소는 답이 아니라 답 없음 종료다.
@@ -895,7 +901,7 @@ Deno.test("lophn-agent/questions#R7: no deadline by default and an explicit dead
       ),
       "conflict",
     );
-    value(await answer(h, open.id, open.created_seq, say(BODY(64))));
+    value(await answer(h, open.id, open.created_seq, said(64)));
     // 지나간 기한은 질문으로 만들 수 없다.
     code(
       await ask(h, 2, { expires_at: at(86_400_000) }),
@@ -908,10 +914,10 @@ Deno.test("lophn-agent/questions#R7: no deadline by default and an explicit dead
       await ask(h, 4, { run: RUN_2, expires_at: deadline }),
     ).result as { id: string; created_seq: string };
     await advance(h, 9_999);
-    value(await answer(h, before.id, before.created_seq, say(BODY(65))));
+    value(await answer(h, before.id, before.created_seq, said(65)));
     await advance(h, 1);
     code(
-      await answer(h, boundary.id, boundary.created_seq, say(BODY(66))),
+      await answer(h, boundary.id, boundary.created_seq, said(66)),
       "conflict",
     );
     // 늦은 답은 받지 않고 질문은 machine의 만료로만 닫힌다.
@@ -982,7 +988,7 @@ Deno.test("lophn-agent/questions#R8: deferring, expiring and cancelling end with
     const states = [
       [deferred.id, "cancelled", "deferred", null],
       [expiring.id, "expired", "expired", null],
-      [cancelled.id, "cancelled", "cancelled", BODY(77)],
+      [cancelled.id, "cancelled", "cancelled", sha256Text(CANCEL_TEXT)],
     ] as const;
     for (const [question, status, reason, blob] of states) {
       const record = await readQuestion(h, question);
@@ -1029,7 +1035,10 @@ Deno.test("lophn-agent/questions#R9: a question the run no longer needs closes w
       (replay.result as { closed_seq: string }).closed_seq,
     );
     code(await answer(h, q.id, q.created_seq, pick("b")), "conflict");
-    assertEquals((await readQuestion(h, q.id)).answer, pick("a"));
+    assertEquals(
+      (await readQuestion(h, q.id)).answer,
+      storedAnswer(pick("a")),
+    );
     assertEquals((await eventsOf(h, "QuestionAnswered", q.id)).length, 1);
     // 닫힌 질문은 다시 닫히지 않는다.
     code(await cancel(h, userCred, q.id, q.created_seq), "conflict");
@@ -1045,17 +1054,17 @@ Deno.test("lophn-agent/questions#R9: a question the run no longer needs closes w
       };
     await finishRun(h, RUN_2);
     code(
-      await answer(h, orphan.id, orphan.created_seq, say(BODY(67))),
+      await answer(h, orphan.id, orphan.created_seq, said(67)),
       "conflict",
     );
     value(await cancel(h, machineCred, orphan.id, orphan.created_seq));
     const closed = await readQuestion(h, orphan.id);
     assertEquals(closed.status, "cancelled");
-    assertEquals(closed.closed_reason_blob, BODY(77));
+    assertEquals(closed.closed_reason_blob, sha256Text(CANCEL_TEXT));
     // 틀린 created_seq는 내용이 바뀐 질문으로 거절한다.
     const premise = await created(h, 3);
     code(
-      await answer(h, premise.id, "999", say(BODY(68))),
+      await answer(h, premise.id, "999", said(68)),
       "conflict",
     );
     // 전제가 바뀌었다는 이유(superseded)는 run이 살아 있어도 machine이 닫는다.
@@ -1103,7 +1112,9 @@ Deno.test("lophn-agent/questions#R10: a pending question and its answer live in 
       }),
       "conflict",
     );
-    code(await answer(h, q.id, q.created_seq, pick("apply")), "conflict");
+    // user token은 클릭의 증거가 아니다(platform/identity#R14): action이 있는 선택지는
+    // 확인 없는 일반 답으로 받지 않는다.
+    code(await answer(h, q.id, q.created_seq, pick("apply")), "forbidden");
     const accepted = value(
       await answer(h, q.id, q.created_seq, pick("apply"), {
         binding_hash: action.binding_hash,
@@ -1113,7 +1124,7 @@ Deno.test("lophn-agent/questions#R10: a pending question and its answer live in 
     // 답 접수는 적용 완료가 아니다. 읽기는 둘을 구별해 낸다.
     const record = await readQuestion(h, q.id);
     assertEquals(record.status, "answered");
-    assertEquals(record.answer, pick("apply"));
+    assertEquals(record.answer, storedAnswer(pick("apply")));
     assertEquals(record.closed_seq, accepted.closed_seq);
     assertEquals(record.expires_at, at(3_600_000));
     assertEquals(record.applied, false);
@@ -1264,7 +1275,7 @@ Deno.test("lophn-agent/questions#R12: an answer or a recommendation stands in fo
     const action = settingsAction(id("qst", 4), changes);
     const q = await created(h, 4, {
       options: [option("apply", { action })],
-      recommendation: { option_key: "apply", explanation_blob: BODY(73) },
+      recommendation: { option_key: "apply", explanation: "Explanation 73" },
     });
     const events = async () =>
       Number((await sql(h, "select count(*) as n from events"))[0]!["n"]);
@@ -1383,7 +1394,7 @@ Deno.test("platform/settings#R29: a real question answered by a person lets a ma
         option("adopt", { action }),
         option("explain"),
       ],
-      recommendation: { option_key: "adopt", explanation_blob: BODY(80) },
+      recommendation: { option_key: "adopt", explanation: "Explanation 80" },
     });
     const evidence = { question: qid, option: "adopt" };
     // 질문만 있고 사람이 답하지 않았다. 추천이 있어도 근거가 아니다.
@@ -1392,7 +1403,7 @@ Deno.test("platform/settings#R29: a real question answered by a person lets a ma
     code(await machineApply(h, WIDTH_CHANGES, undefined), "forbidden");
     // 사람이 고른 설명 선택지(action 없음)는 설정 변경의 근거가 아니다.
     const explain = await created(h, 2, { run: RUN_2 });
-    value(await answer(h, explain.id, explain.created_seq, say(BODY(81))));
+    value(await answer(h, explain.id, explain.created_seq, said(81)));
     code(
       await machineApply(h, WIDTH_CHANGES, {
         question: explain.id,
@@ -1410,7 +1421,7 @@ Deno.test("platform/settings#R29: a real question answered by a person lets a ma
     assertEquals(String(answered["actor"]), "user");
     assertEquals(
       JSON.parse(String(answered["payload"])).answer,
-      pick("adopt"),
+      storedAnswer(pick("adopt")),
     );
     // 고정 action과 다른 변경 목록은 사람이 고른 것이 아니다.
     code(
@@ -1460,7 +1471,7 @@ Deno.test("platform/settings#R29: a question the person cancelled or answered wi
     const action = settingsAction(qid, WIDTH_CHANGES);
     const q = await created(h, 1, { options: [option("adopt", { action })] });
     // 자유 답은 동작으로 읽지 않는다. option 근거도 되지 않는다.
-    value(await answer(h, q.id, q.created_seq, say(BODY(82))));
+    value(await answer(h, q.id, q.created_seq, said(82)));
     code(
       await machineApply(h, WIDTH_CHANGES, { question: qid, option: "adopt" }),
       "forbidden",

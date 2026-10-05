@@ -25,6 +25,7 @@ import {
 } from "../conversation/mod.ts";
 import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
 import { registerMessageBodyRef } from "../conversation/testing/mod.ts";
+import { registerQuestionTextRef } from "./testing/mod.ts";
 import {
   createQuestionCommands,
   createQuestionReads,
@@ -84,9 +85,11 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   const reads = createQuestionReads();
   return {
     clock,
-    // 같은 세션에 사람 말을 받는 시험이 있어 본문 참조 등록이 필요하다.
+    // 질문 글의 참조 등록과, 같은 세션에 사람 말을 받는 시험의 본문 참조 등록이 필요하다.
     registerBlobRef: (tx, ctx, reference) =>
-      registerMessageBodyRef(tx, ctx, reference),
+      reference.owner_kind === "question"
+        ? registerQuestionTextRef(tx, ctx, reference)
+        : registerMessageBodyRef(tx, ctx, reference),
     schemaSteps: [
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,
@@ -121,6 +124,7 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       conversationCommands.receive,
       commands.create,
       commands.answer,
+      commands.answerAction,
       commands.defer,
       commands.cancel,
       commands.expire,

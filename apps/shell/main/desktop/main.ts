@@ -3,9 +3,11 @@ import {
   app,
   BrowserWindow,
   dialog,
+  globalShortcut,
   ipcMain,
   Menu,
   nativeImage,
+  Notification,
   protocol,
   Tray,
   type WebContents,
@@ -17,7 +19,11 @@ import { dirname, join } from "node:path";
 
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
 import { FOLDER_PICK_CHANNEL } from "../../ipc/folder-picker.ts";
-import { WINDOW_SHORTCUT_CHANNEL } from "../../ipc/shortcuts.ts";
+import {
+  DESKTOP_INTENT_CHANNEL,
+  type DesktopIntent,
+  WINDOW_SHORTCUT_CHANNEL,
+} from "../../ipc/shortcuts.ts";
 
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
 import { startCoreConnection } from "./core/connection.ts";
@@ -46,11 +52,24 @@ import {
 } from "./tray.ts";
 import {
   capturePaints,
+  guardNotifier,
+  guardShortcuts,
   readHeadless,
   reveal,
   surfaceOptions,
 } from "./headless.ts";
 import { createFolderPicker } from "./folder-picker.ts";
+import {
+  type GlobalPalette,
+  type GlobalShortcutPort,
+  installGlobalPalette,
+} from "./global-shortcut.ts";
+import {
+  createOsNotifications,
+  optInFromSettings,
+  OS_NOTIFICATIONS_KEY,
+  type OsNotifier,
+} from "./os-notification.ts";
 import { registerShellScheme } from "./security.ts";
 import { listenShortcuts } from "./shortcuts.ts";
 import { startSingleInstance } from "./single-instance.ts";
@@ -108,7 +127,27 @@ const headless = readHeadless(process.env);
 if (headless.shotDir) mkdirSync(headless.shotDir, { recursive: true });
 let shotSerial = 0;
 const overlays = electronOverlays(headless);
+// 순서는 최근에 focus를 받은 창이 끝이다. 창 밖에서 온 일은 끝의 창에 시킨다.
 const windows = new Set<BrowserWindow>();
+const log = (message: string) => console.log(`[lophn] ${message}`);
+let tray: InstalledTray | undefined;
+
+// OS notification(shell#T56). 사람이 켰을 때만 지금 도착한 NotificationCreated를 고정 문구로
+// 올린다. 클릭은 things-to-confirm을 열 뿐 읽음이 아니다. headless는 OS에 올리지 않는다.
+const osNotifications = createOsNotifications({
+  notifier: guardNotifier(electronNotifier(), headless, log),
+  optedIn: async () => {
+    const session = core.session();
+    if (!session) return false;
+    const reply = await session.call("read", "settings", "get", {
+      keys: [OS_NOTIFICATIONS_KEY],
+    });
+    return reply.ok && optInFromSettings(reply.value);
+  },
+  open: () => sendIntent("things-to-confirm"),
+  unavailable: () => tray?.notice("notifications-unavailable"),
+  log,
+});
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
 const core = startCoreConnection({
   launch: {
@@ -126,6 +165,7 @@ const core = startCoreConnection({
       send: (channel, payload) => window.webContents.send(channel, payload),
       isDestroyed: () => window.isDestroyed(),
     })),
+  arrived: (events) => void osNotifications.arrived(events),
 });
 const terminals = createSupervisor({
   // build가 host를 main과 같은 dist에 묶는다. 생성만 하고 첫 요청 때 띄운다.
@@ -176,7 +216,7 @@ ipcMain.handle(
   }),
 );
 
-let tray: InstalledTray | undefined;
+let globalPalette: GlobalPalette | undefined;
 
 // 터미널 host와 core를 멈추는 한 번의 순서. tray Quit·`--quit`·OS 종료가 같이 쓴다.
 let stopped = false;
@@ -193,6 +233,7 @@ function stopAll(): void {
   terminals.stop();
   core.shutdown();
   overlays.dispose();
+  globalPalette?.dispose();
   tray?.destroy();
 }
 
@@ -317,6 +358,14 @@ if (instance.acquired) {
         },
       });
     }
+    // 전역 팔레트(desktop#R18). 실패하면 tray에 사용 불가로 보이고 다른 key는 잡지 않는다.
+    // headless는 OS에 등록하지 않는다.
+    globalPalette = installGlobalPalette({
+      port: guardShortcuts(electronShortcuts, headless, log),
+      onPalette: () => sendIntent("global-palette"),
+      unavailable: () => tray?.notice("global-search-unavailable"),
+      log,
+    });
     // 창 없는 시작은 main과 core만 띄운다(desktop#R21).
     if (!mode.tray) openDesktopWindow();
   });
@@ -344,14 +393,18 @@ const electronTray: TrayFactory = {
       setMenu: (items, onSelect) =>
         tray.setContextMenu(Menu.buildFromTemplate(
           items.map((item) =>
-            item.type === "separator" ? { type: "separator" as const } : {
-              type: item.type,
-              label: item.label,
-              ...(item.type === "checkbox"
-                ? { checked: item.checked, enabled: item.enabled }
-                : {}),
-              click: () => onSelect(item.id),
-            }
+            item.type === "separator"
+              ? { type: "separator" as const }
+              : item.type === "notice"
+              ? { label: item.label, enabled: false }
+              : {
+                type: item.type,
+                label: item.label,
+                ...(item.type === "checkbox"
+                  ? { checked: item.checked, enabled: item.enabled }
+                  : {}),
+                click: () => onSelect(item.id),
+              }
           ),
         )),
       onClick: (handler) => tray.on("click", () => handler()),
@@ -359,6 +412,51 @@ const electronTray: TrayFactory = {
     };
   },
 };
+
+const electronShortcuts: GlobalShortcutPort = {
+  register: (accelerator, callback) =>
+    globalShortcut.register(accelerator, callback),
+  unregister: (accelerator) => globalShortcut.unregister(accelerator),
+};
+
+function electronNotifier(): OsNotifier {
+  // 올린 notification을 닫히거나 눌릴 때까지 잡아 둔다. 놓치면 클릭 handler가 사라진다.
+  const live = new Set<Notification>();
+  return {
+    isSupported: () => Notification.isSupported(),
+    show(note, onClick) {
+      const shown = new Notification({ title: note.title, body: note.body });
+      live.add(shown);
+      shown.on("click", () => {
+        live.delete(shown);
+        onClick();
+      });
+      shown.on("close", () => live.delete(shown));
+      shown.show();
+    },
+  };
+}
+
+/**
+ * 창 밖에서 온 일(전역 팔레트 키, OS notification 클릭)을 가장 최근 창에 시킨다. 사람이
+ * 직접 누른 것이라 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. 막 연 창은
+ * preload가 받아 두었다가 renderer가 구독하면 넘긴다.
+ */
+function sendIntent(intent: DesktopIntent): void {
+  const target =
+    [...windows].filter((window) => !window.isDestroyed()).at(-1) ??
+      openDesktopWindow();
+  if (target === undefined) return;
+  reveal(target, headless);
+  const send = () => {
+    if (!target.isDestroyed()) {
+      target.webContents.send(DESKTOP_INTENT_CHANNEL, intent);
+    }
+  };
+  if (target.webContents.isLoading()) {
+    target.webContents.once("did-finish-load", send);
+  } else send();
+}
 
 /** 가장 최근 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. */
 function showDesktopWindow(): void {
@@ -372,7 +470,8 @@ function showDesktopWindow(): void {
   reveal(recent, headless);
 }
 
-function openDesktopWindow(): void {
+function openDesktopWindow(): BrowserWindow | undefined {
+  let created: BrowserWindow | undefined;
   openWindow({
     platform: process.platform,
     packaged: app.isPackaged,
@@ -417,6 +516,11 @@ function openDesktopWindow(): void {
         );
         attachTerminalSurface(overlays.overlayRegistry(), window);
         windows.add(window);
+        created = window;
+        window.on("focus", () => {
+          windows.delete(window);
+          windows.add(window);
+        });
         window.on("closed", () => windows.delete(window));
         // 연결 전에 뜬 창은 지금 상태를 바로 받는다. 이후 변화는 targets가 민다.
         window.webContents.on("did-finish-load", () => {
@@ -428,6 +532,7 @@ function openDesktopWindow(): void {
       },
     },
   });
+  return created;
 }
 
 function wrap(window: BrowserWindow): CreatedWindow {

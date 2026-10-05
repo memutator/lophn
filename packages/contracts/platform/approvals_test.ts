@@ -202,14 +202,25 @@ Deno.test("platform/approvals#R1, platform/approvals#R5: 모르는 field·틀린
       status: "granted",
     }).success,
   );
+  // 거절은 이유 없이 할 수 있다(R14). 만료·취소는 이유가 필수다.
   assert(
-    !approvalRequestSchema.safeParse({
+    approvalRequestSchema.safeParse({
       ...request,
       status: "rejected",
       closed_reason_blob: null,
       closed_seq: "43",
     }).success,
   );
+  for (const status of ["expired", "cancelled"]) {
+    assert(
+      !approvalRequestSchema.safeParse({
+        ...request,
+        status,
+        closed_reason_blob: null,
+        closed_seq: "43",
+      }).success,
+    );
+  }
   assert(
     !createApprovalRequestInputSchema.safeParse({
       id: APR,

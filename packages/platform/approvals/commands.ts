@@ -1,5 +1,7 @@
-// approval request 생성·만료·취소 command(platform/approvals#R1, R2, R6, R12, R13).
-// 허락·거절은 T22, 적용은 T23이 맡는다. handler는 동기이고 transaction 하나다.
+// approval request 생성·만료·취소·허락·거절 command(platform/approvals#R1, R2, R3, R4,
+// R5, R6, R12, R13, R14, R15). 적용은 T23이 맡는다. handler는 동기이고 transaction 하나다.
+// 허락·거절의 사람 확인(confirmation handle)은 route의 `confirmation: "required"`와 binding으로
+// 선언하고, writer 실행기가 transaction 안에서 현재 handle을 예약·소비한다.
 // 설명 본문의 공백·secret 검사는 command 밖(work)에서 한다. 입력은 hash만 온다.
 // contract 입력에 준비 blob 참조가 없으므로 command는 hash를 저장하고 본문을 다시 hash하지 않는다.
 
@@ -11,11 +13,15 @@ import {
   approvalRequestCancelled,
   approvalRequestCreated,
   approvalRequestExpired,
+  approvalRequestGranted,
+  approvalRequestRejected,
   approvalRequestSchema,
   cancelApprovalRequest,
   type CommandDefinition,
   createApprovalRequest,
   expireApprovalRequest,
+  grantApprovalRequest,
+  rejectApprovalRequest,
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import {
@@ -32,6 +38,7 @@ type StoredRow = {
   reason_blob: string;
   effect: string;
   action: string;
+  action_binding_hash: string;
   expires_at: string | null;
   status: string;
   closed_reason_blob: string | null;
@@ -40,13 +47,20 @@ type StoredRow = {
 };
 
 const REQUEST_COLUMNS =
-  `id, requester, run, reason_blob, effect, action, expires_at,
-  status, closed_reason_blob, created_seq, closed_seq`;
+  `id, requester, run, reason_blob, effect, action, action_binding_hash,
+  expires_at, status, closed_reason_blob, created_seq, closed_seq`;
 
 // 만료 이유는 machine이 고정한 글 "expired"의 sha256이다(R12). handler가 동기라 미리 둔다.
 export const EXPIRY_REASON_TEXT = "expired";
 export const EXPIRY_REASON_HASH =
   "fa64ea1e82e1206f828ab2a02917c7e92accb98e3b95881a1b4ad52b914b66e3";
+
+// 이유 없이 거절한 request는 machine이 고정한 글 "rejected"의 sha256을 닫힌 이유로 저장한다.
+// contract의 ApprovalRequest는 거절·만료·취소에 닫힌 이유를 요구한다. 사람이 이유를 적지
+// 않았다는 사실은 ApprovalRequestRejected event의 `closed_reason_blob: null`이 그대로 보인다(R14).
+export const REJECTION_WITHOUT_REASON_TEXT = "rejected";
+export const REJECTION_WITHOUT_REASON_HASH =
+  "20cd938a2ea64f612b3523bc9219130c6fc66cd09b394ea38437488c0b8898b2";
 
 function seqText(value: bigint | number): string {
   return typeof value === "bigint" ? value.toString() : String(value);
@@ -62,6 +76,7 @@ function rowOf(row: Record<string, unknown>): Result<StoredRow> {
     typeof row["reason_blob"] !== "string" ||
     typeof row["effect"] !== "string" ||
     typeof row["action"] !== "string" ||
+    typeof row["action_binding_hash"] !== "string" ||
     (row["expires_at"] !== null && typeof row["expires_at"] !== "string") ||
     typeof row["status"] !== "string" ||
     (row["closed_reason_blob"] !== null &&
@@ -79,6 +94,7 @@ function rowOf(row: Record<string, unknown>): Result<StoredRow> {
     reason_blob: row["reason_blob"],
     effect: row["effect"],
     action: row["action"],
+    action_binding_hash: row["action_binding_hash"],
     expires_at: row["expires_at"],
     status: row["status"],
     closed_reason_blob: row["closed_reason_blob"],
@@ -131,6 +147,8 @@ export function createApprovalCommands(): {
   create: CommandDefinition<typeof createApprovalRequest>;
   expire: CommandDefinition<typeof expireApprovalRequest>;
   cancel: CommandDefinition<typeof cancelApprovalRequest>;
+  grant: CommandDefinition<typeof grantApprovalRequest>;
+  reject: CommandDefinition<typeof rejectApprovalRequest>;
 } {
   return {
     create: {
@@ -149,6 +167,18 @@ export function createApprovalCommands(): {
       route: cancelApprovalRequest,
       handle(tx, ctx, input, compare) {
         return cancelRequest(tx, ctx, input, compare);
+      },
+    },
+    grant: {
+      route: grantApprovalRequest,
+      handle(tx, ctx, input, compare) {
+        return decideRequest(tx, ctx, input, compare, "granted");
+      },
+    },
+    reject: {
+      route: rejectApprovalRequest,
+      handle(tx, ctx, input, compare) {
+        return decideRequest(tx, ctx, input, compare, "rejected");
       },
     },
   };
@@ -237,13 +267,10 @@ function expireRequest(
       message: "기한이 없거나 아직 도달하지 않았다",
     });
   }
-  return closeRequest(
-    tx,
-    loaded.value,
-    "expired",
-    approvalRequestExpired,
-    EXPIRY_REASON_HASH,
-  );
+  return closeRequest(tx, loaded.value, "expired", {
+    kind: "expired",
+    reason: EXPIRY_REASON_HASH,
+  });
 }
 
 function cancelRequest(
@@ -259,13 +286,10 @@ function cancelRequest(
     loaded.value.requester as Actor,
   );
   if (!allowed.ok) return allowed;
-  return closeRequest(
-    tx,
-    loaded.value,
-    "cancelled",
-    approvalRequestCancelled,
-    input.closed_reason_blob,
-  );
+  return closeRequest(tx, loaded.value, "cancelled", {
+    kind: "cancelled",
+    reason: input.closed_reason_blob,
+  });
 }
 
 // 대기 상태와 생성 seq가 현재 기록과 같아야 한다. 다르면 그 결정을 적용하지 않는다(R6).
@@ -294,17 +318,89 @@ function pendingAt(
   return ok(loaded.value);
 }
 
+type ClosedStatus = "granted" | "rejected" | "expired" | "cancelled";
+
+type Closing =
+  | { kind: "granted"; bindingHash: string }
+  | { kind: "rejected"; reason: string | null }
+  | {
+    kind: "expired" | "cancelled";
+    reason: string;
+  };
+
+// 사람 결정(허락·거절)은 현재 내용·기한과 함께 본다(R5, R6, R12). 대기가 아니거나 생성 seq가
+// 다르면 거절한다. 허락·거절 event의 actor는 user이므로 다른 actor는 handler도 막는다.
+function decideRequest(
+  tx: Tx,
+  ctx: { actor: Actor },
+  input: {
+    approval: string;
+    created_seq: string;
+    binding_hash: string;
+    closed_reason_blob?: string | null;
+  },
+  compare: { created_seq: string } | undefined,
+  decision: "granted" | "rejected",
+): Result<{ request: ApprovalRequest }> {
+  if (ctx.actor !== "user") {
+    return err({
+      code: "forbidden",
+      message: "허락과 거절은 사람의 보호된 결정만 한다",
+    });
+  }
+  const loaded = pendingAt(tx, input.approval, input.created_seq, compare);
+  if (!loaded.ok) return loaded;
+  // 사람이 본 동작과 지금 동작이 다르면 새 request가 필요하다(R5).
+  if (loaded.value.action_binding_hash !== input.binding_hash) {
+    return err({
+      code: "conflict",
+      message: "결정이 본 동작과 현재 request의 동작이 다르다",
+    });
+  }
+  // 기한 경계부터 결정을 거절한다. 만료 처리는 machine이 따로 한다(R12).
+  if (deadlineReached(loaded.value.expires_at, tx.now())) {
+    return err({ code: "conflict", message: "기한이 지나 결정할 수 없다" });
+  }
+  return closeRequest(
+    tx,
+    loaded.value,
+    decision,
+    decision === "granted"
+      ? { kind: "granted", bindingHash: loaded.value.action_binding_hash }
+      : { kind: "rejected", reason: input.closed_reason_blob ?? null },
+  );
+}
+
 function closeRequest(
   tx: Tx,
   row: StoredRow,
-  status: "expired" | "cancelled",
-  event: typeof approvalRequestExpired | typeof approvalRequestCancelled,
-  reasonHash: string,
+  status: ClosedStatus,
+  closing: Closing,
 ): Result<{ request: ApprovalRequest }> {
-  const closed = tx.emit(event, row.id, {
-    created_seq: seqText(row.created_seq),
-    closed_reason_blob: reasonHash,
-  });
+  const createdSeq = seqText(row.created_seq);
+  let reasonHash: string | null = null;
+  let closed: string;
+  if (closing.kind === "granted") {
+    closed = tx.emit(approvalRequestGranted, row.id, {
+      created_seq: createdSeq,
+      binding_hash: closing.bindingHash,
+    });
+  } else if (closing.kind === "rejected") {
+    reasonHash = closing.reason ?? REJECTION_WITHOUT_REASON_HASH;
+    closed = tx.emit(approvalRequestRejected, row.id, {
+      created_seq: createdSeq,
+      closed_reason_blob: closing.reason,
+    });
+  } else {
+    reasonHash = closing.reason;
+    closed = tx.emit(
+      closing.kind === "expired"
+        ? approvalRequestExpired
+        : approvalRequestCancelled,
+      row.id,
+      { created_seq: createdSeq, closed_reason_blob: closing.reason },
+    );
+  }
   tx.sql.run(
     `update approval_requests
        set status = ?, closed_reason_blob = ?, closed_seq = ?

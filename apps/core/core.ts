@@ -78,6 +78,8 @@ import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
+import { startNotifications } from "./notifications.ts";
+import { NOTIFICATIONS_CONTEXT, withPlatform } from "./platform.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createValidatePort } from "./documents-validate.ts";
@@ -235,9 +237,12 @@ async function open(
   const documentsChannel = createDocumentsChannel();
   const ledgerPath = `${root.path}/lophn.db`;
   // writer·reader가 import하는 팀 module. 문서 worker route를 서빙하는 reader는 항상 붙는다.
-  const modules = withDocumentsReader(options.teamModules ?? []);
+  const modules = withPlatformModule(
+    withDocumentsReader(options.teamModules ?? []),
+  );
   const eventNames = await eventOperations(modules);
-  const assembled = assemble(options.teams, {
+  // approvals·notifications는 contract ROUTES가 route를 고정하므로 team 조립 뒤에 한 번만 더한다.
+  const assembled = withPlatform(assemble(options.teams, {
     status: statusMemoryVia(documentsChannel),
     // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
     snapshotLogs: snapshotLogsEnvironment({
@@ -249,7 +254,7 @@ async function open(
       ledgerPath,
       read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
     }),
-  });
+  }));
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
   // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
@@ -403,6 +408,13 @@ async function open(
   if (!sweepCredential.ok) {
     await runtime.close();
     return sweepCredential;
+  }
+  // notifications 구독자(machine:notifications)의 자격 기록. token이 없는 core 내부 자격이라
+  // HTTP로는 이 principal이 될 수 없다. reader·writer는 이 ledger 기록으로 현재 자격을 본다.
+  const notificationsCredential = await runtime.record(NOTIFICATIONS_CONTEXT);
+  if (!notificationsCredential.ok) {
+    await runtime.close();
+    return notificationsCredential;
   }
   // documents 구독자(machine:documents-feed)의 자격 기록. token이 없는 core 내부 자격이라
   // HTTP로는 이 principal이 될 수 없고, reader가 이 ledger 기록으로 event 공개를 판단한다.
@@ -723,6 +735,11 @@ async function open(
     // 시작 근거는 worker가 뜬 직후 바로 보낸다. 닿지 못하면 다음 확인이 다시 시도한다.
     void basisSync.check();
   }
+  // core 안 notifications 구독자. 계기 event를 notification으로 바꾸고 cursor를 올린다.
+  const notifications = startNotifications({
+    runtime,
+    ledgerPath,
+  });
   // core 안 documents 구독자. documents event가 오면 root 집합과 관측 근거를 맞춘다. documents
   // worker가 없는 core에서도 구독은 열려 있고, 맞출 대상이 없으면 아무것도 하지 않는다.
   const documentsFeed = startDocumentsFeed({
@@ -836,6 +853,8 @@ async function open(
         // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
         ready = false;
         documentsFeed.stop();
+        // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
+        await notifications.stop();
         rootsWatch?.stop();
         basisSync?.stop();
         closeChildBlob?.();
@@ -1043,6 +1062,12 @@ async function noteMaintenanceFailure(
 }
 
 // 문서 worker route를 서빙하는 reader 등록은 팀 module 목록과 무관하게 붙는다.
+// approvals·notifications 등록 파일은 항상 붙는다. writer·reader Worker가 같은 module을 다시 import한다.
+function withPlatformModule(modules: readonly string[]): string[] {
+  const platform = new URL("./platform.ts", import.meta.url).href;
+  return modules.includes(platform) ? [...modules] : [...modules, platform];
+}
+
 function withDocumentsReader(modules: readonly string[]): string[] {
   const reader = new URL("./documents-reader.ts", import.meta.url).href;
   return modules.includes(reader) ? [...modules] : [...modules, reader];

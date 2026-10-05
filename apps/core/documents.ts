@@ -42,6 +42,8 @@ import {
   versionFileField,
   versionFilesField,
 } from "../../packages/documents/versions/mod.ts";
+import { createSeriesCommands } from "../../packages/documents/series/mod.ts";
+import { seriesSchemaSteps } from "../../packages/documents/series/mod.ts";
 import {
   createProjectReads,
   type ProjectReadDeps,
@@ -265,6 +267,7 @@ export function createLedgerRegistration(
   const addressing = createDocumentChangeCommands();
   // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
   const contexts = createContextCommands();
+  const series = createSeriesCommands();
   const versionReads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
@@ -278,6 +281,7 @@ export function createLedgerRegistration(
       ...projectsSchemaSteps,
       ...versionsSchemaSteps,
       ...contextsSchemaSteps,
+      ...seriesSchemaSteps,
     ],
     commands: [
       commands.create,
@@ -297,6 +301,15 @@ export function createLedgerRegistration(
       contexts.removeItem,
       contexts.archive,
       contexts.unarchive,
+      series.create,
+      series.update,
+      series.setDraft,
+      series.clearDraft,
+      series.addInstance,
+      series.updateInstance,
+      series.removeInstance,
+      series.archive,
+      series.unarchive,
     ],
     reads: [
       reads.list,

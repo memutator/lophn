@@ -496,3 +496,42 @@ function assertThrowsAbort(run: () => unknown) {
   }
   assert(thrown);
 }
+
+Deno.test("documents/versions#R15: 한 보고를 고치면 그 문서 판이 늘고 최신 판이 따라 간다", () => {
+  const fixture = versionFixture();
+  try {
+    const first = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+    );
+    // 같은 문서의 갱신은 새 version으로 쌓인다. 가족 멤버가 늘지 않는다.
+    const next = preparedInput(ids.doc, [file("a.md", true)], {
+      base_version: first.version,
+      content_hash: "cd".repeat(32),
+      metadata: undefined,
+      idempotency_key: "save-2",
+    });
+    const second = keep(save(fixture, next));
+    assert(second.version !== first.version);
+    const count = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM versions WHERE document = ?",
+      [ids.doc],
+    );
+    assertEquals(count?.["count"], 2);
+    // 문서의 최신 판은 새 version으로 이동한다.
+    const document = fixture.sql.get(
+      "SELECT latest_version, revision FROM documents WHERE id = ?",
+      [ids.doc],
+    );
+    assertEquals(document?.["latest_version"], second.version);
+    // 첫 판은 그대로 보존된다.
+    const earlier = fixture.sql.get(
+      "SELECT content_hash FROM versions WHERE id = ?",
+      [
+        first.version,
+      ],
+    );
+    assertEquals(earlier?.["content_hash"], HASH);
+  } finally {
+    fixture.close();
+  }
+});

@@ -344,6 +344,7 @@ concerns: [documents]
 
 ### T17 Series ledger
 
+- 상태: 완료 (#219) — 이어보냄: 첫 Document 저장과 첫 가입을 한 ledger transaction에서(두 검사·일치 draft 비우기, versions save가 series 가입을 부르는 seam) → documents#T18
 - 등급: 기본
 - concern: documents/series, documents/versions
 - 요구: documents/series#R1, R2, R3, R5, R7, R8, R10, R11, R13, R14, documents/versions#R15
@@ -372,6 +373,7 @@ concerns: [documents]
 - 내놓는 contract: `/v1/series/list`, `/v1/series/get`, `/v1/series/next`(NextSuggestion), `/v1/outline/series`
 - slice: documents
 - 선행: T14, T17
+- T17에서 넘어온 것: 첫 Document 저장과 첫 series 가입을 한 ledger transaction에서 처리(두 검사와 일치 draft 비우기, versions save 경로가 series 가입을 부르는 seam, #219)
 - 완료:
   - 자리별 가족 목록(규칙, 멤버 수), 상세와 가족 목차는 같은 기준·순서의 key·제목·고정 최신 판·보관 상태. page는 T14 cursor 방식
   - next: key 자연 순의 마지막 확정 멤버(보관 멤버 포함, draft 제외)와 규칙으로 계산, from·taken·document_name·series_revision 반환, 아무것도 예약·저장하지 않음. 빈 가족·해석 불가·안전 정수 overflow는 빈 제안

@@ -37,6 +37,22 @@ async function seedBlob(root: string, hash: string, observedAtMs: number) {
   await Deno.utime(path, seconds, seconds);
 }
 
+// 미참조 확인 기록을 남긴다(R9). 유예기간은 이 기록부터 센다.
+async function seedUnreferenced(
+  root: string,
+  hash: string,
+  atMs: number,
+) {
+  const path = `${root}/blobs/unreferenced/${hash.slice(0, 2)}/${
+    hash.slice(2)
+  }.json`;
+  await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });
+  await Deno.writeTextFile(
+    path,
+    `${JSON.stringify({ unreferenced_at_ms: atMs })}\n`,
+  );
+}
+
 async function blobExists(root: string, hash: string): Promise<boolean> {
   try {
     await Deno.stat(blobPath(root, hash));
@@ -83,6 +99,71 @@ function depsOf(
       (async () => {
         await Promise.resolve();
         return ok(overReferences ?? []);
+      }),
+    // 미참조 확인 기록(R9). 실제 파일로 둔다: 처음 확인 시각만 남긴다.
+    listUnreferenced: over.listUnreferenced ?? (async () => {
+      const found = new Map<string, number>();
+      let prefixes: string[];
+      try {
+        prefixes = [...Deno.readDirSync(`${root}/blobs/unreferenced`)].map((
+          entry,
+        ) => entry.name);
+      } catch {
+        return ok(found);
+      }
+      for (const prefix of prefixes) {
+        try {
+          for (
+            const name of Deno.readDirSync(
+              `${root}/blobs/unreferenced/${prefix}`,
+            )
+          ) {
+            if (!name.name.endsWith(".json")) continue;
+            const hash = `${prefix}${name.name.slice(0, name.name.length - 5)}`;
+            try {
+              const raw: unknown = JSON.parse(
+                await Deno.readTextFile(
+                  `${root}/blobs/unreferenced/${prefix}/${name.name}`,
+                ),
+              );
+              const at = (raw as Record<string, unknown>)["unreferenced_at_ms"];
+              if (typeof at === "number") found.set(hash, at);
+            } catch {
+              // 읽지 못한 기록은 건너뛴다.
+            }
+          }
+        } catch {
+          continue;
+        }
+      }
+      return ok(found);
+    }),
+    recordUnreferenced: over.recordUnreferenced ??
+      (async (hash, atMs) => {
+        const path = `${root}/blobs/unreferenced/${hash.slice(0, 2)}/${
+          hash.slice(2)
+        }.json`;
+        await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), {
+          recursive: true,
+        });
+        await Deno.writeTextFile(
+          path,
+          `${JSON.stringify({ unreferenced_at_ms: atMs })}\n`,
+        );
+        return ok(undefined);
+      }),
+    forgetUnreferenced: over.forgetUnreferenced ??
+      (async (hash) => {
+        try {
+          await Deno.remove(
+            `${root}/blobs/unreferenced/${hash.slice(0, 2)}/${
+              hash.slice(2)
+            }.json`,
+          );
+          return ok(undefined);
+        } catch {
+          return ok(undefined);
+        }
       }),
     listBackupPending: async () => {
       const entries: { name: string; pending: boolean }[] = [];
@@ -137,6 +218,9 @@ Deno.test("platform/blob-store#R10: 관측은 지우지 않고 수만 센다", a
   try {
     await seedBlob(root, A, AGED);
     await seedBlob(root, B, AGED);
+    // 미참조 확인 기록이 오래됐다: 관측의 삭제 자격 수에 든다(R9).
+    await seedUnreferenced(root, A, AGED);
+    await seedUnreferenced(root, B, AGED);
     const removed: string[] = [];
     const observation = await observeBlobGc(
       depsOf(root, {
@@ -192,6 +276,9 @@ Deno.test("platform/blob-store#R8: GC는 참조된 blob을 blocked에 세고 남
   try {
     await seedBlob(root, A, AGED); // 참조됨
     await seedBlob(root, B, AGED); // 참조 없음
+    // B의 미참조 확인 기록이 오래됐다. A는 참조가 있어 기록이 지워진다(R9).
+    await seedUnreferenced(root, A, AGED);
+    await seedUnreferenced(root, B, AGED);
     const outcome = await collectGarbage(
       depsOf(root, {}, [{ hash: A }]),
     );
@@ -251,6 +338,8 @@ Deno.test("platform/blob-store#R11: OS 삭제와 실패를 구별해 답한다",
   try {
     await seedBlob(root, A, AGED);
     await seedBlob(root, B, AGED);
+    await seedUnreferenced(root, A, AGED);
+    await seedUnreferenced(root, B, AGED);
     const outcome = await collectGarbage(
       depsOf(root, {
         removeBlob: async (hash) =>
@@ -276,6 +365,7 @@ Deno.test("platform/blob-store#R11: backup 사본은 GC 답에 삭제로 세지 
   const root = await Deno.makeTempDir({ prefix: "blob-gc-copies-" });
   try {
     await seedBlob(root, A, AGED);
+    await seedUnreferenced(root, A, AGED);
     const outcome = await collectGarbage(depsOf(root));
     assert(outcome.ok);
     if (outcome.ok) {
@@ -334,6 +424,8 @@ Deno.test("platform/blob-store#R13: trim은 오래된 capacity blob만 지운다
     const big = 240 * 1024 * 1024;
     await seedBlob(root, A, AGED);
     await seedBlob(root, B, AGED);
+    await seedUnreferenced(root, A, AGED);
+    await seedUnreferenced(root, B, AGED);
     // 파일 크기는 관측 값이라 실제 240MiB를 쓰지 않고 크기만 겹쳐 넣는다.
     const outcome = await trimCapacity(
       depsOf(root, {
@@ -430,6 +522,8 @@ Deno.test("platform/blob-store#R9: trim은 준비 중과 유예기간 안의 blo
     const big = 240 * 1024 * 1024;
     await seedBlob(root, A, AGED);
     await seedBlob(root, B, NOW - 1000);
+    await seedUnreferenced(root, A, AGED);
+    await seedUnreferenced(root, B, AGED);
     const outcome = await trimCapacity(
       depsOf(root, {
         listInstalled: async () => {
@@ -480,6 +574,8 @@ Deno.test("platform/blob-store#R9: trim은 유예기간 안 blob만 남기고 �
     // 둘 다 준비 중이 아니다(tmp는 비어 있다). 유예기간 안(fresh)만 남는다.
     const fresh = NOW - 1000;
     await seedBlob(root, B, fresh);
+    // A의 미참조 기록만 오래됐다: B는 기록이 없어 정리하지 않는다(R9).
+    await seedUnreferenced(root, A, AGED);
     const outcome = await trimCapacity(
       depsOf(root, {
         listInstalled: async () => {
@@ -590,6 +686,7 @@ Deno.test("platform/blob-store#R11: backup 폴더의 사본 잔존을 답한다"
   const root = await Deno.makeTempDir({ prefix: "blob-gc-copyremain-" });
   try {
     await seedBlob(root, A, AGED);
+    await seedUnreferenced(root, A, AGED);
     // backup 폴더의 완료된 stamp 폴더에 A의 사본이 남아 있다.
     const stamp = `${root}/backups/20260101T000000000Z`;
     await Deno.mkdir(`${stamp}/blobs/sha256/${A.slice(0, 2)}`, {

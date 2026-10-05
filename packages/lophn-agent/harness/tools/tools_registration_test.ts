@@ -1,9 +1,9 @@
-import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
+import type { LedgerTestRegistration } from "../../../../apps/core/testing/ledger.ts";
 import {
   createToolCommands,
   createToolReads,
   toolsSchemaSteps,
-} from "../harness/tools/mod.ts";
+} from "./mod.ts";
 
 // tool call ledger 테스트 등록. 제품 mod.ts는 이 파일을 export하지 않는다.
 

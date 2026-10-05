@@ -35,7 +35,7 @@ export type ExecutionOutcome = {
   definitionRevision: string;
   effect: ToolDefinition["effect"];
   confirm: boolean;
-  // redaction을 거친 입력의 hash. 원문은 남기지 않는다.
+  // 원래 입력의 fingerprint. ledger에 쓰지 않는다. run-loop(T22)가 RecordToolRequest.input에 redaction 뒤 hash를 넣는다.
   inputHash: string;
   result: ToolResult;
   outcome: ToolOutcome;

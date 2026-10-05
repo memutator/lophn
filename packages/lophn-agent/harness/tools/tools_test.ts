@@ -57,7 +57,7 @@ async function createLedgerHarness(options: {
 }
 
 const registration = new URL(
-  "../../presets/tools_registration_test.ts",
+  "./tools_registration_test.ts",
   import.meta.url,
 );
 

@@ -20,6 +20,12 @@ import {
   modelCallBodyFields,
   usageSchemaSteps,
 } from "../../packages/lophn-agent/harness/usage/mod.ts";
+import {
+  createPresetCommands,
+  createPresetReads,
+  presetSchemaSteps,
+} from "../../packages/lophn-agent/presets/mod.ts";
+import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
 
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
 // 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
@@ -75,7 +81,8 @@ export const catalogAutoUpdateSetting = defineSetting({
 
 // provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
 // model 기본값(concern harness/model)과 model call 기록·사용량 읽기(concern
-// harness/usage). 시작·마침·보완은 machine 전용이다.
+// harness/usage). 시작·마침·보완은 machine 전용이다. preset ledger는 같은
+// wire에 더한다.
 const commands = createProviderCommands();
 const modelCommands = createModelDefaultsCommands();
 const usage = createUsageCommands();
@@ -83,11 +90,31 @@ const reads = createProviderReads();
 const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();
 
+// preset 구성 검증 deps(R11). MCP server 설정은 extensions의 settings registry
+// 값이므로 setting_choices 행을 펼친다(T24). tool 묶음은 T23, 역할 상한은 T8이
+// 고정하므로 지금은 빈 목록이다. tool 선택이 있으면 role cap이 없어 거절이다.
+// catalog·credential은 provider 표와 settings registry 값에서 읽는다(R10, R13).
+function presetValidateDeps() {
+  return {
+    bundles: new Map<string, readonly string[]>(),
+    mcpServers: new Map<string, McpServerConfig>(),
+    roleCaps: new Map<string, { tools: readonly string[] }>(),
+    catalogEntry: (_providerDefinition: string, _modelName: string) =>
+      undefined,
+    modelListed: (_provider: string, _modelName: string) => false,
+    credentialKeys: (_provider: string) => [] as const,
+  };
+}
+
+const presetCommands = createPresetCommands(presetValidateDeps());
+const presetReads = createPresetReads();
+
 export const lophnAgentDefinitions = {
   schemaSteps: [
     ...providerSchemaSteps,
     ...modelSchemaSteps,
     ...usageSchemaSteps,
+    ...presetSchemaSteps,
   ],
   commands: [
     commands.register,
@@ -101,6 +128,9 @@ export const lophnAgentDefinitions = {
     usage.start,
     usage.finish,
     usage.supplement,
+    presetCommands.registerDefault,
+    presetCommands.create,
+    presetCommands.revise,
   ],
   reads: [
     reads.read,
@@ -111,6 +141,9 @@ export const lophnAgentDefinitions = {
     usageReads.read,
     usageReads.list,
     usageReads.usage,
+    presetReads.read,
+    presetReads.list,
+    presetReads.instructionAttachments,
   ],
   // model.call 본문은 blob 참조만 남는다(R4). 용량 보존 종류는 plan blob 자리다.
   blobFields: [...modelCallBodyFields],
@@ -118,7 +151,7 @@ export const lophnAgentDefinitions = {
 };
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는
-// event를 보지 않는다. usage read도 event를 보지 않는다.
+// event를 보지 않는다. usage·preset read도 event를 보지 않는다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
@@ -130,6 +163,9 @@ export function createReaderRegistration(): ReaderRegistration {
       usageReads.read,
       usageReads.list,
       usageReads.usage,
+      presetReads.read,
+      presetReads.list,
+      presetReads.instructionAttachments,
     ],
     ports: new Map(),
   };

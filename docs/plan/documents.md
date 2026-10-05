@@ -575,6 +575,7 @@ concerns: [documents]
 
 ### T29 설치 안내 읽기
 
+- 상태: 완료 (#270) — 제품 안내 묶음의 실제 설치 폴더 조립은 platform#T48 몫이다(Q18)
 - 등급: 기본
 - concern: documents/versions
 - 요구: documents/versions#R17, R18

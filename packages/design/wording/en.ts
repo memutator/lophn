@@ -119,9 +119,12 @@ export const en = {
     "Start a conversation to ask lophn for something.",
   "conversation.error.load-failed":
     "Couldn't load this conversation. Try again.",
+  "conversation.error.message-body": "Couldn't load this message.",
   "conversation.error.open-failed":
     "Couldn't start a new conversation. Try again.",
   "conversation.error.stop-failed": "Couldn't stop this work. Try again.",
+  "conversation.error.too-long":
+    "This message is too long to send. Shorten it, or split it into parts.",
   "conversation.label.author-check": "Checked by lophn",
   "conversation.label.author-lophn": "lophn",
   "conversation.label.author-you": "You",
@@ -149,8 +152,7 @@ export const en = {
   "conversation.label.status-waiting": "Waiting",
   "conversation.notice.ended":
     "This conversation has ended. You can read it but not reply.",
-  "conversation.notice.message-unreadable":
-    "This message's text can't be shown here yet.",
+  "conversation.notice.message-loading": "Loading this message.",
   "conversation.notice.not-found":
     "lophn didn't find this message. Sending it again won't make a copy.",
   "conversation.notice.not-sent":
@@ -163,6 +165,8 @@ export const en = {
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",
   "conversation.notice.unconfirmed":
     "lophn couldn't confirm this message arrived. Check before sending it again.",
+  "conversation.notice.visual-pending":
+    "Charts, tables, and diagrams can't be shown in the conversation yet.",
   "conversation.title.dock": "Conversation",
   "document.button.check-task": "Check task",
   "document.button.edit": "Edit",

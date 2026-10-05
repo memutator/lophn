@@ -9,6 +9,7 @@ import {
   type ErrorCode,
   ok,
   type Result,
+  sha256Hex,
 } from "../../packages/base/mod.ts";
 import type {
   ChildMessage,
@@ -24,7 +25,14 @@ import {
   type StatusMemory,
   type StatusObservation,
 } from "../../packages/documents/file-tracking/mod.ts";
-import { internalRoute, SERVED_ROUTES, servedKey } from "./documents-served.ts";
+import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
+import { documentFile } from "../../packages/contracts/documents/mod.ts";
+import {
+  internalRoute,
+  SERVED_ROUTES,
+  servedKey,
+  STORED_FILE_ROUTE,
+} from "./documents-served.ts";
 
 // documents coordinator 요청 통로. 보낸 request_id의 worker_response를 기다린다.
 // coordinator가 없거나 답하지 않으면 unavailable이고 성공으로 바꾸지 않는다.
@@ -199,4 +207,131 @@ export function servedWorkers(
     });
   }
   return targets;
+}
+
+// `GET /v1/documents/file`이 한 번에 돌려주는 바이트 상한. file route의 응답은 감독 pipe가
+// 아니라 core 안의 `{bytes}` payload라 한 파일을 통째로 메모리에 모은다. 넘는 파일은 잘라
+// 내거나 부분을 꾸미지 않고 unavailable이다.
+export const STORED_FILE_MAX_BYTES = 8 * 1024 * 1024;
+
+// documents/file 서빙 대상(file kind route). 판정은 reader Worker의 snapshot이 한다
+// (`document.file` 권한, 고정 판의 경로별 파일 행, 범위 밖·없는 판·없는 경로는 같은
+// not_found). 판정이 낸 blob hash·바이트 수대로 I/O worker의 blob.read를 창(256 KiB)
+// 단위로 읽어 모으고 hash가 판의 행과 같을 때만 답한다. blob이 없거나 어긋나면
+// unavailable이다: 일부 바이트나 다른 판의 바이트로 꾸미지 않는다.
+export function storedFileWorkers(
+  deps: ServedDeps & {
+    readBlob(
+      hash: string,
+      offset: number,
+      length: number,
+    ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
+    // blob 읽기 통로(I/O worker)가 떠 있는지.
+    blobReady(): boolean;
+  },
+): Map<string, WorkerRouteTarget> {
+  const key = `${documentFile.resource}/${documentFile.method}`;
+  return new Map([[key, {
+    handle: {
+      observation(): HealthObservation {
+        const states = deps.readers.health();
+        const healthy = states.length > 0 &&
+          states.every((state) => state === "healthy") && deps.blobReady();
+        return {
+          component: "documents/worker",
+          available: healthy,
+          ...(healthy
+            ? {}
+            : { reason: "reader나 blob 읽기가 준비되지 않았다" }),
+          observed_at: deps.observedAt(),
+        };
+      },
+      async forward(request: WorkerRequest) {
+        const reply = (
+          answer:
+            | { ok: true; payload: unknown }
+            | { ok: false; code: ErrorCode; message: string },
+        ): Result<WorkerResponse> =>
+          ok(
+            answer.ok
+              ? {
+                type: "worker_response",
+                request_id: request.request_id,
+                ok: true,
+                payload: answer.payload,
+              }
+              : {
+                type: "worker_response",
+                request_id: request.request_id,
+                ok: false,
+                error: { code: answer.code, message: answer.message },
+              },
+          );
+        const unavailable = (message: string) =>
+          reply({ ok: false, code: "unavailable", message });
+        const ref = credentialOf(request.request_id);
+        if (ref === undefined) {
+          return reply({
+            ok: false,
+            code: "unauthorized",
+            message: "credential이 없다",
+          });
+        }
+        const ctx = deps.current(ref);
+        if (!ctx.ok) {
+          return reply({
+            ok: false,
+            code: "unauthorized",
+            message: "credential이 없다",
+          });
+        }
+        const judged = await deps.readers.read(
+          STORED_FILE_ROUTE,
+          ctx.value,
+          request.payload,
+        );
+        if (!judged.ok) {
+          return reply({
+            ok: false,
+            code: workerCode(judged.error.code),
+            message: judged.error.message,
+          });
+        }
+        const file = judged.value as {
+          hash: string;
+          bytes: number;
+          media_type: string;
+        };
+        if (file.bytes > STORED_FILE_MAX_BYTES) {
+          return unavailable("file exceeds the serving limit");
+        }
+        const collected = new Uint8Array(file.bytes);
+        let offset = 0;
+        while (offset < file.bytes) {
+          const read = await deps.readBlob(
+            file.hash,
+            offset,
+            Math.min(BLOB_READ_MAX_BYTES, file.bytes - offset),
+          );
+          if (
+            !read.ok || read.value.hash !== file.hash ||
+            read.value.sizeBytes !== file.bytes ||
+            read.value.bytes.length === 0 ||
+            offset + read.value.bytes.length > file.bytes
+          ) {
+            return unavailable("file bytes were not readable");
+          }
+          collected.set(read.value.bytes, offset);
+          offset += read.value.bytes.length;
+        }
+        if (await sha256Hex(collected) !== file.hash) {
+          return unavailable("file bytes do not match the version");
+        }
+        return reply({
+          ok: true,
+          payload: { bytes: Array.from(collected) },
+        });
+      },
+    },
+  }]]);
 }

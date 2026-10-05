@@ -79,12 +79,43 @@
   overflow-wrap: anywhere;
 }
 
-.unreadable {
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.unreadable,
+.loading {
   margin: var(--space-0);
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
   font-style: italic;
+}
+
+/* 시각 블록 자리. 블록 renderer가 들어오기 전까지 제목과 안내만 둔다. */
+.visual {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.visualTitle {
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.visualNote {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
 }
 
 .meta {

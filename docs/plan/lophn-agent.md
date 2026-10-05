@@ -204,6 +204,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T7, platform#T4, documents#T6, documents#T7, apps#T1
+- 상태: 완료 (#229)
 - 완료:
   - `assignments`, `assignment_revisions`, `assignment_outputs`, `assignment_read_apps`, `assignment_read_commands` 표
   - assignments_test.ts에 R2, R3, R9–R14, R16, R17 테스트: lophn·Context Engineer 전역 하나씩이고 회수 대신 멈춤·재개만, 화면용 기본·상세 자료 구분, 실제 시작한 최종 실패 3회 연속이면 machine pause와 secret 없는 실패 근거, 정상 완료·Operator 무변화에서 끊고 미시작·사람 중단·거절·답 없음·대기는 세지도 지우지도 않음, 사람 재개만 해제(시간·재시작·다음 주기로 풀리지 않음), 시작한 뒤 정상 종료 기록 없이 끊긴 run은 실패로 세고 시작 전에 끝난 run은 세지 않음(질문 Q17), 보관 대상이면 멈춤·일시 접근 불가면 새 일 없음, withdrawn은 지난 대화만·paused는 입력 보존만, preset 새 판 저장이 연결 판을 바꾸지 않고 명시 적용은 다음 run부터

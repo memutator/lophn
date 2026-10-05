@@ -218,7 +218,18 @@ export const getProblemRead = {
        from reports where problem = ?`,
       [input.problem],
     );
-    if (latest === undefined || latest["seq"] === null || !observed) {
+    const releaseAt = (order: "asc" | "desc") =>
+      snapshot.sql.get(
+        `select release from reports where problem = ?
+         order by observed_at ${order}, id ${order} limit 1`,
+        [input.problem],
+      );
+    const firstReport = releaseAt("asc");
+    const lastReport = releaseAt("desc");
+    if (
+      latest === undefined || latest["seq"] === null || !observed ||
+      !firstReport || !lastReport
+    ) {
       return err({ code: "internal", message: BROKEN });
     }
     const problem = problemSchema.safeParse({
@@ -247,6 +258,12 @@ export const getProblemRead = {
       last_observed_at: observed["last_at"] === null
         ? null
         : String(observed["last_at"]),
+      first_release: firstReport["release"] === null
+        ? null
+        : String(firstReport["release"]),
+      last_release: lastReport["release"] === null
+        ? null
+        : String(lastReport["release"]),
       as_of_seq: snapshot.as_of_seq,
       next_cursor: null,
     });

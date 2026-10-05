@@ -13,6 +13,7 @@ import {
   APP_B,
   COLLECTOR,
   ERROR_MESSAGE,
+  RELEASE,
   reportInput,
   type ReportSpec,
   rpt,
@@ -148,6 +149,7 @@ async function get(
   ) as Result<Record<string, unknown>>;
 }
 
+const NEWER_RELEASE = "rel_01arz3ndektsv4rrffq69g5faw";
 const TICKET = "tkt_01arz3ndektsv4rrffq69g5fav";
 const CLOSURE = JSON.stringify({
   reason: "dismissed",
@@ -260,11 +262,13 @@ Deno.test("problems/grouping#R11 R12: 상세는 진행을 먼저 주고 보고 �
       serial: 1,
       kind: "declared",
       observedAt: "2026-10-04T12:00:01.000Z",
+      release: RELEASE,
     });
     await record(h, {
       serial: 2,
       kind: "declared",
       observedAt: "2026-10-04T12:00:09.000Z",
+      release: NEWER_RELEASE,
     });
     await record(h, {
       serial: 3,
@@ -283,6 +287,9 @@ Deno.test("problems/grouping#R11 R12: 상세는 진행을 먼저 주고 보고 �
     assertEquals(detail["report_count"], 3);
     assertEquals(detail["first_observed_at"], "2026-10-04T12:00:01.000Z");
     assertEquals(detail["last_observed_at"], "2026-10-04T12:00:09.000Z");
+    // 당시 release는 처음·최근 보고의 것이다. 중간 보고의 release가 끼지 않는다.
+    assertEquals(detail["first_release"], RELEASE);
+    assertEquals(detail["last_release"], NEWER_RELEASE);
     const shown = detail["problem"] as Record<string, unknown>;
     assertEquals(shown["status"], "open");
     assertEquals(shown["work"], null);

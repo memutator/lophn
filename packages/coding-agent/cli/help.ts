@@ -272,6 +272,116 @@ const CORE_HELP: readonly CommandHelp[] = [
   },
 ];
 
+const TICKET_HELP: readonly CommandHelp[] = [
+  {
+    command: "ticket list",
+    purpose: "앱·상태 filter한 최대 20개 ticket 요약과 cursor를 읽는다",
+    required: [],
+    optional: ["--input", "--input-file", "app", "state", "limit", "cursor"],
+    jsonExample: { command: "ticket list", state: "claimed", json: true },
+    mutate: false,
+    humanOnly: false,
+    confirmation: false,
+    next: ["ticket show", "ticket checks"],
+  },
+  {
+    command: "ticket show",
+    purpose:
+      "ticket 하나의 조건·근거·볼 곳·지킬 것·현재 claim 전체 본문을 읽는다",
+    required: ["ticket"],
+    optional: ["--input", "--input-file"],
+    jsonExample: { command: "ticket show", ticket: "tkt-x", json: true },
+    mutate: false,
+    humanOnly: false,
+    confirmation: false,
+    next: ["ticket checks", "ticket list"],
+  },
+  {
+    command: "ticket checks",
+    purpose: "ticket의 조건별 machine 검사 결과를 읽는다",
+    required: ["ticket"],
+    optional: ["--input", "--input-file"],
+    jsonExample: { command: "ticket checks", ticket: "tkt-x", json: true },
+    mutate: false,
+    humanOnly: false,
+    confirmation: false,
+    next: ["ticket show"],
+  },
+  {
+    // claim은 실행하지 않는다. MCP 연결·지정 ticket 안내로 끝난다(cli#R41).
+    command: "ticket claim",
+    purpose:
+      "ticket claim은 MCP로 수행한다. MCP 연결과 지정 ticket 안내만 낸다",
+    required: ["ticket"],
+    optional: ["--input", "--input-file"],
+    jsonExample: { command: "ticket claim", ticket: "tkt-x", json: true },
+    mutate: false,
+    humanOnly: false,
+    confirmation: false,
+    next: ["ticket show"],
+  },
+  {
+    command: "ticket renew",
+    purpose:
+      "현재 claim을 명시 갱신한다. 기한은 갱신 시각부터 정확히 1시간이다",
+    required: ["ticket", "claim_seq", "base_revision", "connection"],
+    optional: ["--input", "--input-file"],
+    jsonExample: {
+      command: "ticket renew",
+      ticket: "tkt-x",
+      claim_seq: "8",
+      base_revision: "13",
+      connection: "cac-x",
+      json: true,
+    },
+    mutate: true,
+    humanOnly: false,
+    confirmation: false,
+    next: ["ticket show"],
+  },
+  {
+    command: "ticket release",
+    purpose: "현재 claim을 반납하고 ticket을 open으로 둔다",
+    required: ["ticket", "claim_seq", "base_revision"],
+    optional: ["--input", "--input-file"],
+    jsonExample: {
+      command: "ticket release",
+      ticket: "tkt-x",
+      claim_seq: "8",
+      base_revision: "14",
+      json: true,
+    },
+    mutate: true,
+    humanOnly: false,
+    confirmation: false,
+    next: ["ticket show"],
+  },
+  {
+    command: "ticket report",
+    purpose: "완료 주장과 근거를 접수해 ticket을 reported로 둔다",
+    required: ["ticket", "claim_seq", "base_revision", "completion"],
+    optional: ["--input", "--input-file"],
+    jsonExample: {
+      command: "ticket report",
+      ticket: "tkt-x",
+      claim_seq: "8",
+      base_revision: "15",
+      completion: {
+        release: "rel-x",
+        summary_hash: "ab".repeat(32),
+        outputs: [],
+        fix_records: [],
+        verifications: [],
+      },
+      json: true,
+    },
+    mutate: true,
+    humanOnly: false,
+    confirmation: false,
+    next: ["ticket checks", "ticket show"],
+  },
+];
+
 const DECISION_HELP: readonly CommandHelp[] = [
   {
     command: "context list",
@@ -422,6 +532,7 @@ const DECISION_HELP: readonly CommandHelp[] = [
     confirmation: false,
     next: ["approval show"],
   },
+  ...TICKET_HELP,
 ];
 
 const SETUP_HELP: readonly CommandHelp[] = CLI_SETUP_NAMES.map((name) => {

@@ -16,6 +16,7 @@ import {
   systemQuota,
 } from "../../../packages/platform/blob-store/mod.ts";
 import { observeBlobGc } from "./gc.ts";
+import { readUnreferencedRecords } from "./maintenance.ts";
 import {
   BACKUP_INTERVAL_MS,
   backupDue,
@@ -511,13 +512,17 @@ export async function runPlatformIo(root: string): Promise<void> {
   // backup 만들기를 scheduler에 낸다. 복사·hash가 응답을 막지 않는다.
   const backup = createBackupTick(root);
   const timer = setInterval(() => backup.tick(), BACKUP_CHECK_INTERVAL_MS);
-  // blob GC 관측(R10). 실제 삭제는 정지 유지보수에서만 한다. 관측이 실패해도
-  // session을 끝내지 않는다: 다음 check가 다시 본다.
+  // blob GC 관측(R10). 실제 삭제는 정지 유지보수에서만 한다. 참조 행 관측은
+  // ledger가 아니라 정지 유지보수의 몫이므로, 여기서는 참조를 모른다 — 관측은
+  // 기록을 하나도 만들거나 지우지 않는다(unknown ≠ unreferenced, R9: 참조를
+  // 모르는 상태의 기록은 유예기간의 근거를 흐트러뜨린다). 기록 남기기·지우기는
+  // 참조를 아는 관측(collectGarbage)의 몫이다. 기록 실패·관측 실패가 session을
+  // 끝내지 않는다: 다음 check가 다시 본다.
   const gcTimer = setInterval(async () => {
     await observeBlobGc({
       root,
       listInstalled: () => listInstalledBlobs(root),
-      listReferences: () => Promise.resolve(ok([])),
+      listUnreferenced: () => readUnreferencedRecords(root),
       listBackupPending: () => listBackupPending(root),
       removeBlob: () => Promise.resolve(ok(undefined)),
       listTmp: () => Promise.resolve(ok([])),

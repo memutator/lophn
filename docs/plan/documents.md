@@ -222,6 +222,7 @@ concerns: [documents]
 
 ### T11 파일 관측에서 Version까지
 
+- 상태: 진행 (#204) — 남은 것: coordinator의 watchFs·60초 scan·750ms 관측 루프와 machine `document.save` 제출, `/v1/files/status`, startApiServer workers map의 `/v1/documents/prepare`와 실제 streaming blob 준비 port, 활성 root로 spec을 다시 만들고 worker를 재시작하는 연결, 3000파일 통합과 T1 시나리오(watch 넘침, 읽는 중 교체, 같은 size·mtime, 준비와 확정 사이 규칙·source·보관)
 - 등급: 최상위
 - concern: documents/file-tracking, documents/versions
 - 요구: documents/file-tracking#R3, R4, R6, R7, R8, R9, R10, R18, documents/versions#R13

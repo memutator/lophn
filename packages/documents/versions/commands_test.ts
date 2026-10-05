@@ -325,6 +325,60 @@ Deno.test("documents/versions#R13: 원본 연결 문서의 직접 내용 저장�
   }
 });
 
+Deno.test("documents/file-tracking#R7: 관측 근거가 현재 연결과 다르면 저장은 충돌하고 파일을 다시 읽지 않는다", () => {
+  const fixture = versionFixture();
+  try {
+    keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)])));
+    fixture.sql.run(
+      `UPDATE documents SET source_kind = ?, source_project = ?, source_path = ?
+       WHERE id = ?`,
+      ["project_file", ids.project, "/work/notes/a.md", ids.doc],
+    );
+    const latest = fixture.sql.get(
+      "SELECT latest_version, revision FROM documents WHERE id = ?",
+      [ids.doc],
+    );
+    const observed = preparedInput(ids.doc, [file("a.md", true)], {
+      base_version: latest?.["latest_version"],
+      content_hash: "cd".repeat(32),
+      metadata: undefined,
+      idempotency_key: "save-2",
+      source: {
+        kind: "file",
+        project: ids.project,
+        path: "/work/notes/a.md",
+        original_hash: "cd".repeat(32),
+        observed_at: "2026-10-05T00:00:00.000Z",
+      },
+      file_basis: {
+        kind: "project_file",
+        project: ids.project,
+        path: "/work/notes/moved.md",
+        project_revision: "1",
+        document_revision: latest?.["revision"],
+        document_status: "active",
+        file_source: {
+          kind: "project_file",
+          project: ids.project,
+          path: "/work/notes/moved.md",
+        },
+        original_hash: "cd".repeat(32),
+        observed_at: "2026-10-05T00:00:00.000Z",
+      },
+    });
+    const result = save(fixture, observed);
+    assert(!result.ok);
+    assertEquals(result.error.code, "conflict");
+    const count = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM versions",
+      [],
+    );
+    assertEquals(count?.["count"], 1);
+  } finally {
+    fixture.close();
+  }
+});
+
 Deno.test("documents/versions#R4: 권한 판정이 거절하면 저장하지 않는다", () => {
   const fixture = versionFixture(() =>
     err({ code: "forbidden", message: "대상이 범위 밖이다" })

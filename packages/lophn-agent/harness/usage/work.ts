@@ -117,6 +117,8 @@ function sumKnownTokens(list: readonly ModelCallRecord[]): TokenUsage {
   );
   const first = known[0]?.usage ?? null;
   if (first === null) {
+    // 알려진 token이 없으면 합계도 전부 모름이고 판 기록은 없다(unknown,
+    // cost·billing_route와 같은 표기). 빈 문자열은 schema를 넘지 못한다.
     return {
       input: null,
       output: null,
@@ -125,7 +127,7 @@ function sumKnownTokens(list: readonly ModelCallRecord[]): TokenUsage {
       reasoning: null,
       cache_in_input: null,
       reasoning_in_output: null,
-      definition_revision: "",
+      definition_revision: "unknown",
     };
   }
   const pick = (

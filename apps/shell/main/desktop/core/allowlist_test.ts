@@ -38,6 +38,14 @@ test("shell/desktop#R19: 임의 credential 발급과 daemon 종료 통로는 없
   assert.equal(isAllowed("read", "platform", "status"), true);
 });
 
+test("shell/desktop#R19: 대화 도크의 메시지 본문 read와 본문 값을 싣는 보내기는 통과한다", () => {
+  // ReadMessageBody는 contract의 read라 따로 열지 않아도 통과한다. 이름이 바뀌면 여기서 안다.
+  assert.equal(lookupCall("read", "messages", "body"), "read:messages/body");
+  assert.equal(isAllowed("command", "messages", "receive"), true);
+  assert.equal(isAllowed("read", "messages", "list"), true);
+  assert.equal(isAllowed("worker", "messages", "body"), false);
+});
+
 test("shell/desktop#R19: allowlist 이름은 route 이름 그대로다", () => {
   const name = lookupCall("read", "platform", "status");
   assert.equal(name, "read:platform/status");

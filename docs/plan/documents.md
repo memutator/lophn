@@ -344,6 +344,7 @@ concerns: [documents]
 
 ### T17 Series ledger
 
+- 상태: 완료 (#219)
 - 등급: 기본
 - concern: documents/series, documents/versions
 - 요구: documents/series#R1, R2, R3, R5, R7, R8, R10, R11, R13, R14, documents/versions#R15

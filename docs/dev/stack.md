@@ -148,6 +148,7 @@ packages/platform/responsiveness/measure-load_test.ts`로 따로 돌린다.
   offscreen에서는 `capturePage()`가 실패하고 `--ozone-platform=headless`는
   Electron 44에서 segfault하므로 둘 다 쓰지 않는다. 변수는 main만 읽고 renderer에는
   넘기지 않는다. 데이터 root는 core 권한 검사를 지나도록 `mktemp -d`(0700)로 만든다.
+  `LOPHN_SHELL_START=lophn`을 더 주면 첫 창이 런처 대신 lophn 공간(documents)부터 연다.
 
   ```sh
   npm --prefix apps/shell/main run build && (cd apps/shell/renderer && deno task build)

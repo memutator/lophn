@@ -45,7 +45,7 @@ export function LophnSpace(
     <div
       className={styles.space}
       data-space="lophn"
-      data-screen={current}
+      data-current-screen={current}
       ref={frameRef}
     >
       <LophnSidebar

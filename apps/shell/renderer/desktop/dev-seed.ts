@@ -5,6 +5,12 @@ import type { EditorDeps } from "../editor/document-view.tsx";
 import type { BodyState, DocumentInfo } from "../editor/source.ts";
 import { readingWidthStore } from "../editor/reading-width.ts";
 
+/**
+ * 시드 프로젝트 id. 실제 project id 모양이라 e2e가 같은 id로 core에 프로젝트를
+ * 만들면 터미널 열기가 그 등록 폴더를 읽는다.
+ */
+export const DEV_SEED_PROJECT = "prj_01k6devseed000000000000000";
+
 export interface DevSeed {
   readonly project: string;
   readonly source: WorkspaceSource;
@@ -131,7 +137,7 @@ const SEEDED: WorkspaceSource = {
     Promise.resolve({
       ok: true,
       value: {
-        id: "prj_seed",
+        id: DEV_SEED_PROJECT,
         title: "lophn",
         folders: [{ path: "/work/lophn" }],
       },
@@ -180,5 +186,9 @@ export function devSeed(
   search: string = globalThis.location?.search ?? "",
 ): DevSeed | null {
   if (!new URLSearchParams(search).has("dev-seed")) return null;
-  return { project: "prj_seed", source: SEEDED, editor: seededEditor() };
+  return {
+    project: DEV_SEED_PROJECT,
+    source: SEEDED,
+    editor: seededEditor(),
+  };
 }

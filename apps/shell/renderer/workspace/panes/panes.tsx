@@ -42,11 +42,13 @@ export interface PanesProps {
   /** 정보 패널 열림과 바꾸기. 주면 마지막 칸 탭 줄 끝에 버튼을 둔다. */
   infoOpen?: boolean;
   onToggleInfo?: () => void;
+  /** 주면 마지막 칸 탭 줄 끝에 터미널 열기 버튼을 둔다(workspace#R1). */
+  onOpenTerminal?: () => void;
   /**
-   * 선택 탭의 본문. null이면 종류 자리표시를 그린다. 본문은 자기 scroll과 여백을 가진다
-   * (문서 탭은 shell/editor의 읽기 틀이 칸 여백을 정한다).
+   * 탭 본문을 그린다. null을 주면 기본 본문을 쓴다. active는 focus 칸의 고른
+   * 탭인지다.
    */
-  renderTab?: (tab: TabItem, pane: number) => ReactNode | null;
+  renderTab?: (tab: TabItem, active: boolean) => ReactNode | null;
   /** 탭 key마다 tooltip. */
   tooltips?: Readonly<Record<string, ReactNode>>;
 }
@@ -69,6 +71,7 @@ export function Panes(
     onRatio,
     infoOpen = false,
     onToggleInfo,
+    onOpenTerminal,
     renderTab,
     tooltips,
   }: PanesProps,
@@ -105,8 +108,21 @@ export function Panes(
     const pane = view.panes[index]!;
     const splitLabel = t("project-workspace.button.split-pane");
     const infoLabel = t("project-workspace.button.info-panel");
+    const terminalLabel = t("project-workspace.button.open-terminal");
     return (
       <>
+        {onOpenTerminal
+          ? (
+            <Tooltip content={terminalLabel}>
+              <IconButton
+                icon={workspaceIcons.terminal}
+                label={terminalLabel}
+                data-open-terminal=""
+                onClick={onOpenTerminal}
+              />
+            </Tooltip>
+          )
+          : null}
         {single
           ? (
             <Tooltip content={splitLabel}>
@@ -184,10 +200,10 @@ export function Panes(
               split={layout.visiblePanes === 2}
               wide={wide}
               end={end(index, position)}
+              renderTab={renderTab}
               dropTarget={dragging !== null && dragging.pane !== index}
               over={over === index}
               dropProps={dropProps(index)}
-              renderTab={renderTab}
               tooltips={tooltips}
               onSelect={(key) => onSelect(index, key)}
               onClose={(key) => onClose(index, key)}
@@ -244,7 +260,7 @@ interface PaneViewProps {
     onDrop: (event: DragEvent) => void;
   };
   children?: ReactNode;
-  renderTab?: (tab: TabItem, pane: number) => ReactNode | null;
+  renderTab?: (tab: TabItem, active: boolean) => ReactNode | null;
   tooltips?: Readonly<Record<string, ReactNode>>;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
@@ -276,7 +292,7 @@ function PaneView(
   }: PaneViewProps,
 ) {
   const selected = pane.tabs.find((tab) => tab.key === pane.selected);
-  const rendered = selected && renderTab ? renderTab(selected, index) : null;
+  const custom = selected && renderTab ? renderTab(selected, focused) : null;
   return (
     <section
       className={`${styles.pane} ${width === null ? "" : styles.sized}`}
@@ -302,15 +318,13 @@ function PaneView(
         tooltips={tooltips}
       />
       <div
-        className={rendered !== null
-          ? `${styles.body} ${styles.bare}`
-          : `${styles.body} ${wide ? "" : styles.narrow}`}
+        className={`${styles.body} ${wide ? "" : styles.narrow} ${
+          custom ? styles.flush : ""
+        }`}
         data-pane-body=""
         role="tabpanel"
       >
-        {rendered !== null
-          ? rendered
-          : selected
+        {custom ?? (selected
           ? (
             <div className={styles.content} data-tab-body={selected.key}>
               <h1 className={styles.heading}>{selected.title}</h1>
@@ -330,7 +344,7 @@ function PaneView(
                 </p>
               </div>
             </div>
-          )}
+          ))}
       </div>
       {dropTarget && over
         ? (

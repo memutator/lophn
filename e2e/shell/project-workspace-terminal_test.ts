@@ -250,8 +250,10 @@ Deno.test({
         `document.querySelector('[data-kind="dialog"]')?.textContent?.includes("Close this terminal?") ?? false`,
         true,
       );
-      await overlay.evaluate(`[...document.querySelectorAll('[data-kind="dialog"] button')]
-        .find((button) => button.textContent === "Keep open")?.click()`);
+      await overlay.evaluate(
+        `[...document.querySelectorAll('[data-kind="dialog"] button')]
+        .find((button) => button.textContent === "Keep open")?.click()`,
+      );
       await waitFor(
         overlay.evaluate,
         `document.querySelector('[data-kind="dialog"]') === null`,
@@ -269,8 +271,10 @@ Deno.test({
         `document.querySelector('[data-kind="dialog"]') !== null`,
         true,
       );
-      await overlay.evaluate(`[...document.querySelectorAll('[data-kind="dialog"] button')]
-        .find((button) => button.textContent === "Close terminal")?.click()`);
+      await overlay.evaluate(
+        `[...document.querySelectorAll('[data-kind="dialog"] button')]
+        .find((button) => button.textContent === "Close terminal")?.click()`,
+      );
       await waitFor(
         shell.evaluate,
         `document.querySelector('[data-tab="term_1"]') === null ||

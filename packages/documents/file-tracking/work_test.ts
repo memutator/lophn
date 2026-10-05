@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { ok, type Result } from "../../base/mod.ts";
+import { CANDIDATE_LIMIT } from "./model.ts";
 import {
   basisChanged,
   dropCandidate,
@@ -248,7 +249,47 @@ Deno.test("documents/file-tracking#R6: 같은 stream의 hash와 바이트가 안
   assertEquals(outcome.value.read.bytes, bytes);
 });
 
-// 신호를 직접 넣는 watch. push한 순서대로 흐르고, close하면 루프가 끝난다.
+// 신호를 직접 넣는 watch. 배열은 한 번에 흐르고, gate는 호출자가 신호를 나중에
+// 넣는다. 넣은 신호는 순서대로 흐르고, close하면 루프가 끝난다.
+function gatedWatch(): {
+  watch: ObserveDeps["watch"];
+  push(signal: WatchSignal): void;
+  close(): void;
+} {
+  const queued: WatchSignal[] = [];
+  let wake: (() => void) | undefined;
+  let closed = false;
+  return {
+    push(signal) {
+      queued.push(signal);
+      wake?.();
+    },
+    close() {
+      closed = true;
+      wake?.();
+    },
+    watch: {
+      watch() {
+        return {
+          async *[Symbol.asyncIterator]() {
+            while (true) {
+              const next = queued.shift();
+              if (next !== undefined) {
+                yield next;
+                continue;
+              }
+              if (closed) return;
+              await new Promise<void>((resolve) => {
+                wake = resolve;
+              });
+            }
+          },
+        };
+      },
+    },
+  };
+}
+
 function scriptedWatch(signals: WatchSignal[]): ObserveDeps["watch"] {
   return {
     watch() {
@@ -337,6 +378,64 @@ Deno.test("documents/file-tracking#R3: watch 넘침은 개별 후보를 버리�
   );
   // overflow 뒤 scan이 비어 있으므로 제출은 없다. 넘친 신호를 후보로 남기지 않는다.
   assertEquals(submitted, []);
+});
+
+Deno.test("documents/file-tracking#R4: 후보 한도를 넘긴 뒤의 scan은 관측 제출을 다시 시작한다", async () => {
+  const files: ScanEntry[] = [];
+  for (let index = 0; index < 3; index++) {
+    files.push({ name: `f${index}.md`, kind: "file" });
+  }
+  const gate = gatedWatch();
+  for (let index = 0; index < CANDIDATE_LIMIT + 1; index++) {
+    gate.push({
+      kind: "changed",
+      canonical: `/work/n${index}.md`,
+      relative: `n${index}.md`,
+      fact: "modified",
+    });
+  }
+  const submitted: string[] = [];
+  const stop = { stopped: false };
+  const deps = observeDeps(
+    gate.watch,
+    (submission) => {
+      submitted.push(submission.candidate.relative);
+      return Promise.resolve(ok(undefined));
+    },
+    () => Date.now(),
+  );
+  deps.scan = memoryScan({ "": files });
+  deps.stop = stop;
+  const running = observeRoot(deps, {
+    root: "/work",
+    patterns: [{ glob: "**/*.md", effect: "include" }],
+    useGitignore: false,
+    enabled: true,
+  });
+  // 한도를 넘긴 뒤의 신호는 넘침 처리가 끝난 다음에 넣는다. flag가 남은 채로
+  // 멈추면 이 신호의 대조도 없어 제출이 늘지 않는다.
+  const before = submitted.length;
+  for (let spin = 0; spin < 200 && submitted.length === before; spin++) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  gate.push({
+    kind: "changed",
+    canonical: "/work/after.md",
+    relative: "after.md",
+    fact: "modified",
+  });
+  for (let spin = 0; spin < 200 && !submitted.includes("after.md"); spin++) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  stop.stopped = true;
+  gate.close();
+  await running;
+  // 한도 초과가 rescan flag를 세운 채로 두면 이후 scan의 합치기가 전부 거절되어
+  // 제출이 멈춘다. 전체를 새로 대조하면 scan이 찾은 파일과 뒤의 신호가 제출된다.
+  assertEquals(
+    submitted.filter((path) => path === "after.md" || path.startsWith("f")),
+    ["f0.md", "f1.md", "f2.md", "after.md"],
+  );
 });
 
 Deno.test("documents/file-tracking#R6: 읽는 중 교체된 파일은 unverified로 제출되고 확정되지 않는다", async () => {

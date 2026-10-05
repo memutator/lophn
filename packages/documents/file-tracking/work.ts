@@ -201,6 +201,10 @@ export async function observeRoot(
 ): Promise<void> {
   const queue = emptyObservation(request.root);
   let scanPending = false;
+  // 한도 초과로 시작한 전체 대조 동안 도착한 신호. 대조가 끝난 뒤 한 번에 합쳐
+  // 같은 넘침의 신호가 대조를 반복하지 않게 한다.
+  const deferred: WatchSignal[] = [];
+  let rescanning = false;
   const runScan = async () => {
     const scheduled = scheduleScan(scanPending, deps.nowMs());
     if (scheduled.merged) return;
@@ -242,6 +246,13 @@ export async function observeRoot(
     ]);
     if (slice.kind === "signal") {
       pending = undefined;
+      // 신호 하나를 처리한 뒤 양보한다. 동기적으로 풀리는 watch는 다음 신호를
+      // 이미 도착한 상태로 두어, 전체 대조 중에 받은 신호를 가드가 못 가린다.
+      await Promise.resolve();
+      if (rescanning) {
+        if (!slice.result.done) deferred.push(slice.result.value);
+        continue;
+      }
       if (slice.result.done) {
         await drainDue();
         break;
@@ -253,6 +264,9 @@ export async function observeRoot(
         await runScan();
         continue;
       }
+      // 한도를 이미 넘긴 상태의 신호는 개별 후보로 남기지 않는다. 같은 넘침의
+      // 나머지 신호마다 전체를 다시 대조하지 않게 한 번으로 합친다.
+      if (queue.rescanRequired) continue;
       const merged = mergeCandidate(queue, {
         root: request.root,
         canonical: signal.canonical,
@@ -261,7 +275,30 @@ export async function observeRoot(
         lastSignalMs: deps.nowMs(),
         retries: 0,
       });
-      if (merged.kind === "rescan_required") await runScan();
+      if (merged.kind === "rescan_required") {
+        // 한도 초과가 flag를 세운 채로 두면 다음 scan의 합치기가 전부 거절되어
+        // 제출이 영영 멈춘다. flag를 내리고 전체를 한 번만 새로 대조한다.
+        rescanning = true;
+        // 한도를 넘긴 이 신호와 대조 동안 도착한 신호는 후보로 남기지 않는다.
+        // 전체 대조만 현재 상태를 담는다.
+        deferred.push(signal);
+        queue.items = [];
+        queue.rescanRequired = false;
+        await runScan();
+        rescanning = false;
+        // 대조 동안 쌓인 변경 신호는 버린다. 방금 대조가 현재 상태를 담았고,
+        // 그 신호로 한도를 다시 넘기면 대조가 반복된다. 넘침·단절만 남긴다.
+        const missed = deferred.splice(0).some((queued) =>
+          queued.kind === "overflow" || queued.kind === "closed"
+        );
+        if (missed) {
+          // 대조 중 놓친 넘침·단절은 방금 담은 후보를 버리고 한 번 더 대조한다.
+          // 비우지 않으면 같은 파일이 두 번 제출된다.
+          queue.items = [];
+          queue.rescanRequired = false;
+          await runScan();
+        }
+      }
     }
     if (deps.nowMs() >= nextScanAt) {
       nextScanAt = deps.nowMs() + SCAN_INTERVAL_MS;

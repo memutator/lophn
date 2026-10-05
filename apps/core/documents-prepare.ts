@@ -1,7 +1,13 @@
 // `/v1/documents/prepare` worker route 조립(documents T11). T8은 fake port로만
 // 검증했다. 여기서는 canonical 목록을 stream으로 끊어 hash와 blob 준비를 같은
 // stream에서 만든다. 목록 전체를 한 버퍼로 모으지 않는다.
-import { err, ok, type Result } from "../../packages/base/mod.ts";
+import {
+  err,
+  ERROR_CODES,
+  type ErrorCode,
+  ok,
+  type Result,
+} from "../../packages/base/mod.ts";
 import { documentPrepare } from "../../packages/contracts/documents/mod.ts";
 import type {
   WorkerRequest,
@@ -119,6 +125,12 @@ export function documentPrepareRoute(
   };
 }
 
+function workerCode(code: string): ErrorCode {
+  return (ERROR_CODES as readonly string[]).includes(code)
+    ? code as ErrorCode
+    : "invalid_input";
+}
+
 async function answer(
   prepare: ReturnType<typeof createPrepareAssembly>,
   request: WorkerRequest,
@@ -128,11 +140,12 @@ async function answer(
   }
   const ran = await prepare(request.payload as Parameters<typeof prepare>[0]);
   if (!ran.ok) {
+    // 조립이 낸 code를 그대로 전한다. unavailable을 invalid_input으로 낮추지 않는다.
     return ok({
       type: "worker_response",
       request_id: request.request_id,
       ok: false,
-      error: { code: "invalid_input", message: ran.error.message },
+      error: { code: workerCode(ran.error.code), message: ran.error.message },
     });
   }
   return ok({

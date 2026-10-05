@@ -49,3 +49,5 @@ export { testAdmissionPort, testEvidencePort } from "./ports.ts";
 export { TEST_SCHEMA_STEPS } from "./schema.ts";
 export { TEST_BLOB_FIELDS, TEST_BLOB_PURPOSES } from "./blobs.ts";
 export { schemaSql, strictTargetAuthorizer } from "./support.ts";
+export * from "./app-test/mod.ts";
+export * from "./harness/mod.ts";

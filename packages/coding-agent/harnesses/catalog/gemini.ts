@@ -69,13 +69,59 @@ const gemini: HarnessDefinition = {
     { scope_kind: "user", root_resolver: "home", path: ".gemini/skills" },
     { scope_kind: "app", root_resolver: "project", path: ".gemini/skills" },
   ],
-  // 기존 `context.fileName` 목록에 AGENTS.md 참조만 추가다(domain-model 표).
-  instructions: [
-    { marker: "lophn-managed-instruction", file: "AGENTS.md" },
+  // workspace가 user보다, `.agents/skills`가 `.gemini/skills`보다 앞이다
+  // (skillManager 우선순위, 조사 skills-and-guides). workspace skill은 folder를
+  // 신뢰해야 읽힌다.
+  skill_discovery: [
+    { scope_kind: "app", root_resolver: "project", path: ".agents/skills" },
+    { scope_kind: "app", root_resolver: "project", path: ".gemini/skills" },
+    { scope_kind: "user", root_resolver: "home", path: ".agents/skills" },
+    { scope_kind: "user", root_resolver: "home", path: ".gemini/skills" },
   ],
-  // trust·skill consent를 자동 확대하지 않는다(domain-model 표). hook은
-  // settings.json의 hooks 객체다(조사 9.5).
-  hooks: [],
+  skill_trust_note:
+    "workspace skill은 Gemini CLI가 folder를 신뢰해야 읽힌다. lophn은 trust와 skill consent를 자동으로 넓히지 않는다",
+  // 기존 `context.fileName` 목록은 그대로 두고 AGENTS.md 원소 하나만 더한다.
+  instructions: [
+    {
+      marker: "lophn-managed-instruction",
+      file: "AGENTS.md",
+      mode: "json_member",
+      json_key: "context.fileName",
+      member: "AGENTS.md",
+    },
+  ],
+  // event 이름은 Claude와 다르다. 실행기 코드를 검증하지 못해(조사 [미확인])
+  // 모두 unverified이고 설치하지 않는다.
+  hooks: [
+    {
+      event: "SessionStart",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".gemini/settings.json",
+      },
+      purpose: "summary",
+      method: "config_fragment",
+      owned_identity: "SessionStart.lophn",
+      minimum_version: null,
+      timeout_unit: "ms",
+      capability: "unverified",
+    },
+    {
+      event: "BeforeTool",
+      target: {
+        scope_kind: "user",
+        root_resolver: "home",
+        path: ".gemini/settings.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "BeforeTool.lophn",
+      minimum_version: null,
+      timeout_unit: "ms",
+      capability: "unverified",
+    },
+  ],
   execution: {
     transport: "pty",
     launch_argv: ["gemini"],

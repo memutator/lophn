@@ -1,4 +1,4 @@
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import type { Sql } from "../../contracts/platform/mod.ts";
 import type { SettingEvidenceUse } from "./question-evidence.ts";
 

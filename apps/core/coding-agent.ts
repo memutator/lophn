@@ -8,12 +8,27 @@ import {
   createConnectionCommands,
   createConnectionReads,
 } from "../../packages/coding-agent/mod.ts";
+import {
+  defaultHarnessSetting,
+  harnessEnabledSetting,
+  harnessProfileSetting,
+} from "../../packages/contracts/coding-agent/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 
 // owner definitions만 내보낸다. App 존재 lookup(apps)과 확인 창 소비는 core 조립이 준다.
 // 인증은 매 요청 auth port로 principal의 state·scope·digest를 읽는다.
 const commands = createConnectionCommands();
 const reads = createConnectionReads();
+
+// 소유 concern(coding-agent/harnesses)의 harness 설정 3개다(platform/settings#R31).
+// 값은 소유 concern의 schema 검증을 따른다. 실행 파일 경로·감지·receipt는
+// machine-local 자료로 분리되고 일반 설정 조립에 들지 않는다.
+// settings registry의 출처는 core 조립의 settings.ts다.
+export const harnessSettings = [
+  harnessEnabledSetting,
+  defaultHarnessSetting,
+  harnessProfileSetting,
+];
 
 // reader Worker가 다시 import한다. 인증 port는 요청마다 snapshot에서 principal을 읽는다.
 export function createReaderRegistration(): ReaderRegistration {
@@ -26,6 +41,7 @@ export function createReaderRegistration(): ReaderRegistration {
 
 export const codingAgentConnectionDefinitions = {
   schema: connectionSchemaSteps,
+  settings: harnessSettings,
   commands: [commands.create, commands.revoke],
   reads: [reads.list, reads.show],
   ports: {

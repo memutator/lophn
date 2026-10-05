@@ -2,6 +2,7 @@
 // round-robin으로 배분한다(architecture/documents 2.1–2.3). codec은 contracts#T6
 // supervision 하나다. kind와 root는 환경으로만 받는다.
 import type {
+  Frame,
   KindLaunchSpec,
   ParentMessage,
   WorkerRequest,
@@ -18,12 +19,24 @@ import {
 } from "../../../packages/platform/responsiveness/mod.ts";
 import { createStatusRecorder } from "../../../packages/documents/file-tracking/mod.ts";
 import { createRequestHandler } from "./requests.ts";
+import { dbg } from "./_dbg.ts";
 import {
+  basisFromStore,
   childBlobPort,
   createObservationSubmit,
-  readObservationSource,
-  unavailableLink,
+  linkFromStore,
+  retryOnNewBasis,
 } from "./observation.ts";
+import { createBasisStore } from "./basis.ts";
+import { createByteInbox, validateFiles } from "./validation.ts";
+import { createFormatHandlers } from "../../../packages/documents/formats/reads.ts";
+import { createRootObservers } from "./observers.ts";
+import {
+  createIdSource,
+  cryptoRandom,
+  monotonicClock,
+  systemClock,
+} from "../../../packages/base/mod.ts";
 import {
   fileReadPort,
   fileScanPort,
@@ -39,8 +52,6 @@ import {
   dispatchBatch,
   emptyQueue,
   enqueueCandidate,
-  type ObserveDeps,
-  type ObserveRoot,
   observeRoot,
   pickSlot,
   PREPARATION_SLOTS,
@@ -59,6 +70,8 @@ export type CoordinatorOptions = {
   // hello가 싣는 machine credential과 core api port. 제출 client가 Bearer로 쓴다.
   // credential은 log·stderr에 남기지 않는다(child.ts 계약).
   onHello?(hello: { credential: string; api_port: number }): void;
+  // core가 보낸 byte chunk frame(format 검사 입력). 없으면 받지 않는다.
+  onFrame?(frame: Frame): void;
   // core가 감독 pipe로 보내는 worker_request의 처리. 답은 같은 request_id의
   // worker_response다. 없으면 요청은 unavailable로 답한다(조용히 버리지 않는다).
   handleRequest?(request: WorkerRequest): Promise<WorkerResponse>;
@@ -79,8 +92,8 @@ export type Coordinator = {
   // root당 후보 10,000 초과면 rescan_required 하나만 남긴다.
   addCandidate(root: string, path: string): void;
   dispatchRoots(roots: readonly ScanRootInput[]): void;
-  // root마다 watch·60초 scan·750ms 관측 루프를 돌린다. 제출은 submitResult로 간다.
-  startObservation(roots: readonly ObserveRoot[], deps: ObserveDeps): void;
+  // 멈출 때 부른다(감독의 stop 요청과 stop()). 관측 loop를 멈추는 자리다.
+  onStop(listener: () => void): void;
   stop(): Promise<void>;
 };
 
@@ -103,6 +116,10 @@ export function createCoordinator(
     supervisePreparationSlots({ spawn: options.spawnPreparation });
   let lastServed = -1;
   let stopped = false;
+  const stopListeners: (() => void)[] = [];
+  const notifyStop = () => {
+    for (const listener of stopListeners) listener();
+  };
   let drained = false;
   let wake: (() => void) | undefined;
   const draining = new Promise<void>((resolve) => {
@@ -127,8 +144,12 @@ export function createCoordinator(
     },
     onStop() {
       stopped = true;
+      notifyStop();
       wake?.();
       return session.send({ type: "stopped" });
+    },
+    onFrame(frame) {
+      options.onFrame?.(frame);
     },
     onParent(message) {
       if (message.type !== "worker_request") return;
@@ -225,18 +246,8 @@ export function createCoordinator(
       wake?.();
       void CANDIDATE_LIMIT;
     },
-    startObservation(roots, deps) {
-      for (const request of roots) {
-        // 루프는 root별로 독립이다. 한 root의 큰 scan이 다른 root를 막지 않는다.
-        void observeRoot({
-          ...deps,
-          stop: {
-            get stopped() {
-              return stopped;
-            },
-          },
-        }, request);
-      }
+    onStop(listener) {
+      stopListeners.push(listener);
     },
     dispatchRoots(inputs) {
       for (const input of inputs) {
@@ -249,6 +260,7 @@ export function createCoordinator(
     },
     stop() {
       stopped = true;
+      notifyStop();
       wake?.();
       return supervisor.stop();
     },
@@ -271,12 +283,25 @@ export function coordinatorHello(
   };
 }
 
+// 기한 안에 새 관측 근거가 오지 않으면 conflict를 그대로 둔다. 자기 저장 직후 core가
+// 새 근거를 보내는 데 걸리는 시간보다 넉넉하다.
+const BASIS_RETRY_WAIT_MS = 5_000;
+
 export async function runCoordinator(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
   console.log = console.info = console.debug = (...args: unknown[]) =>
     console.error(...args);
   // FileStatus 메모리. 관측이 채우고 core의 documents.file_status 요청이 읽는다.
   const status = createStatusRecorder();
+  // core가 감독 pipe로 보낸 관측 근거(Q15). 반영되면 root별 관측 loop를 맞춘다.
+  const basis = createBasisStore();
+  // format 검사 입력(원문 바이트)을 요청 앞에 받아 두는 곳과 runner 호출.
+  const inbox = createByteInbox();
+  const formats = createFormatHandlers();
+  const ids = createIdSource({
+    clock: monotonicClock(systemClock),
+    random: cryptoRandom,
+  });
   // hello가 싣는 machine credential과 core api port로 제출 client를 만든다. 원문 blob은
   // 자식 session이 감독 pipe로 core에 준비한다. credential은 이 process 메모리에만 있다.
   const session: { current?: ChildSession } = {};
@@ -287,32 +312,51 @@ export async function runCoordinator(root: string): Promise<void> {
     onHello(received) {
       const current = session.current;
       if (current === undefined) return;
-      const submit = createObservationSubmit({
-        client: createCoreClient({
-          baseUrl: `http://127.0.0.1:${received.api_port}`,
-          credential: received.credential,
-          fetch: productFetch(),
+      const submit = retryOnNewBasis(
+        createObservationSubmit({
+          client: createCoreClient({
+            baseUrl: `http://127.0.0.1:${received.api_port}`,
+            credential: received.credential,
+            fetch: productFetch(),
+          }),
+          prepareBlob: childBlobPort(current),
+          link: linkFromStore(basis, () => ids.newId("doc")),
+          status,
+          nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
+          newKey: () => crypto.randomUUID(),
         }),
-        prepareBlob: childBlobPort(current),
-        // 연결 근거 read가 생기면 core read로 바꾼다(Q15). 그 전에는 시작하지 않는다.
-        link: () => Promise.resolve(unavailableLink()),
-        status,
-        nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
-        newKey: () => crypto.randomUUID(),
+        basis,
+        BASIS_RETRY_WAIT_MS,
+      );
+      // root·규칙은 core가 보낸 근거에서 온다. 근거가 오기 전에는 관측하지 않고, 근거에
+      // 없는 root는 추적 중으로 꾸미지 않는다.
+      const observers = createRootObservers({
+        store: basis,
+        observe: observeRoot,
+        deps: {
+          watch: fileWatchPort(),
+          scan: fileScanPort(),
+          read: fileReadPort(),
+          nowMs: () => Date.now(),
+          submit: async (s) => {
+            dbg("submit " + s.candidate.canonical + " " + s.outcome.kind);
+            const r = await submit(s);
+            dbg("submit result " + JSON.stringify(r));
+            return r;
+          },
+          basisFor: basisFromStore(basis),
+        },
       });
-      const source = readObservationSource();
-      // root·규칙을 읽지 못하면 관측하지 않는다. 추적 중으로 꾸미지 않는다.
-      if (!source.ok) return;
-      coordinator.current?.startObservation(source.value.roots, {
-        watch: fileWatchPort(),
-        scan: fileScanPort(),
-        read: fileReadPort(),
-        nowMs: () => Date.now(),
-        submit,
-        basisFor: source.value.basisFor,
-      });
+      basis.onCommit(() => observers.sync());
+      coordinator.current?.onStop(() => observers.stopAll());
     },
-    handleRequest: createRequestHandler({ status }),
+    onFrame: (frame) => inbox.collect(frame),
+    handleRequest: createRequestHandler({
+      status,
+      basis,
+      validate: (request) =>
+        validateFiles(request, { inbox, call: (input) => formats.call(input) }),
+    }),
     // 준비 worker spawn(platform#T7)과 그 결과 제출이 들어오기 전에는 batch가 준비
     // worker에 닿지 않는다. 그때까지 제출은 성공이 아니라 unavailable이다.
     spawnPreparation: () => {

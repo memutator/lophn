@@ -42,10 +42,17 @@ import {
   loadContextRow,
 } from "../../packages/documents/contexts/store.ts";
 import { exportDocument } from "../../packages/documents/versions/reads.ts";
-import { internalRoute, PREPARE_BASE_ROUTE } from "./documents-served.ts";
+import {
+  internalRoute,
+  OBSERVATION_BASIS_ROUTE,
+  OBSERVATION_LINK_PAGE,
+  PREPARE_BASE_ROUTE,
+} from "./documents-served.ts";
+import { loadProjects } from "../../packages/documents/projects/store.ts";
 import { authorizeDocument } from "../../packages/documents/versions/authorization.ts";
 import {
   loadDocument,
+  loadLinkedDocuments,
   loadVersion,
 } from "../../packages/documents/versions/store.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
@@ -252,6 +259,65 @@ export function createReaderRegistration(): ReaderRegistration {
               ? row.value
               : null,
             next_cursor: null,
+          });
+        },
+      },
+      // coordinator가 파일을 관측할 근거(Q15). core만 부르는 내부 read다. 활성이고 tracking이
+      // 켜진 project의 root·규칙(roots)과 그 project 파일에 연결된 문서(links, 경로 page)다.
+      {
+        route: OBSERVATION_BASIS_ROUTE,
+        handle(snapshot, _ctx, input) {
+          const { part, after } = input as {
+            part: "roots" | "links";
+            after?: string;
+          };
+          const projects = loadProjects(snapshot.sql);
+          if (!projects.ok) return projects;
+          const tracked = projects.value.filter((project) =>
+            project.status === "active" && project.tracking.enabled
+          );
+          if (part === "roots") {
+            return ok({
+              roots: tracked.flatMap((project) =>
+                project.folders.map((folder) => ({
+                  root: folder.path,
+                  project: project.id,
+                  project_revision: project.revision,
+                  patterns: project.tracking.patterns,
+                  use_gitignore: project.tracking.use_gitignore,
+                }))
+              ),
+              next_cursor: null,
+            });
+          }
+          const ids = new Set(tracked.map((project) => project.id));
+          const page = loadLinkedDocuments(snapshot.sql, {
+            ...(after === undefined ? {} : { after }),
+            limit: OBSERVATION_LINK_PAGE,
+          });
+          if (!page.ok) return page;
+          const links = page.value.flatMap((linked) => {
+            const source = linked.document.file_source;
+            if (source === null || source.kind !== "project_file") return [];
+            if (!ids.has(source.project)) return [];
+            return [{
+              project: source.project,
+              path: source.path,
+              document: linked.document.id,
+              document_revision: linked.document.revision,
+              status: linked.document.status,
+              latest_version: linked.document.latest_version,
+              latest_hash: linked.latestOriginalHash,
+              title: linked.document.title,
+            }];
+          });
+          const last = page.value.at(-1)?.document.file_source;
+          return ok({
+            links,
+            next_cursor: page.value.length === OBSERVATION_LINK_PAGE &&
+                last !== null && last !== undefined
+              ? last.path
+              : null,
           });
         },
       },

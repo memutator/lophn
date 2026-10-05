@@ -169,7 +169,7 @@ Deno.test("documents/versions#R13: core가 hello로 준 machine credential은 do
 
 Deno.test("documents/file-tracking#R6: documents worker는 원문 파일과 목록 blob을 machine으로 준비한다", () => {
   const policy = CHILD_BLOB_POLICIES.get("documents/worker");
-  assertEquals(policy?.principal, "machine");
+  assertEquals(policy?.principal, "machine:documents");
   assert(policy?.purposes.has("document_file"));
   assert(policy?.purposes.has("document_files"));
   // 다른 purpose는 허용하지 않는다.

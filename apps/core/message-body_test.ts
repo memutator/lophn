@@ -612,7 +612,7 @@ Deno.test("lophn-agent/conversation#R2: resending the same message is idempotent
   }
 });
 
-Deno.test("lophn-agent/conversation#R4: a machine records redacted text only through core and an oversize record stores nothing", async () => {
+Deno.test("lophn-agent/conversation#R4: a machine records redacted text only and an agent text with visual blocks through core, and an oversize record stores nothing", async () => {
   const f = await fixture();
   try {
     const core = await start(f);
@@ -664,6 +664,43 @@ Deno.test("lophn-agent/conversation#R4: a machine records redacted text only thr
       const refused = await record(id("msg", 3), visual);
       assertEquals(refused.status, 400, JSON.stringify(refused.body));
       assertEquals(refsOf(f.home, id("msg", 3)).length, 0);
+      // agent는 자기 run에 묶인 자격으로 글과 시각 블록을 순서대로 남기고, 글의
+      // secret은 redaction을 거친다. 참조의 준비 주체는 agent 자격이다.
+      const agent = await grant(f, core, `agent:${lophn.id}`, {
+        assignment: lophn.id,
+        run,
+      });
+      const shown = {
+        schema_version: 1,
+        parts: [{ kind: "text", text: `표를 보여 준다 ${SECRET}` }, {
+          kind: "visual",
+          block: tableBlock,
+        }],
+      };
+      const answered = await post(
+        core.port,
+        "messages/record",
+        command(
+          { id: id("msg", 6), session, run, content: shown, links: [] },
+          "r-agent",
+          {},
+          run,
+        ),
+        agent,
+      );
+      assertEquals(answered.status, 200, JSON.stringify(answered.body));
+      const shownRead = await readBody(core, user, id("msg", 6));
+      assertEquals(shownRead.status, 200, JSON.stringify(shownRead.body));
+      const parts = (shownRead.body as Body).content.parts as {
+        kind: string;
+        text?: string;
+        block?: { key: string };
+      }[];
+      assertEquals(parts.map((part) => part.kind), ["text", "visual"]);
+      assertEquals(parts[0]!.text, "표를 보여 준다 *");
+      assertEquals(parts[1]!.block!.key, tableBlock.key);
+      // agent도 자기 답을 읽는다.
+      assertEquals((await readBody(core, agent, id("msg", 6))).status, 200);
       // machine의 글은 64KiB까지다. 그보다 크면 받지 않고 아무것도 준비하지 않는다.
       const before = await blobHashes(f.home);
       const long = textContent("가".repeat(30_000));
@@ -673,7 +710,7 @@ Deno.test("lophn-agent/conversation#R4: a machine records redacted text only thr
       const huge = await record(id("msg", 5), textContent("a".repeat(300_000)));
       assertEquals(huge.status, 400, JSON.stringify(huge.body));
       assertEquals(await blobHashes(f.home), before);
-      assertEquals(refsOf(f.home).length, 2);
+      assertEquals(refsOf(f.home).length, 3);
     } finally {
       await core.shutdown();
     }

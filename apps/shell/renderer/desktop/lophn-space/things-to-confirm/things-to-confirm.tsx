@@ -243,9 +243,11 @@ export function ThingsToConfirm(
             <li className={styles.count} data-count="decisions">
               <Icon icon={confirmIcons.decision} pixels={iconPixels("base")} />
               <span className={styles.countLabel}>
-                {t("things-to-confirm.label.count-decisions", {
-                  count: counts.decisions,
-                })}
+                {overview.approvalsRead
+                  ? t("things-to-confirm.label.count-decisions", {
+                    count: counts.decisions,
+                  })
+                  : t("things-to-confirm.error.decisions-unavailable")}
               </span>
               <Tooltip content={t("things-to-confirm.button.review-next")}>
                 <IconButton
@@ -259,12 +261,22 @@ export function ThingsToConfirm(
               </Tooltip>
             </li>
           </ul>
-          {requestList(waiting, t("things-to-confirm.empty.waiting"))}
+          {/* approval을 못 읽었으면 "기다리는 것 없음"이라고 말하지 않는다(desktop#R7). */}
+          {waiting.length === 0 && !overview.approvalsRead
+            ? null
+            : requestList(waiting, t("things-to-confirm.empty.waiting"))}
         </>
       );
     }
     if (tab === "past") {
       return requestList(past, t("things-to-confirm.empty.past"));
+    }
+    if (!overview.notificationsRead) {
+      return (
+        <p className={styles.empty} data-unavailable="notifications">
+          {t("things-to-confirm.error.notifications-unavailable")}
+        </p>
+      );
     }
     if (notifications.length === 0) {
       return (

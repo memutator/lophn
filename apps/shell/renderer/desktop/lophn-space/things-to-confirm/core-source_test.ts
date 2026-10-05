@@ -442,3 +442,33 @@ Deno.test("platform/approvals#R1: approval 설명은 blobs/read로 읽고 글이
   bytes = btoa(String.fromCharCode(0xff, 0xfe));
   assertEquals(await source.reason(approval), { ok: true, value: null });
 });
+
+Deno.test("shell/desktop#R7: approval·notification route를 읽지 못하면 질문만 돌려주고 못 읽은 쪽을 표시한다", async () => {
+  const { core } = coreOf((call) => {
+    switch (name(call)) {
+      case "read:approvals/list":
+      case "read:notifications/list":
+        return { ok: false, error: { code: "not_found", message: "" } };
+      case "read:questions/list":
+        return ok({ questions: [questionValue()], next_cursor: null });
+      case "read:events/list":
+        return ok({ events: [], scanned_through_seq: "10", head_seq: "10" });
+      default:
+        return ok({
+          assignments: [],
+          runs: [],
+          sessions: [],
+          next_cursor: null,
+        });
+    }
+  });
+  const source = coreRequestSource(core, undefined);
+  const overview = await source.overview();
+  assert(overview.ok);
+  assertEquals(overview.value.requests.map((request) => request.id), [QST]);
+  assertEquals(overview.value.approvalsRead, false);
+  assertEquals(overview.value.notificationsRead, false);
+  const pending = await source.pending(SES);
+  assert(pending.ok);
+  assertEquals(pending.value.map((request) => request.id), [QST]);
+});

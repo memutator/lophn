@@ -331,3 +331,37 @@ Deno.test("shell/desktop#R7: 읽기에 실패하면 마지막 목록과 확인 �
     "Couldn't check for updates. Last checked now.",
   );
 });
+
+Deno.test("shell/desktop#R7: approval·notification을 읽지 못해도 질문은 보이고 결정 0건이나 빈 notification으로 말하지 않는다", async () => {
+  const fake = fakeRequests({
+    requests: [question(1), approval(2)],
+    notifications: [notification(1, "QuestionCreated", "10")],
+    approvalsFail: true,
+    notificationsFail: true,
+  });
+  using view = render(screen(fake));
+  await flush();
+  assertEquals(titles(view.container), ["Question from lophn"]);
+  assertEquals(
+    find(view.container, "[data-count=decisions]").textContent,
+    "Couldn't load decisions right now.",
+  );
+  pressTab(view.container, "Notifications");
+  await flush();
+  assertEquals(view.container.querySelector("[data-empty]"), null);
+  assertEquals(
+    find(view.container, "[data-unavailable=notifications]").textContent,
+    "Couldn't load notifications right now.",
+  );
+});
+
+Deno.test("shell/desktop#R7: approval을 읽지 못하면 질문이 없어도 기다리는 것이 없다고 말하지 않는다", async () => {
+  const fake = fakeRequests({ requests: [], approvalsFail: true });
+  using view = render(screen(fake));
+  await flush();
+  assertEquals(view.container.querySelector("[data-empty]"), null);
+  assertEquals(
+    find(view.container, "[data-count=questions]").textContent,
+    "0 questions",
+  );
+});

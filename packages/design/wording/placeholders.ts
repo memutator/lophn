@@ -457,10 +457,12 @@ export type PlaceholderKinds = {
   "things-to-confirm.empty.waiting": Record<never, never>;
   "things-to-confirm.error.cancel-failed": Record<never, never>;
   "things-to-confirm.error.changed": Record<never, never>;
+  "things-to-confirm.error.decisions-unavailable": Record<never, never>;
   "things-to-confirm.error.later-failed": Record<never, never>;
   "things-to-confirm.error.load-failed": Record<never, never>;
   "things-to-confirm.error.mark-read-failed": Record<never, never>;
   "things-to-confirm.error.not-allowed": Record<never, never>;
+  "things-to-confirm.error.notifications-unavailable": Record<never, never>;
   "things-to-confirm.error.review-unavailable": Record<never, never>;
   "things-to-confirm.error.send-failed": Record<never, never>;
   "things-to-confirm.label.blocking": Record<never, never>;

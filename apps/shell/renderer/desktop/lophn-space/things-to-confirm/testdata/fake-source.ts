@@ -100,6 +100,9 @@ export interface FakeRequests {
   /** review가 열리는지. false면 이 창에 보호 창 통로가 없다. */
   reviewOpens: boolean;
   readsFail: boolean;
+  /** approval·notification 목록을 읽지 못한다(그 route가 없는 core). */
+  approvalsFail: boolean;
+  notificationsFail: boolean;
   answered: { question: string; answer: Answer }[];
   deferred: string[];
   cancelled: { question: string; reason: string }[];
@@ -116,6 +119,8 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
     replies: [],
     reviewOpens: true,
     readsFail: false,
+    approvalsFail: false,
+    notificationsFail: false,
     answered: [],
     deferred: [],
     cancelled: [],
@@ -147,8 +152,14 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
       return Promise.resolve({
         ok: true,
         value: {
-          requests: [...state.requests],
-          notifications: [...state.notifications],
+          requests: state.approvalsFail
+            ? state.requests.filter((request) => request.kind !== "approval")
+            : [...state.requests],
+          notifications: state.notificationsFail
+            ? []
+            : [...state.notifications],
+          approvalsRead: !state.approvalsFail,
+          notificationsRead: !state.notificationsFail,
         },
       });
     },

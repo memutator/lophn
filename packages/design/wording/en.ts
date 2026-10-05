@@ -430,6 +430,8 @@ export const en = {
     "Couldn't cancel this question. Try again.",
   "things-to-confirm.error.changed":
     "This changed since you opened it. Showing the latest.",
+  "things-to-confirm.error.decisions-unavailable":
+    "Couldn't load decisions right now.",
   "things-to-confirm.error.later-failed":
     "Couldn't put this question off. Try again.",
   "things-to-confirm.error.load-failed":
@@ -437,6 +439,8 @@ export const en = {
   "things-to-confirm.error.mark-read-failed":
     "Couldn't mark this as read. Try again.",
   "things-to-confirm.error.not-allowed": "This answer can't be sent from here.",
+  "things-to-confirm.error.notifications-unavailable":
+    "Couldn't load notifications right now.",
   "things-to-confirm.error.review-unavailable":
     "The review window can't open here yet.",
   "things-to-confirm.error.send-failed":

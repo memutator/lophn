@@ -87,6 +87,10 @@ export interface NotificationRow {
 export interface Overview {
   readonly requests: readonly Request[];
   readonly notifications: readonly NotificationRow[];
+  /** approval 목록을 읽었는지. 못 읽었으면 결정 0건으로 보이지 않는다. */
+  readonly approvalsRead: boolean;
+  /** notification 목록을 읽었는지. */
+  readonly notificationsRead: boolean;
 }
 
 export type Answer =

@@ -366,10 +366,11 @@ export function coreRequestSource(
       if (!runs.ok) return runs;
       if (!sessions.ok) return sessions;
       if (!questions.ok) return questions;
-      if (!approvals.ok) return approvals;
-      if (!notifications.ok) return notifications;
+      // approval·notification을 읽지 못해도 질문은 보인다. 못 읽은 쪽은 0으로 보이지 않게
+      // 표시한다(desktop#R7).
+      const approvalRows = approvals.ok ? approvals.value.requests : [];
       const subjects: { id: string; seq: string }[] = [];
-      for (const item of [...questions.value, ...approvals.value.requests]) {
+      for (const item of [...questions.value, ...approvalRows]) {
         subjects.push({ id: item.id, seq: item.created_seq });
       }
       const links: Links = {
@@ -387,11 +388,16 @@ export function coreRequestSource(
       };
       const requests: Request[] = [
         ...questions.value.map((value) => questionOf(value, links)),
-        ...approvals.value.requests.map((value) => approvalOf(value, links)),
+        ...approvalRows.map((value) => approvalOf(value, links)),
       ];
       return {
         ok: true,
-        value: { requests, notifications: notifications.value },
+        value: {
+          requests,
+          notifications: notifications.ok ? notifications.value : [],
+          approvalsRead: approvals.ok,
+          notificationsRead: notifications.ok,
+        },
       };
     },
 
@@ -420,11 +426,12 @@ export function coreRequestSource(
         ),
       ]);
       if (!questions.ok) return questions;
-      if (!approvals.ok) return approvals;
       if (!waiting.ok) return waiting;
+      // approval을 읽지 못하면 질문만 칸에 둔다. 없는 것으로 말하지 않을 뿐 칸은 비우지 않는다.
+      const approvalRows = approvals.ok ? approvals.value.requests : [];
       // approval은 run의 세션으로 고른다. 칸에 보일 것만 run을 하나씩 읽는다.
       const runs = new Map(waiting.value.map((run) => [run.id, run]));
-      for (const approval of approvals.value.requests) {
+      for (const approval of approvalRows) {
         if (approval.run === null || runs.has(approval.run)) continue;
         const read = await call<{ run: RunValue }>(
           core,
@@ -449,7 +456,7 @@ export function coreRequestSource(
       };
       const requests: Request[] = [
         ...questions.value.map((value) => questionOf(value, links)),
-        ...approvals.value.requests.map((value) => approvalOf(value, links)),
+        ...approvalRows.map((value) => approvalOf(value, links)),
       ];
       return {
         ok: true,

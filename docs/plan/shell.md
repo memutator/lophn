@@ -310,6 +310,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: shell#T9, shell#T14, documents#T7, documents#T10, documents#T11
+- shell#T28에서 넘어온 것: 런처 카드의 approval 대기 개수 글자 pill(desktop#R26). 모양은 `apps/shell/renderer/desktop/notification-chip/space-decisions.tsx`의 `WaitingPill`, 수는 `things-to-confirm/model.ts`의 `placeWaiting(requests, place, "approvals")`다. 카드가 생기면 그 카드의 프로젝트·앱 자리로 센다
 - shell#T21에서 넘어온 것: 제품 core 통로의 `WorkspaceSource`(지금은 dev seed만)를 만들 때 팔레트 파일 묶음의 `files(project)`를 documents `files.list`로 채운다. 그 전까지 lophn 팔레트의 프로젝트 행은 project route로 가도 작업대 통로가 없어 런처가 보인다.
 - 완료: 아래 확인이 통과한다
   - 런처 카드는 사람이 지은 이름·목적·상태만 보인다. 내부 slug·ID·경로는 펼친 상세에만 둔다.
@@ -577,6 +578,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T22, shell#T23, contracts#T22, contracts#T23, contracts#T28, contracts#T29, platform#T21, platform#T22, lophn-agent#T29, lophn-agent#T34
+- shell#T28에서 넘어온 것: 질문 칸·things-to-confirm의 [Review]는 `lophnShell.openConfirmation({request, parentWindow})`(contracts shell confirmation)을 부른다(`apps/shell/renderer/desktop/lophn-space/things-to-confirm/core-source.ts`의 `windowConfirmation`). shell preload에 `openConfirmation`과 main의 `shell:confirmation-open` 등록·coordinator 연결이 아직 없어 지금은 "The review window can't open here yet."를 보인다. main은 renderer가 보낸 `parentWindow` 값이 아니라 IPC를 보낸 창을 부모로 쓴다
 - 완료: 아래 확인이 통과한다
   - approval request: 결정을 문장으로 묻고 exact 대상·입력·영향·되돌릴 범위. 허락·거절·명시 취소. 승인 접수와 실제 적용을 구별해 돌려준다.
   - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
@@ -813,6 +815,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T37, shell#T39, apps#T9
+- shell#T28에서 넘어온 것: 앱 공간 바의 lophn 크롬은 `apps/shell/renderer/desktop/notification-chip/space-decisions.tsx`의 `SpaceDecisions`(place `{kind: "app", id}`, 열기는 things-to-confirm)를 둔다. 프로젝트 작업대 바에는 T28에서 두었다
 - shell#T21에서 넘어온 것: lophn 공간 팔레트의 앱 행은 지금 apps 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 app target). 앱 공간이 생기면 그 앱 공간으로 간다.
 - shell#T27에서 넘어온 것: 앱 공간 바의 대화 도크 토글(`DockToggle`)과 본문 오른쪽 `DockSlot`(새 세션 작업 자리 `{kind: "app"}`). 도크가 앱 view를 덮거나 밀 때의 native bounds는 T39를 따른다
 - 완료: 아래 확인이 통과한다
@@ -1168,3 +1171,11 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (3) renderer로 오는 streaming 통로가 없다. 임시 표시에서 확정 메시지로 바꾸는 것은 보내는 사람 말에만 지금 돈다(같은 id의 확정 메시지가 오면 바꾼다).
   - (4) 새 데이터 root에는 lophn 역할 assignment가 없다(CreateBuiltinAssignment는 machine 전용이고 부르는 자리가 없다). 도크는 "lophn isn't set up for conversations yet."를 보인다. 만드는 쪽은 lophn-agent다.
   - (5) headless 확인용으로 main이 `LOPHN_SHELL_START=conversation`이면 lophn 공간을 도크를 연 채로 연다(개발 전용, stack.md).
+- **Q16 질문 칸·things-to-confirm의 답 경로와 읽을 수 없는 자료(T28, 추천안으로 진행).**
+  - (1) T28 완료 기준은 action 없는 질문의 선택 답·자유 답을 일반 답 경로로 보내라고 하지만, contracts의 AnswerQuestion은 모든 답에 `confirmation: "required"`를 둔다. 그래서 지금 제품 core는 칸에서 보낸 일반 답을 거절하고 칸은 "This answer can't be sent from here."를 보인다. 미루기·취소·읽음 표시는 그대로 된다. 추천: lophn-agent/contracts가 domain model("action option이면 confirmation window 증거 소비")대로 confirmation을 action 선택지의 답에만 요구하게 route를 나눈다(일반 답 route와 action 답 route). 그 전까지 칸은 다른 길로 답을 보내지 않는다.
+  - (2) 질문의 본문·이유·선택지 설명·추천 이유 blob은 `general_read: false`라 어느 actor도 읽지 못한다. 칸은 선택지 이름(inline)과 추천·기한만 보이고 본문 자리에 "This question's text can't be shown here yet."를 둔다. 추천: lophn-agent가 사람(user) 화면 읽기용 field를 연다(secret 판정 답은 그대로 막는다).
+  - (3) 제품 core(`apps/core`)는 platform approvals·notifications 모듈을 조립하지 않아 `approvals/list`·`notifications/list`가 없다. 화면은 질문만 보이고 결정 개수 자리에 "Couldn't load decisions right now.", notification 탭에 "Couldn't load notifications right now."를 둔다. 0건이나 빈 목록으로 말하지 않는다. chip은 읽은 것이 없어 뜨지 않는다. core 조립은 platform 작업이 필요하다. lead가 배정한다.
+  - (4) 완료 기준의 "읽음·읽지 않음으로 남기고"는 domain model과 다르다. notification의 `read_at`은 한 번 정하면 불변이고 읽지 않음으로 되돌리는 command가 없다. 화면은 읽음과 읽지 않음을 구별해 보이고 명시한 읽음 표시만 낸다(platform/notifications#R5).
+  - (5) 자유 답과 취소 이유는 대화 도크(Q15)와 같이 글의 hash만 보낸다. 사람 글을 blob으로 올리는 길이 생기면 같은 hash로 보낸다.
+  - (6) "blocking"은 그 요청을 `waiting_on`으로 기다리며 멈춘 run이 있는 요청으로 읽는다. 기간 filter의 시각은 생성·닫힘 event의 `at`(events.list)이고, 읽지 못한 요청은 기간으로 빼지 않는다. 역할은 run의 assignment 역할이다.
+  - (7) headless 확인용으로 main이 `LOPHN_SHELL_START=things-to-confirm`이면 lophn 공간의 things-to-confirm부터 연다(개발 전용, stack.md).

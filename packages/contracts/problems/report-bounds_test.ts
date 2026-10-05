@@ -6,7 +6,7 @@ import {
   REPORTING_TEST_AT as at,
   REPORTING_TEST_HASH as hash,
   reportingId as id,
-} from "./reporting-fixtures.ts";
+} from "./testing/mod.ts";
 
 Deno.test("problems/snapshots#R20: snapshot metadata total uses UTF8 bytes without a per-line text cap", () => {
   const snapshot = missingSnapshot();

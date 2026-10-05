@@ -2,7 +2,7 @@ import type {
   RecordReportInput,
   SnapshotInput,
   SubmitFeedbackInput,
-} from "./mod.ts";
+} from "../mod.ts";
 
 export const reportingId = (prefix: string) =>
   `${prefix}_01arz3ndektsv4rrffq69g5fav`;

@@ -1,5 +1,10 @@
 import type { Clock, Result } from "../../packages/base/mod.ts";
-import { err, internalError, ok } from "../../packages/base/mod.ts";
+import {
+  err,
+  internalError,
+  isManualClock,
+  ok,
+} from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
@@ -58,6 +63,8 @@ export type CoreRuntime = {
   record(context: AuthenticatedContext): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
+  // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
+  sweepTicketClaims(): Promise<void>;
   readers: ReaderPool;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
@@ -77,6 +84,8 @@ export async function openRuntime(input: {
   ledgerPath: string;
   clock: Clock;
   nowMs: number;
+  // "system"이면 writer가 자기 system clock을 쓴다. "fixed"면 nowMs에 고정한다.
+  writerClock: "system" | "fixed";
   seed: number;
   modules: readonly string[];
   assembled: Assembled;
@@ -99,7 +108,9 @@ export async function openRuntime(input: {
 }): Promise<Result<CoreRuntime>> {
   const openedWriter = openProductWriter(input.ledgerPath, {
     modules: [...input.modules],
-    nowMs: input.nowMs,
+    // 제품 clock은 writer가 자기 system clock으로 따라간다. 테스트는 기동 시각에
+    // 고정한 clock으로 결정적인 시각을 유지한다.
+    clock: input.writerClock === "system" ? "system" : input.nowMs,
     seed: input.seed,
   });
   // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
@@ -181,6 +192,48 @@ export async function openRuntime(input: {
       (ctx, body) => Promise.resolve(read.handle(ctx, body)),
     ]),
   ]);
+  // ticket claim 정리. 후보 read 뒤 expire_claim을 제출한다. timer는 표를 쓰지 않는다.
+  const machine: RequestContext = {
+    principal: "machine:ticket-claims",
+    actor: "machine",
+    scope: {
+      operations: ["ExpireTicketClaim", "TicketClaimSweep"],
+      targets: {},
+    },
+    conditions: {},
+    credential_ref: "machine:ticket-claims",
+  };
+  function sweepTicketClaims(): Promise<void> {
+    if (!readers.ok) return Promise.resolve();
+    // 테스트의 manual clock은 writer가 객체를 공유하지 못한다. 민 시각을 알린 뒤
+    // 후보를 읽어야 같은 시각으로 만료를 판단한다.
+    const nowMs = input.clock.nowMs();
+    const noted = isManualClock(input.clock)
+      ? openedWriter.noteTime(nowMs)
+      : Promise.resolve(ok(undefined));
+    const now = new Date(nowMs).toISOString();
+    return noted.then(() => openedWriter.prunePrepared(nowMs)).then(() =>
+      readers.value.read(
+        { resource: "tickets", method: "claim_sweep" },
+        machine,
+        { now, revoked: [] },
+      )
+    ).then(async (found) => {
+      if (!found.ok) return;
+      const claims = (found.value as {
+        claims?: { ticket: string; claim_seq: string }[];
+      }).claims ?? [];
+      for (const claim of claims) {
+        await openedWriter.writer.command(machine as never, {
+          command: "ExpireTicketClaim",
+          input: claim,
+          compare: {},
+          idempotency_key: `expire:${claim.ticket}:${claim.claim_seq}`,
+          prepared: [],
+        });
+      }
+    });
+  }
   const events = createReaderEventBackend(
     readers.value,
     (ref) => Promise.resolve(currentCredential(input.ledgerPath, ref)),
@@ -207,6 +260,7 @@ export async function openRuntime(input: {
     events,
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),
+    sweepTicketClaims,
     async close() {
       dispatcher.close();
       readers.value.close();
@@ -266,7 +320,7 @@ function backupReads(
 // openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.
 function openProductWriter(
   path: string,
-  extra: { modules: string[]; nowMs: number; seed: number },
+  extra: { modules: string[]; clock: "system" | number; seed: number },
 ): {
   writer: Writer;
   confirmation(body: {
@@ -275,6 +329,7 @@ function openProductWriter(
     windowId?: string;
   }): Promise<Result<unknown>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
+  noteTime(nowMs: number): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
 } {
@@ -372,6 +427,20 @@ function openProductWriter(
         return err({
           code: "unavailable",
           message: "확인 등록을 전달하지 못했다",
+        });
+      });
+    },
+    noteTime(nowMs) {
+      return send({
+        id: nextId++,
+        op: "note-time",
+        nowMs,
+      } as unknown as WriterRequest).then((message) => {
+        if ((message.op as string) === "time-noted") return ok(undefined);
+        if (message.op === "failed") return err(message.body);
+        return err({
+          code: "unavailable",
+          message: "시각을 전달하지 못했다",
         });
       });
     },

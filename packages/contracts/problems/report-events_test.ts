@@ -11,7 +11,7 @@ import {
   reportContentHashInputSchema,
   reportRecorded,
 } from "./mod.ts";
-import { preparedReport, reportingId as id } from "./reporting-fixtures.ts";
+import { preparedReport, reportingId as id } from "./testing/mod.ts";
 
 Deno.test("problems/reporting#R10: external command envelope owns event range, hash excludes server output", () => {
   const input = preparedReport();

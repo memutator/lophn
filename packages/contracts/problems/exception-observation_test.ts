@@ -21,7 +21,7 @@ import {
   REPORTING_TEST_AT as at,
   REPORTING_TEST_HASH as hash,
   reportingId as id,
-} from "./reporting-fixtures.ts";
+} from "./testing/mod.ts";
 
 const error = {
   name: "TypeError",

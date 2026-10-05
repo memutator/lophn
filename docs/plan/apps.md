@@ -192,6 +192,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T11 invocation 기록 command와 read
 
+- 상태: 완료 (#161)
 - 등급: 기본
 - concern: apps/invocations, apps/releases
 - 요구: apps/invocations#R3, R6, R9, R10, R13, R15, R16, R17, apps/releases#R17
@@ -203,7 +204,6 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 완료:
   - `model_test.ts`: 상태 전이(없음·accepted→running→succeeded/failed/unknown, denied), terminal 뒤 늦은 start가 running으로 되돌리지 않음, 같은 사실 재전송은 같은 결과·다른 종료 사실은 conflict(R6), accepted만 있으면 started_at 없음(R9), 알려진 ID만 unknown으로 확정·모르는 호출은 만들지 않음(R10)
   - `reads_test.ts`: release 교체 뒤에도 당시 release·operation·trigger·mode·actor·caller가 그대로(R3), command를 지운 새 release 뒤에도 당시 blueprint로 설명(apps/releases#R17), A→B와 agent→B의 caller(app·release·parent / run·tool_call) 구별과 부모 없으면 없음(R16), confirm에서 actor·caller는 요청자이고 approval은 별도 참조(R17), succeeded는 handler 반환일 뿐 업무 정확성 필드를 두지 않음(R13), summary 16KiB·redaction 뒤 secret 없음(R15)
-  - 상태: 완료 (#161)
 
 ### T12 invocation 후행 전달과 confirm 실행
 
@@ -219,6 +219,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `delivery_test.ts`: ledger 저장을 지연시켜도 일반 호출 응답이 먼저 오고 기록은 뒤에 반영(R1), 기록 대상: confirm·write·external·automation read·실패/거절 read·start·data_change, 성공 일반 read 100회는 기록 100개를 만들지 않음(R2), 업무 성공 뒤 전달을 끊어도 응답은 성공이고 기록 메시지만 재전송·한도 초과는 손실 진단(R5), 전체 4096 메시지 또는 8MiB, unavailable만 1·2·4초부터 최대 30초 backoff, unauthorized·conflict·invalid_input은 반복 안 함(R19), A→B·agent→B 일반 read도 같은 규칙(R18)
   - `confirm_test.ts`: approval 사용과 accepted가 한 transaction이고 저장 실패면 handler가 불리지 않음, 같은 접수 재전송은 기존 접수(R7), 같은 proof를 동시에 보내도 handler 1회, 옛 프로세스 proof·입력·release·command가 다른 proof 거절(R8), marker 4096개가 차면 기존 marker를 버리지 않고 새 접수 거절(R19)
   - `effects_test.ts`: 로컬 저장 뒤 외부 전송 실패를 저장 완료와 전송 실패로 따로 남기고 취소 요청 접수를 효과 취소로 표시하지 않음(R11), 결과 모름·기록 누락으로 업무를 다시 부르지 않음(R12)
+  - 이어받음: platform#T43의 invocation 복구 command. 재시작 점검이 미완료 invocation을 실제 관측으로 확정하는 연결은 이 작업이 낸다. 기록 자체는 apps#T11이 끝났고, 미완료 전달을 재시작 때 이어 받는 쪽은 이 작업이다
 
 ### T13 broker의 permission 강제
 
@@ -286,7 +287,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 - 등급: 기본
 - concern: apps/data
-- 상태: 진행 (#192) — 남은 것: activation 순서(종료 확인 → backup 확정 → migration → 복원)는 T18. 보호 backup의 blob field 등록(general_read 없음)은 record_backup hash로 T18이 확정하고, 이 작업은 backup 파일을 앱 데이터 영역에 남긴다
+- 상태: 완료 (#192) — 이어보냄: activation 순서(종료 확인 → backup 확정 → migration → 복원)와 보호 backup의 blob field 등록 확정 → apps#T18
 - 요구: apps/data#R1, R2, R3, R5, R6, R7, R8, R10, R14
 - 자리: packages/apps/data/worker/ (schema.ts, backup.ts, migrate.ts, restore.ts, integrity.ts), packages/apps/data/commands.ts, apps/worker/apps/data.ts
 - 쓰는 contract: platform blob(보호 backup 설치, blob field 등록 때 일반 읽기 불가로 적는다; platform#T13·T14), T3 migration용 flag
@@ -312,6 +313,9 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `activation_test.ts`: coding agent가 준비한 release도 approval 없이는 activating이 되지 않고 재시도에는 새 결정(R8), approval 뒤 grant·active release를 바꾸면 낡은 activation 거절(R12), activation 둘·grant 변경 동시 요청에서 하나만 진행, 이전 자식 종료 뒤 새 자식(R13), handler·hash·schema·probe 불일치면 active 불변·성공 commit 뒤에만 통로 open, 같은 transaction에 이름·설명 갱신과 첫 성공의 run_enabled=true(R14), 다른 schema의 옛 release는 바로 activation 안 됨·같은 schema rollback은 새 activation(R16)
   - `recovery_test.ts`: 종료 확인·backup 확정을 각각 지연시키면 migration도 새 업무도 시작하지 않음(apps/data#R4), migration·새 준비 실패면 새 자식 종료 → backup restore → 무결성·schema 확인 → record_data_restore → fail_activation → 이전 release 재준비, 복원 실패·미확인은 unavailable과 문제 보고(apps/data#R11, apps/releases#R15), 성공 commit 뒤 만든 업무 데이터는 옛 backup으로 자동 덮지 않음(apps/data#R12), migration 이력에서 출발·도착 schema·설명·손실 가능성·backup·결과·시각을 찾음(apps/data#R9)
   - 각 단계에서 child·core·supervisor를 끊는 테스트와 complete_activation 응답 유실 테스트(architecture/apps.md 8장)
+  - 이어받음: apps#T17의 activation 순서(종료 확인 → backup 확정 → migration → 복원) 조립. 보호 backup의 blob field 등록(general_read 없음)은 record_backup hash로 이 작업이 확정한다. T17은 backup 파일을 앱 데이터 영역에 남긴다
+  - 이어받음: platform#T33의 fail_activation 발생 작업. `fail_activation`이 `ReleaseActivationFailed`를 내는 것은 이 작업의 자리다
+  - 이어받음: platform#T43의 release activation 복구 command. 재시작 점검이 미완료 activation을 실제 관측으로 확정하는 연결은 이 작업이 낸다
 
 ### T19 release 준비 확정, 비교, blueprint read
 

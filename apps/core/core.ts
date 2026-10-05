@@ -41,6 +41,7 @@ import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
+import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
 
 // 시작 순서: lock → ledger schema step → writer·reader → event 배포 → API → I/O worker 감독.
@@ -54,6 +55,10 @@ export type CoreOptions = {
   // writer·reader가 다시 import할 팀 등록 파일. 없으면 teams 객체만 쓴다.
   teamModules?: readonly string[];
   clock?: Clock;
+  // writer 시각. "fixed"(기본)면 clock의 기동 시각에 고정한다. 테스트의 결정적인
+  // 시각과 blob 준비 만기 판정이 여기 있다. "system"이면 writer가 자기 system
+  // clock을 쓴다. 제품 기동(main.ts)만 "system"이다.
+  writerClock?: "system" | "fixed";
   random?: RandomSource;
   // Electron main이 물려 준 stdin/stdout. 테스트가 파이프를 끼운다.
   parent?: ParentPipe;
@@ -96,6 +101,14 @@ export type Core = {
     prepared: PreparedRelayResult,
     nowMs: number,
   ): Promise<Result<void>>;
+  // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
+  sweepTicketClaims(): Promise<void>;
+  // testCredentials일 때만 있다. 확인 창 handle을 writer registry에 발급한다.
+  confirmation?(body: {
+    action: "issue" | "close-window" | "clear";
+    request?: unknown;
+    windowId?: string;
+  }): Promise<Result<unknown>>;
 };
 
 export async function startCore(options: CoreOptions): Promise<Result<Core>> {
@@ -226,6 +239,7 @@ async function open(
     ledgerPath,
     clock,
     nowMs: clock.nowMs(),
+    writerClock: options.writerClock ?? "fixed",
     seed: seedOf(random),
     modules: options.teamModules ?? [],
     assembled: assembled.value,
@@ -234,6 +248,22 @@ async function open(
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
+  // sweep가 expire_claim을 제출할 machine credential. 기록이 없으면 writer가
+  // 만료 정리를 거절하므로 기동을 여기서 멈춘다(coding-agent/tickets#R13).
+  const sweepCredential = await runtime.record({
+    principal: "machine:ticket-claims",
+    actor: "machine",
+    scope: {
+      operations: ["ExpireTicketClaim", "TicketClaimSweep"],
+      targets: {},
+    },
+    conditions: {},
+    credential_ref: "machine:ticket-claims",
+  });
+  if (!sweepCredential.ok) {
+    await runtime.close();
+    return sweepCredential;
+  }
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -289,7 +319,17 @@ async function open(
     blobRelay?.prune(clock.nowMs());
     runtime?.prunePrepared(clock.nowMs());
   }, 60_000);
-  stopPrune.run = () => clearInterval(timer);
+  // ticket claim 만료·회수 정리. 60초마다와 재시작 때 후보를 읽고 expire_claim을
+  // 제출한다. timer는 표를 쓰지 않는다(coding-agent/tickets#R13).
+  const claimSweep = setInterval(
+    () => runtime?.sweepTicketClaims(),
+    ticketClaimSweepIntervalMs,
+  );
+  await runtime?.sweepTicketClaims();
+  stopPrune.run = () => {
+    clearInterval(timer);
+    clearInterval(claimSweep);
+  };
   const startedIo = io
     ? await startPlatformIo(
       io,
@@ -324,6 +364,7 @@ async function open(
     dataRoot: root.path,
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
+    sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     prepareBlob: (call) =>
       blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
         code: "unavailable",
@@ -365,6 +406,7 @@ async function open(
     const noting = runtime;
     core.notePrepared = (prepared, nowMs) =>
       noting.notePrepared(prepared, nowMs);
+    core.confirmation = (body) => noting.confirmation(body);
   }
   if (accepting.acceptTestCredential) {
     core.acceptTestCredential = (context, token) =>

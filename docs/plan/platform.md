@@ -566,6 +566,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 대상·입력·비교 기준·assignment·tool이 바뀌면 거절하고 새 request가 필요하다(R5).
   - 거절·만료·취소는 미실행 종료이고 사람 결정으로 구별된다(R15). 같은 run과 handoff 계보에서 거절된 같은 동작·대상·입력은 다시 묻지 않는다(R16).
   - `decisions_test.ts`에 위 요구 테스트, flow approve-action 통합 테스트(shell#T22·T29의 confirmation window와 함께)
+  - 이어받음: platform#T43의 approval 대기 복구 연결. 재시작 점검이 미완료 approval 대기를 실제 관측으로 확정하는 연결은 이 작업이 낸다. 요청 기록은 platform#T21이 끝났고, 미결정 대기를 재시작 때 이어 받는 쪽은 이 작업이다
 
 ### T23 approval 적용과 한 번 사용
 
@@ -649,13 +650,14 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: settings(TOML import·export pipe 작업)
 - slice: agent
 - 선행: platform#T26, platform#T24
-- 상태: 진행 (#153) — 남은 것: R29(machine이 질문 고정 option action 근거를 검증한 apply는 ApplySettings route actors에 machine이 필요해 contract 변경이 먼저다)와 flow ask-lophn-help 설정 단계 통합 테스트
+- 상태: 진행 (#153) — 남은 것: R29(machine이 질문 고정 option action 근거를 검증한 apply는 ApplySettings route actors에 machine이 필요해 contract 변경이 먼저다) — 이어보냄: flow ask-lophn-help 설정 단계 통합 테스트 → lophn-agent#T29
 - 완료: 아래 확인이 통과한다
   - UTF-8 TOML 1.0 format 1만 worker에서 parse·redaction·전체 검증 뒤 `ApplySettings`로 제출한다. JSON5·YAML·환경 치환·include·command·원격 URL은 거절, 모르는 format은 거절(R3, R26).
   - definitions read는 이름·한 줄 설명·현재·기본값의 뜻·영향·위험·되돌림·적용 시점을 주고 설명 없는 항목은 공개하지 않는다(R27, R28).
   - lophn 역할의 제안은 질문의 고정 option action → QuestionActionEvidence → `ApplySettings`로만 적용한다(R29).
   - read 결과가 기본 정보와 펼칠 정보(층·판·format)를 나눠 준다(R30, 화면은 shell).
-  - `toml_test.ts`, `definitions_test.ts`에 위 요구 테스트, flow ask-lophn-help의 설정 단계 통합 테스트
+  - `toml_test.ts`, `definitions_test.ts`에 위 요구 테스트
+  - 이어받음: platform#T27의 flow ask-lophn-help 설정 단계 통합 테스트. 설정 변경 제안 경로(R29)를 이 작업이 닫는다. machine actor의 ApplySettings 검증은 contract 변경이 먼저라 platform#T27에 남는다
 
 ### T28 data 직렬화와 출처 유지
 
@@ -676,7 +678,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T29 notification 계기: approval, question, assignment
 
-- 상태: 진행 (#189) — 남은 것: lophn-agent questions·assignments의 QuestionCreated·AssignmentPaused 발생 작업
+- 상태: 완료 (#189) — 이어보냄: QuestionCreated·AssignmentPaused 발생 작업 → lophn-agent questions·assignments 작업(lophn-agent#T9, lophn-agent#T11)
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2
@@ -727,7 +729,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T53 notification 계기: context watch 변화
 
-- 상태: 진행 (#195) — 남은 것: documents contexts의 record_watch_change 발생 작업(documents#T24)와 flow build-context의 notification 단계 통합 테스트
+- 상태: 진행 (#195) — 남은 것: flow build-context의 notification 단계 통합 테스트 — 이어보냄: record_watch_change 발생 작업 → documents#T24
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R3, R7
@@ -774,7 +776,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T33 notification 계기: release activation 실패
 
-- 상태: 진행 (#195) — 남은 것: apps releases의 fail_activation 발생 작업(apps#T18)
+- 상태: 완료 (#195) — 이어보냄: fail_activation 발생 작업 → apps#T18
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1
@@ -818,7 +820,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T36 notification 계기: ticket 확인·검사 실패
 
-- 상태: 진행 (#195) — 남은 것: coding-agent tickets의 checker 발생 작업(coding-agent#T26)
+- 상태: 완료 (#195) — 이어보냄: checker 발생 작업 → coding-agent#T26
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2
@@ -863,7 +865,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T39 notification 계기: 운영 보고 문제
 
-- 상태: 진행 (#189) — 남은 것: problems/closing의 ProblemClosed·ProblemReopened 발생 작업
+- 상태: 완료 (#189) — 이어보냄: ProblemClosed·ProblemReopened 발생 작업 → problems/closing 작업(problems#T20)
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2
@@ -946,7 +948,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 미완료 invocation·release activation·run·approval 대기를 소유 concern이 실제 관측으로 점검하게 하고, 모르면 unknown과 근거를 남긴다. 전역 barrier가 없다(R16).
   - `startup_test.ts`에 위 요구 테스트, flow work-offline·resume-agent-session의 재시작 단계 통합 테스트
 
-- 상태: 진행 (#162) — 남은 것: 소유 concern의 복구 command(invocation·release activation·run·approval 대기)가 연결되면 점검이 실제 관측으로 확정한다
+- 상태: 완료 (#162) — 이어보냄: 복구 command 연결 뒤 점검의 실제 관측 확정 → 소유 concern 복구 작업(apps invocation은 apps#T12, release activation은 apps#T18, lophn-agent run은 lophn-agent#T27, approval 대기는 platform#T22)
 
 ### T44 blob GC와 보존 정리
 
@@ -997,7 +999,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T47 doctor와 보안 진단
 
-- 상태: 진행 (#180) — 남은 것: core.ts에 doctor·diagnostics source 연결, apps grant 위험 read·SDK hash contract가 생기면 관측 파일 대신 그 read로 교체
+- 상태: 진행 (#180) — 남은 것: apps grant 위험 read·SDK hash contract가 생기면 관측 파일 대신 그 read로 교체 — 이어보냄: core.ts doctor·diagnostics source 연결 → platform#T48
 - 등급: 기본
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R4, R5, R6, R9, R10
@@ -1011,6 +1013,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 권한 부여·회수·secret 사용·인증 실패·Origin 거부·권한 밖 접근을 보안 진단으로 구별하되 원본은 소유 concern의 event다(R6).
   - doctor가 worker에서 SDK 같은 version의 hash 차이, 실행 자격 권한, 너무 넓은 grant, file+network grant, 오래 안 쓴 grant, log의 미가공 key 패턴을 원문 없이 보고한다(R9, R10).
   - `doctor_test.ts`에 위 요구 테스트, flow install-lophn의 상태 점검 단계
+  - 이어받음: platform#T47의 core.ts doctor·diagnostics source 연결. grant 위험 read·SDK hash contract로 관측 파일을 교체하는 일은 그 contract가 생긴 뒤라 platform#T47에 남는다
 
 ### T48 Linux 설치 묶음(.deb)
 

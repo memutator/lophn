@@ -66,25 +66,30 @@ export const ticketSchemaSteps: readonly SchemaStep[] = [{
     CREATE INDEX tickets_app_state_id ON tickets(app, state, id);
     CREATE INDEX tickets_state_id ON tickets(state, id);
     CREATE INDEX tickets_completion_seq ON tickets(completion_seq);
-    CREATE TRIGGER tickets_no_identity_change
+    create trigger tickets_no_update
+      before update of id on tickets
+    begin
+      select raise(abort, 'ticket id is immutable');
+    end;
+    create trigger tickets_no_identity_change
       BEFORE UPDATE OF id, app, kind, title, what, why, problems
       ON tickets
     BEGIN
       SELECT RAISE(ABORT, 'ticket immutable fields are immutable');
     END;
-    CREATE TRIGGER tickets_no_readiness_change
+    create trigger tickets_no_readiness_change
       BEFORE UPDATE OF readiness, needs ON tickets
       WHEN OLD.readiness = 'ready'
     BEGIN
       SELECT RAISE(ABORT, 'ready ticket does not return to needs_confirmation');
     END;
-    CREATE TRIGGER tickets_no_confirmed_reopen
+    create trigger tickets_no_confirmed_reopen
       BEFORE UPDATE OF state ON tickets
       WHEN OLD.state IN ('confirmed', 'cancelled')
     BEGIN
       SELECT RAISE(ABORT, 'confirmed and cancelled tickets do not reopen');
     END;
-    CREATE TRIGGER tickets_no_delete
+    create trigger tickets_no_delete
       BEFORE DELETE ON tickets
     BEGIN
       SELECT RAISE(ABORT, 'tickets are cancelled, not deleted');
@@ -119,10 +124,11 @@ export const ticketSchemaSteps: readonly SchemaStep[] = [{
 
     CREATE TABLE ticket_conditions (
       ticket TEXT NOT NULL REFERENCES tickets(id),
-      position INTEGER NOT NULL PRIMARY KEY,
+      position INTEGER NOT NULL CHECK (position >= 0),
       kind TEXT NOT NULL,
       input TEXT NOT NULL,
-      condition_hash TEXT NOT NULL
+      condition_hash TEXT NOT NULL,
+      PRIMARY KEY (ticket, position)
     ) STRICT;
     ${IMMUTABLE("ticket_conditions")}
 
@@ -158,13 +164,14 @@ export const ticketSchemaSteps: readonly SchemaStep[] = [{
 
     CREATE TABLE ticket_completions (
       ticket TEXT NOT NULL REFERENCES tickets(id),
-      seq TEXT NOT NULL PRIMARY KEY,
+      seq TEXT NOT NULL,
       claim_seq TEXT NOT NULL,
       release TEXT NOT NULL,
       summary_hash TEXT NOT NULL,
       outputs TEXT NOT NULL,
       fix_records TEXT NOT NULL,
       verifications TEXT NOT NULL,
+      PRIMARY KEY (ticket, seq),
       UNIQUE (seq)
     ) STRICT;
     CREATE INDEX ticket_completions_release

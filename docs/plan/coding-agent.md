@@ -328,7 +328,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T12 CLI 뼈대
 
-- 상태: 진행 (#173) — 남은 것: R1·R5 테스트(dispatch 배선 뒤), core dispatch(T36)
+- 상태: 완료 (#173) — 이어보냄: core dispatch와 R1·R5 테스트(dispatch 배선 뒤) → coding-agent#T36
 - 등급: 기본
 - concern: coding-agent/cli
 - 요구: coding-agent/cli#R1, R2, R3, R4, R5, R39
@@ -565,6 +565,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     8785 정규 JSON sha256, contracts#T32·T41)
 
 ### T19 ticket claim: claim·갱신·반납·만료와 claim 검사 read
+
+- 상태: 완료 (#196)
 
 - 등급: 기본
 - concern: coding-agent/tickets, coding-agent/connection
@@ -810,6 +812,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     조건만 재비교, 늦은 옛 completion이 새 결과를 덮지 않는다. model 호출
     없음(R20)
   - record_checks는 completion_seq·ticket revision·읽은 대상 revision CAS
+  - 이어받음: platform#T36의 checker 발생 작업. 이 작업이 `TicketConfirmed`·`TicketCheckFailed`를 낸다
 
 ### T27 사람 화면용 ticket read
 
@@ -1157,6 +1160,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     없음(harnesses#R6, cli#R40)
   - lophn 시작·문제 발생·ticket 생성만으로 외부 process가 뜨지
     않는다(connection#R1)
+  - 이어받음: coding-agent#T12의 core dispatch. R1·R5 테스트는 dispatch 배선 뒤 이 작업에서 닫는다
 
 ### T37 daemon command
 
@@ -1521,6 +1525,11 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ## 질문
 
+- **Q15 ticket claim의 readiness.** coding-agent/tickets#R11 본문은
+  needs_confirmation ticket도 claim할 수 있다고 적고, T19 완료 줄과
+  checkTicketClaim의 not_ready 거절은 ready만 허용한다. 구현은 완료 줄을
+  따랐다(needs_confirmation은 conflict). 추천: 완료 줄과 같다. claim은 ready만
+  받고, R11 본문을 그 기준으로 고친다. 사람이 정하기 전에는 바꾸지 않는다.
 - **Q1 사람 전용 CLI command의 actor.** (정함, 추천안) CLI는 user token 파일을
   읽지 않는다(architecture 1절). core에 user actor로 쓰는 사람 전용
   command(`ticket create|cancel`, `problem report|request-repair`,

@@ -88,6 +88,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 `POST /v1/problems/report`, `POST /v1/problems/observe-exception`(process 출처)
 - slice: apps
 - 선행: problems#T1, problems#T2, contracts#T12, platform#T5, platform#T6, platform#T7, platform#T8, platform#T9, platform#T12, platform#T15, apps#T6
+- 상태: 진행 (#198) — 남은 것: collector 접수 통로 연결(adapters/core-client.ts, 지금 accept는 placeholder), observe-exception process 출처 경로, app credential 주장의 bundle_hash·diagnostic_scope 대상, 연결된 collector 뒤 실제 Report·Problem ledger 행
 - 완료:
   - collector는 `deno run --no-prompt`에 core loopback `--allow-net`과 준비 폴더 `--allow-read`만 받는다(architecture 2.2)
   - 앱 actor·app·release·mode는 credential에서만 정한다. 본문의 `actor`, 다른 앱, `live` 주장은 `forbidden`, 다른 앱 제출은 거절(R1, R2)
@@ -429,6 +430,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - quiet 대기 0ms, 날짜 기반 만료 없음; 낡은 seq·release로 보낸 요청은 `conflict`(R5, R14)
   - release 준비·activation·앱 시작·command 성공·app test·test command·ticket 완료·고친 기록·앱 주장만으로는 닫히지 않는다(R2)
   - coding agent·lophn agent·앱·일반 CLI의 닫기는 거절, fixer=user 분류도 권한을 주지 않는다(R1, problem-codes#R7)
+  - 이어받음: platform#T39의 ProblemClosed 발생. 닫는 이 작업이 event를 낸다
 
 ### T21 사람 결정과 재발
 
@@ -443,6 +445,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 완료:
   - `fixed`는 user_confirmed, `not_visible`은 현재 release·last Report가 맞을 때 recovered, `dismiss`는 공백 아닌 한 줄 이유로 dismissed; 어느 것도 Verification을 만들지 않는다(R6, R7, R8)
   - handle 재사용·release 변경·seq 변경 뒤 적용은 거절; agent·앱·CLI의 사람 주장은 거절(R1, R6, R14)
+  - 이어받음: platform#T39의 ProblemReopened 발생. 재발을 여는 이 작업이 event를 낸다
   - reproduction이 없는 코드 수리의 사람 확인은 "내가 확인함"이고 테스트로 확인됨이 아니다(R9); 설정만 고친 문제도 가짜 release 없이 닫힌다(repairs#R7)
   - `not_fixed`는 열린 문제면 `ProblemConfirmationRecorded`, 닫힌 문제면 `ProblemReopened`; 같은 release·같은 근거로는 고쳐짐 확인을 다시 제안하지 않는다(R10)
   - 72시간 무보고만으로 열린 문제가 닫히지 않는다(R7)

@@ -15,4 +15,10 @@ export {
   PROBLEM_STATUSES_PORT,
   QUESTION_ADOPTIONS_PORT,
 } from "./commands.ts";
-export { createTicketReads } from "./reads.ts";
+export { checkTicketClaim, createTicketReads } from "./reads.ts";
+export {
+  CLAIM_DURATION_MS,
+  CLAIM_SWEEP_INTERVAL_MS,
+  expired,
+} from "./expiry.ts";
+export { createTicketClaimCommands, expiredClaims } from "./claims.ts";

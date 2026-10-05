@@ -263,7 +263,7 @@ concerns: [documents]
 
 ### T13 derived store와 검색
 
-- 상태: 진행 (#188) — 남은 것: 요약·주제 검색과 match_source, apps/core 조립·HTTP 통합
+- 상태: 진행 (#188) — 남은 것: apps/core 조립·HTTP 통합 — 이어보냄: 요약·주제 검색과 match_source → documents#T14
 - 등급: 기본
 - concern: documents/outline-and-search
 - 요구: documents/outline-and-search#R10, R11, R12, R13, R14, R16, R17, R18
@@ -283,6 +283,7 @@ concerns: [documents]
   - 삭제·손상 시 한 read transaction에서 현재 자료와 as_of_seq=S를 함께 받아(platform#T3) `documents.rebuild.sqlite`를 만들고 S 다음부터 구독으로 따라잡은 뒤 교체, 그동안 `rebuilding=true`. derived가 기록한 `ledger_id`가 `/v1/platform/status`와 다르면(복원 뒤) derived를 버리고 재생성
   - 권한 밖 ID는 후보 단계에서 빼고 count·rank·page도 허용 집합에서. agent 출력은 redaction
   - `work_test.ts`, `reads_test.ts`에 각 요구 번호 테스트(T1 korean-search로 2글자·3글자 한글, index 삭제 후 재생성, 실패 주입 시 빈 결과와 실제 빈 결과 구별)
+  - 이어받음: documents#T13의 요약·주제 검색과 match_source. `/v1/search/query`·`/status` handler는 이 작업이 쓴다. apps/core 조립·HTTP 통합은 별도 작업으로 남는다
 
 ### T14 outline과 단계적 읽기
 
@@ -483,6 +484,7 @@ concerns: [documents]
   - section key 소실은 item을 그대로 두고 소실·미확인을 구별, 유사 section으로 바꾸지 않음
   - 앱 read command item의 watch는 호출·변화 기록을 만들지 않음. 변화 event로 agent run을 시작하지 않음
   - `work_test.ts`, `commands_test.ts`에 각 요구 번호 테스트(비교 중 관점 변경·보관, 같은 결과 재전달, extractor 실패)
+  - 이어받음: platform#T53의 record_watch_change 발생 작업. `context.record_watch_change`가 `ContextWatchedItemChanged`를 내는 것은 이 작업의 자리다. flow build-context의 notification 단계 통합 테스트는 platform#T53에 남는다
 
 ### T25 Term
 
@@ -577,7 +579,7 @@ concerns: [documents]
 - 쓰는 contract: contracts#T28의 question option·revert 근거, platform#T18(다른 owner가 같은 Tx로 document.save·document.move를 부름), platform#T24(agent credential, QuestionActionEvidence)
 - 내놓는 contract: question option action이 부르는 `document.move`·`document.rename`의 machine(actor=user) 경로, revert가 쓰는 `document.archive`·`document.restore`(machine, 결정 근거)
 - slice: agent
-- 선행: T8, T9, T16, platform#T18, platform#T24, contracts#T28 (lophn-agent#T29 option 적용과 T34 revert가 이 작업을 부른다)
+- 선행: T8, T9, T16, platform#T18, platform#T24, contracts#T28 (lophn-agent#T29 option 적용과 lophn-agent#T34 revert가 이 작업을 부른다)
 - 완료:
   - 기획·설계 결과는 agent 자격의 저장 범위 안에서 고정 문서 판으로 남고 SaveResult의 고정 참조로 다시 연다. 원본 연결·보관·지침 문서는 agent 출력 불가. Operator 범위는 T32
   - 문서 이동·이름 변경 option: 대상·place·이름·base_revision이 고정된 option을 사람이 고른 근거로만 machine이 actor=user로 한 번 적용. 자유 답·추천·침묵·낡은 기준은 적용하지 않음

@@ -2,7 +2,8 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   type ChildMessage,
   createRpcClient,
-  eventsList,
+  type ReadRoute,
+  routePath,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   type ChildSession,
@@ -10,6 +11,9 @@ import {
 } from "../../packages/platform/responsiveness/mod.ts";
 import {
   type CoreRead,
+  createRunSelector,
+  type RunSelector,
+  SELECTOR_READ_ROUTES,
   startRuntime,
   type Startup,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
@@ -18,6 +22,9 @@ import { startCatalogRefresher } from "./catalog.ts";
 // core가 감독하는 agent runtime. ledger writer는 core만 소유하고 이 프로세스는 read만 한다.
 export type Runtime = {
   startup: Startup;
+  // 시작할 accepted run을 고른다(run-loop R4). 읽기만 하고 ledger를 바꾸지 않는다.
+  // 고른 run의 시작·loop는 이 selector를 부르는 쪽이 한다.
+  selector: RunSelector;
   // 새 model·tool 진입을 막는다. 진행 호출 취소는 나중 작업이 이 신호에 붙는다.
   readonly stopped: boolean;
   done: Promise<void>;
@@ -47,6 +54,7 @@ export async function startAgentRuntime(input: {
   // child session은 stderr에 제어 frame을 쓰지 않는다. 진단은 같은 통로를 잠그지 않게 따로 둔다.
   const childStderr = new TransformStream<Uint8Array>();
   let startup: Startup | undefined;
+  let selectorRead: CoreRead | undefined;
   let resolveReady: (result: Result<Startup>) => void = () => {};
   const ready = new Promise<Result<Startup>>((resolve) => {
     resolveReady = resolve;
@@ -70,6 +78,7 @@ export async function startAgentRuntime(input: {
         const started = await startRuntime({ hello, read });
         if (started.ok) {
           startup = started.value;
+          selectorRead = read;
           // ready는 감독이 읽기 전에 나간다. 전송 완료를 기다리면 역압이 기동을 막는다.
           void send(child, { type: "ready" });
           // catalog 자동 갱신은 기동을 막지 않는 single-flight다(R4). 끈 날에는
@@ -118,6 +127,7 @@ export async function startAgentRuntime(input: {
   }
   const runtime: Runtime = {
     startup: startup!,
+    selector: createRunSelector({ read: selectorRead! }),
     get stopped() {
       return stopped;
     },
@@ -130,13 +140,22 @@ export async function startAgentRuntime(input: {
   return ok(runtime);
 }
 
-// core loopback의 events/list. credential은 호출 시점의 사용 허가로만 붙인다.
+// core loopback read. selector가 쓰는 read route만 연다(SELECTOR_READ_ROUTES). credential은
+// 호출 시점의 사용 허가로만 붙인다. 목록에 없는 경로는 요청하지 않는다.
+const ROUTES_BY_PATH = new Map<string, ReadRoute>(
+  SELECTOR_READ_ROUTES.map((route) => [routePath(route), route as ReadRoute]),
+);
+
 function coreRead(
   port: number,
   credential: () => string | undefined,
   fetchImpl: typeof fetch = fetch,
 ): CoreRead {
-  return async (_path, body) => {
+  return async (path, body) => {
+    const route = ROUTES_BY_PATH.get(path);
+    if (route === undefined) {
+      return err({ code: "invalid_input", message: "read가 열려 있지 않다" });
+    }
     const token = credential();
     if (!token) {
       return err({ code: "unauthorized", message: "credential이 없다" });
@@ -153,7 +172,7 @@ function coreRead(
         };
       },
     });
-    const listed = await client.call(eventsList, body as never);
+    const listed = await client.call(route, body as never);
     if (!listed.ok) return listed;
     return ok(listed.value);
   };

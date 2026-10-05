@@ -4,6 +4,8 @@ import type {
   ReadDefinition,
   RequestContext,
 } from "../../contracts/platform/mod.ts";
+import { createKnownSecretRegistry } from "../redaction/mod.ts";
+import { KNOWN_SECRETS } from "./known-secrets.ts";
 import { openReaderConnection } from "./reader-connection.ts";
 import {
   executeRead,
@@ -31,6 +33,17 @@ self.onmessage = async (event: MessageEvent) => {
       loaded.map((module) => module.createEventRegistration?.()),
     );
     if (!events.ok) throw new Error("duplicate event registration");
+    // 알려진 secret 값은 이 Worker의 보호 메모리(이 closure)에만 있다. handler에는 일치 검사만
+    // 하는 matcher를 port로 준다. 값은 core가 pool로 보내는 등록·회수 message로만 바뀐다.
+    const known = createKnownSecretRegistry();
+    // 처음에는 준비되지 않았다. core가 현재 참조의 값을 모두 넣고 알려야 true가 된다.
+    let ready = false;
+    const matcher = Object.freeze({
+      match: (text: string) => known.match(text),
+      get ready() {
+        return ready;
+      },
+    });
     const definitions = new Map<string, {
       read: ReadDefinition;
       ports: ReadonlyMap<unknown, unknown>;
@@ -45,7 +58,10 @@ self.onmessage = async (event: MessageEvent) => {
         if (definitions.has(key)) {
           throw new Error("duplicate read registration");
         }
-        definitions.set(key, { read, ports: registration.ports });
+        definitions.set(key, {
+          read,
+          ports: new Map([...registration.ports, [KNOWN_SECRETS, matcher]]),
+        });
       }
     }
     const opened = openReaderConnection(path);
@@ -55,6 +71,20 @@ self.onmessage = async (event: MessageEvent) => {
     }
     const connection = opened.value;
     self.onmessage = (request: MessageEvent) => {
+      const change = (request.data as {
+        known?: {
+          id: number;
+          op: "register" | "revoke" | "ready" | "unready";
+          values: string[];
+        };
+      }).known;
+      if (change !== undefined) {
+        if (change.op === "register") known.register(change.values);
+        else if (change.op === "revoke") known.revoke(change.values);
+        else ready = change.op === "ready";
+        self.postMessage({ known_ack: change.id });
+        return;
+      }
       const { id, key, ctx, input } = request.data as {
         id: number;
         key: string;

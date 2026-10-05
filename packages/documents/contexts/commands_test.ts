@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err } from "../../base/mod.ts";
 import { type ContextCommandDeps, createContextCommands } from "./commands.ts";
-import { contextFixture, ids, keep, userContext } from "./testing-fixture.ts";
+import { contextFixture, ids, keep, userContext } from "./testing/mod.ts";
 
 // apps blueprint read가 들어오기 전 test double. read command만 허용한다.
 const readCommands: ContextCommandDeps = {

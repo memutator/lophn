@@ -13,11 +13,11 @@ import {
   createAddressingReads,
   createDocumentChangeCommands,
 } from "../../packages/documents/addressing/mod.ts";
+import { contextsSchemaSteps } from "../../packages/documents/contexts/mod.ts";
 import {
   createContextCommands,
-} from "../../packages/documents/contexts/commands.ts";
-import { createContextReads } from "../../packages/documents/contexts/reads.ts";
-import { contextsSchemaSteps } from "../../packages/documents/contexts/schema.ts";
+} from "../../packages/documents/contexts/mod.ts";
+import { createContextReads } from "../../packages/documents/contexts/mod.ts";
 import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
 import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
 import {
@@ -25,13 +25,13 @@ import {
   formatDeclarations,
 } from "../../packages/documents/formats/model.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
-import { createVersionCommands } from "../../packages/documents/versions/commands.ts";
-import { createVersionReads } from "../../packages/documents/versions/reads.ts";
-import { versionsSchemaSteps } from "../../packages/documents/versions/schema.ts";
+import { createVersionCommands } from "../../packages/documents/versions/mod.ts";
+import { createVersionReads } from "../../packages/documents/versions/mod.ts";
+import { versionsSchemaSteps } from "../../packages/documents/versions/mod.ts";
 import {
   versionFileField,
   versionFilesField,
-} from "../../packages/documents/versions/commands.ts";
+} from "../../packages/documents/versions/mod.ts";
 import {
   createProjectReads,
   type ProjectReadDeps,

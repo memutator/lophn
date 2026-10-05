@@ -44,9 +44,13 @@ import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import {
   observeException,
+  problemClosed,
+  problemOpened,
+  problemReopened,
   reportProblem,
   verificationRecorded,
 } from "../../packages/contracts/problems/mod.ts";
+import { notificationsOnlyVisibility } from "./platform.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
 
 // owner definitions만 내보낸다. port 구현과 writer 조립은 core가 맡는다.
@@ -188,7 +192,13 @@ export function createLedgerRegistration(
 export function createEventRegistration(): EventRegistration {
   return {
     events: [verificationRecorded],
-    visibility: problemsTestDefinitions.visibility,
+    visibility: [
+      ...problemsTestDefinitions.visibility,
+      // notifications 계기(platform/notifications#R1)다. notifications 구독자에게만 연다.
+      notificationsOnlyVisibility(problemOpened),
+      notificationsOnlyVisibility(problemReopened),
+      notificationsOnlyVisibility(problemClosed),
+    ],
   };
 }
 

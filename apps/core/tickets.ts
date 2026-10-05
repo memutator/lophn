@@ -6,7 +6,15 @@ import {
   expiredClaims,
   ticketSchemaSteps,
 } from "../../packages/coding-agent/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import {
+  ticketCheckFailed,
+  ticketConfirmed,
+} from "../../packages/contracts/coding-agent/mod.ts";
+import type {
+  EventRegistration,
+  ReaderRegistration,
+} from "../../packages/platform/ledger/mod.ts";
+import { notificationsOnlyVisibility } from "./platform.ts";
 
 // owner definitions만 내보낸다. 문제 read·question read 대체 port 구현은
 // 소유 구현(문제#T6, lophn-agent#T24)이 오면 그 port로 바꾼다. 지금은 소유
@@ -27,6 +35,17 @@ export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [reads.list, reads.show, reads.checks, reads.claim_sweep],
     ports: new Map(),
+  };
+}
+
+// ticket 계기 event의 공개 정책(platform/notifications#R1). notifications 구독자에게만 연다.
+// 사람은 notification read로 본다. 다른 ticket event는 정책이 없어 계속 숨김이다.
+export function createEventRegistration(): EventRegistration {
+  return {
+    visibility: [
+      notificationsOnlyVisibility(ticketConfirmed),
+      notificationsOnlyVisibility(ticketCheckFailed),
+    ],
   };
 }
 

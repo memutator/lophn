@@ -8,7 +8,7 @@ import { EVENT_BATCH_LIMITS } from "../../contracts/platform/mod.ts";
 import { reactionIdempotencyKey } from "../ledger/mod.ts";
 import type { EventBackend } from "../ledger/mod.ts";
 import { NOTIFICATION_SUBSCRIBER } from "./commands.ts";
-import { triggerOf } from "./model.ts";
+import { conditionMet, triggerOf } from "./model.ts";
 
 export type NotificationsEngineCommand = (
   ctx: AuthenticatedContext,
@@ -95,7 +95,10 @@ export function notificationsEngine(
         if (closed) break;
         const through = event.seq;
         const trigger = triggerOf(event.type);
-        if (trigger !== undefined) {
+        // 계기 표의 event여도 조건이 아니면(사람이 직접 멈춘 assignment 등) 계기가 아니다.
+        // create_notification은 조건 밖 source를 거절하므로, 여기서 먼저 걸러 cursor만 올린다.
+        // 거르지 않으면 그 event에서 같은 거절을 되풀이하며 뒤의 계기를 영영 못 만든다(R2).
+        if (trigger !== undefined && conditionMet(trigger, event.payload)) {
           const key = await reactionIdempotencyKey({
             subscriber: NOTIFICATION_SUBSCRIBER,
             cause_seq: through,

@@ -6,9 +6,15 @@ import {
 } from "../../packages/contracts/platform/mod.ts";
 import {
   defineTxPort,
+  type EventRegistration,
   type ReaderRegistration,
   runAdmission,
 } from "../../packages/platform/ledger/mod.ts";
+import {
+  assignmentPaused,
+  questionCreated,
+} from "../../packages/contracts/lophn-agent/mod.ts";
+import { notificationsOnlyVisibility } from "./platform.ts";
 import type { Tx } from "../../packages/contracts/platform/mod.ts";
 import {
   createModelDefaultsCommands,
@@ -448,6 +454,17 @@ export function createLedgerRegistration(
     apiReads: [
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+    ],
+  };
+}
+
+// question·assignment 계기 event의 공개 정책(platform/notifications#R1). notifications
+// 구독자에게만 열고, 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
+export function createEventRegistration(): EventRegistration {
+  return {
+    visibility: [
+      notificationsOnlyVisibility(questionCreated),
+      notificationsOnlyVisibility(assignmentPaused),
     ],
   };
 }

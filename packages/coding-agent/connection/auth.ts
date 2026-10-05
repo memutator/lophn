@@ -28,6 +28,19 @@ export function connectionAuthFromTx(tx: Tx): CodingAgentConnectionAuthPort {
     Promise.resolve(lookupConnectionAuth(tx.sql, principal));
 }
 
+// command handler는 동기라 port도 동기여야 한다(tx-ports는 thenable을 거절한다).
+// 제품 계약 port는 Promise를 돌려주므로, claim 검사는 같은 표의 동기 lookup을
+// 이 port에 건다. 키는 계약 port와 달라 등록이 겹치지 않는다.
+export const connectionAuthSyncPort = {
+  name: "CodingAgentConnectionAuthSync",
+} as const;
+
+export function connectionAuthSyncFromTx(
+  tx: Tx,
+): (principal: string) => CodingAgentConnectionAuthResult | undefined {
+  return (principal) => lookupConnectionAuth(tx.sql, principal);
+}
+
 export function connectionAuthFromSnapshot(
   snapshot: ReadSnapshot,
 ): CodingAgentConnectionAuthPort {

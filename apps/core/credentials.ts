@@ -36,10 +36,25 @@ export function recordCredential(
   }
   try {
     connection.exec("begin immediate");
-    connection.sql.run(
-      `insert into credentials (credential_ref, context, state) values (?, ?, 'active')`,
-      [parsed.data.credential_ref, JSON.stringify(parsed.data)],
+    // 고정 machine credential만 재시작에서 다시 기록한다. 같은 ref가 있으면
+    // scope·conditions·state가 같을 때만 건너뛰고, 다르면 기동을 거절한다.
+    // 그 밖 credential은 중복을 그대로 거절한다(coding-agent/tickets#R13).
+    const existing = connection.sql.get(
+      "select context, state from credentials where credential_ref = ?",
+      [parsed.data.credential_ref],
     );
+    if (existing === undefined) {
+      connection.sql.run(
+        `insert into credentials (credential_ref, context, state) values (?, ?, 'active')`,
+        [parsed.data.credential_ref, JSON.stringify(parsed.data)],
+      );
+    } else if (!sameFixedCredential(existing, parsed.data)) {
+      connection.exec("rollback");
+      return err({
+        code: "conflict",
+        message: "credential 기록이 이미 있고 권한이 다르다",
+      });
+    }
     connection.exec("commit");
   } catch {
     try {
@@ -53,4 +68,29 @@ export function recordCredential(
     });
   }
   return ok(undefined);
+}
+
+// sweep credential처럼 기동마다 같은 ref로 다시 기록하는 것만 중복을 허용한다.
+const FIXED_CREDENTIALS = new Set(["machine:ticket-claims"]);
+
+function sameFixedCredential(
+  row: Record<string, unknown>,
+  context: AuthenticatedContext,
+): boolean {
+  if (!FIXED_CREDENTIALS.has(context.credential_ref)) return false;
+  if (row.state !== "active" || typeof row.context !== "string") return false;
+  let stored: {
+    scope?: unknown;
+    conditions?: unknown;
+  };
+  try {
+    stored = JSON.parse(row.context) as {
+      scope?: unknown;
+      conditions?: unknown;
+    };
+  } catch {
+    return false;
+  }
+  return JSON.stringify(stored.scope) === JSON.stringify(context.scope) &&
+    JSON.stringify(stored.conditions) === JSON.stringify(context.conditions);
 }

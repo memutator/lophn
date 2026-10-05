@@ -4,6 +4,8 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
+import type { CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
+import { connectionAuthSyncPort } from "../connection/mod.ts";
 import type {
   ReadSnapshot,
   RequestContext,
@@ -13,6 +15,7 @@ import type {
 } from "../../contracts/platform/mod.ts";
 import { PROBLEM_STATUSES_PORT, QUESTION_ADOPTIONS_PORT } from "./commands.ts";
 import { ticketSchemaSteps } from "./schema.ts";
+import { CLAIM_SWEEP_TIME_PORT } from "./sweep-time.ts";
 
 export const APP = "app_01arz3ndektsv4rrffq69g5fav";
 export const OTHER_APP = "app_01arz3ndektsv4rrffq69g5faw";
@@ -34,7 +37,7 @@ export type Emitted = {
 
 export function userContext(actor = "user"): RequestContext {
   return {
-    principal: "user-1",
+    principal: actor.startsWith("coding_agent:") ? actor : "user-1",
     actor: actor as RequestContext["actor"],
     scope: { operations: [], targets: {} },
     conditions: {},
@@ -42,16 +45,36 @@ export function userContext(actor = "user"): RequestContext {
   };
 }
 
+export type ConnectionRecord = CodingAgentConnectionAuthResult;
+
 export type FixtureDeps = {
   apps?: readonly string[];
   problems?: ProblemRecord[];
   adoptions?: ReadonlyMap<string, Adoption>;
+  connections?: ReadonlyMap<string, ConnectionRecord>;
+  nowMs?: number;
 };
 
 export function ticketFixture(deps: FixtureDeps = {}) {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON;");
   for (const step of ticketSchemaSteps) db.exec(step.sql);
+  // claim은 이번 TicketClaimed의 seq를 미리 알아야 한다. 실제 ledger의 events 표와
+  // 같은 autoincrement를 두고, emit은 그 seq를 쓴다. 삭제는 막는다.
+  db.exec(`
+    CREATE TABLE events (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      subject TEXT,
+      actor TEXT NOT NULL,
+      run TEXT,
+      payload TEXT NOT NULL,
+      at TEXT NOT NULL
+    ) STRICT;
+    CREATE TRIGGER events_no_delete BEFORE DELETE ON events
+    BEGIN
+      SELECT RAISE(ABORT, 'immutable');
+    END;`);
   const prepare = (statement: string) => {
     const prepared = db.prepare(statement);
     prepared.setReadBigInts(true);
@@ -68,12 +91,14 @@ export function ticketFixture(deps: FixtureDeps = {}) {
     (deps.problems ?? []).map((problem) => [problem.id, problem.status]),
   );
   const adoptions = new Map(deps.adoptions ?? []);
+  const connections = new Map(deps.connections ?? []);
+  let nowMs = deps.nowMs ?? Date.parse("2026-10-05T00:00:00.000Z");
   const emitted: Emitted[] = [];
   let eventSeq = 0;
   let idSeq = 0;
   const tx: Tx = {
     sql,
-    now: () => "2026-10-05T00:00:00.000Z",
+    now: () => new Date(nowMs).toISOString(),
     newId: (prefix: string) => {
       idSeq += 1;
       return `${prefix}_${String(idSeq).padStart(26, "0")}`;
@@ -105,6 +130,10 @@ export function ticketFixture(deps: FixtureDeps = {}) {
         };
         return read as T;
       }
+      if (key.name === connectionAuthSyncPort.name) {
+        const read = (principal: string) => connections.get(principal);
+        return read as T;
+      }
       if (key.name === PROBLEM_STATUSES_PORT.name) {
         const read = {
           problems: (ids: readonly string[]) =>
@@ -115,11 +144,25 @@ export function ticketFixture(deps: FixtureDeps = {}) {
         };
         return read as T;
       }
+      // sweep가 시각을 알리지 않은 상태다. expire는 tx.now()로 판단한다.
+      if (key.name === CLAIM_SWEEP_TIME_PORT.name) {
+        const read = { nowMs: () => null };
+        return read as T;
+      }
       throw new Error("unregistered port");
     },
     emit(_event, subject, payload) {
-      eventSeq += 1;
-      const seq = String(eventSeq);
+      const inserted = sql.run(
+        "INSERT INTO events (type, subject, actor, payload, at) VALUES (?, ?, 'test', ?, ?)",
+        [
+          _event.type,
+          subject,
+          JSON.stringify(payload),
+          new Date(nowMs).toISOString(),
+        ],
+      );
+      const seq = String(inserted.lastInsertRowid);
+      eventSeq = Number(seq);
       emitted.push({ type: _event.type, subject, payload, seq });
       return seq;
     },
@@ -159,6 +202,10 @@ export function ticketFixture(deps: FixtureDeps = {}) {
     emitted,
     transaction,
     snapshot,
+    setNow(ms: number) {
+      nowMs = ms;
+    },
+    connections,
     close: () => db.close(),
   };
 }

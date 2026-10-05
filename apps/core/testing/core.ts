@@ -7,6 +7,7 @@
  */
 import {
   createIdSource,
+  type ManualClock,
   manualClock,
   seededRandom,
 } from "../../../packages/base/mod.ts";
@@ -49,6 +50,16 @@ export type CoreHarness = {
   ): Promise<Result<{ token: string; context: AuthenticatedContext }>>;
   // 준비 참조를 writer 메모리에 심는다. I/O worker 없이 등록 경로를 시험할 때 쓴다.
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
+  // 테스트 시계. advance 뒤 sweepTicketClaims를 부르면 만료 정리를 기다리지 않는다.
+  clock: ManualClock;
+  // 만료·회수 claim을 한 번 정리한다. 60초 timer와 같은 함수다.
+  sweepTicketClaims(): Promise<void>;
+  // 확인 창 handle을 writer registry에 발급한다. confirmation route 시험에 쓴다.
+  confirmation(body: {
+    action: "issue" | "close-window" | "clear";
+    request?: unknown;
+    windowId?: string;
+  }): Promise<Result<unknown>>;
   close(): Promise<void>;
 };
 
@@ -111,6 +122,14 @@ export async function createCoreHarness(
         return err({ code: "unavailable", message: "준비 참조 입구가 없다" });
       }
       return await core.notePrepared(prepared, nowMs);
+    },
+    clock,
+    sweepTicketClaims: () => core.sweepTicketClaims(),
+    async confirmation(body) {
+      if (!core.confirmation) {
+        return err({ code: "unavailable", message: "확인 발급 입구가 없다" });
+      }
+      return await core.confirmation(body);
     },
     async close() {
       await core.shutdown();

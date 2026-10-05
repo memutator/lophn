@@ -2,6 +2,8 @@ import {
   connectionAuthFromSnapshot,
   connectionAuthFromTx,
   connectionAuthPort,
+  connectionAuthSyncFromTx,
+  connectionAuthSyncPort,
   connectionSchemaSteps,
   createConnectionCommands,
   createConnectionReads,
@@ -31,6 +33,12 @@ export const codingAgentConnectionDefinitions = {
       key: connectionAuthPort,
       fromTx: connectionAuthFromTx,
       fromSnapshot: connectionAuthFromSnapshot,
+    },
+    // claim command는 transaction 안에서 동기 lookup이 필요하다.
+    // 계약 port(Promise)와 키가 달라 writer 등록이 겹치지 않는다.
+    authSync: {
+      key: connectionAuthSyncPort,
+      create: connectionAuthSyncFromTx,
     },
   },
 };

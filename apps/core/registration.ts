@@ -137,73 +137,88 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
     const fromProblemsReport = asLoose(team.problemsReportDefinitions);
     const fromCodingAgent = asLoose(team.codingAgentConnectionDefinitions);
     const fromLophnAgent = asLoose(team.lophnAgentDefinitions);
-    const registration = asLoose(direct) ?? fromLedger ?? fromProblems ??
-      fromProblemsReport ?? fromCodingAgent ?? fromLophnAgent;
-    if (!registration) continue;
-    for (const step of registration.schemaSteps ?? registration.schema ?? []) {
-      if (typeof step.id !== "string" || typeof step.sql !== "string") {
-        return broken("schema step");
+    const fromTickets = asLoose(team.ticketDefinitions);
+    // 한 모듈이 등록을 여러 키로 내보낼 수 있다. 첫 키만 고르면 뒤 등록의
+    // schema·route가 core에 안 들어간다(tickets는 T18부터 빠졌다).
+    const registrations = [
+      asLoose(direct),
+      fromLedger,
+      fromProblems,
+      fromProblemsReport,
+      fromCodingAgent,
+      fromLophnAgent,
+      fromTickets,
+    ].filter((item): item is Loose => item !== undefined);
+    for (const registration of registrations) {
+      for (
+        const step of registration.schemaSteps ?? registration.schema ?? []
+      ) {
+        if (typeof step.id !== "string" || typeof step.sql !== "string") {
+          return broken("schema step");
+        }
+        const check = taken(schema, step.id, step as SchemaStep);
+        if (!check.ok) return check;
+        assembled.schemaSteps.push(check.value);
       }
-      const check = taken(schema, step.id, step as SchemaStep);
-      if (!check.ok) return check;
-      assembled.schemaSteps.push(check.value);
-    }
-    for (const command of registration.commands ?? []) {
-      const name = command.route?.name;
-      if (typeof name !== "string") return broken("command");
-      const check = taken(commands, name, command as CommandDefinition);
-      if (!check.ok) return check;
-      const route = routeOf(routes, check.value.route);
-      if (!route.ok) return route;
-      assembled.commands.push(check.value);
-      assembled.routes.push(route.value);
-    }
-    for (const read of registration.reads ?? []) {
-      const resource = read.route?.resource;
-      const method = read.route?.method;
-      if (typeof resource !== "string" || typeof method !== "string") {
-        return broken("read");
+      for (const command of registration.commands ?? []) {
+        const name = command.route?.name;
+        if (typeof name !== "string") return broken("command");
+        const check = taken(commands, name, command as CommandDefinition);
+        if (!check.ok) return check;
+        const route = routeOf(routes, check.value.route);
+        if (!route.ok) return route;
+        assembled.commands.push(check.value);
+        assembled.routes.push(route.value);
       }
-      const check = taken(
-        reads,
-        `${resource}/${method}`,
-        read as ReadDefinition,
-      );
-      if (!check.ok) return check;
-      const route = routeOf(routes, check.value.route);
-      if (!route.ok) return route;
-      assembled.reads.push(check.value);
-      assembled.routes.push(route.value);
-    }
-    for (const read of registration.apiReads ?? []) {
-      const resource = read.route?.resource;
-      const method = read.route?.method;
-      if (typeof resource !== "string" || typeof method !== "string") {
-        return broken("api read");
+      for (const read of registration.reads ?? []) {
+        const resource = read.route?.resource;
+        const method = read.route?.method;
+        if (typeof resource !== "string" || typeof method !== "string") {
+          return broken("read");
+        }
+        const check = taken(
+          reads,
+          `${resource}/${method}`,
+          read as ReadDefinition,
+        );
+        if (!check.ok) return check;
+        const route = routeOf(routes, check.value.route);
+        if (!route.ok) return route;
+        assembled.reads.push(check.value);
+        assembled.routes.push(route.value);
       }
-      const check = taken(reads, `${resource}/${method}`, read);
-      if (!check.ok) return check;
-      const route = routeOf(routes, check.value.route as Route);
-      if (!route.ok) return route;
-      assembled.apiReads.push(check.value as ApiReadDefinition);
-      assembled.routes.push(route.value);
-    }
-    for (const file of registration.files ?? []) {
-      const route = routeOf(routes, file as Route);
-      if (!route.ok) return route;
-      assembled.routes.push(route.value);
-    }
-    for (const worker of registration.workerRoutes ?? []) {
-      const route = routeOf(routes, worker as Route);
-      if (!route.ok) return route;
-      assembled.routes.push(route.value);
-    }
-    for (const port of portList(registration.ports)) assembled.ports.push(port);
-    assembled.blobFields.push(...registration.blobFields ?? []);
-    for (const worker of registration.workers ?? []) {
-      const check = taken(workers, worker.kind, worker);
-      if (!check.ok) return check;
-      assembled.workers.push(worker);
+      for (const read of registration.apiReads ?? []) {
+        const resource = read.route?.resource;
+        const method = read.route?.method;
+        if (typeof resource !== "string" || typeof method !== "string") {
+          return broken("api read");
+        }
+        const check = taken(reads, `${resource}/${method}`, read);
+        if (!check.ok) return check;
+        const route = routeOf(routes, check.value.route as Route);
+        if (!route.ok) return route;
+        assembled.apiReads.push(check.value as ApiReadDefinition);
+        assembled.routes.push(route.value);
+      }
+      for (const file of registration.files ?? []) {
+        const route = routeOf(routes, file as Route);
+        if (!route.ok) return route;
+        assembled.routes.push(route.value);
+      }
+      for (const worker of registration.workerRoutes ?? []) {
+        const route = routeOf(routes, worker as Route);
+        if (!route.ok) return route;
+        assembled.routes.push(route.value);
+      }
+      for (const port of portList(registration.ports)) {
+        assembled.ports.push(port);
+      }
+      assembled.blobFields.push(...registration.blobFields ?? []);
+      for (const worker of registration.workers ?? []) {
+        const check = taken(workers, worker.kind, worker);
+        if (!check.ok) return check;
+        assembled.workers.push(worker);
+      }
     }
   }
   return { ok: true, value: assembled };

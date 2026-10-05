@@ -95,3 +95,9 @@ T9 병합되면: apps T1, shell T3, lophn-agent T1, coding-agent T10, documents 
 - grok 크레딧 소진(xai 403 spending-limit). 어려운 작업은 사람 결정 전까지 glm + grok 대신 glm 리뷰 2회로.
 - 사람 결정: grok 대신 glm + 리뷰 2회(옵션 2). 어려운 작업도 glm-flash-max, 보안·삭제·권한 작업은 독립 glm 리뷰 2명.
 - 사람 정정: 리뷰 2회 필요 없음. glm 리뷰 1회로 충분.
+
+## 2026-10-06 worker 교체 (사람 결정)
+- glm provider(thehive) 조직 정지로 glm worker 전부 끊김. 사람 지시: Sonnet 5.5로 진행.
+- 비UI 작업: `general-purpose` + model `sonnet` (확인: claude-sonnet-5-5). UI 작업: 계속 opus.
+- 끊긴 10개 작업을 Sonnet 5.5로 다시 보냄. 6개는 기존 worktree에서 이어 감(documents T11, apps T9, platform T35/#236, documents T18/#241, coding-agent T30, lophn-agent T15), 4개는 새로(lophn-agent T10, problems T9, 사람 user token scope, child blob.prepare).
+- 세션이 바뀌어 scratchpad가 사라졌다. worker brief 정본은 `docs/tmp/worker-common.md`.

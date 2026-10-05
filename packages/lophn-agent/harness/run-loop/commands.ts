@@ -19,6 +19,11 @@ import {
   type Tx,
 } from "../../../contracts/platform/mod.ts";
 import {
+  effectiveRunLimits,
+  RUN_LIMIT_SETTING_KEYS,
+  type RunLimits,
+} from "./limits.ts";
+import {
   loadRun,
   predecessorAllows,
   rowOf,
@@ -35,7 +40,34 @@ export type RunLoopDeps = {
   // 정상 종료를 막는 미반영 steering이 있는지(R14). 입력 표를 소유한 concern
   // (lophn-agent/conversation)이 같은 Tx에서 답한다. 없으면 표가 없는 것이다.
   hasUnappliedSteering?: (tx: Tx, run: string) => boolean;
+  // StartRun이 고정할 한도. 없으면 같은 Tx의 공통 설정 선택(setting_choices)에서
+  // 읽는다. 호출자가 보낸 한도는 이 값과 같아야 하고 다르면 거절한다(R20).
+  runLimits?: (tx: Tx) => Result<RunLimits>;
 };
+
+// 공통 설정의 저장 선택과 내장 기본값으로 다음 run의 한도를 정한다. 설정 표를 읽지
+// 못하면 한도를 알 수 없으므로 시작하지 않는다(안전하게 닫는다).
+function settingsRunLimits(tx: Tx): Result<RunLimits> {
+  const keys = Object.values(RUN_LIMIT_SETTING_KEYS);
+  try {
+    const rows = tx.sql.all(
+      `select key, value from setting_choices
+       where layer = 'common' and key in (${keys.map(() => "?").join(", ")})`,
+      keys,
+    );
+    return effectiveRunLimits(
+      rows.map((row) => ({
+        key: String(row["key"]),
+        value: JSON.parse(String(row["value"])) as unknown,
+      })),
+    );
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "run limit settings are not readable",
+    });
+  }
+}
 
 type Code = "invalid_input" | "conflict" | "not_found" | "forbidden";
 
@@ -316,6 +348,20 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
           input.scope.role !== assignment.role
         ) {
           return reject("forbidden", "scope does not belong to this run");
+        }
+        // 한도는 현재 설정이 정한다. machine이 보낸 값을 그대로 받지 않는다.
+        const limits = (deps.runLimits ?? settingsRunLimits)(tx);
+        if (!limits.ok) {
+          return err({
+            code: "unavailable",
+            message: "run limits cannot be resolved",
+          });
+        }
+        if (canonicalize(limits.value) !== canonicalize(input.limits)) {
+          return reject(
+            "invalid_input",
+            "limits do not match the current run limit settings",
+          );
         }
         const active = tx.sql.get(
           `select id from runs where assignment = ?

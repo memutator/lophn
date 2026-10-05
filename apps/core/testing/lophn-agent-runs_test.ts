@@ -10,6 +10,7 @@ import {
   seededRandom,
 } from "../../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../../packages/contracts/platform/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../../packages/platform/settings/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {
   LEDGER_SCHEMA_STEPS,
@@ -104,6 +105,7 @@ Deno.test("lophn-agent/harness/run-loop#R2: an accepted run survives a kill righ
         ...presetSchemaSteps,
         ...assignmentSchemaSteps,
         ...runSchemaSteps,
+        ...SETTINGS_SCHEMA_STEPS,
       ],
       { clock },
     );
@@ -311,6 +313,7 @@ Deno.test("lophn-agent/harness/run-loop#R1 #R2: an operator round makes one run 
         ...presetSchemaSteps,
         ...assignmentSchemaSteps,
         ...runSchemaSteps,
+        ...SETTINGS_SCHEMA_STEPS,
       ],
       { clock },
     );

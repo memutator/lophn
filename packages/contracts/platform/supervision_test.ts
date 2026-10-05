@@ -3,6 +3,9 @@ import { z } from "zod";
 import {
   appCredentialRequestSchema,
   appCredentialResponseSchema,
+  BLOB_PREPARE_CREDIT_WINDOW,
+  blobPrepareRequestSchema,
+  blobPrepareResultSchema,
   childMessageSchema,
   coreToMainMessageSchema,
   DIAGNOSTIC_KINDS,
@@ -460,4 +463,79 @@ Deno.test("platform/identity#R2 platform/identity#R6: launch spec 권한·메모
   assert(runMetadataSchema.safeParse(metadata).success);
   assert(!runMetadataSchema.safeParse({ ...metadata, token: "raw" }).success);
   assert(!runMetadataSchema.safeParse({ ...metadata, format: 2 }).success);
+});
+
+Deno.test("platform/blob-store#R1 platform/api#R5: 자식의 blob 준비 요청은 channel·purpose·선언 크기만 갖고 principal·hash 주장은 거절한다", () => {
+  const request = {
+    type: "blob_prepare_request",
+    request_id: "r1",
+    channel: 3,
+    purpose: "document_files",
+    size_bytes: 10,
+  };
+  assert(blobPrepareRequestSchema.safeParse(request).success);
+  assert(childMessageSchema.safeParse(request).success);
+  assert(
+    !blobPrepareRequestSchema.safeParse({ ...request, principal: "user-1" })
+      .success,
+  );
+  assert(
+    !blobPrepareRequestSchema.safeParse({
+      ...request,
+      expected_hash: "a".repeat(64),
+    }).success,
+  );
+  assert(
+    !blobPrepareRequestSchema.safeParse({ ...request, channel: 0 }).success,
+  );
+  assert(
+    !blobPrepareRequestSchema.safeParse({ ...request, size_bytes: -1 }).success,
+  );
+  assert(
+    !blobPrepareRequestSchema.safeParse({
+      ...request,
+      size_bytes: 1024 * 1024 * 1024 + 1,
+    }).success,
+  );
+  assert(
+    !blobPrepareRequestSchema.safeParse({ ...request, purpose: "Bad Purpose" })
+      .success,
+  );
+  assert(BLOB_PREPARE_CREDIT_WINDOW >= STREAM_CHUNK_MAX_BYTES);
+});
+
+Deno.test("platform/blob-store#R1 platform/api#R4: 부모의 blob 준비 결과는 준비 참조 또는 고정 오류 code만 싣는다", () => {
+  const ok = {
+    type: "blob_prepare_result",
+    request_id: "r1",
+    ok: true,
+    prepared: {
+      preparation: "prep-1",
+      principal: "machine",
+      purpose: "document_files",
+      hash: "a".repeat(64),
+      size_bytes: 10,
+    },
+  };
+  assert(blobPrepareResultSchema.safeParse(ok).success);
+  assert(parentMessageSchema.safeParse(ok).success);
+  assert(
+    !blobPrepareResultSchema.safeParse({
+      ...ok,
+      prepared: { ...ok.prepared, hash: "not-a-hash" },
+    }).success,
+  );
+  const failure = {
+    type: "blob_prepare_result",
+    request_id: "r1",
+    ok: false,
+    error: { code: "forbidden", message: "blob prepare is not allowed" },
+  };
+  assert(blobPrepareResultSchema.safeParse(failure).success);
+  assert(
+    !blobPrepareResultSchema.safeParse({
+      ...failure,
+      error: { code: "not_found", message: "x" },
+    }).success,
+  );
 });

@@ -171,6 +171,14 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 - 자리: `packages/contracts/platform/target-authorization.ts`, `target-authorization_test.ts`
 - `TargetAuthorization` port key와 동기 `TargetAuthorizer(ctx, operation, target) => Result<void>`. owner handler가 domain target을 `tx.port`·`snapshot.port`로 판정한다. platform이 ctx의 고정 조건 target을 채워 owner target과 합치고 scope.targets의 모든 key가 있고 일치해야 ok, 아니면 forbidden이다. 공용 Tx·ReadSnapshot member는 넓히지 않는다.
 
+#### T6 구현 메모: 자식의 blob 준비 요청
+
+- 상태: 완료 (#248)
+- concern: platform/blob-store, platform/api
+- 요구: platform/blob-store#R1, R2; platform/api#R4, R5
+- 자리: `packages/contracts/platform/supervision.ts`, `supervision_test.ts`
+- 신뢰 자식(문서 worker, report collector)이 core에 blob 준비를 청하는 감독 pipe 메시지다(platform Q6). 자식이 새 stream channel을 정해 `blob_prepare_request {request_id, channel, purpose, size_bytes}`(channel 0 json)를 보내고, core가 `credit {channel, window}`를 주면 그 channel의 bytes frame을 credit 안에서만 보내고 `end`(중단은 `abort`)로 닫는다. core는 `blob_prepare_result`(준비 참조 `{preparation, principal, purpose, hash, size_bytes}` 또는 고정 오류 code `invalid_input | forbidden | unavailable | internal`)를 돌려준다. 요청에 principal·expected_hash field는 없다: principal은 core가 자식 kind에서 정하고 hash는 I/O worker만 계산한다. 선언 크기는 purpose 상한과 실제 바이트 수와 대조한다. 처음 credit은 `BLOB_PREPARE_CREDIT_WINDOW`이고 core consumer가 읽은 만큼만 다시 준다.
+
 ### T7 contracts/platform: event envelope·구독
 
 - 상태: 완료 (#10)

@@ -251,11 +251,43 @@ function position(claims: CollectorPosition["claims"]): CollectorPosition {
   return { credential: "token-never-record", api_port: 0, claims };
 }
 
-function fakeSession(): import("../../../packages/platform/responsiveness/mod.ts").ChildSession {
+type PrepareCall = { purpose: string; sizeBytes: number; text: string };
+
+// prepareBlob은 준비 통로의 결과만 흉내 낸다. hash는 자식이 정하지 않으므로 core가 준
+// 값처럼 호출 순서로 정한다. 호출은 calls에 모아 본문이 나갔는지 본다.
+function fakeSession(
+  calls: PrepareCall[] = [],
+  fail = false,
+): import("../../../packages/platform/responsiveness/mod.ts").ChildSession {
   const noop = () => Promise.resolve();
   return {
     send: noop,
     sendBytes: noop,
+    sendEnd: noop,
+    sendAbort: noop,
+    prepareBlob: async (input) => {
+      const body = input.bytes as Uint8Array;
+      calls.push({
+        purpose: input.purpose,
+        sizeBytes: input.sizeBytes,
+        text: new TextDecoder().decode(body),
+      });
+      await Promise.resolve();
+      if (fail) {
+        return { ok: false, error: { code: "unavailable", message: "x" } };
+      }
+      const n = calls.length;
+      return {
+        ok: true,
+        value: {
+          preparation: `prep-${n}`,
+          principal: "collector",
+          purpose: input.purpose,
+          hash: String(n).repeat(64),
+          size_bytes: input.sizeBytes,
+        },
+      };
+    },
     stopped: false,
     credentialUsable: true,
     readAhead: {} as never,
@@ -281,6 +313,7 @@ Deno.test("problems/reporting#R1: secret 형태의 text·details는 redaction �
     pending_bytes: 65536,
   });
   const captured: { envelope?: Record<string, unknown> } = {};
+  const prepareCalls: PrepareCall[] = [];
   const payload = {
     report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
     code: "save_failed",
@@ -297,7 +330,7 @@ Deno.test("problems/reporting#R1: secret 형태의 text·details는 redaction �
     capturingClient(captured),
     redaction,
     queue,
-    fakeSession(),
+    fakeSession(prepareCalls),
     CLAIMED,
   );
   assert(captured.envelope !== undefined);
@@ -318,12 +351,22 @@ Deno.test("problems/reporting#R1: secret 형태의 text·details는 redaction �
     }[];
     snapshot: Record<string, unknown>;
   };
-  // redaction 통과 내용은 blob 준비되어 Report.text·details hash로 싣는다(T4).
-  // 준비 통로가 collector에 없으므로(hash를 내는 준비 경계는 등록된 blob
-  // prepare 중계다) 이 항목들은 이유를 남기고 null이다.
-  assertEquals(input.report.text, null);
-  assertEquals(input.report.details, null);
-  assertEquals(input.blobs, []);
+  // redaction 통과 내용만 blob 준비되어 Report.text·details hash로 실린다(T4).
+  assertEquals(prepareCalls.map((call) => call.purpose), [
+    "report_text",
+    "report_details",
+  ]);
+  for (const call of prepareCalls) {
+    assertEquals(call.text.includes(secret), false);
+    assertEquals(call.text.includes(`sk-${"C".repeat(24)}`), false);
+  }
+  assertEquals(input.report.text, "1".repeat(64));
+  assertEquals(input.report.details, "2".repeat(64));
+  assertEquals(input.blobs.map((blob) => blob.purpose), [
+    "report_text",
+    "report_details",
+  ]);
+  assertEquals(input.blobs[0]?.source.blob.principal, "collector");
   // snapshot 증거도 없다: 수집 꺼짐 이유다.
   assertEquals(input.snapshot.invocation, null);
   assertEquals(input.snapshot.error, null);
@@ -593,6 +636,46 @@ Deno.test("problems/snapshots#R8 R9: 기록 도착을 확인하면 record_missin
   assertEquals(queue.size, 0);
 });
 
+Deno.test("problems/reporting#R1 problems/snapshots#R5: stack blob 준비가 성공하면 redaction된 stack 본문만 core에 나가고 hash는 준비 결과에서 온다", async () => {
+  const known = createKnownSecretRegistry();
+  const secret = "sk-ant-AAAAdemo1234567890abcdef";
+  known.register([secret]);
+  const redaction = createRedactionEngine({ registry: known });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  const calls: PrepareCall[] = [];
+  await observeExceptionPayload(
+    {
+      report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+      observed_at: "2026-10-04T12:00:00.000Z",
+      observation: "render_error",
+      error: {
+        name: "TypeError",
+        message: "render failed",
+        message_missing_reason: null,
+        stack: `Error: render failed\n    at View (app.js:1:1) ${secret}`,
+        stack_missing_reason: null,
+      },
+      error_missing_reason: null,
+      invocation: null,
+    },
+    capturingClient(captured),
+    redaction,
+    queue,
+    fakeSession(calls),
+    CLAIMED,
+  );
+  assertEquals(calls.map((call) => call.purpose), ["snapshot_stack"]);
+  assertEquals(calls[0]?.text.includes(secret), false);
+  const input = captured.envelope?.["input"] as {
+    snapshot: { error: { stack: string | null } };
+  };
+  assertEquals(input.snapshot.error.stack, "1".repeat(64));
+});
+
 Deno.test("problems/snapshots#R4 R10: render_error는 view_observer origin이고 안전하지 않은 오류 이름은 redaction 이유를 남긴다", async () => {
   const known = createKnownSecretRegistry();
   const secret = "sk-ant-AAAAdemo1234567890abcdef";
@@ -621,7 +704,7 @@ Deno.test("problems/snapshots#R4 R10: render_error는 view_observer origin이고
     capturingClient(captured),
     redaction,
     queue,
-    fakeSession(),
+    fakeSession([], true),
     CLAIMED,
   );
   assert(captured.envelope !== undefined);
@@ -646,7 +729,7 @@ Deno.test("problems/snapshots#R4 R10: render_error는 view_observer origin이고
     false,
   );
   assertEquals(input.snapshot.error.stack, null);
-  // stack 준비 통로가 없으면 이유를 남긴다(R5, reporting#R14: 수집 실패).
+  // stack 준비가 실패하면 이유를 남긴다(R5, reporting#R14: 수집 실패).
   assertEquals(
     input.snapshot.error.truncation_notes.some((note) =>
       note.includes("stack blob 준비 실패")

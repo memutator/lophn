@@ -1,8 +1,6 @@
-// 설치·갱신·제거 engine이다(coding-agent/harnesses#R6–R9, T29). plan이 고른
-// exact target만 쓰고, receipt의 소유 증거와 계획 때 읽은 hash를 교체 직전에
-// 다시 비교한다(R7). 쓰기는 같은 폴더 temp·fsync·rename이고 resource별 결과를
-// 낸다(R9). receipt 저장 실패는 partial과 recovery journal로 남고 복구 전
-// 다음 갱신을 거절한다(R9). home root는 인자로 받는다. 고정 HOME을 읽지 않는다.
+// 설치·갱신 engine이다(coding-agent/harnesses#R6–R9, T29). plan의 exact target만
+// 쓰고, 교체 직전에 hash를 다시 비교한다(R7). 쓰기는 temp·fsync·rename이고
+// resource별 결과를 낸다(R9). home root는 인자로 받는다. 고정 HOME은 없다.
 import { fingerprint, sha256Hex } from "../../../base/mod.ts";
 import type {
   ReceiptOutcome,
@@ -14,22 +12,25 @@ import * as yaml from "../adapters/yaml.ts";
 import type { InstallPlan, PlannedResource } from "./plan.ts";
 import { persist } from "./remove.ts";
 import type { Digest, Journal, OwnedResource, Receipt } from "./receipt.ts";
+import { plannedDigest, treeDigest } from "./tree.ts";
 
-// 파일 눈이다. 테스트가 fixture home으로 끼운다. symlink는 따라가지 않고
-// 그 사실만 보고한다(R7, 조사 9.7).
+// 파일 눈이다. fixture home을 끼운다. symlink는 따라가지 않는다(R7). 디렉터리를
+// error로 뭉개면 skill 재설치가 막힌다(guides#R4).
 export type FilePort = {
-  // 파일이 있으면 내용, 없으면 null이다. symlink면 "symlink"다.
   read(path: string): Promise<
     | { kind: "file"; text: string }
+    | { kind: "directory" }
     | { kind: "absent" }
     | { kind: "symlink" }
-    | {
-      kind: "error";
-    }
+    | { kind: "error" }
   >;
-  // 같은 폴더 temp·fsync·rename으로 바꾼다. 폴더가 없으면 만든다.
+  listFiles(dir: string): Promise<
+    | { kind: "files"; files: readonly { path: string; text: string }[] }
+    | { kind: "symlink"; path: string }
+    | { kind: "error" }
+  >;
+  escapes(root: string, path: string): Promise<boolean>;
   writeAtomic(path: string, text: string): Promise<boolean>;
-  // 디렉터리를 만들고 파일을 쓴다. skill 설치가 쓴다(guides#R4).
   writeTree(
     dir: string,
     files: readonly { path: string; content: string }[],
@@ -46,9 +47,7 @@ export type Store = {
 
 export type ApplyResult = {
   resources: ResourceInstallResult[];
-  // receipt 저장까지 됐으면 true다. 하나라도 실패면 false다(R9).
   receipt_stored: boolean;
-  // journal에 복구가 남아 있으면 true다. 다음 갱신을 거절하는 근거다(R9).
   recovery_pending: boolean;
 };
 
@@ -79,11 +78,20 @@ async function hashOf(
   if (read.kind === "absent") return null;
   if (read.kind === "symlink") return "symlink";
   if (read.kind === "error") return "error";
+  if (read.kind === "directory") return await directoryHash(port, path);
   return await sha256Hex(read.text);
 }
 
-// plan을 만들기 전에 현재 파일 hash를 읽는다(R7). 설치는 이 값을 교체 직전에
-// 다시 비교해 그 사이 사람 수정을 덮지 않는다.
+async function directoryHash(
+  port: FilePort,
+  dir: string,
+): Promise<Digest | "symlink" | "error"> {
+  const listed = await port.listFiles(dir);
+  if (listed.kind === "symlink") return "symlink";
+  if (listed.kind === "error") return "error";
+  return await treeDigest(listed.files);
+}
+
 export async function observe(
   port: FilePort,
   root: string,
@@ -91,14 +99,15 @@ export async function observe(
 ): Promise<ObservedHashes | "blocked"> {
   const hashes = new Map<string, Digest>();
   for (const resource of plan.resources) {
-    const read = await hashOf(port, join(root, resource.path));
+    const path = join(root, resource.path);
+    if (await port.escapes(root, path)) return "blocked";
+    const read = await hashOf(port, path);
     if (read === "symlink" || read === "error") return "blocked";
     if (read !== null) hashes.set(resource.path, read);
   }
   return hashes;
 }
 
-// 소유 조각의 digest다(R7). 파일이 없거나 조각이 없으면 빈 digest다.
 export async function fragmentDigest(
   text: string | null,
   resource: PlannedResource,
@@ -129,7 +138,6 @@ function fragmentOf(
   return read.value;
 }
 
-// 쓸 본문을 만든다. config는 소유 key만 merge하고 나머지는 보존한다(R8).
 function merged(
   current: string | null,
   resource: PlannedResource,
@@ -173,7 +181,6 @@ export function join(root: string, path: string): string {
   return `${root}/${path}`;
 }
 
-// 설치·갱신이다(R6–R9). journal에 복구가 남아 있으면 거절한다(R9).
 export async function install(
   port: FilePort,
   store: Store,
@@ -218,6 +225,17 @@ async function writeResource(
   receipt: Receipt | null,
 ): Promise<{ result: ResourceInstallResult; owned: OwnedResource | null }> {
   const path = join(root, resource.path);
+  if (await port.escapes(root, path)) {
+    return {
+      result: result(
+        resource.identity,
+        "conflict",
+        false,
+        "경로가 root 밖을 가리킨다",
+      ),
+      owned: null,
+    };
+  }
   const current = await port.read(path);
   if (current.kind === "symlink") {
     return {
@@ -237,7 +255,22 @@ async function writeResource(
     };
   }
   const text = current.kind === "file" ? current.text : null;
-  const now = text === null ? null : await sha256Hex(text);
+  const now = current.kind === "directory"
+    ? await directoryHash(port, path)
+    : text === null
+    ? null
+    : await sha256Hex(text);
+  if (now === "symlink" || now === "error") {
+    return {
+      result: result(
+        resource.identity,
+        "conflict",
+        false,
+        "디렉터리 안 symlink는 쓰지 않는다",
+      ),
+      owned: null,
+    };
+  }
   const seen = observed.get(resource.path) ?? null;
   if (now !== seen) {
     return {
@@ -253,11 +286,9 @@ async function writeResource(
   const previous = receipt?.resources.find((item) =>
     item.canonical_identity === resource.identity
   );
-  // 파일이 있는데 receipt가 없으면, 소유 조각이 이미 있을 때만 conflict다.
-  // 조각이 없으면 사람이 쓰던 설정에 lophn key만 더하는 merge다(R8). 파일 전체를
-  // 소유하는 resource(skill·지침)는 동명 파일이 있으면 항상 conflict다(R7).
-  if (text !== null && previous === undefined) {
-    const fragment = resource.owned_key === null
+  const present = text !== null || current.kind === "directory";
+  if (present && previous === undefined) {
+    const fragment = resource.owned_key === null || text === null
       ? "present"
       : fragmentOf(text, resource);
     if (fragment === "broken") {
@@ -283,8 +314,12 @@ async function writeResource(
       };
     }
   }
-  if (previous !== undefined && text !== null) {
-    const digest = await fragmentDigest(text, resource);
+  if (
+    previous !== undefined && (text !== null || current.kind === "directory")
+  ) {
+    const digest = current.kind === "directory"
+      ? await directoryHash(port, path)
+      : await fragmentDigest(text, resource);
     if (digest === "broken" || digest !== previous.owned_fragment_digest) {
       return {
         result: result(
@@ -294,6 +329,20 @@ async function writeResource(
           "사람이 소유 조각을 고쳤다",
         ),
         owned: null,
+      };
+    }
+  }
+  if (Array.isArray(resource.content)) {
+    const planned = await plannedDigest(resource.content);
+    if (planned === now) {
+      return {
+        result: result(
+          resource.identity,
+          "unchanged",
+          false,
+          "이미 같은 내용이다",
+        ),
+        owned: previous ?? null,
       };
     }
   }
@@ -330,12 +379,11 @@ async function writeResource(
     };
   }
   const written = Array.isArray(resource.content)
-    ? await treeHash(resource.content)
+    ? await plannedDigest(resource.content)
     : await sha256Hex(next.text);
-  const digest = await fragmentDigest(
-    Array.isArray(resource.content) ? null : next.text,
-    resource,
-  );
+  const digest = Array.isArray(resource.content)
+    ? written
+    : await fragmentDigest(next.text, resource);
   return {
     result: result(resource.identity, "changed", false, "썼다"),
     owned: {
@@ -347,11 +395,4 @@ async function writeResource(
       topology: resource.format === "directory" ? "directory" : "file",
     },
   };
-}
-
-async function treeHash(
-  files: readonly { path: string; content: string }[],
-): Promise<Digest> {
-  const body = files.map((file) => `${file.path}\n${file.content}`).join("\n");
-  return await sha256Hex(body);
 }

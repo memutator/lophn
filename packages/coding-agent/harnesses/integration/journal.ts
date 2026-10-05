@@ -13,11 +13,18 @@ function targetKey(target: IntegrationTarget): string {
   return `${target.harness_id}-${target.environment.kind}-${scope}`;
 }
 
+// 새 파일의 기본 권한이다. 기존 파일이 있으면 그 mode를 따른다.
+const DEFAULT_MODE = 0o644;
+
 async function atomic(path: string, text: string): Promise<boolean> {
   const dir = path.slice(0, path.lastIndexOf("/"));
+  // 기존 파일의 mode를 보존한다. temp 파일은 0600이라 그대로 두면 실행 권한이
+  // 사라진다.
+  const mode = await existingMode(path);
+  let temp: string | null = null;
   try {
     await Deno.mkdir(dir, { recursive: true });
-    const temp = await Deno.makeTempFile({ dir, prefix: ".lophn-" });
+    temp = await Deno.makeTempFile({ dir, prefix: ".lophn-" });
     const handle = await Deno.open(temp, { write: true });
     try {
       await handle.write(new TextEncoder().encode(text));
@@ -25,10 +32,29 @@ async function atomic(path: string, text: string): Promise<boolean> {
     } finally {
       handle.close();
     }
+    await Deno.chmod(temp, mode);
     await Deno.rename(temp, path);
+    temp = null;
+    // rename 뒤 디렉터리를 fsync해 이름 변경이 디스크에 남게 한다.
+    const dirHandle = await Deno.open(dir);
+    try {
+      await dirHandle.sync();
+    } finally {
+      dirHandle.close();
+    }
     return true;
   } catch {
+    if (temp !== null) await Deno.remove(temp).catch(() => {});
     return false;
+  }
+}
+
+async function existingMode(path: string): Promise<number> {
+  try {
+    const stat = await Deno.lstat(path);
+    return stat.mode === null ? DEFAULT_MODE : stat.mode & 0o777;
+  } catch {
+    return DEFAULT_MODE;
   }
 }
 
@@ -45,12 +71,26 @@ export function filePort(): FilePort {
       try {
         const stat = await Deno.lstat(path);
         if (stat.isSymlink) return { kind: "symlink" };
+        if (stat.isDirectory) return { kind: "directory" };
         if (!stat.isFile) return { kind: "error" };
         return { kind: "file", text: await Deno.readTextFile(path) };
       } catch (error) {
         if (error instanceof Deno.errors.NotFound) return { kind: "absent" };
         return { kind: "error" };
       }
+    },
+    async listFiles(dir) {
+      const files: { path: string; text: string }[] = [];
+      try {
+        const walked = await walkFiles(dir, dir, files);
+        if (walked !== null) return walked;
+        return { kind: "files", files };
+      } catch {
+        return { kind: "error" };
+      }
+    },
+    async escapes(root, path) {
+      return await pathEscapes(root, path);
     },
     async writeAtomic(path, text) {
       return await atomic(path, text);
@@ -96,6 +136,63 @@ export function storeOf(home: string): Store {
       return await atomic(`${dir}/journal.json`, JSON.stringify(journal));
     },
   };
+}
+
+// 디렉터리 안의 파일을 상대 경로로 모은다. symlink는 따라가지 않는다(R7).
+async function walkFiles(
+  root: string,
+  dir: string,
+  files: { path: string; text: string }[],
+): Promise<{ kind: "symlink"; path: string } | null> {
+  for await (const entry of Deno.readDir(dir)) {
+    const full = `${dir}/${entry.name}`;
+    const stat = await Deno.lstat(full);
+    if (stat.isSymlink) {
+      return { kind: "symlink", path: full.slice(root.length + 1) };
+    }
+    if (stat.isDirectory) {
+      const inner = await walkFiles(root, full, files);
+      if (inner !== null) return inner;
+      continue;
+    }
+    if (stat.isFile) {
+      files.push({
+        path: full.slice(root.length + 1),
+        text: await Deno.readTextFile(full),
+      });
+    }
+  }
+  return null;
+}
+
+// root에서 target까지의 부모를 lstat한다. 하나라도 symlink거나, 실제로 있는
+// 가장 깊은 조상의 realpath가 root 밖이면 빠져나간다(R7). 마지막 컴포넌트만
+// 보면 `root/.claude`가 밖을 가리킬 때 놓친다.
+async function pathEscapes(root: string, path: string): Promise<boolean> {
+  const prefix = root.endsWith("/") ? root : `${root}/`;
+  if (!path.startsWith(prefix)) return true;
+  const relative = path.slice(prefix.length);
+  const parts = relative.split("/");
+  let cursor = root;
+  for (let index = 0; index < parts.length - 1; index++) {
+    cursor = `${cursor}/${parts[index]}`;
+    try {
+      const stat = await Deno.lstat(cursor);
+      if (stat.isSymlink) return true;
+      if (!stat.isDirectory) return true;
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) return false;
+      return true;
+    }
+  }
+  try {
+    const realRoot = await Deno.realPath(root);
+    const real = await Deno.realPath(cursor);
+    const bound = realRoot.endsWith("/") ? realRoot : `${realRoot}/`;
+    return real !== realRoot && !real.startsWith(bound);
+  } catch {
+    return true;
+  }
 }
 
 async function readJson<T>(path: string): Promise<T | null> {

@@ -60,19 +60,54 @@ function assertSeen(value: ObservedHashes | "blocked"): ObservedHashes {
   return value;
 }
 
-// 메모리 파일 눈이다. symlink는 따라가지 않고 표시만 한다(R7).
+// 메모리 파일 눈이다. symlink는 따라가지 않고 표시만 한다(R7). 디렉터리는
+// `dir/` 접두 파일로 본다.
 function memoryPort(
   files: Record<string, string>,
   symlinks: string[] = [],
 ): FilePort {
   const tree = { ...files };
+  const prefixOf = (dir: string) => (dir.endsWith("/") ? dir : `${dir}/`);
   return {
     read(path) {
       if (symlinks.includes(path)) return Promise.resolve({ kind: "symlink" });
       const text = tree[path];
+      if (text !== undefined) return Promise.resolve({ kind: "file", text });
+      const prefix = prefixOf(path);
+      const hasChild = Object.keys(tree).some((key) => key.startsWith(prefix));
       return Promise.resolve(
-        text === undefined ? { kind: "absent" } : { kind: "file", text },
+        hasChild ? { kind: "directory" } : { kind: "absent" },
       );
+    },
+    listFiles(dir) {
+      const hit = symlinks.find((link) =>
+        link === dir || link.startsWith(prefixOf(dir))
+      );
+      if (hit !== undefined) {
+        return Promise.resolve({
+          kind: "symlink",
+          path: hit.slice(dir.length + 1),
+        });
+      }
+      const prefix = prefixOf(dir);
+      const listed = Object.entries(tree)
+        .filter(([key]) => key.startsWith(prefix))
+        .map(([key, text]) => ({ path: key.slice(prefix.length), text }));
+      return Promise.resolve({ kind: "files", files: listed });
+    },
+    escapes(root, path) {
+      const prefix = prefixOf(root);
+      if (!path.startsWith(prefix)) return Promise.resolve(true);
+      const relative = path.slice(prefix.length);
+      if (relative.split("/").includes("..")) return Promise.resolve(true);
+      // 부모 컴포넌트가 symlink면 root 밖으로 빠져나간다(R7).
+      const parts = relative.split("/");
+      let cursor = root;
+      for (let index = 0; index < parts.length - 1; index++) {
+        cursor = `${cursor}/${parts[index]}`;
+        if (symlinks.includes(cursor)) return Promise.resolve(true);
+      }
+      return Promise.resolve(false);
     },
     writeAtomic(path, text) {
       tree[path] = text;
@@ -84,6 +119,10 @@ function memoryPort(
     },
     remove(path) {
       delete tree[path];
+      const prefix = prefixOf(path);
+      for (const key of Object.keys(tree)) {
+        if (key.startsWith(prefix)) delete tree[key];
+      }
       return Promise.resolve(true);
     },
   };
@@ -463,6 +502,165 @@ Deno.test("coding-agent/harnesses#R9: 실제 파일 눈은 temp·fsync·rename�
     await Deno.symlink(`${home}/config.json`, link);
     const linked = await port.read(link);
     assertEquals(linked.kind, "symlink");
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+function skillPlan() {
+  return claudePlan([resource({
+    identity: "skill",
+    path: ".claude/skills/lophn",
+    kind: "skill",
+    owned_key: null,
+    format: "directory",
+    content: [
+      { path: "SKILL.md", content: "# lophn\n" },
+      { path: "notes.md", content: "helper\n" },
+    ],
+  })]);
+}
+
+Deno.test("coding-agent/guides#R4: 실제 파일 눈으로 skill 디렉터리를 재설치·갱신·제거한다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "harness-skill-" });
+  try {
+    const port = filePort();
+    const store = storeOf(home);
+    const planned = assertPlan(skillPlan());
+    const seen = assertSeen(await observe(port, home, planned));
+    const applied = await install(
+      port,
+      store,
+      home,
+      planned,
+      seen,
+      "op-1",
+      NOW,
+    );
+    assertEquals(applied.resources[0].outcome, "changed");
+    const body = await Deno.readTextFile(
+      `${home}/.claude/skills/lophn/SKILL.md`,
+    );
+    assertEquals(body, "# lophn\n");
+    // 같은 내용으로 다시 설치하면 무변경이다. 디렉터리를 error로 보면 막힌다.
+    const again = assertSeen(await observe(port, home, planned));
+    const repeat = await install(
+      port,
+      store,
+      home,
+      planned,
+      again,
+      "op-2",
+      NOW,
+    );
+    assertEquals(repeat.resources[0].outcome, "unchanged");
+    // 사람이 보조 자료를 고치면 제거를 거절하고 파일을 남긴다(R7).
+    await Deno.writeTextFile(
+      `${home}/.claude/skills/lophn/notes.md`,
+      "edited\n",
+    );
+    const kept = await remove(port, store, home, planned, "op-3", NOW);
+    assertEquals(kept.resources[0].outcome, "conflict");
+    const still = await Deno.readTextFile(
+      `${home}/.claude/skills/lophn/SKILL.md`,
+    );
+    assertEquals(still, "# lophn\n");
+    // 되돌리면 receipt digest와 같아 디렉터리 전체를 지운다.
+    await Deno.writeTextFile(
+      `${home}/.claude/skills/lophn/notes.md`,
+      "helper\n",
+    );
+    const gone = await remove(port, store, home, planned, "op-4", NOW);
+    assertEquals(gone.resources[0].outcome, "changed");
+    const after = await port.read(`${home}/.claude/skills/lophn`);
+    assertEquals(after.kind, "absent");
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+Deno.test("coding-agent/harnesses#R7: 부모 symlink로 root 밖을 가리키면 실제 파일 눈이 conflict로 거절한다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "harness-escape-" });
+  const outside = await Deno.makeTempDir({ prefix: "harness-outside-" });
+  try {
+    const port = filePort();
+    const store = storeOf(home);
+    // `root/.claude`가 root 밖을 가리킨다. 마지막 컴포넌트만 보면 놓친다.
+    await Deno.symlink(outside, `${home}/.claude`);
+    const planned = assertPlan(
+      claudePlan([resource({ path: ".claude/config.json" })]),
+    );
+    const seen = await observe(port, home, planned);
+    assertEquals(seen, "blocked");
+    // 관찰을 건너뛴 채 바로 써도 교체 직전 검사에서 거절한다.
+    const applied = await install(
+      port,
+      store,
+      home,
+      planned,
+      new Map(),
+      "op-1",
+      NOW,
+    );
+    assertEquals(applied.resources[0].outcome, "conflict");
+    // 밖에는 아무것도 쓰지 않았다.
+    const leaked: string[] = [];
+    for await (const entry of Deno.readDir(outside)) leaked.push(entry.name);
+    assertEquals(leaked, []);
+  } finally {
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(outside, { recursive: true });
+  }
+});
+
+Deno.test("coding-agent/harnesses#R9: 쓰기는 기존 파일의 mode를 보존한다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "harness-mode-" });
+  try {
+    const port = filePort();
+    const store = storeOf(home);
+    const path = `${home}/config.json`;
+    await Deno.writeTextFile(path, "{}\n");
+    await Deno.chmod(path, 0o644);
+    const planned = assertPlan(claudePlan([resource({ path: "config.json" })]));
+    const seen = assertSeen(await observe(port, home, planned));
+    const applied = await install(
+      port,
+      store,
+      home,
+      planned,
+      seen,
+      "op-1",
+      NOW,
+    );
+    assertEquals(applied.resources[0].outcome, "changed");
+    const mode = (await Deno.lstat(path)).mode;
+    assert(mode !== null);
+    if (mode === null) return;
+    assertEquals(mode & 0o777, 0o644);
+    // 실행 권한도 남는다. temp 파일 기본 0600으로 덮으면 사라진다.
+    await Deno.chmod(path, 0o755);
+    const again = assertSeen(await observe(port, home, planned));
+    const planned2 = assertPlan(claudePlan([resource({
+      path: "config.json",
+      content: JSON.stringify({
+        command: "lophn",
+        args: ["--connection", "cac_y"],
+      }),
+    })]));
+    const updated = await install(
+      port,
+      store,
+      home,
+      planned2,
+      again,
+      "op-2",
+      NOW,
+    );
+    assertEquals(updated.resources[0].outcome, "changed");
+    const kept = (await Deno.lstat(path)).mode;
+    assert(kept !== null);
+    if (kept === null) return;
+    assertEquals(kept & 0o777, 0o755);
   } finally {
     await Deno.remove(home, { recursive: true });
   }

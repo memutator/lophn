@@ -3,6 +3,8 @@
 // 저장이 실패하면 journal에 남기고, 복구는 hash를 다시 확인해 무조건
 // 재설치하지 않는다(R9).
 import { sha256Hex } from "../../../base/mod.ts";
+import type { Digest } from "./receipt.ts";
+import { treeDigest } from "./tree.ts";
 import type { ResourceInstallResult } from "../../../contracts/coding-agent/mod.ts";
 import {
   type ApplyResult,
@@ -95,8 +97,11 @@ export async function remove(
   const results: ResourceInstallResult[] = [];
   const remaining: OwnedResource[] = [...(receipt?.resources ?? [])];
   for (const resource of plan.resources) {
+    // 이름과 경로가 둘 다 receipt와 같아야 지운다(R7). 경로가 다르면 다른
+    // 자리다.
     const owned = remaining.find((item) =>
-      item.canonical_identity === resource.identity
+      item.canonical_identity === resource.identity &&
+      item.path === resource.path
     );
     if (owned === undefined) {
       results.push(result(
@@ -117,6 +122,15 @@ export async function remove(
   return await persist(store, plan, remaining, results, operationId, writtenAt);
 }
 
+async function directoryDigest(
+  port: FilePort,
+  dir: string,
+): Promise<Digest | "broken"> {
+  const listed = await port.listFiles(dir);
+  if (listed.kind !== "files") return "broken";
+  return await treeDigest(listed.files);
+}
+
 async function removeResource(
   port: FilePort,
   root: string,
@@ -124,6 +138,14 @@ async function removeResource(
   owned: OwnedResource,
 ): Promise<ResourceInstallResult> {
   const path = join(root, resource.path);
+  if (await port.escapes(root, path)) {
+    return result(
+      resource.identity,
+      "conflict",
+      false,
+      "경로가 root 밖을 가리킨다",
+    );
+  }
   const current = await port.read(path);
   if (current.kind === "symlink") {
     return result(
@@ -138,6 +160,21 @@ async function removeResource(
   }
   if (current.kind === "error") {
     return result(resource.identity, "failed", false, "파일을 읽지 못했다");
+  }
+  if (current.kind === "directory") {
+    const digest = await directoryDigest(port, path);
+    if (digest === "broken" || digest !== owned.owned_fragment_digest) {
+      return result(
+        resource.identity,
+        "conflict",
+        false,
+        "사람이 고친 resource는 보존한다",
+      );
+    }
+    const gone = await port.remove(path);
+    return gone
+      ? result(resource.identity, "changed", false, "지웠다")
+      : result(resource.identity, "failed", false, "지우기에 실패했다");
   }
   const digest = await fragmentDigest(current.text, resource);
   if (digest === "broken" || digest !== owned.owned_fragment_digest) {

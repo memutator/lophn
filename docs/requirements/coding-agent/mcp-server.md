@@ -98,7 +98,7 @@ concerns: [coding-agent/mcp-server]
 - 확인: documents/series의 첫 key 직접 지정·규칙 부적합·이미 사용한 key가 표시되고 생성 동작이 노출되지 않는다.
 - 의도: coding-agent#I3
 
-**[R17]** context 읽기는 목록·상세·기준과 참고와 watch 항목·읽기 깊이·glossary·특정 문서를 참조하는 context를 제공하고 생성·이름 변경·항목 추가와 제거·관점 변경·분할·병합·용어 추가와 채택 변경 제안은 고정 변경안·이유를 남기는 통로로만 제공한다.
+**[R17]** context 읽기는 목록·상세·기준과 참고와 watch 항목·읽기 깊이·glossary·특정 문서를 참조하는 context를 제공하고 생성·이름 변경·항목 추가와 제거·관점 변경·용어 추가와 채택 변경 제안은 고정 변경안·이유를 남기는 통로로만 제공한다.
 - 이유: 관점 정의의 최종 변경은 사람이 하고 coding agent는 필요한 언어와 근거를 읽는다.
 - 확인: 프로젝트 폴더나 untracked 파일을 문서 항목으로 넣는 제안을 거절하고 제안 접수만으로 context·용어가 바뀌지 않으며 lophn-agent/questions를 가리킨다.
 - 의도: coding-agent#I3

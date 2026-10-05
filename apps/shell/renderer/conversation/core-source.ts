@@ -88,13 +88,13 @@ async function command<T>(
   method: string,
   body: { input: unknown; compare: unknown; key: string },
 ): Promise<SourceResult<T>> {
-  const result = await call<{ result: T }>(core, "command", resource, method, {
+  // 성공 응답은 route output 그대로다. 추가 포장은 없다(platform/api#R3).
+  return await call<T>(core, "command", resource, method, {
     input: body.input,
     idempotency_key: body.key,
     compare: body.compare,
     prepared: [],
   });
-  return result.ok ? { ok: true, value: result.value.result } : result;
 }
 
 async function pages<T, V extends Page>(

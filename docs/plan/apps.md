@@ -160,6 +160,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T9 실행 상태, 멈춤, 관측
 
+- 상태: 완료 (#251)
 - 등급: 기본
 - concern: apps/runtime, apps/registration
 - 요구: apps/runtime#R13, R14, R15, R25, R26, R27, R28, R29, apps/registration#R8
@@ -189,6 +190,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `connect_test.ts`: 제어 경로는 플랫폼 인증 연결만 받고 임의 caller의 control 요청과 화면 본문의 다른 앱 주장은 거절(R9), live connection에 release 필수·release 없는 preview는 bundle_hash로 결속, endpoint·nonce를 ledger에 쓰지 않음, 화면 connection은 screen·size 교집합(blueprint sizes)만
   - `agent-connect_test.ts`: 열린 앱이라도 agent.commands grant가 없으면 거절, grant 뒤에도 AgentAppScope 밖 command는 connection에 들어가지 않음, lophn·App Engineer·Operator에게 각자 허용 command만(R32, apps/permissions#R28)
   - `client_test.ts`: Unix socket HTTP로 invoke·status·cancel, request_key 재사용으로 같은 결과 조회, 전송 단절은 결과 모름으로 돌려주고 자동 재호출 없음
+  - apps#T9에서 넘어온 것: core의 `apps.runtime`·`apps.logs`는 지금 관측·log source 없이 등록돼(없음·none을 명시) 있으니, supervisor 메모리(관측·`LogBuffer.collect`·memory·crash)를 core가 조회하는 제어 메시지와 source 연결, apps/app-supervisor/main.ts의 조립(stdout·stderr `attach`와 `log-redact`, memory observer와 crash observer 시작, `requestStop`으로 direct 제어의 close·shutdown 호출, 관측의 `terminating` reason을 RuntimeObservation으로 변환)
   - 별도 platform 회수 event는 없다. 소유 event(GrantRevoked, assignment 멈춤, CodingAgentConnectionRevoked, run 종료)와 core epoch 변화를 받으면 그 credential_ref로 발급한 connection을 쓰는 통로를 닫는다(Q5)
 
 ### T11 invocation 기록 command와 read

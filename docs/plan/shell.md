@@ -1182,3 +1182,11 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (5) 자유 답과 취소 이유는 대화 도크(Q15)와 같이 글의 hash만 보낸다. 사람 글을 blob으로 올리는 길이 생기면 같은 hash로 보낸다.
   - (6) "blocking"은 그 요청을 `waiting_on`으로 기다리며 멈춘 run이 있는 요청으로 읽는다. 기간 filter의 시각은 생성·닫힘 event의 `at`(events.list)이고, 읽지 못한 요청은 기간으로 빼지 않는다. 역할은 run의 assignment 역할이다.
   - (7) headless 확인용으로 main이 `LOPHN_SHELL_START=things-to-confirm`이면 lophn 공간의 things-to-confirm부터 연다(개발 전용, stack.md).
+- **Q17 전역 팔레트의 동작, OS 기능 실패 안내 자리, notification 원천(T56, 추천안으로 진행).**
+  - (1) 전역 팔레트 CommandOrControl+Shift+K는 가장 최근에 focus를 받은 창(없으면 새 기본 창)을 앞으로 가져와 지금 공간과 상관없이 lophn 전체 팔레트(프로젝트·컨텍스트·문서·앱·행동)를 연다. 이미 열린 팔레트는 닫지 않는다. 창 안 팔레트 CommandOrControl+K는 지금 공간의 행을 여닫고 런처에서는 아무것도 열지 않는다. main이 창에 시키는 것은 `shell:intent` channel의 이름(`global-palette`, `things-to-confirm`)뿐이고, 막 연 창에서는 preload가 마지막 하나를 들고 있다가 첫 구독에 넘긴다.
+  - (2) 전역 팔레트 등록 실패와 OS notification 실패는 tray menu의 누를 수 없는 안내 줄 하나씩으로 보이고 log에 남긴다. 다른 key를 대신 잡거나 다시 시도하지 않는다. settings의 OS notification 항목(T58)이 생기면 같은 상태를 거기서도 보일 수 있다.
+  - (3) OS notification 클릭은 things-to-confirm을 연다. notification별 결과로 바로 가지 않고 things-to-confirm의 행이 결과를 연다. 읽음·결정 command는 보내지 않는다.
+  - (4) opt-in 정의 `shell.os_notifications`(boolean, 기본 false)는 `apps/core/shell.ts`에 두었다. main은 새 notification이 도착할 때마다 settings.get으로 지금 값을 읽고, 읽지 못하면 꺼짐으로 본다. 켜고 끄는 화면은 T58이다.
+  - (5) 재연결 backlog 판정: main 구독은 붙을 때 `events.list`의 `head_seq`를 기억하고 socket으로 온 event 중 그 뒤의 것만 "지금 도착"으로 넘긴다. 한 page로 다 따라잡지 못한 나머지도 socket으로 오기 때문이다.
+  - (6) 제품 core가 platform notifications를 조립하지 않아(Q16(3)) 지금은 `NotificationCreated`가 오지 않는다. main은 실제 event 구독에 붙어 있으므로 core 조립이 들어오면 추가 연결 없이 표시된다. 그 확인은 platform 조립 작업과 platform#T46(flow catch-up-notifications)이 한다.
+  - (7) 보고: `apps/shell/renderer/editor/reading-width.ts`의 settings.apply compare에 `defaults_revision`이 없어 실제 core가 invalid_input으로 거절한다(T56 integration test는 compare를 맞춰 확인했다). shell/editor 쪽에서 고칠 일이다.

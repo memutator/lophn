@@ -82,7 +82,9 @@ export type PlaceholderKinds = {
     total: "number";
   };
   "common.label.sort-by": Record<never, never>;
+  "common.label.tray-global-search-unavailable": Record<never, never>;
   "common.label.tray-launcher": Record<never, never>;
+  "common.label.tray-notifications-unavailable": Record<never, never>;
   "common.label.tray-open": Record<never, never>;
   "common.label.tray-quit": Record<never, never>;
   "common.label.tray-start-at-login": Record<never, never>;

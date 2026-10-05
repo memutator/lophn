@@ -528,7 +528,7 @@ concerns: [documents]
 
 ### T26 context export
 
-- 상태: 진행 (#PR) — 남은 것: Markdown 렌더링은 contract에 format 입력이 없어 JSON 출력만 낸다(질문 Q20)
+- 상태: 진행 (#278) — 남은 것: Markdown 렌더링은 contract에 format 입력이 없어 JSON 출력만 낸다(질문 Q20)
 - 등급: 기본
 - concern: documents/contexts
 - 요구: documents/contexts#R14

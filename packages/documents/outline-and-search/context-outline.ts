@@ -4,7 +4,10 @@
 // 항목별 옛 판 고정 옵션은 없다(contexts#R4). 본문과 앱 데이터는 싣지 않는다.
 // 권한 밖 문서·앱 항목은 없는 항목과 같이 빠지고 count·page도 허용 집합에서 센다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import { CONTEXT_ESTIMATED_TOKEN_BUDGET } from "../../contracts/documents/mod.ts";
+import {
+  CONTEXT_ESTIMATED_TOKEN_BUDGET,
+  GLOSSARY_FIRST_PAGE_LIMIT,
+} from "../../contracts/documents/mod.ts";
 import {
   REDACTION_REPLACEMENT,
   type RequestContext,
@@ -21,7 +24,11 @@ import {
   formatRef,
 } from "./outline-support.ts";
 import type { OutlineHandlerDeps } from "./reads.ts";
-import type { ContextOutlineItem, ContextOutlineRecord } from "./types.ts";
+import type {
+  ContextOutlineItem,
+  ContextOutlineRecord,
+  TermGlossaryItem,
+} from "./types.ts";
 import type { SearchCoverage } from "./work.ts";
 
 export type ContextOutlineInput = {
@@ -36,6 +43,7 @@ type Deps = Pick<
   | "snapshot"
   | "ports"
   | "contextOutline"
+  | "termGlossary"
   | "extract"
   | "redactor"
 >;
@@ -83,12 +91,27 @@ export type ContextOutlinePage = {
     reference: ContextOutlineEntryValue[];
     watch: ContextOutlineEntryValue[];
   };
-  // 용어(documents/terms)가 들어오면 채운다. 지금은 정의·후보가 아직 없다.
-  glossary: never[];
-  candidates: never[];
+  // 용어(documents/terms). 첫 page에서만 활성 정의와 후보를 나눠 싣는다.
+  glossary: GlossaryTermValue[];
+  candidates: GlossaryTermValue[];
   as_of_seq: string;
   next_cursor: string | null;
   complete: boolean;
+};
+
+export type GlossaryTermValue = {
+  id: string;
+  context: string;
+  name: string;
+  definition: string | null;
+  evidence: {
+    document: string;
+    version: string;
+    section: string | null;
+    range: { start_line: number; end_line: number } | null;
+  }[];
+  revision: string;
+  status: "active" | "archived";
 };
 
 // root의 context 항목이 쓰는 값. 기준 항목 수와 참조 앱 수는 허용 집합에서 센다.
@@ -303,6 +326,69 @@ function entryOf(
   };
 }
 
+// 근거는 고정 판 참조다. 읽을 수 없는 문서의 근거는 없는 근거와 같이 빠진다.
+function glossaryTermOf(
+  deps: Deps,
+  ctx: RequestContext,
+  record: ContextOutlineRecord,
+  term: TermGlossaryItem,
+): GlossaryTermValue {
+  const evidence: GlossaryTermValue["evidence"] = [];
+  for (const item of term.evidence) {
+    if (
+      !authorizeTarget(
+        deps,
+        ctx,
+        "outline.context",
+        item.document,
+        item.place?.kind,
+        item.place?.id,
+      )
+    ) continue;
+    evidence.push({
+      document: item.document,
+      version: item.version,
+      section: item.section,
+      range: item.start_line === null || item.end_line === null
+        ? null
+        : { start_line: item.start_line, end_line: item.end_line },
+    });
+  }
+  return {
+    id: term.id,
+    context: term.context,
+    name: safe(deps, record.id, term.revision, term.name),
+    definition: term.definition === null
+      ? null
+      : safe(deps, record.id, term.revision, term.definition),
+    evidence,
+    revision: term.revision,
+    status: term.status,
+  };
+}
+
+// 정의와 후보를 나눠 첫 page만 싣는다(정의 30개). 이어 읽기는 `/v1/terms/list`다.
+// 근원을 읽지 못하면 빈 glossary로 꾸미지 않고 오류로 답한다.
+function glossaryOf(
+  deps: Deps,
+  ctx: RequestContext,
+  record: ContextOutlineRecord,
+): Result<{ glossary: GlossaryTermValue[]; candidates: GlossaryTermValue[] }> {
+  if (deps.termGlossary === undefined) {
+    return ok({ glossary: [], candidates: [] });
+  }
+  const loaded = deps.termGlossary.get(record.id, GLOSSARY_FIRST_PAGE_LIMIT);
+  if (!loaded.ok) return loaded;
+  return ok({
+    glossary: loaded.value.definitions.map((term) =>
+      glossaryTermOf(deps, ctx, record, term)
+    ),
+    candidates: loaded.value.candidates.map((term) =>
+      glossaryTermOf(deps, ctx, record, term)
+    ),
+  });
+}
+
 function entryCost(entry: ContextOutlineEntryValue): number {
   return estimatedTokens(
     120 + [...entry.title].length + [...entry.reason].length,
@@ -361,6 +447,11 @@ export function buildContextOutline(
     ),
   );
   const next = resume.value.offset + page.length;
+  // 용어는 첫 page에서만 싣는다. 이어 받는 page는 항목만 이어 준다.
+  const terms = resume.value.offset === 0
+    ? glossaryOf(deps, ctx, record)
+    : ok({ glossary: [], candidates: [] });
+  if (!terms.ok) return terms;
   return ok({
     kind: "context",
     basis_seq: deps.snapshot.as_of_seq,
@@ -376,8 +467,8 @@ export function buildContextOutline(
       reference: page.filter((entry) => entry.perspective === "reference"),
       watch: page.filter((entry) => entry.perspective === "watch"),
     },
-    glossary: [],
-    candidates: [],
+    glossary: terms.value.glossary,
+    candidates: terms.value.candidates,
     as_of_seq: deps.snapshot.as_of_seq,
     complete,
     next_cursor: complete ? null : encodeOutlineCursor({

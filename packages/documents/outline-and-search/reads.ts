@@ -41,6 +41,7 @@ import type {
   PortLookup,
   SearchFilters,
   SearchSnapshot,
+  TermGlossarySource,
 } from "./types.ts";
 
 export type { SearchFilters, SearchSnapshot };
@@ -555,6 +556,8 @@ export type OutlineHandlerDeps = {
   // context 목차(root의 context 요약, `/v1/outline/context`)의 근원. 없으면 root에
   // context가 없고 context 목차는 unavailable이다.
   contextOutline?: ContextOutlineSource;
+  // context 목차의 glossary(정의·후보) 근원. 없으면 목차의 glossary·candidates는 비어 있다.
+  termGlossary?: TermGlossarySource;
   // 선택 판이 derived에 없을 때 직접 추출하는 근원. 없으면 미완료로 답한다.
   extract?: DirectExtraction;
   // 출력 redaction. 이 grep은 없음 % Escape를 건너 뛴다.

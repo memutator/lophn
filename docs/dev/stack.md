@@ -32,7 +32,7 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 | shell                                     | Electron, Node 24 LTS                                               | `apps/shell/main`만 npm과 package-lock. 이전 lophn은 Electron 44                                                                                              |
 | ledger, 앱 DB, derived store              | SQLite (Deno의 `node:sqlite`), WAL, FTS5                            |                                                                                                                                                               |
 | renderer, SDK UI                          | React, CodeMirror 6                                                 | 이전 lophn shell과 같다                                                                                                                                       |
-| 터미널                                    | xterm.js, node-pty 1.1.0(POSIX PTY, Windows ConPTY)                 | Electron 44.5.1(Node 24.21, NODE_MODULE_VERSION 149)용 linux prebuild는 없다. `@electron/rebuild` 4.2.0이 electron 헤더로 `node-pty`를 다시 빌드한다          |
+| 터미널                                    | xterm.js 6.0.0, node-pty 1.1.0(POSIX PTY, Windows ConPTY)           | Electron 44.5.1(Node 24.21, NODE_MODULE_VERSION 149)용 linux prebuild는 없다. `@electron/rebuild` 4.2.0이 electron 헤더로 `node-pty`를 다시 빌드한다          |
 | schema                                    | Zod 한 가지                                                         | contracts와 경계 검사. 예외: 앱이 import하는 blueprint 검증기는 의존성 없는 순수 TS(`packages/contracts/apps/blueprint.ts`, `@lophn/blueprint`가 다시 내보냄) |
 | format, lint                              | `deno fmt`, `deno lint`                                             | 저장소 전체(npm 쪽 포함)                                                                                                                                      |
 | 테스트                                    | `deno test`; shell main은 `node --test`; E2E는 Playwright(Electron) |                                                                                                                                                               |
@@ -69,6 +69,7 @@ Deno 2.9.7, zod 4.6.5). 판을 올리는 것은 별도 작업이다.
 | happy-dom 20.14.5                                                                                                                   | packages/design/component-tests.ts, apps/shell/renderer/build_test.ts | 공통 컴포넌트·SDK 옆 `*_test.tsx`와 실제 공개 예제 bundle을 DOM·event·keyboard·computed style로 `deno test` 안에서 돌린다                                                                                                                                                                                                              |
 | esbuild 0.28.2, @luca/esbuild-deno-loader 0.11.1                                                                                    | packages/design/component-tests.ts, apps/shell/renderer               | Deno가 CSS Modules를 읽지 못해 공통 UI·SDK 테스트를 renderer와 같은 `local-css` loader로 한 bundle에 묶어 happy-dom에서 돌린다. 공개 token CSS·로컬 woff2와 string·subpath package exports도 함께 resolve한다                                                                                                                          |
 | node-pty 1.1.0                                                                                                                      | apps/shell/terminal-host                                              | 사람 shell의 POSIX PTY와 Windows ConPTY. 1.1.0 prebuild는 darwin·win32뿐이고 linux와 Electron 44(Node 24.21, modules 149)용은 없다. install이 현재 Node용으로 node-gyp하고 `npm run rebuild`(`@electron/rebuild` 4.2.0)가 Electron 헤더로 다시 만든다. renderer는 이 모듈을 부르지 않는다                                              |
+| @xterm/xterm 6.0.0, @xterm/addon-fit 0.11.0 | apps/shell/renderer/terminal | 터미널 탭 표시와 칸 크기 맞춤. 링크·clipboard addon은 쓰지 않고 OSC 8·52는 parser에서 먹는다. xterm.css는 desktop entry가 묶고 license 주석은 bundle 옆 `.LEGAL.txt`로 간다. shell CSP가 inline style을 막아 xterm이 넣는 `<style>`은 constructable stylesheet로 옮긴다 |
 | @electron/rebuild 4.2.0                                                                                                             | apps/shell/main                                                       | node-pty native module을 Electron 44.5.1 ABI로 다시 빌드한다. 그 판의 prebuild가 없기 때문이다                                                                                                                                                                                                                                         |
 | js-tiktoken 1.0.21                                                                                                                  | packages/coding-agent/mcp-server                                      | discovery schema의 token 수를 cl100k_base로 재측정한다(coding-agent/mcp-server#R4). Sentry MCP가 같은 encoding을 쓴다. 순수 JS라 npm 반입이 가볍다                                                                                                                                                                                     |
 
@@ -118,6 +119,14 @@ harness 자체의 통계·목표 판정 논리는 빠른 단위 테스트
 (`packages/platform/responsiveness/measure_test.ts`)가 맡아
 `deno task check`에서 매번 돈다.
 
+부하 측정(`packages/platform/responsiveness/measure-load_test.ts`)은 100,000파일
+root scan·hash와 512MiB 묶음 준비, 10개 동시 승인 접수, 정체 대리를 각각·함께 걸고
+같은 자료의 무부하 측정과 비교하므로 같은 `LOPHN_MEASURE=1` opt-in이다.
+`LOPHN_MEASURE=1 deno test --allow-all
+packages/platform/responsiveness/measure-load_test.ts`로 따로 돌린다.
+앱 command가 core·invocation 기록을 기다리지 않는다는 R2 확인은 빠른 정적 테스트
+(`tools/invocation-wait_test.ts`)가 맡아 `deno task check`에서 매번 돈다.
+
 ## 개발 환경
 
 - `deno task dev`: core, agent runtime, app supervisor, shell을 개발 데이터
@@ -130,4 +139,19 @@ harness 자체의 통계·목표 판정 논리는 빠른 단위 테스트
 - `fixtures/apps/`: 예시 앱. 할 일 앱, 캘린더 앱(command를 다른 앱과 agent가
   씀), rate limit 대시보드 앱(패널·카드), 일부러 깨지는 앱(문제 보고와 수리).
 - 실제 provider로 확인할 때만 `LOPHN_LIVE_PROVIDER=1`과 사람의 계정을 쓴다.
+- shell을 화면에 띄우지 않고 확인할 때는 `LOPHN_SHELL_HEADLESS=1`을 준다. main이
+  만드는 창, 앱·overlay WebContentsView, confirmation window가 모두
+  `show: false`와 `offscreen: true`로 만들어지고 show·focus와 tray는 건너뛴다.
+  `LOPHN_SHELL_SHOT_DIR`도 주면 창마다 첫 paint(`window-<n>-first.png`)와
+  paint가 1.5초 멈춘 뒤 그림(`window-<n>-settled.png`)을 그 폴더에 쓴다.
+  offscreen에서는 `capturePage()`가 실패하고 `--ozone-platform=headless`는
+  Electron 44에서 segfault하므로 둘 다 쓰지 않는다. 변수는 main만 읽고 renderer에는
+  넘기지 않는다. 데이터 root는 core 권한 검사를 지나도록 `mktemp -d`(0700)로 만든다.
+
+  ```sh
+  npm --prefix apps/shell/main run build && (cd apps/shell/renderer && deno task build)
+  home=$(mktemp -d) shots=$(mktemp -d)
+  LOPHN_HOME=$home LOPHN_SHELL_HEADLESS=1 LOPHN_SHELL_SHOT_DIR=$shots \
+    apps/shell/main/node_modules/.bin/electron apps/shell/main/dist/main.cjs
+  ```
   key를 저장소나 fixture에 넣지 않는다.

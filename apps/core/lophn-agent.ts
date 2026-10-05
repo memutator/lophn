@@ -30,6 +30,11 @@ import {
   ROLE_CAPS,
 } from "../../packages/lophn-agent/presets/mod.ts";
 import {
+  assignmentSchemaSteps,
+  createAssignmentCommands,
+  createAssignmentReads,
+} from "../../packages/lophn-agent/assignments/mod.ts";
+import {
   createToolCommands,
   createToolReads,
   toolCallBodyFields,
@@ -174,6 +179,8 @@ function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
 
 const presetCommands = createPresetCommands((tx) => presetValidateDeps(tx.sql));
 const presetReads = createPresetReads();
+const assignmentCommands = createAssignmentCommands();
+const assignmentReads = createAssignmentReads();
 
 // tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
 // 원문은 blob 참조만 남긴다.
@@ -186,6 +193,7 @@ export const lophnAgentDefinitions = {
     ...modelSchemaSteps,
     ...usageSchemaSteps,
     ...presetSchemaSteps,
+    ...assignmentSchemaSteps,
     ...toolsSchemaSteps,
   ],
   commands: [
@@ -203,6 +211,13 @@ export const lophnAgentDefinitions = {
     presetCommands.registerDefault,
     presetCommands.create,
     presetCommands.revise,
+    assignmentCommands.createBuiltin,
+    assignmentCommands.createAppEngineer,
+    assignmentCommands.applyOperator,
+    assignmentCommands.changePreset,
+    assignmentCommands.pause,
+    assignmentCommands.resume,
+    assignmentCommands.withdraw,
     toolCommands.request,
     toolCommands.decide,
     toolCommands.start,
@@ -222,6 +237,9 @@ export const lophnAgentDefinitions = {
     presetReads.read,
     presetReads.list,
     presetReads.instructionAttachments,
+    assignmentReads.read,
+    assignmentReads.list,
+    assignmentReads.outputs,
     toolReads.read,
     toolReads.list,
   ],
@@ -246,6 +264,9 @@ export function createReaderRegistration(): ReaderRegistration {
       presetReads.read,
       presetReads.list,
       presetReads.instructionAttachments,
+      assignmentReads.read,
+      assignmentReads.list,
+      assignmentReads.outputs,
       toolReads.read,
       toolReads.list,
     ],

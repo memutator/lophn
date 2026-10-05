@@ -6,6 +6,8 @@ import type { ZodType } from "zod";
 import {
   type TerminalClose,
   terminalCloseSchema,
+  type TerminalFocus,
+  terminalFocusSchema,
   type TerminalInput,
   terminalInputSchema,
   type TerminalOpen,
@@ -15,6 +17,9 @@ import {
   terminalResizeSchema,
   terminalRestartSchema,
   type TerminalRuntime,
+  type TerminalSnapshot,
+  type TerminalSnapshotReply,
+  terminalSnapshotSchema,
 } from "../../ipc/terminal.ts";
 import {
   checkCaller,
@@ -25,7 +30,13 @@ import {
 } from "../desktop/ipc-guard.ts";
 
 export type FocusTable = {
-  focused(contentsId: number, terminalRef: string): boolean;
+  focused(
+    contentsId: number,
+    terminalRef: string,
+    generation?: number,
+  ): boolean;
+  focus(contentsId: number, terminalRef: string, generation?: number): void;
+  blur(contentsId: number, terminalRef: string): void;
 };
 
 export type FolderSource = {
@@ -40,6 +51,12 @@ export type TerminalIpc = {
   resize(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
   close(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
   restart(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
+  snapshot(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<IpcResult<TerminalReply | TerminalSnapshotReply>>;
+  /** 사람이 고른 탭이 바뀌었다. 표에 적을 뿐 host에는 보내지 않는다. */
+  focus(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
 };
 
 const runningStub = (ref: string, generation: number): TerminalRuntime => ({
@@ -84,7 +101,7 @@ export function createTerminalIpc(deps: {
     open: (event, input) =>
       guarded<TerminalOpen>(event, terminalOpenSchema, input, async (value) => {
         const folders = await deps.folders.folders(value.project);
-        return await deps.host.request({
+        const reply = await deps.host.request({
           type: "open",
           project: value.project,
           folder_ref: value.folder_ref,
@@ -92,6 +109,17 @@ export function createTerminalIpc(deps: {
           columns: 80,
           rows: 24,
         });
+        // 여러 등록 폴더면 시작하지 않고 고를 목록을 돌려준다(shell/terminal#R1).
+        if (!reply.ok && reply.reason === "choose_folder") {
+          return {
+            ...reply,
+            folders: folders.map((folder) => ({
+              folder_ref: folder.folder_ref,
+              path: folder.path,
+            })),
+          };
+        }
+        return reply;
       }),
     input: (event, input) =>
       guarded<TerminalInput>(
@@ -99,7 +127,13 @@ export function createTerminalIpc(deps: {
         terminalInputSchema,
         input,
         async (value) => {
-          if (!deps.focus.focused(event.sender.id, value.terminal_ref)) {
+          if (
+            !deps.focus.focused(
+              event.sender.id,
+              value.terminal_ref,
+              value.generation,
+            )
+          ) {
             return {
               ok: false,
               reason: "host_lost",
@@ -157,5 +191,30 @@ export function createTerminalIpc(deps: {
         }
         return await deps.host.request({ type: "restart", ...value });
       }),
+    snapshot: (event, input) =>
+      guarded<TerminalSnapshot>(
+        event,
+        terminalSnapshotSchema,
+        input,
+        async (value) =>
+          await deps.host.request({
+            type: "snapshot",
+            terminal_ref: value.terminal_ref,
+            after_seq: value.after_seq,
+          }),
+      ),
+    focus: (event, input) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return Promise.resolve(caller);
+      const parsed = checkInput<TerminalFocus>(terminalFocusSchema, input);
+      if (!parsed.ok) return Promise.resolve(parsed);
+      const value = parsed.value;
+      if (value.focused) {
+        deps.focus.focus(event.sender.id, value.terminal_ref, value.generation);
+      } else {
+        deps.focus.blur(event.sender.id, value.terminal_ref);
+      }
+      return Promise.resolve({ ok: true, value: null });
+    },
   };
 }

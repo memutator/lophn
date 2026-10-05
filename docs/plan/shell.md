@@ -348,6 +348,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: shell#T16, documents#T12, documents#T8
+- shell#T55에서 넘어온 것: 저장 중 변경 수를 끄기 확인(`apps/shell/main/desktop/quit.ts`의 `QuitWork.pendingSaves`, 지금 main은 0)에 잇는다(tray Quit 확인과 터미널 수는 #233)
 - 완료: 아래 확인이 통과한다
   - 저장 버튼 없이 고침을 main의 파일 adapter로 보낸다(target, base_hash, request_key, 바이트). main이 파일 통로를 부르고 renderer는 경로·port를 모른다.
   - 탭 닫기·파일 전환·읽기 전환·창 닫기·CommandOrControl+S는 마지막 변경을 flush하고 documents의 편집 종료에 잇는다. 유휴 종료는 documents 결과만 반영하고 shell에 timer를 두지 않는다.
@@ -466,7 +467,7 @@ concerns: [shell]
 
 ### T24 터미널 host와 PTY
 
-- 상태: 진행 (#160)
+- 상태: 완료 (#160, #232) — 이어보냄: Windows Job Object 종료 확인 → shell#T57
 - 등급: 기본
 - concern: shell/terminal
 - 요구: shell/terminal#R1, R2, R3, R4(일반 shell), R5(일반 shell 비주입), R7, R8, R9, R10, R11
@@ -488,6 +489,7 @@ concerns: [shell]
 
 ### T25 터미널 탭 화면
 
+- 상태: 완료 (#235). E2E가 찾은 T24 결함 둘(묶인 host의 node-pty 불러오기, 닫기 종료 확인 대기)을 함께 고쳤다. 제품 경로의 등록 폴더 read와 host 재기동은 Q12.
 - 등급: frontend
 - concern: shell/terminal, shell/workspace
 - 요구: shell/terminal#R1(폴더 선택), R6, R7(다시 보이기), R9(종료 표시와 다시 시작), R10(닫기 확인), R11(xterm handler), shell/workspace#R1(터미널 탭), R7(종료 자리표시)
@@ -1020,6 +1022,7 @@ concerns: [shell]
 
 ### T55 tray, 로그인 자동 시작, 종료
 
+- 상태: 완료 (#233)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R11(tray·자동 시작), R21
@@ -1060,6 +1063,8 @@ concerns: [shell]
 - 내놓는 contract: shell build 산출물(platform#T48·T49가 묶는다)
 - slice: operations
 - 선행: shell#T3, shell#T24, shell#T47
+- shell#T24에서 넘어온 것: Windows terminal child의 Job Object 종료 확인(POSIX group 종료와 fail-closed unknown은 #232)
+- shell#T55에서 넘어온 것: tray 아이콘 `apps/shell/main/desktop/icon.png`를 packaged resources의 `icon.png`로 넣기, packaged Linux XDG autostart 실제 등록과 macOS·Windows login item(macOS `wasOpenedAtLogin` tray mode 포함)·tray의 실제 OS 확인(주입 adapter 단위 테스트와 개발 실행 Linux `--tray`·`--quit` smoke는 #233)
 - 완료: 아래 확인이 통과한다
   - electron-builder로 Linux .deb(먼저), macOS·Windows 설정. shell build, preload, renderer, 로컬 글꼴, 고정 의존성, bundle된 Deno, node-pty native 모듈을 staging에 넣는다. sandbox를 끄지 않는다(Ubuntu AppArmor userns는 chrome-sandbox 권한으로 맞추고 `--no-sandbox` 우회 없음).
   - packaged main은 bundle된 Deno로 core를 띄운다. 시작 실패·sandbox 실패·schema 비호환은 런처의 실패 갈래로 정상처럼 보이지 않게 안내하고 다음 행동 하나를 준다.
@@ -1136,3 +1141,4 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
 - **Q9 project-workspace flow의 앱 패널 단계(정함).** apps slice E2E에서 돈다. lead가 plan README의 갈래 목록에 넣었다.
 - **Q10 confirmation window의 slice(정함).** platform이 handle 발급·검증·소비를 documents slice의 platform#T56으로 떼었다. shell#T22는 platform#T56에, approval 종류(shell#T29)는 platform#T22에 기댄다.
 - **Q11 chip의 polite 전달(정함).** 접근성을 범위 밖에 둔 D22와 맞지 않아 shell/design-system#R35에서 "polite로 전달"을 뺐다. T11은 live region·announcer를 만들지 않고 키보드·Escape·focus 복귀만 둔다.
+- **Q12 터미널 열기의 제품 경로(lead 확인 필요).** T25 E2E는 개발 시드 작업대에 `LOPHN_DEV_SEED_FOLDERS`로 준 등록 폴더로 돈다. 제품 core의 reader 등록(apps/core/documents.ts `createReaderRegistration`)에 project read가 없어 main의 `read projects list`가 `not_found`이고, 사람 user token scope에 `project.create`가 없어 실제 창의 터미널 열기는 지금 `no_folder` 거절로 끝난다. documents·platform이 이 read와 scope를 열면 시드를 뺀다. 또 terminal host가 죽으면 supervisor가 다시 띄우지 않아, 결과 불명 뒤 사람이 누른 [Start again]도 "Terminals aren't available right now."로 남는다(자동 재시작 금지는 지킨다). 사람 시작에 새 host를 띄울지 정해야 한다.

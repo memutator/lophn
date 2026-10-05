@@ -1,6 +1,8 @@
 // node-pty adapter. renderer는 이 모듈을 import하지 않는다.
 // POSIX는 PTY, Windows는 ConPTY. 제어 pipe fd는 child에 상속하지 않는다.
 
+import { createRequire } from "node:module";
+
 import { posixGroup, type ProcessGroup } from "./child-group.ts";
 
 export type PtyExit = { exitCode: number; signal?: number };
@@ -69,8 +71,12 @@ function defaultLoad(): NodePty {
 }
 
 function requireNodePty(): NodePty {
-  // deno-lint-ignore no-explicit-any
-  const req = (0, eval)("require") as (id: string) => any;
+  // 묶인 host는 CJS라 module의 require가 있다. 전역 eval("require")는 CJS module
+  // 안에서 보이지 않아 실제 host에서 늘 시작 실패가 됐다. 묶지 않고 돌 때는 실행한
+  // script 자리에서 찾는다.
+  const req = typeof require === "function"
+    ? require
+    : createRequire(process.argv[1] ?? `${process.cwd()}/`);
   return req("node-pty") as NodePty;
 }
 

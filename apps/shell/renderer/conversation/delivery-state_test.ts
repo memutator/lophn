@@ -4,22 +4,25 @@ import {
   afterCheck,
   afterReply,
   composerLocked,
+  contentBytes,
   deliveryAction,
+  fitsMessage,
+  MESSAGE_TEXT_MAX_BYTES,
   type Outgoing,
   resend,
   startSend,
-  textBody,
+  textContent,
 } from "./delivery-state.ts";
 import { DraftStore, EMPTY_DRAFT } from "./drafts.ts";
+import { messageContract } from "./testdata/message-contract.ts";
 
-const BODY = "a".repeat(64);
+const ID = "msg_01h455vb4pex5v6nkc6gd5fdw1";
 
 function sending(): Outgoing {
   return startSend({
-    id: "msg_01h455vb4pex5v6nkc6gd5fdw1",
-    key: "messages-receive-msg_01h455vb4pex5v6nkc6gd5fdw1",
+    id: ID,
+    key: `messages-receive-${ID}`,
     text: "Make the weekly summary shorter",
-    body: BODY,
     mode: "request",
     run: null,
   });
@@ -70,7 +73,8 @@ Deno.test("shell/desktop#R8: 결과를 모르면 다시 보내기보다 접수 �
   assertEquals(again.phase, "sending");
   assertEquals(again.id, unknown.id);
   assertEquals(again.key, unknown.key);
-  assertEquals(again.body, unknown.body);
+  assertEquals(again.text, unknown.text);
+  assertEquals(textContent(again.text), textContent(unknown.text));
 });
 
 Deno.test("shell/desktop#R8: 못 보낸 말은 입력칸에서 고쳐 보내고, 결과를 모르는 동안은 잠근다", () => {
@@ -100,28 +104,50 @@ Deno.test("shell/desktop#R8: 작성 중 말·선택 답·커서는 세션별 메
   const failed = afterReply(sending(), { ok: false, code: "unavailable" });
   drafts.save(one, { outgoing: failed });
   assertEquals(drafts.draft(one).text, "Rename the file");
-  // 접수되면 그 세션만 비우고 보낸 글은 본문 hash로 기억한다.
+  // 접수되면 그 세션만 비우고 보낸 글은 메시지 id로 기억한다.
   drafts.sent(one, afterCheck(failed, true));
   assertEquals(drafts.draft(one), { ...EMPTY_DRAFT, mode: "request" });
   assertEquals(drafts.draft(two).text, "Something else");
-  assertEquals(drafts.textOf(BODY), "Make the weekly summary shorter");
+  assertEquals(drafts.textOf(ID), "Make the weekly summary shorter");
 });
 
-Deno.test("shell/desktop#R8: 다시 보낸 말이 한 번만 접수되도록 본문 hash는 같은 글에 같고 key 순서를 고정한 MessageContent의 SHA-256이다", async () => {
-  const body = await textBody("hello");
-  assertEquals(body, await textBody("hello"));
-  assert(/^[0-9a-f]{64}$/.test(body));
-  const expected = new Uint8Array(
-    await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(
-        '{"parts":[{"kind":"text","text":"hello"}],"schema_version":1}',
-      ),
-    ),
-  );
-  assertEquals(
-    body,
-    [...expected].map((byte) => byte.toString(16).padStart(2, "0")).join(""),
-  );
-  assert(body !== await textBody("hello "));
+Deno.test("lophn-agent/conversation#R2: 보내는 본문은 글 part 하나의 MessageContent 값이고 contract schema를 통과한다", async () => {
+  const { userMessageContentInputSchema } = await messageContract();
+  const content = textContent("hello");
+  assertEquals(content, {
+    schema_version: 1,
+    parts: [{ kind: "text", text: "hello" }],
+  });
+  assert(userMessageContentInputSchema.safeParse(content).success);
+  // 같은 글은 같은 값이다. 다시 보내도 core가 같은 본문으로 본다.
+  assertEquals(textContent("hello"), content);
+});
+
+Deno.test("shell/desktop#R8: 본문 상한은 contract와 같고 정규 직렬화 바이트로 센다", async () => {
+  const {
+    MESSAGE_TEXT_CONTENT_MAX_BYTES,
+    serializeMessageContent,
+    userMessageContentInputSchema,
+  } = await messageContract();
+  assertEquals(MESSAGE_TEXT_MAX_BYTES, MESSAGE_TEXT_CONTENT_MAX_BYTES);
+  for (
+    const text of ["hello", 'quote " and \\ back', "줄\n바꿈 😀", "\u0001 "]
+  ) {
+    assertEquals(
+      contentBytes(text),
+      serializeMessageContent(textContent(text)).length,
+      text,
+    );
+  }
+  const overhead = contentBytes("");
+  const largest = "a".repeat(MESSAGE_TEXT_MAX_BYTES - overhead);
+  assert(fitsMessage(largest));
+  assert(userMessageContentInputSchema.safeParse(textContent(largest)).success);
+  const over = `${largest}a`;
+  assert(!fitsMessage(over));
+  assert(!userMessageContentInputSchema.safeParse(textContent(over)).success);
+  // 여러 바이트 글자도 글자 수가 아니라 바이트로 센다.
+  assert(!fitsMessage("가".repeat(Math.ceil(MESSAGE_TEXT_MAX_BYTES / 3))));
+  // 짝 없는 surrogate는 정규화할 수 없어 보내지 않는다.
+  assert(!fitsMessage("broken \uD800 text"));
 });

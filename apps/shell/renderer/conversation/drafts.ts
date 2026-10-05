@@ -1,7 +1,10 @@
 // 창마다 하나인 대화 메모리. 세션마다 작성 중 말·선택 답·커서·보낸 말의 전달 상태·읽던
 // 위치를 둔다. 도크를 닫거나 세션을 바꾸거나 confirmation window가 떠도 이 값은 그대로라
-// 다시 열면 같은 자리에서 이어 쓴다(shell/desktop#R8). 디스크에는 쓰지 않는다.
+// 다시 열면 같은 자리에서 이어 쓴다(shell/desktop#R8). 읽은 메시지 본문도 창 메모리에
+// 둔다. 확정 메시지의 본문은 바뀌지 않아 한 번 읽으면 다시 읽지 않는다. 디스크에는 쓰지
+// 않는다.
 import type { Outgoing, SendMode } from "./delivery-state.ts";
+import type { BodyPart } from "./source.ts";
 
 export interface Draft {
   readonly text: string;
@@ -25,10 +28,17 @@ export const EMPTY_DRAFT: Draft = {
   scroll: null,
 };
 
+/** 확정 메시지 본문을 읽은 결과. failed의 code는 core가 답한 오류다. */
+export type BodyState =
+  | { readonly state: "loading" }
+  | { readonly state: "ready"; readonly parts: readonly BodyPart[] }
+  | { readonly state: "failed"; readonly code: string };
+
 export class DraftStore {
   #drafts = new Map<string, Draft>();
-  // 이 창이 보낸 말의 글. 본문은 hash로만 접수되므로 글은 보낸 창만 안다.
+  // 이 창이 보낸 말의 글(메시지 id별). 본문을 읽기 전에 그 자리를 채운다.
   #texts = new Map<string, string>();
+  #bodies = new Map<string, BodyState>();
   #listeners = new Set<() => void>();
   #version = 0;
   #selected: string | null = null;
@@ -54,7 +64,7 @@ export class DraftStore {
 
   /** 접수된 말을 입력칸에서 비운다. 그 사이 다시 쓴 글은 없다(보내는 동안 잠긴다). */
   sent(session: string, outgoing: Outgoing): void {
-    this.#texts.set(outgoing.body, outgoing.text);
+    this.#texts.set(outgoing.id, outgoing.text);
     this.save(session, {
       text: "",
       selection: [0, 0],
@@ -63,13 +73,25 @@ export class DraftStore {
     });
   }
 
-  /** 접수 전에도 글을 기억한다. 보낸 말이 확정 메시지로 바뀌어도 같은 글을 보인다. */
-  remember(body: string, text: string): void {
-    this.#texts.set(body, text);
+  /**
+   * 접수 전에도 글을 기억한다. 보낸 말이 확정 메시지로 바뀌어 본문을 읽기 전까지 같은
+   * 글을 보인다. 읽은 본문이 오면 그것이 우선이다(core가 redaction을 거친 값).
+   */
+  remember(message: string, text: string): void {
+    this.#texts.set(message, text);
   }
 
-  textOf(body: string): string | undefined {
-    return this.#texts.get(body);
+  textOf(message: string): string | undefined {
+    return this.#texts.get(message);
+  }
+
+  body(message: string): BodyState | undefined {
+    return this.#bodies.get(message);
+  }
+
+  setBody(message: string, state: BodyState): void {
+    this.#bodies.set(message, state);
+    this.#notify();
   }
 
   subscribe = (listener: () => void): () => void => {

@@ -4,6 +4,7 @@ import type { RunRecord } from "../../../contracts/lophn-agent/mod.ts";
 import type { EffectiveSetting } from "../../../contracts/platform/mod.ts";
 import {
   callWithinLimits,
+  effectiveRunLimits,
   type LimitReason,
   limitResult,
   type ModelPurpose,
@@ -23,6 +24,7 @@ import {
   RUN_NOW,
   runId,
   seedAssignments,
+  seedRunLimits,
   startRunFixture,
 } from "./testing/runs.ts";
 import { openRunLedger } from "./testing/open_test.ts";
@@ -236,13 +238,17 @@ Deno.test("lophn-agent/harness/run-loop#R20: 한도는 시작할 때 run에 고�
         reason: "answer_completed",
       }),
     );
-    // 다음 run은 새 값으로 시작한다.
+    // 다음 run은 새 값으로 시작한다. 설정이 바뀌기 전의 값으로는 시작하지 못한다.
+    await seedRunLimits(h, next.value);
     must(
       await acceptRun(h, {
         run: runId("run", 2),
         source: { kind: "message", message: runId("msg", 2) },
       }),
     );
+    const stale = await startRunFixture(h, runId("run", 2), ASG_LOPHN, older);
+    assert(!stale.ok);
+    assertEquals(stale.error.code, "invalid_input");
     must(await startRunFixture(h, runId("run", 2), ASG_LOPHN, next.value));
     assertEquals(
       (await readRunRecord(h, runId("run", 2)))["limits"],
@@ -337,6 +343,7 @@ Deno.test("lophn-agent/harness/run-loop#R22: 세 한도 각각에서 judgment·o
   const h = await openRunLedger();
   try {
     await seedAssignments(h);
+    await seedRunLimits(h, LIMITS);
     let n = 0;
     for (const trip of TRIPS) {
       n++;
@@ -561,5 +568,91 @@ Deno.test("lophn-agent/harness/run-loop#R19: 접수됨·진행 중·내 답 기�
     assertEquals(view.elapsed_ms, 0);
   } finally {
     await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/run-loop#R20: machine이 보낸 부풀린 한도는 StartRun이 받지 않고 현재 설정의 한도만 고정된다", async () => {
+  const h = await openRunLedger();
+  try {
+    await seedAssignments(h);
+    must(
+      await acceptRun(h, {
+        run: runId("run", 1),
+        source: { kind: "message", message: runId("msg", 1) },
+      }),
+    );
+    const before = await readRunRecord(h, runId("run", 1));
+    // 설정에 없는 큰 값·무제한처럼 큰 값·0·더 작은 값 모두 현재 설정과 다르면 거절이다.
+    for (
+      const sent of [
+        { model_attempts: 1000, stall_ms: 300_000, active_ms: 1_800_000 },
+        { model_attempts: 30, stall_ms: 300_000, active_ms: 86_400_000 },
+        { model_attempts: 30, stall_ms: Number.MAX_SAFE_INTEGER, active_ms: 1 },
+        { model_attempts: 0, stall_ms: 300_000, active_ms: 1_800_000 },
+        { model_attempts: 29, stall_ms: 300_000, active_ms: 1_800_000 },
+      ]
+    ) {
+      const refused = await startRunFixture(
+        h,
+        runId("run", 1),
+        ASG_LOPHN,
+        sent,
+      );
+      assert(!refused.ok, JSON.stringify(sent));
+      assert(
+        refused.error.code === "invalid_input",
+        `${JSON.stringify(sent)} ${refused.error.code}`,
+      );
+    }
+    // 거절은 run을 바꾸지 않는다. 한도가 박힌 적도 없다.
+    const after = await readRunRecord(h, runId("run", 1));
+    assertEquals(after["state"], "accepted");
+    assertEquals(after["state_seq"], before["state_seq"]);
+    assertEquals(after["basis"], null);
+    // 현재 설정과 같은 값만 시작한다. 사람이 설정을 바꾸면 그 값이 기준이다.
+    await seedRunLimits(h, {
+      model_attempts: 7,
+      stall_ms: 9_000,
+      active_ms: 90_000,
+    });
+    const old = await startRunFixture(h, runId("run", 1), ASG_LOPHN);
+    assert(!old.ok);
+    must(
+      await startRunFixture(h, runId("run", 1), ASG_LOPHN, {
+        model_attempts: 7,
+        stall_ms: 9_000,
+        active_ms: 90_000,
+      }),
+    );
+    assertEquals((await readRunRecord(h, runId("run", 1)))["limits"], {
+      model_attempts: 7,
+      stall_ms: 9_000,
+      active_ms: 90_000,
+    });
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/run-loop#R20: 저장 선택이 없으면 내장 기본값이고 저장값이 양의 정수가 아니면 기본값으로 대신하지 않는다", () => {
+  const defaults = effectiveRunLimits([]);
+  assert(defaults.ok);
+  assertEquals(defaults.value, {
+    model_attempts: 30,
+    stall_ms: 300_000,
+    active_ms: 1_800_000,
+  });
+  const partial = effectiveRunLimits([
+    { key: RUN_LIMIT_SETTING_KEYS.stall_ms, value: 60_000 },
+    { key: "other.key", value: 1 },
+  ]);
+  assert(partial.ok);
+  assertEquals(partial.value.stall_ms, 60_000);
+  assertEquals(partial.value.model_attempts, 30);
+  for (const bad of [0, -5, 2.5, "9", null]) {
+    const refused = effectiveRunLimits([
+      { key: RUN_LIMIT_SETTING_KEYS.model_attempts, value: bad },
+    ]);
+    assert(!refused.ok, String(bad));
   }
 });

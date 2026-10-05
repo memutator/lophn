@@ -53,6 +53,7 @@ export const RUN_OPERATIONS = [
   "ListAssignments",
   "ReadRunResult",
   "SeedSteeringFixture",
+  "SeedSettingChoice",
   "CommandResult",
 ];
 
@@ -154,6 +155,27 @@ export function acceptRun(h: LedgerHarness, input: AcceptInput) {
       start_after: input.start_after ?? null,
     }, { assignment_revision: 1 }),
   );
+}
+
+// 사람이 설정을 apply한 것처럼 공통 선택을 저장한다(다음 run의 한도가 된다).
+export async function seedRunLimits(
+  h: LedgerHarness,
+  limits: typeof RUN_LIMITS,
+): Promise<void> {
+  for (
+    const [key, value] of [
+      ["lophn-agent.run.model_attempts", limits.model_attempts],
+      ["lophn-agent.run.stall_ms", limits.stall_ms],
+      ["lophn-agent.run.active_ms", limits.active_ms],
+    ] as const
+  ) {
+    must(
+      await h.command(
+        machineCredential,
+        envelope("SeedSettingChoice", { key, value }),
+      ),
+    );
+  }
 }
 
 export async function readRunRecord(h: LedgerHarness, run: string) {

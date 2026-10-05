@@ -7,13 +7,14 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import {
+  DEFAULT_RUN_LIMITS,
   type RunElapsed,
   runLimitsSchema,
 } from "../../../contracts/lophn-agent/mod.ts";
 import type { EffectiveSetting } from "../../../contracts/platform/mod.ts";
 import type { z } from "zod";
 
-type RunLimits = z.infer<typeof runLimitsSchema>;
+export type RunLimits = z.infer<typeof runLimitsSchema>;
 
 // run 한도(requirements lophn-agent/harness/run-loop R20–R22). 한도 값은 공통
 // 설정이고 시작 때 run에 고정된다(runs_started_immutable). 이 파일은 시간·횟수를
@@ -45,6 +46,31 @@ export function resolveRunLimits(
       });
     }
     picked[key] = setting.value;
+  }
+  const parsed = runLimitsSchema.safeParse(picked);
+  if (!parsed.success) {
+    return err({
+      code: "invalid_input",
+      message: "run limits are positive integers only",
+    });
+  }
+  return ok(parsed.data);
+}
+
+// 저장된 공통 선택(setting_choices)에서 다음 run의 한도를 계산한다. 선택이 없는 항목은
+// 내장 기본값이다(정의의 기본값과 같은 DEFAULT_RUN_LIMITS). 저장값이 양의 정수가
+// 아니면 기본값으로 대신하지 않고 거절한다(R20).
+export function effectiveRunLimits(
+  choices: readonly { key: string; value: unknown }[],
+): Result<RunLimits> {
+  const picked: Record<string, unknown> = {};
+  for (const name of Object.keys(RUN_LIMIT_SETTING_KEYS) as RunLimitKey[]) {
+    const choice = choices.find((item) =>
+      item.key === RUN_LIMIT_SETTING_KEYS[name]
+    );
+    picked[name] = choice === undefined
+      ? DEFAULT_RUN_LIMITS[name]
+      : choice.value;
   }
   const parsed = runLimitsSchema.safeParse(picked);
   if (!parsed.success) {

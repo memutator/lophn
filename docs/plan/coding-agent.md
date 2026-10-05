@@ -914,6 +914,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T30 adapter: Claude Code·Codex·OpenCode·Gemini CLI
 
+- 상태: 진행 (#PR) — 이어보냄: CLI harness plan·install·update·remove 실행 dispatch가 builder·engine을 부르는 연결 → T36(선택 target 설치 흐름), doctor의 loading 관측 → T32
 - 등급: 기본
 - concern: coding-agent/harnesses, coding-agent/guides, coding-agent/cli,
   coding-agent/connection

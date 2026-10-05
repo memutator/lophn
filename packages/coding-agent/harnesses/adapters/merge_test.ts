@@ -255,3 +255,52 @@ Deno.test("coding-agent/harnesses#R7: 소유 조각 digest는 lophn key만 본�
   if (!missing.ok) return;
   assertEquals(missing.value, null);
 });
+
+Deno.test("coding-agent/guides#R15: 관리 구간은 안쪽만 바꾸고 marker 없음·중복은 무변경이다", async () => {
+  const { setRegion, removeRegion } = await import("./region.ts");
+  const text =
+    "앞\n<!-- begin lophn-managed -->\n옛\n<!-- end lophn-managed -->\n뒤\n";
+  const set = setRegion(text, "@AGENTS.md");
+  assertEquals(
+    set.kind === "changed" && set.text,
+    "앞\n<!-- begin lophn-managed -->\n@AGENTS.md\n<!-- end lophn-managed -->\n뒤\n",
+  );
+  assertEquals(
+    setRegion(set.kind === "changed" ? set.text : "", "@AGENTS.md"),
+    {
+      kind: "unchanged",
+    },
+  );
+  assertEquals(setRegion("없음\n", "x"), { kind: "broken" });
+  assertEquals(setRegion(text + text, "x"), { kind: "broken" });
+  const gone = removeRegion(set.kind === "changed" ? set.text : "");
+  assertEquals(
+    gone.kind === "changed" && gone.text,
+    "앞\n<!-- begin lophn-managed -->\n<!-- end lophn-managed -->\n뒤\n",
+  );
+});
+
+Deno.test("coding-agent/harnesses#R8: JSON 배열 원소 소유는 다른 원소를 보존하고 그 원소만 지운다", () => {
+  const text = '{"context":{"fileName":["A.md","B.md"]}}\n';
+  const set = setOwned(text, "context.fileName#AGENTS.md", "AGENTS.md");
+  assert(set.kind === "changed");
+  if (set.kind !== "changed") return;
+  assertEquals(JSON.parse(set.text).context.fileName, [
+    "A.md",
+    "B.md",
+    "AGENTS.md",
+  ]);
+  assertEquals(
+    setOwned(set.text, "context.fileName#AGENTS.md", "AGENTS.md").kind,
+    "unchanged",
+  );
+  const removed = removeOwned(set.text, "context.fileName#AGENTS.md");
+  assert(removed.kind === "changed");
+  if (removed.kind !== "changed") return;
+  assertEquals(JSON.parse(removed.text).context.fileName, ["A.md", "B.md"]);
+});
+
+Deno.test("coding-agent/harnesses#R8: 없는 config.toml은 빈 표로 시작해 처음 설치한다", () => {
+  const set = setToml("", "mcp_servers.lophn", { command: "x" });
+  assert(set.kind === "changed");
+});

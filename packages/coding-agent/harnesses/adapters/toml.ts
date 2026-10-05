@@ -21,6 +21,8 @@ function segmentsOf(key: string): string[] | null {
 }
 
 export function parseToml(text: string): Result<Table, ParseFailure> {
+  // 없거나 빈 config.toml은 빈 표다. 처음 설치가 이 base에서 시작한다.
+  if (text.trim() === "") return ok({});
   try {
     const value = parse(text);
     if (value === null || typeof value !== "object" || Array.isArray(value)) {

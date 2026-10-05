@@ -8,6 +8,7 @@ import {
   QUESTION_COMMANDS,
 } from "./commands/decisions.ts";
 import { DAEMON_COMMANDS } from "./commands/daemon.ts";
+import { DOCTOR_COMMANDS } from "./commands/doctor.ts";
 import { DOCUMENT_COMMANDS, READ_COMMANDS } from "./commands/document.ts";
 import { HARNESS_COMMANDS } from "./commands/harness.ts";
 import type { CommandEntry } from "./commands/types.ts";
@@ -33,6 +34,7 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...APPROVAL_COMMANDS,
   ...TICKET_COMMANDS,
   ...DAEMON_COMMANDS,
+  ...DOCTOR_COMMANDS,
   ...HARNESS_COMMANDS,
   ...MCP_COMMANDS,
 ];

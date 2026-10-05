@@ -147,6 +147,30 @@ export type SkillDiscoverySpec = {
 // MCP 항목 모양이다. 제품마다 command·args·env 표기가 다르다(domain-model 표).
 export type McpShape = "command_args_env" | "opencode_local";
 
+// 네 loading 관측의 제품별 근거다(harnesses#R10, T32). 조사 문서가 확인한
+// 사실만 두고 확인하지 못한 제품은 gate를 두지 않아 성공도 부재도 단정하지
+// 않는다. 설정·workspace를 읽는 규칙이 아니라 읽기 결과 해석의 근거다.
+export type LoadingSpec = {
+  // 앱 폴더를 신뢰하지 않으면 제품이 읽지 않는 것이다. 신뢰 상태를 읽지
+  // 못하면 그 단계는 성공이 아니라 unknown이다.
+  trust_gates: { mcp: boolean; skills: boolean; guide: boolean };
+  // 앱 root에 있으면 AGENTS.md를 가리거나 건너뛰게 하는 파일이다.
+  guide_hiders: readonly string[];
+  // 앱 안내를 읽는 위치다. agent_workspace는 앱 root와 다른 workspace를 쓸
+  // 수 있어 그 위치를 모르면 안내 loading은 unknown이다.
+  guide_workspace: "app_root" | "agent_workspace";
+  // 깨진 설정이 제품에서 일으키는 일이다. 모르면 null이다.
+  broken_config_effect: string | null;
+  // 제품이 사람 설정 안에서 읽는 신뢰 목록이다. 읽을 수 있으면 사람이 알려 준
+  // 신뢰 값보다 우선한다. 목록이 없으면 null이다.
+  trust_source: {
+    root_resolver: string;
+    path: string;
+    format: "yaml";
+    list_key: string;
+  } | null;
+};
+
 export type HarnessDefinition = {
   harness_id: HarnessId;
   label: string;
@@ -176,6 +200,8 @@ export type HarnessDefinition = {
   instructions: readonly InstructionSpec[];
   hooks: readonly HookSpec[];
   execution: ExecutionSpec;
+  // loading 관측의 근거다. 없으면 gate·hider 없는 제품이다(T32).
+  loading?: LoadingSpec;
 };
 
 // probe 결과의 판정이다(R3). timeout·실패·미지원 probe는 absent나 성공으로

@@ -31,6 +31,7 @@ export {
   type ProbeRun,
   runProbe,
 } from "./detection.ts";
+export { environmentSupported } from "./detection.ts";
 export { catalogOf, HARNESS_CATALOG } from "./catalog/definitions.ts";
 export {
   type ApplyResult,
@@ -78,3 +79,26 @@ export {
 } from "./skills.ts";
 export { type RootInputs, rootOf, versionAtLeast } from "./resolvers.ts";
 export { setOwned as setTomlOwned } from "./adapters/toml.ts";
+export {
+  type LoadingConnection,
+  type LoadingInput,
+  type LoadingPorts,
+  type LoadingReport,
+  type LoadingTrust,
+  LOPHN_SKILL_NAMES,
+  type McpEntry,
+  type McpProbePort,
+  type McpProbeRequest,
+  type McpProbeResult,
+  observeLoading,
+  probeRequestOf,
+  type ReadPort,
+  unobservedLoading,
+} from "./loading.ts";
+export { MCP_PROBE_TIMEOUT_MS, stdioMcpProbe } from "./mcp-probe.ts";
+export {
+  type InspectInput,
+  inspectIntegration,
+  type Inspection,
+  type InspectPorts,
+} from "./inspect.ts";

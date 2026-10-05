@@ -5,9 +5,9 @@ import { ok, type Result } from "../../base/mod.ts";
 import { z } from "zod";
 import type { SchemaStep } from "../../contracts/platform/mod.ts";
 import {
+  DERIVED_SEARCH_DB,
   type DerivedStore,
   type DerivedTx,
-  DERIVED_SEARCH_DB,
   rebuildPath,
 } from "./adapters/store.ts";
 import { estimatedTokens, lineCount, lineOffsets } from "./model.ts";

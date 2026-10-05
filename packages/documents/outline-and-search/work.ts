@@ -2,7 +2,7 @@
 // 결과·FTS 교체·cursor를 한 derived transaction에 쓴다(architecture/documents 7.4).
 // 재생성 시작은 rebuilding flag를 심는다. catch-up과 교체는 재생성 흐름 몫이다.
 // 재생성·재파생은 ledger에 아무것도 쓰지 않는다. model·agent run을 시작하지 않는다.
-import { err, ok, parseSeq, type Result } from "../../base/mod.ts";
+import { ok, parseSeq, type Result } from "../../base/mod.ts";
 import type { DerivedRead, DerivedStore } from "./adapters/store.ts";
 import { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
 
@@ -120,10 +120,18 @@ function parseEvent(event: ConsumerEvent): Result<ParsedEvent> {
   if (event.type === "DocumentRestored") {
     const payload = event.payload as { version?: unknown };
     if (typeof payload.version !== "string") return ok({ kind: "unknown" });
-    return ok({ kind: "restored" as const, document, payload: { version: payload.version } });
+    return ok({
+      kind: "restored" as const,
+      document,
+      payload: { version: payload.version },
+    });
   }
-  if (event.type === "DocumentArchived") return ok({ kind: "archive" as const, document });
-  if (event.type === "DocumentUnarchived") return ok({ kind: "unarchive" as const, document });
+  if (event.type === "DocumentArchived") {
+    return ok({ kind: "archive" as const, document });
+  }
+  if (event.type === "DocumentUnarchived") {
+    return ok({ kind: "unarchive" as const, document });
+  }
   if (event.type === "DocumentMoved") {
     const payload = event.payload as { place?: unknown; name?: unknown };
     const place = placeOf(payload.place);
@@ -142,14 +150,24 @@ function parseEvent(event: ConsumerEvent): Result<ParsedEvent> {
   if (event.type === "DocumentRenamed") {
     const payload = event.payload as { name?: unknown };
     if (typeof payload.name !== "string") return ok({ kind: "unknown" });
-    return ok({ kind: "rename" as const, document, payload: { title: payload.name } });
+    return ok({
+      kind: "rename" as const,
+      document,
+      payload: { title: payload.name },
+    });
   }
   if (event.type === "DocumentUpdated") {
     const payload = event.payload as { title?: unknown };
     if (typeof payload.title !== "string") return ok({ kind: "unknown" });
-    return ok({ kind: "rename" as const, document, payload: { title: payload.title } });
+    return ok({
+      kind: "rename" as const,
+      document,
+      payload: { title: payload.title },
+    });
   }
-  if (event.type === "DocumentSourceChanged") return ok({ kind: "unknown" as const });
+  if (event.type === "DocumentSourceChanged") {
+    return ok({ kind: "unknown" as const });
+  }
   return ok({ kind: "unknown" as const });
 }
 
@@ -165,7 +183,8 @@ function savedPayload(event: ConsumerEvent): SavedPayload | undefined {
     typeof payload.content_hash !== "string" ||
     typeof payload.format !== "object" || payload.format === null ||
     typeof (payload.format as { name?: unknown }).name !== "string" ||
-    typeof (payload.format as { module_hash?: unknown }).module_hash !== "string"
+    typeof (payload.format as { module_hash?: unknown }).module_hash !==
+      "string"
   ) {
     return undefined;
   }
@@ -180,7 +199,9 @@ function savedPayload(event: ConsumerEvent): SavedPayload | undefined {
   };
 }
 
-function placeOf(value: unknown): { kind: "project" | "app"; id: string } | null {
+function placeOf(
+  value: unknown,
+): { kind: "project" | "app"; id: string } | null {
   if (typeof value !== "object" || value === null) return null;
   const kind = (value as { kind?: unknown }).kind;
   const id = (value as { id?: unknown }).id;
@@ -286,7 +307,9 @@ export function omissionRow(
 }
 
 // 현재 scope 전체의 실패·미지원·미확인 누락. 파생 cursor가 진행해도 남는다.
-export function allOmissions(sql: DerivedRead["sql"]): SearchCoverage["omissions"] {
+export function allOmissions(
+  sql: DerivedRead["sql"],
+): SearchCoverage["omissions"] {
   const rows = sql.all(
     `SELECT document, version, extraction_status, failure_reason
      FROM derived_versions WHERE extraction_status <> 'ready' ORDER BY document, version`,

@@ -52,7 +52,10 @@ function sqlOf(db: DatabaseSync): DerivedSql {
   return {
     run(sql, params) {
       const result = db.prepare(sql).run(...params);
-      return { changes: result.changes, lastInsertRowid: result.lastInsertRowid };
+      return {
+        changes: result.changes,
+        lastInsertRowid: result.lastInsertRowid,
+      };
     },
     get(sql, params) {
       const found = db.prepare(sql).get(...params);
@@ -86,7 +89,10 @@ export function rebuildPath(root: string): string {
   return `${root}/${DERIVED_REBUILD_DB}`;
 }
 
-export function applySchema(db: DatabaseSync, steps: readonly SchemaStep[]): Result<void> {
+export function applySchema(
+  db: DatabaseSync,
+  steps: readonly SchemaStep[],
+): Result<void> {
   try {
     for (const step of steps) db.exec(step.sql);
     return ok(undefined);
@@ -128,7 +134,10 @@ export function openDerived(
       try {
         dbLive.exec("BEGIN IMMEDIATE");
       } catch {
-        return err({ code: "unavailable", message: "derived transaction을 여지 못했다" });
+        return err({
+          code: "unavailable",
+          message: "derived transaction을 여지 못했다",
+        });
       }
       try {
         const result = handle({ sql: sqlOf(dbLive) });
@@ -142,7 +151,9 @@ export function openDerived(
         }
         return err({
           code: "unavailable",
-          message: error instanceof Error ? error.message : "derived write failed",
+          message: error instanceof Error
+            ? error.message
+            : "derived write failed",
         });
       }
     },

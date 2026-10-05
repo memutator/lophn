@@ -2,7 +2,10 @@
 // ledger snapshot과 derived read의 표면만 둔다.
 
 export type SearchSnapshotSql = {
-  get(query: string, params: readonly unknown[]): Record<string, unknown> | undefined;
+  get(
+    query: string,
+    params: readonly unknown[],
+  ): Record<string, unknown> | undefined;
   all(query: string, params: readonly unknown[]): Record<string, unknown>[];
 };
 

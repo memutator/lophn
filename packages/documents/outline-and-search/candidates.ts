@@ -33,17 +33,21 @@ export function candidateDocuments(
   if (documents !== undefined) {
     for (const id of documents) scan(id);
   } else {
-    for (const row of snapshot.sql.all(
-      `SELECT id FROM documents WHERE status = 'active'`,
-      [],
-    )) {
+    for (
+      const row of snapshot.sql.all(
+        `SELECT id FROM documents WHERE status = 'active'`,
+        [],
+      )
+    ) {
       scan(String(row["id"]));
     }
   }
   return allowed;
 }
 
-function placeOf(row: Record<string, unknown>): { kind: string; id: string } | null {
+function placeOf(
+  row: Record<string, unknown>,
+): { kind: string; id: string } | null {
   const kind = row["place_kind"];
   const id = row["place_id"];
   if (typeof kind === "string" && typeof id === "string") return { kind, id };

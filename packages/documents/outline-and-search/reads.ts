@@ -18,7 +18,7 @@ import {
 import { allOmissions, type SearchCoverage } from "./work.ts";
 import type { PortLookup, SearchFilters, SearchSnapshot } from "./types.ts";
 
-export type { SearchSnapshot, SearchFilters };
+export type { SearchFilters, SearchSnapshot };
 export type { PortLookup } from "./types.ts";
 
 export type SearchQueryInput = SearchFilters & {
@@ -39,7 +39,10 @@ export type SearchHandlerDeps = {
 
 export type SearchHandlers = {
   query(ctx: RequestContext, input: SearchQueryInput): Result<SearchQueryPage>;
-  status(ctx: RequestContext, input: SearchStatusInput): Result<SearchStatusPage>;
+  status(
+    ctx: RequestContext,
+    input: SearchStatusInput,
+  ): Result<SearchStatusPage>;
 };
 
 export type SearchQueryPage = {
@@ -71,7 +74,9 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
   return {
     query(ctx, input) {
       const rest = trimmedQuery(input.query);
-      if (rest.length === 0) return err({ code: "invalid_input", message: "blank query" });
+      if (rest.length === 0) {
+        return err({ code: "invalid_input", message: "blank query" });
+      }
       const candidates = candidateDocuments(
         deps.snapshot,
         ctx,
@@ -81,11 +86,28 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
       const coverage = coverageOfLike(deps.read, deps.snapshot.as_of_seq);
       if (coverage.rebuilding || coverage.lagging) {
         // 재생성 중·뒤처짐이면 결과 없이 진실만 낸다. 빈 검색을 원본 부재로 판정하지 않는다(R14).
-        return ok({ results: [], coverage, as_of_seq: deps.snapshot.as_of_seq, next_cursor: null });
+        return ok({
+          results: [],
+          coverage,
+          as_of_seq: deps.snapshot.as_of_seq,
+          next_cursor: null,
+        });
       }
       const limit = input.limit ?? DEFAULT_LIMIT;
-      const results = matchDocuments(deps, ctx, candidates, input, coverage.ledger_basis_seq, limit);
-      return ok({ results, coverage, as_of_seq: deps.snapshot.as_of_seq, next_cursor: null });
+      const results = matchDocuments(
+        deps,
+        ctx,
+        candidates,
+        input,
+        coverage.ledger_basis_seq,
+        limit,
+      );
+      return ok({
+        results,
+        coverage,
+        as_of_seq: deps.snapshot.as_of_seq,
+        next_cursor: null,
+      });
     },
     status(ctx, input) {
       const candidates = candidateDocuments(
@@ -101,13 +123,21 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
         const indexed = indexedOf(deps.read, deps.snapshot, id);
         if (indexed !== undefined) documents.push(indexed);
       }
-      return ok({ documents, coverage, as_of_seq: deps.snapshot.as_of_seq, next_cursor: null });
+      return ok({
+        documents,
+        coverage,
+        as_of_seq: deps.snapshot.as_of_seq,
+        next_cursor: null,
+      });
     },
   };
 }
 
 // coverage는 현재 scope의 진실이다. 같은 seq에도 lagging=true를 허용한다.
-function coverageOfLike(read: DerivedRead, ledgerBasisSeq: string): SearchCoverage {
+function coverageOfLike(
+  read: DerivedRead,
+  ledgerBasisSeq: string,
+): SearchCoverage {
   const row = read.sql.get(
     `SELECT processed_seq, rebuilding FROM derived_cursors WHERE consumer = 'search'`,
     [],
@@ -199,7 +229,9 @@ function buildResult(
   const body = String(row["body"]);
   const ranges = lineRanges(body, query);
   if (ranges.length === 0) return undefined;
-  const section = row["section_key"] === null ? null : String(row["section_key"]);
+  const section = row["section_key"] === null
+    ? null
+    : String(row["section_key"]);
   return {
     document,
     version,
@@ -222,7 +254,10 @@ function buildResult(
   };
 }
 
-function formatRef(snapshot: SearchSnapshot, version: string): SearchResult["format"] | null {
+function formatRef(
+  snapshot: SearchSnapshot,
+  version: string,
+): SearchResult["format"] | null {
   const row = snapshot.sql.get(
     `SELECT format_name, module_hash, format_explicit FROM versions WHERE id = ?`,
     [version],
@@ -232,15 +267,27 @@ function formatRef(snapshot: SearchSnapshot, version: string): SearchResult["for
   const hash = row["module_hash"];
   if (typeof name !== "string" || typeof hash !== "string") return null;
   const explicit = row["format_explicit"];
-  return { name, module_hash: hash, explicit: explicit === 1 || explicit === BigInt(1) };
+  return {
+    name,
+    module_hash: hash,
+    explicit: explicit === 1 || explicit === BigInt(1),
+  };
 }
 
-function versionNumber(snapshot: SearchSnapshot, version: string): number | null {
-  const row = snapshot.sql.get(`SELECT number FROM versions WHERE id = ?`, [version]);
+function versionNumber(
+  snapshot: SearchSnapshot,
+  version: string,
+): number | null {
+  const row = snapshot.sql.get(`SELECT number FROM versions WHERE id = ?`, [
+    version,
+  ]);
   if (row === undefined) return null;
   const value = row["number"];
-  return typeof value === "bigint" ? Number(value)
-    : typeof value === "number" ? value : null;
+  return typeof value === "bigint"
+    ? Number(value)
+    : typeof value === "number"
+    ? value
+    : null;
 }
 
 // 일치 줄을 1-based inclusive range로 묶는다. 검색 판 본문의 근거다(R12).

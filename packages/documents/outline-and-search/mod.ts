@@ -5,8 +5,8 @@ export {
   codepoints,
   decodeSearchCursor,
   encodeSearchCursor,
-  estimatedTokens,
   escapeLike,
+  estimatedTokens,
   ftsMatchQuery,
   ftsTerms,
   likePattern,
@@ -19,9 +19,9 @@ export {
   preambleExcerpt,
   QUERY_CODEPOINT_MIN,
   searchBasis,
+  type SearchPageBasis,
   SNIPPET_ELLIPSIS,
   SNIPPET_TOKENS,
-  type SearchPageBasis,
   trimmedQuery,
 } from "./model.ts";
 export {
@@ -29,36 +29,36 @@ export {
   configureDerived,
   DERIVED_REBUILD_DB,
   DERIVED_SEARCH_DB,
-  derivedPath,
-  openDerived,
-  openDerivedRead,
-  rebuildPath,
   type DerivedOpen,
+  derivedPath,
   type DerivedRead,
   type DerivedSql,
   type DerivedStore,
   type DerivedStoreWrite,
   type DerivedTx,
+  openDerived,
+  openDerivedRead,
+  rebuildPath,
 } from "./adapters/store.ts";
 export {
   allOmissions,
   applySearchEvent,
   COALESCE_MS,
-  coverageOf,
   type ConsumerEvent,
   type ConsumerEventBatch,
+  coverageOf,
   type EventScanLike,
   OMISSION_FAILED,
-  OMISSION_UNVERIFIED,
   OMISSION_UNSUPPORTED,
+  OMISSION_UNVERIFIED,
   type SearchConsumerDeps,
   type SearchCoverage,
   startRebuild,
 } from "./work.ts";
 export { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
 export {
-  excerptOf,
   createSearchHandlers,
+  excerptOf,
   type IndexDocument,
   type SearchHandlerDeps,
   type SearchHandlers,
@@ -67,5 +67,9 @@ export {
   type SearchStatusInput,
   type SearchStatusPage,
 } from "./reads.ts";
-export { candidateDocuments, allowCandidate } from "./candidates.ts";
-export { recordExtraction, rebuildTarget, type ExtractionRecord as ExtractionEntry } from "./extraction.ts";
+export { allowCandidate, candidateDocuments } from "./candidates.ts";
+export {
+  type ExtractionRecord as ExtractionEntry,
+  rebuildTarget,
+  recordExtraction,
+} from "./extraction.ts";

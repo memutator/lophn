@@ -73,6 +73,9 @@ export type Supervisor = {
     channel: number,
     payload: Uint8Array,
   ): Promise<StartResult>;
+  // stream 하나를 닫는다. end는 정상 끝, abort는 중단이다.
+  sendEnd(kind: string, channel: number): Promise<StartResult>;
+  sendAbort(kind: string, channel: number): Promise<StartResult>;
 };
 
 type Deps = RunDeps & {
@@ -218,6 +221,12 @@ export function createSupervisor(options: SupervisorOptions): Supervisor {
     },
     sendBytes(kind, channel, payload) {
       return writeTo(kind, (writer) => writer.writeBytes(channel, payload));
+    },
+    sendEnd(kind, channel) {
+      return writeTo(kind, (writer) => writer.writeEnd(channel));
+    },
+    sendAbort(kind, channel) {
+      return writeTo(kind, (writer) => writer.writeAbort(channel));
     },
     observation(kind) {
       const slot = slots.get(kind);

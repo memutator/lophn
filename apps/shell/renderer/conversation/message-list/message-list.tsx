@@ -136,6 +136,13 @@ export function MessageList(
     else setUnseen((count) => count + added);
   }, [items.length]);
 
+  // 본문은 말보다 늦게 온다. 맨 아래를 따라가는 중이면 본문이 와서 길어져도 맨 아래에 둔다.
+  // 위로 올려 읽는 중이면 건드리지 않는다.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (list && following.current) list.scrollTop = list.scrollHeight;
+  });
+
   const handleScroll = () => {
     const list = listRef.current;
     if (!list) return;

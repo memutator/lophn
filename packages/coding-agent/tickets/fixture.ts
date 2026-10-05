@@ -15,7 +15,6 @@ import type {
 } from "../../contracts/platform/mod.ts";
 import { PROBLEM_STATUSES_PORT, QUESTION_ADOPTIONS_PORT } from "./commands.ts";
 import { ticketSchemaSteps } from "./schema.ts";
-import { CLAIM_SWEEP_TIME_PORT } from "./sweep-time.ts";
 
 export const APP = "app_01arz3ndektsv4rrffq69g5fav";
 export const OTHER_APP = "app_01arz3ndektsv4rrffq69g5faw";
@@ -142,11 +141,6 @@ export function ticketFixture(deps: FixtureDeps = {}) {
               status: problems.get(id) ?? "open",
             }))),
         };
-        return read as T;
-      }
-      // sweep가 시각을 알리지 않은 상태다. expire는 tx.now()로 판단한다.
-      if (key.name === CLAIM_SWEEP_TIME_PORT.name) {
-        const read = { nowMs: () => null };
         return read as T;
       }
       throw new Error("unregistered port");

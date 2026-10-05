@@ -9,8 +9,10 @@ export { err, ok, type Result } from "./result.ts";
 export {
   type Clock,
   formatAt,
+  isManualClock,
   type ManualClock,
   manualClock,
+  monotonicClock,
   systemClock,
 } from "./clock.ts";
 export { cryptoRandom, type RandomSource, seededRandom } from "./random.ts";

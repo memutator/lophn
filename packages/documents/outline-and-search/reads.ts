@@ -22,7 +22,11 @@ import {
 import {
   authorizeTarget,
   coverageOfLike,
+  cutOutline,
   formatRef,
+  readTextWindow,
+  sectionStatusOf,
+  selectBodyLines,
 } from "./outline-support.ts";
 import {
   buildContextOutline,
@@ -488,10 +492,7 @@ import type {
   Section,
 } from "../../contracts/documents/mod.ts";
 import {
-  bodyChunk,
-  decodeBodyCursor,
   decodeOutlineCursor,
-  encodeBodyCursor,
   encodeOutlineCursor,
   estimatedTokens,
   lineCount,
@@ -1012,8 +1013,6 @@ function buildDocumentOutline(
     [version],
   );
   const sections: Section[] = [];
-  let used = 0;
-  let complete = true;
   for (const row of rows) {
     const own = parseRanges(row["own_ranges"]);
     const characters = numberCell(row["characters"]);
@@ -1040,28 +1039,8 @@ function buildDocumentOutline(
     };
     sections.push(section);
   }
-  // depth 컷: level이 depth를 넘는 section은 숨긴다. 예산 컷: 목차 크기다.
-  const kept: Section[] = [];
-  let hidden = 0;
-  for (const section of sections) {
-    if (section.level > depth) {
-      hidden += 1;
-      continue;
-    }
-    const cost = estimatedTokens(section.characters + section.title.length);
-    if (used + cost > budget) {
-      hidden += 1 + countBelow(sections, section.position);
-      complete = false;
-      break;
-    }
-    used += cost;
-    kept.push(section);
-  }
-  // depth 아래로 필터. level depth 초과는 kept에 없다.
-  const entries = kept.filter((section) => section.level <= depth);
-  for (const section of entries) {
-    section.hidden_children_count = countBelowDeeper(sections, section, depth);
-  }
+  // depth 컷과 예산 컷: 설치 안내 outline과 같은 함수다.
+  const { entries, complete } = cutOutline(sections, depth, budget);
   return ok({
     kind: "document",
     basis_seq: deps.snapshot.as_of_seq,
@@ -1085,71 +1064,6 @@ function buildDocumentOutline(
     }, entries.length),
     complete,
   });
-}
-
-function countBelow(
-  sections: readonly { position: number }[],
-  position: number,
-): number {
-  let count = 0;
-  for (const section of sections) {
-    if (section.position > position) count += 1;
-  }
-  return count;
-}
-
-function countBelowDeeper(
-  sections: readonly Section[],
-  section: Section,
-  depth: number,
-): number {
-  if (section.level >= depth) return 0;
-  // 자식 section은 key parent 사슬로 센다. depth 아래의 자손만 숨긴 수다.
-  let count = 0;
-  for (const other of sections) {
-    if (other.level > depth && isDescendant(sections, other, section)) {
-      count += 1;
-    }
-  }
-  return count;
-}
-
-// parent key 사슬을 걸어 올라가 다다르면 자손이다. derived_sections의 parent 열이
-// 사슬을 가진다. 순환은 추출 규약이 이미 막는다(format-extraction), 보험으로 걸음 수를
-// 제한한다.
-function isDescendant(
-  sections: readonly Section[],
-  other: { parent: string | null },
-  ancestor: Section,
-): boolean {
-  let parent = other.parent;
-  let guard = 0;
-  while (parent !== null && guard <= sections.length) {
-    if (parent === ancestor.key) return true;
-    const next = sections.find((section) => section.key === parent);
-    if (next === undefined) return false;
-    parent = next.parent;
-    guard += 1;
-  }
-  return false;
-}
-
-function sectionStatusOf(
-  status: { status: string; failure_reason: string | null },
-): {
-  status: string;
-  failure_reason: string | null;
-} | null {
-  if (status.status === "unsupported") {
-    return { status: "unsupported", failure_reason: null };
-  }
-  if (status.status === "failed") {
-    return {
-      status: "unverified",
-      failure_reason: status.failure_reason ?? "extraction failed",
-    };
-  }
-  return null;
 }
 
 function primaryFile(
@@ -1354,7 +1268,6 @@ function readSelectedBody(
   }
   const text = String(content["text"]);
   const textHash = String(content["text_hash"]);
-  const lines = text.split("\n");
   const selected = selectLines(
     deps,
     requested,
@@ -1362,38 +1275,29 @@ function readSelectedBody(
     includeChildren,
     input.ranges ?? [],
   );
-  const cursorState = input.cursor === undefined
-    ? ok({ line: 1, codepoint: 0 })
-    : decodeBodyCursor(input.cursor, {
+  // 출력 redaction. 없는 redactor 조립도 본문을 뺀다. 안전화가 불명이면
+  // 본문을 싣지 않는다(platform/redaction). fail-closed다.
+  const window = readTextWindow({
+    lines: text.split("\n"),
+    selected,
+    binding: {
       ver: requested,
       module_hash: format.module_hash,
       section,
       include_children: includeChildren,
       ranges: input.ranges ?? [],
       text_hash: textHash,
-    });
-  if (!cursorState.ok) return cursorState as never;
-  const chunk = bodyChunk(lines, selected, cursorState.value, budget);
-  // 출력 redaction. 없는 redactor 조립도 본문을 뺀다. 안전화가 불명이면
-  // 본문을 싣지 않는다(platform/redaction). fail-closed다.
-  let finalText: string | null = chunk.text;
-  let redacted = false;
-  let omissionReason: string | null = null;
-  if (deps.redactor !== undefined) {
-    const safe = deps.redactor(
-      { concern: "documents", revision: requested, scope: document },
-      "text/plain",
-      chunk.text,
-    );
-    if (safe === null) {
-      finalText = null;
-      redacted = true;
-      omissionReason = "redaction_failed";
-    } else {
-      finalText = safe;
-      redacted = safe !== chunk.text;
-    }
-  }
+    },
+    cursor: input.cursor,
+    budget,
+    redactor: deps.redactor,
+    redactionSource: {
+      concern: "documents",
+      revision: requested,
+      scope: document,
+    },
+  });
+  if (!window.ok) return window;
   return ok({
     document,
     version: requested,
@@ -1403,22 +1307,13 @@ function readSelectedBody(
     section,
     section_status: section === null ? "whole" : "found",
     include_children: includeChildren,
-    ranges: chunk.ranges,
-    text: finalText,
-    redacted,
+    ranges: window.value.ranges,
+    text: window.value.text,
+    redacted: window.value.redacted,
     failure_reason: null,
-    omission_reason: omissionReason,
-    complete: chunk.complete,
-    next_cursor: chunk.complete ? null : encodeBodyCursor({
-      ver: requested,
-      module_hash: format.module_hash,
-      section,
-      include_children: includeChildren,
-      ranges: input.ranges ?? [],
-      line: chunk.position.line,
-      codepoint: chunk.position.codepoint,
-      text_hash: textHash,
-    }),
+    omission_reason: window.value.omission_reason,
+    complete: window.value.complete,
+    next_cursor: window.value.next_cursor,
     as_of_seq: deps.snapshot.as_of_seq,
   });
 }
@@ -1442,30 +1337,24 @@ function selectLines(
   includeChildren: boolean,
   ranges: readonly { start_line: number; end_line: number }[],
 ): number[] {
-  const selected: number[] = [];
-  const push = (start: number, end: number): void => {
-    for (let line = start; line <= end; line++) {
-      if (!selected.includes(line)) selected.push(line);
-    }
-  };
+  let spans: { start_line: number; end_line: number }[] | null = null;
   if (section !== null) {
     const row = deps.read.sql.get(
       `SELECT own_ranges, subtree_range FROM derived_sections WHERE version = ? AND key = ?`,
       [version, section],
     );
+    // section 자체의 줄(own)은 조각이 여럿일 수 있고, 자식 포함이면 subtree 범위 하나다.
     if (row !== undefined) {
-      const use = includeChildren ? "subtree_range" : "own_ranges";
-      const span = parseOne(row[use]);
-      push(span.start_line, span.end_line);
+      spans = includeChildren
+        ? [parseOne(row["subtree_range"])]
+        : parseRanges(row["own_ranges"]);
     }
   }
-  for (const range of ranges) push(range.start_line, range.end_line);
-  // section·범위 선택이 없으면 전체 본문이다. 1-based 줄 처음부터 끝까지다.
-  if (selected.length === 0) {
-    const total = lineCountOf(deps, version);
-    push(1, total);
-  }
-  return selected.sort((a, b) => a - b);
+  return selectBodyLines(
+    spans,
+    ranges,
+    spans === null && ranges.length === 0 ? lineCountOf(deps, version) : 0,
+  );
 }
 
 function lineCountOf(deps: OutlineHandlerDeps, version: string): number {

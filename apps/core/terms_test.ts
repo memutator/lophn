@@ -215,7 +215,7 @@ Deno.test("documents/terms#R1 #R2 #R4 #R5: core에서 후보를 제안하고 사
           definition: "바로 정의",
         },
         idempotency_key: "term-direct",
-        compare: { base_revision: defined.revision },
+        compare: {},
         prepared: [],
       }, token),
     );
@@ -229,7 +229,7 @@ Deno.test("documents/terms#R1 #R2 #R4 #R5: core에서 후보를 제안하고 사
           definition: "중복",
         },
         idempotency_key: "term-clash",
-        compare: { base_revision: defined.revision },
+        compare: {},
         prepared: [],
       }, token),
       409,
@@ -320,7 +320,7 @@ Deno.test("documents/terms#R2: agent 자격은 정의를 확정하지 못한다"
         definition: "뜻",
       },
       idempotency_key: "agent-define",
-      compare: { base_revision: "1" },
+      compare: {},
       prepared: [],
     }, issued.value.token);
     const text = await response.text();

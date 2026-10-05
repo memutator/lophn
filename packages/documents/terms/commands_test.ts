@@ -85,11 +85,13 @@ function propose(
 function define(
   fixture: Fixture,
   input: Record<string, unknown>,
-  base = "1",
+  base?: string,
   actor = userContext(),
 ) {
+  // 새 등록은 비교할 revision이 없다. 이미 있는 용어는 base_revision을 보낸다.
+  const compare = base === undefined ? {} : { base_revision: base };
   return fixture.transaction((tx) =>
-    commands.define.handle(tx, actor, input as never, { base_revision: base })
+    commands.define.handle(tx, actor, input as never, compare)
   );
 }
 
@@ -965,6 +967,44 @@ Deno.test("documents/terms#R1: 범위 밖 context는 없는 context와 같은 no
       "not_found",
     );
     assertEquals(fixture.emitted.length, 0);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/terms#R2: 새 용어 정의는 base_revision 없이, 이미 있는 용어 정의는 base_revision과 함께만 받는다", () => {
+  const fixture = setup();
+  try {
+    const candidate = keep(propose(fixture, ids.term(1), "후보"));
+    // 이미 있는 용어는 base_revision이 없으면 거절이다(CAS를 건너뛰지 못한다).
+    assertEquals(
+      code(
+        define(fixture, { term: ids.term(1), name: "후보", definition: "뜻" }),
+      ),
+      "invalid_input",
+    );
+    // 새 등록에 revision을 꾸며 보내면 거절이다.
+    assertEquals(
+      code(define(fixture, {
+        id: ids.term(2),
+        context: ids.context,
+        name: "새 용어",
+        definition: "뜻",
+      }, "1")),
+      "invalid_input",
+    );
+    assertEquals(fixture.emitted.length, 1);
+    keep(define(fixture, {
+      id: ids.term(2),
+      context: ids.context,
+      name: "새 용어",
+      definition: "뜻",
+    }));
+    keep(define(fixture, {
+      term: ids.term(1),
+      name: "후보",
+      definition: "뜻",
+    }, candidate.revision));
   } finally {
     fixture.close();
   }

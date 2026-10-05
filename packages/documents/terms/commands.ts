@@ -273,8 +273,14 @@ export function createTermCommands(): {
             evidence: input.evidence,
           }, compare.base_revision);
         }
-        // 새 등록은 비교할 판이 없다. route compare가 base_revision을 요구하므로
-        // 값은 받되 CAS 기준은 아니다(새 ID·활성 이름 미존재가 기준이다).
+        // 새 등록은 비교할 판이 없다. 새 ID·활성 이름 미존재가 기준이고 base_revision을
+        // 보내면 거절한다(없는 revision을 꾸미게 하지 않는다).
+        if (compare.base_revision !== undefined) {
+          return rejected(
+            "invalid_input",
+            "a new term has no revision to compare",
+          );
+        }
         return defineNew(tx, ctx, {
           id: input.id as string,
           context: input.context as string,
@@ -381,8 +387,15 @@ function defineExisting(
     definition: string;
     evidence: readonly TermEvidence[] | undefined;
   },
-  base: string,
+  base: string | undefined,
 ): Result<Term> {
+  // 이미 있는 용어의 정의는 base_revision CAS가 필요하다.
+  if (base === undefined) {
+    return rejected(
+      "invalid_input",
+      "defining an existing term needs base_revision",
+    );
+  }
   const loaded = loadForChange(tx, ctx, termDefine.name, input.term, base);
   if (!loaded.ok) return loaded;
   const current = loaded.value;

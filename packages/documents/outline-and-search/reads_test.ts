@@ -1896,7 +1896,7 @@ function termsOf(fx: ReturnType<typeof contextLedger>) {
           tx,
           userContext(),
           { id: termIdOf(n), context, name, definition } as never,
-          { base_revision: "1" },
+          {},
         )
       ));
     },

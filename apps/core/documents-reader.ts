@@ -8,6 +8,10 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   documentExport,
   documentRead,
+  guideGet,
+  guideList,
+  guideOutline,
+  guideRead,
   outlineContext,
   outlineDocument,
   outlinePlace,
@@ -44,6 +48,20 @@ import {
 } from "../../packages/documents/contexts/store.ts";
 import { createContextOutlineSource } from "../../packages/documents/contexts/reads.ts";
 import { createTermGlossarySource } from "../../packages/documents/terms/mod.ts";
+import {
+  createGuideHandlers,
+  type GuideExtractor,
+  type GuideHandlers,
+} from "../../packages/documents/outline-and-search/guides.ts";
+import {
+  BUILTIN_MODULE_HASH,
+  formatForMediaType,
+} from "../../packages/documents/formats/mod.ts";
+import { extractFormat } from "../../packages/documents/formats/guest.ts";
+import {
+  createGuideCatalog,
+  type GuideFiles,
+} from "../../packages/documents/versions/guides.ts";
 import { exportDocument } from "../../packages/documents/versions/reads.ts";
 import {
   internalRoute,
@@ -174,6 +192,102 @@ function worker<I>(
   };
 }
 
+// 설치 묶음의 안내 폴더. 설치 root(LOPHN_INSTALL_ROOT, 없으면 /opt/lophn)의 `guides/`다.
+// 설치 위치는 사람 데이터 root와 다르다: 안내는 읽기 전용이고 data root에 쓰지 않는다.
+function guidesRoot(): string {
+  let install: string | undefined;
+  try {
+    install = Deno.env.get("LOPHN_INSTALL_ROOT");
+  } catch { /* env 권한이 없으면 기본 설치 위치다 */ }
+  return `${
+    install !== undefined && install.length > 0 ? install : "/opt/lophn"
+  }/guides`;
+}
+
+// 설치 안내 폴더의 읽기 전용 port. 폴더 밖으로 나가는 경로(symlink 포함)는 읽지 않는다.
+export function installedGuideFiles(root: string): GuideFiles {
+  return {
+    read(path) {
+      try {
+        const base = Deno.realPathSync(root);
+        const file = Deno.realPathSync(`${base}/${path}`);
+        if (!file.startsWith(`${base}/`)) {
+          return err({ code: "not_found", message: "guide file not found" });
+        }
+        return ok(Deno.readFileSync(file));
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "설치 안내 파일을 읽을 수 없다",
+        });
+      }
+    },
+  };
+}
+
+// 설치 안내의 section 추출. runner 없이 format 정본의 같은 추출을 직접 부른다:
+// 안내는 신뢰한 설치 bytes고 내장 document format module만 쓴다.
+const extractGuide: GuideExtractor = (file, contentHash) => {
+  const name = formatForMediaType(file.media_type);
+  const format = { name, module_hash: BUILTIN_MODULE_HASH, explicit: false };
+  const result = extractFormat(name, {
+    input_hash: contentHash,
+    module_hash: BUILTIN_MODULE_HASH,
+    files: [{
+      path: file.path,
+      media_type: file.media_type,
+      primary: true,
+      content: Array.from(file.bytes),
+    }],
+  });
+  if (result.status === "ready") {
+    return {
+      format,
+      extraction: {
+        status: "ready",
+        text: result.text,
+        text_hash: result.text_hash,
+        sections: result.sections,
+      },
+    };
+  }
+  return {
+    format,
+    extraction: result.status === "failed"
+      ? { status: "failed", failure_reason: result.failure_reason }
+      : { status: "unsupported" },
+  };
+};
+
+// 안내 읽기는 ledger 표도 derived store도 읽지 않는다: 설치 manifest와 파일만이다.
+// derived가 아직 없어도 offline으로 읽힌다.
+function guide<I>(
+  route: WorkerRoute,
+  run: (
+    handlers: GuideHandlers,
+    ctx: RequestContext,
+    input: I,
+  ) => Result<unknown>,
+): ReadDefinition {
+  return {
+    route: internalRoute(route),
+    handle(snapshot, ctx, input) {
+      const ran = run(
+        createGuideHandlers({
+          catalog: createGuideCatalog(installedGuideFiles(guidesRoot())),
+          extract: extractGuide,
+          asOfSeq: snapshot.as_of_seq,
+          redactor,
+        }),
+        ctx,
+        input as I,
+      );
+      if (!ran.ok) return ran;
+      return paged(ran.value);
+    },
+  };
+}
+
 function outline(ready: Prepared) {
   return createOutlineHandlers({
     read: ready.read,
@@ -236,6 +350,22 @@ export function createReaderRegistration(): ReaderRegistration {
           contexts: ready.contexts,
           nowMs: () => Date.now(),
         }).open(ctx, input as never)),
+      guide(
+        guideList,
+        (handlers, ctx, input) => handlers.list(ctx, input as never),
+      ),
+      guide(
+        guideGet,
+        (handlers, ctx, input) => handlers.get(ctx, input as never),
+      ),
+      guide(
+        guideOutline,
+        (handlers, ctx, input) => handlers.outline(ctx, input as never),
+      ),
+      guide(
+        guideRead,
+        (handlers, ctx, input) => handlers.read(ctx, input as never),
+      ),
       // 준비 route의 기준 판. derived를 읽지 않고 ledger snapshot만 쓴다.
       {
         route: PREPARE_BASE_ROUTE,

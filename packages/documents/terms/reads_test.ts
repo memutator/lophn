@@ -56,7 +56,7 @@ function define(
       tx,
       userContext(),
       { id: termId(n), context, name, definition } as never,
-      { base_revision: "1" },
+      {},
     )
   ));
 }
@@ -254,7 +254,7 @@ Deno.test("documents/terms#R5: 보관된 용어도 get으로 정의와 고정 �
           definition: "사람의 뜻",
           evidence: [section()],
         } as never,
-        { base_revision: "1" },
+        {},
       )
     ));
     archive(fixture, term);

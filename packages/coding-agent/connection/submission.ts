@@ -278,3 +278,18 @@ export async function toDocumentFiles(
   }
   return ok(inputs);
 }
+
+// 경로를 제출 root 기준으로 읽고(상대 경로는 root 아래, 절대 경로는 그대로) 검사한 파일을
+// core의 blob 준비로 넘겨 document.prepare의 파일 입력으로 만든다.
+export async function submitPaths(
+  paths: readonly string[],
+  scope: SubmissionScope,
+  prepareBytes: PrepareBytes,
+): Promise<Result<DocumentFileInput[], LophnError>> {
+  const resolved = await resolveSubmission(
+    paths.map((path) => isAbsolute(path) ? path : resolve(scope.root, path)),
+    scope,
+  );
+  if (!resolved.ok) return resolved;
+  return await toDocumentFiles(resolved.value, prepareBytes);
+}

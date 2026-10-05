@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  documentFilesInputSchema,
   documentList,
   documentMetadataSchema,
   formatGet,
@@ -15,6 +14,7 @@ import {
   projectGet,
   projectList,
   projectResolveCwd,
+  relativePathSchema,
   searchQuery,
   searchStatus,
   seriesGet,
@@ -74,8 +74,15 @@ const saveFields = {
   base_revision: versionIdSchema.nullable().optional(),
   idempotency_key: idempotencyKeySchema.optional(),
 };
+// 저장할 파일은 제출 root(MCP 작업 위치) 기준 상대 경로다. 첫 경로가 primary다.
+// bytes는 tool이 realpath로 다시 검사한 뒤 core로 보내므로 호출자가 blob 참조를
+// 주장하지 않는다(connection#R10).
+const submittedPaths = z.array(relativePathSchema).min(1).refine(
+  (paths) => new Set(paths).size === paths.length,
+  { message: "paths must be unique" },
+);
 const saveInput = z.strictObject({
-  files: documentFilesInputSchema,
+  paths: submittedPaths,
   ...saveFields,
 }).refine((value) => value.series === undefined || value.key !== undefined, {
   message: "series requires key",
@@ -89,8 +96,12 @@ const formatInput = z.discriminatedUnion("op", [
     media_type: z.string().min(1).optional(),
   }),
   formatGet.input.extend({ op: z.literal("show") }),
-  formatValidate.input.omit({ input_hash: true, explicit: true, cursor: true })
-    .extend({ op: z.literal("validate") }),
+  formatValidate.input.omit({
+    input_hash: true,
+    explicit: true,
+    cursor: true,
+    files: true,
+  }).extend({ op: z.literal("validate"), paths: submittedPaths }),
 ]);
 
 const seriesInput = z.discriminatedUnion("op", [

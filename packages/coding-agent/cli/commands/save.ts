@@ -14,13 +14,9 @@ import {
 } from "../../../contracts/documents/mod.ts";
 import {
   describeSave,
-  type FlowClient,
-  type PrepareBytes,
-  resolveSubmission,
-  saveDocument,
+  type PathSaveDeps,
+  saveFromPaths,
   type SaveReport,
-  type SubmissionScope,
-  toDocumentFiles,
 } from "../../connection/mod.ts";
 import type { CommandEntry } from "./types.ts";
 
@@ -39,11 +35,7 @@ export const SAVE_COMMANDS: readonly CommandEntry[] = [
   },
 ];
 
-export type SaveRunDeps = {
-  client: FlowClient;
-  scope: SubmissionScope;
-  prepareBytes: PrepareBytes;
-};
+export type SaveRunDeps = PathSaveDeps;
 
 export type SaveCommandInput = z.infer<typeof cliSaveSchema>;
 
@@ -53,12 +45,8 @@ export async function runSave(
   input: SaveCommandInput,
   deps: SaveRunDeps,
 ): Promise<Result<SaveReport, LophnError>> {
-  const submitted = await resolveSubmission(input.paths, deps.scope);
-  if (!submitted.ok) return submitted;
-  const files = await toDocumentFiles(submitted.value, deps.prepareBytes);
-  if (!files.ok) return files;
-  const saved = await saveDocument(deps.client, {
-    files: files.value,
+  const saved = await saveFromPaths(deps, {
+    paths: input.paths,
     ...(input.place === undefined ? {} : { place: input.place }),
     ...(input.slug === undefined ? {} : { slug: input.slug }),
     ...(input.title === undefined ? {} : { title: input.title }),

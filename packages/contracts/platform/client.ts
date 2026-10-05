@@ -63,6 +63,10 @@ export function createRpcClient(options: {
   const base = options.baseUrl.replace(/\/$/, "");
   return {
     async call<R extends Route>(route: R, body: CallBody<R>) {
+      // 바이트 body route는 JSON 호출이 아니다. 그 route의 client가 따로 보낸다.
+      if (route.kind === "upload") {
+        return fail("invalid_input", "upload route needs a byte body");
+      }
       const requestSchema: z.ZodType = route.kind === "command"
         ? commandRequestSchema(route)
         : route.input;

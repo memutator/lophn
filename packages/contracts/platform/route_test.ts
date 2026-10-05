@@ -6,6 +6,7 @@ import {
   defineFile,
   defineMemory,
   defineRead,
+  defineUpload,
   defineWorker,
   ROUTE_KINDS,
   routePath,
@@ -109,6 +110,7 @@ Deno.test(
       "file",
       "worker",
       "memory",
+      "upload",
     ]);
     assertEquals([...ACTOR_KINDS], [
       "user",
@@ -117,6 +119,53 @@ Deno.test(
       "app",
       "machine",
     ]);
+  },
+);
+
+Deno.test(
+  "platform/api#R3: upload route는 바이트 body와 상한을 선언하고 사람 결정·CAS를 받지 않는다",
+  () => {
+    const upload = defineUpload({
+      resource: "documents",
+      method: "upload",
+      name: "Upload",
+      input,
+      output,
+      actors: ["user"],
+      errors: ["invalid_input", "unavailable"],
+      max_bytes: 1024,
+    });
+    assertEquals(upload.kind, "upload");
+    assertEquals(upload.max_bytes, 1024);
+    assertEquals(routePath(upload), "/v1/documents/upload");
+    for (const bad of [0, -1, 1.5, Number.NaN]) {
+      assertThrows(() =>
+        defineUpload({
+          resource: "documents",
+          method: "upload",
+          name: "Upload",
+          input,
+          output,
+          actors: ["user"],
+          errors: ["invalid_input"],
+          max_bytes: bad,
+        })
+      );
+    }
+    assertThrows(() =>
+      defineUpload({
+        resource: "documents",
+        method: "upload",
+        name: "Upload",
+        input,
+        output,
+        actors: ["user"],
+        errors: ["invalid_input"],
+        max_bytes: 10,
+        confirmation: "required",
+        binding: ["title"],
+      } as never)
+    );
   },
 );
 

@@ -36,14 +36,17 @@ export {
   type PrepareBytes,
   resolveSubmission,
   type SubmissionScope,
+  submitPaths,
   type SubmittedFile,
   toDocumentFiles,
 } from "./submission.ts";
 export {
   documentIdForKey,
   type FlowClient,
+  type PathSaveDeps,
   type SavedDocument,
   saveDocument,
+  saveFromPaths,
   type SaveInput,
   type SaveOutcome,
   type SeriesSelector,
@@ -53,3 +56,4 @@ export {
   describeSaveFailure,
   type SaveReport,
 } from "./save-result.ts";
+export { uploadPrepareBytes } from "./upload-bytes.ts";

@@ -5,6 +5,7 @@ import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
 import type { DocumentFileInput } from "../../../contracts/documents/mod.ts";
 import type { CommandRoute, Route } from "../../../contracts/platform/mod.ts";
 import type { FlowClient } from "../document-save.ts";
+import type { PrepareBytes, SubmissionScope } from "../submission.ts";
 
 export type Sent = {
   kind: "read" | "command";
@@ -181,5 +182,47 @@ export function savedResult(
     },
     warnings,
     event_seq: status === "saved" ? "7" : null,
+  };
+}
+
+export type Workspace = {
+  scope: SubmissionScope;
+  data: string;
+  // prepareBytes가 받은 파일 경로(문서 안 경로) 목록이다.
+  prepared: string[];
+  prepareBytes: PrepareBytes;
+  cleanup(): Promise<void>;
+};
+
+// 제출 root(notes/plan.md, notes/extra.txt)와 그 밖의 운영 data 폴더를 실제 temp에 만든다.
+// prepareBytes는 core 대신 읽은 hash·크기 그대로 준비 참조를 돌려준다.
+export async function workspace(): Promise<Workspace> {
+  const base = await Deno.makeTempDir({ prefix: "lophn-submit-" });
+  const root = await Deno.realPath(base);
+  const data = `${root}-data`;
+  await Deno.mkdir(`${root}/notes`);
+  await Deno.mkdir(data);
+  await Deno.writeTextFile(`${root}/notes/plan.md`, "# plan\n");
+  await Deno.writeTextFile(`${root}/notes/extra.txt`, "extra");
+  await Deno.writeTextFile(`${data}/ledger.sqlite`, "secret");
+  const prepared: string[] = [];
+  return {
+    scope: { root, forbidden: [data] },
+    data,
+    prepared,
+    prepareBytes: (file) => {
+      prepared.push(file.path);
+      return Promise.resolve(ok({
+        preparation: `prep-${file.path}`,
+        principal: "cac",
+        purpose: "document_file",
+        hash: file.blob_hash,
+        size_bytes: file.bytes,
+      }));
+    },
+    async cleanup() {
+      await Deno.remove(root, { recursive: true });
+      await Deno.remove(data, { recursive: true });
+    },
   };
 }

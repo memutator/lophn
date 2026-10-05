@@ -59,6 +59,8 @@ import {
   documentPrepareRoute,
   relaySink,
 } from "./documents-prepare.ts";
+import { documentUploadHandler } from "./documents-upload.ts";
+import { documentUpload } from "../../packages/contracts/documents/mod.ts";
 import type { VersionRow } from "../../packages/documents/versions/store.ts";
 import { connectDocumentsRelaunch, workerSpecs } from "./documents.ts";
 import {
@@ -401,6 +403,11 @@ async function open(
       // worker route serving map. document.prepare는 제품 기동이 항상 넣고,
       // 테스트 seam(T8·T13)이 준 route를 같은 map에 더한다. resource/method가
       // 겹치면 테스트 seam이 이긴다. 둘 다 없으면 worker route는 503이다.
+      // 바이트 body route. 제출 파일은 blob 준비 중계로 바로 흐른다.
+      uploads: new Map([[
+        `${documentUpload.resource}/${documentUpload.method}`,
+        documentUploadHandler(prepareRelay),
+      ]]),
       workers: mergedWorkers(
         documentPrepareWorkers(prepareRelay, baseVersionRead(runtime)),
         mergedWorkers(

@@ -25,6 +25,10 @@ import { createSeriesTool } from "../../packages/coding-agent/mcp-server/tools/s
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
 import { filesHash } from "../../packages/documents/versions/mod.ts";
 import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
+import {
+  type Workspace,
+  workspace,
+} from "../../packages/coding-agent/connection/testing/mod.ts";
 import { type CoreHarness, createCoreHarness } from "./testing/core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
@@ -51,6 +55,7 @@ const AGENT_OPERATIONS = [
 ];
 
 type Setup = {
+  where: Workspace;
   harness: CoreHarness;
   user: string;
   client: FlowClient;
@@ -58,39 +63,10 @@ type Setup = {
   bodyOf: (path: string, input: unknown) => Promise<Record<string, unknown>>;
 };
 
-function hashOf(text: string): string {
-  return text.padEnd(64, "0");
-}
-
-type UploadedFile = {
-  path: string;
-  media_type: string;
-  bytes: number;
-  blob_hash: string;
-  primary: boolean;
-  content: unknown;
-};
-
-// 준비된 두 파일. blob_hash만 내용 구분용으로 바꾼다.
-function files(content: string): UploadedFile[] {
-  const hash = hashOf(content.replace(/[^0-9a-f]/g, "a") || "a");
-  return [{
-    path: "plan.md",
-    media_type: "text/markdown",
-    bytes: 7,
-    blob_hash: hash,
-    primary: true,
-    content: {
-      kind: "prepared",
-      blob: {
-        preparation: `blob-${content}`,
-        principal: PRINCIPAL,
-        purpose: "document_file",
-        hash,
-        size_bytes: 7,
-      },
-    },
-  }];
+// 제출 root의 notes/plan.md를 내용으로 다시 쓰고 tool 입력 경로를 돌려준다.
+async function submit(setup: Setup, content: string): Promise<string[]> {
+  await Deno.writeTextFile(`${setup.where.scope.root}/notes/plan.md`, content);
+  return ["notes/plan.md"];
 }
 
 async function open(): Promise<Setup> {
@@ -154,7 +130,8 @@ async function open(): Promise<Setup> {
     assertEquals(response.status, 200, `${path}: ${text}`);
     return JSON.parse(text) as Record<string, unknown>;
   }
-  return { harness, user: userToken, client, core, bodyOf };
+  const where = await workspace();
+  return { where, harness, user: userToken, client, core, bodyOf };
 }
 
 // `/v1/documents/prepare` worker가 없는 harness의 대역이다. 준비 worker가 하는 일(같은
@@ -167,7 +144,13 @@ async function prepareStandIn(
     document: string;
     base_version: string | null;
     metadata?: unknown;
-    files: UploadedFile[];
+    files: {
+      path: string;
+      media_type: string;
+      bytes: number;
+      blob_hash: string;
+      primary: boolean;
+    }[];
     format?: { name: string; module_hash: string; explicit: boolean };
     idempotency_key: string;
   };
@@ -264,10 +247,14 @@ type ToolOut = {
 Deno.test("coding-agent/mcp-server#R13 #R15: 자리 없는 저장은 고정 주소로 다시 읽히고 같은 요청의 재전송은 새 판을 만들지 않는다", async () => {
   const setup = await open();
   try {
-    const save = createSaveTool({ client: setup.client });
+    const save = createSaveTool({
+      client: setup.client,
+      scope: setup.where.scope,
+      prepareBytes: setup.where.prepareBytes,
+    });
     const route = toolOf("lophn_save", undefined);
     const first = await save("lophn_save", route, {
-      files: files("11"),
+      paths: await submit(setup, "11"),
     }) as ToolOut;
     assertEquals(first.isError, undefined, first.summary);
     assertEquals(first.data.status, "saved");
@@ -282,7 +269,7 @@ Deno.test("coding-agent/mcp-server#R13 #R15: 자리 없는 저장은 고정 주�
     assertEquals((got.version as { number: number }).number, 1);
     // 같은 요청의 재전송은 같은 판을 돌려주고 새 판이 없다.
     const again = await save("lophn_save", route, {
-      files: files("11"),
+      paths: await submit(setup, "11"),
     }) as ToolOut;
     assertEquals(again.isError, undefined, again.summary);
     assertEquals(again.data.document, document);
@@ -290,6 +277,7 @@ Deno.test("coding-agent/mcp-server#R13 #R15: 자리 없는 저장은 고정 주�
     const history = await setup.bodyOf("documents/history", { document });
     assertEquals((history.versions as unknown[]).length, 1);
   } finally {
+    await setup.where.cleanup();
     await setup.harness.close();
   }
 });
@@ -298,15 +286,19 @@ Deno.test("coding-agent/mcp-server#R13: 자리 있는 저장의 재전송은 unc
   const setup = await open();
   try {
     await createProject(setup);
-    const save = createSaveTool({ client: setup.client });
+    const save = createSaveTool({
+      client: setup.client,
+      scope: setup.where.scope,
+      prepareBytes: setup.where.prepareBytes,
+    });
     const route = toolOf("lophn_save", undefined);
-    const input = (content: string) => ({
-      files: files(content),
+    const input = async (content: string) => ({
+      paths: await submit(setup, content),
       place: PLACE,
       slug: "plan",
       title: "계획",
     });
-    const first = await save("lophn_save", route, input("11")) as ToolOut;
+    const first = await save("lophn_save", route, await input("11")) as ToolOut;
     assertEquals(first.isError, undefined, first.summary);
     assertEquals(first.data.status, "saved");
     // core의 고정 참조는 문서 ID와 판 ID다. 주소 문자열이 아니라 그 참조를 낸다.
@@ -317,12 +309,20 @@ Deno.test("coding-agent/mcp-server#R13: 자리 있는 저장의 재전송은 unc
       version: first.data.version,
       section: null,
     });
-    const unchanged = await save("lophn_save", route, input("11")) as ToolOut;
+    const unchanged = await save(
+      "lophn_save",
+      route,
+      await input("11"),
+    ) as ToolOut;
     assertEquals(unchanged.isError, undefined, unchanged.summary);
     assertEquals(unchanged.data.status, "unchanged");
     assertEquals(unchanged.data.event_seq, null);
     assertEquals(unchanged.data.document, first.data.document);
-    const changed = await save("lophn_save", route, input("22")) as ToolOut;
+    const changed = await save(
+      "lophn_save",
+      route,
+      await input("22"),
+    ) as ToolOut;
     assertEquals(changed.isError, undefined, changed.summary);
     assertEquals(changed.data.status, "saved");
     assert(changed.data.version !== first.data.version);
@@ -331,6 +331,7 @@ Deno.test("coding-agent/mcp-server#R13: 자리 있는 저장의 재전송은 unc
     });
     assertEquals((history.versions as unknown[]).length, 2);
   } finally {
+    await setup.where.cleanup();
     await setup.harness.close();
   }
 });
@@ -340,7 +341,11 @@ Deno.test("coding-agent/mcp-server#R13 #R16: series 저장은 같은 key로 가�
   try {
     await createProject(setup);
     await createSeries(setup);
-    const save = createSaveTool({ client: setup.client });
+    const save = createSaveTool({
+      client: setup.client,
+      scope: setup.where.scope,
+      prepareBytes: setup.where.prepareBytes,
+    });
     const series = createSeriesTool({ client: setup.client });
     const seriesRoute = (op: string) => toolOf("lophn_series", op);
     const next = (): Promise<ToolOut> =>
@@ -354,7 +359,7 @@ Deno.test("coding-agent/mcp-server#R13 #R16: series 저장은 같은 key로 가�
 
     const route = toolOf("lophn_save", undefined);
     const saved = await save("lophn_save", route, {
-      files: files("11"),
+      paths: await submit(setup, "11"),
       place: PLACE,
       slug: "week-1",
       series: { series: SERIES },
@@ -379,7 +384,7 @@ Deno.test("coding-agent/mcp-server#R13 #R16: series 저장은 같은 key로 가�
     );
     // 이미 쓴 key로 다른 문서를 저장하면 저장 전에 거절한다.
     const taken = await save("lophn_save", route, {
-      files: files("22"),
+      paths: await submit(setup, "22"),
       place: PLACE,
       slug: "week-2",
       series: { series: SERIES },
@@ -391,7 +396,7 @@ Deno.test("coding-agent/mcp-server#R13 #R16: series 저장은 같은 key로 가�
     assertEquals((listed.documents as unknown[]).length, 1);
     // 다음 key로 저장하면 가족이 둘이 된다.
     const joined = await save("lophn_save", route, {
-      files: files("22"),
+      paths: await submit(setup, "22"),
       place: PLACE,
       slug: "week-2",
       series: { series: SERIES },
@@ -407,6 +412,7 @@ Deno.test("coding-agent/mcp-server#R13 #R16: series 저장은 같은 key로 가�
       ["1", "2"],
     );
   } finally {
+    await setup.where.cleanup();
     await setup.harness.close();
   }
 });
@@ -414,7 +420,11 @@ Deno.test("coding-agent/mcp-server#R13 #R16: series 저장은 같은 key로 가�
 Deno.test("coding-agent/mcp-server#R14: format 목록·선언이 core의 설치된 format 값으로 나온다", async () => {
   const setup = await open();
   try {
-    const format = createFormatTool({ client: setup.client });
+    const format = createFormatTool({
+      client: setup.client,
+      scope: setup.where.scope,
+      prepareBytes: setup.where.prepareBytes,
+    });
     const route = (op: string) => toolOf("lophn_format", op);
     const listed = await format("lophn_format", route("list"), {
       op: "list",
@@ -443,6 +453,7 @@ Deno.test("coding-agent/mcp-server#R14: format 목록·선언이 core의 설치�
     }) as ToolOut;
     assertEquals(missing.isError, true);
   } finally {
+    await setup.where.cleanup();
     await setup.harness.close();
   }
 });

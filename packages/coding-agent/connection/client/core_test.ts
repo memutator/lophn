@@ -3,9 +3,11 @@ import { z } from "zod";
 import {
   defineCommand,
   defineRead,
+  defineUpload,
   type RpcFetch,
+  UPLOAD_INPUT_HEADER,
 } from "../../../contracts/platform/mod.ts";
-import { createCoreClient } from "./core.ts";
+import { createCoreClient, type UploadFetch } from "./core.ts";
 
 const save = defineCommand({
   resource: "documents",
@@ -315,5 +317,124 @@ Deno.test(
     assert(!conflict.ok);
     assertEquals(conflict.error.code, "conflict");
     assertEquals(conflict.error.message, "document already exists");
+  },
+);
+
+const upload = defineUpload({
+  resource: "documents",
+  method: "upload",
+  name: "document.upload",
+  input: z.strictObject({ bytes: z.number().int() }),
+  output: z.object({ preparation: z.string() }),
+  actors: ["user"],
+  errors: [],
+  max_bytes: 100,
+});
+
+function stream(...chunks: number[][]): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(new Uint8Array(chunk));
+      controller.close();
+    },
+  });
+}
+
+Deno.test(
+  "coding-agent/connection#R15: upload는 입력을 header로, 바이트를 stream body로 보내고 응답을 출력 schema로 읽는다",
+  async () => {
+    const seen: {
+      url: string;
+      headers: Record<string, string>;
+      body: number[];
+    }[] = [];
+    const uploadFetch: UploadFetch = async (url, init) => {
+      const bytes = new Uint8Array(await new Response(init.body).arrayBuffer());
+      seen.push({ url, headers: init.headers, body: [...bytes] });
+      return {
+        status: 200,
+        bytes: new TextEncoder().encode(JSON.stringify({ preparation: "p1" })),
+      };
+    };
+    const client = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431/",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      uploadFetch,
+    });
+    const result = await client.upload(
+      upload,
+      { bytes: 3 },
+      stream([1, 2], [3]),
+    );
+    assert(result.ok);
+    assertEquals(result.value, { preparation: "p1" });
+    assertEquals(seen[0].url, "http://127.0.0.1:7431/v1/documents/upload");
+    assertEquals(seen[0].body, [1, 2, 3]);
+    assertEquals(seen[0].headers["authorization"], "Bearer tok");
+    assertEquals(
+      seen[0].headers["content-type"],
+      "application/octet-stream",
+    );
+    // 입력 JSON은 header의 base64url이다.
+    const encoded = seen[0].headers[UPLOAD_INPUT_HEADER];
+    assert(/^[A-Za-z0-9_-]+$/.test(encoded));
+    const padded = encoded.replaceAll("-", "+").replaceAll("_", "/");
+    assertEquals(
+      JSON.parse(atob(padded + "=".repeat((4 - padded.length % 4) % 4))),
+      {
+        bytes: 3,
+      },
+    );
+  },
+);
+
+Deno.test(
+  "coding-agent/connection#R15: upload는 잘못된 입력·credential 실패를 보내기 전에 거절하고 오류 본문은 route 오류 그대로다",
+  async () => {
+    let sent = 0;
+    const counting: UploadFetch = () => {
+      sent += 1;
+      return Promise.resolve({
+        status: 409,
+        bytes: new TextEncoder().encode(JSON.stringify({
+          error: { code: "conflict", message: "changed" },
+        })),
+      });
+    };
+    const client = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      uploadFetch: counting,
+    });
+    const invalid = await client.upload(upload, { bytes: "3" }, stream([1]));
+    assert(!invalid.ok);
+    assertEquals(invalid.error.code, "invalid_input");
+    assertEquals(sent, 0);
+    const conflict = await client.upload(upload, { bytes: 1 }, stream([1]));
+    assert(!conflict.ok);
+    assertEquals(conflict.error, { code: "conflict", message: "changed" });
+    const locked = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: () => Promise.resolve({ ok: false, error: "locked" }),
+      uploadFetch: counting,
+    });
+    const refused = await locked.upload(upload, { bytes: 1 }, stream([1]));
+    assert(!refused.ok);
+    assertEquals(refused.error.code, "unavailable");
+    assertEquals(sent, 1);
+    const down = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      uploadFetch: () => Promise.reject(new Error("refused")),
+    });
+    const lost = await down.upload(upload, { bytes: 1 }, stream([1]));
+    assert(!lost.ok);
+    assertEquals(lost.error.code, "unavailable");
+    // 쓰기가 아니므로 effect_unknown 진단이 없다. 새 참조를 다시 받으면 된다.
+    assertEquals(lost.error.details?.diagnosis, undefined);
   },
 );

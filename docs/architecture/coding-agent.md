@@ -158,8 +158,8 @@ MCP protocol 오류는 JSON parse `-32700`, request 모양 `-32600`, 없는 meth
 | `lophn_project` / core | `list`, `show`, `current` / project?, cwd? | 등록 폴더·label·역할 설명·폴더 문서 수·연결 context; current 다중 일치 | S; tracking 규칙 없음. cwd는 위치 매칭 값이지 파일 read 권한 아님 |
 | `lophn_document` / core | `list`, `history`, `diff` / place? 또는 unplaced?, state?, limit?, cursor?, address?, from?, to?, section? | 목록·남은 허용 수·cursor; 고정 판 이력·줄 diff·누락 | S; list 1~500. diff 두 고정 판 필수, 의미 rename 추정 없음 |
 | `lophn_read` / core | address, version?, section?, start?, length?, cursor? | 정확한 고정 판의 부분 본문·다음 범위·새 판 존재·부재/추출 실패 | S; cursor의 고정 version을 새 최신 판으로 바꾸지 않음 |
-| `lophn_save` / core | files(첫 파일 primary), place?, slug?, title?, format?, note?, tags?, series?, key?, base_revision?, idempotency_key | document·version·고정 주소·unchanged·format 경고·derived 지연 | S; local bytes 제출만. series면 key 필수. 명시 format 부적합은 무저장 |
-| `lophn_format` / core | `list`, `show`, `validate` / media_type?, format?, files? | 선언·작성 안내·bytes 검사 diagnostics(severity·위치) | G; validate는 format 실행 요청, agent 검사 주장 입력 없음 |
+| `lophn_save` / core | paths(제출 root 기준 상대 경로, 첫 경로 primary), place?, slug?, title?, format?, series?, key?, base_revision?, idempotency_key | document·version·고정 주소·unchanged·format 경고·derived 지연 | S; local bytes 제출만. series면 key 필수. 명시 format 부적합은 무저장 |
+| `lophn_format` / core | `list`, `show`, `validate` / media_type?, format?, paths? | 선언·작성 안내·bytes 검사 diagnostics(severity·위치) | G; validate는 format 실행 요청, agent 검사 주장 입력 없음 |
 | `lophn_series` / core | `list`, `show`, `next` / place?, series?, key? | 규칙·정렬 인스턴스·다음 key/title 제안 또는 제안 불가 이유 | S; 계산만, 문서·series 생성 없음 |
 | `lophn_context` / core | `list`, `show`, `items`, `glossary`, `of`, `propose` / context?, address?, perspective?, depth?, change?, reason?, idempotency_key? | 관점 항목·용어·문서 참조 context; propose는 고정 변경안 문서 주소·담당 agent 안내 | S; definition 직접 변경·직접 Question 생성 없음; 폴더/untracked 항목 제안 거절 |
 | `lophn_question` / core | `list`, `show` / question?, app?, state?, cursor? | 범위 안 질문의 이유·option·고정 action·상태 | S; answer op 없음, 채택은 grant가 아님 |
@@ -353,7 +353,7 @@ readiness·first prompt 전달이 불명이면 unknown이며 자동 입력 재�
 
 ```text
 [coding agent] format 안내·허용 place·현재 version 읽기 → 제출 파일 작성
- → [MCP/CLI] 명시 파일 realpath·입력 검사, bytes 제출
+ → [MCP/CLI] 명시 파일 realpath·입력 검사, 파일마다 /v1/documents/upload로 bytes 제출 → 준비 참조
  → [documents 담당 프로세스] format 실행·blob 준비 (무거운 일)
  → [core documents module] 문서 command(CAS·key·scope) → version+event
  → [MCP/CLI] 고정 주소·unchanged/경고·아직 남은 derived 반영 반환

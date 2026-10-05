@@ -21,6 +21,11 @@ import {
   seriesGet,
 } from "../../contracts/documents/mod.ts";
 import type { CommandRoute, Route } from "../../contracts/platform/mod.ts";
+import {
+  type PrepareBytes,
+  type SubmissionScope,
+  submitPaths,
+} from "./submission.ts";
 
 // core client 중 이 흐름이 쓰는 두 호출이다. CoreClient가 구조로 맞는다.
 export type FlowClient = {
@@ -349,4 +354,22 @@ export async function saveDocument(
     series: joined,
     notes,
   });
+}
+
+export type PathSaveDeps = {
+  client: FlowClient;
+  scope: SubmissionScope;
+  prepareBytes: PrepareBytes;
+};
+
+// MCP·CLI가 같이 쓰는 입구다. 경로를 제출 root 안에서 다시 검사해 bytes를 core로 보낸 뒤
+// 같은 저장 흐름을 탄다. 검사에 걸린 파일이 하나라도 있으면 어떤 bytes도 보내지 않는다.
+export async function saveFromPaths(
+  deps: PathSaveDeps,
+  input: Omit<SaveInput, "files"> & { paths: readonly string[] },
+): Promise<Result<SaveOutcome, LophnError>> {
+  const { paths, ...rest } = input;
+  const files = await submitPaths(paths, deps.scope, deps.prepareBytes);
+  if (!files.ok) return files;
+  return await saveDocument(deps.client, { ...rest, files: files.value });
 }

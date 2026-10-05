@@ -23,6 +23,7 @@ import {
   type FileHandler,
   type MemoryHandler,
   type ReadHandler,
+  type UploadHandler,
   type WorkerTargets,
 } from "./dispatch.ts";
 import {
@@ -47,6 +48,7 @@ export type ApiServerOptions = {
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
   workers?: ReadonlyMap<string, ResponsivenessTarget>;
+  uploads?: ReadonlyMap<string, UploadHandler>;
   // file·worker route의 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
   confirmation?: ConfirmationBridge;
   events?: EventBackend;
@@ -80,6 +82,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     workers: options.workers === undefined
       ? undefined
       : adaptedWorkers(options.workers),
+    uploads: options.uploads,
     confirmation: options.confirmation,
     bodyLimit: options.bodyLimit,
     bodyTimeoutMs: BODY_TIMEOUT_MS,

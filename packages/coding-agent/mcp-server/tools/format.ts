@@ -7,10 +7,18 @@ import {
   canonicalFilesHash,
   type FlowClient,
   type HashedFile,
+  type PrepareBytes,
+  type SubmissionScope,
+  submitPaths,
 } from "../../connection/mod.ts";
 import { failureOutput, type ToolOutput, withoutOp } from "./output.ts";
 
-export type FormatToolDeps = { client: Pick<FlowClient, "read"> };
+export type FormatToolDeps = {
+  client: Pick<FlowClient, "read">;
+  // validate가 읽는 파일의 검사 범위와 bytes 제출 통로다. list·show는 쓰지 않는다.
+  scope: SubmissionScope;
+  prepareBytes: PrepareBytes;
+};
 
 type Declaration = {
   name: string;
@@ -128,7 +136,20 @@ async function validate(
   route: Route,
   input: Record<string, unknown>,
 ): Promise<ToolOutput> {
-  const files = input.files as HashedFile[];
+  // 검사할 파일은 경로로 받아 제출 root 안에서 다시 검사한다. bytes는 core의 blob
+  // 준비로 가고 호출자가 blob 참조를 주장하지 않는다.
+  const submitted = await submitPaths(
+    input.paths as string[],
+    deps.scope,
+    deps.prepareBytes,
+  );
+  if (!submitted.ok) {
+    return failureOutput(submitted.error, [
+      "제출 root 안의 파일 경로로 다시 검사한다",
+    ]);
+  }
+  const files = submitted.value as HashedFile[];
+  const { paths: _paths, ...routeInput } = input;
   // 입력 hash는 문서 저장 준비가 쓰는 정의와 같다. 호출자 주장이 아니다.
   const inputHash = await canonicalFilesHash(files);
   const diagnostics: unknown[] = [];
@@ -136,7 +157,8 @@ async function validate(
   let last: ValidatePage | undefined;
   for (let page = 0; page < VALIDATE_PAGE_CAP; page += 1) {
     const read = await deps.client.read(route, {
-      ...input,
+      ...routeInput,
+      files: submitted.value,
       input_hash: inputHash,
       explicit: true,
       ...(cursor === undefined ? {} : { cursor }),

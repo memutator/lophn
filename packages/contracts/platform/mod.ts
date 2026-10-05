@@ -62,6 +62,7 @@ export {
   defineFile,
   defineMemory,
   defineRead,
+  defineUpload,
   defineWorker,
   type FileRoute,
   type MemoryRoute,
@@ -70,6 +71,8 @@ export {
   ROUTE_KINDS,
   type RouteKind,
   routePath,
+  UPLOAD_INPUT_HEADER,
+  type UploadRoute,
   type WorkerRoute,
 } from "./route.ts";
 export {

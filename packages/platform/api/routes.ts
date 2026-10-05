@@ -7,6 +7,7 @@ import {
   type ReadRoute,
   type Route,
   ROUTES,
+  type UploadRoute,
   type WorkerRoute,
 } from "../../contracts/platform/mod.ts";
 
@@ -73,4 +74,8 @@ export function isWorkerRoute(route: Route): route is WorkerRoute {
 // WS 구독은 RPC 세 구간이 아니다. 정확한 경로 하나만 받는다.
 export function isSubscribePath(pathname: string): boolean {
   return pathname === EVENT_SUBSCRIBE_PATH;
+}
+
+export function isUploadRoute(route: Route): route is UploadRoute {
+  return route.kind === "upload";
 }

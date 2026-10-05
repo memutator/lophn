@@ -20,12 +20,20 @@ import {
   trimmedQuery,
 } from "./model.ts";
 import {
-  allOmissions,
-  OMISSION_UNVERIFIED,
-  type SearchCoverage,
-} from "./work.ts";
+  authorizeTarget,
+  coverageOfLike,
+  formatRef,
+} from "./outline-support.ts";
+import {
+  buildContextOutline,
+  type ContextOutlineInput,
+  type ContextOutlinePage,
+  contextRootSummaries,
+} from "./context-outline.ts";
+import { OMISSION_UNVERIFIED, type SearchCoverage } from "./work.ts";
 import type {
   ContextItemSource,
+  ContextOutlineSource,
   PortLookup,
   SearchFilters,
   SearchSnapshot,
@@ -204,30 +212,6 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
         complete: true,
       });
     },
-  };
-}
-
-// coverage는 현재 scope의 진실이다. 같은 seq에도 lagging=true를 허용한다.
-// omissions도 허용 집합에서 뺀다. 권한 밖 문서의 누락은 응답에 새지 않는다(R12).
-function coverageOfLike(
-  read: DerivedRead,
-  ledgerBasisSeq: string,
-  allowed?: ReadonlySet<string>,
-): SearchCoverage {
-  const row = read.sql.get(
-    `SELECT processed_seq, rebuilding FROM derived_cursors WHERE consumer = 'search'`,
-    [],
-  );
-  const processed = row === undefined ? "0" : String(row.processed_seq);
-  const rebuilding = row === undefined ? false : Number(row.rebuilding) === 1;
-  const basis = ledgerBasisSeq;
-  const lagging = BigInt(processed) < BigInt(basis);
-  return {
-    processed_seq: processed,
-    ledger_basis_seq: basis,
-    lagging,
-    rebuilding,
-    omissions: allOmissions(read.sql, allowed),
   };
 }
 
@@ -413,26 +397,6 @@ function buildResult(
   };
 }
 
-function formatRef(
-  snapshot: SearchSnapshot,
-  version: string,
-): SearchResult["format"] | null {
-  const row = snapshot.sql.get(
-    `SELECT format_name, module_hash, format_explicit FROM versions WHERE id = ?`,
-    [version],
-  );
-  if (row === undefined) return null;
-  const name = row["format_name"];
-  const hash = row["module_hash"];
-  if (typeof name !== "string" || typeof hash !== "string") return null;
-  const explicit = row["format_explicit"];
-  return {
-    name,
-    module_hash: hash,
-    explicit: explicit === 1 || explicit === BigInt(1),
-  };
-}
-
 // 일치 줄을 1-based inclusive range로 묶는다. 검색 판 본문의 근거다(R12).
 function lineRanges(body: string, query: string): LineRange[] {
   const rest = trimmedQuery(query);
@@ -522,7 +486,6 @@ import type {
   FormatRef,
   Section,
 } from "../../contracts/documents/mod.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
 import {
   bodyChunk,
   decodeBodyCursor,
@@ -588,6 +551,9 @@ export type OutlineHandlerDeps = {
   snapshot: SearchSnapshot;
   ports: PortLookup;
   contexts?: ContextItemSource;
+  // context 목차(root의 context 요약, `/v1/outline/context`)의 근원. 없으면 root에
+  // context가 없고 context 목차는 unavailable이다.
+  contextOutline?: ContextOutlineSource;
   // 선택 판이 derived에 없을 때 직접 추출하는 근원. 없으면 미완료로 답한다.
   extract?: DirectExtraction;
   // 출력 redaction. 이 grep은 없음 % Escape를 건너 뛴다.
@@ -604,6 +570,10 @@ export type OutlineHandlers = {
     ctx: RequestContext,
     input: OutlinePlaceInput,
   ): Result<OutlinePlacePage>;
+  context(
+    ctx: RequestContext,
+    input: ContextOutlineInput,
+  ): Result<ContextOutlinePage>;
   document(
     ctx: RequestContext,
     input: OutlineDocumentInput,
@@ -627,6 +597,15 @@ export type OutlineRootEntry =
     purpose: string;
     activity_seq: string;
     document_count: number;
+  }
+  | {
+    kind: "context";
+    id: string;
+    title: string;
+    purpose: string;
+    activity_seq: string;
+    basis_count: number;
+    reference_app_count: number;
   }
   | { kind: "unplaced"; document_count: number };
 
@@ -718,41 +697,6 @@ function deny(): Result<never> {
   return err({ code: "not_found", message: "outline does not resolve" });
 }
 
-// 단일 대상 handler의 범위 검사. 권한 밖은 없는 대상과 같이 답한다.
-function authorizeTarget(
-  deps: OutlineHandlerDeps,
-  ctx: RequestContext,
-  operation: string,
-  document: string,
-  placeKind: string | undefined,
-  placeId: string | undefined,
-): boolean {
-  let authorize: unknown;
-  try {
-    authorize = deps.ports.port(TargetAuthorization);
-  } catch {
-    return false;
-  }
-  if (typeof authorize !== "function") return false;
-  try {
-    const result = authorize(ctx, operation, {
-      document,
-      place_kind: placeKind,
-      place: placeId,
-    });
-    if (result instanceof Promise) {
-      void result.catch(() => {});
-      return false;
-    }
-    if (typeof result !== "object" || result === null || "then" in result) {
-      return false;
-    }
-    return result.ok === true;
-  } catch {
-    return false;
-  }
-}
-
 // 공용 sections·texts 읽기. static이 아닌 derived query_only 연결이다.
 function extractedStatus(
   deps: OutlineHandlerDeps,
@@ -772,17 +716,17 @@ function extractedStatus(
   };
 }
 
-// root 활동 순 목록. 이 slice는 project·app 자리와 자리 없는 문서 묶음이다.
-// context 부분은 T23이다(관점 항목도 이후 slice가 심는다).
+// root 활동 순 목록. project·app·context 자리를 마지막 활동 seq가 큰 순서로(동점은
+// kind·ID 순) 두고 자리 없는 문서 묶음을 마지막에 둔다. context는 목적·기준 항목 수·
+// 참조 앱 수·활동만 싣는다. 문제·질문·approval 대기는 소유 concern의 읽기를 가리키므로
+// 여기서 세지 않는다. 권한 밖 자리·context는 없는 것과 같다.
 function buildRootEntries(
   deps: OutlineHandlerDeps,
   ctx: RequestContext,
 ): OutlineRootEntry[] {
-  const entries: OutlineRootEntry[] = [];
-  // 활동 순은 revision seq 순이다. tracking 활성 자리 먼저다.
+  const placed: OutlineRootEntry[] = [];
   const projects = deps.snapshot.sql.all(
-    `SELECT id, name, title, purpose, revision FROM projects WHERE status = 'active'
-     ORDER BY revision, id`,
+    `SELECT id, name, title, purpose, revision FROM projects WHERE status = 'active'`,
     [],
   );
   for (const row of projects) {
@@ -790,7 +734,7 @@ function buildRootEntries(
     if (!authorizeTarget(deps, ctx, "outline.root", id, "project", id)) {
       continue;
     }
-    entries.push({
+    placed.push({
       kind: "project",
       id,
       title: String(row["title"] ?? row["name"] ?? ""),
@@ -800,14 +744,13 @@ function buildRootEntries(
     });
   }
   const apps = deps.snapshot.sql.all(
-    `SELECT id, slug, name, description, revision FROM apps WHERE status = 'active'
-     ORDER BY revision, id`,
+    `SELECT id, slug, name, description, revision FROM apps WHERE status = 'active'`,
     [],
   );
   for (const row of apps) {
     const id = String(row["id"]);
     if (!authorizeTarget(deps, ctx, "outline.root", id, "app", id)) continue;
-    entries.push({
+    placed.push({
       kind: "app",
       id,
       title: String(row["name"] ?? row["slug"] ?? ""),
@@ -816,11 +759,31 @@ function buildRootEntries(
       document_count: placeDocumentCount(deps, "app", id),
     });
   }
+  for (const summary of contextRootSummaries(deps, ctx)) {
+    placed.push({ kind: "context", ...summary });
+  }
+  placed.sort(compareActivity);
   const unplaced = placeDocumentCount(deps, null, null);
   if (unplaced > 0) {
-    entries.push({ kind: "unplaced", document_count: unplaced });
+    placed.push({ kind: "unplaced", document_count: unplaced });
   }
-  return entries;
+  return placed;
+}
+
+// 활동 seq 내림차순, 동점은 kind·ID 순이다. seq는 문자열 숫자라 BigInt로 비교한다.
+function compareActivity(a: OutlineRootEntry, b: OutlineRootEntry): number {
+  if (a.kind === "unplaced" || b.kind === "unplaced") return 0;
+  const left = BigInt(a.activity_seq);
+  const right = BigInt(b.activity_seq);
+  if (left !== right) return left > right ? -1 : 1;
+  if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+function rootEntryCost(entry: OutlineRootEntry): number {
+  return entry.kind === "unplaced" ? estimatedTokens(120) : estimatedTokens(
+    120 + [...entry.title].length + [...entry.purpose].length,
+  );
 }
 
 function placeDocumentCount(
@@ -855,7 +818,8 @@ function buildPlaceEntries(
   ctx: RequestContext,
   place: { kind: "project" | "app"; id: string },
   budget: number,
-): { entries: OutlinePlaceEntryValue[]; offset: number; complete: boolean } {
+  offset: number,
+): { entries: OutlinePlaceEntryValue[]; complete: boolean } {
   const rows = deps.snapshot.sql.all(
     `SELECT d.id, d.name, d.title, d.latest_version, d.revision
      FROM documents d
@@ -866,6 +830,8 @@ function buildPlaceEntries(
   const entries: OutlinePlaceEntryValue[] = [];
   let used = 0;
   let complete = true;
+  // offset은 허용된 항목 수다. 앞 page가 담은 만큼 건너뛰고 이어 담는다.
+  let skipped = 0;
   for (const row of rows) {
     const document = String(row["id"]);
     if (
@@ -882,15 +848,19 @@ function buildPlaceEntries(
     if (latest === null) continue;
     const format = formatRef(deps.snapshot, latest);
     if (format === null) continue;
+    if (skipped < offset) {
+      skipped += 1;
+      continue;
+    }
     const bytes = estimatedTokens(entryCost(deps, latest));
-    if (used + bytes > budget) {
+    if (used + bytes > budget && entries.length > 0) {
       complete = false;
       break;
     }
     used += bytes;
     entries.push(placeEntry(deps, row, document, latest, format));
   }
-  return { entries, offset: entries.length, complete };
+  return { entries, complete };
 }
 
 function entryCost(
@@ -1524,11 +1494,13 @@ export function createOutlineHandlers(
         });
       if (!cursorState.ok) return cursorState as never;
       const built = buildRootEntries(deps, ctx);
+      // offset 뒤부터 예산만큼 담는다. 다음 page는 담은 만큼 이어 간다.
+      const rest = built.slice(cursorState.value.offset);
       let used = 0;
       let complete = true;
       const entries: OutlineRootEntry[] = [];
-      for (const entry of built) {
-        const cost = estimatedTokens(120);
+      for (const entry of rest) {
+        const cost = rootEntryCost(entry);
         if (used + cost > budget && entries.length > 0) {
           complete = false;
           break;
@@ -1536,11 +1508,10 @@ export function createOutlineHandlers(
         used += cost;
         entries.push(entry);
       }
-      const paged = entries.slice(cursorState.value.offset);
       return ok({
         kind: "root",
         basis_seq: deps.snapshot.as_of_seq,
-        entries: paged,
+        entries,
         as_of_seq: deps.snapshot.as_of_seq,
         next_cursor: complete ? null : encodeOutlineCursor({
           topic: "outline.root",
@@ -1549,7 +1520,7 @@ export function createOutlineHandlers(
           conditions: {},
           versions: [],
           credential: ctx.credential_ref,
-        }, cursorState.value.offset + paged.length),
+        }, cursorState.value.offset + entries.length),
         complete,
       });
     },
@@ -1580,8 +1551,14 @@ export function createOutlineHandlers(
           credential: ctx.credential_ref,
         });
       if (!cursorState.ok) return cursorState as never;
-      const result = buildPlaceEntries(deps, ctx, input.place, budget);
-      const entries = result.entries.slice(cursorState.value.offset);
+      const result = buildPlaceEntries(
+        deps,
+        ctx,
+        input.place,
+        budget,
+        cursorState.value.offset,
+      );
+      const entries = result.entries;
       const complete = result.complete;
       return ok({
         kind: "place",
@@ -1602,6 +1579,9 @@ export function createOutlineHandlers(
         }, cursorState.value.offset + entries.length),
         complete,
       });
+    },
+    context(ctx, input) {
+      return buildContextOutline(deps, ctx, input);
     },
     document(ctx, input) {
       const reference = input.reference;

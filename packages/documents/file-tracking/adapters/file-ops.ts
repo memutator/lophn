@@ -130,6 +130,14 @@ export function denoFileOps(): FileOps {
     // 실패하고, 복사로 바꾸지 않는다.
     install: (temp, target) => guarded(() => Deno.link(temp, target)),
     remove: (path) => guarded(() => Deno.remove(path)),
+    async makeDirectory(path) {
+      try {
+        await Deno.mkdir(path, { mode: 0o700 });
+      } catch (error) {
+        if (error instanceof Deno.errors.AlreadyExists) return;
+        throw faultOf(error);
+      }
+    },
     async syncDirectory(path) {
       try {
         const directory = await Deno.open(path, { read: true });

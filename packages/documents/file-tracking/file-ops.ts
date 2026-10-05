@@ -54,6 +54,8 @@ export interface FileOps {
   remove(path: string): Promise<void>;
   // 가능한 OS에서만 한다. 못 하면 던지지 않는다.
   syncDirectory(path: string): Promise<void>;
+  // 이미 있어도 된다. 부모는 만들지 않는다(working copy 폴더의 부모는 미리 있다).
+  makeDirectory(path: string): Promise<void>;
 }
 
 export type FileClock = { nowIso(): string };

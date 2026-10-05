@@ -84,6 +84,7 @@ export {
   type IpcWriter,
   markUnavailable,
   parseValidateFilesRequest,
+  PREPARATION_OPS,
   type RequestPayload,
   sendPreparationRequest,
   VALIDATE_INPUT_MAX_BYTES,

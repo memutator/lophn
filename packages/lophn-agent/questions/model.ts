@@ -1,19 +1,26 @@
 import { createHash } from "node:crypto";
 import { canonicalize } from "../../base/mod.ts";
-import type {
-  CreateQuestionInput,
-  questionList,
-  QuestionOption,
+import { err, ok, type Result } from "../../base/mod.ts";
+import {
+  type CreateQuestionInput,
+  QUESTION_BLOB_FIELDS,
+  QUESTION_BLOB_OWNER_KIND,
+  QUESTION_TEXT_PURPOSE,
+  type questionList,
+  type QuestionOption,
+  questionTextBytes,
 } from "../../contracts/lophn-agent/mod.ts";
 import {
   type BlobFieldDefinition,
   defineBlobField,
   type Output,
+  type RequestContext,
   type SchemaStep,
   type SettingMutation,
   settingMutationSchema,
   type SqlParams,
   type SqlRow,
+  type Tx,
 } from "../../contracts/platform/mod.ts";
 
 // domain-model lophn-agent/questions의 `questions` 표와 row 변환. 순수 함수와 읽기
@@ -79,22 +86,71 @@ end;`,
 ];
 
 // 질문의 본문·이유·선택지 설명·추천 설명·자유 답·닫은 이유는 blob 참조만 남는다.
-// 일반 read로 원문을 내주지 않는다(질문 답의 secret 경계는 screen.ts, R11).
-export const questionBodyFields: readonly BlobFieldDefinition[] = [
-  "prompt",
-  "reason",
-  "option_description",
-  "recommendation",
-  "answer",
-  "closed",
-].map((field) =>
+// 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람, 그 assignment의 agent, machine,
+// 글 일부는 coding_agent)는 ReadQuestionText가 판정한다(질문 답의 secret 경계는
+// screen.ts, R11).
+export const questionBodyFields: readonly BlobFieldDefinition[] = Object.values(
+  QUESTION_BLOB_FIELDS,
+).map((field) =>
   defineBlobField({
-    owner_kind: "question",
+    owner_kind: QUESTION_BLOB_OWNER_KIND,
     field,
     retention: { kind: "permanent" },
     general_read: false,
   })
 );
+
+// 글 값의 blob 증거. core가 같은 UTF-8 bytes로 준비했으므로 같은 글은 항상 같은 hash다.
+// 재전송의 지문도 값으로 정해져 준비 참조의 수명과 상관없다.
+export type TextBlob = {
+  hash: string;
+  evidence: {
+    preparation: string;
+    principal: string;
+    purpose: string;
+    hash: string;
+    size_bytes: number;
+  };
+};
+
+export function textBlob(ctx: RequestContext, text: string): TextBlob {
+  const bytes = questionTextBytes(text);
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  return {
+    hash,
+    evidence: {
+      preparation: hash,
+      principal: ctx.principal,
+      purpose: QUESTION_TEXT_PURPOSE,
+      hash,
+      size_bytes: bytes.length,
+    },
+  };
+}
+
+// 같은 (질문, field, hash)는 한 번만 등록한다. 서로 다른 선택지의 같은 설명은 한 참조다.
+export function registerTextBlobs(
+  tx: Tx,
+  question: string,
+  seq: string,
+  blobs: readonly { field: string; blob: TextBlob }[],
+): Result<void> {
+  const seen = new Set<string>();
+  for (const { field, blob } of blobs) {
+    const key = `${field}:${blob.hash}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const registered = tx.registerBlobRef({
+      owner_kind: QUESTION_BLOB_OWNER_KIND,
+      owner_key: question,
+      field,
+      registered_seq: seq,
+      source: { kind: "prepared", blob: blob.evidence },
+    });
+    if (!registered.ok) return err(registered.error);
+  }
+  return ok(undefined);
+}
 
 // 선택지의 고정 action으로 열 수 있는 owner 동작. 안쪽에서 되돌릴 수 있는 동작만이다.
 // 권한 부여·외부 효과·복원 불가 동작은 이 목록에 없으므로 생성에서 막힌다(R12).
@@ -111,13 +167,6 @@ export function actionAllowed(
     allowed.concern === action.concern && allowed.command === action.command
   );
 }
-
-function reasonHash(value: string): string {
-  return createHash("sha256").update(value, "utf8").digest("hex");
-}
-
-// 빈 글의 지문. 자유 답이 이 hash면 빈 답이다(R6).
-export const EMPTY_TEXT_BLOB = reasonHash("");
 
 type Lookup = {
   sql: { get: (query: string, params: SqlParams) => SqlRow | undefined };
@@ -266,16 +315,60 @@ export function settingChangesOf(
   return parsed;
 }
 
+// 저장되는 모양의 질문 내용. 요청의 글은 blob hash로 바뀌어 있다.
+export type StoredQuestionContent = {
+  prompt_blob: string;
+  reason_blob: string;
+  options: unknown[];
+  recommendation: unknown;
+  blobs: { field: string; blob: TextBlob }[];
+};
+
+export function storedContent(
+  ctx: RequestContext,
+  input: CreateQuestionInput,
+): StoredQuestionContent {
+  const prompt = textBlob(ctx, input.prompt);
+  const reason = textBlob(ctx, input.reason);
+  const blobs: StoredQuestionContent["blobs"] = [
+    { field: QUESTION_BLOB_FIELDS.prompt, blob: prompt },
+    { field: QUESTION_BLOB_FIELDS.reason, blob: reason },
+  ];
+  const options = input.options.map((option) => {
+    const { description, ...rest } = option;
+    const blob = textBlob(ctx, description);
+    blobs.push({ field: QUESTION_BLOB_FIELDS.optionDescription, blob });
+    return { ...rest, description_blob: blob.hash };
+  });
+  let recommendation: unknown = null;
+  if (input.recommendation !== null) {
+    const blob = textBlob(ctx, input.recommendation.explanation);
+    blobs.push({ field: QUESTION_BLOB_FIELDS.recommendation, blob });
+    recommendation = {
+      option_key: input.recommendation.option_key,
+      explanation_blob: blob.hash,
+    };
+  }
+  return {
+    prompt_blob: prompt.hash,
+    reason_blob: reason.hash,
+    options,
+    recommendation,
+    blobs,
+  };
+}
+
 export function sameContent(
   row: QuestionRow,
   input: CreateQuestionInput,
+  stored: StoredQuestionContent,
 ): boolean {
   return row.run === input.run && row.session === input.session &&
-    row.prompt_blob === input.prompt_blob &&
-    row.reason_blob === input.reason_blob &&
+    row.prompt_blob === stored.prompt_blob &&
+    row.reason_blob === stored.reason_blob &&
     row.expires_at === input.expires_at &&
-    canonicalize(JSON.parse(row.options)) === canonicalize(input.options) &&
+    canonicalize(JSON.parse(row.options)) === canonicalize(stored.options) &&
     canonicalize(
         row.recommendation === null ? null : JSON.parse(row.recommendation),
-      ) === canonicalize(input.recommendation);
+      ) === canonicalize(stored.recommendation);
 }

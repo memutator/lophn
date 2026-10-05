@@ -1,7 +1,6 @@
 export {
   actionAllowed,
   appliedOf,
-  EMPTY_TEXT_BLOB,
   QUESTION_ACTIONS,
   questionBodyFields,
   type QuestionRecord,
@@ -11,6 +10,7 @@ export {
 } from "./model.ts";
 export { createQuestionCommands } from "./commands.ts";
 export { createQuestionReads } from "./reads.ts";
+export { questionTextRead } from "./text-read.ts";
 export {
   ANSWER_REDACTION_INPUT,
   type AnswerRedactor,

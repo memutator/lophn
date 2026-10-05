@@ -12,12 +12,15 @@ import {
 import { defineDecision } from "../platform/confirmation-handle.ts";
 import { readCursorSchema } from "./run-values.ts";
 import {
+  answerInputSchema,
   answerSchema,
+  optionAnswerInputSchema,
   questionActionEvidenceSchema,
   questionClosedReasonSchema,
   questionRefSchema,
   questionStatusSchema,
 } from "./decision-values.ts";
+import { questionTextSchema } from "./question-text.ts";
 import {
   createQuestionInputSchema,
   createQuestionSubmissionOutputSchema,
@@ -33,6 +36,7 @@ const commandErrors = [
   "not_found",
   "conflict",
   "unauthorized",
+  "unavailable",
 ] as const;
 
 const readErrors = [
@@ -45,20 +49,26 @@ const readErrors = [
 
 const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 
-// 사람 결정은 답 자체다. 표시는 같은 질문의 questions/read를 읽는다.
+// 사람 결정은 답 자체다. 표시는 같은 질문의 questions/read를 읽는다. 고정 action이 있는
+// 선택지를 고르는 답만 사람 결정 확인(confirmation handle)을 요구한다. user token은 직접
+// 사람 클릭의 증거가 아니므로(platform/identity#R14) action 답은 이 route로만 받는다.
 export const QUESTION_ANSWER_DECISION = defineDecision("answer_question");
 
+// 일반 답: action이 없는 선택지 또는 자유 답. 자유 답은 글을 값으로 싣는다(Q38).
 export const answerQuestionInputSchema = questionRefSchema.extend({
-  answer: answerSchema,
-  binding_hash: sha256Schema.nullable(),
-  evidence: questionActionEvidenceSchema.nullable(),
+  answer: answerInputSchema,
+});
+
+// action 답: 고정 action이 있는 선택지를 고른다. action의 binding_hash와 evidence가 함께
+// 있어야 하고 evidence는 답한 선택지를 가리켜야 한다.
+export const answerQuestionActionInputSchema = questionRefSchema.extend({
+  answer: optionAnswerInputSchema,
+  binding_hash: sha256Schema,
+  evidence: questionActionEvidenceSchema,
 }).refine(
   (value) =>
-    (value.binding_hash === null) === (value.evidence === null) &&
-    (value.evidence === null ||
-      (value.evidence.question === value.question &&
-        value.answer.kind === "option" &&
-        value.evidence.option === value.answer.option_key)),
+    value.evidence.question === value.question &&
+    value.evidence.option === value.answer.option_key,
   { message: "action evidence must match the answered option" },
 );
 
@@ -66,7 +76,8 @@ export const deferQuestionInputSchema = questionRefSchema;
 
 export const cancelQuestionInputSchema = questionRefSchema.extend({
   closed_reason: questionClosedReasonSchema.exclude(["deferred", "expired"]),
-  closed_reason_blob: sha256Schema,
+  // 취소 이유는 글을 값으로 싣는다. core가 blob으로 준비한다(Q38).
+  closed_reason_text: questionTextSchema,
 });
 
 export const expireQuestionInputSchema = questionRefSchema;
@@ -123,8 +134,19 @@ export const answerQuestion = defineCommand({
   compare: z.strictObject({ created_seq: seqSchema }),
   actors: ["user"],
   errors: [...commandErrors],
+});
+
+export const answerQuestionAction = defineCommand({
+  resource: "questions",
+  method: "answer-action",
+  name: "AnswerQuestionAction",
+  input: answerQuestionActionInputSchema,
+  output: closedOutput,
+  compare: z.strictObject({ created_seq: seqSchema }),
+  actors: ["user"],
+  errors: [...commandErrors],
   confirmation: "required",
-  binding: ["question", "created_seq", "answer"],
+  binding: ["question", "created_seq", "answer", "binding_hash"],
   display_read: "/v1/questions/read",
 });
 
@@ -246,6 +268,39 @@ export const questionList = defineRead({
   errors: [...readErrors],
 });
 
+// 질문의 글. 사람 화면(user)과 질문한 assignment의 agent·machine·coding_agent가 읽고,
+// 범위 밖 질문은 없는 질문과 똑같이 not_found다. 글 blob 하나라도 읽을 수 없으면 일부만
+// 돌려주지 않고 unavailable이다. 답 글과 취소 이유는 사람이 남긴 글이라 coding_agent에게는
+// 싣지 않는다(coding-agent/mcp-server#R18: 사람 답은 노출하지 않는다).
+export const questionTextInputSchema = questionReadInputSchema;
+export const questionTextOutputSchema = withReadCommon(z.object({
+  question: idSchema("qst"),
+  prompt: z.string(),
+  reason: z.string(),
+  options: z.array(z.object({
+    key: z.string().min(1),
+    description: z.string(),
+  })),
+  recommendation: z.object({
+    option_key: z.string().min(1).nullable(),
+    explanation: z.string(),
+  }).nullable(),
+  // 자유 답의 글. 선택지 답·미답이면 null이다.
+  answer_text: z.string().nullable(),
+  // 취소 이유의 글. 미루기·만료·미종료면 null이다.
+  closed_reason_text: z.string().nullable(),
+}));
+
+export const questionText = defineRead({
+  resource: "questions",
+  method: "text",
+  name: "ReadQuestionText",
+  input: questionTextInputSchema,
+  output: questionTextOutputSchema,
+  actors: readActors,
+  errors: [...readErrors],
+});
+
 const questionSubject = idSchema("qst");
 
 // 선택지마다 key와, 고정 action이 platform/settings 변경이면 그 변경 목록을 싣는다.
@@ -298,12 +353,14 @@ export const questionCancelled = defineEvent("QuestionCancelled", {
 export const QUESTION_COMMANDS = [
   createQuestion,
   answerQuestion,
+  answerQuestionAction,
   deferQuestion,
   cancelQuestion,
   expireQuestion,
   applyQuestionOption,
   questionRead,
   questionList,
+  questionText,
 ] as const;
 
 export const QUESTION_EVENTS = [

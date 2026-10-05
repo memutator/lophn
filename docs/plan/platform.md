@@ -457,7 +457,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T17 notification 반응 처리기와 생성·읽음
 
-- 상태: 완료 (#177)
+- 상태: 완료 (#177) — core 조립 완료 (#286): `apps/core/platform.ts`가 command·read·schema를 등록하고 `apps/core/notifications.ts`가 machine:notifications 구독 루프로 engine을 돌린다. 숨은 event 구간의 cursor 전진과 cursor 바로 뒤 event 누락을 engine에서 고쳤다. 이어보냄: 계기 event의 소유 concern(problems·lophn-agent·coding-agent·documents·apps)이 자기 공개 정책에 `NOTIFICATIONS_PRINCIPAL`을 더해야 그 계기가 core에서 notification이 된다(지금 core에서 켜진 계기는 ApprovalRequestCreated뿐)
 - 등급: 기본
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2, R3, R4, R5, R6, R7, R8, R11
@@ -540,7 +540,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - concern: platform/approvals
 - 요구: platform/approvals#R1, R2, R6, R12, R13, R14, R17
 - 자리: packages/platform/approvals/
-- 상태: 완료 (#166)
+- 상태: 완료 (#166) — core 조립 완료 (#286): create·expire·cancel command와 get·list read를 `apps/core/platform.ts`가 제품 core에 한 번만 등록한다(route는 contract ROUTES가 소유)
 - 쓰는 contract: approval, blob, redaction
 - 내놓는 contract: approval(ApprovalAction·ApprovalEffect, binding hash, approvals get·list·create·expire·cancel route)
 - slice: agent
@@ -555,6 +555,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T22 approval 허락·거절
 
+- 상태: 진행 (#286) — 허락·거절 command와 core 조립 완료(handle 필수, 앱·agent·coding agent·machine 거부, 본 동작·생성 seq·기한 검사, 이유 없는 거절은 null). 남은 것: R16 같은 run·handoff 계보의 거절 억제(create 쪽), platform#T43의 approval 대기 복구 연결, `Tx.useApproval`(T23)
 - 등급: 기본
 - concern: platform/approvals
 - 요구: platform/approvals#R3, R4, R5, R15, R16
@@ -573,6 +574,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T23 approval 적용과 한 번 사용
 
+- 상태: 미착수 — `apply_approved_action`·`Tx.useApproval`은 아직 `unavailable`이다. 제품 core 조립(#286)에는 apply command가 없고 route는 계속 미등록으로 답한다
 - 등급: 기본
 - concern: platform/approvals
 - 요구: platform/approvals#R7, R9, R10, R11
@@ -681,7 +683,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T29 notification 계기: approval, question, assignment
 
-- 상태: 완료 (#189) — 이어보냄: QuestionCreated·AssignmentPaused 발생 작업 → lophn-agent questions·assignments 작업(lophn-agent#T9, lophn-agent#T11)
+- 상태: 완료 (#189) — core 조립 완료 (#286) — 이어보냄: QuestionCreated·AssignmentPaused 발생 작업 → lophn-agent questions·assignments 작업(lophn-agent#T9, lophn-agent#T11)
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2
@@ -1164,4 +1166,5 @@ slice별 작업 수: skeleton 10, documents 7, agent 15, context 1, apps 3, codi
 - **Q18 Tx approval 적용 연결(정함).** contracts#T22의 필수 `Tx.useApproval`과 T1 실행기가 함께 합쳐지기 전에 생긴 누락을 복구한다. T23의 정확한 action 검사·`approval_uses` 기록이 들어오기 전에는 `unavailable`로 거절하며, 성공한 사용이나 receipt를 만들지 않는다. T23에서 이 거절을 실제 구현으로 바꾼다.
 - **Q20 blob 읽기 응답 통로(추천안, T14 후속).** 256KiB 읽기 창(blob-store#R7)을 base64로 JSON control frame에 실으면 감독 control frame 한도(256KiB, contracts#T6)를 넘는다. control frame 한도는 제어 메시지의 상한을 지키려고 있는 것이고 바이트는 byte chunk frame의 몫이다(Q2, Q6). 그래서 한도를 올리지 않고 core↔I/O worker의 `blob.read` 바이트만 요청 channel의 byte chunk frame으로 옮겼다. `/v1/blobs/read`의 BlobReadResult(base64)는 그대로다.
 - **Q19 command 행·CAS 한도(lead 결정).** caller의 변경 행 수 주장과 compare의 top-level key 수는 실제 한도가 아니다. 변경 행은 `Tx.sql`·`emit`·`advanceSubscriberCursor`의 SQL마다 같은 연결 `total_changes()`의 앞뒤 차이로 event·cursor 행과 RETURNING·trigger 변경까지 실제로 세어 transaction 안에서 누적하고 1,000개 초과면 전체 rollback한다. `Tx.sql.get`·`all`로 행을 바꾸면 SQL 문장 모양과 상관없이 거절하고 rollback한다. 실행기의 `command_results` 한 행만 이 수에서 뺀다. CAS는 handler 전에 parse된 compare의 leaf 수를 중첩 object·배열까지 재귀로 세어 256개 초과면 `invalid_input`으로 거절하고 handler를 부르지 않는다. 실제 비교 횟수가 아니라 받은 비교 대상의 상한이다. 모든 owner handler에 필수 preflight member를 더하지 않고 `CommandDefinition`·`Tx` contract는 그대로 둔다. 동작이 숨고 비동기·복사에서 새어 나가는 compare proxy는 쓰지 않는다.
+- **Q22 approvals·notifications의 core 조립과 ROUTES 겹침(정함, #286).** contract ROUTES가 approvals·notifications route를 이미 갖고 있어 팀 등록(`assemble`)에 올리면 route가 겹친다. settings처럼 `apps/core/platform.ts` 한 곳에서 command·read·schema·blob field만 조립하고(`withPlatform`) route는 ROUTES만 소유한다. writer·reader Worker도 같은 module을 다시 import한다. 같은 command 이름·read 경로·schema id가 팀 등록과 겹치면 기동을 거절한다. 이유 없는 거절: contract의 ApprovalRequest가 거절에도 닫힌 이유를 요구해 R14와 부딪혔다. lead가 contract 변경을 승인해 `approvalRequestSchema`는 거절의 `closed_reason_blob` null을 허용하고(만료·취소는 필수), 이유 없는 거절은 request와 event 모두 null로 둔다. 가짜 참조(고정 hash)는 두지 않는다.
 - **Q21 TargetAuthorization이 credential 고정 조건을 target에 덮어쓴다(추천안, problems#T6에서 발견).** `createTargetAuthorizer`의 `mergeTarget`은 owner가 준 target의 app·mode·diagnostic_scope 같은 고정 조건 key를 credential의 `conditions` 값으로 덮어쓴다. 그래서 `conditions.app`이 있는 credential은 owner가 다른 앱의 행을 넘겨도 app 검사가 통과한다. problems read는 행의 그 값이 conditions와 맞는지 owner 코드에서 따로 보고, 이 PR은 platform 코드를 고치지 않았다. 추천: 덮어쓰지 말고 owner 값이 conditions와 다르면 `not_found`·`forbidden`으로 거절하게 platform이 고치고, 그때 owner의 보조 검사를 걷는다. 또 `scope.targets`에 app이 있고 `conditions.app`이 없는 credential은 read 입구에서 `target forbidden`이라 발급 때 둘을 함께 주어야 한다.

@@ -22,6 +22,17 @@ const questionInput = {
   id: question,
   run,
   session: null,
+  prompt: "Which one?",
+  reason: "Both are fine.",
+  options: [],
+  recommendation: null,
+  expires_at: null,
+};
+// 요청은 글을 값으로 싣고 대기 결과는 저장된 질문(blob hash)을 돌려준다(Q38).
+const storedQuestion = {
+  id: question,
+  run,
+  session: null,
   prompt_blob: hash,
   reason_blob: hash,
   options: [],
@@ -112,7 +123,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R1: WaitRun carries exact ne
     request: {
       ...request,
       future: true,
-      input: { ...questionInput, future: true },
+      input: { ...storedQuestion, future: true },
     },
     future: true,
   };

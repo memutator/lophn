@@ -100,7 +100,8 @@ export const approvalRequestSchema = z.object({
   (value) =>
     value.status === "pending" || value.status === "granted"
       ? value.closed_reason_blob === null
-      : value.closed_reason_blob !== null,
+      // 거절은 이유 없이 할 수 있다(platform/approvals#R14). 만료·취소는 이유가 필수다.
+      : value.status === "rejected" || value.closed_reason_blob !== null,
   { message: "closed reason presence does not match status" },
 ).refine(
   (value) => (value.status === "pending") === (value.closed_seq === null),

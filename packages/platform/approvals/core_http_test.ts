@@ -1,22 +1,16 @@
 // 실제 core(temp LOPHN_HOME)에서 approval 등록이 기동에 붙는지 확인한다.
 // 사람 데이터 root는 열지 않는다. harness가 temp dir를 LOPHN_HOME으로 준다.
-// approval의 HTTP route는 contract ROUTES에 이미 있다. 팀이 같은 route를 더하면
-// core 기동이 route 겹침으로 거절하므로, 여기서는 schema만 등록하고 제품 command·read의
-// HTTP 동작은 ledger harness(requests_test.ts)가 본다.
+// approval의 HTTP route는 contract ROUTES가 소유한다. 제품 core는 apps/core/platform.ts가
+// schema·command·read를 한 번만 조립하므로 팀 등록 없이도 표가 붙는다. HTTP 동작은
+// apps/core/platform_test.ts가 본다.
 
 import { assert, assertEquals } from "@std/assert";
 import { createCoreHarness } from "../../../apps/core/testing/core.ts";
-import { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
 
 const NOW = Date.UTC(2026, 9, 5);
 
-Deno.test("platform/approvals#R1: approval schema가 실제 core의 temp ledger에 붙는다", async () => {
-  const opened = await createCoreHarness({
-    teams: [{
-      createCoreRegistration: () => ({ schemaSteps: APPROVAL_SCHEMA_STEPS }),
-    }],
-    nowMs: NOW,
-  });
+Deno.test("platform/approvals#R1: approval schema가 team 등록 없이 실제 core의 temp ledger에 붙는다", async () => {
+  const opened = await createCoreHarness({ teams: [], nowMs: NOW });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   try {

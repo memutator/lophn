@@ -959,6 +959,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T31 adapter: Hermes·pi·OpenClaw
 
+- 상태: 진행 (#224) — 남은 것: doctor가 깨진 Hermes YAML을 loading 실패 이유로 내는지 확인 → T32(loading 검사 harnesses#R10)
 - 등급: 기본
 - concern: coding-agent/harnesses, coding-agent/guides, coding-agent/cli,
   coding-agent/connection

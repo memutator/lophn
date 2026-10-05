@@ -138,7 +138,17 @@ function directSaveOfLinked(
   return source === null || source.kind === "app";
 }
 
-export function createVersionCommands(): {
+// 첫 저장이 같은 tx 안에서 가족 가입을 부르는 seam. 구현은 documents/series가 갖고
+// core 등록이 주입한다(versions는 series를 import하지 않는다). 거절은 저장 전체의 거절이다.
+export type SeriesJoin = (
+  tx: Tx,
+  ctx: RequestContext,
+  document: Document,
+) => Result<void>;
+
+export function createVersionCommands(
+  options: { joinSeries?: SeriesJoin } = {},
+): {
   save: CommandDefinition<typeof documentSave>;
   update: CommandDefinition<typeof documentUpdate>;
   archive: CommandDefinition<typeof documentArchive>;
@@ -159,7 +169,9 @@ export function createVersionCommands(): {
         }
         const existing = loadDocument(tx.sql, input.document);
         if (!existing.ok) return existing;
-        if (existing.value === null) return createDocument(tx, ctx, input);
+        if (existing.value === null) {
+          return createDocument(tx, ctx, input, options.joinSeries);
+        }
         return saveVersion(tx, ctx, existing.value, input);
       },
     },
@@ -216,6 +228,7 @@ function createDocument(
   tx: Tx,
   ctx: RequestContext,
   prepared: PreparedVersion,
+  joinSeries: SeriesJoin | undefined,
 ): Result<SaveResult> {
   if (prepared.base_version !== null || prepared.metadata === undefined) {
     return rejected("invalid_input", "new document needs metadata");
@@ -269,6 +282,10 @@ function createDocument(
   insertDocument(tx, document);
   const stored = storeVersion(tx, ctx, version.value, prepared);
   if (!stored.ok) return stored;
+  if (joinSeries !== undefined) {
+    const joined = joinSeries(tx, ctx, document);
+    if (!joined.ok) return joined;
+  }
   return ok(saveResult(document, version.value, savedSeq, prepared));
 }
 

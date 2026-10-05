@@ -2,6 +2,7 @@ export { contentUnchanged, filesHash, nextVersionNumber } from "./model.ts";
 export { versionsSchemaSteps } from "./schema.ts";
 export {
   createVersionCommands,
+  type SeriesJoin,
   versionFileField,
   versionFilesField,
 } from "./commands.ts";

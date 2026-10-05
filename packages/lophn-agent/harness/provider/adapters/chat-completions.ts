@@ -159,7 +159,12 @@ export type ChatStreamResult = {
   sawDone: boolean;
   // 잘못된 JSON·모르는 꼴을 만났다. 관측 기록이다(T13과 같은 근원).
   sawUnknownEvent: boolean;
+  // 범위 밖 tool call index를 만났다. 일부 call만 남은 것이라 완성이 아니다.
+  sawBadToolIndex: boolean;
 };
+
+// 한 응답의 tool call slot 상한. 범위 밖 index로 거대한 희소 배열을 만들지 않는다.
+export const MAX_CHAT_TOOL_CALLS = 128;
 
 export function createChatStreamResult(): ChatStreamResult {
   return {
@@ -170,6 +175,7 @@ export function createChatStreamResult(): ChatStreamResult {
     streamEndedWithoutFinish: false,
     sawDone: false,
     sawUnknownEvent: false,
+    sawBadToolIndex: false,
   };
 }
 
@@ -185,7 +191,14 @@ function applyDeltaToolCalls(
       id?: unknown;
       function?: { name?: unknown; arguments?: unknown };
     };
-    if (typeof piece.index !== "number") continue;
+    if (
+      !Number.isInteger(piece.index) || (piece.index as number) < 0 ||
+      (piece.index as number) >= MAX_CHAT_TOOL_CALLS
+    ) {
+      out.sawUnknownEvent = true;
+      out.sawBadToolIndex = true;
+      continue;
+    }
     const slot = out.toolCalls[piece.index] ?? { id: "", name: "", args: "" };
     out.toolCalls[piece.index] = slot;
     if (typeof piece.id === "string" && piece.id.length > 0) {
@@ -339,7 +352,9 @@ export function judgeChat(out: ChatStreamResult): Verdict {
     return { kind: "partial" };
   }
   if (out.finishReason === "tool_calls") {
-    if (out.toolCalls.length === 0) return { kind: "partial" };
+    if (out.toolCalls.length === 0 || out.sawBadToolIndex) {
+      return { kind: "partial" };
+    }
     for (const call of out.toolCalls) {
       // toolCalls는 index로 찬 희소 배열이다. content 조각이 없는 index는 구멍이다.
       if (call === undefined) return { kind: "partial" };

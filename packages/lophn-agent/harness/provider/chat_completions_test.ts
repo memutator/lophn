@@ -703,3 +703,39 @@ Deno.test("lophn-agent/harness/provider#R25: reset으로 끊긴 stream은 partia
     await provider.close();
   }
 });
+
+Deno.test("lophn-agent/harness/provider#R25: 범위 밖 tool call index는 slot을 만들지 않고 완성이 아니다", () => {
+  const frame = (body: unknown): SseFrame => ({
+    event: "message",
+    data: JSON.stringify(body),
+  });
+  for (const index of [1_000_000_000, -1, 0.5]) {
+    const out = collect(createChatStreamResult(), [
+      frame({
+        choices: [{
+          delta: {
+            tool_calls: [{
+              index: 0,
+              id: "a",
+              function: { name: "x", arguments: "{}" },
+            }],
+          },
+        }],
+      }),
+      frame({
+        choices: [{
+          delta: {
+            tool_calls: [{
+              index,
+              id: "b",
+              function: { name: "y", arguments: "{}" },
+            }],
+          },
+        }],
+      }),
+      frame({ choices: [{ delta: {}, finish_reason: "tool_calls" }] }),
+    ]);
+    assertEquals(out.toolCalls.length, 1);
+    assertEquals(judgeChat(out).kind, "partial");
+  }
+});

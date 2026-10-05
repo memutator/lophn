@@ -38,8 +38,7 @@ export const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
         "documents/worker",
         {
           principal: "machine",
-          // document_file: 관측한 원문 한 파일(document.prepare 입력의 content).
-          // document_files: 정규화한 파일 목록.
+          // 원본 파일 내용(document_file)과 파일 목록(document_files)이다.
           purposes: new Map([
             ["document_file", BLOB_PREPARE_MAX_BYTES],
             ["document_files", BLOB_PREPARE_MAX_BYTES],

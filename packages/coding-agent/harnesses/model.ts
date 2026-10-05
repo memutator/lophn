@@ -84,9 +84,30 @@ export type InstructionSpec = {
   // 관리 marker다. marker 없는 기존 파일은 무변경이다(domain-model).
   marker: string;
   file: string;
+  // 정본 AGENTS.md를 읽게 하는 방식이다. canonical은 제품이 AGENTS.md를 직접
+  // 읽어 lophn이 고칠 파일이 없는 것이고, region은 지침 파일의 관리 구간이며,
+  // json_member는 설정 JSON의 기존 목록에 원소 하나를 더하는 것이다(guides#R13).
+  // 없으면 canonical이다.
+  mode?: "canonical" | "region" | "json_member";
+  // region이 쓰는 관리 구간 본문이다(Claude `@AGENTS.md`).
+  body?: string;
+  // json_member의 목록 key와 원소다(Gemini `context.fileName`, `AGENTS.md`).
+  json_key?: string;
+  member?: string;
+  // 정본보다 가까이서 이기는 override 파일이다(Codex `AGENTS.override.md`).
+  override_file?: string;
 };
 
 export type HookSpec = {
+  // 제품별 event 이름이다(Claude `SessionStart`, Gemini `BeforeTool` 등). 한
+  // 목록을 여러 제품에 재사용하지 않고 제품 catalog가 version별로 둔다(R11).
+  event: string;
+  // hook을 쓰는 설정 파일이다. config_targets(MCP)와 따로 둔다(R11).
+  target: {
+    scope_kind: "user" | "app";
+    root_resolver: string;
+    path: string;
+  };
   purpose: "summary" | "status";
   // config fragment·plugin·extension 방식이다(domain-model).
   method: "config_fragment" | "plugin" | "extension";
@@ -94,6 +115,8 @@ export type HookSpec = {
   // event 최소 version이다. 미확인 version은 conservative subset만 쓴다
   // (harnesses#R11).
   minimum_version: string | null;
+  // hook timeout 단위다. Claude는 초, Gemini는 ms다. 없으면 초다.
+  timeout_unit?: "s" | "ms";
   capability: CapabilityState;
 };
 
@@ -112,6 +135,18 @@ export type ExecutionSpec = {
 
 // 일곱 제품의 배포 catalog 값이다(domain-model HarnessDefinition, R1). 값이며
 // entity가 아니라 stable 제품 key가 ID 역할을 한다.
+// 제품이 skill을 읽는 발견 root다(guides#R5). 앞일수록 같은 이름에서 이긴다
+// (조사 skills-and-guides의 우선순위). 설치 root와 다른 root의 동명 skill은
+// 가림·가려짐 conflict의 근거다.
+export type SkillDiscoverySpec = {
+  scope_kind: "user" | "app";
+  root_resolver: string;
+  path: string;
+};
+
+// MCP 항목 모양이다. 제품마다 command·args·env 표기가 다르다(domain-model 표).
+export type McpShape = "command_args_env" | "opencode_local";
+
 export type HarnessDefinition = {
   harness_id: HarnessId;
   label: string;
@@ -131,6 +166,13 @@ export type HarnessDefinition = {
   auth_probe: ProbeSeat;
   config_targets: readonly ConfigTargetSpec[];
   skill_targets: readonly SkillTargetSpec[];
+  // 제품이 실제로 읽는 skill root, 우선순위가 높은 것이 앞이다. 없으면
+  // skill_targets만 읽는 제품이다.
+  skill_discovery?: readonly SkillDiscoverySpec[];
+  // 제품의 skill trust·consent 안내다. lophn이 자동으로 넓히지 않는다.
+  skill_trust_note?: string;
+  // 없으면 command_args_env다.
+  mcp_shape?: McpShape;
   instructions: readonly InstructionSpec[];
   hooks: readonly HookSpec[];
   execution: ExecutionSpec;

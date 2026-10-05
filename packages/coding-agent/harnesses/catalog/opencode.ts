@@ -80,8 +80,30 @@ const opencode: HarnessDefinition = {
     { scope_kind: "app", root_resolver: "project", path: ".opencode/skills" },
   ],
   // `AGENTS.md`, 기존 rules와 config precedence 보존이다(domain-model 표).
+  // `.claude/skills`와 `.agents/skills`도 읽고 같은 이름은 warning 뒤 하나가
+  // 덮는다(조사 skills-and-guides). 순서는 앞이 우선인 추정이고 어느 쪽이든
+  // 동명은 conflict다.
+  skill_discovery: [
+    { scope_kind: "app", root_resolver: "project", path: ".opencode/skills" },
+    { scope_kind: "app", root_resolver: "project", path: ".agents/skills" },
+    { scope_kind: "app", root_resolver: "project", path: ".claude/skills" },
+    {
+      scope_kind: "user",
+      root_resolver: "xdg_config_opencode",
+      path: "skills",
+    },
+    { scope_kind: "user", root_resolver: "home", path: ".agents/skills" },
+    { scope_kind: "user", root_resolver: "home", path: ".claude/skills" },
+  ],
+  mcp_shape: "opencode_local",
+  // AGENTS.md가 있으면 CLAUDE.md는 읽지 않으므로 lophn이 고칠 지침 파일은 없다.
+  // 기존 rules·config precedence는 건드리지 않는다.
   instructions: [
-    { marker: "lophn-managed-instruction", file: "AGENTS.md" },
+    {
+      marker: "lophn-managed-instruction",
+      file: "AGENTS.md",
+      mode: "canonical",
+    },
   ],
   // OpenCode plugin은 config `plugin` 배열이다(조사 9.5). lophn 상태 hook의
   // 검증 version이 없다.

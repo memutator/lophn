@@ -213,6 +213,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음(C-test실행의 app_test kind)
 - slice: apps
 - 선행: problems#T1, problems#T3, problems#T5, problems#T8, apps#T2, apps#T6, apps#T7
+- 상태: 완료 (#247) — 이어보냄: test 자식→runner의 harness frame 비공개 통로, 실제 AppDriver(entrypoint probe·command 호출·broker), 판정을 test-runner와 core launch spec을 거쳐 RecordVerification까지 잇기 → T12, view_exception·feedback 검사의 화면 host → T11
 - 완료:
   - 플랫폼 필수 검사 code는 runner의 불변 설치 자료에서 읽고, bundle 안의 검사 삭제·수정은 실패한다; bundle이 바뀌면 새 hash의 새 app test가 필요하다(tests#R6)
   - 선언·blueprint/handler 일치·고정 SDK·정적/동적 code 사용·SDK 접수(completion을 기다려 실제 접수 확인)·process exception·redaction·permission 거절을 검사하고 각 경로를 하나씩 뺀 fixture는 통과하지 못한다(tests#R7, problem-codes#R8)
@@ -249,6 +250,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: problems#T9, contracts#T38, shell#T46
+- T9에서 넘어온 것: view_exception·feedback 검사는 생성·판정되지만 화면 host가 없어 fail로 남는다(#247)
 - 완료:
   - 화면 있는 bundle은 test view에서 view `error`·`unhandledrejection`·루트 render 오류가 test 진단 scope로 접수되는지와 깨진 view의 feedback 경로를 검사한다(tests#R7, problem-codes#R8, reporting#R5 view 쪽)
   - 화면 검사를 띄울 수 없으면 화면 있는 app test는 `pass`가 아니다; 화면 없는 bundle만 이유 있는 `not_applicable`
@@ -266,6 +268,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: problems#T10, problems#T11, apps#T23, apps#T24, apps#T25, apps#T26
+- T9에서 넘어온 것: harness frame의 runner 쪽 비공개 통로(지금은 자식 scratch의 frames.jsonl), 실제 AppDriver, app-test 계획·판정을 test-runner·core launch spec·RecordVerification까지 연결(#247)
 - 완료:
   - 3종 fixture의 app test가 각각 기간·시간대·coverage, blob·충돌, 효과 불확실성 관측을 남기고 pass한다; 새 제품 앱 등록 약속으로 다루지 않는다(R18)
   - 깨지는 앱의 app test가 pass하고(선언 실패 경로·exception·view 오류 경로가 실제로 보고됨), testdata 변형(실패 경로 test 없음, SDK 직접 호출 test만, root 오류 경계 없음, read의 업무 쓰기, confirm automation)은 각각 fail

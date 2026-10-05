@@ -190,7 +190,9 @@ async function pathEscapes(root: string, path: string): Promise<boolean> {
     const real = await Deno.realPath(cursor);
     const bound = realRoot.endsWith("/") ? realRoot : `${realRoot}/`;
     return real !== realRoot && !real.startsWith(bound);
-  } catch {
+  } catch (error) {
+    // 아직 없는 root(처음 설치하는 `~/.codex`)에는 따라갈 symlink가 없다.
+    if (error instanceof Deno.errors.NotFound) return false;
     return true;
   }
 }

@@ -28,13 +28,20 @@ export type TransportRequest = {
   method: string;
   headers: Record<string, string>;
   body: string;
+  // 사람 취소와 시도 기한이다. 전송과 body 읽기를 함께 끊는다.
+  signal?: AbortSignal;
 };
 
+// 응답 body는 둘 중 하나다. 성공 SSE는 stream으로 흘려 parser가 읽고, 그 밖의
+// 응답(오류·JSON batch)은 크기 상한 안에서 한 덩어리 json 문자열로 읽는다.
+// 두 길은 동시에 쓰지 않는다.
 export type TransportResponse = {
   status: number;
   headers: Headers;
   // SSE body 전체. 크기 상한과 frame 파싱은 parser가 맡는다.
   stream: ReadableStream<Uint8Array> | null;
+  // stream이 아닌 응답의 상한 안 본문. 분류에 쓰고 보존하지 않는다.
+  json: string | null;
 };
 
 export type Transport = (

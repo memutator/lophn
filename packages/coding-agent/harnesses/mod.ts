@@ -58,3 +58,23 @@ export {
   RECEIPT_SCHEMA_VERSION,
 } from "./integration/receipt.ts";
 export { filePort, storeOf } from "./integration/journal.ts";
+export {
+  type BuildInput,
+  buildResources,
+  HOOK_OWNER_TOKEN,
+} from "./builder.ts";
+export type { BuildOutput, RootGroup } from "./builder.ts";
+export {
+  type LaunchInputs,
+  launchOf,
+  mcpEntryOf,
+  type McpLaunch,
+} from "./launch.ts";
+export {
+  skillGuidanceOf,
+  type SkillRootView,
+  type SkillShadow,
+  skillShadowsOf,
+} from "./skills.ts";
+export { type RootInputs, rootOf, versionAtLeast } from "./resolvers.ts";
+export { setOwned as setTomlOwned } from "./adapters/toml.ts";

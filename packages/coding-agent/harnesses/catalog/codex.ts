@@ -77,8 +77,26 @@ const codex: HarnessDefinition = {
     { scope_kind: "app", root_resolver: "project", path: ".agents/skills" },
   ],
   // `AGENTS.md`와 가까운 `AGENTS.override.md` 검사다(domain-model 표).
+  // repo는 `.codex/skills`와 `.agents/skills`, user는 `~/.agents/skills`와
+  // deprecated `$CODEX_HOME/skills`다. 우선순위는 조사에서 [미확인]이라 repo가
+  // user보다 앞인 일반 규칙을 따르고, 같은 이름은 어느 쪽이든 conflict다.
+  skill_discovery: [
+    { scope_kind: "app", root_resolver: "project", path: ".agents/skills" },
+    { scope_kind: "app", root_resolver: "project", path: ".codex/skills" },
+    { scope_kind: "user", root_resolver: "home", path: ".agents/skills" },
+    { scope_kind: "user", root_resolver: "codex_home", path: "skills" },
+  ],
+  skill_trust_note:
+    "project skill과 hook은 Codex의 project trust를 거친다. lophn은 trust level을 바꾸지 않는다",
+  // 정본 AGENTS.md를 Codex가 직접 읽는다. 가까운 AGENTS.override.md는 검사만
+  // 한다.
   instructions: [
-    { marker: "lophn-managed-instruction", file: "AGENTS.md" },
+    {
+      marker: "lophn-managed-instruction",
+      file: "AGENTS.md",
+      mode: "canonical",
+      override_file: "AGENTS.override.md",
+    },
   ],
   // Codex hook event는 CODEX_HOME hooks다(조사 9.5). lophn은 상태 hook을
   // 이번 범위에서 검증하지 않았다(조사 3.1).

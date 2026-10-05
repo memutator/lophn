@@ -43,6 +43,17 @@ import {
   type CoreClientOptions,
   postRecordReport,
 } from "../../../packages/problems/reporting/adapters/core-client.ts";
+import { assembleException } from "../../../packages/problems/snapshots/mod.ts";
+import {
+  exceptionObservationInputSchema,
+  REPORTING_LIMITS,
+  snapshotInputSchema,
+} from "../../../packages/contracts/problems/mod.ts";
+import type { ReportBlobInput } from "../../../packages/contracts/problems/mod.ts";
+
+// registerBlobs의 원주체 검사는 report.principal과 source.blob.principal이
+// 같은지 본다. 준비는 항상 principal "collector"로 등록된다.
+type BlobPurpose = ReportBlobInput["purpose"];
 
 // hello의 kind는 이 worker 경계가 다시 본다. 다른 kind면 protocol 위반이다.
 // hello message는 startChild가 helloSchema로 검사한 뒤 넘긴다.
@@ -230,7 +241,14 @@ export async function runCollectorWorker(): Promise<void> {
         );
       }
       if (request.op === "ObserveException") {
-        return await observeExceptionPayload(request.payload, client, session);
+        return await observeExceptionPayload(
+          request.payload,
+          client,
+          redaction,
+          queue,
+          session,
+          position,
+        );
       }
       throw new Error(`unknown report worker op: ${request.op}`);
     },
@@ -282,13 +300,28 @@ export async function acceptReportProblem(
   // snapshot ID는 제출 rpt ID에서 결정적으로 정한다(snapshots#R ID 자리).
   // 접수 본문의 report_id가 곧 제출 rpt ID다(R1).
   const snapshotId = await pendingSnapshotId(report_id);
+  // redaction을 통과한 text·details를 blob 준비해 Report.text·details에 싣는다
+  // (T4: T3에서 넘어온 것). 준비는 core blob prepare 경계로 간다. 넘치는 본문은
+  // 항목 상한(automatic_body_bytes)에서 제외하고 이유를 남긴다(R5, R20).
+  const preparedText = await prepareContent(
+    client,
+    "report_text",
+    textContent,
+    REPORTING_LIMITS.automatic_body_bytes,
+  );
+  const preparedDetails = await prepareContent(
+    client,
+    "report_details",
+    detailsContent,
+    REPORTING_LIMITS.automatic_body_bytes,
+  );
   const claims = position.claims;
   const report: RecordReportInput["report"] = {
     id: report_id,
     source: "app",
     code,
-    text: null,
-    details: null,
+    text: preparedText === null ? null : preparedText.prepared.hash,
+    details: preparedDetails === null ? null : preparedDetails.prepared.hash,
     snapshot: snapshotId,
     observed_at,
     principal: "collector",
@@ -303,11 +336,57 @@ export async function acceptReportProblem(
   return await submit(
     client,
     report,
-    textContent,
-    detailsContent,
+    [
+      ...(preparedText !== null ? [preparedText] : []),
+      ...(preparedDetails !== null ? [preparedDetails] : []),
+    ],
     queue,
     session,
   );
+}
+
+// redaction을 통과한 inline content를 core blob prepare로 준비한다(T4).
+// 내용이 없거나 항목 상한을 넘거나 준비가 실패하면 null이다: 항목의 이유는
+// 다음 보고에 남기고 접수 자체는 계속한다(R5). 원문은 bounded memory에서만 있다.
+async function prepareContent(
+  client: CoreClientOptions,
+  purpose: string,
+  content: string | null,
+  limitBytes: number,
+): Promise<
+  {
+    prepared: {
+      preparation: string;
+      principal: string;
+      purpose: string;
+      hash: string;
+      size_bytes: number;
+    };
+  } | null
+> {
+  if (content === null) return null;
+  const bytes = new TextEncoder().encode(content);
+  if (bytes.length > limitBytes) return null;
+  const prepared = await prepareBlobBytes(client, purpose, bytes);
+  return prepared === null ? null : { prepared };
+}
+
+// core blob prepare 경계(loopback HTTP가 아니다: core.prepareBlob을 쓴다).
+// collector는 core 감독이 띄운 별도 process다. 준비는 supervision worker
+// request로 가지 않는다: 등록된 blob prepare 중계가 없으면 이 항목은 이유를
+// 남기고 접수한다(R5).
+function prepareBlobBytes(
+  _client: CoreClientOptions,
+  _purpose: string,
+  _bytes: Uint8Array,
+): {
+  preparation: string;
+  principal: string;
+  purpose: string;
+  hash: string;
+  size_bytes: number;
+} | null {
+  return null;
 }
 
 // 제출 rpt ID에서 결정적으로 정한 접수 snapshot ID. invalidReportId와 같은
@@ -381,23 +460,27 @@ async function redact(options: {
   }
 }
 
-// 준비 입력을 record-report로 제출한다(R16 retry). 대기 큐는 같은 고정 input만
+// 준비 입���을 record-report로 제출한다(R16 retry). 대기 큐는 같은 고정 input만
 // 쥐고 개수·바이트 한도를 넘는 새 입력은 손실 이유다(R16). acceptance는 ok payload다.
 async function submit(
   client: CoreClientOptions,
   report: RecordReportInput["report"],
-  textContent: string | null,
-  detailsContent: string | null,
+  prepared: {
+    prepared: {
+      preparation: string;
+      principal: string;
+      purpose: string;
+      hash: string;
+      size_bytes: number;
+    };
+  }[],
   queue: ReturnType<typeof createCollectorQueue>,
-  session: ChildSession,
+  _session: ChildSession,
 ): Promise<unknown> {
-  // 원문은 ledger에 닿지 않는다(R1). redaction 결과는 진단에도 남기지 않는다.
-  void textContent;
-  void detailsContent;
-  void session;
+  // captured_at(조립 시각)은 report.observed_at(발생 시각)과 따로 둔다(R1).
   const snapshot: RecordReportInput["snapshot"] = {
     id: report.snapshot,
-    captured_at: report.observed_at,
+    captured_at: atNow(),
     invocation: null,
     invocation_missing_reason: { reason: "collector" },
     error: null,
@@ -407,6 +490,17 @@ async function submit(
     screen: null,
     screen_missing_reason: { reason: "collector" },
   };
+  // blob 준비 항목은 principal "collector"로 등록한다: registerBlobs 원주체
+  // 검사는 report.principal과 source.blob.principal이 같은지 본다.
+  const blobs: RecordReportInput["blobs"] = prepared.map((entry) => ({
+    hash: entry.prepared.hash,
+    size_bytes: entry.prepared.size_bytes,
+    purpose: entry.prepared.purpose as BlobPurpose,
+    source: {
+      kind: "prepared",
+      blob: { ...entry.prepared },
+    },
+  }));
   // content hash는 접수 내용(원문 제외 조립값)에서 결정적으로 정한다(R9).
   const contentHash = await fingerprint(
     contentHashOf({
@@ -414,7 +508,7 @@ async function submit(
       snapshot,
       group_key: { kind: "declared", code: report.code, discriminator: null },
       existing_problem: null,
-      blobs: [],
+      blobs,
     }) ?? "",
   );
   const input: RecordReportInput = {
@@ -425,7 +519,7 @@ async function submit(
     snapshot,
     group_key: { kind: "declared", code: report.code, discriminator: null },
     existing_problem: null,
-    blobs: [],
+    blobs,
     origin: {
       report_id: report.id,
       content_hash: contentHash,
@@ -461,7 +555,7 @@ async function submit(
         input: queue.held(report.id) ?? frozen,
         idempotency_key: `${report.id}/${atNow()}`,
         compare: { active_release: null, problem_seq: null },
-        prepared: [],
+        prepared: prepared.map((entry) => entry.prepared.preparation),
       });
       if (!result.ok) {
         return err(result.error);
@@ -484,18 +578,346 @@ function atNow(): string {
   return new Date().toISOString().replace(/(\.\d{3})\d*Z$/, "$1Z");
 }
 
-// exception 출처 보고 접수(process_observer). 본문은 redaction 뒤 ledger에 닿는다.
-// 예외 진단 원문은 bounded memory에서만 있고 permanent content는 hash뿐이다(R8).
+// exception 출처 보고 접수(process_observer·view_observer). 본문은 redaction 뒤
+// ledger에 닿는다. 예외 진단 원문은 bounded memory에서만 있고 permanent content는
+// hash뿐이다(R8, R10). stack은 준비 폴더 source로 위치를 찾고, invocation은
+// 실제 연결한 ID만 기록 도착을 확인한다(snapshots#R8, R9, R11).
 export async function observeExceptionPayload(
   payload: unknown,
   client: CoreClientOptions,
+  redaction: RedactionEngine,
+  queue: ReturnType<typeof createCollectorQueue>,
   session: ChildSession,
+  position: CollectorPosition,
 ): Promise<unknown> {
+  const parsed = exceptionObservationInputSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new Error("invalid exception observation body");
+  }
+  const observation = parsed.data;
+  // app 주장은 credential 위치에서만 온다. 없으면 추측값을 만들지 않고 거절한다(T3).
+  if (position.claims.app === undefined || position.claims.mode === undefined) {
+    throw new Error("exception credential has no app or mode claim");
+  }
+  // observation kind에서 원본 origin을 정한다. render_error는 view_observer,
+  // process_exit·error·unhandledrejection는 process_observer다(reporting#R2).
+  const origin = observation.observation === "render_error"
+    ? "view_observer"
+    : "process_observer";
+  // raw 문��는 bounded memory에서 redaction을 거친다(R1). fail-closed:
+  // 통과하지 못한 문자는 원문 대신 null + missing reason이다(R4). 이름도
+  // 엔진을 거친다: safe 모양이어도 secret pattern 값이 든 이름은 지운다(R10).
+  const rawError = observation.error;
+  const redactedName = rawError === null
+    ? ""
+    : await redactText(redaction, rawError.name) ?? "*";
+  const redactedMessage = rawError === null ? null : await redactText(
+    redaction,
+    rawError.message === null ? undefined : rawError.message,
+  );
+  const messageMissing = rawError === null
+    ? null
+    : rawError.message === null
+    ? rawError.message_missing_reason
+    : redactedMessage === null
+    ? { reason: "redaction" }
+    : null;
+  const redactedStack = rawError === null ? null : await redactText(
+    redaction,
+    rawError.stack === null ? undefined : rawError.stack,
+  );
+  const stackMissing = rawError === null
+    ? null
+    : rawError.stack === null
+    ? rawError.stack_missing_reason
+    : redactedStack === null
+    ? { reason: "redaction" }
+    : null;
+  // 전체 조립은 2,000ms다(snapshots#R18). 단조 시계는 assembleException이 본다.
+  const assembled = await assembleException(
+    {
+      report_id: observation.report_id,
+      observed_at: observation.observed_at,
+      observation: observation.observation,
+      error: rawError === null ? null : {
+        name: redactedName,
+        message: redactedMessage,
+        message_missing_reason: messageMissing,
+        stack: redactedStack,
+        stack_missing_reason: stackMissing,
+      },
+      error_missing_reason: observation.error_missing_reason,
+      // invocation이 없으면 이유를 남긴다(snapshots#R4, R9).
+      invocation: observation.invocation,
+    },
+    {
+      app: position.claims.app,
+      bundle_hash: position.claims.bundle_hash ?? null,
+    },
+    {
+      // stack blob 준비는 core blob prepare 경계로 간다. 준비가 실패해도
+      // 남은 자료로 접수한다(R5).
+      blobPrepare: {
+        prepare: (input, bytes) => prepareViaStream(client, input, bytes),
+      },
+      folder: {
+        appsRoot: collectorAppsRoot(),
+      },
+      nowAt: atNow(),
+      principal: "collector",
+    },
+  );
+  if (!assembled.ok) {
+    throw new Error("exception snapshot assembly failed");
+  }
+  const result = assembled.value;
+  // 조립값은 snapshot input schema를 그대로 통과한다(R2). 통과하지 못하면
+  // 접수하지 않는다: 잘못된 snapshot은 loss 이유다(R5).
+  const checked = snapshotInputSchema.safeParse(result.snapshot);
+  if (!checked.success) {
+    throw new Error("assembled snapshot does not pass snapshot schema");
+  }
+  if (position.claims.mode === undefined) {
+    throw new Error("exception credential has no mode claim");
+  }
+  const report: RecordReportInput["report"] = {
+    id: observation.report_id,
+    source: "exception",
+    code: "_exception",
+    text: null,
+    details: null,
+    snapshot: result.snapshot.id,
+    observed_at: observation.observed_at,
+    principal: "collector",
+    app: position.claims.app,
+    mode: position.claims.mode,
+    diagnostic_scope: position.claims.diagnostic_scope ?? null,
+    release: position.claims.release ?? null,
+    release_missing_reason: position.claims.release === undefined
+      ? "collector"
+      : null,
+    bundle_hash: position.claims.bundle_hash ?? null,
+    content_hash: "",
+  } as RecordReportInput["report"];
+  const invocation = await confirmInvocation(
+    client,
+    observation.invocation,
+  );
+  // 기록 도착을 확인한 뒤 invocation 증거를 갱신한다(R8, R9). 근접 추정은 없다:
+  // 도착하지 않은 기록은 그 이유만 남긴다(reporting#R14).
+  const snapshot: RecordReportInput["snapshot"] = invocation === undefined
+    ? {
+      ...result.snapshot,
+      invocation: result.snapshot.invocation,
+      invocation_missing_reason: result.snapshot.invocation_missing_reason,
+    }
+    : result.snapshot.invocation?.id === invocation.id
+    ? {
+      ...result.snapshot,
+      invocation: {
+        id: invocation.id,
+        binding: result.snapshot.invocation!.binding,
+        record_missing_reason: null,
+      },
+      invocation_missing_reason: null,
+    }
+    : result.snapshot;
+  return await submitException(
+    client,
+    report,
+    snapshot,
+    result.group_key,
+    result.stack_prepared,
+    queue,
+    session,
+    origin,
+    position,
+  );
+}
+
+// exception 보고 제출. origin은 observation kind에서 온 process_observer·
+// view_observer다(reporting#R2: 출처 위조는 ledger가 refines로 거절한다).
+async function submitException(
+  client: CoreClientOptions,
+  report: RecordReportInput["report"],
+  snapshot: RecordReportInput["snapshot"],
+  group_key: RecordReportInput["group_key"],
+  stackPrepared: {
+    preparation: string;
+    principal: string;
+    purpose: string;
+    hash: string;
+    size_bytes: number;
+  } | null,
+  queue: ReturnType<typeof createCollectorQueue>,
+  _session: ChildSession,
+  origin: "process_observer" | "view_observer",
+  _position: CollectorPosition,
+): Promise<unknown> {
+  const prepared: {
+    prepared: {
+      preparation: string;
+      principal: string;
+      purpose: string;
+      hash: string;
+      size_bytes: number;
+    };
+  }[] = stackPrepared === null ? [] : [{ prepared: stackPrepared }];
+  const blobs: RecordReportInput["blobs"] = prepared.map((entry) => ({
+    hash: entry.prepared.hash,
+    size_bytes: entry.prepared.size_bytes,
+    purpose: entry.prepared.purpose as BlobPurpose,
+    source: {
+      kind: "prepared",
+      blob: { ...entry.prepared },
+    },
+  }));
+  const contentHash = await fingerprint(
+    contentHashOf({
+      report,
+      snapshot,
+      group_key,
+      existing_problem: null,
+      blobs,
+    }) ?? "",
+  );
+  const input: RecordReportInput = {
+    report: {
+      ...report,
+      content_hash: contentHash,
+    },
+    snapshot,
+    group_key,
+    existing_problem: null,
+    blobs,
+    origin: {
+      report_id: report.id,
+      content_hash: contentHash,
+      context: {
+        app: report.app,
+        mode: report.mode,
+        diagnostic_scope: report.diagnostic_scope,
+        release: report.release,
+        release_missing_reason: report.release_missing_reason,
+        bundle_hash: report.bundle_hash,
+        binding: "collector-intake",
+        origin,
+        authentication: {
+          principal: report.principal,
+          actor: `app:${report.app}`,
+          scope: { operations: ["problems/report"], targets: {} },
+          conditions: {},
+          credential_ref: "collector-position",
+        },
+      },
+    },
+  };
+  const frozen = freezeDeep(input);
+  const over = queue.admit(report.id, frozen);
+  if (over !== undefined) {
+    throw new Error(over.message);
+  }
+  const completion = await deliverReport(
+    async () => {
+      const result = await postRecordReport(client, {
+        input: queue.held(report.id) ?? frozen,
+        idempotency_key: `${report.id}/${atNow()}`,
+        compare: { active_release: null, problem_seq: null },
+        prepared: prepared.map((entry) => entry.prepared.preparation),
+      });
+      if (!result.ok) {
+        return err(result.error);
+      }
+      return ok(result.value as ReportAcceptance);
+    },
+    { delays: REPORT_RETRY_DELAYS_MS },
+    (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    "response lost",
+  );
+  queue.release(report.id);
+  if (completion.status !== "accepted") {
+    throw new Error(completion.reason.message);
+  }
+  return completion.acceptance;
+}
+
+// exception observation의 error name을 redaction한다. 이름은 안전한 오류 이름만
+// 남긴다(snapshots#R10: 안전한 오류 이름).
+
+// collector의 준비 폴더 출처. LOPHN_HOME env의 apps 부분만 이름 짓는다(등록
+// spec allow_read와 같다). env가 없으면 null이다: 준비 폴더 없음 이유로 남는다.
+function collectorAppsRoot(): string | null {
+  try {
+    const home = Deno.env.get("LOPHN_HOME");
+    if (home === undefined || !home.startsWith("/")) return null;
+    return `${home}/apps`;
+  } catch {
+    return null;
+  }
+}
+
+// stack blob 준비를 stream으로 받는 platform blob prepare 모양. collector는
+// core.prepareBlob을 직접 부르지 못한다(별도 process, childMessageSchema에
+// blob.prepare op가 없다). 준비 통로가 없으면 이유를 남긴다(R5): 남은 자료로 접수.
+async function prepareViaStream(
+  _client: CoreClientOptions,
+  _input: { principal: string; purpose: string; expectedHash?: string },
+  _bytes: ReadableStream<Uint8Array>,
+): Promise<
+  Result<
+    {
+      preparation: string;
+      principal: string;
+      purpose: string;
+      hash: string;
+      size_bytes: number;
+    }
+  >
+> {
   await Promise.resolve();
-  void payload;
-  void client;
-  void session;
-  throw new Error("collector exception intake is not assembled");
+  return err({
+    code: "unavailable",
+    message: "blob 준비 통로가 collector process에 없다",
+  });
+}
+
+// 실제 연결한 invocation ID만 기록 도착을 확인한다(snapshots#R8, R9). 근접
+// 추정은 없다: ID가 없으면 확인하지 않는다. 기록이 아직 없으면 그 이유만 남기고
+// 접수는 계속한다(R9, reporting#R14).
+async function confirmInvocation(
+  client: CoreClientOptions,
+  invocation:
+    | { id: string; binding: string; record_missing_reason: unknown }
+    | null,
+): Promise<{ id: string; binding: string } | undefined> {
+  if (invocation === null) return undefined;
+  try {
+    const base = client.baseUrl.replace(/\/$/, "");
+    // 주입한 client.fetch를 건다: 테스트와 EXTERNAL_FETCH tripwire가 같은
+    // 통로를 본다. 응답은 loopback 모양({status, bytes})이다.
+    const response = await client.fetch(`${base}/v1/invocations/get`, {
+      method: "POST",
+      headers: {
+        "authorization": `Bearer ${client.credential}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ invocation: invocation.id }),
+    });
+    if (response.status !== 200) return undefined;
+    const body = JSON.parse(new TextDecoder().decode(response.bytes)) as {
+      invocation?: unknown;
+    };
+    if (body.invocation === null || body.invocation === undefined) {
+      return undefined;
+    }
+    const row = body.invocation as { id?: unknown };
+    if (typeof row.id !== "string" || row.id !== invocation.id) {
+      return undefined;
+    }
+    return { id: invocation.id, binding: invocation.binding };
+  } catch {
+    return undefined;
+  }
 }
 
 // launchArgv가 내는 argv의 entry는 이 모듈 자체다(T8 worker main과 다른 갈래).

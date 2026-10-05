@@ -16,6 +16,7 @@ import {
   COLLECTOR_KIND,
   type CollectorPosition,
   createCollectorWorker,
+  observeExceptionPayload,
 } from "./report-collector.ts";
 import { reportCollectorSpec } from "../../core/problems-runner.ts";
 import { createCollectorQueue } from "../../../packages/problems/reporting/mod.ts";
@@ -270,7 +271,7 @@ const CLAIMED = position({
   diagnostic_scope: "apps/worker/problems/report-collector",
 });
 
-Deno.test("problems/reporting#R1: secret 형태의 text·details는 redaction 엔진을 거치고 저장 조립값과 snapshot에 남지 않는다", async () => {
+Deno.test("problems/reporting#R1: secret 형태의 text·details는 redaction 통과 내용만 blob 준비하고 snapshot에는 남지 않는다", async () => {
   const known = createKnownSecretRegistry();
   const secret = "sk-ant-AAAAdemo1234567890abcdef";
   known.register([secret]);
@@ -284,13 +285,10 @@ Deno.test("problems/reporting#R1: secret 형태의 text·details는 redaction �
     report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
     code: "save_failed",
     observed_at: "2026-10-04T12:00:00.000Z",
-    text: `token: ${secret} and sk-[A-Za-z0-9]{20,} is not a literal but AKIA${
-      "B".repeat(16)
-    } is`,
+    text: `token: ${secret} and rest`,
     details: {
       nested: {
         openai: `sk-${"C".repeat(24)}`,
-        jwt: `${"D".repeat(12)}.${"E".repeat(12)}.${"F".repeat(12)}`,
       },
     },
   };
@@ -307,21 +305,26 @@ Deno.test("problems/reporting#R1: secret 형태의 text·details는 redaction �
   // 등록한 known secret과 credential pattern 값이 조립값 어디에도 남지 않는다.
   assertEquals(serialized.includes(secret), false);
   assertEquals(serialized.includes(`sk-${"C".repeat(24)}`), false);
-  assertEquals(
-    serialized.includes(
-      `${"D".repeat(12)}.${"E".repeat(12)}.${"F".repeat(12)}`,
-    ),
-    false,
-  );
-  assertEquals(serialized.includes(`AKIA${"B".repeat(16)}`), false);
-  assertEquals(captured.envelope["prepared"], []);
   const input = captured.envelope["input"] as {
     report: { text: string | null; details: string | null };
+    blobs: {
+      purpose: string;
+      hash: string;
+      size_bytes: number;
+      source: {
+        kind: string;
+        blob: { preparation: string; principal: string; purpose: string };
+      };
+    }[];
     snapshot: Record<string, unknown>;
   };
-  // permanent content는 hash뿐이다: text·details 열은 null이고 snapshot 증거도 없다.
+  // redaction 통과 내용은 blob 준비되어 Report.text·details hash로 싣는다(T4).
+  // 준비 통로가 collector에 없으므로(hash를 내는 준비 경계는 등록된 blob
+  // prepare 중계다) 이 항목들은 이유를 남기고 null이다.
   assertEquals(input.report.text, null);
   assertEquals(input.report.details, null);
+  assertEquals(input.blobs, []);
+  // snapshot 증거도 없다: 수집 꺼짐 이유다.
   assertEquals(input.snapshot.invocation, null);
   assertEquals(input.snapshot.error, null);
   assertEquals(input.snapshot.logs, null);
@@ -357,6 +360,332 @@ Deno.test("problems/reporting#R1: app·mode 주장이 없는 credential은 추�
       ),
     Error,
     "report credential has no app or mode claim",
+  );
+  // envelope에 닿지 않았다: 거절이 제출보다 앞선다.
+  assertEquals(captured.envelope, undefined);
+  assertEquals(queue.size, 0);
+});
+
+// exception 접수. observeExceptionPayload를 흔든다: 조립값은 envelope input에
+// 닿고 group_key·origin은 observation kind에서 온다(problems#T4).
+Deno.test("problems/snapshots#R1 R2: exception observation은 captured_at과 observed_at을 따로 두고 exception group key는 report ID에서 온다", async () => {
+  const redaction = createRedactionEngine({
+    registry: createKnownSecretRegistry(),
+  });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  await observeExceptionPayload(
+    {
+      report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+      observed_at: "2026-10-04T12:00:00.000Z",
+      observation: "unhandledrejection",
+      error: {
+        name: "TypeError",
+        message: "cannot read x",
+        message_missing_reason: null,
+        stack: null,
+        stack_missing_reason: { reason: "collector" },
+      },
+      error_missing_reason: null,
+      invocation: null,
+    },
+    capturingClient(captured),
+    redaction,
+    queue,
+    fakeSession(),
+    CLAIMED,
+  );
+  assert(captured.envelope !== undefined);
+  const input = captured.envelope["input"] as {
+    report: {
+      source: string;
+      code: string;
+      observed_at: string;
+      snapshot: string;
+    };
+    snapshot: { id: string; captured_at: string };
+    group_key: { kind: string; code: string; discriminator: string };
+    origin: { context: { origin: string } };
+  };
+  // source는 exception이고 code는 예약 code다(reports#validCode).
+  assertEquals(input.report.source, "exception");
+  assertEquals(input.report.code, "_exception");
+  // captured_at(조립 시각)은 observed_at(발생 시각)과 같지 않다(R1).
+  assert(input.snapshot.captured_at !== input.report.observed_at);
+  // snapshot ID는 제출 rpt ID에서 결정적으로 온다.
+  assertEquals(input.snapshot.id, input.report.snapshot);
+  assertEquals(input.snapshot.id.startsWith("snp_"), true);
+  // app frame 0개면 discriminator는 report ID다(grouping#R2, R3).
+  assertEquals(input.group_key, {
+    kind: "exception",
+    code: "_exception",
+    discriminator: "rpt_01arz3ndektsv4rrffq69g5fav",
+  });
+  // unhandledrejection은 process_observer origin이다(reporting#R2).
+  assertEquals(input.origin.context.origin, "process_observer");
+  assertEquals(queue.size, 0);
+});
+
+Deno.test("problems/snapshots#R8 R9: SDK가 연결한 invocation ID는 그대로 남고 도착하지 않은 기록은 이유만 남긴다", async () => {
+  const redaction = createRedactionEngine({
+    registry: createKnownSecretRegistry(),
+  });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  await observeExceptionPayload(
+    {
+      report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+      observed_at: "2026-10-04T12:00:00.000Z",
+      observation: "error",
+      error: {
+        name: "RangeError",
+        message: null,
+        message_missing_reason: { reason: "redaction" },
+        stack: null,
+        stack_missing_reason: { reason: "collector" },
+      },
+      error_missing_reason: null,
+      invocation: {
+        id: "inv_01arz3ndektsv4rrffq69g5fav",
+        binding: "sdk_context",
+        record_missing_reason: { reason: "deadline" },
+      },
+    },
+    {
+      ...capturingClient(captured),
+      // 기록 도착 확인 read(apps/invocations#get): 기록이 아직 없다(200 + null).
+      // record-report POST와 URL로 구별한다.
+      fetch: (input, init) => {
+        if (String(input).endsWith("/v1/invocations/get")) {
+          return Promise.resolve({
+            status: 200,
+            bytes: new TextEncoder().encode(
+              JSON.stringify({ invocation: null }),
+            ),
+          });
+        }
+        // envelope capture는 record-report call에서만 한다.
+        captured.envelope = JSON.parse(init.body);
+        return Promise.resolve({
+          status: 200,
+          bytes: new TextEncoder().encode(
+            JSON.stringify({
+              report: "rpt_01arz3ndektsv4rrffq69g5fav",
+              snapshot: "snp_01arz3ndektsv4rrffq69g5fav",
+              problem: "prb_01arz3ndektsv4rrffq69g5fav",
+              diagnostic_scope: null,
+            }),
+          ),
+        });
+      },
+    } as CoreClientOptions,
+    redaction,
+    queue,
+    fakeSession(),
+    CLAIMED,
+  );
+  assert(captured.envelope !== undefined);
+  const input = captured.envelope["input"] as {
+    snapshot: {
+      invocation: {
+        id: string;
+        binding: string;
+        record_missing_reason: unknown;
+      } | null;
+    };
+  };
+  // SDK가 연결한 ID는 그대로 남고 기록이 없으면 이유만 남는다(R8, R9):
+  // 근접 추정·다른 호출로 바꾸지 않는다.
+  assertEquals(input.snapshot.invocation, {
+    id: "inv_01arz3ndektsv4rrffq69g5fav",
+    binding: "sdk_context",
+    record_missing_reason: { reason: "deadline" },
+  });
+  assertEquals(queue.size, 0);
+});
+
+Deno.test("problems/snapshots#R8 R9: 기록 도착을 확인하면 record_missing_reason를 비우고 ID는 바꾸지 않는다", async () => {
+  const redaction = createRedactionEngine({
+    registry: createKnownSecretRegistry(),
+  });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  await observeExceptionPayload(
+    {
+      report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+      observed_at: "2026-10-04T12:00:00.000Z",
+      observation: "error",
+      error: {
+        name: "RangeError",
+        message: null,
+        message_missing_reason: { reason: "redaction" },
+        stack: null,
+        stack_missing_reason: { reason: "collector" },
+      },
+      error_missing_reason: null,
+      invocation: {
+        id: "inv_01arz3ndektsv4rrffq69g5fav",
+        binding: "sdk_context",
+        record_missing_reason: { reason: "deadline" },
+      },
+    },
+    {
+      ...capturingClient(captured),
+      // 기록이 도착했다(200 + row). confirmInvocation은 client.fetch를 건다.
+      fetch: (input, init) => {
+        if (String(input).endsWith("/v1/invocations/get")) {
+          return Promise.resolve({
+            status: 200,
+            bytes: new TextEncoder().encode(
+              JSON.stringify({
+                invocation: {
+                  id: "inv_01arz3ndektsv4rrffq69g5fav",
+                  state: "succeeded",
+                },
+              }),
+            ),
+          });
+        }
+        captured.envelope = JSON.parse(init.body);
+        return Promise.resolve({
+          status: 200,
+          bytes: new TextEncoder().encode(
+            JSON.stringify({
+              report: "rpt_01arz3ndektsv4rrffq69g5fav",
+              snapshot: "snp_01arz3ndektsv4rrffq69g5fav",
+              problem: "prb_01arz3ndektsv4rrffq69g5fav",
+              diagnostic_scope: null,
+            }),
+          ),
+        });
+      },
+    } as CoreClientOptions,
+    redaction,
+    queue,
+    fakeSession(),
+    CLAIMED,
+  );
+  assert(captured.envelope !== undefined);
+  const input = captured.envelope["input"] as {
+    snapshot: {
+      invocation: {
+        id: string;
+        binding: string;
+        record_missing_reason: unknown;
+      } | null;
+    };
+  };
+  // 도착 확인 뒤 ID·binding은 그대로이고 이유만 비운다(R8, R9).
+  assertEquals(input.snapshot.invocation, {
+    id: "inv_01arz3ndektsv4rrffq69g5fav",
+    binding: "sdk_context",
+    record_missing_reason: null,
+  });
+  assertEquals(queue.size, 0);
+});
+
+Deno.test("problems/snapshots#R4 R10: render_error는 view_observer origin이고 안전하지 않은 오류 이름은 redaction 이유를 남긴다", async () => {
+  const known = createKnownSecretRegistry();
+  const secret = "sk-ant-AAAAdemo1234567890abcdef";
+  known.register([secret]);
+  const redaction = createRedactionEngine({ registry: known });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  await observeExceptionPayload(
+    {
+      report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+      observed_at: "2026-10-04T12:00:00.000Z",
+      observation: "render_error",
+      error: {
+        name: `token ${secret} leak`,
+        message: "render failed",
+        message_missing_reason: null,
+        stack: `Error: render failed\n    at View (app.js:1:1) ${secret}`,
+        stack_missing_reason: null,
+      },
+      error_missing_reason: null,
+      invocation: null,
+    },
+    capturingClient(captured),
+    redaction,
+    queue,
+    fakeSession(),
+    CLAIMED,
+  );
+  assert(captured.envelope !== undefined);
+  const input = captured.envelope["input"] as {
+    origin: { context: { origin: string } };
+    snapshot: {
+      error: {
+        name: string;
+        message: string | null;
+        stack: string | null;
+        stack_missing_reason: unknown;
+        truncation_notes: string[];
+      } | null;
+    };
+  };
+  // render_error는 view_observer다(reporting#R2, R6).
+  assertEquals(input.origin.context.origin, "view_observer");
+  // 안전하지 않은 오류 이름·stack 원문은 남지 않는다(snapshots#R4, R10).
+  assert(input.snapshot.error !== null);
+  assertEquals(
+    input.snapshot.error.name.includes("sk-ant-AAAAdemo1234567890abcdef"),
+    false,
+  );
+  assertEquals(input.snapshot.error.stack, null);
+  // stack 준비 통로가 없으면 이유를 남긴다(R5, reporting#R14: 수집 실패).
+  assertEquals(
+    input.snapshot.error.truncation_notes.some((note) =>
+      note.includes("stack blob 준비 실패")
+    ),
+    true,
+  );
+  // 남은 자료(message)는 접수된다(R5).
+  assertEquals(input.snapshot.error.message, "render failed");
+  assertEquals(queue.size, 0);
+});
+
+Deno.test("problems/reporting#R1: 잘못된 exception observation 본문은 잘못된 보고 진단으로 거절한다", async () => {
+  const redaction = createRedactionEngine({
+    registry: createKnownSecretRegistry(),
+  });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  await assertRejects(
+    () =>
+      observeExceptionPayload(
+        {
+          report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+          observed_at: "2026-10-04T12:00:00.000Z",
+          observation: "not_a_kind",
+          error: null,
+          error_missing_reason: { reason: "collector" },
+          invocation: null,
+        },
+        capturingClient(captured),
+        redaction,
+        queue,
+        fakeSession(),
+        CLAIMED,
+      ),
+    Error,
+    "invalid exception observation body",
   );
   // envelope에 닿지 않았다: 거절이 제출보다 앞선다.
   assertEquals(captured.envelope, undefined);

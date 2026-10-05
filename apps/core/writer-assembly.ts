@@ -61,10 +61,14 @@ export async function assembleWriter(
     confirmationRegistry: ConfirmationRegistry;
     preparations: PreparationRegistry;
     noteRequest(ctx: RequestContext | undefined): void;
+    // 테스트의 manual clock은 writer가 공유하지 못한다. core가 민 시각을 알린다.
+    noteTime(nowMs: number): void;
     onTx(tx: Tx | undefined): void;
   }
 > {
-  const clock = writerClock(boot);
+  // 테스트 clock은 기동 시각에 고정되지만, 테스트가 시계를 밀면 core가 알린다.
+  let fixedMs = typeof boot.clock === "number" ? boot.clock : 0;
+  const clock = writerClock(boot, () => fixedMs);
   const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
   const ports: TxPortRegistration[] = [];
   const names = new Set(commands.map((command) => command.route.name));
@@ -118,6 +122,9 @@ export async function assembleWriter(
     noteRequest(ctx: RequestContext | undefined) {
       currentRequest = ctx;
     },
+    noteTime(nowMs: number) {
+      if (nowMs > fixedMs) fixedMs = nowMs;
+    },
     onTx(tx: Tx | undefined) {
       currentTx = tx;
     },
@@ -130,10 +137,9 @@ export async function assembleWriter(
 // "시각·기간·seq": 기록 시각은 커밋 시각). writer는 별도 Worker라 core의 clock
 // 객체를 그대로 받지 못한다. 제품 경로는 writer 자신의 system clock을 쓰고,
 // 테스트는 기동 시각에 고정한 clock을 쓴다. 어느 쪽이든 시각은 뒤로 가지 않는다.
-function writerClock(boot: WriterBoot): Clock {
+function writerClock(boot: WriterBoot, fixedMs: () => number): Clock {
   if (boot.clock === "system") return monotonicClock(systemClock);
-  const fixed = boot.clock;
-  return monotonicClock({ nowMs: () => fixed, now: () => "" });
+  return monotonicClock({ nowMs: fixedMs, now: () => "" });
 }
 
 function teamRegistration(team: TeamModule): Loose | undefined {
@@ -156,10 +162,21 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     );
     return { commands, ports, blobFields };
   }
-  const value = direct ?? fromLedger ?? team.codingAgentConnectionDefinitions ??
-    team.lophnAgentDefinitions ?? team.ticketDefinitions;
-  if (!value || typeof value !== "object") return undefined;
-  return value as Loose;
+  const sources = [
+    direct,
+    fromLedger,
+    team.codingAgentConnectionDefinitions,
+    team.lophnAgentDefinitions,
+    team.ticketDefinitions,
+  ].filter(defined);
+  if (sources.length === 0) return undefined;
+  return {
+    commands: sources.flatMap((value) => (value as Loose).commands ?? []),
+    ports: sources.flatMap((value) =>
+      toArray((value as Loose).ports)
+    ) as TxPortRegistration[],
+    blobFields: sources.flatMap((value) => (value as Loose).blobFields ?? []),
+  };
 }
 
 function defined(value: unknown): boolean {

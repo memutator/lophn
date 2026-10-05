@@ -9,6 +9,7 @@ export { err, ok, type Result } from "./result.ts";
 export {
   type Clock,
   formatAt,
+  isManualClock,
   type ManualClock,
   manualClock,
   monotonicClock,

@@ -1,6 +1,7 @@
 // ticket read(coding-agent/tickets#R10, T18). list는 요약만, show는 고정 근거와
 // 조건 hash까지, checks는 최신 보고의 조건별 결과를 준다. 상대 위치·조건 원문은
 // 범위를 넓히지 않는다(R25).
+import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   ticketChecks,
@@ -12,12 +13,14 @@ import {
   ticketShow,
   type TicketState,
 } from "../../contracts/coding-agent/mod.ts";
-import type {
-  ReadDefinition,
-  ReadSnapshot,
-  RequestContext,
+import {
+  defineRead,
+  type ReadDefinition,
+  type ReadSnapshot,
+  type RequestContext,
 } from "../../contracts/platform/mod.ts";
 import { nextCursor, pageAfter } from "./cursor.ts";
+import { checkTicketClaim, expiredClaims } from "./claims.ts";
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "ticket not found" });
@@ -95,10 +98,34 @@ function visible(ctx: RequestContext): Result<void> {
   return ok(undefined);
 }
 
+// checkTicketClaim은 read가 아니라 같은 transaction의 검사다. release 준비와
+// 완료 보고가 현재 claim·기한·연결·seq를 즉시 확인한다(R13). 기한을 연장하지 않는다.
+export { checkTicketClaim };
+
+// 만료·회수 정리 후보. 감독 timer가 60초마다와 재시작 때 읽고 expire_claim을
+// 제출한다. 회수 connection은 호출자가 넘긴다(R13).
+const claimSweep = defineRead({
+  resource: "tickets",
+  method: "claim_sweep",
+  name: "TicketClaimSweep",
+  input: z.strictObject({
+    now: z.string(),
+    revoked: z.array(z.string()),
+  }),
+  output: z.object({
+    claims: z.array(z.object({ ticket: z.string(), claim_seq: z.string() })),
+    as_of_seq: z.string(),
+    next_cursor: z.string().nullable(),
+  }),
+  actors: ["machine"],
+  errors: ["forbidden"],
+});
+
 export function createTicketReads(): {
   list: ReadDefinition<typeof ticketList>;
   show: ReadDefinition<typeof ticketShow>;
   checks: ReadDefinition<typeof ticketChecks>;
+  claim_sweep: ReadDefinition<typeof claimSweep>;
 } {
   return {
     list: {
@@ -176,6 +203,32 @@ export function createTicketReads(): {
         };
         return ok({
           ticket,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
+    claim_sweep: {
+      route: claimSweep,
+      handle(snapshot, _ctx, input) {
+        // 회수 connection은 호출자가 표를 못 보는 machine이다. 이 read가
+        // coding_agent_connections에서 revoked id를 읽어 후보에 더한다(R13).
+        // 표가 없으면(ticket만 등록한 기동) 만료 후보만 본다.
+        const revoked = [...input.revoked];
+        try {
+          const rows = snapshot.sql.all(
+            "SELECT id FROM coding_agent_connections WHERE state = 'revoked'",
+            [],
+          );
+          for (const row of rows) revoked.push(String(row.id));
+        } catch (error) {
+          // connection 등록이 없는 ledger에는 이 표가 없다. 그 밖(snapshot이
+          // 닫힘, 잠금, 거절 SQL)은 만료 후보만 보는 것으로 넘기지 않는다.
+          const message = error instanceof Error ? error.message : "";
+          if (!message.toLowerCase().includes("no such table")) throw error;
+        }
+        return ok({
+          claims: expiredClaims(snapshot.sql, input.now, revoked),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

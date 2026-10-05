@@ -24,5 +24,7 @@ export {
   connectionAuthFromSnapshot,
   connectionAuthFromTx,
   connectionAuthPort,
+  connectionAuthSyncFromTx,
+  connectionAuthSyncPort,
   lookupConnectionAuth,
 } from "./auth.ts";

@@ -69,6 +69,7 @@ import {
   createDocumentsChannel,
   servedWorkers,
   statusMemoryVia,
+  storedFileWorkers,
 } from "./documents-serving.ts";
 import {
   OBSERVATION_BASIS_ROUTE,
@@ -526,7 +527,22 @@ async function open(
               current: (ref) => runtime!.current(ref),
               observedAt: () => new Date().toISOString(),
             }),
-            options.workers,
+            mergedWorkers(
+              storedFileWorkers({
+                readers: runtime.readers,
+                current: (ref) => runtime!.current(ref),
+                observedAt: () => new Date().toISOString(),
+                readBlob: (hash, offset, length) =>
+                  validateWiring.readBlob
+                    ? validateWiring.readBlob(hash, offset, length)
+                    : Promise.resolve(err({
+                      code: "unavailable" as const,
+                      message: "blob 읽기 통로가 없다",
+                    })),
+                blobReady: () => validateWiring.readBlob !== undefined,
+              }),
+              options.workers,
+            ),
           ),
         ),
       ),

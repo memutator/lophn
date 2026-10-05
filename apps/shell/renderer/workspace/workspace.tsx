@@ -163,7 +163,9 @@ export function Workspace(
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
   // 대화 도크. 정보 패널 자리를 임시로 쓰고 닫으면 정보 패널이 돌아온다(desktop#R2, R29).
   const conversation = useConversation();
-  const [dockOpen, setDockOpen] = useState(false);
+  const [dockOpen, setDockOpen] = useState(
+    conversation?.startOpen === true,
+  );
   // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다(editor#R4).
   const [tabMeta, setTabMeta] = useState<
     Readonly<Record<string, DocumentTabMeta>>

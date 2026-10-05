@@ -17,6 +17,8 @@ export interface ConversationDeps {
   readonly drafts: DraftStore;
   readonly ticks?: Ticks;
   readonly now?: () => number;
+  /** 첫 공간이 도크를 연 채로 시작한다. headless 확인(`#conversation`)만 준다. */
+  readonly startOpen?: boolean;
 }
 
 const ConversationContext = createContext<ConversationDeps | null>(null);

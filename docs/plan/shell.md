@@ -682,6 +682,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T27, shell#T33, shell#T34, contracts#T30, lophn-agent#T33
+- shell#T27에서 넘어온 것: 메시지 본문(MessageContent) 읽기와 그 글·블록 표시. 지금 도크(`apps/shell/renderer/conversation/`)는 이 창이 보낸 사람 말의 글만 알고(`DraftStore.textOf`) lophn 답·machine 사실·다른 창의 말은 "아직 보일 수 없음"으로 둔다. lophn 답의 streaming 임시 글(확정 메시지로 바꾸기)과 사람 말 본문을 prepared blob 증거와 함께 보내는 길도 같은 자리다(lophn-agent#T26 Q29 뒤, shell Q15)
 - 완료: 아래 확인이 통과한다
   - 검증된 선언형 블록(표, 막대·선·산점 차트, node·edge 도표, 고정 문서)만 설치 SDK의 허용 registry로 그린다. 앱 카드 갈래는 T44. schema를 통과하지 못하면 그 자리에 오류와 안전한 설명만.
   - agent의 JS·HTML·CSS·URL을 import·eval·innerHTML로 실행하지 않고 label·text를 escape한다. script 입력은 실행 없이 거절된다.
@@ -808,6 +809,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T37, shell#T39, apps#T9
+- shell#T27에서 넘어온 것: 앱 공간 바의 대화 도크 토글(`DockToggle`)과 본문 오른쪽 `DockSlot`(새 세션 작업 자리 `{kind: "app"}`). 도크가 앱 view를 덮거나 밀 때의 native bounds는 T39를 따른다
 - 완료: 아래 확인이 통과한다
   - 앱 공간은 얇은 바와 앱 view 전체 본문. 바에 런처 복귀, 앱 이름·연결 상태, [Report a problem] 자리(T52), 운영 패널 진입, 문서 작업대 전환. 운영 패널 720px, 1024px 미만이면 overlay이되 앱 view는 남은 영역으로 줄어든다.
   - 프로젝트·앱 공간의 lophn 크롬은 그 앱의 결정 대기와 daemon 장애 안내만.
@@ -1155,3 +1157,9 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (2) 검색 index는 보관 문서를 넣지 않는다(outline-and-search#R17). "보관 포함"은 같은 조건의 보관 문서 목록(`documents/list` status archived)에서 제목이 맞는 것을 따로 보이고 그 마지막 판을 연다. 본문 일치는 보관 해제 뒤 index에 반영되어야 찾는다.
   - (3) Q13과 같은 이유로 renderer allowlist에 `worker:search/query`·`worker:views/open` 두 읽기를 더 열었다. `search/status`·export·준비·파일 쓰기 worker는 막힌 채다.
   - (4) headless 확인용으로 main이 `LOPHN_SHELL_START=lophn`이면 첫 창을 런처 대신 lophn 공간으로 연다(개발 전용, stack.md).
+- **Q15 대화 도크의 메시지 본문과 대화 상대(T27, 추천안으로 진행).**
+  - (1) ReceiveMessage 입력은 본문 hash만 받고 사람 입력이 blob을 올리는 길은 lophn-agent Q29가 막아 두었다. 도크는 글 part 하나의 MessageContent(schema_version 1, key 순서 고정 JSON)의 SHA-256을 body로 보내고 글은 창 메모리(`DraftStore`)에만 둔다. 그래서 지금 core와 agent는 사람 말의 글을 받지 못한다. 추천: lophn-agent#T26이 prepared blob 증거를 contract에 더하면 shell#T35가 같은 hash의 blob을 그 길로 보낸다.
+  - (2) 메시지 본문 blob의 owner(blobs/read의 owner_kind·field)가 아직 없다. 도크는 이 창이 보낸 말만 글로 보이고 나머지는 "This message's text can't be shown here yet."로 둔다. 빈 말이나 지어낸 글로 보이지 않는다.
+  - (3) renderer로 오는 streaming 통로가 없다. 임시 표시에서 확정 메시지로 바꾸는 것은 보내는 사람 말에만 지금 돈다(같은 id의 확정 메시지가 오면 바꾼다).
+  - (4) 새 데이터 root에는 lophn 역할 assignment가 없다(CreateBuiltinAssignment는 machine 전용이고 부르는 자리가 없다). 도크는 "lophn isn't set up for conversations yet."를 보인다. 만드는 쪽은 lophn-agent다.
+  - (5) headless 확인용으로 main이 `LOPHN_SHELL_START=conversation`이면 lophn 공간을 도크를 연 채로 연다(개발 전용, stack.md).

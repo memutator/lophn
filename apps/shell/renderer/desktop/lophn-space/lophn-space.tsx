@@ -51,7 +51,9 @@ export function LophnSpace(
   const shown = sidebarView(frameSize?.width ?? windowWidth, sidebar, false);
   // 대화 도크. lophn 공간에는 정보 패널이 없어 본문만 민다(desktop#R2).
   const conversation = useConversation();
-  const [dockOpen, setDockOpen] = useState(false);
+  const [dockOpen, setDockOpen] = useState(
+    conversation?.startOpen === true,
+  );
   const dock = dockPlacement(
     dockOpen && conversation !== null,
     contentSize?.width ?? windowWidth - shown.width,

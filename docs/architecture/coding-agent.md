@@ -192,7 +192,8 @@ secret 사용은 호출자 종류가 아니라 현재 앱 grant와 network host�
 | `/v1/repair_context/summary`, `/bundle` | problem 또는 repair ticket → 요약 또는 RepairContext | 현재 connection의 모든 참조 검사; 둘 다 상태 무변경 |
 | `/v1/repair_context/more` | problem,kind,source,cursor? → evidence page·next_cursor | 고정 조건 cursor, scope·redaction·kind budget. 틀린 cursor invalid_input |
 | `/v1/tickets/list`, `/show`, `/checks` | app/state/limit/cursor 또는 ticket → 요약·전체 ticket·check | scope; list 최대20, 본문 없음; show는 모든 고정 근거·조건 |
-| `/v1/tickets/create` | Ticket 불변 필드,key → open ticket | user·lophn·담당 App Engineer만. 생성 시 문제 독점 unique·판/채택 답·조건; invalid_input/forbidden/not_found/conflict |
+| `/v1/tickets/create` | Ticket 불변 필드,readiness,needs,key → open ticket | user·lophn·담당 App Engineer만. 생성 시 문제 독점 unique·판/채택 답·조건; invalid_input/forbidden/not_found/conflict |
+| `/v1/tickets/make_ready` | ticket,base_revision,근거·채택 답·조건,key → ready ticket | lophn·담당 App Engineer만. needs_confirmation에서만; 근거·채택 답·조건을 한 번만 채움. invalid_input/forbidden/not_found/conflict |
 | `/v1/tickets/claim` | ticket,base_revision,key → claimed ticket·connection·claim_seq·expires_at | coding_agent; open/check_failed·active connection·scope·revision |
 | `/v1/tickets/renew_claim`, `/release_claim` | ticket,claim_seq,base_revision,key → 현재 claim 또는 open | 현재 coding_agent만; seq·connection·기한. unauthorized/forbidden/conflict |
 | `/v1/tickets/report_completion` | ticket,claim_seq,base_revision,completion,key → reported ticket·completion_seq | 유효 claim·같은 app/ticket/claim release·모든 참조 검사. invalid_input/unauthorized/forbidden/not_found/conflict |
@@ -200,7 +201,7 @@ secret 사용은 호출자 종류가 아니라 현재 앱 grant와 network host�
 | `/v1/tickets/record_checks` | ticket,completion_seq,base_revision,checks,대상 revision,key → reported/confirmed/check_failed | checker machine만; 최신 보고·현재 대상·Verification hash 재검사. invalid_input/forbidden/conflict |
 | `/v1/tickets/cancel` | ticket,reason,base_revision,key → cancelled | user 또는 허용 revert machine만; 종료 전·1~200자 사유; invalid_input/forbidden/conflict |
 
-connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoked`다. ticket event는 `TicketCreated`, `TicketClaimed`, `TicketClaimRenewed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketChecksRecorded`, `TicketConfirmed`, `TicketCheckFailed`, `TicketCancelled`다. payload와 상태 전이는 `coding-agent/connection`, `coding-agent/tickets` domain model을 그대로 따른다. 통로 별칭 event·외부 세션 heartbeat event는 없다.
+connection event는 `CodingAgentConnectionCreated`, `CodingAgentConnectionRevoked`다. ticket event는 `TicketCreated`, `TicketMadeReady`, `TicketClaimed`, `TicketClaimRenewed`, `TicketClaimReleased`, `TicketCompletionReported`, `TicketChecksRecorded`, `TicketConfirmed`, `TicketCheckFailed`, `TicketCancelled`다. payload와 상태 전이는 `coding-agent/connection`, `coding-agent/tickets` domain model을 그대로 따른다. 통로 별칭 event·외부 세션 heartbeat event는 없다.
 
 ### 5.4 CLI 전체 command와 출력
 

@@ -139,6 +139,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/model-catalog-and-usage.md, docs/research/provider-adapters.md
 - 선행: T4
+- 상태: 완료 (#185)
 - 완료:
   - `agent_model_defaults` 표, 처음 값 null
   - model_test.ts에 R8–R11, R14–R20 테스트: 기본값 변경이 기존 preset·assignment에 번지지 않음, 목록에 없는 이름 거절과 미확인 저장·첫 성공 호출에 해제, text·tool 미지원 거절, 입력·예약 출력·전체 문맥 한계 하나라도 넘으면 전송 없음, UTF-8 byte 상한(한글·큰 결과, chars/4 없음), 비텍스트 크기 미상이면 호출 없음, 일곱 수준+모델에 맡김, catalog에서 확인된 강도 이름만 보내고 치환하지 않음(minimal→low 같은 대체 없음), token 예산 2048·8192·16384·32768을 확인된 min·max로 clamp(최대는 32768이고 높음과 다름, 지원 밖 수준을 위로 올려 맞추지 않음), 토글 방식은 끔·높음만, 모델에 맡김에서 보정 기본 수준이 없으면 추론 인자 없음, run 중 수준 상승 거절, organizing 미선택은 같은 model(fallback 아님), 사용 불가면 이유와 더 호출하지 않았다는 사실

@@ -25,6 +25,8 @@ export interface DocumentsScreenProps {
   now?: () => number;
   /** 처음 고른 탭. 테스트가 고른다. */
   initialTab?: DocumentsTab;
+  /** 처음 읽을 문서. 대화의 결과 링크가 연다. */
+  initialRead?: ReaderTarget;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -32,12 +34,15 @@ const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
 // documents 화면. 왼쪽 360px 목록 칸에서 찾고 고르며 오른쪽 상세에서 읽는다(desktop#R1).
 // 검색·saved view·series가 같은 목록 칸을 나눠 쓰고 대화 없이도 문서에 닿는다.
 export function DocumentsScreen(
-  { source, now = Date.now, initialTab = "search" }: DocumentsScreenProps,
+  { source, now = Date.now, initialTab = "search", initialRead }:
+    DocumentsScreenProps,
 ) {
   const [tab, setTab] = useState<DocumentsTab>(initialTab);
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
   const [formats, setFormats] = useState<readonly string[]>([]);
-  const [detail, setDetail] = useState<Detail>({ kind: "none" });
+  const [detail, setDetail] = useState<Detail>(
+    initialRead ? { kind: "reader", target: initialRead } : { kind: "none" },
+  );
   // series 목록을 다시 읽게 하는 표시. 등록·보관 뒤 올린다.
   const [seriesRevision, setSeriesRevision] = useState(0);
   // 저장한 보기 목록을 다시 읽게 하는 표시. 검색 칸에서 저장한 뒤 올린다.

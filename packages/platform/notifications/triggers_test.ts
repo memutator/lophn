@@ -19,8 +19,11 @@ import {
   approvalBinding,
   type ApprovalEffect,
   type AuthenticatedContext,
+  type RequestContext,
 } from "../../contracts/platform/mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
+import { openReaderConnection } from "../ledger/reader-connection.ts";
+import { executeRead } from "../ledger/reads.ts";
 import {
   APPROVAL_SCHEMA_STEPS,
   createApprovalCommands,
@@ -32,11 +35,19 @@ import {
   openConnection,
   runCommand,
 } from "../ledger/mod.ts";
+import { createListEventsRead, type EventBatch } from "../ledger/events.ts";
+import { createEventVisibilityRegistry } from "../ledger/event-visibility.ts";
+import {
+  questionCreated,
+  runFinished,
+} from "../../contracts/lophn-agent/mod.ts";
+import { problemOpened } from "../../contracts/problems/mod.ts";
 import {
   createNotificationCommand,
   NOTIFICATION_SUBSCRIBER,
 } from "./commands.ts";
 import { triggerOf } from "./model.ts";
+import { notificationsEngine } from "./engine.ts";
 import { NOTIFICATIONS_SCHEMA_STEPS } from "./schema.ts";
 const NOW = Date.parse("2026-10-04T00:00:00.000Z");
 const NOW_TEXT = "2026-10-04T00:00:00.000Z";
@@ -659,6 +670,242 @@ Deno.test("platform/notifications#R2: 추가 report는 notification을 만들지
     assertEquals(storedCursor(connection), reportSeq);
     assertEquals(notificationCount(connection), 1n);
   } finally {
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// engine이 읽는 event 통로. ledger.db reader 연결의 ListEvents다. trigger event와
+// 계기 아닌 event를 모두 등록한다: batch event는 등록 schema를 통과한 event다(생략하면
+// batch에서 빠진다, R11).
+function notificationEventsRead(
+  path: string,
+): {
+  reader: { close(): void };
+  backend: Parameters<typeof notificationsEngine>[0]["backend"];
+} {
+  const reader = openReaderConnection(path);
+  assert(reader.ok, "reader 연결");
+  // trigger event와 계기 아닌 event의 등록 event contract를 노출 판단에 둔다.
+  // handle은 모두 지켜본다(R11).
+  const registryResult = createEventVisibilityRegistry(
+    [questionCreated, problemOpened, runFinished],
+    [
+      { event: questionCreated, handle: () => ok(true) },
+      { event: problemOpened, handle: () => ok(true) },
+      { event: runFinished, handle: () => ok(true) },
+    ],
+  );
+  assert(registryResult.ok, "visibility 등록");
+  const read = createListEventsRead({
+    registry: registryResult.value,
+    current: () => ok(machine()),
+  });
+  return {
+    reader: reader.value,
+    backend: {
+      current: () => Promise.resolve(ok(machine())),
+      read(_ctx, scan): Promise<Result<EventBatch>> {
+        let output: Result<EventBatch>;
+        try {
+          output = executeRead(
+            reader.value,
+            read,
+            new Map(),
+            machine(),
+            {
+              after_seq: scan.inclusive && BigInt(scan.position) > 0n
+                ? (BigInt(scan.position) - 1n).toString()
+                : scan.position,
+              limit: scan.limit,
+            },
+          ) as Result<EventBatch>;
+        } catch {
+          return Promise.resolve(err({
+            code: "unavailable",
+            message: "event reader 실패",
+          }));
+        }
+        return Promise.resolve(output);
+      },
+    },
+  };
+}
+
+// engine의 command 통로. create_notification과 cursor 전진을 등록 executor로 낸다.
+function engineCommand(connection: Conn): (
+  ctx: RequestContext,
+  envelope: {
+    command: string;
+    input: unknown;
+    idempotency_key: string;
+    compare: unknown;
+    prepared: readonly string[];
+  },
+) => Promise<Result<unknown>> {
+  return async (_ctx, envelope) => {
+    const commands = envelope.command === "create_notification"
+      ? [createNotificationCommand]
+      : LEDGER_COMMANDS;
+    const result = await runCommand(
+      connection,
+      { ...ledgerDeps(), checkCredential: () => ok(machine()) },
+      commands,
+      machine(),
+      envelope as Parameters<typeof runCommand>[4],
+    );
+    if (!result.ok) return result;
+    return ok({ result: (result.value as { result: unknown }).result });
+  };
+}
+
+Deno.test("platform/notifications#R1, R11: engine step은 계기와 계기 아님을 섞은 batch에서 실제 생성으로 notification을 만들고 cursor는 끝까지 움직인다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-engine-" });
+  const connection = await schema(dir);
+  const { path } = { path: `${dir}/ledger.db` };
+  const { reader, backend } = notificationEventsRead(path);
+  try {
+    // trigger 2개(질문, 문제)와 계기 아닌 event 1개(RunFinished)를 남긴다.
+    emitSource(
+      connection,
+      "QuestionCreated",
+      "qst_01arz3ndektsv4rrffq69g5fav",
+      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+    );
+    emitSource(
+      connection,
+      "ProblemOpened",
+      "prb_01arz3ndektsv4rrffq69g5fav",
+      {
+        app: APP,
+        group_key: {
+          kind: "declared",
+          code: "api_timeout",
+          discriminator: null,
+        },
+        report: "rpt_01arz3ndektsv4rrffq69g5fav",
+      },
+    );
+    emitSource(
+      connection,
+      "RunFinished",
+      "run_01arz3ndektsv4rrffq69g5fbv",
+      {
+        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
+        started: true,
+        started_at: NOW_TEXT,
+        outcome: { kind: "completed", reason: "answer_completed" },
+        result: "0".repeat(64),
+        finished_at: NOW_TEXT,
+      } as unknown as Record<string, unknown>,
+    );
+    const head = connection.sql.get(
+      "select cast(max(seq) as text) as seq from events",
+      [],
+    );
+    assert(head);
+    const engine = notificationsEngine({
+      backend,
+      command: engineCommand(connection),
+      machine: machine(),
+    });
+    const scanned = await engine.step();
+    assert(scanned.ok, scanned.ok ? "" : JSON.stringify(scanned.error));
+    // cursor는 batch 끝 event까지 움직인다(engine의 step 결과와 같다).
+    assertEquals(scanned.value, String(head["seq"]));
+    assertEquals(storedCursor(connection), String(head["seq"]));
+    // 계기 둘만 notification이고, 계기 아닌 run 종료는 만들지 않는다(R2).
+    assertEquals(notificationCount(connection), 2n);
+    const listed = connection.sql.all(
+      `select e.type as type from notifications n
+       join events e on e.seq = n.source_seq order by n.source_seq`,
+      [],
+    );
+    assertEquals(listed.map((row) => row["type"]), [
+      "QuestionCreated",
+      "ProblemOpened",
+    ]);
+    await engine.close();
+  } finally {
+    reader.close();
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/notifications#R11: engine step이 중간에 멈추면 다음 step은 멈춘 위치부터 다시 읽는다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-engine-stop-" });
+  const connection = await schema(dir);
+  const { path } = { path: `${dir}/ledger.db` };
+  const { reader, backend } = notificationEventsRead(path);
+  try {
+    emitSource(
+      connection,
+      "QuestionCreated",
+      "qst_01arz3ndektsv4rrffq69g5fav",
+      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+    );
+    emitSource(
+      connection,
+      "ProblemOpened",
+      "prb_01arz3ndektsv4rrffq69g5fav",
+      {
+        app: APP,
+        group_key: {
+          kind: "declared",
+          code: "api_timeout",
+          discriminator: null,
+        },
+        report: "rpt_01arz3ndektsv4rrffq69g5fav",
+      },
+    );
+    // engine 조립: command가 첫 create_notification에서 실제한다.
+    let failures = 0;
+    const stoppedCommand: Parameters<typeof notificationsEngine>[0]["command"] =
+      (_ctx, envelope) => {
+        if (envelope.command === "create_notification" && failures === 0) {
+          failures++;
+          return Promise.resolve(
+            err({ code: "unavailable", message: "실패 중" }),
+          );
+        }
+        return engineCommand(connection)(_ctx, envelope);
+      };
+    const engine = notificationsEngine({
+      backend,
+      command: stoppedCommand,
+      machine: machine(),
+    });
+    const stopped = await engine.step();
+    assert(!stopped.ok, "첫 create에서 실패했다");
+    if (!stopped.ok) assertEquals(stopped.error.code, "unavailable");
+    // 멈춘 위치: notification은 없고 cursor도 0이다. rollback은 transaction 내부에서 일어난다.
+    assertEquals(notificationCount(connection), 0n);
+    assertEquals(storedCursor(connection), "0");
+    // 다음 step은 같은 cursor부터 다시 읽어 둘 다 만든다. head는 step 앞에 잰다:
+    // step이 낸 NotificationCreated event가 max(seq)에 섞인다.
+    const head = connection.sql.get(
+      "select cast(max(seq) as text) as seq from events",
+      [],
+    );
+    assert(head);
+    const resumed = await engine.step();
+    assert(resumed.ok, resumed.ok ? "" : JSON.stringify(resumed.error));
+    assertEquals(storedCursor(connection), String(head["seq"]));
+    assertEquals(notificationCount(connection), 2n);
+    // 중간 stop이 replayable하다: 두 event 모두 notification이 됐다.
+    const listed = connection.sql.all(
+      `select e.type as type from notifications n
+       join events e on e.seq = n.source_seq order by n.source_seq`,
+      [],
+    );
+    assertEquals(listed.map((row) => row["type"]), [
+      "QuestionCreated",
+      "ProblemOpened",
+    ]);
+    await engine.close();
+  } finally {
+    reader.close();
     connection.close();
     await Deno.remove(dir, { recursive: true });
   }

@@ -1311,6 +1311,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-harness-integration.md
 - 선행: T25, T26, T27, T32, T34, T35, T37, T39, T40, lophn-agent#T49, shell#T25,
   shell#T47, shell#T49, shell#T50, shell#T51
+- problems#T13에서 넘어온 것: manage-tickets 6단계 acceptance check가 problems Verification(TicketTestLink)을 쓰는 통합 확인(#222)
 - 완료:
   - fake harness: PATH fixture로 감지되고 테스트 catalog의 ExecutionSpec(argv
     prompt, stdin_after_ready 둘 다)을 따르는 TUI 흉내. 받은 prompt로 MCP

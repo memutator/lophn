@@ -19,7 +19,6 @@ import {
 } from "../../../packages/platform/responsiveness/mod.ts";
 import { createStatusRecorder } from "../../../packages/documents/file-tracking/mod.ts";
 import { createRequestHandler } from "./requests.ts";
-import { dbg } from "./_dbg.ts";
 import {
   basisFromStore,
   childBlobPort,
@@ -338,12 +337,7 @@ export async function runCoordinator(root: string): Promise<void> {
           scan: fileScanPort(),
           read: fileReadPort(),
           nowMs: () => Date.now(),
-          submit: async (s) => {
-            dbg("submit " + s.candidate.canonical + " " + s.outcome.kind);
-            const r = await submit(s);
-            dbg("submit result " + JSON.stringify(r));
-            return r;
-          },
+          submit,
           basisFor: basisFromStore(basis),
         },
       });
@@ -357,8 +351,11 @@ export async function runCoordinator(root: string): Promise<void> {
       validate: (request) =>
         validateFiles(request, { inbox, call: (input) => formats.call(input) }),
     }),
-    // 준비 worker spawn(platform#T7)과 그 결과 제출이 들어오기 전에는 batch가 준비
-    // worker에 닿지 않는다. 그때까지 제출은 성공이 아니라 unavailable이다.
+    // 준비 worker는 아직 띄우지 않는다. platform 감독(createSupervisor)을 이 process에서
+    // 쓰려면 slot마다 kind가 따로 있어야 하고(kind마다 child 하나) process group 정리에 쓰는
+    // kill adapter까지 run 권한이 더 필요하다. batch의 준비 worker 요청·응답 protocol과
+    // preview_tracking 서빙도 정해지지 않았다(documents#T11 이어보냄). 파일 관측은 이
+    // process의 관측 loop가 직접 한다. 그때까지 batch 제출은 성공이 아니라 unavailable이다.
     spawnPreparation: () => {
       throw new Error("preparation spawn is not wired");
     },

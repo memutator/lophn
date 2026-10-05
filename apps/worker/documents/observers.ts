@@ -8,7 +8,6 @@ import {
   rootSignature,
 } from "../../../packages/documents/file-tracking/mod.ts";
 import type { BasisStore } from "./basis.ts";
-import { dbg } from "./_dbg.ts";
 
 export type RootObservers = {
   // 근거에 맞춘다. 반영 때마다 부르고, 시험도 같은 함수를 부른다.
@@ -36,7 +35,6 @@ export function createRootObservers(
   let stopped = false;
 
   function start(root: string, signature: string, request: ObserveRoot) {
-    dbg("start observe " + root);
     const stop = { stopped: false };
     running.set(root, { signature, stop });
     // loop는 stop이 서면 끝난다. 끝난 loop가 새로 뜬 같은 root의 항목을 지우지 않는다.

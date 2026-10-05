@@ -64,6 +64,47 @@ function versions(home: string): VersionRow[] {
     ).all() as unknown as VersionRow[]);
 }
 
+// 임시 data root 위에 core를 띄우고 사람 token을 받아 둔다. 같은 home으로 다시 띄워 재시작을
+// 흉내 낼 수 있다(credential_ref만 다르게 준다).
+async function startCoreAt(
+  home: string,
+  ref: string,
+  restart = false,
+  // 같은 seed는 같은 credential_ref를 만든다. 재시작은 다른 seed를 준다.
+  seed = 11,
+): Promise<Core> {
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [{ createLedgerRegistration }],
+    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    clock: manualClock(Date.UTC(2024, 0, 1)),
+    random: seededRandom(seed),
+    testCredentials: true,
+  });
+  assert(started.ok, started.ok ? "" : started.error.message);
+  const core = started.value;
+  const context = {
+    principal: "user",
+    actor: "user" as const,
+    credential_ref: ref,
+    scope: {
+      operations: ["project.create", "project.set_tracking", "files.status"],
+      targets: {},
+    },
+    conditions: {},
+  };
+  assert(core.acceptTestCredential);
+  const accepted = await core.acceptTestCredential(context, TOKEN);
+  assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
+  // 재시작이면 credential 기록은 ledger에 이미 있다.
+  if (!restart) {
+    const recorded = await core.record(context);
+    assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+  }
+  return core;
+}
+
 async function openTrackedFolder(
   files: Record<string, string>,
 ): Promise<{ core: Core; home: string; folder: string }> {
@@ -75,32 +116,7 @@ async function openTrackedFolder(
   for (const [name, text] of Object.entries(files)) {
     await Deno.writeTextFile(`${folder}/${name}`, text);
   }
-  const started = await startCore({
-    lophnHome: home,
-    port: 0,
-    teams: [{ createLedgerRegistration }],
-    teamModules: [new URL("./documents.ts", import.meta.url).href],
-    clock: manualClock(Date.UTC(2024, 0, 1)),
-    random: seededRandom(11),
-    testCredentials: true,
-  });
-  assert(started.ok, started.ok ? "" : started.error.message);
-  const core = started.value;
-  const context = {
-    principal: "user",
-    actor: "user" as const,
-    credential_ref: "cred_observe_person",
-    scope: {
-      operations: ["project.create", "project.set_tracking", "files.status"],
-      targets: {},
-    },
-    conditions: {},
-  };
-  assert(core.acceptTestCredential);
-  const accepted = await core.acceptTestCredential(context, TOKEN);
-  assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
-  const recorded = await core.record(context);
-  assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+  const core = await startCoreAt(home, "cred_observe_person");
   // 사람이 프로젝트를 만들고 tracking을 켠다. 미리보기는 준비 worker가 아직 없어
   // (documents#T11 남은 것) 같은 계산을 시험이 직접 하고, 적용 command는 실제로 낸다.
   const created = await post(core, "projects/create", {
@@ -146,12 +162,15 @@ async function close(
   opened: { core: Core; home: string; folder: string },
 ): Promise<void> {
   await opened.core.shutdown();
-  await Deno.copyFile(`${opened.home}/documents/debug.log`, "/tmp/claude-1000/dbg/debug.log").catch(() => {}); await Deno.remove(opened.home, { recursive: true });
+  await Deno.remove(opened.home, { recursive: true });
   await Deno.remove(opened.folder, { recursive: true });
 }
 
 Deno.test("documents/file-tracking#R4 documents/versions#R13: 등록 폴더의 파일 편집이 실제 worker를 거쳐 새 Version이 된다", async () => {
-  const opened = await openTrackedFolder({ "a.md": "# a\n\none\n" });
+  const opened = await openTrackedFolder({
+    "a.md": "# a\n\none\n",
+    "skip.txt": "규칙에 없는 파일",
+  });
   const { core, home, folder } = opened;
   try {
     // 처음 관측한 파일은 그 파일에 연결된 새 문서의 첫 판이다.
@@ -184,8 +203,10 @@ Deno.test("documents/file-tracking#R4 documents/versions#R13: 등록 폴더의 �
     });
     assertEquals(second.map((row) => row.number), [1, 2]);
     assertEquals(second[0].document, second[1].document);
-    const documents = ledger(home, (db) =>
-      db.prepare("SELECT COUNT(*) AS count FROM documents").get() as Json
+    const documents = ledger(
+      home,
+      (db) =>
+        db.prepare("SELECT COUNT(*) AS count FROM documents").get() as Json,
     );
     assertEquals(documents["count"], 1);
 
@@ -196,6 +217,15 @@ Deno.test("documents/file-tracking#R4 documents/versions#R13: 등록 폴더의 �
       return rows.length === 3 ? rows : undefined;
     });
     assertEquals(new Set(third.map((row) => row.document)).size, 2);
+
+    // 규칙(`**/*.md`)에 없는 파일은 관측하지 않는다.
+    const linkedPaths = ledger(
+      home,
+      (db) =>
+        (db.prepare("SELECT source_path FROM documents ORDER BY source_path")
+          .all() as unknown as Json[]).map((row) => row["source_path"]),
+    );
+    assertEquals(linkedPaths, [`${folder}/a.md`, `${folder}/b.md`]);
 
     // FileStatus는 마지막 관측이 최신 판과 같다고 말한다.
     const state = await until("tracked status", async () => {
@@ -210,6 +240,48 @@ Deno.test("documents/file-tracking#R4 documents/versions#R13: 등록 폴더의 �
       return body.status?.state === "tracked" ? "tracked" : undefined;
     });
     assertEquals(state, "tracked");
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("documents/file-tracking#R10: core를 다시 띄워도 같은 내용의 파일은 새 판을 만들지 않고 추적 중으로 돌아온다", async () => {
+  const opened = await openTrackedFolder({ "a.md": "# a\n\none\n" });
+  const { home, folder } = opened;
+  let core = opened.core;
+  try {
+    await until("first version", () => {
+      const rows = versions(home);
+      return rows.length === 1 ? rows : undefined;
+    });
+    await core.shutdown();
+    // 같은 data root와 폴더로 다시 시작한다. 시작 때 전체 대조가 파일을 다시 읽는다.
+    core = await startCoreAt(home, "cred_observe_person", true, 12);
+    opened.core = core;
+    const state = await until("tracked after restart", async () => {
+      const answered = await post(core, "files/status", {
+        target: {
+          kind: "project_file",
+          project: PROJECT,
+          path: `${folder}/a.md`,
+        },
+      });
+      const body = answered.body as { status?: { state?: string } };
+      return body.status?.state === "tracked" ? "tracked" : undefined;
+    });
+    assertEquals(state, "tracked");
+    // 다시 읽어도 최신 판의 원본 hash와 같으면 판은 늘지 않는다.
+    assertEquals(versions(home).length, 1);
+    // 꺼진 동안 고친 파일은 켜진 뒤 현재 내용의 새 판이 된다.
+    await core.shutdown();
+    await Deno.writeTextFile(`${folder}/a.md`, "# a\n\n꺼진 동안 고침\n");
+    core = await startCoreAt(home, "cred_observe_person", true, 13);
+    opened.core = core;
+    const second = await until("version after offline edit", () => {
+      const rows = versions(home);
+      return rows.length === 2 ? rows : undefined;
+    });
+    assertEquals(second.map((row) => row.number), [1, 2]);
   } finally {
     await close(opened);
   }

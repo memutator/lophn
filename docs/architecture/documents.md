@@ -310,6 +310,8 @@ shell: OS 폴더 선택·규칙 입력
  → search/watch consumer: 각각 비동기 반영
 ```
 
+coordinator는 machine으로 tracking 규칙과 경로→문서 연결을 읽지 않는다. core가 소유자로 snapshot에서 읽어(활성 root·규칙, `documents.source_path` 연결과 최신 판) 감독 pipe의 요청(`documents.observation_basis`)으로 넘기고, 규칙이나 연결이 바뀌면 바뀐 것만 같은 통로로 다시 보낸다(제어 frame 상한 안의 조각, 마지막 조각에서 한꺼번에 반영). 준비 route의 format 검사는 core가 I/O worker의 원문 blob을 창 단위로 읽어 같은 pipe의 byte chunk frame으로 coordinator에 보내고, coordinator가 format runner로 검사한다.
+
 규칙·source·보관·최신 판이 준비 중 바뀌면 command가 거절하고 새 기준으로 관측한다. 삭제·이동·권한 상실은 source_missing/unverified이며 연결과 옛 Version을 삭제하지 않는다. 꺼진 동안의 여러 중간 편집 대신 현재 확인한 바이트만 준비한다.
 
 ### 7.2 사람 편집 → 원자 교체 → 별도 완료

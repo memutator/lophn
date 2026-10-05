@@ -99,6 +99,9 @@ export type CoreOptions = {
   maintenanceTimeoutMs?: number;
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
+  // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 제품
+  // 기동에는 없다. credential은 log에 남기지 않는다.
+  onDocumentsHello?: (hello: { credential: string; api_port: number }) => void;
 };
 export type BlobPrepareCall = {
   principal: string;
@@ -454,6 +457,10 @@ async function open(
       credential: documentsToken,
       api_port: server.port,
     };
+    options.onDocumentsHello?.({
+      credential: documentsToken,
+      api_port: server.port,
+    });
     const documentsCallbacks = {
       // worker_response는 통로가 요청 id로 맞춘다.
       onMessage: (message: ChildMessage) => documentsChannel.onMessage(message),

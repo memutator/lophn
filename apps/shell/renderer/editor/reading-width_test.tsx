@@ -10,6 +10,8 @@ import {
   type SettingsPort,
 } from "./reading-width.ts";
 
+const DEFAULTS = "reg-031a8f26dadce0";
+
 /** platform settings 하나를 흉내 낸다. 판 CAS와 저장값을 지킨다. */
 function settingsCore(initial: unknown = null) {
   let value = initial;
@@ -31,14 +33,25 @@ function settingsCore(initial: unknown = null) {
           value: {
             settings: [{ key: READING_WIDTH_KEY, value }],
             revision,
+            defaults_revision: DEFAULTS,
           },
         });
       }
       const body = input.body as {
         input: { changes: { value: unknown }[] };
-        compare: { revision: number };
+        compare: { revision: number; defaults_revision?: string };
       };
-      if (body.compare.revision !== revision) {
+      // core는 기본값 판이 없거나 다르면 받지 않는다.
+      if (body.compare.defaults_revision === undefined) {
+        return Promise.resolve({
+          ok: false,
+          error: { code: "invalid_input", message: "" },
+        });
+      }
+      if (
+        body.compare.revision !== revision ||
+        body.compare.defaults_revision !== DEFAULTS
+      ) {
         return Promise.resolve({
           ok: false,
           error: { code: "conflict", message: "" },
@@ -48,7 +61,7 @@ function settingsCore(initial: unknown = null) {
       revision += 1;
       return Promise.resolve({
         ok: true,
-        value: { result: { revision, changed: true, applied: [] } },
+        value: { revision, changed: true, applied: [] },
       });
     },
   };
@@ -91,7 +104,7 @@ Deno.test("shell/design-system#R23: 읽기 폭 선택은 platform settings의 �
         }],
       },
       idempotency_key: "key-1",
-      compare: { revision: 4 },
+      compare: { revision: 4, defaults_revision: DEFAULTS },
       prepared: [],
     },
   });

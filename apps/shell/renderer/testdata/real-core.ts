@@ -3,7 +3,7 @@
 // 사람 token으로 부른다. 사람 데이터 root(~/.lophn)는 열지 않고, 띄운 core만 정확히 멈춘다.
 // component test는 temp bundle에서 돌아 import.meta.url이 repo를 가리키지 않으므로 repo
 // root는 실행 위치에서 위로 찾는다.
-import type { CoreSource } from "../../desktop/connection/connection.ts";
+import type { CoreSource } from "../desktop/connection/connection.ts";
 
 export interface RealCore {
   readonly source: CoreSource;

@@ -13,7 +13,7 @@ import { MESSAGE_TEXT_MAX_BYTES, textContent } from "./delivery-state.ts";
 import { Dock } from "./dock.tsx";
 import { DraftStore } from "./drafts.ts";
 import { manualTicks } from "./testdata/fake-source.ts";
-import { startRealCore } from "./testdata/real-core.ts";
+import { startRealCore } from "../testdata/real-core.ts";
 
 const WAIT_MS = 20_000;
 

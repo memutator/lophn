@@ -180,7 +180,7 @@ concerns: [documents]
   - 기존 문서는 base_version의 정확한 FormatRef. 최신 판이 바뀌면 conflict 뒤 재준비. 사람의 명시 format 변경만 새 판의 계약을 바꿈
   - 같은 idempotency key의 재전달은 같은 신규 doc ID
   - `work_test.ts`·API 통합 테스트에 formats#R4, R5, R7
-- 상태: 완료 (#200) — per-file 원문·version_files 행은 canonical 목록 blob과 T11 machine submissions 몫이다
+- 상태: 완료 (#200) — 이어보냄: apps/core의 `documents/prepare` worker 조립(core workers map)과 준비 worker의 실제 같은 stream hash·blob 준비 → documents#T11
 
 ### T9 address 해석과 문서 이동·이름 변경
 
@@ -231,6 +231,7 @@ concerns: [documents]
 - slice: documents
 - 선행: T8, T10, platform#T4(event 구독)
 - T2에서 넘어온 것: 준비 worker의 실제 scan·hash·diff와 그 결과 command 제출, `/v1/projects/preview_tracking` route 연결(T10 진행 줄)
+- T8에서 넘어온 것: `/v1/documents/prepare` worker route를 apps/core에 조립(startApiServer workers map), 준비 worker가 T8 조립(createPrepareAssembly)에 실제 같은 stream hash·blob 준비 port를 준다(#200은 fake port로만 검증)
 - 완료:
   - root별 `Deno.watchFs(recursive)` 신호는 힌트. 시작·절전 복귀·watch 넘침·단절·규칙·폴더 변경·보관 해제에 전체 대조, 평소 60초마다 root scan(진행 중이면 합침), root당 후보 10,000개 초과면 `rescan_required` 하나
   - canonical 경로별 후보 합치기, 750ms 조용하면 관측, 안정 읽기 최대 3회. 열기 전·후 실제 경로·file identity·size·mtime 비교, 같은 stream에서 hash와 blob. 안정 확인 실패는 unverified로 두고 다음 파일로

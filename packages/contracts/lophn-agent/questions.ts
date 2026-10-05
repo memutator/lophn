@@ -171,6 +171,32 @@ export const applyQuestionOption = defineCommand({
   errors: [...commandErrors],
 });
 
+// 닫은 이유는 고정 코드다. 사람이 글을 남기는 취소(cancelled·superseded)만 이유 blob이
+// 있고, 미루기(deferred)와 기한 만료(expired)는 사람 글이 없으므로 blob이 없다.
+// 저장하지 않은 blob을 가리키지 않는다.
+function closureAgrees(value: {
+  status: string;
+  closed_reason: string | null;
+  closed_reason_blob: string | null;
+}): boolean {
+  switch (value.status) {
+    case "pending":
+    case "answered":
+      return value.closed_reason === null && value.closed_reason_blob === null;
+    case "expired":
+      return value.closed_reason === "expired" &&
+        value.closed_reason_blob === null;
+    case "cancelled":
+      return value.closed_reason === "deferred"
+        ? value.closed_reason_blob === null
+        : (value.closed_reason === "cancelled" ||
+          value.closed_reason === "superseded") &&
+          value.closed_reason_blob !== null;
+    default:
+      return false;
+  }
+}
+
 const questionRecordSchema = createQuestionSubmissionOutputSchema.and(z.object({
   status: questionStatusSchema,
   answer: answerSchema.nullable(),
@@ -183,9 +209,7 @@ const questionRecordSchema = createQuestionSubmissionOutputSchema.and(z.object({
   (value) =>
     (value.status === "pending") === (value.closed_seq === null) &&
     (value.status === "answered") === (value.answer !== null) &&
-    (value.status === "pending" || value.status === "answered"
-      ? value.closed_reason === null && value.closed_reason_blob === null
-      : value.closed_reason !== null && value.closed_reason_blob !== null),
+    closureAgrees(value),
   { message: "question status and closure disagree" },
 );
 
@@ -250,11 +274,11 @@ export const questionAnswered = defineEvent("QuestionAnswered", {
   }),
 });
 
+// 기한 만료는 사람 글이 없는 닫힘이다. 이유 blob이 없다.
 export const questionExpired = defineEvent("QuestionExpired", {
   subject: questionSubject,
   payload: z.object({
     created_seq: seqSchema,
-    closed_reason_blob: sha256Schema,
   }),
 });
 
@@ -262,9 +286,13 @@ export const questionCancelled = defineEvent("QuestionCancelled", {
   subject: questionSubject,
   payload: z.object({
     created_seq: seqSchema,
-    closed_reason_blob: sha256Schema,
+    // 미루기(deferred=true)는 사람 글이 없어 null이고 취소는 이유 blob이 있다.
+    closed_reason_blob: sha256Schema.nullable(),
     deferred: z.boolean(),
-  }),
+  }).refine(
+    (value) => value.deferred === (value.closed_reason_blob === null),
+    { message: "only a deferral has no reason blob" },
+  ),
 });
 
 export const QUESTION_COMMANDS = [

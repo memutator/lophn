@@ -21,9 +21,7 @@ import {
   id,
 } from "../../../packages/lophn-agent/questions/testing/mod.ts";
 import {
-  DEFERRED_REASON_BLOB,
   EMPTY_TEXT_BLOB,
-  EXPIRED_REASON_BLOB,
   screenAnswerText,
   SECURE_INPUT_GUIDANCE,
 } from "../../../packages/lophn-agent/questions/mod.ts";
@@ -981,8 +979,8 @@ Deno.test("lophn-agent/questions#R8: deferring, expiring and cancelling end with
     });
     value(await cancel(h, userCred, cancelled.id, cancelled.created_seq));
     const states = [
-      [deferred.id, "cancelled", "deferred", DEFERRED_REASON_BLOB],
-      [expiring.id, "expired", "expired", EXPIRED_REASON_BLOB],
+      [deferred.id, "cancelled", "deferred", null],
+      [expiring.id, "expired", "expired", null],
       [cancelled.id, "cancelled", "cancelled", BODY(77)],
     ] as const;
     for (const [question, status, reason, blob] of states) {

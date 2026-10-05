@@ -1,9 +1,7 @@
 export {
   actionAllowed,
   appliedOf,
-  DEFERRED_REASON_BLOB,
   EMPTY_TEXT_BLOB,
-  EXPIRED_REASON_BLOB,
   QUESTION_ACTIONS,
   questionBodyFields,
   type QuestionRecord,

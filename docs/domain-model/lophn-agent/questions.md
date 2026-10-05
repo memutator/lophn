@@ -20,7 +20,8 @@ Question의 고정 option·option action, 명시적 답, 기한과 채택 참조
 | `expires_at` | UTC ISO 8601 밀리초 문자열 | 예 | 지정 시 생성 시각보다 뒤; 답은 `now < expires_at` | 답 기한 |
 | `status` | `pending / answered / expired / cancelled` | 아니오 | 생성 시 pending | 질문 상태 |
 | `answer` | Answer | 예 | answered와 non-null이 동치 | 명시적 답 |
-| `closed_reason_blob` | sha256 | 예 | expired·cancelled이면 필수; pending·answered이면 null | 종료 설명 |
+| `closed_reason` | `deferred / cancelled / superseded / expired` | 예 | cancelled 상태는 앞 셋, expired 상태는 expired; pending·answered이면 null | 종료 이유 코드 |
+| `closed_reason_blob` | sha256 | 예 | closed_reason이 cancelled·superseded일 때만 필수(사람이 남긴 취소 글); deferred·expired·pending·answered이면 null | 종료 설명 |
 | `created_seq` | event seq | 아니오 | 생성 event 참조; 불변; → platform/ledger | 고정 내용 기준 |
 | `closed_seq` | event seq | 예 | pending과 null이 동치; 종료 event 참조 | 답·종료 기준 |
 
@@ -143,8 +144,8 @@ option·action·recommendation·answer는 질문 안의 값이고 독립 ID·표
 |---|---|---|---|
 | `QuestionCreated` | question | `run`, `session?`, 선택지마다 `key`와 고정 action이 platform/settings 변경이면 그 변경 목록(아니면 null) | platform/notifications, lophn-agent/harness/waiting-and-recovery, platform/settings(machine ApplySettings의 질문 근거 대조) |
 | `QuestionAnswered` | question | `created_seq`, Answer, 선택 option의 `binding_hash?` | action.concern(있을 때), lophn-agent/harness/waiting-and-recovery |
-| `QuestionExpired` | question | `created_seq`, `closed_reason_blob` | lophn-agent/harness/waiting-and-recovery |
-| `QuestionCancelled` | question | `created_seq`, `closed_reason_blob`, `deferred: boolean` | lophn-agent/harness/waiting-and-recovery |
+| `QuestionExpired` | question | `created_seq` | lophn-agent/harness/waiting-and-recovery |
+| `QuestionCancelled` | question | `created_seq`, `closed_reason_blob?`(미루기는 null), `deferred: boolean` | lophn-agent/harness/waiting-and-recovery |
 
 답 event는 actor=user, envelope run=null이다. 원래 run은 Question.run에서 읽는다. option 적용 event도 actor=user/run=null이며 agent run revert 목록에 넣지 않는다.
 

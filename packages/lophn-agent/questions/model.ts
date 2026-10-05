@@ -49,9 +49,10 @@ create table questions (
   check ((status = 'answered') = (answer is not null)),
   check (binding_hash is null or status = 'answered'),
   check ((status in ('expired', 'cancelled')) = (closed_reason is not null)),
-  check ((status in ('expired', 'cancelled')) = (closed_reason_blob is not null)),
   check (status != 'expired' or closed_reason = 'expired'),
-  check (status != 'cancelled' or closed_reason in ('deferred', 'cancelled', 'superseded'))
+  check (status != 'cancelled' or closed_reason in ('deferred', 'cancelled', 'superseded')),
+  check ((closed_reason in ('cancelled', 'superseded')) = (closed_reason_blob is not null)),
+  check (status in ('expired', 'cancelled') or closed_reason_blob is null)
 ) strict;
 create unique index questions_run_pending on questions (run) where status = 'pending';
 create index questions_pending_expiry on questions (status, expires_at) where status = 'pending';
@@ -111,17 +112,9 @@ export function actionAllowed(
   );
 }
 
-// 닫은 이유 blob은 command 입력에 없는 닫힘(미루기·기한 만료)에 쓰는 고정 문장의
-// 지문이다. 무응답은 답이 아니라는 뜻만 담고 사람 글은 담지 않는다.
 function reasonHash(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
-export const DEFERRED_REASON_BLOB = reasonHash(
-  "lophn-agent/questions: the person deferred the question",
-);
-export const EXPIRED_REASON_BLOB = reasonHash(
-  "lophn-agent/questions: the deadline passed without an answer",
-);
 
 // 빈 글의 지문. 자유 답이 이 hash면 빈 답이다(R6).
 export const EMPTY_TEXT_BLOB = reasonHash("");

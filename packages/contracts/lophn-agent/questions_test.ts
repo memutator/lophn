@@ -10,7 +10,10 @@ import {
   createQuestion,
   QUESTION_COMMANDS,
   QUESTION_EVENTS,
+  questionCancelled,
   questionCreated,
+  questionExpired,
+  questionRead,
 } from "./questions.ts";
 
 const suffix = "01arz3ndektsv4rrffq69g5fav";
@@ -172,6 +175,111 @@ Deno.test("lophn-agent/questions#R8: an expired question carries its own closed 
       created_seq: "4",
       closed_reason: "expired",
       closed_reason_blob: hash,
+    }).success,
+  );
+});
+
+Deno.test("lophn-agent/questions#R8: only a typed cancel keeps a reason blob, a deferral and an expiry point at no stored blob", () => {
+  const base = {
+    id: question,
+    run: `run_${suffix}`,
+    session: null,
+    prompt_blob: hash,
+    reason_blob: hash,
+    options: [],
+    recommendation: null,
+    expires_at: null,
+    answer: null,
+    created_seq: "4",
+    applied: false,
+  };
+  const record = (closure: Record<string, unknown>) =>
+    questionRead.output.safeParse({
+      question: { ...base, ...closure },
+      as_of_seq: "9",
+      next_cursor: null,
+    });
+  const closed = { closed_seq: "7" };
+  assert(
+    record({
+      ...closed,
+      status: "cancelled",
+      closed_reason: "deferred",
+      closed_reason_blob: null,
+    }).success,
+  );
+  assert(
+    record({
+      ...closed,
+      status: "expired",
+      closed_reason: "expired",
+      closed_reason_blob: null,
+    }).success,
+  );
+  assert(
+    record({
+      ...closed,
+      status: "cancelled",
+      closed_reason: "superseded",
+      closed_reason_blob: hash,
+    }).success,
+  );
+  // 저장하지 않은 blob을 가리키거나 typed 취소의 blob을 빼면 안 된다.
+  assert(
+    !record({
+      ...closed,
+      status: "cancelled",
+      closed_reason: "deferred",
+      closed_reason_blob: hash,
+    }).success,
+  );
+  assert(
+    !record({
+      ...closed,
+      status: "expired",
+      closed_reason: "expired",
+      closed_reason_blob: hash,
+    }).success,
+  );
+  assert(
+    !record({
+      ...closed,
+      status: "cancelled",
+      closed_reason: "cancelled",
+      closed_reason_blob: null,
+    }).success,
+  );
+  assert(
+    !record({
+      ...closed,
+      status: "expired",
+      closed_reason: "cancelled",
+      closed_reason_blob: null,
+    }).success,
+  );
+  assertEquals(
+    questionExpired.payload.safeParse({ created_seq: "4" }).success,
+    true,
+  );
+  assert(
+    questionCancelled.payload.safeParse({
+      created_seq: "4",
+      closed_reason_blob: null,
+      deferred: true,
+    }).success,
+  );
+  assert(
+    !questionCancelled.payload.safeParse({
+      created_seq: "4",
+      closed_reason_blob: hash,
+      deferred: true,
+    }).success,
+  );
+  assert(
+    !questionCancelled.payload.safeParse({
+      created_seq: "4",
+      closed_reason_blob: null,
+      deferred: false,
     }).success,
   );
 });

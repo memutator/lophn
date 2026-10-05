@@ -20,9 +20,7 @@ import {
 import {
   actionAllowed,
   assignmentState,
-  DEFERRED_REASON_BLOB,
   EMPTY_TEXT_BLOB,
-  EXPIRED_REASON_BLOB,
   loadQuestion,
   loadRunRef,
   type QuestionRow,
@@ -335,14 +333,13 @@ export function createQuestionCommands(): {
         // 미루기는 답이 아니다. 답 없음으로 닫는다(R6, R8).
         const seq = tx.emit(questionCancelled, row.id, {
           created_seq: row.created_seq,
-          closed_reason_blob: DEFERRED_REASON_BLOB,
+          closed_reason_blob: null,
           deferred: true,
         });
         closeRow(tx, row, {
           status: "cancelled",
           seq,
           reason: "deferred",
-          reasonBlob: DEFERRED_REASON_BLOB,
         });
         return closedOutput(row, "cancelled", seq, false);
       },
@@ -426,13 +423,11 @@ export function createQuestionCommands(): {
         }
         const seq = tx.emit(questionExpired, row.id, {
           created_seq: row.created_seq,
-          closed_reason_blob: EXPIRED_REASON_BLOB,
         });
         closeRow(tx, row, {
           status: "expired",
           seq,
           reason: "expired",
-          reasonBlob: EXPIRED_REASON_BLOB,
         });
         return closedOutput(row, "expired", seq, false);
       },

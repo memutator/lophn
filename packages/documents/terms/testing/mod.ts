@@ -1,15 +1,9 @@
 // leaf unit fixture. writer Worker·current credential·core API 증거는 아니다.
 // 실제 file SQLite ledger(addressing·versions·contexts·terms 표) 위에서 command를 돌린다.
 import { DatabaseSync } from "node:sqlite";
-import type { TargetAuthorizer } from "../../../contracts/platform/mod.ts";
-import {
-  contextFixture,
-  ids as contextIds,
-} from "../../contexts/testing/mod.ts";
+import type { Result } from "../../../base/mod.ts";
 import { outlineAndSearchSchemaSteps } from "../../outline-and-search/mod.ts";
 import { termsSchemaSteps } from "../mod.ts";
-
-export { keep, userContext } from "../../contexts/testing/mod.ts";
 
 const HASH = "ab".repeat(32);
 
@@ -26,7 +20,11 @@ function termId(n: number): string {
 }
 
 export const ids = {
-  ...contextIds,
+  context: "ctx_01arz3ndektsv4rrffq69g5fav",
+  context2: "ctx_01arz3ndektsv4rrffq69g5faw",
+  doc: "doc_01arz3ndektsv4rrffq69g5fav",
+  app: "app_01arz3ndektsv4rrffq69g5fav",
+  run: "run_01arz3ndektsv4rrffq69g5fav",
   context3: "ctx_01arz3ndektsv4rrffq69g5fax",
   doc2: "doc_01arz3ndektsv4rrffq69g5faw",
   version1: "ver_01arz3ndektsv4rrffq69g5fa1",
@@ -35,8 +33,29 @@ export const ids = {
   term: termId,
 };
 
-export function termFixture(authorize?: TargetAuthorizer) {
-  const base = contextFixture(authorize);
+export function userContext(actor = "user", run?: string) {
+  return {
+    principal: "person",
+    actor,
+    scope: { operations: [], targets: {} },
+    conditions: {},
+    credential_ref: "current",
+    ...(run === undefined ? {} : { run }),
+  };
+}
+
+export function keep<T>(result: Result<T>): T {
+  if (!result.ok) {
+    throw new Error(`${result.error.code}: ${result.error.message}`);
+  }
+  return result.value;
+}
+
+// 다른 leaf의 fixture는 그 leaf의 *_test.ts가 만들어 넘긴다(leaf의 testing/은
+// *_test.ts에서만 import한다). base는 addressing·versions·contexts 표를 연 ledger다.
+export function termFixture<
+  B extends { db: DatabaseSync; seedDocument(id: string): void },
+>(base: B) {
   for (const step of termsSchemaSteps) base.db.exec(step.sql);
   return {
     ...base,

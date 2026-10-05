@@ -7,6 +7,7 @@ import {
 } from "../../contracts/documents/mod.ts";
 import type { TermEvidence } from "../../contracts/documents/mod.ts";
 import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
+import { contextFixture } from "../contexts/testing/mod.ts";
 import { createContextCommands } from "../contexts/mod.ts";
 import { createTermCommands } from "./commands.ts";
 import {
@@ -48,11 +49,14 @@ function lines(version = ids.version1, start = 2, end = 3): TermEvidence {
   };
 }
 
-type Fixture = ReturnType<typeof termFixture>;
+// 다른 leaf의 fixture는 이 *_test.ts가 만들어 넘긴다.
+const newFixture = (authorize?: TargetAuthorizer) =>
+  termFixture(contextFixture(authorize));
+type Fixture = ReturnType<typeof newFixture>;
 
 // 문서 하나와 그 첫 판, context 둘이 있는 ledger.
 function setup(authorize?: TargetAuthorizer): Fixture {
-  const fixture = termFixture(authorize);
+  const fixture = newFixture(authorize);
   fixture.seedContext(ids.context);
   fixture.seedContext(ids.context2);
   fixture.seedDocument(ids.doc);

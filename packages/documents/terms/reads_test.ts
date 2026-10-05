@@ -6,6 +6,7 @@ import {
 } from "../../contracts/documents/mod.ts";
 import type { Term, TermEvidence } from "../../contracts/documents/mod.ts";
 import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
+import { contextFixture } from "../contexts/testing/mod.ts";
 import { createContextCommands } from "../contexts/mod.ts";
 import { createTermCommands } from "./commands.ts";
 import { createTermReads } from "./reads.ts";
@@ -15,7 +16,10 @@ const commands = createTermCommands();
 const reads = createTermReads();
 const AGENT = `agent:${ids.run.replace("run_", "asg_")}`;
 
-type Fixture = ReturnType<typeof termFixture>;
+// 다른 leaf의 fixture는 이 *_test.ts가 만들어 넘긴다.
+const newFixture = (authorize?: TargetAuthorizer) =>
+  termFixture(contextFixture(authorize));
+type Fixture = ReturnType<typeof newFixture>;
 
 function section(key = "요약", version = ids.version1): TermEvidence {
   return {
@@ -28,7 +32,7 @@ function section(key = "요약", version = ids.version1): TermEvidence {
 }
 
 function setup(authorize?: TargetAuthorizer): Fixture {
-  const fixture = termFixture(authorize);
+  const fixture = newFixture(authorize);
   fixture.seedContext(ids.context);
   fixture.seedContext(ids.context2);
   fixture.seedDocument(ids.doc);

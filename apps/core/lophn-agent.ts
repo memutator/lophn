@@ -40,6 +40,12 @@ import {
   runSchemaSteps,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
+  conversationSchemaSteps,
+  createConversationCommands,
+  createConversationReads,
+  hasUnappliedSteering,
+} from "../../packages/lophn-agent/conversation/mod.ts";
+import {
   createToolCommands,
   createToolReads,
   toolCallBodyFields,
@@ -192,9 +198,19 @@ const assignmentReads = createAssignmentReads();
 
 // run ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
 // 멈춤은 사람과 machine, 다음 일 확인은 사람이다. 미반영 steering 판정은
-// 입력 표를 소유한 conversation(T11)이 연결한다.
-const runCommands = createRunCommands();
+// 입력 표를 소유한 conversation의 messages 표를 같은 Tx에서 읽는다(run-loop R14).
+const runCommands = createRunCommands({ hasUnappliedSteering });
 const runReads = createRunReads();
+
+// 세션과 메시지(concern conversation). 사람 입력 접수는 담당 run 접수와 한
+// transaction이므로 run-loop의 AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은
+// machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
+// message 출처의 run이다. 바깥 command의 actor·event 기록은 그대로다.
+const conversationCommands = createConversationCommands({
+  acceptRun: (tx, ctx, input, compare) =>
+    runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
+});
+const conversationReads = createConversationReads();
 
 // tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
 // 원문은 blob 참조만 남긴다.
@@ -211,6 +227,7 @@ export const lophnAgentDefinitions = {
     ...presetSchemaSteps,
     ...assignmentSchemaSteps,
     ...runSchemaSteps,
+    ...conversationSchemaSteps,
     ...toolsSchemaSteps,
   ],
   commands: [
@@ -241,6 +258,14 @@ export const lophnAgentDefinitions = {
     runCommands.finish,
     runCommands.stop,
     runCommands.confirmNext,
+    conversationCommands.open,
+    conversationCommands.changeWorkPlace,
+    conversationCommands.close,
+    conversationCommands.receive,
+    conversationCommands.executeStored,
+    conversationCommands.record,
+    conversationCommands.apply,
+    conversationCommands.assign,
     toolCommands.request,
     toolCommands.decide,
     toolCommands.start,
@@ -266,6 +291,9 @@ export const lophnAgentDefinitions = {
     runReads.read,
     runReads.list,
     runReads.result,
+    conversationReads.session,
+    conversationReads.sessions,
+    conversationReads.messages,
     toolReads.read,
     toolReads.list,
   ],
@@ -296,6 +324,9 @@ export function createReaderRegistration(): ReaderRegistration {
       runReads.read,
       runReads.list,
       runReads.result,
+      conversationReads.session,
+      conversationReads.sessions,
+      conversationReads.messages,
       toolReads.read,
       toolReads.list,
     ],

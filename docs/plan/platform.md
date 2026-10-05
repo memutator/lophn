@@ -676,6 +676,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T29 notification 계기: approval, question, assignment
 
+- 상태: 진행 (#189) — 남은 것: lophn-agent questions·assignments의 QuestionCreated·AssignmentPaused 발생 작업
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2
@@ -859,6 +860,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T39 notification 계기: 운영 보고 문제
 
+- 상태: 진행 (#189) — 남은 것: problems/closing의 ProblemClosed·ProblemReopened 발생 작업
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2

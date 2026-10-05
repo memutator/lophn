@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { ACTOR_KINDS, defineCommand } from "../../contracts/platform/mod.ts";
-import {
-  defineTxPort,
-  type LedgerTestRegistration,
-} from "../../../apps/core/testing/ledger.ts";
-import { runAdmission } from "../../platform/ledger/mod.ts";
+import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import {
   createPresetCommands,
   createPresetReads,
@@ -144,19 +140,6 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       commands.record,
       commands.apply,
       commands.assign,
-    ],
-    // agent command는 run 판정이 있어야 한다. 판정은 runs 표를 읽는다.
-    ports: [
-      defineTxPort(runAdmission, (tx) => ({
-        status: (run: string) => {
-          const row = tx.sql.get("select state from runs where id = ?", [run]);
-          return row === undefined
-            ? "unknown" as const
-            : row["state"] === "finished"
-            ? "finished" as const
-            : "active" as const;
-        },
-      })),
     ],
     testCommands: [
       {

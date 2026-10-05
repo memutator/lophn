@@ -1,15 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { createHash } from "node:crypto";
-import {
-  canonicalize,
-  createIdSource,
-  err,
-  type LophnError,
-  manualClock,
-  ok,
-  type Result,
-  seededRandom,
-} from "../../base/mod.ts";
+import type { Result } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   SqlRow,
@@ -18,89 +8,19 @@ import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../apps/core/testing/ledger.ts";
-import { applyMigrations } from "../../platform/backup-and-migration/mod.ts";
-import {
-  LEDGER_SCHEMA_STEPS,
-  openConnection,
-  runCommand,
-} from "../../platform/ledger/mod.ts";
-import { createPresetCommands, presetSchemaSteps } from "../presets/mod.ts";
-import {
-  assignmentSchemaSteps,
-  createAssignmentCommands,
-} from "../assignments/mod.ts";
-import { createRunCommands, runSchemaSteps } from "../harness/run-loop/mod.ts";
-import { providerSchemaSteps } from "../harness/provider/mod.ts";
-import { usageSchemaSteps } from "../harness/usage/mod.ts";
 import {
   envelope,
   presetDefinitionJson,
-  presetValidateDeps,
 } from "../harness/run-loop/testing/mod.ts";
-import {
-  conversationSchemaSteps,
-  createConversationCommands,
-  hasUnappliedSteering,
-} from "./mod.ts";
+import { BODY, cred, hashOf, id } from "./testing/mod.ts";
 
 // 세션·메시지 ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓰고
 // run-loop의 FinishRun이 제품 core와 같은 hasUnappliedSteering(messages 표)을 본다.
-// 재시작과 30일 유휴는 파일 ledger를 닫고 다시 여는 아래 R2 시험이 맡는다.
+// 재시작과 30일 유휴는 파일 ledger를 닫고 다시 여는 apps/core/testing/
+// lophn-agent-conversation_test.ts의 R2 시험이 맡는다.
 // 실제 provider를 부르지 않는다.
 
 const NOW = Date.UTC(2026, 0, 1);
-
-const OPERATIONS = [
-  "RegisterDefaultPreset",
-  "CreateBuiltinAssignment",
-  "CreateAppEngineerAssignment",
-  "PauseAssignment",
-  "ResumeAssignment",
-  "WithdrawAssignment",
-  "AcceptRun",
-  "StartRun",
-  "FinishRun",
-  "StopRun",
-  "ConfirmNextRun",
-  "ReadRun",
-  "ListRuns",
-  "OpenSession",
-  "ChangeSessionWorkPlace",
-  "CloseSession",
-  "ReceiveMessage",
-  "ExecuteStoredRequest",
-  "RecordMessage",
-  "ApplyMessages",
-  "AssignMessage",
-  "ReadSession",
-  "ListSessions",
-  "ListMessages",
-  "RegisterProvider",
-  "StartModelCall",
-  "SeedTargetFixture",
-  "SeedOperatorFixture",
-  "SeedAcceptFailure",
-  "CommandResult",
-];
-
-function cred(actor: string): AuthenticatedContext {
-  const assignment = actor.startsWith("agent:") ? actor.slice(6) : undefined;
-  return {
-    actor,
-    principal: assignment === undefined ? `${actor}-1` : actor,
-    credential_ref: `test:${actor}`,
-    scope: {
-      operations: OPERATIONS,
-      targets: assignment === undefined ? {} : { assignment },
-    },
-    conditions: assignment === undefined ? {} : { assignment },
-  };
-}
-
-const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
-function id(prefix: string, n: number): string {
-  return `${prefix}_01arz3ndektsv4rrffq69g5f${ALPHA[n >> 5]}${ALPHA[n & 31]}`;
-}
 
 const userCred = cred("user");
 const machineCred = cred("machine");
@@ -113,7 +33,6 @@ const APP_OTHER = id("app", 2);
 const PROJECT = id("prj", 1);
 const PROJECT_OTHER = id("prj", 2);
 const PVDR = id("pvd", 1);
-const BODY = (n: number) => n.toString(16).padStart(2, "0").repeat(32);
 const BASIS = "b".repeat(64);
 const RESULT = "c".repeat(64);
 const LIMITS = { model_attempts: 30, stall_ms: 300_000, active_ms: 1_800_000 };
@@ -121,18 +40,6 @@ const DONE = { kind: "completed", reason: "answer_completed" };
 const FAILED = { kind: "failed", reason: "model_error" };
 
 const agentOf = (assignment: string) => cred(`agent:${assignment}`);
-
-// agent 자격은 run 하나에 묶여 발급된다(platform/ledger). 시험은 그 run이 생긴 뒤
-// 같은 모양의 자격을 harness에 더한다.
-function agentRun(assignment: string, run: string): AuthenticatedContext {
-  return {
-    actor: `agent:${assignment}`,
-    principal: `agent:${assignment}`,
-    credential_ref: `test:agent:${assignment}:${run}`,
-    scope: { operations: OPERATIONS, targets: { assignment, run } },
-    conditions: { assignment, run },
-  };
-}
 
 function value<T>(result: Result<T>): T {
   assert(result.ok, result.ok ? undefined : JSON.stringify(result.error));
@@ -155,12 +62,6 @@ type Snapshot = {
 };
 function output<T>(result: Result<{ result: unknown }>): T {
   return value(result).result as T;
-}
-
-function hashOf(definition: Record<string, unknown>): string {
-  return createHash("sha256").update(canonicalize(definition), "utf8").digest(
-    "hex",
-  );
 }
 
 async function open(): Promise<LedgerHarness> {
@@ -740,173 +641,6 @@ Deno.test("lophn-agent/conversation#R1: a withdrawn assignment takes no new sess
   }
 });
 
-Deno.test("lophn-agent/conversation#R2: confirmed messages and their runs stay after reopening the ledger file, with no midnight or idle expiry", async () => {
-  const dir = await Deno.makeTempDir({ prefix: "conversation-r2-" });
-  const path = `${dir}/ledger.db`;
-  try {
-    const clock = manualClock(NOW);
-    const applied = await applyMigrations(
-      path,
-      [
-        ...LEDGER_SCHEMA_STEPS,
-        ...providerSchemaSteps,
-        ...usageSchemaSteps,
-        ...presetSchemaSteps,
-        ...assignmentSchemaSteps,
-        ...runSchemaSteps,
-        ...conversationSchemaSteps,
-      ],
-      { clock },
-    );
-    assert(applied.ok, applied.ok ? "" : JSON.stringify(applied.error));
-    const deps = {
-      clock,
-      ids: createIdSource({ clock, random: seededRandom(1) }),
-      ports: [],
-      registerBlobRef: () =>
-        err<LophnError>({ code: "unavailable", message: "blob 없음" }),
-      call: () =>
-        err<LophnError>({ code: "unavailable", message: "dispatch 없음" }),
-      checkCredential: (ctx: AuthenticatedContext) => ok(ctx),
-    };
-    const presets = createPresetCommands(presetValidateDeps());
-    const assignments = createAssignmentCommands();
-    const runs = createRunCommands({ hasUnappliedSteering });
-    const conversation = createConversationCommands({
-      acceptRun: (tx, ctx, input, compare) =>
-        runs.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
-    });
-    const registry = [
-      presets.registerDefault,
-      assignments.createBuiltin,
-      assignments.pause,
-      assignments.resume,
-      runs.accept,
-      runs.start,
-      runs.finish,
-      conversation.open,
-      conversation.receive,
-      conversation.close,
-    ];
-    let key = 0;
-    // 새 connection으로 한 명령을 실행하고 곧바로 닫는다. 정상 종료 절차는 없다.
-    const execute = async (
-      ctx: AuthenticatedContext,
-      command: string,
-      input: unknown,
-      compare: unknown,
-    ) => {
-      const opened = openConnection(path);
-      assert(opened.ok, "open");
-      try {
-        return await runCommand(opened.value, deps, registry, ctx, {
-          command,
-          input,
-          idempotency_key: `r2-${++key}`,
-          compare,
-          prepared: [],
-        });
-      } finally {
-        opened.value.close();
-      }
-    };
-    const observe = <T>(
-      read: (sql: {
-        get: (q: string, p: never[]) => Record<string, unknown> | undefined;
-      }) => T,
-    ): T => {
-      const opened = openConnection(path);
-      assert(opened.ok, "reopen");
-      try {
-        return read(opened.value.sql as never);
-      } finally {
-        opened.value.close();
-      }
-    };
-    const ctxOf = (actor: string): AuthenticatedContext => cred(actor);
-    const definition = presetDefinitionJson("lophn");
-    for (
-      const result of [
-        await execute(ctxOf("machine"), "RegisterDefaultPreset", {
-          id: id("pst", 1),
-          definition,
-          definition_hash: hashOf(definition),
-        }, {}),
-        await execute(ctxOf("machine"), "CreateBuiltinAssignment", {
-          id: ASG_LOPHN,
-          preset: id("pst", 1),
-          preset_revision: 1,
-          role: "lophn",
-          scope: { kind: "all", id: null },
-        }, {}),
-        await execute(ctxOf("user"), "OpenSession", {
-          id: id("ses", 1),
-          assignment: ASG_LOPHN,
-          role: "lophn",
-          work_place: PLACES.global,
-          continued_from: null,
-        }, { assignment_revision: 1, assignment_state: "enabled" }),
-      ]
-    ) assert(result.ok, result.ok ? "" : JSON.stringify(result.error));
-    const seq = observe((db) =>
-      String(db.get("select state_seq as s from sessions", [])!["s"])
-    );
-    const accepted = await execute(ctxOf("user"), "ReceiveMessage", {
-      id: id("msg", 1),
-      session: id("ses", 1),
-      body: BODY(1),
-      mode: "request",
-    }, {
-      session_state: "open",
-      session_state_seq: seq,
-      assignment_revision: 1,
-      assignment_state: "enabled",
-    });
-    assert(accepted.ok, accepted.ok ? "" : JSON.stringify(accepted.error));
-    // 자정과 31일 유휴가 지나도 세션은 열려 있고 미처리 말과 담당 run이 그대로다.
-    clock.advance(31 * 24 * 60 * 60 * 1000);
-    const after = observe((db) => ({
-      session: db.get("select state, closed_reason from sessions", []),
-      message: db.get("select run, applied_at_call from messages", []),
-      run: db.get("select state, source_message from runs", []),
-    }));
-    assertEquals(after.session, { state: "open", closed_reason: null });
-    assertEquals(after.run, {
-      state: "accepted",
-      source_message: id("msg", 1),
-    });
-    assert(after.message !== undefined && after.message["run"] !== null);
-    assertEquals(after.message["applied_at_call"], null);
-    // 재개 뒤 같은 말을 다시 입력시키지 않는다. 같은 id 재전송은 이전 결과다.
-    const replay = await execute(ctxOf("user"), "ReceiveMessage", {
-      id: id("msg", 1),
-      session: id("ses", 1),
-      body: BODY(1),
-      mode: "request",
-    }, {
-      session_state: "open",
-      session_state_seq: seq,
-      assignment_revision: 1,
-      assignment_state: "enabled",
-    });
-    assert(replay.ok, replay.ok ? "" : JSON.stringify(replay.error));
-    assertEquals(
-      observe((db) =>
-        Number(db.get("select count(*) as n from runs", [])!["n"])
-      ),
-      1,
-    );
-    assertEquals(
-      observe((db) =>
-        Number(db.get("select count(*) as n from messages", [])!["n"])
-      ),
-      1,
-    );
-  } finally {
-    await Deno.remove(dir, { recursive: true });
-  }
-});
-
 Deno.test("lophn-agent/conversation#R3: a message sent while a run is going is received at once and shown applied only after a model call includes it", async () => {
   const h = await open();
   try {
@@ -1052,7 +786,7 @@ Deno.test("lophn-agent/conversation#R3: receiving a message and accepting its ru
   }
 });
 
-Deno.test("lophn-agent/conversation#R4: speakers and times stay distinct and a message links only real targets", async () => {
+Deno.test("lophn-agent/conversation#R4: speakers stay distinct and a message links only real targets", async () => {
   const h = await open();
   try {
     await seed(h);
@@ -1061,12 +795,12 @@ Deno.test("lophn-agent/conversation#R4: speakers and times stay distinct and a m
     const doc = id("doc", 1);
     const ver = id("ver", 1);
     const body = BODY(50);
-    const agent = agentRun(ASG_LOPHN, run);
-    value(await h.setCredential(agent));
+    // agent 자격의 기록(자기 run 묶음·다른 assignment 거절)은 apps/core/testing/
+    // lophn-agent-conversation_test.ts가 platform의 run 판정과 함께 본다.
     const record = (
       message: string,
       links: unknown[],
-      ctx: AuthenticatedContext,
+      ctx: AuthenticatedContext = machineCred,
       target: string | null = run,
     ) =>
       h.command(
@@ -1080,23 +814,16 @@ Deno.test("lophn-agent/conversation#R4: speakers and times stay distinct and a m
         }),
       );
     // 계획만 있는 답에는 생성 링크가 없다. 아직 없는 문서·version은 링크가 될 수 없다.
-    const plan = output<Snapshot>(
-      await record(id("msg", 2), [], agent),
-    );
+    const plan = output<Snapshot>(await record(id("msg", 2), []));
     assertEquals(plan.message["links"], []);
     code(
-      await record(
-        id("msg", 3),
-        [{ kind: "document", document: doc }],
-        agent,
-      ),
+      await record(id("msg", 3), [{ kind: "document", document: doc }]),
       "invalid_input",
     );
     code(
       await record(
         id("msg", 3),
         [{ kind: "version", document: doc, version: ver }],
-        agent,
       ),
       "invalid_input",
     );
@@ -1112,14 +839,10 @@ Deno.test("lophn-agent/conversation#R4: speakers and times stay distinct and a m
       ),
     );
     const linked = output<Snapshot>(
-      await record(
-        id("msg", 3),
-        [
-          { kind: "document", document: doc },
-          { kind: "version", document: doc, version: ver },
-        ],
-        agent,
-      ),
+      await record(id("msg", 3), [
+        { kind: "document", document: doc },
+        { kind: "version", document: doc, version: ver },
+      ]),
     );
     assertEquals((linked.message["links"] as unknown[]).length, 2);
     // 다른 문서의 version은 이 문서의 링크가 아니다.
@@ -1127,12 +850,22 @@ Deno.test("lophn-agent/conversation#R4: speakers and times stay distinct and a m
       await record(
         id("msg", 4),
         [{ kind: "version", document: id("doc", 2), version: ver }],
-        agent,
       ),
       "invalid_input",
     );
-    // 발언자: 사람 · 역할 판단(agent) · machine 확인 사실이 구분된다.
-    value(await record(id("msg", 5), [], machineCred));
+    // 같은 id의 같은 기록은 이전 결과이고 다른 링크는 충돌이다.
+    value(
+      await record(id("msg", 3), [
+        { kind: "document", document: doc },
+        { kind: "version", document: doc, version: ver },
+      ]),
+    );
+    code(
+      await record(id("msg", 3), [{ kind: "document", document: doc }]),
+      "conflict",
+    );
+    assertEquals(await count(h, "messages"), 3);
+    // 발언자: 사람과 machine 확인 사실이 구분된다.
     const listed = value(
       await h.read({ resource: "messages", method: "list" }, userCred, {
         session,
@@ -1148,38 +881,15 @@ Deno.test("lophn-agent/conversation#R4: speakers and times stay distinct and a m
       ]),
       [
         [id("msg", 1), "user", "request"],
-        [id("msg", 2), `agent:${ASG_LOPHN}`, null],
-        [id("msg", 3), `agent:${ASG_LOPHN}`, null],
-        [id("msg", 5), "machine", null],
+        [id("msg", 2), "machine", null],
+        [id("msg", 3), "machine", null],
       ],
     );
     // 각 발언에 시각 대신 쓰는 생성 순번이 있고 순서가 곧 발언 순서다.
     const seqs = listed.messages.map((entry) => BigInt(entry.created_seq));
     assertEquals([...seqs].sort((a, b) => (a < b ? -1 : 1)), seqs);
-    // 다른 assignment의 agent·coding agent는 이 세션에 기록하지 못하고 읽지도 못한다.
-    value(
-      await openSession(
-        h,
-        id("ses", 5),
-        ASG_CE,
-        "context_engineer",
-        PLACES.global,
-      ),
-    );
-    value(
-      await receive(h, {
-        message: id("msg", 9),
-        session: id("ses", 5),
-        mode: "request",
-      }),
-    );
-    const ceAgent = agentRun(ASG_CE, await runOf(h, id("msg", 9)));
-    value(await h.setCredential(ceAgent));
-    code(await record(id("msg", 6), [], ceAgent), "not_found");
-    // agent는 자기 run의 답만 기록한다.
-    code(await record(id("msg", 6), [], agent, null), "forbidden");
-    code(await record(id("msg", 6), [], cred("user")), "forbidden");
-    assertEquals(await count(h, "messages"), 5);
+    // 사람은 기록 command를 쓰지 못한다.
+    code(await record(id("msg", 6), [], userCred), "forbidden");
     // 다른 세션의 run에는 붙이지 못한다.
     const other = await openLophn(h, id("ses", 2));
     value(
@@ -1190,14 +900,10 @@ Deno.test("lophn-agent/conversation#R4: speakers and times stay distinct and a m
       }),
     );
     code(
-      await record(
-        id("msg", 8),
-        [],
-        machineCred,
-        await runOf(h, id("msg", 7)),
-      ),
+      await record(id("msg", 8), [], machineCred, await runOf(h, id("msg", 7))),
       "invalid_input",
     );
+    assertEquals(await count(h, "messages"), 4);
   } finally {
     await h.close();
   }

@@ -18,6 +18,9 @@ export type SocketDeps = {
   store?: SubscriptionStore;
   // 연결이 끝날 때 부르는 hook. admission의 연결 자리를 돌려준다.
   onClose?: () => void;
+  // 열린 session을 event dispatcher에 올려 구독 뒤 새로 확정된 event를 따라잡게 한다.
+  // 돌려받은 함수로 뺀다. 연결이 닫히면 이 모듈이 부른다(session을 남기지 않는다).
+  track?: (session: EventSession) => () => void;
 };
 
 // upgrade는 GET /v1/events/subscribe, subprotocol lophn.events.1만 받는다.
@@ -60,6 +63,17 @@ export function attachSession(
   deps: SocketDeps,
 ): void {
   let session: EventSession | undefined;
+  let untrack: (() => void) | undefined;
+  let ended = false;
+  // 닫힘·오류는 session을 끝내고 dispatcher에서 빼며 연결 자리를 한 번만 돌려준다.
+  function finish() {
+    if (ended) return;
+    ended = true;
+    untrack?.();
+    untrack = undefined;
+    session?.close();
+    deps.onClose?.();
+  }
   const sink: EventSink = {
     send: (text) => {
       if (socket.readyState !== WebSocket.OPEN) {
@@ -77,14 +91,8 @@ export function attachSession(
   socket.onmessage = (event) => {
     void onMessage(String(event.data));
   };
-  socket.onclose = () => {
-    session?.close();
-    deps.onClose?.();
-  };
-  socket.onerror = () => {
-    session?.close();
-    deps.onClose?.();
-  };
+  socket.onclose = finish;
+  socket.onerror = finish;
 
   async function onMessage(text: string) {
     try {
@@ -116,6 +124,12 @@ export function attachSession(
           return;
         }
         session = opened.value;
+        // 열리는 동안 연결이 닫혔으면 session을 dispatcher에 올리지 않고 끝낸다.
+        if (ended) {
+          session.close();
+          return;
+        }
+        untrack = deps.track?.(session);
         return;
       }
       if (!session) {

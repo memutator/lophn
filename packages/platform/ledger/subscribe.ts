@@ -328,6 +328,10 @@ export function createEventDispatcher(
     },
     wake: catchUp,
     catchUp,
+    // 지금 올라 있는 session 수. 닫힌 연결이 session을 남기지 않는지 보는 관측이다.
+    get size() {
+      return sessions.size;
+    },
     close() {
       cancel();
       for (const session of sessions) session.close();

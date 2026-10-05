@@ -1477,18 +1477,18 @@ Deno.test(
   },
 );
 
-// R10: eval 재생은 실제 지출에서 빠진다. 같은 idempotency_key로 온 재생 수신은
-// 저장된 결과로 돌아오고(executor replay) 새 기록·새 시도가 없으므로 합계도
-// 한 번 센다.
+// R10: 같은 호출의 재전송 수신은 이중 계산되지 않는다. 같은 idempotency_key로 온
+// 재전송은 저장된 결과로 돌아오고(executor replay) 새 기록·새 시도가 없으므로
+// 합계도 한 번 센다.
 Deno.test(
-  "lophn-agent/harness/usage#R10: a replayed receipt does not double the spend",
+  "lophn-agent/harness/usage#R10: a resent receipt does not double the spend",
   async () => {
     const h = await open();
     try {
       await seedProvider(h);
       await startCall(h, started);
       // 같은 envelope 객체를 두 번 보낸다. idempotency_key와 입력 fingerprint가
-      // 같으므로 두 번째 수신은 replay다(platform ledger R13).
+      // 같으므로 두 번째 수신은 재전송 replay다(platform ledger R13).
       const receipt = envelope("FinishModelCall", {
         call: CALL,
         output: HASH,

@@ -118,6 +118,28 @@ async function hashAndSize(
   return ok({ hash: digest.digest("hex"), bytes });
 }
 
+// 검사한 realpath를 읽을 때 연다. 열기도 읽기도 pull마다 비동기다(core module graph에는
+// 동기 file API가 없어야 한다).
+function openStream(real: string): ReadableStream<Uint8Array> {
+  let file: Deno.FsFile | undefined;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      file ??= await Deno.open(real, { read: true });
+      const chunk = new Uint8Array(64 * 1024);
+      const count = await file.read(chunk);
+      if (count === null) {
+        file.close();
+        controller.close();
+        return;
+      }
+      controller.enqueue(chunk.subarray(0, count));
+    },
+    cancel() {
+      file?.close();
+    },
+  });
+}
+
 // 첫 파일이 primary다. 입력 순서를 바꾸지 않는다.
 export async function resolveSubmission(
   paths: readonly string[],
@@ -175,7 +197,7 @@ export async function resolveSubmission(
       bytes: measured.value.bytes,
       blob_hash: measured.value.hash,
       primary: index === 0,
-      open: () => Deno.openSync(real, { read: true }).readable,
+      open: () => openStream(real),
     });
   }
   return ok(files);

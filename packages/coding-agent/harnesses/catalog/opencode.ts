@@ -108,6 +108,14 @@ const opencode: HarnessDefinition = {
   // OpenCode plugin은 config `plugin` 배열이다(조사 9.5). lophn 상태 hook의
   // 검증 version이 없다.
   hooks: [],
+  // OpenCode는 프로젝트 신뢰 gate가 없다(조사 skills-and-guides 비교표).
+  loading: {
+    trust_gates: { mcp: false, skills: false, guide: false },
+    guide_hiders: [],
+    guide_workspace: "app_root",
+    broken_config_effect: null,
+    trust_source: null,
+  },
   execution: {
     transport: "pty",
     launch_argv: ["opencode"],

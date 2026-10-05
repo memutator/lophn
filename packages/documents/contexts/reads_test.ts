@@ -1,7 +1,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { err } from "../../base/mod.ts";
 import { type ContextCommandDeps, createContextCommands } from "./commands.ts";
-import { createContextReads } from "./reads.ts";
+import { contextItemSchema } from "../../contracts/documents/mod.ts";
+import { createContextOutlineSource, createContextReads } from "./reads.ts";
 import { contextFixture, ids, keep, userContext } from "./testing/mod.ts";
 
 // apps blueprint read가 들어오기 전 test double. read command만 허용한다.
@@ -253,6 +254,107 @@ Deno.test("documents/contexts#R6: 범위 밖 context 읽기는 없는 것과 똑
       reads.list.handle(snapshot, userContext(), {} as never),
     ) as never as { contexts: { id: string }[] };
     assertEquals(listed.contexts.map((context) => context.id), [ids.context2]);
+  } finally {
+    fixture.close();
+  }
+});
+
+const HASH = "a".repeat(64);
+const NEW_VERSION = "ver_01arz3ndektsv4rrffq69g5fb1";
+
+// seedDocument는 판 행 없이 문서 행만 심는다. 새 판은 immutable versions 표에 더한다.
+function saveNewVersion(
+  fixture: ReturnType<typeof contextFixture>,
+  version: string,
+  number: number,
+): void {
+  fixture.db.prepare(
+    `INSERT INTO versions (id, document, number, files_hash, primary_path, file_count,
+       content_hash, format_name, module_hash, format_explicit, saved_by, saved_at)
+     VALUES (?, ?, ?, ?, 'a.md', 1, ?, 'document', ?, 1, 'user', '2026-10-05T00:00:00.000Z')`,
+  ).run(version, ids.doc, number, HASH, HASH, HASH);
+  fixture.db.prepare(`UPDATE documents SET latest_version = ? WHERE id = ?`)
+    .run(version, ids.doc);
+}
+
+Deno.test("documents/contexts#R4: context 항목은 최신 판을 따르고 읽은 시점의 고정 판 id를 근거로 준다", () => {
+  const fixture = contextFixture();
+  try {
+    seedTwo(fixture);
+    const source = createContextOutlineSource(fixture.sql);
+    const before = keep(source.get(ids.context));
+    assert(before !== null);
+    const itemBefore = before.items[0];
+    assertEquals(itemBefore.target.kind, "document");
+    assertEquals(itemBefore.document?.version, `ver_${"0".repeat(26)}`);
+    // 새 판이 저장되면 같은 항목이 새 최신 판을 가리킨다. 항목은 바뀌지 않는다.
+    saveNewVersion(fixture, NEW_VERSION, 1);
+    const after = keep(source.get(ids.context));
+    assert(after !== null);
+    assertEquals(after.items[0].document?.version, NEW_VERSION);
+    assertEquals(after.items.length, before.items.length);
+    // 이미 읽은 근거는 그때 고른 고정 판 그대로다.
+    assertEquals(itemBefore.document?.version, `ver_${"0".repeat(26)}`);
+    // ledger의 항목 행에는 판이 저장되지 않는다.
+    const stored = fixture.db.prepare(
+      `SELECT * FROM context_items WHERE context = ?`,
+    ).get(ids.context) as Record<string, unknown>;
+    assertEquals(
+      Object.keys(stored).filter((column) => column.includes("version")),
+      [],
+    );
+    // 항목별 옛 판 고정 옵션은 입력에 없다.
+    const pinned = contextItemSchema.safeParse({
+      target: { kind: "document", document: ids.doc, section: null },
+      perspective: "basis",
+      reason: "옛 판 고정",
+      version: `ver_${"0".repeat(26)}`,
+    });
+    assertEquals(pinned.success, false);
+    // 앱 항목은 문서 판 정보 없이 대상만 준다.
+    const app = after.items.find((item) => item.target.kind === "app_command");
+    assert(app !== undefined);
+    assertEquals(app.document, undefined);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R4: context outline 근원은 보관 context를 활성 목록에서 빼고 항목 순서를 유지한다", () => {
+  const fixture = contextFixture();
+  try {
+    seedTwo(fixture);
+    const source = createContextOutlineSource(fixture.sql);
+    const active = keep(source.active());
+    assertEquals(active.map((record) => record.id), [
+      ids.context,
+      ids.context2,
+    ]);
+    assertEquals(
+      active[0].items.map((item) => item.perspective),
+      ["basis", "watch", "reference"],
+    );
+    const row = fixture.sql.get(
+      `SELECT revision FROM contexts WHERE id = ?`,
+      [ids.context2],
+    );
+    keep(
+      fixture.transaction((tx) =>
+        commands.archive.handle(
+          tx,
+          userContext(),
+          { context: ids.context2 } as never,
+          { base_revision: String(row?.["revision"]) } as never,
+        )
+      ),
+    );
+    assertEquals(
+      keep(source.active()).map((record) => record.id),
+      [ids.context],
+    );
+    // 보관 context도 id로는 읽는다(보관은 삭제가 아니다).
+    assertEquals(keep(source.get(ids.context2))?.status, "archived");
+    assertEquals(keep(source.get("ctx_01arz3ndektsv4rrffq69g5fzz")), null);
   } finally {
     fixture.close();
   }

@@ -76,6 +76,8 @@ export const pi: HarnessDefinition = {
     // `resolve(cwd, CONFIG_DIR_NAME, "skills")`다[확인](같은 절).
     { scope_kind: "app", root_resolver: "project", path: ".pi/skills" },
   ],
+  skill_trust_note:
+    "앱 `.pi/skills`와 `.agents/skills`는 pi의 project trust 뒤에 읽힌다. lophn은 신뢰를 대신 정하지 않는다",
   // `AGENTS.md` chain이고 더 가까운 `AGENTS.override.md`가 이긴다(조사
   // skills-and-guides pi 절). native MCP와 adapter 이중 시작 금지다(Q19).
   instructions: [
@@ -84,6 +86,15 @@ export const pi: HarnessDefinition = {
   // pi extension event는 `session_start` 등의 union이다(조사 9.5). loader
   // 디렉터리가 [미확인]이라 lophn이 쓰는 검증 version이 없어 두지 않는다(R11).
   hooks: [],
+  // `<cwd>/.pi/mcp.json`과 `.pi`·`.agents/skills`는 project trust 뒤에 읽고
+  // 깨진 mcp.json은 파일 전체를 건너뛴다(조사 9.1·skills-and-guides).
+  loading: {
+    trust_gates: { mcp: true, skills: true, guide: false },
+    guide_hiders: ["AGENTS.override.md"],
+    guide_workspace: "app_root",
+    broken_config_effect: "pi는 깨진 mcp.json을 파일 전체 건너뛴다",
+    trust_source: null,
+  },
   execution: {
     transport: "pty",
     launch_argv: ["pi"],

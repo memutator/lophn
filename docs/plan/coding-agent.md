@@ -566,6 +566,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T19 ticket claim: claim·갱신·반납·만료와 claim 검사 read
 
+- 상태: 완료 (#196)
+
 - 등급: 기본
 - concern: coding-agent/tickets, coding-agent/connection
 - 요구: coding-agent/tickets#R11, R12, R13, R14, R16;
@@ -1521,6 +1523,11 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ## 질문
 
+- **Q15 ticket claim의 readiness.** coding-agent/tickets#R11 본문은
+  needs_confirmation ticket도 claim할 수 있다고 적고, T19 완료 줄과
+  checkTicketClaim의 not_ready 거절은 ready만 허용한다. 구현은 완료 줄을
+  따랐다(needs_confirmation은 conflict). 추천: 완료 줄과 같다. claim은 ready만
+  받고, R11 본문을 그 기준으로 고친다. 사람이 정하기 전에는 바꾸지 않는다.
 - **Q1 사람 전용 CLI command의 actor.** (정함, 추천안) CLI는 user token 파일을
   읽지 않는다(architecture 1절). core에 user actor로 쓰는 사람 전용
   command(`ticket create|cancel`, `problem report|request-repair`,

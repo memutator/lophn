@@ -33,6 +33,7 @@ import {
   type PreparationRegistry,
 } from "../../packages/platform/blob-store/mod.ts";
 import type { TeamModule } from "./registration.ts";
+import { claimSweepTimePort } from "../../packages/coding-agent/tickets/sweep-time.ts";
 
 export type WriterBoot = {
   path: string;
@@ -79,12 +80,17 @@ export async function assembleWriter(
     ports.push(...portList(loose?.ports));
     blobFields.push(...loose?.blobFields ?? []);
   }
+  ports.push(claimSweepTimePort(() => claimSweepMs));
   const preparations = createPreparationRegistry();
   // writer는 command를 한 줄로 처리하므로 진행 중인 요청의 자격을 여기 둔다.
   let currentRequest: RequestContext | undefined;
   let currentTx: Tx | undefined;
-  // writer clock은 기동 시각에 고정된다. 만기 판정은 core가 알린 최신 시각을 쓴다.
+  // writer clock은 기동 시각에 고정된다. command의 tx.now()는 이 시계를 그대로
+  // 쓴다. blob 만기 판정만 core가 알린 시각(blobNowMs)을 본다.
+  // claim 만료 판단은 sweep가 알린 시각만 따로 둔다. writer clock이 실제 시각을
+  // 따르면(fix/writer-clock) 이 시각 대신 tx.now()를 쓴다.
   let blobNowMs = boot.nowMs;
+  let claimSweepMs: number | null = null;
   const random = seededRandom(boot.seed + 1);
   const confirmationRegistry = new ConfirmationRegistry({
     clock,
@@ -119,6 +125,8 @@ export async function assembleWriter(
     },
     noteBlobTime(nowMs: number) {
       if (nowMs > blobNowMs) blobNowMs = nowMs;
+      // sweep가 만료 판단에 쓰는 시각. writer clock은 움직이지 않는다.
+      claimSweepMs = nowMs;
     },
     onTx(tx: Tx | undefined) {
       currentTx = tx;
@@ -148,10 +156,21 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     );
     return { commands, ports, blobFields };
   }
-  const value = direct ?? fromLedger ?? team.codingAgentConnectionDefinitions ??
-    team.lophnAgentDefinitions ?? team.ticketDefinitions;
-  if (!value || typeof value !== "object") return undefined;
-  return value as Loose;
+  const sources = [
+    direct,
+    fromLedger,
+    team.codingAgentConnectionDefinitions,
+    team.lophnAgentDefinitions,
+    team.ticketDefinitions,
+  ].filter(defined);
+  if (sources.length === 0) return undefined;
+  return {
+    commands: sources.flatMap((value) => (value as Loose).commands ?? []),
+    ports: sources.flatMap((value) =>
+      toArray((value as Loose).ports)
+    ) as TxPortRegistration[],
+    blobFields: sources.flatMap((value) => (value as Loose).blobFields ?? []),
+  };
 }
 
 function defined(value: unknown): boolean {

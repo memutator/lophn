@@ -11,6 +11,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type {
   ContentFile,
+  Document,
   DocumentFileInput,
   FileObservationBasis,
   FormatDiagnostic,
@@ -233,5 +234,74 @@ export function createPrepareAssembly(deps: PrepareDeps) {
       source: request.source,
       files: contentFiles,
     });
+  };
+}
+
+// export 묶기(`document.export` worker의 handler). 사람이 고른 project·app 자리의
+// 문서와 고정 판을 계약 출력으로 묶는다. 원본 바이트는 유지되는 ContentFile
+// 상대 경로·blob hash·원래 MIME·바이트 수 metadata로 선행 documents/file 통로에서
+// 열린다. HTML·PDF·image처럼 Markdown으로 못 바꾸는 원문도 파일 목록 그대로 원래
+// MIME를 둔다. derived index·outline·요약은 넣지 않는다.
+export type ExportDocument = {
+  document: Document;
+  row: VersionRow;
+  files: readonly ContentFile[];
+};
+
+export type ExportError = {
+  code:
+    | "invalid_input"
+    | "forbidden"
+    | "not_found"
+    | "unavailable"
+    | "conflict";
+  message: string;
+};
+
+export function createExportAssembly() {
+  return function exportAssembly(
+    selected: readonly ExportDocument[],
+    format: "markdown" | "json",
+  ): Result<{
+    format: "markdown" | "json";
+    documents: {
+      document: Omit<Document, "file_source">;
+      version: Omit<VersionRow, "source"> & {
+        files: readonly ContentFile[] | { hash: string; size_bytes: number };
+      };
+      reference: { document: string; version: string; section: null };
+    }[];
+  }, ExportError> {
+    // 사람 자리의 문서만 묶는다. 고정 판의 metadata·파일 목록은 원래 그대로고
+    // 자리 slug·파일 source는 출력에서 뺀다(agentDocumentSchema와 같은 모양).
+    const documents: {
+      document: Omit<Document, "file_source">;
+      version: Omit<VersionRow, "source"> & {
+        files: readonly ContentFile[] | { hash: string; size_bytes: number };
+      };
+      reference: { document: string; version: string; section: null };
+    }[] = [];
+    for (const item of selected) {
+      const { file_source: _source, ...visible } = item.document;
+      // 파일 목록 행이 있으면 원래 파일 목록(원래 MIME·바이트 수)을 둔다.
+      // 없으면 정규화 목록 blob 참조다(assembleVersion과 같은 규약).
+      const files = item.files.length > 0
+        ? item.files
+        : { hash: item.row.files_hash, size_bytes: 0 };
+      const { source: _rowSource, ...rowVisible } = item.row;
+      documents.push({
+        document: visible,
+        version: {
+          ...rowVisible,
+          files,
+        },
+        reference: {
+          document: item.document.id,
+          version: item.row.id,
+          section: null,
+        },
+      });
+    }
+    return ok({ format, documents });
   };
 }

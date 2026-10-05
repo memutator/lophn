@@ -49,6 +49,8 @@ export interface PanesProps {
    * 탭인지다.
    */
   renderTab?: (tab: TabItem, active: boolean) => ReactNode | null;
+  /** 탭 key마다 tooltip. */
+  tooltips?: Readonly<Record<string, ReactNode>>;
 }
 
 interface Dragging {
@@ -71,6 +73,7 @@ export function Panes(
     onToggleInfo,
     onOpenTerminal,
     renderTab,
+    tooltips,
   }: PanesProps,
 ) {
   // 경계 drag 중 미리보기 비율. drag-end에서만 저장한다.
@@ -201,6 +204,7 @@ export function Panes(
               dropTarget={dragging !== null && dragging.pane !== index}
               over={over === index}
               dropProps={dropProps(index)}
+              tooltips={tooltips}
               onSelect={(key) => onSelect(index, key)}
               onClose={(key) => onClose(index, key)}
               onFocus={() => {
@@ -257,6 +261,7 @@ interface PaneViewProps {
   };
   children?: ReactNode;
   renderTab?: (tab: TabItem, active: boolean) => ReactNode | null;
+  tooltips?: Readonly<Record<string, ReactNode>>;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
   onFocus: () => void;
@@ -278,6 +283,7 @@ function PaneView(
     dropProps,
     children,
     renderTab,
+    tooltips,
     onSelect,
     onClose,
     onFocus,
@@ -309,6 +315,7 @@ function PaneView(
         onMoveToPane={onMove}
         onDragTab={onDragTab}
         end={end}
+        tooltips={tooltips}
       />
       <div
         className={`${styles.body} ${wide ? "" : styles.narrow} ${

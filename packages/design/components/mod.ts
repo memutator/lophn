@@ -68,6 +68,7 @@ export {
 } from "./shared.ts";
 export { folderOpenIcon, Icon, type IconProps } from "./icon.tsx";
 export { workspaceIcons } from "./workspace-icons.ts";
+export { editorIcons } from "./editor-icons.ts";
 export {
   domResizeSource,
   type ResizeSource,

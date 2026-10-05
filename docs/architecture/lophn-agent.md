@@ -44,7 +44,7 @@ runtime 기동 순서는 bootstrap 설정·machine credential 수신 → event c
 
 core가 먼저 옛 runtime의 종료를 확인하고 새 runtime을 시작한다. shutdown은 새 model/tool 진입을 막고 AbortController로 진행 호출에 취소를 요청하며 MCP 연결을 닫는다. 이미 전달한 호출을 미실행으로 바꾸지 않는다. core가 죽으면 runtime도 새 진입을 막고 종료한다. 계속 살아 있는 옛 프로세스와 새 프로세스를 동시에 supervisor가 운용하지 않는다. 늦은 command는 run state_seq·credential revision·대상 CAS로 거절한다.
 
-core 기동은 runtime보다 먼저 내장 assignment를 준비한다. I/O 감독이 뜬 뒤 lophn·Context Engineer 역할마다 거두지 않은 assignment가 없으면 그 역할의 제품 기본 preset(없으면 prompt 자산을 blob으로 준비해 등록)을 두고 `CreateBuiltinAssignment`를 machine credential로 보낸다. 있으면 아무것도 보내지 않고 중간에 끊기면 다음 기동이 이어 가므로 재시작이 중복을 만들지 않는다. 기본 preset의 model은 비어 있어 사람이 provider를 고르기 전까지 run은 시작하지 못한다.
+core 기동은 runtime보다 먼저 내장 assignment를 준비한다. I/O 감독이 뜬 뒤 lophn·Context Engineer 역할마다 거두지 않은 assignment가 없으면 그 역할의 제품 기본 preset(없으면 prompt 자산을 blob으로 준비해 등록)을 두고 `CreateBuiltinAssignment`를 machine credential로 보낸다. 있으면 아무것도 보내지 않고 중간에 끊기면 다음 기동이 이어 가므로 재시작이 중복을 만들지 않는다. 기본 preset의 model은 비어 있어 사람이 provider를 고르기 전까지 run은 시작하지 못한다. 준비하지 못해도 core는 기동하고(실패는 안전한 diagnostics 기록, 대기 뒤 한 번 재시도, 다음 기동에서 다시 시도) 대화는 lophn이 아직 준비되지 않았다고 보인다.
 
 ### 2.2 assignment당 진행 하나와 accepted queue
 

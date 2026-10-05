@@ -32,6 +32,8 @@ import type { PreparedRelayResult } from "./blob-prepare.ts";
 
 export const BOOTSTRAP_PRINCIPAL = "machine:lophn-agent-bootstrap";
 export const PRESET_PROMPT_PURPOSE = "preset_prompt";
+// 준비하지 못했을 때 core가 한 번 다시 시도하기까지의 대기.
+export const BOOTSTRAP_RETRY_MS = 60_000;
 
 export type BootstrapDeps = {
   // 등록된 command 이름. lophn-agent 팀이 조립에 없으면 아무것도 하지 않는다.
@@ -194,5 +196,38 @@ export async function readRoleAsset(
     );
   } catch {
     return failed("역할 prompt 자산을 읽지 못했다");
+  }
+}
+
+// 준비 실패의 diagnostics 기록(platform/diagnostics). 기동을 막지 않으므로 기록 실패도
+// 삼킨다. 경로·원문·hash는 넣지 않고 고정 문장과 오류 코드만 남긴다.
+export async function noteBootstrapFailure(
+  dataRoot: string,
+  at: string,
+  code: string,
+): Promise<void> {
+  try {
+    const directory = `${dataRoot}/logs`;
+    try {
+      await Deno.mkdir(directory, { mode: 0o700 });
+    } catch (error) {
+      if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+    }
+    await Deno.writeTextFile(
+      `${directory}/bootstrap.jsonl`,
+      JSON.stringify({
+        at,
+        component: "platform/core",
+        kind: "log",
+        code: "lophn_internal",
+        error_type: "lophn_agent_bootstrap",
+        location: "apps/core/lophn-agent-bootstrap.ts",
+        message: "Builtin assignment bootstrap did not finish.",
+        error_code: code,
+      }) + "\n",
+      { append: true },
+    );
+  } catch {
+    // 기록하지 못해도 core는 그대로 선다.
   }
 }

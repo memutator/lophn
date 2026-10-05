@@ -87,9 +87,12 @@ import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts"
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
+  BOOTSTRAP_RETRY_MS,
   bootstrapBuiltinAssignments,
+  noteBootstrapFailure,
   readRoleAsset,
 } from "./lophn-agent-bootstrap.ts";
+import type { BuiltinRole } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   type BodyPrepare,
   createMessageBodyPreparer,
@@ -134,6 +137,10 @@ export type CoreOptions = {
   failShutdown?: () => Promise<void>;
   // 정지 유지보수 시간 제한. 없으면 30초. 테스트가 짧게 줄인다.
   maintenanceTimeoutMs?: number;
+  // 내장 assignment 준비의 역할 prompt 자산과 재시도 대기(ms). 제품 기동은 소스 배치의
+  // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
+  roleAsset?: (role: BuiltinRole) => Promise<Result<Uint8Array>>;
+  bootstrapRetryMs?: number;
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
   // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
@@ -323,7 +330,10 @@ async function open(
     }),
   });
   let ready = false;
-  const stopPrune: { run?: () => void } = {};
+  const stopPrune: {
+    run?: () => void;
+    bootstrap?: () => Promise<void>;
+  } = {};
   // 활성 tracking root 변화를 보는 확인. documents worker를 띄운 뒤에만 있다.
   let rootsWatch: RootsWatch | undefined;
   // coordinator에 관측 근거(규칙·경로→문서 연결)를 보내는 동기화(Q15).
@@ -564,11 +574,6 @@ async function open(
     bodyPrepare.current = {
       live: (prepared) => blobRelay.live(prepared, clock.nowMs()),
       prepare: (call) => blobRelay.prepare(call),
-      prune: async () => {
-        const nowMs = clock.nowMs();
-        blobRelay.prune(nowMs);
-        await runtime?.prunePrepared(nowMs);
-      },
     };
   }
   // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
@@ -727,21 +732,51 @@ async function open(
   });
   // 내장 lophn·Context Engineer assignment 준비. I/O 감독이 없는 기동은 prompt blob을
   // 준비할 수 없어 건너뛴다(lophn-agent/assignments#R2). 이미 있으면 아무것도 보내지 않는다.
-  const bootstrapped = await bootstrapBuiltinAssignments({
-    commands: new Set(assembled.value.commands.map((c) => c.route.name)),
-    writer: runtime.writer,
-    record: (context) => runtime!.record(context),
-    read: (route, context, input) =>
-      runtime!.readers.read(route, context as RequestContext, input),
-    asset: readRoleAsset,
-    prepare: blobRelay ? (call) => blobRelay.prepare(call) : undefined,
-    ids: createIdSource({ clock, random }),
-  });
-  if (!bootstrapped.ok) {
-    await server.stop();
-    await runtime.close();
-    return bootstrapped;
+  // 준비하지 못해도 core는 선다: 실패는 diagnostics 기록만 남기고(lophn이 아직 준비되지
+  // 않았다는 대화 쪽 표시는 그대로), 대기 뒤 한 번 다시 시도하며 다음 기동도 다시 한다.
+  const bootstrapState: {
+    timer?: ReturnType<typeof setTimeout>;
+    inflight?: Promise<boolean>;
+    closed: boolean;
+  } = { closed: false };
+  const runBootstrap = (): Promise<boolean> => {
+    const run = (async () => {
+      let result: Result<void>;
+      try {
+        result = await bootstrapBuiltinAssignments({
+          commands: new Set(assembled.value.commands.map((c) => c.route.name)),
+          writer: runtime!.writer,
+          record: (context) => runtime!.record(context),
+          read: (route, context, input) =>
+            runtime!.readers.read(route, context as RequestContext, input),
+          asset: options.roleAsset ?? readRoleAsset,
+          prepare: blobRelay ? (call) => blobRelay.prepare(call) : undefined,
+          ids: createIdSource({ clock, random }),
+        });
+      } catch {
+        result = err({ code: "internal", message: "bootstrap failed" });
+      }
+      if (!result.ok) {
+        await noteBootstrapFailure(root.path, clock.now(), result.error.code);
+      }
+      return result.ok;
+    })();
+    bootstrapState.inflight = run;
+    return run;
+  };
+  if (!await runBootstrap()) {
+    bootstrapState.timer = setTimeout(() => {
+      bootstrapState.timer = undefined;
+      if (!bootstrapState.closed) void runBootstrap();
+    }, options.bootstrapRetryMs ?? BOOTSTRAP_RETRY_MS);
   }
+  stopPrune.bootstrap = async () => {
+    bootstrapState.closed = true;
+    if (bootstrapState.timer !== undefined) {
+      clearTimeout(bootstrapState.timer);
+    }
+    await bootstrapState.inflight;
+  };
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
   const parent = options.parent;
@@ -815,6 +850,7 @@ async function open(
         if (io) await io.stopAll();
         stoppedAt.preparationsBlocked = true;
         stopPrune.run?.();
+        await stopPrune.bootstrap?.();
         // writer Worker와 reader 연결을 닫는다. close가 돌아온 뒤에야 writer가 멈춘 것이다.
         await runtime?.close();
         stoppedAt.writerStopped = true;

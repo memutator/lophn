@@ -27,6 +27,10 @@ export type RunRequest = {
   preparing: number;
 };
 
+// ledger 시작 시도. 확정(ok)된 뒤에만 spawn한다(problems/tests#R17).
+// 거절·실패면 자식을 띄우지 않고 Verification도 없다.
+export type StartAttemptCommit = () => Promise<Result<string>>;
+
 export type RunVerdict = {
   result: "pass" | "fail" | "inconclusive";
   reason: string;
@@ -45,6 +49,8 @@ export async function runPrepared(
     spawn?: SpawnPort;
     frames?: Uint8Array[];
     expected_exit_code?: number;
+    // 시작 시도를 ledger에 확정한다. spawn은 이 결과가 ok인 뒤에만 한다.
+    commit?: StartAttemptCommit;
   } = {},
 ): Promise<Result<RunVerdict>> {
   const seat: Admission = admitQueue(request.running, request.preparing);
@@ -53,6 +59,11 @@ export async function runPrepared(
   }
   if (!request.start_attempt_at) {
     return err({ code: "conflict", message: NOT_STARTED });
+  }
+  // 확정 전에 spawn하지 않는다. commit이 거절하면 자식도 결과도 없다.
+  if (options.commit) {
+    const committed = await options.commit();
+    if (!committed.ok) return committed;
   }
   const source = request.prepare.source;
   const cwd = request.prepare.method.cwd === "."

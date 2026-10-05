@@ -146,7 +146,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T6 model call 기록과 사용량·비용
 
-- 상태: 진행 (#194) — 남은 것: handoff 수신 run 귀속, eval 재생 제외, 가격 갱신이 과거 비용을 덮지 않음
+- 상태: 완료 (#194, #209) — 이어보냄: eval 재생 제외 → T54
 - 등급: 기본
 - concern: lophn-agent/harness/usage
 - 요구: lophn-agent/harness/usage#R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11
@@ -158,7 +158,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T3, T4, contracts#T30, platform#T13, platform#T14, platform#T15
 - 완료:
   - `model_calls`, `model_call_supplements` 표
-  - usage_test.ts에 R1–R11 테스트: 시작 기록 저장 실패면 전송 없음, 실제 시도마다 한 번(retry·credential 이동·요약·연결 test 포함), 용도·원래 선택·전송·응답 model·과금 경로 기록, 오류 본문 없음, 새 입력·출력·cache 읽기·쓰기·추론 구별과 포함 관계(Anthropic은 cache 제외, OpenAI는 cache 포함, 추론은 출력의 부분), 미보고와 누락 요율은 null·모름(0으로 바꾸지 않음, 현재 가격으로 과거 누락 비용을 채우지 않음), 비용 다섯 종류, 십진수 문자열로 입력·계산·저장(float 변환 없음)과 출처·확인 시각·통화·문맥 구간·cache 시간(질문 Q18), adapter마다 usage 정의 판을 기록해 cache 포함 관계를 provider 이름으로 추측하지 않음, 가격 갱신으로 과거 비용 덮지 않음, supplement append, 같은 호출 한 번만 합계, handoff 수신 run 귀속, eval 재생 제외, 금액 상한 없음
+  - usage_test.ts에 R1–R11 테스트: 시작 기록 저장 실패면 전송 없음, 실제 시도마다 한 번(retry·credential 이동·요약·연결 test 포함), 용도·원래 선택·전송·응답 model·과금 경로 기록, 오류 본문 없음, 새 입력·출력·cache 읽기·쓰기·추론 구별과 포함 관계(Anthropic은 cache 제외, OpenAI는 cache 포함, 추론은 출력의 부분), 미보고와 누락 요율은 null·모름(0으로 바꾸지 않음, 현재 가격으로 과거 누락 비용을 채우지 않음), 비용 다섯 종류, 십진수 문자열로 입력·계산·저장(float 변환 없음)과 출처·확인 시각·통화·문맥 구간·cache 시간(질문 Q18), adapter마다 usage 정의 판을 기록해 cache 포함 관계를 provider 이름으로 추측하지 않음, 가격 갱신으로 과거 비용 덮지 않음, supplement append, 같은 호출 한 번만 합계, handoff 수신 run 귀속, 재전송 수신은 이중 계산 없음, 금액 상한 없음
   - derived 합계를 지우고 ledger에서 다시 만든 값이 같다
 
 ### T7 preset ledger와 구성 검증
@@ -916,6 +916,7 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - slice: operations
 - 조사: docs/research/agent-evaluation.md, docs/research/fake-provider-testing.md
 - 선행: T2, T41, T53
+- 이어받음: T6에서 넘어온 것: eval 재생 호출을 실제 지출에서 빼는 합계. model call record(contracts)에 eval 재생을 구별하는 필드가 없어(purpose·attempt_kind·과금 경로 어디로도 구별되지 않음) runner가 eval 시행의 model call을 표시하거나 합계에서 빼는 규칙을 이 작업이 정한다.
 - 완료:
   - runner_test.ts에 R1–R3, R7, R8, R18, R21, R24 테스트: 사례 항목 사전 고정, 이름 중복·빠진 자료·기준·0 이하 반복·시간이면 model 없이 준비 오류, versioned fixture와 사람만 채택·제품 ledger 강제 없음, 시행마다 격리 폴더·DB 새 복사·운영 데이터·credential·MCP 없음(fresh HOME만으로 두지 않고 env·network를 통제), 실제 model credential은 사람이 eval 전용으로 명시 공급한 것만 runner 메모리에(질문 Q20), 사전 시행 계획과 protocol hash 고정, 가짜 MCP의 분류·판정은 실제 규칙·승인은 사례의 사람 답만, 시작 때 조건 고정과 결과와 함께 보존, 자동 주기 실행 없음, 600초 제한과 제품 timeout·runner 장애 구별(질문 Q21), 장애·crash 시행도 예정 분모에 남김
 

@@ -967,7 +967,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 참조 차단·반환 차단·OS 삭제·다른 사본 잔존을 구별해 표시한다(R11). backup 중 GC 불가.
   - `gc_test.ts`에 위 요구 테스트
 
-- 상태: 진행 (#181) — 남은 것: 정지 유지보수 조립에서 collectGarbage·trimCapacity 부르기, 준비 purpose가 capacity category 기록
+- 상태: 진행 (#181, #207) — 남은 것: core 종료 조립이 세 정지 조건 관측을 채워 runMaintenanceGc를 부르는 연결
 
 ### T45 secret export와 import
 
@@ -1073,6 +1073,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 내놓는 contract: 없음
 - slice: operations
 - 선행: platform#T11, platform#T43
+- 상태: 완료 (#210)
 - 완료: 아래 확인이 통과한다
   - 4 logical CPU·16GiB·SSD 기준, warm-up 30초 뒤 5분·대상별 1,000개 이상 요청, 성공·오류·timeout을 따로 세고 queue 대기와 실행 시간을 따로 기록한다(R8, R10).
   - 작은 read·앱 read command p95 200ms·p99 500ms, shell 첫 반응 p95 100ms·p99 250ms(R6), 작은 command·64KiB 저장 p95 500ms·p99 1,000ms, 제어 접수 p95 200ms·p99 500ms(R7) 결과 보고

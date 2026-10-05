@@ -13,6 +13,7 @@ import {
 } from "../../../packages/contracts/platform/mod.ts";
 import {
   type BlobStoreWork,
+  purposesPathFor,
 } from "../../../packages/platform/blob-store/mod.ts";
 
 export type BlobPipeRequest = {
@@ -94,6 +95,9 @@ export function createBlobPipe(deps: {
       if (!result.ok) {
         return { response: failed(request.request_id, result.error) };
       }
+      // 준비가 purpose를 안전하게 남긴다(T44: trimCapacity의 capacity
+      // category 할당 근거). 실패해도 준비 결과는 그대로 돌려준다.
+      await recordPurpose(deps.work.root, result.value.prepared);
       return {
         response: {
           request_id: request.request_id,
@@ -159,6 +163,34 @@ function chunksOf(bytes: Uint8Array): Uint8Array[] {
     chunks.push(bytes.subarray(offset, offset + STREAM_CHUNK_MAX_BYTES));
   }
   return chunks;
+}
+
+// 준비가 성공한 hash의 purpose를 분할된 목적 파일로 남긴다(T44).
+// trimCapacity의 capacity category 할당 근거다. 같은 hash의 재준비는
+// 같은 내용이라 같은 purpose를 남긴다(파일을 다시 쓴다). 실패는 조용히
+// 둔다: 준비 자체는 성공이고, 정지 유지보수는 기록 없는 hash를 지우지
+// 않는다(fail-closed).
+async function recordPurpose(
+  root: string,
+  prepared: PreparedBlob,
+): Promise<void> {
+  const path = purposesPathFor(root, prepared.hash);
+  if (!path.ok) {
+    // sha256 밖 hash는 준비 자체가 만들지 않는다. 조용히 둔다.
+    return;
+  }
+  try {
+    await Deno.mkdir(path.value.slice(0, path.value.lastIndexOf("/")), {
+      recursive: true,
+      mode: 0o700,
+    });
+    await Deno.writeTextFile(
+      path.value,
+      JSON.stringify({ purpose: prepared.purpose }) + "\n",
+    );
+  } catch {
+    // 기록 실패는 준비 결과에 새지 않는다. GC는 fail-closed다.
+  }
 }
 
 function failed(

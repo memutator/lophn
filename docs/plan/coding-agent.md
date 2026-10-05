@@ -839,6 +839,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T28 harness catalog와 감지
 
+- 상태: 완료 (#212)
 - 등급: 기본
 - concern: coding-agent/harnesses, coding-agent/cli
 - 요구: coding-agent/harnesses#R1, R2, R3, R4, R12; coding-agent/cli#R40

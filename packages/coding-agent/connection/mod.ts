@@ -69,3 +69,16 @@ export {
   questionStateText,
   questionView,
 } from "./decision-view.ts";
+export {
+  type ContextChange,
+  type ContextProposalDeps,
+  type ContextProposalInput,
+  type ContextProposalOutcome,
+  type ContextProposalReport,
+  describeContextProposal,
+  describeContextProposalFailure,
+  PROPOSAL_PATH,
+  PROPOSAL_SCHEMA,
+  proposalText,
+  proposeContextChange,
+} from "./context-proposal.ts";

@@ -71,10 +71,12 @@ export function recordCredential(
   return ok(undefined);
 }
 
-// sweep credential처럼 기동마다 같은 ref로 다시 기록하는 것만 중복을 허용한다.
-// documents 구독자(core 안 machine principal)도 기동마다 같은 자격을 다시 기록한다.
+// sweep·내장 assignment 준비 credential처럼 기동마다 같은 ref로 다시 기록하는 것만
+// 중복을 허용한다. documents 구독자(core 안 machine principal)도 기동마다 같은 자격을
+// 다시 기록한다.
 const FIXED_CREDENTIALS = new Set([
   "machine:ticket-claims",
+  "machine:lophn-agent-bootstrap",
   DOCUMENTS_FEED_PRINCIPAL,
 ]);
 

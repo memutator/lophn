@@ -26,6 +26,7 @@ import {
   type StdioStreams,
 } from "../../packages/coding-agent/mcp-server/mod.ts";
 import { uploadPrepareBytes } from "../../packages/coding-agent/connection/mod.ts";
+import { createContextTool } from "../../packages/coding-agent/mcp-server/tools/context.ts";
 import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
 import { createApprovalTool } from "../../packages/coding-agent/mcp-server/tools/approval.ts";
 import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
@@ -122,7 +123,7 @@ export function startMcpServer(
       idempotencyKey: () => `mcp-ticket-${crypto.randomUUID()}`,
     })
     : undefined;
-  // 문서 저장·format·series tool의 실행이다(T14). 같은 core client로 소유 route만 부른다.
+  // 문서 저장·format·series·context tool의 실행이다(T14·T17). 같은 core client로 소유 route만 부른다.
   const submission = {
     scope: { root: options.submissionRoot ?? Deno.cwd(), forbidden: [] },
     prepareBytes: caller === undefined ? undefined : uploadPrepareBytes(caller),
@@ -140,6 +141,11 @@ export function startMcpServer(
         prepareBytes: submission.prepareBytes,
       }),
       lophn_series: createSeriesTool({ client: caller }),
+      // 읽기는 소유 route, propose는 변경안 문서 저장뿐이다(T17).
+      lophn_context: createContextTool({
+        client: caller,
+        prepareBytes: submission.prepareBytes,
+      }),
     }
     : undefined;
   // 질문·approval 읽기 tool의 실행이다(T16). 읽기 route만 부르고 결정하지 않는다.

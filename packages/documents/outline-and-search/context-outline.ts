@@ -243,7 +243,11 @@ function safe(deps: Deps, scope: string, revision: string, text: string) {
   return out === null || out.trim().length === 0 ? REDACTION_REPLACEMENT : out;
 }
 
-function hasSection(deps: Deps, version: string, key: string): boolean {
+function hasSection(
+  deps: Pick<Deps, "read">,
+  version: string,
+  key: string,
+): boolean {
   return deps.read.sql.get(
     `SELECT key FROM derived_sections WHERE version = ? AND key = ?`,
     [version, key],
@@ -253,8 +257,8 @@ function hasSection(deps: Deps, version: string, key: string): boolean {
 // 성공 추출의 key 없음은 missing, 미지원은 unsupported, 미완료·실패는 unverified다.
 // 추정 section을 돌려주지 않는다(R22). 근원이 없는 판은 직접 추출을 부르되 기다리지
 // 않는다(R15).
-function sectionStatusOf(
-  deps: Deps,
+export function sectionStatusOf(
+  deps: Pick<Deps, "read" | "extract">,
   document: string,
   version: string | null,
   section: string | null,

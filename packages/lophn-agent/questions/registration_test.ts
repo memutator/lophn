@@ -24,6 +24,7 @@ import {
   hasUnappliedSteering,
 } from "../conversation/mod.ts";
 import { presetValidateDeps } from "../harness/run-loop/testing/mod.ts";
+import { registerMessageBodyRef } from "../conversation/testing/mod.ts";
 import {
   createQuestionCommands,
   createQuestionReads,
@@ -83,6 +84,9 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   const reads = createQuestionReads();
   return {
     clock,
+    // 같은 세션에 사람 말을 받는 시험이 있어 본문 참조 등록이 필요하다.
+    registerBlobRef: (tx, ctx, reference) =>
+      registerMessageBodyRef(tx, ctx, reference),
     schemaSteps: [
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,

@@ -11,6 +11,7 @@ import type {
   SqlParam,
   SqlRow,
 } from "../../../packages/contracts/platform/mod.ts";
+import { textContent } from "../../../packages/lophn-agent/conversation/testing/mod.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 import { presetDefinitionJson } from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
 import {
@@ -854,7 +855,7 @@ Deno.test("lophn-agent/questions#R6: a general session message is not an answer 
         env("ReceiveMessage", {
           id: id("msg", 90),
           session: SESSION,
-          body: BODY(90),
+          content: textContent("yes"),
           mode: "request",
         }, {
           session_state: "open",

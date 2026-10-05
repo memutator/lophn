@@ -3,7 +3,7 @@
 // route는 contracts의 소유 table 값 그대로다. 임의 core API passthrough는 없다
 // (cli#R1, architecture 5.1).
 import { APPROVAL_COMMANDS } from "./commands/approval.ts";
-import { CONTEXT_COMMANDS } from "./commands/decisions.ts";
+import { CONTEXT_COMMANDS } from "./commands/context.ts";
 import { QUESTION_COMMANDS } from "./commands/question.ts";
 import { DAEMON_COMMANDS } from "./commands/daemon.ts";
 import { DOCTOR_COMMANDS } from "./commands/doctor.ts";

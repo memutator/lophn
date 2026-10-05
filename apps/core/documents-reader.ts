@@ -6,6 +6,7 @@
 // derived store는 node:sqlite를 쓰므로 core graph 밖에서만 열린다(core_imports_test).
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
+  contextExport,
   documentExport,
   documentRead,
   guideGet,
@@ -46,7 +47,11 @@ import {
   listItems,
   loadContextRow,
 } from "../../packages/documents/contexts/store.ts";
-import { createContextOutlineSource } from "../../packages/documents/contexts/reads.ts";
+import {
+  createContextOutlineSource,
+  createContextReads,
+} from "../../packages/documents/contexts/reads.ts";
+import { sectionStatusOf } from "../../packages/documents/outline-and-search/context-outline.ts";
 import { createTermGlossarySource } from "../../packages/documents/terms/mod.ts";
 import {
   createGuideHandlers,
@@ -300,6 +305,44 @@ function outline(ready: Prepared) {
   });
 }
 
+// context export. 공개 read route(`/v1/contexts/export`)를 reader Worker가 서빙한다.
+// 외부 출력이라 제품 redactor를 붙이고(없으면 내보내지 않는다), glossary는 같은 ledger
+// snapshot의 terms에서, section 상태는 derived store에서 읽는다. derived가 아직 없으면
+// section 항목은 unverified다(전체 문서 항목은 derived를 읽지 않는다).
+function contextExportRead(): ReadDefinition {
+  return {
+    route: contextExport,
+    handle(snapshot, ctx, input) {
+      const root = dataRootOf(snapshot);
+      const derived = root.ok ? derivedRead(root.value) : root;
+      const glossary = createTermGlossarySource(snapshot.sql as never);
+      const reads = createContextReads({
+        redactor,
+        glossary(contextId) {
+          const loaded = glossary.get(contextId, Number.MAX_SAFE_INTEGER);
+          return loaded.ok ? ok(loaded.value.definitions) : loaded;
+        },
+        ...(derived.ok
+          ? {
+            sectionStatus: (
+              document: string,
+              version: string,
+              section: string,
+            ) =>
+              sectionStatusOf(
+                { read: derived.value },
+                document,
+                version,
+                section,
+              ),
+          }
+          : {}),
+      });
+      return reads.export.handle(snapshot, ctx, input as never);
+    },
+  };
+}
+
 export function createReaderRegistration(): ReaderRegistration {
   const root: ReadDefinition<ReadRoute> = {
     route: outlineRoot,
@@ -312,6 +355,7 @@ export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
       root,
+      contextExportRead(),
       worker(
         outlinePlace,
         (ready, ctx, input) => outline(ready).place(ctx, input as never),

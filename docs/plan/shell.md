@@ -685,6 +685,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T27, shell#T33, shell#T34, contracts#T30, lophn-agent#T33
+- lophn-agent#Q29에서 넘어온 것(#281, 계약이 정해졌다): (1) 보내기는 `ReceiveMessage` 입력의 `body`(hash)를 `content`(`{schema_version: 1, parts: [{kind: "text", text}]}`, 정규 직렬화 64KiB 이하)로 바꾼다. renderer·main은 hash도 blob도 만들지 않고 core가 redaction·준비·영구 참조를 한다. 같은 id·같은 idempotency key의 재전송은 이전 결과다. 본문 hash는 응답의 `message.body`에서 온다. (2) 읽기는 `ReadMessageBody`(`/v1/messages/body`, 입력 `{message}`, 출력 `{message, session, body, size_bytes, content, as_of_seq, next_cursor}`)이고 `content.parts`는 글·시각 블록이다. 사람·그 assignment의 agent·machine만 읽으며 없는 메시지와 다른 assignment의 것은 같은 `not_found`, 본문 blob을 못 읽으면 `unavailable`이다. (3) 새 데이터 root에도 lophn assignment가 있다(core 기동이 만든다, lophn-agent Q37). model이 미준비라 run은 provider를 고르기 전까지 시작하지 못한다
 - shell#T27에서 넘어온 것: 메시지 본문(MessageContent) 읽기와 그 글·블록 표시. 지금 도크(`apps/shell/renderer/conversation/`)는 이 창이 보낸 사람 말의 글만 알고(`DraftStore.textOf`) lophn 답·machine 사실·다른 창의 말은 "아직 보일 수 없음"으로 둔다. lophn 답의 streaming 임시 글(확정 메시지로 바꾸기)과 사람 말 본문을 prepared blob 증거와 함께 보내는 길도 같은 자리다(lophn-agent#T26 Q29 뒤, shell Q15)
 - 완료: 아래 확인이 통과한다
   - 검증된 선언형 블록(표, 막대·선·산점 차트, node·edge 도표, 고정 문서)만 설치 SDK의 허용 registry로 그린다. 앱 카드 갈래는 T44. schema를 통과하지 못하면 그 자리에 오류와 안전한 설명만.
@@ -705,6 +706,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: context
 - 선행: shell#T18, shell#T19, shell#T27, shell#T29, documents#T22, documents#T25
+- documents#T26에서 넘어온 것: context export(`/v1/contexts/export`, JSON)를 사람이 저장할 때 Markdown으로 그려 내보낸다. contract는 JSON만 돌려준다(documents Q20, #278)
 - shell#T21에서 넘어온 것: lophn 공간 팔레트의 Focus 행은 지금 contexts 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 context target). contexts 화면이 생기면 그 Focus 상세를 연다.
 - 완료: 아래 확인이 통과한다
   - Focus(사람이 지은 이름과 목적), 기준·참고·watch 항목을 Baseline·Reference·Follow changes로 보인다. 근거와 부족한 자료는 펼친다.
@@ -1163,7 +1165,7 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (3) Q13과 같은 이유로 renderer allowlist에 `worker:search/query`·`worker:views/open` 두 읽기를 더 열었다. `search/status`·export·준비·파일 쓰기 worker는 막힌 채다.
   - (4) headless 확인용으로 main이 `LOPHN_SHELL_START=lophn`이면 첫 창을 런처 대신 lophn 공간으로 연다(개발 전용, stack.md).
 - **Q15 대화 도크의 메시지 본문과 대화 상대(T27, 추천안으로 진행).**
-  - (1) ReceiveMessage 입력은 본문 hash만 받고 사람 입력이 blob을 올리는 길은 lophn-agent Q29가 막아 두었다. 도크는 글 part 하나의 MessageContent(schema_version 1, key 순서 고정 JSON)의 SHA-256을 body로 보내고 글은 창 메모리(`DraftStore`)에만 둔다. 그래서 지금 core와 agent는 사람 말의 글을 받지 못한다. 추천: lophn-agent#T26이 prepared blob 증거를 contract에 더하면 shell#T35가 같은 hash의 blob을 그 길로 보낸다.
+  - (1) ReceiveMessage 입력은 본문 hash만 받고 사람 입력이 blob을 올리는 길은 lophn-agent Q29가 막아 두었다. 도크는 글 part 하나의 MessageContent(schema_version 1, key 순서 고정 JSON)의 SHA-256을 body로 보내고 글은 창 메모리(`DraftStore`)에만 둔다. 그래서 지금 core와 agent는 사람 말의 글을 받지 못한다. → lophn-agent Q29가 정해졌다(#281): 본문 값을 `content`로 보내면 core가 준비한다. shell#T35가 보내기와 읽기를 바꾼다.
   - (2) 메시지 본문 blob의 owner(blobs/read의 owner_kind·field)가 아직 없다. 도크는 이 창이 보낸 말만 글로 보이고 나머지는 "This message's text can't be shown here yet."로 둔다. 빈 말이나 지어낸 글로 보이지 않는다.
   - (3) renderer로 오는 streaming 통로가 없다. 임시 표시에서 확정 메시지로 바꾸는 것은 보내는 사람 말에만 지금 돈다(같은 id의 확정 메시지가 오면 바꾼다).
   - (4) 새 데이터 root에는 lophn 역할 assignment가 없다(CreateBuiltinAssignment는 machine 전용이고 부르는 자리가 없다). 도크는 "lophn isn't set up for conversations yet."를 보인다. 만드는 쪽은 lophn-agent다.

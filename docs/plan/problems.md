@@ -366,6 +366,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T17 snapshot의 로그 증거, 수집 범위와 보관
 
+- 상태: 진행 (#256) — 남은 것: 운영 log source 연결(core → supervisor 조회는 apps#T10), collector가 `assembleException`에 `logs` deps를 넘기고 `logs_prepared`를 snapshot_logs blob으로 함께 등록, platform/settings의 진단 상세 수집 key(지금은 `detailCollection` boolean만 받는다), SDK 직접 보고 경로의 로그, 정리 뒤 부재 이유는 T26
 - 등급: 기본
 - concern: problems/snapshots
 - 요구: problems/snapshots#R6, R7, R12, R13, R14, R16, R17, R19

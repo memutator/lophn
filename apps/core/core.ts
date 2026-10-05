@@ -7,6 +7,7 @@ import type {
   ChildMessage,
   Frame,
   KindLaunchSpec,
+  ParentMessage,
 } from "../../packages/contracts/platform/mod.ts";
 import { ROUTES } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -45,6 +46,10 @@ import {
   retentionRules,
 } from "../../packages/platform/blob-store/mod.ts";
 import type { BlobFieldDefinition } from "../../packages/contracts/platform/mod.ts";
+import {
+  type ChildBlobPrepare,
+  createChildBlobPrepare,
+} from "./child-blob-prepare.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { documentPrepareRoute, relaySink } from "./documents-prepare.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
@@ -108,6 +113,13 @@ export type Core = {
   // 신뢰 프로세스의 blob.prepare 호출. HTTP route가 아니다(Q6).
   // I/O worker가 설치하고 writer 메모리에 준비 참조를 남긴 뒤에 끝난다.
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
+  // 신뢰 자식(문서 worker, report collector)의 blob 준비 요청 처리(Q6). 자식 kind의
+  // supervisor callback이 onMessage·onFrame을 이 값에 넘기고, 자식이 멈추면 close한다.
+  // 허용 kind는 child-blob-prepare.ts의 목록뿐이다.
+  childBlobPrepare(
+    kind: string,
+    send: (message: ParentMessage) => Promise<boolean>,
+  ): ChildBlobPrepare;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
   acceptTestCredential?(
     context: AuthenticatedContext,
@@ -408,6 +420,12 @@ async function open(
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
+    childBlobPrepare: (kind, send) =>
+      createChildBlobPrepare({
+        kind,
+        send,
+        prepareBlob: (call) => core.prepareBlob(call),
+      }),
     prepareBlob: (call) =>
       blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
         code: "unavailable",

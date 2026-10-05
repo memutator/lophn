@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   documentExport,
   documentRead,
+  outlineContext,
   outlineDocument,
   outlinePlace,
   searchQuery,
@@ -19,6 +20,7 @@ import type {
 // 제품 core가 서빙하는 문서 worker route. `documents/prepare`는 다른 길(준비 조립)이다.
 export const SERVED_ROUTES: readonly WorkerRoute[] = [
   outlinePlace,
+  outlineContext,
   outlineDocument,
   documentRead,
   searchQuery,

@@ -14,8 +14,10 @@ import {
   type ReadDefinition,
   type ReadSnapshot,
   type RequestContext,
+  type Sql,
   TargetAuthorization,
 } from "../../contracts/platform/mod.ts";
+import { loadDocument } from "../versions/mod.ts";
 import { targetKey } from "./model.ts";
 import {
   type ContextItemRow,
@@ -179,4 +181,97 @@ export function itemOf(
   target: ContextItem["target"],
 ): ContextItemRow | undefined {
   return items.find((item) => item.target_key === targetKey(target));
+}
+
+// context 목차(documents/outline-and-search의 `/v1/outline/context`와 root)가 읽는
+// 근원. 구성과 항목 대상의 현재 ledger 상태만 준다. 본문·앱 데이터는 싣지 않는다.
+// 항목에는 판이 저장되지 않으므로(R4) 문서 항목의 version은 읽은 시점의 최신 판 id이고,
+// 이 값을 받은 읽기는 그 고정 판으로 결과와 전달 근거를 남긴다. 항목별 옛 판 고정 옵션은
+// 없다. outline-and-search는 이 모듈을 import하지 않고 같은 모양의 값만 주입받는다.
+export type ContextOutlineItemRecord = {
+  target: ContextItem["target"];
+  perspective: ContextItem["perspective"];
+  reason: string;
+  document?: {
+    title: string;
+    status: "active" | "archived";
+    place: { kind: "project" | "app"; id: string } | null;
+    version: string | null;
+  };
+};
+
+export type ContextOutlineRecord = {
+  id: string;
+  title: string;
+  purpose: string;
+  revision: string;
+  status: "active" | "archived";
+  items: ContextOutlineItemRecord[];
+};
+
+export type ContextOutlineSource = {
+  active(): Result<ContextOutlineRecord[]>;
+  get(contextId: string): Result<ContextOutlineRecord | null>;
+};
+
+function outlineRecord(
+  sql: Sql,
+  context: Context,
+): Result<ContextOutlineRecord> {
+  const items: ContextOutlineItemRecord[] = [];
+  for (const item of context.items) {
+    const record: ContextOutlineItemRecord = {
+      target: item.target,
+      perspective: item.perspective,
+      reason: item.reason,
+    };
+    if (item.target.kind === "document") {
+      const document = loadDocument(sql, item.target.document);
+      if (!document.ok) return document;
+      if (document.value !== null) {
+        record.document = {
+          title: document.value.title,
+          status: document.value.status,
+          place: document.value.place,
+          version: document.value.latest_version,
+        };
+      }
+    }
+    items.push(record);
+  }
+  return ok({
+    id: context.id,
+    title: context.title,
+    purpose: context.purpose,
+    revision: context.revision,
+    status: context.status,
+    items,
+  });
+}
+
+export function createContextOutlineSource(sql: Sql): ContextOutlineSource {
+  return {
+    active() {
+      const contexts = listContexts(sql, {
+        status: "active",
+        limit: Number.MAX_SAFE_INTEGER,
+        offset: 0,
+      });
+      if (!contexts.ok) return contexts;
+      const records: ContextOutlineRecord[] = [];
+      for (const context of contexts.value) {
+        const record = outlineRecord(sql, context);
+        if (!record.ok) return record;
+        records.push(record.value);
+      }
+      return ok(records);
+    },
+    get(contextId) {
+      const loaded = loadContext(sql, contextId);
+      if (!loaded.ok) return loaded;
+      return loaded.value === null
+        ? ok(null)
+        : outlineRecord(sql, loaded.value);
+    },
+  };
 }

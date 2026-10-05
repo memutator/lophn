@@ -463,6 +463,7 @@ concerns: [documents]
 
 ### T23 context outline
 
+- 상태: 완료 (#258) — 이어보냄: 앱 read command 항목의 읽기 가능 여부에 blueprint command 존재 확인 연결(지금은 앱이 활성인지만 본다, apps blueprint read가 들어온 뒤), `/v1/outline/context`의 glossary·candidates는 지금 빈 배열 → documents#T25
 - 등급: 기본
 - concern: documents/outline-and-search, documents/contexts
 - 요구: documents/outline-and-search#R2, R4, documents/contexts#R4

@@ -16,8 +16,7 @@ import {
   reportInput,
   rpt,
 } from "../grouping/testing/mod.ts";
-import { assembleFeedback, type FeedbackIntake } from "./mod.ts";
-import { feedbackHarness, intake } from "./testing/mod.ts";
+import { assemble, feedbackHarness, type Submission } from "./testing/mod.ts";
 import { realPrepare } from "../snapshots/testing/mod.ts";
 
 function newHarness(
@@ -61,7 +60,7 @@ let serial = 0;
 // collector가 core 읽기로 찾는 것과 같은 GetProblem으로 읽는다.
 async function submit(
   h: LedgerHarness,
-  patch: Partial<FeedbackIntake>,
+  patch: Partial<Submission>,
 ): Promise<{ problem: string; report: string }> {
   const harness = newHarness({
     lookup: async (id) => {
@@ -79,7 +78,7 @@ async function submit(
       });
     },
   });
-  const assembled = await assembleFeedback(intake(patch), harness.deps);
+  const assembled = await assemble(patch, harness.deps);
   const built = value(assembled);
   const sent = value(
     await h.command(COLLECTOR, {

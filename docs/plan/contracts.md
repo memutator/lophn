@@ -896,7 +896,6 @@ context slice는 agent 뒤다(docs/plan/README.md). 아래 묶음은 agent slice
 - 받은 요청: problems(C-a), apps(report·observe-exception), shell(feedback 준비·접수, app view error)
 - slice: apps (problems 팀은 apps slice 전에 필요하다고 했다)
 - 선행: contracts#T32
-- problems#T15에서 넘어온 것: `SubmitFeedback` 입력(`feedback.ts`)이 shell이 준비한 blob handle과 완성된 snapshot을 싣는데 shell은 blob을 준비할 길이 없고 collector는 준비된 바이트로 PNG 머리·redaction을 다시 볼 수 없다. 원자료(글 원문, 버튼 시점 view와 binding·최종 이미지 hash, 선택, 화면 원자료, 지목 대상, 기존 문제 선택, PNG 바이트의 request channel)를 받는 입력으로 바꾸는 contract 변경(problems Q19, 입력 모양은 `packages/problems/feedback/work.ts`의 `FeedbackIntake`)
 - 완료: 아래 확인이 통과한다
   - SDK 모양 `reportProblem(code, details?)` → `{report_id, completion}`, completion은 `accepted {acceptance} | failed {reason}` 최종 값으로 resolve하고 transport 실패로 reject하지 않는다. `pending`은 별도 메모리 `ReportStatus`에만 둔다.
   - `/v1/problems/{report,observe-exception,submit-feedback,record-report}`, `Report`, `Snapshot`(InvocationEvidence, ErrorEvidence, LogEvidence, ScreenEvidence, MissingReason), `GroupKey`, `Feedback`(글 1~500 scalar, 화면 상태 65536 bytes, PNG 긴 변 1600px·2097152 bytes, 전체 3145728 bytes).

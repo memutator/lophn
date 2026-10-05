@@ -25,6 +25,5 @@ export {
   type AssembledFeedback,
   assembleFeedback,
   type FeedbackDeps,
-  type FeedbackIntake,
   type FeedbackView,
 } from "./work.ts";

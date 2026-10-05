@@ -2,19 +2,15 @@
 // bytes와 실제 SHA-256 준비 경계, 통과하지 못하면 null을 내는 redactor를 쓴다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import { ok } from "../../base/mod.ts";
+import { assembleFeedback, FEEDBACK_LIMITS, type FeedbackView } from "./mod.ts";
 import {
-  assembleFeedback,
-  FEEDBACK_LIMITS,
-  type FeedbackIntake,
-  type FeedbackView,
-} from "./mod.ts";
-import {
+  assemble,
   AT,
   feedbackHarness,
-  intake,
   pngBytes,
   SECRET,
   sha256,
+  type Submission,
   view,
 } from "./testing/mod.ts";
 import { APP_A, rpt } from "../grouping/testing/mod.ts";
@@ -32,19 +28,19 @@ const OLDER = "inv_01arz3ndektsv4rrffq69g5faw";
 
 async function accepted(
   h: ReturnType<typeof newHarness>,
-  patch: Partial<FeedbackIntake>,
+  patch: Partial<Submission>,
 ) {
-  const result = await assembleFeedback(intake(patch), h.deps);
+  const result = await assemble(patch, h.deps);
   assert(result.ok, result.ok ? "" : JSON.stringify(result.error));
   return result.value;
 }
 
 async function rejected(
   h: ReturnType<typeof newHarness>,
-  patch: Partial<FeedbackIntake>,
+  patch: Partial<Submission>,
   code = "invalid_input",
 ) {
-  const result = await assembleFeedback(intake(patch), h.deps);
+  const result = await assemble(patch, h.deps);
   assert(!result.ok, "거절해야 한다");
   assertEquals(result.error.code, code);
   return result.error;
@@ -54,7 +50,7 @@ async function rejected(
 async function withScreen(
   png: Uint8Array,
   patch: Partial<FeedbackView> = {},
-): Promise<Partial<FeedbackIntake>> {
+): Promise<Partial<Submission>> {
   return {
     view: view({ final_screenshot_hash: await sha256(png), ...patch }),
     facts: {
@@ -398,7 +394,7 @@ Deno.test("problems/feedback#R10 problems/snapshots#R15: 미선택·가려짐·�
   const png = pngBytes(800, 600, 2000);
   const screenOf = async (
     harness: ReturnType<typeof newHarness>,
-    patch: Partial<FeedbackIntake> = {},
+    patch: Partial<Submission> = {},
     viewPatch: Partial<FeedbackView> = {},
   ) => {
     const value = await accepted(harness, {
@@ -464,10 +460,7 @@ Deno.test("problems/feedback#R10 problems/snapshots#R15: 미선택·가려짐·�
   );
   // blob 저장 실패는 그 항목만 제외한다. 저장하지 못한 이미지는 첨부로 보이지 않는다.
   const storing = newHarness({ failPurpose: "feedback_screenshot" });
-  const lost = await assembleFeedback(
-    intake(await withScreen(png)),
-    storing.deps,
-  );
+  const lost = await assemble(await withScreen(png), storing.deps);
   assert(lost.ok);
   const lostScreen = lost.value.input.snapshot.screen!;
   assertEquals(lostScreen.screenshot, null);
@@ -568,4 +561,40 @@ Deno.test("problems/grouping#R6: 존재하지 않는 선택과 다른 앱의 선
       }),
   });
   await rejected(unreadable, { existing_problem: problem }, "unavailable");
+});
+
+Deno.test("problems/feedback#R8: 선언한 크기와 다른 이미지나 선언 없는 이미지는 거절되고 blob이 남지 않는다", async () => {
+  const png = pngBytes(800, 600, 3000);
+  const base = {
+    report_id: rpt(1),
+    app: APP_A,
+    text: "x",
+    existing_problem: null,
+    observed_at: AT,
+    selection: { screen: false, screenshot: true },
+    view: null,
+    facts: null,
+    targets: {
+      invocation: null,
+      automation: null,
+      version: null,
+      command_start: "unknown" as const,
+    },
+  };
+  const sizes = [
+    [{ size_bytes: 2999 }, png],
+    [{ size_bytes: 3000 }, null],
+    [null, png],
+  ] as const;
+  for (const [descriptor, bytes] of sizes) {
+    const fresh = newHarness();
+    const result = await assembleFeedback(
+      { ...base, screenshot: descriptor },
+      bytes,
+      fresh.deps,
+    );
+    assert(!result.ok);
+    assertEquals(result.error.code, "invalid_input");
+    assertEquals(fresh.prepared, []);
+  }
 });

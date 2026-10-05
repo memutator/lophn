@@ -4,12 +4,13 @@
 // 다른 leaf의 fixture라서 `*_test.ts`가 `store`로 넣는다.
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { SnapshotBlobPrepare } from "../../snapshots/mod.ts";
-import type {
-  FeedbackDeps,
-  FeedbackIntake,
-  FeedbackView,
-  SelectedProblem,
+import {
+  assembleFeedback,
+  type FeedbackDeps,
+  type FeedbackView,
+  type SelectedProblem,
 } from "../mod.ts";
+import type { SubmitFeedbackInput } from "../../../contracts/problems/mod.ts";
 
 export const APP_A = "app_01arz3ndektsv4rrffq69g5fav";
 export const APP_B = "app_01arz3ndektsv4rrffq69g5faw";
@@ -88,7 +89,26 @@ export function view(patch: Partial<FeedbackView> = {}): FeedbackView {
   };
 }
 
-export function intake(patch: Partial<FeedbackIntake> = {}): FeedbackIntake {
+// 계약 입력에서 PNG 선언 크기 대신 request channel로 오는 바이트를 둔 것.
+export type Submission = Omit<SubmitFeedbackInput, "screenshot"> & {
+  screenshot: Uint8Array | null;
+};
+
+export function assemble(patch: Partial<Submission>, deps: FeedbackDeps) {
+  const { screenshot, ...rest } = intake(patch);
+  return assembleFeedback(
+    {
+      ...rest,
+      screenshot: screenshot === null
+        ? null
+        : { size_bytes: screenshot.length },
+    },
+    screenshot,
+    deps,
+  );
+}
+
+export function intake(patch: Partial<Submission> = {}): Submission {
   return {
     report_id: rpt(1),
     app: APP_A,

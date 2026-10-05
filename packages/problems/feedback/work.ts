@@ -10,6 +10,7 @@ import {
   type RecordReportInput,
   recordReportInputSchema,
   type SnapshotInput,
+  type SubmitFeedbackInput,
 } from "../../contracts/problems/mod.ts";
 import { contentHashOf } from "../reporting/mod.ts";
 import {
@@ -37,37 +38,11 @@ import {
   transferBytes,
 } from "./model.ts";
 
-// 버튼 시점에 shell main이 고정한 app view와 그 binding. 제출 시점의 새 화면으로
-// 다시 풀지 않는다.
-export type FeedbackView = {
-  // shell main이 발급한 불투명 참조. 권한이 아니다.
-  binding: string;
-  name: string;
-  app: string;
-  release: string | null;
-  mode: "live" | "preview" | "test";
-  bundle_hash: string | null;
-  diagnostic_scope: string | null;
-  observed_at: string;
-  // 이미지를 얻을 수 없었던 이유. null이면 캡처할 수 있었다.
-  capture: ScreenCaptureBlock | null;
-  // 사람이 미리보기에서 확인한 최종 이미지의 hash.
-  final_screenshot_hash: string | null;
-};
+export type FeedbackView = NonNullable<SubmitFeedbackInput["view"]>;
 
-export type FeedbackIntake = {
-  report_id: string;
-  app: string;
-  // 사람이 쓴 원문. redaction 전이므로 이 값은 메모리에만 있다.
-  text: string;
-  existing_problem: string | null;
-  observed_at: string;
-  selection: { screen: boolean; screenshot: boolean };
-  // null이면 화면이 없다.
-  view: FeedbackView | null;
-  facts: ScreenFacts | null;
+// 계약의 입력에서 PNG 선언 크기를 request channel로 받은 실제 바이트로 바꾼 것이다.
+type Intake = Omit<SubmitFeedbackInput, "screenshot"> & {
   screenshot: Uint8Array | null;
-  targets: FeedbackTargets;
 };
 
 export type FeedbackDeps = {
@@ -118,7 +93,7 @@ function invalid(message: string): Result<never> {
 }
 
 // 같은 모양의 view가 아니면 거절한다: 다른 앱·시점의 자료를 이 제보에 묶지 않는다.
-function checkView(intake: FeedbackIntake): Result<void> {
+function checkView(intake: Intake): Result<void> {
   const view = intake.view;
   if (view === null) return ok(undefined);
   if (
@@ -132,10 +107,21 @@ function checkView(intake: FeedbackIntake): Result<void> {
   return ok(undefined);
 }
 
+// `screenshot`은 worker 요청의 byte channel로 받은 PNG 바이트다. 선언 크기와 다르면
+// 거절한다: 다른 이미지를 끼워 넣지 못한다.
 export async function assembleFeedback(
-  intake: FeedbackIntake,
+  submitted: SubmitFeedbackInput,
+  screenshot: Uint8Array | null,
   deps: FeedbackDeps,
 ): Promise<Result<AssembledFeedback>> {
+  if (
+    (submitted.screenshot === null) !== (screenshot === null) ||
+    submitted.screenshot !== null &&
+      submitted.screenshot.size_bytes !== screenshot!.length
+  ) {
+    return invalid("이미지가 선언한 크기와 맞지 않는다");
+  }
+  const intake: Intake = { ...submitted, screenshot };
   const startedMs = (deps.monotonicNow ?? Date.now)();
   const caller = requireShellUser(deps.caller);
   if (!caller.ok) return caller;

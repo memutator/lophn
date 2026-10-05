@@ -1,6 +1,5 @@
 import { assertEquals } from "@std/assert";
 import {
-  feedbackInputSchema,
   feedbackScreenshotInputSchema,
   feedbackTextSchema,
   recordReportInputSchema,
@@ -8,11 +7,12 @@ import {
   REPORTING_LIMITS,
   submitFeedbackInputSchema,
 } from "./mod.ts";
-import type { ReportBlobInput } from "./mod.ts";
+import type { ReportBlobInput, SubmitFeedbackInput } from "./mod.ts";
 import {
   preparedReport,
   REPORTING_TEST_AT as at,
   REPORTING_TEST_HASH as hash,
+  reportingId,
   textFeedback,
 } from "./testing/mod.ts";
 
@@ -37,34 +37,33 @@ function blob(
     },
   };
 }
-function screenFeedback() {
+function screenFeedback(): SubmitFeedbackInput {
   const input = textFeedback();
-  input.feedback.view_binding = "button-view-binding";
-  input.feedback.screen_selected = true;
-  input.feedback.screenshot_selected = true;
-  const state = blob("feedback_state", 65536);
-  const png = blob("feedback_screenshot", 2097152, "b".repeat(64));
-  input.feedback.snapshot.screen = {
+  input.selection = { screen: true, screenshot: true };
+  input.view = {
+    binding: "button-view-binding",
     name: "Editor",
+    app: input.app,
+    release: reportingId("rel"),
+    mode: "live",
+    bundle_hash: hash,
+    diagnostic_scope: null,
     observed_at: at,
-    state: state.hash,
-    state_missing_reason: null,
-    screenshot: png.hash,
-    screenshot_missing_reason: null,
+    capture: null,
+    final_screenshot_hash: "b".repeat(64),
   };
-  input.feedback.snapshot.screen_missing_reason = null;
-  input.blobs = [state, png];
-  input.screenshot = {
-    blob: png,
-    mime_type: "image/png",
-    width: 1600,
-    height: 900,
+  input.facts = {
+    tab: "Summary",
+    url: "/orders?customer=ada#top",
+    inputs: [{ name: "memo", value: "hello" }],
+    business_data: { rows: [] },
   };
+  input.screenshot = { size_bytes: 2097152 };
   return input;
 }
 Deno.test("problems/feedback#R1: nonblank redacted text counts Unicode scalars not UTF16 units", () => {
   for (
-    const text of ["a", "界".repeat(500), "😀".repeat(500), "é".repeat(250)]
+    const text of ["a", "界".repeat(500), "😀".repeat(500), "e\u0301".repeat(250)]
   ) {
     assertEquals(feedbackTextSchema.safeParse(text).success, true);
   }
@@ -76,73 +75,67 @@ Deno.test("problems/feedback#R1: nonblank redacted text counts Unicode scalars n
       "😀".repeat(501),
       "\ud800",
       "x\udfff",
-      "é".repeat(251),
+      "e\u0301".repeat(251),
     ]
   ) {
     assertEquals(feedbackTextSchema.safeParse(text).success, false);
   }
   const input = textFeedback();
   assertEquals(submitFeedbackInputSchema.safeParse(input).success, true);
-  assertEquals(
-    feedbackInputSchema.safeParse({ ...input.feedback, source: "feedback" })
-      .success,
-    false,
-  );
-  assertEquals(
-    feedbackInputSchema.safeParse({
-      ...input.feedback,
-      report_id: input.feedback.app,
-    }).success,
-    false,
-  );
-});
-Deno.test("problems/feedback#R10: text-only all-missing snapshot needs no view or invocation", () => {
-  const input = textFeedback();
-  assertEquals(submitFeedbackInputSchema.safeParse(input).success, true);
-  assertEquals(
-    submitFeedbackInputSchema.safeParse({
-      ...input,
-      feedback: {
-        ...input.feedback,
-        screen_selected: true,
-        screenshot_selected: true,
-      },
-    }).success,
-    true,
-  );
-  assertEquals(
-    submitFeedbackInputSchema.safeParse({
-      ...input,
-      feedback: {
-        ...input.feedback,
-        snapshot: { ...input.feedback.snapshot, screen_missing_reason: null },
-      },
-    }).success,
-    false,
-  );
-});
-Deno.test("problems/feedback#R8: PNG typed authority and metadata binds size/hash/purpose, no base64", () => {
-  const input = screenFeedback();
-  assertEquals(submitFeedbackInputSchema.safeParse(input).success, true);
-  const screenshot = input.screenshot!;
+  // source·code·snapshot·blob은 호출자가 정하지 않는다: 원자료만 받는다.
   for (
-    const change of [{ mime_type: "image/jpeg" }, { width: 1601 }, {
-      height: 0,
-    }, { bytes: "base64" }]
+    const extra of [
+      { source: "feedback" },
+      { code: "_feedback" },
+      { snapshot: {} },
+      { blobs: [] },
+      { view_binding: "x" },
+    ]
   ) {
     assertEquals(
-      feedbackScreenshotInputSchema.safeParse({ ...screenshot, ...change })
-        .success,
+      submitFeedbackInputSchema.safeParse({ ...input, ...extra }).success,
       false,
     );
   }
   assertEquals(
-    feedbackScreenshotInputSchema.safeParse({
-      ...screenshot,
-      blob: blob("feedback_screenshot", 2097153),
-    }).success,
+    submitFeedbackInputSchema.safeParse({ ...input, report_id: input.app })
+      .success,
     false,
   );
+});
+Deno.test("problems/feedback#R10: text-only input needs no view, invocation or facts", () => {
+  const input = textFeedback();
+  assertEquals(submitFeedbackInputSchema.safeParse(input).success, true);
+  // 선택 표시만 있고 자료가 없어도 접수할 수 있다: 이유는 collector가 남긴다.
+  assertEquals(
+    submitFeedbackInputSchema.safeParse({
+      ...input,
+      selection: { screen: true, screenshot: true },
+    }).success,
+    true,
+  );
+});
+Deno.test("problems/feedback#R8: screenshot is a declared size on the byte channel, no base64 in JSON", () => {
+  const input = screenFeedback();
+  assertEquals(submitFeedbackInputSchema.safeParse(input).success, true);
+  for (
+    const change of [
+      { size_bytes: 2097153 },
+      { size_bytes: 0 },
+      { bytes: "base64" },
+      { mime_type: "image/png", width: 10, height: 10 },
+    ]
+  ) {
+    assertEquals(
+      feedbackScreenshotInputSchema.safeParse({
+        size_bytes: 10,
+        ...change,
+      }).success,
+      false,
+    );
+  }
+  const valid = blob("feedback_state", 10);
+  assertEquals(reportBlobInputSchema.safeParse(valid).success, true);
   assertEquals(
     reportBlobInputSchema.safeParse({
       hash,
@@ -151,8 +144,6 @@ Deno.test("problems/feedback#R8: PNG typed authority and metadata binds size/has
     }).success,
     false,
   );
-  const valid = blob("feedback_state", 10);
-  assertEquals(reportBlobInputSchema.safeParse(valid).success, true);
   assertEquals(
     reportBlobInputSchema.safeParse({ ...valid, hash: "b".repeat(64) }).success,
     false,
@@ -189,13 +180,8 @@ Deno.test("problems/feedback#R8: PNG typed authority and metadata binds size/has
     }).success,
     true,
   );
-  assertEquals(
-    submitFeedbackInputSchema.safeParse({ ...input, blobs: [input.blobs[0]] })
-      .success,
-    false,
-  );
 });
-Deno.test("problems/feedback#R9: UTF8 state 65536, log total bytes and aggregate bounds are finite", () => {
+Deno.test("problems/feedback#R9: state 65536, log total bytes and the 3 MiB transfer bound are finite", () => {
   assertEquals(
     reportBlobInputSchema.safeParse(blob("feedback_state", 65536)).success,
     true,
@@ -220,23 +206,36 @@ Deno.test("problems/feedback#R9: UTF8 state 65536, log total bytes and aggregate
     reportBlobInputSchema.safeParse(blob("snapshot_stack", 16385)).success,
     false,
   );
+  // 짧은 글자 수여도 실제 전송 JSON bytes와 PNG 크기를 함께 센다.
   const input = screenFeedback();
-  // Even short Unicode text is bounded by the actual transmitted JSON bytes.
-  input.feedback.snapshot.screen!.name = "界".repeat(400000);
+  input.text = "界".repeat(400000);
   assertEquals(submitFeedbackInputSchema.safeParse(input).success, false);
+  const heavy = screenFeedback();
+  heavy.text = "x".repeat(REPORTING_LIMITS.feedback_total_bytes - 2097152);
+  assertEquals(submitFeedbackInputSchema.safeParse(heavy).success, false);
+  heavy.screenshot = null;
+  assertEquals(submitFeedbackInputSchema.safeParse(heavy).success, true);
   assertEquals(REPORTING_LIMITS.feedback_total_bytes, 3145728);
 });
-Deno.test("problems/feedback#R6: button time, view binding, selections and image hash cannot disagree", () => {
+Deno.test("problems/feedback#R6: view binding, observed time, app and mode scope cannot disagree", () => {
   const input = screenFeedback();
+  assertEquals(submitFeedbackInputSchema.safeParse(input).success, true);
+  const view = input.view!;
   for (
-    const change of [{ view_binding: null }, { screen_selected: false }, {
-      screenshot_selected: false,
-    }, { observed_at: "2026-10-04T12:01:00.000Z" }]
+    const change of [
+      { observed_at: "2026-10-04T12:01:00.000Z" },
+      { app: reportingId("prb") },
+      { binding: " " },
+      { mode: "preview" as const },
+      { diagnostic_scope: "scope-1" },
+      { capture: "other" },
+      { final_screenshot_hash: "short" },
+    ]
   ) {
     assertEquals(
       submitFeedbackInputSchema.safeParse({
         ...input,
-        feedback: { ...input.feedback, ...change },
+        view: { ...view, ...change },
       }).success,
       false,
     );
@@ -244,20 +243,47 @@ Deno.test("problems/feedback#R6: button time, view binding, selections and image
   assertEquals(
     submitFeedbackInputSchema.safeParse({
       ...input,
-      screenshot: {
-        ...input.screenshot,
-        blob: blob("feedback_screenshot", 100, "c".repeat(64)),
-      },
+      view: { ...view, mode: "preview", diagnostic_scope: "scope-1" },
     }).success,
-    false,
+    true,
   );
   assertEquals(
     submitFeedbackInputSchema.safeParse({
       ...input,
-      feedback: { ...input.feedback, view_binding: " " },
+      view: { ...view, app: reportingId("app").replace("fav", "faw") },
     }).success,
     false,
   );
+});
+Deno.test("problems/feedback#R3: targets are known ids or null and command start is a closed set", () => {
+  const input = textFeedback();
+  const known = {
+    invocation: reportingId("inv"),
+    automation: "nightly-sync",
+    version: reportingId("ver"),
+    command_start: "blocked_before_start" as const,
+  };
+  assertEquals(
+    submitFeedbackInputSchema.safeParse({ ...input, targets: known }).success,
+    true,
+  );
+  for (
+    const change of [
+      { invocation: "inv_x" },
+      { version: reportingId("doc") },
+      { automation: " " },
+      { command_start: "running" },
+      { extra: 1 },
+    ]
+  ) {
+    assertEquals(
+      submitFeedbackInputSchema.safeParse({
+        ...input,
+        targets: { ...known, ...change },
+      }).success,
+      false,
+    );
+  }
 });
 Deno.test("problems/feedback#R11: frozen record content needs every blob authority and host-assigned origin", () => {
   const input = preparedReport();
@@ -279,16 +305,4 @@ Deno.test("problems/feedback#R11: frozen record content needs every blob authori
   input.origin.context.origin = "shell_user";
   input.origin.context.authentication.actor = "user";
   assertEquals(recordReportInputSchema.safeParse(input).success, true);
-});
-Deno.test("problems/feedback#R8: screenshot blob authority matches by value regardless of key order", () => {
-  const input = screenFeedback();
-  const png = input.screenshot!.blob as Record<string, unknown>;
-  const reordered = Object.fromEntries(Object.entries(png).reverse());
-  assertEquals(
-    submitFeedbackInputSchema.safeParse({
-      ...input,
-      screenshot: { ...input.screenshot, blob: reordered },
-    }).success,
-    true,
-  );
 });

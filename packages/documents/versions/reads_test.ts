@@ -9,7 +9,7 @@ import {
   preparedInput,
   userContext,
   versionFixture,
-} from "./testing-fixture.ts";
+} from "./testing/mod.ts";
 
 const commands = createVersionCommands();
 const reads = createVersionReads();

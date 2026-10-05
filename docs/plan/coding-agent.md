@@ -517,6 +517,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T18 ticket core: 표·생성·readiness·read
 
+- 상태: 완료 (#183)
 - 등급: 기본
 - concern: coding-agent/tickets
 - 요구: coding-agent/tickets#R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R25
@@ -1562,7 +1563,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   둔다(code-map의 tools/). apps·problems 팀 E2E도 쓴다.
 - **Q11 ticket readiness(lead 결정).** (정함)
   `readiness: needs_confirmation | ready`를 T18에서 넣고
-  coding-agent/tickets#R2, R5, R6, R11, R26과 domain model을 같은 PR에서 고친다.
+  coding-agent/tickets#R2, R5, R6, R11, R26, R28과 domain model을 같은 PR에서
+  고친다.
   needs_confirmation → ready는 새 command `ticket.make_ready`(근거·채택
   답·조건을 한 번만 채우고 그 뒤 불변), event `TicketMadeReady`.
 - **Q12 daemon 시작·중지 contract.** (정함) platform#T55(coding-agent slice)가

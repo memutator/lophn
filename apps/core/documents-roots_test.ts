@@ -18,7 +18,9 @@ Deno.test("documents/file-tracking#R3: launch spec의 읽기·쓰기는 활성 r
   ]);
   assertEquals(coordinator?.allow_write.includes("/work/notes"), true);
   assertEquals(preparation?.allow_read.includes("/work/other"), true);
-  assertEquals(coordinator?.allow_net, []);
+  // network는 core loopback뿐이고 run은 승인된 Deno 실행 파일뿐이다(T11).
+  assertEquals(coordinator?.allow_net, ["127.0.0.1"]);
+  assertEquals(coordinator?.allow_run, [Deno.execPath()]);
   assertEquals(preparation?.allow_net, []);
 });
 

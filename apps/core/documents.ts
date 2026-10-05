@@ -144,9 +144,11 @@ function formatReads(): ApiReadDefinition[] {
 }
 
 // coordinator는 등록한 활성 root와 문서 위치의 필요한 권한만 받는다(architecture/documents 2.2).
-// allow_read·write는 root 추가·해제 때 core가 새 목록으로 교체한다. network·env·ffi는 없다.
+// allow_read·write는 root 추가·해제 때 core가 새 목록으로 교체한다. ffi는 없다.
 // 등록 때 data root는 core와 같은 근원(LOPHN_HOME ?? ~/.lophn)에서 env로만 결정한다.
 // 활성 root가 바뀌면 이 spec을 다시 만들고 platform이 documents worker만 다시 띄운다.
+// network는 core loopback뿐이다: 관측 제출이 같은 process의 API에 Bearer credential로
+// 닿는다(T11). run은 준비 worker spawn의 승인된 Deno 실행 파일뿐이다(platform#T7).
 export function workerSpecs(
   dataRoot: string,
   activeRoots: readonly string[] = [],
@@ -162,8 +164,8 @@ export function workerSpecs(
       ).pathname,
       allow_read: reads,
       allow_write: [`${dataRoot}/documents`, `${dataRoot}/derived`, ...writes],
-      allow_net: [],
-      allow_run: [],
+      allow_net: ["127.0.0.1"],
+      allow_run: [Deno.execPath()],
       allow_sys: [],
       allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
       policy: "always",

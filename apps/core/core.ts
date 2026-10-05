@@ -43,6 +43,7 @@ import {
 import type { BlobFieldDefinition } from "../../packages/contracts/platform/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { documentPrepareRoute, relaySink } from "./documents-prepare.ts";
+import { workerSpecs } from "./documents.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
@@ -181,6 +182,8 @@ async function open(
   const restart = await checkRestart(ledgerPath, { clock });
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);
+  // machine은 command kind 정책에만 닿는다(identity model operationCeiling).
+  // 문서 관측 제출은 machine document.save command다(documents#T11).
   const productRegistry = new CredentialRegistry({
     epoch,
     clock,
@@ -195,6 +198,11 @@ async function open(
         name: "platform/health",
         actors: ["user", "machine", "app", "agent", "coding_agent"],
         kind: "read",
+      },
+      {
+        name: "document.save",
+        actors: ["machine", "user", "coding_agent"],
+        kind: "command",
       },
     ],
   });
@@ -276,6 +284,38 @@ async function open(
   if (!sweepCredential.ok) {
     await runtime.close();
     return sweepCredential;
+  }
+  // 문서 관측 제출 machine credential. ���급(greet과 같은 issue → revalidate →
+  // record 규칙) 뒤 token이 documents/worker hello에 싣는다. 지우지 못한 token은
+  // logs에 남기지 않는다(child.ts 계약). 발급이 실패하면 기동을 여기서 멈춘다.
+  let documentsToken: string | undefined;
+  if (options.superviseIo !== false) {
+    const issued = await productRegistry.issue({
+      actor: "machine",
+      principal: "machine:documents",
+      scope: {
+        operations: ["document.save"],
+        targets: { task: "documents" },
+      },
+      conditions: { task: "documents", process: "documents/worker" },
+    });
+    if (!issued.ok) {
+      await runtime.close();
+      return issued;
+    }
+    const current = productRegistry.revalidate({
+      credential_ref: issued.value.credential_ref,
+    });
+    if (!current.ok) {
+      await runtime.close();
+      return current;
+    }
+    const recorded = await runtime.record(current.value);
+    if (!recorded.ok) {
+      await runtime.close();
+      return recorded;
+    }
+    documentsToken = issued.value.token;
   }
   // blob 준비 중계는 I/O worker가 뜬 뒤에 채워진다. 그 전에는 prepare route가
   // unavailable이다. route는 떠 있고, 바이트는 중계가 읽는 stream으로 바로 간다.
@@ -371,6 +411,22 @@ async function open(
     await server.stop();
     await runtime.close();
     return startedIo;
+  }
+  // documents/worker. 관측 제출 credential이 hello에 싣는다. 없으면 worker를
+  // 띄우지 않는다: 제출 없이 관측만 반복하는 worker는 겉보기 가용이 거짓이다.
+  const startedDocuments = documentsToken
+    ? await startDocumentsWorker(
+      io,
+      root.path,
+      epoch,
+      server.port,
+      documentsToken,
+    )
+    : undefined;
+  if (startedDocuments && !startedDocuments.ok) {
+    await server.stop();
+    await runtime.close();
+    return startedDocuments;
   }
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
@@ -800,6 +856,55 @@ function startPlatformIo(
     started.ok ? ok(undefined) : err({
       code: started.code,
       message: "platform/io worker를 시작하지 못했다",
+    })
+  );
+}
+
+// documents/worker. spec은 documents.ts의 workerSpecs가 선언하고, hello와 결과
+// 소비(callback)는 여기가 넣는다(platformIoSpec와 같은 길이다). credential은
+// hello가 싣고 제출 client가 Bearer로 쓴다.
+function startDocumentsWorker(
+  io: ReturnType<typeof createSupervisor> | undefined,
+  dataRoot: string,
+  epoch: string,
+  port: number,
+  token: string,
+): Promise<Result<void>> {
+  if (!io) {
+    return Promise.resolve(err({
+      code: "unavailable",
+      message: "documents worker 감독이 없다",
+    }));
+  }
+  const spec = workerSpecs(dataRoot).find((entry) =>
+    entry.kind === "documents/worker"
+  );
+  if (!spec) {
+    return Promise.resolve(err({
+      code: "unavailable",
+      message: "documents worker spec이 없다",
+    }));
+  }
+  return io.start(
+    spec,
+    {
+      type: "hello",
+      core_epoch: epoch,
+      process_identity: epoch,
+      kind: "documents/worker",
+      task: "documents",
+      scope: { operations: [], targets: {} },
+      credential: token,
+      api_port: port,
+    },
+    {
+      // documents/worker 응답은 core가 아직 소비하지 않는다. 감독과 상태만 본다.
+      onMessage() {},
+    },
+  ).then((started) =>
+    started.ok ? ok(undefined) : err({
+      code: started.code,
+      message: "documents worker를 시작하지 못했다",
     })
   );
 }

@@ -9,20 +9,19 @@
 // 위험 경로·접근 실패·runner 실패는 낮추지 않는다. 옛 module은 보존 목록에서 찾는다.
 
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  type ContentFile,
-  type DocumentFileInput,
-  type FileObservationBasis,
-  type FormatDiagnostic,
-  type FormatRef,
-  type PreparedVersion,
+import type {
+  ContentFile,
+  DocumentFileInput,
+  FileObservationBasis,
+  FormatDiagnostic,
+  FormatRef,
+  PreparedVersion,
 } from "../../contracts/documents/mod.ts";
-import { formatForMediaType } from "../formats/model.ts";
-import { BUILTIN_MODULE_HASH } from "../formats/guest/module-hash.ts";
-import { loadVersion, type VersionRow } from "./store.ts";
+import { BUILTIN_MODULE_HASH, formatForMediaType } from "../formats/mod.ts";
+import type { VersionRow } from "./store.ts";
 
 // prepare worker가 파일 목록 검사를 부르는 정본(file-tracking의 T8 몫).
-import { checkFileList, type FileListIssue } from "../file-tracking/model.ts";
+import { checkFileList, type FileListIssue } from "../file-tracking/mod.ts";
 
 export type ValidateOutcome = {
   input_hash: string;
@@ -33,7 +32,10 @@ export type ValidateOutcome = {
   diagnostics: FormatDiagnostic[];
 };
 
-export type ValidateError = { code: "not_found" | "unavailable"; message: string };
+export type ValidateError = {
+  code: "not_found" | "unavailable";
+  message: string;
+};
 
 // validate port. 운영 wiring은 formats read(T4)의 format.validate pipe고, 테스트는
 // outcome을 주입한다. 파일 바이트는 준비 worker가 guest 입력으로 바꿔 넘긴다.
@@ -189,15 +191,17 @@ export function createPrepareAssembly(deps: PrepareDeps) {
       recastDiagnostic(diagnostic, implicit)
     );
     const errorCount = diagnostics.filter((d) => d.severity === "error").length;
-    const warningCount = diagnostics.filter((d) =>
-      d.severity === "warning"
-    ).length;
+    const warningCount =
+      diagnostics.filter((d) => d.severity === "warning").length;
     const passed = errorCount === 0;
     const status = passed ? ("passed" as const) : ("failed" as const);
 
     // 명시 format의 error는 invalid_input으로 거절한다(사전 validate와 같은 오류).
     if (format.explicit && !passed) {
-      return err({ code: "invalid_input", message: "requested format failed validation" });
+      return err({
+        code: "invalid_input",
+        message: "requested format failed validation",
+      });
     }
 
     // canonical 목록은 준비 worker가 확정한 FilesHash다. 카운트 일치 검사는

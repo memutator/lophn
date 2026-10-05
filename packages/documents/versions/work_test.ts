@@ -1,17 +1,16 @@
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import type { PreparedVersion } from "../../contracts/documents/mod.ts";
-import { checkFileList, isSafeRelativePath } from "../file-tracking/model.ts";
+import { checkFileList, isSafeRelativePath } from "../file-tracking/mod.ts";
 import {
   createPrepareAssembly,
   type PrepareDeps,
-  type PrepareError,
   type ValidateError,
   type ValidateOutcome,
 } from "./work.ts";
 import { file, ids, preparedInput, versionFixture } from "./testing/mod.ts";
 
-const BUILTIN_MODULE_HASH = "8098b95b6b7bf63f8466c8e07c2f2a560fd46ff4160671fd99faa4c82a83ccdd";
+const BUILTIN_MODULE_HASH =
+  "8098b95b6b7bf63f8466c8e07c2f2a560fd46ff4160671fd99faa4c82a83ccdd";
 const HASH = "ab".repeat(32);
 const OTHER_HASH = "cd".repeat(32);
 
@@ -37,14 +36,17 @@ function outcome(
 function validateOk(
   overrides: Partial<ValidateOutcome> = {},
 ): PrepareDeps["validateFiles"] {
+  // deno-lint-ignore require-await -- ValidatePort의 모양을 그대로 따르는 fake다.
   return async () => ok(outcome(overrides));
 }
 
 function validateFail(error: ValidateError): PrepareDeps["validateFiles"] {
+  // deno-lint-ignore require-await -- ValidatePort의 모양을 그대로 따르는 fake다.
   return async () => err(error);
 }
 
 function prepareOk(): PrepareDeps["prepareFiles"] {
+  // deno-lint-ignore require-await -- PrepareFilesPort의 모양을 그대로 따르는 fake다.
   return async () => ok({ preparation: "pack-1", hash: HASH, size_bytes: 8 });
 }
 
@@ -54,6 +56,7 @@ function deps(
   return {
     validateFiles: validateOk(),
     prepareFiles: prepareOk(),
+    // deno-lint-ignore require-await -- BaseVersionRead의 모양을 그대로 따르는 fake다.
     loadBaseVersion: async () => ok(null),
     ...overrides,
   };
@@ -67,8 +70,14 @@ function request(
     document: ids.doc,
     base_version: null,
     metadata: { title: "Notes", place: null, name: null },
-    files: files as unknown as Parameters<ReturnType<typeof createPrepareAssembly>>[0]["files"],
-    format: { name: "document", module_hash: BUILTIN_MODULE_HASH, explicit: true },
+    files: files as unknown as Parameters<
+      ReturnType<typeof createPrepareAssembly>
+    >[0]["files"],
+    format: {
+      name: "document",
+      module_hash: BUILTIN_MODULE_HASH,
+      explicit: true,
+    },
     source: null,
     idempotency_key: "save-1",
     ...overrides,
@@ -122,7 +131,11 @@ Deno.test("documents/formats#R4: 같은 입력의 사전 검사와 저장 검사
   if (!pre.ok) assertEquals(pre.error.code, "invalid_input");
   // 저장 검사는 같은 진단을 그대로 남긴다. 위치·설명을 읽을 수 있다.
   const saved = preparedInput(ids.doc, [file("report.md", true)], {
-    format: { name: "document", module_hash: BUILTIN_MODULE_HASH, explicit: true },
+    format: {
+      name: "document",
+      module_hash: BUILTIN_MODULE_HASH,
+      explicit: true,
+    },
     validation: {
       input_hash: HASH,
       module_hash: BUILTIN_MODULE_HASH,
@@ -260,13 +273,18 @@ Deno.test("documents/formats#R7: 생략한 후속 저장은 base_version의 정�
       primary_path: "report.md",
       file_count: 1,
       content_hash: OTHER_HASH,
-      format: { name: "pdf", module_hash: BUILTIN_MODULE_HASH, explicit: false },
+      format: {
+        name: "pdf",
+        module_hash: BUILTIN_MODULE_HASH,
+        explicit: false,
+      },
       saved_by: "user",
       saved_at: "2026-10-05T00:00:00.000Z",
       run: null,
       source: null,
     };
     const prepare = createPrepareAssembly(deps({
+      // deno-lint-ignore require-await -- BaseVersionRead의 모양을 그대로 따르는 fake다.
       loadBaseVersion: async () => ok(base),
     }));
     const ran = await prepare(
@@ -302,13 +320,18 @@ Deno.test("documents/formats#R7: 사람의 명시 format 변경만 새 판의 �
     source: null,
   };
   const prepare = createPrepareAssembly(deps({
+    // deno-lint-ignore require-await -- BaseVersionRead의 모양을 그대로 따르는 fake다.
     loadBaseVersion: async () => ok(base),
   }));
   const changed = await prepare(
     request({
       base_version: base.id,
       metadata: undefined,
-      format: { name: "document", module_hash: BUILTIN_MODULE_HASH, explicit: true },
+      format: {
+        name: "document",
+        module_hash: BUILTIN_MODULE_HASH,
+        explicit: true,
+      },
     }),
   );
   assert(changed.ok);
@@ -333,23 +356,32 @@ Deno.test("documents/formats#R7: 최신 판이 바뀐 후속 준비는 옛 판 �
     primary_path: "report.md",
     file_count: 1,
     content_hash: OTHER_HASH,
-    format: { name: "document", module_hash: BUILTIN_MODULE_HASH, explicit: false },
+    format: {
+      name: "document",
+      module_hash: BUILTIN_MODULE_HASH,
+      explicit: false,
+    },
     saved_by: "user",
     saved_at: "2026-10-05T00:00:00.000Z",
     run: null,
     source: null,
   };
   const prepare = createPrepareAssembly(deps({
+    // deno-lint-ignore require-await -- BaseVersionRead의 모양을 그대로 따르는 fake다.
     loadBaseVersion: async (id) => ok(id === base.id ? base : null),
   }));
   const missing = await prepare(
-    request({ base_version: "ver_01arz3ndektsv4rrffq69g5fbv", metadata: undefined, format: undefined }),
+    request({
+      base_version: "ver_01arz3ndektsv4rrffq69g5fbv",
+      metadata: undefined,
+      format: undefined,
+    }),
   );
   assertEquals(missing.ok, false);
   if (!missing.ok) assertEquals(missing.error.code, "not_found");
 });
 
-Deno.test("documents/versions#R2: 준비 worker가 안전한 상대 경로·유일 경로·대표 파일 하나·바이트 수를 검사한다", async () => {
+Deno.test("documents/versions#R2: 준비 worker가 안전한 상대 경로·유일 경로·대표 파일 하나·바이트 수를 검사한다", () => {
   const noPrimary = checkFileList([
     { path: "a.md", bytes: 4, primary: false },
     { path: "b.md", bytes: 4, primary: false },
@@ -372,6 +404,7 @@ Deno.test("documents/versions#R2: 준비 worker가 안전한 상대 경로·유�
 Deno.test("documents/versions#R2: 같은 stream을 hash와 blob 준비로 보내고 preparation_ref를 요청에 묶는다", async () => {
   const prepared: string[] = [];
   const prepare = createPrepareAssembly(deps({
+    // deno-lint-ignore require-await -- PrepareFilesPort의 모양을 그대로 따르는 fake다.
     prepareFiles: async (files) => {
       prepared.push(files.map((file) => file.path).join(","));
       return ok({ preparation: "pack-1", hash: OTHER_HASH, size_bytes: 12 });
@@ -392,12 +425,18 @@ Deno.test("documents/versions#R2: 같은 stream을 hash와 blob 준비로 보내
 
 Deno.test("documents/versions#R2: runner 누락과 실행 실패는 낮추지 않는다", async () => {
   const missing = await createPrepareAssembly(deps({
-    validateFiles: validateFail({ code: "not_found", message: "format module is missing" }),
+    validateFiles: validateFail({
+      code: "not_found",
+      message: "format module is missing",
+    }),
   }))(request());
   assertEquals(missing.ok, false);
   if (!missing.ok) assertEquals(missing.error.code, "not_found");
   const failed = await createPrepareAssembly(deps({
-    validateFiles: validateFail({ code: "unavailable", message: "runner killed" }),
+    validateFiles: validateFail({
+      code: "unavailable",
+      message: "runner killed",
+    }),
   }))(request());
   assertEquals(failed.ok, false);
   if (!failed.ok) assertEquals(failed.error.code, "unavailable");
@@ -405,7 +444,9 @@ Deno.test("documents/versions#R2: runner 누락과 실행 실패는 낮추지 �
 
 Deno.test("documents/versions#R2: file preparation 실패는 unavailable이다", async () => {
   const ran = await createPrepareAssembly(deps({
-    prepareFiles: async () => err({ code: "unavailable", message: "blob store ended" }),
+    // deno-lint-ignore require-await -- PrepareFilesPort의 모양을 그대로 따르는 fake다.
+    prepareFiles: async () =>
+      err({ code: "unavailable", message: "blob store ended" }),
   }))(request());
   assertEquals(ran.ok, false);
   if (!ran.ok) {

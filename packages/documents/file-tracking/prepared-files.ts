@@ -19,29 +19,11 @@ import {
   type FileReadReply,
   type PrepWrite,
 } from "./file-ipc.ts";
-import {
-  encodeWorkingCopyMeta,
-  parseWorkingCopyMeta,
-} from "./working-copy.ts";
+import { toBase64 } from "./base64.ts";
+import { encodeWorkingCopyMeta, parseWorkingCopyMeta } from "./working-copy.ts";
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
-
-export function toBase64(bytes: Uint8Array): string {
-  let text = "";
-  const step = 0x8000;
-  for (let at = 0; at < bytes.length; at += step) {
-    text += String.fromCharCode(...bytes.subarray(at, at + step));
-  }
-  return btoa(text);
-}
-
-export function fromBase64(text: string): Uint8Array {
-  const binary = atob(text);
-  const bytes = new Uint8Array(binary.length);
-  for (let at = 0; at < binary.length; at++) bytes[at] = binary.charCodeAt(at);
-  return bytes;
-}
 
 async function slurp(
   ops: Pick<FileOps, "read">,
@@ -180,7 +162,9 @@ export async function confirmCopy(
     return fail("invalid_input", "target is not available");
   }
   const meta = parseWorkingCopyMeta(parsed);
-  if (meta === undefined) return fail("invalid_input", "target is not available");
+  if (meta === undefined) {
+    return fail("invalid_input", "target is not available");
+  }
   const bytes = encodeWorkingCopyMeta({
     ...meta,
     base_version: input.baseVersion,

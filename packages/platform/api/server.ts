@@ -9,7 +9,7 @@ import {
   type WorkerResponse,
 } from "../../contracts/platform/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
-import type { ConfirmationBridge } from "../identity/mod.ts";
+import type { ConfirmationBridge, RouteConfirmation } from "../identity/mod.ts";
 import type {
   EventBackend,
   EventSession,
@@ -54,7 +54,7 @@ export type ApiServerOptions = {
   workers?: ReadonlyMap<string, ResponsivenessTarget>;
   uploads?: ReadonlyMap<string, UploadHandler>;
   // file·worker route의 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
-  confirmation?: ConfirmationBridge;
+  confirmation?: ConfirmationBridge | RouteConfirmation;
   events?: EventBackend;
   subscriptions?: SubscriptionStore;
   // 열린 WebSocket event session을 dispatcher에 올린다. 돌려받은 함수로 뺀다.

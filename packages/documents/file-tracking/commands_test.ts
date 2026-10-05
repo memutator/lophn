@@ -205,7 +205,10 @@ Deno.test("documents/file-tracking#R15: 성공하지 않은 결과·어긋난 �
       // 원본에 연결된 문서는 working copy 대상이 아니다.
       result({ target: { kind: "working_copy", document: ids.other } }),
       result({
-        target: { kind: "working_copy", document: "doc_01arz3ndektsv4rrffq69g5fax" },
+        target: {
+          kind: "working_copy",
+          document: "doc_01arz3ndektsv4rrffq69g5fax",
+        },
       }),
     ];
     for (const input of rejected) {

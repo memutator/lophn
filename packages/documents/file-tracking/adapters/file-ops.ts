@@ -3,8 +3,8 @@
 // 던진다(OS 문구·경로·본문은 남기지 않는다).
 import {
   type FaultKind,
-  type FileOps,
   FileOpFault,
+  type FileOps,
   type FileStat,
   type TempFile,
 } from "../file-ops.ts";

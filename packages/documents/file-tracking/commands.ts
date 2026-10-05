@@ -4,8 +4,8 @@
 // 결과(idempotency key)가 막는다. event payload는 경로와 hash만 담고 본문은 없다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  type FileOperationResult,
   fileDeleted,
+  type FileOperationResult,
   fileRecordResult,
   fileRenamed,
   fileWritten,

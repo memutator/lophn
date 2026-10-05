@@ -12,15 +12,15 @@ import {
   fail,
   type FileClock,
   type FileFailure,
-  type FileOps,
   FileOpFault,
+  type FileOps,
   type FileSerializer,
   hashFile,
-  resolveTarget,
   type ResolvedTarget,
+  resolveTarget,
   sameFileIdentity,
-  tempNameFor,
   type TempFile,
+  tempNameFor,
 } from "./file-ops.ts";
 
 export type FileDeps = {
@@ -208,7 +208,13 @@ async function writeOnce(
     return fail("invalid_input", "content does not match its hash");
   }
 
-  const checked = await recheck(ops, input.root, input.path, target, input.baseHash);
+  const checked = await recheck(
+    ops,
+    input.root,
+    input.path,
+    target,
+    input.baseHash,
+  );
   if (!checked.ok) {
     await discard(ops, temp);
     return checked;
@@ -422,11 +428,12 @@ export function deleteFile(
     }
     await ops.syncDirectory(dirname(target.path));
     // 지운 자리에 누가 다시 만들었는지 본다.
-    let again: Pick<FileDone, "observedHash" | "observedAt" | "changedAgain"> = {
-      observedHash: null,
-      observedAt: null,
-      changedAgain: null,
-    };
+    let again: Pick<FileDone, "observedHash" | "observedAt" | "changedAgain"> =
+      {
+        observedHash: null,
+        observedAt: null,
+        changedAgain: null,
+      };
     try {
       if ((await ops.lstat(target.path)) !== undefined) {
         again = await observe(deps, target.path, null);

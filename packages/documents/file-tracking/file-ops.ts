@@ -116,7 +116,9 @@ export function basename(path: string): string {
 }
 
 export function tempNameFor(directory: string, token: string): string {
-  return `${directory === "/" ? "" : directory}/${WRITE_TEMP_PREFIX}${token}.tmp`;
+  return `${
+    directory === "/" ? "" : directory
+  }/${WRITE_TEMP_PREFIX}${token}.tmp`;
 }
 
 // 등록 root 안의 실제 목표. parent는 root 안에 있어야 하고 목표는 일반 파일이거나 없어야 한다.

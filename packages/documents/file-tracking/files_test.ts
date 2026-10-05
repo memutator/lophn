@@ -2,11 +2,7 @@ import { assert, assertEquals, assertFalse } from "@std/assert";
 import { createHash } from "node:crypto";
 import { denoFileOps } from "./adapters/file-ops.ts";
 import { WRITE_TEMP_PREFIX } from "../projects/mod.ts";
-import {
-  createFileSerializer,
-  type FileOps,
-  FileOpFault,
-} from "./file-ops.ts";
+import { createFileSerializer, FileOpFault, type FileOps } from "./file-ops.ts";
 import {
   deleteFile,
   type FileDeps,

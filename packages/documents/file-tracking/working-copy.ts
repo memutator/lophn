@@ -37,7 +37,9 @@ export function workingCopyLocation(
   dataRoot: string,
   document: string,
 ): Result<WorkingCopyLocation> {
-  if (!dataRoot.startsWith("/") || !documentIdSchema.safeParse(document).success) {
+  if (
+    !dataRoot.startsWith("/") || !documentIdSchema.safeParse(document).success
+  ) {
     return err({ code: "invalid_input", message: "invalid working copy" });
   }
   const base = dataRoot.endsWith("/") ? dataRoot.slice(0, -1) : dataRoot;

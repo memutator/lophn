@@ -77,7 +77,9 @@ import {
   OBSERVATION_LINK_PAGE,
   PREPARE_BASE_ROUTE,
   STORED_FILE_ROUTE,
+  WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
+import { workingCopyCheck } from "../../packages/documents/file-tracking/reads.ts";
 import { loadProjects } from "../../packages/documents/projects/store.ts";
 import { authorizeDocument } from "../../packages/documents/versions/authorization.ts";
 import {
@@ -455,6 +457,21 @@ export function createReaderRegistration(): ReaderRegistration {
               : null,
             next_cursor: null,
           });
+        },
+      },
+      // working copy 근거. 요청 자격으로 원본 없는 활성 문서와 연 판의 대표 파일을 읽는다.
+      {
+        route: WORKING_COPY_ROUTE,
+        handle(snapshot, ctx, input) {
+          const checked = workingCopyCheck(
+            snapshot,
+            ctx,
+            WORKING_COPY_ROUTE.name,
+            input as { document: string; base_version: string | null },
+          );
+          return checked.ok
+            ? ok({ ...checked.value, next_cursor: null })
+            : checked;
         },
       },
       // coordinator가 파일을 관측할 근거(Q15). core만 부르는 내부 read다. 활성이고 tracking이

@@ -3,12 +3,8 @@ import { createHash } from "node:crypto";
 import { denoFileOps } from "./adapters/file-ops.ts";
 import { createFileSerializer } from "./file-ops.ts";
 import { type FileDeps } from "./files.ts";
-import {
-  confirmCopy,
-  fromBase64,
-  readLocation,
-  writeLocation,
-} from "./prepared-files.ts";
+import { fromBase64 } from "./base64.ts";
+import { confirmCopy, readLocation, writeLocation } from "./prepared-files.ts";
 import {
   encodeWorkingCopyMeta,
   parseWorkingCopyMeta,
@@ -78,7 +74,13 @@ Deno.test("documents/file-tracking#R1: working copy 위치는 doc ID 폴더 하�
   );
   assertEquals(located.value.content, `${located.value.root}/content`);
   for (
-    const bad of ["../escape", "", `${DOC}/..`, "doc_short", "prj_" + "a".repeat(26)]
+    const bad of [
+      "../escape",
+      "",
+      `${DOC}/..`,
+      "doc_short",
+      "prj_" + "a".repeat(26),
+    ]
   ) {
     const rejected = workingCopyLocation("/data", bad);
     assert(!rejected.ok, bad);
@@ -103,7 +105,11 @@ Deno.test("documents/file-tracking#R1: 선택한 판으로 만든 사본을 편�
   await withData(async (dataRoot) => {
     const place = await prepare(dataRoot);
     const deps = depsOver();
-    const location = { root: place.root, path: place.content, meta: place.meta };
+    const location = {
+      root: place.root,
+      path: place.content,
+      meta: place.meta,
+    };
     // 아직 없는 사본은 없는 것으로 읽힌다.
     const absent = await readLocation(deps, location);
     assert(absent.ok);
@@ -148,7 +154,11 @@ Deno.test("documents/file-tracking#R11: 사본도 base_hash가 다르면 conflic
   await withData(async (dataRoot) => {
     const place = await prepare(dataRoot);
     const deps = depsOver();
-    const location = { root: place.root, path: place.content, meta: place.meta };
+    const location = {
+      root: place.root,
+      path: place.content,
+      meta: place.meta,
+    };
     await Deno.writeTextFile(place.content, "someone else");
     const stale = await writeLocation(deps, {
       location,
@@ -165,7 +175,11 @@ Deno.test("documents/file-tracking#R1: 새 판이 확정되면 사본 metadata�
   await withData(async (dataRoot) => {
     const place = await prepare(dataRoot);
     const deps = depsOver();
-    const location = { root: place.root, path: place.content, meta: place.meta };
+    const location = {
+      root: place.root,
+      path: place.content,
+      meta: place.meta,
+    };
     const created = await writeLocation(deps, {
       location,
       base_hash: null,
@@ -178,7 +192,10 @@ Deno.test("documents/file-tracking#R1: 새 판이 확정되면 사본 metadata�
     const before = await readLocation(deps, location);
     assert(before.ok);
     const stored = parseWorkingCopyMeta(before.value.meta)!;
-    assertEquals(workingCopyState(stored, before.value.hash!), "version_pending");
+    assertEquals(
+      workingCopyState(stored, before.value.hash!),
+      "version_pending",
+    );
 
     const confirmed = await confirmCopy(deps, {
       root: place.root,

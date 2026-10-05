@@ -313,6 +313,36 @@ Deno.test("platform/blob-store#R1: 다른 주체·목적의 같은 hash는 별�
   if (!duplicate.ok) assertEquals(duplicate.error.code, "conflict");
 });
 
+Deno.test("platform/blob-store#R1: find는 같은 주체·purpose·hash의 살아 있는 등록값만 돌려준다", () => {
+  const clock = manualClock(Date.parse("2026-10-01T00:00:00.000Z"));
+  const registry = createPreparationRegistry();
+  const prepared = preparedOf(
+    {
+      preparation: "worker-preparation-3",
+      principal: "user",
+      purpose: PURPOSE,
+    },
+    { hash: "c".repeat(64), sizeBytes: 7 },
+  );
+  assert(prepared.ok);
+  const key = {
+    hash: prepared.value.hash,
+    principal: "user",
+    purpose: PURPOSE,
+  };
+  assertEquals(registry.find(key, clock.nowMs()), undefined);
+  assert(registry.register(prepared.value, clock.nowMs()).ok);
+  assertEquals(registry.find(key, clock.nowMs()), prepared.value);
+  // 다른 주체의 같은 hash는 찾지 못한다.
+  assertEquals(
+    registry.find({ ...key, principal: "coding_agent" }, clock.nowMs()),
+    undefined,
+  );
+  // 수명이 지나면 없다.
+  clock.advance(10 * 60 * 1000);
+  assertEquals(registry.find(key, clock.nowMs()), undefined);
+});
+
 Deno.test("platform/blob-store#R12: I/O worker 권한(run 없음)에서 quota 관측을 부른다", async () => {
   // 제품 launch spec(apps/core/core.ts platformIoSpec)은 allow_run을 열지 않는다.
   // 이 권한 모양에서 실제 관측 경로가 NotCapable로 떨어지지 않고 undefined(관측 불가)로 끝나는지 본다.

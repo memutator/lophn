@@ -401,7 +401,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T14 문서 저장·format·series tool
 
-- 상태: 진행 (#264) — 이어보냄: CLI `save` 실행(`runSave`)과 core dispatch 연결, production credential provider와 MCP runner 배선 → coding-agent#T36. 남은 것: 실제 core의 `/v1/documents/prepare` 조립이 format 검사 통로(`validateFiles`)를 연결하지 않아 `unavailable`이고(`apps/core/core.ts` documentPrepareWorkers, documents#T11 소유), 그 조립의 목록 blob 주체가 `machine` 고정이라 coding agent 주체의 `document.save`가 준비 참조를 쓸 수 있는지도 확인해야 한다. 그래서 파일 제출(`/v1/documents/upload`)까지는 실제 core·I/O worker로 시험했고(준비 참조·설치 바이트·주체·거절) 저장 command·series 가입·format 읽기는 prepare만 대역으로 둔 실제 core로 시험했지만, `lophn save`가 한 번에 끝까지 가는 실제 core 시험은 아직 없다
+- 상태: 완료 (#264) — 이어보냄: CLI `save`·`format validate`의 core dispatch 연결(`runSave` 등), production credential provider와 MCP runner 배선 → coding-agent#T36. 실제 core·documents worker·I/O worker로 `saveFromPaths`·`lophn_save`·`lophn_format`·`lophn_series`가 끝까지 도는 시험은 `apps/core/documents-save-e2e_test.ts`다
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli, coding-agent/connection
 - 요구: coding-agent/mcp-server#R13, R14, R15, R16; coding-agent/cli#R15, R20;
@@ -1679,6 +1679,20 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   메모·tag는 documents에 저장 자리가 없고 saved view도 tag 조건을 받지 않으므로(documents/
   outline-and-search) contract에 더하지 않고 mcp-server#R13·cli#R15·architecture 5.2 표에서
   뺐다(기존 contract 시험도 `tags`를 거절한다).
+- **Q24 같은 내용의 재준비(구현, platform 쪽 변경).** blob 준비 참조는 (주체, purpose,
+  hash)마다 하나이고 platform/blob-store#R1 시험은 같은 참조 등록을 conflict로 둔다.
+  그런데 같은 파일을 10분 안에 다시 제출하는 재시도(응답 유실, 같은 요청 재전송)와 같은 내용의
+  파일 목록 blob의 재준비가 conflict라 저장이 끝까지 못 갔다. registry는 그대로 두고
+  `find`(살아 있는 등록값)를 더했으며, 중계(`apps/core/blob-prepare.ts`)는 같은
+  주체·purpose·내용의 준비가 살아 있으면 새 참조를 만들지 않고 그 참조를 돌려준다.
+  I/O worker는 같은 hash의 기존 파일을 검증해 재사용하므로 바이트는 하나다.
+- **Q25 `/v1/formats/validate` 서빙(구현).** format 검사 worker route가 core에 등록돼 있지
+  않아 HTTP에서 404였다. 준비 route와 같은 검사 통로(`documents-validate.ts`)로 서빙하는
+  조립(`apps/core/documents-format-validate.ts`)을 더했다. 요청 주체가 upload로 준비해 살아
+  있는 blob만 읽고(hash는 읽기 권한이 아니다), 진단이 많으면 cursor로 잇는다. 판·문서·준비
+  참조는 만들지 않는다. 같은 점검에서 documents 준비 route(`document.prepare`)는 파일
+  입력의 blob이 요청 주체의 살아 있는 준비인지 검사하지 않는 것을 보았다(documents 쪽에
+  남긴다).
 - **Q23 core 응답 모양과 server 입력 검사(구현).** 실제 core는 성공한 command의 결과
   객체를 그대로 200으로 낸다(platform/api#R3). `createRpcClient`가 이 모양을 읽도록
   고치고(포장된 응답 기대 제거) connection client의 우회를 지웠다. 쓰기 응답 유실 뒤

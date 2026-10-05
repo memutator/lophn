@@ -61,6 +61,7 @@ import {
   relaySink,
 } from "./documents-prepare.ts";
 import { documentUploadHandler } from "./documents-upload.ts";
+import { formatValidateRoute } from "./documents-format-validate.ts";
 import { documentUpload } from "../../packages/contracts/documents/mod.ts";
 import type { VersionRow } from "../../packages/documents/versions/store.ts";
 import { connectDocumentsRelaunch, workerSpecs } from "./documents.ts";
@@ -401,6 +402,10 @@ async function open(
   const validateWiring: {
     readBlob?: ReturnType<typeof blobRelayFor>["readBytes"];
     sendBytes?: (channel: number, chunk: Uint8Array) => Promise<boolean>;
+    live?: (
+      prepared: { principal: string; purpose: string; hash: string },
+      nowMs: number,
+    ) => boolean;
   } = {};
   const validatePort = createValidatePort({
     readBlob: (hash, offset, length) =>
@@ -431,28 +436,40 @@ async function open(
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
+      // 바이트 body route. 제출 파일은 blob 준비 중계로 바로 흐른다.
       // worker route serving map. document.prepare는 제품 기동이 항상 넣고,
       // 테스트 seam(T8·T13)이 준 route를 같은 map에 더한다. resource/method가
       // 겹치면 테스트 seam이 이긴다. 둘 다 없으면 worker route는 503이다.
-      // 바이트 body route. 제출 파일은 blob 준비 중계로 바로 흐른다.
       uploads: new Map([[
         `${documentUpload.resource}/${documentUpload.method}`,
         documentUploadHandler(prepareRelay),
       ]]),
       workers: mergedWorkers(
-        documentPrepareWorkers(
-          prepareRelay,
-          baseVersionRead(runtime),
-          requestPrincipal(runtime),
-          validatePort,
-        ),
+        formatValidateWorkers({
+          validate: validatePort,
+          principalOf: requestPrincipal(runtime),
+          live: (prepared) =>
+            validateWiring.live?.(prepared, clock.nowMs()) ?? false,
+          available: () =>
+            validateWiring.live !== undefined &&
+            validateWiring.sendBytes !== undefined,
+          observedAt: () => new Date().toISOString(),
+        }),
         mergedWorkers(
-          servedWorkers({
-            readers: runtime.readers,
-            current: (ref) => runtime!.current(ref),
-            observedAt: () => new Date().toISOString(),
-          }),
-          options.workers,
+          documentPrepareWorkers(
+            prepareRelay,
+            baseVersionRead(runtime),
+            requestPrincipal(runtime),
+            validatePort,
+          ),
+          mergedWorkers(
+            servedWorkers({
+              readers: runtime.readers,
+              current: (ref) => runtime!.current(ref),
+              observedAt: () => new Date().toISOString(),
+            }),
+            options.workers,
+          ),
         ),
       ),
     });
@@ -494,6 +511,7 @@ async function open(
   if (blobRelay) {
     blobRead.use(blobRelay.readBytes);
     validateWiring.readBlob = blobRelay.readBytes;
+    validateWiring.live = blobRelay.live;
     prepareRelay.current = (call) => blobRelay.prepare(call);
   }
   // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
@@ -1031,6 +1049,7 @@ function blobRelayFor(
     onFrame(frame: Frame): void;
   };
   prune(nowMs: number): void;
+  live: BlobPrepareRelay["live"];
   prepare(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   readBytes: BlobPrepareRelay["readBytes"];
 } {
@@ -1071,6 +1090,7 @@ function blobRelayFor(
       },
     },
     prune: (nowMs) => relay.prune(nowMs),
+    live: (prepared, nowMs) => relay.live(prepared, nowMs),
     prepare: (call) =>
       relay.prepare(
         {
@@ -1171,6 +1191,14 @@ function documentPrepareWorkers(
     validateFiles,
     loadBaseVersion,
   });
+  return new Map([[route.key, { handle: route.handle }]]);
+}
+
+// 파일 bytes 검사 route(`/v1/formats/validate`). 준비 route와 같은 검사 통로를 쓴다.
+function formatValidateWorkers(
+  deps: Parameters<typeof formatValidateRoute>[0],
+): ReadonlyMap<string, WorkerRouteTarget> {
+  const route = formatValidateRoute(deps);
   return new Map([[route.key, { handle: route.handle }]]);
 }
 

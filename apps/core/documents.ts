@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
   documentPrepare,
+  formatValidate,
   outlineRoot,
   READ_ROUTES,
   UPLOAD_ROUTES,
@@ -391,7 +392,7 @@ export function createLedgerRegistration(
     // worker route. 준비(documentPrepare)는 core의 준비 조립이, 나머지(outline·읽기·
     // search·view open·export)는 reader Worker 등록(documents-reader.ts)이 서빙한다.
     // core는 요청마다 현재 credential로 그 읽기를 실행한다(documents-serving.ts).
-    workerRoutes: [documentPrepare, ...SERVED_ROUTES],
+    workerRoutes: [documentPrepare, formatValidate, ...SERVED_ROUTES],
     // 제출 파일 바이트 route. 준비 중계로 흘려 보내는 handler는 core.ts가 붙인다.
     uploadRoutes: UPLOAD_ROUTES,
     // 단계적 읽기(T14). 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).

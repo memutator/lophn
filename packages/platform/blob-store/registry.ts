@@ -16,6 +16,12 @@ export type PreparationRegistry = {
     prepared: Pick<PreparedBlob, "hash" | "principal" | "purpose">,
     nowMs: number,
   ): Result<boolean>;
+  // 같은 주체·purpose·hash의 살아 있는 등록값이다. 없거나 만기면 undefined다. 같은 내용의
+  // 재준비는 새 참조를 만들지 않고 이 값을 그대로 돌려줄 때 쓴다.
+  find(
+    prepared: Pick<PreparedBlob, "hash" | "principal" | "purpose">,
+    nowMs: number,
+  ): PreparedBlob | undefined;
   // 만기 참조를 떨어뜨린다. 파일은 GC가 맡는다.
   prune(nowMs: number): void;
   readonly size: number;
@@ -45,6 +51,15 @@ export function createPreparationRegistry(): PreparationRegistry {
         return ok(false);
       }
       return ok(true);
+    },
+    find(prepared, nowMs) {
+      const key =
+        `${prepared.principal}\u0000${prepared.purpose}\u0000${prepared.hash}`;
+      const found = refs.get(key);
+      if (found === undefined) return undefined;
+      return nowMs - found.registeredAtMs >= BLOB_PREPARATION_TTL_MS
+        ? undefined
+        : found.prepared;
     },
     prune(nowMs) {
       for (const [key, ref] of refs) {

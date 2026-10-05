@@ -12,12 +12,17 @@ import {
   type ObservationSubmit,
 } from "../../../packages/documents/file-tracking/mod.ts";
 import {
+  basisFromStore,
   childBlobPort,
   createObservationSubmit,
+  linkFromStore,
   mediaTypeOfPath,
   type ObservationLink,
   type ObservationPorts,
+  retryOnNewBasis,
+  titleOfPath,
 } from "./observation.ts";
+import { createBasisStore } from "./basis.ts";
 import type { CoreClient } from "./submit.ts";
 
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
@@ -30,6 +35,7 @@ const AT = "2026-10-06T00:00:00.000Z";
 const LINK: ObservationLink = {
   project: PROJECT,
   project_revision: "3",
+  status: "active",
   document: DOC,
   base_version: BASE,
   document_revision: "5",
@@ -142,7 +148,7 @@ function ports(
         ? Promise.resolve(err({ code: "unavailable", message: "blob" }))
         : Promise.resolve(ok({
           preparation: "prep-file",
-          principal: "machine",
+          principal: "machine:documents",
           purpose: "document_file",
           hash: NEW,
           size_bytes: bytes.length,
@@ -245,7 +251,7 @@ Deno.test("documents/file-tracking#R6: 원문 blob은 자식 session의 document
       seen.push({ purpose: input.purpose, sizeBytes: input.sizeBytes });
       return Promise.resolve(ok({
         preparation: "p",
-        principal: "machine",
+        principal: "machine:documents",
         purpose: input.purpose,
         hash: NEW,
         size_bytes: input.sizeBytes,
@@ -255,4 +261,181 @@ Deno.test("documents/file-tracking#R6: 원문 blob은 자식 session의 document
   const result = await port(new Uint8Array(7));
   assert(result.ok);
   assertEquals(seen, [{ purpose: "document_file", sizeBytes: 7 }]);
+});
+
+Deno.test("documents/file-tracking#R10: 최신 판과 같은 내용이면 준비·저장 요청 없이 추적 중으로 남는다", async () => {
+  const calls: Calls = [];
+  const wired = ports(calls);
+  wired.link = () => Promise.resolve(ok({ ...LINK, latest_hash: NEW }));
+  const result = await createObservationSubmit(wired)(STABLE);
+  assert(result.ok);
+  assertEquals(calls.length, 0);
+  const status = wired.status.get(TARGET);
+  assertEquals(status?.observedHash, NEW);
+  assertEquals(status?.latestHash, NEW);
+});
+
+Deno.test("documents/file-tracking#R8: 보관된 문서에는 새 판을 확정하지 않고 상태만 남긴다", async () => {
+  const calls: Calls = [];
+  const wired = ports(calls);
+  wired.link = () => Promise.resolve(ok({ ...LINK, status: "archived" }));
+  const result = await createObservationSubmit(wired)(STABLE);
+  assert(result.ok);
+  assertEquals(calls.length, 0);
+  const status = wired.status.get(TARGET);
+  assertEquals(status?.unverified, true);
+  assertEquals(status?.details, "document archived");
+});
+
+function storeWith(
+  links: {
+    path: string;
+    status?: "active" | "archived";
+    latest_hash?: string | null;
+  }[],
+) {
+  const store = createBasisStore();
+  store.apply({
+    begin: true,
+    full: true,
+    roots: [{
+      root: "/work",
+      project: PROJECT,
+      project_revision: "3",
+      patterns: [],
+      use_gitignore: false,
+    }],
+    upsert: links.map((link) => ({
+      project: PROJECT,
+      path: link.path,
+      document: DOC,
+      document_revision: "5",
+      status: link.status ?? "active",
+      latest_version: BASE,
+      latest_hash: link.latest_hash === undefined ? OLD : link.latest_hash,
+      title: "a",
+    })),
+    remove: [],
+    more: false,
+  });
+  return store;
+}
+
+Deno.test("documents/versions#R13: 연결된 경로는 그 문서의 최신 판에 이어 제출하고 연결 없는 파일은 새 문서가 된다", async () => {
+  const store = storeWith([{ path: "/work/a.md" }]);
+  const link = linkFromStore(store, () => "doc_new");
+  const linked = await link(STABLE);
+  assert(linked.ok);
+  assertEquals(linked.value.document, DOC);
+  assertEquals(linked.value.base_version, BASE);
+  assertEquals(linked.value.document_revision, "5");
+  assertEquals(linked.value.file_source, LINK.file_source);
+  // 연결이 없는 파일은 base_version 없이 새 문서 ID를 받는다.
+  const other = submission(STABLE.outcome);
+  other.candidate = {
+    ...other.candidate,
+    canonical: "/work/sub/b.md",
+    relative: "sub/b.md",
+  };
+  const fresh = await link(other);
+  assert(fresh.ok);
+  assertEquals(fresh.value.document, "doc_new");
+  assertEquals(fresh.value.base_version, null);
+  assertEquals(fresh.value.file_source, null);
+  assertEquals(fresh.value.title, "b");
+});
+
+Deno.test("documents/file-tracking#R8: 근거에서 사라진 root의 제출은 늦은 것이다", async () => {
+  const store = createBasisStore();
+  const link = linkFromStore(store, () => "doc_new");
+  const result = await link(STABLE);
+  assert(!result.ok);
+  assertEquals(result.error.code, "not_found");
+});
+
+Deno.test("documents/file-tracking#R7: 제출 근거는 근거 store의 project 판과 문서 판·보관 상태다", () => {
+  const store = storeWith([
+    { path: "/work/a.md" },
+    { path: "/work/old.md", status: "archived" },
+  ]);
+  const basisFor = basisFromStore(store);
+  const candidate = STABLE.candidate;
+  assertEquals(basisFor(candidate), STABLE.basis);
+  const archived = basisFor({
+    ...candidate,
+    canonical: "/work/old.md",
+    relative: "old.md",
+  });
+  assertEquals(archived.archived, true);
+  assertEquals(archived.active, false);
+  const none = basisFor({ ...candidate, root: "/elsewhere" });
+  assertEquals(none.rootPresent, false);
+});
+
+Deno.test("documents/formats#R3: 새 문서의 제목은 마지막 확장자를 뺀 파일 이름이다", () => {
+  assertEquals(titleOfPath("notes/plan.v2.md"), "plan.v2");
+  assertEquals(titleOfPath("README"), "README");
+  assertEquals(titleOfPath(".hidden"), ".hidden");
+});
+
+Deno.test("documents/file-tracking#R7: conflict면 새 근거가 반영된 뒤 한 번 더 제출한다", async () => {
+  const store = createBasisStore();
+  let attempts = 0;
+  const submit = retryOnNewBasis(
+    () => {
+      attempts += 1;
+      return Promise.resolve(
+        attempts === 1
+          ? err({ code: "conflict", message: "stale" })
+          : ok(undefined),
+      );
+    },
+    store,
+    1_000,
+  );
+  const pending = submit(STABLE);
+  // 첫 제출이 conflict를 받은 뒤 새 근거가 온다.
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  store.apply({
+    begin: true,
+    full: true,
+    roots: [],
+    upsert: [],
+    remove: [],
+    more: false,
+  });
+  const result = await pending;
+  assert(result.ok);
+  assertEquals(attempts, 2);
+});
+
+Deno.test("documents/file-tracking#R7: 새 근거가 오지 않으면 conflict를 그대로 돌려주고 다시 제출하지 않는다", async () => {
+  let attempts = 0;
+  const submit = retryOnNewBasis(
+    () => {
+      attempts += 1;
+      return Promise.resolve(err({ code: "conflict", message: "stale" }));
+    },
+    createBasisStore(),
+    20,
+  );
+  const result = await submit(STABLE);
+  assert(!result.ok);
+  assertEquals(result.error.code, "conflict");
+  assertEquals(attempts, 1);
+});
+
+Deno.test("documents/file-tracking#R7: conflict가 아닌 실패는 다시 제출하지 않는다", async () => {
+  let attempts = 0;
+  const submit = retryOnNewBasis(
+    () => {
+      attempts += 1;
+      return Promise.resolve(err({ code: "unavailable", message: "down" }));
+    },
+    createBasisStore(),
+    20,
+  );
+  const result = await submit(STABLE);
+  assert(!result.ok);
+  assertEquals(attempts, 1);
 });

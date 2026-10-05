@@ -561,3 +561,39 @@ Deno.test("documents/file-tracking#R7: 준비와 확정 사이에 근거가 바�
   // 거절된 제출은 확정으로 세지 않는다. 후보는 큐에서 빠지고 다음 scan이 다시 본다.
   assertEquals(submitted[0].outcome.kind, "stable");
 });
+
+Deno.test("documents/file-tracking#R3: 관측 loop가 멈추면 열어 둔 watch를 닫는다", async () => {
+  let watchSignal: AbortSignal | undefined;
+  const stop = { stopped: false };
+  const deps = observeDeps(
+    {
+      watch(_root, signal) {
+        watchSignal = signal;
+        // 신호가 오지 않는 watch. 닫기 전에는 끝나지 않는다.
+        return {
+          [Symbol.asyncIterator]() {
+            return {
+              next: () => new Promise<IteratorResult<WatchSignal>>(() => {}),
+            };
+          },
+        };
+      },
+    },
+    () => Promise.resolve(ok(undefined)),
+    () => 0,
+  );
+  deps.stop = stop;
+  deps.waitTick = () => new Promise((resolve) => setTimeout(resolve, 5));
+  const running = observeRoot(deps, {
+    root: "/work",
+    patterns: [{ glob: "**/*", effect: "include" }],
+    useGitignore: false,
+    enabled: true,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert(watchSignal !== undefined);
+  assertEquals(watchSignal.aborted, false);
+  stop.stopped = true;
+  await running;
+  assertEquals(watchSignal.aborted, true);
+});

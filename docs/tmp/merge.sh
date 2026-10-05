@@ -11,7 +11,7 @@ if grep -rlsI '^<<<<<<< ' apps packages docs tools e2e open-issues.md 2>/dev/nul
 env -u LOPHN_HOME "$HERE/light-check.sh" > "$LOG" 2>&1; rc=$?
 grep -E 'passed \||LIGHT' "$LOG" | tail -2
 if [ $rc -ne 0 ]; then echo "CHECK FAILED #$PR"; grep -A15 '실패' "$LOG" | head -30; exit 4; fi
-git push -q origin "$BR" || exit 5
+git push -q origin HEAD:"$BR" || exit 5
 h=$(git rev-parse HEAD); git fetch -q origin
 if ! git merge-base --is-ancestor origin/main "$h"; then echo "MOVED #$PR"; exit 6; fi
 gh pr review "$PR" --comment --body "$BODY" >/dev/null

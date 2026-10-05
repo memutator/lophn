@@ -408,10 +408,13 @@ concerns: [documents]
 - 내놓는 contract: read `/v1/documents/export`
 - slice: documents
 - 선행: T9, T14, platform#T16(redaction 안전 필드)
+- 상태: 완료 (#239)
 - 완료:
   - 사람이 고른 project·app 자리의 문서와 고정 판을 Markdown·JSON으로, 원래 바이트와 판 참조를 함께. HTML·PDF처럼 Markdown으로 못 바꾸는 원문은 원래 MIME과 바이트. derived index는 넣지 않음
   - 외부 출력은 redaction, redaction 실패 구간은 빠진 범위와 이유로 표시하고 온전한 export로 꾸미지 않음
   - `reads_test.ts`에 versions#R16 테스트
+- 남은 것:
+  - `/v1/documents/export` route serving 등록(workerRoutes 목록 + workers-map 항목)은 documents#T11에 있다
 
 ### T21 documents slice flow E2E
 

@@ -234,7 +234,7 @@ export async function writeInstallCopy(
 ): Promise<Result<void>> {
   let directories: string[];
   try {
-    // 만들기는 쓸 수 있는 ���드로 하고, 파일을 다 쓴 뒤 디렉터리를 0555로 좁힌다.
+    // 만들기는 쓸 수 있는 권한으로 하고, 파일을 다 쓴 뒤 디렉터리를 0555로 좁힌다.
     await Deno.mkdir(target, { recursive: true, mode: 0o755 });
     directories = [target];
     for (const file of files) {

@@ -319,6 +319,7 @@ concerns: [shell]
 
 ### T16 문서 읽기와 편집기
 
+- 상태: 완료 (#238) — 이어보냄: 저장 상태 줄(editor#R11)·형식 문제 입력·`QuitWork.pendingSaves`, `e2e/shell/read-edit_test.ts` 실제 실행(headless harness)과 읽기 E2E의 재시작 반영(제품 core의 settings route·`/v1/outline/document`·`/v1/documents/read` 서빙 뒤, Q13) → shell#T17
 - 등급: frontend
 - concern: shell/editor, shell/design-system
 - 요구: shell/editor#R4, R7, R8, R9, R10, R11, R16, shell/design-system#R23(전역 읽기 폭·문서 메뉴)
@@ -348,6 +349,8 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: shell#T16, documents#T12, documents#T8
+- T16에서 넘어온 것: `e2e/shell/read-edit_test.ts`를 headless harness로 실제 실행하고, 제품 core가 settings route·`shell.reading_width`·outline/document·documents/read를 서빙하면 읽기 폭의 재시작 반영 확인을 더한다(#238, Q13)
+- shell#T16에서 넘어온 것: `apps/shell/renderer/editor/document-view.tsx`의 초안(`draft`)을 파일 통로로 보내고, 저장 상태 변경을 머리 메타 줄(상태 줄, editor#R11)에 보인다. 준비 결과의 `FormatDiagnostic`을 `problems-gutter/problems.ts`의 `editorProblems`로 바꿔 `DocumentView`의 `problems`에 넘긴다.
 - shell#T55에서 넘어온 것: 저장 중 변경 수를 끄기 확인(`apps/shell/main/desktop/quit.ts`의 `QuitWork.pendingSaves`, 지금 main은 0)에 잇는다(tray Quit 확인과 터미널 수는 #233)
 - 완료: 아래 확인이 통과한다
   - 저장 버튼 없이 고침을 main의 파일 adapter로 보낸다(target, base_hash, request_key, 바이트). main이 파일 통로를 부르고 renderer는 경로·port를 모른다.
@@ -1141,4 +1144,5 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
 - **Q9 project-workspace flow의 앱 패널 단계(정함).** apps slice E2E에서 돈다. lead가 plan README의 갈래 목록에 넣었다.
 - **Q10 confirmation window의 slice(정함).** platform이 handle 발급·검증·소비를 documents slice의 platform#T56으로 떼었다. shell#T22는 platform#T56에, approval 종류(shell#T29)는 platform#T22에 기댄다.
 - **Q11 chip의 polite 전달(정함).** 접근성을 범위 밖에 둔 D22와 맞지 않아 shell/design-system#R35에서 "polite로 전달"을 뺐다. T11은 live region·announcer를 만들지 않고 키보드·Escape·focus 복귀만 둔다.
+- **Q13 문서 읽기 통로와 링크 고르기 자리(T16, 추천안으로 진행).** (1) outline·본문 읽기는 core read queue를 막지 않으려 worker route다. renderer allowlist는 read·command만 받았으므로 `worker:outline/document`·`worker:documents/read` 두 읽기만 더 열었다(준비·파일 쓰기 worker는 막힌 채). (2) 제품 core는 아직 settings route를 서빙하지 않고 settings registry도 조립하지 않는다. shell은 `apps/core/shell.ts`에 `shell.reading_width` 정의만 두었다. core 조립(정의 등록·route)은 platform 작업이 필요하다. lead가 배정한다. (3) 링크 고르기는 편집기에 치는 `[[` 글을 query로 쓰고 편집기가 focus와 화살표·Enter를 지킨다. overlay view로 열면 focus가 옮겨 가므로 편집 칸 위 popover 층(z 230)에 그린다. 문서 메뉴는 overlay view menu로 연다.
 - **Q12 터미널 열기의 제품 경로(정함).** 제품 core의 reader 등록(apps/core/documents.ts `createReaderRegistration`)에 project read를 더했다: shell main의 `read projects list`가 reader Worker에서 답하고 apps/core `documents/projects#R8` 테스트가 사람 token으로 만든 프로젝트의 등록 폴더 목록을 본다. terminal 폴더 read는 개발 시드 폴백을 빼고 documents#T7 read만 쓴다(LOPHN_DEV_SEED는 개발에 남는다). 사람 user token scope에 `project.create`는 요구에 없다(documents/projects R1은 등록 주체만 정하고 platform/identity R3는 user token operations를 열거하지 않는다). 제품 user token(apps/core/parent.ts)은 `platform/status`·`platform/health`만 있어 실제 창의 프로젝트 만들기는 ledger scope gate(packages/platform/ledger/executor.ts)에서 `forbidden`이다. scope를 넓히지 않았고 창에서 사람이 프로젝트를 등록하는 흐름은 lead가 플랫폼 절차를 정할 때 남는다. terminal host가 죽은 뒤에는 사람이 누른 열기·[Start again]만 supervisor가 새 host를 하나 띄우고 그 host에서 등록 폴더 터미널을 새로 연다(shell/terminal#R9). 자동 재시작·옛 입력 재생 금지는 그대로다(shell/terminal#R13).

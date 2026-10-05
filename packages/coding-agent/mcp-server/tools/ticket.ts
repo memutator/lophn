@@ -26,6 +26,8 @@ type ClientLike = {
       LophnError
     >
   >;
+  // read route는 envelope 없이 입력만 보낸다.
+  read(route: Route, input: unknown): Promise<Result<unknown, LophnError>>;
 };
 
 // tools/call의 실행 결과다. server가 mcpToolResult로 두 표현을 만든다(R5).
@@ -107,12 +109,10 @@ export function createTicketTool(
       };
     }
     if (route.kind !== "command") {
-      // read(list·show·checks)도 POST 지만 kind는 read다. 각각 route의 method로
-      // 보낸다.
-      const looked = await deps.client.command(
-        route as unknown as Parameters<ClientLike["command"]>[0],
-        { input, idempotency_key: deps.idempotencyKey() },
-      );
+      // read(list·show·checks)는 소유 read route에 입력만 보낸다. `op`는 tool의
+      // 선택자라 route 입력에는 없다.
+      const { op: _op, ...readInput } = input;
+      const looked = await deps.client.read(route, readInput);
       if (!looked.ok) return failure(looked.error);
       return {
         summary: `${op} ticket ${op === "list" ? "목록" : "본문"}`,

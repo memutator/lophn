@@ -13,16 +13,36 @@ import type { EffectUnknown } from "../../../contracts/coding-agent/mod.ts";
 import {
   commandsResult,
   createRpcClient,
+  errorBodySchema,
+  errorCodeForStatus,
+  routePath,
   type RpcFetch,
+  UPLOAD_INPUT_HEADER,
 } from "../../../contracts/platform/mod.ts";
-import type { CommandRoute } from "../../../contracts/platform/mod.ts";
+import type {
+  CommandRoute,
+  Route,
+  UploadRoute,
+} from "../../../contracts/platform/mod.ts";
 import type { CredentialProvider } from "../credential/provider.ts";
+
+// 바이트 body를 stream으로 보내는 fetch다. 선언한 길이만큼만 흐른다.
+export type UploadFetch = (
+  input: string,
+  init: {
+    method: "POST";
+    headers: Record<string, string>;
+    body: ReadableStream<Uint8Array>;
+    duplex: "half";
+  },
+) => Promise<{ status: number; bytes: Uint8Array }>;
 
 export type CoreClientOptions = {
   baseUrl: string;
   provider: CredentialProvider;
   connection: ConnectionId;
   fetch?: RpcFetch;
+  uploadFetch?: UploadFetch;
 };
 
 export type CoreClient = {
@@ -30,9 +50,25 @@ export type CoreClient = {
   baseUrl: string;
   // command route를 envelope로 보낸다. 응답을 잃어 effect_unknown이면
   // 원래 key로 /v1/commands/result를 다시 본다.
+  // compare·prepared는 소유 route가 요구하는 CAS 비교와 준비 참조다(문서 저장).
   command<R extends CommandRoute>(
     route: R,
-    body: { input: unknown; idempotency_key: string },
+    body: {
+      input: unknown;
+      idempotency_key: string;
+      compare?: unknown;
+      prepared?: readonly string[];
+    },
+  ): Promise<Result<unknown>>;
+  // read·worker route는 envelope 없이 입력을 그대로 보낸다. 쓰기가 아니므로
+  // 응답을 잃어도 effect_unknown이 아니라 전송 실패(unavailable)다.
+  read(route: Route, input: unknown): Promise<Result<unknown>>;
+  // upload route는 입력을 header로, 바이트를 body stream으로 보낸다(chunked 전송). 쓰기 ledger를 거치지
+  // 않고 응답을 잃어도 자동으로 다시 보내지 않는다(준비 참조는 새로 받으면 된다).
+  upload(
+    route: UploadRoute,
+    input: unknown,
+    bytes: ReadableStream<Uint8Array>,
   ): Promise<Result<unknown>>;
 };
 
@@ -70,30 +106,44 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
         headers: response.headers,
         bytes: new Uint8Array(await response.arrayBuffer()),
       })));
+  const uploadFetch: UploadFetch = options.uploadFetch ??
+    (async (input, init) => {
+      const response = await fetch(input, init);
+      return {
+        status: response.status,
+        bytes: new Uint8Array(await response.arrayBuffer()),
+      };
+    });
+  async function rpc(): Promise<Result<ReturnType<typeof createRpcClient>>> {
+    const credential = await options.provider(connection);
+    if (!credential.ok) {
+      return err({
+        code: "unavailable",
+        message: "connection credential을 받지 못했다",
+        details: { reason: credential.error },
+      });
+    }
+    return ok(createRpcClient({
+      baseUrl: base,
+      token: credential.value.token,
+      fetch: fetchImpl,
+    }));
+  }
+
   return {
     connection,
     baseUrl: options.baseUrl,
     async command(route, body) {
-      const credential = await options.provider(connection);
-      if (!credential.ok) {
-        return err({
-          code: "unavailable",
-          message: "connection credential을 받지 못했다",
-          details: { reason: credential.error },
-        });
-      }
-      const client = createRpcClient({
-        baseUrl: base,
-        token: credential.value.token,
-        fetch: fetchImpl,
-      });
-      // command 계약의 envelope은 strict object다. command 호출은 input과
-      // key만 받으므로 나머지 필드는 계약 기본값으로 채운다.
+      const opened = await rpc();
+      if (!opened.ok) return opened;
+      const client = opened.value;
+      // command 계약의 envelope은 strict object다. 호출자가 주지 않은 compare·
+      // prepared는 계약 기본값으로 채운다.
       const sent = await client.call(route, {
         input: body.input,
         idempotency_key: body.idempotency_key,
-        compare: {},
-        prepared: [],
+        compare: body.compare ?? {},
+        prepared: body.prepared ?? [],
       } as never);
       if (sent.ok) return sent;
       const failed = sent.error;
@@ -109,13 +159,73 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
         } as never);
         if (looked.ok) {
           const stored = (
-            looked.value as { result: Record<string, unknown> | null }
+            looked.value as { result: { result: unknown } | null }
           ).result;
-          if (stored !== null) return ok(stored);
+          if (stored !== null) return ok(stored.result);
         }
         return err(effectUnknown(body.idempotency_key, route.resource));
       }
       return err(failed);
+    },
+    async read(route, input) {
+      if (route.kind === "command") {
+        return err({
+          code: "invalid_input",
+          message: "command route는 read로 보낼 수 없다",
+        });
+      }
+      const opened = await rpc();
+      if (!opened.ok) return opened;
+      return await opened.value.call(route, input as never);
+    },
+    async upload(route, input, bytes) {
+      const checked = route.input.safeParse(input);
+      if (!checked.success) {
+        void bytes.cancel().catch(() => {});
+        return err({ code: "invalid_input", message: "invalid input" });
+      }
+      const credential = await options.provider(connection);
+      if (!credential.ok) {
+        void bytes.cancel().catch(() => {});
+        return err({
+          code: "unavailable",
+          message: "connection credential을 받지 못했다",
+          details: { reason: credential.error },
+        });
+      }
+      let response: Awaited<ReturnType<UploadFetch>>;
+      try {
+        response = await uploadFetch(`${base}${routePath(route)}`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${credential.value.token}`,
+            "content-type": "application/octet-stream",
+            [UPLOAD_INPUT_HEADER]: encodeInput(checked.data),
+          },
+          body: bytes,
+          duplex: "half",
+        });
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "transport failed",
+          details: { reason: "transport_failed" },
+        });
+      }
+      const json = decodeJson(response.bytes);
+      if (response.status !== 200) {
+        const failed = errorBodySchema.safeParse(json);
+        if (failed.success) return err(failed.data.error);
+        return err({
+          code: errorCodeForStatus(response.status) ?? "internal",
+          message: "request failed",
+        });
+      }
+      const output = route.output.safeParse(json);
+      if (!output.success) {
+        return err({ code: "internal", message: "internal error" });
+      }
+      return ok(output.data);
     },
   };
 }
@@ -135,4 +245,25 @@ export function connectionFromRef(
     });
   }
   return ok(parsed.data);
+}
+
+const decoder = new TextDecoder();
+
+function decodeJson(bytes: Uint8Array): unknown {
+  try {
+    return JSON.parse(decoder.decode(bytes));
+  } catch {
+    return undefined;
+  }
+}
+
+// header 값은 JSON의 base64url이다(platform/api upload route).
+function encodeInput(input: unknown): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(input));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
+    "=",
+    "",
+  );
 }

@@ -203,3 +203,58 @@ Deno.test(
     assertEquals(result.isError, true);
   },
 );
+
+Deno.test(
+  "coding-agent/mcp-server#R6: 여러 op tool의 호출은 op를 포함한 tool 입력으로 검사하고 실행에는 검사한 입력을 넘긴다",
+  async () => {
+    const calls: { tool?: string; args?: unknown }[] = [];
+    const { handler } = deps(calls);
+    const sent = await handler(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 7,
+        method: "tools/call",
+        params: { name: "lophn_series", arguments: { op: "list" } },
+      }),
+    );
+    // 소유 route 입력은 op를 모른다. tool 입력으로 검사해야 실행까지 간다.
+    assertEquals(resultOf(sent).isError, undefined);
+    assertEquals(calls.length, 1);
+    assertEquals((calls[0].args as { op: string }).op, "list");
+  },
+);
+
+Deno.test(
+  "coding-agent/mcp-server#R7: tool 실행이 실패를 알리면 두 표현 모두 isError다",
+  async () => {
+    const handler = createHandler({
+      toolsets: ["core"],
+      callTool: () =>
+        Promise.resolve({
+          summary: "저장하지 않았다",
+          data: { code: "invalid_input" },
+          next: [],
+          isError: true,
+        }),
+    });
+    const sent = await handler(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 8,
+        method: "tools/call",
+        params: { name: "lophn_series", arguments: { op: "list" } },
+      }),
+    );
+    const result = resultOf(sent) as {
+      isError?: boolean;
+      structuredContent?: AgentResultView;
+      content?: { text: string }[];
+    };
+    assertEquals(result.isError, true);
+    assertEquals(result.structuredContent?.summary, "저장하지 않았다");
+    assertEquals(
+      JSON.parse(result.content![0].text).summary,
+      "저장하지 않았다",
+    );
+  },
+);

@@ -34,6 +34,16 @@ function fakeClient(
       const value = results[key] ?? {};
       return Promise.resolve(ok(value));
     },
+    // read는 command와 따로 불린다. 같은 기록에 남긴다.
+    read(route: { resource: string; method: string }, input: unknown) {
+      sent.push({
+        resource: route.resource,
+        method: route.method,
+        input,
+      });
+      const key = `${route.resource}.${route.method}`;
+      return Promise.resolve(ok(results[key] ?? {}));
+    },
   };
 }
 
@@ -147,10 +157,11 @@ Deno.test(
       MCP_APP_ROUTES.lophn_ticket.list,
       { op: "list", state: "claimed", limit: 20 },
     );
+    // read는 op를 떼고 소유 read route에 입력만 간다.
     assertEquals(sent[0], {
       resource: "tickets",
       method: "list",
-      input: { op: "list", state: "claimed", limit: 20 },
+      input: { state: "claimed", limit: 20 },
     });
     await run(
       "lophn_ticket",

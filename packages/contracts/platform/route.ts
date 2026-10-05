@@ -18,6 +18,7 @@ export const ROUTE_KINDS = [
   "file",
   "worker",
   "memory",
+  "upload",
 ] as const;
 
 export type RouteKind = (typeof ROUTE_KINDS)[number];
@@ -82,12 +83,20 @@ export type MemoryRoute<
   O extends z.ZodType = z.ZodType,
 > = RouteBase<"memory", I, O>;
 
+// 요청 body가 JSON이 아니라 바이트 stream인 route다. 입력(JSON)은 header로 오고, core는
+// 바이트를 해석하거나 모으지 않고 등록된 handler로 흘려 보낸다. 상한은 route가 정한다.
+export type UploadRoute<
+  I extends z.ZodType = z.ZodType,
+  O extends z.ZodType = z.ZodType,
+> = RouteBase<"upload", I, O> & { max_bytes: number };
+
 export type Route =
   | CommandRoute
   | ReadRoute
   | FileRoute
   | WorkerRoute
-  | MemoryRoute;
+  | MemoryRoute
+  | UploadRoute;
 
 type DefineOptions<I extends z.ZodType, O> = {
   resource: string;
@@ -211,6 +220,33 @@ export function defineMemory<I extends z.ZodType, O extends z.ZodType>(
   }
   return define("memory", options);
 }
+
+// 바이트 body를 받는 route. 사람 결정 handle·CAS는 받지 않는다(바이트는 쓰기 ledger를
+// 거치지 않는다). 입력 JSON은 `x-lophn-input` header의 base64url이다.
+export function defineUpload<I extends z.ZodType, O extends z.ZodType>(
+  options:
+    & Omit<
+      DefineOptions<I, O>,
+      "compare" | "confirmation" | "binding" | "confirmation_kind"
+    >
+    & { max_bytes: number },
+): UploadRoute<I, O> {
+  const { max_bytes, ...rest } = options;
+  const given = options as DefineOptions<I, O>;
+  if (
+    given.confirmation !== undefined || given.binding !== undefined ||
+    given.confirmation_kind !== undefined || given.compare !== undefined
+  ) {
+    throw new Error("upload route cannot require a confirmation handle or CAS");
+  }
+  if (!Number.isSafeInteger(max_bytes) || max_bytes < 1) {
+    throw new Error("upload route needs a positive max_bytes");
+  }
+  return { ...define("upload", rest), max_bytes };
+}
+
+// upload route의 입력 header 이름이다.
+export const UPLOAD_INPUT_HEADER = "x-lophn-input";
 
 export function routePath(route: { resource: string; method: string }): string {
   return `/v${API_MAJOR}/${route.resource}/${route.method}`;

@@ -136,6 +136,8 @@ function fold(
 }
 
 export function parseYaml(text: string): Result<YamlMap, ParseFailure> {
+  // 주석과 빈 줄만 있거나 `{}` 한 줄뿐인 문서는 빈 map이다.
+  if (emptyMapBody(text.split("\n")) !== null) return ok({});
   const lines = linesOf(text);
   if (!lines.ok) return lines;
   const folded = fold(lines.value, 0, 0);
@@ -249,32 +251,45 @@ function findOwnedRange(
   return { start: leaf, end: blockEnd(lines, leaf) };
 }
 
-// 없는 소유 블록을 더한다(T30). 있는 가장 깊은 상위 조각 몸 끝의 childIndent에
-// 더한다. 상위가 하나도 없으면 파일 끝 top-level에 더한다.
+// 없는 소유 블록을 더한다(T30). 있는 가장 깊은 상위 조각 몸 끝에 더하고, 없는
+// 상위 조각은 그 아래로 한 칸(2칸)씩 들여 새로 만든다. 상위가 하나도 없으면
+// 파일 끝 top-level에서 시작한다. 상위 key가 map이 아니면(값이 한 줄에 있다)
+// 안전하게 더할 수 없어 null이다.
 function insertNewBlock(
   lines: readonly string[],
   segments: readonly string[],
   replacement: readonly string[],
-): string[] {
-  let anchor: number | null = null;
+): string[] | null {
+  let from = 0;
+  let to = lines.length;
   let indent = 0;
-  for (let depth = 0; depth < segments.length - 1; depth++) {
-    const found = findSegment(lines, 0, lines.length, indent, segments[depth]);
+  let depth = 0;
+  let at = lines.length;
+  while (depth < segments.length - 1) {
+    const found = findSegment(lines, from, to, indent, segments[depth]);
     if (found === null) break;
-    anchor = found;
+    if (!lines[found].trimEnd().endsWith(":")) return null;
+    const end = blockEnd(lines, found);
+    from = found + 1;
+    to = end;
+    at = end;
+    indent += 2;
+    depth += 1;
+  }
+  const added: string[] = [];
+  for (const segment of segments.slice(depth, segments.length - 1)) {
+    added.push(`${" ".repeat(indent)}${segment}:`);
     indent += 2;
   }
-  if (anchor === null) {
-    // 상위가 하나도 없다. 파일 끝에 빈 줄 한 개 뒤 top-level로 더한다.
-    const last = lines.length > 0 && lines[lines.length - 1].trim() === ""
-      ? lines.length - 1
-      : lines.length;
-    return [...lines.slice(0, last), "", ...replacement, ...lines.slice(last)];
-  }
-  const at = blockEnd(lines, anchor);
   const pad = " ".repeat(indent);
-  const shifted = replacement.map((line) => `${pad}${line}`);
-  return [...lines.slice(0, at), ...shifted, ...lines.slice(at)];
+  added.push(...replacement.map((line) => `${pad}${line}`));
+  if (depth > 0) return [...lines.slice(0, at), ...added, ...lines.slice(at)];
+  // 상위가 하나도 없다. 비어 있지 않은 파일이면 끝의 빈 줄 앞에서 빈 줄 한
+  // 개를 두고 더한다.
+  let last = lines.length;
+  while (last > 0 && lines[last - 1].trim() === "") last -= 1;
+  const separator = last > 0 ? [""] : [];
+  return [...lines.slice(0, last), ...separator, ...added];
 }
 
 // 소유 블록의 몸이 끝나는 줄이다. 같은 depth 이상의 줄이 끝날 때까지다.
@@ -311,23 +326,37 @@ function rendered(lines: readonly string[]): string {
   return `${lines.join("\n")}\n`;
 }
 
+// 비어 있는 설정이다. 주석과 빈 줄만 있거나 그 밖에 `{}` 한 줄만 있는
+// 문서는 빈 map이다. `{}` 줄은 지우고 주석은 그대로 둔다.
+function emptyMapBody(lines: readonly string[]): string[] | null {
+  const rest = lines.filter((line) =>
+    line.trim() !== "" && !line.trimStart().startsWith("#")
+  );
+  if (rest.length === 0) return [...lines];
+  if (rest.length === 1 && rest[0].trim() === "{}") {
+    return lines.filter((line) => line !== rest[0]);
+  }
+  return null;
+}
+
 // 소유 key만 넣는다(R8). 같은 값이면 파일을 바꾸지 않는다. 다른 key의
-// 바이트는 하나도 가리지 않는다(T30). 빈 문서·`{}` 한 줄도 새 블록의 base다.
+// 바이트는 하나도 가리지 않는다(T30). 빈 문서·`{}` 한 줄도 빈 map이라 새 블록의
+// base다. 없는 상위 key는 알맞은 들여쓰기로 만든다.
 export function setOwned(
   text: string,
   key: string,
   value: YamlMap,
 ): SetOutcome {
-  const trimmed = text.trim();
-  const empty = trimmed === "" || trimmed === "{}";
-  if (!empty) {
+  const lines = text.split("\n");
+  const trailing = lines.length > 0 && lines[lines.length - 1] === "";
+  const split = trailing ? lines.slice(0, -1) : [...lines];
+  const blank = emptyMapBody(split);
+  if (blank === null) {
     const parsed = parseYaml(text);
     if (!parsed.ok) return parsed.error;
     if (same(at(parsed.value, key), value)) return { kind: "unchanged" };
   }
-  const lines = text.split("\n");
-  const trailing = lines.length > 0 && lines[lines.length - 1] === "";
-  const body = trailing ? lines.slice(0, -1) : [...lines];
+  const body = blank ?? split;
   const segments = segmentsOf(key);
   if (segments === null) return { kind: "broken" };
   // 패치 행은 소유 최하위 조각의 블록이다(T29). 상위 조각은 보존 대상이라
@@ -348,8 +377,9 @@ export function setOwned(
     return { kind: "changed", text: rendered(patched) };
   }
   // 소유 블록이 없으면 상위 블록 몸 끝에 더한다(T30). 상위 블록이 있으면
-  // 그 안의 childIndent에, 없으면 파일 끝 top-level에 더한다.
+  // 그 안의 childIndent에, 없는 상위는 만들어 더한다.
   const added = insertNewBlock(body, segments, replacement);
+  if (added === null) return { kind: "broken" };
   return { kind: "changed", text: rendered(added) };
 }
 

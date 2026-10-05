@@ -56,7 +56,7 @@ lophn 화면 전체에 걸치는 UI/UX 전역 규칙이다. 화면마다의 정�
 | coding agent 연결 | **Connection**(고른 harness 이름, 예: "Claude Code") | 감지·설치 기록·MCP·skill 위치는 숨긴다. 사람은 harness를 고르기만 한다 |
 | 시작 | **[Start]** | Task에서 coding agent를 터미널 탭에 연다. 누르는 것이 허락이라 확인 창을 따로 두지 않는다 |
 | session | 보이지 않음; 터미널 탭과 Task 상태로만 비친다 | |
-| series | 보이지 않음 | 문서 목록의 정렬 결과로만 비친다 |
+| series | **Series**(documents 화면의 탭과 등록 화면에서만) | sidebar 목적지가 아니다. 그 밖에서는 문서 목록의 정렬 결과로만 비친다(plan/shell Q14) |
 
 이 표에 없는 개념을 화면에 써야 하면 docs/README.md의 말 규칙으로 안쪽 이름을 먼저 확인하고, 이 표에 줄을 더한다. 문서·코드의 말 규칙(docs/README.md#말)과 이 표는 서로 다른 목적이라 같은 말이 양쪽에 다르게 적힐 수 있다.
 

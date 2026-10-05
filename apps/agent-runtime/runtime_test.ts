@@ -94,6 +94,57 @@ Deno.test("lophn-agent/harness/run-loop#R8: 감독 pipe로 credential을 받고 
   }
 });
 
+Deno.test("lophn-agent/harness/run-loop#R4: runtime은 selector를 주고 selector가 읽는 route만 core loopback으로 연다", async () => {
+  const seen: string[] = [];
+  const io = pipes();
+  const parent = parentWriter(io.toChild.writable);
+  const written = parent.write(HELLO);
+  const reply = (body: unknown) =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  const started = await startAgentRuntime({
+    streams: {
+      stdin: io.toChild.readable,
+      stdout: io.fromChild.writable,
+      stderr: io.diagnostics.writable,
+    },
+    // core loopback을 대신하는 fetch. 받은 주소와 Bearer만 기록한다.
+    fetch: (input, init) => {
+      const url = new URL(String(input));
+      seen.push(url.pathname);
+      assertEquals(
+        new Headers(init?.headers).get("authorization"),
+        "Bearer machine-credential-1",
+      );
+      return Promise.resolve(
+        url.pathname === "/v1/events/list" ? reply(CURSOR) : reply({
+          runs: [],
+          as_of_seq: "7",
+          next_cursor: null,
+        }),
+      );
+    },
+  });
+  await written;
+  const frames = collectFrames(io.fromChild.readable);
+  try {
+    assertEquals(await frames.next(), { type: "ready" });
+    assert(started.ok);
+    // 접수된 run이 없으면 고를 것이 없고 core는 run 목록만 읽었다.
+    assertEquals(await started.value.selector.next(), {
+      ok: true,
+      value: null,
+    });
+    assertEquals(seen, ["/v1/events/list", "/v1/runs/list"]);
+    await parent.close();
+    await started.value.done;
+  } finally {
+    frames.close();
+  }
+});
+
 Deno.test("lophn-agent/harness/run-loop#R8: pipe가 닫히거나 core가 끝나면 새 진입을 막고 끝난다", async () => {
   const io = pipes();
   const parent = parentWriter(io.toChild.writable);

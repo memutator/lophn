@@ -19,5 +19,5 @@ export { effectUnknownResult, failureResult, successResult } from "./result.ts";
 
 // 실행 argv 생성이다(architecture/coding-agent 2.2). shell 문자열로 합치지 않고
 // 분리 argv로 돌려준다.
-export { mcpLaunchArgv } from "./launch.ts";
+export { MCP_ENTRY, mcpLaunchArgv } from "./launch.ts";
 export type { McpLaunchInputs } from "./launch.ts";

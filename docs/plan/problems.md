@@ -150,6 +150,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `list`, `get`, `list-reports`, `get-report`, `get-snapshot`
 - slice: apps
 - 선행: problems#T2, problems#T4, contracts#T40
+- 상태: 완료 (#261) — 이어보냄: 선언 문구 fallback의 앱 이름, 선언 fixer로 정하는 `next_action` → T27 · 실제 담당·필요한 사람 조치, 사용자용 상세에서 `work`·`interpretation` 연결 식별자와 claim·기한을 빼는 contract 분리 → T22
 - 완료:
   - `ListProblems`: app·status·cursor·limit(최대 100), seq cursor로 페이지 고정; 기본 항목은 앱·증상·진행·필요한 다음 행동만(grouping#R11)
   - `GetProblem`: 진행·실제 담당·필요한 사람 조치를 먼저, 보고 수·처음/최근 시각·당시 release는 펼친 상세 값; 수는 Report에서 계산하고 별도 counter가 없다; claim·기한·연결 식별자를 내보내지 않는다(grouping#R11, R12)
@@ -300,6 +301,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `list`·`get` 문구 필드
 - slice: apps
 - 선행: problems#T6, apps#T19
+- T6에서 넘어온 것: 선언 문구를 읽을 수 없을 때의 fallback("확인할 문제")에 앱 이름을 붙인다(#261은 apps 데이터를 읽지 못해 이름 없는 안내만 준다); 당시 선언의 `fixer`가 user이면 목록의 `next_action`에 사람이 할 일을 채운다(#261은 항상 null)
 - 완료:
   - 선언 code 문제의 증상 문구는 보고 당시 release(또는 bundle)의 선언 message_key·en이다; 새 release에서 선언을 바꾸거나 지워도 이전 보고는 당시 문구다(problem-codes#R4)
   - 당시 선언을 읽을 수 없으면 앱 이름과 "확인할 문제" 안내(problem-codes#R4)
@@ -366,6 +368,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T17 snapshot의 로그 증거, 수집 범위와 보관
 
+- 상태: 완료 (#256) — 로그 수집(`snapshots/logs.ts`)·collector 연결·진단 상세 수집 설정(`problems.diagnostics.detail_collection`)·`GetSnapshotLogs` read·보존 등급까지 끝냈다. 이어보냄: 운영 `apps.logs` source와 collector credential의 `apps.logs`·`GetSettings` 접근(authorizeApp) → apps#T10, 정리 뒤 실제 "정리됨" 이유(blob store가 구별하는 pruned) → problems#T26
 - 등급: 기본
 - concern: problems/snapshots
 - 요구: problems/snapshots#R6, R7, R12, R13, R14, R16, R17, R19
@@ -469,6 +472,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `get` 상세 필드
 - slice: problems
 - 선행: problems#T14, problems#T21, coding-agent#T18
+- T6에서 넘어온 것: `GetProblem`이 실제 담당과 필요한 사람 조치를 싣는다(#261은 담당·조치 field가 없다); 사용자용 상세에서는 contract의 `problem.work`·`problem.interpretation` ticket·version ID를 빼고 en 작업 상태로 대신하도록 contract를 나눈다; claim·기한 field는 처음부터 없다
 - 완료:
   - 닫힘 4종(테스트로 확인됨·내가 확인함·현상이 안 보임·더 다루지 않음)이 서로 다른 값이고, 기본은 닫힌 이유와 지금 필요한 주의, 확인 범위·미확인·release·근거는 펼친 상세(closing#R13)
   - 미실행 테스트·외부 효과 미확인·발생 기회 없음을 성공으로 채우지 않는다(closing#R13)
@@ -533,6 +537,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: operations
 - 선행: problems#T17, problems#T22, platform#T44
+- problems#T17에서 넘어온 것: `GetSnapshotLogs`가 로그 blob을 읽는 core 통로(`apps/core/problems-logs.ts`)는 raw 바이트 읽기라 정리와 없음을 구별하지 못하고 `missing`으로 답한다. blob store의 정리된 blob 읽기 결과(pruned)를 이 read와 GetSnapshot의 부재 이유로 이어 "정리됨"을 보인다
 - 완료:
   - 용량 상한을 넘기면 가장 오래된 첨부 PNG·로그 조각·stack부터 정리되고 GetSnapshot이 그 항목에 "정리됨" 부재 이유를 보인다(R17)
   - 닫힌 문제의 닫힘 근거·고친 기록·확정 Verification 참조는 정리 뒤에도 그대로 읽힌다(R17)
@@ -612,3 +617,4 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - **Q15 CLI의 사람 `problem report`.** 정함(lead, coding-agent 팀 동의): problems/feedback#R1(인증된 shell의 사람 제출만)과 D27에 따라 problems의 `submit-feedback`은 shell user credential과 shell 출처만 받는다. coding-agent#T44가 고쳐, 사람 전용 `problem report|request-repair|confirm|dismiss`는 core에 쓰지 않고 shell 화면 링크(문제 알리기, ticket 준비, 결정)와 대기 사실만 출력하며 coding credential은 거절한다.
 - **Q16 문제 read와 release 준비 사이의 순환.** apps#T19(release 준비) ← coding-agent#T19(claim 검사) ← coding-agent#T18(ticket 생성의 문제 확인) ← problems#T6 ← apps#T19(선언 문구)로 고리가 생겼다. 정함: 선언 문구를 T27로 떼어 T6은 apps#T19를 기다리지 않는다.
 - **Q17 `requiredReportPaths`의 입력.** 지금은 검증된 `problem_codes`와 명시적 `has_view` boolean만 받는 최소 bundle descriptor를 쓴다. 추천: apps/blueprint wire(contracts#T33)가 정해지면 그 wire에서 `has_view`를 채워 이 함수를 그대로 쓴다. 그전까지 blueprint schema를 새로 만들지 않는다.
+- **Q18 T6 문제 read의 contract 한계와 정한 것.** (1) `GetProblem`에 당시 release field가 없었다. 정함(lead): `first_release`·`last_release`(처음·최근 보고의 release, 모르면 null)를 contract에 더하고 read가 채운다. 실제 담당·사람 조치 field는 T22가 더한다. (2) `problem.work`·`problem.interpretation`은 contract가 ticket·version ID를 그대로 싣는다. grouping#R12의 "연결 식별자 비노출"은 사용자용 상세에서 T22가 contract를 나눠 지킨다. claim·기한은 field 자체가 없다. (3) pool read는 sync라 redaction engine(async)을 부르지 못한다. 읽는 값은 저장 전 redaction을 거친 것이고 stack·log·글 원문은 hash 참조라서, 수리 조회 권한은 credential의 `GetReport`·`GetSnapshot` operation으로 나눈다. (4) platform `TargetAuthorization`은 credential 고정 조건(app·mode·diagnostic_scope)을 target에 덮어쓰므로 행의 그 값은 owner read가 따로 본다(platform 계획 Q21). (5) 범위 밖 문제·보고·snapshot은 없는 것과 같은 `not_found`다(architecture/problems 5.2를 고쳤다). (6) T2의 RecordReport가 기존 문제에 두 번째 live 보고를 받을 때 `ReportRecorded`의 문제 ID가 비어 거절되던 결함을 같은 PR에서 고쳤다.

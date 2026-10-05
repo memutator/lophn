@@ -24,13 +24,14 @@ const AT = "2026-10-04T12:00:00.000Z";
 const APP = "app_01arz3ndektsv4rrffq69g5fav";
 const RELEASE = "rel_01arz3ndektsv4rrffq69g5fav";
 
-// collector 접수 scope operation은 route.name인 RecordReport다.
+// collector 접수 scope operation은 route.name인 RecordReport다. 접수 뒤 읽기는 수리 조회
+// 권한인 GetReport를 따로 가진 credential만 한다.
 function credential(): AuthenticatedContext {
   return {
     principal: "collector-1",
     actor: "machine",
     scope: {
-      operations: ["RecordReport"],
+      operations: ["RecordReport", "GetReport"],
       targets: { task: "problems" },
     },
     conditions: { task: "problems", process: "collector-child" },

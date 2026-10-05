@@ -31,6 +31,19 @@ export const seedSteeringRoute = defineCommand({
   errors: ["conflict"],
 });
 
+// platform/settings의 저장 선택 표와 같은 모양이다. 이 leaf는 platform을 import하지 않고
+// StartRun이 읽는 표만 같은 SQL로 둔다. 사람의 apply를 흉내 내는 fixture command다.
+export const seedSettingChoiceRoute = defineCommand({
+  resource: "setting-choice-fixture",
+  method: "seed",
+  name: "SeedSettingChoice",
+  input: z.strictObject({ key: z.string(), value: z.unknown() }),
+  output: z.strictObject({ key: z.string() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict"],
+});
+
 export function createLedgerTestRegistration(): LedgerTestRegistration {
   const presetCommands = createPresetCommands(presetValidateDeps());
   const presetReads = createPresetReads();
@@ -49,6 +62,11 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,
       ...runSchemaSteps,
+      {
+        id: "run-loop.test.setting-choices",
+        sql:
+          "create table setting_choices (layer text not null check (layer = 'common'), key text not null, value json not null, primary key (layer, key))",
+      },
       {
         id: "run-loop.test.steering",
         sql:
@@ -74,6 +92,16 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       runCommands.confirmNext,
     ],
     testCommands: [{
+      route: seedSettingChoiceRoute,
+      handle(tx, _ctx, input) {
+        const seeded = input as { key: string; value: unknown };
+        tx.sql.run(
+          "insert into setting_choices (layer, key, value) values ('common', ?, ?) on conflict (layer, key) do update set value = excluded.value",
+          [seeded.key, JSON.stringify(seeded.value)],
+        );
+        return ok({ key: seeded.key });
+      },
+    }, {
       route: seedSteeringRoute,
       handle(tx, _ctx, input) {
         const seeded = input as { run: string; applied: boolean };

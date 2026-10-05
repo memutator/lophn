@@ -8,8 +8,14 @@ import { word } from "./wording.ts";
 
 export type TrayItemId = "open" | "launcher" | "autostart" | "quit";
 
+/** 안내만 하는 OS 기능 실패. 그 기능 하나만 말하고 누를 수 없다(shell#T56). */
+export type TrayNotice =
+  | "global-search-unavailable"
+  | "notifications-unavailable";
+
 export type TrayMenuItem =
   | { type: "normal"; id: TrayItemId; label: string }
+  | { type: "notice"; label: string }
   | {
     type: "checkbox";
     id: TrayItemId;
@@ -19,8 +25,23 @@ export type TrayMenuItem =
   }
   | { type: "separator" };
 
-/** tray menu. 자동 시작을 쓸 수 없는 실행(개발 실행 등)에서는 그 항목을 끈다. */
-export function trayMenu(autostart: AutostartState): TrayMenuItem[] {
+const NOTICE_LABELS = {
+  "global-search-unavailable": "common.label.tray-global-search-unavailable",
+  "notifications-unavailable": "common.label.tray-notifications-unavailable",
+} as const;
+
+/**
+ * tray menu. 자동 시작을 쓸 수 없는 실행(개발 실행 등)에서는 그 항목을 끈다. 쓸 수 없게 된
+ * OS 기능은 Quit 위에 누를 수 없는 줄로 하나씩 보인다.
+ */
+export function trayMenu(
+  autostart: AutostartState,
+  notices: readonly TrayNotice[] = [],
+): TrayMenuItem[] {
+  const shown: TrayMenuItem[] = notices.map((notice) => ({
+    type: "notice",
+    label: word(NOTICE_LABELS[notice]),
+  }));
   return [
     { type: "normal", id: "open", label: word("common.label.tray-open") },
     {
@@ -37,6 +58,9 @@ export function trayMenu(autostart: AutostartState): TrayMenuItem[] {
       enabled: autostart.available,
     },
     { type: "separator" },
+    ...(shown.length > 0
+      ? [...shown, { type: "separator" } satisfies TrayMenuItem]
+      : []),
     { type: "normal", id: "quit", label: word("common.label.tray-quit") },
   ];
 }
@@ -75,6 +99,8 @@ export interface TrayOptions {
 export interface InstalledTray {
   /** 자동 시작 상태가 바뀌면 menu를 다시 그린다. */
   refresh(): void;
+  /** 쓸 수 없게 된 OS 기능을 menu에 한 번 보인다. */
+  notice(notice: TrayNotice): void;
   destroy(): void;
 }
 
@@ -94,7 +120,8 @@ export function installTray(options: TrayOptions): InstalledTray | undefined {
     return undefined;
   }
   let autostart = actions.readAutostart();
-  const render = () => handle.setMenu(trayMenu(autostart), select);
+  const notices: TrayNotice[] = [];
+  const render = () => handle.setMenu(trayMenu(autostart, notices), select);
   function select(id: TrayItemId): void {
     switch (id) {
       case "open":
@@ -119,6 +146,11 @@ export function installTray(options: TrayOptions): InstalledTray | undefined {
   return {
     refresh() {
       autostart = actions.readAutostart();
+      render();
+    },
+    notice(notice) {
+      if (notices.includes(notice)) return;
+      notices.push(notice);
       render();
     },
     destroy() {

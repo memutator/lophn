@@ -14,6 +14,7 @@ import {
 import { openSession } from "./client.ts";
 import { subscribe } from "./events.ts";
 import { nodeSockets } from "./node-io.ts";
+import { optInFromSettings, OS_NOTIFICATIONS_KEY } from "../os-notification.ts";
 
 /** main.ts는 Deno 권한과 Worker가 필요하다. 부모 pipe로 실제 core를 띄운다. */
 function spawnCore(home: string, repoRoot: string): ChildProcess {
@@ -56,7 +57,7 @@ async function firstHello(
   });
 }
 
-test("shell/desktop#R15: 실제 core에서 hello→read→WS 구독 event 수신까지 도는지 본다", async () => {
+test("shell/desktop#R15: 실제 core에서 hello→read→WS 구독 event 수신까지 돌고 OS notification opt-in(R10)을 settings로 읽는다", async () => {
   const home = await mkdtemp(`${tmpdir()}/lophn-shell-core-`);
   // test file 위치가 repo root의 apps/shell/main 아래다. core entry는 repo root 기준이다.
   const repoRoot = new URL("../../../../../", import.meta.url).pathname;
@@ -106,6 +107,41 @@ test("shell/desktop#R15: 실제 core에서 hello→read→WS 구독 event 수신
       const ready = (status.value as { ready?: boolean }).ready;
       assert.equal(ready, true);
     }
+
+    // OS notification opt-in(shell#T56): 실제 core의 settings에서 기본 꺼짐이고, 켜면 켜짐으로 읽힌다.
+    const readOptIn = async () => {
+      const reply = await session.call("read", "settings", "get", {
+        keys: [OS_NOTIFICATIONS_KEY],
+      });
+      assert.equal(reply.ok, true, JSON.stringify(reply));
+      const value = reply.ok
+        ? reply.value as { revision: number; defaults_revision: string }
+        : { revision: 0, defaults_revision: "" };
+      return {
+        on: reply.ok && optInFromSettings(reply.value),
+        compare: {
+          revision: value.revision,
+          defaults_revision: value.defaults_revision,
+        },
+      };
+    };
+    const before = await readOptIn();
+    assert.equal(before.on, false);
+    const applied = await session.call("command", "settings", "apply", {
+      input: {
+        changes: [{
+          layer: "common",
+          key: OS_NOTIFICATIONS_KEY,
+          action: "set",
+          value: true,
+        }],
+      },
+      idempotency_key: "shell-os-notifications-on",
+      compare: before.compare,
+      prepared: [],
+    });
+    assert.equal(applied.ok, true, JSON.stringify(applied));
+    assert.equal((await readOptIn()).on, true);
 
     // WS 구독: Bearer는 headers로 싣는다. token은 URL에 넣지 않는다.
     const received: unknown[] = [];

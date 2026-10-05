@@ -398,11 +398,17 @@ function registerWorkers(): KindLaunchSpec[] {
 }
 
 // reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.
+// project read도 같은 목록이다. documents 목록 seam은 command 등록과 같은
+// emptyDocuments다(shell main의 `read projects list`가 이 Worker를 만난다).
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
   const viewReads = createViewReads();
+  const deps: ProjectReadDeps = {
+    documents: emptyDocuments,
+  };
+  const projectReads = createProjectReads(deps);
   return {
     reads: [
       reads.list,
@@ -414,6 +420,11 @@ export function createReaderRegistration(): ReaderRegistration {
       contextReads.related,
       viewReads.list,
       viewReads.get,
+      projectReads.list,
+      projectReads.get,
+      projectReads.resolve,
+      projectReads.resolveCwd,
+      projectReads.trackingRoots,
     ],
     ports: new Map(),
   };

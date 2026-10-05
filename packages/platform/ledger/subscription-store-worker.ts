@@ -4,6 +4,7 @@ import {
   derivedProvenanceSchema,
   seqSchema,
 } from "../../contracts/platform/mod.ts";
+import { READER_BUSY_TIMEOUT_MS } from "./reads.ts";
 
 const self = globalThis as unknown as {
   onmessage: (event: MessageEvent) => void;
@@ -14,9 +15,11 @@ self.onmessage = async (event) => {
   try {
     const { directory } = event.data as { directory: string };
     await Deno.mkdir(directory, { recursive: true });
+    // busy_timeout=0은 기동 직후 create table재시도나 다른 코어 종료 뒤의
+    // 잠깐의 잠금에 바로 실패한다. derived writer도 bounded 대기를 둔다.
     db = new DatabaseSync(`${directory}/subscriptions.db`);
     db.exec(
-      `pragma journal_mode=WAL; pragma synchronous=FULL; pragma busy_timeout=0;
+      `pragma journal_mode=WAL; pragma synchronous=FULL; pragma busy_timeout=${READER_BUSY_TIMEOUT_MS};
       create table if not exists positions(principal text not null, name text not null,
         through_seq text not null, primary key(principal,name));
       create table if not exists provenance(principal text not null, name text not null,

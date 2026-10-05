@@ -4,6 +4,7 @@ import type { ReadSnapshot } from "../../contracts/platform/mod.ts";
 import { createSql, isStorageUnavailable } from "./sqlite.ts";
 import {
   READ_MAX_ROWS,
+  READER_BUSY_TIMEOUT_MS,
   ReaderStorageError,
   ReadLimitExceeded,
 } from "./reads.ts";
@@ -41,7 +42,13 @@ export function openReaderConnection(path: string): Result<ReaderConnection> {
   let db: DatabaseSync | undefined;
   try {
     db = new DatabaseSync(path, { readOnly: true });
-    db.exec("pragma query_only=ON; pragma busy_timeout=0");
+    // busy_timeout=0은 다른 프로세스 writer의 잠깐의 잠금에 바로 실패한다.
+    // 유지보수 subprocess가 writer close 뒤 바로 열고, 부하 아래에서는 reader
+    // 기동이 writer txn과 겹친다. 잠깐의 busy는 READ_TIMEOUT_MS 안에서 기다려
+    // 끝낸다(ledger R2의 reader 쪽). journal_mode pragma 읽기도 이 안에 있다.
+    db.exec(
+      `pragma query_only=ON; pragma busy_timeout=${READER_BUSY_TIMEOUT_MS}`,
+    );
     const queryOnly = db.prepare("pragma query_only").get()?.query_only;
     const journal = db.prepare("pragma journal_mode").get()?.journal_mode;
     if (queryOnly !== 1 || journal !== "wal") {

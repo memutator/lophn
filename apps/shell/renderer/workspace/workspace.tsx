@@ -3,6 +3,7 @@ import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import { LophnEntry, TopBar } from "../desktop/top-bar/top-bar.tsx";
+import { SpaceDecisions } from "../desktop/notification-chip/space-decisions.tsx";
 import { Breadcrumbs } from "./top-path/breadcrumbs.tsx";
 import { LauncherButton } from "./launcher-button.tsx";
 import { startPointerDrag } from "./drag.ts";
@@ -69,6 +70,8 @@ export interface WorkspaceProps {
   onLauncher: () => void;
   /** lophn 관리 공간으로 간다. */
   onLophn: () => void;
+  /** 이 프로젝트의 결정 대기를 things-to-confirm에서 연다. */
+  onThingsToConfirm?: () => void;
   /** 문서 탭의 읽기·편집 통로. 없으면 문서 탭은 자리표시다. */
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */
@@ -157,6 +160,7 @@ export function Workspace(
     bodyWidth,
     onLauncher,
     onLophn,
+    onThingsToConfirm,
     terminal,
     editor,
   }: WorkspaceProps,
@@ -494,6 +498,10 @@ export function Workspace(
             }
             trailing={
               <span className={styles.trailing}>
+                <SpaceDecisions
+                  place={{ kind: "project", id: projectId }}
+                  onOpen={onThingsToConfirm ?? onLophn}
+                />
                 <PaletteButton />
                 {conversation
                   ? (

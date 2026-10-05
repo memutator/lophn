@@ -51,6 +51,7 @@ import type {
 } from "./source.ts";
 import { MessageList } from "./message-list/message-list.tsx";
 import { Composer } from "./composer/composer.tsx";
+import { QuestionStrip } from "./question-strip/question-strip.tsx";
 import styles from "./dock.module.css";
 
 export type Ticks = (listener: () => void) => () => void;
@@ -467,6 +468,7 @@ export function Dock(
           onResend={() => void sendAgain()}
           onOpenResult={onOpenResult}
         />
+        <QuestionStrip session={current} offline={offline} />
         {readOnly
           ? <p className={styles.notice}>{t("conversation.notice.ended")}</p>
           : (

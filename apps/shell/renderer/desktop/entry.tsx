@@ -15,6 +15,11 @@ import { documentSearch } from "./palette/search.ts";
 import { ConversationProvider } from "../conversation/dock-slot.tsx";
 import { coreConversationSource } from "../conversation/core-source.ts";
 import { DraftStore } from "../conversation/drafts.ts";
+import {
+  RequestDrafts,
+  RequestsProvider,
+} from "./lophn-space/things-to-confirm/context.tsx";
+import { coreRequestSource } from "./lophn-space/things-to-confirm/core-source.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -28,6 +33,11 @@ const conversation = {
   source: coreConversationSource(core),
   drafts: new DraftStore(),
   startOpen: location.hash === "#conversation",
+};
+// 창마다 하나인 질문·approval 통로와 고르던 답. 도크의 칸·things-to-confirm·chip이 같이 쓴다.
+const requests = {
+  source: coreRequestSource(core),
+  drafts: new RequestDrafts(),
 };
 // 개발 확인용 시작 자리. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
 // 거기에 대화 도크까지 열어 둔다. 기본은 런처다.
@@ -59,16 +69,18 @@ const palette: PaletteDeps | undefined =
 mount(
   <div className={styles.root}>
     <ConversationProvider deps={conversation}>
-      <Desktop
-        source={core}
-        initial={start}
-        workspace={seed?.source}
-        editor={seed ? { ...editor, ...seed.editor } : editor}
-        windowWidth={seed ? 1440 : undefined}
-        terminal={terminal}
-        lophn={lophn}
-        palette={palette}
-      />
+      <RequestsProvider deps={requests}>
+        <Desktop
+          source={core}
+          initial={start}
+          workspace={seed?.source}
+          editor={seed ? { ...editor, ...seed.editor } : editor}
+          windowWidth={seed ? 1440 : undefined}
+          terminal={terminal}
+          lophn={lophn}
+          palette={palette}
+        />
+      </RequestsProvider>
     </ConversationProvider>
   </div>,
 );

@@ -10,6 +10,7 @@ import type { TerminalDeps } from "../terminal/deps.ts";
 import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
+import { NotificationChip } from "./notification-chip/notification-chip.tsx";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -45,8 +46,14 @@ export function Desktop(
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
+  // things-to-confirm으로 간 횟수. 이미 lophn 공간이어도 그 형제를 다시 연다.
+  const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
   const lophnSpace = () => setRoute(openLophn());
+  const thingsToConfirm = () => {
+    setVisits((value) => value + 1);
+    setRoute(openLophn("things-to-confirm"));
+  };
   let space: ReactNode;
   if (route.space === "project" && route.project && workspace) {
     space = (
@@ -57,6 +64,7 @@ export function Desktop(
         bodyWidth={windowWidth - 240}
         onLauncher={launcher}
         onLophn={lophnSpace}
+        onThingsToConfirm={thingsToConfirm}
         editor={editor}
         terminal={terminal}
       />
@@ -64,6 +72,7 @@ export function Desktop(
   } else if (route.space === "lophn" && lophn) {
     space = (
       <LophnSpace
+        key={visits}
         source={lophn}
         screen={route.screen}
         windowWidth={windowWidth}
@@ -84,6 +93,7 @@ export function Desktop(
   return (
     <PaletteProvider deps={palette} onLauncher={launcher}>
       {space}
+      <NotificationChip onView={thingsToConfirm} />
     </PaletteProvider>
   );
 }

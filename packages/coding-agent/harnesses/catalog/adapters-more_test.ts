@@ -374,7 +374,7 @@ Deno.test("coding-agent/harnesses#R8: Hermes YAML merge는 lophn 항목만 넣�
   if (!lophn.ok) return;
   assertEquals(lophn.value, {
     command: "lophn",
-    args: { "0": "--connection", "1": "cac_x" },
+    args: ["--connection", "cac_x"],
   });
   const envValue = ownedFragment(written.text, "env.A");
   assert(envValue.ok);

@@ -367,7 +367,7 @@ import {
   ids,
   userContext,
   versionFixture,
-} from "../versions/mod.ts";
+} from "../versions/testing/mod.ts";
 
 const commands = createDocumentChangeCommands();
 const docId = ids.doc;

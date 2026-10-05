@@ -187,7 +187,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-test실행의 `request-test`(runner 준비 쪽)
 - slice: apps
 - 선행: problems#T7, contracts#T34, platform#T7, platform#T8, platform#T12, platform#T30, apps#T6, apps#T7
-- 상태: 진행 (#191) — 남은 것: ledger에 시작 시도를 확정한 뒤의 spawn 연결, test 앱 자식 SDK 보고를 runner가 broker로 collector에 넘기는 경로, 자식이 core·collector 주소와 credential을 받지 않는 확인, macOS에서 setsid 바이너리 없이 process group을 나누는 방법(지금은 시작 전에 unavailable)
+- 상태: 완료 (#191, #PR)
 - 완료:
   - 자식은 `deno test --no-prompt --cached-only --frozen-lockfile --v8-flags=--max-old-space-size=256`, 읽기는 고정 source·의존·harness, 쓰기는 side의 scratch·fixture DB, 환경은 명시한 안전 변수만; `-A`·무제한 read/write/env/net·`--allow-run`·FFI 요청은 거절(R13, R14). deno 2.9에 `--locked`가 없어 잠긴 lockfile은 `--frozen-lockfile`이다
   - 운영 DB·backup·keychain·홈 경로 접근이 실패하고 fixture DB만 바뀐다(R13)

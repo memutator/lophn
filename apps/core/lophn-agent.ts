@@ -5,6 +5,11 @@ import {
 } from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import {
+  createModelDefaultsCommands,
+  createModelDefaultsReads,
+  modelSchemaSteps,
+} from "../../packages/lophn-agent/harness/model/mod.ts";
+import {
   createProviderCommands,
   createProviderReads,
   providerSchemaSteps,
@@ -61,21 +66,29 @@ export const catalogAutoUpdateSetting = defineSetting({
   value_type: z.boolean(),
 });
 
-// derived catalog read는 아직 등록하지 않는다(plan/lophn-agent Q28). pool read
-// handler는 동기 Result를 돌려주므로 파일 읽기도 동기여야 하는데, core module
-// graph의 동기 file API는 platform/responsiveness#R1 검사가 막는다. apiRead
-// 경로는 snapshot을 받지 않아 as_of_seq를 만들어야 하는데 이 read는 파생되는
-// 값이라 그럴 수 없다. 등록 자리 결정은 open-issues에 남긴다.
+// derived catalog read는 model leaf의 read 정의로 reader worker 등록에 붙는다
+// (plan/lophn-agent Q28). pool read handler는 동기 Result를 돌려주므로 파일 읽기도
+// 동기여야 하는데, core module graph의 동기 file API는 platform/responsiveness#R1
+// 검사가 막는다. 그래서 정의는 leaf의 createCatalogRead에 두고 파일 reader는
+// 조립이 끼운다. reader가 없으면 read는 unavailable이다. apiRead 경로는 snapshot을
+// 받지 않아 as_of_seq를 만들 수 없어 pool read로 둔다.
 
 // provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
-// model call 기록·사용량 읽기(concern harness/usage). 시작·마침·보완은 machine 전용이다.
+// model 기본값(concern harness/model)과 model call 기록·사용량 읽기(concern
+// harness/usage). 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
+const modelCommands = createModelDefaultsCommands();
 const usage = createUsageCommands();
 const reads = createProviderReads();
+const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();
 
 export const lophnAgentDefinitions = {
-  schemaSteps: [...providerSchemaSteps, ...usageSchemaSteps],
+  schemaSteps: [
+    ...providerSchemaSteps,
+    ...modelSchemaSteps,
+    ...usageSchemaSteps,
+  ],
   commands: [
     commands.register,
     commands.change,
@@ -84,6 +97,7 @@ export const lophnAgentDefinitions = {
     commands.refreshCredential,
     commands.recordAvailability,
     commands.recordCheck,
+    modelCommands.change,
     usage.start,
     usage.finish,
     usage.supplement,
@@ -92,6 +106,8 @@ export const lophnAgentDefinitions = {
     reads.read,
     reads.list,
     reads.credentialList,
+    modelReads.defaults,
+    modelReads.catalog,
     usageReads.read,
     usageReads.list,
     usageReads.usage,
@@ -101,14 +117,16 @@ export const lophnAgentDefinitions = {
   workers: [],
 };
 
-// reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider read는 event를 보지 않는다.
-// usage read도 event를 보지 않는다.
+// reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는
+// event를 보지 않는다. usage read도 event를 보지 않는다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
     reads: [
       reads.read,
       reads.list,
       reads.credentialList,
+      modelReads.defaults,
+      modelReads.catalog,
       usageReads.read,
       usageReads.list,
       usageReads.usage,

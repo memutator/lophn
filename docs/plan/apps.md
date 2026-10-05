@@ -107,6 +107,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 등급: 기본
 - concern: apps/releases, apps/blueprint, apps/sdk, apps/permissions
 - 요구: apps/releases#R1, R2, R3, R4, R19, apps/blueprint#R17, apps/sdk#R7, R10, R34
+- 상태: 완료 (#182) — contracts#T36이 내놓기로 한 bundle 사본 경로 함수가 contracts에 없다. 이 PR에서는 leaf(`packages/apps/releases/bundle/seal.ts`)가 계산하고, contracts 후속이 남았다. release worker는 blob pipe를 열지 않고, 준비 흐름의 `prepareBlob`은 supervisor가 주입한다.
 - 자리: packages/apps/releases/prepare/ (git-extract.ts, limits.ts, source-watch.ts), packages/apps/releases/bundle/ (manifest.ts, seal.ts, import-map.ts), packages/apps/releases/ui-build/, packages/apps/blueprint/extract.ts, apps/worker/apps/release.ts
 - 쓰는 contract: platform blob(blob.prepare, 신뢰 pipe), documents format 실행(`/v1/formats/validate·get`, module_hash), problems/problem-codes(필수·예약 code 검사), coding-agent의 bundle 제외 목록 상수(안내·wrapper·제품 local 설정·skill 사본, coding-agent/guides#R19), T5의 import map 해석
 - 내놓는 contract: release worker job(supervisor ↔ worker stdio JSON, apps 안쪽), 읽기 전용 bundle 사본 위치 규칙 `apps/<app ID>/bundles/<bundle hash>/`와 그 안의 정규 `blueprint.json`·source map 자리(problems test runner·collector가 씀, contracts#T36에 경로 함수)
@@ -285,6 +286,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 - 등급: 기본
 - concern: apps/data
+- 상태: 진행 (#192) — 남은 것: activation 순서(종료 확인 → backup 확정 → migration → 복원)는 T18. 보호 backup의 blob field 등록(general_read 없음)은 record_backup hash로 T18이 확정하고, 이 작업은 backup 파일을 앱 데이터 영역에 남긴다
 - 요구: apps/data#R1, R2, R3, R5, R6, R7, R8, R10, R14
 - 자리: packages/apps/data/worker/ (schema.ts, backup.ts, migrate.ts, restore.ts, integrity.ts), packages/apps/data/commands.ts, apps/worker/apps/data.ts
 - 쓰는 contract: platform blob(보호 backup 설치, blob field 등록 때 일반 읽기 불가로 적는다; platform#T13·T14), T3 migration용 flag
@@ -475,6 +477,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - 이름·MIME 목록·template·guide·FormatRef만 담고 검사 코드는 넣지 않는다. 검사는 격리된 `/v1/formats/validate`만 한다
   - FormatRef의 module_hash가 documents#T4의 `/v1/formats/get` 결과와 같다는 테스트
   - pdf·image·data는 원문 format이라 Package를 만들지 않는다(documents 팀 추천, 그 팀 질문 Q10에 올라가 있다)
+- 상태: 완료 (#184)
 
 ## slice: operations
 

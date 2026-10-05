@@ -7,10 +7,14 @@ import {
   createLedgerHarness,
   type LedgerHarness,
 } from "../../../../apps/core/testing/ledger.ts";
+import { callFromRow } from "./model.ts";
+import type { ModelCallRecord } from "../../../../packages/contracts/lophn-agent/mod.ts";
+import { buildTotals } from "./work.ts";
 
 const NOW = Date.UTC(2026, 0, 1);
 const SUFFIX = "01arz3ndektsv4rrffq69g5fav";
 const CALL = `mcl_${SUFFIX}`;
+const CALL2 = "mcl_01arz3ndektsv4rrffq69g5fax";
 const RUN = `run_${SUFFIX}`;
 const SESSION = `ses_${SUFFIX}`;
 const PVDR = `pvd_${SUFFIX}`;
@@ -143,7 +147,8 @@ function envelope(
   return {
     command,
     input,
-    // model-calls CAS는 state_seq다. 시도마다 같은 값을 다시 보낸다.
+    // model-calls CAS는 state_seq다. 시작은 판 순번 4를 선언하고 저장한다.
+    // 마침은 저장된 5로 보완 기준이 바뀌므로, 끝난 뒤 보완은 extra에서 5를 보낸다.
     compare: { state_seq: "4" },
     idempotency_key: `k-${idempotency}`,
     prepared: [],
@@ -241,6 +246,158 @@ Deno.test("lophn-agent/harness/usage#R1: a started call stores once and repeats 
       }, { idempotency_key: `k-${idempotency + 1}` }),
     );
     code(repeated, "conflict");
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/usage#R1: retry attempts are one record each", async () => {
+  const h = await open();
+  try {
+    await seedProvider(h);
+    keep(
+      await h.command(
+        machineCred,
+        envelope("StartModelCall", {
+          call: started,
+          applied_messages: [`msg_${SUFFIX}`],
+          state_seq: "4",
+          timeout_ms: null,
+        }),
+      ),
+    );
+    keep(
+      await h.command(
+        machineCred,
+        envelope("FinishModelCall", {
+          call: CALL,
+          output: null,
+          outcome: {
+            kind: "failed",
+            code: "temporary",
+            retry_at: at(NOW + 60_000),
+            finish_reason: null,
+            http_status: 429,
+            provider_code: "rate_limit_error",
+          },
+          usage,
+          cost: unknownCost,
+          duration_ms: 50,
+          first_output_ms: null,
+          state_seq: "5",
+        }),
+      ),
+    );
+    // retry attempt는 새 기록이다(retry_of가 이전 기록을 참조한다).
+    const retry = {
+      ...started,
+      id: CALL2,
+      attempt_kind: "retry" as const,
+      attempt_order: 2,
+      retry_of: CALL,
+    };
+    keep(
+      await h.command(
+        machineCred,
+        envelope("StartModelCall", {
+          call: retry,
+          applied_messages: [`msg_${SUFFIX}`],
+          state_seq: "4",
+          timeout_ms: null,
+        }),
+      ),
+    );
+    const record = await readCall(h, CALL2);
+    assertEquals(record["attempt_kind"], "retry");
+    assertEquals(record["retry_of"], CALL);
+    // 같은 retry 기록을 다시 시작하면 conflict다.
+    const repeated = await h.command(
+      machineCred,
+      envelope("StartModelCall", {
+        call: retry,
+        applied_messages: [],
+        state_seq: "4",
+        timeout_ms: null,
+      }),
+    );
+    code(repeated, "conflict");
+    const list = keep(
+      await h.read({ resource: "model-calls", method: "list" }, userCred, {
+        run: RUN,
+      }),
+    ) as { calls: { id: string }[] };
+    assertEquals(list.calls.length, 2);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/usage#R1: credential change attempts are one record each", async () => {
+  const h = await open();
+  try {
+    await seedProvider(h);
+    keep(
+      await h.command(
+        machineCred,
+        envelope("StartModelCall", {
+          call: started,
+          applied_messages: [`msg_${SUFFIX}`],
+          state_seq: "4",
+          timeout_ms: null,
+        }),
+      ),
+    );
+    keep(
+      await h.command(
+        machineCred,
+        envelope("FinishModelCall", {
+          call: CALL,
+          output: null,
+          outcome: {
+            kind: "failed",
+            code: "credential_unavailable",
+            retry_at: null,
+            finish_reason: null,
+            http_status: 401,
+            provider_code: null,
+          },
+          usage,
+          cost: unknownCost,
+          duration_ms: 30,
+          first_output_ms: null,
+          state_seq: "5",
+        }),
+      ),
+    );
+    // credential change attempt도 새 기록이다.
+    const changed = {
+      ...started,
+      id: CALL2,
+      attempt_kind: "credential_change" as const,
+      attempt_order: 2,
+      retry_of: null,
+      credential_change_of: CALL,
+    };
+    keep(
+      await h.command(
+        machineCred,
+        envelope("StartModelCall", {
+          call: changed,
+          applied_messages: [`msg_${SUFFIX}`],
+          state_seq: "4",
+          timeout_ms: null,
+        }),
+      ),
+    );
+    const record = await readCall(h, CALL2);
+    assertEquals(record["attempt_kind"], "credential_change");
+    assertEquals(record["credential_change_of"], CALL);
+    const list = keep(
+      await h.read({ resource: "model-calls", method: "list" }, userCred, {
+        run: RUN,
+      }),
+    ) as { calls: { id: string }[] };
+    assertEquals(list.calls.length, 2);
   } finally {
     await h.close();
   }
@@ -565,7 +722,8 @@ Deno.test("lophn-agent/harness/usage#R6: unknown usage stays null, not zero", as
     assertEquals(kept["input"], null);
     assertEquals(kept["output"], null);
     assertEquals(kept["cache_read"], null);
-    assertEquals(kept["cost"], kept["cost"]);
+    // unknown 비용은 call 본문에 붙는다(R6).
+    assertEquals(finished.result.call["cost"], unknownCost);
   } finally {
     await h.close();
   }
@@ -752,7 +910,7 @@ Deno.test("lophn-agent/harness/usage#R9: supplement appends a late fact without 
           cost: null,
           outcome: null,
           basis: HASH,
-        }),
+        }, { compare: { state_seq: "5" } }),
       ),
     );
     assert(supplemented !== undefined);
@@ -770,7 +928,7 @@ Deno.test("lophn-agent/harness/usage#R9: supplement appends a late fact without 
         cost: null,
         outcome: null,
         basis: HASH,
-      }),
+      }, { compare: { state_seq: "5" } }),
     );
     code(repeated, "conflict");
   } finally {
@@ -908,6 +1066,177 @@ Deno.test("lophn-agent/harness/usage#R11: no amount cost gate on records", async
     ) as unknown as { result: { call: Record<string, unknown> } };
     const bigCost = huge.result.call["cost"] as Record<string, unknown>;
     assertEquals(bigCost["amount"], "999999999999.999999");
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/harness/usage#R2: supplement CAS rejects a stale state_seq", async () => {
+  const h = await open();
+  try {
+    await seedProvider(h);
+    keep(
+      await h.command(
+        machineCred,
+        envelope("StartModelCall", {
+          call: started,
+          applied_messages: [`msg_${SUFFIX}`],
+          state_seq: "4",
+          timeout_ms: null,
+        }),
+      ),
+    );
+    keep(
+      await h.command(
+        machineCred,
+        envelope("FinishModelCall", {
+          call: CALL,
+          output: HASH,
+          outcome: {
+            kind: "complete",
+            code: null,
+            retry_at: null,
+            finish_reason: "stop",
+            http_status: null,
+            provider_code: null,
+          },
+          usage,
+          cost: unknownCost,
+          duration_ms: 100,
+          first_output_ms: 10,
+          state_seq: "5",
+        }),
+      ),
+    );
+    // 보완도 state_seq CAS를 본다. 잘못된 기준은 conflict다.
+    const stale = await h.command(
+      machineCred,
+      envelope("SupplementModelCall", {
+        call: CALL,
+        supplement_key: "invoice-1",
+        usage: { ...usage, input: 20, output: 5 },
+        cost: null,
+        outcome: null,
+        basis: HASH,
+      }, { compare: { state_seq: "9" } }),
+    );
+    code(stale, "conflict");
+    // 관문을 통과한 기준은 통과한다.
+    keep(
+      await h.command(
+        machineCred,
+        envelope("SupplementModelCall", {
+          call: CALL,
+          supplement_key: "invoice-1",
+          usage: { ...usage, input: 20, output: 5 },
+          cost: null,
+          outcome: null,
+          basis: HASH,
+        }, { compare: { state_seq: "5" } }),
+      ),
+    );
+    const record = await readCall(h, CALL);
+    assertEquals(record["state"], "finished");
+  } finally {
+    await h.close();
+  }
+});
+
+type UsageTotalLike = {
+  calls: number;
+  tokens: { known: Record<string, unknown>; unknown_calls: number };
+  costs: Record<string, unknown>[];
+  missing_records: number;
+  complete: boolean;
+};
+
+async function readRows(h: LedgerHarness): Promise<ModelCallRecord[]> {
+  const rows = (await h.inspect(
+    `select id, run, session, model_use, preset, purpose, test_request,
+       attempt_kind, attempt_order, retry_of, credential_change_of,
+       provider, credential_key, credential_revision, model_name, protocol,
+       call_model, input, context_basis, output, state, state_seq,
+       started_at, finished_at, duration_ms, first_output_ms, outcome,
+       usage, cost
+     from model_calls order by id`,
+    [],
+  )) as { ok: boolean; value?: Record<string, unknown>[] };
+  assert(rows.ok);
+  return (rows.value ?? []).map((row) => callFromRow(row as never));
+}
+
+Deno.test("lophn-agent/harness/usage#R10: rebuild gives the same totals", async () => {
+  const h = await open();
+  try {
+    await seedProvider(h);
+    keep(
+      await h.command(
+        machineCred,
+        envelope("StartModelCall", {
+          call: started,
+          applied_messages: [`msg_${SUFFIX}`],
+          state_seq: "4",
+          timeout_ms: null,
+        }),
+      ),
+    );
+    keep(
+      await h.command(
+        machineCred,
+        envelope("FinishModelCall", {
+          call: CALL,
+          output: HASH,
+          outcome: {
+            kind: "complete",
+            code: null,
+            retry_at: null,
+            finish_reason: "stop",
+            http_status: null,
+            provider_code: null,
+          },
+          usage: {
+            ...usage,
+            input: 1000,
+            output: 500,
+            cache_read: null,
+            cache_write: null,
+            reasoning: null,
+            cache_in_input: false,
+            reasoning_in_output: false,
+            definition_revision: "2026-10",
+          },
+          cost: {
+            kind: "estimated",
+            amount: "0.0105",
+            currency: "USD",
+            basis: { price },
+            confirmed_at: null,
+          },
+          duration_ms: 100,
+          first_output_ms: 10,
+          state_seq: "5",
+        }),
+      ),
+    );
+    // read handler의 합계. derived 재생성은 같은 값이어야 한다(plan 마지막 줄).
+    const read = keep(
+      await h.read(
+        { resource: "agent-usage", method: "read" },
+        userCred,
+        {
+          from_at: at(NOW - 1000),
+          through_at: at(NOW + 1000),
+        },
+      ),
+    ) as { totals: UsageTotalLike[] };
+    // ledger 행을 ModelCallRecord로 옮겨 다시 모은다.
+    const loaded = await readRows(h);
+    const rebuilt = buildTotals(loaded);
+    assertEquals(rebuilt.calls, read.totals[0]!["calls"]);
+    assertEquals(rebuilt.tokens, read.totals[0]!["tokens"]);
+    assertEquals(rebuilt.costs, read.totals[0]!["costs"]);
+    assertEquals(rebuilt.missing_records, read.totals[0]!["missing_records"]);
+    assertEquals(rebuilt.complete, read.totals[0]!["complete"]);
   } finally {
     await h.close();
   }

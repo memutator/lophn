@@ -24,7 +24,8 @@ export function usagePaths(dataRoot: string): {
   };
 }
 
-// ledger read에서 현재 model_calls rows를 읽어 합계로 모은다.
+// ledger read에서 현재 model_calls rows를 읽어 합계로 모은다. 기간은 재산
+// 기록에서 모은다(from_at은 가장 이른 시작, through_at은 마지막 기록보다 뒤).
 export type UsageRebuilder = {
   rebuild(): Promise<Result<UsageTotal>>;
 };
@@ -38,15 +39,18 @@ export function createUsageRebuilder(options: {
     async rebuild() {
       const loaded = await options.readRows();
       if (!loaded.ok) return loaded;
-      const total = buildTotals(loaded.value.map((item) => item.record));
-      return ok(usageTotalSchema.parse(total));
+      return ok(buildTotals(loaded.value.map((item) => item.record)));
     },
   };
 }
 
-// 재계산된 합계. read handler와 같은 근원에서 모은다(Q28).
+// 재계산된 합계. read handler와 같은 근원에서 모은다(Q28). group 기간은
+// 기록에서 모은다. 기록이 하나도 없으면 1970 기준 폐구간이다.
 export function buildTotals(
   records: readonly ModelCallRecord[],
+  options: {
+    epochMs?: number;
+  } = {},
 ): UsageTotal {
   // call마다 한 번만 센다(R10). distinct model call id다.
   const seen = new Set<string>();
@@ -65,6 +69,24 @@ export function buildTotals(
       record.usage.cache_read === null && record.usage.cache_write === null &&
       record.usage.reasoning === null
     ).length;
+  const epoch = options.epochMs ?? 0;
+  const started = distinct.map((record) => Date.parse(record.started_at));
+  const last = distinct.map((record) =>
+    Date.parse(record.finished_at ?? record.started_at)
+  );
+  // 구간은 기록 경계보다 살짝 넓게 둔다. from_at == through_at은 거절이다.
+  const fromAt = new Date(
+    Math.min(...(started.length > 0 ? started : [epoch])),
+  );
+  const throughCandidate = Math.max(
+    ...(last.length > 0 ? last : [epoch]),
+    epoch,
+  );
+  const throughAt = new Date(
+    fromAt.getTime() >= throughCandidate
+      ? fromAt.getTime() + 1
+      : throughCandidate,
+  );
   return usageTotalSchema.parse({
     group: {
       run: null,
@@ -72,8 +94,8 @@ export function buildTotals(
       role: null,
       model: null,
       credential_key: null,
-      from_at: "",
-      through_at: "",
+      from_at: fromAt.toISOString(),
+      through_at: throughAt.toISOString(),
       currency: null,
     },
     calls: distinct.length,

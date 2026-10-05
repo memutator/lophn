@@ -13,9 +13,3 @@ export {
   loadVersionByNumber,
   replaceDocument,
 } from "./store.ts";
-export {
-  type Emitted,
-  ids,
-  userContext,
-  versionFixture,
-} from "./testing-fixture.ts";

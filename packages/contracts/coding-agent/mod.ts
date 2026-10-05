@@ -422,6 +422,8 @@ export {
   ticketStateSchema,
 } from "./ticket-values.ts";
 export { conditionHash } from "./ticket-hash.ts";
+export type { TicketCreateInput } from "./ticket-routes.ts";
+export type { TicketMakeReadyInput } from "./ticket-routes.ts";
 export {
   getTicket,
   TICKET_OPEN_EVENTS,

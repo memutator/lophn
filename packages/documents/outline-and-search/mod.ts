@@ -1,0 +1,75 @@
+// documents/outline-and-search: outline·search 읽기, derived store, search consumer.
+// 밖으로 내보내는 것만. 다른 모듈은 이것만 import한다.
+export { outlineAndSearchSchemaSteps } from "./schema.ts";
+export {
+  codepoints,
+  decodeSearchCursor,
+  encodeSearchCursor,
+  escapeLike,
+  estimatedTokens,
+  ftsMatchQuery,
+  ftsTerms,
+  likePattern,
+  lineCount,
+  lineOffsets,
+  matchCodepointRange,
+  matchingLines,
+  needsLikeFallback,
+  PREAMBLE_EXCERPT_CODEPOINTS,
+  preambleExcerpt,
+  QUERY_CODEPOINT_MIN,
+  searchBasis,
+  type SearchPageBasis,
+  SNIPPET_ELLIPSIS,
+  SNIPPET_TOKENS,
+  trimmedQuery,
+} from "./model.ts";
+export {
+  applySchema,
+  configureDerived,
+  DERIVED_REBUILD_DB,
+  DERIVED_SEARCH_DB,
+  type DerivedOpen,
+  derivedPath,
+  type DerivedRead,
+  type DerivedSql,
+  type DerivedStore,
+  type DerivedStoreWrite,
+  type DerivedTx,
+  openDerived,
+  openDerivedRead,
+  rebuildPath,
+} from "./adapters/store.ts";
+export {
+  allOmissions,
+  applySearchEvent,
+  COALESCE_MS,
+  type ConsumerEvent,
+  type ConsumerEventBatch,
+  coverageOf,
+  type EventScanLike,
+  OMISSION_FAILED,
+  OMISSION_UNSUPPORTED,
+  OMISSION_UNVERIFIED,
+  type SearchConsumerDeps,
+  type SearchCoverage,
+  startRebuild,
+} from "./work.ts";
+export { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
+export {
+  createSearchHandlers,
+  excerptOf,
+  type IndexDocument,
+  type SearchHandlerDeps,
+  type SearchHandlers,
+  type SearchQueryInput,
+  type SearchQueryPage,
+  type SearchStatusInput,
+  type SearchStatusPage,
+} from "./reads.ts";
+export { allowCandidate, candidateDocuments } from "./candidates.ts";
+export {
+  type ExtractionRecord as ExtractionEntry,
+  rebuildTarget,
+  recordExtraction,
+} from "./extraction.ts";

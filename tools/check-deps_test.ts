@@ -273,6 +273,23 @@ test("testing 내부 helper도 외부 제품에서는 거절", {
     'import "../../../apps/core/testing/ledger.ts";',
 }, ["testing", "testing"]);
 
+test("leaf testing fixture 통과: 다른 leaf의 *_test.ts가 testing/mod.ts", {
+  "packages/documents/versions/mod.ts": "export const a = 1;",
+  "packages/documents/versions/testing/mod.ts": 'import "../mod.ts";',
+  "packages/documents/addressing/mod.ts": "export const b = 1;",
+  "packages/documents/addressing/reads_test.ts":
+    'import "../versions/testing/mod.ts";',
+}, []);
+test("leaf testing fixture 거절: 제품 코드·mod.ts 재노출·mod.ts 아닌 파일", {
+  "packages/documents/versions/mod.ts": 'export * from "./testing/mod.ts";',
+  "packages/documents/versions/store.ts": 'import "./testing/mod.ts";',
+  "packages/documents/versions/testing/mod.ts": "export const a = 1;",
+  "packages/documents/versions/testing/extra.ts": "export const c = 1;",
+  "packages/documents/addressing/mod.ts": "export const b = 1;",
+  "packages/documents/addressing/reads_test.ts":
+    'import "../versions/testing/extra.ts";',
+}, ["testing", "testing", "leaf"]);
+
 // 규칙 7
 for (
   const name of [

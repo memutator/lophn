@@ -244,6 +244,14 @@ export function createUsageReads(): {
     usage: {
       route: agentUsageRead,
       handle(snapshot, _ctx, input) {
+        // role은 model_calls 행에 기록이 없다. 지원하지 않는다는 의사를
+        // invalid_input으로 남긴다(module_calls에 role 열이 생길 때 다시 본다).
+        if (input.role !== undefined) {
+          return err({
+            code: "invalid_input",
+            message: "role filter is not supported on model call records yet",
+          });
+        }
         const clauses: string[] = [
           "started_at >= ?",
           "started_at < ?",
@@ -294,7 +302,8 @@ export function createUsageReads(): {
           group: {
             run: input.run ?? null,
             session: input.session ?? null,
-            role: input.role ?? null,
+            // role filter는 위에서 되돌렸다. group 기록도 모름이다.
+            role: null,
             model: input.model ?? null,
             credential_key: input.credential_key ?? null,
             from_at: input.from_at,

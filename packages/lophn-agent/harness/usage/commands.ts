@@ -256,11 +256,13 @@ export function createUsageCommands(): {
     },
     supplement: {
       route: supplementModelCall,
-      handle(tx, ctx, input: Input<typeof supplementModelCall>) {
+      handle(tx, ctx, input: Input<typeof supplementModelCall>, compare) {
         const trusted = requireMachine(ctx);
         if (!trusted.ok) return trusted;
         const current = loadCall(tx, input.call);
         if (!current.ok) return current;
+        const same = checkRevision(current.value, compare);
+        if (!same.ok) return same;
         // 보완은 finished call에서만 통과한다(domain model).
         if (current.value.state !== "finished") {
           return conflict("supplement needs a finished call");

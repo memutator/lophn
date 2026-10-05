@@ -90,7 +90,7 @@ export function notificationsEngine(
         limit: batch,
       });
       if (!read.ok) return read;
-      let scanned = read.value.scanned_through_seq;
+      let scanned = saved;
       for (const event of read.value.events) {
         if (closed) break;
         const through = event.seq;
@@ -130,6 +130,7 @@ export function notificationsEngine(
           });
           if (!advanced.ok) return advanced;
         }
+        // cursor는 command마다 하나씩 움직인다. compare는 기록된 cursor다(architecture 5.10).
         scanned = through;
       }
       position = scanned;

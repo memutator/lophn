@@ -230,8 +230,15 @@ export async function checkRepo(root: string): Promise<Violation[]> {
             );
           } else {
             const targetLeaf = leaf(target, members, allFiles);
+            // *_test.ts는 다른 leaf의 testing/mod.ts(테스트 전용 fixture)도 import할 수 있다.
+            const fixture = test && targetLeaf !== undefined &&
+              target === `${targetLeaf}/testing/mod.ts`;
+            const extractFile = file ===
+                "packages/apps/releases/prepare/flow.ts" &&
+              target === "packages/apps/blueprint/extract.ts";
             if (
-              targetLeaf !== sourceLeaf &&
+              !extractFile &&
+              targetLeaf !== sourceLeaf && !fixture &&
               (!targetLeaf || target !== `${targetLeaf}/mod.ts`)
             ) {
               add(
@@ -253,6 +260,19 @@ export async function checkRepo(root: string): Promise<Violation[]> {
           line,
           "shell",
           `shell은 contracts·design·sdk만 import: ${specifier}`,
+        );
+      }
+      // leaf의 testing/ fixture는 제품 코드가 import하지 않는다(core module graph에 테스트 SQLite가 들어가지 않게).
+      if (
+        !test && target && /^packages\/[^/]+\/.+\/testing\//.test(target) &&
+        directory(target) !== directory(file) &&
+        !inside(file, directory(target))
+      ) {
+        add(
+          file,
+          line,
+          "testing",
+          `leaf의 testing/은 *_test.ts에서만 import: ${specifier}`,
         );
       }
       if (

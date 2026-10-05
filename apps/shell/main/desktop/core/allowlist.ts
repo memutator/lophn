@@ -5,9 +5,12 @@ import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
 
 // 문서 읽기 화면(shell/editor)이 쓰는 worker route. outline과 본문은 core read queue를
 // 막지 않으려고 worker에서 조립할 뿐 읽기다. 쓰기·준비·파일 통로 worker는 넣지 않는다.
+// lophn 공간 documents 화면(shell#T19)의 검색과 saved view 열기도 같은 이유의 읽기다.
 export const READING_WORKER_ROUTES: readonly string[] = [
   "worker:outline/document",
   "worker:documents/read",
+  "worker:search/query",
+  "worker:views/open",
 ];
 
 /** allowlist는 이름만 기억한다. schema 검사는 client가 route 원본으로 한다. */

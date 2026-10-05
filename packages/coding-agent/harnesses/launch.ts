@@ -3,6 +3,7 @@
 // 해석해 인자로 준다(architecture/coding-agent 2.2). argv는 분리된 배열이고
 // shell 문자열로 합치지 않는다. env에는 connection 참조와 toolsets 같은 안전
 // 이름만 있고 token 원문은 어디에도 없다(R12, connection#R17).
+import { MCP_ENTRY } from "../mcp-server/mod.ts";
 import type { JsonValue } from "./adapters/json.ts";
 import type { McpShape } from "./model.ts";
 
@@ -47,7 +48,7 @@ export function launchOf(input: LaunchInputs): McpLaunch {
       `--allow-read=${read.join(",")}`,
       "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR",
       `--allow-net=${net.join(",")}`,
-      `${input.resources}/packages/coding-agent/mcp/main.ts`,
+      `${input.resources}/${MCP_ENTRY}`,
       "--connection",
       input.connection,
       "--toolsets",

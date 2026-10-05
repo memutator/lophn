@@ -4,6 +4,7 @@ import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import {
+  createLedgerRegistration as createProblemsRegistration,
   problemsReportDefinitions,
   problemsTestDefinitions,
 } from "./problems.ts";
@@ -15,6 +16,7 @@ const TEAMS = [
   { createLedgerRegistration: createAppsRegistration },
   { problemsTestDefinitions },
   { problemsReportDefinitions },
+  { createLedgerRegistration: createProblemsRegistration },
   { codingAgentConnectionDefinitions },
   { lophnAgentDefinitions },
   { ticketDefinitions },

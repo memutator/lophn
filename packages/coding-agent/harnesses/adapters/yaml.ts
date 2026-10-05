@@ -1,12 +1,12 @@
 // YAML 설정 merge다(coding-agent/harnesses#R8, T29·T30). lophn이 쓰는 설정은
-// 들여쓰기 map과 scalar뿐이라(Hermes `mcp_servers.lophn`의 command·args·env,
-// 조사 9.1) 그 부분집합만 읽는다. 쓰기는 lophn이 쓴 뒤 원문을 바꿀 일이 없다
+// 들여쓰기 map, scalar, scalar 목록(`args`의 block sequence)뿐이라(Hermes
+// `mcp_servers.lophn`의 command·args·env, 조사 9.1) 그 부분집합만 읽는다. 쓰기는 lophn이 쓴 뒤 원문을 바꿀 일이 없다
 // (조사 9.7). 소유 블록만 텍스트 패치로 고치고 주석·빈 줄·다른 key는 그대로
 // 둔다(T30). anchor·tag·flow 표기·여러 줄 문자는 쓰지 않으므로 만나면 깨진
 // 설정으로 보고 무변경이다(조사 9.2). 의존성을 더하지 않는다(stack).
 import { err, ok, type Result } from "../../../base/mod.ts";
 
-export type YamlValue = string | YamlMap;
+export type YamlValue = string | string[] | YamlMap;
 
 export type YamlMap = { [key: string]: YamlValue };
 
@@ -17,7 +17,12 @@ export type SetOutcome =
   | { kind: "changed"; text: string }
   | ParseFailure;
 
-type Line = { indent: number; key: string; value: string | null };
+type Line = {
+  indent: number;
+  key: string;
+  value: string | null;
+  item: boolean;
+};
 
 const UNSUPPORTED = /[&*!|>%@`[\]]/;
 
@@ -27,6 +32,17 @@ function segmentsOf(key: string): string[] | null {
   return segments;
 }
 
+function isQuoted(value: string): boolean {
+  return value.length >= 2 && value.startsWith('"') && value.endsWith('"');
+}
+
+// 따옴표 scalar는 quote()가 쓴 모양이라 특수 문자를 허용한다.
+function scalarOf(rest: string): string | null {
+  if (isQuoted(rest)) return unquote(rest);
+  if (UNSUPPORTED.test(rest) || rest.startsWith("{")) return null;
+  return rest;
+}
+
 function linesOf(text: string): Result<Line[], ParseFailure> {
   const lines: Line[] = [];
   for (const raw of text.split("\n")) {
@@ -34,70 +50,100 @@ function linesOf(text: string): Result<Line[], ParseFailure> {
     const indent = raw.match(/^ */)?.[0].length ?? 0;
     if (indent % 2 !== 0) return err({ kind: "broken" });
     const body = raw.slice(indent);
-    // 다른 key의 목록 줄(`- item`)은 lophn 조간 모양이 아니므로 넘어간다.
-    // 사람 파일 전체를 읽어야 하므로 깨진 설정으로 보지 않는다(T30).
-    if (body.startsWith("- ")) continue;
+    if (body === "-" || body.startsWith("- ")) {
+      const rest = body.slice(1).trim();
+      const value = rest === "" ? null : scalarOf(rest);
+      // 목록 항목은 scalar뿐이다. `- a: b` 같은 map 항목은 쓰지 않으므로
+      // 깨진 설정이다. key 없이 떠 있는 `- x`는 fold에서 깨진 설정이다.
+      if (value === null || (!isQuoted(rest) && /:(\s|$)/.test(rest))) {
+        return err({ kind: "broken" });
+      }
+      lines.push({ indent, key: "", value, item: true });
+      continue;
+    }
     const colon = body.indexOf(":");
     if (colon <= 0) return err({ kind: "broken" });
     const key = body.slice(0, colon);
     if (!/^[A-Za-z0-9_-]+$/.test(key)) return err({ kind: "broken" });
     const rest = body.slice(colon + 1).trim();
-    if (rest === "") lines.push({ indent, key, value: null });
-    else if (UNSUPPORTED.test(rest) || rest.startsWith("{")) {
-      return err({ kind: "broken" });
-    } else lines.push({ indent, key, value: unquote(rest) });
+    if (rest === "") lines.push({ indent, key, value: null, item: false });
+    else {
+      const value = scalarOf(rest);
+      if (value === null) return err({ kind: "broken" });
+      lines.push({ indent, key, value, item: false });
+    }
   }
   return ok(lines);
 }
 
 function unquote(value: string): string {
-  if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
-    return value.slice(1, -1);
+  if (isQuoted(value)) {
+    return value.slice(1, -1).replace(/\\(["\\])/g, "$1");
   }
   return value;
 }
 
 function quote(value: string): string {
-  if (/^[A-Za-z0-9_./:-]+$/.test(value)) return value;
+  if (/^[A-Za-z0-9_./:-]+$/.test(value) && !value.startsWith("-")) {
+    return value;
+  }
   return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
 
 // 들여쓰기 줄을 중첩 map으로 접는다. 같은 깊이에서 key가 겹치면 깨진 것이다.
+// key 아래 목록은 key와 같거나 2칸 깊은 들여쓰기의 `- ` 항목이다.
 function fold(
   lines: Line[],
   at: number,
   indent: number,
-): Result<YamlMap, ParseFailure> {
+): Result<{ map: YamlMap; next: number }, ParseFailure> {
   const map: YamlMap = {};
   let index = at;
   while (index < lines.length) {
     const line = lines[index];
     if (line.indent < indent) break;
-    if (line.indent > indent) return err({ kind: "broken" });
+    if (line.indent > indent || line.item) return err({ kind: "broken" });
     if (line.key in map) return err({ kind: "broken" });
     if (line.value !== null) {
       map[line.key] = line.value;
       index += 1;
-    } else {
-      const nested = fold(lines, index + 1, indent + 2);
-      if (!nested.ok) return nested;
-      map[line.key] = nested.value;
-      index = skip(lines, index + 1, indent + 2);
+      continue;
     }
+    const following = lines[index + 1];
+    if (following?.item && following.indent >= indent) {
+      if (following.indent !== indent && following.indent !== indent + 2) {
+        return err({ kind: "broken" });
+      }
+      const items: string[] = [];
+      let cursor = index + 1;
+      while (
+        cursor < lines.length && lines[cursor].item &&
+        lines[cursor].indent === following.indent
+      ) {
+        items.push(lines[cursor].value ?? "");
+        cursor += 1;
+      }
+      map[line.key] = items;
+      index = cursor;
+      continue;
+    }
+    const nested = fold(lines, index + 1, indent + 2);
+    if (!nested.ok) return nested;
+    map[line.key] = nested.value.map;
+    index = nested.value.next;
   }
-  return ok(map);
-}
-
-function skip(lines: Line[], at: number, indent: number): number {
-  let index = at;
-  while (index < lines.length && lines[index].indent >= indent) index += 1;
-  return index;
+  return ok({ map, next: index });
 }
 
 export function parseYaml(text: string): Result<YamlMap, ParseFailure> {
+  // 주석과 빈 줄만 있거나 `{}` 한 줄뿐인 문서는 빈 map이다.
+  if (emptyMapBody(text.split("\n")) !== null) return ok({});
   const lines = linesOf(text);
   if (!lines.ok) return lines;
-  return fold(lines.value, 0, 0);
+  const folded = fold(lines.value, 0, 0);
+  if (!folded.ok) return folded;
+  if (folded.value.next < lines.value.length) return err({ kind: "broken" });
+  return ok(folded.value.map);
 }
 
 function emit(map: YamlMap, indent: number): string[] {
@@ -105,7 +151,10 @@ function emit(map: YamlMap, indent: number): string[] {
   const out: string[] = [];
   for (const [key, value] of Object.entries(map)) {
     if (typeof value === "string") out.push(`${pad}${key}: ${quote(value)}`);
-    else {
+    else if (Array.isArray(value)) {
+      out.push(`${pad}${key}:`);
+      for (const item of value) out.push(`${pad}  - ${quote(item)}`);
+    } else {
       out.push(`${pad}${key}:`);
       out.push(...emit(value, indent + 2));
     }
@@ -118,7 +167,7 @@ function at(document: YamlMap, key: string): YamlValue | undefined {
   if (segments === null) return undefined;
   let cursor: YamlValue = document;
   for (const segment of segments) {
-    if (typeof cursor === "string") return undefined;
+    if (typeof cursor === "string" || Array.isArray(cursor)) return undefined;
     const next: YamlValue | undefined = cursor[segment];
     if (next === undefined) return undefined;
     cursor = next;
@@ -202,32 +251,45 @@ function findOwnedRange(
   return { start: leaf, end: blockEnd(lines, leaf) };
 }
 
-// 없는 소유 블록을 더한다(T30). 있는 가장 깊은 상위 조각 몸 끝의 childIndent에
-// 더한다. 상위가 하나도 없으면 파일 끝 top-level에 더한다.
+// 없는 소유 블록을 더한다(T30). 있는 가장 깊은 상위 조각 몸 끝에 더하고, 없는
+// 상위 조각은 그 아래로 한 칸(2칸)씩 들여 새로 만든다. 상위가 하나도 없으면
+// 파일 끝 top-level에서 시작한다. 상위 key가 map이 아니면(값이 한 줄에 있다)
+// 안전하게 더할 수 없어 null이다.
 function insertNewBlock(
   lines: readonly string[],
   segments: readonly string[],
   replacement: readonly string[],
-): string[] {
-  let anchor: number | null = null;
+): string[] | null {
+  let from = 0;
+  let to = lines.length;
   let indent = 0;
-  for (let depth = 0; depth < segments.length - 1; depth++) {
-    const found = findSegment(lines, 0, lines.length, indent, segments[depth]);
+  let depth = 0;
+  let at = lines.length;
+  while (depth < segments.length - 1) {
+    const found = findSegment(lines, from, to, indent, segments[depth]);
     if (found === null) break;
-    anchor = found;
+    if (!lines[found].trimEnd().endsWith(":")) return null;
+    const end = blockEnd(lines, found);
+    from = found + 1;
+    to = end;
+    at = end;
+    indent += 2;
+    depth += 1;
+  }
+  const added: string[] = [];
+  for (const segment of segments.slice(depth, segments.length - 1)) {
+    added.push(`${" ".repeat(indent)}${segment}:`);
     indent += 2;
   }
-  if (anchor === null) {
-    // 상위가 하나도 없다. 파일 끝에 빈 줄 한 개 뒤 top-level로 더한다.
-    const last = lines.length > 0 && lines[lines.length - 1].trim() === ""
-      ? lines.length - 1
-      : lines.length;
-    return [...lines.slice(0, last), "", ...replacement, ...lines.slice(last)];
-  }
-  const at = blockEnd(lines, anchor);
   const pad = " ".repeat(indent);
-  const shifted = replacement.map((line) => `${pad}${line}`);
-  return [...lines.slice(0, at), ...shifted, ...lines.slice(at)];
+  added.push(...replacement.map((line) => `${pad}${line}`));
+  if (depth > 0) return [...lines.slice(0, at), ...added, ...lines.slice(at)];
+  // 상위가 하나도 없다. 비어 있지 않은 파일이면 끝의 빈 줄 앞에서 빈 줄 한
+  // 개를 두고 더한다.
+  let last = lines.length;
+  while (last > 0 && lines[last - 1].trim() === "") last -= 1;
+  const separator = last > 0 ? [""] : [];
+  return [...lines.slice(0, last), ...separator, ...added];
 }
 
 // 소유 블록의 몸이 끝나는 줄이다. 같은 depth 이상의 줄이 끝날 때까지다.
@@ -242,6 +304,12 @@ function blockEnd(lines: readonly string[], start: number): number {
       continue;
     }
     const indent = line.match(/^ */)?.[0].length ?? 0;
+    // key와 같은 들여쓰기의 `- ` 항목은 그 key의 목록이라 블록 몸이다.
+    const body = line.slice(indent);
+    if (indent === startIndent && (body === "-" || body.startsWith("- "))) {
+      index += 1;
+      continue;
+    }
     if (indent <= startIndent) break;
     index += 1;
   }
@@ -258,23 +326,37 @@ function rendered(lines: readonly string[]): string {
   return `${lines.join("\n")}\n`;
 }
 
+// 비어 있는 설정이다. 주석과 빈 줄만 있거나 그 밖에 `{}` 한 줄만 있는
+// 문서는 빈 map이다. `{}` 줄은 지우고 주석은 그대로 둔다.
+function emptyMapBody(lines: readonly string[]): string[] | null {
+  const rest = lines.filter((line) =>
+    line.trim() !== "" && !line.trimStart().startsWith("#")
+  );
+  if (rest.length === 0) return [...lines];
+  if (rest.length === 1 && rest[0].trim() === "{}") {
+    return lines.filter((line) => line !== rest[0]);
+  }
+  return null;
+}
+
 // 소유 key만 넣는다(R8). 같은 값이면 파일을 바꾸지 않는다. 다른 key의
-// 바이트는 하나도 가리지 않는다(T30). 빈 문서·`{}` 한 줄도 새 블록의 base다.
+// 바이트는 하나도 가리지 않는다(T30). 빈 문서·`{}` 한 줄도 빈 map이라 새 블록의
+// base다. 없는 상위 key는 알맞은 들여쓰기로 만든다.
 export function setOwned(
   text: string,
   key: string,
   value: YamlMap,
 ): SetOutcome {
-  const trimmed = text.trim();
-  const empty = trimmed === "" || trimmed === "{}";
-  if (!empty) {
+  const lines = text.split("\n");
+  const trailing = lines.length > 0 && lines[lines.length - 1] === "";
+  const split = trailing ? lines.slice(0, -1) : [...lines];
+  const blank = emptyMapBody(split);
+  if (blank === null) {
     const parsed = parseYaml(text);
     if (!parsed.ok) return parsed.error;
     if (same(at(parsed.value, key), value)) return { kind: "unchanged" };
   }
-  const lines = text.split("\n");
-  const trailing = lines.length > 0 && lines[lines.length - 1] === "";
-  const body = trailing ? lines.slice(0, -1) : [...lines];
+  const body = blank ?? split;
   const segments = segmentsOf(key);
   if (segments === null) return { kind: "broken" };
   // 패치 행은 소유 최하위 조각의 블록이다(T29). 상위 조각은 보존 대상이라
@@ -295,8 +377,9 @@ export function setOwned(
     return { kind: "changed", text: rendered(patched) };
   }
   // 소유 블록이 없으면 상위 블록 몸 끝에 더한다(T30). 상위 블록이 있으면
-  // 그 안의 childIndent에, 없으면 파일 끝 top-level에 더한다.
+  // 그 안의 childIndent에, 없는 상위는 만들어 더한다.
   const added = insertNewBlock(body, segments, replacement);
+  if (added === null) return { kind: "broken" };
   return { kind: "changed", text: rendered(added) };
 }
 
@@ -311,7 +394,9 @@ export function removeOwned(text: string, key: string): SetOutcome {
   for (const segment of segments.slice(0, -1)) {
     const next = cursor[segment];
     if (next === undefined) return { kind: "unchanged" };
-    if (typeof next === "string") return { kind: "broken" };
+    if (typeof next === "string" || Array.isArray(next)) {
+      return { kind: "broken" };
+    }
     cursor = next;
   }
   const leaf = segments[segments.length - 1];

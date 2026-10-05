@@ -352,6 +352,7 @@ concerns: [shell]
 - T16에서 넘어온 것: `e2e/shell/read-edit_test.ts`를 headless harness로 실제 실행하고, 제품 core가 settings route·`shell.reading_width`·outline/document·documents/read를 서빙하면 읽기 폭의 재시작 반영 확인을 더한다(#238, Q13)
 - shell#T16에서 넘어온 것: `apps/shell/renderer/editor/document-view.tsx`의 초안(`draft`)을 파일 통로로 보내고, 저장 상태 변경을 머리 메타 줄(상태 줄, editor#R11)에 보인다. 준비 결과의 `FormatDiagnostic`을 `problems-gutter/problems.ts`의 `editorProblems`로 바꿔 `DocumentView`의 `problems`에 넘긴다.
 - shell#T55에서 넘어온 것: 저장 중 변경 수를 끄기 확인(`apps/shell/main/desktop/quit.ts`의 `QuitWork.pendingSaves`, 지금 main은 0)에 잇는다(tray Quit 확인과 터미널 수는 #233)
+- shell#T19에서 넘어온 것: flow write-series 2·5단계의 새 멤버 쓰기. documents 화면(`apps/shell/renderer/desktop/lophn-space/series/series-detail.tsx`)은 이미 있는 같은 자리·format 문서에 key를 붙여 멤버로 더한다. 다음 key 제안으로 새 문서를 만들어 쓰는 길(편집기 저장과 `series.set_draft`·`clear_draft`의 draft 보존, 저장 상태와 판 확정 구별)은 파일 통로와 함께 잇는다.
 - 완료: 아래 확인이 통과한다
   - 저장 버튼 없이 고침을 main의 파일 adapter로 보낸다(target, base_hash, request_key, 바이트). main이 파일 통로를 부르고 renderer는 경로·port를 모른다.
   - 탭 닫기·파일 전환·읽기 전환·창 닫기·CommandOrControl+S는 마지막 변경을 flush하고 documents의 편집 종료에 잇는다. 유휴 종료는 documents 결과만 반영하고 shell에 timer를 두지 않는다.
@@ -380,6 +381,7 @@ concerns: [shell]
 
 ### T19 documents 화면: 검색, saved view, series
 
+- 상태: 완료 (#265) — 이어보냄: write-series의 새 멤버 쓰기(편집기 저장·series draft) → shell#T17. series 정렬은 key 순만 고른다(format 정렬 값 필드를 선언한 format이 아직 없다). Q14
 - 등급: frontend
 - concern: shell/desktop
 - 요구: shell/desktop#R1(문서 탐색이 기본), R28(lophn 공간 탐색)
@@ -1148,3 +1150,8 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
 - **Q12 터미널 열기의 제품 경로(정함).**
   - 상태: 완료 (#240)
   - 제품 core의 reader 등록(apps/core/documents.ts `createReaderRegistration`)에 project read를 더했다: shell main의 `read projects list`가 reader Worker에서 답하고 apps/core `documents/projects#R8` 테스트가 사람 token으로 만든 프로젝트의 등록 폴더 목록을 본다. terminal 폴더 read는 개발 시드 폴백을 빼고 documents#T7 read만 쓴다(LOPHN_DEV_SEED는 개발에 남는다). 제품 user token(apps/core/parent.ts)은 처음에 `platform/status`·`platform/health`만 있어 실제 창의 프로젝트 만들기가 ledger scope gate에서 `forbidden`이었다. 지금은 user token이 조립된 route 표에서 user actor를 허용하는 operation 전부를 발급 시점에 계산해 지니므로(platform/identity R4·R14) 창에서 `project.create`와 `projects/list`가 통한다. machine·app·worker 전용 operation은 빠지고, 확인 창 handle이 필요한 grant/reject는 그대로 handle이 있어야 하며 user token은 renderer에 가지 않고 사람이 직접 눌렀다는 증거도 아니다. 제품 core는 아직 settings route를 서빙하지 않는다(Q13). terminal host가 죽은 뒤에는 사람이 누른 열기·[Start again]만 supervisor가 새 host를 하나 띄우고 그 host에서 등록 폴더 터미널을 새로 연다(shell/terminal#R9). 자동 재시작·옛 입력 재생 금지는 그대로다(shell/terminal#R13).
+- **Q14 documents 화면의 series 말·보관 포함 검색·worker 읽기(T19, 추천안으로 진행).**
+  - (1) ui-ux 3절은 series를 "보이지 않음"으로 두었지만 shell#T19 완료와 flow write-series는 documents 화면에서 사람이 가족을 등록·보관하게 한다. 등록 화면에 이름이 필요해 documents 화면 안 탭과 등록 화면에만 **Series**를 쓰고 sidebar 목적지로는 두지 않는다(desktop R30·버린 것 그대로). ui-ux 3절 표의 series 줄을 이렇게 고쳤다. 사람이 다른 말을 정하면 wording key 값만 바꾼다.
+  - (2) 검색 index는 보관 문서를 넣지 않는다(outline-and-search#R17). "보관 포함"은 같은 조건의 보관 문서 목록(`documents/list` status archived)에서 제목이 맞는 것을 따로 보이고 그 마지막 판을 연다. 본문 일치는 보관 해제 뒤 index에 반영되어야 찾는다.
+  - (3) Q13과 같은 이유로 renderer allowlist에 `worker:search/query`·`worker:views/open` 두 읽기를 더 열었다. `search/status`·export·준비·파일 쓰기 worker는 막힌 채다.
+  - (4) headless 확인용으로 main이 `LOPHN_SHELL_START=lophn`이면 첫 창을 런처 대신 lophn 공간으로 연다(개발 전용, stack.md).

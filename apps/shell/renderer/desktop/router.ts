@@ -1,3 +1,5 @@
+import type { LophnScreen } from "./lophn-space/model.ts";
+
 // 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다(desktop#R24).
 export type Space = "launcher" | "lophn" | "project";
 
@@ -5,6 +7,8 @@ export interface Route {
   readonly space: Space;
   /** project 공간의 프로젝트 id. 다른 공간은 없다. */
   readonly project?: string;
+  /** lophn 공간의 형제. 없으면 documents다(desktop#R1). */
+  readonly screen?: LophnScreen;
 }
 
 export const LAUNCHER: Route = { space: "launcher" };
@@ -16,8 +20,8 @@ export function routeTitle(route: Route): string {
   return "lophn — lophn";
 }
 
-export function openLophn(): Route {
-  return { space: "lophn" };
+export function openLophn(screen?: LophnScreen): Route {
+  return screen === undefined ? { space: "lophn" } : { space: "lophn", screen };
 }
 
 /** 프로젝트 작업대로 이동한다. */

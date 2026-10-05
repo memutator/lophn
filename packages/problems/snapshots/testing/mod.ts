@@ -3,7 +3,13 @@
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { err, ok } from "../../../base/mod.ts";
-import type { SnapshotBlobPrepare } from "../mod.ts";
+import type {
+  AppLogFeed,
+  AppLogQuery,
+  AppLogSource,
+  SnapshotBlobPrepare,
+  SnapshotBlobReader,
+} from "../mod.ts";
 
 // 임시 준비 폴더. `apps/<app ID>/bundles/<bundle hash>/`에 고정 이름 파일을
 // 0444로 봉한다(releases/bundle/seal.ts와 같은 모양). 요구 번호로 시작하는
@@ -108,11 +114,17 @@ function walkFiles(root: string): string[] {
 export function realPrepare(): {
   prepare: SnapshotBlobPrepare["prepare"];
   calls: { principal: string; purpose: string; size_bytes: number }[];
-  fail: (message: string) => void;
+  fail: (message: string, code?: "unavailable" | "invalid_input") => void;
+  // 준비한 바이트를 hash로 보관한다. 읽기 통로의 blob store 역할이다.
+  stored: Map<string, Uint8Array>;
+  read: SnapshotBlobReader;
 } {
+  const stored = new Map<string, Uint8Array>();
   const calls: { principal: string; purpose: string; size_bytes: number }[] =
     [];
-  let failure: string | null = null;
+  let failure:
+    | { message: string; code: "unavailable" | "invalid_input" }
+    | null = null;
   const prepare: SnapshotBlobPrepare["prepare"] = async (input, bytes) => {
     calls.push({
       principal: input.principal,
@@ -120,7 +132,7 @@ export function realPrepare(): {
       size_bytes: -1,
     });
     if (failure !== null) {
-      return err({ code: "unavailable", message: failure });
+      return err({ code: failure.code, message: failure.message });
     }
     const chunks: Uint8Array[] = [];
     await bytes.pipeTo(
@@ -138,19 +150,70 @@ export function realPrepare(): {
       offset += chunk.length;
     }
     calls[calls.length - 1]!.size_bytes = total;
+    const hash = createHash("sha256").update(data).digest("hex");
+    stored.set(hash, data);
     return ok({
       preparation: `prep_${calls.length}`,
       principal: input.principal,
       purpose: input.purpose,
-      hash: createHash("sha256").update(data).digest("hex"),
+      hash,
       size_bytes: total,
     });
   };
   return {
     prepare,
     calls,
-    fail: (message) => {
-      failure = message;
+    fail: (message, code = "unavailable") => {
+      failure = { message, code };
+    },
+    stored,
+    read: (hash) => {
+      const bytes = stored.get(hash);
+      return Promise.resolve(
+        bytes === undefined
+          ? { status: "unavailable", reason: "pruned" }
+          : { status: "available", bytes },
+      );
+    },
+  };
+}
+
+// 앱 runtime log buffer처럼 줄을 모으고 비울 수 있는 source. 다른 최상위 구현을
+// import하지 않고 apps.logs contract의 모양만 따른다.
+export function memoryLogSource(): {
+  source: AppLogSource;
+  queries: AppLogQuery[];
+  add: (line: string, invocation?: string) => void;
+  clear: () => void;
+  respond: (override: AppLogSource | null) => void;
+} {
+  const queries: AppLogQuery[] = [];
+  let lines: { line: string; invocation: string | undefined }[] = [];
+  let override: AppLogSource | null = null;
+  return {
+    queries,
+    add: (line, invocation) => {
+      lines.push({ line, invocation });
+    },
+    clear: () => {
+      lines = [];
+    },
+    respond: (value) => {
+      override = value;
+    },
+    source: async (query) => {
+      queries.push(query);
+      if (override !== null) return await override(query);
+      const scoped = lines.filter((entry) =>
+        entry.invocation === query.invocation
+      ).map((entry) => entry.line);
+      const feed: AppLogFeed = {
+        state: "ok",
+        lines: scoped.slice(-query.limit),
+        collected_at: "2026-10-04T12:00:00.500Z",
+        truncated: scoped.length > query.limit,
+      };
+      return ok(feed);
     },
   };
 }

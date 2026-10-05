@@ -72,9 +72,13 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
       "lophn-agent.model.catalog_auto_update",
       "lophn-agent.extensions.skill_folders",
       "lophn-agent.extensions.mcp_servers",
+      "lophn-agent.run.model_attempts",
+      "lophn-agent.run.stall_ms",
+      "lophn-agent.run.active_ms",
       "coding-agent.harnesses.enabled",
       "coding-agent.default_harness",
       "coding-agent.harnesses.profile",
+      "problems.diagnostics.detail_collection",
     ]);
     const defaultsRevision = (definitions.body as { defaults_revision: string })
       .defaults_revision;
@@ -87,6 +91,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
           setMutation("coding-agent.harnesses.enabled", false),
           setMutation("coding-agent.default_harness", "codex"),
           setMutation("coding-agent.harnesses.profile", "work"),
+          setMutation("problems.diagnostics.detail_collection", false),
         ],
       },
       idempotency_key: "harness-apply-1",
@@ -108,6 +113,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
         "coding-agent.harnesses.enabled",
         "coding-agent.default_harness",
         "coding-agent.harnesses.profile",
+        "problems.diagnostics.detail_collection",
       ],
     );
 
@@ -118,6 +124,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
         "coding-agent.harnesses.enabled",
         "coding-agent.default_harness",
         "coding-agent.harnesses.profile",
+        "problems.diagnostics.detail_collection",
       ],
     }, token);
     assertEquals(got.status, 200, JSON.stringify(got.body));
@@ -132,6 +139,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
         ["coding-agent.harnesses.enabled", false],
         ["coding-agent.default_harness", "codex"],
         ["coding-agent.harnesses.profile", "work"],
+        ["problems.diagnostics.detail_collection", false],
       ],
     );
     assertEquals(settings.every((setting) => setting.resolved), true);
@@ -170,8 +178,52 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
         "coding-agent.harnesses.enabled",
         "coding-agent.default_harness",
         "coding-agent.harnesses.profile",
+        "problems.diagnostics.detail_collection",
       ],
     );
+  } finally {
+    await harness.close();
+  }
+});
+
+Deno.test("problems/snapshots#R7: 진단 상세 수집 설정은 기본 켜짐이고 끄기를 apply하면 그대로 읽힌다", async () => {
+  const opened = await createCoreHarness({ teams, teamModules: [] });
+  assert(opened.ok, opened.ok ? "" : opened.error.message);
+  const harness = opened.value;
+  const key = "problems.diagnostics.detail_collection";
+  try {
+    const issued = await harness.credential({
+      actor: "user",
+      principal: "user-1",
+      scope: { operations: [...OPERATIONS], targets: {} },
+      conditions: {},
+    });
+    assert(issued.ok, issued.ok ? "" : issued.error.message);
+    const token = issued.value.token;
+    const read = async () =>
+      (await post(harness, "settings/get", { keys: [key] }, token)).body as {
+        settings: { key: string; value: unknown }[];
+      };
+    assertEquals((await read()).settings[0]?.value, true);
+    const definitions = await post(harness, "settings/definitions", {}, token);
+    const defaultsRevision = (definitions.body as { defaults_revision: string })
+      .defaults_revision;
+    const applied = await post(harness, "settings/apply", {
+      input: { changes: [setMutation(key, false)] },
+      idempotency_key: "detail-collection-off",
+      compare: { revision: 0, defaults_revision: defaultsRevision },
+      prepared: [],
+    }, token);
+    assertEquals(applied.status, 200, JSON.stringify(applied.body));
+    assertEquals((await read()).settings[0]?.value, false);
+    // boolean이 아닌 값은 소유 concern의 schema가 거절한다.
+    const bad = await post(harness, "settings/apply", {
+      input: { changes: [setMutation(key, "no")] },
+      idempotency_key: "detail-collection-bad",
+      compare: { revision: 1, defaults_revision: defaultsRevision },
+      prepared: [],
+    }, token);
+    assertEquals(bad.status, 400, JSON.stringify(bad.body));
   } finally {
     await harness.close();
   }

@@ -8,6 +8,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   documentExport,
   documentRead,
+  outlineContext,
   outlineDocument,
   outlinePlace,
   outlineRoot,
@@ -41,6 +42,7 @@ import {
   listItems,
   loadContextRow,
 } from "../../packages/documents/contexts/store.ts";
+import { createContextOutlineSource } from "../../packages/documents/contexts/reads.ts";
 import { exportDocument } from "../../packages/documents/versions/reads.ts";
 import {
   internalRoute,
@@ -177,6 +179,7 @@ function outline(ready: Prepared) {
     snapshot: ready.search,
     ports: ready.snapshot,
     contexts: ready.contexts,
+    contextOutline: createContextOutlineSource(ready.snapshot.sql as never),
     redactor,
   });
 }
@@ -196,6 +199,10 @@ export function createReaderRegistration(): ReaderRegistration {
       worker(
         outlinePlace,
         (ready, ctx, input) => outline(ready).place(ctx, input as never),
+      ),
+      worker(
+        outlineContext,
+        (ready, ctx, input) => outline(ready).context(ctx, input as never),
       ),
       worker(
         outlineDocument,

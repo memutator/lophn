@@ -1000,12 +1000,16 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T32 doctor와 네 loading 관측
 
+- 상태: 완료 (#259) — 이어보냄: apps/cli의 doctor dispatch(실제 daemon·connection·credential port 조립) → T36
 - 등급: 기본
 - concern: coding-agent/harnesses, coding-agent/connection, coding-agent/cli
 - 요구: coding-agent/harnesses#R3, R10; coding-agent/connection#R13, R14;
   coding-agent/cli#R10
 - 자리: packages/coding-agent/harnesses/loading.ts,
-  packages/coding-agent/cli/commands/doctor.ts
+  packages/coding-agent/cli/commands/doctor.ts. 같은 PR이 harnesses/ 안에
+  mcp-probe.ts(설치 Deno로 lophn-mcp를 띄우는 눈), inspect.ts(component와
+  loading을 모은 관측), testing/(fixture·MCP 대역)와 catalog 제품별 `loading`
+  근거(model.ts `LoadingSpec`)를 더했다
 - 쓰는 contract: C-연결(connection 상태 read), platform 인증(credential 사용
   가능 여부)
 - 내놓는 contract: C-harness의 HarnessIntegrationObservation JSON
@@ -1142,6 +1146,13 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-connection-credential.md
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48,
   platform#T35, contracts#T24
+- T32에서 넘어온 것: `doctorOf`(cli/commands/doctor.ts)를 apps/cli 실행
+  entry에 잇는다. daemon 상태(DaemonPort.status)·connection 읽기·credential
+  사용 가능 여부(이 작업의 production provider)·`filePort`·`stdioMcpProbe`·
+  `storeOf` port를 조립하고 `denoExecutable`(설치된 절대 Deno)·`expectedTools`를
+  넣는다. (MCP entry 경로 불일치는 고쳤다: harnesses/launch.ts가 mcp-server의
+  `MCP_ENTRY`(`apps/mcp/main.ts`) 한 값을 쓴다. 첫 Hermes 설치가 만드는
+  config.yaml도 고쳤다)
 - 완료:
   - MCP·CLI 시작 때 connection 참조로 helper
     `lophn-credential`(contracts/coding-agent `CREDENTIAL_HELPER`)에

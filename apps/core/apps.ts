@@ -8,6 +8,8 @@ import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
 import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.ts";
+import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
+import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
 import { createSdkReads } from "../../packages/apps/sdk/reads.ts";
 import { sdkSchemaSteps } from "../../packages/apps/sdk/schema.ts";
@@ -43,6 +45,10 @@ export function createLedgerRegistration(
   const sdkReads = createSdkReads();
   // 기록은 command가 받은 tx의 sql에만 남긴다. DB 파일은 data worker가 연다.
   const data = createDataCommands((tx) => createDataRecordStore(tx));
+  // record_*는 supervisor의 machine 통보다. 관측 없는 Tx projection은
+  // 과거 event만으로 running이라 하지 않는다(R13).
+  const runtime = createRuntimeCommands();
+  const runtimeReads = createRuntimeReads();
   return {
     // place_names 표는 documents 등록의 몫이다(R6, R10).
     schemaSteps: [
@@ -59,6 +65,11 @@ export function createLedgerRegistration(
       invocations.recordStarted,
       invocations.recordFinished,
       invocations.recordDenied,
+      runtime.enableExecution,
+      runtime.disableExecution,
+      runtime.recordStarted,
+      runtime.recordStopped,
+      runtime.recordUnavailable,
       sdk.registerVersion,
       data.recordBackup,
       data.recordDataChange,
@@ -67,6 +78,8 @@ export function createLedgerRegistration(
     reads: [
       reads.list,
       reads.get,
+      runtimeReads.runtime,
+      runtimeReads.logs,
       invocationReads.list,
       invocationReads.get,
       sdkReads.list,
@@ -97,10 +110,13 @@ export function createReaderRegistration(): ReaderRegistration {
   const reads = createAppsReads();
   const invocations = createInvocationsReads();
   const sdkReads = createSdkReads();
+  const runtimeReads = createRuntimeReads();
   return {
     reads: [
       reads.list,
       reads.get,
+      runtimeReads.runtime,
+      runtimeReads.logs,
       invocations.list,
       invocations.get,
       sdkReads.list,

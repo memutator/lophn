@@ -1,6 +1,6 @@
 // `/v1/files/status` read(file-tracking#R9). FileStatus는 ledger 열이 아니다.
 // 조회 때 coordinator가 쥔 마지막 관측으로 계산한다. 관측이 없으면 추적 안 함이다.
-import { ok } from "../../base/mod.ts";
+import { ok, type Result } from "../../base/mod.ts";
 import type { FileTarget } from "../../contracts/documents/mod.ts";
 import { filesStatus } from "../../contracts/documents/mod.ts";
 import type {
@@ -17,9 +17,39 @@ export type StatusObservation = StatusInput & {
   details: string | null;
 };
 
+// 조회는 coordinator 메모리를 묻는다. coordinator가 없거나 답하지 않으면 err다:
+// 추적 안 함으로 꾸미지 않는다.
 export type StatusMemory = {
-  lookup(target: FileTarget): StatusObservation | undefined;
+  lookup(
+    target: FileTarget,
+  ):
+    | Result<StatusObservation | undefined>
+    | Promise<Result<StatusObservation | undefined>>;
 };
+
+// coordinator 프로세스가 쥔 마지막 관측. 같은 대상의 새 관측이 옛것을 대체한다.
+export type StatusRecorder = {
+  report(target: FileTarget, observation: StatusObservation): void;
+  get(target: FileTarget): StatusObservation | undefined;
+};
+
+// 대상의 정규 key. 필드 순서와 무관하다.
+export function statusKey(target: FileTarget): string {
+  const entries = Object.entries(target).sort(([left], [right]) =>
+    left < right ? -1 : left > right ? 1 : 0
+  );
+  return JSON.stringify(entries);
+}
+
+export function createStatusRecorder(): StatusRecorder {
+  const memory = new Map<string, StatusObservation>();
+  return {
+    report(target, observation) {
+      memory.set(statusKey(target), observation);
+    },
+    get: (target) => memory.get(statusKey(target)),
+  };
+}
 
 const UNTRACKED_AT = "1970-01-01T00:00:00.000Z";
 
@@ -28,8 +58,10 @@ export function fileStatusRead(
 ): ApiReadDefinition<typeof filesStatus> {
   return {
     route: filesStatus,
-    handle(ctx: RequestContext, input) {
-      const found = memory.lookup(input.target);
+    async handle(_ctx: RequestContext, input) {
+      const looked = await memory.lookup(input.target);
+      if (!looked.ok) return looked;
+      const found = looked.value;
       if (found === undefined) {
         return ok({
           status: {
@@ -45,7 +77,6 @@ export function fileStatusRead(
           next_cursor: null,
         });
       }
-      void ctx;
       return ok({
         status: {
           state: fileStatusOf(found),

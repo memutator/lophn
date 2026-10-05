@@ -12,7 +12,10 @@ import type { DerivedRead } from "./adapters/store.ts";
 import { candidateDocuments } from "./candidates.ts";
 import {
   codepoints,
+  decodeSearchCursor,
+  encodeSearchCursor,
   preambleExcerpt,
+  searchBasis,
   SNIPPET_TOKENS,
   trimmedQuery,
 } from "./model.ts";
@@ -61,7 +64,8 @@ export type SearchQueryPage = {
   results: SearchResult[];
   coverage: SearchCoverage;
   as_of_seq: string;
-  next_cursor: null;
+  next_cursor: string | null;
+  complete: boolean;
 };
 
 export type SearchStatusPage = {
@@ -69,6 +73,7 @@ export type SearchStatusPage = {
   coverage: SearchCoverage;
   as_of_seq: string;
   next_cursor: null;
+  complete: boolean;
 };
 
 export type IndexDocument = {
@@ -116,16 +121,23 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
           coverage,
           as_of_seq: deps.snapshot.as_of_seq,
           next_cursor: null,
+          complete: true,
         });
       }
       const limit = input.limit ?? DEFAULT_LIMIT;
+      // cursor는 질의·필터·색인 반영 위치·자격에 묶인다. 다르면 invalid_input·conflict다.
+      const basis = searchBasis(ctx, input.query, input, coverage);
+      const offset = input.cursor === undefined
+        ? ok(0)
+        : decodeSearchCursor(input.cursor, basis);
+      if (!offset.ok) return offset;
       const results = matchDocuments(
         deps,
         ctx,
         candidates,
         input,
         coverage.ledger_basis_seq,
-        limit,
+        Number.MAX_SAFE_INTEGER,
       );
       // 가용 요약·주제 cache의 결과를 합친다. 같은 LIKE 규약으로 현재 허용
       // 대상에 한해 비교한다. 아니오 모두 원문 일치에 흡수되지 않는다.
@@ -152,12 +164,17 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
           cacheResults.push(result);
         }
       }
-      const merged = [...results, ...cacheResults].slice(0, limit);
+      const all = [...results, ...cacheResults];
+      const merged = all.slice(offset.value, offset.value + limit);
+      const complete = offset.value + limit >= all.length;
       return ok({
         results: merged,
         coverage,
         as_of_seq: deps.snapshot.as_of_seq,
-        next_cursor: null,
+        next_cursor: complete
+          ? null
+          : encodeSearchCursor(basis, offset.value + limit),
+        complete,
       });
     },
     status(ctx, input) {
@@ -184,6 +201,7 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
         coverage,
         as_of_seq: deps.snapshot.as_of_seq,
         next_cursor: null,
+        complete: true,
       });
     },
   };
@@ -370,8 +388,6 @@ function buildResult(
 ): SearchResult | undefined {
   const format = formatRef(deps.snapshot, version);
   if (format === null) return undefined;
-  const number = versionNumber(deps.snapshot, version);
-  if (number === null) return undefined;
   const title = String(row["title"]);
   const body = String(row["body"]);
   const ranges = lineRanges(body, query);
@@ -387,12 +403,8 @@ function buildResult(
     module_hash: format.module_hash,
     section,
     ranges,
-    reference: {
-      place: document,
-      document,
-      section,
-      version: number,
-    },
+    // 고정 판 참조는 문서 ID와 판 ID다. 자리·이름 주소로 바꾸지 않는다.
+    reference: { document, section, version },
     title,
     snippet: snippetText(body, query),
     score: scoreText(title, body, query),
@@ -419,22 +431,6 @@ function formatRef(
     module_hash: hash,
     explicit: explicit === 1 || explicit === BigInt(1),
   };
-}
-
-function versionNumber(
-  snapshot: SearchSnapshot,
-  version: string,
-): number | null {
-  const row = snapshot.sql.get(`SELECT number FROM versions WHERE id = ?`, [
-    version,
-  ]);
-  if (row === undefined) return null;
-  const value = row["number"];
-  return typeof value === "bigint"
-    ? Number(value)
-    : typeof value === "number"
-    ? value
-    : null;
 }
 
 // 일치 줄을 1-based inclusive range로 묶는다. 검색 판 본문의 근거다(R12).
@@ -699,6 +695,7 @@ export type OutlineDocumentPage = {
 };
 
 export type DocumentReadPage = {
+  file: ContentFileReference | null;
   document: string;
   version: string;
   latest_version: string;
@@ -1219,7 +1216,22 @@ function parseRanges(
   }
 }
 
+// subtree_range는 범위 하나(JSON 객체)로 저장된다. 배열 모양도 받는다.
 function parseOne(value: unknown): { start_line: number; end_line: number } {
+  if (typeof value === "string") {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (
+        parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ) {
+        const range = parsed as { start_line?: unknown; end_line?: unknown };
+        return {
+          start_line: numberCell(range.start_line),
+          end_line: numberCell(range.end_line),
+        };
+      }
+    } catch { /* 아래 기본 범위 */ }
+  }
   return parseRanges(value)[0] ?? { start_line: 1, end_line: lineCount("") };
 }
 
@@ -1233,11 +1245,26 @@ function numberCell(value: unknown): number {
 
 // 본문 읽기. section·자식 포함·줄 범위 선택, 12,000 codepoint 예산, 이어 읽기.
 // outline 뒤 새 판이 저장돼도 같은 cursor는 처음 판을 유지한다(R8).
+// 원문 파일 참조는 모든 답에 싣는다: 계약은 unverified·unsupported 판에 그 참조를
+// 요구하고, 호출자가 documents/file로 원문을 열게 한다.
 function readDocumentBody(
   deps: OutlineHandlerDeps,
   ctx: RequestContext,
   input: DocumentReadInput,
 ): Result<DocumentReadPage> {
+  const page = readSelectedBody(deps, ctx, input);
+  if (!page.ok) return page;
+  return ok({
+    ...page.value,
+    file: primaryFile(deps.snapshot, page.value.version),
+  });
+}
+
+function readSelectedBody(
+  deps: OutlineHandlerDeps,
+  ctx: RequestContext,
+  input: DocumentReadInput,
+): Result<Omit<DocumentReadPage, "file">> {
   const reference = input.reference;
   const document = typeof reference.document === "string"
     ? reference.document

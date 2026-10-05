@@ -112,7 +112,12 @@ function taken<T>(seen: Set<string>, key: string, value: T): Result<T> {
 }
 
 // 팀 모듈을 한 목록으로 모은다. 같은 schema id·command 이름·read 경로·worker kind는 거절한다.
-export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
+// environment는 core가 기동 때 만든 port 묶음이다. 팀 등록이 읽고 싶은 것만 읽는다
+// (문서 FileStatus 메모리처럼 core 프로세스 안에서만 닿는 것).
+export function assemble(
+  modules: readonly TeamModule[],
+  environment: unknown = {},
+): Result<Assembled> {
   const assembled: Assembled = {
     schemaSteps: [],
     commands: [],
@@ -131,7 +136,7 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
   for (const team of modules) {
     const direct = team.createCoreRegistration?.();
     const fromLedger = team.createLedgerRegistration
-      ? asLoose(team.createLedgerRegistration({} as never))
+      ? asLoose(team.createLedgerRegistration(environment as never))
       : undefined;
     const fromProblems = asLoose(team.problemsTestDefinitions);
     const fromProblemsReport = asLoose(team.problemsReportDefinitions);

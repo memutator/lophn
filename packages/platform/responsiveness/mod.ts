@@ -6,6 +6,14 @@ export {
   startChild,
 } from "./child.ts";
 export {
+  BLOB_PREPARE_CLIENT_TIMEOUT_MS,
+  type BlobPrepareClient,
+  type BlobPrepareClientOptions,
+  type BlobPrepareInput,
+  type BlobPrepareLink,
+  createBlobPrepareClient,
+} from "./blob-client.ts";
+export {
   type ByteReader,
   type ByteWriter,
   createFrameWriter,

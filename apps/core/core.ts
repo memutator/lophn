@@ -7,6 +7,8 @@ import type {
   ChildMessage,
   Frame,
   KindLaunchSpec,
+  ParentMessage,
+  RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import { ROUTES } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -45,8 +47,26 @@ import {
   retentionRules,
 } from "../../packages/platform/blob-store/mod.ts";
 import type { BlobFieldDefinition } from "../../packages/contracts/platform/mod.ts";
+import {
+  type ChildBlobPrepare,
+  createChildBlobPrepare,
+} from "./child-blob-prepare.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
-import { documentPrepareRoute, relaySink } from "./documents-prepare.ts";
+import {
+  type BaseVersionFor,
+  documentPrepareRoute,
+  relaySink,
+} from "./documents-prepare.ts";
+import type { VersionRow } from "../../packages/documents/versions/store.ts";
+import { connectDocumentsRelaunch, workerSpecs } from "./documents.ts";
+import {
+  createDocumentsChannel,
+  servedWorkers,
+  statusMemoryVia,
+} from "./documents-serving.ts";
+import { PREPARE_BASE_ROUTE } from "./documents-served.ts";
+import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
+import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
@@ -88,6 +108,10 @@ export type CoreOptions = {
   maintenanceTimeoutMs?: number;
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
+  // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
+  // 재시작마다 불린다. 제품
+  // 기동에는 없다. credential은 log에 남기지 않는다.
+  onDocumentsHello?: (hello: { credential: string; api_port: number }) => void;
 };
 export type BlobPrepareCall = {
   principal: string;
@@ -108,6 +132,13 @@ export type Core = {
   // 신뢰 프로세스의 blob.prepare 호출. HTTP route가 아니다(Q6).
   // I/O worker가 설치하고 writer 메모리에 준비 참조를 남긴 뒤에 끝난다.
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
+  // 신뢰 자식(문서 worker, report collector)의 blob 준비 요청 처리(Q6). 자식 kind의
+  // supervisor callback이 onMessage·onFrame을 이 값에 넘기고, 자식이 멈추면 close한다.
+  // 허용 kind는 child-blob-prepare.ts의 목록뿐이다.
+  childBlobPrepare(
+    kind: string,
+    send: (message: ParentMessage) => Promise<boolean>,
+  ): ChildBlobPrepare;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
   acceptTestCredential?(
     context: AuthenticatedContext,
@@ -156,7 +187,11 @@ async function open(
   clock: Clock,
   random: RandomSource,
 ): Promise<Result<Core>> {
-  const assembled = assemble(options.teams);
+  // documents coordinator 요청 통로. FileStatus 조회가 이 통로로 묻는다.
+  const documentsChannel = createDocumentsChannel();
+  const assembled = assemble(options.teams, {
+    status: statusMemoryVia(documentsChannel),
+  });
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
   // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
@@ -187,6 +222,9 @@ async function open(
   const restart = await checkRestart(ledgerPath, { clock });
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);
+  // machine은 command kind 정책에만 닿는다(identity model operationCeiling).
+  // 문서 관측 제출은 machine document.prepare(준비 route)와 document.save command다
+  // (documents#T11). 준비 route도 machine이 닿도록 command kind로 올린다.
   const productRegistry = new CredentialRegistry({
     epoch,
     clock,
@@ -202,6 +240,8 @@ async function open(
         actors: ["user", "machine", "app", "agent", "coding_agent"],
         kind: "read",
       },
+      { name: "document.save", actors: ["machine"], kind: "command" },
+      { name: "document.prepare", actors: ["machine"], kind: "command" },
       // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
       ...allRoutes.filter((route) => route.actors.includes("user")).map((
         route,
@@ -228,6 +268,10 @@ async function open(
   });
   let ready = false;
   const stopPrune: { run?: () => void } = {};
+  // 활성 tracking root 변화를 보는 확인. documents worker를 띄운 뒤에만 있다.
+  let rootsWatch: RootsWatch | undefined;
+  // 종료 때 documents worker의 열린 blob 준비를 닫는다.
+  let closeChildBlob: (() => void) | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
   const source: StatusSource = {
@@ -268,7 +312,8 @@ async function open(
     nowMs: clock.nowMs(),
     writerClock: options.writerClock ?? "fixed",
     seed: seedOf(random),
-    modules: options.teamModules ?? [],
+    // 문서 worker route를 서빙하는 reader 등록은 항상 붙는다(documents-reader.ts).
+    modules: withDocumentsReader(options.teamModules ?? []),
     assembled: assembled.value,
     source,
     blob: blobRead.deps,
@@ -290,6 +335,38 @@ async function open(
   if (!sweepCredential.ok) {
     await runtime.close();
     return sweepCredential;
+  }
+  // 문서 관측 제출 machine credential. 발급(greet과 같은 issue → revalidate →
+  // record 규칙) 뒤 token이 documents/worker hello에 싣는다. 지우지 못한 token은
+  // logs에 남기지 않는다(child.ts 계약). 발급이 실패하면 기동을 여기서 멈춘다.
+  let documentsToken: string | undefined;
+  if (options.superviseIo !== false) {
+    const issued = await productRegistry.issue({
+      actor: "machine",
+      principal: "machine:documents",
+      scope: {
+        operations: ["document.prepare", "document.save"],
+        targets: { task: "documents" },
+      },
+      conditions: { task: "documents", process: "documents/worker" },
+    });
+    if (!issued.ok) {
+      await runtime.close();
+      return issued;
+    }
+    const current = productRegistry.revalidate({
+      credential_ref: issued.value.credential_ref,
+    });
+    if (!current.ok) {
+      await runtime.close();
+      return current;
+    }
+    const recorded = await runtime.record(current.value);
+    if (!recorded.ok) {
+      await runtime.close();
+      return recorded;
+    }
+    documentsToken = issued.value.token;
   }
   // blob 준비 중계는 I/O worker가 뜬 뒤에 채워진다. 그 전에는 prepare route가
   // unavailable이다. route는 떠 있고, 바이트는 중계가 읽는 stream으로 바로 간다.
@@ -314,8 +391,15 @@ async function open(
       // 테스트 seam(T8·T13)이 준 route를 같은 map에 더한다. resource/method가
       // 겹치면 테스트 seam이 이긴다. 둘 다 없으면 worker route는 503이다.
       workers: mergedWorkers(
-        documentPrepareWorkers(prepareRelay),
-        options.workers,
+        documentPrepareWorkers(prepareRelay, baseVersionRead(runtime)),
+        mergedWorkers(
+          servedWorkers({
+            readers: runtime.readers,
+            current: (ref) => runtime!.current(ref),
+            observedAt: () => new Date().toISOString(),
+          }),
+          options.workers,
+        ),
       ),
     });
   } catch {
@@ -371,6 +455,7 @@ async function open(
   stopPrune.run = () => {
     clearInterval(timer);
     clearInterval(claimSweep);
+    rootsWatch?.stop();
   };
   const startedIo = io
     ? await startPlatformIo(
@@ -385,6 +470,103 @@ async function open(
     await server.stop();
     await runtime.close();
     return startedIo;
+  }
+  // documents/worker. 관측 제출 credential이 hello에 싣는다. credential이 없으면(감독이
+  // 없는 harness) 띄우지 않는다: 제출 없이 관측만 반복하는 worker는 겉보기 가용이 거짓이다.
+  // 띄우지 못해도 core는 계속 선다. 통로가 묶이지 않아 documents 요청은 unavailable이다.
+  if (io && documentsToken) {
+    const documentsHello = {
+      type: "hello" as const,
+      core_epoch: epoch,
+      process_identity: epoch,
+      kind: "documents/worker" as const,
+      task: "documents",
+      scope: { operations: [], targets: {} },
+      credential: documentsToken,
+      api_port: server.port,
+    };
+    // worker가 hello를 받을 때마다(처음 시작과 root 변경 뒤 재시작) 알린다.
+    const announceHello = () =>
+      options.onDocumentsHello?.({
+        credential: documentsToken,
+        api_port: server.port,
+      });
+    announceHello();
+    // 자식의 blob 준비 요청(원문 → document_file blob)은 시작마다 새 handler가 받는다.
+    // 자식이 멈추면(재시작·종료) 열린 준비는 unavailable로 닫는다(platform Q6).
+    // 나머지 메시지의 worker_response는 통로가 요청 id로 맞춘다.
+    let childBlob: ChildBlobPrepare | undefined;
+    const freshCallbacks = () => {
+      childBlob?.close();
+      const handler = createChildBlobPrepare({
+        kind: "documents/worker",
+        send: (message) =>
+          io.send("documents/worker", message).then((sent) => sent.ok),
+        prepareBlob: (call) =>
+          blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+            code: "unavailable",
+            message: "blob 준비 통로가 없다",
+          })),
+      });
+      childBlob = handler;
+      return {
+        onMessage: (message: ChildMessage) => {
+          if (!handler.onMessage(message)) documentsChannel.onMessage(message);
+        },
+        onFrame: (frame: Frame) => handler.onFrame(frame),
+      };
+    };
+    closeChildBlob = () => childBlob?.close();
+    const trackingRoots = async (): Promise<Result<readonly string[]>> => {
+      const read = await runtime!.readers.read(
+        projectTrackingRoots,
+        trackingReader,
+        {},
+      );
+      if (!read.ok) return read;
+      return ok(
+        (read.value as { roots: { path: string }[] }).roots.map((entry) =>
+          entry.path
+        ),
+      );
+    };
+    const initial = await trackingRoots();
+    const active = initial.ok ? [...new Set(initial.value)].sort() : [];
+    const spec = workerSpecs(root.path, active).find((entry) =>
+      entry.kind === "documents/worker"
+    );
+    const started = spec
+      ? await io.start(spec, documentsHello, freshCallbacks())
+      : undefined;
+    if (started?.ok) {
+      documentsChannel.bind((payload) =>
+        io.send("documents/worker", payload).then((sent) => sent.ok)
+      );
+    }
+    // root가 바뀌면 documents worker만 새 권한으로 다시 띄운다(file-tracking#R3).
+    // 시작 읽기가 실패했으면 known은 비어 있고 다음 확인이 맞춘다.
+    rootsWatch = watchTrackingRoots({
+      roots: trackingRoots,
+      relaunch: (previous, next) =>
+        connectDocumentsRelaunch(
+          {
+            updateSpec: async (updated) => {
+              announceHello();
+              const restarted = await io.updateSpec(
+                updated,
+                documentsHello,
+                freshCallbacks(),
+              );
+              return { ok: restarted.ok };
+            },
+          },
+          root.path,
+          previous,
+          next,
+        ),
+      known: active,
+      intervalMs: DOCUMENTS_ROOTS_INTERVAL_MS,
+    });
   }
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
@@ -408,6 +590,12 @@ async function open(
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
+    childBlobPrepare: (kind, send) =>
+      createChildBlobPrepare({
+        kind,
+        send,
+        prepareBlob: (call) => core.prepareBlob(call),
+      }),
     prepareBlob: (call) =>
       blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
         code: "unavailable",
@@ -432,6 +620,8 @@ async function open(
       try {
         // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
         ready = false;
+        rootsWatch?.stop();
+        closeChildBlob?.();
         // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
         runtime?.memory.disconnect();
         // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야
@@ -634,6 +824,25 @@ async function noteMaintenanceFailure(
   }
 }
 
+// 문서 worker route를 서빙하는 reader 등록은 팀 module 목록과 무관하게 붙는다.
+function withDocumentsReader(modules: readonly string[]): string[] {
+  const reader = new URL("./documents-reader.ts", import.meta.url).href;
+  return modules.includes(reader) ? [...modules] : [...modules, reader];
+}
+
+// 활성 tracking root 변화 확인 주기. root 변경은 드물어서 짧은 read 하나면 된다.
+const DOCUMENTS_ROOTS_INTERVAL_MS = 2_000;
+
+// tracking root 읽기의 자격. machine만 읽는 project.tracking_roots를 core가 직접 읽는다.
+// ledger credential 기록이 아니라 reader에 넘기는 context라, 발급 자격이 아니다.
+const trackingReader: RequestContext = {
+  principal: "machine:documents-roots",
+  actor: "machine",
+  scope: { operations: [projectTrackingRoots.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:documents-roots",
+};
+
 function repoRoot(): string {
   return new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 }
@@ -834,6 +1043,7 @@ function documentPrepareWorkers(
   relay: {
     current?: (call: BlobPrepareCall) => Promise<Result<PreparedRelayResult>>;
   },
+  loadBaseVersion: BaseVersionFor,
 ): ReadonlyMap<string, WorkerRouteTarget> {
   const route = documentPrepareRoute({
     sink: () =>
@@ -853,18 +1063,36 @@ function documentPrepareWorkers(
       }),
     available: () => relay.current !== undefined,
     observedAt: () => new Date().toISOString(),
+    // format 검사는 coordinator의 format runner가 한다. 원문 바이트를 core에서
+    // coordinator로 보내는 길(blob 읽기를 child에 여는 platform 통로)이 아직 없다.
     validateFiles: () =>
       Promise.resolve(err({
         code: "unavailable",
-        message: "format 검사가 아직 연결되지 않았다",
+        message: "format 검사 통로가 아직 연결되지 않았다",
       })),
-    loadBaseVersion: () =>
-      Promise.resolve(err({
-        code: "unavailable",
-        message: "기준 판 읽기가 아직 연결되지 않았다",
-      })),
+    loadBaseVersion,
   });
   return new Map([[route.key, { handle: route.handle }]]);
+}
+
+// 기준 판 읽기. 요청 credential의 현재 context로 reader Worker의 snapshot을 읽는다.
+function baseVersionRead(runtime: CoreRuntime): BaseVersionFor {
+  return async (version, from) => {
+    const slash = from.request_id.lastIndexOf("/");
+    const ref = slash > 0 ? from.request_id.slice(0, slash) : undefined;
+    const ctx = ref === undefined ? undefined : runtime.current(ref);
+    if (!ctx?.ok) {
+      return err({ code: "unauthorized", message: "credential이 없다" });
+    }
+    const read = await runtime.readers.read(PREPARE_BASE_ROUTE, ctx.value, {
+      document: from.document,
+      version,
+    });
+    if (!read.ok) return read;
+    return ok(
+      (read.value as { version: VersionRow | null }).version,
+    );
+  };
 }
 
 function ioComponent(

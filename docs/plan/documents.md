@@ -222,7 +222,7 @@ concerns: [documents]
 
 ### T11 파일 관측에서 Version까지
 
-- 상태: 진행 (#211) — 남은 것: coordinator가 machine `document.save`를 제출할 credential 전달(`runCoordinator`의 submitResult는 주입 stub, child→parent 메시지에 command 제출이 없음), 준비 worker spawn(`spawnPreparation` 주입 stub, platform#T7 supervisor 몫), prepare route의 format 검사·기준 판 읽기(지금은 unavailable), coordinator 관측을 FileStatus 메모리에 채우는 경로, project-tracking 변경에서 `connectDocumentsRelaunch`를 부르는 core 구독
+- 상태: 진행 (#254) — 한 것: documents worker를 제품 core가 hello(machine credential·api_port)와 함께 띄움(`apps/worker/documents/entry.ts`, launch spec 경로 수정), core→coordinator 요청 통로(FileStatus 조회), 파일 관측 제출 조립(`observation.ts`: 자식 session의 blob 준비(#248) → `document.prepare` → machine `document.save`, 상태 기록), 준비 route의 기준 판 읽기, outline·읽기·search·view open·export worker route를 reader Worker의 snapshot으로 서빙(제품 redactor), 활성 tracking root 변화에서 `connectDocumentsRelaunch`. 남은 것: (1) 관측 loop 시작: coordinator가 machine으로 읽을 tracking 규칙·문서 연결 read가 없어 `readObservationSource`가 err다(Q15, contract). 연결되면 fs port(watch·scan·read)와 제출은 이미 `runCoordinator`에 붙어 있다. (2) 준비 worker spawn과 batch의 준비 worker 요청·응답 protocol(platform#T7 supervisor, 지금 batch는 준비 결과를 받지 않는다). (3) 준비 route의 format 검사: 원문 바이트를 coordinator의 format runner에 보내는 길. (4) `/v1/projects/preview_tracking` 서빙(준비 worker scan 필요, T2에서 넘어온 것). (5) coordinator의 derived store 열기와 search consumer 조립(T13에서 넘어온 것; 파일이 없으면 서빙은 unavailable). (6) ProjectTrackingChanged event 구독(events/list 공개 정책에 등록되기 전이라 root 읽기 주기 확인으로 대신함). (7) redactor의 알려진 secret registry(reader Worker에 없어 pattern 검출만)
 - 등급: 최상위
 - concern: documents/file-tracking, documents/versions
 - 요구: documents/file-tracking#R3, R4, R6, R7, R8, R9, R10, R18, documents/versions#R13
@@ -678,3 +678,4 @@ lead가 2026-10-04에 모두 정했다.
 - **Q12 T7 public Project read seam.** 해소(#72). `project.resolve_cwd`는 input `{}`와 host 고정 cwd로 project ID와 read common만 돌려주고 근거가 없으면 fail-closed다. `project.tracking_roots`는 machine 전용 활성·enabled root다. `initial_tracking_proposal`은 저장된 tracking과 별도 output이고 list·resolve cursor drift는 conflict다. Project read 자료 참조는 고정 version이다.
 - **Q13 T7 owner target 검사 주입.** 해소(#82, #91). owner는 Tx·ReadSnapshot의 TargetAuthorization port로 domain target을 판정하고, port 부재·Promise·잘못된 반환은 fail-closed다.
 - **Q14 T7 authenticated cwd 근거.** 해소(#77).
+- **Q15 T11 coordinator가 machine으로 읽을 tracking 규칙·문서 연결(lead 결정).** machine ceiling은 command만 허용하는 것이 의도이므로 machine read를 새로 열지 않는다. core가 소유자로 snapshot에서 tracking 규칙(patterns·use_gitignore)과 경로→문서 연결(document ID·revision·최신 판)을 읽어, 이미 있는 core→coordinator 요청 envelope로 coordinator에 관측 근거 재료를 넘긴다. 규칙이나 연결이 바뀌면 같은 통로로 다시 보낸다. contract의 HTTP route·credential 정책은 바꾸지 않는다.

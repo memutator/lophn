@@ -14,7 +14,7 @@ export type {
   ControlMessage,
   ControlReader,
 } from "./control-link.ts";
-export { createSupervisor } from "./supervisor.ts";
+export { createSupervisor, STOP_GRACE_MS } from "./supervisor.ts";
 export type {
   AppChild,
   AppObservation,

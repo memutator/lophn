@@ -7,6 +7,12 @@ import {
   STREAM_CHUNK_MAX_BYTES,
 } from "../../contracts/platform/mod.ts";
 import {
+  type BlobPrepareInput,
+  createBlobPrepareClient,
+} from "./blob-client.ts";
+import type { PreparedBlob } from "../../contracts/platform/mod.ts";
+import type { Result } from "../../base/mod.ts";
+import {
   type ByteReader,
   type ByteWriter,
   createFrameWriter,
@@ -45,6 +51,14 @@ export type ReadAhead = {
 export type ChildSession = {
   send(message: ChildMessage): Promise<void>;
   sendBytes(channel: number, payload: Uint8Array): Promise<void>;
+  // stream 하나를 닫는다. end는 정상 끝, abort는 중단이다.
+  sendEnd(channel: number): Promise<void>;
+  sendAbort(channel: number): Promise<void>;
+  // core에 blob 준비를 청한다(platform Q6). core가 credit을 주는 만큼만 바이트를 보내고,
+  // 결과의 hash·참조는 core가 I/O worker에서 받은 값이다. credit·결과 메시지는 handler
+  // 처리 중에도 바로 소비하므로, 요청을 처리하는 handler 안에서 불러도 막히지 않는다.
+  // core가 이 kind에 허용하지 않았으면 forbidden이다.
+  prepareBlob(input: BlobPrepareInput): Promise<Result<PreparedBlob>>;
   // run()이 끝났다. 그 전이라도 EOF·stop·protocol 실패 뒤에는 stopped ack 말고는 보낼 수 없다.
   readonly stopped: boolean;
   // session이 내리는 사용 허가다. handler가 이미 복사한 credential 값을 지우지는 못한다.
@@ -82,6 +96,12 @@ export function startChild(
   handlers: ChildHandlers,
 ): ChildSession {
   const stdout = createFrameWriter(streams.stdout);
+  const blob = createBlobPrepareClient({
+    send: (message) => session.send(message),
+    sendBytes: (channel, payload) => session.sendBytes(channel, payload),
+    sendEnd: (channel) => session.sendEnd(channel),
+    sendAbort: (channel) => session.sendAbort(channel),
+  });
   let stopped = false;
   let credentialUsable = false;
   let helloSeen = false;
@@ -109,6 +129,7 @@ export function startChild(
     terminal = true;
     failure = error;
     credentialUsable = false;
+    blob.close();
     // 아직 쓰기를 시작하지 않은 일반 frame은 버린다. 이후로는 stopped ack 하나만 나간다.
     stdout.close();
     pending.length = 0;
@@ -158,6 +179,9 @@ export function startChild(
     if (message.type === "hello") throw new Error("hello was already received");
     // 새 작업과 credential 사용은 즉시 멈춘다. onStop 안에서 stopped frame은 보낼 수 있다.
     if (message.type === "stop") return finish();
+    // credit·blob 준비 결과는 순서대로 도는 handler 뒤에 줄 서지 않고 바로 소비한다.
+    // 줄을 서면 준비를 기다리는 handler가 자기가 기다리는 메시지를 막는다.
+    if (blob.accept(message)) return;
     enqueue({ kind: "parent", message, bytes });
   }
 
@@ -225,7 +249,7 @@ export function startChild(
     return undefined;
   }
 
-  return {
+  const session: ChildSession = {
     get stopped() {
       return stopped;
     },
@@ -253,6 +277,23 @@ export function startChild(
       }
       return stdout.writeBytes(channel, payload);
     },
+    sendEnd(channel) {
+      const refused = sendable();
+      if (refused) return Promise.reject(refused);
+      if (!Number.isInteger(channel) || channel < 1) {
+        return Promise.reject(new Error("stream channel must be nonzero"));
+      }
+      return stdout.writeEnd(channel);
+    },
+    sendAbort(channel) {
+      const refused = sendable();
+      if (refused) return Promise.reject(refused);
+      if (!Number.isInteger(channel) || channel < 1) {
+        return Promise.reject(new Error("stream channel must be nonzero"));
+      }
+      return stdout.writeAbort(channel);
+    },
+    prepareBlob: (input) => blob.prepare(input),
     async run() {
       const frames = readFrames(streams.stdin);
       void pump(frames);
@@ -266,4 +307,5 @@ export function startChild(
       if (failure) throw failure;
     },
   };
+  return session;
 }

@@ -4,6 +4,8 @@
 import type {
   KindLaunchSpec,
   ParentMessage,
+  WorkerRequest,
+  WorkerResponse,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
   processKindSchema,
@@ -14,6 +16,20 @@ import {
   type ChildStreams,
   startChild,
 } from "../../../packages/platform/responsiveness/mod.ts";
+import { createStatusRecorder } from "../../../packages/documents/file-tracking/mod.ts";
+import { createRequestHandler } from "./requests.ts";
+import {
+  childBlobPort,
+  createObservationSubmit,
+  readObservationSource,
+  unavailableLink,
+} from "./observation.ts";
+import {
+  fileReadPort,
+  fileScanPort,
+  fileWatchPort,
+} from "../../../packages/documents/file-tracking/fs.ts";
+import { createCoreClient, productFetch } from "./submit.ts";
 import { type SlotSupervisor, supervisePreparationSlots } from "./slots.ts";
 import {
   type Candidate,
@@ -40,6 +56,12 @@ export type CoordinatorOptions = {
   submitResult(candidate: Candidate): Promise<void>;
   // 안정 읽기까지의 대기와 req id는 주입받는다.
   deps: CoordinatorDepsLike;
+  // hello가 싣는 machine credential과 core api port. 제출 client가 Bearer로 쓴다.
+  // credential은 log·stderr에 남기지 않는다(child.ts 계약).
+  onHello?(hello: { credential: string; api_port: number }): void;
+  // core가 감독 pipe로 보내는 worker_request의 처리. 답은 같은 request_id의
+  // worker_response다. 없으면 요청은 unavailable로 답한다(조용히 버리지 않는다).
+  handleRequest?(request: WorkerRequest): Promise<WorkerResponse>;
   // 준비 slot 감독. 없으면 coordinator가 자기 것으로 만든다.
   // 테스트가 backoff sleep과 재시작 한도를 바꿔 끼운다.
   slots?: SlotSupervisor;
@@ -93,6 +115,10 @@ export function createCoordinator(
       if (!parsed.success || parsed.data !== "documents/worker") {
         throw new Error("invalid worker kind");
       }
+      options.onHello?.({
+        credential: hello.credential,
+        api_port: hello.api_port,
+      });
       session.send({ type: "ready" }).then(() => {
         if (!stopped) void drain();
       }).catch(() => {
@@ -110,7 +136,24 @@ export function createCoordinator(
       // 본문은 workerRequestEnvelopeSchema의 payload다.
       const parsed = workerRequestEnvelopeSchema.safeParse(message);
       if (!parsed.success) return;
-      return Promise.resolve();
+      const request = parsed.data;
+      const answer = options.handleRequest
+        ? options.handleRequest(request)
+        : Promise.resolve<WorkerResponse>({
+          type: "worker_response",
+          request_id: request.request_id,
+          ok: false,
+          error: {
+            code: "unavailable",
+            message: "documents worker does not serve requests",
+          },
+        });
+      return answer.catch((): WorkerResponse => ({
+        type: "worker_response",
+        request_id: request.request_id,
+        ok: false,
+        error: { code: "internal", message: "documents worker request failed" },
+      })).then((response) => session.send(response));
     },
   });
 
@@ -232,18 +275,57 @@ export async function runCoordinator(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
   console.log = console.info = console.debug = (...args: unknown[]) =>
     console.error(...args);
-  const coordinator = await createCoordinator({
+  // FileStatus 메모리. 관측이 채우고 core의 documents.file_status 요청이 읽는다.
+  const status = createStatusRecorder();
+  // hello가 싣는 machine credential과 core api port로 제출 client를 만든다. 원문 blob은
+  // 자식 session이 감독 pipe로 core에 준비한다. credential은 이 process 메모리에만 있다.
+  const session: { current?: ChildSession } = {};
+  const coordinator: { current?: Coordinator } = {};
+  const created = await createCoordinator({
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
-    // 준비 worker와 결과 제출은 core/T11 조립이 넣는다. 뼈대는 세션만 연다.
+    onHello(received) {
+      const current = session.current;
+      if (current === undefined) return;
+      const submit = createObservationSubmit({
+        client: createCoreClient({
+          baseUrl: `http://127.0.0.1:${received.api_port}`,
+          credential: received.credential,
+          fetch: productFetch(),
+        }),
+        prepareBlob: childBlobPort(current),
+        // 연결 근거 read가 생기면 core read로 바꾼다(Q15). 그 전에는 시작하지 않는다.
+        link: () => Promise.resolve(unavailableLink()),
+        status,
+        nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
+        newKey: () => crypto.randomUUID(),
+      });
+      const source = readObservationSource();
+      // root·규칙을 읽지 못하면 관측하지 않는다. 추적 중으로 꾸미지 않는다.
+      if (!source.ok) return;
+      coordinator.current?.startObservation(source.value.roots, {
+        watch: fileWatchPort(),
+        scan: fileScanPort(),
+        read: fileReadPort(),
+        nowMs: () => Date.now(),
+        submit,
+        basisFor: source.value.basisFor,
+      });
+    },
+    handleRequest: createRequestHandler({ status }),
+    // 준비 worker spawn(platform#T7)과 그 결과 제출이 들어오기 전에는 batch가 준비
+    // worker에 닿지 않는다. 그때까지 제출은 성공이 아니라 unavailable이다.
     spawnPreparation: () => {
       throw new Error("preparation spawn is not wired");
     },
-    submitResult: () => Promise.resolve(),
+    submitResult: () =>
+      Promise.reject(new Error("preparation results are not submitted yet")),
     deps: {
       nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
       newRequestId: () => crypto.randomUUID(),
     },
   });
-  await coordinator.session.run();
+  coordinator.current = created;
+  session.current = created.session;
+  await created.session.run();
 }

@@ -7,6 +7,7 @@ import type {
   ResourceInstallResult,
 } from "../../../contracts/coding-agent/mod.ts";
 import * as json from "../adapters/json.ts";
+import * as region from "../adapters/region.ts";
 import * as toml from "../adapters/toml.ts";
 import * as yaml from "../adapters/yaml.ts";
 import type { InstallPlan, PlannedResource } from "./plan.ts";
@@ -126,7 +127,9 @@ function fragmentOf(
 ): unknown | "broken" {
   const key = resource.owned_key;
   if (key === null) return text;
-  const read = resource.format === "json"
+  const read = resource.format === "text"
+    ? region.regionFragment(text)
+    : resource.format === "json"
     ? json.ownedFragment(text, key)
     : resource.format === "toml"
     ? toml.ownedFragment(text, key)
@@ -142,6 +145,13 @@ function merged(
   current: string | null,
   resource: PlannedResource,
 ): { kind: "text"; text: string } | { kind: "unchanged" } | { kind: "broken" } {
+  if (resource.format === "text" && resource.owned_key !== null) {
+    const body = typeof resource.content === "string" ? resource.content : "";
+    const set = region.setRegion(current ?? "", body);
+    if (set.kind === "broken") return { kind: "broken" };
+    if (set.kind === "unchanged") return { kind: "unchanged" };
+    return { kind: "text", text: set.text };
+  }
   if (resource.format === "directory" || resource.format === "text") {
     const text = typeof resource.content === "string" ? resource.content : "";
     return current === text ? { kind: "unchanged" } : { kind: "text", text };
@@ -165,7 +175,9 @@ export function removed(
   resource: PlannedResource,
 ): { kind: "text"; text: string } | { kind: "unchanged" } | { kind: "broken" } {
   if (resource.owned_key === null) return { kind: "text", text: "" };
-  const set = resource.format === "json"
+  const set = resource.format === "text"
+    ? region.removeRegion(current)
+    : resource.format === "json"
     ? json.removeOwned(current, resource.owned_key)
     : resource.format === "toml"
     ? toml.removeOwned(current, resource.owned_key)
@@ -202,17 +214,30 @@ export async function install(
   }
   const receipt = await store.receipt(plan.target);
   const results: ResourceInstallResult[] = [];
-  const owned: OwnedResource[] = [];
+  // 한 target을 root별 plan 여러 개로 나눠 설치해도(Codex config는 CODEX_HOME,
+  // skill은 home) 앞 plan의 소유 기록이 남도록 이 plan 밖 resource는 이어 둔다.
+  const owned: OwnedResource[] = (receipt?.resources ?? []).filter((item) =>
+    !plan.resources.some((planned) =>
+      planned.identity === item.canonical_identity
+    )
+  );
+  // 같은 파일의 소유 조각이 둘 이상이면(Gemini settings의 mcp와 context) 앞
+  // resource가 쓴 hash를 다음 resource의 기준으로 이어 준다. 계획 뒤 사람이
+  // 바꾼 파일은 여전히 conflict다.
+  const seen = new Map(observed);
   for (const resource of plan.resources) {
     const outcome = await writeResource(
       port,
       root,
       resource,
-      observed,
+      seen,
       receipt,
     );
     results.push(outcome.result);
     if (outcome.owned) owned.push(outcome.owned);
+    if (outcome.result.outcome === "changed" && outcome.owned) {
+      seen.set(resource.path, outcome.owned.last_written_hash);
+    }
   }
   return await persist(store, plan, owned, results, operationId, writtenAt);
 }

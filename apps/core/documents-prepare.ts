@@ -96,22 +96,38 @@ export function streamingPrepareFiles(
   };
 }
 
-export type PrepareRouteDeps = Omit<PrepareDeps, "prepareFiles"> & {
-  sink: () => BlobSink;
-  // route가 준비됐는지. worker가 뜨기 전에는 unavailable이다.
-  available(): boolean;
-  observedAt(): string;
-};
+// 기준 판 읽기는 요청한 자격으로 한다: 권한 밖 문서의 판은 없는 판과 같은 답이다.
+// from은 그 요청의 request_id와 대상 문서다.
+export type BaseVersionFor = (
+  baseVersion: string,
+  from: { request_id: string; document: string },
+) => ReturnType<PrepareDeps["loadBaseVersion"]>;
+
+export type PrepareRouteDeps =
+  & Omit<PrepareDeps, "prepareFiles" | "loadBaseVersion">
+  & {
+    loadBaseVersion: BaseVersionFor;
+    sink: () => BlobSink;
+    // route가 준비됐는지. worker가 뜨기 전에는 unavailable이다.
+    available(): boolean;
+    observedAt(): string;
+  };
 
 // startApiServer의 workers map에 넣는 항목. key는 `documents/prepare`다.
 export function documentPrepareRoute(
   deps: PrepareRouteDeps,
 ): { key: string; handle: WorkerRouteHandle } {
-  const prepare = createPrepareAssembly({
-    validateFiles: deps.validateFiles,
-    prepareFiles: streamingPrepareFiles(deps.sink),
-    loadBaseVersion: deps.loadBaseVersion,
-  });
+  // 조립은 요청마다 만든다: 기준 판 읽기가 그 요청의 자격에 묶인다.
+  const prepareFor = (request: WorkerRequest) =>
+    createPrepareAssembly({
+      validateFiles: deps.validateFiles,
+      prepareFiles: streamingPrepareFiles(deps.sink),
+      loadBaseVersion: (baseVersion) =>
+        deps.loadBaseVersion(baseVersion, {
+          request_id: request.request_id,
+          document: (request.payload as { document?: string }).document ?? "",
+        }),
+    });
   return {
     key: `${documentPrepare.resource}/${documentPrepare.method}`,
     handle: {
@@ -120,7 +136,7 @@ export function documentPrepareRoute(
         available: deps.available(),
         observed_at: deps.observedAt(),
       }),
-      forward: (request: WorkerRequest) => answer(prepare, request),
+      forward: (request: WorkerRequest) => answer(prepareFor(request), request),
     },
   };
 }

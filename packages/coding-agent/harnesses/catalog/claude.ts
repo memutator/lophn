@@ -66,21 +66,65 @@ const claude: HarnessDefinition = {
     { scope_kind: "app", root_resolver: "project", path: ".claude/skills" },
   ],
   // CLAUDE.md 관리 구간 `@AGENTS.md`다(domain-model 표).
+  // enterprise > personal > project라 user root가 앞이다(조사 skills-and-guides).
+  skill_discovery: [
+    { scope_kind: "user", root_resolver: "home", path: ".claude/skills" },
+    { scope_kind: "app", root_resolver: "project", path: ".claude/skills" },
+  ],
+  skill_trust_note:
+    "project skill은 Claude Code가 그 folder를 신뢰한 뒤 읽는다. lophn은 신뢰를 대신 정하지 않는다",
   instructions: [
     {
       marker: "lophn-managed-instruction",
       file: "CLAUDE.md",
+      mode: "region",
+      body: "@AGENTS.md",
     },
   ],
   // `.claude/settings.local.json`의 lophn SessionStart만 summary용이다
   // (domain-model 표). event 별 최소 version은 조사 1.5의 예시다.
+  // 모르는 event 하나가 settings 전체를 버리게 하므로(조사 R11) event별 최소
+  // version을 두고 version을 알 때만 설치한다. status용 event는 이번 범위에서
+  // 검증하지 않아 unverified다.
   hooks: [
     {
+      event: "SessionStart",
+      target: {
+        scope_kind: "app",
+        root_resolver: "project",
+        path: ".claude/settings.local.json",
+      },
       purpose: "summary",
       method: "config_fragment",
       owned_identity: "SessionStart.lophn",
       minimum_version: "1.0.62",
       capability: "supported",
+    },
+    {
+      event: "PermissionRequest",
+      target: {
+        scope_kind: "app",
+        root_resolver: "project",
+        path: ".claude/settings.local.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "PermissionRequest.lophn",
+      minimum_version: "2.0.45",
+      capability: "unverified",
+    },
+    {
+      event: "PostCompact",
+      target: {
+        scope_kind: "app",
+        root_resolver: "project",
+        path: ".claude/settings.local.json",
+      },
+      purpose: "status",
+      method: "config_fragment",
+      owned_identity: "PostCompact.lophn",
+      minimum_version: "2.1.76",
+      capability: "unverified",
     },
   ],
   // session ID·transcript는 hook evidence다(조사 3.2).

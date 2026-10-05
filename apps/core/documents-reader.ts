@@ -1,0 +1,272 @@
+// reader Worker가 올리는 문서 worker route의 handler. outline·단계적 읽기·search·
+// view open·export는 ledger snapshot(문서·판 metadata, 권한)과 derived store(section·
+// text·FTS)를 같이 읽는다. reader Worker의 snapshot은 요청마다 하나고 handler는
+// 동기라서, core 흐름과 documents coordinator를 붙잡지 않는다.
+// 이 모듈은 core가 정적으로 import하지 않는다(createReaderRegistration만 reader가 부른다).
+// derived store는 node:sqlite를 쓰므로 core graph 밖에서만 열린다(core_imports_test).
+import { err, ok, type Result } from "../../packages/base/mod.ts";
+import {
+  documentExport,
+  documentRead,
+  outlineDocument,
+  outlinePlace,
+  outlineRoot,
+  searchQuery,
+  searchStatus,
+  viewOpen,
+} from "../../packages/contracts/documents/mod.ts";
+import type {
+  ReadDefinition,
+  ReadRoute,
+  ReadSnapshot,
+  RequestContext,
+  WorkerRoute,
+} from "../../packages/contracts/platform/mod.ts";
+import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import {
+  derivedPath,
+  type DerivedRead,
+  openDerivedRead,
+} from "../../packages/documents/outline-and-search/adapters/store.ts";
+import {
+  createOutlineHandlers,
+  createSearchHandlers,
+} from "../../packages/documents/outline-and-search/reads.ts";
+import type {
+  ContextItemSource,
+  SearchSnapshot,
+} from "../../packages/documents/outline-and-search/types.ts";
+import { createViewOpenHandler } from "../../packages/documents/outline-and-search/saved-views-open.ts";
+import {
+  listItems,
+  loadContextRow,
+} from "../../packages/documents/contexts/store.ts";
+import { exportDocument } from "../../packages/documents/versions/reads.ts";
+import { internalRoute, PREPARE_BASE_ROUTE } from "./documents-served.ts";
+import { authorizeDocument } from "../../packages/documents/versions/authorization.ts";
+import {
+  loadDocument,
+  loadVersion,
+} from "../../packages/documents/versions/store.ts";
+import { createProductRedactor } from "./documents-redactor.ts";
+
+// ledger 파일에서 data root를 찾는다. reader는 같은 파일을 연 snapshot만 갖는다.
+function dataRootOf(snapshot: ReadSnapshot): Result<string> {
+  const row = snapshot.sql.get(
+    "SELECT file FROM pragma_database_list WHERE name = 'main'",
+    [],
+  );
+  const file = row?.["file"];
+  if (typeof file !== "string" || !file.includes("/")) {
+    return err({ code: "unavailable", message: "ledger 위치를 알 수 없다" });
+  }
+  return ok(file.slice(0, file.lastIndexOf("/")));
+}
+
+// derived read 연결. coordinator가 유일한 writer고 이 연결은 query_only다. 파일이
+// 교체되면(재생성) 새 파일을 다시 연다. 없으면 unavailable이다: 빈 결과로 꾸미지 않는다.
+const connections = new Map<
+  string,
+  { identity: string; read: DerivedRead }
+>();
+
+function derivedRead(root: string): Result<DerivedRead> {
+  const path = derivedPath(`${root}/derived`);
+  let identity: string;
+  try {
+    const stat = Deno.statSync(path);
+    identity = `${stat.dev}:${stat.ino}`;
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "derived store가 아직 없다",
+    });
+  }
+  const held = connections.get(path);
+  if (held && held.identity === identity) return ok(held.read);
+  const opened = openDerivedRead(path);
+  if (!opened.ok) return opened;
+  connections.set(path, { identity, read: opened.value });
+  return opened;
+}
+
+// context filter의 근원. ledger snapshot의 contexts·context_items다.
+// 없는 context는 not_found라 후보를 전부 비운다(documents/contexts, R12).
+function contextItems(snapshot: ReadSnapshot): ContextItemSource {
+  return {
+    items(contextId) {
+      const row = loadContextRow(snapshot.sql as never, contextId);
+      if (!row.ok) return row;
+      if (row.value === null) {
+        return err({ code: "not_found", message: "context not found" });
+      }
+      const items = listItems(snapshot.sql as never, contextId);
+      if (!items.ok) return items;
+      return ok(
+        items.value.flatMap((item) =>
+          item.target.kind === "document"
+            ? [{ kind: "document" as const, document: item.target.document }]
+            : []
+        ),
+      );
+    },
+  };
+}
+
+type Prepared = {
+  snapshot: ReadSnapshot;
+  search: SearchSnapshot;
+  read: DerivedRead;
+  contexts: ContextItemSource;
+};
+
+function prepared(snapshot: ReadSnapshot): Result<Prepared> {
+  const root = dataRootOf(snapshot);
+  if (!root.ok) return root;
+  const read = derivedRead(root.value);
+  if (!read.ok) return read;
+  return ok({
+    snapshot,
+    search: {
+      as_of_seq: snapshot.as_of_seq,
+      sql: snapshot.sql as unknown as SearchSnapshot["sql"],
+    },
+    read: read.value,
+    contexts: contextItems(snapshot),
+  });
+}
+
+const redactor = createProductRedactor();
+
+// 공개 worker route의 출력에 맞춘다. 내부 read는 next_cursor를 요구하므로 없으면 null이다.
+function paged(value: unknown): Result<unknown> {
+  const body = value as Record<string, unknown>;
+  return ok({ ...body, next_cursor: body["next_cursor"] ?? null });
+}
+
+function worker<I>(
+  route: WorkerRoute,
+  run: (
+    prepared: Prepared,
+    ctx: RequestContext,
+    input: I,
+  ) => Result<unknown>,
+): ReadDefinition {
+  return {
+    route: internalRoute(route),
+    handle(snapshot, ctx, input) {
+      const ready = prepared(snapshot);
+      if (!ready.ok) return ready;
+      const ran = run(ready.value, ctx, input as I);
+      if (!ran.ok) return ran;
+      return paged(ran.value);
+    },
+  };
+}
+
+function outline(ready: Prepared) {
+  return createOutlineHandlers({
+    read: ready.read,
+    snapshot: ready.search,
+    ports: ready.snapshot,
+    contexts: ready.contexts,
+    redactor,
+  });
+}
+
+export function createReaderRegistration(): ReaderRegistration {
+  const root: ReadDefinition<ReadRoute> = {
+    route: outlineRoot,
+    handle(snapshot, ctx, input) {
+      const ready = prepared(snapshot);
+      if (!ready.ok) return ready;
+      return outline(ready.value).root(ctx, input as never) as Result<never>;
+    },
+  };
+  return {
+    reads: [
+      root,
+      worker(
+        outlinePlace,
+        (ready, ctx, input) => outline(ready).place(ctx, input as never),
+      ),
+      worker(
+        outlineDocument,
+        (ready, ctx, input) => outline(ready).document(ctx, input as never),
+      ),
+      worker(
+        documentRead,
+        (ready, ctx, input) => outline(ready).read(ctx, input as never),
+      ),
+      worker(searchQuery, (ready, ctx, input) =>
+        createSearchHandlers({
+          read: ready.read,
+          snapshot: ready.search,
+          ports: ready.snapshot,
+          contexts: ready.contexts,
+        }).query(ctx, input as never)),
+      worker(searchStatus, (ready, ctx, input) =>
+        createSearchHandlers({
+          read: ready.read,
+          snapshot: ready.search,
+          ports: ready.snapshot,
+          contexts: ready.contexts,
+        }).status(ctx, input as never)),
+      worker(viewOpen, (ready, ctx, input) =>
+        createViewOpenHandler({
+          read: ready.read,
+          snapshot: ready.search,
+          ports: ready.snapshot,
+          contexts: ready.contexts,
+          nowMs: () => Date.now(),
+        }).open(ctx, input as never)),
+      // 준비 route의 기준 판. derived를 읽지 않고 ledger snapshot만 쓴다.
+      {
+        route: PREPARE_BASE_ROUTE,
+        handle(snapshot, ctx, input) {
+          const { document, version } = input as {
+            document: string;
+            version: string;
+          };
+          const loaded = loadDocument(snapshot.sql as never, document);
+          if (!loaded.ok) return loaded;
+          if (loaded.value === null) {
+            return ok({ version: null, next_cursor: null });
+          }
+          const access = authorizeDocument(
+            snapshot.port,
+            ctx,
+            PREPARE_BASE_ROUTE.name,
+            { kind: "document", document: loaded.value },
+          );
+          // 권한 밖은 없는 문서와 같다. 판정을 못한 경우(unavailable)만 그대로 낸다.
+          if (!access.ok) {
+            return access.error.code === "unavailable"
+              ? access
+              : ok({ version: null, next_cursor: null });
+          }
+          const row = loadVersion(snapshot.sql as never, version);
+          if (!row.ok) return row;
+          return ok({
+            version: row.value !== null && row.value.document === document
+              ? row.value
+              : null,
+            next_cursor: null,
+          });
+        },
+      },
+      // export는 derived를 읽지 않는다. ledger snapshot과 redactor만 쓴다.
+      {
+        route: internalRoute(documentExport),
+        handle(snapshot, ctx, input) {
+          const exported = exportDocument(snapshot, ctx, input as never, {
+            redactor,
+          });
+          if (!exported.ok) return exported;
+          return paged(exported.value);
+        },
+      },
+    ],
+    ports: new Map(),
+  };
+}

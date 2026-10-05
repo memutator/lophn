@@ -25,6 +25,9 @@ import {
   startLineReader,
   type StdioStreams,
 } from "../../packages/coding-agent/mcp-server/mod.ts";
+import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
+import { createSaveTool } from "../../packages/coding-agent/mcp-server/tools/save.ts";
+import { createSeriesTool } from "../../packages/coding-agent/mcp-server/tools/series.ts";
 import {
   createTicketTool,
   TICKET_TOOL_NAME,
@@ -114,6 +117,14 @@ export function startMcpServer(
       idempotencyKey: () => `mcp-ticket-${crypto.randomUUID()}`,
     })
     : undefined;
+  // 문서 저장·format·series tool의 실행이다(T14). 같은 core client로 소유 route만 부른다.
+  const documentTools = caller
+    ? {
+      lophn_save: createSaveTool({ client: caller }),
+      lophn_format: createFormatTool({ client: caller }),
+      lophn_series: createSeriesTool({ client: caller }),
+    }
+    : undefined;
   const handler = createHandler({
     toolsets,
     onClientInfo: (name) => {
@@ -139,6 +150,13 @@ export function startMcpServer(
             next: ["lophn doctor로 연결과 credential을 확인한다"],
           })
           : ticketTool(toolName, resolved.route, callArgs);
+      }
+      const documentTool = documentTools !== undefined &&
+          Object.hasOwn(documentTools, toolName)
+        ? documentTools[toolName as keyof typeof documentTools]
+        : undefined;
+      if (documentTool !== undefined) {
+        return documentTool(toolName, resolved.route, callArgs);
       }
       return runner(toolName, resolved.route, callArgs);
     },

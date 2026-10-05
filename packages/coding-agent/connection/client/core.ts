@@ -11,11 +11,16 @@ import {
 import { effectUnknownSchema } from "../../../contracts/coding-agent/mod.ts";
 import type { EffectUnknown } from "../../../contracts/coding-agent/mod.ts";
 import {
+  commandRequestSchema,
+  commandResponseSchema,
   commandsResult,
   createRpcClient,
+  errorBodySchema,
+  errorCodeForStatus,
+  routePath,
   type RpcFetch,
 } from "../../../contracts/platform/mod.ts";
-import type { CommandRoute } from "../../../contracts/platform/mod.ts";
+import type { CommandRoute, Route } from "../../../contracts/platform/mod.ts";
 import type { CredentialProvider } from "../credential/provider.ts";
 
 export type CoreClientOptions = {
@@ -30,10 +35,19 @@ export type CoreClient = {
   baseUrl: string;
   // command route를 envelope로 보낸다. 응답을 잃어 effect_unknown이면
   // 원래 key로 /v1/commands/result를 다시 본다.
+  // compare·prepared는 소유 route가 요구하는 CAS 비교와 준비 참조다(문서 저장).
   command<R extends CommandRoute>(
     route: R,
-    body: { input: unknown; idempotency_key: string },
+    body: {
+      input: unknown;
+      idempotency_key: string;
+      compare?: unknown;
+      prepared?: readonly string[];
+    },
   ): Promise<Result<unknown>>;
+  // read·worker route는 envelope 없이 입력을 그대로 보낸다. 쓰기가 아니므로
+  // 응답을 잃어도 effect_unknown이 아니라 전송 실패(unavailable)다.
+  read(route: Route, input: unknown): Promise<Result<unknown>>;
 };
 
 // 쓰기 응답 유실 진단(architecture 8의 effect_unknown·exit6). 원래 key와
@@ -70,31 +84,96 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
         headers: response.headers,
         bytes: new Uint8Array(await response.arrayBuffer()),
       })));
+  async function rpc(): Promise<
+    Result<{ client: ReturnType<typeof createRpcClient>; token: string }>
+  > {
+    const credential = await options.provider(connection);
+    if (!credential.ok) {
+      return err({
+        code: "unavailable",
+        message: "connection credential을 받지 못했다",
+        details: { reason: credential.error },
+      });
+    }
+    return ok({
+      client: createRpcClient({
+        baseUrl: base,
+        token: credential.value.token,
+        fetch: fetchImpl,
+      }),
+      token: credential.value.token,
+    });
+  }
+
+  // 실제 core는 성공한 command의 등록된 결과 객체를 그대로 200으로 낸다(platform/api#R3).
+  // RpcClient는 포장된 응답({result, replayed, first_seq, last_seq})을 기대하므로
+  // command만 같은 요청 검사·같은 오류 해석으로 직접 보내고, 결과 객체와 포장된 응답
+  // 둘 다 받는다. 어느 쪽도 결과를 추측해 만들지 않는다.
+  async function sendCommand(
+    route: CommandRoute,
+    envelope: {
+      input: unknown;
+      idempotency_key: string;
+      compare: unknown;
+      prepared: readonly string[];
+    },
+    token: string,
+  ): Promise<Result<unknown>> {
+    const request = commandRequestSchema(route).safeParse(envelope);
+    if (!request.success) {
+      return err({ code: "invalid_input", message: "invalid input" });
+    }
+    let response: Awaited<ReturnType<RpcFetch>>;
+    try {
+      response = await fetchImpl(`${base}${routePath(route)}`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(request.data),
+      });
+    } catch {
+      return err({
+        code: "unavailable",
+        message: "transport failed",
+        details: { reason: "transport_failed" },
+      });
+    }
+    const json = decodeJson(response.bytes);
+    if (response.status !== 200) {
+      const failed = errorBodySchema.safeParse(json);
+      if (failed.success) return err(failed.data.error);
+      return err({
+        code: errorCodeForStatus(response.status) ?? "internal",
+        message: "request failed",
+      });
+    }
+    const raw = route.output.safeParse(json);
+    if (raw.success) return ok(raw.data);
+    const wrapped = commandResponseSchema(route).safeParse(json);
+    if (wrapped.success) return ok(wrapped.data);
+    return err({ code: "internal", message: "internal error" });
+  }
   return {
     connection,
     baseUrl: options.baseUrl,
     async command(route, body) {
-      const credential = await options.provider(connection);
-      if (!credential.ok) {
-        return err({
-          code: "unavailable",
-          message: "connection credential을 받지 못했다",
-          details: { reason: credential.error },
-        });
-      }
-      const client = createRpcClient({
-        baseUrl: base,
-        token: credential.value.token,
-        fetch: fetchImpl,
-      });
-      // command 계약의 envelope은 strict object다. command 호출은 input과
-      // key만 받으므로 나머지 필드는 계약 기본값으로 채운다.
-      const sent = await client.call(route, {
-        input: body.input,
-        idempotency_key: body.idempotency_key,
-        compare: {},
-        prepared: [],
-      } as never);
+      const opened = await rpc();
+      if (!opened.ok) return opened;
+      const client = opened.value.client;
+      // command 계약의 envelope은 strict object다. 호출자가 주지 않은 compare·
+      // prepared는 계약 기본값으로 채운다.
+      const sent = await sendCommand(
+        route,
+        {
+          input: body.input,
+          idempotency_key: body.idempotency_key,
+          compare: body.compare ?? {},
+          prepared: body.prepared ?? [],
+        },
+        opened.value.token,
+      );
       if (sent.ok) return sent;
       const failed = sent.error;
       // transport 유실은 command 결과를 같은 key로 다시 본다. 성공·domain
@@ -117,6 +196,17 @@ export function createCoreClient(options: CoreClientOptions): CoreClient {
       }
       return err(failed);
     },
+    async read(route, input) {
+      if (route.kind === "command") {
+        return err({
+          code: "invalid_input",
+          message: "command route는 read로 보낼 수 없다",
+        });
+      }
+      const opened = await rpc();
+      if (!opened.ok) return opened;
+      return await opened.value.client.call(route, input as never);
+    },
   };
 }
 
@@ -135,4 +225,14 @@ export function connectionFromRef(
     });
   }
   return ok(parsed.data);
+}
+
+const decoder = new TextDecoder();
+
+function decodeJson(bytes: Uint8Array): unknown {
+  try {
+    return JSON.parse(decoder.decode(bytes));
+  } catch {
+    return undefined;
+  }
 }

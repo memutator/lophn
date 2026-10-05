@@ -28,3 +28,28 @@ export {
   connectionAuthSyncPort,
   lookupConnectionAuth,
 } from "./auth.ts";
+export {
+  canonicalFilesHash,
+  canonicalFilesJson,
+  type HashedFile,
+  mediaTypeOf,
+  type PrepareBytes,
+  resolveSubmission,
+  type SubmissionScope,
+  type SubmittedFile,
+  toDocumentFiles,
+} from "./submission.ts";
+export {
+  documentIdForKey,
+  type FlowClient,
+  type SavedDocument,
+  saveDocument,
+  type SaveInput,
+  type SaveOutcome,
+  type SeriesSelector,
+} from "./document-save.ts";
+export {
+  describeSave,
+  describeSaveFailure,
+  type SaveReport,
+} from "./save-result.ts";

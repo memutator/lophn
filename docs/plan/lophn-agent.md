@@ -449,9 +449,11 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/questions-and-hitl.md
 - 선행: T10, T11, contracts#T28
+- 이어받음: platform#T29의 QuestionCreated 발생(T11 정정)과 platform#T27 settings 근거(#234)가 QuestionCreated·QuestionAnswered에서 읽는 선택지 key·변경 목록·사람 답은 이 작업이 낸다
+- 상태: 완료 (#273) — 이어보냄: apply_question_option과 적용 결과(`applied`=true)·고정 version 채택 → T29(그 전에는 `applied`가 항상 false), 질문 본문·답 blob의 영구 참조 등록 → Q29와 같은 이월, 자유 답을 blob으로 준비하기 전에 `screenAnswerText`를 부르는 core·shell 입력 경로 → 답 입력 화면과 blob prepare를 맡는 작업(지금은 판정 함수와 실제 redaction 엔진 시험까지)
 - 완료:
   - `questions` 표
-  - questions_test.ts에 R1–R12 테스트: 결정 하나만·이미 받은 답 재질문 없음, run 필수·세션 선택·run당 답 기다림 하나, 자유 입력과 선택형+자유 입력·추천 하나와 이유·선택지 수 상한 없음, 답 전 화면용 기본·상세 자료, 본문 덮어쓰기 없음, 지정한 명시 답만 인정하고 일반 메시지·빈 답은 답이 아님(대기 중 일반 text를 답으로 claim하지 않음), 기본 기한 없음(900초·3600초 같은 기본값 없음)과 명시 기한 경계, 대기 질문은 메모리 promise가 아니라 ledger에 남아 재시작 뒤 그대로, 미루기·만료·취소는 답 없음, 무효화와 늦은·중복 답 미적용, 재시작 뒤 상태·답·적용 결과 확인, secret으로 보이는 평문 답은 일반 저장 전에 막고 platform 안전 입력으로 안내·판정 불가면 fail closed(질문 Q23), 답이 approval·권한을 대신하지 않음
+  - 시험은 apps/core/testing/lophn-agent-questions_test.ts에 둔다(agent 자격의 command는 platform의 run 판정 port가 있어야 통과하므로 leaf 등록이 아니라 apps/core/testing이 맡는다). 재시작은 lophn-agent-questions-file_test.ts, secret 판정은 leaf의 screen.ts와 실제 redaction 엔진. R1–R12 테스트: 결정 하나만·이미 받은 답 재질문 없음, run 필수·세션 선택·run당 답 기다림 하나, 자유 입력과 선택형+자유 입력·추천 하나와 이유·선택지 수 상한 없음, 답 전 화면용 기본·상세 자료, 본문 덮어쓰기 없음, 지정한 명시 답만 인정하고 일반 메시지·빈 답은 답이 아님(대기 중 일반 text를 답으로 claim하지 않음), 기본 기한 없음(900초·3600초 같은 기본값 없음)과 명시 기한 경계, 대기 질문은 메모리 promise가 아니라 ledger에 남아 재시작 뒤 그대로, 미루기·만료·취소는 답 없음, 무효화와 늦은·중복 답 미적용, 재시작 뒤 상태·답·적용 결과 확인, secret으로 보이는 평문 답은 일반 저장 전에 막고 platform 안전 입력으로 안내·판정 불가면 fail closed(질문 Q23), 답이 approval·권한을 대신하지 않음
 
 ### T25 사람 기다림과 재개
 
@@ -482,6 +484,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다
 - T10에서 넘어온 것: run basis와 result의 blob 영구 참조 등록(#250은 hash만 둔다)
+- T51에서 넘어온 것: 회차 시계(`scheduling/work.ts`의 `createOccurrenceClock`·`run`)를 agent runtime 기동에서 돌려 `/v1/assignment-occurrences/process`를 machine credential로 부르는 연결(#267은 시계와 command만 닫았다). 주입할 `read`는 selector와 같은 core read, `wait`는 runtime 시각 대기, clock은 systemClock이다
 - T12에서 넘어온 것: (1) `RunSelector.next()`로 고른 run을 StartRun으로 시작하고 `beginRun`·`createRunCredentials`(#260)로 `agent:<asg>` credential을 받아 tool 진입에만 쓰며 run 종료·멈춤·감독 상실에 `end`한다. (2) credential을 core에서 runtime으로 전달하는 감독 pipe 메시지(app_credential_request의 agent판)와 core의 `CredentialRegistry.issue` 호출 자리, run 상태를 다시 보는 `current/live` 연결은 platform에 맡은 작업이 없다(platform#T24는 registry까지 닫혔다). 이 작업이 platform·contracts에 그 계약을 요청해 받은 뒤 연결하고, 계약이 없으면 멈추고 lead에게 보고한다.
 - 완료:
   - loop_test.ts에 R8–R13, R15, R23–R25 테스트(fake provider·clock·owner contract): model이 응답하지 않아도 core read·다른 assignment가 진행, turn 순서와 조립 뒤 입력·멈춤 재확인, 수정 입력은 다음 tool 전에 새 판단, 불완전 응답의 tool 0개와 잘림을 다음 판단에 전달, 모든 call이 확인된 read일 때만 병렬·하나라도 아니면 요청 순서 순차·결과는 요청 순서, 없는 tool·잘못된 인자는 call별 결과·인자 보정 없음, 순차 write·external 거절·최종 실패 뒤 나머지 미실행 이유·독립 read 결과 보존, 멈춤 뒤 새 model·tool·retry 차단·진행 호출 중단 요청·미시작 call 미실행 결과 합성, 일시 실패만 최대 2회(서버 시각을 지키고 없으면 2초·4초, fake clock으로 서버 시각 전 재시도 없음)·부분 응답 미채택, tool retry는 read·멱등 write만 1회 1초±10%와 재판정, provider 끄기·MCP 제거 뒤 새 진입 차단
@@ -887,6 +890,7 @@ E2E는 T53이 쓴다.
 - slice: operator
 - 조사: docs/research/scheduled-runs.md
 - 선행: T10, T12, contracts#T31
+- 상태: 완료 (#267) — 이어보냄: 회차 시계(`createOccurrenceClock`)를 apps/agent-runtime에서 돌리고 machine credential로 ProcessAssignmentOccurrence를 부르는 연결 → T26(runtime에 command를 부르는 client가 아직 없다)
 - 완료:
   - `assignment_schedule_occurrences` 표
   - scheduling_test.ts에 R1–R7 테스트: Operator만·machine 배경 요청·model 호출 없음, base 계산 재사용(apps#T20과 같은 순수 함수), UTC first_at·양수 every_ms·기본 간격 없음·cron·timezone·달력 없음, 같은 회차 중복 접수 없음과 접수·skip 시각·사유, 끝나지 않은 run(accepted·running·waiting_user)이 있으면 그 회차를 `unfinished_run`으로 skip하고 last_due_at을 넘김(due로 남겨 다음 tick에 재시도하지 않음)·대기열 없음·skip도 ledger 행, 주기 회차를 진행 중 run에 steering으로 합치지 않고 run 출처로 사람 요청과 주기를 구별, 기동·절전·재개 뒤 최근 미처리 하나만(10회 놓치면 run 1개와 missed_count 9)·앞은 놓침 구간·수 기록, heartbeat처럼 model을 부르는 주기 없음, 시계는 주입, 책임·상태 변경은 last_due_at 유지·주기 승인 변경만 새 계산
@@ -902,6 +906,7 @@ E2E는 T53이 쓴다.
 - slice: operator
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T9, T22, T43, T51, platform#T21, platform#T23
+- T51에서 넘어온 것: ApplyOperatorAssignment의 주기 변경 규칙(새 `first_at`이 적용 시각보다 미래가 아니면 `invalid_input`, 주기가 바뀔 때만 `last_due_at`을 null로, 책임·상태만 바꾸면 유지, paused는 그대로)은 #267이 먼저 넣었다. 생성 경로가 `assignment_outputs`·`assignment_read_apps`·`assignment_read_commands` 행을 아직 넣지 않는 것은 이 작업이 채운다
 - 완료:
   - operator_assignment_test.ts에 assignments#R4–R8, R15, presets#R15, tool-judgment#R4 테스트: 사람이 승인한 고정 bundle만 적용·agent가 자기·다른 assignment를 적용하지 않음, preset 전체 판·범위·남길 문서·주기·승인 read의 전후·이유가 bundle에 묶이고 내용·이전 판이 다르면 거절, 실제 첫 version이 있는 기존 문서 최소 1개·원본 연결·보관·빈 예약·시리즈·동적 이름 거절, 이름·자리가 바뀌어도 같은 문서·자료 속 주소 추가 읽기 없음, 남길 문서 독점(멈춤도 유지)과 사람 직접 편집 허용·충돌 검사, 승인 outputs 새 version만 allow·선언 밖 쓰기는 deny, 주기·사람 요청 외 자동 접수 없음, 초안의 판단·근거·비교 기준·갱신 조건·책임 밖과 구성 전체 검토 자료
   - context_engineer_operator_test.ts에 CE#R11–R13 테스트: 후보 근거(최근 30일 watch 변화 4회·기준 자료 뒤처짐 14일·같은 수동 업무 4회) 중 하나와 단순 합계·수집만은 제안 안 함, 초안 항목 전부, 겹치는 Operator는 기존 판·남길 문서 변경 제안과 겹침 근거
@@ -1053,3 +1058,8 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - **Q29 메시지 본문 blob의 영구 참조 등록** (추천으로 진행). ReceiveMessage·RecordMessage 입력은 본문 hash만 받아 준비(preparation)·크기 증거가 없고, `tx.registerBlobRef`는 그 증거 없이 부를 수 없다. T11은 hash만 messages.body에 저장하고 redaction 거친 blob의 영구 참조 등록은 하지 않는다(T10의 run basis·result와 같은 이월). 추천: contracts에서 두 command 입력이 prepared blob 증거(reporting의 blob source 모양)를 싣게 바꾼 뒤 T26 때 run basis·result와 함께 등록한다. 그 전에는 실제 blob을 올리는 사람 입력 경로를 열지 않는다(참조가 없는 blob은 7일 뒤 정리 대상이다). 영향: T11, T26.
 - **Q30 ApplyMessages와 StartModelCall의 한 transaction** (추천으로 진행). domain model은 최초 반영을 ModelCall 시작과 같은 transaction에 두라 하지만 StartModelCall 입력의 `applied_messages`는 아직 아무것도 하지 않는다. T11은 ApplyMessages를 `dispatchable`로 등록해 두었다. 추천: usage의 StartModelCall이 `applied_messages`가 있으면 같은 Tx에서 `tx.call(applyMessages, …)`을 부르고, 그 변경(usage 시험의 빈 목록 가정 포함)은 agent loop의 입력 선택과 함께 T26이 한다. 영향: T11, T26, usage.
 - **Q31 selector 우선순위 칸의 경계** (추천으로 진행). run-loop#R4는 "사람이 지금 기다리는 일"과 "사람의 한 번짜리 일"을 가르는 기준과, 8개 연속을 어떤 하위 후보 기준으로 세는지 정하지 않았다. 추천: 사람이 대화에서 입력한 요청(message 출처이고 continued_from 없음)은 1칸, handoff와 사람이 다시 맡긴 요청(continued_from)은 2칸, 주기 회차는 3칸이다. 8개 연속은 칸마다 가장 오래된 후보를 기준으로 그 후보가 접수된 뒤 더 높은 칸의 시작이 끊김 없이 8개였을 때이고, 연속은 RunStarted event와 run 출처에서 다시 만든다(후보가 없거나 막힌 assignment는 세지도 쓰지도 않는다). 영향: T12(`harness/run-loop/work.ts`), T26.
+- **Q32 QuestionCreated payload의 선택지 근거** (추천으로 진행). contracts#T28의 QuestionCreated payload는 `run`, `session`뿐이고 ledger는 event를 payload schema로 파싱한 값을 저장한다. 그래서 platform/settings#R29의 machine ApplySettings 검증(#234)이 SQL로 읽는 `options[].key`·`changes`가 저장 전에 지워져 실제 질문으로는 근거가 통과하지 못한다. 추천: payload에 `options: [{key, changes}]`를 더한다(changes는 선택지의 고정 action이 platform/settings 변경이면 그 목록, 아니면 null, 옛 모양은 빈 목록). 이 작업이 contract(`questions.ts`)와 domain model 한 줄을 함께 고쳤다. 영향: T24, T29, platform#T27.
+- **Q33 만료 질문의 closed_reason** (추천으로 진행). contracts#T28의 질문 record는 expired·cancelled 모두 `closed_reason`이 있어야 하는데 enum은 deferred·cancelled·superseded뿐이라 만료 질문을 읽을 때 output 검사가 실패한다. 추천: enum에 `expired`를 더하고 CancelQuestion 입력에서는 뺀다(`decision-values.ts`, `questions.ts`). 영향: T24, coding-agent#T18.
+- **Q34 미루기·만료의 닫은 이유** (정함, lead). DeferQuestion·ExpireQuestion 입력에는 사람이 남긴 글이 없는데 contracts#T28의 QuestionCancelled·QuestionExpired payload와 record는 `closed_reason_blob`을 요구해, 저장하지 않은 blob을 가리키는 고정 hash를 만들 수밖에 없었다. 정함: 이유는 고정 코드(`closed_reason`: deferred·cancelled·superseded·expired)로 두고 `closed_reason_blob`은 사람이 글을 남기는 취소(cancelled·superseded)에만 둔다. 미루기·만료는 blob이 null이고 QuestionExpired payload에는 blob이 없다. 이 작업이 contract(`questions.ts`)와 domain model을 함께 고쳤다. 영향: T24, T26.
+- **Q35 agent command의 run 판정 port 제품 등록** (추천으로 진행). platform/ledger#R11은 agent 자격 command를 `runAdmission` port 없이는 막는데 제품 조립에는 이 port를 등록하는 작업이 없었다(시험 등록만 있었다). 질문을 만드는 CreateQuestion이 첫 agent command라 제품에서 막힌다. 추천: apps/core/lophn-agent.ts가 runs 표(없으면 unknown, finished면 finished, 그 밖은 active)로 등록한다. 이 작업이 등록했다. 영향: T24, T26 이후 agent command 전부.
+- **Q36 option action 허용 목록과 settings 대상** (추천으로 진행). OptionAction은 `targets`에 고정 ID를 하나 이상 요구하지만 settings 변경에는 대상 entity가 없다. T24의 생성 검사는 이 작업이 정하는 allowlist(`platform/settings`·`apply_settings` 하나)만 열고 그 밖의 owner 동작(권한 부여·외부 효과 포함)은 forbidden으로 막는다. settings 선택지의 `targets`는 질문 ID를 쓴다. 문서 이동·앱 등록 같은 owner 동작의 등록과 dispatch, 적용 결과(`applied`)는 T29가 낸다. 그 전에는 `applied`가 항상 false다. 영향: T24, T29.

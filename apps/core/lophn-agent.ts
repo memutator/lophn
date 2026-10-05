@@ -3,7 +3,11 @@ import {
   defineSetting,
   type KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import {
+  defineTxPort,
+  type ReaderRegistration,
+  runAdmission,
+} from "../../packages/platform/ledger/mod.ts";
 import type { Tx } from "../../packages/contracts/platform/mod.ts";
 import {
   createModelDefaultsCommands,
@@ -41,11 +45,22 @@ import {
   runSchemaSteps,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
+  createSchedulingCommands,
+  createSchedulingReads,
+  schedulingSchemaSteps,
+} from "../../packages/lophn-agent/scheduling/mod.ts";
+import {
   conversationSchemaSteps,
   createConversationCommands,
   createConversationReads,
   hasUnappliedSteering,
 } from "../../packages/lophn-agent/conversation/mod.ts";
+import {
+  createQuestionCommands,
+  createQuestionReads,
+  questionBodyFields,
+  questionSchemaSteps,
+} from "../../packages/lophn-agent/questions/mod.ts";
 import {
   createToolCommands,
   createToolReads,
@@ -250,6 +265,15 @@ const assignmentReads = createAssignmentReads();
 const runCommands = createRunCommands({ hasUnappliedSteering });
 const runReads = createRunReads();
 
+// Operator 주기 회차(concern scheduling). 회차 접수는 run-loop의 AcceptRun handler를
+// 같은 Tx에서 부르고, 접수·기록·last_due_at 이동이 한 transaction이다(scheduling R4).
+// AcceptRun은 machine 전용 기록이고 이 명령도 machine만 부르므로 자격은 그대로다.
+const schedulingCommands = createSchedulingCommands({
+  acceptRun: (tx, ctx, input, compare) =>
+    runCommands.accept.handle(tx, ctx, input, compare),
+});
+const schedulingReads = createSchedulingReads();
+
 // 세션과 메시지(concern conversation). 사람 입력 접수는 담당 run 접수와 한
 // transaction이므로 run-loop의 AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은
 // machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
@@ -264,6 +288,25 @@ const conversationReads = createConversationReads();
 // 원문은 blob 참조만 남긴다.
 const toolCommands = createToolCommands();
 const toolReads = createToolReads();
+
+// 질문(concern questions). 질문은 agent가 만들고 사람이 답한다. 만료는 machine이
+// 닫는다. 답은 사람 확인(confirmation)이 필요한 route다. 본문·이유·선택지 설명·자유
+// 답은 blob 참조만 남는다.
+const questionCommands = createQuestionCommands();
+const questionReads = createQuestionReads();
+
+// agent 자격의 command(CreateQuestion 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
+// (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
+// unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
+const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
+  status: (run: string) => {
+    const row = tx.sql.get("select state from runs where id = ?", [run]);
+    if (row === undefined) return "unknown" as const;
+    return row["state"] === "finished"
+      ? "finished" as const
+      : "active" as const;
+  },
+}));
 
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
@@ -282,8 +325,10 @@ export const lophnAgentDefinitions = {
     ...presetSchemaSteps,
     ...assignmentSchemaSteps,
     ...runSchemaSteps,
+    ...schedulingSchemaSteps,
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
+    ...questionSchemaSteps,
   ],
   commands: [
     commands.register,
@@ -313,6 +358,7 @@ export const lophnAgentDefinitions = {
     runCommands.finish,
     runCommands.stop,
     runCommands.confirmNext,
+    schedulingCommands.process,
     conversationCommands.open,
     conversationCommands.changeWorkPlace,
     conversationCommands.close,
@@ -327,6 +373,11 @@ export const lophnAgentDefinitions = {
     toolCommands.finish,
     toolCommands.recordRead,
     toolCommands.supplement,
+    questionCommands.create,
+    questionCommands.answer,
+    questionCommands.defer,
+    questionCommands.cancel,
+    questionCommands.expire,
   ],
   reads: [
     reads.read,
@@ -346,14 +397,22 @@ export const lophnAgentDefinitions = {
     runReads.read,
     runReads.list,
     runReads.result,
+    schedulingReads.list,
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
     toolReads.read,
     toolReads.list,
+    questionReads.read,
+    questionReads.list,
   ],
   // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
-  blobFields: [...modelCallBodyFields, ...toolCallBodyFields],
+  blobFields: [
+    ...modelCallBodyFields,
+    ...toolCallBodyFields,
+    ...questionBodyFields,
+  ],
+  ports: [runAdmissionPort],
   workers: [],
 };
 
@@ -379,11 +438,14 @@ export function createReaderRegistration(): ReaderRegistration {
       runReads.read,
       runReads.list,
       runReads.result,
+      schedulingReads.list,
       conversationReads.session,
       conversationReads.sessions,
       conversationReads.messages,
       toolReads.read,
       toolReads.list,
+      questionReads.read,
+      questionReads.list,
     ],
     ports: new Map(),
   };

@@ -28,6 +28,11 @@ import {
 } from "../../packages/documents/contexts/mod.ts";
 import { createContextReads } from "../../packages/documents/contexts/mod.ts";
 import {
+  createTermCommands,
+  createTermReads,
+  termsSchemaSteps,
+} from "../../packages/documents/terms/mod.ts";
+import {
   fileStatusRead,
   type StatusMemory,
 } from "../../packages/documents/file-tracking/status.ts";
@@ -309,11 +314,13 @@ export function createLedgerRegistration(
   const addressing = createDocumentChangeCommands();
   // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
   const contexts = createContextCommands();
+  const terms = createTermCommands();
   const series = createSeriesCommands();
   const views = createViewCommands();
   const versionReads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
+  const termReads = createTermReads();
   const seriesReads = createSeriesReads();
   const seriesOutline = createSeriesOutlineRead();
   const viewReads = createViewReads();
@@ -327,6 +334,7 @@ export function createLedgerRegistration(
       ...projectsSchemaSteps,
       ...versionsSchemaSteps,
       ...contextsSchemaSteps,
+      ...termsSchemaSteps,
       ...seriesSchemaSteps,
       ...savedViewsSchemaSteps,
     ],
@@ -348,6 +356,11 @@ export function createLedgerRegistration(
       contexts.removeItem,
       contexts.archive,
       contexts.unarchive,
+      terms.propose,
+      terms.define,
+      terms.update,
+      terms.archive,
+      terms.unarchive,
       series.create,
       series.update,
       series.setDraft,
@@ -374,6 +387,8 @@ export function createLedgerRegistration(
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      termReads.list,
+      termReads.get,
       seriesReads.list,
       seriesReads.get,
       seriesReads.next,
@@ -428,6 +443,7 @@ export function createReaderRegistration(): ReaderRegistration {
   const reads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
+  const termReads = createTermReads();
   const seriesReads = createSeriesReads();
   const seriesOutline = createSeriesOutlineRead();
   const viewReads = createViewReads();
@@ -444,6 +460,8 @@ export function createReaderRegistration(): ReaderRegistration {
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      termReads.list,
+      termReads.get,
       seriesReads.list,
       seriesReads.get,
       seriesReads.next,

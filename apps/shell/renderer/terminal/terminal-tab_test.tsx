@@ -548,6 +548,7 @@ function workspaceSource(): WorkspaceSource {
       }),
     documents: () => Promise.resolve({ ok: true, value: [] }),
     contexts: () => Promise.resolve({ ok: true, value: [] }),
+    files: () => Promise.resolve({ ok: true, value: [] }),
     readLayout: () =>
       Promise.resolve({ ok: true, available: false, reason: "absent" }),
     saveLayout: () => Promise.resolve({ ok: true }),

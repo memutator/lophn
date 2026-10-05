@@ -4,6 +4,7 @@ import { routePath } from "../platform/mod.ts";
 import { EVENTS, ROUTES } from "./mod.ts";
 import {
   TERM_EVENTS,
+  termDefineCompareSchema,
   termDefined,
   termDefineInputSchema,
   termProposeInputSchema,
@@ -156,4 +157,12 @@ Deno.test("documents/terms#R4: glossary reads definitions and candidates apart",
       as_of_seq: "9",
     }).success,
   );
+});
+
+Deno.test("documents/terms#R2: term.define compare는 새 등록에 base_revision 없이 낼 수 있고 있어도 모양이 맞아야 한다", () => {
+  assertEquals(termDefine.compare, termDefineCompareSchema);
+  assert(termDefineCompareSchema.safeParse({}).success);
+  assert(termDefineCompareSchema.safeParse({ base_revision: "7" }).success);
+  assert(!termDefineCompareSchema.safeParse({ base_revision: "0" }).success);
+  assert(!termDefineCompareSchema.safeParse({ extra: true }).success);
 });

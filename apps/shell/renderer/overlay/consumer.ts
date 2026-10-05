@@ -6,15 +6,17 @@ import {
   type OverlayIdentity,
   type OverlayOpen,
   type OverlayOutcome,
+  type OverlayQuery,
   type OverlayReply,
 } from "../../ipc/overlay.ts";
 
-type Completion = OverlayOutcome | OverlayDragUpdate;
+type Completion = OverlayOutcome | OverlayDragUpdate | OverlayQuery;
 type Opener = {
   element: HTMLElement;
   focus: boolean;
   identity?: OverlayIdentity;
   pointer?: OverlayDragUpdate;
+  query?: OverlayQuery;
   terminal?: OverlayOutcome;
 };
 
@@ -36,7 +38,7 @@ export function overlayConsumer(
       !opener.identity || event.surfaceId !== opener.identity.surfaceId ||
       event.generation !== opener.identity.generation
     ) return;
-    if (event.type === "pointer") {
+    if (event.type === "pointer" || event.type === "query") {
       onResult(event);
       return;
     }
@@ -56,6 +58,7 @@ export function overlayConsumer(
         terminal.generation === event.generation
       ) return;
       if (event.type === "pointer") opener.pointer = event;
+      else if (event.type === "query") opener.query = event;
       else opener.terminal = event;
     }
   }, (error) => {
@@ -85,15 +88,18 @@ export function overlayConsumer(
       if (!result.ok) openers.delete(input.requestId);
       else {
         opener.identity = result.value;
-        const { pointer, terminal } = opener;
+        const { pointer, query, terminal } = opener;
         opener.pointer = undefined;
+        opener.query = undefined;
         opener.terminal = undefined;
         if (pointer) complete(pointer, opener);
+        if (query) complete(query, opener);
         if (terminal) complete(terminal, opener);
       }
       return result;
     },
     close: api.close,
+    update: api.update,
     dispose() {
       disposed = true;
       unsubscribe();

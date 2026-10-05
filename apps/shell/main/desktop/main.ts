@@ -8,12 +8,15 @@ import {
   nativeImage,
   protocol,
   Tray,
+  type WebContents,
+  WebContentsView,
 } from "electron";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
+import { WINDOW_SHORTCUT_CHANNEL } from "../../ipc/shortcuts.ts";
 
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
 import { startCoreConnection } from "./core/connection.ts";
@@ -47,6 +50,7 @@ import {
   surfaceOptions,
 } from "./headless.ts";
 import { registerShellScheme } from "./security.ts";
+import { listenShortcuts } from "./shortcuts.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
 import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
@@ -223,6 +227,27 @@ const instance = startSingleInstance({
     }),
 });
 
+// 창 안 shortcut. 창 본문·overlay·앱 view 어디에 focus가 있어도 그 창의 shell renderer가
+// 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다(desktop#R18).
+app.on("web-contents-created", (_event, contents) => {
+  listenShortcuts(contents, process.platform, (shortcut) => {
+    const window = desktopWindowOf(contents);
+    if (!window) return false;
+    window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
+    return true;
+  });
+});
+
+function desktopWindowOf(contents: WebContents): BrowserWindow | undefined {
+  return [...windows].find((window) =>
+    !window.isDestroyed() &&
+    (window.webContents === contents ||
+      window.contentView.children.some((view) =>
+        view instanceof WebContentsView && view.webContents === contents
+      ))
+  );
+}
+
 // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다(desktop#R21).
 app.on("window-all-closed", () => {});
 
@@ -329,10 +354,13 @@ function openDesktopWindow(): void {
     preload: join(here, "preload-shell.cjs"),
     // 개발 확인 전용. 제품 실행은 이 변수를 주지 않는다.
     // `LOPHN_SHELL_START=lophn`은 headless 확인에서 런처 대신 lophn 공간부터 연다.
+    // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
       ? `${DESKTOP_URL}#lophn`
+      : process.env.LOPHN_SHELL_START === "conversation"
+      ? `${DESKTOP_URL}#conversation`
       : DESKTOP_URL,
     windows: {
       create: (config: WindowConfig) => {

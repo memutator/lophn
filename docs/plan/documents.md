@@ -434,6 +434,7 @@ concerns: [documents]
 - slice: documents
 - 선행: T11–T20, contracts#T10(E2E harness), shell#T9, T13–T20, T22, T23(첫 창, layout, project-workspace, launcher 등록·미리보기, document 편집기·저장·이력, documents 화면, projects 화면, 파일 지우기 확인)
 - T11에서 넘어온 것: coordinator의 derived store 열기와 search consumer 조립(event 공급, 원문 blob 읽기, format runner의 section 추출)이 돼야 `/v1/outline/*`·`/v1/search/*`가 unavailable 대신 데이터를 돌려준다. 원문 blob 보존(Q16)이 먼저 풀려야 한다. T13에서 넘어온 것의 나머지
+- T25에서 넘어온 것: `/v1/terms/propose`·`/v1/terms/update`(근거 변경)의 route 앞단 확인. coordinator의 derived store로 고정 판의 section·줄 범위를 읽어 `checkTermOccurrence`(`packages/documents/terms/occurrence.ts`, `createDerivedEvidenceSource`)를 command 앞에서 돌리고 거절하면 command를 부르지 않는다(질문 Q8). coordinator의 derived store를 여는 일이 #266에서 T21로 넘어왔다. 이 앞단이 서기 전까지 core는 고정 판의 존재·문서 짝·범위만 확인한다
 - 완료:
   - first-project 1~8과 다른 갈래(겹침 거절, 접근 상실, format 검사 실패, 미지원 형식)
   - project-workspace의 문서 단계(1, 2, 7과 저장 실패 갈래). 터미널·앱 패널 단계는 shell·apps slice
@@ -470,7 +471,7 @@ concerns: [documents]
 
 ### T23 context outline
 
-- 상태: 완료 (#258) — 이어보냄: 앱 read command 항목의 읽기 가능 여부에 blueprint command 존재 확인 연결(지금은 앱이 활성인지만 본다, apps blueprint read가 들어온 뒤), `/v1/outline/context`의 glossary·candidates는 지금 빈 배열 → documents#T25
+- 상태: 완료 (#258) — 이어보냄: 앱 read command 항목의 읽기 가능 여부에 blueprint command 존재 확인 연결(지금은 앱이 활성인지만 본다, apps blueprint read가 들어온 뒤), `/v1/outline/context`의 glossary·candidates → documents#T25(이어받아 채움)
 - 등급: 기본
 - concern: documents/outline-and-search, documents/contexts
 - 요구: documents/outline-and-search#R2, R4, documents/contexts#R4
@@ -506,6 +507,7 @@ concerns: [documents]
 
 ### T25 Term
 
+- 상태: 완료 (#269) — 한 것: `terms`·`term_evidence` 표, 다섯 command와 `/v1/terms/list`·`/get`, `/v1/outline/context`의 glossary·candidates(T23에서 이어받음), `term.define`의 compare(새 등록은 base_revision 없음, 질문 Q19), 출현 확인 함수(`checkTermOccurrence`). 이어보냄: route 앞단의 출현 확인 연결(coordinator derived store가 필요하다) → documents#T21
 - 등급: 기본
 - concern: documents/terms
 - 요구: documents/terms#R1, R2, R3, R4, R5, R6
@@ -576,6 +578,7 @@ concerns: [documents]
 
 ### T29 설치 안내 읽기
 
+- 상태: 완료 (#270) — 제품 안내 묶음의 실제 설치 폴더 조립은 platform#T48 몫이다(Q18)
 - 등급: 기본
 - concern: documents/versions
 - 요구: documents/versions#R17, R18
@@ -689,3 +692,5 @@ lead가 2026-10-04에 모두 정했다.
 - **Q15 T11 coordinator가 machine으로 읽을 tracking 규칙·문서 연결(lead 결정).** machine ceiling은 command만 허용하는 것이 의도이므로 machine read를 새로 열지 않는다. core가 소유자로 snapshot에서 tracking 규칙(patterns·use_gitignore)과 경로→문서 연결(document ID·revision·최신 판)을 읽어, 이미 있는 core→coordinator 요청 envelope로 coordinator에 관측 근거 재료를 넘긴다. 규칙이나 연결이 바뀌면 같은 통로로 다시 보낸다. contract의 HTTP route·credential 정책은 바꾸지 않는다.
 - **Q16 T11 save가 판의 경로별 원문을 남기지 않는다.** `document.save`의 입력 PreparedVersion에는 파일 목록이 없어(파일별 준비 참조·ContentFile) 판의 `version_files` 행과 경로별 원문 blob 참조(`versionFileField`)를 만들지 못한다. `mintVersion`의 files는 `{hash, size_bytes}`이고 원문 blob(`document_file` 준비)은 등록되지 않아 준비 참조 수명(10분)이 지나면 사라진다. 그래서 관측한 판은 Version과 파일 목록 blob은 있지만 `document.file`·export·extraction이 읽을 원문 바이트가 없다(T8 완료 줄이 "경로별 원문 blob은 준비 worker가 확정하며 등록한다"고 적었으나 구현되지 않았다). 추천: PreparedVersion에 `files`(ContentFile와 파일별 준비 참조) 필드를 더하고 save가 같은 Tx에서 `version_files` 행과 `document_version.file` blob 참조를 등록한다(contracts 변경이라 lead 결정 뒤 contracts·T6·T8가 같이). 지금은 진행하지 않았다.
 - **Q17 T11 core 안에서 쓰는 event 구독·알려진 secret registry의 조립.** (정함 #275 — event 구독, secret registry는 남음) (1) 해소: 제품 reader 등록이 팀 event 정의와 공개 정책을 싣지 않던 것을 platform이 고쳤다. 팀 module이 `createEventRegistration()`(events·visibility)을 내고, reader Worker가 `createReaderRegistration` 또는 `createEventRegistration`을 낸 모든 팀 module에서 모아 한 registry로 `events/list`에 싣는다(`collectEventRegistrations`, 같은 type의 서로 다른 정의·정책은 기동 거절, 정책이 없으면 숨김). 손으로 쓴 목록이 아니라 routes·settings가 모이는 것처럼 core가 받은 팀 module 목록에서 모은다(settings.ts는 정적 import 목록이라 그대로 두었다). 지금 정책을 낸 팀은 documents(Project 4종, 사람 전용 기존 정책)와 problems(VerificationRecorded)뿐이고 apps·lophn-agent·coding-agent·shell·platform은 정책이 없어 그 event는 계속 숨김이다. 사람 token의 operation에는 정책이 있는 event 이름이 들어가 owner 정책이 사람에게 보일 수 있다(`eventOperations`). (2) core 안 구독자: core가 직접 돌리는 machine principal(`machine:documents-feed`, token 없음, ledger credential 기록)이 바깥 구독자와 같은 session(`createEventSession`, 함수 sink)으로 `events/list`를 지나 dispatcher에 올라 event를 받는다(`apps/core/internal-subscription.ts`, at-least-once, session이 닫히면 backoff 뒤 다시 열고 열 때마다 resync). 공개 범위는 owner(documents)의 `documents-events.ts`가 정한다: `ProjectCreated·Updated·TrackingChanged·Archived·Unarchived`와 `DocumentCreated·Saved·SourceChanged·Archived·Unarchived·Restored`가 feed에 열리고, Project 4종은 나머지 자격에 기존 사람 전용 정책을 그대로 따르며 나머지 documents event(`ProjectTrackingChanged` 포함)와 문서 event는 feed가 아니면 닫혀 있다. 사람·agent·app credential은 이 principal(actor machine, credential_ref 일치)이 될 수 없다. 1초·2초 주기 읽기를 이 구독으로 바꿨다(`documents-feed.ts`: event나 (재)구독이 깨우면 root 집합과 관측 근거를 같은 snapshot read로 다시 맞춘다. 실패할 때만 대기 뒤 다시 시도). (3) 남음: secret store가 제품 core에 조립되지 않아 core 보호 메모리에 채워진 registry가 없고 reader pool은 요청 밖의 값 전달 통로가 없다. 추천: secret registry 전달은 platform이 reader pool의 값 등록·회수 통로와 함께 정한다. 그 전까지 documents redactor는 pattern 검출만 한다. 같이 드러난 platform 빈틈(이 PR이 고치지 않음): WebSocket `/v1/events/subscribe` session이 dispatcher에 올라가지 않아 연결 뒤 새 event를 받지 못한다(재생만 된다), reader 등록에 SubjectScopeGate가 없어 `subjects` 필터는 항상 unavailable이다.
+- **Q18 T29 설치 안내 manifest 모양과 설치 root(추천으로 진행).** platform#T48(설치 묶음)이 아직 `guides/`를 만들지 않아 documents가 reader 쪽 모양을 정했다: `<설치 root>/guides/manifest.json`은 `{lophn_version, guides: BundledGuide[]}`(lophn-agent#T30이 내놓는 BundledGuide 배열 그대로, 모든 안내의 lophn_version이 최상위와 같다)이고 파일은 `guides/` 기준 상대 경로, content_hash는 대표 파일 raw bytes sha256이다(lophn-agent Q27). 설치 root는 reader Worker가 env `LOPHN_INSTALL_ROOT`(없으면 `/opt/lophn`)에서 읽는다. platform#T48이 다른 모양·자리를 정하면 `apps/core/documents-reader.ts`의 `guidesRoot`와 `packages/documents/versions/guides.ts`만 맞춘다. 제품 안내가 없으면 `/v1/guides/*`는 빈 목록이 아니라 unavailable이다.
+- **Q19 T25 `term.define`의 compare가 새 등록에도 `base_revision`을 요구한다.** 정함(lead): contract를 고친다. `termDefine.compare`의 `base_revision`은 선택이다. 이미 있는 용어를 정의할 때는 handler가 필수로 요구하고(없으면 `invalid_input`), 새 ID 등록에는 비교할 revision이 없으므로 보내면 `invalid_input`이다. 이유: 없는 revision을 꾸며 보내게 하지 않는다.

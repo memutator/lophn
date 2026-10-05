@@ -12,6 +12,7 @@ import {
   type OverlayResult,
   overlayResultSchema,
   type OverlaySnapshot,
+  overlayUpdateSchema,
   type Rect,
   rectSchema,
 } from "../../ipc/overlay.ts";
@@ -319,6 +320,21 @@ export function createOverlay(options: OverlayOptions) {
       sync();
       return success(null);
     },
+    update(event: IpcEvent, input: unknown): OverlayReply<null> {
+      const checked = authorize(event, overlayUpdateSchema, input, "shell");
+      if (!checked.ok) return checked;
+      const surface = surfaces.get(checked.value.surfaceId);
+      if (!surface || surface.generation !== checked.value.generation) {
+        return failure("conflict", "surface is stale");
+      }
+      if (surface.kind !== "palette" || !surface.model.search) {
+        return failure("invalid_input", "surface does not search");
+      }
+      // 고르기 검사도 새 행으로 한다. 옛 행의 id는 더 고를 수 없다.
+      surface.model = checked.value.model;
+      sync();
+      return success(null);
+    },
     result(event: IpcEvent, input: unknown): OverlayReply<null> {
       const checked = authorize(event, overlayResultSchema, input, "overlay");
       if (!checked.ok) return checked;
@@ -327,7 +343,21 @@ export function createOverlay(options: OverlayOptions) {
       if (!surface || surface.generation !== result.generation) {
         return failure("conflict", "surface is stale");
       }
-      if (result.type === "drag-cancel") {
+      if (result.type === "query") {
+        // 검색 palette만 검색어를 연 쪽에 돌려준다. 표면은 열린 채이고 focus도 그대로다.
+        if (surface.kind !== "palette" || !surface.model.search) {
+          return failure("invalid_input", "surface does not search");
+        }
+        if (!options.shell.isDestroyed()) {
+          options.shell.send("shell:overlay-result", {
+            requestId: surface.requestId,
+            surfaceId: surface.surfaceId,
+            generation: surface.generation,
+            type: "query",
+            text: result.text,
+          });
+        }
+      } else if (result.type === "drag-cancel") {
         if (surface.kind !== "drag") {
           return failure("invalid_input", "surface is not a drag");
         }

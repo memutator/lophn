@@ -85,6 +85,11 @@ export const termProposeInputSchema = z.strictObject({
 export const termCompareSchema = z.strictObject({
   base_revision: revisionSchema,
 });
+// 새 용어 등록에는 비교할 revision이 없다. 이미 있는 용어를 정의할 때는 handler가
+// base_revision을 요구하고, 새 등록에는 보내면 거절한다(질문 Q19).
+export const termDefineCompareSchema = z.strictObject({
+  base_revision: revisionSchema.optional(),
+});
 export const termInputSchema = z.strictObject({ term: termIdSchema });
 
 const defineFields = {

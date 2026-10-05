@@ -14,6 +14,14 @@ export type PlaceholderKinds = {
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-page": Record<never, never>;
+  "common.button.palette-go-to": {
+    screen: "string";
+  };
+  "common.button.palette-info-panel": Record<never, never>;
+  "common.button.palette-launcher": Record<never, never>;
+  "common.button.palette-lophn": Record<never, never>;
+  "common.button.palette-open": Record<never, never>;
+  "common.button.palette-terminal": Record<never, never>;
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
@@ -38,6 +46,13 @@ export type PlaceholderKinds = {
   };
   "common.heading.count": Record<never, never>;
   "common.heading.group": Record<never, never>;
+  "common.heading.palette-actions": Record<never, never>;
+  "common.heading.palette-apps": Record<never, never>;
+  "common.heading.palette-contexts": Record<never, never>;
+  "common.heading.palette-documents": Record<never, never>;
+  "common.heading.palette-files": Record<never, never>;
+  "common.heading.palette-projects": Record<never, never>;
+  "common.heading.palette-tabs": Record<never, never>;
   "common.label.date-with-weekday": {
     date: "string";
     weekday: "string";
@@ -49,6 +64,15 @@ export type PlaceholderKinds = {
   "common.label.on-this-page": Record<never, never>;
   "common.label.original-order": Record<never, never>;
   "common.label.other": Record<never, never>;
+  "common.label.palette-key-close": Record<never, never>;
+  "common.label.palette-key-move": Record<never, never>;
+  "common.label.palette-key-open": Record<never, never>;
+  "common.label.palette-left-pane": Record<never, never>;
+  "common.label.palette-right-pane": Record<never, never>;
+  "common.label.palette-tab-detail": {
+    kind: "string";
+    pane: "string";
+  };
   "common.label.row-range": {
     start: "number";
     end: "number";
@@ -74,6 +98,8 @@ export type PlaceholderKinds = {
   "common.stale.label": {
     age: "string";
   };
+  "common.title.palette-lophn": Record<never, never>;
+  "common.title.palette-workspace": Record<never, never>;
   "common.title.quit": Record<never, never>;
   "confirmation-window.body.checking": Record<never, never>;
   "confirmation-window.body.expired": Record<never, never>;
@@ -89,6 +115,63 @@ export type PlaceholderKinds = {
   "contexts.view.baseline": Record<never, never>;
   "contexts.view.follow-changes": Record<never, never>;
   "contexts.view.reference": Record<never, never>;
+  "conversation.button.check-delivery": Record<never, never>;
+  "conversation.button.close": Record<never, never>;
+  "conversation.button.jump-latest": Record<never, never>;
+  "conversation.button.mode-correction": Record<never, never>;
+  "conversation.button.mode-request": Record<never, never>;
+  "conversation.button.new-session": Record<never, never>;
+  "conversation.button.open": Record<never, never>;
+  "conversation.button.resend": Record<never, never>;
+  "conversation.button.send": Record<never, never>;
+  "conversation.button.show-all-results": Record<never, never>;
+  "conversation.button.stop": Record<never, never>;
+  "conversation.empty.no-agent": Record<never, never>;
+  "conversation.empty.no-messages": Record<never, never>;
+  "conversation.empty.no-session": Record<never, never>;
+  "conversation.error.load-failed": Record<never, never>;
+  "conversation.error.open-failed": Record<never, never>;
+  "conversation.error.stop-failed": Record<never, never>;
+  "conversation.label.author-check": Record<never, never>;
+  "conversation.label.author-lophn": Record<never, never>;
+  "conversation.label.author-you": Record<never, never>;
+  "conversation.label.composer-correction": Record<never, never>;
+  "conversation.label.composer-request": Record<never, never>;
+  "conversation.label.correction": Record<never, never>;
+  "conversation.label.delivery-applied": Record<never, never>;
+  "conversation.label.delivery-not-sent": Record<never, never>;
+  "conversation.label.delivery-received": Record<never, never>;
+  "conversation.label.delivery-saved": Record<never, never>;
+  "conversation.label.delivery-sending": Record<never, never>;
+  "conversation.label.delivery-unconfirmed": Record<never, never>;
+  "conversation.label.document": Record<never, never>;
+  "conversation.label.more-results": {
+    count: "plural";
+  };
+  "conversation.label.results": Record<never, never>;
+  "conversation.label.session": {
+    number: "number";
+  };
+  "conversation.label.session-ended": {
+    number: "number";
+  };
+  "conversation.label.sessions": Record<never, never>;
+  "conversation.label.status-done": Record<never, never>;
+  "conversation.label.status-in-progress": Record<never, never>;
+  "conversation.label.status-stopped": Record<never, never>;
+  "conversation.label.status-waiting": Record<never, never>;
+  "conversation.notice.ended": Record<never, never>;
+  "conversation.notice.message-unreadable": Record<never, never>;
+  "conversation.notice.not-found": Record<never, never>;
+  "conversation.notice.not-sent": Record<never, never>;
+  "conversation.notice.offline": Record<never, never>;
+  "conversation.notice.paused": Record<never, never>;
+  "conversation.notice.stale": {
+    age: "string";
+  };
+  "conversation.notice.stale-never": Record<never, never>;
+  "conversation.notice.unconfirmed": Record<never, never>;
+  "conversation.title.dock": Record<never, never>;
   "document.button.check-task": Record<never, never>;
   "document.button.edit": Record<never, never>;
   "document.button.find-close": Record<never, never>;

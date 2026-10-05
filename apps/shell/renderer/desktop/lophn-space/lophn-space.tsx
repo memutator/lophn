@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
@@ -12,9 +12,22 @@ import {
 } from "../../workspace/model.ts";
 import { DEFAULT_SCREEN, type LophnScreen } from "./model.ts";
 import { screenLabel } from "./screens.ts";
-import type { LophnSource } from "./source.ts";
+import type { Catalog, LophnSource } from "./source.ts";
 import { LophnSidebar } from "./sidebar/sidebar.tsx";
 import { DocumentsScreen } from "./documents/documents-screen.tsx";
+import type { ReaderTarget } from "./documents/reader.tsx";
+import {
+  DockSlot,
+  DockToggle,
+  useConversation,
+} from "../../conversation/dock-slot.tsx";
+import { dockPlacement } from "../../conversation/model.ts";
+import {
+  PaletteButton,
+  usePaletteEnv,
+  usePaletteScope,
+} from "../palette/host.tsx";
+import { lophnScope } from "../palette/lophn-scope.ts";
 import styles from "./lophn-space.module.css";
 
 export interface LophnSpaceProps {
@@ -24,13 +37,17 @@ export interface LophnSpaceProps {
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
+  /** 프로젝트 작업대로 간다. 창 팔레트의 프로젝트 행이 쓴다. */
+  onProject?: (project: string) => void;
   /** 상대 시각의 기준. 테스트가 고정한다. */
   now?: () => number;
 }
 
+const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
+
 // lophn 공간. 왼쪽 sidebar의 일곱 형제 중 하나를 본문에 연다. 대화는 이 화면에 기대지 않는다.
 export function LophnSpace(
-  { source, screen, windowWidth, onLauncher, now }: LophnSpaceProps,
+  { source, screen, windowWidth, onLauncher, onProject, now }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
   const [sidebar, setSidebar] = useState<SidebarState>({
@@ -38,8 +55,67 @@ export function LophnSpace(
     collapsedByUser: false,
   });
   const frameRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
+  const contentSize = useObservedSize(contentRef);
   const shown = sidebarView(frameSize?.width ?? windowWidth, sidebar, false);
+  // 대화 도크. lophn 공간에는 정보 패널이 없어 본문만 민다(desktop#R2).
+  const conversation = useConversation();
+  const [dockOpen, setDockOpen] = useState(
+    conversation?.startOpen === true,
+  );
+  const dock = dockPlacement(
+    dockOpen && conversation !== null,
+    contentSize?.width ?? windowWidth - shown.width,
+  );
+  // 대화의 결과 링크로 연 문서. 바뀔 때마다 documents 화면을 그 문서로 다시 연다.
+  const [reading, setReading] = useState<
+    { readonly target: ReaderTarget; readonly count: number } | null
+  >(null);
+
+  const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
+
+  // 창 팔레트의 프로젝트·컨텍스트·앱 행. 팔레트가 있는 창만 읽고, 읽지 못하면 그 묶음만 빈다.
+  const palette = usePaletteEnv();
+  useEffect(() => {
+    if (!palette.available) return;
+    let live = true;
+    void source.catalog().then((loaded) => {
+      if (live && loaded.ok) setCatalog(loaded.value);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, palette.available]);
+
+  // 창 팔레트의 lophn 공간 행(desktop#R30). 고르면 지금 탐색 대상으로만 간다.
+  usePaletteScope(() =>
+    lophnScope({
+      catalog,
+      platform: palette.platform,
+      search: palette.search
+        ? (query) => palette.search!(query, null)
+        : undefined,
+      go: (target) => {
+        if (target.kind === "launcher") onLauncher();
+        else if (target.kind === "project") onProject?.(target.id);
+        else if (target.kind === "screen") setCurrent(target.screen);
+        else if (target.kind === "context") setCurrent("contexts");
+        else if (target.kind === "app") setCurrent("apps");
+        else {
+          setCurrent("documents");
+          setReading((last) => ({
+            target: {
+              document: target.document,
+              version: target.version,
+              section: null,
+            },
+            count: (last?.count ?? 0) + 1,
+          }));
+        }
+      },
+    })
+  );
 
   return (
     <div
@@ -76,16 +152,48 @@ export function LophnSpace(
                 />
               </span>
             }
+            trailing={
+              <span className={styles.trailing}>
+                <PaletteButton />
+                {conversation
+                  ? (
+                    <DockToggle
+                      open={dockOpen}
+                      onToggle={() => setDockOpen(!dockOpen)}
+                    />
+                  )
+                  : null}
+              </span>
+            }
           />
         </div>
-        <div className={styles.content}>
+        <div className={styles.content} ref={contentRef}>
           {current === "documents"
-            ? <DocumentsScreen source={source} now={now} />
+            ? (
+              <DocumentsScreen
+                key={reading?.count ?? 0}
+                source={source}
+                now={now}
+                initialRead={reading?.target}
+              />
+            )
             : (
               <p className={styles.notReady} data-not-ready={current}>
                 {t("common.empty.not-ready")}
               </p>
             )}
+          <DockSlot
+            placement={dock}
+            workPlace={{ kind: "global", id: null }}
+            onClose={() => setDockOpen(false)}
+            onOpenResult={(document, version) => {
+              setCurrent("documents");
+              setReading((previous) => ({
+                target: { document, version, section: null },
+                count: (previous?.count ?? 0) + 1,
+              }));
+            }}
+          />
         </div>
       </div>
     </div>

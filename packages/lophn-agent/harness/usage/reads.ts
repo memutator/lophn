@@ -86,6 +86,8 @@ function loadRows(
 }
 
 // token 합계. 모르는 필드는 그대로 모름으로 남긴다(R5, R6). 0으로 바꾸지 않는다.
+// 알려진 token이 하나도 없으면 합계도 전부 모름이고 판 기록은 없다(unknown,
+// cost·billing_route와 같은 표기). 빈 문자열은 schema를 넘지 못한다.
 function sumTokens(list: readonly { usage: TokenUsage }[]): TokenUsage {
   const known = list.filter((row) =>
     row.usage.input !== null || row.usage.output !== null ||
@@ -102,7 +104,7 @@ function sumTokens(list: readonly { usage: TokenUsage }[]): TokenUsage {
       reasoning: null,
       cache_in_input: null,
       reasoning_in_output: null,
-      definition_revision: "",
+      definition_revision: "unknown",
     };
   }
   const pick = (

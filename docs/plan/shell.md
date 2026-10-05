@@ -1190,4 +1190,4 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (4) opt-in 정의 `shell.os_notifications`(boolean, 기본 false)는 `apps/core/shell.ts`에 두었다. main은 새 notification이 도착할 때마다 settings.get으로 지금 값을 읽고, 읽지 못하면 꺼짐으로 본다. 켜고 끄는 화면은 T58이다.
   - (5) 재연결 backlog 판정: main 구독은 붙을 때 `events.list`의 `head_seq`를 기억하고 socket으로 온 event 중 그 뒤의 것만 "지금 도착"으로 넘긴다. 한 page로 다 따라잡지 못한 나머지도 socket으로 오기 때문이다.
   - (6) 제품 core가 platform notifications를 조립하지 않아(Q16(3)) 지금은 `NotificationCreated`가 오지 않는다. main은 실제 event 구독에 붙어 있으므로 core 조립이 들어오면 추가 연결 없이 표시된다. 그 확인은 platform 조립 작업과 platform#T46(flow catch-up-notifications)이 한다.
-  - (7) 보고: `apps/shell/renderer/editor/reading-width.ts`의 settings.apply compare에 `defaults_revision`이 없어 실제 core가 invalid_input으로 거절한다(T56 integration test는 compare를 맞춰 확인했다). shell/editor 쪽에서 고칠 일이다.
+  - (7) `apps/shell/renderer/editor/reading-width.ts`의 settings.apply compare에 `defaults_revision`이 없던 버그는 #285가 고쳤다(실제 core 시험 포함).

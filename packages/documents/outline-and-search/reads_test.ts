@@ -1822,3 +1822,50 @@ Deno.test("documents/contexts#R4: context 항목은 최신 판을 따르고 이�
     fx.close();
   }
 });
+
+Deno.test("documents/outline-and-search#R9: place outline cursor는 다음 page를 중복·누락 없이 이어 낸다", () => {
+  const fx = contextLedger();
+  try {
+    fx.ledger.db.prepare(
+      `INSERT INTO projects (id, name, title, purpose, tracking_enabled, use_gitignore, revision, status)
+       VALUES (?, 'p', '프로젝트', '목적', 0, 0, '1', 'active')`,
+    ).run(PROJECT);
+    const documents = [
+      [DOC_A, VER_A],
+      [DOC_B, VER_B],
+      [DOC_C, VER_C],
+      [DOC_D, VER_D],
+    ];
+    documents.forEach(([document, version], index) => {
+      fx.document(document, version, `문서 ${index}`);
+      fx.ledger.db.prepare(
+        `UPDATE documents SET place_kind = 'project', place_id = ?, name = ?, revision = ?
+         WHERE id = ?`,
+      ).run(PROJECT, `doc-${index}`, String(index + 1), document);
+    });
+    // derived 행이 없는 판의 항목 비용은 320자(107 token)라 예산 150은 한 항목씩이다.
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      const page = keep(
+        fx.outline().place(USER, {
+          place: { kind: "project", id: PROJECT },
+          estimated_token_budget: 150,
+          ...(cursor === undefined ? {} : { cursor }),
+        }),
+      );
+      assertEquals(page.entries.length, 1);
+      seen.push(page.entries[0].document);
+      cursor = page.next_cursor ?? undefined;
+      pages += 1;
+      assertEquals(page.complete, cursor === undefined);
+      assert(pages <= 10, "cursor가 끝나지 않는다");
+    } while (cursor !== undefined);
+    assertEquals(pages, 4);
+    // 갱신 순(revision 큰 쪽이 먼저)으로 모두 한 번씩 나온다.
+    assertEquals(seen, [DOC_D, DOC_C, DOC_B, DOC_A]);
+  } finally {
+    fx.close();
+  }
+});

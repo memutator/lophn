@@ -818,7 +818,8 @@ function buildPlaceEntries(
   ctx: RequestContext,
   place: { kind: "project" | "app"; id: string },
   budget: number,
-): { entries: OutlinePlaceEntryValue[]; offset: number; complete: boolean } {
+  offset: number,
+): { entries: OutlinePlaceEntryValue[]; complete: boolean } {
   const rows = deps.snapshot.sql.all(
     `SELECT d.id, d.name, d.title, d.latest_version, d.revision
      FROM documents d
@@ -829,6 +830,8 @@ function buildPlaceEntries(
   const entries: OutlinePlaceEntryValue[] = [];
   let used = 0;
   let complete = true;
+  // offset은 허용된 항목 수다. 앞 page가 담은 만큼 건너뛰고 이어 담는다.
+  let skipped = 0;
   for (const row of rows) {
     const document = String(row["id"]);
     if (
@@ -845,15 +848,19 @@ function buildPlaceEntries(
     if (latest === null) continue;
     const format = formatRef(deps.snapshot, latest);
     if (format === null) continue;
+    if (skipped < offset) {
+      skipped += 1;
+      continue;
+    }
     const bytes = estimatedTokens(entryCost(deps, latest));
-    if (used + bytes > budget) {
+    if (used + bytes > budget && entries.length > 0) {
       complete = false;
       break;
     }
     used += bytes;
     entries.push(placeEntry(deps, row, document, latest, format));
   }
-  return { entries, offset: entries.length, complete };
+  return { entries, complete };
 }
 
 function entryCost(
@@ -1544,8 +1551,14 @@ export function createOutlineHandlers(
           credential: ctx.credential_ref,
         });
       if (!cursorState.ok) return cursorState as never;
-      const result = buildPlaceEntries(deps, ctx, input.place, budget);
-      const entries = result.entries.slice(cursorState.value.offset);
+      const result = buildPlaceEntries(
+        deps,
+        ctx,
+        input.place,
+        budget,
+        cursorState.value.offset,
+      );
+      const entries = result.entries;
       const complete = result.complete;
       return ok({
         kind: "place",

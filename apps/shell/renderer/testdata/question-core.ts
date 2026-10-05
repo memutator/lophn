@@ -50,10 +50,7 @@ interface CoreModule {
   startCore(options: Record<string, unknown>): Promise<Result<Core>>;
 }
 
-interface TeamModule {
-  lophnAgentDefinitions: unknown;
-  createLedgerRegistration: unknown;
-}
+type TeamModule = Record<string, unknown>;
 
 interface ApprovalAction {
   concern: string;
@@ -87,8 +84,32 @@ if (home === undefined || home === "") {
 const seedOnly = Deno.args.includes("--seed-only");
 
 const { startCore } = await load<CoreModule>("apps/core/core.ts");
-const lophnAgentModule = new URL("apps/core/lophn-agent.ts", root).href;
-const team = await load<TeamModule>("apps/core/lophn-agent.ts");
+// apps/core/main.ts의 TEAMS와 같은 팀 등록이다. 같아야 이 root로 제품 core(shell이 띄우는
+// core)가 schema를 그대로 받아 시작한다. 다르면 제품 core가 시작을 거절하므로 바로 드러난다.
+const TEAM_FILES = [
+  "apps/core/documents.ts",
+  "apps/core/apps.ts",
+  "apps/core/problems.ts",
+  "apps/core/coding-agent.ts",
+  "apps/core/lophn-agent.ts",
+  "apps/core/tickets.ts",
+];
+const [documents, apps, problems, codingAgent, lophnAgent, tickets] =
+  await Promise.all(TEAM_FILES.map((path) => load<TeamModule>(path)));
+const teams = [
+  { createLedgerRegistration: documents!.createLedgerRegistration },
+  { createLedgerRegistration: apps!.createLedgerRegistration },
+  { problemsTestDefinitions: problems!.problemsTestDefinitions },
+  { problemsReportDefinitions: problems!.problemsReportDefinitions },
+  { createLedgerRegistration: problems!.createLedgerRegistration },
+  {
+    codingAgentConnectionDefinitions: codingAgent!
+      .codingAgentConnectionDefinitions,
+  },
+  { lophnAgentDefinitions: lophnAgent!.lophnAgentDefinitions },
+  { createLedgerRegistration: lophnAgent!.createLedgerRegistration },
+  { ticketDefinitions: tickets!.ticketDefinitions },
+];
 const contracts = await load<PlatformContracts>(
   "packages/contracts/platform/mod.ts",
 );
@@ -116,11 +137,8 @@ const started = await startCore({
   lophnHome: home,
   port: 0,
   writerClock: "system",
-  teams: [
-    { lophnAgentDefinitions: team.lophnAgentDefinitions },
-    { createLedgerRegistration: team.createLedgerRegistration },
-  ],
-  teamModules: [lophnAgentModule],
+  teams,
+  teamModules: TEAM_FILES.map((path) => new URL(path, root).href),
   parent: { stdin, stdout },
   testCredentials: true,
 });

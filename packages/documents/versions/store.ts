@@ -173,6 +173,53 @@ export function loadLatestVersion(
   return versionFromRow(row);
 }
 
+export type LinkedDocument = {
+  document: Document;
+  // 최신 판이 파일 관측이면 그 original_hash. 아니면 null이다.
+  latestOriginalHash: string | null;
+};
+
+// 프로젝트 파일에 연결된 문서(보관 포함)와 최신 판의 원본 hash를 경로 순서로 한 page씩
+// 읽는다. 파일 관측의 경로↔문서 대응(`documents.source_path`)이고 목록·scan·편집이 같은
+// read를 쓴다. after는 직전 page의 마지막 경로다.
+export function loadLinkedDocuments(
+  sql: Pick<Sql, "all">,
+  page: { after?: string; limit: number },
+): Result<LinkedDocument[]> {
+  const columns = DOCUMENT_COLUMNS.split(",").map((column) =>
+    `d.${column.trim()}`
+  ).join(", ");
+  const rows = sql.all(
+    `SELECT ${columns}, v.source AS latest_source
+     FROM documents d JOIN versions v ON v.id = d.latest_version
+     WHERE d.source_kind = 'project_file' AND d.source_path > ?
+     ORDER BY d.source_path LIMIT ?`,
+    [page.after ?? "", page.limit],
+  );
+  const linked: LinkedDocument[] = [];
+  for (const row of rows) {
+    const document = documentFromRow(row);
+    if (!document.ok) return document;
+    let latestOriginalHash: string | null = null;
+    const sourceText = text(row, "latest_source");
+    if (sourceText !== undefined) {
+      let parsedJson: unknown;
+      try {
+        parsedJson = JSON.parse(sourceText);
+      } catch {
+        return invalidRow();
+      }
+      const parsed = versionSourceSchema.safeParse(parsedJson);
+      if (!parsed.success) return invalidRow();
+      if (parsed.data.kind === "file") {
+        latestOriginalHash = parsed.data.original_hash;
+      }
+    }
+    linked.push({ document: document.value, latestOriginalHash });
+  }
+  return ok(linked);
+}
+
 export function loadVersionByNumber(
   sql: Sql,
   document: string,

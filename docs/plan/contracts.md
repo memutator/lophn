@@ -173,7 +173,7 @@ contracts 팀은 `packages/contracts/`(최상위 사이 contract), `packages/bas
 
 #### T6 구현 메모: 자식의 blob 준비 요청
 
-- 상태: 완료 (#PRNUM)
+- 상태: 완료 (#248)
 - concern: platform/blob-store, platform/api
 - 요구: platform/blob-store#R1, R2; platform/api#R4, R5
 - 자리: `packages/contracts/platform/supervision.ts`, `supervision_test.ts`

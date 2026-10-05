@@ -191,16 +191,17 @@ function applyDeltaToolCalls(
       id?: unknown;
       function?: { name?: unknown; arguments?: unknown };
     };
+    const index = piece.index;
     if (
-      !Number.isInteger(piece.index) || (piece.index as number) < 0 ||
-      (piece.index as number) >= MAX_CHAT_TOOL_CALLS
+      typeof index !== "number" || !Number.isInteger(index) || index < 0 ||
+      index >= MAX_CHAT_TOOL_CALLS
     ) {
       out.sawUnknownEvent = true;
       out.sawBadToolIndex = true;
       continue;
     }
-    const slot = out.toolCalls[piece.index] ?? { id: "", name: "", args: "" };
-    out.toolCalls[piece.index] = slot;
+    const slot = out.toolCalls[index] ?? { id: "", name: "", args: "" };
+    out.toolCalls[index] = slot;
     if (typeof piece.id === "string" && piece.id.length > 0) {
       slot.id = piece.id;
     }

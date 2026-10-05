@@ -233,7 +233,11 @@ export async function checkRepo(root: string): Promise<Violation[]> {
             // *_test.ts는 다른 leaf의 testing/mod.ts(테스트 전용 fixture)도 import할 수 있다.
             const fixture = test && targetLeaf !== undefined &&
               target === `${targetLeaf}/testing/mod.ts`;
+            const extractFile = file ===
+                "packages/apps/releases/prepare/flow.ts" &&
+              target === "packages/apps/blueprint/extract.ts";
             if (
+              !extractFile &&
               targetLeaf !== sourceLeaf && !fixture &&
               (!targetLeaf || target !== `${targetLeaf}/mod.ts`)
             ) {

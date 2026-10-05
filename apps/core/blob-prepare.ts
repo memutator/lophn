@@ -28,6 +28,9 @@ import {
 export const BLOB_RELAY_BUFFER_MAX_BYTES = BLOB_PREPARE_CREDIT_WINDOW +
   STREAM_CHUNK_MAX_BYTES;
 
+// 이보다 작은 chunk는 합쳐서 한 frame으로 보낸다(마지막 chunk와 credit이 모자란 경우 제외).
+export const BLOB_RELAY_MIN_FRAME_BYTES = 32 * 1024;
+
 // worker가 credit을 더 주지 않고 말이 없을 때 기다리는 시간. 지나면 abort한다.
 export const BLOB_RELAY_CREDIT_MS = 30_000;
 // end를 보낸 뒤 fsync·설치가 끝나 응답이 오기까지 기다리는 시간.
@@ -239,6 +242,14 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
         },
       });
       const ready = () => pending.credit > 0 || pending.answer !== undefined;
+      const readNext = async () => {
+        const reading = reader.read();
+        reading.catch(() => {});
+        return await Promise.race([
+          reading,
+          pending.responded.then(() => "answered" as const),
+        ]);
+      };
       let finished = false;
       stream: for (;;) {
         // worker가 받아들일 자리가 생길 때까지 읽지 않는다. 자식에게 credit을 다시
@@ -248,20 +259,32 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
           return UNAVAILABLE("blob 준비를 받는 쪽이 멈췄다");
         }
         if (pending.answer !== undefined) break;
-        const reading = reader.read();
-        reading.catch(() => {});
-        const next = await Promise.race([
-          reading,
-          pending.responded.then(() => "answered" as const),
-        ]);
+        let next = await readNext();
         if (next === "answered") break;
         if (next.done) {
           finished = true;
           break;
         }
-        const chunk = next.value;
+        let chunk = next.value;
         deps.gauge?.add(chunk.length);
         held = chunk.length;
+        // 작은 chunk는 합쳐서 보낸다. 작은 frame이 많으면 받는 쪽이 아직 처리하지 못한
+        // frame 수 한도를 바이트보다 먼저 쓴다.
+        let sourceDone = false;
+        while (chunk.length < BLOB_RELAY_MIN_FRAME_BYTES) {
+          next = await readNext();
+          if (next === "answered") break stream;
+          if (next.done) {
+            sourceDone = true;
+            break;
+          }
+          const merged = new Uint8Array(chunk.length + next.value.length);
+          merged.set(chunk);
+          merged.set(next.value, chunk.length);
+          deps.gauge?.add(next.value.length);
+          held += next.value.length;
+          chunk = merged;
+        }
         let offset = 0;
         while (offset < chunk.length) {
           if (!await until(pending, ready, creditMs)) {
@@ -269,12 +292,20 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
             return UNAVAILABLE("blob 준비를 받는 쪽이 멈췄다");
           }
           if (pending.answer !== undefined) break stream;
-          const size = Math.min(pending.credit, chunk.length - offset);
+          const size = Math.min(
+            pending.credit,
+            chunk.length - offset,
+            STREAM_CHUNK_MAX_BYTES,
+          );
           pending.credit -= size;
           await deps.sendBytes(channel, chunk.subarray(offset, offset + size));
           offset += size;
           held -= size;
           deps.gauge?.add(-size);
+        }
+        if (sourceDone) {
+          finished = true;
+          break;
         }
       }
       if (!finished) {

@@ -5,6 +5,7 @@ import { ok } from "../../packages/base/mod.ts";
 import { createPreparationRegistry } from "../../packages/platform/blob-store/mod.ts";
 import {
   BLOB_RELAY_BUFFER_MAX_BYTES,
+  BLOB_RELAY_MIN_FRAME_BYTES,
   type BlobPrepareRelay,
   createBlobPrepareRelay,
   createBufferGauge,
@@ -228,4 +229,35 @@ Deno.test("platform/responsiveness#R3: end 뒤 응답이 오지 않으면 기한
   assertEquals(result.error.code, "unavailable");
   assertEquals(h.sent.events.at(-1), "end");
   assert(!h.sent.events.includes("abort"));
+});
+
+Deno.test("platform/responsiveness#R3: 잘게 쪼개진 원천은 합쳐서 보내 받는 쪽의 frame 수 한도를 쓰지 않는다", async () => {
+  const h = harness();
+  const total = MIB;
+  let pulled = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (pulled >= total) return controller.close();
+      pulled += 1024;
+      controller.enqueue(new Uint8Array(1024));
+    },
+  }, { highWaterMark: 0 });
+  const done = h.relay.prepare(input, stream);
+  await tick();
+  h.grant(2 * MIB);
+  for (let i = 0; i < 400 && !h.sent.events.includes("end"); i++) await tick();
+  assertEquals(h.sent.bytes, total);
+  const frames = h.sent.events.filter((event) => event.startsWith("bytes:"));
+  // 1024바이트 chunk가 1024개지만 32KiB 이상으로 합쳐 32개 안팎이 나간다.
+  assert(
+    frames.length <= total / BLOB_RELAY_MIN_FRAME_BYTES,
+    `${frames.length}`,
+  );
+  assert(
+    frames.every((event) =>
+      Number(event.slice(6)) >= BLOB_RELAY_MIN_FRAME_BYTES
+    ),
+  );
+  h.respond(HASH, total);
+  assert((await done).ok);
 });

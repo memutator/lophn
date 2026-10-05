@@ -50,10 +50,17 @@ export const BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 // blob GC check 주기(R10: 기동 시와 매일). 관측은 삭제가 아니다.
 export const GC_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-// core가 한 blob 준비에서 worker가 받아 두기로 한 바이트(credit window). worker는
-// blob store가 chunk를 읽어 간 만큼만 credit을 다시 준다. core가 이보다 많이 보내면
-// 그 준비는 실패한다. 감독 pipe의 read-ahead 한도(두 chunk) 안에 들어가는 크기다.
-export const BLOB_PREPARE_WORKER_WINDOW = STREAM_CHUNK_MAX_BYTES;
+// worker가 받아 두기로 한 blob 바이트 전체의 상한(credit budget). 모든 blob.prepare
+// channel이 이 하나를 나눠 쓴다: 준 credit 중 아직 blob store가 읽어 가지 않은 합이 이
+// 값을 넘지 않는다. dispatch가 느린 요청에 묶여 있어도 pipe에서 미리 읽은 frame이
+// child.ts의 read-ahead 한도(두 chunk)에서 제어 frame 몫을 남기도록 chunk 하나로 잡는다.
+export const BLOB_PREPARE_WORKER_BUDGET = STREAM_CHUNK_MAX_BYTES;
+// 한 channel이 쥘 수 있는 credit. 아직 시작하지 못한(scheduler 대기) 준비는 한 조각만
+// 쥐게 해서, 돌고 있는 준비가 budget을 다 쓰지 못하는 일이 없게 한다.
+export const BLOB_PREPARE_WORKER_WINDOW = BLOB_PREPARE_WORKER_BUDGET;
+const BLOB_PREPARE_GRANT_QUANTUM = 256 * 1024;
+// 이보다 작은 credit은 쪼개 주지 않는다(frame이 잘게 쪼개지는 것을 막는다).
+const BLOB_PREPARE_GRANT_MIN = 32 * 1024;
 
 // 열린 blob 준비 하나. 요청 json이 먼저 오고 bytes·end(또는 abort) frame이 이어 온다.
 type PrepareStream = {
@@ -61,6 +68,12 @@ type PrepareStream = {
   // 준 credit 누계와 받은 바이트. received가 granted를 넘으면 위반이다.
   granted: number;
   received: number;
+  // 받아서 blob store가 아직 읽어 가지 않은 바이트(queue의 합).
+  queued: number;
+  // 닫는 frame(end·abort)을 본 뒤 받지 못한 credit을 budget에 돌려줬다.
+  reserveReturned: boolean;
+  // scheduler가 준비를 시작했다.
+  running: boolean;
   // core가 end를 보냈다.
   ended: boolean;
   // 중단됐다(abort·위반·session 정지). 값이 있으면 blob store가 읽는 stream은 오류로 끝난다.
@@ -93,6 +106,10 @@ export async function createPlatformIo(
   const files = await createLogFiles(options.root);
   const log = createSafeLog({ catalog: options.catalog, sink: files.write });
   const scheduler = createIoScheduler();
+  // blob.prepare 준비는 chunk가 오는 내내 자리를 쥔다. 일반 scheduler를 나눠 쓰면 준비가
+  // 자리를 다 쥔 채 chunk를 기다리고, settings·diagnostics 요청이 자리를 기다리며 dispatch를
+  // 막아 그 chunk를 못 읽는 교착이 된다. 준비는 자기 scheduler를 쓴다.
+  const prepareScheduler = createIoScheduler();
   const blob = options.blob ?? createBlobPipe({
     work: createBlobStoreWork({
       root: options.root,
@@ -112,6 +129,8 @@ export async function createPlatformIo(
   // blob.prepare는 요청 json이 먼저 오고 chunk가 이어 온다(Q6). 준비는 chunk가 오는 동안
   // 이미 hash·write를 시작하고, 받아 둔 바이트는 credit window를 넘지 않는다.
   const prepares = new Map<number, PrepareStream>();
+  // 모든 준비가 나눠 쓰는 credit budget의 남은 양.
+  const budget = { available: BLOB_PREPARE_WORKER_BUDGET };
   const ingress = createDiagnosticIngress({
     log,
     currentAuthority: () =>
@@ -126,8 +145,54 @@ export async function createPlatformIo(
   // 준비를 중단한다. blob store가 읽는 stream은 오류로 끝나고 임시 파일은 버려진다.
   function failPrepare(stream: PrepareStream) {
     stream.failed = true;
+    budget.available += stream.queued;
+    stream.queued = 0;
     stream.queue.length = 0;
     wakePrepare(stream);
+    redistribute();
+  }
+
+  // 닫는 frame이 왔다. 그 앞의 bytes frame은 모두 도착했으므로 받지 않은 credit을 돌려준다.
+  function returnReserve(stream: PrepareStream) {
+    if (stream.reserveReturned) return;
+    stream.reserveReturned = true;
+    budget.available += Math.max(0, stream.granted - stream.received);
+    redistribute();
+  }
+
+  // budget에서 credit을 나눈다. 준비마다 한 조각씩 돌아가며 주고, 한 준비에 몰아주지 않는다.
+  // 받은 credit은 준비마다 모아 credit message 하나로 보낸다.
+  function redistribute() {
+    const amounts = new Map<number, number>();
+    for (let progressed = true; progressed;) {
+      progressed = false;
+      for (const [channel, stream] of prepares) {
+        if (budget.available <= 0) break;
+        if (stream.failed || stream.closed || stream.answered) continue;
+        const held = stream.granted - stream.received + stream.queued;
+        const cap = stream.running
+          ? BLOB_PREPARE_WORKER_WINDOW
+          : BLOB_PREPARE_GRANT_QUANTUM;
+        const room = cap - held;
+        if (room <= 0) continue;
+        const amount = Math.min(
+          BLOB_PREPARE_GRANT_QUANTUM,
+          room,
+          budget.available,
+        );
+        // 아무것도 쥐지 못한 준비는 작은 조각이라도 받는다. 아니면 모일 때까지 기다린다.
+        if (amount < BLOB_PREPARE_GRANT_MIN && held > 0 && amount < room) {
+          continue;
+        }
+        budget.available -= amount;
+        stream.granted += amount;
+        amounts.set(channel, (amounts.get(channel) ?? 0) + amount);
+        progressed = true;
+      }
+    }
+    for (const [channel, window] of amounts) {
+      void session.send({ type: "credit", channel, window }).catch(() => {});
+    }
   }
 
   function settlePrepare(channel: number, stream: PrepareStream) {
@@ -142,6 +207,7 @@ export async function createPlatformIo(
     if (frame.kind === "abort") {
       stream.closed = true;
       failPrepare(stream);
+      returnReserve(stream);
       settlePrepare(frame.channel, stream);
       return;
     }
@@ -149,6 +215,7 @@ export async function createPlatformIo(
       stream.closed = true;
       stream.ended = true;
       wakePrepare(stream);
+      returnReserve(stream);
       settlePrepare(frame.channel, stream);
       return;
     }
@@ -163,6 +230,7 @@ export async function createPlatformIo(
     }
     if (frame.payload.length === 0) return;
     stream.queue.push(frame.payload);
+    stream.queued += frame.payload.length;
     wakePrepare(stream);
   }
 
@@ -206,8 +274,11 @@ export async function createPlatformIo(
     }
     const stream: PrepareStream = {
       queue: [],
-      granted: BLOB_PREPARE_WORKER_WINDOW,
+      granted: 0,
       received: 0,
+      queued: 0,
+      reserveReturned: false,
+      running: false,
       ended: false,
       failed: false,
       wake: undefined,
@@ -225,13 +296,11 @@ export async function createPlatformIo(
           const chunk = stream.queue.shift();
           if (chunk !== undefined) {
             controller.enqueue(chunk);
-            // blob store가 가져간 만큼만 credit을 다시 준다(backpressure).
-            stream.granted += chunk.length;
-            void session.send({
-              type: "credit",
-              channel,
-              window: chunk.length,
-            }).catch(() => {});
+            // blob store가 가져간 만큼만 budget에 돌려주고, 기다리는 준비들이 나눠 받는다
+            // (backpressure).
+            stream.queued -= chunk.length;
+            budget.available += chunk.length;
+            redistribute();
             return;
           }
           if (stream.ended) {
@@ -247,9 +316,14 @@ export async function createPlatformIo(
         failPrepare(stream);
       },
     }, { highWaterMark: 0 });
-    const submission = scheduler.submit(
+    const submission = prepareScheduler.submit(
       "blob",
-      async () => await blob.handle(request, () => Promise.resolve(body)),
+      async () => {
+        // 이제 돌고 있다. 더 큰 credit을 받을 수 있다.
+        stream.running = true;
+        redistribute();
+        return await blob.handle(request, () => Promise.resolve(body));
+      },
     );
     if (!submission.ok) {
       failPrepare(stream);
@@ -283,12 +357,9 @@ export async function createPlatformIo(
           : { ok: false, error: response.error },
       );
     })();
-    // 첫 credit. 이 요청을 받은 뒤에야 core가 chunk를 보낸다.
-    await session.send({
-      type: "credit",
-      channel,
-      window: BLOB_PREPARE_WORKER_WINDOW,
-    }).catch(() => {});
+    // 첫 credit. 이 요청을 받은 뒤에야 core가 chunk를 보낸다. budget이 비어 있으면
+    // 다른 준비가 읽어 가 돌려줄 때 받는다.
+    redistribute();
   }
 
   const session = startChild(options.streams, {
@@ -299,6 +370,7 @@ export async function createPlatformIo(
     onStop() {
       for (const stream of prepares.values()) failPrepare(stream);
       scheduler.close();
+      prepareScheduler.close();
       log.close();
       return session.send({ type: "stopped" });
     },

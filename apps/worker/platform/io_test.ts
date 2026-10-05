@@ -17,6 +17,13 @@ import {
 import { LEDGER_SCHEMA_STEPS } from "../../../packages/platform/ledger/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../../packages/platform/settings/mod.ts";
 import {
+  type ChildSession,
+  READ_AHEAD_MAX_BYTES,
+  READ_AHEAD_MAX_FRAMES,
+} from "../../../packages/platform/responsiveness/mod.ts";
+import type { SettingsPipe } from "./settings.ts";
+import {
+  BLOB_PREPARE_WORKER_BUDGET,
   BLOB_PREPARE_WORKER_WINDOW,
   createBackupTick,
   createPlatformIo,
@@ -315,10 +322,12 @@ Deno.test(
 async function withBlobIo(
   run: (io: {
     root: string;
+    session: ChildSession;
     push(frame: Frame): void;
     output: Frame[];
     waitFor(predicate: (frame: Frame) => boolean): Promise<Frame>;
   }) => Promise<void>,
+  extra: { settings?: SettingsPipe } = {},
 ) {
   const root = await Deno.makeTempDir({ prefix: "io-blob-" });
   const chunks: Uint8Array[] = [];
@@ -336,6 +345,7 @@ async function withBlobIo(
       root,
       catalog: { components: ["platform/core"], locations: {} },
       currentAuthority: () => undefined,
+      settings: extra.settings,
       streams: {
         stdin: {
           async read(buffer) {
@@ -365,6 +375,7 @@ async function withBlobIo(
     push({ kind: "json", channel: 0, payload: hello });
     await run({
       root,
+      session,
       push,
       output,
       async waitFor(predicate) {
@@ -472,4 +483,123 @@ Deno.test("platform/blob-store#R2: abort frame은 준비를 오류로 끝내고 
     }
     assertEquals(blobs, 0);
   });
+});
+
+Deno.test("platform/responsiveness#R3 platform/blob-store#R2: 여러 blob 준비가 동시에 오고 dispatch가 느린 요청에 묶여도 준 credit 합이 budget 안이라 read-ahead 한도를 넘지 않고 session이 살아 모든 blob이 설치된다", async () => {
+  const gate = Promise.withResolvers<void>();
+  const started = Promise.withResolvers<void>();
+  const slowSettings: SettingsPipe = {
+    async handle(request) {
+      started.resolve();
+      await gate.promise;
+      return {
+        request_id: request.request_id,
+        ok: false,
+        error: { code: "invalid_input", message: "slow" },
+      };
+    },
+  };
+  await withBlobIo(async (io) => {
+    const channels = [21, 22, 23, 24];
+    const total = 1536 * 1024;
+    const piece = 256 * 1024;
+    const dataOf = (channel: number) => new Uint8Array(total).fill(channel);
+    const credit = new Map(channels.map((channel) => [channel, 0]));
+    const sent = new Map(channels.map((channel) => [channel, 0]));
+    const finished = new Set<number>();
+    let seen = 0;
+    let granted = 0;
+    // credit을 지키는 core 흉내. 준 credit이 있으면 그만큼만 보내고 다 보내면 end한다.
+    const drive = () => {
+      for (; seen < io.output.length; seen++) {
+        const frame = io.output[seen]!;
+        if (frame.kind !== "json") continue;
+        const message = frame.payload as {
+          type?: string;
+          channel?: number;
+          window?: number;
+        };
+        if (message.type === "credit" && credit.has(message.channel!)) {
+          credit.set(
+            message.channel!,
+            credit.get(message.channel!)! + message.window!,
+          );
+          granted += message.window!;
+        }
+      }
+      for (const channel of channels) {
+        if (finished.has(channel)) continue;
+        for (;;) {
+          const remaining = total - sent.get(channel)!;
+          const size = Math.min(credit.get(channel)!, piece, remaining);
+          if (size <= 0) break;
+          const from = sent.get(channel)!;
+          io.push({
+            kind: "bytes",
+            channel,
+            payload: dataOf(channel).subarray(from, from + size),
+          });
+          credit.set(channel, credit.get(channel)! - size);
+          sent.set(channel, from + size);
+        }
+        if (sent.get(channel) === total) {
+          io.push({ kind: "end", channel });
+          finished.add(channel);
+        }
+      }
+    };
+    for (const channel of channels) io.push(prepareRequest(channel));
+    // 요청만 먼저 받아 준비들이 credit을 받게 한다. 그 뒤 dispatch를 느린 요청으로 막는다.
+    await io.waitFor(isCredit);
+    io.push({
+      kind: "json",
+      channel: 0,
+      payload: {
+        type: "worker_request",
+        request_id: "slow",
+        op: "settings.import",
+        payload: {},
+      },
+    });
+    await started.promise;
+    // dispatch가 막힌 동안 core 흉내가 준 credit을 모두 보낸다.
+    let peakBytes = 0;
+    let peakFrames = 0;
+    for (let i = 0; i < 100; i++) {
+      drive();
+      const ahead = io.session.readAhead;
+      peakBytes = Math.max(peakBytes, ahead.pendingBytes);
+      peakFrames = Math.max(peakFrames, ahead.pendingFrames);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+    // 막힌 동안 준 credit 합이 budget을 넘지 않았다.
+    assert(granted <= BLOB_PREPARE_WORKER_BUDGET, `credit ${granted}`);
+    assert(peakBytes > 0, "dispatch가 막히지 않았다");
+    assert(
+      peakBytes <= READ_AHEAD_MAX_BYTES,
+      `read-ahead ${peakBytes}바이트`,
+    );
+    assert(peakFrames <= READ_AHEAD_MAX_FRAMES);
+    assertEquals(io.session.stopped, false);
+    // 풀면 나머지가 흐른다.
+    gate.resolve();
+    for (let i = 0; i < 2000 && finished.size < channels.length; i++) {
+      drive();
+      peakBytes = Math.max(peakBytes, io.session.readAhead.pendingBytes);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+    assertEquals(finished.size, channels.length);
+    for (const channel of channels) {
+      const answered = payloadOf(
+        await io.waitFor(isResponse(`prepare-${channel}`)),
+      );
+      assertEquals(answered.ok, true, `channel ${channel}`);
+      const hash = await sha256Hex(dataOf(channel));
+      assertEquals(answered.payload["hash"], hash);
+      const installed = await Deno.readFile(objectPathFor(io.root, hash));
+      assertEquals(installed.length, total);
+    }
+    assert(peakBytes <= READ_AHEAD_MAX_BYTES);
+    assertEquals(io.session.stopped, false);
+  }, { settings: slowSettings });
 });

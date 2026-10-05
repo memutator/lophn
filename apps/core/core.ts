@@ -69,7 +69,7 @@ import {
   createDocumentsChannel,
   servedWorkers,
   statusMemoryVia,
-  storedFileWorkers,
+  storedFileStreams,
 } from "./documents-serving.ts";
 import {
   OBSERVATION_BASIS_ROUTE,
@@ -503,6 +503,19 @@ async function open(
         `${documentUpload.resource}/${documentUpload.method}`,
         documentUploadHandler(prepareRelay),
       ]]),
+      // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
+      fileStreams: storedFileStreams({
+        readers: runtime.readers,
+        current: (ref) => runtime!.current(ref),
+        readBlob: (hash, offset, length) =>
+          validateWiring.readBlob
+            ? validateWiring.readBlob(hash, offset, length)
+            : Promise.resolve(err({
+              code: "unavailable" as const,
+              message: "blob 읽기 통로가 없다",
+            })),
+        blobReady: () => validateWiring.readBlob !== undefined,
+      }),
       workers: mergedWorkers(
         formatValidateWorkers({
           validate: validatePort,
@@ -527,22 +540,7 @@ async function open(
               current: (ref) => runtime!.current(ref),
               observedAt: () => new Date().toISOString(),
             }),
-            mergedWorkers(
-              storedFileWorkers({
-                readers: runtime.readers,
-                current: (ref) => runtime!.current(ref),
-                observedAt: () => new Date().toISOString(),
-                readBlob: (hash, offset, length) =>
-                  validateWiring.readBlob
-                    ? validateWiring.readBlob(hash, offset, length)
-                    : Promise.resolve(err({
-                      code: "unavailable" as const,
-                      message: "blob 읽기 통로가 없다",
-                    })),
-                blobReady: () => validateWiring.readBlob !== undefined,
-              }),
-              options.workers,
-            ),
+            options.workers,
           ),
         ),
       ),

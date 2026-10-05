@@ -3,6 +3,7 @@
 //   pipe contract는 늘리지 않는다: 기존 worker_request·worker_response envelope다.
 // - reader pool: outline·읽기·search·view open·export는 reader Worker의 snapshot으로
 //   요청 credential의 현재 context를 다시 읽어 실행한다(documents-reader.ts).
+import { createHash } from "node:crypto";
 import {
   err,
   ERROR_CODES,
@@ -26,7 +27,11 @@ import {
   type StatusObservation,
 } from "../../packages/documents/file-tracking/mod.ts";
 import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
-import { documentFile } from "../../packages/contracts/documents/mod.ts";
+import {
+  DOCUMENT_UPLOAD_MAX_BYTES,
+  documentFile,
+} from "../../packages/contracts/documents/mod.ts";
+import type { FileStreamHandler } from "../../packages/platform/api/mod.ts";
 import {
   internalRoute,
   SERVED_ROUTES,
@@ -209,18 +214,20 @@ export function servedWorkers(
   return targets;
 }
 
-// `GET /v1/documents/file`이 한 번에 돌려주는 바이트 상한. file route의 응답은 감독 pipe가
-// 아니라 core 안의 `{bytes}` payload라 한 파일을 통째로 메모리에 모은다. 넘는 파일은 잘라
-// 내거나 부분을 꾸미지 않고 unavailable이다.
-export const STORED_FILE_MAX_BYTES = 8 * 1024 * 1024;
+// `GET /v1/documents/file`이 돌려주는 바이트 상한은 문서 upload 상한이다. 한 판의 파일은
+// 그보다 클 수 없다. 응답은 창 단위 stream이라 core는 한 파일을 모으지 않는다.
+export const STORED_FILE_MAX_BYTES = DOCUMENT_UPLOAD_MAX_BYTES;
 
-// documents/file 서빙 대상(file kind route). 판정은 reader Worker의 snapshot이 한다
-// (`document.file` 권한, 고정 판의 경로별 파일 행, 범위 밖·없는 판·없는 경로는 같은
+// documents/file 서빙 대상(file kind route, stream). 판정은 reader Worker의 snapshot이
+// 한다(`document.file` 권한, 고정 판의 경로별 파일 행, 범위 밖·없는 판·없는 경로는 같은
 // not_found). 판정이 낸 blob hash·바이트 수대로 I/O worker의 blob.read를 창(256 KiB)
-// 단위로 읽어 모으고 hash가 판의 행과 같을 때만 답한다. blob이 없거나 어긋나면
-// unavailable이다: 일부 바이트나 다른 판의 바이트로 꾸미지 않는다.
-export function storedFileWorkers(
-  deps: ServedDeps & {
+// 단위로, 응답 소비자가 당길 때만 읽어 흘린다(backpressure, core 메모리는 창 몇 개).
+// 읽는 동안 sha256을 이어 갱신하고, 끝에서 크기·hash가 판의 행과 다르면 마지막 창을
+// 보내지 않고 응답을 오류로 끝낸다(Content-Length를 채우지 못해 응답이 끊긴다).
+// blob이 없거나 어긋나면 일부 바이트나 다른 판의 바이트로 꾸미지 않는다. 창마다 요청
+// credential이 아직 현재인지 다시 본다(platform architecture, 긴 blob 조각 재검사).
+export function storedFileStreams(
+  deps: Pick<ServedDeps, "readers" | "current"> & {
     readBlob(
       hash: string,
       offset: number,
@@ -229,109 +236,102 @@ export function storedFileWorkers(
     // blob 읽기 통로(I/O worker)가 떠 있는지.
     blobReady(): boolean;
   },
-): Map<string, WorkerRouteTarget> {
+): Map<string, FileStreamHandler> {
   const key = `${documentFile.resource}/${documentFile.method}`;
-  return new Map([[key, {
-    handle: {
-      observation(): HealthObservation {
-        const states = deps.readers.health();
-        const healthy = states.length > 0 &&
-          states.every((state) => state === "healthy") && deps.blobReady();
-        return {
-          component: "documents/worker",
-          available: healthy,
-          ...(healthy
-            ? {}
-            : { reason: "reader나 blob 읽기가 준비되지 않았다" }),
-          observed_at: deps.observedAt(),
-        };
-      },
-      async forward(request: WorkerRequest) {
-        const reply = (
-          answer:
-            | { ok: true; payload: unknown }
-            | { ok: false; code: ErrorCode; message: string },
-        ): Result<WorkerResponse> =>
-          ok(
-            answer.ok
-              ? {
-                type: "worker_response",
-                request_id: request.request_id,
-                ok: true,
-                payload: answer.payload,
-              }
-              : {
-                type: "worker_response",
-                request_id: request.request_id,
-                ok: false,
-                error: { code: answer.code, message: answer.message },
-              },
-          );
-        const unavailable = (message: string) =>
-          reply({ ok: false, code: "unavailable", message });
-        const ref = credentialOf(request.request_id);
-        if (ref === undefined) {
-          return reply({
-            ok: false,
-            code: "unauthorized",
-            message: "credential이 없다",
-          });
-        }
-        const ctx = deps.current(ref);
-        if (!ctx.ok) {
-          return reply({
-            ok: false,
-            code: "unauthorized",
-            message: "credential이 없다",
-          });
-        }
-        const judged = await deps.readers.read(
-          STORED_FILE_ROUTE,
-          ctx.value,
-          request.payload,
-        );
-        if (!judged.ok) {
-          return reply({
-            ok: false,
-            code: workerCode(judged.error.code),
-            message: judged.error.message,
-          });
-        }
-        const file = judged.value as {
-          hash: string;
-          bytes: number;
-          media_type: string;
-        };
-        if (file.bytes > STORED_FILE_MAX_BYTES) {
-          return unavailable("file exceeds the serving limit");
-        }
-        const collected = new Uint8Array(file.bytes);
-        let offset = 0;
-        while (offset < file.bytes) {
-          const read = await deps.readBlob(
-            file.hash,
-            offset,
-            Math.min(BLOB_READ_MAX_BYTES, file.bytes - offset),
-          );
-          if (
-            !read.ok || read.value.hash !== file.hash ||
-            read.value.sizeBytes !== file.bytes ||
-            read.value.bytes.length === 0 ||
-            offset + read.value.bytes.length > file.bytes
-          ) {
-            return unavailable("file bytes were not readable");
+  const unavailable = (message: string): Result<never> =>
+    err({ code: "unavailable", message });
+  return new Map([[key, async (ctx, input) => {
+    const states = deps.readers.health();
+    if (
+      states.length === 0 || !states.every((state) => state === "healthy") ||
+      !deps.blobReady()
+    ) {
+      return unavailable("reader나 blob 읽기가 준비되지 않았다");
+    }
+    const judged = await deps.readers.read(STORED_FILE_ROUTE, ctx, input);
+    if (!judged.ok) {
+      return err({
+        code: workerCode(judged.error.code),
+        message: judged.error.message,
+      });
+    }
+    const file = judged.value as {
+      hash: string;
+      bytes: number;
+      media_type: string;
+    };
+    if (file.bytes > STORED_FILE_MAX_BYTES) {
+      return unavailable("file exceeds the serving limit");
+    }
+    if (file.bytes === 0) {
+      if (await sha256Hex(new Uint8Array()) !== file.hash) {
+        return unavailable("file bytes do not match the version");
+      }
+      return ok({
+        contentType: file.media_type,
+        length: 0,
+        body: new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.close();
+          },
+        }),
+      });
+    }
+    const digest = createHash("sha256");
+    let offset = 0;
+    // 다음 창 하나를 읽고 검사한다. 마지막 창이면 전체 hash까지 맞아야 돌려준다: 어긋나면
+    // 그 창은 내보내지 않는다.
+    const window = async (): Promise<Result<Uint8Array>> => {
+      if (!deps.current(ctx.credential_ref).ok) {
+        return unavailable("credential is no longer current");
+      }
+      const read = await deps.readBlob(
+        file.hash,
+        offset,
+        Math.min(BLOB_READ_MAX_BYTES, file.bytes - offset),
+      );
+      if (
+        !read.ok || read.value.hash !== file.hash ||
+        read.value.sizeBytes !== file.bytes ||
+        read.value.bytes.length === 0 ||
+        offset + read.value.bytes.length > file.bytes
+      ) {
+        return unavailable("file bytes were not readable");
+      }
+      digest.update(read.value.bytes);
+      offset += read.value.bytes.length;
+      if (offset === file.bytes && digest.digest("hex") !== file.hash) {
+        return unavailable("file bytes do not match the version");
+      }
+      return ok(read.value.bytes);
+    };
+    // 첫 창은 응답을 열기 전에 읽는다. blob이 없거나 어긋난 파일, 한 창짜리 파일의 hash
+    // 불일치는 헤더를 보내기 전에 JSON 오류(unavailable)가 된다.
+    let first: Uint8Array | undefined;
+    const opened = await window();
+    if (!opened.ok) return opened;
+    first = opened.value;
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        let chunk = first;
+        first = undefined;
+        if (chunk === undefined) {
+          const next = await window();
+          if (!next.ok) {
+            // 이미 일부를 보냈다. 응답을 끝내지 않고 오류로 끊는다.
+            controller.error(new Error(next.error.message));
+            return;
           }
-          collected.set(read.value.bytes, offset);
-          offset += read.value.bytes.length;
+          chunk = next.value;
         }
-        if (await sha256Hex(collected) !== file.hash) {
-          return unavailable("file bytes do not match the version");
-        }
-        return reply({
-          ok: true,
-          payload: { bytes: Array.from(collected) },
-        });
+        controller.enqueue(chunk);
+        if (offset >= file.bytes) controller.close();
       },
-    },
+    }, { highWaterMark: 0 });
+    return ok({
+      contentType: file.media_type,
+      length: file.bytes,
+      body,
+    });
   }]]);
 }

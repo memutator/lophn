@@ -11,6 +11,9 @@ import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
+import type { IntentApi } from "../../ipc/shortcuts.ts";
+import { DesktopIntents } from "./intents.tsx";
+import type { LophnTarget } from "./palette/lophn-scope.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -29,6 +32,8 @@ export interface DesktopProps {
   lophn?: LophnSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
+  /** main이 시키는 것(전역 팔레트, OS notification 클릭). 없으면 받지 않는다. */
+  intents?: IntentApi;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -43,6 +48,7 @@ export function Desktop(
     terminal,
     lophn,
     palette,
+    intents,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -50,9 +56,25 @@ export function Desktop(
   const [visits, setVisits] = useState(0);
   const launcher = () => setRoute(LAUNCHER);
   const lophnSpace = () => setRoute(openLophn());
-  const thingsToConfirm = () => {
+  // lophn 공간의 형제로 간다. 이미 lophn 공간이어도 그 자리를 다시 연다.
+  const visit = (next: Route) => {
     setVisits((value) => value + 1);
-    setRoute(openLophn("things-to-confirm"));
+    setRoute(next);
+  };
+  const thingsToConfirm = () => visit(openLophn("things-to-confirm"));
+  // 전역 팔레트에서 고른 대상. lophn 공간 팔레트와 같은 목적지로만 간다(desktop#R30).
+  const go = (target: LophnTarget) => {
+    if (target.kind === "launcher") launcher();
+    else if (target.kind === "project") setRoute(openProject(target.id));
+    else if (target.kind === "screen") visit(openLophn(target.screen));
+    else if (target.kind === "context") visit(openLophn("contexts"));
+    else if (target.kind === "app") visit(openLophn("apps"));
+    else {
+      visit(openLophn("documents", {
+        document: target.document,
+        version: target.version,
+      }));
+    }
   };
   let space: ReactNode;
   if (route.space === "project" && route.project && workspace) {
@@ -75,6 +97,7 @@ export function Desktop(
         key={visits}
         source={lophn}
         screen={route.screen}
+        initialRead={route.read}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
@@ -94,6 +117,16 @@ export function Desktop(
     <PaletteProvider deps={palette} onLauncher={launcher}>
       {space}
       <NotificationChip onView={thingsToConfirm} />
+      {intents
+        ? (
+          <DesktopIntents
+            intents={intents}
+            lophn={lophn}
+            onThingsToConfirm={thingsToConfirm}
+            go={go}
+          />
+        )
+        : null}
     </PaletteProvider>
   );
 }

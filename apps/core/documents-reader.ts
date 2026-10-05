@@ -67,12 +67,16 @@ import {
   createGuideCatalog,
   type GuideFiles,
 } from "../../packages/documents/versions/guides.ts";
-import { exportDocument } from "../../packages/documents/versions/reads.ts";
+import {
+  exportDocument,
+  storedFile,
+} from "../../packages/documents/versions/reads.ts";
 import {
   internalRoute,
   OBSERVATION_BASIS_ROUTE,
   OBSERVATION_LINK_PAGE,
   PREPARE_BASE_ROUTE,
+  STORED_FILE_ROUTE,
 } from "./documents-served.ts";
 import { loadProjects } from "../../packages/documents/projects/store.ts";
 import { authorizeDocument } from "../../packages/documents/versions/authorization.ts";
@@ -410,6 +414,14 @@ export function createReaderRegistration(): ReaderRegistration {
         guideRead,
         (handlers, ctx, input) => handlers.read(ctx, input as never),
       ),
+      // 고정 판의 경로별 파일 판정(`documents/file`). derived를 읽지 않고 ledger snapshot만 쓴다.
+      {
+        route: STORED_FILE_ROUTE,
+        handle(snapshot, ctx, input) {
+          const stored = storedFile(snapshot, ctx, input as never);
+          return stored.ok ? paged(stored.value) : stored;
+        },
+      },
       // 준비 route의 기준 판. derived를 읽지 않고 ledger snapshot만 쓴다.
       {
         route: PREPARE_BASE_ROUTE,

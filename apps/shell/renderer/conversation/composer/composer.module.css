@@ -25,6 +25,14 @@
   line-height: var(--type-caption-line);
 }
 
+/* 본문 상한을 넘은 글. 글은 그대로 두고 보내기만 막는다. */
+.problem {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
 .actions {
   display: flex;
   align-items: center;

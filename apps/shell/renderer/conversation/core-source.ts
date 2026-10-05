@@ -1,11 +1,12 @@
 // ConversationSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route
 // output schema로 이미 검사했다. 아래 모양은 그 schema(assignments.list, sessions.list,
-// messages.list, runs.list, sessions.open, messages.receive, runs.stop, documents.get)에서
-// 이 화면이 읽는 field만 옮긴 것이다.
+// messages.list, messages.body, runs.list, sessions.open, messages.receive, runs.stop,
+// documents.get)에서 이 화면이 읽는 field만 옮긴 것이다.
 import type { CoreCall } from "../../ipc/core.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import type {
   Agent,
+  BodyPart,
   ConversationSource,
   MessageActor,
   MessageRow,
@@ -40,6 +41,15 @@ interface MessageValue {
     mode: "request" | "correction" | null;
     applied_at_call: string | null;
     links: { kind: string; document?: string; version?: string }[];
+  };
+}
+
+interface BodyValue {
+  content: {
+    parts: (
+      | { kind: "text"; text: string }
+      | { kind: "visual"; block: { key: string; kind: string; title: string } }
+    )[];
   };
 }
 
@@ -78,13 +88,13 @@ async function command<T>(
   method: string,
   body: { input: unknown; compare: unknown; key: string },
 ): Promise<SourceResult<T>> {
-  const result = await call<{ result: T }>(core, "command", resource, method, {
+  // 성공 응답은 route output 그대로다. 추가 포장은 없다(platform/api#R3).
+  return await call<T>(core, "command", resource, method, {
     input: body.input,
     idempotency_key: body.key,
     compare: body.compare,
     prepared: [],
   });
-  return result.ok ? { ok: true, value: result.value.result } : result;
 }
 
 async function pages<T, V extends Page>(
@@ -134,6 +144,18 @@ function resultsOf(links: MessageValue["message"]["links"]): ResultLink[] {
     }
   }
   return results;
+}
+
+// 시각 블록은 블록 renderer(shell#T35)가 들어오기 전까지 제목과 종류만 넘긴다. payload는
+// 이 화면에 오지 않으므로 그릴 수도 실행할 수도 없다.
+function partOf(part: BodyValue["content"]["parts"][number]): BodyPart {
+  if (part.kind === "text") return { kind: "text", text: part.text };
+  return {
+    kind: "visual",
+    key: part.block.key,
+    visual: part.block.kind,
+    title: part.block.title,
+  };
 }
 
 function sessionOf(value: SessionValue): SessionRow {
@@ -261,7 +283,7 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
         input: {
           id: input.id,
           session: input.session.id,
-          body: input.body,
+          content: input.content,
           mode: input.mode,
           ...(input.run === null ? {} : { run: input.run }),
         },
@@ -274,6 +296,15 @@ export function coreConversationSource(core: CoreSource): ConversationSource {
         key: input.key,
       });
       return sent.ok ? { ok: true, value: undefined } : sent;
+    },
+
+    async body(message) {
+      const read = await call<BodyValue>(core, "read", "messages", "body", {
+        message,
+      });
+      return read.ok
+        ? { ok: true, value: read.value.content.parts.map(partOf) }
+        : read;
     },
 
     async stop(run, key) {

@@ -97,6 +97,7 @@ async function startCoreAt(
         "files.status",
         "document.move",
         "document.export",
+        "document.file",
         "blobs/read",
       ],
       targets: {},
@@ -749,6 +750,179 @@ Deno.test("documents/versions#R5 #R8: 내용이 같은 두 파일은 다른 문�
         .length,
       2,
     );
+  } finally {
+    await close(opened);
+  }
+});
+
+// ---- `/v1/documents/file`: 고정 판의 경로별 원문 bytes ----
+
+async function readFile(
+  core: Core,
+  version: string,
+  path: string,
+  token = TOKEN,
+): Promise<{ status: number; bytes: Uint8Array; type: string }> {
+  const response = await fetch(
+    `http://127.0.0.1:${core.port}/v1/documents/file`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ version, path }),
+    },
+  );
+  return {
+    status: response.status,
+    bytes: new Uint8Array(await response.arrayBuffer()),
+    type: response.headers.get("content-type") ?? "",
+  };
+}
+
+function versionIds(home: string, document: string): string[] {
+  return ledger(home, (db) =>
+    (db.prepare(
+      "SELECT id FROM versions WHERE document = ? ORDER BY number",
+    ).all(document) as unknown as { id: string }[]).map((row) => row.id));
+}
+
+Deno.test("documents/versions#R5 #R8: 관측한 판의 파일은 core의 documents/file이 원문 bytes 그대로 돌려주고 옛 판은 그 판의 bytes를 돌려준다", async () => {
+  const a = "# a\n\n처음 내용\n";
+  const b = "# a\n\n고친 내용, 더 길다\n";
+  const opened = await openTrackedFolder({ "a.md": a });
+  const { core, home, folder } = opened;
+  try {
+    await until("version 1", () => {
+      const rows = versions(home);
+      return rows.length === 1 ? rows : undefined;
+    });
+    const { document } = firstVersion(home);
+    await Deno.writeTextFile(`${folder}/a.md`, b);
+    await until("version 2", () => {
+      const rows = versions(home);
+      return rows.length === 2 ? rows : undefined;
+    });
+    const [first, second] = versionIds(home, document);
+    const expected = async (version: string, text: string) => {
+      const want = new TextEncoder().encode(text);
+      const got = await readFile(core, version, "a.md");
+      assertEquals(got.status, 200, new TextDecoder().decode(got.bytes));
+      assertEquals(got.bytes, want);
+      assertEquals(
+        await sha256Hex(got.bytes as Uint8Array<ArrayBuffer>),
+        await sha256Hex(want as Uint8Array<ArrayBuffer>),
+      );
+    };
+    await expected(second, b);
+    // 옛 판은 최신 판이 아니라 자기 판의 원문이다.
+    await expected(first, a);
+    // 판에 없는 경로는 bytes를 돌려주지 않는다.
+    const missing = await readFile(core, first, "other.md");
+    assertEquals(missing.status, 404);
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("documents/versions#R8: documents/file은 범위 밖 자격에 없는 판·없는 경로와 같은 답을 주고 bytes를 내지 않는다", async () => {
+  const text = "# a\n\n범위 밖 원문\n";
+  const opened = await openTrackedFolder({ "a.md": text });
+  const { core, home } = opened;
+  try {
+    await until("first version", () => {
+      const rows = versions(home);
+      return rows.length === 1 ? rows : undefined;
+    });
+    const { id: version } = firstVersion(home);
+    // 다른 문서만 닿는 자격이다.
+    const limited = "e".repeat(43);
+    const context = {
+      principal: "user-2",
+      actor: "user" as const,
+      credential_ref: "cred_observe_limited_file",
+      scope: {
+        operations: ["document.file"],
+        targets: { document: "doc_01arz3ndektsv4rrffq69g5fb0" },
+      },
+      conditions: {},
+    };
+    assert(core.acceptTestCredential);
+    const accepted = await core.acceptTestCredential(context, limited);
+    assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
+    const recorded = await core.record(context);
+    assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+
+    const hidden = await readFile(core, version, "a.md", limited);
+    const absent = await readFile(
+      core,
+      "ver_01arz3ndektsv4rrffq69g5fb9",
+      "a.md",
+      limited,
+    );
+    assertEquals(hidden.status, 404);
+    assertEquals(hidden.status, absent.status);
+    assertEquals(hidden.type, absent.type);
+    assertEquals(hidden.bytes, absent.bytes);
+    // 범위 밖이 아닌 자격도 없는 판은 같은 답이다.
+    const person = await readFile(
+      core,
+      "ver_01arz3ndektsv4rrffq69g5fb9",
+      "a.md",
+    );
+    assertEquals(person.status, absent.status);
+    assertEquals(person.bytes, absent.bytes);
+    // 그 판을 볼 수 없는 자격이 판의 경로를 짐작해도 내용은 새지 않는다.
+    assert(!new TextDecoder().decode(hidden.bytes).includes("범위 밖 원문"));
+    // operation 자체가 없는 자격은 target과 상관없이 같은 forbidden이다(없는 판과 구별하지 않는다).
+    const noOperation = "f".repeat(43);
+    const bare = {
+      principal: "user-3",
+      actor: "user" as const,
+      credential_ref: "cred_observe_nofile",
+      scope: { operations: ["document.export"], targets: {} },
+      conditions: {},
+    };
+    const bareAccepted = await core.acceptTestCredential(bare, noOperation);
+    assert(bareAccepted.ok);
+    assert((await core.record(bare)).ok);
+    const noReal = await readFile(core, version, "a.md", noOperation);
+    const noAbsent = await readFile(
+      core,
+      "ver_01arz3ndektsv4rrffq69g5fb9",
+      "a.md",
+      noOperation,
+    );
+    assertEquals(noReal.status, noAbsent.status);
+    assertEquals(noReal.bytes, noAbsent.bytes);
+    assert(noReal.status !== 200);
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("documents/versions#R8: documents/file은 원문 blob이 없으면 일부 bytes로 꾸미지 않고 unavailable이다", async () => {
+  const text = "# a\n\nblob이 사라진다\n";
+  const opened = await openTrackedFolder({ "a.md": text });
+  const { core, home } = opened;
+  try {
+    await until("first version", () => {
+      const rows = versions(home);
+      return rows.length === 1 ? rows : undefined;
+    });
+    const { id: version } = firstVersion(home);
+    const hash = await sha256Hex(
+      new TextEncoder().encode(text) as Uint8Array<ArrayBuffer>,
+    );
+    const ok = await readFile(core, version, "a.md");
+    assertEquals(ok.status, 200);
+    // 설치된 blob 파일이 사라진 판은 bytes를 내지 않는다.
+    const file = `${home}/blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`;
+    await Deno.remove(file);
+    const gone = await readFile(core, version, "a.md");
+    assertEquals(gone.status, 503);
+    assert(!new TextDecoder().decode(gone.bytes).includes("blob이 사라진다"));
   } finally {
     await close(opened);
   }

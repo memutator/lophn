@@ -130,6 +130,39 @@ test("shell/desktop#R21: 자동 시작을 쓸 수 없는 실행은 그 항목을
   assert.equal(checkbox?.type === "checkbox" && checkbox.checked, false);
 });
 
+test("shell/desktop#R18: 쓸 수 없게 된 전역 팔레트·OS notification은 Quit 위에 누를 수 없는 안내 줄로 한 번씩 보인다", () => {
+  const tray = fakeTray();
+  const { actions, calls } = fakeActions();
+  const installed = installTray({
+    factory: { create: () => tray.handle },
+    icon: "/fixture/icon.png",
+    actions,
+  })!;
+  installed.notice("global-search-unavailable");
+  installed.notice("notifications-unavailable");
+  installed.notice("global-search-unavailable");
+  const menu = tray.menus.at(-1)!;
+  assert.equal(tray.menus.length, 3);
+  assert.deepEqual(labels(menu).slice(-4), [
+    en["common.label.tray-global-search-unavailable"],
+    en["common.label.tray-notifications-unavailable"],
+    "-",
+    en["common.label.tray-quit"],
+  ]);
+  // 안내 줄은 id가 없어 어떤 행동으로도 이어지지 않는다.
+  const notices = menu.filter((item) => item.type === "notice");
+  assert.equal(notices.length, 2);
+  assert.ok(notices.every((item) => !("id" in item)));
+  assert.deepEqual(calls, []);
+  // 안내가 없으면 menu는 그대로다.
+  assert.equal(
+    trayMenu({ available: true, enabled: false }).some((item) =>
+      item.type === "notice"
+    ),
+    false,
+  );
+});
+
 test("shell/desktop#R11: tray를 띄우지 못하면 log만 남기고 main은 계속된다", () => {
   const logs: string[] = [];
   const { actions, calls } = fakeActions();

@@ -10,7 +10,7 @@ import {
 } from "../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../ipc/core-api.ts";
 import { createShellApi } from "./shell-api.ts";
-import { createShortcutApi } from "./shortcut-api.ts";
+import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 
 const location =
@@ -20,7 +20,7 @@ contextBridge.exposeInMainWorld(
   "lophnShell",
   createShellApi(ipcRenderer, role),
 );
-// 터미널과 창 shortcut은 desktop renderer만 쓴다. overlay view에는 열지 않는다.
+// 터미널과 창 shortcut, main이 시키는 것은 desktop renderer만 쓴다. overlay view에는 열지 않는다.
 if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnTerminal",
@@ -30,6 +30,7 @@ if (role === "shell") {
     "lophnShortcuts",
     createShortcutApi(ipcRenderer),
   );
+  contextBridge.exposeInMainWorld("lophnIntents", createIntentApi(ipcRenderer));
 }
 
 const unavailable: CoreReply = {

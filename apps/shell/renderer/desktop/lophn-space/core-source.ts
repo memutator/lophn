@@ -175,13 +175,13 @@ async function command<T>(
   input: unknown,
   compare: unknown,
 ): Promise<SourceResult<T>> {
-  const result = await call<{ result: T }>(core, "command", resource, method, {
+  // 성공 응답은 route output 그대로다. 추가 포장은 없다(platform/api#R3).
+  return await call<T>(core, "command", resource, method, {
     input,
     idempotency_key: `${resource}-${method}-${crypto.randomUUID()}`,
     compare,
     prepared: [],
   });
-  return result.ok ? { ok: true, value: result.value.result } : result;
 }
 
 function coverageOf(value: CoverageValue): Coverage {

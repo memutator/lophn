@@ -16,10 +16,13 @@ export const READING_WIDTH_KEY = "shell.reading_width";
 interface SettingsGet {
   settings: { key: string; value: unknown }[];
   revision: number;
+  /** 등록 기본값의 판. apply compare에 revision과 함께 실어야 한다. */
+  defaults_revision: string;
 }
 
+// 성공 응답은 route output(SettingsApplyResult) 그대로다. 추가 포장은 없다(platform/api#R3).
 interface ApplyReply {
-  result: { revision: number };
+  revision: number;
 }
 
 export interface ReadingWidthStore extends ReadingWidthSetting {
@@ -41,7 +44,9 @@ export function coreSettingsPort(
   core: CoreSource,
   idempotencyKey: () => string,
 ): SettingsPort {
-  return {
+  // 마지막으로 읽은 기본값 판. 기본값이 바뀌면 core가 conflict로 답하고 store가 다시 읽는다.
+  let defaults: string | null = null;
+  const port: SettingsPort = {
     async get() {
       const reply = await core.call({
         kind: "read",
@@ -51,12 +56,16 @@ export function coreSettingsPort(
       });
       if (!reply.ok) return null;
       const value = reply.value as SettingsGet;
+      defaults = value.defaults_revision;
       const setting = value.settings.find((item) =>
         item.key === READING_WIDTH_KEY
       );
       return { value: setting?.value ?? null, revision: value.revision };
     },
     async apply(width, revision) {
+      if (defaults === null && (await port.get()) === null) {
+        return { ok: false, conflict: false };
+      }
       const reply = await core.call({
         kind: "command",
         resource: "settings",
@@ -71,7 +80,7 @@ export function coreSettingsPort(
             }],
           },
           idempotency_key: idempotencyKey(),
-          compare: { revision },
+          compare: { revision, defaults_revision: defaults },
           prepared: [],
         },
       });
@@ -80,10 +89,11 @@ export function coreSettingsPort(
       }
       return {
         ok: true,
-        revision: (reply.value as ApplyReply).result.revision,
+        revision: (reply.value as ApplyReply).revision,
       };
     },
   };
+  return port;
 }
 
 /** 읽기 폭 store. 고른 폭은 바로 보이고, 저장이 실패하면 앞의 폭으로 돌아간다. */

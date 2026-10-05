@@ -69,6 +69,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
     }).definitions.map((definition) => definition.key);
     assertEquals(listed, [
       "shell.reading_width",
+      "shell.os_notifications",
       "lophn-agent.model.catalog_auto_update",
       "lophn-agent.extensions.skill_folders",
       "lophn-agent.extensions.mcp_servers",

@@ -25,11 +25,13 @@ import {
   afterCheck,
   afterReply,
   composerLocked,
+  fitsMessage,
   type Outgoing,
   resend,
   startSend,
-  textBody,
+  textContent,
 } from "./delivery-state.ts";
+import { loadBodies } from "./bodies.ts";
 import type { DraftStore } from "./drafts.ts";
 import {
   activeRun,
@@ -181,6 +183,8 @@ export function Dock(
         return;
       }
       messages = { ...messages, [session]: listed.value };
+      // 본문은 따로 읽는다. 목록 확인을 본문 읽기가 막지 않는다.
+      void loadBodies(source, drafts, listed.value);
       // 접수 확인 안 된 말이 기록에 있으면 그것이 접수의 증거다.
       const outgoing = drafts.draft(session).outgoing;
       if (
@@ -240,7 +244,7 @@ export function Dock(
       agent: from,
       id: outgoing.id,
       key: outgoing.key,
-      body: outgoing.body,
+      content: textContent(outgoing.text),
       mode: outgoing.mode,
       run: outgoing.run,
     });
@@ -260,17 +264,17 @@ export function Dock(
     if (!session || !agent || !draft) return;
     const text = draft.text;
     if (text.trim().length === 0 || composerLocked(draft.outgoing)) return;
+    // 상한을 넘는 글은 보내지 않는다. 입력칸이 이유를 보인다.
+    if (!fitsMessage(text)) return;
     const mode = draft.mode === "correction" && active
       ? "correction"
       : "request";
     const id = newId("msg", now());
-    const body = await textBody(text);
-    drafts.remember(body, text);
+    drafts.remember(id, text);
     const outgoing = startSend({
       id,
       key: `messages-receive-${id}`,
       text,
-      body,
       mode,
       run: mode === "correction" && active ? active.id : null,
     });
@@ -292,6 +296,7 @@ export function Dock(
       ...state,
       messages: { ...state.messages, [session.id]: listed.value },
     }));
+    void loadBodies(source, drafts, listed.value);
     if (next.phase === "accepted") drafts.sent(session.id, next);
     else drafts.save(session.id, { outgoing: next });
   };
@@ -460,7 +465,8 @@ export function Dock(
         <MessageList
           key={current}
           items={listItems(loaded.messages[current] ?? [], draft.outgoing)}
-          textOf={(hash) => drafts.textOf(hash)}
+          textOf={(message) => drafts.textOf(message)}
+          bodyOf={(message) => drafts.body(message)}
           source={source}
           initialScroll={draft.scroll}
           onScroll={(position) => drafts.save(current, { scroll: position })}
@@ -484,6 +490,7 @@ export function Dock(
                 key={current}
                 draft={draft}
                 locked={composerLocked(draft.outgoing)}
+                tooLong={!fitsMessage(draft.text)}
                 offline={offline}
                 canCorrect={active !== null && agent.state === "enabled"}
                 canStop={active !== null}

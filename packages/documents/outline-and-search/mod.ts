@@ -1,6 +1,21 @@
 // documents/outline-and-search: outline·search 읽기, derived store, search consumer.
 // 밖으로 내보내는 것만. 다른 모듈은 이것만 import한다.
 export { outlineAndSearchSchemaSteps } from "./schema.ts";
+export { savedViewsSchemaSteps } from "./saved-views-schema.ts";
+export {
+  deleteSavedView,
+  insertSavedView,
+  listSavedViews,
+  loadSavedViewRow,
+  type SavedViewRow,
+  updateSavedView,
+} from "./saved-views-store.ts";
+export { createViewCommands } from "./saved-views-commands.ts";
+export {
+  createViewOpenHandler,
+  createViewReads,
+  type ViewOpenHandlerDeps,
+} from "./saved-views-reads.ts";
 export {
   type BodyChunk,
   bodyChunk,

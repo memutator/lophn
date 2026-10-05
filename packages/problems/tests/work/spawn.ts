@@ -1,5 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { MemoryLimitMode } from "../../../contracts/platform/mod.ts";
+import { childLaunch } from "./broker.ts";
+import { groupLeader } from "./group.ts";
 import { RUNNER_LIMITS } from "./limits.ts";
 import type { PreparedCommand } from "./prepare.ts";
 
@@ -62,12 +64,15 @@ function killGroup(pid: number, signal: Deno.Signal = "SIGKILL"): void {
   Deno.kill(-pid, signal);
 }
 
-function systemSpawn(): SpawnPort {
+async function systemSpawn(os: string): Promise<SpawnPort | null> {
+  // 그룹을 나눌 수 없으면 null이다. 호출한 쪽이 자식을 띄우지 않고 unavailable로 돌린다.
+  const leader = await groupLeader(os);
+  if (!leader) return null;
   return {
     spawn(command, args, options) {
-      // setsid로 새 프로세스 그룹을 연다. timeout은 그 그룹을 통째로 죽인다.
-      const child = new Deno.Command("/usr/bin/setsid", {
-        args: ["--wait", command, ...args],
+      // 리더가 새 프로세스 그룹을 연다. timeout은 그 그룹을 통째로 죽인다.
+      const child = new Deno.Command(leader.command, {
+        args: [...leader.args, command, ...args],
         cwd: options.cwd,
         env: options.env,
         clearEnv: true,
@@ -123,6 +128,8 @@ export async function startChild(
     spawn?: SpawnPort;
     now?: () => string;
     outputCap?: number;
+    // 그룹을 나누는 도구를 고르는 OS. 테스트가 넘기고, 없으면 이 머신이다.
+    os?: string;
   } = {},
 ): Promise<Result<RunningChild>> {
   if (!options.memory) {
@@ -135,13 +142,17 @@ export async function startChild(
   if (!limited.ok) {
     return err({ code: "unavailable", message: UNAVAILABLE });
   }
-  const spawn = options.spawn ?? systemSpawn();
+  // 자식은 core·collector 주소와 credential을 받지 않는다(problems/tests#R17).
+  const launch = childLaunch(limited.value.args, prepared.env);
+  if (!launch.ok) return launch;
+  const spawn = options.spawn ?? await systemSpawn(options.os ?? Deno.build.os);
+  if (!spawn) return err({ code: "unavailable", message: UNAVAILABLE });
   const cap = options.outputCap ?? RUNNER_LIMITS.output_bytes_per_side;
   let child: ChildHandle;
   try {
-    child = spawn.spawn(limited.value.command, limited.value.args, {
+    child = spawn.spawn(limited.value.command, launch.value.args, {
       cwd: prepared.cwd,
-      env: prepared.env,
+      env: launch.value.env,
     });
   } catch {
     return err({ code: "unavailable", message: UNAVAILABLE });

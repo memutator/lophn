@@ -40,3 +40,36 @@ export type ContextItemTarget = {
   document?: string;
   app?: string;
 };
+
+// context 목차의 근원. documents/contexts의 읽기(createContextOutlineSource)가 주는
+// 구성과 항목 대상의 현재 ledger 상태를 주입해 받는다. 없는 context는 null이다.
+// 항목은 position 순이고 문서 항목의 version은 읽은 시점 최신 판의 고정 id다
+// (항목에는 판이 저장되지 않는다: documents/contexts#R4).
+export type ContextOutlineItem = {
+  target:
+    | { kind: "document"; document: string; section: string | null }
+    | { kind: "app_command"; app: string; command: string };
+  perspective: "basis" | "reference" | "watch";
+  reason: string;
+  // 문서 항목만. 문서 행이 없으면 undefined다.
+  document?: {
+    title: string;
+    status: "active" | "archived";
+    place: { kind: "project" | "app"; id: string } | null;
+    version: string | null;
+  };
+};
+
+export type ContextOutlineRecord = {
+  id: string;
+  title: string;
+  purpose: string;
+  revision: string;
+  status: "active" | "archived";
+  items: readonly ContextOutlineItem[];
+};
+
+export type ContextOutlineSource = {
+  active(): Result<readonly ContextOutlineRecord[]>;
+  get(contextId: string): Result<ContextOutlineRecord | null>;
+};

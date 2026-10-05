@@ -113,3 +113,4 @@ export {
   rebuildTarget,
   recordExtraction,
 } from "./extraction.ts";
+export { createSeriesOutlineRead } from "./series-outline.ts";

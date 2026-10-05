@@ -1,5 +1,6 @@
 // leaf unit fixture. writer Worker·current credential·core API 증거는 아니다.
 import { DatabaseSync } from "node:sqlite";
+import { openDerivedRead } from "../adapters/store.ts";
 import { ok, type Result } from "../../../base/mod.ts";
 import type {
   PortKey,
@@ -11,7 +12,7 @@ import type {
 import { TargetAuthorization } from "../../../contracts/platform/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { versionsSchemaSteps } from "../../versions/mod.ts";
-import { savedViewsSchemaSteps } from "../mod.ts";
+import { outlineAndSearchSchemaSteps, savedViewsSchemaSteps } from "../mod.ts";
 
 export type Emitted = {
   type: string;
@@ -37,6 +38,15 @@ export function viewFixture(authorize: TargetAuthorizer = allowAll) {
   ) {
     db.exec(step.sql);
   }
+  // open용 query_only derived read. view handler의 deps에 그대로 간다. readOnly
+  // open은 파일이 있어야 하므로 derived schema로 file SQLite를 먼저 만든다.
+  const derivedDb = new DatabaseSync(`${directory}/documents.sqlite`);
+  for (const step of outlineAndSearchSchemaSteps) {
+    derivedDb.exec(step.sql);
+  }
+  derivedDb.close();
+  const derived = openDerivedRead(`${directory}/documents.sqlite`);
+  if (!derived.ok) throw new Error(derived.error.message);
   let seq = 0n;
   let minted = 0;
   const emitted: Emitted[] = [];
@@ -59,6 +69,17 @@ export function viewFixture(authorize: TargetAuthorizer = allowAll) {
     sql: sqlOf(() => {}),
     emitted,
     path: `${directory}/ledger.sqlite`,
+    derivedRead: () => derived.value,
+    authorizer,
+    useAuthorizer(next: TargetAuthorizer): void {
+      authorizer.current = next;
+    },
+    count(table: string): number {
+      const row = db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as
+        | { n: number | bigint }
+        | undefined;
+      return row === undefined ? 0 : Number(row.n);
+    },
     transaction<T>(handle: (tx: Tx) => Result<T>): Result<T> {
       let open = true;
       const guard = () => {

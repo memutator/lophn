@@ -428,6 +428,7 @@ concerns: [documents]
 
 ### T22 Context ledger
 
+- 상태: 완료 (#190)
 - 등급: 기본
 - concern: documents/contexts
 - 요구: documents/contexts#R1, R2, R3, R5, R6, R7, R8, R15

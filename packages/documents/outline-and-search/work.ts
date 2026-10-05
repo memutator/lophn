@@ -226,7 +226,7 @@ function writeEvent(
     omissions = pendingOmissions(tx.sql, parsed.document);
   }
   if (parsed.kind === "move") {
-    // move는 출발·도착 자리名单을 함께 갱신한다. 낡은 index 행은 지우고 새 행은
+    // move는 출발·도착 자리 목록을 함께 갱신한다. 낡은 index 행은 지우고 새 행은
     // 재파생이 심는다. 바로 알 수 없으므로 행을 지운다.
     tx.sql.run(
       `UPDATE search_documents

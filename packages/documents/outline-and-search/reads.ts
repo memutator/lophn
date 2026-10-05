@@ -165,7 +165,6 @@ function matchDocuments(
 ): SearchResult[] {
   const results: SearchResult[] = [];
   const query = input.query;
-  const fts = !needsLike(query);
   for (const id of candidates) {
     const row = deps.read.sql.get(
       `SELECT document, version, section_key, ranges, title, body FROM search_rows WHERE document = ?`,
@@ -182,19 +181,11 @@ function matchDocuments(
     // 일치 판정. title·body 둘 다 본다.
     const title = String(row["title"]);
     const body = String(row["body"]);
-    if (fts) {
-      if (!title.includes(query) && !body.includes(query)) continue;
-    } else {
-      if (!title.includes(query) && !body.includes(query)) continue;
-    }
+    if (!title.includes(query) && !body.includes(query)) continue;
     const result = buildResult(deps, id, version, row, query, latest);
     if (result !== undefined) results.push(result);
   }
   return results.slice(0, limit);
-}
-
-function needsLike(query: string): boolean {
-  return codepoints(trimmedQuery(query)) < 3;
 }
 
 function fmtName(snapshot: SearchSnapshot, version: string): string {

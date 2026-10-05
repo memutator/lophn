@@ -35,7 +35,7 @@ lines.on("line", (line) => {
   const reply = host.handle(request);
   // runtime을 함께 보내야 supervisor가 종료·host-lost 때 unknown을 표시할
   // 자료를 가진다. reply에 runtime이 이미 있으면 한 번만 싣는다.
-  const runtime = reply.ok ? reply.runtime : undefined;
+  const runtime = reply.ok && "runtime" in reply ? reply.runtime : undefined;
   process.stdout.write(
     JSON.stringify({ id: request.id, reply, runtime }) + "\n",
   );

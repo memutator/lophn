@@ -216,6 +216,9 @@ export function handleRecordReport(
       [problemId, report.app, key],
     );
     acceptance.problem = problemId;
+  } else if (live && problemRow !== null) {
+    // reportRecorded payload는 live 보고에 문제 ID가 있어야 하므로 emit 전에 정한다.
+    problemId = problemRow.id;
   }
   const eventSeq = tx.emit(reportRecorded, report.id, {
     app: report.app,
@@ -247,7 +250,6 @@ export function handleRecordReport(
   } else if (live && problemRow !== null) {
     // open/fixing→동일, closed→closed 유지(늦은 이전 release 보고).
     // closed+현재 활성 release의 reopen 분기는 problems/closing의 몫이다(T21).
-    problemId = problemRow.id;
     tx.emit(problemObserved, problemRow.id, {
       report: report.id,
       release: report.release,

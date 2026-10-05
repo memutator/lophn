@@ -7,6 +7,7 @@ import {
   exceptionFingerprintInputSchema,
   getProblem,
   getProblemInputSchema,
+  getProblemOutputSchema,
   interpretationLinkInputSchema,
   linkProblemInterpretation,
   linkProblemInterpretationInputSchema,
@@ -202,6 +203,41 @@ Deno.test("problems/grouping#R11: problem list limit is at most 100", () => {
   );
   assertEquals(
     getProblemInputSchema.safeParse({ problem: id("prb"), raw: true }).success,
+    false,
+  );
+});
+
+Deno.test("problems/grouping#R11: problem detail carries the release at the first and latest report", () => {
+  const detail = {
+    problem: {
+      id: id("prb"),
+      app: id("app"),
+      group_key: {
+        kind: "declared",
+        code: "payment_declined",
+        discriminator: null,
+      },
+      status: "open",
+      work: null,
+      interpretation: null,
+      closure: null,
+      seq: "3",
+    },
+    text: "There is a problem to check in this app.",
+    report_count: 2,
+    first_observed_at: "2026-10-04T12:00:00.000Z",
+    last_observed_at: "2026-10-04T12:05:00.000Z",
+    first_release: id("rel"),
+    last_release: null,
+    as_of_seq: "3",
+    next_cursor: null,
+  };
+  assertEquals(getProblemOutputSchema.safeParse(detail).success, true);
+  const { first_release: _dropped, ...without } = detail;
+  assertEquals(getProblemOutputSchema.safeParse(without).success, false);
+  assertEquals(
+    getProblemOutputSchema.safeParse({ ...detail, last_release: id("app") })
+      .success,
     false,
   );
 });

@@ -24,6 +24,10 @@ import {
   getSnapshotRead,
   listReportsRead,
 } from "../../packages/problems/reporting/reads.ts";
+import {
+  getProblemRead,
+  listProblemsRead,
+} from "../../packages/problems/grouping/reads.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import { SNAPSHOTS_SCHEMA_STEPS } from "../../packages/problems/snapshots/mod.ts";
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
@@ -114,7 +118,13 @@ export const problemsReportDefinitions = {
     })
   ),
   commands: [recordReportCommand],
-  reads: [listReportsRead, getReportRead, getSnapshotRead],
+  reads: [
+    listProblemsRead,
+    getProblemRead,
+    listReportsRead,
+    getReportRead,
+    getSnapshotRead,
+  ],
   ports: {} as Record<string, TxPortRegistration>,
   workers: reportCollectorWorkers(),
   // 보고 접수 worker route(T3). dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
@@ -126,7 +136,13 @@ export const problemsReportDefinitions = {
 // 실행 port는 없다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
-    reads: [listReportsRead, getReportRead, getSnapshotRead],
+    reads: [
+      listProblemsRead,
+      getProblemRead,
+      listReportsRead,
+      getReportRead,
+      getSnapshotRead,
+    ],
     ports: new Map(),
   };
 }

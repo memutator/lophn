@@ -48,7 +48,10 @@ import {
   versionFileField,
   versionFilesField,
 } from "../../packages/documents/versions/mod.ts";
-import { createSeriesCommands } from "../../packages/documents/series/mod.ts";
+import {
+  createSeriesCommands,
+  joinSeriesOnSave,
+} from "../../packages/documents/series/mod.ts";
 import { seriesSchemaSteps } from "../../packages/documents/series/mod.ts";
 import { createSeriesReads } from "../../packages/documents/series/mod.ts";
 import {
@@ -293,7 +296,7 @@ export function createLedgerRegistration(
 ): LedgerRegistration {
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
-  const versions = createVersionCommands();
+  const versions = createVersionCommands({ joinSeries: joinSeriesOnSave });
   const addressing = createDocumentChangeCommands();
   // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
   const contexts = createContextCommands();

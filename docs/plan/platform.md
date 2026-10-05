@@ -1089,6 +1089,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 내놓는 contract: 없음
 - slice: operations
 - 선행: platform#T51
+- 상태: 완료 (#226)
 - 완료: 아래 확인이 통과한다
   - 100,000파일·10GiB scan·hash·index, 1GiB 압축, 60초 model·test, 정체 앱, 동시 관리 요청 10개를 각각·함께 걸고 T51 목표를 잰다(R9).
   - 일반 앱 화면·read·command가 core·invocation 기록을 기다리지 않는다(R2). 한 앱의 무한 loop·crash가 다른 앱·shell 조작을 막지 않는다(R5, Electron main 쪽은 shell과 함께).

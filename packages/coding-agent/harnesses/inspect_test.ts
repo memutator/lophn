@@ -139,3 +139,40 @@ Deno.test("coding-agent/harnesses#R3: receipt가 없으면 component는 비고 l
     await fx.dispose();
   }
 });
+
+Deno.test("coding-agent/harnesses#R10: YAML adapter가 쓴 Hermes config의 block 목록 args로 probe가 성공한다", async () => {
+  const fx = await fixture();
+  try {
+    // 사람이 이미 `mcp_servers`를 둔 config다. 부모 key가 없는 새 config에
+    // 쓰는 길은 YAML adapter의 몫이라 이 test가 가리키지 않는다.
+    await write(
+      `${rootFor(fx, "hermes_home")}/config.yaml`,
+      "mcp_servers:\n  other:\n    command: keep\n",
+    );
+    await installWithReceipt(
+      fx,
+      "hermes",
+      "user",
+      fixtureLaunch("ok"),
+      "lophn-save",
+    );
+    const text = await Deno.readTextFile(
+      `${rootFor(fx, "hermes_home")}/config.yaml`,
+    );
+    assertStringIncludes(text, "args:");
+    const { observation } = await inspectIntegration(
+      { ...inputOf(fx, "hermes", "user"), now: NOW },
+      ports(fx),
+    );
+    assertEquals(
+      observation.components.find((item) => item.kind === "mcp")?.state,
+      "current",
+    );
+    assertEquals(
+      observation.loading_checks.slice(0, 2).map((check) => check.result),
+      ["success", "success"],
+    );
+  } finally {
+    await fx.dispose();
+  }
+});

@@ -26,7 +26,7 @@ function notFound(): Result<never> {
 }
 
 // null은 제한 없음, 문자열은 그 assignment만, undefined는 아무것도 보지 못함.
-function visibleAssignment(
+export function visibleAssignment(
   ctx: RequestContext,
 ): string | null | undefined {
   const actor = parseActor(ctx.actor);

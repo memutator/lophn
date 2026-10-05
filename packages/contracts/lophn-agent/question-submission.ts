@@ -7,6 +7,7 @@ import {
 } from "../platform/mod.ts";
 import { approvalActionSchema } from "../platform/mod.ts";
 import { sectionKeySchema } from "../documents/mod.ts";
+import { questionTextSchema } from "./question-text.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
@@ -34,14 +35,15 @@ export const optionActionOutputSchema = z.object({
   ]),
 });
 
-const optionFields = {
+// 요청의 글은 값이고(description) 저장된 질문은 그 blob의 hash를 가리킨다(description_blob).
+const optionBase = {
   key: nonblankSchema,
   label: nonblankSchema,
-  description_blob: sha256Schema,
   evidence: z.array(fixedVersionReferenceSchema),
   adoption: fixedVersionReferenceSchema.nullable(),
   action: optionActionSchema.nullable(),
 };
+const optionFields = { ...optionBase, description_blob: sha256Schema };
 
 function uniqueReferences(value: {
   evidence: readonly {
@@ -56,7 +58,10 @@ function uniqueReferences(value: {
   return new Set(keys).size === keys.length;
 }
 
-export const questionOptionSchema = z.strictObject(optionFields).refine(
+export const questionOptionSchema = z.strictObject({
+  ...optionBase,
+  description: questionTextSchema,
+}).refine(
   uniqueReferences,
   { message: "duplicate fixed version reference" },
 );
@@ -71,18 +76,31 @@ const recommendationFields = {
   option_key: nonblankSchema.nullable(),
   explanation_blob: sha256Schema,
 };
-export const recommendationSchema = z.strictObject(recommendationFields);
+export const recommendationSchema = z.strictObject({
+  option_key: nonblankSchema.nullable(),
+  explanation: questionTextSchema,
+});
 export const recommendationOutputSchema = z.object(recommendationFields);
 
-const createQuestionFields = {
+const createQuestionBase = {
   id: idSchema("qst"),
   run: idSchema("run"),
   session: idSchema("ses").nullable(),
-  prompt_blob: sha256Schema,
-  reason_blob: sha256Schema,
+  expires_at: atSchema.nullable(),
+};
+const createQuestionInputFields = {
+  ...createQuestionBase,
+  prompt: questionTextSchema,
+  reason: questionTextSchema,
   options: z.array(questionOptionSchema),
   recommendation: recommendationSchema.nullable(),
-  expires_at: atSchema.nullable(),
+};
+const createQuestionFields = {
+  ...createQuestionBase,
+  prompt_blob: sha256Schema,
+  reason_blob: sha256Schema,
+  options: z.array(questionOptionOutputSchema),
+  recommendation: recommendationOutputSchema.nullable(),
 };
 
 function questionShape(value: {
@@ -98,15 +116,14 @@ function questionShape(value: {
       keys.includes(value.recommendation.option_key);
 }
 
-export const createQuestionInputSchema = z.strictObject(createQuestionFields)
-  .refine(questionShape, {
-    message: "question options and recommendation disagree",
-  });
-export const createQuestionSubmissionOutputSchema = z.object({
-  ...createQuestionFields,
-  options: z.array(questionOptionOutputSchema),
-  recommendation: recommendationOutputSchema.nullable(),
-}).refine(questionShape, {
+export const createQuestionInputSchema = z.strictObject(
+  createQuestionInputFields,
+).refine(questionShape, {
+  message: "question options and recommendation disagree",
+});
+export const createQuestionSubmissionOutputSchema = z.object(
+  createQuestionFields,
+).refine(questionShape, {
   message: "question options and recommendation disagree",
 });
 

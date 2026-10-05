@@ -77,8 +77,47 @@ function redactValue(value: unknown): { value: unknown } | null {
   return { value };
 }
 
-function rejected(code: LophnError["code"], message: string): Result<never> {
+export function rejected(
+  code: LophnError["code"],
+  message: string,
+): Result<never> {
   return err({ code, message });
+}
+
+// 같은 주체·purpose·hash의 살아 있는 준비가 없으면 그 바이트를 준비한다. 같은 값을 다시
+// 보낸 재전송과 같은 값의 동시 요청은 이미 살아 있는 준비를 쓴다. 준비한 바이트의 hash를
+// 돌려준다(command가 같은 값에서 같은 hash를 다시 만든다).
+export async function prepareBytes(
+  relay: BodyPrepare,
+  ctx: AuthenticatedContext,
+  purpose: string,
+  bytes: Uint8Array,
+  what: string,
+): Promise<Result<string>> {
+  const hash = await sha256Hex(bytes);
+  const key = { hash, principal: ctx.principal, purpose };
+  if (!relay.live(key)) {
+    const prepared = await relay.prepare({
+      principal: ctx.principal,
+      purpose,
+      expectedHash: hash,
+      bytes: new ReadableStream({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      }),
+    });
+    if (!prepared.ok && !relay.live(key)) {
+      return rejected(
+        prepared.error.code === "invalid_input"
+          ? "invalid_input"
+          : "unavailable",
+        `${what} could not be prepared`,
+      );
+    }
+  }
+  return ok(hash);
 }
 
 // 본문을 싣는 command의 앞 단계. 값은 redaction을 거친 값으로 바뀌어 writer에 가고,
@@ -121,35 +160,14 @@ export function createMessageBodyPreparer(deps: {
     if (relay === undefined) {
       return rejected("unavailable", "blob preparation is not available");
     }
-    const hash = await sha256Hex(bytes);
-    const key = {
-      hash,
-      principal: ctx.principal,
-      purpose: MESSAGE_CONTENT_PURPOSE,
-    };
-    // 같은 값을 다시 보낸 재전송은 이미 살아 있는 준비를 쓴다.
-    if (!relay.live(key)) {
-      const prepared = await relay.prepare({
-        principal: ctx.principal,
-        purpose: MESSAGE_CONTENT_PURPOSE,
-        expectedHash: hash,
-        bytes: new ReadableStream({
-          start(controller) {
-            controller.enqueue(bytes);
-            controller.close();
-          },
-        }),
-      });
-      // 같은 값의 동시 요청이 먼저 준비를 마쳤으면 그 준비를 쓴다.
-      if (!prepared.ok && !relay.live(key)) {
-        return rejected(
-          prepared.error.code === "invalid_input"
-            ? "invalid_input"
-            : "unavailable",
-          "message body could not be prepared",
-        );
-      }
-    }
+    const prepared = await prepareBytes(
+      relay,
+      ctx,
+      MESSAGE_CONTENT_PURPOSE,
+      bytes,
+      "message body",
+    );
+    if (!prepared.ok) return prepared;
     return ok({
       ...envelope,
       input: { ...record, content: checked.data },

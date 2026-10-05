@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { idSchema, seqSchema, sha256Schema } from "../platform/mod.ts";
+import { questionTextSchema } from "./question-text.ts";
 
 export const questionStatusSchema = z.enum([
   "pending",
@@ -26,6 +27,21 @@ export const answerSchema = z.discriminatedUnion("kind", [
     kind: z.literal("text"),
     option_key: z.null(),
     text_blob: sha256Schema,
+  }),
+]);
+
+// 요청의 답. 자유 답은 글을 값으로 싣고 core가 blob으로 준비한다(Q38). 저장·event·record의
+// 답(answerSchema)은 그 blob의 hash를 가리킨다.
+export const optionAnswerInputSchema = z.strictObject({
+  kind: z.literal("option"),
+  option_key: z.string().min(1),
+});
+
+export const answerInputSchema = z.discriminatedUnion("kind", [
+  optionAnswerInputSchema,
+  z.strictObject({
+    kind: z.literal("text"),
+    text: questionTextSchema,
   }),
 ]);
 

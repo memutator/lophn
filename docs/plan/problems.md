@@ -88,7 +88,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 `POST /v1/problems/report`, `POST /v1/problems/observe-exception`(process 출처)
 - slice: apps
 - 선행: problems#T1, problems#T2, contracts#T12, platform#T5, platform#T6, platform#T7, platform#T8, platform#T9, platform#T12, platform#T15, apps#T6
-- 상태: 진행 (#198, #216) — 남은 것: 통합 테스트에서 credential 이름 검증에 root 대신 접수 credential을 쓰는 것(lead 몫)
+- 상태: 완료 (#198, #216) — 이어보냄: redaction을 거친 보고 text·details를 blob 준비해 Report에 싣기(지금은 null) → T4, 통합 테스트의 credential 이름 검증을 root 대신 접수 credential로 → T5
 - 완료:
   - collector는 `deno run --no-prompt`에 core loopback `--allow-net`과 준비 폴더 `--allow-read`만 받는다(architecture 2.2)
   - 앱 actor·app·release·mode는 credential에서만 정한다. 본문의 `actor`, 다른 앱, `live` 주장은 `forbidden`, 다른 앱 제출은 거절(R1, R2)
@@ -108,6 +108,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음(C-문제보고 안의 Snapshot 값)
 - slice: apps
 - 선행: problems#T3, contracts#T35, apps#T11
+- T3에서 넘어온 것: collector가 redaction을 통과한 보고 text·details를 blob 준비해 Report.text·details에 싣는다(#216은 blob 준비 권한이 없어 null로 둔다)
 - 완료:
   - `fingerprint_test.ts`: 같은 함수에서 줄·열·message·업무 값만 바꾼 오류는 같은 지문, 다른 상위 앱 위치는 다른 지문; 절대 path·SDK·runtime frame 제외; 앱 frame 0개면 Report ID discriminator로 같은 TypeError 2개가 합쳐지지 않는다(grouping#R2, R3)
   - `_invalid_report`는 안전한 잘못된 code로 묶고, 안전하지 않으면 원래 Report ID로 나눈다(grouping#R4)
@@ -129,6 +130,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 SDK `reportProblem(code, details?) → {report_id, completion}`, `installExceptionObserver(transport)`
 - slice: apps
 - 선행: contracts#T39
+- T3에서 넘어온 것: 통합 테스트가 credential 이름 검증에 root credential 대신 앱 접수 credential을 쓴다(#216)
 - 상태: 완료 (#99)
 - 완료:
   - `reportProblem`은 Report ID를 첫 전송 전에 고정하고 실제 invocation 문맥을 붙인 뒤 업무 응답을 막지 않는다; completion은 값으로 끝나 전송 실패가 새 `unhandledrejection`을 만들지 않는다(R1, R13)

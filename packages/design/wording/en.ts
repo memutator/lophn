@@ -71,6 +71,67 @@ export const en = {
   "contexts.view.baseline": "Baseline",
   "contexts.view.follow-changes": "Follow changes",
   "contexts.view.reference": "Reference",
+  "conversation.button.check-delivery": "Check whether it arrived",
+  "conversation.button.close": "Close conversation",
+  "conversation.button.jump-latest": "Jump to newest messages",
+  "conversation.button.mode-correction": "Send as a change to the current work",
+  "conversation.button.mode-request": "Send as a new request",
+  "conversation.button.new-session": "New conversation",
+  "conversation.button.open": "Open conversation",
+  "conversation.button.resend": "Send again",
+  "conversation.button.send": "Send",
+  "conversation.button.show-all-results": "Show all results",
+  "conversation.button.stop": "Stop",
+  "conversation.empty.no-agent": "lophn isn't set up for conversations yet.",
+  "conversation.empty.no-messages":
+    "Nothing here yet. Write what you need below.",
+  "conversation.empty.no-session":
+    "Start a conversation to ask lophn for something.",
+  "conversation.error.load-failed":
+    "Couldn't load this conversation. Try again.",
+  "conversation.error.open-failed":
+    "Couldn't start a new conversation. Try again.",
+  "conversation.error.stop-failed": "Couldn't stop this work. Try again.",
+  "conversation.label.author-check": "Checked by lophn",
+  "conversation.label.author-lophn": "lophn",
+  "conversation.label.author-you": "You",
+  "conversation.label.composer-correction": "Change to the current work",
+  "conversation.label.composer-request": "New request",
+  "conversation.label.correction": "Change",
+  "conversation.label.delivery-applied": "Taken into account",
+  "conversation.label.delivery-not-sent": "Not sent",
+  "conversation.label.delivery-received": "Received",
+  "conversation.label.delivery-saved": "Saved, not started",
+  "conversation.label.delivery-sending": "Sending",
+  "conversation.label.delivery-unconfirmed": "Not confirmed",
+  "conversation.label.document": "Document",
+  "conversation.label.more-results":
+    "{count, plural, one {+# more} other {+# more}}",
+  "conversation.label.results": "Results",
+  "conversation.label.session": "Conversation {number, number}",
+  "conversation.label.session-ended": "Conversation {number, number}, ended",
+  "conversation.label.sessions": "Conversations",
+  "conversation.label.status-done": "Done",
+  "conversation.label.status-in-progress": "In progress",
+  "conversation.label.status-stopped": "Stopped",
+  "conversation.label.status-waiting": "Waiting",
+  "conversation.notice.ended":
+    "This conversation has ended. You can read it but not reply.",
+  "conversation.notice.message-unreadable":
+    "This message's text can't be shown here yet.",
+  "conversation.notice.not-found":
+    "lophn didn't find this message. Sending it again won't make a copy.",
+  "conversation.notice.not-sent":
+    "This message wasn't sent. It's still in the box, so you can send it again.",
+  "conversation.notice.offline": "You can send once lophn is connected again.",
+  "conversation.notice.paused":
+    "This role is paused. New requests are kept and start only after you resume it.",
+  "conversation.notice.stale":
+    "Couldn't check for new messages. Last checked {age}.",
+  "conversation.notice.stale-never": "Couldn't check for new messages yet.",
+  "conversation.notice.unconfirmed":
+    "lophn couldn't confirm this message arrived. Check before sending it again.",
+  "conversation.title.dock": "Conversation",
   "document.button.check-task": "Check task",
   "document.button.edit": "Edit",
   "document.button.find-close": "Close find",

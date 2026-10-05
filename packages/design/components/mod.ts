@@ -72,6 +72,7 @@ export { editorIcons } from "./editor-icons.ts";
 export { lophnSpaceIcons } from "./lophn-space-icons.ts";
 export { paletteIcons } from "./palette-icons.ts";
 export { conversationIcons } from "./conversation-icons.ts";
+export { confirmIcons } from "./confirm-icons.ts";
 export {
   domResizeSource,
   type ResizeSource,

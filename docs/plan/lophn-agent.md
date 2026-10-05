@@ -258,6 +258,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T13 SSE parser와 Anthropic Messages adapter
 
 - 등급: 기본
+- 상태: 완료 (#221)
 - concern: lophn-agent/harness/provider
 - 요구: lophn-agent/harness/provider#R3, R25, R26
 - 자리: packages/lophn-agent/harness/provider/ (adapters/stream.ts, adapters/messages.ts, adapters/auth-transport.ts, work.ts: `invokeModelCall` 공통 interface)

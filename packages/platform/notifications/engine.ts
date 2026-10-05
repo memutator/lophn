@@ -83,10 +83,10 @@ export function notificationsEngine(
         : await options.cursor();
       const from = nextFromSeq(saved);
       if (!from.ok) return from;
-      const start = BigInt(saved) === 0n ? "0" : from.value;
+      // cursor 뒤(seq > saved)부터 읽는다. 처음(0)도 같다.
       const read = await backend.read(machine, {
-        position: start,
-        inclusive: BigInt(saved) === 0n ? true : false,
+        position: saved,
+        inclusive: false,
         limit: batch,
       });
       if (!read.ok) return read;
@@ -131,6 +131,23 @@ export function notificationsEngine(
           if (!advanced.ok) return advanced;
         }
         // cursor는 command마다 하나씩 움직인다. compare는 기록된 cursor다(architecture 5.10).
+        scanned = through;
+      }
+      // 공개 정책이 숨긴 event는 batch에 없다. 그 구간도 읽은 것이므로 cursor를 batch가 훑은
+      // 끝까지 올린다. 올리지 않으면 숨은 event만 있는 구간에서 같은 batch를 계속 다시 읽는다(R2).
+      const through = read.value.scanned_through_seq;
+      if (!closed && BigInt(through) > BigInt(scanned)) {
+        const advanced = await command(machine, {
+          command: "AdvanceSubscriberCursor",
+          input: {
+            subscriber: NOTIFICATION_SUBSCRIBER,
+            scanned_through_seq: through,
+          },
+          idempotency_key: `cursor:${NOTIFICATION_SUBSCRIBER}:${through}`,
+          compare: { processed_through_seq: scanned },
+          prepared: [],
+        });
+        if (!advanced.ok) return advanced;
         scanned = through;
       }
       position = scanned;

@@ -30,6 +30,12 @@ export type LedgerHarness = {
     ctx: AuthenticatedContext,
     input: unknown,
   ): Promise<Result<unknown>>;
+  // main↔core 비공개 통로의 handle 발급과 같다. writer의 confirmation registry에만 남는다.
+  confirmation(body: {
+    action: "issue" | "close-window" | "clear";
+    request?: unknown;
+    windowId?: string;
+  }): Promise<Result<unknown>>;
   inspect(
     query: string,
     params?: readonly unknown[],
@@ -45,6 +51,8 @@ const OPERATIONS = [
   "expire_approval_request",
   "cancel_approval_request",
   "seed_approval_request",
+  "grant_approval_request",
+  "reject_approval_request",
   "GetApproval",
   "ListApprovals",
 ];

@@ -45,6 +45,11 @@ import {
   runSchemaSteps,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
+  createSchedulingCommands,
+  createSchedulingReads,
+  schedulingSchemaSteps,
+} from "../../packages/lophn-agent/scheduling/mod.ts";
+import {
   conversationSchemaSteps,
   createConversationCommands,
   createConversationReads,
@@ -260,6 +265,15 @@ const assignmentReads = createAssignmentReads();
 const runCommands = createRunCommands({ hasUnappliedSteering });
 const runReads = createRunReads();
 
+// Operator 주기 회차(concern scheduling). 회차 접수는 run-loop의 AcceptRun handler를
+// 같은 Tx에서 부르고, 접수·기록·last_due_at 이동이 한 transaction이다(scheduling R4).
+// AcceptRun은 machine 전용 기록이고 이 명령도 machine만 부르므로 자격은 그대로다.
+const schedulingCommands = createSchedulingCommands({
+  acceptRun: (tx, ctx, input, compare) =>
+    runCommands.accept.handle(tx, ctx, input, compare),
+});
+const schedulingReads = createSchedulingReads();
+
 // 세션과 메시지(concern conversation). 사람 입력 접수는 담당 run 접수와 한
 // transaction이므로 run-loop의 AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은
 // machine 전용 기록이라 이 접수에 한해 machine 자격으로 바꿔 넘기고, 입력은 항상
@@ -311,6 +325,7 @@ export const lophnAgentDefinitions = {
     ...presetSchemaSteps,
     ...assignmentSchemaSteps,
     ...runSchemaSteps,
+    ...schedulingSchemaSteps,
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
     ...questionSchemaSteps,
@@ -343,6 +358,7 @@ export const lophnAgentDefinitions = {
     runCommands.finish,
     runCommands.stop,
     runCommands.confirmNext,
+    schedulingCommands.process,
     conversationCommands.open,
     conversationCommands.changeWorkPlace,
     conversationCommands.close,
@@ -381,6 +397,7 @@ export const lophnAgentDefinitions = {
     runReads.read,
     runReads.list,
     runReads.result,
+    schedulingReads.list,
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
@@ -421,6 +438,7 @@ export function createReaderRegistration(): ReaderRegistration {
       runReads.read,
       runReads.list,
       runReads.result,
+      schedulingReads.list,
       conversationReads.session,
       conversationReads.sessions,
       conversationReads.messages,

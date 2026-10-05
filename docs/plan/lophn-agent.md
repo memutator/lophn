@@ -483,6 +483,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다
 - T10에서 넘어온 것: run basis와 result의 blob 영구 참조 등록(#250은 hash만 둔다)
+- T51에서 넘어온 것: 회차 시계(`scheduling/work.ts`의 `createOccurrenceClock`·`run`)를 agent runtime 기동에서 돌려 `/v1/assignment-occurrences/process`를 machine credential로 부르는 연결(#267은 시계와 command만 닫았다). 주입할 `read`는 selector와 같은 core read, `wait`는 runtime 시각 대기, clock은 systemClock이다
 - T12에서 넘어온 것: (1) `RunSelector.next()`로 고른 run을 StartRun으로 시작하고 `beginRun`·`createRunCredentials`(#260)로 `agent:<asg>` credential을 받아 tool 진입에만 쓰며 run 종료·멈춤·감독 상실에 `end`한다. (2) credential을 core에서 runtime으로 전달하는 감독 pipe 메시지(app_credential_request의 agent판)와 core의 `CredentialRegistry.issue` 호출 자리, run 상태를 다시 보는 `current/live` 연결은 platform에 맡은 작업이 없다(platform#T24는 registry까지 닫혔다). 이 작업이 platform·contracts에 그 계약을 요청해 받은 뒤 연결하고, 계약이 없으면 멈추고 lead에게 보고한다.
 - 완료:
   - loop_test.ts에 R8–R13, R15, R23–R25 테스트(fake provider·clock·owner contract): model이 응답하지 않아도 core read·다른 assignment가 진행, turn 순서와 조립 뒤 입력·멈춤 재확인, 수정 입력은 다음 tool 전에 새 판단, 불완전 응답의 tool 0개와 잘림을 다음 판단에 전달, 모든 call이 확인된 read일 때만 병렬·하나라도 아니면 요청 순서 순차·결과는 요청 순서, 없는 tool·잘못된 인자는 call별 결과·인자 보정 없음, 순차 write·external 거절·최종 실패 뒤 나머지 미실행 이유·독립 read 결과 보존, 멈춤 뒤 새 model·tool·retry 차단·진행 호출 중단 요청·미시작 call 미실행 결과 합성, 일시 실패만 최대 2회(서버 시각을 지키고 없으면 2초·4초, fake clock으로 서버 시각 전 재시도 없음)·부분 응답 미채택, tool retry는 read·멱등 write만 1회 1초±10%와 재판정, provider 끄기·MCP 제거 뒤 새 진입 차단
@@ -888,6 +889,7 @@ E2E는 T53이 쓴다.
 - slice: operator
 - 조사: docs/research/scheduled-runs.md
 - 선행: T10, T12, contracts#T31
+- 상태: 완료 (#267) — 이어보냄: 회차 시계(`createOccurrenceClock`)를 apps/agent-runtime에서 돌리고 machine credential로 ProcessAssignmentOccurrence를 부르는 연결 → T26(runtime에 command를 부르는 client가 아직 없다)
 - 완료:
   - `assignment_schedule_occurrences` 표
   - scheduling_test.ts에 R1–R7 테스트: Operator만·machine 배경 요청·model 호출 없음, base 계산 재사용(apps#T20과 같은 순수 함수), UTC first_at·양수 every_ms·기본 간격 없음·cron·timezone·달력 없음, 같은 회차 중복 접수 없음과 접수·skip 시각·사유, 끝나지 않은 run(accepted·running·waiting_user)이 있으면 그 회차를 `unfinished_run`으로 skip하고 last_due_at을 넘김(due로 남겨 다음 tick에 재시도하지 않음)·대기열 없음·skip도 ledger 행, 주기 회차를 진행 중 run에 steering으로 합치지 않고 run 출처로 사람 요청과 주기를 구별, 기동·절전·재개 뒤 최근 미처리 하나만(10회 놓치면 run 1개와 missed_count 9)·앞은 놓침 구간·수 기록, heartbeat처럼 model을 부르는 주기 없음, 시계는 주입, 책임·상태 변경은 last_due_at 유지·주기 승인 변경만 새 계산
@@ -903,6 +905,7 @@ E2E는 T53이 쓴다.
 - slice: operator
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T9, T22, T43, T51, platform#T21, platform#T23
+- T51에서 넘어온 것: ApplyOperatorAssignment의 주기 변경 규칙(새 `first_at`이 적용 시각보다 미래가 아니면 `invalid_input`, 주기가 바뀔 때만 `last_due_at`을 null로, 책임·상태만 바꾸면 유지, paused는 그대로)은 #267이 먼저 넣었다. 생성 경로가 `assignment_outputs`·`assignment_read_apps`·`assignment_read_commands` 행을 아직 넣지 않는 것은 이 작업이 채운다
 - 완료:
   - operator_assignment_test.ts에 assignments#R4–R8, R15, presets#R15, tool-judgment#R4 테스트: 사람이 승인한 고정 bundle만 적용·agent가 자기·다른 assignment를 적용하지 않음, preset 전체 판·범위·남길 문서·주기·승인 read의 전후·이유가 bundle에 묶이고 내용·이전 판이 다르면 거절, 실제 첫 version이 있는 기존 문서 최소 1개·원본 연결·보관·빈 예약·시리즈·동적 이름 거절, 이름·자리가 바뀌어도 같은 문서·자료 속 주소 추가 읽기 없음, 남길 문서 독점(멈춤도 유지)과 사람 직접 편집 허용·충돌 검사, 승인 outputs 새 version만 allow·선언 밖 쓰기는 deny, 주기·사람 요청 외 자동 접수 없음, 초안의 판단·근거·비교 기준·갱신 조건·책임 밖과 구성 전체 검토 자료
   - context_engineer_operator_test.ts에 CE#R11–R13 테스트: 후보 근거(최근 30일 watch 변화 4회·기준 자료 뒤처짐 14일·같은 수동 업무 4회) 중 하나와 단순 합계·수집만은 제안 안 함, 초안 항목 전부, 겹치는 Operator는 기존 판·남길 문서 변경 제안과 겹침 근거

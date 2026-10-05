@@ -107,7 +107,9 @@ export type PrepareRouteDeps =
   & Omit<PrepareDeps, "prepareFiles" | "loadBaseVersion">
   & {
     loadBaseVersion: BaseVersionFor;
-    sink: () => BlobSink;
+    // 준비 참조의 principal은 요청 자격의 principal이다(저장 command가 같은 자격으로
+    // 등록하므로 다르면 forbidden이다). 요청마다 sink를 만든다.
+    sink: (request: WorkerRequest) => BlobSink;
     // route가 준비됐는지. worker가 뜨기 전에는 unavailable이다.
     available(): boolean;
     observedAt(): string;
@@ -121,7 +123,7 @@ export function documentPrepareRoute(
   const prepareFor = (request: WorkerRequest) =>
     createPrepareAssembly({
       validateFiles: deps.validateFiles,
-      prepareFiles: streamingPrepareFiles(deps.sink),
+      prepareFiles: streamingPrepareFiles(() => deps.sink(request)),
       loadBaseVersion: (baseVersion) =>
         deps.loadBaseVersion(baseVersion, {
           request_id: request.request_id,

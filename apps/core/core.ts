@@ -9,6 +9,7 @@ import type {
   KindLaunchSpec,
   ParentMessage,
   RequestContext,
+  WorkerRequest,
 } from "../../packages/contracts/platform/mod.ts";
 import { ROUTES } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -66,8 +67,15 @@ import {
   servedWorkers,
   statusMemoryVia,
 } from "./documents-serving.ts";
-import { PREPARE_BASE_ROUTE } from "./documents-served.ts";
+import {
+  OBSERVATION_BASIS_ROUTE,
+  PREPARE_BASE_ROUTE,
+} from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
+import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
+import { createValidatePort } from "./documents-validate.ts";
+import type { ValidatePort } from "../../packages/documents/versions/work.ts";
+import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
@@ -281,6 +289,8 @@ async function open(
   const stopPrune: { run?: () => void } = {};
   // 활성 tracking root 변화를 보는 확인. documents worker를 띄운 뒤에만 있다.
   let rootsWatch: RootsWatch | undefined;
+  // coordinator에 관측 근거(규칙·경로→문서 연결)를 보내는 동기화(Q15).
+  let basisSync: BasisSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
   // deno-lint-ignore prefer-const
@@ -384,6 +394,27 @@ async function open(
   const prepareRelay: {
     current?: (call: BlobPrepareCall) => Promise<Result<PreparedRelayResult>>;
   } = {};
+  // format 검사는 원문 blob을 I/O worker에서 읽어 documents coordinator로 보낸다. 두 통로는
+  // I/O worker와 coordinator가 뜬 뒤에 채워지고, 그 전에는 unavailable이다.
+  const validateWiring: {
+    readBlob?: ReturnType<typeof blobRelayFor>["readBytes"];
+    sendBytes?: (channel: number, chunk: Uint8Array) => Promise<boolean>;
+  } = {};
+  const validatePort = createValidatePort({
+    readBlob: (hash, offset, length) =>
+      validateWiring.readBlob
+        ? validateWiring.readBlob(hash, offset, length)
+        : Promise.resolve(err({
+          code: "unavailable" as const,
+          message: "blob 읽기 통로가 없다",
+        })),
+    sendBytes: (channel, chunk) =>
+      validateWiring.sendBytes
+        ? validateWiring.sendBytes(channel, chunk)
+        : Promise.resolve(false),
+    request: (op, payload, timeoutMs) =>
+      documentsChannel.request(op, payload, timeoutMs),
+  });
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -402,7 +433,12 @@ async function open(
       // 테스트 seam(T8·T13)이 준 route를 같은 map에 더한다. resource/method가
       // 겹치면 테스트 seam이 이긴다. 둘 다 없으면 worker route는 503이다.
       workers: mergedWorkers(
-        documentPrepareWorkers(prepareRelay, baseVersionRead(runtime)),
+        documentPrepareWorkers(
+          prepareRelay,
+          baseVersionRead(runtime),
+          requestPrincipal(runtime),
+          validatePort,
+        ),
         mergedWorkers(
           servedWorkers({
             readers: runtime.readers,
@@ -450,6 +486,7 @@ async function open(
     : undefined;
   if (blobRelay) {
     blobRead.use(blobRelay.readBytes);
+    validateWiring.readBlob = blobRelay.readBytes;
     prepareRelay.current = (call) => blobRelay.prepare(call);
   }
   // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
@@ -488,6 +525,8 @@ async function open(
   // 없는 harness) 띄우지 않는다: 제출 없이 관측만 반복하는 worker는 겉보기 가용이 거짓이다.
   // 띄우지 못해도 core는 계속 선다. 통로가 묶이지 않아 documents 요청은 unavailable이다.
   if (io && documentsToken) {
+    validateWiring.sendBytes = (channel, chunk) =>
+      io.sendBytes("documents/worker", channel, chunk).then((sent) => sent.ok);
     const documentsHello = {
       type: "hello" as const,
       core_epoch: epoch,
@@ -571,6 +610,8 @@ async function open(
                 documentsHello,
                 freshCallbacks(),
               );
+              // 새 coordinator는 근거가 없다. 다음 확인이 전체를 다시 보낸다.
+              if (restarted.ok) basisSync?.invalidate();
               return { ok: restarted.ok };
             },
           },
@@ -581,6 +622,19 @@ async function open(
       known: active,
       intervalMs: DOCUMENTS_ROOTS_INTERVAL_MS,
     });
+    basisSync = watchObservationBasis({
+      read: (input) =>
+        runtime!.readers.read(OBSERVATION_BASIS_ROUTE, basisReader, input),
+      push: (chunk) =>
+        documentsChannel.request(
+          DOCUMENT_OPS.observationBasis,
+          chunk,
+          DOCUMENTS_BASIS_TIMEOUT_MS,
+        ),
+      intervalMs: DOCUMENTS_BASIS_INTERVAL_MS,
+    });
+    // 시작 근거는 worker가 뜬 직후 바로 보낸다. 닿지 못하면 다음 확인이 다시 시도한다.
+    void basisSync.check();
   }
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
@@ -637,6 +691,7 @@ async function open(
         // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
         ready = false;
         rootsWatch?.stop();
+        basisSync?.stop();
         closeChildBlob?.();
         // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
         runtime?.memory.disconnect();
@@ -848,6 +903,19 @@ function withDocumentsReader(modules: readonly string[]): string[] {
 
 // 활성 tracking root 변화 확인 주기. root 변경은 드물어서 짧은 read 하나면 된다.
 const DOCUMENTS_ROOTS_INTERVAL_MS = 2_000;
+
+// 관측 근거 확인 주기. ledger snapshot이 그대로면 연결 page를 다시 읽지 않는다.
+const DOCUMENTS_BASIS_INTERVAL_MS = 1_000;
+const DOCUMENTS_BASIS_TIMEOUT_MS = 15_000;
+
+// 관측 근거 읽기의 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.
+const basisReader: RequestContext = {
+  principal: "machine:documents-basis",
+  actor: "machine",
+  scope: { operations: [OBSERVATION_BASIS_ROUTE.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:documents-basis",
+};
 
 // tracking root 읽기의 자격. machine만 읽는 project.tracking_roots를 core가 직접 읽는다.
 // ledger credential 기록이 아니라 reader에 넘기는 context라, 발급 자격이 아니다.
@@ -1062,9 +1130,11 @@ function documentPrepareWorkers(
     current?: (call: BlobPrepareCall) => Promise<Result<PreparedRelayResult>>;
   },
   loadBaseVersion: BaseVersionFor,
+  principalOf: (request: WorkerRequest) => string | undefined,
+  validateFiles: ValidatePort,
 ): ReadonlyMap<string, WorkerRouteTarget> {
   const route = documentPrepareRoute({
-    sink: () =>
+    sink: (request) =>
       relaySink((bytes) => {
         const prepare = relay.current;
         if (!prepare) {
@@ -1073,24 +1143,40 @@ function documentPrepareWorkers(
             message: "blob 준비 중계가 아직 없다",
           }));
         }
+        // 준비 참조의 주체는 이 요청의 자격이다. 저장 command가 같은 자격으로 등록한다.
+        const principal = principalOf(request);
+        if (principal === undefined) {
+          return Promise.resolve(err({
+            code: "unauthorized",
+            message: "credential이 없다",
+          }));
+        }
         return prepare({
-          principal: "machine",
+          principal,
           purpose: "document_files",
           bytes,
         });
       }),
     available: () => relay.current !== undefined,
     observedAt: () => new Date().toISOString(),
-    // format 검사는 coordinator의 format runner가 한다. 원문 바이트를 core에서
-    // coordinator로 보내는 길(blob 읽기를 child에 여는 platform 통로)이 아직 없다.
-    validateFiles: () =>
-      Promise.resolve(err({
-        code: "unavailable",
-        message: "format 검사 통로가 아직 연결되지 않았다",
-      })),
+    // format 검사는 coordinator의 format runner가 한다. 원문 blob은 I/O worker에서 읽어
+    // 감독 pipe로 넘긴다(documents-validate.ts).
+    validateFiles,
     loadBaseVersion,
   });
   return new Map([[route.key, { handle: route.handle }]]);
+}
+
+// 요청 credential의 현재 principal. 폐기·만료된 자격은 없다.
+function requestPrincipal(
+  runtime: CoreRuntime,
+): (request: WorkerRequest) => string | undefined {
+  return (request) => {
+    const slash = request.request_id.lastIndexOf("/");
+    const ref = slash > 0 ? request.request_id.slice(0, slash) : undefined;
+    const ctx = ref === undefined ? undefined : runtime.current(ref);
+    return ctx?.ok ? ctx.value.principal : undefined;
+  };
 }
 
 // 기준 판 읽기. 요청 credential의 현재 context로 reader Worker의 snapshot을 읽는다.

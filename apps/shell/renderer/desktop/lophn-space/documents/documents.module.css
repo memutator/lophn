@@ -1,0 +1,217 @@
+/* legacy lophn 목록 화면: 목록 칸은 위에 조건, 아래에 32px 행 목록. 상세 칸은 읽기 틀. */
+.screen {
+  display: flex;
+  flex: 1;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.listColumn {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  width: var(--page-list);
+  flex-direction: column;
+  gap: var(--space-6);
+  height: 100%;
+  min-height: var(--space-0);
+  padding: var(--space-8) var(--space-6) var(--space-6);
+  overflow-y: auto;
+  border-right: var(--border-width) solid var(--color-border-base);
+  font-family: var(--font-sans);
+}
+
+.detailColumn {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  height: 100%;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  overflow-y: auto;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: var(--space-0);
+}
+
+/* 입력과 그 옆 아이콘 버튼. 버튼은 입력의 아래 끝에 맞춘다. */
+.inline {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+}
+
+.grow {
+  flex: 1;
+  min-width: var(--space-0);
+}
+
+.conditions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(var(--space-0), 1fr));
+  gap: var(--space-5) var(--space-4);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--control-sm-height);
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.row {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: var(--control-md-height);
+  margin: var(--space-0);
+  padding: var(--space-3) var(--space-4);
+  border: var(--space-0);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--motion-duration-short) var(--motion-ease);
+}
+
+.row:hover {
+  background: var(--color-surface-muted);
+}
+
+.row:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.row[aria-current] {
+  background: var(--color-selection);
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+}
+
+.rowIcon {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.rowTitle {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snippet {
+  display: -webkit-box;
+  margin: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.key {
+  flex: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 지연·누락·보관 안내. 색만이 아니라 글로 읽는다. */
+.notice {
+  margin: var(--space-0);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-subtle);
+  color: var(--status-warning-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.hint {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.error {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.placeholder {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-9);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.more {
+  display: flex;
+  justify-content: center;
+}

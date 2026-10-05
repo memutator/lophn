@@ -8,6 +8,7 @@ import type {
   ReadDefinition,
   Route,
   SchemaStep,
+  SettingDefinition,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
 import type { TxPortRegistration } from "../../packages/platform/ledger/mod.ts";
@@ -18,6 +19,9 @@ export type TeamRegistration = {
   schemaSteps?: readonly SchemaStep[];
   commands?: readonly CommandDefinition[];
   reads?: readonly ReadDefinition[];
+  // 소유 concern이 공개하는 SettingDefinition 목록이다(platform/settings#R31).
+  // settings registry와 route handler는 core가 이 목록으로 조립한다.
+  settings?: readonly SettingDefinition[];
   // ledger snapshot 없이 core가 바로 여는 read. dispatcher가 기다리므로 async여도 된다.
   // 경로는 같은 registry에서 모으므로 reads·files와 겹치면 거절한다.
   apiReads?: readonly ApiReadDefinition[];
@@ -49,6 +53,8 @@ type Loose = {
   commands?: readonly { route?: { name?: unknown } }[];
   reads?: readonly { route?: { resource?: unknown; method?: unknown } }[];
   apiReads?: readonly { route?: { resource?: unknown; method?: unknown } }[];
+  // 소유 concern이 공개하는 SettingDefinition이다(platform/settings#R31).
+  settings?: readonly { key?: unknown }[];
   files?: readonly { resource?: unknown; method?: unknown }[];
   workerRoutes?: readonly { resource?: unknown; method?: unknown }[];
   ports?: readonly TxPortRegistration[];
@@ -62,6 +68,8 @@ export type Assembled = {
   reads: ReadDefinition[];
   // pool 밖에서 바로 여는 read. dispatcher가 기다린다.
   apiReads: ApiReadDefinition[];
+  // 소유 concern이 공개하는 SettingDefinition. settings registry의 출처다.
+  settings: SettingDefinition[];
   // command·read·file·worker route를 한 목록으로 모은 것. HTTP registry의 출처다.
   routes: Route[];
   ports: TxPortRegistration[];
@@ -118,6 +126,7 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
     commands: [],
     reads: [],
     apiReads: [],
+    settings: [],
     routes: [],
     ports: [],
     workers: [],
@@ -128,6 +137,7 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
   const reads = new Set<string>();
   const routes = new Set<string>();
   const workers = new Set<string>();
+  const settings = new Set<string>();
   for (const team of modules) {
     const direct = team.createCoreRegistration?.();
     const fromLedger = team.createLedgerRegistration
@@ -199,6 +209,16 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
         if (!route.ok) return route;
         assembled.apiReads.push(check.value as ApiReadDefinition);
         assembled.routes.push(route.value);
+      }
+      for (const setting of registration.settings ?? []) {
+        if (typeof setting.key !== "string") return broken("setting");
+        const check = taken(
+          settings,
+          setting.key,
+          setting as SettingDefinition,
+        );
+        if (!check.ok) return check;
+        assembled.settings.push(check.value);
       }
       for (const file of registration.files ?? []) {
         const route = routeOf(routes, file as Route);

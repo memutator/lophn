@@ -20,6 +20,29 @@ export {
   type DiagnosticIngress,
 } from "./pipe.ts";
 export {
+  classifySecurity,
+  type CredentialPermissionObservation,
+  DIAGNOSTICS_CHECK_ROUTE,
+  diagnosticsCheckRead,
+  type DoctorObservation,
+  type DoctorSource,
+  type GrantRiskObservation,
+  safeDetail,
+  type SdkHashObservation,
+  SECURITY_DIAGNOSTIC_KINDS,
+  type SecurityDiagnostic,
+  type SecurityDiagnosticKind,
+  storageFailure,
+  UNUSED_GRANT_MS,
+  warmPatternRevision,
+} from "./doctor.ts";
+export {
+  type DiagnosticListSource,
+  type DiagnosticQuery,
+  DIAGNOSTICS_LIST_ROUTE,
+  diagnosticsListRead,
+} from "./list.ts";
+export {
   type ComponentStatus,
   PLATFORM_STATUS_ROUTES,
   platformStatusReads,

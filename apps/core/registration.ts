@@ -37,8 +37,10 @@ export type TeamModule = {
   createCoreRegistration?: () => TeamRegistration;
   createLedgerRegistration?: (environment: never) => unknown;
   problemsTestDefinitions?: unknown;
+  problemsReportDefinitions?: unknown;
   codingAgentConnectionDefinitions?: unknown;
   lophnAgentDefinitions?: unknown;
+  ticketDefinitions?: unknown;
 };
 
 type Loose = {
@@ -132,10 +134,11 @@ export function assemble(modules: readonly TeamModule[]): Result<Assembled> {
       ? asLoose(team.createLedgerRegistration({} as never))
       : undefined;
     const fromProblems = asLoose(team.problemsTestDefinitions);
+    const fromProblemsReport = asLoose(team.problemsReportDefinitions);
     const fromCodingAgent = asLoose(team.codingAgentConnectionDefinitions);
     const fromLophnAgent = asLoose(team.lophnAgentDefinitions);
     const registration = asLoose(direct) ?? fromLedger ?? fromProblems ??
-      fromCodingAgent ?? fromLophnAgent;
+      fromProblemsReport ?? fromCodingAgent ?? fromLophnAgent;
     if (!registration) continue;
     for (const step of registration.schemaSteps ?? registration.schema ?? []) {
       if (typeof step.id !== "string" || typeof step.sql !== "string") {

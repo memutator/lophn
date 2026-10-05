@@ -218,6 +218,7 @@ export const ticketMakeReadyInputSchema = z.strictObject({
   inspect: z.array(sourceRelativePathSchema).max(20),
   preserve: z.array(sourceRelativePathSchema).max(20),
 });
+export type TicketMakeReadyInput = z.infer<typeof ticketMakeReadyInputSchema>;
 export const ticketMakeReadyOutputSchema = z.object({
   ticket: ticketIdSchema,
   readiness: z.literal("ready"),

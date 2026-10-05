@@ -133,10 +133,34 @@ function teamRegistration(team: TeamModule): Loose | undefined {
   const fromLedger = team.createLedgerRegistration
     ? team.createLedgerRegistration({} as never)
     : undefined;
-  const value = direct ?? fromLedger ?? team.problemsTestDefinitions ??
-    team.codingAgentConnectionDefinitions ?? team.lophnAgentDefinitions;
+  // problems 팀은 tests와 reporting 두 등록을 같은 모듈이 내보낸다. 둘 다 모은다.
+  const problems: Loose[] = [
+    team.problemsTestDefinitions,
+    team.problemsReportDefinitions,
+  ].filter(defined).map((value) => value as Loose);
+  if (problems.length > 0) {
+    const commands = problems.flatMap((value) => value.commands ?? []);
+    const ports: TxPortRegistration[] = problems.flatMap((value) =>
+      toArray(value.ports) as TxPortRegistration[]
+    );
+    const blobFields: BlobFieldDefinition[] = problems.flatMap((value) =>
+      value.blobFields ?? []
+    );
+    return { commands, ports, blobFields };
+  }
+  const value = direct ?? fromLedger ?? team.codingAgentConnectionDefinitions ??
+    team.lophnAgentDefinitions ?? team.ticketDefinitions;
   if (!value || typeof value !== "object") return undefined;
   return value as Loose;
+}
+
+function defined(value: unknown): boolean {
+  return !!value && typeof value === "object";
+}
+
+function toArray(ports: unknown): unknown[] {
+  if (!ports) return [];
+  return Array.isArray(ports) ? ports : Object.values(ports);
 }
 
 // 팀은 port를 배열로도, 이름 있는 객체로도 내보낸다. 있는 값만 모은다.

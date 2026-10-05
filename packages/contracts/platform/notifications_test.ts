@@ -83,6 +83,7 @@ Deno.test("platform/notifications#R3, platform/notifications#R4: 예시 입력�
       source_seq: "42",
       source_event: "QuestionCreated",
       processed_through_seq: "42",
+      subscriber: "notifications",
     }).success,
   );
   const envelope = eventEnvelopeSchema(NOTIFICATION_EVENTS[1]);
@@ -126,6 +127,7 @@ Deno.test("platform/notifications#R2, platform/notifications#R4: 모르는 field
       source_seq: "42",
       source_event: "RunFinished",
       processed_through_seq: "42",
+      subscriber: "notifications",
     }).success,
   );
   assert(
@@ -135,6 +137,16 @@ Deno.test("platform/notifications#R2, platform/notifications#R4: 모르는 field
       source_event: "QuestionCreated",
       processed_through_seq: "42",
       channel: "os",
+    }).success,
+  );
+  // cursor CAS는 notifications 구독자만 읽는다. 다른 구독자·빠진 구독자는 거절이다.
+  assert(
+    !createNotificationInputSchema.safeParse({
+      id: NTF,
+      source_seq: "42",
+      source_event: "QuestionCreated",
+      processed_through_seq: "42",
+      subscriber: "notes",
     }).success,
   );
 });

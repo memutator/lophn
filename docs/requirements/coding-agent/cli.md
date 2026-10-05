@@ -88,7 +88,7 @@ concerns: [coding-agent/cli]
 
 ### 문서 저장과 format
 
-**[R15]** 저장은 파일 묶음의 primary와 첨부·제목·format·자리·메모·tag·series와 key를 받아 고정 주소·판·동일 내용 무변경·검사 경고를 반환하고 format 목록·선언·파일 bytes 검사를 별도로 제공한다.
+**[R15]** 저장은 파일 묶음의 primary와 첨부·제목·format·자리·series와 key를 받아 고정 주소·판·동일 내용 무변경·검사 경고를 반환하고 format 목록·선언·파일 bytes 검사를 별도로 제공한다.
 - 이유: MCP에만 있는 검사나 저장 기능으로 CLI 사용자가 손해 보지 않게 한다.
 - 확인: documents/formats·documents/versions 계약대로 명시 format 부적합은 거절하고 추론 format 경고·series key 누락·첫 파일 primary를 두 통로에서 비교한다.
 - 의도: coding-agent#I3

@@ -28,6 +28,7 @@ function fixture() {
         resolveOpen = resolve;
       }),
     close: () => Promise.resolve({ ok: true, value: null }),
+    update: () => Promise.resolve({ ok: true, value: null }),
     result: () => Promise.resolve({ ok: true, value: null }),
     subscribe(listener, observer) {
       listeners.push(listener);

@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import type { LedgerConnection } from "../../packages/platform/ledger/mod.ts";
+import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 
 // 발급 원문(token)은 core 프로세스 메모리에만 있다. ledger에는 credential_ref와
 // 그 권한 context만 적어 writer·reader Worker가 제출 context를 다시 검증한다.
@@ -71,10 +72,12 @@ export function recordCredential(
 }
 
 // sweep·내장 assignment 준비 credential처럼 기동마다 같은 ref로 다시 기록하는 것만
-// 중복을 허용한다.
+// 중복을 허용한다. documents 구독자(core 안 machine principal)도 기동마다 같은 자격을
+// 다시 기록한다.
 const FIXED_CREDENTIALS = new Set([
   "machine:ticket-claims",
   "machine:lophn-agent-bootstrap",
+  DOCUMENTS_FEED_PRINCIPAL,
 ]);
 
 function sameFixedCredential(

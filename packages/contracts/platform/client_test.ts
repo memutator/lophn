@@ -70,12 +70,7 @@ Deno.test(
         sent.push(call);
         return {
           status: 200,
-          body: json({
-            result: { id: "doc_1" },
-            first_seq: "7",
-            last_seq: "7",
-            replayed: false,
-          }),
+          body: json({ id: "doc_1" }),
           type: "application/json",
         };
       }),
@@ -83,12 +78,7 @@ Deno.test(
     const result = await client.call(command, request("a"));
     assert(result.ok);
     if (result.ok) {
-      assertEquals(result.value, {
-        result: { id: "doc_1" },
-        first_seq: "7",
-        last_seq: "7",
-        replayed: false,
-      });
+      assertEquals(result.value, { id: "doc_1" });
     }
     assertEquals(sent.length, 1);
     assertEquals(sent[0].url, "http://127.0.0.1:7431/v1/documents/save");

@@ -214,7 +214,7 @@ command body는 `{input,idempotency_key,compare,run?,prepared:[],confirmation?}`
 
 `memory` route(command/read처럼 경로를 갖지만 ledger queue·reader와 event를 쓰지 않는다)는 API loop 안의 작은 handler로 바로 돌며 인증·body 한도·schema 검사는 다른 route와 같다. 현재 보기 relay(`/v1/workspace/*`, contracts/shell/workspace.ts)가 이 kind다. relay 값은 core 메모리에만 있고 ledger·blob·log에 가지 않는다. main 연결이 끊기거나 core epoch가 바뀌면 그 main의 relay 값은 모두 `disconnected`이며 결합 없는 주기 run은 `unavailable`이다. 옛 값을 `current`로 주지 않는다(prompt-assemble#R28). shell renderer는 이 경로를 shell allowlist로 부르지 않고 main이 직접 보낸다.
 
-blob prepare, 큰 redaction, TOML parse/import/export, backup 생성·restore·GC, secret 보호 입력·export/import는 신뢰 프로세스의 **검증된 pipe 작업 호출**이다. 일반 HTTP JSON에 raw stream·secret 원값·임의 파일 경로를 받는 별도 업로드 route를 두지 않는다. 이 작업은 ledger command가 아니며 job entity·업무 queue를 새로 만들지 않는다. 실패 시 worker의 관측 결과만 반환하고 domain 확정이 필요한 단계는 아래 command로 따로 제출한다.
+blob prepare, 큰 redaction, TOML parse/import/export, backup 생성·restore·GC, secret 보호 입력·export/import는 신뢰 프로세스의 **검증된 pipe 작업 호출**이다. 일반 HTTP JSON에 raw stream·secret 원값·임의 파일 경로를 받는 범용 업로드 route를 두지 않는다. 소유 concern이 등록한 `upload` kind route만 바이트 body를 받는다: 입력은 `x-lophn-input` header(base64url JSON), body는 `application/octet-stream`이며 route가 상한(`max_bytes`)과 purpose를 고정하고, core는 바이트를 해석·hash·보관 없이 등록된 handler로 흘려 보낸다(문서 파일 제출 `/v1/documents/upload`가 blob 준비 중계로 보낸다). 준비 주체는 요청 credential이다. 이 작업은 ledger command가 아니며 job entity·업무 queue를 새로 만들지 않는다. 실패 시 worker의 관측 결과만 반환하고 domain 확정이 필요한 단계는 아래 command로 따로 제출한다.
 
 ### 5.2 command
 
@@ -251,9 +251,10 @@ WebSocket handshake는 **GET `/v1/events/subscribe`**, `Authorization: Bearer ..
 ```
 
 - `from_seq`는 **포함**이다. 처음부터는 `"0"`, 처리 위치 P 이후부터는 `(BigInt(P)+1n).toString()`을 보낸다. 번호의 연속성을 가정하지 않는다. HTTP `/v1/events/list`는 `{after_seq,types?,subjects?,limit?}`이며 `seq > after_seq`다. 따라서 두 transport의 재생 뜻은 같은 위치 다음부터로 맞출 수 있다.
-- `types`는 등록 event 이름만, `subjects`는 현재 scope 안 필터만 받는다. 비어 있으면 제한하지 않는다. 필터로 숨긴 event도 `scanned_through_seq`에 포함하고 empty batch도 진행 위치를 반환한다. `head_seq`는 그 읽기 snapshot의 끝이다.
+- `types`는 등록 event 이름만, `subjects`는 현재 scope 안 필터만 받는다. 필터는 event 공개 정책을 지난 event 위에서만 걸리므로 볼 수 없는 subject는 거절하지 않고 event가 없는 subject와 같은 빈 batch·같은 `scanned_through_seq`로 답한다(존재를 가르지 않는다). 비어 있으면 제한하지 않는다. 필터로 숨긴 event도 `scanned_through_seq`에 포함하고 empty batch도 진행 위치를 반환한다. `head_seq`는 그 읽기 snapshot의 끝이다.
 - `subscriber`는 선택이다. 이름 있는 표시 구독의 ack는 그 credential principal·이름에 묶인 derived 전송 위치다. 자기 연결에서 읽어 지난 위치 이하·감소하지 않는 값만 받는다. `H/derived/api-subscriptions/`에 저장하며 재연결 시 명시 from이 없으면 저장 위치 다음부터 시작한다. 전달만으로 올리지 않고 다른 자격의 ack는 거절한다.
 - 이 ack는 `subscriber_cursors.processed_through_seq`와 **다르다**. ledger 반응 처리기는 소유 domain command와 cursor를 같이 commit한다. 반응 없는 구간만 `AdvanceSubscriberCursor`다. idempotency 기준은 `(subscriber,cause_seq,reaction)`이며 그 주체의 등록 subscriber만 갱신한다. derived 처리기는 결과·cursor를 자기 DB에 같이 쓴다.
+- 열린 연결은 event 배포기에 올라 구독 뒤 확정된 event를 이어 받고(재생 뒤 새 event), 닫히거나 오류가 나면 배포기에서 빠져 session을 남기지 않는다. 연결 한도(전체 32·principal당 4)와 1MiB buffer는 그대로다.
 - 전달은 seq 오름차순·at-least-once다. 소비자는 seq로 중복 제거한다. 느린 연결은 안전한 `unavailable` frame을 가능하면 보낸 뒤 1013으로 닫는다. 회수/종료 자격은 1008로 닫고 이후 전달하지 않는다. client는 마지막 확정 처리 위치로 재연결한다.
 
 platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`, `SettingsReloaded`, `ApprovalRequestCreated`, `ApprovalRequestGranted`, `ApprovalRequestRejected`, `ApprovalRequestExpired`, `ApprovalRequestCancelled`, `NotificationCreated`, `NotificationRead`다. ledger 기반 자체 event는 없다. 다른 event 이름과 payload는 해당 소유 registry를 따른다. 출력 envelope는 `seq,type,subject,actor,run,payload,at`이며 큰 내용은 안전 blob 참조다.

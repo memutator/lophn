@@ -110,7 +110,7 @@ Deno.test("coding-agent/mcp-server#R10, coding-agent/mcp-server#R12, coding-agen
   assertEquals(save.readOnlyHint, undefined);
   assertEquals(save.scope, "S");
   save.input.parse({
-    files: [fileInput],
+    paths: ["notes/plan.md", "notes/extra.txt"],
     place,
     slug: "report",
     title: "보고서",
@@ -118,21 +118,39 @@ Deno.test("coding-agent/mcp-server#R10, coding-agent/mcp-server#R12, coding-agen
     idempotency_key: key,
   });
   save.input.parse({
-    files: [fileInput],
+    paths: ["notes/plan.md"],
     series: { series: "ser_01arz3ndektsv4rrffq69g5fav" },
     key: "1",
   });
   assertEquals(
     save.input.safeParse({
-      files: [fileInput],
+      paths: ["notes/plan.md"],
       series: { series: "ser_01arz3ndektsv4rrffq69g5fav" },
     }).success,
     false,
   );
+  // 문서에는 메모·tag를 둘 곳이 없다(documents). 받지 않는다.
   assertEquals(
-    save.input.safeParse({ files: [fileInput], tags: ["a"] }).success,
+    save.input.safeParse({ paths: ["notes/plan.md"], tags: ["a"] }).success,
     false,
   );
+  assertEquals(
+    save.input.safeParse({ paths: ["notes/plan.md"], note: "x" }).success,
+    false,
+  );
+  // 호출자는 blob 참조를 주장하지 않는다. 경로만 받고 경로는 제출 root 안의 상대 경로다.
+  assertEquals(
+    save.input.safeParse({ files: [fileInput] }).success,
+    false,
+  );
+  for (const bad of ["/etc/passwd", "../x.md", "a/../x.md", "", "a//b"]) {
+    assertEquals(save.input.safeParse({ paths: [bad] }).success, false, bad);
+  }
+  assertEquals(
+    save.input.safeParse({ paths: ["a.md", "a.md"] }).success,
+    false,
+  );
+  assertEquals(save.input.safeParse({ paths: [] }).success, false);
 });
 
 Deno.test("coding-agent/mcp-server#R14, coding-agent/mcp-server#R16: format은 list·show·validate, series는 list·show·next만이다", () => {
@@ -146,8 +164,27 @@ Deno.test("coding-agent/mcp-server#R14, coding-agent/mcp-server#R16: format은 l
     op: "validate",
     name: "document",
     module_hash: hash,
-    files: [fileInput],
+    paths: ["notes/plan.md"],
   });
+  // 검사 대상은 경로뿐이다. 호출자가 주장하는 blob 참조·hash·명시 여부는 받지 않는다.
+  for (
+    const claim of [
+      { files: [fileInput] },
+      { input_hash: hash },
+      { explicit: false },
+    ]
+  ) {
+    assertEquals(
+      formatTool.input.safeParse({
+        op: "validate",
+        name: "document",
+        module_hash: hash,
+        paths: ["notes/plan.md"],
+        ...claim,
+      }).success,
+      false,
+    );
+  }
   assertEquals(formatTool.input.safeParse({ op: "extract" }).success, false);
 
   const series = tool("lophn_series");

@@ -10,7 +10,11 @@ import {
 } from "../../contracts/platform/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
 import type { ConfirmationBridge } from "../identity/mod.ts";
-import type { EventBackend, SubscriptionStore } from "../ledger/mod.ts";
+import type {
+  EventBackend,
+  EventSession,
+  SubscriptionStore,
+} from "../ledger/mod.ts";
 import type { Writer } from "../ledger/mod.ts";
 import { type Admission, createAdmission } from "../responsiveness/mod.ts";
 import {
@@ -23,6 +27,7 @@ import {
   type FileHandler,
   type MemoryHandler,
   type ReadHandler,
+  type UploadHandler,
   type WorkerTargets,
 } from "./dispatch.ts";
 import {
@@ -47,10 +52,13 @@ export type ApiServerOptions = {
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
   workers?: ReadonlyMap<string, ResponsivenessTarget>;
+  uploads?: ReadonlyMap<string, UploadHandler>;
   // file·worker route의 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
   confirmation?: ConfirmationBridge;
   events?: EventBackend;
   subscriptions?: SubscriptionStore;
+  // 열린 WebSocket event session을 dispatcher에 올린다. 돌려받은 함수로 뺀다.
+  track?: (session: EventSession) => () => void;
   bodyLimit?: DispatchDeps["bodyLimit"];
   // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는다.
   logger?: Logger;
@@ -80,6 +88,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     workers: options.workers === undefined
       ? undefined
       : adaptedWorkers(options.workers),
+    uploads: options.uploads,
     confirmation: options.confirmation,
     bodyLimit: options.bodyLimit,
     bodyTimeoutMs: BODY_TIMEOUT_MS,
@@ -193,6 +202,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
         attachSession(accepted.socket, decision.context, {
           backend: options.events,
           store: options.subscriptions,
+          track: options.track,
           onClose: connection.value.release,
         });
         return accepted.response;

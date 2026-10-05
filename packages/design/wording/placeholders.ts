@@ -14,6 +14,14 @@ export type PlaceholderKinds = {
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-page": Record<never, never>;
+  "common.button.palette-go-to": {
+    screen: "string";
+  };
+  "common.button.palette-info-panel": Record<never, never>;
+  "common.button.palette-launcher": Record<never, never>;
+  "common.button.palette-lophn": Record<never, never>;
+  "common.button.palette-open": Record<never, never>;
+  "common.button.palette-terminal": Record<never, never>;
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
@@ -38,6 +46,13 @@ export type PlaceholderKinds = {
   };
   "common.heading.count": Record<never, never>;
   "common.heading.group": Record<never, never>;
+  "common.heading.palette-actions": Record<never, never>;
+  "common.heading.palette-apps": Record<never, never>;
+  "common.heading.palette-contexts": Record<never, never>;
+  "common.heading.palette-documents": Record<never, never>;
+  "common.heading.palette-files": Record<never, never>;
+  "common.heading.palette-projects": Record<never, never>;
+  "common.heading.palette-tabs": Record<never, never>;
   "common.label.date-with-weekday": {
     date: "string";
     weekday: "string";
@@ -49,6 +64,15 @@ export type PlaceholderKinds = {
   "common.label.on-this-page": Record<never, never>;
   "common.label.original-order": Record<never, never>;
   "common.label.other": Record<never, never>;
+  "common.label.palette-key-close": Record<never, never>;
+  "common.label.palette-key-move": Record<never, never>;
+  "common.label.palette-key-open": Record<never, never>;
+  "common.label.palette-left-pane": Record<never, never>;
+  "common.label.palette-right-pane": Record<never, never>;
+  "common.label.palette-tab-detail": {
+    kind: "string";
+    pane: "string";
+  };
   "common.label.row-range": {
     start: "number";
     end: "number";
@@ -74,6 +98,8 @@ export type PlaceholderKinds = {
   "common.stale.label": {
     age: "string";
   };
+  "common.title.palette-lophn": Record<never, never>;
+  "common.title.palette-workspace": Record<never, never>;
   "common.title.quit": Record<never, never>;
   "confirmation-window.body.checking": Record<never, never>;
   "confirmation-window.body.expired": Record<never, never>;

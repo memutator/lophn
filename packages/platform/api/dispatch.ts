@@ -16,6 +16,8 @@ import {
   type ReadRoute,
   type Route,
   routePath,
+  UPLOAD_INPUT_HEADER,
+  type UploadRoute,
   type WorkerRequest,
   type WorkerResponse,
   type WorkerRoute,
@@ -44,6 +46,7 @@ import {
   isFileRoute,
   isMemoryRoute,
   isReadRoute,
+  isUploadRoute,
   isWorkerRoute,
   type RouteEntry,
 } from "./routes.ts";
@@ -63,6 +66,21 @@ export type FileHandler = (
   input: unknown,
 ) => Result<Uint8Array> | Promise<Result<Uint8Array>>;
 
+// upload route의 처리. 바이트 body는 core가 해석·보관하지 않고 stream으로 넘긴다.
+// stream은 route 상한(max_bytes)을 넘으면 오류로 끝난다. length는 Content-Length를 보낸
+// 요청의 선언 길이이고(그만큼만 흐른다) chunked 전송이면 없다. 입력이 크기를 선언하는
+// route는 handler가 exactLength로 그 크기를 정확히 지킨다.
+export type UploadBody = {
+  bytes: ReadableStream<Uint8Array>;
+  length: number | undefined;
+};
+
+export type UploadHandler = (
+  ctx: AuthenticatedContext,
+  input: unknown,
+  body: UploadBody,
+) => Promise<Result<unknown>>;
+
 // file·worker route가 등록된 worker kind의 감독 pipe로 넘기는 통로. 준비 여부·기한·응답
 // 상한은 route마다 등록값이고 응답 envelope는 core가 해석하지 않는다(platform#T12).
 export type WorkerRouteTarget = {
@@ -80,6 +98,7 @@ export type DispatchDeps = {
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
   workers?: WorkerTargets;
+  uploads?: ReadonlyMap<string, UploadHandler>;
   // file route의 사람 결정 확인. 없으면 confirmation file route는 넘기지 않는다.
   confirmation?: ConfirmationBridge;
   // 동작별 body 상한. 없으면 RPC JSON 256KiB.
@@ -174,6 +193,13 @@ export async function dispatchHttp(
   if (request.method !== "POST") {
     return rejected({ code: "invalid_input", message: "method not allowed" });
   }
+  if (isUploadRoute(route)) {
+    try {
+      return await upload(request, route, ctx, deps);
+    } catch (thrown) {
+      return rejected(asInternalError(thrown));
+    }
+  }
   const maxBytes = deps.bodyLimit?.(route) ?? deps.jsonMaxBytes;
   const body = await readLimitedBody(request, {
     maxBytes,
@@ -208,6 +234,106 @@ export async function dispatchHttp(
   } catch (thrown) {
     return rejected(asInternalError(thrown));
   }
+}
+
+// 입력은 header의 base64url JSON이고 body는 바이트다. Content-Length가 있으면 상한을
+// body를 읽기 전에 검사하고 선언과 다르게 흐르면 stream이 오류로 끝난다. 없으면(chunked)
+// 흐르는 동안 route 상한을 지킨다.
+async function upload(
+  request: Request,
+  route: UploadRoute,
+  ctx: AuthenticatedContext,
+  deps: DispatchDeps,
+): Promise<HttpResult> {
+  const scoped = scopeAllowed(ctx, route.name);
+  if (!scoped.ok) return fromFailure(scoped.error);
+  const type = request.headers.get("content-type");
+  if (
+    type === null || type.split(";", 1)[0].trim().toLowerCase() !== UPLOAD_TYPE
+  ) {
+    return rejected({
+      code: "invalid_input",
+      message: "content type not allowed",
+    });
+  }
+  const encoded = request.headers.get(UPLOAD_INPUT_HEADER);
+  const decoded = encoded === null ? undefined : decodeInputHeader(encoded);
+  if (decoded === undefined) {
+    return rejected({ code: "invalid_input", message: "invalid upload input" });
+  }
+  const parsedJson = parseLimitedJson(decoded);
+  if (!parsedJson.ok) return fromFailure(parsedJson.error);
+  const input = route.input.safeParse(parsedJson.value);
+  if (!input.success) {
+    return rejected({ code: "invalid_input", message: "invalid upload input" });
+  }
+  const declared = request.headers.get("content-length");
+  let length: number | undefined;
+  if (declared !== null) {
+    length = /^\d+$/.test(declared) ? Number(declared) : Number.NaN;
+    if (!Number.isSafeInteger(length) || length > route.max_bytes) {
+      return rejected({ code: "invalid_input", message: "body exceeds limit" });
+    }
+  }
+  const handler = deps.uploads?.get(routeKey(route));
+  if (!handler) {
+    return rejected({ code: "unavailable", message: "upload unavailable" });
+  }
+  const source = request.body ?? new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.close();
+    },
+  });
+  const result = await handler(ctx, input.data, {
+    bytes: exactLength(source, length, route.max_bytes),
+    length,
+  });
+  if (!result.ok) return rejected(commonWorkerError(result.error));
+  const output = route.output.safeParse(result.value);
+  if (!output.success) {
+    return rejected(asInternalError(new Error("upload output")));
+  }
+  return { status: 200, json: output.data };
+}
+
+const UPLOAD_TYPE = "application/octet-stream";
+
+function decodeInputHeader(value: string): Uint8Array | undefined {
+  if (!/^[A-Za-z0-9_-]*$/.test(value)) return undefined;
+  try {
+    const padded = value.replaceAll("-", "+").replaceAll("_", "/") +
+      "=".repeat((4 - value.length % 4) % 4);
+    const text = atob(padded);
+    return Uint8Array.from(text, (char) => char.charCodeAt(0));
+  } catch {
+    return undefined;
+  }
+}
+
+// route 상한을 넘는 바이트는 흘리지 않는다. 길이를 선언했으면 정확히 그 길이여야 한다.
+// 어긋나면 stream이 오류로 끝나 handler가 아무것도 확정하지 못한다.
+export function exactLength(
+  source: ReadableStream<Uint8Array>,
+  length: number | undefined,
+  max: number = Number.MAX_SAFE_INTEGER,
+): ReadableStream<Uint8Array> {
+  let total = 0;
+  return source.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        total += chunk.byteLength;
+        if (total > max || (length !== undefined && total > length)) {
+          throw new Error("body longer than allowed");
+        }
+        controller.enqueue(chunk);
+      },
+      flush() {
+        if (length !== undefined && total !== length) {
+          throw new Error("body shorter than declared");
+        }
+      },
+    }),
+  );
 }
 
 async function command(

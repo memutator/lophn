@@ -53,10 +53,12 @@ export type HandleDeps = {
   // initialize clientInfo.name은 label 순서의 마지막으로만 쓰인다(connection#R3).
   onClientInfo?: (name: string | undefined) => void;
   // tools/call의 실행이다. registry route 하나로만 routing된다(R2).
+  // isError는 실행 실패·거절을 model에 실패로 알린다(R7). 성공 결과는 생략한다.
   callTool: (toolName: string, args: unknown) => Promise<{
     summary: string;
     data: unknown;
     next: string[];
+    isError?: boolean;
   }>;
 };
 
@@ -211,9 +213,10 @@ async function callResponse(
       }),
     );
   }
-  // tool 입력은 route 표의 input으로 실행 전 검사한다(R6). 소유 route의
-  // envelope 검사와 같은 기준이다.
-  const input = resolved.route.input.safeParse(args);
+  // tool 입력은 tool 표의 input(여러 op tool은 `op`를 고르는 union)으로 실행 전
+  // 검사한다(R6). 소유 route의 입력은 `op`를 모르므로 route 입력으로는 검사할 수
+  // 없고, route의 envelope·입력 검사는 core client가 보내기 전에 다시 한다.
+  const input = resolved.tool.input.safeParse(args);
   if (!input.success) {
     const field = input.error.issues[0]?.path.join(".") ?? "";
     return okResponse(
@@ -227,9 +230,13 @@ async function callResponse(
       }),
     );
   }
+  const ran = await callTool(params.name, input.data);
   return okResponse(
     request.id,
-    mcpToolResult(await callTool(params.name, input.data)),
+    mcpToolResult(
+      { summary: ran.summary, data: ran.data, next: ran.next },
+      ran.isError === true,
+    ),
   );
 }
 

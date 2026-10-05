@@ -28,6 +28,7 @@ import {
   createReaderEventBackend,
   createReaderPool,
   createSubscriptionStore,
+  type EventSession,
   openConnection,
   type ReaderPool,
   type SubscriptionStore,
@@ -74,6 +75,10 @@ export type CoreRuntime = {
   events: ReturnType<typeof createReaderEventBackend>;
   subscriptions: SubscriptionStore;
   wake(): void;
+  // core 안의 구독 session을 dispatcher에 올려 새 event가 올 때 따라잡게 한다. 돌려받은 함수로 뺀다.
+  track(session: EventSession): () => void;
+  // dispatcher에 올라 있는 session 수(core 안 구독자와 WebSocket 연결). 관측용이다.
+  trackedSessions(): number;
   close(): Promise<void>;
 };
 
@@ -126,8 +131,13 @@ export async function openRuntime(input: {
   for (const url of input.modules) {
     const module = (await import(url)) as {
       createReaderRegistration?: unknown;
+      createEventRegistration?: unknown;
     };
-    if (typeof module.createReaderRegistration === "function") {
+    // event 정의·공개 정책만 내는 module도 reader에 건넨다. events/list registry가 모은다.
+    if (
+      typeof module.createReaderRegistration === "function" ||
+      typeof module.createEventRegistration === "function"
+    ) {
       readerModules.push(new URL(url));
     }
   }
@@ -276,6 +286,8 @@ export async function openRuntime(input: {
     events,
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),
+    track: (session) => dispatcher.add(session),
+    trackedSessions: () => dispatcher.size,
     sweepTicketClaims,
     async close() {
       dispatcher.close();

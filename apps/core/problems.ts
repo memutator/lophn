@@ -13,6 +13,7 @@ import {
   verificationRecordedVisibility,
 } from "../../packages/problems/tests/mod.ts";
 import type {
+  EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
@@ -44,6 +45,7 @@ import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import {
   observeException,
   reportProblem,
+  verificationRecorded,
 } from "../../packages/contracts/problems/mod.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
 
@@ -178,6 +180,15 @@ export function createLedgerRegistration(
     apiReads: [
       snapshotLogsRead(environment.snapshotLogs ?? UNATTACHED_SNAPSHOT_LOGS),
     ],
+  };
+}
+
+// event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
+// 만든다(platform/ledger#R15). 정책이 없는 problems event는 숨김이다.
+export function createEventRegistration(): EventRegistration {
+  return {
+    events: [verificationRecorded],
+    visibility: problemsTestDefinitions.visibility,
   };
 }
 

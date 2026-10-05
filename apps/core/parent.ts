@@ -20,8 +20,16 @@ export type ParentPipe = {
 // 사람 token이 지니는 operation은 route 등록의 actor 상한에서 계산한다. 손으로 쓴
 // 목록이 아니어서 새 route는 user를 허용하면 자동으로 들어가고, machine·app·worker
 // 전용 route는 들어가지 않는다. status·health read는 route 이름과 별개로 늘 포함한다.
-export function userOperations(routes: readonly Route[]): string[] {
-  const names = new Set<string>(["platform/status", "platform/health"]);
+export function userOperations(
+  routes: readonly Route[],
+  // 팀이 공개 정책을 내놓은 event 이름. owner 정책이 사람에게 event를 보이려면 필요하다.
+  events: readonly string[] = [],
+): string[] {
+  const names = new Set<string>([
+    "platform/status",
+    "platform/health",
+    ...events,
+  ]);
   for (const route of routes) {
     if (route.actors.includes("user")) names.add(route.name);
   }
@@ -37,12 +45,13 @@ export async function greet(
   epoch: string,
   issue: CredentialRegistry["issue"],
   routes: readonly Route[],
+  events: readonly string[] = [],
 ): Promise<Result<void>> {
   const issued = await issue({
     actor: "user",
     principal: "user",
     scope: {
-      operations: userOperations(routes),
+      operations: userOperations(routes, events),
       targets: {},
     },
     conditions: { process: "electron-main" },

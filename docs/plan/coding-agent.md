@@ -401,6 +401,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T14 문서 저장·format·series tool
 
+- 상태: 완료 (#264) — 이어보냄: CLI `save`·`format validate`의 core dispatch 연결(`runSave` 등), production credential provider와 MCP runner 배선 → coding-agent#T36. 실제 core·documents worker·I/O worker로 `saveFromPaths`·`lophn_save`·`lophn_format`·`lophn_series`가 끝까지 도는 시험은 `apps/core/documents-save-e2e_test.ts`다
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli, coding-agent/connection
 - 요구: coding-agent/mcp-server#R13, R14, R15, R16; coding-agent/cli#R15, R20;
@@ -416,7 +417,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   documents#T8, documents#T17, documents#T18, platform#T13
 - 완료:
   - `lophn_save`·`lophn save <files...>`: 첫 파일 primary,
-    제목·format·메모·tag·series·key, 고정 주소·판·unchanged·검사 경고. 재전송은
+    제목·format·series·key(메모·tag는 documents에 둘 곳이 없어 받지 않는다. Q22), 고정 주소·판·unchanged·검사 경고. 재전송은
     새 판 없음. series만 있고 key 없음은 거절(mcp#R13, cli#R15)
   - 명시 format 부적합은 무저장, 추론 format 부적합은 경고로 전달. 옛 저장 종류
     입력 거절(mcp#R14)
@@ -1660,3 +1661,42 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   다시 정할 때), 3) 목표를 요구 문서에서 완화해 측정치 기록으로 바꾼다. 추천:
   1·2를 T13(문서 읽기 tool) 설계 시 함께 판단하고 그때까지 측정치를 테스트가
   출력하게 둔다.
+- **Q21 local bytes를 core로 넘기는 통로(lead 결정, 구현).** `document.prepare`는
+  준비된 blob 참조를 파일 입력으로 요구하는데 MCP·CLI는 감독 child가 아니라 blob.prepare를
+  못 부른다. 정함: raw blob 업로드 route는 두지 않고, 소유 concern이 등록한 `upload` kind
+  route가 바이트 body를 받는다(contracts/platform `defineUpload`, platform/api `upload`
+  dispatch, architecture/platform 5.1·documents 5.1·coding-agent 7.2 갱신). 문서 파일 제출
+  `/v1/documents/upload`(입력 hash·크기는 `x-lophn-input` header, body는 octet-stream)는
+  core가 바이트를 해석·모으지 않고 blob 준비 중계로 흘려 보내고, 준비 주체는 요청
+  credential, purpose는 `document_file` 고정이다. lead 안은 documents worker가
+  child blob.prepare로 준비하는 것이었으나 core→worker로 요청 바이트를 보내는 길이 없고
+  (현재 core→자식 바이트는 I/O worker blob.prepare뿐) 이미 `documents-prepare.ts`가 같은
+  중계로 core 안에서 준비하므로 같은 중계를 그대로 썼다. `apps/worker/documents`는
+  고치지 않았다. 실제 core·I/O worker 시험은 `apps/core/documents-upload_test.ts`다.
+- **Q22 입력의 모양(lead 결정, 구현).** MCP `lophn_save`·`lophn_format validate`는 제출 root
+  기준 상대 경로 `paths`를 받고(CLI는 절대 경로) tool이 realpath로 다시 검사한 뒤 bytes를
+  upload route로 보낸다. CLI `format validate`는 `files`와 `paths` 중 정확히 하나다.
+  메모·tag는 documents에 저장 자리가 없고 saved view도 tag 조건을 받지 않으므로(documents/
+  outline-and-search) contract에 더하지 않고 mcp-server#R13·cli#R15·architecture 5.2 표에서
+  뺐다(기존 contract 시험도 `tags`를 거절한다).
+- **Q24 같은 내용의 재준비(구현, platform 쪽 변경).** blob 준비 참조는 (주체, purpose,
+  hash)마다 하나이고 platform/blob-store#R1 시험은 같은 참조 등록을 conflict로 둔다.
+  그런데 같은 파일을 10분 안에 다시 제출하는 재시도(응답 유실, 같은 요청 재전송)와 같은 내용의
+  파일 목록 blob의 재준비가 conflict라 저장이 끝까지 못 갔다. registry는 그대로 두고
+  `find`(살아 있는 등록값)를 더했으며, 중계(`apps/core/blob-prepare.ts`)는 같은
+  주체·purpose·내용의 준비가 살아 있으면 새 참조를 만들지 않고 그 참조를 돌려준다.
+  I/O worker는 같은 hash의 기존 파일을 검증해 재사용하므로 바이트는 하나다.
+- **Q25 `/v1/formats/validate` 서빙(구현).** format 검사 worker route가 core에 등록돼 있지
+  않아 HTTP에서 404였다. 준비 route와 같은 검사 통로(`documents-validate.ts`)로 서빙하는
+  조립(`apps/core/documents-format-validate.ts`)을 더했다. 요청 주체가 upload로 준비해 살아
+  있는 blob만 읽고(hash는 읽기 권한이 아니다), 진단이 많으면 cursor로 잇는다. 판·문서·준비
+  참조는 만들지 않는다. 같은 점검에서 documents 준비 route(`document.prepare`)는 파일
+  입력의 blob이 요청 주체의 살아 있는 준비인지 검사하지 않는 것을 보았다(documents 쪽에
+  남긴다).
+- **Q23 core 응답 모양과 server 입력 검사(구현).** 실제 core는 성공한 command의 결과
+  객체를 그대로 200으로 낸다(platform/api#R3). `createRpcClient`가 이 모양을 읽도록
+  고치고(포장된 응답 기대 제거) connection client의 우회를 지웠다. 쓰기 응답 유실 뒤
+  `commands/result`는 결과 객체만 돌려준다. MCP server는 tool 입력을 `op`를 모르는 소유 route
+  입력이 아니라 tool 표 입력으로 검사하게 고쳤다. `lophn_ticket`의 read op는 `client.read`로
+  보낸다. 남은 T20 후속: ticket 쓰기 op의 `op`·`base_revision`을 route 입력·compare로
+  나누는 것(지금은 `op`를 route 입력에 그대로 싣는다).

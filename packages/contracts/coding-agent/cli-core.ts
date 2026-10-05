@@ -139,12 +139,18 @@ export const cliFormatListSchema = withCommon(
   }),
 );
 export const cliFormatShowSchema = withCommon("format show", formatGet.input);
+// 검사할 파일은 절대 경로(paths) 또는 이미 준비한 blob 참조(files) 중 하나만 준다.
 export const cliFormatValidateSchema = withCommon(
   "format validate",
-  formatValidate.input.pick({ name: true, module_hash: true, files: true })
-    .extend({
-      paths,
-    }),
+  formatValidate.input.pick({ name: true, module_hash: true }).extend({
+    files: formatValidate.input.shape.files.optional(),
+    paths: paths.optional(),
+  }),
+).refine(
+  (value) => (value.files === undefined) !== (value.paths === undefined),
+  {
+    message: "exactly one of files and paths",
+  },
 );
 export const cliProjectListSchema = withCommon(
   "project list",

@@ -15,6 +15,13 @@ export interface DocumentRow {
   readonly title: string;
 }
 
+/** 프로젝트 폴더에서 문서로 잡힌 파일. 경로는 등록 폴더 기준 상대 경로다. */
+export interface FileRow {
+  readonly path: string;
+  readonly document: string;
+  readonly title: string;
+}
+
 /** contexts.related 결과의 한 컨텍스트. */
 export interface ContextRow {
   readonly id: string;
@@ -35,6 +42,8 @@ export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
   documents(project: string): Promise<ReadResult<readonly DocumentRow[]>>;
   contexts(project: string): Promise<ReadResult<readonly ContextRow[]>>;
+  /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
+  files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   readLayout(project: string): Promise<LayoutRead>;
   saveLayout(layout: unknown): Promise<{ ok: boolean }>;
 }

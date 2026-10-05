@@ -73,18 +73,20 @@ export function preparedReport(): RecordReportInput {
 }
 export function textFeedback(): SubmitFeedbackInput {
   return {
-    feedback: {
-      report_id: reportingId("rpt"),
-      app: reportingId("app"),
-      text: "It did not save.",
-      existing_problem: null,
-      observed_at: REPORTING_TEST_AT,
-      view_binding: null,
-      screen_selected: false,
-      screenshot_selected: false,
-      snapshot: missingSnapshot(),
+    report_id: reportingId("rpt"),
+    app: reportingId("app"),
+    text: "It did not save.",
+    existing_problem: null,
+    observed_at: REPORTING_TEST_AT,
+    selection: { screen: false, screenshot: false },
+    view: null,
+    facts: null,
+    targets: {
+      invocation: null,
+      automation: null,
+      version: null,
+      command_start: "unknown",
     },
-    blobs: [],
     screenshot: null,
   };
 }

@@ -141,7 +141,7 @@ function sync(
   const watch = watchObservationBasis({
     read: wired.read,
     push,
-    intervalMs: 3_600_000,
+    retryMs: 3_600_000,
   });
   return { watch, wired };
 }
@@ -251,6 +251,69 @@ Deno.test("documents/file-tracking#R3: coordinator가 다시 뜨면 invalidate�
     const again = parseObservationChunk(pushed[1]);
     assert(again.ok);
     assertEquals(again.value.full, true);
+  } finally {
+    watch.stop();
+  }
+});
+
+Deno.test("documents/file-tracking#R3: 보내기가 실패하면 주기 읽기 없이 대기 뒤 스스로 전체를 다시 보낸다", async () => {
+  const pushed: unknown[] = [];
+  let healthy = false;
+  const wired = reader({ seq: "10", links: [linkRow("/work/a.md")] });
+  const watch = watchObservationBasis({
+    read: wired.read,
+    push: (chunk) => {
+      pushed.push(chunk);
+      return Promise.resolve(
+        healthy ? ok({ committed: true }) : err({
+          code: "unavailable",
+          message: "worker down",
+        }),
+      );
+    },
+    retryMs: 20,
+  });
+  try {
+    await watch.check();
+    assertEquals(pushed.length, 1);
+    healthy = true;
+    for (let waited = 0; waited < 100 && pushed.length < 2; waited++) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assertEquals(pushed.length, 2);
+    // 맞춘 뒤에는 timer가 없다: 시간이 가도 다시 읽지 않는다.
+    const reads = wired.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assertEquals(wired.calls.length, reads);
+  } finally {
+    watch.stop();
+  }
+});
+
+Deno.test("documents/file-tracking#R7: 보내는 도중에 온 신호는 끝난 뒤 한 번 더 확인해 늦은 변화를 놓치지 않는다", async () => {
+  const pushed: unknown[] = [];
+  const state = { seq: "10", links: [linkRow("/work/a.md")] };
+  let release: (() => void) | undefined;
+  let gate = new Promise<void>((resolve) => release = resolve);
+  const { watch } = sync(state, async (chunk) => {
+    pushed.push(chunk);
+    await gate;
+    return ok({ committed: true });
+  });
+  try {
+    const first = watch.check();
+    // 첫 확인이 보내는 동안 연결이 바뀌고 event 신호가 온다.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    state.seq = "11";
+    state.links = [linkRow("/work/a.md", "ver_2")];
+    const second = watch.check();
+    gate = Promise.resolve();
+    release?.();
+    await Promise.all([first, second]);
+    assertEquals(pushed.length, 2);
+    const delta = parseObservationChunk(pushed[1]);
+    assert(delta.ok);
+    assertEquals(delta.value.upsert.map((entry) => entry.path), ["/work/a.md"]);
   } finally {
     watch.stop();
   }

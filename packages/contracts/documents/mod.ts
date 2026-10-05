@@ -22,6 +22,7 @@ export * from "./terms.ts";
 export * from "./term-routes.ts";
 export * from "./series.ts";
 export * from "./views.ts";
+export * from "./uploads.ts";
 
 import { DOCUMENT_EVENTS, DOCUMENT_ROUTES } from "./documents.ts";
 import { FORMAT_ROUTES } from "./formats.ts";
@@ -37,6 +38,7 @@ import { TERM_ROUTES } from "./term-routes.ts";
 import { TERM_EVENTS } from "./terms.ts";
 import { SERIES_EVENTS, SERIES_ROUTES } from "./series.ts";
 import { VIEW_EVENTS, VIEW_ROUTES } from "./views.ts";
+import { UPLOAD_ROUTES } from "./uploads.ts";
 
 export const DOCUMENT_READ_ROUTES = [
   ...OUTLINE_ROUTES,
@@ -87,6 +89,7 @@ export const ROUTES = [
   ...TERM_ROUTES,
   ...SERIES_ROUTES,
   ...VIEW_ROUTES,
+  ...UPLOAD_ROUTES,
 ] as const;
 
 export const EVENTS = [

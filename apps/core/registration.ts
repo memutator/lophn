@@ -8,6 +8,7 @@ import type {
   ReadDefinition,
   Route,
   SchemaStep,
+  UploadRoute,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
 import type { TxPortRegistration } from "../../packages/platform/ledger/mod.ts";
@@ -25,6 +26,8 @@ export type TeamRegistration = {
   // command·read route는 definitions에서 온다. 여기 적힌 것은 그것과 겹치면 거절한다.
   files?: readonly FileRoute[];
   workerRoutes?: readonly WorkerRoute[];
+  // 바이트 body route. handler는 core 조립(core.ts)이 route 이름으로 붙인다.
+  uploadRoutes?: readonly UploadRoute[];
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
@@ -51,6 +54,7 @@ type Loose = {
   apiReads?: readonly { route?: { resource?: unknown; method?: unknown } }[];
   files?: readonly { resource?: unknown; method?: unknown }[];
   workerRoutes?: readonly { resource?: unknown; method?: unknown }[];
+  uploadRoutes?: readonly { resource?: unknown; method?: unknown }[];
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
@@ -212,6 +216,11 @@ export function assemble(
       }
       for (const worker of registration.workerRoutes ?? []) {
         const route = routeOf(routes, worker as Route);
+        if (!route.ok) return route;
+        assembled.routes.push(route.value);
+      }
+      for (const upload of registration.uploadRoutes ?? []) {
+        const route = routeOf(routes, upload as Route);
         if (!route.ok) return route;
         assembled.routes.push(route.value);
       }

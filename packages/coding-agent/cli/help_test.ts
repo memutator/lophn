@@ -5,7 +5,7 @@ import { COMMAND_HELP, commandHelp, helpJson, helpText } from "./help.ts";
 import { COMMANDS } from "./registry.ts";
 
 // help 표의 command 이름과 registry의 command 이름이 같은 집합인지 본다.
-// setup 그룹(help에만 있음)과 save(T14 자리)는 집합 비교에서 뺀다.
+// setup 그룹(help에만 있음)은 집합 비교에서 뺀다.
 const helpNames = COMMAND_HELP.map((entry) => entry.command).sort();
 const registryNames = COMMANDS.map((entry) => entry.name).sort();
 const helpOnly = new Set([
@@ -29,8 +29,6 @@ const helpOnly = new Set([
   "connection install",
   "session summary",
   "session plan",
-  // save 접수는 T14 자리다.
-  "save",
 ]);
 
 Deno.test("coding-agent/cli#R39: help --json은 command 목록을 남긴다", () => {
@@ -87,12 +85,12 @@ Deno.test("coding-agent/cli#R39: 폐지 별칭은 help에 나오지 않는다", 
 });
 
 Deno.test("coding-agent/cli#R39: registry의 command가 help 표에 있다", () => {
-  // setup group과 save는 T12/T14 경계 밖이다. 나머지는 모두 있다.
+  // setup group은 dispatch 표 밖이다. 나머지는 모두 있다.
   const missing = registryNames.filter((name) => !helpNames.includes(name));
   assertEquals(missing, []);
 });
 
-Deno.test("coding-agent/cli#R39: help 표의 setup·save는 registry 경계 밖이다", () => {
+Deno.test("coding-agent/cli#R39: help 표의 setup group은 registry 경계 밖이다", () => {
   const extra = helpNames.filter((name) =>
     !registryNames.includes(name) && !helpOnly.has(name)
   );

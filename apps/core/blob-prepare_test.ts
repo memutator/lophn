@@ -261,3 +261,35 @@ Deno.test("platform/responsiveness#R3: 잘게 쪼개진 원천은 합쳐서 보�
   h.respond(HASH, total);
   assert((await done).ok);
 });
+
+Deno.test("platform/blob-store#R1 coding-agent/mcp-server#R13: 같은 주체·purpose·내용의 재준비는 conflict가 아니라 살아 있는 참조를 그대로 돌려준다", async () => {
+  const h = harness();
+  const prepareOnce = async () => {
+    const before = h.sent.requests.length;
+    const done = h.relay.prepare(input, source(100).stream);
+    await tick();
+    const request = h.sent.requests[before]!;
+    h.relay.accept({ type: "credit", channel: request.channel, window: MIB });
+    await tick();
+    h.relay.accept({
+      type: "worker_response",
+      request_id: request.request_id,
+      ok: true,
+      payload: {
+        preparation: request.request_id,
+        principal: "machine",
+        purpose: "document_file",
+        hash: HASH,
+        size_bytes: 100,
+      },
+    });
+    return await done;
+  };
+  const first = await prepareOnce();
+  assert(first.ok);
+  const second = await prepareOnce();
+  // 두 번째 요청은 새 참조를 만들지 않고 처음 참조(저장 command가 쥘 수 있는 값)를 돌려준다.
+  assert(second.ok, second.ok ? "" : second.error.message);
+  assertEquals(second.value, first.value);
+  assertEquals(h.relay.size, 1);
+});

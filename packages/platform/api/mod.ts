@@ -1,10 +1,13 @@
 export {
   type DispatchDeps,
   dispatchHttp,
+  exactLength,
   type FileHandler,
   type HttpResult,
   type MemoryHandler,
   type ReadHandler,
+  type UploadBody,
+  type UploadHandler,
   type WorkerRouteTarget,
   type WorkerTargets,
 } from "./dispatch.ts";
@@ -34,6 +37,7 @@ export {
   isMemoryRoute,
   isReadRoute,
   isSubscribePath,
+  isUploadRoute,
   isWorkerRoute,
   type RouteEntry,
   RouteRegistry,

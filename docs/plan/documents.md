@@ -180,6 +180,7 @@ concerns: [documents]
   - 기존 문서는 base_version의 정확한 FormatRef. 최신 판이 바뀌면 conflict 뒤 재준비. 사람의 명시 format 변경만 새 판의 계약을 바꿈
   - 같은 idempotency key의 재전달은 같은 신규 doc ID
   - `work_test.ts`·API 통합 테스트에 formats#R4, R5, R7
+- 상태: 완료 (#200) — 이어보냄: apps/core의 `documents/prepare` worker 조립(core workers map)과 준비 worker의 실제 같은 stream hash·blob 준비 → documents#T11
 
 ### T9 address 해석과 문서 이동·이름 변경
 
@@ -221,6 +222,7 @@ concerns: [documents]
 
 ### T11 파일 관측에서 Version까지
 
+- 상태: 진행 (#204) — 남은 것: coordinator의 watchFs·60초 scan·750ms 관측 루프와 machine `document.save` 제출, `/v1/files/status`, startApiServer workers map의 `/v1/documents/prepare`와 실제 streaming blob 준비 port, 활성 root로 spec을 다시 만들고 worker를 재시작하는 연결, 3000파일 통합과 T1 시나리오(watch 넘침, 읽는 중 교체, 같은 size·mtime, 준비와 확정 사이 규칙·source·보관)
 - 등급: 최상위
 - concern: documents/file-tracking, documents/versions
 - 요구: documents/file-tracking#R3, R4, R6, R7, R8, R9, R10, R18, documents/versions#R13
@@ -230,6 +232,8 @@ concerns: [documents]
 - slice: documents
 - 선행: T8, T10, platform#T4(event 구독)
 - T2에서 넘어온 것: 준비 worker의 실제 scan·hash·diff와 그 결과 command 제출, `/v1/projects/preview_tracking` route 연결(T10 진행 줄)
+- T8에서 넘어온 것: `/v1/documents/prepare` worker route를 apps/core에 조립(startApiServer workers map), 준비 worker가 T8 조립(createPrepareAssembly)에 실제 같은 stream hash·blob 준비 port를 준다(#200은 fake port로만 검증)
+- T13에서 넘어온 것: documents coordinator가 derived 검색 store를 열고 `/v1/search/{query,status}` worker route를 제품 core에서 서빙한다(#215는 test seam으로만 연결, 제품은 503)
 - 완료:
   - root별 `Deno.watchFs(recursive)` 신호는 힌트. 시작·절전 복귀·watch 넘침·단절·규칙·폴더 변경·보관 해제에 전체 대조, 평소 60초마다 root scan(진행 중이면 합침), root당 후보 10,000개 초과면 `rescan_required` 하나
   - canonical 경로별 후보 합치기, 750ms 조용하면 관측, 안정 읽기 최대 3회. 열기 전·후 실제 경로·file identity·size·mtime 비교, 같은 stream에서 hash와 blob. 안정 확인 실패는 unverified로 두고 다음 파일로
@@ -262,7 +266,7 @@ concerns: [documents]
 
 ### T13 derived store와 검색
 
-- 상태: 진행 (#188) — 남은 것: apps/core 조립·HTTP 통합 — 이어보냄: 요약·주제 검색과 match_source → documents#T14
+- 상태: 완료 (#188, #215) — 이어보냄: 요약·주제 검색과 match_source → documents#T14, 제품 core에서 `/v1/search/{query,status}` worker route를 documents coordinator가 서빙(지금은 503) → documents#T11
 - 등급: 기본
 - concern: documents/outline-and-search
 - 요구: documents/outline-and-search#R10, R11, R12, R13, R14, R16, R17, R18

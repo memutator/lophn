@@ -27,4 +27,8 @@ export type {
 export { admitQueue, recoverLostRunner } from "./recovery.ts";
 export type { Admission, AttemptRecord, LostRun } from "./recovery.ts";
 export { onRunnerLost, onSpool, runPrepared } from "./runner.ts";
-export type { RunRequest, RunVerdict } from "./runner.ts";
+export type { RunRequest, RunVerdict, StartAttemptCommit } from "./runner.ts";
+export { groupLeader, groupTool } from "./group.ts";
+export type { GroupLeader, GroupTool } from "./group.ts";
+export { brokerReport, childLaunch } from "./broker.ts";
+export type { BrokeredReport, ChildLaunch, ReportSink } from "./broker.ts";

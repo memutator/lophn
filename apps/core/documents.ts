@@ -4,8 +4,12 @@ import {
   formatGet,
   formatGetInputSchema,
   formatList,
+  SEARCH_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
-import type { ApiReadDefinition } from "../../packages/contracts/platform/mod.ts";
+import type {
+  ApiReadDefinition,
+  WorkerRoute,
+} from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
@@ -44,6 +48,7 @@ type LedgerRegistration = {
   reads?: readonly unknown[];
   apiReads?: readonly unknown[];
   workers?: readonly KindLaunchSpec[];
+  workerRoutes?: readonly WorkerRoute[];
   blobFields?: readonly unknown[];
 };
 
@@ -109,7 +114,13 @@ function formatReads(): ApiReadDefinition[] {
 // coordinator는 등록한 활성 root와 문서 위치의 필요한 권한만 받는다(architecture/documents 2.2).
 // allow_read·write는 root 추가·해제 때 core가 새 목록으로 교체한다. network·env·ffi는 없다.
 // 등록 때 data root는 core와 같은 근원(LOPHN_HOME ?? ~/.lophn)에서 env로만 결정한다.
-export function workerSpecs(dataRoot: string): KindLaunchSpec[] {
+// 활성 root가 바뀌면 이 spec을 다시 만들고 platform이 documents worker만 다시 띄운다.
+export function workerSpecs(
+  dataRoot: string,
+  activeRoots: readonly string[] = [],
+): KindLaunchSpec[] {
+  const reads = [dataRoot, ...activeRoots.filter((root) => root !== dataRoot)];
+  const writes = activeRoots.filter((root) => root !== dataRoot);
   return [
     {
       kind: "documents/worker",
@@ -117,8 +128,8 @@ export function workerSpecs(dataRoot: string): KindLaunchSpec[] {
         "../../worker/documents/coordinator.ts",
         import.meta.url,
       ).pathname,
-      allow_read: [dataRoot],
-      allow_write: [`${dataRoot}/documents`, `${dataRoot}/derived`],
+      allow_read: reads,
+      allow_write: [`${dataRoot}/documents`, `${dataRoot}/derived`, ...writes],
       allow_net: [],
       allow_run: [],
       allow_sys: [],
@@ -132,8 +143,8 @@ export function workerSpecs(dataRoot: string): KindLaunchSpec[] {
         "../../worker/documents/preparation.ts",
         import.meta.url,
       ).pathname,
-      allow_read: [dataRoot],
-      allow_write: [`${dataRoot}/documents/staging`],
+      allow_read: reads,
+      allow_write: [`${dataRoot}/documents/staging`, ...writes],
       allow_net: [],
       allow_run: [],
       allow_sys: [],
@@ -233,6 +244,8 @@ export function createLedgerRegistration(
     blobFields: [versionFileField, versionFilesField],
     // format read는 snapshot 없이 바로 연다. 경로는 같은 조립에서 registry로 모은다.
     apiReads: formatReads(),
+    // 유래 검색 읽기(T13). 파생 store는 문서 worker나 별도 연결이 연다(core_imports_test).
+    workerRoutes: [...SEARCH_ROUTES],
     // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
     // core가 root를 좁히는 T11 교체는 core 쪽 감독 seam이 넣는다.
     workers: registerWorkers(),

@@ -4,6 +4,7 @@ import { publicPage, publicRead, readCursorSchema } from "./read-values.ts";
 import { contextIdSchema } from "./contexts.ts";
 import {
   termCompareSchema,
+  termDefineCompareSchema,
   termDefineInputSchema,
   termInputSchema,
   termProposeInputSchema,
@@ -60,7 +61,7 @@ export const termDefine = defineCommand({
   name: "term.define",
   input: termDefineInputSchema,
   output: termSchema,
-  compare: termCompareSchema,
+  compare: termDefineCompareSchema,
   actors: ["user"],
   errors: commandErrors,
 });

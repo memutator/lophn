@@ -4,10 +4,8 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
-import {
-  CodingAgentConnectionAuth,
-  type CodingAgentConnectionAuthResult,
-} from "../../contracts/coding-agent/mod.ts";
+import { type CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
+import { connectionAuthSyncPort } from "../connection/mod.ts";
 import type {
   ReadSnapshot,
   RequestContext,
@@ -131,7 +129,7 @@ export function ticketFixture(deps: FixtureDeps = {}) {
         };
         return read as T;
       }
-      if (key.name === CodingAgentConnectionAuth.name) {
+      if (key.name === connectionAuthSyncPort.name) {
         const read = (principal: string) => connections.get(principal);
         return read as T;
       }

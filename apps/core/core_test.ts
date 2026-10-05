@@ -8,6 +8,7 @@ import {
 } from "../../packages/contracts/platform/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { type Core, startCore } from "./core.ts";
+import { ticketDefinitions } from "./tickets.ts";
 
 const CLOCK = manualClock(Date.parse("2026-10-04T00:00:00.000Z"));
 
@@ -238,6 +239,42 @@ Deno.test("platform/api#R2: 팀 등록 route는 HTTP로 닿고 등록하지 않�
       (missing.body as { error?: { code?: string } }).error?.code,
       "not_found",
     );
+    await frames.return();
+  } finally {
+    await core.shutdown();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("coding-agent/tickets#R11: core 기동은 ticket schema와 create·claim route를 등록한다", async () => {
+  const dir = await home();
+  const parentIn = new TransformStream<Uint8Array, Uint8Array>();
+  const parentOut = new TransformStream<Uint8Array, Uint8Array>();
+  const core = await boot(dir, {
+    teams: [{ ticketDefinitions }],
+    teamModules: [new URL("./tickets.ts", import.meta.url).href],
+    parent: { stdin: parentIn.readable, stdout: parentOut.writable },
+  });
+  try {
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(`${core.dataRoot}/lophn.db`, { readOnly: true });
+    const tables = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tickets'",
+    ).all() as { name: string }[];
+    db.close();
+    assertEquals(tables.map((row) => row.name), ["tickets"]);
+
+    const frames = readParent(parentOut.readable);
+    const hello = await frames.next();
+    const token = hello.value.user_token;
+    const listed = await post(core, "/v1/tickets/list", {}, token);
+    assertEquals(listed.status, 200);
+    const created = await post(core, "/v1/tickets/create", {}, token);
+    assertEquals(created.status !== 404, true);
+    const claimed = await post(core, "/v1/tickets/claim", {}, token);
+    assertEquals(claimed.status !== 404, true);
+    const missing = await post(core, "/v1/tickets/unknown", {}, token);
+    assertEquals(missing.status, 404);
     await frames.return();
   } finally {
     await core.shutdown();

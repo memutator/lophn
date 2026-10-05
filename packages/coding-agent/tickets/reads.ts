@@ -114,6 +114,8 @@ const claimSweep = defineRead({
   }),
   output: z.object({
     claims: z.array(z.object({ ticket: z.string(), claim_seq: z.string() })),
+    as_of_seq: z.string(),
+    next_cursor: z.string().nullable(),
   }),
   actors: ["machine"],
   errors: ["forbidden"],
@@ -211,6 +213,8 @@ export function createTicketReads(): {
       handle(snapshot, _ctx, input) {
         return ok({
           claims: expiredClaims(snapshot.sql, input.now, input.revoked),
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
         });
       },
     },

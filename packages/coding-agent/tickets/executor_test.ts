@@ -43,7 +43,7 @@ const DURATION = 3_600_000;
 
 const operations = [
   "CreateTicket",
-  "tickets.mark_ready",
+  "MakeTicketReady",
   "ClaimTicket",
   "RenewTicketClaim",
   "ReleaseTicketClaim",
@@ -106,8 +106,10 @@ async function harness(): Promise<LedgerHarness> {
   );
 }
 
-// claim 경계만 본다. ticket은 create로 만들고 readiness만 ready로 바꾼다.
-// make_ready의 근거 채움은 T18 범위라 여기서 다시 검증하지 않는다.
+const VER = "ver_01arz3ndektsv4rrffq69g5fav";
+const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
+
+// claim 경계만 본다. ready는 실제 MakeTicketReady가 근거·조건과 함께 만든다.
 async function readyTicket(ledger: LedgerHarness): Promise<{
   ticket: string;
   revision: string;
@@ -133,15 +135,41 @@ async function readyTicket(ledger: LedgerHarness): Promise<{
     ),
   );
   const made = created.result as { ticket: string; revision: string };
-  value(
+  const ready = value(
     await ledger.command(
       user,
-      envelope("tickets.mark_ready", `mark-${made.ticket}`, {
+      envelope("MakeTicketReady", `ready-${made.ticket}`, {
         ticket: made.ticket,
-      }),
+        base_revision: made.revision,
+        references: [{
+          kind: "version",
+          target: VER,
+          address: {
+            place: "project",
+            document: "leaf-redaction",
+            section: null,
+            version: 1,
+          },
+          section: null,
+        }],
+        adoption_questions: [QUESTION],
+        conditions: [
+          { kind: "app_test" },
+          {
+            kind: "test_command",
+            executable: "deno",
+            argv: ["task", "test"],
+            cwd: ".",
+            timeout_ms: 60_000,
+            expected_exit_code: 0,
+          },
+        ],
+        inspect: ["src/leaf.ts"],
+        preserve: ["docs/leaf.md"],
+      }, { base_revision: made.revision }),
     ),
   );
-  return made;
+  return ready.result as { ticket: string; revision: string };
 }
 
 Deno.test("coding-agent/tickets#R11: the executor lets only one of two simultaneous claims succeed", async () => {

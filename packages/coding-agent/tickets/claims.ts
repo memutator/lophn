@@ -6,7 +6,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
 import {
-  CodingAgentConnectionAuth,
   type CodingAgentConnectionAuthResult,
   ticketClaim,
   ticketClaimed,
@@ -16,6 +15,7 @@ import {
   ticketReleaseClaim,
   ticketRenewClaim,
 } from "../../contracts/coding-agent/mod.ts";
+import { connectionAuthSyncPort } from "../connection/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -102,7 +102,7 @@ function connectionOf(
   tx: Tx,
   principal: string,
 ): Result<ConnectionAuth | null> {
-  const auth = tx.port(CodingAgentConnectionAuth) as unknown as (
+  const auth = tx.port(connectionAuthSyncPort) as (
     principal: string,
   ) => ConnectionAuth | undefined;
   const found = auth(principal);

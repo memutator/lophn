@@ -83,7 +83,8 @@ export async function assembleWriter(
   // writer는 command를 한 줄로 처리하므로 진행 중인 요청의 자격을 여기 둔다.
   let currentRequest: RequestContext | undefined;
   let currentTx: Tx | undefined;
-  // writer clock은 기동 시각에 고정된다. 만기 판정은 core가 알린 최신 시각을 쓴다.
+  // writer clock은 기동 시각에 고정된다. 만기 판정과 claim 만료 판정은
+  // core가 알린 최신 시각을 쓴다(blob-prune의 nowMs).
   let blobNowMs = boot.nowMs;
   const random = seededRandom(boot.seed + 1);
   const confirmationRegistry = new ConfirmationRegistry({
@@ -119,6 +120,7 @@ export async function assembleWriter(
     },
     noteBlobTime(nowMs: number) {
       if (nowMs > blobNowMs) blobNowMs = nowMs;
+      clock.set(blobNowMs);
     },
     onTx(tx: Tx | undefined) {
       currentTx = tx;
@@ -148,10 +150,21 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     );
     return { commands, ports, blobFields };
   }
-  const value = direct ?? fromLedger ?? team.codingAgentConnectionDefinitions ??
-    team.lophnAgentDefinitions ?? team.ticketDefinitions;
-  if (!value || typeof value !== "object") return undefined;
-  return value as Loose;
+  const sources = [
+    direct,
+    fromLedger,
+    team.codingAgentConnectionDefinitions,
+    team.lophnAgentDefinitions,
+    team.ticketDefinitions,
+  ].filter(defined);
+  if (sources.length === 0) return undefined;
+  return {
+    commands: sources.flatMap((value) => (value as Loose).commands ?? []),
+    ports: sources.flatMap((value) =>
+      toArray((value as Loose).ports)
+    ) as TxPortRegistration[],
+    blobFields: sources.flatMap((value) => (value as Loose).blobFields ?? []),
+  };
 }
 
 function defined(value: unknown): boolean {

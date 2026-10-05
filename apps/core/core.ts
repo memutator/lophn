@@ -97,6 +97,8 @@ export type Core = {
     prepared: PreparedRelayResult,
     nowMs: number,
   ): Promise<Result<void>>;
+  // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
+  sweepTicketClaims(): Promise<void>;
 };
 
 export async function startCore(options: CoreOptions): Promise<Result<Core>> {
@@ -235,6 +237,22 @@ async function open(
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
+  // sweep가 expire_claim을 제출할 machine credential. 기록이 없으면 writer가
+  // 만료 정리를 거절하므로 기동을 여기서 멈춘다(coding-agent/tickets#R13).
+  const sweepCredential = await runtime.record({
+    principal: "machine:ticket-claims",
+    actor: "machine",
+    scope: {
+      operations: ["ExpireTicketClaim", "TicketClaimSweep"],
+      targets: {},
+    },
+    conditions: {},
+    credential_ref: "machine:ticket-claims",
+  });
+  if (!sweepCredential.ok) {
+    await runtime.close();
+    return sweepCredential;
+  }
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -296,7 +314,7 @@ async function open(
     () => runtime?.sweepTicketClaims(),
     ticketClaimSweepIntervalMs,
   );
-  runtime?.sweepTicketClaims();
+  await runtime?.sweepTicketClaims();
   stopPrune.run = () => {
     clearInterval(timer);
     clearInterval(claimSweep);
@@ -335,6 +353,7 @@ async function open(
     dataRoot: root.path,
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
+    sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     prepareBlob: (call) =>
       blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
         code: "unavailable",

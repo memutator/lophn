@@ -59,7 +59,7 @@ export type CoreRuntime = {
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
   // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
-  sweepTicketClaims(): void;
+  sweepTicketClaims(): Promise<void>;
   readers: ReaderPool;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
@@ -194,27 +194,30 @@ export async function openRuntime(input: {
     conditions: {},
     credential_ref: "machine:ticket-claims",
   };
-  function sweepTicketClaims(): void {
-    if (!readers.ok) return;
-    void readers.value.read(
-      { resource: "tickets", method: "claim_sweep" },
-      machine,
-      { now: input.clock.now(), revoked: [] },
-    ).then((found) => {
-      if (!found.ok) return;
-      const claims = (found.value as {
-        claims?: { ticket: string; claim_seq: string }[];
-      }).claims ?? [];
-      for (const claim of claims) {
-        void openedWriter.writer.command(machine as never, {
-          command: "ExpireTicketClaim",
-          input: claim,
-          compare: {},
-          idempotency_key: `expire:${claim.ticket}:${claim.claim_seq}`,
-          prepared: [],
-        });
-      }
-    });
+  function sweepTicketClaims(): Promise<void> {
+    if (!readers.ok) return Promise.resolve();
+    // expire_claim은 writer clock으로 기한을 다시 본다. sweep 시각을 먼저 알린다.
+    return openedWriter.prunePrepared(input.clock.nowMs()).then(() =>
+      readers.value.read(
+        { resource: "tickets", method: "claim_sweep" },
+        machine,
+        { now: new Date(input.clock.nowMs()).toISOString(), revoked: [] },
+      ).then(async (found) => {
+        if (!found.ok) return;
+        const claims = (found.value as {
+          claims?: { ticket: string; claim_seq: string }[];
+        }).claims ?? [];
+        for (const claim of claims) {
+          await openedWriter.writer.command(machine as never, {
+            command: "ExpireTicketClaim",
+            input: claim,
+            compare: {},
+            idempotency_key: `expire:${claim.ticket}:${claim.claim_seq}`,
+            prepared: [],
+          });
+        }
+      })
+    );
   }
   const events = createReaderEventBackend(
     readers.value,

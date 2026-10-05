@@ -2,19 +2,15 @@
 // Deno.test는 없다. connection 등록과 함께 써서 회수·scope를 실제 표로 본다.
 import type { Result } from "../../base/mod.ts";
 import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
-import {
-  CodingAgentConnectionAuth,
-  type CodingAgentConnectionAuthResult,
-} from "../../contracts/coding-agent/mod.ts";
-import { ok } from "../../base/mod.ts";
-import {
-  defineCommand,
-  type RequestContext,
-  type Tx,
-} from "../../contracts/platform/mod.ts";
-import { z } from "zod";
+import { type CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
+import { connectionAuthSyncPort } from "../connection/mod.ts";
+import type { RequestContext } from "../../contracts/platform/mod.ts";
 import { createTicketClaimCommands } from "./claims.ts";
-import { createTicketCommands } from "./commands.ts";
+import {
+  createTicketCommands,
+  PROBLEM_STATUSES_PORT,
+  QUESTION_ADOPTIONS_PORT,
+} from "./commands.ts";
 import { createTicketReads } from "./reads.ts";
 import { ticketSchemaSteps } from "./schema.ts";
 
@@ -35,23 +31,17 @@ const connections = new Map<string, CodingAgentConnectionAuthResult>([
 const apps = new Map<string, { id: string; status: string }>([
   [APP, { id: APP, status: "active" }],
 ]);
-const adoptions = new Map<string, { document: string; version: string }>();
+const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
+const VER = "ver_01arz3ndektsv4rrffq69g5fav";
+const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
+const adoptions = new Map<string, { document: string; version: string }>([
+  [QUESTION, { document: DOC, version: VER }],
+]);
 const problems = new Map<string, string>();
 
 function connectionPrincipal(id: string): string {
   return `coding_agent:${id}`;
 }
-
-// claim 테스트가 ready ticket을 준비한다. make_ready의 근거 채움은 T18 범위다.
-const markReady = defineCommand({
-  resource: "tickets",
-  method: "mark_ready",
-  name: "tickets.mark_ready",
-  input: z.strictObject({ ticket: z.string().min(1) }),
-  output: z.object({ ticket: z.string() }),
-  actors: ["user"],
-  errors: ["not_found"],
-});
 
 function connectionAuth(
   id: string,
@@ -77,28 +67,6 @@ export function createLedgerTestRegistration(
     commands: [
       tickets.create,
       tickets.make_ready,
-      {
-        route: markReady,
-        handle(tx: Tx, _ctx: RequestContext, input: { ticket: string }) {
-          const found = tx.sql.get("SELECT id FROM tickets WHERE id = ?", [
-            input.ticket,
-          ]);
-          if (found === undefined) {
-            return {
-              ok: false as const,
-              error: {
-                code: "not_found" as const,
-                message: "ticket does not exist",
-              },
-            };
-          }
-          tx.sql.run(
-            "UPDATE tickets SET readiness = 'ready', needs = '[]' WHERE id = ?",
-            [input.ticket],
-          );
-          return ok({ ticket: input.ticket });
-        },
-      },
       claims.claim,
       claims.renew_claim,
       claims.release_claim,
@@ -107,7 +75,7 @@ export function createLedgerTestRegistration(
     reads: [reads.list, reads.show, reads.checks, reads.claim_sweep],
     ports: [
       {
-        key: CodingAgentConnectionAuth,
+        key: connectionAuthSyncPort,
         create:
           () =>
           (principal: string): CodingAgentConnectionAuthResult | undefined =>
@@ -132,7 +100,7 @@ export function createLedgerTestRegistration(
         }),
       },
       {
-        key: { name: "coding-agent.tickets.QuestionAdoptions" },
+        key: QUESTION_ADOPTIONS_PORT,
         create: () => ({
           adoptions(questions: readonly string[]) {
             return {
@@ -146,7 +114,7 @@ export function createLedgerTestRegistration(
         }),
       },
       {
-        key: { name: "coding-agent.tickets.ProblemStatuses" },
+        key: PROBLEM_STATUSES_PORT,
         create: () => ({
           problems(ids: readonly string[]) {
             return {

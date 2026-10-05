@@ -7,6 +7,7 @@
  */
 import {
   createIdSource,
+  type ManualClock,
   manualClock,
   seededRandom,
 } from "../../../packages/base/mod.ts";
@@ -49,6 +50,10 @@ export type CoreHarness = {
   ): Promise<Result<{ token: string; context: AuthenticatedContext }>>;
   // 준비 참조를 writer 메모리에 심는다. I/O worker 없이 등록 경로를 시험할 때 쓴다.
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
+  // 테스트 시계. advance 뒤 sweepTicketClaims를 부르면 만료 정리를 기다리지 않는다.
+  clock: ManualClock;
+  // 만료·회수 claim을 한 번 정리한다. 60초 timer와 같은 함수다.
+  sweepTicketClaims(): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -112,6 +117,8 @@ export async function createCoreHarness(
       }
       return await core.notePrepared(prepared, nowMs);
     },
+    clock,
+    sweepTicketClaims: () => core.sweepTicketClaims(),
     async close() {
       await core.shutdown();
       await Deno.remove(directory, { recursive: true });

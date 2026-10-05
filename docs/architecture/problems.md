@@ -174,10 +174,10 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 | `/v1/problems/record-fix` | `RecordProblemFix` | problem·FixRecord·key → `ProblemFixRecorded` seq | coding_agent만; 문제 seq·before/after·결과 연결·있으면 현재 claim; `invalid_input/not_found/forbidden/conflict` |
 | `/v1/problems/close-verified` | `CloseProblemVerified` | problem·verification·예상 문제 seq/활성 release → Closure·event | machine 판정기만; 7.6 조건; `not_found/forbidden/conflict/invalid_input` |
 | `/v1/problems/apply-decision` | `ApplyProblemDecision` | UserProblemDecision·일회 confirmation → Closure 또는 부정 확인/reopen | 보호된 user 결정만; 문제 seq·release·필요 last Report·정확한 선택/입력 binding; `invalid_input/unauthorized/forbidden/not_found/conflict` |
-| `/v1/problems/list` | `ListProblems` | app·status·cursor·limit → 요약 목록·next cursor | scope 검사; 최근 보고·열린 ticket 중심; limit 최대 100 |
-| `/v1/problems/get` | `GetProblem` | problem → 상태·당시 문구·보고 수/기간·work·interpretation·closure·최신 seq | 범위 밖은 `forbidden`, 없음 `not_found` |
+| `/v1/problems/list` | `ListProblems` | app·status·cursor·limit → 요약 목록·next cursor | scope 검사(범위 밖 행은 건너뜀); 최근 변경 seq 내림차순; cursor는 고정 위치와 마지막 seq; limit 최대 100 |
+| `/v1/problems/get` | `GetProblem` | problem → 상태·당시 문구·보고 수/기간·work·interpretation·closure·최신 seq | 범위 밖은 없는 것과 같은 `not_found`(존재를 새지 않는다); 그 read의 operation이 credential에 없으면 `forbidden` |
 | `/v1/problems/list-reports` | `ListReports` | problem 또는 app+diagnostic scope·cursor → 발생 목록 | test/preview 진단은 해당 scope만; 운영 집계에 포함하지 않음 |
-| `/v1/problems/get-report` | `GetReport` | report → 불변 보고·Snapshot 요약·missing reason | 일반 업무 응답에는 raw code/stack 없음; 상세는 수리 조회 권한 |
+| `/v1/problems/get-report` | `GetReport` | report → 불변 보고·Snapshot 요약·missing reason | 일반 업무 응답(목록·문제 상세·오류)에는 raw code/stack 없음; 보고·snapshot 상세는 credential에 `GetReport`·`GetSnapshot`이 있는 수리 조회 권한; 저장된 값은 저장 전 redaction을 거쳤고 stack·log·글 원문은 hash 참조뿐 |
 | `/v1/problems/get-snapshot` | `GetSnapshot` | snapshot·선택 항목 → 증거 메타데이터·허용된 blob 참조 | 현재 출력 redaction·scope; 없는 항목은 이유 |
 | `/v1/problems/list-fixes` | `ListProblemFixes` | problem·event seq cursor → FixRecord 이력 | subject 범위 검사; agent 로그는 설명으로만 반환 |
 

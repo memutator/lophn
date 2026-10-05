@@ -150,6 +150,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `list`, `get`, `list-reports`, `get-report`, `get-snapshot`
 - slice: apps
 - 선행: problems#T2, problems#T4, contracts#T40
+- 상태: 진행 (#PR) — 남은 것: `GetProblem`에 당시 release field가 contract에 없다(질문 Q18; 보고별 release는 `list-reports`로 읽힌다) · 실제 담당·필요한 사람 조치는 problems#T22·T27이 채운다 · 선언 문구 fallback의 앱 이름은 T27의 apps blueprint read가 있어야 붙는다
 - 완료:
   - `ListProblems`: app·status·cursor·limit(최대 100), seq cursor로 페이지 고정; 기본 항목은 앱·증상·진행·필요한 다음 행동만(grouping#R11)
   - `GetProblem`: 진행·실제 담당·필요한 사람 조치를 먼저, 보고 수·처음/최근 시각·당시 release는 펼친 상세 값; 수는 Report에서 계산하고 별도 counter가 없다; claim·기한·연결 식별자를 내보내지 않는다(grouping#R11, R12)
@@ -612,3 +613,4 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - **Q15 CLI의 사람 `problem report`.** 정함(lead, coding-agent 팀 동의): problems/feedback#R1(인증된 shell의 사람 제출만)과 D27에 따라 problems의 `submit-feedback`은 shell user credential과 shell 출처만 받는다. coding-agent#T44가 고쳐, 사람 전용 `problem report|request-repair|confirm|dismiss`는 core에 쓰지 않고 shell 화면 링크(문제 알리기, ticket 준비, 결정)와 대기 사실만 출력하며 coding credential은 거절한다.
 - **Q16 문제 read와 release 준비 사이의 순환.** apps#T19(release 준비) ← coding-agent#T19(claim 검사) ← coding-agent#T18(ticket 생성의 문제 확인) ← problems#T6 ← apps#T19(선언 문구)로 고리가 생겼다. 정함: 선언 문구를 T27로 떼어 T6은 apps#T19를 기다리지 않는다.
 - **Q17 `requiredReportPaths`의 입력.** 지금은 검증된 `problem_codes`와 명시적 `has_view` boolean만 받는 최소 bundle descriptor를 쓴다. 추천: apps/blueprint wire(contracts#T33)가 정해지면 그 wire에서 `has_view`를 채워 이 함수를 그대로 쓴다. 그전까지 blueprint schema를 새로 만들지 않는다.
+- **Q18 T6 문제 read의 contract 한계와 정한 것.** (1) `GetProblem` 출력에 당시 release 요약이 없고 실제 담당·사람 조치 field도 없다. 추천: contracts가 `GetProblem`에 보고 release 요약을 더한다(T22가 담당·en 작업 상태를 더할 때 함께). 지금은 보고별 release를 `list-reports`가 준다. (2) `problem.work`·`problem.interpretation`은 contract가 ticket·version ID를 그대로 싣는다. grouping#R12의 "연결 식별자 비노출"은 사용자용 상세에서 T22가 contract를 나눠 지킨다. claim·기한은 field 자체가 없다. (3) pool read는 sync라 redaction engine(async)을 부르지 못한다. 읽는 값은 저장 전 redaction을 거친 것이고 stack·log·글 원문은 hash 참조라서, 수리 조회 권한은 credential의 `GetReport`·`GetSnapshot` operation으로 나눈다. (4) platform `TargetAuthorization`은 credential 고정 조건(app·mode·diagnostic_scope)을 target에 덮어쓰므로 행의 그 값은 owner read가 따로 본다. (5) 범위 밖 문제·보고·snapshot은 없는 것과 같은 `not_found`다(architecture/problems 5.2를 고쳤다). (6) T2의 RecordReport가 기존 문제에 두 번째 live 보고를 받을 때 `ReportRecorded`의 문제 ID가 비어 거절되던 결함을 같은 PR에서 고쳤다.

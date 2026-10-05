@@ -9,6 +9,10 @@ import {
   type ChildStreams,
   startChild,
 } from "../../../packages/platform/responsiveness/mod.ts";
+import {
+  prepareRelease,
+  type PrepareReleaseInput,
+} from "../../../packages/apps/releases/mod.ts";
 
 export const RELEASE_WORKER_KIND = "apps/release";
 
@@ -28,6 +32,8 @@ export type ReleaseWorkerOptions = {
   streams: ChildStreams;
   // op별 실행. op 이름은 release worker 경계에서 contracts schema로 다시 검사한다.
   accept(request: WorkerRequest): Promise<unknown>;
+  // worker 종료·취소면 true. 부분 bundle은 확정하지 않는다.
+  cancelled?: () => boolean;
 };
 
 export function createReleaseWorker(
@@ -41,6 +47,7 @@ export function createReleaseWorker(
       return session.send({ type: "ready" });
     },
     onStop() {
+      options.cancelled?.();
       return session.send({ type: "stopped" });
     },
     async onParent(message) {
@@ -80,14 +87,55 @@ export function createReleaseWorker(
   return session;
 }
 
+function isPrepareInput(value: unknown): value is PrepareReleaseInput {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.app === "string" &&
+    typeof record.sourceRoot === "string" &&
+    typeof record.commit === "string" &&
+    typeof record.entrypoint === "string" &&
+    typeof record.blueprintSource === "string" &&
+    Array.isArray(record.screens);
+}
+
+export async function acceptRelease(
+  root: string,
+  request: WorkerRequest,
+  cancelled?: () => boolean,
+): Promise<unknown> {
+  if (request.op !== "release.prepare") {
+    throw new Error("unknown release op");
+  }
+  if (!isPrepareInput(request.payload)) {
+    throw new Error("invalid release input");
+  }
+  const prepared = await prepareRelease(
+    { ...request.payload, dataRoot: root },
+    { cancelled },
+  );
+  if (!prepared.ok) {
+    throw new Error(prepared.error.reason);
+  }
+  return {
+    bundle_hash: prepared.value.bundleHash,
+    copy_path: prepared.value.copyPath,
+    blueprint_hash: prepared.value.blueprintHash,
+  };
+}
+
 export async function runReleaseWorker(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
   console.log = console.info = console.debug = (...args: unknown[]) =>
     console.error(...args);
+  let stopped = false;
   const session = await createReleaseWorker({
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
-    accept: (request) => Promise.resolve({ op: request.op, accepted: true }),
+    cancelled: () => {
+      stopped = true;
+      return true;
+    },
+    accept: (request) => acceptRelease(root, request, () => stopped),
   });
   await session.run();
 }

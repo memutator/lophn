@@ -1,6 +1,13 @@
 // apps/releases concern의 경계다. 최상위 concern 사이는 packages/contracts로만 부르고,
 // release worker 조립은 아래 모듈을 직접 부른다(apps/worker/apps/release.ts).
 export {
+  type PrepareDeps,
+  type PreparedRelease,
+  type PrepareFailure,
+  prepareRelease,
+  type PrepareReleaseInput,
+} from "./prepare/flow.ts";
+export {
   checkLimits,
   exceededLimit,
   type LimitFailure,
@@ -10,12 +17,14 @@ export {
   RELEASE_FILE_MAX_COUNT,
   RELEASE_PREPARATION_LIMIT_MS,
   RELEASE_SOURCE_MAX_BYTES,
+  usageCounter,
 } from "./prepare/limits.ts";
 export {
   extractCommit,
   type ExtractedFile,
   type ExtractFailure,
   type ExtractInput,
+  gitCommandRunner,
   type GitRunner,
   parseLsTree,
   parsePorcelain,
@@ -23,6 +32,9 @@ export {
 } from "./prepare/git-extract.ts";
 export {
   checkPin,
+  gitSourceWatch,
+  observationPin,
+  observeGitSource,
   observeSourceChanged,
   pinSource,
   type SourceWatch,
@@ -38,6 +50,7 @@ export {
 export {
   type ImportMapFailure,
   lockedImportMap,
+  parseSdkSpecifier,
   resolveSpecifier,
   type SdkPathMap,
   sdkPathMap,

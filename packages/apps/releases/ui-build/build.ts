@@ -1,7 +1,9 @@
 // 고정 UI 의존 screen build(apps/releases#R4, apps/sdk#R10). GUI의 React·npm 의존은
 // 고정 UI Package가 제공한 exact 목록으로 준비 단계에만 build한다. 운영 프로세스는
 // build나 의존 다운로드 없이 그 결과만 사용한다. external source map도 bundle에 넣는다.
+import * as esbuild from "esbuild";
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { relativePathSchema } from "../../../contracts/documents/mod.ts";
 
 export type UiBuildFailure = {
   code: "invalid_input" | "unavailable";
@@ -49,44 +51,89 @@ export function dependenciesInsideFixedList(
   );
 }
 
-// 고정 UI 의존으로 screen build를 마친다. build는 준비 단계의 몫이며 운영은 결과만 읽는다.
-// UI 의존 byte는 설치 제공 재료가 고정하므로, 여기서는 screens를 그대로 묶고 external
-// source map을 만든다(실제 bundler 호출은 준비 자식의 launcher가 맡는다).
-export function buildScreens(
+type SourceMap = {
+  version: number;
+  file?: string;
+  sources: string[];
+  sourcesContent?: (string | null)[];
+};
+
+function decode(bytes: Uint8Array): string {
+  return new TextDecoder().decode(bytes);
+}
+
+// 고정 UI 의존으로 screen을 실제 bundle과 external source map으로 만든다.
+// esbuild는 준비 단계에서만 돈다. 운영 프로세스는 이 결과를 읽기만 한다.
+export async function buildScreens(
   input: UiBuildInput,
 ): Promise<Result<UiBuildOutput, UiBuildFailure>> {
   if (!dependenciesInsideFixedList(input.dependencies)) {
-    return Promise.resolve(
-      err({
-        code: "invalid_input",
-        reason: "dependency_outside_fixed_list",
-      }),
-    );
+    return err({
+      code: "invalid_input",
+      reason: "dependency_outside_fixed_list",
+    });
   }
   if (input.screens.length === 0) {
-    return Promise.resolve(
-      err({ code: "invalid_input", reason: "fixed_dependency_missing" }),
-    );
+    return err({ code: "invalid_input", reason: "fixed_dependency_missing" });
   }
-  const files = input.screens.map((screen) => ({
-    path: screen.path,
-    bytes: screen.bytes,
-  }));
-  // external source map. 화면 파일 이름·크기를 남기고 내용은 싣지 않는다
-  // (bundle 사본의 `app.js.map` 자리이다, apps/plan apps#T6).
-  const map = {
+  for (const screen of input.screens) {
+    if (!relativePathSchema.safeParse(screen.path).success) {
+      return err({ code: "invalid_input", reason: "build_failed" });
+    }
+  }
+  const files: { path: string; bytes: Uint8Array }[] = [];
+  const maps: SourceMap[] = [];
+  try {
+    for (const screen of input.screens) {
+      const built = await esbuild.build({
+        stdin: {
+          contents: decode(screen.bytes),
+          sourcefile: screen.path,
+          loader: "js",
+        },
+        bundle: true,
+        write: false,
+        format: "esm",
+        // external source map은 출력 경로가 있어야 한다. write:false라 디스크에는 안 쓴다.
+        outfile: screen.path,
+        sourcemap: "external",
+        sourcesContent: true,
+        external: [...FIXED_UI_DEPENDENCIES],
+      });
+      const js = built.outputFiles.find((file) => file.path.endsWith(".js"));
+      const map = built.outputFiles.find((file) => file.path.endsWith(".map"));
+      if (!js || !map) {
+        return err({ code: "unavailable", reason: "build_failed" });
+      }
+      files.push({ path: screen.path, bytes: js.contents });
+      const parsed = JSON.parse(decode(map.contents)) as SourceMap;
+      parsed.sources = parsed.sources.map((source) =>
+        source.endsWith(screen.path) ? screen.path : source
+      );
+      maps.push(parsed);
+    }
+  } catch {
+    return err({ code: "unavailable", reason: "build_failed" });
+  }
+  const merged: SourceMap = {
     version: 3,
-    file: files.map((file) => file.path),
-    sources: files.map((file) => file.path),
-    sourcesContent: [] as string[],
+    file: input.screens.map((screen) => screen.path).join(","),
+    sources: maps.flatMap((map) => map.sources),
+    sourcesContent: maps.flatMap((map) => map.sourcesContent ?? []),
   };
-  return Promise.resolve(
-    ok({
-      files,
-      sourceMap: {
-        path: "app.js.map",
-        bytes: new TextEncoder().encode(JSON.stringify(map)),
-      },
-    }),
-  );
+  if (
+    merged.sourcesContent?.length !== merged.sources.length ||
+    merged.sourcesContent.some((content) =>
+      content === null || content === undefined
+    )
+  ) {
+    return err({ code: "unavailable", reason: "build_failed" });
+  }
+  return ok({
+    files,
+    sourceMap: {
+      path: "app.js.map",
+      bytes: new TextEncoder().encode(JSON.stringify(merged)),
+    },
+  });
 }

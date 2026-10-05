@@ -11,6 +11,7 @@ import {
   RELEASE_SOURCE_MAX_BYTES,
 } from "./limits.ts";
 import { checkPin, observeSourceChanged, pinSource } from "./source-watch.ts";
+import { usageCounter } from "./limits.ts";
 
 const UNDER = {
   source_bytes: RELEASE_SOURCE_MAX_BYTES,
@@ -67,6 +68,16 @@ Deno.test("apps/releases#R19: 300000ms를 넘기면 거절이다", () => {
   }
   // 경계값은 통과다. 초과가 아니라 같으면 통과해야 한다.
   assertEquals(exceededLimit(UNDER), undefined);
+});
+
+Deno.test("apps/releases#R19: 300000ms를 준비 도중 넘기면 거절이다", () => {
+  let now = 0;
+  const counter = usageCounter(0, () => now);
+  now = RELEASE_PREPARATION_LIMIT_MS + 1;
+  const late = counter.elapsed(now);
+  assertEquals(late?.reason, "elapsed_ms");
+  const fine = usageCounter(0, () => RELEASE_PREPARATION_LIMIT_MS);
+  assertEquals(fine.elapsed(RELEASE_PREPARATION_LIMIT_MS), undefined);
 });
 
 Deno.test("apps/releases#R3: 준비 중 source 변경은 source_changed 취소다", async () => {

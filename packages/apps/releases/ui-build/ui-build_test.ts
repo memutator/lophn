@@ -30,22 +30,31 @@ Deno.test("apps/releases#R4: 고정 UI 의존의 screen build 결과가 bundle�
     dependencies: FIXED_SDKS,
   });
   assert(built.ok);
-  assertEquals(built.value.files, SCREENS);
+  // build 결과는 화면 경로를 유지하고 byte는 비어 있지 않다. esbuild가 원문을 다시 쓰므로
+  // 입력 byte와 같지는 않다.
+  assertEquals(
+    built.value.files.map((file) => file.path),
+    SCREENS.map((screen) => screen.path),
+  );
+  assert(built.value.files.every((file) => file.bytes.byteLength > 0));
   // external source map은 bundle 안 고정 이름이다.
   assertEquals(built.value.sourceMap.path, SOURCE_MAP_COPY_NAME);
   const map = JSON.parse(
     new TextDecoder().decode(built.value.sourceMap.bytes),
   ) as {
     version: number;
-    file: string[];
+    file: string;
     sources: string[];
     sourcesContent: string[];
   };
   assertEquals(map.version, 3);
-  assertEquals(map.file, ["screens/one.js", "screens/two.js"]);
+  assertEquals(map.file, "screens/one.js,screens/two.js");
   assertEquals(map.sources, ["screens/one.js", "screens/two.js"]);
-  // external source map은 내용을 싣지 않는다(bundle 사본 용량 한계, R4).
-  assertEquals(map.sourcesContent, []);
+  // external source map은 화면 원문을 싣는다. 운영은 이 파일만 읽는다(R4).
+  assertEquals(map.sourcesContent, [
+    "export const one = 1;\n",
+    "export const two = 2;\n",
+  ]);
 });
 
 Deno.test("apps/releases#R4: 운영 시작에는 build·다운로드가 없다", () => {

@@ -6,12 +6,20 @@ import { assert, assertEquals } from "@std/assert";
 import { buildManifest, manifestBytes, parseManifest } from "./manifest.ts";
 import {
   lockedImportMap,
+  parseSdkSpecifier,
   resolveSpecifier,
   sdkPathMap,
   validDependencyName,
   validDependencyVersion,
 } from "./import-map.ts";
-import { BLUEPRINT_COPY_NAME, bundleCopyPath } from "./seal.ts";
+import {
+  BLUEPRINT_COPY_NAME,
+  bundleCopyPath,
+  MANIFEST_COPY_NAME,
+  sealBundle,
+  verifySealedPermissions,
+} from "./seal.ts";
+import { buildManifest as sealManifest } from "./manifest.ts";
 
 // hash 값은 sha256Schema의 64-hex다.
 const FILES = [
@@ -79,14 +87,82 @@ Deno.test("apps/releases#R1: 같은 commit·SDK에서 같은 bundle hash다", ()
   assertEquals(manifestBytes(reread.value), manifestBytes(manifest.value));
 });
 
+const APP = "app_01aryz6s41s4z4k7p41s4z4k7p";
+
 Deno.test("apps/releases#R1: bundle 사본 root에 정규 blueprint.json 자리가 있다", () => {
   // 사본 위치 규칙 apps/<app ID>/bundles/<bundle hash>/. hash도 64-hex다.
+  const copy = bundleCopyPath("/data", APP, "dd".repeat(32));
+  assert(copy.ok);
   assertEquals(
-    bundleCopyPath("/data", "weather", "dd".repeat(32)),
-    `/data/apps/weather/bundles/${"dd".repeat(32)}`,
+    copy.value,
+    `/data/apps/${APP}/bundles/${"dd".repeat(32)}`,
   );
   // 사본 안의 정규 blueprint.json과 source map 고정 이름.
   assertEquals(BLUEPRINT_COPY_NAME, "blueprint.json");
+});
+
+Deno.test("apps/releases#R1: app id와 hash가 아니면 data root 밖으로 나가지 않는다", () => {
+  const escaped = bundleCopyPath("/data", "../etc", "dd".repeat(32));
+  assertEquals(escaped.ok, false);
+  const slashed = bundleCopyPath("/data", "app/../../etc", "aa".repeat(32));
+  assertEquals(slashed.ok, false);
+  const short = bundleCopyPath("/data", APP, "../secret");
+  assertEquals(short.ok, false);
+  const upper = bundleCopyPath("/data", APP, "AA".repeat(32));
+  assertEquals(upper.ok, false);
+});
+
+Deno.test("apps/releases#R1: ..와 절대 경로는 봉인하지 않고 파일은 0444다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-bundle-seal-" });
+  const copy = bundleCopyPath(home, APP, "ee".repeat(32));
+  assert(copy.ok);
+  const manifest = sealManifest({
+    entrypoint: "main.js",
+    files: FILES,
+    sdk_dependencies: SDKS,
+  });
+  assert(manifest.ok);
+  const escaped = await sealBundle({
+    copyPath: copy.value,
+    manifest: manifest.value,
+    blueprintJson: new Uint8Array([1]),
+    bundleFiles: [{ path: "../outside.js", bytes: new Uint8Array([2]) }],
+  });
+  assertEquals(escaped.ok, false);
+  const absolute = await sealBundle({
+    copyPath: copy.value,
+    manifest: manifest.value,
+    blueprintJson: new Uint8Array([1]),
+    bundleFiles: [{ path: "/tmp/outside.js", bytes: new Uint8Array([2]) }],
+  });
+  assertEquals(absolute.ok, false);
+  const sealed = await sealBundle({
+    copyPath: copy.value,
+    manifest: manifest.value,
+    blueprintJson: new TextEncoder().encode("{}\n"),
+    bundleFiles: [{
+      path: "screens/one.js",
+      bytes: new TextEncoder().encode("export const one = 1;\n"),
+    }],
+    sourceMap: {
+      path: "app.js.map",
+      bytes: new TextEncoder().encode("{}\n"),
+    },
+  });
+  assert(sealed.ok, sealed.ok ? "" : sealed.error.message);
+  const permissions = await verifySealedPermissions(copy.value);
+  assert(permissions.ok, permissions.ok ? "" : permissions.error.message);
+  const manifestBytes = await Deno.readFile(
+    `${copy.value}/${MANIFEST_COPY_NAME}`,
+  );
+  assert(manifestBytes.byteLength > 0);
+  const nested = await Deno.stat(`${copy.value}/screens`);
+  assertEquals((nested.mode ?? 0) & 0o777, 0o555);
+  const file = await Deno.stat(`${copy.value}/screens/one.js`);
+  assertEquals((file.mode ?? 0) & 0o777, 0o444);
+  await Deno.chmod(copy.value, 0o755);
+  await Deno.chmod(`${copy.value}/screens`, 0o755);
+  await Deno.remove(home, { recursive: true });
 });
 
 Deno.test("apps/sdk#R7: lophn-sdk import map을 bundle 안 상대 경로로 바꾼다", () => {
@@ -127,6 +203,36 @@ Deno.test("apps/sdk#R7: ^·~·latest와 map에 없는 SDK는 거절이다", () =
   assertEquals(validDependencyVersion("1.2.3"), true);
   assertEquals(validDependencyName("@lophn/blueprint"), true);
   assertEquals(validDependencyName("blueprint"), false);
+});
+
+Deno.test("apps/sdk#R34: 상대 specifier와 version 뒤 subpath는 허용이다", () => {
+  const map = sdkPathMap(SDKS);
+  const relative = resolveSpecifier("./screens/one.js", map);
+  assert(relative.ok);
+  assertEquals(relative.value, "./screens/one.js");
+  const parent = resolveSpecifier("../lib/util.js", map);
+  assert(parent.ok);
+  assertEquals(parent.value, "../lib/util.js");
+  const parsed = parseSdkSpecifier(
+    "lophn-sdk:@lophn/blueprint@1.2.3/screens/one.js",
+  );
+  assertEquals(parsed, {
+    name: "@lophn/blueprint",
+    version: "1.2.3",
+    subpath: "screens/one.js",
+  });
+  const sub = resolveSpecifier(
+    "lophn-sdk:@lophn/blueprint@1.2.3/screens/one.js",
+    map,
+  );
+  assert(sub.ok);
+  assertEquals(sub.value, "sdk/@lophn/blueprint/1.2.3/screens/one.js");
+  // version과 subpath를 한 토큰으로 보면 SemVer 검사가 실패한다.
+  assertEquals(
+    parseSdkSpecifier("lophn-sdk:@lophn/blueprint@1.2.3/screens/one.js")
+      ?.version,
+    "1.2.3",
+  );
 });
 
 Deno.test("apps/sdk#R34: 원격·npm·jsr import는 거절이다", () => {

@@ -61,3 +61,44 @@ export function checkLimits(
   if (exceeded) return err(exceeded);
   return ok({ usage });
 }
+
+export type UsageCounter = {
+  usage(): PreparationUsage;
+  addSource(bytes: number, files: number): LimitFailure | undefined;
+  addBundle(bytes: number, files: number): LimitFailure | undefined;
+  elapsed(ms: number): LimitFailure | undefined;
+};
+
+// 준비 도중 source·bundle byte와 파일 수를 더한다. 넘는 순간 실패 이유를 남긴다.
+export function usageCounter(
+  startedAt: number,
+  now: () => number,
+): UsageCounter {
+  const usage: PreparationUsage = {
+    source_bytes: 0,
+    bundle_bytes: 0,
+    file_count: 0,
+    elapsed_ms: 0,
+  };
+  function tick(): LimitFailure | undefined {
+    usage.elapsed_ms = now() - startedAt;
+    return exceededLimit(usage);
+  }
+  return {
+    usage: () => ({ ...usage }),
+    addSource(bytes, files) {
+      usage.source_bytes += bytes;
+      usage.file_count += files;
+      return tick();
+    },
+    addBundle(bytes, files) {
+      usage.bundle_bytes += bytes;
+      usage.file_count += files;
+      return tick();
+    },
+    elapsed(ms) {
+      usage.elapsed_ms = ms;
+      return exceededLimit(usage);
+    },
+  };
+}

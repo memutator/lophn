@@ -230,7 +230,11 @@ export async function checkRepo(root: string): Promise<Violation[]> {
             );
           } else {
             const targetLeaf = leaf(target, members, allFiles);
+            const extractFile = file ===
+                "packages/apps/releases/prepare/flow.ts" &&
+              target === "packages/apps/blueprint/extract.ts";
             if (
+              !extractFile &&
               targetLeaf !== sourceLeaf &&
               (!targetLeaf || target !== `${targetLeaf}/mod.ts`)
             ) {

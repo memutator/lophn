@@ -1,5 +1,8 @@
 {
   "name": "@lophn/apps",
   "exports": "./mod.ts",
+  "imports": {
+    "esbuild": "npm:esbuild@0.28.2"
+  },
   "compilerOptions": { "erasableSyntaxOnly": true }
 }

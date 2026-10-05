@@ -60,20 +60,27 @@ export function applySearchEvent(
   store: DerivedStore,
   event: ConsumerEvent,
 ): Result<SearchCoverage> {
+  return store.transaction((tx) => applySearchEventTx(tx, event));
+}
+
+// 이미 열린 derived transaction 안의 한 event 적용. 결과 기록과 cursor를 같은 transaction에
+// 쓰려는 consumer(consumer.ts)가 쓴다.
+export function applySearchEventTx(
+  tx: { sql: DerivedRead["sql"] },
+  event: ConsumerEvent,
+): Result<SearchCoverage> {
   const parsed = parseEvent(event);
   if (!parsed.ok) {
     // 대상 불명 event는 전체 무효화다. cursor는 진행하고 무효화만 남긴다.
-    return store.transaction((tx) =>
-      ok({
-        processed_seq: event.seq,
-        ledger_basis_seq: event.seq,
-        lagging: false,
-        rebuilding: false,
-        omissions: invalidateAll(tx.sql),
-      })
-    );
+    return ok({
+      processed_seq: event.seq,
+      ledger_basis_seq: event.seq,
+      lagging: false,
+      rebuilding: false,
+      omissions: invalidateAll(tx.sql),
+    });
   }
-  return store.transaction((tx) => writeEvent(tx, event, parsed.value));
+  return writeEvent(tx, event, parsed.value);
 }
 
 function invalidateAll(sql: DerivedRead["sql"]): SearchCoverage["omissions"] {

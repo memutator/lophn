@@ -22,6 +22,8 @@ export type RequestDeps = {
   basis: Pick<BasisStore, "apply">;
   // 준비 route의 format 검사. core가 보낸 바이트로 format runner를 부른다.
   validate(request: ValidateFilesRequest): Promise<Result<unknown, LophnError>>;
+  // search consumer 요청(`documents.search_*`)의 처리. search op가 아니면 undefined다.
+  search?(request: WorkerRequest): Promise<WorkerResponse> | undefined;
 };
 
 function failure(
@@ -104,6 +106,8 @@ export function createRequestHandler(
           }
       );
     }
+    const served = deps.search?.(request);
+    if (served !== undefined) return served;
     return Promise.resolve(failure(request, "invalid_input", "unknown op"));
   };
 }

@@ -231,24 +231,26 @@ function matchDocuments(
   const results: SearchResult[] = [];
   const query = input.query;
   for (const id of candidates) {
-    const row = deps.read.sql.get(
-      `SELECT document, version, section_key, ranges, title, body FROM search_rows WHERE document = ?`,
+    // 문서의 section 행 전부. 한 문서의 여러 section이 각각 일치할 수 있다.
+    const rows = deps.read.sql.all(
+      `SELECT document, version, section_key, ranges, title, body FROM search_rows WHERE document = ? ORDER BY rowid`,
       [id],
     );
-    if (row === undefined) continue;
-    const version = String(row["version"]);
-    const formatName = fmtName(deps.snapshot, version);
-    if (input.formats !== undefined && input.formats.length > 0) {
-      if (!input.formats.includes(formatName)) continue;
-    }
+    if (rows.length === 0) continue;
     const latest = latestOf(deps.snapshot, id);
     if (latest === null) continue;
-    // 일치 판정. title·body 둘 다 본다.
-    const title = String(row["title"]);
-    const body = String(row["body"]);
-    if (!title.includes(query) && !body.includes(query)) continue;
-    const result = buildResult(deps, id, version, row, query, latest);
-    if (result !== undefined) results.push(result);
+    for (const row of rows) {
+      const version = String(row["version"]);
+      if (input.formats !== undefined && input.formats.length > 0) {
+        if (!input.formats.includes(fmtName(deps.snapshot, version))) continue;
+      }
+      // 일치 판정. title·body 둘 다 본다.
+      const title = String(row["title"]);
+      const body = String(row["body"]);
+      if (!title.includes(query) && !body.includes(query)) continue;
+      const result = buildResult(deps, id, version, row, query, latest);
+      if (result !== undefined) results.push(result);
+    }
   }
   return results.slice(0, limit);
 }

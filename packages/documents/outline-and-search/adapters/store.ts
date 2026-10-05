@@ -94,7 +94,23 @@ export function applySchema(
   steps: readonly SchemaStep[],
 ): Result<void> {
   try {
-    for (const step of steps) db.exec(step.sql);
+    // 이미 만든 파일을 다시 열면(core 재시작) 이미 올린 step은 건너뛴다. 올린 step 수는
+    // user_version에 남고, 각 step은 그 기록과 같은 transaction에서 올라간다.
+    const row = db.prepare("pragma user_version").get() as
+      | Record<string, unknown>
+      | undefined;
+    const done = Number(row?.["user_version"] ?? 0);
+    for (let index = done; index < steps.length; index++) {
+      db.exec("BEGIN IMMEDIATE");
+      try {
+        db.exec(steps[index].sql);
+        db.exec(`pragma user_version = ${index + 1}`);
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
+    }
     return ok(undefined);
   } catch (error) {
     return err({

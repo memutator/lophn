@@ -47,34 +47,44 @@ export function recordExtraction(
   savedSeq: string,
 ): Result<void> {
   return store.transaction((tx) => {
-    const extraction = record.extraction;
-    tx.sql.run(
-      `INSERT OR REPLACE INTO derived_versions
-         (version, document, content_hash, module_hash, extraction_status,
-          text_hash, line_count, section_count, failure_reason)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        record.version,
-        record.document,
-        record.content_hash,
-        record.module_hash,
-        extraction.status,
-        extraction.text_hash ?? null,
-        extraction.status === "ready" && extraction.text !== undefined
-          ? lineCount(extraction.text)
-          : null,
-        extraction.status === "ready" ? extraction.sections?.length ?? 0 : 0,
-        extraction.status === "failed"
-          ? extraction.failure_reason ?? OMISSION_FAILED
-          : null,
-      ],
-    );
-    if (extraction.status === "ready" && extraction.text !== undefined) {
-      writeReadyArtifacts(extraction, tx, record);
-    }
-    writeSearchRows(extraction, tx, record, savedSeq);
+    writeExtraction(tx, record, savedSeq);
     return ok(undefined);
   });
+}
+
+// 이미 열린 derived transaction 안의 기록. 한 event의 결과·cursor를 같은 transaction에
+// 쓰려는 consumer(consumer.ts)가 쓴다.
+export function writeExtraction(
+  tx: DerivedTx,
+  record: ExtractionRecord,
+  savedSeq: string,
+): void {
+  const extraction = record.extraction;
+  tx.sql.run(
+    `INSERT OR REPLACE INTO derived_versions
+       (version, document, content_hash, module_hash, extraction_status,
+        text_hash, line_count, section_count, failure_reason)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      record.version,
+      record.document,
+      record.content_hash,
+      record.module_hash,
+      extraction.status,
+      extraction.text_hash ?? null,
+      extraction.status === "ready" && extraction.text !== undefined
+        ? lineCount(extraction.text)
+        : null,
+      extraction.status === "ready" ? extraction.sections?.length ?? 0 : 0,
+      extraction.status === "failed"
+        ? extraction.failure_reason ?? OMISSION_FAILED
+        : null,
+    ],
+  );
+  if (extraction.status === "ready" && extraction.text !== undefined) {
+    writeReadyArtifacts(extraction, tx, record);
+  }
+  writeSearchRows(extraction, tx, record, savedSeq);
 }
 
 function writeReadyArtifacts(

@@ -8,10 +8,13 @@ import { ok, type Result } from "../../packages/base/mod.ts";
 import {
   documentArchived,
   documentCreated,
+  documentMoved,
+  documentRenamed,
   documentRestored,
   documentSaved,
   documentSourceChanged,
   documentUnarchived,
+  documentUpdated,
   EVENTS,
   projectArchived,
   projectCreated,
@@ -108,6 +111,11 @@ export function createDocumentsEventRegistration(): EventRegistration {
       withFeed(documentArchived),
       withFeed(documentUnarchived),
       withFeed(documentRestored),
+      // search consumer(derived index)가 읽는 event. 자리·이름·제목이 바뀌면 index가 따라간다.
+      // 사람 공개는 owner가 아직 정하지 않았다. feed에만 연다.
+      withFeed(documentMoved),
+      withFeed(documentRenamed),
+      withFeed(documentUpdated),
     ],
   };
 }

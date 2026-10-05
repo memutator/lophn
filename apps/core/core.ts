@@ -74,14 +74,22 @@ import {
 import {
   OBSERVATION_BASIS_ROUTE,
   PREPARE_BASE_ROUTE,
+  SEARCH_VERSION_ROUTE,
+  TERM_OCCURRENCE_ROUTE,
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
+import { withTermOccurrence } from "./documents-term-check.ts";
+import {
+  type SearchSync,
+  type SearchVersion,
+  watchSearchIndex,
+} from "./documents-search.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
-import { createValidatePort } from "./documents-validate.ts";
+import { createStreamer, createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
@@ -339,6 +347,8 @@ async function open(
   let rootsWatch: RootsWatch | undefined;
   // coordinator에 관측 근거(규칙·경로→문서 연결)를 보내는 동기화(Q15).
   let basisSync: BasisSync | undefined;
+  // coordinator의 search consumer에 event와 저장 판 원문을 보내는 동기화(documents#T21).
+  let searchSync: SearchSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
   // deno-lint-ignore prefer-const
@@ -461,21 +471,24 @@ async function open(
       nowMs: number,
     ) => boolean;
   } = {};
-  const validatePort = createValidatePort({
-    readBlob: (hash, offset, length) =>
+  const validateDeps = {
+    readBlob: (hash: string, offset: number, length: number) =>
       validateWiring.readBlob
         ? validateWiring.readBlob(hash, offset, length)
         : Promise.resolve(err({
           code: "unavailable" as const,
           message: "blob 읽기 통로가 없다",
         })),
-    sendBytes: (channel, chunk) =>
+    sendBytes: (channel: number, chunk: Uint8Array) =>
       validateWiring.sendBytes
         ? validateWiring.sendBytes(channel, chunk)
         : Promise.resolve(false),
-    request: (op, payload, timeoutMs) =>
+    request: (op: string, payload: unknown, timeoutMs: number) =>
       documentsChannel.request(op, payload, timeoutMs),
-  });
+  };
+  // 검사와 search 추출이 같은 pipe와 channel 번호를 쓰므로 바이트 통로 하나를 나눠 쓴다.
+  const coordinatorStreamer = createStreamer(validateDeps);
+  const validatePort = createValidatePort(validateDeps, coordinatorStreamer);
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -483,9 +496,14 @@ async function open(
       credentials: registry,
       clock,
       // 메시지 본문을 싣는 command는 writer 앞에서 값을 redaction해 blob으로 준비한다.
-      writer: withMessageBody(
-        runtime.writer,
-        createMessageBodyPreparer({ relay: () => bodyPrepare.current }),
+      // 용어 후보·근거 변경은 writer에 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
+      writer: withTermOccurrence(
+        withMessageBody(
+          runtime.writer,
+          createMessageBodyPreparer({ relay: () => bodyPrepare.current }),
+        ),
+        (ctx, command, input) =>
+          runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, { command, input }),
       ),
       reads: runtime.reads,
       memory: runtime.memory.handlers,
@@ -738,6 +756,25 @@ async function open(
     });
     // 시작 근거는 worker가 뜬 직후 바로 보낸다. 닿지 못하면 다음 확인이 다시 시도한다.
     void basisSync.check();
+    searchSync = watchSearchIndex({
+      events: runtime.events,
+      context: DOCUMENTS_FEED_CONTEXT,
+      request: (op, payload, timeoutMs) =>
+        documentsChannel.request(op, payload, timeoutMs),
+      versionOf: async (version): Promise<Result<SearchVersion | null>> => {
+        const read = await runtime!.readers.read(
+          SEARCH_VERSION_ROUTE,
+          searchReader,
+          { version },
+        );
+        if (!read.ok) return read;
+        return ok(
+          (read.value as { version: SearchVersion | null }).version,
+        );
+      },
+      streamer: coordinatorStreamer,
+      retryMs: DOCUMENTS_SEARCH_RETRY_MS,
+    });
   }
   // core 안 documents 구독자. documents event가 오면 root 집합과 관측 근거를 맞춘다. documents
   // worker가 없는 core에서도 구독은 열려 있고, 맞출 대상이 없으면 아무것도 하지 않는다.
@@ -745,6 +782,7 @@ async function open(
     runtime,
     roots: () => rootsWatch,
     basis: () => basisSync,
+    search: () => searchSync,
   });
   // 내장 lophn·Context Engineer assignment 준비. I/O 감독이 없는 기동은 prompt blob을
   // 준비할 수 없어 건너뛴다(lophn-agent/assignments#R2). 이미 있으면 아무것도 보내지 않는다.
@@ -854,6 +892,7 @@ async function open(
         documentsFeed.stop();
         rootsWatch?.stop();
         basisSync?.stop();
+        searchSync?.stop();
         closeChildBlob?.();
         // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
         runtime?.memory.disconnect();
@@ -1069,6 +1108,7 @@ function withDocumentsReader(modules: readonly string[]): string[] {
 const DOCUMENTS_ROOTS_RETRY_MS = 2_000;
 const DOCUMENTS_BASIS_RETRY_MS = 1_000;
 const DOCUMENTS_BASIS_TIMEOUT_MS = 15_000;
+const DOCUMENTS_SEARCH_RETRY_MS = 1_000;
 
 // 관측 근거 읽기의 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.
 const basisReader: RequestContext = {
@@ -1077,6 +1117,15 @@ const basisReader: RequestContext = {
   scope: { operations: [OBSERVATION_BASIS_ROUTE.name], targets: {} },
   conditions: {},
   credential_ref: "machine:documents-basis",
+};
+
+// search consumer가 저장 판 행을 읽는 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.
+const searchReader: RequestContext = {
+  principal: "machine:documents-search",
+  actor: "machine",
+  scope: { operations: [SEARCH_VERSION_ROUTE.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:documents-search",
 };
 
 // tracking root 읽기의 자격. machine만 읽는 project.tracking_roots를 core가 직접 읽는다.

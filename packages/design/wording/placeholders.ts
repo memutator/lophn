@@ -468,8 +468,10 @@ export type PlaceholderKinds = {
   "things-to-confirm.error.mark-read-failed": Record<never, never>;
   "things-to-confirm.error.not-allowed": Record<never, never>;
   "things-to-confirm.error.notifications-unavailable": Record<never, never>;
+  "things-to-confirm.error.question-text": Record<never, never>;
   "things-to-confirm.error.review-unavailable": Record<never, never>;
   "things-to-confirm.error.send-failed": Record<never, never>;
+  "things-to-confirm.error.too-long": Record<never, never>;
   "things-to-confirm.label.blocking": Record<never, never>;
   "things-to-confirm.label.cancel-reason": Record<never, never>;
   "things-to-confirm.label.count-decisions": {
@@ -529,6 +531,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.label.tab-past": Record<never, never>;
   "things-to-confirm.label.tab-waiting": Record<never, never>;
   "things-to-confirm.label.unread": Record<never, never>;
+  "things-to-confirm.label.why-recommended": Record<never, never>;
   "things-to-confirm.notice.answer-applied": Record<never, never>;
   "things-to-confirm.notice.answer-not-applied": Record<never, never>;
   "things-to-confirm.notice.answered-option": {
@@ -539,7 +542,7 @@ export type PlaceholderKinds = {
   "things-to-confirm.notice.decision-reversible": Record<never, never>;
   "things-to-confirm.notice.decision-text-unavailable": Record<never, never>;
   "things-to-confirm.notice.no-answer": Record<never, never>;
-  "things-to-confirm.notice.question-text-unavailable": Record<never, never>;
+  "things-to-confirm.notice.question-loading": Record<never, never>;
   "things-to-confirm.notice.stale": {
     age: "string";
   };

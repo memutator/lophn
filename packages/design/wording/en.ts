@@ -449,10 +449,13 @@ export const en = {
   "things-to-confirm.error.not-allowed": "This answer can't be sent from here.",
   "things-to-confirm.error.notifications-unavailable":
     "Couldn't load notifications right now.",
+  "things-to-confirm.error.question-text":
+    "Couldn't load this question's text.",
   "things-to-confirm.error.review-unavailable":
     "The review window can't open here yet.",
   "things-to-confirm.error.send-failed":
     "Couldn't send your answer. Try again.",
+  "things-to-confirm.error.too-long": "This is too long to send. Shorten it.",
   "things-to-confirm.label.blocking": "Work is paused until you answer",
   "things-to-confirm.label.cancel-reason": "Why cancel it?",
   "things-to-confirm.label.count-decisions":
@@ -505,6 +508,7 @@ export const en = {
   "things-to-confirm.label.tab-past": "Past",
   "things-to-confirm.label.tab-waiting": "Waiting",
   "things-to-confirm.label.unread": "Unread",
+  "things-to-confirm.label.why-recommended": "Why it's recommended",
   "things-to-confirm.notice.answer-applied": "Your choice was applied.",
   "things-to-confirm.notice.answer-not-applied":
     "Your answer was received. The change it picks isn't applied yet.",
@@ -516,8 +520,7 @@ export const en = {
     "The reason for this decision can't be shown here.",
   "things-to-confirm.notice.no-answer":
     "If you don't answer, nothing is chosen for you.",
-  "things-to-confirm.notice.question-text-unavailable":
-    "This question's text can't be shown here yet.",
+  "things-to-confirm.notice.question-loading": "Loading this question.",
   "things-to-confirm.notice.stale":
     "Couldn't check for updates. Last checked {age}.",
   "things-to-confirm.notice.stale-never": "Couldn't check for updates yet.",

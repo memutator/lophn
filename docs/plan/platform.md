@@ -691,7 +691,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T30 test 자식 메모리 상한 adapter
 
-- 상태: 진행 — 남은 것: Deno 대상은 soft RLIMIT_AS를 시작 전에 거절한다. /bin/true 프로브 통과만으로 Deno에 soft를 쓰지 않는다
+- 상태: 완료 (#69, #193)
 - 등급: 기본
 - concern: platform/security
 - 요구: platform/security#R3, problems/tests#R20

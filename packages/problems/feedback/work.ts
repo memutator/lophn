@@ -19,7 +19,6 @@ import {
   collectLogEvidence,
   collectScreenEvidence,
   type PreparedSnapshotBlob,
-  type ScreenCaptureBlock,
   type SnapshotBlobPrepare,
 } from "../snapshots/mod.ts";
 import {
@@ -28,12 +27,10 @@ import {
   checkTransfer,
   type FeedbackCaller,
   feedbackGroup,
-  type FeedbackTargets,
   inspectPng,
   requireShellUser,
   resolveTargets,
   safeScreenState,
-  type ScreenFacts,
   type SelectedProblem,
   transferBytes,
 } from "./model.ts";

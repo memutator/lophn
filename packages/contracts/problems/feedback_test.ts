@@ -63,7 +63,12 @@ function screenFeedback(): SubmitFeedbackInput {
 }
 Deno.test("problems/feedback#R1: nonblank redacted text counts Unicode scalars not UTF16 units", () => {
   for (
-    const text of ["a", "界".repeat(500), "😀".repeat(500), "e\u0301".repeat(250)]
+    const text of [
+      "a",
+      "界".repeat(500),
+      "😀".repeat(500),
+      "e\u0301".repeat(250),
+    ]
   ) {
     assertEquals(feedbackTextSchema.safeParse(text).success, true);
   }

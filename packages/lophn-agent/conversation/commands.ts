@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   type acceptRun,
@@ -6,6 +7,9 @@ import {
   changeSessionWorkPlace,
   closeSession,
   executeStoredRequest,
+  MESSAGE_BODY_FIELD,
+  MESSAGE_BODY_OWNER_KIND,
+  MESSAGE_CONTENT_PURPOSE,
   messageApplied,
   messageAssigned,
   messageReceived,
@@ -13,9 +17,11 @@ import {
   openSession,
   receiveMessage,
   recordMessage,
+  serializeMessageContent,
   sessionClosed,
   sessionOpened,
   sessionWorkPlaceChanged,
+  textMessageContentInputSchema,
 } from "../../contracts/lophn-agent/mod.ts";
 import {
   type CommandDefinition,
@@ -43,7 +49,10 @@ import {
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
 // 하나다. 실패하면 이전 판 전체가 유지된다. 같은 ID의 재전송은 내용이 같으면 이전
-// 결과, 다르면 conflict다(R2). 본문은 hash만 받는다(blob 변환·redaction은 준비 단계).
+// 결과, 다르면 conflict다(R2). 본문은 값으로 받는다. core가 redaction을 거쳐 blob으로
+// 준비해 두었고, 이 command가 같은 transaction에서 그 blob의 영구 참조를 등록한다
+// (Q29). 준비 증거는 같은 값에서 정해진다: 정규 직렬화의 hash·크기, 보낸 자격의
+// principal, 본문 purpose. 살아 있는 준비가 없으면 등록이 거절되어 전체가 되돌아간다.
 
 export type ConversationDeps = {
   // 같은 Tx에서 run을 접수한다(run-loop AcceptRun). 사람 입력 접수와 담당 run 접수는
@@ -142,6 +151,50 @@ function acceptForMessage(
     start_after: latestSessionRun(tx, session.id),
   }, { assignment_revision: assignment.revision });
   return accepted.ok ? ok(run) : accepted;
+}
+
+type BodyBlob = {
+  hash: string;
+  evidence: {
+    preparation: string;
+    principal: string;
+    purpose: string;
+    hash: string;
+    size_bytes: number;
+  };
+};
+
+// 본문 값의 blob 증거. 준비한 쪽(core)과 같은 정규 직렬화를 쓰므로 같은 값은 항상
+// 같은 hash다. 재전송의 지문도 값으로 정해져 준비 참조의 수명과 상관없다.
+function bodyBlob(ctx: RequestContext, content: unknown): BodyBlob {
+  const bytes = serializeMessageContent(content);
+  const hash = createHash("sha256").update(bytes).digest("hex");
+  return {
+    hash,
+    evidence: {
+      preparation: hash,
+      principal: ctx.principal,
+      purpose: MESSAGE_CONTENT_PURPOSE,
+      hash,
+      size_bytes: bytes.length,
+    },
+  };
+}
+
+function registerBody(
+  tx: Tx,
+  message: string,
+  seq: string,
+  body: BodyBlob,
+): Result<void> {
+  const registered = tx.registerBlobRef({
+    owner_kind: MESSAGE_BODY_OWNER_KIND,
+    owner_key: message,
+    field: MESSAGE_BODY_FIELD,
+    registered_seq: seq,
+    source: { kind: "prepared", blob: body.evidence },
+  });
+  return registered.ok ? ok(undefined) : registered;
 }
 
 function insertMessage(
@@ -412,6 +465,7 @@ export function createConversationCommands(deps: ConversationDeps): {
       handle(tx, ctx, input: Input<typeof receiveMessage>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
+        const body = bodyBlob(ctx, input.content);
         const existing = loadMessage(tx, input.id);
         if (existing !== undefined) {
           const target = existing.run === null
@@ -419,7 +473,7 @@ export function createConversationCommands(deps: ConversationDeps): {
             : loadRunRef(tx, existing.run);
           const same = existing.actor === "user" &&
             existing.session === input.session &&
-            existing.body === input.body && existing.mode === input.mode &&
+            existing.body === body.hash && existing.mode === input.mode &&
             (input.mode === "request"
               ? input.run === undefined
               : existing.run === input.run ||
@@ -497,17 +551,19 @@ export function createConversationCommands(deps: ConversationDeps): {
           session: session.id,
           run,
           mode: input.mode,
-          body: input.body,
+          body: body.hash,
         });
         insertMessage(tx, {
           id: input.id,
           session: session.id,
           actor: ctx.actor,
-          body: input.body,
+          body: body.hash,
           run,
           mode: input.mode,
           links: "[]",
         }, seq);
+        const registered = registerBody(tx, input.id, seq, body);
+        if (!registered.ok) return registered;
         return stored(loadMessage(tx, input.id));
       },
     },
@@ -586,12 +642,20 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (actor.kind === "agent" && input.run !== ctx.run) {
           return reject("forbidden", "an agent records only for its own run");
         }
+        // machine 확인은 글만 낸다. 시각 블록은 agent의 답에만 있다(MessageContent).
+        if (
+          actor.kind === "machine" &&
+          !textMessageContentInputSchema.safeParse(input.content).success
+        ) {
+          return reject("invalid_input", "a machine message holds text only");
+        }
+        const body = bodyBlob(ctx, input.content);
         const links = JSON.stringify(input.links);
         const existing = loadMessage(tx, input.id);
         if (existing !== undefined) {
           const same = existing.actor === ctx.actor &&
             existing.session === input.session && existing.run === input.run &&
-            existing.body === input.body && existing.mode === null &&
+            existing.body === body.hash && existing.mode === null &&
             sameLinks(existing.links, input.links);
           return same
             ? stored(existing)
@@ -620,18 +684,20 @@ export function createConversationCommands(deps: ConversationDeps): {
         const seq = tx.emit(messageRecorded, input.id, {
           session: session.id,
           run: input.run,
-          body: input.body,
+          body: body.hash,
           links: input.links,
         });
         insertMessage(tx, {
           id: input.id,
           session: session.id,
           actor: ctx.actor,
-          body: input.body,
+          body: body.hash,
           run: input.run,
           mode: null,
           links,
         }, seq);
+        const registered = registerBody(tx, input.id, seq, body);
+        if (!registered.ok) return registered;
         return stored(loadMessage(tx, input.id));
       },
     },

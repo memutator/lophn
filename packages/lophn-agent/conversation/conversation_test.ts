@@ -12,7 +12,14 @@ import {
   envelope,
   presetDefinitionJson,
 } from "../harness/run-loop/testing/mod.ts";
-import { BODY, cred, hashOf, id } from "./testing/mod.ts";
+import {
+  BODY,
+  bodyHashOf,
+  cred,
+  hashOf,
+  id,
+  textContent,
+} from "./testing/mod.ts";
 
 // 세션·메시지 ledger 테스트. 실제 등록 executor(harness)와 임시 ledger 파일을 쓰고
 // run-loop의 FinishRun이 제품 core와 같은 hasUnappliedSteering(messages 표)을 본다.
@@ -239,7 +246,7 @@ async function receive(
     session: string;
     mode: "request" | "correction";
     run?: string;
-    body?: string;
+    text?: string;
   },
   ctx = userCred,
 ) {
@@ -257,7 +264,7 @@ async function receive(
     envelope("ReceiveMessage", {
       id: input.message,
       session: input.session,
-      body: input.body ?? BODY(input.message.length),
+      content: textContent(input.text ?? `message ${input.message.length}`),
       mode: input.mode,
       ...(input.run === undefined ? {} : { run: input.run }),
     }, {
@@ -776,7 +783,7 @@ Deno.test("lophn-agent/conversation#R3: receiving a message and accepting its ru
         message: id("msg", 1),
         session,
         mode: "request",
-        body: BODY(200),
+        text: "another body for the same id",
       }),
       "conflict",
     );
@@ -794,7 +801,7 @@ Deno.test("lophn-agent/conversation#R4: speakers stay distinct and a message lin
     const run = await runningRun(h, session, id("msg", 1));
     const doc = id("doc", 1);
     const ver = id("ver", 1);
-    const body = BODY(50);
+    const body = textContent("a plan without links");
     // agent 자격의 기록(자기 run 묶음·다른 assignment 거절)은 apps/core/testing/
     // lophn-agent-conversation_test.ts가 platform의 run 판정과 함께 본다.
     const record = (
@@ -809,7 +816,7 @@ Deno.test("lophn-agent/conversation#R4: speakers stay distinct and a message lin
           id: message,
           session,
           run: target,
-          body,
+          content: body,
           links,
         }),
       );
@@ -1355,7 +1362,7 @@ Deno.test("lophn-agent/conversation#R8: closing needs finished runs and leaves t
           id: id("msg", 3),
           session,
           run: null,
-          body: BODY(3),
+          content: textContent("late"),
           links: [],
         }),
       ),
@@ -1399,7 +1406,7 @@ Deno.test("lophn-agent/conversation#R8: a withdrawn assignment rejects new input
         envelope("ReceiveMessage", {
           id: id("msg", 2),
           session,
-          body: BODY(2),
+          content: textContent("after withdrawn"),
           mode: "request",
         }, {
           session_state: "open",
@@ -1821,6 +1828,134 @@ Deno.test("lophn-agent/conversation#R17: lophn and Context Engineer change their
       ),
     );
     code(await change(PLACES.global, 3), "conflict");
+  } finally {
+    await h.close();
+  }
+});
+
+async function blobRefsOf(h: LedgerHarness, message: string) {
+  return await sql(
+    h,
+    `select owner_kind, field, hash, size_bytes from blob_refs
+     where owner_key = ?`,
+    [message],
+  );
+}
+
+Deno.test("lophn-agent/conversation#R2: a received body is one permanent blob reference in the same transaction as the message", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    const session = await openLophn(h);
+    const message = id("msg", 1);
+    const text = "한글 본문도 그대로 남긴다";
+    value(await receive(h, { message, session, mode: "request", text }));
+    // ledger에는 본문 값의 blob hash만 남고 같은 hash의 영구 참조 하나가 있다.
+    const hash = bodyHashOf(text);
+    assertEquals((await messageRow(h, message))?.["body"], hash);
+    const refs = await blobRefsOf(h, message);
+    assertEquals(refs.length, 1);
+    assertEquals(
+      [refs[0]!["owner_kind"], refs[0]!["field"], refs[0]!["hash"]],
+      ["message", "body", hash],
+    );
+    const bytes = new TextEncoder().encode(
+      JSON.stringify({ parts: [{ kind: "text", text }], schema_version: 1 }),
+    );
+    assertEquals(Number(refs[0]!["size_bytes"]), bytes.length);
+    const [received] = await eventsOf(h, "MessageReceived", message);
+    assertEquals(JSON.parse(String(received!["payload"]))["body"], hash);
+    // 같은 값의 재전송은 참조를 더하지 않고 이전 결과다.
+    value(await receive(h, { message, session, mode: "request", text }));
+    assertEquals((await blobRefsOf(h, message)).length, 1);
+    assertEquals(await count(h, "messages"), 1);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/conversation#R2: without a live preparation nothing is stored and a retry takes the message once", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    const session = await openLophn(h);
+    const message = id("msg", 1);
+    value(
+      await h.command(
+        machineCred,
+        envelope("SeedUnpreparedBody", { unprepared: true }),
+      ),
+    );
+    code(
+      await receive(h, { message, session, mode: "request", text: "hello" }),
+      "invalid_input",
+    );
+    // 참조 등록이 막히면 message·event·run·참조 모두 되돌아간다.
+    assertEquals(await count(h, "messages"), 0);
+    assertEquals(await count(h, "runs"), 0);
+    assertEquals((await blobRefsOf(h, message)).length, 0);
+    assertEquals((await eventsOf(h, "MessageReceived", message)).length, 0);
+    assertEquals((await eventsOf(h, "RunAccepted")).length, 0);
+    value(
+      await h.command(
+        machineCred,
+        envelope("SeedUnpreparedBody", { unprepared: false }),
+      ),
+    );
+    value(
+      await receive(h, { message, session, mode: "request", text: "hello" }),
+    );
+    assertEquals(await count(h, "messages"), 1);
+    assertEquals(await count(h, "runs"), 1);
+    assertEquals((await blobRefsOf(h, message)).length, 1);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("lophn-agent/conversation#R4: a recorded machine body is text only and a different body under the same id conflicts", async () => {
+  const h = await open();
+  try {
+    await seed(h);
+    const session = await openLophn(h);
+    const run = await runningRun(h, session, id("msg", 1));
+    const record = (message: string, content: unknown) =>
+      h.command(
+        machineCred,
+        envelope("RecordMessage", {
+          id: message,
+          session,
+          run,
+          content,
+          links: [],
+        }),
+      );
+    value(await record(id("msg", 2), textContent("checked")));
+    const refs = await blobRefsOf(h, id("msg", 2));
+    assertEquals(refs.length, 1);
+    assertEquals(refs[0]!["hash"], bodyHashOf("checked"));
+    value(await record(id("msg", 2), textContent("checked")));
+    code(await record(id("msg", 2), textContent("changed")), "conflict");
+    // 시각 블록은 agent의 답에만 있다. machine이 보내면 저장하지 않는다.
+    code(
+      await record(id("msg", 3), {
+        schema_version: 1,
+        parts: [{ kind: "text", text: "x" }, {
+          kind: "visual",
+          block: {
+            key: "t",
+            schema_version: 1,
+            kind: "table",
+            title: "t",
+            description: "d",
+            sources: [],
+            payload: { columns: [], rows: [] },
+          },
+        }],
+      }),
+      "invalid_input",
+    );
+    assertEquals((await blobRefsOf(h, id("msg", 3))).length, 0);
   } finally {
     await h.close();
   }

@@ -22,3 +22,8 @@ export {
   validateDefinition,
   type ValidateDeps,
 } from "./validate.ts";
+export {
+  BUILTIN_ROLES,
+  type BuiltinRole,
+  productPresetDefinition,
+} from "./defaults.ts";

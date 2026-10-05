@@ -57,3 +57,16 @@ export {
   type SaveReport,
 } from "./save-result.ts";
 export { uploadPrepareBytes } from "./upload-bytes.ts";
+export {
+  type ContextChange,
+  type ContextProposalDeps,
+  type ContextProposalInput,
+  type ContextProposalOutcome,
+  type ContextProposalReport,
+  describeContextProposal,
+  describeContextProposalFailure,
+  PROPOSAL_PATH,
+  PROPOSAL_SCHEMA,
+  proposalText,
+  proposeContextChange,
+} from "./context-proposal.ts";

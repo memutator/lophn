@@ -7,7 +7,10 @@ import {
   ok,
   seededRandom,
 } from "../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../packages/contracts/platform/mod.ts";
+import type {
+  AuthenticatedContext,
+  BlobRefRegistration,
+} from "../../../packages/contracts/platform/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {
   LEDGER_SCHEMA_STEPS,
@@ -39,12 +42,13 @@ import {
 } from "../../../packages/lophn-agent/conversation/mod.ts";
 import {
   agentRun,
-  BODY,
   cred,
   hashOf,
   id,
+  textContent,
 } from "../../../packages/lophn-agent/conversation/testing/mod.ts";
 import { envelope } from "../../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
+import { tableBlock } from "../../../packages/contracts/lophn-agent/message-fixtures.ts";
 import { createLedgerHarness, type LedgerHarness } from "./ledger.ts";
 
 // 세션·메시지의 파일 ledger와 platform 판정이 끼는 시험. 명령마다 새 connection으로
@@ -81,8 +85,18 @@ async function fileLedger() {
     clock,
     ids: createIdSource({ clock, random: seededRandom(1) }),
     ports: [],
-    registerBlobRef: () =>
-      err<LophnError>({ code: "unavailable", message: "blob 없음" }),
+    // 본문 참조 등록은 준비 증거가 있어야 통과한다. 실제 준비·만기 판정은 core 전체
+    // 시험(message-body_test.ts)이 보고, 여기서는 등록이 같은 transaction에 걸리는 것만 쓴다.
+    registerBlobRef: (reference: BlobRefRegistration) =>
+      reference.source.kind === "prepared"
+        ? ok({
+          owner_kind: reference.owner_kind,
+          owner_key: reference.owner_key,
+          field: reference.field,
+          hash: reference.source.blob.hash,
+          registered_seq: reference.registered_seq,
+        })
+        : err<LophnError>({ code: "forbidden", message: "prepared only" }),
     call: () =>
       err<LophnError>({ code: "unavailable", message: "dispatch 없음" }),
     checkCredential: (ctx: AuthenticatedContext) => ok(ctx),
@@ -177,7 +191,7 @@ async function fileLedger() {
     execute("user", "ReceiveMessage", {
       id: message,
       session: SESSION,
-      body: BODY(message.length),
+      content: textContent(`message ${message.length}`),
       mode: "request",
     }, {
       session_state: "open",
@@ -235,7 +249,7 @@ Deno.test("lophn-agent/conversation#R8: a session idle for 31 days and a paused 
     await ledger.must("user", "ReceiveMessage", {
       id: id("msg", 1),
       session: SESSION,
-      body: BODY(1),
+      content: textContent("first"),
       mode: "request",
     }, {
       session_state: "open",
@@ -355,7 +369,7 @@ Deno.test("lophn-agent/conversation#R4: an agent answer is the role's judgment b
       const received = await must(user, "ReceiveMessage", {
         id: id("msg", n),
         session,
-        body: BODY(n),
+        content: textContent(`message ${n}`),
         mode: "request",
       }, {
         session_state: "open",
@@ -380,7 +394,7 @@ Deno.test("lophn-agent/conversation#R4: an agent answer is the role's judgment b
           id: message,
           session: id("ses", 1),
           run,
-          body: BODY(40),
+          content: textContent("answer"),
           links: [],
         }),
       );
@@ -399,6 +413,30 @@ Deno.test("lophn-agent/conversation#R4: an agent answer is the role's judgment b
       }).messages.map((entry) => [entry.message.actor, entry.message.mode]),
       [["user", "request"], [`agent:${ASG_LOPHN}`, null]],
     );
+    // agent의 답은 글과 시각 블록을 순서대로 담는다. 참조는 agent 자격이 준비 주체다.
+    const shown = await h.command(
+      agent,
+      envelope("RecordMessage", {
+        id: id("msg", 8),
+        session: id("ses", 1),
+        run: runs[ASG_LOPHN]!,
+        content: {
+          schema_version: 1,
+          parts: [{ kind: "text", text: "표" }, {
+            kind: "visual",
+            block: tableBlock,
+          }],
+        },
+        links: [],
+      }),
+    );
+    assert(shown.ok, shown.ok ? "" : JSON.stringify(shown.error));
+    const refs = await h.inspect(
+      "select hash from blob_refs where owner_key = ?",
+      [id("msg", 8)],
+    );
+    assert(refs.ok);
+    assertEquals(refs.value.length, 1);
     // agent는 자기 run의 답만 기록한다.
     const unbound = await record(agent, id("msg", 6), null);
     assert(!unbound.ok && unbound.error.code === "forbidden");
@@ -407,7 +445,7 @@ Deno.test("lophn-agent/conversation#R4: an agent answer is the role's judgment b
     assert(!foreign.ok && foreign.error.code === "not_found");
     const rows = await h.inspect("select count(*) as n from messages", []);
     assert(rows.ok);
-    assertEquals(Number(rows.value[0]!["n"]), 3);
+    assertEquals(Number(rows.value[0]!["n"]), 4);
   } finally {
     await h.close();
   }

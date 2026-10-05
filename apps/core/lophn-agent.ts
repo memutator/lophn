@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { err } from "../../packages/base/mod.ts";
 import {
   defineSetting,
   type KindLaunchSpec,
@@ -54,6 +55,9 @@ import {
   createConversationCommands,
   createConversationReads,
   hasUnappliedSteering,
+  type MessageBodyEnvironment,
+  messageBodyFields,
+  messageBodyRead,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
   createQuestionCommands,
@@ -407,14 +411,41 @@ export const lophnAgentDefinitions = {
     questionReads.list,
   ],
   // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
+  // 메시지 본문은 영구 참조다(conversation#R2).
   blobFields: [
     ...modelCallBodyFields,
     ...toolCallBodyFields,
     ...questionBodyFields,
+    ...messageBodyFields,
   ],
   ports: [runAdmissionPort],
   workers: [],
 };
+
+// ReadMessageBody는 ledger snapshot 없이 blob 바이트를 기다리는 core read다. core가 기동
+// 때 environment로 읽기 통로를 넣고, 넣지 않은 등록(harness)은 unavailable이다.
+const UNATTACHED_MESSAGE_BODY: MessageBodyEnvironment = {
+  snapshot: () =>
+    err({
+      code: "unavailable",
+      message: "message 읽기 통로가 붙어 있지 않다",
+    }),
+  bytes: () =>
+    Promise.resolve(err({
+      code: "unavailable",
+      message: "blob 읽기 통로가 붙어 있지 않다",
+    })),
+};
+
+export function createLedgerRegistration(
+  environment: { messageBody?: MessageBodyEnvironment } = {},
+) {
+  return {
+    apiReads: [
+      messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+    ],
+  };
+}
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는
 // event를 보지 않는다. usage·preset read도 event를 보지 않는다.

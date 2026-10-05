@@ -1,8 +1,9 @@
-// renderer가 main에 요청하는 read·command. token·port·종료는 이 schema에 없다.
+// renderer가 main에 요청하는 read·command와 worker에서 조립하는 읽기. token·port·종료는
+// 이 schema에 없다. 어떤 worker route를 받을지는 main의 allowlist가 정한다.
 import { z } from "zod";
 
 export const coreCallSchema = z.object({
-  kind: z.enum(["read", "command"]),
+  kind: z.enum(["read", "command", "worker"]),
   resource: z.string().regex(/^[a-z][a-z0-9_-]*$/),
   method: z.string().regex(/^[a-z][a-z0-9_-]*$/),
   body: z.unknown(),

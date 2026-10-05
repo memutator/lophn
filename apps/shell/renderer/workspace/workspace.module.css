@@ -47,3 +47,14 @@
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
 }
+
+/* 문서 탭 tooltip: 문서 제목과 상대 경로 두 줄(shell/editor#R4). */
+.tabTip {
+  display: flex;
+  flex-direction: column;
+}
+
+.tabTipPath {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}

@@ -20,7 +20,7 @@ Deno.test("problems/tests#R20: runner는 platform 메모리 경계를 그대로 
   let killed = 0;
   stopChildren([{
     pid: 1,
-    kill() {
+    killGroup() {
       killed += 1;
     },
   }]);

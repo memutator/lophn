@@ -54,12 +54,20 @@ export async function runPrepared(
   if (!request.start_attempt_at) {
     return err({ code: "conflict", message: NOT_STARTED });
   }
-  const sourceOutside = await rejectOutside(
-    request.prepare.source,
-    request.prepare.source,
-  );
-  if (sourceOutside) {
-    return err({ code: "invalid_input", message: "source가 묶음 밖이다" });
+  const source = request.prepare.source;
+  const cwd = request.prepare.method.cwd === "."
+    ? source
+    : `${source.replace(/\/$/, "")}/${request.prepare.method.cwd}`;
+  const paths = [
+    [source, source],
+    [source, cwd],
+    [request.prepare.scratch, request.prepare.scratch],
+    ...request.prepare.reads.map((path) => [path, path]),
+  ] as const;
+  for (const [root, path] of paths) {
+    if (await rejectOutside(root, path)) {
+      return err({ code: "invalid_input", message: "경로가 묶음 밖이다" });
+    }
   }
   const prepared: Result<PreparedCommand> = prepareCommand(request.prepare);
   if (!prepared.ok) return prepared;

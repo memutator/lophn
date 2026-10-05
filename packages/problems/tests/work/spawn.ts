@@ -8,7 +8,9 @@ export type ChildHandle = {
   stdin: WritableStream<Uint8Array> | null;
   stdout: ReadableStream<Uint8Array> | null;
   stderr: ReadableStream<Uint8Array> | null;
-  kill(signal?: Deno.Signal): void;
+  // timeout·복구는 이 프로세스 그룹 전체를 죽인다. prlimit·systemd-run 뒤의
+  // Deno와 그 손자까지 회수한다(problems/tests#R20).
+  killGroup(signal?: Deno.Signal): void;
   status(): Promise<Deno.CommandStatus>;
 };
 
@@ -40,7 +42,7 @@ export type RunningChild = {
   command: string;
   args: string[];
   started_at: string;
-  kill(signal?: Deno.Signal): void;
+  killGroup(signal?: Deno.Signal): void;
   finished(): Promise<ChildOutcome>;
 };
 
@@ -55,11 +57,17 @@ export type ChildOutcome = {
 
 const UNAVAILABLE = "프로세스 메모리 경계를 강제할 수 없다";
 
+function killGroup(pid: number, signal: Deno.Signal = "SIGKILL"): void {
+  // 새 세션의 리더라 그룹 id가 pid와 같다. 음수 pid는 그 그룹 전체다.
+  Deno.kill(-pid, signal);
+}
+
 function systemSpawn(): SpawnPort {
   return {
     spawn(command, args, options) {
-      const child = new Deno.Command(command, {
-        args,
+      // setsid로 새 프로세스 그룹을 연다. timeout은 그 그룹을 통째로 죽인다.
+      const child = new Deno.Command("/usr/bin/setsid", {
+        args: ["--wait", command, ...args],
         cwd: options.cwd,
         env: options.env,
         clearEnv: true,
@@ -72,7 +80,7 @@ function systemSpawn(): SpawnPort {
         stdin: null,
         stdout: child.stdout,
         stderr: child.stderr,
-        kill: (signal) => child.kill(signal),
+        killGroup: (signal) => killGroup(child.pid, signal),
         status: () => child.status,
       };
     },
@@ -139,14 +147,20 @@ export async function startChild(
     return err({ code: "unavailable", message: UNAVAILABLE });
   }
   const started = (options.now ?? (() => new Date().toISOString()))();
-  const collected = {
+  const stdout = {
     bytes: [] as Uint8Array[],
     total: 0,
     truncated: false,
   };
+  const stderr = {
+    bytes: [] as Uint8Array[],
+    total: 0,
+    truncated: false,
+  };
+  // side마다 stdout·stderr가 각각 1,048,576 bytes다. 넘으면 자르고 계속 읽는다.
   const drained = Promise.all([
-    drain(child.stdout, cap, collected),
-    drain(child.stderr, cap, collected),
+    drain(child.stdout, cap, stdout),
+    drain(child.stderr, cap, stderr),
   ]);
   let timedOut = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -154,7 +168,7 @@ export async function startChild(
     timer = setTimeout(() => {
       timedOut = true;
       try {
-        child.kill("SIGKILL");
+        child.killGroup("SIGKILL");
       } catch { /* 이미 끝났을 수 있다 */ }
       resolve("timeout");
     }, prepared.timeout_ms);
@@ -172,11 +186,12 @@ export async function startChild(
       signal: null,
     }));
     await drained;
+    const kept = [...stdout.bytes, ...stderr.bytes];
     const output = new Uint8Array(
-      collected.bytes.reduce((sum, chunk) => sum + chunk.byteLength, 0),
+      kept.reduce((sum, chunk) => sum + chunk.byteLength, 0),
     );
     let offset = 0;
-    for (const chunk of collected.bytes) {
+    for (const chunk of kept) {
       output.set(chunk, offset);
       offset += chunk.byteLength;
     }
@@ -188,7 +203,7 @@ export async function startChild(
         : "exited",
       exit_code: reason === "timeout" || timedOut ? null : ended.code,
       output,
-      truncated: collected.truncated,
+      truncated: stdout.truncated || stderr.truncated,
       ended_at: new Date().toISOString(),
     };
   };
@@ -198,7 +213,7 @@ export async function startChild(
     command: limited.value.command,
     args: limited.value.args,
     started_at: started,
-    kill: (signal) => child.kill(signal),
+    killGroup: (signal) => child.killGroup(signal),
     finished,
   });
 }

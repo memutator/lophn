@@ -13,14 +13,14 @@ export const TEST_RUNNER_KIND = "problems/test-runner";
 
 export type RunnerChild = {
   pid: number;
-  kill(signal?: Deno.Signal): void;
+  killGroup(signal?: Deno.Signal): void;
 };
 
-// 감독이 runner를 거두면 띄워 둔 자식을 전부 회수한다. 고아를 남기지 않는다.
+// 감독이 runner를 거두면 띄워 둔 프로세스 그룹을 전부 회수한다.
 export function stopChildren(children: readonly RunnerChild[]): void {
   for (const child of children) {
     try {
-      child.kill("SIGKILL");
+      child.killGroup("SIGKILL");
     } catch { /* 이미 끝난 자식은 무시한다 */ }
   }
 }

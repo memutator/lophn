@@ -22,7 +22,8 @@ export const DENO_HEAP_FLAG = "--v8-flags=--max-old-space-size=256";
 export const FIXED_DENO_FLAGS = [
   "--no-prompt",
   "--cached-only",
-  "--locked",
+  // deno 2.9에는 `--locked`가 없다. 잠긴 lockfile은 `--frozen-lockfile`이다.
+  "--frozen-lockfile",
   DENO_HEAP_FLAG,
 ] as const;
 

@@ -55,7 +55,7 @@ Deno.test("problems/tests#R14 R16 R19: 넓은 권한·shell·native·..·timeout
   assertEquals(ok.value.executable, "/usr/bin/deno");
   assert(ok.value.args.includes("--no-prompt"));
   assert(ok.value.args.includes("--cached-only"));
-  assert(ok.value.args.includes("--locked"));
+  assert(ok.value.args.includes("--frozen-lockfile"));
   assert(
     ok.value.args.includes("--v8-flags=--max-old-space-size=256"),
   );
@@ -63,6 +63,11 @@ Deno.test("problems/tests#R14 R16 R19: 넓은 권한·shell·native·..·timeout
   assert(
     ok.value.args.some((arg) => arg.startsWith("--allow-write=/work/scratch")),
   );
+  assert(ok.value.args.includes("--allow-env=TZ"));
+  const bare = prepareCommand({ ...base, env: {} });
+  assert(bare.ok);
+  assert(!bare.value.args.some((arg) => arg.startsWith("--allow-env")));
+  assertEquals(bare.value.env, {});
   assert(
     !ok.value.args.some((arg) => arg === "-A" || arg.includes("allow-all")),
   );
@@ -76,6 +81,7 @@ Deno.test("problems/tests#R14 R16 R19: 넓은 권한·shell·native·..·timeout
       ["test", "../child_test.ts"],
       ["test", "--allow-all", "child_test.ts"],
       ["test", "--allow-read", "child_test.ts"],
+      ["test", "--allow-read=/etc", "child_test.ts"],
       ["test", "--allow-run=deno", "child_test.ts"],
       ["test", "child_test.ts; cat secret"],
     ]
@@ -151,13 +157,19 @@ Deno.test("problems/tests#R20: timeout은 자식을 죽이고 출력 상한을 �
     timeout_ms: 2_000,
     env: {},
   }, {
-    memory: memory("soft"),
+    memory: {
+      limit(command, args) {
+        return Promise.resolve({
+          ok: true,
+          value: { mode: "hard" as const, command, args: [...args] },
+        });
+      },
+    },
     outputCap: 100_000,
     spawn: {
-      spawn(_command, args, options) {
-        const marker = args.indexOf("--");
-        const child = new Deno.Command(args[marker + 1], {
-          args: args.slice(marker + 2),
+      spawn(command, args, options) {
+        const child = new Deno.Command("/usr/bin/setsid", {
+          args: ["--wait", command, ...args],
           cwd: options.cwd,
           env: options.env,
           clearEnv: true,
@@ -170,7 +182,11 @@ Deno.test("problems/tests#R20: timeout은 자식을 죽이고 출력 상한을 �
           stdin: null,
           stdout: child.stdout,
           stderr: child.stderr,
-          kill: (signal?: Deno.Signal) => child.kill(signal),
+          killGroup: (signal?: Deno.Signal) => {
+            try {
+              Deno.kill(-child.pid, signal ?? "SIGKILL");
+            } catch { /* 그룹이 이미 없으면 회수된 것이다 */ }
+          },
           status: () => child.status,
         };
       },
@@ -181,13 +197,63 @@ Deno.test("problems/tests#R20: timeout은 자식을 죽이고 출력 상한을 �
   assertEquals(outcome.end_reason, "timeout");
   assert(outcome.truncated);
   assert(outcome.output.byteLength <= 100_000);
-  let alive = true;
+  assert(!alivePid(ran.value.pid));
+  await Deno.remove(root, { recursive: true });
+});
+
+function alivePid(pid: number): boolean {
   try {
-    Deno.kill(ran.value.pid, "SIGCONT");
+    Deno.kill(pid, "SIGCONT");
+    return true;
   } catch {
-    alive = false;
+    return false;
   }
-  assert(!alive);
+}
+
+Deno.test("problems/tests#R20: timeout은 자식이 띄운 손자까지 프로세스 그룹으로 죽인다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "lophn-runner-group-" });
+  const pidFile = `${root}/grand.txt`;
+  const script = `${root}/parent.ts`;
+  const deno = Deno.execPath();
+  await Deno.writeTextFile(
+    script,
+    "const child = new Deno.Command(Deno.execPath(), {\n" +
+      "  args: ['eval', 'setInterval(() => {}, 60000)'],\n" +
+      "  stdout: 'null', stderr: 'null',\n" +
+      "}).spawn();\n" +
+      `await Deno.writeTextFile(${
+        JSON.stringify(pidFile)
+      }, String(child.pid));\n` +
+      "setInterval(() => {}, 60000);\n",
+  );
+  const ran = await startChild({
+    executable: deno,
+    args: [
+      "run",
+      `--allow-read=${script}`,
+      `--allow-write=${root}`,
+      `--allow-run=${deno}`,
+      script,
+    ],
+    cwd: root,
+    timeout_ms: 3_000,
+    env: {},
+  }, {
+    memory: {
+      limit(command, args) {
+        return Promise.resolve({
+          ok: true,
+          value: { mode: "hard" as const, command, args: [...args] },
+        });
+      },
+    },
+  });
+  assert(ran.ok);
+  const outcome = await ran.value.finished();
+  assertEquals(outcome.end_reason, "timeout");
+  const grand = Number(await Deno.readTextFile(pidFile));
+  assert(!alivePid(ran.value.pid));
+  assert(!alivePid(grand), "손자가 남았다");
   await Deno.remove(root, { recursive: true });
 });
 
@@ -309,72 +375,107 @@ Deno.test("problems/tests#R21: 확정 폴더는 지우고, 유실된 spool은 �
 
 Deno.test("problems/tests#R13 R20: 실제 자식은 scratch만 쓰고 운영 경로는 실패하며 timeout이면 자식을 남기지 않는다", async () => {
   const root = await Deno.makeTempDir({ prefix: "lophn-runner-child-" });
+  const source = `${root}/source`;
   const scratch = `${root}/scratch`;
   const forbidden = `${root}/live-db`;
+  await Deno.mkdir(source);
   await Deno.mkdir(scratch);
   await Deno.writeTextFile(forbidden, "live\n");
-  const childPath = new URL("../testdata/child.ts", import.meta.url).pathname;
-  const marker = `${scratch}/wrote`;
-  // RLIMIT_AS는 Deno 기동 자체를 죽인다. 여기 실제 자식은 격리와 timeout만
-  // 보고, 512MiB kill은 LOPHN_MEMORY_KILL=1의 memory_limit_test가 맡는다.
-  // 경계를 못 걸면 띄우지 않는 것은 위의 unavailable 테스트가 맡는다.
-  const ran = new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
-      `--allow-read=${childPath},${scratch}`,
-      `--allow-write=${scratch}`,
-      childPath,
-      marker,
-    ],
-    cwd: root,
-    clearEnv: true,
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-  const ranStatus = await ran.status;
-  assertEquals(ranStatus.code, 0);
-  assertEquals(await Deno.readTextFile(marker), "fixture\n");
+  await Deno.writeTextFile(`${source}/deno.lock`, "{}\n");
+  // 쓰는 경로는 fixture 안에 고정한다. 여분 positional은 deno test가 파일로 본다.
+  await Deno.writeTextFile(
+    `${source}/child_test.ts`,
+    'Deno.test("isolation", async () => {\n' +
+      `  await Deno.writeTextFile(${
+        JSON.stringify(`${scratch}/wrote`)
+      }, "fixture\\n");\n` +
+      "});\n",
+  );
+  const prepared = prepareCommand({
+    method: {
+      argv: ["test", "child_test.ts"],
+      cwd: ".",
+      timeout_ms: 20_000,
+      expected_exit_code: 0,
+      environment: HASH,
+    },
+    source,
+    scratch,
+    reads: [source],
+    env: {},
+    deno: Deno.execPath(),
+  });
+  assert(prepared.ok);
+  // prepareCommand가 만든 argv를 startChild가 그대로 띄운다. 메모리 경계는
+  // passthrough다. 512MiB RLIMIT_AS는 Deno 시작을 죽인다.
+  const ran = await startChild(prepared.value, {
+    memory: {
+      limit(command, args) {
+        return Promise.resolve({
+          ok: true,
+          value: { mode: "hard" as const, command, args: [...args] },
+        });
+      },
+    },
+  });
+  assert(ran.ok);
+  const outcome = await ran.value.finished();
+  const text = new TextDecoder().decode(outcome.output);
+  assertEquals(outcome.end_reason, "exited", text);
+  assertEquals(outcome.exit_code, 0, text);
+  assertEquals(await Deno.readTextFile(`${scratch}/wrote`), "fixture\n");
   assertEquals(await Deno.readTextFile(forbidden), "live\n");
 
-  const denied = new Deno.Command(Deno.execPath(), {
+  const denied = await startChild({
+    executable: Deno.execPath(),
     args: [
       "run",
-      `--allow-read=${childPath}`,
+      `--allow-read=${
+        new URL("../testdata/child.ts", import.meta.url).pathname
+      }`,
       `--allow-write=${scratch}`,
-      childPath,
+      new URL("../testdata/child.ts", import.meta.url).pathname,
       forbidden,
     ],
     cwd: root,
-    clearEnv: true,
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-  const deniedStatus = await denied.status;
-  assert(deniedStatus.code !== 0);
+    timeout_ms: 20_000,
+    env: {},
+  }, {
+    memory: {
+      limit(command, args) {
+        return Promise.resolve({
+          ok: true,
+          value: { mode: "hard" as const, command, args: [...args] },
+        });
+      },
+    },
+  });
+  assert(denied.ok);
+  const deniedOut = await denied.value.finished();
+  assert(deniedOut.exit_code !== 0);
   assertEquals(await Deno.readTextFile(forbidden), "live\n");
 
   const sleeper = new URL("../testdata/sleep.ts", import.meta.url).pathname;
-  const hung = new Deno.Command(Deno.execPath(), {
-    args: [
-      "run",
-      `--allow-read=${sleeper}`,
-      sleeper,
-    ],
+  const hung = await startChild({
+    executable: Deno.execPath(),
+    args: ["run", `--allow-read=${sleeper}`, sleeper],
     cwd: root,
-    clearEnv: true,
-    stdout: "piped",
-    stderr: "piped",
-  }).spawn();
-  const hungPid = hung.pid;
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  hung.kill("SIGKILL");
-  await hung.status;
-  let alive = true;
-  try {
-    Deno.kill(hungPid, "SIGCONT");
-  } catch {
-    alive = false;
-  }
-  assert(!alive);
+    timeout_ms: 400,
+    env: {},
+  }, {
+    memory: {
+      limit(command, args) {
+        return Promise.resolve({
+          ok: true,
+          value: { mode: "hard" as const, command, args: [...args] },
+        });
+      },
+    },
+  });
+  assert(hung.ok);
+  const hungPid = hung.value.pid;
+  const hungOut = await hung.value.finished();
+  assertEquals(hungOut.end_reason, "timeout");
+  assert(!alivePid(hungPid));
   await Deno.remove(root, { recursive: true });
 });

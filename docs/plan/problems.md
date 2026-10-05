@@ -186,9 +186,9 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-test실행의 `request-test`(runner 준비 쪽)
 - slice: apps
 - 선행: problems#T7, contracts#T34, platform#T7, platform#T8, platform#T12, platform#T30, apps#T6, apps#T7
-- 상태: 진행 (#191) — 남은 것: ledger에 시작 시도를 확정한 뒤의 spawn 연결, 묶음 밖 symlink real path 거절의 실제 파일 확인, test 앱 자식 SDK 보고를 runner가 broker로 collector에 넘기는 경로, 자식이 core·collector 주소와 credential을 받지 않는 확인
+- 상태: 진행 (#191) — 남은 것: ledger에 시작 시도를 확정한 뒤의 spawn 연결, test 앱 자식 SDK 보고를 runner가 broker로 collector에 넘기는 경로, 자식이 core·collector 주소와 credential을 받지 않는 확인
 - 완료:
-  - 자식은 `deno test --no-prompt --cached-only --locked --v8-flags=--max-old-space-size=256`, 읽기는 고정 source·의존·harness, 쓰기는 side의 scratch·fixture DB, 환경은 명시한 안전 변수만; `-A`·무제한 read/write/env/net·`--allow-run`·FFI 요청은 거절(R13, R14)
+  - 자식은 `deno test --no-prompt --cached-only --frozen-lockfile --v8-flags=--max-old-space-size=256`, 읽기는 고정 source·의존·harness, 쓰기는 side의 scratch·fixture DB, 환경은 명시한 안전 변수만; `-A`·무제한 read/write/env/net·`--allow-run`·FFI 요청은 거절(R13, R14). deno 2.9에 `--locked`가 없어 잠긴 lockfile은 `--frozen-lockfile`이다
   - 운영 DB·backup·keychain·홈 경로 접근이 실패하고 fixture DB만 바뀐다(R13)
   - argv는 허용한 Deno test 진입점만, shell 문법·native 실행 파일·`..`·묶음 밖 symlink·timeout 누락은 시작 전 거절(R16, R19)
   - private IPC 관측 frame 65,536 bytes·side 1,048,576 bytes, side와 test hash 불일치·잘못된·누락·초과 관측은 `inconclusive`; stdout의 pass 문자열과 자식이 만든 파일은 판정에 안 쓴다(R19)

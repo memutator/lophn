@@ -64,20 +64,28 @@ export function prepareCommand(
   for (const path of reads) {
     if (!path.startsWith("/") || path.includes("\0")) return reject();
   }
-  // 요청 argv의 권한 flag는 받지 않는다. runner가 고정 flag와 좁은 권한만 붙인다.
-  const entry = method.argv.filter((arg) => !arg.startsWith("-"));
+  // `-`로 시작하는 요청 argv는 권한 flag일 수 있다. 조용히 버리지 않고 거절한다.
+  if (method.argv.slice(1).some((arg) => arg.startsWith("-"))) return reject();
+  const envNames = Object.keys(input.env);
+  // `--no-prompt` 같은 전역 flag는 서브커맨드 앞에 둔다. deno 2.9는
+  // `test --no-prompt`를 거절한다.
+  const args = [
+    "test",
+    ...FIXED_DENO_FLAGS,
+    `--allow-read=${reads.join(",")}`,
+    `--allow-write=${input.scratch}`,
+  ];
+  // 안전 변수를 넘길 때만 그 이름만 --allow-env에 넣는다. 없으면 env 권한도 없다.
+  if (envNames.length > 0) {
+    args.push(`--allow-env=${envNames.join(",")}`);
+  }
+  args.push(...method.argv.slice(1));
   return ok({
     executable: input.deno,
-    args: [
-      ...FIXED_DENO_FLAGS,
-      "test",
-      `--allow-read=${reads.join(",")}`,
-      `--allow-write=${input.scratch}`,
-      ...entry.slice(1),
-    ],
+    args,
     cwd,
     timeout_ms: method.timeout_ms,
-    env: { ...input.env },
+    env: envNames.length > 0 ? { ...input.env } : {},
   });
 }
 

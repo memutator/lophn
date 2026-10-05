@@ -869,6 +869,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T29 설치 engine: plan·install·update·remove·receipt
 
+- 상태: 진행 (#217) — 남은 것: 제품별 adapter의 실제 설정 위치·hook·skill 발견 root 적용(T30·T31), loading 검사(harnesses#R10), CLI 실행 경로와 파일 쓰기의 연결
 - 등급: 최상위
 - concern: coding-agent/harnesses, coding-agent/connection, coding-agent/cli,
   coding-agent/guides

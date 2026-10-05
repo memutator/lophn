@@ -138,4 +138,19 @@ packages/platform/responsiveness/measure-load_test.ts`로 따로 돌린다.
 - `fixtures/apps/`: 예시 앱. 할 일 앱, 캘린더 앱(command를 다른 앱과 agent가
   씀), rate limit 대시보드 앱(패널·카드), 일부러 깨지는 앱(문제 보고와 수리).
 - 실제 provider로 확인할 때만 `LOPHN_LIVE_PROVIDER=1`과 사람의 계정을 쓴다.
+- shell을 화면에 띄우지 않고 확인할 때는 `LOPHN_SHELL_HEADLESS=1`을 준다. main이
+  만드는 창, 앱·overlay WebContentsView, confirmation window가 모두
+  `show: false`와 `offscreen: true`로 만들어지고 show·focus와 tray는 건너뛴다.
+  `LOPHN_SHELL_SHOT_DIR`도 주면 창마다 첫 paint(`window-<n>-first.png`)와
+  paint가 1.5초 멈춘 뒤 그림(`window-<n>-settled.png`)을 그 폴더에 쓴다.
+  offscreen에서는 `capturePage()`가 실패하고 `--ozone-platform=headless`는
+  Electron 44에서 segfault하므로 둘 다 쓰지 않는다. 변수는 main만 읽고 renderer에는
+  넘기지 않는다. 데이터 root는 core 권한 검사를 지나도록 `mktemp -d`(0700)로 만든다.
+
+  ```sh
+  npm --prefix apps/shell/main run build && (cd apps/shell/renderer && deno task build)
+  home=$(mktemp -d) shots=$(mktemp -d)
+  LOPHN_HOME=$home LOPHN_SHELL_HEADLESS=1 LOPHN_SHELL_SHOT_DIR=$shots \
+    apps/shell/main/node_modules/.bin/electron apps/shell/main/dist/main.cjs
+  ```
   key를 저장소나 fixture에 넣지 않는다.

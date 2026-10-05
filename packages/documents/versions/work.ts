@@ -155,18 +155,6 @@ export function createPrepareAssembly(deps: PrepareDeps) {
       })),
     );
     if (issues.length > 0) return err(invalidIssues(issues));
-    // 판에 묶는 원문은 이 준비 요청이 올린 blob이다. 이미 등록된 blob 재사용은 저장 쪽
-    // 입구가 아직 없어 조용히 빼지 않고 거절한다.
-    const preparations: string[] = [];
-    for (const file of request.files) {
-      if (file.content.kind !== "prepared") {
-        return err({
-          code: "invalid_input",
-          message: "file content must be a prepared blob",
-        });
-      }
-      preparations.push(file.content.blob.preparation);
-    }
     const primary = request.files.find((file) => file.primary)!;
     const contentFiles = request.files.map((file) =>
       fileToContent(file, file.primary)
@@ -243,10 +231,13 @@ export function createPrepareAssembly(deps: PrepareDeps) {
         ? {}
         : { file_basis: request.file_basis as FileObservationBasis }),
       source: request.source,
-      files: contentFiles.map((file, index) => ({
-        ...file,
-        preparation_ref: preparations[index],
-      })),
+      // 새 바이트는 준비 참조로, 이미 등록된 blob은 그 참조로 판에 묶는다.
+      files: contentFiles.map((file, index) => {
+        const content = request.files[index].content;
+        return content.kind === "prepared"
+          ? { ...file, preparation_ref: content.blob.preparation }
+          : { ...file, existing: content.reference };
+      }),
     });
   };
 }

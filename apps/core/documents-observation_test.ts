@@ -613,3 +613,143 @@ Deno.test("documents/versions#R8: 범위 밖 자격이 관측한 판을 읽는 �
     await close(opened);
   }
 });
+
+async function expectOriginals(
+  core: Core,
+  home: string,
+  document: string,
+  texts: string[],
+): Promise<void> {
+  const rows = ledger(home, (db) =>
+    db.prepare(
+      "SELECT id, number FROM versions WHERE document = ? ORDER BY number",
+    ).all(document) as unknown as { id: string; number: number }[]);
+  assertEquals(rows.length, texts.length);
+  for (const [index, row] of rows.entries()) {
+    const bytes = new TextEncoder().encode(texts[index]);
+    const read = await readOriginal(core, `${row.id}/a.md`, bytes.length);
+    assertEquals(read.status, 200, JSON.stringify(read.body));
+    assertEquals(read.body["status"], "available");
+    assertEquals(decoded(read.body), texts[index]);
+    const files = ledger(home, (db) =>
+      db.prepare(
+        "SELECT blob_hash, bytes FROM version_files WHERE version = ?",
+      ).all(row.id) as unknown as Json[]);
+    assertEquals(files, [{
+      blob_hash: await sha256Hex(bytes as Uint8Array<ArrayBuffer>),
+      bytes: bytes.length,
+    }]);
+  }
+}
+
+Deno.test("documents/versions#R5 #R8: 파일을 A→B→A로 빠르게 고쳐도 세 판 모두 원문이 읽힌다", async () => {
+  const a = "# a\n\n처음 내용\n";
+  const b = "# a\n\n고친 내용\n";
+  const opened = await openTrackedFolder({ "a.md": a });
+  const { core, home, folder } = opened;
+  try {
+    await until("version 1", () => {
+      const rows = versions(home);
+      return rows.length === 1 ? rows : undefined;
+    });
+    // 준비 참조 수명(10분) 안에 같은 바이트(A)로 되돌린다. 같은 준비를 다시 쓴다.
+    await Deno.writeTextFile(`${folder}/a.md`, b);
+    await until("version 2", () => {
+      const rows = versions(home);
+      return rows.length === 2 ? rows : undefined;
+    });
+    await Deno.writeTextFile(`${folder}/a.md`, a);
+    const all = await until("version 3", () => {
+      const rows = versions(home);
+      return rows.length === 3 ? rows : undefined;
+    });
+    assertEquals(all.map((row) => row.number), [1, 2, 3]);
+    assertEquals(new Set(all.map((row) => row.document)).size, 1);
+    await expectOriginals(core, home, all[0].document, [a, b, a]);
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("documents/versions#R5 #R8: 시간이 지난 뒤 옛 바이트로 되돌린 판도 원문이 읽힌다", async () => {
+  const a = "# a\n\n처음 내용\n";
+  const b = "# a\n\n고친 내용\n";
+  const opened = await openTrackedFolder({ "a.md": a });
+  const { home, folder } = opened;
+  let core = opened.core;
+  try {
+    await until("version 1", () => {
+      const rows = versions(home);
+      return rows.length === 1 ? rows : undefined;
+    });
+    await Deno.writeTextFile(`${folder}/a.md`, b);
+    await until("version 2", () => {
+      const rows = versions(home);
+      return rows.length === 2 ? rows : undefined;
+    });
+    // 한참 뒤(fake clock +1일, 준비 참조는 core 재시작으로도 사라진다) A로 되돌린다.
+    await core.shutdown();
+    core = await startCoreAt(
+      home,
+      "cred_observe_person",
+      true,
+      31,
+      START_MS + DAY_MS,
+    );
+    opened.core = core;
+    await Deno.writeTextFile(`${folder}/a.md`, a);
+    const all = await until("version 3", () => {
+      const rows = versions(home);
+      return rows.length === 3 ? rows : undefined;
+    });
+    await expectOriginals(core, home, all[0].document, [a, b, a]);
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("documents/versions#R5 #R8: 내용이 같은 두 파일은 다른 문서로 모두 저장되고 각자 원문을 가진다", async () => {
+  const text = "# same\n\n같은 내용\n";
+  const bytes = new TextEncoder().encode(text);
+  const opened = await openTrackedFolder({ "a.md": text, "b.md": text });
+  const { core, home } = opened;
+  try {
+    const all = await until("two versions", () => {
+      const rows = versions(home);
+      return rows.length === 2 ? rows : undefined;
+    });
+    assertEquals(new Set(all.map((row) => row.document)).size, 2);
+    const hash = await sha256Hex(bytes as Uint8Array<ArrayBuffer>);
+    for (
+      const row of ledger(
+        home,
+        (db) =>
+          db.prepare("SELECT id FROM versions").all() as unknown as {
+            id: string;
+          }[],
+      )
+    ) {
+      const files = ledger(home, (db) =>
+        db.prepare(
+          "SELECT path, blob_hash FROM version_files WHERE version = ?",
+        ).all(row.id) as unknown as Json[]);
+      assertEquals(files.length, 1);
+      assertEquals(files[0]["blob_hash"], hash);
+      const read = await readOriginal(
+        core,
+        `${row.id}/${files[0]["path"]}`,
+        bytes.length,
+      );
+      assertEquals(read.status, 200, JSON.stringify(read.body));
+      assertEquals(decoded(read.body), text);
+    }
+    // 같은 바이트의 참조는 판마다 따로다.
+    assertEquals(
+      fileRefs(home).filter((ref) => ref.field === "file" && ref.hash === hash)
+        .length,
+      2,
+    );
+  } finally {
+    await close(opened);
+  }
+});

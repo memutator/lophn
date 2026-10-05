@@ -30,7 +30,12 @@ export function createPreparationRegistry(): PreparationRegistry {
     register(prepared, nowMs) {
       const key =
         `${prepared.principal}\u0000${prepared.purpose}\u0000${prepared.hash}`;
-      if (refs.has(key)) {
+      // 만기 참조는 prune 전이라도 없는 것이다. 같은 hash를 다시 준비할 수 있다.
+      const found = refs.get(key);
+      if (
+        found !== undefined &&
+        nowMs - found.registeredAtMs < BLOB_PREPARATION_TTL_MS
+      ) {
         return err({ code: "conflict", message: "같은 준비 참조가 이미 있다" });
       }
       refs.set(key, { prepared, registeredAtMs: nowMs });

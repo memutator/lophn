@@ -438,6 +438,7 @@ async function open(
           baseVersionRead(runtime),
           requestPrincipal(runtime),
           validatePort,
+          () => clock.nowMs(),
         ),
         mergedWorkers(
           servedWorkers({
@@ -1132,6 +1133,7 @@ function documentPrepareWorkers(
   loadBaseVersion: BaseVersionFor,
   principalOf: (request: WorkerRequest) => string | undefined,
   validateFiles: ValidatePort,
+  nowMs: () => number,
 ): ReadonlyMap<string, WorkerRouteTarget> {
   const route = documentPrepareRoute({
     sink: (request) =>
@@ -1159,6 +1161,8 @@ function documentPrepareWorkers(
       }),
     available: () => relay.current !== undefined,
     observedAt: () => new Date().toISOString(),
+    principalOf,
+    nowMs,
     // format 검사는 coordinator의 format runner가 한다. 원문 blob은 I/O worker에서 읽어
     // 감독 pipe로 넘긴다(documents-validate.ts).
     validateFiles,

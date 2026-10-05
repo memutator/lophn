@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { err } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import { createVersionCommands } from "./commands.ts";
 import {
   file,
@@ -713,5 +713,137 @@ Deno.test("documents/file-tracking#R7: 새 문서 제출이 이미 있는 연결
     assertEquals(count?.["count"], 0);
   } finally {
     fixture.close();
+  }
+});
+
+// 이미 등록된 원문 blob을 새 판의 파일로 다시 묶는 입력(옛 내용으로 되돌림, 같은 바이트).
+function existingFile(
+  version: string,
+  path: string,
+  overrides: Record<string, unknown> = {},
+) {
+  const { content: _content, preparation_ref: _ref, ...plain } = file(
+    path,
+    true,
+  );
+  return {
+    ...plain,
+    existing: {
+      owner_kind: "document_version",
+      owner_key: `${version}/${path}`,
+      field: "file",
+      hash: HASH,
+      registered_seq: "1",
+    },
+    ...overrides,
+  };
+}
+
+function secondVersion(
+  base: string,
+  files: unknown[],
+  key = "save-2",
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    ...preparedInput(ids.doc, [file("a.md", true)]),
+    base_version: base,
+    metadata: undefined,
+    idempotency_key: key,
+    content_hash: "cd".repeat(32),
+    files,
+    ...extra,
+  } as unknown as ReturnType<typeof preparedInput>;
+}
+
+Deno.test("documents/versions#R5: 이미 등록된 원문 blob은 같은 tx에서 새 판의 경로에 다시 묶인다", () => {
+  const fixture = versionFixture();
+  try {
+    const first = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+    );
+    const reused = keep(
+      save(
+        fixture,
+        secondVersion(first.version, [existingFile(first.version, "a.md")]),
+      ),
+    );
+    assertEquals(reused.status, "saved");
+    const rows = fixture.sql.all(
+      "SELECT path, blob_hash, bytes FROM version_files WHERE version = ?",
+      [reused.version],
+    );
+    assertEquals(rows.map((row) => [row["path"], row["blob_hash"]]), [[
+      "a.md",
+      HASH,
+    ]]);
+    assertEquals(
+      fixture.blobs.filter((blob) =>
+        blob.owner_key === `${reused.version}/a.md`
+      ).map((blob) => [blob.field, blob.hash]),
+      [["file", HASH]],
+    );
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/versions#R5: 없는 기존 참조와 권한 밖 참조는 같은 답이고 아무것도 남기지 않는다", () => {
+  const denyFile = versionFixture((_ctx, operation) =>
+    operation === "document.file"
+      ? err({ code: "forbidden", message: "범위 밖" })
+      : ok(undefined)
+  );
+  const open = versionFixture();
+  try {
+    const answers: unknown[] = [];
+    for (const fixture of [denyFile, open]) {
+      const first = keep(
+        save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+      );
+      const before = fixture.blobs.length;
+      const target = fixture === denyFile
+        ? existingFile(first.version, "a.md") // 있지만 권한 밖
+        : existingFile("ver_01arz3ndektsv4rrffq69g5fb9", "a.md"); // 없음
+      const rejected = save(fixture, secondVersion(first.version, [target]));
+      assert(!rejected.ok);
+      answers.push(rejected.error);
+      assertEquals(fixture.blobs.length, before);
+      assertEquals(
+        fixture.sql.get("SELECT COUNT(*) AS count FROM versions", [])?.[
+          "count"
+        ],
+        1,
+      );
+    }
+    assertEquals(answers[0], answers[1]);
+    // 판 파일 참조가 아닌 blob(목록 blob 등)이나 다른 크기를 가리키는 참조도 같은 답이다.
+    const first = keep(
+      save(open, preparedInput(ids.other, [file("a.md", true)])),
+    );
+    for (
+      const bad of [
+        existingFile(first.version, "a.md", {
+          existing: {
+            owner_kind: "document_version",
+            owner_key: first.version,
+            field: "files",
+            hash: HASH,
+            registered_seq: "1",
+          },
+        }),
+        existingFile(first.version, "a.md", { bytes: 99 }),
+      ]
+    ) {
+      const result = save(
+        open,
+        secondVersion(first.version, [bad], "save-9", { document: ids.other }),
+      );
+      assert(!result.ok);
+      assertEquals(result.error, answers[0]);
+    }
+  } finally {
+    denyFile.close();
+    open.close();
   }
 });

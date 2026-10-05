@@ -94,10 +94,15 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
         registerBlobRef: (reference: {
           owner_key: string;
           field: string;
-          source: { kind: string; blob?: PreparedBlob };
+          source: {
+            kind: string;
+            blob?: PreparedBlob;
+            reference?: { hash: string };
+          };
         }) => {
           guard();
-          const hash = reference.source.blob?.hash ?? "";
+          const hash = reference.source.blob?.hash ??
+            reference.source.reference?.hash ?? "";
           blobs.push({
             owner_key: reference.owner_key,
             field: reference.field,

@@ -313,6 +313,27 @@ Deno.test("platform/blob-store#R1: 다른 주체·목적의 같은 hash는 별�
   if (!duplicate.ok) assertEquals(duplicate.error.code, "conflict");
 });
 
+Deno.test("platform/blob-store#R1: 만기된 준비 참조는 prune 전이라도 같은 hash를 다시 등록할 수 있다", () => {
+  const registry = createPreparationRegistry();
+  const prepared = {
+    preparation: "prep-a",
+    principal: "user",
+    purpose: PURPOSE,
+    hash: "a".repeat(64),
+    size_bytes: 4,
+  };
+  assert(registry.register(prepared, 0).ok);
+  // 만기 직전까지는 같은 참조가 살아 있어 충돌한다.
+  assertEquals(
+    registry.register(prepared, BLOB_PREPARATION_TTL_MS - 1).ok,
+    false,
+  );
+  const again = { ...prepared, preparation: "prep-b" };
+  assert(registry.register(again, BLOB_PREPARATION_TTL_MS).ok);
+  const live = registry.live(again, BLOB_PREPARATION_TTL_MS + 1);
+  assert(live.ok && live.value);
+});
+
 Deno.test("platform/blob-store#R12: I/O worker 권한(run 없음)에서 quota 관측을 부른다", async () => {
   // 제품 launch spec(apps/core/core.ts platformIoSpec)은 allow_run을 열지 않는다.
   // 이 권한 모양에서 실제 관측 경로가 NotCapable로 떨어지지 않고 undefined(관측 불가)로 끝나는지 본다.

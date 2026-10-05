@@ -33,6 +33,7 @@ import {
   run,
   saved,
   validation,
+  version,
   versionRecord,
 } from "./document-fixtures.ts";
 
@@ -160,6 +161,39 @@ Deno.test("documents/versions#R5: prepared version carries each file with its ow
   assert(
     preparedVersionOutputSchema.safeParse(listed([first])).success,
   );
+  // 이미 등록된 blob은 준비 참조 대신 그 참조(existing)로 가리킨다.
+  const reference = {
+    owner_kind: "document_version",
+    owner_key: `${version}/figure.png`,
+    field: "file",
+    hash: attachment.blob_hash,
+    registered_seq: "3",
+  };
+  const reused = { ...attachment, existing: reference };
+  assert(
+    preparedVersionSchema.safeParse(
+      listed([first, reused], { file_count: 2 }),
+    ).success,
+  );
+  assert(
+    preparedVersionOutputSchema.safeParse(
+      listed([first, reused], { file_count: 2 }),
+    ).success,
+  );
+  // 참조가 파일의 blob이 아니거나, 두 출처를 함께 주거나, 둘 다 없으면 거절한다.
+  for (
+    const bad of [
+      { ...reused, existing: { ...reference, hash: otherHash } },
+      { ...reused, preparation_ref: "prep-file-2" },
+      { ...attachment },
+      { ...reused, existing: { ...reference, extra: true } },
+    ]
+  ) {
+    assert(
+      !preparedVersionSchema.safeParse(listed([first, bad], { file_count: 2 }))
+        .success,
+    );
+  }
 });
 
 Deno.test("documents/versions#R6: unknown fields, bad values and id prefixes are rejected", () => {

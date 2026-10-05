@@ -47,7 +47,11 @@ export type PreparedBlobRef = {
 export type ObservationPorts = {
   client: CoreClient;
   // 원문 바이트를 blob으로 준비한다. child→core blob.prepare 통로는 platform 몫이다.
-  prepareBlob(bytes: Uint8Array): Promise<Result<PreparedBlobRef, LophnError>>;
+  // hash는 읽은 바이트의 sha256이다(`reusePreparedBlob`이 같은 바이트의 살아 있는 준비를 찾는다).
+  prepareBlob(
+    bytes: Uint8Array,
+    hash: string,
+  ): Promise<Result<PreparedBlobRef, LophnError>>;
   link(
     submit: ObservationSubmit,
   ): Promise<Result<ObservationLink, LophnError>>;
@@ -156,7 +160,7 @@ export function createObservationSubmit(
       );
       return ok(undefined);
     }
-    const blob = await ports.prepareBlob(read.bytes);
+    const blob = await ports.prepareBlob(read.bytes, read.hash);
     if (!blob.ok) {
       ports.status.report(
         key,
@@ -265,13 +269,47 @@ export function childBlobPort(session: {
     sizeBytes: number;
     bytes: Uint8Array;
   }): Promise<Result<PreparedBlobRef, LophnError>>;
-}): ObservationPorts["prepareBlob"] {
+}): (bytes: Uint8Array) => ReturnType<ObservationPorts["prepareBlob"]> {
   return (bytes) =>
     session.prepareBlob({
       purpose: "document_file",
       sizeBytes: bytes.length,
       bytes,
     });
+}
+
+// core의 준비 참조는 principal·purpose·hash가 같으면 하나다(10분 수명). 같은 바이트를 다시
+// 준비하면 충돌하므로(A→B→A, 같은 내용의 다른 파일) 살아 있는 준비를 다시 쓴다. 저장
+// command는 참조를 소비하지 않고 살아 있는지만 보므로 여러 판이 같은 준비를 쓸 수 있다.
+// 수명이 다 되기 전에 놓아 주고(마진), 만기 뒤에는 새로 준비한다. 이미 영구 등록된
+// blob이어도 새 준비는 같은 내용이라 그대로 저장된다.
+export const PREPARATION_REUSE_MS = 8 * 60 * 1000;
+
+export function reusePreparedBlob(
+  prepare: ObservationPorts["prepareBlob"],
+  nowMs: () => number,
+  reuseMs: number = PREPARATION_REUSE_MS,
+): ObservationPorts["prepareBlob"] {
+  // 준비가 끝나기 전의 같은 바이트 요청도 같은 약속을 기다린다(같은 내용의 파일을 한꺼번에
+  // 관측할 때 둘이 동시에 준비해 충돌하지 않게).
+  const live = new Map<string, {
+    pending: ReturnType<ObservationPorts["prepareBlob"]>;
+    at: number;
+  }>();
+  return async (bytes, hash) => {
+    const now = nowMs();
+    for (const [key, entry] of live) {
+      if (now - entry.at >= reuseMs) live.delete(key);
+    }
+    const found = live.get(hash);
+    if (found !== undefined) return await found.pending;
+    const pending = prepare(bytes, hash);
+    live.set(hash, { pending, at: now });
+    const prepared = await pending;
+    // 실패한 준비는 다시 시도할 수 있게 남기지 않는다.
+    if (!prepared.ok && live.get(hash)?.pending === pending) live.delete(hash);
+    return prepared;
+  };
 }
 
 // 관측 근거 store에서 경로의 연결을 읽는 link port. 연결이 없는 파일은 새 문서가 된다

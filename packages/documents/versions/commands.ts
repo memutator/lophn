@@ -4,6 +4,7 @@
 
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  type ContentFile,
   type Document,
   documentArchive,
   documentArchived,
@@ -22,6 +23,7 @@ import {
   type Version,
 } from "../../contracts/documents/mod.ts";
 import {
+  type BlobRefRegistration,
   type CommandDefinition,
   defineBlobField,
   parseActor,
@@ -400,7 +402,7 @@ function mintVersion(
     document: prepared.document,
     number,
     // 파일 목록 행(version_files)은 storeVersion이 같은 tx에서 남긴다.
-    files: prepared.files.map(({ preparation_ref: _ref, ...file }) => file),
+    files: prepared.files.map(contentFileOf),
     content_hash: prepared.content_hash,
     format: prepared.format,
     saved_by: ctx.actor,
@@ -428,12 +430,20 @@ function storeVersion(
   });
   if (!listed.ok) return listed;
   for (const file of prepared.files) {
+    let source: BlobRefRegistration["source"];
+    if ("preparation_ref" in file) {
+      source = { kind: "prepared", blob: fileBlob(ctx, file) };
+    } else {
+      const allowed = existingFileAllowed(tx, ctx, file);
+      if (!allowed.ok) return allowed;
+      source = { kind: "existing", reference: file.existing };
+    }
     const original = tx.registerBlobRef({
       owner_kind: versionFileField.owner_kind,
       owner_key: `${version.id}/${file.path}`,
       field: versionFileField.field,
       registered_seq: "1",
-      source: { kind: "prepared", blob: fileBlob(ctx, file) },
+      source,
     });
     if (!original.ok) return original;
   }
@@ -445,7 +455,58 @@ function storeVersion(
   return ok(undefined);
 }
 
-function fileBlob(ctx: RequestContext, file: PreparedFile): PreparedBlob {
+function contentFileOf(file: PreparedFile): ContentFile {
+  return {
+    path: file.path,
+    blob_hash: file.blob_hash,
+    bytes: file.bytes,
+    media_type: file.media_type,
+    primary: file.primary,
+  };
+}
+
+// 이미 등록된 원문 blob을 새 판의 파일로 다시 묶을 수 있는지. 그 blob은 documents의 판 파일
+// 참조여야 하고, 그 판의 문서를 이 자격이 읽을 수 있어야 한다. 없는 참조와 권한 밖은 같은
+// 답이다(존재를 새지 않는다).
+function existingFileAllowed(
+  tx: Tx,
+  ctx: RequestContext,
+  file: Extract<PreparedFile, { existing: unknown }>,
+): Result<void> {
+  const absent = rejected(
+    "forbidden",
+    "existing blob reference is not allowed",
+  );
+  const ref = file.existing;
+  if (
+    ref.owner_kind !== versionFileField.owner_kind ||
+    ref.field !== versionFileField.field
+  ) return absent;
+  const slash = ref.owner_key.indexOf("/");
+  if (slash < 0) return absent;
+  const sourceVersion = ref.owner_key.slice(0, slash);
+  const sourcePath = ref.owner_key.slice(slash + 1);
+  const row = tx.sql.get(
+    `SELECT v.document AS document FROM versions v
+     JOIN version_files f ON f.version = v.id
+     WHERE v.id = ? AND f.path = ? AND f.blob_hash = ? AND f.bytes = ?`,
+    [sourceVersion, sourcePath, file.blob_hash, file.bytes],
+  );
+  const owner = row?.["document"];
+  if (typeof owner !== "string") return absent;
+  const document = loadDocument(tx.sql, owner);
+  if (!document.ok || document.value === null) return absent;
+  const access = authorizeDocument(tx.port, ctx, "document.file", {
+    kind: "document",
+    document: document.value,
+  });
+  return access.ok ? ok(undefined) : absent;
+}
+
+function fileBlob(
+  ctx: RequestContext,
+  file: Extract<PreparedFile, { preparation_ref: string }>,
+): PreparedBlob {
   return {
     preparation: file.preparation_ref,
     hash: file.blob_hash,

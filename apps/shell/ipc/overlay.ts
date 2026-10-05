@@ -18,14 +18,34 @@ export const overlayKindSchema = z.enum([
   "drag",
   "notification",
 ]);
+// palette 행 앞의 아이콘 이름. 그림은 overlay가 design에서 고른다.
+export const PALETTE_ICONS = [
+  "tab",
+  "document",
+  "file",
+  "context",
+  "project",
+  "app",
+  "launcher",
+  "screen",
+  "terminal",
+  "panel",
+] as const;
 export const overlayModelSchema = z.object({
   label: z.string().max(256),
   text: z.string().max(4096).optional(),
+  // palette만 쓴다. 켜면 overlay는 검색어를 거르지 않고 연 쪽에 query로 돌려준다.
+  search: z.boolean().optional(),
   choices: z.array(
     z.object({
       id,
       label: z.string().min(1).max(256),
       disabled: z.boolean().optional(),
+      // palette 묶음 이름·보조 글·키 이름·아이콘. 다른 표면은 그리지 않는다.
+      group: z.string().min(1).max(64).optional(),
+      detail: z.string().max(256).optional(),
+      hint: z.string().max(32).optional(),
+      icon: z.enum(PALETTE_ICONS).optional(),
     }).strict(),
   ).max(64).refine((items) =>
     new Set(items.map((item) => item.id)).size === items.length
@@ -39,6 +59,11 @@ export const overlayOpenSchema = z.object({
 }).strict();
 const identity = { surfaceId: id, generation: z.number().int().positive() };
 export const overlayCloseSchema = z.object(identity).strict();
+// 연 쪽이 검색어에 맞춰 palette 행을 바꾼다. 같은 표면·generation에만 적용한다.
+export const overlayUpdateSchema = z.object({
+  ...identity,
+  model: overlayModelSchema,
+}).strict();
 const pointer = {
   pointerId: z.number().int().min(0).max(2147483647),
   x: coordinate,
@@ -48,6 +73,11 @@ const pointer = {
 export const overlayResultSchema = z.discriminatedUnion("type", [
   z.object({ ...identity, type: z.literal("selected"), choiceId: id }).strict(),
   z.object({ ...identity, type: z.literal("closed") }).strict(),
+  z.object({
+    ...identity,
+    type: z.literal("query"),
+    text: z.string().max(256),
+  }).strict(),
   z.object({ ...identity, ...pointer, type: z.literal("pointer") }).strict(),
   z.object({ ...identity, ...pointer, type: z.literal("drag-end") }).strict(),
   z.object({ ...identity, type: z.literal("drag-cancel") }).strict(),
@@ -56,6 +86,9 @@ export type OverlayKind = z.infer<typeof overlayKindSchema>;
 export type Rect = z.infer<typeof rectSchema>;
 export type OverlayOpen = z.infer<typeof overlayOpenSchema>;
 export type OverlayIdentity = z.infer<typeof overlayCloseSchema>;
+export type OverlayModel = z.infer<typeof overlayModelSchema>;
+export type OverlayUpdate = z.infer<typeof overlayUpdateSchema>;
+export type PaletteIcon = typeof PALETTE_ICONS[number];
 export type OverlayResult = z.infer<typeof overlayResultSchema>;
 export type OverlaySurface = OverlayOpen & OverlayIdentity & { rect: Rect };
 export type OverlaySnapshot = {
@@ -91,10 +124,21 @@ export type OverlayDragUpdate = OverlayIdentity & {
   type: "pointer";
   bounds: Rect;
 };
-export type OverlayEvent = OverlaySnapshot | OverlayOutcome | OverlayDragUpdate;
+/** 검색 palette에서 사람이 고친 검색어. 표면은 열린 채다. */
+export type OverlayQuery = OverlayIdentity & {
+  requestId: string;
+  type: "query";
+  text: string;
+};
+export type OverlayEvent =
+  | OverlaySnapshot
+  | OverlayOutcome
+  | OverlayDragUpdate
+  | OverlayQuery;
 export interface OverlayApi {
   open(input: OverlayOpen): Promise<OverlayReply<OverlayIdentity>>;
   close(input: OverlayIdentity): Promise<OverlayReply<null>>;
+  update(input: OverlayUpdate): Promise<OverlayReply<null>>;
   result(input: OverlayResult): Promise<OverlayReply<null>>;
   subscribe(
     listener: (event: OverlayEvent) => void,

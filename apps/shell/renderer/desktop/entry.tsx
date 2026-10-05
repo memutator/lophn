@@ -8,6 +8,10 @@ import { coreLophnSource } from "./lophn-space/core-source.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
+import type { OverlayApi } from "../../ipc/overlay.ts";
+import type { ShortcutApi } from "../../ipc/shortcuts.ts";
+import type { PaletteDeps } from "./palette/host.tsx";
+import { documentSearch } from "./palette/search.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -28,6 +32,20 @@ const terminal = windowTerminalDeps(
   (host) => createXtermView(host),
 );
 
+// 창 안 팔레트. overlay와 shortcut 통로는 desktop preload가 연다.
+const bridges = globalThis as {
+  lophnShell?: OverlayApi;
+  lophnShortcuts?: ShortcutApi;
+};
+const palette: PaletteDeps | undefined =
+  bridges.lophnShell && bridges.lophnShortcuts
+    ? {
+      overlay: bridges.lophnShell,
+      shortcuts: bridges.lophnShortcuts,
+      search: documentSearch(lophn),
+    }
+    : undefined;
+
 mount(
   <div className={styles.root}>
     <Desktop
@@ -38,6 +56,7 @@ mount(
       windowWidth={seed ? 1440 : undefined}
       terminal={terminal}
       lophn={lophn}
+      palette={palette}
     />
   </div>,
 );

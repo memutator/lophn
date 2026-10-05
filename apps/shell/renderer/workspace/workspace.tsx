@@ -28,10 +28,17 @@ import { InfoPanel, type InfoTab } from "./info-panel-slot/info-panel.tsx";
 import type {
   ContextRow,
   DocumentRow,
+  FileRow,
   LayoutRead,
   ProjectView,
   WorkspaceSource,
 } from "./source.ts";
+import {
+  PaletteButton,
+  usePaletteEnv,
+  usePaletteScope,
+} from "../desktop/palette/host.tsx";
+import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
 import {
   type DocumentTabMeta,
   DocumentView,
@@ -61,6 +68,7 @@ export interface WorkspaceProps {
 interface Loaded {
   readonly project: ProjectView | null;
   readonly documents: readonly DocumentRow[];
+  readonly files: readonly FileRow[];
   readonly contexts: readonly ContextRow[];
   readonly failed: boolean;
 }
@@ -74,6 +82,7 @@ interface RestoredLayout {
 const EMPTY_LOADED: Loaded = {
   project: null,
   documents: [],
+  files: [],
   contexts: [],
   failed: false,
 };
@@ -164,16 +173,19 @@ export function Workspace(
   useEffect(() => {
     let live = true;
     const load = async () => {
-      const [project, documents, contexts, layout] = await Promise.all([
+      const [project, documents, contexts, layout, files] = await Promise.all([
         source.project(projectId),
         source.documents(projectId),
         source.contexts(projectId),
         source.readLayout(projectId),
+        source.files(projectId),
       ]);
       if (!live) return;
       setLoaded({
         project: project.ok ? project.value : null,
         documents: documents.ok ? documents.value : [],
+        // 파일 목록은 팔레트만 쓴다. 읽지 못해도 작업대는 그대로 연다.
+        files: files.ok ? files.value : [],
         contexts: contexts.ok ? contexts.value : [],
         failed: !project.ok || !documents.ok || !contexts.ok,
       });
@@ -383,6 +395,38 @@ export function Workspace(
     persist(view, { open, tab });
   };
 
+  // 창 팔레트의 작업대 행(desktop#R30). 고르면 이 작업대 안의 대상으로만 간다.
+  const palette = usePaletteEnv();
+  usePaletteScope(() =>
+    workspaceScope({
+      view,
+      documents: loaded.documents,
+      files: loaded.files,
+      contexts: loaded.contexts,
+      terminal: terminal !== undefined,
+      platform: palette.platform,
+      search: palette.search
+        ? (query) => palette.search!(query, { kind: "project", id: projectId })
+        : undefined,
+      go: (target) => {
+        if (target.kind === "tab") {
+          update({
+            ...view,
+            focusedPane: target.pane,
+            panes: view.panes.map((item, index) =>
+              index === target.pane ? { ...item, selected: target.key } : item
+            ),
+          });
+        } else if (target.kind === "document") openDocument(target.document);
+        else if (target.kind === "context") setInfo(true, "contexts");
+        else if (target.action === "launcher") onLauncher();
+        else if (target.action === "lophn") onLophn();
+        else if (target.action === "terminal") openTerminal();
+        else setInfo(!infoOpen, infoTab);
+      },
+    })
+  );
+
   return (
     <div className={styles.workspace} data-space="project" ref={frameRef}>
       <Sidebar
@@ -427,7 +471,12 @@ export function Workspace(
                 <Breadcrumbs crumbs={crumbs} />
               </span>
             }
-            trailing={<LophnEntry onLophn={onLophn} />}
+            trailing={
+              <span className={styles.trailing}>
+                <PaletteButton />
+                <LophnEntry onLophn={onLophn} />
+              </span>
+            }
           />
         </div>
         {loaded.failed

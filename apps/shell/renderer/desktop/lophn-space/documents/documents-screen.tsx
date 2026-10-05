@@ -25,6 +25,15 @@ export interface DocumentsScreenProps {
   now?: () => number;
   /** 처음 고른 탭. 테스트가 고른다. */
   initialTab?: DocumentsTab;
+  /** 화면 밖(창 팔레트)에서 연 문서. 바뀔 때마다 그 문서를 상세에서 읽는다. */
+  reading?: ReaderRequest;
+}
+
+/** 팔레트가 고른 문서 판. serial은 같은 문서를 다시 골라도 다시 열게 한다. */
+export interface ReaderRequest {
+  readonly document: string;
+  readonly version: string;
+  readonly serial: number;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -32,7 +41,8 @@ const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
 // documents 화면. 왼쪽 360px 목록 칸에서 찾고 고르며 오른쪽 상세에서 읽는다(desktop#R1).
 // 검색·saved view·series가 같은 목록 칸을 나눠 쓰고 대화 없이도 문서에 닿는다.
 export function DocumentsScreen(
-  { source, now = Date.now, initialTab = "search" }: DocumentsScreenProps,
+  { source, now = Date.now, initialTab = "search", reading }:
+    DocumentsScreenProps,
 ) {
   const [tab, setTab] = useState<DocumentsTab>(initialTab);
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
@@ -58,6 +68,18 @@ export function DocumentsScreen(
   }, [source]);
 
   const read = (target: ReaderTarget) => setDetail({ kind: "reader", target });
+
+  useEffect(() => {
+    if (!reading) return;
+    setDetail({
+      kind: "reader",
+      target: {
+        document: reading.document,
+        version: reading.version,
+        section: null,
+      },
+    });
+  }, [reading]);
 
   const readMember = (
     series: string,

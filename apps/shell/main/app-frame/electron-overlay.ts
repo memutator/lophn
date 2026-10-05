@@ -67,6 +67,7 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
     const [channel, method] of [
       ["shell:overlay-open", "open"],
       ["shell:overlay-close", "close"],
+      ["shell:overlay-update", "update"],
       ["overlay:result", "result"],
       ["overlay:subscribe", "subscribe"],
     ] as const

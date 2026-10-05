@@ -405,3 +405,88 @@ test("shell/app-frame#R22: dispose after the window closed skips the destroyed v
   f.controller.dispose();
   assert(v.released);
 });
+
+test("shell/app-frame#R24: 검색 palette는 검색어를 연 쪽에 돌려주고 연 쪽이 바꾼 행만 고를 수 있다", () => {
+  const f = fixture();
+  const v = f.views[0]!;
+  assert(f.controller.subscribe(f.event(v.wc.object), {}).ok);
+  const palette = {
+    ...f.input("palette", "palette"),
+    model: {
+      label: "Search",
+      search: true,
+      choices: [{ id: "old", label: "Old", group: "Documents" }],
+    },
+  };
+  const opened = f.controller.open(f.event(f.shell.object), palette);
+  assert(opened.ok);
+  const identity = opened.value;
+  assert(
+    f.controller.result(f.event(v.wc.object), {
+      ...identity,
+      type: "query",
+      text: "plan",
+    }).ok,
+  );
+  assert.deepEqual(f.shell.messages.at(-1), {
+    requestId: "palette",
+    ...identity,
+    type: "query",
+    text: "plan",
+  });
+  // 연 쪽만 행을 바꾼다. overlay가 보낸 update는 거절한다.
+  const model = {
+    label: "Search",
+    search: true,
+    choices: [{
+      id: "new",
+      label: "Plan",
+      group: "Documents",
+      icon: "document" as const,
+    }],
+  };
+  assert.equal(
+    f.controller.update(f.event(v.wc.object), { ...identity, model }).ok,
+    false,
+  );
+  assert(
+    f.controller.update(f.event(f.shell.object), { ...identity, model }).ok,
+  );
+  const state = v.wc.messages.at(-1)!;
+  assert("surfaces" in state);
+  assert.deepEqual(state.surfaces[0]!.model, model);
+  assert.equal(
+    f.controller.result(f.event(v.wc.object), {
+      ...identity,
+      type: "selected",
+      choiceId: "old",
+    }).ok,
+    false,
+  );
+  assert(
+    f.controller.result(f.event(v.wc.object), {
+      ...identity,
+      type: "selected",
+      choiceId: "new",
+    }).ok,
+  );
+  assert.equal(
+    f.controller.update(f.event(f.shell.object), { ...identity, model }).ok,
+    false,
+  );
+  // 검색하지 않는 표면은 검색어도 행 바꾸기도 받지 않는다.
+  const menu = f.open("menu", "menu");
+  assert.equal(
+    f.controller.result(f.event(v.wc.object), {
+      ...menu,
+      type: "query",
+      text: "x",
+    }).ok,
+    false,
+  );
+  assert.equal(
+    f.controller.update(f.event(f.shell.object), { ...menu, model }).ok,
+    false,
+  );
+  f.controller.dispose();
+});

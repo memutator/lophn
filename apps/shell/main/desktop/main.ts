@@ -8,12 +8,15 @@ import {
   nativeImage,
   protocol,
   Tray,
+  type WebContents,
+  WebContentsView,
 } from "electron";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
+import { WINDOW_SHORTCUT_CHANNEL } from "../../ipc/shortcuts.ts";
 
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
 import { startCoreConnection } from "./core/connection.ts";
@@ -47,6 +50,7 @@ import {
   surfaceOptions,
 } from "./headless.ts";
 import { registerShellScheme } from "./security.ts";
+import { listenShortcuts } from "./shortcuts.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
 import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
@@ -222,6 +226,27 @@ const instance = startSingleInstance({
       confirmWithWindows: () => void quitFlow.request(),
     }),
 });
+
+// 창 안 shortcut. 창 본문·overlay·앱 view 어디에 focus가 있어도 그 창의 shell renderer가
+// 받는다. 보호 창이나 다른 창의 키는 shell 창이 아니라서 건드리지 않는다(desktop#R18).
+app.on("web-contents-created", (_event, contents) => {
+  listenShortcuts(contents, process.platform, (shortcut) => {
+    const window = desktopWindowOf(contents);
+    if (!window) return false;
+    window.webContents.send(WINDOW_SHORTCUT_CHANNEL, shortcut);
+    return true;
+  });
+});
+
+function desktopWindowOf(contents: WebContents): BrowserWindow | undefined {
+  return [...windows].find((window) =>
+    !window.isDestroyed() &&
+    (window.webContents === contents ||
+      window.contentView.children.some((view) =>
+        view instanceof WebContentsView && view.webContents === contents
+      ))
+  );
+}
 
 // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다(desktop#R21).
 app.on("window-all-closed", () => {});

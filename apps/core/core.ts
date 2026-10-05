@@ -39,6 +39,11 @@ import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
 import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
+  type KeychainAdapter,
+  SECRET_SCHEMA_STEPS,
+} from "../../packages/platform/secrets/mod.ts";
+import { productKeychain } from "./secret-store.ts";
+import {
   type BlobPrepareRelay,
   type BufferGauge,
   createBlobPrepareRelay,
@@ -69,7 +74,7 @@ import {
   createDocumentsChannel,
   servedWorkers,
   statusMemoryVia,
-  storedFileWorkers,
+  storedFileStreams,
 } from "./documents-serving.ts";
 import {
   OBSERVATION_BASIS_ROUTE,
@@ -148,6 +153,9 @@ export type CoreOptions = {
   // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
   roleAsset?: (role: BuiltinRole) => Promise<Result<Uint8Array>>;
   bootstrapRetryMs?: number;
+  // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
+  // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
+  secretKeychain?: KeychainAdapter;
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
   // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
@@ -277,6 +285,7 @@ async function open(
       CREDENTIAL_SCHEMA,
       ...assembled.value.schemaSteps,
       ...SETTINGS_SCHEMA_STEPS,
+      ...SECRET_SCHEMA_STEPS,
     ],
     { clock, recovery: { root: root.path } },
   );
@@ -395,6 +404,8 @@ async function open(
     assembled: assembled.value,
     source,
     blob: blobRead.deps,
+    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다.
+    keychain: () => options.secretKeychain ?? productKeychain(),
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
@@ -523,6 +534,19 @@ async function open(
         `${documentUpload.resource}/${documentUpload.method}`,
         documentUploadHandler(prepareRelay),
       ]]),
+      // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
+      fileStreams: storedFileStreams({
+        readers: runtime.readers,
+        current: (ref) => runtime!.current(ref),
+        readBlob: (hash, offset, length) =>
+          validateWiring.readBlob
+            ? validateWiring.readBlob(hash, offset, length)
+            : Promise.resolve(err({
+              code: "unavailable" as const,
+              message: "blob 읽기 통로가 없다",
+            })),
+        blobReady: () => validateWiring.readBlob !== undefined,
+      }),
       workers: mergedWorkers(
         formatValidateWorkers({
           validate: validatePort,
@@ -547,22 +571,7 @@ async function open(
               current: (ref) => runtime!.current(ref),
               observedAt: () => new Date().toISOString(),
             }),
-            mergedWorkers(
-              storedFileWorkers({
-                readers: runtime.readers,
-                current: (ref) => runtime!.current(ref),
-                observedAt: () => new Date().toISOString(),
-                readBlob: (hash, offset, length) =>
-                  validateWiring.readBlob
-                    ? validateWiring.readBlob(hash, offset, length)
-                    : Promise.resolve(err({
-                      code: "unavailable" as const,
-                      message: "blob 읽기 통로가 없다",
-                    })),
-                blobReady: () => validateWiring.readBlob !== undefined,
-              }),
-              options.workers,
-            ),
+            options.workers,
           ),
         ),
       ),

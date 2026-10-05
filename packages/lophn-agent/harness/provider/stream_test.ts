@@ -171,14 +171,16 @@ Deno.test("lophn-agent/harness/provider#R25: event 상한은 data 합계로 넘�
     eventMaxBytes: 10,
     lineMaxBytes: SSE_LINE_MAX_BYTES,
   });
+  // 값 "aaaa" 합계 기준이다. 첫 줄 4, 둘째 8까지는 상한 10 안이다.
   const first = parser.push(utf8.encode("data: aaaa\n"));
   assert(first.ok);
-  const second = parser.push(utf8.encode("data: aaaa\n\n"));
-  // data 두 줄 합계 9 bytes는 아직 상한 안이다.
+  const second = parser.push(utf8.encode("data: aaaa\n"));
   assert(second.ok);
-  assertEquals(second.frames.length, 1);
-  const third = parser.push(utf8.encode("data: aaaa\n\n"));
-  assert(third.ok);
+  // 값 합계 12가 상한 10을 넘는다. event를 버리고 표시한다.
+  const third = parser.push(utf8.encode("data: aaaa\n"));
+  assert(!third.ok);
+  assertEquals(third.over.kind, "event");
+  assertEquals(third.over.limit, 10);
 });
 
 Deno.test("lophn-agent/harness/provider#R25: 기본 상한 값들이 조사 문서의 상한 안이다", () => {

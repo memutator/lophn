@@ -219,6 +219,37 @@ Deno.test("lophn-agent/harness/provider#R25: tool 인자 조각을 index로 모�
   assertEquals(out.completedToolIds, ["toolu_a", "toolu_b"]);
 });
 
+Deno.test("lophn-agent/harness/provider#R25: content_block_start가 빠진 index 희소 배열을 judge가 안전히 세운다", () => {
+  // message_stop 안에서 index 0이 희소 구멍이면(unused index 아님, 존재 건너뜀) 구멍을
+  // 전체 완성이 아니라 partial로 세운다. 구멍에서 던지지 않는다.
+  const out = createStreamResult();
+  collect(out, [
+    {
+      event: "content_block_start",
+      data:
+        '{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_b","name":"echo"}}',
+    },
+    {
+      event: "content_block_delta",
+      data:
+        '{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\\"w\\":2}"}}',
+    },
+    {
+      event: "content_block_stop",
+      data: '{"type":"content_block_stop","index":1}',
+    },
+    {
+      event: "message_delta",
+      data: '{"type":"message_delta","delta":{"stop_reason":"tool_use"}}',
+    },
+    { event: "message_stop", data: '{"type":"message_stop"}' },
+  ]);
+  assertEquals(out.toolCalls.length, 2);
+  // index 0은 구멍이다. complete가 아니라 partial이다. 던져지지 않는다.
+  const verdict = judge(out);
+  assertEquals(verdict.kind, "partial");
+});
+
 Deno.test("lophn-agent/harness/provider#R25: stop 없이 끝난 tool 인자는 완성이 아니다", () => {
   const out = createStreamResult();
   const frames: SseFrame[] = [

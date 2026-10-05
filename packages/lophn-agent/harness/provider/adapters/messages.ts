@@ -170,11 +170,11 @@ function pairedThinking(
   block: AnthropicBlock,
   reasoning: OpaqueReasoningState | undefined,
 ): AnthropicBlock {
-  // signature는 원문 그대로 다시 보낸다(Pi 1404–1438, Hermes 293–299).
-  // 메모리의 시그니처가 이 블록의 것과 다르면 이 턴의 시그니처는 버려진 턴이다.
+  // 상태에는 원문 signature만 산다. 메모리에 상태가 없으면(다른 provider·model,
+  // run 종료) 이 블록의 signature를 지워 전송 대상에서 뺀다. 메모리에 있으면
+  // 블록을 원문 그대로 보낸다. 시그니처 비교·재서명은 T14가 맡는다.
   if (block.signature === undefined) return block;
   if (reasoning?.signature === undefined) {
-    // 상태가 없으면 시그니처 없이는 재전송하지 않는다.
     return { ...block, signature: undefined };
   }
   return block;
@@ -433,6 +433,9 @@ export function judge(out: StreamResult): Verdict {
   if (out.stopReason === "tool_use") {
     if (out.toolCalls.length === 0) return { kind: "partial" };
     for (const call of out.toolCalls) {
+      // toolCalls는 index로 찬 희소 배열이다. content_block_start가 빠진 index는
+      // 구멍이고, 조각도 없으니 complete가 아니다. 던지지 않고 partial로 세운다.
+      if (call === undefined) return { kind: "partial" };
       if (!out.completedToolIds.includes(call.id)) return { kind: "partial" };
       if (!verifiedJson(call.args)) return { kind: "partial" };
     }

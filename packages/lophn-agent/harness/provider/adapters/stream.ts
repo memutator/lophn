@@ -80,7 +80,9 @@ export function createSseParser(
     }
     if (name === "data") {
       dataLines.push(value);
-      eventBytes += length + value.length + 1;
+      // event 상한은 data value 합계이다. 넘으면 그 event를 버리고 표시한다.
+      eventBytes += value.length;
+      if (eventBytes > eventMax) return { kind: "event", limit: eventMax };
     }
     return undefined;
   }

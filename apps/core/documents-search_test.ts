@@ -85,6 +85,14 @@ function prepared(key: string, document: string) {
     primary_path: "a.md",
     content_hash: HASH,
     preparation_ref: `prep-${key}`,
+    files: [{
+      path: "a.md",
+      blob_hash: HASH,
+      bytes: 10,
+      media_type: "text/markdown",
+      primary: true,
+      preparation_ref: `prep-file-${key}`,
+    }],
     idempotency_key: key,
     metadata: { title: "용어집", place: null, name: null },
     format: { name: "document", module_hash: HASH, explicit: false },
@@ -481,6 +489,20 @@ async function notePreparedFor(core: Core, key: string): Promise<void> {
     NOW_MS,
   );
   assert(noted?.ok, noted?.ok ? "" : noted?.error?.message ?? "");
+  const notedFile = await core.notePrepared?.(
+    {
+      preparation: `prep-file-${key}`,
+      principal: "user-1",
+      purpose: "document_file",
+      hash: HASH,
+      size_bytes: 10,
+    },
+    NOW_MS,
+  );
+  assert(
+    notedFile?.ok,
+    notedFile?.ok ? "" : notedFile?.error?.message ?? "",
+  );
 }
 
 Deno.test("documents/outline-and-search#R10: 검색 contract route는 registry에 있다", () => {

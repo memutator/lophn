@@ -25,6 +25,7 @@ import {
   createObservationSubmit,
   linkFromStore,
   retryOnNewBasis,
+  sharePreparedBlob,
 } from "./observation.ts";
 import { createBasisStore } from "./basis.ts";
 import { createByteInbox, validateFiles } from "./validation.ts";
@@ -318,7 +319,7 @@ export async function runCoordinator(root: string): Promise<void> {
             credential: received.credential,
             fetch: productFetch(),
           }),
-          prepareBlob: childBlobPort(current),
+          prepareBlob: sharePreparedBlob(childBlobPort(current)),
           link: linkFromStore(basis, () => ids.newId("doc")),
           status,
           nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),

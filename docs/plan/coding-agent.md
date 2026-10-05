@@ -566,6 +566,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T19 ticket claim: claim·갱신·반납·만료와 claim 검사 read
 
+- 상태: 완료 (#196)
+
 - 등급: 기본
 - concern: coding-agent/tickets, coding-agent/connection
 - 요구: coding-agent/tickets#R11, R12, R13, R14, R16;

@@ -107,6 +107,17 @@ Node `package.json`을 두는 예외를 쓴다. slice를 끝낼 때
 `deno task check`에서는 건너뛴다. 상한을 바꾼 PR은 `LOPHN_MEMORY_KILL=1 deno test --allow-all
 packages/platform/security/memory_limit_test.ts`로 따로 돌린다.
 
+응답 측정(`packages/platform/responsiveness/measure-scenario_test.ts`)은 실제 core를
+임시 LOPHN_HOME으로 띄우고 warm-up 30초 뒤 대상별 1,000개 요청을 보내므로
+무겁고, 사람 장치에서 여러 worker가 도는 동안엔 측정이 흔들린다.
+`LOPHN_MEASURE=1`일 때만 돌고 `deno task check`의 test 단계에서는 건너뛴다.
+측정 문서(responsiveness R8)를 고치거나 응답 목표·측정 방법을 바꾼 PR은
+`LOPHN_MEASURE=1 deno test --allow-all
+packages/platform/responsiveness/measure-scenario_test.ts`로 따로 돌려 보고를 본다.
+harness 자체의 통계·목표 판정 논리는 빠른 단위 테스트
+(`packages/platform/responsiveness/measure_test.ts`)가 맡아
+`deno task check`에서 매번 돈다.
+
 ## 개발 환경
 
 - `deno task dev`: core, agent runtime, app supervisor, shell을 개발 데이터

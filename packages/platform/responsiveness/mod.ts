@@ -58,3 +58,34 @@ export {
   READ_WAIT_PRINCIPAL,
   READ_WAIT_TOTAL,
 } from "./admission.ts";
+export {
+  type Distribution,
+  type Goal,
+  judge,
+  type Judgment,
+  MEASURE_GOALS,
+  type MeasureConditions,
+  type MeasureTarget,
+  type RequestOutcome,
+  type RequestSample,
+  summarize,
+  summarizeSplit,
+} from "./measure.ts";
+export {
+  buildReport,
+  formatReport,
+  formatTargetLine,
+  isComplete,
+  type MeasureReport,
+  reportTarget,
+  type TargetReport,
+  type TargetSamples,
+  unmetTargets,
+} from "./measure-report.ts";
+export {
+  runScenario,
+  type ScenarioClock,
+  type ScenarioOptions,
+  type ScenarioResult,
+  type SendRequest,
+} from "./measure-run.ts";

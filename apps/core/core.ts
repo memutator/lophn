@@ -270,6 +270,8 @@ async function open(
   const stopPrune: { run?: () => void } = {};
   // 활성 tracking root 변화를 보는 확인. documents worker를 띄운 뒤에만 있다.
   let rootsWatch: RootsWatch | undefined;
+  // 종료 때 documents worker의 열린 blob 준비를 닫는다.
+  let closeChildBlob: (() => void) | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
   const source: StatusSource = {
@@ -490,10 +492,31 @@ async function open(
         api_port: server.port,
       });
     announceHello();
-    const documentsCallbacks = {
-      // worker_response는 통로가 요청 id로 맞춘다.
-      onMessage: (message: ChildMessage) => documentsChannel.onMessage(message),
+    // 자식의 blob 준비 요청(원문 → document_file blob)은 시작마다 새 handler가 받는다.
+    // 자식이 멈추면(재시작·종료) 열린 준비는 unavailable로 닫는다(platform Q6).
+    // 나머지 메시지의 worker_response는 통로가 요청 id로 맞춘다.
+    let childBlob: ChildBlobPrepare | undefined;
+    const freshCallbacks = () => {
+      childBlob?.close();
+      const handler = createChildBlobPrepare({
+        kind: "documents/worker",
+        send: (message) =>
+          io.send("documents/worker", message).then((sent) => sent.ok),
+        prepareBlob: (call) =>
+          blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+            code: "unavailable",
+            message: "blob 준비 통로가 없다",
+          })),
+      });
+      childBlob = handler;
+      return {
+        onMessage: (message: ChildMessage) => {
+          if (!handler.onMessage(message)) documentsChannel.onMessage(message);
+        },
+        onFrame: (frame: Frame) => handler.onFrame(frame),
+      };
     };
+    closeChildBlob = () => childBlob?.close();
     const trackingRoots = async (): Promise<Result<readonly string[]>> => {
       const read = await runtime!.readers.read(
         projectTrackingRoots,
@@ -513,7 +536,7 @@ async function open(
       entry.kind === "documents/worker"
     );
     const started = spec
-      ? await io.start(spec, documentsHello, documentsCallbacks)
+      ? await io.start(spec, documentsHello, freshCallbacks())
       : undefined;
     if (started?.ok) {
       documentsChannel.bind((payload) =>
@@ -532,7 +555,7 @@ async function open(
               const restarted = await io.updateSpec(
                 updated,
                 documentsHello,
-                documentsCallbacks,
+                freshCallbacks(),
               );
               return { ok: restarted.ok };
             },
@@ -598,6 +621,7 @@ async function open(
         // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
         ready = false;
         rootsWatch?.stop();
+        closeChildBlob?.();
         // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
         runtime?.memory.disconnect();
         // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야

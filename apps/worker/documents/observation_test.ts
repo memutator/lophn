@@ -12,6 +12,7 @@ import {
   type ObservationSubmit,
 } from "../../../packages/documents/file-tracking/mod.ts";
 import {
+  childBlobPort,
   createObservationSubmit,
   mediaTypeOfPath,
   type ObservationLink,
@@ -235,4 +236,23 @@ Deno.test("documents/formats#R3: 확장자로 MIME을 정하고 모르면 일반
   assertEquals(mediaTypeOfPath("a.md"), "text/markdown");
   assertEquals(mediaTypeOfPath("b.PDF"), "application/pdf");
   assertEquals(mediaTypeOfPath("c.bin"), "application/octet-stream");
+});
+
+Deno.test("documents/file-tracking#R6: 원문 blob은 자식 session의 document_file 준비로 core에 간다", async () => {
+  const seen: { purpose: string; sizeBytes: number }[] = [];
+  const port = childBlobPort({
+    prepareBlob(input) {
+      seen.push({ purpose: input.purpose, sizeBytes: input.sizeBytes });
+      return Promise.resolve(ok({
+        preparation: "p",
+        principal: "machine",
+        purpose: input.purpose,
+        hash: NEW,
+        size_bytes: input.sizeBytes,
+      }));
+    },
+  });
+  const result = await port(new Uint8Array(7));
+  assert(result.ok);
+  assertEquals(seen, [{ purpose: "document_file", sizeBytes: 7 }]);
 });

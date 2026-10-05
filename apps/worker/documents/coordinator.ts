@@ -18,6 +18,18 @@ import {
 } from "../../../packages/platform/responsiveness/mod.ts";
 import { createStatusRecorder } from "../../../packages/documents/file-tracking/mod.ts";
 import { createRequestHandler } from "./requests.ts";
+import {
+  childBlobPort,
+  createObservationSubmit,
+  readObservationSource,
+  unavailableLink,
+} from "./observation.ts";
+import {
+  fileReadPort,
+  fileScanPort,
+  fileWatchPort,
+} from "../../../packages/documents/file-tracking/fs.ts";
+import { createCoreClient, productFetch } from "./submit.ts";
 import { type SlotSupervisor, supervisePreparationSlots } from "./slots.ts";
 import {
   type Candidate,
@@ -265,9 +277,41 @@ export async function runCoordinator(root: string): Promise<void> {
     console.error(...args);
   // FileStatus 메모리. 관측이 채우고 core의 documents.file_status 요청이 읽는다.
   const status = createStatusRecorder();
-  const coordinator = await createCoordinator({
+  // hello가 싣는 machine credential과 core api port로 제출 client를 만든다. 원문 blob은
+  // 자식 session이 감독 pipe로 core에 준비한다. credential은 이 process 메모리에만 있다.
+  const session: { current?: ChildSession } = {};
+  const coordinator: { current?: Coordinator } = {};
+  const created = await createCoordinator({
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
+    onHello(received) {
+      const current = session.current;
+      if (current === undefined) return;
+      const submit = createObservationSubmit({
+        client: createCoreClient({
+          baseUrl: `http://127.0.0.1:${received.api_port}`,
+          credential: received.credential,
+          fetch: productFetch(),
+        }),
+        prepareBlob: childBlobPort(current),
+        // 연결 근거 read가 생기면 core read로 바꾼다(Q15). 그 전에는 시작하지 않는다.
+        link: () => Promise.resolve(unavailableLink()),
+        status,
+        nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
+        newKey: () => crypto.randomUUID(),
+      });
+      const source = readObservationSource();
+      // root·규칙을 읽지 못하면 관측하지 않는다. 추적 중으로 꾸미지 않는다.
+      if (!source.ok) return;
+      coordinator.current?.startObservation(source.value.roots, {
+        watch: fileWatchPort(),
+        scan: fileScanPort(),
+        read: fileReadPort(),
+        nowMs: () => Date.now(),
+        submit,
+        basisFor: source.value.basisFor,
+      });
+    },
     handleRequest: createRequestHandler({ status }),
     // 준비 worker spawn(platform#T7)과 그 결과 제출이 들어오기 전에는 batch가 준비
     // worker에 닿지 않는다. 그때까지 제출은 성공이 아니라 unavailable이다.
@@ -281,5 +325,7 @@ export async function runCoordinator(root: string): Promise<void> {
       newRequestId: () => crypto.randomUUID(),
     },
   });
-  await coordinator.session.run();
+  coordinator.current = created;
+  session.current = created.session;
+  await created.session.run();
 }

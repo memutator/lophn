@@ -5,6 +5,7 @@ import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { createCoreClient, productFetch } from "../worker/documents/submit.ts";
+import { CHILD_BLOB_POLICIES } from "./child-blob-prepare.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
@@ -164,4 +165,13 @@ Deno.test("documents/versions#R13: core가 hello로 준 machine credential은 do
     await core.shutdown();
     await Deno.remove(home, { recursive: true });
   }
+});
+
+Deno.test("documents/file-tracking#R6: documents worker는 원문 파일과 목록 blob을 machine으로 준비한다", () => {
+  const policy = CHILD_BLOB_POLICIES.get("documents/worker");
+  assertEquals(policy?.principal, "machine");
+  assert(policy?.purposes.has("document_file"));
+  assert(policy?.purposes.has("document_files"));
+  // 다른 purpose는 허용하지 않는다.
+  assertEquals(policy?.purposes.has("report_text"), false);
 });

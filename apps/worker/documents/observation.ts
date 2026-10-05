@@ -12,6 +12,8 @@ import type {
 } from "../../../packages/contracts/documents/mod.ts";
 import type {
   ObservationSubmit,
+  ObserveDeps,
+  ObserveRoot,
   StatusObservation,
   StatusRecorder,
 } from "../../../packages/documents/file-tracking/mod.ts";
@@ -211,4 +213,45 @@ export function createObservationSubmit(
     );
     return ok(undefined);
   };
+}
+
+// 원문 blob 준비의 제품 길: 자식 session이 감독 pipe로 core에 보낸다(platform Q6).
+// purpose는 document.prepare 입력의 content(document_file)다. principal은 core가 자식
+// kind에서 정한다.
+export function childBlobPort(session: {
+  prepareBlob(input: {
+    purpose: string;
+    sizeBytes: number;
+    bytes: Uint8Array;
+  }): Promise<Result<PreparedBlobRef, LophnError>>;
+}): ObservationPorts["prepareBlob"] {
+  return (bytes) =>
+    session.prepareBlob({
+      purpose: "document_file",
+      sizeBytes: bytes.length,
+      bytes,
+    });
+}
+
+// 관측할 root·규칙과 제출 근거의 재료는 core read에서 온다. coordinator가 machine으로
+// 읽을 read가 아직 없다(documents plan Q15). 읽을 수 없는 동안은 성공으로 꾸미지
+// 않고 err이며, 관측은 시작하지 않는다.
+export type ObservationSource = {
+  roots: readonly ObserveRoot[];
+  basisFor: ObserveDeps["basisFor"];
+};
+
+export function readObservationSource(): Result<ObservationSource, LophnError> {
+  return err({
+    code: "unavailable",
+    message: "tracking 규칙과 문서 연결을 읽는 machine read가 없다",
+  });
+}
+
+// 경로에 연결된 문서 근거도 같은 read에서 온다(Q15). 없는 동안 제출은 err다.
+export function unavailableLink(): Result<ObservationLink, LophnError> {
+  return err({
+    code: "unavailable",
+    message: "문서 연결을 읽는 machine read가 없다",
+  });
 }

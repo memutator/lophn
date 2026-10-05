@@ -9,6 +9,7 @@ import {
 } from "./commands/decisions.ts";
 import { DAEMON_COMMANDS } from "./commands/daemon.ts";
 import { DOCUMENT_COMMANDS, READ_COMMANDS } from "./commands/document.ts";
+import { HARNESS_COMMANDS } from "./commands/harness.ts";
 import type { CommandEntry } from "./commands/types.ts";
 import { FORMAT_COMMANDS, SERIES_COMMANDS } from "./commands/format.ts";
 import { INDEX_COMMANDS } from "./commands/index.ts";
@@ -28,6 +29,7 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...APPROVAL_COMMANDS,
   ...TICKET_COMMANDS,
   ...DAEMON_COMMANDS,
+  ...HARNESS_COMMANDS,
 ];
 
 export function findCommand(name: string): CommandEntry | undefined {

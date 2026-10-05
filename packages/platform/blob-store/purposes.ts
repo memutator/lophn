@@ -7,7 +7,9 @@
 // permanent로 뺀다. trimCapacity의 할당 밖 category는 invalid_input이라
 // category 문자열은 상한의 4종 안에서만 만든다.
 
+import { err, ok, type Result } from "../../base/mod.ts";
 import { BLOB_CAPACITY_MAX_BYTES, type RetentionRule } from "./gc.ts";
+import { isSha256Hash } from "./unreferenced.ts";
 import type { BlobRetentionCategory } from "../../contracts/platform/mod.ts";
 
 // 목적 기록 하나의 모양. 준비가 성공한 hash의 purpose만 남긴다.
@@ -19,10 +21,22 @@ export type PurposeRecord = {
 export const PURPOSES_DIR = "blobs/purposes";
 export const PURPOSE_PREFIX_CHARS = 2;
 
-export function purposesPathFor(root: string, hash: string): string {
-  return `${root}/${PURPOSES_DIR}/${hash.slice(0, PURPOSE_PREFIX_CHARS)}/${
-    hash.slice(PURPOSE_PREFIX_CHARS)
-  }`;
+// hash의 목적 기록 경로. sha256 64-hex 밖은 거절한다(invalid_input).
+export function purposesPathFor(
+  root: string,
+  hash: string,
+): Result<string> {
+  if (!isSha256Hash(hash)) {
+    return err({
+      code: "invalid_input",
+      message: "blob hash가 sha256 64-hex가 아니다",
+    });
+  }
+  return ok(
+    `${root}/${PURPOSES_DIR}/${hash.slice(0, PURPOSE_PREFIX_CHARS)}/${
+      hash.slice(PURPOSE_PREFIX_CHARS)
+    }.json`,
+  );
 }
 
 // purpose를 capacity category로 옮긴다. 규칙 밖 purpose면 undefined다.

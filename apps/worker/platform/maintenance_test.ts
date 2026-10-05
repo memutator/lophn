@@ -9,7 +9,11 @@ import {
   assignmentOf,
   purposesPathFor,
 } from "../../../packages/platform/blob-store/mod.ts";
-import { fullyStopped, runMaintenanceGc } from "./maintenance.ts";
+import {
+  fullyStopped,
+  recordUnreferenced,
+  runMaintenanceGc,
+} from "./maintenance.ts";
 
 const AGED_HASH = "a".repeat(64);
 const FRESH_HASH = "b".repeat(64);
@@ -38,6 +42,31 @@ async function blobExists(root: string, hash: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function recordPath(root: string, hash: string): string {
+  return `${root}/blobs/unreferenced/${hash.slice(0, 2)}/${hash.slice(2)}.json`;
+}
+
+async function recordExists(root: string, hash: string): Promise<boolean> {
+  try {
+    await Deno.stat(recordPath(root, hash));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function seedPurpose(root: string, hash: string, purpose: string) {
+  const path = purposesPathFor(root, hash);
+  if (!path.ok) throw new Error("seedPurpose: bad hash");
+  await Deno.mkdir(path.value.slice(0, path.value.lastIndexOf("/")), {
+    recursive: true,
+  });
+  await Deno.writeTextFile(
+    path.value,
+    `${JSON.stringify({ purpose })}\n`,
+  );
 }
 
 // 정지 유지보수 준비. 참조는 ledger 행 관측으로, 목적 기록은 준비 경계가
@@ -77,34 +106,13 @@ Deno.test("platform/blob-store#R8 정지 유지보수는 유예기간 지난 미
     await seedBlob(root, FRESH_HASH, FRESH);
     // 참조된 blob은 참조 시각과 무관하게 남는다(R8).
     await seedBlob(root, REFERENCED_HASH, AGED);
-    // 준비 경계가 남긴 목적 기록(T44). 유예기간 안의 미참조 blob도 종류를
-    // 알아야 하므로 operational_log 목적으로 남겨 둔다(규칙 밖 목적은
-    // permanent로 뺀다: 지우지 않는다).
-    const purposePath = purposesPathFor(root, AGED_HASH);
-    await Deno.mkdir(purposePath.slice(0, purposePath.lastIndexOf("/")), {
-      recursive: true,
-    });
-    await Deno.writeTextFile(
-      purposePath,
-      `${JSON.stringify({ purpose: "operational_log" })}\n`,
-    );
-    const freshPath = purposesPathFor(root, FRESH_HASH);
-    await Deno.mkdir(freshPath.slice(0, freshPath.lastIndexOf("/")), {
-      recursive: true,
-    });
-    await Deno.writeTextFile(
-      freshPath,
-      `${JSON.stringify({ purpose: "operational_log" })}\n`,
-    );
-    const referencedPath = purposesPathFor(root, REFERENCED_HASH);
-    await Deno.mkdir(
-      referencedPath.slice(0, referencedPath.lastIndexOf("/")),
-      { recursive: true },
-    );
-    await Deno.writeTextFile(
-      referencedPath,
-      `${JSON.stringify({ purpose: "report_text" })}\n`,
-    );
+    // 준비 경계가 남긴 목적 기록(T44). trim 대상 판정의 근거다.
+    await seedPurpose(root, AGED_HASH, "operational_log");
+    await seedPurpose(root, FRESH_HASH, "operational_log");
+    await seedPurpose(root, REFERENCED_HASH, "report_text");
+    // 미참조 확인 기록(R9). 유예기간은 이 기록의 시각부터 센다: 오래된
+    // mtime과 무관하게, 기록의 처음 확인 시각이 유예기간을 지나야 지운다.
+    await recordUnreferenced(root, AGED_HASH, AGED);
     const outcome = await runMaintenanceGc(
       depsOf(root, [
         { hash: REFERENCED_HASH, owner_kind: "report", field: "report_text" },
@@ -192,7 +200,7 @@ Deno.test("platform/blob-store#R11 backup.pending 표시가 남아 있으면 정
 });
 
 Deno.test("platform/blob-store#R8 참조 행과 목적 기록이 trimCapacity의 종류 할당을 정한다", () => {
-  // three conditions: reference rows win over purpose records (R4 field rule).
+  // 참조 행이 목적 기록보다 우선한다(R4 field rule).
   const rules = [
     {
       owner_kind: "model_call",
@@ -213,4 +221,76 @@ Deno.test("platform/blob-store#R8 참조 행과 목적 기록이 trimCapacity의
     permanent: false,
   });
   assertEquals(assignment.get(FRESH_HASH)?.permanent, true);
+});
+
+// R9: 유예기간은 파일 mtime이 아니라 미참조 확인 기록부터 센다. 오래된
+// mtime의 blob이 방금 미참조가 됐으면(기록이 없으면) 지우지 않는다 — 기록의
+// 처음 확인 시각이 유예기간을 지났을 때만 지운다.
+Deno.test("platform/blob-store#R9 오래된 mtime의 방금 미참조 blob은 기록이 없어 지우지 않는다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "lophn-maint-rec-" });
+  try {
+    // mtime은 오래됐지만(오랜 준비 뒤 참조 상실) 미참조 확인 기록은 없다.
+    await seedBlob(root, AGED_HASH, AGED);
+    await seedPurpose(root, AGED_HASH, "operational_log");
+    const outcome = await runMaintenanceGc(depsOf(root, []));
+    if (!outcome.ok) {
+      throw new Error(
+        `유지보수가 실패했다: ${outcome.error.code} ${outcome.error.message}`,
+      );
+    }
+    // 기록 없는 hash는 지금 처음 미참조를 본 것이라 이번에 지우지 않는다.
+    assertEquals(outcome.value.deleted, []);
+    assertEquals(await blobExists(root, AGED_HASH), true);
+    // 관측이 처음 확인 시각을 남겼다(R9). 유예기간의 근원이다.
+    assertEquals(await recordExists(root, AGED_HASH), true);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// R9: 기록의 처음 확인 시각에서 7일이 지났을 때만 지운다. mtime과 무관하다.
+Deno.test("platform/blob-store#R9 기록의 처음 확인 시각에서 유예기간이 지났을 때만 지운다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "lophn-maint-aged-" });
+  try {
+    // mtime은 유예기간 안(방금 설치)이지만 기록은 오래됐다: 기록이 근원이다.
+    await seedBlob(root, AGED_HASH, FRESH);
+    await seedPurpose(root, AGED_HASH, "operational_log");
+    await recordUnreferenced(root, AGED_HASH, AGED);
+    const outcome = await runMaintenanceGc(depsOf(root, []));
+    if (!outcome.ok) {
+      throw new Error(
+        `유지보수가 실패했다: ${outcome.error.code} ${outcome.error.message}`,
+      );
+    }
+    assertEquals(outcome.value.deleted, [AGED_HASH]);
+    assertEquals(await blobExists(root, AGED_HASH), false);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// R9: 다시 참조된 hash의 기록은 지운다(유예기간이 새로 섞인다).
+Deno.test("platform/blob-store#R9 다시 참조된 blob의 미참조 기록은 지운다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "lophn-maint-reset-" });
+  try {
+    await seedBlob(root, REFERENCED_HASH, AGED);
+    await seedPurpose(root, REFERENCED_HASH, "report_text");
+    await recordUnreferenced(root, REFERENCED_HASH, AGED);
+    const outcome = await runMaintenanceGc(
+      depsOf(root, [
+        { hash: REFERENCED_HASH, owner_kind: "report", field: "report_text" },
+      ]),
+    );
+    if (!outcome.ok) {
+      throw new Error(
+        `유지보수가 실패했다: ${outcome.error.code} ${outcome.error.message}`,
+      );
+    }
+    // 참조된 blob은 남는다(R8). 기록도 지워진다: 다음 미참조 확인부터
+    // 유예기간이 새로 섞인다(R9).
+    assertEquals(await blobExists(root, REFERENCED_HASH), true);
+    assertEquals(await recordExists(root, REFERENCED_HASH), false);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
 });

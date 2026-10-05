@@ -9,6 +9,7 @@ import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import {
   assignmentOf,
   backupPendingFolders,
+  isSha256Hash,
   type RetentionRule,
 } from "../../../packages/platform/blob-store/mod.ts";
 import {
@@ -20,7 +21,10 @@ import {
 import { listBackupPending, listInstalledBlobs } from "./io.ts";
 import {
   parsePurposeRecord,
-  purposesPathFor,
+} from "../../../packages/platform/blob-store/mod.ts";
+import {
+  parseUnreferencedRecord,
+  unreferencedPathFor,
 } from "../../../packages/platform/blob-store/mod.ts";
 import { BLOB_STORE_TMP_DIR } from "../../../packages/platform/blob-store/mod.ts";
 import { objectPathFor } from "../../../packages/platform/blob-store/mod.ts";
@@ -48,7 +52,7 @@ export type MaintenanceDeps = {
   conditions(): StoppedConditions | Promise<StoppedConditions>;
   // 소유 concern이 등록한 blob field. 보존 종류가 함께 있다(blobFields).
   fields(): readonly RetentionRule[];
-  // 고정 ledger blob_refs의 참조 행 관측. 정지 뒤 고정 blob_refs 전체다(R8).
+  // ��정 ledger blob_refs의 참조 행 관측. 정지 뒤 고정 blob_refs 전체다(R8).
   listReferenceRows(): Promise<
     Result<readonly { hash: string; owner_kind: string; field: string }[]>
   >;
@@ -62,7 +66,8 @@ export type MaintenanceDeps = {
 // 2. backup.pending 확인 — 있으면 이번 회수를 건너뛴다(T41, R11).
 // 3. trimCapacity의 할당 산출(참조 field 규칙 + 목적 기록) — 관측 실패면
 //    아무것도 지우지 않는다(fail-closed).
-// 4. collectGarbage(유예기간 지난 미참조분만) → trimCapacity(종류별 초과분만).
+// 4. collectGarbage(미참조 확인 기록의 유예기간이 지난 분만) →
+//    trimCapacity(미참조 확인 기록의 유예기간이 지난 초과분만).
 export async function runMaintenanceGc(
   deps: MaintenanceDeps,
 ): Promise<Result<GcOutcome>> {
@@ -100,8 +105,52 @@ export async function runMaintenanceGc(
   });
 }
 
-// collectGarbage·trimCapacity가 부르는 파일 관측 deps. 삭제·목록은 이 file
-// worker의 실제 관측이다.
+// 처음 확인 시각 기록(R9). io.ts의 매일 관측과 정지 유지보수가 이 helper로
+// 남긴다. 유예기간은 처음 확인한 시각부터 센다 — 부른 쪽이 기록이 없을 때만
+// 부른다(collectGarbage·observeBlobGc의 기록 갱신 순서).
+export async function recordUnreferenced(
+  root: string,
+  hash: string,
+  atMs: number,
+): Promise<Result<void>> {
+  const path = unreferencedPathFor(root, hash);
+  if (!path.ok) return path;
+  try {
+    await Deno.mkdir(path.value.slice(0, path.value.lastIndexOf("/")), {
+      recursive: true,
+      mode: 0o700,
+    });
+    await Deno.writeTextFile(
+      path.value,
+      `${JSON.stringify({ unreferenced_at_ms: atMs })}\n`,
+    );
+    return ok(undefined);
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "미참조 확인 기록을 남기지 못했다",
+    });
+  }
+}
+
+// 다시 참조된 hash의 기록 지우기(R9: 다음 미참조 확인부터 유예기간이 새로 섞인다).
+export async function forgetUnreferenced(
+  root: string,
+  hash: string,
+): Promise<Result<void>> {
+  const path = unreferencedPathFor(root, hash);
+  if (!path.ok) return path;
+  try {
+    await Deno.remove(path.value);
+    return ok(undefined);
+  } catch {
+    // 이미 사라진 기록은 사라진 것으로 둔다.
+    return ok(undefined);
+  }
+}
+
+// collectGarbage·trimCapacity가 부르는 파일 관측 deps. 삭제·목록·기록은 이
+// file worker의 실제 관측이다.
 function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
   return {
     root: deps.root,
@@ -111,6 +160,13 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
       if (!rows.ok) return rows;
       return ok(rows.value.map((row) => ({ hash: row.hash })));
     },
+    // 미참조 확인 기록 관측(R9). blobs/unreferenced/<2>/<62>.json이다.
+    listUnreferenced: () => readUnreferencedRecords(deps.root),
+    // 처음 확인 시각 기록. 이미 있는 기록은 바꾸지 않는다(R9).
+    recordUnreferenced: (hash, atMs) =>
+      recordUnreferenced(deps.root, hash, atMs),
+    // 다시 참조된 hash의 기록 지우기(R9: 유예기간이 새로 섞인다).
+    forgetUnreferenced: (hash) => forgetUnreferenced(deps.root, hash),
     listBackupPending: () => listBackupPending(deps.root),
     removeBlob: (hash) =>
       (async () => {
@@ -168,33 +224,63 @@ export async function readPurposeRecords(
   root: string,
 ): Promise<Result<ReadonlyMap<string, string>>> {
   const found = new Map<string, string>();
+  const read = await readRecordDir(`${root}/blobs/purposes`);
+  if (!read.ok) return read;
+  for (const [hash, raw] of read.value) {
+    const record = parsePurposeRecord(raw);
+    if (record !== undefined) found.set(hash, record.purpose);
+  }
+  return ok(found);
+}
+
+// 미참조 확인 기록 관측(R9). blobs/unreferenced/<2>/<62>.json 파일을 읽어
+// hash → 처음 확인 시각으로 모은다. 없거나 모양이 다른 기록은 건너뛴다:
+// 기록 없는 hash는 지금부터 미참조다(fail-closed).
+export async function readUnreferencedRecords(
+  root: string,
+): Promise<Result<ReadonlyMap<string, number>>> {
+  const found = new Map<string, number>();
+  const read = await readRecordDir(`${root}/blobs/unreferenced`);
+  if (!read.ok) return read;
+  for (const [hash, raw] of read.value) {
+    const record = parseUnreferencedRecord(raw);
+    if (record !== undefined) found.set(hash, record.unreferencedAtMs);
+  }
+  return ok(found);
+}
+
+// 기록 폴더 순회. blobs/<name>/<2>/<62>.json을 JSON으로 모은다. 이름에서
+// hash로 만들 때 sha256 모양만 남긴다(다른 이름은 경로의 근거가 아니다).
+async function readRecordDir(
+  dir: string,
+): Promise<Result<ReadonlyMap<string, unknown>>> {
+  const found = new Map<string, unknown>();
   let prefixes: string[];
   try {
-    prefixes = [...Deno.readDirSync(`${root}/blobs/purposes`)].map((
-      entry,
-    ) => entry.name);
+    prefixes = [...Deno.readDirSync(dir)].map((entry) => entry.name);
   } catch {
     return ok(found);
   }
   for (const prefix of prefixes) {
     let names: string[];
     try {
-      names = [
-        ...Deno.readDirSync(`${root}/blobs/purposes/${prefix}`),
-      ].map((entry) => entry.name);
+      names = [...Deno.readDirSync(`${dir}/${prefix}`)].map(
+        (entry) => entry.name,
+      );
     } catch {
       continue;
     }
     for (const name of names) {
-      const hash = `${prefix}${name.replace(/\.json$/, "")}`;
+      if (!name.endsWith(".json")) continue;
+      const hash = `${prefix}${name.slice(0, name.length - ".json".length)}`;
+      if (!isSha256Hash(hash)) continue;
       try {
-        const raw: unknown = JSON.parse(
-          await Deno.readTextFile(purposesPathFor(root, hash)),
+        found.set(
+          hash,
+          JSON.parse(await Deno.readTextFile(`${dir}/${prefix}/${name}`)),
         );
-        const record = parsePurposeRecord(raw);
-        if (record !== undefined) found.set(hash, record.purpose);
       } catch {
-        // 읽지 못한 기록은 건너뛴다. 기록 없는 hash는 정리 대상이 아니다.
+        // 읽지 못한 기록은 건너뛴다.
       }
     }
   }

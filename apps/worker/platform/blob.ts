@@ -175,13 +175,17 @@ async function recordPurpose(
   prepared: PreparedBlob,
 ): Promise<void> {
   const path = purposesPathFor(root, prepared.hash);
+  if (!path.ok) {
+    // sha256 밖 hash는 준비 자체가 만들지 않는다. 조용히 둔다.
+    return;
+  }
   try {
-    await Deno.mkdir(path.slice(0, path.lastIndexOf("/")), {
+    await Deno.mkdir(path.value.slice(0, path.value.lastIndexOf("/")), {
       recursive: true,
       mode: 0o700,
     });
     await Deno.writeTextFile(
-      path,
+      path.value,
       JSON.stringify({ purpose: prepared.purpose }) + "\n",
     );
   } catch {

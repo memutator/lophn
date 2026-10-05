@@ -10,11 +10,11 @@ import {
 import {
   backupPendingFolders,
   BLOB_CAPACITY_MAX_BYTES,
-  deletableOf,
   type InstalledBlob,
   referencedOf,
   staleTemporary,
   trimTargets,
+  unreferencedGracePassed,
 } from "../../../packages/platform/blob-store/mod.ts";
 
 // GC 관측(R10: 실제 삭제 없음). 미참조 수와 삭제 자격 수만 센다.
@@ -50,6 +50,15 @@ export type GcDeps = {
   >;
   // 고정 ledger의 모든 blob_refs hash 관측. 정지 유지보수에서 읽는다(R8).
   listReferences(): Promise<Result<readonly { hash: string }[]>>;
+  // 미참조 확인 기록 관측(R9). 처음 확인 시각만 남긴 worker 관리 파일이다.
+  // 유예기간 판정은 이 기록만 본다: 기록 없는 hash는 지금부터 미참조다.
+  listUnreferenced(): Promise<
+    Result<ReadonlyMap<string, number>>
+  >;
+  // 미참조 확인 기록 남기기(R9). 처음 확인한 시각. 이미 있으면 바꾸지 않는다.
+  recordUnreferenced(hash: string, atMs: number): Promise<Result<void>>;
+  // 다시 참조된 hash의 미참조 기록 지우기(R9: 유예기간이 새로 섞인다).
+  forgetUnreferenced(hash: string): Promise<Result<void>>;
   // backup 폴더의 pending 표시 관측. pending이 남아 있으면 backup 중이다(T41).
   listBackupPending(): Promise<
     Result<readonly { name: string; pending: boolean }[]>
@@ -67,7 +76,9 @@ export type GcDeps = {
   // 관측의 유예기간은 삭제와 같다. 테스트가 짧게 줄인다.
 };
 
-// GC 관측(R10). 실제 삭제는 하지 않는다. 기동 시와 매일 부른다.
+// GC 관측(R10). 실제 삭제는 하지 않는다. 기동 시와 매일 부른다. 미참조를
+// 확인할 때마다 확인 시각을 기록한다(R9: 유예기간의 근원). 기록 없는 hash는
+// 지금 처음 확인한 것으로 남긴다. 다시 참조된 hash의 기록은 지운다.
 export async function observeBlobGc(
   deps: GcDeps,
 ): Promise<Result<GcObservation>> {
@@ -77,15 +88,35 @@ export async function observeBlobGc(
   if (!references.ok) return references;
   const backups = await deps.listBackupPending();
   if (!backups.ok) return backups;
+  const records = await deps.listUnreferenced();
+  if (!records.ok) return records;
   const grace = deps.graceMs ?? BLOB_UNREFERENCED_GRACE_MS;
   const referenced = referencedOf(references.value);
   const pending = backupPendingFolders(backups.value);
+  const now = deps.nowMs();
+  for (const blob of installed.value) {
+    if (referenced.has(blob.hash)) {
+      if (records.value.has(blob.hash)) {
+        const forgotten = await deps.forgetUnreferenced(blob.hash);
+        if (!forgotten.ok) return forgotten;
+      }
+      continue;
+    }
+    if (!records.value.has(blob.hash)) {
+      const recorded = await deps.recordUnreferenced(blob.hash, now);
+      if (!recorded.ok) return recorded;
+    }
+  }
+  // 기록 갱신 뒤 삭제 자격 수를 센다(R9: 처음 확인 시각 + 유예기간).
+  const refreshed = await deps.listUnreferenced();
+  if (!refreshed.ok) return refreshed;
   const unref = installed.value.filter((blob) => !referenced.has(blob.hash));
-  const deletable = deletableOf(
-    installed.value,
-    referenced,
-    deps.nowMs(),
-    grace,
+  const deletable = unref.filter((blob) =>
+    unreferencedGracePassed(
+      parseRecord(refreshed.value.get(blob.hash)),
+      now,
+      grace,
+    )
   );
   return ok({
     installed: installed.value.length,
@@ -135,6 +166,11 @@ export async function collectGarbage(
   if (!installed.ok) return installed;
   const references = await deps.listReferences();
   if (!references.ok) return references;
+  // 미참조 확인 기록(R9). 유예기간 판정은 이 기록만 본다: 파일 mtime이
+  // 아니라 처음 미참조를 확인한 시각부터 센다. 기록 없는 hash는 지금부터
+  // 미참조라 이번에 지우지 않는다(fail-closed).
+  const records = await deps.listUnreferenced();
+  if (!records.ok) return records;
   const grace = deps.graceMs ?? BLOB_UNREFERENCED_GRACE_MS;
   const referenced = referencedOf(references.value);
   // 참조 차단(R8, R11): 참조가 있으면 어느 시점에도 지우지 않는다. 결과에만
@@ -142,12 +178,34 @@ export async function collectGarbage(
   const blocked = installed.value
     .filter((blob) => referenced.has(blob.hash))
     .map((blob) => blob.hash);
-  const deletable = deletableOf(
-    installed.value,
-    referenced,
-    deps.nowMs(),
-    grace,
-  );
+  // 미참조 확인 기록 갱신(R9): 처음 본 hash는 지금 시각으로 남기고, 다시
+  // 참조된 hash의 기록은 지운다(유예기간이 새로 섞인다).
+  const now = deps.nowMs();
+  for (const blob of installed.value) {
+    if (referenced.has(blob.hash)) {
+      if (records.value.has(blob.hash)) {
+        const forgotten = await deps.forgetUnreferenced(blob.hash);
+        if (!forgotten.ok) return forgotten;
+      }
+      continue;
+    }
+    if (!records.value.has(blob.hash)) {
+      const recorded = await deps.recordUnreferenced(blob.hash, now);
+      if (!recorded.ok) return recorded;
+    }
+  }
+  // 기록 갱신 뒤 판정한다. 삭제 자격은 기록의 처음 확인 시각과 유예기간으로만 본다.
+  const refreshed = await deps.listUnreferenced();
+  if (!refreshed.ok) return refreshed;
+  const deletable = installed.value
+    .filter((blob) => !referenced.has(blob.hash))
+    .filter((blob) =>
+      unreferencedGracePassed(
+        parseRecord(refreshed.value.get(blob.hash)),
+        now,
+        grace,
+      )
+    );
   const deleted: string[] = [];
   const failed: { hash: string; code: string }[] = [];
   let copiesRemain = false;
@@ -169,12 +227,20 @@ export async function collectGarbage(
   });
 }
 
+// 미참조 기록의 시각을 검사한다. 모양이 다르면 기록 없음으로 본다(fail-closed).
+function parseRecord(atMs: number | undefined) {
+  if (atMs === undefined || !Number.isFinite(atMs) || atMs < 0) {
+    return undefined;
+  }
+  return { unreferencedAtMs: atMs };
+}
+
 // 종류별 보존 정리(R13). capacity field의 큰 자료가 상한을 넘으면 오래된
 // 것부터 정리한다. permanent field(변경 기록·결정·확정 결과)는 대상에서 뺀다.
-// 준비 중(tmp 또는 준비 등록)과 R9 7일 유예기간 안의 blob은 정리 대상에서
-// 뺀다. 할당에 없거나 상한 밖 category가 있으면 아무것도 지우지 않고
-// fail-closed다. 관측과 삭제 사이의 경합(writer 정지·새 준비 차단)은 부르는
-// 쪽(정지 유지보수 조립)이 세운다.
+// 준비 중(tmp 또는 준비 등록)과 미참조 확인 유예기간 안의 blob은 정리 대상에서
+// 뺀다(R9: 유예기간은 미참조 확인 기록의 시각부터 센다). 할당에 없거나 상한
+// 밖 category가 있으면 아무것도 지우지 않고 fail-closed다. 관측과 삭제 사이의
+// 경합(writer 정지·새 준비 차단)은 부르는 쪽(정지 유지보수 조립)이 세운다.
 export async function trimCapacity(
   deps: GcDeps,
   // hash → 종류 할당. 참조 field 규칙과 준비가 남긴 목적 기록에서 온다(T44).
@@ -213,6 +279,10 @@ export async function trimCapacity(
   }
   const grace = deps.graceMs ?? BLOB_UNREFERENCED_GRACE_MS;
   const now = deps.nowMs();
+  // 미참조 확인 기록(R9). trim의 유예기간도 이 기록부터 센다. 기록 없는
+  // hash는 지금부터 미참조라 정리하지 않는다(fail-closed).
+  const records = await deps.listUnreferenced();
+  if (!records.ok) return records;
   // 준비 등록 중 hash(R9). 준비 중 blob은 trim 대상에서 뺀다.
   let preparing: ReadonlySet<string> = new Set();
   if (deps.preparationRefs) {
@@ -247,11 +317,15 @@ export async function trimCapacity(
       };
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
-    // 준비 중(등록 또는 tmp 파일 시각)과 R9 유예기간 안의 blob은 정리
-    // 대상에서 뺀다(R9).
+    // 준비 중(등록 또는 tmp 파일 시각)과 미참조 확인 기록의 유예기간 안인
+    // blob은 정리 대상에서 뺀다(R9: 유예기간은 기록의 시각부터 센다).
     .filter((entry) =>
       !preparing.has(entry.hash) &&
-      staleTemporary(entry.observedAtMs, now, grace)
+      unreferencedGracePassed(
+        parseRecord(records.value.get(entry.hash)),
+        now,
+        grace,
+      )
     );
   const targets = trimTargets(usage, candidates);
   const deleted: string[] = [];

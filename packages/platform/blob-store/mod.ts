@@ -52,6 +52,14 @@ export {
   VALID_CATEGORIES,
 } from "./purposes.ts";
 export {
+  isSha256Hash,
+  parseUnreferencedRecord,
+  UNREFERENCED_DIR,
+  unreferencedGracePassed,
+  unreferencedPathFor,
+  type UnreferencedRecord,
+} from "./unreferenced.ts";
+export {
   type BlobBytes,
   createBlobRead,
   decideRead,

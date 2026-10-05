@@ -84,7 +84,7 @@ function controlContext(ordinal: number) {
 async function sendControl(
   ledger: Ledger,
   ordinal: number,
-): Promise<number | "error"> {
+): Promise<number | { error: unknown }> {
   const start = performance.now();
   // ordinal을 본문 가운데 10자리에 십진수로 새겨 고유 id를 만든다. Crockford 자리다.
   const body = ULID_BODY.split("");
@@ -126,7 +126,7 @@ async function sendControl(
     prepared: [],
   });
   const ms = performance.now() - start;
-  return result.ok ? ms : "error";
+  return result.ok ? ms : { error: JSON.stringify(result.error) };
 }
 
 /** 100,000파일 temp root를 만든다. 부하 root 전용이다. */
@@ -382,11 +382,13 @@ Deno.test({
             ]);
             const failed = receipts
               .map((receipt, index) => [index, receipt] as const)
-              .filter(([, receipt]) => receipt === "error")
-              .map(([index]) => index);
+              .filter(([, receipt]) => typeof receipt !== "number")
+              .map(([index, receipt]) =>
+                `${index}:${typeof receipt === "number" ? "" : JSON.stringify(receipt.error)}`
+              );
             assert(
               failed.length === 0,
-              `복합 관리 요청이 실패했다: ${failed.join(",")}`,
+              `복합 관리 요청이 실패했다: ${failed.join(" | ")}`,
             );
           }),
         );

@@ -308,13 +308,10 @@ Deno.test({
           ),
         ],
         nowMs: Date.UTC(2026, 9, 5),
-        credentials: [
-          ...Array.from({ length: 20 }, (_, index) => controlContext(index)),
-          ...Array.from(
-            { length: 10 },
-            (_, index) => controlContext(100 + index),
-          ),
-        ],
+        credentials: Array.from(
+          { length: 20 },
+          (_, index) => controlContext(index),
+        ),
       });
       assert(
         controlHarnessOpened.ok,
@@ -354,49 +351,67 @@ Deno.test({
       // 복합 부하(R9): scan·묶음 준비·관리 요청·정체를 함께 걷는다. 같은
       // sampleUnderLoad로 무관한 대상의 반복 완료를 본다. 100,000파일 root를
       // 다시 만들어 scan에 같은 file 수를 걸고, 부하 1처럼 finally에서 지운다.
+      // ledger harness는 열려 있는 동안만 요청을 받는다. 부하 3에서 닫은
+      // controlLedger를 다시 쓸 수 없으므로 복합 stage는 새 harness를 연다.
       const multiRoot = await makeFilesRoot();
       try {
-        const multiBlob = createBlobStoreWork({
-          root: multiRoot,
-          suffix: () => "load-multi",
-          quota: createFakeQuota(BUNDLE_BYTES * 2),
+        const multiHarness = await createLedgerHarness({
+          registrationModules: [
+            new URL(
+              "../approvals/harness_test.ts",
+              import.meta.url,
+            ),
+          ],
+          nowMs: Date.UTC(2026, 9, 5),
+          credentials: Array.from(
+            { length: 10 },
+            (_, index) => controlContext(100 + index),
+          ),
         });
-        entries.push(
-          await sampleUnderLoad(async () => {
-            // 관리 ledger 채널은 요청마다 10초 기한이고, 늦게 온 reply도 채널
-            // 전체를 닫는다. 스캔·묶음 준비가 main thread를 길게 붙들면
-            // channel reply 처리가 늦어져 기한을 넘기므로, 관리 접수는
-            // scan·준비 사이의 양보 지점마다 끊어 보낸다. 한 번에 10개라도
-            // 각 접수는microtask 회전 안에서 reply를 받는다.
-            const receipts = await Promise.all(
-              Array.from(
-                { length: 10 },
-                (_, index) => sendControl(controlLedger, 100 + index),
-              ),
-            );
-            await sleep(0);
-            const prepare = await multiBlob.prepare(
-              {
-                preparation: "prep-load-multi",
-                principal: "measure-user",
-                purpose: "load_multi",
-              },
-              bundleStream(BUNDLE_BYTES),
-            );
-            await scanOnce(multiRoot);
-            assert(
-              receipts.every((receipt) => typeof receipt === "number"),
-              `복합 관리 요청이 실패했다: ${
-                receipts.filter((receipt) => typeof receipt !== "number")
-                  .map((receipt) =>
-                    JSON.stringify((receipt as { error: unknown }).error)
-                  )
-                  .join(" | ")
-              }`,
-            );
-            assert(prepare.ok, "복합 묶음 준비가 실패했다");
-          }),
+        assert(
+          multiHarness.ok,
+          multiHarness.ok ? "" : JSON.stringify(multiHarness.error),
         );
+        const multiLedger = multiHarness.value;
+        try {
+          const multiBlob = createBlobStoreWork({
+            root: multiRoot,
+            suffix: () => "load-multi",
+            quota: createFakeQuota(BUNDLE_BYTES * 2),
+          });
+          entries.push(
+            await sampleUnderLoad(async () => {
+              const receipts = await Promise.all(
+                Array.from(
+                  { length: 10 },
+                  (_, index) => sendControl(multiLedger, 100 + index),
+                ),
+              );
+              const prepare = await multiBlob.prepare(
+                {
+                  preparation: "prep-load-multi",
+                  principal: "measure-user",
+                  purpose: "load_multi",
+                },
+                bundleStream(BUNDLE_BYTES),
+              );
+              await scanOnce(multiRoot);
+              assert(
+                receipts.every((receipt) => typeof receipt === "number"),
+                `복합 관리 요청이 실패했다: ${
+                  receipts.filter((receipt) => typeof receipt !== "number")
+                    .map((receipt) =>
+                      JSON.stringify((receipt as { error: unknown }).error)
+                    )
+                    .join(" | ")
+                }`,
+              );
+              assert(prepare.ok, "복합 묶음 준비가 실패했다");
+            }),
+          );
+        } finally {
+          await multiLedger.close();
+        }
       } finally {
         await Deno.remove(multiRoot, { recursive: true });
       }

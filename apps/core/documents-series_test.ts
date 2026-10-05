@@ -270,7 +270,7 @@ Deno.test(
       }, token);
       assert(archived.revision !== undefined);
 
-      // 보�� 뒤에도 구성을 읽는다(R13). 읽기는 event를 만들지 않는다(R14).
+      // 보관 뒤에도 구성을 읽는다(R13). 읽기는 event를 만들지 않는다(R14).
       // events route가 이 번들의 scope에 없으므로 ledger로 구성 변경 기록을 본다.
       const { DatabaseSync } = await import("node:sqlite");
       const ledger = new DatabaseSync(`${harness.dataRoot}/lophn.db`, {

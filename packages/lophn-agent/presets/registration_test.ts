@@ -8,7 +8,9 @@ import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
 import {
   createPresetCommands,
   createPresetReads,
+  DOCUMENT_READ_TOOLS,
   presetSchemaSteps,
+  ROLE_CAPS,
 } from "./mod.ts";
 import type { ValidateDeps } from "./validate.ts";
 
@@ -22,8 +24,8 @@ export function presetValidateDeps(
 ): ValidateDeps {
   return {
     bundles: new Map([
-      ["read-only", ["doc.read", "doc.list"]],
-      ["write-tools", ["doc.write", "doc.revert"]],
+      ["read-only", [...DOCUMENT_READ_TOOLS.slice(0, 2)]],
+      ["write-tools", ["context.add_item", "context.remove_item"]],
     ]),
     mcpServers: new Map<string, McpServerConfig>([
       [
@@ -59,18 +61,7 @@ export function presetValidateDeps(
         },
       ],
     ]),
-    roleCaps: new Map([
-      ["lophn", { tools: ["doc.read", "doc.list"] }],
-      ["app_engineer", {
-        tools: ["doc.read", "doc.list", "doc.write", "doc.revert"],
-      }],
-      ["context_engineer", {
-        tools: ["doc.read", "doc.list", "doc.write", "doc.revert"],
-      }],
-      ["operator", {
-        tools: ["doc.read", "doc.list", "doc.write", "doc.revert"],
-      }],
-    ]),
+    roleCaps: ROLE_CAPS,
     definitionKey: (provider) =>
       provider === "pvd_01arz3ndektsv4rrffq69g5fav" ? "anthropic" : undefined,
     modelListed: (providerDefinition, modelName) =>

@@ -1,7 +1,7 @@
 import { systemClock } from "../../packages/base/clock.ts";
 import { cryptoRandom } from "../../packages/base/random.ts";
 import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
-import { err, ok } from "../../packages/base/mod.ts";
+import { createIdSource, err, ok } from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
   ChildMessage,
@@ -79,6 +79,16 @@ import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
+import {
+  bootstrapBuiltinAssignments,
+  readRoleAsset,
+} from "./lophn-agent-bootstrap.ts";
+import {
+  type BodyPrepare,
+  createMessageBodyPreparer,
+  messageBodyEnvironment,
+  withMessageBody,
+} from "./message-body.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
@@ -208,6 +218,11 @@ async function open(
     status: statusMemoryVia(documentsChannel),
     // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
     snapshotLogs: snapshotLogsEnvironment({
+      ledgerPath,
+      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+    }),
+    // ReadMessageBody의 참조 판정과 blob 바이트 읽기 통로.
+    messageBody: messageBodyEnvironment({
       ledgerPath,
       read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
     }),
@@ -396,6 +411,8 @@ async function open(
   } = {};
   // format 검사는 원문 blob을 I/O worker에서 읽어 documents coordinator로 보낸다. 두 통로는
   // I/O worker와 coordinator가 뜬 뒤에 채워지고, 그 전에는 unavailable이다.
+  // 메시지 본문 준비 통로도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 unavailable이다.
+  const bodyPrepare: { current?: BodyPrepare } = {};
   const validateWiring: {
     readBlob?: ReturnType<typeof blobRelayFor>["readBytes"];
     sendBytes?: (channel: number, chunk: Uint8Array) => Promise<boolean>;
@@ -421,7 +438,11 @@ async function open(
       port: options.port,
       credentials: registry,
       clock,
-      writer: runtime.writer,
+      // 메시지 본문을 싣는 command는 writer 앞에서 값을 redaction해 blob으로 준비한다.
+      writer: withMessageBody(
+        runtime.writer,
+        createMessageBodyPreparer({ relay: () => bodyPrepare.current }),
+      ),
       reads: runtime.reads,
       memory: runtime.memory.handlers,
       events: runtime.events,
@@ -488,6 +509,7 @@ async function open(
     blobRead.use(blobRelay.readBytes);
     validateWiring.readBlob = blobRelay.readBytes;
     prepareRelay.current = (call) => blobRelay.prepare(call);
+    bodyPrepare.current = blobRelay;
   }
   // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
   // 파일 GC는 하지 않고 메모리 참조만 떨어뜨린다.
@@ -635,6 +657,23 @@ async function open(
     });
     // 시작 근거는 worker가 뜬 직후 바로 보낸다. 닿지 못하면 다음 확인이 다시 시도한다.
     void basisSync.check();
+  }
+  // 내장 lophn·Context Engineer assignment 준비. I/O 감독이 없는 기동은 prompt blob을
+  // 준비할 수 없어 건너뛴다(lophn-agent/assignments#R2). 이미 있으면 아무것도 보내지 않는다.
+  const bootstrapped = await bootstrapBuiltinAssignments({
+    commands: new Set(assembled.value.commands.map((c) => c.route.name)),
+    writer: runtime.writer,
+    record: (context) => runtime!.record(context),
+    read: (route, context, input) =>
+      runtime!.readers.read(route, context as RequestContext, input),
+    asset: readRoleAsset,
+    prepare: blobRelay ? (call) => blobRelay.prepare(call) : undefined,
+    ids: createIdSource({ clock, random }),
+  });
+  if (!bootstrapped.ok) {
+    await server.stop();
+    await runtime.close();
+    return bootstrapped;
   }
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
@@ -1024,6 +1063,7 @@ function blobRelayFor(
     onFrame(frame: Frame): void;
   };
   prune(nowMs: number): void;
+  live(prepared: { hash: string; principal: string; purpose: string }): boolean;
   prepare(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   readBytes: BlobPrepareRelay["readBytes"];
 } {
@@ -1064,6 +1104,7 @@ function blobRelayFor(
       },
     },
     prune: (nowMs) => relay.prune(nowMs),
+    live: (prepared) => relay.live(prepared, clock.nowMs()),
     prepare: (call) =>
       relay.prepare(
         {

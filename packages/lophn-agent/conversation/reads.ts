@@ -43,7 +43,10 @@ function visibleAssignment(
   return undefined;
 }
 
-function visible(ctx: RequestContext, session: SessionRow): boolean {
+export function sessionVisible(
+  ctx: RequestContext,
+  session: SessionRow,
+): boolean {
   const scope = visibleAssignment(ctx);
   return scope === null || scope === session.assignment;
 }
@@ -80,7 +83,7 @@ export function createConversationReads(): {
       route: sessionRead,
       handle(snapshot, ctx, input) {
         const row = loadSession(snapshot, input.session);
-        if (row === undefined || !visible(ctx, row)) return notFound();
+        if (row === undefined || !sessionVisible(ctx, row)) return notFound();
         return ok({
           session: sessionRecordOf(row),
           as_of_seq: snapshot.as_of_seq,
@@ -131,7 +134,9 @@ export function createConversationReads(): {
       route: messagesList,
       handle(snapshot, ctx, input) {
         const session = loadSession(snapshot, input.session);
-        if (session === undefined || !visible(ctx, session)) return notFound();
+        if (session === undefined || !sessionVisible(ctx, session)) {
+          return notFound();
+        }
         const after = cursorAfter(input.cursor);
         if (!after.ok) return after;
         // cursor가 after_seq보다 앞서지 않게 둘 중 큰 쪽부터 읽는다.

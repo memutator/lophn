@@ -1,14 +1,29 @@
 import { canonicalize } from "../../base/mod.ts";
-import type {
-  Message,
-  MessageLink,
-  SessionRecord,
+import {
+  type Message,
+  MESSAGE_BODY_FIELD,
+  MESSAGE_BODY_OWNER_KIND,
+  type MessageLink,
+  type SessionRecord,
 } from "../../contracts/lophn-agent/mod.ts";
-import type {
-  SchemaStep,
-  SqlParams,
-  SqlRow,
+import {
+  type BlobFieldDefinition,
+  defineBlobField,
+  type SchemaStep,
+  type SqlParams,
+  type SqlRow,
 } from "../../contracts/platform/mod.ts";
+
+// 본문 blob은 영구 보존이다(R2). 일반 blob.read로는 열지 않는다: 읽는 쪽 범위(사람,
+// 그 assignment의 agent, machine)는 ReadMessageBody가 판정한다.
+export const messageBodyFields: readonly BlobFieldDefinition[] = [
+  defineBlobField({
+    owner_kind: MESSAGE_BODY_OWNER_KIND,
+    field: MESSAGE_BODY_FIELD,
+    retention: { kind: "permanent" },
+    general_read: false,
+  }),
+];
 
 // domain-model lophn-agent/conversation의 표와 row 변환. 순수 함수와 읽기
 // 조회만 있다. 상태 전이 규칙은 commands.ts, 읽기는 reads.ts가 맡는다.

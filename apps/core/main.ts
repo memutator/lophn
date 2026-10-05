@@ -2,7 +2,10 @@ import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { startCore } from "./core.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 import { createLedgerRegistration } from "./documents.ts";
-import { lophnAgentDefinitions } from "./lophn-agent.ts";
+import {
+  createLedgerRegistration as createLophnAgentRegistration,
+  lophnAgentDefinitions,
+} from "./lophn-agent.ts";
 import {
   createLedgerRegistration as createProblemsRegistration,
   problemsReportDefinitions,
@@ -19,6 +22,7 @@ const TEAMS = [
   { createLedgerRegistration: createProblemsRegistration },
   { codingAgentConnectionDefinitions },
   { lophnAgentDefinitions },
+  { createLedgerRegistration: createLophnAgentRegistration },
   { ticketDefinitions },
 ];
 

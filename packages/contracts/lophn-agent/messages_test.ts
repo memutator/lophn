@@ -2,6 +2,10 @@ import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { routePath } from "../platform/mod.ts";
 import {
+  MESSAGE_TEXT_CONTENT_MAX_BYTES,
+  serializeMessageContent,
+} from "./message-content.ts";
+import {
   applyMessages,
   assignMessage,
   assignMessageCompareSchema,
@@ -11,6 +15,9 @@ import {
   MESSAGE_EVENTS,
   MESSAGE_ROUTES,
   messageAssigned,
+  messageBody,
+  messageBodyInputSchema,
+  messageBodyOutputSchema,
   messageReceived,
   messageRecorded,
   messageSchema,
@@ -26,6 +33,7 @@ import {
   apr,
   asg,
   body,
+  content,
   doc,
   mcl,
   msg,
@@ -47,7 +55,7 @@ const paused = {
   links: [],
 };
 
-Deno.test("lophn-agent/conversation#R3: six message routes and four events reject a closed compare", () => {
+Deno.test("lophn-agent/conversation#R3: seven message routes and four events reject a closed compare", () => {
   assertEquals(MESSAGE_ROUTES.map(routePath), [
     "/v1/messages/receive",
     "/v1/messages/execute-stored",
@@ -55,6 +63,7 @@ Deno.test("lophn-agent/conversation#R3: six message routes and four events rejec
     "/v1/messages/apply",
     "/v1/messages/assign",
     "/v1/messages/list",
+    "/v1/messages/body",
   ]);
   assertEquals(MESSAGE_EVENTS.map((event) => event.type), [
     "MessageReceived",
@@ -68,7 +77,9 @@ Deno.test("lophn-agent/conversation#R3: six message routes and four events rejec
   assertEquals(applyMessages.actors, ["machine"]);
   assertEquals(assignMessage.actors, ["machine"]);
   assertEquals(messagesList.actors, ["user", "agent", "machine"]);
+  assertEquals(messageBody.actors, ["user", "agent", "machine"]);
   assert(!messagesList.errors.includes("conflict"));
+  assert(!messageBody.errors.includes("conflict"));
   for (const route of MESSAGE_ROUTES) {
     assert(route.errors.every((code) => ERROR_CODES.includes(code)));
     assert(!route.errors.includes("internal"));
@@ -96,7 +107,7 @@ Deno.test("lophn-agent/conversation#R5: user mode is required and correction nam
     receiveMessageInputSchema.safeParse({
       id: msg,
       session: ses,
-      body,
+      content,
       mode: "correction",
       run,
     }).success,
@@ -105,7 +116,7 @@ Deno.test("lophn-agent/conversation#R5: user mode is required and correction nam
     !receiveMessageInputSchema.safeParse({
       id: msg,
       session: ses,
-      body,
+      content,
       mode: "correction",
     }).success,
   );
@@ -178,7 +189,7 @@ Deno.test("lophn-agent/conversation#R4: links are real targets and a plan is not
       id: msg,
       session: ses,
       run,
-      body,
+      content,
       links,
     }).success,
   );
@@ -187,7 +198,7 @@ Deno.test("lophn-agent/conversation#R4: links are real targets and a plan is not
       id: msg,
       session: ses,
       run,
-      body,
+      content,
       links: [{ kind: "document", document: doc, created: true }],
     }).success,
   );
@@ -196,7 +207,7 @@ Deno.test("lophn-agent/conversation#R4: links are real targets and a plan is not
       id: msg,
       session: ses,
       run,
-      body,
+      content,
       links: [{ kind: "plan", document: doc }],
     }).success,
   );
@@ -205,7 +216,7 @@ Deno.test("lophn-agent/conversation#R4: links are real targets and a plan is not
       id: msg,
       session: ses,
       run,
-      body,
+      content,
       links,
       actor: "agent",
     }).success,
@@ -242,7 +253,7 @@ Deno.test("lophn-agent/conversation#R14: paused request stays unrun until the pe
     receiveMessageInputSchema.safeParse({
       id: msg,
       session: ses,
-      body,
+      content,
       mode: "request",
     }).success,
   );
@@ -317,7 +328,7 @@ Deno.test("lophn-agent/conversation#R9: continuation does not copy a message or 
     !receiveMessageInputSchema.safeParse({
       id: msg,
       session: ses,
-      body,
+      content,
       mode: "request",
       continued_from: { session: ses, through_seq: "1" },
     }).success,
@@ -335,7 +346,7 @@ Deno.test("lophn-agent/conversation#R16: message route does not carry a work pla
     !receiveMessageInputSchema.safeParse({
       id: msg,
       session: ses,
-      body,
+      content,
       mode: "request",
       work_place: { kind: "app", id: app },
     }).success,
@@ -345,7 +356,7 @@ Deno.test("lophn-agent/conversation#R16: message route does not carry a work pla
       id: msg,
       session: ses,
       run,
-      body,
+      content,
       links: [],
       work_place: { kind: "global", id: null },
     }).success,
@@ -366,5 +377,83 @@ Deno.test("lophn-agent/conversation#R17: message assign compare is run seq, not 
       message_state_seq: "4",
       applied_at_call: null,
     }).success,
+  );
+});
+
+Deno.test("lophn-agent/conversation#R2: a request carries the message value, never a hash or a prepared blob", () => {
+  const base = { id: msg, session: ses, mode: "request" } as const;
+  assert(receiveMessageInputSchema.safeParse({ ...base, content }).success);
+  // 호출자는 hash도 준비 증거도 만들지 않는다(plan Q29).
+  assert(!receiveMessageInputSchema.safeParse({ ...base, body }).success);
+  assert(
+    !receiveMessageInputSchema.safeParse({ ...base, content, body }).success,
+  );
+  assert(
+    !receiveMessageInputSchema.safeParse({
+      ...base,
+      content,
+      prepared: { preparation: "p", principal: "u", purpose: "x" },
+    }).success,
+  );
+  const record = { id: msg, session: ses, run, links: [] };
+  assert(recordMessageInputSchema.safeParse({ ...record, content }).success);
+  assert(!recordMessageInputSchema.safeParse({ ...record, body }).success);
+});
+
+Deno.test("lophn-agent/conversation#R4: a person's message holds text parts only and is bounded", () => {
+  const text = (value: string) => ({
+    schema_version: 1,
+    parts: [{ kind: "text", text: value }],
+  });
+  const base = { id: msg, session: ses, mode: "request" } as const;
+  const send = (value: unknown) =>
+    receiveMessageInputSchema.safeParse({ ...base, content: value }).success;
+  assert(send(text("한 줄")));
+  assert(!send({ schema_version: 1, parts: [] }));
+  assert(!send({ schema_version: 2, parts: text("x").parts }));
+  assert(
+    !send({
+      schema_version: 1,
+      parts: [{ kind: "visual", block: { key: "a" } }],
+    }),
+  );
+  // 정규 직렬화 상한 안과 밖.
+  const fits = "a".repeat(MESSAGE_TEXT_CONTENT_MAX_BYTES - 100);
+  assert(send(text(fits)));
+  assert(!send(text("a".repeat(MESSAGE_TEXT_CONTENT_MAX_BYTES))));
+  // UTF-8 바이트로 센다: 글자 수가 같아도 한글은 3배다.
+  assert(!send(text("가".repeat(MESSAGE_TEXT_CONTENT_MAX_BYTES / 3))));
+  assertEquals(
+    serializeMessageContent(text("b")),
+    new TextEncoder().encode(
+      '{"parts":[{"kind":"text","text":"b"}],"schema_version":1}',
+    ),
+  );
+});
+
+Deno.test("lophn-agent/conversation#R2: the body read names one message and returns the value with its hash", () => {
+  assertEquals(messageBody.resource, "messages");
+  assertEquals(messageBody.method, "body");
+  assert(messageBodyInputSchema.safeParse({ message: msg }).success);
+  assert(!messageBodyInputSchema.safeParse({ message: ses }).success);
+  assert(
+    !messageBodyInputSchema.safeParse({ message: msg, session: ses }).success,
+  );
+  const output = {
+    message: msg,
+    session: ses,
+    body,
+    size_bytes: 57,
+    content,
+    as_of_seq: "4",
+    next_cursor: null,
+  };
+  assert(messageBodyOutputSchema.safeParse(output).success);
+  assert(
+    !messageBodyOutputSchema.safeParse({ ...output, body: "short" }).success,
+  );
+  assert(
+    !messageBodyOutputSchema.safeParse({ ...output, content: undefined })
+      .success,
   );
 });

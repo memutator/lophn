@@ -9,6 +9,11 @@ import {
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
+import {
+  agentMessageContentInputSchema,
+  messageContentSchema,
+  userMessageContentInputSchema,
+} from "./message-content.ts";
 
 export const messageModeSchema = z.enum(["request", "correction"]);
 function links(strict: boolean) {
@@ -86,10 +91,12 @@ const commandErrors = [
   "conflict",
   "unavailable",
 ] as const;
+// 본문은 값 그대로 싣는다. core가 redaction을 거쳐 blob으로 준비하고 command가 영구
+// 참조를 등록한다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다(Q29).
 export const receiveMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
-  body: sha256Schema,
+  content: userMessageContentInputSchema,
   mode: messageModeSchema,
   run: idSchema("run").optional(),
 }).refine((value) => value.mode !== "correction" || value.run !== undefined, {
@@ -140,7 +147,8 @@ export const recordMessageInputSchema = z.strictObject({
   id: idSchema("msg"),
   session: idSchema("ses"),
   run: idSchema("run").nullable(),
-  body: sha256Schema,
+  // agent는 글·시각 블록, machine은 글만 낸다(owner가 actor로 검사한다).
+  content: agentMessageContentInputSchema,
   links: z.array(messageLinkInputSchema),
 });
 export const recordMessage = defineCommand({
@@ -243,6 +251,28 @@ export const messagesList = defineRead({
   actors: ["user", "agent", "machine"],
   errors: commandErrors.filter((code) => code !== "conflict"),
 });
+// 확정 메시지 하나의 본문. 허용된 읽는 쪽(사람, 그 assignment의 agent, machine)만
+// 읽고, 범위 밖 메시지는 없는 메시지와 똑같이 not_found다. 본문 blob은 core가 읽고
+// hash를 확인한 뒤 값으로 돌려준다.
+export const messageBodyInputSchema = z.strictObject({
+  message: idSchema("msg"),
+});
+export const messageBodyOutputSchema = withReadCommon(z.object({
+  message: idSchema("msg"),
+  session: idSchema("ses"),
+  body: sha256Schema,
+  size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  content: messageContentSchema,
+}));
+export const messageBody = defineRead({
+  resource: "messages",
+  method: "body",
+  name: "ReadMessageBody",
+  input: messageBodyInputSchema,
+  output: messageBodyOutputSchema,
+  actors: ["user", "agent", "machine"],
+  errors: commandErrors.filter((code) => code !== "conflict"),
+});
 export const MESSAGE_ROUTES = [
   receiveMessage,
   executeStoredRequest,
@@ -250,6 +280,7 @@ export const MESSAGE_ROUTES = [
   applyMessages,
   assignMessage,
   messagesList,
+  messageBody,
 ] as const;
 export const messageReceivedPayloadSchema = z.object({
   session: idSchema("ses"),
@@ -294,4 +325,5 @@ export const MESSAGE_EVENTS = [
 ] as const;
 
 // owner는 링크 존재·같은 session/assignment/run·최초 반영 transaction·blob
-// redaction·authenticated actor·보존 request의 사람 선택·idempotency를 검사한다.
+// 영구 참조 등록·authenticated actor·보존 request의 사람 선택·idempotency를 검사한다.
+// redaction과 blob 준비는 core가 command 앞에서 한다.

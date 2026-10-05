@@ -35,6 +35,7 @@ export const OPERATIONS = [
   "SeedTargetFixture",
   "SeedOperatorFixture",
   "SeedAcceptFailure",
+  "SeedUnpreparedBody",
   "CommandResult",
 ];
 
@@ -73,6 +74,19 @@ export function id(prefix: string, n: number): string {
 }
 
 export const BODY = (n: number) => n.toString(16).padStart(2, "0").repeat(32);
+
+// 본문 값(MessageContent)과 그 blob의 hash. 요청은 값을 싣고 ledger에는 hash가 남는다.
+export function textContent(value: string) {
+  return {
+    schema_version: 1,
+    parts: [{ kind: "text", text: value }],
+  };
+}
+
+export function bodyHashOf(value: string): string {
+  return createHash("sha256").update(canonicalize(textContent(value)), "utf8")
+    .digest("hex");
+}
 
 export function hashOf(definition: Record<string, unknown>): string {
   return createHash("sha256").update(canonicalize(definition), "utf8").digest(

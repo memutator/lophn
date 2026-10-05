@@ -230,6 +230,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T11 세션과 메시지
 
 - 등급: 기본
+- 상태: 완료 (#262) — 이어보냄: 메시지 본문 blob 영구 참조 등록 → T26(Q29), StartModelCall과 ApplyMessages의 한 transaction 연결 → T26(Q30), 질문·approval 대기 중 수정 접수 → T25(WaitRun 뒤 같은 접수 경로), 정상 종료·다음 일 선택 입력 소비 → T26
 - concern: lophn-agent/conversation
 - 요구: lophn-agent/conversation#R1, R2, R3, R4, R5, R6, R7, R8, R14, R16, R17
 - 자리: packages/lophn-agent/conversation/ (model.ts, commands.ts, reads.ts), apps/core/lophn-agent.ts

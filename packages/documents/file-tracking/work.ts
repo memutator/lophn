@@ -88,8 +88,28 @@ export async function scanRoot(
   return ok(found);
 }
 
+// 문자열 접두사로는 `/work`이 `/work2`를 안으로 본다. 경로 구분자에서만 비교한다.
+// relative()가 `..`를 내면 root 밖이다. symlink의 실제 경로에 쓴다.
 function insideRoot(root: string, realPath: string): boolean {
-  return realPath === root || realPath.startsWith(`${root}/`);
+  const relative = relativePath(root, realPath);
+  return relative !== null && !relative.split("/").includes("..");
+}
+
+function relativePath(root: string, target: string): string | null {
+  if (root === target) return "";
+  const rootParts = root.split("/");
+  const targetParts = target.split("/");
+  if (rootParts[0] !== targetParts[0]) return null;
+  let shared = 0;
+  while (
+    shared < rootParts.length && shared < targetParts.length &&
+    rootParts[shared] === targetParts[shared]
+  ) {
+    shared += 1;
+  }
+  const up = rootParts.length - shared;
+  const down = targetParts.slice(shared);
+  return [...Array<string>(up).fill(".."), ...down].join("/");
 }
 
 export type StableRead = {

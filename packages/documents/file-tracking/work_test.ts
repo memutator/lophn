@@ -147,6 +147,33 @@ Deno.test("documents/file-tracking#R3: scan은 규칙에 맞는 파일만 남기
   assertEquals(scanned.value.map((file) => file.relative), ["notes.md"]);
 });
 
+Deno.test("documents/file-tracking#R3: 이름이 접두사인 형제 폴더와 root 밖 symlink는 추적하지 않는다", async () => {
+  const port = memoryScan({
+    "": [
+      {
+        name: "alias",
+        kind: "symlink",
+        realPath: "/work2/secret.md",
+        targetKind: "file",
+      },
+      {
+        name: "inside",
+        kind: "symlink",
+        realPath: "/work/notes.md",
+        targetKind: "file",
+      },
+    ],
+  });
+  const scanned = await scanRoot(port, {
+    root: "/work",
+    patterns: [{ glob: "**/*", effect: "include" }],
+    useGitignore: false,
+    enabled: true,
+  });
+  assert(scanned.ok);
+  assertEquals(scanned.value.map((file) => file.relative), ["inside"]);
+});
+
 Deno.test("documents/file-tracking#R6: 읽는 동안 바뀐 파일은 확정하지 않고 unverified로 남긴다", async () => {
   let opened = 0;
   const outcome = await readStably({

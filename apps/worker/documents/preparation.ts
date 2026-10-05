@@ -136,54 +136,107 @@ function diffObserved(payload: unknown): unknown {
       message: "invalid diff input",
     });
   }
-  return { changes: lineDiff(body.before, body.after) };
+  const diff = lineDiff(body.before, body.after);
+  if (diff === null) return { kind: "diff_too_large" };
+  return { kind: "diff", changes: diff };
 }
 
-function lineDiff(
-  before: string,
-  after: string,
-): { kind: "same" | "removed" | "added"; line: string }[] {
-  const left = before.split("\n");
-  const right = after.split("\n");
-  const changes: { kind: "same" | "removed" | "added"; line: string }[] = [];
-  const width = left.length + 1;
-  const height = right.length + 1;
-  const lengths = new Array<number>(width * height).fill(0);
-  for (let row = left.length - 1; row >= 0; row--) {
-    for (let column = right.length - 1; column >= 0; column--) {
-      lengths[row * height + column] = left[row] === right[column]
-        ? lengths[(row + 1) * height + column + 1] + 1
-        : Math.max(
-          lengths[(row + 1) * height + column],
-          lengths[row * height + column + 1],
-        );
+// 줄 단위 Myers diff. 대각선 탐색이 이 횟수를 넘으면 계산을 멈추고 diff를 내지 않는다.
+// 전체 표(O(줄 수²))를 만들지 않는다.
+const DIFF_STEP_LIMIT = 100_000;
+
+export type LineChange = { kind: "same" | "removed" | "added"; line: string };
+
+function linesOf(text: string): string[] {
+  if (text === "") return [];
+  const lines = text.split("\n");
+  if (lines[lines.length - 1] === "") lines.pop();
+  return lines;
+}
+
+export function lineDiff(before: string, after: string): LineChange[] | null {
+  const left = linesOf(before);
+  const right = linesOf(after);
+  const trace = myersTrace(left, right);
+  if (trace === null) return null;
+  return replay(left, right, trace);
+}
+
+function myersTrace(left: string[], right: string[]): Int32Array[] | null {
+  const width = left.length;
+  const height = right.length;
+  const max = width + height;
+  const furthest = new Int32Array(2 * max + 1);
+  const trace: Int32Array[] = [furthest.slice()];
+  let steps = 0;
+  for (let depth = 0; depth <= max; depth++) {
+    for (let diagonal = -depth; diagonal <= depth; diagonal += 2) {
+      const down = diagonal === -depth ||
+        (diagonal !== depth &&
+          furthest[offset(diagonal - 1, max)] <
+            furthest[offset(diagonal + 1, max)]);
+      let row = down
+        ? furthest[offset(diagonal + 1, max)]
+        : furthest[offset(diagonal - 1, max)] + 1;
+      let column = row - diagonal;
+      while (
+        row < width && column < height && left[row] === right[column]
+      ) {
+        row += 1;
+        column += 1;
+      }
+      furthest[offset(diagonal, max)] = row;
+      steps += 1;
+      if (steps > DIFF_STEP_LIMIT) return null;
+      if (row >= width && column >= height) {
+        trace.push(furthest.slice());
+        return trace;
+      }
     }
+    trace.push(furthest.slice());
   }
-  let row = 0;
-  let column = 0;
-  while (row < left.length && column < right.length) {
-    if (left[row] === right[column]) {
-      changes.push({ kind: "same", line: left[row] });
-      row += 1;
-      column += 1;
-    } else if (
-      lengths[(row + 1) * height + column] >= lengths[row * height + column + 1]
-    ) {
-      changes.push({ kind: "removed", line: left[row] });
-      row += 1;
+  return trace;
+}
+
+function offset(diagonal: number, max: number): number {
+  return diagonal + max;
+}
+
+function replay(
+  left: string[],
+  right: string[],
+  trace: readonly Int32Array[],
+): LineChange[] {
+  const changes: LineChange[] = [];
+  let row = left.length;
+  let column = right.length;
+  const max = left.length + right.length;
+  for (let depth = trace.length - 2; depth >= 0; depth--) {
+    const furthest = trace[depth]!;
+    const diagonal = row - column;
+    const down = diagonal === -depth ||
+      (diagonal !== depth &&
+        furthest[offset(diagonal - 1, max)] <
+          furthest[offset(diagonal + 1, max)]);
+    const previousDiagonal = down ? diagonal + 1 : diagonal - 1;
+    const previousRow = furthest[offset(previousDiagonal, max)]!;
+    const startRow = down ? previousRow : previousRow + 1;
+    const startColumn = startRow - diagonal;
+    while (row > startRow && column > startColumn) {
+      row -= 1;
+      column -= 1;
+      changes.push({ kind: "same", line: left[row]! });
+    }
+    if (row === 0 && column === 0) break;
+    if (down) {
+      column -= 1;
+      changes.push({ kind: "added", line: right[column]! });
     } else {
-      changes.push({ kind: "added", line: right[column] });
-      column += 1;
+      row -= 1;
+      changes.push({ kind: "removed", line: left[row]! });
     }
   }
-  while (row < left.length) {
-    changes.push({ kind: "removed", line: left[row] });
-    row += 1;
-  }
-  while (column < right.length) {
-    changes.push({ kind: "added", line: right[column] });
-    column += 1;
-  }
+  changes.reverse();
   return changes;
 }
 

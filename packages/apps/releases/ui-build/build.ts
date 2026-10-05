@@ -1,7 +1,6 @@
 // 고정 UI 의존 screen build(apps/releases#R4, apps/sdk#R10). GUI의 React·npm 의존은
 // 고정 UI Package가 제공한 exact 목록으로 준비 단계에만 build한다. 운영 프로세스는
 // build나 의존 다운로드 없이 그 결과만 사용한다. external source map도 bundle에 넣는다.
-import * as esbuild from "esbuild";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { relativePathSchema } from "../../../contracts/documents/mod.ts";
 
@@ -85,6 +84,9 @@ export async function buildScreens(
   const maps: SourceMap[] = [];
   try {
     for (const screen of input.screens) {
+      // esbuild는 ESBUILD_BINARY_PATH를 모듈 로드 때 읽는다. 정적 import면
+      // env 권한이 없는 worker(platform/io)도 이 그래프에서 시작이 죽는다.
+      const esbuild = await import("esbuild");
       const built = await esbuild.build({
         stdin: {
           contents: decode(screen.bytes),

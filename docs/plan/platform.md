@@ -650,14 +650,14 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: settings(TOML import·export pipe 작업)
 - slice: agent
 - 선행: platform#T26, platform#T24
-- 상태: 진행 (#153) — 남은 것: R29(machine이 질문 고정 option action 근거를 검증한 apply는 ApplySettings route actors에 machine이 필요해 contract 변경이 먼저다) — 이어보냄: flow ask-lophn-help 설정 단계 통합 테스트 → lophn-agent#T29
+- 상태: 완료 (#153, #234) — 이어보냄: flow ask-lophn-help 설정 단계 통합 테스트 → lophn-agent#T29
 - 완료: 아래 확인이 통과한다
   - UTF-8 TOML 1.0 format 1만 worker에서 parse·redaction·전체 검증 뒤 `ApplySettings`로 제출한다. JSON5·YAML·환경 치환·include·command·원격 URL은 거절, 모르는 format은 거절(R3, R26).
   - definitions read는 이름·한 줄 설명·현재·기본값의 뜻·영향·위험·되돌림·적용 시점을 주고 설명 없는 항목은 공개하지 않는다(R27, R28).
   - lophn 역할의 제안은 질문의 고정 option action → QuestionActionEvidence → `ApplySettings`로만 적용한다(R29).
   - read 결과가 기본 정보와 펼칠 정보(층·판·format)를 나눠 준다(R30, 화면은 shell).
   - `toml_test.ts`, `definitions_test.ts`에 위 요구 테스트
-  - 이어받음: platform#T27의 flow ask-lophn-help 설정 단계 통합 테스트. 설정 변경 제안 경로(R29)를 이 작업이 닫는다. machine actor의 ApplySettings 검증은 contract 변경이 먼저라 platform#T27에 남는다
+  - 이어받음: flow ask-lophn-help 설정 단계 통합 테스트는 lophn-agent#T29가 닫는다. machine actor의 ApplySettings 검증(R29)은 이 작업이 닫았다(command tx 안의 QuestionCreated·QuestionAnswered event 대조)
 
 ### T28 data 직렬화와 출처 유지
 

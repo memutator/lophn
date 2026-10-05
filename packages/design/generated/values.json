@@ -385,6 +385,15 @@
       "launcher": "1040px",
       "overview": "800px"
     },
+    "editor": {
+      "quoteBar": "2px",
+      "check": "16px",
+      "find": "36px",
+      "gutter": "24px",
+      "problemList": "200px",
+      "stickyHead": "32px",
+      "linkPicker": "320px"
+    },
     "table": {
       "row": {
         "compact": "36px",

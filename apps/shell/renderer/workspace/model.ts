@@ -119,6 +119,8 @@ export interface TabItem {
   readonly title: string;
   /** 고정 탭은 36px로 접는다(editor#R3). */
   readonly pinned?: boolean;
+  /** terminal 탭의 시작 폴더 참조. 사람이 다시 시작할 때 쓴다(workspace#R7). */
+  readonly folder?: string;
 }
 
 export interface PaneState {

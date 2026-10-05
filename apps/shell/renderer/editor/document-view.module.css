@@ -1,0 +1,30 @@
+/* 문서 탭의 scroll 칸. 읽기와 편집이 같은 칸·배경·테두리를 쓴다(shell/editor#R8, R9). */
+.scroll {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  min-height: var(--space-0);
+  overflow: auto;
+  background: var(--color-surface-base);
+}
+
+.article {
+  min-width: var(--space-0);
+}
+
+/* notice 간격 12px(R16). */
+.headNotice {
+  margin: var(--space-5) var(--space-0) var(--space-0);
+  color: var(--status-warning-text);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.bodyNotice {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}

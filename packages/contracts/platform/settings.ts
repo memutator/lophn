@@ -2,6 +2,7 @@ import { z } from "zod";
 import { actorSchema } from "./actor.ts";
 import { withReadCommon } from "./envelope.ts";
 import { defineEvent } from "./events.ts";
+import { idSchema } from "./ids.ts";
 import { defineCommand, defineRead } from "./route.ts";
 import { atSchema } from "./values.ts";
 
@@ -238,6 +239,11 @@ export const applySettingsInputSchema = z.strictObject({
       new Set(changes.map((change) => change.key)).size === changes.length,
     { message: "duplicate setting mutations" },
   ),
+  // machine apply만 쓰는 질문 근거(platform#T24 모양). 사람 apply는 생략한다.
+  evidence: z.strictObject({
+    question: idSchema("qst"),
+    option: z.string().min(1),
+  }).optional(),
 });
 export const reloadSettingsInputSchema = z.strictObject({});
 export const settingsCompareSchema = z.strictObject({
@@ -270,7 +276,7 @@ export const applySettings = defineCommand({
   input: applySettingsInputSchema,
   output: settingsApplyResultSchema,
   compare: settingsCompareSchema,
-  actors: ["user"],
+  actors: ["user", "machine"],
   errors: commandErrors,
 });
 export const reloadSettings = defineCommand({

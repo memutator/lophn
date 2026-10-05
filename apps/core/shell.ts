@@ -1,0 +1,26 @@
+// shell이 core에 등록하는 것. 지금은 전역 읽기 폭 설정 항목 하나다(contracts#T24 settings
+// registry, shell/design-system#R23). shell renderer는 이 key를 settings.get·apply로만 읽고 쓴다.
+import { z } from "zod";
+import { defineSetting } from "../../packages/contracts/platform/mod.ts";
+
+export const readingWidthSetting = defineSetting({
+  key: "shell.reading_width",
+  owner: "shell/design-system",
+  display_name_key: "settings.reading-width.name",
+  description: "Reading width shared by every document.",
+  value_meaning_key: "settings.reading-width.value",
+  default_meaning_key: "settings.reading-width.default",
+  affected_features: ["shell/editor", "shell/design-system"],
+  risk_key: "settings.reading-width.risk",
+  revert_key: "settings.reading-width.revert",
+  constraints: { choices: ["narrow", "default", "wide"] },
+  required: false,
+  layers: ["common"],
+  // 열린 문서와 새로 여는 문서가 곧바로 같은 폭을 쓴다.
+  apply_at: "current_check",
+  apply_at_key: "settings.reading-width.apply-at",
+  machine_local: false,
+  default_present: true,
+  default: "default",
+  value_type: z.enum(["narrow", "default", "wide"]),
+});

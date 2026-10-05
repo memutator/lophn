@@ -85,7 +85,62 @@ export type PlaceholderKinds = {
   "contexts.view.baseline": Record<never, never>;
   "contexts.view.follow-changes": Record<never, never>;
   "contexts.view.reference": Record<never, never>;
+  "document.button.check-task": Record<never, never>;
+  "document.button.edit": Record<never, never>;
+  "document.button.find-close": Record<never, never>;
+  "document.button.find-match-case": Record<never, never>;
+  "document.button.find-next": Record<never, never>;
+  "document.button.find-previous": Record<never, never>;
+  "document.button.menu": Record<never, never>;
+  "document.button.read": Record<never, never>;
+  "document.button.replace": Record<never, never>;
+  "document.button.replace-all": Record<never, never>;
+  "document.button.uncheck-task": Record<never, never>;
   "document.diff.identical": Record<never, never>;
+  "document.empty.no-links": Record<never, never>;
+  "document.error.load-failed": Record<never, never>;
+  "document.error.text-hidden": Record<never, never>;
+  "document.error.text-unreadable": Record<never, never>;
+  "document.error.text-unsupported": Record<never, never>;
+  "document.error.width-failed": Record<never, never>;
+  "document.label.find": Record<never, never>;
+  "document.label.find-count": {
+    current: "number";
+    total: "number";
+  };
+  "document.label.find-count-capped": {
+    current: "number";
+    total: "number";
+  };
+  "document.label.find-none": Record<never, never>;
+  "document.label.find-query": Record<never, never>;
+  "document.label.image": Record<never, never>;
+  "document.label.link-count": {
+    count: "plural";
+  };
+  "document.label.link-picker": Record<never, never>;
+  "document.label.meta": {
+    number: "number";
+    when: "string";
+  };
+  "document.label.problem": {
+    message: "string";
+  };
+  "document.label.problem-line": {
+    line: "number";
+  };
+  "document.label.problem-whole": Record<never, never>;
+  "document.label.problems": Record<never, never>;
+  "document.label.properties": Record<never, never>;
+  "document.label.reading-width": Record<never, never>;
+  "document.label.this-document": Record<never, never>;
+  "document.label.replace-with": Record<never, never>;
+  "document.label.width-choice": {
+    width: "string";
+  };
+  "document.label.width-current": {
+    width: "string";
+  };
   "launcher.button.lophn": Record<never, never>;
   "launcher.button.reconnect": Record<never, never>;
   "launcher.button.retry": Record<never, never>;

@@ -2,6 +2,7 @@ import { mount } from "../entry.tsx";
 import { Desktop } from "./main.tsx";
 import { windowCoreSource } from "./connection/connection.ts";
 import { devSeed } from "./dev-seed.ts";
+import { windowEditorDeps } from "../editor/window-deps.ts";
 import { openProject } from "./router.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
@@ -11,6 +12,8 @@ import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
 
 const seed = devSeed();
+const core = windowCoreSource();
+const editor = windowEditorDeps(core);
 // 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
 const terminal = windowTerminalDeps(
   new TerminalStore(),
@@ -20,9 +23,10 @@ const terminal = windowTerminalDeps(
 mount(
   <div className={styles.root}>
     <Desktop
-      source={windowCoreSource()}
+      source={core}
       initial={seed ? openProject(seed.project) : undefined}
       workspace={seed?.source}
+      editor={seed ? { ...editor, ...seed.editor } : editor}
       windowWidth={seed ? 1440 : undefined}
       terminal={terminal}
     />

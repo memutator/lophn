@@ -14,6 +14,7 @@ import {
   RouteRegistry,
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
+import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import {
   applyMigrations,
   checkRestart,
@@ -35,11 +36,13 @@ import {
   createBlobPrepareRelay,
   type PreparedRelayResult,
 } from "./blob-prepare.ts";
-import { createPreparationRegistry } from "../../packages/platform/blob-store/mod.ts";
+import {
+  createPreparationRegistry,
+  retentionRules,
+} from "../../packages/platform/blob-store/mod.ts";
 import type { BlobFieldDefinition } from "../../packages/contracts/platform/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { documentPrepareRoute, relaySink } from "./documents-prepare.ts";
-import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
@@ -72,8 +75,16 @@ export type CoreOptions = {
   testCredentials?: boolean;
   // 테스트가 준비 참조를 writer 메모리에 심는 입구. 제품 기동에는 없다.
   notePrepared?: (prepared: PreparedRelayResult, nowMs: number) => void;
+  // 테스트가 정지 유지보수를 대신 실행한다. 제품 기동에는 없다. 세 정지
+  // 조건이 모두 관측된 뒤에만 불리고, 실패·시간 초과는 종료를 막지 않는다.
+  maintenance?: () => Promise<void>;
+  // 테스트가 종료의 앞 단계(API 정지)를 실패시킨다. 제품 기동에는 없다.
+  failShutdown?: () => Promise<void>;
+  // 정지 유지보수 시간 제한. 없으면 30초. 테스트가 짧게 줄인다.
+  maintenanceTimeoutMs?: number;
+  // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
+  workers?: ReadonlyMap<string, WorkerRouteTarget>;
 };
-
 export type BlobPrepareCall = {
   principal: string;
   purpose: string;
@@ -285,7 +296,13 @@ async function open(
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
-      workers: documentPrepareWorkers(prepareRelay),
+      // worker route serving map. document.prepare는 제품 기동이 항상 넣고,
+      // 테스트 seam(T8·T13)이 준 route를 같은 map에 더한다. resource/method가
+      // 겹치면 테스트 seam이 이긴다. 둘 다 없으면 worker route는 503이다.
+      workers: mergedWorkers(
+        documentPrepareWorkers(prepareRelay),
+        options.workers,
+      ),
     });
   } catch {
     await runtime.close();
@@ -384,16 +401,61 @@ async function open(
     async shutdown() {
       if (stopped) return;
       stopped = true;
-      // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
-      ready = false;
-      // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
-      runtime?.memory.disconnect();
-      await server.stop();
-      if (io) await io.stopAll();
-      stopPrune.run?.();
-      await runtime?.close();
-      await removeRunMetadata(root.run);
-      await lock.release();
+      // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기 → 입장한
+      // 짧은 command 확정 또는 실패 → child 정상 정지 → writer 닫기.
+      // 정지 유지보수(T44)는 이 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가
+      // 예외를 던져도 metadata 정리와 lock 해제는 그대로 실행한다.
+      const stoppedAt: {
+        preparationsBlocked: boolean;
+        commandsBlocked: boolean;
+        writerStopped: boolean;
+      } = {
+        preparationsBlocked: false,
+        commandsBlocked: false,
+        writerStopped: false,
+      };
+      try {
+        // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
+        ready = false;
+        // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
+        runtime?.memory.disconnect();
+        // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야
+        // 새 command 입장이 실제로 닫힌 것이다.
+        await server.stop();
+        if (options.failShutdown) await options.failShutdown();
+        stoppedAt.commandsBlocked = ready === false;
+        // child 정상 정지. stopAll이 돌아온 뒤에야 새 blob 준비 접수가 없다.
+        if (io) await io.stopAll();
+        stoppedAt.preparationsBlocked = true;
+        stopPrune.run?.();
+        // writer Worker와 reader 연결을 닫는다. close가 돌아온 뒤에야 writer가 멈춘 것이다.
+        await runtime?.close();
+        stoppedAt.writerStopped = true;
+        // 세 조건이 모두 관측될 때만 유지보수를 부른다. 파일 작업과 blob_refs
+        // 읽기는 core graph 밖 프로세스의 몫이다(responsiveness#R1). 관측을
+        // 못 하면 건너뛰고(fail-closed), 시간 제한을 넘기면 그 프로세스만
+        // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
+        if (
+          stoppedAt.preparationsBlocked && stoppedAt.commandsBlocked &&
+          stoppedAt.writerStopped
+        ) {
+          await runStoppedMaintenance({
+            dataRoot: root.path,
+            ledgerPath,
+            conditions: stoppedAt,
+            fields: retentionRules(assembled.value.blobFields),
+            nowMs: clock.nowMs(),
+            timeoutMs: options.maintenanceTimeoutMs,
+            run: options.maintenance,
+          });
+        }
+      } finally {
+        try {
+          await removeRunMetadata(root.run);
+        } finally {
+          await lock.release();
+        }
+      }
     },
   };
   const greeted = await hello;
@@ -426,7 +488,6 @@ async function open(
   return ok(core);
 }
 
-// ledger 파일을 다시 열지 않고 경로와 크기로만 식별한다. 내용은 읽지 않는다.
 async function ledgerIdentity(path: string): Promise<string> {
   const stat = await Deno.stat(path);
   return `${path}:${stat.size}`;
@@ -444,9 +505,120 @@ function seedOf(random: RandomSource): number {
   return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
 }
 
-// platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
-// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측(R12)에만 쓴다. node:fs statfs는
-// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
+// 정지 유지보수 프로세스(platform/blob-store#R8, R9, R10, T44). 파일 작업과
+// ledger 읽기는 core graph 밖이다(responsiveness#R1). 세 정지 조건은 종료
+// 순서가 실제로 끝난 뒤의 관측값이라 상수 true를 넘기지 않는다. 프로세스가
+// 실패하거나 blob_refs를 읽지 못하면 아무것도 지우지 않고(fail-closed), 종료는
+// 그대로 끝난다. 실패는 diagnostics 로그만 남긴다.
+// 문서에 종료 전체의 시간 예산은 없다. 신뢰 child 정상 정지는 5초지만 유지보수는
+// 파일 삭제를 포함하므로 그보다 길게, 디스크가 멈춰도 종료가 끝나도록 30초로 둔다.
+const MAINTENANCE_TIMEOUT_MS = 30_000;
+
+async function runStoppedMaintenance(input: {
+  dataRoot: string;
+  ledgerPath: string;
+  conditions: {
+    preparationsBlocked: boolean;
+    commandsBlocked: boolean;
+    writerStopped: boolean;
+  };
+  fields: ReturnType<typeof retentionRules>;
+  nowMs: number;
+  timeoutMs?: number;
+  // 테스트가 프로세스를 대신한다. 제품 기동은 항상 프로세스를 띄운다.
+  run?: () => Promise<void>;
+}): Promise<void> {
+  const signal = AbortSignal.timeout(input.timeoutMs ?? MAINTENANCE_TIMEOUT_MS);
+  if (input.run) {
+    try {
+      // 제품 경로는 Deno.Command의 signal이 프로세스를 죽인다. 테스트가 주입한
+      // 러너는 signal을 모르므로 여기서 같은 시간 제한과 경주한다.
+      await Promise.race([
+        input.run(),
+        new Promise<never>((_resolve, reject) => {
+          const fail = () => reject(new Error("maintenance_gc timeout"));
+          if (signal.aborted) fail();
+          else signal.addEventListener("abort", fail, { once: true });
+        }),
+      ]);
+    } catch {
+      await noteMaintenanceFailure(input.dataRoot, signal.aborted);
+    }
+    return;
+  }
+  const entry =
+    new URL("../worker/platform/maintenance-entry.ts", import.meta.url)
+      .pathname;
+  let outcome: Deno.CommandOutput;
+  try {
+    outcome = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        `--allow-read=${input.dataRoot},${repoRoot()},${denoDir()}`,
+        `--allow-write=${input.dataRoot}`,
+        "--allow-env=LOPHN_HOME,LOPHN_MAINTENANCE,HOME,PATH",
+        "--no-prompt",
+        entry,
+      ],
+      stdin: "null",
+      stdout: "null",
+      stderr: "piped",
+      clearEnv: true,
+      signal,
+      env: {
+        ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+        ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+        LOPHN_HOME: input.dataRoot,
+        LOPHN_MAINTENANCE: JSON.stringify({
+          ledger: input.ledgerPath,
+          conditions: input.conditions,
+          fields: input.fields,
+          nowMs: input.nowMs,
+        }),
+      },
+    }).output();
+  } catch {
+    // signal이 시간을 넘기면 Deno가 그 프로세스만 죽이고 output()이 거절된다.
+    await noteMaintenanceFailure(input.dataRoot, signal.aborted);
+    return;
+  }
+  if (!outcome.success) await noteMaintenanceFailure(input.dataRoot, false);
+}
+
+// 유지보수 실패의 diagnostics 기록. 종료를 막지 않으므로 기록 실패도 삼킨다.
+// 원문·경로·hash는 넣지 않고 분류만 남긴다(diagnostics#R5).
+async function noteMaintenanceFailure(
+  dataRoot: string,
+  timedOut = false,
+): Promise<void> {
+  try {
+    const directory = `${dataRoot}/logs`;
+    try {
+      await Deno.mkdir(directory, { mode: 0o700 });
+    } catch (error) {
+      if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+    }
+    const record = {
+      at: new Date().toISOString(),
+      component: "platform/core",
+      kind: "log",
+      code: "lophn_internal",
+      error_type: "maintenance_gc",
+      location: "apps/core/core.ts",
+      message: timedOut
+        ? "maintenance_gc timeout"
+        : "Stopped maintenance did not run.",
+    };
+    await Deno.writeTextFile(
+      `${directory}/maintenance.jsonl`,
+      JSON.stringify(record) + "\n",
+      { append: true },
+    );
+  } catch {
+    // 기록하지 못해도 종료는 그대로 끝난다.
+  }
+}
+
 function repoRoot(): string {
   return new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 }
@@ -456,6 +628,9 @@ function denoDir(): string {
   return home ? `${home}/.cache/deno` : "/tmp";
 }
 
+// platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
+// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측(R12)에만 쓴다. node:fs statfs는
+// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
 function platformIoSpec(dataRoot: string): KindLaunchSpec {
   return {
     kind: "platform/io",
@@ -632,6 +807,14 @@ function startPlatformIo(
 // document.prepare worker route. blob 중계가 뜨면 준비된다. format 검사와 기준 판
 // 읽기는 그 소유 연결이 아직 없어 unavailable로 답한다. 목록 hash와 blob은 같은
 // stream에서 만든다.
+// 제품 route와 테스트 seam route를 한 map으로 모은다. 같은 key는 나중 것이 이긴다.
+function mergedWorkers(
+  base: ReadonlyMap<string, WorkerRouteTarget>,
+  extra: ReadonlyMap<string, WorkerRouteTarget> | undefined,
+): ReadonlyMap<string, WorkerRouteTarget> {
+  return new Map([...base, ...(extra ?? [])]);
+}
+
 function documentPrepareWorkers(
   relay: {
     current?: (call: BlobPrepareCall) => Promise<Result<PreparedRelayResult>>;

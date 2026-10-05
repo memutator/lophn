@@ -88,7 +88,6 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     // 나머지는 normal lane이다. 거절은 queue 입장에서 unavailable이다.
     admitCommand: async (ctx, name, work) => {
       // 대기열은 슬롯만 연다. work는 입장한 뒤 한 번만 실행한다.
-      // 대기 중 실행은 그 결과가 버려지고, 입장 뒤 같은 command가 다시 돈다.
       const admitted = await admission.admit(
         ctx.principal,
         () => Promise.resolve(),

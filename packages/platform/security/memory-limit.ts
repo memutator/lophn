@@ -8,6 +8,8 @@ export const PROCESS_MEMORY_LIMIT_BYTES = 536_870_912;
 // hard는 cgroup v2 memory.max다(platform Q10). user systemd가 scope에 컨트롤러를 위임한다.
 const SYSTEMD_RUN = "/usr/bin/systemd-run";
 // soft는 가상 주소 공간 상한이다. cgroup을 못 쓸 때만 쓴다.
+// Deno는 512MiB RLIMIT_AS에서 시작 전에 죽는다(Oilpan 예약). /bin/true가
+// 통과해도 Deno 대상에는 soft를 쓰지 않는다.
 const PRLIMIT = "/usr/bin/prlimit";
 const ADAPTER_MS = 2_000;
 
@@ -108,6 +110,11 @@ async function probeAddressSpace(): Promise<boolean> {
   return started.code === 0;
 }
 
+function isDenoTarget(command: string): boolean {
+  const base = command.split("/").at(-1) ?? "";
+  return base === "deno" || base.startsWith("deno.");
+}
+
 export const systemMemoryProbe: MemoryProbe = {
   cgroup: probeCgroup,
   addressSpace: probeAddressSpace,
@@ -141,6 +148,14 @@ export async function applyMemoryLimit(
         command,
         ...args,
       ],
+    });
+  }
+  // /bin/true 프로브는 Deno의 주소 공간 예약을 보지 못한다. Deno를 soft로
+  // 띄우면 시작 전에 죽으므로, hard가 없으면 시작 전에 unavailable이다.
+  if (isDenoTarget(command)) {
+    return err({
+      code: "unavailable",
+      message: "deno cannot run under the soft address-space limit",
     });
   }
   if (await probe.addressSpace()) {

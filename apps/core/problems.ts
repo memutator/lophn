@@ -28,6 +28,8 @@ import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
 import { SNAPSHOTS_SCHEMA_STEPS } from "../../packages/problems/snapshots/mod.ts";
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
 import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
+import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
+import { testRunnerSpec } from "./problems-runner.ts";
 
 // owner definitions만 내보낸다. port 구현과 writer 조립은 core가 맡는다.
 export const problemsTestDefinitions = {
@@ -38,7 +40,22 @@ export const problemsTestDefinitions = {
   reads: [getTestRequestRead, getVerificationRead, listVerificationsRead],
   visibility: [verificationRecordedVisibility],
   ports: { admission: testAdmissionPort, evidence: testEvidencePort },
+  workers: testRunnerWorkers(),
 };
+
+// 등록 시점 env에서 data root와 Deno 실행 파일을 좁힌다. 없으면 spec을 내지 않는다.
+function testRunnerWorkers(): KindLaunchSpec[] {
+  const lophnHome = Deno.env.get("LOPHN_HOME");
+  const home = Deno.env.get("HOME");
+  const root = lophnHome && lophnHome.length > 0
+    ? lophnHome
+    : home
+    ? `${home}/.lophn`
+    : undefined;
+  if (!root || !root.startsWith("/")) return [];
+  const spec = testRunnerSpec({ dataRoot: root, deno: Deno.execPath() });
+  return spec ? [spec] : [];
+}
 
 // 보고 등록: record-report와 reports·snapshots ledger. read는 reader Worker가
 // createReaderRegistration으로 붙인다(#142). blob purpose 상한은

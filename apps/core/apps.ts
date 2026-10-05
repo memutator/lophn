@@ -11,6 +11,9 @@ import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.t
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
 import { createSdkReads } from "../../packages/apps/sdk/reads.ts";
 import { sdkSchemaSteps } from "../../packages/apps/sdk/schema.ts";
+import { createDataCommands } from "../../packages/apps/data/commands.ts";
+import { dataSchemaSteps } from "../../packages/apps/data/schema.ts";
+import { createDataRecordStore } from "../../packages/apps/data/store.ts";
 import {
   type PlaceNameReservation,
   placeNameReservation,
@@ -38,12 +41,15 @@ export function createLedgerRegistration(
   const invocationReads = createInvocationsReads();
   const sdk = createSdkCommands();
   const sdkReads = createSdkReads();
+  // 기록은 command가 받은 tx의 sql에만 남긴다. DB 파일은 data worker가 연다.
+  const data = createDataCommands((tx) => createDataRecordStore(tx));
   return {
     // place_names 표는 documents 등록의 몫이다(R6, R10).
     schemaSteps: [
       ...appsSchemaSteps,
       ...invocationsSchemaSteps,
       ...sdkSchemaSteps,
+      ...dataSchemaSteps,
     ],
     commands: [
       commands.create,
@@ -54,6 +60,9 @@ export function createLedgerRegistration(
       invocations.recordFinished,
       invocations.recordDenied,
       sdk.registerVersion,
+      data.recordBackup,
+      data.recordDataChange,
+      data.recordDataRestore,
     ],
     reads: [
       reads.list,

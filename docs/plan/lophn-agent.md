@@ -146,6 +146,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T6 model call 기록과 사용량·비용
 
+- 상태: 진행 (#194) — 남은 것: handoff 수신 run 귀속, eval 재생 제외, 가격 갱신이 과거 비용을 덮지 않음
 - 등급: 기본
 - concern: lophn-agent/harness/usage
 - 요구: lophn-agent/harness/usage#R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11

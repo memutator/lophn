@@ -2,7 +2,7 @@
 // 조립한다(problems/reporting#R1, R2, R8, R16). credential에서 출처를 정하고,
 // 본문 주장은 따르지 않는다. 대기 한도·retry 간격은 주입받고, packages/problems는
 // platform을 import하지 않는다.
-import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import { err, ok, type Result, sha256Hex } from "../../../packages/base/mod.ts";
 import type { RequestContext } from "../../../packages/contracts/platform/mod.ts";
 import type {
   RecordReportInput,
@@ -12,7 +12,6 @@ import type {
 } from "../../../packages/contracts/problems/mod.ts";
 import {
   isRetryableReportError,
-  REPORT_RETRY_DELAYS_MS,
   reportContentHashInputSchema,
 } from "../../../packages/contracts/problems/mod.ts";
 
@@ -193,4 +192,19 @@ export async function deliverReport(
     if (!isRetryableReportError(last)) break;
   }
   return { status: "failed", reason: last };
+}
+
+// 잘못된 보고 진단 ID는 원래 제출의 rpt ID에서 결정적으로 정한다(R8, R9).
+// 재전송해도 같은 진단이므로 1개다. ULID 자리는 소문자 Crockford base32고,
+// hex 자리는 그 안에 들어가므로 digest 글자를 그대로 옮기고 첫 ULID 글자만
+// 0–7로 좁힌다. time·random을 주입받지 않는다: 원문에서만 온다.
+export async function invalidReportId(
+  reportId: string,
+): Promise<string | undefined> {
+  if (!/^rpt_[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(reportId)) return undefined;
+  const digest = await sha256Hex(`invalid-report:${reportId}`);
+  // digest 64hex 중 첫 26자를 ULID 자리로 쓴다. hex는 Crockford 알파벳 안에
+  // 들어가고, 첫 글자만 charCode로 0–7로 좁힌다.
+  const first = String(digest.charCodeAt(0) & 7);
+  return `rpt_${first}${digest.slice(1, 26)}`;
 }

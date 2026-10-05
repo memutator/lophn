@@ -120,6 +120,9 @@ export async function assembleWriter(
     },
     noteBlobTime(nowMs: number) {
       if (nowMs > blobNowMs) blobNowMs = nowMs;
+      // writer clock은 기동 시각에 고정된다. expire_claim은 그 시계로 기한을
+      // 다시 보므로, sweep가 blob-prune으로 알린 시각까지 민다. 단조라서
+      // 제품 경로에서 시계가 뒤로 가지 않는다.
       clock.set(blobNowMs);
     },
     onTx(tx: Tx | undefined) {

@@ -36,10 +36,18 @@ export function recordCredential(
   }
   try {
     connection.exec("begin immediate");
-    connection.sql.run(
-      `insert into credentials (credential_ref, context, state) values (?, ?, 'active')`,
-      [parsed.data.credential_ref, JSON.stringify(parsed.data)],
+    // 같은 credential_ref가 이미 있으면 기동을 죽이지 않는다. 재시작마다 같은
+    // machine credential을 다시 기록한다(coding-agent/tickets#R13).
+    const existing = connection.sql.get(
+      "select state from credentials where credential_ref = ?",
+      [parsed.data.credential_ref],
     );
+    if (existing === undefined) {
+      connection.sql.run(
+        `insert into credentials (credential_ref, context, state) values (?, ?, 'active')`,
+        [parsed.data.credential_ref, JSON.stringify(parsed.data)],
+      );
+    }
     connection.exec("commit");
   } catch {
     try {

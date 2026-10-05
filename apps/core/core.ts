@@ -99,6 +99,12 @@ export type Core = {
   ): Promise<Result<void>>;
   // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
   sweepTicketClaims(): Promise<void>;
+  // testCredentials일 때만 있다. 확인 창 handle을 writer registry에 발급한다.
+  confirmation?(body: {
+    action: "issue" | "close-window" | "clear";
+    request?: unknown;
+    windowId?: string;
+  }): Promise<Result<unknown>>;
 };
 
 export async function startCore(options: CoreOptions): Promise<Result<Core>> {
@@ -395,6 +401,7 @@ async function open(
     const noting = runtime;
     core.notePrepared = (prepared, nowMs) =>
       noting.notePrepared(prepared, nowMs);
+    core.confirmation = (body) => noting.confirmation(body);
   }
   if (accepting.acceptTestCredential) {
     core.acceptTestCredential = (context, token) =>

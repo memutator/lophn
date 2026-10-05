@@ -3,6 +3,9 @@
 // machine credential이 만료 claim을 expire_claim으로 정리하는지 본다.
 import { assert, assertEquals } from "@std/assert";
 import type { Result } from "../../packages/base/mod.ts";
+import { connectionRevoke } from "../../packages/contracts/coding-agent/mod.ts";
+import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
+import { startCore } from "./core.ts";
 import { createCoreHarness } from "./testing/core.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
@@ -31,6 +34,7 @@ async function post(
   token: string,
   input: unknown,
   compare: unknown = {},
+  confirmation?: string,
 ): Promise<{ status: number; body: Body }> {
   const response = await fetch(`http://127.0.0.1:${port}${path}`, {
     method: "POST",
@@ -43,6 +47,7 @@ async function post(
       idempotency_key: `k-${crypto.randomUUID()}`,
       compare,
       prepared: [],
+      ...(confirmation === undefined ? {} : { confirmation }),
     }),
   });
   return { status: response.status, body: await response.json() };
@@ -383,6 +388,218 @@ Deno.test("coding-agent/tickets#R13: the sweep removes a claim once its time has
     db.close();
     assertEquals(row?.state, "open");
     assertEquals(claim, undefined);
+  } finally {
+    await core.close();
+  }
+});
+
+Deno.test("coding-agent/tickets#R13: a second start on the same data root keeps the sweep credential", async () => {
+  const directory = await Deno.makeTempDir({ prefix: "lophn-core-restart-" });
+  const teams = [{ ticketDefinitions }];
+  const teamModules = [new URL("./tickets.ts", import.meta.url).href];
+  const first = await startCore({
+    lophnHome: directory,
+    port: 0,
+    teams,
+    teamModules,
+    superviseIo: false,
+  });
+  assert(first.ok, first.ok ? undefined : JSON.stringify(first.error));
+  await first.value.shutdown();
+  const second = await startCore({
+    lophnHome: directory,
+    port: 0,
+    teams,
+    teamModules,
+    superviseIo: false,
+  });
+  assert(second.ok, second.ok ? undefined : JSON.stringify(second.error));
+  try {
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(`${second.value.dataRoot}/lophn.db`, {
+      readOnly: true,
+    });
+    const rows = db.prepare(
+      "SELECT credential_ref FROM credentials WHERE credential_ref = ?",
+    ).all("machine:ticket-claims");
+    db.close();
+    assertEquals(rows.length, 1);
+  } finally {
+    await second.value.shutdown();
+    await Deno.remove(directory, { recursive: true });
+  }
+});
+
+Deno.test("coding-agent/connection#R8: the sweep releases a claim after its connection is revoked", async () => {
+  const harness = await createCoreHarness({
+    nowMs: START,
+    teams: [
+      { createLedgerRegistration: createDocumentsRegistration },
+      { createLedgerRegistration: createAppsRegistration },
+      { codingAgentConnectionDefinitions },
+      { ticketDefinitions },
+    ],
+    teamModules: [
+      new URL("./documents.ts", import.meta.url).href,
+      new URL("./apps.ts", import.meta.url).href,
+      new URL("./coding-agent.ts", import.meta.url).href,
+      new URL("./tickets.ts", import.meta.url).href,
+      new URL("./ticket-claim-ports_test.ts", import.meta.url).href,
+    ],
+  });
+  assert(harness.ok, harness.ok ? undefined : JSON.stringify(harness.error));
+  const core = harness.value;
+  try {
+    const user = value(
+      await core.credential({
+        actor: "user",
+        principal: "user-1",
+        scope: {
+          operations: [
+            "app.create",
+            "CreateCodingAgentConnection",
+            "RevokeCodingAgentConnection",
+            "CreateTicket",
+            "MakeTicketReady",
+          ],
+          targets: {},
+        },
+        conditions: {},
+      }),
+    );
+    const agent = value(
+      await core.credential({
+        actor: "coding_agent",
+        principal: `coding_agent:${CAC}`,
+        scope: { operations: ["ClaimTicket"], targets: {} },
+        conditions: {},
+      }),
+    );
+    const app = await post(core.port, "/v1/apps/create", user, {
+      slug: "notes",
+      name: "Notes",
+      description: "notes app",
+    });
+    assertEquals(app.status, 200, JSON.stringify(app.body));
+    const connection = await post(
+      core.port,
+      "/v1/coding_agent_connections/create",
+      user,
+      {
+        id: CAC,
+        label: "claude",
+        scope: { kind: "all", app: null },
+        token_digest: DIGEST,
+      },
+    );
+    assertEquals(connection.status, 200, JSON.stringify(connection.body));
+    const connectionRevision = (
+      connection.body as { connection?: { revision?: string } }
+    ).connection?.revision;
+    assert(typeof connectionRevision === "string");
+    const created = await post(core.port, "/v1/tickets/create", user, {
+      app: (app.body as { id?: string }).id,
+      kind: "implementation",
+      title: "fix leaf redaction",
+      what: "redact leaf before snapshot",
+      why: "snapshot shows the raw leaf",
+      references: [],
+      adoption_questions: [],
+      conditions: [],
+      inspect: ["src/leaf.ts"],
+      preserve: ["docs/leaf.md"],
+      problems: [],
+      readiness: "needs_confirmation",
+      needs: ["confirm the redaction"],
+    });
+    assertEquals(created.status, 200, JSON.stringify(created.body));
+    const ticket = created.body.ticket!;
+    const ready = await post(core.port, "/v1/tickets/make_ready", user, {
+      ticket,
+      base_revision: created.body.revision,
+      references: [{
+        kind: "version",
+        target: VER,
+        address: {
+          place: "project",
+          document: "leaf-redaction",
+          section: null,
+          version: 1,
+        },
+        section: null,
+      }],
+      adoption_questions: [QUESTION],
+      conditions: [
+        { kind: "app_test" },
+        {
+          kind: "test_command",
+          executable: "deno",
+          argv: ["task", "test"],
+          cwd: ".",
+          timeout_ms: 60_000,
+          expected_exit_code: 0,
+        },
+      ],
+      inspect: ["src/leaf.ts"],
+      preserve: ["docs/leaf.md"],
+    }, { base_revision: created.body.revision });
+    assertEquals(ready.status, 200, JSON.stringify(ready.body));
+    const claimed = await post(core.port, "/v1/tickets/claim", agent, {
+      ticket,
+      base_revision: ready.body.revision,
+    }, { base_revision: ready.body.revision });
+    assertEquals(claimed.status, 200, JSON.stringify(claimed.body));
+    const binding = await confirmationBinding(connectionRevoke, {
+      connection: CAC,
+      base_revision: connectionRevision,
+    });
+    assert(binding);
+    const issued = await core.confirmation({
+      action: "issue",
+      request: {
+        type: "confirmation_handle_register",
+        window_id: "win-revoke",
+        target_ref: binding.target,
+        content_hash: binding.content,
+        allowed_decisions: ["RevokeCodingAgentConnection"],
+        expires_at: new Date(START + 600_000).toISOString(),
+      },
+    });
+    assert(issued.ok, issued.ok ? undefined : JSON.stringify(issued.error));
+    const handle = (issued.value as { confirmation?: string }).confirmation;
+    assert(typeof handle === "string");
+    const revoked = await post(
+      core.port,
+      "/v1/coding_agent_connections/revoke",
+      user,
+      { connection: CAC, base_revision: connectionRevision },
+      { base_revision: connectionRevision },
+      handle,
+    );
+    assertEquals(revoked.status, 200, JSON.stringify(revoked.body));
+    // 기한은 남아 있다. 회수 connection이라 sweep가 claim을 푼다.
+    await core.sweepTicketClaims();
+    const { DatabaseSync } = await import("node:sqlite");
+    const db = new DatabaseSync(`${core.dataRoot}/lophn.db`, {
+      readOnly: true,
+    });
+    const row = db.prepare("SELECT state FROM tickets WHERE id = ?").get(
+      ticket,
+    ) as { state: string } | undefined;
+    const claim = db.prepare(
+      "SELECT ticket FROM ticket_claims WHERE ticket = ?",
+    ).get(ticket);
+    const released = db.prepare(
+      "SELECT payload FROM events WHERE type = 'TicketClaimReleased'",
+    ).all() as { payload: string }[];
+    db.close();
+    assertEquals(row?.state, "open");
+    assertEquals(claim, undefined);
+    assert(
+      released.some((event) =>
+        JSON.parse(event.payload).reason === "connection_revoked"
+      ),
+    );
   } finally {
     await core.close();
   }

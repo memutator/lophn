@@ -211,8 +211,21 @@ export function createTicketReads(): {
     claim_sweep: {
       route: claimSweep,
       handle(snapshot, _ctx, input) {
+        // 회수 connection은 호출자가 표를 못 보는 machine이다. 이 read가
+        // coding_agent_connections에서 revoked id를 읽어 후보에 더한다(R13).
+        // 표가 없으면(ticket만 등록한 기동) 만료 후보만 본다.
+        const revoked = [...input.revoked];
+        try {
+          const rows = snapshot.sql.all(
+            "SELECT id FROM coding_agent_connections WHERE state = 'revoked'",
+            [],
+          );
+          for (const row of rows) revoked.push(String(row.id));
+        } catch {
+          // connection 등록이 없는 ledger에는 이 표가 없다.
+        }
         return ok({
-          claims: expiredClaims(snapshot.sql, input.now, input.revoked),
+          claims: expiredClaims(snapshot.sql, input.now, revoked),
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

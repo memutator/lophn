@@ -1,7 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
-import { err } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import { type ContextCommandDeps, createContextCommands } from "./commands.ts";
-import { contextItemSchema } from "../../contracts/documents/mod.ts";
+import {
+  contextExportOutputSchema,
+  contextItemSchema,
+} from "../../contracts/documents/mod.ts";
 import { createContextOutlineSource, createContextReads } from "./reads.ts";
 import { contextFixture, ids, keep, userContext } from "./testing/mod.ts";
 
@@ -355,6 +358,259 @@ Deno.test("documents/contexts#R4: context outline 근원은 보관 context를 �
     // 보관 context도 id로는 읽는다(보관은 삭제가 아니다).
     assertEquals(keep(source.get(ids.context2))?.status, "archived");
     assertEquals(keep(source.get("ctx_01arz3ndektsv4rrffq69g5fzz")), null);
+  } finally {
+    fixture.close();
+  }
+});
+
+// export 시험의 근원. 제품 redactor 대신 같은 모양의 test redactor를 쓴다.
+const SECRET = "ghp_" + "a".repeat(30);
+const HIDDEN_DOC = "doc_01arz3ndektsv4rrffq69g5fb0";
+const redactSecret = (_source: unknown, _media: string, text: string) =>
+  text.replaceAll(SECRET, "[redacted]");
+
+function exportReads(
+  overrides: Partial<NonNullable<Parameters<typeof createContextReads>[0]>> =
+    {},
+) {
+  return createContextReads({
+    redactor: redactSecret,
+    glossary: () => ({
+      ok: true,
+      value: [{ name: "범위", definition: "이번 판단의 대상" }],
+    }),
+    ...overrides,
+  }).export;
+}
+
+type Exported = {
+  context: {
+    id: string;
+    purpose: string;
+    items: { reason: string; target: { kind: string; document?: string } }[];
+  };
+  items: {
+    perspective: string;
+    reason: string;
+    fixed_version: string | null;
+    section_status: string | null;
+    target: { kind: string };
+  }[];
+  glossary: { name: string; definition: string }[];
+  next_cursor: string | null;
+};
+
+Deno.test("documents/contexts#R14: export는 목적·직접 항목·이유·고정 판 참조와 glossary를 낸다", () => {
+  const fixture = contextFixture();
+  try {
+    seedTwo(fixture);
+    const value = keep(
+      exportReads().handle(
+        fixture.snapshot(),
+        userContext(),
+        { context: ids.context } as never,
+      ),
+    ) as never as Exported;
+    assertEquals(value.context.id, ids.context);
+    assertEquals(value.context.purpose, "판단 기준 자료");
+    // 관점·이유와 읽은 고정 판(최신 판)이 항목마다 붙는다. 앱 항목은 판이 없다.
+    assertEquals(
+      value.items.map((entry) => [
+        entry.perspective,
+        entry.reason,
+        entry.fixed_version,
+        entry.section_status,
+      ]),
+      [
+        ["basis", "판단 근거", `ver_${"0".repeat(26)}`, "whole"],
+        ["watch", "변화 확인", `ver_${"0".repeat(26)}`, "unverified"],
+        ["reference", "앱 자료", null, null],
+      ],
+    );
+    assertEquals(value.glossary, [
+      { name: "범위", definition: "이번 판단의 대상" },
+    ]);
+    // 하위 context·관계 지도·다른 context는 담지 않는다.
+    assertEquals(
+      Object.keys(value as never).sort(),
+      ["as_of_seq", "context", "glossary", "items", "next_cursor"],
+    );
+    assertEquals(JSON.stringify(value).includes(ids.context2), false);
+    assert(
+      contextExportOutputSchema.safeParse(value).success,
+      "export output must match the contract schema",
+    );
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R14: section 상태는 주입된 근원을 따르고 근원이 없으면 unverified다", () => {
+  const fixture = contextFixture();
+  try {
+    seedTwo(fixture);
+    const asked: string[] = [];
+    const value = keep(
+      exportReads({
+        sectionStatus: (document, version, section) => {
+          asked.push(`${document}/${version}/${section}`);
+          return "found";
+        },
+      }).handle(
+        fixture.snapshot(),
+        userContext(),
+        { context: ids.context } as never,
+      ),
+    ) as never as Exported;
+    assertEquals(value.items[0].section_status, "whole");
+    assertEquals(value.items[1].section_status, "found");
+    assertEquals(asked, [`${ids.doc}/ver_${"0".repeat(26)}/요약`]);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R14: 권한 밖 문서·앱 항목은 항목과 context 안에서 모두 빠진다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    fixture.seedDocument(HIDDEN_DOC);
+    keep(
+      fixture.transaction((tx) =>
+        commands.create.handle(
+          tx,
+          userContext(),
+          {
+            id: ids.context,
+            title: "기준",
+            purpose: "판단 기준 자료",
+            items: [
+              item(ids.doc, null, "basis"),
+              item(HIDDEN_DOC, null, "basis", "비밀 문서 이유"),
+              appItem(),
+            ],
+          } as never,
+          {},
+        )
+      ),
+    );
+    // 만든 뒤에 범위가 좁아진다.
+    fixture.use((_ctx, _operation, target) => {
+      const record = target as Record<string, unknown>;
+      return record["document"] === HIDDEN_DOC || record["app"] !== undefined
+        ? err({ code: "forbidden", message: "no" })
+        : ok(undefined);
+    });
+    const value = keep(
+      exportReads().handle(
+        fixture.snapshot(),
+        userContext(),
+        { context: ids.context } as never,
+      ),
+    ) as never as Exported;
+    assertEquals(value.items.length, 1);
+    assertEquals(value.context.items.length, 1);
+    const text = JSON.stringify(value);
+    assertEquals(text.includes(HIDDEN_DOC), false);
+    assertEquals(text.includes("비밀 문서 이유"), false);
+    assertEquals(text.includes(ids.app), false);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R14: 권한 밖 context와 없는 context는 같은 답이고 사람이 아닌 actor는 거절된다", () => {
+  const denied = contextFixture((_ctx, _operation, target) =>
+    (target as Record<string, unknown>)["context"] !== undefined
+      ? err({ code: "forbidden", message: "no" })
+      : ok(undefined)
+  );
+  try {
+    seedTwo(denied);
+    const hidden = exportReads().handle(
+      denied.snapshot(),
+      userContext(),
+      { context: ids.context } as never,
+    );
+    const absent = exportReads().handle(
+      denied.snapshot(),
+      userContext(),
+      { context: "ctx_01arz3ndektsv4rrffq69g5fzz" } as never,
+    );
+    assertEquals(hidden, absent);
+    assertEquals(hidden.ok, false);
+  } finally {
+    denied.close();
+  }
+  const fixture = contextFixture();
+  try {
+    seedTwo(fixture);
+    for (const actor of ["agent", "coding_agent", "app", "machine"]) {
+      const result = exportReads().handle(
+        fixture.snapshot(),
+        userContext(actor),
+        { context: ids.context } as never,
+      );
+      assert(!result.ok, actor);
+      assertEquals(result.error.code, "forbidden");
+    }
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R14: 외부 출력은 redaction하고 안전화를 끝내지 못하면 내보내지 않는다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    keep(
+      fixture.transaction((tx) =>
+        commands.create.handle(
+          tx,
+          userContext(),
+          {
+            id: ids.context,
+            title: "기준",
+            purpose: `목적 ${SECRET}`,
+            items: [item(ids.doc, null, "basis", `이유 ${SECRET}`)],
+          } as never,
+          {},
+        )
+      ),
+    );
+    const snapshot = fixture.snapshot();
+    const input = { context: ids.context } as never;
+    const value = keep(
+      exportReads({
+        glossary: () => ({
+          ok: true,
+          value: [{ name: "키", definition: `정의 ${SECRET}` }],
+        }),
+      }).handle(snapshot, userContext(), input),
+    ) as never as Exported;
+    const text = JSON.stringify(value);
+    assertEquals(text.includes(SECRET), false);
+    assert(text.includes("[redacted]"));
+    // redactor 조립이 없거나, 어느 필드든 안전화에 실패하면 export 전체가 거절된다.
+    for (
+      const read of [
+        exportReads({ redactor: undefined }),
+        exportReads({ redactor: () => null }),
+        exportReads({
+          redactor: (_source, _media, field) =>
+            field.startsWith("정의") ? null : field,
+          glossary: () => ({
+            ok: true,
+            value: [{ name: "키", definition: "정의 값" }],
+          }),
+        }),
+        exportReads({ glossary: undefined }),
+      ]
+    ) {
+      const result = read.handle(snapshot, userContext(), input);
+      assert(!result.ok);
+      assertEquals(result.error.code, "unavailable");
+    }
   } finally {
     fixture.close();
   }

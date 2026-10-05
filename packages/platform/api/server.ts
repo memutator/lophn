@@ -52,7 +52,7 @@ export type ApiServerOptions = {
   events?: EventBackend;
   subscriptions?: SubscriptionStore;
   bodyLimit?: DispatchDeps["bodyLimit"];
-  // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는��.
+  // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는다.
   logger?: Logger;
   registry?: RouteRegistry;
   // command·HTTP·event 입장 한도(responsiveness 2.3 표). 없으면 createAdmission()이다.

@@ -221,7 +221,7 @@ test("shell/desktop#R21: stop 뒤 grace가 지나도 core가 끝나지 않으면
   // hello timer와 stop fallback 두 개다.
   assert.equal(fires.length, 2);
   child.exit();
-  // exit 뒤의 stop fallback timer는 이�� stopped라 강제 종료를 다시 부르지 않는다.
+  // exit 뒤의 stop fallback timer는 이미 stopped라 강제 종료를 다시 부르지 않는다.
   fires.forEach((fire) => fire());
   assert.equal(child.killed, false);
   core.ended();

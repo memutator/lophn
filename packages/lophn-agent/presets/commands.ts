@@ -302,6 +302,10 @@ export function createPresetCommands(
         if (current.revision !== compare.revision) {
           return reject("conflict", "preset revision changed");
         }
+        // 종류는 바꾸지 않는다. 다른 종류는 새 preset이다(표 kind와 정의가 어긋나지 않게).
+        if (definition.kind !== current.kind) {
+          return reject("invalid_input", "a preset revision keeps its kind");
+        }
         // 전체 검사이다. 실패하면 현재 판이 유지된다(R11, R12).
         const checked = validateDefinition(definition, resolve(tx));
         if (!checked.ok) return checked;

@@ -14,6 +14,7 @@ import type { CommandEntry } from "./commands/types.ts";
 import { FORMAT_COMMANDS, SERIES_COMMANDS } from "./commands/format.ts";
 import { INDEX_COMMANDS } from "./commands/index.ts";
 import { PROJECT_COMMANDS } from "./commands/project.ts";
+import { TICKET_COMMANDS } from "./commands/ticket.ts";
 
 // command 표 하나다. name은 `lophn <group> <command>`의 `<group> <command>`다.
 export const COMMANDS: readonly CommandEntry[] = [
@@ -26,6 +27,7 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...CONTEXT_COMMANDS,
   ...QUESTION_COMMANDS,
   ...APPROVAL_COMMANDS,
+  ...TICKET_COMMANDS,
   ...DAEMON_COMMANDS,
   ...HARNESS_COMMANDS,
 ];

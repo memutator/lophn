@@ -385,7 +385,7 @@ Deno.test(
       ) {
         await post(core.port, path, user, { ticket: "tkt_x" });
       }
-      // 존��하는 route는 실패가 아니다(ticket list만 본다).
+      // 존재하는 route는 실패가 아니다(ticket list만 본다).
       const listed = await get(core.port, "/v1/tickets/list", user, {});
       assertEquals(listed.status, 200, JSON.stringify(listed.body));
     } finally {

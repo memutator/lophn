@@ -10,7 +10,7 @@ concerns: [documents]
 
 - 자동 추적은 사람이 켠 Project 폴더에만 적용한다. 앱 source, 기본 notes Project, `_inbox`·`_system` 같은 place를 자동으로 만들지 않는다.
 - 사람의 shell만 현재 원본 파일 통로를 쓴다. agent·coding agent·앱은 허용된 고정 Version을 읽고 원본 연결 없는 문서 내용을 저장한다. coding agent가 자기 외부 편집기로 파일을 고치는 것은 이 통로 밖의 일이다.
-- format은 결정적인 검사·추출 코드다. 문서 자체의 background 동작·HTML 스크립트 run을 제공하지 않는다. lophn 배포 안내는 설치 묶음의 `guides/`에 고정 manifest(version·title·content hash)와 읽기 전용 문서로 두고 coordinator가 기존 outline·section 읽기 코드로 제공한다; 사용자 Document·system place·tracking을 자동 생성하지 않으며 복사본만 일반 문서 저장 contract로 남긴다.
+- format은 결정적인 검사·추출 코드다. 문서 자체의 background 동작·HTML 스크립트 run을 제공하지 않는다. lophn 배포 안내는 설치 묶음의 `guides/`에 고정 manifest(version·title·content hash)와 읽기 전용 문서로 두고 coordinator가 기존 outline·section 읽기 코드로 제공한다(manifest는 `guides/manifest.json`의 `{lophn_version, guides: BundledGuide[]}`이고 안내 파일 경로는 `guides/` 기준 상대 경로다. 안내마다 content_hash는 대표 파일 raw bytes의 sha256이고 매 요청 실제 bytes와 대조한다); 사용자 Document·system place·tracking을 자동 생성하지 않으며 복사본만 일반 문서 저장 contract로 남긴다.
 - Context는 자료의 소유자가 아니라 기준 / 참고 / watch의 관점이다. section은 같은 key만 이어지고 유사한 제목·본문으로 대상을 바꾸지 않는다.
 - ledger writer, transport, credential·scope·secret·redaction·blob GC·backup은 platform이 소유한다. 이 파일은 그 contract를 사용한다.
 - 편집 화면·충돌 화면·confirmation window는 shell, model 요약 생성과 prompt 조립은 lophn-agent, 앱 command·DB·source는 apps 및 coding-agent가 맡는다. 문서 worker는 앱 DB를 읽거나 앱 read command를 대신 호출하지 않는다.

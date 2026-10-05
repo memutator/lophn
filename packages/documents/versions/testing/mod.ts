@@ -1,5 +1,6 @@
 // leaf unit fixture. writer Worker·current credential·core API 증거는 아니다.
 import { DatabaseSync } from "node:sqlite";
+export * from "./guides.ts";
 import { ok, type Result } from "../../../base/mod.ts";
 import type { ContentFile } from "../../../contracts/documents/mod.ts";
 import {

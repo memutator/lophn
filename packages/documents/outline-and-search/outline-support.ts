@@ -1,5 +1,6 @@
 // outline·search 읽기가 같이 쓰는 작은 읽기 도우미. 범위 검사, 선택 판의 format,
 // index coverage다. 읽기 handler 모듈들이 서로 import하지 않게 여기 둔다.
+import { ok, type Result } from "../../base/mod.ts";
 import type { SearchResult } from "../../contracts/documents/mod.ts";
 import {
   type AuthorizationTarget,
@@ -7,6 +8,12 @@ import {
   TargetAuthorization,
 } from "../../contracts/platform/mod.ts";
 import type { DerivedRead } from "./adapters/store.ts";
+import {
+  bodyChunk,
+  decodeBodyCursor,
+  encodeBodyCursor,
+  estimatedTokens,
+} from "./model.ts";
 import type { PortLookup, SearchSnapshot } from "./types.ts";
 import { allOmissions, type SearchCoverage } from "./work.ts";
 
@@ -98,4 +105,195 @@ export function authorizeTarget(
     place_kind: placeKind,
     place: placeId,
   } as AuthorizationTarget);
+}
+
+// 목차 자르기. outline route(문서·설치 안내)가 같이 쓴다. depth 아래 section만 남기고
+// 예산 안에서 position 순으로 담는다. offset은 depth를 통과한 목록의 시작 위치다.
+// atLeastOne이면 첫 항목이 예산보다 커도 하나는 담아 이어 읽기가 멈추지 않게 한다.
+export type CuttableSection = {
+  key: string;
+  parent: string | null;
+  level: number;
+  characters: number;
+  title: string;
+  hidden_children_count: number;
+};
+
+export function cutOutline<S extends CuttableSection>(
+  sections: readonly S[],
+  depth: number,
+  budget: number,
+  options: { offset?: number; atLeastOne?: boolean } = {},
+): { entries: S[]; complete: boolean } {
+  const visible = sections.filter((section) => section.level <= depth);
+  const entries: S[] = [];
+  let used = 0;
+  let complete = true;
+  for (const section of visible.slice(options.offset ?? 0)) {
+    const cost = estimatedTokens(section.characters + section.title.length);
+    if (
+      used + cost > budget &&
+      (options.atLeastOne !== true || entries.length > 0)
+    ) {
+      complete = false;
+      break;
+    }
+    used += cost;
+    entries.push(section);
+  }
+  for (const section of entries) {
+    section.hidden_children_count = hiddenBelow(sections, section, depth);
+  }
+  return { entries, complete };
+}
+
+// depth 아래로 숨은 자손 수. 자식 section은 key parent 사슬로 센다.
+function hiddenBelow(
+  sections: readonly CuttableSection[],
+  section: CuttableSection,
+  depth: number,
+): number {
+  // depth를 넘는 section만 숨는다. depth와 같은 level의 section도 자식이 숨는다.
+  let count = 0;
+  for (const other of sections) {
+    if (other.level > depth && isDescendant(sections, other, section)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+// parent key 사슬을 걸어 올라가 다다르면 자손이다. 순환은 추출 규약이 이미 막는다,
+// 보험으로 걸음 수를 제한한다.
+function isDescendant(
+  sections: readonly CuttableSection[],
+  other: { parent: string | null },
+  ancestor: CuttableSection,
+): boolean {
+  let parent = other.parent;
+  let guard = 0;
+  while (parent !== null && guard <= sections.length) {
+    if (parent === ancestor.key) return true;
+    const next = sections.find((section) => section.key === parent);
+    if (next === undefined) return false;
+    parent = next.parent;
+    guard += 1;
+  }
+  return false;
+}
+
+// 읽을 줄 번호. section 범위(section 선택이 없으면 null)와 줄 범위를 합치고, 아무
+// 선택도 없으면 전체 본문이다. section 범위가 비어 있으면 읽을 줄이 없다. 1-based
+// 줄 번호 오름차순이다.
+export function selectBodyLines(
+  spans: readonly { start_line: number; end_line: number }[] | null,
+  ranges: readonly { start_line: number; end_line: number }[],
+  totalLines: number,
+): number[] {
+  const selected = new Set<number>();
+  const push = (start: number, end: number): void => {
+    for (let line = start; line <= end; line++) selected.add(line);
+  };
+  for (const span of spans ?? []) push(span.start_line, span.end_line);
+  for (const range of ranges) push(range.start_line, range.end_line);
+  if (spans === null && ranges.length === 0) push(1, totalLines);
+  return [...selected].sort((a, b) => a - b);
+}
+
+// 추출 상태가 section 읽기를 막을 때의 답. 읽을 수 있으면 null이다(R22).
+export function sectionStatusOf(
+  status: { status: string; failure_reason: string | null },
+): { status: string; failure_reason: string | null } | null {
+  if (status.status === "unsupported") {
+    return { status: "unsupported", failure_reason: null };
+  }
+  if (status.status === "failed") {
+    return {
+      status: "unverified",
+      failure_reason: status.failure_reason ?? "extraction failed",
+    };
+  }
+  return null;
+}
+
+export type TextWindowInput = {
+  lines: readonly string[];
+  selected: readonly number[];
+  // cursor가 묶는 기준. 판·module·선택·원문 hash가 바뀌면 이어 읽지 않는다(R8, R9).
+  binding: {
+    ver: string;
+    module_hash: string;
+    section: string | null;
+    include_children: boolean;
+    ranges: readonly { start_line: number; end_line: number }[];
+    text_hash: string | null;
+  };
+  cursor?: string;
+  budget: number;
+  redactor?: (
+    source: { concern: string; revision: string; scope: string },
+    mediaType: string,
+    text: string,
+  ) => string | null;
+  redactionSource: { concern: string; revision: string; scope: string };
+};
+
+export type TextWindow = {
+  ranges: { start_line: number; end_line: number }[];
+  text: string | null;
+  redacted: boolean;
+  omission_reason: string | null;
+  complete: boolean;
+  next_cursor: string | null;
+};
+
+// 본문 한 조각. codepoint 예산 안에서 자르고 cursor로 이어 읽는다. 출력 redaction은
+// 안전화를 끝내지 못하면 본문을 싣지 않는다(fail-closed). 없는 redactor는 그대로다.
+export function readTextWindow(input: TextWindowInput): Result<TextWindow> {
+  const { binding } = input;
+  const from = input.cursor === undefined
+    ? ok({ line: 1, codepoint: 0 })
+    : decodeBodyCursor(input.cursor, binding);
+  if (!from.ok) return from;
+  const chunk = bodyChunk(
+    input.lines,
+    input.selected,
+    from.value,
+    input.budget,
+  );
+  let text: string | null = chunk.text;
+  let redacted = false;
+  let omissionReason: string | null = null;
+  if (input.redactor !== undefined) {
+    const safe = input.redactor(
+      input.redactionSource,
+      "text/plain",
+      chunk.text,
+    );
+    if (safe === null) {
+      text = null;
+      redacted = true;
+      omissionReason = "redaction_failed";
+    } else {
+      text = safe;
+      redacted = safe !== chunk.text;
+    }
+  }
+  return ok({
+    ranges: chunk.ranges,
+    text,
+    redacted,
+    omission_reason: omissionReason,
+    complete: chunk.complete,
+    next_cursor: chunk.complete ? null : encodeBodyCursor({
+      ver: binding.ver,
+      module_hash: binding.module_hash,
+      section: binding.section,
+      include_children: binding.include_children,
+      ranges: [...binding.ranges],
+      line: chunk.position.line,
+      codepoint: chunk.position.codepoint,
+      text_hash: binding.text_hash,
+    }),
+  });
 }

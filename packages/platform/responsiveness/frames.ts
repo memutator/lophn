@@ -19,6 +19,9 @@ export type WriterBacklog = { frames: number; bytes: number };
 export type FrameWriter = {
   writeJson(payload: unknown): Promise<void>;
   writeBytes(channel: number, payload: Uint8Array): Promise<void>;
+  // stream 하나를 닫는 end·abort frame. payload가 없다.
+  writeEnd(channel: number): Promise<void>;
+  writeAbort(channel: number): Promise<void>;
   // 마지막 제어 frame 하나(stop·stopped). 아래 여유분으로 들어가고, 그 뒤로는 아무것도 받지 않는다.
   writeFinal(payload: unknown): Promise<void>;
   // 아직 쓰기를 시작하지 않은 frame을 거절하고 일반 쓰기를 닫는다. 이미 시작된 OS write는 되돌리지 못한다.
@@ -138,6 +141,8 @@ export function createFrameWriter(writer: ByteWriter): FrameWriter {
       enqueue({ kind: "json", channel: 0, payload }, false),
     writeBytes: (channel, payload) =>
       enqueue({ kind: "bytes", channel, payload }, false),
+    writeEnd: (channel) => enqueue({ kind: "end", channel }, false),
+    writeAbort: (channel) => enqueue({ kind: "abort", channel }, false),
     writeFinal: (payload) =>
       enqueue({ kind: "json", channel: 0, payload }, true),
     close() {

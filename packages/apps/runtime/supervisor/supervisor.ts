@@ -8,6 +8,7 @@ import { sameChild } from "../processes/identity.ts";
 import type { AppEnvironment } from "../processes/spawn.ts";
 import type { StopReason } from "../processes/terminate.ts";
 import { unexpected } from "../processes/terminate.ts";
+import { TERMINATING } from "../model.ts";
 import {
   BACKOFF_MAX_MS,
   backoffMs,
@@ -64,7 +65,14 @@ export type SupervisorDeps = {
   // 테스트가 시간을 건너뛰게 한다. 운영에서는 실제 대기.
   wait: (ms: number) => Promise<void>;
   readyTimeoutMs?: number;
+  // 사람의 멈춤·release 교체에서 새 command·clock을 닫고 진행 호출 종료를 요청한다(R15).
+  // 연결하지 않으면 요청할 통로가 없으므로 유예 없이 바로 강제 종료한다.
+  requestStop?: (child: AppChild, direct: string) => Promise<void>;
+  stopGraceMs?: number;
 };
+
+// 진행 호출 종료 요청 뒤 강제 종료까지의 유예다(R15).
+export const STOP_GRACE_MS = 10_000;
 
 export type SpawnRequest = {
   deno: string;
@@ -81,7 +89,15 @@ type Tracked = {
   desired: DesiredApp;
   direct: string;
   intended: StopReason | undefined;
+  // record_started가 core에 닿았을 때만 종료 확인을 record_stopped로 남긴다.
+  started: boolean;
 };
+
+// 진행 호출이 끝날 시간을 주는 정지. daemon 종료·core 단절은 바로 끝낸다.
+function graceful(reason: StopReason): boolean {
+  return reason === "user_stop" || reason === "release_change" ||
+    reason === "restart";
+}
 
 const CRASH_LOOP = {
   code: "crash_loop",
@@ -151,14 +167,19 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
   }
 
   // record 실패는 그 앱의 관측 실패다. throw하지 않아 다른 앱으로 번지지 않는다.
-  async function record(runtime: AppRuntime, entry: RuntimeRecord) {
+  async function record(
+    runtime: AppRuntime,
+    entry: RuntimeRecord,
+  ): Promise<boolean> {
     try {
       const result = await deps.core.record(entry);
       if (!result.ok) runtime.recordFailed = result.error.message;
+      return result.ok;
     } catch (error) {
       runtime.recordFailed = error instanceof Error
         ? error.message
         : "record failed";
+      return false;
     }
   }
 
@@ -184,6 +205,18 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     const tracked = runtime.tracked;
     if (!tracked) return true;
     tracked.intended = reason;
+    if (graceful(reason) && deps.requestStop) {
+      try {
+        await deps.requestStop(tracked.child, tracked.direct);
+      } catch {
+        // 요청이 닿지 않아도 유예 뒤 강제 종료가 이어진다(R15).
+      }
+      // 앱이 스스로 끝나거나 유예가 지나면 그때 강제 종료로 넘어간다.
+      await Promise.race([
+        tracked.child.exited,
+        deps.wait(deps.stopGraceMs ?? STOP_GRACE_MS),
+      ]);
+    }
     const confirmed = await tracked.child.terminate();
     if (!confirmed) return false;
     const code = await tracked.child.exited;
@@ -191,6 +224,15 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       runtime.exits.push({ atMs: deps.clock.nowMs() });
     }
     runtime.tracked = undefined;
+    if (tracked.started && reason !== "core_eof") {
+      await record(runtime, {
+        method: "record_stopped",
+        app: tracked.desired.app,
+        release: tracked.desired.release,
+        process_nonce: tracked.child.identity.processNonce,
+        started_at: startedAt(tracked.child.identity.startedAtMs),
+      });
+    }
     return true;
   }
 
@@ -225,6 +267,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       desired,
       direct: sockets.direct,
       intended: undefined,
+      started: false,
     };
     runtime.tracked = tracked;
     // 자식이 스스로 끝나면 재시작 정책을 적용한다. 정지 요청 뒤의 종료는 여기 오지 않는다.
@@ -255,7 +298,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       });
       return;
     }
-    await record(runtime, {
+    tracked.started = await record(runtime, {
       method: "record_started",
       app: desired.app,
       process_nonce: nonce,
@@ -394,7 +437,12 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         ready: tracked !== undefined && tracked.intended === undefined,
         accepting: tracked !== undefined && tracked.intended === undefined &&
           !runtime.held,
-        ...(runtime.held ? { reason: runtime.held } : {}),
+        // 정지를 요청했지만 OS 종료를 아직 확인하지 못한 자식이다(R15).
+        ...(tracked !== undefined && tracked.intended !== undefined
+          ? { reason: TERMINATING }
+          : runtime.held
+          ? { reason: runtime.held }
+          : {}),
         ...(runtime.recordFailed ? { recordFailed: runtime.recordFailed } : {}),
       };
     },

@@ -33,7 +33,7 @@ lead(Claude)가 팀을 돌리며 세션 임시 폴더(scratchpad)에만 두던 �
 
 ## 쓸 때 주의
 
-- 스크립트 안의 경로는 원래 자리(`/tmp/claude-1000/…/scratchpad/`)를 가리킨다.
-  여기서 바로 돌리려면 그 경로를 이 폴더로 바꾼다.
+- 스크립트는 이 폴더에서 바로 돈다: `docs/tmp/merge.sh <pr> <worktree 이름> <branch> "<review>"`. light check log는 `$TMPDIR/lophn-check<pr>.log`에 남는다.
+- 세션 scratchpad는 세션이 바뀌면 사라진다. worker에게는 이 폴더의 `worker-common.md`를 읽게 한다.
 - 이 폴더는 임시다. 팀 운영이 끝나거나 내용이 `docs/dev/`로 정리되면 지운다.
 - 메모 안의 agent ID는 그 세션에서만 뜻이 있다.

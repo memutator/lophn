@@ -225,7 +225,7 @@ function createDocument(
   insertDocument(tx, document);
   const stored = storeVersion(tx, ctx, version.value, prepared);
   if (!stored.ok) return stored;
-  return ok(saveResult(document, version.value, savedSeq));
+  return ok(saveResult(document, version.value, savedSeq, prepared));
 }
 
 function saveVersion(
@@ -276,7 +276,7 @@ function saveVersion(
   replaceDocument(tx, next);
   const stored = storeVersion(tx, ctx, version.value, prepared);
   if (!stored.ok) return stored;
-  return ok(saveResult(next, version.value, seq));
+  return ok(saveResult(next, version.value, seq, prepared));
 }
 
 function mintVersion(
@@ -395,10 +395,29 @@ function referenceOf(
   return { document: document.id, version: version.id, section: null };
 }
 
+// 저장 결과의 경고는 준비 결과의 validation 진단 가운데 warning severity만 남긴다(R4).
+// 진단이 blob 참조에 보류된 경우에는 응답 경고가 없다. 진단 위치는 형식을 유지한다.
+function preparedWarnings(prepared: PreparedVersion): SaveResult["warnings"] {
+  const { diagnostics } = prepared.validation;
+  if (!Array.isArray(diagnostics)) return [];
+  return diagnostics
+    .filter((diagnostic) => diagnostic.severity === "warning")
+    .map((diagnostic) => ({
+      severity: diagnostic.severity,
+      code: diagnostic.code,
+      message: diagnostic.message,
+      file: diagnostic.file,
+      start_line: diagnostic.start_line,
+      end_line: diagnostic.end_line,
+      column: diagnostic.column,
+    }));
+}
+
 function saveResult(
   document: Document,
   version: Version,
   seq: string,
+  prepared: PreparedVersion,
 ): SaveResult {
   return {
     status: "saved",
@@ -406,7 +425,7 @@ function saveResult(
     version: version.id,
     reference: referenceOf(document, version),
     event_seq: seq,
-    warnings: [],
+    warnings: preparedWarnings(prepared),
   };
 }
 

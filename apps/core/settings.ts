@@ -17,8 +17,9 @@ import type {
   SettingDefinition,
 } from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
-import { harnessSettings } from "./coding-agent.ts";
-import { readingWidthSetting } from "./shell.ts";
+import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
+import { lophnAgentDefinitions } from "./lophn-agent.ts";
+import { shellDefinitions } from "./shell.ts";
 
 export type SettingsRegistration = {
   schemaSteps: readonly SchemaStep[];
@@ -49,8 +50,9 @@ export function createSettingsRegistration(
 // writer worker와 reader worker가 이 모듈을 다시 import하고, 같은 registry로
 // apply·reload command와 settings read handler를 등록한다.
 export const settingsDefinitions = createSettingsRegistration([
-  readingWidthSetting,
-  ...harnessSettings,
+  ...shellDefinitions.settings,
+  ...lophnAgentDefinitions.settings,
+  ...codingAgentConnectionDefinitions.settings,
 ]);
 
 // reader Worker가 이 모듈에서 settings read handler를 다시 조립한다.

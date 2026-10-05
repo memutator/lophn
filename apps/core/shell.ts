@@ -24,3 +24,6 @@ export const readingWidthSetting = defineSetting({
   default: "default",
   value_type: z.enum(["narrow", "default", "wide"]),
 });
+
+// core 조립의 settings.ts가 모으는 shell 등록 항목이다(platform/settings#R31).
+export const shellDefinitions = { settings: [readingWidthSetting] };

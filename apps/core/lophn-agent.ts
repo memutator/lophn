@@ -40,7 +40,10 @@ import {
   toolCallBodyFields,
   toolsSchemaSteps,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
-import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
+import {
+  type McpServerConfig,
+  mcpServersSetting,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
 // 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
@@ -188,6 +191,8 @@ const toolCommands = createToolCommands();
 const toolReads = createToolReads();
 
 export const lophnAgentDefinitions = {
+  // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
+  settings: [catalogAutoUpdateSetting, skillFoldersSetting, mcpServersSetting],
   schemaSteps: [
     ...providerSchemaSteps,
     ...modelSchemaSteps,

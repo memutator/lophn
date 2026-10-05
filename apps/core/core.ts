@@ -31,6 +31,7 @@ import {
 } from "../../packages/platform/install-and-update/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
 import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
   type BlobPrepareRelay,
   createBlobPrepareRelay,
@@ -45,7 +46,6 @@ import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { documentPrepareRoute, relaySink } from "./documents-prepare.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
-import { createSettingsRegistration } from "./settings.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
@@ -164,19 +164,13 @@ async function open(
     return err({ code: "internal", message: "route 등록이 겹친다" });
   }
   const ledgerPath = `${root.path}/lophn.db`;
-  // settings route는 contract ROUTES가 이미 고정한다. 여기 조립은 registry·
-  // command·read만 만들고 route를 다시 등록하지 않는다(설정값은 common 층과
-  // ledger 기록만 바꾼다).
-  const settingsRegistration = createSettingsRegistration(
-    assembled.value.settings,
-  );
   const migrated = await applyMigrations(
     ledgerPath,
     [
       ...LEDGER_SCHEMA_STEPS,
       CREDENTIAL_SCHEMA,
       ...assembled.value.schemaSteps,
-      ...settingsRegistration.schemaSteps,
+      ...SETTINGS_SCHEMA_STEPS,
     ],
     { clock, recovery: { root: root.path } },
   );

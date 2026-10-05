@@ -69,6 +69,9 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
     }).definitions.map((definition) => definition.key);
     assertEquals(listed, [
       "shell.reading_width",
+      "lophn-agent.model.catalog_auto_update",
+      "lophn-agent.extensions.skill_folders",
+      "lophn-agent.extensions.mcp_servers",
       "coding-agent.harnesses.enabled",
       "coding-agent.default_harness",
       "coding-agent.harnesses.profile",
@@ -80,6 +83,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
     const applied = await post(harness, "settings/apply", {
       input: {
         changes: [
+          setMutation("shell.reading_width", "wide"),
           setMutation("coding-agent.harnesses.enabled", false),
           setMutation("coding-agent.default_harness", "codex"),
           setMutation("coding-agent.harnesses.profile", "work"),
@@ -100,6 +104,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
     assertEquals(
       result.applied.map((application) => application.key),
       [
+        "shell.reading_width",
         "coding-agent.harnesses.enabled",
         "coding-agent.default_harness",
         "coding-agent.harnesses.profile",
@@ -109,6 +114,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
     // get은 apply한 선택을 그대로 읽는다. 값 검증은 소유 concern의 schema다.
     const got = await post(harness, "settings/get", {
       keys: [
+        "shell.reading_width",
         "coding-agent.harnesses.enabled",
         "coding-agent.default_harness",
         "coding-agent.harnesses.profile",
@@ -122,6 +128,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
     assertEquals(
       settings.map((setting) => [setting.key, setting.value]),
       [
+        ["shell.reading_width", "wide"],
         ["coding-agent.harnesses.enabled", false],
         ["coding-agent.default_harness", "codex"],
         ["coding-agent.harnesses.profile", "work"],
@@ -159,6 +166,7 @@ Deno.test("platform/settings#R31: core는 팀 등록 파일의 설정 항목을 
     assertEquals(
       revisions[0].changes.map((change) => change.key),
       [
+        "shell.reading_width",
         "coding-agent.harnesses.enabled",
         "coding-agent.default_harness",
         "coding-agent.harnesses.profile",

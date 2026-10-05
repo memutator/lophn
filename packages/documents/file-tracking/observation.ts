@@ -45,13 +45,17 @@ export function emptyObservation(root: string): ObservationQueue {
 export function mergeCandidate(
   queue: ObservationQueue,
   next: ObservationCandidate,
+  // root당 후보 한도. 호출자가 작게 넣어 한도 초과를 재현한다.
+  limit: number = CANDIDATE_LIMIT,
 ): { kind: "merged" } | { kind: "rescan_required"; root: string } {
   if (queue.rescanRequired) {
     return { kind: "rescan_required", root: queue.root };
   }
   const found = queue.items.find((item) => item.canonical === next.canonical);
   if (found) {
-    found.lastSignalMs = next.lastSignalMs;
+    // 같은 파일의 새 신호는 조용함 시각을 다시 시작한다. 덮어쓰지 않으면 대조가
+    // 담은 후보가 그 뒤 신호의 조용함을 가로채 신호가 제출되지 않는다.
+    found.lastSignalMs = Math.max(found.lastSignalMs, next.lastSignalMs);
     found.retries = next.retries;
     if (found.fact === "deleted" && next.fact === "modified") {
       found.fact = "recreated";
@@ -60,7 +64,7 @@ export function mergeCandidate(
     }
     return { kind: "merged" };
   }
-  if (queue.items.length >= CANDIDATE_LIMIT) {
+  if (queue.items.length >= limit) {
     queue.items = [];
     queue.rescanRequired = true;
     return { kind: "rescan_required", root: queue.root };

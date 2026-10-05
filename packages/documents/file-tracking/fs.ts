@@ -2,8 +2,14 @@
 // 들어오지 않는다(apps/worker가 import한다).
 import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { FileIdentity } from "./observation.ts";
-import type { ScanEntry, ScanPort, StableReadPort } from "./work.ts";
+import type { FileIdentity, ObservationFact } from "./observation.ts";
+import type {
+  ScanEntry,
+  ScanPort,
+  StableReadPort,
+  WatchPort,
+  WatchSignal,
+} from "./work.ts";
 
 function join(root: string, directory: string): string {
   return directory === "" ? root : `${root}/${directory}`;
@@ -106,6 +112,50 @@ async function identityOf(path: string): Promise<Result<FileIdentity>> {
     }
     return err({ code: "unavailable", message: "file cannot be read" });
   }
+}
+
+function factOf(kind: string): ObservationFact {
+  if (kind === "remove") return "deleted";
+  if (kind === "rename") return "renamed";
+  return "modified";
+}
+
+// Deno.watchFs 신호를 힌트로 바꾼다. watch가 끊기면 closed를 보내 전체 대조를 예약한다.
+// 신호는 힌트일 뿐이라 이벤트 종류를 사실로만 옮기고 내용은 읽지 않는다.
+export function fileWatchPort(): WatchPort {
+  return {
+    watch(root) {
+      return {
+        async *[Symbol.asyncIterator](): AsyncIterator<WatchSignal> {
+          let watcher: Deno.FsWatcher;
+          try {
+            watcher = Deno.watchFs(root, { recursive: true });
+          } catch {
+            yield { kind: "closed" };
+            return;
+          }
+          try {
+            for await (const event of watcher) {
+              for (const path of event.paths) {
+                if (!path.startsWith(`${root}/`)) continue;
+                yield {
+                  kind: "changed",
+                  canonical: path,
+                  relative: path.slice(root.length + 1),
+                  fact: factOf(event.kind),
+                };
+              }
+            }
+          } catch {
+            yield { kind: "overflow" };
+          } finally {
+            watcher.close();
+          }
+          yield { kind: "closed" };
+        },
+      };
+    },
+  };
 }
 
 export function fileReadPort(): StableReadPort {

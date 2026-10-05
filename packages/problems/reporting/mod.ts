@@ -14,9 +14,9 @@ export { REPORTS_SCHEMA_STEPS } from "./schema.ts";
 export {
   appFromCredential,
   bodyOverLimit,
+  COLLECTOR_CAPS,
   type CollectorOptions,
   type CollectorPending,
-  COLLECTOR_CAPS,
   contentHashOf,
   createCollectorQueue,
   deliverReport,

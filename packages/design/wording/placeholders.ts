@@ -102,6 +102,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
+  "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
@@ -126,6 +127,32 @@ export type PlaceholderKinds = {
   "project-workspace.sidebar.label": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;
   "settings.models.for-summaries": Record<never, never>;
+  "terminal.button.close-terminal": Record<never, never>;
+  "terminal.button.hide-notice": Record<never, never>;
+  "terminal.button.keep-open": Record<never, never>;
+  "terminal.button.start-again": Record<never, never>;
+  "terminal.button.try-again": Record<never, never>;
+  "terminal.dialog.close-text": Record<never, never>;
+  "terminal.error.no-folder": Record<never, never>;
+  "terminal.error.not-directory": Record<never, never>;
+  "terminal.error.spawn-failed": Record<never, never>;
+  "terminal.error.unavailable": Record<never, never>;
+  "terminal.error.unreadable": Record<never, never>;
+  "terminal.heading.choose-folder": Record<never, never>;
+  "terminal.label.folders": Record<never, never>;
+  "terminal.label.output": Record<never, never>;
+  "terminal.notice.account": Record<never, never>;
+  "terminal.notice.folder": Record<never, never>;
+  "terminal.status.ended": Record<never, never>;
+  "terminal.status.exited": {
+    code: "string";
+  };
+  "terminal.status.not-started": Record<never, never>;
+  "terminal.status.output-missing": Record<never, never>;
+  "terminal.status.start-failed": Record<never, never>;
+  "terminal.status.stop-unconfirmed": Record<never, never>;
+  "terminal.status.unknown": Record<never, never>;
+  "terminal.title.close": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

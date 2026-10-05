@@ -5,6 +5,7 @@ import { Launcher } from "./launcher/launcher.tsx";
 import { LAUNCHER, openLophn, type Route } from "./router.ts";
 import { Workspace } from "../workspace/workspace.tsx";
 import type { WorkspaceSource } from "../workspace/source.ts";
+import type { TerminalDeps } from "../terminal/deps.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -15,12 +16,20 @@ export interface DesktopProps {
   workspace?: WorkspaceSource;
   /** 창 폭. 테스트가 고정한다. */
   windowWidth?: number;
+  /** 터미널 탭 통로. 창 preload가 열어 둔 통로로 entry가 만든다. */
+  terminal?: TerminalDeps;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
 export function Desktop(
-  { source, initial = LAUNCHER, formatTime, workspace, windowWidth = 1280 }:
-    DesktopProps,
+  {
+    source,
+    initial = LAUNCHER,
+    formatTime,
+    workspace,
+    windowWidth = 1280,
+    terminal,
+  }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
   if (route.space === "project" && route.project && workspace) {
@@ -32,6 +41,7 @@ export function Desktop(
         bodyWidth={windowWidth - 240}
         onLauncher={() => setRoute(LAUNCHER)}
         onLophn={() => setRoute(openLophn())}
+        terminal={terminal}
       />
     );
   }

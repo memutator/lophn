@@ -8,13 +8,19 @@
     "@types/react": "npm:@types/react@19.3.0",
     "esbuild": "npm:esbuild@0.28.2",
     "@luca/esbuild-deno-loader": "jsr:@luca/esbuild-deno-loader@0.11.1",
-    "happy-dom": "npm:happy-dom@20.14.5"
+    "happy-dom": "npm:happy-dom@20.14.5",
+    "@xterm/xterm": "npm:@xterm/xterm@6.0.0",
+    "@xterm/addon-fit": "npm:@xterm/addon-fit@0.11.0"
   },
   "compilerOptions": {
     "jsx": "react-jsx",
     "jsxImportSource": "react",
     "jsxImportSourceTypes": "@types/react",
-    "lib": ["ES2023", "DOM", "deno.ns"]
+    "lib": [
+      "ES2023",
+      "DOM",
+      "deno.ns"
+    ]
   },
   "tasks": {
     "build": "deno run --allow-read --allow-write --allow-run --allow-env build.ts"

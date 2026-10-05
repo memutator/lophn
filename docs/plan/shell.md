@@ -489,6 +489,7 @@ concerns: [shell]
 
 ### T25 터미널 탭 화면
 
+- 상태: 완료 (#235). E2E가 찾은 T24 결함 둘(묶인 host의 node-pty 불러오기, 닫기 종료 확인 대기)을 함께 고쳤다. 제품 경로의 등록 폴더 read와 host 재기동은 Q12.
 - 등급: frontend
 - concern: shell/terminal, shell/workspace
 - 요구: shell/terminal#R1(폴더 선택), R6, R7(다시 보이기), R9(종료 표시와 다시 시작), R10(닫기 확인), R11(xterm handler), shell/workspace#R1(터미널 탭), R7(종료 자리표시)
@@ -1140,3 +1141,4 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
 - **Q9 project-workspace flow의 앱 패널 단계(정함).** apps slice E2E에서 돈다. lead가 plan README의 갈래 목록에 넣었다.
 - **Q10 confirmation window의 slice(정함).** platform이 handle 발급·검증·소비를 documents slice의 platform#T56으로 떼었다. shell#T22는 platform#T56에, approval 종류(shell#T29)는 platform#T22에 기댄다.
 - **Q11 chip의 polite 전달(정함).** 접근성을 범위 밖에 둔 D22와 맞지 않아 shell/design-system#R35에서 "polite로 전달"을 뺐다. T11은 live region·announcer를 만들지 않고 키보드·Escape·focus 복귀만 둔다.
+- **Q12 터미널 열기의 제품 경로(lead 확인 필요).** T25 E2E는 개발 시드 작업대에 `LOPHN_DEV_SEED_FOLDERS`로 준 등록 폴더로 돈다. 제품 core의 reader 등록(apps/core/documents.ts `createReaderRegistration`)에 project read가 없어 main의 `read projects list`가 `not_found`이고, 사람 user token scope에 `project.create`가 없어 실제 창의 터미널 열기는 지금 `no_folder` 거절로 끝난다. documents·platform이 이 read와 scope를 열면 시드를 뺀다. 또 terminal host가 죽으면 supervisor가 다시 띄우지 않아, 결과 불명 뒤 사람이 누른 [Start again]도 "Terminals aren't available right now."로 남는다(자동 재시작 금지는 지킨다). 사람 시작에 새 host를 띄울지 정해야 한다.

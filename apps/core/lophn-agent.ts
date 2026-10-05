@@ -28,6 +28,11 @@ import {
   createPresetReads,
   presetSchemaSteps,
 } from "../../packages/lophn-agent/presets/mod.ts";
+import {
+  assignmentSchemaSteps,
+  createAssignmentCommands,
+  createAssignmentReads,
+} from "../../packages/lophn-agent/assignments/mod.ts";
 import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
 
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
@@ -141,6 +146,8 @@ function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
 
 const presetCommands = createPresetCommands((tx) => presetValidateDeps(tx.sql));
 const presetReads = createPresetReads();
+const assignmentCommands = createAssignmentCommands();
+const assignmentReads = createAssignmentReads();
 
 export const lophnAgentDefinitions = {
   schemaSteps: [
@@ -148,6 +155,7 @@ export const lophnAgentDefinitions = {
     ...modelSchemaSteps,
     ...usageSchemaSteps,
     ...presetSchemaSteps,
+    ...assignmentSchemaSteps,
   ],
   commands: [
     commands.register,
@@ -164,6 +172,13 @@ export const lophnAgentDefinitions = {
     presetCommands.registerDefault,
     presetCommands.create,
     presetCommands.revise,
+    assignmentCommands.createBuiltin,
+    assignmentCommands.createAppEngineer,
+    assignmentCommands.applyOperator,
+    assignmentCommands.changePreset,
+    assignmentCommands.pause,
+    assignmentCommands.resume,
+    assignmentCommands.withdraw,
   ],
   reads: [
     reads.read,
@@ -177,6 +192,9 @@ export const lophnAgentDefinitions = {
     presetReads.read,
     presetReads.list,
     presetReads.instructionAttachments,
+    assignmentReads.read,
+    assignmentReads.list,
+    assignmentReads.outputs,
   ],
   // model.call 본문은 blob 참조만 남는다(R4). 용량 보존 종류는 plan blob 자리다.
   blobFields: [...modelCallBodyFields],
@@ -199,6 +217,9 @@ export function createReaderRegistration(): ReaderRegistration {
       presetReads.read,
       presetReads.list,
       presetReads.instructionAttachments,
+      assignmentReads.read,
+      assignmentReads.list,
+      assignmentReads.outputs,
     ],
     ports: new Map(),
   };

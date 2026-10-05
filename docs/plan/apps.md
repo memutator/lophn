@@ -286,6 +286,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 - 등급: 기본
 - concern: apps/data
+- 상태: 진행 (#192) — 남은 것: activation 순서(종료 확인 → backup 확정 → migration → 복원)는 T18. 보호 backup의 blob field 등록(general_read 없음)은 record_backup hash로 T18이 확정하고, 이 작업은 backup 파일을 앱 데이터 영역에 남긴다
 - 요구: apps/data#R1, R2, R3, R5, R6, R7, R8, R10, R14
 - 자리: packages/apps/data/worker/ (schema.ts, backup.ts, migrate.ts, restore.ts, integrity.ts), packages/apps/data/commands.ts, apps/worker/apps/data.ts
 - 쓰는 contract: platform blob(보호 backup 설치, blob field 등록 때 일반 읽기 불가로 적는다; platform#T13·T14), T3 migration용 flag

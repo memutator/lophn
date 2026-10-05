@@ -40,24 +40,31 @@ export function testRunnerSpec(input: {
 // 닿는다(architecture/problems 2.2). 쓰기·자식 실행 권한은 없다.
 export function reportCollectorSpec(input: {
   dataRoot: string;
-  deno: string;
 }): KindLaunchSpec | undefined {
-  if (!input.dataRoot.startsWith("/") || !input.deno.startsWith("/")) {
+  if (!input.dataRoot.startsWith("/")) {
     return undefined;
   }
   const entry = new URL(
     "../worker/problems/report-collector.ts",
     import.meta.url,
   ).pathname;
+  // architecture 2.2: --allow-read는 읽기 전용 준비 폴더뿐이다. bundle 사본은
+  // `apps/<app ID>/bundles/<bundle hash>/`의 파일 0444다(releases/bundle/seal.ts),
+  // 등록 시점 spec은 credential의 bundle_hash로 찾는 그 부모 폴더만 이름 짓는다.
+  // ledger·blob store는 직접 열지 않는다. FFI는 launchArgv가 플래그를 내지 않는다.
+  const bundles = `${input.dataRoot}/apps`;
   const spec: KindLaunchSpec = {
     kind: COLLECTOR_KIND,
     entry,
-    allow_read: [input.dataRoot, entry, input.deno],
+    allow_read: [bundles],
     allow_write: [],
     allow_net: ["127.0.0.1"],
-    allow_run: [input.deno],
+    allow_run: [],
     allow_sys: [],
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
+    // 환경은 명시한 안전 변수만: 띄운 뒤 root·kind를 읽는 것뿐이다. HOME·PATH는
+    // supervisor env callback이 프로세스 env로만 넘기고 Deno는 permission 없이
+    // OS env에서 캐시 위치를 찾는다.
+    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
     policy: "always",
     memory_limit_bytes: 268_435_456,
   };

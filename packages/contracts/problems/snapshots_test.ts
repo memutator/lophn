@@ -14,7 +14,7 @@ import {
   REPORTING_TEST_AT as at,
   REPORTING_TEST_HASH as hash,
   reportingId as id,
-} from "./reporting-fixtures.ts";
+} from "./testing/mod.ts";
 
 Deno.test("problems/snapshots#R4: each evidence has exactly value or strict nonblank MissingReason", () => {
   const snapshot = missingSnapshot();

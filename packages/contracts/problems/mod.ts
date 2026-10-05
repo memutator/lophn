@@ -12,11 +12,3 @@ export * from "./closing.ts";
 export * from "./report-blobs.ts";
 export * from "./sdk-report.ts";
 export { EVENTS, ROUTES } from "./registry.ts";
-export {
-  missingSnapshot,
-  preparedReport,
-  REPORTING_TEST_AT,
-  REPORTING_TEST_HASH,
-  reportingId,
-  textFeedback,
-} from "./reporting-fixtures.ts";

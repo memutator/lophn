@@ -25,7 +25,7 @@ import {
   REPORTING_TEST_AT,
   REPORTING_TEST_HASH,
   reportingId as id,
-} from "./reporting-fixtures.ts";
+} from "./testing/mod.ts";
 
 Deno.test("problems/reporting#R2: fixed collector and machine route table plus exact root membership", () => {
   const reporting = [

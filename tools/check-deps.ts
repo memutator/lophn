@@ -211,6 +211,9 @@ export async function checkRepo(root: string): Promise<Violation[]> {
         if (targetTop === "contracts") {
           if (
             !/^packages\/contracts\/[^/]+\/mod\.ts$/.test(target) &&
+            // *_test.ts는 다른 leaf의 contract testing/mod.ts(fixture)도 import할 수 있다.
+            !(test &&
+              /^packages\/contracts\/[^/]+\/testing\/mod\.ts$/.test(target)) &&
             !blueprintEntryImport(file, target)
           ) {
             add(

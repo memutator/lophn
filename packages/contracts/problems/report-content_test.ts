@@ -10,7 +10,7 @@ import {
   preparedReport,
   REPORTING_TEST_HASH as hash,
   reportingId as id,
-} from "./reporting-fixtures.ts";
+} from "./testing/mod.ts";
 
 function blob(purpose: ReportBlobInput["purpose"]): ReportBlobInput {
   return {

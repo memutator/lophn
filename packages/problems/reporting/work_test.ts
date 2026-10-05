@@ -12,7 +12,7 @@ import {
 import {
   preparedReport,
   reportingId as id,
-} from "../../contracts/problems/mod.ts";
+} from "../../contracts/problems/testing/mod.ts";
 import { err, ok } from "../../base/mod.ts";
 import {
   appFromCredential,

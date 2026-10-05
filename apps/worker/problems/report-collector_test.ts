@@ -196,18 +196,17 @@ Deno.test("problems/reporting#R2: accept 실패는 unavailable 응답이고 본�
   );
 });
 
-Deno.test("problems/tests#R13: collector launch spec은 쓰기와 자식 실행 권한이 없고 loopback만 닿는다", () => {
-  const spec = reportCollectorSpec({
-    dataRoot: "/tmp/lophn-home",
-    deno: "/usr/bin/deno",
-  });
+Deno.test("problems/tests#R13: collector launch spec은 쓰기·자식 실행·FFI 권한이 없고 loopback만 닿는다", () => {
+  const spec = reportCollectorSpec({ dataRoot: "/tmp/lophn-home" });
   assertEquals(spec?.kind, "problems/report-collector");
   assertEquals(spec?.allow_write, []);
+  assertEquals(spec?.allow_run, []);
+  assertEquals(spec?.allow_sys, []);
   assertEquals(spec?.allow_net, ["127.0.0.1"]);
   assertEquals(spec?.policy, "always");
-  assertEquals(spec?.allow_read.includes("/tmp/lophn-home"), true);
-  assertEquals(
-    reportCollectorSpec({ dataRoot: "relative", deno: "/usr/bin/deno" }),
-    undefined,
-  );
+  // architecture 2.2: LOPHN_HOME 전체가 아니라 읽기 전용 준비 폴더만 닿는다.
+  assertEquals(spec?.allow_read.includes("/tmp/lophn-home"), false);
+  // 환경은 띄운 뒤 root·kind를 읽는 것뿐이다. HOME·PATH 같은 일반 env는 없다.
+  assertEquals(spec?.allow_env, ["LOPHN_HOME", "LOPHN_WORKER_KIND"]);
+  assertEquals(reportCollectorSpec({ dataRoot: "relative" }), undefined);
 });

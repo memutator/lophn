@@ -26,7 +26,12 @@ import {
   problemWorkStarted,
   reconcileProblemWork,
 } from "./problems.ts";
-import { getReport, getSnapshot, listReports } from "./problem-reads.ts";
+import {
+  getReport,
+  getSnapshot,
+  getSnapshotLogs,
+  listReports,
+} from "./problem-reads.ts";
 import {
   listProblemFixes,
   problemFixRecorded,
@@ -60,6 +65,7 @@ export const ROUTES = [
   listReports,
   getReport,
   getSnapshot,
+  getSnapshotLogs,
   listProblemFixes,
 ] as const;
 export const EVENTS = [

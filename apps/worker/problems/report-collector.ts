@@ -43,7 +43,13 @@ import {
   type CoreClientOptions,
   postRecordReport,
 } from "../../../packages/problems/reporting/adapters/core-client.ts";
-import { assembleException } from "../../../packages/problems/snapshots/mod.ts";
+import {
+  type AppLogSource,
+  assembleException,
+  collectLogEvidence,
+  coreLogSource,
+  readDetailCollection,
+} from "../../../packages/problems/snapshots/mod.ts";
 import {
   exceptionObservationInputSchema,
   REPORTING_LIMITS,
@@ -256,6 +262,20 @@ export async function runCollectorWorker(): Promise<void> {
   await session.run();
 }
 
+// 로그 증거의 출처. 기본은 core loopback의 apps.logs와 settings.get이고, 테스트와
+// 다른 조립은 port를 바꿔 끼운다. 설정을 읽지 못하면 null이다(snapshots#R7).
+export type CollectorLogs = {
+  source: AppLogSource | null;
+  detailCollection: () => Promise<boolean | null>;
+};
+
+function coreLogs(client: CoreClientOptions): CollectorLogs {
+  return {
+    source: coreLogSource(client),
+    detailCollection: () => readDetailCollection(client),
+  };
+}
+
 // app 출처 보고 접수. 본문은 redaction을 거친 뒤 ledger에 닿는다(R1, T3).
 // text·details 원문은 bounded memory에서만 있고 permanent content는 hash뿐이다.
 // app·release·process·mode·bundle_hash·diagnostic_scope 주장은 hello scope
@@ -267,7 +287,9 @@ export async function acceptReportProblem(
   queue: ReturnType<typeof createCollectorQueue>,
   session: ChildSession,
   position: CollectorPosition,
+  logs: CollectorLogs = coreLogs(client),
 ): Promise<unknown> {
+  const startedMs = Date.now();
   const parsed = acceptReportPayload(payload);
   if (!parsed.ok) {
     // 잘못된 보고 진단은 원래 제출의 rpt ID에서 결정적으로 정한다(R8).
@@ -316,6 +338,27 @@ export async function acceptReportProblem(
     REPORTING_LIMITS.automatic_body_bytes,
   );
   const claims = position.claims;
+  // SDK가 실제로 연결한 invocation만 담고 근접 추정은 없다(snapshots#R8, R9).
+  const linked = parsed.value.invocation ?? null;
+  const arrived = await confirmInvocation(client, linked);
+  const logEvidence = await collectLogEvidence(
+    { app: position.claims.app, invocation: linked?.id ?? null },
+    {
+      detailCollection: await logs.detailCollection(),
+      source: logs.source,
+      redact: (text) => redactText(redaction, text),
+      blobPrepare: {
+        prepare: (input, bytes) => prepareViaStream(session, input, bytes),
+      },
+      principal: "collector",
+      nowAt: atNow(),
+      remainingMs: REPORTING_LIMITS.snapshot_assembly_ms -
+        (Date.now() - startedMs),
+      remainingLargeBytes: REPORTING_LIMITS.snapshot_large_bytes -
+        (preparedText?.prepared.size_bytes ?? 0) -
+        (preparedDetails?.prepared.size_bytes ?? 0),
+    },
+  );
   const report: RecordReportInput["report"] = {
     id: report_id,
     source: "app",
@@ -339,7 +382,21 @@ export async function acceptReportProblem(
     [
       ...(preparedText !== null ? [preparedText] : []),
       ...(preparedDetails !== null ? [preparedDetails] : []),
+      ...(logEvidence.prepared === null
+        ? []
+        : [{ prepared: logEvidence.prepared }]),
     ],
+    {
+      invocation: linked === null ? null : {
+        id: linked.id,
+        binding: linked.binding,
+        record_missing_reason: arrived === undefined
+          ? { reason: "기록이 아직 도착하지 않았다" }
+          : null,
+      },
+      logs: logEvidence.logs,
+      logs_missing_reason: logEvidence.logs_missing_reason,
+    },
     queue,
     session,
   );
@@ -480,6 +537,10 @@ async function submit(
       size_bytes: number;
     };
   }[],
+  evidence: Pick<
+    RecordReportInput["snapshot"],
+    "invocation" | "logs" | "logs_missing_reason"
+  >,
   queue: ReturnType<typeof createCollectorQueue>,
   _session: ChildSession,
 ): Promise<unknown> {
@@ -487,12 +548,14 @@ async function submit(
   const snapshot: RecordReportInput["snapshot"] = {
     id: report.snapshot,
     captured_at: atNow(),
-    invocation: null,
-    invocation_missing_reason: { reason: "collector" },
+    invocation: evidence.invocation,
+    invocation_missing_reason: evidence.invocation === null
+      ? { reason: "SDK가 연결한 invocation이 없다" }
+      : null,
     error: null,
     error_missing_reason: { reason: "collector" },
-    logs: null,
-    logs_missing_reason: { reason: "collector" },
+    logs: evidence.logs,
+    logs_missing_reason: evidence.logs_missing_reason,
     screen: null,
     screen_missing_reason: { reason: "collector" },
   };
@@ -595,6 +658,7 @@ export async function observeExceptionPayload(
   queue: ReturnType<typeof createCollectorQueue>,
   session: ChildSession,
   position: CollectorPosition,
+  logs: CollectorLogs = coreLogs(client),
 ): Promise<unknown> {
   const parsed = exceptionObservationInputSchema.safeParse(payload);
   if (!parsed.success) {
@@ -671,6 +735,12 @@ export async function observeExceptionPayload(
       },
       nowAt: atNow(),
       principal: "collector",
+      // 로그는 계정 credential의 앱 것만 묻는다. 수집 설정은 새 수집만 멈춘다(R6, R7).
+      logs: {
+        detailCollection: await logs.detailCollection(),
+        source: logs.source,
+        redact: (text) => redactText(redaction, text),
+      },
     },
   );
   if (!assembled.ok) {
@@ -734,6 +804,7 @@ export async function observeExceptionPayload(
     snapshot,
     result.group_key,
     result.stack_prepared,
+    result.logs_prepared,
     queue,
     session,
     origin,
@@ -755,6 +826,13 @@ async function submitException(
     hash: string;
     size_bytes: number;
   } | null,
+  logsPrepared: {
+    preparation: string;
+    principal: string;
+    purpose: string;
+    hash: string;
+    size_bytes: number;
+  } | null,
   queue: ReturnType<typeof createCollectorQueue>,
   _session: ChildSession,
   origin: "process_observer" | "view_observer",
@@ -768,7 +846,9 @@ async function submitException(
       hash: string;
       size_bytes: number;
     };
-  }[] = stackPrepared === null ? [] : [{ prepared: stackPrepared }];
+  }[] = [stackPrepared, logsPrepared].filter((entry) => entry !== null).map((
+    entry,
+  ) => ({ prepared: entry }));
   const blobs: RecordReportInput["blobs"] = prepared.map((entry) => ({
     hash: entry.prepared.hash,
     size_bytes: entry.prepared.size_bytes,

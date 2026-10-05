@@ -191,6 +191,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `agent-connect_test.ts`: 열린 앱이라도 agent.commands grant가 없으면 거절, grant 뒤에도 AgentAppScope 밖 command는 connection에 들어가지 않음, lophn·App Engineer·Operator에게 각자 허용 command만(R32, apps/permissions#R28)
   - `client_test.ts`: Unix socket HTTP로 invoke·status·cancel, request_key 재사용으로 같은 결과 조회, 전송 단절은 결과 모름으로 돌려주고 자동 재호출 없음
   - apps#T9에서 넘어온 것: core의 `apps.runtime`·`apps.logs`는 지금 관측·log source 없이 등록돼(없음·none을 명시) 있으니, supervisor 메모리(관측·`LogBuffer.collect`·memory·crash)를 core가 조회하는 제어 메시지와 source 연결, apps/app-supervisor/main.ts의 조립(stdout·stderr `attach`와 `log-redact`, memory observer와 crash observer 시작, `requestStop`으로 direct 제어의 close·shutdown 호출, 관측의 `terminating` reason을 RuntimeObservation으로 변환)
+  - problems#T17에서 넘어온 것: problems collector가 `/v1/apps/logs`를 credential의 앱·invocation으로 부르고(`packages/problems/snapshots/adapters/core-logs.ts`) `/v1/settings/get`으로 진단 상세 수집 설정을 읽는다. 위 source 연결이 끝나면 collector credential이 두 route에 닿는지(authorizeApp의 collector 접근, scope operation `app.logs`·`GetSettings`)를 확인하고, 접근이 없으면 로그는 `unavailable` 이유로 남는다
   - 별도 platform 회수 event는 없다. 소유 event(GrantRevoked, assignment 멈춤, CodingAgentConnectionRevoked, run 종료)와 core epoch 변화를 받으면 그 credential_ref로 발급한 connection을 쓰는 통로를 닫는다(Q5)
 
 ### T11 invocation 기록 command와 read

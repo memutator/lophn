@@ -61,7 +61,7 @@ deno run --cached-only --no-prompt --config <resources>/deno.json
   --allow-read=<resources>,<cache>,<daemon-discovery-files>,<submission-root>
   --allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR
   --allow-net=<core-loopback-host:port>,<allowed-app-loopback-host:ports>
-  <resources>/packages/coding-agent/mcp/main.ts
+  <resources>/apps/mcp/main.ts
   --connection <cac-id> --toolsets core,app --cwd <submission-root>
 ```
 

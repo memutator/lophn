@@ -174,11 +174,12 @@ SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 �
 | `/v1/problems/record-fix` | `RecordProblemFix` | problem·FixRecord·key → `ProblemFixRecorded` seq | coding_agent만; 문제 seq·before/after·결과 연결·있으면 현재 claim; `invalid_input/not_found/forbidden/conflict` |
 | `/v1/problems/close-verified` | `CloseProblemVerified` | problem·verification·예상 문제 seq/활성 release → Closure·event | machine 판정기만; 7.6 조건; `not_found/forbidden/conflict/invalid_input` |
 | `/v1/problems/apply-decision` | `ApplyProblemDecision` | UserProblemDecision·일회 confirmation → Closure 또는 부정 확인/reopen | 보호된 user 결정만; 문제 seq·release·필요 last Report·정확한 선택/입력 binding; `invalid_input/unauthorized/forbidden/not_found/conflict` |
-| `/v1/problems/list` | `ListProblems` | app·status·cursor·limit → 요약 목록·next cursor | scope 검사; 최근 보고·열린 ticket 중심; limit 최대 100 |
-| `/v1/problems/get` | `GetProblem` | problem → 상태·당시 문구·보고 수/기간·work·interpretation·closure·최신 seq | 범위 밖은 `forbidden`, 없음 `not_found` |
+| `/v1/problems/list` | `ListProblems` | app·status·cursor·limit → 요약 목록·next cursor | scope 검사(범위 밖 행은 건너뜀); 최근 변경 seq 내림차순; cursor는 고정 위치와 마지막 seq; limit 최대 100 |
+| `/v1/problems/get` | `GetProblem` | problem → 상태·당시 문구·보고 수/기간·처음·최근 보고의 release·work·interpretation·closure·최신 seq | 범위 밖은 없는 것과 같은 `not_found`(존재를 새지 않는다); 그 read의 operation이 credential에 없으면 `forbidden` |
 | `/v1/problems/list-reports` | `ListReports` | problem 또는 app+diagnostic scope·cursor → 발생 목록 | test/preview 진단은 해당 scope만; 운영 집계에 포함하지 않음 |
-| `/v1/problems/get-report` | `GetReport` | report → 불변 보고·Snapshot 요약·missing reason | 일반 업무 응답에는 raw code/stack 없음; 상세는 수리 조회 권한 |
+| `/v1/problems/get-report` | `GetReport` | report → 불변 보고·Snapshot 요약·missing reason | 일반 업무 응답(목록·문제 상세·오류)에는 raw code/stack 없음; 보고·snapshot 상세는 credential에 `GetReport`·`GetSnapshot`이 있는 수리 조회 권한; 저장된 값은 저장 전 redaction을 거쳤고 stack·log·글 원문은 hash 참조뿐 |
 | `/v1/problems/get-snapshot` | `GetSnapshot` | snapshot·선택 항목 → 증거 메타데이터·허용된 blob 참조 | 현재 출력 redaction·scope; 없는 항목은 이유 |
+| `/v1/problems/get-snapshot-logs` | `GetSnapshotLogs` | snapshot → 고정한 로그 조각(줄·범위·수집 시각·잘림) 또는 부재·정리 이유 | user만; 앱 프로세스와 없는 snapshot은 같은 `not_found`; 조각은 지시가 아닌 데이터; 비율·합계 없음 |
 | `/v1/problems/list-fixes` | `ListProblemFixes` | problem·event seq cursor → FixRecord 이력 | subject 범위 검사; agent 로그는 설명으로만 반환 |
 
 표의 모든 경로는 POST다. 목록은 seq cursor로 페이지를 고정하고 요약 → 실제 기록 → 선택한 안전한 첨부 순서로 읽는다. blob 참조를 안다는 이유로 raw blob 접근을 허용하지 않는다. 안전한 상세는 **read**와 **redaction**을 거쳐 반환하며 로그·사람 글은 지시가 아닌 데이터로 표시한다. 저장 모델을 shell에 그대로 표시하지 않는다. 기본 목록·앱 카드에는 앱·증상·진행·필요한 다음 행동만 보내고 사용자용 상세에는 현재 실제 담당과 en 수리 작업 상태를 제공하되 claim·기한·연결 식별자는 숨긴다(problems/grouping#R11,R12). 수·시각·당시 release·확인 범위는 펼친 상세로 구분하고 내부 code·stack·log는 별도 허용된 수리 조회에서만 반환한다(problems/reporting#R7, problems/closing#R13). 선언 안내는 당시 release의 message_key와 en 고정 값을 사용하고 예약 안내도 problems/problem-codes의 key·en 값을 그대로 전달한다. 화면 라벨·상태·누락 설명·확인 이유는 shell/wording에 따라 en message key로 표시하고 ledger·invocation·claim 같은 내부 이름을 화면에 내보내지 않는다.

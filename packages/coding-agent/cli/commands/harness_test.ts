@@ -7,10 +7,12 @@ import {
   HARNESS_COMMANDS,
   inspectTargetOf,
   refreshRequestedBy,
+  writesFiles,
+  writeTargetOf,
 } from "./harness.ts";
 
-Deno.test("coding-agent/cli#R40: harness list·detect·refresh·inspect 네 command가 표에 있다", () => {
-  assertEquals(HARNESS_COMMANDS.length, 4);
+Deno.test("coding-agent/cli#R40: harness 여덟 command가 표에 있다", () => {
+  assertEquals(HARNESS_COMMANDS.length, 8);
   for (
     const name of [
       "harness list",
@@ -22,10 +24,28 @@ Deno.test("coding-agent/cli#R40: harness list·detect·refresh·inspect 네 comm
     const entry = findCommand(name);
     assert(entry !== undefined);
     // command field까지 맞아야 한다(withCommon).
-    assertEquals(
-      entry.input.safeParse({ command: name }).success,
-      true,
-    );
+    assertEquals(entry.input.safeParse({ command: name }).success, true);
+  }
+  // 관리 쓰기는 target·components가 필수다(cli#R40). command만으로는 거절한다.
+  const write = {
+    target: HOST,
+    components: ["mcp"],
+  };
+  for (
+    const name of [
+      "harness plan",
+      "harness install",
+      "harness update",
+      "harness remove",
+    ]
+  ) {
+    const entry = findCommand(name);
+    assert(entry !== undefined);
+    const input = name === "harness install"
+      ? { command: name, ...write, operation_id: "op-1" }
+      : { command: name, ...write };
+    assertEquals(entry.input.safeParse(input).success, true);
+    assertEquals(entry.input.safeParse({ command: name }).success, false);
   }
   // 공통 선택값도 받는다(cliCommonSchema).
   const listed = findCommand("harness list");
@@ -47,4 +67,39 @@ Deno.test("coding-agent/cli#R40: refresh만 재감지를 먹는다", () => {
 Deno.test("coding-agent/cli#R40: inspect는 선택 제품을 받고 없으면 전체다", () => {
   assertEquals(inspectTargetOf({ harness: "codex" }), "codex");
   assertEquals(inspectTargetOf({}), undefined);
+});
+
+const HOST = {
+  scope_kind: "user" as const,
+  environment: { kind: "host" as const, identity: "fixture" },
+  profile_id: null,
+  harness_id: "claude" as const,
+  app: null,
+  app_realpath: null,
+};
+
+Deno.test("coding-agent/cli#R40: 관리 쓰기만 파일을 고치고 고른 target 하나만 받는다", () => {
+  for (
+    const name of [
+      "harness plan",
+      "harness install",
+      "harness update",
+      "harness remove",
+    ]
+  ) {
+    assertEquals(writesFiles(name), true);
+  }
+  // 감지 command는 파일을 고치지 않는다(R6 확인).
+  for (
+    const name of [
+      "harness list",
+      "harness detect",
+      "harness refresh",
+      "harness inspect",
+    ]
+  ) {
+    assertEquals(writesFiles(name), false);
+  }
+  assertEquals(writeTargetOf({ target: HOST }), "claude");
+  assertEquals(writeTargetOf({}), undefined);
 });

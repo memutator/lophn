@@ -32,3 +32,29 @@ export {
   runProbe,
 } from "./detection.ts";
 export { catalogOf, HARNESS_CATALOG } from "./catalog/definitions.ts";
+export {
+  type ApplyResult,
+  type FilePort,
+  install,
+  observe,
+  type ObservedHashes,
+  type Store,
+} from "./integration/apply.ts";
+export { recover, remove } from "./integration/remove.ts";
+export {
+  chosenHarness,
+  type InstallPlan,
+  type PlanError,
+  type PlannedResource,
+  planOf,
+  type PlanResult,
+} from "./integration/plan.ts";
+export {
+  type Digest,
+  type Journal,
+  type JournalEntry,
+  type OwnedResource,
+  type Receipt,
+  RECEIPT_SCHEMA_VERSION,
+} from "./integration/receipt.ts";
+export { filePort, storeOf } from "./integration/journal.ts";

@@ -29,7 +29,10 @@ export interface FolderPickerDeps {
 }
 
 function chosen(path: string | undefined): FolderPickReply {
-  return { ok: true, path: path !== undefined && isAbsolute(path) ? path : null };
+  return {
+    ok: true,
+    path: path !== undefined && isAbsolute(path) ? path : null,
+  };
 }
 
 export function createFolderPicker(deps: FolderPickerDeps) {

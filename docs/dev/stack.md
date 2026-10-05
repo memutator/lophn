@@ -151,6 +151,9 @@ packages/platform/responsiveness/measure-load_test.ts`로 따로 돌린다.
   `LOPHN_SHELL_START=lophn`을 더 주면 첫 창이 런처 대신 lophn 공간(documents)부터 연다.
   `LOPHN_SHELL_START=conversation`은 같은 자리에서 대화 도크까지 열어 둔다.
   `LOPHN_SHELL_START=things-to-confirm`은 lophn 공간의 things-to-confirm부터 연다.
+  `LOPHN_SHELL_START=project:<prj id>`는 그 프로젝트 작업대부터 연다. headless에서는
+  프로젝트 등록의 OS 폴더 선택기를 띄우지 않고, `LOPHN_SHELL_PICK_FOLDER`(temp 폴더)를
+  주면 그 폴더만 고른 것으로 돌려준다.
 
   ```sh
   npm --prefix apps/shell/main run build && (cd apps/shell/renderer && deno task build)

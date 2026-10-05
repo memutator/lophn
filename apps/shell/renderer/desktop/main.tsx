@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
+import { useConnection } from "./connection/connection.tsx";
 import { Launcher } from "./launcher/launcher.tsx";
 import { LAUNCHER, openLophn, openProject, type Route } from "./router.ts";
 import { Workspace } from "../workspace/workspace.tsx";
@@ -62,8 +63,12 @@ export function Desktop(
     setVisits((value) => value + 1);
     setRoute(openLophn("things-to-confirm"));
   };
+  // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 런처의 연결 화면을 보이고, 준비되면 그때
+  // 작업대를 열어 읽는다.
+  const connection = useConnection(source);
+  const live = connection.state === "ready" || connection.state === "stale";
   let space: ReactNode;
-  if (route.space === "project" && route.project && workspace) {
+  if (route.space === "project" && route.project && workspace && live) {
     space = (
       <Workspace
         projectId={route.project}

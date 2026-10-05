@@ -336,49 +336,40 @@ export function coreRequestSource(
     watch: (listener) => core.subscribe(listener),
 
     async overview() {
-      const [assignments, runs, sessions, questions, approvals, notifications] =
-        await Promise.all([
-          pages<AssignmentValue, Page & { assignments: AssignmentValue[] }>(
-            core,
-            "assignments",
-            "list",
-            {},
-            (value) => value.assignments,
-          ),
-          pages<RunValue, Page & { runs: RunValue[] }>(
-            core,
-            "runs",
-            "list",
-            {},
-            (value) => value.runs,
-          ),
-          pages<SessionValue, Page & { sessions: SessionValue[] }>(
-            core,
-            "sessions",
-            "list",
-            {},
-            (value) => value.sessions,
-          ),
-          pages<QuestionValue, Page & { questions: QuestionValue[] }>(
-            core,
-            "questions",
-            "list",
-            {},
-            (value) => value.questions,
-          ),
-          call<{ requests: ApprovalValue[] }>(
-            core,
-            "read",
-            "approvals",
-            "list",
-            {},
-          ),
-          readNotifications(core, false),
-        ]);
+      // 읽기는 하나씩 보낸다. core reader는 한 사람(principal)의 대기 읽기를 8개까지만 받고
+      // 넘으면 unavailable로 답한다. 칸·chip·도크가 같은 사람 token으로 같이 읽으므로 한
+      // 화면이 한꺼번에 여러 개를 내지 않는다.
+      const assignments = await pages<
+        AssignmentValue,
+        Page & { assignments: AssignmentValue[] }
+      >(core, "assignments", "list", {}, (value) => value.assignments);
       if (!assignments.ok) return assignments;
+      const runs = await pages<RunValue, Page & { runs: RunValue[] }>(
+        core,
+        "runs",
+        "list",
+        {},
+        (value) => value.runs,
+      );
       if (!runs.ok) return runs;
+      const sessions = await pages<
+        SessionValue,
+        Page & { sessions: SessionValue[] }
+      >(core, "sessions", "list", {}, (value) => value.sessions);
       if (!sessions.ok) return sessions;
+      const questions = await pages<
+        QuestionValue,
+        Page & { questions: QuestionValue[] }
+      >(core, "questions", "list", {}, (value) => value.questions);
       if (!questions.ok) return questions;
+      const approvals = await call<{ requests: ApprovalValue[] }>(
+        core,
+        "read",
+        "approvals",
+        "list",
+        {},
+      );
+      const notifications = await readNotifications(core, false);
       // approval·notification을 읽지 못해도 질문은 보인다. 못 읽은 쪽은 0으로 보이지 않게
       // 표시한다(desktop#R7).
       const approvalRows = approvals.ok ? approvals.value.requests : [];
@@ -415,30 +406,32 @@ export function coreRequestSource(
     },
 
     async pending(session) {
-      const [questions, approvals, waiting] = await Promise.all([
-        pages<QuestionValue, Page & { questions: QuestionValue[] }>(
-          core,
-          "questions",
-          "list",
-          { status: "pending" },
-          (value) => value.questions,
-        ),
-        call<{ requests: ApprovalValue[] }>(
-          core,
-          "read",
-          "approvals",
-          "list",
-          { status: "pending" },
-        ),
-        pages<RunValue, Page & { runs: RunValue[] }>(
-          core,
-          "runs",
-          "list",
-          { state: "waiting_user" },
-          (value) => value.runs,
-        ),
-      ]);
+      // 하나씩 읽는다(overview와 같은 이유).
+      const questions = await pages<
+        QuestionValue,
+        Page & { questions: QuestionValue[] }
+      >(
+        core,
+        "questions",
+        "list",
+        { status: "pending" },
+        (value) => value.questions,
+      );
       if (!questions.ok) return questions;
+      const approvals = await call<{ requests: ApprovalValue[] }>(
+        core,
+        "read",
+        "approvals",
+        "list",
+        { status: "pending" },
+      );
+      const waiting = await pages<RunValue, Page & { runs: RunValue[] }>(
+        core,
+        "runs",
+        "list",
+        { state: "waiting_user" },
+        (value) => value.runs,
+      );
       if (!waiting.ok) return waiting;
       // approval을 읽지 못하면 질문만 칸에 둔다. 없는 것으로 말하지 않을 뿐 칸은 비우지 않는다.
       const approvalRows = approvals.ok ? approvals.value.requests : [];

@@ -1,11 +1,13 @@
 import {
+  type Clock,
   createIdSource,
   err,
   internalError,
-  manualClock,
+  monotonicClock,
   ok,
   type Result,
   seededRandom,
+  systemClock,
 } from "../../packages/base/mod.ts";
 import type {
   AuthenticatedContext,
@@ -33,12 +35,13 @@ import {
   type PreparationRegistry,
 } from "../../packages/platform/blob-store/mod.ts";
 import type { TeamModule } from "./registration.ts";
-import { claimSweepTimePort } from "../../packages/coding-agent/tickets/sweep-time.ts";
 
 export type WriterBoot = {
   path: string;
   modules: string[];
-  nowMs: number;
+  // "system"이면 writer가 자기 system clock을 쓴다. 숫자면 그 시각에 고정한
+  // clock을 쓴다. 테스트만 숫자를 보내고, 제품 경로는 "system"이다.
+  clock: "system" | number;
   seed: number;
 };
 
@@ -58,11 +61,14 @@ export async function assembleWriter(
     confirmationRegistry: ConfirmationRegistry;
     preparations: PreparationRegistry;
     noteRequest(ctx: RequestContext | undefined): void;
-    noteBlobTime(nowMs: number): void;
+    // 테스트의 manual clock은 writer가 공유하지 못한다. core가 민 시각을 알린다.
+    noteTime(nowMs: number): void;
     onTx(tx: Tx | undefined): void;
   }
 > {
-  const clock = manualClock(boot.nowMs);
+  // 테스트 clock은 기동 시각에 고정되지만, 테스트가 시계를 밀면 core가 알린다.
+  let fixedMs = typeof boot.clock === "number" ? boot.clock : 0;
+  const clock = writerClock(boot, () => fixedMs);
   const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
   const ports: TxPortRegistration[] = [];
   const names = new Set(commands.map((command) => command.route.name));
@@ -80,17 +86,10 @@ export async function assembleWriter(
     ports.push(...portList(loose?.ports));
     blobFields.push(...loose?.blobFields ?? []);
   }
-  ports.push(claimSweepTimePort(() => claimSweepMs));
   const preparations = createPreparationRegistry();
   // writer는 command를 한 줄로 처리하므로 진행 중인 요청의 자격을 여기 둔다.
   let currentRequest: RequestContext | undefined;
   let currentTx: Tx | undefined;
-  // writer clock은 기동 시각에 고정된다. command의 tx.now()는 이 시계를 그대로
-  // 쓴다. blob 만기 판정만 core가 알린 시각(blobNowMs)을 본다.
-  // claim 만료 판단은 sweep가 알린 시각만 따로 둔다. writer clock이 실제 시각을
-  // 따르면(fix/writer-clock) 이 시각 대신 tx.now()를 쓴다.
-  let blobNowMs = boot.nowMs;
-  let claimSweepMs: number | null = null;
   const random = seededRandom(boot.seed + 1);
   const confirmationRegistry = new ConfirmationRegistry({
     clock,
@@ -115,7 +114,7 @@ export async function assembleWriter(
       return createBlobRegistrar({
         preparations,
         fields: blobFields,
-        nowMs: () => blobNowMs,
+        nowMs: () => clock.nowMs(),
         current: () => currentRequest,
       })(tx.sql, reference);
     },
@@ -123,10 +122,8 @@ export async function assembleWriter(
     noteRequest(ctx: RequestContext | undefined) {
       currentRequest = ctx;
     },
-    noteBlobTime(nowMs: number) {
-      if (nowMs > blobNowMs) blobNowMs = nowMs;
-      // sweep가 만료 판단에 쓰는 시각. writer clock은 움직이지 않는다.
-      claimSweepMs = nowMs;
+    noteTime(nowMs: number) {
+      if (nowMs > fixedMs) fixedMs = nowMs;
     },
     onTx(tx: Tx | undefined) {
       currentTx = tx;
@@ -134,6 +131,15 @@ export async function assembleWriter(
     call: () => err({ code: "unavailable", message: "Tx.call dispatch 없음" }),
     checkCredential: (ctx) => checkCredential(connection, ctx),
   };
+}
+
+// event `at`·tx.now()·ULID·확인 기한은 같은 시각을 쓴다(domain model platform/ledger
+// "시각·기간·seq": 기록 시각은 커밋 시각). writer는 별도 Worker라 core의 clock
+// 객체를 그대로 받지 못한다. 제품 경로는 writer 자신의 system clock을 쓰고,
+// 테스트는 기동 시각에 고정한 clock을 쓴다. 어느 쪽이든 시각은 뒤로 가지 않는다.
+function writerClock(boot: WriterBoot, fixedMs: () => number): Clock {
+  if (boot.clock === "system") return monotonicClock(systemClock);
+  return monotonicClock({ nowMs: fixedMs, now: () => "" });
 }
 
 function teamRegistration(team: TeamModule): Loose | undefined {

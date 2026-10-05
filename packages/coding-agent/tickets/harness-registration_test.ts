@@ -12,7 +12,6 @@ import {
   QUESTION_ADOPTIONS_PORT,
 } from "./commands.ts";
 import { createTicketReads } from "./reads.ts";
-import { claimSweepTimePort } from "./sweep-time.ts";
 import { ticketSchemaSteps } from "./schema.ts";
 
 type LedgerEnvironment = {
@@ -75,7 +74,6 @@ export function createLedgerTestRegistration(
     ],
     reads: [reads.list, reads.show, reads.checks, reads.claim_sweep],
     ports: [
-      claimSweepTimePort(() => null),
       {
         key: connectionAuthSyncPort,
         create:

@@ -26,7 +26,7 @@ const worker = self as unknown as WorkerSelf;
 const boot = JSON.parse(worker.name) as {
   path: string;
   modules: string[];
-  nowMs: number;
+  clock: "system" | number;
   seed: number;
 };
 
@@ -73,6 +73,11 @@ type WorkerMessage = WriterRequest | {
   id: number;
   op: "record-credential";
   context: unknown;
+} | {
+  // 테스트 manual clock을 민 시각. writer clock이 그 시각을 따라간다.
+  id: number;
+  op: "note-time";
+  nowMs: number;
 } | {
   id: number;
   op: "confirmation";
@@ -159,14 +164,17 @@ async function handle(
     return;
   }
   if (data.op === "blob-prepared") {
-    registration.noteBlobTime(data.nowMs);
     registration.preparations.register(data.prepared, data.nowMs);
     registration.preparations.prune(data.nowMs);
     worker.postMessage({ id: data.id, op: "blob-noted" } as never);
     return;
   }
+  if (data.op === "note-time") {
+    registration.noteTime(data.nowMs);
+    worker.postMessage({ id: data.id, op: "time-noted" } as never);
+    return;
+  }
   if (data.op === "blob-prune") {
-    registration.noteBlobTime(data.nowMs);
     registration.preparations.prune(data.nowMs);
     worker.postMessage({ id: data.id, op: "blob-noted" } as never);
     return;

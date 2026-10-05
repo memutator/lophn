@@ -55,6 +55,10 @@ export type CoreOptions = {
   // writer·reader가 다시 import할 팀 등록 파일. 없으면 teams 객체만 쓴다.
   teamModules?: readonly string[];
   clock?: Clock;
+  // writer 시각. "fixed"(기본)면 clock의 기동 시각에 고정한다. 테스트의 결정적인
+  // 시각과 blob 준비 만기 판정이 여기 있다. "system"이면 writer가 자기 system
+  // clock을 쓴다. 제품 기동(main.ts)만 "system"이다.
+  writerClock?: "system" | "fixed";
   random?: RandomSource;
   // Electron main이 물려 준 stdin/stdout. 테스트가 파이프를 끼운다.
   parent?: ParentPipe;
@@ -235,6 +239,7 @@ async function open(
     ledgerPath,
     clock,
     nowMs: clock.nowMs(),
+    writerClock: options.writerClock ?? "fixed",
     seed: seedOf(random),
     modules: options.teamModules ?? [],
     assembled: assembled.value,

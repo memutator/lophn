@@ -30,6 +30,8 @@ const parent = Deno.stdin.isTerminal()
 
 const started = await startCore({
   port,
+  // 제품 writer는 자기 system clock으로 커밋 시각을 따라간다.
+  writerClock: "system",
   teams: TEAMS,
   teamModules: [
     new URL("./documents.ts", import.meta.url).href,

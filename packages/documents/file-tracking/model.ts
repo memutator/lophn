@@ -2,6 +2,7 @@
 // architecture/documents 2.3: root별 iterator와 후보 큐, round-robin 128 entry 배분,
 // 후보 10,000 초과는 rescan_required, 준비 동시 2 slot(사람 요청 우선), 결과 제출 동시 2.
 import type { DirectoryEntry } from "../projects/mod.ts";
+import type { Result } from "../../base/mod.ts";
 
 // 준비 worker에 한 번에 넘기는 directory entry 묶음. architecture 2.3의 고정 한도다.
 export const DISPATCH_BATCH = 128;
@@ -157,4 +158,91 @@ export function directoryBatch(
 export type CoordinatorDepsLike = {
   nowIso(): string;
   newRequestId(): string;
+};
+
+// ── 저장 준비 경로(documents T8): 준비 worker의 파일 목록 검사와 canonical 목록 ──
+
+// 준비 worker가 파일 목록 검사에서 내는 진단 code. 위험 경로·접근 실패는
+// 구조 경고로 낮추지 않는다(R5).
+export type FileListIssueCode =
+  | "invalid_path"
+  | "duplicate_path"
+  | "missing_primary"
+  | "multiple_primary"
+  | "invalid_bytes";
+
+export type FileListIssue = {
+  code: FileListIssueCode;
+  message: string;
+  file: string | null;
+};
+
+// root 기준 상대 경로의 안전 검사. "", ".", ".." 분절과 절대·드라이브·제어 문자를 막는다.
+export function isSafeRelativePath(path: string): boolean {
+  if (!path || path.startsWith("/") || /^[A-Za-z]:/.test(path)) return false;
+  return path.split("/").every((part) => part && part !== "." && part !== "..");
+}
+
+// 준비 worker의 파일 목록 검사(R5). 안전한 상대 경로·유일 경로·대표 파일 하나·
+// 바이트 수를 검사한다. byte 해석은 준비 worker가 넘긴 수다.
+export function checkFileList(
+  files: readonly { path: string; bytes: number; primary: boolean }[],
+): FileListIssue[] {
+  const issues: FileListIssue[] = [];
+  const seen = new Set<string>();
+  let primary = 0;
+  for (const file of files) {
+    if (!isSafeRelativePath(file.path)) {
+      issues.push({
+        code: "invalid_path",
+        message: `unsafe relative path: ${file.path}`,
+        file: file.path,
+      });
+      continue;
+    }
+    if (seen.has(file.path)) {
+      issues.push({
+        code: "duplicate_path",
+        message: `duplicate path: ${file.path}`,
+        file: file.path,
+      });
+      continue;
+    }
+    seen.add(file.path);
+    if (!Number.isSafeInteger(file.bytes) || file.bytes < 0) {
+      issues.push({
+        code: "invalid_bytes",
+        message: `invalid byte count: ${file.path}`,
+        file: file.path,
+      });
+      continue;
+    }
+    if (file.primary) primary += 1;
+  }
+  if (primary !== 1) {
+    issues.push({
+      code: primary === 0 ? "missing_primary" : "multiple_primary",
+      message: "files need exactly one primary",
+      file: null,
+    });
+  }
+  return issues;
+}
+
+// 같은 stream의 hash와 blob 준비 port(R6). 준비 worker는 파일 바이트를 한 번만 읽고
+// 그 stream에서 SHA-256과 blob 내구 저장을 같이 만든다. 결과는 canonical 목록
+// blob의 hash와 살아 있는 준비 참조다.
+export type FilePreparationOutcome = {
+  preparation: string;
+  hash: string;
+  size_bytes: number;
+};
+
+export type FilePreparationPort = {
+  prepare(input: {
+    purpose: string;
+    files: readonly { path: string; content: readonly number[] }[];
+  }): Promise<
+    Result<FilePreparationOutcome, { code: string; message: string }>
+  >;
 };

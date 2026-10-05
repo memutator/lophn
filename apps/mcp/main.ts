@@ -25,6 +25,10 @@ import {
   startLineReader,
   type StdioStreams,
 } from "../../packages/coding-agent/mcp-server/mod.ts";
+import {
+  createTicketTool,
+  TICKET_TOOL_NAME,
+} from "../../packages/coding-agent/mcp-server/tools/ticket.ts";
 
 type Streams = {
   stdin: ReadableStream<Uint8Array>;
@@ -101,6 +105,15 @@ export function startMcpServer(
       connection: connection.value,
     })
     : undefined;
+  // lophn_ticket의 실행이다(T20). claim·renew·release를 실제 core에 보내고
+  // 응답에 connection·claim_seq·expires_at·반납 방법을 남긴다(mcp#R27).
+  const ticketTool = caller
+    ? createTicketTool({
+      client: caller,
+      now: () => new Date().toISOString(),
+      idempotencyKey: () => `mcp-ticket-${crypto.randomUUID()}`,
+    })
+    : undefined;
   const handler = createHandler({
     toolsets,
     onClientInfo: (name) => {
@@ -117,6 +130,15 @@ export function startMcpServer(
           data: { tool: toolName, op, connected: Boolean(caller) },
           next: ["lophn doctor로 연결과 credential을 확인한다"],
         });
+      }
+      if (toolName === TICKET_TOOL_NAME) {
+        return ticketTool === undefined
+          ? Promise.resolve({
+            summary: "tool 실행 준비가 안 됐다",
+            data: { tool: toolName, op, connected: false },
+            next: ["lophn doctor로 연결과 credential을 확인한다"],
+          })
+          : ticketTool(toolName, resolved.route, callArgs);
       }
       return runner(toolName, resolved.route, callArgs);
     },

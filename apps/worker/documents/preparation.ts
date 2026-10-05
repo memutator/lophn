@@ -17,6 +17,15 @@ import {
 } from "../../../packages/platform/responsiveness/mod.ts";
 import { previewTracking } from "../../../packages/documents/projects/work.ts";
 import { directoryScanner } from "../../../packages/documents/projects/scan.ts";
+import {
+  fileReadPort,
+  fileScanPort,
+} from "../../../packages/documents/file-tracking/fs.ts";
+import {
+  readStably,
+  scanRoot,
+} from "../../../packages/documents/file-tracking/mod.ts";
+import type { TrackingPattern } from "../../../packages/contracts/documents/mod.ts";
 
 export type PreparationOptions = {
   root: string;
@@ -41,8 +50,16 @@ class PreparationFailure extends Error {
 export async function acceptPreparation(
   request: WorkerRequest,
 ): Promise<unknown> {
+  if (request.op === "documents.scan_root") {
+    return scanObserved(request.payload);
+  }
+  if (request.op === "documents.hash_file") {
+    return hashObserved(request.payload);
+  }
+  if (request.op === "documents.diff_bytes") {
+    return diffObserved(request.payload);
+  }
   if (request.op !== projectPreviewTracking.name) {
-    // T2 뼈대 echo. 실제 scan_batch·hash·diff는 T11이 채운다.
     return { op: request.op, accepted: true };
   }
   const parsed = projectPreviewTrackingInputSchema.safeParse(request.payload);
@@ -62,6 +79,165 @@ export async function acceptPreparation(
   });
   if (!preview.ok) throw new PreparationFailure(preview.error);
   return preview.value;
+}
+
+// 활성 root 하나를 규칙대로 순회한다. 결과는 추적 파일의 상대 경로와 실제 경로다.
+async function scanObserved(payload: unknown): Promise<unknown> {
+  const body = payload as {
+    root?: unknown;
+    patterns?: unknown;
+    use_gitignore?: unknown;
+    enabled?: unknown;
+  };
+  if (typeof body?.root !== "string" || !Array.isArray(body.patterns)) {
+    throw new PreparationFailure({
+      code: "invalid_input",
+      message: "invalid scan input",
+    });
+  }
+  const scanned = await scanRoot(fileScanPort(), {
+    root: body.root,
+    patterns: body.patterns as TrackingPattern[],
+    useGitignore: body.use_gitignore === true,
+    enabled: body.enabled !== false,
+  });
+  if (!scanned.ok) throw new PreparationFailure(scanned.error);
+  return { files: scanned.value };
+}
+
+// 한 파일을 안정 읽기한다. hash와 보존 바이트는 같은 stream에서 나온다.
+async function hashObserved(payload: unknown): Promise<unknown> {
+  const path = (payload as { path?: unknown })?.path;
+  if (typeof path !== "string") {
+    throw new PreparationFailure({
+      code: "invalid_input",
+      message: "invalid hash input",
+    });
+  }
+  const read = await readStably(fileReadPort(), path);
+  if (!read.ok) throw new PreparationFailure(read.error);
+  if (read.value.kind === "unverified") {
+    return { kind: "unverified", reason: read.value.reason };
+  }
+  return {
+    kind: "stable",
+    hash: read.value.read.hash,
+    size: read.value.read.bytes.length,
+    real_path: read.value.read.identity.realPath,
+  };
+}
+
+// 두 바이트 열의 줄 단위 diff. 준비 worker가 계산하고 core는 결과를 받기만 한다.
+function diffObserved(payload: unknown): unknown {
+  const body = payload as { before?: unknown; after?: unknown };
+  if (typeof body?.before !== "string" || typeof body?.after !== "string") {
+    throw new PreparationFailure({
+      code: "invalid_input",
+      message: "invalid diff input",
+    });
+  }
+  const diff = lineDiff(body.before, body.after);
+  if (diff === null) return { kind: "diff_too_large" };
+  return { kind: "diff", changes: diff };
+}
+
+// 줄 단위 Myers diff. 대각선 탐색이 이 횟수를 넘으면 계산을 멈추고 diff를 내지 않는다.
+// 전체 표(O(줄 수²))를 만들지 않는다.
+const DIFF_STEP_LIMIT = 100_000;
+
+export type LineChange = { kind: "same" | "removed" | "added"; line: string };
+
+function linesOf(text: string): string[] {
+  if (text === "") return [];
+  const lines = text.split("\n");
+  if (lines[lines.length - 1] === "") lines.pop();
+  return lines;
+}
+
+export function lineDiff(before: string, after: string): LineChange[] | null {
+  const left = linesOf(before);
+  const right = linesOf(after);
+  const trace = myersTrace(left, right);
+  if (trace === null) return null;
+  return replay(left, right, trace);
+}
+
+function myersTrace(left: string[], right: string[]): Int32Array[] | null {
+  const width = left.length;
+  const height = right.length;
+  const max = width + height;
+  const furthest = new Int32Array(2 * max + 1);
+  const trace: Int32Array[] = [furthest.slice()];
+  let steps = 0;
+  for (let depth = 0; depth <= max; depth++) {
+    for (let diagonal = -depth; diagonal <= depth; diagonal += 2) {
+      const down = diagonal === -depth ||
+        (diagonal !== depth &&
+          furthest[offset(diagonal - 1, max)] <
+            furthest[offset(diagonal + 1, max)]);
+      let row = down
+        ? furthest[offset(diagonal + 1, max)]
+        : furthest[offset(diagonal - 1, max)] + 1;
+      let column = row - diagonal;
+      while (
+        row < width && column < height && left[row] === right[column]
+      ) {
+        row += 1;
+        column += 1;
+      }
+      furthest[offset(diagonal, max)] = row;
+      steps += 1;
+      if (steps > DIFF_STEP_LIMIT) return null;
+      if (row >= width && column >= height) {
+        trace.push(furthest.slice());
+        return trace;
+      }
+    }
+    trace.push(furthest.slice());
+  }
+  return trace;
+}
+
+function offset(diagonal: number, max: number): number {
+  return diagonal + max;
+}
+
+function replay(
+  left: string[],
+  right: string[],
+  trace: readonly Int32Array[],
+): LineChange[] {
+  const changes: LineChange[] = [];
+  let row = left.length;
+  let column = right.length;
+  const max = left.length + right.length;
+  for (let depth = trace.length - 2; depth >= 0; depth--) {
+    const furthest = trace[depth]!;
+    const diagonal = row - column;
+    const down = diagonal === -depth ||
+      (diagonal !== depth &&
+        furthest[offset(diagonal - 1, max)] <
+          furthest[offset(diagonal + 1, max)]);
+    const previousDiagonal = down ? diagonal + 1 : diagonal - 1;
+    const previousRow = furthest[offset(previousDiagonal, max)]!;
+    const startRow = down ? previousRow : previousRow + 1;
+    const startColumn = startRow - diagonal;
+    while (row > startRow && column > startColumn) {
+      row -= 1;
+      column -= 1;
+      changes.push({ kind: "same", line: left[row]! });
+    }
+    if (row === 0 && column === 0) break;
+    if (down) {
+      column -= 1;
+      changes.push({ kind: "added", line: right[column]! });
+    } else {
+      row -= 1;
+      changes.push({ kind: "removed", line: left[row]! });
+    }
+  }
+  changes.reverse();
+  return changes;
 }
 
 // accept 실행을 worker_response envelope로 감싼다. accept가 공통 code 오류를 내면

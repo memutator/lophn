@@ -93,8 +93,19 @@ export function seriesFixture(authorize: TargetAuthorizer = allowAll) {
           }
           return authorizer.current as T;
         },
-        registerBlobRef: () => {
-          throw new Error("unused");
+        registerBlobRef: (reference: {
+          owner_key: string;
+          field: string;
+          source: { kind: string; blob?: { hash: string } };
+        }) => {
+          guard();
+          return ok({
+            owner_kind: "document_version",
+            owner_key: reference.owner_key,
+            field: reference.field,
+            hash: reference.source.blob?.hash ?? "",
+            registered_seq: "1",
+          });
         },
         advanceSubscriberCursor: () => {
           throw new Error("unused");

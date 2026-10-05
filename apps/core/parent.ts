@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import type { Frame } from "../../packages/contracts/platform/mod.ts";
+import type { Frame, Route } from "../../packages/contracts/platform/mod.ts";
 import {
   coreToMainMessageSchema,
   mainToCoreMessageSchema,
@@ -17,6 +17,17 @@ export type ParentPipe = {
   stdout: WritableStream<Uint8Array>;
 };
 
+// 사람 token이 지니는 operation은 route 등록의 actor 상한에서 계산한다. 손으로 쓴
+// 목록이 아니어서 새 route는 user를 허용하면 자동으로 들어가고, machine·app·worker
+// 전용 route는 들어가지 않는다. status·health read는 route 이름과 별개로 늘 포함한다.
+export function userOperations(routes: readonly Route[]): string[] {
+  const names = new Set<string>(["platform/status", "platform/health"]);
+  for (const route of routes) {
+    if (route.actors.includes("user")) names.add(route.name);
+  }
+  return [...names];
+}
+
 // user token은 여기서 한 번만 준다. 발급한 자격은 ledger에 적어 writer가 다시 검증한다.
 export async function greet(
   parent: ParentPipe,
@@ -25,12 +36,13 @@ export async function greet(
   port: number,
   epoch: string,
   issue: CredentialRegistry["issue"],
+  routes: readonly Route[],
 ): Promise<Result<void>> {
   const issued = await issue({
     actor: "user",
     principal: "user",
     scope: {
-      operations: ["platform/status", "platform/health"],
+      operations: userOperations(routes),
       targets: {},
     },
     conditions: { process: "electron-main" },

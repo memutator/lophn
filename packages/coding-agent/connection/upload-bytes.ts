@@ -7,13 +7,20 @@ import { documentUpload } from "../../contracts/documents/mod.ts";
 import {
   type PreparedBlob,
   preparedBlobSchema,
+  type UploadRoute,
 } from "../../contracts/platform/mod.ts";
-import type { CoreClient } from "./client/core.ts";
 import type { PrepareBytes } from "./submission.ts";
 
-export function uploadPrepareBytes(
-  client: Pick<CoreClient, "upload">,
-): PrepareBytes {
+// core client 중 이 통로가 쓰는 호출이다. client/core.ts는 core module graph 밖에 둔다.
+export type UploadClient = {
+  upload(
+    route: UploadRoute,
+    input: unknown,
+    bytes: ReadableStream<Uint8Array>,
+  ): Promise<Result<unknown, LophnError>>;
+};
+
+export function uploadPrepareBytes(client: UploadClient): PrepareBytes {
   return async (file): Promise<Result<PreparedBlob, LophnError>> => {
     const sent = await client.upload(
       documentUpload,

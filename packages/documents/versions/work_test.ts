@@ -454,3 +454,28 @@ Deno.test("documents/versions#R2: file preparation 실패는 unavailable이다",
     assert(ran.error.message.includes("file preparation failed"));
   }
 });
+
+Deno.test("documents/versions#R5: 준비 결과의 파일은 새 바이트면 준비 참조, 이미 등록된 blob이면 그 참조를 싣는다", async () => {
+  const prepare = createPrepareAssembly(deps());
+  const reference = {
+    owner_kind: "document_version",
+    owner_key: "ver_01arz3ndektsv4rrffq69g5fav/cover.png",
+    field: "file",
+    hash: HASH,
+    registered_seq: "3",
+  };
+  const fresh = fileInput("report.md", true, 12);
+  const reused = {
+    ...fileInput("cover.png", false, 8),
+    content: { kind: "existing" as const, reference },
+  };
+  const ran = await prepare(request({ files: [fresh, reused] }));
+  assert(ran.ok);
+  const { content: _fresh, ...freshFile } = fresh;
+  const { content: _reused, preparation_ref: _ref, ...reusedFile } = reused;
+  assertEquals(ran.value.files, [
+    { ...freshFile, preparation_ref: fresh.content.blob.preparation },
+    { ...reusedFile, existing: reference },
+  ]);
+  assertEquals(ran.value.file_count, 2);
+});

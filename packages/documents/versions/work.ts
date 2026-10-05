@@ -85,7 +85,6 @@ export type PreparedResult = Omit<PreparedVersion, "validation"> & {
   validation: Omit<PreparedVersion["validation"], "diagnostics"> & {
     diagnostics: FormatDiagnostic[];
   };
-  files: readonly ContentFile[];
 };
 
 export type PrepareError = { code: string; message: string };
@@ -232,7 +231,13 @@ export function createPrepareAssembly(deps: PrepareDeps) {
         ? {}
         : { file_basis: request.file_basis as FileObservationBasis }),
       source: request.source,
-      files: contentFiles,
+      // 새 바이트는 준비 참조로, 이미 등록된 blob은 그 참조로 판에 묶는다.
+      files: contentFiles.map((file, index) => {
+        const content = request.files[index].content;
+        return content.kind === "prepared"
+          ? { ...file, preparation_ref: content.blob.preparation }
+          : { ...file, existing: content.reference };
+      }),
     });
   };
 }
@@ -266,7 +271,7 @@ export function createExportAssembly() {
     format: "markdown" | "json";
     documents: {
       document: Omit<Document, "file_source">;
-      version: Omit<VersionRow, "source"> & {
+      version: VersionRow & {
         files: readonly ContentFile[] | { hash: string; size_bytes: number };
       };
       reference: { document: string; version: string; section: null };
@@ -276,7 +281,7 @@ export function createExportAssembly() {
     // 자리 slug·파일 source는 출력에서 뺀다(agentDocumentSchema와 같은 모양).
     const documents: {
       document: Omit<Document, "file_source">;
-      version: Omit<VersionRow, "source"> & {
+      version: VersionRow & {
         files: readonly ContentFile[] | { hash: string; size_bytes: number };
       };
       reference: { document: string; version: string; section: null };
@@ -288,11 +293,14 @@ export function createExportAssembly() {
       const files = item.files.length > 0
         ? item.files
         : { hash: item.row.files_hash, size_bytes: 0 };
-      const { source: _rowSource, ...rowVisible } = item.row;
+      // versionSchema는 source 필드를 요구한다. 디스크 경로가 든 파일·지침 출처는 null로
+      // 가리고(agent history와 같다) 앱 출처만 남긴다.
+      const source = item.row.source?.kind === "app" ? item.row.source : null;
       documents.push({
         document: visible,
         version: {
-          ...rowVisible,
+          ...item.row,
+          source,
           files,
         },
         reference: {

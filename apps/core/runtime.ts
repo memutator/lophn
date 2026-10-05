@@ -77,6 +77,8 @@ export type CoreRuntime = {
   wake(): void;
   // core 안의 구독 session을 dispatcher에 올려 새 event가 올 때 따라잡게 한다. 돌려받은 함수로 뺀다.
   track(session: EventSession): () => void;
+  // dispatcher에 올라 있는 session 수(core 안 구독자와 WebSocket 연결). 관측용이다.
+  trackedSessions(): number;
   close(): Promise<void>;
 };
 
@@ -285,6 +287,7 @@ export async function openRuntime(input: {
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),
     track: (session) => dispatcher.add(session),
+    trackedSessions: () => dispatcher.size,
     sweepTicketClaims,
     async close() {
       dispatcher.close();

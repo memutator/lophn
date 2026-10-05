@@ -173,12 +173,7 @@ Deno.test("documents/versions#R9: file read는 고정 판의 상대 경로를 �
   const fixture = versionFixture();
   try {
     const saved = save(fixture, "save-1");
-    // 경로별 원문 행은 준비 worker가 남긴다(documents T8). 여기선 그 결과를 심는다.
-    fixture.sql.run(
-      `INSERT INTO version_files (version, path, blob_hash, bytes, media_type, primary_file)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [saved.version, "a.md", "ab".repeat(32), 4, "text/plain", 1],
-    );
+    // 경로별 원문 행은 save가 같은 tx에서 남긴다(Q16).
     const opened = keep(
       storedFile(fixture.snapshot() as never, userContext(), {
         version: saved.version,
@@ -240,6 +235,9 @@ Deno.test("documents/versions#R16: export는 고른 자리 문서의 고정 판�
     );
     assertEquals(page.format, "markdown");
     assertEquals(page.documents.length, 1);
+    // 출력은 등록한 route 출력 schema를 통과한다(versionSchema는 source 필드를 요구한다).
+    const checked = documentExport.output.safeParse(page);
+    assert(checked.success, JSON.stringify(checked.error?.issues));
     const entry = page.documents[0];
     assertEquals(entry.document.id, ids.doc);
     // 디스크 file_source는 출력에서 뺀다(agentDocumentSchema).

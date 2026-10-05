@@ -139,16 +139,18 @@ export function createHost(deps: HostDeps): Host {
       session.handle = handle;
       session.group = deps.pty.group(handle.pid);
       runtime.state = "running";
-      setImmediate(() => {
-        session.handle?.onData((chunk) => {
-          void acceptChunk(session, chunk);
-        });
-        session.handle?.onExit((exit) => {
-          if (runtime.state === "unknown" || runtime.state === "exited") return;
-          runtime.state = "exited";
-          runtime.exit_code = exit.exitCode;
-          session.handle = null;
-        });
+      // 등록을 spawn 직후 동기로 붙인다. 미루면 초기 출력·종료를 놓친다.
+      session.handle?.onData((chunk) => {
+        void acceptChunk(session, chunk);
+      });
+      session.handle?.onExit((exit) => {
+        // 성공을 추정하지 않고 관측한 종료를 기록한다. 이미 기록한
+        // exited에 대한 두 번째 종료는 첫 관측을 대체하지 않는다.
+        if (runtime.state === "unknown" || runtime.exit_code !== null) return;
+        runtime.state = "exited";
+        runtime.exit_code = exit.exitCode;
+        runtime.dropped_output = session.buffer.dropped;
+        session.handle = null;
       });
     } catch {
       runtime.state = "exited";
@@ -177,18 +179,17 @@ export function createHost(deps: HostDeps): Host {
     handle(request) {
       if (request.type === "open") return start(undefined, request);
       if (request.type === "host-lost") {
-        const gone = this.dispose().map((runtime) => {
+        const gone = this.dispose();
+        const marked = gone.map((runtime) => {
           runtime.state = "unknown";
           runtime.failure_reason = "host_lost";
           runtime.exit_code = null;
-          return runtime;
-        });
-        for (const runtime of gone) {
           const session = sessions.get(runtime.terminal_ref);
           if (session) session.runtime = runtime;
-        }
-        return gone[0]
-          ? { ok: true, runtime: gone[0] }
+          return runtime;
+        });
+        return marked[0]
+          ? { ok: true, runtime: marked[0] }
           : reject("host_lost", "terminal host is gone");
       }
       if (request.type === "snapshot") {
@@ -293,10 +294,14 @@ function finish(session: Session): TerminalReply {
     session.runtime.failure_reason = "kill_unconfirmed";
     session.runtime.exit_code = null;
   } else {
+    // 관측한 종료만 exit code로 남긴다. 확인 없이 0을 추측하지 않는다.
     session.runtime.state = "exited";
-    session.runtime.exit_code = session.runtime.exit_code ?? 0;
+    session.runtime.failure_reason = null;
   }
   session.handle = null;
+  // 닫힌 탭은 runtime 값만 남긴다. 출력 buffer와 입력 history는 힙에 남기지 않는다.
+  session.buffer.clear();
+  session.typed.length = 0;
   return { ok: true, runtime: { ...session.runtime } };
 }
 

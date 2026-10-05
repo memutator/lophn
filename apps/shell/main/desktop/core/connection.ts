@@ -50,6 +50,8 @@ export interface ConnectionState {
 
 export interface CoreConnection {
   readonly state: ConnectionState;
+  /** 준비된 인증 read·command session. 준비 전에는 null이다. */
+  session(): CoreSession | null;
   /** 명시 종료. 창 닫기는 부르지 않는다. */
   shutdown(): void;
 }
@@ -131,6 +133,9 @@ export function startCoreConnection(
   return {
     get state() {
       return state;
+    },
+    session() {
+      return session ?? null;
     },
     shutdown() {
       core.stop();

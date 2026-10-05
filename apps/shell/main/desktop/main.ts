@@ -14,7 +14,50 @@ import { registerShellScheme } from "./security.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
 import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
+import {
+  attachTerminalSurface,
+  type MainIpc,
+  registerTerminalIpc,
+  removeTerminalIpc,
+  TerminalFocusTable,
+} from "../terminal/controller.ts";
+import { createTerminalIpc } from "../terminal/ipc.ts";
 import { createSupervisor, spawnNodeHost } from "../terminal/supervisor.ts";
+
+// shell tsc는 base를 보지 않으므로 Result 모양만 여기서 맞춘다.
+type CallResult = { ok: true; value: unknown } | {
+  ok: false;
+  error: { code: string; message: string };
+};
+
+/** 등록 폴더 read. renderer가 믿는 경로를 여기서 다시 읽는다(documents#T7). */
+async function projectFolders(
+  session: CallSession | null,
+  project: string,
+): Promise<readonly { folder_ref: string; path: string }[]> {
+  if (!session) return [];
+  const reply = await session.call("read", "projects", "list", {
+    status: "active",
+  });
+  if (!reply.ok) return [];
+  const projects = (reply.value as { projects?: unknown[] }).projects ?? [];
+  const found = projects.find(
+    (item) => (item as { id?: string }).id === project,
+  ) as { folders?: { path: string }[] } | undefined;
+  return (found?.folders ?? []).map((folder, index) => ({
+    folder_ref: `${project}_${index}`,
+    path: folder.path,
+  }));
+}
+
+type CallSession = {
+  call(
+    kind: string,
+    resource: string,
+    method: string,
+    body: unknown,
+  ): Promise<CallResult>;
+};
 
 const here = dirname(__filename);
 const dataRoot = resolveDataRoot();
@@ -43,7 +86,34 @@ const terminals = createSupervisor({
   entry: join(here, "terminal-host.cjs"),
   spawnHost: spawnNodeHost,
 });
+
+// terminal IPC. sender·frame 검사는 registry로, focus·generation은 ipc.ts가 본다.
+// folder_ref는 documents#T7 등록 폴더 read를 다시 해석하고, 출력은 잡아 당기는
+// snapshot으로만 renderer에 다시 보인다(shell/terminal#R7, R8).
+const terminalFocus = new TerminalFocusTable();
+const terminalIpc = createTerminalIpc({
+  registry: overlays.overlayRegistry(),
+  focus: terminalFocus,
+  folders: {
+    folders: (project) => projectFolders(core.session(), project),
+  },
+  host: terminals,
+});
+registerTerminalIpc(
+  {
+    handle: (channel, listener) => ipcMain.handle(channel, listener),
+    removeHandler: (channel) => ipcMain.removeHandler(channel),
+  } satisfies MainIpc,
+  terminalIpc,
+);
+
 app.once("will-quit", () => {
+  removeTerminalIpc(
+    {
+      handle: () => {},
+      removeHandler: (channel) => ipcMain.removeHandler(channel),
+    } satisfies MainIpc,
+  );
   terminals.stop();
   core.shutdown();
   overlays.dispose();
@@ -113,6 +183,7 @@ function openDesktopWindow(): void {
           join(here, "preload-shell.cjs"),
           app.isPackaged,
         );
+        attachTerminalSurface(overlays.overlayRegistry(), window);
         windows.add(window);
         window.on("closed", () => windows.delete(window));
         // 연결 전에 뜬 창은 지금 상태를 바로 받는다. 이후 변화는 targets가 민다.

@@ -78,6 +78,10 @@ export function electronOverlays() {
       security.dispose();
       sessions.clear();
     },
+    /** sender 검사에 쓰는 registry. terminal IPC가 같은 등록 표를 본다. */
+    overlayRegistry(): ContentsRegistry {
+      return registry;
+    },
     attach(window: BrowserWindow, preload: string, packaged: boolean) {
       const shell = contents(window.webContents);
       registry.register({

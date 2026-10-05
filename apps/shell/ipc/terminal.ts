@@ -32,6 +32,10 @@ export const terminalRestartSchema = z.object({
   generation,
 }).strict();
 
+export const terminalSnapshotSchema = z.object({
+  terminal_ref: ref,
+}).strict();
+
 export type TerminalOpen = { project: string; folder_ref?: string };
 export type TerminalInput = {
   terminal_ref: string;
@@ -45,6 +49,7 @@ export type TerminalResize = {
   rows: number;
 };
 export type TerminalClose = { terminal_ref: string; generation: number };
+export type TerminalSnapshot = { terminal_ref: string };
 
 export type TerminalStateName = "starting" | "running" | "exited" | "unknown";
 

@@ -54,3 +54,14 @@ export type {
 } from "./types.ts";
 export { allowCandidate, candidateDocuments } from "./candidates.ts";
 export { createSeriesOutlineRead } from "./series-outline.ts";
+export {
+  createGuideHandlers,
+  GUIDE_LIST_LIMIT,
+  type GuideCatalogPort,
+  type GuideExtraction,
+  type GuideExtractor,
+  type GuideHandlerDeps,
+  type GuideHandlers,
+  type GuideRedactor,
+  type GuideSectionRecord,
+} from "./guides.ts";

@@ -20,3 +20,12 @@ export {
   loadVersionByNumber,
   replaceDocument,
 } from "./store.ts";
+export {
+  createGuideCatalog,
+  findInstalledGuide,
+  GUIDE_MANIFEST_PATH,
+  type GuideCatalog,
+  type GuideFileBytes,
+  type GuideFiles,
+  type InstalledGuides,
+} from "./guides.ts";

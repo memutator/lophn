@@ -5,6 +5,10 @@ import { z } from "zod";
 import {
   documentExport,
   documentRead,
+  guideGet,
+  guideList,
+  guideOutline,
+  guideRead,
   outlineContext,
   outlineDocument,
   outlinePlace,
@@ -27,6 +31,10 @@ export const SERVED_ROUTES: readonly WorkerRoute[] = [
   searchStatus,
   viewOpen,
   documentExport,
+  guideList,
+  guideGet,
+  guideOutline,
+  guideRead,
 ];
 
 // worker route의 core 쪽 key. `workers` map이 쓰는 key와 같다.

@@ -535,3 +535,147 @@ Deno.test("documents/versions#R15: 한 보고를 고치면 그 문서 판이 늘
     fixture.close();
   }
 });
+
+const AT = "2026-10-05T00:00:00.000Z";
+
+// 파일 관측이 만드는 새 문서의 제출. 연결이 없는 새 파일이라 file_source는 null이다.
+function newObservation(
+  document: string,
+  path: string,
+  extra: Record<string, unknown> = {},
+) {
+  return preparedInput(document, [file("a.md", true)], {
+    source: {
+      kind: "file",
+      project: ids.project,
+      path,
+      original_hash: HASH,
+      observed_at: AT,
+    },
+    file_basis: {
+      kind: "project_file",
+      project: ids.project,
+      path,
+      project_revision: "1",
+      file_source: null,
+      original_hash: HASH,
+      observed_at: AT,
+    },
+    ...extra,
+  });
+}
+
+Deno.test("documents/versions#R13: 파일 관측의 첫 저장은 문서를 그 파일에 연결하고 DocumentCreated가 연결을 담는다", () => {
+  const fixture = versionFixture();
+  try {
+    const result = keep(
+      save(fixture, newObservation(ids.doc, "/work/notes/a.md")),
+    );
+    assertEquals(result.status, "saved");
+    const row = fixture.sql.get(
+      "SELECT source_kind, source_project, source_path FROM documents WHERE id = ?",
+      [ids.doc],
+    );
+    assertEquals(row?.["source_kind"], "project_file");
+    assertEquals(row?.["source_project"], ids.project);
+    assertEquals(row?.["source_path"], "/work/notes/a.md");
+    const created = fixture.emitted.find((event) =>
+      event.type === "DocumentCreated"
+    );
+    assertEquals(
+      (created?.payload as { file_source: unknown }).file_source,
+      { kind: "project_file", project: ids.project, path: "/work/notes/a.md" },
+    );
+    // 연결된 문서의 다음 판은 현재 파일 관측으로만 이어진다.
+    const latest = fixture.sql.get(
+      "SELECT latest_version, revision FROM documents WHERE id = ?",
+      [ids.doc],
+    );
+    const next = preparedInput(ids.doc, [file("a.md", true)], {
+      base_version: latest?.["latest_version"],
+      content_hash: "cd".repeat(32),
+      metadata: undefined,
+      idempotency_key: "save-2",
+      source: {
+        kind: "file",
+        project: ids.project,
+        path: "/work/notes/a.md",
+        original_hash: "cd".repeat(32),
+        observed_at: AT,
+      },
+      file_basis: {
+        kind: "project_file",
+        project: ids.project,
+        path: "/work/notes/a.md",
+        project_revision: "1",
+        document_revision: latest?.["revision"],
+        document_status: "active",
+        file_source: {
+          kind: "project_file",
+          project: ids.project,
+          path: "/work/notes/a.md",
+        },
+        original_hash: "cd".repeat(32),
+        observed_at: AT,
+      },
+    });
+    assertEquals(keep(save(fixture, next)).status, "saved");
+    const count = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM documents",
+      [],
+    );
+    assertEquals(count?.["count"], 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/versions#R13: 같은 경로에 이미 연결된 문서가 있으면 새 문서 저장은 충돌한다", () => {
+  const fixture = versionFixture();
+  try {
+    keep(save(fixture, newObservation(ids.doc, "/work/notes/a.md")));
+    const again = save(
+      fixture,
+      newObservation(ids.other, "/work/notes/a.md", {
+        idempotency_key: "save-2",
+      }),
+    );
+    assert(!again.ok);
+    assertEquals(again.error.code, "conflict");
+    const count = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM documents",
+      [],
+    );
+    assertEquals(count?.["count"], 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/file-tracking#R7: 새 문서 제출이 이미 있는 연결을 주장하면 낡은 제출이라 충돌한다", () => {
+  const fixture = versionFixture();
+  try {
+    const stale = newObservation(ids.doc, "/work/notes/a.md");
+    const basis = (stale as { file_basis?: unknown }).file_basis as Record<
+      string,
+      unknown
+    >;
+    basis.file_source = {
+      kind: "project_file",
+      project: ids.project,
+      path: "/work/notes/a.md",
+    };
+    basis.document_revision = "9";
+    basis.document_status = "active";
+    const result = save(fixture, stale);
+    assert(!result.ok);
+    assertEquals(result.error.code, "conflict");
+    const count = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM documents",
+      [],
+    );
+    assertEquals(count?.["count"], 0);
+  } finally {
+    fixture.close();
+  }
+});

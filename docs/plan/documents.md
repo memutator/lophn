@@ -233,6 +233,7 @@ concerns: [documents]
 - 선행: T8, T10, platform#T4(event 구독)
 - T2에서 넘어온 것: 준비 worker의 실제 scan·hash·diff와 그 결과 command 제출, `/v1/projects/preview_tracking` route 연결(T10 진행 줄)
 - T8에서 넘어온 것: `/v1/documents/prepare` worker route를 apps/core에 조립(startApiServer workers map), 준비 worker가 T8 조립(createPrepareAssembly)에 실제 같은 stream hash·blob 준비 port를 준다(#200은 fake port로만 검증)
+- T13에서 넘어온 것: documents coordinator가 derived 검색 store를 열고 `/v1/search/{query,status}` worker route를 제품 core에서 서빙한다(#215는 test seam으로만 연결, 제품은 503)
 - 완료:
   - root별 `Deno.watchFs(recursive)` 신호는 힌트. 시작·절전 복귀·watch 넘침·단절·규칙·폴더 변경·보관 해제에 전체 대조, 평소 60초마다 root scan(진행 중이면 합침), root당 후보 10,000개 초과면 `rescan_required` 하나
   - canonical 경로별 후보 합치기, 750ms 조용하면 관측, 안정 읽기 최대 3회. 열기 전·후 실제 경로·file identity·size·mtime 비교, 같은 stream에서 hash와 blob. 안정 확인 실패는 unverified로 두고 다음 파일로
@@ -265,7 +266,7 @@ concerns: [documents]
 
 ### T13 derived store와 검색
 
-- 상태: 완료 (#188, #215) — 이어보냄: 요약·주제 검색과 match_source → documents#T14
+- 상태: 완료 (#188, #215) — 이어보냄: 요약·주제 검색과 match_source → documents#T14, 제품 core에서 `/v1/search/{query,status}` worker route를 documents coordinator가 서빙(지금은 503) → documents#T11
 - 등급: 기본
 - concern: documents/outline-and-search
 - 요구: documents/outline-and-search#R10, R11, R12, R13, R14, R16, R17, R18

@@ -328,7 +328,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T12 CLI 뼈대
 
-- 상태: 진행 (#173) — 남은 것: R1·R5 테스트(dispatch 배선 뒤), core dispatch(T36)
+- 상태: 완료 (#173) — 이어보냄: core dispatch와 R1·R5 테스트(dispatch 배선 뒤) → coding-agent#T36
 - 등급: 기본
 - concern: coding-agent/cli
 - 요구: coding-agent/cli#R1, R2, R3, R4, R5, R39
@@ -812,6 +812,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     조건만 재비교, 늦은 옛 completion이 새 결과를 덮지 않는다. model 호출
     없음(R20)
   - record_checks는 completion_seq·ticket revision·읽은 대상 revision CAS
+  - 이어받음: platform#T36의 checker 발생 작업. 이 작업이 `TicketConfirmed`·`TicketCheckFailed`를 낸다
 
 ### T27 사람 화면용 ticket read
 
@@ -1159,6 +1160,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     없음(harnesses#R6, cli#R40)
   - lophn 시작·문제 발생·ticket 생성만으로 외부 process가 뜨지
     않는다(connection#R1)
+  - 이어받음: coding-agent#T12의 core dispatch. R1·R5 테스트는 dispatch 배선 뒤 이 작업에서 닫는다
 
 ### T37 daemon command
 

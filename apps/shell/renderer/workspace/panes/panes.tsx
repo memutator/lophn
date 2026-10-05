@@ -13,6 +13,7 @@ import {
   BREAKPOINT_MD,
   type PaneState,
   ratioFromDrag,
+  type TabItem,
   SPLIT_EQUAL,
   splitLayout,
   TAB_KIND_LABEL,
@@ -41,6 +42,13 @@ export interface PanesProps {
   /** 정보 패널 열림과 바꾸기. 주면 마지막 칸 탭 줄 끝에 버튼을 둔다. */
   infoOpen?: boolean;
   onToggleInfo?: () => void;
+  /**
+   * 선택 탭의 본문. null이면 종류 자리표시를 그린다. 본문은 자기 scroll과 여백을 가진다
+   * (문서 탭은 shell/editor의 읽기 틀이 칸 여백을 정한다).
+   */
+  renderTab?: (tab: TabItem, pane: number) => ReactNode | null;
+  /** 탭 key마다 tooltip. */
+  tooltips?: Readonly<Record<string, ReactNode>>;
 }
 
 interface Dragging {
@@ -61,6 +69,8 @@ export function Panes(
     onRatio,
     infoOpen = false,
     onToggleInfo,
+    renderTab,
+    tooltips,
   }: PanesProps,
 ) {
   // 경계 drag 중 미리보기 비율. drag-end에서만 저장한다.
@@ -177,6 +187,8 @@ export function Panes(
               dropTarget={dragging !== null && dragging.pane !== index}
               over={over === index}
               dropProps={dropProps(index)}
+              renderTab={renderTab}
+              tooltips={tooltips}
               onSelect={(key) => onSelect(index, key)}
               onClose={(key) => onClose(index, key)}
               onFocus={() => {
@@ -232,6 +244,8 @@ interface PaneViewProps {
     onDrop: (event: DragEvent) => void;
   };
   children?: ReactNode;
+  renderTab?: (tab: TabItem, pane: number) => ReactNode | null;
+  tooltips?: Readonly<Record<string, ReactNode>>;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
   onFocus: () => void;
@@ -252,6 +266,8 @@ function PaneView(
     over,
     dropProps,
     children,
+    renderTab,
+    tooltips,
     onSelect,
     onClose,
     onFocus,
@@ -260,6 +276,7 @@ function PaneView(
   }: PaneViewProps,
 ) {
   const selected = pane.tabs.find((tab) => tab.key === pane.selected);
+  const rendered = selected && renderTab ? renderTab(selected, index) : null;
   return (
     <section
       className={`${styles.pane} ${width === null ? "" : styles.sized}`}
@@ -282,13 +299,18 @@ function PaneView(
         onMoveToPane={onMove}
         onDragTab={onDragTab}
         end={end}
+        tooltips={tooltips}
       />
       <div
-        className={`${styles.body} ${wide ? "" : styles.narrow}`}
+        className={rendered !== null
+          ? `${styles.body} ${styles.bare}`
+          : `${styles.body} ${wide ? "" : styles.narrow}`}
         data-pane-body=""
         role="tabpanel"
       >
-        {selected
+        {rendered !== null
+          ? rendered
+          : selected
           ? (
             <div className={styles.content} data-tab-body={selected.key}>
               <h1 className={styles.heading}>{selected.title}</h1>

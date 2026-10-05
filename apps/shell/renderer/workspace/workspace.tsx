@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
@@ -32,6 +32,11 @@ import type {
   ProjectView,
   WorkspaceSource,
 } from "./source.ts";
+import {
+  type DocumentTabMeta,
+  DocumentView,
+  type EditorDeps,
+} from "../editor/document-view.tsx";
 import styles from "./workspace.module.css";
 
 export interface WorkspaceProps {
@@ -45,6 +50,8 @@ export interface WorkspaceProps {
   onLauncher: () => void;
   /** lophn 관리 공간으로 간다. */
   onLophn: () => void;
+  /** 문서 탭의 읽기·편집 통로. 없으면 문서 탭은 자리표시다. */
+  editor?: EditorDeps;
 }
 
 interface Loaded {
@@ -118,7 +125,7 @@ function freshView(): WorkspaceView {
 
 // 프로젝트 작업대. sidebar·상단 경로·탭 줄·두 칸을 한 화면에 모은다.
 export function Workspace(
-  { projectId, source, windowWidth, bodyWidth, onLauncher, onLophn }:
+  { projectId, source, windowWidth, bodyWidth, onLauncher, onLophn, editor }:
     WorkspaceProps,
 ) {
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
@@ -130,6 +137,10 @@ export function Workspace(
   const [userChoseWidth, setUserChoseWidth] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
+  // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다(editor#R4).
+  const [tabMeta, setTabMeta] = useState<
+    Readonly<Record<string, DocumentTabMeta>>
+  >({});
   const frameRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
@@ -206,7 +217,7 @@ export function Workspace(
     const tab: TabItem = {
       key: document.id,
       kind: "document_editor",
-      title: document.title,
+      title: tabMeta[document.id]?.fileName ?? document.title,
     };
     update({
       ...view,
@@ -220,6 +231,63 @@ export function Workspace(
       ),
     });
   };
+
+  // 편집기가 읽은 파일 이름으로 탭 제목을 바꾼다. 같은 이름이면 다시 저장하지 않는다.
+  const noteMeta = (key: string, meta: DocumentTabMeta) => {
+    setTabMeta((current) => ({ ...current, [key]: meta }));
+    setView((current) => {
+      const stale = current.panes.some((pane) =>
+        pane.tabs.some((tab) => tab.key === key && tab.title !== meta.fileName)
+      );
+      if (!stale) return current;
+      const next = {
+        ...current,
+        panes: current.panes.map((pane) => ({
+          ...pane,
+          tabs: pane.tabs.map((tab) =>
+            tab.key === key ? { ...tab, title: meta.fileName } : tab
+          ),
+        })),
+      };
+      persist(next);
+      return next;
+    });
+  };
+
+  const tooltips: Record<string, ReactNode> = {};
+  for (const [key, meta] of Object.entries(tabMeta)) {
+    tooltips[key] = (
+      <span className={styles.tabTip}>
+        <span>{meta.title}</span>
+        {meta.path === null ? null : (
+          <span className={styles.tabTipPath}>{meta.path}</span>
+        )}
+      </span>
+    );
+  }
+
+  const renderTab = editor
+    ? (tab: TabItem) =>
+      tab.kind === "document_editor"
+        ? (
+          <DocumentView
+            key={tab.key}
+            documentId={tab.key}
+            projectId={projectId}
+            source={editor.source}
+            readingWidth={editor.readingWidth}
+            menu={editor.menu}
+            infoOpen={infoOpen}
+            onToggleInfo={() => setInfo(!infoOpen, infoTab)}
+            onMeta={(meta) => noteMeta(tab.key, meta)}
+            onOpenDocument={(id) => {
+              const row = loaded.documents.find((item) => item.id === id);
+              openDocument(row ?? { id, title: tabMeta[id]?.fileName ?? id });
+            }}
+          />
+        )
+        : null
+    : undefined;
 
   const setInfo = (open: boolean, tab: InfoTab) => {
     setInfoOpen(open);
@@ -300,6 +368,8 @@ export function Workspace(
             onFocus={(pane) => update({ ...view, focusedPane: pane })}
             onMove={(key, toPane) => update(moveTab(view, key, toPane))}
             onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
+            renderTab={renderTab}
+            tooltips={tooltips}
           />
           <InfoPanel
             placement={infoPlacement}

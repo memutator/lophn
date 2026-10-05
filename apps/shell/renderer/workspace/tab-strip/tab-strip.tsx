@@ -1,4 +1,10 @@
-import { type ReactNode, useLayoutEffect, useRef } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   Icon,
   iconPixels,
@@ -43,6 +49,8 @@ export interface TabStripProps {
   /** 줄 오른쪽 끝의 조작(칸 나누기, 정보 패널). */
   end?: ReactNode;
   label?: string;
+  /** 탭 key마다 tooltip. 문서 탭은 문서 제목과 상대 경로다(editor#R4). */
+  tooltips?: Readonly<Record<string, ReactNode>>;
 }
 
 // 탭 줄. 종류는 아이콘과 글자로 구별하고 넘치면 줄 안에서만 scroll한다(workspace#R1, R2).
@@ -57,9 +65,15 @@ export function TabStrip(
     onDragTab,
     end,
     label,
+    tooltips = {},
   }: TabStripProps,
 ) {
   const listRef = useRef<HTMLDivElement>(null);
+  // 키보드 focus가 있는 탭. 화살표는 focus만 옮기고 Enter가 연다(editor#R4).
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const current = tabs.some((tab) => tab.key === focusKey)
+    ? focusKey
+    : selected;
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list || selected === null) return;
@@ -84,24 +98,45 @@ export function TabStrip(
         role="tablist"
         aria-label={label}
         data-tab-list=""
-        onKeyDown={(event) => {
-          if (!onMoveToPane || !selected) return;
+        onKeyDown={(event: KeyboardEvent) => {
           if (
             event.altKey &&
             (event.key === "ArrowLeft" || event.key === "ArrowRight")
           ) {
+            if (!onMoveToPane || !selected) return;
             event.preventDefault();
             onMoveToPane(
               selected,
               event.key === "ArrowLeft" ? "left" : "right",
             );
+            return;
+          }
+          const index = tabs.findIndex((tab) => tab.key === current);
+          if (index < 0) return;
+          if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+            event.preventDefault();
+            const step = event.key === "ArrowLeft" ? -1 : 1;
+            const next = tabs[(index + step + tabs.length) % tabs.length]!;
+            setFocusKey(next.key);
+            listRef.current?.querySelector<HTMLElement>(
+              `[data-tab="${CSS.escape(next.key)}"]`,
+            )?.focus();
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            onSelect(tabs[index]!.key);
+          } else if (event.key === "Delete") {
+            event.preventDefault();
+            const neighbour = tabs[index + 1] ?? tabs[index - 1];
+            setFocusKey(neighbour?.key ?? null);
+            onClose(tabs[index]!.key);
           }
         }}
       >
         {tabs.map((tab) => {
           const active = tab.key === selected;
           const kind = t(TAB_KIND_LABEL[tab.kind]);
-          return (
+          const tooltip = tooltips[tab.key];
+          const element = (
             <div
               key={tab.key}
               className={[
@@ -114,7 +149,8 @@ export function TabStrip(
               aria-selected={active}
               data-tab={tab.key}
               data-kind={tab.kind}
-              tabIndex={active ? 0 : -1}
+              tabIndex={tab.key === current ? 0 : -1}
+              onFocus={() => setFocusKey(tab.key)}
               style={tab.pinned
                 ? { width: `${TAB_PINNED}px`, minWidth: `${TAB_PINNED}px` }
                 : { minWidth: `${TAB_MIN}px`, maxWidth: `${TAB_MAX}px` }}
@@ -161,6 +197,9 @@ export function TabStrip(
                 </>
               )}
             </div>
+          );
+          return tooltip === undefined ? element : (
+            <Tooltip key={tab.key} content={tooltip}>{element}</Tooltip>
           );
         })}
       </div>

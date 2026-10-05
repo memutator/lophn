@@ -38,6 +38,12 @@
   padding-left: var(--layout-pane-padding-narrow);
 }
 
+/* 본문이 자기 scroll과 칸 여백을 가지는 탭(문서). */
+.bare {
+  padding: var(--space-0);
+  overflow: hidden;
+}
+
 .content {
   display: flex;
   flex-direction: column;

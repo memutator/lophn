@@ -8,7 +8,12 @@
     "@types/react": "npm:@types/react@19.3.0",
     "esbuild": "npm:esbuild@0.28.2",
     "@luca/esbuild-deno-loader": "jsr:@luca/esbuild-deno-loader@0.11.1",
-    "happy-dom": "npm:happy-dom@20.14.5"
+    "happy-dom": "npm:happy-dom@20.14.5",
+    "@codemirror/commands": "npm:@codemirror/commands@6.11.1",
+    "@codemirror/lang-markdown": "npm:@codemirror/lang-markdown@6.5.2",
+    "@codemirror/language": "npm:@codemirror/language@6.12.4",
+    "@codemirror/state": "npm:@codemirror/state@6.7.6",
+    "@codemirror/view": "npm:@codemirror/view@6.43.13"
   },
   "compilerOptions": {
     "jsx": "react-jsx",

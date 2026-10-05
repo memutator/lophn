@@ -9,6 +9,12 @@ import {
   createProviderReads,
   providerSchemaSteps,
 } from "../../packages/lophn-agent/harness/provider/mod.ts";
+import {
+  createUsageCommands,
+  createUsageReads,
+  modelCallBodyFields,
+  usageSchemaSteps,
+} from "../../packages/lophn-agent/harness/usage/mod.ts";
 
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
 // 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
@@ -62,11 +68,14 @@ export const catalogAutoUpdateSetting = defineSetting({
 // 값이라 그럴 수 없다. 등록 자리 결정은 open-issues에 남긴다.
 
 // provider·credential ledger. 값은 OS keychain에만 있고 이곳에는 참조만 남는다.
+// model call 기록·사용량 읽기(concern harness/usage). 시작·마침·보완은 machine 전용이다.
 const commands = createProviderCommands();
+const usage = createUsageCommands();
 const reads = createProviderReads();
+const usageReads = createUsageReads();
 
 export const lophnAgentDefinitions = {
-  schemaSteps: providerSchemaSteps,
+  schemaSteps: [...providerSchemaSteps, ...usageSchemaSteps],
   commands: [
     commands.register,
     commands.change,
@@ -75,15 +84,35 @@ export const lophnAgentDefinitions = {
     commands.refreshCredential,
     commands.recordAvailability,
     commands.recordCheck,
+    usage.start,
+    usage.finish,
+    usage.supplement,
   ],
-  reads: [reads.read, reads.list, reads.credentialList],
+  reads: [
+    reads.read,
+    reads.list,
+    reads.credentialList,
+    usageReads.read,
+    usageReads.list,
+    usageReads.usage,
+  ],
+  // model.call 본문은 blob 참조만 남는다(R4). 용량 보존 종류는 plan blob 자리다.
+  blobFields: [...modelCallBodyFields],
   workers: [],
 };
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider read는 event를 보지 않는다.
+// usage read도 event를 보지 않는다.
 export function createReaderRegistration(): ReaderRegistration {
   return {
-    reads: [reads.read, reads.list, reads.credentialList],
+    reads: [
+      reads.read,
+      reads.list,
+      reads.credentialList,
+      usageReads.read,
+      usageReads.list,
+      usageReads.usage,
+    ],
     ports: new Map(),
   };
 }

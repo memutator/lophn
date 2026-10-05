@@ -53,6 +53,13 @@ export async function readLocation(
   location: FileLocation,
 ): Promise<Result<FileReadReply, FileFailure>> {
   const { ops } = deps;
+  // 아직 만들지 않은 working copy 폴더는 사본이 없는 것이다(오류가 아니다).
+  if (
+    location.meta !== undefined &&
+    await ops.realPath(location.root) === undefined
+  ) {
+    return ok({ exists: false, hash: null, size: 0, bytes_b64: null, meta: null });
+  }
   for (let attempt = 0; attempt < 2; attempt++) {
     const target = await resolveTarget(ops, location.root, location.path);
     if (!target.ok) return target;

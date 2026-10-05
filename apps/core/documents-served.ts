@@ -100,6 +100,8 @@ export const WORKING_COPY_ROUTE: ReadRoute = {
   input: z.strictObject({
     document: z.string().min(1),
     base_version: z.string().min(1).nullable(),
+    // 사람이 부른 route 이름. 문서 접근은 그 route의 operation 범위로 판정한다.
+    operation: z.string().min(1),
   }),
   output: z.looseObject({}),
   actors: ["user"],

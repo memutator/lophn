@@ -603,6 +603,7 @@ async function open(
             readAs(runtime!, request, WORKING_COPY_ROUTE, {
               document,
               base_version: baseVersion,
+              operation: request.op,
             }) as ReturnType<FilesRouteDeps["copyCheck"]>,
           version: {
             prepare: (request, payload) =>

@@ -653,3 +653,217 @@ Deno.test("documents/file-tracking#R15 documents/file-tracking#R16: file.record_
     await opened.dispose();
   }
 });
+
+// 원본 없는 문서 하나를 사람 자격으로 저장한다(준비 → 저장). 첫 판 id를 돌려준다.
+async function saveNewDocument(
+  opened: Opened,
+  text: string,
+): Promise<string> {
+  const blob = await upload(opened, text);
+  const prepared = await post(opened, "documents/prepare", {
+    document: DOC,
+    base_version: null,
+    metadata: { title: "note", place: null, name: null },
+    files: [{
+      path: "note.md",
+      blob_hash: blob.hash,
+      bytes: blob.size_bytes,
+      media_type: "text/markdown",
+      primary: true,
+      content: { kind: "prepared", blob },
+    }],
+    source: null,
+    idempotency_key: "first-save",
+  });
+  assertEquals(prepared.status, 200, JSON.stringify(prepared.body));
+  const files = prepared.body["files"] as { preparation_ref: string }[];
+  const saved = await post(opened, "documents/save", {
+    input: prepared.body,
+    idempotency_key: "first-save",
+    compare: { base_version: null },
+    prepared: [
+      String(prepared.body["preparation_ref"]),
+      ...files.map((file) => file.preparation_ref),
+    ],
+  });
+  assertEquals(saved.status, 200, JSON.stringify(saved.body));
+  return String(saved.body["version"]);
+}
+
+function copyTarget() {
+  return { kind: "working_copy" as const, document: DOC };
+}
+
+Deno.test("documents/file-tracking#R1 documents/file-tracking#R15: 원본 없는 문서는 선택한 판으로 만든 working copy를 편집하고, 판 확정 결과는 파일 쓰기와 따로이며 새 최신 판과 충돌해도 사본이 남는다", async () => {
+  const opened = await open();
+  const { home } = opened;
+  try {
+    const first = await saveNewDocument(opened, "# note\n\none\n");
+    // 원본 없는 문서의 사본이 편집 목록에 있고, 아직 사본 파일은 없다.
+    const listed = await post(opened, "files/list", {});
+    assertEquals(
+      (listed.body as { targets: unknown[] }).targets,
+      [copyTarget()],
+    );
+    assertEquals((await readFile(opened, copyTarget())).status, 404);
+    const notTracked = await post(opened, "files/status", {
+      target: copyTarget(),
+    });
+    assertEquals(
+      (notTracked.body as { status: { state: string } }).status.state,
+      "not_tracked",
+    );
+
+    // 선택한 판(첫 판)을 기준으로 사본을 만들고 명시 저장한다. 파일·기록·판이 각각 결과다.
+    const edit1 = "# note\n\n고침 1\n";
+    const written = await post(opened, "files/write", {
+      request_key: "copy-write-1",
+      target: copyTarget(),
+      base_hash: null,
+      content: { kind: "prepared", blob: await upload(opened, edit1) },
+      version_request: {
+        document: DOC,
+        base_version: first,
+        idempotency_key: "copy-version-1",
+      },
+    });
+    assertEquals(written.status, 200, JSON.stringify(written.body));
+    assertEquals(written.body["outcome"], "written");
+    assertEquals(written.body["recording"], "recorded");
+    assertEquals(written.body["version_result"], "confirmed");
+    const save = written.body["save_result"] as { status: string; version: string };
+    assertEquals(save.status, "saved");
+    assertNotEquals(save.version, first);
+    const copyFile =
+      `${home}/documents/working-copies/${DOC}/content`;
+    assertEquals(await Deno.readTextFile(copyFile), edit1);
+    // 확정한 판은 요청한 사람 자격의 판이고 새 project·문서는 생기지 않았다.
+    const rows = versions(home);
+    assertEquals(rows.map((row) => row.number), [1, 2]);
+    assertEquals(rows[1].saved_by, "user");
+    assertEquals(
+      ledger(home, (db) =>
+        (db.prepare("SELECT COUNT(*) AS count FROM documents").get() as Json)
+          ["count"]),
+      1,
+    );
+    assertEquals(
+      ledger(home, (db) =>
+        (db.prepare("SELECT COUNT(*) AS count FROM projects").get() as Json)
+          ["count"]),
+      0,
+    );
+    // 사본을 읽고, 확정한 내용과 같으니 추적 중이다.
+    const read = await readFile(opened, copyTarget());
+    assertEquals(read.status, 200);
+    assertEquals(new TextDecoder().decode(read.bytes), edit1);
+    const tracked = await post(opened, "files/status", { target: copyTarget() });
+    const status = tracked.body["status"] as {
+      state: string;
+      compared_version: string;
+      observed_hash: string;
+    };
+    assertEquals(status.state, "tracked");
+    assertEquals(status.compared_version, save.version);
+    assertEquals(status.observed_hash, await sha(edit1));
+
+    // 자동 저장은 파일 쓰기만이다. 사본은 판 대기가 되고 사본 안에서 base_hash를 대조한다.
+    const edit2 = "# note\n\n고침 2\n";
+    const watched = (async () => {
+      const current = await post(opened, "files/watch", { target: copyTarget() });
+      const cursor = current.body["next_cursor"] as string;
+      return await post(opened, "files/watch", {
+        target: copyTarget(),
+        cursor,
+      });
+    })();
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+    const autosave = await post(opened, "files/write", {
+      request_key: "copy-write-2",
+      target: copyTarget(),
+      base_hash: await sha(edit1),
+      content: { kind: "prepared", blob: await upload(opened, edit2) },
+    });
+    assertEquals(autosave.status, 200, JSON.stringify(autosave.body));
+    assertEquals(autosave.body["version_result"], "not_requested");
+    assertEquals(versions(home).length, 2);
+    // 편집 연결은 그 변화를 알려 받는다.
+    const changed = await watched;
+    assertEquals(changed.status, 200, JSON.stringify(changed.body));
+    assertEquals(
+      (changed.body["status"] as { state: string }).state,
+      "version_pending",
+    );
+    const stale = await post(opened, "files/write", {
+      request_key: "copy-write-stale",
+      target: copyTarget(),
+      base_hash: await sha("someone else's content"),
+      content: { kind: "prepared", blob: await upload(opened, "overwrite") },
+    });
+    assertEquals(stale.status, 409);
+    assertEquals(await Deno.readTextFile(copyFile), edit2);
+
+    // 그사이 다른 경로로 새 최신 판이 생겼다. 열었던 판(save.version)으로 명시 저장하면
+    // 판은 conflict지만 사본 파일은 남고, 새 판은 만들어지지 않는다.
+    const newer = await upload(opened, "# note\n\n다른 곳에서 고친 최신 판\n");
+    const newerPrepared = await post(opened, "documents/prepare", {
+      document: DOC,
+      base_version: save.version,
+      files: [{
+        path: "note.md",
+        blob_hash: newer.hash,
+        bytes: newer.size_bytes,
+        media_type: "text/markdown",
+        primary: true,
+        content: { kind: "prepared", blob: newer },
+      }],
+      source: null,
+      idempotency_key: "newer-save",
+    });
+    assertEquals(newerPrepared.status, 200, JSON.stringify(newerPrepared.body));
+    const newerSaved = await post(opened, "documents/save", {
+      input: newerPrepared.body,
+      idempotency_key: "newer-save",
+      compare: { base_version: save.version },
+      prepared: [
+        String(newerPrepared.body["preparation_ref"]),
+        ...(newerPrepared.body["files"] as { preparation_ref: string }[]).map((
+          file,
+        ) => file.preparation_ref),
+      ],
+    });
+    assertEquals(newerSaved.status, 200, JSON.stringify(newerSaved.body));
+    assertEquals(versions(home).length, 3);
+    const edit3 = "# note\n\n고침 3\n";
+    const conflicted = await post(opened, "files/write", {
+      request_key: "copy-write-3",
+      target: copyTarget(),
+      base_hash: await sha(edit2),
+      content: { kind: "prepared", blob: await upload(opened, edit3) },
+      version_request: {
+        document: DOC,
+        base_version: save.version,
+        idempotency_key: "copy-version-3",
+      },
+    });
+    assertEquals(conflicted.status, 200, JSON.stringify(conflicted.body));
+    // 파일 쓰기는 성공이고 판 확정만 conflict다.
+    assertEquals(conflicted.body["outcome"], "written");
+    assertEquals(conflicted.body["recording"], "recorded");
+    assertEquals(conflicted.body["version_result"], "conflict");
+    assertEquals(await Deno.readTextFile(copyFile), edit3);
+    assertEquals(versions(home).length, 3);
+    const pending = await post(opened, "files/status", { target: copyTarget() });
+    assertEquals(
+      (pending.body["status"] as { state: string }).state,
+      "version_pending",
+    );
+    // 세 번의 사본 쓰기는 각각 event 하나다.
+    assertEquals(
+      fileEvents(home).filter((event) => event.type === "FileWritten").length,
+      3,
+    );
+  } finally {
+    await opened.dispose();
+  }
+});

@@ -87,6 +87,10 @@ export function createLocator(deps: LocatorDeps): Locator {
     },
     async ensureCopyDirectories(copy) {
       try {
+        // `documents`·`working-copies`·doc 폴더를 위에서부터 만든다(부모는 만들지 않는 호출이다).
+        await deps.ops.makeDirectory(
+          copy.parent.slice(0, copy.parent.lastIndexOf("/")),
+        );
         await deps.ops.makeDirectory(copy.parent);
         await deps.ops.makeDirectory(copy.root);
         return ok(undefined);

@@ -478,7 +478,7 @@ export function createReaderRegistration(): ReaderRegistration {
           const checked = workingCopyCheck(
             snapshot,
             ctx,
-            WORKING_COPY_ROUTE.name,
+            (input as { operation: string }).operation,
             input as { document: string; base_version: string | null },
           );
           return checked.ok

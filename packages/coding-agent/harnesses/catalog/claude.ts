@@ -127,6 +127,16 @@ const claude: HarnessDefinition = {
       capability: "unverified",
     },
   ],
+  // 네 loading 관측의 근거다(R10, T32). project skill은 폴더 신뢰 뒤에 읽고
+  // 앱 `.mcp.json`은 사람의 승인 뒤에 쓰인다. CLAUDE.md는 `@AGENTS.md`
+  // import로만 AGENTS.md를 읽는다(조사 skills-and-guides).
+  loading: {
+    trust_gates: { mcp: true, skills: true, guide: false },
+    guide_hiders: [],
+    guide_workspace: "app_root",
+    broken_config_effect: null,
+    trust_source: null,
+  },
   // session ID·transcript는 hook evidence다(조사 3.2).
   execution: {
     transport: "pty",

@@ -122,6 +122,15 @@ const gemini: HarnessDefinition = {
       capability: "unverified",
     },
   ],
+  // untrusted면 workspace skill 전체를 건너뛴다(조사 skills-and-guides).
+  // `context.fileName` 목록에 AGENTS.md가 있어야 읽는다.
+  loading: {
+    trust_gates: { mcp: false, skills: true, guide: false },
+    guide_hiders: [],
+    guide_workspace: "app_root",
+    broken_config_effect: null,
+    trust_source: null,
+  },
   execution: {
     transport: "pty",
     launch_argv: ["gemini"],

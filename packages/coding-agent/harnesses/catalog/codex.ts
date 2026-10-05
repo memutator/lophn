@@ -101,6 +101,15 @@ const codex: HarnessDefinition = {
   // Codex hook event는 CODEX_HOME hooks다(조사 9.5). lophn은 상태 hook을
   // 이번 범위에서 검증하지 않았다(조사 3.1).
   hooks: [],
+  // untrusted project는 project doc 전체를 건너뛰고 가까운
+  // `AGENTS.override.md`가 `AGENTS.md`를 가린다(조사 skills-and-guides).
+  loading: {
+    trust_gates: { mcp: false, skills: false, guide: true },
+    guide_hiders: ["AGENTS.override.md"],
+    guide_workspace: "app_root",
+    broken_config_effect: null,
+    trust_source: null,
+  },
   execution: {
     transport: "pty",
     launch_argv: ["codex"],

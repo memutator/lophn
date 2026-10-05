@@ -10,7 +10,9 @@ import {
   secretComparisonRequestSchema,
   secretComparisonResponseSchema,
 } from "./secrets.ts";
-import { atSchema, durationMsSchema } from "./values.ts";
+import { atSchema, durationMsSchema, sha256Schema } from "./values.ts";
+
+const nonblankSchema = z.string().regex(/\S/);
 
 export const FRAME_KINDS = { json: 1, bytes: 2, end: 3, abort: 4 } as const;
 export const STREAM_CHUNK_MAX_BYTES = 1024 * 1024;
@@ -234,6 +236,8 @@ export const appCredentialRequestSchema = z.strictObject({
   release: idSchema("rel"),
   process: opaque,
   mode: opaque,
+  bundle_hash: sha256Schema.nullable().optional(),
+  diagnostic_scope: nonblankSchema.nullable().optional(),
 });
 export const appCredentialResponseSchema = z.strictObject({
   type: z.literal("app_credential_response"),

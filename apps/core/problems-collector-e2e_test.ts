@@ -166,6 +166,7 @@ Deno.test("problems/reporting#R1 R2 R16: 실제 collector entry가 실제 core r
             release: RELEASE,
             process: "collector-e2e",
             mode: "live",
+            bundle_hash: "a".repeat(64),
           },
         },
         credential: token,
@@ -221,6 +222,8 @@ Deno.test("problems/reporting#R1 R2 R16: 실제 collector entry가 실제 core r
     assertEquals(row.report.id, acceptance.payload.report);
     assertEquals(row.report.problem, acceptance.payload.problem);
     assertEquals(row.snapshot.id, acceptance.payload.snapshot);
+    // bundle_hash 주장은 credential(hello scope targets)에서만 온다(T3).
+    assertEquals(row.report.bundle_hash, "a".repeat(64));
   } finally {
     await core.shutdown();
     await Deno.remove(home, { recursive: true });

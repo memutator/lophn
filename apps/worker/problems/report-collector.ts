@@ -1,6 +1,7 @@
 // report collector worker. core 감독이 띄우고 이 모듈이 보고 접수 통로를
 // 조립한다(problems/reporting#R1, R2, R8, R16; plan problems T3). credential에서
-// 출처를 정하고 본문 주장은 따르지 않는다. redaction은 apps layer에서 하는 몫이다.
+// 출처를 정하고 본문 주장은 따르지 않는다. redaction은 이 worker가 ledger에 닿기
+// 전에 거친다(R1).
 import {
   err,
   fingerprint,
@@ -18,6 +19,7 @@ import {
 import type {
   RecordReportInput,
   ReportAcceptance,
+  ReportProblemIngress,
 } from "../../../packages/contracts/problems/mod.ts";
 import {
   type ChildSession,
@@ -27,12 +29,14 @@ import {
 import {
   createKnownSecretRegistry,
   createRedactionEngine,
+  type RedactionEngine,
 } from "../../../packages/platform/redaction/mod.ts";
 import {
   COLLECTOR_CAPS,
   contentHashOf,
   createCollectorQueue,
   deliverReport,
+  freezeDeep,
   invalidReportDiagnostic,
 } from "../../../packages/problems/reporting/mod.ts";
 import {
@@ -48,9 +52,9 @@ export function acceptCollectorHello(kind: string): boolean {
   return kind === COLLECTOR_KIND;
 }
 
-// 인증 경계가 hello로 넘긴 collector 위치. app·release·process·mode 주장은 hello
-// scope targets에서 온다(T3: credential에서만 정한다). bundle_hash·diagnostic_scope 같은
-// app credential 주장 대상은 아직 contracts에 없다(plan problems T3 남은 몫).
+// 인증 경계가 hello로 넘긴 collector 위치. app·release·process·mode·bundle_hash·
+// diagnostic_scope 주장은 hello scope targets에서 온다(T3: credential에서만 정한다.
+// contracts/platform의 app credential 주장 대상이고 발급 때 credential에 고정된다).
 export type CollectorPosition = {
   credential: string;
   api_port: number;
@@ -60,6 +64,8 @@ export type CollectorPosition = {
     release?: string;
     process?: string;
     mode?: string;
+    bundle_hash?: string;
+    diagnostic_scope?: string;
   };
 };
 
@@ -103,6 +109,12 @@ export function createCollectorWorker(
             : {}),
           ...(typeof targets["mode"] === "string"
             ? { mode: targets["mode"] }
+            : {}),
+          ...(typeof targets["bundle_hash"] === "string"
+            ? { bundle_hash: targets["bundle_hash"] }
+            : {}),
+          ...(typeof targets["diagnostic_scope"] === "string"
+            ? { diagnostic_scope: targets["diagnostic_scope"] }
             : {}),
         },
       };
@@ -168,15 +180,12 @@ function workerRequest(
 // 보고 접수. 본문은 contract가 다시 본다(R1).
 export function acceptReportPayload(
   payload: unknown,
-): Result<
-  RecordReportInput["report"],
-  { code: "invalid_input"; message: string }
-> {
+): Result<ReportProblemIngress, { code: "invalid_input"; message: string }> {
   const parsed = reportProblemInputSchema.safeParse(payload);
   if (!parsed.success) {
     return err({ code: "invalid_input", message: "invalid report body" });
   }
-  return ok(parsed.data as unknown as RecordReportInput["report"]);
+  return ok(parsed.data as unknown as ReportProblemIngress);
 }
 
 export async function runCollectorWorker(): Promise<void> {
@@ -214,6 +223,8 @@ export async function runCollectorWorker(): Promise<void> {
         return await acceptReportProblem(
           request.payload,
           client,
+          redaction,
+          queue,
           session,
           position,
         );
@@ -225,16 +236,17 @@ export async function runCollectorWorker(): Promise<void> {
     },
   });
   await session.run();
-  void redaction;
-  void queue;
 }
 
 // app 출처 보고 접수. 본문은 redaction을 거친 뒤 ledger에 닿는다(R1, T3).
 // text·details 원문은 bounded memory에서만 있고 permanent content는 hash뿐이다.
-// app·release·process·mode 주장은 hello scope targets(credential)에서 온다.
-async function acceptReportProblem(
+// app·release·process·mode·bundle_hash·diagnostic_scope 주장은 hello scope
+// targets(credential)에서 온다.
+export async function acceptReportProblem(
   payload: unknown,
   client: CoreClientOptions,
+  redaction: RedactionEngine,
+  queue: ReturnType<typeof createCollectorQueue>,
   session: ChildSession,
   position: CollectorPosition,
 ): Promise<unknown> {
@@ -252,49 +264,50 @@ async function acceptReportProblem(
     });
     throw parsed.error;
   }
-  const {
-    text,
-    details,
-    code,
-    report_id,
-    ...rest
-  } = parsed.value as unknown as {
-    report_id: string;
-    code: string;
-    text?: string | null;
-    details?: unknown;
-    [key: string]: unknown;
-  };
-  const textContent = redactText(text ?? undefined, client);
-  const detailsContent = redactDetails(details, client);
+  // app·mode 주장은 credential 위치에서만 온다. 없으면 추측값을 만들지 않고
+  // 잘못된 보고 진단으로 거절한다(T3).
+  if (position.claims.app === undefined || position.claims.mode === undefined) {
+    await invalidReportDiagnostic({
+      reportId: parsed.value.report_id,
+      component: COLLECTOR_KIND,
+      observedAt: atNow(),
+    });
+    throw new Error("report credential has no app or mode claim");
+  }
+  // 조립값은 접수 본문이 검증한 필드만 이름으로 둔다(R1).
+  const { report_id, code, observed_at, text, details } = parsed.value;
+  const textContent = await redactText(redaction, text);
+  const detailsContent = await redactDetails(redaction, details);
   // redaction이 비운 값을 내면 hash 없이 ledger에 닿는다(R1).
   // snapshot ID는 제출 rpt ID에서 결정적으로 정한다(snapshots#R ID 자리).
   // 접수 본문의 report_id가 곧 제출 rpt ID다(R1).
-  void report_id;
   const snapshotId = await pendingSnapshotId(report_id);
-  // app actor·app·release·mode 주장은 credential 위치에서 온다: T3는 credential에서만
-  // 정한다. 접수 본문에 이를 넣지 않는다(R1, R2). 없는 주장은 null로 둔다.
+  const claims = position.claims;
   const report: RecordReportInput["report"] = {
-    ...rest,
     id: report_id,
     source: "app",
     code,
     text: null,
     details: null,
     snapshot: snapshotId,
-    observed_at: atNow(),
+    observed_at,
     principal: "collector",
-    app: position.claims.app ?? report_id.replace(/^rpt_/, "app_"),
-    mode: position.claims.mode ?? "live",
-    diagnostic_scope: null,
-    release: position.claims.release ?? null,
-    release_missing_reason: position.claims.release === undefined
-      ? "collector"
-      : null,
-    bundle_hash: null,
+    app: claims.app,
+    mode: claims.mode,
+    diagnostic_scope: claims.diagnostic_scope ?? null,
+    release: claims.release ?? null,
+    release_missing_reason: claims.release === undefined ? "collector" : null,
+    bundle_hash: claims.bundle_hash ?? null,
     content_hash: "",
   } as RecordReportInput["report"];
-  return await submit(client, report, textContent, detailsContent, session);
+  return await submit(
+    client,
+    report,
+    textContent,
+    detailsContent,
+    queue,
+    session,
+  );
 }
 
 // 제출 rpt ID에서 결정적으로 정한 접수 snapshot ID. invalidReportId와 같은
@@ -308,32 +321,77 @@ async function pendingSnapshotId(reportId: string): Promise<string> {
   return `snp_${first}${digest.slice(1, 26)}`;
 }
 
-// text를 준비한다. absent/partial redaction은 null content다.
-function redactText(
+// text를 준비한다. redaction 엔진을 거치고 비운 값은 null content다(R1).
+// 서브미션은 passed일 때만 진행한다. 엔진이 secret 형태를 지우지 못하면
+// (omitted·partial) 원문이 남지 않게 null content로 둔다.
+async function redactText(
+  redaction: RedactionEngine,
   text: string | undefined,
-  client: CoreClientOptions,
-): string | null {
-  void client;
-  return text === undefined ? null : text;
+): Promise<string | null> {
+  if (text === undefined) return null;
+  const result = await redact({
+    redaction,
+    body: text,
+    mediaType: "text/plain",
+  });
+  return result;
 }
 
-// details를 준비한다. absent/partial redaction은 null content다.
-function redactDetails(
+// details를 준비한다. JSON으로 직렬화한 뒤 redaction 엔진을 거친다(R1).
+async function redactDetails(
+  redaction: RedactionEngine,
   details: unknown,
-  client: CoreClientOptions,
-): string | null {
-  void client;
-  return details === undefined ? null : JSON.stringify(details);
+): Promise<string | null> {
+  if (details === undefined) return null;
+  const result = await redact({
+    redaction,
+    body: JSON.stringify(details),
+    mediaType: "application/json",
+  });
+  return result;
 }
 
-// 준비 입력을 record-report로 제출한다(R16 retry). acceptance는 ok payload다.
+// redaction 엔진 호출 하나. passed가 아니면 null로 둔다: 부분 지워진 값도
+// permanent content로 남기지 않는다(R1).
+async function redact(options: {
+  redaction: RedactionEngine;
+  body: string;
+  mediaType: string;
+}): Promise<string | null> {
+  try {
+    const result = await options.redaction.redact({
+      source: {
+        concern: "problems/reporting",
+        revision: "collector-intake",
+        scope: "report_intake",
+      },
+      media_type: options.mediaType,
+      audience: "storage",
+      safe_fields: [],
+      private_fields: [],
+    }, options.body);
+    if (result.status !== "passed") return null;
+    if (result.content === null || result.content.kind !== "inline") {
+      return null;
+    }
+    return result.content.value;
+  } catch {
+    // redaction 실패는 원문을 통과시키지 않는다(R1).
+    return null;
+  }
+}
+
+// 준비 입력을 record-report로 제출한다(R16 retry). 대기 큐는 같은 고정 input만
+// 쥐고 개수·바이트 한도를 넘는 새 입력은 손실 이유다(R16). acceptance는 ok payload다.
 async function submit(
   client: CoreClientOptions,
   report: RecordReportInput["report"],
   textContent: string | null,
   detailsContent: string | null,
+  queue: ReturnType<typeof createCollectorQueue>,
   session: ChildSession,
 ): Promise<unknown> {
+  // 원문은 ledger에 닿지 않는다(R1). redaction 결과는 진단에도 남기지 않는다.
   void textContent;
   void detailsContent;
   void session;
@@ -390,10 +448,17 @@ async function submit(
       },
     },
   };
+  // 대기 큐에 같은 고정 input을 넣는다(R16). 한도를 넘는 새 입력은 손실 이유고
+  // 다시 보고하지 않는다.
+  const frozen = freezeDeep(input);
+  const over = queue.admit(report.id, frozen);
+  if (over !== undefined) {
+    throw new Error(over.message);
+  }
   const completion = await deliverReport(
     async () => {
       const result = await postRecordReport(client, {
-        input,
+        input: queue.held(report.id) ?? frozen,
         idempotency_key: `${report.id}/${atNow()}`,
         compare: { active_release: null, problem_seq: null },
         prepared: [],
@@ -407,6 +472,8 @@ async function submit(
     (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     "response lost",
   );
+  // send가 끝난 뒤에만 큐에서 빠진다(R16).
+  queue.release(report.id);
   if (completion.status !== "accepted") {
     throw new Error(completion.reason.message);
   }

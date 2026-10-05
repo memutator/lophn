@@ -155,6 +155,7 @@ export const CONDITION_TARGET_KEYS = [
   "release",
   "process",
   "mode",
+  "diagnostic_scope",
 ] as const;
 
 export function authorizeConditions(

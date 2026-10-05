@@ -11,16 +11,18 @@ Deno.test("documents/file-tracking#R3: launch spec의 읽기·쓰기는 활성 r
   const preparation = specs.find((spec) =>
     spec.kind === "documents/preparation"
   );
-  assertEquals(coordinator?.allow_read, [
+  // 사용자 root 읽기는 활성 root뿐이고, 그 뒤는 코드·deno 캐시다.
+  assertEquals(coordinator?.allow_read.slice(0, 3), [
     "/data/lophn",
     "/work/notes",
     "/work/other",
   ]);
+  assertEquals(coordinator?.allow_read.length, 5);
   assertEquals(coordinator?.allow_write.includes("/work/notes"), true);
   assertEquals(preparation?.allow_read.includes("/work/other"), true);
-  // network는 core loopback뿐이고 run은 승인된 Deno 실행 파일뿐이다(T11).
+  // network는 core loopback뿐이다(T11). run은 준비 worker spawn(platform#T7) 전까지 없다.
   assertEquals(coordinator?.allow_net, ["127.0.0.1"]);
-  assertEquals(coordinator?.allow_run, [Deno.execPath()]);
+  assertEquals(coordinator?.allow_run, []);
   assertEquals(preparation?.allow_net, []);
 });
 
@@ -63,7 +65,8 @@ Deno.test("documents/file-tracking#R3: 재시작이 실패하면 옛 권한으�
 Deno.test("documents/file-tracking#R3: 활성 root가 없으면 data root만 허용한다", () => {
   const specs = workerSpecs("/data/lophn");
   const coordinator = specs.find((spec) => spec.kind === "documents/worker");
-  assertEquals(coordinator?.allow_read, ["/data/lophn"]);
+  assertEquals(coordinator?.allow_read[0], "/data/lophn");
+  assertEquals(coordinator?.allow_read.length, 3);
   assertEquals(
     coordinator?.allow_write.some((path) => path.startsWith("/work")),
     false,

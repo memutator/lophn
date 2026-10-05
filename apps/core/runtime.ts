@@ -66,6 +66,9 @@ export type CoreRuntime = {
   // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
   sweepTicketClaims(): Promise<void>;
   readers: ReaderPool;
+  // credential_ref의 현재 context. 폐기·만료·없는 자격은 err다. worker route 서빙이
+  // 요청 자격을 다시 읽는 데 쓴다.
+  current(credentialRef: string): Result<RequestContext>;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
   events: ReturnType<typeof createReaderEventBackend>;
@@ -255,6 +258,7 @@ export async function openRuntime(input: {
     notePrepared: openedWriter.notePrepared,
     prunePrepared: openedWriter.prunePrepared,
     readers: readers.value,
+    current: (ref) => currentCredential(input.ledgerPath, ref),
     reads,
     memory,
     events,

@@ -4,6 +4,8 @@
 import type {
   KindLaunchSpec,
   ParentMessage,
+  WorkerRequest,
+  WorkerResponse,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
   processKindSchema,
@@ -12,10 +14,10 @@ import {
 import {
   type ChildSession,
   type ChildStreams,
-  spawnProcess,
   startChild,
 } from "../../../packages/platform/responsiveness/mod.ts";
-import { launchArgv } from "../../../packages/platform/security/mod.ts";
+import { createStatusRecorder } from "../../../packages/documents/file-tracking/mod.ts";
+import { createRequestHandler } from "./requests.ts";
 import { type SlotSupervisor, supervisePreparationSlots } from "./slots.ts";
 import {
   type Candidate,
@@ -32,8 +34,6 @@ import {
   PREPARATION_SLOTS,
   type PrepareSlot,
 } from "../../../packages/documents/file-tracking/mod.ts";
-import { postDocumentSave, productSaveFetch } from "./submit.ts";
-import type { SaveClientOptions } from "./submit.ts";
 
 export type CoordinatorOptions = {
   root: string;
@@ -44,6 +44,12 @@ export type CoordinatorOptions = {
   submitResult(candidate: Candidate): Promise<void>;
   // 안정 읽기까지의 대기와 req id는 주입받는다.
   deps: CoordinatorDepsLike;
+  // hello가 싣는 machine credential과 core api port. 제출 client가 Bearer로 쓴다.
+  // credential은 log·stderr에 남기지 않는다(child.ts 계약).
+  onHello?(hello: { credential: string; api_port: number }): void;
+  // core가 감독 pipe로 보내는 worker_request의 처리. 답은 같은 request_id의
+  // worker_response다. 없으면 요청은 unavailable로 답한다(조용히 버리지 않는다).
+  handleRequest?(request: WorkerRequest): Promise<WorkerResponse>;
   // 준비 slot 감독. 없으면 coordinator가 자기 것으로 만든다.
   // 테스트가 backoff sleep과 재시작 한도를 바꿔 끼운다.
   slots?: SlotSupervisor;
@@ -97,6 +103,10 @@ export function createCoordinator(
       if (!parsed.success || parsed.data !== "documents/worker") {
         throw new Error("invalid worker kind");
       }
+      options.onHello?.({
+        credential: hello.credential,
+        api_port: hello.api_port,
+      });
       session.send({ type: "ready" }).then(() => {
         if (!stopped) void drain();
       }).catch(() => {
@@ -114,7 +124,24 @@ export function createCoordinator(
       // 본문은 workerRequestEnvelopeSchema의 payload다.
       const parsed = workerRequestEnvelopeSchema.safeParse(message);
       if (!parsed.success) return;
-      return Promise.resolve();
+      const request = parsed.data;
+      const answer = options.handleRequest
+        ? options.handleRequest(request)
+        : Promise.resolve<WorkerResponse>({
+          type: "worker_response",
+          request_id: request.request_id,
+          ok: false,
+          error: {
+            code: "unavailable",
+            message: "documents worker does not serve requests",
+          },
+        });
+      return answer.catch((): WorkerResponse => ({
+        type: "worker_response",
+        request_id: request.request_id,
+        ok: false,
+        error: { code: "internal", message: "documents worker request failed" },
+      })).then((response) => session.send(response));
     },
   });
 
@@ -236,66 +263,23 @@ export async function runCoordinator(root: string): Promise<void> {
   // Only the entry owns console routing. Helper modules never change global console.
   console.log = console.info = console.debug = (...args: unknown[]) =>
     console.error(...args);
-  // hello가 싣는 credential과 api_port는 결과 제출 client가 Bearer로 쓴다.
-  // child.ts 계약이 credential을 log·stderr에 남기지 않는다고 본다.
-  const position: { credential?: string; apiPort?: number } = {};
-  // 준비 worker spec은 이 entry가 직접 만든다. 감독 계약(platform#T7)과 같은
-  // 모양이다: launchArgv에 넣기 전 checkLaunchSpec이 권한을 거절한다. entry는
-  // 이 module 옆의 preparation.ts다(apps/worker는 core package를 import하지 않는다).
-  const entry = new URL("./preparation.ts", import.meta.url).pathname;
-  const preparationSpec = {
-    kind: "documents/preparation",
-    entry,
-    allow_read: [root],
-    allow_write: [`${root}/documents`, `${root}/derived`],
-    allow_net: [],
-    allow_run: [],
-    allow_sys: [],
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
-    policy: "always",
-    memory_limit_bytes: 256 * 1024 * 1024,
-  } as const;
-  const check = checkLaunchSpec(preparationSpec);
-  if (!check.ok) throw new Error(check.error.message);
-  // 준비 worker는 감독 계약과 같은 argv로 자식 프로세스로 띄운다(platform#T7).
-  const spawnPreparation = async (kind: string): Promise<ChildSession> => {
-    const child = spawnProcess({
-      command: Deno.execPath(),
-      args: launchArgv(check.value),
-      env: {
-        LOPHN_WORKER_KIND: "documents/preparation",
-        LOPHN_HOME: root,
-        // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
-        ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
-        ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
-      },
-    });
-    const session = await startChild(
-      {
-        stdin: child.stdout,
-        stdout: child.stdin,
-        stderr: child.stderr,
-      },
-      {
-        onHello() {},
-        onStop() {
-          void child.terminate();
-        },
-      },
-    );
-    void kind;
-    return session;
-  };
+  // FileStatus 메모리. 관측이 채우고 core의 documents.file_status 요청이 읽는다.
+  const status = createStatusRecorder();
   const coordinator = await createCoordinator({
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
-    spawnPreparation,
-    submitResult: () => Promise.resolve(),
+    handleRequest: createRequestHandler({ status }),
+    // 준비 worker spawn(platform#T7)과 그 결과 제출이 들어오기 전에는 batch가 준비
+    // worker에 닿지 않는다. 그때까지 제출은 성공이 아니라 unavailable이다.
+    spawnPreparation: () => {
+      throw new Error("preparation spawn is not wired");
+    },
+    submitResult: () =>
+      Promise.reject(new Error("preparation results are not submitted yet")),
     deps: {
       nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
       newRequestId: () => crypto.randomUUID(),
     },
   });
   await coordinator.session.run();
-  void position;
 }

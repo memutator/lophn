@@ -159,7 +159,7 @@ Deno.test("coding-agent/harnesses#R8: YAML은 소유 map만 넣고 다른 key를
   if (!after.ok) return;
   assertEquals(after.value.env, { A: "1" });
   const servers = after.value.mcp_servers;
-  assert(typeof servers !== "string");
+  assert(typeof servers !== "string" && !Array.isArray(servers));
   assertEquals(servers.other, { command: "keep" });
   assertEquals(servers.lophn, { command: "lophn" });
   const removed = removeYaml(set.text, "mcp_servers.lophn");
@@ -169,9 +169,116 @@ Deno.test("coding-agent/harnesses#R8: YAML은 소유 map만 넣고 다른 key를
   assert(gone.ok);
   if (!gone.ok) return;
   const left = gone.value.mcp_servers;
-  assert(typeof left !== "string");
+  assert(typeof left !== "string" && !Array.isArray(left));
   assertEquals(left.lophn, undefined);
   assertEquals(left.other, { command: "keep" });
+});
+
+Deno.test("coding-agent/harnesses#R8: YAML install은 args를 block sequence로 쓰고 다시 읽으면 배열이다", () => {
+  const before = "mcp_servers:\n  other:\n    command: keep\n";
+  const owned = {
+    command: "lophn",
+    args: ["mcp", "--flag", "@scope/x y", "-y"],
+    env: { A: "1" },
+  };
+  const set = setYaml(before, "mcp_servers.lophn", owned);
+  assert(set.kind === "changed");
+  if (set.kind !== "changed") return;
+  // index map(`0:`)이 아니라 `- ` 항목이다.
+  assert(!/^\s*\d+:/m.test(set.text));
+  assert(set.text.includes('    args:\n      - mcp\n      - "--flag"\n'));
+  const after = parseYaml(set.text);
+  assert(after.ok);
+  if (!after.ok) return;
+  const servers = after.value.mcp_servers;
+  assert(typeof servers !== "string" && !Array.isArray(servers));
+  assertEquals(servers.lophn, owned);
+  assertEquals(servers.other, { command: "keep" });
+  // 같은 값을 다시 install하면 무변경이다.
+  assertEquals(setYaml(set.text, "mcp_servers.lophn", owned).kind, "unchanged");
+  // 목록이 바뀌면 바뀐다.
+  const next = setYaml(set.text, "mcp_servers.lophn", {
+    ...owned,
+    args: ["mcp"],
+  });
+  assert(next.kind === "changed");
+});
+
+Deno.test("coding-agent/harnesses#R8: YAML은 다른 server의 목록과 같은 들여쓰기 목록을 보존한다", () => {
+  const before =
+    'mcp_servers:\n  other:\n    command: keep\n    args:\n    - "-y"\n    - pkg\nallow:\n  - Bash\n';
+  const set = setYaml(before, "mcp_servers.lophn", {
+    command: "lophn",
+    args: ["a"],
+  });
+  assert(set.kind === "changed");
+  if (set.kind !== "changed") return;
+  const after = parseYaml(set.text);
+  assert(after.ok);
+  if (!after.ok) return;
+  assertEquals(after.value.allow, ["Bash"]);
+  const servers = after.value.mcp_servers;
+  assert(typeof servers !== "string" && !Array.isArray(servers));
+  assertEquals(servers.other, { command: "keep", args: ["-y", "pkg"] });
+  assertEquals(servers.lophn, { command: "lophn", args: ["a"] });
+  const removed = removeYaml(set.text, "mcp_servers.lophn");
+  assert(removed.kind === "changed");
+  if (removed.kind !== "changed") return;
+  assert(removed.text.includes("- pkg") && removed.text.includes("- Bash"));
+});
+
+Deno.test("coding-agent/harnesses#R8: YAML 소유 블록의 args 목록을 바꿔도 주석·다른 key·다른 목록은 그대로다", () => {
+  const before = [
+    "# 사람의 주석이다",
+    "mcp_servers:",
+    "  # 다른 서버 주석",
+    "  other:",
+    "    command: keep",
+    "    args:",
+    "    - -y",
+    "  lophn:",
+    "    command: old",
+    "    args:",
+    "    - old",
+    "    - --flag",
+    "",
+    "allow:",
+    "- Bash",
+    "",
+  ].join("\n");
+  const set = setYaml(before, "mcp_servers.lophn", {
+    command: "lophn",
+    args: ["mcp", "--x"],
+  });
+  assert(set.kind === "changed");
+  if (set.kind !== "changed") return;
+  assert(set.text.includes("# 사람의 주석이다\n"));
+  assert(set.text.includes("  # 다른 서버 주석\n"));
+  assert(set.text.includes("    args:\n    - -y\n"));
+  assert(set.text.includes("\n\nallow:\n- Bash\n"));
+  assert(!set.text.includes("old"));
+  assert(set.text.includes('    args:\n      - mcp\n      - "--x"\n'));
+  const after = parseYaml(set.text);
+  assert(after.ok);
+  if (!after.ok) return;
+  assertEquals(after.value.allow, ["Bash"]);
+  const servers = after.value.mcp_servers;
+  assert(typeof servers !== "string" && !Array.isArray(servers));
+  assertEquals(servers.other, { command: "keep", args: ["-y"] });
+  assertEquals(servers.lophn, { command: "lophn", args: ["mcp", "--x"] });
+  // 제거는 소유 블록의 목록까지 빼고 나머지는 남긴다.
+  const removed = removeYaml(set.text, "mcp_servers.lophn");
+  assert(removed.kind === "changed");
+  if (removed.kind !== "changed") return;
+  assert(!removed.text.includes("lophn") && !removed.text.includes("--x"));
+  assert(removed.text.includes("# 사람의 주석이다"));
+  assert(removed.text.includes("- Bash"));
+});
+
+Deno.test("coding-agent/harnesses#R8: 깨진 YAML 목록은 무변경이다", () => {
+  assertEquals(setYaml("a:\n  - x: y\n", "m.l", {}).kind, "broken");
+  assertEquals(setYaml("- x\n", "m.l", {}).kind, "broken");
+  assertEquals(setYaml("a:\n  - x\nb: 1\n- y\n", "m.l", {}).kind, "broken");
 });
 
 // 사람의 주석·빈 줄·다른 key는 텍스트 패치로 그대로 남는다(T30).
@@ -209,9 +316,9 @@ Deno.test("coding-agent/harnesses#R8: YAML patch는 주석·빈 줄·다른 key�
   assert(after.ok);
   if (!after.ok) return;
   const servers = after.value.mcp_servers;
-  assert(typeof servers !== "string");
+  assert(typeof servers !== "string" && !Array.isArray(servers));
   assertEquals(servers.lophn, { command: "lophn", args: "one" });
-  assert(typeof servers.other !== "string");
+  assert(typeof servers.other !== "string" && !Array.isArray(servers.other));
   assertEquals(servers.other.command, "keep");
   // 소유 조각을 다시 바꾸면 상위 블록 몸 안에서 몸만 바꾼다.
   const updated = setYaml(set.text, "mcp_servers.lophn", { command: "lophn2" });
@@ -221,9 +328,9 @@ Deno.test("coding-agent/harnesses#R8: YAML patch는 주석·빈 줄·다른 key�
   assert(again.ok);
   if (!again.ok) return;
   const next = again.value.mcp_servers;
-  assert(typeof next !== "string");
+  assert(typeof next !== "string" && !Array.isArray(next));
   assertEquals(next.lophn, { command: "lophn2" });
-  assert(typeof next.other !== "string");
+  assert(typeof next.other !== "string" && !Array.isArray(next.other));
   assertEquals(next.other.command, "keep");
   assert(updated.text.includes("# 다른 서버 주석"));
   // 제거는 소유 블록만 빼고 주석·빈 줄·다른 key를 남긴다.
@@ -237,9 +344,9 @@ Deno.test("coding-agent/harnesses#R8: YAML patch는 주석·빈 줄·다른 key�
   assert(gone.ok);
   if (!gone.ok) return;
   const left = gone.value.mcp_servers;
-  assert(typeof left !== "string");
+  assert(typeof left !== "string" && !Array.isArray(left));
   assertEquals(left.lophn, undefined);
-  assert(typeof left.other !== "string");
+  assert(typeof left.other !== "string" && !Array.isArray(left.other));
   assertEquals(left.other.command, "keep");
 });
 

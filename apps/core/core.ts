@@ -39,7 +39,9 @@ import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts"
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
   type BlobPrepareRelay,
+  type BufferGauge,
   createBlobPrepareRelay,
+  createBufferGauge,
   type PreparedRelayResult,
 } from "./blob-prepare.ts";
 import {
@@ -132,6 +134,9 @@ export type Core = {
   // 신뢰 프로세스의 blob.prepare 호출. HTTP route가 아니다(Q6).
   // I/O worker가 설치하고 writer 메모리에 준비 참조를 남긴 뒤에 끝난다.
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
+  // blob 준비에서 core가 바이트를 쥐고 있는 양의 관측(자식 쪽 대기열과 중계의 chunk).
+  // 한도는 BLOB_RELAY_BUFFER_MAX_BYTES다. core는 큰 blob을 통째로 모으지 않는다.
+  readonly blobBuffer: BufferGauge;
   // 신뢰 자식(문서 worker, report collector)의 blob 준비 요청 처리(Q6). 자식 kind의
   // supervisor callback이 onMessage·onFrame을 이 값에 넘기고, 자식이 멈추면 close한다.
   // 허용 kind는 child-blob-prepare.ts의 목록뿐이다.
@@ -428,11 +433,13 @@ async function open(
       });
     }
   }
+  const blobBuffer = createBufferGauge();
   const blobRelay = io
     ? blobRelayFor(
       io,
       clock,
       (prepared, nowMs) => runtime.notePrepared(prepared, nowMs),
+      blobBuffer,
     )
     : undefined;
   if (blobRelay) {
@@ -500,6 +507,7 @@ async function open(
       childBlob?.close();
       const handler = createChildBlobPrepare({
         kind: "documents/worker",
+        gauge: blobBuffer,
         send: (message) =>
           io.send("documents/worker", message).then((sent) => sent.ok),
         prepareBlob: (call) =>
@@ -590,10 +598,12 @@ async function open(
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
+    blobBuffer,
     childBlobPrepare: (kind, send) =>
       createChildBlobPrepare({
         kind,
         send,
+        gauge: blobBuffer,
         prepareBlob: (call) => core.prepareBlob(call),
       }),
     prepareBlob: (call) =>
@@ -933,6 +943,7 @@ function blobRelayFor(
     prepared: PreparedRelayResult,
     nowMs: number,
   ) => Promise<Result<void>>,
+  gauge: BufferGauge,
 ): {
   callbacks: {
     onMessage(message: ChildMessage): void;
@@ -943,9 +954,9 @@ function blobRelayFor(
   readBytes: BlobPrepareRelay["readBytes"];
 } {
   const registry = createPreparationRegistry();
-  const responses: { queue: Map<string, unknown> } = { queue: new Map() };
   const relay = createBlobPrepareRelay({
-    // 해석·hash 없이 I/O worker로 넘긴다(Q6). backpressure는 frame writer가 지킨다.
+    // 해석·hash 없이 I/O worker로 넘긴다(Q6). worker가 준 credit 안에서만 보내고,
+    // frame writer가 pipe backpressure를 지킨다.
     send: async (payload) => {
       const sent = await io.send("platform/io", payload);
       if (!sent.ok) throw new Error("blob 준비를 넘기지 못했다");
@@ -954,23 +965,24 @@ function blobRelayFor(
       const sent = await io.sendBytes("platform/io", channel, chunk);
       if (!sent.ok) throw new Error("blob 바이트를 넘기지 못했다");
     },
-    responses,
+    sendEnd: async (channel) => {
+      const sent = await io.sendEnd("platform/io", channel);
+      if (!sent.ok) throw new Error("blob 끝을 넘기지 못했다");
+    },
+    sendAbort: async (channel) => {
+      const sent = await io.sendAbort("platform/io", channel);
+      if (!sent.ok) throw new Error("blob 중단을 넘기지 못했다");
+    },
     registry,
     nowMs: () => clock.nowMs(),
     note,
+    gauge,
   });
   return {
     callbacks: {
+      // worker_response와 credit은 중계가 요청 id·channel로 맞춘다.
       onMessage(message) {
-        if (message.type !== "worker_response") return;
-        const response = message as unknown as {
-          request_id: string;
-          ok: boolean;
-          payload?: PreparedRelayResult;
-          error?: { code: string; message: string };
-        };
-        // 등록은 prepare()가 응답을 받은 뒤 한다. 여기서 다시 하면 같은 키가 conflict다.
-        responses.queue.set(response.request_id, response);
+        relay.accept(message);
       },
       // worker가 돌려준 읽기 바이트는 JSON이 아니라 byte chunk frame이다.
       onFrame(frame) {

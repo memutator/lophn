@@ -15,7 +15,7 @@ import {
   type ParentMessage,
 } from "../../packages/contracts/platform/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";
-import type { PreparedRelayResult } from "./blob-prepare.ts";
+import type { BufferGauge, PreparedRelayResult } from "./blob-prepare.ts";
 import { problemsReportDefinitions } from "./problems.ts";
 
 // kind별 허용. kind가 여기 없으면 요청은 forbidden이다(자식 spec이 준 권한이 아니라
@@ -74,6 +74,8 @@ export type ChildBlobPrepareDeps = {
   // 자식에게 json frame을 쓴다. 쓰지 못하면 false다.
   send(message: ParentMessage): Promise<boolean>;
   policies?: ReadonlyMap<string, ChildBlobPolicy>;
+  // core가 쥔 바이트(받아 두고 아직 넘기지 않은 chunk)를 관측한다. 없으면 관측하지 않는다.
+  gauge?: BufferGauge;
   // 자식 하나가 동시에 열 수 있는 준비 수.
   maxStreams?: number;
   // frame이 이만큼 없으면 그 stream을 버린다. 자식이 죽어도 core 메모리가 남지 않게 한다.
@@ -131,6 +133,11 @@ type Stream = {
   granted: number;
   received: number;
   queue: Uint8Array[];
+  // queue에 쌓인 바이트 수. 자식이 보낸 것 중 consumer가 아직 읽지 않은 양이다.
+  queuedBytes: number;
+  // consumer가 더 읽지 않기로 했다(I/O worker가 먼저 오류로 답했다). 이어 오는 frame은
+  // 버리고, consumer가 돌려준 오류를 자식에게 알린다.
+  cancelled: boolean;
   // 자식이 end를 보냈다.
   ended: boolean;
   // 실패한 stream. 값이 있으면 consumer를 그 오류로 끝낸다.
@@ -150,6 +157,13 @@ export function createChildBlobPrepare(
   const idleMs = deps.idleMs ?? CHILD_BLOB_IDLE_MS;
   const streams = new Map<number, Stream>();
   let closed = false;
+
+  // queue를 비우며 관측하는 바이트도 돌려준다.
+  function drop(stream: Stream) {
+    deps.gauge?.add(-stream.queuedBytes);
+    stream.queuedBytes = 0;
+    stream.queue.length = 0;
+  }
 
   function touch(channel: number, stream: Stream) {
     if (stream.idle !== undefined) clearTimeout(stream.idle);
@@ -173,7 +187,7 @@ export function createChildBlobPrepare(
         .send(failure(stream.request.request_id, stream.failed.code))
         .catch(() => false);
     }
-    stream.queue.length = 0;
+    drop(stream);
     const wake = stream.wake;
     stream.wake = undefined;
     wake?.();
@@ -186,6 +200,7 @@ export function createChildBlobPrepare(
   function release(channel: number, stream: Stream) {
     if (stream.idle !== undefined) clearTimeout(stream.idle);
     stream.idle = undefined;
+    drop(stream);
     if (streams.get(channel) === stream) streams.delete(channel);
   }
 
@@ -211,6 +226,8 @@ export function createChildBlobPrepare(
           }
           const chunk = stream.queue.shift();
           if (chunk !== undefined) {
+            stream.queuedBytes -= chunk.length;
+            deps.gauge?.add(-chunk.length);
             controller.enqueue(chunk);
             // consumer가 가져간 만큼만 credit을 다시 준다(backpressure).
             await grant(stream, chunk.length);
@@ -226,7 +243,10 @@ export function createChildBlobPrepare(
         }
       },
       cancel() {
-        stream.failed ??= { code: "unavailable", silent: true };
+        // consumer가 읽기를 그만뒀다. 자식은 abort한 것이 아니므로 결과를 알려야 한다:
+        // 쌓인 바이트를 버리고 open()이 consumer가 돌려준 오류를 자식에게 보낸다.
+        stream.cancelled = true;
+        drop(stream);
       },
     }, { highWaterMark: 0 });
   }
@@ -237,6 +257,8 @@ export function createChildBlobPrepare(
       granted: 0,
       received: 0,
       queue: [],
+      queuedBytes: 0,
+      cancelled: false,
       ended: false,
       failed: undefined,
       wake: undefined,
@@ -332,6 +354,7 @@ export function createChildBlobPrepare(
         fail(frame.channel, stream, "unavailable", true);
         return;
       }
+      if (stream.cancelled) return;
       if (frame.kind === "end") {
         if (stream.received !== stream.request.size_bytes) {
           fail(frame.channel, stream, "invalid_input", false);
@@ -358,6 +381,8 @@ export function createChildBlobPrepare(
         return;
       }
       stream.queue.push(frame.payload);
+      stream.queuedBytes += frame.payload.length;
+      deps.gauge?.add(frame.payload.length);
       const wake = stream.wake;
       stream.wake = undefined;
       wake?.();

@@ -1,13 +1,12 @@
-// coding-agent#T16 끝에서 끝까지: coding agent가 MCP `lophn_question`·`lophn_approval`로
-// 실제 core의 질문과 approval request를 읽는다. core는 실제 자식 프로세스이고 데이터 root는
-// temp dir다. 질문은 lophn-agent의 실제 command(agent run 안의 CreateQuestion)로, approval은
-// 실제 `create_approval_request`로 만들고, coding credential은 읽기 route 말고는 열지 못한다.
-// 사람 데이터 root(~/.lophn)는 열지 않는다.
+// coding-agent#T16 끝에서 끝까지: coding agent가 MCP `lophn_question`으로 실제 core의
+// 질문을 읽는다. core는 실제 자식 프로세스이고 데이터 root는 temp dir다. 질문은
+// lophn-agent의 실제 command(agent run 안의 CreateQuestion)로 만들고, coding credential은
+// 읽기 route 말고는 열지 못한다. approval은 제품 core가 아직 서빙하지 않아
+// coding-agent-approvals_test.ts가 맡는다. 사람 데이터 root(~/.lophn)는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
-import { createApprovalTool } from "../../packages/coding-agent/mcp-server/tools/approval.ts";
 import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
 import { createHandler } from "../../packages/coding-agent/mcp-server/server.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
@@ -27,11 +26,9 @@ function id(prefix: string, n: number): string {
 const BODY = (n: number) => n.toString(16).padStart(2, "0").repeat(32);
 
 const CAC = id("cac", 1);
-const OTHER_CAC = id("cac", 2);
 const ASG = id("asg", 1);
 const RUN = id("run", 1);
 const CODING_TOKEN = "a".repeat(43);
-const OTHER_TOKEN = "c".repeat(43);
 const MACHINE_TOKEN = "b".repeat(43);
 const AGENT_TOKEN = "d".repeat(43);
 const USER_TOKEN = "e".repeat(43);
@@ -82,27 +79,18 @@ async function open(): Promise<Opened> {
   const contexts = [
     context(`coding_agent:${CAC}`, CODING_TOKEN, [
       ...READ_OPERATIONS,
-      "CreateApprovalRequest",
-      "create_approval_request",
       // 결정·소비 route를 열어 두어도 actor 자격으로 거절되는지 본다.
       "AnswerQuestion",
       "DeferQuestion",
       "CancelQuestion",
-      "grant_approval_request",
-      "reject_approval_request",
       "ApplySettings",
       "ApplyQuestionOption",
-    ]),
-    context(`coding_agent:${OTHER_CAC}`, OTHER_TOKEN, [
-      ...READ_OPERATIONS,
-      "create_approval_request",
     ]),
     context("machine", MACHINE_TOKEN, [
       "RegisterDefaultPreset",
       "CreateBuiltinAssignment",
       "AcceptRun",
       "StartRun",
-      "expire_approval_request",
       ...READ_OPERATIONS,
     ]),
     context(`agent:${ASG}`, AGENT_TOKEN, ["CreateQuestion"], {
@@ -113,7 +101,6 @@ async function open(): Promise<Opened> {
       ...READ_OPERATIONS,
       "AnswerQuestion",
       "DeferQuestion",
-      "cancel_approval_request",
     ]),
   ];
   for (const [credential, token] of contexts) {
@@ -227,18 +214,13 @@ function coding(opened: Opened, token = CODING_TOKEN, connection = CAC) {
     provider: () => Promise.resolve({ ok: true, value: { token } }),
   });
   const question = createQuestionTool({ client });
-  const approval = createApprovalTool({ client });
   // MCP 입구와 같은 길이다: tools/call이 입력을 검사하고 tool을 실행한다.
   const handler = createHandler({
     toolsets: ["core"],
     callTool: (name, args) => {
       const resolved = resolveRoute(name, (args as { op?: string }).op);
       assert(resolved);
-      return (name === "lophn_question" ? question : approval)(
-        name,
-        resolved.route,
-        args,
-      );
+      return question(name, resolved.route, args);
     },
   });
   return {
@@ -261,33 +243,6 @@ function coding(opened: Opened, token = CODING_TOKEN, connection = CAC) {
         };
       }).result;
     },
-  };
-}
-
-function approvalInput(n: number, requester: string) {
-  const action = {
-    concern: "apps/releases",
-    command: "activate_release",
-    caller: requester,
-    targets: [id("app", 1)],
-    input: { kind: "inline", value: { release: `r${n}` } },
-    input_hash: BODY(n + 10),
-    comparison: { revision: n },
-    binding_hash: BODY(n + 20),
-  };
-  return {
-    id: id("apr", n),
-    requester,
-    run: null,
-    reason_blob: BODY(n + 30),
-    effect: {
-      changes_blob: BODY(n + 40),
-      external_blob: null,
-      reversible: false,
-      reversibility_blob: BODY(n + 50),
-    },
-    action,
-    expires_at: "2024-01-02T00:00:00.000Z",
   };
 }
 

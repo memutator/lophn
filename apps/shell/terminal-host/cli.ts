@@ -23,7 +23,7 @@ const host = hostFromNodePty({
 });
 
 const lines = createInterface({ input: process.stdin });
-lines.on("line", (line) => {
+lines.on("line", async (line) => {
   const text = line.trim();
   if (text.length === 0) return;
   let request: HostRequest & { id?: string };
@@ -32,7 +32,8 @@ lines.on("line", (line) => {
   } catch {
     return;
   }
-  const reply = host.handle(request);
+  // close·restart는 child 종료 확인을 기다린다. 다른 요청은 그 사이에도 답한다.
+  const reply = await host.handle(request);
   // runtime을 함께 보내야 supervisor가 종료·host-lost 때 unknown을 표시할
   // 자료를 가진다. reply에 runtime이 이미 있으면 한 번만 싣는다.
   const runtime = reply.ok && "runtime" in reply ? reply.runtime : undefined;

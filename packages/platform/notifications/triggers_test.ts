@@ -38,6 +38,12 @@ import {
   questionCreated,
   runFinished,
 } from "../../contracts/lophn-agent/mod.ts";
+import { contextWatchedItemChanged } from "../../contracts/documents/mod.ts";
+import { releaseActivationFailed } from "../../contracts/apps/mod.ts";
+import {
+  ticketCheckFailed,
+  ticketConfirmed,
+} from "../../contracts/coding-agent/mod.ts";
 import { problemOpened } from "../../contracts/problems/mod.ts";
 import {
   createNotificationCommand,
@@ -683,11 +689,23 @@ function notificationEventsRead(
 } {
   const fixture = openEventsBackend(
     path,
-    [questionCreated, problemOpened, runFinished],
+    [
+      questionCreated,
+      problemOpened,
+      runFinished,
+      ticketConfirmed,
+      ticketCheckFailed,
+      contextWatchedItemChanged,
+      releaseActivationFailed,
+    ],
     [
       { event: questionCreated, handle: () => ok(true) },
       { event: problemOpened, handle: () => ok(true) },
       { event: runFinished, handle: () => ok(true) },
+      { event: ticketConfirmed, handle: () => ok(true) },
+      { event: ticketCheckFailed, handle: () => ok(true) },
+      { event: contextWatchedItemChanged, handle: () => ok(true) },
+      { event: releaseActivationFailed, handle: () => ok(true) },
     ],
     () => ok(machine()),
   );
@@ -877,6 +895,443 @@ Deno.test("platform/notifications#R11: engine step이 중간에 멈추면 다음
     await engine.close();
   } finally {
     reader.close();
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/notifications#R1, R11: engine step은 ticket·context·release 계기를 실제 생성으로 만든다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-engine-more-" });
+  const connection = await schema(dir);
+  const { path } = { path: `${dir}/ledger.db` };
+  const { reader, backend } = notificationEventsRead(path);
+  try {
+    emitSource(
+      connection,
+      "TicketConfirmed",
+      "tkt_01arz3ndektsv4rrffq69g5fav",
+      {
+        app: APP,
+        problems: [],
+        completion_seq: "1",
+        release: RELEASE,
+        fix_records: [],
+      },
+    );
+    emitSource(
+      connection,
+      "TicketCheckFailed",
+      "tkt_01arz3ndektsv4rrffq69g5faw",
+      {
+        app: APP,
+        problems: [],
+        completion_seq: "1",
+        release: RELEASE,
+        fix_records: [],
+        failed_conditions: [3],
+      },
+    );
+    emitSource(
+      connection,
+      "ContextWatchedItemChanged",
+      "ctx_01arz3ndektsv4rrffq69g5fav",
+      {
+        target: {
+          kind: "document",
+          document: "doc_01arz3ndektsv4rrffq69g5fav",
+          section: "설치",
+        },
+        before_version: "ver_01arz3ndektsv4rrffq69g5fav",
+        after_version: "ver_01arz3ndektsv4rrffq69g5fbv",
+        source_seq: "1",
+        change_kind: "section_missing",
+      },
+    );
+    emitSource(
+      connection,
+      "ReleaseActivationFailed",
+      "rel_01arz3ndektsv4rrffq69g5fav",
+      {
+        started_seq: "1",
+        failure: {
+          code: "handler_mismatch",
+          summary: "handler·hash가 준비와 다르다",
+        },
+        invocation: "inv_01arz3ndektsv4rrffq69g5fav",
+      },
+    );
+    const head = connection.sql.get(
+      "select cast(max(seq) as text) as seq from events",
+      [],
+    );
+    assert(head);
+    const engine = notificationsEngine({
+      backend,
+      command: engineCommand(connection),
+      machine: machine(),
+    });
+    const scanned = await engine.step();
+    assert(scanned.ok, scanned.ok ? "" : JSON.stringify(scanned.error));
+    // cursor는 batch 끝 event까지 움직이고, 네 계기 모두 notification이 된다.
+    assertEquals(scanned.value, String(head["seq"]));
+    assertEquals(storedCursor(connection), String(head["seq"]));
+    assertEquals(notificationCount(connection), 4n);
+    const listed = connection.sql.all(
+      `select e.type as type from notifications n
+       join events e on e.seq = n.source_seq order by n.source_seq`,
+      [],
+    );
+    assertEquals(listed.map((row) => row["type"]), [
+      "TicketConfirmed",
+      "TicketCheckFailed",
+      "ContextWatchedItemChanged",
+      "ReleaseActivationFailed",
+    ]);
+    await engine.close();
+  } finally {
+    reader.close();
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// T53: machine watch 확정 변화·절 소실만 계기다(R1). unchanged·unverified는
+// conditionMet이 거절한다. record_watch_change의 발생 작업(documents T24)은 아직
+// 없으므로 source event를 직접 적는다(남은 것).
+Deno.test("platform/notifications#R1: machine watch 확정 변화만 계기다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-trigger-ctx-" });
+  const connection = await schema(dir);
+  const watchTarget = {
+    kind: "document",
+    document: "doc_01arz3ndektsv4rrffq69g5fav",
+    section: "설치",
+  };
+  try {
+    // 내용 변화, 절 추가, 절 소실은 계기다.
+    emitSource(
+      connection,
+      "ContextWatchedItemChanged",
+      "ctx_01arz3ndektsv4rrffq69g5fav",
+      {
+        target: watchTarget,
+        before_version: "ver_01arz3ndektsv4rrffq69g5fav",
+        after_version: "ver_01arz3ndektsv4rrffq69g5fbv",
+        source_seq: "1",
+        change_kind: "content_changed",
+      },
+    );
+    emitSource(
+      connection,
+      "ContextWatchedItemChanged",
+      "ctx_01arz3ndektsv4rrffq69g5fav",
+      {
+        target: watchTarget,
+        before_version: "ver_01arz3ndektsv4rrffq69g5fbv",
+        after_version: "ver_01arz3ndektsv4rrffq69g5fcv",
+        source_seq: "2",
+        change_kind: "section_added",
+      },
+    );
+    emitSource(
+      connection,
+      "ContextWatchedItemChanged",
+      "ctx_01arz3ndektsv4rrffq69g5fav",
+      {
+        target: watchTarget,
+        before_version: "ver_01arz3ndektsv4rrffq69g5fcv",
+        after_version: "ver_01arz3ndektsv4rrffq69g5fdv",
+        source_seq: "3",
+        change_kind: "section_missing",
+      },
+    );
+    // unchanged와 unverified는 계기가 아니다.
+    emitSource(
+      connection,
+      "ContextWatchedItemChanged",
+      "ctx_01arz3ndektsv4rrffq69g5fav",
+      {
+        target: watchTarget,
+        before_version: "ver_01arz3ndektsv4rrffq69g5fdv",
+        after_version: "ver_01arz3ndektsv4rrffq69g5fdv",
+        source_seq: "4",
+        change_kind: "unchanged",
+      },
+    );
+    emitSource(
+      connection,
+      "ContextWatchedItemChanged",
+      "ctx_01arz3ndektsv4rrffq69g5fav",
+      {
+        target: watchTarget,
+        before_version: "ver_01arz3ndektsv4rrffq69g5fdv",
+        after_version: "ver_01arz3ndektsv4rrffq69g5fdv",
+        source_seq: "5",
+        change_kind: "unverified",
+      },
+    );
+    const rows = connection.sql.all(
+      "select cast(seq as text) as seq from events where type = 'ContextWatchedItemChanged' order by seq",
+      [],
+    );
+    assertEquals(rows.length, 5);
+    for (const row of rows.slice(0, 3)) {
+      const seeded = await seedNotification(
+        connection,
+        {
+          seq: String(row["seq"]),
+          type: "ContextWatchedItemChanged",
+          subject: "ctx_01arz3ndektsv4rrffq69g5fav",
+        },
+        `create-ctx-${row["seq"]}`,
+      );
+      assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
+    }
+    for (const row of rows.slice(3)) {
+      const rejected = await seedNotification(
+        connection,
+        {
+          seq: String(row["seq"]),
+          type: "ContextWatchedItemChanged",
+          subject: "ctx_01arz3ndektsv4rrffq69g5fav",
+        },
+        `create-ctx-${row["seq"]}`,
+      );
+      assert(!rejected.ok, JSON.stringify(rejected));
+      if (!rejected.ok) assertEquals(rejected.error.code, "forbidden");
+    }
+    assertEquals(notificationCount(connection), 3n);
+  } finally {
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// R7: notification 생성은 agent run을 새로 시작하지 않는다. watch 변화의
+// notification을 만들어도 run event가 생기지 않는다.
+Deno.test("platform/notifications#R7: watch 변화의 notification은 run을 새로 시작하지 않는다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-r7-ctx-" });
+  const connection = await schema(dir);
+  try {
+    emitSource(
+      connection,
+      "ContextWatchedItemChanged",
+      "ctx_01arz3ndektsv4rrffq69g5fav",
+      {
+        target: {
+          kind: "document",
+          document: "doc_01arz3ndektsv4rrffq69g5fav",
+          section: null,
+        },
+        before_version: "ver_01arz3ndektsv4rrffq69g5fav",
+        after_version: "ver_01arz3ndektsv4rrffq69g5fbv",
+        source_seq: "1",
+        change_kind: "content_changed",
+      },
+    );
+    const source = connection.sql.get(
+      "select cast(seq as text) as seq from events where type = 'ContextWatchedItemChanged'",
+      [],
+    );
+    assert(source);
+    const seeded = await seedNotification(
+      connection,
+      {
+        seq: String(source["seq"]),
+        type: "ContextWatchedItemChanged",
+        subject: "ctx_01arz3ndektsv4rrffq69g5fav",
+      },
+      "create-r7-ctx",
+    );
+    assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
+    assertEquals(notificationCount(connection), 1n);
+    // run을 새로 시작하는 event는 없다.
+    assertEquals(
+      connection.sql.get(
+        "select count(*) as n from events where type like 'Run%'",
+        [],
+      )?.n,
+      0n,
+    );
+  } finally {
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// T33: release activation 실패는 항상 계기다(R1). fail_activation의 발생 작업
+// (apps T18)은 아직 없으므로 source event를 직접 적는다(남은 것).
+Deno.test("platform/notifications#R1: release activation 실패는 항상 notification을 만든다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-trigger-rel-" });
+  const connection = await schema(dir);
+  try {
+    emitSource(
+      connection,
+      "ReleaseActivationFailed",
+      "rel_01arz3ndektsv4rrffq69g5fav",
+      {
+        started_seq: "1",
+        failure: {
+          code: "handler_mismatch",
+          summary: "handler·hash가 준비와 다르다",
+        },
+        invocation: "inv_01arz3ndektsv4rrffq69g5fav",
+      },
+    );
+    const source = connection.sql.get(
+      "select cast(seq as text) as seq from events where type = 'ReleaseActivationFailed'",
+      [],
+    );
+    assert(source);
+    const seeded = await seedNotification(
+      connection,
+      {
+        seq: String(source["seq"]),
+        type: "ReleaseActivationFailed",
+        subject: "rel_01arz3ndektsv4rrffq69g5fav",
+      },
+      "create-rel-ntf",
+    );
+    assert(seeded.ok, seeded.ok ? "" : JSON.stringify(seeded.error));
+    assertEquals(notificationCount(connection), 1n);
+    assertEquals(
+      connection.sql.get(
+        "select count(*) as n from events where type = 'NotificationCreated'",
+        [],
+      )?.n,
+      1n,
+    );
+    assertEquals(storedCursor(connection), String(source["seq"]));
+  } finally {
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+// T36: ticket 확인 완료·검사 실패는 항상 계기다(R1). claim·완료 보고 등
+// 비계기는 만들지 않는다(R2). checker의 발생 작업(coding-agent T26)은 아직
+// 없으므로 source event를 직접 적는다(남은 것).
+Deno.test("platform/notifications#R1, R2: ticket 확인 완료·검사 실패만 계기다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-trigger-tkt-" });
+  const connection = await schema(dir);
+  try {
+    const appFields = {
+      app: "app_01arz3ndektsv4rrffq69g5fav",
+      problems: [] as string[],
+    };
+    const completionFields = {
+      ...appFields,
+      completion_seq: "1",
+      release: "rel_01arz3ndektsv4rrffq69g5fav",
+      fix_records: [] as string[],
+    };
+    // 확인 완료는 계기다.
+    emitSource(
+      connection,
+      "TicketConfirmed",
+      "tkt_01arz3ndektsv4rrffq69g5fav",
+      completionFields,
+    );
+    // 검사 실패는 계기다.
+    emitSource(
+      connection,
+      "TicketCheckFailed",
+      "tkt_01arz3ndektsv4rrffq69g5faw",
+      { ...completionFields, failed_conditions: [3] },
+    );
+    // claim과 완료 보고는 계기가 아니다(R2). 계기 표 밖이다.
+    emitSource(
+      connection,
+      "TicketClaimed",
+      "tkt_01arz3ndektsv4rrffq69g5fav",
+      {
+        ...appFields,
+        connection: "cac_01arz3ndektsv4rrffq69g5fav",
+        claim_seq: "1",
+        expires_at: NOW_TEXT,
+      },
+    );
+    emitSource(
+      connection,
+      "TicketCompletionReported",
+      "tkt_01arz3ndektsv4rrffq69g5fav",
+      {
+        ...completionFields,
+        claim_seq: "1",
+        summary_hash: "ab".repeat(32),
+        outputs: [] as string[],
+        verifications: [] as string[],
+      },
+    );
+    const confirmed = connection.sql.get(
+      "select cast(seq as text) as seq from events where type = 'TicketConfirmed'",
+      [],
+    );
+    assert(confirmed);
+    const checkFailed = connection.sql.get(
+      "select cast(seq as text) as seq from events where type = 'TicketCheckFailed'",
+      [],
+    );
+    assert(checkFailed);
+    // 비계기 event만 모은다. seedNotification이 내는 NotificationCreated는 제외하려
+    // seeding 앞에 잰다.
+    const rows = connection.sql.all(
+      "select cast(seq as text) as seq, type from events order by seq",
+      [],
+    );
+    assertEquals(rows.length, 4);
+    const seededConfirmed = await seedNotification(
+      connection,
+      {
+        seq: String(confirmed["seq"]),
+        type: "TicketConfirmed",
+        subject: "tkt_01arz3ndektsv4rrffq69g5fav",
+      },
+      "create-tkt-confirmed",
+    );
+    assert(
+      seededConfirmed.ok,
+      seededConfirmed.ok ? "" : JSON.stringify(seededConfirmed.error),
+    );
+    const seededFailed = await seedNotification(
+      connection,
+      {
+        seq: String(checkFailed["seq"]),
+        type: "TicketCheckFailed",
+        subject: "tkt_01arz3ndektsv4rrffq69g5faw",
+      },
+      "create-tkt-failed",
+    );
+    assert(
+      seededFailed.ok,
+      seededFailed.ok ? "" : JSON.stringify(seededFailed.error),
+    );
+    assertEquals(notificationCount(connection), 2n);
+    // claim·완료 보고는 등록 executor가 input schema로 거른다. 계기 표 밖이다.
+    assertEquals(triggerOf("TicketClaimed"), undefined);
+    assertEquals(triggerOf("TicketCompletionReported"), undefined);
+    for (const row of rows) {
+      if (
+        String(row["type"]) !== "TicketConfirmed" &&
+        String(row["type"]) !== "TicketCheckFailed"
+      ) {
+        const rejected = await runCommand(
+          connection,
+          { ...ledgerDeps(), checkCredential: () => ok(machine()) },
+          [createNotificationCommand],
+          machine(),
+          createEnvelope(
+            { seq: String(row["seq"]), type: String(row["type"]) },
+            storedCursor(connection),
+            `create-tkt-${row["seq"]}`,
+          ),
+        );
+        assert(!rejected.ok, JSON.stringify(rejected));
+        if (!rejected.ok) assertEquals(rejected.error.code, "invalid_input");
+      }
+    }
+    assertEquals(notificationCount(connection), 2n);
+    assertEquals(storedCursor(connection), String(checkFailed["seq"]));
+  } finally {
     connection.close();
     await Deno.remove(dir, { recursive: true });
   }

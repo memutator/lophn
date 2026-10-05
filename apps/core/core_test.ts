@@ -391,9 +391,11 @@ Deno.test("platform/identity#R4: parent.ts가 내는 사람 token은 user route�
     }, token);
     assertEquals(machineOnly.status, 403, JSON.stringify(machineOnly.body));
 
-    // 이 조립에는 settings route가 없어 settings read는 core가 서빙하지 않는다.
-    const settings = await post(core, "/v1/settings/get", {}, token);
-    assert(settings.status === 404 || settings.status === 503);
+    // 제품 사람 token으로 settings read가 된다(core가 settings를 서빙한다).
+    const settings = await post(core, "/v1/settings/get", {
+      keys: ["shell.reading_width"],
+    }, token);
+    assertEquals(settings.status, 200, JSON.stringify(settings.body));
     await frames.return();
   } finally {
     await core.shutdown();

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { ok } from "../../../packages/base/mod.ts";
 import {
+  defaultHarnessSetting,
+  harnessEnabledSetting,
+  harnessProfileSetting,
+} from "../../contracts/coding-agent/mod.ts";
+import {
   type CommandDefinition,
   defineCommand,
   type SettingDefinition,
@@ -170,8 +175,17 @@ const seedQuestionCommand: CommandDefinition<typeof seedQuestion> = {
 };
 
 // settings 설정의 apply·reload·history·read를 같은 registry로 등록한다(R17-R25).
+// coding-agent의 harness 설정 3개(coding-agent/harnesses contract, machine_local:
+// true)는 소유 concern의 schema를 그대로 등록한다(platform/settings#R31).
 export function createLedgerTestRegistration() {
-  const registry = new SettingRegistry([width, tracking, harnessChoice]);
+  const registry = new SettingRegistry([
+    width,
+    tracking,
+    harnessChoice,
+    harnessEnabledSetting,
+    defaultHarnessSetting,
+    harnessProfileSetting,
+  ]);
   const commands = createSettingsCommands(registry);
   return {
     schemaSteps: SETTINGS_SCHEMA_STEPS,

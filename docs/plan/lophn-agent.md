@@ -222,6 +222,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md
 - 선행: T9, contracts#T26, platform#T24
+- 상태: 완료 (#250) — 이어보냄: 사람 steering 미적용 검사(hasUnappliedSteering)의 실제 입력 표 연결 → T11, agent credential 발급·종료와 AgentAppScope 계산 → T12, waiting_user 전이(WaitRun 계열) → T25, run basis·result blob 영구 참조 등록 → T26
 - 완료:
   - `runs` 표와 assignment당 running·waiting_user 하나의 partial unique
   - run_test.ts에 R1–R3, R5, R6, R14, R16–R18 테스트: 자료 변경·결과 도착·notification으로 run 없음, 접수 저장 뒤 응답·같은 key 재전달은 이전 결과·각 commit 직후 kill해도 accepted run 유실 없음, 같은 assignment 진행 하나와 다른 assignment 무관, 자리 대기 10분 넘어도 보존·시작 필수 설정이 영구히 없으면 이유와 종료, completed면 다음 시작·failed/stopped면 ConfirmNextRun까지 보존, 정상 종료는 미반영 steering 없을 때만 입력 접수와 원자 확정, 끝난 run의 늦은 결과는 supplement만, 멈춘 run 자동 재개 없음, 결과 한 번 확정과 완료 변경을 멈춤·실패로 되돌리지 않음
@@ -237,6 +238,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/session-and-conversation.md
 - 선행: T10
+- T10에서 넘어온 것: run-loop의 hasUnappliedSteering 주입점을 세션·메시지의 실제 사람 입력 표에 연결(#250)
 - 완료:
   - `sessions`, `messages` 표
   - conversation_test.ts에 R1–R8, R14, R16, R17 테스트: 사람 메시지와 AcceptRun 원자 접수, 접수와 최초 반영을 따로 표시, 사람 말·역할 판단·machine 사실 구분과 실제 대상 링크만, 수정(mode=correction)과 다음 일 구별·수정 원문 모두 다음 판단에, 종료 경계 수정이 정확히 한 run에 한 번, 실패·멈춤 뒤 다음 일 자동 시작 없음, paused는 원문만 보존하고 run 없음, ExecuteStoredRequest만 새 run 연결, 재개·재시작만으로 실행 없음, 작업 자리 고정(AE 앱, Operator project/app)과 lophn·CE의 명시 변경만(다음 call부터), 세션 종료 조건, withdrawn은 읽기만
@@ -253,6 +255,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md
 - 선행: T10, platform#T25
+- T10에서 넘어온 것: StartRun이 받는 agent credential 발급·종료와 AgentAppScope 계산(#250은 scope의 assignment·role 일치만 본다)
 - 완료:
   - selector_test.ts에 R4 테스트: 세 우선순위 FIFO, 상위 8개 연속 뒤 가장 오래된 하위 후보, 막힌 assignment는 양보를 쓰지 않음, streak를 RunStarted에서 재구성
   - limits_test.ts에 R19–R22 테스트: run 한도는 공통 설정(model 시도 30·무진행 300000ms·전체 1800000ms, 양의 정수만, 사람만 다음 run부터 변경), 완전 응답·확정 결과만 진행, 실패 시도도 셈, 부분 token은 reset 안 함, 세 한도 각각에서 추가 judgment·organizing·마무리 model 호출 0건과 machine 결과, 퍼센트·예상 종료·추론 원문 없음
@@ -458,6 +461,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md, docs/research/questions-and-hitl.md
 - 선행: T10, T22, T24, platform#T21, platform#T22, platform#T23
+- T10에서 넘어온 것: waiting_user 전이(WaitRun 계열). #250의 FinishRun은 waiting_user run에 conflict다
 - 완료:
   - `run_wait_resolutions` 표, `(run, request, decision_seq)` 한 번 반영
   - waiting_test.ts에 R1–R7, R11 테스트: `waiting_user` 상태 기계, 질문 답이면 같은 run 재개·만료/미루기/취소는 no_answer stopped, approval 허락은 재검사 뒤 그 call만 한 번, 거절·만료·취소·재검사 실패는 미실행 뒤 같은 run 새 판단, 금지·거절·미결정·만료·취소·판정 실패 구별과 거절·만료는 실패 수에 없음, 대기 중 새 입력·멈춤 접수, 명시 steering으로 옛 질문·approval 취소, 결정 접수와 적용 구별, 늦은 결정 미사용, 대기 대상·이유와 확인된 시각에만 countdown, retry 예정 시각·횟수 보존과 멈춤·steering·한도가 대기를 깨움, 재시작 뒤 미시작 증거 없는 approval 미사용, 답 저장→option 적용→ResolveRunWait 사이 각 지점에서 죽여도 적용 한 번·재개 한 번
@@ -474,6 +478,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 조사: docs/research/agent-run-loop.md, docs/research/provider-adapters.md
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다
+- T10에서 넘어온 것: run basis와 result의 blob 영구 참조 등록(#250은 hash만 둔다)
 - 완료:
   - loop_test.ts에 R8–R13, R15, R23–R25 테스트(fake provider·clock·owner contract): model이 응답하지 않아도 core read·다른 assignment가 진행, turn 순서와 조립 뒤 입력·멈춤 재확인, 수정 입력은 다음 tool 전에 새 판단, 불완전 응답의 tool 0개와 잘림을 다음 판단에 전달, 모든 call이 확인된 read일 때만 병렬·하나라도 아니면 요청 순서 순차·결과는 요청 순서, 없는 tool·잘못된 인자는 call별 결과·인자 보정 없음, 순차 write·external 거절·최종 실패 뒤 나머지 미실행 이유·독립 read 결과 보존, 멈춤 뒤 새 model·tool·retry 차단·진행 호출 중단 요청·미시작 call 미실행 결과 합성, 일시 실패만 최대 2회(서버 시각을 지키고 없으면 2초·4초, fake clock으로 서버 시각 전 재시도 없음)·부분 응답 미채택, tool retry는 read·멱등 write만 1회 1초±10%와 재판정, provider 끄기·MCP 제거 뒤 새 진입 차단
   - flow steer-agent-work의 agent 갈래

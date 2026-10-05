@@ -13,34 +13,34 @@ function store(top: number) {
 }
 
 Deno.test("problems/reporting#R15: 범위 밖 행은 건너뛰고 limit개를 채운 뒤 보이는 행이 더 있을 때만 cursor를 준다", () => {
-  const fetch = store(10);
+  const load = store(10);
   const even = (row: Row) => ok(row.seq % 2n === 0n);
-  const first = scanVisible({ limit: 2, before: null, fetch, visible: even });
+  const first = scanVisible({ limit: 2, before: null, load, visible: even });
   assert(first.ok);
   assertEquals(first.value.rows.map((row) => row.seq), [10n, 8n]);
   assertEquals(first.value.next, "8");
-  const second = scanVisible({ limit: 2, before: 8n, fetch, visible: even });
+  const second = scanVisible({ limit: 2, before: 8n, load, visible: even });
   assert(second.ok);
   assertEquals(second.value.rows.map((row) => row.seq), [6n, 4n]);
   assertEquals(second.value.next, "4");
   // 마지막 page는 남은 보이는 행이 limit 이하이면 cursor가 없다.
-  const last = scanVisible({ limit: 2, before: 4n, fetch, visible: even });
+  const last = scanVisible({ limit: 2, before: 4n, load, visible: even });
   assert(last.ok);
   assertEquals(last.value.rows.map((row) => row.seq), [2n]);
   assertEquals(last.value.next, null);
   // 보이는 행이 limit과 같은 개수로 끝나면 빈 page를 약속하지 않는다.
-  const exact = scanVisible({ limit: 5, before: null, fetch, visible: even });
+  const exact = scanVisible({ limit: 5, before: null, load, visible: even });
   assert(exact.ok);
   assertEquals(exact.value.rows.length, 5);
   assertEquals(exact.value.next, null);
 });
 
 Deno.test("problems/reporting#R15: 보이는 행이 없어도 훑는 행은 상한이 있고 짧은 page와 cursor로 잇는다", () => {
-  const fetch = store(SCAN_CAP + 500);
+  const load = store(SCAN_CAP + 500);
   const none = scanVisible({
     limit: 3,
     before: null,
-    fetch,
+    load,
     visible: () => ok(false),
   });
   assert(none.ok);
@@ -50,7 +50,7 @@ Deno.test("problems/reporting#R15: 보이는 행이 없어도 훑는 행은 상�
   const rest = scanVisible({
     limit: 3,
     before: BigInt(none.value.next!),
-    fetch,
+    load,
     visible: (row) => ok(row.seq === 7n),
   });
   assert(rest.ok);

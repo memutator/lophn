@@ -135,7 +135,7 @@ export const listProblemsRead = {
     const page = scanVisible({
       limit: input.limit ?? PROBLEM_LIST_LIMIT,
       before: cursor.value.before,
-      fetch: (before, size) =>
+      load: (before, size) =>
         pageRows(snapshot, cursor.value.pin, filter, before, size),
       visible: (row) =>
         targetVisible(snapshot, ctx, listProblems.name, {

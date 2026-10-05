@@ -57,7 +57,7 @@ export const listReportsRead = {
     const page = scanVisible<ReportRowSeq>({
       limit: REPORT_PAGE,
       before: cursor.value,
-      fetch: (before, size) => {
+      load: (before, size) => {
         const clauses = before === null ? where : [...where, "e.seq < ?"];
         const params: (string | number | bigint)[] = before === null
           ? [...filter]

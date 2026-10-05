@@ -86,7 +86,7 @@ export const SCAN_CAP = 1000;
 // seq 내림차순으로 훑으며 보이는 행만 limit개 모은다. 다음 page는 마지막 행의 seq 아래다.
 export function scanVisible<Row extends { seq: bigint }>(options: {
   limit: number;
-  fetch(before: bigint | null, size: number): Row[];
+  load(before: bigint | null, size: number): Row[];
   visible(row: Row): Result<boolean>;
   before: bigint | null;
 }): Result<{ rows: Row[]; next: string | null }> {
@@ -94,7 +94,7 @@ export function scanVisible<Row extends { seq: bigint }>(options: {
   let before = options.before;
   let scanned = 0;
   for (;;) {
-    const batch = options.fetch(before, SCAN_BATCH);
+    const batch = options.load(before, SCAN_BATCH);
     for (const row of batch) {
       const seen = options.visible(row);
       if (!seen.ok) return seen;

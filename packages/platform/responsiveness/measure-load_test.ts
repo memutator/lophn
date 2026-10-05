@@ -363,27 +363,27 @@ Deno.test({
         });
         entries.push(
           await sampleUnderLoad(async () => {
-            // 관리 ledger 채널은 요청마다 10초 기한이고 기한이 넘으면 채널
-            // 전체가 닫힌다. 스캔·묶음 준비가 살아 있는 ledger 통로와 함께
-            // 도는 동안에도 main thread의 microtask가 끊기지 않게, 관리
-            // 접수는 먼저 끝내고 scan·준비를 함께 걷는다.
+            // 관리 ledger 채널은 요청마다 10초 기한이고, 늦게 온 reply도 채널
+            // 전체를 닫는다. 스캔·묶음 준비가 main thread를 길게 붙들면
+            // channel reply 처리가 늦어져 기한을 넘기므로, 관리 접수는
+            // scan·준비 사이의 양보 지점마다 끊어 보낸다. 한 번에 10개라도
+            // 각 접수는microtask 회전 안에서 reply를 받는다.
             const receipts = await Promise.all(
               Array.from(
                 { length: 10 },
                 (_, index) => sendControl(controlLedger, 100 + index),
               ),
             );
-            const [prepare] = await Promise.all([
-              multiBlob.prepare(
-                {
-                  preparation: "prep-load-multi",
-                  principal: "measure-user",
-                  purpose: "load_multi",
-                },
-                bundleStream(BUNDLE_BYTES),
-              ),
-              scanOnce(multiRoot),
-            ]);
+            await sleep(0);
+            const prepare = await multiBlob.prepare(
+              {
+                preparation: "prep-load-multi",
+                principal: "measure-user",
+                purpose: "load_multi",
+              },
+              bundleStream(BUNDLE_BYTES),
+            );
+            await scanOnce(multiRoot);
             assert(
               receipts.every((receipt) => typeof receipt === "number"),
               `복합 관리 요청이 실패했다: ${

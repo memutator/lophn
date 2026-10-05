@@ -869,6 +869,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T29 설치 engine: plan·install·update·remove·receipt
 
+- 상태: 완료 (#217) — 이어보냄: Claude·Codex·OpenCode·Gemini adapter의 실제 설정 위치·hook·skill root와 TOML·YAML 소유 key 텍스트 패치 merge(주석·빈 줄 보존), CLI 실행 경로와 파일 쓰기 연결 → T30; Hermes·pi·OpenClaw adapter → T31; loading 검사(harnesses#R10) → T32
 - 등급: 최상위
 - concern: coding-agent/harnesses, coding-agent/connection, coding-agent/cli,
   coding-agent/guides
@@ -928,6 +929,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-skills-and-guides.md,
   docs/research/coding-agent-mcp-server.md
 - 선행: T29, contracts#T43
+- T29에서 넘어온 것: 이 adapter들의 실제 설정 위치·hook·skill root 적용, TOML·YAML merge가 소유 key만 고치는 텍스트 패치로 사람의 주석·빈 줄을 보존(#217은 전체 재직렬화), CLI harness plan·install·update·remove 실행 경로와 engine 파일 쓰기 연결
 - 완료:
   - Claude Code: user 등록 또는 app `.mcp.json`의 `mcpServers.lophn`, skill
     `~/.claude/skills`·`.claude/skills`, CLAUDE.md 관리 구간 `@AGENTS.md`,
@@ -957,6 +959,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T31 adapter: Hermes·pi·OpenClaw
 
+- 상태: 완료 (#224) — 이어보냄: doctor가 깨진 Hermes YAML을 loading 실패 이유로 내는지 확인 → T32
 - 등급: 기본
 - concern: coding-agent/harnesses, coding-agent/guides, coding-agent/cli,
   coding-agent/connection
@@ -970,6 +973,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-harness-integration.md,
   docs/research/coding-agent-skills-and-guides.md
 - 선행: T29
+- T29에서 넘어온 것: Hermes·pi·OpenClaw의 실제 설정 위치·hook·skill root 적용(#217 engine 위)
 - 완료:
   - Hermes: `$HERMES_HOME/config.yaml`(기본 `~/.hermes`)의
     `mcp_servers.lophn`(command·args·env·cwd), skill trust는 사람의
@@ -1008,6 +1012,8 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-harness-integration.md,
   docs/research/coding-agent-mcp-server.md
 - 선행: T30, T31, contracts#T42, contracts#T43
+- T31에서 넘어온 것: doctor가 깨진 Hermes YAML을 loading 실패 이유(harnesses#R8·R10)로 내는지 확인(#224)
+- T29에서 넘어온 것: loading 검사(harnesses#R10)
 - 완료:
   - mcp_initialize·tool_discovery·skill_discovery·app_guide_loading을 각각
     success·failure·unknown과 안전한 이유로. MCP probe는 설치된 절대 Deno
@@ -1307,6 +1313,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-harness-integration.md
 - 선행: T25, T26, T27, T32, T34, T35, T37, T39, T40, lophn-agent#T49, shell#T25,
   shell#T47, shell#T49, shell#T50, shell#T51
+- problems#T13에서 넘어온 것: manage-tickets 6단계 acceptance check가 problems Verification(TicketTestLink)을 쓰는 통합 확인(#222)
 - 완료:
   - fake harness: PATH fixture로 감지되고 테스트 catalog의 ExecutionSpec(argv
     prompt, stdin_after_ready 둘 다)을 따르는 TUI 흉내. 받은 prompt로 MCP

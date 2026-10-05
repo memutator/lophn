@@ -54,12 +54,18 @@ export {
   type StatusInput,
 } from "./observation.ts";
 export {
+  type ObservationSubmit,
+  type ObserveDeps,
+  type ObserveRoot,
+  observeRoot,
   readStably,
   type ScanEntry,
   type ScanPort,
   scanRoot,
   type StableRead,
   type StableReadPort,
+  type WatchPort,
+  type WatchSignal,
 } from "./work.ts";
 export {
   batchToChunks,

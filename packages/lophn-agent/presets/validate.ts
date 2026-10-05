@@ -25,8 +25,8 @@ export type ValidateDeps = {
   bundles: ReadonlyMap<string, readonly string[]>;
   // 등록된 MCP server 설정(extensions의 settings registry 값이다)(R11).
   mcpServers: ReadonlyMap<string, McpServerConfig>;
-  // T8이 고정하는 역할별 상한 표. 역할의 cap이 없으면 tool 선택을 검사할 수
-  // 없어 거절이다(T8 전까지).
+  // T8이 고정한 역할별 상한 표다(presets#R9). 역할의 cap이 없으면 tool 선택을 검사할 수
+  // 없어 거절이다.
   roleCaps: ReadonlyMap<string, RoleCap>;
   // provider 기록의 provider 정의 key다(providers 표 definition_key). 기록이
   // 없으면 undefined다(R6).

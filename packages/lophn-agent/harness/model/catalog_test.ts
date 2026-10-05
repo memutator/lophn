@@ -304,7 +304,7 @@ Deno.test("lophn-agent/harness/model#R5: rejected refresh keeps the last good en
   const before = first.value;
   const refill = await store.refreshNow();
   assert(refill.ok);
-  // 전체 ��절: 항목은 마지막 정상본이고, 실패 표시만 남는다.
+  // 전체 갱신절: 항목은 마지막 정상본이고, 실패 표시만 남는다.
   assertEquals(refill.value.entries, before.entries);
   assertEquals(
     refill.value.state.last_received_at,

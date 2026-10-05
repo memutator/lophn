@@ -97,7 +97,7 @@ export function planShell(
   };
 }
 
-/** fake provider ready 한 ���을 읽는다. 끊기거나 JSON이 아니면 null이다. */
+/** fake provider ready 한 줄을 읽는다. 끊기거나 JSON이 아니면 null이다. */
 export async function fakeProviderReady(
   stream: ReadableStream<Uint8Array>,
 ): Promise<FakeProviderReady | null> {

@@ -69,6 +69,7 @@ export const en = {
   "project-workspace.button.expand-sidebar": "Expand sidebar",
   "project-workspace.button.info-panel": "Info panel",
   "project-workspace.button.launcher": "Launcher",
+  "project-workspace.button.open-terminal": "Open terminal",
   "project-workspace.button.split-pane": "Open in side pane",
   "project-workspace.empty.no-contexts": "No related contexts.",
   "project-workspace.empty.no-documents": "No documents yet.",
@@ -93,6 +94,39 @@ export const en = {
   "project-workspace.sidebar.label": "Project",
   "settings.models.for-decisions": "For decisions",
   "settings.models.for-summaries": "For summaries",
+  "terminal.button.close-terminal": "Close terminal",
+  "terminal.button.hide-notice": "Hide note",
+  "terminal.button.keep-open": "Keep open",
+  "terminal.button.start-again": "Start again",
+  "terminal.button.try-again": "Try again",
+  "terminal.dialog.close-text":
+    "Anything still going on in this terminal will stop.",
+  "terminal.error.no-folder":
+    "This project has no folder to start in. Add a folder to the project to use a terminal.",
+  "terminal.error.not-directory":
+    "The project folder isn't a folder anymore, so the terminal didn't start.",
+  "terminal.error.spawn-failed": "The shell couldn't start in this folder.",
+  "terminal.error.unavailable": "Terminals aren't available right now.",
+  "terminal.error.unreadable":
+    "lophn can't open the project folder, so the terminal didn't start.",
+  "terminal.heading.choose-folder": "Choose where this terminal starts",
+  "terminal.label.folders": "Project folders",
+  "terminal.label.output": "Terminal",
+  "terminal.notice.account":
+    "Commands in this terminal use your computer account's permissions. It isn't an app sandbox.",
+  "terminal.notice.folder":
+    "The terminal starts in the project folder. That only sets where it starts, not what it can reach.",
+  "terminal.status.ended": "The shell ended.",
+  "terminal.status.exited": "The shell ended with exit code {code}.",
+  "terminal.status.not-started":
+    "This terminal isn't on. lophn doesn't start it again by itself.",
+  "terminal.status.output-missing": "Some earlier output isn't shown.",
+  "terminal.status.start-failed": "The shell couldn't start.",
+  "terminal.status.stop-unconfirmed":
+    "lophn couldn't confirm that this shell stopped.",
+  "terminal.status.unknown":
+    "lophn lost track of this shell, so how it ended is unknown.",
+  "terminal.title.close": "Close this terminal?",
 } as const;
 
 export type Catalog = typeof en;

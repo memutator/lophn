@@ -32,6 +32,8 @@ import type {
   ProjectView,
   WorkspaceSource,
 } from "./source.ts";
+import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
+import { TerminalTab } from "../terminal/terminal-tab.tsx";
 import styles from "./workspace.module.css";
 
 export interface WorkspaceProps {
@@ -45,6 +47,8 @@ export interface WorkspaceProps {
   onLauncher: () => void;
   /** lophn 관리 공간으로 간다. */
   onLophn: () => void;
+  /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */
+  terminal?: TerminalDeps;
 }
 
 interface Loaded {
@@ -108,6 +112,8 @@ function viewFromLayout(layout: unknown): RestoredLayout {
   };
 }
 
+let terminalCount = 0;
+
 function freshView(): WorkspaceView {
   return {
     panes: [{ tabs: [], selected: null }],
@@ -118,8 +124,15 @@ function freshView(): WorkspaceView {
 
 // 프로젝트 작업대. sidebar·상단 경로·탭 줄·두 칸을 한 화면에 모은다.
 export function Workspace(
-  { projectId, source, windowWidth, bodyWidth, onLauncher, onLophn }:
-    WorkspaceProps,
+  {
+    projectId,
+    source,
+    windowWidth,
+    bodyWidth,
+    onLauncher,
+    onLophn,
+    terminal,
+  }: WorkspaceProps,
 ) {
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
   const [view, setView] = useState<WorkspaceView>(freshView);
@@ -178,6 +191,10 @@ export function Workspace(
     ? contentWidth - INFO_PANEL_WIDTH
     : contentWidth;
 
+  // 비동기 닫기·시작 결과는 그 사이 바뀐 배치에 적용한다.
+  const latest = useRef(view);
+  latest.current = view;
+
   const persist = (
     next: WorkspaceView,
     info: { open: boolean; tab: InfoTab } = { open: infoOpen, tab: infoTab },
@@ -195,8 +212,64 @@ export function Workspace(
   };
 
   const update = (next: WorkspaceView) => {
+    latest.current = next;
     setView(next);
     persist(next);
+  };
+
+  // 사람이 누른 터미널 열기. 시작 폴더는 탭 화면이 main에 묻는다(shell/terminal#R1).
+  const openTerminal = () => {
+    if (!terminal) return;
+    const key = `terminal-${Date.now().toString(36)}-${++terminalCount}`;
+    terminal.store.request(key);
+    const pane = view.focusedPane;
+    const tab: TabItem = {
+      key,
+      kind: "terminal",
+      title: loaded.project?.title ??
+        t("project-workspace.label.kind-terminal"),
+    };
+    update({
+      ...view,
+      panes: view.panes.map((item, index) =>
+        index === pane ? { tabs: [...item.tabs, tab], selected: key } : item
+      ),
+    });
+  };
+
+  const terminalStarted = (
+    key: string,
+    info: { title: string | null; folderRef: string },
+  ) => {
+    const current = latest.current;
+    update({
+      ...current,
+      panes: current.panes.map((pane) => ({
+        ...pane,
+        tabs: pane.tabs.map((tab) =>
+          tab.key === key
+            ? { ...tab, title: info.title ?? tab.title, folder: info.folderRef }
+            : tab
+        ),
+      })),
+    });
+  };
+
+  // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다(R10).
+  const close = (pane: number, key: string) => {
+    const tab = view.panes[pane]?.tabs.find((item) => item.key === key);
+    if (tab?.kind !== "terminal" || !terminal) {
+      update(closeTab(view, pane, key));
+      return;
+    }
+    void closeTerminalTab(terminal, key).then((remove) => {
+      if (!remove) return;
+      const current = latest.current;
+      const at = current.panes.findIndex((item) =>
+        item.tabs.some((candidate) => candidate.key === key)
+      );
+      if (at >= 0) update(closeTab(current, at, key));
+    });
   };
 
   const openDocument = (document: DocumentRow) => {
@@ -296,7 +369,24 @@ export function Workspace(
                   index === pane ? { ...item, selected: key } : item
                 ),
               })}
-            onClose={(pane, key) => update(closeTab(view, pane, key))}
+            onClose={close}
+            onOpenTerminal={terminal ? openTerminal : undefined}
+            renderTab={terminal
+              ? (tab, active) =>
+                tab.kind === "terminal"
+                  ? (
+                    <TerminalTab
+                      key={tab.key}
+                      tabKey={tab.key}
+                      project={projectId}
+                      folderRef={tab.folder ?? null}
+                      active={active}
+                      deps={terminal}
+                      onStarted={(info) => terminalStarted(tab.key, info)}
+                    />
+                  )
+                  : null
+              : undefined}
             onFocus={(pane) => update({ ...view, focusedPane: pane })}
             onMove={(key, toPane) => update(moveTab(view, key, toPane))}
             onRatio={(ratio) => update({ ...view, splitRatio: ratio })}

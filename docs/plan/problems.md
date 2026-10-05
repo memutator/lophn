@@ -109,7 +109,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: apps
 - 선행: problems#T3, contracts#T35, apps#T11
 - T3에서 넘어온 것: collector가 redaction을 통과한 보고 text·details를 blob 준비해 Report.text·details에 싣는다(#216은 blob 준비 권한이 없어 null로 둔다)
-- 상태: 완료 (#243) — 이어보냄: collector process는 별도 process라 core.prepareBlob을 직접 부르지 못하고(childMessageSchema에 blob.prepare op가 없다) text·details·stack blob 준비가 이유를 남기고 null이다(childMessage 통로 추가) → platform, product 시작이 collector worker route target을 연결하지 않으면 503이다(worker route target 연결) → problems#T5
+- 상태: 완료 (#243) — blob 준비 통로(child→core `blob_prepare_request`)와 collector의 text·details·stack 준비는 platform blob 준비 통로 PR(#PRNUM)에서 끝냈다. 이어보냄: product 시작이 collector worker route target을 연결하지 않으면 503이다(worker route target 연결) → problems#T5
 - 완료:
   - `fingerprint_test.ts`: 같은 함수에서 줄·열·message·업무 값만 바꾼 오류는 같은 지문, 다른 상위 앱 위치는 다른 지문; 절대 path·SDK·runtime frame 제외; 앱 frame 0개면 Report ID discriminator로 같은 TypeError 2개가 합쳐지지 않는다(grouping#R2, R3)
   - `_invalid_report`는 안전한 잘못된 code로 묶고, 안전하지 않으면 원래 Report ID로 나눈다(grouping#R4)

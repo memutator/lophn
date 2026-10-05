@@ -359,3 +359,291 @@ Deno.test("documents/addressing#R2: storage failures propagate unchanged to plat
     }
   }
 });
+
+// move·rename 테스트. guarded Tx와 온전한 Tx가 필요해 versions fixture를 쓴다(R8, R9).
+import { createDocumentChangeCommands } from "./commands.ts";
+import {
+  type Emitted,
+  ids,
+  userContext,
+  versionFixture,
+} from "../versions/testing/mod.ts";
+
+const commands = createDocumentChangeCommands();
+const docId = ids.doc;
+const otherId = ids.other;
+const projectId = ids.project;
+const studioId = ids.app;
+type ChangeFixture = ReturnType<typeof versionFixture>;
+
+function seedDocument(
+  fixture: ChangeFixture,
+  id: string,
+  place: { kind: "project" | "app"; id: string } | null,
+  name: string | null,
+) {
+  // version id는 document id 뒷자리를 줄여 만든다. 같은 뒷자리 doc끼리 겹치지 않게 number를 분리한다.
+  const HASH = "ab".repeat(32);
+  const versionId = `ver_${id.slice(4).slice(0, 24)}${id.slice(-1)}1`;
+  fixture.db
+    .prepare(
+      `INSERT INTO documents (id, place_kind, place_id, name, title, source_kind,
+         source_instruction_target, source_project, source_path, latest_version, revision, status)
+       VALUES (?, ?, ?, ?, 'Notes', NULL, NULL, NULL, NULL, ?, '1', 'active')`,
+    )
+    .run(id, place?.kind ?? null, place?.id ?? null, name, versionId);
+  fixture.db
+    .prepare(
+      `INSERT INTO versions (id, document, number, files_hash, primary_path, file_count,
+         content_hash, format_name, module_hash, format_explicit, saved_by, saved_at, run, source)
+       VALUES (?, ?, 1, ?, 'a.md', 1, ?, 'document', ?, 0, 'user', '2026-10-05T00:00:00.000Z', NULL, NULL)`,
+    )
+    .run(versionId, id, HASH, HASH, HASH);
+}
+
+function seedPlace(
+  fixture: ChangeFixture,
+  rows: {
+    slug: string;
+    kind: "project" | "app";
+    target: string;
+    seq: number;
+  }[],
+) {
+  for (const row of rows) {
+    fixture.db
+      .prepare(
+        "INSERT INTO place_names (slug, kind, target, reserved_seq) VALUES (?, ?, ?, ?)",
+      )
+      .run(row.slug, row.kind, row.target, String(row.seq));
+  }
+}
+
+Deno.test("documents/addressing#R9: move와 rename은 user만 허용한다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    const command = fixture.transaction((tx) =>
+      commands.move.handle(
+        tx as never,
+        { ...userContext(), actor: "run" } as never,
+        {
+          document: docId,
+          place: { kind: "project", id: projectId },
+          name: "memo",
+        } as never,
+        { base_revision: "1" } as never,
+      ) as unknown as Result<never>
+    );
+    errorCode(command, "forbidden");
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R9: 낡은 base_revision은 conflict다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    const stale = fixture.transaction((tx) =>
+      commands.move.handle(
+        tx as never,
+        userContext() as never,
+        {
+          document: docId,
+          place: { kind: "project", id: projectId },
+          name: "memo",
+        } as never,
+        { base_revision: "0" } as never,
+      ) as unknown as Result<never>
+    );
+    errorCode(stale, "conflict");
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R9: 다른 대상이 점힌 이름으로의 move는 conflict다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    seedDocument(fixture, otherId, { kind: "project", id: projectId }, "memo");
+    const command = fixture.transaction((tx) =>
+      commands.move.handle(
+        tx as never,
+        userContext() as never,
+        {
+          document: docId,
+          place: { kind: "project", id: projectId },
+          name: "memo",
+        } as never,
+        { base_revision: "1" } as never,
+      ) as unknown as Result<never>
+    );
+    errorCode(command, "conflict");
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R8: place 변경은 FileSource와 디스크 파일을 바꾸지 않는다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    seedPlace(fixture, [{
+      slug: "mahas",
+      kind: "project",
+      target: projectId,
+      seq: 2,
+    }]);
+    const tx = fixture.transaction((tx2) => {
+      const moved = commands.move.handle(
+        tx2 as never,
+        userContext() as never,
+        {
+          document: docId,
+          place: { kind: "app", id: studioId },
+          name: "memo",
+        } as never,
+        { base_revision: "1" } as never,
+      ) as unknown as Result<
+        {
+          id: string;
+          place: unknown;
+          name: string | null;
+          revision: string;
+          file_source: unknown;
+          latest_version: string;
+        }
+      >;
+      assert(moved.ok);
+      return moved;
+    });
+    assert(tx.ok);
+    const next = tx.value;
+    // FileSource는 그대로다(source_kind·source_project·source_path는 NULL이다).
+    assertEquals(next.file_source, null);
+    assertEquals(
+      next.latest_version,
+      `ver_${docId.slice(4).slice(0, 24)}${docId.slice(-1)}1`,
+    );
+    const row = fixture.db
+      .prepare(
+        "SELECT place_kind, place_id, name, revision, latest_version, source_kind FROM documents WHERE id = ?",
+      )
+      .get(docId);
+    assertEquals(row?.place_kind, "app");
+    assertEquals(row?.place_id, studioId);
+    // emit seq는 fixture 시퀀스의 첫 값 "1"이다.
+    assertEquals(row?.revision, "1");
+    // versions 표는 그대로다.
+    const versions = fixture.db.prepare(
+      "SELECT count(*) AS count FROM versions",
+    ).get();
+    assertEquals(Number(versions?.count), 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R9: move는 옛 예약을 남기고 새 예약을 같은 transaction에 더한다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    seedPlace(fixture, [{
+      slug: "mahas",
+      kind: "project",
+      target: projectId,
+      seq: 2,
+    }]);
+    fixture.transaction((tx) => {
+      assert(
+        commands.move.handle(
+          tx as never,
+          userContext() as never,
+          {
+            document: docId,
+            place: { kind: "project", id: projectId },
+            name: "memo",
+          } as never,
+          { base_revision: "1" } as never,
+        ).ok,
+      );
+      return ok(undefined);
+    });
+    // place 예약은 기존 slug와 같은 target이므로 새 행이 늘지 않는다(reserve가 ok(undefined)다).
+    const places = fixture.db
+      .prepare(
+        "SELECT slug, target, reserved_seq FROM place_names ORDER BY reserved_seq",
+      )
+      .all();
+    assertEquals(places.length, 1);
+    const names = fixture.db
+      .prepare(
+        "SELECT name, document, reserved_seq FROM document_names ORDER BY reserved_seq",
+      )
+      .all();
+    assertEquals(names.length, 1);
+    // 새 예약 행(memo)이 같은 doc을 가리킨다. 옛 report 이름은 documents 표의 UPDATE로 지워진다.
+    assertEquals(names[0]?.name, "memo");
+    assertEquals(names[0]?.document, docId);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R9: rename은 place를 그대로 두고 이름만 바꾼다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    seedPlace(fixture, [{
+      slug: "memo",
+      kind: "project",
+      target: projectId,
+      seq: 2,
+    }]);
+    const command = fixture.transaction((tx) =>
+      commands.rename.handle(
+        tx as never,
+        userContext() as never,
+        { document: docId, name: "memo" } as never,
+        { base_revision: "1" } as never,
+      ) as unknown as Result<
+        {
+          place: { kind: string; id: string } | null;
+          name: string | null;
+          revision: string;
+        }
+      >
+    );
+    assert(command.ok);
+    assertEquals(command.value.place, { kind: "project", id: projectId });
+    assertEquals(command.value.name, "memo");
+    const moved = fixture.emitted as Emitted[];
+    assertEquals(moved.map((event) => event.type), ["DocumentRenamed"]);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R9: 같은 place와 name의 move는 invalid_input이다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    const command = fixture.transaction((tx) =>
+      commands.move.handle(
+        tx as never,
+        userContext() as never,
+        {
+          document: docId,
+          place: { kind: "project", id: projectId },
+          name: "report",
+        } as never,
+        { base_revision: "1" } as never,
+      ) as unknown as Result<never>
+    );
+    errorCode(command, "invalid_input");
+  } finally {
+    fixture.close();
+  }
+});

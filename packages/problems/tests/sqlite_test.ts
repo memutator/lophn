@@ -9,7 +9,7 @@ import {
 } from "./reads.ts";
 import { loadRecords } from "./records.ts";
 import { canonicalJson } from "./canonical.ts";
-import { fileLedger } from "./sqlite-support.ts";
+import { fileLedger } from "./testing/mod.ts";
 import { ctx } from "./support.ts";
 import {
   accept,

@@ -476,6 +476,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - 이름·MIME 목록·template·guide·FormatRef만 담고 검사 코드는 넣지 않는다. 검사는 격리된 `/v1/formats/validate`만 한다
   - FormatRef의 module_hash가 documents#T4의 `/v1/formats/get` 결과와 같다는 테스트
   - pdf·image·data는 원문 format이라 Package를 만들지 않는다(documents 팀 추천, 그 팀 질문 Q10에 올라가 있다)
+- 상태: 완료 (#184)
 
 ## slice: operations
 

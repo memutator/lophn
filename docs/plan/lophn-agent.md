@@ -276,6 +276,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T14 OpenAI Responses·Chat Completions adapter
 
 - 등급: 기본
+- 상태: 완료 (#227)
 - concern: lophn-agent/harness/provider
 - 요구: lophn-agent/harness/provider#R3, R25
 - 자리: packages/lophn-agent/harness/provider/ (adapters/responses.ts, adapters/chat-completions.ts, adapters/compat.ts)

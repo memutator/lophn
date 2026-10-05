@@ -8,7 +8,7 @@ import {
   preparedInput,
   userContext,
   versionFixture,
-} from "./testing-fixture.ts";
+} from "./testing/mod.ts";
 
 const commands = createVersionCommands();
 const HASH = "ab".repeat(32);

@@ -6,7 +6,7 @@ import {
 } from "./commands.ts";
 import { handleRecordVerification } from "./record.ts";
 import { blob, executed, requester } from "./fixtures.ts";
-import { reproductionSetup } from "./reproduction-fixtures.ts";
+import { reproductionSetup } from "./testing/reproduction.ts";
 Deno.test("problems/tests#R5: file SQLite 모든 표 PK·unique replacement와 upsert는 immutable", () => {
   const {
     ledger,

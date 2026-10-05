@@ -149,7 +149,7 @@ function teamRegistration(team: TeamModule): Loose | undefined {
     return { commands, ports, blobFields };
   }
   const value = direct ?? fromLedger ?? team.codingAgentConnectionDefinitions ??
-    team.lophnAgentDefinitions;
+    team.lophnAgentDefinitions ?? team.ticketDefinitions;
   if (!value || typeof value !== "object") return undefined;
   return value as Loose;
 }

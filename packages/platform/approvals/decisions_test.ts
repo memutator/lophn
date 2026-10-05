@@ -12,10 +12,6 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { confirmationBinding } from "../identity/mod.ts";
 import {
-  REJECTION_WITHOUT_REASON_HASH,
-  REJECTION_WITHOUT_REASON_TEXT,
-} from "./commands.ts";
-import {
   APP,
   APPROVAL,
   create,
@@ -285,12 +281,8 @@ Deno.test("platform/approvals#R14 #R15: 거절은 이유 없이도 하고 이유
       ),
     );
     assertEquals(none["status"], "rejected");
-    // 저장 request는 고정한 "이유 없음" 글의 hash를 갖고, 사람이 이유를 적지 않았다는 사실은 event에 남는다.
-    assertEquals(
-      await sha256Hex(REJECTION_WITHOUT_REASON_TEXT),
-      REJECTION_WITHOUT_REASON_HASH,
-    );
-    assertEquals(none["closed_reason_blob"], REJECTION_WITHOUT_REASON_HASH);
+    // 이유를 적지 않았으면 가짜 참조 없이 null이다. request와 event가 같다.
+    assertEquals(none["closed_reason_blob"], null);
     const noReasonEvent = value(
       await harness.inspect(
         "select payload from events where type = 'ApprovalRequestRejected' order by seq limit 1",

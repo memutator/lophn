@@ -55,13 +55,6 @@ export const EXPIRY_REASON_TEXT = "expired";
 export const EXPIRY_REASON_HASH =
   "fa64ea1e82e1206f828ab2a02917c7e92accb98e3b95881a1b4ad52b914b66e3";
 
-// 이유 없이 거절한 request는 machine이 고정한 글 "rejected"의 sha256을 닫힌 이유로 저장한다.
-// contract의 ApprovalRequest는 거절·만료·취소에 닫힌 이유를 요구한다. 사람이 이유를 적지
-// 않았다는 사실은 ApprovalRequestRejected event의 `closed_reason_blob: null`이 그대로 보인다(R14).
-export const REJECTION_WITHOUT_REASON_TEXT = "rejected";
-export const REJECTION_WITHOUT_REASON_HASH =
-  "20cd938a2ea64f612b3523bc9219130c6fc66cd09b394ea38437488c0b8898b2";
-
 function seqText(value: bigint | number): string {
   return typeof value === "bigint" ? value.toString() : String(value);
 }
@@ -386,7 +379,7 @@ function closeRequest(
       binding_hash: closing.bindingHash,
     });
   } else if (closing.kind === "rejected") {
-    reasonHash = closing.reason ?? REJECTION_WITHOUT_REASON_HASH;
+    reasonHash = closing.reason;
     closed = tx.emit(approvalRequestRejected, row.id, {
       created_seq: createdSeq,
       closed_reason_blob: closing.reason,

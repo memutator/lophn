@@ -489,6 +489,7 @@ concerns: [shell]
 
 ### T25 터미널 탭 화면
 
+- 상태: 완료 (#235). E2E가 찾은 T24 결함 둘(묶인 host의 node-pty 불러오기, 닫기 종료 확인 대기)을 함께 고쳤다. 제품 경로의 등록 폴더 read와 host 재기동은 Q12.
 - 등급: frontend
 - concern: shell/terminal, shell/workspace
 - 요구: shell/terminal#R1(폴더 선택), R6, R7(다시 보이기), R9(종료 표시와 다시 시작), R10(닫기 확인), R11(xterm handler), shell/workspace#R1(터미널 탭), R7(종료 자리표시)

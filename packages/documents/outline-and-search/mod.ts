@@ -51,6 +51,9 @@ export type {
   ContextOutlineItem,
   ContextOutlineRecord,
   ContextOutlineSource,
+  TermGlossaryEvidence,
+  TermGlossaryItem,
+  TermGlossarySource,
 } from "./types.ts";
 export { allowCandidate, candidateDocuments } from "./candidates.ts";
 export { createSeriesOutlineRead } from "./series-outline.ts";

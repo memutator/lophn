@@ -416,6 +416,25 @@ export function createAssignmentCommands(): {
           return reject("conflict", "assignment revision changed");
         }
         const createdAt = tx.now();
+        // 새 주기는 적용 시각보다 미래에서 시작한다. 지난 회차를 다시 처리하지 않는다
+        // (scheduling#R7).
+        const before = creating
+          ? undefined
+          : loadDefinition(tx, input.id, existing!.revision);
+        if (!creating && before === undefined) {
+          return reject("not_found", "assignment revision is missing");
+        }
+        const scheduleChanged = before === undefined ||
+          bundleScheduleChanged(before.definition, definition);
+        if (
+          scheduleChanged && definition.schedule !== null &&
+          definition.schedule.first_at <= createdAt
+        ) {
+          return reject(
+            "invalid_input",
+            "a new schedule must start after the approval is applied",
+          );
+        }
         if (creating) {
           tx.emit(assignmentCreated, input.id, {
             revision: 1,
@@ -426,22 +445,15 @@ export function createAssignmentCommands(): {
             approval: input.approval,
           });
         } else {
-          const before = loadDefinition(tx, input.id, existing!.revision);
-          if (before === undefined) {
-            return reject("not_found", "assignment revision is missing");
-          }
           tx.emit(assignmentChanged, input.id, {
             before: existing!.revision,
             after: existing!.revision + 1,
-            before_hash: before.definition_hash,
+            before_hash: before!.definition_hash,
             after_hash: hash,
             preset: input.bundle.preset,
             preset_revision: input.bundle.preset_revision,
             approval: input.approval,
-            schedule_changed: bundleScheduleChanged(
-              before.definition,
-              definition,
-            ),
+            schedule_changed: scheduleChanged,
           });
         }
         if (creating) {
@@ -455,14 +467,19 @@ export function createAssignmentCommands(): {
           );
         } else {
           // 생성·변경과 선언 표 갱신은 같은 transaction이다(domain model ledger 표).
+          // 책임·상태만 바뀌면 처리한 예정 시점을 유지하고 주기를 바꿀 때만 새로
+          // 계산한다. paused 상태는 이 적용으로 풀리지 않는다(scheduling#R7).
           tx.sql.run(
             `update assignments set preset_id = ?, preset_revision = ?,
-               approval = ?, revision = ? where id = ?`,
+               approval = ?, revision = ?,
+               last_due_at = case when ? then null else last_due_at end
+             where id = ?`,
             [
               definition.preset,
               definition.preset_revision,
               input.approval,
               existing!.revision + 1,
+              scheduleChanged ? 1 : 0,
               input.id,
             ],
           );

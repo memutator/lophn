@@ -73,3 +73,35 @@ export type ContextOutlineSource = {
   active(): Result<readonly ContextOutlineRecord[]>;
   get(contextId: string): Result<ContextOutlineRecord | null>;
 };
+
+// context 목차의 glossary 근원. documents/terms의 읽기(createTermGlossarySource)가 주는
+// 활성 정의와 후보를 주입해 받는다. 이름 순으로 처음 limit개씩이고 근거에는 문서
+// 위치를 붙여 목차가 권한 밖 문서의 근거를 뺀다. 근원이 없으면 목차는 용어를 싣지 않는다.
+export type TermGlossaryEvidence = {
+  document: string;
+  version: string;
+  section: string | null;
+  start_line: number | null;
+  end_line: number | null;
+  place: { kind: "project" | "app"; id: string } | null;
+};
+
+export type TermGlossaryItem = {
+  id: string;
+  context: string;
+  name: string;
+  definition: string | null;
+  revision: string;
+  status: "active" | "archived";
+  evidence: readonly TermGlossaryEvidence[];
+};
+
+export type TermGlossarySource = {
+  get(
+    contextId: string,
+    limit: number,
+  ): Result<{
+    definitions: readonly TermGlossaryItem[];
+    candidates: readonly TermGlossaryItem[];
+  }>;
+};

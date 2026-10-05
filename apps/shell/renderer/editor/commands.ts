@@ -99,7 +99,11 @@ export function setHeading(level: number): StateCommand {
       });
     }
     dispatch(
-      state.update({ changes, scrollIntoView: true, userEvent: "input.format" }),
+      state.update({
+        changes,
+        scrollIntoView: true,
+        userEvent: "input.format",
+      }),
     );
     return true;
   };

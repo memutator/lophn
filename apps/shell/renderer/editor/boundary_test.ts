@@ -7,7 +7,10 @@ async function sources(directory: URL): Promise<URL[]> {
   const found: URL[] = [];
   for await (const entry of Deno.readDir(directory)) {
     if (entry.name === "node_modules" || entry.name === "dist") continue;
-    const url = new URL(`${entry.name}${entry.isDirectory ? "/" : ""}`, directory);
+    const url = new URL(
+      `${entry.name}${entry.isDirectory ? "/" : ""}`,
+      directory,
+    );
     if (entry.isDirectory) found.push(...await sources(url));
     else if (/\.(ts|tsx|json)$/.test(entry.name)) found.push(url);
   }

@@ -8,7 +8,8 @@ import { readingWidthStore } from "../editor/reading-width.ts";
 export interface DevSeed {
   readonly project: string;
   readonly source: WorkspaceSource;
-  readonly editor: EditorDeps;
+  /** 문서 탭 통로. 메뉴는 창의 overlay를 그대로 쓴다. */
+  readonly editor: Omit<EditorDeps, "menu">;
 }
 
 const NOTES = [
@@ -42,7 +43,7 @@ const SEED_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> = {
       path: "docs/notes.md",
       version: "ver_notes",
       versionNumber: 3,
-      savedAt: Date.parse("2026-10-05T09:00:00Z"),
+      savedAt: Date.now() - 2 * 60 * 60 * 1000,
     },
     text: NOTES,
   },
@@ -54,13 +55,13 @@ const SEED_DOCUMENTS: Record<string, { info: DocumentInfo; text: string }> = {
       path: "docs/plan.md",
       version: "ver_plan",
       versionNumber: 1,
-      savedAt: Date.parse("2026-10-04T09:00:00Z"),
+      savedAt: Date.now() - 26 * 60 * 60 * 1000,
     },
     text: "# Plan\n\nOne step at a time.",
   },
 };
 
-function seededEditor(): EditorDeps {
+function seededEditor(): Omit<EditorDeps, "menu"> {
   let width: unknown = null;
   let revision = 0;
   return {
@@ -122,7 +123,6 @@ function seededEditor(): EditorDeps {
         return Promise.resolve({ ok: true, revision });
       },
     }),
-    menu: { open: () => Promise.resolve("unavailable") },
   };
 }
 

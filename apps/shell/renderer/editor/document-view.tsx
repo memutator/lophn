@@ -26,7 +26,7 @@ import {
   MarkdownEditor,
   type MarkdownEditorHandle,
 } from "./markdown-editor.tsx";
-import { type HeadingTop, stickyHead, type StickyHead } from "./model.ts";
+import { type HeadingTop, type StickyHead, stickyHead } from "./model.ts";
 import type { EditorProblem } from "./problems-gutter/problems.ts";
 import type { LinkTarget } from "./link-picker/link-picker.ts";
 import type { ReadingWidthStore } from "./reading-width.ts";
@@ -244,7 +244,9 @@ export function DocumentView(
     const top = headingTops().find((item, at) =>
       at === index && item.title === section.title
     )?.top;
-    if (top !== undefined) scroller.scrollTop = Math.max(0, top - STICKY_HEIGHT);
+    if (top !== undefined) {
+      scroller.scrollTop = Math.max(0, top - STICKY_HEIGHT);
+    }
   };
 
   const openLink = (href: string) => {
@@ -354,9 +356,9 @@ export function DocumentView(
                 title: section.title,
                 level: section.level,
               }))}
-              activeId={sections.find((section) =>
+              activeId={(sections.find((section) =>
                 section.title === sticky.section
-              )?.key}
+              ) ?? sections[0])?.key}
               onSelect={goToSection}
             />
           )

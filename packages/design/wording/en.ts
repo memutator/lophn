@@ -82,7 +82,8 @@ export const en = {
   "document.empty.no-links": "No documents match.",
   "document.error.load-failed": "Couldn't load this document.",
   "document.error.text-hidden": "This document's text is hidden here.",
-  "document.error.text-unreadable": "This document's text couldn't be read yet.",
+  "document.error.text-unreadable":
+    "This document's text couldn't be read yet.",
   "document.error.text-unsupported": "This document has no text to show here.",
   "document.error.width-failed": "Couldn't keep the reading width. Try again.",
   "document.label.find": "Find in document",

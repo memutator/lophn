@@ -99,7 +99,9 @@ Deno.test("shell/editor#R10: 코드 블록 줄은 고정폭 class만 받고 문�
 Deno.test("shell/editor#R10: 인용·task·목록·규칙은 각자의 모양으로 바뀐다", () => {
   const doc = "> quote\n\n- [x] done\n- item\n\n---\n\nend";
   const spans = previewSpans(stateOf(doc));
-  assert(spans.some((span) => span.kind === "line" && span.cls === "cm-lp-quote"));
+  assert(
+    spans.some((span) => span.kind === "line" && span.cls === "cm-lp-quote"),
+  );
   const task = spans.find((span) => span.kind === "task");
   assertEquals(task?.kind === "task" ? task.checked : null, true);
   assert(spans.some((span) => span.kind === "bullet"));
@@ -119,7 +121,7 @@ Deno.test("shell/editor#R10: 그림은 밖에서 통째로 바뀌고 안에서�
 });
 
 Deno.test("shell/editor#R10: frontmatter는 key/value 두 열 block이고 커서가 들어가면 원문이다", () => {
-  const doc = "---\ntitle: \"Plan\"\ntags:\n  - a\n  - b\n---\n\n# Body";
+  const doc = '---\ntitle: "Plan"\ntags:\n  - a\n  - b\n---\n\n# Body';
   const range = frontmatterRange(stateOf(doc).doc);
   assertEquals(range, { from: 0, to: doc.indexOf("---", 4) + 3 });
   assertEquals(

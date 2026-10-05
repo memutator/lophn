@@ -297,7 +297,11 @@ function editorDeps(): EditorDeps {
           },
         }),
       body: (_id, _version, onPage) => {
-        const state = { kind: "text", text: "# Notes", complete: true } as const;
+        const state = {
+          kind: "text",
+          text: "# Notes",
+          complete: true,
+        } as const;
         onPage(state);
         return Promise.resolve(state);
       },

@@ -8,6 +8,7 @@ import styles from "./entry.module.css";
 
 const seed = devSeed();
 const core = windowCoreSource();
+const editor = windowEditorDeps(core);
 
 mount(
   <div className={styles.root}>
@@ -15,7 +16,7 @@ mount(
       source={core}
       initial={seed ? openProject(seed.project) : undefined}
       workspace={seed?.source}
-      editor={seed?.editor ?? windowEditorDeps(core)}
+      editor={seed ? { ...editor, ...seed.editor } : editor}
       windowWidth={seed ? 1440 : undefined}
     />
   </div>,

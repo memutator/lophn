@@ -9,8 +9,8 @@ import type { LinkTarget } from "./link-picker/link-picker.ts";
 import {
   documentAddress,
   fileNameOf,
-  joinPage,
   type JoinedBody,
+  joinPage,
 } from "./model.ts";
 import type {
   BodyState,
@@ -134,7 +134,9 @@ export function coreEditorSource(core: CoreSource): EditorSource {
         "get",
         { document: id },
       );
-      return result.ok ? { ok: true, value: documentInfo(result.value) } : result;
+      return result.ok
+        ? { ok: true, value: documentInfo(result.value) }
+        : result;
     },
 
     async body(document, version, onPage) {

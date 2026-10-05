@@ -2,8 +2,8 @@
 // ReadingWidthSetting interface로만 읽고 쓴다. localStorage를 따로 정본으로 두지 않는다.
 import {
   DEFAULT_READING_WIDTH,
-  readingWidthOf,
   type ReadingWidth,
+  readingWidthOf,
   type ReadingWidthSetting,
 } from "@lophn/design/components";
 
@@ -78,7 +78,10 @@ export function coreSettingsPort(
       if (!reply.ok) {
         return { ok: false, conflict: reply.error?.code === "conflict" };
       }
-      return { ok: true, revision: (reply.value as ApplyReply).result.revision };
+      return {
+        ok: true,
+        revision: (reply.value as ApplyReply).result.revision,
+      };
     },
   };
 }

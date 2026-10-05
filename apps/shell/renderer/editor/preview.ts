@@ -27,7 +27,13 @@ export type Span =
 
 /** 통째로 그리는 block. CodeMirror는 block decoration을 state에서만 받는다. */
 export type Block =
-  | { kind: "table"; from: number; to: number; rows: string[][]; align: Align[] }
+  | {
+    kind: "table";
+    from: number;
+    to: number;
+    rows: string[][];
+    align: Align[];
+  }
   | {
     kind: "frontmatter";
     from: number;
@@ -201,7 +207,11 @@ export function previewSpans(
           cls: INLINE_STYLE[name]!,
         });
         const active = touches(ranges, node.from, node.to);
-        for (let child = node.node.firstChild; child; child = child.nextSibling) {
+        for (
+          let child = node.node.firstChild;
+          child;
+          child = child.nextSibling
+        ) {
           if (INLINE_MARK.has(child.name)) {
             hideOrMute(active, child.from, child.to);
           }
@@ -286,6 +296,8 @@ export function previewSpans(
         const mark = node.node.getChild("ListMark");
         if (!mark) return;
         const line = lineOf(mark.from);
+        // 읽기 목록과 같은 들임이다. 중첩은 원문 들임이 더한다.
+        spans.push({ kind: "line", from: line.from, cls: "cm-lp-list" });
         const active = touches(ranges, line.from, line.to);
         const task = node.node.getChild("Task")?.getChild("TaskMarker") ?? null;
         if (task && !active) {

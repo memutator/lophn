@@ -259,9 +259,9 @@ export function Workspace(
     tooltips[key] = (
       <span className={styles.tabTip}>
         <span>{meta.title}</span>
-        {meta.path === null ? null : (
-          <span className={styles.tabTipPath}>{meta.path}</span>
-        )}
+        {meta.path === null
+          ? null
+          : <span className={styles.tabTipPath}>{meta.path}</span>}
       </span>
     );
   }

@@ -3,11 +3,7 @@ import { test } from "node:test";
 
 import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
 
-import {
-  isAllowed,
-  lookupCall,
-  READING_WORKER_ROUTES,
-} from "./allowlist.ts";
+import { isAllowed, lookupCall, READING_WORKER_ROUTES } from "./allowlist.ts";
 
 test("shell/desktop#R19: renderer allowlist는 contract의 read·command와 문서 읽기 worker만 담는다", () => {
   let reads = 0;

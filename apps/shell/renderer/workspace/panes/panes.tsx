@@ -13,10 +13,10 @@ import {
   BREAKPOINT_MD,
   type PaneState,
   ratioFromDrag,
-  type TabItem,
   SPLIT_EQUAL,
   splitLayout,
   TAB_KIND_LABEL,
+  type TabItem,
   type WorkspaceView,
 } from "../model.ts";
 import { startPointerDrag } from "../drag.ts";

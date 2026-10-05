@@ -2,8 +2,8 @@ import { assertEquals } from "@std/assert";
 
 import {
   escapeLinkTitle,
-  type LinkTarget,
   linkRows,
+  type LinkTarget,
   linkText,
   rowAt,
   triggerAt,

@@ -123,11 +123,13 @@ export function StickyHeadBar({ title, section }: StickyHeadBarProps) {
   return (
     <div className={styles.sticky} data-sticky-head="" aria-hidden="true">
       <span className={styles.stickyTitle}>{title}</span>
-      {section === null ? null : (
-        <span className={styles.stickySection} data-sticky-section="">
-          {section}
-        </span>
-      )}
+      {section === null
+        ? null
+        : (
+          <span className={styles.stickySection} data-sticky-section="">
+            {section}
+          </span>
+        )}
     </div>
   );
 }

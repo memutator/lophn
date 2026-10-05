@@ -68,7 +68,9 @@ export function escapeLinkTitle(title: string): string {
 }
 
 /** 고른 문서가 문서에 들어갈 글. */
-export function linkText(target: Pick<LinkTarget, "address" | "title">): string {
+export function linkText(
+  target: Pick<LinkTarget, "address" | "title">,
+): string {
   return `[${escapeLinkTitle(target.title)}](${target.address})`;
 }
 

@@ -27,7 +27,9 @@ export function ProblemList({ problems, onSelect }: ProblemListProps) {
               data-severity={problem.severity}
               disabled={problem.line === null}
               onClick={() => {
-                if (problem.line !== null) onSelect(problem.line);
+                if (problem.line !== null) {
+                  onSelect(problem.line);
+                }
               }}
             >
               <Icon

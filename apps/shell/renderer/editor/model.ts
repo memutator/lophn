@@ -16,7 +16,10 @@ export interface JoinedBody {
  * documents.read page를 이어 붙인다. page 안 줄은 "\n"으로 붙어 온다. 긴 한 줄이 page
  * 경계에서 잘리면 다음 page는 같은 줄에서 이어지므로 줄바꿈 없이 붙인다.
  */
-export function joinPage(previous: JoinedBody | null, page: BodyPage): JoinedBody {
+export function joinPage(
+  previous: JoinedBody | null,
+  page: BodyPage,
+): JoinedBody {
   const first = page.ranges[0]?.start_line ?? null;
   const last = page.ranges.at(-1)?.end_line ?? previous?.lastLine ?? null;
   if (previous === null) return { text: page.text, lastLine: last };

@@ -1,11 +1,6 @@
 import { assertEquals } from "@std/assert";
 
-import {
-  documentAddress,
-  fileNameOf,
-  joinPage,
-  stickyHead,
-} from "./model.ts";
+import { documentAddress, fileNameOf, joinPage, stickyHead } from "./model.ts";
 
 Deno.test("shell/editor#R4: 탭 제목은 상대 경로의 파일 이름이다", () => {
   assertEquals(fileNameOf("docs/plan/shell.md"), "shell.md");

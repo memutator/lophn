@@ -9,7 +9,7 @@ import {
   style,
 } from "../../../../packages/design/components/testing.ts";
 
-import { DocumentView, type DocumentTabMeta } from "./document-view.tsx";
+import { type DocumentTabMeta, DocumentView } from "./document-view.tsx";
 import type { MenuChoice, MenuOpener } from "./document-menu.ts";
 import { readingWidthStore, type SettingsPort } from "./reading-width.ts";
 import type {
@@ -224,7 +224,10 @@ Deno.test("shell/editor#R9: 편집 mode는 머리 버튼과 커서만 바뀌고 
   );
   assertEquals(style(root).backgroundColor, background);
   const cm = one(rendered.container, ".cm-editor");
-  assertEquals(style(cm).borderTopWidth === "" || style(cm).borderTopWidth === "0px", true);
+  assertEquals(
+    style(cm).borderTopWidth === "" || style(cm).borderTopWidth === "0px",
+    true,
+  );
   assertEquals(
     ["transparent", "rgba(0, 0, 0, 0)", ""].includes(style(cm).backgroundColor),
     true,
@@ -273,15 +276,20 @@ Deno.test("shell/editor#R8: 편집한 초안은 읽기로 돌아와도 보이고
   );
   ctrlE(root);
   await flush();
-  assert(one(rendered.container, "[data-document-body]").textContent?.includes(
-    "Added line.",
-  ));
+  assert(
+    one(rendered.container, "[data-document-body]").textContent?.includes(
+      "Added line.",
+    ),
+  );
 
   using partial = view({
     source: sourceOf({ body: { kind: "text", text: "# A", complete: false } }),
   });
   await flush();
-  const toggle = one(partial.container, "[data-edit-toggle]") as HTMLButtonElement;
+  const toggle = one(
+    partial.container,
+    "[data-edit-toggle]",
+  ) as HTMLButtonElement;
   assertEquals(toggle.disabled, true);
   ctrlE(one(partial.container, "[data-document-view]"));
   await flush();
@@ -416,7 +424,10 @@ Deno.test("shell/editor#R8: 글을 줄 수 없는 문서와 읽기 실패는 이
   using failed = view({ source: failing });
   await flush();
   const state = one(failed.container, "[data-state='error']");
-  assertEquals(state.textContent?.includes("Couldn't load this document."), true);
+  assertEquals(
+    state.textContent?.includes("Couldn't load this document."),
+    true,
+  );
   click(one(state, "button"));
   await flush();
   assertEquals(failing.reads.length, 2);

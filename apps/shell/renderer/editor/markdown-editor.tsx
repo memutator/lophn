@@ -32,8 +32,8 @@ import {
 } from "./find/find.ts";
 import { FindBar } from "./find/find-bar.tsx";
 import {
-  type LinkTarget,
   linkRows,
+  type LinkTarget,
   linkText,
   rowAt,
   type Trigger,

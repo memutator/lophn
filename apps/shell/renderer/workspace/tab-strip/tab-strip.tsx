@@ -198,9 +198,9 @@ export function TabStrip(
               )}
             </div>
           );
-          return tooltip === undefined ? element : (
-            <Tooltip key={tab.key} content={tooltip}>{element}</Tooltip>
-          );
+          return tooltip === undefined
+            ? element
+            : <Tooltip key={tab.key} content={tooltip}>{element}</Tooltip>;
         })}
       </div>
       {end ? <div className={styles.end}>{end}</div> : null}

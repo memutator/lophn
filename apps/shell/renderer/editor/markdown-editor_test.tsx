@@ -32,6 +32,8 @@ const DOC = [
   "![missing](./local.png)",
 ].join("\n");
 
+const PROBLEM_DOC = ["# Title", "", "text", "", "more"].join("\n");
+
 function keydown(
   target: Element,
   key: string,
@@ -90,7 +92,7 @@ Deno.test("shell/editor#R10: 코드는 고정폭·muted 배경이고 인용 막�
   using view = render(<MarkdownEditor initialText={DOC} label="plan.md" />);
   await settle();
   const code = one(view.container, ".cm-lp-code");
-  assertEquals(style(code).fontFamily, "\"JetBrains Mono\", monospace");
+  assertEquals(style(code).fontFamily, '"JetBrains Mono", monospace');
   assertEquals(style(code).backgroundColor !== "", true);
   // 문법 강조 token class가 없다.
   assertEquals(view.container.querySelectorAll("[class*='tok-']").length, 0);
@@ -136,7 +138,7 @@ Deno.test("shell/editor#R10: 불러오는 그림 자리는 16:9 skeleton이다",
 Deno.test("shell/editor#R11: 형식 문제는 왼쪽 24px 여백에 14px 아이콘과 200px 목록으로 보이고 줄로 간다", async () => {
   using view = render(
     <MarkdownEditor
-      initialText={"# Title\n\ntext\n\nmore"}
+      initialText={PROBLEM_DOC}
       label="plan.md"
       problems={[
         { line: 3, message: "Broken link", severity: "warning" },
@@ -146,7 +148,10 @@ Deno.test("shell/editor#R11: 형식 문제는 왼쪽 24px 여백에 14px 아이�
   );
   await settle();
   const marker = one(view.container, ".cm-lp-problem[aria-label]");
-  assertEquals(marker.getAttribute("aria-label"), "Format problem: Broken link");
+  assertEquals(
+    marker.getAttribute("aria-label"),
+    "Format problem: Broken link",
+  );
   const gutterCell = marker.closest(".cm-gutterElement") as HTMLElement;
   assertEquals(style(gutterCell).width, "24px");
   const icon = one(marker, "svg");
@@ -165,7 +170,7 @@ Deno.test("shell/editor#R11: 형식 문제는 왼쪽 24px 여백에 14px 아이�
 
 Deno.test("shell/editor#R11: Mod-F는 36px 찾기 줄과 28px 입력을 열고 키보드로 일치를 오간다", async () => {
   using view = render(
-    <MarkdownEditor initialText={"cat dog cat"} label="pets.md" />,
+    <MarkdownEditor initialText="cat dog cat" label="pets.md" />,
   );
   await settle();
   const editor = one(view.container, "[data-markdown-editor]");
@@ -200,7 +205,7 @@ Deno.test("shell/editor#R11: Mod-F는 36px 찾기 줄과 28px 입력을 열고 �
 });
 
 Deno.test("shell/editor#R11: Mod-Alt-F는 바꾸기 줄을 함께 연다", async () => {
-  using view = render(<MarkdownEditor initialText={"a a"} label="a.md" />);
+  using view = render(<MarkdownEditor initialText="a a" label="a.md" />);
   await settle();
   keydown(one(view.container, "[data-markdown-editor]"), "f", {
     ctrlKey: true,
@@ -237,7 +242,10 @@ Deno.test("shell/editor#R11: `[[`는 320px popover에 32px 행으로 문서를 �
   const rows = [...picker.querySelectorAll("[data-link-row]")];
   assertEquals(rows.length, 2);
   assertEquals(style(rows[0]!).minHeight, "32px");
-  assertEquals(one(picker, "[role=listbox]").getAttribute("aria-label"), "Link to a document");
+  assertEquals(
+    one(picker, "[role=listbox]").getAttribute("aria-label"),
+    "Link to a document",
+  );
   const host = one(view.container, "[data-markdown-editor]");
   keydown(host, "ArrowDown");
   await settle();

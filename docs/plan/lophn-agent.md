@@ -172,7 +172,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T3, T5, contracts#T27, platform#T25
-- 상태: 진행 (#206) — 남은 것: 항목별 전체 검사(R11)가 core 분기에서 test 값 대체다(role cap은 T8, tool 묶음은 T23, MCP server 설정 조회와 catalog·credential 조회는 실제 settings registry 연결이 채운다)
+- 상태: 완료 (#206) — 이어보냄: roleCaps → T8, bundles → T23, mcpServers → T36
 - 완료:
   - `presets`, `preset_revisions` 표
   - presets_test.ts에 R1–R3, R5–R7, R10–R14, R16 테스트: 실제 담당·주기·세션을 preset에 넣지 않음, 빈 이름·prompt 거절, 대소문자·공백 무시 중복과 기본 preset 이름과 구별, context는 읽을 자료 선택이고 담당 범위와 구별, credential 값·가격표 없음, capability 묶음을 저장 시점 동작으로 펼쳐 고정, 복사가 구성만 복사, 전체 검사 실패면 항목별 설명과 전체 거절(역할 상한 밖 항목이 하나라도 있으면 저장 전체 forbidden, 규칙 목록을 이어 붙여 뒤 규칙이 이기는 병합 없음, wildcard 없음), 이름은 바꿔 맞추지 않고 거절, 새 판 immutable·실패 시 이전 판 유지, 결정 근거와 전후 내용 보존, 사용 중 assignment 자동 이동 없음, safe 표시는 그 MCP tool 하나만이고 confirm=true를 넓히지 못함
@@ -188,6 +188,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/presets-and-agent-config.md, docs/research/tool-registry-and-judgment.md
 - 선행: T7
+- T7에서 넘어온 것: preset 검증의 roleCaps 연결(#206). core 분기 preset 검증 deps의 roleCaps는 지금 빈 목록이고 tool 선택이 있으면 forbidden이다. T8이 역할별 상한 표로 채운다.
 - 완료:
   - roles_test.ts에 roles/common#R1–R5, R8, R9, R11–R13 테스트: 네 역할 어디에도 코드·shell·임의 파일·URL·웹·브라우저·subagent·coding agent 시작 tool이 없음, 공통 읽기 tool 선택, preset의 MCP·skill 선택 허용과 소스·앱 DB·secret 직접 읽기 없음, 역할별 앱 command 노출 규칙 표, 시각 블록이 쓰기·command 범위를 넓히지 않음, 지침 파일 쓰기 tool 없음, judgment와 organizing 용도 구별, 합계·시점·format 검사는 model 없음
   - presets_test.ts에 presets#R4, R8, R9 테스트: 네 역할 기본 preset이 machine으로 한 번 등록되고 사람 판을 덮지 않음, 기본 prompt가 맡는 일·맡지 않는 일·관점·기대 결과를 담음, preset prompt·skill·지침이 상한을 넓히지 못함
@@ -419,6 +420,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/tool-registry-and-judgment.md
 - 선행: T21, T22, documents#T4, documents#T6, documents#T8, documents#T13, documents#T14, documents#T16, documents#T30
+- T7에서 넘어온 것: preset 검증의 bundles 연결(#206). core 분기 preset 검증 deps의 bundles는 지금 빈 판이고 선택한 묶음 이름은 not_found다. T23이 document·format 묶음 판으로 채운다.
 - 완료:
   - document_tools_test.ts에 tools#R6, R7(format), roles/common#R6, R7, R10 테스트: 허용 place 안 목록·이력·차이·본문, 새 문서와 실제 읽은 version 기준 새 version, Operator만 승인 outputs, format 안내는 읽기만·검사한 본문을 저장하지 않음, 저장 접수·version 확정·파일 반영을 다른 사실로 결과에 표시, 읽은 근거와 부족한 자료 구분
   - 통합 테스트: ToolCall 성공과 documents 판 확정이 한 transaction
@@ -621,6 +623,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/mcp-client.md
 - 선행: T21, T26, platform#T7, platform#T20, platform#T25
+- T7에서 넘어온 것: preset 검증의 mcpServers 연결(#206). core 분기 preset 검증 deps의 mcpServers는 지금 빈 판이고 선택한 server 이름은 not_found다. T36이 등록된 MCP server 설정으로 채우고, contracts#T24 settings registry의 setting_choices 행을 펼친다.
 - 완료:
   - mcp_connections_test.ts에 R12–R15, R18–R22, R25 테스트(가짜 MCP child·HTTP server): 설정 누락·상충이면 그 서버만 연결 안 함과 고칠 항목, stdio와 Streamable HTTP만·SSE 자동 전환 없음, shell 해석 없는 절대 executable과 최소 env(PATH·HOME·TEMP·LC_ALL+명시 env)·shell 문자 literal 전달, 다른 secret 상속 없음, HTTPS·loopback만 HTTP·다른 origin(host·scheme·port)으로의 redirect는 거절(질문 Q13)·TLS 검증 끄기 없음, (assignment, server)마다 연결 하나·다른 assignment와 공유 없음, 연결+initialize 30초·전체 목록+검증 30초·호출 60초(1~600초)는 progress로 늘지 않는 단조 시계 기한이고 전달 뒤 timeout은 uncertain, 끊김 1·2·4초 3회 재연결·auth 실패 재연결 없음·전달한 call 재전송 없음, detach는 새 call 차단→cancel→close·stdio 5초 뒤 kill, 모든 tools/list page 검증 뒤에만 제공·반복 cursor·중복 이름·잘못된 schema 하나면 전체 미제공, page·항목·누적 bytes·schema 깊이 상한(질문 Q14), sampling·elicitation·roots·prompts·resources 미지원
 

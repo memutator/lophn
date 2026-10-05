@@ -28,13 +28,19 @@ export type ValidateDeps = {
   // T8이 고정하는 역할별 상한 표. 역할의 cap이 없으면 tool 선택을 검사할 수
   // 없어 거절이다(T8 전까지).
   roleCaps: ReadonlyMap<string, RoleCap>;
+  // provider 기록의 provider 정의 key다(providers 표 definition_key). 기록이
+  // 없으면 undefined다(R6).
+  definitionKey: (provider: string) => string | undefined;
   // preset의 model 선택을 T5 검사로 검증할 때 catalog의 현재 항목이다(R13).
   catalogEntry: (
     providerDefinition: string,
     modelName: string,
   ) => CatalogEntry | undefined;
-  // provider의 확인된 model 목록이다. 확인하지 못했으면 null이다(R10).
-  modelListed: (provider: string, modelName: string) => boolean | null;
+  // provider 정의의 확인된 model 목록이다. 확인하지 못했으면 null이다(R10).
+  modelListed: (
+    providerDefinition: string,
+    modelName: string,
+  ) => boolean | null;
   // provider 안 존재하는 credential key 목록이다(R6).
   credentialKeys: (provider: string) => readonly string[];
 };

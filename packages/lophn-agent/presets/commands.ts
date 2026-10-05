@@ -84,11 +84,18 @@ function definitionHash(definition: PresetDefinition): string {
   );
 }
 
-export function createPresetCommands(deps: ValidateDeps): {
+// deps는 고정 값이거나 handler tx를 받는 factory다. factory는 같은 Tx의 provider
+// 기록 조회(provider 표, provider_credentials 표)로 credential과 provider 정의
+// key를 채운다. factory의 조회 실패·없는 대상은 빈 목록·undefined로 fail-closed다.
+export function createPresetCommands(
+  deps: ValidateDeps | ((tx: Tx) => ValidateDeps),
+): {
   registerDefault: CommandDefinition<typeof registerDefaultPreset>;
   create: CommandDefinition<typeof createPreset>;
   revise: CommandDefinition<typeof revisePreset>;
 } {
+  const resolve = (tx: Tx): ValidateDeps =>
+    typeof deps === "function" ? deps(tx) : deps;
   return {
     registerDefault: {
       route: registerDefaultPreset,
@@ -184,7 +191,7 @@ export function createPresetCommands(deps: ValidateDeps): {
         if (!parsed.ok) return parsed;
         const definition: PresetDefinition = parsed.value;
         // 전체 검사이다. 하나라도 잘못되면 저장 전체를 거절한다(R11).
-        const checked = validateDefinition(definition, deps);
+        const checked = validateDefinition(definition, resolve(tx));
         if (!checked.ok) return checked;
         const existing = loadPreset(tx, input.id);
         if (existing !== undefined) {
@@ -296,7 +303,7 @@ export function createPresetCommands(deps: ValidateDeps): {
           return reject("conflict", "preset revision changed");
         }
         // 전체 검사이다. 실패하면 현재 판이 유지된다(R11, R12).
-        const checked = validateDefinition(definition, deps);
+        const checked = validateDefinition(definition, resolve(tx));
         if (!checked.ok) return checked;
         // 이름은 바꿔 맞추지 않고 중복이면 거절이다(R3, R11 확인).
         const named = tx.sql.get(

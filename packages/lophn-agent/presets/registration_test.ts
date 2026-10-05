@@ -14,7 +14,8 @@ import type { ValidateDeps } from "./validate.ts";
 
 // preset ledger 테스트 등록. provider 표와 같은 wire에 preset 명령·읽기를 붙인다.
 // 실제 provider를 부르지 않는다(R6). catalog는 파일 자료라 ledger 열에 없으므로
-// 검증 deps는 테스트 값 대체다(R10, R13).
+// 검증 deps는 테스트 값 대체다(R10, R13). catalog 대체는 T4 파생 파일 read 자리로
+// reader worker 등록 경로다(plan/lophn-agent Q28).
 
 export function presetValidateDeps(
   overrides?: Partial<ValidateDeps>,
@@ -70,8 +71,10 @@ export function presetValidateDeps(
         tools: ["doc.read", "doc.list", "doc.write", "doc.revert"],
       }],
     ]),
-    modelListed: (provider, modelName) =>
-      provider === "pvd_01arz3ndektsv4rrffq69g5fav"
+    definitionKey: (provider) =>
+      provider === "pvd_01arz3ndektsv4rrffq69g5fav" ? "anthropic" : undefined,
+    modelListed: (providerDefinition, modelName) =>
+      providerDefinition === "anthropic"
         ? modelName === "claude-haiku-4-5"
         : false,
     credentialKeys: (provider) =>

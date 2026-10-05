@@ -139,7 +139,6 @@ Deno.test("lophn-agent/presets#R1: preset stores no assignment scope, schedule, 
   const h = await open();
   try {
     const created = value(await create(h));
-    console.error("", JSON.stringify(created).slice(0, 600));
     const preset = ((created as Record<string, unknown>)["result"] as Record<
       string,
       unknown
@@ -271,7 +270,6 @@ Deno.test("lophn-agent/presets#R7: bundles are expanded to stored operations and
   const h = await open();
   try {
     const created = value(await create(h));
-    console.error("", JSON.stringify(created).slice(0, 600));
     const preset = ((created as Record<string, unknown>)["result"] as Record<
       string,
       unknown

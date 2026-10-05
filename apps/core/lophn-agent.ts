@@ -4,10 +4,13 @@ import {
   type KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import type { Tx } from "../../packages/contracts/platform/mod.ts";
 import {
   createModelDefaultsCommands,
   createModelDefaultsReads,
   modelSchemaSteps,
+  snapshotCatalogEntry,
+  snapshotModelListed,
 } from "../../packages/lophn-agent/harness/model/mod.ts";
 import {
   createProviderCommands,
@@ -91,22 +94,52 @@ const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();
 
 // preset 구성 검증 deps(R11). MCP server 설정은 extensions의 settings registry
-// 값이므로 setting_choices 행을 펼친다(T24). tool 묶음은 T23, 역할 상한은 T8이
-// 고정하므로 지금은 빈 목록이다. tool 선택이 있으면 role cap이 없어 거절이다.
-// catalog·credential은 provider 표와 settings registry 값에서 읽는다(R10, R13).
-function presetValidateDeps() {
+// 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23, 역할
+// 상한은 T8이 고정하므로 지금은 빈 목록이다. tool 선택이 있으면 role cap이 없어
+// 거절이다. catalog는 동봉 snapshot에서 읽고(T4, harness/model R5), credential
+// key와 provider 정의 key는 같은 Tx의 provider 표·provider_credentials 표에서
+// 읽는다(R6, R10).
+function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
   return {
     bundles: new Map<string, readonly string[]>(),
     mcpServers: new Map<string, McpServerConfig>(),
     roleCaps: new Map<string, { tools: readonly string[] }>(),
-    catalogEntry: (_providerDefinition: string, _modelName: string) =>
-      undefined,
-    modelListed: (_provider: string, _modelName: string) => false,
-    credentialKeys: (_provider: string) => [] as const,
-  };
+    // provider 정의 key는 provider 표 definition_key다. 기록이 없으면
+    // undefined로 fail-closed다(R6).
+    definitionKey: (provider: string) => {
+      try {
+        const row = sql.get(
+          "select definition_key from providers where id = ?",
+          [provider],
+        );
+        const key = row === undefined ? undefined : row["definition_key"];
+        return typeof key === "string" && key.length > 0 ? key : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+    catalogEntry: (providerDefinition: string, modelName: string) =>
+      snapshotCatalogEntry(providerDefinition, modelName),
+    modelListed: (providerDefinition: string, modelName: string) =>
+      snapshotModelListed(providerDefinition, modelName),
+    // credential은 provider_credentials 표의 현재 key 목록이다. 조회에 실패한
+    // provider는 빈 목록으로 not_found다(R6).
+    credentialKeys: (provider: string) => {
+      try {
+        return sql
+          .all(
+            "select key from provider_credentials where provider = ? order by order_index",
+            [provider],
+          )
+          .map((row) => String(row["key"]));
+      } catch {
+        return [] as const;
+      }
+    },
+  } as const;
 }
 
-const presetCommands = createPresetCommands(presetValidateDeps());
+const presetCommands = createPresetCommands((tx) => presetValidateDeps(tx.sql));
 const presetReads = createPresetReads();
 
 export const lophnAgentDefinitions = {

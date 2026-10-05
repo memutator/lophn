@@ -22,8 +22,14 @@ export function validateModelSelection(
   field: "model" | "organizing_model",
   selection: PresetDefinition["model"],
   deps: {
-    // provider의 확인된 model 목록이다. 확인하지 못했으면 null이다(R10).
-    modelListed: (provider: string, modelName: string) => boolean | null;
+    // provider 기록의 provider 정의 key다(providers 표 definition_key). 기록이
+    // 없으면 undefined다(R6).
+    definitionKey: (provider: string) => string | undefined;
+    // provider 정의의 확인된 model 목록이다. 확인하지 못했으면 null이다(R10).
+    modelListed: (
+      providerDefinition: string,
+      modelName: string,
+    ) => boolean | null;
     // provider 안 존재하는 credential key 목록이다(R6).
     credentialKeys: (provider: string) => readonly string[];
     // preset의 model 선택을 T5 검사로 검증할 때 catalog의 현재 항목이다(R13).
@@ -47,9 +53,17 @@ export function validateModelSelection(
   }
   // 참고: 이 selection에는 credential key 이름 목록만 있어 key 존재 검사는
   // provider의 목록으로 본다. key마다 열림 검사는 실제 호출 때다(R6).
-  const listed = deps.modelListed(selection.provider, selection.model_name);
-  const entry = deps.catalogEntry("anthropic", selection.model_name);
-  // provider의 확인 목록은 T5 ProviderNames로 전달한다. 확인하지 못했으면
+  const definition = deps.definitionKey(selection.provider);
+  if (definition === undefined) {
+    return errItem(
+      "not_found",
+      `model.${field}.provider:${selection.provider}`,
+      "그 provider 기록을 확인할 수 없다",
+    );
+  }
+  const listed = deps.modelListed(definition, selection.model_name);
+  const entry = deps.catalogEntry(definition, selection.model_name);
+  // provider 정의의 확인 목록은 T5 ProviderNames로 전달한다. 확인하지 못했으면
   // null이고 T5가 미확인 저장을 결정한다(R10).
   const providerNames: ProviderNames = { modelListed: () => listed };
   const explicit = undefined as NamedLimits | undefined;

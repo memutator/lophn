@@ -30,6 +30,19 @@ function notFound(message = "address does not resolve"): Result<never> {
   return err({ code: "not_found", message });
 }
 
+// section 해석의 근원(documents/addressing#R4, R5). 선택 고정 판의 section
+// 목록을 주입해 받는다. outlines는 비동기 extraction 근원이라 read가 조립한다.
+export type SectionSource = {
+  // 고정 판의 section 목록. 없는 판·읽지 못한 판은 err로 같은 미확인이다.
+  sections(version: string): Result<readonly StoredSection[]>;
+};
+
+export type StoredSection = {
+  key: string;
+  title: string;
+  parent: string | null;
+};
+
 const resolveOutputSchema = z.object({
   resolved: resolvedAddressSchema,
   as_of_seq: z.string(),
@@ -55,7 +68,7 @@ function allowed(
   return ok(null);
 }
 
-export function createAddressingReads(): {
+export function createAddressingReads(sectionSource?: SectionSource): {
   resolve: ReadDefinition<typeof documentResolve>;
 } {
   return {
@@ -64,9 +77,9 @@ export function createAddressingReads(): {
       handle(snapshot, ctx, input) {
         const reference = input.reference;
         if ("place" in reference) {
-          return resolveAddress(snapshot, ctx, reference);
+          return resolveAddress(snapshot, ctx, reference, sectionSource);
         }
-        return resolveRef(snapshot, ctx, reference);
+        return resolveRef(snapshot, ctx, reference, sectionSource);
       },
     },
   };
@@ -76,6 +89,7 @@ function resolveAddress(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   reference: Address,
+  sectionSource?: SectionSource,
 ): ResolveOutput {
   const place = createPlaceNameReservation({ sql: snapshot.sql as never }).get(
     reference.place,
@@ -102,6 +116,14 @@ function resolveAddress(
   const version = pickVersion(snapshot, document.id, reference.version);
   if (!version.ok) return version as never;
   const slug = liveSlug(snapshot, document.place);
+  const section = reference.section === null
+    ? ok("whole" as const)
+    : resolveSection(
+      version.value.id,
+      reference.section,
+      sectionSource,
+    );
+  if (!section.ok) return section as never;
   const current = document.place === null
     ? {
       document: document.id,
@@ -122,7 +144,7 @@ function resolveAddress(
       redirected: reference.place !== slug ||
         reference.document !== document.name,
       current_reference: current,
-      section_status: "whole",
+      section_status: section.value,
     },
     as_of_seq: snapshot.as_of_seq,
     next_cursor: null,
@@ -133,6 +155,7 @@ function resolveRef(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   reference: DocumentRef,
+  sectionSource?: SectionSource,
 ): ResolveOutput {
   const loaded = loadDocument(snapshot.sql as never, reference.document);
   if (!loaded.ok) return loaded as never;
@@ -143,6 +166,14 @@ function resolveRef(
   const version = pickVersion(snapshot, document.id, null);
   if (!version.ok) return version as never;
   const versionRef = reference.version ?? version.value.id;
+  const section = reference.section === null
+    ? ok("whole" as const)
+    : resolveSection(
+      versionRef,
+      reference.section,
+      sectionSource,
+    );
+  if (!section.ok) return section as never;
   return ok({
     resolved: {
       document: document.id,
@@ -154,11 +185,63 @@ function resolveRef(
         version: versionRef,
         section: reference.section,
       },
-      section_status: "whole",
+      section_status: section.value,
     },
     as_of_seq: snapshot.as_of_seq,
     next_cursor: null,
   });
+}
+
+// section 해석(documents/addressing#R4, R5). 조상 이름을 /로 이은 전체 경로를
+// 우선하고 문서 안에서 유일한 마지막 이름만으로도 찾는다. 중복이면 모호함
+// (invalid_input)이다. 같은 key만 이어지고 유사 section redirect는 없다.
+function resolveSection(
+  version: string,
+  reference: string,
+  sectionSource?: SectionSource,
+): Result<"whole" | "found" | "missing" | "unverified" | "unsupported"> {
+  if (sectionSource === undefined) return ok("unverified");
+  const loaded = sectionSource.sections(version);
+  if (!loaded.ok) return ok("unverified");
+  const stored = loaded.value;
+  if (stored.length === 0) return ok("unsupported");
+  // 전체 경로(조상 이름/마지막 이름) 우선.
+  const parts = reference.split("/").filter((part) => part.length > 0);
+  const last = parts[parts.length - 1];
+  if (parts.length > 1) {
+    const byPath = stored.filter((section) =>
+      pathOf(stored, section) === reference
+    );
+    if (byPath.length === 1) return ok("found");
+    // 전체 경로가 없으면 missing이다. 유사 section으로 redirect하지 않는다.
+    if (byPath.length === 0) return ok("missing");
+    return err({
+      code: "invalid_input",
+      message: "address is ambiguous",
+    });
+  }
+  const byName = stored.filter((section) => section.title === last);
+  if (byName.length === 1) return ok("found");
+  if (byName.length === 0) return ok("missing");
+  return err({ code: "invalid_input", message: "address is ambiguous" });
+}
+
+// 조상 이름을 /로 이은 전체 경로. parent 사슬의 title을 붙인다.
+function pathOf(
+  stored: readonly StoredSection[],
+  section: StoredSection,
+): string {
+  const names: string[] = [section.title];
+  let parent = section.parent;
+  let guard = 0;
+  while (parent !== null && guard < 32) {
+    const found = stored.find((item) => item.key === parent);
+    if (found === undefined) break;
+    names.unshift(found.title);
+    parent = found.parent;
+    guard += 1;
+  }
+  return names.join("/");
 }
 
 function pickVersion(

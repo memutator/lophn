@@ -3,7 +3,7 @@ import { canonicalize } from "../../base/mod.ts";
 import { actorSchema } from "./actor.ts";
 import { idSchema } from "./ids.ts";
 import { type JsonObject, jsonObjectSchema } from "./json-values.ts";
-import { atSchema } from "./values.ts";
+import { atSchema, sha256Schema } from "./values.ts";
 
 // 발급 때 고정한 target이 caller mutation으로 바뀌지 않게 own key를 보존하며 복사한다.
 const credentialTargetsSchema = jsonObjectSchema.transform((value, ctx) => {
@@ -45,6 +45,9 @@ export const credentialConditionsSchema = z.strictObject({
   process: z.string().min(1).optional(),
   mode: z.string().min(1).optional(),
   task: z.string().min(1).optional(),
+  // 발급 때 고정한 보고 위치 근거. collector가 보고할 때 credential 대상으로 쓴다.
+  bundle_hash: sha256Schema.nullable().optional(),
+  diagnostic_scope: z.string().regex(/\S/).nullable().optional(),
   // coding agent의 현재 위치 근거. 인증 경계가 연결·session 기록에서 정하며 요청 body·header 값이 아니다.
   cwd: cwdConditionSchema.optional(),
 });

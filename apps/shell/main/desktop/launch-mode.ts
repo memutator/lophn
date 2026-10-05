@@ -11,6 +11,11 @@ export type LaunchMode = {
 
 export interface LaunchModeInput {
   argv?: readonly string[];
+  /**
+   * OS가 로그인 항목으로 띄웠는지(macOS). macOS login item은 argv를 넘기지 못해
+   * `--tray` 대신 이 값으로 창 없는 시작을 안다.
+   */
+  openedAtLogin?: boolean;
 }
 
 /** argv에 `--tray`가 있으면 창 없는 시작이다. 다른 값은 보지 않는다. */
@@ -19,7 +24,8 @@ export function resolveLaunchMode(
 ): LaunchMode {
   // 빈 입력은 프로세스 argv로 폴백한다.
   const argv = isArgvList(input) ? input : input.argv ?? process.argv;
-  return { tray: argv.includes(TRAY_INTENT) };
+  const atLogin = !isArgvList(input) && input.openedAtLogin === true;
+  return { tray: atLogin || argv.includes(TRAY_INTENT) };
 }
 
 function isArgvList(

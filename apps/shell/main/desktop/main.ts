@@ -1,5 +1,15 @@
 // 조립만 한다. 창·single instance·scheme 규칙은 각 모듈에 있다.
-import { app, BrowserWindow, ipcMain, protocol } from "electron";
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  nativeImage,
+  protocol,
+  Tray,
+} from "electron";
+import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
@@ -9,7 +19,26 @@ import { startCoreConnection } from "./core/connection.ts";
 import { nodeFetch, nodeSockets } from "./core/node-io.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
-import { requestQuit } from "./quit.ts";
+import {
+  type AutostartOs,
+  nodeAutostartFiles,
+  nodeExecutableProbe,
+  readAutostart,
+  writeAutostart,
+} from "./autostart.ts";
+import {
+  createQuitFlow,
+  quitChosen,
+  quitDialogOptions,
+  requestQuit,
+} from "./quit.ts";
+import {
+  type InstalledTray,
+  installTray,
+  TRAY_ICON_SIZE,
+  type TrayFactory,
+  trayIconPath,
+} from "./tray.ts";
 import { registerShellScheme } from "./security.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
@@ -111,7 +140,13 @@ registerTerminalIpc(
   terminalIpc,
 );
 
-app.once("will-quit", () => {
+let tray: InstalledTray | undefined;
+
+// 터미널 host와 core를 멈추는 한 번의 순서. tray Quit·`--quit`·OS 종료가 같이 쓴다.
+let stopped = false;
+function stopAll(): void {
+  if (stopped) return;
+  stopped = true;
   removeTerminalIpc(
     {
       handle: () => {},
@@ -121,7 +156,48 @@ app.once("will-quit", () => {
   terminals.stop();
   core.shutdown();
   overlays.dispose();
+  tray?.destroy();
+}
+
+// 명시 종료. 진행 중 터미널·저장이 있으면 OS 확인 창으로 묻는다(desktop#R21).
+// 저장 수는 편집기 닫기 guard(shell#T17)가 생기면 그 값을 잇는다.
+const quitFlow = createQuitFlow({
+  work: {
+    runningTerminals: () =>
+      terminals.runtimes().filter((runtime) =>
+        runtime.state === "running" || runtime.state === "starting"
+      ).length,
+    pendingSaves: () => 0,
+  },
+  confirm: async (prompt) => {
+    const options = quitDialogOptions(prompt);
+    const parent = BrowserWindow.getFocusedWindow();
+    const reply = parent
+      ? await dialog.showMessageBox(parent, options)
+      : await dialog.showMessageBox(options);
+    return quitChosen(reply.response);
+  },
+  stop: stopAll,
+  quitApp: () => app.quit(),
 });
+
+// OS 종료(logout, macOS Cmd+Q)도 터미널과 core를 멈춘다. 이미 멈췄으면 아무것도 안 한다.
+app.once("will-quit", () => stopAll());
+
+const autostartOs: AutostartOs = {
+  platform: process.platform,
+  packaged: app.isPackaged,
+  execPath: process.execPath,
+  ...(process.env.APPIMAGE ? { appImage: process.env.APPIMAGE } : {}),
+  configHome: process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
+  probe: nodeExecutableProbe,
+  files: nodeAutostartFiles,
+  loginItems: {
+    get: (query) => app.getLoginItemSettings(query),
+    set: (settings) => app.setLoginItemSettings(settings),
+  },
+  log: (message) => console.log(`[lophn] ${message}`),
+};
 
 // session이 생기기 전에 userData를 잡아야 Chromium 저장이 데이터 root 안에 있다.
 app.setPath("userData", browserDataPath(dataRoot));
@@ -134,15 +210,21 @@ const instance = startSingleInstance({
   onQuitIntent: () =>
     requestQuit({
       windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
-      shutdownCore: () => core.shutdown(),
-      quitApp: () => app.quit(),
+      shutdownCore: () => quitFlow.stopNow(),
+      quitApp: () => {},
+      confirmWithWindows: () => void quitFlow.request(),
     }),
 });
 
 // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다(desktop#R21).
 app.on("window-all-closed", () => {});
 
-const mode = resolveLaunchMode({ argv: process.argv });
+const mode = resolveLaunchMode({
+  argv: process.argv,
+  // macOS login item은 argv를 넘기지 못해 OS가 알려 준 로그인 시작으로 안다.
+  openedAtLogin: process.platform === "darwin" &&
+    app.getLoginItemSettings().wasOpenedAtLogin === true,
+});
 
 if (instance.acquired) {
   app.whenReady().then(() => {
@@ -158,6 +240,22 @@ if (instance.acquired) {
             }),
         ),
     );
+    tray = installTray({
+      factory: electronTray,
+      icon: trayIconPath({
+        packaged: app.isPackaged,
+        resourcesPath: process.resourcesPath,
+        // build 결과에서 here는 apps/shell/main/dist다.
+        desktopDir: join(here, "..", "desktop"),
+      }),
+      actions: {
+        openWindow: () => showDesktopWindow(),
+        openLauncher: () => openDesktopWindow(),
+        readAutostart: () => readAutostart(autostartOs),
+        writeAutostart: (enabled) => writeAutostart(autostartOs, enabled),
+        quit: () => void quitFlow.request(),
+      },
+    });
     // 창 없는 시작은 main과 core만 띄운다(desktop#R21).
     if (!mode.tray) openDesktopWindow();
   });
@@ -167,6 +265,52 @@ function rendererDist(): string {
   // build 결과에서 here는 apps/shell/main/dist이고 renderer dist는 형제 concern
   // 폴더 바로 아래다: apps/shell/renderer/dist.
   return join(here, "..", "..", "renderer", "dist");
+}
+
+const electronTray: TrayFactory = {
+  create(icon) {
+    const image = nativeImage.createFromPath(icon);
+    if (image.isEmpty()) throw new Error("tray icon not found");
+    const tray = new Tray(
+      image.resize({
+        width: TRAY_ICON_SIZE,
+        height: TRAY_ICON_SIZE,
+        quality: "best",
+      }),
+    );
+    return {
+      setToolTip: (text) => tray.setToolTip(text),
+      setMenu: (items, onSelect) =>
+        tray.setContextMenu(Menu.buildFromTemplate(
+          items.map((item) =>
+            item.type === "separator" ? { type: "separator" as const } : {
+              type: item.type,
+              label: item.label,
+              ...(item.type === "checkbox"
+                ? { checked: item.checked, enabled: item.enabled }
+                : {}),
+              click: () => onSelect(item.id),
+            }
+          ),
+        )),
+      onClick: (handler) => tray.on("click", () => handler()),
+      destroy: () => tray.destroy(),
+    };
+  },
+};
+
+/** 가장 최근 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. */
+function showDesktopWindow(): void {
+  const recent = [...windows].filter((window) => !window.isDestroyed()).at(
+    -1,
+  );
+  if (recent === undefined) {
+    openDesktopWindow();
+    return;
+  }
+  if (recent.isMinimized()) recent.restore();
+  recent.show();
+  recent.focus();
 }
 
 function openDesktopWindow(): void {

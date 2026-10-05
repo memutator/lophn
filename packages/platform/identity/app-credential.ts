@@ -68,6 +68,13 @@ export function createAppCredentialIssuer(options: {
           release: request.release,
           process: request.process,
           mode: request.mode,
+          // 발급 때 고정한 보고 위치 근거. collector가 보고할 때 대상으로 쓴다.
+          ...(request.bundle_hash === undefined
+            ? {}
+            : { bundle_hash: request.bundle_hash }),
+          ...(request.diagnostic_scope === undefined
+            ? {}
+            : { diagnostic_scope: request.diagnostic_scope }),
         },
       },
       conditions: {
@@ -75,6 +82,12 @@ export function createAppCredentialIssuer(options: {
         release: request.release,
         process: request.process,
         mode: request.mode,
+        ...(request.bundle_hash === undefined
+          ? {}
+          : { bundle_hash: request.bundle_hash }),
+        ...(request.diagnostic_scope === undefined
+          ? {}
+          : { diagnostic_scope: request.diagnostic_scope }),
       },
       ...(options.expires_at === undefined
         ? {}

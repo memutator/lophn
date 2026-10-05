@@ -3,7 +3,12 @@
 import { assert, assertEquals, assertFalse } from "@std/assert";
 import type { RequestContext } from "../../contracts/platform/mod.ts";
 import type { RecordReportInput } from "../../contracts/problems/mod.ts";
-import { isRetryableReportError } from "../../contracts/problems/mod.ts";
+import {
+  isRetryableReportError,
+  problemCodeSchema,
+  reportProblemInputSchema,
+  RESERVED_PROBLEM_CODES,
+} from "../../contracts/problems/mod.ts";
 import {
   preparedReport,
   reportingId as id,
@@ -248,4 +253,44 @@ Deno.test("problems/reporting#R9: content hash는 불변 입력에서 결정적�
   );
   assert(changed !== undefined);
   assert(changed !== first);
+});
+
+Deno.test("problems/problem-codes#R5: `_` 예약 code 직접 제출은 invalid_input이고 선언 code는 접수 형식을 따른다", () => {
+  // reportProblem의 직접 제출 형식(code는 problemCodeSchema뿐)에 예약 code가
+  // 들어가면 형식 자체가 거절한다: 예약 분류는 앱 주장 경로에 없다(problem-codes#R5).
+  for (
+    const code of ["_exception", "_feedback", "_invalid_report", "_custom"]
+  ) {
+    assertFalse(
+      reportProblemInputSchema.safeParse({
+        report_id: id("rpt"),
+        code,
+        observed_at: AT,
+      }).success,
+      `${code} must not be a direct app submit`,
+    );
+  }
+  // reserved catalog는 3종뿐이다: `_custom`은 앱 선언에도 없다.
+  assertEquals(RESERVED_PROBLEM_CODES.map((reserved) => reserved.code).sort(), [
+    "_exception",
+    "_feedback",
+    "_invalid_report",
+  ]);
+  // 정상 선언 code는 접수 형식을 따른다(problem-codes#R5 확인의 뒤 절반).
+  assert(
+    reportProblemInputSchema.safeParse({
+      report_id: id("rpt"),
+      code: "save_failed",
+      observed_at: AT,
+    }).success,
+  );
+  // 조립된 Report 입력에서도 app source는 선언 code·`_invalid_report`만 쓴다.
+  const declared = preparedReport();
+  assertEquals(declared.report.source, "app");
+  assertEquals(declared.report.code, "save_failed");
+  const appCodeAllowed = (code: string) =>
+    problemCodeSchema.safeParse(code).success || code === "_invalid_report";
+  assert(appCodeAllowed(declared.report.code));
+  assertFalse(appCodeAllowed("_exception"), "_exception은 app source에 없다");
+  assertFalse(appCodeAllowed("_feedback"), "_feedback은 app source에 없다");
 });

@@ -49,16 +49,19 @@ export type GcDeps = {
     Result<readonly (InstalledBlob & { registeredAtMs: number })[]>
   >;
   // 고정 ledger의 모든 blob_refs hash 관측. 정지 유지보수에서 읽는다(R8).
-  listReferences(): Promise<Result<readonly { hash: string }[]>>;
+  // 알 수 없으면 없다: 참조 모름 상태다. 관측(R10)은 참조를 모르면 기록을
+  // 하나도 만들거나 지우지 않는다(unknown ≠ unreferenced).
+  listReferences?(): Promise<Result<readonly { hash: string }[]>>;
   // 미참조 확인 기록 관측(R9). 처음 확인 시각만 남긴 worker 관리 파일이다.
   // 유예기간 판정은 이 기록만 본다: 기록 없는 hash는 지금부터 미참조다.
   listUnreferenced(): Promise<
     Result<ReadonlyMap<string, number>>
   >;
-  // 미참조 확인 기록 남기기(R9). 처음 확인한 시각. 이미 있으면 바꾸지 않는다.
-  recordUnreferenced(hash: string, atMs: number): Promise<Result<void>>;
+  // 미참조 확인 기록 남기기(R9). 알 수 있는 관측(collectGarbage)만 부른다.
+  // 처음 확인한 시각. 이미 있으면 바꾸지 않는다.
+  recordUnreferenced?(hash: string, atMs: number): Promise<Result<void>>;
   // 다시 참조된 hash의 미참조 기록 지우기(R9: 유예기간이 새로 섞인다).
-  forgetUnreferenced(hash: string): Promise<Result<void>>;
+  forgetUnreferenced?(hash: string): Promise<Result<void>>;
   // backup 폴더의 pending 표시 관측. pending이 남아 있으면 backup 중이다(T41).
   listBackupPending(): Promise<
     Result<readonly { name: string; pending: boolean }[]>
@@ -76,33 +79,57 @@ export type GcDeps = {
   // 관측의 유예기간은 삭제와 같다. 테스트가 짧게 줄인다.
 };
 
-// GC 관측(R10). 실제 삭제는 하지 않는다. 기동 시와 매일 부른다. 미참조를
-// 확인할 때마다 확인 시각을 기록한다(R9: 유예기간의 근원). 기록 없는 hash는
-// 지금 처음 확인한 것으로 남긴다. 다시 참조된 hash의 기록은 지운다.
+// GC 관측(R10). 실제 삭제는 하지 않는다. 기동 시와 매일 부른다. 참조를 아는
+// 관측만 미참조 확인 시각을 기록한다(R9: 유예기간의 근원): 참조 행 관측이
+// 없으면 기록을 하나도 만들거나 지우지 않는다(unknown ≠ unreferenced —
+// 참조를 모르는 상태에서 기록을 남기면 유예기간의 근거가 흐트러진다).
 export async function observeBlobGc(
   deps: GcDeps,
 ): Promise<Result<GcObservation>> {
   const installed = await deps.listInstalled();
   if (!installed.ok) return installed;
-  const references = await deps.listReferences();
-  if (!references.ok) return references;
   const backups = await deps.listBackupPending();
   if (!backups.ok) return backups;
-  const records = await deps.listUnreferenced();
-  if (!records.ok) return records;
   const grace = deps.graceMs ?? BLOB_UNREFERENCED_GRACE_MS;
-  const referenced = referencedOf(references.value);
   const pending = backupPendingFolders(backups.value);
   const now = deps.nowMs();
+  // 참조 행 관측이 없으면 참조 모름 상태다(R10). 기록을 하나도 만들거나
+  // 지우지 않고, deleting 자격 수도 모른다(unknown 참조).
+  if (deps.listReferences === undefined) {
+    return ok({
+      installed: installed.value.length,
+      unreferenced: 0,
+      deletable: 0,
+      over: [],
+      backupPending: pending.length,
+    });
+  }
+  const references = await deps.listReferences();
+  if (!references.ok) return references;
+  const records = await deps.listUnreferenced();
+  if (!records.ok) return records;
+  const referenced = referencedOf(references.value);
   for (const blob of installed.value) {
     if (referenced.has(blob.hash)) {
       if (records.value.has(blob.hash)) {
+        if (deps.forgetUnreferenced === undefined) {
+          return err({
+            code: "invalid_input",
+            message: "미참조 기록 지우기 관측이 없다",
+          });
+        }
         const forgotten = await deps.forgetUnreferenced(blob.hash);
         if (!forgotten.ok) return forgotten;
       }
       continue;
     }
     if (!records.value.has(blob.hash)) {
+      if (deps.recordUnreferenced === undefined) {
+        return err({
+          code: "invalid_input",
+          message: "미참조 기록 관측이 없다",
+        });
+      }
       const recorded = await deps.recordUnreferenced(blob.hash, now);
       if (!recorded.ok) return recorded;
     }
@@ -164,6 +191,12 @@ export async function collectGarbage(
   }
   const installed = await deps.listInstalled();
   if (!installed.ok) return installed;
+  if (deps.listReferences === undefined) {
+    return err({
+      code: "invalid_input",
+      message: "고정 참조 관측이 없다",
+    });
+  }
   const references = await deps.listReferences();
   if (!references.ok) return references;
   // 미참조 확인 기록(R9). 유예기간 판정은 이 기록만 본다: 파일 mtime이
@@ -184,12 +217,24 @@ export async function collectGarbage(
   for (const blob of installed.value) {
     if (referenced.has(blob.hash)) {
       if (records.value.has(blob.hash)) {
+        if (deps.forgetUnreferenced === undefined) {
+          return err({
+            code: "invalid_input",
+            message: "미참조 기록 지우기 관측이 없다",
+          });
+        }
         const forgotten = await deps.forgetUnreferenced(blob.hash);
         if (!forgotten.ok) return forgotten;
       }
       continue;
     }
     if (!records.value.has(blob.hash)) {
+      if (deps.recordUnreferenced === undefined) {
+        return err({
+          code: "invalid_input",
+          message: "미참조 기록 관측이 없다",
+        });
+      }
       const recorded = await deps.recordUnreferenced(blob.hash, now);
       if (!recorded.ok) return recorded;
     }

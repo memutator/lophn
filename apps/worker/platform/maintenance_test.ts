@@ -9,11 +9,14 @@ import {
   assignmentOf,
   purposesPathFor,
 } from "../../../packages/platform/blob-store/mod.ts";
+import { listBackupPending, listInstalledBlobs } from "./io.ts";
 import {
   fullyStopped,
+  readUnreferencedRecords,
   recordUnreferenced,
   runMaintenanceGc,
 } from "./maintenance.ts";
+import { observeBlobGc } from "./gc.ts";
 
 const AGED_HASH = "a".repeat(64);
 const FRESH_HASH = "b".repeat(64);
@@ -289,6 +292,63 @@ Deno.test("platform/blob-store#R9 다시 참조된 blob의 미참조 기록은 �
     // 참조된 blob은 남는다(R8). 기록도 지워진다: 다음 미참조 확인부터
     // 유예기간이 새로 섞인다(R9).
     assertEquals(await blobExists(root, REFERENCED_HASH), true);
+    assertEquals(await recordExists(root, REFERENCED_HASH), false);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+// R9: 참조를 모르는 매일 관측은 기록을 하나도 만들거나 지우지 않는다
+// (unknown ≠ unreferenced). 참조된 blob은 기록을 얻지 않는다: 정지 유지보수가
+// 남긴 기록이 유예기간의 근원이고, 실제 미참조가 된 뒤 7일이 지났을 때만
+// 지운다.
+Deno.test("platform/blob-store#R9 참조를 모르는 관측은 기록을 만들지 않는다", async () => {
+  const root = await Deno.makeTempDir({ prefix: "lophn-maint-noref-" });
+  try {
+    // 참조된 blob과 미참조 blob 하나씩.
+    await seedBlob(root, REFERENCED_HASH, AGED);
+    await seedBlob(root, AGED_HASH, AGED);
+    await seedPurpose(root, REFERENCED_HASH, "report_text");
+    await seedPurpose(root, AGED_HASH, "operational_log");
+    // 참조를 모르는 매일 관측(observeBlobGc with no listReferences).
+    const observation = await observeBlobGc({
+      root,
+      listInstalled: () => listInstalledBlobs(root),
+      listUnreferenced: () => readUnreferencedRecords(root),
+      listBackupPending: () => listBackupPending(root),
+      removeBlob: () => Promise.resolve(ok(undefined)),
+      listTmp: () => Promise.resolve(ok([])),
+      removeTmp: () => Promise.resolve(ok(undefined)),
+      nowMs: () => NOW,
+    });
+    if (!observation.ok) {
+      throw new Error(
+        `관측이 실패했다: ${observation.error.code} ${observation.error.message}`,
+      );
+    }
+    // 참조를 모르는 관측은 수만 센다(R10). 삭제 자격 수는 모른다.
+    assertEquals(observation.value.installed, 2);
+    assertEquals(observation.value.deletable, 0);
+    // 참조된 blob도 미참조 blob도 기록이 없다: 관측이 만들지 않았다.
+    assertEquals(await recordExists(root, REFERENCED_HASH), false);
+    assertEquals(await recordExists(root, AGED_HASH), false);
+    // 관측 뒤 정지 유지보수가 실제 참조 행으로 기록을 남긴다(R9): 미참조인
+    // AGED_HASH만 남기고, 참조된 REFERENCED_HASH는 얻지 않는다.
+    const outcome = await runMaintenanceGc(
+      depsOf(root, [
+        { hash: REFERENCED_HASH, owner_kind: "report", field: "report_text" },
+      ]),
+    );
+    if (!outcome.ok) {
+      throw new Error(
+        `유지보수가 실패했다: ${outcome.error.code} ${outcome.error.message}`,
+      );
+    }
+    // 기록 없는 hash는 지금 처음 미참조를 본 것이라 이번에 지우지 않는다.
+    assertEquals(outcome.value.deleted, []);
+    assertEquals(await blobExists(root, AGED_HASH), true);
+    // 미참조인 hash만 기록을 얻는다: 참조된 blob은 얻지 않는다.
+    assertEquals(await recordExists(root, AGED_HASH), true);
     assertEquals(await recordExists(root, REFERENCED_HASH), false);
   } finally {
     await Deno.remove(root, { recursive: true });

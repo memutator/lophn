@@ -7,6 +7,7 @@ import type {
   IntegrationTarget,
 } from "../../../contracts/coding-agent/mod.ts";
 import { setOwned as setToml } from "../adapters/toml.ts";
+import { setOwned as setYaml, type YamlMap } from "../adapters/yaml.ts";
 import { buildResources } from "../builder.ts";
 import { install, observe } from "../integration/apply.ts";
 import { filePort, storeOf } from "../integration/journal.ts";
@@ -141,32 +142,6 @@ function nest(key: string, value: unknown): unknown {
   );
 }
 
-function yamlBlock(
-  key: string,
-  entry: Record<string, unknown>,
-): string {
-  const segments = key.split(".");
-  const lines: string[] = [];
-  segments.forEach((segment, depth) => {
-    lines.push(`${"  ".repeat(depth)}${segment}:`);
-  });
-  const pad = "  ".repeat(segments.length);
-  for (const [name, value] of Object.entries(entry)) {
-    if (Array.isArray(value)) {
-      lines.push(`${pad}${name}:`);
-      for (const item of value) {
-        lines.push(`${pad}  - ${JSON.stringify(String(item))}`);
-      }
-    } else if (value !== null && typeof value === "object") {
-      lines.push(`${pad}${name}:`);
-      for (const [inner, text] of Object.entries(value)) {
-        lines.push(`${pad}  ${inner}: ${JSON.stringify(String(text))}`);
-      }
-    } else lines.push(`${pad}${name}: ${JSON.stringify(String(value))}`);
-  }
-  return `${lines.join("\n")}\n`;
-}
-
 // 제품의 MCP 설정 파일에 lophn 항목을 쓴다. 쓰는 text는 제품 형식 그대로다.
 // 설정 위치를 돌려준다.
 export async function writeMcpConfig(
@@ -192,7 +167,12 @@ export async function writeMcpConfig(
     const set = setToml("", config.owned_key, entry);
     if (set.kind !== "changed") throw new Error("toml");
     text = set.text;
-  } else text = yamlBlock(config.owned_key, entry);
+  } else {
+    // 없는 파일에 처음 설치하는 경로 그대로다(R8).
+    const set = setYaml("", config.owned_key, entry as YamlMap);
+    if (set.kind !== "changed") throw new Error("yaml");
+    text = set.text;
+  }
   await write(path, text);
   return path;
 }

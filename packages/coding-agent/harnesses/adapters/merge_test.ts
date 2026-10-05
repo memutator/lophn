@@ -411,3 +411,48 @@ Deno.test("coding-agent/harnesses#R8: 없는 config.toml은 빈 표로 시작해
   const set = setToml("", "mcp_servers.lophn", { command: "x" });
   assert(set.kind === "changed");
 });
+
+Deno.test("coding-agent/harnesses#R8: YAML은 없는 상위 key를 알맞은 들여쓰기로 만들고 빈 문서·`{}`를 빈 map으로 본다", () => {
+  const value = { command: "x", args: ["a", "b c"] };
+  const want =
+    'mcp_servers:\n  lophn:\n    command: x\n    args:\n      - a\n      - "b c"\n';
+  for (const before of ["", "\n", "{}", "{}\n", "  \n{}\n\n"]) {
+    const set = setYaml(before, "mcp_servers.lophn", value);
+    assert(set.kind === "changed");
+    if (set.kind !== "changed") return;
+    assertEquals(set.text, want);
+    const parsed = parseYaml(set.text);
+    assert(parsed.ok);
+    if (!parsed.ok) return;
+    assertEquals(parsed.value, { mcp_servers: { lophn: value } });
+    assertEquals(
+      setYaml(set.text, "mcp_servers.lophn", value).kind,
+      "unchanged",
+    );
+  }
+  const kept = setYaml("# note\n{}\n", "mcp_servers.lophn", value);
+  assert(kept.kind === "changed");
+  if (kept.kind !== "changed") return;
+  assertEquals(kept.text, `# note\n\n${want}`);
+  // 가운데 상위만 없을 때도 있는 상위 아래에 만든다.
+  const deep = setYaml("a:\n  keep: 1\n", "a.b.c", { v: "1" });
+  assert(deep.kind === "changed");
+  if (deep.kind !== "changed") return;
+  assertEquals(deep.text, "a:\n  keep: 1\n  b:\n    c:\n      v: 1\n");
+});
+
+Deno.test("coding-agent/harnesses#R8: YAML은 다른 top-level key가 있으면 끝에 상위 key를 더하고 주석과 key를 보존한다", () => {
+  const before = "# top\nmodel: m\n\nagent:\n  x: y\n  # tail\n\n";
+  const set = setYaml(before, "mcp_servers.lophn", { command: "x" });
+  assert(set.kind === "changed");
+  if (set.kind !== "changed") return;
+  assertEquals(
+    set.text,
+    "# top\nmodel: m\n\nagent:\n  x: y\n  # tail\n\nmcp_servers:\n  lophn:\n    command: x\n",
+  );
+  // 상위 key 값이 map이 아니면 더하지 않는다.
+  assertEquals(
+    setYaml("mcp_servers: nope\n", "mcp_servers.lophn", { command: "x" }).kind,
+    "broken",
+  );
+});

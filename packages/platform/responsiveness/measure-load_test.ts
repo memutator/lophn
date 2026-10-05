@@ -333,7 +333,7 @@ Deno.test({
               ),
             );
             assert(
-              receipts.every((receipt) => receipt !== "error"),
+              receipts.every((receipt) => typeof receipt === "number"),
               "동시 관리 요청이 실패했다",
             );
           }),
@@ -384,7 +384,11 @@ Deno.test({
               .map((receipt, index) => [index, receipt] as const)
               .filter(([, receipt]) => typeof receipt !== "number")
               .map(([index, receipt]) =>
-                `${index}:${typeof receipt === "number" ? "" : JSON.stringify(receipt.error)}`
+                `${index}:${
+                  typeof receipt === "number"
+                    ? ""
+                    : JSON.stringify(receipt.error)
+                }`
               );
             assert(
               failed.length === 0,

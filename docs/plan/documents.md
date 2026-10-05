@@ -506,7 +506,7 @@ concerns: [documents]
 
 ### T25 Term
 
-- 상태: 진행 (#PR) — 한 것: `terms`·`term_evidence` 표, `term.propose`·`define`·`update`·`archive`·`unarchive`와 `/v1/terms/list`·`/get`, `/v1/outline/context`의 glossary·candidates(T23에서 이어받음), 출현 확인 함수(`checkTermOccurrence`). 남은 것: route 앞단의 출현 확인 연결(coordinator derived store가 필요한 T11 쪽, 위 T11의 "T25에서 넘어온 것")
+- 상태: 진행 (#269) — 한 것: `terms`·`term_evidence` 표, `term.propose`·`define`·`update`·`archive`·`unarchive`와 `/v1/terms/list`·`/get`, `/v1/outline/context`의 glossary·candidates(T23에서 이어받음), 출현 확인 함수(`checkTermOccurrence`). 남은 것: route 앞단의 출현 확인 연결(coordinator derived store가 필요한 T11 쪽, 위 T11의 "T25에서 넘어온 것")
 - 등급: 기본
 - concern: documents/terms
 - 요구: documents/terms#R1, R2, R3, R4, R5, R6

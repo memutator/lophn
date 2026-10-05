@@ -113,8 +113,12 @@ export function Palette(
               className={styles.icon}
             />
           )}
-          <span className={styles.label}>{item.label}</span>
-          {item.detail && <span className={styles.detail}>{item.detail}</span>}
+          <span className={styles.text}>
+            <span className={styles.label}>{item.label}</span>
+            {item.detail && (
+              <span className={styles.detail}>{item.detail}</span>
+            )}
+          </span>
           {item.hint && <span className={styles.hint}>{item.hint}</span>}
         </div>
       </div>

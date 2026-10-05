@@ -75,7 +75,10 @@ test("shell/desktop#R18: 배열이 달라도 물리 글쇠로 맞추고 떼기·
     null,
   );
   assert.equal(
-    windowShortcut(key("k", { control: true }, { isAutoRepeat: true }), "linux"),
+    windowShortcut(
+      key("k", { control: true }, { isAutoRepeat: true }),
+      "linux",
+    ),
     null,
   );
 });

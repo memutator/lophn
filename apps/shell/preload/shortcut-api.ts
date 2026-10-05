@@ -7,7 +7,10 @@ import {
 } from "../ipc/shortcuts.ts";
 
 export interface ShortcutTransport {
-  on(channel: string, callback: (event: unknown, payload: unknown) => void): void;
+  on(
+    channel: string,
+    callback: (event: unknown, payload: unknown) => void,
+  ): void;
   removeListener(
     channel: string,
     callback: (event: unknown, payload: unknown) => void,

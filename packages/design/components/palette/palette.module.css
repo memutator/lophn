@@ -89,6 +89,14 @@
   background: var(--floating-hover);
 }
 
+.text {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: var(--control-gap);
+  min-width: var(--space-0);
+}
+
 .label {
   flex: none;
   max-width: 70%;
@@ -110,7 +118,6 @@
 
 .hint {
   flex: none;
-  margin-left: auto;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
   font-size: var(--type-caption-size);

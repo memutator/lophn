@@ -177,7 +177,7 @@ export async function collectGarbage(
 // 쪽(정지 유지보수 조립)이 세운다.
 export async function trimCapacity(
   deps: GcDeps,
-  // hash → 종류 할당. 준비 purpose에서 온다(아직 기록하는 준비가 없다).
+  // hash → 종류 할당. 참조 field 규칙과 준비가 남긴 목적 기록에서 온다(T44).
   assignment: ReadonlyMap<string, { category: string; permanent: boolean }>,
 ): Promise<Result<GcOutcome>> {
   const backups = await deps.listBackupPending();

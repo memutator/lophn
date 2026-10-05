@@ -42,6 +42,16 @@ export {
 } from "./refs.ts";
 export { createBlobRegistrar, registerBlobRef } from "./register.ts";
 export {
+  type AssignmentEntry,
+  assignmentOf,
+  categoryOfPurpose,
+  parsePurposeRecord,
+  type PurposeRecord,
+  PURPOSES_DIR,
+  purposesPathFor,
+  VALID_CATEGORIES,
+} from "./purposes.ts";
+export {
   type BlobBytes,
   createBlobRead,
   decideRead,

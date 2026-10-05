@@ -31,6 +31,8 @@ export type PreparedInput = {
 };
 
 export type BlobStoreWork = {
+  // 준비 경계가 purpose 기록을 남길 root. 내부 경로 계산의 근원이다.
+  readonly root: string;
   prepare(
     input: PreparedInput,
     bytes: ReadableStream<Uint8Array>,
@@ -104,6 +106,7 @@ export function createBlobStoreWork(deps: BlobStoreDeps): BlobStoreWork {
   }
 
   return {
+    root: deps.root,
     async prepare(input, bytes) {
       const tmpDir = tmpDirFor(deps.root);
       if (!await ensureDir(tmpDir)) {

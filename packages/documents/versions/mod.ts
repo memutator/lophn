@@ -5,7 +5,13 @@ export {
   versionFileField,
   versionFilesField,
 } from "./commands.ts";
-export { createVersionReads, storedFile } from "./reads.ts";
+export {
+  createVersionReads,
+  exportDocument,
+  type ExportRedactor,
+  storedFile,
+} from "./reads.ts";
+export { createExportAssembly } from "./work.ts";
 export { authorizeDocument } from "./authorization.ts";
 export {
   loadDocument,

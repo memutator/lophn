@@ -38,6 +38,12 @@
   padding-left: var(--layout-pane-padding-narrow);
 }
 
+/* 터미널처럼 본문을 스스로 채우는 탭. 여백과 칸 scroll 없이 그 탭이 맡는다. */
+.flush {
+  padding: var(--space-0);
+  overflow: hidden;
+}
+
 .content {
   display: flex;
   flex-direction: column;

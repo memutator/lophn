@@ -5,6 +5,7 @@ import { test } from "node:test";
 
 import {
   TERMINAL_CLOSE_CHANNEL,
+  TERMINAL_FOCUS_CHANNEL,
   TERMINAL_INPUT_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TERMINAL_RESIZE_CHANNEL,
@@ -16,6 +17,7 @@ import {
   type MainIpc,
   registerTerminalIpc,
   removeTerminalIpc,
+  TerminalFocusTable,
 } from "./controller.ts";
 import {
   type CallerContents,
@@ -59,7 +61,7 @@ function harness(focused: boolean) {
   const sent: unknown[] = [];
   const ipc = createTerminalIpc({
     registry,
-    focus: { focused: () => focused },
+    focus: { focused: () => focused, focus() {}, blur() {} },
     folders: {
       folders: () =>
         Promise.resolve([{ folder_ref: "fld_a", path: "/work/a" }]),
@@ -136,10 +138,11 @@ test("shell/terminal#R3: 등록되지 않은 sender의 terminal open은 거절�
   assert.equal(gate.sent.length, 0);
 });
 
-test("shell/terminal#R3: channel을 등록하면 여섯 개다", () => {
+test("shell/terminal#R3: channel을 등록하면 focus까지 일곱 개다", () => {
   const gate = harness(true);
   assert.deepEqual([...gate.handles.keys()].sort(), [
     TERMINAL_CLOSE_CHANNEL,
+    TERMINAL_FOCUS_CHANNEL,
     TERMINAL_INPUT_CHANNEL,
     TERMINAL_OPEN_CHANNEL,
     TERMINAL_RESIZE_CHANNEL,
@@ -148,7 +151,7 @@ test("shell/terminal#R3: channel을 등록하면 여섯 개다", () => {
   ]);
 });
 
-test("shell/terminal#R3: remove는 여섯 channel을 뺀다", () => {
+test("shell/terminal#R3: remove는 일곱 channel을 뺀다", () => {
   const gate = harness(true);
   removeTerminalIpc({
     handle: () => {},
@@ -158,7 +161,7 @@ test("shell/terminal#R3: remove는 여섯 channel을 뺀다", () => {
     },
   });
   assert.equal(gate.handles.size, 0);
-  assert.equal(gate.removed.length, 6);
+  assert.equal(gate.removed.length, 7);
 });
 
 test("shell/terminal#R3: attach는 desktop renderer를 registry에 넣고 닫힐 때 뺀다", () => {
@@ -176,4 +179,16 @@ test("shell/terminal#R3: attach는 desktop renderer를 registry에 넣고 닫힐
   assert.ok(caller);
   closed?.();
   assert.equal(registry.find(sender.id), undefined);
+});
+
+test("shell/terminal#R3: focus 표는 renderer가 알린 generation의 입력만 통과시킨다", () => {
+  const table = new TerminalFocusTable();
+  table.focus(1, "term_1", 2);
+  assert.equal(table.focused(1, "term_1", 2), true);
+  assert.equal(table.focused(1, "term_1", 1), false);
+  assert.equal(table.focused(2, "term_1", 2), false);
+  table.blur(2, "term_1");
+  assert.equal(table.focused(1, "term_1", 2), true);
+  table.blur(1, "term_1");
+  assert.equal(table.focused(1, "term_1", 2), false);
 });

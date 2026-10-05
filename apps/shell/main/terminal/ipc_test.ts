@@ -32,7 +32,7 @@ function setup(focused: boolean) {
   const sent: unknown[] = [];
   const ipc = createTerminalIpc({
     registry,
-    focus: { focused: () => focused },
+    focus: { focused: () => focused, focus() {}, blur() {} },
     folders: {
       folders: () =>
         Promise.resolve([{ folder_ref: "fld_a", path: "/work/a" }]),
@@ -117,7 +117,7 @@ test("shell/terminal#R10: 닫기 확인을 취소하면 host에 close를 보내�
       registry.register({ contents: sender, origin });
       return registry;
     })(),
-    focus: { focused: () => true },
+    focus: { focused: () => true, focus() {}, blur() {} },
     folders: { folders: () => Promise.resolve([]) },
     host: {
       request: async (message) => {
@@ -144,4 +144,81 @@ test("shell/terminal#R10: 닫기 확인을 취소하면 host에 close를 보내�
     sent.some((item) => (item as { type?: string }).type === "close"),
     false,
   );
+});
+
+test("shell/terminal#R1: 여러 등록 폴더면 시작하지 않고 고를 목록을 돌려준다", async () => {
+  const sender = contents(1, "lophn-shell://desktop/index.html");
+  const registry = new ContentsRegistry();
+  registry.register({ contents: sender, origin });
+  const ipc = createTerminalIpc({
+    registry,
+    focus: { focused: () => true, focus() {}, blur() {} },
+    folders: {
+      folders: () =>
+        Promise.resolve([
+          { folder_ref: "prj_1_0", path: "/work/a" },
+          { folder_ref: "prj_1_1", path: "/work/b" },
+        ]),
+    },
+    host: {
+      request: () =>
+        Promise.resolve({
+          ok: false,
+          reason: "choose_folder",
+          message: "choose a registered folder before start",
+        }),
+    },
+  });
+  const reply = await ipc.open(event(sender), { project: "prj_1" });
+  assert.equal(reply.ok, true);
+  if (!reply.ok || reply.value.ok) return;
+  assert.equal(reply.value.reason, "choose_folder");
+  assert.deepEqual(reply.value.folders?.map((folder) => folder.folder_ref), [
+    "prj_1_0",
+    "prj_1_1",
+  ]);
+});
+
+test("shell/terminal#R3: focus 알림은 main frame에서만 표에 적힌다", async () => {
+  const sender = contents(1, "lophn-shell://desktop/index.html");
+  const registry = new ContentsRegistry();
+  registry.register({ contents: sender, origin });
+  const marks: string[] = [];
+  const ipc = createTerminalIpc({
+    registry,
+    focus: {
+      focused: () => false,
+      focus: (id, ref, generation) => {
+        marks.push(`focus ${id} ${ref} ${generation}`);
+      },
+      blur: (id, ref) => {
+        marks.push(`blur ${id} ${ref}`);
+      },
+    },
+    folders: { folders: () => Promise.resolve([]) },
+    host: {
+      request: () =>
+        Promise.resolve({ ok: false, reason: "host_lost", message: "no" }),
+    },
+  });
+  const input = { terminal_ref: "term_1", generation: 2, focused: true };
+  assert.equal((await ipc.focus(event(sender), input)).ok, true);
+  assert.equal(
+    (await ipc.focus(event(sender), { ...input, focused: false })).ok,
+    true,
+  );
+  const child = frame("lophn-shell://desktop/index.html", sender.mainFrame);
+  const refused = await ipc.focus({ sender, senderFrame: child }, input);
+  assert.equal(refused.ok, false);
+  assert.deepEqual(marks, ["focus 1 term_1 2", "blur 1 term_1"]);
+});
+
+test("shell/terminal#R8: snapshot은 after_seq를 host에 넘긴다", async () => {
+  const { sender, ipc, sent } = setup(true);
+  await ipc.snapshot(event(sender), { terminal_ref: "term_1", after_seq: 4 });
+  assert.deepEqual(sent[0], {
+    type: "snapshot",
+    terminal_ref: "term_1",
+    after_seq: 4,
+  });
 });

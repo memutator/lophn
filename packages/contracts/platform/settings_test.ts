@@ -251,6 +251,36 @@ Deno.test("platform/settings#R11, platform/settings#R12, platform/settings#R14, 
       changes: [{ ...input.changes[0], value: undefined }],
     }).success,
   );
+  // machine 근거는 질문·option의 strict 모양이다. 사람 apply는 evidence를 생략한다.
+  assert(
+    applySettingsInputSchema.safeParse({
+      ...input,
+      evidence: { question: "qst_01arz3ndektsv4rrffq69g5fav", option: "adopt" },
+    }).success,
+  );
+  assert(!applySettingsInputSchema.safeParse(input).success === false);
+  assert(
+    !applySettingsInputSchema.safeParse({
+      ...input,
+      evidence: { question: "qst_01arz3ndektsv4rrffq69g5fav", option: "" },
+    }).success,
+  );
+  assert(
+    !applySettingsInputSchema.safeParse({
+      ...input,
+      evidence: {
+        question: "qst_01arz3ndektsv4rrffq69g5fav",
+        option: "adopt",
+        caller: "user",
+      },
+    }).success,
+  );
+  assert(
+    !applySettingsInputSchema.safeParse({
+      ...input,
+      evidence: { question: "doc_01arz3ndektsv4rrffq69g5fav", option: "adopt" },
+    }).success,
+  );
   for (
     const route of SETTINGS_ROUTES.filter((route) => route.kind === "read")
   ) {
@@ -272,7 +302,10 @@ Deno.test("platform/settings#R11, platform/settings#R12, platform/settings#R14, 
     "remedy",
   ]);
   // 원문 secret 검사와 대상 참조 검증은 소유 concern과 redaction 경계에서 수행한다.
-  assertEquals(Object.keys(applySettingsInputSchema.shape), ["changes"]);
+  assertEquals(Object.keys(applySettingsInputSchema.shape), [
+    "changes",
+    "evidence",
+  ]);
 });
 Deno.test("platform/settings#R19, platform/settings#R20, platform/settings#R29: apply와 reload는 envelope의 CAS와 준비 참조를 사용한다", () => {
   const compare = { revision: 1, defaults_revision: "defaults-a" };
@@ -301,7 +334,7 @@ Deno.test("platform/settings#R19, platform/settings#R20, platform/settings#R29: 
   assert(
     !settingsCompareSchema.safeParse({ ...compare, revision: 1.5 }).success,
   );
-  assertEquals(applySettings.actors, ["user"]);
+  assertEquals(applySettings.actors, ["user", "machine"]);
   assertEquals(reloadSettings.actors, ["user", "machine"]);
 });
 Deno.test("platform/settings#R10, platform/settings#R20, platform/settings#R25: 판 이력과 read와 event는 값과 시점을 공개한다", () => {

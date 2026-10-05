@@ -9,6 +9,7 @@ import {
   protocol,
   Tray,
 } from "electron";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -39,6 +40,12 @@ import {
   type TrayFactory,
   trayIconPath,
 } from "./tray.ts";
+import {
+  capturePaints,
+  readHeadless,
+  reveal,
+  surfaceOptions,
+} from "./headless.ts";
 import { registerShellScheme } from "./security.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
@@ -90,7 +97,11 @@ type CallSession = {
 
 const here = dirname(__filename);
 const dataRoot = resolveDataRoot();
-const overlays = electronOverlays();
+// 개발 확인 전용. 창을 화면에 띄우지 않고 offscreen으로 그린다(docs/dev/stack.md).
+const headless = readHeadless(process.env);
+if (headless.shotDir) mkdirSync(headless.shotDir, { recursive: true });
+let shotSerial = 0;
+const overlays = electronOverlays(headless);
 const windows = new Set<BrowserWindow>();
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
 const core = startCoreConnection({
@@ -236,22 +247,25 @@ if (instance.acquired) {
             }),
         ),
     );
-    tray = installTray({
-      factory: electronTray,
-      icon: trayIconPath({
-        packaged: app.isPackaged,
-        resourcesPath: process.resourcesPath,
-        // build 결과에서 here는 apps/shell/main/dist다.
-        desktopDir: join(here, "..", "desktop"),
-      }),
-      actions: {
-        openWindow: () => showDesktopWindow(),
-        openLauncher: () => openDesktopWindow(),
-        readAutostart: () => readAutostart(autostartOs),
-        writeAutostart: (enabled) => writeAutostart(autostartOs, enabled),
-        quit: () => void quitFlow.request(),
-      },
-    });
+    // headless는 사람 화면의 tray 영역에도 아무것도 올리지 않는다.
+    if (!headless.headless) {
+      tray = installTray({
+        factory: electronTray,
+        icon: trayIconPath({
+          packaged: app.isPackaged,
+          resourcesPath: process.resourcesPath,
+          // build 결과에서 here는 apps/shell/main/dist다.
+          desktopDir: join(here, "..", "desktop"),
+        }),
+        actions: {
+          openWindow: () => showDesktopWindow(),
+          openLauncher: () => openDesktopWindow(),
+          readAutostart: () => readAutostart(autostartOs),
+          writeAutostart: (enabled) => writeAutostart(autostartOs, enabled),
+          quit: () => void quitFlow.request(),
+        },
+      });
+    }
     // 창 없는 시작은 main과 core만 띄운다(desktop#R21).
     if (!mode.tray) openDesktopWindow();
   });
@@ -304,9 +318,7 @@ function showDesktopWindow(): void {
     openDesktopWindow();
     return;
   }
-  if (recent.isMinimized()) recent.restore();
-  recent.show();
-  recent.focus();
+  reveal(recent, headless);
 }
 
 function openDesktopWindow(): void {
@@ -321,7 +333,21 @@ function openDesktopWindow(): void {
       : DESKTOP_URL,
     windows: {
       create: (config: WindowConfig) => {
-        const window = new BrowserWindow(config);
+        const window = new BrowserWindow(surfaceOptions(config, headless));
+        const shotName = `window-${++shotSerial}`;
+        if (headless.headless) {
+          window.webContents.once("did-finish-load", () =>
+            console.log(
+              `[lophn] headless ${shotName} visible=${window.isVisible()}`,
+            ));
+        }
+        capturePaints(window.webContents, shotName, headless, {
+          write: (path, data) => writeFileSync(path, data),
+          timer: {
+            set: (callback, ms) => setTimeout(callback, ms),
+            clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+          },
+        });
         overlays.attach(
           window,
           join(here, "preload-shell.cjs"),

@@ -4,6 +4,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   type Document,
+  documentExport,
   documentGet,
   documentHistory,
   documentList,
@@ -25,8 +26,10 @@ import {
   loadVersion,
   loadVersionByNumber,
 } from "./store.ts";
+import { createExportAssembly, type ExportDocument } from "./work.ts";
 
 const PAGE = 50;
+const EXPORT_DOCUMENTS = 50;
 
 function notFound(message: string): Result<never> {
   return err({ code: "not_found", message });
@@ -192,6 +195,106 @@ export function createVersionReads(): {
       },
     },
   };
+}
+
+// export redactor. 외부 audience redaction 계약과 같은 모양이다(platform/redaction).
+export type ExportRedactor = (
+  source: { concern: string; revision: string; scope: string },
+  mediaType: string,
+  text: string,
+) => string | null;
+
+// export worker handler. `/v1/documents/export`는 worker 경로라 ReadDefinition이
+// 아니다. storedFile과 같은 standalone consuming이고, `document.export` worker route를
+// 서빙하는 감독 pipe 조립이 이 함수를 부른다. 사람이 고른 project·app 자리의 문서와
+// 고정 판을 계약 출력으로 묶는다. 자리는 문서의 현재 자리와 일치해야 하고, 권한 밖
+// 문서는 없는 것과 같은 답으로 둔다. 외부 출력 redaction은 redactor 조립 몫이고,
+// 없거나 실패한 export는 내보내지 않는다(fail-closed다).
+export function exportDocument(
+  snapshot: ReadSnapshot,
+  ctx: RequestContext,
+  input: {
+    place: { kind: "project" | "app"; id: string };
+    documents: readonly { document: string; version: string }[];
+    format: "markdown" | "json";
+  },
+  deps?: { redactor?: ExportRedactor },
+): Result<unknown> {
+  // export는 사람만 고른다(worker route의 등록 actor가 ["user"]다).
+  if (!isUser(ctx)) {
+    return err({ code: "forbidden", message: "actor cannot export documents" });
+  }
+  // 고정 한도. 계약 입력은 min(1)만 본다. 한도 검사는 여기서 한다.
+  if (input.documents.length > EXPORT_DOCUMENTS) {
+    return err({
+      code: "invalid_input",
+      message: `export takes at most ${EXPORT_DOCUMENTS} documents`,
+    });
+  }
+  const assemble = createExportAssembly();
+  const selected: ExportDocument[] = [];
+  const place = input.place;
+  for (const item of input.documents) {
+    const loaded = loadDocument(snapshot.sql as never, item.document);
+    if (!loaded.ok) return loaded;
+    // 없는 문서와 권한 밖 문서의 답은 같다(존재를 새지 않는다).
+    if (loaded.value === null) return notFound("document not found");
+    const decision = allowed(snapshot, ctx, documentExport.name, loaded.value);
+    if (!decision.ok) return decision;
+    if (decision.value === null) return notFound("document not found");
+    // 사람이 고른 자리와 문서의 현재 자리가 다르면 이 export는 옛 요청이다.
+    const current = loaded.value.place;
+    if (
+      current === null || current.kind !== place.kind || current.id !== place.id
+    ) {
+      return err({ code: "conflict", message: "document place changed" });
+    }
+    const row = loadVersion(snapshot.sql as never, item.version);
+    if (!row.ok) return row;
+    if (row.value === null || row.value.document !== loaded.value.id) {
+      return notFound("version not found");
+    }
+    const files = loadFiles(snapshot.sql as never, item.version);
+    if (!files.ok) return files;
+    selected.push({
+      document: loaded.value,
+      row: row.value,
+      files: files.value,
+    });
+  }
+  // 외부 출력 redaction(T20 완료 bullet 2). redactor 조립이 없는 export도
+  // 내보내지 않는다(fail-closed다). redaction 실패는 해당 원문 반환을 중단하고
+  // 안전한 오류로 알린다. 계약 출력은 omission field를 받지 않으므로 빠진 범위는
+  // 온전한 export로 꾸미지 않는다. 고정 판은 수정하지 않는다.
+  const redactor = deps?.redactor;
+  if (redactor === undefined) {
+    return err({
+      code: "unavailable",
+      message: "export redaction is not available",
+    });
+  }
+  for (const item of selected) {
+    if (item.files.length > 0) {
+      for (const file of item.files) {
+        const safe = redactor(
+          {
+            concern: "documents",
+            revision: item.row.content_hash,
+            scope: `${item.document.id}/${file.path}`,
+          },
+          file.media_type,
+          item.document.title,
+        );
+        if (safe === null) {
+          return err({
+            code: "unavailable",
+            message: "export redaction failed",
+          });
+        }
+      }
+    }
+  }
+  return assemble(selected, input.format);
 }
 
 // agent history는 file·instruction source의 경로를 빼서 null로 둔다.

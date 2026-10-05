@@ -531,6 +531,7 @@ concerns: [shell]
 
 ### T27 대화 도크
 
+- 상태: 완료 (#272) — 이어보냄: 메시지 본문 읽기(lophn 답·machine 사실·다른 창이 보낸 말의 글), lophn 답 streaming 임시 글, 사람 말 본문의 prepared blob 전달(lophn-agent#T26 Q29 뒤) → shell#T35(Q15), 앱 공간의 도크 토글 → shell#T42. 새 데이터 root의 lophn 역할 assignment 생성은 lophn-agent 쪽(Q15)
 - 등급: frontend
 - concern: shell/desktop, shell/workspace
 - 요구: shell/desktop#R1, R2, R3, R7(대화의 단절), R8, R29, shell/workspace#R13(새 답이 focus·scroll을 빼앗지 않음)

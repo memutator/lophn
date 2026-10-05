@@ -47,6 +47,10 @@ import {
 } from "../../packages/documents/versions/mod.ts";
 import { createSeriesCommands } from "../../packages/documents/series/mod.ts";
 import { seriesSchemaSteps } from "../../packages/documents/series/mod.ts";
+import { createSeriesReads } from "../../packages/documents/series/mod.ts";
+import {
+  createSeriesOutlineRead,
+} from "../../packages/documents/outline-and-search/series-outline.ts";
 import {
   createProjectReads,
   type ProjectReadDeps,
@@ -289,6 +293,8 @@ export function createLedgerRegistration(
   const versionReads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
+  const seriesReads = createSeriesReads();
+  const seriesOutline = createSeriesOutlineRead();
   const deps: ProjectReadDeps = {
     documents: emptyDocuments,
   };
@@ -342,6 +348,10 @@ export function createLedgerRegistration(
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      seriesReads.list,
+      seriesReads.get,
+      seriesReads.next,
+      seriesOutline,
     ],
     // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
     blobFields: [versionFileField, versionFilesField],
@@ -385,6 +395,8 @@ export function createReaderRegistration(): ReaderRegistration {
   const reads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
+  const seriesReads = createSeriesReads();
+  const seriesOutline = createSeriesOutlineRead();
   return {
     reads: [
       reads.list,
@@ -394,6 +406,10 @@ export function createReaderRegistration(): ReaderRegistration {
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      seriesReads.list,
+      seriesReads.get,
+      seriesReads.next,
+      seriesOutline,
     ],
     ports: new Map(),
   };

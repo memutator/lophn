@@ -14,6 +14,16 @@ export {
   type LogCollectionDeps,
 } from "./logs.ts";
 export { insertSnapshot } from "./model.ts";
+export { bytesStream } from "./prepare.ts";
+export {
+  collectScreenEvidence,
+  SCREEN_CAPTURE_BLOCKS,
+  SCREEN_REASONS,
+  type ScreenCaptureBlock,
+  type ScreenCollection,
+  type ScreenCollectionDeps,
+  type ScreenEvidenceInput,
+} from "./screen.ts";
 export {
   type LogFragmentRead,
   logsRowOf,

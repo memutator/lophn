@@ -150,7 +150,7 @@ leaf concern 8개 전부를 배치한다. collector가 grouping **값을 준비*
 | `reportProblem(code, details?)` | 앱 SDK | 선언 code, 안전한 구조화 details; invocation은 실제 문맥에서 | 즉시 `{report_id, completion}`; completion은 접수 결과/실패 값으로 끝남 |
 | `POST /v1/problems/report` | collector | 고정 `report_id`, code, 안전 설명·details·observed_at, 실제 invocation 연결 | `{report, snapshot, problem}` 또는 비운영의 `{report, snapshot, diagnostic_scope}` |
 | `POST /v1/problems/observe-exception` | collector | 플랫폼 observer의 관측 ID, 오류·stack, process/view의 인증된 binding | 같은 접수 결과; 예약 `_exception`은 collector가 설정 |
-| `POST /v1/problems/submit-feedback` (`SubmitFeedback`) | collector | Feedback와 shell이 고정한 선택 자료·view binding·기존 문제 선택 | 같은 접수 결과; `_feedback`·source는 shell 출처로 고정 |
+| `POST /v1/problems/submit-feedback` (`SubmitFeedback`) | collector | Feedback 원자료(글·view binding·선택·화면 원자료·지목 대상·기존 문제 선택)와 PNG 바이트(request byte channel) | 같은 접수 결과; `_feedback`·source는 shell 출처로 고정 |
 | `POST /v1/problems/record-report` (`RecordReport`) | core, collector 전용 | 준비한 Report·Snapshot·GroupKey·불변 blob 참조·원출처 증거 | 원자적 접수 결과·event 범위 |
 
 SDK는 `completion` 실패를 값으로 제공해 SDK 내부 전송 실패가 새로운 `unhandledrejection`을 만들지 않게 한다. 업무 응답은 이 completion을 기다리지 않는다. 플랫폼 app test는 completion을 명시적으로 기다려 실제 접수를 검사한다. 메모리에 들어간 것과 core가 확정한 것은 각각 대기·접수로 표시한다.

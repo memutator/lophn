@@ -550,7 +550,6 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 사람·원래 요청자·machine(원래 일 종료) 취소(R13). 거절 이유는 redaction 뒤 요청 역할에 그대로, 다른 대기는 유지(R14).
   - get·list read는 판단할 동작·대상·이유·변경·외부 전송·보존·되돌릴 수 없는 영향을 요약하되 R1·R2 항목을 빠뜨리지 않는다(R17).
   - `requests_test.ts`에 위 요구 테스트
-  - 이어받음: platform#T43의 approval 대기 복구 연결. 재시작 점검이 미완료 approval 대기를 실제 관측으로 확정하는 연결은 이 작업이 낸다
 
 ### T22 approval 허락·거절
 
@@ -567,6 +566,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 대상·입력·비교 기준·assignment·tool이 바뀌면 거절하고 새 request가 필요하다(R5).
   - 거절·만료·취소는 미실행 종료이고 사람 결정으로 구별된다(R15). 같은 run과 handoff 계보에서 거절된 같은 동작·대상·입력은 다시 묻지 않는다(R16).
   - `decisions_test.ts`에 위 요구 테스트, flow approve-action 통합 테스트(shell#T22·T29의 confirmation window와 함께)
+  - 이어받음: platform#T43의 approval 대기 복구 연결. 재시작 점검이 미완료 approval 대기를 실제 관측으로 확정하는 연결은 이 작업이 낸다. 요청 기록은 platform#T21이 끝났고, 미결정 대기를 재시작 때 이어 받는 쪽은 이 작업이다
 
 ### T23 approval 적용과 한 번 사용
 
@@ -948,7 +948,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 미완료 invocation·release activation·run·approval 대기를 소유 concern이 실제 관측으로 점검하게 하고, 모르면 unknown과 근거를 남긴다. 전역 barrier가 없다(R16).
   - `startup_test.ts`에 위 요구 테스트, flow work-offline·resume-agent-session의 재시작 단계 통합 테스트
 
-- 상태: 완료 (#162) — 이어보냄: 복구 command 연결 뒤 점검의 실제 관측 확정 → 소유 concern 복구 작업(apps invocation·release activation, lophn-agent run, platform approval 대기)
+- 상태: 완료 (#162) — 이어보냄: 복구 command 연결 뒤 점검의 실제 관측 확정 → 소유 concern 복구 작업(apps invocation은 apps#T12, release activation은 apps#T18, lophn-agent run은 lophn-agent#T27, approval 대기는 platform#T22)
 
 ### T44 blob GC와 보존 정리
 

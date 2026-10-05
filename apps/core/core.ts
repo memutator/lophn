@@ -99,6 +99,10 @@ import {
   messageBodyEnvironment,
   withMessageBody,
 } from "./message-body.ts";
+import {
+  createQuestionTextPreparer,
+  withQuestionText,
+} from "./question-text.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
@@ -482,9 +486,13 @@ async function open(
       credentials: registry,
       clock,
       // 메시지 본문을 싣는 command는 writer 앞에서 값을 redaction해 blob으로 준비한다.
-      writer: withMessageBody(
-        runtime.writer,
-        createMessageBodyPreparer({ relay: () => bodyPrepare.current }),
+      // 질문 글(본문·이유·설명·자유 답·취소 이유)도 같은 길이다.
+      writer: withQuestionText(
+        withMessageBody(
+          runtime.writer,
+          createMessageBodyPreparer({ relay: () => bodyPrepare.current }),
+        ),
+        createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
       ),
       reads: runtime.reads,
       memory: runtime.memory.handlers,

@@ -210,10 +210,11 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 
 | command/read | POST 경로 | 입력·출력 |
 |---|---|---|
-| create_question | `/v1/questions/create` | agent·run·본문/이유·정확한 options·기한?; WaitRun과 함께 |
-| answer_question | `/v1/questions/answer` | user·created_seq·Answer·action binding/confirmation; 답 저장은 적용 성공 아님 |
+| create_question | `/v1/questions/create` | agent·run·본문/이유 글·정확한 options(설명 글)·기한?; core가 글을 redaction·blob 준비, command가 영구 참조 등록; WaitRun과 함께 |
+| answer_question | `/v1/questions/answer` | user·created_seq·Answer(action 없는 선택지 key 또는 자유 답 글); 확인 handle 없이 받고 action이 있는 선택지는 `forbidden`; 답 저장은 적용 성공 아님 |
+| answer_question_action | `/v1/questions/answer-action` | user·created_seq·action이 있는 선택지 key·binding_hash·confirmation 증거; 확인 handle 필수(platform/identity#R14) |
 | defer_question | `/v1/questions/defer` | user·created_seq; no_answer 종료의 근거 |
-| cancel_question | `/v1/questions/cancel` | 허용 actor·created_seq·취소 이유 |
+| cancel_question | `/v1/questions/cancel` | 허용 actor·created_seq·취소 이유 코드와 글 |
 | expire_question | `/v1/questions/expire` | machine·실제 기한 도달 |
 | apply_question_option | `/v1/questions/apply-option` | machine·answered_seq·option_key·고정 action; 등록 owner 함수만 dispatch |
 | CheckpointRevert / FinishRevert | `/v1/reverts/checkpoint`, `/v1/reverts/finish` | 저장된 사람 복원 결정·app step_key·실제 Invocation 결과; applying 단계 및 최종 CAS |
@@ -226,6 +227,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | message body | `/v1/messages/body` | 메시지 ID; user·그 assignment의 agent·machine만, 그 밖은 없는 메시지와 같은 not_found; 본문 blob의 hash 확인을 거친 MessageContent 값 |
 | occurrence list | `/v1/assignment-occurrences/list` | assignment·시점 범위·cursor; accepted/skipped·missed 범위 |
 | question read/list | `/v1/questions/read`, `/v1/questions/list` | ID 또는 run/assignment·cursor; 실제 결정·action 적용 상태 |
+| question text | `/v1/questions/text` | 질문 ID; user·machine·coding_agent·그 assignment의 agent만, 그 밖은 없는 질문과 같은 not_found; 본문·이유·선택지 설명·추천 이유 글과 자유 답·취소 이유 글(coding_agent에는 사람 글 없음), blob 하나라도 읽을 수 없으면 unavailable |
 | handoff submit/status/result | `/v1/handoffs/submit`, `/v1/handoffs/status`, `/v1/handoffs/result` | 고정 packet 또는 sender/dedup/수신 run; submit은 AcceptRun의 출처 검사 wrapper |
 | revert preview/list | `/v1/reverts/preview`, `/v1/reverts/list` | 종료 run·현재 snapshot; 전체 owner 묶음·binding 또는 과거 결과 |
 | trace/usage read | `/v1/agent-traces/read`, `/v1/agent-usage/read` | scope 안 run/session/역할/기간·cursor; call 참조·통화별 합계·모름/누락 |

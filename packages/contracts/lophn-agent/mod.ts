@@ -1,5 +1,6 @@
 export * from "./scope.ts";
 export * from "./resolved-model.ts";
+export * from "./question-text.ts";
 export * from "./question-submission.ts";
 export * from "./run-values.ts";
 export * from "./run-reads.ts";

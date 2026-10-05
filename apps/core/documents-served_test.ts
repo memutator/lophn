@@ -74,7 +74,7 @@ async function user(
   assert(recorded.ok);
 }
 
-async function open(): Promise<Opened> {
+async function open(superviseIo = false): Promise<Opened> {
   const home = await Deno.makeTempDir({ prefix: "lophn-docs-served-" });
   const started = await startCore({
     lophnHome: home,
@@ -87,7 +87,7 @@ async function open(): Promise<Opened> {
     clock: manualClock(AT),
     random: seededRandom(5),
     testCredentials: true,
-    superviseIo: false,
+    superviseIo,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
   const core = started.value;
@@ -290,7 +290,10 @@ Deno.test("documents/outline-and-search#R8: 본문 출력은 제품 redactor가 
     const read = await post(opened.core, "documents/read", {
       reference: { document: DOC, version: saved.version, section: null },
     }, opened.token);
-    const body = await read.json() as { text?: string | null; redacted?: boolean };
+    const body = await read.json() as {
+      text?: string | null;
+      redacted?: boolean;
+    };
     assertEquals(read.status, 200, JSON.stringify(body));
     assert(body.text !== null && body.text !== undefined);
     assert(!body.text.includes("sk-ant-api03"));
@@ -329,6 +332,74 @@ Deno.test("documents/versions#T20: export는 제품 redactor로 사람이 고른
     // 문서에 자리가 없어 사람이 고른 자리와 다르다: 옛 요청은 conflict다(redactor 앞에서 거절).
     assertEquals(answer.status, 409);
     await answer.body?.cancel();
+  } finally {
+    await close(opened);
+  }
+});
+
+function prepareBody(document: string, base: string) {
+  return {
+    document,
+    base_version: base,
+    files: [{
+      path: "a.md",
+      blob_hash: HASH,
+      bytes: 10,
+      media_type: "text/markdown",
+      primary: true,
+      content: {
+        kind: "prepared",
+        blob: {
+          preparation: "prep-file",
+          principal: "user-1",
+          purpose: "document_file",
+          hash: HASH,
+          size_bytes: 10,
+        },
+      },
+    }],
+    source: null,
+    idempotency_key: "prepare-1",
+  };
+}
+
+Deno.test("documents/versions#R13: 준비 route는 요청 자격으로 기준 판을 읽고 권한 밖은 없는 판과 같다", async () => {
+  const opened = await open(true);
+  try {
+    const saved = await seed(opened);
+    const hidden = await post(
+      opened.core,
+      "documents/prepare",
+      prepareBody(DOC, saved.version),
+      opened.limited,
+    );
+    const absent = await post(
+      opened.core,
+      "documents/prepare",
+      prepareBody(DOC, "ver_01arz3ndektsv4rrffq69g5fb9"),
+      opened.limited,
+    );
+    const hiddenBody = await hidden.json();
+    const absentBody = await absent.json();
+    assertEquals(hidden.status, 404);
+    assertEquals(hidden.status, absent.status);
+    assertEquals(hiddenBody, absentBody);
+    // 보이는 자격은 기준 판을 읽고 다음 단계로 간다. format 검사 통로가 아직 없어
+    // 그 단계가 unavailable로 멈춘다(기준 판 읽기가 unavailable로 막던 때와 구별된다).
+    const visible = await post(
+      opened.core,
+      "documents/prepare",
+      prepareBody(DOC, saved.version),
+      opened.token,
+    );
+    const visibleBody = await visible.json() as {
+      error?: { message?: string };
+    };
+    assertEquals(visible.status, 503);
+    assert(
+      !visibleBody.error?.message?.includes("기준 판"),
+      JSON.stringify(visibleBody),
+    );
   } finally {
     await close(opened);
   }

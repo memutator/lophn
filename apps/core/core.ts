@@ -257,7 +257,6 @@ async function open(
   let ready = false;
   const stopPrune: { run?: () => void } = {};
   // 활성 tracking root 변화를 보는 확인. documents worker를 띄운 뒤에만 있다.
-  // deno-lint-ignore prefer-const
   let rootsWatch: RootsWatch | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;

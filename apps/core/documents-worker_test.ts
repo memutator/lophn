@@ -4,10 +4,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
-import {
-  createCoreClient,
-  productFetch,
-} from "../worker/documents/submit.ts";
+import { createCoreClient, productFetch } from "../worker/documents/submit.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";

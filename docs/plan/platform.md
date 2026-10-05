@@ -729,7 +729,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T53 notification 계기: context watch 변화
 
-- 상태: 진행 (#195) — 남은 것: flow build-context의 notification 단계 통합 테스트 — 이어보냄: record_watch_change 발생 작업 → documents#T24
+- 상태: 완료 (#195) — 이어보냄: record_watch_change 발생 작업 → documents#T24, flow build-context의 notification 단계 통합 테스트 → documents#T27
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R3, R7
@@ -999,7 +999,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T47 doctor와 보안 진단
 
-- 상태: 진행 (#180) — 남은 것: apps grant 위험 read·SDK hash contract가 생기면 관측 파일 대신 그 read로 교체 — 이어보냄: core.ts doctor·diagnostics source 연결 → platform#T48
+- 상태: 완료 (#180) — 이어보냄: core.ts doctor·diagnostics source 연결 → platform#T48, apps grant 위험 read·SDK hash로 관측 파일 교체 → apps#T4
 - 등급: 기본
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R4, R5, R6, R9, R10

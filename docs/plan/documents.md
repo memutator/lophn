@@ -535,6 +535,7 @@ concerns: [documents]
 - 내놓는 contract: 없음
 - slice: context
 - 선행: T22–T26, contracts#T10, shell#T36(contexts 화면), shell#T27(대화 도크), shell#T28(질문 칸), shell#T29(revert 확인), lophn-agent#T42(context·term tool과 revert 연결), lophn-agent#T43(Context Engineer 역할), lophn-agent#T29(question option 적용), lophn-agent#T34(revert)
+- platform#T53에서 넘어온 것: flow build-context의 notification 단계(context watch 변화 알림) 통합 테스트(#195)
 - 완료:
   - context slice는 agent slice 뒤라 model 단계까지 돈다(lead 결정 Q4). Context Engineer는 fake provider script로 움직인다
   - build-context 1~8과 다른 갈래(담당 없음, 목적 미정, section 소실·미확인, 범위 밖 자료, 보관·제거, revert 충돌, 연결 끊김)

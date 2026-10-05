@@ -28,6 +28,8 @@ import {
   usePaletteScope,
 } from "../palette/host.tsx";
 import { lophnScope } from "../palette/lophn-scope.ts";
+import { ThingsToConfirm } from "./things-to-confirm/things-to-confirm.tsx";
+import { useRequests } from "./things-to-confirm/context.tsx";
 import styles from "./lophn-space.module.css";
 
 export interface LophnSpaceProps {
@@ -74,6 +76,8 @@ export function LophnSpace(
   >(null);
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
+  // 질문·approval 통로. 없으면(통로 없는 테스트) things-to-confirm은 준비 전 안내다.
+  const requests = useRequests();
 
   // 창 팔레트의 프로젝트·컨텍스트·앱 행. 팔레트가 있는 창만 읽고, 읽지 못하면 그 묶음만 빈다.
   const palette = usePaletteEnv();
@@ -177,6 +181,8 @@ export function LophnSpace(
                 initialRead={reading?.target}
               />
             )
+            : current === "things-to-confirm" && requests !== null
+            ? <ThingsToConfirm deps={requests} />
             : (
               <p className={styles.notReady} data-not-ready={current}>
                 {t("common.empty.not-ready")}

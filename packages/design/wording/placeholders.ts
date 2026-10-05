@@ -57,6 +57,9 @@ export type PlaceholderKinds = {
     date: "string";
     weekday: "string";
   };
+  "common.label.decisions-waiting": {
+    count: "plural";
+  };
   "common.label.lophn-space": Record<never, never>;
   "common.label.more-waiting": {
     count: "plural";
@@ -88,6 +91,7 @@ export type PlaceholderKinds = {
     start: "string";
     end: "string";
   };
+  "common.notice.core-down": Record<never, never>;
   "common.notification.body": Record<never, never>;
   "common.notification.title": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;
@@ -121,7 +125,9 @@ export type PlaceholderKinds = {
   "conversation.button.mode-correction": Record<never, never>;
   "conversation.button.mode-request": Record<never, never>;
   "conversation.button.new-session": Record<never, never>;
+  "conversation.button.next-request": Record<never, never>;
   "conversation.button.open": Record<never, never>;
+  "conversation.button.previous-request": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
   "conversation.button.send": Record<never, never>;
   "conversation.button.show-all-results": Record<never, never>;
@@ -148,6 +154,11 @@ export type PlaceholderKinds = {
   "conversation.label.more-results": {
     count: "plural";
   };
+  "conversation.label.request-position": {
+    current: "number";
+    total: "number";
+  };
+  "conversation.label.requests": Record<never, never>;
   "conversation.label.results": Record<never, never>;
   "conversation.label.session": {
     number: "number";
@@ -430,6 +441,104 @@ export type PlaceholderKinds = {
   "terminal.status.stop-unconfirmed": Record<never, never>;
   "terminal.status.unknown": Record<never, never>;
   "terminal.title.close": Record<never, never>;
+  "things-to-confirm.button.answer-next": Record<never, never>;
+  "things-to-confirm.button.cancel-question": Record<never, never>;
+  "things-to-confirm.button.confirm-cancel": Record<never, never>;
+  "things-to-confirm.button.keep-question": Record<never, never>;
+  "things-to-confirm.button.later": Record<never, never>;
+  "things-to-confirm.button.mark-read": Record<never, never>;
+  "things-to-confirm.button.review": Record<never, never>;
+  "things-to-confirm.button.review-next": Record<never, never>;
+  "things-to-confirm.button.send-answer": Record<never, never>;
+  "things-to-confirm.empty.filtered": Record<never, never>;
+  "things-to-confirm.empty.notifications": Record<never, never>;
+  "things-to-confirm.empty.past": Record<never, never>;
+  "things-to-confirm.empty.pick": Record<never, never>;
+  "things-to-confirm.empty.waiting": Record<never, never>;
+  "things-to-confirm.error.cancel-failed": Record<never, never>;
+  "things-to-confirm.error.changed": Record<never, never>;
+  "things-to-confirm.error.decisions-unavailable": Record<never, never>;
+  "things-to-confirm.error.later-failed": Record<never, never>;
+  "things-to-confirm.error.load-failed": Record<never, never>;
+  "things-to-confirm.error.mark-read-failed": Record<never, never>;
+  "things-to-confirm.error.not-allowed": Record<never, never>;
+  "things-to-confirm.error.notifications-unavailable": Record<never, never>;
+  "things-to-confirm.error.review-unavailable": Record<never, never>;
+  "things-to-confirm.error.send-failed": Record<never, never>;
+  "things-to-confirm.label.blocking": Record<never, never>;
+  "things-to-confirm.label.cancel-reason": Record<never, never>;
+  "things-to-confirm.label.count-decisions": {
+    count: "plural";
+  };
+  "things-to-confirm.label.count-questions": {
+    count: "plural";
+  };
+  "things-to-confirm.label.decision": Record<never, never>;
+  "things-to-confirm.label.decision-from": {
+    role: "string";
+  };
+  "things-to-confirm.label.event-activation-failed": Record<never, never>;
+  "things-to-confirm.label.event-decision": Record<never, never>;
+  "things-to-confirm.label.event-focus-changed": Record<never, never>;
+  "things-to-confirm.label.event-issue-closed": Record<never, never>;
+  "things-to-confirm.label.event-issue-opened": Record<never, never>;
+  "things-to-confirm.label.event-issue-reopened": Record<never, never>;
+  "things-to-confirm.label.event-other": Record<never, never>;
+  "things-to-confirm.label.event-paused": Record<never, never>;
+  "things-to-confirm.label.event-question": Record<never, never>;
+  "things-to-confirm.label.event-task-check-failed": Record<never, never>;
+  "things-to-confirm.label.event-task-confirmed": Record<never, never>;
+  "things-to-confirm.label.expires": {
+    when: "string";
+  };
+  "things-to-confirm.label.not-in-conversation": Record<never, never>;
+  "things-to-confirm.label.opens-review": Record<never, never>;
+  "things-to-confirm.label.options": Record<never, never>;
+  "things-to-confirm.label.own-answer": Record<never, never>;
+  "things-to-confirm.label.period": Record<never, never>;
+  "things-to-confirm.label.period-all": Record<never, never>;
+  "things-to-confirm.label.period-day": Record<never, never>;
+  "things-to-confirm.label.period-month": Record<never, never>;
+  "things-to-confirm.label.period-week": Record<never, never>;
+  "things-to-confirm.label.question": Record<never, never>;
+  "things-to-confirm.label.question-from": {
+    role: "string";
+  };
+  "things-to-confirm.label.read": Record<never, never>;
+  "things-to-confirm.label.recommended": Record<never, never>;
+  "things-to-confirm.label.role": Record<never, never>;
+  "things-to-confirm.label.role-all": Record<never, never>;
+  "things-to-confirm.label.role-app-engineer": Record<never, never>;
+  "things-to-confirm.label.role-context-engineer": Record<never, never>;
+  "things-to-confirm.label.role-lophn": Record<never, never>;
+  "things-to-confirm.label.role-operator": Record<never, never>;
+  "things-to-confirm.label.status-allowed": Record<never, never>;
+  "things-to-confirm.label.status-answered": Record<never, never>;
+  "things-to-confirm.label.status-cancelled": Record<never, never>;
+  "things-to-confirm.label.status-declined": Record<never, never>;
+  "things-to-confirm.label.status-deferred": Record<never, never>;
+  "things-to-confirm.label.status-expired": Record<never, never>;
+  "things-to-confirm.label.status-replaced": Record<never, never>;
+  "things-to-confirm.label.status-waiting": Record<never, never>;
+  "things-to-confirm.label.tab-notifications": Record<never, never>;
+  "things-to-confirm.label.tab-past": Record<never, never>;
+  "things-to-confirm.label.tab-waiting": Record<never, never>;
+  "things-to-confirm.label.unread": Record<never, never>;
+  "things-to-confirm.notice.answer-applied": Record<never, never>;
+  "things-to-confirm.notice.answer-not-applied": Record<never, never>;
+  "things-to-confirm.notice.answered-option": {
+    option: "string";
+  };
+  "things-to-confirm.notice.answered-text": Record<never, never>;
+  "things-to-confirm.notice.decision-irreversible": Record<never, never>;
+  "things-to-confirm.notice.decision-reversible": Record<never, never>;
+  "things-to-confirm.notice.decision-text-unavailable": Record<never, never>;
+  "things-to-confirm.notice.no-answer": Record<never, never>;
+  "things-to-confirm.notice.question-text-unavailable": Record<never, never>;
+  "things-to-confirm.notice.stale": {
+    age: "string";
+  };
+  "things-to-confirm.notice.stale-never": Record<never, never>;
   "things-to-confirm.title.screen": Record<never, never>;
 };
 

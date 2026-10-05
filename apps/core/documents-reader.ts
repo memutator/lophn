@@ -43,6 +43,7 @@ import {
   loadContextRow,
 } from "../../packages/documents/contexts/store.ts";
 import { createContextOutlineSource } from "../../packages/documents/contexts/reads.ts";
+import { createTermGlossarySource } from "../../packages/documents/terms/mod.ts";
 import { exportDocument } from "../../packages/documents/versions/reads.ts";
 import {
   internalRoute,
@@ -180,6 +181,7 @@ function outline(ready: Prepared) {
     ports: ready.snapshot,
     contexts: ready.contexts,
     contextOutline: createContextOutlineSource(ready.snapshot.sql as never),
+    termGlossary: createTermGlossarySource(ready.snapshot.sql as never),
     redactor,
   });
 }

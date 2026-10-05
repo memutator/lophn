@@ -28,6 +28,11 @@ import {
   userContext,
 } from "../contexts/testing/mod.ts";
 import { projectsSchemaSteps } from "../projects/mod.ts";
+import {
+  createTermCommands,
+  createTermGlossarySource,
+  termsSchemaSteps,
+} from "../terms/mod.ts";
 
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const DOC_A = "doc_01arz3ndektsv4rrffq69g5fav";
@@ -1186,6 +1191,7 @@ type ItemInput = { target: unknown; perspective: Perspective; reason: string };
 function contextLedger(authorize?: Authorizer) {
   const ledger = contextFixture(authorize);
   for (const step of projectsSchemaSteps) ledger.db.exec(step.sql);
+  for (const step of termsSchemaSteps) ledger.db.exec(step.sql);
   ledger.db.exec(
     `CREATE TABLE apps (id TEXT PRIMARY KEY, slug TEXT, name TEXT, description TEXT, revision TEXT, status TEXT NOT NULL DEFAULT 'active')`,
   );
@@ -1217,6 +1223,7 @@ function contextLedger(authorize?: Authorizer) {
         snapshot,
         ports: snapshot,
         contextOutline: createContextOutlineSource(ledger.sql),
+        termGlossary: createTermGlossarySource(ledger.sql),
         ...extra,
       });
     },
@@ -1865,6 +1872,147 @@ Deno.test("documents/outline-and-search#R9: place outline cursor는 다음 page�
     assertEquals(pages, 4);
     // 갱신 순(revision 큰 쪽이 먼저)으로 모두 한 번씩 나온다.
     assertEquals(seen, [DOC_D, DOC_C, DOC_B, DOC_A]);
+  } finally {
+    fx.close();
+  }
+});
+
+// documents/terms가 채우는 context 목차의 glossary·candidates 시험. 용어는 실제 term
+// command로 만든다.
+const TERM_CODES = "0123456789abcdefghjkmnpqrstvwxyz";
+function termIdOf(n: number): string {
+  return `trm_${TERM_CODES[Math.floor(n / 32)]}${TERM_CODES[n % 32]}`.padEnd(
+    30,
+    "0",
+  );
+}
+
+function termsOf(fx: ReturnType<typeof contextLedger>) {
+  const terms = createTermCommands();
+  return {
+    define(n: number, context: string, name: string, definition: string) {
+      return keep(fx.ledger.transaction((tx) =>
+        terms.define.handle(
+          tx,
+          userContext(),
+          { id: termIdOf(n), context, name, definition } as never,
+          { base_revision: "1" },
+        )
+      ));
+    },
+    propose(n: number, context: string, name: string, document: string) {
+      return keep(fx.ledger.transaction((tx) =>
+        terms.propose.handle(
+          tx,
+          userContext(
+            `agent:${contextIds.run.replace("run_", "asg_")}`,
+            contextIds.run,
+          ),
+          {
+            id: termIdOf(n),
+            context,
+            name,
+            evidence: [{
+              document,
+              version: document === DOC_A ? VER_A : VER_B,
+              section: "요약",
+              start_line: null,
+              end_line: null,
+            }],
+          } as never,
+          {},
+        )
+      ));
+    },
+  };
+}
+
+Deno.test("documents/outline-and-search#R4: context outline은 활성 정의 첫 30개와 후보를 나눠 싣고 정의 없는 context는 빈 목록이다", () => {
+  const fx = contextLedger();
+  try {
+    fx.document(DOC_A, VER_A, "기준 문서");
+    fx.createContext(CTX_A, "용어 묶음", "용어를 모은다", [
+      docItem(DOC_A, "basis", "기준"),
+    ]);
+    fx.createContext(CTX_B, "빈 용어", "용어가 없다", []);
+    const terms = termsOf(fx);
+    for (let n = 1; n <= 35; n += 1) {
+      terms.define(n, CTX_A, `용어${String(n).padStart(2, "0")}`, `${n}번 뜻`);
+    }
+    terms.propose(100, CTX_A, "후보 하나", DOC_A);
+    terms.propose(101, CTX_A, "후보 둘", DOC_A);
+    // 다른 context의 용어는 섞이지 않는다.
+    terms.define(200, CTX_B, "용어01", "다른 context의 뜻");
+    const page = keep(fx.outline().context(USER, { context: CTX_A }));
+    const parsed = contextOutlinePageSchema.safeParse(page);
+    assert(parsed.success, JSON.stringify(parsed.error?.issues));
+    assertEquals(page.glossary.length, 30);
+    assertEquals(page.glossary[0].name, "용어01");
+    assertEquals(page.glossary[0].definition, "1번 뜻");
+    assertEquals(page.glossary[29].name, "용어30");
+    assert(page.glossary.every((term) => term.definition !== null));
+    assertEquals(page.candidates.map((term) => term.name), [
+      "후보 둘",
+      "후보 하나",
+    ]);
+    assert(page.candidates.every((term) => term.definition === null));
+    // 근거는 고정 판 참조다.
+    assertEquals(page.candidates[0].evidence, [{
+      document: DOC_A,
+      version: VER_A,
+      section: "요약",
+      range: null,
+    }]);
+    // 용어가 없는 context는 빈 목록이고 다른 context 용어가 새지 않는다.
+    const empty = keep(fx.outline().context(USER, { context: CTX_B }));
+    assertEquals(empty.glossary.map((term) => term.definition), [
+      "다른 context의 뜻",
+    ]);
+    const none = keep(
+      fx.outline({ termGlossary: undefined }).context(USER, {
+        context: CTX_A,
+      }),
+    );
+    assertEquals(none.glossary, []);
+    assertEquals(none.candidates, []);
+  } finally {
+    fx.close();
+  }
+});
+
+Deno.test("documents/outline-and-search#R4: 읽을 수 없는 문서의 근거는 glossary에서 빠지고 용어 근원 실패는 빈 목록으로 꾸미지 않는다", () => {
+  const authorize: { current: TargetAuthorizer } = {
+    current: allowAll,
+  };
+  const fx = contextLedger((ctx, operation, target) =>
+    authorize.current(ctx, operation, target)
+  );
+  try {
+    fx.document(DOC_A, VER_A, "기준 문서");
+    fx.document(DOC_B, VER_B, "숨길 문서");
+    fx.createContext(CTX_A, "용어 묶음", "용어를 모은다", [
+      docItem(DOC_A, "basis", "기준"),
+    ]);
+    const terms = termsOf(fx);
+    terms.propose(1, CTX_A, "후보 A", DOC_A);
+    terms.propose(2, CTX_A, "후보 B", DOC_B);
+    authorize.current = (_ctx, _operation, target) =>
+      target.document === DOC_B
+        ? err({ code: "forbidden", message: "out of scope" })
+        : ok(undefined);
+    const page = keep(fx.outline().context(USER, { context: CTX_A }));
+    const byName = Object.fromEntries(
+      page.candidates.map((term) => [term.name, term.evidence.length]),
+    );
+    assertEquals(byName, { "후보 A": 1, "후보 B": 0 });
+    // 근원이 실패하면 오류다. 빈 glossary 성공이 아니다.
+    const failed = fx.outline({
+      termGlossary: {
+        get: () => err({ code: "unavailable", message: "terms unreadable" }),
+      },
+    }).context(USER, { context: CTX_A });
+    assert(!failed.ok);
+    assertEquals(failed.error.code, "unavailable");
   } finally {
     fx.close();
   }

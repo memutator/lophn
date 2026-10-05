@@ -208,3 +208,36 @@ export async function invalidReportId(
   const first = String(digest.charCodeAt(0) & 7);
   return `rpt_${first}${digest.slice(1, 26)}`;
 }
+
+// 잘못된 보고 진단 하나. 원래 ID에서 결정적으로 정한 별도 ID의
+// `_invalid_report` 진단이다(R8). 발행은 주입받은 함수 몫이다: 실패는 손실로
+// 돌아가고 collector가 다시 보고하지 않는다(재귀 없음).
+export type InvalidReportDiagnostic = {
+  type: "diagnostic";
+  kind: "_invalid_report";
+  payload: {
+    component: string;
+    observed_at: string;
+    report: string;
+    count: number;
+  };
+};
+
+export async function invalidReportDiagnostic(options: {
+  reportId: string;
+  component: string;
+  observedAt: string;
+}): Promise<InvalidReportDiagnostic | undefined> {
+  const report = await invalidReportId(options.reportId);
+  if (!report) return undefined;
+  return {
+    type: "diagnostic",
+    kind: "_invalid_report",
+    payload: {
+      component: options.component,
+      observed_at: options.observedAt,
+      report,
+      count: 1,
+    },
+  };
+}

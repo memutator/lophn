@@ -10,19 +10,33 @@ export const TERMINATION_CONFIRM_WINDOW_MS = 10_000;
 
 // live 연결이 ready여도 어떤 field를 볼 수 있어야 running이다.
 // 관측이 없으면 과거 event만으로 running이라 하지 않는다(R13).
+// unavailable에는 근거가 필요하다(contract refine). 상세 이유는 reason에만 있다(R13).
+export const NO_OBSERVATION: RuntimeReason = {
+  code: "no_observation",
+  summary: "no live observation of the current release",
+};
+
 export function stateOf(app: App | null): RuntimeState {
   if (app === null) {
     return { state: "preparing", termination_pending: false };
   }
-  if (app.status !== "active" || !app.run_enabled) {
+  // 보관 상태는 stopped다. release 유무보다 우선한다(apps/registration#R8).
+  if (app.status !== "active") {
     return { state: "stopped", termination_pending: false };
   }
   if (app.active_release === null) {
     return { state: "preparing", termination_pending: false };
   }
+  if (!app.run_enabled) {
+    return { state: "stopped", termination_pending: false };
+  }
   // run_enabled이고 채택한 release가 있으면 running 관측이 확인되기 전까지
-  // 지금 생존을 주장하지 않는다. reason이 확인되면 unavailable이 된다.
-  return { state: "unavailable", termination_pending: false };
+  // 지금 생존을 주장하지 않는다. unavailable의 근거는 관측이 준다.
+  return {
+    state: "unavailable",
+    termination_pending: false,
+    reason: NO_OBSERVATION,
+  };
 }
 
 // stopped 요청 뒤 종료 미확인. 사람의 멈춤과 같은 ready=false의 종료 중을 표시한다(R15).
@@ -84,7 +98,17 @@ export function projection(
     observation.release !== app?.active_release ||
     !observation.ready || !observation.accepting
   ) {
-    return base;
+    // ready=false 관측의 근거가 있으면 그 reason을 믿는다(R13).
+    return observation !== null && observation !== undefined &&
+        observation.mode === "live" &&
+        observation.release === app?.active_release &&
+        observation.reason !== undefined
+      ? {
+        state: "unavailable",
+        termination_pending: false,
+        reason: observation.reason,
+      }
+      : base;
   }
   return { state: "running", termination_pending: false };
 }

@@ -362,7 +362,7 @@ Deno.test("platform/redaction#R1 documents/outline-and-search#R8: 등록한 secr
     assert(!replaced.text.includes(SECOND), "새 값이 알려지지 않았다");
 
     // 제거: 마지막 값도 회수된다.
-    const current = await (async () => {
+    const current = (() => {
       const db = new DatabaseSync(`${opened.home}/lophn.db`, {
         readOnly: true,
       });

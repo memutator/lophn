@@ -8,6 +8,7 @@ import {
 } from "../../packages/contracts/platform/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { type Core, startCore } from "./core.ts";
+import { createLedgerRegistration } from "./documents.ts";
 import { ticketDefinitions } from "./tickets.ts";
 
 const CLOCK = manualClock(Date.parse("2026-10-04T00:00:00.000Z"));
@@ -197,6 +198,67 @@ Deno.test("platform/diagnostics#R8: status와 health는 인증을 요구하고 �
     const observation = checked.body as { observed_at: string };
     assertEquals(observation.observed_at, "2026-10-04T00:00:00.000Z");
     await frames.return();
+  } finally {
+    await core.shutdown();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("documents/projects#R8: 사람 user token은 등록 프로젝트의 폴더를 read 목록으로 본다", async () => {
+  const dir = await home();
+  const core = await boot(dir, {
+    teams: [{ createLedgerRegistration }],
+    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    testCredentials: true,
+  });
+  try {
+    const token = "b".repeat(43);
+    const context = {
+      principal: "user",
+      actor: "user" as const,
+      credential_ref: "cred_q12person",
+      scope: { operations: ["project.create", "project.list"], targets: {} },
+      conditions: {},
+    };
+    assert(core.acceptTestCredential);
+    const accepted = await core.acceptTestCredential(context, token);
+    assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
+    const recorded = await core.record(context);
+    assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+
+    // 사람이 프로젝트를 만든다. 폴더는 OS 폴더 선택기로 고른 결과이다.
+    const created = await post(core, "/v1/projects/create", {
+      input: {
+        id: "prj_01kq12a1pha000000000000000",
+        name: "alpha",
+        title: "Alpha",
+        purpose: "",
+        folders: [{ path: "/tmp/lophn-q12-alpha", description: "a" }],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      idempotency_key: "create-alpha",
+      compare: {},
+      prepared: [],
+    }, token);
+    assertEquals(created.status, 200, JSON.stringify(created.body));
+
+    // 등록 폴더 read. shell main의 `read projects list`와 같은 요청이다.
+    const listed = await post(core, "/v1/projects/list", {
+      status: "active",
+    }, token);
+    assertEquals(listed.status, 200, JSON.stringify(listed.body));
+    const projects = (listed.body as { projects?: unknown[] }).projects ?? [];
+    assertEquals(projects.length, 1);
+    const first = projects[0] as {
+      id?: string;
+      folders?: { path: string; description: string }[];
+    };
+    assertEquals(first.id, "prj_01kq12a1pha000000000000000");
+    assertEquals(
+      first.folders?.map((folder) => folder.path),
+      ["/tmp/lophn-q12-alpha"],
+    );
+    assertEquals(first.folders?.[0].description, "a");
   } finally {
     await core.shutdown();
     await Deno.remove(dir, { recursive: true });

@@ -312,6 +312,7 @@ concerns: [documents]
 
 ### T15 saved view
 
+- 상태: 완료 (#242)
 - 등급: 기본
 - concern: documents/outline-and-search
 - 요구: documents/outline-and-search#R23, R24, R25

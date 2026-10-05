@@ -242,7 +242,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 완료:
   - `sessions`, `messages` 표
   - conversation_test.ts에 R1–R8, R14, R16, R17 테스트: 사람 메시지와 AcceptRun 원자 접수, 접수와 최초 반영을 따로 표시, 사람 말·역할 판단·machine 사실 구분과 실제 대상 링크만, 수정(mode=correction)과 다음 일 구별·수정 원문 모두 다음 판단에, 종료 경계 수정이 정확히 한 run에 한 번, 실패·멈춤 뒤 다음 일 자동 시작 없음, paused는 원문만 보존하고 run 없음, ExecuteStoredRequest만 새 run 연결, 재개·재시작만으로 실행 없음, 작업 자리 고정(AE 앱, Operator project/app)과 lophn·CE의 명시 변경만(다음 call부터), 세션 종료 조건, withdrawn은 읽기만
-  - 이어받음: platform#T29의 QuestionCreated 발생. 질문을 만드는 이 작업이 event를 낸다
+  - 이어받음 정정: platform#T29의 QuestionCreated 발생은 질문을 만드는 T24가 낸다. 이 작업(세션·메시지)은 질문을 만들지 않으므로 event를 내지 않는다
 
 ### T12 run selector와 한도
 
@@ -1045,3 +1045,5 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - **Q26 fake provider 개발 entry와 dev 조립** (정함, lead·contracts). T2 완료에 `deno task dev` 조립을 요구하면서 contracts#T9가 T2를 선행으로 두어 순환한다. T2는 `tools/fake-provider/main.ts`의 ready `{url}`·HTTP script/log·child smoke를 완료하고, contracts#T9는 그 entry를 함께 띄워 주소를 `LOPHN_FAKE_PROVIDER_URL`로 core에 넘긴다. root task와 dev launcher는 contracts 팀만 고친다. 실제 dev 동작 범위는 줄이지 않는다.
 - **Q27 동봉 안내 자산과 route·설치 조립** (정함, lead). T30은 영어 guide 자산, 조립에서 받은 제품 판·실제 UTF-8 bytes·hash·relative files의 고정, BundledGuide contract 호환을 완료한다. `/v1/guides/*` route는 documents#T29, 설치 manifest/files 조립은 platform#T48 소유이며 실제 HTTP·설치 E2E는 그 작업들이 끝난 뒤 그쪽 E2E에서 확인한다. 개별 settings registry가 main에 없으면 공개 definition 입력의 wording key를 그대로 투영하며 synthetic contract 테스트를 registry 실물 검증으로 표시하지 않는다. hash는 guide마다 primary Markdown 하나의 raw UTF-8 bytes SHA-256을 content_hash와 blob_hash에 함께 쓰는 추천으로 진행한다(platform이 현재 충돌 없음 확인, T48 구현 정본은 아직 없음). BOM·줄바꿈·Unicode normalization을 하지 않고 host가 매 요청 실제 packaged bytes와 manifest membership을 확인한다. 실제 제품 안내·읽기 범위는 줄이지 않는다.
 - **Q28 catalog read 등록 자리** (추천으로 진행). T4의 read 정의는 model leaf(packages/lophn-agent/harness/model)의 검증 helper를 쓰는데, platform/responsiveness#R1의 core import tripwire가 core module graph에서 packages/lophn-agent 전체를 막아 apps/core/lophn-agent.ts에서 정의를 붙일 수 없다. 추천: read 등록은 T5의 reads.ts 자리에서 reader worker 등록과 함께 leaf를 끼우고, core 정적 graph는 leaf import이 없다. 영향: T4, T5.
+- **Q29 메시지 본문 blob의 영구 참조 등록** (추천으로 진행). ReceiveMessage·RecordMessage 입력은 본문 hash만 받아 준비(preparation)·크기 증거가 없고, `tx.registerBlobRef`는 그 증거 없이 부를 수 없다. T11은 hash만 messages.body에 저장하고 redaction 거친 blob의 영구 참조 등록은 하지 않는다(T10의 run basis·result와 같은 이월). 추천: contracts에서 두 command 입력이 prepared blob 증거(reporting의 blob source 모양)를 싣게 바꾼 뒤 T26 때 run basis·result와 함께 등록한다. 그 전에는 실제 blob을 올리는 사람 입력 경로를 열지 않는다(참조가 없는 blob은 7일 뒤 정리 대상이다). 영향: T11, T26.
+- **Q30 ApplyMessages와 StartModelCall의 한 transaction** (추천으로 진행). domain model은 최초 반영을 ModelCall 시작과 같은 transaction에 두라 하지만 StartModelCall 입력의 `applied_messages`는 아직 아무것도 하지 않는다. T11은 ApplyMessages를 `dispatchable`로 등록해 두었다. 추천: usage의 StartModelCall이 `applied_messages`가 있으면 같은 Tx에서 `tx.call(applyMessages, …)`을 부르고, 그 변경(usage 시험의 빈 목록 가정 포함)은 agent loop의 입력 선택과 함께 T26이 한다. 영향: T11, T26, usage.

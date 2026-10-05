@@ -9,10 +9,18 @@ import {
   applyMigrations,
   BACKUP_MANIFEST_NAME,
 } from "../../../packages/platform/backup-and-migration/mod.ts";
-import { manualClock } from "../../../packages/base/mod.ts";
+import { manualClock, sha256Hex } from "../../../packages/base/mod.ts";
+import {
+  objectPathFor,
+  tmpDirFor,
+} from "../../../packages/platform/blob-store/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../../packages/platform/ledger/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../../packages/platform/settings/mod.ts";
-import { createBackupTick, createPlatformIo } from "./io.ts";
+import {
+  BLOB_PREPARE_WORKER_WINDOW,
+  createBackupTick,
+  createPlatformIo,
+} from "./io.ts";
 
 const hello = {
   type: "hello",
@@ -301,3 +309,167 @@ Deno.test(
     }
   },
 );
+
+// blob.prepare 통로: 요청 json이 먼저 오고 chunk가 end 전에 이어 온다(Q2·Q6).
+// 실제 blob store로 hash·write·설치한다.
+async function withBlobIo(
+  run: (io: {
+    root: string;
+    push(frame: Frame): void;
+    output: Frame[];
+    waitFor(predicate: (frame: Frame) => boolean): Promise<Frame>;
+  }) => Promise<void>,
+) {
+  const root = await Deno.makeTempDir({ prefix: "io-blob-" });
+  const chunks: Uint8Array[] = [];
+  let ended = false;
+  let wake: () => void = () => {};
+  const output: Frame[] = [];
+  const decoder = new FrameDecoder();
+  let running: Promise<void> | undefined;
+  const push = (next: Frame) => {
+    chunks.push(encodeFrame(next));
+    wake();
+  };
+  try {
+    const session = await createPlatformIo({
+      root,
+      catalog: { components: ["platform/core"], locations: {} },
+      currentAuthority: () => undefined,
+      streams: {
+        stdin: {
+          async read(buffer) {
+            while (!chunks.length && !ended) {
+              await new Promise<void>((resolve) => wake = resolve);
+            }
+            const next = chunks[0];
+            if (!next) return null;
+            // 버퍼보다 큰 frame은 나눠서 준다.
+            const size = Math.min(buffer.length, next.length);
+            buffer.set(next.subarray(0, size));
+            if (size === next.length) chunks.shift();
+            else chunks[0] = next.subarray(size);
+            return size;
+          },
+        },
+        stdout: {
+          write(bytes) {
+            output.push(...decoder.push(bytes));
+            return Promise.resolve(bytes.length);
+          },
+        },
+        stderr: { write: (bytes) => Promise.resolve(bytes.length) },
+      },
+    });
+    running = session.run();
+    push({ kind: "json", channel: 0, payload: hello });
+    await run({
+      root,
+      push,
+      output,
+      async waitFor(predicate) {
+        for (let i = 0; i < 400; i++) {
+          const found = output.find(predicate);
+          if (found) return found;
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        throw new Error("frame did not arrive");
+      },
+    });
+  } finally {
+    ended = true;
+    wake();
+    await running?.catch(() => {});
+    await Deno.remove(root, { recursive: true });
+  }
+}
+
+const prepareRequest = (channel: number): Frame => ({
+  kind: "json",
+  channel: 0,
+  payload: {
+    type: "worker_request",
+    request_id: `prepare-${channel}`,
+    op: "blob.prepare",
+    channel,
+    payload: { principal: "machine", purpose: "document_file" },
+  },
+});
+const isCredit = (frame: Frame) =>
+  frame.kind === "json" &&
+  (frame.payload as { type?: string }).type === "credit";
+const creditsOf = (output: Frame[]) =>
+  output.filter(isCredit).map((frame) =>
+    frame.kind === "json" ? (frame.payload as { window: number }).window : 0
+  );
+const isResponse = (id: string) => (frame: Frame) =>
+  frame.kind === "json" &&
+  (frame.payload as { type?: string }).type === "worker_response" &&
+  (frame.payload as { request_id?: string }).request_id === id;
+const payloadOf = (frame: Frame) =>
+  (frame as { payload: { ok: boolean; payload: Record<string, unknown> } })
+    .payload;
+
+Deno.test("platform/blob-store#R2 platform/responsiveness#R1: I/O worker는 end 전에 chunk를 받아 쓰고 읽어 간 만큼만 credit을 다시 주며 end 뒤에 hash를 응답한다", async () => {
+  await withBlobIo(async (io) => {
+    io.push(prepareRequest(5));
+    await io.waitFor(isCredit);
+    // 요청을 받은 즉시 window 하나를 준다.
+    assertEquals(creditsOf(io.output), [BLOB_PREPARE_WORKER_WINDOW]);
+    const parts = [1, 2, 3].map((n) =>
+      new Uint8Array(100 * 1024).fill(n) as Uint8Array
+    );
+    for (const payload of parts) {
+      io.push({ kind: "bytes", channel: 5, payload });
+    }
+    // 읽어 간 chunk마다 그 크기만큼 credit을 다시 준다.
+    for (let i = 0; i < 400 && creditsOf(io.output).length < 4; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assertEquals(creditsOf(io.output), [
+      BLOB_PREPARE_WORKER_WINDOW,
+      ...parts.map((part) => part.length),
+    ]);
+    // end 전에는 준비가 끝나지 않는다.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assertEquals(io.output.find(isResponse("prepare-5")), undefined);
+    io.push({ kind: "end", channel: 5 });
+    const answered = payloadOf(await io.waitFor(isResponse("prepare-5")));
+    assertEquals(answered.ok, true);
+    const total = new Uint8Array(300 * 1024);
+    parts.forEach((part, index) => total.set(part, index * part.length));
+    const hash = await sha256Hex(total);
+    assertEquals(answered.payload["hash"], hash);
+    assertEquals(answered.payload["size_bytes"], total.length);
+    const installed = await Deno.readFile(objectPathFor(io.root, hash));
+    assertEquals(installed.length, total.length);
+  });
+});
+
+Deno.test("platform/blob-store#R2: abort frame은 준비를 오류로 끝내고 blob도 임시 파일도 남기지 않으며 이어 오는 chunk는 버린다", async () => {
+  await withBlobIo(async (io) => {
+    io.push(prepareRequest(6));
+    await io.waitFor(isCredit);
+    io.push({ kind: "bytes", channel: 6, payload: new Uint8Array(4096) });
+    io.push({ kind: "abort", channel: 6 });
+    io.push({ kind: "bytes", channel: 6, payload: new Uint8Array(4096) });
+    const answered = payloadOf(await io.waitFor(isResponse("prepare-6")));
+    assertEquals(answered.ok, false);
+    const leftovers: string[] = [];
+    try {
+      for await (const entry of Deno.readDir(tmpDirFor(io.root))) {
+        leftovers.push(entry.name);
+      }
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    assertEquals(leftovers, []);
+    let blobs = 0;
+    try {
+      for await (const _ of Deno.readDir(`${io.root}/blobs/sha256`)) blobs++;
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+    assertEquals(blobs, 0);
+  });
+});

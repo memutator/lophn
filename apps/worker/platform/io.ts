@@ -25,6 +25,7 @@ import {
 } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {
   type Clock,
+  type ErrorCode,
   ok,
   type Result,
   systemClock,
@@ -37,8 +38,10 @@ import {
   type SettingsPipeRequest,
 } from "./settings.ts";
 import {
+  type Frame,
   SETTINGS_EXPORT_OP,
   SETTINGS_IMPORT_OP,
+  STREAM_CHUNK_MAX_BYTES,
 } from "../../../packages/contracts/platform/mod.ts";
 
 // 하루 backup check 주기. 차례가 지나면 만든다. 만들기가 늦어도 다음 check가 본다.
@@ -46,6 +49,29 @@ export const BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 // blob GC check 주기(R10: 기동 시와 매일). 관측은 삭제가 아니다.
 export const GC_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+// core가 한 blob 준비에서 worker가 받아 두기로 한 바이트(credit window). worker는
+// blob store가 chunk를 읽어 간 만큼만 credit을 다시 준다. core가 이보다 많이 보내면
+// 그 준비는 실패한다. 감독 pipe의 read-ahead 한도(두 chunk) 안에 들어가는 크기다.
+export const BLOB_PREPARE_WORKER_WINDOW = STREAM_CHUNK_MAX_BYTES;
+
+// 열린 blob 준비 하나. 요청 json이 먼저 오고 bytes·end(또는 abort) frame이 이어 온다.
+type PrepareStream = {
+  queue: Uint8Array[];
+  // 준 credit 누계와 받은 바이트. received가 granted를 넘으면 위반이다.
+  granted: number;
+  received: number;
+  // core가 end를 보냈다.
+  ended: boolean;
+  // 중단됐다(abort·위반·session 정지). 값이 있으면 blob store가 읽는 stream은 오류로 끝난다.
+  failed: boolean;
+  wake: (() => void) | undefined;
+  // end·abort frame을 봤다. 준비가 먼저 답한 뒤에도 이어 오는 frame은 이 channel이
+  // 닫힐 때까지 버려야 하므로 둘이 다 되어야 channel을 놓는다.
+  closed: boolean;
+  // 준비가 답했다.
+  answered: boolean;
+};
 
 export type PlatformIoOptions = {
   root: string;
@@ -83,25 +109,208 @@ export async function createPlatformIo(
     number,
     { chunks: Uint8Array[]; request?: BlobPipeRequest }
   >();
+  // blob.prepare는 요청 json이 먼저 오고 chunk가 이어 온다(Q6). 준비는 chunk가 오는 동안
+  // 이미 hash·write를 시작하고, 받아 둔 바이트는 credit window를 넘지 않는다.
+  const prepares = new Map<number, PrepareStream>();
   const ingress = createDiagnosticIngress({
     log,
     currentAuthority: () =>
       session.credentialUsable ? options.currentAuthority() : undefined,
   });
+  function wakePrepare(stream: PrepareStream) {
+    const wake = stream.wake;
+    stream.wake = undefined;
+    wake?.();
+  }
+
+  // 준비를 중단한다. blob store가 읽는 stream은 오류로 끝나고 임시 파일은 버려진다.
+  function failPrepare(stream: PrepareStream) {
+    stream.failed = true;
+    stream.queue.length = 0;
+    wakePrepare(stream);
+  }
+
+  function settlePrepare(channel: number, stream: PrepareStream) {
+    if (stream.closed && stream.answered && prepares.get(channel) === stream) {
+      prepares.delete(channel);
+    }
+  }
+
+  // core가 보낸 bytes·end·abort frame을 그 준비에 붙인다. 내용은 해석하지 않는다.
+  function feedPrepare(frame: Frame, stream: PrepareStream) {
+    if (frame.kind === "json") return;
+    if (frame.kind === "abort") {
+      stream.closed = true;
+      failPrepare(stream);
+      settlePrepare(frame.channel, stream);
+      return;
+    }
+    if (frame.kind === "end") {
+      stream.closed = true;
+      stream.ended = true;
+      wakePrepare(stream);
+      settlePrepare(frame.channel, stream);
+      return;
+    }
+    if (frame.kind !== "bytes") return;
+    // 중단됐거나 닫힌 뒤에 온 chunk는 버린다.
+    if (stream.failed || stream.closed) return;
+    stream.received += frame.payload.length;
+    if (stream.received > stream.granted) {
+      // 준 credit보다 많이 보냈다. 더 받지 않는다.
+      failPrepare(stream);
+      return;
+    }
+    if (frame.payload.length === 0) return;
+    stream.queue.push(frame.payload);
+    wakePrepare(stream);
+  }
+
+  function respondBlob(
+    requestId: string,
+    response:
+      | { ok: true; payload: unknown }
+      | { ok: false; error: { code: ErrorCode; message: string } },
+  ): Promise<void> {
+    if (!session.credentialUsable) return Promise.resolve();
+    return session.send(
+      response.ok
+        ? {
+          type: "worker_response",
+          request_id: requestId,
+          ok: true,
+          payload: response.payload,
+        }
+        : {
+          type: "worker_response",
+          request_id: requestId,
+          ok: false,
+          error: response.error,
+        },
+    ).catch(() => {});
+  }
+
+  // blob.prepare를 받는다. core의 chunk가 오는 대로 blob store가 읽어 hash·write하고,
+  // 읽어 간 만큼만 credit을 다시 준다(Q2·Q6). 응답은 준비가 끝난 뒤에 따로 보낸다.
+  async function startPrepare(request: BlobPipeRequest, channel: number) {
+    if (prepares.has(channel)) {
+      // 같은 channel을 다시 열면 진행 중인 준비는 건드리지 않는다.
+      await respondBlob(request.request_id, {
+        ok: false,
+        error: {
+          code: "invalid_input",
+          message: "blob 준비 channel이 이미 열려 있다",
+        },
+      });
+      return;
+    }
+    const stream: PrepareStream = {
+      queue: [],
+      granted: BLOB_PREPARE_WORKER_WINDOW,
+      received: 0,
+      ended: false,
+      failed: false,
+      wake: undefined,
+      closed: false,
+      answered: false,
+    };
+    prepares.set(channel, stream);
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        for (;;) {
+          if (stream.failed) {
+            controller.error(new Error("blob prepare stream failed"));
+            return;
+          }
+          const chunk = stream.queue.shift();
+          if (chunk !== undefined) {
+            controller.enqueue(chunk);
+            // blob store가 가져간 만큼만 credit을 다시 준다(backpressure).
+            stream.granted += chunk.length;
+            void session.send({
+              type: "credit",
+              channel,
+              window: chunk.length,
+            }).catch(() => {});
+            return;
+          }
+          if (stream.ended) {
+            controller.close();
+            return;
+          }
+          await new Promise<void>((resolve) => {
+            stream.wake = resolve;
+          });
+        }
+      },
+      cancel() {
+        failPrepare(stream);
+      },
+    }, { highWaterMark: 0 });
+    const submission = scheduler.submit(
+      "blob",
+      async () => await blob.handle(request, () => Promise.resolve(body)),
+    );
+    if (!submission.ok) {
+      failPrepare(stream);
+      stream.answered = true;
+      settlePrepare(channel, stream);
+      await respondBlob(request.request_id, {
+        ok: false,
+        error: submission.error,
+      });
+      return;
+    }
+    const job = submission.value.result;
+    void (async () => {
+      const result = await job;
+      // 준비가 끝났다. 읽지 않은 바이트가 있으면(오류로 일찍 끝남) 더 받지 않고 버린다.
+      if (!stream.ended || !result.ok) failPrepare(stream);
+      stream.answered = true;
+      settlePrepare(channel, stream);
+      if (!result.ok) {
+        await respondBlob(request.request_id, {
+          ok: false,
+          error: result.error,
+        });
+        return;
+      }
+      const response = result.value.response;
+      await respondBlob(
+        request.request_id,
+        response.ok
+          ? { ok: true, payload: response.payload }
+          : { ok: false, error: response.error },
+      );
+    })();
+    // 첫 credit. 이 요청을 받은 뒤에야 core가 chunk를 보낸다.
+    await session.send({
+      type: "credit",
+      channel,
+      window: BLOB_PREPARE_WORKER_WINDOW,
+    }).catch(() => {});
+  }
+
   const session = startChild(options.streams, {
     onHello(hello) {
       if (hello.kind !== "platform/io") throw new Error("invalid worker kind");
       return session.send({ type: "ready" });
     },
     onStop() {
+      for (const stream of prepares.values()) failPrepare(stream);
       scheduler.close();
       log.close();
       return session.send({ type: "stopped" });
     },
     // bytes frame은 요청의 channel에 묶인다. 내용을 해석하지 않는다.
     onFrame(frame) {
+      const stream = prepares.get(frame.channel);
+      if (stream !== undefined) {
+        feedPrepare(frame, stream);
+        return;
+      }
       if (frame.kind !== "bytes") return;
-      // 빈 chunk는 내용이 아니다. 준비는 요청 json 앞에 온 chunk만 쓴다.
+      // 빈 chunk는 내용이 아니다. settings 교환은 요청 json 앞에 온 chunk만 쓴다.
       if (frame.payload.length === 0) return;
       const entry = pending.get(frame.channel) ?? { chunks: [] };
       entry.chunks.push(frame.payload);
@@ -244,31 +453,21 @@ export async function createPlatformIo(
         );
         return;
       }
-      const channel = request.channel;
       const pipeRequest = {
         request_id: request.request_id,
         op: request.op,
         payload: request.payload,
       };
-      // byte chunk는 요청 json보다 먼저 도착해 있다. 여기서 기다리면 dispatch가
-      // 뒤 frame을 시작하지 못한다.
-      const entry = channel === undefined
-        ? { chunks: [] as Uint8Array[] }
-        : pending.get(channel) ?? { chunks: [] };
-      if (channel !== undefined) pending.delete(channel);
+      // blob.prepare는 stream으로 받는다. 이 handler는 준비가 끝나기를 기다리지 않는다:
+      // 기다리면 dispatch가 이어 오는 bytes·end frame을 시작하지 못한다.
+      if (request.op === "blob.prepare") {
+        await startPrepare(pipeRequest, request.channel!);
+        return;
+      }
       const submission = scheduler.submit(
         "blob",
-        async () => {
-          const stream = new ReadableStream<Uint8Array>({
-            start(controller) {
-              for (const chunk of entry.chunks) {
-                if (chunk.length > 0) controller.enqueue(chunk);
-              }
-              controller.close();
-            },
-          });
-          return await blob.handle(pipeRequest, () => Promise.resolve(stream));
-        },
+        async () =>
+          await blob.handle(pipeRequest, () => Promise.resolve(undefined)),
       );
       const result = submission.ok ? await submission.value.result : submission;
       if (!session.credentialUsable) return;

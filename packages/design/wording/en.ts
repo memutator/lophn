@@ -1,5 +1,6 @@
 // en catalog. 값은 완성된 문장 하나의 ICU MessageFormat이다. 화면 코드는 문장 조각을 이어 붙이지 않는다.
 export const en = {
+  "apps.title.screen": "Apps",
   "common.activity.agent": "Agent activity",
   "common.activity.app": "App activity",
   "common.author.label": "Written by {author}",
@@ -22,11 +23,13 @@ export const en = {
     "This chart can show up to {max, number} groups at once.",
   "common.chart.unreadable": "This chart couldn't be drawn from its data.",
   "common.copy.failed": "Couldn't copy. Try again.",
+  "common.empty.not-ready": "This screen isn't ready yet.",
   "common.error.load-failed": "Couldn't load {target}.",
   "common.heading.column-unit": "{header} ({unit})",
   "common.heading.count": "Count",
   "common.heading.group": "Group",
   "common.label.date-with-weekday": "{date} ({weekday})",
+  "common.label.lophn-space": "lophn",
   "common.label.more-waiting": "{count, plural, one {+# more} other {+# more}}",
   "common.label.on-this-page": "On this page",
   "common.label.original-order": "Original order",
@@ -64,6 +67,7 @@ export const en = {
   "confirmation-window.button.decide": "Decide",
   "confirmation-window.button.refresh": "Open latest",
   "confirmation-window.title.confirm": "Confirm",
+  "contexts.title.screen": "Focus",
   "contexts.view.baseline": "Baseline",
   "contexts.view.follow-changes": "Follow changes",
   "contexts.view.reference": "Reference",
@@ -102,12 +106,147 @@ export const en = {
   "document.label.problems": "Format problems",
   "document.label.properties": "Properties",
   "document.label.reading-width": "Reading width",
-  "document.label.this-document": "this document",
   "document.label.replace-with": "Replace with",
+  "document.label.this-document": "this document",
   "document.label.width-choice":
     "{width, select, narrow {Narrow, 600px} wide {Wide, 800px} other {Default, 680px}}",
   "document.label.width-current":
     "{width, select, narrow {Narrow, 600px} wide {Wide, 800px} other {Default, 680px}} (current)",
+  "documents.button.add-member": "Add to series",
+  "documents.button.archive-series": "Archive series",
+  "documents.button.back-to-series": "Back to series",
+  "documents.button.clear-conditions": "Clear conditions",
+  "documents.button.confirm-save-view": "Save view",
+  "documents.button.go-search": "Search documents",
+  "documents.button.include-archived": "Include archived",
+  "documents.button.more-results": "More results",
+  "documents.button.next-in-series": "Next in series",
+  "documents.button.open-latest": "Open latest version",
+  "documents.button.open-latest-series": "Open latest",
+  "documents.button.open-link": "Open a link",
+  "documents.button.previous-in-series": "Previous in series",
+  "documents.button.read-more": "Read more",
+  "documents.button.register": "Register",
+  "documents.button.register-series": "Register series",
+  "documents.button.save-view": "Save as view",
+  "documents.button.search": "Search",
+  "documents.button.search-again": "Search again",
+  "documents.button.unarchive-series": "Unarchive series",
+  "documents.empty.no-candidates":
+    "No other documents in this place use this series' format.",
+  "documents.empty.no-matches": "Nothing matches these conditions.",
+  "documents.empty.no-matches-active":
+    "Nothing matches among documents that aren't archived.",
+  "documents.empty.no-matches-not-yet":
+    "Nothing matches yet, and search may not include the newest changes.",
+  "documents.empty.no-members": "No documents in this series yet.",
+  "documents.empty.no-series": "No series yet.",
+  "documents.empty.no-views": "No saved views yet.",
+  "documents.empty.pick-document": "Choose a document to read it here.",
+  "documents.empty.start":
+    "Search by words, then narrow by place, focus or format.",
+  "documents.empty.view-empty": "No documents match this view right now.",
+  "documents.error.change-failed": "Couldn't change this series. Try again.",
+  "documents.error.changed": "This changed since you opened it.",
+  "documents.error.key-taken": "This key is already used in this series.",
+  "documents.error.link-unknown":
+    "This link doesn't point to a document lophn can open.",
+  "documents.error.name-invalid":
+    "Use lowercase letters, numbers and dashes, starting with a letter.",
+  "documents.error.read-failed": "Couldn't read this part. Try again.",
+  "documents.error.register-failed":
+    "Couldn't register this series. Try again.",
+  "documents.error.rule-invalid":
+    "lophn can't use this rule. End it with one number part, padded to 4 digits or fewer.",
+  "documents.error.save-view-failed": "Couldn't save this view. Try again.",
+  "documents.error.section-missing":
+    "This version has no such section, so nothing similar was opened instead.",
+  "documents.error.section-unsupported":
+    "This document's format has no sections to read one by one.",
+  "documents.error.section-unverified":
+    "lophn hasn't worked out this document's sections yet.",
+  "documents.error.series-taken":
+    "A series with this name already exists here.",
+  "documents.error.text-hidden": "This part is hidden here.",
+  "documents.error.title-missing": "Add a title.",
+  "documents.error.view-name-taken": "A view with this name already exists.",
+  "documents.heading.members": "In order",
+  "documents.heading.next": "Next document",
+  "documents.heading.register-series": "Register a series",
+  "documents.label.any-focus": "Any focus",
+  "documents.label.any-format": "Any format",
+  "documents.label.any-place": "Any place",
+  "documents.label.archived": "Archived",
+  "documents.label.archived-results": "Archived documents with matching titles",
+  "documents.label.choose-document": "Choose a document",
+  "documents.label.choose-place": "Choose a place",
+  "documents.label.focus": "Focus",
+  "documents.label.format": "Format",
+  "documents.label.format-name":
+    "{format, select, document {Document} pdf {PDF} image {Image} data {Data} other {{format}}}",
+  "documents.label.from-summary": "Matched in a summary",
+  "documents.label.include-archived": "Include archived",
+  "documents.label.key": "Key",
+  "documents.label.latest-version": "Latest version",
+  "documents.label.link": "Document link",
+  "documents.label.link-help": "Like notes/plan#goals@3",
+  "documents.label.member-document": "Document",
+  "documents.label.name-help": "Lowercase letters, numbers and dashes",
+  "documents.label.newer-version": "Newer version available",
+  "documents.label.next-rule": "Next name rule",
+  "documents.label.next-rule-help":
+    "One number part at the end, like week-'{n}' or v'{major}'",
+  "documents.label.order-ascending": "By key, first to last",
+  "documents.label.order-descending": "By key, last to first",
+  "documents.label.place": "Place",
+  "documents.label.query": "Search documents",
+  "documents.label.saved-when": "Saved {when}",
+  "documents.label.series-meta":
+    "{place} · {count, plural, one {# document} other {# documents}}",
+  "documents.label.series-name": "Name",
+  "documents.label.series-order": "Order",
+  "documents.label.series-rule": "Next name: {rule}",
+  "documents.label.series-title": "Title",
+  "documents.label.show-archived-series": "Show archived series",
+  "documents.label.tab-search": "Search",
+  "documents.label.tab-series": "Series",
+  "documents.label.tab-views": "Saved views",
+  "documents.label.target-document": "this document",
+  "documents.label.target-results": "search results",
+  "documents.label.target-series": "this series",
+  "documents.label.target-series-list": "series",
+  "documents.label.target-view": "{name}",
+  "documents.label.target-views": "saved views",
+  "documents.label.view-name": "View name",
+  "documents.label.whole-document": "Whole document",
+  "documents.notice.archived-document":
+    "This document is archived. Its versions can still be read.",
+  "documents.notice.first-key":
+    "This series has no documents yet. Choose the first key yourself.",
+  "documents.notice.lagging":
+    "Search hasn't caught up with the newest changes yet.",
+  "documents.notice.link-moved":
+    "This link's document was renamed or moved. It's now {address}.",
+  "documents.notice.link-moved-unplaced":
+    "This link's document was renamed or moved.",
+  "documents.notice.no-suggestion":
+    "lophn can't work out the next key from {from}. Choose it yourself.",
+  "documents.notice.omissions":
+    "{count, plural, one {# document} other {# documents}} couldn't be searched.",
+  "documents.notice.pinned-version":
+    "This link points to version {number, number}.",
+  "documents.notice.rebuilding":
+    "Search is being rebuilt, so some documents may be missing for now.",
+  "documents.notice.series-archived":
+    "This series is archived. Its documents and versions stay as they are.",
+  "documents.notice.suggestion":
+    "Suggested key {key}, worked out from {from} with the rule {rule}.",
+  "documents.notice.suggestion-taken":
+    "That key or its name is already used. Choose another.",
+  "documents.notice.view-rebuilt":
+    "This list is found again from the view's conditions each time you open it.",
+  "documents.notice.view-saved": "Saved as {name}.",
+  "documents.title.screen": "Documents",
   "launcher.button.lophn": "lophn",
   "launcher.button.reconnect": "Reconnect",
   "launcher.button.retry": "Try again",
@@ -146,8 +285,11 @@ export const en = {
   "project-workspace.label.path": "Path",
   "project-workspace.label.tabs": "Tabs",
   "project-workspace.sidebar.label": "Project",
+  "projects.title.screen": "Projects",
+  "roles.title.screen": "Roles",
   "settings.models.for-decisions": "For decisions",
   "settings.models.for-summaries": "For summaries",
+  "settings.title.screen": "Settings",
   "terminal.button.close-terminal": "Close terminal",
   "terminal.button.hide-notice": "Hide note",
   "terminal.button.keep-open": "Keep open",
@@ -181,6 +323,7 @@ export const en = {
   "terminal.status.unknown":
     "lophn lost track of this shell, so how it ended is unknown.",
   "terminal.title.close": "Close this terminal?",
+  "things-to-confirm.title.screen": "Things to confirm",
 } as const;
 
 export type Catalog = typeof en;

@@ -50,3 +50,11 @@ test("shell/editor#R7: 문서 읽기 worker는 outline·본문 읽기뿐이고 �
   assert.equal(isAllowed("worker", "files", "write"), false);
   assert.equal(isAllowed("worker", "formats", "validate"), false);
 });
+
+test("shell/desktop#R1: documents 화면의 검색과 saved view 열기 worker는 읽기라 통과하고 export·준비는 막는다", () => {
+  assert.equal(isAllowed("worker", "search", "query"), true);
+  assert.equal(isAllowed("worker", "views", "open"), true);
+  assert.equal(isAllowed("worker", "search", "status"), false);
+  assert.equal(isAllowed("worker", "documents", "export"), false);
+  assert.equal(isAllowed("worker", "documents", "prepare"), false);
+});

@@ -3,7 +3,8 @@ import { Desktop } from "./main.tsx";
 import { windowCoreSource } from "./connection/connection.ts";
 import { devSeed } from "./dev-seed.ts";
 import { windowEditorDeps } from "../editor/window-deps.ts";
-import { openProject } from "./router.ts";
+import { openLophn, openProject, type Route } from "./router.ts";
+import { coreLophnSource } from "./lophn-space/core-source.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
@@ -14,6 +15,13 @@ import styles from "./entry.module.css";
 const seed = devSeed();
 const core = windowCoreSource();
 const editor = windowEditorDeps(core);
+const lophn = coreLophnSource(core);
+// 개발 확인용 시작 자리. `#lophn`이면 lophn 공간(documents)부터 연다. 기본은 런처다.
+const start: Route | undefined = seed
+  ? openProject(seed.project)
+  : location.hash === "#lophn"
+  ? openLophn()
+  : undefined;
 // 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
 const terminal = windowTerminalDeps(
   new TerminalStore(),
@@ -24,11 +32,12 @@ mount(
   <div className={styles.root}>
     <Desktop
       source={core}
-      initial={seed ? openProject(seed.project) : undefined}
+      initial={start}
       workspace={seed?.source}
       editor={seed ? { ...editor, ...seed.editor } : editor}
       windowWidth={seed ? 1440 : undefined}
       terminal={terminal}
+      lophn={lophn}
     />
   </div>,
 );

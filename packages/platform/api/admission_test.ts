@@ -1,8 +1,9 @@
 import { assert, assertEquals } from "@std/assert";
-import { ok } from "../../base/mod.ts";
+import { manualClock, ok, seededRandom } from "../../base/mod.ts";
 import { ERROR_HTTP_STATUS } from "../../contracts/platform/mod.ts";
 import type { CommandEnvelope, Writer } from "../ledger/mod.ts";
 import { type Admission, createAdmission } from "../responsiveness/mod.ts";
+import { CredentialRegistry } from "../identity/mod.ts";
 import { call, listen } from "./harness_test.ts";
 
 // platform/api#R3 responsiveness: command는 admission의 queue를 지나고 초과 입장은
@@ -112,6 +113,78 @@ Deno.test("platform#T11: HTTP 입장은 admission counter를 쓰고 release는 �
     // 응답이 끝난 뒤 release된다. active는 0이다.
     assertEquals(admission.httpActive, 0);
     assertEquals(admission.connections, 0);
+  } finally {
+    await opened.server.stop();
+  }
+});
+
+// platform/api#R3: 입장한 command는 writer에 한 번만 간다. 대기열이 work를 한 번 돌리고
+// 입장 뒤 또 돌리면 key 없는 command가 두 번 commit된다.
+Deno.test("platform/api#R3: 입장한 command는 writer에 한 번만 보낸다", async () => {
+  const clock = manualClock(Date.parse("2026-10-04T00:00:00.000Z"));
+  const credentials = new CredentialRegistry({
+    epoch: "core-one",
+    clock,
+    random: seededRandom(5),
+    operations: [
+      { name: "events/advance-cursor", actors: ["machine"], kind: "command" },
+    ],
+  });
+  const issued = await credentials.issue({
+    actor: "machine",
+    principal: "machine:cursor",
+    scope: {
+      operations: ["events/advance-cursor"],
+      targets: { task: "cursor" },
+    },
+    conditions: { task: "cursor", process: "worker-generation" },
+  });
+  assert(issued.ok, issued.ok ? "" : issued.error.message);
+  let sent = 0;
+  const writer: Writer = {
+    command: async () => {
+      sent += 1;
+      await Promise.resolve();
+      return {
+        ok: false,
+        error: { code: "unavailable", message: "writer unavailable" },
+      };
+    },
+    readResult: async () => {
+      await Promise.resolve();
+      return {
+        ok: false,
+        error: { code: "unavailable", message: "read-result unavailable" },
+      };
+    },
+    close: async () => {
+      await Promise.resolve();
+    },
+  };
+  const opened = await listen({
+    credentials,
+    clock,
+    token: issued.value.token,
+    admission: createAdmission(),
+    writer,
+  });
+  try {
+    const response = await call(opened.base, "/v1/events/advance-cursor", {
+      method: "POST",
+      token: opened.token,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        input: {
+          subscriber: "machine:cursor",
+          scanned_through_seq: "0",
+        },
+        idempotency_key: "cursor-once-0000000000000001",
+        compare: { processed_through_seq: "0" },
+        prepared: [],
+      }),
+    });
+    const text = await response.text();
+    assertEquals(sent, 1, `status ${response.status} ${text}`);
   } finally {
     await opened.server.stop();
   }

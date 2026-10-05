@@ -27,7 +27,14 @@ import {
   createPresetCommands,
   createPresetReads,
   presetSchemaSteps,
+  ROLE_CAPS,
 } from "../../packages/lophn-agent/presets/mod.ts";
+import {
+  createToolCommands,
+  createToolReads,
+  toolCallBodyFields,
+  toolsSchemaSteps,
+} from "../../packages/lophn-agent/harness/tools/mod.ts";
 import type { McpServerConfig } from "../../packages/contracts/lophn-agent/mod.ts";
 
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
@@ -94,16 +101,15 @@ const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();
 
 // preset 구성 검증 deps(R11). MCP server 설정은 extensions의 settings registry
-// 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23, 역할
-// 상한은 T8이 고정하므로 지금은 빈 목록이다. tool 선택이 있으면 role cap이 없어
-// 거절이다. catalog는 동봉 snapshot에서 읽고(T4, harness/model R5), credential
-// key와 provider 정의 key는 같은 Tx의 provider 표·provider_credentials 표에서
-// 읽는다(R6, R10).
+// 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23이다. 역할
+// 상한은 T8이 고정한 ROLE_CAPS 표다. catalog는 동봉 snapshot에서 읽고(T4,
+// harness/model R5), credential key와 provider 정의 key는 같은 Tx의 provider
+// 표·provider_credentials 표에서 읽는다(R6, R10).
 function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
   return {
     bundles: new Map<string, readonly string[]>(),
     mcpServers: new Map<string, McpServerConfig>(),
-    roleCaps: new Map<string, { tools: readonly string[] }>(),
+    roleCaps: ROLE_CAPS,
     // provider 정의 key는 provider 표 definition_key다. 기록이 없으면
     // undefined로 fail-closed다(R6).
     definitionKey: (provider: string) => {
@@ -142,12 +148,18 @@ function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
 const presetCommands = createPresetCommands((tx) => presetValidateDeps(tx.sql));
 const presetReads = createPresetReads();
 
+// tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
+// 원문은 blob 참조만 남긴다.
+const toolCommands = createToolCommands();
+const toolReads = createToolReads();
+
 export const lophnAgentDefinitions = {
   schemaSteps: [
     ...providerSchemaSteps,
     ...modelSchemaSteps,
     ...usageSchemaSteps,
     ...presetSchemaSteps,
+    ...toolsSchemaSteps,
   ],
   commands: [
     commands.register,
@@ -164,6 +176,12 @@ export const lophnAgentDefinitions = {
     presetCommands.registerDefault,
     presetCommands.create,
     presetCommands.revise,
+    toolCommands.request,
+    toolCommands.decide,
+    toolCommands.start,
+    toolCommands.finish,
+    toolCommands.recordRead,
+    toolCommands.supplement,
   ],
   reads: [
     reads.read,
@@ -177,9 +195,11 @@ export const lophnAgentDefinitions = {
     presetReads.read,
     presetReads.list,
     presetReads.instructionAttachments,
+    toolReads.read,
+    toolReads.list,
   ],
-  // model.call 본문은 blob 참조만 남는다(R4). 용량 보존 종류는 plan blob 자리다.
-  blobFields: [...modelCallBodyFields],
+  // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
+  blobFields: [...modelCallBodyFields, ...toolCallBodyFields],
   workers: [],
 };
 
@@ -199,6 +219,8 @@ export function createReaderRegistration(): ReaderRegistration {
       presetReads.read,
       presetReads.list,
       presetReads.instructionAttachments,
+      toolReads.read,
+      toolReads.list,
     ],
     ports: new Map(),
   };

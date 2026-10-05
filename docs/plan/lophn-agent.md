@@ -256,9 +256,11 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 조사: docs/research/agent-run-loop.md
 - 선행: T10, platform#T25
 - T10에서 넘어온 것: StartRun이 받는 agent credential 발급·종료와 AgentAppScope 계산(#250은 scope의 assignment·role 일치만 본다)
+- 상태: 완료 (#260) — 이어보냄: credential을 runtime에 전달하는 감독 pipe 메시지와 core 쪽 agent credential 발급·`current/live` 연결 → platform 계약(없음), AgentAppScope 입력(blueprint command 선언·agent.commands grant)을 읽는 loader와 selector·StartRun을 부르는 loop → T26
 - 완료:
   - selector_test.ts에 R4 테스트: 세 우선순위 FIFO, 상위 8개 연속 뒤 가장 오래된 하위 후보, 막힌 assignment는 양보를 쓰지 않음, streak를 RunStarted에서 재구성
   - limits_test.ts에 R19–R22 테스트: run 한도는 공통 설정(model 시도 30·무진행 300000ms·전체 1800000ms, 양의 정수만, 사람만 다음 run부터 변경), 완전 응답·확정 결과만 진행, 실패 시도도 셈, 부분 token은 reset 안 함, 세 한도 각각에서 추가 judgment·organizing·마무리 model 호출 0건과 machine 결과, 퍼센트·예상 종료·추론 원문 없음
+  - scope_test.ts·credentials_test.ts와 apps/core/run-credentials_test.ts에 넘어온 것 테스트(roles/common#R11, roles/app-engineer#R21, platform/ledger#R11, platform/identity#R14): 역할별 AgentAppScope는 선언 ∩ 사람 허락 안에서만(CE 없음, Operator 승인 read만, AE 담당 앱의 read·되돌릴 수 있는 write), run 하나에 묶인 `agent:<asg>` credential은 StartRun의 scope를 그대로 싣고 넓히지 못하며 run 종료·assignment 멈춤·감독 상실에 끝남
 
 ### T13 SSE parser와 Anthropic Messages adapter
 

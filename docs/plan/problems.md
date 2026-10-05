@@ -150,7 +150,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `list`, `get`, `list-reports`, `get-report`, `get-snapshot`
 - slice: apps
 - 선행: problems#T2, problems#T4, contracts#T40
-- 상태: 진행 (#PR) — 남은 것: `GetProblem`에 당시 release field가 contract에 없다(질문 Q18; 보고별 release는 `list-reports`로 읽힌다) · 실제 담당·필요한 사람 조치는 problems#T22·T27이 채운다 · 선언 문구 fallback의 앱 이름은 T27의 apps blueprint read가 있어야 붙는다
+- 상태: 진행 (#261) — 남은 것: `GetProblem`에 당시 release field가 contract에 없다(질문 Q18; 보고별 release는 `list-reports`로 읽힌다) · 실제 담당·필요한 사람 조치는 problems#T22·T27이 채운다 · 선언 문구 fallback의 앱 이름은 T27의 apps blueprint read가 있어야 붙는다
 - 완료:
   - `ListProblems`: app·status·cursor·limit(최대 100), seq cursor로 페이지 고정; 기본 항목은 앱·증상·진행·필요한 다음 행동만(grouping#R11)
   - `GetProblem`: 진행·실제 담당·필요한 사람 조치를 먼저, 보고 수·처음/최근 시각·당시 release는 펼친 상세 값; 수는 Report에서 계산하고 별도 counter가 없다; claim·기한·연결 식별자를 내보내지 않는다(grouping#R11, R12)

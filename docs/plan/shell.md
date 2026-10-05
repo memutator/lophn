@@ -310,6 +310,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: shell#T9, shell#T14, documents#T7, documents#T10, documents#T11
+- shell#T21에서 넘어온 것: 제품 core 통로의 `WorkspaceSource`(지금은 dev seed만)를 만들 때 팔레트 파일 묶음의 `files(project)`를 documents `files.list`로 채운다. 그 전까지 lophn 팔레트의 프로젝트 행은 project route로 가도 작업대 통로가 없어 런처가 보인다.
 - 완료: 아래 확인이 통과한다
   - 런처 카드는 사람이 지은 이름·목적·상태만 보인다. 내부 slug·ID·경로는 펼친 상세에만 둔다.
   - 등록: 이름·목적과 OS 폴더 선택(main의 dialog, 폴더 없이도 등록). 등록과 추적 켜기를 구별한다. 추적 미리보기의 포함·제외 이유·겹침을 보고 켠다.
@@ -429,6 +430,7 @@ concerns: [shell]
   - 묶음 순서: 작업대는 열린 탭·문서·파일·컨텍스트·행동, lophn 공간은 프로젝트·컨텍스트·문서·앱·행동. 결과는 현재 탐색 대상으로만 간다.
   - palette는 overlay에 그린다. `palette_test`에 위 요구 테스트.
 - 가져올 것: legacy `renderer/src/palette`, `main/src/shared/shortcuts.ts`.
+- 상태: 완료 (#274). 문서 묶음은 documents 검색으로 찾고 overlay protocol에 검색 palette의 query·update를 더했다. 런처에는 R30 묶음이 없어 팔레트 키가 아무것도 열지 않는다.
 
 ### T22 confirmation window 기반: child modal, 보호 preload, 일회 handle
 
@@ -701,6 +703,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: context
 - 선행: shell#T18, shell#T19, shell#T27, shell#T29, documents#T22, documents#T25
+- shell#T21에서 넘어온 것: lophn 공간 팔레트의 Focus 행은 지금 contexts 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 context target). contexts 화면이 생기면 그 Focus 상세를 연다.
 - 완료: 아래 확인이 통과한다
   - Focus(사람이 지은 이름과 목적), 기준·참고·watch 항목을 Baseline·Reference·Follow changes로 보인다. 근거와 부족한 자료는 펼친다.
   - watch의 확인된 변화·소실·미확인을 구별한다. 보관은 원자료 변경이 아니다.
@@ -808,6 +811,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T37, shell#T39, apps#T9
+- shell#T21에서 넘어온 것: lophn 공간 팔레트의 앱 행은 지금 apps 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 app target). 앱 공간이 생기면 그 앱 공간으로 간다.
 - 완료: 아래 확인이 통과한다
   - 앱 공간은 얇은 바와 앱 view 전체 본문. 바에 런처 복귀, 앱 이름·연결 상태, [Report a problem] 자리(T52), 운영 패널 진입, 문서 작업대 전환. 운영 패널 720px, 1024px 미만이면 overlay이되 앱 view는 남은 영역으로 줄어든다.
   - 프로젝트·앱 공간의 lophn 크롬은 그 앱의 결정 대기와 daemon 장애 안내만.

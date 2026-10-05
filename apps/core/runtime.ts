@@ -112,9 +112,14 @@ export async function openRuntime(input: {
     // 고정한 clock으로 결정적인 시각을 유지한다.
     clock: input.writerClock === "system" ? "system" : input.nowMs,
     seed: input.seed,
+    // settings 등록 파일. writer가 apply·reload command를 다시 모은다.
+    settings: settingsModule(),
   });
   // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
-  const readerModules: URL[] = [];
+  // settings 등록 파일도 같은 풀로 붙는다. settings read는 ledger snapshot을 읽는다.
+  const readerModules: URL[] = [
+    new URL("./settings.ts", import.meta.url),
+  ];
   for (const url of input.modules) {
     const module = (await import(url)) as {
       createReaderRegistration?: unknown;
@@ -167,7 +172,14 @@ export async function openRuntime(input: {
       (ctx, body) => blobReadHandler(input.ledgerPath, input.blob, ctx, body),
     ],
     // reader Worker가 등록한 ledger read. 팀 read는 그 뒤에 같은 풀로 붙는다.
-    ...["commands/result", "events/list"].map((
+    // settings read도 같은 풀이다. contract ROUTES가 이미 고정한 route 경로다.
+    ...[
+      "commands/result",
+      "events/list",
+      "settings/definitions",
+      "settings/get",
+      "settings/history",
+    ].map((
       key,
     ): [string, ReadHandler] => [
       key,
@@ -283,6 +295,12 @@ async function runSessionOf(
   return ok(output.run?.session ?? null);
 }
 
+// settings 등록 파일. settingsRoutes에 붙는 registry·command·read는
+// settings.ts가 만든다.
+function settingsModule(): string {
+  return "./settings.ts";
+}
+
 // worker가 확인한 backup manifest 읽기(T41). 인증은 API 입구가 이미 끝냈고
 // dispatcher가 schema·output 검사를 한다. 여기서는 data root의 backup folder만
 // 읽는다. 복사·hash 같은 무거운 준비는 I/O worker의 몫이다(responsiveness#R1).
@@ -320,7 +338,12 @@ function backupReads(
 // openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.
 function openProductWriter(
   path: string,
-  extra: { modules: string[]; clock: "system" | number; seed: number },
+  extra: {
+    modules: string[];
+    clock: "system" | number;
+    seed: number;
+    settings?: string;
+  },
 ): {
   writer: Writer;
   confirmation(body: {

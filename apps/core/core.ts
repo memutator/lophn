@@ -20,7 +20,10 @@ import {
   checkRestart,
 } from "../../packages/platform/backup-and-migration/mod.ts";
 import { type StatusSource } from "../../packages/platform/diagnostics/mod.ts";
-import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
+import {
+  CredentialRegistry,
+  type OperationPolicy,
+} from "../../packages/platform/identity/mod.ts";
 import {
   acquireInstanceLock,
   type DataRoot,
@@ -31,6 +34,7 @@ import {
 } from "../../packages/platform/install-and-update/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
 import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
   type BlobPrepareRelay,
   createBlobPrepareRelay,
@@ -156,9 +160,10 @@ async function open(
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
   // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
+  const allRoutes = [...ROUTES, ...assembled.value.routes];
   let routes: RouteRegistry;
   try {
-    routes = new RouteRegistry([...ROUTES, ...assembled.value.routes]);
+    routes = new RouteRegistry(allRoutes);
   } catch {
     return err({ code: "internal", message: "route 등록이 겹친다" });
   }
@@ -169,6 +174,7 @@ async function open(
       ...LEDGER_SCHEMA_STEPS,
       CREDENTIAL_SCHEMA,
       ...assembled.value.schemaSteps,
+      ...SETTINGS_SCHEMA_STEPS,
     ],
     { clock, recovery: { root: root.path } },
   );
@@ -196,6 +202,14 @@ async function open(
         actors: ["user", "machine", "app", "agent", "coding_agent"],
         kind: "read",
       },
+      // 사람 token 상한. user를 허용하는 route만 올라가고 다른 actor의 상한은 그대로다.
+      ...allRoutes.filter((route) => route.actors.includes("user")).map((
+        route,
+      ): OperationPolicy => ({
+        name: route.name,
+        actors: ["user"],
+        kind: route.kind === "command" ? "command" : "read",
+      })),
     ],
   });
   const registry = options.testCredentials
@@ -383,6 +397,7 @@ async function open(
       server.port,
       epoch,
       (scope) => productRegistry.issue(scope),
+      allRoutes,
     )
     : Promise.resolve(ok(undefined));
   let stopped = false;

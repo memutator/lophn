@@ -11,11 +11,7 @@ export {
   updateSavedView,
 } from "./saved-views-store.ts";
 export { createViewCommands } from "./saved-views-commands.ts";
-export {
-  createViewOpenHandler,
-  createViewReads,
-  type ViewOpenHandlerDeps,
-} from "./saved-views-reads.ts";
+export { createViewReads } from "./saved-views-reads.ts";
 export {
   type BodyChunk,
   bodyChunk,
@@ -49,68 +45,8 @@ export {
   SNIPPET_TOKENS,
   trimmedQuery,
 } from "./model.ts";
-export {
-  applySchema,
-  configureDerived,
-  DERIVED_REBUILD_DB,
-  DERIVED_SEARCH_DB,
-  type DerivedOpen,
-  derivedPath,
-  type DerivedRead,
-  type DerivedSql,
-  type DerivedStore,
-  type DerivedStoreWrite,
-  type DerivedTx,
-  openDerived,
-  openDerivedRead,
-  rebuildPath,
-} from "./adapters/store.ts";
-export {
-  allOmissions,
-  applySearchEvent,
-  COALESCE_MS,
-  type ConsumerEvent,
-  type ConsumerEventBatch,
-  coverageOf,
-  type EventScanLike,
-  OMISSION_FAILED,
-  OMISSION_UNSUPPORTED,
-  OMISSION_UNVERIFIED,
-  type SearchConsumerDeps,
-  type SearchCoverage,
-  startRebuild,
-} from "./work.ts";
 export { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
-export {
-  createOutlineHandlers,
-  createSearchHandlers,
-  type DirectExtraction,
-  type DocumentReadInput,
-  type DocumentReadPage,
-  excerptOf,
-  type IndexDocument,
-  type OutlineCoverageValue,
-  type OutlineDocumentInput,
-  type OutlineDocumentPage,
-  type OutlineHandlerDeps,
-  type OutlineHandlers,
-  type OutlinePlaceEntryValue,
-  type OutlinePlaceInput,
-  type OutlinePlacePage,
-  type OutlineRootEntry,
-  type OutlineRootInput,
-  type OutlineRootPage,
-  type SearchHandlerDeps,
-  type SearchHandlers,
-  type SearchQueryInput,
-  type SearchQueryPage,
-  type SearchStatusInput,
-  type SearchStatusPage,
-} from "./reads.ts";
+
 export { allowCandidate, candidateDocuments } from "./candidates.ts";
-export {
-  type ExtractionRecord as ExtractionEntry,
-  rebuildTarget,
-  recordExtraction,
-} from "./extraction.ts";
+
 export { createSeriesOutlineRead } from "./series-outline.ts";

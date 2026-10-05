@@ -5,7 +5,8 @@ import { assert, assertEquals } from "@std/assert";
 import { canonicalize, err, ok } from "../../base/mod.ts";
 import { TargetAuthorization } from "../../contracts/platform/mod.ts";
 import type { SavedView } from "../../contracts/documents/mod.ts";
-import { createViewOpenHandler, createViewReads } from "./saved-views-reads.ts";
+import { createViewOpenHandler } from "./saved-views-open.ts";
+import { createViewReads } from "./saved-views-reads.ts";
 import { createViewCommands } from "./saved-views-commands.ts";
 import { ids, keep, userContext, viewFixture } from "./testing/mod.ts";
 

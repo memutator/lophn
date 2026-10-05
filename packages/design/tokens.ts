@@ -175,6 +175,17 @@ export const tokens = {
     launcher: "1040px",
     overview: "800px",
   },
+  // 문서 편집기·읽기의 인용 막대·체크박스·찾기 줄·형식 문제 여백과 목록·sticky 머리·
+  // 링크 고르기 폭(shell/editor#R4, R10, R11). 입력 28px·행 32px·아이콘 14px은 control·menu·icon 값을 쓴다.
+  editor: {
+    quoteBar: "2px",
+    check: "16px",
+    find: "36px",
+    gutter: "24px",
+    problemList: "200px",
+    stickyHead: "32px",
+    linkPicker: "320px",
+  },
   // 표 행 높이. 밀도 선택은 표에서만 둔다(R30, R44).
   table: { row: { compact: "36px", comfortable: "44px" } },
   // 트리 행·깊이당 들임·현재 표시 폭과 들임 상한(R32).

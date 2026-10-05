@@ -1,5 +1,7 @@
 // Electron 실행당 terminal host 하나. 상속 private pipe로 띄우고 감독한다.
 // host가 죽으면 살아 있던 터미널은 unknown이고 자동으로 다시 띄우지 않는다.
+// 사람이 누른 열기·다시 시작만 죽은 host 뒤에 새 host를 하나 띄우고(shell/terminal#R9),
+// 그 host에서 새 터미널을 연다. 옛 입력은 재생하지 않는다.
 
 import { type ChildProcess, spawn } from "node:child_process";
 
@@ -45,6 +47,16 @@ export function createSupervisor(options: {
     return child;
   }
 
+  function refreshRuntime(runtime: TerminalRuntime): void {
+    const known = runtimes.get(runtime.terminal_ref);
+    if (
+      known === undefined || known.generation < runtime.generation ||
+      known.state === "unknown" || known.state === "exited"
+    ) {
+      runtimes.set(runtime.terminal_ref, runtime);
+    }
+  }
+
   function onExit(): void {
     lost = true;
     for (const [id, resolve] of pending) {
@@ -77,7 +89,7 @@ export function createSupervisor(options: {
       return;
     }
     if (parsed.runtime) {
-      runtimes.set(parsed.runtime.terminal_ref, parsed.runtime);
+      refreshRuntime(parsed.runtime);
     }
     if (parsed.id && parsed.reply) {
       const resolve = pending.get(parsed.id);
@@ -88,9 +100,39 @@ export function createSupervisor(options: {
     }
   }
 
+  /** 사람이 누른 열기·다시 시작이 죽은 host 뒤에 새 host를 하나 띄운다(R9). */
+  function revive(): HostProcess {
+    if (child && !child.killed && !lost) return child;
+    child = options.spawnHost(options.entry);
+    const stdout = child.stdout;
+    if (stdout) {
+      void readLines(stdout, (line) => onLine(line));
+    }
+    child.on("exit", () => onExit());
+    lost = false;
+    return child;
+  }
+
+  /** 결과 불명 터미널의 등록 폴더로 다시 여는 open 요청(R9). */
+  function reopenMessage(terminal: TerminalRuntime): unknown {
+    return {
+      type: "open",
+      project: terminal.project,
+      folder_ref: terminal.folder_ref,
+      folders: terminal.folder_ref
+        ? [{ folder_ref: terminal.folder_ref, path: terminal.cwd_at_start }]
+        : [],
+    };
+  }
+
   return {
     request(message) {
-      const current = ensure();
+      const type = (message as { type?: unknown } | null)?.type;
+      // 사람이 누른 열기·다시 시작만 죽은 host 뒤를 살린다. input·resize·close·
+      // snapshot 같은 자동 경로는 죽은 host에 닿지 않는다(R13).
+      const current = type === "open" || type === "restart"
+        ? revive()
+        : ensure();
       if (!current || current.killed || !current.stdin) {
         return Promise.resolve({
           ok: false,
@@ -98,15 +140,37 @@ export function createSupervisor(options: {
           message: "terminal host is not running",
         });
       }
+      // 죽은 host 뒤 다시 시작은 새 host에 터미널이 없다. 다시 시작을 등록 폴더로
+      // 다시 여는 open으로 옮긴다(shell/terminal#R9). 옛 입력은 재생하지 않는다.
+      let body: unknown = message;
+      if (type === "restart") {
+        const ref = (message as { terminal_ref?: unknown }).terminal_ref;
+        const terminal = typeof ref === "string"
+          ? runtimes.get(ref)
+          : undefined;
+        if (!terminal) {
+          return Promise.resolve({
+            ok: false,
+            reason: "host_lost",
+            message: "generation does not match",
+          });
+        }
+        if (
+          terminal.state === "unknown" ||
+          (terminal.state === "exited" && terminal.failure_reason !== null)
+        ) {
+          body = reopenMessage(terminal);
+        }
+      }
       const id = `req_${pending.size}_${Date.now()}`;
-      const body = JSON.stringify({ ...(message as object), id }) + "\n";
+      const payload = JSON.stringify({ ...(body as object), id }) + "\n";
       return new Promise((resolve) => {
         pending.set(id, resolve);
-        current.stdin?.write(body);
+        current.stdin?.write(payload);
       });
     },
     note(runtime) {
-      runtimes.set(runtime.terminal_ref, runtime);
+      refreshRuntime(runtime);
     },
     runtimes() {
       return [...runtimes.values()];
@@ -131,6 +195,8 @@ export function createSupervisor(options: {
         }
         gone.push({ ...runtime });
       }
+      runtimes.clear();
+      for (const runtime of gone) runtimes.set(runtime.terminal_ref, runtime);
       return gone;
     },
   };

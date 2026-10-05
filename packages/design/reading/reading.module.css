@@ -77,10 +77,11 @@
   color: var(--color-text-secondary);
 }
 
+/* 인용 막대 2px은 편집기와 같다(shell/editor#R8, R10). */
 .quote {
   margin: var(--space-0) var(--space-0) var(--space-6);
   padding: var(--space-0) var(--space-0) var(--space-0) var(--space-6);
-  border-left: var(--border-width) solid var(--color-border-strong);
+  border-left: var(--editor-quote-bar) solid var(--color-border-strong);
   color: var(--color-text-secondary);
 }
 

@@ -817,6 +817,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: coding-agent
 - 선행: platform#T27, coding-agent의 harnesses contract
 - 완료: `coding_settings_test.ts`에 R31 테스트(enabled·기본 harness·profile은 소유 검증, 실행 파일 경로·감지·receipt는 TOML export에 없음)
+- 상태: 완료 (#236) — core 조립이 shell·lophn-agent·coding-agent 팀의 설정 항목을 registry 하나로 모아 settings apply·reload command와 definitions·get·history read를 등록한다(`apps/core/settings.ts`, `settings_test.ts`가 temp LOPHN_HOME에서 shell.reading_width와 harness 설정 3개를 API로 apply·get). 제품 user token scope에 settings operation이 드는 것은 다른 worker가 넓힌다
 
 ### T36 notification 계기: ticket 확인·검사 실패
 

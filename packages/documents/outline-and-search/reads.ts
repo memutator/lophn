@@ -1,8 +1,9 @@
 // search 읽기 handler. route 등록은 API 작업으로 남긴다(contract SEARCH_ROUTES,
 // packages/contracts/documents/search.ts). 입력 검사와 operation scope는 dispatch가
 // 이미 본다. 여기서는 ledger snapshot의 문서·판 metadata와 derived store의
-// search_rows·search_fts를 읽는다. 권한 밖 ID는 후보 단계에서 빼고 count·rank·page도
-// 허용 집합에서 계산한다(outline-and-search#R12, R14, R17).
+// search_rows·search_fts를 읽는다. 권한 밖 ID는 후보 단계에서 빼고 count·rank·page와
+// omissions도 허용 집합에서 계산한다(outline-and-search#R12, R14, R17).
+// read는 derived writer 연결이 아니라 openDerivedRead의 query_only 연결이다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { LineRange } from "../../contracts/documents/mod.ts";
 import type { SearchResult } from "../../contracts/documents/mod.ts";
@@ -16,7 +17,12 @@ import {
   trimmedQuery,
 } from "./model.ts";
 import { allOmissions, type SearchCoverage } from "./work.ts";
-import type { PortLookup, SearchFilters, SearchSnapshot } from "./types.ts";
+import type {
+  ContextItemSource,
+  PortLookup,
+  SearchFilters,
+  SearchSnapshot,
+} from "./types.ts";
 
 export type { SearchFilters, SearchSnapshot };
 export type { PortLookup } from "./types.ts";
@@ -35,6 +41,8 @@ export type SearchHandlerDeps = {
   read: DerivedRead;
   snapshot: SearchSnapshot;
   ports: PortLookup;
+  // context filter의 근원. documents/contexts read contract의 items 목록을 주입한다.
+  contexts?: ContextItemSource;
 };
 
 export type SearchHandlers = {
@@ -82,10 +90,17 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
         ctx,
         deps.ports,
         input,
+        undefined,
+        deps.contexts,
       );
-      const coverage = coverageOfLike(deps.read, deps.snapshot.as_of_seq);
+      const coverage = coverageOfLike(
+        deps.read,
+        deps.snapshot.as_of_seq,
+        candidates,
+      );
       if (coverage.rebuilding || coverage.lagging) {
-        // 재생성 중·뒤처짐이면 결과 없이 진실만 낸다. 빈 검색을 원본 부재로 판정하지 않는다(R14).
+        // 재생성 중·뒤처짐이면 결과 없이 진실만 낸다. 빈 검색을 원본 부재로 판정하지
+        // 않는다(R14). omissions도 허용 집합에서 뺀다(존재를 새지 않는다).
         return ok({
           results: [],
           coverage,
@@ -116,8 +131,13 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
         deps.ports,
         input,
         input.documents,
+        deps.contexts,
       );
-      const coverage = coverageOfLike(deps.read, deps.snapshot.as_of_seq);
+      const coverage = coverageOfLike(
+        deps.read,
+        deps.snapshot.as_of_seq,
+        candidates,
+      );
       const documents: IndexDocument[] = [];
       for (const id of candidates) {
         const indexed = indexedOf(deps.read, deps.snapshot, id);
@@ -134,9 +154,11 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
 }
 
 // coverage는 현재 scope의 진실이다. 같은 seq에도 lagging=true를 허용한다.
+// omissions도 허용 집합에서 뺀다. 권한 밖 문서의 누락은 응답에 새지 않는다(R12).
 function coverageOfLike(
   read: DerivedRead,
   ledgerBasisSeq: string,
+  allowed: ReadonlySet<string>,
 ): SearchCoverage {
   const row = read.sql.get(
     `SELECT processed_seq, rebuilding FROM derived_cursors WHERE consumer = 'search'`,
@@ -151,7 +173,7 @@ function coverageOfLike(
     ledger_basis_seq: basis,
     lagging,
     rebuilding,
-    omissions: allOmissions(read.sql),
+    omissions: allOmissions(read.sql, allowed),
   };
 }
 

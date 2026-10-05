@@ -307,20 +307,25 @@ export function omissionRow(
 }
 
 // 현재 scope 전체의 실패·미지원·미확인 누락. 파생 cursor가 진행해도 남는다.
+// allowed를 주면 허용 집합 밖 문서의 누락은 응답에서 뺀다(존재를 새지 않는다).
 export function allOmissions(
   sql: DerivedRead["sql"],
+  allowed?: ReadonlySet<string>,
 ): SearchCoverage["omissions"] {
   const rows = sql.all(
     `SELECT document, version, extraction_status, failure_reason
      FROM derived_versions WHERE extraction_status <> 'ready' ORDER BY document, version`,
     [],
   );
-  return rows.map((row) => omissionRow(String(row.document), row));
+  const omissions = rows.map((row) => omissionRow(String(row.document), row));
+  if (allowed === undefined) return omissions;
+  return omissions.filter((omission) => allowed.has(omission.document));
 }
 
 export function coverageOf(
   read: DerivedRead,
   ledgerBasisSeq: string,
+  allowed?: ReadonlySet<string>,
 ): SearchCoverage {
   const row = read.sql.get(
     `SELECT processed_seq, rebuilding FROM derived_cursors WHERE consumer = ?`,
@@ -335,7 +340,7 @@ export function coverageOf(
     ledger_basis_seq: basis,
     lagging,
     rebuilding,
-    omissions: allOmissions(read.sql),
+    omissions: allOmissions(read.sql, allowed),
   };
 }
 

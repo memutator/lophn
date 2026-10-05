@@ -5,7 +5,7 @@ import {
   TargetAuthorization,
   type TargetAuthorizer,
 } from "../../contracts/platform/mod.ts";
-import { openDerived, rebuildPath } from "./adapters/store.ts";
+import { openDerived, openDerivedRead, rebuildPath } from "./adapters/store.ts";
 import { createSearchHandlers, excerptOf } from "./reads.ts";
 import { PREAMBLE_EXCERPT_CODEPOINTS, preambleExcerpt } from "./model.ts";
 import { type ExtractionRecord, recordExtraction } from "./extraction.ts";
@@ -42,6 +42,9 @@ function openDerivedFixture() {
   const path = `${directory}/documents.sqlite`;
   const opened = openDerived(path);
   if (!opened.ok) throw new Error(opened.error.message);
+  // read는 query_only 연결이다. writer 연결(opened.value.read)은 노출하지 않는다.
+  const openedRead = openDerivedRead(path);
+  if (!openedRead.ok) throw new Error(openedRead.error.message);
   const authorizer = { current: allowAll };
   const snapshot = {
     as_of_seq: "5",
@@ -64,8 +67,10 @@ function openDerivedFixture() {
   ledgerDb.exec(
     "CREATE TABLE documents (id TEXT PRIMARY KEY, place_kind TEXT, place_id TEXT, name TEXT, title TEXT, latest_version TEXT, revision TEXT, status TEXT NOT NULL DEFAULT 'active'); CREATE TABLE versions (id TEXT PRIMARY KEY, document TEXT, number INTEGER, content_hash TEXT, format_name TEXT, module_hash TEXT, format_explicit INTEGER);",
   );
-  const deps = () => ({
-    read: opened.value.read,
+  const deps = (
+    contexts?: Parameters<typeof createSearchHandlers>[0]["contexts"],
+  ) => ({
+    read: openedRead.value,
     snapshot,
     ports: {
       port<T>(authorizeKey: unknown): T {
@@ -75,6 +80,7 @@ function openDerivedFixture() {
         return authorizer.current as T;
       },
     },
+    ...(contexts === undefined ? {} : { contexts }),
   });
   return {
     store: opened.value,
@@ -97,8 +103,25 @@ function openDerivedFixture() {
         ))
       );
     },
-    handlers(): ReturnType<typeof createSearchHandlers> {
-      return createSearchHandlers(deps());
+    handlers(
+      contexts?: Parameters<typeof createSearchHandlers>[0]["contexts"],
+    ): ReturnType<typeof createSearchHandlers> {
+      return createSearchHandlers(deps(contexts));
+    },
+    // contexts를 주지 않은 조립. context filter가 fail-closed로 비는지 본다.
+    handlerWithoutContexts(): ReturnType<typeof createSearchHandlers> {
+      return createSearchHandlers({
+        read: openedRead.value,
+        snapshot,
+        ports: {
+          port<T>(authorizeKey: unknown): T {
+            if (!Object.is(authorizeKey, TargetAuthorization)) {
+              throw new Error("unregistered port");
+            }
+            return authorizer.current as T;
+          },
+        },
+      });
     },
     close() {
       opened.value.close();
@@ -316,6 +339,107 @@ Deno.test("documents/outline-and-search#R10 R12: agent 출력은 scope 밖 ID를
   }
 });
 
+Deno.test("documents/outline-and-search#R12 R14: scope 밖 principal은 absent와 같은 omissions를 본다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    // DOC_A는 재범위 문서, DOC_B는 권한 밖 문서다. DOC_B의 추출은 실패해 omissions가 남는다.
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    ledgerRow(fx, DOC_B, VER_B, {
+      kind: "project",
+      id: "prj_01arz3ndektsv4rrffq69g5fb0",
+    });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    const failed: ExtractionRecord = {
+      document: DOC_B,
+      version: VER_B,
+      content_hash: HASH,
+      module_hash: HASH,
+      extraction: {
+        status: "failed",
+        failure_reason: "heap exhausted",
+        sections: [],
+      },
+    };
+    keep(recordExtraction(fx.store, failed, "2"));
+    fx.consumed("5");
+    // 후보 권한이 DOC_B만 거절한다. DOC_A의 누락은 없고 DOC_B만 있다.
+    let rejectB = false;
+    fx.use((_ctx, _operation, target) => {
+      if (rejectB && (target as { document?: string }).document === DOC_B) {
+        return err({ code: "forbidden", message: "out of scope" });
+      }
+      return ok(undefined);
+    });
+    const inScope = keep(fx.handlers().status(CTX, {}));
+    assertEquals(inScope.coverage.omissions.length, 1);
+    assertEquals(inScope.coverage.omissions[0].document, DOC_B);
+    // DOC_B를 scope에서 빼면 omissions도 absent와 같은 빈 목록이다.
+    rejectB = true;
+    const outOfScope = keep(fx.handlers().status(CTX, {}));
+    assertEquals(outOfScope.documents.length, 1);
+    assertEquals(outOfScope.coverage.omissions.length, 0);
+  } finally {
+    fx.close();
+  }
+});
+
+Deno.test("documents/outline-and-search#R12: context filter는 items 목록 문서로 후보를 좁히고 없는 context는 전부 비운다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    ledgerRow(fx, DOC_B, VER_B, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    // ctx_a는 DOC_A만 items로 둔다. context filter가 DOC_B를 후보에서 뺀다.
+    const contexts = {
+      items: (contextId: string) =>
+        contextId === "ctx_01arz3ndektsv4rrffq69g5fav"
+          ? ok([{ kind: "document" as const, document: DOC_A }])
+          : err({
+            code: "not_found" as const,
+            message: "context not found",
+          }),
+    };
+    const unfiltered2 = keep(fx.handlers().query(CTX, { query: "문서" }));
+    assertEquals(unfiltered2.results.length >= 1, true);
+    // context filter는 items 목록 밖 문서를 후보에서 빼고 이전 검색 결과를 기울이지 않는다.
+    const filtered = keep(
+      fx.handlers(contexts).query(CTX, {
+        query: "문서",
+        context: "ctx_01arz3ndektsv4rrffq69g5fav",
+      }),
+    );
+    assert(filtered.results.length >= 1);
+    assertEquals(
+      filtered.results.every((result) => result.document === DOC_A),
+      true,
+    );
+    // 없는 context는 fail-closed다. 결과를 기울이지 않고 빈 결과를 낸다.
+    const unknown = keep(
+      fx.handlers().query(CTX, {
+        query: "문서",
+        context: "ctx_01arz3ndektsv4rrffq69g5fb0",
+      }),
+    );
+    assertEquals(unknown.results.length, 0);
+    // contexts를 주지 않은 조립은 fail-closed다. filter가 있으면 결과가 없다.
+    // read는 query_only 연결이다. writer 연결(fx.store.read)은 노출하지 않는다.
+    const readOnly = openDerivedRead(fx.path);
+    if (!readOnly.ok) throw new Error(readOnly.error.message);
+    const unfiltered = keep(
+      fx.handlerWithoutContexts().query(
+        CTX,
+        { query: "문서", context: "ctx_01arz3ndektsv4rrffq69g5fav" },
+      ),
+    );
+    assertEquals(unfiltered.results.length, 0);
+  } finally {
+    fx.close();
+  }
+});
+
 Deno.test("documents/outline-and-search#R14: 재생성 중이면 결과 없이 coverage.rebuilding=true를 낸다", async () => {
   const fx = openDerivedFixture();
   try {
@@ -354,7 +478,8 @@ Deno.test("documents/outline-and-search#R14: 실패 주입과 실제 빈 결과�
     const empty = keep(fx.handlers().status(CTX, {}));
     assertEquals(empty.documents.length, 0);
     assertEquals(empty.coverage.omissions.length, 0);
-    // 실패 주입. 같은 빈 결과에 omissions가 이유를 남긴다.
+    // 실패 주입. 같은 빈 결과에 omissions가 이유를 남긴다. DOC_B는 ledger 문서라
+    // 후보 집합에 들어가고 누락도 허용 집합에서 남는다.
     const failed: ExtractionRecord = {
       document: DOC_B,
       version: VER_B,
@@ -366,10 +491,13 @@ Deno.test("documents/outline-and-search#R14: 실패 주입과 실제 빈 결과�
         sections: [],
       },
     };
+    ledgerRow(fx, DOC_B, VER_B, { kind: "project", id: PROJECT });
     keep(recordExtraction(fx.store, failed, "1"));
     fx.consumed("5");
     const injected = keep(fx.handlers().status(CTX, {}));
-    assertEquals(injected.documents.length, 0);
+    // failed 추출은 search_documents 행은 선다(재시작 대상). 문서 목록에는 들어가고
+    // 누락이 같이 간다. 실제 빈 결과(문서도 누락도 없음)와 omissions로 구별한다.
+    assertEquals(injected.documents.length, 1);
     assertEquals(injected.coverage.omissions.length, 1);
     assertEquals(injected.coverage.omissions[0].document, DOC_B);
     assertEquals(injected.coverage.omissions[0].reason, "heap exhausted");

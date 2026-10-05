@@ -1,0 +1,147 @@
+/* 터미널 탭 본문. 칸의 여백 없이 탭 줄 아래를 다 쓰고, 출력 아래에 상태 줄을 둔다. */
+.terminal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+  background: var(--color-surface-base);
+  font-family: var(--font-sans);
+}
+
+.screen {
+  position: relative;
+  flex: 1;
+  min-height: var(--space-0);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-ink-background);
+  overflow: hidden;
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.screenHost {
+  width: 100%;
+  height: 100%;
+}
+
+/* 첫 열기 안내. 두 문장을 따로 둔다. */
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border-base);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.noticeList {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.noticeItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.noticeIcon {
+  flex: none;
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+/* 출력 옆 상태 줄. */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--control-md-height);
+  padding: var(--space-1) var(--space-4);
+  border-top: var(--border-width) solid var(--color-border-base);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.missing {
+  display: flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border-base);
+  background: var(--color-surface-subtle);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 여러 등록 폴더 중 고르기. */
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--page-form);
+  margin: var(--space-0) auto;
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+  box-sizing: border-box;
+}
+
+.choiceHeading {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.path {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.fill {
+  flex: 1;
+}
+
+/* 보일 출력이 없을 때의 자리표시. 작업대 빈 칸과 같은 모양이다. */
+.placeholderWrap {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: var(--page-form);
+  padding: var(--space-6);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-base);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: center;
+}
+
+.placeholderIcon {
+  color: var(--color-text-muted);
+}

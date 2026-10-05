@@ -252,6 +252,15 @@ export const vars = {
     "launcher": "var(--page-launcher)",
     "overview": "var(--page-overview)",
   },
+  "editor": {
+    "quoteBar": "var(--editor-quote-bar)",
+    "check": "var(--editor-check)",
+    "find": "var(--editor-find)",
+    "gutter": "var(--editor-gutter)",
+    "problemList": "var(--editor-problem-list)",
+    "stickyHead": "var(--editor-sticky-head)",
+    "linkPicker": "var(--editor-link-picker)",
+  },
   "table": {
     "row": {
       "compact": "var(--table-row-compact)",

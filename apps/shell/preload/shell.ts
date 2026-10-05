@@ -10,6 +10,7 @@ import {
 } from "../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../ipc/core-api.ts";
 import { createShellApi } from "./shell-api.ts";
+import { createTerminalApi } from "./terminal-api.ts";
 
 const location =
   (globalThis as unknown as { location: { host: string } }).location;
@@ -18,6 +19,13 @@ contextBridge.exposeInMainWorld(
   "lophnShell",
   createShellApi(ipcRenderer, role),
 );
+// 터미널은 desktop renderer만 쓴다. overlay view에는 열지 않는다.
+if (role === "shell") {
+  contextBridge.exposeInMainWorld(
+    "lophnTerminal",
+    createTerminalApi(ipcRenderer),
+  );
+}
 
 const unavailable: CoreReply = {
   ok: false,

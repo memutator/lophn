@@ -48,8 +48,15 @@ import {
   versionFileField,
   versionFilesField,
 } from "../../packages/documents/versions/mod.ts";
-import { createSeriesCommands } from "../../packages/documents/series/mod.ts";
+import {
+  createSeriesCommands,
+  joinSeriesOnSave,
+} from "../../packages/documents/series/mod.ts";
 import { seriesSchemaSteps } from "../../packages/documents/series/mod.ts";
+import { createSeriesReads } from "../../packages/documents/series/mod.ts";
+import {
+  createSeriesOutlineRead,
+} from "../../packages/documents/outline-and-search/series-outline.ts";
 import {
   createProjectReads,
   type ProjectReadDeps,
@@ -289,7 +296,7 @@ export function createLedgerRegistration(
 ): LedgerRegistration {
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
-  const versions = createVersionCommands();
+  const versions = createVersionCommands({ joinSeries: joinSeriesOnSave });
   const addressing = createDocumentChangeCommands();
   // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
   const contexts = createContextCommands();
@@ -298,6 +305,8 @@ export function createLedgerRegistration(
   const versionReads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
+  const seriesReads = createSeriesReads();
+  const seriesOutline = createSeriesOutlineRead();
   const viewReads = createViewReads();
   const deps: ProjectReadDeps = {
     documents: emptyDocuments,
@@ -356,6 +365,10 @@ export function createLedgerRegistration(
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      seriesReads.list,
+      seriesReads.get,
+      seriesReads.next,
+      seriesOutline,
       viewReads.list,
       viewReads.get,
     ],
@@ -404,6 +417,8 @@ export function createReaderRegistration(): ReaderRegistration {
   const reads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
+  const seriesReads = createSeriesReads();
+  const seriesOutline = createSeriesOutlineRead();
   const viewReads = createViewReads();
   const deps: ProjectReadDeps = {
     documents: emptyDocuments,
@@ -418,6 +433,10 @@ export function createReaderRegistration(): ReaderRegistration {
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      seriesReads.list,
+      seriesReads.get,
+      seriesReads.next,
+      seriesOutline,
       viewReads.list,
       viewReads.get,
       projectReads.list,

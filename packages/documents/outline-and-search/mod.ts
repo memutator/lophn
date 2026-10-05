@@ -48,3 +48,4 @@ export {
 export { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
 
 export { allowCandidate, candidateDocuments } from "./candidates.ts";
+export { createSeriesOutlineRead } from "./series-outline.ts";

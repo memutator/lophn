@@ -282,7 +282,7 @@ platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`,
 
 | actor | 발급·보관 | 현재 상한과 종료 |
 |---|---|---|
-| `user` | Electron main이 core를 시작한 상속 pipe에 core가 한 번 발급; main 메모리 | 사람용 동작; 클릭 증거는 별도. main 연결 종료·core 재시작 시 폐기 |
+| `user` | Electron main이 core를 시작한 상속 pipe에 core가 한 번 발급; main 메모리 | 사람용 동작: 발급 시점의 조립된 route·command 표에서 user actor를 허용하는 operation 전부(machine·app·worker 전용 제외); 클릭 증거는 별도. main 연결 종료·core 재시작 시 폐기 |
 | `coding_agent:<cac>` | confirmation window의 connection 결정 뒤 발급; git 밖 connection 저장소에 한 번 안전 전달 | 전체/앱 하나의 협업 scope ∩ 현재 connection 상태; 회수되면 새 사용 즉시 차단 |
 | `agent:<asg>` | 유효 assignment·run 시작에서 신뢰 agent runtime에 발급 | 시작 역할·tool·scope ∩ 현재 제한; run 종료·멈춤·감독 상실 시 종료 |
 | `app:<app>` | core가 supervisor의 신뢰 앱 runtime 경계에 고정 app·release·process·mode로 발급 | 자기 선언 보고·산출물; 사용자 코드에는 token 없음; 종료·판 교체·회수 시 폐기 |

@@ -17,7 +17,7 @@ existing=""; for d in $dirs; do [ -d "$d" ] && existing="$existing $d"; done
 existing="$existing packages/platform/responsiveness/core_imports_test.ts apps/core/core_test.ts"
 if true; then
   echo "== deno test$existing"
-  out=$(timeout --kill-after=10 900 deno test --allow-all --permit-no-files $existing 2>&1); rc=$?
+  tlog=$(mktemp); timeout --kill-after=10 900 deno test --allow-all --permit-no-files $existing </dev/null >"$tlog" 2>&1; rc=$?; out=$(cat "$tlog"); rm -f "$tlog"
   echo "$out" | grep -E 'passed \|' | tail -1
   [ $rc -eq 124 ] && echo "실패: deno test가 900초 안에 끝나지 않았다(멈춘 test 의심)"; [ $rc -eq 0 ] || { echo "실패: deno test"; echo "$out" | grep -E 'FAILED|=>' | tail -15; echo "$out" | sed -n '/ERRORS/,/FAILURES/p' | head -60; fail=1; }
 fi

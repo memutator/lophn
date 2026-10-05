@@ -7,12 +7,14 @@ export type PlaceholderKinds = {
   "common.author.label": {
     author: "string";
   };
+  "common.button.cancel": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-page": Record<never, never>;
   "common.button.previous-page": Record<never, never>;
+  "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
   "common.button.retry": Record<never, never>;
   "common.button.show-chart": Record<never, never>;
@@ -50,6 +52,11 @@ export type PlaceholderKinds = {
     total: "number";
   };
   "common.label.sort-by": Record<never, never>;
+  "common.label.tray-launcher": Record<never, never>;
+  "common.label.tray-open": Record<never, never>;
+  "common.label.tray-quit": Record<never, never>;
+  "common.label.tray-start-at-login": Record<never, never>;
+  "common.label.tray-tooltip": Record<never, never>;
   "common.label.value-range": {
     start: "string";
     end: "string";
@@ -58,9 +65,13 @@ export type PlaceholderKinds = {
   "common.notification.title": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;
   "common.palette.no-results": Record<never, never>;
+  "common.quit.saves": Record<never, never>;
+  "common.quit.terminals": Record<never, never>;
+  "common.quit.terminals-and-saves": Record<never, never>;
   "common.stale.label": {
     age: "string";
   };
+  "common.title.quit": Record<never, never>;
   "confirmation-window.body.checking": Record<never, never>;
   "confirmation-window.body.expired": Record<never, never>;
   "confirmation-window.body.review": Record<never, never>;
@@ -74,7 +85,62 @@ export type PlaceholderKinds = {
   "contexts.view.baseline": Record<never, never>;
   "contexts.view.follow-changes": Record<never, never>;
   "contexts.view.reference": Record<never, never>;
+  "document.button.check-task": Record<never, never>;
+  "document.button.edit": Record<never, never>;
+  "document.button.find-close": Record<never, never>;
+  "document.button.find-match-case": Record<never, never>;
+  "document.button.find-next": Record<never, never>;
+  "document.button.find-previous": Record<never, never>;
+  "document.button.menu": Record<never, never>;
+  "document.button.read": Record<never, never>;
+  "document.button.replace": Record<never, never>;
+  "document.button.replace-all": Record<never, never>;
+  "document.button.uncheck-task": Record<never, never>;
   "document.diff.identical": Record<never, never>;
+  "document.empty.no-links": Record<never, never>;
+  "document.error.load-failed": Record<never, never>;
+  "document.error.text-hidden": Record<never, never>;
+  "document.error.text-unreadable": Record<never, never>;
+  "document.error.text-unsupported": Record<never, never>;
+  "document.error.width-failed": Record<never, never>;
+  "document.label.find": Record<never, never>;
+  "document.label.find-count": {
+    current: "number";
+    total: "number";
+  };
+  "document.label.find-count-capped": {
+    current: "number";
+    total: "number";
+  };
+  "document.label.find-none": Record<never, never>;
+  "document.label.find-query": Record<never, never>;
+  "document.label.image": Record<never, never>;
+  "document.label.link-count": {
+    count: "plural";
+  };
+  "document.label.link-picker": Record<never, never>;
+  "document.label.meta": {
+    number: "number";
+    when: "string";
+  };
+  "document.label.problem": {
+    message: "string";
+  };
+  "document.label.problem-line": {
+    line: "number";
+  };
+  "document.label.problem-whole": Record<never, never>;
+  "document.label.problems": Record<never, never>;
+  "document.label.properties": Record<never, never>;
+  "document.label.reading-width": Record<never, never>;
+  "document.label.this-document": Record<never, never>;
+  "document.label.replace-with": Record<never, never>;
+  "document.label.width-choice": {
+    width: "string";
+  };
+  "document.label.width-current": {
+    width: "string";
+  };
   "launcher.button.lophn": Record<never, never>;
   "launcher.button.reconnect": Record<never, never>;
   "launcher.button.retry": Record<never, never>;
@@ -91,6 +157,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
+  "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
@@ -115,6 +182,32 @@ export type PlaceholderKinds = {
   "project-workspace.sidebar.label": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;
   "settings.models.for-summaries": Record<never, never>;
+  "terminal.button.close-terminal": Record<never, never>;
+  "terminal.button.hide-notice": Record<never, never>;
+  "terminal.button.keep-open": Record<never, never>;
+  "terminal.button.start-again": Record<never, never>;
+  "terminal.button.try-again": Record<never, never>;
+  "terminal.dialog.close-text": Record<never, never>;
+  "terminal.error.no-folder": Record<never, never>;
+  "terminal.error.not-directory": Record<never, never>;
+  "terminal.error.spawn-failed": Record<never, never>;
+  "terminal.error.unavailable": Record<never, never>;
+  "terminal.error.unreadable": Record<never, never>;
+  "terminal.heading.choose-folder": Record<never, never>;
+  "terminal.label.folders": Record<never, never>;
+  "terminal.label.output": Record<never, never>;
+  "terminal.notice.account": Record<never, never>;
+  "terminal.notice.folder": Record<never, never>;
+  "terminal.status.ended": Record<never, never>;
+  "terminal.status.exited": {
+    code: "string";
+  };
+  "terminal.status.not-started": Record<never, never>;
+  "terminal.status.output-missing": Record<never, never>;
+  "terminal.status.start-failed": Record<never, never>;
+  "terminal.status.stop-unconfirmed": Record<never, never>;
+  "terminal.status.unknown": Record<never, never>;
+  "terminal.title.close": Record<never, never>;
 };
 
 type ValueFor<T> = T extends "plural" | "number" ? number

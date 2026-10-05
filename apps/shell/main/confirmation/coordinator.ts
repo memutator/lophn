@@ -14,6 +14,7 @@ import {
   HandleTable,
   type LiveHandle,
 } from "./handle.ts";
+import type { HeadlessMode } from "../desktop/headless.ts";
 import { decide } from "./decide.ts";
 import {
   type ConfirmationHost,
@@ -90,6 +91,8 @@ export interface CoordinatorOptions {
   clock: HandleClock;
   preload: string;
   packaged: boolean;
+  /** 개발 확인 전용 headless. entry가 env에서 읽어 넘긴다. */
+  headless?: HeadlessMode;
   /** hello로 받은 epoch. 바뀌면 옛 handle을 버린다. */
   epoch(): string;
   /** core 구독이 살아 있는지. 단절이면 제출을 막는다. */
@@ -269,6 +272,7 @@ export function createCoordinator(options: CoordinatorOptions) {
         parent: request.parent,
         preload: options.preload,
         packaged: options.packaged,
+        ...(options.headless ? { headless: options.headless } : {}),
         onClosed: () => {
           const live = windows.get(opened.windowId);
           if (live !== undefined) void invalidate(live, "closed");

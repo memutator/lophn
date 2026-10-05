@@ -141,6 +141,52 @@ Deno.test("platform/identity#R2 platform/identity#R3 platform/identity#R6: ì‹ ë¢
     }).success,
   );
   assert(
+    appCredentialRequestSchema.safeParse({
+      type: "app_credential_request",
+      request_id: "r",
+      app: `app_${suffix}`,
+      release: `rel_${suffix}`,
+      process: "process",
+      mode: "production",
+      bundle_hash: "a".repeat(64),
+      diagnostic_scope: "worker/problems/report-collector",
+    }).success,
+  );
+  assert(
+    appCredentialRequestSchema.safeParse({
+      type: "app_credential_request",
+      request_id: "r",
+      app: `app_${suffix}`,
+      release: `rel_${suffix}`,
+      process: "process",
+      mode: "production",
+      bundle_hash: null,
+      diagnostic_scope: null,
+    }).success,
+  );
+  assert(
+    !appCredentialRequestSchema.safeParse({
+      type: "app_credential_request",
+      request_id: "r",
+      app: `app_${suffix}`,
+      release: `rel_${suffix}`,
+      process: "process",
+      mode: "production",
+      bundle_hash: "not-a-hash",
+    }).success,
+  );
+  assert(
+    !appCredentialRequestSchema.safeParse({
+      type: "app_credential_request",
+      request_id: "r",
+      app: `app_${suffix}`,
+      release: `rel_${suffix}`,
+      process: "process",
+      mode: "production",
+      diagnostic_scope: "   ",
+    }).success,
+  );
+  assert(
     !appCredentialRequestSchema.safeParse({
       type: "app_credential_request",
       request_id: "r",

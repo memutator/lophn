@@ -11,7 +11,7 @@ shell은 설치된 Electron client다. 문서·앱을 기본 화면으로 열고
 - 화면에 넣을 사실·허용 행동은 각 concern의 read 결과에서 받는다. shell은 승인 적용, run 재개, 문제 닫힘, notification 생성, 앱 상태 판정을 하지 않는다.
 - Electron main만 사람 token을 갖고 platform의 인증·read·command·event 구독을 쓴다. renderer는 DB·keychain·원본 파일·내부 서비스 port를 직접 열지 않는다.
 - 파일 쓰기·hash·version 준비는 documents의 파일 쓰기 contract, 앱 실행과 direct call은 apps의 앱 통로, feedback 접수와 snapshot 조립은 problems의 문제 보고 contract에 맡긴다.
-- 창 닫기와 Electron 종료는 daemon 중지가 아니다. 앱·agent·worker 감독, 단일 writer, 설치의 데이터 위치와 schema migration은 platform 소유다.
+- 창 닫기는 종료가 아니다. core는 Electron main의 child라서 tray의 Quit(또는 `--quit`·OS 종료)이 main과 core를 함께 멈춘다. 앱·agent·worker 감독, 단일 writer, 설치의 데이터 위치와 schema migration은 platform 소유다.
 - 앱 UI, 문서 본문, agent의 글은 자료다. shell 컴포넌트나 confirmation window 코드로 import·eval하지 않는다. Markdown은 HTML을 그대로 실행하지 않고 안전한 읽기 렌더러로 표시한다. 실행 가능한 문서 format은 별도 격리 문서 view에서 연다.
 
 shell/workspace와 shell/terminal의 domain model은 로컬 UI layout·현재 보기 상태·PTY runtime 값을 정의한다. shell entity·ledger 표는 없으며 view 식별·창 상태·confirmation handle은 프로세스 값이다.
@@ -24,7 +24,7 @@ shell이 관리하는 프로세스는 여섯 역할이다. renderer는 종류별
 
 | 프로세스 | 하는 일 | 시작·감독 | 종료 |
 |---|---|---|---|
-| Electron main 1개 | 창·tray·scheme proxy·IPC 검증·사람 token·core 연결·view registry·confirmation coordinator | OS가 `lophn-desktop`을 시작; 같은 데이터 root의 두 번째 시작은 기존 main으로 전달 | tray의 Electron 종료 또는 OS 종료; daemon은 그대로 |
+| Electron main 1개 | 창·tray·scheme proxy·IPC 검증·사람 token·core 연결·view registry·confirmation coordinator | OS가 `lophn-desktop`을 시작; 같은 데이터 root의 두 번째 시작은 기존 main으로 전달 | tray의 Quit(진행 중 터미널·저장 확인 뒤), second-instance `--quit`, OS 종료; 그 아래 core와 terminal host도 함께 멈춤 |
 | shell renderer 창마다 1개 | 런처·작업대·앱 frame·대화 도크·편집기·feedback 작성 | main이 BrowserWindow 생성; crash는 main이 감지 | 해당 창 닫힘; 마지막 창을 닫아도 tray main 유지 |
 | shell overlay view 창마다 1개 | tooltip·sheet·menu·popover·palette·dialog 표시, 경계 drag 중 pointer 받기 | main이 투명 WebContentsView로 생성해 contentView 맨 위에 둠; shell renderer와 같은 설치 코드·session·preload | 창 닫힘; crash는 main이 다시 만들고 열린 떠 있는 UI를 닫음 |
 | confirmation renderer 열린 보호 창마다 1개 | 설치된 결정 화면·secret 입력 | main이 별도 BrowserWindow 생성; 전용 preload·메모리 session | 제출 결과 확인·사람 닫기·기준 변경·crash; 미사용 handle 폐기 |
@@ -57,7 +57,7 @@ main은 read·command·event·앱 direct call을 독립적인 비동기 요청�
 1. main은 `app.requestSingleInstanceLock`을 데이터 root별로 적용하고, 두 번째 시작의 등록된 앱 ID·창 열기 intent만 기존 main에 전달한다. argv의 URL·파일·명령을 일반 실행 권한으로 해석하지 않는다.
 2. 창부터 열어 준비 상태를 표시한다. platform/install-and-update의 lock·프로세스 상태 확인 결과로 기존 daemon에 붙거나 bundle된 Deno로 시작을 요청한다. PID만 보고 같은 daemon이라고 믿거나 lock을 직접 지우지 않는다.
 3. 인증이 끝나야 API 준비 상태를 읽고 event를 구독한다. core bootstrap·권한 플래그·daemon 수명은 platform이 정한다. shell은 별도 worker를 Deno `-A`로 띄워 빈자리를 메우지 않는다.
-4. 로그인 자동 시작은 `--tray` intent로 main만 띄우고 창은 열지 않는다. 모든 창을 닫아도 main·tray는 남는다. Electron까지 끝내도 daemon 중지 요청을 보내지 않는다.
+4. 로그인 자동 시작은 `--tray` intent로 main과 core만 띄우고 창은 열지 않는다. 모든 창을 닫아도 main·tray와 그 아래 core가 남아 앱 automation과 주기 일이 이어진다. tray의 Quit만 core 정상 종료 순서(contracts#T6 stop frame)를 밟고 Electron을 끝낸다.
 
 코드는 `apps/shell/main/`, `apps/shell/preload/`, `apps/shell/renderer/`에 둔다. main entry는 `apps/shell/main/desktop/main.ts`이며 npm·TypeScript strict로 check하고 esbuild로 main과 preload 세 종류를 각각 CJS 한 파일로 `apps/shell/main/dist/`에 묶는다. sandbox preload의 외부 require는 `electron`만 허용한다. renderer는 Deno workspace에서 SDK와 `packages/design`을 공유하고 esbuild로 shell·overlay·confirmation entry를 `apps/shell/renderer/dist/`에 build한다. CSS Modules는 esbuild `local-css` loader가 클래스 맵으로 바꾸고, Deno import map은 esbuild-deno-loader가 resolve한다. preload 세 종류는 `apps/shell/preload/`, 공유 IPC schema는 `apps/shell/ipc/`에 둔다. main과 renderer가 서로의 실행 코드나 DB 모듈을 import하지 않는다.
 
@@ -273,9 +273,9 @@ core RPC는 platform/api의 `POST /v1/<resource>/<method>`, event는 WebSocket `
 
 ### OS 통합·설치에서 쓰는 경계
 
-- tray는 창 열기·런처·명시 daemon 중지·Electron 종료를 분리한다. daemon 중지는 main의 tray callback이 platform/install-and-update의 정상 정지 경로에만 요청하며 일반 preload에 넣지 않는다. 앱·agent의 진행 결과는 정지 완료 결과로 확인한다.
+- tray는 창 열기·런처·로그인 자동 시작·Quit을 둔다. 창 열기는 가장 최근 창을 앞으로 가져오고 창이 없으면 새 기본 창을 연다. 런처는 새 기본 창이다. Quit은 main의 tray callback에만 있고 일반 preload에 넣지 않는다. 진행 중 터미널·저장이 있으면 OS 확인 창(기본·Esc는 취소)으로 묻고, 고른 때만 terminal host와 core를 멈춘 뒤 Electron을 끝낸다. 확인할 창이 없는 second-instance `--quit`은 그 사실을 log에 남기고 같은 종료 순서를 밟는다.
 - Linux `.desktop`, macOS app bundle, Windows shortcut은 고정 앱 ID를 `lophn-desktop --open-app <app ID>` intent로 전달한다. main은 현재 read와 앱 통로를 확인해 같은 앱 frame의 전용 창을 연다. shortcut은 앱 코드·source path·token·고정 port를 실행하지 않는다.
-- 전역 shortcut 등록 실패는 해당 기능의 사용 불가로 안내하고 다른 shortcut을 임의 점유하지 않는다. 종료 때 main이 등록을 해제한다. OS 자동 시작은 검증된 실행 경로와 tray intent만 등록한다.
+- 전역 shortcut 등록 실패는 해당 기능의 사용 불가로 안내하고 다른 shortcut을 임의 점유하지 않는다. 종료 때 main이 등록을 해제한다. OS 자동 시작은 packaged 실행 파일의 검증된 절대 경로와 tray intent만 등록한다(Linux XDG autostart entry, macOS·Windows login item). 경로가 실행 가능한 파일이 아니거나 제어 문자·따옴표·Exec field code 글자를 담으면 등록하지 않는다. macOS login item은 인자를 넘기지 못해 OS가 알려 준 로그인 시작을 tray intent로 읽는다.
 - OS notification은 설정의 opt-in 때만 표시하고 제목 `lophn`, en message key의 본문 `Something needs your attention`과 내부 notification ID의 클릭 연결만 쓴다. 이름·문서 내용·secret·원문 오류는 OS에 넘기지 않는다. 클릭은 해당 확인할 것/결과를 열 뿐 결정·읽음 command를 대신하지 않는다.
 - `NotificationCreated`의 현재 도착분만 OS 표시 대상으로 삼고 재연결의 backlog를 연속 재생하지 않는다. main 메모리의 표시 ID 중복 억제는 domain 읽음 상태가 아니다. OS 실패여도 ledger notification·창 안 목록은 남고 자동 retry 루프를 추가하지 않는다.
 - shell build·preload·renderer·로컬 font·고정 의존성·bundle된 Deno를 설치 staging에 제공한다. electron-builder로 OS별 포장하되 지원 완료·서명·공증·sandbox 검증과 데이터 위치는 platform/install-and-update 기준을 따른다.

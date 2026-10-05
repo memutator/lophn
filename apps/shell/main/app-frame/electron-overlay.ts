@@ -8,6 +8,11 @@ import {
 import { TOP_BAR_HEIGHT } from "../desktop/window.ts";
 import { ContentsRegistry, type IpcEvent } from "../desktop/ipc-guard.ts";
 import {
+  type HeadlessMode,
+  SHELL_OFF,
+  surfaceOptions,
+} from "../desktop/headless.ts";
+import {
   createOverlay,
   type OverlayContents,
   type OverlayController,
@@ -24,7 +29,7 @@ function contents(contents: WebContents): OverlayContents {
 }
 
 // 한 main의 router가 caller object identity로 창을 찾는다. 페이지의 window id는 받지 않는다.
-export function electronOverlays() {
+export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
   const security = overlaySecurityFactory();
   const sessions = new Map<Session, OverlaySecuritySession>();
   function sessionPolicy(session: Session) {
@@ -78,6 +83,10 @@ export function electronOverlays() {
       security.dispose();
       sessions.clear();
     },
+    /** sender 검사에 쓰는 registry. terminal IPC가 같은 등록 표를 본다. */
+    overlayRegistry(): ContentsRegistry {
+      return registry;
+    },
     attach(window: BrowserWindow, preload: string, packaged: boolean) {
       const shell = contents(window.webContents);
       registry.register({
@@ -90,6 +99,7 @@ export function electronOverlays() {
         registry,
         preload,
         packaged,
+        headless,
         body: () => {
           const [width = 1, height = TOP_BAR_HEIGHT + 1] = window
             .getContentSize();
@@ -119,7 +129,7 @@ export function electronOverlays() {
           },
         },
         create(config) {
-          const view = new WebContentsView(config);
+          const view = new WebContentsView(surfaceOptions(config, headless));
           const wc = view.webContents;
           sessionPolicy(wc.session);
           const releaseSecurity = security.contents({

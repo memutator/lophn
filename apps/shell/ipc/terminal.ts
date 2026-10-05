@@ -32,6 +32,19 @@ export const terminalRestartSchema = z.object({
   generation,
 }).strict();
 
+export const terminalSnapshotSchema = z.object({
+  terminal_ref: ref,
+  /** 이 seq 뒤의 chunk만 받는다. 없으면 살아 있는 buffer 전체다. */
+  after_seq: z.number().int().min(0).optional(),
+}).strict();
+
+/** 사람이 고른 탭이 이 터미널인지. main의 focus 표가 입력 검사에 쓴다. */
+export const terminalFocusSchema = z.object({
+  terminal_ref: ref,
+  generation,
+  focused: z.boolean(),
+}).strict();
+
 export type TerminalOpen = { project: string; folder_ref?: string };
 export type TerminalInput = {
   terminal_ref: string;
@@ -45,6 +58,12 @@ export type TerminalResize = {
   rows: number;
 };
 export type TerminalClose = { terminal_ref: string; generation: number };
+export type TerminalSnapshot = { terminal_ref: string; after_seq?: number };
+export type TerminalFocus = {
+  terminal_ref: string;
+  generation: number;
+  focused: boolean;
+};
 
 export type TerminalStateName = "starting" | "running" | "exited" | "unknown";
 
@@ -82,14 +101,52 @@ export type TerminalOutput = {
   dropped_output: boolean;
 };
 
+export type TerminalFolderChoice = { folder_ref: string; path: string };
+
 export type TerminalReject = {
   ok: false;
   reason: TerminalFailure;
   message: string;
+  /** choose_folder일 때 고를 수 있는 등록 폴더. */
+  folders?: TerminalFolderChoice[];
 };
 
 export type TerminalAccept = { ok: true; runtime: TerminalRuntime };
 export type TerminalReply = TerminalAccept | TerminalReject;
+
+/**
+ * 살아 있는 host buffer를 다시 읽은 결과. runtime은 지금 상태(종료·exit
+ * code·결과 불명)이고 output은 after_seq 뒤의 chunk다.
+ */
+export type TerminalSnapshotReply = {
+  ok: true;
+  runtime: TerminalRuntime;
+  output: TerminalOutput[];
+};
+
+/** IPC 경계의 결과. main의 guard 거절은 error다. */
+export type TerminalCall<T> =
+  | { ok: true; value: T }
+  | {
+    ok: false;
+    error: {
+      code: "invalid_input" | "forbidden" | "unavailable";
+      message: string;
+    };
+  };
+
+/** preload가 shell renderer에 여는 터미널 통로. renderer는 PTY를 직접 갖지 않는다. */
+export interface TerminalApi {
+  open(input: TerminalOpen): Promise<TerminalCall<TerminalReply>>;
+  input(input: TerminalInput): Promise<TerminalCall<TerminalReply>>;
+  resize(input: TerminalResize): Promise<TerminalCall<TerminalReply>>;
+  close(input: TerminalClose): Promise<TerminalCall<TerminalReply>>;
+  restart(input: TerminalClose): Promise<TerminalCall<TerminalReply>>;
+  snapshot(
+    input: TerminalSnapshot,
+  ): Promise<TerminalCall<TerminalSnapshotReply | TerminalReject>>;
+  focus(input: TerminalFocus): Promise<TerminalCall<null>>;
+}
 
 export const TERMINAL_OUTPUT_CHANNEL = "shell:terminal-output";
 export const TERMINAL_STATE_CHANNEL = "shell:terminal-state";
@@ -99,3 +156,4 @@ export const TERMINAL_RESIZE_CHANNEL = "shell:terminal-resize";
 export const TERMINAL_CLOSE_CHANNEL = "shell:terminal-close";
 export const TERMINAL_RESTART_CHANNEL = "shell:terminal-restart";
 export const TERMINAL_SNAPSHOT_CHANNEL = "shell:terminal-snapshot";
+export const TERMINAL_FOCUS_CHANNEL = "shell:terminal-focus";

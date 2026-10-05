@@ -109,7 +109,6 @@ type LoadedPending = { row: QuestionRow; run: RunRef };
 // 질문을 읽고 호출자가 볼 수 있는지 본다. 보이지 않으면 없는 질문과 같다.
 function loadVisible(
   tx: Tx,
-  ctx: RequestContext,
   id: string,
   visible: (run: RunRef) => boolean,
 ): Result<LoadedPending> {
@@ -242,7 +241,7 @@ export function createQuestionCommands(): {
       handle(tx, ctx, input: Input<typeof answerQuestion>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
-        const loaded = loadVisible(tx, ctx, input.question, () => true);
+        const loaded = loadVisible(tx, input.question, () => true);
         if (!loaded.ok) return loaded;
         const { row, run } = loaded.value;
         if (row.created_seq !== compare.created_seq) {
@@ -321,7 +320,7 @@ export function createQuestionCommands(): {
       handle(tx, ctx, input: Input<typeof deferQuestion>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
-        const loaded = loadVisible(tx, ctx, input.question, () => true);
+        const loaded = loadVisible(tx, input.question, () => true);
         if (!loaded.ok) return loaded;
         const { row } = loaded.value;
         if (
@@ -361,7 +360,6 @@ export function createQuestionCommands(): {
         }
         const loaded = loadVisible(
           tx,
-          ctx,
           input.question,
           (run) => actor.kind !== "agent" || agentOwns(ctx, run),
         );
@@ -410,7 +408,7 @@ export function createQuestionCommands(): {
         if (parseActor(ctx.actor)?.kind !== "machine") {
           return reject("forbidden", "only the machine expires a question");
         }
-        const loaded = loadVisible(tx, ctx, input.question, () => true);
+        const loaded = loadVisible(tx, input.question, () => true);
         if (!loaded.ok) return loaded;
         const { row } = loaded.value;
         if (

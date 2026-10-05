@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { canonicalize } from "../../base/mod.ts";
-import {
-  type CreateQuestionInput,
-  type questionList,
-  type QuestionOption,
+import type {
+  CreateQuestionInput,
+  questionList,
+  QuestionOption,
 } from "../../contracts/lophn-agent/mod.ts";
 import {
   type BlobFieldDefinition,

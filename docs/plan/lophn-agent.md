@@ -586,6 +586,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/handoff-and-delegation.md
 - 선행: T10, T21, T22, T24
+- platform#T22에서 넘어온 것: handoff tool로 만든 실제 run 계보로 approval 허락·거절의 계보 판정을 확인하는 통합 시험(순환을 끊으려 platform#T22 선행에서 이 작업을 뺐다)
 - 완료:
   - handoff_test.ts에 R1–R9, run-loop#R7 테스트: 허용 방향 다섯 개와 Operator 송수신 금지, 유효 assignment만·담당 없는 대기열 없음, 보낸 run·원래 요청·무엇·왜·제외·기대 결과·고정 근거 필수와 기획·설계는 채택 판·채택 질문, 세션·tool 기록·요약 복사 없음, 원래 사람 요청에서 이어진 run에서만·보낸 run은 전달 사실로 끝남, 받은 결과가 새 판단을 자동 시작하지 않음, 권한·approval 이전 없음, 거절 lineage, 결과는 고정 version 주소 또는 없는 이유, 재전송해도 수신 run 하나(`(sender_run, dedup_key)` unique와 송신 기록·수신 접수 원자 확정, transport idempotency와 별개), 재전송 replay는 저장 결과만 주고 상세 읽기는 현재 권한으로 다시 검사(질문 Q24), 발신 approval 정책·grant·설정 상속 없음, what·why에 대화 원문을 붙이는 복사는 safety·redaction 검사(질문 Q25), 받은 run에서 보낸 run·원래 요청·근거 version 확인
   - agent_tools_test.ts에 tools#R10 테스트: preset·assignment는 읽기와 초안·approval 제출만, 직접 적용 없음

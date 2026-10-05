@@ -561,7 +561,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 쓰는 contract: confirmation handle, lophn-agent의 handoff 계보 판정
 - 내놓는 contract: approval(grant·reject route)
 - slice: agent
-- 선행: platform#T21, platform#T56, contracts#T26(`runs/read`의 original_message·handoff sender_run로 계보 판정), lophn-agent#T10, lophn-agent#T32
+- 선행: platform#T21, platform#T56, contracts#T26(`runs/read`의 original_message·handoff sender_run로 계보 판정), lophn-agent#T10
+- 선행 조정(lead): lophn-agent#T32를 선행에서 뺐다. 계보 판정 재료(`runs/read`의 original_message·handoff sender_run)는 contracts#T26·lophn-agent#T10으로 이미 있고, T32가 T22·platform#T23을 거쳐 이 작업을 기다려 순환이었다. handoff tool을 거친 실제 계보 E2E는 lophn-agent#T32에서 확인한다
 - 완료: 아래 확인이 통과한다
   - `grant_approval_request`·`reject_approval_request`는 T56의 handle을 writer transaction에서 현재 request 상태·내용·기한과 함께 검증·소비하고 결정을 저장한다. handle 없이는 user token으로도 안 된다. 앱·agent·MCP는 자기 요청을 허락하지 못한다(R3). 기본 선택·침묵·창 닫기·읽음·질문 답은 결정이 아니다(R4).
   - 대상·입력·비교 기준·assignment·tool이 바뀌면 거절하고 새 request가 필요하다(R5).

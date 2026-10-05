@@ -10,8 +10,7 @@ import { createCoreClient } from "../../packages/coding-agent/connection/client/
 import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
 import { createHandler } from "../../packages/coding-agent/mcp-server/server.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
-import { presetDefinitionJson } from "../../packages/lophn-agent/harness/run-loop/testing/mod.ts";
-import { hashOf } from "../../packages/lophn-agent/questions/testing/mod.ts";
+import { sha256Text } from "../../packages/lophn-agent/questions/testing/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
@@ -23,10 +22,8 @@ const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
 function id(prefix: string, n: number): string {
   return `${prefix}_01arz3ndektsv4rrffq69g5f${ALPHA[n >> 5]}${ALPHA[n & 31]}`;
 }
-const BODY = (n: number) => n.toString(16).padStart(2, "0").repeat(32);
 
 const CAC = id("cac", 1);
-const ASG = id("asg", 1);
 const RUN = id("run", 1);
 const CODING_TOKEN = "a".repeat(43);
 const MACHINE_TOKEN = "b".repeat(43);
@@ -42,6 +39,9 @@ const READ_OPERATIONS = [
 type Opened = {
   core: Core;
   home: string;
+  // core 기동이 준비한 lophn assignment.
+  asg: string;
+  revision: number;
   dispose(): Promise<void>;
 };
 
@@ -71,11 +71,20 @@ async function open(): Promise<Opened> {
     ],
     clock: manualClock(Date.UTC(2024, 0, 1)),
     random: seededRandom(31),
+    // 질문 글은 core가 blob으로 준비하므로 I/O 감독이 떠 있어야 한다. 기동이 lophn
+    // assignment를 준비한다.
     testCredentials: true,
-    superviseIo: false,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
   const core = started.value;
+  const accept = async (
+    [credential, token]: [AuthenticatedContext, string],
+  ) => {
+    const accepted = await core.acceptTestCredential?.(credential, token);
+    assert(accepted?.ok);
+    const recorded = await core.record(credential);
+    assert(recorded.ok);
+  };
   const contexts = [
     context(`coding_agent:${CAC}`, CODING_TOKEN, [
       ...READ_OPERATIONS,
@@ -87,31 +96,45 @@ async function open(): Promise<Opened> {
       "ApplyQuestionOption",
     ]),
     context("machine", MACHINE_TOKEN, [
-      "RegisterDefaultPreset",
-      "CreateBuiltinAssignment",
+      "ListAssignments",
       "AcceptRun",
       "StartRun",
       ...READ_OPERATIONS,
     ]),
-    context(`agent:${ASG}`, AGENT_TOKEN, ["CreateQuestion"], {
-      assignment: ASG,
-      run: RUN,
-    }),
     context("user", USER_TOKEN, [
       ...READ_OPERATIONS,
       "AnswerQuestion",
       "DeferQuestion",
     ]),
   ];
-  for (const [credential, token] of contexts) {
-    const accepted = await core.acceptTestCredential?.(credential, token);
-    assert(accepted?.ok);
-    const recorded = await core.record(credential);
-    assert(recorded.ok);
-  }
+  for (const one of contexts) await accept(one);
+  const listed = await fetch(
+    `http://127.0.0.1:${core.port}/v1/assignments/list`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${MACHINE_TOKEN}`,
+      },
+      body: "{}",
+    },
+  );
+  const assignments = (await listed.json() as {
+    assignments: { id: string; role: string; revision: number }[];
+  }).assignments;
+  const lophn = assignments.find((entry) => entry.role === "lophn");
+  assert(lophn, "core 기동이 lophn assignment를 준비한다");
+  await accept(
+    context(`agent:${lophn.id}`, AGENT_TOKEN, ["CreateQuestion"], {
+      assignment: lophn.id,
+      run: RUN,
+    }),
+  );
   return {
     core,
     home,
+    asg: lophn.id,
+    revision: lophn.revision,
     async dispose() {
       await core.shutdown();
       await Deno.remove(home, { recursive: true });
@@ -164,32 +187,19 @@ async function ok(
 
 // 실제 lophn-agent command로 agent run 하나를 시작한다. 질문은 그 run이 만든다.
 async function startRun(opened: Opened) {
-  const definition = presetDefinitionJson("lophn");
-  await ok(opened, "presets/register-default", {
-    id: id("pst", 1),
-    definition,
-    definition_hash: hashOf(definition),
-  }, MACHINE_TOKEN);
-  await ok(opened, "assignments/create-builtin", {
-    id: ASG,
-    preset: id("pst", 1),
-    preset_revision: 1,
-    role: "lophn",
-    scope: { kind: "all", id: null },
-  }, MACHINE_TOKEN);
   const accepted = await ok(
     opened,
     "runs/accept",
     {
       id: RUN,
-      assignment: ASG,
+      assignment: opened.asg,
       session: null,
       source: { kind: "message", message: id("msg", 1) },
       continued_from: null,
       start_after: null,
     },
     MACHINE_TOKEN,
-    { assignment_revision: 1 },
+    { assignment_revision: opened.revision },
   );
   await ok(
     opened,
@@ -198,7 +208,7 @@ async function startRun(opened: Opened) {
       run: RUN,
       basis: "b".repeat(64),
       limits: { model_attempts: 30, stall_ms: 300_000, active_ms: 1_800_000 },
-      scope: { role: "lophn", assignment: ASG, apps: [] },
+      scope: { role: "lophn", assignment: opened.asg, apps: [] },
     },
     MACHINE_TOKEN,
     {
@@ -255,12 +265,12 @@ Deno.test("coding-agent/mcp-server#R18: 실제 core의 대기 질문을 이유·
       id: question,
       run: RUN,
       session: null,
-      prompt_blob: BODY(1),
-      reason_blob: BODY(2),
+      prompt: "Which one?",
+      reason: "Both are fine.",
       options: [{
         key: "a",
         label: "Option a",
-        description_blob: BODY(3),
+        description: "The first one.",
         evidence: [],
         adoption: null,
         action: null,
@@ -276,7 +286,7 @@ Deno.test("coding-agent/mcp-server#R18: 실제 core의 대기 질문을 이유·
     }).question;
     assertEquals(record.state, "waiting");
     assertEquals(record.decision_link, `lophn://things-to-confirm/${question}`);
-    assertEquals(record.reason_blob, BODY(2));
+    assertEquals(record.reason_blob, sha256Text("Both are fine."));
     assertEquals((record.options as { key: string }[])[0].key, "a");
     const listed = await call("lophn_question", {
       op: "list",
@@ -296,9 +306,7 @@ Deno.test("coding-agent/mcp-server#R18: 실제 core의 대기 질문을 이유·
       {
         question,
         created_seq: String(record.created_seq),
-        answer: { kind: "text", option_key: null, text_blob: BODY(9) },
-        binding_hash: null,
-        evidence: null,
+        answer: { kind: "text", text: "Use the first one." },
       },
       CODING_TOKEN,
       { created_seq: String(record.created_seq) },
@@ -343,8 +351,8 @@ Deno.test("coding-agent/connection#R7: 같은 연결로 질문 답·미루기·o
       id: question,
       run: RUN,
       session: null,
-      prompt_blob: BODY(1),
-      reason_blob: BODY(2),
+      prompt: "Which one?",
+      reason: "Both are fine.",
       options: [],
       recommendation: null,
       expires_at: null,
@@ -364,7 +372,7 @@ Deno.test("coding-agent/connection#R7: 같은 연결로 질문 답·미루기·o
         question,
         created_seq: createdSeq,
         closed_reason: "cancelled",
-        closed_reason_blob: BODY(5),
+        closed_reason_text: "No longer needed.",
       }, { created_seq: createdSeq }],
       ["questions/apply-option", {
         question,
@@ -399,8 +407,8 @@ Deno.test("coding-agent/mcp-server#R18: 사람이 미룬 질문은 대기가 아
       id: question,
       run: RUN,
       session: null,
-      prompt_blob: BODY(1),
-      reason_blob: BODY(2),
+      prompt: "Which one?",
+      reason: "Both are fine.",
       options: [],
       recommendation: null,
       expires_at: null,

@@ -54,10 +54,20 @@ Deno.test("platform/security#R3: hard가 되면 cgroup v2 상한을 자식 argv�
   ]);
 });
 
-Deno.test("platform/security#R3: hard가 없으면 soft 주소 공간 상한으로 떨어진다", async () => {
-  const limited = await applyMemoryLimit(
+Deno.test("platform/security#R3: hard가 없으면 Deno가 아닌 대상만 soft 주소 공간 상한으로 떨어진다", async () => {
+  const deno = await applyMemoryLimit(
     "deno",
     ["run", FIXTURE.pathname],
+    only("soft"),
+  );
+  // /bin/true가 RLIMIT_AS를 통과해도 Deno는 그 상한에서 시작하지 못한다.
+  // 자식을 띄우기 전에 거절한다. 실제 커널 kill은 LOPHN_MEMORY_KILL=1이다.
+  assert(!deno.ok);
+  assertEquals(deno.error.code, "unavailable");
+
+  const limited = await applyMemoryLimit(
+    "/bin/true",
+    [],
     only("soft"),
   );
   assert(limited.ok);

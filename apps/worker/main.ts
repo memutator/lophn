@@ -3,6 +3,7 @@ import { runCoordinator } from "./documents/coordinator.ts";
 import { runPreparation } from "./documents/preparation.ts";
 import { runReleaseWorker } from "./apps/release.ts";
 import { runnerReady, TEST_RUNNER_KIND } from "./problems/test-runner.ts";
+import { runDataWorker } from "./apps/data.ts";
 
 const WORKER_ENTRIES: Readonly<
   Record<string, (root: string) => Promise<void>>
@@ -16,6 +17,7 @@ const WORKER_ENTRIES: Readonly<
     if (!ready.ok) return Promise.reject(new Error(ready.error.message));
     return Promise.resolve();
   },
+  "apps/data": runDataWorker,
 };
 
 export async function runWorker(kind: string, root: string): Promise<void> {

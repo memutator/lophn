@@ -386,7 +386,13 @@ Deno.test({
             ]);
             assert(
               receipts.every((receipt) => typeof receipt === "number"),
-              "복합 관리 요청이 실패했다",
+              `복합 관리 요청이 실패했다: ${
+                receipts.filter((receipt) => typeof receipt !== "number")
+                  .map((receipt) =>
+                    JSON.stringify((receipt as { error: unknown }).error)
+                  )
+                  .join(" | ")
+              }`,
             );
             assert(prepare.ok, "복합 묶음 준비가 실패했다");
           }),

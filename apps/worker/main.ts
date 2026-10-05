@@ -3,6 +3,11 @@ import { runCoordinator } from "./documents/coordinator.ts";
 import { runPreparation } from "./documents/preparation.ts";
 import { runReleaseWorker } from "./apps/release.ts";
 import { runnerReady, TEST_RUNNER_KIND } from "./problems/test-runner.ts";
+import {
+  COLLECTOR_KIND,
+  collectorReady,
+  runCollectorWorker,
+} from "./problems/report-collector.ts";
 import { runDataWorker } from "./apps/data.ts";
 
 const WORKER_ENTRIES: Readonly<
@@ -16,6 +21,11 @@ const WORKER_ENTRIES: Readonly<
     const ready = runnerReady(TEST_RUNNER_KIND);
     if (!ready.ok) return Promise.reject(new Error(ready.error.message));
     return Promise.resolve();
+  },
+  [COLLECTOR_KIND]: () => {
+    const ready = collectorReady(COLLECTOR_KIND);
+    if (!ready.ok) return Promise.reject(new Error(ready.error.message));
+    return runCollectorWorker();
   },
   "apps/data": runDataWorker,
 };

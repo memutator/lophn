@@ -38,6 +38,14 @@ export function acceptCollectorHello(kind: string): boolean {
   return kind === COLLECTOR_KIND;
 }
 
+// 등록 시점 kind 검사(T8의 runnerReady와 같은 모양).
+export function collectorReady(kind: string): Result<true> {
+  if (kind !== COLLECTOR_KIND) {
+    return err({ code: "invalid_input", message: "unknown worker kind" });
+  }
+  return ok(true);
+}
+
 export function createCollectorWorker(
   options: CollectorWorkerOptions,
 ): ChildSession {

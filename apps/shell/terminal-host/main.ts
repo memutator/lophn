@@ -2,9 +2,9 @@
 // main이 물려 준 private pipe로만 말한다. 출력은 disk에 쓰지 않는다.
 
 import type {
-  TerminalOutput,
   TerminalReply,
   TerminalRuntime,
+  TerminalSnapshotReply,
 } from "../ipc/terminal.ts";
 import { resolveLoginShell, stripPlatformEnv } from "./env.ts";
 import {
@@ -49,7 +49,7 @@ export type HostRequest =
   }
   | { id: string; type: "close"; terminal_ref: string; generation: number }
   | { id: string; type: "restart"; terminal_ref: string; generation: number }
-  | { id: string; type: "snapshot"; terminal_ref: string }
+  | { id: string; type: "snapshot"; terminal_ref: string; after_seq?: number }
   | { id: string; type: "host-lost" };
 
 export type HostDeps = {
@@ -74,7 +74,7 @@ type Session = {
 export type Host = {
   handle(
     request: HostRequest,
-  ): TerminalReply | { ok: true; output: TerminalOutput[] };
+  ): TerminalReply | TerminalSnapshotReply;
   sessions(): readonly TerminalRuntime[];
   dispose(): TerminalRuntime[];
 };
@@ -196,9 +196,14 @@ export function createHost(deps: HostDeps): Host {
         const session = sessions.get(request.terminal_ref);
         if (!session) return reject("host_lost", "terminal is gone");
         const snap = session.buffer.snapshot();
+        const after = request.after_seq ?? 0;
+        // runtime을 같이 실어야 renderer가 종료·exit code·결과 불명을 본다.
         return {
           ok: true,
-          output: snap.chunks.map((chunk) => ({
+          runtime: { ...session.runtime },
+          output: snap.chunks.filter((chunk) => chunk.seq > after).map((
+            chunk,
+          ) => ({
             terminal_ref: session.runtime.terminal_ref,
             generation: session.runtime.generation,
             seq: chunk.seq,

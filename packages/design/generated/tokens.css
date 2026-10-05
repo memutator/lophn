@@ -151,6 +151,13 @@
   --page-form: 640px;
   --page-launcher: 1040px;
   --page-overview: 800px;
+  --editor-quote-bar: 2px;
+  --editor-check: 16px;
+  --editor-find: 36px;
+  --editor-gutter: 24px;
+  --editor-problem-list: 200px;
+  --editor-sticky-head: 32px;
+  --editor-link-picker: 320px;
   --table-row-compact: 36px;
   --table-row-comfortable: 44px;
   --tree-row: 28px;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
@@ -32,6 +32,11 @@ import type {
   ProjectView,
   WorkspaceSource,
 } from "./source.ts";
+import {
+  type DocumentTabMeta,
+  DocumentView,
+  type EditorDeps,
+} from "../editor/document-view.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
 import { TerminalTab } from "../terminal/terminal-tab.tsx";
 import styles from "./workspace.module.css";
@@ -47,6 +52,8 @@ export interface WorkspaceProps {
   onLauncher: () => void;
   /** lophn 관리 공간으로 간다. */
   onLophn: () => void;
+  /** 문서 탭의 읽기·편집 통로. 없으면 문서 탭은 자리표시다. */
+  editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */
   terminal?: TerminalDeps;
 }
@@ -132,6 +139,7 @@ export function Workspace(
     onLauncher,
     onLophn,
     terminal,
+    editor,
   }: WorkspaceProps,
 ) {
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
@@ -143,6 +151,10 @@ export function Workspace(
   const [userChoseWidth, setUserChoseWidth] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
+  // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다(editor#R4).
+  const [tabMeta, setTabMeta] = useState<
+    Readonly<Record<string, DocumentTabMeta>>
+  >({});
   const frameRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
@@ -279,7 +291,7 @@ export function Workspace(
     const tab: TabItem = {
       key: document.id,
       kind: "document_editor",
-      title: document.title,
+      title: tabMeta[document.id]?.fileName ?? document.title,
     };
     update({
       ...view,
@@ -292,6 +304,77 @@ export function Workspace(
           : item
       ),
     });
+  };
+
+  // 편집기가 읽은 파일 이름으로 탭 제목을 바꾼다. 같은 이름이면 다시 저장하지 않는다.
+  const noteMeta = (key: string, meta: DocumentTabMeta) => {
+    setTabMeta((current) => ({ ...current, [key]: meta }));
+    setView((current) => {
+      const stale = current.panes.some((pane) =>
+        pane.tabs.some((tab) => tab.key === key && tab.title !== meta.fileName)
+      );
+      if (!stale) return current;
+      const next = {
+        ...current,
+        panes: current.panes.map((pane) => ({
+          ...pane,
+          tabs: pane.tabs.map((tab) =>
+            tab.key === key ? { ...tab, title: meta.fileName } : tab
+          ),
+        })),
+      };
+      persist(next);
+      return next;
+    });
+  };
+
+  const tooltips: Record<string, ReactNode> = {};
+  for (const [key, meta] of Object.entries(tabMeta)) {
+    tooltips[key] = (
+      <span className={styles.tabTip}>
+        <span>{meta.title}</span>
+        {meta.path === null
+          ? null
+          : <span className={styles.tabTipPath}>{meta.path}</span>}
+      </span>
+    );
+  }
+
+  // 탭 종류마다 본문. 통로가 없는 종류는 null이라 칸이 종류 자리표시를 그린다.
+  const renderTab = (tab: TabItem, active: boolean): ReactNode | null => {
+    if (tab.kind === "terminal" && terminal) {
+      return (
+        <TerminalTab
+          key={tab.key}
+          tabKey={tab.key}
+          project={projectId}
+          folderRef={tab.folder ?? null}
+          active={active}
+          deps={terminal}
+          onStarted={(info) => terminalStarted(tab.key, info)}
+        />
+      );
+    }
+    if (tab.kind === "document_editor" && editor) {
+      return (
+        <DocumentView
+          key={tab.key}
+          documentId={tab.key}
+          projectId={projectId}
+          source={editor.source}
+          readingWidth={editor.readingWidth}
+          menu={editor.menu}
+          infoOpen={infoOpen}
+          onToggleInfo={() => setInfo(!infoOpen, infoTab)}
+          onMeta={(meta) => noteMeta(tab.key, meta)}
+          onOpenDocument={(id) => {
+            const row = loaded.documents.find((item) => item.id === id);
+            openDocument(row ?? { id, title: tabMeta[id]?.fileName ?? id });
+          }}
+        />
+      );
+    }
+    return null;
   };
 
   const setInfo = (open: boolean, tab: InfoTab) => {
@@ -371,25 +454,11 @@ export function Workspace(
               })}
             onClose={close}
             onOpenTerminal={terminal ? openTerminal : undefined}
-            renderTab={terminal
-              ? (tab, active) =>
-                tab.kind === "terminal"
-                  ? (
-                    <TerminalTab
-                      key={tab.key}
-                      tabKey={tab.key}
-                      project={projectId}
-                      folderRef={tab.folder ?? null}
-                      active={active}
-                      deps={terminal}
-                      onStarted={(info) => terminalStarted(tab.key, info)}
-                    />
-                  )
-                  : null
-              : undefined}
             onFocus={(pane) => update({ ...view, focusedPane: pane })}
             onMove={(key, toPane) => update(moveTab(view, key, toPane))}
             onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
+            renderTab={renderTab}
+            tooltips={tooltips}
           />
           <InfoPanel
             placement={infoPlacement}

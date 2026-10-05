@@ -1,12 +1,10 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
-  formatGet,
-  formatGetInputSchema,
-  formatList,
   outlineRoot,
   READ_ROUTES,
   SEARCH_ROUTES,
+  VIEW_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
   ApiReadDefinition,
@@ -37,6 +35,11 @@ import {
   formatDeclaration,
   formatDeclarations,
 } from "../../packages/documents/formats/model.ts";
+import {
+  formatGet,
+  formatGetInputSchema,
+  formatList,
+} from "../../packages/contracts/documents/mod.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
 import { createVersionCommands } from "../../packages/documents/versions/mod.ts";
 import { createVersionReads } from "../../packages/documents/versions/mod.ts";
@@ -52,6 +55,11 @@ import {
   type ProjectReadDeps,
 } from "../../packages/documents/projects/reads.ts";
 import { projectsSchemaSteps } from "../../packages/documents/projects/schema.ts";
+import {
+  createViewCommands,
+  createViewReads,
+  savedViewsSchemaSteps,
+} from "../../packages/documents/outline-and-search/mod.ts";
 
 type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
@@ -286,9 +294,11 @@ export function createLedgerRegistration(
   // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
   const contexts = createContextCommands();
   const series = createSeriesCommands();
+  const views = createViewCommands();
   const versionReads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
+  const viewReads = createViewReads();
   const deps: ProjectReadDeps = {
     documents: emptyDocuments,
   };
@@ -300,6 +310,7 @@ export function createLedgerRegistration(
       ...versionsSchemaSteps,
       ...contextsSchemaSteps,
       ...seriesSchemaSteps,
+      ...savedViewsSchemaSteps,
     ],
     commands: [
       commands.create,
@@ -328,6 +339,9 @@ export function createLedgerRegistration(
       series.removeInstance,
       series.archive,
       series.unarchive,
+      views.save,
+      views.update,
+      views.delete,
     ],
     reads: [
       reads.list,
@@ -342,6 +356,8 @@ export function createLedgerRegistration(
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      viewReads.list,
+      viewReads.get,
     ],
     // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
     blobFields: [versionFileField, versionFilesField],
@@ -357,6 +373,7 @@ export function createLedgerRegistration(
     workerRoutes: [
       ...SEARCH_ROUTES,
       ...READ_ROUTES.filter((route) => route.kind === "worker"),
+      ...VIEW_ROUTES.filter((route) => route.kind === "worker"),
     ],
     // 단계적 읽기(T14). 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).
     files: [...READ_ROUTES].filter((route) => route.kind === "file"),
@@ -381,10 +398,17 @@ function registerWorkers(): KindLaunchSpec[] {
 }
 
 // reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.
+// project read도 같은 목록이다. documents 목록 seam은 command 등록과 같은
+// emptyDocuments다(shell main의 `read projects list`가 이 Worker를 만난다).
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
+  const viewReads = createViewReads();
+  const deps: ProjectReadDeps = {
+    documents: emptyDocuments,
+  };
+  const projectReads = createProjectReads(deps);
   return {
     reads: [
       reads.list,
@@ -394,6 +418,13 @@ export function createReaderRegistration(): ReaderRegistration {
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      viewReads.list,
+      viewReads.get,
+      projectReads.list,
+      projectReads.get,
+      projectReads.resolve,
+      projectReads.resolveCwd,
+      projectReads.trackingRoots,
     ],
     ports: new Map(),
   };

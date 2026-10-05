@@ -88,6 +88,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 `POST /v1/problems/report`, `POST /v1/problems/observe-exception`(process 출처)
 - slice: apps
 - 선행: problems#T1, problems#T2, contracts#T12, platform#T5, platform#T6, platform#T7, platform#T8, platform#T9, platform#T12, platform#T15, apps#T6
+- 상태: 진행 (#PR 남음) — 남은 것: PR 번호 확정 뒤 이 줄을 고친다
 - 완료:
   - collector는 `deno run --no-prompt`에 core loopback `--allow-net`과 준비 폴더 `--allow-read`만 받는다(architecture 2.2)
   - 앱 actor·app·release·mode는 credential에서만 정한다. 본문의 `actor`, 다른 앱, `live` 주장은 `forbidden`, 다른 앱 제출은 거절(R1, R2)

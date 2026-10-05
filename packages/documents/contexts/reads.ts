@@ -4,15 +4,18 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   type Context,
+  contextExport,
   contextGet,
   type ContextItem,
   contextList,
   contextRelated,
+  type SECTION_STATUSES,
 } from "../../contracts/documents/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
   type ReadSnapshot,
+  REDACTION_REPLACEMENT,
   type RequestContext,
   type Sql,
   TargetAuthorization,
@@ -71,12 +74,196 @@ function offsetOf(cursor: string | undefined): Result<number> {
   return ok(value);
 }
 
-export function createContextReads(): {
+// export가 쓰는 주입 값. redactor는 platform redaction과 같은 모양이고, 없으면 내보내지
+// 않는다(fail-closed). glossary는 documents/terms의 활성 정의를 주는 근원이다(terms가
+// contexts를 import하므로 같은 모양의 값만 주입받는다). sectionStatus는 derived store를
+// 읽는 reader가 주고, 없으면 section 항목은 unverified다(추정하지 않는다).
+export type ContextExportRedactor = (
+  source: { concern: string; revision: string; scope: string },
+  mediaType: string,
+  text: string,
+) => string | null;
+
+export type ContextExportDeps = {
+  redactor?: ContextExportRedactor;
+  glossary?: (
+    contextId: string,
+  ) => Result<readonly { name: string; definition: string | null }[]>;
+  sectionStatus?: (
+    document: string,
+    version: string,
+    section: string,
+  ) => (typeof SECTION_STATUSES)[number];
+};
+
+export type ContextReadDeps = ContextExportDeps;
+
+// 문서 대상 권한. 판정을 못 하면(port 없음·throw·Promise) 없는 것과 같이 뺀다.
+function readableTarget(
+  snapshot: ReadSnapshot,
+  ctx: RequestContext,
+  target: Record<string, string | undefined>,
+): boolean {
+  try {
+    const decision = snapshot.port(TargetAuthorization)(
+      ctx,
+      contextExport.name,
+      target as never,
+    ) as unknown;
+    if (typeof decision !== "object" || decision === null) return false;
+    if ("then" in decision) return false;
+    return (decision as { ok?: unknown }).ok === true;
+  } catch {
+    return false;
+  }
+}
+
+// 외부 출력 redaction. 하나라도 안전화를 끝내지 못하면 export 전체를 내지 않는다.
+function exportSafe(
+  redactor: ContextExportRedactor,
+  context: Context,
+  text: string,
+): Result<string> {
+  const out = redactor(
+    { concern: "documents", revision: context.revision, scope: context.id },
+    "text/plain",
+    text,
+  );
+  if (out === null) {
+    return err({
+      code: "unavailable",
+      message: "export redaction failed",
+    });
+  }
+  return ok(out.trim().length === 0 ? REDACTION_REPLACEMENT : out);
+}
+
+// 사람이 고른 context를 목적·관점별 직접 항목·선택 이유·읽은 고정 판 참조·glossary로
+// 낸다. 하위 context·관계 지도는 없고, 권한 밖 문서·앱 항목은 항목과 근거 모두에서
+// 없는 것과 같이 빠진다. 문서 항목의 고정 판은 읽은 시점의 최신 판이다(R4: 항목에는 판이
+// 저장되지 않는다). 판이 없는 문서는 고정할 판이 없어 항목을 싣지 않는다.
+function exportHandle(
+  deps: ContextExportDeps,
+): ReadDefinition<typeof contextExport>["handle"] {
+  return (snapshot, ctx, input) => {
+    // export는 사람만 고른다(route 등록 actor가 ["user"]다).
+    if (!readActorAllowed(ctx, contextExport.actors)) {
+      return rejected("forbidden", "actor cannot export contexts");
+    }
+    const loaded = loadContext(snapshot.sql as never, input.context);
+    if (!loaded.ok) return loaded;
+    // 없는 context와 권한 밖 context의 답은 같다.
+    if (loaded.value === null) {
+      return rejected("not_found", "context not found");
+    }
+    const decision = allowed(
+      snapshot,
+      ctx,
+      contextExport.name,
+      input.context,
+    );
+    if (!decision.ok) return decision;
+    if (decision.value === null) {
+      return rejected("not_found", "context not found");
+    }
+    const redactor = deps.redactor;
+    if (redactor === undefined) {
+      return rejected("unavailable", "export redaction is not available");
+    }
+    const context = loaded.value;
+    const visible: ContextItem[] = [];
+    const items: {
+      perspective: ContextItem["perspective"];
+      reason: string;
+      target: ContextItem["target"];
+      fixed_version: string | null;
+      section_status: (typeof SECTION_STATUSES)[number] | null;
+    }[] = [];
+    for (const item of context.items) {
+      let fixed: string | null = null;
+      let sectionStatus: (typeof SECTION_STATUSES)[number] | null = null;
+      if (item.target.kind === "document") {
+        const document = loadDocument(
+          snapshot.sql as never,
+          item.target.document,
+        );
+        if (!document.ok) return document;
+        if (document.value === null) continue;
+        if (
+          !readableTarget(snapshot, ctx, {
+            document: document.value.id,
+            place_kind: document.value.place?.kind,
+            place: document.value.place?.id,
+          })
+        ) continue;
+        fixed = document.value.latest_version;
+        if (fixed === null) continue;
+        sectionStatus = item.target.section === null
+          ? "whole"
+          : deps.sectionStatus === undefined
+          ? "unverified"
+          : deps.sectionStatus(
+            item.target.document,
+            fixed,
+            item.target.section,
+          );
+      } else if (!readableTarget(snapshot, ctx, { app: item.target.app })) {
+        continue;
+      }
+      const reason = exportSafe(redactor, context, item.reason);
+      if (!reason.ok) return reason;
+      visible.push({ ...item, reason: reason.value });
+      items.push({
+        perspective: item.perspective,
+        reason: reason.value,
+        target: item.target,
+        fixed_version: fixed,
+        section_status: sectionStatus,
+      });
+    }
+    const title = exportSafe(redactor, context, context.title);
+    if (!title.ok) return title;
+    const purpose = exportSafe(redactor, context, context.purpose);
+    if (!purpose.ok) return purpose;
+    // glossary는 documents/terms의 활성 정의다. 근원이 없거나 읽지 못하면 빈 glossary로
+    // 꾸미지 않는다.
+    if (deps.glossary === undefined) {
+      return rejected("unavailable", "glossary source is not connected");
+    }
+    const terms = deps.glossary(context.id);
+    if (!terms.ok) return terms;
+    const glossary: { name: string; definition: string }[] = [];
+    for (const term of terms.value) {
+      if (term.definition === null) continue;
+      const name = exportSafe(redactor, context, term.name);
+      if (!name.ok) return name;
+      const definition = exportSafe(redactor, context, term.definition);
+      if (!definition.ok) return definition;
+      glossary.push({ name: name.value, definition: definition.value });
+    }
+    return ok({
+      context: {
+        ...context,
+        title: title.value,
+        purpose: purpose.value,
+        items: visible,
+      },
+      items,
+      glossary,
+      as_of_seq: snapshot.as_of_seq,
+      next_cursor: null,
+    } as never);
+  };
+}
+
+export function createContextReads(deps: ContextReadDeps = {}): {
   list: ReadDefinition<typeof contextList>;
   get: ReadDefinition<typeof contextGet>;
   related: ReadDefinition<typeof contextRelated>;
+  export: ReadDefinition<typeof contextExport>;
 } {
   return {
+    export: { route: contextExport, handle: exportHandle(deps) },
     list: {
       route: contextList,
       handle(snapshot, ctx, input) {

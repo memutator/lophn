@@ -66,6 +66,17 @@ export const openclaw: HarnessDefinition = {
   // managed hook·resume·plugin 위치와 event 목록이 [미확인]이다(조사 9.5).
   // unknown을 unsupported로 바꾸지 않는다.
   hooks: [],
+  // workspace는 agent마다 달라 앱 root의 AGENTS.md가 읽히는지 알 수 없다.
+  // mcp.servers는 strict schema라 invalid config에서 harness가 throw한다(조사
+  // 9.1·skills-and-guides). 프로젝트 신뢰는 [미확인]이라 gate를 두지 않는다.
+  loading: {
+    trust_gates: { mcp: false, skills: false, guide: false },
+    guide_hiders: [],
+    guide_workspace: "agent_workspace",
+    broken_config_effect:
+      "OpenClaw는 mcp.servers가 strict schema라 잘못된 config에서 throw한다",
+    trust_source: null,
+  },
   execution: {
     transport: "pty",
     launch_argv: ["openclaw"],

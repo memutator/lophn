@@ -257,7 +257,9 @@ Deno.test("coding-agent/tickets#R11: core 기동은 ticket schema와 create·cla
   });
   try {
     const { DatabaseSync } = await import("node:sqlite");
-    const db = new DatabaseSync(`${core.dataRoot}/lophn.db`, { readOnly: true });
+    const db = new DatabaseSync(`${core.dataRoot}/lophn.db`, {
+      readOnly: true,
+    });
     const tables = db.prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tickets'",
     ).all() as { name: string }[];

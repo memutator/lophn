@@ -4,7 +4,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
-import { type CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
+import type { CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
 import { connectionAuthSyncPort } from "../connection/mod.ts";
 import type {
   ReadSnapshot,

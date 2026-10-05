@@ -15,7 +15,10 @@ export function createCoreRegistration() {
         key: QUESTION_ADOPTIONS_PORT,
         create: () => ({
           adoptions(questions: readonly string[]) {
-            const found = new Map<string, { document: string; version: string }>();
+            const found = new Map<
+              string,
+              { document: string; version: string }
+            >();
             for (const question of questions) {
               if (question === QUESTION) {
                 found.set(question, { document: DOC, version: VER });

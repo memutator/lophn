@@ -349,7 +349,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T15 feedback 접수
 
-- 상태: 진행 (#PR) — 한 것: `packages/problems/feedback/`의 접수 조립(글 redaction·1~500 scalar, shell user 출처, 지목 대상과 "실행 전", 안전한 화면 상태, PNG 머리·크기·최종 hash, 한도, 항목별 이유, 같은 앱 명시 선택 묶기)과 `snapshots/screen.ts`의 화면 증거, collector 자식의 `feedback_state`·`feedback_screenshot` blob 준비 허용. 남은 것: `SubmitFeedback` worker route 연결·collector credential의 `GetProblem` 접근 → T5, 원자료를 받는 입력 contract → Q19(contracts 팀)
+- 상태: 진행 (#268) — 한 것: `packages/problems/feedback/`의 접수 조립(글 redaction·1~500 scalar, shell user 출처, 지목 대상과 "실행 전", 안전한 화면 상태, PNG 머리·크기·최종 hash, 한도, 항목별 이유, 같은 앱 명시 선택 묶기)과 `snapshots/screen.ts`의 화면 증거, collector 자식의 `feedback_state`·`feedback_screenshot` blob 준비 허용. 남은 것: `SubmitFeedback` worker route 연결·collector credential의 `GetProblem` 접근 → T5, 원자료를 받는 입력 contract → Q19(contracts 팀)
 - 등급: 기본
 - concern: problems/feedback, problems/grouping, problems/snapshots
 - 요구: problems/feedback#R1, R2, R3, R4, R6, R7, R8, R9, R10, R14; problems/grouping#R6; problems/snapshots#R15

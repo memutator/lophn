@@ -4,22 +4,18 @@
 // 만들고, agent 자격은 읽기와 문서 저장 operation만 가진다: context·term command
 // operation이 없으므로 propose가 그것을 불렀다면 forbidden으로 실패한다.
 import { assert, assertEquals } from "@std/assert";
-import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
+import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { documentGet } from "../../packages/contracts/documents/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
   proposeContextChange,
+  saveFromPaths,
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
+import { documentIdForKey } from "../../packages/coding-agent/connection/document-save.ts";
 import { createContextTool } from "../../packages/coding-agent/mcp-server/tools/context.ts";
 import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts";
-import {
-  derivedPath,
-  type DerivedStore,
-  openDerived,
-} from "../../packages/documents/outline-and-search/adapters/store.ts";
-import { recordExtraction } from "../../packages/documents/outline-and-search/extraction.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
@@ -29,8 +25,22 @@ const teams: TeamModule[] = [
   { createLedgerRegistration },
   { createLedgerRegistration: createAppsRegistration },
 ];
-const HASH = "a".repeat(64);
-const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
+// 사람 데이터 root 밖 임시 폴더의 실제 문서를 coding agent 저장 통로로 올린다. 문서 ID는
+// 저장 key에서 정해지므로 같은 key로 미리 계산한다.
+const SOURCE_KEY = "source";
+const DOC = await documentIdForKey(SOURCE_KEY);
+const SOURCE_TEXT = [
+  "# 용어집",
+  "",
+  "## 문서",
+  "",
+  "범위와 경계를 정한다.",
+  "",
+  "## 추가",
+  "",
+  "더 있다.",
+  "",
+].join("\n");
 const OTHER = "doc_01arz3ndektsv4rrffq69g5fb0";
 const CONTEXT = "ctx_01arz3ndektsv4rrffq69g5fav";
 const ARCHIVED = "ctx_01arz3ndektsv4rrffq69g5faw";
@@ -47,6 +57,7 @@ const LIMITED_TOKEN = "e".repeat(43);
 const USER_OPERATIONS = [
   "document.save",
   "document.prepare",
+  "search.query",
   "context.create",
   "context.archive",
   "context.get",
@@ -72,7 +83,6 @@ const AGENT_OPERATIONS = [
 type Opened = {
   core: Core;
   home: string;
-  store: DerivedStore;
   work: string;
 };
 
@@ -128,14 +138,10 @@ async function open(): Promise<Opened> {
     conditions: {},
     credential_ref: "cred-limited",
   }, LIMITED_TOKEN);
-  await Deno.mkdir(`${home}/derived`, { recursive: true });
-  const store = openDerived(derivedPath(`${home}/derived`));
-  assert(store.ok, store.ok ? "" : store.error.message);
-  return { core, home, store: store.value, work };
+  return { core, home, work };
 }
 
 async function close(opened: Opened) {
-  opened.store.close();
   await opened.core.shutdown();
   await Deno.remove(opened.home, { recursive: true });
   await Deno.remove(opened.work, { recursive: true });
@@ -182,96 +188,25 @@ function agent(opened: Opened, token = AGENT_TOKEN) {
   };
 }
 
-function prepared(key: string) {
-  return {
-    document: DOC,
-    base_version: null,
-    files_hash: HASH,
-    file_count: 1,
-    primary_path: "a.md",
-    content_hash: HASH,
-    preparation_ref: `prep-${key}`,
-    files: [{
-      path: "a.md",
-      blob_hash: HASH,
-      bytes: 10,
-      media_type: "text/markdown",
-      primary: true,
-      preparation_ref: `prep-file-${key}`,
-    }],
-    idempotency_key: key,
-    metadata: { title: "용어집", place: null, name: null },
-    format: { name: "document", module_hash: HASH, explicit: false },
-    validation: {
-      input_hash: HASH,
-      module_hash: HASH,
-      status: "passed",
-      error_count: 0,
-      warning_count: 0,
-      diagnostics: [],
-    },
-    source: null,
-  };
-}
-
-// 사람 자격으로 문서 첫 판을 저장하고 구역을 추출해 context 목차가 읽게 한다.
+// coding agent 자격으로 문서 첫 판을 저장하고, coordinator의 section 추출이 index에 올릴
+// 때까지 기다린다. context 목차와 용어 근거 확인이 그 derived store를 읽는다.
 async function savedSource(opened: Opened) {
-  assert(opened.core.notePrepared);
-  const noted = await opened.core.notePrepared({
-    preparation: "prep-source",
-    principal: "user-1",
-    purpose: "document_files",
-    hash: HASH,
-    size_bytes: 10,
-  }, AT);
-  assert(noted.ok, noted.ok ? "" : noted.error.message);
-  const notedFile = await opened.core.notePrepared({
-    preparation: "prep-file-source",
-    principal: "user-1",
-    purpose: "document_file",
-    hash: HASH,
-    size_bytes: 10,
-  }, AT);
-  assert(notedFile.ok, notedFile.ok ? "" : notedFile.error.message);
-  const saved = await post(opened, "documents/save", {
-    input: prepared("source"),
-    idempotency_key: "source",
-    compare: { base_version: null },
-    prepared: ["prep-source"],
-  }) as { version: string; event_seq: string };
-  const written = recordExtraction(opened.store, {
-    document: DOC,
-    version: saved.version,
-    content_hash: HASH,
-    module_hash: HASH,
-    extraction: {
-      status: "ready",
-      title: "용어집",
-      text: "# 용어집",
-      text_hash: HASH,
-      sections: ["문서"].map((key, position) => ({
-        key,
-        title: key,
-        parent: null,
-        position,
-        level: 1,
-        anchor: null,
-        own_ranges: [{ start_line: 1, end_line: 1 }],
-        subtree_range: { start_line: 1, end_line: 1 },
-        characters: 4,
-        body_hash: HASH,
-      })),
-    },
-  }, saved.event_seq);
-  assert(written.ok, written.ok ? "" : written.error.message);
-  const cursor = opened.store.transaction((tx) =>
-    ok(tx.sql.run(
-      `INSERT OR REPLACE INTO derived_cursors (consumer, processed_seq, rebuilding) VALUES ('search', ?, 0)`,
-      [saved.event_seq],
-    ))
+  await Deno.writeTextFile(`${opened.work}/glossary.md`, SOURCE_TEXT);
+  const { deps } = agent(opened);
+  const saved = await saveFromPaths(
+    { ...deps, scope: { root: opened.work, forbidden: [opened.home] } },
+    { paths: ["glossary.md"], title: "용어집", idempotency_key: SOURCE_KEY },
   );
-  assert(cursor.ok);
-  return saved;
+  assert(saved.ok, saved.ok ? "" : JSON.stringify(saved.error));
+  assertEquals(saved.value.saved.document, DOC);
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const found = await post(opened, "search/query", { query: "범위와 경계" });
+    if ((found.results as unknown[]).length > 0) break;
+    assert(Date.now() < deadline, "문서가 index에 오르지 않았다");
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return saved.value.saved;
 }
 
 async function createContexts(opened: Opened) {

@@ -323,6 +323,62 @@ Deno.test("documents/outline-and-search#R11: korean-search 긴 합성어 3 codep
   }
 });
 
+Deno.test("documents/outline-and-search#R10 R11: 한 문서의 여러 section은 각각 일치 결과가 된다(첫 section만 보지 않는다)", () => {
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    const text = [
+      "# 제목",
+      "",
+      "## 앞",
+      "",
+      "앞에만 있는 낱말",
+      "",
+      "## 뒤",
+      "",
+      "뒤에만 있는 낱말",
+    ].join("\n");
+    const section = (
+      key: string,
+      position: number,
+      start: number,
+      end: number,
+    ) => ({
+      key,
+      title: key,
+      parent: null,
+      position,
+      level: 2,
+      anchor: null,
+      own_ranges: [{ start_line: start, end_line: end }],
+      subtree_range: { start_line: start - 1, end_line: end },
+      characters: 10,
+      body_hash: HASH,
+    });
+    keep(recordExtraction(fx.store, {
+      document: DOC_A,
+      version: VER_A,
+      content_hash: HASH,
+      module_hash: HASH,
+      extraction: {
+        status: "ready",
+        title: "제목",
+        text,
+        text_hash: HASH,
+        sections: [section("앞", 0, 4, 6), section("뒤", 1, 8, 9)],
+      },
+    }, "1"));
+    fx.consumed("5");
+    const later = keep(fx.handlers().query(CTX, { query: "뒤에만 있는" }));
+    assertEquals(later.results.map((result) => result.section), ["뒤"]);
+    assertEquals(later.results[0].ranges, [{ start_line: 9, end_line: 9 }]);
+    const both = keep(fx.handlers().query(CTX, { query: "낱말" }));
+    assertEquals(both.results.map((result) => result.section), ["앞", "뒤"]);
+  } finally {
+    fx.close();
+  }
+});
+
 Deno.test("documents/outline-and-search#R17: 보관 문서는 현재 ledger 상태로 기본 결과에서 빠진다", async () => {
   const fx = openDerivedFixture();
   try {

@@ -381,7 +381,10 @@ function buildResult(
   if (format === null) return undefined;
   const title = String(row["title"]);
   const body = String(row["body"]);
-  const ranges = lineRanges(body, query);
+  const ranges = documentRanges(
+    lineRanges(body, query),
+    sectionLineNumbers(row["ranges"]),
+  );
   if (ranges.length === 0) return undefined;
   const section = row["section_key"] === null
     ? null
@@ -402,6 +405,57 @@ function buildResult(
     match_source: "original",
     cache_basis: null,
   };
+}
+
+// section 행의 body는 own 범위 줄만 이어 붙인 것이라 body의 n번째 줄이 문서의 몇 번째 줄인지
+// 다르다. own 범위(JSON)를 줄 번호 목록으로 펼친다. 범위가 없는 행(section 없는 판)은 본문
+// 전체라 body의 줄 번호가 곧 문서의 줄 번호이고, 이때는 undefined다.
+function sectionLineNumbers(value: unknown): number[] | undefined {
+  if (typeof value !== "string") return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return undefined;
+  const lines: number[] = [];
+  for (const range of parsed as { start_line: number; end_line: number }[]) {
+    for (let line = range.start_line; line <= range.end_line; line++) {
+      lines.push(line);
+    }
+  }
+  return lines;
+}
+
+// body 줄 범위를 문서 줄 범위로 바꾼다. 문서에서 이어지지 않는 줄은 범위를 나눈다.
+function documentRanges(
+  found: LineRange[],
+  lines: number[] | undefined,
+): LineRange[] {
+  if (lines === undefined) return found;
+  const mapped: LineRange[] = [];
+  for (const range of found) {
+    let start: number | undefined;
+    let previous: number | undefined;
+    for (let line = range.start_line; line <= range.end_line; line++) {
+      const document = lines[line - 1];
+      if (document === undefined) continue;
+      if (previous !== undefined && document === previous + 1) {
+        previous = document;
+        continue;
+      }
+      if (start !== undefined && previous !== undefined) {
+        mapped.push({ start_line: start, end_line: previous });
+      }
+      start = document;
+      previous = document;
+    }
+    if (start !== undefined && previous !== undefined) {
+      mapped.push({ start_line: start, end_line: previous });
+    }
+  }
+  return mapped;
 }
 
 // 일치 줄을 1-based inclusive range로 묶는다. 검색 판 본문의 근거다(R12).

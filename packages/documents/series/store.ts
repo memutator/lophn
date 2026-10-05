@@ -137,25 +137,6 @@ export function listSeries(
   return ok(series);
 }
 
-// 자리 없는 전체 가족 목록. seriesList의 place는 생략할 수 있다.
-export function listAllSeries(
-  sql: Sql,
-  status: "active" | "archived" | undefined,
-): Result<Series[]> {
-  const rows = sql.all(
-    `SELECT ${SERIES_COLUMNS} FROM series${status ? " WHERE status = ?" : ""}
-     ORDER BY id`,
-    status ? [status] : [],
-  );
-  const series: Series[] = [];
-  for (const row of rows) {
-    const parsed = seriesFromRow(row);
-    if (!parsed.ok) return parsed;
-    series.push(parsed.value);
-  }
-  return ok(series);
-}
-
 export function insertSeries(tx: Tx, value: Series): void {
   tx.sql.run(
     `INSERT INTO series (${SERIES_COLUMNS})

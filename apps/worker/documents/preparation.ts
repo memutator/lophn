@@ -17,7 +17,6 @@ import {
 } from "../../../packages/platform/responsiveness/mod.ts";
 import { previewTracking } from "../../../packages/documents/projects/work.ts";
 import { directoryScanner } from "../../../packages/documents/projects/scan.ts";
-import { seriesNext } from "../../../packages/documents/series/mod.ts";
 import {
   fileReadPort,
   fileScanPort,
@@ -59,9 +58,6 @@ export async function acceptPreparation(
   }
   if (request.op === "documents.diff_bytes") {
     return diffObserved(request.payload);
-  }
-  if (request.op === "documents.series_next") {
-    return seriesNextObserved(request.payload);
   }
   if (request.op !== projectPreviewTracking.name) {
     return { op: request.op, accepted: true };
@@ -143,19 +139,6 @@ function diffObserved(payload: unknown): unknown {
   const diff = lineDiff(body.before, body.after);
   if (diff === null) return { kind: "diff_too_large" };
   return { kind: "diff", changes: diff };
-}
-
-// series-next 계산. 가족 상태로 다음 제안을 내는 순수 계산이며 저장은 없다.
-// payload가 어긋나면 잘못된 입력이다.
-function seriesNextObserved(payload: unknown): unknown {
-  const suggestion = seriesNext(payload);
-  if (suggestion === null) {
-    throw new PreparationFailure({
-      code: "invalid_input",
-      message: "invalid series next input",
-    });
-  }
-  return { suggestion };
 }
 
 // 줄 단위 Myers diff. 대각선 탐색이 이 횟수를 넘으면 계산을 멈추고 diff를 내지 않는다.

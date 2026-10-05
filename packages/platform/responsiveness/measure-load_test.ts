@@ -363,7 +363,17 @@ Deno.test({
         });
         entries.push(
           await sampleUnderLoad(async () => {
-            const [prepare, receipts] = await Promise.all([
+            // 관리 ledger 채널은 요청마다 10초 기한이고 기한이 넘으면 채널
+            // 전체가 닫힌다. 스캔·묶음 준비가 살아 있는 ledger 통로와 함께
+            // 도는 동안에도 main thread의 microtask가 끊기지 않게, 관리
+            // 접수는 먼저 끝내고 scan·준비를 함께 걷는다.
+            const receipts = await Promise.all(
+              Array.from(
+                { length: 10 },
+                (_, index) => sendControl(controlLedger, 100 + index),
+              ),
+            );
+            const [prepare] = await Promise.all([
               multiBlob.prepare(
                 {
                   preparation: "prep-load-multi",
@@ -372,28 +382,13 @@ Deno.test({
                 },
                 bundleStream(BUNDLE_BYTES),
               ),
-              Promise.all(
-                Array.from(
-                  { length: 10 },
-                  (_, index) => sendControl(controlLedger, 100 + index),
-                ),
-              ),
               scanOnce(multiRoot),
             ]);
-            const failed = receipts
-              .map((receipt, index) => [index, receipt] as const)
-              .filter(([, receipt]) => typeof receipt !== "number")
-              .map(([index, receipt]) =>
-                `${index}:${
-                  typeof receipt === "number"
-                    ? ""
-                    : JSON.stringify(receipt.error)
-                }`
-              );
             assert(
-              failed.length === 0,
-              `복합 관리 요청이 실패했다: ${failed.join(" | ")}`,
+              receipts.every((receipt) => typeof receipt === "number"),
+              "복합 관리 요청이 실패했다",
             );
+            assert(prepare.ok, "복합 묶음 준비가 실패했다");
           }),
         );
       } finally {

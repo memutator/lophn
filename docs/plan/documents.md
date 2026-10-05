@@ -366,6 +366,7 @@ concerns: [documents]
 
 ### T18 Series 읽기와 다음 이름
 
+- 상태: 완료 (#241)
 - 등급: 기본
 - concern: documents/series
 - 요구: documents/series#R4, R6, R9, R12

@@ -62,7 +62,7 @@ test("shell/terminal#R8: snapshot은 runtime과 after_seq 뒤의 출력만 준�
   push("two\n");
   push("three\n");
   await tick();
-  const all = host.handle({
+  const all = await host.handle({
     id: "s",
     type: "snapshot",
     terminal_ref: "term_1",
@@ -75,7 +75,7 @@ test("shell/terminal#R8: snapshot은 runtime과 after_seq 뒤의 출력만 준�
     "two\n",
     "three\n",
   ]);
-  const rest = host.handle({
+  const rest = await host.handle({
     id: "s2",
     type: "snapshot",
     terminal_ref: "term_1",
@@ -98,7 +98,7 @@ test("shell/terminal#R9: 종료한 shell의 snapshot은 확인된 exit code를 �
   push("bye\n");
   await tick();
   exit(3);
-  const snap = host.handle({
+  const snap = await host.handle({
     id: "s",
     type: "snapshot",
     terminal_ref: "term_1",

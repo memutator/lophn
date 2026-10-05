@@ -313,10 +313,13 @@ export function TerminalTab(
   const showNotice = notice && phase.kind !== "idle" &&
     !(phase.kind === "refused" && phase.reason === "unavailable");
 
+  // 보일 출력이 있으면 그 아래 한 줄, 없으면 탭 가운데 자리표시다.
+  const variant = showScreen ? "bar" : "center";
   let banner = null;
   if (phase.kind === "ended") {
     banner = (
       <ExitBanner
+        variant={variant}
         state={{
           kind: "ended",
           ending: phase.ending,
@@ -328,6 +331,7 @@ export function TerminalTab(
   } else if (phase.kind === "idle") {
     banner = (
       <ExitBanner
+        variant={variant}
         state={{ kind: "not_started" }}
         onRestart={() => void restart()}
       />
@@ -335,6 +339,7 @@ export function TerminalTab(
   } else if (phase.kind === "refused") {
     banner = (
       <ExitBanner
+        variant={variant}
         state={{ kind: "refused", reason: phase.reason }}
         onRestart={phase.reason === "no_folder"
           ? undefined
@@ -378,7 +383,7 @@ export function TerminalTab(
       >
         <div ref={hostRef} className={styles.screenHost} />
       </div>
-      {showScreen || phase.kind === "choose"
+      {showScreen || phase.kind === "choose" || banner
         ? null
         : <div className={styles.fill} />}
       {banner}

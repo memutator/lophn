@@ -19,6 +19,32 @@ export interface TerminalDeps {
   readonly pollMs?: number;
 }
 
+/**
+ * dialog는 창 본문 전체에 그려지지만 main은 연 자리가 본문 안인지 본다. 누른 닫기
+ * 버튼 자리를 쓰고, 모르면 창 가운데를 쓴다.
+ */
+function anchorOf(
+  element: HTMLElement,
+): { x: number; y: number; width: number; height: number } {
+  const box = element === document.body
+    ? null
+    : element.getBoundingClientRect();
+  if (box && box.width > 0 && box.height > 0) {
+    return {
+      x: Math.max(0, Math.round(box.x)),
+      y: Math.max(0, Math.round(box.y)),
+      width: Math.max(1, Math.round(box.width)),
+      height: Math.max(1, Math.round(box.height)),
+    };
+  }
+  return {
+    x: Math.max(0, Math.round(globalThis.innerWidth / 2)),
+    y: Math.max(0, Math.round(globalThis.innerHeight / 2)),
+    width: 1,
+    height: 1,
+  };
+}
+
 const CLOSE_CHOICE = "close-terminal";
 const KEEP_CHOICE = "keep-open";
 let requests = 0;
@@ -50,7 +76,7 @@ export function overlayCloseConfirm(api: OverlayApi): () => Promise<boolean> {
     const opened = await consumer.open({
       requestId,
       kind: "dialog",
-      anchorRect: { x: 0, y: 0, width: 1, height: 1 },
+      anchorRect: anchorOf(opener),
       model: {
         label: t("terminal.title.close"),
         text: t("terminal.dialog.close-text"),

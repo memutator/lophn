@@ -72,11 +72,15 @@ function adoptInlineStyles(root: HTMLElement): () => void {
     }
     sheet.replaceSync(element.textContent ?? "");
   };
+  // CSSOM으로 다시 쓰면 style 속성도 바뀌어 observer가 다시 부른다. 이미 적용한
+  // 값이면 건너뛰어 되먹임을 끊는다.
+  const applied = new WeakMap<Element, string>();
   const restyle = (element: Element) => {
     const value = element.getAttribute("style");
-    if (value && element instanceof HTMLElement) {
-      element.style.cssText = value;
-    }
+    if (!value || !(element instanceof HTMLElement)) return;
+    if (applied.get(element) === value) return;
+    element.style.cssText = value;
+    applied.set(element, element.getAttribute("style") ?? value);
   };
   const visit = (node: Node) => {
     if (node instanceof HTMLStyleElement) adopt(node);

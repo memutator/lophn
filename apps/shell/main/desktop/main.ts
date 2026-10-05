@@ -22,6 +22,7 @@ import {
   TerminalFocusTable,
 } from "../terminal/controller.ts";
 import { createTerminalIpc } from "../terminal/ipc.ts";
+import { devSeedFolders } from "../terminal/dev-seed.ts";
 import { createSupervisor, spawnNodeHost } from "../terminal/supervisor.ts";
 
 // shell tsc는 base를 보지 않으므로 Result 모양만 여기서 맞춘다.
@@ -95,7 +96,10 @@ const terminalIpc = createTerminalIpc({
   registry: overlays.overlayRegistry(),
   focus: terminalFocus,
   folders: {
-    folders: (project) => projectFolders(core.session(), project),
+    folders: (project) =>
+      Promise.resolve(devSeedFolders(process.env, project)).then((seeded) =>
+        seeded ?? projectFolders(core.session(), project)
+      ),
   },
   host: terminals,
 });

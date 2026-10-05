@@ -59,6 +59,8 @@ export type HostDeps = {
   exists: (file: string) => boolean;
   checkFolder: (path: string) => FolderCheck;
   schedule: (done: () => void) => void;
+  /** 종료 확인 사이의 기다림. 테스트가 줄인다. */
+  sleep?: (ms: number) => Promise<void>;
   controlFd?: number;
 };
 
@@ -72,9 +74,13 @@ type Session = {
 };
 
 export type Host = {
+  /** close·restart는 child 종료를 기다려 확인하므로 Promise다. */
   handle(
     request: HostRequest,
-  ): TerminalReply | TerminalSnapshotReply;
+  ):
+    | TerminalReply
+    | TerminalSnapshotReply
+    | Promise<TerminalReply | TerminalSnapshotReply>;
   sessions(): readonly TerminalRuntime[];
   dispose(): TerminalRuntime[];
 };
@@ -175,6 +181,33 @@ export function createHost(deps: HostDeps): Host {
     return session;
   }
 
+  async function restart(
+    session: Session,
+    id: string,
+  ): Promise<TerminalReply> {
+    const ended = await stop(session, deps.sleep);
+    if (ended.ok && ended.runtime.state === "unknown") return ended;
+    const next = start(session, {
+      id,
+      type: "open",
+      project: session.runtime.project,
+      folder_ref: session.runtime.folder_ref,
+      folders: [{
+        folder_ref: session.runtime.folder_ref,
+        path: session.runtime.cwd_at_start,
+      }],
+      columns: session.runtime.columns,
+      rows: session.runtime.rows,
+    });
+    if (next.ok) {
+      const restarted = sessions.get(next.runtime.terminal_ref);
+      if (restarted && restarted.typed.length !== 0) {
+        throw new Error("restart replayed input");
+      }
+    }
+    return next;
+  }
+
   return {
     handle(request) {
       if (request.type === "open") return start(undefined, request);
@@ -231,31 +264,9 @@ export function createHost(deps: HostDeps): Host {
         session.runtime.rows = request.rows;
         return { ok: true, runtime: { ...session.runtime } };
       }
-      if (request.type === "close") return finish(session);
+      if (request.type === "close") return stop(session, deps.sleep);
       if (request.type === "restart") {
-        const typed = session.typed.slice();
-        const ended = finish(session);
-        if (ended.ok && ended.runtime.state === "unknown") return ended;
-        const next = start(session, {
-          id: request.id,
-          type: "open",
-          project: session.runtime.project,
-          folder_ref: session.runtime.folder_ref,
-          folders: [{
-            folder_ref: session.runtime.folder_ref,
-            path: session.runtime.cwd_at_start,
-          }],
-          columns: session.runtime.columns,
-          rows: session.runtime.rows,
-        });
-        if (next.ok) {
-          const restarted = sessions.get(next.runtime.terminal_ref);
-          if (restarted && restarted.typed.length !== 0) {
-            throw new Error("restart replayed input");
-          }
-          void typed;
-        }
-        return next;
+        return restart(session, request.id);
       }
       return reject("spawn_failed", "unknown request");
     },
@@ -278,23 +289,49 @@ export function createHost(deps: HostDeps): Host {
   };
 }
 
-function finish(session: Session): TerminalReply {
+const STOP_POLL_MS = 25;
+const STOP_POLLS = 40;
+
+const defaultSleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * 사람이 확인한 닫기. 터미널을 닫을 때처럼 SIGHUP을 보내고 group의 종료를 이벤트
+ * 루프를 돌리며 확인한다. 끝나지 않으면 SIGKILL 뒤 다시 확인하고, 그래도 확인하지
+ * 못하면 결과 불명이다(shell/terminal#R10). 대화형 shell은 SIGTERM을 무시하므로
+ * 신호 직후 동기 확인만으로는 늘 확인 실패가 된다.
+ */
+async function stop(
+  session: Session,
+  sleep: (ms: number) => Promise<void> = defaultSleep,
+): Promise<TerminalReply> {
   if (
     session.runtime.state !== "running" && session.runtime.state !== "starting"
   ) {
     return { ok: true, runtime: { ...session.runtime } };
   }
+  const group = session.group;
+  const settle = async (signal: NodeJS.Signals): Promise<boolean> => {
+    if (!group) return false;
+    const sent = group.kill(signal);
+    if (sent.confirmed) return true;
+    for (let poll = 0; poll < STOP_POLLS; poll++) {
+      await sleep(STOP_POLL_MS);
+      if (!group.alive()) return true;
+    }
+    return false;
+  };
   try {
-    session.handle?.kill("SIGTERM");
+    session.handle?.kill("SIGHUP");
   } catch {
     // group 확인이 종료의 근거다.
   }
-  const killed = session.group?.kill("SIGTERM") ??
-    { confirmed: false as const, reason: "no_group" };
-  const confirmed = killed.confirmed
-    ? killed
-    : session.group?.kill("SIGKILL") ?? killed;
-  if (!confirmed.confirmed) {
+  const confirmed = await settle("SIGHUP") || await settle("SIGKILL");
+  return settleRuntime(session, confirmed);
+}
+
+function settleRuntime(session: Session, confirmed: boolean): TerminalReply {
+  if (!confirmed) {
     session.runtime.state = "unknown";
     session.runtime.failure_reason = "kill_unconfirmed";
     session.runtime.exit_code = null;
@@ -304,10 +341,29 @@ function finish(session: Session): TerminalReply {
     session.runtime.failure_reason = null;
   }
   session.handle = null;
-  // 닫힌 탭은 runtime 값만 남긴다. 출력 buffer와 입력 history는 힙에 남기지 않는다.
   session.buffer.clear();
   session.typed.length = 0;
   return { ok: true, runtime: { ...session.runtime } };
+}
+
+/** host 종료 때의 동기 정리. 기다릴 수 없으므로 신호 직후의 관측만 쓴다. */
+function finish(session: Session): TerminalReply {
+  if (
+    session.runtime.state !== "running" && session.runtime.state !== "starting"
+  ) {
+    return { ok: true, runtime: { ...session.runtime } };
+  }
+  try {
+    session.handle?.kill("SIGHUP");
+  } catch {
+    // group 확인이 종료의 근거다.
+  }
+  const killed = session.group?.kill("SIGHUP") ??
+    { confirmed: false as const, reason: "no_group" };
+  const confirmed = killed.confirmed
+    ? killed
+    : session.group?.kill("SIGKILL") ?? killed;
+  return settleRuntime(session, confirmed.confirmed);
 }
 
 function pickFolder(

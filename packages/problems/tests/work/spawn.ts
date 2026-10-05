@@ -1,0 +1,204 @@
+import { err, ok, type Result } from "../../../base/mod.ts";
+import type { MemoryLimitMode } from "../../../contracts/platform/mod.ts";
+import { RUNNER_LIMITS } from "./limits.ts";
+import type { PreparedCommand } from "./prepare.ts";
+
+export type ChildHandle = {
+  pid: number;
+  stdin: WritableStream<Uint8Array> | null;
+  stdout: ReadableStream<Uint8Array> | null;
+  stderr: ReadableStream<Uint8Array> | null;
+  kill(signal?: Deno.Signal): void;
+  status(): Promise<Deno.CommandStatus>;
+};
+
+export type SpawnPort = {
+  spawn(command: string, args: string[], options: {
+    cwd: string;
+    env: Record<string, string>;
+  }): ChildHandle;
+};
+
+// platform/security applyMemoryLimit와 같은 모양. problems는 그 구현을
+// import하지 않고 runner가 넘긴다(problems/tests#R20).
+export type MemoryLimitPort = {
+  limit(
+    command: string,
+    args: readonly string[],
+  ): Promise<
+    Result<{
+      mode: Exclude<MemoryLimitMode, "unavailable">;
+      command: string;
+      args: string[];
+    }>
+  >;
+};
+
+export type RunningChild = {
+  mode: Exclude<MemoryLimitMode, "unavailable">;
+  pid: number;
+  command: string;
+  args: string[];
+  started_at: string;
+  kill(signal?: Deno.Signal): void;
+  finished(): Promise<ChildOutcome>;
+};
+
+export type ChildOutcome = {
+  end_reason: "exited" | "timeout" | "killed";
+  exit_code: number | null;
+  // 안전 출력. 상한을 넘으면 truncated이고 원문 전체는 보관하지 않는다.
+  output: Uint8Array;
+  truncated: boolean;
+  ended_at: string;
+};
+
+const UNAVAILABLE = "프로세스 메모리 경계를 강제할 수 없다";
+
+function systemSpawn(): SpawnPort {
+  return {
+    spawn(command, args, options) {
+      const child = new Deno.Command(command, {
+        args,
+        cwd: options.cwd,
+        env: options.env,
+        clearEnv: true,
+        stdin: "null",
+        stdout: "piped",
+        stderr: "piped",
+      }).spawn();
+      return {
+        pid: child.pid,
+        stdin: null,
+        stdout: child.stdout,
+        stderr: child.stderr,
+        kill: (signal) => child.kill(signal),
+        status: () => child.status,
+      };
+    },
+  };
+}
+
+async function drain(
+  stream: ReadableStream<Uint8Array> | null,
+  cap: number,
+  into: { bytes: Uint8Array[]; total: number; truncated: boolean },
+): Promise<void> {
+  if (!stream) return;
+  const reader = stream.getReader();
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) return;
+      into.total += next.value.byteLength;
+      if (into.truncated) continue;
+      const used = into.bytes.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+      const room = cap - used;
+      if (next.value.byteLength <= room) {
+        into.bytes.push(next.value);
+      } else {
+        if (room > 0) into.bytes.push(next.value.subarray(0, room));
+        into.truncated = true;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+// 시작 시도가 ledger에 확정된 뒤에만 부른다(problems/tests#R17).
+// 메모리 경계를 걸 수 없으면 자식을 띄우지 않고 unavailable이다(problems/tests#R20).
+export async function startChild(
+  prepared: PreparedCommand,
+  options: {
+    memory?: MemoryLimitPort;
+    spawn?: SpawnPort;
+    now?: () => string;
+    outputCap?: number;
+  } = {},
+): Promise<Result<RunningChild>> {
+  if (!options.memory) {
+    return err({ code: "unavailable", message: UNAVAILABLE });
+  }
+  const limited = await options.memory.limit(
+    prepared.executable,
+    prepared.args,
+  );
+  if (!limited.ok) {
+    return err({ code: "unavailable", message: UNAVAILABLE });
+  }
+  const spawn = options.spawn ?? systemSpawn();
+  const cap = options.outputCap ?? RUNNER_LIMITS.output_bytes_per_side;
+  let child: ChildHandle;
+  try {
+    child = spawn.spawn(limited.value.command, limited.value.args, {
+      cwd: prepared.cwd,
+      env: prepared.env,
+    });
+  } catch {
+    return err({ code: "unavailable", message: UNAVAILABLE });
+  }
+  const started = (options.now ?? (() => new Date().toISOString()))();
+  const collected = {
+    bytes: [] as Uint8Array[],
+    total: 0,
+    truncated: false,
+  };
+  const drained = Promise.all([
+    drain(child.stdout, cap, collected),
+    drain(child.stderr, cap, collected),
+  ]);
+  let timedOut = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timed = new Promise<"timeout">((resolve) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        child.kill("SIGKILL");
+      } catch { /* 이미 끝났을 수 있다 */ }
+      resolve("timeout");
+    }, prepared.timeout_ms);
+  });
+  const finished = async (): Promise<ChildOutcome> => {
+    const status = child.status();
+    const reason = await Promise.race([
+      status.then(() => "done" as const),
+      timed,
+    ]);
+    if (timer !== undefined) clearTimeout(timer);
+    const ended = await status.catch(() => ({
+      success: false,
+      code: 1,
+      signal: null,
+    }));
+    await drained;
+    const output = new Uint8Array(
+      collected.bytes.reduce((sum, chunk) => sum + chunk.byteLength, 0),
+    );
+    let offset = 0;
+    for (const chunk of collected.bytes) {
+      output.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return {
+      end_reason: reason === "timeout" || timedOut
+        ? "timeout"
+        : ended.signal
+        ? "killed"
+        : "exited",
+      exit_code: reason === "timeout" || timedOut ? null : ended.code,
+      output,
+      truncated: collected.truncated,
+      ended_at: new Date().toISOString(),
+    };
+  };
+  return ok({
+    mode: limited.value.mode,
+    pid: child.pid,
+    command: limited.value.command,
+    args: limited.value.args,
+    started_at: started,
+    kill: (signal) => child.kill(signal),
+    finished,
+  });
+}

@@ -84,6 +84,30 @@ function claimedActor(ctx: RequestContext, prepared: PreparedVersion): boolean {
   return false;
 }
 
+// 관측 근거가 현재 연결과 다르면 그 제출은 늦다. core는 파일을 다시 읽지 않고
+// conflict만 돌려 다시 관측하게 한다(file-tracking#R7, versions#R13).
+function observationBasisStale(
+  document: Document,
+  prepared: PreparedVersion,
+): boolean {
+  const basis = prepared.file_basis;
+  if (basis === undefined) return false;
+  if (document.status !== "active" || basis.document_status !== "active") {
+    return true;
+  }
+  if (
+    basis.document_revision !== undefined &&
+    basis.document_revision !== document.revision
+  ) {
+    return true;
+  }
+  const source = document.file_source;
+  if (source === null) return basis.file_source !== null;
+  if (basis.file_source === null) return true;
+  return basis.path !== source.path || basis.project !== source.project ||
+    basis.kind !== source.kind;
+}
+
 // 원본 연결 문서는 현재 파일 관측의 준비 결과로만 새 판을 확정한다(versions#R13).
 function directSaveOfLinked(
   document: Document | null,
@@ -247,6 +271,9 @@ function saveVersion(
   }
   if (directSaveOfLinked(document, prepared)) {
     return rejected("conflict", "linked document needs file observation");
+  }
+  if (observationBasisStale(document, prepared)) {
+    return rejected("conflict", "observation basis changed");
   }
   const latest = loadLatestVersion(tx.sql, document.id);
   if (!latest.ok) return latest;

@@ -1168,6 +1168,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T37 daemon command
 
+- 상태: 완료 (#205)
 - 등급: 좁은
 - concern: coding-agent/cli
 - 요구: coding-agent/cli#R6, R8

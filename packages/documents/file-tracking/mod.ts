@@ -35,6 +35,33 @@ export {
   takeSubmitSlots,
 } from "./model.ts";
 export {
+  basisChanged,
+  dropCandidate,
+  dueCandidates,
+  emptyObservation,
+  FILE_STATUS_STATES,
+  type FileIdentity,
+  fileStatusOf,
+  type FileStatusState,
+  identityMatches,
+  mergeCandidate,
+  type ObservationBasisCheck,
+  type ObservationCandidate,
+  type ObservationFact,
+  type ObservationQueue,
+  SCAN_INTERVAL_MS,
+  scheduleScan,
+  type StatusInput,
+} from "./observation.ts";
+export {
+  readStably,
+  type ScanEntry,
+  type ScanPort,
+  scanRoot,
+  type StableRead,
+  type StableReadPort,
+} from "./work.ts";
+export {
   batchToChunks,
   type IpcWriter,
   markUnavailable,

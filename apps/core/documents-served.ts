@@ -72,3 +72,23 @@ export const PREPARE_BASE_ROUTE: ReadRoute = {
   actors: ["user", "coding_agent", "agent", "app", "machine"],
   errors: ["invalid_input", "unavailable", "internal"],
 };
+
+// coordinator에 넘길 관측 근거의 core 쪽 읽기(Q15). 공개 route가 아니라 core가 소유자로
+// 읽는 내부 read다. 응답 한도(500행)가 있어 root·규칙과 경로→문서 연결을 따로, 연결은
+// 경로 순서의 page로 읽는다.
+export const OBSERVATION_BASIS_ROUTE: ReadRoute = {
+  kind: "read",
+  resource: "documents-worker",
+  method: "observation_basis",
+  name: "document.observation_basis",
+  input: z.strictObject({
+    part: z.enum(["roots", "links"]),
+    after: z.string().min(1).optional(),
+  }),
+  output: z.looseObject({}),
+  actors: ["machine"],
+  errors: ["invalid_input", "unavailable", "internal"],
+};
+
+// 연결 page 크기. 응답 한도(행 500·1MiB) 안이다.
+export const OBSERVATION_LINK_PAGE = 400;

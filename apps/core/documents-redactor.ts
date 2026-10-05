@@ -2,7 +2,11 @@
 // redaction engine(async)이 아니라 같은 검출 규칙(matchCredential)을 동기로 적용한다.
 // 입력은 항상 JS 문자열(본문 조각·제목)이다. 알려진 secret 원문 registry는 core 보호
 // 메모리에 있고 reader Worker에는 없다: 이 조립은 pattern 검출만 한다(documents#T11
-// 진행 줄). 안전화를 끝내지 못하면 null로 답해 원문이 나가지 않게 한다(fail-closed).
+// 진행 줄). 값을 reader Worker에 넘기지 않는 이유: secret store(platform/secrets)가
+// 제품 core에 아직 조립되지 않아 core 보호 메모리에 채워진 registry가 없고, reader pool은
+// 요청 message 밖의 통로(값의 등록·회수)가 없으며, reader Worker는 팀 module 여러 개를
+// 같이 올려 값이 module 전역 상태에 남는다. 안전화를 끝내지 못하면 null로 답해 원문이
+// 나가지 않게 한다(fail-closed).
 import { REDACTION_REPLACEMENT } from "../../packages/contracts/platform/mod.ts";
 import { matchCredential } from "../../packages/platform/redaction/mod.ts";
 

@@ -15,8 +15,10 @@ export {
 export { createExportAssembly } from "./work.ts";
 export { authorizeDocument } from "./authorization.ts";
 export {
+  type LinkedDocument,
   loadDocument,
   loadLatestVersion,
+  loadLinkedDocuments,
   loadVersionByNumber,
   replaceDocument,
 } from "./store.ts";

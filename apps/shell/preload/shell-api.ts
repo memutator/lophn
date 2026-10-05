@@ -38,6 +38,7 @@ export function createShellApi(
     {
       open: (input) => invoke("shell:overlay-open", input),
       close: (input) => invoke("shell:overlay-close", input),
+      update: (input) => invoke("shell:overlay-update", input),
       result: (input) => invoke("overlay:result", input),
       subscribe(listener, onError) {
         let active = true;

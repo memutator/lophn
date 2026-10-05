@@ -1,11 +1,13 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Button,
   type Clock,
   Dialog,
+  type IconProps,
   Menu,
   Palette,
+  paletteIcons,
   Popover,
   PopoverRow,
   Sheet,
@@ -17,7 +19,7 @@ import {
   ToastStack,
   Tooltip,
 } from "@lophn/design/components";
-import type { OverlaySurface } from "../../../ipc/overlay.ts";
+import type { OverlaySurface, PaletteIcon } from "../../../ipc/overlay.ts";
 import type { SurfaceActions, SurfaceMount } from "../registry.ts";
 import styles from "./surface.module.css";
 
@@ -118,13 +120,12 @@ export function SurfaceView(
     }
     case "palette":
       return (
-        <Palette
-          {...shared}
-          open
+        <PaletteSurface
+          surface={surface}
+          host={host}
+          actions={actions}
           onOpenChange={onOpenChange}
-          title={label}
-          items={enabled}
-          onSelect={select}
+          select={select}
         />
       );
     case "notification": {
@@ -147,6 +148,45 @@ export function SurfaceView(
     case "drag":
       return null;
   }
+}
+
+const PALETTE_ICONS: Record<PaletteIcon, IconProps["icon"]> = paletteIcons;
+
+// 검색 palette는 검색어를 연 쪽에 돌려주고 연 쪽이 바꾼 행을 같은 표면에 다시 그린다.
+// 검색어와 고른 줄은 Palette 안에 남아 행이 바뀌어도 입력이 끊기지 않는다.
+function PaletteSurface(
+  { surface, host, actions, onOpenChange, select }: {
+    surface: OverlaySurface;
+    host: HTMLElement;
+    actions: SurfaceActions;
+    onOpenChange: (open: boolean) => void;
+    select: (choiceId: string) => void;
+  },
+) {
+  const [model, setModel] = useState(surface.model);
+  useEffect(() => actions.watch((next) => setModel(next.model)), [actions]);
+  const items = model.choices.filter((choice) => !choice.disabled).map((
+    choice,
+  ) => ({
+    id: choice.id,
+    label: choice.label,
+    group: choice.group,
+    detail: choice.detail,
+    hint: choice.hint,
+    icon: choice.icon ? PALETTE_ICONS[choice.icon] : undefined,
+  }));
+  return (
+    <Palette
+      container={host}
+      returnFocus={false}
+      open
+      onOpenChange={onOpenChange}
+      title={model.label}
+      items={items}
+      onSelect={select}
+      onQueryChange={model.search ? actions.query : undefined}
+    />
+  );
 }
 
 // host마다 React root 하나를 둔다. 지울 때 Radix focus 복귀는 이미 꺼져 있어 focus를 옮기지 않는다.

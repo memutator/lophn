@@ -10,6 +10,7 @@ import {
 } from "../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../ipc/core-api.ts";
 import { createShellApi } from "./shell-api.ts";
+import { createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
 
 const location =
@@ -19,11 +20,15 @@ contextBridge.exposeInMainWorld(
   "lophnShell",
   createShellApi(ipcRenderer, role),
 );
-// 터미널은 desktop renderer만 쓴다. overlay view에는 열지 않는다.
+// 터미널과 창 shortcut은 desktop renderer만 쓴다. overlay view에는 열지 않는다.
 if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnTerminal",
     createTerminalApi(ipcRenderer),
+  );
+  contextBridge.exposeInMainWorld(
+    "lophnShortcuts",
+    createShortcutApi(ipcRenderer),
   );
 }
 

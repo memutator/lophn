@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
+import { FileText } from "lucide-react";
 import { tokens } from "../../tokens.ts";
 import { Palette } from "./palette.tsx";
 import {
@@ -129,4 +130,57 @@ Deno.test("shell/design-system#R39: palette 키보드로 목록 아래 항목을
   } finally {
     HTMLElement.prototype.scrollIntoView = original;
   }
+});
+
+Deno.test("shell/design-system#R43: palette는 묶음 이름 아래 행을 모아 16px 아이콘·보조 글·키 이름을 두고 검색어를 넘기면 거르지 않는다", async () => {
+  const queries: string[] = [];
+  using view = render(
+    <Palette
+      open
+      onOpenChange={() => {}}
+      title="Search"
+      items={[
+        { id: "a", label: "notes", group: "Open tabs", icon: FileText },
+        { id: "b", label: "plan", group: "Open tabs", detail: "Terminal" },
+        {
+          id: "c",
+          label: "Back to launcher",
+          group: "Actions",
+          hint: "Ctrl+Shift+L",
+        },
+      ]}
+      onSelect={() => {}}
+      onQueryChange={(query) => queries.push(query)}
+    />,
+  );
+  await settle();
+  const headings = [...palette().querySelectorAll("[role=listbox] > div")]
+    .map((row) => row.firstElementChild)
+    .filter((node) => node?.getAttribute("role") === "presentation")
+    .map((node) => node!.textContent);
+  assertEquals(headings, ["Open tabs", "Actions"]);
+  const options = [...palette().querySelectorAll("[role=option]")];
+  assertEquals(options.map((option) => style(option).height), [
+    "36px",
+    "36px",
+    "36px",
+  ]);
+  const icon = options[0]!.querySelector("svg")!;
+  assertEquals(icon.getAttribute("width"), "16");
+  assertEquals(icon.getAttribute("stroke-width"), "1.5");
+  assertEquals(options[1]!.textContent, "planTerminal");
+  assertEquals(options[2]!.textContent, "Back to launcherCtrl+Shift+L");
+  const input = one(palette(), "input") as HTMLInputElement;
+  act(() => {
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    setter.call(input, "zzz");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  assertEquals(queries, ["zzz"]);
+  // 호출자가 맞는 행을 다시 준다. palette는 이름으로 거르지 않는다.
+  assertEquals(palette().querySelectorAll("[role=option]").length, 3);
+  await unmountSettled(view);
 });

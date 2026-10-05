@@ -46,6 +46,7 @@ function fixture() {
         value: { surfaceId: input.requestId, generation: 1 },
       }),
     close: () => Promise.resolve({ ok: true, value: null }),
+    update: () => Promise.resolve({ ok: true, value: null }),
     result: (input) => {
       results.push(input);
       return Promise.resolve({ ok: true, value: null });

@@ -104,6 +104,67 @@ const recordChoiceCommand: CommandDefinition<typeof recordChoice> = {
   },
 };
 
+// 테스트 전용 question event 심기 command(platform/settings#R29). lophn-agent의
+// QuestionCreated·QuestionAnswered event 모양을 실제 임시 ledger에 남긴다.
+export const seedQuestion = defineCommand({
+  resource: "settings",
+  method: "seed-question",
+  name: "settings.tests.seed_question",
+  input: z.object({
+    question: z.string(),
+    option_key: z.string(),
+    changes: z.array(z.json()),
+    with_answer: z.boolean(),
+    answer_actor: z.string(),
+    answer_option: z.string().nullable(),
+  }),
+  output: z.object({ seeded: z.boolean() }),
+  actors: ["user", "machine"],
+  errors: [],
+});
+
+const seedQuestionCommand: CommandDefinition<typeof seedQuestion> = {
+  route: seedQuestion,
+  handle(tx: Tx, _ctx, input) {
+    // question event 모양은 lophn-agent의 QuestionCreated·QuestionAnswered
+    // payload와 같다. 만든 actor는 fixture seeder다(agent 대신 임시 ledger의
+    // event 모양만 남긴다). platform은 이 event를 SQL로만 읽는다(R29).
+    tx.sql.run(
+      "insert into events (type, subject, actor, run, payload, at) values (?, ?, ?, ?, ?, ?)",
+      [
+        "QuestionCreated",
+        input.question,
+        _ctx.actor,
+        null,
+        JSON.stringify({
+          options: [{ key: input.option_key, changes: input.changes }],
+        }),
+        tx.now(),
+      ],
+    );
+    if (input.with_answer) {
+      tx.sql.run(
+        "insert into events (type, subject, actor, run, payload, at) values (?, ?, ?, ?, ?, ?)",
+        [
+          "QuestionAnswered",
+          input.question,
+          input.answer_actor,
+          null,
+          JSON.stringify({
+            created_seq: "1",
+            answer: input.answer_option === null
+              ? { kind: "text", option_key: null, text_blob: "0".repeat(64) }
+              : { kind: "option", option_key: input.answer_option, text_blob: null },
+            binding_hash: null,
+          }),
+          tx.now(),
+        ],
+      );
+    }
+    return ok({ seeded: true });
+  },
+};
+
 // settings 설정의 apply·reload·history·read를 같은 registry로 등록한다(R17-R25).
 export function createLedgerTestRegistration() {
   const registry = new SettingRegistry([width, tracking, harnessChoice]);
@@ -111,7 +172,7 @@ export function createLedgerTestRegistration() {
   return {
     schemaSteps: SETTINGS_SCHEMA_STEPS,
     commands: [commands.apply, commands.reload],
-    testCommands: [recordChoiceCommand],
+    testCommands: [recordChoiceCommand, seedQuestionCommand],
     reads: [
       settingsDefinitionsRead(registry),
       settingsGetRead(registry),

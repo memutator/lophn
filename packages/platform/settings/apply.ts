@@ -20,7 +20,13 @@ import type {
   Tx,
 } from "../../contracts/platform/mod.ts";
 import { validateChoice, validateConstraints } from "./model.ts";
+import { settingEvidenceUse } from "./evidence-use.ts";
 import type { SettingRegistry } from "./registry.ts";
+import {
+  eventsOptionSource,
+  verifySettingEvidence,
+} from "./question-evidence.ts";
+import type { SettingOptionSource } from "./question-evidence.ts";
 
 // settings_state는 현재 적용 판 singleton이다(domain model ledger 표).
 type StateRow = { revision: number; defaults_revision: string };
@@ -121,10 +127,19 @@ function prepareMutations(
   return ok(prepared);
 }
 
+// 사람 결정 근거를 검증한 machine 적용이 읽을 질문 정본의 주입 자리. 테스트만
+// 가짜를 둔다. 제품은 bridge 없이 기본 read를 쓴다(command tx의 eventsOptionSource).
+export type SettingsBridge = {
+  // 질문 정본의 고정 option action을 읽는다.
+  optionSource: SettingOptionSource;
+};
+
 // 모든 영향 concern의 적용값까지 검증한 뒤 전부 저장 또는 전부 거절한다(R17, R18).
-// apply는 사람의 명시 apply만 받는다. agent 제안·문서 변경은 이 route에 오지 않는다(R17).
+// apply는 사람의 명시 apply 또는 사람 결정 근거를 검증한 machine apply만 받는다.
+// agent 제안·문서 변경은 이 route에 오지 않는다(R17, R29).
 export function createSettingsCommands(
   registry: SettingRegistry,
+  bridge?: SettingsBridge,
 ): {
   apply: CommandDefinition<typeof applySettings>;
   reload: CommandDefinition<typeof reloadSettings>;
@@ -133,13 +148,34 @@ export function createSettingsCommands(
     apply: {
       route: applySettings,
       handle(tx, ctx, input, compare) {
-        // apply는 user만이다(route actors). machine reload와 구별한다(R17).
+        // 사람 apply는 user만이다(route actors). machine reload와 구별한다(R17).
+        // machine apply는 질문 고정 option action 근거를 검증한 것만 받는다(R29).
         const actor = ctx.actor;
         if (actor !== "user" && !actor.startsWith("user:")) {
-          return err({
-            code: "forbidden",
-            message: "설정 apply는 user만 한다",
-          });
+          if (actor !== "machine") {
+            return err({
+              code: "forbidden",
+              message: "설정 apply는 user만 한다",
+            });
+          }
+          // 근거가 없는 machine apply는 사람 apply가 아니다(R29).
+          if (input.evidence === undefined) {
+            return err({
+              code: "forbidden",
+              message: "질문 근거가 없는 machine apply는 받지 않는다",
+            });
+          }
+          // 근거 판별. 사람이 실제 고른 option의 고정 action과 제출 변경 전체가
+          // 같아야 한 번 통과한다(R29). 답 없음·사람 아닌 답·다른 option은 거절이다.
+          const verified = verifySettingEvidence(
+            ctx,
+            input.changes,
+            input.evidence.question,
+            input.evidence.option,
+            bridge?.optionSource ?? eventsOptionSource(tx.sql),
+            settingEvidenceUse(tx.sql, tx.now()),
+          );
+          if (!verified.ok) return verified;
         }
         if (compare === undefined || compare === null) {
           return err({

@@ -143,7 +143,7 @@ Deno.test(
     const hash = await seedBlob(dir, "blob body");
     const stamp = backupStamp("2026-01-02T03:04:05.678Z");
     assert(stamp.ok);
-    // blob ��이트를 바꾼다(R10 확인). hash가 등록 값과 달라진다. 원본은 0400이므로
+    // blob 바이트를 바꾼다(R10 확인). hash가 등록 값과 달라진다. 원본은 0400이므로
     // 권한을 연 뒤 쓴다.
     const blobPath = `${dir}/blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`;
     await Deno.chmod(blobPath, 0o600);

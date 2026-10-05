@@ -80,6 +80,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 내놓는 contract: `/v1/grants/{create,revoke,list}`, event GrantCreated·GrantRevoked (contracts#T37). grants.list는 confirmation window의 grant 표시 자료다(요구·reason·정규 scope·조합 경고·Deno 한계 문구 key)
 - slice: apps
 - 선행: apps#T1, apps#T3, contracts#T37, platform#T23
+- platform#T47에서 넘어온 것: doctor 보안 진단이 지금 읽는 관측 파일 대신 grant 위험 read와 SDK hash(T5 contract)를 읽게 교체(#180)
 - 완료:
   - `commands_test.ts`: 선언만 있는 접근은 실행 범위가 0이고 같은 범위의 approval 적용 뒤만 grant가 생긴다(R1), 실행 범위 = 현재 release 요구 ∩ active grant로 옛 grant·grant 밖 선언 모두 제외(R2), 같은 host·port의 후속 release는 grant 재사용·새 host·port는 미포함(R3), fs.read와 net.fetch 동시 요구에 조합 경고가 표시 자료에 붙고 자동 부여 없음(R24), app.call grant의 방향 있는 (caller,target,commands) 기록과 B→A·A→C 미포함(R26), agent.commands grant가 기본 닫힘이고 화면 열기·app.call·coding connection과 별개(R27)
   - 앱에 activation이 진행 중이면 grant.create·revoke가 conflict(apps/releases#R13의 grant 쪽 거절)

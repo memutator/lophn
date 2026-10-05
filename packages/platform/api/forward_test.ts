@@ -141,7 +141,7 @@ async function openWorkerServer(
   };
 }
 
-// filesRead�� file kind다. dispatch는 ledger queue 없이 감독 pipe 통로로 넘긴다.
+// filesRead는 file kind다. dispatch는 ledger queue 없이 감독 pipe 통로로 넘긴다.
 Deno.test("platform/api#R3: file route는 인증·한도·schema 뒤 worker로 넘기고 바이트와 Content-Type을 그대로 돌려준다", async () => {
   const bytes = new TextEncoder().encode("# 원문 문서");
   const requests: WorkerRequest[] = [];

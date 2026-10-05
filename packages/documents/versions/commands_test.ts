@@ -379,6 +379,96 @@ Deno.test("documents/file-tracking#R7: 관측 근거가 현재 연결과 다르�
   }
 });
 
+Deno.test("documents/versions#R13: project revision이 바뀌면 관측 저장은 충돌한다", () => {
+  const fixture = versionFixture();
+  try {
+    keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)])));
+    const latest = fixture.sql.get(
+      "SELECT latest_version, revision FROM documents WHERE id = ?",
+      [ids.doc],
+    );
+    const observed = preparedInput(ids.doc, [file("a.md", true)], {
+      base_version: latest?.["latest_version"],
+      content_hash: "cd".repeat(32),
+      metadata: undefined,
+      idempotency_key: "save-3",
+      source: {
+        kind: "file",
+        project: ids.project,
+        path: "/work/notes/a.md",
+        original_hash: "cd".repeat(32),
+        observed_at: "2026-10-05T00:00:00.000Z",
+      },
+      file_basis: {
+        kind: "project_file",
+        project: ids.project,
+        path: "/work/notes/a.md",
+        // 관측 때의 문서 판과 다르다. 규칙이 그 사이 바뀐 자리다.
+        project_revision: "1",
+        document_revision: "999",
+        document_status: "active",
+        file_source: {
+          kind: "project_file",
+          project: ids.project,
+          path: "/work/notes/a.md",
+        },
+        original_hash: "cd".repeat(32),
+        observed_at: "2026-10-05T00:00:00.000Z",
+      },
+    });
+    const result = save(fixture, observed);
+    assert(!result.ok);
+    assertEquals(result.error.code, "conflict");
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/versions#R13: root가 빠져 연결이 없으면 관측 저장은 충돌한다", () => {
+  const fixture = versionFixture();
+  try {
+    keep(save(fixture, preparedInput(ids.doc, [file("a.md", true)])));
+    const latest = fixture.sql.get(
+      "SELECT latest_version, revision FROM documents WHERE id = ?",
+      [ids.doc],
+    );
+    // 문서는 연결이 없는데 제출은 연결을 주장한다. root 제거 뒤의 낡은 제출이다.
+    const observed = preparedInput(ids.doc, [file("a.md", true)], {
+      base_version: latest?.["latest_version"],
+      content_hash: "ef".repeat(32),
+      metadata: undefined,
+      idempotency_key: "save-4",
+      source: {
+        kind: "file",
+        project: ids.project,
+        path: "/work/notes/a.md",
+        original_hash: "ef".repeat(32),
+        observed_at: "2026-10-05T00:00:00.000Z",
+      },
+      file_basis: {
+        kind: "project_file",
+        project: ids.project,
+        path: "/work/notes/a.md",
+        project_revision: "1",
+        document_revision: latest?.["revision"],
+        document_status: "active",
+        file_source: {
+          kind: "project_file",
+          project: ids.project,
+          path: "/work/notes/a.md",
+        },
+        original_hash: "ef".repeat(32),
+        observed_at: "2026-10-05T00:00:00.000Z",
+      },
+    });
+    const result = save(fixture, observed);
+    assert(!result.ok);
+    assertEquals(result.error.code, "conflict");
+  } finally {
+    fixture.close();
+  }
+});
+
 Deno.test("documents/versions#R4: 권한 판정이 거절하면 저장하지 않는다", () => {
   const fixture = versionFixture(() =>
     err({ code: "forbidden", message: "대상이 범위 밖이다" })
@@ -406,3 +496,42 @@ function assertThrowsAbort(run: () => unknown) {
   }
   assert(thrown);
 }
+
+Deno.test("documents/versions#R15: 한 보고를 고치면 그 문서 판이 늘고 최신 판이 따라 간다", () => {
+  const fixture = versionFixture();
+  try {
+    const first = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+    );
+    // 같은 문서의 갱신은 새 version으로 쌓인다. 가족 멤버가 늘지 않는다.
+    const next = preparedInput(ids.doc, [file("a.md", true)], {
+      base_version: first.version,
+      content_hash: "cd".repeat(32),
+      metadata: undefined,
+      idempotency_key: "save-2",
+    });
+    const second = keep(save(fixture, next));
+    assert(second.version !== first.version);
+    const count = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM versions WHERE document = ?",
+      [ids.doc],
+    );
+    assertEquals(count?.["count"], 2);
+    // 문서의 최신 판은 새 version으로 이동한다.
+    const document = fixture.sql.get(
+      "SELECT latest_version, revision FROM documents WHERE id = ?",
+      [ids.doc],
+    );
+    assertEquals(document?.["latest_version"], second.version);
+    // 첫 판은 그대로 보존된다.
+    const earlier = fixture.sql.get(
+      "SELECT content_hash FROM versions WHERE id = ?",
+      [
+        first.version,
+      ],
+    );
+    assertEquals(earlier?.["content_hash"], HASH);
+  } finally {
+    fixture.close();
+  }
+});

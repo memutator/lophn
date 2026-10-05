@@ -30,7 +30,13 @@ function credential(): AuthenticatedContext {
     principal: "collector-1",
     actor: "machine",
     scope: {
-      operations: ["RecordReport", "GetReport"],
+      operations: [
+        "RecordReport",
+        "GetReport",
+        "ListProblems",
+        "GetProblem",
+        "ListReports",
+      ],
       targets: {},
     },
     conditions: {},
@@ -276,6 +282,27 @@ Deno.test("problems/reporting#R3 R4 R9 R12: 제품 core에 record-report가 닿�
     assertEquals(readBody.report.problem, acceptance.problem);
     assertEquals(readBody.snapshot!.id, input.snapshot.id);
     assertEquals(readBody.missing.screen!.reason, "not collected");
+
+    // 문제 목록·상세·보고 목록도 같은 reader 풀로 닿는다(problems#T6).
+    const listed = await post(core.port, "/v1/problems/list", {}, token);
+    assertEquals(listed.status, 200, JSON.stringify(listed.body));
+    const problems = (listed.body as { problems: { id: string }[] }).problems;
+    assertEquals(problems.map((item) => item.id), [acceptance.problem]);
+    const detail = await post(core.port, "/v1/problems/get", {
+      problem: acceptance.problem,
+    }, token);
+    assertEquals(detail.status, 200, JSON.stringify(detail.body));
+    assertEquals((detail.body as { report_count: number }).report_count, 1);
+    const reports = await post(core.port, "/v1/problems/list-reports", {
+      problem: acceptance.problem,
+    }, token);
+    assertEquals(reports.status, 200, JSON.stringify(reports.body));
+    assertEquals(
+      (reports.body as { reports: { id: string }[] }).reports.map((item) =>
+        item.id
+      ),
+      [input.report.id],
+    );
 
     // 비운영 보고는 진단 scope가 필수다(R4): live 형식 그대로 scope null은
     // input schema가 거절한다.

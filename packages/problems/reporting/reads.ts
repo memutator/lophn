@@ -1,4 +1,11 @@
 import { err, ok, type Result } from "../../base/mod.ts";
+import {
+  NOT_FOUND,
+  parseSeqCursor,
+  requireOperation,
+  scanVisible,
+  targetVisible,
+} from "./access.ts";
 import type {
   Input,
   Output,
@@ -15,50 +22,77 @@ import {
 
 type SnapshotItem = z.infer<typeof snapshotItemSchema>;
 
+const REPORT_PAGE = 100;
+
+type ReportRowSeq = { seq: bigint; row: Record<string, unknown> };
+
 // list는 problem 하나 또는 app+diagnostic scope로 묻는다(input schema가 필수를 검증한다).
-// cursor는 문서화된 sequence 정렬을 따르지 않고 observed_at 정렬로 내놓는다.
+// problem이 있는 Report는 운영 보고뿐이라 test·preview 진단은 해당 scope로만 나오고 운영 집계에
+// 들어가지 않는다. 정렬은 접수 event seq 내림차순이고 cursor는 마지막 seq다.
 export const listReportsRead = {
   route: listReports,
   handle(
     snapshot: ReadSnapshot,
-    _ctx: RequestContext,
+    ctx: RequestContext,
     input: Input<typeof listReports>,
   ): Result<Output<typeof listReports>> {
+    const granted = requireOperation(ctx, listReports.name);
+    if (!granted.ok) return granted;
+    const cursor = parseSeqCursor(input.cursor);
+    if (!cursor.ok) return cursor;
     const where: string[] = [];
-    const params: (string | number)[] = [];
+    const filter: (string | number)[] = [];
     if (input.problem !== undefined) {
-      where.push("problem = ?");
-      params.push(input.problem);
+      where.push("r.problem = ?");
+      filter.push(input.problem);
     }
     if (input.app !== undefined) {
-      where.push("app = ?");
-      params.push(input.app);
+      where.push("r.app = ?");
+      filter.push(input.app);
     }
     if (input.diagnostic_scope !== undefined) {
-      where.push("diagnostic_scope = ?");
-      params.push(input.diagnostic_scope);
+      where.push("r.diagnostic_scope = ?");
+      filter.push(input.diagnostic_scope);
     }
-    if (input.cursor !== undefined) {
-      where.push("observed_at > ?");
-      params.push(input.cursor);
-    }
-    const clause = where.length === 0 ? "" : ` where ${where.join(" and ")}`;
-    const rows = snapshot.sql.all(
-      `select id, app, problem, source, mode, code, snapshot, observed_at, release
-       from reports${clause} order by observed_at asc limit 100`,
-      params,
-    );
-    const reports = rows.map(summaryOf);
-    const last = reports.at(-1);
+    const page = scanVisible<ReportRowSeq>({
+      limit: REPORT_PAGE,
+      before: cursor.value,
+      load: (before, size) => {
+        const clauses = before === null ? where : [...where, "e.seq < ?"];
+        const params: (string | number | bigint)[] = before === null
+          ? [...filter]
+          : [...filter, before];
+        params.push(size);
+        return snapshot.sql.all(
+          `select r.id, r.app, r.problem, r.source, r.mode, r.diagnostic_scope, r.code,
+                  r.snapshot, r.observed_at, r.release, e.seq as seq
+           from reports r join events e on e.subject = r.id and e.type = 'ReportRecorded'
+           where ${clauses.join(" and ")} order by e.seq desc limit ?`,
+          params,
+        ).map((row) => ({ seq: BigInt(String(row["seq"])), row }));
+      },
+      visible: ({ row }) =>
+        targetVisible(snapshot, ctx, listReports.name, reportFacts(row)),
+    });
+    if (!page.ok) return page;
     return ok({
-      reports,
+      reports: page.value.rows.map(({ row }) => summaryOf(row)),
       as_of_seq: snapshot.as_of_seq,
-      next_cursor: last === undefined || rows.length < 100
-        ? null
-        : last.observed_at,
+      next_cursor: page.value.next,
     });
   },
 };
+
+function reportFacts(row: Record<string, unknown>) {
+  return {
+    app: String(row["app"]),
+    problem: row["problem"] === null ? null : String(row["problem"]),
+    mode: String(row["mode"]),
+    diagnostic_scope: row["diagnostic_scope"] === null
+      ? null
+      : String(row["diagnostic_scope"]),
+  };
+}
 
 function summaryOf(row: Record<string, unknown>): {
   id: string;
@@ -135,20 +169,28 @@ const SNAPSHOT_COLUMNS = `id, captured_at,
   logs_blob, logs_line_count, logs_truncated, logs_scope, logs_from_at, logs_to_at, logs_collected_at, logs_missing_reason,
   screen_name, screen_observed_at, screen_state, screen_state_missing_reason, screen_screenshot, screen_screenshot_missing_reason, screen_missing_reason`;
 
-// reportSummary를 쓴다: 일반 업무 응답에는 raw stack을 넣지 않는다(problem-reads 주석).
+// 상세는 수리 조회 권한(credential의 GetReport)이 있을 때만 열린다. 저장된 값은 저장 전
+// redaction을 거친 것이고 stack·log·글 원문은 hash 참조뿐이다(blob은 일반 read가 없다).
+// 범위 밖 Report는 없는 Report와 같은 not_found다.
 export const getReportRead = {
   route: getReport,
   handle(
     snapshot: ReadSnapshot,
-    _ctx: RequestContext,
+    ctx: RequestContext,
     input: Input<typeof getReport>,
   ): Result<Output<typeof getReport>> {
+    const granted = requireOperation(ctx, getReport.name);
+    if (!granted.ok) return granted;
     const row = snapshot.sql.get(
       `select id, app, problem, source, mode, diagnostic_scope, release, release_missing_reason, bundle_hash, code, text, details, snapshot, observed_at, principal, content_hash from reports where id = ?`,
       [input.report],
     );
-    if (row === undefined) {
-      return err({ code: "not_found", message: "Report가 없다" });
+    const visible = row === undefined
+      ? ok(false)
+      : targetVisible(snapshot, ctx, getReport.name, reportFacts(row));
+    if (!visible.ok) return visible;
+    if (row === undefined || !visible.value) {
+      return err({ code: "not_found", message: NOT_FOUND });
     }
     const snapshotRow = snapshot.sql.get(
       `select ${SNAPSHOT_COLUMNS} from snapshots where id = ?`,
@@ -160,14 +202,25 @@ export const getReportRead = {
       next_cursor: null,
       snapshot: snapshotRow === undefined ? null : snapshotOf(snapshotRow),
       missing: {
-        invocation: missingOf(snapshotRow, "invocation_record_missing_reason"),
-        error: missingOf(snapshotRow, "error_missing_reason"),
-        logs: missingOf(snapshotRow, "logs_missing_reason"),
-        screen: missingOf(snapshotRow, "screen_missing_reason"),
+        invocation: itemMissingOf(snapshotRow, "invocation"),
+        error: itemMissingOf(snapshotRow, "error"),
+        logs: itemMissingOf(snapshotRow, "logs"),
+        screen: itemMissingOf(snapshotRow, "screen"),
       },
     });
   },
 };
+
+// 항목이 없으면 그 이유, invocation은 ID만 알고 기록이 아직 없으면 그 이유다.
+function itemMissingOf(
+  row: Record<string, unknown> | undefined,
+  item: SnapshotItem,
+): { reason: string } | null {
+  return missingOf(row, `${item}_missing_reason`) ??
+    (item === "invocation"
+      ? missingOf(row, "invocation_record_missing_reason")
+      : null);
+}
 
 function missingOf(
   row: Record<string, unknown> | undefined,
@@ -223,13 +276,11 @@ function snapshotOf(row: Record<string, unknown>): SnapshotShape {
         ? null
         : String(row["logs_from_at"]),
       to_at: row["logs_to_at"] === null ? null : String(row["logs_to_at"]),
-      collected_at: row["logs_collected_at"] === null
-        ? (String(row["logs_collected_at"]) as never)
-        : String(row["logs_collected_at"]),
+      collected_at: String(row["logs_collected_at"]),
     },
     screen: row["screen_name"] === null ? null : {
       name: String(row["screen_name"]),
-      observed_at: String(row["screen_observed_at"] ?? ""),
+      observed_at: String(row["screen_observed_at"]),
       state: row["screen_state"] === null ? null : String(row["screen_state"]),
       state_missing_reason: missingOf(row, "screen_state_missing_reason"),
       screenshot: row["screen_screenshot"] === null
@@ -247,15 +298,26 @@ export const getSnapshotRead = {
   route: getSnapshot,
   handle(
     snapshot: ReadSnapshot,
-    _ctx: RequestContext,
+    ctx: RequestContext,
     input: Input<typeof getSnapshot>,
   ): Result<Output<typeof getSnapshot>> {
+    const granted = requireOperation(ctx, getSnapshot.name);
+    if (!granted.ok) return granted;
     const row = snapshot.sql.get(
       `select ${SNAPSHOT_COLUMNS} from snapshots where id = ?`,
       [input.snapshot],
     );
-    if (row === undefined) {
-      return err({ code: "not_found", message: "Snapshot이 없다" });
+    // Snapshot은 Report 하나에만 붙는다. 범위는 그 Report의 앱·문제·진단 범위가 정한다.
+    const owner = row === undefined ? undefined : snapshot.sql.get(
+      `select app, problem, mode, diagnostic_scope from reports where snapshot = ?`,
+      [input.snapshot],
+    );
+    const visible = owner === undefined
+      ? ok(false)
+      : targetVisible(snapshot, ctx, getSnapshot.name, reportFacts(owner));
+    if (!visible.ok) return visible;
+    if (row === undefined || !visible.value) {
+      return err({ code: "not_found", message: NOT_FOUND });
     }
     const item = input.item === undefined ? null : readItem(row, input.item);
     const blobs = [
@@ -272,24 +334,10 @@ export const getSnapshotRead = {
       snapshot: snapshotOf(row),
       item: item as Output<typeof getSnapshot>["item"],
       blobs,
-      missing: itemMissing(input.item, row),
+      missing: input.item === undefined ? null : itemMissingOf(row, input.item),
     });
   },
 };
-
-function itemMissing(
-  item: SnapshotItem | undefined,
-  row: Record<string, unknown>,
-): { reason: string } | null {
-  if (item === undefined) return null;
-  const column = {
-    "invocation": "invocation_record_missing_reason",
-    "error": "error_missing_reason",
-    "logs": "logs_missing_reason",
-    "screen": "screen_missing_reason",
-  }[item];
-  return missingOf(row, column);
-}
 
 function readItem(
   row: Record<string, unknown>,

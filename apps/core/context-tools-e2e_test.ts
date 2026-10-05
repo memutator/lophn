@@ -191,6 +191,14 @@ function prepared(key: string) {
     primary_path: "a.md",
     content_hash: HASH,
     preparation_ref: `prep-${key}`,
+    files: [{
+      path: "a.md",
+      blob_hash: HASH,
+      bytes: 10,
+      media_type: "text/markdown",
+      primary: true,
+      preparation_ref: `prep-file-${key}`,
+    }],
     idempotency_key: key,
     metadata: { title: "용어집", place: null, name: null },
     format: { name: "document", module_hash: HASH, explicit: false },
@@ -217,6 +225,14 @@ async function savedSource(opened: Opened) {
     size_bytes: 10,
   }, AT);
   assert(noted.ok, noted.ok ? "" : noted.error.message);
+  const notedFile = await opened.core.notePrepared({
+    preparation: "prep-file-source",
+    principal: "user-1",
+    purpose: "document_file",
+    hash: HASH,
+    size_bytes: 10,
+  }, AT);
+  assert(notedFile.ok, notedFile.ok ? "" : notedFile.error.message);
   const saved = await post(opened, "documents/save", {
     input: prepared("source"),
     idempotency_key: "source",

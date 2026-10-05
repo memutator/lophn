@@ -505,6 +505,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: secret(`/v1/secrets/list·set·remove·cleanup`, SecretPreparation, `secret.prepare` 통로)
 - slice: agent
 - 선행: platform#T8, platform#T15, contracts#T23
+- documents#T11에서 넘어온 것(Q17): secret store를 제품 core 조립에서 열고(keychain 값 읽기) 알려진 값 registry를 core 보호 메모리에 채워, reader pool에 요청 message 밖의 값 등록·회수 통로로 넘긴다. 새 값 등록과 교체·제거 때 회수가 그 통로를 지나고, documents의 제품 redactor(`apps/core/documents-redactor.ts`)가 pattern 검출에 더해 알려진 값도 지운다. 지금 redactor는 pattern 검출만 한다. 값이 reader Worker의 module 전역 상태에 남지 않는 방식은 platform이 정한다
 - 완료: 아래 확인이 통과한다
   - I/O worker의 OS adapter가 Linux Secret Service에 값을 둔다. 값은 argv·환경 변수·파일에 가지 않는다(→ Q7). macOS·Windows adapter는 T49.
   - 보호 입력은 전용 pipe 작업 `secret.prepare`로만 받는다. 세션 메시지·agent·외부 MCP 경로가 없다(R2).

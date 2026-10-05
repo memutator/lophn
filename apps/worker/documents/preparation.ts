@@ -17,6 +17,15 @@ import {
 } from "../../../packages/platform/responsiveness/mod.ts";
 import { previewTracking } from "../../../packages/documents/projects/work.ts";
 import { directoryScanner } from "../../../packages/documents/projects/scan.ts";
+import {
+  fileReadPort,
+  fileScanPort,
+} from "../../../packages/documents/file-tracking/fs.ts";
+import {
+  readStably,
+  scanRoot,
+} from "../../../packages/documents/file-tracking/mod.ts";
+import type { TrackingPattern } from "../../../packages/contracts/documents/mod.ts";
 
 export type PreparationOptions = {
   root: string;
@@ -41,8 +50,16 @@ class PreparationFailure extends Error {
 export async function acceptPreparation(
   request: WorkerRequest,
 ): Promise<unknown> {
+  if (request.op === "documents.scan_root") {
+    return scanObserved(request.payload);
+  }
+  if (request.op === "documents.hash_file") {
+    return hashObserved(request.payload);
+  }
+  if (request.op === "documents.diff_bytes") {
+    return diffObserved(request.payload);
+  }
   if (request.op !== projectPreviewTracking.name) {
-    // T2 뼈대 echo. 실제 scan_batch·hash·diff는 T11이 채운다.
     return { op: request.op, accepted: true };
   }
   const parsed = projectPreviewTrackingInputSchema.safeParse(request.payload);
@@ -62,6 +79,112 @@ export async function acceptPreparation(
   });
   if (!preview.ok) throw new PreparationFailure(preview.error);
   return preview.value;
+}
+
+// 활성 root 하나를 규칙대로 순회한다. 결과는 추적 파일의 상대 경로와 실제 경로다.
+async function scanObserved(payload: unknown): Promise<unknown> {
+  const body = payload as {
+    root?: unknown;
+    patterns?: unknown;
+    use_gitignore?: unknown;
+    enabled?: unknown;
+  };
+  if (typeof body?.root !== "string" || !Array.isArray(body.patterns)) {
+    throw new PreparationFailure({
+      code: "invalid_input",
+      message: "invalid scan input",
+    });
+  }
+  const scanned = await scanRoot(fileScanPort(), {
+    root: body.root,
+    patterns: body.patterns as TrackingPattern[],
+    useGitignore: body.use_gitignore === true,
+    enabled: body.enabled !== false,
+  });
+  if (!scanned.ok) throw new PreparationFailure(scanned.error);
+  return { files: scanned.value };
+}
+
+// 한 파일을 안정 읽기한다. hash와 보존 바이트는 같은 stream에서 나온다.
+async function hashObserved(payload: unknown): Promise<unknown> {
+  const path = (payload as { path?: unknown })?.path;
+  if (typeof path !== "string") {
+    throw new PreparationFailure({
+      code: "invalid_input",
+      message: "invalid hash input",
+    });
+  }
+  const read = await readStably(fileReadPort(), path);
+  if (!read.ok) throw new PreparationFailure(read.error);
+  if (read.value.kind === "unverified") {
+    return { kind: "unverified", reason: read.value.reason };
+  }
+  return {
+    kind: "stable",
+    hash: read.value.read.hash,
+    size: read.value.read.bytes.length,
+    real_path: read.value.read.identity.realPath,
+  };
+}
+
+// 두 바이트 열의 줄 단위 diff. 준비 worker가 계산하고 core는 결과를 받기만 한다.
+function diffObserved(payload: unknown): unknown {
+  const body = payload as { before?: unknown; after?: unknown };
+  if (typeof body?.before !== "string" || typeof body?.after !== "string") {
+    throw new PreparationFailure({
+      code: "invalid_input",
+      message: "invalid diff input",
+    });
+  }
+  return { changes: lineDiff(body.before, body.after) };
+}
+
+function lineDiff(
+  before: string,
+  after: string,
+): { kind: "same" | "removed" | "added"; line: string }[] {
+  const left = before.split("\n");
+  const right = after.split("\n");
+  const changes: { kind: "same" | "removed" | "added"; line: string }[] = [];
+  const width = left.length + 1;
+  const height = right.length + 1;
+  const lengths = new Array<number>(width * height).fill(0);
+  for (let row = left.length - 1; row >= 0; row--) {
+    for (let column = right.length - 1; column >= 0; column--) {
+      lengths[row * height + column] = left[row] === right[column]
+        ? lengths[(row + 1) * height + column + 1] + 1
+        : Math.max(
+          lengths[(row + 1) * height + column],
+          lengths[row * height + column + 1],
+        );
+    }
+  }
+  let row = 0;
+  let column = 0;
+  while (row < left.length && column < right.length) {
+    if (left[row] === right[column]) {
+      changes.push({ kind: "same", line: left[row] });
+      row += 1;
+      column += 1;
+    } else if (
+      lengths[(row + 1) * height + column] >= lengths[row * height + column + 1]
+    ) {
+      changes.push({ kind: "removed", line: left[row] });
+      row += 1;
+    } else {
+      changes.push({ kind: "added", line: right[column] });
+      column += 1;
+    }
+  }
+  while (row < left.length) {
+    changes.push({ kind: "removed", line: left[row] });
+    row += 1;
+  }
+  while (column < right.length) {
+    changes.push({ kind: "added", line: right[column] });
+    column += 1;
+  }
+  return changes;
 }
 
 // accept 실행을 worker_response envelope로 감싼다. accept가 공통 code 오류를 내면

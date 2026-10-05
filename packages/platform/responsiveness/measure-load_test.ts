@@ -266,7 +266,7 @@ Deno.test({
         assert(files === SCAN_TOTAL, `scan file 수 ${files}`);
       };
 
-      // 부�� 1: 100,000파일 root의 scan·hash(R9).
+      // 부하 1: 100,000파일 root의 scan·hash(R9).
       const filesRoot = await makeFilesRoot();
       try {
         entries.push(await sampleUnderLoad(() => scanOnce(filesRoot)));
@@ -380,10 +380,13 @@ Deno.test({
               ),
               scanOnce(multiRoot),
             ]);
-            assert(prepare.ok, "복합 묶음 준비가 실패했다");
+            const failed = receipts
+              .map((receipt, index) => [index, receipt] as const)
+              .filter(([, receipt]) => receipt === "error")
+              .map(([index]) => index);
             assert(
-              receipts.every((receipt) => receipt !== "error"),
-              "복합 관리 요청이 실패했다",
+              failed.length === 0,
+              `복합 관리 요청이 실패했다: ${failed.join(",")}`,
             );
           }),
         );

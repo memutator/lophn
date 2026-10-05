@@ -262,6 +262,7 @@ concerns: [documents]
 
 ### T13 derived store와 검색
 
+- 상태: 완료 (#188)
 - 등급: 기본
 - concern: documents/outline-and-search
 - 요구: documents/outline-and-search#R10, R11, R12, R13, R14, R16, R17, R18

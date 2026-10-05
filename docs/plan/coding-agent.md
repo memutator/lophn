@@ -869,7 +869,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T29 설치 engine: plan·install·update·remove·receipt
 
-- 상태: 진행 (#217) — 남은 것: 제품별 adapter의 실제 설정 위치·hook·skill 발견 root 적용(T30·T31), loading 검사(harnesses#R10), CLI 실행 경로와 파일 쓰기의 연결, TOML·YAML merge가 파일 전체를 다시 직렬화해 사람의 주석과 빈 줄을 잃음(소유 key만 고치는 텍스트 패치)
+- 상태: 완료 (#217) — 이어보냄: Claude·Codex·OpenCode·Gemini adapter의 실제 설정 위치·hook·skill root와 TOML·YAML 소유 key 텍스트 패치 merge(주석·빈 줄 보존), CLI 실행 경로와 파일 쓰기 연결 → T30; Hermes·pi·OpenClaw adapter → T31; loading 검사(harnesses#R10) → T32
 - 등급: 최상위
 - concern: coding-agent/harnesses, coding-agent/connection, coding-agent/cli,
   coding-agent/guides
@@ -929,6 +929,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-skills-and-guides.md,
   docs/research/coding-agent-mcp-server.md
 - 선행: T29, contracts#T43
+- T29에서 넘어온 것: 이 adapter들의 실제 설정 위치·hook·skill root 적용, TOML·YAML merge가 소유 key만 고치는 텍스트 패치로 사람의 주석·빈 줄을 보존(#217은 전체 재직렬화), CLI harness plan·install·update·remove 실행 경로와 engine 파일 쓰기 연결
 - 완료:
   - Claude Code: user 등록 또는 app `.mcp.json`의 `mcpServers.lophn`, skill
     `~/.claude/skills`·`.claude/skills`, CLAUDE.md 관리 구간 `@AGENTS.md`,
@@ -971,6 +972,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-harness-integration.md,
   docs/research/coding-agent-skills-and-guides.md
 - 선행: T29
+- T29에서 넘어온 것: Hermes·pi·OpenClaw의 실제 설정 위치·hook·skill root 적용(#217 engine 위)
 - 완료:
   - Hermes: `$HERMES_HOME/config.yaml`(기본 `~/.hermes`)의
     `mcp_servers.lophn`(command·args·env·cwd), skill trust는 사람의
@@ -1009,6 +1011,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-harness-integration.md,
   docs/research/coding-agent-mcp-server.md
 - 선행: T30, T31, contracts#T42, contracts#T43
+- T29에서 넘어온 것: loading 검사(harnesses#R10)
 - 완료:
   - mcp_initialize·tool_discovery·skill_discovery·app_guide_loading을 각각
     success·failure·unknown과 안전한 이유로. MCP probe는 설치된 절대 Deno

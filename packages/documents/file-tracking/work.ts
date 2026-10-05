@@ -3,7 +3,7 @@
 import { ok, type Result } from "../../base/mod.ts";
 import { decideTracking, type GitignoreRule } from "../projects/mod.ts";
 import type { TrackingPattern } from "../../contracts/documents/mod.ts";
-import { QUIET_MS, STABLE_READ_RETRIES } from "./model.ts";
+import { CANDIDATE_LIMIT, QUIET_MS, STABLE_READ_RETRIES } from "./model.ts";
 import {
   dropCandidate,
   dueCandidates,
@@ -163,6 +163,9 @@ export type WatchSignal =
 // root 하나의 watch. 신호는 async iterator로 온다. overflow·closed는 전체 대조다.
 export type WatchPort = {
   watch(root: string): AsyncIterable<WatchSignal>;
+  // 지금 바로 꺼낼 수 있는 신호 수. 없으면 0으로 본다. 전체 대조 전에 이미
+  // 도착한 신호를 빠짐없이 거두는 데 쓴다.
+  ready?(root: string): number;
 };
 
 export type ObserveRoot = {
@@ -189,6 +192,11 @@ export type ObserveDeps = {
   basisFor(candidate: ObservationCandidate): ObservationBasisCheck;
   // 테스트가 루프를 멈추는 자리. 없으면 신호와 scan만으로 돈다.
   stop?: { stopped: boolean };
+  // 신호 대기와 조용함 확인 사이의 한 간격. 테스트가 직접 밀어 벽시계와
+  // 무관하게 진행한다. 없으면 50ms다.
+  waitTick?: () => Promise<void>;
+  // root당 후보 한도. 없으면 10,000이다. 테스트가 작게 넣어 한도 초과를 재현한다.
+  candidateLimit?: number;
 };
 
 const QUIET_POLL_MS = 50;
@@ -199,6 +207,7 @@ export async function observeRoot(
   deps: ObserveDeps,
   request: ObserveRoot,
 ): Promise<void> {
+  const limit = deps.candidateLimit ?? CANDIDATE_LIMIT;
   const queue = emptyObservation(request.root);
   let scanPending = false;
   // 한도 초과로 시작한 전체 대조 동안 도착한 신호. 대조가 끝난 뒤 한 번에 합쳐
@@ -213,22 +222,26 @@ export async function observeRoot(
     scanPending = false;
     if (!scanned.ok) return;
     for (const file of scanned.value) {
-      mergeCandidate(queue, signalCandidate(request.root, file, deps.nowMs()));
+      mergeCandidate(
+        queue,
+        signalCandidate(request.root, file, deps.nowMs()),
+        limit,
+      );
     }
   };
   const drainDue = async () => {
-    for (const due of dueCandidates(queue, deps.nowMs())) {
-      const outcome = await readStably(deps.read, due.canonical);
+    for (const dueItem of dueCandidates(queue, deps.nowMs())) {
+      const outcome = await readStably(deps.read, dueItem.canonical);
       if (!outcome.ok) {
-        dropCandidate(queue, due.canonical);
+        dropCandidate(queue, dueItem.canonical);
         continue;
       }
       const submitted = await deps.submit({
-        candidate: due,
-        basis: deps.basisFor(due),
+        candidate: dueItem,
+        basis: deps.basisFor(dueItem),
         outcome: outcome.value,
       });
-      dropCandidate(queue, due.canonical);
+      dropCandidate(queue, dueItem.canonical);
       // 근거가 바뀌어 거절되면 다음 scan이 다시 관측한다.
       if (!submitted.ok) queue.rescanRequired = false;
     }
@@ -242,7 +255,9 @@ export async function observeRoot(
     pending ??= incoming.next();
     const slice = await Promise.race([
       pending.then((result) => ({ kind: "signal" as const, result })),
-      sleep(QUIET_POLL_MS).then(() => ({ kind: "tick" as const })),
+      (deps.waitTick ?? (() => sleep(QUIET_POLL_MS)))().then(() => ({
+        kind: "tick" as const,
+      })),
     ]);
     if (slice.kind === "signal") {
       pending = undefined;
@@ -274,7 +289,7 @@ export async function observeRoot(
         fact: signal.fact,
         lastSignalMs: deps.nowMs(),
         retries: 0,
-      });
+      }, limit);
       if (merged.kind === "rescan_required") {
         // 한도 초과가 flag를 세운 채로 두면 다음 scan의 합치기가 전부 거절되어
         // 제출이 영영 멈춘다. flag를 내리고 전체를 한 번만 새로 대조한다.
@@ -282,21 +297,40 @@ export async function observeRoot(
         // 한도를 넘긴 이 신호와 대조 동안 도착한 신호는 후보로 남기지 않는다.
         // 전체 대조만 현재 상태를 담는다.
         deferred.push(signal);
+        // 대조의 await 전에 이미 도착한 신호를 먼저 거둔다. 거두지 않으면 그
+        // 신호가 대조가 담은 후보가 제출된 뒤에야 합쳐져, 조용함 판정을 놓치고
+        // 제출이 부하에 따라 빠진다. ready가 세어 준 만큼만 기다려 없는 신호에
+        // 멈추지 않는다.
+        const waiting = deps.watch.ready?.(request.root) ?? 0;
+        for (let index = 0; index < waiting; index++) {
+          const result = await incoming.next();
+          if (result.done) break;
+          deferred.push(result.value);
+        }
+        pending = undefined;
         queue.items = [];
         queue.rescanRequired = false;
         await runScan();
         rescanning = false;
-        // 대조 동안 쌓인 변경 신호는 버린다. 방금 대조가 현재 상태를 담았고,
-        // 그 신호로 한도를 다시 넘기면 대조가 반복된다. 넘침·단절만 남긴다.
-        const missed = deferred.splice(0).some((queued) =>
-          queued.kind === "overflow" || queued.kind === "closed"
-        );
-        if (missed) {
-          // 대조 중 놓친 넘침·단절은 방금 담은 후보를 버리고 한 번 더 대조한다.
-          // 비우지 않으면 같은 파일이 두 번 제출된다.
-          queue.items = [];
-          queue.rescanRequired = false;
-          await runScan();
+        // 대조 동안 쌓인 넘침·단절은 방금 담은 후보를 무효로 한다. 변경 신호는
+        // 후보로 다시 합친다. 대조가 담은 파일과 같으면 하나로 합쳐지고, 대조
+        // 뒤에야 생긴 파일은 여기서만 후보가 된다.
+        const missed = deferred.splice(0);
+        for (const queued of missed) {
+          if (queued.kind === "overflow" || queued.kind === "closed") {
+            queue.items = [];
+            queue.rescanRequired = false;
+            await runScan();
+            break;
+          }
+          mergeCandidate(queue, {
+            root: request.root,
+            canonical: queued.canonical,
+            relative: queued.relative,
+            fact: queued.fact,
+            lastSignalMs: deps.nowMs(),
+            retries: 0,
+          }, limit);
         }
       }
     }
@@ -304,7 +338,9 @@ export async function observeRoot(
       nextScanAt = deps.nowMs() + SCAN_INTERVAL_MS;
       await runScan();
     }
-    await drainDue();
+    // 신호가 연속으로 풀리는 동안은 제출하지 않는다. 제출이 끼어들면 한도에
+    // 닿기 전에 후보가 빠져 넘침을 못 모은다. 제출은 신호 사이의 tick에서 한다.
+    if (slice.kind === "tick") await drainDue();
   }
 }
 

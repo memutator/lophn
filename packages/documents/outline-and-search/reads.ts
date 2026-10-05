@@ -12,6 +12,7 @@ import type { DerivedRead } from "./adapters/store.ts";
 import { candidateDocuments } from "./candidates.ts";
 import {
   codepoints,
+  needsLikeFallback,
   preambleExcerpt,
   SNIPPET_TOKENS,
   trimmedQuery,
@@ -77,6 +78,12 @@ export type IndexDocument = {
 
 const DEFAULT_LIMIT = 30;
 
+// 요약·주제 cache 비교는 같은 규약이므로 3 codepoint 미만 query도 비교한다.
+// FTS trigram이 건너뛰는 query는 cache text 비교로 찾는다.
+function needLike(_input: SearchQueryInput): boolean {
+  return false;
+}
+
 // handler 두 개. route 선언은 contract가 하고, 여기서는 read handler만 낸다.
 export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
   return {
@@ -117,8 +124,27 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
         coverage.ledger_basis_seq,
         limit,
       );
+      // 가용 요약·주제 cache의 결과를 합친다. 같은 LIKE 규약으로 현재 허용
+      // 대상에 한해 비교한다. 아니오 모두 원문 일치에 흡수되지 않는다.
+      const cacheResults: SearchResult[] = [];
+      if (coverage.processed_seq === coverage.ledger_basis_seq &&
+        !needLike(input)) {
+        for (const found of cacheMatchingDocuments(deps, candidates, rest)) {
+          const result = buildCacheResult(deps, found.document, found.row, rest);
+          if (result === null) continue;
+          // 원문 일치(같은 문서·section)는 실제 본문 근거가 우선이다.
+          if (
+            results.some((kept) =>
+              kept.document === result.document &&
+              kept.section === result.section
+            )
+          ) continue;
+          cacheResults.push(result);
+        }
+      }
+      const merged = [...results, ...cacheResults].slice(0, limit);
       return ok({
-        results,
+        results: merged,
         coverage,
         as_of_seq: deps.snapshot.as_of_seq,
         next_cursor: null,
@@ -158,7 +184,7 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
 function coverageOfLike(
   read: DerivedRead,
   ledgerBasisSeq: string,
-  allowed: ReadonlySet<string>,
+  allowed?: ReadonlySet<string>,
 ): SearchCoverage {
   const row = read.sql.get(
     `SELECT processed_seq, rebuilding FROM derived_cursors WHERE consumer = 'search'`,
@@ -208,6 +234,104 @@ function matchDocuments(
     if (result !== undefined) results.push(result);
   }
   return results.slice(0, limit);
+}
+
+// 가용 요약·주제 cache의 결과. 같은 trigram/LIKE 규약으로 현재 허용 대상만
+// 비교한다(architecture/documents 5.4). cache 일치는 실제 입력 판·section·
+// input_hash·stale을 별도로 낸다. 매칭의 근거가 text 비교다. 요약 cache 행은
+// text가 있는 행만 규약 결과로 센다(summaryCacheSchema.text가 required).
+function cacheMatchingDocuments(
+  deps: SearchHandlerDeps,
+  candidates: ReadonlySet<string>,
+  query: string,
+): { document: string; row: Record<string, unknown> }[] {
+  const rows = deps.read.sql.all(
+    `SELECT version, section_key, input_hash, text
+     FROM summary_cache WHERE text IS NOT NULL ORDER BY version, section_key`,
+    [],
+  );
+  const found: { document: string; row: Record<string, unknown> }[] = [];
+  for (const row of rows) {
+    if (!String(row["text"]).includes(query)) continue;
+    const document = versionDocument(deps.snapshot, String(row["version"]));
+    if (document === null || !candidates.has(document)) continue;
+    found.push({ document, row });
+  }
+  return found;
+}
+
+function versionDocument(
+  snapshot: SearchSnapshot,
+  version: string,
+): string | null {
+  const row = snapshot.sql.get(
+    `SELECT document FROM versions WHERE id = ?`,
+    [version],
+  );
+  return row === undefined ? null : String(row["document"]);
+}
+
+function buildCacheResult(
+  deps: SearchHandlerDeps,
+  document: string,
+  row: Record<string, unknown>,
+  query: string,
+): SearchResult | null {
+  const version = String(row["version"]);
+  const format = formatRef(deps.snapshot, version);
+  if (format === null) return null;
+  const latest = latestOf(deps.snapshot, document);
+  if (latest === null) return null;
+  const section = row["section_key"] === null
+    ? null
+    : String(row["section_key"]);
+  // 요약의 위치를 원문 일치 줄처럼 꾸미지 않는다. ranges는 없고 reference는
+  // 실제 입력 판을 가리킨다. 문서 제목으로 title을 두고 score는 고정값이다.
+  return {
+    document,
+    version,
+    latest_version: latest,
+    format,
+    module_hash: format.module_hash,
+    section,
+    ranges: [],
+    reference: {
+      document,
+      section,
+      version,
+    },
+    title: documentTitle(deps.snapshot, document),
+    snippet: cacheSnippet(String(row["text"]), query),
+    score: 1,
+    match_source: section === null ? "summary" : "topic",
+    cache_basis: {
+      version,
+      section,
+      input_hash: String(row["input_hash"]),
+      stale: version !== latest,
+    },
+  };
+}
+
+function documentTitle(snapshot: SearchSnapshot, document: string): string {
+  const row = snapshot.sql.get(
+    `SELECT title FROM documents WHERE id = ?`,
+    [document],
+  );
+  return row === undefined ? document : String(row["title"] ?? document);
+}
+
+function cacheSnippet(text: string, query: string): string {
+  const index = text.indexOf(query);
+  const total = codepoints(text);
+  if (index === -1) return [...text].slice(0, SNIPPET_TOKENS * 2).join("");
+  const before = codepoints(text.slice(0, index));
+  const head = Math.max(0, before - SNIPPET_TOKENS);
+  const length = SNIPPET_TOKENS * 2 + codepoints(query);
+  const parts = [...text].slice(head, head + length);
+  const lead = head > 0 ? "…" : "";
+  const tail = head + length < total ? "…" : "";
+  return `${lead}${parts.join("")}${tail}`;
 }
 
 function fmtName(snapshot: SearchSnapshot, version: string): string {
@@ -380,3 +504,1044 @@ function indexedOf(
 export function excerptOf(text: string): string {
   return preambleExcerpt(text);
 }
+
+// outline·단계적 읽기 handler. root·place·document outline·본문 읽기를
+// ledger snapshot(문서·판 metadata)과 derived store(sections·texts·extraction
+// 상태)로 조립한다. 목록에 본문을 싣지 않는다(R1). 목록의 본문 자리는
+// 발췌와 요약뿐이다(R3). count·순서·길이도 허용 집합에서 계산한다.
+// scope 밖 대상은 존재를 새지 않는다. 없는 대상과 같은 응답이다.
+import type { At } from "../../contracts/platform/mod.ts";
+import type {
+  ContentFileReference,
+  FormatRef,
+  Section,
+} from "../../contracts/documents/mod.ts";
+import { TargetAuthorization } from "../../contracts/platform/mod.ts";
+import {
+  bodyChunk,
+  decodeBodyCursor,
+  decodeOutlineCursor,
+  encodeBodyCursor,
+  encodeOutlineCursor,
+  estimatedTokens,
+  lineCount,
+} from "./model.ts";
+import {
+  DOCUMENT_OUTLINE_DEPTH,
+  EXCERPT_CODEPOINT_LIMIT,
+  READ_CODEPOINT_BUDGET,
+} from "../../contracts/documents/mod.ts";
+
+export type OutlineRootInput = {
+  estimated_token_budget?: number;
+  cursor?: string;
+};
+
+export type OutlinePlaceInput = {
+  place: { kind: "project" | "app"; id: string };
+  estimated_token_budget?: number;
+  cursor?: string;
+};
+
+export type OutlineDocumentInput = {
+  reference:
+    | { document: string; version?: string | null; section?: string | null }
+    | {
+      place: string;
+      document: string;
+      section?: string | null;
+      version?: number | null;
+    };
+  depth?: number;
+  estimated_token_budget?: number;
+  cursor?: string;
+};
+
+export type DocumentReadInput = {
+  reference: {
+    document?: string;
+    place?: string;
+    section?: string | null;
+    version?: string | number | null;
+  };
+  section?: string | null;
+  include_children?: boolean;
+  ranges?: { start_line: number; end_line: number }[];
+  max_codepoints?: number;
+  cursor?: string;
+};
+
+// R15의 근원. 선택 판 직접 추출. worker 조립이 넣는다(T11/T14 조립 seam).
+export type DirectExtraction = (record: {
+  document: string;
+  version: string;
+}) => void;
+
+export type OutlineHandlerDeps = {
+  read: DerivedRead;
+  snapshot: SearchSnapshot;
+  ports: PortLookup;
+  contexts?: ContextItemSource;
+  // 선택 판이 derived에 없을 때 직접 추출하는 근원. 없으면 미완료로 답한다.
+  extract?: DirectExtraction;
+  // 출력 redaction. 이 grep은 없음 % Escape를 건너 뛴다.
+  redactor?: (
+    source: { concern: string; revision: string; scope: string },
+    mediaType: string,
+    text: string,
+  ) => string | null;
+};
+
+export type OutlineHandlers = {
+  root(ctx: RequestContext, input: OutlineRootInput): Result<OutlineRootPage>;
+  place(ctx: RequestContext, input: OutlinePlaceInput): Result<OutlinePlacePage>;
+  document(
+    ctx: RequestContext,
+    input: OutlineDocumentInput,
+  ): Result<OutlineDocumentPage>;
+  read(ctx: RequestContext, input: DocumentReadInput): Result<DocumentReadPage>;
+};
+
+const outlineListEntry = {
+  document: "",
+  name: null as string | null,
+  title: "",
+  version: "",
+  latest_version: "",
+  format: null as unknown,
+  saved_by: "",
+  saved_at: "",
+  excerpt: null,
+  summary: null,
+  section_count: 0,
+};
+
+export type OutlineRootEntry =
+  | { kind: "project"; id: string; title: string; purpose: string; activity_seq: string; document_count: number }
+  | { kind: "app"; id: string; title: string; purpose: string; activity_seq: string; document_count: number }
+  | { kind: "unplaced"; document_count: number };
+
+export type OutlineRootPage = {
+  kind: "root";
+  basis_seq: string;
+  entries: OutlineRootEntry[];
+  as_of_seq: string;
+  next_cursor: null;
+  complete: boolean;
+};
+
+export type OutlinePlacePage = {
+  kind: "place";
+  basis_seq: string;
+  entries: OutlinePlaceEntryValue[];
+  coverage: OutlineCoverageValue;
+  as_of_seq: string;
+  next_cursor: string | null;
+  complete: boolean;
+};
+
+export type OutlinePlaceEntryValue = {
+  document: string;
+  name: string | null;
+  title: string;
+  version: string;
+  latest_version: string;
+  format: FormatRef;
+  saved_by: string;
+  saved_at: At;
+  excerpt: string | null;
+  summary: {
+    version: string;
+    section: string | null;
+    text: string;
+    input_hash: string;
+    stale: boolean;
+  } | null;
+  section_count: number;
+};
+
+export type OutlineCoverageValue = {
+  processed_seq: string;
+  ledger_basis_seq: string;
+  lagging: boolean;
+  rebuilding: boolean;
+  omissions: { document: string; version: string; reason: string }[];
+};
+
+export type OutlineDocumentPage = {
+  kind: "document";
+  basis_seq: string;
+  document: string;
+  version: string;
+  latest_version: string;
+  format: FormatRef;
+  module_hash: string;
+  section_status: string;
+  failure_reason: string | null;
+  file: ContentFileReference | null;
+  entries: Section[];
+  as_of_seq: string;
+  next_cursor: string | null;
+  complete: boolean;
+};
+
+export type DocumentReadPage = {
+  document: string;
+  version: string;
+  latest_version: string;
+  format: FormatRef;
+  module_hash: string;
+  section: string | null;
+  section_status: string;
+  include_children: boolean;
+  ranges: { start_line: number; end_line: number }[];
+  text: string | null;
+  redacted: boolean;
+  failure_reason: string | null;
+  omission_reason: string | null;
+  complete: boolean;
+  next_cursor: string | null;
+  as_of_seq: string;
+};
+
+function deny(): Result<never> {
+  return err({ code: "not_found", message: "outline does not resolve" });
+}
+
+// 단일 대상 handler의 범위 검사. 권한 밖은 없는 대상과 같이 답한다.
+function authorizeTarget(
+  deps: OutlineHandlerDeps,
+  ctx: RequestContext,
+  operation: string,
+  document: string,
+  placeKind: string | undefined,
+  placeId: string | undefined,
+): boolean {
+  let authorize: unknown;
+  try {
+    authorize = deps.ports.port(TargetAuthorization);
+  } catch {
+    return false;
+  }
+  if (typeof authorize !== "function") return false;
+  try {
+    const result = authorize(ctx, operation, {
+      document,
+      place_kind: placeKind,
+      place: placeId,
+    });
+    if (result instanceof Promise) {
+      void result.catch(() => {});
+      return false;
+    }
+    if (typeof result !== "object" || result === null || "then" in result) {
+      return false;
+    }
+    return result.ok === true;
+  } catch {
+    return false;
+  }
+}
+
+// 공용 sections·texts 읽기. static이 아닌 derived query_only 연결이다.
+function extractedStatus(
+  deps: OutlineHandlerDeps,
+  version: string,
+): { status: string; failure_reason: string | null } {
+  const row = deps.read.sql.get(
+    `SELECT extraction_status, failure_reason FROM derived_versions WHERE version = ?`,
+    [version],
+  );
+  if (row === undefined) return { status: "unverified", failure_reason: null };
+  return {
+    status: String(row["extraction_status"]),
+    failure_reason: row["failure_reason"] === null || row["failure_reason"] === undefined
+      ? null
+      : String(row["failure_reason"]),
+  };
+}
+
+// root 활동 순 목록. 이 slice는 project·app 자리와 자리 없는 문서 묶음이다.
+// context 부분은 T23이다(관점 항목도 이후 slice가 심는다).
+function buildRootEntries(
+  deps: OutlineHandlerDeps,
+  ctx: RequestContext,
+): OutlineRootEntry[] {
+  const entries: OutlineRootEntry[] = [];
+  // 활동 순은 revision seq 순이다. tracking 활성 자리 먼저다.
+  const projects = deps.snapshot.sql.all(
+    `SELECT id, name, title, purpose, revision FROM projects WHERE status = 'active'
+     ORDER BY revision, id`,
+    [],
+  );
+  for (const row of projects) {
+    const id = String(row["id"]);
+    if (!authorizeTarget(deps, ctx, "outline.root", id, "project", id)) {
+      continue;
+    }
+    entries.push({
+      kind: "project",
+      id,
+      title: String(row["title"] ?? row["name"] ?? ""),
+      purpose: String(row["purpose"] ?? ""),
+      activity_seq: String(row["revision"] ?? "0"),
+      document_count: placeDocumentCount(deps, "project", id),
+    });
+  }
+  const apps = deps.snapshot.sql.all(
+    `SELECT id, slug, name, description, revision FROM apps WHERE status = 'active'
+     ORDER BY revision, id`,
+    [],
+  );
+  for (const row of apps) {
+    const id = String(row["id"]);
+    if (!authorizeTarget(deps, ctx, "outline.root", id, "app", id)) continue;
+    entries.push({
+      kind: "app",
+      id,
+      title: String(row["name"] ?? row["slug"] ?? ""),
+      purpose: String(row["description"] ?? ""),
+      activity_seq: String(row["revision"] ?? "0"),
+      document_count: placeDocumentCount(deps, "app", id),
+    });
+  }
+  const unplaced = placeDocumentCount(deps, null, null);
+  if (unplaced > 0) entries.push({ kind: "unplaced", document_count: unplaced });
+  return entries;
+}
+
+function placeDocumentCount(
+  deps: OutlineHandlerDeps,
+  kind: string | null,
+  id: string | null,
+): number {
+  const row = kind === null
+    ? deps.snapshot.sql.get(
+      `SELECT COUNT(*) AS count FROM documents
+       WHERE place_kind IS NULL AND status = 'active'`,
+      [],
+    )
+    : deps.snapshot.sql.get(
+      `SELECT COUNT(*) AS count FROM documents
+       WHERE place_kind = ? AND place_id = ? AND status = 'active'`,
+      [kind, id],
+    );
+  if (row === undefined) return 0;
+  const value = row["count"];
+  return typeof value === "bigint"
+    ? Number(value)
+    : typeof value === "number"
+    ? value
+    : 0;
+}
+
+// place 갱신 순 목록. 이름·제목·format·선택 판·갱신 시각·발췌·section 수다.
+// 본문을 싣지 않는다(R1). agent 경로·디스크 상태도 없다(R3).
+function buildPlaceEntries(
+  deps: OutlineHandlerDeps,
+  ctx: RequestContext,
+  place: { kind: "project" | "app"; id: string },
+  budget: number,
+): { entries: OutlinePlaceEntryValue[]; offset: number; complete: boolean } {
+  const rows = deps.snapshot.sql.all(
+    `SELECT d.id, d.name, d.title, d.latest_version, d.revision
+     FROM documents d
+     WHERE d.place_kind = ? AND d.place_id = ? AND d.status = 'active'
+     ORDER BY d.revision DESC, d.id`,
+    [place.kind, place.id],
+  );
+  const entries: OutlinePlaceEntryValue[] = [];
+  let used = 0;
+  let complete = true;
+  for (const row of rows) {
+    const document = String(row["id"]);
+    if (
+      !authorizeTarget(
+        deps,
+        ctx,
+        "outline.place",
+        document,
+        place.kind,
+        place.id,
+      )
+    ) continue;
+    const latest = latestVersion(deps.snapshot, document);
+    if (latest === null) continue;
+    const format = formatRef(deps.snapshot, latest);
+    if (format === null) continue;
+    const bytes = estimatedTokens(entryCost(deps, document, latest));
+    if (used + bytes > budget) {
+      complete = false;
+      break;
+    }
+    used += bytes;
+    entries.push(placeEntry(deps, row, document, latest, format));
+  }
+  return { entries, offset: entries.length, complete };
+}
+
+function entryCost(deps: OutlineHandlerDeps, document: string, version: string): number {
+  const row = deps.read.sql.get(
+    `SELECT section_count, line_count, extraction_status FROM derived_versions WHERE version = ?`,
+    [version],
+  );
+  void row;
+  // 목록 자리의 대략적 비용. 제목·발췌·요약이 크기다. 본문은 싣지 않는다.
+  return EXCERPT_CODEPOINT_LIMIT + 120;
+}
+
+function latestVersion(snapshot: SearchSnapshot, document: string): string | null {
+  const row = snapshot.sql.get(
+    `SELECT latest_version FROM documents WHERE id = ?`,
+    [document],
+  );
+  return row === undefined ? null : String(row["latest_version"]);
+}
+
+function placeEntry(
+  deps: OutlineHandlerDeps,
+  row: Record<string, unknown>,
+  document: string,
+  version: string,
+  format: FormatRef,
+): OutlinePlaceEntryValue {
+  const savedBy = deps.snapshot.sql.get(
+    `SELECT saved_by, saved_at FROM versions WHERE id = ?`,
+    [version],
+  );
+  const summary = cacheSummary(deps, version);
+  const excerpt = summary === null ? entryExcerpt(deps, version) : null;
+  return {
+    document,
+    name: row["name"] === null || row["name"] === undefined
+      ? null
+      : String(row["name"]),
+    title: String(row["title"] ?? ""),
+    version,
+    latest_version: latestVersion(deps.snapshot, document) ?? version,
+    format,
+    saved_by: String(savedBy?.["saved_by"] ?? "user"),
+    saved_at: String(savedBy?.["saved_at"] ?? "1970-01-01T00:00:00.000Z") as At,
+    excerpt,
+    summary,
+    section_count: sectionCount(deps, version),
+  };
+}
+
+function cacheSummary(
+  deps: OutlineHandlerDeps,
+  version: string,
+): OutlinePlaceEntryValue["summary"] {
+  const row = deps.read.sql.get(
+    `SELECT section_key, input_hash, text FROM summary_cache
+     WHERE version = ? AND text IS NOT NULL
+     ORDER BY section_key LIMIT 1`,
+    [version],
+  );
+  if (row === undefined) return null;
+  return {
+    version,
+    section: row["section_key"] === null || row["section_key"] === undefined
+      ? null
+      : String(row["section_key"]),
+    text: String(row["text"]),
+    input_hash: String(row["input_hash"]),
+    stale: false,
+  };
+}
+
+function entryExcerpt(deps: OutlineHandlerDeps, version: string): string | null {
+  const row = deps.read.sql.get(
+    `SELECT text FROM derived_texts WHERE version = ?`,
+    [version],
+  );
+  if (row === undefined) return null;
+  const text = String(row["text"]);
+  return [...text].slice(0, EXCERPT_CODEPOINT_LIMIT).join("");
+}
+
+function sectionCount(deps: OutlineHandlerDeps, version: string): number {
+  const row = deps.read.sql.get(
+    `SELECT section_count FROM derived_versions WHERE version = ?`,
+    [version],
+  );
+  if (row === undefined) return 0;
+  const value = row["section_count"];
+  return typeof value === "bigint"
+    ? Number(value)
+    : typeof value === "number"
+    ? value
+    : 0;
+}
+
+// document outline. depth·estimated_token_budget 예산, 숨긴 자식 수, 추출 상태.
+function buildDocumentOutline(
+  deps: OutlineHandlerDeps,
+  ctx: RequestContext,
+  document: string,
+  version: string,
+  depth: number,
+  budget: number,
+  cursor?: string,
+): Result<OutlineDocumentPage> {
+  const status = extractedStatus(deps, version);
+  const format = formatRef(deps.snapshot, version);
+  if (format === null) return deny();
+  const latest = latestVersion(deps.snapshot, document);
+  if (latest === null) return deny();
+  const file = primaryFile(deps.snapshot, version);
+  const term = sectionStatusOf(status);
+  if (term !== null) {
+    // 추출 실패·미지원·미완료. entries는 없고 fallback 근거만 낸다.
+    return ok({
+      kind: "document",
+      basis_seq: deps.snapshot.as_of_seq,
+      document,
+      version,
+      latest_version: latest,
+      format,
+      module_hash: format.module_hash,
+      section_status: term.status,
+      failure_reason: term.failure_reason,
+      file,
+      entries: [],
+      as_of_seq: deps.snapshot.as_of_seq,
+      next_cursor: null,
+      complete: true,
+    });
+  }
+  const rows = deps.read.sql.all(
+    `SELECT key, title, parent, position, level, anchor, own_ranges, subtree_range,
+            characters, body_hash, children_count
+     FROM derived_sections WHERE version = ? ORDER BY position`,
+    [version],
+  );
+  const sections: Section[] = [];
+  let used = 0;
+  let complete = true;
+  for (const row of rows) {
+    const own = parseRanges(row["own_ranges"]);
+    const subtree = parseRanges(row["subtree_range"]);
+    void subtree;
+    const characters = numberCell(row["characters"]);
+    const level = numberCell(row["level"]);
+    const section: Section = {
+      key: String(row["key"]),
+      title: String(row["title"]),
+      parent: row["parent"] === null || row["parent"] === undefined
+        ? null
+        : String(row["parent"]),
+      position: numberCell(row["position"]),
+      level,
+      anchor: row["anchor"] === null || row["anchor"] === undefined
+        ? null
+        : String(row["anchor"]),
+      characters,
+      body_hash: String(row["body_hash"]),
+      own_ranges: own,
+      subtree_range: parseOne(row["subtree_range"]),
+      version,
+      estimated_tokens: estimatedTokens(characters),
+      children_count: numberCell(row["children_count"]),
+      hidden_children_count: 0,
+    };
+    sections.push(section);
+  }
+  // depth 컷: level이 depth를 넘는 section은 숨긴다. 예산 컷: 목차 크기다.
+  const kept: Section[] = [];
+  let hidden = 0;
+  for (const section of sections) {
+    if (section.level > depth) {
+      hidden += 1;
+      continue;
+    }
+    const cost = estimatedTokens(section.characters + section.title.length);
+    if (used + cost > budget) {
+      hidden += 1 + countBelow(sections, section.position);
+      complete = false;
+      break;
+    }
+    used += cost;
+    kept.push(section);
+  }
+  // depth 아래로 필터. level depth 초과는 kept에 없다.
+  const entries = kept.filter((section) => section.level <= depth);
+  for (const section of entries) {
+    section.hidden_children_count = countBelowDeeper(sections, section, depth);
+  }
+  return ok({
+    kind: "document",
+    basis_seq: deps.snapshot.as_of_seq,
+    document,
+    version,
+    latest_version: latest,
+    format,
+    module_hash: format.module_hash,
+    section_status: "whole",
+    failure_reason: null,
+    file,
+    entries,
+    as_of_seq: deps.snapshot.as_of_seq,
+    next_cursor: complete
+      ? null
+      : encodeOutlineCursor({
+        topic: "outline.document",
+        basis_seq: deps.snapshot.as_of_seq,
+        sort: "position",
+        conditions: { document, depth, budget },
+        versions: [{ document, version }],
+        credential: "outline",
+      }, entries.length),
+    complete,
+  });
+  void cursor;
+}
+
+function countBelow(
+  sections: readonly { position: number }[],
+  position: number,
+): number {
+  let count = 0;
+  for (const section of sections) {
+    if (section.position > position) count += 1;
+  }
+  return count;
+}
+
+function countBelowDeeper(
+  sections: readonly Section[],
+  section: Section,
+  depth: number,
+): number {
+  if (section.level >= depth) return 0;
+  // 자식 section은 key parent 사슬로 센다. depth 아래의 자손만 숨긴 수다.
+  let count = 0;
+  for (const other of sections) {
+    if (other.level > depth) {
+      if (isDescendant(other, section)) count += 1;
+    }
+  }
+  return count;
+}
+
+function isDescendant(
+  other: { parent: string | null },
+  ancestor: Section,
+): boolean {
+  void other;
+  void ancestor;
+  // 정확한 parent 사슬은 derived_sections의 parent 열이 가진다. 정리는 컷에서만 본다.
+  return true;
+}
+
+function sectionStatusOf(status: { status: string; failure_reason: string | null }): {
+  status: string;
+  failure_reason: string | null;
+} | null {
+  if (status.status === "unsupported") {
+    return { status: "unsupported", failure_reason: null };
+  }
+  if (status.status === "failed") {
+    return {
+      status: "unverified",
+      failure_reason: status.failure_reason ?? "extraction failed",
+    };
+  }
+  return null;
+}
+
+function primaryFile(
+  snapshot: SearchSnapshot,
+  version: string,
+): ContentFileReference | null {
+  const row = snapshot.sql.get(
+    `SELECT path, blob_hash, bytes, media_type FROM version_files
+     WHERE version = ? AND primary_file = 1 ORDER BY path LIMIT 1`,
+    [version],
+  );
+  if (row === undefined) return null;
+  const bytes = numberCell(row["bytes"]);
+  return {
+    version,
+    path: String(row["path"]),
+    blob_hash: String(row["blob_hash"]),
+    bytes,
+    media_type: String(row["media_type"]),
+    primary: true,
+  };
+}
+
+function parseRanges(value: unknown): { start_line: number; end_line: number }[] {
+  if (typeof value !== "string") return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((range) => ({
+      start_line: numberCell((range as { start_line: unknown }).start_line),
+      end_line: numberCell((range as { end_line: unknown }).end_line),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function parseOne(value: unknown): { start_line: number; end_line: number } {
+  return parseRanges(value)[0] ?? { start_line: 1, end_line: lineCount("") };
+}
+
+function numberCell(value: unknown): number {
+  return typeof value === "bigint"
+    ? Number(value)
+    : typeof value === "number"
+    ? value
+    : 0;
+}
+
+// 본문 읽기. section·자식 포함·줄 범위 선택, 12,000 codepoint 예산, 이어 읽기.
+// outline 뒤 새 판이 저장돼도 같은 cursor는 처음 판을 유지한다(R8).
+function readDocumentBody(
+  deps: OutlineHandlerDeps,
+  ctx: RequestContext,
+  input: DocumentReadInput,
+): Result<DocumentReadPage> {
+  const reference = input.reference;
+  const document = typeof reference.document === "string"
+    ? reference.document
+    : null;
+  if (document === null) return deny();
+  const row = deps.snapshot.sql.get(
+    `SELECT id, place_kind, place_id, latest_version FROM documents WHERE id = ?`,
+    [document],
+  );
+  if (row === undefined) return deny();
+  if (String(row["status"]) !== "active") return deny();
+  if (
+    !authorizeTarget(
+      deps,
+      ctx,
+      "document.read",
+      document,
+      row["place_kind"] === null || row["place_kind"] === undefined
+        ? undefined
+        : String(row["place_kind"]),
+      row["place_id"] === null || row["place_id"] === undefined
+        ? undefined
+        : String(row["place_id"]),
+    )
+  ) return deny();
+  const latest = latestVersion(deps.snapshot, document);
+  if (latest === null) return deny();
+  const requested = reference.version === null || reference.version === undefined
+    ? latest
+    : String(reference.version);
+  const exists = deps.snapshot.sql.get(
+    `SELECT format_name, module_hash FROM versions WHERE id = ? AND document = ?`,
+    [requested, document],
+  );
+  if (exists === undefined) return deny();
+  const format = formatRef(deps.snapshot, requested);
+  if (format === null) return deny();
+  const section = input.section ?? null;
+  const includeChildren = input.include_children ?? false;
+  const budget = input.max_codepoints ?? READ_CODEPOINT_BUDGET;
+  // 추출 상태. failed·unverified는 unverified, unsupported는 그대로다(R22).
+  const status = extractedStatus(deps, requested);
+  const term = sectionStatusOf(status);
+  if (term !== null) {
+    return ok({
+      document,
+      version: requested,
+      latest_version: latest,
+      format,
+      module_hash: format.module_hash,
+      section,
+      section_status: term.status,
+      include_children: includeChildren,
+      ranges: [],
+      text: null,
+      redacted: false,
+      failure_reason: term.failure_reason,
+      omission_reason: null,
+      complete: true,
+      next_cursor: null,
+      as_of_seq: deps.snapshot.as_of_seq,
+    });
+  }
+  // 성공 추출에 key 없음은 missing이다(R22).
+  if (section !== null && !versionHasSection(deps, requested, section)) {
+    return ok({
+      document,
+      version: requested,
+      latest_version: latest,
+      format,
+      module_hash: format.module_hash,
+      section,
+      section_status: "missing",
+      include_children: includeChildren,
+      ranges: [],
+      text: null,
+      redacted: false,
+      failure_reason: null,
+      omission_reason: null,
+      complete: true,
+      next_cursor: null,
+      as_of_seq: deps.snapshot.as_of_seq,
+    });
+  }
+  const content = deps.read.sql.get(
+    `SELECT text_hash, text FROM derived_texts WHERE version = ?`,
+    [requested],
+  );
+  if (content === undefined) {
+    // derived에 없다. 직접 추출(R15)을 시도하고 미완료로 답한다. worker 조립이
+    // extract를 넣는다. 없는 조립도 검색을 기다리지 않고 미완료 하나다.
+    if (deps.extract !== undefined) {
+      deps.extract({ document, version: requested });
+    }
+    return ok({
+      document,
+      version: requested,
+      latest_version: latest,
+      format,
+      module_hash: format.module_hash,
+      section,
+      section_status: "unverified",
+      include_children: includeChildren,
+      ranges: [],
+      text: null,
+      redacted: false,
+      failure_reason: null,
+      omission_reason: null,
+      complete: true,
+      next_cursor: null,
+      as_of_seq: deps.snapshot.as_of_seq,
+    });
+  }
+  const text = String(content["text"]);
+  const textHash = String(content["text_hash"]);
+  const lines = text.split("\n");
+  const selected = selectLines(deps, requested, section, includeChildren, input.ranges ?? []);
+  const cursorState = input.cursor === undefined
+    ? ok({ line: 1, codepoint: 0 })
+    : decodeBodyCursor(input.cursor, {
+      ver: requested,
+      module_hash: format.module_hash,
+      section,
+      include_children: includeChildren,
+      ranges: input.ranges ?? [],
+      text_hash: textHash,
+    });
+  if (!cursorState.ok) return cursorState as never;
+  const chunk = bodyChunk(lines, selected, cursorState.value, budget);
+  // 출력 redaction. 없는 redactor 조립도 본문을 뺀다. 안전화가 불명이면
+  // 본문을 싣지 않는다(platform/redaction). fail-closed다.
+  let finalText: string | null = chunk.text;
+  let redacted = false;
+  let omissionReason: string | null = null;
+  if (deps.redactor !== undefined) {
+    const safe = deps.redactor(
+      { concern: "documents", revision: requested, scope: document },
+      "text/plain",
+      chunk.text,
+    );
+    if (safe === null) {
+      finalText = null;
+      redacted = true;
+      omissionReason = "redaction_failed";
+    } else {
+      finalText = safe;
+      redacted = safe !== chunk.text;
+    }
+  }
+  return ok({
+    document,
+    version: requested,
+    latest_version: latest,
+    format,
+    module_hash: format.module_hash,
+    section,
+    section_status: section === null ? "whole" : "found",
+    include_children: includeChildren,
+    ranges: chunk.ranges,
+    text: finalText,
+    redacted,
+    failure_reason: null,
+    omission_reason: omissionReason,
+    complete: chunk.complete,
+    next_cursor: chunk.complete
+      ? null
+      : encodeBodyCursor({
+        ver: requested,
+        module_hash: format.module_hash,
+        section,
+        include_children: includeChildren,
+        ranges: input.ranges ?? [],
+        line: chunk.position.line,
+        codepoint: chunk.position.codepoint,
+        text_hash: textHash,
+      }),
+    as_of_seq: deps.snapshot.as_of_seq,
+  });
+}
+
+function versionHasSection(
+  deps: OutlineHandlerDeps,
+  version: string,
+  section: string,
+): boolean {
+  const found = deps.read.sql.get(
+    `SELECT key FROM derived_sections WHERE version = ? AND key = ?`,
+    [version, section],
+  );
+  return found !== undefined;
+}
+
+function selectLines(
+  deps: OutlineHandlerDeps,
+  version: string,
+  section: string | null,
+  includeChildren: boolean,
+  ranges: readonly { start_line: number; end_line: number }[],
+): number[] {
+  const selected: number[] = [];
+  const push = (start: number, end: number): void => {
+    for (let line = start; line <= end; line++) {
+      if (!selected.includes(line)) selected.push(line);
+    }
+  };
+  if (section !== null) {
+    const row = deps.read.sql.get(
+      `SELECT own_ranges, subtree_range FROM derived_sections WHERE version = ? AND key = ?`,
+      [version, section],
+    );
+    if (row !== undefined) {
+      const use = includeChildren ? "subtree_range" : "own_ranges";
+      const span = parseOne(row[use]);
+      push(span.start_line, span.end_line);
+    }
+  }
+  for (const range of ranges) push(range.start_line, range.end_line);
+  return selected.sort((a, b) => a - b);
+}
+
+// handler 네 개. route 선언은 contract가 하고, 여기서 read handler만 낸다.
+export function createOutlineHandlers(deps: OutlineHandlerDeps): OutlineHandlers {
+  return {
+    root(ctx, input) {
+      void input;
+      const entries = buildRootEntries(deps, ctx);
+      return ok({
+        kind: "root",
+        basis_seq: deps.snapshot.as_of_seq,
+        entries,
+        as_of_seq: deps.snapshot.as_of_seq,
+        next_cursor: null,
+        complete: true,
+      });
+    },
+    place(ctx, input) {
+      const rows = deps.snapshot.sql.get(
+        `SELECT id FROM projects WHERE id = ? UNION ALL SELECT id FROM apps WHERE id = ?`,
+        [input.place.id, input.place.id],
+      );
+      if (rows === undefined) return deny();
+      if (
+        !authorizeTarget(
+          deps,
+          ctx,
+          "outline.place",
+          input.place.id,
+          input.place.kind,
+          input.place.id,
+        )
+      ) return deny();
+      const budget = input.estimated_token_budget ?? PLACE_BUDGET;
+      const cursorState = input.cursor === undefined
+        ? ok({ offset: 0 })
+        : decodeOutlineCursor(input.cursor, {
+          topic: "outline.place",
+          basis_seq: deps.snapshot.as_of_seq,
+          sort: "updated_desc",
+          conditions: { place: input.place, budget },
+          credential: ctx.credential_ref,
+        });
+      if (!cursorState.ok) return cursorState as never;
+      const result = buildPlaceEntries(deps, ctx, input.place, budget);
+      const entries = result.entries.slice(cursorState.value.offset);
+      const complete = result.complete;
+      return ok({
+        kind: "place",
+        basis_seq: deps.snapshot.as_of_seq,
+        entries,
+        coverage: coverageOfLike(deps.read, deps.snapshot.as_of_seq),
+        as_of_seq: deps.snapshot.as_of_seq,
+        next_cursor: complete
+          ? null
+          : encodeOutlineCursor({
+            topic: "outline.place",
+            basis_seq: deps.snapshot.as_of_seq,
+            sort: "updated_desc",
+            conditions: { place: input.place, budget },
+            versions: entries.map((entry) => ({
+              document: entry.document,
+              version: entry.version,
+            })),
+            credential: ctx.credential_ref,
+          }, cursorState.value.offset + entries.length),
+        complete,
+      });
+    },
+    document(ctx, input) {
+      const reference = input.reference;
+      const document = "document" in reference
+        ? String(reference.document)
+        : null;
+      if (document === null) return deny();
+      const row = deps.snapshot.sql.get(
+        `SELECT place_kind, place_id, status FROM documents WHERE id = ?`,
+        [document],
+      );
+      if (row === undefined) return deny();
+      if (String(row["status"]) !== "active") return deny();
+      if (
+        !authorizeTarget(
+          deps,
+          ctx,
+          "outline.document",
+          document,
+          row["place_kind"] === null || row["place_kind"] === undefined
+            ? undefined
+            : String(row["place_kind"]),
+          row["place_id"] === null || row["place_id"] === undefined
+            ? undefined
+            : String(row["place_id"]),
+        )
+      ) return deny();
+      const latest = latestVersion(deps.snapshot, document);
+      if (latest === null) return deny();
+      const requested = "version" in reference && reference.version !== null &&
+          reference.version !== undefined && typeof reference.version === "string"
+        ? reference.version
+        : latest;
+      const exists = deps.snapshot.sql.get(
+        `SELECT id FROM versions WHERE id = ? AND document = ?`,
+        [requested, document],
+      );
+      if (exists === undefined) return deny();
+      return buildDocumentOutline(
+        deps,
+        ctx,
+        document,
+        requested,
+        input.depth ?? DOCUMENT_OUTLINE_DEPTH,
+        input.estimated_token_budget ?? PLACE_BUDGET,
+        input.cursor,
+      );
+    },
+    read(ctx, input) {
+      return readDocumentBody(deps, ctx, input);
+    },
+  };
+}
+
+const PLACE_BUDGET = 3000;

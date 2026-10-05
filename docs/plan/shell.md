@@ -1057,6 +1057,7 @@ concerns: [shell]
 
 ### T56 OS notification과 전역 팔레트
 
+- 상태: 완료 (#287) — 이어보냄: OS notification opt-in 켜고 끄는 화면 → shell#T58, OS 표시 경로를 쓰는 전달 실패 안내 → platform#T46. 막힌 것(Q17(6)): 제품 core가 platform notifications를 조립하지 않아 `NotificationCreated`가 오지 않는다(platform)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R7(놓친 notification 재생 없음), R10(OS 표시), R18(전역 CommandOrControl+Shift+K)

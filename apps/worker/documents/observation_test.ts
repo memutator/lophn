@@ -20,6 +20,7 @@ import {
   type ObservationLink,
   type ObservationPorts,
   retryOnNewBasis,
+  sharePreparedBlob,
   titleOfPath,
 } from "./observation.ts";
 import { createBasisStore } from "./basis.ts";
@@ -91,6 +92,14 @@ function preparedVersion(body: { document: string; idempotency_key: string }) {
     primary_path: "a.md",
     content_hash: NEW,
     preparation_ref: "prep-list",
+    files: [{
+      path: "a.md",
+      blob_hash: NEW,
+      bytes: 4,
+      media_type: "text/markdown",
+      primary: true,
+      preparation_ref: "prep-file",
+    }],
     idempotency_key: body.idempotency_key,
     format: { name: "document", module_hash: OLD, explicit: false },
     validation: {
@@ -185,7 +194,7 @@ Deno.test("documents/file-tracking#R7: 안정 관측은 준비 뒤 machine docum
   };
   assert(preparedVersionSchema.safeParse(save.input).success);
   assertEquals(save.compare, { base_version: BASE });
-  assertEquals(save.prepared, ["prep-list"]);
+  assertEquals(save.prepared, ["prep-list", "prep-file"]);
   const status = wired.status.get(TARGET);
   assertEquals(status?.observedHash, NEW);
   assertEquals(status?.latestHash, NEW);
@@ -438,4 +447,42 @@ Deno.test("documents/file-tracking#R7: conflict가 아닌 실패는 다시 제�
   const result = await submit(STABLE);
   assert(!result.ok);
   assertEquals(attempts, 1);
+});
+
+Deno.test("documents/versions#R5: 같은 바이트를 동시에 준비하면 한 번만 보내고 끝난 뒤에는 새로 보낸다", async () => {
+  let prepared = 0;
+  let fail = true;
+  const share = sharePreparedBlob(async (bytes, hash) => {
+    prepared += 1;
+    await Promise.resolve();
+    if (fail) return err({ code: "unavailable", message: "blob" });
+    return ok({
+      preparation: `prep-${prepared}`,
+      principal: "machine:documents",
+      purpose: "document_file",
+      hash,
+      size_bytes: bytes.length,
+    });
+  });
+  const bytes = new Uint8Array(3);
+  const hash = "c".repeat(64);
+  const [one, two] = await Promise.all([
+    share(bytes, hash),
+    share(bytes, hash),
+  ]);
+  assert(!one.ok && !two.ok);
+  assertEquals(prepared, 1);
+  // 실패도 끝나면 남지 않아 다음 시도가 새로 보낸다. 다른 hash는 따로 간다.
+  fail = false;
+  const [three, four, other] = await Promise.all([
+    share(bytes, hash),
+    share(bytes, hash),
+    share(new Uint8Array(4), "d".repeat(64)),
+  ]);
+  assert(three.ok && four.ok && other.ok);
+  assertEquals(three.value, four.value);
+  assertEquals(prepared, 3);
+  const later = await share(bytes, hash);
+  assert(later.ok);
+  assertEquals(prepared, 4);
 });

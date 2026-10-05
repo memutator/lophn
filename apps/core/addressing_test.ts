@@ -18,6 +18,14 @@ function prepared(key: string, place: unknown, name: string | null) {
     primary_path: "a.md",
     content_hash: HASH,
     preparation_ref: `prep-${key}`,
+    files: [{
+      path: "a.md",
+      blob_hash: HASH,
+      bytes: 10,
+      media_type: "text/markdown",
+      primary: true,
+      preparation_ref: `prep-file-${key}`,
+    }],
     idempotency_key: key,
     metadata: { title: "Notes", place, name },
     format: { name: "document", module_hash: HASH, explicit: false },
@@ -68,6 +76,17 @@ async function open(): Promise<{ harness: CoreHarness; token: string }> {
     Date.UTC(2024, 0, 1),
   );
   assert(noted.ok, noted.ok ? "" : noted.error.message);
+  const notedFile = await harness.notePrepared(
+    {
+      preparation: "prep-file-create",
+      principal: "user-1",
+      purpose: "document_file",
+      hash: HASH,
+      size_bytes: 10,
+    },
+    Date.UTC(2024, 0, 1),
+  );
+  assert(notedFile.ok, notedFile.ok ? "" : notedFile.error.message);
   return { harness, token: issued.value.token };
 }
 

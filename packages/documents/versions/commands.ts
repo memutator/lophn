@@ -4,6 +4,7 @@
 
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  type ContentFile,
   type Document,
   documentArchive,
   documentArchived,
@@ -16,11 +17,13 @@ import {
   documentUpdated,
   type FileSource,
   type FormatRef,
+  type PreparedFile,
   type PreparedVersion,
   type SaveResult,
   type Version,
 } from "../../contracts/documents/mod.ts";
 import {
+  type BlobRefRegistration,
   type CommandDefinition,
   defineBlobField,
   parseActor,
@@ -41,8 +44,8 @@ import {
 } from "./store.ts";
 import { authorizeDocument } from "./authorization.ts";
 
-// 판 원문 파일. owner_key는 version id와 상대 경로다. 일반 읽기를 연다.
-// 경로별 원문 등록은 준비 worker가 파일 목록을 확정한 뒤 한다(documents T8).
+// 판 원문 파일. owner_key는 `<version id>/<상대 경로>`다. 일반 읽기를 연다.
+// save가 준비 결과의 파일별 준비 참조로 같은 tx에서 등록한다(Q16).
 export const versionFileField = defineBlobField({
   owner_kind: "document_version",
   field: "file",
@@ -398,8 +401,8 @@ function mintVersion(
     id: tx.newId("ver"),
     document: prepared.document,
     number,
-    // 파일 목록 행은 준비 worker가 같은 transaction에 남긴다(documents T8).
-    files: { hash: prepared.files_hash, size_bytes: 0 },
+    // 파일 목록 행(version_files)은 storeVersion이 같은 tx에서 남긴다.
+    files: prepared.files.map(contentFileOf),
     content_hash: prepared.content_hash,
     format: prepared.format,
     saved_by: ctx.actor,
@@ -410,8 +413,8 @@ function mintVersion(
   return ok(version);
 }
 
-// 정규화 목록 blob을 판에 묶는다. 등록 실패는 저장 실패다(versions#R5).
-// 경로별 원문 blob은 준비 worker가 파일 목록을 확정하며 등록한다(documents T8).
+// 정규화 목록 blob과 경로별 원문 blob을 판에 묶는다. 등록 실패는 저장 실패다(versions#R5).
+// 원문 blob은 파일별 준비 참조로 등록한다. 등록하지 않으면 준비 참조 수명이 지나 사라진다.
 function storeVersion(
   tx: Tx,
   ctx: RequestContext,
@@ -426,12 +429,91 @@ function storeVersion(
     source: { kind: "prepared", blob: filesBlob(ctx, prepared) },
   });
   if (!listed.ok) return listed;
+  for (const file of prepared.files) {
+    let source: BlobRefRegistration["source"];
+    if ("preparation_ref" in file) {
+      source = { kind: "prepared", blob: fileBlob(ctx, file) };
+    } else {
+      const allowed = existingFileAllowed(tx, ctx, file);
+      if (!allowed.ok) return allowed;
+      source = { kind: "existing", reference: file.existing };
+    }
+    const original = tx.registerBlobRef({
+      owner_kind: versionFileField.owner_kind,
+      owner_key: `${version.id}/${file.path}`,
+      field: versionFileField.field,
+      registered_seq: "1",
+      source,
+    });
+    if (!original.ok) return original;
+  }
   insertVersion(tx, version, {
     files_hash: prepared.files_hash,
     primary_path: prepared.primary_path,
     file_count: prepared.file_count,
   });
   return ok(undefined);
+}
+
+function contentFileOf(file: PreparedFile): ContentFile {
+  return {
+    path: file.path,
+    blob_hash: file.blob_hash,
+    bytes: file.bytes,
+    media_type: file.media_type,
+    primary: file.primary,
+  };
+}
+
+// 이미 등록된 원문 blob을 새 판의 파일로 다시 묶을 수 있는지. 그 blob은 documents의 판 파일
+// 참조여야 하고, 그 판의 문서를 이 자격이 읽을 수 있어야 한다. 없는 참조와 권한 밖은 같은
+// 답이다(존재를 새지 않는다).
+function existingFileAllowed(
+  tx: Tx,
+  ctx: RequestContext,
+  file: Extract<PreparedFile, { existing: unknown }>,
+): Result<void> {
+  const absent = rejected(
+    "forbidden",
+    "existing blob reference is not allowed",
+  );
+  const ref = file.existing;
+  if (
+    ref.owner_kind !== versionFileField.owner_kind ||
+    ref.field !== versionFileField.field
+  ) return absent;
+  const slash = ref.owner_key.indexOf("/");
+  if (slash < 0) return absent;
+  const sourceVersion = ref.owner_key.slice(0, slash);
+  const sourcePath = ref.owner_key.slice(slash + 1);
+  const row = tx.sql.get(
+    `SELECT v.document AS document FROM versions v
+     JOIN version_files f ON f.version = v.id
+     WHERE v.id = ? AND f.path = ? AND f.blob_hash = ? AND f.bytes = ?`,
+    [sourceVersion, sourcePath, file.blob_hash, file.bytes],
+  );
+  const owner = row?.["document"];
+  if (typeof owner !== "string") return absent;
+  const document = loadDocument(tx.sql, owner);
+  if (!document.ok || document.value === null) return absent;
+  const access = authorizeDocument(tx.port, ctx, "document.file", {
+    kind: "document",
+    document: document.value,
+  });
+  return access.ok ? ok(undefined) : absent;
+}
+
+function fileBlob(
+  ctx: RequestContext,
+  file: Extract<PreparedFile, { preparation_ref: string }>,
+): PreparedBlob {
+  return {
+    preparation: file.preparation_ref,
+    hash: file.blob_hash,
+    size_bytes: file.bytes,
+    principal: ctx.principal,
+    purpose: "document_file",
+  };
 }
 
 function filesBlob(

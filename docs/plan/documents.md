@@ -180,6 +180,7 @@ concerns: [documents]
   - 기존 문서는 base_version의 정확한 FormatRef. 최신 판이 바뀌면 conflict 뒤 재준비. 사람의 명시 format 변경만 새 판의 계약을 바꿈
   - 같은 idempotency key의 재전달은 같은 신규 doc ID
   - `work_test.ts`·API 통합 테스트에 formats#R4, R5, R7
+- 상태: 완료 (#200) — 이어보냄: apps/core의 `documents/prepare` worker 조립(core workers map)과 준비 worker의 실제 같은 stream hash·blob 준비 → documents#T11
 
 ### T9 address 해석과 문서 이동·이름 변경
 
@@ -221,6 +222,7 @@ concerns: [documents]
 
 ### T11 파일 관측에서 Version까지
 
+- 상태: 진행 (#204) — 남은 것: coordinator의 watchFs·60초 scan·750ms 관측 루프와 machine `document.save` 제출, `/v1/files/status`, startApiServer workers map의 `/v1/documents/prepare`와 실제 streaming blob 준비 port, 활성 root로 spec을 다시 만들고 worker를 재시작하는 연결, 3000파일 통합과 T1 시나리오(watch 넘침, 읽는 중 교체, 같은 size·mtime, 준비와 확정 사이 규칙·source·보관)
 - 등급: 최상위
 - concern: documents/file-tracking, documents/versions
 - 요구: documents/file-tracking#R3, R4, R6, R7, R8, R9, R10, R18, documents/versions#R13
@@ -230,6 +232,7 @@ concerns: [documents]
 - slice: documents
 - 선행: T8, T10, platform#T4(event 구독)
 - T2에서 넘어온 것: 준비 worker의 실제 scan·hash·diff와 그 결과 command 제출, `/v1/projects/preview_tracking` route 연결(T10 진행 줄)
+- T8에서 넘어온 것: `/v1/documents/prepare` worker route를 apps/core에 조립(startApiServer workers map), 준비 worker가 T8 조립(createPrepareAssembly)에 실제 같은 stream hash·blob 준비 port를 준다(#200은 fake port로만 검증)
 - 완료:
   - root별 `Deno.watchFs(recursive)` 신호는 힌트. 시작·절전 복귀·watch 넘침·단절·규칙·폴더 변경·보관 해제에 전체 대조, 평소 60초마다 root scan(진행 중이면 합침), root당 후보 10,000개 초과면 `rescan_required` 하나
   - canonical 경로별 후보 합치기, 750ms 조용하면 관측, 안정 읽기 최대 3회. 열기 전·후 실제 경로·file identity·size·mtime 비교, 같은 stream에서 hash와 blob. 안정 확인 실패는 unverified로 두고 다음 파일로
@@ -262,7 +265,7 @@ concerns: [documents]
 
 ### T13 derived store와 검색
 
-- 상태: 진행 (#188) — 남은 것: 요약·주제 검색과 match_source, apps/core 조립·HTTP 통합
+- 상태: 진행 (#188) — 남은 것: apps/core 조립·HTTP 통합 — 이어보냄: 요약·주제 검색과 match_source → documents#T14
 - 등급: 기본
 - concern: documents/outline-and-search
 - 요구: documents/outline-and-search#R10, R11, R12, R13, R14, R16, R17, R18
@@ -282,6 +285,7 @@ concerns: [documents]
   - 삭제·손상 시 한 read transaction에서 현재 자료와 as_of_seq=S를 함께 받아(platform#T3) `documents.rebuild.sqlite`를 만들고 S 다음부터 구독으로 따라잡은 뒤 교체, 그동안 `rebuilding=true`. derived가 기록한 `ledger_id`가 `/v1/platform/status`와 다르면(복원 뒤) derived를 버리고 재생성
   - 권한 밖 ID는 후보 단계에서 빼고 count·rank·page도 허용 집합에서. agent 출력은 redaction
   - `work_test.ts`, `reads_test.ts`에 각 요구 번호 테스트(T1 korean-search로 2글자·3글자 한글, index 삭제 후 재생성, 실패 주입 시 빈 결과와 실제 빈 결과 구별)
+  - 이어받음: documents#T13의 요약·주제 검색과 match_source. `/v1/search/query`·`/status` handler는 이 작업이 쓴다. apps/core 조립·HTTP 통합은 별도 작업으로 남는다
 
 ### T14 outline과 단계적 읽기
 
@@ -482,6 +486,7 @@ concerns: [documents]
   - section key 소실은 item을 그대로 두고 소실·미확인을 구별, 유사 section으로 바꾸지 않음
   - 앱 read command item의 watch는 호출·변화 기록을 만들지 않음. 변화 event로 agent run을 시작하지 않음
   - `work_test.ts`, `commands_test.ts`에 각 요구 번호 테스트(비교 중 관점 변경·보관, 같은 결과 재전달, extractor 실패)
+  - 이어받음: platform#T53의 record_watch_change 발생 작업. `context.record_watch_change`가 `ContextWatchedItemChanged`를 내는 것은 이 작업의 자리다. flow build-context의 notification 단계 통합 테스트는 platform#T53에 남는다
 
 ### T25 Term
 

@@ -231,6 +231,7 @@ concerns: [documents]
 - 내놓는 contract: `/v1/files/status`(FileStatus)
 - slice: documents
 - 선행: T8, T10, platform#T4(event 구독)
+- T20에서 넘어온 것: `/v1/documents/export` worker route 서빙과 제품 redactor 조립(exportDocument는 redactor를 deps로 받는다, #239)
 - T2에서 넘어온 것: 준비 worker의 실제 scan·hash·diff와 그 결과 command 제출, `/v1/projects/preview_tracking` route 연결(T10 진행 줄)
 - T8에서 넘어온 것: `/v1/documents/prepare` worker route를 apps/core에 조립(startApiServer workers map), 준비 worker가 T8 조립(createPrepareAssembly)에 실제 같은 stream hash·blob 준비 port를 준다(#200은 fake port로만 검증)
 - T13에서 넘어온 것: documents coordinator가 derived 검색 store를 열고 `/v1/search/{query,status}` worker route를 제품 core에서 서빙한다(#215는 test seam으로만 연결, 제품은 503)
@@ -311,6 +312,7 @@ concerns: [documents]
 
 ### T15 saved view
 
+- 상태: 완료 (#242)
 - 등급: 기본
 - concern: documents/outline-and-search
 - 요구: documents/outline-and-search#R23, R24, R25
@@ -409,6 +411,7 @@ concerns: [documents]
 - 내놓는 contract: read `/v1/documents/export`
 - slice: documents
 - 선행: T9, T14, platform#T16(redaction 안전 필드)
+- 상태: 완료 (#239) — 이어보냄: `/v1/documents/export` route 서빙(workerRoutes·workers map)과 제품 redactor 조립 → T11. redaction 실패는 지금 export 전체를 `unavailable`로 거절한다(계약 출력에 빠진 범위 필드가 없어 부분 표시를 못 한다, 온전한 export로 꾸미지 않음은 지킴)
 - 완료:
   - 사람이 고른 project·app 자리의 문서와 고정 판을 Markdown·JSON으로, 원래 바이트와 판 참조를 함께. HTML·PDF처럼 Markdown으로 못 바꾸는 원문은 원래 MIME과 바이트. derived index는 넣지 않음
   - 외부 출력은 redaction, redaction 실패 구간은 빠진 범위와 이유로 표시하고 온전한 export로 꾸미지 않음

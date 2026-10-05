@@ -22,6 +22,11 @@ import {
   type IpcEvent,
 } from "../desktop/ipc-guard.ts";
 import { type WebPreferences, webPreferences } from "../desktop/security.ts";
+import {
+  focusSurface,
+  type HeadlessMode,
+  SHELL_OFF,
+} from "../desktop/headless.ts";
 import { latestFrame } from "./frame.ts";
 import { type ViewHost, viewOrder } from "./view-order.ts";
 
@@ -56,6 +61,8 @@ export interface OverlayOptions {
   ): OverlayView;
   preload: string;
   packaged: boolean;
+  /** 개발 확인 전용 headless. 켜지면 focus를 옮기지 않는다. */
+  headless?: HeadlessMode;
   body(): Rect;
   timer: {
     set(callback: () => void, ms: number): unknown;
@@ -70,6 +77,7 @@ const failure = (
 const success = <T>(value: T): OverlayReply<T> => ({ ok: true, value });
 
 export function createOverlay(options: OverlayOptions) {
+  const headless = options.headless ?? SHELL_OFF;
   const order = viewOrder(options.host);
   const surfaces = new Map<string, Surface>();
   let generation = 0;
@@ -139,7 +147,7 @@ export function createOverlay(options: OverlayOptions) {
       if (
         interactive(surface.kind) &&
         ![...surfaces.values()].some((item) => interactive(item.kind))
-      ) options.shell.focus();
+      ) focusSurface(options.shell, headless);
     }
   }
   function snapshot(): OverlaySnapshot {
@@ -295,7 +303,9 @@ export function createOverlay(options: OverlayOptions) {
       const identity = { surfaceId: `surface_${++serial}`, generation };
       surfaces.set(identity.surfaceId, { ...checked.value, ...identity });
       sync();
-      if (interactive(checked.value.kind)) view.webContents.focus();
+      if (interactive(checked.value.kind)) {
+        focusSurface(view.webContents, headless);
+      }
       return success(identity);
     },
     close(event: IpcEvent, input: unknown): OverlayReply<null> {

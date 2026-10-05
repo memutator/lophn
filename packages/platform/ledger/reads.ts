@@ -15,6 +15,10 @@ import { validateOutput } from "./output.ts";
 export const READ_MAX_ROWS = 500;
 export const READ_MAX_BYTES = 1024 * 1024;
 export const READ_TIMEOUT_MS = 2000;
+// reader의 잠금 대기 상한. READ_TIMEOUT_MS 안에서 끝나야 pool이 그 read를
+// 기한 뒤 성공으로 바꾸지 않는다(ledger R2: 잠금 대기는 최대 5,000ms의
+// reader 쪽 절반이다). 기동 열기와 snapshot SQL이 이 안에 여유를 두고 기다린다.
+export const READER_BUSY_TIMEOUT_MS = 1000;
 
 export class ReadLimitExceeded extends Error {}
 export class ReaderStorageError extends Error {}

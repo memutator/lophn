@@ -109,10 +109,10 @@ provider 정의·credential은 → lophn-agent/harness/provider, model catalog·
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `ApplySettings` | user | 전체 set·delete 변경 목록, 준비된 검증 메타데이터 | 편집 시작 revision·registry 판; 모든 영향 concern 재검증 | `SettingsChanged` 또는 unchanged | `invalid_input`, `unauthorized`, `forbidden`, `conflict`, `unavailable` |
+| `ApplySettings` | user / machine (evidence) | 전체 set·delete 변경 목록, 준비된 검증 메타데이터; machine은 질문 근거 | 편집 시작 revision·registry 판; 모든 영향 concern 재검증 | `SettingsChanged` 또는 unchanged | `invalid_input`, `unauthorized`, `forbidden`, `conflict`, `unavailable` |
 | `ReloadSettings` | user / machine | 현재 저장 선택·내장 registry의 재검증 결과 | 준비한 revision·defaults_revision | `SettingsReloaded` 또는 unchanged | `invalid_input`, `unauthorized`, `forbidden`, `conflict`, `unavailable` |
 
-TOML parse·큰 검증 준비는 command 밖에서 한다. command는 현재 판과 작은 준비 참조를 확인하고 선택·판·event를 한 transaction에 모두 저장하거나 모두 거절한다. lophn 역할의 제안은 → lophn-agent/questions의 고정 option action으로만 `ApplySettings`에 전달하며, 실제 사람이 고른 항목·값·층·비교 판을 → platform/identity의 QuestionActionEvidence로 검증한 machine 적용만 user로 기록한다. 설명 요청·추천·자유 답은 변경이 아니다. → platform/settings#R29
+TOML parse·큰 검증 준비는 command 밖에서 한다. command는 현재 판과 작은 준비 참조를 확인하고 선택·판·event를 한 transaction에 모두 저장하거나 모두 거절한다. lophn 역할의 제안은 → lophn-agent/questions의 고정 option action으로만 `ApplySettings`에 전달하며, machine 적용은 실제 사람이 고른 항목·값·층·비교 판을 command transaction 안에서 ledger의 `QuestionCreated`·`QuestionAnswered` event와 대조해 검증한 것만 받는다(→ platform/settings/question-evidence). 같은 질문 option은 한 번만 적용한다. 설명 요청·추천·자유 답은 변경이 아니다. → platform/settings#R29
 
 ## event
 

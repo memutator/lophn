@@ -5,6 +5,7 @@ import type { BrowserWindow } from "electron";
 
 import {
   TERMINAL_CLOSE_CHANNEL,
+  TERMINAL_FOCUS_CHANNEL,
   TERMINAL_INPUT_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TERMINAL_RESIZE_CHANNEL,
@@ -24,7 +25,7 @@ export interface MainIpc {
 }
 
 /**
- * terminal 채널 여섯 개를 ipcMain에 등록한다. sender·frame·URL·입력 검사는
+ * terminal 채널 일곱 개를 ipcMain에 등록한다. sender·frame·URL·입력 검사는
  * TerminalIpc가 본다(desktop#R23, shell/terminal#R3).
  */
 export function registerTerminalIpc(
@@ -39,6 +40,7 @@ export function registerTerminalIpc(
       [TERMINAL_CLOSE_CHANNEL, "close"],
       [TERMINAL_RESTART_CHANNEL, "restart"],
       [TERMINAL_SNAPSHOT_CHANNEL, "snapshot"],
+      [TERMINAL_FOCUS_CHANNEL, "focus"],
     ] as const
   ) {
     const invoke = ipc[method] as unknown as (
@@ -61,6 +63,7 @@ export function removeTerminalIpc(register: MainIpc): void {
       TERMINAL_CLOSE_CHANNEL,
       TERMINAL_RESTART_CHANNEL,
       TERMINAL_SNAPSHOT_CHANNEL,
+      TERMINAL_FOCUS_CHANNEL,
     ]
   ) {
     register.removeHandler(channel);
@@ -86,21 +89,35 @@ export function attachTerminalSurface(
  * terminal_ref의 입력은 통과하지 않는다.
  */
 export class TerminalFocusTable {
-  readonly #focused = new Map<string, number>();
+  readonly #focused = new Map<
+    string,
+    { contents: number; generation: number | undefined }
+  >();
 
-  /** 사람이 terminal_ref 탭을 눌렀다. webContents id는 그때의 frame이다. */
-  focus(contentsId: number, terminalRef: string): void {
-    this.#focused.set(terminalRef, contentsId);
+  /**
+   * 사람이 terminal_ref 탭을 골랐다. webContents id는 그때의 frame이고
+   * generation은 renderer가 본 runtime이다(shell/terminal#R3).
+   */
+  focus(contentsId: number, terminalRef: string, generation?: number): void {
+    this.#focused.set(terminalRef, { contents: contentsId, generation });
   }
 
   /** 탭을 떠났다. 그 webContents의 표시만 지운다. */
   blur(contentsId: number, terminalRef: string): void {
-    if (this.#focused.get(terminalRef) === contentsId) {
+    if (this.#focused.get(terminalRef)?.contents === contentsId) {
       this.#focused.delete(terminalRef);
     }
   }
 
-  focused(contentsId: number, terminalRef: string): boolean {
-    return this.#focused.get(terminalRef) === contentsId;
+  /** generation을 주면 renderer가 focus를 알린 그 generation일 때만 맞다. */
+  focused(
+    contentsId: number,
+    terminalRef: string,
+    generation?: number,
+  ): boolean {
+    const entry = this.#focused.get(terminalRef);
+    if (!entry || entry.contents !== contentsId) return false;
+    return generation === undefined || entry.generation === undefined ||
+      entry.generation === generation;
   }
 }

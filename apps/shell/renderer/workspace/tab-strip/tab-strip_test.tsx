@@ -181,3 +181,74 @@ Deno.test("shell/workspace#R1: 탭 선택과 닫기가 그 탭만 가리킨다",
     "selected tab is marked",
   );
 });
+
+function keyOn(target: Element, key: string): void {
+  act(() => {
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
+    );
+  });
+}
+
+Deno.test("shell/editor#R4: tablist에서 좌우 화살표는 focus를, Enter는 열기를, Delete는 닫기를 한다", () => {
+  const selected: string[] = [];
+  const closed: string[] = [];
+  using view = render(
+    <TabStrip
+      tabs={[tab("a"), tab("b"), tab("c")]}
+      selected="a"
+      focused
+      onSelect={(key) => selected.push(key)}
+      onClose={(key) => closed.push(key)}
+    />,
+  );
+  const list = view.container.querySelector("[role=tablist]") as HTMLElement;
+  const tabs = [
+    ...view.container.querySelectorAll("[role=tab]"),
+  ] as HTMLElement[];
+  assertEquals(tabs.map((item) => item.tabIndex), [0, -1, -1]);
+  keyOn(list, "ArrowRight");
+  assertEquals(document.activeElement === tabs[1], true);
+  assertEquals(tabs.map((item) => item.tabIndex), [-1, 0, -1]);
+  keyOn(list, "ArrowLeft");
+  keyOn(list, "ArrowLeft");
+  assertEquals(document.activeElement === tabs[2], true);
+  keyOn(list, "Enter");
+  assertEquals(selected, ["c"]);
+  keyOn(list, "Delete");
+  assertEquals(closed, ["c"]);
+});
+
+Deno.test("shell/editor#R4: 문서 탭 제목은 파일 이름이고 tooltip은 문서 제목과 상대 경로다", async () => {
+  using view = render(
+    <TabStrip
+      tabs={[{ key: "doc_1", kind: "document_editor", title: "plan.md" }]}
+      selected="doc_1"
+      focused
+      onSelect={noop}
+      onClose={noop}
+      tooltips={{
+        doc_1: (
+          <span data-tip="">
+            <span>Release plan</span>
+            <span>docs/plan.md</span>
+          </span>
+        ),
+      }}
+    />,
+  );
+  const item = view.container.querySelector("[data-tab]") as HTMLElement;
+  assertEquals(
+    item.querySelector("[data-kind-label]")?.previousSibling?.textContent,
+    "plan.md",
+  );
+  // tooltip은 400ms 지연 뒤에 열린다.
+  await act(async () => {
+    item.focus();
+    await new Promise((resolve) => setTimeout(resolve, 450));
+  });
+  assertEquals(
+    document.querySelector("[data-tip]")?.textContent,
+    "Release plandocs/plan.md",
+  );
+});

@@ -1,6 +1,13 @@
 // 보호 창은 요청한 shell 창의 child modal이다. 앱 view는 부모 contentView 안에만
 // 있으므로 다른 BrowserWindow를 덮지 못한다. 그래서 native view를 숨기거나 떼지 않는다.
 import { type WebPreferences, webPreferences } from "../desktop/security.ts";
+import {
+  focusSurface,
+  type HeadlessMode,
+  reveal,
+  SHELL_OFF,
+  surfaceOptions,
+} from "../desktop/headless.ts";
 
 export const CONFIRMATION_URL = "lophn-shell://confirmation/index.html";
 
@@ -129,9 +136,10 @@ export function confirmationConfig(input: {
   preload: string;
   packaged: boolean;
   partition: string;
+  headless?: HeadlessMode;
 }): ConfirmationWindowConfig {
   const size = confirmationSize(input.parent.getContentSize());
-  return {
+  return surfaceOptions({
     parent: input.parent,
     modal: true,
     width: size.width,
@@ -144,7 +152,7 @@ export function confirmationConfig(input: {
       preload: input.preload,
       partition: input.partition,
     },
-  };
+  }, input.headless ?? SHELL_OFF);
 }
 
 /**
@@ -156,10 +164,13 @@ export function openConfirmationWindow(input: {
   parent: ParentWindow;
   preload: string;
   packaged: boolean;
+  /** 개발 확인 전용 headless. 켜지면 offscreen으로 만들고 앞에 띄우지 않는다. */
+  headless?: HeadlessMode;
   onClosed: () => void;
   onCrashed: () => void;
 }): OpenedConfirmation {
   const windowId = `cfw_${++serial}`;
+  const headless = input.headless ?? SHELL_OFF;
   const partition = `confirmation-${windowId}`;
   const session = input.host.sessionFor(partition);
   hardenSession(session);
@@ -168,6 +179,7 @@ export function openConfirmationWindow(input: {
     preload: input.preload,
     packaged: input.packaged,
     partition,
+    headless,
   }));
   hardenContents(window.webContents, input.onCrashed);
   const release = blockAppInput(input.host.appContents(input.parent.id));
@@ -177,11 +189,10 @@ export function openConfirmationWindow(input: {
   });
   window.on("unresponsive", input.onCrashed);
   // 앱 전용 창에서 요청해도 보호 창을 앞으로 가져온다.
-  input.parent.focus();
+  focusSurface(input.parent, headless);
   void window.loadURL(CONFIRMATION_URL).then(() => {
     if (!window.isDestroyed()) {
-      window.show();
-      window.focus();
+      reveal(window, headless);
     }
   });
   return { windowId, partition, window, releaseInputBlock: release };

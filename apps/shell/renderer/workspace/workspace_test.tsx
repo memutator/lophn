@@ -1,9 +1,11 @@
-import { assertEquals } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
 import { render } from "../../../../packages/design/components/testing.ts";
 
 import { Workspace } from "./workspace.tsx";
 import type { WorkspaceSource } from "./source.ts";
+import type { EditorDeps } from "../editor/document-view.tsx";
+import { readingWidthStore } from "../editor/reading-width.ts";
 
 function sourceOf(layout: unknown = null): {
   source: WorkspaceSource;
@@ -276,4 +278,71 @@ Deno.test("shell/design-system#R25: 정보 패널은 아이콘 버튼으로 열�
     ),
     "overlay",
   );
+});
+
+function editorDeps(): EditorDeps {
+  return {
+    source: {
+      document: (id) =>
+        Promise.resolve({
+          ok: true,
+          value: {
+            id,
+            title: "Release notes",
+            fileName: "notes.md",
+            path: "docs/notes.md",
+            version: "ver_1",
+            versionNumber: 1,
+            savedAt: 0,
+          },
+        }),
+      body: (_id, _version, onPage) => {
+        const state = {
+          kind: "text",
+          text: "# Notes",
+          complete: true,
+        } as const;
+        onPage(state);
+        return Promise.resolve(state);
+      },
+      outline: () => Promise.resolve({ ok: true, value: [] }),
+      linkTargets: () => Promise.resolve({ ok: true, value: [] }),
+      resolveLink: () => Promise.resolve({ ok: true, value: null }),
+    },
+    readingWidth: readingWidthStore({
+      get: () => Promise.resolve({ value: null, revision: 0 }),
+      apply: () => Promise.resolve({ ok: true, revision: 1 }),
+    }),
+    menu: { open: () => Promise.resolve(null) },
+  };
+}
+
+Deno.test("shell/editor#R4: 문서 탭은 문서 읽기 화면을 그리고 탭 제목을 파일 이름으로 바꿔 저장한다", async () => {
+  const { source, saved } = sourceOf({
+    panes: [{
+      tabs: [{ key: "doc_1", kind: "document_editor", title: "notes" }],
+      selected_tab: "doc_1",
+    }],
+    split_ratio: 0.5,
+    focused_pane: 0,
+  });
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+      editor={editorDeps()}
+    />,
+  );
+  await flush();
+  await flush();
+  assert(view.container.querySelector("[data-pane-body] [data-document-view]"));
+  const title = view.container.querySelector("[data-tab='doc_1'] span")
+    ?.textContent;
+  assertEquals(title, "notes.md");
+  const last = saved.at(-1) as { panes: { tabs: { title: string }[] }[] };
+  assertEquals(last.panes[0]!.tabs[0]!.title, "notes.md");
 });

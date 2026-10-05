@@ -17,10 +17,13 @@ concerns: [problems/feedback]
 | `text` | 문자열 | 아니오 | redaction 후 공백 외 1~500 Unicode scalar; 저장은 blob | 사람의 글 |
 | `existing_problem` | `prb` ID | 예 | 선택한 앱과 동일; → problems/grouping | 기존 문제에 명시적으로 덧붙이기 |
 | `observed_at` | 공통 시각 | 아니오 | [문제 알리기]를 요청한 시각; view가 있으면 버튼 시점 app view 관측 시각 | 사람이 제보를 시작한 시점 |
-| `view_binding` | 문자열 | 예 | shell main이 발급한 app·release·mode 연결; view 없으면 null | 캡처 출처의 검증 근거 |
-| `screen_selected` | boolean | 아니오 | 선택한 안전한 화면 상태만 true | 화면 상태 포함 여부 |
-| `screenshot_selected` | boolean | 아니오 | 미리보기를 확인한 이미지에만 true | screenshot 포함 여부 |
-| `snapshot` | Snapshot 입력 참조 | 아니오 | → problems/snapshots; 미선택·실패 항목에는 이유 | 당시 자료 |
+| `view` | 값 | 예 | shell main이 버튼 시점에 고정한 binding·화면 이름·app·release·mode·bundle·진단 범위·관측 시각·캡처 불가 분류·미리본 최종 이미지 hash; view 없으면 null | 캡처 출처의 검증 근거 |
+| `selection` | `{screen, screenshot}` | 아니오 | 화면 상태는 안전한 것만, 이미지는 미리보기를 확인한 것만 true | 첨부 선택 |
+| `facts` | 값 | 예 | 탭·URL·입력 칸·있었다는 사실뿐인 업무 값; collector가 안전한 상태로 줄여 redaction | 화면 원자료 |
+| `targets` | 값 | 아니오 | invocation·automation·고정 판은 알 때만 ID, command 시작 여부; 모르면 null | 지목 대상 |
+| `screenshot` | 선언 크기 | 예 | PNG 바이트는 request의 byte channel; collector가 머리·크기·최종 hash를 검사 | 선택 이미지 |
+
+Snapshot은 입력이 아니라 collector가 이 원자료에서 조립한다(미선택·실패 항목에는 이유) → problems/snapshots.
 
 ### 불변 조건
 

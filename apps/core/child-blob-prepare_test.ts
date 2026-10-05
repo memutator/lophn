@@ -198,6 +198,29 @@ Deno.test("platform/blob-store#R2: report collector kind는 자기 principal과 
   });
 });
 
+Deno.test("problems/feedback#R6 problems/feedback#R8: report collector는 feedback 상태와 선택 PNG도 purpose 상한 안에서 준비한다", async () => {
+  await withCore(async (core) => {
+    for (const purpose of ["feedback_state", "feedback_screenshot"]) {
+      const cap = CHILD_BLOB_POLICIES.get("problems/report-collector")!
+        .purposes.get(purpose)!;
+      const outcome = await runChild(core, "problems/report-collector", {
+        purpose,
+        size: 1000,
+        mode: "ok",
+      });
+      assert(outcome.ok, outcome.ok ? "" : outcome.error.message);
+      assertEquals(outcome.payload["purpose"], purpose);
+      const over = await runChild(core, "problems/report-collector", {
+        purpose,
+        size: cap + 1,
+        mode: "ok",
+      });
+      assert(!over.ok);
+      assertEquals(over.error.code, "invalid_input");
+    }
+  });
+});
+
 Deno.test("platform/blob-store#R3 platform/api#R4: 허용되지 않은 자식 kind와 허용되지 않은 purpose는 같은 forbidden이고 blob이 생기지 않는다", async () => {
   await withCore(async (core) => {
     const unknown = await runChild(core, "apps/supervisor", {

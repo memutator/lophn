@@ -8,10 +8,12 @@ export const questionStatusSchema = z.enum([
   "cancelled",
 ]);
 
+// expired는 기한이 지나 machine이 닫은 질문의 이유다. 사람·agent의 취소 입력에는 쓰지 않는다.
 export const questionClosedReasonSchema = z.enum([
   "deferred",
   "cancelled",
   "superseded",
+  "expired",
 ]);
 
 export const answerSchema = z.discriminatedUnion("kind", [

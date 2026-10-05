@@ -202,12 +202,30 @@ Deno.test("problems/tests#R20: timeout은 자식을 죽이고 출력 상한을 �
 });
 
 function alivePid(pid: number): boolean {
+  // SIGKILL을 받은 프로세스는 회수될 때까지 zombie로 남고, zombie에도 신호는
+  // 성공한다. /proc의 상태가 Z면 죽은 것으로 본다(Linux).
+  try {
+    const stat = Deno.readTextFileSync(`/proc/${pid}/stat`);
+    if (stat.slice(stat.lastIndexOf(")") + 2).startsWith("Z")) return false;
+  } catch {
+    // /proc이 없거나 이미 사라졌으면 신호로 판단한다.
+  }
   try {
     Deno.kill(pid, "SIGCONT");
     return true;
   } catch {
     return false;
   }
+}
+
+// 부하 아래에서는 종료가 반영되기까지 잠깐 걸린다. 2초 안에 사라지면 죽은 것이다.
+async function goneWithin(pid: number, ms = 2_000): Promise<boolean> {
+  const until = Date.now() + ms;
+  while (Date.now() < until) {
+    if (!alivePid(pid)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return !alivePid(pid);
 }
 
 Deno.test("problems/tests#R20: timeout은 자식이 띄운 손자까지 프로세스 그룹으로 죽인다", async () => {
@@ -252,8 +270,8 @@ Deno.test("problems/tests#R20: timeout은 자식이 띄운 손자까지 프로�
   const outcome = await ran.value.finished();
   assertEquals(outcome.end_reason, "timeout");
   const grand = Number(await Deno.readTextFile(pidFile));
-  assert(!alivePid(ran.value.pid));
-  assert(!alivePid(grand), "손자가 남았다");
+  assert(await goneWithin(ran.value.pid));
+  assert(await goneWithin(grand), "손자가 남았다");
   await Deno.remove(root, { recursive: true });
 });
 

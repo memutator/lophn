@@ -77,6 +77,8 @@ export async function openRuntime(input: {
   ledgerPath: string;
   clock: Clock;
   nowMs: number;
+  // "system"이면 writer가 자기 system clock을 쓴다. "fixed"면 nowMs에 고정한다.
+  writerClock: "system" | "fixed";
   seed: number;
   modules: readonly string[];
   assembled: Assembled;
@@ -99,7 +101,9 @@ export async function openRuntime(input: {
 }): Promise<Result<CoreRuntime>> {
   const openedWriter = openProductWriter(input.ledgerPath, {
     modules: [...input.modules],
-    nowMs: input.nowMs,
+    // 제품 clock은 writer가 자기 system clock으로 따라간다. 테스트는 기동 시각에
+    // 고정한 clock으로 결정적인 시각을 유지한다.
+    clock: input.writerClock === "system" ? "system" : input.nowMs,
     seed: input.seed,
   });
   // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
@@ -266,7 +270,7 @@ function backupReads(
 // openWriter는 path만 worker name에 넣는다. 팀 모듈은 core가 name에 더한다.
 function openProductWriter(
   path: string,
-  extra: { modules: string[]; nowMs: number; seed: number },
+  extra: { modules: string[]; clock: "system" | number; seed: number },
 ): {
   writer: Writer;
   confirmation(body: {

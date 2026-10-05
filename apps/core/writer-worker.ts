@@ -26,7 +26,7 @@ const worker = self as unknown as WorkerSelf;
 const boot = JSON.parse(worker.name) as {
   path: string;
   modules: string[];
-  nowMs: number;
+  clock: "system" | number;
   seed: number;
 };
 
@@ -159,14 +159,12 @@ async function handle(
     return;
   }
   if (data.op === "blob-prepared") {
-    registration.noteBlobTime(data.nowMs);
     registration.preparations.register(data.prepared, data.nowMs);
     registration.preparations.prune(data.nowMs);
     worker.postMessage({ id: data.id, op: "blob-noted" } as never);
     return;
   }
   if (data.op === "blob-prune") {
-    registration.noteBlobTime(data.nowMs);
     registration.preparations.prune(data.nowMs);
     worker.postMessage({ id: data.id, op: "blob-noted" } as never);
     return;

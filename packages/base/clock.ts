@@ -35,6 +35,21 @@ export type ManualClock = Clock & {
   advance(ms: number): void;
 };
 
+// 기록 시각은 앞으로만 간다. 원본 clock이 뒤로 가도 앞서 본 시각을 유지한다.
+export function monotonicClock(source: Clock): Clock {
+  let max = -Infinity;
+  return {
+    nowMs() {
+      const now = source.nowMs();
+      if (now > max) max = now;
+      return max;
+    },
+    now() {
+      return formatAt(this.nowMs());
+    },
+  };
+}
+
 export function manualClock(startMs: number): ManualClock {
   let current = startMs;
   return {

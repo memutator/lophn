@@ -11,6 +11,7 @@ export {
   formatAt,
   type ManualClock,
   manualClock,
+  monotonicClock,
   systemClock,
 } from "./clock.ts";
 export { cryptoRandom, type RandomSource, seededRandom } from "./random.ts";

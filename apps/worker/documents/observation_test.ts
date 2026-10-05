@@ -466,7 +466,10 @@ Deno.test("documents/versions#R5: 같은 바이트를 동시에 준비하면 한
   });
   const bytes = new Uint8Array(3);
   const hash = "c".repeat(64);
-  const [one, two] = await Promise.all([share(bytes, hash), share(bytes, hash)]);
+  const [one, two] = await Promise.all([
+    share(bytes, hash),
+    share(bytes, hash),
+  ]);
   assert(!one.ok && !two.ok);
   assertEquals(prepared, 1);
   // 실패도 끝나면 남지 않아 다음 시도가 새로 보낸다. 다른 hash는 따로 간다.

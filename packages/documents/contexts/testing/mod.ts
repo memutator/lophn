@@ -1,18 +1,17 @@
 // leaf unit fixture. writer Worker·current credential·core API 증거는 아니다.
 import { DatabaseSync } from "node:sqlite";
-import { ok, type Result } from "../../base/mod.ts";
-import type { ContentFile } from "../../contracts/documents/mod.ts";
-import {
-  type PortKey,
-  type PreparedBlob,
-  type Sql,
-  type SqlRow,
-  TargetAuthorization,
-  type TargetAuthorizer,
-  type Tx,
-} from "../../contracts/platform/mod.ts";
-import { addressingSchemaSteps } from "../addressing/mod.ts";
-import { versionsSchemaSteps } from "./schema.ts";
+import { ok, type Result } from "../../../base/mod.ts";
+import type {
+  PortKey,
+  Sql,
+  SqlRow,
+  TargetAuthorizer,
+  Tx,
+} from "../../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../../contracts/platform/mod.ts";
+import { addressingSchemaSteps } from "../../addressing/mod.ts";
+import { versionsSchemaSteps } from "../../versions/mod.ts";
+import { contextsSchemaSteps } from "../mod.ts";
 
 export type Emitted = {
   type: string;
@@ -23,18 +22,24 @@ export type Emitted = {
 
 const allowAll: TargetAuthorizer = () => ok(undefined);
 
-export function versionFixture(authorize: TargetAuthorizer = allowAll) {
+// versions 표가 있어야 문서 대상 검사(loadDocument)를 시험한다.
+export function contextFixture(authorize: TargetAuthorizer = allowAll) {
   const authorizer = { current: authorize };
-  const directory = Deno.makeTempDirSync({ prefix: "versions-test-" });
+  const directory = Deno.makeTempDirSync({ prefix: "contexts-test-" });
   const db = new DatabaseSync(`${directory}/ledger.sqlite`);
   db.exec("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;");
-  for (const step of [...addressingSchemaSteps, ...versionsSchemaSteps]) {
+  for (
+    const step of [
+      ...addressingSchemaSteps,
+      ...versionsSchemaSteps,
+      ...contextsSchemaSteps,
+    ]
+  ) {
     db.exec(step.sql);
   }
   let seq = 0n;
   let minted = 0;
   const emitted: Emitted[] = [];
-  const blobs: { owner_key: string; field: string; hash: string }[] = [];
   const sqlOf = (active: () => void): Sql => ({
     run: (statement, params) => {
       active();
@@ -53,7 +58,6 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
     db,
     sql: sqlOf(() => {}),
     emitted,
-    blobs,
     path: `${directory}/ledger.sqlite`,
     transaction<T>(handle: (tx: Tx) => Result<T>): Result<T> {
       let open = true;
@@ -63,7 +67,6 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
       db.exec("BEGIN IMMEDIATE");
       const mark = emitted.length;
       const markSeq = seq;
-      const markBlobs = blobs.length;
       const tx = {
         sql: sqlOf(guard),
         emit(
@@ -90,25 +93,8 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
           }
           return authorizer.current as T;
         },
-        registerBlobRef: (reference: {
-          owner_key: string;
-          field: string;
-          source: { kind: string; blob?: PreparedBlob };
-        }) => {
-          guard();
-          const hash = reference.source.blob?.hash ?? "";
-          blobs.push({
-            owner_key: reference.owner_key,
-            field: reference.field,
-            hash,
-          });
-          return ok({
-            owner_kind: "document_version",
-            owner_key: reference.owner_key,
-            field: reference.field,
-            hash,
-            registered_seq: "1",
-          });
+        registerBlobRef: () => {
+          throw new Error("unused");
         },
         advanceSubscriberCursor: () => {
           throw new Error("unused");
@@ -125,14 +111,12 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
         db.exec(result.ok ? "COMMIT" : "ROLLBACK");
         if (!result.ok) {
           emitted.splice(mark);
-          blobs.splice(markBlobs);
           seq = markSeq;
         }
         return result;
       } catch (error) {
         db.exec("ROLLBACK");
         emitted.splice(mark);
-        blobs.splice(markBlobs);
         seq = markSeq;
         throw error;
       } finally {
@@ -150,6 +134,29 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
           return authorizer.current as T;
         },
       };
+    },
+    // 문서 대상 검사가 통과할 documents 행을 심는다. place·source는 없다.
+    seedDocument(id: string): void {
+      db.prepare(
+        `INSERT INTO documents
+           (id, place_kind, place_id, name, title, source_kind,
+            source_instruction_target, source_project, source_path,
+            latest_version, revision, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        id,
+        null,
+        null,
+        null,
+        "Notes",
+        null,
+        null,
+        null,
+        null,
+        `ver_${"0".repeat(26)}`,
+        "1",
+        "active",
+      );
     },
     close() {
       db.close();
@@ -173,67 +180,12 @@ export function userContext(actor = "user", run?: string) {
 }
 
 export const ids = {
+  context: "ctx_01arz3ndektsv4rrffq69g5fav",
+  context2: "ctx_01arz3ndektsv4rrffq69g5faw",
   doc: "doc_01arz3ndektsv4rrffq69g5fav",
-  other: "doc_01arz3ndektsv4rrffq69g5faw",
-  project: "prj_01arz3ndektsv4rrffq69g5fav",
   app: "app_01arz3ndektsv4rrffq69g5fav",
   run: "run_01arz3ndektsv4rrffq69g5fav",
 };
-
-const HASH = "ab".repeat(32);
-
-export function file(
-  path: string,
-  primary: boolean,
-  bytes = 4,
-  media = "text/plain",
-): ContentFile & { prepared: PreparedBlob } {
-  return {
-    path,
-    blob_hash: HASH,
-    bytes,
-    media_type: media,
-    primary,
-    prepared: {
-      preparation: `prep-${path}`,
-      principal: "person",
-      purpose: "document_file",
-      hash: HASH,
-      size_bytes: bytes,
-    },
-  };
-}
-
-export function preparedInput(
-  document: string,
-  files: ReturnType<typeof file>[],
-  extra: Record<string, unknown> = {},
-) {
-  const primary = files.find((item) => item.primary) ?? files[0];
-  return {
-    document,
-    base_version: null,
-    files_hash: HASH,
-    file_count: files.length,
-    primary_path: primary.path,
-    content_hash: HASH,
-    preparation_ref: "prep-1",
-    idempotency_key: "save-1",
-    metadata: { title: "Notes", place: null, name: null },
-    format: { name: "document", module_hash: HASH, explicit: false },
-    validation: {
-      input_hash: HASH,
-      module_hash: HASH,
-      status: "passed",
-      error_count: 0,
-      warning_count: 0,
-      diagnostics: [],
-    },
-    source: null,
-    files,
-    ...extra,
-  };
-}
 
 export function keep<T>(result: Result<T>): T {
   if (!result.ok) {

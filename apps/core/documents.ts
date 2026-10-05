@@ -13,6 +13,11 @@ import {
   createAddressingReads,
   createDocumentChangeCommands,
 } from "../../packages/documents/addressing/mod.ts";
+import { contextsSchemaSteps } from "../../packages/documents/contexts/mod.ts";
+import {
+  createContextCommands,
+} from "../../packages/documents/contexts/mod.ts";
+import { createContextReads } from "../../packages/documents/contexts/mod.ts";
 import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
 import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
 import {
@@ -20,13 +25,13 @@ import {
   formatDeclarations,
 } from "../../packages/documents/formats/model.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
-import { createVersionCommands } from "../../packages/documents/versions/commands.ts";
-import { createVersionReads } from "../../packages/documents/versions/reads.ts";
-import { versionsSchemaSteps } from "../../packages/documents/versions/schema.ts";
+import { createVersionCommands } from "../../packages/documents/versions/mod.ts";
+import { createVersionReads } from "../../packages/documents/versions/mod.ts";
+import { versionsSchemaSteps } from "../../packages/documents/versions/mod.ts";
 import {
   versionFileField,
   versionFilesField,
-} from "../../packages/documents/versions/commands.ts";
+} from "../../packages/documents/versions/mod.ts";
 import {
   createProjectReads,
   type ProjectReadDeps,
@@ -175,8 +180,11 @@ export function createLedgerRegistration(
   const commands = createProjectCommands();
   const versions = createVersionCommands();
   const addressing = createDocumentChangeCommands();
+  // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
+  const contexts = createContextCommands();
   const versionReads = createVersionReads();
   const addressReads = createAddressingReads();
+  const contextReads = createContextReads();
   const deps: ProjectReadDeps = {
     documents: emptyDocuments,
   };
@@ -186,6 +194,7 @@ export function createLedgerRegistration(
       ...addressingSchemaSteps,
       ...projectsSchemaSteps,
       ...versionsSchemaSteps,
+      ...contextsSchemaSteps,
     ],
     commands: [
       commands.create,
@@ -199,6 +208,12 @@ export function createLedgerRegistration(
       versions.unarchive,
       addressing.move,
       addressing.rename,
+      contexts.create,
+      contexts.update,
+      contexts.setItem,
+      contexts.removeItem,
+      contexts.archive,
+      contexts.unarchive,
     ],
     reads: [
       reads.list,
@@ -210,6 +225,9 @@ export function createLedgerRegistration(
       versionReads.get,
       versionReads.history,
       addressReads.resolve,
+      contextReads.list,
+      contextReads.get,
+      contextReads.related,
     ],
     // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
     blobFields: [versionFileField, versionFilesField],
@@ -239,8 +257,17 @@ function registerWorkers(): KindLaunchSpec[] {
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createVersionReads();
   const addressReads = createAddressingReads();
+  const contextReads = createContextReads();
   return {
-    reads: [reads.list, reads.get, reads.history, addressReads.resolve],
+    reads: [
+      reads.list,
+      reads.get,
+      reads.history,
+      addressReads.resolve,
+      contextReads.list,
+      contextReads.get,
+      contextReads.related,
+    ],
     ports: new Map(),
   };
 }

@@ -8,7 +8,7 @@ import {
 import { handleRecordVerification } from "./record.ts";
 import { readVerification, readVerificationList } from "./reads.ts";
 import { blob, executed, HASH, requester } from "./fixtures.ts";
-import { beforeBundle, reproductionSetup } from "./reproduction-fixtures.ts";
+import { beforeBundle, reproductionSetup } from "./testing/reproduction.ts";
 Deno.test("problems/tests#R2 R3: file two-side reproduction은 before release binding과 두 actual_started를 저장", () => {
   const {
     ledger,

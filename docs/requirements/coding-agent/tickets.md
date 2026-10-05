@@ -20,6 +20,11 @@ concerns: [coding-agent/tickets]
 - 확인: 각 상한과 하나 초과·공백·없는 근거를 비교하고 부적합 입력은 경고가 아니라 무생성으로 거절된다.
 - 의도: coding-agent#I3
 
+**[R28]** ticket은 `readiness: needs_confirmation | ready`와 `needs`(필요한 확인 1~200자 한 줄 1~12개)를 함께 가진다. `needs_confirmation`은 근거·채택 답·조건이 비거나 일부여도 되지만 `ready`는 그 셋을 모두 채우고 `needs`가 비어야 한다. ready 전환은 `ticket.make_ready` command로 묶음을 한 번만 채우며 그 뒤 불변이다.
+- 이유: App Engineer가 준비 중인 ticket과 검사 가능한 계약이 완성된 ticket을 구별한다.
+- 확인: `ready`인데 근거·채택 답·조건이 비거나 `needs`가 남은 입력은 거절되고 make_ready 뒤 재전환 command가 없다.
+- 의도: coding-agent#I3
+
 **[R3]** ticket은 사람이 채택한 기획·설계의 고정 문서 판과 그 판을 채택한 질문의 답을 함께 가리키고 최신 주소나 다른 판의 채택 답으로 근거를 대신하면 거절한다.
 - 이유: lophn-agent/questions의 채택 사실을 구현 시점까지 보존한다.
 - 확인: 근거 문서를 새로 고쳐도 ticket은 원래 판을 읽고 새 판에 옛 채택 답을 붙인 입력은 거절된다.
@@ -35,9 +40,9 @@ concerns: [coding-agent/tickets]
 - 확인: 담당 앱 ticket이 확인 창 없이 즉시 목록에 나오고 별도 공개·수정 도구가 없으며 자동 coding agent run이 시작되지 않는다.
 - 의도: coding-agent#I4
 
-**[R6]** ticket 목표·본문·근거·채택 답·acceptance check·수리 대상은 생성 뒤 바꾸지 않고 변경은 사람이 기존 ticket을 취소해 이전 ticket을 근거로 새 ticket을 만드는 방식으로 남긴다.
+**[R6]** ticket 목표·본문·근거·채택 답·acceptance check·수리 대상은 생성 뒤 바꾸지 않고 ready가 된 ticket은 readiness를 `needs_confirmation`으로 되돌리지 않는다. 변경은 사람이 기존 ticket을 취소해 이전 ticket을 근거로 새 ticket을 만드는 방식으로 남긴다.
 - 이유: 산출물이 어느 지시에 따라 만들어졌는지 되짚게 한다.
-- 확인: claim 전후 목표 변경을 거절하고 새 ticket에서 이전 지시와 취소 이유 및 새 지시를 구별한다.
+- 확인: claim 전후 목표 변경을 거절하고 ready 뒤 readiness 되돌림도 없으며 새 ticket에서 이전 지시와 취소 이유 및 새 지시를 구별한다.
 - 의도: coding-agent#I4
 
 ### 검사 가능한 acceptance check
@@ -64,7 +69,7 @@ concerns: [coding-agent/tickets]
 
 ### claim과 만료
 
-**[R11]** claim은 자기 터미널의 사람 지시 또는 coding-agent/sessions의 [Start] 첫 prompt로 지정한 ticket에 대해 범위 안 coding agent 연결만 MCP로 요청하며 ticket 하나의 현재 연결은 하나이고 한 연결의 동시 ticket 수에는 상한을 두지 않는다.
+**[R11]** claim은 자기 터미널의 사람 지시 또는 coding-agent/sessions의 [Start] 첫 prompt로 지정한 ticket에 대해 범위 안 coding agent 연결만 MCP로 요청하며 ticket 하나의 현재 연결은 하나이고 한 연결의 동시 ticket 수에는 상한을 두지 않는다. claim 대상은 `ready` ticket뿐이 아니라 `needs_confirmation` ticket도 여섯 진행 구분 안에서 claim된다.
 - 이유: problems/repairs과 lophn-agent/harness/tool-judgment를 유지하면서 외부 프로세스의 작업 선택을 대신하지 않는다.
 - 확인: 같은 ticket 동시 claim 중 하나만 성공하고 같은 연결이 다른 ticket도 claim할 수 있으며 목록 읽기만으로 claim이 생기지 않는다.
 - 의도: coding-agent#I4
@@ -145,7 +150,7 @@ concerns: [coding-agent/tickets]
 
 ### 사람이 쓰는 화면
 
-**[R26]** 사람 화면에서 직접 만드는 ticket은 선택한 열린 문제 하나의 수리로 한정하고 제목·무엇과 왜·고정 근거·acceptance check를 기존 증상과 채택 자료에서 자동으로 준비하되 생성 검사를 완화하거나 없는 reproduction 기준·채택 답을 만들어 넣지 않으며 reproduction test를 만들 수 없으면 사람 확인을 조건으로 두고 새 구현 요청과 그 외 근거가 부족한 수리는 담당 App Engineer에게 연결한다.
+**[R26]** 사람 화면에서 직접 만드는 ticket은 선택한 열린 문제 하나의 수리로 한정하고 제목·무엇과 왜·고정 근거·acceptance check를 기존 증상과 채택 자료에서 자동으로 준비하되 생성 검사를 완화하거나 없는 reproduction 기준·채택 답을 만들어 넣지 않으며 reproduction test를 만들 수 없으면 사람 확인을 조건으로 두고 새 구현 요청과 그 외 근거가 부족한 수리는 담당 App Engineer에게 연결한다. 화면에서 만든 ticket은 `needs_confirmation`으로 열리고 App Engineer가 make_ready로 검사 가능한 계약을 완성하면 `ready`가 된다.
 - 이유: 사람이 복잡한 작성 양식을 채우지 않게 하면서 검사 가능한 ticket 계약을 지킨다.
 - 확인: 근거가 갖춰진 문제에서는 양식 없이 같은 필수 검사를 통과한 ticket이 생기고 reproduction test를 만들 수 없으면 "내가 확인함" 조건만 생기며 그 외 근거 부족은 무생성과 다음 행동이 보이고 새 구현 요청은 대화로 이어진다.
 - 의도: coding-agent#I4

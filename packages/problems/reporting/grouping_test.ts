@@ -7,7 +7,7 @@ import { listReportsRead } from "./reads.ts";
 import { emitObserved, emitOpened, existingProblem } from "../grouping/mod.ts";
 import { insertSnapshot, SNAPSHOTS_SCHEMA_STEPS } from "../snapshots/mod.ts";
 import { REPORTS_SCHEMA_STEPS } from "./schema.ts";
-import { fileLedger } from "../tests/mod.ts";
+import { fileLedger } from "../tests/testing/mod.ts";
 
 const APP = "app_01ary8h2z3n4p5q6r7s8t9v0wa";
 

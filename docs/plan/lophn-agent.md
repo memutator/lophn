@@ -222,6 +222,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md
 - 선행: T9, contracts#T26, platform#T24
+- 상태: 진행 (#250) — 남은 것: (1) 정상 종료의 미반영 steering 판정은 `RunLoopDeps.hasUnappliedSteering`로 열어 두었고 core 등록은 아직 연결하지 않았다. 입력 표를 소유한 T11(conversation)이 연결한다. (2) basis·result blob의 영구 참조 등록(`tx.registerBlobRef`)은 contract에 prepared 연결이 없어 hash만 저장한다(tools·usage와 같다). (3) agent credential 발급·종료(AgentAppScope 계산·registry 연결)는 runtime이 쓰는 쪽이라 T12 이후다. 이 작업은 StartRun이 scope의 assignment·role을 run과 대조해 기록한다. (4) waiting_user 전이는 waiting-and-recovery 작업이다.
 - 완료:
   - `runs` 표와 assignment당 running·waiting_user 하나의 partial unique
   - run_test.ts에 R1–R3, R5, R6, R14, R16–R18 테스트: 자료 변경·결과 도착·notification으로 run 없음, 접수 저장 뒤 응답·같은 key 재전달은 이전 결과·각 commit 직후 kill해도 accepted run 유실 없음, 같은 assignment 진행 하나와 다른 assignment 무관, 자리 대기 10분 넘어도 보존·시작 필수 설정이 영구히 없으면 이유와 종료, completed면 다음 시작·failed/stopped면 ConfirmNextRun까지 보존, 정상 종료는 미반영 steering 없을 때만 입력 접수와 원자 확정, 끝난 run의 늦은 결과는 supplement만, 멈춘 run 자동 재개 없음, 결과 한 번 확정과 완료 변경을 멈춤·실패로 되돌리지 않음

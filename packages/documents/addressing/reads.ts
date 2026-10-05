@@ -227,7 +227,10 @@ function resolveSection(
 }
 
 // 조상 이름을 /로 이은 전체 경로. parent 사슬의 title을 붙인다.
-function pathOf(stored: readonly StoredSection[], section: StoredSection): string {
+function pathOf(
+  stored: readonly StoredSection[],
+  section: StoredSection,
+): string {
   const names: string[] = [section.title];
   let parent = section.parent;
   let guard = 0;

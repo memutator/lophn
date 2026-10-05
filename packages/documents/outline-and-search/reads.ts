@@ -12,12 +12,15 @@ import type { DerivedRead } from "./adapters/store.ts";
 import { candidateDocuments } from "./candidates.ts";
 import {
   codepoints,
-  needsLikeFallback,
   preambleExcerpt,
   SNIPPET_TOKENS,
   trimmedQuery,
 } from "./model.ts";
-import { allOmissions, type SearchCoverage } from "./work.ts";
+import {
+  allOmissions,
+  OMISSION_UNVERIFIED,
+  type SearchCoverage,
+} from "./work.ts";
 import type {
   ContextItemSource,
   PortLookup,
@@ -127,10 +130,17 @@ export function createSearchHandlers(deps: SearchHandlerDeps): SearchHandlers {
       // 가용 요약·주제 cache의 결과를 합친다. 같은 LIKE 규약으로 현재 허용
       // 대상에 한해 비교한다. 아니오 모두 원문 일치에 흡수되지 않는다.
       const cacheResults: SearchResult[] = [];
-      if (coverage.processed_seq === coverage.ledger_basis_seq &&
-        !needLike(input)) {
+      if (
+        coverage.processed_seq === coverage.ledger_basis_seq &&
+        !needLike(input)
+      ) {
         for (const found of cacheMatchingDocuments(deps, candidates, rest)) {
-          const result = buildCacheResult(deps, found.document, found.row, rest);
+          const result = buildCacheResult(
+            deps,
+            found.document,
+            found.row,
+            rest,
+          );
           if (result === null) continue;
           // 원문 일치(같은 문서·section)는 실제 본문 근거가 우선이다.
           if (
@@ -594,7 +604,10 @@ export type OutlineHandlerDeps = {
 
 export type OutlineHandlers = {
   root(ctx: RequestContext, input: OutlineRootInput): Result<OutlineRootPage>;
-  place(ctx: RequestContext, input: OutlinePlaceInput): Result<OutlinePlacePage>;
+  place(
+    ctx: RequestContext,
+    input: OutlinePlaceInput,
+  ): Result<OutlinePlacePage>;
   document(
     ctx: RequestContext,
     input: OutlineDocumentInput,
@@ -602,23 +615,23 @@ export type OutlineHandlers = {
   read(ctx: RequestContext, input: DocumentReadInput): Result<DocumentReadPage>;
 };
 
-const outlineListEntry = {
-  document: "",
-  name: null as string | null,
-  title: "",
-  version: "",
-  latest_version: "",
-  format: null as unknown,
-  saved_by: "",
-  saved_at: "",
-  excerpt: null,
-  summary: null,
-  section_count: 0,
-};
-
 export type OutlineRootEntry =
-  | { kind: "project"; id: string; title: string; purpose: string; activity_seq: string; document_count: number }
-  | { kind: "app"; id: string; title: string; purpose: string; activity_seq: string; document_count: number }
+  | {
+    kind: "project";
+    id: string;
+    title: string;
+    purpose: string;
+    activity_seq: string;
+    document_count: number;
+  }
+  | {
+    kind: "app";
+    id: string;
+    title: string;
+    purpose: string;
+    activity_seq: string;
+    document_count: number;
+  }
   | { kind: "unplaced"; document_count: number };
 
 export type OutlineRootPage = {
@@ -755,9 +768,10 @@ function extractedStatus(
   if (row === undefined) return { status: "unverified", failure_reason: null };
   return {
     status: String(row["extraction_status"]),
-    failure_reason: row["failure_reason"] === null || row["failure_reason"] === undefined
-      ? null
-      : String(row["failure_reason"]),
+    failure_reason:
+      row["failure_reason"] === null || row["failure_reason"] === undefined
+        ? null
+        : String(row["failure_reason"]),
   };
 }
 
@@ -806,7 +820,9 @@ function buildRootEntries(
     });
   }
   const unplaced = placeDocumentCount(deps, null, null);
-  if (unplaced > 0) entries.push({ kind: "unplaced", document_count: unplaced });
+  if (unplaced > 0) {
+    entries.push({ kind: "unplaced", document_count: unplaced });
+  }
   return entries;
 }
 
@@ -869,7 +885,7 @@ function buildPlaceEntries(
     if (latest === null) continue;
     const format = formatRef(deps.snapshot, latest);
     if (format === null) continue;
-    const bytes = estimatedTokens(entryCost(deps, document, latest));
+    const bytes = estimatedTokens(entryCost(deps, latest));
     if (used + bytes > budget) {
       complete = false;
       break;
@@ -880,7 +896,10 @@ function buildPlaceEntries(
   return { entries, offset: entries.length, complete };
 }
 
-function entryCost(deps: OutlineHandlerDeps, document: string, version: string): number {
+function entryCost(
+  deps: OutlineHandlerDeps,
+  version: string,
+): number {
   const row = deps.read.sql.get(
     `SELECT section_count, line_count, extraction_status FROM derived_versions WHERE version = ?`,
     [version],
@@ -890,7 +909,10 @@ function entryCost(deps: OutlineHandlerDeps, document: string, version: string):
   return EXCERPT_CODEPOINT_LIMIT + 120;
 }
 
-function latestVersion(snapshot: SearchSnapshot, document: string): string | null {
+function latestVersion(
+  snapshot: SearchSnapshot,
+  document: string,
+): string | null {
   const row = snapshot.sql.get(
     `SELECT latest_version FROM documents WHERE id = ?`,
     [document],
@@ -950,7 +972,10 @@ function cacheSummary(
   };
 }
 
-function entryExcerpt(deps: OutlineHandlerDeps, version: string): string | null {
+function entryExcerpt(
+  deps: OutlineHandlerDeps,
+  version: string,
+): string | null {
   const row = deps.read.sql.get(
     `SELECT text FROM derived_texts WHERE version = ?`,
     [version],
@@ -977,12 +1002,10 @@ function sectionCount(deps: OutlineHandlerDeps, version: string): number {
 // document outline. depth·estimated_token_budget 예산, 숨긴 자식 수, 추출 상태.
 function buildDocumentOutline(
   deps: OutlineHandlerDeps,
-  ctx: RequestContext,
   document: string,
   version: string,
   depth: number,
   budget: number,
-  cursor?: string,
 ): Result<OutlineDocumentPage> {
   const status = extractedStatus(deps, version);
   const format = formatRef(deps.snapshot, version);
@@ -1082,19 +1105,16 @@ function buildDocumentOutline(
     file,
     entries,
     as_of_seq: deps.snapshot.as_of_seq,
-    next_cursor: complete
-      ? null
-      : encodeOutlineCursor({
-        topic: "outline.document",
-        basis_seq: deps.snapshot.as_of_seq,
-        sort: "position",
-        conditions: { document, depth, budget },
-        versions: [{ document, version }],
-        credential: "outline",
-      }, entries.length),
+    next_cursor: complete ? null : encodeOutlineCursor({
+      topic: "outline.document",
+      basis_seq: deps.snapshot.as_of_seq,
+      sort: "position",
+      conditions: { document, depth, budget },
+      versions: [{ document, version }],
+      credential: "outline",
+    }, entries.length),
     complete,
   });
-  void cursor;
 }
 
 function countBelow(
@@ -1134,7 +1154,9 @@ function isDescendant(
   return true;
 }
 
-function sectionStatusOf(status: { status: string; failure_reason: string | null }): {
+function sectionStatusOf(
+  status: { status: string; failure_reason: string | null },
+): {
   status: string;
   failure_reason: string | null;
 } | null {
@@ -1171,7 +1193,9 @@ function primaryFile(
   };
 }
 
-function parseRanges(value: unknown): { start_line: number; end_line: number }[] {
+function parseRanges(
+  value: unknown,
+): { start_line: number; end_line: number }[] {
   if (typeof value !== "string") return [];
   try {
     const parsed: unknown = JSON.parse(value);
@@ -1210,7 +1234,7 @@ function readDocumentBody(
     : null;
   if (document === null) return deny();
   const row = deps.snapshot.sql.get(
-    `SELECT id, place_kind, place_id, latest_version FROM documents WHERE id = ?`,
+    `SELECT id, place_kind, place_id, latest_version, status FROM documents WHERE id = ?`,
     [document],
   );
   if (row === undefined) return deny();
@@ -1231,9 +1255,10 @@ function readDocumentBody(
   ) return deny();
   const latest = latestVersion(deps.snapshot, document);
   if (latest === null) return deny();
-  const requested = reference.version === null || reference.version === undefined
-    ? latest
-    : String(reference.version);
+  const requested =
+    reference.version === null || reference.version === undefined
+      ? latest
+      : String(reference.version);
   const exists = deps.snapshot.sql.get(
     `SELECT format_name, module_hash FROM versions WHERE id = ? AND document = ?`,
     [requested, document],
@@ -1310,7 +1335,7 @@ function readDocumentBody(
       ranges: [],
       text: null,
       redacted: false,
-      failure_reason: null,
+      failure_reason: OMISSION_UNVERIFIED,
       omission_reason: null,
       complete: true,
       next_cursor: null,
@@ -1320,7 +1345,13 @@ function readDocumentBody(
   const text = String(content["text"]);
   const textHash = String(content["text_hash"]);
   const lines = text.split("\n");
-  const selected = selectLines(deps, requested, section, includeChildren, input.ranges ?? []);
+  const selected = selectLines(
+    deps,
+    requested,
+    section,
+    includeChildren,
+    input.ranges ?? [],
+  );
   const cursorState = input.cursor === undefined
     ? ok({ line: 1, codepoint: 0 })
     : decodeBodyCursor(input.cursor, {
@@ -1368,18 +1399,16 @@ function readDocumentBody(
     failure_reason: null,
     omission_reason: omissionReason,
     complete: chunk.complete,
-    next_cursor: chunk.complete
-      ? null
-      : encodeBodyCursor({
-        ver: requested,
-        module_hash: format.module_hash,
-        section,
-        include_children: includeChildren,
-        ranges: input.ranges ?? [],
-        line: chunk.position.line,
-        codepoint: chunk.position.codepoint,
-        text_hash: textHash,
-      }),
+    next_cursor: chunk.complete ? null : encodeBodyCursor({
+      ver: requested,
+      module_hash: format.module_hash,
+      section,
+      include_children: includeChildren,
+      ranges: input.ranges ?? [],
+      line: chunk.position.line,
+      codepoint: chunk.position.codepoint,
+      text_hash: textHash,
+    }),
     as_of_seq: deps.snapshot.as_of_seq,
   });
 }
@@ -1421,11 +1450,27 @@ function selectLines(
     }
   }
   for (const range of ranges) push(range.start_line, range.end_line);
+  // section·범위 선택이 없으면 전체 본문이다. 1-based 줄 처음부터 끝까지다.
+  if (selected.length === 0) {
+    const total = lineCountOf(deps, version);
+    push(1, total);
+  }
   return selected.sort((a, b) => a - b);
 }
 
+function lineCountOf(deps: OutlineHandlerDeps, version: string): number {
+  const row = deps.read.sql.get(
+    `SELECT line_count FROM derived_versions WHERE version = ?`,
+    [version],
+  );
+  if (row === undefined) return 0;
+  return numberCell(row["line_count"]);
+}
+
 // handler 네 개. route 선언은 contract가 하고, 여기서 read handler만 낸다.
-export function createOutlineHandlers(deps: OutlineHandlerDeps): OutlineHandlers {
+export function createOutlineHandlers(
+  deps: OutlineHandlerDeps,
+): OutlineHandlers {
   return {
     root(ctx, input) {
       void input;
@@ -1475,19 +1520,17 @@ export function createOutlineHandlers(deps: OutlineHandlerDeps): OutlineHandlers
         entries,
         coverage: coverageOfLike(deps.read, deps.snapshot.as_of_seq),
         as_of_seq: deps.snapshot.as_of_seq,
-        next_cursor: complete
-          ? null
-          : encodeOutlineCursor({
-            topic: "outline.place",
-            basis_seq: deps.snapshot.as_of_seq,
-            sort: "updated_desc",
-            conditions: { place: input.place, budget },
-            versions: entries.map((entry) => ({
-              document: entry.document,
-              version: entry.version,
-            })),
-            credential: ctx.credential_ref,
-          }, cursorState.value.offset + entries.length),
+        next_cursor: complete ? null : encodeOutlineCursor({
+          topic: "outline.place",
+          basis_seq: deps.snapshot.as_of_seq,
+          sort: "updated_desc",
+          conditions: { place: input.place, budget },
+          versions: entries.map((entry) => ({
+            document: entry.document,
+            version: entry.version,
+          })),
+          credential: ctx.credential_ref,
+        }, cursorState.value.offset + entries.length),
         complete,
       });
     },
@@ -1520,7 +1563,8 @@ export function createOutlineHandlers(deps: OutlineHandlerDeps): OutlineHandlers
       const latest = latestVersion(deps.snapshot, document);
       if (latest === null) return deny();
       const requested = "version" in reference && reference.version !== null &&
-          reference.version !== undefined && typeof reference.version === "string"
+          reference.version !== undefined &&
+          typeof reference.version === "string"
         ? reference.version
         : latest;
       const exists = deps.snapshot.sql.get(
@@ -1530,12 +1574,10 @@ export function createOutlineHandlers(deps: OutlineHandlerDeps): OutlineHandlers
       if (exists === undefined) return deny();
       return buildDocumentOutline(
         deps,
-        ctx,
         document,
         requested,
         input.depth ?? DOCUMENT_OUTLINE_DEPTH,
         input.estimated_token_budget ?? PLACE_BUDGET,
-        input.cursor,
       );
     },
     read(ctx, input) {

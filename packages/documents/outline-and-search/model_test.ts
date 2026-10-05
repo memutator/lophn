@@ -141,8 +141,13 @@ Deno.test("documents/outline-and-search#R9: 목록 cursor는 조건 mismatch에 
     topic: "outline.place",
     basis_seq: "5",
     sort: "updated_desc",
-    conditions: { place: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" } },
-    versions: [{ document: "doc_01arz3ndektsv4rrffq69g5fav", version: "ver_01arz3ndektsv4rrffq69g5fav" }],
+    conditions: {
+      place: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fav" },
+    },
+    versions: [{
+      document: "doc_01arz3ndektsv4rrffq69g5fav",
+      version: "ver_01arz3ndektsv4rrffq69g5fav",
+    }],
     credential: "current",
   };
   const cursor = encodeOutlineCursor(basis, 10);
@@ -174,7 +179,9 @@ Deno.test("documents/outline-and-search#R9: 목록 cursor는 조건 mismatch에 
     credential: "other",
   });
   assertEquals(otherCredential.ok, false);
-  if (!otherCredential.ok) assertEquals(otherCredential.error.code, "invalid_input");
+  if (!otherCredential.ok) {
+    assertEquals(otherCredential.error.code, "invalid_input");
+  }
   // basis_seq가 지나갔으면 conflict다. 안정 기준이 없다.
   const expired = decodeOutlineCursor(cursor, {
     topic: basis.topic,
@@ -199,7 +206,10 @@ Deno.test("documents/outline-and-search#R9: 목록 cursor는 조건 mismatch에 
 
 // err 헬퍼가 Result 약속을 유지하는지 본다. cursor decode가 같은 약속이다.
 Deno.test("documents/outline-and-search#R9: decode 약속은 Result err 코드 하나다", () => {
-  const failure = err({ code: "conflict", message: "outline page basis advanced" });
+  const failure = err({
+    code: "conflict",
+    message: "outline page basis advanced",
+  });
   assertEquals(failure.ok, false);
   if (!failure.ok) assertEquals(failure.error.code, "conflict");
   // encode는 빈 version이어도 canonical JSON 하나라 통과한다. 형식 검사는 decode 몫이다.

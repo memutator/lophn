@@ -78,7 +78,7 @@ Deno.test("coding-agent/harnesses#R8: YAML은 소유 map만 넣고 다른 key를
   if (!after.ok) return;
   assertEquals(after.value.env, { A: "1" });
   const servers = after.value.mcp_servers;
-  assert(typeof servers !== "string");
+  assert(typeof servers !== "string" && !Array.isArray(servers));
   assertEquals(servers.other, { command: "keep" });
   assertEquals(servers.lophn, { command: "lophn" });
   const removed = removeYaml(set.text, "mcp_servers.lophn");
@@ -88,9 +88,67 @@ Deno.test("coding-agent/harnesses#R8: YAML은 소유 map만 넣고 다른 key를
   assert(gone.ok);
   if (!gone.ok) return;
   const left = gone.value.mcp_servers;
-  assert(typeof left !== "string");
+  assert(typeof left !== "string" && !Array.isArray(left));
   assertEquals(left.lophn, undefined);
   assertEquals(left.other, { command: "keep" });
+});
+
+Deno.test("coding-agent/harnesses#R8: YAML install은 args를 block sequence로 쓰고 다시 읽으면 배열이다", () => {
+  const before = "mcp_servers:\n  other:\n    command: keep\n";
+  const owned = {
+    command: "lophn",
+    args: ["mcp", "--flag", "@scope/x y", "-y"],
+    env: { A: "1" },
+  };
+  const set = setYaml(before, "mcp_servers.lophn", owned);
+  assert(set.kind === "changed");
+  if (set.kind !== "changed") return;
+  // index map(`0:`)이 아니라 `- ` 항목이다.
+  assert(!/^\s*\d+:/m.test(set.text));
+  assert(set.text.includes('    args:\n      - mcp\n      - "--flag"\n'));
+  const after = parseYaml(set.text);
+  assert(after.ok);
+  if (!after.ok) return;
+  const servers = after.value.mcp_servers;
+  assert(typeof servers !== "string" && !Array.isArray(servers));
+  assertEquals(servers.lophn, owned);
+  assertEquals(servers.other, { command: "keep" });
+  // 같은 값을 다시 install하면 무변경이다.
+  assertEquals(setYaml(set.text, "mcp_servers.lophn", owned).kind, "unchanged");
+  // 목록이 바뀌면 바뀐다.
+  const next = setYaml(set.text, "mcp_servers.lophn", {
+    ...owned,
+    args: ["mcp"],
+  });
+  assert(next.kind === "changed");
+});
+
+Deno.test("coding-agent/harnesses#R8: YAML은 다른 server의 목록과 같은 들여쓰기 목록을 보존한다", () => {
+  const before =
+    'mcp_servers:\n  other:\n    command: keep\n    args:\n    - "-y"\n    - pkg\nallow:\n  - Bash\n';
+  const set = setYaml(before, "mcp_servers.lophn", {
+    command: "lophn",
+    args: ["a"],
+  });
+  assert(set.kind === "changed");
+  if (set.kind !== "changed") return;
+  const after = parseYaml(set.text);
+  assert(after.ok);
+  if (!after.ok) return;
+  assertEquals(after.value.allow, ["Bash"]);
+  const servers = after.value.mcp_servers;
+  assert(typeof servers !== "string" && !Array.isArray(servers));
+  assertEquals(servers.other, { command: "keep", args: ["-y", "pkg"] });
+  assertEquals(servers.lophn, { command: "lophn", args: ["a"] });
+  const removed = removeYaml(set.text, "mcp_servers.lophn");
+  assert(removed.kind === "changed");
+  if (removed.kind !== "changed") return;
+  assert(removed.text.includes("- pkg") && removed.text.includes("- Bash"));
+});
+
+Deno.test("coding-agent/harnesses#R8: 깨진 YAML 목록은 무변경이다", () => {
+  assertEquals(setYaml("a:\n  - x: y\n", "m.l", {}).kind, "broken");
+  assertEquals(setYaml("- x\n", "m.l", {}).kind, "broken");
 });
 
 Deno.test("coding-agent/harnesses#R7: 소유 조각 digest는 lophn key만 본다", () => {

@@ -29,7 +29,7 @@ import { SNAPSHOTS_SCHEMA_STEPS } from "../../packages/problems/snapshots/mod.ts
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
 import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
-import { reportProblem } from "../../packages/contracts/problems/mod.ts";
+import { reportProblem, observeException } from "../../packages/contracts/problems/mod.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
 
 // owner definitions만 내보낸다. port 구현과 writer 조립은 core가 맡는다.
@@ -115,7 +115,8 @@ export const problemsReportDefinitions = {
   ports: {} as Record<string, TxPortRegistration>,
   workers: reportCollectorWorkers(),
   // 보고 접수 worker route(T3). dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
-  workerRoutes: [reportProblem],
+  // observe-exception도 예외 진단을 collector로 넘긴다(process 출처).
+  workerRoutes: [reportProblem, observeException],
 };
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).

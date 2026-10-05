@@ -48,11 +48,13 @@ export { createListEventsRead, scanEvents } from "./events.ts";
 export type { EventBatch, EventScan } from "./events.ts";
 export { createReaderEventBackend } from "./event-backend.ts";
 export {
+  collectEventRegistrations,
   createEventVisibilityRegistry,
   currentEventContext,
 } from "./event-visibility.ts";
 export type {
   EventReadGate,
+  EventRegistration,
   EventVisibilityRegistry,
   SubjectScopeGate,
 } from "./event-visibility.ts";

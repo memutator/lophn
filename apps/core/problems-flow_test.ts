@@ -12,6 +12,7 @@ import type { RecordReportInput } from "../../packages/contracts/problems/mod.ts
 import { ROUTES as PROBLEM_ROUTES } from "../../packages/contracts/problems/mod.ts";
 import { startCore } from "./core.ts";
 import {
+  createLedgerRegistration as createProblemsRegistration,
   problemsReportDefinitions,
   problemsTestDefinitions,
 } from "./problems.ts";
@@ -29,7 +30,13 @@ function credential(): AuthenticatedContext {
     principal: "collector-1",
     actor: "machine",
     scope: {
-      operations: ["RecordReport", "GetReport"],
+      operations: [
+        "RecordReport",
+        "GetReport",
+        "ListProblems",
+        "GetProblem",
+        "ListReports",
+      ],
       targets: {},
     },
     conditions: {},
@@ -276,6 +283,27 @@ Deno.test("problems/reporting#R3 R4 R9 R12: 제품 core에 record-report가 닿�
     assertEquals(readBody.snapshot!.id, input.snapshot.id);
     assertEquals(readBody.missing.screen!.reason, "not collected");
 
+    // 문제 목록·상세·보고 목록도 같은 reader 풀로 닿는다(problems#T6).
+    const listed = await post(core.port, "/v1/problems/list", {}, token);
+    assertEquals(listed.status, 200, JSON.stringify(listed.body));
+    const problems = (listed.body as { problems: { id: string }[] }).problems;
+    assertEquals(problems.map((item) => item.id), [acceptance.problem]);
+    const detail = await post(core.port, "/v1/problems/get", {
+      problem: acceptance.problem,
+    }, token);
+    assertEquals(detail.status, 200, JSON.stringify(detail.body));
+    assertEquals((detail.body as { report_count: number }).report_count, 1);
+    const reports = await post(core.port, "/v1/problems/list-reports", {
+      problem: acceptance.problem,
+    }, token);
+    assertEquals(reports.status, 200, JSON.stringify(reports.body));
+    assertEquals(
+      (reports.body as { reports: { id: string }[] }).reports.map((item) =>
+        item.id
+      ),
+      [input.report.id],
+    );
+
     // 비운영 보고는 진단 scope가 필수다(R4): live 형식 그대로 scope null은
     // input schema가 거절한다.
     const scopeless = await post(core.port, "/v1/problems/record-report", {
@@ -311,4 +339,148 @@ Deno.test("problems/grouping: exception group key의 canonical JSON은 discrimin
     discriminator: "rpt_01arz3ndektsv4rrffq69g5fav",
   };
   assertEquals(canonicalize(key), canonicalize({ ...key }));
+});
+
+// 고정한 로그 조각은 제품 core의 GetSnapshotLogs로 읽힌다(snapshots#R13, R16).
+// 바이트는 blob store에서 오고, 앱 actor와 없는 snapshot은 읽지 못한다.
+Deno.test("problems/snapshots#R13 R16: 접수한 로그 조각은 user가 GetSnapshotLogs로 읽고 앱 credential과 없는 snapshot은 읽지 못한다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-problems-logs-" });
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [
+      { problemsTestDefinitions },
+      { problemsReportDefinitions },
+      { createLedgerRegistration: createProblemsRegistration },
+    ],
+    teamModules: [new URL("./problems.ts", import.meta.url).href],
+    clock: manualClock(NOW_MS),
+    random: seededRandom(1),
+    testCredentials: true,
+  });
+  assert(started.ok, started.ok ? "" : started.error.message);
+  const core = started.value;
+  try {
+    assert(core.acceptTestCredential);
+    const collectorToken = "a".repeat(43);
+    const collector = credential();
+    const accepted = await core.acceptTestCredential(collector, collectorToken);
+    assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
+    const recorded = await core.record(collector);
+    assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+
+    const prepared = await core.prepareBlob({
+      principal: "collector-1",
+      purpose: "snapshot_logs",
+      bytes: new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("log one\nlog two"));
+          controller.close();
+        },
+      }),
+    });
+    assert(prepared.ok, prepared.ok ? "" : prepared.error.message);
+    const input = liveInput(3);
+    const template = input.blobs[0]!;
+    if (template.source.kind !== "prepared") throw new Error("prepared");
+    input.snapshot = {
+      ...input.snapshot,
+      logs: {
+        ...input.snapshot.logs!,
+        blob: prepared.value.hash,
+        line_count: 2,
+        truncated: true,
+        scope: "app log fragment",
+      },
+    };
+    input.blobs = [{
+      ...template,
+      hash: prepared.value.hash,
+      size_bytes: prepared.value.size_bytes,
+      source: {
+        kind: "prepared" as const,
+        blob: {
+          ...template.source.blob,
+          preparation: prepared.value.preparation,
+          hash: prepared.value.hash,
+          size_bytes: prepared.value.size_bytes,
+        },
+      },
+    }];
+    const recordedReport = await post(
+      core.port,
+      "/v1/problems/record-report",
+      {
+        input,
+        idempotency_key: "problems-logs-1",
+        compare: {
+          active_release: "rel_01arz3ndektsv4rrffq69g5fav",
+          problem_seq: null,
+        },
+        prepared: [],
+      },
+      collectorToken,
+    );
+    assertEquals(
+      recordedReport.status,
+      200,
+      JSON.stringify(recordedReport.body),
+    );
+
+    const userToken = "b".repeat(43);
+    const user = {
+      principal: "user-1",
+      actor: "user" as const,
+      scope: { operations: ["GetSnapshotLogs"], targets: {} },
+      conditions: {},
+      credential_ref: "cred-problems-logs-user",
+    };
+    const userAccepted = await core.acceptTestCredential(user, userToken);
+    assert(userAccepted.ok, userAccepted.ok ? "" : userAccepted.error.message);
+    const userRecorded = await core.record(user);
+    assert(userRecorded.ok, userRecorded.ok ? "" : userRecorded.error.message);
+    const read = await post(core.port, "/v1/problems/get-snapshot-logs", {
+      snapshot: snp(3),
+    }, userToken);
+    assertEquals(read.status, 200, JSON.stringify(read.body));
+    const fragment = (read.body as { fragment: Record<string, unknown> })
+      .fragment;
+    assertEquals(fragment["kind"], "fragment");
+    assertEquals(fragment["lines"], ["log one", "log two"]);
+    assertEquals(fragment["truncated"], true);
+    assertEquals(fragment["scope"], "app log fragment");
+    assertFalse(Object.keys(fragment).some((key) => /rate|ratio/.test(key)));
+
+    // 없는 snapshot은 not_found다.
+    const missing = await post(core.port, "/v1/problems/get-snapshot-logs", {
+      snapshot: snp(4),
+    }, userToken);
+    assertEquals(missing.status, 404, JSON.stringify(missing.body));
+
+    // 앱 credential은 같은 snapshot도 없는 snapshot도 읽지 못하고 답이 같다.
+    const appToken = "c".repeat(43);
+    const app = {
+      principal: "app-1",
+      actor: "app:app_01arz3ndektsv4rrffq69g5fav" as const,
+      scope: { operations: ["GetSnapshotLogs"], targets: {} },
+      conditions: {},
+      credential_ref: "cred-problems-logs-app",
+    };
+    const appAccepted = await core.acceptTestCredential(app, appToken);
+    assert(appAccepted.ok, appAccepted.ok ? "" : appAccepted.error.message);
+    const appRecorded = await core.record(app);
+    assert(appRecorded.ok, appRecorded.ok ? "" : appRecorded.error.message);
+    const known = await post(core.port, "/v1/problems/get-snapshot-logs", {
+      snapshot: snp(3),
+    }, appToken);
+    const unknown = await post(core.port, "/v1/problems/get-snapshot-logs", {
+      snapshot: snp(4),
+    }, appToken);
+    assert(known.status >= 400);
+    assertEquals(known, unknown);
+    assertFalse(JSON.stringify(known.body).includes("log one"));
+  } finally {
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
+  }
 });

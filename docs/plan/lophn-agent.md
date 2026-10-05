@@ -257,9 +257,11 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 조사: docs/research/agent-run-loop.md
 - 선행: T10, platform#T25
 - T10에서 넘어온 것: StartRun이 받는 agent credential 발급·종료와 AgentAppScope 계산(#250은 scope의 assignment·role 일치만 본다)
+- 상태: 완료 (#260) — 이어보냄: selector·StartRun·credential을 부르는 loop와 credential 전달 pipe 메시지·core 발급 자리·`current/live` 연결(platform에 맡은 작업 없음) → T26, AgentAppScope 입력(blueprint command 선언·agent.commands grant) loader → T44. StartRun은 한도를 현재 공통 설정에서 정하고 보낸 값이 다르면 `invalid_input`으로 거절한다
 - 완료:
   - selector_test.ts에 R4 테스트: 세 우선순위 FIFO, 상위 8개 연속 뒤 가장 오래된 하위 후보, 막힌 assignment는 양보를 쓰지 않음, streak를 RunStarted에서 재구성
-  - limits_test.ts에 R19–R22 테스트: run 한도는 공통 설정(model 시도 30·무진행 300000ms·전체 1800000ms, 양의 정수만, 사람만 다음 run부터 변경), 완전 응답·확정 결과만 진행, 실패 시도도 셈, 부분 token은 reset 안 함, 세 한도 각각에서 추가 judgment·organizing·마무리 model 호출 0건과 machine 결과, 퍼센트·예상 종료·추론 원문 없음
+  - limits_test.ts에 R19–R22 테스트(StartRun은 현재 설정과 다른 한도를 받지 않음 포함): run 한도는 공통 설정(model 시도 30·무진행 300000ms·전체 1800000ms, 양의 정수만, 사람만 다음 run부터 변경), 완전 응답·확정 결과만 진행, 실패 시도도 셈, 부분 token은 reset 안 함, 세 한도 각각에서 추가 judgment·organizing·마무리 model 호출 0건과 machine 결과, 퍼센트·예상 종료·추론 원문 없음
+  - scope_test.ts·credentials_test.ts와 apps/core/run-credentials_test.ts에 넘어온 것 테스트(roles/common#R11, roles/app-engineer#R21, platform/ledger#R11, platform/identity#R14): 역할별 AgentAppScope는 선언 ∩ 사람 허락 안에서만(CE 없음, Operator 승인 read만, AE 담당 앱의 read·되돌릴 수 있는 write), run 하나에 묶인 `agent:<asg>` credential은 StartRun의 scope를 그대로 싣고 넓히지 못하며 run 종료·assignment 멈춤·감독 상실에 끝남
 
 ### T13 SSE parser와 Anthropic Messages adapter
 
@@ -480,6 +482,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다
 - T10에서 넘어온 것: run basis와 result의 blob 영구 참조 등록(#250은 hash만 둔다)
+- T12에서 넘어온 것: (1) `RunSelector.next()`로 고른 run을 StartRun으로 시작하고 `beginRun`·`createRunCredentials`(#260)로 `agent:<asg>` credential을 받아 tool 진입에만 쓰며 run 종료·멈춤·감독 상실에 `end`한다. (2) credential을 core에서 runtime으로 전달하는 감독 pipe 메시지(app_credential_request의 agent판)와 core의 `CredentialRegistry.issue` 호출 자리, run 상태를 다시 보는 `current/live` 연결은 platform에 맡은 작업이 없다(platform#T24는 registry까지 닫혔다). 이 작업이 platform·contracts에 그 계약을 요청해 받은 뒤 연결하고, 계약이 없으면 멈추고 lead에게 보고한다.
 - 완료:
   - loop_test.ts에 R8–R13, R15, R23–R25 테스트(fake provider·clock·owner contract): model이 응답하지 않아도 core read·다른 assignment가 진행, turn 순서와 조립 뒤 입력·멈춤 재확인, 수정 입력은 다음 tool 전에 새 판단, 불완전 응답의 tool 0개와 잘림을 다음 판단에 전달, 모든 call이 확인된 read일 때만 병렬·하나라도 아니면 요청 순서 순차·결과는 요청 순서, 없는 tool·잘못된 인자는 call별 결과·인자 보정 없음, 순차 write·external 거절·최종 실패 뒤 나머지 미실행 이유·독립 read 결과 보존, 멈춤 뒤 새 model·tool·retry 차단·진행 호출 중단 요청·미시작 call 미실행 결과 합성, 일시 실패만 최대 2회(서버 시각을 지키고 없으면 2초·4초, fake clock으로 서버 시각 전 재시도 없음)·부분 응답 미채택, tool retry는 read·멱등 write만 1회 1초±10%와 재판정, provider 끄기·MCP 제거 뒤 새 진입 차단
   - flow steer-agent-work의 agent 갈래
@@ -764,6 +767,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: apps
 - 조사: docs/research/tool-registry-and-judgment.md
 - 선행: T21, T22, T26, T27, apps#T2, apps#T4, apps#T5, apps#T7, apps#T9, apps#T10, apps#T11, apps#T12, apps#T19, problems#T6, problems#T7
+- T12에서 넘어온 것: StartRun에 싣는 AgentAppScope의 입력(`AppOffer`: active release blueprint의 command 선언 key·effect·confirm·revert 지원과 apps `agent.commands` grant의 허락 command)을 apps contract read로 읽어 `computeAgentAppScope`(#260)에 넘기는 loader. 역할별 계산 자체는 #260에 있다
 - 완료:
   - app_tools_test.ts에 tools#R8, R16, R17 테스트(fixture 앱): active blueprint에서 command마다 이름·설명·input JSON Schema·effect·confirm·되돌리기 지원으로 tool 정의 자동 생성(별도 MCP 등록 없음), 역할·현재 허락·AgentAppScope 교집합만, release·계약 변경·허락 회수 뒤 옛 정의 호출 없음, source·원본·secret 값 접근 없음, 결과 유실은 ToolCall ID request_key로 status(apps#T7)·invocations(apps#T11) 조회
   - app_judgment_test.ts에 tool-judgment#R10, R11 테스트: confirm은 effect보다 먼저 ask·read allow·`command.revert.supported` 대응 command가 검증된 write는 allow·나머지 write와 external은 ask, ticket 취소는 묻지 않음, 성공 receipt `{invocation, receipt, expected_revision}` 보존, undo 문구만으로 낮추지 않음, ask와 confirm이 겹치면 approval 한 번(apps#T12)
@@ -1048,3 +1052,4 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - **Q28 catalog read 등록 자리** (추천으로 진행). T4의 read 정의는 model leaf(packages/lophn-agent/harness/model)의 검증 helper를 쓰는데, platform/responsiveness#R1의 core import tripwire가 core module graph에서 packages/lophn-agent 전체를 막아 apps/core/lophn-agent.ts에서 정의를 붙일 수 없다. 추천: read 등록은 T5의 reads.ts 자리에서 reader worker 등록과 함께 leaf를 끼우고, core 정적 graph는 leaf import이 없다. 영향: T4, T5.
 - **Q29 메시지 본문 blob의 영구 참조 등록** (추천으로 진행). ReceiveMessage·RecordMessage 입력은 본문 hash만 받아 준비(preparation)·크기 증거가 없고, `tx.registerBlobRef`는 그 증거 없이 부를 수 없다. T11은 hash만 messages.body에 저장하고 redaction 거친 blob의 영구 참조 등록은 하지 않는다(T10의 run basis·result와 같은 이월). 추천: contracts에서 두 command 입력이 prepared blob 증거(reporting의 blob source 모양)를 싣게 바꾼 뒤 T26 때 run basis·result와 함께 등록한다. 그 전에는 실제 blob을 올리는 사람 입력 경로를 열지 않는다(참조가 없는 blob은 7일 뒤 정리 대상이다). 영향: T11, T26.
 - **Q30 ApplyMessages와 StartModelCall의 한 transaction** (추천으로 진행). domain model은 최초 반영을 ModelCall 시작과 같은 transaction에 두라 하지만 StartModelCall 입력의 `applied_messages`는 아직 아무것도 하지 않는다. T11은 ApplyMessages를 `dispatchable`로 등록해 두었다. 추천: usage의 StartModelCall이 `applied_messages`가 있으면 같은 Tx에서 `tx.call(applyMessages, …)`을 부르고, 그 변경(usage 시험의 빈 목록 가정 포함)은 agent loop의 입력 선택과 함께 T26이 한다. 영향: T11, T26, usage.
+- **Q31 selector 우선순위 칸의 경계** (추천으로 진행). run-loop#R4는 "사람이 지금 기다리는 일"과 "사람의 한 번짜리 일"을 가르는 기준과, 8개 연속을 어떤 하위 후보 기준으로 세는지 정하지 않았다. 추천: 사람이 대화에서 입력한 요청(message 출처이고 continued_from 없음)은 1칸, handoff와 사람이 다시 맡긴 요청(continued_from)은 2칸, 주기 회차는 3칸이다. 8개 연속은 칸마다 가장 오래된 후보를 기준으로 그 후보가 접수된 뒤 더 높은 칸의 시작이 끊김 없이 8개였을 때이고, 연속은 RunStarted event와 run 출처에서 다시 만든다(후보가 없거나 막힌 assignment는 세지도 쓰지도 않는다). 영향: T12(`harness/run-loop/work.ts`), T26.

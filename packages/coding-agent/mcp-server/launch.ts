@@ -27,6 +27,10 @@ export type McpLaunchInputs = {
   cwd?: string;
 };
 
+// MCP 실행 entry의 설치 resource root 기준 경로다. 설치 설정(harnesses)과 doctor
+// probe도 이 값 하나로 같은 entry를 가리킨다.
+export const MCP_ENTRY = "apps/mcp/main.ts";
+
 const TOOLSETS_ENV = "LOPHN_MCP_TOOLSETS";
 
 const TOOLSETS_ARG = "--toolsets";
@@ -60,7 +64,7 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
   env: Record<string, string>;
 } {
   const resources = inputs.resources.replace(/\/$/, "");
-  const entry = `${resources}/apps/mcp/main.ts`;
+  const entry = `${resources}/${MCP_ENTRY}`;
   const config = `${resources}/deno.json`;
   const net = [
     netValue(inputs.coreEndpoint),

@@ -37,6 +37,7 @@ import {
 import {
   createRunCommands,
   createRunReads,
+  RUN_LIMIT_SETTING_KEYS,
   runSchemaSteps,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
@@ -52,6 +53,7 @@ import {
   toolsSchemaSteps,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
+  DEFAULT_RUN_LIMITS,
   type McpServerConfig,
   mcpServersSetting,
 } from "../../packages/contracts/lophn-agent/mod.ts";
@@ -127,6 +129,52 @@ export const skillFoldersSetting = defineSetting({
   default: [],
   value_type: z.array(z.string().regex(/^(\/|[A-Za-z]:\\).+/)).max(64),
 });
+
+// run 한도 정의 등록(contracts#T24 settings registry, lophn-agent#T12). 공통 설정
+// 하나씩이고 양의 정수만 받는다(run-loop R20). 0·무제한·역할의 인상은 없다. 사람이
+// 바꾸고 다음 run부터 적용하며 run은 시작할 때 값을 고정한다.
+function runLimitSetting(
+  key: keyof typeof RUN_LIMIT_SETTING_KEYS,
+  fallback: number,
+  unit: string,
+) {
+  return defineSetting({
+    key: RUN_LIMIT_SETTING_KEYS[key],
+    owner: "lophn-agent/harness/run-loop",
+    display_name_key: `settings.lophn-agent.run_${key}.name`,
+    description: `Run limit: ${key} (${unit}).`,
+    value_meaning_key: `settings.lophn-agent.run_${key}.value`,
+    default_meaning_key: `settings.lophn-agent.run_${key}.default`,
+    affected_features: ["lophn-agent/harness/run-loop"],
+    risk_key: `settings.lophn-agent.run_${key}.risk`,
+    revert_key: `settings.lophn-agent.run_${key}.revert`,
+    constraints: { minimum: 1, type: "positive integer", unit },
+    required: false,
+    layers: ["common"],
+    apply_at: "next_run",
+    apply_at_key: `settings.lophn-agent.run_${key}.apply_at`,
+    machine_local: false,
+    default_present: true,
+    default: fallback,
+    value_type: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+  });
+}
+
+export const runModelAttemptsSetting = runLimitSetting(
+  "model_attempts",
+  DEFAULT_RUN_LIMITS.model_attempts,
+  "attempts",
+);
+export const runStallSetting = runLimitSetting(
+  "stall_ms",
+  DEFAULT_RUN_LIMITS.stall_ms,
+  "ms",
+);
+export const runActiveSetting = runLimitSetting(
+  "active_ms",
+  DEFAULT_RUN_LIMITS.active_ms,
+  "ms",
+);
 
 // derived catalog read는 model leaf의 read 정의로 reader worker 등록에 붙는다
 // (plan/lophn-agent Q28). pool read handler는 동기 Result를 돌려주므로 파일 읽기도
@@ -219,7 +267,14 @@ const toolReads = createToolReads();
 
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
-  settings: [catalogAutoUpdateSetting, skillFoldersSetting, mcpServersSetting],
+  settings: [
+    catalogAutoUpdateSetting,
+    skillFoldersSetting,
+    mcpServersSetting,
+    runModelAttemptsSetting,
+    runStallSetting,
+    runActiveSetting,
+  ],
   schemaSteps: [
     ...providerSchemaSteps,
     ...modelSchemaSteps,

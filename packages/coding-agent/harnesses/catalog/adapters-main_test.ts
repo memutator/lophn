@@ -15,6 +15,8 @@ import { install, observe } from "../integration/apply.ts";
 import { planOf } from "../integration/plan.ts";
 import { remove } from "../integration/remove.ts";
 import { filePort, storeOf } from "../integration/journal.ts";
+import { MCP_ENTRY, mcpLaunchArgv } from "../../mcp-server/mod.ts";
+import { parseYaml } from "../adapters/yaml.ts";
 import { catalogOf } from "./definitions.ts";
 
 const NOW = "2026-10-06T00:00:00.000Z";
@@ -596,4 +598,112 @@ Deno.test("coding-agent/connection#R14: 제거는 receipt의 lophn 소유 조각
   const parsed = JSON.parse((await readOrNull(path))!);
   assertEquals(parsed.context.fileName, ["GEMINI.md"]);
   assertEquals(parsed.mcpServers, { other: { command: "keep" } });
+});
+
+function hermesConfigPath(fx: Fixture): string {
+  const root = rootOf("hermes_home", {
+    home: fx.home,
+    env: fx.env,
+    cwd: fx.project,
+  });
+  assert(root.ok);
+  return `${root.ok ? root.value : ""}/config.yaml`;
+}
+
+// 처음 설치는 어떤 시작 상태에서도 mcp_servers.lophn을 읽히는 YAML로 만들고
+// 다시 설치하면 unchanged다.
+async function hermesFirstInstall(
+  initial: string | null,
+  check: (text: string) => void,
+): Promise<void> {
+  const fx = await fixture();
+  const path = hermesConfigPath(fx);
+  if (initial !== null) await write(path, initial);
+  const first = await installAll(fx, "hermes", "user");
+  assertEquals(first.outcomes["mcp:user"], "changed");
+  const text = (await readOrNull(path))!;
+  const parsed = parseYaml(text);
+  assert(parsed.ok);
+  if (!parsed.ok) return;
+  const servers = parsed.value.mcp_servers as Record<string, unknown>;
+  const lophn = servers.lophn as Record<string, unknown>;
+  assertEquals(lophn.command, "/opt/lophn/bin/deno");
+  assert(Array.isArray(lophn.args));
+  assertEquals((lophn.args as string[]).includes("--connection"), true);
+  assertEquals(text.includes("{}"), false);
+  check(text);
+  const again = await installAll(fx, "hermes", "user");
+  assertEquals(again.outcomes["mcp:user"], "unchanged");
+  assertEquals(await readOrNull(path), text);
+}
+
+Deno.test("coding-agent/harnesses#R8: Hermes 처음 설치는 없는 config.yaml에 mcp_servers.lophn을 만든다", async () => {
+  await hermesFirstInstall(null, (text) => {
+    assertEquals(text.startsWith("mcp_servers:\n  lophn:\n    command:"), true);
+  });
+});
+
+Deno.test("coding-agent/harnesses#R8: Hermes 처음 설치는 빈 config.yaml에 mcp_servers.lophn을 만든다", async () => {
+  await hermesFirstInstall("", (text) => {
+    assertEquals(text.startsWith("mcp_servers:\n"), true);
+  });
+  await hermesFirstInstall("\n\n", (text) => {
+    assertEquals(text.startsWith("mcp_servers:\n"), true);
+  });
+});
+
+Deno.test("coding-agent/harnesses#R8: Hermes 처음 설치는 `{}` 한 줄 config.yaml을 빈 map으로 보고 주석을 둔다", async () => {
+  await hermesFirstInstall("{}\n", (text) => {
+    assertEquals(text.startsWith("mcp_servers:\n"), true);
+  });
+  await hermesFirstInstall("# mine\n{}\n", (text) => {
+    assertEquals(text.startsWith("# mine\n\nmcp_servers:\n"), true);
+  });
+});
+
+Deno.test("coding-agent/harnesses#R8: Hermes 처음 설치는 mcp_servers 없는 config.yaml의 주석과 다른 top-level key를 보존한다", async () => {
+  const before =
+    "# my hermes\nmodel:\n  default: foo\n  # keep\n\nagent:\n  max_turns: 3\n";
+  await hermesFirstInstall(before, (text) => {
+    assertEquals(text.startsWith(before), true);
+    const parsed = parseYaml(text);
+    assert(parsed.ok);
+    if (!parsed.ok) return;
+    assertEquals(parsed.value.model, { default: "foo" });
+    assertEquals(parsed.value.agent, { max_turns: "3" });
+  });
+});
+
+Deno.test("coding-agent/harnesses#R8: Hermes 설치는 있는 mcp_servers 아래 다른 server를 보존하고 lophn을 더한다", async () => {
+  await hermesFirstInstall(
+    "mcp_servers:\n  other:\n    command: keep\nagent:\n  x: y\n",
+    (text) => {
+      assertStringIncludes(text, "  other:\n    command: keep\n  lophn:\n");
+      assertStringIncludes(text, "agent:\n  x: y\n");
+    },
+  );
+});
+
+Deno.test("coding-agent/harnesses#R8: harness 설치가 쓰는 MCP entry 경로는 repo에 있고 mcp-server launch와 같다", async () => {
+  const fx = await fixture();
+  await installAll(fx, "claude", "user");
+  const parsed = JSON.parse((await readOrNull(`${fx.home}/.claude.json`))!);
+  const args = parsed.mcpServers.lophn.args as string[];
+  const entry = args.find((arg) =>
+    arg.startsWith(`${LAUNCH.resources}/`) &&
+    arg.endsWith(".ts")
+  )!;
+  const relative = entry.slice(LAUNCH.resources.length + 1);
+  const repo = new URL("../../../../", import.meta.url).pathname;
+  const stat = await Deno.stat(`${repo}${relative}`);
+  assert(stat.isFile);
+  const server = mcpLaunchArgv({
+    deno: LAUNCH.executable,
+    resources: LAUNCH.resources,
+    cache: LAUNCH.cache,
+    connection: CAC,
+    coreEndpoint: LAUNCH.coreAddress,
+  });
+  assertEquals(entry, server.args.find((arg) => arg.endsWith(".ts")));
+  assertEquals(relative, MCP_ENTRY);
 });

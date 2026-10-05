@@ -9,7 +9,7 @@ import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
-import type { ShortcutApi } from "../../ipc/shortcuts.ts";
+import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { documentSearch } from "./palette/search.ts";
 import { ConversationProvider } from "../conversation/dock-slot.tsx";
@@ -58,6 +58,7 @@ const terminal = windowTerminalDeps(
 const bridges = globalThis as {
   lophnShell?: OverlayApi;
   lophnShortcuts?: ShortcutApi;
+  lophnIntents?: IntentApi;
 };
 const palette: PaletteDeps | undefined =
   bridges.lophnShell && bridges.lophnShortcuts
@@ -81,6 +82,7 @@ mount(
           terminal={terminal}
           lophn={lophn}
           palette={palette}
+          intents={bridges.lophnIntents}
         />
       </RequestsProvider>
     </ConversationProvider>

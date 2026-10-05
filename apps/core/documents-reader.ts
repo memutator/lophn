@@ -28,7 +28,10 @@ import type {
   RequestContext,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import {
+  KNOWN_SECRETS,
+  type ReaderRegistration,
+} from "../../packages/platform/ledger/mod.ts";
 import {
   derivedPath,
   type DerivedRead,
@@ -87,7 +90,10 @@ import {
   loadLinkedDocuments,
   loadVersion,
 } from "../../packages/documents/versions/store.ts";
-import { createProductRedactor } from "./documents-redactor.ts";
+import {
+  createProductRedactor,
+  type DocumentRedactor,
+} from "./documents-redactor.ts";
 
 // ledger 파일에서 data root를 찾는다. reader는 같은 파일을 연 snapshot만 갖는다.
 function dataRootOf(snapshot: ReadSnapshot): Result<string> {
@@ -152,8 +158,15 @@ function contextItems(snapshot: ReadSnapshot): ContextItemSource {
   };
 }
 
+// 이 요청의 redactor. 알려진 secret 값은 reader Worker의 registry가 쥐고 있고 handler는
+// 일치 검사만 받는다. port가 없으면(reader Worker가 아닌 곳) 던져서 fail-closed다.
+function redactorFor(snapshot: ReadSnapshot): DocumentRedactor {
+  return createProductRedactor(snapshot.port(KNOWN_SECRETS));
+}
+
 type Prepared = {
   snapshot: ReadSnapshot;
+  redactor: DocumentRedactor;
   search: SearchSnapshot;
   read: DerivedRead;
   contexts: ContextItemSource;
@@ -172,10 +185,9 @@ function prepared(snapshot: ReadSnapshot): Result<Prepared> {
     },
     read: read.value,
     contexts: contextItems(snapshot),
+    redactor: redactorFor(snapshot),
   });
 }
-
-const redactor = createProductRedactor();
 
 // 공개 worker route의 출력에 맞춘다. 내부 read는 next_cursor를 요구하므로 없으면 null이다.
 function paged(value: unknown): Result<unknown> {
@@ -288,7 +300,7 @@ function guide<I>(
           catalog: createGuideCatalog(installedGuideFiles(guidesRoot())),
           extract: extractGuide,
           asOfSeq: snapshot.as_of_seq,
-          redactor,
+          redactor: redactorFor(snapshot),
         }),
         ctx,
         input as I,
@@ -307,7 +319,7 @@ function outline(ready: Prepared) {
     contexts: ready.contexts,
     contextOutline: createContextOutlineSource(ready.snapshot.sql as never),
     termGlossary: createTermGlossarySource(ready.snapshot.sql as never),
-    redactor,
+    redactor: ready.redactor,
   });
 }
 
@@ -323,7 +335,7 @@ function contextExportRead(): ReadDefinition {
       const derived = root.ok ? derivedRead(root.value) : root;
       const glossary = createTermGlossarySource(snapshot.sql as never);
       const reads = createContextReads({
-        redactor,
+        redactor: redactorFor(snapshot),
         glossary(contextId) {
           const loaded = glossary.get(contextId, Number.MAX_SAFE_INTEGER);
           return loaded.ok ? ok(loaded.value.definitions) : loaded;
@@ -538,7 +550,7 @@ export function createReaderRegistration(): ReaderRegistration {
         route: internalRoute(documentExport),
         handle(snapshot, ctx, input) {
           const exported = exportDocument(snapshot, ctx, input as never, {
-            redactor,
+            redactor: redactorFor(snapshot),
           });
           if (!exported.ok) return exported;
           return paged(exported.value);

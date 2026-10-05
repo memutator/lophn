@@ -47,6 +47,11 @@ export interface PaletteDeps {
 interface PaletteHub {
   register(scope: PaletteScope<unknown>): () => void;
   toggle(opener: HTMLElement): void;
+  /**
+   * 전역 팔레트(shell#T56). 지금 공간과 상관없이 받은 scope로 연다. 이미 열려 있으면 그대로
+   * 둔다(여닫는 창 팔레트와 다르다).
+   */
+  openGlobal(scope: PaletteScope<unknown>): void;
   readonly platform: WindowPlatform;
   readonly search?: DocumentSearch;
   /** overlay·shortcut 통로가 있어 팔레트를 열 수 있다. */
@@ -93,6 +98,11 @@ export function PaletteProvider(
       const scope = scopes.current.at(-1);
       if (!current) return;
       if (current.open || scope) void current.toggle(scope!, element);
+    },
+    openGlobal(scope) {
+      const current = opener.current;
+      if (!current || current.open) return;
+      void current.toggle(scope, activeElement());
     },
   }), [platform, search, available]);
   // 통로가 있을 때만 연다. 창이 닫히면 열린 팔레트와 shortcut 구독을 함께 놓는다.
@@ -143,6 +153,12 @@ export function usePaletteScope<T>(build: () => PaletteScope<T>): void {
     };
     return hub.register(scope);
   }, [hub]);
+}
+
+/** 전역 팔레트를 여는 함수. 팔레트가 없는 창에서는 아무것도 하지 않는다. */
+export function useGlobalPalette(): (scope: PaletteScope<unknown>) => void {
+  const hub = useContext(PaletteContext);
+  return (scope) => hub?.openGlobal(scope);
 }
 
 /** 이 창에 팔레트가 있는지, 지금 OS(키 이름)와 문서 검색. 공간의 scope가 쓴다. */

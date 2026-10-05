@@ -78,6 +78,28 @@ Deno.test("R1 1자·2자·겹치는 값·65개 이상을 긴 값부터 정확히
   assert(!body(reregistered).includes("secret-value"));
 });
 
+Deno.test("R1 회수한 값은 그 순간부터 알려진 값이 아니고 남은 값은 그대로 지운다", async () => {
+  const registry = createKnownSecretRegistry();
+  const engine = createRedactionEngine({ registry });
+  registry.register(["old-secret-value-longer", "other-known-value"]);
+  assertEquals(registry.maxLength, "old-secret-value-longer".length);
+  registry.revoke(["old-secret-value-longer", "never-registered"]);
+  assertEquals(registry.count, 1);
+  assertEquals(registry.maxLength, "other-known-value".length);
+  assertEquals(registry.match("x old-secret-value-longer y"), undefined);
+  const result = await engine.redact(
+    input("tool_result"),
+    "old-secret-value-longer and other-known-value",
+  );
+  const value = body(result);
+  assert(value.includes("old-secret-value-longer"));
+  assert(!value.includes("other-known-value"));
+  // 회수한 뒤 다시 등록하면 다시 알려진 값이다.
+  registry.register(["old-secret-value-longer"]);
+  assertEquals(registry.count, 2);
+  assert(registry.match("x old-secret-value-longer y") !== undefined);
+});
+
 Deno.test("R2 OpenAI·Anthropic·GitHub·AWS·Slack key·JWT·PEM은 입력과 출력이 같은 규칙 hash로 검출한다", async () => {
   const registry = createKnownSecretRegistry();
   const engine = createRedactionEngine({ registry });

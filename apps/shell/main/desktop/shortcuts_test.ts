@@ -117,7 +117,7 @@ test("shell/desktop#R18: shell 창이 받은 shortcut만 페이지에서 막고 
   assert.equal(other.press(key("k", { control: true })), false);
 });
 
-test("shell/desktop#R18: main은 전역 단축키를 등록하지 않는다(전역 Ctrl+K를 가로채지 않는다)", () => {
+test("shell/desktop#R18: Electron 전역 단축키는 main 조립의 adapter만 쓰고 전역 Ctrl+K는 등록하지 않는다", () => {
   const here = dirname(fileURLToPath(import.meta.url));
   const files = readdirSync(here).filter((name) =>
     name.endsWith(".ts") && !name.endsWith("_test.ts")
@@ -125,6 +125,20 @@ test("shell/desktop#R18: main은 전역 단축키를 등록하지 않는다(전�
   assert.ok(files.includes("main.ts"));
   for (const name of files) {
     const text = readFileSync(join(here, name), "utf8");
-    assert.ok(!/globalShortcut/.test(text), `${name} uses globalShortcut`);
+    // 등록은 global-shortcut.ts가 받은 port로만 하고, 실제 globalShortcut은 main.ts만 부른다.
+    const calls = text.match(/globalShortcut\.\w+/g) ?? [];
+    if (name === "main.ts") {
+      assert.deepEqual(calls.sort(), [
+        "globalShortcut.register",
+        "globalShortcut.unregister",
+      ]);
+    } else assert.deepEqual(calls, [], `${name} uses globalShortcut`);
+    // 다른 앱의 등록까지 푸는 unregisterAll은 쓰지 않는다.
+    assert.ok(!/unregisterAll/.test(text), `${name} unregisters all`);
+    // 창 팔레트 key는 어디서도 전역으로 등록하지 않는다.
+    assert.ok(
+      !/["'`]CommandOrControl\+K["'`]/.test(text),
+      `${name} names the window palette key`,
+    );
   }
 });

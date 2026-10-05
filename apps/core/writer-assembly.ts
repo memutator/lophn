@@ -19,8 +19,10 @@ import {
   ConfirmationRegistry,
 } from "../../packages/platform/identity/mod.ts";
 import {
+  createSubscriberGate,
   LEDGER_COMMANDS,
   type LedgerConnection,
+  type SubscriberBinding,
   type TxPortRegistration,
   type WriterRegistration,
 } from "../../packages/platform/ledger/mod.ts";
@@ -34,6 +36,7 @@ import {
   createPreparationRegistry,
   type PreparationRegistry,
 } from "../../packages/platform/blob-store/mod.ts";
+import { SECRET_COMMANDS } from "../../packages/platform/secrets/mod.ts";
 import type { TeamModule } from "./registration.ts";
 
 export type WriterBoot = {
@@ -52,6 +55,8 @@ type Loose = {
   commands?: readonly CommandDefinition[];
   ports?: readonly TxPortRegistration[] | Record<string, unknown>;
   blobFields?: readonly BlobFieldDefinition[];
+  // 구독자 이름마다 cursor를 올릴 수 있는 자격. platform 등록(platform.ts)이 낸다.
+  subscribers?: readonly SubscriberBinding[];
 };
 
 // writer Worker 안에서 팀 등록을 다시 조립한다.
@@ -72,10 +77,15 @@ export async function assembleWriter(
   // 테스트 clock은 기동 시각에 고정되지만, 테스트가 시계를 밀면 core가 알린다.
   let fixedMs = typeof boot.clock === "number" ? boot.clock : 0;
   const clock = writerClock(boot, () => fixedMs);
-  const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
+  // secret 참조(SetSecret·RemoveSecret)는 platform 소유 command라 팀 module 없이 항상 붙는다.
+  const commands: CommandDefinition[] = [
+    ...LEDGER_COMMANDS,
+    ...SECRET_COMMANDS,
+  ];
   const ports: TxPortRegistration[] = [];
   const names = new Set(commands.map((command) => command.route.name));
   const blobFields: BlobFieldDefinition[] = [];
+  const subscribers: SubscriberBinding[] = [];
   // settings 등록 파일은 apply·reload command만 추가한다. route는 contract
   // ROUTES가 고정하므로 writer route 등록은 없다.
   if (boot.settings) {
@@ -102,6 +112,14 @@ export async function assembleWriter(
     }
     ports.push(...portList(loose?.ports));
     blobFields.push(...loose?.blobFields ?? []);
+    subscribers.push(...loose?.subscribers ?? []);
+  }
+  // 이름 있는 구독자만 자기 cursor를 올린다. 등록이 없으면 gate도 없어 cursor 전진은 거절된다.
+  const subscriberGate = subscribers.length === 0
+    ? undefined
+    : createSubscriberGate(subscribers);
+  if (subscriberGate !== undefined && !subscriberGate.ok) {
+    throw new Error("duplicate subscriber registration");
   }
   const preparations = createPreparationRegistry();
   // writer는 command를 한 줄로 처리하므로 진행 중인 요청의 자격을 여기 둔다.
@@ -116,6 +134,7 @@ export async function assembleWriter(
     commands,
     confirmation: confirmationBridge(confirmationRegistry),
     confirmationRegistry,
+    ...(subscriberGate?.ok ? { subscriberGate: subscriberGate.value } : {}),
     clock,
     ids: createIdSource({ clock, random: seededRandom(boot.seed) }),
     ports,
@@ -193,6 +212,7 @@ function teamRegistration(team: TeamModule): Loose | undefined {
       toArray((value as Loose).ports)
     ) as TxPortRegistration[],
     blobFields: sources.flatMap((value) => (value as Loose).blobFields ?? []),
+    subscribers: sources.flatMap((value) => (value as Loose).subscribers ?? []),
   };
 }
 

@@ -6,6 +6,7 @@ import {
   type ReadSnapshot,
   withReadCommon,
 } from "../../contracts/platform/mod.ts";
+import { KNOWN_SECRETS } from "./known-secrets.ts";
 import {
   executeRead,
   type ReaderRegistration,
@@ -146,6 +147,7 @@ export const fixtureRead = defineRead({
       "hold",
       "expired",
       "port",
+      "known",
       "unsafe",
       "large_seq",
       "invalid_result",
@@ -260,6 +262,14 @@ export function createReaderRegistration(): ReaderRegistration {
           data = { blocked };
         } else if (action === "port") {
           data = snapshot.port(fixturePort);
+        } else if (action === "known") {
+          // 알려진 secret 일치 검사. 값이 아니라 일치 위치만 낸다.
+          const known = snapshot.port(KNOWN_SECRETS);
+          data = {
+            workerId,
+            ready: known.ready,
+            match: known.match(query ?? "") ?? null,
+          };
         } else if (action === "unsafe") {
           data = snapshot.sql.get(query ?? "commit", []);
         } else if (action === "large_seq") {

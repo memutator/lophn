@@ -970,3 +970,28 @@ Deno.test("lophn-agent/presets#R4: default prompt stores the hash and the asset 
     await h.close();
   }
 });
+
+Deno.test("lophn-agent/presets#R12: revise keeps the preset kind", async () => {
+  const h = await open();
+  try {
+    value(await create(h, "Review"));
+    // 다른 종류는 새 preset이다. 판은 그대로 남는다.
+    code(
+      await h.command(
+        userCred,
+        envelope(
+          "RevisePreset",
+          {
+            preset: "pst_01arz3ndektsv4rrffq69g5fav",
+            definition: definitionJson({ kind: "operator" }),
+            reason: "change kind",
+          },
+          { revision: 1 },
+        ),
+      ),
+      "invalid_input",
+    );
+  } finally {
+    await h.close();
+  }
+});

@@ -94,7 +94,7 @@ const reads = createProviderReads();
 const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();
 
-// preset 구��� 검증 deps(R11). MCP server 설정은 extensions의 settings registry
+// preset 구성 검증 deps(R11). MCP server 설정은 extensions의 settings registry
 // 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23이다. 역할
 // 상한은 T8이 고정한 ROLE_CAPS 표다. catalog는 동봉 snapshot에서 읽고(T4,
 // harness/model R5), credential key와 provider 정의 key는 같은 Tx의 provider

@@ -553,6 +553,7 @@ concerns: [shell]
 
 ### T28 질문 칸, things-to-confirm, notification chip
 
+- 상태: 완료 (#282) — 이어보냄: [Review]의 preload `openConfirmation`·main `shell:confirmation-open` 연결 → shell#T29, 런처 카드의 대기 pill → shell#T15, 앱 공간 크롬 → shell#T42. 막힌 것(Q16): action 없는 답도 AnswerQuestion이 confirmation을 요구해 일반 답 경로가 core에서 거절된다(lophn-agent/contracts), 질문 본문 blob을 읽을 수 없다(lophn-agent), 제품 core가 platform approvals·notifications를 조립하지 않는다(platform)
 - 등급: frontend
 - concern: shell/desktop, shell/design-system
 - 요구: shell/desktop#R6, R9, R10(창 안 chip), R26(대기 개수 글자 pill), R27, shell/design-system#R35

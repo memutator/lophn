@@ -23,6 +23,9 @@ import {
   dispatchBatch,
   emptyQueue,
   enqueueCandidate,
+  type ObserveDeps,
+  type ObserveRoot,
+  observeRoot,
   pickSlot,
   PREPARATION_SLOTS,
   type PrepareSlot,
@@ -54,6 +57,8 @@ export type Coordinator = {
   // root당 후보 10,000 초과면 rescan_required 하나만 남긴다.
   addCandidate(root: string, path: string): void;
   dispatchRoots(roots: readonly ScanRootInput[]): void;
+  // root마다 watch·60초 scan·750ms 관측 루프를 돌린다. 제출은 submitResult로 간다.
+  startObservation(roots: readonly ObserveRoot[], deps: ObserveDeps): void;
   stop(): Promise<void>;
 };
 
@@ -176,6 +181,19 @@ export function createCoordinator(
       drained = false;
       wake?.();
       void CANDIDATE_LIMIT;
+    },
+    startObservation(roots, deps) {
+      for (const request of roots) {
+        // 루프는 root별로 독립이다. 한 root의 큰 scan이 다른 root를 막지 않는다.
+        void observeRoot({
+          ...deps,
+          stop: {
+            get stopped() {
+              return stopped;
+            },
+          },
+        }, request);
+      }
     },
     dispatchRoots(inputs) {
       for (const input of inputs) {

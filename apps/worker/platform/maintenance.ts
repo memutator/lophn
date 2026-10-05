@@ -52,7 +52,7 @@ export type MaintenanceDeps = {
   conditions(): StoppedConditions | Promise<StoppedConditions>;
   // 소유 concern이 등록한 blob field. 보존 종류가 함께 있다(blobFields).
   fields(): readonly RetentionRule[];
-  // ��정 ledger blob_refs의 참조 행 관측. 정지 뒤 고정 blob_refs 전체다(R8).
+  // 고정 ledger blob_refs의 참조 행 관측. 정지 뒤 고정 blob_refs 전체다(R8).
   listReferenceRows(): Promise<
     Result<readonly { hash: string; owner_kind: string; field: string }[]>
   >;

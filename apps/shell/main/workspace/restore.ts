@@ -128,7 +128,7 @@ export async function restoreTab(
 }
 
 /**
- * 한 ���을 복원한다. 선택 탭이 placeholder가 되면 첫 살아 있는 탭으로 옮기고,
+ * 한 판을 복원한다. 선택 탭이 placeholder가 되면 첫 살아 있는 탭으로 옮기고,
  * 칸이 비면 선택은 null이다.
  */
 export async function restorePane(

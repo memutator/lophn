@@ -189,6 +189,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 조사: docs/research/presets-and-agent-config.md, docs/research/tool-registry-and-judgment.md
 - 선행: T7
 - T7에서 넘어온 것: preset 검증의 roleCaps 연결(#206). core 분기 preset 검증 deps의 roleCaps는 지금 빈 목록이고 tool 선택이 있으면 forbidden이다. T8이 역할별 상한 표로 채운다.
+- 상태: 완료 (#220)
 - 완료:
   - roles_test.ts에 roles/common#R1–R5, R8, R9, R11–R13 테스트: 네 역할 어디에도 코드·shell·임의 파일·URL·웹·브라우저·subagent·coding agent 시작 tool이 없음, 공통 읽기 tool 선택, preset의 MCP·skill 선택 허용과 소스·앱 DB·secret 직접 읽기 없음, 역할별 앱 command 노출 규칙 표, 시각 블록이 쓰기·command 범위를 넓히지 않음, 지침 파일 쓰기 tool 없음, judgment와 organizing 용도 구별, 합계·시점·format 검사는 model 없음
   - presets_test.ts에 presets#R4, R8, R9 테스트: 네 역할 기본 preset이 machine으로 한 번 등록되고 사람 판을 덮지 않음, 기본 prompt가 맡는 일·맡지 않는 일·관점·기대 결과를 담음, preset prompt·skill·지침이 상한을 넓히지 못함
@@ -204,6 +205,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T7, platform#T4, documents#T6, documents#T7, apps#T1
+- 상태: 완료 (#229)
 - 완료:
   - `assignments`, `assignment_revisions`, `assignment_outputs`, `assignment_read_apps`, `assignment_read_commands` 표
   - assignments_test.ts에 R2, R3, R9–R14, R16, R17 테스트: lophn·Context Engineer 전역 하나씩이고 회수 대신 멈춤·재개만, 화면용 기본·상세 자료 구분, 실제 시작한 최종 실패 3회 연속이면 machine pause와 secret 없는 실패 근거, 정상 완료·Operator 무변화에서 끊고 미시작·사람 중단·거절·답 없음·대기는 세지도 지우지도 않음, 사람 재개만 해제(시간·재시작·다음 주기로 풀리지 않음), 시작한 뒤 정상 종료 기록 없이 끊긴 run은 실패로 세고 시작 전에 끝난 run은 세지 않음(질문 Q17), 보관 대상이면 멈춤·일시 접근 불가면 새 일 없음, withdrawn은 지난 대화만·paused는 입력 보존만, preset 새 판 저장이 연결 판을 바꾸지 않고 명시 적용은 다음 run부터
@@ -258,6 +260,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T13 SSE parser와 Anthropic Messages adapter
 
 - 등급: 기본
+- 상태: 완료 (#221)
 - concern: lophn-agent/harness/provider
 - 요구: lophn-agent/harness/provider#R3, R25, R26
 - 자리: packages/lophn-agent/harness/provider/ (adapters/stream.ts, adapters/messages.ts, adapters/auth-transport.ts, work.ts: `invokeModelCall` 공통 interface)
@@ -274,6 +277,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T14 OpenAI Responses·Chat Completions adapter
 
 - 등급: 기본
+- 상태: 완료 (#227)
 - concern: lophn-agent/harness/provider
 - 요구: lophn-agent/harness/provider#R3, R25
 - 자리: packages/lophn-agent/harness/provider/ (adapters/responses.ts, adapters/chat-completions.ts, adapters/compat.ts)
@@ -382,6 +386,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T21 tool registry, 실행기, tool call ledger
 
+- 상태: 완료 (#218)
 - 등급: 기본
 - concern: lophn-agent/harness/tools
 - 요구: lophn-agent/harness/tools#R1, R2, R3, R4, R5, R11, R12, R13, R14, R15
@@ -600,6 +605,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T35 skill 발견과 읽기
 
+- 상태: 완료 (#225)
 - 등급: 기본
 - concern: lophn-agent/extensions
 - 요구: lophn-agent/extensions#R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R30

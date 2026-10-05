@@ -81,7 +81,11 @@
       "npm:zod@4.6.5"
     ],
     "links": {
-      "jsr:@lophn/apps": {},
+      "jsr:@lophn/apps": {
+        "dependencies": [
+          "npm:esbuild@0.28.2"
+        ]
+      },
       "jsr:@lophn/base": {},
       "jsr:@lophn/blueprint@1.0.0": {},
       "jsr:@lophn/cap-problem@1.0.0": {},
@@ -118,6 +122,7 @@
           "npm:quickjs-emscripten@0.32.0"
         ]
       },
+      "jsr:@lophn/format-document@1.0.0": {},
       "jsr:@lophn/lophn-agent": {},
       "jsr:@lophn/problems": {},
       "jsr:@lophn/shell-renderer": {

@@ -729,7 +729,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T53 notification 계기: context watch 변화
 
-- 상태: 진행 (#195) — 남은 것: flow build-context의 notification 단계 통합 테스트 — 이어보냄: record_watch_change 발생 작업 → documents#T24
+- 상태: 완료 (#195) — 이어보냄: record_watch_change 발생 작업 → documents#T24, flow build-context의 notification 단계 통합 테스트 → documents#T27
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R3, R7
@@ -999,7 +999,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T47 doctor와 보안 진단
 
-- 상태: 진행 (#180) — 남은 것: apps grant 위험 read·SDK hash contract가 생기면 관측 파일 대신 그 read로 교체 — 이어보냄: core.ts doctor·diagnostics source 연결 → platform#T48
+- 상태: 완료 (#180) — 이어보냄: core.ts doctor·diagnostics source 연결 → platform#T48, apps grant 위험 read·SDK hash로 관측 파일 교체 → apps#T4
 - 등급: 기본
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R4, R5, R6, R9, R10
@@ -1089,6 +1089,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 내놓는 contract: 없음
 - slice: operations
 - 선행: platform#T51
+- 상태: 완료 (#226) — 이어보냄: flow work-offline E2E의 응답성 단계 → platform#T54
 - 완료: 아래 확인이 통과한다
   - 100,000파일·10GiB scan·hash·index, 1GiB 압축, 60초 model·test, 정체 앱, 동시 관리 요청 10개를 각각·함께 걸고 T51 목표를 잰다(R9).
   - 일반 앱 화면·read·command가 core·invocation 기록을 기다리지 않는다(R2). 한 앱의 무한 loop·crash가 다른 앱·shell 조작을 막지 않는다(R5, Electron main 쪽은 shell과 함께).
@@ -1105,6 +1106,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - 내놓는 contract: 없음
 - slice: operations
 - 선행: platform#T42, platform#T43, platform#T46, platform#T48, platform#T50, platform#T52, contracts#T10, shell#T28, shell#T56, shell#T57, shell#T58, shell#T59
+- platform#T52에서 넘어온 것: work-offline flow의 응답성 단계(#226)
 - 완료: 아래 확인이 통과한다
   - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).
   - `deno task e2e`에서 operations slice의 다섯 flow가 모두 통과한다.

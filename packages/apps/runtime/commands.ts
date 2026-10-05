@@ -1,4 +1,4 @@
-// 실행 허용 변경과 record_* 관측 사실의 기록. 짧은 Tx만 남긴다.
+// 실행 허용 변경(user)과 supervisor 관측 사실의 기록(machine). 짧은 Tx만 남긴다.
 // actor·CAS·거절은 domain-model apps/runtime command 정본을 따른다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
@@ -13,25 +13,17 @@ import {
   appStarted,
   appStopped,
   appUnavailable,
+  type RuntimeObservation,
   type RuntimeState,
 } from "../../contracts/apps/mod.ts";
-import {
-  type CommandDefinition,
-  parseActor,
-  type RequestContext,
-  type Tx,
-} from "../../contracts/platform/mod.ts";
+import type { CommandDefinition, Tx } from "../../contracts/platform/mod.ts";
 import {
   type AppAccessTarget,
   authorizeApp,
   loadApp,
   replaceApp,
 } from "../registration/mod.ts";
-import { projection as modelProjection } from "./model.ts";
-
-function forbidden(message: string): Result<never> {
-  return err({ code: "forbidden", message });
-}
+import { projection } from "./model.ts";
 
 function notFound(): Result<never> {
   return err({ code: "not_found", message: "app not found" });
@@ -45,53 +37,79 @@ function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
-// 실행 허용 변경은 user만 받는다. route actors가 이미 걸러도 여기서 한 번 더 본다.
-function requireUser(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "user"
-    ? ok(undefined)
-    : forbidden("app execution changes are user only");
-}
-
-// record_*은 관측 사실의 기록이다. 사람 편집의 CAS가 필요 없다(domain-model).
-function requireMachine(ctx: RequestContext): Result<void> {
-  return parseActor(ctx.actor)?.kind === "machine"
-    ? ok(undefined)
-    : conflict("app records are machine observations only");
-}
-
-function appView(app: App): Result<App> {
-  // route output이 appSchema이므로 안전한 App 값 그대로 돌려준다.
-  return ok(app);
-}
-
-function accessTarget(
-  before: App | null,
-  after: App,
-): AppAccessTarget {
+function accessTarget(before: App, after: App): AppAccessTarget {
   return { kind: "command", before, after };
 }
 
-// record_*의 중복 가림. 같은 관측이 이미 events에 있으면 다시 남기지 않는다.
-function factExists(
+type RuntimeFact = "AppStarted" | "AppStopped" | "AppUnavailable";
+
+// 같은 자식의 같은 관측은 이미 남아 있으면 다시 남기지 않는다(재전송).
+function recorded(
   tx: Tx,
-  type: "AppStarted" | "AppStopped" | "AppUnavailable",
+  type: "AppStarted" | "AppStopped",
   app: string,
-  match: (payload: Record<string, unknown>) => boolean,
+  release: string,
+  nonce: string,
 ): boolean {
-  const rows = tx.sql.all(
-    "SELECT payload FROM events WHERE subject = ? AND type = ? ORDER BY seq",
-    [app, type],
+  return tx.sql.get(
+    `SELECT 1 AS found FROM events
+     WHERE subject = ? AND type = ?
+       AND json_extract(payload, '$.release') = ?
+       AND json_extract(payload, '$.process_nonce') = ?
+     LIMIT 1`,
+    [app, type, release, nonce],
+  ) !== undefined;
+}
+
+// AppUnavailable payload에는 자식 신원이 없다. 마지막 관측이 같은 release·같은
+// 근거의 AppUnavailable이면 상태가 바뀌지 않았으므로 재전송이다. 그 사이에
+// AppStarted나 AppStopped가 있으면 새 관측이다.
+function sameAsLast(
+  tx: Tx,
+  app: string,
+  release: string,
+  reason: { code: string; summary: string },
+): boolean {
+  const last = tx.sql.get(
+    `SELECT type, payload FROM events
+     WHERE subject = ? AND type IN ('AppStarted', 'AppStopped', 'AppUnavailable')
+     ORDER BY seq DESC LIMIT 1`,
+    [app],
   );
-  return rows.some((row) => {
-    try {
-      const payload = JSON.parse(String(row.payload)) as Record<
-        string,
-        unknown
-      >;
-      return match(payload);
-    } catch {
-      return false;
-    }
+  if (last === undefined || last.type !== ("AppUnavailable" as RuntimeFact)) {
+    return false;
+  }
+  const payload = JSON.parse(String(last.payload)) as {
+    release: string;
+    reason: { code: string; summary: string };
+  };
+  return payload.release === release && payload.reason.code === reason.code &&
+    payload.reason.summary === reason.summary;
+}
+
+function liveObservation(
+  app: App,
+  fields: Pick<
+    RuntimeObservation,
+    "release" | "process_nonce" | "ready" | "accepting" | "reason"
+  >,
+): RuntimeObservation | null {
+  // 멈춘 앱에는 관측을 붙이지 않는다. 방금 기록한 사실이 live 자식의 증거는 아니다.
+  if (app.status !== "active" || !app.run_enabled) return null;
+  return { app: app.id, mode: "live", endpoint: null, ...fields };
+}
+
+function recordResult(
+  tx: Tx,
+  id: string,
+  observe: (app: App) => RuntimeObservation | null,
+): Result<{ app: string; state: RuntimeState }> {
+  const current = loadApp(tx.sql, id);
+  if (!current.ok) return current;
+  if (current.value === null) return invalid("app is not registered");
+  return ok({
+    app: current.value.id,
+    state: projection(current.value, observe(current.value)),
   });
 }
 
@@ -103,12 +121,10 @@ export function createRuntimeCommands(): {
   recordUnavailable: CommandDefinition<typeof appRecordUnavailable>;
 } {
   return {
-    // 실행 허용은 App 최신 seq 기준이고 active 보관 상태와 채택한 release가 필요하다.
+    // 실행 허용은 App 최신 revision 기준이고 active 보관 상태와 채택한 release가 필요하다.
     enableExecution: {
       route: appEnableExecution,
       handle(tx, ctx, input, compare) {
-        const actor = requireUser(ctx);
-        if (!actor.ok) return actor;
         const current = loadApp(tx.sql, input.app);
         if (!current.ok) return current;
         if (current.value === null) return notFound();
@@ -121,153 +137,122 @@ export function createRuntimeCommands(): {
         if (current.value.active_release === null) {
           return invalid("app has no active release");
         }
-        const next: App = { ...current.value, run_enabled: true };
+        const changed: App = { ...current.value, run_enabled: true };
         const access = authorizeApp(
           tx.port,
           ctx,
           appEnableExecution.name,
-          accessTarget(current.value, next),
+          accessTarget(current.value, changed),
         );
         if (!access.ok) return access;
-        tx.emit(appExecutionEnabled, next.id, { run_enabled: true });
+        const seq = tx.emit(appExecutionEnabled, changed.id, {
+          run_enabled: true,
+        });
+        const next: App = { ...changed, revision: seq };
         const stored = replaceApp(tx, next);
         if (!stored.ok) return stored;
-        return appView(next);
+        return ok(next);
       },
     },
-    // 실행 멈춤은 채택한 release가 없어도 거둔다. 완료는 종료 확인이 필요하다.
+    // 멈춤은 채택한 release가 없어도 거둔다. 완료는 종료 확인(record_stopped)이 말한다.
     disableExecution: {
       route: appDisableExecution,
       handle(tx, ctx, input, compare) {
-        const actor = requireUser(ctx);
-        if (!actor.ok) return actor;
         const current = loadApp(tx.sql, input.app);
         if (!current.ok) return current;
         if (current.value === null) return notFound();
         if (current.value.revision !== compare.base_revision) {
           return conflict("app revision changed");
         }
-        const next: App = { ...current.value, run_enabled: false };
+        const changed: App = { ...current.value, run_enabled: false };
         const access = authorizeApp(
           tx.port,
           ctx,
           appDisableExecution.name,
-          accessTarget(current.value, next),
+          accessTarget(current.value, changed),
         );
         if (!access.ok) return access;
-        tx.emit(appExecutionDisabled, next.id, { run_enabled: false });
+        const seq = tx.emit(appExecutionDisabled, changed.id, {
+          run_enabled: false,
+        });
+        const next: App = { ...changed, revision: seq };
         const stored = replaceApp(tx, next);
         if (!stored.ok) return stored;
-        return appView(next);
+        return ok(next);
       },
     },
+    // 관측 사실의 기록이다. 사람 편집 CAS가 없고 run_enabled를 바꾸지 않는다.
     recordStarted: {
       route: appRecordStarted,
-      handle(tx, ctx, input) {
-        const machine = requireMachine(ctx);
-        if (!machine.ok) return machine;
-        if (input.attestation.release === null) {
-          return invalid("AppStarted needs a live release");
-        }
+      handle(tx, _ctx, input) {
+        const release = input.attestation.release;
+        if (release === null) return invalid("AppStarted needs a live release");
         const current = loadApp(tx.sql, input.app);
         if (!current.ok) return current;
-        if (current.value === null) return notFound();
-        if (
-          factExists(
-            tx,
-            "AppStarted",
-            input.app,
-            (payload) =>
-              payload.release === input.attestation.release &&
-              payload.process_nonce === input.attestation.process_nonce,
-          )
-        ) {
-          return state(tx, input.app);
+        if (current.value === null) return invalid("app is not registered");
+        const nonce = input.attestation.process_nonce;
+        if (!recorded(tx, "AppStarted", input.app, release, nonce)) {
+          tx.emit(appStarted, input.app, {
+            release,
+            process_nonce: nonce,
+            data_schema: input.attestation.data_schema,
+          });
         }
-        tx.emit(appStarted, input.app, {
-          release: input.attestation.release,
-          process_nonce: input.attestation.process_nonce,
-          data_schema: input.attestation.data_schema,
-        });
-        return state(tx, input.app);
+        // 방금 받은 attestation이 live 연결을 확인했다는 증거다(connection_ok).
+        return recordResult(tx, input.app, (app) =>
+          liveObservation(app, {
+            release,
+            process_nonce: nonce,
+            ready: true,
+            accepting: true,
+          }));
       },
     },
     recordStopped: {
       route: appRecordStopped,
-      handle(tx, ctx, input) {
-        const machine = requireMachine(ctx);
-        if (!machine.ok) return machine;
+      handle(tx, _ctx, input) {
         const current = loadApp(tx.sql, input.app);
         if (!current.ok) return current;
-        if (current.value === null) return notFound();
-        // 같은 자식의 종료 관측. 종료 확인 뒤 termination_pending은 끝난다(R15).
+        if (current.value === null) return invalid("app is not registered");
         if (
-          factExists(
+          !recorded(
             tx,
             "AppStopped",
             input.app,
-            (payload) =>
-              payload.release === input.release &&
-              payload.process_nonce === input.process_nonce,
+            input.release,
+            input.process_nonce,
           )
         ) {
-          return state(tx, input.app);
+          tx.emit(appStopped, input.app, {
+            release: input.release,
+            process_nonce: input.process_nonce,
+          });
         }
-        tx.emit(appStopped, input.app, {
-          release: input.release,
-          process_nonce: input.process_nonce,
-        });
-        return state(tx, input.app);
+        // 종료를 확인했으므로 live 자식은 없다. 관측 없이 계산한다.
+        return recordResult(tx, input.app, () => null);
       },
     },
     recordUnavailable: {
       route: appRecordUnavailable,
-      handle(tx, ctx, input) {
-        const machine = requireMachine(ctx);
-        if (!machine.ok) return machine;
+      handle(tx, _ctx, input) {
         const current = loadApp(tx.sql, input.app);
         if (!current.ok) return current;
-        if (current.value === null) return notFound();
-        // 자식이 없는 관측(crash loop로 멈춘 상태)은 nonce·시작 시각이 없다.
-        const hasChild = input.process_nonce !== undefined &&
-          input.started_at !== undefined;
-        if (
-          factExists(tx, "AppUnavailable", input.app, (payload) => {
-            const sameIdentity = hasChild
-              ? payload.process_nonce === input.process_nonce &&
-                payload.started_at === input.started_at
-              : payload.process_nonce === undefined;
-            const reason = payload.reason as
-              | { code: string; summary: string }
-              | undefined;
-            return payload.release === input.release &&
-              reason?.code === input.reason.code &&
-              reason?.summary === input.reason.summary && sameIdentity;
-          })
-        ) {
-          return state(tx, input.app);
+        if (current.value === null) return invalid("app is not registered");
+        if (!sameAsLast(tx, input.app, input.release, input.reason)) {
+          tx.emit(appUnavailable, input.app, {
+            release: input.release,
+            reason: input.reason,
+          });
         }
-        tx.emit(appUnavailable, input.app, {
-          release: input.release,
-          reason: input.reason,
-        });
-        return state(tx, input.app);
+        return recordResult(tx, input.app, (app) =>
+          liveObservation(app, {
+            release: input.release,
+            process_nonce: input.process_nonce ?? "none",
+            ready: false,
+            accepting: false,
+            reason: input.reason,
+          }));
       },
     },
   };
-}
-
-// record 반환 state projection. 현재 App 값으로 projection한다. live 관측이
-// 주입되지 않은 Tx에서는 과거 event만으로 running이라 하지 않는다(R13).
-function state(
-  tx: Tx,
-  app: string,
-): Result<{ app: string; state: RuntimeState }> {
-  const current = loadApp(tx.sql, app);
-  if (!current.ok) return current;
-  if (current.value === null) return notFound();
-  return ok({
-    app: current.value.id,
-    state: modelProjection(current.value, null),
-  });
 }

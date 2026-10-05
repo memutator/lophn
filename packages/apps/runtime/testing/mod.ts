@@ -16,14 +16,19 @@
  * ```
  * record_*는 supervisor 관측 사실의 기록이므로 여기 남기지 않는다.
  */
+import { DatabaseSync } from "node:sqlite";
 import { z } from "zod";
-import { ok, type Result } from "../../../base/mod.ts";
+import { ok } from "../../../base/mod.ts";
+import type { App } from "../../../contracts/apps/mod.ts";
 import {
-  type AuthenticatedContext,
   type CommandDefinition,
   defineCommand,
+  type ReadSnapshot,
+  type RequestContext,
+  TargetAuthorization,
   type Tx,
 } from "../../../contracts/platform/mod.ts";
+import { appsSchemaSteps } from "../../registration/mod.ts";
 
 export const adoptRelease = defineCommand({
   resource: "runtime",
@@ -56,4 +61,51 @@ export function createLedgerTestRegistration() {
   return {
     testCommands: [adoptReleaseCommand],
   };
+}
+
+// read handler를 ledger 없이 부르는 snapshot이다. 실제 apps 표(실제 schema)에 App 하나를
+// 넣은 메모리 DB를 읽고, 대상 권한 port는 요청 신원이 같은 앱이면 허용한다.
+export function createAppSnapshot(
+  app: App,
+  allow: (ctx: RequestContext) => boolean = () => true,
+): { snapshot: ReadSnapshot; close(): void } {
+  const db = new DatabaseSync(":memory:");
+  for (const step of appsSchemaSteps) db.exec(step.sql);
+  db.prepare(
+    `INSERT INTO apps (id, slug, name, description, planning_version, source_path,
+       active_release, run_enabled, revision, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    app.id,
+    app.slug,
+    app.name,
+    app.description,
+    app.planning_version,
+    app.source_path,
+    app.active_release,
+    app.run_enabled ? 1 : 0,
+    app.revision,
+    app.status,
+  );
+  const snapshot: ReadSnapshot = {
+    as_of_seq: "7",
+    sql: {
+      get: (sql, params) =>
+        db.prepare(sql).get(...(params as never[])) as never,
+      all: (sql, params) =>
+        db.prepare(sql).all(...(params as never[])) as never,
+    },
+    port: ((key: { name: string }) => {
+      if (key.name !== TargetAuthorization.name) {
+        throw new Error(`unexpected port ${key.name}`);
+      }
+      return (ctx: RequestContext) => {
+        return allow(ctx) ? { ok: true as const, value: undefined } : {
+          ok: false as const,
+          error: { code: "not_found", message: "app not found" },
+        };
+      };
+    }) as ReadSnapshot["port"],
+  };
+  return { snapshot, close: () => db.close() };
 }

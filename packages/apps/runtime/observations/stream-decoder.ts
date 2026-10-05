@@ -1,99 +1,106 @@
-// stdout/stderr를 frame stream으로 읽는 decoder와 log 줄의 byte 상한.
-// frame codec은 contracts/platform supervision 정본을 따른다(contracts#T6).
-// redaction은 조립이 주입한다(최상위 경계는 contracts만 거친다).
-import { FrameDecoder, type Frame } from "../../../contracts/platform/mod.ts";
+// 앱 자식의 stdout/stderr를 줄 단위로 읽는 streaming decoder. 줄바꿈이 없는 출력도
+// byte 상한 안에서만 쥐고 있고, 상한을 넘은 줄은 redaction 전에 자르지 않고
+// 통째로 버린다. 잘린 secret 일부가 새지 않는다는 안전성을 모르기 때문이다(R26).
 
-// bytes frame의 최대 크기도 decoding 결과 줄의 상한다. STREAM_CHUNK_MAX_BYTES가
-// 이미 frame 상한이므로 같은 값을 쓴다.
-export const STREAM_MAX_BYTES = 1024 * 1024;
-
-// 알려진 secret registry의 모양. 구현은 platform/redaction이 조립에 준다.
-export type SecretRegistry = {
-  // 줄바꿈 없는 chunk의 보류 길이 판정에 쓴다.
-  readonly maxLength: number;
-};
-
-// stream 줄 redaction. registry와 credential pattern은 조립이 묶어 준다.
-export type LineRedactor = {
-  push(chunk: string): string;
-  finish(): string;
-};
-
-export type StreamOutcome =
-  | { kind: "lines"; data: string }
-  | { kind: "bytes"; data: Uint8Array }
-  | { kind: "end" }
-  | { kind: "abort" };
+// 한 줄이 redaction을 받기 전에 메모리에 머무를 수 있는 byte 상한이다.
+export const LOG_PENDING_LINE_MAX_BYTES = 16 * 1024;
 
 export type StreamDecoderDeps = {
-  // 알려진 secret registry와 credential pattern이 묶인 줄 redactor.
-  redactor: LineRedactor;
-  // 초과 부분은 생략 표시하되 redaction 전에 잘라 안전성을 모르면 원문을 버린다.
-  maxBytes?: number;
+  // 줄바꿈 없이 끝난 줄과 완성한 줄. 줄바꿈 문자는 뗀다.
+  onLine: (line: string) => void;
+  // 상한을 넘겨 버린 줄. 한 줄에 한 번만 부른다.
+  onDropped: () => void;
+  maxLineBytes?: number;
 };
 
 export type StreamDecoder = {
-  // decoded frame을 줄 데이터·bytes·end·abort로 나눈다. frame 순서를 유지한다.
-  decode(frame: Frame): StreamOutcome | undefined;
-  // 줄바꿈으로 끝나지 않은 꼬리. 종료 확인 때만 부른다.
-  finish(): string | undefined;
-  // bytes 프레임과 동일한 byte 상한을 부분 chunk에도 적용한다. 초과 부분은
-  // 생략 표시하고 redaction 전에 잘라 안전성을 모르면 버린다.
-  readBytes(data: Uint8Array, cap: number): { text: string; truncated: boolean };
+  push(bytes: Uint8Array): void;
+  // 스트림이 끝났다. 줄바꿈 없이 끝난 꼬리를 한 줄로 낸다.
+  finish(): void;
 };
 
-// ... 언제 어떤 결과가 나오는지 계약 설명이다.
-// - json frame: control이므로 decoder 밖 문제다. undefined를 돌려준다.
-// - end frame: stream의 끝. finish()로 꼬리를 마무리한다.
-// - abort frame: stream의 실패.
-export function createStreamDecoder(
-  deps: StreamDecoderDeps,
-): StreamDecoder {
-  const incoming = new FrameDecoder();
-  const redactor = deps.redactor;
-  const maxBytes = deps.maxBytes ?? STREAM_MAX_BYTES;
-  let ended = false;
+const NEWLINE = 0x0a;
 
-  function decode(frame: Frame): StreamOutcome | undefined {
-    if (frame.kind === "json") return undefined;
-    if (frame.kind === "bytes") {
-      return { kind: "bytes", data: frame.payload };
+// 줄바꿈 byte(0x0a)는 UTF-8 안에서 다른 문자의 일부가 아니므로 byte에서 나눠도 안전하다.
+export function createStreamDecoder(deps: StreamDecoderDeps): StreamDecoder {
+  const max = deps.maxLineBytes ?? LOG_PENDING_LINE_MAX_BYTES;
+  const decoder = new TextDecoder("utf-8", { fatal: false });
+  let pending: Uint8Array[] = [];
+  let pendingBytes = 0;
+  // 상한을 넘은 줄은 다음 줄바꿈까지 버린다.
+  let discarding = false;
+
+  function emit(): void {
+    const joined = new Uint8Array(pendingBytes);
+    let offset = 0;
+    for (const part of pending) {
+      joined.set(part, offset);
+      offset += part.length;
     }
-    if (frame.kind === "end") {
-      if (ended) return undefined;
-      ended = true;
-      return { kind: "end" };
-    }
-    return { kind: "abort" };
+    pending = [];
+    pendingBytes = 0;
+    const text = decoder.decode(joined);
+    deps.onLine(text.endsWith("\r") ? text.slice(0, -1) : text);
   }
 
-  function streamText(text: string): string {
-    const cleaned = redactor.push(text);
-    if (ended) return redactor.finish();
-    return cleaned;
+  function take(part: Uint8Array): void {
+    if (discarding || part.length === 0) return;
+    if (pendingBytes + part.length > max) {
+      pending = [];
+      pendingBytes = 0;
+      discarding = true;
+      deps.onDropped();
+      return;
+    }
+    pending.push(part);
+    pendingBytes += part.length;
   }
 
   return {
-    decode(frame) {
-      return decode(frame);
+    push(bytes) {
+      let start = 0;
+      while (start < bytes.length) {
+        const newline = bytes.indexOf(NEWLINE, start);
+        if (newline < 0) {
+          take(bytes.slice(start));
+          return;
+        }
+        take(bytes.slice(start, newline));
+        if (discarding) discarding = false;
+        else emit();
+        start = newline + 1;
+      }
     },
     finish() {
-      if (ended) return undefined;
-      return redactor.finish();
-    },
-    readBytes(data, cap) {
-      const safeCap = Math.min(Math.max(cap, 1), maxBytes);
-      const decoder = new TextDecoder("utf-8", { fatal: false });
-      const full = decoder.decode(data);
-      if (full.length <= safeCap) {
-        return { text: streamText(full), truncated: false };
-      }
-      const head = full.slice(0, safeCap);
-      const steppedBack = head.codePointAt(head.length - 1) !== undefined &&
-        /[\uD800-\uDBFF]/.test(head[head.length - 1]) &&
-        !/[\uDC00-\uDFFF]/.test(head[head.length] ?? "");
-      const text = steppedBack ? head.slice(0, -1) : head;
-      return { text: streamText(text), truncated: true };
+      if (!discarding && pendingBytes > 0) emit();
+      pending = [];
+      pendingBytes = 0;
+      discarding = false;
     },
   };
+}
+
+export type ByteSource = {
+  // EOF면 null이다. SpawnedPipe와 같은 모양이다.
+  read(buffer: Uint8Array): Promise<number | null>;
+};
+
+// source가 끝날 때까지 비동기로 읽어 decoder에 넘긴다. 읽기 실패는 끝으로 본다.
+export async function drain(
+  source: ByteSource,
+  decoder: StreamDecoder,
+  chunkBytes = 8 * 1024,
+): Promise<void> {
+  const buffer = new Uint8Array(chunkBytes);
+  try {
+    while (true) {
+      const count = await source.read(buffer);
+      if (count === null) break;
+      decoder.push(buffer.subarray(0, count));
+    }
+  } catch {
+    // pipe 오류는 읽기의 끝이다. 읽은 줄은 그대로 남긴다.
+  } finally {
+    decoder.finish();
+  }
 }

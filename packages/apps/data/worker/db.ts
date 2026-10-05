@@ -49,7 +49,7 @@ export function openAppDatabase(path: string): Result<AppDatabase> {
   return ok({
     schemaState() {
       const rows = db.prepare(
-        `select data_schema, last_result, script_hash from ${APP_SCHEMA_TABLE}`,
+        `select data_schema, last_result, script_hash from ${APP_SCHEMA_TABLE} where id = 1`,
       ).all();
       const row = rows[0];
       if (row === undefined) return { ...INITIAL_SCHEMA };
@@ -79,8 +79,14 @@ export function openAppDatabase(path: string): Result<AppDatabase> {
       try {
         db.exec(sql);
         db.prepare(
-          `insert into ${APP_SCHEMA_TABLE} (data_schema, last_result, script_hash, applied_at)
-           values (?, 'applied', ?, ?)`,
+          `insert into ${APP_SCHEMA_TABLE}
+             (id, data_schema, last_result, script_hash, applied_at)
+           values (1, ?, 'applied', ?, ?)
+           on conflict (id) do update set
+             data_schema = excluded.data_schema,
+             last_result = excluded.last_result,
+             script_hash = excluded.script_hash,
+             applied_at = excluded.applied_at`,
         ).run(next.dataSchema, next.scriptHash, next.appliedAt);
         db.exec("commit");
         return ok(undefined);

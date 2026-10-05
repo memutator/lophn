@@ -8,8 +8,10 @@ import type { DataChange } from "../../../contracts/apps/mod.ts";
 // 앱 DB가 자기 상태를 보관하는 표. schema 번호와 마지막 migration 결과만 담는다.
 export const APP_SCHEMA_TABLE = "lophn_data_schema";
 
+// 행은 항상 하나다. 단계마다 행을 쌓으면 첫 행이 옛 schema로 남는다(R3).
 export const APP_SCHEMA_SQL = [
   `create table if not exists ${APP_SCHEMA_TABLE} (`,
+  "  id integer primary key check (id = 1),",
   "  data_schema integer not null check (data_schema >= 0),",
   "  last_result text not null check (last_result in ('applied', 'none')),",
   "  script_hash text,",

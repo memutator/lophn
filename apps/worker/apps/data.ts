@@ -1,6 +1,7 @@
 // data worker job. supervisor가 운영 자식 종료 확인 뒤 작업별로 띄운다
-// (architecture/apps 2.1). 한 앱 DB에 단독 접근하고 network·secret·외부 파일·
-// subprocess 권한은 없다. kind와 root는 환경으로만 받고 credential은 받지 않는다.
+// (architecture/apps 2.1). 한 앱 DB에 단독 접근한다. migration 자식만
+// network·secret·외부 파일·subprocess 권한이 없고, 이 진입은 backup·restore다.
+// kind와 root는 환경으로만 받고 credential은 받지 않는다.
 import { decodeDataJobInput } from "../../../packages/contracts/apps/mod.ts";
 import { runDataJob } from "../../../packages/apps/data/worker/job.ts";
 

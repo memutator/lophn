@@ -12,7 +12,7 @@ import { appBackupNames, createAppBackup, retainAppBackups } from "./backup.ts";
 import { copyDatabaseFile, databaseHash, openAppDatabase } from "./db.ts";
 import { verifyDatabase } from "./integrity.ts";
 import { migrationChildFlags, runDataJob } from "./job.ts";
-import { acquireDataLock } from "./lock.ts";
+import { acquireDataLock, DATA_LOCK_STALE_MS } from "./lock.ts";
 import {
   migrateAppDatabase,
   publishedScriptChanged,
@@ -141,6 +141,50 @@ Deno.test(
     assert(verified.ok);
     assertEquals(verified.value.state.dataSchema, 1);
     assertEquals(verified.value.integrityOk, true);
+  },
+);
+
+Deno.test(
+  "apps/data#R3: 세 단계 migration이 성공하면 확인은 마지막 schema를 읽는다",
+  async () => {
+    const area = await tempArea();
+    const path = `${area}/data.db`;
+    seed(path, ["start"]);
+    const backup = await createAppBackup(area, path, "before");
+    assert(backup.ok);
+    const first = await change(0, 1, "insert into items (body) values ('one')");
+    const second = await change(
+      1,
+      3,
+      "insert into items (body) values ('two')",
+    );
+    const third = await change(
+      3,
+      4,
+      "insert into items (body) values ('three')",
+    );
+    const migrated = await migrateAppDatabase({
+      dataArea: area,
+      databasePath: path,
+      backupPath: `${area}/backups/before`,
+      targetSchema: 4,
+      scripts: [first, second, third],
+      appliedAt: "2026-01-01T00:00:00.000Z",
+      result: {
+        release: RELEASE,
+        activation_seq: ACTIVATION,
+        invocation: null,
+      },
+    });
+    assert(migrated.ok);
+    assertEquals(migrated.value.restored, false);
+    assertEquals(migrated.value.result.data_schema, 4);
+    const verified = await verifyDatabase(path);
+    assert(verified.ok);
+    assertEquals(verified.value.state.dataSchema, 4);
+    assertEquals(verified.value.state.lastResult, "applied");
+    assertEquals(verified.value.state.scriptHash, third.change.script_hash);
+    assertEquals(items(path), ["start", "one", "two", "three"]);
   },
 );
 
@@ -411,6 +455,16 @@ Deno.test(
     const third = await acquireDataLock(area);
     assert(third.ok);
     await third.value.release();
+    // 죽은 자식이 남긴 lock은 시각이 한도를 넘기면 다음 job이 회수한다.
+    const now = Date.now();
+    const held = await acquireDataLock(area, now);
+    assert(held.ok);
+    const fresh = await acquireDataLock(area, now + DATA_LOCK_STALE_MS - 1);
+    assert(!fresh.ok);
+    assertEquals(fresh.error.code, "conflict");
+    const recovered = await acquireDataLock(area, now + DATA_LOCK_STALE_MS);
+    assert(recovered.ok);
+    await recovered.value.release();
   },
 );
 
@@ -443,6 +497,36 @@ Deno.test(
       () => false,
     );
     assertEquals(previous, false);
+  },
+);
+
+Deno.test(
+  "apps/data#R7: 복원 교체가 실패하면 WAL에만 있던 commit이 남는다",
+  async () => {
+    const area = await tempArea();
+    const path = `${area}/data.db`;
+    seed(path, ["committed"]);
+    // checkpoint하지 않은 WAL commit. 연결을 열어 두면 본체로 내려가지 않는다.
+    const db = new DatabaseSync(path);
+    db.exec("begin immediate");
+    db.prepare("insert into items (body) values (?)").run("in wal");
+    db.exec("commit");
+    const backup = await createAppBackup(area, path, "before");
+    assert(backup.ok);
+    const restored = await restoreAppBackup(
+      area,
+      path,
+      `${area}/backups/before`,
+      {
+        beforeReplace() {
+          throw new Error("replace failed");
+        },
+      },
+    );
+    assert(!restored.ok);
+    db.close();
+    // rollback이 sidecar를 되돌렸으므로 WAL에만 있던 행이 원본에 남는다.
+    assertEquals(items(path), ["committed", "in wal"]);
   },
 );
 

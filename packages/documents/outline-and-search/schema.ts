@@ -97,6 +97,7 @@ export const outlineAndSearchSchemaSteps: readonly SchemaStep[] = [
       version TEXT NOT NULL,
       section_key TEXT,
       input_hash TEXT NOT NULL,
+      text TEXT,
       PRIMARY KEY (version, section_key)
     );
 

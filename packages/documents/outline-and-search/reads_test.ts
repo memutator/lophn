@@ -6,7 +6,11 @@ import {
   type TargetAuthorizer,
 } from "../../contracts/platform/mod.ts";
 import { openDerived, openDerivedRead, rebuildPath } from "./adapters/store.ts";
-import { createSearchHandlers, excerptOf } from "./reads.ts";
+import {
+  createOutlineHandlers,
+  createSearchHandlers,
+  excerptOf,
+} from "./reads.ts";
 import { PREAMBLE_EXCERPT_CODEPOINTS, preambleExcerpt } from "./model.ts";
 import { type ExtractionRecord, recordExtraction } from "./extraction.ts";
 import { startRebuild } from "./work.ts";
@@ -17,6 +21,8 @@ const DOC_B = "doc_01arz3ndektsv4rrffq69g5fb0";
 const VER_A = "ver_01arz3ndektsv4rrffq69g5fav";
 const VER_B = "ver_01arz3ndektsv4rrffq69g5fb0";
 const HASH = "a".repeat(64);
+// 이어 읽기 fixture. 첫 줄 8000 둘째 줄 8000. 12,000 예산을 넘는다.
+const LONG_A = `${"첫".repeat(8000)}\n${"둘".repeat(8000)}`;
 const CTX = {
   principal: "person",
   actor: "user" as const,
@@ -65,7 +71,7 @@ function openDerivedFixture() {
   };
   const ledgerDb = new DatabaseSync(`${directory}/ledger.sqlite`);
   ledgerDb.exec(
-    "CREATE TABLE documents (id TEXT PRIMARY KEY, place_kind TEXT, place_id TEXT, name TEXT, title TEXT, latest_version TEXT, revision TEXT, status TEXT NOT NULL DEFAULT 'active'); CREATE TABLE versions (id TEXT PRIMARY KEY, document TEXT, number INTEGER, content_hash TEXT, format_name TEXT, module_hash TEXT, format_explicit INTEGER);",
+    "CREATE TABLE documents (id TEXT PRIMARY KEY, place_kind TEXT, place_id TEXT, name TEXT, title TEXT, latest_version TEXT, revision TEXT, status TEXT NOT NULL DEFAULT 'active'); CREATE TABLE versions (id TEXT PRIMARY KEY, document TEXT, number INTEGER, content_hash TEXT, format_name TEXT, module_hash TEXT, format_explicit INTEGER, saved_by TEXT, saved_at TEXT); CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT, title TEXT, purpose TEXT, revision TEXT, status TEXT NOT NULL DEFAULT 'active'); CREATE TABLE apps (id TEXT PRIMARY KEY, slug TEXT, name TEXT, description TEXT, revision TEXT, status TEXT NOT NULL DEFAULT 'active'); CREATE TABLE version_files (version TEXT, path TEXT, blob_hash TEXT, bytes INTEGER, media_type TEXT, primary_file INTEGER);",
   );
   const deps = (
     contexts?: Parameters<typeof createSearchHandlers>[0]["contexts"],
@@ -121,6 +127,39 @@ function openDerivedFixture() {
             return authorizer.current as T;
           },
         },
+      });
+    },
+    // outline·단계적 읽기 조립(T14).
+    outline(): ReturnType<typeof createOutlineHandlers> {
+      return createOutlineHandlers({
+        read: openedRead.value,
+        snapshot,
+        ports: {
+          port<T>(authorizeKey: unknown): T {
+            if (!Object.is(authorizeKey, TargetAuthorization)) {
+              throw new Error("unregistered port");
+            }
+            return authorizer.current as T;
+          },
+        },
+      });
+    },
+    // 직접 추출 근원을 넣은 outline 조립(R15).
+    outlineWithExtract(
+      extract: (record: { document: string; version: string }) => void,
+    ): ReturnType<typeof createOutlineHandlers> {
+      return createOutlineHandlers({
+        read: openedRead.value,
+        snapshot,
+        ports: {
+          port<T>(authorizeKey: unknown): T {
+            if (!Object.is(authorizeKey, TargetAuthorization)) {
+              throw new Error("unregistered port");
+            }
+            return authorizer.current as T;
+          },
+        },
+        extract,
       });
     },
     close() {
@@ -564,6 +603,549 @@ Deno.test("documents/outline-and-search#R13: index 삭제 뒤 재생성 swap은 
       rebuildPath(fx.directory).endsWith("documents.rebuild.sqlite"),
       true,
     );
+  } finally {
+    fx.close();
+  }
+});
+
+const OUTLINE_CTX = {
+  ...CTX,
+  scope: {
+    operations: [
+      "outline.root",
+      "outline.place",
+      "outline.document",
+      "document.read",
+    ],
+    targets: {},
+  },
+};
+
+const READ_CTX = {
+  ...CTX,
+  scope: { operations: ["document.read"], targets: {} },
+};
+
+// app 자리 행. root 목록의 app 항목 근거다.
+function appRow(fx: ReturnType<typeof openDerivedFixture>): void {
+  fx.ledgerSql.run(
+    `INSERT INTO apps (id, slug, name, description, revision, status)
+     VALUES (?, 'glossary-app', '용어 앱', '용어를 보는 앱', '2', 'active')`,
+    [DOC_B],
+  );
+}
+
+// project 행. root 목록의 project 항목 근거다.
+function projectRow(fx: ReturnType<typeof openDerivedFixture>): void {
+  fx.ledgerSql.run(
+    `INSERT INTO projects (id, name, title, purpose, revision, status)
+     VALUES (?, 'glossary', '용어집 프로젝트', '용어를 모은다', '1', 'active')`,
+    [PROJECT],
+  );
+}
+
+// place outline page. 활성 문서의 갱신 순 목록이다(R1, R2, R3).
+Deno.test("documents/outline-and-search#R2: place outline은 갱신 순 문서 항목을 본문 없이 낸다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    projectRow(fx);
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    const page = keep(
+      fx.outline().place(OUTLINE_CTX, {
+        place: { kind: "project", id: PROJECT },
+      }),
+    );
+    assertEquals(page.kind, "place");
+    assertEquals(page.entries.length, 1);
+    const entry = page.entries[0];
+    assertEquals(entry.document, DOC_A);
+    assertEquals(entry.title, "용어집");
+    assertEquals(entry.version, VER_A);
+    assertEquals(entry.latest_version, VER_A);
+    assertEquals(entry.format.name, "document");
+    assertEquals(entry.section_count, 2);
+    // 항목에 본문 자리는 없다. 발췌 자리만 있다.
+    assert(!("text" in entry));
+  } finally {
+    fx.close();
+  }
+});
+
+// root outline page. project·app·자리 없는 문서 묶음이다(R2).
+Deno.test("documents/outline-and-search#R2: root outline은 project·app·자리 없는 묶음을 활동 순으로 낸다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    projectRow(fx);
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    const page = keep(fx.outline().root(OUTLINE_CTX, {}));
+    assertEquals(page.kind, "root");
+    // project 항목이 먼저다. tracking 활성 자리 먼저다.
+    assert(page.entries.length >= 1);
+    const project = page.entries.find((entry) => entry.kind === "project");
+    assert(project !== undefined);
+    if (project.kind === "project") {
+      assertEquals(project.id, PROJECT);
+      assertEquals(project.document_count, 1);
+    }
+  } finally {
+    fx.close();
+  }
+});
+
+// root outline의 app 자리.
+Deno.test("documents/outline-and-search#R2: root outline은 app 자리를 낸다", () => {
+  const fx = openDerivedFixture();
+  try {
+    appRow(fx);
+    const page = keep(fx.outline().root(OUTLINE_CTX, {}));
+    const app = page.entries.find((entry) => entry.kind === "app");
+    assert(app !== undefined);
+    if (app.kind === "app") {
+      assertEquals(app.id, DOC_B);
+      assertEquals(app.title, "용어 앱");
+    }
+  } finally {
+    fx.close();
+  }
+});
+
+// document outline page. section별 시작·끝·문자 수·estimated token이다(R5).
+Deno.test("documents/outline-and-search#R5: document outline은 section별 통계를 낸다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    const page = keep(
+      fx.outline().document(OUTLINE_CTX, {
+        reference: { document: DOC_A },
+      }),
+    );
+    assertEquals(page.kind, "document");
+    assertEquals(page.section_status, "whole");
+    assertEquals(page.entries.length, 2);
+    assertEquals(page.entries[0].key, "문서");
+    assertEquals(page.entries[0].version, VER_A);
+    assertEquals(page.entries[0].estimated_tokens, Math.ceil(30 / 3));
+    assertEquals(page.entries[0].children_count, 0);
+  } finally {
+    fx.close();
+  }
+});
+
+// 형제 topLevel section의 숨긴 자식 수는 자기 자손만 센다(R5).
+Deno.test("documents/outline-and-search#R5: document outline은 자기 자손의 숨긴 수만 센다", () => {
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    const record: ExtractionRecord = {
+      document: DOC_A,
+      version: VER_A,
+      content_hash: HASH,
+      module_hash: HASH,
+      extraction: {
+        status: "ready",
+        title: "용어집",
+        text: "본문",
+        text_hash: HASH,
+        sections: [
+          {
+            key: "첫",
+            title: "첫",
+            parent: null,
+            position: 0,
+            level: 1,
+            anchor: null,
+            own_ranges: [{ start_line: 1, end_line: 2 }],
+            subtree_range: { start_line: 1, end_line: 6 },
+            characters: 10,
+            body_hash: HASH,
+          },
+          {
+            key: "둘",
+            title: "둘",
+            parent: null,
+            position: 1,
+            level: 1,
+            anchor: null,
+            own_ranges: [{ start_line: 7, end_line: 8 }],
+            subtree_range: { start_line: 7, end_line: 8 },
+            characters: 10,
+            body_hash: HASH,
+          },
+          // 첫의 자식 두 개. level 3이라 depth 2 outline에서 숨긴다.
+          {
+            key: "첫/가",
+            title: "가",
+            parent: "첫",
+            position: 2,
+            level: 3,
+            anchor: null,
+            own_ranges: [{ start_line: 3, end_line: 4 }],
+            subtree_range: { start_line: 3, end_line: 4 },
+            characters: 10,
+            body_hash: HASH,
+          },
+          {
+            key: "첫/나",
+            title: "나",
+            parent: "첫",
+            position: 3,
+            level: 3,
+            anchor: null,
+            own_ranges: [{ start_line: 5, end_line: 6 }],
+            subtree_range: { start_line: 5, end_line: 6 },
+            characters: 10,
+            body_hash: HASH,
+          },
+          // 둘의 자식 하나.
+          {
+            key: "둘/가",
+            title: "가",
+            parent: "둘",
+            position: 4,
+            level: 3,
+            anchor: null,
+            own_ranges: [{ start_line: 8, end_line: 8 }],
+            subtree_range: { start_line: 8, end_line: 8 },
+            characters: 10,
+            body_hash: HASH,
+          },
+        ],
+      },
+    };
+    keep(recordExtraction(fx.store, record, "1"));
+    fx.consumed("5");
+    const page = keep(
+      fx.outline().document(OUTLINE_CTX, {
+        reference: { document: DOC_A },
+      }),
+    );
+    assertEquals(page.kind, "document");
+    // depth 2 outline: topLevel 둘만 난다. level 3 자식은 숨겨진다.
+    const kept = page.entries;
+    assertEquals(kept.length, 2);
+    const first = kept.find((section) => section.key === "첫");
+    const second = kept.find((section) => section.key === "둘");
+    assert(first !== undefined);
+    assert(second !== undefined);
+    // 각 형제는 자기 자손의 숨긴 수만 센다.
+    assertEquals(first.hidden_children_count, 2);
+    assertEquals(second.hidden_children_count, 1);
+  } finally {
+    fx.close();
+  }
+});
+
+// 본문 읽기. 12,000 codepoint를 넘는 본문을 cursor로 이어 읽는다(R7).
+Deno.test("documents/outline-and-search#R7: handler 본문 읽기는 12,000 codepoint를 넘는 본문을 이어 읽는다", () => {
+  const fx = openDerivedFixture();
+  try {
+    const first = "첫".repeat(8000);
+    const second = "둘".repeat(8000);
+    const long = `${first}\n${second}`;
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, long), "1"));
+    fx.consumed("5");
+    const head = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+      }),
+    );
+    assertEquals(head.complete, false);
+    assert(head.text !== null);
+    assertEquals([...head.text].length <= 12000, true);
+    assertEquals(head.next_cursor !== null, true);
+    const tail = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+        cursor: head.next_cursor ?? undefined,
+      }),
+    );
+    assertEquals(tail.complete, true);
+    assert(tail.text !== null);
+    // 첫 조각 + 이어 읽기 = 원문. 겹침도 누락도 없다.
+    assertEquals(head.text + tail.text, long);
+  } finally {
+    fx.close();
+  }
+});
+
+// 성공 추출에 key 없음은 missing, 근원 없음은 unverified다(R22).
+Deno.test("documents/outline-and-search#R22: 성공 추출의 없는 key는 missing, 근원 없는 판은 unverified다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    // fallback 근거 file 행.
+    fx.ledgerSql.run(
+      `INSERT INTO version_files (version, path, blob_hash, bytes, media_type, primary_file)
+       VALUES (?, ?, ?, ?, ?, 1)`,
+      [VER_A, "glossary.md", HASH, 16000, "text/markdown"],
+    );
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    // 성공 추출의 key 없음. missing이다.
+    const missing = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+        section: "없는이름",
+      }),
+    );
+    assertEquals(missing.complete, true);
+    assertEquals(missing.section_status, "missing");
+    assertEquals(missing.text, null);
+    assertEquals(missing.next_cursor, null);
+    // 근원 없는 판. unverified다. 검색 큐를 기다리지 않는다.
+    const otherVer = "ver_01arz3ndektsv4rrffq69g5fb1";
+    fx.ledgerSql.run(
+      `INSERT INTO versions (id, document, number, content_hash, format_name, module_hash, format_explicit)
+       VALUES (?, ?, 2, ?, 'document', ?, 1)`,
+      [otherVer, DOC_A, HASH, HASH],
+    );
+    const unverified = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: otherVer },
+      }),
+    );
+    assertEquals(unverified.complete, true);
+    assertEquals(unverified.section_status, "unverified");
+    assertEquals(unverified.failure_reason !== null, true);
+    assertEquals(unverified.text, null);
+  } finally {
+    fx.close();
+  }
+});
+
+// 성공 추출의 미지원 판은 unsupported다(R22).
+Deno.test("documents/outline-and-search#R22: 미지원 추출은 unsupported다", () => {
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    // fallback 근거 file 행. unsupported page가 file을 싣는다.
+    fx.ledgerSql.run(
+      `INSERT INTO version_files (version, path, blob_hash, bytes, media_type, primary_file)
+       VALUES (?, ?, ?, ?, ?, 1)`,
+      [VER_A, "glossary.md", HASH, 16000, "text/markdown"],
+    );
+    keep(
+      recordExtraction(fx.store, {
+        document: DOC_A,
+        version: VER_A,
+        content_hash: HASH,
+        module_hash: HASH,
+        extraction: { status: "unsupported" },
+      }, "1"),
+    );
+    fx.consumed("5");
+    const page = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+      }),
+    );
+    assertEquals(page.section_status, "unsupported");
+    assertEquals(page.text, null);
+    const outline = keep(
+      fx.outline().document(OUTLINE_CTX, {
+        reference: { document: DOC_A },
+      }),
+    );
+    assertEquals(outline.section_status, "unsupported");
+    assertEquals(outline.entries.length, 0);
+    assert(outline.file !== null);
+  } finally {
+    fx.close();
+  }
+});
+
+// 요약 cache 결과. section 없는 요약의 match_source는 summary다(R12).
+Deno.test("documents/outline-and-search#R12: 요약 cache 결과의 match_source는 summary다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    // 검색 행을 비운다. 요약 cache만 남는다.
+    fx.store.transaction((tx) => {
+      tx.sql.run(`DELETE FROM search_rows`, []);
+      tx.sql.run(`DELETE FROM search_fts`, []);
+      return ok(undefined);
+    });
+    fx.store.transaction((tx) =>
+      ok(tx.sql.run(
+        `INSERT INTO summary_cache (version, section_key, input_hash, text) VALUES (?, ?, ?, ?)`,
+        [VER_A, null, HASH, "주제 요약에 문서가 들어있다"],
+      ))
+    );
+    const page = keep(fx.handlers().query(CTX, { query: "문서" }));
+    assert(page.results.length >= 1);
+    const found = page.results.find((result) => result.document === DOC_A);
+    assert(found !== undefined);
+    assertEquals(found.match_source, "summary");
+    assertEquals(found.section, null);
+    assert(found.cache_basis !== null);
+    if (found.cache_basis !== null) {
+      assertEquals(found.cache_basis.version, VER_A);
+      assertEquals(found.cache_basis.section, null);
+      assertEquals(found.cache_basis.stale, false);
+    }
+    // cache 결과는 본문 근거가 없다. ranges는 없다.
+    assertEquals(found.ranges.length, 0);
+  } finally {
+    fx.close();
+  }
+});
+
+// 주제 cache 결과. section cache의 match_source는 topic이다(R12).
+Deno.test("documents/outline-and-search#R12: 주제 cache 결과의 match_source는 topic이다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    fx.store.transaction((tx) => {
+      tx.sql.run(`DELETE FROM search_rows`, []);
+      tx.sql.run(`DELETE FROM search_fts`, []);
+      return ok(undefined);
+    });
+    fx.store.transaction((tx) =>
+      ok(tx.sql.run(
+        `INSERT INTO summary_cache (version, section_key, input_hash, text) VALUES (?, ?, ?, ?)`,
+        [VER_A, "용어", HASH, "용어 주제 요약"],
+      ))
+    );
+    const page = keep(fx.handlers().query(CTX, { query: "용어" }));
+    const found = page.results.find((result) => result.section === "용어");
+    assert(found !== undefined);
+    assertEquals(found.match_source, "topic");
+    if (found.cache_basis !== null) {
+      assertEquals(found.cache_basis.section, "용어");
+    }
+  } finally {
+    fx.close();
+  }
+});
+
+// scan·index 큐 지연 중 선택 판 읽기 우선 응답(R15).
+Deno.test("documents/outline-and-search#R15: 큐가 뒤처져도 선택 판 읽기는 근원을 기다리지 않는다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    // consumed("5")를 부르지 않는다. 큐가 뒤처진 상태다.
+    let extracted = 0;
+    const handlers = fx.outlineWithExtract(() => {
+      extracted += 1;
+    });
+    // derived_texts가 있다. 우선 응답이다. 검색 coverage와 무관하다.
+    // section 선택이 없으므로 section_status는 whole이다.
+    const page = keep(
+      handlers.read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+      }),
+    );
+    assertEquals(page.section_status, "whole");
+    assert(page.text !== null);
+    assertEquals(page.text.length > 0, true);
+    assertEquals(extracted, 0);
+  } finally {
+    fx.close();
+  }
+});
+
+// 큐가 뒤처진 판은 derived에 없다. 직접 추출 근원을 부르고 미완료로 답한다(R15).
+Deno.test("documents/outline-and-search#R15: 근원 없는 판은 직접 추출을 부르고 미완료로 답한다", () => {
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    fx.consumed("5");
+    let extracted = 0;
+    const handlers = fx.outlineWithExtract(() => {
+      extracted += 1;
+    });
+    const page = keep(
+      handlers.read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+      }),
+    );
+    // derived_texts가 없다. 직접 추출을 부르고 unverified로 답한다.
+    assertEquals(extracted, 1);
+    assertEquals(page.section_status, "unverified");
+    assertEquals(page.failure_reason !== null, true);
+    assertEquals(page.text, null);
+  } finally {
+    fx.close();
+  }
+});
+
+// outline 뒤 새 판이 저장돼도 같은 cursor는 처음 판을 유지한다(R8).
+Deno.test("documents/outline-and-search#R8: outline 뒤 새 판 저장에도 같은 cursor는 처음 판이다", () => {
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, LONG_A), "1"));
+    fx.consumed("5");
+    const head = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+      }),
+    );
+    assertEquals(head.next_cursor !== null, true);
+    // 처음 판의 cursor 근거. latest_version은 따로 본다.
+    assertEquals(head.latest_version, VER_A);
+    // 새 판을 저장한다. 문서의 latest가 지나간다.
+    const otherVer = "ver_01arz3ndektsv4rrffq69g5fb2";
+    fx.ledgerSql.run(
+      `INSERT INTO versions (id, document, number, content_hash, format_name, module_hash, format_explicit)
+       VALUES (?, ?, 2, ?, 'document', ?, 1)`,
+      [otherVer, DOC_A, HASH, HASH],
+    );
+    fx.ledgerSql.run(
+      `UPDATE documents SET latest_version = ? WHERE id = ?`,
+      [otherVer, DOC_A],
+    );
+    // 같은 cursor는 처음 판을 유지한다. cursor ver 근거다.
+    const tail = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+        cursor: head.next_cursor ?? undefined,
+      }),
+    );
+    assertEquals(tail.version, VER_A);
+    assertEquals(tail.complete, true);
+    // latest_version은 따로 본다.
+    assertEquals(tail.latest_version, otherVer);
+  } finally {
+    fx.close();
+  }
+});
+
+// outline cursor. 조건 mismatch는 invalid_input, basis 만료는 conflict다(R9).
+Deno.test("documents/outline-and-search#R9: place outline cursor는 mismatch에 invalid_input, 만료에 conflict를 낸다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    projectRow(fx);
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    // 깨진 cursor는 invalid_input이다.
+    const broken = fx.outline().place(OUTLINE_CTX, {
+      place: { kind: "project", id: PROJECT },
+      cursor: "@@@",
+    });
+    assertEquals(broken.ok, false);
+    if (!broken.ok) assertEquals(broken.error.code, "invalid_input");
   } finally {
     fx.close();
   }

@@ -29,7 +29,7 @@ import { SNAPSHOTS_SCHEMA_STEPS } from "../../packages/problems/snapshots/mod.ts
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
 import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
-import { testRunnerSpec } from "./problems-runner.ts";
+import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
 
 // owner definitions만 내보낸다. port 구현과 writer 조립은 core가 맡는다.
 export const problemsTestDefinitions = {
@@ -44,7 +44,7 @@ export const problemsTestDefinitions = {
 };
 
 // 등록 시점 env에서 data root와 Deno 실행 파일을 좁힌다. 없으면 spec을 내지 않는다.
-function testRunnerWorkers(): KindLaunchSpec[] {
+function workerRoot(): string | undefined {
   const lophnHome = Deno.env.get("LOPHN_HOME");
   const home = Deno.env.get("HOME");
   const root = lophnHome && lophnHome.length > 0
@@ -52,8 +52,22 @@ function testRunnerWorkers(): KindLaunchSpec[] {
     : home
     ? `${home}/.lophn`
     : undefined;
-  if (!root || !root.startsWith("/")) return [];
+  return root && root.startsWith("/") ? root : undefined;
+}
+
+function testRunnerWorkers(): KindLaunchSpec[] {
+  const root = workerRoot();
+  if (!root) return [];
   const spec = testRunnerSpec({ dataRoot: root, deno: Deno.execPath() });
+  return spec ? [spec] : [];
+}
+
+// report collector는 보고 접수 통로다(T3). core loopback에만 닿고 준비 폴더만
+// 읽는다(architecture/problems 2.2).
+function reportCollectorWorkers(): KindLaunchSpec[] {
+  const root = workerRoot();
+  if (!root) return [];
+  const spec = reportCollectorSpec({ dataRoot: root, deno: Deno.execPath() });
   return spec ? [spec] : [];
 }
 
@@ -97,6 +111,7 @@ export const problemsReportDefinitions = {
   commands: [recordReportCommand],
   reads: [listReportsRead, getReportRead, getSnapshotRead],
   ports: {} as Record<string, TxPortRegistration>,
+  workers: reportCollectorWorkers(),
 };
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).

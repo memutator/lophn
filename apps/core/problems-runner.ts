@@ -4,6 +4,7 @@ import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import { checkLaunchSpec } from "../../packages/platform/security/mod.ts";
 
 export const TEST_RUNNER_KIND = "problems/test-runner";
+export const COLLECTOR_KIND = "problems/report-collector";
 
 // runner control은 플랫폼 code다. 준비 폴더와 작업 root만 읽고 쓰고,
 // 승인된 Deno 실행 파일만 --allow-run으로 받는다(architecture/problems 2.2).
@@ -30,6 +31,35 @@ export function testRunnerSpec(input: {
     allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
     policy: "always",
     memory_limit_bytes: 536_870_912,
+  };
+  const checked = checkLaunchSpec(spec);
+  return checked.ok ? checked.value : undefined;
+}
+
+// report collector는 준비 폴더의 bundle 사본과 blueprint만 읽고, core loopback에만
+// 닿는다(architecture/problems 2.2). 쓰기·자식 실행 권한은 없다.
+export function reportCollectorSpec(input: {
+  dataRoot: string;
+  deno: string;
+}): KindLaunchSpec | undefined {
+  if (!input.dataRoot.startsWith("/") || !input.deno.startsWith("/")) {
+    return undefined;
+  }
+  const entry = new URL(
+    "../worker/problems/report-collector.ts",
+    import.meta.url,
+  ).pathname;
+  const spec: KindLaunchSpec = {
+    kind: COLLECTOR_KIND,
+    entry,
+    allow_read: [input.dataRoot, entry, input.deno],
+    allow_write: [],
+    allow_net: ["127.0.0.1"],
+    allow_run: [input.deno],
+    allow_sys: [],
+    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
+    policy: "always",
+    memory_limit_bytes: 268_435_456,
   };
   const checked = checkLaunchSpec(spec);
   return checked.ok ? checked.value : undefined;

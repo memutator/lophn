@@ -4,12 +4,13 @@
 // 유예기간 안 blob은 남는다. backup.pending이 있으면 아무것도 지우지 않고,
 // blob_refs 관측이 막히면 유지보수를 건너뛴다.
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { BLOB_UNREFERENCED_GRACE_MS } from "../../packages/contracts/platform/mod.ts";
 import { startCore } from "./core.ts";
 import { createCoreRegistration } from "./testing/blob-registration.ts";
+import { acquireInstanceLock } from "../../packages/platform/install-and-update/mod.ts";
 
 const BODY = new TextEncoder().encode("blob body");
 const NOW = Date.UTC(2024, 0, 1);
@@ -246,6 +247,72 @@ function seedRefs(dataRoot: string, rows: number, lateHash: string): void {
 
 function syntheticHash(index: number): string {
   return index.toString(16).padStart(64, "0");
+}
+
+Deno.test("platform/blob-store#R8: 유지보수가 시간 제한을 넘기면 그 프로세스만 끝내고 lock을 푼다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-shutdown-timeout-" });
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [{ createCoreRegistration }],
+    clock: manualClock(NOW),
+    random: seededRandom(5),
+    superviseIo: false,
+    maintenanceTimeoutMs: 200,
+    // 시간 제한보다 길게 멈춰 있는 유지보수. 종료는 이걸 기다리지 않는다.
+    maintenance: () => new Promise(() => {}),
+  });
+  assert(started.ok);
+  const core = started.value;
+  const began = Date.now();
+  await core.shutdown();
+  // 시간 제한 직후에 돌아와야 한다. 무한 대기가 아니어야 한다.
+  assert(Date.now() - began < 5_000);
+  try {
+    const log = await Deno.readTextFile(`${home}/logs/maintenance.jsonl`);
+    assert(log.includes("maintenance_gc timeout"));
+    await assertLockFree(`${home}/run`);
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+Deno.test("platform/blob-store#R8: 종료의 앞 단계가 예외를 던져도 lock을 풀고 유지보수는 건너뛴다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-shutdown-throw-" });
+  let maintenanceRan = false;
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [{ createCoreRegistration }],
+    clock: manualClock(NOW),
+    random: seededRandom(6),
+    superviseIo: false,
+    // API 정지가 끝난 직후 예외. writer 정지가 관측되기 전이라 유지보수는
+    // 조건이 다 모이지 않아 불리지 않는다.
+    failShutdown: () => Promise.reject(new Error("shutdown step failed")),
+    maintenance: () => {
+      maintenanceRan = true;
+      return Promise.resolve();
+    },
+  });
+  assert(started.ok);
+  const core = started.value;
+  // 예외는 호출자에게 그대로 올라간다. finally가 lock을 푼 뒤의 일이다.
+  await assertRejects(() => core.shutdown(), Error, "shutdown step failed");
+  try {
+    assertEquals(maintenanceRan, false);
+    await assertLockFree(`${home}/run`);
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+// lock이 풀렸으면 같은 파일을 다시 잠글 수 있다. 풀리지 않았으면 conflict다.
+async function assertLockFree(runDir: string): Promise<void> {
+  await Deno.mkdir(runDir, { recursive: true });
+  const locked = await acquireInstanceLock(runDir);
+  assert(locked.ok, locked.ok ? "" : locked.error.message);
+  await locked.value.release();
 }
 
 async function prepare(

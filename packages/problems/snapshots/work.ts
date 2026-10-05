@@ -10,11 +10,19 @@ import type {
   SourceFrame,
 } from "../../contracts/problems/mod.ts";
 import { exceptionGroupKey, type FingerprintFrame } from "../grouping/mod.ts";
+import { type AppLogSource, collectLogEvidence } from "./logs.ts";
+import {
+  bytesStream,
+  type PreparedSnapshotBlob,
+  type SnapshotBlobPrepare,
+} from "./prepare.ts";
 import {
   readBundleManifest,
   readSourceMap,
   type SourceMapFailure,
 } from "./source-map.ts";
+
+export type { PreparedSnapshotBlob, SnapshotBlobPrepare };
 
 // contracts REPORTING_LIMITS의 값이다(sdk-report.ts). problems는 platform을
 // import하지 않으므로 이 leaf가 상수만 반복한다. bundle 사본 위치 규칙
@@ -48,23 +56,6 @@ function bundleCopyPath(
   return ok(`${dataRoot}/apps/${app}/bundles/${bundleHash}`);
 }
 
-// 조립에 주입하는 준비 경계. bytes는 platform blob prepare 경계(
-// documents가 supervision pipe로 준비하는 것과 같은 갈래)로 간다.
-export type SnapshotBlobPrepare = {
-  prepare(
-    input: { principal: string; purpose: string; expectedHash?: string },
-    bytes: ReadableStream<Uint8Array>,
-  ): Promise<
-    Result<{
-      preparation: string;
-      principal: string;
-      purpose: string;
-      hash: string;
-      size_bytes: number;
-    }>
-  >;
-};
-
 // 당시 release의 읽기 전용 준비 폴더 출처. data root의 apps 부분만 받는다.
 export type PreparedFolderSource = {
   // `apps` 부모 폴더(abs path). collector 등록 spec의 allow_read와 같다.
@@ -95,16 +86,6 @@ function stackBytesOf(stack: string, limit: number): {
     truncated: true,
     excludedFrom: end,
   };
-}
-
-// raw stack을 스트림으로 내보낸다.
-function stackStream(bytes: Uint8Array): ReadableStream<Uint8Array> {
-  return new ReadableStream({
-    start(controller) {
-      if (bytes.length > 0) controller.enqueue(bytes);
-      controller.close();
-    },
-  });
 }
 
 // prepared 출처의 앱 frame 위치 찾기(snapshots#R11). source map으로 stack의
@@ -392,19 +373,22 @@ export type AssemblyDeps = {
   principal: string;
   // 조립 기한 재는 단조 시계. 기본은 Date.now다(테스트가 시계를 준다, snapshots#R18).
   monotonicNow?: () => number;
+  // 로그 증거 수집. 없으면 source가 연결되지 않은 것이다(이유로 남는다, snapshots#R4).
+  logs?: {
+    // 진단 상세 수집 설정. 꺼져 있으면 새 로그를 모으지 않는다(snapshots#R7).
+    detailCollection: boolean;
+    source: AppLogSource | null;
+    redact: (text: string) => Promise<string | null>;
+  };
 };
 
 export type AssembledException = {
   snapshot: SnapshotInput;
   group_key: GroupKey;
   // stack blob 준비 결과(blob prepared 출처 바인딩). 실패·stack 없음이면 null이다.
-  stack_prepared: {
-    preparation: string;
-    principal: string;
-    purpose: string;
-    hash: string;
-    size_bytes: number;
-  } | null;
+  stack_prepared: PreparedSnapshotBlob | null;
+  // 로그 조각 blob 준비 결과. 접수할 때 snapshot_logs blob으로 함께 등록한다.
+  logs_prepared: PreparedSnapshotBlob | null;
 };
 
 // exception observation에서 SnapshotInput과 지문 key를 조립한다(snapshots#R1–R6,
@@ -419,15 +403,30 @@ export async function assembleException(
 ): Promise<Result<AssembledException>> {
   const monotonicNow = deps.monotonicNow ?? (() => Date.now());
   const startedMs = monotonicNow();
-  // 전체 조립 기한은 2,000ms다(snapshots#R18). 넘으면 남은 자료로 접수한다.
-  const overDeadline = () =>
-    monotonicNow() - startedMs >= LIMITS.snapshot_assembly_ms;
   const startedAt = deps.nowAt;
+  const collectLogs = (stackBytes: number) =>
+    collectLogEvidence(
+      // app은 credential에서 온 값이다. 로그 내용이나 observation이 바꾸지 못한다(R6).
+      { app: evidence.app, invocation: input.invocation?.id ?? null },
+      {
+        detailCollection: deps.logs?.detailCollection ?? true,
+        source: deps.logs?.source ?? null,
+        redact: deps.logs?.redact ?? (() => Promise.resolve(null)),
+        blobPrepare: deps.blobPrepare,
+        principal: deps.principal,
+        nowAt: deps.nowAt,
+        // 전체 조립 기한은 2,000ms다(snapshots#R18). 로그는 남은 시간만 쓴다.
+        remainingMs: LIMITS.snapshot_assembly_ms -
+          (monotonicNow() - startedMs),
+        remainingLargeBytes: LIMITS.snapshot_large_bytes - stackBytes,
+      },
+    );
   // raw error는 observation schema가 검증한 것만 이름으로 둔다(R1).
   const rawError = input.error;
   const invocation = input.invocation;
   const snapshotId = `snp_${input.report_id.slice("rpt_".length)}`;
   if (rawError === null) {
+    const collected = await collectLogs(0);
     const snapshot: SnapshotInput = {
       id: snapshotId,
       captured_at: startedAt,
@@ -435,8 +434,8 @@ export async function assembleException(
       invocation_missing_reason: null,
       error: null,
       error_missing_reason: input.error_missing_reason,
-      logs: null,
-      logs_missing_reason: { reason: "collector" },
+      logs: collected.logs,
+      logs_missing_reason: collected.logs_missing_reason,
       screen: null,
       screen_missing_reason: { reason: "collector" },
     };
@@ -445,9 +444,13 @@ export async function assembleException(
       [],
       input.report_id,
     );
-    return ok({ snapshot, group_key: groupKey, stack_prepared: null });
+    return ok({
+      snapshot,
+      group_key: groupKey,
+      stack_prepared: null,
+      logs_prepared: collected.prepared,
+    });
   }
-  void overDeadline; // redaction 통과 raw stack이 주입받은 값이다(bounded memory만 쥔다).
   const stack = rawError.stack;
   const { frames, source_missing_reason } = await resolveStackFrames(
     deps.folder,
@@ -474,7 +477,7 @@ export async function assembleException(
         purpose: "snapshot_stack",
         expectedHash: undefined,
       },
-      stackStream(cut.bytes),
+      bytesStream(cut.bytes),
     );
     if (prepared.ok) {
       stackHash = prepared.value.hash;
@@ -486,6 +489,7 @@ export async function assembleException(
       );
     }
   }
+  const collected = await collectLogs(stackPrepared?.size_bytes ?? 0);
   const fingerprintFrames: FingerprintFrame[] = frames.map((frame) => ({
     path: frame.path,
     function: frame.function,
@@ -510,8 +514,8 @@ export async function assembleException(
       truncation_notes: truncationNotes,
     },
     error_missing_reason: null,
-    logs: null,
-    logs_missing_reason: { reason: "collector" },
+    logs: collected.logs,
+    logs_missing_reason: collected.logs_missing_reason,
     screen: null,
     screen_missing_reason: { reason: "collector" },
   };
@@ -520,5 +524,10 @@ export async function assembleException(
     fingerprintFrames,
     input.report_id,
   );
-  return ok({ snapshot, group_key: groupKey, stack_prepared: stackPrepared });
+  return ok({
+    snapshot,
+    group_key: groupKey,
+    stack_prepared: stackPrepared,
+    logs_prepared: collected.prepared,
+  });
 }

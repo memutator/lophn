@@ -15,17 +15,17 @@ import type {
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
-import {
-  defineBlobField,
-  defineBlobPurpose,
-} from "../../packages/contracts/platform/mod.ts";
+import { defineBlobPurpose } from "../../packages/contracts/platform/mod.ts";
 import {
   getReportRead,
   getSnapshotRead,
   listReportsRead,
 } from "../../packages/problems/reporting/reads.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
-import { SNAPSHOTS_SCHEMA_STEPS } from "../../packages/problems/snapshots/mod.ts";
+import {
+  reportBlobField,
+  SNAPSHOTS_SCHEMA_STEPS,
+} from "../../packages/problems/snapshots/mod.ts";
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
 import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
@@ -99,14 +99,7 @@ const REPORT_BLOB_FIELD_FIELDS = [
 
 export const problemsReportDefinitions = {
   schema: [...REPORTS_SCHEMA_STEPS, ...SNAPSHOTS_SCHEMA_STEPS],
-  blobFields: REPORT_BLOB_FIELD_FIELDS.map((field) =>
-    defineBlobField({
-      owner_kind: "report",
-      field,
-      retention: { kind: "permanent" },
-      general_read: false,
-    })
-  ),
+  blobFields: REPORT_BLOB_FIELD_FIELDS.map(reportBlobField),
   blobPurposes: REPORT_BLOB_PURPOSES.map((purpose) =>
     defineBlobPurpose({
       purpose,

@@ -307,29 +307,8 @@ export function createSeriesCommands(): {
         return changeFamily(tx, ctx, input.series, compare.base_revision, (
           current,
         ) => {
-          const existing = loadInstance(tx.sql, current.id, input.document);
-          if (!existing.ok) return existing;
-          if (existing.value !== null) {
-            return rejected("conflict", "document is already a member");
-          }
-          // 제거된 key 예약은 남는다. 다른 Document가 같은 key를 다시 쓰면 거절이다.
-          const reserved = loadKeyReservation(tx.sql, current.id, input.key);
-          if (!reserved.ok) return reserved;
-          if (
-            reserved.value !== null &&
-            reserved.value.document !== input.document
-          ) {
-            return rejected("conflict", "key is already reserved");
-          }
-          const membership = listInstances(tx.sql, current.id);
-          if (!membership.ok) return membership;
-          for (const instance of membership.value) {
-            if (instance.key === input.key) {
-              return rejected("conflict", "key is already taken");
-            }
-          }
-          const checked = checkMembership(tx, current, input.document);
-          if (!checked.ok) return checked;
+          const joinable = checkJoin(tx, current, input.document, input.key);
+          if (!joinable.ok) return joinable;
           const orderValue = input.order_value ?? null;
           const orderVersion = input.order_version ?? null;
           if (orderVersion !== null) {
@@ -347,52 +326,14 @@ export function createSeriesCommands(): {
             orderValue: string | number | null;
             orderVersion: string | null;
           };
-          // 일치 draft(document·key)는 가입과 함께 비운다(T17).
-          const draft = current.draft;
-          const cleared = draft !== null &&
-            draft.document === input.document && draft.key === input.key;
-          if (cleared) {
-            tx.emit(seriesDraftCleared, current.id, {
-              before_draft: outputDraft(draft),
-              before_revision: current.revision,
-            });
-          }
-          const seq = tx.emit(seriesInstanceAdded, current.id, {
-            document: input.document,
-            key: input.key,
-            order_value: basis.orderValue,
-            order_version: basis.orderVersion,
-            before_revision: current.revision,
-          });
-          const parsed = seriesInstanceSchema.safeParse({
-            series: current.id,
-            document: input.document,
-            key: input.key,
-            order_value: basis.orderValue,
-            order_version: basis.orderVersion,
-            revision: seq,
-          });
-          if (!parsed.success) {
-            return rejected("internal", "series instance is invalid");
-          }
-          insertInstance(tx, parsed.data);
-          // 첫 예약만 더한다. 남아 있는 예약의 재가입은 같은 first_seq를 유지한다(R2).
-          const held = loadKeyReservation(tx.sql, current.id, input.key);
-          if (!held.ok) return held;
-          if (held.value === null) {
-            insertKeyReservation(
-              tx,
-              current.id,
-              input.key,
-              input.document,
-              seq,
-            );
-          }
-          return ok({
-            ...current,
-            draft: cleared ? null : current.draft,
-            revision: seq,
-          });
+          return applyJoin(
+            tx,
+            current,
+            input.document,
+            input.key,
+            basis.orderValue,
+            basis.orderVersion,
+          );
         });
       },
     },
@@ -696,4 +637,84 @@ function checkOrderBasis(
     return rejected("invalid_input", "order version format differs");
   }
   return ok(undefined);
+}
+
+// 가입 검사. 이미 멤버·다른 문서가 예약한 key·가족 안 중복 key·자리와 format이다.
+// 제거된 key 예약은 남는다. 다른 Document가 같은 key를 다시 쓰면 거절이다(R2, R3).
+export function checkJoin(
+  tx: Tx,
+  current: Series,
+  document: string,
+  key: string,
+): Result<void> {
+  const existing = loadInstance(tx.sql, current.id, document);
+  if (!existing.ok) return existing;
+  if (existing.value !== null) {
+    return rejected("conflict", "document is already a member");
+  }
+  const reserved = loadKeyReservation(tx.sql, current.id, key);
+  if (!reserved.ok) return reserved;
+  if (reserved.value !== null && reserved.value.document !== document) {
+    return rejected("conflict", "key is already reserved");
+  }
+  const membership = listInstances(tx.sql, current.id);
+  if (!membership.ok) return membership;
+  for (const instance of membership.value) {
+    if (instance.key === key) {
+      return rejected("conflict", "key is already taken");
+    }
+  }
+  return checkMembership(tx, current, document);
+}
+
+// 가입 확정. 일치 draft(document·key)는 가입과 함께 비운다(T17).
+// series.add_instance와 document.save의 가입이 같은 쓰기를 쓴다.
+// 돌려주는 가족은 draft·revision이 반영된 값이고 가족 행 갱신은 호출자가 한다.
+export function applyJoin(
+  tx: Tx,
+  current: Series,
+  document: string,
+  key: string,
+  orderValue: string | number | null,
+  orderVersion: string | null,
+): Result<Series> {
+  const draft = current.draft;
+  const cleared = draft !== null && draft.document === document &&
+    draft.key === key;
+  if (cleared) {
+    tx.emit(seriesDraftCleared, current.id, {
+      before_draft: outputDraft(draft),
+      before_revision: current.revision,
+    });
+  }
+  const seq = tx.emit(seriesInstanceAdded, current.id, {
+    document,
+    key,
+    order_value: orderValue,
+    order_version: orderVersion,
+    before_revision: current.revision,
+  });
+  const parsed = seriesInstanceSchema.safeParse({
+    series: current.id,
+    document,
+    key,
+    order_value: orderValue,
+    order_version: orderVersion,
+    revision: seq,
+  });
+  if (!parsed.success) {
+    return rejected("internal", "series instance is invalid");
+  }
+  insertInstance(tx, parsed.data);
+  // 첫 예약만 더한다. 남아 있는 예약의 재가입은 같은 first_seq를 유지한다(R2).
+  const held = loadKeyReservation(tx.sql, current.id, key);
+  if (!held.ok) return held;
+  if (held.value === null) {
+    insertKeyReservation(tx, current.id, key, document, seq);
+  }
+  return ok({
+    ...current,
+    draft: cleared ? null : current.draft,
+    revision: seq,
+  });
 }

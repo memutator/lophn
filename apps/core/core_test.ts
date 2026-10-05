@@ -346,6 +346,63 @@ Deno.test("coding-agent/tickets#R11: core 기동은 ticket schema와 create·cla
   }
 });
 
+Deno.test("platform/identity#R4: parent.ts가 내는 사람 token은 user route를 모두 쓰고 machine 전용은 거절된다", async () => {
+  const dir = await home();
+  const parentIn = new TransformStream<Uint8Array, Uint8Array>();
+  const parentOut = new TransformStream<Uint8Array, Uint8Array>();
+  const core = await boot(dir, {
+    teams: [{ createLedgerRegistration }],
+    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    parent: { stdin: parentIn.readable, stdout: parentOut.writable },
+  });
+  try {
+    const frames = readParent(parentOut.readable);
+    const hello = await frames.next();
+    const token = hello.value.user_token;
+
+    // 프로젝트 만들기와 목록은 user를 허용하는 route라 token scope에 들어 있다.
+    const created = await post(core, "/v1/projects/create", {
+      input: {
+        id: "prj_01kq12a1pha000000000000000",
+        name: "alpha",
+        title: "Alpha",
+        purpose: "",
+        folders: [{ path: "/tmp/lophn-identity-r4", description: "a" }],
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      idempotency_key: "identity-r4-create",
+      compare: {},
+      prepared: [],
+    }, token);
+    assertEquals(created.status, 200, JSON.stringify(created.body));
+    const listed = await post(core, "/v1/projects/list", {}, token);
+    assertEquals(listed.status, 200, JSON.stringify(listed.body));
+    assertEquals(
+      ((listed.body as { projects?: unknown[] }).projects ?? []).length,
+      1,
+    );
+
+    // machine 전용 command는 route actor 상한 때문에 token에 없고 거절된다.
+    const machineOnly = await post(core, "/v1/events/advance-cursor", {
+      input: { subscriber: "parent", scanned_through_seq: "0" },
+      idempotency_key: "identity-r4-machine",
+      compare: { processed_through_seq: "0" },
+      prepared: [],
+    }, token);
+    assertEquals(machineOnly.status, 403, JSON.stringify(machineOnly.body));
+
+    // 제품 사람 token으로 settings read가 된다(core가 settings를 서빙한다).
+    const settings = await post(core, "/v1/settings/get", {
+      keys: ["shell.reading_width"],
+    }, token);
+    assertEquals(settings.status, 200, JSON.stringify(settings.body));
+    await frames.return();
+  } finally {
+    await core.shutdown();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("platform/api#R2: platform 기본 route와 같은 경로를 팀이 등록하면 core는 기동하지 않는다", async () => {
   const dir = await home();
   const duplicate = defineRead({

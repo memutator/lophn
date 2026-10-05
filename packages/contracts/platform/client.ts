@@ -7,25 +7,20 @@ import {
 } from "../../base/mod.ts";
 import type { z } from "zod";
 import { errorBodySchema, errorCodeForStatus } from "./errors.ts";
-import {
-  type CommandRequest,
-  commandRequestSchema,
-  type CommandResponse,
-  commandResponseSchema,
-} from "./envelope.ts";
+import { type CommandRequest, commandRequestSchema } from "./envelope.ts";
 import { type CommandRoute, type Route, routePath } from "./route.ts";
 
 export type FileBody = { bytes: Uint8Array; contentType: string | null };
 
 type SchemaOf<R extends Route> = Extract<R["output"], z.ZodType>;
 
-// command는 envelope로 보내고 envelope로 받는다(architecture/platform 5.1).
+// command는 envelope로 보내고 결과 객체로 받는다(architecture/platform 5.1).
 // memory는 command가 아니므로 ledger envelope 없이 raw 입력·출력을 주고받는다.
 type CallBody<R extends Route> = R extends CommandRoute ? CommandRequest<R>
   : z.input<R["input"]>;
 
+// 성공한 command도 read처럼 등록된 결과 객체를 그대로 200으로 받는다(platform/api#R3).
 type CallResult<R extends Route> = R extends { kind: "file" } ? FileBody
-  : R extends CommandRoute ? CommandResponse<R>
   : z.output<SchemaOf<R>>;
 
 export type RpcFetch = (
@@ -113,10 +108,10 @@ export function createRpcClient(options: {
           contentType: response.headers.get("content-type"),
         } as CallResult<R>);
       }
-      const responseSchema: z.ZodType = route.kind === "command"
-        ? commandResponseSchema(route)
-        : route.output as SchemaOf<R>;
-      const output = readOutput(responseSchema, decodeJson(response.bytes));
+      const output = readOutput(
+        route.output as SchemaOf<R>,
+        decodeJson(response.bytes),
+      );
       if (!output.success) return err(asInternalError(output.error));
       return ok(output.data as CallResult<R>);
     },

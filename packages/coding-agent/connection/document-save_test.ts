@@ -29,21 +29,14 @@ function existingList(document: string, latest: string, name = "plan") {
   };
 }
 
-function envelope(result: unknown) {
-  return { result, replayed: false, first_seq: "7", last_seq: "7" };
-}
-
 Deno.test("coding-agent/mcp-server#R13: 새 문서는 준비 뒤 같은 key·CAS·준비 참조로 저장하고 고정 주소를 돌려준다", async () => {
   const flow = scriptedFlow({
     "document.list": EMPTY_LIST,
     "document.prepare": preparedFor,
-    "document.save": (input) =>
-      envelope(
-        savedResult(
-          "saved",
-          (input as { document: string }).document,
-        ),
-      ),
+    "document.save": (input) => (savedResult(
+      "saved",
+      (input as { document: string }).document,
+    )),
   });
   const saved = await saveDocument(flow.client, {
     files: documentFiles(),
@@ -93,10 +86,9 @@ Deno.test("coding-agent/mcp-server#R13: 같은 요청의 재전송은 기존 문
   const flow = scriptedFlow({
     "document.list": existingList(doc, VERSION_1),
     "document.prepare": preparedFor,
-    "document.save": (input) =>
-      envelope(
-        savedResult("unchanged", (input as { document: string }).document),
-      ),
+    "document.save": (
+      input,
+    ) => (savedResult("unchanged", (input as { document: string }).document)),
   });
   const saved = await saveDocument(flow.client, {
     files: documentFiles(),
@@ -130,8 +122,9 @@ Deno.test("coding-agent/mcp-server#R13: 같은 요청의 재전송은 기존 문
 Deno.test("coding-agent/mcp-server#R13: 자리 없는 같은 요청의 재전송은 같은 key라 같은 문서 ID로 간다", async () => {
   const flow = scriptedFlow({
     "document.prepare": preparedFor,
-    "document.save": (input) =>
-      envelope(savedResult("saved", (input as { document: string }).document)),
+    "document.save": (
+      input,
+    ) => (savedResult("saved", (input as { document: string }).document)),
   });
   const first = await saveDocument(flow.client, { files: documentFiles() });
   const second = await saveDocument(flow.client, { files: documentFiles() });
@@ -212,12 +205,11 @@ Deno.test("coding-agent/mcp-server#R14: 추론 format 경고는 저장 결과의
   };
   const flow = scriptedFlow({
     "document.prepare": preparedFor,
-    "document.save": (input) =>
-      envelope(
-        savedResult("saved", (input as { document: string }).document, [
-          warning,
-        ]),
-      ),
+    "document.save": (
+      input,
+    ) => (savedResult("saved", (input as { document: string }).document, [
+      warning,
+    ])),
   });
   const saved = await saveDocument(flow.client, { files: documentFiles() });
   assert(saved.ok);
@@ -231,7 +223,7 @@ Deno.test("coding-agent/mcp-server#R15: 자리 없는 저장은 고정 주소와
     "document.prepare": preparedFor,
     "document.save": (input) => {
       const document = (input as { document: string }).document;
-      return envelope({
+      return ({
         ...savedResult("saved", document),
         reference: { document, version: VERSION_1, section: null },
       });
@@ -274,8 +266,9 @@ Deno.test("coding-agent/mcp-server#R15: 자리는 이름과 함께만 쓰고 이
   // null은 자리 없음이다. 두 필드가 모두 없는 저장과 같다.
   const open = scriptedFlow({
     "document.prepare": preparedFor,
-    "document.save": (input) =>
-      envelope(savedResult("saved", (input as { document: string }).document)),
+    "document.save": (
+      input,
+    ) => (savedResult("saved", (input as { document: string }).document)),
   });
   const nulls = await saveDocument(open.client, {
     files: documentFiles(),
@@ -319,8 +312,9 @@ Deno.test("coding-agent/mcp-server#R13: series 저장은 저장 뒤 같은 key�
   const flow = scriptedFlow({
     "series.get": SERIES_VIEW([{ key: "1", document: "doc_other" }]),
     "document.prepare": preparedFor,
-    "document.save": (input) =>
-      envelope(savedResult("saved", (input as { document: string }).document)),
+    "document.save": (
+      input,
+    ) => (savedResult("saved", (input as { document: string }).document)),
     "series.add_instance": { id: SERIES_ID },
   });
   const saved = await saveDocument(flow.client, {
@@ -370,7 +364,7 @@ Deno.test("coding-agent/mcp-server#R13: 이미 쓴 key는 저장 전에 거절�
     "series.get": SERIES_VIEW([{ key: "2", document: doc }]),
     "document.list": existingList(doc, VERSION_1),
     "document.prepare": preparedFor,
-    "document.save": envelope(savedResult("unchanged", doc)),
+    "document.save": savedResult("unchanged", doc),
   });
   const resent = await saveDocument(again.client, {
     files: documentFiles(),
@@ -402,8 +396,9 @@ Deno.test("coding-agent/mcp-server#R13: 저장 뒤 가입이 거절되면 저장
   const flow = scriptedFlow({
     "series.get": SERIES_VIEW([]),
     "document.prepare": preparedFor,
-    "document.save": (input) =>
-      envelope(savedResult("saved", (input as { document: string }).document)),
+    "document.save": (
+      input,
+    ) => (savedResult("saved", (input as { document: string }).document)),
     "series.add_instance": fail("conflict", "document place does not match"),
   });
   const saved = await saveDocument(flow.client, {
@@ -421,23 +416,12 @@ Deno.test("coding-agent/mcp-server#R13: 저장 뒤 가입이 거절되면 저장
   assertEquals(failure.next[0], "lophn_read로 저장된 문서를 확인한다");
 });
 
-Deno.test("coding-agent/mcp-server#R13: 응답을 잃은 command의 결과 조회(envelope 없는 result)도 저장 결과로 읽는다", async () => {
-  const flow = scriptedFlow({
-    "document.prepare": preparedFor,
-    "document.save": (input) =>
-      savedResult("saved", (input as { document: string }).document),
-  });
-  const saved = await saveDocument(flow.client, { files: documentFiles() });
-  assert(saved.ok);
-  assertEquals(saved.value.saved.version, VERSION_1);
-});
-
 Deno.test("coding-agent/mcp-server#R13: 기존 문서의 title은 바꾸지 않고 알린다", async () => {
   const doc = "doc_01arz3ndektsv4rrffq69g5fax";
   const flow = scriptedFlow({
     "document.list": existingList(doc, VERSION_2),
     "document.prepare": preparedFor,
-    "document.save": envelope(savedResult("saved", doc)),
+    "document.save": savedResult("saved", doc),
   });
   const saved = await saveDocument(flow.client, {
     files: documentFiles(),

@@ -68,12 +68,7 @@ Deno.test(
         sent.push(call);
         return {
           status: 200,
-          body: json({
-            result: { id: "doc_1" },
-            replayed: false,
-            first_seq: "7",
-            last_seq: "7",
-          }),
+          body: json({ id: "doc_1" }),
           type: "application/json",
         };
       }),
@@ -83,13 +78,8 @@ Deno.test(
       idempotency_key: "key-1",
     });
     assert(result.ok);
-    // command는 rpc client의 command envelope을 그대로 돌려준다.
-    assertEquals(result.value, {
-      result: { id: "doc_1" },
-      replayed: false,
-      first_seq: "7",
-      last_seq: "7",
-    });
+    // 성공한 command는 등록된 결과 객체를 그대로 돌려준다.
+    assertEquals(result.value, { id: "doc_1" });
     assertEquals(sent[0].url, "http://127.0.0.1:7431/v1/documents/save");
     assertEquals(sent[0].init.method, "POST");
     assertEquals(sent[0].init.headers["authorization"], "Bearer tok");
@@ -163,16 +153,8 @@ Deno.test(
       idempotency_key: "key-1",
     });
     assert(result.ok);
-    // 회수는 같은 대상 read의 확정 command result다.
-    assertEquals(result.value, {
-      principal: "user",
-      idempotency_key: "key-1",
-      fingerprint: "a".repeat(64),
-      result: { id: "doc_1" },
-      first_seq: "1",
-      last_seq: "3",
-      at: "2026-10-05T00:00:00.000Z",
-    });
+    // 회수는 같은 대상 read에 남은 확정 결과 객체다.
+    assertEquals(result.value, { id: "doc_1" });
   },
 );
 
@@ -229,12 +211,7 @@ Deno.test(
         sent.push(call);
         return {
           status: 200,
-          body: json({
-            result: { id: "doc_1" },
-            replayed: false,
-            first_seq: "7",
-            last_seq: "7",
-          }),
+          body: json({ id: "doc_1" }),
           type: "application/json",
         };
       }),
@@ -300,7 +277,7 @@ Deno.test(
 );
 
 Deno.test(
-  "coding-agent/connection#R15: 실제 core처럼 결과 객체를 그대로 낸 응답도 command 결과로 받는다",
+  "coding-agent/connection#R15: command의 오류 본문은 소유 route의 오류 그대로다",
   async () => {
     const client = createCoreClient({
       baseUrl: "http://127.0.0.1:7431",

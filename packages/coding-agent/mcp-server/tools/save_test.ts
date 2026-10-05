@@ -64,12 +64,8 @@ Deno.test("coding-agent/mcp-server#R13: tool 호출은 저장 결과를 summary�
   const flow = scriptedFlow({
     "document.list": { documents: [], next_cursor: null },
     "document.prepare": preparedFor,
-    "document.save": (input) => ({
-      result: savedResult("saved", (input as { document: string }).document),
-      replayed: false,
-      first_seq: "7",
-      last_seq: "7",
-    }),
+    "document.save": (input) =>
+      savedResult("saved", (input as { document: string }).document),
   });
   const save = createSaveTool({ client: flow.client });
   const handler = createHandler({

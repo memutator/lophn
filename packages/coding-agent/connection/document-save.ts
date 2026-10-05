@@ -88,15 +88,6 @@ function reject(
   return err({ code, message, ...(details ? { details } : {}) });
 }
 
-// 응답을 잃은 command 결과 조회는 envelope 없이 result만 돌려준다. 둘 다 받는다.
-function unwrapCommand(value: unknown): unknown {
-  if (
-    typeof value === "object" && value !== null && "result" in value &&
-    "replayed" in value
-  ) return (value as { result: unknown }).result;
-  return value;
-}
-
 // 새 문서 ID는 idempotency key에서 정한다. 같은 key의 재전달이 같은 문서를 가리켜
 // 새 문서가 하나 더 생기지 않는다(documents/versions#R8). ULID 모양(128bit)이다.
 export async function documentIdForKey(key: string): Promise<string> {
@@ -311,7 +302,7 @@ export async function saveDocument(
     prepared: [version.preparation_ref],
   });
   if (!sent.ok) return sent;
-  const saved = unwrapCommand(sent.value) as SavedDocument;
+  const saved = sent.value as SavedDocument;
 
   let joined: SaveOutcome["series"] = null;
   if (family !== undefined && input.key !== undefined) {

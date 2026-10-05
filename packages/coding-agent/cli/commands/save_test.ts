@@ -132,12 +132,8 @@ Deno.test("coding-agent/cli#R15: save는 첫 파일을 primary로 제출 검사�
     const flow = scriptedFlow({
       "document.list": empty,
       "document.prepare": preparedFor,
-      "document.save": (input) => ({
-        result: savedResult("saved", (input as { document: string }).document),
-        replayed: false,
-        first_seq: "7",
-        last_seq: "7",
-      }),
+      "document.save": (input) =>
+        savedResult("saved", (input as { document: string }).document),
     });
     const prepared: string[] = [];
     const saved = await runSave(

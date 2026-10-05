@@ -401,7 +401,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T14 문서 저장·format·series tool
 
-- 상태: 진행 (#PR) — 이어보냄: CLI `save` 실행(`runSave`)과 core dispatch 연결, production credential provider와 MCP runner 배선 → coding-agent#T36. 남은 것(결정 필요, "## 질문" Q21·Q22): local bytes를 core의 blob 준비로 넘기는 통로가 없어 production에서 `lophn_save`·`lophn save`가 끝까지 가지 못한다. MCP `lophn_save`·`lophn_format validate` 입력이 blob 참조 files라 모델이 local 경로를 줄 수 없다(realpath 검사는 CLI 경로만 닿는다). 메모·tag 입력은 contract에 없다
+- 상태: 진행 (#264) — 이어보냄: CLI `save` 실행(`runSave`)과 core dispatch 연결, production credential provider와 MCP runner 배선 → coding-agent#T36. 남은 것(결정 필요, "## 질문" Q21·Q22): local bytes를 core의 blob 준비로 넘기는 통로가 없어 production에서 `lophn_save`·`lophn save`가 끝까지 가지 못한다. MCP `lophn_save`·`lophn_format validate` 입력이 blob 참조 files라 모델이 local 경로를 줄 수 없다(realpath 검사는 CLI 경로만 닿는다). 메모·tag 입력은 contract에 없다
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli, coding-agent/connection
 - 요구: coding-agent/mcp-server#R13, R14, R15, R16; coding-agent/cli#R15, R20;

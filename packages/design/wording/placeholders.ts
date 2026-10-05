@@ -82,7 +82,9 @@ export type PlaceholderKinds = {
     total: "number";
   };
   "common.label.sort-by": Record<never, never>;
+  "common.label.tray-global-search-unavailable": Record<never, never>;
   "common.label.tray-launcher": Record<never, never>;
+  "common.label.tray-notifications-unavailable": Record<never, never>;
   "common.label.tray-open": Record<never, never>;
   "common.label.tray-quit": Record<never, never>;
   "common.label.tray-start-at-login": Record<never, never>;
@@ -136,8 +138,10 @@ export type PlaceholderKinds = {
   "conversation.empty.no-messages": Record<never, never>;
   "conversation.empty.no-session": Record<never, never>;
   "conversation.error.load-failed": Record<never, never>;
+  "conversation.error.message-body": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
   "conversation.error.stop-failed": Record<never, never>;
+  "conversation.error.too-long": Record<never, never>;
   "conversation.label.author-check": Record<never, never>;
   "conversation.label.author-lophn": Record<never, never>;
   "conversation.label.author-you": Record<never, never>;
@@ -172,7 +176,7 @@ export type PlaceholderKinds = {
   "conversation.label.status-stopped": Record<never, never>;
   "conversation.label.status-waiting": Record<never, never>;
   "conversation.notice.ended": Record<never, never>;
-  "conversation.notice.message-unreadable": Record<never, never>;
+  "conversation.notice.message-loading": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
   "conversation.notice.not-sent": Record<never, never>;
   "conversation.notice.offline": Record<never, never>;
@@ -182,6 +186,7 @@ export type PlaceholderKinds = {
   };
   "conversation.notice.stale-never": Record<never, never>;
   "conversation.notice.unconfirmed": Record<never, never>;
+  "conversation.notice.visual-pending": Record<never, never>;
   "conversation.title.dock": Record<never, never>;
   "document.button.check-task": Record<never, never>;
   "document.button.edit": Record<never, never>;

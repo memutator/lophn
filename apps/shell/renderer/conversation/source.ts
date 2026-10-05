@@ -1,5 +1,6 @@
 // 대화 도크가 core에 묻고 보내는 통로. 모양은 lophn-agent contract(session·message·run·
-// assignment read와 OpenSession·ReceiveMessage·StopRun)에서 이 화면이 읽는 field만 옮겼다.
+// assignment read, ReadMessageBody와 OpenSession·ReceiveMessage·StopRun)에서 이 화면이
+// 읽는 field만 옮겼다.
 import type { ConnectionState } from "../desktop/connection/connection.ts";
 
 export type SourceResult<T> =
@@ -38,7 +39,7 @@ export type MessageActor = "user" | "machine" | "agent";
 export interface MessageRow {
   readonly id: string;
   readonly actor: MessageActor;
-  /** 본문 blob의 hash. 글은 이 창이 보낸 것만 안다(drafts.ts). */
+  /** 본문 blob의 hash. 글은 ReadMessageBody로 따로 읽는다(bodies.ts). */
   readonly body: string;
   readonly run: string | null;
   readonly mode: "request" | "correction" | null;
@@ -56,12 +57,31 @@ export interface RunRow {
   readonly acceptedSeq: string;
 }
 
+/** 사람 말의 본문 값. 글 part만이고 hash·blob은 core가 만든다(lophn-agent Q29). */
+export interface TextContent {
+  readonly schema_version: 1;
+  readonly parts: readonly [{ readonly kind: "text"; readonly text: string }];
+}
+
+/**
+ * 확정 메시지 본문의 한 part. 시각 블록은 shell#T35의 블록 renderer가 그리기 전까지
+ * 제목과 종류만 옮겨 자리 표시로 둔다.
+ */
+export type BodyPart =
+  | { readonly kind: "text"; readonly text: string }
+  | {
+    readonly kind: "visual";
+    readonly key: string;
+    readonly visual: string;
+    readonly title: string;
+  };
+
 export interface SendInput {
   readonly session: SessionRow;
   readonly agent: Agent;
   readonly id: string;
   readonly key: string;
-  readonly body: string;
+  readonly content: TextContent;
   readonly mode: "request" | "correction";
   readonly run: string | null;
 }
@@ -77,6 +97,11 @@ export interface ConversationSource {
   openSession(
     input: { id: string; agent: Agent; workPlace: WorkPlace },
   ): Promise<SourceResult<SessionRow>>;
+  /**
+   * 확정 메시지 하나의 본문(ReadMessageBody). 범위 밖이나 없는 메시지는 not_found,
+   * 본문 blob을 못 읽으면 unavailable이다.
+   */
+  body(message: string): Promise<SourceResult<readonly BodyPart[]>>;
   /** 같은 id·key로 다시 보내면 core가 이전 결과를 돌려준다(conversation#R2). */
   send(input: SendInput): Promise<SourceResult<void>>;
   stop(run: RunRow, key: string): Promise<SourceResult<void>>;

@@ -64,6 +64,7 @@ import {
   createQuestionReads,
   questionBodyFields,
   questionSchemaSteps,
+  questionTextRead,
 } from "../../packages/lophn-agent/questions/mod.ts";
 import {
   createToolCommands,
@@ -294,8 +295,9 @@ const toolCommands = createToolCommands();
 const toolReads = createToolReads();
 
 // 질문(concern questions). 질문은 agent가 만들고 사람이 답한다. 만료는 machine이
-// 닫는다. 답은 사람 확인(confirmation)이 필요한 route다. 본문·이유·선택지 설명·자유
-// 답은 blob 참조만 남는다.
+// 닫는다. 고정 action이 있는 선택지의 답(AnswerQuestionAction)만 사람 확인
+// (confirmation)이 필요하다. 본문·이유·선택지 설명·자유 답·취소 이유는 값으로 받아 core가
+// blob으로 준비하고(apps/core/question-text.ts) blob 참조만 남는다.
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
 
@@ -379,6 +381,7 @@ export const lophnAgentDefinitions = {
     toolCommands.supplement,
     questionCommands.create,
     questionCommands.answer,
+    questionCommands.answerAction,
     questionCommands.defer,
     questionCommands.cancel,
     questionCommands.expire,
@@ -441,8 +444,10 @@ export function createLedgerRegistration(
   environment: { messageBody?: MessageBodyEnvironment } = {},
 ) {
   return {
+    // ReadQuestionText도 같은 읽기 통로(ledger snapshot과 blob 바이트)를 쓴다.
     apiReads: [
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
     ],
   };
 }

@@ -2,7 +2,7 @@ import { assertEquals } from "@std/assert";
 import { validateDefinition } from "../../packages/platform/settings/mod.ts";
 import { tokens } from "../../packages/design/tokens.ts";
 
-import { readingWidthSetting } from "./shell.ts";
+import { osNotificationsSetting, readingWidthSetting } from "./shell.ts";
 
 Deno.test("shell/design-system#R23: 전역 읽기 폭 설정 항목은 settings registry가 받는 정의다", () => {
   assertEquals(validateDefinition(readingWidthSetting).ok, true);
@@ -13,4 +13,15 @@ Deno.test("shell/design-system#R23: 전역 읽기 폭 설정 항목은 settings 
   );
   assertEquals(readingWidthSetting.value_type.safeParse("huge").success, false);
   assertEquals(readingWidthSetting.default, "default");
+});
+
+Deno.test("shell/desktop#R10: OS notification opt-in 항목은 기본 꺼짐인 boolean 정의다", () => {
+  assertEquals(validateDefinition(osNotificationsSetting).ok, true);
+  assertEquals(osNotificationsSetting.key, "shell.os_notifications");
+  assertEquals(osNotificationsSetting.default, false);
+  assertEquals(osNotificationsSetting.value_type.safeParse(true).success, true);
+  assertEquals(
+    osNotificationsSetting.value_type.safeParse("on").success,
+    false,
+  );
 });

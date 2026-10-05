@@ -24,7 +24,8 @@ import {
   runId,
   sessionId,
 } from "./testdata/fake-source.ts";
-import type { ResultLink } from "./source.ts";
+import type { MessageRow, ResultLink } from "./source.ts";
+import { MESSAGE_TEXT_MAX_BYTES } from "./delivery-state.ts";
 
 const NOW = Date.parse("2026-10-06T09:00:00Z");
 
@@ -347,6 +348,13 @@ Deno.test("shell/desktop#R8: 결과를 모르는 전달은 입력을 잠그고 �
   assertEquals(fake.state.sent.length, 3);
   assertEquals(new Set(fake.state.sent.map((item) => item.id)).size, 1);
   assertEquals(new Set(fake.state.sent.map((item) => item.key)).size, 1);
+  // 본문은 글 값이다. hash를 만들지 않고 세 번 모두 같은 값을 싣는다.
+  for (const item of fake.state.sent) {
+    assertEquals(item.content, {
+      schema_version: 1,
+      parts: [{ kind: "text", text: "Draft the release note" }],
+    });
+  }
   assertEquals(view.container.querySelector("[data-provisional]"), null);
   assertEquals(composer(view.container).value, "");
   assertEquals(
@@ -588,6 +596,9 @@ Deno.test("lophn-agent/conversation#R14: 멈춘 역할에서는 다음 요청을
         results: [],
       }],
     },
+    bodies: {
+      [messageId(1)]: [{ kind: "text", text: "Plan next week's reading list" }],
+    },
   });
   using view = render(dockOf(fake));
   await flush();
@@ -596,8 +607,13 @@ Deno.test("lophn-agent/conversation#R14: 멈춘 역할에서는 다음 요청을
     find(view.container, "[data-actor='user'] [data-delivery]").textContent,
     "Saved, not started",
   );
-  // 다른 창에서 보낸 말의 글은 이 창이 모른다. 빈 말로 보이지 않는다.
-  assert(view.container.querySelector("[data-actor='user'] [data-unreadable]"));
+  // 다른 창에서 보낸 말도 본문을 읽어 그 글을 보인다.
+  assertEquals(
+    find(view.container, "[data-actor='user'] [data-body='ready']")
+      .textContent,
+    "Plan next week's reading list",
+  );
+  assertEquals(view.container.querySelector("[data-unreadable]"), null);
   assert(
     (find(view.container, "[data-mode='correction']") as HTMLButtonElement)
       .disabled,
@@ -629,4 +645,181 @@ Deno.test("shell/desktop#R4: 끝난 세션과 대화할 lophn이 없을 때는 �
   assertEquals(fresh.state.opened.length, 1);
   assertEquals(fresh.state.opened[0]!.workPlace, { kind: "global", id: null });
   assert(start.container.querySelector("[data-composer]"));
+});
+
+Deno.test("lophn-agent/conversation#R4: 사람 말·lophn 답·machine 사실의 본문을 ReadMessageBody로 읽어 주체별로 보인다", async () => {
+  const user: MessageRow = {
+    id: messageId(1),
+    actor: "user",
+    body: "1".repeat(64),
+    run: runId(1),
+    mode: "request",
+    applied: true,
+    results: [],
+  };
+  const machine: MessageRow = { ...agentMessage(3), actor: "machine" };
+  const fake = fakeSource({
+    messages: {
+      [sessionId(1)]: [user, agentMessage(2), machine, agentMessage(4)],
+    },
+    bodies: {
+      [messageId(1)]: [{ kind: "text", text: "Summarize the budget" }],
+      [messageId(2)]: [
+        { kind: "text", text: "Here is the summary." },
+        { kind: "text", text: "Totals are up\nby 4%." },
+      ],
+      [messageId(3)]: [{ kind: "text", text: "The budget file was saved." }],
+    },
+    // 4번 본문 blob은 잠깐 못 읽는다.
+    bodyFails: { [messageId(4)]: "unavailable" },
+  });
+  const ticks = manualTicks();
+  using view = render(dockOf(fake, new DraftStore(), ticks));
+  await flush();
+  const text = (selector: string) =>
+    [...view.container.querySelectorAll(`${selector} [data-body='ready'] p`)]
+      .map((item) => item.textContent);
+  assertEquals(text("[data-actor='user']"), ["Summarize the budget"]);
+  assertEquals(text("[data-actor='agent']"), [
+    "Here is the summary.",
+    "Totals are up\nby 4%.",
+  ]);
+  assertEquals(text("[data-actor='machine']"), ["The budget file was saved."]);
+  assertEquals(
+    find(view.container, `[data-message='${messageId(4)}'] [data-unreadable]`)
+      .textContent,
+    "Couldn't load this message.",
+  );
+  // 지난 말투의 "아직 보일 수 없음"은 없다.
+  assert(!view.container.textContent!.includes("can't be shown here yet"));
+  const reads = (n: number) =>
+    fake.state.bodyReads.filter((item) => item === messageId(n)).length;
+  // 다음 박자에 읽은 본문은 다시 읽지 않고, 못 읽은 것만 다시 읽는다.
+  delete fake.state.bodyFails[messageId(4)];
+  fake.state.bodies[messageId(4)] = [{ kind: "text", text: "Done." }];
+  const failedReads = reads(4);
+  ticks.tick();
+  await flush();
+  assertEquals([reads(1), reads(2), reads(3)], [1, 1, 1]);
+  assertEquals(reads(4), failedReads + 1);
+  assertEquals(
+    find(view.container, `[data-message='${messageId(4)}'] [data-body='ready']`)
+      .textContent,
+    "Done.",
+  );
+  // 없거나 범위 밖인 메시지(not_found)는 다시 읽어도 같아 더 묻지 않는다.
+  fake.state.messages[sessionId(1)]!.push(agentMessage(5));
+  ticks.tick();
+  await flush();
+  ticks.tick();
+  await flush();
+  assertEquals(reads(5), 1);
+  assert(
+    view.container.querySelector(
+      `[data-message='${messageId(5)}'] [data-unreadable]`,
+    ),
+  );
+});
+
+Deno.test("lophn-agent/conversation#R2: 이 창이 보낸 말은 접수 뒤 core가 둔 본문으로 바뀌고 다른 창도 같은 글을 읽는다", async () => {
+  let release = () => {};
+  const fake = fakeSource();
+  const drafts = new DraftStore();
+  using view = render(dockOf(fake, drafts));
+  await flush();
+  write(composer(view.container), "Book the room for Friday");
+  // 본문 읽기를 미뤄 읽기 전 자리를 본다.
+  const body = fake.source.body;
+  fake.source.body = async (message) => {
+    await new Promise<void>((resolve) => release = resolve);
+    return await body(message);
+  };
+  click(find(view.container, "[data-send]"));
+  await flush();
+  // 읽기 전에는 이 창이 보낸 글로 자리를 채운다. 빈 말이나 읽는 중 안내가 아니다.
+  const mine = find(view.container, "[data-actor='user']");
+  assertEquals(mine.getAttribute("data-provisional"), null);
+  assertEquals(find(mine, "p").textContent, "Book the room for Friday");
+  assertEquals(mine.querySelector("[data-body='loading']"), null);
+  // core가 둔 본문이 오면 그것을 보인다(core는 redaction을 거친 값을 둔다).
+  const id = fake.state.sent[0]!.id;
+  fake.state.bodies[id] = [{
+    kind: "text",
+    text: "Book the room for [hidden]",
+  }];
+  release();
+  await flush();
+  assertEquals(
+    find(view.container, "[data-actor='user'] [data-body='ready']")
+      .textContent,
+    "Book the room for [hidden]",
+  );
+  fake.source.body = body;
+  // 다른 창(다른 대화 메모리)은 보낸 글을 모르지만 같은 본문을 읽는다.
+  using other = render(dockOf(fake, new DraftStore()));
+  await flush();
+  assertEquals(
+    find(other.container, "[data-actor='user'] [data-body='ready']")
+      .textContent,
+    "Book the room for [hidden]",
+  );
+});
+
+Deno.test("shell/workspace#R12: 시각 블록은 블록 renderer 전까지 제목과 안내만 글로 보이고 agent의 HTML·script를 실행하지 않는다", async () => {
+  const title = '<img src=x onerror="alert(1)"><script>alert(2)</script>';
+  const fake = fakeSource({
+    messages: { [sessionId(1)]: [agentMessage(1)] },
+    bodies: {
+      [messageId(1)]: [
+        { kind: "text", text: "Here is the chart." },
+        { kind: "visual", key: "spend", visual: "chart", title },
+        { kind: "text", text: "<b>not bold</b>" },
+      ],
+    },
+  });
+  using view = render(dockOf(fake));
+  await flush();
+  const answer = find(view.container, "[data-actor='agent'] [data-body]");
+  const pending = find(answer, "[data-visual-pending='chart']");
+  assertEquals(pending.firstElementChild!.textContent, title);
+  assertEquals(
+    pending.lastElementChild!.textContent,
+    "Charts, tables, and diagrams can't be shown in the conversation yet.",
+  );
+  // 순서는 본문 그대로다. 글 사이의 블록 자리에 둔다.
+  assertEquals(
+    [...answer.children].map((item) =>
+      item.getAttribute("data-visual-pending") ?? item.textContent
+    ),
+    ["Here is the chart.", "chart", "<b>not bold</b>"],
+  );
+  // 제목·글의 태그는 글자로만 있다. 요소로 만들어지지 않는다.
+  assertEquals(answer.querySelectorAll("img, script, b").length, 0);
+});
+
+Deno.test("shell/desktop#R8: 본문 상한을 넘는 글은 보내지 않고 이유를 보이며 글을 그대로 둔다", async () => {
+  const fake = fakeSource();
+  using view = render(dockOf(fake));
+  await flush();
+  const long = "a".repeat(MESSAGE_TEXT_MAX_BYTES);
+  write(composer(view.container), long);
+  await flush();
+  assertEquals(
+    find(view.container, "[data-too-long]").textContent,
+    "This message is too long to send. Shorten it, or split it into parts.",
+  );
+  const send = find(view.container, "[data-send]") as HTMLButtonElement;
+  assert(send.disabled);
+  click(send);
+  await pressAsync(composer(view.container), "Enter");
+  await flush();
+  assertEquals(fake.state.sent.length, 0);
+  assertEquals(composer(view.container).value, long);
+  // 줄이면 이유가 사라지고 보낸다.
+  write(composer(view.container), long.slice(0, 1000));
+  await flush();
+  assertEquals(view.container.querySelector("[data-too-long]"), null);
+  click(find(view.container, "[data-send]"));
+  await flush();
+  assertEquals(fake.state.sent.length, 1);
 });

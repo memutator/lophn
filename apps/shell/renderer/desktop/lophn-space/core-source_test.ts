@@ -142,14 +142,12 @@ Deno.test("shell/desktop#R1: saved view 저장은 user command 하나이고 열�
       return {
         ok: true,
         value: {
-          result: {
-            id: VIW,
-            name: "Plans",
-            place: null,
-            filter: { text: "plan", document_status: "all" },
-            sort: "updated_desc",
-            revision: "3",
-          },
+          id: VIW,
+          name: "Plans",
+          place: null,
+          filter: { text: "plan", document_status: "all" },
+          sort: "updated_desc",
+          revision: "3",
         },
       };
     }
@@ -371,7 +369,7 @@ Deno.test("shell/desktop#R1: series 목록·상세·다음 key는 읽기만 하�
 Deno.test("shell/desktop#R1: series 등록·멤버 추가·보관은 base_revision을 비교하는 command다", async () => {
   const { core, calls } = coreOf(() => ({
     ok: true,
-    value: { result: seriesValue },
+    value: seriesValue,
   }));
   const source = coreLophnSource(core, (prefix) => `${prefix}_${ULID}`);
   await source.createSeries({

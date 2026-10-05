@@ -1,6 +1,7 @@
 // 보낸 말 하나의 전달 상태(shell/desktop#R8). 보내는 중·접수됨·못 보냄·접수 확인 안 됨을
 // 구별한다. 결과를 모르면 다시 보내기보다 접수 조회를 먼저 내놓는다. 다시 보낼 때는 같은
 // 메시지 id와 idempotency key를 써서 core가 한 번만 접수한다(lophn-agent/conversation#R2).
+import type { TextContent } from "./source.ts";
 
 export type DeliveryPhase = "sending" | "accepted" | "not_sent" | "unconfirmed";
 
@@ -9,8 +10,8 @@ export type SendMode = "request" | "correction";
 export interface Outgoing {
   readonly id: string;
   readonly key: string;
+  /** 보낸 글. 다시 보내도 같은 글이라 같은 본문 값이다. */
   readonly text: string;
-  readonly body: string;
   readonly mode: SendMode;
   /** 수정이 가리키는 지금 일. 다음 요청은 null이다. */
   readonly run: string | null;
@@ -87,19 +88,33 @@ export function composerLocked(outgoing: Outgoing | null): boolean {
 }
 
 /**
- * 본문 hash. 사람 말은 글 part 하나의 MessageContent(schema_version 1)이고 key 순서를
- * 고정한 JSON의 SHA-256 hex다.
+ * 사람 말 본문의 정규 직렬화 상한. lophn-agent contract의
+ * MESSAGE_TEXT_CONTENT_MAX_BYTES와 같다(delivery-state_test가 맞춰 본다). renderer는
+ * contract schema를 bundle에 싣지 않고 이 값만 쓴다.
  */
-export async function textBody(text: string): Promise<string> {
-  const canonical = JSON.stringify({
-    parts: [{ kind: "text", text }],
-    schema_version: 1,
-  });
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(canonical),
-  );
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+export const MESSAGE_TEXT_MAX_BYTES = 65536;
+
+/** 보낼 본문 값. 글 part 하나다. hash와 blob은 core가 만든다(lophn-agent Q29). */
+export function textContent(text: string): TextContent {
+  return { schema_version: 1, parts: [{ kind: "text", text }] };
+}
+
+const LONE_SURROGATE =
+  /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/**
+ * 본문 값의 정규 직렬화(RFC 8785) 바이트 수. 글 part 하나의 key는 이미 정렬된 순서라
+ * JSON.stringify가 정규 형태와 같다. 짝 없는 surrogate는 정규화할 수 없어 core가
+ * 거절하므로 상한을 넘은 것으로 센다.
+ */
+export function contentBytes(text: string): number {
+  if (LONE_SURROGATE.test(text)) return Number.POSITIVE_INFINITY;
+  return new TextEncoder().encode(
+    JSON.stringify({ parts: [{ kind: "text", text }], schema_version: 1 }),
+  ).length;
+}
+
+/** 보내기 전에 본문 상한을 본다. 넘으면 보내지 않고 입력칸에 이유를 둔다. */
+export function fitsMessage(text: string): boolean {
+  return contentBytes(text) <= MESSAGE_TEXT_MAX_BYTES;
 }

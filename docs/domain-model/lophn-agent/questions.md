@@ -103,6 +103,8 @@ session·run·본문·options·추천·기한은 생성 뒤 불변이다. 생성
 | `option_key` | string | 예 | kind=option이면 필수·실제 option key; kind=text이면 null | 단일 선택 |
 | `text_blob` | sha256 | 예 | kind=text이면 필수·비어 있거나 공백뿐인 글 금지; kind=option이면 null | 자유 답 |
 
+요청의 Answer는 `text_blob` 대신 글(`text`)을 싣고(자유 답), 저장된 Answer의 `text_blob`이 core가 준비한 그 글 blob의 hash다. 선택지 설명·추천 이유·본문·이유·취소 이유도 같다(정책 "글은 값이다").
+
 채택은 answered 질문의 선택한 option.adoption으로 판정한다. 새로운 version은 자동 채택하지 않는다. 채택을 참조하는 ticket·handoff는 같은 document·version과 question ID를 함께 보관한다. → coding-agent/tickets, lophn-agent/handoff
 
 ## 관계
@@ -129,12 +131,14 @@ option·action·recommendation·answer는 질문 안의 값이고 독립 ID·표
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `create_question` | `agent` | id, run, session?, prompt_blob, reason_blob, options, recommendation?, expires_at? | 현재 run·assignment 범위·pending 질문 없음·action 허용 schema | `QuestionCreated` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
-| `answer_question` | `user` | question, created_seq, Answer, action 선택이면 binding_hash·confirmation 증거 | pending·내용 일치·기한 유효·run 미종료; action 증거와 답 저장 원자적 | `QuestionAnswered` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
+| `create_question` | `agent` | id, run, session?, prompt, reason, options(설명 글 포함), recommendation?(이유 글 포함), expires_at? | 현재 run·assignment 범위·pending 질문 없음·action 허용 schema | `QuestionCreated` | `invalid_input`, `forbidden`, `not_found`, `conflict`, `unavailable` |
+| `answer_question` | `user` | question, created_seq, Answer(선택지 key 또는 자유 답 글) | pending·내용 일치·기한 유효·run 미종료; action이 없는 선택지와 자유 답만. 고정 action이 있는 선택지는 확인 없이 받지 않는다(`forbidden`) | `QuestionAnswered` | `invalid_input`, `forbidden`, `not_found`, `conflict`, `unavailable` |
+| `answer_question_action` | `user` | question, created_seq, 선택지 key, binding_hash, confirmation 증거 | `answer_question`과 같은 조건 + action이 있는 선택지·binding_hash 일치·사람 결정 확인(confirmation handle) 소비; action 증거와 답 저장 원자적 | `QuestionAnswered` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
 | `defer_question` | `user` | question, created_seq | pending·현재 내용 | `QuestionCancelled` (`closed_reason=deferred`) | `not_found`, `conflict` |
-| `cancel_question` | `user`, 질문한 `agent`, `machine` | question, created_seq, closed_reason_blob | pending·생성 actor 일치 또는 원래 일 취소/종료·전제 변경 근거 | `QuestionCancelled` | `forbidden`, `not_found`, `conflict` |
+| `cancel_question` | `user`, 질문한 `agent`, `machine` | question, created_seq, closed_reason(코드), closed_reason_text(글) | pending·생성 actor 일치 또는 원래 일 취소/종료·전제 변경 근거 | `QuestionCancelled` | `invalid_input`, `forbidden`, `not_found`, `conflict`, `unavailable` |
 | `expire_question` | `machine` | question, created_seq | pending·지정 기한 도달 | `QuestionExpired` | `forbidden`, `not_found`, `conflict` |
 | `apply_question_option` | `machine` | question, answered_seq, option_key, 고정 action | answered·실제 선택 key 일치·action 완전 일치·현재 범위·소유 CAS·미적용 | → action.concern의 접수·변경 event | `forbidden`, `not_found`, `conflict` |
+| `read_question_text` | `user`, `machine`, `coding_agent`, 그 assignment의 `agent` | question | 질문을 읽을 수 있는 범위; 범위 밖은 없는 질문과 같은 `not_found`; 글 blob 하나라도 읽을 수 없으면 `unavailable` | 없음 | `invalid_input`, `not_found`, `unavailable` |
 
 `apply_question_option`은 등록된 소유 command로만 dispatch한다. action 없음·자유 답은 적용할 command가 없다. 기존 `(question, option_key)` 적용이 있으면 새 적용 없이 그 기록을 반환한다. 답 저장은 적용 성공을 뜻하지 않는다.
 
@@ -151,6 +155,8 @@ option·action·recommendation·answer는 질문 안의 값이고 독립 ID·표
 
 ## 정책
 
+- **글은 값이다.** 질문 본문·이유·선택지 설명·추천 이유·자유 답·취소 이유는 요청에 글(UTF-8, 글 하나 32KiB 이하, 공백뿐인 글 금지)로 싣는다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다. core가 command 앞에서 글을 redaction해(자유 답은 secret 판정까지) UTF-8 bytes로 blob을 준비하고, command가 같은 transaction에서 영구 참조(owner_kind `question`, field prompt·reason·option_description·recommendation·answer·closed)를 등록한다. ledger에는 blob hash만 남는다. 일반 blob read로는 열지 않고 `read_question_text`가 글을 돌려준다. 사람이 남긴 글(자유 답·취소 이유)은 coding_agent에게 싣지 않는다.
+- **확인이 필요한 답.** 고정 action이 있는 선택지를 고르는 답만 사람 결정 확인(confirmation handle)을 요구한다. action이 없는 선택지와 자유 답은 확인 없이 받는다. user token은 직접 사람 클릭의 증거가 아니므로(platform/identity#R14) action 선택은 확인을 요구하는 `answer_question_action`으로만 받는다.
 - **고정 입력 포장.** OptionAction 정규화·binding hash는 platform/ledger와 소유 command schema contract를 쓴다.
 
 - **답 기한.** 기본 expires_at=null이며 options 수의 고정 상한·900초 기본 기한은 없다. 기한이 있는 경우 그 경계부터 답을 받지 않는다.

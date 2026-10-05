@@ -1,6 +1,10 @@
 // shell renderer가 받는 창 안 shortcut 이름. Electron event는 closure 밖으로 내지 않고
 // 표에 있는 이름만 넘긴다.
 import {
+  DESKTOP_INTENT_CHANNEL,
+  type DesktopIntent,
+  type IntentApi,
+  isDesktopIntent,
   isWindowShortcut,
   type ShortcutApi,
   WINDOW_SHORTCUT_CHANNEL,
@@ -29,5 +33,36 @@ export function createShortcutApi(transport: ShortcutTransport): ShortcutApi {
           transport.removeListener(WINDOW_SHORTCUT_CHANNEL, callback);
       },
     } satisfies ShortcutApi,
+  );
+}
+
+/**
+ * main이 창에 시키는 것(전역 팔레트, OS notification 클릭). 표에 있는 이름만 넘긴다. 막 연
+ * 창에서는 renderer가 구독하기 전에 올 수 있어 preload가 곧바로 듣고 마지막 하나를 들고 있다가
+ * 첫 구독에 넘긴다.
+ */
+export function createIntentApi(transport: ShortcutTransport): IntentApi {
+  const listeners = new Set<(intent: DesktopIntent) => void>();
+  let held: DesktopIntent | null = null;
+  transport.on(DESKTOP_INTENT_CHANNEL, (_event, payload) => {
+    if (!isDesktopIntent(payload)) return;
+    if (listeners.size === 0) {
+      held = payload;
+      return;
+    }
+    for (const listener of listeners) listener(payload);
+  });
+  return Object.freeze(
+    {
+      subscribe(listener) {
+        listeners.add(listener);
+        if (held !== null) {
+          const intent = held;
+          held = null;
+          listener(intent);
+        }
+        return () => void listeners.delete(listener);
+      },
+    } satisfies IntentApi,
   );
 }

@@ -241,3 +241,69 @@ test("shell/desktop#R7: 다시 붙으면 cursor 다음부터 따라잡고 epoch�
   assert.equal(opened.length, before);
   assert.equal(sub.generation, 1);
 });
+
+// ntf_ 뒤 ULID 26자. 끝 글자만 다르게 둔다.
+const ntf = (last: string) => `ntf_01j0000000000000000000000${last}`;
+
+function envelope(seq: string, type: string, subject: string) {
+  return {
+    seq,
+    type,
+    subject,
+    actor: "machine",
+    run: null,
+    payload: { source_seq: "1" },
+    at: "2026-10-06T00:00:00.000Z",
+  };
+}
+
+test("shell/desktop#R7: 붙을 때 따라잡은 backlog는 지금 도착한 event로 보내지 않고 head 뒤의 것만 보낸다", async () => {
+  const backlog = envelope("3", "NotificationCreated", ntf("0"));
+  const session = openSession({
+    apiPort: 7431,
+    coreEpoch: "epoch-1",
+    userToken: TOKEN,
+    // 한 page는 4까지 훑었고 head는 6이다. 5·6은 socket으로 오지만 아직 backlog다.
+    fetch: fetchOf(200, {
+      events: [backlog],
+      scanned_through_seq: "4",
+      head_seq: "6",
+      as_of_seq: "6",
+      next_cursor: null,
+    }),
+  });
+  const arrived: (string | null)[] = [];
+  let opened: ReturnType<typeof socket> | undefined;
+  subscribe({
+    session,
+    epoch: "epoch-1",
+    clock: { now: () => 1 },
+    sink: {
+      stale: () => {},
+      caughtUp: () => {},
+      arrived: (events) => {
+        for (const event of events) arrived.push(event.subject);
+      },
+    },
+    socket: {
+      open() {
+        opened = socket();
+        return opened;
+      },
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.ok(opened);
+  opened.open();
+  opened.receive(JSON.stringify({
+    type: "events",
+    events: [
+      envelope("5", "NotificationCreated", ntf("1")),
+      envelope("6", "NotificationCreated", ntf("2")),
+      envelope("7", "NotificationCreated", ntf("3")),
+    ],
+    scanned_through_seq: "7",
+    head_seq: "7",
+  }));
+  assert.deepEqual(arrived, [ntf("3")]);
+});

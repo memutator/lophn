@@ -1336,3 +1336,93 @@ Deno.test("platform/notifications#R1, R2: ticket 확인 완료·검사 실패만
     await Deno.remove(dir, { recursive: true });
   }
 });
+
+const QUESTION = "qst_01arz3ndektsv4rrffq69g5fav";
+const QUESTION_TWO = "qst_01arz3ndektsv4rrffq69g5fb0";
+
+Deno.test("platform/notifications#R1, R11: batch가 작아도 cursor 바로 뒤 계기 event를 건너뛰지 않는다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-engine-small-" });
+  const connection = await schema(dir);
+  const { reader, backend } = notificationEventsRead(`${dir}/ledger.db`);
+  try {
+    emitSource(connection, "QuestionCreated", QUESTION, {
+      run: "run_01arz3ndektsv4rrffq69g5fav",
+      session: null,
+    });
+    emitSource(connection, "QuestionCreated", QUESTION_TWO, {
+      run: "run_01arz3ndektsv4rrffq69g5fav",
+      session: null,
+    });
+    const engine = notificationsEngine({
+      backend,
+      command: engineCommand(connection),
+      machine: machine(),
+      batch: 1,
+      // 실제 core처럼 기록된 cursor에서 다시 시작한다.
+      cursor: () => Promise.resolve(storedCursor(connection)),
+    });
+    for (let step = 0; step < 4; step++) {
+      const stepped = await engine.step();
+      assert(stepped.ok, stepped.ok ? "" : JSON.stringify(stepped.error));
+    }
+    const listed = connection.sql.all(
+      `select e.subject as subject from notifications n
+       join events e on e.seq = n.source_seq order by n.source_seq`,
+      [],
+    );
+    assertEquals(listed.map((row) => row["subject"]), [QUESTION, QUESTION_TWO]);
+    await engine.close();
+  } finally {
+    reader.close();
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/notifications#R2: 공개 정책이 숨긴 event만 있는 구간도 cursor를 올리고 뒤 계기를 놓치지 않는다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-engine-hidden-" });
+  const connection = await schema(dir);
+  const { reader, backend } = notificationEventsRead(`${dir}/ledger.db`);
+  try {
+    // 등록되지 않은 type은 batch에서 숨는다. 이 구간에 계기가 없다.
+    emitSource(
+      connection,
+      "DocumentSaved",
+      "doc_01arz3ndektsv4rrffq69g5fav",
+      {},
+    );
+    emitSource(
+      connection,
+      "DocumentSaved",
+      "doc_01arz3ndektsv4rrffq69g5fb0",
+      {},
+    );
+    const hiddenHead = connection.sql.get(
+      "select cast(max(seq) as text) as seq from events",
+      [],
+    );
+    assert(hiddenHead);
+    const engine = notificationsEngine({
+      backend,
+      command: engineCommand(connection),
+      machine: machine(),
+      cursor: () => Promise.resolve(storedCursor(connection)),
+    });
+    const first = await engine.step();
+    assert(first.ok, first.ok ? "" : JSON.stringify(first.error));
+    assertEquals(storedCursor(connection), String(hiddenHead["seq"]));
+    assertEquals(notificationCount(connection), 0n);
+    emitSource(connection, "QuestionCreated", QUESTION, {
+      run: "run_01arz3ndektsv4rrffq69g5fav",
+      session: null,
+    });
+    const second = await engine.step();
+    assert(second.ok, second.ok ? "" : JSON.stringify(second.error));
+    assertEquals(notificationCount(connection), 1n);
+    await engine.close();
+  } finally {
+    reader.close();
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});

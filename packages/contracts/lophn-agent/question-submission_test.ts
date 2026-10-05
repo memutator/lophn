@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import { canonicalize } from "../../base/mod.ts";
+import { QUESTION_TEXT_MAX_BYTES } from "./question-text.ts";
 import {
   createQuestionInputSchema,
   createQuestionSubmissionOutputSchema,
@@ -23,10 +24,11 @@ const action = {
   comparison: { revision: 1 },
   binding_hash: hash,
 };
+// 요청은 글을 값으로 싣고(Q38) 저장된 질문은 그 blob의 hash를 가리킨다.
 const option = {
   key: "adopt",
   label: "Adopt",
-  description_blob: hash,
+  description: "Adopt this version.",
   evidence: [reference],
   adoption: reference,
   action,
@@ -35,11 +37,21 @@ const input = {
   id: `qst_${suffix}`,
   run: `run_${suffix}`,
   session: null,
+  prompt: "Adopt the design?",
+  reason: "The design is final.",
+  options: [option],
+  recommendation: { option_key: "adopt", explanation: "It matches the goal." },
+  expires_at: null,
+};
+const { description: _description, ...optionBase } = option;
+const storedOption = { ...optionBase, description_blob: hash };
+const { prompt: _prompt, reason: _reason, ...inputBase } = input;
+const stored = {
+  ...inputBase,
   prompt_blob: hash,
   reason_blob: hash,
-  options: [option],
+  options: [storedOption],
   recommendation: { option_key: "adopt", explanation_blob: hash },
-  expires_at: null,
 };
 
 Deno.test("lophn-agent/harness/waiting-and-recovery#R1: new question submission is exact and sessionless", () => {
@@ -52,12 +64,18 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R1: new question submission 
       { ...input, options: [option, option] },
       {
         ...input,
-        recommendation: { option_key: "missing", explanation_blob: hash },
+        recommendation: { option_key: "missing", explanation: "why" },
       },
       {
         ...input,
-        recommendation: { option_key: null, explanation_blob: hash },
+        recommendation: { option_key: null, explanation: "why" },
       },
+      { ...input, prompt: "  " },
+      { ...input, reason: "" },
+      { ...input, prompt: "x".repeat(QUESTION_TEXT_MAX_BYTES + 1) },
+      { ...input, prompt_blob: hash },
+      { ...input, options: [{ ...option, description: " " }] },
+      { ...input, options: [{ ...option, description_blob: hash }] },
       { ...input, options: [], recommendation: input.recommendation },
     ]
   ) assert(!createQuestionInputSchema.safeParse(value).success);
@@ -65,7 +83,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R1: new question submission 
     createQuestionInputSchema.safeParse({
       ...input,
       options: [],
-      recommendation: { option_key: null, explanation_blob: hash },
+      recommendation: { option_key: null, explanation: "why" },
     }).success,
   );
 });
@@ -99,10 +117,10 @@ Deno.test("lophn-agent/handoff#R3: question option evidence and adoption retain 
 
 Deno.test("lophn-agent/harness/waiting-and-recovery#R5: question submission output is additive at each value boundary", () => {
   const value = {
-    ...input,
+    ...stored,
     future: true,
     options: [{
-      ...option,
+      ...storedOption,
       future: true,
       evidence: [{ ...reference, future: true }],
       adoption: { ...reference, future: true },
@@ -112,17 +130,17 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R5: question submission outp
         input: { ...action.input, future: true },
       },
     }],
-    recommendation: { ...input.recommendation, future: true },
+    recommendation: { ...stored.recommendation, future: true },
   };
   assert(!createQuestionInputSchema.safeParse(value).success);
   assertEquals(
-    createQuestionSubmissionOutputSchema.parse(value),
-    createQuestionInputSchema.parse(input),
+    createQuestionSubmissionOutputSchema.parse(value) as unknown,
+    stored as unknown,
   );
   assert(
     !createQuestionSubmissionOutputSchema.safeParse({
       ...value,
-      options: [option, option],
+      options: [storedOption, storedOption],
     }).success,
   );
 });
@@ -140,8 +158,8 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R1: option action JSON prese
   assertEquals(canonicalize(parsed), canonicalize(value));
   assert(Object.hasOwn(parsed.comparison, "__proto__"));
   const output = createQuestionSubmissionOutputSchema.parse({
-    ...input,
-    options: [{ ...option, action: value }],
+    ...stored,
+    options: [{ ...storedOption, action: value }],
   });
   assertEquals(canonicalize(output.options[0].action), canonicalize(value));
 });

@@ -2,6 +2,7 @@
 import type { ConnectionState } from "../../desktop/connection/connection.ts";
 import type {
   Agent,
+  BodyPart,
   ConversationSource,
   MessageRow,
   RunRow,
@@ -50,6 +51,12 @@ export interface FakeState {
   messages: Record<string, MessageRow[]>;
   runs: RunRow[];
   titles: Record<string, string>;
+  /** 메시지 id별 본문. 없으면 not_found다. 보낸 말은 접수될 때 여기에 남는다. */
+  bodies: Record<string, readonly BodyPart[]>;
+  /** 메시지 id별 본문 읽기 오류. 있으면 본문 대신 이 code로 답한다. */
+  bodyFails: Record<string, string>;
+  /** 본문을 읽은 메시지 id. 목록 읽기(reads)와 따로 센다. */
+  bodyReads: string[];
   /** 다음 보내기 답. 비면 접수한다. */
   replies: SourceResult<void>[];
   /** 읽기를 실패시킨다(연결 끊김). */
@@ -69,6 +76,9 @@ export function fakeSource(initial: Partial<FakeState> = {}) {
     messages: {},
     runs: [],
     titles: {},
+    bodies: {},
+    bodyFails: {},
+    bodyReads: [],
     replies: [],
     readsFail: false,
     gate: null,
@@ -105,6 +115,17 @@ export function fakeSource(initial: Partial<FakeState> = {}) {
       state.sessions.push(session);
       return Promise.resolve({ ok: true, value: session });
     },
+    body(message) {
+      state.bodyReads.push(message);
+      const fail = state.bodyFails[message];
+      if (fail !== undefined) return Promise.resolve({ ok: false, code: fail });
+      const parts = state.bodies[message];
+      return Promise.resolve(
+        parts === undefined
+          ? { ok: false, code: "not_found" }
+          : { ok: true, value: parts },
+      );
+    },
     async send(input) {
       state.sent.push(input);
       if (state.gate) await state.gate;
@@ -112,10 +133,12 @@ export function fakeSource(initial: Partial<FakeState> = {}) {
       if (reply.ok) {
         const list = state.messages[input.session.id] ?? [];
         if (!list.some((message) => message.id === input.id)) {
+          state.bodies[input.id] = input.content.parts;
           list.push({
             id: input.id,
             actor: "user",
-            body: input.body,
+            // hash는 core가 만든다. fake는 자리만 채운다.
+            body: "c".repeat(64),
             run: input.mode === "correction" ? input.run : runId(9),
             mode: input.mode,
             applied: false,

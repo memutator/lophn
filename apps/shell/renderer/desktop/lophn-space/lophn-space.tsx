@@ -43,13 +43,23 @@ export interface LophnSpaceProps {
   onProject?: (project: string) => void;
   /** 상대 시각의 기준. 테스트가 고정한다. */
   now?: () => number;
+  /** documents 화면에서 처음 읽을 문서(전역 팔레트의 문서 행). */
+  initialRead?: { readonly document: string; readonly version: string };
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
 
 // lophn 공간. 왼쪽 sidebar의 일곱 형제 중 하나를 본문에 연다. 대화는 이 화면에 기대지 않는다.
 export function LophnSpace(
-  { source, screen, windowWidth, onLauncher, onProject, now }: LophnSpaceProps,
+  {
+    source,
+    screen,
+    windowWidth,
+    onLauncher,
+    onProject,
+    now,
+    initialRead,
+  }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
   const [sidebar, setSidebar] = useState<SidebarState>({
@@ -73,7 +83,18 @@ export function LophnSpace(
   // 대화의 결과 링크로 연 문서. 바뀔 때마다 documents 화면을 그 문서로 다시 연다.
   const [reading, setReading] = useState<
     { readonly target: ReaderTarget; readonly count: number } | null
-  >(null);
+  >(
+    initialRead
+      ? {
+        target: {
+          document: initialRead.document,
+          version: initialRead.version,
+          section: null,
+        },
+        count: 1,
+      }
+      : null,
+  );
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
   // 질문·approval 통로. 없으면(통로 없는 테스트) things-to-confirm은 준비 전 안내다.

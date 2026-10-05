@@ -33,6 +33,7 @@ import {
   run,
   saved,
   validation,
+  version,
   versionRecord,
 } from "./document-fixtures.ts";
 
@@ -110,6 +111,89 @@ Deno.test("documents/versions#R6: prepared version binds content, format and the
       source: fileSource,
     }).success,
   );
+});
+
+Deno.test("documents/versions#R5: prepared version carries each file with its own preparation ref", () => {
+  const listed = (files: unknown[], extra: Record<string, unknown> = {}) => ({
+    ...prepared,
+    files,
+    ...extra,
+  });
+  const first = { ...file, preparation_ref: "prep-file-1" };
+  const second = { ...attachment, preparation_ref: "prep-file-2" };
+  assert(preparedVersionSchema.safeParse(prepared).success);
+  assert(
+    preparedVersionSchema.safeParse(listed([first, second], { file_count: 2 }))
+      .success,
+  );
+  // 파일 목록과 파일별 준비 참조는 필수다.
+  const { files: _files, ...withoutFiles } = prepared;
+  assert(!preparedVersionSchema.safeParse(withoutFiles).success);
+  assert(!preparedVersionSchema.safeParse(listed([])).success);
+  assert(!preparedVersionSchema.safeParse(listed([file as never])).success);
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([{ ...first, preparation_ref: "" }]),
+    ).success,
+  );
+  // 개수·대표 경로·유일 경로·대표 하나가 어긋난 목록은 거절한다.
+  assert(!preparedVersionSchema.safeParse(listed([first, second])).success);
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([{ ...first, path: "other.md" }]),
+    ).success,
+  );
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([first, { ...second, path: first.path }], { file_count: 2 }),
+    ).success,
+  );
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([first, { ...second, primary: true }], { file_count: 2 }),
+    ).success,
+  );
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([{ ...first, extra: true }]),
+    ).success,
+  );
+  assert(
+    preparedVersionOutputSchema.safeParse(listed([first])).success,
+  );
+  // 이미 등록된 blob은 준비 참조 대신 그 참조(existing)로 가리킨다.
+  const reference = {
+    owner_kind: "document_version",
+    owner_key: `${version}/figure.png`,
+    field: "file",
+    hash: attachment.blob_hash,
+    registered_seq: "3",
+  };
+  const reused = { ...attachment, existing: reference };
+  assert(
+    preparedVersionSchema.safeParse(
+      listed([first, reused], { file_count: 2 }),
+    ).success,
+  );
+  assert(
+    preparedVersionOutputSchema.safeParse(
+      listed([first, reused], { file_count: 2 }),
+    ).success,
+  );
+  // 참조가 파일의 blob이 아니거나, 두 출처를 함께 주거나, 둘 다 없으면 거절한다.
+  for (
+    const bad of [
+      { ...reused, existing: { ...reference, hash: otherHash } },
+      { ...reused, preparation_ref: "prep-file-2" },
+      { ...attachment },
+      { ...reused, existing: { ...reference, extra: true } },
+    ]
+  ) {
+    assert(
+      !preparedVersionSchema.safeParse(listed([first, bad], { file_count: 2 }))
+        .success,
+    );
+  }
 });
 
 Deno.test("documents/versions#R6: unknown fields, bad values and id prefixes are rejected", () => {

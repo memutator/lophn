@@ -47,7 +47,11 @@ export type PreparedBlobRef = {
 export type ObservationPorts = {
   client: CoreClient;
   // 원문 바이트를 blob으로 준비한다. child→core blob.prepare 통로는 platform 몫이다.
-  prepareBlob(bytes: Uint8Array): Promise<Result<PreparedBlobRef, LophnError>>;
+  // hash는 읽은 바이트의 sha256이다(`reusePreparedBlob`이 같은 바이트의 살아 있는 준비를 찾는다).
+  prepareBlob(
+    bytes: Uint8Array,
+    hash: string,
+  ): Promise<Result<PreparedBlobRef, LophnError>>;
   link(
     submit: ObservationSubmit,
   ): Promise<Result<ObservationLink, LophnError>>;
@@ -156,7 +160,7 @@ export function createObservationSubmit(
       );
       return ok(undefined);
     }
-    const blob = await ports.prepareBlob(read.bytes);
+    const blob = await ports.prepareBlob(read.bytes, read.hash);
     if (!blob.ok) {
       ports.status.report(
         key,
@@ -222,12 +226,20 @@ export function createObservationSubmit(
       );
       return err(prepared.error);
     }
-    const preparedVersion = prepared.value as { preparation_ref: string };
+    // 준비 결과의 files가 판의 파일 목록이다. save가 같은 tx에서 version_files 행과
+    // 파일별 원문 blob 참조를 등록하므로 그 준비 참조도 함께 묶는다(Q16).
+    const preparedVersion = prepared.value as {
+      preparation_ref: string;
+      files: readonly { preparation_ref: string }[];
+    };
     const saved = await ports.client.call("documents/save", {
       input: preparedVersion,
       idempotency_key,
       compare: { base_version: link.base_version },
-      prepared: [preparedVersion.preparation_ref],
+      prepared: [
+        preparedVersion.preparation_ref,
+        ...preparedVersion.files.map((file) => file.preparation_ref),
+      ],
     });
     if (!saved.ok) {
       ports.status.report(
@@ -257,13 +269,29 @@ export function childBlobPort(session: {
     sizeBytes: number;
     bytes: Uint8Array;
   }): Promise<Result<PreparedBlobRef, LophnError>>;
-}): ObservationPorts["prepareBlob"] {
+}): (bytes: Uint8Array) => ReturnType<ObservationPorts["prepareBlob"]> {
   return (bytes) =>
     session.prepareBlob({
       purpose: "document_file",
       sizeBytes: bytes.length,
       bytes,
     });
+}
+
+// 같은 바이트를 동시에 준비하는 요청은 한 번만 보낸다(같은 내용의 파일을 한꺼번에 관측할 때
+// 바이트를 두 번 옮기지 않는다). 끝난 준비를 다시 쓰는 일은 core relay가 한다: 같은
+// 주체·purpose·내용의 준비가 살아 있으면 그 참조를 돌려준다(coding-agent Q24).
+export function sharePreparedBlob(
+  prepare: ObservationPorts["prepareBlob"],
+): ObservationPorts["prepareBlob"] {
+  const inflight = new Map<string, ReturnType<typeof prepare>>();
+  return (bytes, hash) => {
+    const found = inflight.get(hash);
+    if (found !== undefined) return found;
+    const pending = prepare(bytes, hash).finally(() => inflight.delete(hash));
+    inflight.set(hash, pending);
+    return pending;
+  };
 }
 
 // 관측 근거 store에서 경로의 연결을 읽는 link port. 연결이 없는 파일은 새 문서가 된다

@@ -313,6 +313,27 @@ Deno.test("platform/blob-store#R1: 다른 주체·목적의 같은 hash는 별�
   if (!duplicate.ok) assertEquals(duplicate.error.code, "conflict");
 });
 
+Deno.test("platform/blob-store#R1: 만기된 준비 참조는 prune 전이라도 같은 hash를 다시 등록할 수 있다", () => {
+  const registry = createPreparationRegistry();
+  const prepared = {
+    preparation: "prep-a",
+    principal: "user",
+    purpose: PURPOSE,
+    hash: "a".repeat(64),
+    size_bytes: 4,
+  };
+  assert(registry.register(prepared, 0).ok);
+  // 만기 직전까지는 같은 참조가 살아 있어 충돌한다.
+  assertEquals(
+    registry.register(prepared, BLOB_PREPARATION_TTL_MS - 1).ok,
+    false,
+  );
+  const again = { ...prepared, preparation: "prep-b" };
+  assert(registry.register(again, BLOB_PREPARATION_TTL_MS).ok);
+  const live = registry.live(again, BLOB_PREPARATION_TTL_MS + 1);
+  assert(live.ok && live.value);
+});
+
 Deno.test("platform/blob-store#R1: find는 같은 주체·purpose·hash의 살아 있는 등록값만 돌려준다", () => {
   const clock = manualClock(Date.parse("2026-10-01T00:00:00.000Z"));
   const registry = createPreparationRegistry();

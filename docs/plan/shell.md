@@ -706,6 +706,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: context
 - 선행: shell#T18, shell#T19, shell#T27, shell#T29, documents#T22, documents#T25
+- documents#T26에서 넘어온 것: context export(`/v1/contexts/export`, JSON)를 사람이 저장할 때 Markdown으로 그려 내보낸다. contract는 JSON만 돌려준다(documents Q20, #278)
 - shell#T21에서 넘어온 것: lophn 공간 팔레트의 Focus 행은 지금 contexts 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 context target). contexts 화면이 생기면 그 Focus 상세를 연다.
 - 완료: 아래 확인이 통과한다
   - Focus(사람이 지은 이름과 목적), 기준·참고·watch 항목을 Baseline·Reference·Follow changes로 보인다. 근거와 부족한 자료는 펼친다.

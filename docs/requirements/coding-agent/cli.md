@@ -112,9 +112,9 @@ concerns: [coding-agent/cli]
 - 확인: 폴더나 untracked 파일 항목은 거절하고 context의 자리와 관점이 문서 소속으로 오인되지 않으며 CLI에 context 생성·항목 변경 command가 없다.
 - 의도: coding-agent#I3
 
-**[R19]** context 변경 제안은 고정 변경안·이유 문서의 접수를 제공하고 현재 lophn-agent/questions 권한 아래 담당 agent가 사람의 고정 action 질문으로 연결하게 하며 제안만으로 적용하지 않는다.
+**[R19]** context 변경 제안은 고정 변경안·이유 문서의 접수를 제공하고 사람이 변경안 주소를 Context Engineer에게 맡기면 그 agent가 lophn-agent/questions의 사람의 고정 action 질문으로 연결하게 하며 제안만으로 적용하지 않고 run이나 질문을 만들지 않는다.
 - 이유: 옛 Proposal 기능 목적을 lophn-agent/questions과 현재 질문 생성 권한에 맞춘다.
-- 확인: 생성·이름 변경·항목 추가와 제거·관점 변경·분할·병합·용어 추가와 채택 변경안이 보존되고 사람 답 전에는 무변경이며 직접 질문 생성 미확정 부분은 coding-agent/mcp-server의 공유 질문으로 남긴다.
+- 확인: 생성·이름 변경·항목 추가와 제거·관점 변경·용어 추가와 채택 변경안이 보존되고 사람 답 전에는 무변경이며 coding agent가 run이나 질문을 직접 만들지 않는다.
 - 의도: coding-agent#I3
 
 **[R20]** series는 자리별 목록·규칙·정렬된 인스턴스·다음 key와 title 제안을 읽고 새 series 등록은 CLI에서 하지 않으며 화면에서 한다.

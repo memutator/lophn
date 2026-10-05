@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
+  contextExport,
   documentPrepare,
   formatValidate,
   outlineRoot,
@@ -263,6 +264,21 @@ function outlineRootRoute(): ReadDefinition<typeof outlineRoot> {
   };
 }
 
+// context export read. 외부 출력 redaction과 glossary·section 상태 근원을 같이 쓰는 서빙은
+// reader Worker의 등록(documents-reader.ts)이 한다. 여기 handler는 route를 registry에
+// 올리는 자리이고 실행되지 않는다.
+function contextExportRoute(): ReadDefinition<typeof contextExport> {
+  return {
+    route: contextExport,
+    handle() {
+      return err({
+        code: "unavailable",
+        message: "context export는 reader Worker가 서빙한다",
+      });
+    },
+  };
+}
+
 export type DocumentsRelaunch =
   | { kind: "unchanged" }
   | { kind: "relaunch"; specs: KindLaunchSpec[] }
@@ -391,6 +407,7 @@ export function createLedgerRegistration(
       contextReads.list,
       contextReads.get,
       contextReads.related,
+      contextExportRoute(),
       termReads.list,
       termReads.get,
       seriesReads.list,

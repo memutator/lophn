@@ -3,6 +3,7 @@ import type {
   ReadRoute,
   RequestContext,
 } from "../../contracts/platform/mod.ts";
+import type { KnownSecretChannel } from "./known-secrets.ts";
 import { READ_TIMEOUT_MS, readKey } from "./reads.ts";
 
 export type ReaderHealth = "healthy" | "unhealthy" | "closed";
@@ -13,6 +14,8 @@ export type ReaderPool = {
     input: unknown,
   ): Promise<Result<unknown>>;
   health(): readonly ReaderHealth[];
+  // 알려진 secret 값의 등록·회수 통로. 요청 message 밖이다(known-secrets.ts).
+  readonly known: KnownSecretChannel;
   close(): void;
 };
 
@@ -33,6 +36,9 @@ type Slot = {
 };
 
 const READER_READY_MS = 10000;
+// reader가 등록·회수를 반영했다는 확인을 기다리는 상한. 진행 중인 read(최대 READ_TIMEOUT_MS)
+// 뒤에 처리되므로 그보다 길다. 확인하지 못한 reader는 오래된 값을 쥔 채 서빙하지 않게 격리한다.
+const KNOWN_ACK_MS = 5000;
 
 const unavailable = () =>
   err({
@@ -52,6 +58,20 @@ export async function createReaderPool(
   let nextId = 0;
   let closed = false;
   let waiting = 0;
+  // 등록·회수 확인을 기다리는 중인 방송. 확인을 보낸 slot이 남아 있는 동안만 산다.
+  let nextKnown = 0;
+  const knownWaits = new Map<number, {
+    slots: Set<Slot>;
+    settle(result: Result<void>): void;
+  }>();
+
+  // slot이 확인했거나(격리돼 더 서빙하지 않게 됐거나) 하면 그 방송의 대기에서 뺀다.
+  function settleKnown(id: number, slot: Slot) {
+    const wait = knownWaits.get(id);
+    if (!wait) return;
+    wait.slots.delete(slot);
+    if (wait.slots.size === 0) wait.settle(ok(undefined));
+  }
 
   function fail(slot: Slot) {
     if (slot.health !== "healthy") return;
@@ -59,6 +79,7 @@ export async function createReaderPool(
     clearTimeout(slot.timer);
     slot.pending?.resolve(unavailable());
     slot.pending = undefined;
+    for (const id of [...knownWaits.keys()]) settleKnown(id, slot);
     // 동기 SQLite를 취소했다고 주장하지 않는다. unhealthy Worker를 pool에서 격리한다.
     slot.worker.terminate();
     pump();
@@ -140,6 +161,11 @@ export async function createReaderPool(
           for (const key of result.value) keys.add(key);
           worker.onmessage = (reply) => {
             if (slot.health !== "healthy") return;
+            const ack = reply.data.known_ack;
+            if (typeof ack === "number") {
+              settleKnown(ack, slot);
+              return;
+            }
             const pending = slot.pending;
             if (!pending || reply.data.id !== pending.id) return;
             // reply가 timer보다 먼저 배달돼도 지난 실행 기한은 성공으로 바꾸지 않는다.
@@ -179,7 +205,48 @@ export async function createReaderPool(
     });
     return unavailable();
   }
+  // 모든 healthy reader에 같은 등록·회수를 보내고 반영 확인을 기다린다. 값은 postMessage의
+  // 구조적 복사로만 가고 어디에도 기록하지 않는다.
+  function broadcast(
+    op: "register" | "revoke" | "ready" | "unready",
+    values: readonly string[],
+  ): Promise<Result<void>> {
+    if (values.length === 0 && op !== "ready" && op !== "unready") {
+      return Promise.resolve(ok(undefined));
+    }
+    const targets = slots.filter((slot) => slot.health === "healthy");
+    if (closed || targets.length === 0) return Promise.resolve(unavailable());
+    const id = ++nextKnown;
+    return new Promise((resolve) => {
+      const waiting = new Set(targets);
+      const timer = setTimeout(() => {
+        // 반영을 확인하지 못한 reader는 격리한다(오래된 값으로 서빙하지 않는다).
+        const late = [...waiting];
+        settle(unavailable());
+        for (const slot of late) fail(slot);
+      }, KNOWN_ACK_MS);
+      const settle = (result: Result<void>) => {
+        clearTimeout(timer);
+        knownWaits.delete(id);
+        resolve(result);
+      };
+      knownWaits.set(id, { slots: waiting, settle });
+      for (const slot of targets) {
+        try {
+          slot.worker.postMessage({ known: { id, op, values: [...values] } });
+        } catch {
+          fail(slot);
+        }
+      }
+    });
+  }
+
   return ok({
+    known: {
+      register: (values) => broadcast("register", values),
+      revoke: (values) => broadcast("revoke", values),
+      setReady: (ready) => broadcast(ready ? "ready" : "unready", []),
+    },
     read(route, ctx, input) {
       const key = readKey(route);
       if (!keys.has(key)) {
@@ -215,6 +282,7 @@ export async function createReaderPool(
       }
       let pending: Pending | undefined;
       while ((pending = take())) pending.resolve(unavailable());
+      for (const wait of [...knownWaits.values()]) wait.settle(unavailable());
     },
   });
 }

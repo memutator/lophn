@@ -5,6 +5,7 @@ import {
   defineRead,
   idSchema,
   seqSchema,
+  settingMutationSchema,
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
@@ -64,7 +65,7 @@ export const answerQuestionInputSchema = questionRefSchema.extend({
 export const deferQuestionInputSchema = questionRefSchema;
 
 export const cancelQuestionInputSchema = questionRefSchema.extend({
-  closed_reason: questionClosedReasonSchema.exclude(["deferred"]),
+  closed_reason: questionClosedReasonSchema.exclude(["deferred", "expired"]),
   closed_reason_blob: sha256Schema,
 });
 
@@ -223,11 +224,20 @@ export const questionList = defineRead({
 
 const questionSubject = idSchema("qst");
 
+// 선택지마다 key와, 고정 action이 platform/settings 변경이면 그 변경 목록을 싣는다.
+// platform/settings#R29가 machine ApplySettings의 질문 근거를 이 event에서 대조한다.
+// settings 변경이 아닌 선택지(자유 답·설명 요청·다른 owner action)는 changes가 null이다.
+export const questionCreatedOptionSchema = z.object({
+  key: z.string().min(1),
+  changes: z.array(settingMutationSchema).nullable(),
+});
+
 export const questionCreated = defineEvent("QuestionCreated", {
   subject: questionSubject,
   payload: z.object({
     run: idSchema("run"),
     session: idSchema("ses").nullable(),
+    options: z.array(questionCreatedOptionSchema).default([]),
   }),
 });
 

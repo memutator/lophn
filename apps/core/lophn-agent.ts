@@ -3,7 +3,11 @@ import {
   defineSetting,
   type KindLaunchSpec,
 } from "../../packages/contracts/platform/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import {
+  defineTxPort,
+  type ReaderRegistration,
+  runAdmission,
+} from "../../packages/platform/ledger/mod.ts";
 import type { Tx } from "../../packages/contracts/platform/mod.ts";
 import {
   createModelDefaultsCommands,
@@ -46,6 +50,12 @@ import {
   createConversationReads,
   hasUnappliedSteering,
 } from "../../packages/lophn-agent/conversation/mod.ts";
+import {
+  createQuestionCommands,
+  createQuestionReads,
+  questionBodyFields,
+  questionSchemaSteps,
+} from "../../packages/lophn-agent/questions/mod.ts";
 import {
   createToolCommands,
   createToolReads,
@@ -265,6 +275,25 @@ const conversationReads = createConversationReads();
 const toolCommands = createToolCommands();
 const toolReads = createToolReads();
 
+// 질문(concern questions). 질문은 agent가 만들고 사람이 답한다. 만료는 machine이
+// 닫는다. 답은 사람 확인(confirmation)이 필요한 route다. 본문·이유·선택지 설명·자유
+// 답은 blob 참조만 남는다.
+const questionCommands = createQuestionCommands();
+const questionReads = createQuestionReads();
+
+// agent 자격의 command(CreateQuestion 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
+// (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
+// unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
+const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
+  status: (run: string) => {
+    const row = tx.sql.get("select state from runs where id = ?", [run]);
+    if (row === undefined) return "unknown" as const;
+    return row["state"] === "finished"
+      ? "finished" as const
+      : "active" as const;
+  },
+}));
+
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
   settings: [
@@ -284,6 +313,7 @@ export const lophnAgentDefinitions = {
     ...runSchemaSteps,
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
+    ...questionSchemaSteps,
   ],
   commands: [
     commands.register,
@@ -327,6 +357,11 @@ export const lophnAgentDefinitions = {
     toolCommands.finish,
     toolCommands.recordRead,
     toolCommands.supplement,
+    questionCommands.create,
+    questionCommands.answer,
+    questionCommands.defer,
+    questionCommands.cancel,
+    questionCommands.expire,
   ],
   reads: [
     reads.read,
@@ -351,9 +386,16 @@ export const lophnAgentDefinitions = {
     conversationReads.messages,
     toolReads.read,
     toolReads.list,
+    questionReads.read,
+    questionReads.list,
   ],
   // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
-  blobFields: [...modelCallBodyFields, ...toolCallBodyFields],
+  blobFields: [
+    ...modelCallBodyFields,
+    ...toolCallBodyFields,
+    ...questionBodyFields,
+  ],
+  ports: [runAdmissionPort],
   workers: [],
 };
 
@@ -384,6 +426,8 @@ export function createReaderRegistration(): ReaderRegistration {
       conversationReads.messages,
       toolReads.read,
       toolReads.list,
+      questionReads.read,
+      questionReads.list,
     ],
     ports: new Map(),
   };

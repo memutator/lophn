@@ -141,7 +141,7 @@ option·action·recommendation·answer는 질문 안의 값이고 독립 ID·표
 
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
-| `QuestionCreated` | question | `run`, `session?` | platform/notifications, lophn-agent/harness/waiting-and-recovery |
+| `QuestionCreated` | question | `run`, `session?`, 선택지마다 `key`와 고정 action이 platform/settings 변경이면 그 변경 목록(아니면 null) | platform/notifications, lophn-agent/harness/waiting-and-recovery, platform/settings(machine ApplySettings의 질문 근거 대조) |
 | `QuestionAnswered` | question | `created_seq`, Answer, 선택 option의 `binding_hash?` | action.concern(있을 때), lophn-agent/harness/waiting-and-recovery |
 | `QuestionExpired` | question | `created_seq`, `closed_reason_blob` | lophn-agent/harness/waiting-and-recovery |
 | `QuestionCancelled` | question | `created_seq`, `closed_reason_blob`, `deferred: boolean` | lophn-agent/harness/waiting-and-recovery |

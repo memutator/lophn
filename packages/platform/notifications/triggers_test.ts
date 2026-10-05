@@ -22,8 +22,6 @@ import {
   type RequestContext,
 } from "../../contracts/platform/mod.ts";
 import { applyMigrations } from "../backup-and-migration/mod.ts";
-import { openReaderConnection } from "../ledger/reader-connection.ts";
-import { executeRead } from "../ledger/reads.ts";
 import {
   APPROVAL_SCHEMA_STEPS,
   createApprovalCommands,
@@ -35,8 +33,7 @@ import {
   openConnection,
   runCommand,
 } from "../ledger/mod.ts";
-import { createListEventsRead, type EventBatch } from "../ledger/events.ts";
-import { createEventVisibilityRegistry } from "../ledger/event-visibility.ts";
+import { openEventsBackend } from "../ledger/testing/mod.ts";
 import {
   questionCreated,
   runFinished,
@@ -676,59 +673,33 @@ Deno.test("platform/notifications#R2: 추가 report는 notification을 만들지
 });
 
 // engine이 읽는 event 통로. ledger.db reader 연결의 ListEvents다. trigger event와
-// 계기 아닌 event를 모두 등록한다: batch event는 등록 schema를 통과한 event다(생략하면
-// batch에서 빠진다, R11).
+// 계기 아닌 event를 모두 등록한다: 등록하지 않은 event는 batch에서 빠진다(생략
+// 금지, R11).
 function notificationEventsRead(
   path: string,
 ): {
   reader: { close(): void };
   backend: Parameters<typeof notificationsEngine>[0]["backend"];
 } {
-  const reader = openReaderConnection(path);
-  assert(reader.ok, "reader 연결");
-  // trigger event와 계기 아닌 event의 등록 event contract를 노출 판단에 둔다.
-  // handle은 모두 지켜본다(R11).
-  const registryResult = createEventVisibilityRegistry(
+  const fixture = openEventsBackend(
+    path,
     [questionCreated, problemOpened, runFinished],
     [
       { event: questionCreated, handle: () => ok(true) },
       { event: problemOpened, handle: () => ok(true) },
       { event: runFinished, handle: () => ok(true) },
     ],
+    () => ok(machine()),
   );
-  assert(registryResult.ok, "visibility 등록");
-  const read = createListEventsRead({
-    registry: registryResult.value,
-    current: () => ok(machine()),
-  });
+  assert(
+    fixture.ok,
+    fixture.ok ? "reader 연결" : JSON.stringify(fixture.error),
+  );
   return {
-    reader: reader.value,
-    backend: {
-      current: () => Promise.resolve(ok(machine())),
-      read(_ctx, scan): Promise<Result<EventBatch>> {
-        let output: Result<EventBatch>;
-        try {
-          output = executeRead(
-            reader.value,
-            read,
-            new Map(),
-            machine(),
-            {
-              after_seq: scan.inclusive && BigInt(scan.position) > 0n
-                ? (BigInt(scan.position) - 1n).toString()
-                : scan.position,
-              limit: scan.limit,
-            },
-          ) as Result<EventBatch>;
-        } catch {
-          return Promise.resolve(err({
-            code: "unavailable",
-            message: "event reader 실패",
-          }));
-        }
-        return Promise.resolve(output);
-      },
-    },
+    reader: fixture.value,
+    backend: fixture.value.backend as Parameters<
+      typeof notificationsEngine
+    >[0]["backend"],
   };
 }
 

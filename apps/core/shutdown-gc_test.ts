@@ -5,6 +5,7 @@
 // blob_refs 관측이 막히면 유지보수를 건너뛴다.
 
 import { assert, assertEquals } from "@std/assert";
+import { DatabaseSync } from "node:sqlite";
 import { manualClock, seededRandom } from "../../packages/base/mod.ts";
 import { BLOB_UNREFERENCED_GRACE_MS } from "../../packages/contracts/platform/mod.ts";
 import { startCore } from "./core.ts";
@@ -171,6 +172,81 @@ Deno.test("platform/blob-store#R8: blob_refs 관측이 막히면 종료 유지�
     await Deno.remove(home, { recursive: true });
   }
 });
+
+Deno.test("platform/blob-store#R8: 500행이 넘는 blob_refs도 뒤 페이지의 참조가 blob을 지킨다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-shutdown-pages-" });
+  const started = await startCore({
+    lophnHome: home,
+    port: 0,
+    teams: [{ createCoreRegistration }],
+    teamModules: [
+      new URL("./testing/blob-registration.ts", import.meta.url).href,
+    ],
+    clock: manualClock(NOW),
+    random: seededRandom(4),
+    testCredentials: true,
+  });
+  assert(started.ok);
+  const core = started.value;
+  const ROWS = 1_200;
+  // 뒤 페이지(501행 이후)에만 참조가 있는 blob. 페이지를 놓치면 지워진다.
+  const late = await prepare(
+    core,
+    "document_file",
+    new TextEncoder().encode("late page"),
+  );
+  assert(late.ok);
+  // 어느 페이지에도 참조가 없는 유예기간 지난 blob. 페이지와 무관하게 지워진다.
+  const orphan = await prepare(
+    core,
+    "operational_log",
+    new TextEncoder().encode("paged orphan"),
+  );
+  assert(orphan.ok);
+  await ageUnreferenced(core.dataRoot, orphan.value.hash);
+  seedRefs(core.dataRoot, ROWS, late.value.hash);
+  await core.shutdown();
+  try {
+    assert(
+      await blobExists(home, late.value.hash),
+      "뒤 페이지 참조 blob이 지워졌다",
+    );
+    assert(!await blobExists(home, orphan.value.hash), "미참조 blob이 남았다");
+  } finally {
+    await Deno.remove(home, { recursive: true });
+  }
+});
+
+// blob_refs를 한 페이지(500행)보다 많이 심는다. 마지막 행만 lateHash를 참조하고
+// 나머지는 파일이 없는 hash라, 뒤 페이지를 읽어야 lateHash가 보호된다.
+function seedRefs(dataRoot: string, rows: number, lateHash: string): void {
+  const db = new DatabaseSync(`${dataRoot}/lophn.db`);
+  try {
+    const event = db.prepare(
+      `insert into events (type, subject, actor, payload, at)
+       values ('BlobAttached', 'ver_1', 'user', '{}', '2026-01-01T00:00:00.000Z')`,
+    );
+    const seqOf = db.prepare(`select last_insert_rowid() as seq`);
+    const ref = db.prepare(
+      `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes, registered_seq)
+       values ('document_version', ?, 'file', ?, 1, ?)`,
+    );
+    db.exec("begin");
+    for (let i = 0; i < rows; i++) {
+      event.run();
+      const seq = (seqOf.get() as { seq: number }).seq;
+      const hash = i === rows - 1 ? lateHash : syntheticHash(i);
+      ref.run(`owner-${String(i).padStart(5, "0")}`, hash, seq);
+    }
+    db.exec("commit");
+  } finally {
+    db.close();
+  }
+}
+
+function syntheticHash(index: number): string {
+  return index.toString(16).padStart(64, "0");
+}
 
 async function prepare(
   core: {

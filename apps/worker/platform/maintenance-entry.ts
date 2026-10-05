@@ -44,10 +44,20 @@ async function main(): Promise<void> {
   }
 }
 
-// 고정 blob_refs 전체. reader 연결의 한 페이지(500행)를 넘으면 참조를 다
-// 보지 못한 것이므로 관측 실패다: 일부만 보고 지우지 않는다(fail-closed).
+// reader 연결은 한 번에 500행까지만 돌려준다(reads.ts). 한 페이지를 꽉
+// 채우면 다음이 있다고 보고 primary key 커서로 이어 읽는다.
+const BLOB_REFS_PAGE = 500;
+
+type BlobRefRow = { hash: string; owner_kind: string; field: string };
+
+// 고정 blob_refs 전체. primary key(owner_kind, owner_key, field, hash) 커서
+// 로 페이지를 이어 읽되, 한 read-only snapshot 안에서만 읽는다. 중간에
+// 실패하거나 행 모양이 다르면 관측 실패다: 일부만 보고 지우지 않는다
+// (fail-closed).
 function readBlobRefs(
   reader: {
+    begin(): string;
+    end(): void;
     sql: {
       all(
         query: string,
@@ -55,33 +65,55 @@ function readBlobRefs(
       ): readonly Record<string, unknown>[];
     };
   },
-): Promise<
-  Result<readonly { hash: string; owner_kind: string; field: string }[]>
-> {
+): Promise<Result<readonly BlobRefRow[]>> {
   try {
-    // reader 연결은 한 페이지(500행)를 넘기면 예외를 던진다. 그 예외는
-    // 참조를 다 보지 못한 것이므로 관측 실패다(fail-closed).
-    const rows = reader.sql.all(
-      "select hash, owner_kind, field from blob_refs order by registered_seq",
-      [],
-    );
-    const found: { hash: string; owner_kind: string; field: string }[] = [];
-    for (const row of rows) {
-      if (
-        typeof row["hash"] !== "string" ||
-        typeof row["owner_kind"] !== "string" ||
-        typeof row["field"] !== "string"
-      ) {
-        return Promise.resolve(err({
-          code: "unavailable",
-          message: "blob_refs 행을 읽지 못했다",
-        }));
+    reader.begin();
+  } catch {
+    return Promise.resolve(err({
+      code: "unavailable",
+      message: "고정 blob_refs snapshot을 열지 못했다",
+    }));
+  }
+  try {
+    const found: BlobRefRow[] = [];
+    let cursor: BlobRefRow & { owner_key: string } | undefined;
+    for (;;) {
+      const rows = reader.sql.all(
+        `select owner_kind, owner_key, field, hash from blob_refs
+         where (? is null)
+            or (owner_kind, owner_key, field, hash) > (?, ?, ?, ?)
+         order by owner_kind, owner_key, field, hash
+         limit ${BLOB_REFS_PAGE}`,
+        cursor === undefined ? [null, "", "", "", ""] : [
+          1,
+          cursor.owner_kind,
+          cursor.owner_key,
+          cursor.field,
+          cursor.hash,
+        ],
+      );
+      for (const row of rows) {
+        if (
+          typeof row["hash"] !== "string" ||
+          typeof row["owner_kind"] !== "string" ||
+          typeof row["owner_key"] !== "string" ||
+          typeof row["field"] !== "string"
+        ) {
+          return Promise.resolve(err({
+            code: "unavailable",
+            message: "blob_refs 행을 읽지 못했다",
+          }));
+        }
+        const parsed: BlobRefRow & { owner_key: string } = {
+          hash: row["hash"],
+          owner_kind: row["owner_kind"],
+          owner_key: row["owner_key"],
+          field: row["field"],
+        };
+        found.push(parsed);
+        cursor = parsed;
       }
-      found.push({
-        hash: row["hash"],
-        owner_kind: row["owner_kind"],
-        field: row["field"],
-      });
+      if (rows.length < BLOB_REFS_PAGE) break;
     }
     return Promise.resolve(ok(found));
   } catch {
@@ -89,6 +121,8 @@ function readBlobRefs(
       code: "unavailable",
       message: "고정 blob_refs를 읽지 못했다",
     }));
+  } finally {
+    reader.end();
   }
 }
 

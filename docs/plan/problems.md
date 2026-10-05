@@ -132,6 +132,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: apps
 - 선행: contracts#T39
 - T3에서 넘어온 것: 통합 테스트가 credential 이름 검증에 root credential 대신 앱 접수 credential을 쓴다(#216)
+- T15에서 넘어온 것: `submit-feedback`을 제품 core가 collector로 서빙한다. (1) `apps/worker/problems/report-collector.ts`에 `SubmitFeedback` op를 붙인다: core가 worker 요청에 싣는 호출자 actor·surface를 `FeedbackCaller`로 넘기고, `assembleFeedback`(`packages/problems/feedback/work.ts`)에 제품 redactor·`coreProblemLookup`·invocation 도착 확인·`readDetailCollection`·`prepareBlob`을 꽂아 `postRecordReport`로 보낸다. `apps/core/problems.ts`의 `workerRoutes`에 `submitFeedback`을 더한다. (2) collector credential이 `/v1/problems/get`(scope operation `GetProblem`)에 닿는지: 닿지 않으면 선택한 기존 문제를 읽지 못해 `unavailable`이다. (3) contracts(Q19): `SubmitFeedback` 입력이 준비된 blob handle과 완성된 snapshot을 싣고 있어 collector가 PNG 머리·redaction을 다시 검사할 수 없다. 원자료 입력(`FeedbackIntake`)을 받는 모양으로 contract를 바꿔 달라고 contracts 팀에 요청한다
 - 상태: 완료 (#99)
 - 완료:
   - `reportProblem`은 Report ID를 첫 전송 전에 고정하고 실제 invocation 문맥을 붙인 뒤 업무 응답을 막지 않는다; completion은 값으로 끝나 전송 실패가 새 `unhandledrejection`을 만들지 않는다(R1, R13)
@@ -348,6 +349,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T15 feedback 접수
 
+- 상태: 진행 (#PR) — 한 것: `packages/problems/feedback/`의 접수 조립(글 redaction·1~500 scalar, shell user 출처, 지목 대상과 "실행 전", 안전한 화면 상태, PNG 머리·크기·최종 hash, 한도, 항목별 이유, 같은 앱 명시 선택 묶기)과 `snapshots/screen.ts`의 화면 증거, collector 자식의 `feedback_state`·`feedback_screenshot` blob 준비 허용. 남은 것: `SubmitFeedback` worker route 연결·collector credential의 `GetProblem` 접근 → T5, 원자료를 받는 입력 contract → Q19(contracts 팀)
 - 등급: 기본
 - concern: problems/feedback, problems/grouping, problems/snapshots
 - 요구: problems/feedback#R1, R2, R3, R4, R6, R7, R8, R9, R10, R14; problems/grouping#R6; problems/snapshots#R15
@@ -618,3 +620,4 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - **Q16 문제 read와 release 준비 사이의 순환.** apps#T19(release 준비) ← coding-agent#T19(claim 검사) ← coding-agent#T18(ticket 생성의 문제 확인) ← problems#T6 ← apps#T19(선언 문구)로 고리가 생겼다. 정함: 선언 문구를 T27로 떼어 T6은 apps#T19를 기다리지 않는다.
 - **Q17 `requiredReportPaths`의 입력.** 지금은 검증된 `problem_codes`와 명시적 `has_view` boolean만 받는 최소 bundle descriptor를 쓴다. 추천: apps/blueprint wire(contracts#T33)가 정해지면 그 wire에서 `has_view`를 채워 이 함수를 그대로 쓴다. 그전까지 blueprint schema를 새로 만들지 않는다.
 - **Q18 T6 문제 read의 contract 한계와 정한 것.** (1) `GetProblem`에 당시 release field가 없었다. 정함(lead): `first_release`·`last_release`(처음·최근 보고의 release, 모르면 null)를 contract에 더하고 read가 채운다. 실제 담당·사람 조치 field는 T22가 더한다. (2) `problem.work`·`problem.interpretation`은 contract가 ticket·version ID를 그대로 싣는다. grouping#R12의 "연결 식별자 비노출"은 사용자용 상세에서 T22가 contract를 나눠 지킨다. claim·기한은 field 자체가 없다. (3) pool read는 sync라 redaction engine(async)을 부르지 못한다. 읽는 값은 저장 전 redaction을 거친 것이고 stack·log·글 원문은 hash 참조라서, 수리 조회 권한은 credential의 `GetReport`·`GetSnapshot` operation으로 나눈다. (4) platform `TargetAuthorization`은 credential 고정 조건(app·mode·diagnostic_scope)을 target에 덮어쓰므로 행의 그 값은 owner read가 따로 본다(platform 계획 Q21). (5) 범위 밖 문제·보고·snapshot은 없는 것과 같은 `not_found`다(architecture/problems 5.2를 고쳤다). (6) T2의 RecordReport가 기존 문제에 두 번째 live 보고를 받을 때 `ReportRecorded`의 문제 ID가 비어 거절되던 결함을 같은 PR에서 고쳤다.
+- **Q19 `SubmitFeedback` 입력과 collector의 검사.** contracts/problems의 `submitFeedbackInputSchema`는 shell이 만든 `snapshot`(화면 hash)과 준비된 blob handle(`source.kind=prepared`)을 싣는다. 그런데 신뢰 자식만 blob을 준비할 수 있어 shell은 handle을 만들 길이 없고, collector는 준비된 바이트를 읽어 PNG 머리·크기를 보거나 상태를 다시 redaction할 수 없다(feedback#R6, R7, R8; architecture/problems 7.2의 4). 추천: `SubmitFeedback`이 원자료를 받게 바꾼다. 글 원문, 버튼 시점 view와 binding(app·release·mode·bundle·진단 범위·관측 시점·캡처 불가 분류·미리본 최종 이미지 hash), 선택, 화면 원자료(탭·URL·입력 칸·업무 값 유무), 지목 대상(invocation·automation·고정 판·command 시작 여부), 기존 문제 선택, PNG 바이트(request channel). 이 모양이 `packages/problems/feedback/work.ts`의 `FeedbackIntake`이고 collector가 snapshot·blob·hash를 만든다. 그때까지 `assembleFeedback`은 같은 입력을 직접 받아 시험하고 route는 연결하지 않는다(T5로 넘김).

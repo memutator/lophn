@@ -56,6 +56,8 @@ export const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
               "report_details",
               "snapshot_stack",
               "snapshot_logs",
+              "feedback_state",
+              "feedback_screenshot",
             ].flatMap((purpose) => {
               const cap = REPORT_PURPOSE_CAPS.get(purpose);
               return cap === undefined ? [] : [[purpose, cap] as const];

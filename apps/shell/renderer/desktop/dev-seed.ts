@@ -155,6 +155,15 @@ const SEEDED: WorkspaceSource = {
       ok: true,
       value: [{ id: "ctx_design", title: "design" }],
     }),
+  files: () =>
+    Promise.resolve({
+      ok: true,
+      value: Object.values(SEED_DOCUMENTS).map((seeded) => ({
+        path: seeded.info.path ?? seeded.info.fileName,
+        document: seeded.info.id,
+        title: seeded.info.fileName.replace(/\.md$/, ""),
+      })),
+    }),
   readLayout: () =>
     Promise.resolve({
       ok: true,

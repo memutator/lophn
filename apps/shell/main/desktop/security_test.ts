@@ -82,6 +82,7 @@ test("shell/desktop#R16: shell preload는 contextBridge 값만 노출하고 ipcR
   assert.deepEqual(Object.keys(shellApi), [
     "open",
     "close",
+    "update",
     "result",
     "subscribe",
   ]);

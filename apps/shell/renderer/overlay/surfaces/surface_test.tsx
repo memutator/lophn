@@ -27,6 +27,7 @@ function fixture() {
   const api: OverlayApi = {
     open: () => Promise.reject(new Error("overlay never opens")),
     close: () => Promise.reject(new Error("overlay never closes")),
+    update: () => Promise.reject(new Error("overlay never updates")),
     result: (input) => {
       results.push(input);
       return Promise.resolve({ ok: true, value: null });
@@ -246,4 +247,75 @@ Deno.test("shell/app-frame#R24: 같은 generation 갱신·표면 제거·dispose
   assert(!isFocused(before), "dispose restored focus inside the overlay");
   assertEquals(f.results, []);
   before.remove();
+});
+
+Deno.test("shell/app-frame#R24: 검색 palette는 묶음·아이콘을 그리고 검색어를 돌려주며 연 쪽이 바꾼 행을 입력을 잃지 않고 다시 그린다", async () => {
+  const f = fixture();
+  const palette: OverlaySurface = {
+    ...f.surface("palette"),
+    model: {
+      label: "Search lophn",
+      search: true,
+      choices: [
+        { id: "p-0-0", label: "lophn", group: "Projects", icon: "project" },
+        {
+          id: "a-0-1",
+          label: "Back to launcher",
+          group: "Actions",
+          icon: "launcher",
+          hint: "Ctrl+Shift+L",
+        },
+      ],
+    },
+  };
+  await f.emit([palette]);
+  const host = f.host("palette");
+  const options = () => [...host.querySelectorAll("[role=option]")];
+  assertEquals(options().length, 2);
+  assert(options()[0]!.querySelector("svg.lucide"), "row icon is missing");
+  assert(host.textContent?.includes("Projects"));
+  const input = one(host, "input") as HTMLInputElement;
+  act(() => {
+    const setter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    setter.call(input, "rel");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await settle();
+  assertEquals(f.results, [{
+    surfaceId: "palette",
+    generation: 1,
+    type: "query",
+    text: "rel",
+  }]);
+  // overlay는 거르지 않는다. 연 쪽이 같은 표면의 행을 바꾼다.
+  assertEquals(options().length, 2);
+  await f.emit([{
+    ...palette,
+    model: {
+      ...palette.model,
+      choices: [{
+        id: "d-1-0",
+        label: "Release notes",
+        group: "Documents",
+        icon: "document",
+      }],
+    },
+  }]);
+  assertEquals(options().map((option) => option.textContent), [
+    "Release notes",
+  ]);
+  assert(f.host("palette") === host, "palette was remounted");
+  assertEquals((one(host, "input") as HTMLInputElement).value, "rel");
+  assert(host.contains(document.activeElement), "search lost focus");
+  await pressAsync(document.activeElement!, "Enter");
+  assertEquals(f.results.at(-1), {
+    surfaceId: "palette",
+    generation: 1,
+    type: "selected",
+    choiceId: "d-1-0",
+  });
+  await f.dispose();
 });

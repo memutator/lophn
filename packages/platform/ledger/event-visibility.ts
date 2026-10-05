@@ -109,6 +109,33 @@ export function currentEventContext(
   }
 }
 
+// 팀 등록 파일이 싣는 event 정의와 공개 정책. 정책이 가리키는 event는 따로 적지 않아도 등록된다.
+// 정책이 없는 event는 등록돼도 숨김이다(fail-closed).
+export type EventRegistration = {
+  events?: readonly EventDefinition[];
+  visibility?: readonly EventVisibilityDefinition[];
+};
+
+// 여러 팀 등록을 한 registry로 모은다. 같은 type에 서로 다른 정의나 정책이 둘이면 거절한다.
+// 같은 정의 객체를 둘 이상의 등록이 싣는 것은 한 번으로 센다.
+export function collectEventRegistrations(
+  parts: readonly (EventRegistration | undefined)[],
+): Result<EventVisibilityRegistry> {
+  const events: EventDefinition[] = [];
+  const policies: EventVisibilityDefinition[] = [];
+  const add = (event: EventDefinition) => {
+    if (!events.includes(event)) events.push(event);
+  };
+  for (const part of parts) {
+    for (const event of part?.events ?? []) add(event);
+    for (const policy of part?.visibility ?? []) {
+      add(policy.event);
+      policies.push(policy);
+    }
+  }
+  return createEventVisibilityRegistry(events, policies);
+}
+
 export function createEventVisibilityRegistry(
   events: readonly EventDefinition[],
   policies: readonly EventVisibilityDefinition[],

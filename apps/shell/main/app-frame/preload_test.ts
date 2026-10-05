@@ -22,7 +22,13 @@ test("shell/app-frame#R24: preload exposes only fixed overlay operations and str
       listeners.delete(channel);
     },
   }, "shell");
-  assert.deepEqual(Object.keys(api), ["open", "close", "result", "subscribe"]);
+  assert.deepEqual(Object.keys(api), [
+    "open",
+    "close",
+    "update",
+    "result",
+    "subscribe",
+  ]);
   assert(Object.isFrozen(api));
   const received: OverlayEvent[] = [];
   const release = api.subscribe((payload) => received.push(payload), () => {});
@@ -38,9 +44,15 @@ test("shell/app-frame#R24: preload exposes only fixed overlay operations and str
   );
   assert.deepEqual(received, [payload]);
   await api.close({ surfaceId: "surface", generation: 1 });
+  await api.update({
+    surfaceId: "surface",
+    generation: 1,
+    model: { label: "Search", search: true, choices: [] },
+  });
   await api.result({ surfaceId: "surface", generation: 1, type: "closed" });
   assert.deepEqual(calls.map(([channel]) => channel), [
     "shell:overlay-close",
+    "shell:overlay-update",
     "overlay:result",
   ]);
   release();

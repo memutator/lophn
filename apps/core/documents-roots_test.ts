@@ -1,5 +1,4 @@
 import { assert, assertEquals } from "@std/assert";
-import { DatabaseSync } from "node:sqlite";
 import {
   connectDocumentsRelaunch,
   createLedgerRegistration,
@@ -94,7 +93,7 @@ Deno.test("documents/file-tracking#R3: root 집합이 바뀐 확인만 documents
         next,
       ),
     known: ["/work/a"],
-    intervalMs: 3_600_000,
+    retryMs: 3_600_000,
   });
   try {
     await watch.check();
@@ -130,7 +129,7 @@ Deno.test("documents/file-tracking#R3: 재시작이 실패한 root 변화는 다
         next,
       ),
     known: [],
-    intervalMs: 3_600_000,
+    retryMs: 3_600_000,
   });
   try {
     await watch.check();
@@ -144,13 +143,21 @@ Deno.test("documents/file-tracking#R3: 재시작이 실패한 root 변화는 다
   }
 });
 
-Deno.test("documents/file-tracking#R3: 실제 core는 등록 프로젝트의 tracking root가 생기면 documents worker를 다시 띄운다", async () => {
+Deno.test("documents/file-tracking#R3: 실제 core는 tracking 규칙 변경 event를 받아 documents worker를 새 권한으로 다시 띄운다", async () => {
   const { startCore } = await import("./core.ts");
   const { manualClock, seededRandom } = await import(
     "../../packages/base/mod.ts"
   );
+  const { previewTracking } = await import(
+    "../../packages/documents/projects/work.ts"
+  );
+  const { directoryScanner } = await import(
+    "../../packages/documents/projects/scan.ts"
+  );
   const home = await Deno.makeTempDir({ prefix: "lophn-docs-roots-" });
-  const folder = await Deno.makeTempDir({ prefix: "lophn-docs-track-" });
+  const folder = await Deno.realPath(
+    await Deno.makeTempDir({ prefix: "lophn-docs-track-" }),
+  );
   let hellos = 0;
   const started = await startCore({
     lophnHome: home,
@@ -166,23 +173,79 @@ Deno.test("documents/file-tracking#R3: 실제 core는 등록 프로젝트의 tra
   const core = started.value;
   try {
     assertEquals(hellos, 1);
-    // tracking 켜기는 worker 미리보기가 필요하다(preview route 연결은 T11 남은 것).
-    // 켠 상태의 ledger 행을 시험이 직접 둔다: 등록 폴더와 켜진 tracking이 전부다.
-    const db = new DatabaseSync(`${home}/lophn.db`);
-    try {
-      db.exec("PRAGMA busy_timeout = 5000");
-      db.prepare(
-        `INSERT INTO projects (id, name, title, purpose, tracking_enabled, use_gitignore, revision, status)
-         VALUES ('prj_01kq12a1pha000000000000000', 'alpha', 'Alpha', '', 1, 0, '1', 'active')`,
-      ).run();
-      db.prepare(
-        `INSERT INTO project_folders (project, position, path, description)
-         VALUES ('prj_01kq12a1pha000000000000000', 0, ?, 'a')`,
-      ).run(folder);
-    } finally {
-      db.close();
-    }
-    // 확인 주기(2초) 안에 새 root가 보이고 worker가 새 권한으로 다시 뜬다.
+    const token = "r".repeat(43);
+    const context = {
+      principal: "user",
+      actor: "user" as const,
+      credential_ref: "cred_roots_person",
+      scope: {
+        operations: ["project.create", "project.set_tracking"],
+        targets: {},
+      },
+      conditions: {},
+    };
+    assert(core.acceptTestCredential);
+    const accepted = await core.acceptTestCredential(context, token);
+    assert(accepted.ok);
+    const recorded = await core.record(context);
+    assert(recorded.ok);
+    const post = async (path: string, body: unknown) => {
+      const response = await fetch(
+        `http://127.0.0.1:${core.port}/v1/${path}`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        },
+      );
+      return {
+        status: response.status,
+        body: await response.json() as Record<string, unknown>,
+      };
+    };
+    // 사람이 프로젝트를 만들고 tracking을 켠다. 주기로 읽지 않으므로 이 command가 남긴
+    // ProjectTrackingChanged event가 core 안 구독자를 깨워야 새 root가 보인다.
+    const id = "prj_01kq12a1pha000000000000000";
+    const folders = [{ path: folder, description: "a" }];
+    const created = await post("projects/create", {
+      input: {
+        id,
+        name: "alpha",
+        title: "Alpha",
+        purpose: "",
+        folders,
+        tracking: { enabled: false, patterns: [], use_gitignore: false },
+      },
+      idempotency_key: "create-alpha",
+      compare: {},
+      prepared: [],
+    });
+    assertEquals(created.status, 200, JSON.stringify(created.body));
+    const revision = String(created.body["revision"]);
+    const tracking = {
+      enabled: true,
+      patterns: [{ effect: "include" as const, glob: "**/*.md" }],
+      use_gitignore: false,
+    };
+    const preview = previewTracking(directoryScanner(), {
+      project: id,
+      baseRevision: revision,
+      folders,
+      tracking,
+      observedAt: "2026-10-06T00:00:00.000Z",
+    });
+    assert(preview.ok);
+    const applied = await post("projects/set_tracking", {
+      input: { project: id, folders, tracking, preview: preview.value },
+      idempotency_key: "track-alpha",
+      compare: { base_revision: revision },
+      prepared: [],
+    });
+    assertEquals(applied.status, 200, JSON.stringify(applied.body));
+    // 구독자가 event를 받고 worker가 새 권한으로 다시 뜬다.
     for (let waited = 0; waited < 120 && hellos < 2; waited++) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
@@ -191,5 +254,74 @@ Deno.test("documents/file-tracking#R3: 실제 core는 등록 프로젝트의 tra
     await core.shutdown();
     await Deno.remove(home, { recursive: true });
     await Deno.remove(folder, { recursive: true });
+  }
+});
+
+Deno.test("documents/file-tracking#R3: 읽기·재시작이 실패하면 주기 읽기 없이 대기 뒤 스스로 다시 시도한다", async () => {
+  const { watchTrackingRoots } = await import("./documents-roots.ts");
+  let healthy = false;
+  let reads = 0;
+  const watch = watchTrackingRoots({
+    roots: () => {
+      reads += 1;
+      return Promise.resolve(
+        healthy ? { ok: true as const, value: ["/work/a"] } : {
+          ok: false as const,
+          error: { code: "unavailable" as const, message: "reader down" },
+        },
+      );
+    },
+    relaunch: () => Promise.resolve({ kind: "relaunch", specs: [] }),
+    known: [],
+    retryMs: 20,
+  });
+  try {
+    await watch.check();
+    assertEquals(reads, 1);
+    healthy = true;
+    for (let waited = 0; waited < 100 && watch.known.length === 0; waited++) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    // 시험이 다시 부르지 않아도 timer가 한 번 더 읽어 root를 맞췄다.
+    assertEquals(watch.known, ["/work/a"]);
+    const settled = reads;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // 성공하면 timer를 남기지 않는다: 주기 읽기가 아니다.
+    assertEquals(reads, settled);
+  } finally {
+    watch.stop();
+  }
+});
+
+Deno.test("documents/file-tracking#R3: 확인 도중에 온 신호는 이미 읽은 값 뒤의 변화라 끝난 뒤 한 번 더 확인한다", async () => {
+  const { watchTrackingRoots } = await import("./documents-roots.ts");
+  let current = ["/work/a"];
+  let release: (() => void) | undefined;
+  let gate = new Promise<void>((resolve) => release = resolve);
+  const seen: string[][] = [];
+  const watch = watchTrackingRoots({
+    roots: async () => {
+      const value = [...current];
+      await gate;
+      return { ok: true as const, value };
+    },
+    relaunch: (_previous, next) => {
+      seen.push([...next]);
+      return Promise.resolve({ kind: "relaunch", specs: [] });
+    },
+    known: [],
+    retryMs: 3_600_000,
+  });
+  try {
+    const first = watch.check();
+    // 첫 확인이 /work/a를 읽은 뒤에 root가 바뀌고 신호가 온다.
+    current = ["/work/b"];
+    const second = watch.check();
+    gate = Promise.resolve();
+    release?.();
+    await Promise.all([first, second]);
+    assertEquals(seen, [["/work/a"], ["/work/b"]]);
+  } finally {
+    watch.stop();
   }
 });

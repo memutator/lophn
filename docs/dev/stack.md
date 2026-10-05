@@ -118,6 +118,14 @@ harness 자체의 통계·목표 판정 논리는 빠른 단위 테스트
 (`packages/platform/responsiveness/measure_test.ts`)가 맡아
 `deno task check`에서 매번 돈다.
 
+부하 측정(`packages/platform/responsiveness/measure-load_test.ts`)은 100,000파일
+root scan·hash와 512MiB 묶음 준비, 10개 동시 승인 접수, 정체 대리를 각각·함께 걸고
+같은 자료의 무부하 측정과 비교하므로 같은 `LOPHN_MEASURE=1` opt-in이다.
+`LOPHN_MEASURE=1 deno test --allow-all
+packages/platform/responsiveness/measure-load_test.ts`로 따로 돌린다.
+앱 command가 core·invocation 기록을 기다리지 않는다는 R2 확인은 빠른 정적 테스트
+(`tools/invocation-wait_test.ts`)가 맡아 `deno task check`에서 매번 돈다.
+
 ## 개발 환경
 
 - `deno task dev`: core, agent runtime, app supervisor, shell을 개발 데이터

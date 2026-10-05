@@ -266,7 +266,7 @@ concerns: [documents]
 
 ### T13 derived store와 검색
 
-- 상태: 완료 (#188, #215) — 이어보냄: 요약·주제 검색과 match_source → documents#T14, 제품 core에서 `/v1/search/{query,status}` worker route를 documents coordinator가 서빙(지금은 503) → documents#T11
+- 상태: 완료 (#188, #215) — 이어보냄: 제품 core에서 `/v1/search/{query,status}` worker route를 documents coordinator가 서빙(지금은 503) → documents#T11. 요약·주제 검색과 match_source는 #230에 합쳤다
 - 등급: 기본
 - concern: documents/outline-and-search
 - 요구: documents/outline-and-search#R10, R11, R12, R13, R14, R16, R17, R18
@@ -290,6 +290,7 @@ concerns: [documents]
 
 ### T14 outline과 단계적 읽기
 
+- 상태: 완료 (#230) — 이어보냄: root outline의 context 자리 묶음 → documents#T23, `/v1/outline/{root,place,document}`와 `/v1/documents/read` route와 실제 인증 연결을 제품 core에 붙이는 것 → documents#T11
 - 등급: 기본
 - concern: documents/outline-and-search, documents/addressing
 - 요구: documents/outline-and-search#R1, R2, R3, R5, R6, R7, R8, R9, R15, R22, R26, documents/addressing#R4, R5

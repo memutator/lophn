@@ -34,6 +34,7 @@ import {
 } from "../../packages/platform/install-and-update/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
 import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
+import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
   type BlobPrepareRelay,
   createBlobPrepareRelay,
@@ -173,6 +174,7 @@ async function open(
       ...LEDGER_SCHEMA_STEPS,
       CREDENTIAL_SCHEMA,
       ...assembled.value.schemaSteps,
+      ...SETTINGS_SCHEMA_STEPS,
     ],
     { clock, recovery: { root: root.path } },
   );

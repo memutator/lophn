@@ -727,6 +727,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T53 notification 계기: context watch 변화
 
+- 상태: 진행 (#195) — 남은 것: documents contexts의 record_watch_change 발생 작업(documents#T24)와 flow build-context의 notification 단계 통합 테스트
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R3, R7
@@ -773,6 +774,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T33 notification 계기: release activation 실패
 
+- 상태: 진행 (#195) — 남은 것: apps releases의 fail_activation 발생 작업(apps#T18)
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1
@@ -816,6 +818,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T36 notification 계기: ticket 확인·검사 실패
 
+- 상태: 진행 (#195) — 남은 것: coding-agent tickets의 checker 발생 작업(coding-agent#T26)
 - 등급: 좁은
 - concern: platform/notifications
 - 요구: platform/notifications#R1, R2

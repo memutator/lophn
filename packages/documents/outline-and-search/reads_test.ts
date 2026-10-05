@@ -740,6 +740,110 @@ Deno.test("documents/outline-and-search#R5: document outline은 section별 통�
   }
 });
 
+// 형제 topLevel section의 숨긴 자식 수는 자기 자손만 센다(R5).
+Deno.test("documents/outline-and-search#R5: document outline은 자기 자손의 숨긴 수만 센다", () => {
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    const record: ExtractionRecord = {
+      document: DOC_A,
+      version: VER_A,
+      content_hash: HASH,
+      module_hash: HASH,
+      extraction: {
+        status: "ready",
+        title: "용어집",
+        text: "본문",
+        text_hash: HASH,
+        sections: [
+          {
+            key: "첫",
+            title: "첫",
+            parent: null,
+            position: 0,
+            level: 1,
+            anchor: null,
+            own_ranges: [{ start_line: 1, end_line: 2 }],
+            subtree_range: { start_line: 1, end_line: 6 },
+            characters: 10,
+            body_hash: HASH,
+          },
+          {
+            key: "둘",
+            title: "둘",
+            parent: null,
+            position: 1,
+            level: 1,
+            anchor: null,
+            own_ranges: [{ start_line: 7, end_line: 8 }],
+            subtree_range: { start_line: 7, end_line: 8 },
+            characters: 10,
+            body_hash: HASH,
+          },
+          // 첫의 자식 두 개. level 3이라 depth 2 outline에서 숨긴다.
+          {
+            key: "첫/가",
+            title: "가",
+            parent: "첫",
+            position: 2,
+            level: 3,
+            anchor: null,
+            own_ranges: [{ start_line: 3, end_line: 4 }],
+            subtree_range: { start_line: 3, end_line: 4 },
+            characters: 10,
+            body_hash: HASH,
+          },
+          {
+            key: "첫/나",
+            title: "나",
+            parent: "첫",
+            position: 3,
+            level: 3,
+            anchor: null,
+            own_ranges: [{ start_line: 5, end_line: 6 }],
+            subtree_range: { start_line: 5, end_line: 6 },
+            characters: 10,
+            body_hash: HASH,
+          },
+          // 둘의 자식 하나.
+          {
+            key: "둘/가",
+            title: "가",
+            parent: "둘",
+            position: 4,
+            level: 3,
+            anchor: null,
+            own_ranges: [{ start_line: 8, end_line: 8 }],
+            subtree_range: { start_line: 8, end_line: 8 },
+            characters: 10,
+            body_hash: HASH,
+          },
+        ],
+      },
+    };
+    keep(recordExtraction(fx.store, record, "1"));
+    fx.consumed("5");
+    const page = keep(
+      fx.outline().document(OUTLINE_CTX, {
+        reference: { document: DOC_A },
+      }),
+    );
+    assertEquals(page.kind, "document");
+    // depth 2 outline: topLevel 둘만 난다. level 3 자식은 숨겨진다.
+    const kept = page.entries;
+    assertEquals(kept.length, 2);
+    const first = kept.find((section) => section.key === "첫");
+    const second = kept.find((section) => section.key === "둘");
+    assert(first !== undefined);
+    assert(second !== undefined);
+    // 각 형제는 자기 자손의 숨긴 수만 센다.
+    assertEquals(first.hidden_children_count, 2);
+    assertEquals(second.hidden_children_count, 1);
+  } finally {
+    fx.close();
+  }
+});
+
 // 본문 읽기. 12,000 codepoint를 넘는 본문을 cursor로 이어 읽는다(R7).
 Deno.test("documents/outline-and-search#R7: handler 본문 읽기는 12,000 codepoint를 넘는 본문을 이어 읽는다", () => {
   const fx = openDerivedFixture();

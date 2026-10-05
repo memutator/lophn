@@ -639,7 +639,7 @@ export type OutlineRootPage = {
   basis_seq: string;
   entries: OutlineRootEntry[];
   as_of_seq: string;
-  next_cursor: null;
+  next_cursor: string | null;
   complete: boolean;
 };
 
@@ -901,12 +901,14 @@ function entryCost(
   version: string,
 ): number {
   const row = deps.read.sql.get(
-    `SELECT section_count, line_count, extraction_status FROM derived_versions WHERE version = ?`,
+    `SELECT section_count, line_count FROM derived_versions WHERE version = ?`,
     [version],
   );
-  void row;
-  // 목록 자리의 대략적 비용. 제목·발췌·요약이 크기다. 본문은 싣지 않는다.
-  return EXCERPT_CODEPOINT_LIMIT + 120;
+  // 목록 자리의 비용. section과 줄 수가 크기다. 본문은 싣지 않는다.
+  if (row === undefined) return EXCERPT_CODEPOINT_LIMIT + 120;
+  const sections = numberCell(row["section_count"]);
+  const lines = numberCell(row["line_count"]);
+  return sections > 0 ? sections * 24 + Math.min(lines, 200) : 120;
 }
 
 function latestVersion(
@@ -1044,8 +1046,6 @@ function buildDocumentOutline(
   let complete = true;
   for (const row of rows) {
     const own = parseRanges(row["own_ranges"]);
-    const subtree = parseRanges(row["subtree_range"]);
-    void subtree;
     const characters = numberCell(row["characters"]);
     const level = numberCell(row["level"]);
     const section: Section = {
@@ -1137,21 +1137,31 @@ function countBelowDeeper(
   // 자식 section은 key parent 사슬로 센다. depth 아래의 자손만 숨긴 수다.
   let count = 0;
   for (const other of sections) {
-    if (other.level > depth) {
-      if (isDescendant(other, section)) count += 1;
+    if (other.level > depth && isDescendant(sections, other, section)) {
+      count += 1;
     }
   }
   return count;
 }
 
+// parent key 사슬을 걸어 올라가 다다르면 자손이다. derived_sections의 parent 열이
+// 사슬을 가진다. 순환은 추출 규약이 이미 막는다(format-extraction), 보험으로 걸음 수를
+// 제한한다.
 function isDescendant(
+  sections: readonly Section[],
   other: { parent: string | null },
   ancestor: Section,
 ): boolean {
-  void other;
-  void ancestor;
-  // 정확한 parent 사슬은 derived_sections의 parent 열이 가진다. 정리는 컷에서만 본다.
-  return true;
+  let parent = other.parent;
+  let guard = 0;
+  while (parent !== null && guard <= sections.length) {
+    if (parent === ancestor.key) return true;
+    const next = sections.find((section) => section.key === parent);
+    if (next === undefined) return false;
+    parent = next.parent;
+    guard += 1;
+  }
+  return false;
 }
 
 function sectionStatusOf(
@@ -1473,15 +1483,47 @@ export function createOutlineHandlers(
 ): OutlineHandlers {
   return {
     root(ctx, input) {
-      void input;
-      const entries = buildRootEntries(deps, ctx);
+      // root도 contract 입력을 받는다. estimated token 예산과 cursor offset이다.
+      // 자리 없는 문서 묶음과 예산 초과는 개수로만 답한다(존재를 새지 않는다(R14)).
+      const budget = input.estimated_token_budget ?? ROOT_BUDGET;
+      const cursorState = input.cursor === undefined
+        ? ok({ offset: 0 })
+        : decodeOutlineCursor(input.cursor, {
+          topic: "outline.root",
+          basis_seq: deps.snapshot.as_of_seq,
+          sort: "activity",
+          conditions: {},
+          credential: ctx.credential_ref,
+        });
+      if (!cursorState.ok) return cursorState as never;
+      const built = buildRootEntries(deps, ctx);
+      let used = 0;
+      let complete = true;
+      const entries: OutlineRootEntry[] = [];
+      for (const entry of built) {
+        const cost = estimatedTokens(120);
+        if (used + cost > budget && entries.length > 0) {
+          complete = false;
+          break;
+        }
+        used += cost;
+        entries.push(entry);
+      }
+      const paged = entries.slice(cursorState.value.offset);
       return ok({
         kind: "root",
         basis_seq: deps.snapshot.as_of_seq,
-        entries,
+        entries: paged,
         as_of_seq: deps.snapshot.as_of_seq,
-        next_cursor: null,
-        complete: true,
+        next_cursor: complete ? null : encodeOutlineCursor({
+          topic: "outline.root",
+          basis_seq: deps.snapshot.as_of_seq,
+          sort: "activity",
+          conditions: {},
+          versions: [],
+          credential: ctx.credential_ref,
+        }, cursorState.value.offset + paged.length),
+        complete,
       });
     },
     place(ctx, input) {
@@ -1577,7 +1619,7 @@ export function createOutlineHandlers(
         document,
         requested,
         input.depth ?? DOCUMENT_OUTLINE_DEPTH,
-        input.estimated_token_budget ?? PLACE_BUDGET,
+        input.estimated_token_budget ?? DOCUMENT_BUDGET,
       );
     },
     read(ctx, input) {
@@ -1587,3 +1629,5 @@ export function createOutlineHandlers(
 }
 
 const PLACE_BUDGET = 3000;
+const ROOT_BUDGET = 1500;
+const DOCUMENT_BUDGET = 2000;

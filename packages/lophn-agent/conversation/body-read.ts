@@ -92,9 +92,9 @@ export function messageBodyRead(
       if (size < 1 || size > MESSAGE_CONTENT_MAX_BYTES) {
         return unavailable("message body is not available");
       }
-      const bytes = await readAll(environment, hash, size);
+      const bytes = await readBodyBytes(environment, hash, size);
       if (!bytes.ok) return bytes;
-      const content = contentOf(bytes.value);
+      const content = bodyContentOf(bytes.value);
       if (!content.ok) return content;
       return ok({
         message: id,
@@ -111,7 +111,7 @@ export function messageBodyRead(
 
 // blob.read의 한 번 상한(256KiB) 단위로 이어 읽고 전체 hash를 다시 확인한다.
 // 없거나 어긋난 바이트는 빈 내용이 아니라 unavailable이다.
-async function readAll(
+export async function readBodyBytes(
   environment: MessageBodyEnvironment,
   hash: string,
   size: number,
@@ -137,7 +137,7 @@ async function readAll(
 }
 
 // 본문 값. JSON 값이 아닌 기존 text blob은 글 하나로 읽는다(domain model).
-function contentOf(bytes: Uint8Array) {
+export function bodyContentOf(bytes: Uint8Array) {
   let text: string;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);

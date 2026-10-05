@@ -4,10 +4,11 @@ import { visualBlockInputSchema, visualBlockSchema } from "./visuals.ts";
 
 export const MESSAGE_VISUAL_MAX_COUNT = 8;
 export const MESSAGE_VISUAL_MAX_BYTES = 262144;
-// 본문 blob 하나의 정규 직렬화 상한이다. 사람 말과 machine 확인은 글뿐이라 더 작고
-// (HTTP RPC 본문 256KiB 안), agent 답은 시각 블록 합 상한 위에 글을 더한 값이다.
+// 본문 blob 하나의 정규 직렬화 상한이다. 요청은 본문 값을 싣고 RPC JSON 상한이 256KiB
+// 이므로(platform/api) id·links 여유가 요청 상한 안에 남도록, 사람 말과 machine 확인은
+// 글뿐이라 64KiB, agent 답은 글과 시각 블록을 합쳐 240KiB다.
 export const MESSAGE_TEXT_CONTENT_MAX_BYTES = 65536;
-export const MESSAGE_CONTENT_MAX_BYTES = 524288;
+export const MESSAGE_CONTENT_MAX_BYTES = 245760;
 // 본문 blob 준비·참조의 이름. 준비 주체는 보낸 사람의 자격이고 참조는 permanent다.
 export const MESSAGE_CONTENT_PURPOSE = "message_content";
 export const MESSAGE_BODY_OWNER_KIND = "message";

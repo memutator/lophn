@@ -2,6 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { routePath } from "../platform/mod.ts";
 import {
+  MESSAGE_CONTENT_MAX_BYTES,
   MESSAGE_TEXT_CONTENT_MAX_BYTES,
   serializeMessageContent,
 } from "./message-content.ts";
@@ -456,4 +457,24 @@ Deno.test("lophn-agent/conversation#R2: the body read names one message and retu
     !messageBodyOutputSchema.safeParse({ ...output, content: undefined })
       .success,
   );
+});
+
+Deno.test("lophn-agent/conversation#R4: an agent answer is bounded as a whole while a machine record is text only", () => {
+  const record = (value: unknown) =>
+    recordMessageInputSchema.safeParse({
+      id: msg,
+      session: ses,
+      run,
+      content: value,
+      links: [],
+    }).success;
+  const text = (value: string) => ({
+    schema_version: 1,
+    parts: [{ kind: "text", text: value }],
+  });
+  const overhead = serializeMessageContent(text("")).length;
+  assert(record(text("a".repeat(MESSAGE_CONTENT_MAX_BYTES - overhead))));
+  assert(!record(text("a".repeat(MESSAGE_CONTENT_MAX_BYTES - overhead + 1))));
+  // 요청 상한(RPC JSON 256KiB) 안에 본문 상한과 여유가 들어간다.
+  assert(MESSAGE_CONTENT_MAX_BYTES + 16384 <= 256 * 1024);
 });

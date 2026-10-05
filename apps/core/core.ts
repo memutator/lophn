@@ -509,7 +509,15 @@ async function open(
     blobRead.use(blobRelay.readBytes);
     validateWiring.readBlob = blobRelay.readBytes;
     prepareRelay.current = (call) => blobRelay.prepare(call);
-    bodyPrepare.current = blobRelay;
+    bodyPrepare.current = {
+      live: (prepared) => blobRelay.live(prepared),
+      prepare: (call) => blobRelay.prepare(call),
+      prune: async () => {
+        const nowMs = clock.nowMs();
+        blobRelay.prune(nowMs);
+        await runtime?.prunePrepared(nowMs);
+      },
+    };
   }
   // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
   // 파일 GC는 하지 않고 메모리 참조만 떨어뜨린다.

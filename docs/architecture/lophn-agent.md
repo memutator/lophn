@@ -44,6 +44,8 @@ runtime 기동 순서는 bootstrap 설정·machine credential 수신 → event c
 
 core가 먼저 옛 runtime의 종료를 확인하고 새 runtime을 시작한다. shutdown은 새 model/tool 진입을 막고 AbortController로 진행 호출에 취소를 요청하며 MCP 연결을 닫는다. 이미 전달한 호출을 미실행으로 바꾸지 않는다. core가 죽으면 runtime도 새 진입을 막고 종료한다. 계속 살아 있는 옛 프로세스와 새 프로세스를 동시에 supervisor가 운용하지 않는다. 늦은 command는 run state_seq·credential revision·대상 CAS로 거절한다.
 
+core 기동은 runtime보다 먼저 내장 assignment를 준비한다. I/O 감독이 뜬 뒤 lophn·Context Engineer 역할마다 거두지 않은 assignment가 없으면 그 역할의 제품 기본 preset(없으면 prompt 자산을 blob으로 준비해 등록)을 두고 `CreateBuiltinAssignment`를 machine credential로 보낸다. 있으면 아무것도 보내지 않고 중간에 끊기면 다음 기동이 이어 가므로 재시작이 중복을 만들지 않는다. 기본 preset의 model은 비어 있어 사람이 provider를 고르기 전까지 run은 시작하지 못한다.
+
 ### 2.2 assignment당 진행 하나와 accepted queue
 
 ledger의 `runs(state=accepted)`가 durable queue다. 메모리 queue는 깨우기용 ID 집합일 뿐이며 재기동 때 버린다. 같은 assignment에는 `running / waiting_user` 하나만 허용하고 core의 `runs` partial unique와 StartRun의 검사가 이를 강제한다. 서로 다른 assignment loop는 비동기로 함께 진행하며 첫 설계에 별도 전체 동시 run 상한을 추가하지 않는다. 네트워크·retry·사람 대기 때문에 core writer나 다른 assignment를 붙잡지 않는다.
@@ -110,7 +112,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 
 | 저장 | 위치·내용 | 소유·복구 |
 |---|---|---|
-| immutable blob | platform blob store: redaction한 메시지, Run.basis·결과, model의 실제 input/output·context_basis, tool input/output, 질문 본문·답, revert 설명 | platform blob contract로 준비하고 hash 참조를 command에 전달한다. runtime이 디스크 경로를 열지 않는다 |
+| immutable blob | platform blob store: redaction한 메시지(요청의 값을 core가 redaction·준비하고 command가 같은 transaction에서 영구 참조를 등록한다. runtime도 hash·blob 없이 값을 보낸다), Run.basis·결과, model의 실제 input/output·context_basis, tool input/output, 질문 본문·답, revert 설명 | platform blob contract로 준비하고 hash 참조를 command에 전달한다. runtime이 디스크 경로를 열지 않는다 |
 | derived | `~/.lophn/derived/lophn-agent/catalog.json`, `catalog-state.json`, `summaries/`, `usage.sqlite` | runtime 소유. catalog는 release snapshot/마지막 정상본, summary는 완성 ModelCall·원문 구간, 집계는 ledger call로 재생성한다. 삭제해도 사실은 남는다 |
 | skill | 개인 `~/.lophn/skills/`, 등록 절대 root, 설치 bundle의 `assets/skills/` | 사람 또는 배포가 준비한 읽기 전용 자료. 경로는 prompt에 넣지 않는다. runtime은 자동 작성·설치하지 않는다 |
 | 내장 자산 | 설치 bundle의 `assets/roles/`, `assets/model-catalog.json` | release의 고정 자료. 설정·현재 preset 판은 ledger와 구별한다 |
@@ -198,9 +200,9 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | OpenSession | `/v1/sessions/open` | user·assignment enabled/paused·현재 revision·개설 WorkPlace·continued_from?; withdrawn은 과거 읽기만 |
 | ChangeSessionWorkPlace | `/v1/sessions/change-work-place` | user·자리 revision CAS·lophn/CE만; 다음 call부터 지침 층 변경 |
 | CloseSession | `/v1/sessions/close` | open state_seq·미종료 run 없음 |
-| ReceiveMessage | `/v1/messages/receive` | user·ID·세션 open·현재 assignment revision·본문·mode·대상 run; enabled request는 AcceptRun과 함께, paused request는 run 없이 보존·미실행, withdrawn 거절 |
+| ReceiveMessage | `/v1/messages/receive` | user·ID·세션 open·현재 assignment revision·본문 값(글 part, 64KiB)·mode·대상 run; enabled request는 AcceptRun과 함께, paused request는 run 없이 보존·미실행, withdrawn 거절 |
 | ExecuteStoredRequest | `/v1/messages/execute-stored` | user의 보존 request 실행 선택·현재 enabled revision; AcceptRun/MessageAssigned 원자 확정; 같은 원문·한 담당 run |
-| RecordMessage | `/v1/messages/record` | agent/machine·세션·run·redaction MessageContent(text/visual 순서)·실제 links; 블록 전체 검사 후 원자 기록 |
+| RecordMessage | `/v1/messages/record` | agent/machine·세션·run·MessageContent 값(text/visual 순서, agent 240KiB·machine 글만 64KiB)·실제 links; 블록 전체 검사 후 원자 기록 |
 | ApplyMessages | `/v1/messages/apply` | 미반영 ID 목록·model call; StartModelCall과 함께 |
 | AssignMessage | `/v1/messages/assign` | 미반영 메시지·이전 담당/state_seq·새 run |
 
@@ -221,6 +223,7 @@ handoff는 Run.source, tool 판정은 ToolCall, safety 실패수는 확정 call,
 | assignment read/list | `/v1/assignments/read`, `/v1/assignments/list` | ID 또는 역할/상태·cursor; 승인 범위·outputs |
 | session read/list | `/v1/sessions/read`, `/v1/sessions/list` | ID 또는 assignment·cursor; 세션 출처·상태 |
 | message list | `/v1/messages/list` | 세션·seq 구간·cursor; 담당/반영 call·본문 참조 |
+| message body | `/v1/messages/body` | 메시지 ID; user·그 assignment의 agent·machine만, 그 밖은 없는 메시지와 같은 not_found; 본문 blob의 hash 확인을 거친 MessageContent 값 |
 | occurrence list | `/v1/assignment-occurrences/list` | assignment·시점 범위·cursor; accepted/skipped·missed 범위 |
 | question read/list | `/v1/questions/read`, `/v1/questions/list` | ID 또는 run/assignment·cursor; 실제 결정·action 적용 상태 |
 | handoff submit/status/result | `/v1/handoffs/submit`, `/v1/handoffs/status`, `/v1/handoffs/result` | 고정 packet 또는 sender/dedup/수신 run; submit은 AcceptRun의 출처 검사 wrapper |

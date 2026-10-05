@@ -35,6 +35,9 @@ import type { PreparedRelayResult } from "./blob-prepare.ts";
 export type BodyPrepare = {
   // 같은 주체·purpose·hash의 살아 있는 준비가 이미 있는지.
   live(prepared: { hash: string; principal: string; purpose: string }): boolean;
+  // 만기된 준비 참조를 메모리에서 떨어뜨린다. 같은 값의 새 준비가 만기된 옛 참조와
+  // 겹치지 않게 준비 직전에 부른다.
+  prune(): Promise<void>;
   prepare(call: {
     principal: string;
     purpose: string;
@@ -129,6 +132,7 @@ export function createMessageBodyPreparer(deps: {
     };
     // 같은 값을 다시 보낸 재전송은 이미 살아 있는 준비를 쓴다.
     if (!relay.live(key)) {
+      await relay.prune();
       const prepared = await relay.prepare({
         principal: ctx.principal,
         purpose: MESSAGE_CONTENT_PURPOSE,
@@ -143,7 +147,9 @@ export function createMessageBodyPreparer(deps: {
       // 같은 값의 동시 요청이 먼저 준비를 마쳤으면 그 준비를 쓴다.
       if (!prepared.ok && !relay.live(key)) {
         return rejected(
-          prepared.error.code === "invalid_input" ? "invalid_input" : "unavailable",
+          prepared.error.code === "invalid_input"
+            ? "invalid_input"
+            : "unavailable",
           "message body could not be prepared",
         );
       }

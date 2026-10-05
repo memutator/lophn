@@ -78,8 +78,8 @@ export const BODY = (n: number) => n.toString(16).padStart(2, "0").repeat(32);
 // 본문 값(MessageContent)과 그 blob의 hash. 요청은 값을 싣고 ledger에는 hash가 남는다.
 export function textContent(value: string) {
   return {
-    schema_version: 1,
-    parts: [{ kind: "text", text: value }],
+    schema_version: 1 as const,
+    parts: [{ kind: "text" as const, text: value }],
   };
 }
 

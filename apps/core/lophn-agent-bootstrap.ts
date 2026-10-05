@@ -83,7 +83,8 @@ export async function bootstrapBuiltinAssignments(
 ): Promise<Result<void>> {
   if (
     !deps.commands.has(registerDefaultPreset.name) ||
-    !deps.commands.has(createBuiltinAssignment.name) || deps.prepare === undefined
+    !deps.commands.has(createBuiltinAssignment.name) ||
+    deps.prepare === undefined
   ) return ok(undefined);
   const ctx = context();
   const recorded = await deps.record(ctx);

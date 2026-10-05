@@ -491,6 +491,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T17 context 읽기·변경 제안 tool
 
+- 상태: 완료 (#PR) — 이어보냄: CLI `context` 읽기·`context propose`의 core dispatch 연결(`runContextPropose` 등)과 production credential provider·MCP runner 배선 → coding-agent#T36. 실제 core·documents worker·I/O worker로 `lophn_context`가 끝까지 도는 시험은 `apps/core/context-tools-e2e_test.ts`다
 - 등급: 좁은
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R17; coding-agent/cli#R18, R19
@@ -505,8 +506,9 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 완료:
   - list(보관 포함)·show·items·glossary·of: 기준·참고·watch 항목과 읽기
     깊이·용어·문서를 참조하는 context(mcp#R17, cli#R18)
-  - propose: 생성·이름 변경·항목 추가와 제거·관점 변경·분할·병합·용어 추가와
-    채택 변경안을 고정 변경안 문서로 저장(documents#T8)하고 변경안 주소와
+  - propose: 생성·이름 변경·항목 추가와 제거·관점 변경·용어 추가와
+    채택 변경안(분할·병합은 documents/contexts가 두지 않아 뺐다. Q27)을
+    고정 변경안 문서로 저장(documents#T8)하고 변경안 주소와
     "사람이 Context Engineer에게 맡기라"는 안내만 돌려준다. run을 만들거나
     agent에 넘기지 않는다. 제안만으로 context·용어가 바뀌지
     않는다(documents/contexts#R6, lophn-agent/run-loop#R1; mcp#R17, cli#R19;
@@ -1700,3 +1702,17 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   입력이 아니라 tool 표 입력으로 검사하게 고쳤다. `lophn_ticket`의 read op는 `client.read`로
   보낸다. 남은 T20 후속: ticket 쓰기 op의 `op`·`base_revision`을 route 입력·compare로
   나누는 것(지금은 `op`를 route 입력에 그대로 싣는다).
+- **Q27 context 변경 제안의 분할·병합과 변경안 문서 모양(구현).**
+  coding-agent/mcp-server#R17·cli#R19와 T17 완료 줄은 분할·병합 변경안을 받으라고
+  했지만 documents/contexts는 context 분할·병합을 두지 않고(요구 문서와 domain
+  model, contracts Q39) `lophn_context propose`의 변경 union도 create·rename·
+  set_item·remove_item·term_propose·term_update 여섯뿐이다. 두 요구와 T17 완료 줄에서
+  분할·병합을 뺐다. 같은 두 요구의 "직접 질문 생성 미확정 부분" 문장도 Q14대로 "사람이
+  변경안 주소를 Context Engineer에게 맡기면 그 agent가 질문으로 잇는다"로 맞췄다.
+  변경안 문서는 자리 없는 문서 하나(`context-change.md`, text/markdown)이고 본문에 사람이
+  읽는 이유와 기계가 읽는 `lophn-context-change/1` JSON(종류·대상 context·읽은
+  context revision·변경안·이유)을 둔다. 시각·사람 값이 없어 같은 제안은 같은 bytes·같은
+  문서가 된다. 제안 때 대상 context를 읽어(범위 밖은 없는 것과 같은 not_found) 없는 context·
+  이미 있는 id 생성·없는 항목 제거를 접수하지 않는다. documents 쪽에 변경안 문서의
+  구조 read나 적용 통로는 아직 없다(Context Engineer가 질문으로 잇는 일은
+  lophn-agent 몫).

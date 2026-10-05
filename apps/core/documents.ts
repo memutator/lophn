@@ -158,7 +158,7 @@ function formatReads(): ApiReadDefinition[] {
 // 활성 root가 바뀌면 이 spec을 다시 만들고 platform이 documents worker만 다시 띄운다.
 // network는 core loopback뿐이다: 관측 제출이 같은 process의 API에 Bearer credential로
 // 닿는다(T11). 코드(repo)와 deno 캐시 읽기는 child가 자기 entry를 올리는 데 필요하다
-// (platform/io spec과 같다). run은 준비 worker spawn(platform#T7)이 들어올 때 연다.
+// (platform/io spec과 같다). run은 format runner 하나(deno 실행 파일)만 연다.
 export function workerSpecs(
   dataRoot: string,
   activeRoots: readonly string[] = [],
@@ -176,7 +176,9 @@ export function workerSpecs(
       allow_read: [...reads, ...code],
       allow_write: [`${dataRoot}/documents`, `${dataRoot}/derived`, ...writes],
       allow_net: ["127.0.0.1"],
-      allow_run: [],
+      // format runner는 호출마다 시작한다(architecture/documents 2). 고정 실행 파일은 이
+      // deno 하나고, runner의 읽기·env·network·run 권한은 호출 쪽(runner flags)이 좁힌다.
+      allow_run: [Deno.execPath()],
       allow_sys: [],
       allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
       policy: "always",

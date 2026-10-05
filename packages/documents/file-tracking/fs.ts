@@ -124,7 +124,7 @@ function factOf(kind: string): ObservationFact {
 // 신호는 힌트일 뿐이라 이벤트 종류를 사실로만 옮기고 내용은 읽지 않는다.
 export function fileWatchPort(): WatchPort {
   return {
-    watch(root) {
+    watch(root, signal) {
       return {
         async *[Symbol.asyncIterator](): AsyncIterator<WatchSignal> {
           let watcher: Deno.FsWatcher;
@@ -134,6 +134,16 @@ export function fileWatchPort(): WatchPort {
             yield { kind: "closed" };
             return;
           }
+          // 관측 loop가 멈추면 watcher를 닫는다. 기다리던 for-await가 끝난다.
+          const close = () => {
+            try {
+              watcher.close();
+            } catch {
+              // 이미 닫힌 watcher.
+            }
+          };
+          if (signal?.aborted) close();
+          else signal?.addEventListener("abort", close, { once: true });
           try {
             for await (const event of watcher) {
               for (const path of event.paths) {
@@ -149,7 +159,8 @@ export function fileWatchPort(): WatchPort {
           } catch {
             yield { kind: "overflow" };
           } finally {
-            watcher.close();
+            signal?.removeEventListener("abort", close);
+            close();
           }
           yield { kind: "closed" };
         },

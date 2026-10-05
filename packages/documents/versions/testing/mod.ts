@@ -1,7 +1,7 @@
 // leaf unit fixture. writer Worker·current credential·core API 증거는 아니다.
 import { DatabaseSync } from "node:sqlite";
-import { ok, type Result } from "../../base/mod.ts";
-import type { ContentFile } from "../../contracts/documents/mod.ts";
+import { ok, type Result } from "../../../base/mod.ts";
+import type { ContentFile } from "../../../contracts/documents/mod.ts";
 import {
   type PortKey,
   type PreparedBlob,
@@ -10,9 +10,9 @@ import {
   TargetAuthorization,
   type TargetAuthorizer,
   type Tx,
-} from "../../contracts/platform/mod.ts";
-import { addressingSchemaSteps } from "../addressing/mod.ts";
-import { versionsSchemaSteps } from "./schema.ts";
+} from "../../../contracts/platform/mod.ts";
+import { addressingSchemaSteps } from "../../addressing/mod.ts";
+import { versionsSchemaSteps } from "../mod.ts";
 
 export type Emitted = {
   type: string;

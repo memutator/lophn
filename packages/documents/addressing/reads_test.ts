@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { err } from "../../base/mod.ts";
 import type { Address } from "../../contracts/documents/mod.ts";
 import { createAddressingReads } from "./reads.ts";
-import { ids, userContext, versionFixture } from "../versions/mod.ts";
+import { ids, userContext, versionFixture } from "../versions/testing/mod.ts";
 
 const reads = createAddressingReads();
 const project = "prj_01arz3ndektsv4rrffq69g5fav";

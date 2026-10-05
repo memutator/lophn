@@ -2,6 +2,8 @@ export {
   type ChildHandlers,
   type ChildSession,
   type ChildStreams,
+  READ_AHEAD_MAX_BYTES,
+  READ_AHEAD_MAX_FRAMES,
   type ReadAhead,
   startChild,
 } from "./child.ts";

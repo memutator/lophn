@@ -1,14 +1,14 @@
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { err, ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   ReadSnapshot,
   Sql,
   SqlRow,
   Tx,
-} from "../../contracts/platform/mod.ts";
-import { TargetAuthorization } from "../../contracts/platform/mod.ts";
-import { schemaSql, strictTargetAuthorizer } from "./support.ts";
+} from "../../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../../contracts/platform/mod.ts";
+import { schemaSql, strictTargetAuthorizer } from "../mod.ts";
 
 // T59 writer 전에는 contract Sql과 rollback 경계만 probe한다.
 export function fileLedger() {

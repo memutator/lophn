@@ -1,9 +1,9 @@
 import { assert } from "@std/assert";
-import type { Verification } from "../../contracts/problems/mod.ts";
-import { canonicalHash, canonicalJson, hashCanonical } from "./canonical.ts";
-import { canonicalRequest, type PreparedResultEvidence } from "./model.ts";
-import { fileLedger } from "./sqlite-support.ts";
-import { ctx } from "./support.ts";
+import type { Verification } from "../../../contracts/problems/mod.ts";
+import { canonicalHash, canonicalJson, hashCanonical } from "../canonical.ts";
+import { canonicalRequest, type PreparedResultEvidence } from "../model.ts";
+import { fileLedger } from "./mod.ts";
+import { ctx } from "../support.ts";
 import {
   evidence,
   executed,
@@ -14,7 +14,7 @@ import {
   proof,
   runner,
   verification,
-} from "./fixtures.ts";
+} from "../fixtures.ts";
 const beforeRelease = "rel_01ary8h2z3n4p5q6r7s8t9v0wb";
 const afterRelease = "rel_01ary8h2z3n4p5q6r7s8t9v0wc";
 export const beforeBundle = "b".repeat(64);

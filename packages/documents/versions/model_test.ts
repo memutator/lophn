@@ -1,7 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
 import { canonicalFilesJson, contentUnchanged, filesHash } from "./model.ts";
-import { file } from "./testing-fixture.ts";
+import { file } from "./testing/mod.ts";
 
 const HASH = "ab".repeat(32);
 const format = { name: "document", module_hash: HASH, explicit: false };

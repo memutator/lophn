@@ -58,6 +58,18 @@ export {
 } from "./save-result.ts";
 export { uploadPrepareBytes } from "./upload-bytes.ts";
 export {
+  type ApprovalRequest,
+  type ApprovalState,
+  approvalState,
+  approvalStateText,
+  approvalView,
+  type QuestionRecord,
+  type QuestionState,
+  questionState,
+  questionStateText,
+  questionView,
+} from "./decision-view.ts";
+export {
   type ContextChange,
   type ContextProposalDeps,
   type ContextProposalInput,

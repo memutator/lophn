@@ -7,7 +7,10 @@ import {
   ok,
   seededRandom,
 } from "../../../packages/base/mod.ts";
-import type { AuthenticatedContext } from "../../../packages/contracts/platform/mod.ts";
+import type {
+  AuthenticatedContext,
+  BlobRefRegistration,
+} from "../../../packages/contracts/platform/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {
   defineTxPort,
@@ -43,7 +46,6 @@ import {
 } from "../../../packages/lophn-agent/questions/mod.ts";
 import {
   agentRun,
-  BODY,
   cred,
   hashOf,
   id,
@@ -106,6 +108,7 @@ async function fileLedger() {
     runs.start,
     questions.create,
     questions.answer,
+    questions.answerAction,
     questions.defer,
     questions.cancel,
     questions.expire,
@@ -124,8 +127,18 @@ async function fileLedger() {
         },
       })),
     ],
-    registerBlobRef: () =>
-      err<LophnError>({ code: "unavailable", message: "blob 없음" }),
+    // 글 참조 등록은 준비 증거가 있어야 통과한다. 실제 준비·만기 판정은 core 전체
+    // 시험(question-text_test.ts)이 보고, 여기서는 등록이 같은 transaction에 걸리는 것만 쓴다.
+    registerBlobRef: (reference: BlobRefRegistration) =>
+      reference.source.kind === "prepared"
+        ? ok({
+          owner_kind: reference.owner_kind,
+          owner_key: reference.owner_key,
+          field: reference.field,
+          hash: reference.source.blob.hash,
+          registered_seq: reference.registered_seq,
+        })
+        : err<LophnError>({ code: "forbidden", message: "prepared only" }),
     call: () =>
       err<LophnError>({ code: "unavailable", message: "dispatch 없음" }),
     checkCredential: (ctx: AuthenticatedContext) => ok(ctx),
@@ -194,13 +207,19 @@ async function fileLedger() {
     question: string,
     createdSeq: string,
     answer: unknown,
+    bindingHash: string,
   ) => {
     const issued = registry.issue({
       type: "confirmation_handle_register",
       window_id: "win-1",
       target_ref: question,
-      content_hash: hashOf({ question, created_seq: createdSeq, answer }),
-      allowed_decisions: ["AnswerQuestion"],
+      content_hash: hashOf({
+        question,
+        created_seq: createdSeq,
+        answer,
+        binding_hash: bindingHash,
+      }),
+      allowed_decisions: ["AnswerQuestionAction"],
       expires_at: new Date(clock.nowMs() + HOUR).toISOString(),
     });
     assert(issued.ok, "issue");
@@ -270,7 +289,7 @@ function option(key: string, action: unknown = null) {
   return {
     key,
     label: `Option ${key}`,
-    description_blob: BODY(key.length + 40),
+    description: `Description of ${key}`,
     evidence: [],
     adoption: null,
     action,
@@ -299,8 +318,8 @@ function questionInput(
     id: id("qst", n),
     run,
     session: null,
-    prompt_blob: BODY(n),
-    reason_blob: BODY(n + 100),
+    prompt: `Prompt ${n}`,
+    reason: `Reason ${n}`,
     options: [],
     recommendation: null,
     expires_at: null,
@@ -336,22 +355,23 @@ Deno.test("lophn-agent/questions#R10: a waiting question, its deadline, the answ
     assertEquals(pending.answer, null);
     assertEquals(pending.applied, false);
     // 재시작 전에 발급한 사람 확인은 메모리와 함께 사라진다. 침묵도 답이 아니다.
-    const stale = ledger.handle(question, createdSeq, {
-      kind: "option",
-      option_key: "apply",
-      text_blob: null,
-    });
+    const stale = ledger.handle(
+      question,
+      createdSeq,
+      { kind: "option", option_key: "apply" },
+      action.binding_hash,
+    );
     ledger.restart();
     const answerInput = {
       question,
       created_seq: createdSeq,
-      answer: { kind: "option", option_key: "apply", text_blob: null },
+      answer: { kind: "option", option_key: "apply" },
       binding_hash: action.binding_hash,
       evidence: { question, option: "apply" },
     };
     const lost = await ledger.execute(
       cred("user"),
-      "AnswerQuestion",
+      "AnswerQuestionAction",
       answerInput,
       { created_seq: createdSeq },
       stale,
@@ -361,16 +381,25 @@ Deno.test("lophn-agent/questions#R10: a waiting question, its deadline, the answ
     // 새 확인으로 답을 접수한다. 기한 안의 답이다(원래 기한은 늘어나지 않았다).
     await ledger.must(
       cred("user"),
-      "AnswerQuestion",
+      "AnswerQuestionAction",
       answerInput,
       { created_seq: createdSeq },
-      ledger.handle(question, createdSeq, answerInput.answer),
+      ledger.handle(
+        question,
+        createdSeq,
+        answerInput.answer,
+        action.binding_hash,
+      ),
     );
     // 답을 접수한 뒤 동작 적용 전에 죽는다. 답은 남고 적용 완료로 보이지 않는다.
     ledger.restart();
     const answered = ledger.read(question);
     assertEquals(answered.status, "answered");
-    assertEquals<unknown>(answered.answer, answerInput.answer);
+    assertEquals<unknown>(answered.answer, {
+      kind: "option",
+      option_key: "apply",
+      text_blob: null,
+    });
     assertEquals(answered.expires_at, deadline);
     assertEquals(answered.applied, false);
     // 적용은 설정이 소유한다. 질문 쪽에는 적용 기록이 없다.
@@ -414,23 +443,16 @@ Deno.test("lophn-agent/questions#R7: a restart does not stretch an explicit dead
     assertEquals(ledger.read(question).expires_at, deadline);
     ledger.clock.advance(1);
     ledger.restart();
-    const answer = {
-      kind: "text",
-      option_key: null,
-      text_blob: BODY(90),
-    };
+    // 일반 답은 확인 handle 없이 받으므로 기한이 지난 답은 기한 때문에만 거절된다.
     const late = await ledger.execute(
       cred("user"),
       "AnswerQuestion",
       {
         question,
         created_seq: createdSeq,
-        answer,
-        binding_hash: null,
-        evidence: null,
+        answer: { kind: "text", text: "Too late." },
       },
       { created_seq: createdSeq },
-      ledger.handle(question, createdSeq, answer),
     );
     assert(!late.ok);
     if (!late.ok) assertEquals(late.error.code, "conflict");

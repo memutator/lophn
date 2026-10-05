@@ -128,7 +128,7 @@ const QUESTION: QuestionRequest = {
 };
 
 Deno.test("lophn-agent/questions#R6: 답은 그 질문과 생성 seq를 지정한 questions/answer이고 같은 답은 같은 key다", async () => {
-  const { core, calls } = coreOf(() => ok({ result: {} }));
+  const { core, calls } = coreOf(() => ok({}));
   const source = coreRequestSource(core, undefined);
   assertEquals(
     await source.answer(QUESTION, { kind: "option", option: "keep" }),
@@ -170,7 +170,7 @@ Deno.test("lophn-agent/questions#R6: 답은 그 질문과 생성 seq를 지정�
 });
 
 Deno.test("lophn-agent/questions#R6: 미루기와 취소는 따로 닫는 command이고 취소만 이유 글의 hash를 싣는다", async () => {
-  const { core, calls } = coreOf(() => ok({ result: {} }));
+  const { core, calls } = coreOf(() => ok({}));
   const source = coreRequestSource(core, undefined);
   await source.defer(QUESTION);
   await source.cancel(QUESTION, "Not needed anymore");
@@ -218,7 +218,7 @@ Deno.test("platform/notifications#R5: 읽음 표시는 notifications/read 하나
         }],
       });
     }
-    return ok({ result: {} });
+    return ok({});
   });
   const source = coreRequestSource(core, undefined);
   const unread = await source.unread();

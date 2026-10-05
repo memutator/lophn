@@ -1,6 +1,18 @@
 import { createHash } from "node:crypto";
-import { canonicalize } from "../../../base/mod.ts";
-import type { AuthenticatedContext } from "../../../contracts/platform/mod.ts";
+import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
+import {
+  QUESTION_BLOB_FIELDS,
+  QUESTION_BLOB_OWNER_KIND,
+  QUESTION_TEXT_PURPOSE,
+} from "../../../contracts/lophn-agent/mod.ts";
+import {
+  type AuthenticatedContext,
+  type BlobRefRegistration,
+  blobRefRegistrationSchema,
+  type PermanentBlobReference,
+  type RequestContext,
+  type Tx,
+} from "../../../contracts/platform/mod.ts";
 
 // 질문 ledger 시험이 함께 쓰는 값과 자격. 제품 코드와 mod.ts는 import하지 않는다.
 // 실제 provider를 부르지 않는다.
@@ -21,6 +33,7 @@ export const OPERATIONS = [
   "ListMessages",
   "CreateQuestion",
   "AnswerQuestion",
+  "AnswerQuestionAction",
   "DeferQuestion",
   "CancelQuestion",
   "ExpireQuestion",
@@ -77,4 +90,58 @@ export function hashOf(value: unknown): string {
 
 export function sha256Text(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+// platform 등록기와 같은 검사(field 정의·준비 주체·purpose)를 줄인 시험용 질문 글 참조
+// 등록이다. 참조 행은 실제 blob_refs 표에 들어간다. 준비 참조가 살아 있는지는 platform
+// 등록기가 보고 그 경로는 apps/core의 실제 core 시험이 본다.
+export function registerQuestionTextRef(
+  tx: Tx,
+  ctx: RequestContext,
+  reference: BlobRefRegistration,
+): Result<PermanentBlobReference> {
+  if (reference.owner_kind !== QUESTION_BLOB_OWNER_KIND) {
+    return err({ code: "forbidden", message: "field is not defined" });
+  }
+  const parsed = blobRefRegistrationSchema.safeParse(reference);
+  if (!parsed.success) {
+    return err({ code: "invalid_input", message: "invalid registration" });
+  }
+  const value = parsed.data;
+  if (
+    !(Object.values(QUESTION_BLOB_FIELDS) as string[]).includes(value.field)
+  ) {
+    return err({ code: "forbidden", message: "field is not defined" });
+  }
+  if (value.source.kind !== "prepared") {
+    return err({ code: "forbidden", message: "prepared blob only" });
+  }
+  const blob = value.source.blob;
+  if (
+    blob.principal !== ctx.principal || blob.purpose !== QUESTION_TEXT_PURPOSE
+  ) {
+    return err({
+      code: "invalid_input",
+      message: "no live preparation for this principal and purpose",
+    });
+  }
+  tx.sql.run(
+    `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes,
+       registered_seq) values (?, ?, ?, ?, ?, ?)`,
+    [
+      value.owner_kind,
+      value.owner_key,
+      value.field,
+      blob.hash,
+      blob.size_bytes,
+      BigInt(value.registered_seq),
+    ],
+  );
+  return ok({
+    owner_kind: value.owner_kind,
+    owner_key: value.owner_key,
+    field: value.field,
+    hash: blob.hash,
+    registered_seq: value.registered_seq,
+  });
 }

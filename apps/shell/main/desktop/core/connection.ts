@@ -7,7 +7,12 @@ import {
 import type { RpcFetch } from "../../../../../packages/contracts/platform/mod.ts";
 
 import { type CoreSession, openSession } from "./client.ts";
-import { type Clock, type SocketFactory, subscribe } from "./events.ts";
+import {
+  type Clock,
+  type EventSink,
+  type SocketFactory,
+  subscribe,
+} from "./events.ts";
 import { type IpcEvent } from "../ipc-guard.ts";
 import {
   type CoreProcess,
@@ -41,6 +46,8 @@ export interface ConnectionOptions {
   };
   /** 테스트가 가짜 core를 끼운다. */
   start?: (options: LaunchOptions) => CoreProcess;
+  /** main이 직접 보는 지금 도착한 event(OS notification). renderer로 나가지 않는다. */
+  arrived?: EventSink["arrived"];
 }
 
 export interface ConnectionState {
@@ -97,6 +104,7 @@ export function startCoreConnection(
           state.confirmedAt = options.clock.now();
           push();
         },
+        arrived: (events) => options.arrived?.(events),
       },
     });
   }).catch(() => {

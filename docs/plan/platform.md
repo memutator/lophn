@@ -505,6 +505,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: secret(`/v1/secrets/list·set·remove·cleanup`, SecretPreparation, `secret.prepare` 통로)
 - slice: agent
 - 선행: platform#T8, platform#T15, contracts#T23
+- documents#T11에서 넘어온 것(Q17): secret store를 제품 core 조립에서 열고(keychain 값 읽기) 알려진 값 registry를 core 보호 메모리에 채워, reader pool에 요청 message 밖의 값 등록·회수 통로로 넘긴다. 새 값 등록과 교체·제거 때 회수가 그 통로를 지나고, documents의 제품 redactor(`apps/core/documents-redactor.ts`)가 pattern 검출에 더해 알려진 값도 지운다. 지금 redactor는 pattern 검출만 한다. 값이 reader Worker의 module 전역 상태에 남지 않는 방식은 platform이 정한다
 - 완료: 아래 확인이 통과한다
   - I/O worker의 OS adapter가 Linux Secret Service에 값을 둔다. 값은 argv·환경 변수·파일에 가지 않는다(→ Q7). macOS·Windows adapter는 T49.
   - 보호 입력은 전용 pipe 작업 `secret.prepare`로만 받는다. 세션 메시지·agent·외부 MCP 경로가 없다(R2).
@@ -562,7 +563,8 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 쓰는 contract: confirmation handle, lophn-agent의 handoff 계보 판정
 - 내놓는 contract: approval(grant·reject route)
 - slice: agent
-- 선행: platform#T21, platform#T56, contracts#T26(`runs/read`의 original_message·handoff sender_run로 계보 판정), lophn-agent#T10, lophn-agent#T32
+- 선행: platform#T21, platform#T56, contracts#T26(`runs/read`의 original_message·handoff sender_run로 계보 판정), lophn-agent#T10
+- 선행 조정(lead): lophn-agent#T32를 선행에서 뺐다. 계보 판정 재료(`runs/read`의 original_message·handoff sender_run)는 contracts#T26·lophn-agent#T10으로 이미 있고, T32가 T22·platform#T23을 거쳐 이 작업을 기다려 순환이었다. handoff tool을 거친 실제 계보 E2E는 lophn-agent#T32에서 확인한다
 - 완료: 아래 확인이 통과한다
   - `grant_approval_request`·`reject_approval_request`는 T56의 handle을 writer transaction에서 현재 request 상태·내용·기한과 함께 검증·소비하고 결정을 저장한다. handle 없이는 user token으로도 안 된다. 앱·agent·MCP는 자기 요청을 허락하지 못한다(R3). 기본 선택·침묵·창 닫기·읽음·질문 답은 결정이 아니다(R4).
   - 대상·입력·비교 기준·assignment·tool이 바뀌면 거절하고 새 request가 필요하다(R5).

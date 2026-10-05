@@ -464,6 +464,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T16 question·approval 읽기 tool
 
+- 상태: 완료 (#280) — 이어보냄: CLI `question`·`approval` list·show·open의 core dispatch 연결(`runQuestionOpen`·`runApprovalOpen`)과 production credential provider·MCP runner 배선 → coding-agent#T36. 제품 core가 approvals를 아직 서빙하지 않는다(platform의 approval 등록이 core 조립에 없어 `approvals/*` command는 "등록되지 않은 command다"이고, route는 contract ROUTES에 이미 있어 team 등록으로 더하면 겹친다): `lophn_approval`은 읽기 route만 부르고 그 응답을 isError로 그대로 낸다. 실제 approval read·create executor를 지나는 시험은 `apps/core/coding-agent-approvals_test.ts`(ledger harness), 실제 core로 질문이 끝까지 읽히는 시험은 `apps/core/coding-agent-decisions_test.ts`다. platform의 approval 등록을 core 조립에 넣는 일(grant·reject는 platform#T22)은 platform 몫이다. 질문의 prompt·reason·선택지 설명 blob은 `general_read: false`라 coding credential이 원문을 읽지 못하고 tool은 blob 참조(hash)만 낸다(approval blob은 `general_read: true`지만 blob read op는 tool 표에 없다). 답 접수 뒤 적용(`applied`)은 option action 적용(lophn-agent#T29)이 오기 전까지 항상 false다
 - 등급: 좁은
 - concern: coding-agent/mcp-server, coding-agent/cli, coding-agent/connection
 - 요구: coding-agent/mcp-server#R18; coding-agent/cli#R7, R21;
@@ -1149,6 +1150,10 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-connection-credential.md
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48,
   platform#T35, contracts#T24
+- T16에서 넘어온 것: CLI `question list|show|open`·`approval list|show|open`을
+  apps/cli 실행 entry에서 core client로 잇는다(`runQuestionOpen`·`runApprovalOpen`
+  은 `read`만 가진 client를 받는다). MCP `lophn_question`·`lophn_approval`은
+  `apps/mcp/main.ts`가 이미 같은 core client로 부른다(production provider 뒤)
 - T32에서 넘어온 것: `doctorOf`(cli/commands/doctor.ts)를 apps/cli 실행
   entry에 잇는다. daemon 상태(DaemonPort.status)·connection 읽기·credential
   사용 가능 여부(이 작업의 production provider)·`filePort`·`stdioMcpProbe`·

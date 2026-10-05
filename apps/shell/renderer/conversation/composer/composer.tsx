@@ -16,6 +16,8 @@ export interface ComposerProps {
   draft: Draft;
   /** 보내는 중이거나 결과를 모르는 말이 있으면 글을 고치지 못한다. */
   locked: boolean;
+  /** 글이 본문 상한을 넘는다. 보내지 못하고 이유를 보인다. */
+  tooLong: boolean;
   /** 연결이 끊겨 지금은 보낼 수 없다. 글은 그대로 쓸 수 있다. */
   offline: boolean;
   /** 고칠 지금 일이 있는지. 없으면 수정으로 보낼 수 없다. */
@@ -42,6 +44,7 @@ export function Composer(
   {
     draft,
     locked,
+    tooLong,
     offline,
     canCorrect,
     canStop,
@@ -54,7 +57,8 @@ export function Composer(
   const mode: SendMode = draft.mode === "correction" && canCorrect
     ? "correction"
     : "request";
-  const canSend = !locked && !offline && draft.text.trim().length > 0;
+  const canSend = !locked && !offline && !tooLong &&
+    draft.text.trim().length > 0;
 
   // 다시 열 때 커서를 돌려놓는다. focus는 옮기지 않는다(workspace#R13).
   useLayoutEffect(() => {
@@ -110,6 +114,13 @@ export function Composer(
           onKeyDown={keyDown}
         />
       </Field>
+      {tooLong
+        ? (
+          <p className={styles.problem} data-too-long="" role="status">
+            {t("conversation.error.too-long")}
+          </p>
+        )
+        : null}
       <div className={styles.actions}>
         <div className={styles.modes} role="group">
           <Tooltip content={t("conversation.button.mode-request")}>

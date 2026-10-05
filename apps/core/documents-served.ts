@@ -4,6 +4,7 @@
 import { z } from "zod";
 import {
   documentExport,
+  documentFile,
   documentRead,
   guideGet,
   guideList,
@@ -14,6 +15,7 @@ import {
   outlinePlace,
   searchQuery,
   searchStatus,
+  storedDocumentFileInputSchema,
   viewOpen,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
@@ -56,6 +58,20 @@ export function internalRoute(route: WorkerRoute): ReadRoute {
     errors: route.errors,
   };
 }
+
+// `GET /v1/documents/file`의 판정 read. 요청 자격으로 문서 접근(`document.file`)을 판정하고
+// 고정 판의 경로별 파일 행(blob hash·바이트 수·MIME)을 돌려준다. 범위 밖·없는 판·없는
+// 경로는 같은 not_found다. 바이트는 core가 I/O worker의 blob.read로 읽는다. 공개 route가 아니다.
+export const STORED_FILE_ROUTE: ReadRoute = {
+  kind: "read",
+  resource: "documents-worker",
+  method: "stored_file",
+  name: documentFile.name,
+  input: storedDocumentFileInputSchema,
+  output: z.looseObject({}),
+  actors: documentFile.actors,
+  errors: documentFile.errors,
+};
 
 // 준비 route의 기준 판 읽기. 요청 자격으로 문서 접근을 판정하고, 권한 밖이나 없는 판은
 // 같은 null이다(존재를 새지 않는다). 공개 route가 아니라 core 안에서만 쓴다.

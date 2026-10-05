@@ -180,6 +180,7 @@ concerns: [documents]
   - 기존 문서는 base_version의 정확한 FormatRef. 최신 판이 바뀌면 conflict 뒤 재준비. 사람의 명시 format 변경만 새 판의 계약을 바꿈
   - 같은 idempotency key의 재전달은 같은 신규 doc ID
   - `work_test.ts`·API 통합 테스트에 formats#R4, R5, R7
+- 상태: 완료 (#200) — per-file 원문·version_files 행은 canonical 목록 blob과 T11 machine submissions 몫이다
 
 ### T9 address 해석과 문서 이동·이름 변경
 

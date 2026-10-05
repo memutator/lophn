@@ -154,7 +154,11 @@ const seedQuestionCommand: CommandDefinition<typeof seedQuestion> = {
             created_seq: "1",
             answer: input.answer_option === null
               ? { kind: "text", option_key: null, text_blob: "0".repeat(64) }
-              : { kind: "option", option_key: input.answer_option, text_blob: null },
+              : {
+                kind: "option",
+                option_key: input.answer_option,
+                text_blob: null,
+              },
             binding_hash: null,
           }),
           tx.now(),

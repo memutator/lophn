@@ -207,7 +207,11 @@ Deno.test(
       const applied = value(
         await harness.command(
           machine,
-          applyEnvelope(evidence(WIDTH_CHANGES, Q_ADOPT, "adopt"), "r29-apply", defaults),
+          applyEnvelope(
+            evidence(WIDTH_CHANGES, Q_ADOPT, "adopt"),
+            "r29-apply",
+            defaults,
+          ),
         ),
       );
       const result = applied.result as { revision: number; changed: boolean };
@@ -217,7 +221,11 @@ Deno.test(
       const replay = failure(
         await harness.command(
           machine,
-          applyEnvelope(evidence(WIDTH_CHANGES, Q_ADOPT, "adopt"), "r29-replay", defaults),
+          applyEnvelope(
+            evidence(WIDTH_CHANGES, Q_ADOPT, "adopt"),
+            "r29-replay",
+            defaults,
+          ),
         ),
       );
       assertEquals(replay.code, "conflict");
@@ -243,7 +251,10 @@ Deno.test(
           },
         ),
       );
-      const humanResult = human.result as { revision: number; changed: boolean };
+      const humanResult = human.result as {
+        revision: number;
+        changed: boolean;
+      };
       assertEquals(humanResult.revision, 2);
       assertEquals(humanResult.changed, true);
     } finally {

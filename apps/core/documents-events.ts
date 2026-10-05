@@ -57,6 +57,11 @@ const FEED_EVENTS = [
   documentArchived,
   documentUnarchived,
   documentRestored,
+  // 이름·자리·제목이 바뀌면 문서 revision이 바뀐다. 관측 근거(document_revision)가 낡으면
+  // 파일 관측의 저장이 conflict라서 이 event도 근거를 다시 맞추는 신호다.
+  documentMoved,
+  documentRenamed,
+  documentUpdated,
 ] as const;
 
 const FEED_TYPES: ReadonlySet<string> = new Set(

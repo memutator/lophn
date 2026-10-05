@@ -1217,8 +1217,9 @@ function readSelectedBody(
     `SELECT id, place_kind, place_id, latest_version, status FROM documents WHERE id = ?`,
     [document],
   );
+  // 보관한 문서도 확정한 판은 읽는다(versions#R11, outline-and-search#R17). 보관은 목록·검색에서
+  // 빼는 상태일 뿐 판 읽기를 막지 않는다.
   if (row === undefined) return deny();
-  if (String(row["status"]) !== "active") return deny();
   if (
     !authorizeTarget(
       deps,
@@ -1541,8 +1542,8 @@ export function createOutlineHandlers(
         `SELECT place_kind, place_id, status FROM documents WHERE id = ?`,
         [document],
       );
+      // 보관한 문서도 확정한 판의 목차는 읽는다(versions#R11).
       if (row === undefined) return deny();
-      if (String(row["status"]) !== "active") return deny();
       if (
         !authorizeTarget(
           deps,

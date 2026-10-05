@@ -815,6 +815,31 @@ Deno.test("documents/outline-and-search#R5: document outline은 section별 통�
   }
 });
 
+Deno.test("documents/outline-and-search#R17: 보관한 문서도 확정한 판의 목차와 본문은 읽는다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    fx.ledgerSql.run(`UPDATE documents SET status = 'archived' WHERE id = ?`, [
+      DOC_A,
+    ]);
+    const outline = keep(
+      fx.outline().document(OUTLINE_CTX, { reference: { document: DOC_A } }),
+    );
+    assertEquals(outline.entries.length, 2);
+    const read = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+      }),
+    );
+    assert(read.text !== null && read.text.includes("정본"));
+  } finally {
+    fx.close();
+  }
+});
+
 // 형제 topLevel section의 숨긴 자식 수는 자기 자손만 센다(R5).
 Deno.test("documents/outline-and-search#R5: document outline은 자기 자손의 숨긴 수만 센다", () => {
   const fx = openDerivedFixture();

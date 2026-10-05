@@ -376,7 +376,8 @@ export type AssemblyDeps = {
   // 로그 증거 수집. 없으면 source가 연결되지 않은 것이다(이유로 남는다, snapshots#R4).
   logs?: {
     // 진단 상세 수집 설정. 꺼져 있으면 새 로그를 모으지 않는다(snapshots#R7).
-    detailCollection: boolean;
+    // null은 설정을 읽지 못한 것이다.
+    detailCollection: boolean | null;
     source: AppLogSource | null;
     redact: (text: string) => Promise<string | null>;
   };
@@ -409,7 +410,9 @@ export async function assembleException(
       // app은 credential에서 온 값이다. 로그 내용이나 observation이 바꾸지 못한다(R6).
       { app: evidence.app, invocation: input.invocation?.id ?? null },
       {
-        detailCollection: deps.logs?.detailCollection ?? true,
+        detailCollection: deps.logs === undefined
+          ? true
+          : deps.logs.detailCollection,
         source: deps.logs?.source ?? null,
         redact: deps.logs?.redact ?? (() => Promise.resolve(null)),
         blobPrepare: deps.blobPrepare,

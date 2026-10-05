@@ -3,9 +3,13 @@
 // buffer를 비운 뒤에도 같은 blob에서 읽힌다.
 import { err, ok, type Result, sha256Hex } from "../../base/mod.ts";
 import { parseActor } from "../../contracts/platform/mod.ts";
-import type {
-  LogEvidence,
-  MissingReason,
+import type { ApiReadDefinition } from "../../contracts/platform/mod.ts";
+import {
+  getSnapshotLogs,
+  getSnapshotLogsInputSchema,
+  type LogEvidence,
+  type LogFragment,
+  type MissingReason,
 } from "../../contracts/problems/mod.ts";
 
 export type SnapshotBlobRead =
@@ -15,27 +19,7 @@ export type SnapshotBlobRead =
 // blob 읽기 통로. hash만으로는 읽을 수 없고 호출자가 허용 owner·field에서 시작한다.
 export type SnapshotBlobReader = (hash: string) => Promise<SnapshotBlobRead>;
 
-export type LogFragmentRead =
-  | { kind: "absent"; reason: string }
-  | {
-    kind: "unavailable";
-    reason: string;
-    scope: string;
-    collected_at: string;
-    truncated: boolean;
-  }
-  | {
-    kind: "fragment";
-    lines: string[];
-    line_count: number;
-    truncated: boolean;
-    scope: string;
-    from_at: string | null;
-    to_at: string | null;
-    collected_at: string;
-    // 조각의 범위를 사람이 읽는 말로 고정한다. 비율·합계를 계산하지 않는다(R14).
-    observation: string;
-  };
+export type LogFragmentRead = LogFragment;
 
 const UNAVAILABLE_REASONS = {
   pruned: "용량 상한을 넘어 오래된 로그 조각이 정리되었다",
@@ -100,4 +84,88 @@ export async function readLogFragment(input: {
       ? "잘린 조각이다. 범위 밖은 알 수 없고 조각만으로 전체 비율을 계산하지 않는다"
       : "범위 안의 조각이다. 범위 밖은 발생 없음이 아니다",
   });
+}
+
+// 고정한 snapshot의 로그 증거 행. 없는 snapshot은 undefined다.
+export type SnapshotLogsRow = {
+  as_of_seq: string;
+  logs: LogEvidence | null;
+  logs_missing_reason: MissingReason | null;
+};
+
+// core가 기동 때 넣는 읽기 통로: 증거 행은 ledger에서, 바이트는 blob store에서 온다.
+export type SnapshotLogsEnvironment = {
+  evidence(snapshot: string): Result<SnapshotLogsRow | undefined>;
+  blobs: SnapshotBlobReader;
+};
+
+const LOGS_COLUMNS = `logs_blob, logs_line_count, logs_truncated, logs_scope,
+  logs_from_at, logs_to_at, logs_collected_at, logs_missing_reason`;
+
+// snapshots 표의 로그 열을 LogEvidence로 읽는다.
+export function logsRowOf(
+  sql: {
+    get(query: string, params: string[]): Record<string, unknown> | undefined;
+  },
+  snapshot: string,
+  asOfSeq: string,
+): SnapshotLogsRow | undefined {
+  const row = sql.get(`select ${LOGS_COLUMNS} from snapshots where id = ?`, [
+    snapshot,
+  ]);
+  if (row === undefined) return undefined;
+  const text = (value: unknown) =>
+    value === null || value === undefined ? null : String(value);
+  const missing = text(row["logs_missing_reason"]);
+  return {
+    as_of_seq: asOfSeq,
+    logs: row["logs_blob"] === null ? null : {
+      blob: String(row["logs_blob"]),
+      line_count: Number(row["logs_line_count"]),
+      truncated: Number(row["logs_truncated"]) === 1,
+      scope: String(row["logs_scope"]),
+      from_at: text(row["logs_from_at"]),
+      to_at: text(row["logs_to_at"]),
+      collected_at: String(row["logs_collected_at"]),
+    },
+    logs_missing_reason: missing === null ? null : { reason: missing },
+  };
+}
+
+// GetSnapshotLogs: 사람(user)만 고정한 로그 조각을 읽는다. 앱·없는 snapshot은 같은
+// not_found다. 평소 read처럼 ledger snapshot에 묶지 않고 바이트를 기다린다.
+export function snapshotLogsRead(
+  environment: SnapshotLogsEnvironment,
+): ApiReadDefinition<typeof getSnapshotLogs> {
+  return {
+    route: getSnapshotLogs,
+    async handle(ctx, input) {
+      const absent = err({
+        code: "not_found" as const,
+        message: "Snapshot이 없다",
+      });
+      const parsed = getSnapshotLogsInputSchema.safeParse(input);
+      if (!parsed.success) {
+        return err({
+          code: "invalid_input",
+          message: "snapshot log input is invalid",
+        });
+      }
+      if (parseActor(ctx.actor)?.kind !== "user") return absent;
+      const found = environment.evidence(parsed.data.snapshot);
+      if (!found.ok) return found;
+      if (found.value === undefined) return absent;
+      const read = await readLogFragment({
+        actor: ctx.actor,
+        snapshot: found.value,
+        read: environment.blobs,
+      });
+      if (!read.ok) return read;
+      return ok({
+        fragment: read.value,
+        as_of_seq: found.value.as_of_seq,
+        next_cursor: null,
+      });
+    },
+  };
 }

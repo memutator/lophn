@@ -35,8 +35,9 @@ export type AppLogFeed = {
 export type AppLogSource = (query: AppLogQuery) => Promise<Result<AppLogFeed>>;
 
 export type LogCollectionDeps = {
-  // 진단 상세 수집 설정이 켜져 있는지. 꺼져 있으면 새 수집만 멈춘다(snapshots#R7).
-  detailCollection: boolean;
+  // 진단 상세 수집 설정. 꺼져 있으면 새 수집만 멈춘다(snapshots#R7). null은 설정을
+  // 읽지 못한 것이다: 사람이 껐을 수 있으므로 모으지 않고 읽지 못했다고 남긴다.
+  detailCollection: boolean | null;
   source: AppLogSource | null;
   blobPrepare: SnapshotBlobPrepare;
   principal: string;
@@ -57,6 +58,7 @@ export type LogCollection = {
 
 const REASONS = {
   off: "진단 상세 수집이 꺼져 있어 새 로그를 모으지 않았다",
+  settingUnknown: "진단 상세 수집 설정을 읽지 못해 로그를 모으지 않았다",
   noSource: "앱 로그 source가 연결되지 않아 로그를 모으지 못했다",
   deadline: "조립 기한을 넘어 로그를 모으지 못했다",
   budget: "큰 자료 준비 상한을 넘어 로그 조각을 제외했다",
@@ -133,6 +135,7 @@ export async function collectLogEvidence(
   input: { app: string; invocation: string | null },
   deps: LogCollectionDeps,
 ): Promise<LogCollection> {
+  if (deps.detailCollection === null) return absent(REASONS.settingUnknown);
   if (!deps.detailCollection) return absent(REASONS.off);
   if (deps.source === null) return absent(REASONS.noSource);
   if (deps.remainingMs <= 0) return absent(REASONS.deadline);

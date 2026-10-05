@@ -1,3 +1,9 @@
+export {
+  type CoreCall,
+  coreLogSource,
+  DETAIL_COLLECTION_SETTING_KEY,
+  readDetailCollection,
+} from "./adapters/core-logs.ts";
 export { reportBlobField } from "./blobs.ts";
 export {
   type AppLogFeed,
@@ -10,9 +16,13 @@ export {
 export { insertSnapshot } from "./model.ts";
 export {
   type LogFragmentRead,
+  logsRowOf,
   readLogFragment,
   type SnapshotBlobRead,
   type SnapshotBlobReader,
+  type SnapshotLogsEnvironment,
+  snapshotLogsRead,
+  type SnapshotLogsRow,
 } from "./reads.ts";
 export { SNAPSHOTS_SCHEMA_STEPS } from "./schema.ts";
 export {

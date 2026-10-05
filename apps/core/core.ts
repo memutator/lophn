@@ -68,6 +68,7 @@ import { PREPARE_BASE_ROUTE } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
+import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
@@ -189,8 +190,14 @@ async function open(
 ): Promise<Result<Core>> {
   // documents coordinator 요청 통로. FileStatus 조회가 이 통로로 묻는다.
   const documentsChannel = createDocumentsChannel();
+  const ledgerPath = `${root.path}/lophn.db`;
   const assembled = assemble(options.teams, {
     status: statusMemoryVia(documentsChannel),
+    // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
+    snapshotLogs: snapshotLogsEnvironment({
+      ledgerPath,
+      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+    }),
   });
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
@@ -202,7 +209,6 @@ async function open(
   } catch {
     return err({ code: "internal", message: "route 등록이 겹친다" });
   }
-  const ledgerPath = `${root.path}/lophn.db`;
   const migrated = await applyMigrations(
     ledgerPath,
     [

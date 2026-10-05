@@ -366,7 +366,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T17 snapshot의 로그 증거, 수집 범위와 보관
 
-- 상태: 진행 (#256) — 남은 것: 운영 log source 연결(core → supervisor 조회는 apps#T10), collector가 `assembleException`에 `logs` deps를 넘기고 `logs_prepared`를 snapshot_logs blob으로 함께 등록, platform/settings의 진단 상세 수집 key(지금은 `detailCollection` boolean만 받는다), SDK 직접 보고 경로의 로그, 정리 뒤 부재 이유는 T26
+- 상태: 완료 (#256) — 로그 수집(`snapshots/logs.ts`)·collector 연결·진단 상세 수집 설정(`problems.diagnostics.detail_collection`)·`GetSnapshotLogs` read·보존 등급까지 끝냈다. 이어보냄: 운영 `apps.logs` source와 collector credential의 `apps.logs`·`GetSettings` 접근(authorizeApp) → apps#T10, 정리 뒤 실제 "정리됨" 이유(blob store가 구별하는 pruned) → problems#T26
 - 등급: 기본
 - concern: problems/snapshots
 - 요구: problems/snapshots#R6, R7, R12, R13, R14, R16, R17, R19
@@ -534,6 +534,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: operations
 - 선행: problems#T17, problems#T22, platform#T44
+- problems#T17에서 넘어온 것: `GetSnapshotLogs`가 로그 blob을 읽는 core 통로(`apps/core/problems-logs.ts`)는 raw 바이트 읽기라 정리와 없음을 구별하지 못하고 `missing`으로 답한다. blob store의 정리된 blob 읽기 결과(pruned)를 이 read와 GetSnapshot의 부재 이유로 이어 "정리됨"을 보인다
 - 완료:
   - 용량 상한을 넘기면 가장 오래된 첨부 PNG·로그 조각·stack부터 정리되고 GetSnapshot이 그 항목에 "정리됨" 부재 이유를 보인다(R17)
   - 닫힌 문제의 닫힘 근거·고친 기록·확정 Verification 참조는 정리 뒤에도 그대로 읽힌다(R17)

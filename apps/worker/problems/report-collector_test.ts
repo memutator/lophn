@@ -14,10 +14,14 @@ import { type ChildStreams } from "../../../packages/platform/responsiveness/mod
 import {
   acceptReportProblem,
   COLLECTOR_KIND,
+  type CollectorLogs,
   type CollectorPosition,
   createCollectorWorker,
   observeExceptionPayload,
 } from "./report-collector.ts";
+import { ok } from "../../../packages/base/mod.ts";
+import { recordReportInputSchema } from "../../../packages/contracts/problems/mod.ts";
+import type { AppLogQuery } from "../../../packages/problems/snapshots/mod.ts";
 import { reportCollectorSpec } from "../../core/problems-runner.ts";
 import { createCollectorQueue } from "../../../packages/problems/reporting/mod.ts";
 import {
@@ -773,4 +777,206 @@ Deno.test("problems/reporting#R1: 잘못된 exception observation 본문은 잘�
   // envelope에 닿지 않았다: 거절이 제출보다 앞선다.
   assertEquals(captured.envelope, undefined);
   assertEquals(queue.size, 0);
+});
+
+// 로그 증거 접수(problems/snapshots#R7 R12 R6). 운영 source 대신 AppLogSource port를
+// 갈아 끼운다: 앱 이름과 질의 범위는 credential 위치에서만 온다.
+const LOG_APP = "app_01arz3ndektsv4rrffq69g5fav";
+const LOG_INVOCATION = "inv_01arz3ndektsv4rrffq69g5fav";
+
+function fakeLogs(
+  lines: string[],
+  detailCollection: boolean | null = true,
+): { logs: CollectorLogs; queries: AppLogQuery[] } {
+  const queries: AppLogQuery[] = [];
+  return {
+    queries,
+    logs: {
+      detailCollection: () => Promise.resolve(detailCollection),
+      source: (query) => {
+        queries.push(query);
+        return Promise.resolve(ok({
+          state: "ok" as const,
+          lines,
+          collected_at: "2026-10-04T12:00:00.500Z",
+          truncated: false,
+        }));
+      },
+    },
+  };
+}
+
+function exceptionPayload(withInvocation: boolean) {
+  return {
+    report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+    observed_at: "2026-10-04T12:00:00.000Z",
+    observation: "error",
+    error: {
+      name: "TypeError",
+      message: "cannot read x",
+      message_missing_reason: null,
+      stack: "TypeError: cannot read x\n    at run (app.js:1:1)",
+      stack_missing_reason: null,
+    },
+    error_missing_reason: null,
+    invocation: withInvocation
+      ? {
+        id: LOG_INVOCATION,
+        binding: "sdk_context",
+        record_missing_reason: null,
+      }
+      : null,
+  };
+}
+
+type CapturedInput = {
+  snapshot: {
+    logs: { blob: string; line_count: number; scope: string } | null;
+    logs_missing_reason: { reason: string } | null;
+    invocation: { id: string; record_missing_reason: unknown } | null;
+  };
+  blobs: { purpose: string; hash: string }[];
+};
+
+Deno.test("problems/snapshots#R12 R6: exception 접수는 credential 앱의 로그 조각을 redaction 뒤 snapshot_logs blob으로 접수한다", async () => {
+  const known = createKnownSecretRegistry();
+  const secret = "sk-ant-AAAAdemo1234567890abcdef";
+  known.register([secret]);
+  const redaction = createRedactionEngine({ registry: known });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  const calls: PrepareCall[] = [];
+  const { logs, queries } = fakeLogs(["start", `token ${secret}`, "end"]);
+  await observeExceptionPayload(
+    exceptionPayload(true),
+    capturingClient(captured),
+    redaction,
+    queue,
+    fakeSession(calls),
+    CLAIMED,
+    logs,
+  );
+  assertEquals(queries, [{
+    app: LOG_APP,
+    invocation: LOG_INVOCATION,
+    limit: 30,
+    max_bytes: 65536,
+  }]);
+  assertEquals(calls.map((call) => call.purpose), [
+    "snapshot_stack",
+    "snapshot_logs",
+  ]);
+  assertEquals(calls[1]!.text.includes(secret), false);
+  assertEquals(calls[1]!.text.split("\n").length, 3);
+  const input = captured.envelope!["input"] as CapturedInput;
+  assertEquals(input.snapshot.logs?.blob, "2".repeat(64));
+  assertEquals(input.snapshot.logs?.line_count, 3);
+  assert(input.snapshot.logs!.scope.includes(LOG_INVOCATION));
+  assertEquals(input.blobs.map((blob) => blob.purpose), [
+    "snapshot_stack",
+    "snapshot_logs",
+  ]);
+  // blob 권한과 snapshot의 hash가 contract 검사를 그대로 통과한다.
+  assert(recordReportInputSchema.safeParse(input).success);
+});
+
+Deno.test("problems/snapshots#R7: 진단 상세 수집이 꺼졌거나 설정을 읽지 못하면 source를 부르지 않고 이유를 남긴다", async () => {
+  for (const setting of [false, null]) {
+    const redaction = createRedactionEngine({
+      registry: createKnownSecretRegistry(),
+    });
+    const queue = createCollectorQueue({
+      pending_count: 8,
+      pending_bytes: 65536,
+    });
+    const captured: { envelope?: Record<string, unknown> } = {};
+    const calls: PrepareCall[] = [];
+    const { logs, queries } = fakeLogs(["never read"], setting);
+    await observeExceptionPayload(
+      exceptionPayload(true),
+      capturingClient(captured),
+      redaction,
+      queue,
+      fakeSession(calls),
+      CLAIMED,
+      logs,
+    );
+    assertEquals(queries.length, 0);
+    assertEquals(calls.map((call) => call.purpose), ["snapshot_stack"]);
+    const input = captured.envelope!["input"] as CapturedInput;
+    assertEquals(input.snapshot.logs, null);
+    assert(
+      input.snapshot.logs_missing_reason!.reason.includes(
+        setting === false ? "꺼져" : "읽지 못해",
+      ),
+    );
+    // 수집을 꺼도 invocation 연결은 그대로 남는다.
+    assertEquals(input.snapshot.invocation?.id, LOG_INVOCATION);
+  }
+});
+
+Deno.test("problems/snapshots#R12 R4: SDK 직접 보고도 연결한 invocation으로 로그를 좁히고 source가 없으면 이유를 남긴다", async () => {
+  const redaction = createRedactionEngine({
+    registry: createKnownSecretRegistry(),
+  });
+  const payload = {
+    report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+    code: "save_failed",
+    observed_at: "2026-10-04T12:00:00.000Z",
+    text: "failed",
+    invocation: {
+      id: LOG_INVOCATION,
+      binding: "sdk_context",
+      record_missing_reason: null,
+    },
+  };
+  const first = fakeLogs(["one", "two"]);
+  const captured: { envelope?: Record<string, unknown> } = {};
+  const calls: PrepareCall[] = [];
+  await acceptReportProblem(
+    payload,
+    capturingClient(captured),
+    redaction,
+    createCollectorQueue({ pending_count: 8, pending_bytes: 65536 }),
+    fakeSession(calls),
+    CLAIMED,
+    first.logs,
+  );
+  assertEquals(first.queries.map((query) => query.invocation), [
+    LOG_INVOCATION,
+  ]);
+  assertEquals(calls.map((call) => call.purpose), [
+    "report_text",
+    "snapshot_logs",
+  ]);
+  const input = captured.envelope!["input"] as CapturedInput;
+  assertEquals(input.snapshot.logs?.line_count, 2);
+  assertEquals(input.blobs.map((blob) => blob.purpose), [
+    "report_text",
+    "snapshot_logs",
+  ]);
+  // 기록이 도착하지 않았으면 연결한 ID와 이유만 남는다(근접 추정 없음).
+  assertEquals(input.snapshot.invocation?.id, LOG_INVOCATION);
+  assert(input.snapshot.invocation?.record_missing_reason !== null);
+  assert(recordReportInputSchema.safeParse(input).success);
+
+  const none = { source: null, detailCollection: () => Promise.resolve(true) };
+  const captured2: { envelope?: Record<string, unknown> } = {};
+  await acceptReportProblem(
+    { ...payload, invocation: null },
+    capturingClient(captured2),
+    redaction,
+    createCollectorQueue({ pending_count: 8, pending_bytes: 65536 }),
+    fakeSession(),
+    CLAIMED,
+    none,
+  );
+  const second = captured2.envelope!["input"] as CapturedInput;
+  assertEquals(second.snapshot.logs, null);
+  assert(second.snapshot.logs_missing_reason!.reason.includes("연결되지 않아"));
+  assert(second.snapshot.logs_missing_reason!.reason !== "collector");
+  assertEquals(second.snapshot.invocation, null);
 });

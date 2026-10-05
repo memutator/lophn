@@ -817,6 +817,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: coding-agent
 - 선행: platform#T27, coding-agent의 harnesses contract
 - 완료: `coding_settings_test.ts`에 R31 테스트(enabled·기본 harness·profile은 소유 검증, 실행 파일 경로·감지·receipt는 TOML export에 없음)
+- 상태: 완료 (#236)
 
 ### T36 notification 계기: ticket 확인·검사 실패
 

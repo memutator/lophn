@@ -23,6 +23,9 @@ function fakePty(fail = false): HostDeps["pty"] & { spawned: Fake[] } {
       if (options.env.USER_TOKEN || options.env.LOPHN_HOME) {
         throw new Error("platform env leaked");
       }
+      // 실제 node-pty처럼 kill 때 exit 이벤트를 낸다. 관측한 종료만
+      // exit code의 근거다.
+      const exits: ((exit: { exitCode: number }) => void)[] = [];
       const handle: Fake = {
         pid: 4000 + spawned.length,
         writes: [],
@@ -34,11 +37,13 @@ function fakePty(fail = false): HostDeps["pty"] & { spawned: Fake[] } {
         resize() {},
         kill() {
           this.alive = false;
+          for (const listener of exits) listener({ exitCode: 0 });
         },
         onData() {
           return { dispose() {} };
         },
-        onExit() {
+        onExit(listener) {
+          exits.push(listener);
           return { dispose() {} };
         },
       };

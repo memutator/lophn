@@ -354,10 +354,13 @@ function openDesktopWindow(): void {
     preload: join(here, "preload-shell.cjs"),
     // 개발 확인 전용. 제품 실행은 이 변수를 주지 않는다.
     // `LOPHN_SHELL_START=lophn`은 headless 확인에서 런처 대신 lophn 공간부터 연다.
+    // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
       ? `${DESKTOP_URL}#lophn`
+      : process.env.LOPHN_SHELL_START === "conversation"
+      ? `${DESKTOP_URL}#conversation`
       : DESKTOP_URL,
     windows: {
       create: (config: WindowConfig) => {

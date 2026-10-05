@@ -71,6 +71,7 @@ export { workspaceIcons } from "./workspace-icons.ts";
 export { editorIcons } from "./editor-icons.ts";
 export { lophnSpaceIcons } from "./lophn-space-icons.ts";
 export { paletteIcons } from "./palette-icons.ts";
+export { conversationIcons } from "./conversation-icons.ts";
 export {
   domResizeSource,
   type ResizeSource,

@@ -46,6 +46,16 @@ import {
 } from "../editor/document-view.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
 import { TerminalTab } from "../terminal/terminal-tab.tsx";
+import {
+  DockSlot,
+  DockToggle,
+  useConversation,
+} from "../conversation/dock-slot.tsx";
+import {
+  DOCK_WIDTH,
+  dockPlacement,
+  infoPanelShown,
+} from "../conversation/model.ts";
 import styles from "./workspace.module.css";
 
 export interface WorkspaceProps {
@@ -160,6 +170,11 @@ export function Workspace(
   const [userChoseWidth, setUserChoseWidth] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
   const [infoTab, setInfoTab] = useState<InfoTab>("info");
+  // 대화 도크. 정보 패널 자리를 임시로 쓰고 닫으면 정보 패널이 돌아온다(desktop#R2, R29).
+  const conversation = useConversation();
+  const [dockOpen, setDockOpen] = useState(
+    conversation?.startOpen === true,
+  );
   // 문서 탭의 파일 이름·제목·상대 경로. 편집기가 문서를 읽으면 채운다(editor#R4).
   const [tabMeta, setTabMeta] = useState<
     Readonly<Record<string, DocumentTabMeta>>
@@ -206,12 +221,16 @@ export function Workspace(
   const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
   const focused = view.panes[view.focusedPane];
   const contentWidth = mainSize?.width ?? bodyWidth;
+  const dock = dockPlacement(dockOpen && conversation !== null, contentWidth);
+  const infoShown = infoPanelShown(infoOpen, dock);
   const infoPlacement = infoPanelPlacement(
-    infoOpen,
+    infoShown,
     contentWidth,
     view.panes.length,
   );
-  const panesWidth = infoPlacement === "docked"
+  const panesWidth = dock === "docked"
+    ? contentWidth - DOCK_WIDTH
+    : infoPlacement === "docked"
     ? contentWidth - INFO_PANEL_WIDTH
     : contentWidth;
 
@@ -376,8 +395,8 @@ export function Workspace(
           source={editor.source}
           readingWidth={editor.readingWidth}
           menu={editor.menu}
-          infoOpen={infoOpen}
-          onToggleInfo={() => setInfo(!infoOpen, infoTab)}
+          infoOpen={infoShown}
+          onToggleInfo={() => setInfo(!infoShown, infoTab)}
           onMeta={(meta) => noteMeta(tab.key, meta)}
           onOpenDocument={(id) => {
             const row = loaded.documents.find((item) => item.id === id);
@@ -390,6 +409,8 @@ export function Workspace(
   };
 
   const setInfo = (open: boolean, tab: InfoTab) => {
+    // 정보 패널을 사람이 열면 그 자리를 쓰던 도크는 닫힌다. 둘을 쌓지 않는다(desktop#R29).
+    if (open) setDockOpen(false);
     setInfoOpen(open);
     setInfoTab(tab);
     persist(view, { open, tab });
@@ -474,6 +495,14 @@ export function Workspace(
             trailing={
               <span className={styles.trailing}>
                 <PaletteButton />
+                {conversation
+                  ? (
+                    <DockToggle
+                      open={dockOpen}
+                      onToggle={() => setDockOpen(!dockOpen)}
+                    />
+                  )
+                  : null}
                 <LophnEntry onLophn={onLophn} />
               </span>
             }
@@ -491,8 +520,8 @@ export function Workspace(
             view={view}
             bodyWidth={panesWidth}
             windowWidth={measuredWindow}
-            infoOpen={infoOpen}
-            onToggleInfo={() => setInfo(!infoOpen, infoTab)}
+            infoOpen={infoShown}
+            onToggleInfo={() => setInfo(!infoShown, infoTab)}
             onSelect={(pane, key) =>
               update({
                 ...view,
@@ -513,6 +542,17 @@ export function Workspace(
             placement={infoPlacement}
             tab={infoTab}
             onTab={(tab) => setInfo(infoOpen, tab)}
+          />
+          <DockSlot
+            placement={dock}
+            workPlace={{ kind: "project", id: projectId }}
+            onClose={() => setDockOpen(false)}
+            onOpenResult={(id) => {
+              const row = loaded.documents.find((item) => item.id === id);
+              openDocument(
+                row ?? { id, title: tabMeta[id]?.fileName ?? id },
+              );
+            }}
           />
         </div>
       </div>

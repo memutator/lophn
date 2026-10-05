@@ -12,6 +12,9 @@ import type { OverlayApi } from "../../ipc/overlay.ts";
 import type { ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { documentSearch } from "./palette/search.ts";
+import { ConversationProvider } from "../conversation/dock-slot.tsx";
+import { coreConversationSource } from "../conversation/core-source.ts";
+import { DraftStore } from "../conversation/drafts.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -20,10 +23,17 @@ const seed = devSeed();
 const core = windowCoreSource();
 const editor = windowEditorDeps(core);
 const lophn = coreLophnSource(core);
-// 개발 확인용 시작 자리. `#lophn`이면 lophn 공간(documents)부터 연다. 기본은 런처다.
+// 창마다 하나인 대화 통로와 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8).
+const conversation = {
+  source: coreConversationSource(core),
+  drafts: new DraftStore(),
+  startOpen: location.hash === "#conversation",
+};
+// 개발 확인용 시작 자리. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
+// 거기에 대화 도크까지 열어 둔다. 기본은 런처다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
-  : location.hash === "#lophn"
+  : location.hash === "#lophn" || location.hash === "#conversation"
   ? openLophn()
   : undefined;
 // 창마다 하나. 탭과 host runtime의 대응만 갖고 출력은 갖지 않는다.
@@ -48,15 +58,17 @@ const palette: PaletteDeps | undefined =
 
 mount(
   <div className={styles.root}>
-    <Desktop
-      source={core}
-      initial={start}
-      workspace={seed?.source}
-      editor={seed ? { ...editor, ...seed.editor } : editor}
-      windowWidth={seed ? 1440 : undefined}
-      terminal={terminal}
-      lophn={lophn}
-      palette={palette}
-    />
+    <ConversationProvider deps={conversation}>
+      <Desktop
+        source={core}
+        initial={start}
+        workspace={seed?.source}
+        editor={seed ? { ...editor, ...seed.editor } : editor}
+        windowWidth={seed ? 1440 : undefined}
+        terminal={terminal}
+        lophn={lophn}
+        palette={palette}
+      />
+    </ConversationProvider>
   </div>,
 );

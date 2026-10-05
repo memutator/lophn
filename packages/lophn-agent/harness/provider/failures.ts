@@ -309,7 +309,9 @@ function fromStructuredCode(input: FailureInput): FailureVerdict | null {
     return { code: "refused", ...blank };
   }
   if (codeOf(RATE_CODES, code) !== null) {
-    return rateVerdict(input);
+    // 과부하 계열 code는 아래로 내려간다(조사 문서 순서 2). 429·과부하 status는
+    // status 단계의 규칙이 판한다. 429가 아니면 reset 근거 없이 temporary다.
+    return input.status === 429 ? rateVerdict(input) : null;
   }
   // 모르는 코드는 다음 단계로 내려간다. 인증 실패로 추측하지 않는다(R19).
   return null;

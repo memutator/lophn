@@ -115,9 +115,9 @@ app test·reproduction test·test command를 test runner가 격리해서 실제�
 - 확인: native 실행 파일과 shell 문자열은 시작 전 거절되고 잘못된·누락된·초과한 관측은 pass가 되지 않으며 runner가 실제 lifecycle과 기대 약화 여부를 함께 판정한다.
 - 의도: problems#I3
 
-**[R20]** 첫 판의 테스트는 전체 실제 실행 동시 2개·준비 대기 16개·필수 요청 timeout 최대 300,000ms(제안 60,000ms)·side별 안전 출력 1,048,576 bytes·process별 전체 메모리 536,870,912 bytes 및 Deno heap 268,435,456 bytes로 제한하고 전체 process 메모리 경계를 강제할 수 없으면 시작 전 접수를 거절한다.
+**[R20]** 첫 판의 테스트는 전체 실제 실행 동시 2개·준비 대기 16개·필수 요청 timeout 최대 300,000ms(제안 60,000ms)·side별 안전 출력 1,048,576 bytes·process별 전체 메모리 536,870,912 bytes 및 Deno heap 268,435,456 bytes로 제한하고 전체 process 메모리 경계를 강제할 수 없으면 시작 전 접수를 거절한다. 경계 방식은 실행 환경과 Verification에 남긴다. Linux·Windows는 hard(cgroup v2, Job Object)다. macOS는 cgroup이 없고, soft 주소 공간 상한(RLIMIT_AS 536,870,912 bytes)에서 Deno가 시작 전에 죽으므로(Oilpan heap 예약, #193) Deno test 자식은 macOS에서 시작 전에 `unavailable`로 거절한다. 상한 없이 띄우지 않는다.
 - 이유: 긴 테스트가 다른 작업을 막거나 heap 한도만으로 운영 자원 격리가 충분하다고 주장하지 않는다.
-- 확인: 상한 초과 요청과 안전한 메모리 경계가 없는 환경은 미실행이고 시작 뒤 timeout·메모리 종료는 판정 불가이며 출력 초과는 계속 drain하되 잘림을 남긴다.
+- 확인: 상한 초과 요청과 안전한 메모리 경계가 없는 환경은 미실행이고 시작 뒤 timeout·메모리 종료는 판정 불가이며 출력 초과는 계속 drain하되 잘림을 남긴다. macOS의 Deno test 자식은 시작 전 `unavailable`이고 실행도 결과도 없다.
 - 의도: problems#I3, platform#I4
 
 **[R21]** 확정된 테스트 작업 폴더는 즉시 정리하고 미확정 결과의 redaction 완료 spool은 확정 여부를 확인할 때까지 최대 24시간 유지한 뒤 판정 불가 복구를 확정하고 정리하되 실제 시작 여부를 모르면 test result를 꾸미지 않고 요청 조회에 확인 불가를 남긴다.

@@ -2,10 +2,13 @@
 // 이 모듈이 띄운다(problems/tests#R13–R21). credential은 argv에 넣지 않는다.
 import { applyMemoryLimit } from "../../../packages/platform/security/mod.ts";
 import {
+  brokerReport,
   type MemoryLimitPort,
+  type ReportSink,
   runPrepared,
   type RunRequest,
   type RunVerdict,
+  type StartAttemptCommit,
 } from "../../../packages/problems/tests/work/mod.ts";
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 
@@ -35,7 +38,11 @@ export const platformMemory: MemoryLimitPort = {
 
 export async function acceptRun(
   request: RunRequest,
-  options: { memory?: MemoryLimitPort } = {},
+  options: {
+    memory?: MemoryLimitPort;
+    // ledger에 시작 시도를 확정한다. ok가 아니면 자식을 띄우지 않는다(R17).
+    commit?: StartAttemptCommit;
+  } = {},
 ): Promise<Result<RunVerdict>> {
   if (request.prepare.env && "LOPHN_HOME" in request.prepare.env) {
     return err({
@@ -45,7 +52,18 @@ export async function acceptRun(
   }
   return await runPrepared(request, {
     memory: options.memory ?? platformMemory,
+    commit: options.commit,
   });
+}
+
+// 자식의 private IPC 보고를 그 요청의 mode=test·scope로 collector에 넘긴다.
+// 자식은 collector 주소를 받지 않는다(problems/tests#R17).
+export function forwardChildReport(
+  frame: Uint8Array,
+  scope: string,
+  sink: ReportSink,
+): Promise<Result<unknown>> {
+  return brokerReport(frame, scope, sink);
 }
 
 export function runnerReady(kind: string): Result<true> {

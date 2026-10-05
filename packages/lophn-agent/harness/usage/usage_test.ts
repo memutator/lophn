@@ -16,6 +16,8 @@ const SUFFIX = "01arz3ndektsv4rrffq69g5fav";
 const CALL = `mcl_${SUFFIX}`;
 const CALL2 = "mcl_01arz3ndektsv4rrffq69g5fax";
 const RUN = `run_${SUFFIX}`;
+const RECEIVER_RUN = "run_01arz3ndektsv4rrffq69g5fax";
+const SENDER_RUN = "run_0harz3ndektsv4rrffq69g5fbz";
 const SESSION = `ses_${SUFFIX}`;
 const PVDR = `pvd_${SUFFIX}`;
 const HASH = "ab".repeat(32);
@@ -219,6 +221,34 @@ async function readCall(
     string,
     unknown
   >;
+}
+
+// 시작 기록을 저장하고 완료까지 옮긴다. usage·cost는 호출마다 다르게 쓴다.
+async function startCall(
+  h: LedgerHarness,
+  call: Record<string, unknown>,
+): Promise<void> {
+  keep(
+    await h.command(
+      machineCred,
+      envelope("StartModelCall", {
+        call,
+        applied_messages: [`msg_${SUFFIX}`],
+        state_seq: "4",
+        timeout_ms: null,
+      }),
+    ),
+  );
+}
+
+async function readUsage(
+  h: LedgerHarness,
+  input: Record<string, unknown>,
+): Promise<UsageTotalLike[]> {
+  const read = keep(
+    await h.read({ resource: "agent-usage", method: "read" }, userCred, input),
+  ) as { totals: UsageTotalLike[] };
+  return read.totals;
 }
 
 Deno.test("lophn-agent/harness/usage#R1: a started call stores once and repeats reject", async () => {
@@ -1143,6 +1173,7 @@ Deno.test("lophn-agent/harness/usage#R2: supplement CAS rejects a stale state_se
 });
 
 type UsageTotalLike = {
+  group: Record<string, unknown>;
   calls: number;
   tokens: { known: Record<string, unknown>; unknown_calls: number };
   costs: Record<string, unknown>[];
@@ -1241,3 +1272,283 @@ Deno.test("lophn-agent/harness/usage#R10: rebuild gives the same totals", async 
     await h.close();
   }
 });
+
+// R9: 가격 갱신·사후 청구가 와도 최초 사실(끝난 본문·결과·최초 비용)은
+// 덮지 않는다. 새 근거는 model_call_supplements 행으로 별도로 남는다.
+Deno.test(
+  "lophn-agent/harness/usage#R9: price refresh keeps the first cost, supplement shows apart",
+  async () => {
+    const h = await open();
+    try {
+      await seedProvider(h);
+      await startCall(h, started);
+      // 최초 비용은 그 시점 가격(basis price)으로 매긴 estimated다(R8).
+      const firstCost = {
+        kind: "estimated" as const,
+        amount: "0.0105",
+        currency: "USD",
+        basis: { price },
+        confirmed_at: null,
+      };
+      keep(
+        await h.command(
+          machineCred,
+          envelope("FinishModelCall", {
+            call: CALL,
+            output: HASH,
+            outcome: {
+              kind: "complete",
+              code: null,
+              retry_at: null,
+              finish_reason: "stop",
+              http_status: null,
+              provider_code: null,
+            },
+            usage: {
+              ...usage,
+              input: 1000,
+              output: 500,
+              cache_read: null,
+              cache_write: null,
+              reasoning: null,
+              cache_in_input: false,
+              reasoning_in_output: false,
+              definition_revision: "2026-10",
+            },
+            cost: firstCost,
+            duration_ms: 100,
+            first_output_ms: 10,
+            state_seq: "5",
+          }),
+        ),
+      );
+      // 가격이 바뀐 뒤(새 판 revision을 새 근거에 남긴다) 사후 청구를 보완으로
+      // 연결한다. 새 근거는 reported 종류다(R7).
+      const confirmed = {
+        kind: "reported" as const,
+        amount: "0.0120",
+        currency: "USD",
+        basis: { price_revision: "2026-11" },
+        confirmed_at: at(NOW + 86_400_000),
+      };
+      keep(
+        await h.command(
+          machineCred,
+          envelope("SupplementModelCall", {
+            call: CALL,
+            supplement_key: "invoice-1",
+            usage: null,
+            cost: confirmed,
+            outcome: null,
+            basis: null,
+          }, { compare: { state_seq: "5" } }),
+        ),
+      );
+      // 옛 추정이 그대로 남아 있다(R9). 새 근거로 덮지 않는다.
+      const record = await readCall(h, CALL);
+      assertEquals(record["cost"], firstCost);
+      assertEquals(
+        (record["usage"] as Record<string, unknown>)["input"],
+        1000,
+      );
+      // 새 근거는 supplements 표에 별도 행으로 보인다(R9).
+      const supplements = (await h.inspect(
+        `select call, supplement_key, cost, basis, at
+         from model_call_supplements where call = ? order by supplement_key`,
+        [CALL],
+      )) as { ok: boolean; value?: Record<string, unknown>[] };
+      assert(supplements.ok);
+      const rows = supplements.value ?? [];
+      assertEquals(rows.length, 1);
+      assertEquals(rows[0]!["supplement_key"], "invoice-1");
+      assertEquals(JSON.parse(String(rows[0]!["cost"])), confirmed);
+      // 같은 supplement_key 재전송은 conflict다. 옛 근거와 새 근거가 합쳐져
+      // 저장되지 않는다.
+      const overwritten = await h.command(
+        machineCred,
+        envelope("SupplementModelCall", {
+          call: CALL,
+          supplement_key: "invoice-1",
+          usage: { ...usage, input: 9, output: 9 },
+          cost: null,
+          outcome: null,
+          basis: HASH,
+        }, { compare: { state_seq: "5" } }),
+      );
+      code(overwritten, "conflict");
+      const after = (await h.inspect(
+        "select call from model_call_supplements where call = ?",
+        [CALL],
+      )) as { ok: boolean; value?: Record<string, unknown>[] };
+      assert(after.ok);
+      assertEquals((after.value ?? []).length, 1);
+    } finally {
+      await h.close();
+    }
+  },
+);
+
+// R10: handoff 받는 run의 call은 실제 수신 run에 귀속한다. model_calls.run이
+// 수신 run이므로 수신 run 합계가 그 call을 한 번 세고, 보낸 run 합계는 그
+// call을 세지 않는다(비용을 보낸 run으로 바꾸지 않는다).
+Deno.test(
+  "lophn-agent/harness/usage#R10: a handoff receiver run call counts for the receiver only",
+  async () => {
+    const h = await open();
+    try {
+      await seedProvider(h);
+      // handoff 수신 run에서 실제로 보낸 call. 보낸 run은 비용 행에 기록되지
+      // 않는다(research handoff: 비용은 실제 수신 ModelCall 한 번).
+      const received = {
+        ...started,
+        id: CALL2,
+        run: RECEIVER_RUN,
+      };
+      await startCall(h, received);
+      keep(
+        await h.command(
+          machineCred,
+          envelope("FinishModelCall", {
+            call: CALL2,
+            output: HASH,
+            outcome: {
+              kind: "complete",
+              code: null,
+              retry_at: null,
+              finish_reason: "stop",
+              http_status: null,
+              provider_code: null,
+            },
+            usage: {
+              ...usage,
+              input: 700,
+              output: 300,
+              cache_read: null,
+              cache_write: null,
+              reasoning: null,
+              cache_in_input: false,
+              reasoning_in_output: false,
+              definition_revision: "2026-10",
+            },
+            cost: {
+              kind: "estimated",
+              amount: "0.0150",
+              currency: "USD",
+              basis: { price },
+              confirmed_at: null,
+            },
+            duration_ms: 80,
+            first_output_ms: 8,
+            state_seq: "5",
+          }),
+        ),
+      );
+      // 수신 run 합계는 이 call을 한 번 센다(R10).
+      const receiver = await readUsage(h, {
+        run: RECEIVER_RUN,
+        from_at: at(NOW - 1000),
+        through_at: at(NOW + 1000),
+      });
+      assertEquals(receiver.length, 1);
+      assertEquals(receiver[0]!["calls"], 1);
+      assertEquals(receiver[0]!["group"]["run"], RECEIVER_RUN);
+      assertEquals(receiver[0]!["tokens"]["known"]["input"], 700);
+      assertEquals(receiver[0]!["tokens"]["known"]["output"], 300);
+      // 보낸 run 합계는 이 call을 세지 않는다(보낸 run 비용으로 바꾸지 않는다).
+      const sender = await readUsage(h, {
+        run: SENDER_RUN,
+        from_at: at(NOW - 1000),
+        through_at: at(NOW + 1000),
+      });
+      assertEquals(sender.length, 1);
+      assertEquals(sender[0]!["calls"], 0);
+      assertEquals(sender[0]!["complete"], true);
+      // 기간 전체 합계는 같은 call을 한 번만 센다.
+      const whole = await readUsage(h, {
+        from_at: at(NOW - 1000),
+        through_at: at(NOW + 1000),
+      });
+      assertEquals(whole.length, 1);
+      assertEquals(whole[0]!["calls"], 1);
+      assertEquals(whole[0]!["missing_records"], 0);
+    } finally {
+      await h.close();
+    }
+  },
+);
+
+// R10: 같은 호출의 재전송 수신은 이중 계산되지 않는다. 같은 idempotency_key로 온
+// 재전송은 저장된 결과로 돌아오고(executor replay) 새 기록·새 시도가 없으므로
+// 합계도 한 번 센다.
+Deno.test(
+  "lophn-agent/harness/usage#R10: a resent receipt does not double the spend",
+  async () => {
+    const h = await open();
+    try {
+      await seedProvider(h);
+      await startCall(h, started);
+      // 같은 envelope 객체를 두 번 보낸다. idempotency_key와 입력 fingerprint가
+      // 같으므로 두 번째 수신은 재전송 replay다(platform ledger R13).
+      const receipt = envelope("FinishModelCall", {
+        call: CALL,
+        output: HASH,
+        outcome: {
+          kind: "complete",
+          code: null,
+          retry_at: null,
+          finish_reason: "stop",
+          http_status: null,
+          provider_code: null,
+        },
+        usage: {
+          ...usage,
+          input: 1000,
+          output: 500,
+          cache_read: null,
+          cache_write: null,
+          reasoning: null,
+          cache_in_input: false,
+          reasoning_in_output: false,
+          definition_revision: "2026-10",
+        },
+        cost: {
+          kind: "estimated",
+          amount: "0.0105",
+          currency: "USD",
+          basis: { price },
+          confirmed_at: null,
+        },
+        duration_ms: 100,
+        first_output_ms: 10,
+        state_seq: "5",
+      });
+      const first = keep(
+        await h.command(machineCred, receipt),
+      ) as unknown as { replayed: boolean };
+      assertEquals(first.replayed, false);
+      const again = keep(
+        await h.command(machineCred, receipt),
+      ) as unknown as { replayed: boolean };
+      assertEquals(again.replayed, true);
+      // 재생이 새 기록을 만들지 않았다. model_calls 행은 하나뿐이다.
+      const loaded = await readRows(h);
+      assertEquals(loaded.length, 1);
+      // 합계도 재생을 다시 세지 않는다(R10).
+      const totals = await readUsage(h, {
+        from_at: at(NOW - 1000),
+        through_at: at(NOW + 1000),
+      });
+      assertEquals(totals.length, 1);
+      assertEquals(totals[0]!["calls"], 1);
+      assertEquals(totals[0]!["missing_records"], 0);
+      assertEquals(totals[0]!["complete"], true);
+      assertEquals(totals[0]!["tokens"]["known"]["output"], 500);
+      const costs = totals[0]!["costs"] as Record<string, unknown>[];
+      assertEquals(costs.length, 1);
+      assertEquals(costs[0]!["calls"], 1);
+      assertEquals(costs[0]!["amount"], "0.0105");
+    } finally {
+      await h.close();
+    }
+  },
+);

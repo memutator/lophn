@@ -382,6 +382,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T21 tool registry, 실행기, tool call ledger
 
+- 상태: 완료 (#218)
 - 등급: 기본
 - concern: lophn-agent/harness/tools
 - 요구: lophn-agent/harness/tools#R1, R2, R3, R4, R5, R11, R12, R13, R14, R15

@@ -311,6 +311,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음(C-test실행의 test_command kind)
 - slice: coding-agent
 - 선행: problems#T8, contracts#T41, coding-agent#T18
+- 상태: 완료 (#222)
 - 완료:
   - 분리된 argv·고정 cwd·기대 종료값으로 실행; 다른 종료값은 `fail`, 중단은 `inconclusive`(R4, R16)
   - ticket 없는 test command도 된다; ticket을 붙이면 check index·hash·completion seq가 필수이고 결과에 그대로 남으며 낡은 결과도 보존한다; ticket 판정은 runner가 하지 않는다

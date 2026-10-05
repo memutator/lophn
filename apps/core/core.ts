@@ -14,6 +14,7 @@ import {
   RouteRegistry,
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
+import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import {
   applyMigrations,
   checkRestart,
@@ -70,8 +71,9 @@ export type CoreOptions = {
   testCredentials?: boolean;
   // 테스트가 준비 참조를 writer 메모리에 심는 입구. 제품 기동에는 없다.
   notePrepared?: (prepared: PreparedRelayResult, nowMs: number) => void;
+  // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
+  workers?: ReadonlyMap<string, WorkerRouteTarget>;
 };
-
 export type BlobPrepareCall = {
   principal: string;
   purpose: string;
@@ -278,6 +280,8 @@ async function open(
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
+      // worker route serving map(T8·T13 통합). 없으면 worker route는 503이다.
+      workers: options.workers,
     });
   } catch {
     await runtime.close();

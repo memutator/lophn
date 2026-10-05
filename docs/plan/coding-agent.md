@@ -634,6 +634,9 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - `tools/fake-coding-agent/`: MCP client script로 ticket show → claim → (app
     tool 호출) → release 준비 → (T25 뒤) report를 돌리는 개발 도구. apps 팀
     new-app·change-app E2E가 coding agent 자리에 쓴다
+- 상태: 진행 (#208) — 남은 것: T25가 오면 fake coding agent report step와
+  apps 팀 new-app·change-app E2E가 coding agent 자리에서 이 도구를 쓰는지
+  확인한다
 
 ### T21 MCP·CLI 앱 개발 tool
 

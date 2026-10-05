@@ -450,6 +450,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 조사: docs/research/questions-and-hitl.md
 - 선행: T10, T11, contracts#T28
 - 이어받음: platform#T29의 QuestionCreated 발생(T11 정정)과 platform#T27 settings 근거(#234)가 QuestionCreated·QuestionAnswered에서 읽는 선택지 key·변경 목록·사람 답은 이 작업이 낸다
+- 상태: 완료 (#273) — 이어보냄: apply_question_option과 적용 결과(`applied`=true)·고정 version 채택 → T29(그 전에는 `applied`가 항상 false), 질문 본문·답 blob의 영구 참조 등록 → Q29와 같은 이월, 자유 답을 blob으로 준비하기 전에 `screenAnswerText`를 부르는 core·shell 입력 경로 → 답 입력 화면과 blob prepare를 맡는 작업(지금은 판정 함수와 실제 redaction 엔진 시험까지)
 - 완료:
   - `questions` 표
   - 시험은 apps/core/testing/lophn-agent-questions_test.ts에 둔다(agent 자격의 command는 platform의 run 판정 port가 있어야 통과하므로 leaf 등록이 아니라 apps/core/testing이 맡는다). 재시작은 lophn-agent-questions-file_test.ts, secret 판정은 leaf의 screen.ts와 실제 redaction 엔진. R1–R12 테스트: 결정 하나만·이미 받은 답 재질문 없음, run 필수·세션 선택·run당 답 기다림 하나, 자유 입력과 선택형+자유 입력·추천 하나와 이유·선택지 수 상한 없음, 답 전 화면용 기본·상세 자료, 본문 덮어쓰기 없음, 지정한 명시 답만 인정하고 일반 메시지·빈 답은 답이 아님(대기 중 일반 text를 답으로 claim하지 않음), 기본 기한 없음(900초·3600초 같은 기본값 없음)과 명시 기한 경계, 대기 질문은 메모리 promise가 아니라 ledger에 남아 재시작 뒤 그대로, 미루기·만료·취소는 답 없음, 무효화와 늦은·중복 답 미적용, 재시작 뒤 상태·답·적용 결과 확인, secret으로 보이는 평문 답은 일반 저장 전에 막고 platform 안전 입력으로 안내·판정 불가면 fail closed(질문 Q23), 답이 approval·권한을 대신하지 않음

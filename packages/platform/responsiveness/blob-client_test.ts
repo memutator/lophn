@@ -65,18 +65,20 @@ Deno.test("platform/api#R5: client는 credit이 올 때까지 바이트를 보�
   await tick();
   assertEquals(bytesSent(sent), 100);
   assertEquals(sent.at(-1), { kind: "end", channel: request.channel });
-  client.accept({
-    type: "blob_prepare_result",
-    request_id: request.request_id,
-    ok: true,
-    prepared: {
-      preparation: "p",
-      principal: "machine",
-      purpose: "document_files",
-      hash: "b".repeat(64),
-      size_bytes: 100,
-    },
-  } satisfies ParentMessage);
+  client.accept(
+    {
+      type: "blob_prepare_result",
+      request_id: request.request_id,
+      ok: true,
+      prepared: {
+        preparation: "p",
+        principal: "machine",
+        purpose: "document_files",
+        hash: "b".repeat(64),
+        size_bytes: 100,
+      },
+    } satisfies ParentMessage,
+  );
   const result = await pending;
   assert(result.ok);
   assertEquals(result.value.hash, "b".repeat(64));

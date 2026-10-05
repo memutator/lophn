@@ -278,37 +278,19 @@ export function childBlobPort(session: {
     });
 }
 
-// core의 준비 참조는 principal·purpose·hash가 같으면 하나다(10분 수명). 같은 바이트를 다시
-// 준비하면 충돌하므로(A→B→A, 같은 내용의 다른 파일) 살아 있는 준비를 다시 쓴다. 저장
-// command는 참조를 소비하지 않고 살아 있는지만 보므로 여러 판이 같은 준비를 쓸 수 있다.
-// 수명이 다 되기 전에 놓아 주고(마진), 만기 뒤에는 새로 준비한다. 이미 영구 등록된
-// blob이어도 새 준비는 같은 내용이라 그대로 저장된다.
-export const PREPARATION_REUSE_MS = 8 * 60 * 1000;
-
-export function reusePreparedBlob(
+// 같은 바이트를 동시에 준비하는 요청은 한 번만 보낸다(같은 내용의 파일을 한꺼번에 관측할 때
+// 바이트를 두 번 옮기지 않는다). 끝난 준비를 다시 쓰는 일은 core relay가 한다: 같은
+// 주체·purpose·내용의 준비가 살아 있으면 그 참조를 돌려준다(coding-agent Q24).
+export function sharePreparedBlob(
   prepare: ObservationPorts["prepareBlob"],
-  nowMs: () => number,
-  reuseMs: number = PREPARATION_REUSE_MS,
 ): ObservationPorts["prepareBlob"] {
-  // 준비가 끝나기 전의 같은 바이트 요청도 같은 약속을 기다린다(같은 내용의 파일을 한꺼번에
-  // 관측할 때 둘이 동시에 준비해 충돌하지 않게).
-  const live = new Map<string, {
-    pending: ReturnType<ObservationPorts["prepareBlob"]>;
-    at: number;
-  }>();
-  return async (bytes, hash) => {
-    const now = nowMs();
-    for (const [key, entry] of live) {
-      if (now - entry.at >= reuseMs) live.delete(key);
-    }
-    const found = live.get(hash);
-    if (found !== undefined) return await found.pending;
-    const pending = prepare(bytes, hash);
-    live.set(hash, { pending, at: now });
-    const prepared = await pending;
-    // 실패한 준비는 다시 시도할 수 있게 남기지 않는다.
-    if (!prepared.ok && live.get(hash)?.pending === pending) live.delete(hash);
-    return prepared;
+  const inflight = new Map<string, ReturnType<typeof prepare>>();
+  return (bytes, hash) => {
+    const found = inflight.get(hash);
+    if (found !== undefined) return found;
+    const pending = prepare(bytes, hash).finally(() => inflight.delete(hash));
+    inflight.set(hash, pending);
+    return pending;
   };
 }
 

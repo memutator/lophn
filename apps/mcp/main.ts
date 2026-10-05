@@ -25,6 +25,10 @@ import {
   startLineReader,
   type StdioStreams,
 } from "../../packages/coding-agent/mcp-server/mod.ts";
+import { uploadPrepareBytes } from "../../packages/coding-agent/connection/mod.ts";
+import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
+import { createSaveTool } from "../../packages/coding-agent/mcp-server/tools/save.ts";
+import { createSeriesTool } from "../../packages/coding-agent/mcp-server/tools/series.ts";
 import {
   createTicketTool,
   TICKET_TOOL_NAME,
@@ -45,6 +49,8 @@ export type McpOptions = {
   args?: readonly string[];
   env?: Record<string, string | undefined>;
   redact?: (text: string) => string;
+  // 제출 파일 root다. 없으면 작업 위치(--cwd <submission-root>)다.
+  submissionRoot?: string;
 };
 
 // tools/call의 실행이다. registry route 하나로만 routing된다(R2).
@@ -114,6 +120,26 @@ export function startMcpServer(
       idempotencyKey: () => `mcp-ticket-${crypto.randomUUID()}`,
     })
     : undefined;
+  // 문서 저장·format·series tool의 실행이다(T14). 같은 core client로 소유 route만 부른다.
+  const submission = {
+    scope: { root: options.submissionRoot ?? Deno.cwd(), forbidden: [] },
+    prepareBytes: caller === undefined ? undefined : uploadPrepareBytes(caller),
+  };
+  const documentTools = caller && submission.prepareBytes
+    ? {
+      lophn_save: createSaveTool({
+        client: caller,
+        scope: submission.scope,
+        prepareBytes: submission.prepareBytes,
+      }),
+      lophn_format: createFormatTool({
+        client: caller,
+        scope: submission.scope,
+        prepareBytes: submission.prepareBytes,
+      }),
+      lophn_series: createSeriesTool({ client: caller }),
+    }
+    : undefined;
   const handler = createHandler({
     toolsets,
     onClientInfo: (name) => {
@@ -139,6 +165,13 @@ export function startMcpServer(
             next: ["lophn doctor로 연결과 credential을 확인한다"],
           })
           : ticketTool(toolName, resolved.route, callArgs);
+      }
+      const documentTool = documentTools !== undefined &&
+          Object.hasOwn(documentTools, toolName)
+        ? documentTools[toolName as keyof typeof documentTools]
+        : undefined;
+      if (documentTool !== undefined) {
+        return documentTool(toolName, resolved.route, callArgs);
       }
       return runner(toolName, resolved.route, callArgs);
     },

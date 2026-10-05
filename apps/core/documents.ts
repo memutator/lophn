@@ -2,16 +2,23 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
   documentPrepare,
+  formatValidate,
   outlineRoot,
   READ_ROUTES,
+  UPLOAD_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
   ApiReadDefinition,
   FileRoute,
   ReadDefinition,
+  UploadRoute,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
-import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
+import type {
+  EventRegistration,
+  ReaderRegistration,
+} from "../../packages/platform/ledger/mod.ts";
+import { createDocumentsEventRegistration } from "./documents-events.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import { addressingSchemaSteps } from "../../packages/documents/addressing/mod.ts";
 import {
@@ -80,6 +87,7 @@ type LedgerRegistration = {
   files?: readonly FileRoute[];
   workers?: readonly KindLaunchSpec[];
   workerRoutes?: readonly WorkerRoute[];
+  uploadRoutes?: readonly UploadRoute[];
   blobFields?: readonly unknown[];
 };
 
@@ -403,7 +411,9 @@ export function createLedgerRegistration(
     // worker route. 준비(documentPrepare)는 core의 준비 조립이, 나머지(outline·읽기·
     // search·view open·export)는 reader Worker 등록(documents-reader.ts)이 서빙한다.
     // core는 요청마다 현재 credential로 그 읽기를 실행한다(documents-serving.ts).
-    workerRoutes: [documentPrepare, ...SERVED_ROUTES],
+    workerRoutes: [documentPrepare, formatValidate, ...SERVED_ROUTES],
+    // 제출 파일 바이트 route. 준비 중계로 흘려 보내는 handler는 core.ts가 붙인다.
+    uploadRoutes: UPLOAD_ROUTES,
     // 단계적 읽기(T14). 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).
     files: [...READ_ROUTES].filter((route) => route.kind === "file"),
     // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
@@ -424,6 +434,12 @@ function registerWorkers(): KindLaunchSpec[] {
   if (root === undefined || !root.startsWith("/")) return [];
   const runner = formatRunnerSpec();
   return runner ? [...workerSpecs(root), runner] : workerSpecs(root);
+}
+
+// event 정의와 공개 정책. reader Worker가 모든 팀 module의 것을 모아 events/list의 registry를
+// 만든다(platform/ledger#R15, documents plan Q17).
+export function createEventRegistration(): EventRegistration {
+  return createDocumentsEventRegistration();
 }
 
 // reader Worker가 HTTP read를 연다. command 등록과 같은 read 목록이다.

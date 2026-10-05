@@ -330,6 +330,19 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
       const answered = pending.answer!;
       if (!answered.ok) return err(answered.error);
       const payload = answered.payload as PreparedRelayResult;
+      // 같은 주체·purpose·내용의 준비가 아직 살아 있으면 그 참조를 그대로 돌려준다.
+      // 같은 파일을 다시 제출하는 재시도가 conflict가 되지 않고, 이미 저장 command가 쥔
+      // 준비 참조도 바뀌지 않는다. 바이트는 I/O worker가 기존 파일을 검증해 재사용했다.
+      const existing = deps.registry.find(payload, deps.nowMs());
+      if (existing !== undefined) {
+        return ok({
+          preparation: existing.preparation,
+          principal: existing.principal,
+          purpose: existing.purpose,
+          hash: existing.hash,
+          size_bytes: existing.size_bytes,
+        });
+      }
       // 준비 참조 등록. core는 결과를 검사한 뒤 파일을 다시 hash하지 않는다.
       const registered = deps.registry.register(
         {

@@ -76,7 +76,7 @@ concerns: [coding-agent/mcp-server]
 
 ### 문서 저장과 format
 
-**[R13]** 문서 저장은 파일 묶음의 첫 파일을 primary로 삼아 document·PDF·image·data를 프로젝트·앱 또는 자리 없음에 저장하고 제목·format·메모·tag·series와 key를 받아 고정 주소·판·동일 내용 무변경·검사 경고를 반환한다.
+**[R13]** 문서 저장은 파일 묶음의 첫 파일을 primary로 삼아 document·PDF·image·data를 프로젝트·앱 또는 자리 없음에 저장하고 제목·format·series와 key를 받아 고정 주소·판·동일 내용 무변경·검사 경고를 반환한다.
 - 이유: 앱 작업 산출물과 자료가 대화 밖 정본으로 남게 한다.
 - 확인: 복수 파일 저장 뒤 primary와 첨부를 읽고 재전송에서 새 판이 생기지 않으며 series만 있고 key가 없으면 거절한다.
 - 의도: coding-agent#I3

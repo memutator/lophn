@@ -1,14 +1,15 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import { Launcher } from "./launcher/launcher.tsx";
-import { LAUNCHER, openLophn, type Route } from "./router.ts";
+import { LAUNCHER, openLophn, openProject, type Route } from "./router.ts";
 import { Workspace } from "../workspace/workspace.tsx";
 import type { WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
+import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -25,6 +26,8 @@ export interface DesktopProps {
   terminal?: TerminalDeps;
   /** lophn 공간(documents·series) 통로. 없으면 lophn 공간 대신 런처를 보인다. */
   lophn?: LophnSource;
+  /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
+  palette?: PaletteDeps;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -38,47 +41,49 @@ export function Desktop(
     editor,
     terminal,
     lophn,
+    palette,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
+  const launcher = () => setRoute(LAUNCHER);
+  const lophnSpace = () => setRoute(openLophn());
+  let space: ReactNode;
   if (route.space === "project" && route.project && workspace) {
-    return (
+    space = (
       <Workspace
         projectId={route.project}
         source={workspace}
         windowWidth={windowWidth}
         bodyWidth={windowWidth - 240}
-        onLauncher={() => setRoute(LAUNCHER)}
-        onLophn={() => setRoute(openLophn())}
+        onLauncher={launcher}
+        onLophn={lophnSpace}
         editor={editor}
         terminal={terminal}
       />
     );
-  }
-  if (route.space === "lophn" && lophn) {
-    return (
+  } else if (route.space === "lophn" && lophn) {
+    space = (
       <LophnSpace
         source={lophn}
         screen={route.screen}
         windowWidth={windowWidth}
-        onLauncher={() => setRoute(LAUNCHER)}
+        onLauncher={launcher}
+        onProject={(project) => setRoute(openProject(project))}
       />
     );
-  }
-  if (route.space === "launcher") {
-    return (
+  } else {
+    space = (
       <Launcher
         source={source}
         formatTime={formatTime}
-        onLophn={() => setRoute(openLophn())}
+        onLophn={lophnSpace}
       />
     );
   }
+  // 창 shortcut의 런처 복귀와 팔레트는 어느 공간에서든 같은 자리에서 받는다(desktop#R18).
   return (
-    <Launcher
-      source={source}
-      formatTime={formatTime}
-      onLophn={() => setRoute(openLophn())}
-    />
+    <PaletteProvider deps={palette} onLauncher={launcher}>
+      {space}
+    </PaletteProvider>
   );
 }

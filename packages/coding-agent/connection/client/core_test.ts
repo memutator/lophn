@@ -2,9 +2,12 @@ import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
 import {
   defineCommand,
+  defineRead,
+  defineUpload,
   type RpcFetch,
+  UPLOAD_INPUT_HEADER,
 } from "../../../contracts/platform/mod.ts";
-import { createCoreClient } from "./core.ts";
+import { createCoreClient, type UploadFetch } from "./core.ts";
 
 const save = defineCommand({
   resource: "documents",
@@ -67,12 +70,7 @@ Deno.test(
         sent.push(call);
         return {
           status: 200,
-          body: json({
-            result: { id: "doc_1" },
-            replayed: false,
-            first_seq: "7",
-            last_seq: "7",
-          }),
+          body: json({ id: "doc_1" }),
           type: "application/json",
         };
       }),
@@ -82,13 +80,8 @@ Deno.test(
       idempotency_key: "key-1",
     });
     assert(result.ok);
-    // command는 rpc client의 command envelope을 그대로 돌려준다.
-    assertEquals(result.value, {
-      result: { id: "doc_1" },
-      replayed: false,
-      first_seq: "7",
-      last_seq: "7",
-    });
+    // 성공한 command는 등록된 결과 객체를 그대로 돌려준다.
+    assertEquals(result.value, { id: "doc_1" });
     assertEquals(sent[0].url, "http://127.0.0.1:7431/v1/documents/save");
     assertEquals(sent[0].init.method, "POST");
     assertEquals(sent[0].init.headers["authorization"], "Bearer tok");
@@ -162,16 +155,8 @@ Deno.test(
       idempotency_key: "key-1",
     });
     assert(result.ok);
-    // 회수는 같은 대상 read의 확정 command result다.
-    assertEquals(result.value, {
-      principal: "user",
-      idempotency_key: "key-1",
-      fingerprint: "a".repeat(64),
-      result: { id: "doc_1" },
-      first_seq: "1",
-      last_seq: "3",
-      at: "2026-10-05T00:00:00.000Z",
-    });
+    // 회수는 같은 대상 read에 남은 확정 결과 객체다.
+    assertEquals(result.value, { id: "doc_1" });
   },
 );
 
@@ -213,5 +198,243 @@ Deno.test(
     assertEquals(calls[1].url, "http://127.0.0.1:7431/v1/commands/result");
     const readBody = JSON.parse(String(calls[1].init.body));
     assertEquals(readBody, { idempotency_key: "key-1" });
+  },
+);
+
+Deno.test(
+  "coding-agent/connection#R15: command는 호출자가 준 CAS 비교와 준비 참조를 envelope에 싣는다",
+  async () => {
+    const sent: Sent[] = [];
+    const client = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      fetch: scripted((call) => {
+        sent.push(call);
+        return {
+          status: 200,
+          body: json({ id: "doc_1" }),
+          type: "application/json",
+        };
+      }),
+    });
+    await client.command(save, {
+      input: { title: "a" },
+      idempotency_key: "key-1",
+      compare: {},
+      prepared: ["prep-1"],
+    });
+    const body = JSON.parse(String(sent[0].init.body));
+    assertEquals(body.prepared, ["prep-1"]);
+  },
+);
+
+const listDocs = defineRead({
+  resource: "documents",
+  method: "list",
+  name: "document.list",
+  input: z.strictObject({ cursor: z.string().optional() }),
+  output: z.object({ as_of_seq: z.string(), next_cursor: z.null() }),
+  actors: ["user"],
+  errors: [],
+});
+
+Deno.test(
+  "coding-agent/connection#R15: read는 envelope 없이 입력을 그대로 보내고 command route는 거절한다",
+  async () => {
+    const sent: Sent[] = [];
+    const client = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      fetch: scripted((call) => {
+        sent.push(call);
+        return {
+          status: 200,
+          body: json({ as_of_seq: "7", next_cursor: null }),
+          type: "application/json",
+        };
+      }),
+    });
+    const read = await client.read(listDocs, { cursor: "c1" });
+    assert(read.ok);
+    assertEquals(sent[0].url, "http://127.0.0.1:7431/v1/documents/list");
+    assertEquals(JSON.parse(String(sent[0].init.body)), { cursor: "c1" });
+    const refused = await client.read(save, { title: "a" });
+    assert(!refused.ok);
+    assertEquals(refused.error.code, "invalid_input");
+    assertEquals(sent.length, 1);
+    // 읽기에서 전송이 끊기면 쓰기가 아니므로 effect_unknown이 아니라 unavailable이다.
+    const lost = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      fetch: scripted(() => "throw"),
+    });
+    const failed = await lost.read(listDocs, {});
+    assert(!failed.ok);
+    assertEquals(failed.error.code, "unavailable");
+    assertEquals(failed.error.details?.diagnosis, undefined);
+  },
+);
+
+Deno.test(
+  "coding-agent/connection#R15: command의 오류 본문은 소유 route의 오류 그대로다",
+  async () => {
+    const client = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      fetch: scripted(() => ({
+        status: 200,
+        body: json({ id: "doc_1" }),
+        type: "application/json",
+      })),
+    });
+    const result = await client.command(save, {
+      input: { title: "a" },
+      idempotency_key: "key-1",
+    });
+    assert(result.ok);
+    assertEquals(result.value, { id: "doc_1" });
+    // 오류 본문은 소유 route의 오류 그대로다.
+    const refused = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      fetch: scripted(() => ({
+        status: 409,
+        body: json({
+          error: { code: "conflict", message: "document already exists" },
+        }),
+        type: "application/json",
+      })),
+    });
+    const conflict = await refused.command(save, {
+      input: { title: "a" },
+      idempotency_key: "key-2",
+    });
+    assert(!conflict.ok);
+    assertEquals(conflict.error.code, "conflict");
+    assertEquals(conflict.error.message, "document already exists");
+  },
+);
+
+const upload = defineUpload({
+  resource: "documents",
+  method: "upload",
+  name: "document.upload",
+  input: z.strictObject({ bytes: z.number().int() }),
+  output: z.object({ preparation: z.string() }),
+  actors: ["user"],
+  errors: [],
+  max_bytes: 100,
+});
+
+function stream(...chunks: number[][]): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(new Uint8Array(chunk));
+      controller.close();
+    },
+  });
+}
+
+Deno.test(
+  "coding-agent/connection#R15: upload는 입력을 header로, 바이트를 stream body로 보내고 응답을 출력 schema로 읽는다",
+  async () => {
+    const seen: {
+      url: string;
+      headers: Record<string, string>;
+      body: number[];
+    }[] = [];
+    const uploadFetch: UploadFetch = async (url, init) => {
+      const bytes = new Uint8Array(await new Response(init.body).arrayBuffer());
+      seen.push({ url, headers: init.headers, body: [...bytes] });
+      return {
+        status: 200,
+        bytes: new TextEncoder().encode(JSON.stringify({ preparation: "p1" })),
+      };
+    };
+    const client = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431/",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      uploadFetch,
+    });
+    const result = await client.upload(
+      upload,
+      { bytes: 3 },
+      stream([1, 2], [3]),
+    );
+    assert(result.ok);
+    assertEquals(result.value, { preparation: "p1" });
+    assertEquals(seen[0].url, "http://127.0.0.1:7431/v1/documents/upload");
+    assertEquals(seen[0].body, [1, 2, 3]);
+    assertEquals(seen[0].headers["authorization"], "Bearer tok");
+    assertEquals(
+      seen[0].headers["content-type"],
+      "application/octet-stream",
+    );
+    // 입력 JSON은 header의 base64url이다.
+    const encoded = seen[0].headers[UPLOAD_INPUT_HEADER];
+    assert(/^[A-Za-z0-9_-]+$/.test(encoded));
+    const padded = encoded.replaceAll("-", "+").replaceAll("_", "/");
+    assertEquals(
+      JSON.parse(atob(padded + "=".repeat((4 - padded.length % 4) % 4))),
+      {
+        bytes: 3,
+      },
+    );
+  },
+);
+
+Deno.test(
+  "coding-agent/connection#R15: upload는 잘못된 입력·credential 실패를 보내기 전에 거절하고 오류 본문은 route 오류 그대로다",
+  async () => {
+    let sent = 0;
+    const counting: UploadFetch = () => {
+      sent += 1;
+      return Promise.resolve({
+        status: 409,
+        bytes: new TextEncoder().encode(JSON.stringify({
+          error: { code: "conflict", message: "changed" },
+        })),
+      });
+    };
+    const client = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      uploadFetch: counting,
+    });
+    const invalid = await client.upload(upload, { bytes: "3" }, stream([1]));
+    assert(!invalid.ok);
+    assertEquals(invalid.error.code, "invalid_input");
+    assertEquals(sent, 0);
+    const conflict = await client.upload(upload, { bytes: 1 }, stream([1]));
+    assert(!conflict.ok);
+    assertEquals(conflict.error, { code: "conflict", message: "changed" });
+    const locked = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: () => Promise.resolve({ ok: false, error: "locked" }),
+      uploadFetch: counting,
+    });
+    const refused = await locked.upload(upload, { bytes: 1 }, stream([1]));
+    assert(!refused.ok);
+    assertEquals(refused.error.code, "unavailable");
+    assertEquals(sent, 1);
+    const down = createCoreClient({
+      baseUrl: "http://127.0.0.1:7431",
+      connection: "cac_01arz3ndektsv4rrffq69g5fav",
+      provider: providerAlways("tok"),
+      uploadFetch: () => Promise.reject(new Error("refused")),
+    });
+    const lost = await down.upload(upload, { bytes: 1 }, stream([1]));
+    assert(!lost.ok);
+    assertEquals(lost.error.code, "unavailable");
+    // 쓰기가 아니므로 effect_unknown 진단이 없다. 새 참조를 다시 받으면 된다.
+    assertEquals(lost.error.details?.diagnosis, undefined);
   },
 );

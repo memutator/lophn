@@ -214,7 +214,7 @@ command body는 `{input,idempotency_key,compare,run?,prepared:[],confirmation?}`
 
 `memory` route(command/read처럼 경로를 갖지만 ledger queue·reader와 event를 쓰지 않는다)는 API loop 안의 작은 handler로 바로 돌며 인증·body 한도·schema 검사는 다른 route와 같다. 현재 보기 relay(`/v1/workspace/*`, contracts/shell/workspace.ts)가 이 kind다. relay 값은 core 메모리에만 있고 ledger·blob·log에 가지 않는다. main 연결이 끊기거나 core epoch가 바뀌면 그 main의 relay 값은 모두 `disconnected`이며 결합 없는 주기 run은 `unavailable`이다. 옛 값을 `current`로 주지 않는다(prompt-assemble#R28). shell renderer는 이 경로를 shell allowlist로 부르지 않고 main이 직접 보낸다.
 
-blob prepare, 큰 redaction, TOML parse/import/export, backup 생성·restore·GC, secret 보호 입력·export/import는 신뢰 프로세스의 **검증된 pipe 작업 호출**이다. 일반 HTTP JSON에 raw stream·secret 원값·임의 파일 경로를 받는 별도 업로드 route를 두지 않는다. 이 작업은 ledger command가 아니며 job entity·업무 queue를 새로 만들지 않는다. 실패 시 worker의 관측 결과만 반환하고 domain 확정이 필요한 단계는 아래 command로 따로 제출한다.
+blob prepare, 큰 redaction, TOML parse/import/export, backup 생성·restore·GC, secret 보호 입력·export/import는 신뢰 프로세스의 **검증된 pipe 작업 호출**이다. 일반 HTTP JSON에 raw stream·secret 원값·임의 파일 경로를 받는 범용 업로드 route를 두지 않는다. 소유 concern이 등록한 `upload` kind route만 바이트 body를 받는다: 입력은 `x-lophn-input` header(base64url JSON), body는 `application/octet-stream`이며 route가 상한(`max_bytes`)과 purpose를 고정하고, core는 바이트를 해석·hash·보관 없이 등록된 handler로 흘려 보낸다(문서 파일 제출 `/v1/documents/upload`가 blob 준비 중계로 보낸다). 준비 주체는 요청 credential이다. 이 작업은 ledger command가 아니며 job entity·업무 queue를 새로 만들지 않는다. 실패 시 worker의 관측 결과만 반환하고 domain 확정이 필요한 단계는 아래 command로 따로 제출한다.
 
 ### 5.2 command
 

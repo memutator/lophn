@@ -34,6 +34,7 @@ function sourceOf(layout: unknown = null): {
           ok: true,
           value: [{ id: "ctx_1", title: "design" }],
         }),
+      files: () => Promise.resolve({ ok: true, value: [] }),
       readLayout: () =>
         Promise.resolve(
           layout === null

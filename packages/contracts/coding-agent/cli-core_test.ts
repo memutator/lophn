@@ -1,6 +1,7 @@
 import { assertEquals } from "@std/assert";
 import {
   doc,
+  fileInput,
   hash,
   place,
   project,
@@ -13,6 +14,7 @@ import {
   cliCommonSchema,
   cliDocumentDiffSchema,
   cliDocumentListSchema,
+  cliFormatValidateSchema,
   cliIndexSchema,
   cliProjectCurrentSchema,
   cliReadSchema,
@@ -143,4 +145,32 @@ Deno.test("coding-agent/cli#R12, coding-agent/cli#R13, coding-agent/cli#R14, cod
     false,
   );
   void project;
+});
+
+Deno.test("coding-agent/cli#R15: format validate는 files와 paths 중 정확히 하나만 받는다", () => {
+  const base = {
+    command: "format validate",
+    name: "document",
+    module_hash: hash,
+  };
+  cliFormatValidateSchema.parse({ ...base, paths: ["/work/report.md"] });
+  cliFormatValidateSchema.parse({ ...base, files: [fileInput] });
+  assertEquals(cliFormatValidateSchema.safeParse(base).success, false);
+  assertEquals(
+    cliFormatValidateSchema.safeParse({
+      ...base,
+      paths: ["/work/report.md"],
+      files: [fileInput],
+    }).success,
+    false,
+  );
+  assertEquals(
+    cliFormatValidateSchema.safeParse({ ...base, paths: ["report.md"] })
+      .success,
+    false,
+  );
+  assertEquals(
+    cliFormatValidateSchema.safeParse({ ...base, paths: [] }).success,
+    false,
+  );
 });

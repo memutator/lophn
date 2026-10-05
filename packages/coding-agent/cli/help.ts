@@ -183,12 +183,13 @@ const CORE_HELP: readonly CommandHelp[] = [
   {
     command: "format validate",
     purpose: "파일 bytes를 format으로 검사해 diagnostics를 낸다",
-    required: ["<files...>"],
-    optional: ["--input", "--input-file", "name", "paths"],
+    required: ["name", "module_hash", "paths 또는 files 중 하나"],
+    optional: ["--input", "--input-file"],
     jsonExample: {
       command: "format validate",
-      name: "markdown",
-      paths: ["docs/plan.md"],
+      name: "document",
+      module_hash: "<format show의 module_hash>",
+      paths: ["/work/docs/plan.md"],
       json: true,
     },
     mutate: false,

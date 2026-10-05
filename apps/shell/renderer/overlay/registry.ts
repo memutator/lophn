@@ -18,10 +18,14 @@ const zToken: Record<OverlayKind, string> = {
   notification: "toast",
 };
 
-// 표면이 돌려주는 사람의 조작. 고른 결과와 닫힘만 있고 command는 없다.
+// 표면이 돌려주는 사람의 조작. 고른 결과·닫힘·검색어만 있고 command는 없다.
 export interface SurfaceActions {
   select(choiceId: string): void;
   close(): void;
+  /** 검색 palette의 검색어. 표면은 열린 채다. */
+  query(text: string): void;
+  /** 연 쪽이 같은 표면의 행을 바꾸면 새 표면으로 부른다. 그만 들을 함수를 돌려준다. */
+  watch(listener: (surface: OverlaySurface) => void): () => void;
 }
 
 // host 안에 표면을 그리고 지우는 함수를 돌려준다. 지울 때는 결과도 focus 이동도 만들지 않는다.
@@ -35,6 +39,7 @@ type Item = {
   node: HTMLElement;
   surface: OverlaySurface;
   unmount: () => void;
+  watchers: Set<(surface: OverlaySurface) => void>;
   // 고르기·닫기는 표면마다 한 번만 보낸다. 실패하면 같은 표면의 다음 조작으로 다시 보낼 수 있다.
   terminal: "idle" | "pending" | "done";
 };
@@ -144,13 +149,25 @@ export function overlayRegistry(
     root.append(node);
     if (surface.kind === "drag") {
       drag(node, surface);
-      return { node, surface, unmount: () => {}, terminal: "idle" };
+      return {
+        node,
+        surface,
+        unmount: () => {},
+        watchers: new Set(),
+        terminal: "idle",
+      };
     }
     const identity = {
       surfaceId: surface.surfaceId,
       generation: surface.generation,
     };
-    const item: Item = { node, surface, unmount: () => {}, terminal: "idle" };
+    const item: Item = {
+      node,
+      surface,
+      unmount: () => {},
+      watchers: new Set(),
+      terminal: "idle",
+    };
     nodes.set(surface.surfaceId, item);
     item.unmount = mount(node, surface, {
       select(choiceId) {
@@ -158,6 +175,15 @@ export function overlayRegistry(
       },
       close() {
         void finish(item, { ...identity, type: "closed" });
+      },
+      query(text) {
+        if (live(item) && item.terminal === "idle") {
+          void send({ ...identity, type: "query", text });
+        }
+      },
+      watch(listener) {
+        item.watchers.add(listener);
+        return () => item.watchers.delete(listener);
       },
     });
     return item;
@@ -177,8 +203,17 @@ export function overlayRegistry(
       }
     }
     for (const surface of state.surfaces) {
-      const item = nodes.get(surface.surfaceId) ?? create(surface);
+      const known = nodes.get(surface.surfaceId);
+      const item = known ?? create(surface);
       nodes.set(surface.surfaceId, item);
+      // snapshot은 매번 새 값으로 온다. 행이 실제로 바뀐 때만 표면에 알린다.
+      if (
+        known &&
+        JSON.stringify(known.surface.model) !== JSON.stringify(surface.model)
+      ) {
+        known.surface = surface;
+        for (const watcher of known.watchers) watcher(surface);
+      }
       // main이 정한 native rect를 view-local 좌표로 그대로 놓는다.
       item.node.style.left = `${surface.rect.x}px`;
       item.node.style.top = `${surface.rect.y}px`;

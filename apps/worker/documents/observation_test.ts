@@ -3,7 +3,6 @@
 // contracts의 schema로 검사한다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../packages/base/mod.ts";
-import { BLOB_PREPARATION_TTL_MS } from "../../../packages/contracts/platform/mod.ts";
 import {
   documentPrepareInputSchema,
   preparedVersionSchema,
@@ -20,9 +19,8 @@ import {
   mediaTypeOfPath,
   type ObservationLink,
   type ObservationPorts,
-  PREPARATION_REUSE_MS,
   retryOnNewBasis,
-  reusePreparedBlob,
+  sharePreparedBlob,
   titleOfPath,
 } from "./observation.ts";
 import { createBasisStore } from "./basis.ts";
@@ -451,73 +449,37 @@ Deno.test("documents/file-tracking#R7: conflict가 아닌 실패는 다시 제�
   assertEquals(attempts, 1);
 });
 
-Deno.test("documents/versions#R5: 같은 바이트의 살아 있는 준비는 다시 쓰고 수명 마진이 지나면 새로 준비한다", async () => {
-  let now = 0;
-  let prepared = 0;
-  const reuse = reusePreparedBlob(
-    (bytes, hash) => {
-      prepared += 1;
-      return Promise.resolve(ok({
-        preparation: `prep-${prepared}`,
-        principal: "machine:documents",
-        purpose: "document_file",
-        hash,
-        size_bytes: bytes.length,
-      }));
-    },
-    () => now,
-  );
-  const a = new Uint8Array(4);
-  const b = new Uint8Array(5);
-  const first = await reuse(a, "a".repeat(64));
-  const other = await reuse(b, "b".repeat(64));
-  // A→B→A: 같은 hash는 core의 같은 준비 참조(principal·purpose·hash)를 다시 만들지 않는다.
-  const again = await reuse(a, "a".repeat(64));
-  assert(first.ok && other.ok && again.ok);
-  assertEquals(again.value, first.value);
-  assertEquals(other.value.preparation, "prep-2");
-  assertEquals(prepared, 2);
-  // 준비 참조 수명(10분)보다 먼저 놓아 주고 새로 준비한다.
-  now = PREPARATION_REUSE_MS;
-  const later = await reuse(a, "a".repeat(64));
-  assert(later.ok);
-  assertEquals(later.value.preparation, "prep-3");
-  assert(PREPARATION_REUSE_MS < BLOB_PREPARATION_TTL_MS);
-});
-
-Deno.test("documents/versions#R5: 같은 바이트를 동시에 준비해도 한 번만 준비하고 실패는 다시 시도하게 둔다", async () => {
+Deno.test("documents/versions#R5: 같은 바이트를 동시에 준비하면 한 번만 보내고 끝난 뒤에는 새로 보낸다", async () => {
   let prepared = 0;
   let fail = true;
-  const reuse = reusePreparedBlob(
-    async (bytes, hash) => {
-      prepared += 1;
-      await Promise.resolve();
-      if (fail) return err({ code: "unavailable", message: "blob" });
-      return ok({
-        preparation: `prep-${prepared}`,
-        principal: "machine:documents",
-        purpose: "document_file",
-        hash,
-        size_bytes: bytes.length,
-      });
-    },
-    () => 0,
-  );
+  const share = sharePreparedBlob(async (bytes, hash) => {
+    prepared += 1;
+    await Promise.resolve();
+    if (fail) return err({ code: "unavailable", message: "blob" });
+    return ok({
+      preparation: `prep-${prepared}`,
+      principal: "machine:documents",
+      purpose: "document_file",
+      hash,
+      size_bytes: bytes.length,
+    });
+  });
   const bytes = new Uint8Array(3);
   const hash = "c".repeat(64);
-  const [one, two] = await Promise.all([
-    reuse(bytes, hash),
-    reuse(bytes, hash),
-  ]);
+  const [one, two] = await Promise.all([share(bytes, hash), share(bytes, hash)]);
   assert(!one.ok && !two.ok);
   assertEquals(prepared, 1);
-  // 실패는 남지 않아 다음 시도가 새로 준비한다.
+  // 실패도 끝나면 남지 않아 다음 시도가 새로 보낸다. 다른 hash는 따로 간다.
   fail = false;
-  const [three, four] = await Promise.all([
-    reuse(bytes, hash),
-    reuse(bytes, hash),
+  const [three, four, other] = await Promise.all([
+    share(bytes, hash),
+    share(bytes, hash),
+    share(new Uint8Array(4), "d".repeat(64)),
   ]);
-  assert(three.ok && four.ok);
+  assert(three.ok && four.ok && other.ok);
   assertEquals(three.value, four.value);
-  assertEquals(prepared, 2);
+  assertEquals(prepared, 3);
+  const later = await share(bytes, hash);
+  assert(later.ok);
+  assertEquals(prepared, 4);
 });

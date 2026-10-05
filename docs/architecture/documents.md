@@ -143,6 +143,7 @@ leaf concern은 9개이며 빠진 leaf는 없다. `documents/contracts`는 위 �
 
 | 경로 | 동작 |
 |---|---|
+| `/v1/documents/upload` | `upload` kind. coding agent·사람이 제출한 파일 하나의 바이트(body)를 입력의 hash·크기와 맞춰 blob 준비 중계로 보내 요청 credential 주체의 준비 참조를 돌려준다; 이어지는 `/v1/documents/prepare`의 파일 입력이 된다 |
 | `/v1/documents/prepare` | 저장 입력·기준을 blob과 FormatValidationResult로 준비; 아직 Version 없음 |
 | `/v1/documents/save` | 동일 준비 경로 뒤 `document.save`; PreparedVersion만 받은 내부 제출도 이 handler가 검증 |
 | `/v1/documents/restore` | 선택 고정 판을 준비하고 `document.restore`; 원본 연결이면 사람 파일 쓰기·관측 근거 필수 |

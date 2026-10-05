@@ -111,7 +111,7 @@ route는 renderer의 로컬 화면 주소다. API endpoint나 domain 주소를 �
 - 역할은 같은 목록 열과 하는 일/만든 것/대화 탭을 쓴다. 하는 일은 지금/기다림/멈춤/끝남 순서, 다시 시작/다시 시키기는 분리한다. 대화 입력 gate는 lophn-agent/assignments의 현재 허용 결과를 쓰며 회수된 담당은 지난 대화만 읽고 새 입력을 받지 않는다. 결과가 4개 이상이면 첫 3개와 남은 개수·전체 보기를 둔다.
 - 질문·approval request 칸은 대화 입력 위 하나, blocking 우선·나머지 접수 순서로 현재 번호/전체와 앞뒤 이동을 둔다. 세션 없는 요청도 확인할 것에서 연다.
 - 확인할 것은 기다리는 것/지난 일과 역할·기간 filter로 나눈다. notification 칩은 오른쪽 아래 360px 한 칸·외 n건·보기/닫기만 두고 focus나 현재 문서를 바꾸지 않는다.
-- 창 팔레트 `CommandOrControl+K`, 전역 팔레트 `CommandOrControl+Shift+K`, 런처 복귀 `CommandOrControl+Shift+L`은 서로 다르다. 전역 Ctrl+K를 등록하지 않는다. 팔레트 묶음 순서는 shell/desktop#R30을 따른다.
+- 창 팔레트 `CommandOrControl+K`, 전역 팔레트 `CommandOrControl+Shift+K`, 런처 복귀 `CommandOrControl+Shift+L`은 서로 다르다. 전역 Ctrl+K를 등록하지 않는다. 창 안 두 키는 main이 그 창에 속한 webContents(shell renderer·overlay·앱 view)의 `before-input-event`에서 보고 그 창 shell renderer에 이름만 보낸다. 보호 창의 키는 건드리지 않는다. 팔레트 묶음 순서는 shell/desktop#R30을 따른다.
 
 ## 3. 저장
 
@@ -222,7 +222,7 @@ main registry는 `{view_session, webContents, window, app/version, release, mode
 
 - main은 창마다 투명 WebContentsView 하나를 `lophn-shell://overlay/index.html`로 만들고 `setBackgroundColor('#00000000')`로 둔다. 앱 view를 attach할 때마다 overlay를 `contentView.addChildView`로 다시 넣어 항상 맨 위에 둔다. z-order는 main의 view registry만 바꾼다.
 - 닫혀 있으면 `setVisible(false)`다. menu·popover·tooltip은 그 사각형만, backdrop이 있는 dialog·palette와 경계 drag는 창 본문 전체를 bounds로 쓴다. 그래서 떠 있는 UI 바깥의 click은 그대로 앱이나 shell에 간다.
-- shell renderer가 `shell:overlay-open {kind, anchorRect, model}`을 보내면 main이 sender를 검증해 overlay로 전달하고, 선택·입력 결과는 `shell:overlay-result`로 연 쪽에 돌아온다. overlay는 표시와 선택만 하고 command를 직접 보내지 않는다. 같은 창에서 열린 표면들은 overlay 안의 sibling DOM으로 두어 shell/design-system#R20의 층을 유지하고 dialog 안 menu도 별도 shell overlay view를 만들지 않고 같은 registry에서 표시한다.
+- shell renderer가 `shell:overlay-open {kind, anchorRect, model}`을 보내면 main이 sender를 검증해 overlay로 전달하고, 선택·입력 결과는 `shell:overlay-result`로 연 쪽에 돌아온다. overlay는 표시와 선택만 하고 command를 직접 보내지 않는다. 검색 palette(`model.search`)는 검색어를 거르지 않고 `shell:overlay-result`의 query로 연 쪽에 돌려주고, 연 쪽이 `shell:overlay-update`로 같은 표면의 행을 바꾼다. 행의 대상은 연 쪽 renderer에만 남고 overlay·main에는 행 id·이름·묶음만 간다. 같은 창에서 열린 표면들은 overlay 안의 sibling DOM으로 두어 shell/design-system#R20의 층을 유지하고 dialog 안 menu도 별도 shell overlay view를 만들지 않고 같은 registry에서 표시한다.
 - menu·popover·palette·dialog·sheet 같은 조작 표면만 keyboard focus를 overlay로 옮기고 닫히면 연 요소로 되돌린다. tooltip·경계 drag의 표시만으로 focus를 옮기지 않는다. sheet는 backdrop 없이 Escape·바깥 click으로 닫고 modal 밖 popup은 focus 이동에 닫는다. 자동 notification은 focus와 현재 문서를 유지한다. 조작 표면에 해당 menu·dialog role을, tooltip에는 tooltip 의미를 제공한다.
 - overlay는 보안 경계가 아니다. 사람 결정과 secret 입력은 confirmation window만 받는다.
 

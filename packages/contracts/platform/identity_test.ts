@@ -56,6 +56,32 @@ Deno.test("platform/identity#R2 platform/identity#R3 platform/ledger#R11: scopeì
   };
   assert(credentialConditionsSchema.safeParse(conditions).success);
   assert(
+    credentialConditionsSchema.safeParse({
+      ...conditions,
+      bundle_hash: "b".repeat(64),
+      diagnostic_scope: "apps/worker/problems/report-collector",
+    }).success,
+  );
+  assert(
+    credentialConditionsSchema.safeParse({
+      ...conditions,
+      bundle_hash: null,
+      diagnostic_scope: null,
+    }).success,
+  );
+  assert(
+    !credentialConditionsSchema.safeParse({
+      ...conditions,
+      bundle_hash: "xyz",
+    }).success,
+  );
+  assert(
+    !credentialConditionsSchema.safeParse({
+      ...conditions,
+      diagnostic_scope: "  ",
+    }).success,
+  );
+  assert(
     !credentialConditionsSchema.safeParse({
       ...conditions,
       run: `asg_${suffix}`,

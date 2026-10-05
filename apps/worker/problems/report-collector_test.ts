@@ -1,6 +1,6 @@
 // report collector worker 경계의 테스트. 이름은 요구 번호로 시작한다(dev/tasks.md).
 // 실제 startChild 경계를 흔든다: stdin frame은 미리 준비하고 run() 종료를 기다린다.
-import { assertEquals, assertRejects } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import {
   encodeFrame,
   type Frame,
@@ -11,8 +11,19 @@ import {
   type ByteWriter,
 } from "../../../packages/platform/responsiveness/frames.ts";
 import { type ChildStreams } from "../../../packages/platform/responsiveness/mod.ts";
-import { COLLECTOR_KIND, createCollectorWorker } from "./report-collector.ts";
+import {
+  acceptReportProblem,
+  COLLECTOR_KIND,
+  type CollectorPosition,
+  createCollectorWorker,
+} from "./report-collector.ts";
 import { reportCollectorSpec } from "../../core/problems-runner.ts";
+import { createCollectorQueue } from "../../../packages/problems/reporting/mod.ts";
+import {
+  createKnownSecretRegistry,
+  createRedactionEngine,
+} from "../../../packages/platform/redaction/mod.ts";
+import type { CoreClientOptions } from "../../../packages/problems/reporting/adapters/core-client.ts";
 
 const hello = {
   type: "hello" as const,
@@ -209,4 +220,145 @@ Deno.test("problems/tests#R13: collector launch spec은 쓰기·자식 실행·F
   // 환경은 띄운 뒤 root·kind를 읽는 것뿐이다. HOME·PATH 같은 일반 env는 없다.
   assertEquals(spec?.allow_env, ["LOPHN_HOME", "LOPHN_WORKER_KIND"]);
   assertEquals(reportCollectorSpec({ dataRoot: "relative" }), undefined);
+});
+
+// 실제 redaction 엔진을 거친 보고 접수(problems/reporting#R1). ledger 행에
+// 닿는 조립값은 POST envelope이므로 fetch를 갈아껴 envelope을 모은다.
+function capturingClient(
+  captured: { envelope?: unknown },
+): CoreClientOptions {
+  const acceptance = {
+    report: "rpt_01arz3ndektsv4rrffq69g5fav",
+    snapshot: "snp_01arz3ndektsv4rrffq69g5fav",
+    problem: "prb_01arz3ndektsv4rrffq69g5fav",
+    diagnostic_scope: null,
+  };
+  return {
+    baseUrl: "http://127.0.0.1:0",
+    credential: "token-never-record",
+    fetch: (_input, init) => {
+      captured.envelope = JSON.parse(init.body);
+      return Promise.resolve({
+        status: 200,
+        bytes: new TextEncoder().encode(JSON.stringify(acceptance)),
+      });
+    },
+  };
+}
+
+function position(claims: CollectorPosition["claims"]): CollectorPosition {
+  return { credential: "token-never-record", api_port: 0, claims };
+}
+
+function fakeSession(): import("../../../packages/platform/responsiveness/mod.ts").ChildSession {
+  const noop = () => Promise.resolve();
+  return {
+    send: noop,
+    sendBytes: noop,
+    stopped: false,
+    credentialUsable: true,
+    readAhead: {} as never,
+    run: noop,
+  };
+}
+
+const CLAIMED = position({
+  app: "app_01arz3ndektsv4rrffq69g5fav",
+  release: "rel_01arz3ndektsv4rrffq69g5fav",
+  process: "collector-test",
+  mode: "test",
+  diagnostic_scope: "apps/worker/problems/report-collector",
+});
+
+Deno.test("problems/reporting#R1: secret 형태의 text·details는 redaction 엔진을 거치고 저장 조립값과 snapshot에 남지 않는다", async () => {
+  const known = createKnownSecretRegistry();
+  const secret = "sk-ant-AAAAdemo1234567890abcdef";
+  known.register([secret]);
+  const redaction = createRedactionEngine({ registry: known });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  const payload = {
+    report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+    code: "save_failed",
+    observed_at: "2026-10-04T12:00:00.000Z",
+    text: `token: ${secret} and sk-[A-Za-z0-9]{20,} is not a literal but AKIA${
+      "B".repeat(16)
+    } is`,
+    details: {
+      nested: {
+        openai: `sk-${"C".repeat(24)}`,
+        jwt: `${"D".repeat(12)}.${"E".repeat(12)}.${"F".repeat(12)}`,
+      },
+    },
+  };
+  await acceptReportProblem(
+    payload,
+    capturingClient(captured),
+    redaction,
+    queue,
+    fakeSession(),
+    CLAIMED,
+  );
+  assert(captured.envelope !== undefined);
+  const serialized = JSON.stringify(captured.envelope);
+  // 등록한 known secret과 credential pattern 값이 조립값 어디에도 남지 않는다.
+  assertEquals(serialized.includes(secret), false);
+  assertEquals(serialized.includes(`sk-${"C".repeat(24)}`), false);
+  assertEquals(
+    serialized.includes(
+      `${"D".repeat(12)}.${"E".repeat(12)}.${"F".repeat(12)}`,
+    ),
+    false,
+  );
+  assertEquals(serialized.includes(`AKIA${"B".repeat(16)}`), false);
+  assertEquals(captured.envelope["prepared"], []);
+  const input = captured.envelope["input"] as {
+    report: { text: string | null; details: string | null };
+    snapshot: Record<string, unknown>;
+  };
+  // permanent content는 hash뿐이다: text·details 열은 null이고 snapshot 증거도 없다.
+  assertEquals(input.report.text, null);
+  assertEquals(input.report.details, null);
+  assertEquals(input.snapshot.invocation, null);
+  assertEquals(input.snapshot.error, null);
+  assertEquals(input.snapshot.logs, null);
+  assertEquals(input.snapshot.screen, null);
+  // 제출 성공 뒤 대기 큐에서 빠진다(R16).
+  assertEquals(queue.size, 0);
+});
+
+Deno.test("problems/reporting#R1: app·mode 주장이 없는 credential은 추측값 대신 잘못된 보고 진단으로 거절한다", async () => {
+  const redaction = createRedactionEngine({
+    registry: createKnownSecretRegistry(),
+  });
+  const queue = createCollectorQueue({
+    pending_count: 8,
+    pending_bytes: 65536,
+  });
+  const captured: { envelope?: Record<string, unknown> } = {};
+  const payload = {
+    report_id: "rpt_01arz3ndektsv4rrffq69g5fav",
+    code: "save_failed",
+    observed_at: "2026-10-04T12:00:00.000Z",
+    text: "no claims here",
+  };
+  await assertRejects(
+    () =>
+      acceptReportProblem(
+        payload,
+        capturingClient(captured),
+        redaction,
+        queue,
+        fakeSession(),
+        position({}),
+      ),
+    Error,
+    "report credential has no app or mode claim",
+  );
+  // envelope에 닿지 않았다: 거절이 제출보다 앞선다.
+  assertEquals(captured.envelope, undefined);
+  assertEquals(queue.size, 0);
 });

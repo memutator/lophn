@@ -94,10 +94,15 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
         registerBlobRef: (reference: {
           owner_key: string;
           field: string;
-          source: { kind: string; blob?: PreparedBlob };
+          source: {
+            kind: string;
+            blob?: PreparedBlob;
+            reference?: { hash: string };
+          };
         }) => {
           guard();
-          const hash = reference.source.blob?.hash ?? "";
+          const hash = reference.source.blob?.hash ??
+            reference.source.reference?.hash ?? "";
           blobs.push({
             owner_key: reference.owner_key,
             field: reference.field,
@@ -188,19 +193,26 @@ export function file(
   primary: boolean,
   bytes = 4,
   media = "text/plain",
-): ContentFile & { prepared: PreparedBlob } {
+): ContentFile & {
+  preparation_ref: string;
+  content: { kind: "prepared"; blob: PreparedBlob };
+} {
   return {
     path,
     blob_hash: HASH,
     bytes,
     media_type: media,
     primary,
-    prepared: {
-      preparation: `prep-${path}`,
-      principal: "person",
-      purpose: "document_file",
-      hash: HASH,
-      size_bytes: bytes,
+    preparation_ref: `prep-${path}`,
+    content: {
+      kind: "prepared",
+      blob: {
+        preparation: `prep-${path}`,
+        principal: "person",
+        purpose: "document_file",
+        hash: HASH,
+        size_bytes: bytes,
+      },
     },
   };
 }
@@ -231,7 +243,8 @@ export function preparedInput(
       diagnostics: [],
     },
     source: null,
-    files,
+    // 저장 입력의 파일은 ContentFile과 준비 참조다(준비 입력의 content는 싣지 않는다).
+    files: files.map(({ content: _content, ...item }) => item),
     ...extra,
   };
 }

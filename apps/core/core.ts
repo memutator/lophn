@@ -175,6 +175,9 @@ export type Core = {
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
   // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
   documentsFeed?: InternalSubscription;
+  // testCredentials일 때만 있다. event dispatcher에 올라 있는 session 수다. 닫힌 WebSocket
+  // 연결이 session을 남기지 않는지 본다(platform/api#R5).
+  eventSessions?(): number;
   // testCredentials일 때만 있다. 확인 창 handle을 writer registry에 발급한다.
   confirmation?(body: {
     action: "issue" | "close-window" | "clear";
@@ -456,6 +459,7 @@ async function open(
       memory: runtime.memory.handlers,
       events: runtime.events,
       subscriptions: runtime.subscriptions,
+      track: (session) => runtime.track(session),
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
@@ -714,7 +718,9 @@ async function open(
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
-    ...(options.testCredentials ? { documentsFeed } : {}),
+    ...(options.testCredentials
+      ? { documentsFeed, eventSessions: () => runtime!.trackedSessions() }
+      : {}),
     blobBuffer,
     childBlobPrepare: (kind, send) =>
       createChildBlobPrepare({

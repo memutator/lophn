@@ -5,6 +5,7 @@ import {
   atSchema,
   idempotencyKeySchema,
   idSchema,
+  permanentBlobReferenceSchema,
   runIdSchema,
   seqSchema,
   sha256Schema,
@@ -269,6 +270,41 @@ export const versionSchema = versionSummarySchema.refine((value) =>
 );
 export type Version = z.infer<typeof versionSchema>;
 
+// 판에 묶을 파일 하나: ContentFile과 그 원문 blob의 출처. 새로 올린 바이트는 준비 참조
+// (`document_file` 준비)로, 이미 등록된 blob(옛 판으로 되돌림, 같은 바이트의 다른 문서)은
+// 그 참조(`existing`)로 가리킨다. save가 같은 tx에서 version_files 행과 경로별 원문 blob
+// 참조(versionFileField)를 남긴다. 어느 쪽인지는 준비 단계가 입력의 content로 정한다.
+const preparedNewFileFields = {
+  ...contentFileFields,
+  preparation_ref: z.string().min(1),
+};
+const preparedExistingFileFields = {
+  ...contentFileFields,
+  existing: z.strictObject(permanentBlobReferenceSchema.shape),
+};
+export const preparedFileSchema = z.union([
+  z.strictObject(preparedNewFileFields),
+  z.strictObject(preparedExistingFileFields).refine(
+    (f) => f.existing.hash === f.blob_hash,
+    { message: "existing reference must be the file's blob" },
+  ),
+]);
+export const preparedFileOutputSchema = z.union([
+  z.object(preparedNewFileFields),
+  z.object({
+    ...preparedExistingFileFields,
+    existing: permanentBlobReferenceSchema,
+  }).refine((f) => f.existing.hash === f.blob_hash),
+]);
+export type PreparedFile = z.infer<typeof preparedFileSchema>;
+
+const preparedFileList = (
+  value: { files: { path: string; primary: boolean }[]; file_count: number },
+) =>
+  value.files.length === value.file_count &&
+  value.files.filter((f) => f.primary).length === 1 &&
+  new Set(value.files.map((f) => f.path)).size === value.files.length;
+
 const preparedFields = {
   document: documentIdSchema,
   base_version: versionIdSchema.nullable(),
@@ -281,12 +317,18 @@ const preparedFields = {
 };
 export const preparedVersionSchema = z.strictObject({
   ...preparedFields,
+  files: z.array(preparedFileSchema).min(1),
   metadata: documentMetadataSchema.optional(),
   format: formatRefSchema,
   validation: formatValidationResultSchema,
   file_basis: fileObservationBasisSchema.optional(),
   source: versionSourceSchema.nullable(),
 }).refine((v) => v.base_version !== null || v.metadata !== undefined).refine(
+  (v) =>
+    preparedFileList(v) &&
+    v.files.find((f) => f.primary)!.path === v.primary_path,
+  { message: "files must match file_count and primary_path" },
+).refine(
   (v) =>
     v.validation.input_hash === v.content_hash &&
     v.validation.module_hash === v.format.module_hash &&
@@ -310,6 +352,7 @@ export const preparedVersionSchema = z.strictObject({
 );
 export const preparedVersionOutputSchema = z.object({
   ...preparedFields,
+  files: z.array(preparedFileOutputSchema).min(1),
   metadata: documentMetadataOutputSchema.optional(),
   format: formatRefOutputSchema,
   validation: formatValidationResultOutputSchema,

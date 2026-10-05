@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { err } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import { createVersionCommands } from "./commands.ts";
 import {
   file,
@@ -42,13 +42,41 @@ Deno.test("documents/versions#R1: 첫 저장은 문서와 1번 판을 한 transa
     assertEquals(version?.["number"], 1);
     assertEquals(version?.["primary_path"], "index.html");
     assertEquals(version?.["file_count"], 2);
-    // 경로별 원문 행은 준비 worker가 파일 목록을 확정하며 남긴다(documents T8).
-    // 저장은 정규화 목록 blob 참조를 판에 묶는다.
+    // 저장은 정규화 목록 blob 참조와 경로별 원문 blob 참조를 같은 tx에서 판에 묶고
+    // 경로별 version_files 행을 남긴다(Q16).
     const blobs = fixture.blobs.filter((blob) =>
       blob.owner_key === result.version
     );
     assertEquals(blobs.map((blob) => blob.field), ["files"]);
     assertEquals(blobs[0].hash, HASH);
+    const originals = fixture.blobs.filter((blob) =>
+      blob.owner_key.startsWith(`${result.version}/`)
+    );
+    assertEquals(
+      originals.map((blob) => [blob.owner_key, blob.field, blob.hash]),
+      [
+        [`${result.version}/index.html`, "file", HASH],
+        [`${result.version}/cover.png`, "file", HASH],
+      ],
+    );
+    const rows = fixture.sql.all(
+      `SELECT path, blob_hash, bytes, media_type, primary_file
+       FROM version_files WHERE version = ? ORDER BY path`,
+      [result.version],
+    );
+    assertEquals(
+      rows.map((row) => [
+        row["path"],
+        row["blob_hash"],
+        row["bytes"],
+        row["media_type"],
+        row["primary_file"],
+      ]),
+      [
+        ["cover.png", HASH, 8, "image/png", 0],
+        ["index.html", HASH, 12, "text/html", 1],
+      ],
+    );
     const types = fixture.emitted.map((event) => event.type);
     assertEquals(types, ["DocumentCreated", "DocumentSaved"]);
     assertEquals(
@@ -109,11 +137,19 @@ Deno.test("documents/versions#R3: 같은 내용과 format 계약의 저장은 �
       idempotency_key: "save-2",
     });
     const events = fixture.emitted.length;
+    const blobsBefore = fixture.blobs.length;
     const repeated = keep(save(fixture, again));
     assertEquals(repeated.status, "unchanged");
     assertEquals(repeated.version, first.version);
     assertEquals(repeated.event_seq, null);
     assertEquals(fixture.emitted.length, events);
+    // 같은 내용의 재저장은 blob 참조도 판의 파일 행도 새로 만들지 않는다.
+    assertEquals(fixture.blobs.length, blobsBefore);
+    const rowCount = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM version_files",
+      [],
+    );
+    assertEquals(rowCount?.["count"], 1);
     const count = fixture.sql.get(
       "SELECT COUNT(*) AS count FROM versions WHERE document = ?",
       [ids.doc],
@@ -677,5 +713,137 @@ Deno.test("documents/file-tracking#R7: 새 문서 제출이 이미 있는 연결
     assertEquals(count?.["count"], 0);
   } finally {
     fixture.close();
+  }
+});
+
+// 이미 등록된 원문 blob을 새 판의 파일로 다시 묶는 입력(옛 내용으로 되돌림, 같은 바이트).
+function existingFile(
+  version: string,
+  path: string,
+  overrides: Record<string, unknown> = {},
+) {
+  const { content: _content, preparation_ref: _ref, ...plain } = file(
+    path,
+    true,
+  );
+  return {
+    ...plain,
+    existing: {
+      owner_kind: "document_version",
+      owner_key: `${version}/${path}`,
+      field: "file",
+      hash: HASH,
+      registered_seq: "1",
+    },
+    ...overrides,
+  };
+}
+
+function secondVersion(
+  base: string,
+  files: unknown[],
+  key = "save-2",
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    ...preparedInput(ids.doc, [file("a.md", true)]),
+    base_version: base,
+    metadata: undefined,
+    idempotency_key: key,
+    content_hash: "cd".repeat(32),
+    files,
+    ...extra,
+  } as unknown as ReturnType<typeof preparedInput>;
+}
+
+Deno.test("documents/versions#R5: 이미 등록된 원문 blob은 같은 tx에서 새 판의 경로에 다시 묶인다", () => {
+  const fixture = versionFixture();
+  try {
+    const first = keep(
+      save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+    );
+    const reused = keep(
+      save(
+        fixture,
+        secondVersion(first.version, [existingFile(first.version, "a.md")]),
+      ),
+    );
+    assertEquals(reused.status, "saved");
+    const rows = fixture.sql.all(
+      "SELECT path, blob_hash, bytes FROM version_files WHERE version = ?",
+      [reused.version],
+    );
+    assertEquals(rows.map((row) => [row["path"], row["blob_hash"]]), [[
+      "a.md",
+      HASH,
+    ]]);
+    assertEquals(
+      fixture.blobs.filter((blob) =>
+        blob.owner_key === `${reused.version}/a.md`
+      ).map((blob) => [blob.field, blob.hash]),
+      [["file", HASH]],
+    );
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/versions#R5: 없는 기존 참조와 권한 밖 참조는 같은 답이고 아무것도 남기지 않는다", () => {
+  const denyFile = versionFixture((_ctx, operation) =>
+    operation === "document.file"
+      ? err({ code: "forbidden", message: "범위 밖" })
+      : ok(undefined)
+  );
+  const open = versionFixture();
+  try {
+    const answers: unknown[] = [];
+    for (const fixture of [denyFile, open]) {
+      const first = keep(
+        save(fixture, preparedInput(ids.doc, [file("a.md", true)])),
+      );
+      const before = fixture.blobs.length;
+      const target = fixture === denyFile
+        ? existingFile(first.version, "a.md") // 있지만 권한 밖
+        : existingFile("ver_01arz3ndektsv4rrffq69g5fb9", "a.md"); // 없음
+      const rejected = save(fixture, secondVersion(first.version, [target]));
+      assert(!rejected.ok);
+      answers.push(rejected.error);
+      assertEquals(fixture.blobs.length, before);
+      assertEquals(
+        fixture.sql.get("SELECT COUNT(*) AS count FROM versions", [])?.[
+          "count"
+        ],
+        1,
+      );
+    }
+    assertEquals(answers[0], answers[1]);
+    // 판 파일 참조가 아닌 blob(목록 blob 등)이나 다른 크기를 가리키는 참조도 같은 답이다.
+    const first = keep(
+      save(open, preparedInput(ids.other, [file("a.md", true)])),
+    );
+    for (
+      const bad of [
+        existingFile(first.version, "a.md", {
+          existing: {
+            owner_kind: "document_version",
+            owner_key: first.version,
+            field: "files",
+            hash: HASH,
+            registered_seq: "1",
+          },
+        }),
+        existingFile(first.version, "a.md", { bytes: 99 }),
+      ]
+    ) {
+      const result = save(
+        open,
+        secondVersion(first.version, [bad], "save-9", { document: ids.other }),
+      );
+      assert(!result.ok);
+      assertEquals(result.error, answers[0]);
+    }
+  } finally {
+    denyFile.close();
+    open.close();
   }
 });

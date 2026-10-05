@@ -101,6 +101,14 @@ function prepared(key: string, base: string | null) {
     primary_path: "a.md",
     content_hash: HASH,
     preparation_ref: `prep-${key}`,
+    files: [{
+      path: "a.md",
+      blob_hash: HASH,
+      bytes: 10,
+      media_type: "text/markdown",
+      primary: true,
+      preparation_ref: `prep-file-${key}`,
+    }],
     idempotency_key: key,
     ...(base === null
       ? { metadata: { title: "관측", place: null, name: null } }
@@ -139,6 +147,14 @@ Deno.test("documents/versions#R13: core가 hello로 준 machine credential은 do
       size_bytes: 10,
     }, AT);
     assert(noted.ok, noted.ok ? "" : noted.error.message);
+    const notedFile = await core.notePrepared({
+      preparation: "prep-file-observe-1",
+      principal: "machine:documents",
+      purpose: "document_file",
+      hash: HASH,
+      size_bytes: 10,
+    }, AT);
+    assert(notedFile.ok, notedFile.ok ? "" : notedFile.error.message);
     const saved = await client.call("documents/save", {
       input: prepared("observe-1", null),
       idempotency_key: "observe-1",

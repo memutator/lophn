@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
-import {
-  ACTOR_KINDS,
-  blobRefRegistrationSchema,
-  defineCommand,
-} from "../../contracts/platform/mod.ts";
-import { MESSAGE_CONTENT_PURPOSE } from "../../contracts/lophn-agent/mod.ts";
+import { ACTOR_KINDS, defineCommand } from "../../contracts/platform/mod.ts";
+import { registerMessageBodyRef } from "./testing/mod.ts";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import {
   createPresetCommands,
@@ -28,7 +24,6 @@ import {
   createConversationCommands,
   createConversationReads,
   hasUnappliedSteering,
-  messageBodyFields,
 } from "./mod.ts";
 
 // 세션·메시지 ledger 테스트 등록. preset·assignment·run 표와 같은 wire에
@@ -125,56 +120,15 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   });
   const reads = createConversationReads();
   return {
-    // platform 등록기와 같은 검사(field 정의·준비 주체·purpose)를 표 하나로 줄인 시험용
-    // 등록이다. 참조 행은 실제 blob_refs 표에 들어간다.
-    registerBlobRef: (tx, ctx, reference) => {
-      const parsed = blobRefRegistrationSchema.safeParse(reference);
-      if (!parsed.success) {
-        return err({ code: "invalid_input", message: "invalid registration" });
-      }
-      const value = parsed.data;
-      if (
-        !messageBodyFields.some((field) =>
-          field.owner_kind === value.owner_kind && field.field === value.field
-        )
-      ) {
-        return err({ code: "forbidden", message: "field is not defined" });
-      }
-      if (value.source.kind !== "prepared") {
-        return err({ code: "forbidden", message: "prepared blob only" });
-      }
-      const blob = value.source.blob;
-      if (
-        blob.principal !== ctx.principal ||
-        blob.purpose !== MESSAGE_CONTENT_PURPOSE ||
-        tx.sql.get("select 1 as found from unprepared where on_ = 1", []) !==
-          undefined
-      ) {
-        return err({
-          code: "invalid_input",
-          message: "no live preparation for this principal and purpose",
-        });
-      }
-      tx.sql.run(
-        `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes,
-           registered_seq) values (?, ?, ?, ?, ?, ?)`,
-        [
-          value.owner_kind,
-          value.owner_key,
-          value.field,
-          blob.hash,
-          blob.size_bytes,
-          BigInt(value.registered_seq),
-        ],
-      );
-      return ok({
-        owner_kind: value.owner_kind,
-        owner_key: value.owner_key,
-        field: value.field,
-        hash: blob.hash,
-        registered_seq: value.registered_seq,
-      });
-    },
+    registerBlobRef: (tx, ctx, reference) =>
+      registerMessageBodyRef(
+        tx,
+        ctx,
+        reference,
+        () =>
+          tx.sql.get("select 1 as found from unprepared where on_ = 1", []) !==
+            undefined,
+      ),
     schemaSteps: [
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,

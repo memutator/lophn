@@ -706,6 +706,25 @@ Deno.test("lophn-agent/conversation#R4: a machine records redacted text only and
       const long = textContent("가".repeat(30_000));
       const tooLong = await record(id("msg", 4), long);
       assertEquals(tooLong.status, 400, JSON.stringify(tooLong.body));
+      // agent의 답은 240KiB까지다. 요청 상한(256KiB) 안이어도 그보다 크면 준비하지 않는다.
+      const bigAnswer = await post(
+        core.port,
+        "messages/record",
+        command(
+          {
+            id: id("msg", 7),
+            session,
+            run,
+            content: textContent("a".repeat(250_000)),
+            links: [],
+          },
+          "r-agent-big",
+          {},
+          run,
+        ),
+        agent,
+      );
+      assertEquals(bigAnswer.status, 400, JSON.stringify(bigAnswer.body));
       // RPC 본문(256KiB)을 넘는 요청은 계약 검사 전에 끊긴다.
       const huge = await record(id("msg", 5), textContent("a".repeat(300_000)));
       assertEquals(huge.status, 400, JSON.stringify(huge.body));

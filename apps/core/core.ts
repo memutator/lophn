@@ -38,6 +38,8 @@ import {
 import { createPreparationRegistry } from "../../packages/platform/blob-store/mod.ts";
 import type { BlobFieldDefinition } from "../../packages/contracts/platform/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
+import { documentPrepareRoute, relaySink } from "./documents-prepare.ts";
+import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
@@ -264,6 +266,11 @@ async function open(
     await runtime.close();
     return sweepCredential;
   }
+  // blob 준비 중계는 I/O worker가 뜬 뒤에 채워진다. 그 전에는 prepare route가
+  // unavailable이다. route는 떠 있고, 바이트는 중계가 읽는 stream으로 바로 간다.
+  const prepareRelay: {
+    current?: (call: BlobPrepareCall) => Promise<Result<PreparedRelayResult>>;
+  } = {};
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -278,6 +285,7 @@ async function open(
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
+      workers: documentPrepareWorkers(prepareRelay),
     });
   } catch {
     await runtime.close();
@@ -312,7 +320,10 @@ async function open(
       (prepared, nowMs) => runtime.notePrepared(prepared, nowMs),
     )
     : undefined;
-  if (blobRelay) blobRead.use(blobRelay.readBytes);
+  if (blobRelay) {
+    blobRead.use(blobRelay.readBytes);
+    prepareRelay.current = (call) => blobRelay.prepare(call);
+  }
   // 준비 참조 수명 만기 prune. writer 메모리의 만기 판정 시각도 함께 전진한다.
   // 파일 GC는 하지 않고 메모리 참조만 떨어뜨린다.
   const timer = setInterval(() => {
@@ -616,6 +627,46 @@ function startPlatformIo(
       message: "platform/io worker를 시작하지 못했다",
     })
   );
+}
+
+// document.prepare worker route. blob 중계가 뜨면 준비된다. format 검사와 기준 판
+// 읽기는 그 소유 연결이 아직 없어 unavailable로 답한다. 목록 hash와 blob은 같은
+// stream에서 만든다.
+function documentPrepareWorkers(
+  relay: {
+    current?: (call: BlobPrepareCall) => Promise<Result<PreparedRelayResult>>;
+  },
+): ReadonlyMap<string, WorkerRouteTarget> {
+  const route = documentPrepareRoute({
+    sink: () =>
+      relaySink((bytes) => {
+        const prepare = relay.current;
+        if (!prepare) {
+          return Promise.resolve(err({
+            code: "unavailable",
+            message: "blob 준비 중계가 아직 없다",
+          }));
+        }
+        return prepare({
+          principal: "machine",
+          purpose: "document_files",
+          bytes,
+        });
+      }),
+    available: () => relay.current !== undefined,
+    observedAt: () => new Date().toISOString(),
+    validateFiles: () =>
+      Promise.resolve(err({
+        code: "unavailable",
+        message: "format 검사가 아직 연결되지 않았다",
+      })),
+    loadBaseVersion: () =>
+      Promise.resolve(err({
+        code: "unavailable",
+        message: "기준 판 읽기가 아직 연결되지 않았다",
+      })),
+  });
+  return new Map([[route.key, { handle: route.handle }]]);
 }
 
 function ioComponent(

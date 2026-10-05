@@ -11,7 +11,16 @@ import {
   type ObservationCandidate,
   scheduleScan,
 } from "./observation.ts";
-import { readStably, type ScanEntry, type ScanPort, scanRoot } from "./work.ts";
+import {
+  type ObservationSubmit,
+  type ObserveDeps,
+  observeRoot,
+  readStably,
+  type ScanEntry,
+  type ScanPort,
+  scanRoot,
+  type WatchSignal,
+} from "./work.ts";
 
 function candidate(
   canonical: string,
@@ -237,4 +246,184 @@ Deno.test("documents/file-tracking#R6: 같은 stream의 hash와 바이트가 안
   if (outcome.value.kind !== "stable") throw new Error("expected stable");
   assertEquals(outcome.value.read.hash, "len-3");
   assertEquals(outcome.value.read.bytes, bytes);
+});
+
+// 신호를 직접 넣는 watch. push한 순서대로 흐르고, close하면 루프가 끝난다.
+function scriptedWatch(signals: WatchSignal[]): ObserveDeps["watch"] {
+  return {
+    watch() {
+      return {
+        async *[Symbol.asyncIterator]() {
+          for (const signal of signals) yield signal;
+        },
+      };
+    },
+  };
+}
+
+const BASIS = {
+  project: "prj_1",
+  projectRevision: "1",
+  path: "/work/a.md",
+  documentRevision: "1",
+  active: true,
+  archived: false,
+  rootPresent: true,
+};
+
+// 호출할 때마다 시간이 흐른다. 신호 시각과 조용함 판정이 다른 시각이 된다.
+function movingClock(start: number): () => number {
+  let now = start;
+  return () => {
+    now += 1_000;
+    return now;
+  };
+}
+
+function observeDeps(
+  watch: ObserveDeps["watch"],
+  submit: (submission: ObservationSubmit) => Promise<Result<void>>,
+  nowMs: () => number,
+): ObserveDeps {
+  return {
+    watch,
+    scan: memoryScan({}),
+    read: {
+      open: () =>
+        Promise.resolve(ok({
+          before: {
+            realPath: "/work/a.md",
+            device: 1,
+            inode: 1,
+            size: 1,
+            mtimeMs: 1,
+          },
+          read: () => Promise.resolve(ok(new Uint8Array([1]))),
+        })),
+      identity: () =>
+        Promise.resolve(ok({
+          realPath: "/work/a.md",
+          device: 1,
+          inode: 1,
+          size: 1,
+          mtimeMs: 1,
+        })),
+      hash: () => Promise.resolve("ab".repeat(32)),
+    },
+    nowMs,
+    submit,
+    basisFor: () => BASIS,
+  };
+}
+
+Deno.test("documents/file-tracking#R3: watch 넘침은 개별 후보를 버리고 전체를 다시 대조한다", async () => {
+  const submitted: string[] = [];
+  const now = 1_000;
+  await observeRoot(
+    observeDeps(
+      scriptedWatch([{ kind: "overflow" }]),
+      (submission) => {
+        submitted.push(submission.candidate.relative);
+        return Promise.resolve(ok(undefined));
+      },
+      () => now,
+    ),
+    {
+      root: "/work",
+      patterns: [{ glob: "**/*", effect: "include" }],
+      useGitignore: false,
+      enabled: true,
+    },
+  );
+  // overflow 뒤 scan이 비어 있으므로 제출은 없다. 넘친 신호를 후보로 남기지 않는다.
+  assertEquals(submitted, []);
+});
+
+Deno.test("documents/file-tracking#R6: 읽는 중 교체된 파일은 unverified로 제출되고 확정되지 않는다", async () => {
+  const submitted: ObservationSubmit[] = [];
+  const deps = observeDeps(
+    scriptedWatch([{
+      kind: "changed",
+      canonical: "/work/a.md",
+      relative: "a.md",
+      fact: "modified",
+    }]),
+    (submission) => {
+      submitted.push(submission);
+      return Promise.resolve(ok(undefined));
+    },
+    movingClock(0),
+  );
+  // 열기 전과 읽기 뒤의 inode가 다르다. 안정 읽기는 unverified로 끝난다.
+  deps.read.identity = () =>
+    Promise.resolve(ok({
+      realPath: "/work/a.md",
+      device: 1,
+      inode: 9,
+      size: 1,
+      mtimeMs: 1,
+    }));
+  await observeRoot(deps, {
+    root: "/work",
+    patterns: [],
+    useGitignore: false,
+    enabled: true,
+  });
+  assertEquals(submitted.length, 1);
+  assertEquals(submitted[0].outcome.kind, "unverified");
+});
+
+Deno.test("documents/file-tracking#R3: size·mtime가 같아도 주기 대조는 hash를 건너뛰지 않는다", async () => {
+  const hashed: string[] = [];
+  const deps = observeDeps(
+    scriptedWatch([]),
+    (submission) => {
+      hashed.push(submission.candidate.relative);
+      return Promise.resolve(ok(undefined));
+    },
+    movingClock(0),
+  );
+  // scan은 크기·시각을 보지 않고 규칙에 맞는 파일을 모두 후보로 올린다.
+  deps.scan = memoryScan({
+    "": [{ name: "a.md", kind: "file" }],
+  });
+  await observeRoot(deps, {
+    root: "/work",
+    patterns: [{ glob: "**/*.md", effect: "include" }],
+    useGitignore: false,
+    enabled: true,
+  });
+  assertEquals(hashed, ["a.md"]);
+});
+
+Deno.test("documents/file-tracking#R7: 준비와 확정 사이에 근거가 바뀌면 제출은 거절되고 다시 관측한다", async () => {
+  const submitted: ObservationSubmit[] = [];
+  await observeRoot(
+    observeDeps(
+      scriptedWatch([{
+        kind: "changed",
+        canonical: "/work/a.md",
+        relative: "a.md",
+        fact: "modified",
+      }]),
+      (submission) => {
+        submitted.push(submission);
+        // 확정 쪽이 규칙·연결·보관 변경으로 거절한 자리다.
+        return Promise.resolve({
+          ok: false,
+          error: { code: "conflict", message: "basis changed" },
+        });
+      },
+      movingClock(0),
+    ),
+    {
+      root: "/work",
+      patterns: [],
+      useGitignore: false,
+      enabled: true,
+    },
+  );
+  assertEquals(submitted.length, 1);
+  // 거절된 제출은 확정으로 세지 않는다. 후보는 큐에서 빠지고 다음 scan이 다시 본다.
+  assertEquals(submitted[0].outcome.kind, "stable");
 });

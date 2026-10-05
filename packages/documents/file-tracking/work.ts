@@ -3,8 +3,20 @@
 import { ok, type Result } from "../../base/mod.ts";
 import { decideTracking, type GitignoreRule } from "../projects/mod.ts";
 import type { TrackingPattern } from "../../contracts/documents/mod.ts";
-import { STABLE_READ_RETRIES } from "./model.ts";
-import { type FileIdentity, identityMatches } from "./observation.ts";
+import { QUIET_MS, STABLE_READ_RETRIES } from "./model.ts";
+import {
+  dropCandidate,
+  dueCandidates,
+  emptyObservation,
+  type FileIdentity,
+  identityMatches,
+  mergeCandidate,
+  type ObservationBasisCheck,
+  type ObservationCandidate,
+  type ObservationFact,
+  SCAN_INTERVAL_MS,
+  scheduleScan,
+} from "./observation.ts";
 
 export type ScanEntry = {
   name: string;
@@ -133,6 +145,151 @@ export type StableOutcome =
 
 // 같은 stream에서 hash와 보존 바이트를 만든다. 열기 전·후 identity가 다르면
 // 최대 3번 다시 읽고, 그래도 흔들리면 unverified로 둔다.
+// ── 관측 루프 ────────────────────────────────────────────────────────────
+// watch 신호는 힌트다. 750ms 조용한 후보만 안정 읽기하고, 60초마다 root를 다시
+// 대조한다. 시작·watch 넘침·단절·규칙 변경은 전체 대조로 들어온다. 파일 읽기는
+// 주입한 port만 부른다.
+
+export type WatchSignal =
+  | {
+    kind: "changed";
+    canonical: string;
+    relative: string;
+    fact: ObservationFact;
+  }
+  | { kind: "overflow" }
+  | { kind: "closed" };
+
+// root 하나의 watch. 신호는 async iterator로 온다. overflow·closed는 전체 대조다.
+export type WatchPort = {
+  watch(root: string): AsyncIterable<WatchSignal>;
+};
+
+export type ObserveRoot = {
+  root: string;
+  patterns: readonly TrackingPattern[];
+  useGitignore: boolean;
+  enabled: boolean;
+};
+
+// 관측 하나의 제출. basis는 제출 시점의 근거이고, 확정 때 다시 비교한다.
+export type ObservationSubmit = {
+  candidate: ObservationCandidate;
+  basis: ObservationBasisCheck;
+  outcome: StableOutcome;
+};
+
+export type ObserveDeps = {
+  watch: WatchPort;
+  scan: ScanPort;
+  read: StableReadPort;
+  nowMs(): number;
+  // 제출은 machine document.save다. 실패는 그 후보를 다시 관측하게 한다.
+  submit(submission: ObservationSubmit): Promise<Result<void>>;
+  basisFor(candidate: ObservationCandidate): ObservationBasisCheck;
+  // 테스트가 루프를 멈추는 자리. 없으면 신호와 scan만으로 돈다.
+  stop?: { stopped: boolean };
+};
+
+const QUIET_POLL_MS = 50;
+
+// 한 root의 관측. watch 힌트를 후보로 합치고, 조용해진 후보를 안정 읽기해 제출한다.
+// 60초 scan과 overflow·closed·시작은 전체 대조다. 이전 scan이 진행 중이면 합친다.
+export async function observeRoot(
+  deps: ObserveDeps,
+  request: ObserveRoot,
+): Promise<void> {
+  const queue = emptyObservation(request.root);
+  let scanPending = false;
+  const runScan = async () => {
+    const scheduled = scheduleScan(scanPending, deps.nowMs());
+    if (scheduled.merged) return;
+    scanPending = true;
+    const scanned = await scanRoot(deps.scan, request);
+    scanPending = false;
+    if (!scanned.ok) return;
+    for (const file of scanned.value) {
+      mergeCandidate(queue, signalCandidate(request.root, file, deps.nowMs()));
+    }
+  };
+  const drainDue = async () => {
+    for (const due of dueCandidates(queue, deps.nowMs())) {
+      const outcome = await readStably(deps.read, due.canonical);
+      if (!outcome.ok) {
+        dropCandidate(queue, due.canonical);
+        continue;
+      }
+      const submitted = await deps.submit({
+        candidate: due,
+        basis: deps.basisFor(due),
+        outcome: outcome.value,
+      });
+      dropCandidate(queue, due.canonical);
+      // 근거가 바뀌어 거절되면 다음 scan이 다시 관측한다.
+      if (!submitted.ok) queue.rescanRequired = false;
+    }
+  };
+  await runScan();
+  let nextScanAt = deps.nowMs() + SCAN_INTERVAL_MS;
+  const signals = deps.watch.watch(request.root);
+  const incoming = signals[Symbol.asyncIterator]();
+  let pending: Promise<IteratorResult<WatchSignal>> | undefined;
+  while (!deps.stop?.stopped) {
+    pending ??= incoming.next();
+    const slice = await Promise.race([
+      pending.then((result) => ({ kind: "signal" as const, result })),
+      sleep(QUIET_POLL_MS).then(() => ({ kind: "tick" as const })),
+    ]);
+    if (slice.kind === "signal") {
+      pending = undefined;
+      if (slice.result.done) {
+        await drainDue();
+        break;
+      }
+      const signal = slice.result.value;
+      if (signal.kind === "overflow" || signal.kind === "closed") {
+        queue.items = [];
+        queue.rescanRequired = false;
+        await runScan();
+        continue;
+      }
+      const merged = mergeCandidate(queue, {
+        root: request.root,
+        canonical: signal.canonical,
+        relative: signal.relative,
+        fact: signal.fact,
+        lastSignalMs: deps.nowMs(),
+        retries: 0,
+      });
+      if (merged.kind === "rescan_required") await runScan();
+    }
+    if (deps.nowMs() >= nextScanAt) {
+      nextScanAt = deps.nowMs() + SCAN_INTERVAL_MS;
+      await runScan();
+    }
+    await drainDue();
+  }
+}
+
+function signalCandidate(
+  root: string,
+  file: ScannedFile,
+  nowMs: number,
+): ObservationCandidate {
+  return {
+    root,
+    canonical: file.realPath,
+    relative: file.relative,
+    fact: "modified",
+    lastSignalMs: nowMs - QUIET_MS,
+    retries: 0,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function readStably(
   port: StableReadPort,
   path: string,

@@ -35,6 +35,11 @@ import {
   createAssignmentReads,
 } from "../../packages/lophn-agent/assignments/mod.ts";
 import {
+  createRunCommands,
+  createRunReads,
+  runSchemaSteps,
+} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import {
   createToolCommands,
   createToolReads,
   toolCallBodyFields,
@@ -182,6 +187,12 @@ const presetReads = createPresetReads();
 const assignmentCommands = createAssignmentCommands();
 const assignmentReads = createAssignmentReads();
 
+// run ledger(concern harness/run-loop). 접수·시작·checkpoint·종료는 machine,
+// 멈춤은 사람과 machine, 다음 일 확인은 사람이다. 미반영 steering 판정은
+// 입력 표를 소유한 conversation(T11)이 연결한다.
+const runCommands = createRunCommands();
+const runReads = createRunReads();
+
 // tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
 // 원문은 blob 참조만 남긴다.
 const toolCommands = createToolCommands();
@@ -194,6 +205,7 @@ export const lophnAgentDefinitions = {
     ...usageSchemaSteps,
     ...presetSchemaSteps,
     ...assignmentSchemaSteps,
+    ...runSchemaSteps,
     ...toolsSchemaSteps,
   ],
   commands: [
@@ -218,6 +230,12 @@ export const lophnAgentDefinitions = {
     assignmentCommands.pause,
     assignmentCommands.resume,
     assignmentCommands.withdraw,
+    runCommands.accept,
+    runCommands.start,
+    runCommands.checkpoint,
+    runCommands.finish,
+    runCommands.stop,
+    runCommands.confirmNext,
     toolCommands.request,
     toolCommands.decide,
     toolCommands.start,
@@ -240,6 +258,9 @@ export const lophnAgentDefinitions = {
     assignmentReads.read,
     assignmentReads.list,
     assignmentReads.outputs,
+    runReads.read,
+    runReads.list,
+    runReads.result,
     toolReads.read,
     toolReads.list,
   ],
@@ -267,6 +288,9 @@ export function createReaderRegistration(): ReaderRegistration {
       assignmentReads.read,
       assignmentReads.list,
       assignmentReads.outputs,
+      runReads.read,
+      runReads.list,
+      runReads.result,
       toolReads.read,
       toolReads.list,
     ],

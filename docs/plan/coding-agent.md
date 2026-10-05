@@ -634,7 +634,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - `tools/fake-coding-agent/`: MCP client script로 ticket show → claim → (app
     tool 호출) → release 준비 → (T25 뒤) report를 돌리는 개발 도구. apps 팀
     new-app·change-app E2E가 coding agent 자리에 쓴다
-- 상태: 진행 (#208) — 남은 것: T25가 오면 fake coding agent report step와
+- 상태: 완료 (#208) — 이어보냄: fake coding agent의 report 단계와 apps 팀 new-app·change-app E2E가 coding agent 자리에 이 도구를 쓰는지 확인 → coding-agent#T25
   apps 팀 new-app·change-app E2E가 coding agent 자리에서 이 도구를 쓰는지
   확인한다
 
@@ -775,6 +775,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: coding-agent
 - 조사: docs/research/coding-agent-ticket-claim.md
 - 선행: T24, T20
+- T20에서 넘어온 것: tools/fake-coding-agent에 report 단계를 넣고, apps 팀 new-app·change-app E2E가 coding agent 자리에 이 도구를 쓰는지 확인(#208)
 - 완료:
   - `lophn_ticket` report와 `ticket report`: release·summary·outputs·fix
     event·Verification 참조를 받고 completion seq는 입력받지 않는다. 결과는 완료

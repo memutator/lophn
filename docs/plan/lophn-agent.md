@@ -172,6 +172,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T3, T5, contracts#T27, platform#T25
+- 상태: 진행 (#206) — 남은 것: 항목별 전체 검사(R11)가 core 분기에서 test 값 대체다(role cap은 T8, tool 묶음은 T23, MCP server 설정 조회와 catalog·credential 조회는 실제 settings registry 연결이 채운다)
 - 완료:
   - `presets`, `preset_revisions` 표
   - presets_test.ts에 R1–R3, R5–R7, R10–R14, R16 테스트: 실제 담당·주기·세션을 preset에 넣지 않음, 빈 이름·prompt 거절, 대소문자·공백 무시 중복과 기본 preset 이름과 구별, context는 읽을 자료 선택이고 담당 범위와 구별, credential 값·가격표 없음, capability 묶음을 저장 시점 동작으로 펼쳐 고정, 복사가 구성만 복사, 전체 검사 실패면 항목별 설명과 전체 거절(역할 상한 밖 항목이 하나라도 있으면 저장 전체 forbidden, 규칙 목록을 이어 붙여 뒤 규칙이 이기는 병합 없음, wildcard 없음), 이름은 바꿔 맞추지 않고 거절, 새 판 immutable·실패 시 이전 판 유지, 결정 근거와 전후 내용 보존, 사용 중 assignment 자동 이동 없음, safe 표시는 그 MCP tool 하나만이고 confirm=true를 넓히지 못함

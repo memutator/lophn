@@ -69,9 +69,17 @@ export {
 } from "./work.ts";
 export {
   batchToChunks,
+  DOCUMENT_OPS,
   type IpcWriter,
   markUnavailable,
   type RequestPayload,
   sendPreparationRequest,
   type WorkerPreparing,
 } from "./ipc.ts";
+export {
+  createStatusRecorder,
+  statusKey,
+  type StatusMemory,
+  type StatusObservation,
+  type StatusRecorder,
+} from "./status.ts";

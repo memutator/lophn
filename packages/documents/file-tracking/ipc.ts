@@ -90,3 +90,10 @@ export function batchToChunks(
   frames.push({ kind: "end", channel });
   return frames;
 }
+
+// core가 documents worker에 보내는 요청의 op 이름. 입력·출력 모양은 아래 op별 type이
+// 정한다. core와 worker가 같은 이름을 쓰도록 여기 한 곳에 둔다.
+export const DOCUMENT_OPS = {
+  // 대상의 마지막 관측(FileStatus 메모리). 입력은 FileTarget이다.
+  fileStatus: "documents.file_status",
+} as const;

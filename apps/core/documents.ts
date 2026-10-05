@@ -1,14 +1,14 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
+  documentPrepare,
   outlineRoot,
   READ_ROUTES,
-  SEARCH_ROUTES,
-  VIEW_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
   ApiReadDefinition,
   FileRoute,
+  ReadDefinition,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
@@ -26,9 +26,7 @@ import { createContextReads } from "../../packages/documents/contexts/mod.ts";
 import {
   fileStatusRead,
   type StatusMemory,
-  type StatusObservation,
 } from "../../packages/documents/file-tracking/status.ts";
-import type { FileTarget } from "../../packages/contracts/documents/mod.ts";
 import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
 import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
 import {
@@ -40,6 +38,7 @@ import {
   formatGetInputSchema,
   formatList,
 } from "../../packages/contracts/documents/mod.ts";
+import { SERVED_ROUTES } from "./documents-served.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
 import { createVersionCommands } from "../../packages/documents/versions/mod.ts";
 import { createVersionReads } from "../../packages/documents/versions/mod.ts";
@@ -88,25 +87,17 @@ function emptyDocuments(): Result<readonly DocumentRef[]> {
 // dispatcher가 기다리므로 async get도 그대로 연다.
 // 게스트 실행 코드(runs the format modules)는 문서 worker·runner의 몫이다(platform.md 6장,
 // responsiveness#R1). core가 여는 것은 내장 declaration 읽기뿐이다.
-// coordinator가 보고한 마지막 관측. worker 메모리의 조회 쪽 자리다.
-// coordinator 프로세스와의 전달은 감독 pipe로 채운다.
-const statusObservations = new Map<string, StatusObservation>();
+// FileStatus 조회가 묻는 메모리. 근원은 documents coordinator 메모리고, core가 기동 때
+// 감독 pipe로 묻는 구현을 environment에 넣는다. 넣지 않은 등록(harness)은 coordinator가
+// 없는 것이다: 추적 안 함으로 꾸미지 않고 unavailable이다.
+export type DocumentsEnvironment = {
+  status?: StatusMemory;
+};
 
-function statusKey(target: FileTarget): string {
-  if (target.kind === "working_copy") return `working_copy:${target.document}`;
-  return `${target.kind}:${target.project ?? ""}:${target.path}`;
-}
-
-export function createStatusMemory(): StatusMemory & {
-  report(target: FileTarget, observation: StatusObservation): void;
-} {
-  return {
-    lookup: (target) => statusObservations.get(statusKey(target)),
-    report: (target, observation) => {
-      statusObservations.set(statusKey(target), observation);
-    },
-  };
-}
+const UNATTACHED_STATUS: StatusMemory = {
+  lookup: () =>
+    err({ code: "unavailable", message: "documents worker가 붙어 있지 않다" }),
+};
 
 function formatReads(): ApiReadDefinition[] {
   return [
@@ -159,35 +150,39 @@ function formatReads(): ApiReadDefinition[] {
 }
 
 // coordinator는 등록한 활성 root와 문서 위치의 필요한 권한만 받는다(architecture/documents 2.2).
-// allow_read·write는 root 추가·해제 때 core가 새 목록으로 교체한다. network·env·ffi는 없다.
+// allow_read·write는 root 추가·해제 때 core가 새 목록으로 교체한다. ffi는 없다.
 // 등록 때 data root는 core와 같은 근원(LOPHN_HOME ?? ~/.lophn)에서 env로만 결정한다.
 // 활성 root가 바뀌면 이 spec을 다시 만들고 platform이 documents worker만 다시 띄운다.
+// network는 core loopback뿐이다: 관측 제출이 같은 process의 API에 Bearer credential로
+// 닿는다(T11). 코드(repo)와 deno 캐시 읽기는 child가 자기 entry를 올리는 데 필요하다
+// (platform/io spec과 같다). run은 준비 worker spawn(platform#T7)이 들어올 때 연다.
 export function workerSpecs(
   dataRoot: string,
   activeRoots: readonly string[] = [],
 ): KindLaunchSpec[] {
   const reads = [dataRoot, ...activeRoots.filter((root) => root !== dataRoot)];
+  const code = codeReads();
   const writes = activeRoots.filter((root) => root !== dataRoot);
   return [
     {
       kind: "documents/worker",
       entry: new URL(
-        "../../worker/documents/coordinator.ts",
+        "../worker/documents/entry.ts",
         import.meta.url,
       ).pathname,
-      allow_read: reads,
+      allow_read: [...reads, ...code],
       allow_write: [`${dataRoot}/documents`, `${dataRoot}/derived`, ...writes],
-      allow_net: [],
+      allow_net: ["127.0.0.1"],
       allow_run: [],
       allow_sys: [],
-      allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
+      allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
       policy: "always",
       memory_limit_bytes: 256 * 1024 * 1024,
     },
     {
       kind: "documents/preparation",
       entry: new URL(
-        "../../worker/documents/preparation.ts",
+        "../worker/documents/preparation.ts",
         import.meta.url,
       ).pathname,
       allow_read: reads,
@@ -200,6 +195,13 @@ export function workerSpecs(
       memory_limit_bytes: 256 * 1024 * 1024,
     },
   ];
+}
+
+// child가 코드와 deno 캐시를 올리는 읽기. 사용자 root가 아니다.
+function codeReads(): string[] {
+  const repo = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
+  const home = Deno.env.get("HOME");
+  return [repo, home ? `${home}/.cache/deno` : "/tmp"];
 }
 
 // format runner는 호출마다 시작하고 한 결과를 낸 뒤 종료한다(architecture/documents 2.1).
@@ -231,15 +233,16 @@ function formatRunnerSpec(): KindLaunchSpec | undefined {
   };
 }
 
-// root outline read. 제품 서빙(ledger 활동·자리별 묶음)은 documents#T11이 넣는다.
-// 그 전에는 빈 성공으로 꾸미지 않고 unavailable로 답한다.
-function outlineRootRead(): ApiReadDefinition {
+// root outline read. ledger snapshot과 derived store를 같이 읽는 서빙은 reader Worker의
+// 등록(documents-reader.ts)이 한다. 여기 handler는 route를 registry에 올리는 자리이고,
+// core는 이 key를 reader pool로 보낸다(실행되지 않는다).
+function outlineRootRoute(): ReadDefinition<typeof outlineRoot> {
   return {
     route: outlineRoot,
-    handle(_ctx, _input) {
+    handle() {
       return err({
         code: "unavailable",
-        message: "root outline is not served yet",
+        message: "root outline은 reader Worker가 서빙한다",
       });
     },
   };
@@ -292,7 +295,7 @@ export async function connectDocumentsRelaunch(
 }
 
 export function createLedgerRegistration(
-  _environment?: unknown,
+  environment?: DocumentsEnvironment,
 ): LedgerRegistration {
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
@@ -371,23 +374,19 @@ export function createLedgerRegistration(
       seriesOutline,
       viewReads.list,
       viewReads.get,
+      outlineRootRoute(),
     ],
     // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
     blobFields: [versionFileField, versionFilesField],
     // format read는 snapshot 없이 바로 연다. 경로는 같은 조립에서 registry로 모은다.
     apiReads: [
-      outlineRootRead(),
       ...formatReads(),
-      fileStatusRead(createStatusMemory()),
+      fileStatusRead(environment?.status ?? UNATTACHED_STATUS),
     ],
-    // 유래 검색 읽기(T13)와 outline·단계적 읽기 경로(T14). place·document outline·
-    // 본문 읽기는 worker 경로라 문서 worker 조립이 서빙한다(core_imports_test).
-    // 제품 서빙 교체는 documents#T11이 넣는다. 지금은 503이다.
-    workerRoutes: [
-      ...SEARCH_ROUTES,
-      ...READ_ROUTES.filter((route) => route.kind === "worker"),
-      ...VIEW_ROUTES.filter((route) => route.kind === "worker"),
-    ],
+    // worker route. 준비(documentPrepare)는 core의 준비 조립이, 나머지(outline·읽기·
+    // search·view open·export)는 reader Worker 등록(documents-reader.ts)이 서빙한다.
+    // core는 요청마다 현재 credential로 그 읽기를 실행한다(documents-serving.ts).
+    workerRoutes: [documentPrepare, ...SERVED_ROUTES],
     // 단계적 읽기(T14). 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).
     files: [...READ_ROUTES].filter((route) => route.kind === "file"),
     // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
@@ -451,7 +450,7 @@ export function createReaderRegistration(): ReaderRegistration {
 
 // public harness는 이 이름을 부른다. 제품 등록과 같은 함수다.
 export function createLedgerTestRegistration(
-  environment?: unknown,
+  environment?: DocumentsEnvironment,
 ): LedgerRegistration {
   return createLedgerRegistration(environment);
 }

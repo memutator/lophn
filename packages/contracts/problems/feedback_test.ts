@@ -14,7 +14,7 @@ import {
   REPORTING_TEST_AT as at,
   REPORTING_TEST_HASH as hash,
   textFeedback,
-} from "./reporting-fixtures.ts";
+} from "./testing/mod.ts";
 
 function blob(
   purpose: ReportBlobInput["purpose"],

@@ -603,6 +603,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T35 skill 발견과 읽기
 
+- 상태: 완료 (#225)
 - 등급: 기본
 - concern: lophn-agent/extensions
 - 요구: lophn-agent/extensions#R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R30

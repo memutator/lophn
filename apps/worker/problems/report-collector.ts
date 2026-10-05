@@ -304,13 +304,13 @@ export async function acceptReportProblem(
   // (T4: T3에서 넘어온 것). 준비는 core blob prepare 경계로 간다. 넘치는 본문은
   // 항목 상한(automatic_body_bytes)에서 제외하고 이유를 남긴다(R5, R20).
   const preparedText = await prepareContent(
-    client,
+    session,
     "report_text",
     textContent,
     REPORTING_LIMITS.automatic_body_bytes,
   );
   const preparedDetails = await prepareContent(
-    client,
+    session,
     "report_details",
     detailsContent,
     REPORTING_LIMITS.automatic_body_bytes,
@@ -349,7 +349,7 @@ export async function acceptReportProblem(
 // 내용이 없거나 항목 상한을 넘거나 준비가 실패하면 null이다: 항목의 이유는
 // 다음 보고에 남기고 접수 자체는 계속한다(R5). 원문은 bounded memory에서만 있다.
 async function prepareContent(
-  client: CoreClientOptions,
+  session: Pick<ChildSession, "prepareBlob">,
   purpose: string,
   content: string | null,
   limitBytes: number,
@@ -367,26 +367,32 @@ async function prepareContent(
   if (content === null) return null;
   const bytes = new TextEncoder().encode(content);
   if (bytes.length > limitBytes) return null;
-  const prepared = await prepareBlobBytes(client, purpose, bytes);
+  const prepared = await prepareBlobBytes(session, purpose, bytes);
   return prepared === null ? null : { prepared };
 }
 
-// core blob prepare 경계(loopback HTTP가 아니다: core.prepareBlob을 쓴다).
-// collector는 core 감독이 띄운 별도 process다. 준비는 supervision worker
-// request로 가지 않는다: 등록된 blob prepare 중계가 없으면 이 항목은 이유를
-// 남기고 접수한다(R5).
-function prepareBlobBytes(
-  _client: CoreClientOptions,
-  _purpose: string,
-  _bytes: Uint8Array,
-): {
-  preparation: string;
-  principal: string;
-  purpose: string;
-  hash: string;
-  size_bytes: number;
-} | null {
-  return null;
+// core blob prepare 경계. collector는 별도 process라 감독 pipe의 blob 준비 통로
+// (session.prepareBlob)로 core에 청한다. hash와 준비 참조는 core가 I/O worker에서 받은
+// 값이고 collector가 정하지 않는다. 준비가 실패하면 null이다: 이유를 남기고 접수한다(R5).
+async function prepareBlobBytes(
+  session: Pick<ChildSession, "prepareBlob">,
+  purpose: string,
+  bytes: Uint8Array,
+): Promise<
+  {
+    preparation: string;
+    principal: string;
+    purpose: string;
+    hash: string;
+    size_bytes: number;
+  } | null
+> {
+  const prepared = await session.prepareBlob({
+    purpose,
+    sizeBytes: bytes.length,
+    bytes,
+  });
+  return prepared.ok ? prepared.value : null;
 }
 
 // 제출 rpt ID에서 결정적으로 정한 접수 snapshot ID. invalidReportId와 같은
@@ -658,7 +664,7 @@ export async function observeExceptionPayload(
       // stack blob 준비는 core blob prepare 경계로 간다. 준비가 실패해도
       // 남은 자료로 접수한다(R5).
       blobPrepare: {
-        prepare: (input, bytes) => prepareViaStream(client, input, bytes),
+        prepare: (input, bytes) => prepareViaStream(session, input, bytes),
       },
       folder: {
         appsRoot: collectorAppsRoot(),
@@ -856,13 +862,13 @@ function collectorAppsRoot(): string | null {
   }
 }
 
-// stack blob 준비를 stream으로 받는 platform blob prepare 모양. collector는
-// core.prepareBlob을 직접 부르지 못한다(별도 process, childMessageSchema에
-// blob.prepare op가 없다). 준비 통로가 없으면 이유를 남긴다(R5): 남은 자료로 접수.
+// stack blob 준비를 stream으로 받는 platform blob prepare 모양. 바이트를 모아 크기를
+// 정한 뒤 감독 pipe의 blob 준비 통로로 core에 청한다. principal·expectedHash는 core가
+// kind에서 정하므로 보내지 않는다. 준비가 실패하면 오류를 돌려주고 남은 자료로 접수한다(R5).
 async function prepareViaStream(
-  _client: CoreClientOptions,
-  _input: { principal: string; purpose: string; expectedHash?: string },
-  _bytes: ReadableStream<Uint8Array>,
+  session: Pick<ChildSession, "prepareBlob">,
+  input: { principal: string; purpose: string; expectedHash?: string },
+  bytes: ReadableStream<Uint8Array>,
 ): Promise<
   Result<
     {
@@ -874,10 +880,25 @@ async function prepareViaStream(
     }
   >
 > {
-  await Promise.resolve();
-  return err({
-    code: "unavailable",
-    message: "blob 준비 통로가 collector process에 없다",
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const reader = bytes.getReader();
+  for (;;) {
+    const next = await reader.read();
+    if (next.done) break;
+    chunks.push(next.value);
+    total += next.value.length;
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return await session.prepareBlob({
+    purpose: input.purpose,
+    sizeBytes: total,
+    bytes: body,
   });
 }
 

@@ -42,7 +42,7 @@ Deno.test("platform/install-and-update#R12: 부모 프로세스가 hello, comman
       .components?.find((component) => component.component === "io");
     assert(io, "status에 io 구성 요소가 없다");
 
-    // user token의 scope는 status·health다. command는 인증을 통과한 뒤 scope로 거절한다.
+    // user token의 scope는 user를 허용하는 route 전부다. machine 전용 command는 scope 밖이라 403이다.
     const commandResponse = await fetch(`${base}/v1/events/advance-cursor`, {
       method: "POST",
       headers,
@@ -55,13 +55,13 @@ Deno.test("platform/install-and-update#R12: 부모 프로세스가 hello, comman
     });
     assertEquals(commandResponse.status, 403);
 
-    // commands/result는 scope 밖이다. 인증이 된 요청이 403으로 거절되면 read 경로가 살아 있는 것이다.
+    // commands/result는 user를 허용하는 read라 scope 안이다. 거절된 command의 결과는 기록이 없다.
     const result = await fetch(`${base}/v1/commands/result`, {
       method: "POST",
       headers,
       body: JSON.stringify({ idempotency_key: "parent-1" }),
     });
-    assertEquals(result.status, 403);
+    assertEquals(result.status, 200);
 
     const events = await fetch(`${base}/v1/events/list`, {
       method: "POST",

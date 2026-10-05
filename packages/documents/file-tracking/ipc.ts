@@ -96,4 +96,70 @@ export function batchToChunks(
 export const DOCUMENT_OPS = {
   // 대상의 마지막 관측(FileStatus 메모리). 입력은 FileTarget이다.
   fileStatus: "documents.file_status",
+  // core가 snapshot에서 읽은 tracking 규칙과 경로→문서 연결(Q15). 바뀔 때마다 다시 보낸다.
+  observationBasis: "documents.observation_basis",
+  // 저장 준비의 format 검사(file-tracking#R5, versions#R4). 원문 바이트는 이 요청 앞에
+  // byte chunk frame으로 먼저 가고, 요청은 channel과 길이로 그 바이트를 가리킨다.
+  validateFiles: "documents.validate_files",
 } as const;
+
+// `documents.validate_files` 요청 본문. 파일마다 앞서 보낸 byte channel과 그 길이다.
+export type ValidateFilesRequest = {
+  files: {
+    path: string;
+    media_type: string;
+    primary: boolean;
+    bytes: number;
+    channel: number;
+  }[];
+  format: { name: string; module_hash: string; explicit: boolean };
+};
+
+// 입력 상한(guest 입력 16 MiB)을 넘는 검사는 요청하지 않는다. 넘으면 미지원처럼
+// 꾸미지 않고 unavailable이다(architecture/documents 2).
+export const VALIDATE_INPUT_MAX_BYTES = 16 * 1024 * 1024;
+
+export function parseValidateFilesRequest(
+  value: unknown,
+): ValidateFilesRequest | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const body = value as Record<string, unknown>;
+  const format = body.format as Record<string, unknown> | undefined;
+  if (
+    !Array.isArray(body.files) || body.files.length === 0 ||
+    typeof format !== "object" || format === null ||
+    typeof format.name !== "string" || format.name.length === 0 ||
+    typeof format.module_hash !== "string" ||
+    typeof format.explicit !== "boolean"
+  ) return undefined;
+  const files: ValidateFilesRequest["files"] = [];
+  let total = 0;
+  for (const raw of body.files) {
+    if (typeof raw !== "object" || raw === null) return undefined;
+    const entry = raw as Record<string, unknown>;
+    if (
+      typeof entry.path !== "string" || entry.path.length === 0 ||
+      typeof entry.media_type !== "string" ||
+      typeof entry.primary !== "boolean" ||
+      !Number.isSafeInteger(entry.bytes) || (entry.bytes as number) < 0 ||
+      !Number.isSafeInteger(entry.channel) || (entry.channel as number) < 1
+    ) return undefined;
+    total += entry.bytes as number;
+    files.push({
+      path: entry.path,
+      media_type: entry.media_type,
+      primary: entry.primary,
+      bytes: entry.bytes as number,
+      channel: entry.channel as number,
+    });
+  }
+  if (total > VALIDATE_INPUT_MAX_BYTES) return undefined;
+  return {
+    files,
+    format: {
+      name: format.name,
+      module_hash: format.module_hash,
+      explicit: format.explicit,
+    },
+  };
+}

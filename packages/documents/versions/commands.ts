@@ -14,6 +14,7 @@ import {
   documentUnarchived,
   documentUpdate,
   documentUpdated,
+  type FileSource,
   type FormatRef,
   type PreparedVersion,
   type SaveResult,
@@ -234,12 +235,16 @@ function createDocument(
     return rejected("invalid_input", "new document needs metadata");
   }
   const metadata = prepared.metadata;
+  // 파일 관측이 만드는 첫 문서는 그 파일에 연결된다(versions#R13). 연결이 이미 있거나
+  // 같은 경로에 연결된 문서가 있으면 그 제출은 늦다. 새 문서를 두 번째로 만들지 않는다.
+  const linked = newFileSource(tx, prepared);
+  if (!linked.ok) return linked;
   const candidate: Document = {
     id: prepared.document,
     place: metadata.place,
     name: metadata.name,
     title: metadata.title,
-    file_source: null,
+    file_source: linked.value,
     latest_version: prepared.document,
     revision: "1",
     status: "active",
@@ -255,7 +260,7 @@ function createDocument(
     place: metadata.place,
     name: metadata.name,
     title: metadata.title,
-    file_source: null,
+    file_source: candidate.file_source,
     version: version.value.id,
   });
   const savedSeq = tx.emit(documentSaved, prepared.document, {
@@ -287,6 +292,39 @@ function createDocument(
     if (!joined.ok) return joined;
   }
   return ok(saveResult(document, version.value, savedSeq, prepared));
+}
+
+// 첫 문서 저장이 파일 관측이면 연결할 FileSource. 관측이 아니면 연결 없음(null)이다.
+function newFileSource(
+  tx: Tx,
+  prepared: PreparedVersion,
+): Result<FileSource | null> {
+  const source = prepared.source;
+  if (source === null || source.kind === "app") return ok(null);
+  const basis = prepared.file_basis;
+  if (basis === undefined || basis.file_source !== null) {
+    return rejected("conflict", "observation basis changed");
+  }
+  const existing = tx.sql.get(
+    "SELECT id FROM documents WHERE source_path = ?",
+    [source.path],
+  );
+  if (existing !== undefined) {
+    return rejected("conflict", "file is already linked to a document");
+  }
+  if (source.kind === "file") {
+    return ok({
+      kind: "project_file",
+      project: source.project,
+      path: source.path,
+    });
+  }
+  return ok({
+    kind: "instruction_file",
+    instruction_target: source.instruction_target,
+    project: source.project,
+    path: source.path,
+  });
 }
 
 function saveVersion(

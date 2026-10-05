@@ -68,12 +68,26 @@ export {
   type WatchSignal,
 } from "./work.ts";
 export {
+  chunkObservationBasis,
+  OBSERVATION_CHUNK_BYTES,
+  type ObservationBasisChunk,
+  type ObservationBasisPayload,
+  type ObservationLinkBasis,
+  type ObservationRootBasis,
+  parseObservationBasis,
+  parseObservationChunk,
+  rootSignature,
+} from "./basis.ts";
+export {
   batchToChunks,
   DOCUMENT_OPS,
   type IpcWriter,
   markUnavailable,
+  parseValidateFilesRequest,
   type RequestPayload,
   sendPreparationRequest,
+  VALIDATE_INPUT_MAX_BYTES,
+  type ValidateFilesRequest,
   type WorkerPreparing,
 } from "./ipc.ts";
 export {

@@ -175,7 +175,7 @@ Deno.test("platform/blob-store#R2 platform/blob-store#R1: 문서 worker 자식�
     assertEquals(outcome.payload["hash"], expected);
     assertEquals(outcome.payload["size_bytes"], size);
     // principal은 자식이 아니라 core의 kind 정책이 정했다.
-    assertEquals(outcome.payload["principal"], "machine");
+    assertEquals(outcome.payload["principal"], "machine:documents");
     assertEquals(outcome.payload["purpose"], "document_files");
     const installed = await Deno.readFile(
       objectPathFor(core.dataRoot, expected),

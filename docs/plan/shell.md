@@ -302,6 +302,7 @@ concerns: [shell]
 
 ### T15 launcher: 프로젝트 등록과 추적 미리보기
 
+- 상태: 완료 (#290) — 이어보냄: 실제 core의 추적 미리보기·켜기와 팔레트 파일 묶음 확인(documents#T12가 `/v1/projects/preview_tracking`·`/v1/files/list`를 서빙한 뒤) → shell#T17. 제품 작업대의 layout 저장·복원 통로(main·preload)는 아직 없다. Q18
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/desktop#R25(프로젝트 카드, 프로젝트 등록), R26(카드), shell/wording#R2, R4, R10, R12

@@ -210,7 +210,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - `assignments`, `assignment_revisions`, `assignment_outputs`, `assignment_read_apps`, `assignment_read_commands` 표
   - assignments_test.ts에 R2, R3, R9–R14, R16, R17 테스트: lophn·Context Engineer 전역 하나씩이고 회수 대신 멈춤·재개만, 화면용 기본·상세 자료 구분, 실제 시작한 최종 실패 3회 연속이면 machine pause와 secret 없는 실패 근거, 정상 완료·Operator 무변화에서 끊고 미시작·사람 중단·거절·답 없음·대기는 세지도 지우지도 않음, 사람 재개만 해제(시간·재시작·다음 주기로 풀리지 않음), 시작한 뒤 정상 종료 기록 없이 끊긴 run은 실패로 세고 시작 전에 끝난 run은 세지 않음(질문 Q17), 보관 대상이면 멈춤·일시 접근 불가면 새 일 없음, withdrawn은 지난 대화만·paused는 입력 보존만, preset 새 판 저장이 연결 판을 바꾸지 않고 명시 적용은 다음 run부터
   - 이어받음: platform#T29의 AssignmentPaused 발생. actor=machine이고 반복 실패·대상 보관일 때만 내는 것은 이 작업의 machine pause 자리다
-  - (#PRNUM) 내장 assignment 준비(Q37): 새 데이터 root의 lophn·Context Engineer assignment를 core 기동이 만든다(apps/core/lophn-agent-bootstrap.ts). `CreateBuiltinAssignment`를 부르는 자리가 이것뿐이다
+  - (#281) 내장 assignment 준비(Q37): 새 데이터 root의 lophn·Context Engineer assignment를 core 기동이 만든다(apps/core/lophn-agent-bootstrap.ts). `CreateBuiltinAssignment`를 부르는 자리가 이것뿐이다
   - apps/core/lophn-agent-bootstrap_test.ts에 assignments#R2 테스트: 새 core는 lophn·CE가 enabled·전역 범위로 각각 정확히 하나이고 각자 그 역할의 제품 기본 preset 첫 판을 쓰며 model은 미준비(null), 같은 데이터 root 재시작은 preset·assignment를 늘리지 않음, I/O 감독이 없는 기동은 prompt blob을 준비할 수 없어 만들지 않음
 
 ### T10 run ledger와 생명 주기
@@ -232,7 +232,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 ### T11 세션과 메시지
 
 - 등급: 기본
-- 상태: 완료 (#262, #PRNUM) — 이어보냄: StartModelCall과 ApplyMessages의 한 transaction 연결 → T26(Q30), 질문·approval 대기 중 수정 접수 → T25(WaitRun 뒤 같은 접수 경로), 정상 종료·다음 일 선택 입력 소비 → T26
+- 상태: 완료 (#262, #281) — 이어보냄: StartModelCall과 ApplyMessages의 한 transaction 연결 → T26(Q30), 질문·approval 대기 중 수정 접수 → T25(WaitRun 뒤 같은 접수 경로), 정상 종료·다음 일 선택 입력 소비 → T26
 - concern: lophn-agent/conversation
 - 요구: lophn-agent/conversation#R1, R2, R3, R4, R5, R6, R7, R8, R14, R16, R17
 - 자리: packages/lophn-agent/conversation/ (model.ts, commands.ts, reads.ts), apps/core/lophn-agent.ts
@@ -246,7 +246,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - `sessions`, `messages` 표
   - conversation_test.ts에 R1–R8, R14, R16, R17 테스트: 사람 메시지와 AcceptRun 원자 접수, 접수와 최초 반영을 따로 표시, 사람 말·역할 판단·machine 사실 구분과 실제 대상 링크만, 수정(mode=correction)과 다음 일 구별·수정 원문 모두 다음 판단에, 종료 경계 수정이 정확히 한 run에 한 번, 실패·멈춤 뒤 다음 일 자동 시작 없음, paused는 원문만 보존하고 run 없음, ExecuteStoredRequest만 새 run 연결, 재개·재시작만으로 실행 없음, 작업 자리 고정(AE 앱, Operator project/app)과 lophn·CE의 명시 변경만(다음 call부터), 세션 종료 조건, withdrawn은 읽기만
   - 이어받음 정정: platform#T29의 QuestionCreated 발생은 질문을 만드는 T24가 낸다. 이 작업(세션·메시지)은 질문을 만들지 않으므로 event를 내지 않는다
-  - (#PRNUM) 본문 blob 영구 참조 등록(Q29): `ReceiveMessage`·`RecordMessage` 입력이 hash 대신 본문 값(`content`)을 싣고, core(apps/core/message-body.ts)가 redaction·준비를 하며, command가 같은 transaction에서 영구 참조를 등록한다. `ReadMessageBody` read 추가
+  - (#281) 본문 blob 영구 참조 등록(Q29): `ReceiveMessage`·`RecordMessage` 입력이 hash 대신 본문 값(`content`)을 싣고, core(apps/core/message-body.ts)가 redaction·준비를 하며, command가 같은 transaction에서 영구 참조를 등록한다. `ReadMessageBody` read 추가
   - conversation_test.ts·body-read_test.ts·apps/core/message-body_test.ts에 R2·R4 테스트: 값 그대로의 왕복(redaction된 값과 hash·크기·참조 하나, secret 원문은 응답·blob 어디에도 없음), 준비 10분 만기와 7일 미참조 유예·재시작 뒤에도 본문 유지(참조 없는 대조 blob은 같은 정리가 지움), 상한 초과·옛 hash 입력은 아무것도 준비·저장하지 않고 거절, 준비 참조가 없으면 message·event·run·참조 전체가 되돌아감, 같은 id 재전송 멱등·같은 글 새 메시지는 자기 참조, 읽기는 사람·그 assignment의 agent·machine만이고 다른 assignment의 agent·없는 id·coding agent는 같은 not_found, machine은 글만·agent는 글과 시각 블록
 
 ### T12 run selector와 한도
@@ -488,7 +488,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다
 - T10에서 넘어온 것: run basis와 result의 blob 영구 참조 등록(#250은 hash만 둔다)
-- T11에서 넘어온 것(#PRNUM): runtime이 답을 남길 때는 `RecordMessage`에 `content`(글·시각 블록 값, 240KiB 이하)를 싣는다(Q29). hash·blob은 만들지 않고 envelope의 `run`은 자격의 run이다
+- T11에서 넘어온 것(#281): runtime이 답을 남길 때는 `RecordMessage`에 `content`(글·시각 블록 값, 240KiB 이하)를 싣는다(Q29). hash·blob은 만들지 않고 envelope의 `run`은 자격의 run이다
 - T51에서 넘어온 것: 회차 시계(`scheduling/work.ts`의 `createOccurrenceClock`·`run`)를 agent runtime 기동에서 돌려 `/v1/assignment-occurrences/process`를 machine credential로 부르는 연결(#267은 시계와 command만 닫았다). 주입할 `read`는 selector와 같은 core read, `wait`는 runtime 시각 대기, clock은 systemClock이다
 - T12에서 넘어온 것: (1) `RunSelector.next()`로 고른 run을 StartRun으로 시작하고 `beginRun`·`createRunCredentials`(#260)로 `agent:<asg>` credential을 받아 tool 진입에만 쓰며 run 종료·멈춤·감독 상실에 `end`한다. (2) credential을 core에서 runtime으로 전달하는 감독 pipe 메시지(app_credential_request의 agent판)와 core의 `CredentialRegistry.issue` 호출 자리, run 상태를 다시 보는 `current/live` 연결은 platform에 맡은 작업이 없다(platform#T24는 registry까지 닫혔다). 이 작업이 platform·contracts에 그 계약을 요청해 받은 뒤 연결하고, 계약이 없으면 멈추고 lead에게 보고한다.
 - 완료:

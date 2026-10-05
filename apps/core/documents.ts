@@ -4,10 +4,13 @@ import {
   formatGet,
   formatGetInputSchema,
   formatList,
+  outlineRoot,
+  READ_ROUTES,
   SEARCH_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
   ApiReadDefinition,
+  FileRoute,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
@@ -22,6 +25,12 @@ import {
   createContextCommands,
 } from "../../packages/documents/contexts/mod.ts";
 import { createContextReads } from "../../packages/documents/contexts/mod.ts";
+import {
+  fileStatusRead,
+  type StatusMemory,
+  type StatusObservation,
+} from "../../packages/documents/file-tracking/status.ts";
+import type { FileTarget } from "../../packages/contracts/documents/mod.ts";
 import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
 import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
 import {
@@ -36,6 +45,8 @@ import {
   versionFileField,
   versionFilesField,
 } from "../../packages/documents/versions/mod.ts";
+import { createSeriesCommands } from "../../packages/documents/series/mod.ts";
+import { seriesSchemaSteps } from "../../packages/documents/series/mod.ts";
 import {
   createProjectReads,
   type ProjectReadDeps,
@@ -47,6 +58,7 @@ type LedgerRegistration = {
   commands?: readonly unknown[];
   reads?: readonly unknown[];
   apiReads?: readonly unknown[];
+  files?: readonly FileRoute[];
   workers?: readonly KindLaunchSpec[];
   workerRoutes?: readonly WorkerRoute[];
   blobFields?: readonly unknown[];
@@ -61,6 +73,26 @@ function emptyDocuments(): Result<readonly DocumentRef[]> {
 // dispatcher가 기다리므로 async get도 그대로 연다.
 // 게스트 실행 코드(runs the format modules)는 문서 worker·runner의 몫이다(platform.md 6장,
 // responsiveness#R1). core가 여는 것은 내장 declaration 읽기뿐이다.
+// coordinator가 보고한 마지막 관측. worker 메모리의 조회 쪽 자리다.
+// coordinator 프로세스와의 전달은 감독 pipe로 채운다.
+const statusObservations = new Map<string, StatusObservation>();
+
+function statusKey(target: FileTarget): string {
+  if (target.kind === "working_copy") return `working_copy:${target.document}`;
+  return `${target.kind}:${target.project ?? ""}:${target.path}`;
+}
+
+export function createStatusMemory(): StatusMemory & {
+  report(target: FileTarget, observation: StatusObservation): void;
+} {
+  return {
+    lookup: (target) => statusObservations.get(statusKey(target)),
+    report: (target, observation) => {
+      statusObservations.set(statusKey(target), observation);
+    },
+  };
+}
+
 function formatReads(): ApiReadDefinition[] {
   return [
     {
@@ -184,6 +216,66 @@ function formatRunnerSpec(): KindLaunchSpec | undefined {
   };
 }
 
+// root outline read. 제품 서빙(ledger 활동·자리별 묶음)은 documents#T11이 넣는다.
+// 그 전에는 빈 성공으로 꾸미지 않고 unavailable로 답한다.
+function outlineRootRead(): ApiReadDefinition {
+  return {
+    route: outlineRoot,
+    handle(_ctx, _input) {
+      return err({
+        code: "unavailable",
+        message: "root outline is not served yet",
+      });
+    },
+  };
+}
+
+export type DocumentsRelaunch =
+  | { kind: "unchanged" }
+  | { kind: "relaunch"; specs: KindLaunchSpec[] }
+  | { kind: "unavailable" };
+
+// 활성 root가 바뀌면 documents worker의 spec을 다시 만든다. 재시작 자체는
+// platform 감독(updateSpec)이 한다. root 집합이 같으면 띄우지 않는다.
+export function documentsWorkerRelaunch(
+  dataRoot: string,
+  previous: readonly string[],
+  next: readonly string[],
+): DocumentsRelaunch {
+  const before = [...previous].sort();
+  const after = [...next].sort();
+  if (
+    before.length === after.length &&
+    before.every((root, index) => root === after[index])
+  ) {
+    return { kind: "unchanged" };
+  }
+  return { kind: "relaunch", specs: workerSpecs(dataRoot, next) };
+}
+
+// 감독의 재시작 입구. platform#T7의 updateSpec이 이 자리다.
+export type DocumentsSupervisor = {
+  updateSpec(spec: KindLaunchSpec): Promise<{ ok: boolean }>;
+};
+
+// root가 바뀌었을 때만 documents worker를 새 권한으로 다시 띄운다.
+// coordinator는 시작 때 전체 root를 다시 scan한다.
+export async function connectDocumentsRelaunch(
+  supervisor: DocumentsSupervisor,
+  dataRoot: string,
+  previous: readonly string[],
+  next: readonly string[],
+): Promise<DocumentsRelaunch> {
+  const decision = documentsWorkerRelaunch(dataRoot, previous, next);
+  if (decision.kind !== "relaunch") return decision;
+  for (const spec of decision.specs) {
+    if (spec.kind !== "documents/worker") continue;
+    const restarted = await supervisor.updateSpec(spec);
+    if (!restarted.ok) return { kind: "unavailable" };
+  }
+  return decision;
+}
+
 export function createLedgerRegistration(
   _environment?: unknown,
 ): LedgerRegistration {
@@ -193,6 +285,7 @@ export function createLedgerRegistration(
   const addressing = createDocumentChangeCommands();
   // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
   const contexts = createContextCommands();
+  const series = createSeriesCommands();
   const versionReads = createVersionReads();
   const addressReads = createAddressingReads();
   const contextReads = createContextReads();
@@ -206,6 +299,7 @@ export function createLedgerRegistration(
       ...projectsSchemaSteps,
       ...versionsSchemaSteps,
       ...contextsSchemaSteps,
+      ...seriesSchemaSteps,
     ],
     commands: [
       commands.create,
@@ -225,6 +319,15 @@ export function createLedgerRegistration(
       contexts.removeItem,
       contexts.archive,
       contexts.unarchive,
+      series.create,
+      series.update,
+      series.setDraft,
+      series.clearDraft,
+      series.addInstance,
+      series.updateInstance,
+      series.removeInstance,
+      series.archive,
+      series.unarchive,
     ],
     reads: [
       reads.list,
@@ -243,9 +346,20 @@ export function createLedgerRegistration(
     // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
     blobFields: [versionFileField, versionFilesField],
     // format read는 snapshot 없이 바로 연다. 경로는 같은 조립에서 registry로 모은다.
-    apiReads: formatReads(),
-    // 유래 검색 읽기(T13). 파생 store는 문서 worker나 별도 연결이 연다(core_imports_test).
-    workerRoutes: [...SEARCH_ROUTES],
+    apiReads: [
+      outlineRootRead(),
+      ...formatReads(),
+      fileStatusRead(createStatusMemory()),
+    ],
+    // 유래 검색 읽기(T13)와 outline·단계적 읽기 경로(T14). place·document outline·
+    // 본문 읽기는 worker 경로라 문서 worker 조립이 서빙한다(core_imports_test).
+    // 제품 서빙 교체는 documents#T11이 넣는다. 지금은 503이다.
+    workerRoutes: [
+      ...SEARCH_ROUTES,
+      ...READ_ROUTES.filter((route) => route.kind === "worker"),
+    ],
+    // 단계적 읽기(T14). 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).
+    files: [...READ_ROUTES].filter((route) => route.kind === "file"),
     // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
     // core가 root를 좁히는 T11 교체는 core 쪽 감독 seam이 넣는다.
     workers: registerWorkers(),

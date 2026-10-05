@@ -44,6 +44,14 @@ export class RingBuffer {
     };
   }
 
+  /** 닫힌 탭은 힙에 출력을 남기지 않는다. */
+  clear(): void {
+    this.#chunks.length = 0;
+    this.#bytes = 0;
+    this.#lines = 0;
+    this.dropped = false;
+  }
+
   #make(text: string): Chunk {
     return {
       seq: ++this.#seq,

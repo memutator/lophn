@@ -10,11 +10,13 @@ import {
   terminalInputSchema,
   type TerminalOpen,
   terminalOpenSchema,
+  type TerminalOutput,
   type TerminalReply,
   type TerminalResize,
   terminalResizeSchema,
   terminalRestartSchema,
   type TerminalRuntime,
+  terminalSnapshotSchema,
 } from "../../ipc/terminal.ts";
 import {
   checkCaller,
@@ -40,6 +42,10 @@ export type TerminalIpc = {
   resize(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
   close(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
   restart(event: IpcEvent, input: unknown): Promise<IpcResult<TerminalReply>>;
+  snapshot(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<IpcResult<TerminalReply | { ok: true; output: TerminalOutput[] }>>;
 };
 
 const runningStub = (ref: string, generation: number): TerminalRuntime => ({
@@ -157,5 +163,16 @@ export function createTerminalIpc(deps: {
         }
         return await deps.host.request({ type: "restart", ...value });
       }),
+    snapshot: (event, input) =>
+      guarded(
+        event,
+        terminalSnapshotSchema,
+        input,
+        async (value) =>
+          await deps.host.request({
+            type: "snapshot",
+            terminal_ref: value.terminal_ref,
+          } as never),
+      ),
   };
 }

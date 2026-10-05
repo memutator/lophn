@@ -69,3 +69,7 @@ export {
   verificationOf,
   withinLimits,
 } from "./selection.ts";
+export {
+  snapshotCatalogEntry,
+  snapshotModelListed,
+} from "./snapshot-catalog.ts";

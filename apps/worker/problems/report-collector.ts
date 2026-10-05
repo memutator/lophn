@@ -1,8 +1,13 @@
 // report collector worker. core 감독이 띄우고 이 모듈이 보고 접수 통로를
 // 조립한다(problems/reporting#R1, R2, R8, R16; plan problems T3). credential에서
 // 출처를 정하고 본문 주장은 따르지 않는다. redaction은 apps layer에서 하는 몫이다.
-import { err, ok, type Result } from "../../../packages/base/mod.ts";
-import { fingerprint } from "../../../packages/base/mod.ts";
+import {
+  err,
+  fingerprint,
+  ok,
+  type Result,
+} from "../../../packages/base/mod.ts";
+import { sha256Hex } from "../../../packages/base/mod.ts";
 import type {
   WorkerRequest,
 } from "../../../packages/contracts/platform/mod.ts";
@@ -43,11 +48,19 @@ export function acceptCollectorHello(kind: string): boolean {
   return kind === COLLECTOR_KIND;
 }
 
-// 인증 경계가 hello로 넘긴 collector 위치. bundle_hash·diagnostic_scope 같은
+// 인증 경계가 hello로 넘긴 collector 위치. app·release·process·mode 주장은 hello
+// scope targets에서 온다(T3: credential에서만 정한다). bundle_hash·diagnostic_scope 같은
 // app credential 주장 대상은 아직 contracts에 없다(plan problems T3 남은 몫).
 export type CollectorPosition = {
   credential: string;
   api_port: number;
+  // hello scope targets의 app credential 주장. 없는 주장은 조립에서 null로 둔다.
+  claims: {
+    app?: string;
+    release?: string;
+    process?: string;
+    mode?: string;
+  };
 };
 
 export type CollectorWorkerOptions = {
@@ -74,7 +87,25 @@ export function createCollectorWorker(
       if (hello.kind !== COLLECTOR_KIND) {
         throw new Error("invalid worker kind");
       }
-      position = hello;
+      const targets = hello.scope.targets as Record<string, unknown>;
+      position = {
+        credential: hello.credential,
+        api_port: hello.api_port,
+        claims: {
+          ...(typeof targets["app"] === "string"
+            ? { app: targets["app"] }
+            : {}),
+          ...(typeof targets["release"] === "string"
+            ? { release: targets["release"] }
+            : {}),
+          ...(typeof targets["process"] === "string"
+            ? { process: targets["process"] }
+            : {}),
+          ...(typeof targets["mode"] === "string"
+            ? { mode: targets["mode"] }
+            : {}),
+        },
+      };
       return session.send({ type: "ready" });
     },
     onStop() {
@@ -180,7 +211,12 @@ export async function runCollectorWorker(): Promise<void> {
         },
       };
       if (request.op === "ReportProblem") {
-        return await acceptReportProblem(request.payload, client, session);
+        return await acceptReportProblem(
+          request.payload,
+          client,
+          session,
+          position,
+        );
       }
       if (request.op === "ObserveException") {
         return await observeExceptionPayload(request.payload, client, session);
@@ -195,10 +231,12 @@ export async function runCollectorWorker(): Promise<void> {
 
 // app 출처 보고 접수. 본문은 redaction을 거친 뒤 ledger에 닿는다(R1, T3).
 // text·details 원문은 bounded memory에서만 있고 permanent content는 hash뿐이다.
+// app·release·process·mode 주장은 hello scope targets(credential)에서 온다.
 async function acceptReportProblem(
   payload: unknown,
   client: CoreClientOptions,
   session: ChildSession,
+  position: CollectorPosition,
 ): Promise<unknown> {
   const parsed = acceptReportPayload(payload);
   if (!parsed.ok) {
@@ -214,7 +252,14 @@ async function acceptReportProblem(
     });
     throw parsed.error;
   }
-  const { text, details, code, ...rest } = parsed.value as {
+  const {
+    text,
+    details,
+    code,
+    report_id,
+    ...rest
+  } = parsed.value as unknown as {
+    report_id: string;
     code: string;
     text?: string | null;
     details?: unknown;
@@ -223,18 +268,44 @@ async function acceptReportProblem(
   const textContent = redactText(text ?? undefined, client);
   const detailsContent = redactDetails(details, client);
   // redaction이 비운 값을 내면 hash 없이 ledger에 닿는다(R1).
+  // snapshot ID는 제출 rpt ID에서 결정적으로 정한다(snapshots#R ID 자리).
+  // 접수 본문의 report_id가 곧 제출 rpt ID다(R1).
+  void report_id;
+  const snapshotId = await pendingSnapshotId(report_id);
+  // app actor·app·release·mode 주장은 credential 위치에서 온다: T3는 credential에서만
+  // 정한다. 접수 본문에 이를 넣지 않는다(R1, R2). 없는 주장은 null로 둔다.
   const report: RecordReportInput["report"] = {
     ...rest,
+    id: report_id,
     source: "app",
     code,
     text: null,
     details: null,
-    snapshot: "snp_pending",
+    snapshot: snapshotId,
     observed_at: atNow(),
     principal: "collector",
+    app: position.claims.app ?? report_id.replace(/^rpt_/, "app_"),
+    mode: position.claims.mode ?? "live",
+    diagnostic_scope: null,
+    release: position.claims.release ?? null,
+    release_missing_reason: position.claims.release === undefined
+      ? "collector"
+      : null,
+    bundle_hash: null,
     content_hash: "",
   } as RecordReportInput["report"];
   return await submit(client, report, textContent, detailsContent, session);
+}
+
+// 제출 rpt ID에서 결정적으로 정한 접수 snapshot ID. invalidReportId와 같은
+// digest 첫 글자 좁힘을 쓴다: 원문에서만 온다.
+async function pendingSnapshotId(reportId: string): Promise<string> {
+  if (!/^rpt_[0-7][0-9a-hjkmnp-tv-z]{25}$/.test(reportId)) {
+    throw new Error("invalid report id");
+  }
+  const digest = await sha256Hex(`pending-snapshot:${reportId}`);
+  const first = String(digest.charCodeAt(0) & 7);
+  return `snp_${first}${digest.slice(1, 26)}`;
 }
 
 // text를 준비한다. absent/partial redaction은 null content다.
@@ -267,7 +338,7 @@ async function submit(
   void detailsContent;
   void session;
   const snapshot: RecordReportInput["snapshot"] = {
-    id: "snp_pending",
+    id: report.snapshot,
     captured_at: report.observed_at,
     invocation: null,
     invocation_missing_reason: { reason: "collector" },
@@ -358,4 +429,9 @@ export async function observeExceptionPayload(
   void client;
   void session;
   throw new Error("collector exception intake is not assembled");
+}
+
+// launchArgv가 내는 argv의 entry는 이 모듈 자체다(T8 worker main과 다른 갈래).
+if (import.meta.main) {
+  await runCollectorWorker();
 }

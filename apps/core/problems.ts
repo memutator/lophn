@@ -29,7 +29,10 @@ import { SNAPSHOTS_SCHEMA_STEPS } from "../../packages/problems/snapshots/mod.ts
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
 import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
-import { reportProblem, observeException } from "../../packages/contracts/problems/mod.ts";
+import {
+  observeException,
+  reportProblem,
+} from "../../packages/contracts/problems/mod.ts";
 import { reportCollectorSpec, testRunnerSpec } from "./problems-runner.ts";
 
 // owner definitions만 내보낸다. port 구현과 writer 조립은 core가 맡는다.

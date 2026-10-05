@@ -9,12 +9,8 @@ import { COMMANDS } from "./registry.ts";
 const helpNames = COMMAND_HELP.map((entry) => entry.command).sort();
 const registryNames = COMMANDS.map((entry) => entry.name).sort();
 const helpOnly = new Set([
-  // setup group은 T12 dispatch 표 밖이다.
+  // setup group은 T12 dispatch 표 밖이다. daemon command는 T37에서 표에 들어왔다.
   "doctor",
-  "daemon start",
-  "daemon stop",
-  "daemon status",
-  "daemon logs",
   "mcp config",
   "harness list",
   "harness detect",

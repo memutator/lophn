@@ -466,7 +466,7 @@ concerns: [shell]
 
 ### T24 터미널 host와 PTY
 
-- 상태: 진행 (#160)
+- 상태: 완료 (#160, #232) — 이어보냄: Windows Job Object 종료 확인 → shell#T57
 - 등급: 기본
 - concern: shell/terminal
 - 요구: shell/terminal#R1, R2, R3, R4(일반 shell), R5(일반 shell 비주입), R7, R8, R9, R10, R11
@@ -1060,7 +1060,7 @@ concerns: [shell]
 - 내놓는 contract: shell build 산출물(platform#T48·T49가 묶는다)
 - slice: operations
 - 선행: shell#T3, shell#T24, shell#T47
-- shell#T24에서 넘어온 것: Windows terminal child의 Job Object 종료 확인(POSIX group 종료와 fail-closed unknown은 #<PR>)
+- shell#T24에서 넘어온 것: Windows terminal child의 Job Object 종료 확인(POSIX group 종료와 fail-closed unknown은 #232)
 - 완료: 아래 확인이 통과한다
   - electron-builder로 Linux .deb(먼저), macOS·Windows 설정. shell build, preload, renderer, 로컬 글꼴, 고정 의존성, bundle된 Deno, node-pty native 모듈을 staging에 넣는다. sandbox를 끄지 않는다(Ubuntu AppArmor userns는 chrome-sandbox 권한으로 맞추고 `--no-sandbox` 우회 없음).
   - packaged main은 bundle된 Deno로 core를 띄운다. 시작 실패·sandbox 실패·schema 비호환은 런처의 실패 갈래로 정상처럼 보이지 않게 안내하고 다음 행동 하나를 준다.

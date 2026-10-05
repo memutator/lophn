@@ -40,3 +40,14 @@ test("shell/desktop#R21: notification이 없으면 실행 중 안내를 log로 �
   assert.equal(logs.length, 1);
   assert.ok(logs[0]!.includes("실행 중"));
 });
+
+test("shell/desktop#R21: macOS login item으로 열린 시작은 argv 없이도 창 없는 시작이다", () => {
+  assert.deepEqual(
+    resolveLaunchMode({ argv: ["lophn"], openedAtLogin: true }),
+    { tray: true },
+  );
+  assert.deepEqual(
+    resolveLaunchMode({ argv: ["lophn"], openedAtLogin: false }),
+    { tray: false },
+  );
+});

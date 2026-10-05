@@ -159,6 +159,9 @@ export const getProblemOutputSchema = withReadCommon(z.object({
   report_count: z.number().int().nonnegative(),
   first_observed_at: z.string().nullable(),
   last_observed_at: z.string().nullable(),
+  // 처음·최근 보고가 당시 실행하던 release다. 보고가 release를 모르면 null이다(grouping#R11).
+  first_release: idSchema("rel").nullable(),
+  last_release: idSchema("rel").nullable(),
 }));
 export const getProblem = defineRead({
   resource: "problems",

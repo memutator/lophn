@@ -10,13 +10,20 @@ import {
   type ParentMessage,
   STREAM_CHUNK_MAX_BYTES,
 } from "../../packages/contracts/platform/mod.ts";
-import { objectPathFor } from "../../packages/platform/blob-store/mod.ts";
+import {
+  objectPathFor,
+  tmpDirFor,
+} from "../../packages/platform/blob-store/mod.ts";
 import {
   type ByteReader,
   createFrameWriter,
   readFrames,
 } from "../../packages/platform/responsiveness/frames.ts";
 import { sha256Hex } from "../../packages/base/mod.ts";
+import {
+  BLOB_RELAY_BUFFER_MAX_BYTES,
+  createBufferGauge,
+} from "./blob-prepare.ts";
 import {
   CHILD_BLOB_POLICIES,
   createChildBlobPrepare,
@@ -239,6 +246,76 @@ Deno.test("platform/blob-store#R2: 자식 stream이 중간에 abort되면 blob�
   });
 });
 
+// I/O worker가 임시 파일을 버리는 일은 자식이 오류를 받은 뒤에 끝날 수 있다.
+async function tmpEntries(root: string): Promise<string[]> {
+  const names: string[] = [];
+  try {
+    for await (const entry of Deno.readDir(tmpDirFor(root))) {
+      names.push(entry.name);
+    }
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) throw error;
+  }
+  return names;
+}
+
+async function settledEmpty(
+  list: () => Promise<string[]>,
+): Promise<string[]> {
+  let found = await list();
+  for (let waited = 0; found.length > 0 && waited < 100; waited++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    found = await list();
+  }
+  return found;
+}
+
+Deno.test("platform/responsiveness#R1 platform/blob-store#R2: 실제 자식이 64MiB를 보내도 core가 쥔 바이트는 credit window 안이고 I/O worker가 같은 hash로 설치한다", async () => {
+  await withCore(async (core) => {
+    const size = 64 * 1024 * 1024;
+    const outcome = await runChild(core, "documents/worker", {
+      purpose: "document_file",
+      size,
+      mode: "ok",
+    });
+    assert(outcome.ok, outcome.ok ? "" : outcome.error.message);
+    const expected = await sha256Hex(patternBytes(size));
+    assertEquals(outcome.payload["hash"], expected);
+    assertEquals(outcome.payload["size_bytes"], size);
+    const stat = await Deno.stat(objectPathFor(core.dataRoot, expected));
+    assertEquals(stat.size, size);
+    // 흐르는 내내(gauge가 모든 증가를 본다) core는 자식 쪽 credit window와 chunk 하나만 쥐었다.
+    assert(core.blobBuffer.peak > 0, "core가 바이트를 쥔 적이 없다");
+    assert(
+      core.blobBuffer.peak <= BLOB_RELAY_BUFFER_MAX_BYTES,
+      `core가 ${core.blobBuffer.peak}바이트를 쥐었다(한도 ${BLOB_RELAY_BUFFER_MAX_BYTES})`,
+    );
+    assert(BLOB_RELAY_BUFFER_MAX_BYTES * 16 <= size);
+    assertEquals(core.blobBuffer.current, 0);
+    assertEquals(await settledEmpty(() => tmpEntries(core.dataRoot)), []);
+  });
+});
+
+Deno.test("platform/blob-store#R2 platform/responsiveness#R1: 64MiB 전송이 중간에 abort되면 blob도 임시 파일도 남지 않고 core가 쥔 바이트도 돌려받는다", async () => {
+  await withCore(async (core) => {
+    const outcome = await runChild(core, "documents/worker", {
+      purpose: "document_file",
+      size: 64 * 1024 * 1024,
+      mode: "abort_midway",
+    });
+    assert(!outcome.ok);
+    assertEquals(outcome.error.code, "unavailable");
+    assertEquals(await blobFiles(core.dataRoot), []);
+    assertEquals(await settledEmpty(() => tmpEntries(core.dataRoot)), []);
+    assert(core.blobBuffer.peak <= BLOB_RELAY_BUFFER_MAX_BYTES);
+    // 늦게 닿은 frame까지 버려진 뒤에는 쥔 바이트가 없다.
+    for (let waited = 0; core.blobBuffer.current > 0 && waited < 40; waited++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assertEquals(core.blobBuffer.current, 0);
+  });
+});
+
 // handler 시험: I/O worker 대신 stream을 직접 읽는 prepareBlob을 끼운다.
 function harness(options: { kind?: string; idleMs?: number } = {}) {
   const sent: ParentMessage[] = [];
@@ -407,4 +484,39 @@ Deno.test("platform/api#R4: 자식이 보낸 결과 오류에는 core 내부 메
   assert(result?.type === "blob_prepare_result" && !result.ok);
   assertEquals(result.error.code, "unavailable");
   handler.close();
+});
+
+Deno.test("platform/blob-store#R2: I/O worker가 바이트를 다 받기 전에 오류로 답하면 자식은 그 오류의 안전한 결과를 받고 대기열은 비워진다", async () => {
+  const sent: ParentMessage[] = [];
+  const gauge = createBufferGauge();
+  const handler = createChildBlobPrepare({
+    kind: "documents/worker",
+    gauge,
+    send: (message) => {
+      sent.push(message);
+      return Promise.resolve(true);
+    },
+    prepareBlob: async (call) => {
+      const reader = call.bytes.getReader();
+      await reader.read();
+      // 중계가 worker의 오류 응답을 받고 읽기를 그만둔다.
+      await reader.cancel();
+      return {
+        ok: false as const,
+        error: { code: "unavailable" as const, message: "/home/x/secret" },
+      };
+    },
+  });
+  handler.onMessage(request(8 * 1024 * 1024));
+  await tick();
+  handler.onFrame(bytes(7, 1000));
+  handler.onFrame(bytes(7, 2000));
+  await tick();
+  const result = sent.find((m) => m.type === "blob_prepare_result");
+  assert(result?.type === "blob_prepare_result" && !result.ok);
+  assertEquals(result.error.code, "unavailable");
+  assertEquals(JSON.stringify(sent).includes("/home/x"), false);
+  assertEquals(handler.open, 0);
+  assertEquals(gauge.current, 0);
+  assertEquals(gauge.peak, 3000);
 });

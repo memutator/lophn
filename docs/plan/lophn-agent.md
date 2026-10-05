@@ -294,6 +294,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T15 provider 실패 분류, credential 사용 가능 상태, 연결 test
 
+- 상태: 진행 (#249) — 남은 것: `/v1/providers/test` route를 runtime에 연결(ConnectionTestPort를 ledger command·read로 채우고 secret 부착 transport 조립, apps/agent-runtime 자리), 실제 계정 연결은 사람이 `LOPHN_LIVE_PROVIDER=1`로 확인
 - 등급: 기본
 - concern: lophn-agent/harness/provider
 - 요구: lophn-agent/harness/provider#R10, R19, R20, R21, R22, R23, R24, R27, R29, R30

@@ -28,6 +28,7 @@ import {
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import { createDocumentNameReservation } from "../addressing/mod.ts";
+import { basisChanged } from "../file-tracking/mod.ts";
 import { contentUnchanged, nextVersionNumber } from "./model.ts";
 import {
   insertDocument,
@@ -86,26 +87,45 @@ function claimedActor(ctx: RequestContext, prepared: PreparedVersion): boolean {
 
 // 관측 근거가 현재 연결과 다르면 그 제출은 늦다. core는 파일을 다시 읽지 않고
 // conflict만 돌려 다시 관측하게 한다(file-tracking#R7, versions#R13).
+// project_revision과 root 제거도 같은 비교다. 준비와 확정 사이에 규칙·연결·보관·
+// root가 바뀌면 basisChanged가 참이고, 그 제출은 conflict다.
 function observationBasisStale(
   document: Document,
   prepared: PreparedVersion,
 ): boolean {
   const basis = prepared.file_basis;
   if (basis === undefined) return false;
-  if (document.status !== "active" || basis.document_status !== "active") {
-    return true;
-  }
-  if (
-    basis.document_revision !== undefined &&
-    basis.document_revision !== document.revision
-  ) {
-    return true;
-  }
   const source = document.file_source;
-  if (source === null) return basis.file_source !== null;
-  if (basis.file_source === null) return true;
-  return basis.path !== source.path || basis.project !== source.project ||
-    basis.kind !== source.kind;
+  // 연결이 없는 문서의 제출은 경로로 비교하지 않는다. root 제거는 연결이 사라졌을 때다.
+  const linked = source !== null && basis.file_source !== null;
+  const currentPath = linked && basis.path === source.path &&
+      basis.project === source.project && basis.kind === source.kind
+    ? basis.path
+    : linked
+    ? source.path
+    : basis.path;
+  return basisChanged(
+    {
+      project: basis.project ?? "",
+      projectRevision: basis.project_revision ?? "",
+      path: basis.path,
+      documentRevision: basis.document_revision ?? null,
+      active: basis.document_status === "active",
+      archived: false,
+      rootPresent: basis.file_source !== null,
+    },
+    {
+      project: basis.project ?? "",
+      projectRevision: basis.project_revision ?? "",
+      path: currentPath,
+      documentRevision: basis.document_revision === undefined
+        ? null
+        : document.revision,
+      active: document.status === "active",
+      archived: document.status === "archived",
+      rootPresent: source !== null,
+    },
+  );
 }
 
 // 원본 연결 문서는 현재 파일 관측의 준비 결과로만 새 판을 확정한다(versions#R13).

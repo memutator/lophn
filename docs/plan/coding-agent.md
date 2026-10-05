@@ -491,7 +491,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T17 context 읽기·변경 제안 tool
 
-- 상태: 완료 (#PR) — 이어보냄: CLI `context` 읽기·`context propose`의 core dispatch 연결(`runContextPropose` 등)과 production credential provider·MCP runner 배선 → coding-agent#T36. 실제 core·documents worker·I/O worker로 `lophn_context`가 끝까지 도는 시험은 `apps/core/context-tools-e2e_test.ts`다
+- 상태: 완료 (#279) — 이어보냄: CLI `context` 읽기·`context propose`의 core dispatch 연결(`runContextPropose` 등)과 production credential provider·MCP runner 배선 → coding-agent#T36. 실제 core·documents worker·I/O worker로 `lophn_context`가 끝까지 도는 시험은 `apps/core/context-tools-e2e_test.ts`다
 - 등급: 좁은
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R17; coding-agent/cli#R18, R19

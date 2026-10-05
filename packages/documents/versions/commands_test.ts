@@ -42,13 +42,41 @@ Deno.test("documents/versions#R1: 첫 저장은 문서와 1번 판을 한 transa
     assertEquals(version?.["number"], 1);
     assertEquals(version?.["primary_path"], "index.html");
     assertEquals(version?.["file_count"], 2);
-    // 경로별 원문 행은 준비 worker가 파일 목록을 확정하며 남긴다(documents T8).
-    // 저장은 정규화 목록 blob 참조를 판에 묶는다.
+    // 저장은 정규화 목록 blob 참조와 경로별 원문 blob 참조를 같은 tx에서 판에 묶고
+    // 경로별 version_files 행을 남긴다(Q16).
     const blobs = fixture.blobs.filter((blob) =>
       blob.owner_key === result.version
     );
     assertEquals(blobs.map((blob) => blob.field), ["files"]);
     assertEquals(blobs[0].hash, HASH);
+    const originals = fixture.blobs.filter((blob) =>
+      blob.owner_key.startsWith(`${result.version}/`)
+    );
+    assertEquals(
+      originals.map((blob) => [blob.owner_key, blob.field, blob.hash]),
+      [
+        [`${result.version}/index.html`, "file", HASH],
+        [`${result.version}/cover.png`, "file", HASH],
+      ],
+    );
+    const rows = fixture.sql.all(
+      `SELECT path, blob_hash, bytes, media_type, primary_file
+       FROM version_files WHERE version = ? ORDER BY path`,
+      [result.version],
+    );
+    assertEquals(
+      rows.map((row) => [
+        row["path"],
+        row["blob_hash"],
+        row["bytes"],
+        row["media_type"],
+        row["primary_file"],
+      ]),
+      [
+        ["cover.png", HASH, 8, "image/png", 0],
+        ["index.html", HASH, 12, "text/html", 1],
+      ],
+    );
     const types = fixture.emitted.map((event) => event.type);
     assertEquals(types, ["DocumentCreated", "DocumentSaved"]);
     assertEquals(
@@ -109,11 +137,19 @@ Deno.test("documents/versions#R3: 같은 내용과 format 계약의 저장은 �
       idempotency_key: "save-2",
     });
     const events = fixture.emitted.length;
+    const blobsBefore = fixture.blobs.length;
     const repeated = keep(save(fixture, again));
     assertEquals(repeated.status, "unchanged");
     assertEquals(repeated.version, first.version);
     assertEquals(repeated.event_seq, null);
     assertEquals(fixture.emitted.length, events);
+    // 같은 내용의 재저장은 blob 참조도 판의 파일 행도 새로 만들지 않는다.
+    assertEquals(fixture.blobs.length, blobsBefore);
+    const rowCount = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM version_files",
+      [],
+    );
+    assertEquals(rowCount?.["count"], 1);
     const count = fixture.sql.get(
       "SELECT COUNT(*) AS count FROM versions WHERE document = ?",
       [ids.doc],

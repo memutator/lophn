@@ -16,6 +16,7 @@ import {
   documentUpdated,
   type FileSource,
   type FormatRef,
+  type PreparedFile,
   type PreparedVersion,
   type SaveResult,
   type Version,
@@ -41,8 +42,8 @@ import {
 } from "./store.ts";
 import { authorizeDocument } from "./authorization.ts";
 
-// 판 원문 파일. owner_key는 version id와 상대 경로다. 일반 읽기를 연다.
-// 경로별 원문 등록은 준비 worker가 파일 목록을 확정한 뒤 한다(documents T8).
+// 판 원문 파일. owner_key는 `<version id>/<상대 경로>`다. 일반 읽기를 연다.
+// save가 준비 결과의 파일별 준비 참조로 같은 tx에서 등록한다(Q16).
 export const versionFileField = defineBlobField({
   owner_kind: "document_version",
   field: "file",
@@ -398,8 +399,8 @@ function mintVersion(
     id: tx.newId("ver"),
     document: prepared.document,
     number,
-    // 파일 목록 행은 준비 worker가 같은 transaction에 남긴다(documents T8).
-    files: { hash: prepared.files_hash, size_bytes: 0 },
+    // 파일 목록 행(version_files)은 storeVersion이 같은 tx에서 남긴다.
+    files: prepared.files.map(({ preparation_ref: _ref, ...file }) => file),
     content_hash: prepared.content_hash,
     format: prepared.format,
     saved_by: ctx.actor,
@@ -410,8 +411,8 @@ function mintVersion(
   return ok(version);
 }
 
-// 정규화 목록 blob을 판에 묶는다. 등록 실패는 저장 실패다(versions#R5).
-// 경로별 원문 blob은 준비 worker가 파일 목록을 확정하며 등록한다(documents T8).
+// 정규화 목록 blob과 경로별 원문 blob을 판에 묶는다. 등록 실패는 저장 실패다(versions#R5).
+// 원문 blob은 파일별 준비 참조로 등록한다. 등록하지 않으면 준비 참조 수명이 지나 사라진다.
 function storeVersion(
   tx: Tx,
   ctx: RequestContext,
@@ -426,12 +427,32 @@ function storeVersion(
     source: { kind: "prepared", blob: filesBlob(ctx, prepared) },
   });
   if (!listed.ok) return listed;
+  for (const file of prepared.files) {
+    const original = tx.registerBlobRef({
+      owner_kind: versionFileField.owner_kind,
+      owner_key: `${version.id}/${file.path}`,
+      field: versionFileField.field,
+      registered_seq: "1",
+      source: { kind: "prepared", blob: fileBlob(ctx, file) },
+    });
+    if (!original.ok) return original;
+  }
   insertVersion(tx, version, {
     files_hash: prepared.files_hash,
     primary_path: prepared.primary_path,
     file_count: prepared.file_count,
   });
   return ok(undefined);
+}
+
+function fileBlob(ctx: RequestContext, file: PreparedFile): PreparedBlob {
+  return {
+    preparation: file.preparation_ref,
+    hash: file.blob_hash,
+    size_bytes: file.bytes,
+    principal: ctx.principal,
+    purpose: "document_file",
+  };
 }
 
 function filesBlob(

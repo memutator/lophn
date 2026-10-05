@@ -21,6 +21,7 @@ concerns: [documents/file-tracking]
 | `content_hash` | sha256 | 아니오 | 정규화 목록 해시 | |
 | `format` | FormatRef | 아니오 | → documents/formats; base_version의 저장 계약 | |
 | `validation` | FormatValidationResult | 아니오 | → documents/formats; 실제 input hash·module hash 일치 | |
+| `files` | `{ContentFile, preparation_ref}` 목록 | 아니오 | 판에 묶을 파일; 경로·개수·대표 파일은 `file_count`·`primary_path`와 일치; 각 `preparation_ref`는 그 파일 원문 blob(`document_file` 준비)의 참조 | save가 `version_files` 행과 경로별 원문 blob 참조를 같은 tx에서 남김 |
 | `preparation_ref` | string | 아니오 | 신뢰한 준비 처리의 작은 검증 참조; 원래 요청·내용·검사·내구 blob에 결합 | |
 | `file_basis` | FileObservationBasis | 조건부 | 파일 관측에만 필수 | |
 | `source` | VersionSource | 예 | → documents/versions; 파일·앱 요청에는 필수 | |

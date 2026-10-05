@@ -112,6 +112,56 @@ Deno.test("documents/versions#R6: prepared version binds content, format and the
   );
 });
 
+Deno.test("documents/versions#R5: prepared version carries each file with its own preparation ref", () => {
+  const listed = (files: unknown[], extra: Record<string, unknown> = {}) => ({
+    ...prepared,
+    files,
+    ...extra,
+  });
+  const first = { ...file, preparation_ref: "prep-file-1" };
+  const second = { ...attachment, preparation_ref: "prep-file-2" };
+  assert(preparedVersionSchema.safeParse(prepared).success);
+  assert(
+    preparedVersionSchema.safeParse(listed([first, second], { file_count: 2 }))
+      .success,
+  );
+  // 파일 목록과 파일별 준비 참조는 필수다.
+  const { files: _files, ...withoutFiles } = prepared;
+  assert(!preparedVersionSchema.safeParse(withoutFiles).success);
+  assert(!preparedVersionSchema.safeParse(listed([])).success);
+  assert(!preparedVersionSchema.safeParse(listed([file as never])).success);
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([{ ...first, preparation_ref: "" }]),
+    ).success,
+  );
+  // 개수·대표 경로·유일 경로·대표 하나가 어긋난 목록은 거절한다.
+  assert(!preparedVersionSchema.safeParse(listed([first, second])).success);
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([{ ...first, path: "other.md" }]),
+    ).success,
+  );
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([first, { ...second, path: first.path }], { file_count: 2 }),
+    ).success,
+  );
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([first, { ...second, primary: true }], { file_count: 2 }),
+    ).success,
+  );
+  assert(
+    !preparedVersionSchema.safeParse(
+      listed([{ ...first, extra: true }]),
+    ).success,
+  );
+  assert(
+    preparedVersionOutputSchema.safeParse(listed([first])).success,
+  );
+});
+
 Deno.test("documents/versions#R6: unknown fields, bad values and id prefixes are rejected", () => {
   assert(!formatRefSchema.safeParse({ ...format, extra: true }).success);
   assert(

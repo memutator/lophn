@@ -187,19 +187,26 @@ export function file(
   primary: boolean,
   bytes = 4,
   media = "text/plain",
-): ContentFile & { prepared: PreparedBlob } {
+): ContentFile & {
+  preparation_ref: string;
+  content: { kind: "prepared"; blob: PreparedBlob };
+} {
   return {
     path,
     blob_hash: HASH,
     bytes,
     media_type: media,
     primary,
-    prepared: {
-      preparation: `prep-${path}`,
-      principal: "person",
-      purpose: "document_file",
-      hash: HASH,
-      size_bytes: bytes,
+    preparation_ref: `prep-${path}`,
+    content: {
+      kind: "prepared",
+      blob: {
+        preparation: `prep-${path}`,
+        principal: "person",
+        purpose: "document_file",
+        hash: HASH,
+        size_bytes: bytes,
+      },
     },
   };
 }
@@ -230,7 +237,8 @@ export function preparedInput(
       diagnostics: [],
     },
     source: null,
-    files,
+    // 저장 입력의 파일은 ContentFile과 준비 참조다(준비 입력의 content는 싣지 않는다).
+    files: files.map(({ content: _content, ...item }) => item),
     ...extra,
   };
 }

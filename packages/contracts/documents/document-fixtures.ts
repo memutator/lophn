@@ -76,6 +76,7 @@ export const prepared = {
   format,
   validation,
   preparation_ref: "prep-1",
+  files: [{ ...file, preparation_ref: "prep-file-1" }],
   file_basis: basis,
   source: fileSource,
   idempotency_key: key,

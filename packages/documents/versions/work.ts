@@ -85,7 +85,6 @@ export type PreparedResult = Omit<PreparedVersion, "validation"> & {
   validation: Omit<PreparedVersion["validation"], "diagnostics"> & {
     diagnostics: FormatDiagnostic[];
   };
-  files: readonly ContentFile[];
 };
 
 export type PrepareError = { code: string; message: string };
@@ -156,6 +155,18 @@ export function createPrepareAssembly(deps: PrepareDeps) {
       })),
     );
     if (issues.length > 0) return err(invalidIssues(issues));
+    // 판에 묶는 원문은 이 준비 요청이 올린 blob이다. 이미 등록된 blob 재사용은 저장 쪽
+    // 입구가 아직 없어 조용히 빼지 않고 거절한다.
+    const preparations: string[] = [];
+    for (const file of request.files) {
+      if (file.content.kind !== "prepared") {
+        return err({
+          code: "invalid_input",
+          message: "file content must be a prepared blob",
+        });
+      }
+      preparations.push(file.content.blob.preparation);
+    }
     const primary = request.files.find((file) => file.primary)!;
     const contentFiles = request.files.map((file) =>
       fileToContent(file, file.primary)
@@ -232,7 +243,10 @@ export function createPrepareAssembly(deps: PrepareDeps) {
         ? {}
         : { file_basis: request.file_basis as FileObservationBasis }),
       source: request.source,
-      files: contentFiles,
+      files: contentFiles.map((file, index) => ({
+        ...file,
+        preparation_ref: preparations[index],
+      })),
     });
   };
 }
@@ -266,7 +280,7 @@ export function createExportAssembly() {
     format: "markdown" | "json";
     documents: {
       document: Omit<Document, "file_source">;
-      version: Omit<VersionRow, "source"> & {
+      version: VersionRow & {
         files: readonly ContentFile[] | { hash: string; size_bytes: number };
       };
       reference: { document: string; version: string; section: null };
@@ -276,7 +290,7 @@ export function createExportAssembly() {
     // 자리 slug·파일 source는 출력에서 뺀다(agentDocumentSchema와 같은 모양).
     const documents: {
       document: Omit<Document, "file_source">;
-      version: Omit<VersionRow, "source"> & {
+      version: VersionRow & {
         files: readonly ContentFile[] | { hash: string; size_bytes: number };
       };
       reference: { document: string; version: string; section: null };
@@ -288,11 +302,14 @@ export function createExportAssembly() {
       const files = item.files.length > 0
         ? item.files
         : { hash: item.row.files_hash, size_bytes: 0 };
-      const { source: _rowSource, ...rowVisible } = item.row;
+      // versionSchema는 source 필드를 요구한다. 디스크 경로가 든 파일·지침 출처는 null로
+      // 가리고(agent history와 같다) 앱 출처만 남긴다.
+      const source = item.row.source?.kind === "app" ? item.row.source : null;
       documents.push({
         document: visible,
         version: {
-          ...rowVisible,
+          ...item.row,
+          source,
           files,
         },
         reference: {

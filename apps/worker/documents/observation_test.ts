@@ -91,6 +91,14 @@ function preparedVersion(body: { document: string; idempotency_key: string }) {
     primary_path: "a.md",
     content_hash: NEW,
     preparation_ref: "prep-list",
+    files: [{
+      path: "a.md",
+      blob_hash: NEW,
+      bytes: 4,
+      media_type: "text/markdown",
+      primary: true,
+      preparation_ref: "prep-file",
+    }],
     idempotency_key: body.idempotency_key,
     format: { name: "document", module_hash: OLD, explicit: false },
     validation: {
@@ -185,7 +193,7 @@ Deno.test("documents/file-tracking#R7: 안정 관측은 준비 뒤 machine docum
   };
   assert(preparedVersionSchema.safeParse(save.input).success);
   assertEquals(save.compare, { base_version: BASE });
-  assertEquals(save.prepared, ["prep-list"]);
+  assertEquals(save.prepared, ["prep-list", "prep-file"]);
   const status = wired.status.get(TARGET);
   assertEquals(status?.observedHash, NEW);
   assertEquals(status?.latestHash, NEW);

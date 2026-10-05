@@ -222,12 +222,20 @@ export function createObservationSubmit(
       );
       return err(prepared.error);
     }
-    const preparedVersion = prepared.value as { preparation_ref: string };
+    // 준비 결과의 files가 판의 파일 목록이다. save가 같은 tx에서 version_files 행과
+    // 파일별 원문 blob 참조를 등록하므로 그 준비 참조도 함께 묶는다(Q16).
+    const preparedVersion = prepared.value as {
+      preparation_ref: string;
+      files: readonly { preparation_ref: string }[];
+    };
     const saved = await ports.client.call("documents/save", {
       input: preparedVersion,
       idempotency_key,
       compare: { base_version: link.base_version },
-      prepared: [preparedVersion.preparation_ref],
+      prepared: [
+        preparedVersion.preparation_ref,
+        ...preparedVersion.files.map((file) => file.preparation_ref),
+      ],
     });
     if (!saved.ok) {
       ports.status.report(

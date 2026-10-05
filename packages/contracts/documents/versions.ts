@@ -269,6 +269,23 @@ export const versionSchema = versionSummarySchema.refine((value) =>
 );
 export type Version = z.infer<typeof versionSchema>;
 
+// 판에 묶을 파일 하나: ContentFile과 그 원문 blob(`document_file` 준비)의 준비 참조.
+// save가 같은 tx에서 version_files 행과 경로별 원문 blob 참조(versionFileField)를 남긴다.
+const preparedFileFields = {
+  ...contentFileFields,
+  preparation_ref: z.string().min(1),
+};
+export const preparedFileSchema = z.strictObject(preparedFileFields);
+export const preparedFileOutputSchema = z.object(preparedFileFields);
+export type PreparedFile = z.infer<typeof preparedFileSchema>;
+
+const preparedFileList = (
+  value: { files: { path: string; primary: boolean }[]; file_count: number },
+) =>
+  value.files.length === value.file_count &&
+  value.files.filter((f) => f.primary).length === 1 &&
+  new Set(value.files.map((f) => f.path)).size === value.files.length;
+
 const preparedFields = {
   document: documentIdSchema,
   base_version: versionIdSchema.nullable(),
@@ -281,12 +298,18 @@ const preparedFields = {
 };
 export const preparedVersionSchema = z.strictObject({
   ...preparedFields,
+  files: z.array(preparedFileSchema).min(1),
   metadata: documentMetadataSchema.optional(),
   format: formatRefSchema,
   validation: formatValidationResultSchema,
   file_basis: fileObservationBasisSchema.optional(),
   source: versionSourceSchema.nullable(),
 }).refine((v) => v.base_version !== null || v.metadata !== undefined).refine(
+  (v) =>
+    preparedFileList(v) &&
+    v.files.find((f) => f.primary)!.path === v.primary_path,
+  { message: "files must match file_count and primary_path" },
+).refine(
   (v) =>
     v.validation.input_hash === v.content_hash &&
     v.validation.module_hash === v.format.module_hash &&
@@ -310,6 +333,7 @@ export const preparedVersionSchema = z.strictObject({
 );
 export const preparedVersionOutputSchema = z.object({
   ...preparedFields,
+  files: z.array(preparedFileOutputSchema).min(1),
   metadata: documentMetadataOutputSchema.optional(),
   format: formatRefOutputSchema,
   validation: formatValidationResultOutputSchema,

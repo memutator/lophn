@@ -4,10 +4,13 @@ import {
   formatGet,
   formatGetInputSchema,
   formatList,
+  outlineRoot,
+  READ_ROUTES,
   SEARCH_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
   ApiReadDefinition,
+  FileRoute,
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
@@ -55,6 +58,7 @@ type LedgerRegistration = {
   commands?: readonly unknown[];
   reads?: readonly unknown[];
   apiReads?: readonly unknown[];
+  files?: readonly FileRoute[];
   workers?: readonly KindLaunchSpec[];
   workerRoutes?: readonly WorkerRoute[];
   blobFields?: readonly unknown[];
@@ -212,6 +216,20 @@ function formatRunnerSpec(): KindLaunchSpec | undefined {
   };
 }
 
+// root outline read. 제품 서빙(ledger 활동·자리별 묶음)은 documents#T11이 넣는다.
+// 그 전에는 빈 성공으로 꾸미지 않고 unavailable로 답한다.
+function outlineRootRead(): ApiReadDefinition {
+  return {
+    route: outlineRoot,
+    handle(_ctx, _input) {
+      return err({
+        code: "unavailable",
+        message: "root outline is not served yet",
+      });
+    },
+  };
+}
+
 export type DocumentsRelaunch =
   | { kind: "unchanged" }
   | { kind: "relaunch"; specs: KindLaunchSpec[] }
@@ -328,9 +346,20 @@ export function createLedgerRegistration(
     // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
     blobFields: [versionFileField, versionFilesField],
     // format read는 snapshot 없이 바로 연다. 경로는 같은 조립에서 registry로 모은다.
-    apiReads: [...formatReads(), fileStatusRead(createStatusMemory())],
-    // 유래 검색 읽기(T13). 파생 store는 문서 worker나 별도 연결이 연다(core_imports_test).
-    workerRoutes: [...SEARCH_ROUTES],
+    apiReads: [
+      outlineRootRead(),
+      ...formatReads(),
+      fileStatusRead(createStatusMemory()),
+    ],
+    // 유래 검색 읽기(T13)와 outline·단계적 읽기 경로(T14). place·document outline·
+    // 본문 읽기는 worker 경로라 문서 worker 조립이 서빙한다(core_imports_test).
+    // 제품 서빙 교체는 documents#T11이 넣는다. 지금은 503이다.
+    workerRoutes: [
+      ...SEARCH_ROUTES,
+      ...READ_ROUTES.filter((route) => route.kind === "worker"),
+    ],
+    // 단계적 읽기(T14). 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).
+    files: [...READ_ROUTES].filter((route) => route.kind === "file"),
     // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
     // core가 root를 좁히는 T11 교체는 core 쪽 감독 seam이 넣는다.
     workers: registerWorkers(),

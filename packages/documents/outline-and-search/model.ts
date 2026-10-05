@@ -244,4 +244,244 @@ function invalidCursor(): Result<never> {
   return err({ code: "invalid_input", message: "invalid search cursor" });
 }
 
+// outline 목록·본문 읽기 cursor. 목록 cursor는 basis_seq·query_hash(조건의
+// canonical form)·sort·scope_basis(credential)·선택 판 목록에 묶인다.
+// 본문 cursor는 ver·module_hash·section·include_children·ranges·줄 위치·
+// 줄 안 codepoint 위치를 함께 가진다. 긴 한 줄도 codepoint 위치로 이어 읽는다.
+// 조건·판 mismatch는 invalid_input, basis 만료는 conflict다(read-values 규약).
+const outlineListBasisSchema = z.object({
+  topic: z.string(),
+  basis_seq: z.string(),
+  sort: z.string(),
+  conditions: z.unknown(),
+  versions: z.array(z.object({ document: z.string(), version: z.string() })),
+  credential: z.string(),
+});
+const outlineListCursorSchema = z.object({
+  page: z.object({ offset: z.number().int().nonnegative() }),
+  basis: outlineListBasisSchema,
+});
+
+export type OutlineListBasis = {
+  topic: string;
+  basis_seq: string;
+  sort: string;
+  conditions: unknown;
+  versions: { document: string; version: string }[];
+  credential: string;
+};
+
+export type OutlineResume = { offset: number };
+
+export function encodeOutlineCursor(
+  basis: OutlineListBasis,
+  offset: number,
+): string {
+  const value = {
+    page: { offset },
+    basis: {
+      topic: basis.topic,
+      basis_seq: basis.basis_seq,
+      sort: basis.sort,
+      conditions: basis.conditions,
+      versions: basis.versions,
+      credential: basis.credential,
+    },
+  };
+  return encodeCursorValue(outlineListCursorSchema, value);
+}
+
+export function decodeOutlineCursor(
+  cursor: string,
+  current: {
+    topic: string;
+    basis_seq: string;
+    sort: string;
+    conditions: unknown;
+    credential: string;
+  },
+): Result<OutlineResume> {
+  try {
+    const bytes = Uint8Array.from(atob(cursor), (char) => char.charCodeAt(0));
+    const parsed = outlineListCursorSchema.safeParse(
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+    );
+    if (!parsed.success) return invalidOutlineCursor();
+    const basis = parsed.data.basis;
+    const different = basis.topic !== current.topic ||
+      basis.sort !== current.sort ||
+      canonicalize(basis.conditions) !== canonicalize(current.conditions) ||
+      basis.credential !== current.credential;
+    if (different) return invalidOutlineCursor();
+    // basis_seq 만료. 목록을 만든 seq가 지나갔으면 안정 기준이 없다.
+    if (basis.basis_seq !== current.basis_seq) {
+      return err({
+        code: "conflict",
+        message: "outline page basis advanced",
+      });
+    }
+    return ok({ offset: parsed.data.page.offset });
+  } catch {
+    return invalidOutlineCursor();
+  }
+}
+
+function invalidOutlineCursor(): Result<never> {
+  return err({ code: "invalid_input", message: "invalid outline cursor" });
+}
+
+// 본문 읽기 cursor. json 형식은 opaque다. schema는 decode하지 않는다.
+const bodyPositionSchema = z.object({
+  ver: z.string(),
+  module_hash: z.string(),
+  section: z.string().nullable(),
+  include_children: z.boolean(),
+  ranges: z.array(
+    z.object({
+      start_line: z.number().int().positive(),
+      end_line: z.number().int().positive(),
+    }),
+  ),
+  line: z.number().int().positive(),
+  codepoint: z.number().int().nonnegative(),
+  text_hash: z.string().nullable(),
+});
+const bodyCursorSchema = z.object({ read: bodyPositionSchema });
+
+export type BodyPosition = {
+  ver: string;
+  module_hash: string;
+  section: string | null;
+  include_children: boolean;
+  ranges: { start_line: number; end_line: number }[];
+  line: number;
+  codepoint: number;
+  text_hash: string | null;
+};
+
+export type BodyResume = { line: number; codepoint: number };
+
+export function encodeBodyCursor(position: BodyPosition): string {
+  return encodeCursorValue(bodyCursorSchema, { read: position });
+}
+
+export function decodeBodyCursor(
+  cursor: string,
+  current: {
+    ver: string;
+    module_hash: string;
+    section: string | null;
+    include_children: boolean;
+    ranges: readonly { start_line: number; end_line: number }[];
+    text_hash: string | null;
+  },
+): Result<BodyResume> {
+  try {
+    const bytes = Uint8Array.from(atob(cursor), (char) => char.charCodeAt(0));
+    const parsed = bodyCursorSchema.safeParse(
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+    );
+    if (!parsed.success) return invalidBodyCursor();
+    const read = parsed.data.read;
+    const different = read.ver !== current.ver ||
+      read.module_hash !== current.module_hash ||
+      read.section !== current.section ||
+      read.include_children !== current.include_children ||
+      canonicalize(read.ranges) !== canonicalize(current.ranges);
+    if (different) return invalidBodyCursor();
+    // 같은 cursor는 처음 판을 유지한다. 판의 원문이 바뀌면 basis가 만료다.
+    if (read.text_hash !== current.text_hash) {
+      return err({ code: "conflict", message: "text basis advanced" });
+    }
+    return ok({ line: read.line, codepoint: read.codepoint });
+  } catch {
+    return invalidBodyCursor();
+  }
+}
+
+function invalidBodyCursor(): Result<never> {
+  return err({ code: "invalid_input", message: "invalid read cursor" });
+}
+
+function encodeCursorValue(
+  schema: { safeParse(value: unknown): { success: boolean } },
+  value: unknown,
+): string {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error("cursor value is invalid");
+  }
+  const bytes = new TextEncoder().encode(canonicalize(value));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+// 선택 줄��� codepoint 예산 안에서 자른다. 긴 한 줄도 줄 안 codepoint 위치로
+// 겹침·누락 없이 이어 읽는다(R7). pieces는 "\n"으로 붙고, 붙임 줄바꿈도 예산에
+// 센다. 범위는 1-based inclusive range로 연속 줄을 묶는다. 다음
+// 위치({line, codepoint})를 준다.
+export type BodyChunk = {
+  text: string;
+  ranges: { start_line: number; end_line: number }[];
+  position: { line: number; codepoint: number };
+  complete: boolean;
+};
+
+export function bodyChunk(
+  lines: readonly string[],
+  selected: readonly number[],
+  from: { line: number; codepoint: number },
+  maxCodepoints: number,
+): BodyChunk {
+  const pieces: string[] = [];
+  const ranges: { start_line: number; end_line: number }[] = [];
+  let start: number | undefined;
+  let previous: number | undefined;
+  let remaining = maxCodepoints;
+  let position = { line: from.line, codepoint: from.codepoint };
+  let complete = true;
+  for (const number of selected) {
+    if (number < position.line) continue;
+    // 붙임 줄바꿈도 예산에 센다. 줄바꿈이 안 남으면 여기서 끊는다.
+    const allowance = remaining - (pieces.length > 0 ? 1 : 0);
+    if (allowance <= 0) {
+      complete = false;
+      break;
+    }
+    const value = lines[number - 1] ?? "";
+    let piece = value;
+    if (position.codepoint > 0) {
+      piece = [...value].slice(position.codepoint).join("");
+    }
+    const width = [...piece].length;
+    if (width > allowance) {
+      piece = [...piece].slice(0, allowance).join("");
+      position = {
+        line: number,
+        codepoint: position.codepoint + allowance,
+      };
+      remaining = 0;
+      complete = false;
+    } else {
+      remaining -= width + (pieces.length > 0 ? 1 : 0);
+      position = { line: number + 1, codepoint: 0 };
+    }
+    pieces.push(piece);
+    if (previous !== undefined && number === previous + 1) {
+      previous = number;
+      continue;
+    }
+    if (start !== undefined && previous !== undefined) {
+      ranges.push({ start_line: start, end_line: previous });
+    }
+    start = number;
+    previous = number;
+  }
+  if (start !== undefined && previous !== undefined) {
+    ranges.push({ start_line: start, end_line: previous });
+  }
+  return { text: pieces.join("\n"), ranges, position, complete };
+}
+
 export const SEARCH_QUIET_MS = 500;

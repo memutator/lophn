@@ -20,6 +20,12 @@ import {
   RequestsProvider,
 } from "./lophn-space/things-to-confirm/context.tsx";
 import { coreRequestSource } from "./lophn-space/things-to-confirm/core-source.ts";
+import {
+  coreLauncherSource,
+  windowFolderPicker,
+} from "./launcher/core-source.ts";
+import { coreWorkspaceSource } from "../workspace/core-source.ts";
+import { coreTrackingSource } from "../workspace/tracking/core-source.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -28,6 +34,10 @@ const seed = devSeed();
 const core = windowCoreSource();
 const editor = windowEditorDeps(core);
 const lophn = coreLophnSource(core);
+// 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
+const projects = coreLauncherSource(core, windowFolderPicker());
+const workspace = seed?.source ?? coreWorkspaceSource(core);
+const tracking = seed ? undefined : coreTrackingSource(core);
 // 창마다 하나인 대화 통로와 메모리. 공간을 오가도 작성 중 말이 남는다(desktop#R8).
 const conversation = {
   source: coreConversationSource(core),
@@ -75,12 +85,14 @@ mount(
         <Desktop
           source={core}
           initial={start}
-          workspace={seed?.source}
+          workspace={workspace}
           editor={seed ? { ...editor, ...seed.editor } : editor}
           windowWidth={seed ? 1440 : undefined}
           terminal={terminal}
           lophn={lophn}
           palette={palette}
+          projects={projects}
+          tracking={tracking}
         />
       </RequestsProvider>
     </ConversationProvider>

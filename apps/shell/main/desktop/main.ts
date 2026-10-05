@@ -16,6 +16,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
+import { FOLDER_PICK_CHANNEL } from "../../ipc/folder-picker.ts";
 import { WINDOW_SHORTCUT_CHANNEL } from "../../ipc/shortcuts.ts";
 
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
@@ -49,6 +50,7 @@ import {
   reveal,
   surfaceOptions,
 } from "./headless.ts";
+import { createFolderPicker } from "./folder-picker.ts";
 import { registerShellScheme } from "./security.ts";
 import { listenShortcuts } from "./shortcuts.ts";
 import { startSingleInstance } from "./single-instance.ts";
@@ -151,6 +153,29 @@ registerTerminalIpc(
   terminalIpc,
 );
 
+// 프로젝트 등록의 OS 폴더 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
+ipcMain.handle(
+  FOLDER_PICK_CHANNEL,
+  createFolderPicker({
+    registry: overlays.overlayRegistry(),
+    headless,
+    headlessPick: process.env.LOPHN_SHELL_PICK_FOLDER,
+    dialog: {
+      async open(event) {
+        const sender = (event as unknown as { sender: WebContents }).sender;
+        const parent = BrowserWindow.fromWebContents(sender);
+        const options = {
+          properties: ["openDirectory" as const, "createDirectory" as const],
+        };
+        const result = parent
+          ? await dialog.showOpenDialog(parent, options)
+          : await dialog.showOpenDialog(options);
+        return { canceled: result.canceled, paths: result.filePaths };
+      },
+    },
+  }),
+);
+
 let tray: InstalledTray | undefined;
 
 // 터미널 host와 core를 멈추는 한 번의 순서. tray Quit·`--quit`·OS 종료가 같이 쓴다.
@@ -164,6 +189,7 @@ function stopAll(): void {
       removeHandler: (channel) => ipcMain.removeHandler(channel),
     } satisfies MainIpc,
   );
+  ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   terminals.stop();
   core.shutdown();
   overlays.dispose();

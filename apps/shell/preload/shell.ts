@@ -9,6 +9,11 @@ import {
   coreCallSchema,
 } from "../ipc/core.ts";
 import type { CoreApi, CoreReply } from "../ipc/core-api.ts";
+import {
+  FOLDER_PICK_CHANNEL,
+  type FolderPickerApi,
+  type FolderPickReply,
+} from "../ipc/folder-picker.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
@@ -29,6 +34,24 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnShortcuts",
     createShortcutApi(ipcRenderer),
+  );
+  // 프로젝트 등록의 OS 폴더 선택기. 경로는 main이 연 dialog의 결과만 온다.
+  contextBridge.exposeInMainWorld(
+    "lophnFolders",
+    Object.freeze(
+      {
+        async pick(): Promise<FolderPickReply> {
+          try {
+            return await ipcRenderer.invoke(
+              FOLDER_PICK_CHANNEL,
+              {},
+            ) as FolderPickReply;
+          } catch {
+            return { ok: false, code: "unavailable" };
+          }
+        },
+      } satisfies FolderPickerApi,
+    ),
   );
 }
 

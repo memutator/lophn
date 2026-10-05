@@ -11,6 +11,8 @@ import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
+import type { LauncherSource } from "./launcher/source.ts";
+import type { TrackingSource } from "../workspace/tracking/source.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -29,6 +31,10 @@ export interface DesktopProps {
   lophn?: LophnSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
+  /** 런처의 프로젝트 카드·등록 통로. 없으면 카드 자리는 비었음 상태다. */
+  projects?: LauncherSource;
+  /** 작업대의 파일 추적 켜기 통로. */
+  tracking?: TrackingSource;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -43,6 +49,8 @@ export function Desktop(
     terminal,
     lophn,
     palette,
+    projects,
+    tracking,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -67,6 +75,7 @@ export function Desktop(
         onThingsToConfirm={thingsToConfirm}
         editor={editor}
         terminal={terminal}
+        tracking={tracking}
       />
     );
   } else if (route.space === "lophn" && lophn) {
@@ -86,6 +95,8 @@ export function Desktop(
         source={source}
         formatTime={formatTime}
         onLophn={lophnSpace}
+        projects={projects}
+        onProject={(project) => setRoute(openProject(project))}
       />
     );
   }

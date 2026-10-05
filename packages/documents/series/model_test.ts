@@ -114,3 +114,46 @@ Deno.test("documents/series#R5: format_field 정렬은 같은 타입 order_value
     ["0.9", "0.10"],
   );
 });
+
+Deno.test("documents/series#R11: draft key가 멤버·예약 key와 충돌하는지 본다", () => {
+  const draft = {
+    document: "doc_01arz3ndektsv4rrffq69g5fb0",
+    key: "w-2",
+    base_version: null,
+    format: { name: "document", module_hash: "ab".repeat(32), explicit: false },
+    content: null,
+  };
+  // 멤버 key와 같으면 충돌이다.
+  assertEquals(
+    draftKeyConflicts(
+      [
+        instance("doc_01arz3ndektsv4rrffq69g5fav", "w-1"),
+        instance(
+          "doc_01arz3ndektsv4rrffq69g5faw",
+          "w-2",
+        ),
+      ],
+      [],
+      draft,
+    ),
+    true,
+  );
+  // 예약 key와 같으면 충돌이다.
+  assertEquals(
+    draftKeyConflicts(
+      [instance("doc_01arz3ndektsv4rrffq69g5fav", "w-1")],
+      ["w-2"],
+      draft,
+    ),
+    true,
+  );
+  // 둘 다 아니면 충돌이 아니다.
+  assertEquals(
+    draftKeyConflicts(
+      [instance("doc_01arz3ndektsv4rrffq69g5fav", "w-1")],
+      ["w-9"],
+      { ...draft, key: "w-3" },
+    ),
+    false,
+  );
+});

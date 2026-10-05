@@ -9,10 +9,10 @@ type Environment = {
 };
 
 // series ledger 테스트 등록. 명령·schema를 public harness에 붙인다.
-// 읽기는 T18이 등록한다. versions·addressing 표는 membership 검사에서 필요 없다
-// (membership은 loadDocument·loadLatestVersion을 부르므로 필요하다).
+// 읽기는 T18이 등록한다. membership 검사(loadDocument·loadLatestVersion)는
+// versions·addressing 표를 harness에 붙이는 곳에서 같이 뜨므로 여기서는 표만 더한다.
 export function createLedgerTestRegistration(
-  environment: Environment,
+  _environment: Environment,
 ): LedgerTestRegistration {
   const commands = createSeriesCommands();
   return {
@@ -28,6 +28,5 @@ export function createLedgerTestRegistration(
       commands.archive,
       commands.unarchive,
     ],
-    readPorts: new Map(),
   };
 }

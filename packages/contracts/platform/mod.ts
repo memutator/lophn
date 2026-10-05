@@ -185,6 +185,12 @@ export { EVENTS, ROUTES } from "./registry.ts";
 export {
   appCredentialRequestSchema,
   appCredentialResponseSchema,
+  BLOB_PREPARE_CREDIT_WINDOW,
+  BLOB_PREPARE_ERROR_CODES,
+  type BlobPrepareRequest,
+  blobPrepareRequestSchema,
+  type BlobPrepareResult,
+  blobPrepareResultSchema,
   type ChildMessage,
   childMessageSchema,
   CONTROL_MAX_BYTES,

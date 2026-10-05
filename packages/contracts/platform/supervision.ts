@@ -4,6 +4,11 @@ import {
   confirmationHandleRegisterSchema,
 } from "./confirmation-handle.ts";
 import { ERROR_CODES } from "../../base/mod.ts";
+import {
+  BLOB_PREPARE_MAX_BYTES,
+  blobPurposeDefinitionSchema,
+  preparedBlobSchema,
+} from "./blob.ts";
 import { credentialScopeSchema } from "./identity.ts";
 import { idSchema } from "./ids.ts";
 import {
@@ -183,6 +188,46 @@ export const streamCreditSchema = z.strictObject({
   channel: streamChannel,
   window: count,
 });
+// 자식이 core에 blob 준비를 청하는 통로(platform Q6). 자식이 새 stream channel을
+// 정해 json 요청을 보내고, core가 credit을 주면 그 channel의 bytes frame을 credit
+// 안에서만 보내고, end(또는 abort)로 닫는다. core는 결과를 blob_prepare_result로 돌려준다.
+// principal·expected_hash는 요청에 없다: principal은 core가 자식 kind에서 정하고 hash는
+// I/O worker만 계산한다. size_bytes는 선언일 뿐이고 core가 실제 바이트 수와 대조한다.
+export const BLOB_PREPARE_CREDIT_WINDOW = 2 * STREAM_CHUNK_MAX_BYTES;
+export const blobPrepareRequestSchema = z.strictObject({
+  type: z.literal("blob_prepare_request"),
+  request_id: opaque,
+  channel: streamChannel,
+  purpose: blobPurposeDefinitionSchema.shape.purpose,
+  size_bytes: z.number().int().min(0).max(BLOB_PREPARE_MAX_BYTES),
+});
+// 결과 오류는 안전한 고정 문구뿐이다(경로·내부 메시지·hash 원문 없음).
+export const BLOB_PREPARE_ERROR_CODES = [
+  "invalid_input",
+  "forbidden",
+  "unavailable",
+  "internal",
+] as const;
+export const blobPrepareResultSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    type: z.literal("blob_prepare_result"),
+    request_id: opaque,
+    ok: z.literal(true),
+    prepared: preparedBlobSchema.strict(),
+  }),
+  z.strictObject({
+    type: z.literal("blob_prepare_result"),
+    request_id: opaque,
+    ok: z.literal(false),
+    error: z.strictObject({
+      code: z.enum(BLOB_PREPARE_ERROR_CODES),
+      message: z.string().max(200),
+    }),
+  }),
+]);
+export type BlobPrepareRequest = z.infer<typeof blobPrepareRequestSchema>;
+export type BlobPrepareResult = z.infer<typeof blobPrepareResultSchema>;
+
 export const mainHelloSchema = z.strictObject({
   user_token: opaque,
   api_port: port,
@@ -346,6 +391,7 @@ export const parentMessageSchema = z.union([
   streamCreditSchema,
   workerRequestEnvelopeSchema,
   appCredentialResponseSchema,
+  blobPrepareResultSchema,
 ]);
 export const childMessageSchema = z.union([
   readySchema,
@@ -354,6 +400,7 @@ export const childMessageSchema = z.union([
   workerResponseEnvelopeSchema,
   diagnosticSchema,
   appCredentialRequestSchema,
+  blobPrepareRequestSchema,
 ]);
 // 사람 결정 handle 등록과 secret 비교 read는 main↔core 비공개 연결로만 오간다
 // (architecture/platform 5.6). 비교 op는 이 연결에서 main 신원을 인증하며

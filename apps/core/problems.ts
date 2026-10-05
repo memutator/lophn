@@ -1,3 +1,4 @@
+import { err } from "../../packages/base/mod.ts";
 import {
   getTestRequestRead,
   getVerificationRead,
@@ -15,9 +16,10 @@ import type {
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
+import { z } from "zod";
 import {
-  defineBlobField,
   defineBlobPurpose,
+  defineSetting,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   getReportRead,
@@ -29,7 +31,13 @@ import {
   listProblemsRead,
 } from "../../packages/problems/grouping/reads.ts";
 import { REPORTS_SCHEMA_STEPS } from "../../packages/problems/reporting/mod.ts";
-import { SNAPSHOTS_SCHEMA_STEPS } from "../../packages/problems/snapshots/mod.ts";
+import {
+  DETAIL_COLLECTION_SETTING_KEY,
+  reportBlobField,
+  type SnapshotLogsEnvironment,
+  snapshotLogsRead,
+  SNAPSHOTS_SCHEMA_STEPS,
+} from "../../packages/problems/snapshots/mod.ts";
 import { recordReportCommand } from "../../packages/problems/reporting/commands.ts";
 import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
@@ -103,14 +111,7 @@ const REPORT_BLOB_FIELD_FIELDS = [
 
 export const problemsReportDefinitions = {
   schema: [...REPORTS_SCHEMA_STEPS, ...SNAPSHOTS_SCHEMA_STEPS],
-  blobFields: REPORT_BLOB_FIELD_FIELDS.map((field) =>
-    defineBlobField({
-      owner_kind: "report",
-      field,
-      retention: { kind: "permanent" },
-      general_read: false,
-    })
-  ),
+  blobFields: REPORT_BLOB_FIELD_FIELDS.map(reportBlobField),
   blobPurposes: REPORT_BLOB_PURPOSES.map((purpose) =>
     defineBlobPurpose({
       purpose,
@@ -131,6 +132,54 @@ export const problemsReportDefinitions = {
   // observe-exception도 예외 진단을 collector로 넘긴다(process 출처).
   workerRoutes: [reportProblem, observeException],
 };
+
+// 진단 상세 수집 on/off(snapshots#R7). 끄면 새 로그 같은 상세 수집만 멈추고 기존 자료의
+// 정책 읽기와 필수 invocation 기록은 그대로다. collector가 매 접수마다 이 값을 읽는다.
+export const detailCollectionSetting = defineSetting({
+  key: DETAIL_COLLECTION_SETTING_KEY,
+  owner: "problems/snapshots",
+  display_name_key: "settings.problems.detail-collection.name",
+  description: "Collect detailed diagnostics such as app logs for new reports.",
+  value_meaning_key: "settings.problems.detail-collection.value",
+  default_meaning_key: "settings.problems.detail-collection.default",
+  affected_features: ["problems/snapshots", "problems/reporting"],
+  risk_key: "settings.problems.detail-collection.risk",
+  revert_key: "settings.problems.detail-collection.revert",
+  constraints: {},
+  required: false,
+  layers: ["common"],
+  // 이미 접수 중인 보고는 그대로 두고 다음 접수부터 바뀐다.
+  apply_at: "next_call",
+  apply_at_key: "settings.problems.detail-collection.apply-at",
+  machine_local: false,
+  default_present: true,
+  default: true,
+  value_type: z.boolean(),
+});
+
+// core 조립의 settings.ts가 모으는 problems 등록 항목이다(platform/settings#R31).
+export const problemsDefinitions = { settings: [detailCollectionSetting] };
+
+// GetSnapshotLogs는 ledger snapshot 없이 바이트를 기다리는 core read다. core가 기동 때
+// environment로 읽기 통로를 넣고, 넣지 않은 등록(harness)은 unavailable이다.
+const UNATTACHED_SNAPSHOT_LOGS: SnapshotLogsEnvironment = {
+  evidence: () =>
+    err({
+      code: "unavailable",
+      message: "snapshot 읽기 통로가 붙어 있지 않다",
+    }),
+  blobs: () => Promise.resolve({ status: "unavailable", reason: "missing" }),
+};
+
+export function createLedgerRegistration(
+  environment: { snapshotLogs?: SnapshotLogsEnvironment } = {},
+) {
+  return {
+    apiReads: [
+      snapshotLogsRead(environment.snapshotLogs ?? UNATTACHED_SNAPSHOT_LOGS),
+    ],
+  };
+}
 
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다(#142).
 // 실행 port는 없다.

@@ -128,3 +128,45 @@ export const getSnapshot = defineRead({
   actors: readActors,
   errors: readErrors,
 });
+
+// 고정한 로그 조각 읽기(snapshots#R13, R16). 사람(user)만 읽는다. 앱 프로세스와 없는
+// snapshot은 같은 not_found이고 blob 읽기를 열지 않는다. 조각은 지시가 아닌 데이터다.
+const logFragmentFields = {
+  scope: z.string().regex(/\S/),
+  collected_at: atSchema,
+  truncated: z.boolean(),
+};
+export const getSnapshotLogsInputSchema = z.strictObject({
+  snapshot: idSchema("snp"),
+});
+export const logFragmentSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("absent"), reason: z.string().regex(/\S/) }),
+  z.strictObject({
+    kind: z.literal("unavailable"),
+    reason: z.string().regex(/\S/),
+    ...logFragmentFields,
+  }),
+  z.strictObject({
+    kind: z.literal("fragment"),
+    lines: z.array(z.string()),
+    line_count: z.number().int().nonnegative(),
+    from_at: atSchema.nullable(),
+    to_at: atSchema.nullable(),
+    // 조각의 범위를 말로 고정한다. 전체 비율이나 합계 값을 담지 않는다.
+    observation: z.string().regex(/\S/),
+    ...logFragmentFields,
+  }),
+]);
+export type LogFragment = z.infer<typeof logFragmentSchema>;
+export const getSnapshotLogsOutputSchema = withReadCommon(z.object({
+  fragment: logFragmentSchema,
+}));
+export const getSnapshotLogs = defineRead({
+  resource: "problems",
+  method: "get-snapshot-logs",
+  name: "GetSnapshotLogs",
+  input: getSnapshotLogsInputSchema,
+  output: getSnapshotLogsOutputSchema,
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "not_found", "unavailable"],
+});

@@ -19,6 +19,7 @@ import type {
 import type { ReaderRegistration } from "../../packages/platform/ledger/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
+import { problemsDefinitions } from "./problems.ts";
 import { shellDefinitions } from "./shell.ts";
 
 export type SettingsRegistration = {
@@ -53,6 +54,7 @@ export const settingsDefinitions = createSettingsRegistration([
   ...shellDefinitions.settings,
   ...lophnAgentDefinitions.settings,
   ...codingAgentConnectionDefinitions.settings,
+  ...problemsDefinitions.settings,
 ]);
 
 // reader Worker가 이 모듈에서 settings read handler를 다시 조립한다.

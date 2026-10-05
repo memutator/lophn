@@ -7,6 +7,9 @@ import {
   getReportInputSchema,
   getSnapshot,
   getSnapshotInputSchema,
+  getSnapshotLogs,
+  getSnapshotLogsInputSchema,
+  getSnapshotLogsOutputSchema,
   listReports,
   listReportsInputSchema,
   ROUTES,
@@ -75,6 +78,81 @@ Deno.test("problems/grouping#R2: snapshot read rejects an unknown item and a wro
   assertEquals(
     getSnapshotInputSchema.safeParse({ snapshot: id("rpt"), item: "logs" })
       .success,
+    false,
+  );
+});
+
+Deno.test("problems/snapshots#R13 R16: snapshot log read is user-only, registered once, and carries no rate or total", () => {
+  assertEquals(
+    [getSnapshotLogs.name, routePath(getSnapshotLogs), getSnapshotLogs.kind],
+    ["GetSnapshotLogs", "/v1/problems/get-snapshot-logs", "read"],
+  );
+  assertEquals(getSnapshotLogs.actors, ["user"]);
+  assertEquals(ROUTES.filter((entry) => entry === getSnapshotLogs).length, 1);
+  assertEquals(
+    ALL_ROUTES.filter((entry) => entry === getSnapshotLogs).length,
+    1,
+  );
+  assertEquals(
+    getSnapshotLogs.errors.every((error) => ERROR_CODES.includes(error)),
+    true,
+  );
+  assertEquals(
+    getSnapshotLogsInputSchema.safeParse({ snapshot: id("snp") }).success,
+    true,
+  );
+  assertEquals(
+    getSnapshotLogsInputSchema.safeParse({ snapshot: id("rpt") }).success,
+    false,
+  );
+  const meta = { as_of_seq: "1", next_cursor: null };
+  const at = "2026-10-04T12:00:00.000Z";
+  const fragment = {
+    kind: "fragment",
+    lines: ["a", "b"],
+    line_count: 2,
+    truncated: true,
+    scope: "app log fragment",
+    from_at: null,
+    to_at: null,
+    collected_at: at,
+    observation: "truncated fragment",
+  };
+  assertEquals(
+    getSnapshotLogsOutputSchema.safeParse({ ...meta, fragment }).success,
+    true,
+  );
+  // 비율·합계 같은 값은 읽기 응답에 실을 수 없다.
+  assertEquals(
+    getSnapshotLogsOutputSchema.safeParse({
+      ...meta,
+      fragment: { ...fragment, failure_rate: 0.5 },
+    }).success,
+    false,
+  );
+  for (
+    const other of [
+      { kind: "absent", reason: "collection off" },
+      {
+        kind: "unavailable",
+        reason: "pruned",
+        scope: "app log fragment",
+        collected_at: at,
+        truncated: false,
+      },
+    ]
+  ) {
+    assertEquals(
+      getSnapshotLogsOutputSchema.safeParse({ ...meta, fragment: other })
+        .success,
+      true,
+    );
+  }
+  assertEquals(
+    getSnapshotLogsOutputSchema.safeParse({
+      ...meta,
+      fragment: { kind: "absent", reason: " " },
+    }).success,
     false,
   );
 });

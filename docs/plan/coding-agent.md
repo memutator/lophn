@@ -1000,6 +1000,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T32 doctor와 네 loading 관측
 
+- 상태: 완료 (#259) — 이어보냄: apps/cli의 doctor dispatch(실제 daemon·connection·credential port 조립)와 MCP entry 경로 일치 → T36
 - 등급: 기본
 - concern: coding-agent/harnesses, coding-agent/connection, coding-agent/cli
 - 요구: coding-agent/harnesses#R3, R10; coding-agent/connection#R13, R14;

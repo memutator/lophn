@@ -576,7 +576,7 @@ concerns: [documents]
 - 쓰는 contract: contracts#T28의 question option·revert 근거, platform#T18(다른 owner가 같은 Tx로 document.save·document.move를 부름), platform#T24(agent credential, QuestionActionEvidence)
 - 내놓는 contract: question option action이 부르는 `document.move`·`document.rename`의 machine(actor=user) 경로, revert가 쓰는 `document.archive`·`document.restore`(machine, 결정 근거)
 - slice: agent
-- 선행: T8, T9, T16, platform#T18, platform#T24, contracts#T28 (lophn-agent#T29 option 적용과 T34 revert가 이 작업을 부른다)
+- 선행: T8, T9, T16, platform#T18, platform#T24, contracts#T28 (lophn-agent#T29 option 적용과 lophn-agent#T34 revert가 이 작업을 부른다)
 - 완료:
   - 기획·설계 결과는 agent 자격의 저장 범위 안에서 고정 문서 판으로 남고 SaveResult의 고정 참조로 다시 연다. 원본 연결·보관·지침 문서는 agent 출력 불가. Operator 범위는 T32
   - 문서 이동·이름 변경 option: 대상·place·이름·base_revision이 고정된 option을 사람이 고른 근거로만 machine이 actor=user로 한 번 적용. 자유 답·추천·침묵·낡은 기준은 적용하지 않음

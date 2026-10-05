@@ -27,6 +27,8 @@ import {
 } from "../../packages/coding-agent/mcp-server/mod.ts";
 import { uploadPrepareBytes } from "../../packages/coding-agent/connection/mod.ts";
 import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
+import { createApprovalTool } from "../../packages/coding-agent/mcp-server/tools/approval.ts";
+import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
 import { createSaveTool } from "../../packages/coding-agent/mcp-server/tools/save.ts";
 import { createSeriesTool } from "../../packages/coding-agent/mcp-server/tools/series.ts";
 import {
@@ -140,6 +142,13 @@ export function startMcpServer(
       lophn_series: createSeriesTool({ client: caller }),
     }
     : undefined;
+  // 질문·approval 읽기 tool의 실행이다(T16). 읽기 route만 부르고 결정하지 않는다.
+  const decisionTools = caller
+    ? {
+      lophn_question: createQuestionTool({ client: caller }),
+      lophn_approval: createApprovalTool({ client: caller }),
+    }
+    : undefined;
   const handler = createHandler({
     toolsets,
     onClientInfo: (name) => {
@@ -172,6 +181,13 @@ export function startMcpServer(
         : undefined;
       if (documentTool !== undefined) {
         return documentTool(toolName, resolved.route, callArgs);
+      }
+      const decisionTool = decisionTools !== undefined &&
+          Object.hasOwn(decisionTools, toolName)
+        ? decisionTools[toolName as keyof typeof decisionTools]
+        : undefined;
+      if (decisionTool !== undefined) {
+        return decisionTool(toolName, resolved.route, callArgs);
       }
       return runner(toolName, resolved.route, callArgs);
     },

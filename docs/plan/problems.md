@@ -213,6 +213,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음(C-test실행의 app_test kind)
 - slice: apps
 - 선행: problems#T1, problems#T3, problems#T5, problems#T8, apps#T2, apps#T6, apps#T7
+- 상태: 진행 (#PR) — 남은 것: test 자식이 harness 관측을 runner에 보내는 private IPC 통로(지금 spawn은 stdin null·stdout/stderr뿐이라 frame을 runner가 직접 받는 경로가 없다), 실제 test 앱 자식을 구동하는 AppDriver 구현과 runner가 이 검사 계획을 만들어 RecordVerification까지 잇는 연결(apps#T6·T7 진입점·broker 쪽), 화면 검사 host(T11)
 - 완료:
   - 플랫폼 필수 검사 code는 runner의 불변 설치 자료에서 읽고, bundle 안의 검사 삭제·수정은 실패한다; bundle이 바뀌면 새 hash의 새 app test가 필요하다(tests#R6)
   - 선언·blueprint/handler 일치·고정 SDK·정적/동적 code 사용·SDK 접수(completion을 기다려 실제 접수 확인)·process exception·redaction·permission 거절을 검사하고 각 경로를 하나씩 뺀 fixture는 통과하지 못한다(tests#R7, problem-codes#R8)

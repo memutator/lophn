@@ -2,7 +2,7 @@
 // Deno.test는 없다. connection 등록과 함께 써서 회수·scope를 실제 표로 본다.
 import type { Result } from "../../base/mod.ts";
 import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
-import { type CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
+import type { CodingAgentConnectionAuthResult } from "../../contracts/coding-agent/mod.ts";
 import { connectionAuthSyncPort } from "../connection/mod.ts";
 import type { RequestContext } from "../../contracts/platform/mod.ts";
 import { createTicketClaimCommands } from "./claims.ts";
@@ -12,6 +12,7 @@ import {
   QUESTION_ADOPTIONS_PORT,
 } from "./commands.ts";
 import { createTicketReads } from "./reads.ts";
+import { claimSweepTimePort } from "./sweep-time.ts";
 import { ticketSchemaSteps } from "./schema.ts";
 
 type LedgerEnvironment = {
@@ -74,6 +75,7 @@ export function createLedgerTestRegistration(
     ],
     reads: [reads.list, reads.show, reads.checks, reads.claim_sweep],
     ports: [
+      claimSweepTimePort(() => null),
       {
         key: connectionAuthSyncPort,
         create:

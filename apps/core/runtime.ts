@@ -196,12 +196,15 @@ export async function openRuntime(input: {
   };
   function sweepTicketClaims(): Promise<void> {
     if (!readers.ok) return Promise.resolve();
-    // expire_claim은 writer clock으로 기한을 다시 본다. sweep 시각을 먼저 알린다.
+    // writer clock은 기동 시각에 고정되어 있다. 만료 판단 시각은 writer가 기억하고
+    // expire_claim만 읽는다. writer clock이 실제 시각을 따르면(fix/writer-clock)
+    // 이 알림을 뺀다.
+    const now = new Date(input.clock.nowMs()).toISOString();
     return openedWriter.prunePrepared(input.clock.nowMs()).then(() =>
       readers.value.read(
         { resource: "tickets", method: "claim_sweep" },
         machine,
-        { now: new Date(input.clock.nowMs()).toISOString(), revoked: [] },
+        { now, revoked: [] },
       ).then(async (found) => {
         if (!found.ok) return;
         const claims = (found.value as {

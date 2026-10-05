@@ -221,8 +221,11 @@ export function createTicketReads(): {
             [],
           );
           for (const row of rows) revoked.push(String(row.id));
-        } catch {
-          // connection 등록이 없는 ledger에는 이 표가 없다.
+        } catch (error) {
+          // connection 등록이 없는 ledger에는 이 표가 없다. 그 밖(snapshot이
+          // 닫힘, 잠금, 거절 SQL)은 만료 후보만 보는 것으로 넘기지 않는다.
+          const message = error instanceof Error ? error.message : "";
+          if (!message.toLowerCase().includes("no such table")) throw error;
         }
         return ok({
           claims: expiredClaims(snapshot.sql, input.now, revoked),

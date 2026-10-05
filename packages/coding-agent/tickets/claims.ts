@@ -16,6 +16,7 @@ import {
   ticketRenewClaim,
 } from "../../contracts/coding-agent/mod.ts";
 import { connectionAuthSyncPort } from "../connection/mod.ts";
+import { CLAIM_SWEEP_TIME_PORT } from "./sweep-time.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -174,7 +175,13 @@ export function createTicketClaimCommands(): {
     expire_claim: {
       route: ticketExpireClaim,
       handle(tx, _ctx, input) {
-        return expireClaim(tx, input, nowMs(tx));
+        // writer clock은 기동 시각에 고정되어 tx.now()로 기한을 볼 수 없다.
+        // sweep가 blob-prune으로 알린 시각만 만료 판단에 쓴다. 그 시각이 없으면
+        // tx.now()다. writer clock이 실제 시각을 따르면(fix/writer-clock) 이
+        // port를 빼고 tx.now()로 돌아간다.
+        const reported = tx.port(CLAIM_SWEEP_TIME_PORT).nowMs();
+        const judged = reported === null ? nowMs(tx) : reported;
+        return expireClaim(tx, input, judged);
       },
     },
   };

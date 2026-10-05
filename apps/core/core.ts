@@ -35,7 +35,10 @@ import {
   createBlobPrepareRelay,
   type PreparedRelayResult,
 } from "./blob-prepare.ts";
-import { createPreparationRegistry } from "../../packages/platform/blob-store/mod.ts";
+import {
+  createPreparationRegistry,
+  retentionRules,
+} from "../../packages/platform/blob-store/mod.ts";
 import type { BlobFieldDefinition } from "../../packages/contracts/platform/mod.ts";
 import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
@@ -373,14 +376,44 @@ async function open(
     async shutdown() {
       if (stopped) return;
       stopped = true;
+      // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기 → 입장한
+      // 짧은 command 확정 또는 실패 → child 정상 정지 → writer 닫기.
+      // 정지 유지보수(T44)는 이 세 조건이 실제로 끝난 뒤에만 돈다.
+      const stoppedAt: {
+        preparationsBlocked: boolean;
+        commandsBlocked: boolean;
+        writerStopped: boolean;
+      } = {
+        preparationsBlocked: false,
+        commandsBlocked: false,
+        writerStopped: false,
+      };
       // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
       ready = false;
       // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
       runtime?.memory.disconnect();
+      // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야
+      // 새 command 입장이 실제로 닫힌 것이다.
       await server.stop();
+      stoppedAt.commandsBlocked = ready === false;
+      // child 정상 정지. stopAll이 돌아온 뒤에야 새 blob 준비 접수가 없다.
       if (io) await io.stopAll();
+      stoppedAt.preparationsBlocked = true;
       stopPrune.run?.();
+      // writer Worker와 reader 연결을 닫는다. close가 돌아온 뒤에야 writer가 멈춘 것이다.
       await runtime?.close();
+      stoppedAt.writerStopped = true;
+      // 파일 작업과 blob_refs 읽기는 core graph 밖 프로세스의 몫이다
+      // (responsiveness#R1). writer를 닫은 뒤 read-only로 읽고, 관측을 못 하면
+      // 유지보수를 건너뛴다(fail-closed). 실패는 종료를 막지 않고 diagnostics
+      // 로그만 남긴다.
+      await runStoppedMaintenance({
+        dataRoot: root.path,
+        ledgerPath,
+        conditions: stoppedAt,
+        fields: retentionRules(assembled.value.blobFields),
+        nowMs: clock.nowMs(),
+      });
       await removeRunMetadata(root.run);
       await lock.release();
     },
@@ -415,7 +448,6 @@ async function open(
   return ok(core);
 }
 
-// ledger 파일을 다시 열지 않고 경로와 크기로만 식별한다. 내용은 읽지 않는다.
 async function ledgerIdentity(path: string): Promise<string> {
   const stat = await Deno.stat(path);
   return `${path}:${stat.size}`;
@@ -433,9 +465,88 @@ function seedOf(random: RandomSource): number {
   return bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24);
 }
 
-// platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
-// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측(R12)에만 쓴다. node:fs statfs는
-// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
+// 정지 유지보수 프로세스(platform/blob-store#R8, R9, R10, T44). 파일 작업과
+// ledger 읽기는 core graph 밖이다(responsiveness#R1). 세 정지 조건은 종료
+// 순서가 실제로 끝난 뒤의 관측값이라 상수 true를 넘기지 않는다. 프로세스가
+// 실패하거나 blob_refs를 읽지 못하면 아무것도 지우지 않고(fail-closed), 종료는
+// 그대로 끝난다. 실패는 diagnostics 로그만 남긴다.
+async function runStoppedMaintenance(input: {
+  dataRoot: string;
+  ledgerPath: string;
+  conditions: {
+    preparationsBlocked: boolean;
+    commandsBlocked: boolean;
+    writerStopped: boolean;
+  };
+  fields: ReturnType<typeof retentionRules>;
+  nowMs: number;
+}): Promise<void> {
+  const entry =
+    new URL("../worker/platform/maintenance-entry.ts", import.meta.url)
+      .pathname;
+  let outcome: Deno.CommandOutput;
+  try {
+    outcome = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        `--allow-read=${input.dataRoot},${repoRoot()},${denoDir()}`,
+        `--allow-write=${input.dataRoot}`,
+        "--allow-env=LOPHN_HOME,LOPHN_MAINTENANCE,HOME,PATH",
+        "--no-prompt",
+        entry,
+      ],
+      stdin: "null",
+      stdout: "null",
+      stderr: "piped",
+      clearEnv: true,
+      env: {
+        ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+        ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+        LOPHN_HOME: input.dataRoot,
+        LOPHN_MAINTENANCE: JSON.stringify({
+          ledger: input.ledgerPath,
+          conditions: input.conditions,
+          fields: input.fields,
+          nowMs: input.nowMs,
+        }),
+      },
+    }).output();
+  } catch {
+    await noteMaintenanceFailure(input.dataRoot);
+    return;
+  }
+  if (!outcome.success) await noteMaintenanceFailure(input.dataRoot);
+}
+
+// 유지보수 실패의 diagnostics 기록. 종료를 막지 않으므로 기록 실패도 삼킨다.
+// 원문·경로·hash는 넣지 않고 분류만 남긴다(diagnostics#R5).
+async function noteMaintenanceFailure(dataRoot: string): Promise<void> {
+  try {
+    const directory = `${dataRoot}/logs`;
+    try {
+      await Deno.mkdir(directory, { mode: 0o700 });
+    } catch (error) {
+      if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+    }
+    const record = {
+      at: new Date().toISOString(),
+      component: "platform/core",
+      kind: "log",
+      code: "lophn_internal",
+      error_type: "maintenance_gc",
+      location: "apps/core/core.ts",
+      message: "Stopped maintenance did not run.",
+    };
+    await Deno.writeTextFile(
+      `${directory}/maintenance.jsonl`,
+      JSON.stringify(record) + "\n",
+      { append: true },
+    );
+  } catch {
+    // 기록하지 못해도 종료는 그대로 끝난다.
+  }
+}
+
 function repoRoot(): string {
   return new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 }
@@ -445,6 +556,9 @@ function denoDir(): string {
   return home ? `${home}/.cache/deno` : "/tmp";
 }
 
+// platform/io는 diagnostics 입구다. 데이터 root만 읽고 네트워크는 열지 않는다.
+// sys의 statfs는 blob 준비 전의 실제 디스크 여유 관측(R12)에만 쓴다. node:fs statfs는
+// Deno에서 sys 권한을 요구하고 가장 좁은 값은 --allow-sys=statfs다(실측). run은 열지 않는다.
 function platformIoSpec(dataRoot: string): KindLaunchSpec {
   return {
     kind: "platform/io",

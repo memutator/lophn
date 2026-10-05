@@ -41,6 +41,7 @@ import { CREDENTIAL_SCHEMA } from "./credentials.ts";
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
+import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
 
 // 시작 순서: lock → ledger schema step → writer·reader → event 배포 → API → I/O worker 감독.
@@ -289,7 +290,17 @@ async function open(
     blobRelay?.prune(clock.nowMs());
     runtime?.prunePrepared(clock.nowMs());
   }, 60_000);
-  stopPrune.run = () => clearInterval(timer);
+  // ticket claim 만료·회수 정리. 60초마다와 재시작 때 후보를 읽고 expire_claim을
+  // 제출한다. timer는 표를 쓰지 않는다(coding-agent/tickets#R13).
+  const claimSweep = setInterval(
+    () => runtime?.sweepTicketClaims(),
+    ticketClaimSweepIntervalMs,
+  );
+  runtime?.sweepTicketClaims();
+  stopPrune.run = () => {
+    clearInterval(timer);
+    clearInterval(claimSweep);
+  };
   const startedIo = io
     ? await startPlatformIo(
       io,

@@ -58,6 +58,8 @@ export type CoreRuntime = {
   record(context: AuthenticatedContext): Promise<Result<void>>;
   notePrepared(prepared: PreparedBlob, nowMs: number): Promise<Result<void>>;
   prunePrepared(nowMs: number): Promise<Result<void>>;
+  // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
+  sweepTicketClaims(): void;
   readers: ReaderPool;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
@@ -181,6 +183,39 @@ export async function openRuntime(input: {
       (ctx, body) => Promise.resolve(read.handle(ctx, body)),
     ]),
   ]);
+  // ticket claim 정리. 후보 read 뒤 expire_claim을 제출한다. timer는 표를 쓰지 않는다.
+  const machine: RequestContext = {
+    principal: "machine:ticket-claims",
+    actor: "machine",
+    scope: {
+      operations: ["ExpireTicketClaim", "TicketClaimSweep"],
+      targets: {},
+    },
+    conditions: {},
+    credential_ref: "machine:ticket-claims",
+  };
+  function sweepTicketClaims(): void {
+    if (!readers.ok) return;
+    void readers.value.read(
+      { resource: "tickets", method: "claim_sweep" },
+      machine,
+      { now: input.clock.now(), revoked: [] },
+    ).then((found) => {
+      if (!found.ok) return;
+      const claims = (found.value as {
+        claims?: { ticket: string; claim_seq: string }[];
+      }).claims ?? [];
+      for (const claim of claims) {
+        void openedWriter.writer.command(machine as never, {
+          command: "ExpireTicketClaim",
+          input: claim,
+          compare: {},
+          idempotency_key: `expire:${claim.ticket}:${claim.claim_seq}`,
+          prepared: [],
+        });
+      }
+    });
+  }
   const events = createReaderEventBackend(
     readers.value,
     (ref) => Promise.resolve(currentCredential(input.ledgerPath, ref)),
@@ -207,6 +242,7 @@ export async function openRuntime(input: {
     events,
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),
+    sweepTicketClaims,
     async close() {
       dispatcher.close();
       readers.value.close();

@@ -87,6 +87,8 @@ App Engineer는 Assignment.scope app, Operator는 project/app으로 고정한다
 | `schema_version` | integer | 아니오 | 첫 판 `1` | 본문 판 |
 | `parts` | MessagePart 배열 | 아니오 | 순서 불변; 하나 이상 | 글·시각 블록 순서 |
 
+요청은 본문을 hash가 아니라 값으로 싣는다. core가 값을 redaction해 정규 직렬화 bytes의 blob으로 준비하고 command가 같은 transaction에서 그 blob의 영구 참조를 등록한다. `body`는 그 blob의 hash다. 정규 직렬화 상한은 사람·machine 64KiB, agent 240KiB다. 확정 메시지 하나의 본문은 사람·그 assignment의 agent·machine만 읽고(`ReadMessageBody`), 그 밖은 없는 메시지와 같다.
+
 MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: VisualBlock}`의 tagged 값이다. VisualBlock은 → lophn-agent/visuals가 정의한다. legacy text blob은 text part 하나로 읽는다. 사람 입력은 text만, agent 답은 text·visual, machine 확인은 text만 허용한다. `RecordMessage`는 한 번의 저장에서 모든 part와 출처·상한을 검사하며 부분 저장하지 않는다. 시각 블록 key는 Message 안에서 unique다. `links`에는 실제 문서·call 참조를 유지하며 블록 계획을 문서 생성 링크로 넣지 않는다. 앱 카드 view의 현재 표시 상태는 derived이며 원래 MessageContent를 바꾸지 않는다.
 
 ## Continuation (값)
@@ -120,8 +122,8 @@ MessagePart는 `{kind: text, text: string}` 또는 `{kind: visual, block: Visual
 | `OpenSession` | user | ID, assignment, 개설 WorkPlace, continued_from? | assignment enabled/paused·현재 revision; withdrawn 거절·출처 seq | `SessionOpened` | `invalid_input`, `forbidden`, `not_found`, `conflict` |
 | `ChangeSessionWorkPlace` | user | 세션, 새 WorkPlace | 세션 open·work_place_revision CAS·대상 active; lophn/CE만; 다음 call 적용 | `SessionWorkPlaceChanged` | invalid_input, conflict, forbidden, not_found |
 | `CloseSession` | user / machine | 세션, 이유 | 예상 `open`, 상태 seq; 미종료 run 없음 | `SessionClosed` | `conflict`, `forbidden` |
-| `ReceiveMessage` | user | ID, 세션, 본문, mode, 대상 run? | 세션 open·상태 seq; assignment 현재 상태·revision; correction은 enabled·같은 세션의 담당 run 검사 및 종료 경계 정책; ID 내용 일치 | `MessageReceived`; enabled run 접수는 → lophn-agent/harness/run-loop; paused request는 run=null | `invalid_input`, `conflict`, `forbidden` |
-| `RecordMessage` | agent / machine | ID, 세션, run?, 본문, links | run·세션 연결; ID 내용 일치 | `MessageRecorded` | `invalid_input`, `conflict`, `forbidden` |
+| `ReceiveMessage` | user | ID, 세션, 본문 값(MessageContent 글 part), mode, 대상 run? | 세션 open·상태 seq; assignment 현재 상태·revision; correction은 enabled·같은 세션의 담당 run 검사 및 종료 경계 정책; ID 내용 일치 | `MessageReceived`; enabled run 접수는 → lophn-agent/harness/run-loop; paused request는 run=null | `invalid_input`, `conflict`, `forbidden` |
+| `RecordMessage` | agent / machine | ID, 세션, run?, 본문 값(MessageContent), links | run·세션 연결; ID 내용 일치 | `MessageRecorded` | `invalid_input`, `conflict`, `forbidden` |
 | `ApplyMessages` | machine | 메시지 ID 목록, call | 모두 미반영; call 시작 transaction | `MessageApplied` | `conflict` |
 | `AssignMessage` | machine | 메시지, 새 run | 미반영, 이전 담당 run 및 상태 seq; run 없는 보존 request는 ExecuteStoredRequest의 사람 선택 필요 | `MessageAssigned` | `conflict`, `invalid_input` |
 | `ExecuteStoredRequest` | user | 보존 message ID, 예상 assignment revision | 현재 enabled·세션 open·user request·run/applied_at_call null; 중복은 같은 담당 결과 | `RunAccepted` 및 `MessageAssigned` 같은 transaction | `conflict`, `forbidden`, `invalid_input` |

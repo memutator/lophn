@@ -14,6 +14,10 @@ export const tcl = `tcl_${id}`;
 export const app = `app_${id}`;
 export const rel = `rel_${id}`;
 export const body = "ab".repeat(32);
+export const content = {
+  schema_version: 1,
+  parts: [{ kind: "text", text: "hello" }],
+} as const;
 export const at = "2026-10-04T00:00:00.000Z";
 export const later = "2026-10-04T01:00:00.000Z";
 export const latest = "2026-10-04T02:00:00.000Z";

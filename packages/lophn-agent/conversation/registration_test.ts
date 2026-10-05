@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { ACTOR_KINDS, defineCommand } from "../../contracts/platform/mod.ts";
+import { registerMessageBodyRef } from "./testing/mod.ts";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import {
   createPresetCommands,
@@ -83,6 +84,20 @@ const failAcceptRoute = defineCommand({
   errors: ["conflict"],
 });
 
+// 준비 참조가 없는 상황을 켠다. 실제 준비 만기·주체 판정은 platform의 등록기가 하고
+// 그 경로는 apps/core의 실제 core 시험이 본다. 여기서는 command가 만든 증거의 모양과
+// 등록 실패 때 전체가 되돌아가는 것만 본다.
+const unpreparedRoute = defineCommand({
+  resource: "conversation-fixture",
+  method: "unprepared",
+  name: "SeedUnpreparedBody",
+  input: z.strictObject({ unprepared: z.boolean() }),
+  output: z.strictObject({ unprepared: z.boolean() }),
+  compare: z.strictObject({}),
+  actors: ACTOR_KINDS,
+  errors: ["conflict"],
+});
+
 export function createLedgerTestRegistration(): LedgerTestRegistration {
   const presetCommands = createPresetCommands(presetValidateDeps());
   const presetReads = createPresetReads();
@@ -105,6 +120,15 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   });
   const reads = createConversationReads();
   return {
+    registerBlobRef: (tx, ctx, reference) =>
+      registerMessageBodyRef(
+        tx,
+        ctx,
+        reference,
+        () =>
+          tx.sql.get("select 1 as found from unprepared where on_ = 1", []) !==
+            undefined,
+      ),
     schemaSteps: [
       ...presetSchemaSteps,
       ...assignmentSchemaSteps,
@@ -113,6 +137,16 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       {
         id: "conversation.test.fail-accept",
         sql: "create table fail_accept (fail integer not null)",
+      },
+      {
+        // StartRun이 한도를 읽는 platform 저장 선택 표와 같은 모양이다(run-loop 시험과 같다).
+        id: "conversation.test.setting-choices",
+        sql:
+          "create table setting_choices (layer text not null check (layer = 'common'), key text not null, value json not null, primary key (layer, key))",
+      },
+      {
+        id: "conversation.test.unprepared",
+        sql: "create table unprepared (on_ integer not null)",
       },
     ],
     commands: [
@@ -183,6 +217,17 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
             [seeded.id, seeded.preset, seeded.scope_kind, seeded.scope_id],
           );
           return ok({ id: seeded.id });
+        },
+      },
+      {
+        route: unpreparedRoute,
+        handle(tx, _ctx, input) {
+          const set = input as { unprepared: boolean };
+          tx.sql.run("delete from unprepared", []);
+          if (set.unprepared) {
+            tx.sql.run("insert into unprepared (on_) values (1)", []);
+          }
+          return ok({ unprepared: set.unprepared });
         },
       },
       {

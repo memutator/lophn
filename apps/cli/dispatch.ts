@@ -79,6 +79,7 @@ import {
   readRunMetadata,
 } from "../../packages/platform/install-and-update/mod.ts";
 import { appDirectSocketPaths } from "../../packages/contracts/apps/mod.ts";
+import { documentSectionHistory } from "../../packages/contracts/documents/mod.ts";
 import type { Route } from "../../packages/contracts/platform/mod.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
 
@@ -447,9 +448,13 @@ export async function runCliCommand(
   }
   // 나머지는 command 표의 소유 읽기 route 하나로만 보낸다(cli#R1). 표 밖 op는 실행 전 거절이다.
   const op = typeof input.op === "string" ? input.op : undefined;
-  const route: Route | undefined = op === undefined
-    ? entry.monoRoute
-    : entry.opRoutes?.[op];
+  // `document history`는 section을 주면 그 key의 판별 변화 route다(MCP `lophn_document history`와 같다).
+  const route: Route | undefined =
+    name === "document history" && typeof input.section === "string"
+      ? documentSectionHistory
+      : op === undefined
+      ? entry.monoRoute
+      : entry.opRoutes?.[op];
   if (
     route === undefined || (route.kind !== "read" && route.kind !== "worker")
   ) {

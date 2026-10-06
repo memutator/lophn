@@ -2,6 +2,9 @@
 // observer specifier는 bundle 고정 import map이 해석하는 SDK specifier다.
 import { createIdSource, systemClock } from "@lophn/base";
 import { installCrashExit } from "./crash.ts";
+import { BROKER_PATHS } from "./limits.ts";
+import { bundleScreenFiles } from "./screen-files.ts";
+import { ensureSchedulePort } from "./schedule.ts";
 import { startRuntime } from "./startup.ts";
 import { startDirectServer } from "./direct-server.ts";
 import { type AutomationTimers, installAutomations } from "./automation.ts";
@@ -11,6 +14,12 @@ import type { BrokerTransport } from "./broker-client.ts";
 const OBSERVER = "@lophn/cap-problem";
 const APP = "@lophn/app";
 
+type ObservedInvocation = {
+  id: string;
+  binding: "sdk_context";
+  record_missing_reason: null;
+};
+
 type ObserverFactory = {
   createExceptionObserver: (deps: {
     now: () => string;
@@ -18,6 +27,15 @@ type ObserverFactory = {
     sleep: (ms: number) => Promise<void>;
     currentInvocation: () => null;
   }) => (transport: (input: unknown) => Promise<unknown>) => () => void;
+  // 앱 code의 reportProblem이 쓰는 reporter. 없는 module(시험의 대역)은 설치하지 않는다.
+  createProblemReporter?: (deps: {
+    transport: (input: unknown) => Promise<unknown>;
+    now: () => string;
+    newId: (prefix: string) => string;
+    sleep: (ms: number) => Promise<void>;
+    currentInvocation: () => ObservedInvocation | null;
+  }) => unknown;
+  installProblemReporter?: (reporter: unknown) => void;
 };
 
 export type MainDeps = {
@@ -30,6 +48,11 @@ export type MainDeps = {
   dataSchema: number;
   // 예외 보고는 이 transport 한 곳이다. crash exit는 같은 실패를 다시 보내지 않는다.
   reportTransport: (input: unknown) => Promise<unknown>;
+  // 앱 code의 reportProblem 보고 transport. 없으면 reporter를 설치하지 않는다(apps/sdk#R33).
+  problemTransport?: (input: unknown) => Promise<unknown>;
+  // 화면 자원. 실제 앱 프로세스는 bundle 사본의 screens/에서 읽는다(shell#T37).
+  screenBytes?: (screen: string, path: string) => Uint8Array | undefined;
+  contentType?: (path: string) => string;
   // automation 시계의 tick·타이머. 시험이 가짜 시계를 준다.
   automationTimers?: AutomationTimers;
   exit?: (code: number) => void;
@@ -53,6 +76,29 @@ export async function main(deps: MainDeps): Promise<void> {
     currentInvocation: () => null,
   });
   install(deps.reportTransport);
+  if (
+    deps.problemTransport && observer.createProblemReporter &&
+    observer.installProblemReporter
+  ) {
+    const schedule = ensureSchedulePort();
+    observer.installProblemReporter(observer.createProblemReporter({
+      transport: deps.problemTransport,
+      now: () => clock.now(),
+      newId: (prefix) => ids.newId(prefix),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      // 실제 invocation 문맥만 붙인다. 문맥이 없으면 만들지 않는다.
+      currentInvocation: () => {
+        const invocation = schedule.current()?.invocation;
+        return invocation
+          ? {
+            id: invocation,
+            binding: "sdk_context",
+            record_missing_reason: null,
+          }
+          : null;
+      },
+    }));
+  }
   installCrashExit({ writeStderr, exit });
   const line = await deps.readLine();
   if (!line) throw new Error("app start input missing");
@@ -63,6 +109,8 @@ export async function main(deps: MainDeps): Promise<void> {
     ids,
     broker: deps.broker,
     dataSchema: deps.dataSchema,
+    screenBytes: deps.screenBytes,
+    contentType: deps.contentType,
   });
   await deps.importModule(APP);
   installAutomations(started.state, deps.automationTimers);
@@ -86,6 +134,12 @@ async function boot(): Promise<void> {
   if (!line) throw new Error("app start input missing");
   const blueprint = await readBlueprint();
   if (!blueprint) throw new Error("app blueprint is missing");
+  // 화면 자원은 blueprint와 같은 bundle 사본의 screens/ 아래다.
+  const bundleDir = Deno.env.get("LOPHN_APP_BLUEPRINT")!.replace(
+    /\/[^/]*$/,
+    "",
+  );
+  const screens = bundleScreenFiles(bundleDir);
   const broker = Deno.env.get("LOPHN_APP_BROKER");
   if (!broker) throw new Error("app broker is missing");
   await main({
@@ -95,6 +149,9 @@ async function boot(): Promise<void> {
     broker: unixBroker(broker),
     dataSchema: Number(Deno.env.get("LOPHN_APP_DATA_SCHEMA") ?? "0"),
     reportTransport: (input) => reportException(broker, input),
+    problemTransport: (input) => reportProblemToBroker(broker, input),
+    screenBytes: screens.screenBytes,
+    contentType: screens.contentType,
   });
 }
 
@@ -111,6 +168,21 @@ async function reportException(
   const response = await postUnix(
     socketPath,
     "/v1/problems/observe-exception",
+    credential,
+    input,
+  );
+  return response.body;
+}
+
+// 앱 code의 선언 code 보고. broker의 problems/report 통로로 보내고 응답 본문을 그대로 돌려준다.
+async function reportProblemToBroker(
+  socketPath: string,
+  input: unknown,
+): Promise<unknown> {
+  const credential = Deno.env.get("LOPHN_APP_BROKER_CREDENTIAL") ?? "";
+  const response = await postUnix(
+    socketPath,
+    BROKER_PATHS.problemsReport,
     credential,
     input,
   );

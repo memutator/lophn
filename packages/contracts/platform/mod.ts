@@ -153,6 +153,11 @@ export {
 } from "./json-values.ts";
 export { definePort, type PortKey } from "./ports.ts";
 export {
+  type ChosenOptionCall,
+  questionOption,
+  type QuestionOptionRead,
+} from "./question-option.ts";
+export {
   type AuthorizationTarget,
   TargetAuthorization,
   type TargetAuthorizer,

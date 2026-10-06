@@ -500,3 +500,60 @@ Deno.test("apps/runtime#R9: 기한이 지난 connection의 credential이 회수�
     assertEquals(control.connector.issued, 0);
   });
 });
+
+Deno.test("apps/runtime#R9: coding agent connection은 자기 앱 범위 안에서 화면 없이 선언한 command만 받는다", async () => {
+  await withWorld(async (world) => {
+    const child = await world.start();
+    const coder = await world.login("coding_agent", ["app.connect"], {
+      targets: { app: world.app },
+      conditions: { app: world.app },
+    });
+    const connected = await call(
+      world.harness,
+      "apps/connect",
+      coder.token,
+      connectBody(world.app, { commands: ["usage.read", "not-declared"] }),
+    );
+    assertEquals(connected.status, 200, JSON.stringify(connected.body));
+    const connection = connected.body["connection"] as {
+      screens: string[];
+      commands: string[];
+      actor: string;
+      caller: unknown;
+    };
+    // 화면은 사람(shell main)의 연결만 받는다. 선언하지 않은 command는 들어가지 않는다.
+    assertEquals(connection.screens, []);
+    assertEquals(connection.commands, ["usage.read"]);
+    assertEquals(connection.actor, coder.context.actor);
+    assertEquals(connection.caller, null);
+    const invoked = await direct(
+      child.endpoint,
+      "POST",
+      "/_lophn/commands/invoke",
+      authorizationOf(connected),
+      {
+        request_key: "coder-1",
+        release: child.release,
+        command: "usage.read",
+      },
+    );
+    assertEquals(invoked.status, 200, JSON.stringify(invoked.body));
+    // 제어 경로는 coding agent connection을 거절한다(platform machine 연결만).
+    const control = await direct(
+      child.endpoint,
+      "POST",
+      "/_lophn/control/shutdown",
+      authorizationOf(connected),
+      { process_nonce: child.nonce, grace_ms: 10000 },
+    );
+    assertEquals(control.status, 403);
+    // 범위 밖 앱은 없는 앱과 같다.
+    const other = await call(
+      world.harness,
+      "apps/connect",
+      coder.token,
+      connectBody("app_01arz3ndektsv4rrffq69g5faw"),
+    );
+    assertEquals(other.status, 404);
+  });
+});

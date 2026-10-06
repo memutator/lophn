@@ -392,6 +392,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T20 작업 재료와 turn context
 
+- 상태: 완료 (#371)
 - 등급: 기본
 - concern: lophn-agent/harness/prompt-assemble
 - 요구: lophn-agent/harness/prompt-assemble#R4, R5, R6, R18, R25, R26, R27, R28
@@ -504,6 +505,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
 - T29에서 넘어온 것: (1) 적용 conflict(전제가 달라져 미적용)로 답만 남은 질문은 해소기가 `action_pending`(+why)으로 두고 run은 계속 waiting_user이며 사람이 멈추는 것 외에 풀 길이 없다. loop는 why를 사람에게 보이고 새 질문(새 고정 option)이나 멈춤을 제안하는 길을 잇는다(ResolveRunWait가 최종 미적용을 받아 같은 run을 미적용 결과와 재개하게 하려면 contracts 변경이 필요하니 필요해지면 질문으로 올린다). (2) `ApplyQuestionOption`을 부르는 machine 자격은 `OPTION_ACTION_OPERATIONS`(적용 command와 소유 command operation)를 scope에 가져야 한다. 소유 command의 대상 권한은 바깥 요청 자격의 scope로 판정되기 때문이다. 해소기를 돌리는 runtime의 credential 조립이 이를 따른다.
 - T19에서 넘어온 것: loop는 model call마다 `assemblePrompt`(harness/prompt-assemble)를 부르고 `blocked`이면 호출하지 않는다. `deps.pack`은 선택한 provider adapter의 `buildRequest`로 `PromptRequest`를 번역하고 opaque 상태 byte 수를 더한 것이다. Anthropic은 `anthropicSystem(request)`·`anthropicTools(request)`를 `system`·`tools`로 넘기고 adapter의 `boundaries`는 모두 false로 둔다(marker는 system 블록에 이미 있다). `input_hash`·`basis_hash`는 ModelCall의 `input`·`context_basis` 근거에 쓴다. `ContextBasis`의 turn_context·references·message_ranges·summaries는 T20·compaction 작업이 더한다
+- T20에서 넘어온 것: 매 judgment turn 직전 loop가 relay `read {session}`(첫 page, `next_page`가 있으면 이어서)로 화면을 모아 `buildTurnContext`(prompt-assemble)에 준다. 세션 없는 주기 run은 `view: {availability: "no_session"}`, read 실패는 `collect_failed`로 준다. deps의 `redact`는 core가 platform redaction을 꽂는다. 결과 `text`는 `assemblePrompt`의 `turn_context`로, `basis`는 `evidence.turn_context`로 넘기고 자료는 `renderMaterial`·`shrinkMaterial`(`blocked: input_over_budget`일 때 재조립 callback)로 만들어 `evidence.references`·`omissions`와 함께 넘긴다. outline·summary·section 본문과 skill 목록 읽기는 loop가 documents 읽기·`skillPromptSection`으로 채운다
 - T25에서 넘어온 것: loop가 ask에서 WaitRun을 부르고 resolver에 고정 call의 실제 입력을 주는 연결, `retryWait` 재시도 시각·횟수의 재시작 보존(#309)
 - T32에서 넘어온 것: 받는 run이 맡긴 내용 blob을 prompt로 읽는 통로, handoff 뒤 보낸 run을 끝내는 일, flow resume-agent-session의 handoff 갈래(#308)
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다

@@ -450,6 +450,7 @@ function rig(names?: readonly string[]) {
         session: null,
         role: "context_engineer" as const,
         original_message: id("msg", 1),
+        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
       })),
   });
   const operations = new Set(runOperations(listed));
@@ -631,6 +632,7 @@ Deno.test("lophn-agent/roles/context-engineer#R4: Context Engineer의 읽기 선
   const reads = caps.filter((name) => defined.get(name)?.effect === "read");
   // 선택한 읽기가 이름·목적·목차·검색·고정 판·절·범위·이력·차이 조회와 검사에 한정된다.
   assertEquals(reads.slice().sort(), [
+    "app.commands",
     "app.list",
     "app.read_purpose",
     "approval.read_decision",
@@ -676,8 +678,6 @@ Deno.test("lophn-agent/roles/context-engineer#R4: Context Engineer의 읽기 선
   // 정의가 아직 없는 선택은 소유 contract가 서는 작업이 채운다. 이 목록 밖에는 정의 없는 선택이 없다.
   const undefinedYet = caps.filter((name) => !defined.has(name)).sort();
   assertEquals(undefinedYet, [
-    "app.commands",
-    "approval.submit_assignment",
     "term.submit_definition_answer",
   ]);
 });
@@ -866,6 +866,7 @@ Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선
     writes.slice().sort(),
     [
       ...CONTEXT_WRITE_TOOL_NAMES,
+      "approval.submit_assignment",
       "document.create",
       "document.save_version",
       "handoff.submit",
@@ -881,13 +882,19 @@ Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선
   );
   assertEquals(defined.get("question.submit")!.contract, "CreateQuestion");
   assertEquals(defined.get("handoff.submit")!.contract, "SubmitHandoff");
-  // 아직 정의가 없는 쓰기 선택은 Operator 초안 제출(assignments 소유 bundle)과 정의 답 전달(questions의 option
-  // action 경로)이다. 실제 assignment 적용·권한 예외·사람 대신 승인 tool은 선택에도 정의에도 없다.
+  // 아직 정의가 없는 쓰기 선택은 정의 답 전달(questions의 option action 경로)이다.
+  // Operator 초안 제출은 T52가 정의를 두므로 이제 정의된 쓰기다. 실제 assignment 적용·
+  // 권한 예외·사람 대신 승인 tool은 선택에도 정의에도 없다.
   assertEquals(
     caps.filter((name) => !defined.has(name)).filter((name) =>
       /submit|apply|approve/.test(name)
     ).sort(),
-    ["approval.submit_assignment", "term.submit_definition_answer"],
+    ["term.submit_definition_answer"],
+  );
+  // 초안 제출은 platform/approvals의 소유 contract로 person 결정을 연다(P9).
+  assertEquals(
+    defined.get("approval.submit_assignment")!.contract,
+    "create_approval_request",
   );
   for (const name of defined.keys()) {
     assertEquals(

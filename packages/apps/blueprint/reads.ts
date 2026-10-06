@@ -80,6 +80,7 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
           effect: command.effect,
           confirm: command.confirm,
           input: command.input as AppBlueprintCommand["input"],
+          revert: command.revert,
         }));
         return ok({
           app: input.app,

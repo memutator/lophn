@@ -61,7 +61,13 @@ import type {
 import { parseToolArgs } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import type { ModelBinding } from "./model-binding.ts";
-import { type BlobPort, storeValue } from "./run-blobs.ts";
+import {
+  type BlobPort,
+  type RedactText,
+  redactValue,
+  storeRedacted,
+  storeValue,
+} from "./run-blobs.ts";
 
 // agent loop의 port를 실제 core 호출로 잇는다(lophn-agent/harness/run-loop). 읽기와 기록은 machine
 // 자격의 loopback이고, tool 진입(판정의 approval 요청·소유 command)은 이 run의 agent 자격이다.
@@ -92,7 +98,7 @@ export type CorePortsDeps = {
   agent: CoreCall;
   // 기록이 hash로 가리키는 본문을 먼저 저장하는 통로와 전송 전 redaction.
   blobs: BlobPort;
-  redact(text: string): string | null;
+  redact: RedactText;
   model: ModelBinding;
   tools: ToolSetup;
   context(): Promise<Result<RunContext>>;
@@ -232,10 +238,14 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       attempts = listed.value.calls.length;
     }
     attempts += 1;
-    // 요청과 조립 근거는 전송 전에 저장한다. 저장하지 못하면 보내지 않는다.
-    const inputBlob = await store(
+    // 요청은 안전화한 값 하나를 저장하고 그 값을 보낸다. 안전화를 끝내지 못하면 보내지 않고, 저장한
+    // 바이트와 보낸 바이트가 같다. 조립 근거도 전송 전에 저장하며 저장하지 못하면 보내지 않는다.
+    const safeBody = await redactValue(deps.redact, request.body);
+    if (!safeBody.ok) return safeBody;
+    const inputBlob = await storeRedacted(
+      deps.blobs,
       RUN_BLOB_PURPOSES.model_call_input,
-      request.body,
+      safeBody.value,
     );
     if (!inputBlob.ok) return inputBlob;
     const basisBlob = await store(
@@ -299,7 +309,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       endpoint: model.endpoint,
       inputHash: inputBlob.value.hash,
       contextBasisHash: basisBlob.value.hash,
-      body: request.body,
+      body: safeBody.value as Record<string, unknown>,
       timeoutMs: model.timeoutMs,
       usageRevision: model.usageRevision,
     }, signal);

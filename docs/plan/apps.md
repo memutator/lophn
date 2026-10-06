@@ -1402,6 +1402,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   lophn-agent#T47(lophn의 앱 일: 화면 context·힌트·앱 카드), lophn-agent#T48(앱
   revert), coding-agent#T18, coding-agent#T19, coding-agent#T20,
   coding-agent#T21
+- lophn-agent#T44에서 넘어온 것: agent가 confirm=true 앱 command를 부르는 흐름의 마지막 구간. 판정은 approval 하나(동작이 `invocation.accept_confirm`, 접수 입력에 인증된 run·ToolCall caller와 live process nonce)를 만들고 사람이 허락한 뒤 진입까지 닫혔다. 허락된 approval을 `apply_approved_action`으로 접수하고 core가 서명한 proof를 agent caller에게 주는 길은 없다(proof 서명은 앱 쌍 `createPairConfirmer`에만 있다). 지금 handler는 proof 없이 direct call을 보내 앱이 거절하므로 사람 허락 없이 실행되는 일은 없지만 confirm command는 agent에서 끝까지 돌지 못한다. agent caller용 proof 발급 길과 handler의 proof 첨부를 닫고 flow use-app-command의 agent 단계로 확인한다.
 - 완료:
   - 위 8개 flow가 E2E로 돈다. new-app은 실제 coding agent 대신
     coding-agent#T20의 fake coding agent가 ticket을 claim하고, fixture 앱을

@@ -31,7 +31,9 @@ export type InstallDeps = {
     principal: string;
     purpose: string;
     bytes: ReadableStream<Uint8Array>;
-  }) => Promise<Result<{ hash: string; size_bytes: number }>>;
+  }) => Promise<
+    Result<{ hash: string; size_bytes: number; preparation?: string }>
+  >;
   // machine 제출. route 입력을 그대로 ledger command로 넣는다. 없으면 등록도 실패다.
   registerVersion?: (
     input: PackageRegisterVersionInput,
@@ -201,6 +203,8 @@ export async function installPackage(
   const bundle = bundleBytes(files.value);
   const bundleHash = await sha256Hex(bundle);
   const guideHash = await sha256Hex(guide);
+  // 준비 통로가 준비 참조를 주면 안내 blob을 register_version이 같은 transaction에서 등록한다.
+  let guideBlob: PackageRegisterVersionInput["guide_blob"];
 
   // hash·guide hash를 blob으로 넣는다. 준비 통로가 없으면 등록도 없다. 검사한
   // byte의 hash만 제출한다(domain-model apps/sdk command 표).
@@ -233,6 +237,15 @@ export async function installPackage(
     if (guidePrepared.value.hash !== guideHash) {
       return invalid("guide hash changed during preparation");
     }
+    if (guidePrepared.value.preparation !== undefined) {
+      guideBlob = {
+        preparation: guidePrepared.value.preparation,
+        principal: "machine:install",
+        purpose: "sdk_guide",
+        hash: guidePrepared.value.hash,
+        size_bytes: guidePrepared.value.size_bytes,
+      };
+    }
   }
 
   // machine으로 register_version을 부른다. 등록은 install machine의 몫이다.
@@ -244,6 +257,7 @@ export async function installPackage(
       version,
       bundle_hash: bundleHash,
       guide_hash: guideHash,
+      ...(guideBlob === undefined ? {} : { guide_blob: guideBlob }),
     },
   };
   if (deps.registerVersion) {

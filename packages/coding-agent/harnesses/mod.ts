@@ -103,11 +103,24 @@ export {
   type InspectPorts,
 } from "./inspect.ts";
 export {
+  INSTALL_COMPONENTS,
   type InstallInput,
   type InstallOutcome,
   type InstallPorts,
   installSelected,
+  planSelected,
+  removeSelected,
+  updateSelected,
 } from "./install.ts";
+export {
+  detectHarnesses,
+  type DetectionCache,
+  detectionCacheOf,
+  type DetectOutcome,
+  type DetectPorts,
+  NATIVE_ENVIRONMENT,
+  parseDetections,
+} from "./detect.ts";
 export {
   decideDefaultHarness,
   type DefaultHarnessDecision,

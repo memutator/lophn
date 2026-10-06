@@ -1,11 +1,13 @@
 import type { ToolHandler } from "../work.ts";
 import { type AgentToolPorts, createAgentToolHandlers } from "./agent.ts";
+import { createAppReadToolHandlers } from "./app.ts";
 import { createContextToolHandlers } from "./context.ts";
 import { createDocumentToolHandlers } from "./document.ts";
 import { createFormatToolHandlers } from "./format.ts";
 import { createGuideToolHandlers } from "./guide.ts";
 import { createMetadataToolHandlers } from "./metadata.ts";
 import { createReadLog } from "./read-log.ts";
+import { createSdkToolHandlers } from "./sdk.ts";
 import { createVisualToolHandlers } from "./visual.ts";
 
 // 내장 묶음 전부의 handler다. 이름이 겹치지 않는다. 묶음마다 필요한 통로는 `call` 하나로 같고
@@ -22,6 +24,8 @@ export function createBuiltinToolHandlers(
       createDocumentToolHandlers(ports, reads),
       createContextToolHandlers(ports, reads),
       createMetadataToolHandlers(ports),
+      createAppReadToolHandlers(ports),
+      createSdkToolHandlers(ports),
       createFormatToolHandlers(ports),
       createVisualToolHandlers(ports, reads),
       createGuideToolHandlers(ports),

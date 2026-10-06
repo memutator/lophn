@@ -176,3 +176,80 @@ export function findDaemonCommand(name: string): CommandEntry | undefined {
 // launch intent flag는 tray·quit 둘이다(desktop#R21: second-instance argv에서
 // 읽는 것은 `--quit`뿐이다).
 export const DAEMON_LAUNCH_FLAGS = [TRAY_FLAG, QUIT_FLAG] as const;
+
+export type DaemonRunDeps = DaemonContext & {
+  logs: DaemonLogFiles;
+  // launcher가 정한 실행을 실제로 띄운다. 창 없는 시작과 `--quit` 요청만 온다.
+  launch(
+    decision: { executable: string; argv: readonly string[] },
+  ): Promise<Result<void>>;
+};
+
+type DaemonOutput = {
+  summary: string;
+  data: unknown;
+  next: string[];
+};
+
+// `daemon start|stop|status|logs`의 실행이다(cli#R8). start·stop은 접수와 실제 상태를 따로 낸다:
+// launcher를 띄운 것이 daemon이 이미 시작·종료됐다는 뜻이 아니다. 이미 그 상태인 요청은 새로
+// 띄우지 않고 현재 상태로 답한다.
+export async function runDaemon(
+  name: "daemon start" | "daemon stop" | "daemon status" | "daemon logs",
+  input: DaemonLogsInput,
+  deps: DaemonRunDeps,
+): Promise<Result<DaemonOutput>> {
+  if (name === "daemon logs") {
+    const read = await daemonLogsRead(deps.logs, input);
+    return read.ok
+      ? ok({
+        summary: `daemon log ${read.value.lines.length}줄을 읽었다`,
+        data: read.value,
+        next: read.value.next_cursor === null
+          ? []
+          : ["`--input`의 cursor로 이어 읽는다"],
+      })
+      : read;
+  }
+  const status = await daemonStatusRequest(deps);
+  const connection = await daemonConnectionRequest(deps);
+  const current = status.ok
+    ? { state: status.value.state, metadata: status.value.metadata }
+    : { state: "unknown", metadata: "unknown" };
+  const linked = connection.ok ? connection.value : "unknown";
+  if (name === "daemon status") {
+    return ok({
+      summary: status.ok
+        ? `daemon ${current.state}, 연결 ${linked}`
+        : "daemon 상태를 읽지 못했다",
+      data: { ...current, connection: linked },
+      next: status.ok ? [] : ["`lophn daemon logs`로 안전한 이유를 읽는다"],
+    });
+  }
+  const starting = name === "daemon start";
+  const gate = daemonHumanOnlyGate(name, deps.actor);
+  if (!gate.ok) return gate;
+  if (starting ? current.state === "running" : current.state === "absent") {
+    return ok({
+      summary: starting
+        ? "daemon이 이미 실행 중이다"
+        : "daemon이 이미 중지된 상태다",
+      data: { accepted: false, ...current, connection: linked },
+      next: [],
+    });
+  }
+  const decision = starting
+    ? await daemonStartRequest(deps)
+    : await daemonStopRequest(deps);
+  if (!decision.ok) return decision;
+  const launched = await deps.launch(decision.value);
+  if (!launched.ok) return launched;
+  // 접수는 됐다. 실제 상태는 launcher가 끝난 뒤 status로 확인한다.
+  return ok({
+    summary: starting
+      ? "daemon 시작을 요청했다. 실제 상태는 `lophn daemon status`로 확인한다"
+      : "daemon 중지를 요청했다. 실제 상태는 `lophn daemon status`로 확인한다",
+    data: { accepted: true, ...current, connection: linked },
+    next: ["`lophn daemon status`"],
+  });
+}

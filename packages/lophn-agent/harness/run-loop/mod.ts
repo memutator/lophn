@@ -109,3 +109,8 @@ export {
 } from "./tool-batch.ts";
 export { historyResultPart } from "./history.ts";
 export { parseToolArgs } from "./tool-batch.ts";
+export {
+  roleOperations,
+  RUNTIME_MACHINE_OPERATIONS,
+  RUNTIME_MACHINE_ROUTES,
+} from "./runtime-access.ts";

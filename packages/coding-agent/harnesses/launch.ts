@@ -18,6 +18,8 @@ export type LaunchInputs = {
   // core loopback `host:port`와 허용 앱 loopback `host:port`다.
   coreAddress: string;
   appAddresses: readonly string[];
+  // 앱 direct socket의 정확한 절대 경로 목록이다(없으면 앱 direct 연결은 unavailable이다).
+  appSockets?: readonly string[];
   connection: string;
   toolsets: string;
   // 설치 묶음의 credential helper 절대 경로다. 실행 권한은 이 경로 하나뿐이다(architecture 2.2).
@@ -32,6 +34,7 @@ export type McpLaunch = {
 
 // 일곱 제품이 같은 server를 같은 권한으로 시작하게 하는 argv다.
 export function launchOf(input: LaunchInputs): McpLaunch {
+  const sockets = input.appSockets ?? [];
   // /proc/self/stat은 helper 요청의 process generation(시작 tick)을 읽는 고정 파일이다.
   const read = [
     input.resources,
@@ -39,8 +42,13 @@ export function launchOf(input: LaunchInputs): McpLaunch {
     ...input.discoveryFiles,
     input.submissionRoot,
     "/proc/self/stat",
+    ...sockets,
   ];
-  const net = [input.coreAddress, ...input.appAddresses];
+  const net = [
+    input.coreAddress,
+    ...input.appAddresses,
+    ...sockets.map((path) => `unix:${path}`),
+  ];
   return {
     executable: input.executable,
     args: [
@@ -52,7 +60,9 @@ export function launchOf(input: LaunchInputs): McpLaunch {
       `--allow-read=${read.join(",")}`,
       "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR",
       `--allow-net=${net.join(",")}`,
-      // credential helper 하나만 실행한다. 다른 실행·쓰기·ffi 권한은 없다.
+      // 쓰기는 앱 direct socket의 정확한 경로뿐이다(unix socket 연결이 net·read·write를 함께 요구한다).
+      ...(sockets.length > 0 ? [`--allow-write=${sockets.join(",")}`] : []),
+      // credential helper 하나만 실행한다. 다른 실행·일반 쓰기·ffi 권한은 없다.
       `--allow-run=${input.credentialHelper}`,
       `${input.resources}/${MCP_ENTRY}`,
       "--connection",

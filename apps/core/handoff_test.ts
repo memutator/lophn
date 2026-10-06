@@ -1103,6 +1103,7 @@ function corePorts(
           original_message: runRecord.source.kind === "message"
             ? runRecord.source.message ?? null
             : runRecord.source.original_message ?? null,
+          assignment: runRecord.assignment,
         },
       };
     },

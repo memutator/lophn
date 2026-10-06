@@ -184,6 +184,7 @@ import {
   appSupervisorSpec,
   createAppsControl,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
+  withReleasePreparation,
 } from "./apps-control.ts";
 import { createConfirmAdapters } from "./apps-confirm.ts";
 import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
@@ -918,38 +919,43 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
-      writer: withPlacementReservation(
-        withTermOccurrence(
-          withApprovalText(
-            withQuestionText(
-              withHandoffBody(
-                withMessageBody(
-                  runtime.writer,
-                  createMessageBodyPreparer({
+      writer: withReleasePreparation(
+        withPlacementReservation(
+          withTermOccurrence(
+            withApprovalText(
+              withQuestionText(
+                withHandoffBody(
+                  withMessageBody(
+                    runtime.writer,
+                    createMessageBodyPreparer({
+                      relay: () => bodyPrepare.current,
+                      // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                      known: () => runtime?.knownSecrets,
+                    }),
+                  ),
+                  createHandoffBodyPreparer({
                     relay: () => bodyPrepare.current,
-                    // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                     known: () => runtime?.knownSecrets,
                   }),
                 ),
-                createHandoffBodyPreparer({
+                createQuestionTextPreparer({
                   relay: () => bodyPrepare.current,
-                  known: () => runtime?.knownSecrets,
                 }),
               ),
-              createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
+              createApprovalTextPreparer({
+                relay: () => bodyPrepare.current,
+                known: () => runtime?.knownSecrets,
+              }),
             ),
-            createApprovalTextPreparer({
-              relay: () => bodyPrepare.current,
-              known: () => runtime?.knownSecrets,
-            }),
+            (ctx, command, input) =>
+              runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                command,
+                input,
+              }),
           ),
-          (ctx, command, input) =>
-            runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-              command,
-              input,
-            }),
+          placementReservations,
         ),
-        placementReservations,
+        appsControl.commands,
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.

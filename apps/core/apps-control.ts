@@ -59,6 +59,7 @@ import {
   openConnection,
 } from "../../packages/platform/ledger/mod.ts";
 import { loadApp } from "../../packages/apps/registration/mod.ts";
+import type { Writer } from "../../packages/platform/ledger/mod.ts";
 import {
   loadRelease,
   loadStoredBlueprint,
@@ -255,6 +256,9 @@ export type AppsControl = {
   // core 안에서 하나뿐인 서명 key 쥠이다. AppConnection과 confirm proof를 같은 key로 서명한다.
   readonly signer: CoreSigner;
   readonly memory: ReadonlyMap<string, MemoryHandler>;
+  // release 준비 접수·진행·취소. command route지만 진행이 supervisor 메모리라 ledger queue를 거치지 않는다.
+  // 키는 command 이름이고 `withReleasePreparation`이 writer 앞에서 이 처리기로 돌린다.
+  readonly commands: ReadonlyMap<string, MemoryHandler>;
   // reader pool의 apps.runtime·apps.logs를 현재 관측·log로 덮는다.
   overlayReads(reads: Map<string, ReadHandler>): void;
   readonly channel: SupervisorChannel;
@@ -636,10 +640,8 @@ export async function createAppsControl(
   ): Promise<Result<string>> => {
     const refuse = (): Result<never> =>
       err({ code: absent, message: "app not found" });
-    if (ctx.actor === "coding_agent") {
-      const allowed = createTargetAuthorizer(ctx)(ctx, route.name, { app });
-      if (!allowed.ok) return refuse();
-    }
+    const allowed = createTargetAuthorizer(ctx)(ctx, route.name, { app });
+    if (!allowed.ok) return refuse();
     const source = await sourcePathOf(app);
     if (!source.ok) return source;
     return source.value === null ? refuse() : ok(source.value);
@@ -717,18 +719,11 @@ export async function createAppsControl(
         pairConfirmPoll,
       ],
       [`${appPairObserve.resource}/${appPairObserve.method}`, pairObserve],
-      [
-        `${releasePrepareBundle.resource}/${releasePrepareBundle.method}`,
-        releasePrepareBundleHandler,
-      ],
-      [
-        `${releasePreparation.resource}/${releasePreparation.method}`,
-        releasePreparationHandler,
-      ],
-      [
-        `${releaseCancelPreparation.resource}/${releaseCancelPreparation.method}`,
-        releaseCancelHandler,
-      ],
+    ]),
+    commands: new Map<string, MemoryHandler>([
+      [releasePrepareBundle.name, releasePrepareBundleHandler],
+      [releasePreparation.name, releasePreparationHandler],
+      [releaseCancelPreparation.name, releaseCancelHandler],
     ]),
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);
@@ -872,5 +867,29 @@ export function appSupervisorSpec(input: {
     ],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
+  };
+}
+
+// release 준비 command는 ledger queue 앞에서 supervisor 메모리 진행으로 돌린다(apps/releases). 나머지
+// command와 Writer 동작은 그대로다.
+export function withReleasePreparation(
+  writer: Writer,
+  commands: ReadonlyMap<string, MemoryHandler>,
+): Writer {
+  return {
+    ...writer,
+    async command(ctx, envelope) {
+      const handler = commands.get(envelope.command);
+      if (handler === undefined) return await writer.command(ctx, envelope);
+      const handled = await handler(ctx, envelope.input);
+      if (!handled.ok) return handled;
+      return ok({
+        result: handled.value,
+        replayed: false,
+        first_seq: null,
+        last_seq: null,
+        wake: false,
+      });
+    },
   };
 }

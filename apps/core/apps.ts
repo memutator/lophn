@@ -165,7 +165,8 @@ export function createLedgerRegistration(
       appPairConfirmRequest,
       appPairConfirmPoll,
       appPairObserve,
-      // release 준비 접수·진행·취소. 진행은 supervisor 메모리라 ledger queue를 거치지 않는다.
+      // release 준비 접수·진행·취소는 command route지만 진행이 supervisor 메모리라 ledger handler가 없다.
+      // core가 writer 앞(`withReleasePreparation`)에서 처리하므로 route만 등록한다.
       releasePrepareBundle,
       releasePreparation,
       releaseCancelPreparation,

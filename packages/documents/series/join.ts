@@ -11,6 +11,7 @@ import {
   TargetAuthorization,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import { actingApp, isAppPlace } from "../addressing/mod.ts";
 import { applyJoin, checkJoin } from "./commands.ts";
 import { loadSeries, updateSeries } from "./store.ts";
 
@@ -52,6 +53,9 @@ export function joinSeriesOnSave(
     if (!loaded.ok) return loaded;
     const family = loaded.value;
     if (family === null || family.draft === null) continue;
+    // 앱의 저장은 자기 앱 place의 가족에만 가입한다. 다른 자리의 가족은 없는 가족과 같다.
+    const app = actingApp(ctx);
+    if (app !== null && !isAppPlace(app, family.place)) continue;
     const joinable = checkJoin(tx, family, document.id, family.draft.key);
     if (!joinable.ok) return joinable;
     const applied = applyJoin(

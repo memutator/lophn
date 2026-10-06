@@ -266,7 +266,7 @@ function liveSlug(
 ): string | null {
   if (place === null) return null;
   const row = snapshot.sql.get(
-    "SELECT slug FROM place_names WHERE kind = ? AND target = ? ORDER BY reserved_seq DESC LIMIT 1",
+    "SELECT slug FROM place_names WHERE kind = ? AND target = ? ORDER BY CAST(reserved_seq AS INTEGER) DESC LIMIT 1",
     [place.kind, place.id],
   );
   const slug = row === undefined ? undefined : row["slug"];

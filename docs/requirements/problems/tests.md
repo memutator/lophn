@@ -52,9 +52,9 @@ app test·reproduction test·test command를 test runner가 격리해서 실제�
 - 확인: 두 fixture를 각각 돌린 app test에서 apps/data의 migration 계약을 검사하고 한쪽 실패면 통과하지 않는다.
 - 의도: apps#I3
 
-**[R9]** read command의 apps/blueprint 입력 계약·업무 데이터와 외부 상태를 바꾸지 않는 효과 및 automation의 apps/automations·apps/permissions 실행 가능 범위를 fixture에서 검사한다.
+**[R9]** read command의 apps/blueprint 입력 계약·업무 데이터와 외부 상태를 바꾸지 않는 효과, automation의 apps/automations·apps/permissions 실행 가능 범위, 되돌리기를 지원하는 write의 되돌림(apps/blueprint#R21)을 fixture에서 검사한다.
 - 이유: 단순 handler 종료로 계약과 격리를 확인했다고 하면 안 되며 아직 선언하지 않는 출력 schema를 새 필수 조건으로 만들지 않는다.
-- 확인: 잘못된 입력·read의 업무 쓰기·grant 없는 접근·confirm automation을 넣으면 실패하고 grant된 secret 대역을 쓰는 read·write 가져오기·동기화와 사람이 automation을 켤 때 command·입력·주기를 한 번 승인한 external은 허용된다.
+- 확인: 잘못된 입력·read의 업무 쓰기·grant 없는 접근·confirm automation을 넣으면 실패하고 grant된 secret 대역을 쓰는 read·write 가져오기·동기화와 사람이 automation을 켤 때 command·입력·주기를 한 번 승인한 external은 허용된다. 되돌리기를 지원하는 write는 변경 → 되돌림 → 원래 업무 상태 일치, 후속 변경 뒤 되돌림 conflict, 중복 되돌림 거절을 확인한다.
 - 의도: apps#I3, apps#I6
 
 ### reproduction 판정

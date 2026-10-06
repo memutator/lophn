@@ -10,6 +10,7 @@ import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 import { userOperations } from "./parent.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const PROJECT = "prj_01kq12a1pha000000000000000";
 const AGENT = "agent:asg_01arz3ndektsv4rrffq69g5fav";
@@ -95,6 +96,9 @@ async function startAt(home: string): Promise<Core> {
     superviseIo: false,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+  });
   const core = started.value;
   assert(core.acceptTestCredential);
   for (const who of Object.keys(TOKENS) as Who[]) {
@@ -106,6 +110,7 @@ async function startAt(home: string): Promise<Core> {
     const recorded = await core.record(context(who));
     assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
   }
+  guard.keep();
   return core;
 }
 

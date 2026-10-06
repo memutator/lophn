@@ -88,9 +88,9 @@ test("shell/desktop#R11, R12, R20: launcher does not show normal launcher when i
     source,
     onLophn: () => {},
     projects: {
-      subscribe: () => () => {},
-      getCards: () => Promise.resolve([]),
-      create: () => Promise.resolve("project-id"),
+      projects: () => Promise.resolve({ ok: true as const, value: [] }),
+      register: () => Promise.reject(new Error("unused")),
+      pickFolder: () => Promise.reject(new Error("unused")),
     },
   });
 

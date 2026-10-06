@@ -3,6 +3,7 @@
 // 업무 규칙은 packages/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
 import { type Clock, err, ok, type Result } from "../../packages/base/mod.ts";
 import {
+  appAutomations,
   appConnect,
   type AppConnectInput,
   appLogs,
@@ -40,6 +41,7 @@ import {
   openConnection,
 } from "../../packages/platform/ledger/mod.ts";
 import { loadApp } from "../../packages/apps/registration/mod.ts";
+import { withAutomationObservation } from "../../packages/apps/automations/reads.ts";
 import {
   type AppConnector,
   type ConnectFacts,
@@ -331,6 +333,15 @@ export async function createAppsControl(
         reads.set(
           `${appRuntime.resource}/${appRuntime.method}`,
           withRuntimeObservation(runtime, sources) as ReadHandler,
+        );
+      }
+      const automations = reads.get(
+        `${appAutomations.resource}/${appAutomations.method}`,
+      );
+      if (automations) {
+        reads.set(
+          `${appAutomations.resource}/${appAutomations.method}`,
+          withAutomationObservation(automations, sources) as ReadHandler,
         );
       }
       const logs = reads.get(`${appLogs.resource}/${appLogs.method}`);

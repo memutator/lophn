@@ -18,6 +18,7 @@ import {
   createSecretAllowance,
   permissionsSchemaSteps,
 } from "../../packages/apps/permissions/mod.ts";
+import { createAutomationReads } from "../../packages/apps/automations/reads.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
 import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
@@ -71,6 +72,8 @@ export function createLedgerRegistration(
   // 과거 event만으로 running이라 하지 않는다(R13).
   const runtime = createRuntimeCommands();
   const runtimeReads = createRuntimeReads();
+  // 선언·실행 가능 여부·관측을 구분하는 read. 관측은 apps-control이 메인에서 덮는다.
+  const automationReads = createAutomationReads();
   // grant 변경은 정확한 approval 적용(create)과 사람 확인(revoke)으로만 한다.
   const grants = createGrantCommands();
   const grantReads = createGrantsReads();
@@ -113,6 +116,7 @@ export function createLedgerRegistration(
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
+      automationReads.automations,
       invocationReads.list,
       invocationReads.get,
       sdkReads.list,
@@ -158,6 +162,7 @@ export function createReaderRegistration(): ReaderRegistration {
   const invocations = createInvocationsReads();
   const sdkReads = createSdkReads();
   const runtimeReads = createRuntimeReads();
+  const automationReads = createAutomationReads();
   const grantReads = createGrantsReads();
   return {
     reads: [
@@ -166,6 +171,7 @@ export function createReaderRegistration(): ReaderRegistration {
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
+      automationReads.automations,
       invocations.list,
       invocations.get,
       sdkReads.list,

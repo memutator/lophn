@@ -16,7 +16,7 @@ import {
   WebContentsView,
 } from "electron";
 import { randomBytes, randomFillSync, randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -54,6 +54,12 @@ import {
 import { registerAppIpc, removeAppIpc } from "../app-frame/app-ipc.ts";
 import { createExternalLinks } from "../app-frame/external-link.ts";
 import { createViewErrors, reportIdOf } from "../app-frame/view-error.ts";
+import {
+  createFeedback,
+  type FeedbackIpcMain,
+  registerFeedbackIpc,
+  removeFeedbackIpc,
+} from "../app-frame/feedback.ts";
 import { startCoreConnection } from "./core/connection.ts";
 import { resolveDenoBinary } from "./core/deno-binary.ts";
 import { createCoordinator } from "../confirmation/coordinator.ts";
@@ -75,19 +81,40 @@ import {
   CloseGuards,
   guardWindowClose,
 } from "../editor/close-guard.ts";
-import { coreFilesPort, coreRestorePort } from "../editor/core-port.ts";
+import {
+  coreCreatePort,
+  coreFilesPort,
+  coreInstructionsPort,
+  corePlacePort,
+  coreRestorePort,
+} from "../editor/core-port.ts";
+import { createDocumentCreator } from "../editor/create.ts";
 import { createFileAdapter } from "../editor/file-adapter.ts";
+import { createInstructions } from "../editor/instructions.ts";
 import { createRestorer } from "../editor/restore.ts";
+import { createPlacer } from "../editor/place.ts";
 import { registerEditorIpc, removeEditorIpc } from "../editor/ipc.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
 import { type AppWindowConfig, createAppWindows } from "./app-window.ts";
+import {
+  type AppWindowIpcMain,
+  createAppWindowIpc,
+  registerAppWindowIpc,
+  removeAppWindowIpc,
+} from "./app-window-ipc.ts";
+import {
+  type EntryFiles,
+  installOsEntry,
+  type OsEntryEnv,
+  removeOsEntry,
+} from "./os-entry/entry.ts";
 import {
   type OpenIntent,
   openUrlIntent,
   readOpenIntent,
   registerUrlScheme,
 } from "./open-intent.ts";
-import { browserDataPath, resolveDataRoot } from "./paths.ts";
+import { browserDataPath, packagedInstall, resolveDataRoot } from "./paths.ts";
 import {
   type AutostartOs,
   nodeAutostartFiles,
@@ -225,13 +252,13 @@ const osNotifications = createOsNotifications({
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
 const core = startCoreConnection({
   launch: {
-    repoRoot: join(here, "..", "..", "..", ".."),
+    // packaged는 설치 묶음의 platform/(source·lock·vendor)이고, 개발은 저장소 루트다.
+    repoRoot: app.isPackaged
+      ? packagedInstall(process.resourcesPath).platform
+      : join(here, "..", "..", "..", ".."),
     dataRoot,
     denoBinary: resolveDenoBinary(
-      {
-        isPackaged: app.isPackaged,
-        resourcesPath: app.getAppPath() + "/resources",
-      },
+      { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath },
       log,
     ),
     packaged: app.isPackaged,
@@ -271,7 +298,7 @@ function coreInternal(
 function windowOfRef(ref: string): BrowserWindow | undefined {
   return [...windows].find((window) =>
     !window.isDestroyed() && windowRef(window) === ref
-  );
+  ) ?? appWindowRefs.get(ref);
 }
 
 // 앱 view registry(shell#T37). 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
@@ -429,6 +456,111 @@ registerAppIpc(appIpc, {
   openExternal: (view, input) => externalLinks.open(view, input),
   viewError: (view, input) => viewErrors.observe(view, input),
 });
+
+// [Report a problem](shell#T52). 버튼은 desktop 창 본문이 view_session만 보내고 dialog는 같은 창
+// overlay에 연다. 제출은 problems `SubmitFeedback`(worker route)으로 보내고 고른 PNG만 byte
+// channel로 붙인다. 원문 글·binding·raw capture는 main 메모리에만 있다.
+function shellWindowOf(sender: unknown): BrowserWindow | undefined {
+  return [...windows].find((window) =>
+    !window.isDestroyed() && window.webContents === sender
+  );
+}
+const feedback = createFeedback({
+  registry: overlays.overlayRegistry(),
+  windowOfShell: (sender) => {
+    const window = shellWindowOf(sender);
+    return window === undefined ? undefined : windowRef(window);
+  },
+  windowOfOverlay: (sender) => {
+    const window = [...windows].find((window) =>
+      !window.isDestroyed() &&
+      overlays.controller(window)?.isOverlay(sender) === true
+    );
+    return window === undefined ? undefined : windowRef(window);
+  },
+  view: (view_session) => appFrame.feedbackView(view_session),
+  dialog: (ref) => {
+    const window = windowOfRef(ref);
+    const overlay = window === undefined
+      ? undefined
+      : overlays.controller(window);
+    if (overlay === undefined) return undefined;
+    return {
+      open: (draftRef) => overlay.openFeedback(draftRef),
+      close: (draftRef) => overlay.closeFeedback(draftRef),
+      preview: (preview) => overlay.sendFeedback(preview),
+      dialogOpen: () => overlay.dialogOpen(),
+    };
+  },
+  // confirmation window는 요청 창의 child modal이다(shell/confirmation-window#R6).
+  protectedWindow: (ref) =>
+    windowOfRef(ref)?.getChildWindows().some((child) => !child.isDestroyed()) ??
+      false,
+  async submit(input, screenshot) {
+    const session = core.session();
+    if (session === null) {
+      return {
+        ok: false,
+        error: { code: "unavailable", message: "core is not ready" },
+      };
+    }
+    const reply = screenshot === null
+      ? await session.internal("worker", "problems", "submit-feedback", input)
+      : await session.workerBytes(
+        "problems",
+        "submit-feedback",
+        input,
+        screenshot,
+      );
+    if (!reply.ok) {
+      const code = reply.error.code;
+      return {
+        ok: false,
+        error: {
+          code: code === "invalid_input" || code === "forbidden" ||
+              code === "conflict"
+            ? code
+            : "unavailable",
+          message: "report was not accepted",
+        },
+      };
+    }
+    const value = reply.value as { report: string; problem: string | null };
+    return {
+      ok: true,
+      value: { report: value.report, problem: value.problem },
+    };
+  },
+  openIssue: (ref, target) => {
+    const window = windowOfRef(ref);
+    if (window !== undefined && !window.webContents.isDestroyed()) {
+      window.webContents.send(DESKTOP_INTENT_CHANNEL, {
+        kind: "app-issue",
+        app: target.app,
+        problem: target.problem,
+      });
+    }
+  },
+  ids: {
+    draft: () => `draft-${randomUUID()}`,
+    report: () => reportIdOf(Date.now(), randomBytes(10)),
+  },
+  clock: { nowIso: () => new Date().toISOString() },
+  timer: {
+    set: (callback, ms) => setTimeout(callback, ms),
+    clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+  },
+});
+overlays.onFeedbackEnded((draftRef) => feedback.ended(draftRef));
+const feedbackIpc: FeedbackIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(
+      channel,
+      (event, input: unknown) => listener(event as unknown as IpcEvent, input),
+    ),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerFeedbackIpc(feedbackIpc, feedback);
 
 // 보호 창(shell#T22·T29). 사람이 desktop 창에서 [Review]를 누를 때만 그 창의 child modal로
 // 연다. 종류별 정본 read·제출은 main 안 통로로 core를 부르고, handle은 비공개 pipe로 등록한다.
@@ -603,6 +735,69 @@ const appWindows = createAppWindows({
   log,
 });
 
+// 앱 바로가기의 실제 OS 쓰기(shell/desktop#R14). 같은 디렉터리의 임시 파일을 rename해 쓰고,
+// macOS bundle은 폴더째 지운다. installOsEntry가 headless·개발 실행에서는 부르지 않는다.
+const nodeEntryFiles: EntryFiles = {
+  write(path, data, mode) {
+    mkdirSync(dirname(path), { recursive: true });
+    const temp = `${path}.${process.pid}.tmp`;
+    writeFileSync(temp, data, { mode });
+    renameSync(temp, path);
+  },
+  remove(path) {
+    rmSync(path, { recursive: true, force: true });
+  },
+};
+const osEntryEnv: OsEntryEnv = {
+  platform: process.platform,
+  packaged: app.isPackaged,
+  headless: headless.headless,
+  execPath: process.execPath,
+  ...(process.env.APPIMAGE ? { appImage: process.env.APPIMAGE } : {}),
+  home: homedir(),
+  dataHome: process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
+  appData: process.env.APPDATA || join(homedir(), "AppData", "Roaming"),
+  probe: nodeExecutableProbe,
+  files: nodeEntryFiles,
+  shortcuts: {
+    write(path, options) {
+      mkdirSync(dirname(path), { recursive: true });
+      return shell.writeShortcutLink(path, "create", options);
+    },
+  },
+  log,
+};
+
+// 앱 공간의 [Open in new window]와 바로가기 추가·삭제. desktop 창 본문만 부른다.
+const appWindowIpcMain: AppWindowIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(
+      channel,
+      (event, input: unknown) => listener(event as unknown as IpcEvent, input),
+    ),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerAppWindowIpc(
+  appWindowIpcMain,
+  createAppWindowIpc({
+    registry: overlays.overlayRegistry(),
+    openWindow: (app) => appWindows.open(app),
+    readApp: (app) => {
+      const session = core.session();
+      return session
+        ? session.internal("read", "apps", "get", { app })
+        : Promise.resolve({
+          ok: false,
+          error: { code: "unavailable", message: "core is not ready" },
+        });
+    },
+    entries: {
+      install: (app) => installOsEntry(osEntryEnv, app),
+      remove: (app) => removeOsEntry(osEntryEnv, app),
+    },
+  }),
+);
+
 /** 창 열기 intent. 열 수 없는 앱은 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. */
 function openIntent(intent: OpenIntent): void {
   if (intent.kind === "app") {
@@ -708,10 +903,33 @@ const restorer = createRestorer({
   },
   log,
 });
+// 판이 없는 새 문서(series 새 멤버)의 첫 판. 준비·업로드는 renderer allowlist 밖이다.
+const creator = createDocumentCreator({
+  port: () => {
+    const session = core.session();
+    return session ? coreCreatePort(session) : null;
+  },
+});
+// [Instructions](shell#T32). exact 지침 파일만 main이 resolve하고, 파일이 없으면 첫 저장이 만든다.
+const instructions = createInstructions({
+  port: () => {
+    const session = core.session();
+    return session ? coreInstructionsPort(session) : null;
+  },
+  dataRoot,
+});
+// 문서를 파일로 두기(shell#T20). 파일 쓰기는 renderer allowlist 밖이라 main이 부른다.
+const placer = createPlacer(() => {
+  const session = core.session();
+  return session ? corePlacePort(session) : null;
+});
 registerEditorIpc(editorIpc, {
   registry: overlays.overlayRegistry(),
   adapter: fileAdapter,
   restorer,
+  creator,
+  instructions,
+  placer,
   guardOf: (id) => closeGuards.get(id),
 });
 
@@ -731,8 +949,10 @@ function stopAll(): void {
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   removeEditorIpc(editorIpc);
   removeViewIpc(viewIpcMain);
+  removeAppWindowIpc(appWindowIpcMain);
   viewVisibility.dispose();
   removeAppIpc(appIpc);
+  removeFeedbackIpc(feedbackIpc);
   removeConfirmationIpc(confirmationIpc);
   appFrame.dispose();
   terminals.stop();
@@ -905,6 +1125,8 @@ if (instance.acquired) {
 }
 
 function rendererDist(): string {
+  // packaged는 설치 묶음의 desktop/이다.
+  if (app.isPackaged) return packagedInstall(process.resourcesPath).desktop;
   // build 결과에서 here는 apps/shell/main/dist이고 renderer dist는 형제 concern
   // 폴더 바로 아래다: apps/shell/renderer/dist.
   return join(here, "..", "..", "renderer", "dist");
@@ -1013,7 +1235,10 @@ function openDesktopWindow(): BrowserWindow | undefined {
     // 개발 확인 전용. 제품 실행은 이 변수를 주지 않는다.
     // `LOPHN_SHELL_START=lophn`은 headless 확인에서 런처 대신 lophn 공간부터 연다.
     // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다. `things-to-confirm`은
-    // lophn 공간의 things-to-confirm 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터 연다.
+    // lophn 공간의 things-to-confirm 형제부터, `projects`는 projects 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터,
+    // `apps`는 apps 형제부터, `app:<id>`는 그 앱 공간부터 연다.
+    // `contexts`·`contexts:<ctx id>`는 contexts 형제(와 그 Focus)부터 연다.
+    // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
@@ -1022,8 +1247,24 @@ function openDesktopWindow(): BrowserWindow | undefined {
       ? `${DESKTOP_URL}#conversation`
       : process.env.LOPHN_SHELL_START === "things-to-confirm"
       ? `${DESKTOP_URL}#things-to-confirm`
+      : /^contexts(:ctx_[0-9a-z]{26})?$/.test(
+          process.env.LOPHN_SHELL_START ?? "",
+        )
+      ? `${DESKTOP_URL}#${process.env.LOPHN_SHELL_START!.replace(":", "=")}`
+      : process.env.LOPHN_SHELL_START === "projects"
+      ? `${DESKTOP_URL}#projects`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
       ? `${DESKTOP_URL}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
+      : /^instructions:(global|project:prj_[0-9a-z]{26})$/.test(
+          process.env.LOPHN_SHELL_START ?? "",
+        )
+      ? `${DESKTOP_URL}#instructions=${
+        process.env.LOPHN_SHELL_START!.slice(13)
+      }`
+      : process.env.LOPHN_SHELL_START === "apps"
+      ? `${DESKTOP_URL}#apps`
+      : /^app:app_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
+      ? `${DESKTOP_URL}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
       : DESKTOP_URL,
     windows: {
       create: (config: WindowConfig) => {
@@ -1082,6 +1323,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
           closeGuards.remove(contentsId);
           fileAdapter.dropOwner(contentsId);
           viewVisibility.closeWindow(ref);
+          feedback.closeWindow(ref);
           appFrame.closeWindow(ref);
         });
         window.on("focus", () => {

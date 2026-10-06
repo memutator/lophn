@@ -2,7 +2,8 @@
 // 상관없이 lophn 전체 팔레트를 열고(창 안 팔레트는 지금 공간의 행을 여닫는다, desktop#R18),
 // OS notification 클릭은 things-to-confirm을 열 뿐 읽음·결정이 아니다(desktop#R10).
 // `lophn://things-to-confirm/<id>` 링크는 그 요청을 고른 things-to-confirm을 열고 confirmation
-// window는 열지 않는다(desktop#R14).
+// window는 열지 않는다(desktop#R14). [Report a problem]의 [View issue]는 그 앱 공간을 연다
+// (problems/feedback#R13).
 import { useEffect, useRef } from "react";
 
 import type { IntentApi } from "../../ipc/shortcuts.ts";
@@ -39,7 +40,10 @@ export function DesktopIntents(
           return;
         }
         if (typeof intent === "object") {
-          current.onThingsToConfirm(intent.request);
+          if (intent.kind === "app-issue") {
+            // 접수된 feedback이 묶인 Issue. 지금은 그 앱 공간을 연다.
+            current.go({ kind: "app", id: intent.app });
+          } else current.onThingsToConfirm(intent.request);
           return;
         }
         void (async () => {

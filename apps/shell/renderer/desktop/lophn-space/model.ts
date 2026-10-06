@@ -163,3 +163,15 @@ const SLUG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export function validSeriesName(name: string): boolean {
   return SLUG.test(name);
 }
+
+/**
+ * 새 멤버 문서의 이름. contracts/documents/series-values.ts의 documentNameForKey와 같다(다음 제안의
+ * document_name과 같은 규칙). 이름이 될 수 없는 key면 null이다.
+ */
+export function documentNameForKey(key: string): string | null {
+  const name = key.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(
+    /^-+|-+$/g,
+    "",
+  );
+  return name.length <= 63 && SLUG.test(name) ? name : null;
+}

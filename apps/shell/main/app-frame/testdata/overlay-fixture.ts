@@ -8,6 +8,7 @@ import { ContentsRegistry, type IpcEvent } from "../../desktop/ipc-guard.ts";
 import type { OverlayEvent, OverlayOpen, Rect } from "../../../ipc/overlay.ts";
 export function fixture() {
   let next = 1;
+  const ended: string[] = [];
   const registry = new ContentsRegistry();
   function contents(host: string) {
     const frame = { parent: null, url: `lophn-shell://${host}/index.html` };
@@ -26,7 +27,7 @@ export function fixture() {
           reject = no;
         });
       },
-      send: (_channel, event) => messages.push(event),
+      send: (_channel, event) => messages.push(event as OverlayEvent),
       focus: () => {
         focuses++;
       },
@@ -108,6 +109,7 @@ export function fixture() {
       views.push(item);
       return item.view;
     },
+    feedbackEnded: (draftRef) => ended.push(draftRef),
     timer: {
       set(fn, ms) {
         assert.equal(ms, 16);
@@ -146,6 +148,7 @@ export function fixture() {
   }
   return {
     controller,
+    ended,
     shell,
     views,
     order,

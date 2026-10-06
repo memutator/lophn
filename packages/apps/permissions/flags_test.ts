@@ -4,6 +4,7 @@ import {
   type AppPaths,
   LIMIT_KEYS,
   migrationFlags,
+  pairSocketFlags,
   type PlatformPorts,
   type ResolvedRequirement,
   socketFlags,
@@ -209,4 +210,17 @@ Deno.test("apps/runtime#R8: socket은 시작마다 정해지므로 flag 계산�
   // 쉼표가 든 경로는 한 항목이 아니라 거절한다.
   const bad = socketFlags({ brokerSocket: "/a,/b", directSocket: "/c" });
   assert(!bad.ok);
+});
+
+Deno.test("apps/connections#R4: pairSocketFlags는 대상 direct socket의 읽기·쓰기·연결만 열고 대상이 없으면 아무것도 열지 않는다", () => {
+  assertEquals(pairSocketFlags([]), { ok: true, value: [] });
+  const made = pairSocketFlags(["/run/lophn/a2.sock", "/run/lophn/a1.sock"]);
+  assert(made.ok);
+  assertEquals(made.value, [
+    "--allow-read=/run/lophn/a1.sock,/run/lophn/a2.sock",
+    "--allow-write=/run/lophn/a1.sock,/run/lophn/a2.sock",
+    "--allow-net=unix:/run/lophn/a1.sock,unix:/run/lophn/a2.sock",
+  ]);
+  // 한 값이 여러 항목으로 갈라지는 경로는 받지 않는다.
+  assert(!pairSocketFlags(["/run/a.sock,/etc/passwd"]).ok);
 });

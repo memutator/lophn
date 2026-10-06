@@ -853,9 +853,20 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     후보 release의 activation 준비(commit 전 open 금지)는 지금 `DesiredApp`에
     없다: 후보는 probe까지만 하고 commit 뒤에 open하는 조립이 이 작업 몫이다.
     지금 supervisor는 probe가 통과하면 바로 open한다
+  - apps#T19에서 넘어온 것: (1) 봉인 bundle 사본 모양. release 준비가 앱 source·build한 `screens/`·정규
+    `blueprint.json`·`manifest.json` 말고 `import-map.json`(앱 deno.json의 import map을 잠근 것: SDK는
+    `./sdk/<이름>/<version>/<경로>`, npm·jsr는 정확한 pin)과 설치 SDK 사본(`sdk/<이름>/<version>/...`,
+    지원 소스 design·wording 포함)과 앱의 `deno.lock`을 담는다. 운영 DesiredApp의 `importMap`은 사본의
+    `import-map.json`이고 상대 경로는 그 파일 위치(사본 root) 기준이다. 앱 자식의 읽기 허락은 사본 root를
+    덮어야 한다(`appFlags`의 bundle). (2) `PreviewBundles`(`appPreviews.bundles`)도 같은 사본 모양에서
+    entry·import map을 만든다. (3) release.prepare를 부르는 쪽이 없다: 준비(`prepare_bundle`)가 끝나고
+    같은 bundle hash의 app test가 pass이면 machine이 사본의 `blueprint.json`·`manifest.json`·data schema와
+    data_changes(`migrations/`의 단계 파일)·tests·ticket_source로 `release.prepare`를 부르는 자리는
+    apps#T27이 정한다(아래 T27)
 
 ### T19 release 준비 확정, 비교, blueprint read
 
+- 상태: 완료 (#377) — 이어보냄: 봉인 사본 모양·PreviewBundles → apps#T18, release.prepare 호출자·secret 전송 부착·GrantApplier 조립 → apps#T27
 - 등급: 기본
 - concern: apps/releases, apps/blueprint
 - 요구: apps/releases#R5, R6, R7, R9, R10, R11, R18, apps/blueprint#R2, R3
@@ -1001,6 +1012,23 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     `createReaderRegistration` ports map에 고정 값으로 등록한다. 등록 전에는
     app.call·agent.commands·automation.run의 grant.create가 `unavailable`이고
     grants.list의 display는 null이다
+  - 구현 자리: ledger 쪽 `releases/{commands,reads,compare,store,facts,schema}.ts`(`release.prepare`·
+    `release.prepare_bundle`의 요청 때 검사·`releases.list·get·compare`), `blueprint/reads.ts`
+    (`apps.blueprint`), 준비 진행 `releases/preparation.ts`(supervisor 메모리, 모르면 `unknown`)와 실제 일
+    `releases/prepare/from-source.ts`(commit 추출 → 설치 SDK 사본·잠근 `import-map.json` → blueprint 평가 →
+    화면 build → 봉인; `bundle/lock.ts`; 앱 source는 신뢰하지 않아 앱의 build script를 실행하지 않고 신뢰된
+    `ui-build/{app-build,eval-blueprint,binaries}.ts`가 권한을 좁혀 한다, apps/releases#R3), supervisor 쪽 `apps/app-supervisor/{release-runner,assembly,broker,
+    access,pairs,preview-broker}.ts`와 자식 `apps/worker/apps/release-job.ts`, core 쪽 `apps/core/{apps,
+    apps-control,apps-confirm}.ts`. 준비 접수·진행·취소는 command route지만 진행이 메모리라
+    `withReleasePreparation`이 writer 앞에서 supervisor로 넘긴다(접수만 먼저 ledger transaction에서 앱 범위·
+    source 연결·ticket claim을 확인한다). 시험: `releases/{prepare,compare,preparation,core_http}_test.ts`,
+    `releases/prepare/from-source_test.ts`, `blueprint/blueprint-read_test.ts`,
+    `app-supervisor/{preparation,release-runner,assembly}_test.ts`, `apps/core/release-preparation_test.ts`
+  - 정함(추천으로 진행): 준비 접수 요청 때 ticket claim 확인은 `release.prepare_bundle`의 ledger 검사로,
+    범위 밖·없는 앱·source 없는 앱은 같은 `forbidden`(진행 조회는 같은 `not_found`)이다. release 자식의 쓰기는
+    그 앱의 폴더(`apps/<app>/`)에만 하고 build 자식은 staging 안 `TMPDIR`만 쓴다
+  - 이어보냄: 위 apps#T18 두 줄(사본 모양·PreviewBundles), apps#T27 세 줄(release.prepare 호출자, secret 전송
+    부착, GrantApplier 조립)
 
 ### T20 automation
 
@@ -1137,6 +1165,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   - 템플릿 앱이 T6 bundle 준비와 problems app test를 통과한다
 - shell#T37에서 넘어온 것: 앱 entrypoint(`packages/apps/runtime/entrypoint/main.ts`의 `startRuntime`)가 `screenBytes`를 넘기지 않아 실제 앱 프로세스의 `GET /screens/<screen>/<path>`가 모두 404다. 템플릿 앱의 build된 화면 자원을 bundle에서 내주게 잇는다. shell main은 view를 `lophn-app://<app label>/<screen key>/index.html`로 열어 `/screens/<screen key>/index.html`을 그 screen의 진입으로 부르고, 자원은 같은 screen 아래 상대 경로로 부른다(다른 screen 경로는 shell이 막는다). content type은 text/html·text/css·text/javascript·application/json·wasm·이미지·글꼴만 받는다(`apps/shell/main/app-frame/app-protocol.ts`)
 - shell#T41에서 넘어온 것: @lophn/ui-reading은 `@lophn/design/reading`도, @lophn/ui-action은 `@lophn/blueprint`(type만)도 import한다. 템플릿 화면 build의 import map·설치 묶음이 ui-reading·ui-filter·ui-stat·ui-action과 함께 이것을 풀어야 한다. 템플릿의 명령 버튼은 `CommandButton`에 blueprint command 선언을 그대로 주면 confirm 표시와 `lophnApp.call` 호출이 따라온다
+- shell#T44에서 넘어온 것: 세션 앱 카드의 입력(AppCardReference `input`)을 앱의 card 화면에 넘길 통로가 없다. shell renderer registry(`workspace/visuals/registry.ts`)는 그 값을 그대로 들고 있고 card view는 screen·size·view_session만으로 열린다. AppScreenRequest(contracts)에 카드 입력을 더하고 SDK가 card 화면에서 읽게 하면, shell은 view 열기 IPC의 `card`에 입력을 실어 main이 화면 요청에 붙인다
 - shell#T40에서 넘어온 것: @lophn/ui-control·ui-overlay·ui-layout·ui-state(ui-table·ui-chart도)는 `@lophn/design`·`@lophn/design/components`·`@lophn/wording`을 import한다. 설치(`install.ts`)는 packages/sdk/<name>만 묶으므로 템플릿 화면 build의 import map·설치 묶음이 이 셋을 함께 풀어야 한다. root 오류 경계는 `@lophn/ui-state`의 `AppErrorBoundary`로 화면 root를 감싸기만 하면 앱 preload가 `lophn:render-error`를 받아 넘긴다(따로 잇는 통로 없음)
 - shell#T37에서 넘어온 것: 앱
   entrypoint(`packages/apps/runtime/entrypoint/main.ts`의 `startRuntime`)가
@@ -1381,6 +1410,16 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     approval을 요청 → confirmation window에서 사람이 결정 → poll이 적용·proof
     서명 → direct 호출로 이어진다(서비스 시험은 `connections/confirm_test.ts`).
     거절·만료·결정 지연(`confirmTimeoutMs`)도 한 갈래씩 본다
+  - apps#T19에서 넘어온 것: (1) release.prepare를 부르는 쪽: new-app flow가 prepare_bundle 완료 → app
+    test pass → release.prepare까지 가려면 supervisor(또는 core)가 같은 bundle hash의 통과한 app test를
+    확인한 뒤 machine 자격으로 `release.prepare`를 불러야 한다. 입력은 봉인 사본의 `blueprint.json`·
+    `manifest.json`, `migrations/` 단계 파일에서 낸 data_schema·data_changes, tests, prepare_bundle의
+    ticket_source다. 지금 core에는 `prepare_bundle` 요청의 ticket_source를 기억하는 곳도(supervisor 진행은
+    메모리) 부르는 쪽도 없다. (2) supervisor의 `SecretDelivery`·`RedactionGate`(broker secrets/use)는 platform
+    secret 전송 부착(`secret.send` worker op)에 닿지 않아 허락된 요청이 unavailable로 닫힌다. 값은 keychain과
+    전송 callback 메모리에만 있다. (3) `GrantApplier`(`permissions/broker/apply-grant.ts`)의 supervisor 쪽
+    `AppProcesses`(stop·start)와 core `GrantRevoker` 조립: grant 확정·회수가 broker 연결을 막고 자식 종료를 확인한
+    뒤 새 범위로 재시작하는 흐름(manage-app-permissions flow)
 
 ### T29 @lophn/format-document
 
@@ -1412,6 +1451,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - 쓰는 contract: lophn-agent/questions의 option action(OPTION_ACTION_OWNERS, 값 type은 contracts/lophn-agent)
 - 내놓는 contract: `app.create`의 미리 배정한 app ID 입력과 option 적용 경로(contracts 변경 필요)
 - slice: apps
+- 상태: 완료 (#374)
 - 선행: apps#T1, lophn-agent#T29, platform#T58
 - lophn-agent#T29에서 넘어온 것: option action의 생성 대상은 미리 배정한 ID여야 하는데 `app.create`는 ID를 만들어 돌려주고 dispatchable이 아니며 user·coding_agent만 받는다. lophn 제안의 새 앱 등록 선택지(questions#R13)는 이 경로가 있어야 열린다. 열면 `packages/lophn-agent/questions/option-actions.ts`의 `OPTION_ACTION_OWNERS`에 한 줄을 더하고 core 조립이 같은 handler를 묶는다.
 - 완료:

@@ -17,6 +17,7 @@ import {
   contextListOutputSchema,
   contextRelatedInputSchema,
   contextRelatedOutputSchema,
+  contextWatchOutputSchema,
 } from "./context-reads.ts";
 
 const editorActors = ["user", "agent"] as const;
@@ -142,6 +143,15 @@ export const contextExport = defineRead({
   actors: ["user"],
   errors: readErrors,
 });
+export const contextWatch = defineRead({
+  resource: "contexts",
+  method: "watch",
+  name: "context.watch",
+  input: contextInputSchema,
+  output: contextWatchOutputSchema,
+  actors: ["user"],
+  errors: readErrors,
+});
 
 // 다른 owner가 같은 transaction에서 `tx.call`로 부를 수 있는 command다. run revert
 // (lophn-agent/revert)가 Context Engineer run의 변경을 보상하는 데 쓴다: 목적·제목 되돌림,
@@ -168,4 +178,5 @@ export const CONTEXT_ROUTES = [
   contextGet,
   contextRelated,
   contextExport,
+  contextWatch,
 ] as const;

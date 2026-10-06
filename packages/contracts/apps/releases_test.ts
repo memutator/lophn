@@ -272,6 +272,7 @@ Deno.test("apps/releases#R14: prepare 입력은 신뢰된 준비 결과와 같�
     commit: COMMIT,
     bundle_hash: HASH,
     blueprint_hash: "cd".repeat(32),
+    blueprint: { name: "앱" },
     manifest,
     data_schema: 2,
     data_changes: dataChanges,
@@ -477,8 +478,25 @@ Deno.test("apps/releases#R9, apps/releases#R10: comparison은 사람이 볼 비�
     added_commands: ["export_usage"],
     removed_commands: [],
     changed_commands: ["create_report"],
+    command_changes: [{
+      command: "create_report",
+      kinds: ["effect"],
+      effect_from: "write",
+      effect_to: "external",
+      new_required_inputs: [],
+    }],
+    external_commands: ["create_report"],
+    description_only_commands: [],
+    added_automations: [],
+    removed_automations: [],
+    changed_automations: [],
+    added_screens: [],
+    removed_screens: [],
+    changed_screens: [],
     added_problem_code_warnings: ["LOPHN_PROBLEM_001"],
+    data_schema: { from: 1, to: 2 },
     data_changes: dataChanges,
+    review_required: true,
   };
   releasesCompareOutputSchema.parse({ ...META, comparison });
   releasesCompareInputSchema.parse({ release: REL });

@@ -15,7 +15,12 @@ import {
   WebContentsView,
 } from "electron";
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -66,6 +71,18 @@ import { createRestorer } from "../editor/restore.ts";
 import { registerEditorIpc, removeEditorIpc } from "../editor/ipc.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
 import { type AppWindowConfig, createAppWindows } from "./app-window.ts";
+import {
+  type AppWindowIpcMain,
+  createAppWindowIpc,
+  registerAppWindowIpc,
+  removeAppWindowIpc,
+} from "./app-window-ipc.ts";
+import {
+  type EntryFiles,
+  installOsEntry,
+  type OsEntryEnv,
+  removeOsEntry,
+} from "./os-entry/entry.ts";
 import {
   type OpenIntent,
   openUrlIntent,
@@ -437,6 +454,69 @@ const appWindows = createAppWindows({
   log,
 });
 
+// 앱 바로가기의 실제 OS 쓰기(shell/desktop#R14). 같은 디렉터리의 임시 파일을 rename해 쓰고,
+// macOS bundle은 폴더째 지운다. installOsEntry가 headless·개발 실행에서는 부르지 않는다.
+const nodeEntryFiles: EntryFiles = {
+  write(path, data, mode) {
+    mkdirSync(dirname(path), { recursive: true });
+    const temp = `${path}.${process.pid}.tmp`;
+    writeFileSync(temp, data, { mode });
+    renameSync(temp, path);
+  },
+  remove(path) {
+    rmSync(path, { recursive: true, force: true });
+  },
+};
+const osEntryEnv: OsEntryEnv = {
+  platform: process.platform,
+  packaged: app.isPackaged,
+  headless: headless.headless,
+  execPath: process.execPath,
+  ...(process.env.APPIMAGE ? { appImage: process.env.APPIMAGE } : {}),
+  home: homedir(),
+  dataHome: process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
+  appData: process.env.APPDATA || join(homedir(), "AppData", "Roaming"),
+  probe: nodeExecutableProbe,
+  files: nodeEntryFiles,
+  shortcuts: {
+    write(path, options) {
+      mkdirSync(dirname(path), { recursive: true });
+      return shell.writeShortcutLink(path, "create", options);
+    },
+  },
+  log,
+};
+
+// 앱 공간의 [Open in new window]와 바로가기 추가·삭제. desktop 창 본문만 부른다.
+const appWindowIpcMain: AppWindowIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(
+      channel,
+      (event, input: unknown) => listener(event as unknown as IpcEvent, input),
+    ),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerAppWindowIpc(
+  appWindowIpcMain,
+  createAppWindowIpc({
+    registry: overlays.overlayRegistry(),
+    openWindow: (app) => appWindows.open(app),
+    readApp: (app) => {
+      const session = core.session();
+      return session
+        ? session.internal("read", "apps", "get", { app })
+        : Promise.resolve({
+          ok: false,
+          error: { code: "unavailable", message: "core is not ready" },
+        });
+    },
+    entries: {
+      install: (app) => installOsEntry(osEntryEnv, app),
+      remove: (app) => removeOsEntry(osEntryEnv, app),
+    },
+  }),
+);
+
 /** 창 열기 intent. 열 수 없는 앱은 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. */
 function openIntent(intent: OpenIntent): void {
   if (intent.kind === "app") {
@@ -565,6 +645,7 @@ function stopAll(): void {
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   removeEditorIpc(editorIpc);
   removeViewIpc(viewIpcMain);
+  removeAppWindowIpc(appWindowIpcMain);
   viewVisibility.dispose();
   removeAppIpc(appIpc);
   appFrame.dispose();

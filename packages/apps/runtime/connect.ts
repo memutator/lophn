@@ -223,8 +223,6 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
     return ok(process);
   }
 
-  // agent가 쓸 수 있는 command: 현재 프로세스가 등록한 것 ∩ 역할·assignment 범위 ∩ 현재 active
-  // agent.commands 허락. 어느 하나라도 없으면 connection에 들어가지 않는다(R32).
   // 역할·assignment 범위. 이 앱이 범위에 없으면 없는 앱과 같다.
   function agentEntry(
     ctx: AuthenticatedContext,

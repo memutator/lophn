@@ -82,10 +82,12 @@ import {
   guardWindowClose,
 } from "../editor/close-guard.ts";
 import {
+  coreCreatePort,
   coreFilesPort,
   corePlacePort,
   coreRestorePort,
 } from "../editor/core-port.ts";
+import { createDocumentCreator } from "../editor/create.ts";
 import { createFileAdapter } from "../editor/file-adapter.ts";
 import { createRestorer } from "../editor/restore.ts";
 import { createPlacer } from "../editor/place.ts";
@@ -899,6 +901,13 @@ const restorer = createRestorer({
   },
   log,
 });
+// 판이 없는 새 문서(series 새 멤버)의 첫 판. 준비·업로드는 renderer allowlist 밖이다.
+const creator = createDocumentCreator({
+  port: () => {
+    const session = core.session();
+    return session ? coreCreatePort(session) : null;
+  },
+});
 // 문서를 파일로 두기(shell#T20). 파일 쓰기는 renderer allowlist 밖이라 main이 부른다.
 const placer = createPlacer(() => {
   const session = core.session();
@@ -908,6 +917,7 @@ registerEditorIpc(editorIpc, {
   registry: overlays.overlayRegistry(),
   adapter: fileAdapter,
   restorer,
+  creator,
   placer,
   guardOf: (id) => closeGuards.get(id),
 });

@@ -11,6 +11,8 @@ export const EDITOR_WATCH_CHANNEL = "shell:editor-watch";
 export const EDITOR_RELEASE_CHANNEL = "shell:editor-release";
 /** renderer → main: 고른 판을 새 최신 판으로 되살린다(flow restore-document). */
 export const EDITOR_RESTORE_CHANNEL = "shell:editor-restore";
+/** renderer → main: 아직 판이 없는 새 문서(series 새 멤버)의 첫 판을 만든다(flow write-series). */
+export const EDITOR_CREATE_CHANNEL = "shell:editor-create";
 /** renderer → main: 문서의 최신 판을 추적 중인 프로젝트의 새 파일로 둔다(flow organize-documents). */
 export const EDITOR_PLACE_CHANNEL = "shell:editor-place";
 /** renderer → main: 이 창의 저장 중·끝나지 않은 편집 수. 끄기·창 닫기 확인이 읽는다. */
@@ -57,6 +59,21 @@ export const editorRestoreSchema = z.object({
   request_key: requestKey,
 }).strict();
 
+/** 새 문서의 첫 판. 자리·이름은 series 가족의 것이고 documents가 저장 때 다시 검사한다. */
+export const editorCreateSchema = z.object({
+  document: documentId,
+  request_key: requestKey,
+  title: z.string().trim().min(1).max(500),
+  place: z.object({
+    kind: z.enum(["project", "app"]),
+    id: z.string().regex(/^(prj|app)_[0-9a-z]{26}$/),
+  }).strict(),
+  name: z.string().max(200).regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/),
+  bytes: z.instanceof(Uint8Array).refine((bytes) =>
+    bytes.byteLength <= EDITOR_MAX_BYTES
+  ),
+}).strict();
+
 export const editorPlaceSchema = z.object({
   document: documentId,
   version: versionId,
@@ -90,6 +107,14 @@ export type EditorWrite = {
   bytes: Uint8Array;
   end: boolean;
   base_version?: string;
+};
+export type EditorCreate = {
+  document: string;
+  request_key: string;
+  title: string;
+  place: { kind: "project" | "app"; id: string };
+  name: string;
+  bytes: Uint8Array;
 };
 export type EditorCounts = { unsettled: number; open: number };
 export type CloseAnswer = "allow" | "stay" | "asking";
@@ -210,6 +235,17 @@ export interface RestoreReport {
   readonly failure: string | null;
 }
 
+/**
+ * 새 문서 첫 판의 결과. saved: 첫 판이 생겼다(가족 draft와 일치하면 같은 저장에서 멤버가 된다),
+ * conflict: 그 사이 key·문서·가족이 바뀌어 저장하지 않음, failed: 저장하지 않음(failure에 이유),
+ * unknown: 응답을 잃었고 문서 조회로도 결과를 모른다.
+ */
+export interface CreateReport {
+  readonly outcome: "saved" | "conflict" | "failed" | "unknown";
+  readonly version: string | null;
+  readonly failure: string | null;
+}
+
 /** 두기 뒤 연결 단계 하나. documents FileStep과 같은 뜻이다. */
 export type PlaceStep =
   | { readonly state: "done" }
@@ -247,6 +283,7 @@ export interface EditorFilesApi {
   restore(
     input: { document: string; version: string; request_key: string },
   ): Promise<EditorReply<RestoreReport>>;
+  create(input: EditorCreate): Promise<EditorReply<CreateReport>>;
   place(
     input: {
       document: string;

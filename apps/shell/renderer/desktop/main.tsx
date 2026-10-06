@@ -187,6 +187,7 @@ export function Desktop(
         initialFocus={route.focus}
         connected={ready}
         windowWidth={windowWidth}
+        {...(editor?.files ? { sessions: editor.files } : {})}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
         apps={apps}

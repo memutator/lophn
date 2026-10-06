@@ -697,6 +697,8 @@ export const en = {
   "documents.button.back-to-series": "Back to series",
   "documents.button.clear-conditions": "Clear conditions",
   "documents.button.confirm-save-view": "Save view",
+  "documents.button.continue-draft": "Continue writing",
+  "documents.button.discard-draft": "Discard draft",
   "documents.button.go-search": "Search documents",
   "documents.button.include-archived": "Include archived",
   "documents.button.more-results": "More results",
@@ -712,6 +714,7 @@ export const en = {
   "documents.button.search": "Search",
   "documents.button.search-again": "Search again",
   "documents.button.unarchive-series": "Unarchive series",
+  "documents.button.write-member": "Write a new document with this key",
   "documents.empty.no-candidates":
     "No other documents in this place use this series' format.",
   "documents.empty.no-matches": "Nothing matches these conditions.",
@@ -729,6 +732,7 @@ export const en = {
   "documents.error.change-failed": "Couldn't change this series. Try again.",
   "documents.error.changed": "This changed since you opened it.",
   "documents.error.key-taken": "This key is already used in this series.",
+  "documents.error.key-unnamed": "lophn can't name a document from this key.",
   "documents.error.link-unknown":
     "This link doesn't point to a document lophn can open.",
   "documents.error.name-invalid":
@@ -801,6 +805,8 @@ export const en = {
   "documents.label.whole-document": "Whole document",
   "documents.notice.archived-document":
     "This document is archived. Its versions can still be read.",
+  "documents.notice.draft":
+    "You're writing {key}. It becomes a document when you finish editing.",
   "documents.notice.first-key":
     "This series has no documents yet. Choose the first key yourself.",
   "documents.notice.lagging":
@@ -826,6 +832,10 @@ export const en = {
   "documents.notice.view-rebuilt":
     "This list is found again from the view's conditions each time you open it.",
   "documents.notice.view-saved": "Saved as {name}.",
+  "documents.status.draft": "Not saved yet. Finish editing to keep it.",
+  "documents.status.draft-conflict":
+    "Not saved. This key or series changed. Your text is kept here.",
+  "documents.status.draft-failed": "Couldn't save. Your text is kept here.",
   "documents.title.screen": "Documents",
   "launcher.button.add-folder": "Add folder",
   "launcher.button.hide-details": "Hide details",

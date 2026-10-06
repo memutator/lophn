@@ -46,6 +46,9 @@ export interface FakeData {
   added?: SourceResult<Series>;
   archived_?: SourceResult<Series>;
   placeDocuments?: readonly PlaceDocument[];
+  /** 새 멤버 쓰기 시작의 답. 없으면 받은 key로 draft가 선 가족이다. */
+  drafted?: SourceResult<Series>;
+  latestVersion?: SourceResult<string | null>;
 }
 
 export const CATALOG: Catalog = {
@@ -82,6 +85,7 @@ export const SERIES: Series = {
   nextRule: "week-{n}",
   revision: "7",
   archived: false,
+  draft: null,
 };
 
 function ok<T>(value: T): SourceResult<T> {
@@ -190,6 +194,25 @@ export function fakeSource(data: FakeData = {}): {
       ),
     placeDocuments: (place) =>
       log("placeDocuments", [place], ok(data.placeDocuments ?? [])),
+    startDraft: (series, key) =>
+      log(
+        "startDraft",
+        [series, key],
+        data.drafted ??
+          ok({
+            ...series,
+            revision: "10",
+            draft: { document: "doc_new", key },
+          }),
+      ),
+    clearDraft: (series) =>
+      log(
+        "clearDraft",
+        [series],
+        ok({ ...series, revision: "11", draft: null }),
+      ),
+    latestVersion: (document) =>
+      log("latestVersion", [document], data.latestVersion ?? ok(null)),
   };
   return {
     source,

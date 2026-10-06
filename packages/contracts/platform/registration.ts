@@ -66,7 +66,12 @@ export interface Tx {
 
 export type CommandDefinition<R extends CommandRoute = CommandRoute> = {
   route: R;
+  // `tx.call`(approval 적용·question option 적용 등)이 같은 transaction에서 부를 수 있는 command다.
   dispatchable?: boolean;
+  // 직접 호출이 없는 dispatch 전용 command다. `dispatchable: true`와 함께만 뜻이 있다. 소유 변경이
+  // approval 한 번 사용 같은 상위 경로와 같은 transaction에서만 성립해야 해서(`apply_approved_action`),
+  // 어느 자격이든 `/v1/...`로 직접 부르면 등록되지 않은 command와 같은 답을 받는다. `tx.call`은 그대로 부른다.
+  dispatchOnly?: boolean;
   handle(
     tx: Tx,
     ctx: RequestContext,

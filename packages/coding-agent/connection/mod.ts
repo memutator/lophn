@@ -111,3 +111,4 @@ export {
   LOG_LINES_MAX,
   runAppOp,
 } from "./app-ops.ts";
+export { UNREADABLE_MESSAGE } from "./unreadable.ts";

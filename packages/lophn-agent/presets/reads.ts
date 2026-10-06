@@ -6,7 +6,7 @@ import {
   presetList,
   presetRead,
 } from "../../contracts/lophn-agent/mod.ts";
-import type { ReadDefinition } from "../../contracts/platform/mod.ts";
+import type { ReadDefinition, Sql } from "../../contracts/platform/mod.ts";
 
 // preset read는 읽힌 자체를 화면 값으로 준다. credential 값·가격표는 열에
 // 없고 참조만 있다(R6). 실제 담당 대상·주기·세션·run 상태는 이 읽기에
@@ -53,6 +53,47 @@ function cursorAfter(cursor: string | undefined): Result<string | null> {
 function cursorOf(afterId: string): string {
   const bytes = new TextEncoder().encode(canonicalize({ after_id: afterId }));
   return btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""));
+}
+
+// 그 문서를 지침으로 붙인 현재 preset 판들. read와 documents의 지침 문서 판정 port가 같은
+// 근원을 쓴다(documents/versions#R20).
+export function instructionAttachmentsOf(
+  sql: Pick<Sql, "all">,
+  document: string,
+): Result<
+  { preset: string; revision: number; document: string; order: number }[]
+> {
+  const rows = sql.all(
+    "select p.id, p.revision, r.definition from presets p join preset_revisions r on r.preset_id = p.id and r.revision = p.revision",
+    [],
+  );
+  const attachments: {
+    preset: string;
+    revision: number;
+    document: string;
+    order: number;
+  }[] = [];
+  for (const row of rows) {
+    let definition: PresetDefinition;
+    try {
+      definition = JSON.parse(String(row["definition"])) as PresetDefinition;
+    } catch {
+      return err({
+        code: "internal",
+        message: "preset blob을 읽지 못했다",
+      });
+    }
+    for (const item of definition.instructions) {
+      if (item.document !== document) continue;
+      attachments.push({
+        preset: String(row["id"]),
+        revision: Number(row["revision"]),
+        document: item.document,
+        order: item.order,
+      });
+    }
+  }
+  return ok(attachments);
 }
 
 export function createPresetReads(): {
@@ -161,46 +202,14 @@ export function createPresetReads(): {
       route: presetInstructionAttachments,
       handle(snapshot, _ctx, input) {
         // 그 문서를 지침으로 붙인 현재 판이다. 순서는 판에 고정된다(R13).
-        const rows = snapshot.sql.all(
-          "select p.id, p.revision, p.definition from presets p join preset_revisions r on r.preset_id = p.id and r.revision = p.revision",
-          [],
-        );
-        const attachments: {
-          attachment: {
-            preset: string;
-            revision: number;
-            document: string;
-            order: number;
-          };
-          in_use: boolean;
-        }[] = [];
-        for (const row of rows) {
-          let definition: PresetDefinition;
-          try {
-            definition = JSON.parse(
-              String(row["definition"]),
-            ) as PresetDefinition;
-          } catch {
-            return err({
-              code: "internal",
-              message: "preset blob을 읽지 못했다",
-            });
-          }
-          for (const item of definition.instructions) {
-            if (item.document !== input.document) continue;
-            attachments.push({
-              attachment: {
-                preset: String(row["id"]),
-                revision: Number(row["revision"]),
-                document: item.document,
-                order: item.order,
-              },
-              // 실제 담당 대상은 assignment의 몫이다(presets#R1). 사용 표시는
-              // T9가 assignment read로 채운다.
-              in_use: false,
-            });
-          }
-        }
+        const found = instructionAttachmentsOf(snapshot.sql, input.document);
+        if (!found.ok) return found;
+        const attachments = found.value.map((attachment) => ({
+          attachment,
+          // 실제 담당 대상은 assignment의 몫이다(presets#R1). 사용 표시는
+          // T9가 assignment read로 채운다.
+          in_use: false,
+        }));
         return ok({
           attachments,
           as_of_seq: snapshot.as_of_seq,

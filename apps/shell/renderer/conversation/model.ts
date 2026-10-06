@@ -1,5 +1,7 @@
 // 대화 도크의 순수 규칙. 화면은 이 값을 그대로 그린다.
+import type { SaveState } from "../workspace/visuals/block-frame.tsx";
 import type { Outgoing } from "./delivery-state.ts";
+import type { SaveRecord } from "./drafts.ts";
 import type { MessageRow, ResultLink, RunRow, SessionRow } from "./source.ts";
 
 /** 도크 폭(shell/desktop#R2). */
@@ -196,4 +198,43 @@ export function atBottom(
   clientHeight: number,
 ): boolean {
   return scrollHeight - scrollTop - clientHeight <= BOTTOM_SLACK;
+}
+
+/**
+ * 시각 블록 문서로 남기기의 진행(shell/workspace#R13). 요청으로 보낸 말이 맡긴 run의 lophn 답에
+ * 문서·판 결과 링크가 있으면 저장된 것이다. 링크는 실제로 만들거나 바꾼 문서뿐이라
+ * (lophn-agent/conversation#R4) 저장하지 않은 문서의 링크를 지어내지 않는다. run이 끝났는데
+ * 링크가 없으면 저장하지 않은 것이고 그 이유는 답이 말한다.
+ */
+export function visualSaveState(
+  record: SaveRecord | undefined,
+  outgoing: Outgoing | null,
+  messages: readonly MessageRow[],
+  runs: readonly RunRow[],
+): SaveState {
+  if (record === undefined) return { state: "idle" };
+  if (record.failed) return { state: "failed" };
+  const request = messages.find((message) => message.id === record.request);
+  if (request === undefined) {
+    return outgoing?.id === record.request && outgoing.phase === "not_sent"
+      ? { state: "failed" }
+      : outgoing?.id === record.request
+      ? { state: "sending" }
+      : { state: "requested" };
+  }
+  if (request.run === null) return { state: "requested" };
+  const links = messages
+    .filter((message) =>
+      message.actor === "agent" && message.run === request.run
+    )
+    .flatMap((message) => message.results)
+    .map((link) => ({
+      document: link.document,
+      version: link.kind === "version" ? link.version : null,
+    }));
+  if (links.length > 0) return { state: "saved", links };
+  const run = runs.find((item) => item.id === request.run);
+  return run?.state === "finished"
+    ? { state: "not-saved" }
+    : { state: "requested" };
 }

@@ -247,8 +247,10 @@ export function createGrantCommands(): {
   return {
     create: {
       route: grantCreate,
-      // approval 적용(`apply_approved_action`)이 같은 transaction에서 부른다.
+      // approval 적용(`apply_approved_action`)이 같은 transaction에서 부른다. 직접 호출은 approval_uses
+      // 없이 grant를 만들어 한 번 사용이 깨지므로 dispatch 전용이다.
       dispatchable: true,
+      dispatchOnly: true,
       handle(tx, ctx, input, compare) {
         const app = loadApp(tx.sql, input.app);
         if (!app.ok) return app;

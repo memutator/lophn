@@ -34,10 +34,26 @@ export type BodyState =
   | { readonly state: "ready"; readonly parts: readonly BodyPart[] }
   | { readonly state: "failed"; readonly code: string };
 
+/**
+ * 시각 블록을 문서로 남겨 달라는 요청(shell/workspace#R13). request는 그 요청으로 보낸 말의
+ * 메시지 id다. failed면 보내지 못했다.
+ */
+export interface SaveRecord {
+  readonly request: string;
+  readonly failed: boolean;
+}
+
+function blockKey(message: string, block: string): string {
+  return `${message}\u0000${block}`;
+}
+
 export class DraftStore {
   #drafts = new Map<string, Draft>();
   // 이 창이 보낸 말의 글(메시지 id별). 본문을 읽기 전에 그 자리를 채운다.
   #texts = new Map<string, string>();
+  // 블록(메시지·key)별 마지막 문서로 남기기 요청과, 요청으로 보낸 말의 id.
+  #saves = new Map<string, SaveRecord>();
+  #saveRequests = new Map<string, string>();
   #bodies = new Map<string, BodyState>();
   #listeners = new Set<() => void>();
   #version = 0;
@@ -62,9 +78,16 @@ export class DraftStore {
     this.#notify();
   }
 
-  /** 접수된 말을 입력칸에서 비운다. 그 사이 다시 쓴 글은 없다(보내는 동안 잠긴다). */
+  /**
+   * 접수된 말을 입력칸에서 비운다. 그 사이 다시 쓴 글은 없다(보내는 동안 잠긴다). 문서로
+   * 남기기 요청은 입력칸의 글이 아니므로 보낸 말만 지우고 작성 중인 글은 그대로 둔다.
+   */
   sent(session: string, outgoing: Outgoing): void {
     this.#texts.set(outgoing.id, outgoing.text);
+    if (this.#saveRequests.has(outgoing.id)) {
+      this.save(session, { outgoing: null });
+      return;
+    }
     this.save(session, {
       text: "",
       selection: [0, 0],
@@ -83,6 +106,31 @@ export class DraftStore {
 
   textOf(message: string): string | undefined {
     return this.#texts.get(message);
+  }
+
+  /** 블록을 문서로 남겨 달라는 요청을 보낸다. 같은 블록의 이전 요청을 대신한다. */
+  requestSave(message: string, block: string, request: string): void {
+    const key = blockKey(message, block);
+    this.#saves.set(key, { request, failed: false });
+    this.#saveRequests.set(request, key);
+    this.#notify();
+  }
+
+  /** 요청을 보내지 못했다. 다시 누를 수 있다. */
+  saveFailed(request: string): void {
+    const key = this.#saveRequests.get(request);
+    const record = key === undefined ? undefined : this.#saves.get(key);
+    if (key === undefined || record?.request !== request) return;
+    this.#saves.set(key, { request, failed: true });
+    this.#notify();
+  }
+
+  isSaveRequest(message: string): boolean {
+    return this.#saveRequests.has(message);
+  }
+
+  saveOf(message: string, block: string): SaveRecord | undefined {
+    return this.#saves.get(blockKey(message, block));
   }
 
   body(message: string): BodyState | undefined {

@@ -20,6 +20,7 @@ export {
   type LinkedDocument,
   loadDocument,
   loadFiles,
+  loadInstructionDocuments,
   loadLatestVersion,
   loadLinkedDocuments,
   loadSourcelessDocuments,

@@ -97,6 +97,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - collector 대기 128개·16,777,216 bytes·동시 조립 4개, 자동 보고 본문 262,144 bytes 초과는 실패와 손실 이유(R16)
   - core가 `unavailable`이거나 응답을 잃으면 같은 고정 내용만 다시 보내고 snapshot을 다시 조립하지 않는다(R16)
   - 통합: core를 띄우고 실행 credential로 `/v1/problems/report`를 불러 Report·Problem이 생긴다(run-app-automation 다른 갈래의 기반)
+- 후속: 제품 core가 `problems/report-collector`를 감독하고 `/v1/problems/report`·`observe-exception` worker route에 묶는다(`apps/core/problems-collector.ts`, 상시 worker kind). collector 하나가 여러 앱을 받으므로 앱 위치 주장은 hello가 아니라 core가 요청 payload에 싣는 `request_claims`(credential conditions)로 온다. 제품 기동의 접수는 problems-collector-product_test가 본다. 남은 것: collector의 machine credential이 `invocations.get`·`settings.get`(machine read 정책 없음)에 닿지 못해 invocation 도착 확인과 상세 수집 설정은 읽지 못한 것으로 남는다 → problems#T5
 
 ### T4 exception 지문과 오류·invocation snapshot 조립
 

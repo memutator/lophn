@@ -2,6 +2,7 @@
 // dispatch가 같은 표에서 나온다. 표 밖 command·op는 실행 전 거절이다(cli#R4).
 // route는 contracts의 소유 table 값 그대로다. 임의 core API passthrough는 없다
 // (cli#R1, architecture 5.1).
+import { APP_COMMANDS } from "./commands/app.ts";
 import { APPROVAL_COMMANDS } from "./commands/approval.ts";
 import { CONTEXT_COMMANDS } from "./commands/context.ts";
 import { QUESTION_COMMANDS } from "./commands/question.ts";
@@ -30,6 +31,7 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...CONTEXT_COMMANDS,
   ...QUESTION_COMMANDS,
   ...APPROVAL_COMMANDS,
+  ...APP_COMMANDS,
   ...TICKET_COMMANDS,
   ...DAEMON_COMMANDS,
   ...DOCTOR_COMMANDS,

@@ -26,6 +26,8 @@ export type PrepareInput = {
   env: Record<string, string>;
   // runner가 고른 Deno. 절대 경로여야 한다.
   deno: string;
+  // 접수한 요청의 실행 기한이다. method의 timeout_ms보다 길어지지 않는다(짧은 쪽을 쓴다).
+  request_timeout_ms?: number;
 };
 
 function reject(): Result<never> {
@@ -49,6 +51,12 @@ export function prepareCommand(
     return reject();
   }
   if (method.timeout_ms > RUNNER_LIMITS.timeout_ms) return reject();
+  const requested = input.request_timeout_ms;
+  if (
+    requested !== undefined &&
+    (!Number.isInteger(requested) || requested < 1 ||
+      requested > RUNNER_LIMITS.timeout_ms)
+  ) return reject();
   if (!input.deno.startsWith("/") || input.deno.includes("\0")) return reject();
   if (!input.source.startsWith("/") || !input.scratch.startsWith("/")) {
     return reject();
@@ -84,7 +92,7 @@ export function prepareCommand(
     executable: input.deno,
     args,
     cwd,
-    timeout_ms: method.timeout_ms,
+    timeout_ms: Math.min(method.timeout_ms, requested ?? method.timeout_ms),
     env: envNames.length > 0 ? { ...input.env } : {},
   });
 }

@@ -5,8 +5,9 @@ import {
   parseControlOpen,
   parseControlProbe,
   parseControlShutdown,
+  parseControlViewClosed,
 } from "./wire.ts";
-import type { RuntimeState } from "./state.ts";
+import { closeView, type RuntimeState } from "./state.ts";
 import type { AppConnection } from "./wire.ts";
 import { readSchedulePort } from "../../invocations/mod.ts";
 import { ensureSchedulePort } from "./schedule.ts";
@@ -88,6 +89,15 @@ export function handleControl(
     state.accepting = false;
     state.closed = true;
     state.automations?.close();
+    return { status: 200, body: { closed: true } };
+  }
+  if (path.endsWith("/view-closed")) {
+    const input = parseControlViewClosed(body);
+    if (!input || input.process_nonce !== state.identity.processNonce) {
+      return error(401, "unauthorized", "view-closed nonce mismatch");
+    }
+    // 다시 알려도 같다. 앱의 협조 없이 이 session의 context 조회와 주석 쓰기가 닫힌다.
+    closeView(state, input.view_session);
     return { status: 200, body: { closed: true } };
   }
   if (path.endsWith("/shutdown")) {

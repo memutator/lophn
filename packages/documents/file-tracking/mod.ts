@@ -106,4 +106,23 @@ export {
   workingCopyCheck,
 } from "./reads.ts";
 export { createFileCommands } from "./commands.ts";
+export {
+  gitignoreChain,
+  placeDocumentFile,
+  type PlacementCommands,
+  type PlacementDeps,
+  type PlacementLatest,
+  type PlacementLedger,
+  type PlaceRequest,
+  type PlaceResult,
+  removeDocumentFile,
+  type RemoveRequest,
+  type RemoveResult,
+  type StepOutcome,
+} from "./placement.ts";
+export {
+  type PlacementRead,
+  placementRead,
+  type PlacementReadInput,
+} from "./placement-read.ts";
 export { workingCopyLocation } from "./working-copy.ts";

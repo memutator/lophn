@@ -382,3 +382,19 @@ Deno.test("problems/tests#R4: inconclusive and incomplete execution remain expli
     false,
   );
 });
+
+Deno.test("coding-agent/mcp-server#R33, problems/tests#R20: 요청의 timeout_ms는 선택이고 1~300,000ms 정수다", () => {
+  assertEquals(requestTest.input.safeParse(request).success, true);
+  for (const timeout_ms of [1, 60_000, 300_000]) {
+    assertEquals(
+      requestTest.input.safeParse({ ...request, timeout_ms }).success,
+      true,
+    );
+  }
+  for (const timeout_ms of [0, -1, 1.5, 300_001, "60000", null]) {
+    assertEquals(
+      requestTest.input.safeParse({ ...request, timeout_ms }).success,
+      false,
+    );
+  }
+});

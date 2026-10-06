@@ -14,6 +14,8 @@ export const SUPERVISOR_OPS = {
   logs: "apps.logs",
   // 그 nonce의 프로세스를 새 nonce로 다시 띄운다.
   restart: "apps.restart",
+  // 닫힌 화면 view를 지금 live 자식에 알린다(control/view-closed).
+  viewClosed: "apps.view_closed",
 } as const;
 
 export type SupervisorOp = (typeof SUPERVISOR_OPS)[keyof typeof SUPERVISOR_OPS];
@@ -89,3 +91,9 @@ export const restartInputSchema = z.strictObject({
   process_nonce: z.string().min(1),
 });
 export const restartOutputSchema = z.strictObject({ restarted: z.boolean() });
+
+export const viewClosedInputSchema = z.strictObject({
+  app: appId,
+  view_session: z.string().min(1).refine((value) => !/\p{Cc}/u.test(value)),
+});
+export const viewClosedOutputSchema = z.strictObject({ relayed: z.boolean() });

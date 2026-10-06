@@ -150,7 +150,14 @@ export async function launchShell(
   const app = await electron.launch({
     executablePath: launch.executable,
     args: electronArgs(launch),
-    env: { ...Deno.env.toObject(), ...launch.env, LOPHN_HOME: launch.home },
+    // E2E는 사람 화면에 창을 띄우지 않는다. 기본은 headless(창 숨김·offscreen)고, 사람이
+    // 직접 보려고 LOPHN_SHELL_HEADLESS=0을 주면 그 값을 따른다.
+    env: {
+      LOPHN_SHELL_HEADLESS: "1",
+      ...Deno.env.toObject(),
+      ...launch.env,
+      LOPHN_HOME: launch.home,
+    },
     timeout: 60_000,
   });
   const pid = app.process().pid;

@@ -57,3 +57,14 @@ export type {
 } from "./types.ts";
 export { allowCandidate, candidateDocuments } from "./candidates.ts";
 export { createSeriesOutlineRead } from "./series-outline.ts";
+export {
+  type ExtractionTarget,
+  extractionTargetOf,
+  parseSearchAdvance,
+  parseSearchApply,
+  SEARCH_CONSUMED_EVENTS,
+  SEARCH_INPUT_MAX_BYTES,
+  SEARCH_OPS,
+  type SearchApplyRequest,
+  type SearchExtractionRequest,
+} from "./ipc.ts";

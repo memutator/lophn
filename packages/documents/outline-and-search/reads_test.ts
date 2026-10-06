@@ -323,6 +323,62 @@ Deno.test("documents/outline-and-search#R11: korean-search 긴 합성어 3 codep
   }
 });
 
+Deno.test("documents/outline-and-search#R10 R11: 한 문서의 여러 section은 각각 일치 결과가 된다(첫 section만 보지 않는다)", () => {
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    const text = [
+      "# 제목",
+      "",
+      "## 앞",
+      "",
+      "앞에만 있는 낱말",
+      "",
+      "## 뒤",
+      "",
+      "뒤에만 있는 낱말",
+    ].join("\n");
+    const section = (
+      key: string,
+      position: number,
+      start: number,
+      end: number,
+    ) => ({
+      key,
+      title: key,
+      parent: null,
+      position,
+      level: 2,
+      anchor: null,
+      own_ranges: [{ start_line: start, end_line: end }],
+      subtree_range: { start_line: start - 1, end_line: end },
+      characters: 10,
+      body_hash: HASH,
+    });
+    keep(recordExtraction(fx.store, {
+      document: DOC_A,
+      version: VER_A,
+      content_hash: HASH,
+      module_hash: HASH,
+      extraction: {
+        status: "ready",
+        title: "제목",
+        text,
+        text_hash: HASH,
+        sections: [section("앞", 0, 4, 6), section("뒤", 1, 8, 9)],
+      },
+    }, "1"));
+    fx.consumed("5");
+    const later = keep(fx.handlers().query(CTX, { query: "뒤에만 있는" }));
+    assertEquals(later.results.map((result) => result.section), ["뒤"]);
+    assertEquals(later.results[0].ranges, [{ start_line: 9, end_line: 9 }]);
+    const both = keep(fx.handlers().query(CTX, { query: "낱말" }));
+    assertEquals(both.results.map((result) => result.section), ["앞", "뒤"]);
+  } finally {
+    fx.close();
+  }
+});
+
 Deno.test("documents/outline-and-search#R17: 보관 문서는 현재 ledger 상태로 기본 결과에서 빠진다", async () => {
   const fx = openDerivedFixture();
   try {
@@ -754,6 +810,31 @@ Deno.test("documents/outline-and-search#R5: document outline은 section별 통�
     assertEquals(page.entries[0].version, VER_A);
     assertEquals(page.entries[0].estimated_tokens, Math.ceil(30 / 3));
     assertEquals(page.entries[0].children_count, 0);
+  } finally {
+    fx.close();
+  }
+});
+
+Deno.test("documents/outline-and-search#R17: 보관한 문서도 확정한 판의 목차와 본문은 읽는다", async () => {
+  const fx = openDerivedFixture();
+  try {
+    const text = await fixtureText("glossary.md");
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, glossaryRecord(VER_A, text), "1"));
+    fx.consumed("5");
+    fx.ledgerSql.run(`UPDATE documents SET status = 'archived' WHERE id = ?`, [
+      DOC_A,
+    ]);
+    const outline = keep(
+      fx.outline().document(OUTLINE_CTX, { reference: { document: DOC_A } }),
+    );
+    assertEquals(outline.entries.length, 2);
+    const read = keep(
+      fx.outline().read(READ_CTX, {
+        reference: { document: DOC_A, version: VER_A },
+      }),
+    );
+    assert(read.text !== null && read.text.includes("정본"));
   } finally {
     fx.close();
   }
@@ -2013,6 +2094,71 @@ Deno.test("documents/outline-and-search#R4: 읽을 수 없는 문서의 근거�
     }).context(USER, { context: CTX_A });
     assert(!failed.ok);
     assertEquals(failed.error.code, "unavailable");
+  } finally {
+    fx.close();
+  }
+});
+
+Deno.test("documents/outline-and-search#R5: 깊은 문서의 목차도 숨긴 자식 수가 직접 자식 수를 넘지 않아 계약 출력을 지킨다", async () => {
+  const { documentOutlinePageSchema } = await import(
+    "../../contracts/documents/mod.ts"
+  );
+  // h2 아웃라인 > h3 > (h4, h5)와 h2 회의 > h4(level을 건너뛴 제목)다. depth 2 밖은 숨는다.
+  const section = (
+    key: string,
+    position: number,
+    level: number,
+    parent: string | null,
+    own: number,
+    subtree: [number, number],
+  ) => ({
+    key,
+    title: key,
+    parent,
+    position,
+    level,
+    anchor: null,
+    own_ranges: [{ start_line: own, end_line: own }],
+    subtree_range: { start_line: subtree[0], end_line: subtree[1] },
+    characters: 4,
+    body_hash: HASH,
+  });
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, {
+      document: DOC_A,
+      version: VER_A,
+      content_hash: HASH,
+      module_hash: HASH,
+      extraction: {
+        status: "ready",
+        title: "깊은 문서",
+        text: ["하나", "둘", "셋", "넷", "다섯", "여섯"].join("\n"),
+        text_hash: HASH,
+        sections: [
+          section("아웃라인", 0, 2, null, 1, [1, 4]),
+          section("첫-항목", 1, 3, "아웃라인", 2, [2, 4]),
+          section("하위", 2, 4, "첫-항목", 3, [3, 3]),
+          section("더-깊은", 3, 5, "첫-항목", 4, [4, 4]),
+          section("회의", 4, 2, null, 5, [5, 6]),
+          section("건너뜀", 5, 4, "회의", 6, [6, 6]),
+        ],
+      },
+    }, "1"));
+    fx.consumed("5");
+    const page = keep(
+      fx.outline().document(OUTLINE_CTX, { reference: { document: DOC_A } }),
+    );
+    for (const entry of page.entries) {
+      assert(entry.hidden_children_count <= entry.children_count);
+    }
+    const parsed = documentOutlinePageSchema.safeParse(page);
+    assert(parsed.success, JSON.stringify(parsed.error?.issues));
+    const byKey = new Map(page.entries.map((entry) => [entry.key, entry]));
+    // 직접 자식이 depth 밖에 숨는 만큼만 센다. 손자는 그 자식 아래에 숨는다.
+    assertEquals(byKey.get("아웃라인")?.hidden_children_count, 1);
+    assertEquals(byKey.get("회의")?.hidden_children_count, 1);
   } finally {
     fx.close();
   }

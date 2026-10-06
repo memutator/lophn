@@ -101,7 +101,9 @@ E2E는 `deno task e2e`로 따로 돈다. flow는 `deno task e2e`가 켠 `LOPHN_E
 화면이 있을 때만 돌고, `deno task check`의 test 단계에서는 건너뛴다.
 `deno task check`의 test 단계는 `e2e/flows`를 빼고 돈다(Electron 실행 파일과
 화면이 필요해서다). Playwright의 Electron 실행이 Deno에서 안 되면 `e2e/`에만
-Node `package.json`을 두는 예외를 쓴다. slice를 끝낼 때
+Node `package.json`을 두는 예외를 쓴다. E2E harness는 shell을 기본으로
+`LOPHN_SHELL_HEADLESS=1`(창 숨김·offscreen)로 띄워 사람 화면에 창을 올리지 않는다.
+사람이 직접 보려면 `LOPHN_SHELL_HEADLESS=0`을 준다. slice를 끝낼 때
 돈다([tasks.md](tasks.md)).
 
 메모리 상한이 자식 프로세스를 실제로 죽이는지 보는 테스트(`packages/platform/security/memory_limit_test.ts`)는

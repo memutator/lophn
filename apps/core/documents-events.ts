@@ -9,10 +9,13 @@ import {
   contextWatchedItemChanged,
   documentArchived,
   documentCreated,
+  documentMoved,
+  documentRenamed,
   documentRestored,
   documentSaved,
   documentSourceChanged,
   documentUnarchived,
+  documentUpdated,
   EVENTS,
   projectArchived,
   projectCreated,
@@ -56,6 +59,11 @@ const FEED_EVENTS = [
   documentArchived,
   documentUnarchived,
   documentRestored,
+  // 이름·자리·제목이 바뀌면 문서 revision이 바뀐다. 관측 근거(document_revision)가 낡으면
+  // 파일 관측의 저장이 conflict라서 이 event도 근거를 다시 맞추는 신호다.
+  documentMoved,
+  documentRenamed,
+  documentUpdated,
 ] as const;
 
 const FEED_TYPES: ReadonlySet<string> = new Set(
@@ -113,6 +121,11 @@ export function createDocumentsEventRegistration(): EventRegistration {
       // 문서 watch 변화는 notifications 계기다(platform/notifications#R1). feed가 아니라
       // notifications 구독자에게만 열고, 나머지 자격에는 닫혀 있다.
       notificationsOnlyVisibility(contextWatchedItemChanged),
+      // search consumer(derived index)가 읽는 event. 자리·이름·제목이 바뀌면 index가 따라간다.
+      // 사람 공개는 owner가 아직 정하지 않았다. feed에만 연다.
+      withFeed(documentMoved),
+      withFeed(documentRenamed),
+      withFeed(documentUpdated),
     ],
   };
 }

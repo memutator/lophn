@@ -427,6 +427,7 @@ concerns: [documents]
 
 ### T21 documents slice flow E2E
 
+- 상태: 진행 (#297) — 한 것: T11·T25에서 넘어온 실제 조립 셋(coordinator의 derived store·search consumer와 core의 event 공급·원문 blob 전달·section 추출, route 앞단의 용어 출현 확인, 원문 읽기는 #284가 붙인 `documents/file`), 그리고 그 위에서 돈 flow E2E 네 파일(`e2e/flows/{find-documents,first-project,write-series,organize-documents}_test.ts`, 실제 headless shell·core·documents worker·format runner). 남은 것(아래 "이어보냄"): 화면이 아직 없는 flow 단계와 flow 파일(project-workspace의 문서 단계, edit-document, restore-document)
 - 등급: 기본
 - concern: documents
 - 요구: 없음 (flow 시나리오: first-project, project-workspace, edit-document, find-documents, organize-documents, restore-document, write-series)
@@ -438,14 +439,23 @@ concerns: [documents]
 - T11에서 넘어온 것: coordinator의 derived store 열기와 search consumer 조립(event 공급, 원문 blob 읽기, format runner의 section 추출)이 돼야 `/v1/outline/*`·`/v1/search/*`가 unavailable 대신 데이터를 돌려준다. 원문 blob 보존(Q16)은 풀렸다. T13에서 넘어온 것의 나머지. `GET /v1/documents/file`의 제품 core 서빙은 T11(#284)에서 붙었다. 문서 편집기·restore 흐름의 원문 읽기는 그 route로 돈다(한 응답은 stream이고 상한은 upload 상한 256 MiB).
 - T12에서 넘어온 것: 준비 worker의 바이트 전달(읽은 파일 바이트를 blob으로 core에 준비하는 길)과 그 위에서 production 관측의 읽기를 준비 worker로 옮기고 후보 배분(`addCandidate`→`hash_batch`)의 결과를 제출하는 연결(질문 Q23). 파일 창 읽기(`documents.read_window`)가 준비 worker→coordinator byte frame 길(pool의 `replyBytes`)을 이미 놓았다. 이 길에 coordinator의 blob 준비(`childBlobPort`)를 이어 붙이면 된다. 그 전까지 관측은 coordinator의 loop다
 - T25에서 넘어온 것: `/v1/terms/propose`·`/v1/terms/update`(근거 변경)의 route 앞단 확인. coordinator의 derived store로 고정 판의 section·줄 범위를 읽어 `checkTermOccurrence`(`packages/documents/terms/occurrence.ts`, `createDerivedEvidenceSource`)를 command 앞에서 돌리고 거절하면 command를 부르지 않는다(질문 Q8). coordinator의 derived store를 여는 일이 #266에서 T21로 넘어왔다. 이 앞단이 서기 전까지 core는 고정 판의 존재·문서 짝·범위만 확인한다
-- 완료:
-  - first-project 1~8과 다른 갈래(겹침 거절, 접근 상실, format 검사 실패, 미지원 형식)
-  - project-workspace의 문서 단계(1, 2, 7과 저장 실패 갈래). 터미널·앱 패널 단계는 shell·apps slice
-  - edit-document 1~8과 다른 갈래(바깥 수정 충돌, 503, 검사 실패)
-  - find-documents 1~4, 7과 사람 갈래. 5~6(agent·coding agent 읽기)은 agent slice E2E(lead 결정 Q4)
-  - organize-documents 1, 4~7과 사람 직접 이동 갈래. 2~3(lophn 역할 추천·question)은 agent slice E2E(lead 결정 Q4)
-  - restore-document 1~6과 다른 갈래, write-series 1~7과 다른 갈래
-  - `deno task e2e`에서 위 시나리오가 통과
+- 한 것:
+  - search consumer 조립: coordinator가 derived store를 열고(`apps/worker/documents/search.ts`, 이미 만든 파일을 다시 열면 schema step을 건너뛴다) core가 보낸 event와 저장 판 원문으로 section을 추출해 결과·FTS·cursor를 한 derived transaction에 쓴다(`outline-and-search/consumer.ts`, 이미 지난 seq는 건너뛰고 cursor는 뒤로 가지 않는다). core는 feed 자격(`machine:documents-feed`)으로 coordinator의 cursor부터 event를 읽어 consumer가 쓰는 event(저장·복원·보관·해제·이동·이름·제목)만 순서대로 보낸다(`apps/core/documents-search.ts`). 저장 판은 ledger 판 행의 파일 목록대로 I/O worker의 원문 blob을 byte chunk frame으로 먼저 보내고(검사와 같은 pipe·channel 번호를 나눠 쓰는 `Streamer`로 직렬화) 요청이 그 channel을 가리킨다. 추출은 권한 없는 format runner가 하고, 끝나지 않으면 두 번 다시 받고 세 번째에 그 판을 `failed`로 남겨 cursor를 진행한다(뒤의 문서를 막지 않는다). 원문을 읽어 보내지 못하는 판(사라진 blob)도 세 번 뒤 `unverified`로 남긴다. 추출도 format 검사(#295)와 같은 입력 규칙을 따른다: 바이트를 읽는 format의 대표 파일 하나만 guest에 넘기고, 그 파일이 `FORMAT_CHECK_CONTENT_MAX_BYTES`(1 MiB)를 넘으면 runner를 부르지 않고 한도를 밝힌 이유(`derived_versions.unverified_reason`, 새 schema step)로 `unverified`를 남긴다. 그 이유는 검색 누락 목록과 section 읽기의 `failure_reason`에 나온다. 구독이 끊긴 동안의 변화는 늘 cursor부터 읽어 따라잡는다. 대상 불명 event는 전체 무효화라 consumer가 이해하는 event만 보낸다. 이동·이름·제목 event는 feed에만 연다(사람 공개는 owner가 정하지 않음). 이 이동·이름·제목 event도 관측 근거를 다시 맞추는 신호다(문서 revision이 바뀌면 근거의 `document_revision`이 낡아 파일 관측의 저장이 conflict였다, E2E가 찾아 고침).
+  - T25에서 넘어온 route 앞단: `term.propose`와 근거를 바꾸는 `term.update`는 core의 writer 앞에서(`apps/core/documents-term-check.ts`) reader Worker의 내부 read가 요청 자격이 읽을 수 있는 고정 판의 section·줄 범위를 derived store로 읽어 `checkTermOccurrence`를 돌리고, 거절하면 command를 부르지 않는다. 권한 밖·없는 판·없는 section은 같은 거절이다(존재를 새지 않는다). derived가 없으면 unavailable이다.
+  - 이 조립이 드러낸 leaf 결함 셋을 같은 PR에서 고쳤다. (1) 검색이 문서의 첫 section 행만 비교하고 결과 줄 범위가 section 본문 기준 줄이었다(여러 section 문서의 뒤 section을 못 찾고 `ranges`가 문서 줄이 아니었다) → 문서의 모든 section 행을 비교하고 줄 범위를 문서 줄로 바꾼다. (2) 목차의 `hidden_children_count`가 숨은 자손 전체라 `children_count`를 넘어 계약 출력이 거절됐다(깊은 문서의 `outline.document`가 internal) → 숨은 직접 자식 수로 바로잡았다. (3) 보관한 문서의 `outline.document`·`documents.read`가 not_found였다(versions#R11·outline-and-search#R17 위반) → 보관 문서도 확정한 판은 읽는다.
+  - 기존 시험 두 개(`apps/core/terms_test.ts`, `apps/core/context-tools-e2e_test.ts`)는 가짜 hash의 판에 근거를 달아 후보를 제안했다. 출현 확인이 서면서 실제 문서를 저장해 그 section 본문에서 이름을 확인하도록 고쳤다(context-tools는 시험이 따로 쓰던 derived 쓰기 연결을 없앴다: coordinator가 유일한 writer다).
+  - E2E 조립: `e2e/flow-support.ts`(headless shell·core 띄우기, renderer DOM 입력·클릭·실제 마우스 입력, shell preload의 core 통로로 사람 command, 프로젝트 등록·추적, 색인 대기)와 `e2e/run.ts`가 shell을 기본으로 `LOPHN_SHELL_HEADLESS=1`로 띄운다(사람이 화면에서 보려면 `LOPHN_SHELL_HEADLESS=0`).
+  - find-documents 1·2·3·4·7과 다른 갈래(빈 검색, 보관, section 미지원, 지연·누락). 5~6(agent·coding agent 읽기)은 agent slice E2E(lead 결정 Q4)
+  - first-project 3·5·6·7·8과 다른 갈래(등록만으로는 추적하지 않음, 겹침 거절, 미지원 형식, 추적을 꺼도 판 읽기)
+  - write-series 1·4·6·7과 다른 갈래(해석할 수 없는 규칙, 이미 쓴 key, 제안은 문서를 만들지 않음)
+  - organize-documents 4·5와 사람 직접 이동 갈래(이름 충돌·옛 예약 이름, 옛 참조 안내, 원본 파일은 그대로). 2~3(lophn 역할 추천·question)은 agent slice E2E(lead 결정 Q4)
+  - 시험: `outline-and-search/consumer_test.ts`, `apps/worker/documents/search_test.ts`, `apps/core/documents-derived_test.ts`(실제 core·documents worker: 저장→검색·목차·읽기, 고친 판, 보관, core 재시작), `terms_test.ts`의 출현 확인 거절, `reads_test.ts`의 위 결함 셋. `deno task e2e`에서 위 flow가 통과한다.
+- 이어보냄(이 PR이 하지 않은 것):
+  - first-project 1·2·4(launcher의 프로젝트 등록, 추적 켜기와 범위 미리보기 화면) → shell#T15(화면과 함께 `/v1/projects/preview_tracking`을 renderer 통로 allowlist에 연다. core 서빙은 documents#T12가 붙였다). 지금 E2E는 같은 사람 command를 core 통로로 내고 미리보기는 같은 계산을 시험이 직접 한다. 접근 상실·format 검사 실패 갈래 → 이 PR이 보지 않았다(후속)
+  - project-workspace의 문서 단계(1, 2, 7과 저장 실패 갈래)·edit-document 1~8과 다른 갈래: 제품 build의 project 공간에 실제 core 작업대 source가 없고(`apps/shell/renderer/desktop/entry.tsx`는 개발 시드만 workspace를 준다) 저장 흐름(파일 통로·저장 상태·충돌·닫기 guard)이 없다 → shell#T17과 제품 workspace source, 파일 쓰기는 documents#T12. 이 flow 파일은 만들지 않았다(만들면 가짜 화면이 된다). 기존 `e2e/flows/project-workspace_test.ts`는 shell#T14의 치수 확인이다
+  - restore-document 1~6과 다른 갈래 → documents#T16(이력·diff·restore)과 shell#T18(정보 패널·이력·비교·복원). flow 파일은 만들지 않았다
+  - organize-documents 1·6·7과 아직 화면이 없는 사람 조작(projects 화면의 이름 변경·보관·export, 문서를 파일로 두기와 빼기) → shell#T20, documents#T19. write-series 2·3·5의 "내용을 쓰고 저장"(편집기 저장·series draft) → shell#T17. series 등록 화면의 자리 선택지는 화면이 처음 한 번 읽는다(새로 등록한 프로젝트는 창을 다시 읽어야 보인다, shell 쪽 갱신은 shell#T19 후속)
+  - 계획 밖으로 알려진 한계: derived의 `ledger_id` 불일치(복원 뒤)·삭제 뒤 재생성(`documents.rebuild.sqlite`) 흐름은 coordinator에 아직 붙지 않았다(platform#T42 restore가 부른다). 요약·주제 검색 cache를 채우는 일은 이 조립에 없다
 
 ## slice: context
 
@@ -510,7 +520,7 @@ concerns: [documents]
 
 ### T25 Term
 
-- 상태: 완료 (#269) — 한 것: `terms`·`term_evidence` 표, 다섯 command와 `/v1/terms/list`·`/get`, `/v1/outline/context`의 glossary·candidates(T23에서 이어받음), `term.define`의 compare(새 등록은 base_revision 없음, 질문 Q19), 출현 확인 함수(`checkTermOccurrence`). 이어보냄: route 앞단의 출현 확인 연결(coordinator derived store가 필요하다) → documents#T21
+- 상태: 완료 (#269) — 한 것: `terms`·`term_evidence` 표, 다섯 command와 `/v1/terms/list`·`/get`, `/v1/outline/context`의 glossary·candidates(T23에서 이어받음), `term.define`의 compare(새 등록은 base_revision 없음, 질문 Q19), 출현 확인 함수(`checkTermOccurrence`). 이어보냄: route 앞단의 출현 확인 연결(coordinator derived store가 필요하다) → documents#T21(T21에서 붙음, #297)
 - 등급: 기본
 - concern: documents/terms
 - 요구: documents/terms#R1, R2, R3, R4, R5, R6

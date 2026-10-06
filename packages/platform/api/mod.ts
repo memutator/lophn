@@ -3,6 +3,8 @@ export {
   dispatchHttp,
   exactLength,
   type FileHandler,
+  type FileStream,
+  type FileStreamHandler,
   type HttpResult,
   type MemoryHandler,
   type ReadHandler,

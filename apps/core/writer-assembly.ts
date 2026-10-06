@@ -37,6 +37,7 @@ import {
   type PreparationRegistry,
 } from "../../packages/platform/blob-store/mod.ts";
 import { bindApprovalOwners } from "./platform.ts";
+import { SECRET_COMMANDS } from "../../packages/platform/secrets/mod.ts";
 import type { TeamModule } from "./registration.ts";
 
 export type WriterBoot = {
@@ -77,7 +78,11 @@ export async function assembleWriter(
   // 테스트 clock은 기동 시각에 고정되지만, 테스트가 시계를 밀면 core가 알린다.
   let fixedMs = typeof boot.clock === "number" ? boot.clock : 0;
   const clock = writerClock(boot, () => fixedMs);
-  const commands: CommandDefinition[] = [...LEDGER_COMMANDS];
+  // secret 참조(SetSecret·RemoveSecret)는 platform 소유 command라 팀 module 없이 항상 붙는다.
+  const commands: CommandDefinition[] = [
+    ...LEDGER_COMMANDS,
+    ...SECRET_COMMANDS,
+  ];
   const ports: TxPortRegistration[] = [];
   const names = new Set(commands.map((command) => command.route.name));
   const blobFields: BlobFieldDefinition[] = [];

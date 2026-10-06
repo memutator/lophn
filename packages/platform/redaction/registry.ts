@@ -1,8 +1,15 @@
 // 알려진 secret 원문은 보호 메모리에만 둔다(platform/redaction#R1).
 // 이 목록을 agent·앱·test 결과로 내보내지 않는다.
 
+// 읽기만 하는 얼굴. 등록·회수·개수 없이 일치 검사만 한다. 값 목록을 내보내지 않는다.
+export type KnownSecretMatcher = {
+  match(text: string): { index: number; length: number } | undefined;
+};
+
 export type KnownSecretRegistry = {
   register(values: readonly string[]): void;
+  // 회수한 값은 이 순간부터 알려진 값이 아니다. 없는 값은 무시한다.
+  revoke(values: readonly string[]): void;
   clear(): void;
   readonly count: number;
   // 긴 값부터 정확 일치한다. 길이·개수로 값을 빼지 않는다.
@@ -16,6 +23,11 @@ export function createKnownSecretRegistry(): KnownSecretRegistry {
   let ordered: string[] = [];
   let maxLength = 0;
 
+  const rebuild = () => {
+    ordered = [...values].sort((a, b) => b.length - a.length);
+    maxLength = ordered[0]?.length ?? 0;
+  };
+
   return {
     register(incoming) {
       let changed = false;
@@ -27,7 +39,14 @@ export function createKnownSecretRegistry(): KnownSecretRegistry {
       }
       if (!changed) return;
       // 긴 값 우선. 같은 길이는 등록 순서를 유지한다.
-      ordered = [...values].sort((a, b) => b.length - a.length);
+      rebuild();
+    },
+    revoke(outgoing) {
+      let changed = false;
+      for (const value of outgoing) {
+        if (values.delete(value)) changed = true;
+      }
+      if (changed) rebuild();
     },
     clear() {
       values.clear();

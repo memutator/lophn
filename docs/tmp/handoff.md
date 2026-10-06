@@ -3,7 +3,7 @@ type: guide
 concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell]
 ---
 
-# lead handoff (2026-10-06 22시 기준)
+# lead handoff (2026-10-06 22:20 기준)
 
 다음 orchestrator(lead)가 이 팀을 이어 받을 때 알아야 하는 것. 무엇을 만들지는 `docs/plan/`이 정하고,
 여기는 운영 방법·현재 상태·함정만 적는다. 숫자와 PR 목록은 작성 시각 기준이니 시작할 때
@@ -68,41 +68,43 @@ ready task 계산(선행이 모두 완료인 미완 task)은 `docs/plan/*.md`의
 - main checkout의 `apps/shell/main/node_modules`가 오래되면 build가 깨진다. `npm --prefix apps/shell/main ci`.
 - 대기열 chain을 다른 chain의 출력에 기대 이어 붙이지 않는다. 앞 chain을 멈추면 뒤가 영원히 기다린다(몇 시간 멈춘 적 있음). 대기열 파일 하나 + `merge-queue.sh` 하나만 쓴다.
 
-## 6. 현재 상태 (2026-10-06 22시)
+## 6. 현재 상태 (2026-10-06 22:20, 사람이 모든 worker와 merge chain을 멈춘 시점)
 
-- 완료 약 263/364(72%). 진행도 기록은 `.dev-data/progress-log.md`.
-- 시간당 완료는 초반 5~6개, 최근 3~4개. 남은 task는 큰 연결 작업에 몰려 있다.
+- 완료 263/364(72%). 진행도 기록은 `.dev-data/progress-log.md`. 시간당 완료는 초반 5~6개, 최근 3~4개.
+- 돌고 있는 worker·merge chain·cron 없음. 아래 열린 PR은 모두 lead 리뷰를 통과했고(#369 제외) merge만 남았다. 새 세션에서 대기열 파일을 만들어 `merge-queue.sh`로 이 순서대로 돌린다.
 
-### 열린 PR과 할 일
+### 열린 PR (merge 순서대로)
 
-merge 대기열 파일은 세션 scratchpad에 있었다. 새 세션에서는 아래 표로 대기열을 다시 만든다(이미 리뷰 통과).
+| 순서 | PR | task | 남은 일 |
+|---|---|---|---|
+| 1 | #354 | apps app.rename | 부하 timeout 재시도만 |
+| 2 | #347 | problems T10 앱 계약 검사 | 재시도만 |
+| 3 | #345 | core child 채널 deadline | worktree `agent-abb49fe7977335f58`에 main merge commit `b265ff4e`가 있으나 push 여부·테스트 미확인(멈춘 worker). 확인 후 push. PR branch는 `fix/real-core-test-stability-followup` |
+| 4 | #340 | problems T16 view binding | main 합친 `5a93bf40` push됨, 테스트 미확인 |
+| 5 | #367 | problems T5 submit-feedback | #340 다음(#340 commit 포함). base는 main으로 바꿔 둠 |
+| 6 | #330 | documents T31 앱 출력 | worktree `agent-aa087d05635282184`의 main merge `ca978be9`가 push 안 됨, 미commit 파일 1개. 확인 후 push |
+| 7 | #361 | problems T11 화면 검사 | main 합침·테스트 통과·push됨 |
+| 8 | #358 | coding-agent T22 SDK tool | main 합침·테스트 통과·push됨 |
+| 9 | #363 | shell T57 패키징 | main 합침·테스트 통과·push됨 |
+| 10 | #342 | shell T39 native view | worktree가 **merge 도중 상태(MERGE_HEAD 있음)**. `git merge --abort` 뒤 다시 합친다 |
+| 11 | #351 | shell T44 앱 패널·카드 | 같은 상태(merge 도중). #342 다음. wording key 복구 commit `65f843aa`는 push됨 |
+| 12 | #353 | shell T42 앱 공간 | 같은 상태(merge 도중). #342 다음 |
+| 13 | #366 | shell T52 문제 알리기 | #353 다음(#353 commit 포함) |
+| 14 | #356 | shell T20 projects | confirmation contract 되돌림을 고친 `51826201` push됨 |
+| 15 | #365 | shell T36 contexts | 승인 |
+| 16 | #369 | lophn-agent T19 prompt 층 | **리뷰 안 함.** worker가 PR까지 열고 멈췄다. 완료 기준과 대조해 리뷰한다 |
+| 17 | #368 | 이 handoff | docs만 |
 
-| PR | task | 상태 |
-|---|---|---|
-| #354 | apps app.rename | 승인. 부하 timeout으로 재시도 대기 |
-| #347 | problems T10 | 승인. 재시도 대기 |
-| #345 | core child 채널 deadline | 승인. main과 충돌 정리 중(sonnet worker) |
-| #340 | problems T16 view binding | 승인. 충돌 정리 중 |
-| #330 | documents T31 | 승인. 충돌 정리 중 |
-| #361 | problems T11 화면 검사 | 승인. 충돌 정리 중(main의 #360 위에 probe 변경 다시 얹기) |
-| #358 | coding-agent T22 | 승인. 충돌 정리 중 |
-| #363 | shell T57 패키징 | 승인. 충돌 정리 중 |
-| #355 | apps T22 템플릿 | 승인. 대기열 진행 중 |
-| #342 → #351 → #353 → #366 | shell T39·T44·T42·T52 | 승인. 이 순서로 |
-| #356 | shell T20 | 승인. contract 되돌림 고침 |
-| #365 | shell T36 | 승인 |
-| #367 | problems T5 submit-feedback | 승인. #340 다음. base를 main으로 바꿔 둠 |
+### 멈춘 작업 (PR 없음)
 
-### 돌고 있는 worker (작성 시각)
-
-- sonnet-high: apps T19(가장 중요한 task. blueprint read route, supervisor 조립, release 준비), lophn-agent T19(agent loop로 가는 핵심 경로), 충돌 정리 2개
-- glm: platform T58
+- **apps T19**(가장 중요): branch `worktree-agent-ae961ecfbc3ee5c0f`, worktree 같은 이름, commit 11개 push됨. 마지막 commit "Serve preview stand-in brokers, bundle ledger preview releases (apps#T19 WIP)". 어디까지 했는지 `git log origin/main..`으로 보고 sonnet-high로 이어서 끝낸다. 할 일 목록은 plan apps T19 블록의 "넘어온 것" 줄들(blueprint read route, supervisor broker 조립, cap-host 설치, release 준비의 SDK 사본·lock, R22 검사, APP_OP_ROUTES.blueprint 교체 등).
+- **platform T58**: 시작 직후 멈춤. worktree `agent-a991b84b975f48cb7`에 미commit 파일 3개. 처음부터 다시 해도 된다.
 
 ### 핵심 경로
 
-- **apps T19**가 끝나야 apps T18·T23~T28, shell T43·T45, lophn-agent T44, problems T14·T27 등이 열린다. 앱 fixture 4개(T23~T26)는 T19 다음 opus·sonnet으로.
-- **lophn-agent T19 → T20 → T26(agent loop) → T27·T28·T31·T43·T44…** lophn-agent 남은 task 대부분이 T26 뒤에 있다.
-- coding-agent는 ticket 쪽(T24 → T25·T26 → …)이 problems T14(apps T19 뒤)에 걸려 있다.
+- **apps T19**가 끝나야 apps T18·T23~T28, shell T43·T45, lophn-agent T44, problems T14·T27 등이 열린다. 앱 fixture 4개(T23~T26)는 T19 다음.
+- **lophn-agent T19(#369) → T20 → T26(agent loop) → T27·T28·T31·T43·T44…** lophn-agent 남은 task 대부분이 T26 뒤에 있다.
+- coding-agent ticket 쪽(T24 → …)은 problems T14(apps T19 뒤)에 걸려 있다.
 - platform T48(.deb)은 shell T57(#363) 다음.
 - 오래 "진행" 상태인 task: documents T21, platform T42, shell T17. 상태 줄의 "남은 것"을 보고 마무리 worker를 띄운다.
 

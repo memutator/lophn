@@ -1008,6 +1008,7 @@ Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 �
     "document-read",
     "document-write",
     "format",
+    "lophn-guide",
     "metadata-read",
     "visual",
   ]);

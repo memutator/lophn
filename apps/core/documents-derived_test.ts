@@ -14,8 +14,12 @@ import {
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
-const teams: TeamModule[] = [{ createLedgerRegistration }];
+const teams: TeamModule[] = [
+  { lophnAgentDefinitions },
+  { createLedgerRegistration },
+];
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 const AGENT_TOKEN = "a".repeat(43);
 const USER_TOKEN = "c".repeat(43);
@@ -57,7 +61,10 @@ async function open(home?: string, work?: string): Promise<Opened> {
     lophnHome: dataRoot,
     port: 0,
     teams,
-    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     clock: manualClock(Date.UTC(2024, 0, 1)),
     // 다시 여는 core는 다른 seed로 새 자격 ref를 받는다(같은 ref의 기록은 한 번만 있다).
     random: seededRandom(reopening ? 32 : 31),

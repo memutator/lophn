@@ -8,6 +8,7 @@ import type {
   AuthenticatedContext,
   RedactionInput,
   RedactionResult,
+  SettingMutation,
   SqlParam,
   SqlRow,
 } from "../../../packages/contracts/platform/mod.ts";
@@ -24,6 +25,7 @@ import {
 import {
   screenAnswerText,
   SECURE_INPUT_GUIDANCE,
+  settingsOptionAction,
 } from "../../../packages/lophn-agent/questions/mod.ts";
 
 // 질문 ledger 테스트(lophn-agent/questions). 실제 등록 executor(harness)와 임시 ledger
@@ -260,16 +262,12 @@ function option(key: string, extra: Record<string, unknown> = {}) {
 }
 
 function settingsAction(question: string, changes: unknown[]) {
-  const input = { changes };
-  return {
-    concern: "platform/settings",
-    command: "apply_settings",
-    targets: [question],
-    input: { kind: "inline", value: input },
-    input_hash: hashOf(input),
-    comparison: { revision: 0, defaults_revision: "defaults-1" },
-    binding_hash: hashOf({ question, input }),
-  };
+  return settingsOptionAction({
+    question,
+    changes: changes as SettingMutation[],
+    revision: 0,
+    defaults_revision: "defaults-1",
+  });
 }
 
 type CreateOverrides = Partial<{

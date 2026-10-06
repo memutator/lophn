@@ -33,9 +33,11 @@ import {
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { lophnAgentDefinitions } from "./lophn-agent.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
 
 const teams: TeamModule[] = [
+  { lophnAgentDefinitions },
   { createLedgerRegistration },
   { createLedgerRegistration: createAppsRegistration },
 ];
@@ -98,6 +100,7 @@ async function open(): Promise<Opened> {
     port: 0,
     teams,
     teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
       new URL("./documents.ts", import.meta.url).href,
       new URL("./apps.ts", import.meta.url).href,
     ],

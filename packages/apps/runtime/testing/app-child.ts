@@ -48,6 +48,35 @@ const started = startRuntime({
     new TextEncoder().encode(`screen ${screen} ${path}`),
 });
 
+// 시험이 이 폴더에 `hold` 파일을 만들어 두면 slow는 그 파일이 지워질 때까지(기한 안에서) 끝나지
+// 않는다. 정지 순서를 시계가 아니라 시험이 정한 조건으로 본다. 파일이 없으면 1.5초 뒤 끝난다.
+const HOLD = new URL("hold", mainDir);
+const HOLD_MAX_MS = 60_000;
+
+async function held(): Promise<boolean> {
+  try {
+    await Deno.stat(HOLD);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// slow가 시작했다는 표시. 쓰기는 앱의 data 폴더에만 허용된다.
+const STARTED = new URL("data/slow-started", mainDir);
+
+async function slow(): Promise<void> {
+  await Deno.writeTextFile(STARTED, "").catch(() => undefined);
+  if (!await held()) {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    return;
+  }
+  const deadline = Date.now() + HOLD_MAX_MS;
+  while (await held() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
 const port = ensureSchedulePort();
 for (const command of blueprint.commands) {
   port.register({
@@ -65,9 +94,7 @@ for (const command of blueprint.commands) {
       if (command.key === "credential") {
         return { broker_credential: started.start.broker_credential };
       }
-      if (command.key === "slow") {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-      }
+      if (command.key === "slow") await slow();
       return { command: command.key, input: input ?? null };
     },
   });

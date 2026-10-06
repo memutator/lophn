@@ -1,0 +1,170 @@
+// 앱 view registry의 값과 순수 검사. 입력 모양 검사(contracts#T38 appFrameOpen)와 같은 연결
+// 판정은 IO 없이 여기 둔다. 상태와 붙이기·숨기기·폐기는 registry.ts가 맡는다.
+import type {
+  AppBinding,
+  ConnectTarget,
+  ScreenSize,
+  ViewMode,
+} from "./app-connection.ts";
+import type { FetchHost } from "./network-policy.ts";
+
+export interface ViewBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface AppFrameOpen {
+  app: string;
+  mode: ViewMode;
+  release: string | null;
+  screen: string;
+  size: ScreenSize;
+  parentWindow: string;
+  bounds: ViewBounds;
+}
+
+export type ConnectionState =
+  | "preparing"
+  | "stopped"
+  | "running"
+  | "unavailable";
+
+/** IPC를 보낸 view. main이 정한 신원과 연결만 싣고 페이지 주장은 없다(R12). */
+export interface BoundView {
+  view_session: string;
+  generation: number;
+  target: ConnectTarget;
+  binding: AppBinding;
+}
+
+export interface AppFrameViewState {
+  view_session: string;
+  app: string;
+  release: string | null;
+  mode: ViewMode;
+  screen: string;
+  size: ScreenSize;
+  connectionState: ConnectionState;
+}
+
+/** Electron WebContentsView 하나. */
+export interface AppViewContents {
+  readonly id: number;
+  load(url: string): Promise<void>;
+  destroy(): void;
+}
+
+/** 창과 native view를 다루는 adapter. 앱 UI 코드는 shell renderer로 오지 않는다. */
+export interface AppViewHost {
+  hasWindow(window: string): boolean;
+  /** partition의 sandbox view를 만든다. main frame 탐색은 allowNavigation이 true일 때만 둔다. */
+  create(input: {
+    partition: string;
+    allowNavigation(url: string): boolean;
+  }): AppViewContents;
+  /** 창 본문에 붙이거나 bounds를 옮긴다. 창이 없으면 false다. */
+  attach(window: string, view: AppViewContents, bounds: ViewBounds): boolean;
+  detach(window: string, view: AppViewContents): void;
+}
+
+const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const SIZES: readonly string[] = ["full", "panel", "card"];
+const MODES: readonly string[] = ["live", "preview"];
+const SAFE_TEXT = (value: unknown): value is string =>
+  typeof value === "string" && value.trim().length > 0 &&
+  !/\p{Cc}/u.test(value);
+
+export function boundsValid(value: unknown): value is ViewBounds {
+  if (typeof value !== "object" || value === null) return false;
+  const bounds = value as Record<string, unknown>;
+  const keys = Object.keys(bounds).sort().join(",");
+  return keys === "height,width,x,y" &&
+    [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isInteger) &&
+    (bounds.width as number) >= 0 && (bounds.height as number) >= 0;
+}
+
+/** contracts#T38 appFrameOpenSchema와 같은 검사. 모르는 field도 거절한다. */
+export function checkOpen(value: unknown): AppFrameOpen | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const input = value as Record<string, unknown>;
+  const keys = Object.keys(input).sort().join(",");
+  if (keys !== "app,bounds,mode,parentWindow,release,screen,size") return;
+  if (
+    typeof input.app !== "string" || !APP_ID.test(input.app) ||
+    !MODES.includes(input.mode as string) ||
+    !(input.release === null ||
+      (typeof input.release === "string" && RELEASE_ID.test(input.release))) ||
+    (input.mode === "live" && input.release === null) ||
+    !SAFE_TEXT(input.screen) || !SIZES.includes(input.size as string) ||
+    !SAFE_TEXT(input.parentWindow) || !boundsValid(input.bounds)
+  ) {
+    return undefined;
+  }
+  return input as unknown as AppFrameOpen;
+}
+
+export interface Bound {
+  target: ConnectTarget;
+  binding: AppBinding;
+  hosts: FetchHost[];
+  partition: string;
+}
+
+function sameHosts(a: readonly FetchHost[], b: readonly FetchHost[]): boolean {
+  const key = (host: FetchHost) => `${host.host} ${host.port}`;
+  const left = new Set(a.map(key));
+  return a.length === b.length && b.every((host) => left.has(key(host))) &&
+    left.size === new Set(b.map(key)).size;
+}
+
+// release·프로세스·bundle·endpoint·host가 같으면 같은 연결이다. 만료만 다르면 새 서명만 쓴다.
+export function sameConnection(entry: Bound, next: Bound): boolean {
+  return entry.partition === next.partition &&
+    entry.binding.release === next.binding.release &&
+    entry.binding.bundleHash === next.binding.bundleHash &&
+    entry.binding.processNonce === next.binding.processNonce &&
+    entry.binding.endpoint === next.binding.endpoint &&
+    sameHosts(entry.hosts, next.hosts);
+}
+
+/** registry가 view 하나에 쥐는 것 중 밖으로 보이는 값. */
+interface ViewEntry extends Bound {
+  view_session: string;
+  generation: number;
+  connectionState: ConnectionState;
+}
+
+export function stateOf(entry: ViewEntry): AppFrameViewState {
+  return {
+    view_session: entry.view_session,
+    app: entry.target.app,
+    release: entry.target.release,
+    mode: entry.target.mode,
+    screen: entry.target.screen,
+    size: entry.target.size,
+    connectionState: entry.connectionState,
+  };
+}
+
+/** IPC sender의 view. main이 정한 신원과 연결만 싣는다. */
+export function boundViewOf(entry: ViewEntry): BoundView {
+  return {
+    view_session: entry.view_session,
+    generation: entry.generation,
+    target: { ...entry.target },
+    binding: entry.binding,
+  };
+}
+
+export function targetOf(input: AppFrameOpen): ConnectTarget {
+  return {
+    app: input.app,
+    mode: input.mode,
+    release: input.release,
+    screen: input.screen,
+    size: input.size,
+  };
+}

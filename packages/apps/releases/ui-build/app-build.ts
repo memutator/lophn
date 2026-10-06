@@ -2,7 +2,9 @@
 // 앱이 쓴 `scripts/build-ui.ts`를 실행하지 않고 이 파일이 같은 일을 한다. esbuild 입력은 staging의
 // `src/screens/<key>/main.tsx`로 고정이고 출력은 `dist/screens/<key>/`뿐이다. 앱 코드는 번들될 뿐 실행되지
 // 않는다. 호출자가 run은 deno·esbuild 실행 파일만, write는 staging만, env는 이름만 허락해 띄운다.
-// 사용: deno run ... app-build.ts <staging 폴더>
+// 사용: deno run ... app-build.ts <staging 폴더> <설치 SDK 폴더> <Deno 캐시 폴더>
+// 불러오는 모든 파일은 realpath가 staging·설치 SDK·Deno 캐시 안이어야 하고 밖이면(절대 경로·`../`·symlink)
+// build가 실패한다. 밖의 파일이 화면에 묶여 운영 때 읽히지 않게 한다.
 import * as esbuild from "esbuild";
 import { denoPlugins } from "@luca/esbuild-deno-loader";
 import {
@@ -51,8 +53,39 @@ function assets(imports: Record<string, string>): esbuild.Plugin {
   };
 }
 
-const root = Deno.args[0];
-if (root === undefined) throw new Error("staging folder is missing");
+// 불러오는 파일이 허용한 폴더 안(realpath 기준)에 있는지 본다. 파일 내용은 오류에 싣지 않는다.
+function guard(roots: readonly string[]): esbuild.Plugin {
+  const inside = (path: string) =>
+    roots.some((base) => path === base || path.startsWith(`${base}/`));
+  return {
+    name: "path-guard",
+    setup(build) {
+      build.onLoad({ filter: /.*/ }, async (args) => {
+        if (
+          (args.namespace !== "file" && args.namespace !== "app-asset") ||
+          !args.path.startsWith("/")
+        ) return undefined;
+        let real: string;
+        try {
+          real = await Deno.realPath(args.path);
+        } catch {
+          return { errors: [{ text: "import is outside the app build area" }] };
+        }
+        return inside(real)
+          ? undefined
+          : { errors: [{ text: "import is outside the app build area" }] };
+      });
+    },
+  };
+}
+
+const [root, sdkRoot, denoDir] = Deno.args;
+if (root === undefined || sdkRoot === undefined || denoDir === undefined) {
+  throw new Error("build arguments are missing");
+}
+const allowed = await Promise.all(
+  [root, sdkRoot, denoDir].map((path) => Deno.realPath(path)),
+);
 const imports: Record<string, string> =
   JSON.parse(await readFile(join(root, ".lophn/import-map.json"), "utf8"))
     .imports;
@@ -85,6 +118,7 @@ try {
       define: { "process.env.NODE_ENV": '"production"' },
       logLevel: "error",
       plugins: [
+        guard(allowed),
         assets(imports),
         ...(denoPlugins({
           configPath: scratch,

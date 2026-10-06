@@ -239,6 +239,8 @@ export async function prepareFromSource(
       `--allow-run=${[deno, ...await esbuildBinaries(denoDir)].join(",")}`,
       APP_BUILD,
       staging,
+      sdkRoot,
+      denoDir,
     ], {
       cwd: staging,
       signal: deps.signal,

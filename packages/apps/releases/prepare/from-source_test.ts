@@ -255,3 +255,64 @@ Deno.test("apps/releases#R3: 준비 중 실행되는 blueprint 평가는 process
     await made.dispose();
   }
 });
+
+Deno.test("apps/releases#R3: 화면 코드가 staging·설치 SDK·Deno 캐시 밖의 파일(절대 경로·`../`·symlink)을 불러오면 준비가 실패하고 내용은 어느 출력에도 없다", async () => {
+  const made = await committedApp();
+  const outside = await Deno.makeTempDir({ prefix: "lophn-outside-" });
+  const MARK = "OUTSIDE-SECRET-MARKER";
+  try {
+    await Deno.writeTextFile(
+      `${outside}/secret.ts`,
+      `export const leaked = "${MARK}";\n`,
+    );
+    const screen = `${made.dir}/src/screens/items/main.tsx`;
+    const original = await Deno.readTextFile(screen);
+    const specifiers: Record<string, string> = {
+      absolute: `${outside}/secret.ts`,
+      escape: `${"../".repeat(40)}${outside.slice(1)}/secret.ts`,
+    };
+    for (const [name, specifier] of Object.entries(specifiers)) {
+      await Deno.writeTextFile(
+        screen,
+        `import { leaked } from ${
+          JSON.stringify(specifier)
+        };\nconsole.log(leaked);\n${original}`,
+      );
+      await git(made.dir, ["commit", "-qam", `import ${name}`]);
+      const prepared = await prepareFromSource({
+        dataRoot: made.installed.home,
+        app: APP,
+        sourceRoot: made.dir,
+        commit: await git(made.dir, ["rev-parse", "HEAD"]),
+      });
+      assert(!prepared.ok, `${name} import was allowed`);
+      assertEquals(prepared.error.reason, "ui_build_failed", name);
+    }
+    // commit 안 symlink는 추출 단계에서 거절이고 가리키는 파일은 읽히지 않는다.
+    await Deno.writeTextFile(screen, original);
+    await Deno.symlink(`${outside}/secret.ts`, `${made.dir}/src/leak.ts`);
+    await Deno.writeTextFile(
+      screen,
+      `import { leaked } from "../../leak.ts";\nconsole.log(leaked);\n${original}`,
+    );
+    await git(made.dir, ["add", "-A"]);
+    await git(made.dir, ["commit", "-qm", "import symlink"]);
+    const linked = await prepareFromSource({
+      dataRoot: made.installed.home,
+      app: APP,
+      sourceRoot: made.dir,
+      commit: await git(made.dir, ["rev-parse", "HEAD"]),
+    });
+    assert(!linked.ok, "symlink import was allowed");
+    // 내용이 data root 어디에도 남지 않았다.
+    const grep = await new Deno.Command("grep", {
+      args: ["-rl", MARK, `${made.installed.home}/apps`],
+      stdout: "piped",
+      stderr: "null",
+    }).output();
+    assertEquals(new TextDecoder().decode(grep.stdout).trim(), "");
+  } finally {
+    await removeTree(outside);
+    await made.dispose();
+  }
+});

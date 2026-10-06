@@ -1,0 +1,69 @@
+// blueprint에 선언한 command의 handler. 선언한 key와 등록한 handler가 같아야 준비가 끝난다.
+import { command, CommandRejection, readResult } from "@lophn/cap-schedule";
+import { openStore, type Store } from "@lophn/cap-store";
+import { reportProblem } from "@lophn/cap-problem";
+import { addItem, ensureSchema, type Item, listItems } from "./items.ts";
+
+export type Deps = {
+  openStore: () => Store;
+  now: () => string;
+};
+
+const defaults: Deps = {
+  openStore: () => openStore(),
+  now: () => new Date().toISOString(),
+};
+
+// 저장소를 열고 일을 한다. 저장소가 실패하면 선언한 code로 보고하고 호출자에게는 이유 없는 거절만 돌려준다.
+// 보고가 실패해도 업무 응답은 막지 않는다. 입력·DB 내용은 보고에 넣지 않는다.
+async function withStore<T>(
+  deps: Deps,
+  name: string,
+  work: (store: Store) => T,
+): Promise<T> {
+  let store: Store | undefined;
+  try {
+    store = deps.openStore();
+    await ensureSchema(store);
+    return work(store);
+  } catch (error) {
+    if (error instanceof CommandRejection) throw error;
+    reportProblem("store_unavailable", { command: name });
+    throw new CommandRejection("unavailable", "the item store is unavailable");
+  } finally {
+    store?.close();
+  }
+}
+
+export function listItemsHandler(deps: Deps = defaults) {
+  return () =>
+    withStore(
+      deps,
+      "list_items",
+      (store) =>
+        readResult<Item>(listItems(store), {
+          coverage: "complete",
+          freshness: "fresh",
+        }),
+    );
+}
+
+export function addItemHandler(deps: Deps = defaults) {
+  return async (input: unknown) => {
+    const title = String((input as { title?: unknown } | null)?.title ?? "")
+      .trim();
+    if (title === "") {
+      throw new CommandRejection("invalid_input", "the item title is empty");
+    }
+    return await withStore(
+      deps,
+      "add_item",
+      (store) => addItem(store, title, deps.now()),
+    );
+  };
+}
+
+export function registerCommands(deps: Deps = defaults): void {
+  command("list_items", listItemsHandler(deps));
+  command("add_item", addItemHandler(deps));
+}

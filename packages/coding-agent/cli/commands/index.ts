@@ -32,7 +32,7 @@ export const INDEX_COMMANDS: readonly CommandEntry[] = [
   {
     name: "search",
     input: cliSearchSchema,
-    // search의 query는 owner worker route 하나다.
-    opRoutes: { query: searchQuery },
+    // search의 query는 owner worker route 하나다. 입력에 op가 없으므로 route 하나로 보낸다.
+    monoRoute: searchQuery,
   },
 ];

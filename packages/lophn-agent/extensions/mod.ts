@@ -26,3 +26,56 @@ export {
   type SkillReadResult,
   type SkillSupplementalReadInput,
 } from "./skill-read.ts";
+export {
+  allowRunList,
+  checkMcpConfig,
+  httpEndpointReason,
+  type McpConfigCheck,
+  type McpConfigProblem,
+  serverConfigReason,
+} from "./mcp-config.ts";
+export {
+  type CallOutcome,
+  CONNECT_TIMEOUT_MS,
+  type ConnectionState,
+  type ConnectionView,
+  createMcpConnections,
+  type DeadlineFn,
+  LIST_BYTES_MAX,
+  LIST_PAGE_MAX,
+  LIST_TIMEOUT_MS,
+  LIST_TOOLS_MAX,
+  type ListFailure,
+  type McpConnections,
+  type McpConnectionsDeps,
+  type McpDisconnectReason,
+  type McpToolView,
+  type McpTransport,
+  type McpTransportOpener,
+  type OwnerKey,
+  RECONNECT_DELAYS_MS,
+  SCHEMA_DEPTH_MAX,
+  type ToolList,
+  type WaitFn,
+} from "./mcp-connections.ts";
+export {
+  endpointReason,
+  type HttpFetch,
+  initializeBody,
+  MCP_PROTOCOL_VERSION,
+  redirectOriginRejected,
+  rpcResultOf,
+  sameOrigin,
+  unsupportedReverseResponse,
+} from "./adapters/mcp-http.ts";
+export {
+  spawnStdioMcp,
+  STDERR_MAX_BYTES,
+  STDIO_AMBIENT_ENV,
+  STDIO_KILL_GRACE_MS,
+  STDIO_NO_SHELL,
+  stdioChildEnv,
+  type StdioSpawn,
+  type StdioSpawnInput,
+} from "./adapters/mcp-stdio.ts";
+export { createMcpSecretRefSource, MCP_SECRET_OWNER } from "./secret-refs.ts";

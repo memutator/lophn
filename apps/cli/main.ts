@@ -38,7 +38,13 @@ import {
   createKnownSecretRegistry,
   createRedactionStream,
 } from "../../packages/platform/redaction/mod.ts";
-import { actorOf, ambientEnv, runCliCommand } from "./dispatch.ts";
+import {
+  actorOf,
+  ambientEnv,
+  appSocketDirOf,
+  type CliPorts,
+  runCliCommand,
+} from "./dispatch.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
 import type { RpcFetch } from "../../packages/contracts/platform/mod.ts";
 
@@ -93,6 +99,8 @@ export type CliOptions = {
   cwd?: string;
   home?: string;
   installRoot?: string;
+  ports?: Partial<CliPorts>;
+  appSocketDir?: string;
 };
 
 // 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/apps/cli/main.ts`라 세 단계 위다.
@@ -264,6 +272,13 @@ export async function cliMain(
       ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     })
     : undefined;
+  const appSocketDir = options.appSocketDir ?? appSocketDirOf(env, () => {
+    try {
+      return Deno.uid();
+    } catch {
+      return null;
+    }
+  });
   const ran = await runCliCommand(
     command,
     { ...checked.data as Record<string, unknown> },
@@ -277,7 +292,9 @@ export async function cliMain(
       home: options.home ?? env.get("HOME"),
       installRoot: options.installRoot ?? INSTALL_ROOT,
       daemonUrl: address.value.url,
+      ...(appSocketDir === undefined ? {} : { appSocketDir }),
       now: () => new Date().toISOString(),
+      ...(options.ports === undefined ? {} : { ports: options.ports }),
     },
   );
   if (!ran.ok) {

@@ -1676,12 +1676,6 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - **Q31 preview 시작 입력의 fixture(정함, T21).** `PreviewInput.fixture_hash`는 bundle manifest의 파일 중 그 hash의 byte다(domain-model apps/sdk의 files에 fixture가 있다). core가 byte를 확인해 새 preview 영역의 `data.db`로 놓고(없으면 영역은 비어 있다) 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. bundle에 없는 hash는 invalid_input이다. 추천안으로 진행했다. fixture를 다른 형식(SQL 시드 등)으로 쓰려면 requirements를 정한 뒤 `PreviewBundle.fixture`만 바꾼다.
 - **Q32 release 없는 preview의 통로(해결, T21).** `control/open`의 `release`와 `app_credential_request.release`가 null을 받지 못해 준비 전 bundle의 preview가 가짜 release 없이 열릴 길이 없었다. lead가 승인해 이 PR에서 두 schema를 nullable로 고쳤다(live 자식은 null이면 release 불일치로 거절, 발급기는 null이면 조건·대상에 release를 넣지 않고 registry는 live가 아니고 bundle hash가 있는 app 자격만 release 없이 받는다). preview 자식은 core가 발급한 app credential 없이 supervisor가 만든 일회용 broker 자격을 쓴다(core 발급 경로는 같은 앱 운영 자식의 credential을 끝낸다). preview 자식의 problems 보고 자격은 problems 팀이 정한다.
 - **Q33 preview의 confirm command(정함, T21).** preview 자식은 confirm=true command를 proof가 있어도 실행하지 않고 forbidden으로 답한다(verify 단계, handler 전). 대역 확인을 사람에게 어떻게 보일지는 shell이 정한다(shell#T45).
-- **Q30 automation의 설계 선택(정함, T20).** (1) 입력 source: blueprint의 automation은 고정 입력뿐이라 R10의 "입력 source 없음" 사실은 따로 없다. 필요해지면 reason code를 더한다. (2) 놓친 회차의 판정: 도래한 배수가 검사 시각보다 `LATE_TOLERANCE_MS`(2000ms, 1초 검사 두 번) 넘게 지났으면 놓친 회차로 건너뛰고 다음 미래 배수부터 이어 간다(절전 복귀와 timer 지연을 한 규칙으로 본다). (3) on_start는 접수 결과와 상관없이 업무 통로가 열릴 때 한 번만 시도한다. permit 거절·한도 초과로 건너뛰어도 승인이 나중에 와도 그 프로세스에서는 다시 시도하지 않는다(재시작이 새 시작). (4) 시작하지 못한 이유(통로 닫힘·schema 불일치·진행 중·한도·승인 없음·놓침)는 invocation이 아니라 clock 메모리의 reason이고 `apps.automations`의 reason으로 보인다. 선언을 어긴 회차(confirm=true, 고정 입력 불일치)만 `deny` 사실로 남는다. (5) broker `try_acquire`는 승인 없음을 `forbidden`(필요한 `automation.run` scope를 details로), 한도·점유를 `permit:false`로 구별한다. contracts#T34의 출력 모양은 바꾸지 않았다.
-- **Q31 preview 시작 입력의 fixture(정함, T21).** `PreviewInput.fixture_hash`는 bundle manifest의 파일 중 그 hash의 byte다(domain-model apps/sdk의 files에 fixture가 있다). core가 byte를 확인해 새 preview 영역의 `data.db`로 놓고(없으면 영역은 비어 있다) 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. bundle에 없는 hash는 invalid_input이다. 추천안으로 진행했다. fixture를 다른 형식(SQL 시드 등)으로 쓰려면 requirements를 정한 뒤 `PreviewBundle.fixture`만 바꾼다.
-- **Q32 release 없는 preview의 통로(해결, T21).** `control/open`의 `release`와 `app_credential_request.release`가 null을 받지 못해 준비 전 bundle의 preview가 가짜 release 없이 열릴 길이 없었다. lead가 승인해 이 PR에서 두 schema를 nullable로 고쳤다(live 자식은 null이면 release 불일치로 거절, 발급기는 null이면 조건·대상에 release를 넣지 않고 registry는 live가 아니고 bundle hash가 있는 app 자격만 release 없이 받는다). preview 자식은 core가 발급한 app credential 없이 supervisor가 만든 일회용 broker 자격을 쓴다(core 발급 경로는 같은 앱 운영 자식의 credential을 끝낸다). preview 자식의 problems 보고 자격은 problems 팀이 정한다.
-- **Q33 preview의 confirm command(정함, T21).** preview 자식은 confirm=true command를 proof가 있어도 실행하지 않고 forbidden으로 답한다(verify 단계, handler 전). 대역 확인을 사람에게 어떻게 보일지는 shell이 정한다(shell#T45).
-<<<<<<< HEAD
-=======
 - **Q31 화면 context의 거절 코드와 host port(정함, T16).** (1) handler 예외는
   모두 원문 없는 500이라 `invalid_input`·`conflict`·`unavailable`을 호출자에게
   구별해 줄 길이 없었다. handler가 효과 전의 거절을 `CommandRejection`(심볼
@@ -1715,4 +1709,3 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   입력 불일치)만 `deny` 사실로 남는다. (5) broker `try_acquire`는 승인 없음을
   `forbidden`(필요한 `automation.run` scope를 details로), 한도·점유를
   `permit:false`로 구별한다. contracts#T34의 출력 모양은 바꾸지 않았다.
->>>>>>> origin/main

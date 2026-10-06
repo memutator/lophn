@@ -20,6 +20,7 @@ import {
   reconcileOutputSchema,
   restartOutputSchema,
   SUPERVISOR_OPS,
+  viewClosedOutputSchema,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
 
@@ -165,6 +166,8 @@ export type SupervisorClient = {
     },
   ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
+  // 닫힌 화면 view를 그 앱의 지금 live 자식에 알린다. 자식이 없으면 false다.
+  viewClosed(app: string, viewSession: string): Promise<Result<boolean>>;
 };
 
 export function createSupervisorClient(
@@ -201,6 +204,16 @@ export function createSupervisorClient(
         ),
       );
       return answer.ok ? ok(answer.value.restarted) : answer;
+    },
+    async viewClosed(app, viewSession) {
+      const answer = shaped(
+        viewClosedOutputSchema,
+        await channel.request(SUPERVISOR_OPS.viewClosed, {
+          app,
+          view_session: viewSession,
+        }),
+      );
+      return answer.ok ? ok(answer.value.relayed) : answer;
     },
   };
 }

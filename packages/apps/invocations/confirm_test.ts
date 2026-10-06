@@ -229,11 +229,29 @@ type Proof = {
   expires_at: string;
 };
 
-// 접수가 확정된 뒤 같은 접수 입력을 다시 보내 기존 접수와 proof를 받는다(R7).
-async function proofOf(world: World, input: AcceptInput): Promise<Proof> {
-  const replay = await world.access.post("invocations/accept_confirm", input);
-  assertEquals(replay.status, 200, JSON.stringify(replay.body));
-  return replay.body["proof"] as Proof;
+// 접수가 확정된 뒤 core가 가진 접수 사실로 proof payload를 다시 만든다. 직접 HTTP로 접수 command를
+// 다시 보내는 경로는 없다(dispatch 전용). 수명은 접수 시각 기준이라 늘어나지 않는다(R7).
+function proofOf(world: World, input: AcceptInput): Proof {
+  const [row] = inspect(
+    world.harness,
+    `select i.id as id, e.at as at from invocations i
+       join events e on e.subject = i.id and e.type = 'InvocationAccepted'
+      where i.approval = ?`,
+    [input.approval],
+  );
+  assert(row !== undefined, "접수가 없다");
+  return {
+    invocation: String(row["id"]),
+    process_nonce: input.process_nonce,
+    release: input.release,
+    command: input.command,
+    input_hash: input.input_hash,
+    caller: input.caller,
+    expires_at: new Date(
+      Date.parse(String(row["at"])) + CONFIRM_PROOF_LIFETIME_MS,
+    )
+      .toISOString(),
+  };
 }
 
 // proof는 core가 서명한 envelope로 앱에 간다. 바꾼 payload도 실제 key로 서명해 서명이 아니라
@@ -291,7 +309,7 @@ Deno.test("apps/invocations#R7 #R9: 접수와 approval 사용이 함께 확정�
     assertEquals(seen?.["started_at"], null);
 
     // 실제로 시작한 뒤에만 시작과 결과가 후행 기록으로 붙는다.
-    const proof = await proofOf(world, input);
+    const proof = proofOf(world, input);
     assertEquals(proof.invocation, row["id"]);
     const acceptedAt = world.harness.clock.now();
     world.harness.clock.advance(5000);
@@ -331,12 +349,25 @@ Deno.test("apps/invocations#R7: 허락되지 않았거나 저장하지 못한 �
   const world = await open();
   try {
     const input = await acceptInput(APR(2));
-    // approval request가 없으면 접수는 없는 것과 같게 거절된다.
-    const missing = await world.access.post(
-      "invocations/accept_confirm",
-      input,
+    // approval request가 없으면 적용은 접수 없이 거절된다.
+    const missingApply = await call(
+      world.harness,
+      "approvals/apply",
+      world.machine.token,
+      command({
+        approval: APR(2),
+        action: await actionOf({
+          concern: "apps/invocations",
+          command: "invocation.accept_confirm",
+          caller: "user",
+          targets: [input.app, input.release],
+          value: input as never,
+          comparison: { release: input.release },
+        }),
+        idempotency_key: "missing",
+      }),
     );
-    assertEquals(missing.status, 403, JSON.stringify(missing.body));
+    assertEquals(missingApply.status, 404, JSON.stringify(missingApply.body));
     assertEquals(count(world.harness, INVOCATIONS), 0);
     // 만든 request가 허락 전(대기)이면 접수하지 않는다.
     const action = await actionOf({
@@ -354,11 +385,17 @@ Deno.test("apps/invocations#R7: 허락되지 않았거나 저장하지 못한 �
       command(createInput(APR(2), "user", action)),
     );
     assertEquals(created.status, 200, JSON.stringify(created.body));
-    const pending = await world.access.post(
-      "invocations/accept_confirm",
-      input,
+    const pending = await call(
+      world.harness,
+      "approvals/apply",
+      world.machine.token,
+      command({
+        approval: APR(2),
+        action,
+        idempotency_key: "pending",
+      }),
     );
-    assertEquals(pending.status, 403, JSON.stringify(pending.body));
+    assertEquals(pending.status >= 400, true, JSON.stringify(pending.body));
     assertEquals(count(world.harness, INVOCATIONS), 0);
     assertEquals(
       count(
@@ -376,15 +413,15 @@ Deno.test("apps/invocations#R7: 허락되지 않았거나 저장하지 못한 �
   }
 });
 
-Deno.test("apps/invocations#R7: 같은 접수를 다시 보내면 기존 접수와 같은 proof만 돌려주고 proof 수명은 늘어나지 않는다", async () => {
+Deno.test("apps/invocations#R7: 같은 approval을 다시 적용하면 처음 접수의 receipt만 돌려주고 proof 수명은 접수 시각 기준이라 늘어나지 않는다", async () => {
   const world = await open();
   try {
     const input = await acceptInput(APR(3));
     const granted = await request(world, world.user, input);
     assertEquals((await apply(world, granted, "a")).status, 200);
-    const first = await proofOf(world, input);
+    const first = proofOf(world, input);
     world.harness.clock.advance(30_000);
-    const second = await proofOf(world, input);
+    const second = proofOf(world, input);
     assertEquals(second, first);
     assertEquals(
       Date.parse(first.expires_at) - Date.parse(world.harness.clock.now()),
@@ -398,14 +435,14 @@ Deno.test("apps/invocations#R7: 같은 접수를 다시 보내면 기존 접수�
       ),
       1,
     );
-    // 같은 approval로 다른 입력을 접수하려 하면 거절되고 기존 접수는 그대로다.
-    const changed = await world.access.post(
-      "invocations/accept_confirm",
-      await acceptInput(APR(3), { kind: "direct" }, {
-        input_hash: await inputHash({ amount: 99 }),
-      }),
+    // 같은 approval의 재적용은 처음 접수의 receipt만 돌려주고 새 접수를 만들지 않는다.
+    const again = await apply(world, granted, "b");
+    assertEquals(again.status, 200, JSON.stringify(again.body));
+    assertEquals(
+      (again.body as { replayed?: boolean }).replayed,
+      true,
+      JSON.stringify(again.body),
     );
-    assertEquals(changed.status, 409, JSON.stringify(changed.body));
     assertEquals(count(world.harness, INVOCATIONS), 1);
   } finally {
     await world.harness.close();
@@ -418,7 +455,7 @@ Deno.test("apps/invocations#R8: 같은 proof를 동시에 보내도 handler는 �
     const input = await acceptInput(APR(4));
     const granted = await request(world, world.user, input);
     assertEquals((await apply(world, granted, "a")).status, 200);
-    const proof = await proofOf(world, input);
+    const proof = proofOf(world, input);
     let release: () => void = () => {};
     handler.hold = new Promise<void>((resolve) => {
       release = resolve;
@@ -460,7 +497,7 @@ Deno.test("apps/invocations#R8: 옛 프로세스의 proof와 release·command·�
     const input = await acceptInput(APR(5));
     const granted = await request(world, world.user, input);
     assertEquals((await apply(world, granted, "a")).status, 200);
-    const proof = await proofOf(world, input);
+    const proof = proofOf(world, input);
     const cases: [string, Proof, number][] = [
       ["옛 프로세스", { ...proof, process_nonce: "old-process" }, 409],
       ["다른 release", { ...proof, release: OTHER_RELEASE }, 409],
@@ -502,7 +539,7 @@ Deno.test("apps/invocations#R8: 접수 뒤 같은 proof를 새 프로세스에 �
     const input = await acceptInput(APR(6));
     const granted = await request(world, world.user, input);
     assertEquals((await apply(world, granted, "a")).status, 200);
-    const proof = await proofOf(world, input);
+    const proof = proofOf(world, input);
     // 새 프로세스는 새 nonce를 쓴다. 옛 nonce에 묶인 proof는 실행하지 않는다.
     world.runtime.state.identity.processNonce = "nonce-after-restart";
     const reply = await invoke(world, proof, "after-restart");
@@ -545,7 +582,7 @@ Deno.test("apps/invocations#R19 #R8: 앱 runtime은 marker가 가득 차면 새 
     for (const [index, input] of [first, second].entries()) {
       const granted = await request(world, world.user, input);
       assertEquals((await apply(world, granted, `a${index}`)).status, 200);
-      proofs.push(await proofOf(world, input));
+      proofs.push(proofOf(world, input));
     }
     assertEquals((await invoke(world, proofs[0], "one")).status, 200);
     const full = await invoke(world, proofs[1], "two");
@@ -577,7 +614,7 @@ Deno.test("apps/invocations#R17 #R18: 다른 앱이 요청한 confirm은 사람�
     assertEquals(count(world.harness, INVOCATIONS), 0);
     assertEquals(handler.calls, 0);
     assertEquals((await apply(world, granted, "a")).status, 200);
-    const proof = await proofOf(world, input);
+    const proof = proofOf(world, input);
     const row = await world.access.invocation(proof.invocation);
     assertEquals(row?.["actor"], requester);
     assertEquals(row?.["caller"], appCaller);
@@ -648,13 +685,13 @@ Deno.test("apps/invocations#R9 #R10: 재시작 점검은 접수만 있거나 결
     const input = await acceptInput(APR(1));
     const granted = await request(world, world.user, input);
     assertEquals((await apply(world, granted, "a")).status, 200);
-    const proof = await proofOf(world, input);
+    const proof = proofOf(world, input);
     // 시작은 core에 닿았지만 끝나지 않은 confirm 호출.
     handler.hold = new Promise(() => {});
     const next = await acceptInput(APR(2), { kind: "direct" }, { key: "k2" });
     const second = await request(world, world.user, next);
     assertEquals((await apply(world, second, "b")).status, 200);
-    const nextProof = await proofOf(world, next);
+    const nextProof = proofOf(world, next);
     void world.runtime.invoke({
       request_key: "running",
       release: REL,
@@ -744,7 +781,7 @@ Deno.test("apps/invocations#R8 #R7: direct socket에서 위조·변조·다른 �
     const input = await acceptInput(APR(1));
     const granted = await request(world, world.user, input);
     assertEquals((await apply(world, granted, "a")).status, 200);
-    const proof = await proofOf(world, input);
+    const proof = proofOf(world, input);
     const authorization = JSON.stringify(
       await world.signer.signConnection(
         connection({

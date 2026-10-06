@@ -154,7 +154,9 @@ export function GrantKind(props: KindProps) {
     title: shown.operation === "revoke"
       ? t("confirmation-window.title.revoke-access", { app })
       : title(kind, app),
-    subject: t("confirmation-window.grant.subject", { app }),
+    subject: shown.operation === "revoke"
+      ? t("confirmation-window.revoke.subject", { app })
+      : t("confirmation-window.grant.subject", { app }),
     effect: shown.operation === "revoke"
       ? t("confirmation-window.revoke.effect")
       : effect(kind),

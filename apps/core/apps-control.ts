@@ -876,24 +876,9 @@ export async function createAppsControl(
     }
     // pause는 OS 종료와 record_stopped를 마친 뒤 true다. action을 새 evidence로 바꾸지 않는다.
     const done = await writer.command(ctx, envelope);
-    const current = await facts.app(app);
-    if (
-      !current.ok || current.value === null ||
-      current.value.active_release === null
-    ) return done;
-    {
-      const desired = await activation.desiredFor(
-        app,
-        current.value.active_release,
-        {
-          runEnabled: current.value.run_enabled,
-          archived: current.value.status === "archived",
-        },
-      );
-      if (!desired.ok) return done;
-      const reconciled = await reconcileApp(desired.value);
-      if (!reconciled.ok) return done;
-    }
+    // 회수가 확정되지 않았으면 옛 desired 그대로 다시 열고, 확정됐으면 새 flag의 desired를 먼저 알린 뒤 연다.
+    // 새 desired를 알리지 못하면 붙든 채 두고(옛 flag로 다시 띄우지 않는다) sweep이 이어서 맞춘다.
+    if (done.ok && !(await activation.applyGrants(app))) return done;
     await client.activationResume(app);
     return done;
   }

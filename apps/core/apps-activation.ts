@@ -15,6 +15,7 @@ import {
   type Result,
 } from "../../packages/base/mod.ts";
 import {
+  type App,
   appRecordUnavailable,
   type DataResult,
   encodeDataJobInput,
@@ -116,6 +117,9 @@ export type ActivationDriver = {
     release: string,
     state: { runEnabled: boolean; archived: boolean },
   ): Promise<Result<DesiredApp>>;
+  // grant 변경을 적용한 앱의 새 desired를 바로 알린다. 호출한 쪽이 앞서 붙들었으면 풀지 않는다.
+  // 알리지 못하면 false이고 다음 sweep이 이어서 맞춘다.
+  applyGrants(app: string): Promise<boolean>;
 };
 
 function unavailable(message: string): Result<never> {
@@ -550,41 +554,49 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     running.set(key, work);
   }
 
-  // 활성 release가 있는 앱의 원하는 상태를 맞춘다. 근거(App 행·grant)가 그대로면 다시 만들지 않는다.
+  // 앱 하나의 운영 desired를 맞춘다. 근거(App 행·grant)가 그대로면 다시 만들지 않는다. 맞췄으면 true다.
+  async function reconcileOne(app: App, resume: boolean): Promise<boolean> {
+    if (app.active_release === null) return false;
+    const grants = await grantsOf(app.id);
+    if (!grants.ok) return false;
+    const key = JSON.stringify([
+      app.revision,
+      app.active_release,
+      app.run_enabled,
+      app.status,
+      grants.value.filter((grant) => grant.kind !== "automation.run").map((
+        grant,
+      ) => grant.id).sort(),
+    ]);
+    if (lastKeys.get(app.id) === key) return true;
+    const desired = await desiredFor(app.id, app.active_release, {
+      runEnabled: app.run_enabled,
+      archived: app.status === "archived",
+    });
+    // 봉인 사본을 읽지 못하면 알리지 않는다. 다음 sweep이 다시 본다.
+    if (!desired.ok) return false;
+    // grant 집합이 달라지면 같은 release·bundle이어도 옛 OS flag를 가진 자식을 끝낸다.
+    const replacing = lastKeys.has(app.id);
+    if (replacing) {
+      const paused = await deps.client.activationPause(app.id);
+      if (!paused.ok || !paused.value) return false;
+    }
+    const told = await deps.reconcile(desired.value);
+    if (!told.ok) return false;
+    lastKeys.set(app.id, key);
+    if (replacing && resume) await deps.client.activationResume(app.id);
+    return true;
+  }
+
+  // 활성 release가 있는 앱의 원하는 상태를 맞춘다.
   async function reconcileProduct(
     attempting: ReadonlySet<string>,
   ): Promise<void> {
     const apps = withLedger((sql) => loadApps(sql, undefined));
     if (!apps.ok || !apps.value.ok) return;
     for (const app of apps.value.value) {
-      if (app.active_release === null || attempting.has(app.id)) continue;
-      const grants = await grantsOf(app.id);
-      if (!grants.ok) continue;
-      const key = JSON.stringify([
-        app.revision,
-        app.active_release,
-        app.run_enabled,
-        app.status,
-        grants.value.filter((grant) => grant.kind !== "automation.run").map((
-          grant,
-        ) => grant.id).sort(),
-      ]);
-      if (lastKeys.get(app.id) === key) continue;
-      const desired = await desiredFor(app.id, app.active_release, {
-        runEnabled: app.run_enabled,
-        archived: app.status === "archived",
-      });
-      // 봉인 사본을 읽지 못하면 알리지 않는다. 다음 sweep이 다시 본다.
-      if (!desired.ok) continue;
-      // grant 집합이 달라지면 같은 release·bundle이어도 옛 OS flag를 가진 자식을 끝낸다.
-      const replacing = lastKeys.has(app.id);
-      if (replacing) {
-        const paused = await deps.client.activationPause(app.id);
-        if (!paused.ok || !paused.value) continue;
-      }
-      const told = await deps.reconcile(desired.value);
-      if (told.ok) lastKeys.set(app.id, key);
-      if (replacing && told.ok) await deps.client.activationResume(app.id);
+      if (attempting.has(app.id)) continue;
+      await reconcileOne(app, true);
     }
   }
 
@@ -598,6 +610,12 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       await Promise.all([...running.values()]);
     },
     desiredFor,
+    async applyGrants(app) {
+      const apps = withLedger((sql) => loadApps(sql, undefined));
+      if (!apps.ok || !apps.value.ok) return false;
+      const row = apps.value.value.find((entry) => entry.id === app);
+      return row === undefined ? false : await reconcileOne(row, false);
+    },
     async sweep() {
       if (!deps.bound()) return;
       const rows = activatingRows();

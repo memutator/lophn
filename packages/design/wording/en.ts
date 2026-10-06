@@ -940,6 +940,7 @@ export const en = {
   "document.title.project-instructions": "Project instructions",
   "document.title.app-instructions": "App instructions",
   "confirmation-window.title.revoke-access": "Remove access for {app}?",
+  "confirmation-window.revoke.subject": "{app} has this access now.",
   "confirmation-window.revoke.effect":
     "This app will no longer have this access. Any running app process must stop before removal completes.",
   "document.title.compare-disk": "Your changes and the file on disk",

@@ -966,6 +966,9 @@ export type PlaceholderKinds = {
   "confirmation-window.title.revoke-access": {
     app: "string";
   };
+  "confirmation-window.revoke.subject": {
+    app: "string";
+  };
   "confirmation-window.revoke.effect": Record<never, never>;
   "document.title.compare-disk": Record<never, never>;
   "document.title.compare-newest": Record<never, never>;

@@ -1,157 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { contentBasis } from "../handle.ts";
-import { createKinds } from "./mod.ts";
-import { fakeCore, handle, id, ok } from "./kinds_fixture.ts";
 import { GRANT } from "./approval.ts";
 import type { ConfirmationIntent } from "../types.ts";
 import { record } from "./core.ts";
-
-const APP = id("app", 1);
-const TARGET = id("app", 2);
-const REL = id("rel", 1);
-const GRT = id("grt", 1);
-const HASH = "a".repeat(64);
-const when = { kind: "interval", interval_ms: 60000 };
-const scope = { kind: "net.fetch", host: "api.example.com", port: 443 };
-
-function world() {
-  let fixed: Record<string, unknown> = {};
-  const core = fakeCore({
-    "read:apps/get": () =>
-      ok({ app: { id: APP, name: "Budget", active_release: null } }),
-    "read:releases/get": () =>
-      ok({
-        release: {
-          id: REL,
-          app: APP,
-          number: 1,
-          data_schema: 0,
-          status: "prepared",
-        },
-      }),
-    "read:releases/compare": () =>
-      ok({ comparison: { previous_release: null } }),
-    "read:previews/get": () => ok({ observation: null }),
-    "read:grants/list": () =>
-      ok({
-        grants_seq: "17",
-        grants: [{
-          id: GRT,
-          app: APP,
-          kind: "net.fetch",
-          scope,
-          status: "active",
-        }],
-        display: {
-          requirements: [{
-            kind: "net.fetch",
-            scope: { host: "api.example.com", port: 443 },
-            reason: "Sends totals",
-          }],
-          combination_warnings: [],
-          limit_keys: [],
-        },
-      }),
-    "read:apps/blueprint": () =>
-      ok({
-        release: REL,
-        commands: [{ key: "send", label: "Send", effect: "external" }],
-        automations: [{ key: "weekly", label: "Weekly" }],
-        declarations: {
-          permissions: [{
-            kind: "net.fetch",
-            scope: { host: "api.example.com", port: 443 },
-          }],
-          app_connections: [{ app: TARGET, commands: ["lookup"] }],
-          automations: [{
-            key: "weekly",
-            command: "send",
-            input_hash: HASH,
-            when,
-            external: true,
-          }],
-        },
-      }),
-    "read:apps/automations": () => ok({ automations: [] }),
-    "command:approvals/create": (body) => {
-      fixed = record(record(body).input);
-      return ok({ request: fixed });
-    },
-    "read:approvals/get": () =>
-      ok({ request: { ...fixed, status: "pending", created_seq: "21" } }),
-    "read:approvals/text": () =>
-      ok({
-        reason: "Request",
-        changes: "Change",
-        external: null,
-        reversibility: "Remove",
-      }),
-    "command:approvals/grant": () => ok({}),
-    "command:approvals/apply": () => ok({}),
-  });
-  const kinds = createKinds({
-    core: () => core,
-    clock: { now: () => 1000 },
-    random: (bytes) => bytes.fill(1),
-  });
-  return { core, kinds, fixed: () => fixed };
-}
-
-const intents: [ConfirmationIntent, string, string][] = [
-  [
-    {
-      kind: "owner_decision",
-      concern: "apps/releases",
-      decision: "start_activation",
-      targets: [REL],
-    },
-    "release.start_activation",
-    "release_activation",
-  ],
-  [
-    {
-      kind: "owner_decision",
-      concern: "apps/permissions",
-      decision: "grant_access",
-      targets: [APP],
-      requirement: 0,
-    },
-    "grant.create",
-    "grant",
-  ],
-  [
-    {
-      kind: "owner_decision",
-      concern: "apps/permissions",
-      decision: "revoke_grant",
-      targets: [APP, GRT],
-    },
-    "grant.revoke",
-    "grant",
-  ],
-  [
-    {
-      kind: "owner_decision",
-      concern: "apps/automations",
-      decision: "enable_automation",
-      targets: [APP],
-      automation: "weekly",
-    },
-    "grant.create",
-    "automation",
-  ],
-  [
-    {
-      kind: "owner_decision",
-      concern: "apps/connections",
-      decision: "connect_apps",
-      targets: [APP, TARGET],
-    },
-    "grant.create",
-    "grant",
-  ],
-];
+import { APP, GRT, intents, world } from "./app-decisions_fixture.ts";
+import { handle, id } from "./kinds_fixture.ts";
 
 for (const [intent, command, kind] of intents) {
   test(`shell/confirmation-window#R5 shell/confirmation-window#R8: app-detail ${intent.kind === "owner_decision" ? intent.decision : ""}는 정확한 approval 하나와 ${kind} 창에 묶인다`, async () => {
@@ -231,4 +85,36 @@ test("shell/confirmation-window#R5: 선언 밖 automation·연결·requirement�
       0,
     );
   }
+});
+
+test("apps/permissions#R21: 종료를 확인하지 못해 회수가 끝나지 않으면 완료로 알리지 않고 같은 결정으로 다시 확인한다", async () => {
+  const { core, kinds } = world({
+    "command:approvals/apply": () => ({
+      ok: false,
+      error: {
+        code: "unavailable",
+        message: "process termination is not confirmed",
+      },
+    }),
+  });
+  const intent: ConfirmationIntent = {
+    kind: "owner_decision",
+    concern: "apps/permissions",
+    decision: "revoke_grant",
+    targets: [APP, GRT],
+  };
+  const got = await kinds.canon.read(intent, "window");
+  assert.equal(got.ok, true);
+  if (!got.ok) return;
+  const sent = await kinds.submit.submit({
+    handle: handle(),
+    decision: GRANT,
+    commandInput: undefined,
+    canonical: got.value,
+  });
+  assert.deepEqual(sent, { ok: false, unknown: true });
+  assert.equal(
+    core.calls.filter((call) => call.method === "apply").length,
+    1,
+  );
 });

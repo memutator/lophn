@@ -188,12 +188,15 @@ export function appDecisions(
         id: approval,
         requester: "user",
         run: null,
-        reason: "앱 상세에서 요청한 변경",
+        reason: "Requested from the app details.",
         effect: {
-          changes: "선택한 앱의 정확한 대상과 범위를 변경한다",
+          changes:
+            "Changes the exact version, access, or automation of the selected app.",
           external: null,
           reversible: command !== "release.start_activation",
-          reversibility: "회수한 허락은 다시 허락해야 한다",
+          reversibility: command === "release.start_activation"
+            ? "Choose another version to switch back."
+            : "You can change this access again from the app details.",
         },
         action,
         expires_at: null,

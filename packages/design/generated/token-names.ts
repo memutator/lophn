@@ -157,6 +157,7 @@ export const tokenNames = [
   "--editor-problem-list",
   "--editor-sticky-head",
   "--editor-link-picker",
+  "--editor-notice",
   "--table-row-compact",
   "--table-row-comfortable",
   "--tree-row",

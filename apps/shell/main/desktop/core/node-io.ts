@@ -2,6 +2,7 @@
 // token은 여기 두지 않는다. caller가 headers로 넣어 준다.
 import type { RpcFetch } from "../../../../../packages/contracts/platform/mod.ts";
 
+import type { StreamFetch } from "./client.ts";
 import type { EventSocket, SocketFactory } from "./events.ts";
 
 export const nodeFetch: RpcFetch = async (input, init) => {
@@ -10,6 +11,16 @@ export const nodeFetch: RpcFetch = async (input, init) => {
     status: response.status,
     headers: response.headers,
     bytes: new Uint8Array(await response.arrayBuffer()),
+  };
+};
+
+// 바이트 body·stream 응답 route. 응답 본문은 모으지 않고 소비자가 당겨 읽는다.
+export const nodeStreamFetch: StreamFetch = async (input, init) => {
+  const response = await fetch(input, init as RequestInit);
+  return {
+    status: response.status,
+    headers: response.headers,
+    body: response.body,
   };
 };
 

@@ -47,6 +47,8 @@ export interface MarkdownEditorHandle {
   revealLine(line: number): void;
   /** n번째 줄 위 끝의 화면 y(px). 아직 그리지 않은 줄도 높이 추정으로 준다. */
   lineTop(line: number): number | null;
+  /** 바깥에서 고른 글로 바꾼다(디스크 재읽기, 충돌 해결). 바뀐 범위만 고친다. */
+  replaceText(text: string): void;
 }
 
 export interface MarkdownEditorProps {
@@ -261,6 +263,12 @@ export function MarkdownEditor(
       if (!editor || line < 1 || line > editor.state.doc.lines) return null;
       const block = editor.lineBlockAt(editor.state.doc.line(line).from);
       return editor.documentTop + block.top;
+    },
+    replaceText(text: string) {
+      const editor = view.current;
+      if (!editor) return;
+      const change = minimalChange(editor.state.doc.toString(), text);
+      if (change) editor.dispatch({ changes: change });
     },
   }), [revealLine]);
 

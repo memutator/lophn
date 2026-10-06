@@ -177,6 +177,7 @@ export const tokens = {
   },
   // 문서 편집기·읽기의 인용 막대·체크박스·찾기 줄·형식 문제 여백과 목록·sticky 머리·
   // 링크 고르기 폭(shell/editor#R4, R10, R11). 입력 28px·행 32px·아이콘 14px은 control·menu·icon 값을 쓴다.
+  // 문서 옆 notice 높이(R15). 아이콘 14px·아래 여백 12px은 icon·space 값을 쓴다.
   editor: {
     quoteBar: "2px",
     check: "16px",
@@ -185,6 +186,7 @@ export const tokens = {
     problemList: "200px",
     stickyHead: "32px",
     linkPicker: "320px",
+    notice: "32px",
   },
   // 표 행 높이. 밀도 선택은 표에서만 둔다(R30, R44).
   table: { row: { compact: "36px", comfortable: "44px" } },

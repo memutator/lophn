@@ -4,10 +4,16 @@
 // component test는 temp bundle에서 돌아 import.meta.url이 repo를 가리키지 않으므로 repo
 // root는 실행 위치에서 위로 찾는다. entry를 주면 그 파일(예: 질문을 심는 question-core.ts)을
 // 같은 모양으로 띄운다.
+import type { CoreCalls } from "../../main/editor/core-port.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 
 export interface RealCore {
   readonly source: CoreSource;
+  /**
+   * main 편집기 파일 adapter가 쓰는 core 통로 모양(read·worker JSON, file stream, upload)을 같은
+   * HTTP route로 부른다. main의 contract client는 desktop/core test가 따로 본다.
+   */
+  readonly mainCalls: CoreCalls;
   /** core stderr. 실패 때 원인을 보인다. */
   log(): string;
   stop(): Promise<void>;
@@ -149,5 +155,55 @@ export async function startRealCore(
         : { ok: false, error: value.error };
     },
   };
-  return { source, log: () => stderr, stop };
+  const auth = { authorization: `Bearer ${hello.user_token}` };
+  const failure = async (response: Response) => {
+    const text = await response.text();
+    try {
+      return { ok: false as const, error: JSON.parse(text).error };
+    } catch {
+      return {
+        ok: false as const,
+        error: { code: "internal", message: text.slice(0, 200) },
+      };
+    }
+  };
+  const mainCalls: CoreCalls = {
+    async internal(_kind, resource, method, body) {
+      const response = await fetch(`${base}/${resource}/${method}`, {
+        method: "POST",
+        headers: { ...auth, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (response.status !== 200) return await failure(response);
+      return { ok: true, value: await response.json() };
+    },
+    async readStream(resource, method, body, limit) {
+      const response = await fetch(`${base}/${resource}/${method}`, {
+        method: "POST",
+        headers: { ...auth, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (response.status !== 200) return await failure(response);
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return bytes.byteLength > limit
+        ? { ok: false, error: { code: "too_large", message: "too large" } }
+        : { ok: true, value: bytes };
+    },
+    async upload(resource, method, input, bytes) {
+      const header = btoa(JSON.stringify(input)).replaceAll("+", "-")
+        .replaceAll("/", "_").replaceAll("=", "");
+      const response = await fetch(`${base}/${resource}/${method}`, {
+        method: "POST",
+        headers: {
+          ...auth,
+          "content-type": "application/octet-stream",
+          "x-lophn-input": header,
+        },
+        body: bytes as Uint8Array<ArrayBuffer>,
+      });
+      if (response.status !== 200) return await failure(response);
+      return { ok: true, value: await response.json() };
+    },
+  };
+  return { source, mainCalls, log: () => stderr, stop };
 }

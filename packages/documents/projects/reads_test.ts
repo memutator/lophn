@@ -16,10 +16,7 @@ import { createProjectCommands } from "./commands.ts";
 import { ids, projectFixture, userContext } from "./testing-fixture.ts";
 import { addressingSchemaSteps } from "../addressing/mod.ts";
 import { projectsSchemaSteps } from "./schema.ts";
-import {
-  insertDocument,
-  versionsSchemaSteps,
-} from "../versions/mod.ts";
+import { insertDocument, versionsSchemaSteps } from "../versions/mod.ts";
 
 const commands = createProjectCommands();
 const hidden = "doc_01arz3ndektsv4rrffq69g5faw";

@@ -596,3 +596,53 @@ Deno.test("apps/invocations#R3: list는 app·status filter와 cursor로 이어 �
     await opened.close();
   }
 });
+
+Deno.test("coding-agent/connection#R5, apps/invocations#R10: 앱 하나 범위 connection은 자기 앱의 호출 기록만 보고 다른 앱의 기록은 없는 기록과 같다", async () => {
+  const opened = await harness();
+  try {
+    await start(opened, INV);
+    await start(opened, INV_2, { app: APP_B });
+    const scoped = credential({
+      actor: "coding_agent:cac_01h455vb4pex5v6nkc6gd5fdw1",
+      principal: "coding_agent:cac_01h455vb4pex5v6nkc6gd5fdw1",
+      credential_ref: "test:coding:scoped",
+      conditions: { app: APP },
+    });
+    await opened.setCredential(scoped);
+    const listed = value(
+      await opened.read(
+        { resource: "invocations", method: "list" },
+        scoped,
+        {},
+      ),
+    ) as { invocations: { id: string }[] };
+    assertEquals(listed.invocations.map((row) => row.id), [INV]);
+    const foreignList = value(
+      await opened.read(
+        { resource: "invocations", method: "list" },
+        scoped,
+        { app: APP_B },
+      ),
+    ) as { invocations: unknown[] };
+    assertEquals(foreignList.invocations, []);
+    const own = got(
+      await opened.read({ resource: "invocations", method: "get" }, scoped, {
+        invocation: INV,
+      }),
+    );
+    assert(own.invocation !== null);
+    const foreign = value(
+      await opened.read({ resource: "invocations", method: "get" }, scoped, {
+        invocation: INV_2,
+      }),
+    );
+    const absent = value(
+      await opened.read({ resource: "invocations", method: "get" }, scoped, {
+        invocation: "inv_01h455vb4pex5v6nkc6gd5fdw9",
+      }),
+    );
+    assertEquals(foreign, absent);
+  } finally {
+    await opened.close();
+  }
+});

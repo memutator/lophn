@@ -12,6 +12,7 @@ import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.t
 import {
   createGrantCommands,
   createGrantsReads,
+  createSecretAllowance,
   permissionsSchemaSteps,
 } from "../../packages/apps/permissions/mod.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
@@ -28,6 +29,7 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
 import { releaseActivationFailed } from "../../packages/contracts/apps/mod.ts";
+import { SecretAllowance } from "../../packages/contracts/platform/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -114,6 +116,11 @@ export function createLedgerRegistration(
         create: (tx) => ({
           get: (app: string) => lookupAppRegistration(tx.sql, app),
         }),
+      },
+      // 앱 secret 전송의 현재 grant 판정이다(platform/secrets#R10, apps/permissions#R14).
+      {
+        key: SecretAllowance,
+        create: (tx) => createSecretAllowance(tx),
       },
       // documents가 하나로 나눈 place 이름 공간이다(dm#C7). documents 조립도 같은
       // 구현을 등록하므로 harness 등록을 겹치지 않게 documents만 실지 등록했다.

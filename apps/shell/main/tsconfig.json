@@ -32,6 +32,7 @@
     "../../../packages",
     "../ipc/**/*_test.ts",
     "desktop/core",
-    "desktop/main.ts"
+    "desktop/main.ts",
+    "entry-screen-test.ts"
   ]
 }

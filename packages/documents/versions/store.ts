@@ -186,15 +186,37 @@ export function loadLinkedDocuments(
   sql: Pick<Sql, "all">,
   page: { after?: string; limit: number },
 ): Result<LinkedDocument[]> {
+  return linkedDocuments(
+    sql,
+    "d.source_kind = 'project_file' AND d.source_path > ?",
+    [page.after ?? ""],
+    page.limit,
+  );
+}
+
+// 등록된 지침 파일에 연결된 문서(보관 포함)와 최신 판의 원본 hash다. 일반 project 파일의 연결과
+// 따로 읽는다(file-tracking#R19). 지침 파일은 몇 개 되지 않아 한 번에 읽는다.
+export function loadInstructionDocuments(
+  sql: Pick<Sql, "all">,
+): Result<LinkedDocument[]> {
+  return linkedDocuments(sql, "d.source_kind = 'instruction_file'", [], 1000);
+}
+
+function linkedDocuments(
+  sql: Pick<Sql, "all">,
+  where: string,
+  params: string[],
+  limit: number,
+): Result<LinkedDocument[]> {
   const columns = DOCUMENT_COLUMNS.split(",").map((column) =>
     `d.${column.trim()}`
   ).join(", ");
   const rows = sql.all(
     `SELECT ${columns}, v.source AS latest_source
      FROM documents d JOIN versions v ON v.id = d.latest_version
-     WHERE d.source_kind = 'project_file' AND d.source_path > ?
+     WHERE ${where}
      ORDER BY d.source_path LIMIT ?`,
-    [page.after ?? "", page.limit],
+    [...params, limit],
   );
   const linked: LinkedDocument[] = [];
   for (const row of rows) {
@@ -211,7 +233,9 @@ export function loadLinkedDocuments(
       }
       const parsed = versionSourceSchema.safeParse(parsedJson);
       if (!parsed.success) return invalidRow();
-      if (parsed.data.kind === "file") {
+      if (
+        parsed.data.kind === "file" || parsed.data.kind === "instruction_file"
+      ) {
         latestOriginalHash = parsed.data.original_hash;
       }
     }

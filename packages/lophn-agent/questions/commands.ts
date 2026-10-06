@@ -20,8 +20,8 @@ import {
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import {
-  actionAllowed,
   assignmentState,
+  fixedVersionsExist,
   loadQuestion,
   loadRunRef,
   type QuestionRow,
@@ -33,6 +33,7 @@ import {
   type TextBlob,
   textBlob,
 } from "./model.ts";
+import { checkOptionAction } from "./option-actions.ts";
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
 // 하나다. 실패하면 이전 판 전체가 유지된다. 글(본문·이유·설명·추천·자유 답·취소
@@ -321,10 +322,14 @@ export function createQuestionCommands(): {
         }
         const summary = [];
         for (const option of input.options) {
-          if (option.action !== null && !actionAllowed(option.action)) {
-            // 권한 부여·외부 효과·등록되지 않은 동작은 선택지로 열 수 없다(R12).
-            return reject("forbidden", "this action cannot be an option");
+          if (option.action !== null) {
+            // 권한 부여·외부 효과·등록되지 않은 동작은 선택지로 열 수 없고, 등록된 동작도
+            // 소유 command 입력·CAS·지문이 맞아야 고정한다(R12, R13).
+            const checked = checkOptionAction(input.id, option.action);
+            if (!checked.ok) return checked;
           }
+          const fixed = fixedVersionsExist(tx, option);
+          if (!fixed.ok) return fixed;
           const changes = settingChangesOf(option);
           if (changes === undefined) {
             return reject("invalid_input", "settings action has no changes");

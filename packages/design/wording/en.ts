@@ -94,6 +94,26 @@ export const en = {
   "confirmation-window.button.cancel": "Cancel",
   "confirmation-window.button.decide": "Decide",
   "confirmation-window.button.refresh": "Open latest",
+  "confirmation-window.button.delete-file": "Delete file",
+  "confirmation-window.change.missing":
+    "There is nothing to compare for this change.",
+  "confirmation-window.change.none": "Nothing here.",
+  "confirmation-window.change.omitted":
+    "Some of this change could not be shown.",
+  "confirmation-window.file-delete.effect":
+    "The file leaves the project. This cannot be undone.",
+  "confirmation-window.file-delete.subject":
+    "This file will be removed from the project.",
+  "confirmation-window.file-delete.title": "Delete this file?",
+  "confirmation-window.heading.effect": "What this affects",
+  "confirmation-window.heading.revert": "Undo",
+  "confirmation-window.heading.subject": "What changes",
+  "confirmation-window.label.current": "Now",
+  "confirmation-window.label.details": "Details",
+  "confirmation-window.label.full": "Full change",
+  "confirmation-window.label.next": "After",
+  "confirmation-window.revert.impossible": "You cannot undo this.",
+  "confirmation-window.revert.possible": "You can undo this later.",
   "confirmation-window.title.confirm": "Confirm",
   "contexts.title.screen": "Focus",
   "contexts.view.baseline": "Baseline",

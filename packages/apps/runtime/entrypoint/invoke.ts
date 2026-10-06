@@ -97,6 +97,7 @@ export async function handleInvoke(
       STATUS[verified.error.code] ?? 400,
       verified.error.code,
       verified.error.message,
+      verified.error.details,
     );
   }
   const existing = state.byRequest.get(parsed.value.request_key);
@@ -260,6 +261,14 @@ function launch(
           release: state.identity.release,
           mode: state.identity.mode,
           invocation: id,
+          // 다른 앱에게서 받은 호출이면 그 출처의 식별이다(apps/connections#R7).
+          caller: call.caller.kind === "app"
+            ? {
+              app: call.caller.app,
+              release: call.caller.release,
+              parent_invocation: call.caller.parent_invocation,
+            }
+            : null,
         },
         () => call.handler.handle(call.input),
       );

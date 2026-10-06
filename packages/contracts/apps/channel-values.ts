@@ -32,6 +32,8 @@ export const BROKER_SOCKET_PATHS = {
   documentsSave: "/_lophn/broker/documents/save",
   problemsReport: "/_lophn/broker/problems/report",
   appsConnect: "/_lophn/broker/apps/connect",
+  appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
+  appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
 } as const;
 
 // Unix socket HTTP의 가상 host. 필수 플랫폼 통로에만 쓴다(apps/runtime#R8).

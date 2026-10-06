@@ -1,0 +1,323 @@
+import { type Blueprint, defineBlueprint } from "@lophn/blueprint";
+import {
+  ADD_EVENT,
+  CALENDAR_APP,
+  EXPORT_DIR,
+  IMPORT_DIR,
+} from "./src/places.ts";
+import { en } from "./src/wording/en.ts";
+
+// blueprint가 정본이다. 코드를 바꾸기 전에 먼저 바꾼다.
+// 사람에게 보이는 이름·설명은 en catalog 문구고, command·screen의 key는 문구와 별개의 식별자다.
+// catalog 문구를 바꿔도 key는 같다(tests/wording_test.ts).
+type Text = Readonly<Record<keyof typeof en, string>>;
+
+export function makeBlueprint(text: Text = en): Blueprint {
+  // 화면과 agent가 같은 입력 모양을 쓴다.
+  const screen = {
+    type: "string",
+    description: text["todos.summary.screen"],
+  } as const;
+  const viewSession = {
+    type: "string",
+    description: text["todos.summary.view-session"],
+    minLength: 1,
+    maxLength: 200,
+  } as const;
+  const todoId = {
+    type: "integer",
+    description: text["todos.summary.todo-id"],
+    minimum: 1,
+  } as const;
+  const file = {
+    type: "string",
+    description: text["todos.summary.file-name"],
+    minLength: 4,
+    maxLength: 80,
+  } as const;
+
+  return defineBlueprint({
+    name: "Todo",
+    description: text["common.summary.app"],
+    screens: [
+      {
+        key: "todos",
+        label: text["todos.title.screen"],
+        path: "/screens/todos/index.html",
+        sizes: ["full", "panel"],
+      },
+    ],
+    commands: [
+      {
+        key: "list_todos",
+        label: text["todos.label.list-todos"],
+        description: text["todos.summary.list-todos"],
+        effect: "read",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      {
+        key: "add_todo",
+        label: text["todos.label.add-todo"],
+        description: text["todos.summary.add-todo"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            title: {
+              type: "string",
+              description: text["todos.summary.todo-title"],
+              minLength: 1,
+              maxLength: 200,
+            },
+            private_note: {
+              type: "string",
+              description: text["todos.summary.private-note"],
+              maxLength: 500,
+            },
+            due: {
+              type: "string",
+              description: text["todos.summary.due"],
+              maxLength: 40,
+            },
+          },
+          required: ["title"],
+          additionalProperties: false,
+        },
+        revert: { supported: true, command: "revert_todo" },
+      },
+      {
+        key: "complete_todo",
+        label: text["todos.label.complete-todo"],
+        description: text["todos.summary.complete-todo"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: { id: todoId },
+          required: ["id"],
+          additionalProperties: false,
+        },
+        revert: { supported: true, command: "revert_todo" },
+      },
+      {
+        key: "revert_todo",
+        label: text["todos.label.revert-todo"],
+        description: text["todos.summary.revert-todo"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            invocation: {
+              type: "string",
+              description: text["todos.summary.invocation"],
+              minLength: 1,
+            },
+            receipt: {
+              type: "string",
+              description: text["todos.summary.receipt"],
+              minLength: 1,
+            },
+            expected_revision: {
+              type: "string",
+              description: text["todos.summary.expected-revision"],
+              minLength: 1,
+            },
+          },
+          required: ["invocation", "receipt", "expected_revision"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        key: "export_markdown",
+        label: text["todos.label.export-markdown"],
+        description: text["todos.summary.export-markdown"],
+        effect: "external",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: { file },
+          required: ["file"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        key: "import_markdown",
+        label: text["todos.label.import-markdown"],
+        description: text["todos.summary.import-markdown"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: { file },
+          required: ["file"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        key: "add_to_calendar",
+        label: text["todos.label.add-to-calendar"],
+        description: text["todos.summary.add-to-calendar"],
+        effect: "external",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            id: todoId,
+            starts_at: {
+              type: "string",
+              description: text["todos.summary.start-time"],
+              maxLength: 40,
+            },
+          },
+          required: ["id"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        key: "edit_todo",
+        label: text["todos.label.edit-todo"],
+        description: text["todos.summary.edit-todo"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            view_session: viewSession,
+            todo: todoId,
+          },
+          required: ["view_session"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        key: "todo_context",
+        label: text["todos.label.todo-context"],
+        description: text["todos.summary.todo-context"],
+        effect: "read",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            screen,
+            view_session: viewSession,
+            detail: {
+              type: "boolean",
+              description: text["todos.summary.detail"],
+              default: false,
+            },
+          },
+          required: ["screen", "view_session"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        key: "hint_todo",
+        label: text["todos.label.hint-todo"],
+        description: text["todos.summary.hint"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            screen,
+            view_session: viewSession,
+            expected_revision: {
+              type: "string",
+              description: text["todos.summary.expected-view-revision"],
+              minLength: 1,
+            },
+            target: {
+              type: "string",
+              description: text["todos.summary.target"],
+            },
+            text: {
+              type: "string",
+              description: text["todos.summary.hint-text"],
+              minLength: 1,
+              maxLength: 500,
+            },
+          },
+          required: [
+            "screen",
+            "view_session",
+            "expected_revision",
+            "target",
+            "text",
+          ],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+    ],
+    automatic_tasks: [],
+    permissions: [
+      {
+        kind: "fs.read",
+        scope: { path: IMPORT_DIR, recursive: true },
+        reason: text["todos.reason.import-folder"],
+      },
+      {
+        kind: "fs.write",
+        scope: { path: EXPORT_DIR, recursive: true },
+        reason: text["todos.reason.export-folder"],
+      },
+    ],
+    // 선언한 code마다 실제 command의 실패 경로 test가 하나 이상 있어야 한다(tests/failure_path_test.ts).
+    problem_codes: [
+      {
+        code: "store_unavailable",
+        message_key: "common.problem.store-unavailable",
+        message: text["common.problem.store-unavailable"],
+        fixer: "coding_agent",
+      },
+      {
+        code: "file_unavailable",
+        message_key: "common.problem.file-unavailable",
+        message: text["common.problem.file-unavailable"],
+        fixer: "user",
+      },
+    ],
+    documents: [],
+    // 지금 고치는 할 일의 요약·상세를 agent가 읽고 힌트를 남긴다. private_note는 상세에서도 지운다.
+    agent_context: [{
+      screen: "todos",
+      read_command: "todo_context",
+      sensitive_paths: ["/todo/private_note"],
+      annotation_targets: [{
+        key: "hint",
+        label: text["todos.label.hint"],
+        write_command: "hint_todo",
+      }],
+    }],
+    app_connections: [{
+      app: CALENDAR_APP,
+      commands: [ADD_EVENT],
+      reason: text["todos.reason.calendar"],
+    }],
+    // 정확한 version만 쓴다. deno.json의 import map과 같아야 한다(tests/blueprint_test.ts).
+    sdk_dependencies: [
+      { name: "@lophn/blueprint", version: "1.0.0" },
+      { name: "@lophn/cap-fs", version: "1.0.0" },
+      { name: "@lophn/cap-problem", version: "1.0.0" },
+      { name: "@lophn/cap-schedule", version: "1.0.0" },
+      { name: "@lophn/cap-store", version: "1.0.0" },
+      { name: "@lophn/design", version: "1.0.0" },
+      { name: "@lophn/ui-control", version: "1.0.0" },
+      { name: "@lophn/ui-layout", version: "1.0.0" },
+      { name: "@lophn/ui-state", version: "1.0.0" },
+      { name: "@lophn/wording", version: "1.0.0" },
+    ],
+  });
+}
+
+export default makeBlueprint();

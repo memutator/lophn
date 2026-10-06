@@ -72,6 +72,11 @@
   "exclude": [
     ".claude",
     ".dev-data",
+    "fixtures/apps/*/blueprint.ts",
+    "fixtures/apps/*/main.ts",
+    "fixtures/apps/*/scripts",
+    "fixtures/apps/*/src",
+    "fixtures/apps/*/tests",
     "apps/shell/main",
     "apps/shell/preload",
     "dist",

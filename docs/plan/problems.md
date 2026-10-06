@@ -333,7 +333,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 
 ### T14 고친 기록
 
-- 상태: 완료 (#385) — 수리 command handler(준비된 후 release, 통과한 결과의 묶음 대조, 문제 seq 낡으면 conflict, repair ticket·현재 claim은 TicketClaimCheck port로 같은 Tx 안에서), `list-fixes` read, summary blob 등록, core 등록과 실제 executor 경로 테스트(`packages/problems/repairs/`)까지 끝냈다. 이어보냄: 등록 경로의 blob 영구 참조(입력 contract에 blobs·준비 참조가 없어 handler에서 registerBlobRef를 만들 수 없다) → 문제#Q19 방식으로 contracts 보완 또는 후속 작업, ticket 조건의 실제 coding-agent 연결(검사 double로 본 동일 우선순위) → T13
+- 상태: 완료 (#385) — 수리 command handler(준비된 후 release, 통과한 결과의 묶음 대조, 문제 seq 낡으면 conflict, repair ticket·현재 claim은 TicketClaimCheck port로 같은 Tx 안에서), `list-fixes` read, summary blob 등록, core 등록과 실제 executor 경로 테스트(`packages/problems/repairs/`)까지 끝냈다. lead 검사 뒤 summary blob의 준비 증거(summary_blob)를 입력 contract에 더했고 실제 I/O worker 준비 경로 테스트(`apps/core/problems-repair-blob_test.ts`)까지 끝냈다. 이어보냄: ticket 조건의 실제 coding-agent 연결(검사 double로 본 동일 우선순위) → T13
 - 등급: 기본
 - concern: problems/repairs
 - 요구: problems/repairs#R1, R2, R3, R4, R5, R6, R7

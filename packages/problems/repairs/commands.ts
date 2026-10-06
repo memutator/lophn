@@ -2,13 +2,13 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import type { LophnError } from "../../base/mod.ts";
 import { TicketClaimCheck } from "../../contracts/coding-agent/mod.ts";
 import {
-  CommandDefinition,
-  Input,
-  Output,
+  type CommandDefinition,
+  type Input,
+  type Output,
   parseActor,
-  PortKey,
-  RequestContext,
-  Tx,
+  type PortKey,
+  type RequestContext,
+  type Tx,
 } from "../../contracts/platform/mod.ts";
 import {
   problemFixRecorded,
@@ -235,6 +235,21 @@ export function handleRecordProblemFix(
   if (checked.value.app !== app) {
     return conflict("ticket claim is not current: missing");
   }
+  // summary blob 준비 참조. hash만 싣는 기록은 가리키는 바이트가 저장된 blob이어야 한다:
+  // 준비 증거가 fix.summary와 같은 hash·fix_summary purpose여야 등록한다(contracts#T40).
+  const prepared = input.summary_blob;
+  if (prepared.hash !== fix.summary) {
+    return err({
+      code: "invalid_input",
+      message: "summary blob hash가 fix.summary와 다르다",
+    });
+  }
+  if (prepared.purpose !== "fix_summary") {
+    return err({
+      code: "invalid_input",
+      message: "summary blob purpose는 fix_summary여야 한다",
+    });
+  }
   // append-only다. update·delete는 없고, 늦은 기록이 이전 기록을 고치지 않는다(R3).
   const seq = tx.emit(problemFixRecorded, problem, {
     before: fix.before,
@@ -244,6 +259,16 @@ export function handleRecordProblemFix(
     ticket: fix.ticket,
     claim_seq: fix.claim_seq,
   });
+  // 영구 참조는 같은 transaction이다. 거절되면 기록 전체가 없다(저장되지 않은
+  // hash는 참조가 되지 못한다).
+  const registered = tx.registerBlobRef({
+    owner_kind: "problem_fix",
+    owner_key: problem,
+    field: "summary",
+    registered_seq: seq,
+    source: { kind: "prepared", blob: { ...prepared } },
+  });
+  if (!registered.ok) return registered;
   return ok({ seq });
 }
 

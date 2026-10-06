@@ -97,6 +97,17 @@ function envelope(
   };
 }
 
+// 요약 blob은 준비 증거다. ledger harness 시험은 등록 경로의 관측(parallel
+// register Blob)이 없어 등록이 거절되지만, hash·purpose 묶음 검사는 input
+// schema와 handler가 같은 거절을 본다(contracts#T40).
+const SUMMARY_BLOB = {
+  preparation: "prep-fix-1",
+  principal: `coding_agent:cac_01arz3ndektsv4rrffq69g5fav`,
+  purpose: "fix_summary",
+  hash: SUMMARY,
+  size_bytes: 64,
+};
+
 function fixInput(patch: Record<string, unknown> = {}): unknown {
   return {
     problem: PROBLEM,
@@ -110,6 +121,7 @@ function fixInput(patch: Record<string, unknown> = {}): unknown {
       claim_seq: "3",
       ...patch,
     },
+    summary_blob: SUMMARY_BLOB,
   };
 }
 
@@ -456,13 +468,20 @@ Deno.test("problems/repairs#R3: 낡은 문제 seq는 conflict이고 이전 기�
     );
     assert(first.result !== undefined);
     // 같은 at0 기준의 두 번째 제출은 낡았다(conflict). patch는 fix 안의 열만 고친다.
-    // idempotency_key는 input 최상위 열이라 그대로 둔다.
+    // idempotency_key는 input 최상위 열이라 그대로 둔다. summary patch는 준비 참조의
+    // hash도 묶여 있어 같이 고친다(묶음 검사가 parse에서 거절하지 않게).
     code(
       await ledger.command(
         agent,
         envelope(
           "fix-9",
-          fixInput({ summary: "b".repeat(64) }),
+          {
+            ...fixInput({ summary: "9".repeat(64) }) as Record<string, unknown>,
+            summary_blob: {
+              ...SUMMARY_BLOB,
+              hash: "9".repeat(64),
+            },
+          },
           { problem_seq: at0 },
         ),
       ),

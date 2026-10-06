@@ -1,5 +1,6 @@
 // 고친 기록의 summary 설명 blob. 내용은 준비 blob으로 저장 대상이고, 입력 contract는
-// hash만 싣는다(contracts#T40). 준비 참조 등록은 접수 내용 blob 흐름의 몫이다.
+// 준비 증거를 함께 싣는다(contracts#T40). 영구 참조 등록은 RecordProblemFix command가
+// 같은 transaction에서 한다(blob-flow의 blobref.attach와 같은 모양).
 import {
   defineBlobField,
   defineBlobPurpose,

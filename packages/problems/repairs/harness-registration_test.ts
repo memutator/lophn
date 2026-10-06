@@ -3,7 +3,7 @@
 // handler가 묻는 열과 claim 검사가 읽는 열만 같은 이름으로 정의하고, TicketClaimCheck는
 // 검사 이력(coding-agent/tickets)의 같은 우선순위를 본는 test double port를 건다.
 import { z } from "zod";
-import { ok, type Result } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import { TicketClaimCheck } from "../../contracts/coding-agent/mod.ts";
 import {
   type CommandDefinition,
@@ -292,6 +292,7 @@ export function createLedgerTestRegistration(
           }
         }
         if (parsed.claim !== null) {
+          const ticketId = parsed.ticket as string;
           const c = JSON.parse(parsed.claim) as {
             connection: string;
             claim_seq: string;
@@ -299,10 +300,10 @@ export function createLedgerTestRegistration(
           };
           tx.sql.run(
             `insert into ticket_claims (ticket, connection, claim_seq, expires_at) values (?, ?, ?, ?)`,
-            [parsed.ticket, c.connection, c.claim_seq, c.expires_at],
+            [ticketId, c.connection, c.claim_seq, c.expires_at],
           );
-          claims.set(parsed.ticket, {
-            ticket: parsed.ticket,
+          claims.set(ticketId, {
+            ticket: ticketId,
             connection: c.connection,
             claim_seq: c.claim_seq,
             expires_at: c.expires_at,
@@ -326,6 +327,46 @@ export function createLedgerTestRegistration(
         create: (_tx: Tx) => checkClaimDouble,
       },
     ],
+    registerBlobRef(
+      tx: Tx,
+      _ctx: unknown,
+      reference: {
+        owner_kind: string;
+        owner_key: string;
+        field: string;
+        registered_seq: string | bigint;
+        source: { kind: string; blob?: { hash: string; size_bytes: number } };
+      },
+    ) {
+      // 준비되지 않은 hash는 영구 참조가 되지 못한다(ledger 시험은 같은 guard를 본다).
+      if (
+        reference.source.kind !== "prepared" ||
+        reference.source.blob === undefined
+      ) {
+        return err({ code: "forbidden", message: "prepared blob만 등록한다" });
+      }
+      // LEDGER_SCHEMA_STEPS의 blob-refs 표다. 등록이 거절되면 command 전체가 없다.
+      tx.sql.run(
+        `insert into blob_refs (
+           owner_kind, owner_key, field, hash, size_bytes, registered_seq
+         ) values (?, ?, ?, ?, ?, ?)`,
+        [
+          reference.owner_kind,
+          reference.owner_key,
+          reference.field,
+          reference.source.blob.hash,
+          reference.source.blob.size_bytes,
+          BigInt(reference.registered_seq),
+        ],
+      );
+      return ok({
+        owner_kind: reference.owner_kind,
+        owner_key: reference.owner_key,
+        field: reference.field,
+        hash: reference.source.blob.hash,
+        registered_seq: reference.registered_seq,
+      });
+    },
   };
 }
 

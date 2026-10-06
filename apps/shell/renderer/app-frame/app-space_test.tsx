@@ -376,3 +376,72 @@ Deno.test("shell/wording#R4: 앱 공간 본문은 열 화면이 없거나 보관
     assert(!(body.textContent ?? "").includes("app_"));
   }
 });
+
+Deno.test("shell/app-frame#R31, R32, R34: 앱 공간 바의 [Report a problem]은 본문 view에 묶인 독립 버튼이고 view가 응답하지 않아도 그 view로 문제 알리기를 연다", async () => {
+  await withLayout(1280, async () => {
+    const views = fakeViews();
+    const apps = fakeApps({ rows: [budget], screen: "home" });
+    const begun: string[] = [];
+    const feedback = {
+      beginFeedback(view_session: string) {
+        begun.push(view_session);
+        return Promise.resolve({ draftRef: "draft-1" });
+      },
+    };
+    using view = render(
+      <AppSpace
+        app={BUDGET}
+        source={apps.source}
+        views={views.api}
+        feedback={feedback}
+        windowWidth={1280}
+        onLauncher={() => {}}
+        onDocuments={() => {}}
+        onThingsToConfirm={() => {}}
+      />,
+    );
+    await frames();
+    const slot = find(view.container, "header [data-report-slot]");
+    const button = find(slot, "[data-report-problem]");
+    assertEquals(button.textContent, "Report a problem");
+    // 앱 view가 crash·무한 loop로 응답하지 않아도 버튼은 shell 크롬이라 그대로 동작한다.
+    act(() =>
+      views.push({
+        view_session: "view-1",
+        app: BUDGET,
+        release: BUDGET_RELEASE,
+        mode: "live",
+        screen: "home",
+        size: "full",
+        connectionState: "unavailable",
+      })
+    );
+    assert(!button.hasAttribute("disabled"));
+    click(button);
+    await frames();
+    assertEquals(begun, ["view-1"]);
+    // 버튼은 앱 view bounds에 들어가지 않는다.
+    assertEquals(
+      views.calls.filter((call) => call[0] === "bounds").at(-1),
+      ["bounds", { x: 0, y: BAR, width: 1280, height: HEIGHT }],
+    );
+  });
+});
+
+Deno.test("shell/app-frame#R34: 화면이 아직 열리지 않은 앱 공간의 [Report a problem]은 묶일 view가 없어 누를 수 없다", async () => {
+  const apps = fakeApps({ rows: [budget], screen: "home" });
+  using view = render(
+    <AppSpace
+      app={BUDGET}
+      source={apps.source}
+      feedback={{ beginFeedback: () => Promise.reject(new Error("x")) }}
+      windowWidth={1280}
+      onLauncher={() => {}}
+      onDocuments={() => {}}
+      onThingsToConfirm={() => {}}
+    />,
+  );
+  await frames();
+  const button = find(view.container, "[data-report-problem]");
+  assert(button.hasAttribute("disabled"));
+});

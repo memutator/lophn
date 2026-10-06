@@ -54,6 +54,12 @@ import {
 import { registerAppIpc, removeAppIpc } from "../app-frame/app-ipc.ts";
 import { createExternalLinks } from "../app-frame/external-link.ts";
 import { createViewErrors, reportIdOf } from "../app-frame/view-error.ts";
+import {
+  createFeedback,
+  type FeedbackIpcMain,
+  registerFeedbackIpc,
+  removeFeedbackIpc,
+} from "../app-frame/feedback.ts";
 import { startCoreConnection } from "./core/connection.ts";
 import { createCoordinator } from "../confirmation/coordinator.ts";
 import { createKinds } from "../confirmation/kinds/mod.ts";
@@ -416,6 +422,109 @@ registerAppIpc(appIpc, {
   openExternal: (view, input) => externalLinks.open(view, input),
   viewError: (view, input) => viewErrors.observe(view, input),
 });
+
+// [Report a problem](shell#T52). 버튼은 desktop 창 본문이 view_session만 보내고 dialog는 같은 창
+// overlay에 연다. 제출은 problems `SubmitFeedback`(worker route)으로 보내고 고른 PNG만 byte
+// channel로 붙인다. 원문 글·binding·raw capture는 main 메모리에만 있다.
+function shellWindowOf(sender: unknown): BrowserWindow | undefined {
+  return [...windows].find((window) =>
+    !window.isDestroyed() && window.webContents === sender
+  );
+}
+const feedback = createFeedback({
+  registry: overlays.overlayRegistry(),
+  windowOfShell: (sender) => {
+    const window = shellWindowOf(sender);
+    return window === undefined ? undefined : windowRef(window);
+  },
+  windowOfOverlay: (sender) => {
+    const window = [...windows].find((window) =>
+      !window.isDestroyed() &&
+      overlays.controller(window)?.isOverlay(sender) === true
+    );
+    return window === undefined ? undefined : windowRef(window);
+  },
+  view: (view_session) => appFrame.feedbackView(view_session),
+  dialog: (ref) => {
+    const window = windowOfRef(ref);
+    const overlay = window === undefined
+      ? undefined
+      : overlays.controller(window);
+    if (overlay === undefined) return undefined;
+    return {
+      open: (draftRef) => overlay.openFeedback(draftRef),
+      close: (draftRef) => overlay.closeFeedback(draftRef),
+      preview: (preview) => overlay.sendFeedback(preview),
+      dialogOpen: () => overlay.dialogOpen(),
+    };
+  },
+  // confirmation window는 요청 창의 child modal이다(shell/confirmation-window#R6).
+  protectedWindow: (ref) =>
+    windowOfRef(ref)?.getChildWindows().some((child) =>
+      !child.isDestroyed()
+    ) ?? false,
+  async submit(input, screenshot) {
+    const session = core.session();
+    if (session === null) {
+      return {
+        ok: false,
+        error: { code: "unavailable", message: "core is not ready" },
+      };
+    }
+    const reply = screenshot === null
+      ? await session.internal("worker", "problems", "submit-feedback", input)
+      : await session.workerBytes(
+        "problems",
+        "submit-feedback",
+        input,
+        screenshot,
+      );
+    if (!reply.ok) {
+      const code = reply.error.code;
+      return {
+        ok: false,
+        error: {
+          code: code === "invalid_input" || code === "forbidden" ||
+              code === "conflict"
+            ? code
+            : "unavailable",
+          message: "report was not accepted",
+        },
+      };
+    }
+    const value = reply.value as { report: string; problem: string | null };
+    return { ok: true, value: { report: value.report, problem: value.problem } };
+  },
+  openIssue: (ref, target) => {
+    const window = windowOfRef(ref);
+    if (window !== undefined && !window.webContents.isDestroyed()) {
+      window.webContents.send(DESKTOP_INTENT_CHANNEL, {
+        kind: "app-issue",
+        app: target.app,
+        problem: target.problem,
+      });
+    }
+  },
+  ids: {
+    draft: () => `draft-${randomUUID()}`,
+    report: () => reportIdOf(Date.now(), randomBytes(10)),
+  },
+  clock: { nowIso: () => new Date().toISOString() },
+  timer: {
+    set: (callback, ms) => setTimeout(callback, ms),
+    clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+  },
+});
+overlays.onFeedbackEnded((draftRef) => feedback.ended(draftRef));
+const feedbackIpc: FeedbackIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(
+      channel,
+      (event, input: unknown) => listener(event as unknown as IpcEvent, input),
+    ),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerFeedbackIpc(feedbackIpc, feedback);
 
 // 보호 창(shell#T22·T29). 사람이 desktop 창에서 [Review]를 누를 때만 그 창의 child modal로
 // 연다. 종류별 정본 read·제출은 main 안 통로로 core를 부르고, handle은 비공개 pipe로 등록한다.
@@ -784,6 +893,7 @@ function stopAll(): void {
   removeAppWindowIpc(appWindowIpcMain);
   viewVisibility.dispose();
   removeAppIpc(appIpc);
+  removeFeedbackIpc(feedbackIpc);
   removeConfirmationIpc(confirmationIpc);
   appFrame.dispose();
   terminals.stop();
@@ -1138,6 +1248,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
           closeGuards.remove(contentsId);
           fileAdapter.dropOwner(contentsId);
           viewVisibility.closeWindow(ref);
+          feedback.closeWindow(ref);
           appFrame.closeWindow(ref);
         });
         window.on("focus", () => {

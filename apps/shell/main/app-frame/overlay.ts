@@ -28,6 +28,7 @@ import {
   type HeadlessMode,
   SHELL_OFF,
 } from "../desktop/headless.ts";
+import type { FeedbackPreview } from "../../ipc/feedback.ts";
 import { latestFrame } from "./frame.ts";
 import { type ViewHost, viewOrder } from "./view-order.ts";
 
@@ -40,8 +41,8 @@ export const OVERLAY_URL = "lophn-shell://overlay/index.html";
 export interface OverlayContents extends CallerContents {
   loadURL(url: string): Promise<void>;
   send(
-    channel: "overlay:state" | "shell:overlay-result",
-    event: OverlayEvent,
+    channel: "overlay:state" | "shell:overlay-result" | "shell:feedback-preview",
+    event: OverlayEvent | FeedbackPreview,
   ): void;
   focus(): void;
   close(): void;
@@ -69,8 +70,13 @@ export interface OverlayOptions {
     set(callback: () => void, ms: number): unknown;
     clear(handle: unknown): void;
   };
+  /** main이 연 feedback dialog가 feedback 통로 밖에서 닫혔다(overlay crash·창 닫힘). */
+  feedbackEnded?(draftRef: string): void;
 }
-type Surface = OverlayOpen & OverlayIdentity & { ending?: boolean };
+type Surface = OverlayOpen & OverlayIdentity & {
+  ending?: boolean;
+  feedback?: string;
+};
 const failure = (
   code: "invalid_input" | "forbidden" | "conflict" | "unavailable",
   message: string,
@@ -120,6 +126,8 @@ export function createOverlay(options: OverlayOptions) {
   const resizeFrame = latestFrame(options.timer, (epoch: number) => {
     if (disposed || !available || epoch !== generation) return;
     for (const surface of [...surfaces.values()]) {
+      // feedback dialog는 창 본문 전체에 따라 그린다. 창이 줄어도 글을 잃지 않는다.
+      if (surface.feedback !== undefined) continue;
       if (!inside(surface.anchorRect, options.body())) {
         finish(surface, "dismissed");
       }
@@ -137,6 +145,9 @@ export function createOverlay(options: OverlayOptions) {
   ) {
     surfaces.delete(surface.surfaceId);
     if (pendingId === surface.surfaceId) cancelDrag();
+    if (surface.feedback !== undefined && reason !== "completed") {
+      options.feedbackEnded?.(surface.feedback);
+    }
     if (!options.shell.isDestroyed()) {
       options.shell.send("shell:overlay-result", {
         requestId: surface.requestId,
@@ -174,7 +185,9 @@ export function createOverlay(options: OverlayOptions) {
       generation,
       bounds,
       surfaces: all.map((surface) => {
-        const rect = surface.kind === "drag" ? body : surface.anchorRect;
+        const rect = surface.kind === "drag" || surface.feedback !== undefined
+          ? body
+          : surface.anchorRect;
         return {
           ...surface,
           rect: { ...rect, x: rect.x - bounds.x, y: rect.y - bounds.y },
@@ -345,6 +358,10 @@ export function createOverlay(options: OverlayOptions) {
       if (!surface || surface.generation !== result.generation) {
         return failure("conflict", "surface is stale");
       }
+      // feedback dialog는 feedback 통로(제출·취소)로만 닫는다.
+      if (surface.feedback !== undefined) {
+        return failure("invalid_input", "surface closes through feedback");
+      }
       if (result.type === "query") {
         // 검색 palette만 검색어를 연 쪽에 돌려준다. 표면은 열린 채이고 focus도 그대로다.
         if (surface.kind !== "palette" || !surface.model.search) {
@@ -397,6 +414,48 @@ export function createOverlay(options: OverlayOptions) {
         sync();
       }
       return success(null);
+    },
+    /**
+     * main이 [Report a problem] dialog를 연다(shell/app-frame#R31). shell renderer의 open과 달리
+     * 창 본문 전체에 그리고 앱 view는 숨기지 않는다. 닫기는 closeFeedback만 한다.
+     */
+    openFeedback(draftRef: string): boolean {
+      if (disposed || !available) return false;
+      const identity = { surfaceId: `surface_${++serial}`, generation };
+      surfaces.set(identity.surfaceId, {
+        requestId: `feedback_${serial}`,
+        kind: "dialog",
+        anchorRect: options.body(),
+        model: { label: "", choices: [] },
+        feedback: draftRef,
+        ...identity,
+      });
+      sync();
+      focusSurface(view.webContents, headless);
+      return true;
+    },
+    closeFeedback(draftRef: string): void {
+      const surface = [...surfaces.values()].find((item) =>
+        item.feedback === draftRef
+      );
+      if (!surface) return;
+      finish(surface, "completed");
+      sync();
+    },
+    /** lophn dialog·sheet가 떠 있다. 그동안은 앱 view를 캡처하지 않는다(problems/feedback#R5). */
+    dialogOpen(): boolean {
+      return [...surfaces.values()].some((surface) =>
+        surface.kind === "dialog" || surface.kind === "sheet"
+      );
+    },
+    /** 이 창 overlay의 feedback 미리보기. overlay preload가 마지막 값을 들고 있다. */
+    sendFeedback(preview: FeedbackPreview): void {
+      if (disposed || !available || view.webContents.isDestroyed()) return;
+      view.webContents.send("shell:feedback-preview", preview);
+    },
+    /** 이 창의 살아 있는 overlay view인지. */
+    isOverlay(contents: CallerContents): boolean {
+      return !disposed && available && contents === view.webContents;
     },
     dispose() {
       if (disposed) return;

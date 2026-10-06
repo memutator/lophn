@@ -13,6 +13,7 @@ import {
 import { t } from "@lophn/wording";
 
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
+import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 import type {
   AppFrameViewState,
   LophnShellViewsApi,
@@ -41,6 +42,7 @@ import {
   ViewCoversProvider,
 } from "./embedded-view.tsx";
 import { OpsPanelFrame, opsPanelPlacement } from "./ops-panel-frame.tsx";
+import { ReportButton } from "./report-button.tsx";
 import styles from "./app-space.module.css";
 
 export interface AppSpaceProps {
@@ -50,6 +52,8 @@ export interface AppSpaceProps {
   views?: LophnShellViewsApi;
   /** 새 창 열기와 OS 앱 바로가기 통로. 없으면 그 조작을 두지 않는다. */
   windows?: LophnAppWindowsApi;
+  /** [Report a problem] 통로. 없으면 버튼을 두지 않는다. */
+  feedback?: LophnShellFeedbackBegin;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
@@ -139,6 +143,7 @@ export function AppSpace(
     source,
     views,
     windows,
+    feedback,
     windowWidth,
     onLauncher,
     onDocuments,
@@ -175,8 +180,12 @@ export function AppSpace(
 
   const status: AppStatus | null = row ? appStatus(row, run) : null;
 
+  // [Report a problem]이 묶일 본문 view. crash해도 view_session은 남아 버튼이 동작한다.
+  const [viewSession, setViewSession] = useState<string | null>(null);
+
   function onViewState(state: AppFrameViewState): void {
     setRun(state.connectionState);
+    setViewSession(state.view_session);
   }
 
   async function changeShortcut(add: boolean): Promise<void> {
@@ -191,6 +200,7 @@ export function AppSpace(
   }
 
   let body;
+  let embedded = false;
   if (record.state === "failed") {
     body = (
       <ErrorState
@@ -216,6 +226,7 @@ export function AppSpace(
     row !== null && row.release !== null && entry.state === "ready" &&
     views !== undefined
   ) {
+    embedded = true;
     body = (
       <EmbeddedView
         key={attempt}
@@ -267,6 +278,14 @@ export function AppSpace(
               );
             }
             : undefined}
+          report={feedback
+            ? (
+              <ReportButton
+                feedback={feedback}
+                viewSession={embedded ? viewSession : null}
+              />
+            )
+            : null}
           decisions={
             <SpaceDecisions
               place={{ kind: "app", id: app }}

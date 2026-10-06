@@ -2,6 +2,7 @@ import {
   AppWindow,
   FileText,
   type LucideIcon,
+  MessageSquareWarning,
   PanelRight,
   SquareArrowOutUpRight,
 } from "lucide-react";
@@ -12,4 +13,5 @@ export const appSpaceIcons = {
   appDetails: PanelRight,
   documents: FileText,
   newWindow: SquareArrowOutUpRight,
+  report: MessageSquareWarning,
 } as const satisfies Record<string, LucideIcon>;

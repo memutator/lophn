@@ -1,6 +1,7 @@
 // 화면 코드의 고정 문구를 검사한다. 오류는 실패, 경고는 결과 목록이다.
 // 실행: deno test (check_test.ts가 저장소 화면 코드에도 돌린다)
 import { parse } from "@formatjs/icu-messageformat-parser";
+import { RESERVED_PROBLEM_CODES } from "../../contracts/problems/mod.ts";
 import { en } from "./en.ts";
 import {
   ID_PREFIX,
@@ -230,10 +231,19 @@ async function collect(root: string): Promise<string[]> {
   return files.sort();
 }
 
+// problems/problem-codes가 소유한 문구 key. 화면이 그 key를 쓸 수 있고 catalog에 다시 정의하면
+// 오류다(shell/wording#R9).
+export const PROBLEM_MESSAGE_KEYS: readonly string[] = RESERVED_PROBLEM_CODES
+  .map((code) => code.message_key);
+
 export async function checkRepo(
   root: string,
   options: CheckOptions = {},
 ): Promise<Finding[]> {
+  options = {
+    ...options,
+    knownKeys: [...PROBLEM_MESSAGE_KEYS, ...(options.knownKeys ?? [])],
+  };
   const findings: Finding[] = [];
   for (const path of await collect(root)) {
     const relative = path.slice(root.length + 1);

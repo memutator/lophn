@@ -18,6 +18,7 @@ import { createCredentialLink } from "./credential-link.ts";
 import { OPTION_ACTION_OPERATIONS } from "../../packages/lophn-agent/questions/mod.ts";
 import { RUNTIME_MACHINE_OPERATIONS } from "./core-http.ts";
 import { createRunDriver } from "./run-driver.ts";
+import { createContractCall } from "./toolkit.ts";
 
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
 const ASG = "asg_01arz3ndektsv4rrffq69g5fav";
@@ -427,4 +428,37 @@ Deno.test("lophn-agent/questions#R13: runtime machine credential의 operation �
   ) {
     assert(RUNTIME_MACHINE_OPERATIONS.includes(operation), operation);
   }
+});
+
+Deno.test("lophn-agent/harness/run-loop#R8: 내장 tool handler의 소유 contract 호출은 열린 route만 agent 자격의 loopback으로 보내고 없는 이름은 없는 것과 같다", async () => {
+  const sent: { path: string; body: unknown }[] = [];
+  const agent = (path: string, body: unknown) => {
+    sent.push({ path, body });
+    return Promise.resolve(ok({ ok: true }));
+  };
+  const link = createContractCall([
+    { name: "ReadThing", kind: "read", resource: "things", method: "read" },
+    { name: "SaveThing", kind: "command", resource: "things", method: "save" },
+  ], agent);
+  await link.call("ReadThing", { id: 1 }, RUN);
+  await link.call("SaveThing", { id: 2 }, RUN, {
+    compare: { revision: 3 },
+    idempotency_key: "k1",
+  });
+  assertEquals(sent, [
+    { path: "/v1/things/read", body: { id: 1 } },
+    {
+      path: "/v1/things/save",
+      body: {
+        input: { id: 2 },
+        idempotency_key: "k1",
+        compare: { revision: 3 },
+        prepared: [],
+      },
+    },
+  ]);
+  const missing = await link.call("ApplySettings", {}, RUN);
+  assert(!missing.ok);
+  assertEquals(missing.error.code, "not_found");
+  assertEquals(sent.length, 2);
 });

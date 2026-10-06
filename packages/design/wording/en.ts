@@ -656,8 +656,6 @@ export const en = {
   "projects.heading.export-left-out": "Not included",
   "projects.heading.file": "File",
   "projects.label.archived": "Archived",
-  "projects.label.document-count":
-    "{count, plural, =0 {No documents} one {# document} other {# documents}}",
   "projects.label.document-name": "Name in links",
   "projects.label.export-format": "Format",
   "projects.label.export-kept-original": "Kept as the original file",

@@ -24,7 +24,6 @@ interface ProjectValue {
   status: "active" | "archived";
   folders?: { path: string }[];
   tracking?: { enabled: boolean };
-  document_count?: number;
 }
 
 interface DocumentValue {
@@ -90,7 +89,6 @@ function projectOf(value: ProjectValue): ProjectRow {
     purpose: value.purpose,
     revision: value.revision,
     archived: value.status === "archived",
-    documentCount: value.document_count ?? 0,
     tracking: value.tracking?.enabled === true,
     folders: (value.folders ?? []).map((folder) => folder.path),
   };
@@ -203,7 +201,6 @@ export function coreOrganizeSource(
         { project: row.id, ...change },
         row.revision,
       );
-      // 응답은 등록 정본이다. 문서 수는 다시 읽어야 정확하다.
       return result.ok ? await project(row.id) : result;
     },
 

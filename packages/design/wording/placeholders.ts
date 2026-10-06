@@ -686,9 +686,6 @@ export type PlaceholderKinds = {
   "projects.heading.export-left-out": Record<never, never>;
   "projects.heading.file": Record<never, never>;
   "projects.label.archived": Record<never, never>;
-  "projects.label.document-count": {
-    count: "plural";
-  };
   "projects.label.document-name": Record<never, never>;
   "projects.label.export-format": Record<never, never>;
   "projects.label.export-kept-original": Record<never, never>;

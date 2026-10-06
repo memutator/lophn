@@ -134,11 +134,6 @@ export function ProjectsScreen({ source, lophn }: ProjectsScreenProps) {
                     </span>
                     <span className={listStyles.meta}>
                       <span>
-                        {t("projects.label.document-count", {
-                          count: row.documentCount,
-                        })}
-                      </span>
-                      <span>
                         {row.tracking
                           ? t("projects.label.tracking-on")
                           : t("projects.label.tracking-off")}

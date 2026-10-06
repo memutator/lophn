@@ -278,7 +278,6 @@ export function DocumentPanel(
             <div className={styles.grow}>
               <Field
                 label={t("projects.label.document-name")}
-                help={t("projects.label.name-help")}
                 error={change.kind === "invalid"
                   ? t("projects.error.name-invalid")
                   : change.kind === "taken"

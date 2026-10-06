@@ -41,7 +41,7 @@ Deno.test("shell/desktop#R28: projects 목록은 실제 프로젝트를 보이�
   assertEquals(rows(), ["prj_1"]);
   assertEquals(
     find(view.container, "[data-project='prj_1']").textContent,
-    "lophn2 documentsTracking files",
+    "lophnTracking files",
   );
   click(find(view.container, "button[role=switch]"));
   await flush();

@@ -10,7 +10,6 @@ export interface ProjectRow {
   readonly purpose: string;
   readonly revision: string;
   readonly archived: boolean;
-  readonly documentCount: number;
   readonly tracking: boolean;
   /** 등록 폴더의 절대 경로. */
   readonly folders: readonly string[];

@@ -24,7 +24,6 @@ export const PROJECT: ProjectRow = {
   purpose: "Build lophn.",
   revision: "4",
   archived: false,
-  documentCount: 2,
   tracking: true,
   folders: ["/work/lophn"],
 };
@@ -36,7 +35,6 @@ export const OLD_PROJECT: ProjectRow = {
   purpose: "",
   revision: "9",
   archived: true,
-  documentCount: 1,
   tracking: false,
   folders: [],
 };

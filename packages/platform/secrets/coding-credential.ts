@@ -30,6 +30,8 @@ export type CodingCredentialKeychain = {
   ): Promise<Result<string, CredentialDeliveryFailure>>;
   // 실제로 지워진 것을 확인한 경우만 ok다. 없는 것은 not_found다.
   discard(connection: string): Promise<Result<void>>;
+  // 고정 위치 이름 공간에 있는 connection id 목록. 값은 내지 않는다. 시작 때 고아를 찾는 데 쓴다.
+  list(): Promise<Result<readonly string[]>>;
 };
 
 function invalid(): Result<never> {
@@ -117,6 +119,21 @@ export function createCodingCredentialKeychain(options: {
       } finally {
         if (timer !== undefined) clearTimeout(timer);
       }
+    },
+    async list() {
+      if (options.keychain.listRefs === undefined) return unavailable();
+      if (await options.keychain.status() !== "available") {
+        return unavailable();
+      }
+      const refs = await options.keychain.listRefs(
+        CODING_CREDENTIAL_PURPOSE,
+        REF_PREFIX,
+      );
+      if (!refs.ok) return unavailable();
+      const ids = refs.value.map((ref) => ref.slice(REF_PREFIX.length)).filter((
+        id,
+      ) => connectionIdSchema.safeParse(id).success);
+      return ok(ids);
     },
     async discard(connection) {
       const ref = codingCredentialRef(connection);

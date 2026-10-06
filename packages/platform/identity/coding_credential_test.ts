@@ -19,6 +19,7 @@ import {
   codingCredentialRef,
   createCodingCredentialKeychain,
   createFakeKeychain,
+  createLinuxSecretServiceAdapter,
   type FakeKeychain,
   type KeychainAdapter,
 } from "../secrets/mod.ts";
@@ -649,4 +650,120 @@ Deno.test("platform/identity#R15: lophn이 띄운 coding TUI에는 connection �
     await f.authority.deliver(request(connection, "mcp-under-tui"), channel),
   );
   assertEquals(sent.length, 1);
+});
+
+Deno.test("platform/secrets#R12: 기록 없이 남은 고아도 고정 위치 목록으로 찾아 commit된 connection이 없는 것만 지운다", async () => {
+  const f = fixture();
+  const live = await connect(f);
+  const orphan = "cac_01arz3ndektsv4rrffq69g5fax";
+  const vault = createCodingCredentialKeychain({ keychain: f.keychain });
+  value(await vault.prepare(orphan, "orphan-token-value"));
+  // 앱 secret으로 둔 다른 용도의 항목은 목록에 들지 않아 지워지지 않는다.
+  const other = value(
+    await f.keychain.store({
+      name: "API_KEY",
+      purpose: "app_secret",
+      owner: "API_KEY",
+      value: new TextEncoder().encode("app-secret-value"),
+    }),
+  );
+  assertEquals(await f.pending.list(), []);
+  assertEquals(await f.authority.recover(), {
+    kept: 1,
+    discarded: 1,
+    retry: 0,
+  });
+  const stored = (f.keychain as FakeKeychain).stored;
+  assertFalse(stored.has(codingCredentialRef(orphan)!));
+  assert(stored.has(codingCredentialRef(live.connection)!));
+  assert(stored.has(other));
+  // 목록을 만들 수 없는 keychain에서는 아무것도 지우지 않는다.
+  const blind = fixture({
+    keychain: { ...createFakeKeychain(), listRefs: undefined },
+  });
+  assertEquals(await blind.authority.recover(), {
+    kept: 0,
+    discarded: 0,
+    retry: 0,
+  });
+});
+
+Deno.test("platform/secrets#R12: 준비 중인 connection은 고아 정리가 건드리지 않는다", async () => {
+  const f = fixture();
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => (release = resolve));
+  let seen = "";
+  const connecting = f.authority.connect(
+    { label: "claude", scope: ALL },
+    async (input) => {
+      seen = input.id;
+      // commit 직전에 고아 정리가 돈다.
+      await gate;
+      return f.rows.commit(input);
+    },
+  );
+  while (seen === "") await new Promise((resolve) => setTimeout(resolve, 1));
+  assertEquals(await f.authority.recover(), {
+    kept: 0,
+    discarded: 0,
+    retry: 0,
+  });
+  assert((f.keychain as FakeKeychain).stored.has(codingCredentialRef(seen)!));
+  release();
+  assertEquals(value(await connecting).connection, seen);
+  const token = storedToken(f.keychain as FakeKeychain, seen);
+  assertEquals(
+    value(await f.registry.authenticate(token)).principal,
+    `coding_agent:${seen}`,
+  );
+});
+
+Deno.test("platform/secrets#R12: Linux adapter의 고정 위치 목록은 용도와 prefix가 맞는 참조만 내고 값은 내지 않는다", async () => {
+  const calls: string[][] = [];
+  const secret = new TextEncoder().encode(
+    [
+      "[/org/freedesktop/secrets/collection/login/1]",
+      "label = lophn secret a",
+      "secret = secret-value-one",
+      "attribute.lophn_ref = coding-agent/cac_01arz3ndektsv4rrffq69g5fav",
+      "",
+      "[/org/freedesktop/secrets/collection/login/2]",
+      "label = lophn secret b",
+      "secret = secret-value-two",
+      "attribute.lophn_ref = other/ref",
+      "",
+    ].join("\n"),
+  );
+  const adapter = createLinuxSecretServiceAdapter({
+    runner: {
+      run(args) {
+        calls.push([...args]);
+        return Promise.resolve(ok({ code: 0, stdout: secret }));
+      },
+    },
+    randomRef: () => "ref",
+  });
+  const listed = value(
+    await adapter.listRefs!("coding_connection_credential", "coding-agent/"),
+  );
+  assertEquals(listed, ["coding-agent/cac_01arz3ndektsv4rrffq69g5fav"]);
+  assertEquals(calls, [[
+    "search",
+    "--all",
+    "lophn_purpose",
+    "coding_connection_credential",
+  ]]);
+  assertFalse(JSON.stringify(listed).includes("secret-value"));
+  const missing = createLinuxSecretServiceAdapter({
+    runner: {
+      run: () => Promise.resolve(err({ code: "unavailable", message: "없음" })),
+    },
+    randomRef: () => "ref",
+  });
+  assertEquals(
+    code(
+      await missing.listRefs!("coding_connection_credential", "coding-agent/"),
+    ),
+    "unavailable",
+  );
 });

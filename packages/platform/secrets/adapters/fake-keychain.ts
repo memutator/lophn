@@ -21,6 +21,7 @@ export function createFakeKeychain(options?: {
 }): FakeKeychain {
   const values = new Map<string, Uint8Array>();
   const pending = new Set<string>();
+  const purposes = new Map<string, string>();
   let status: KeychainStatus = options?.status ?? "available";
   let hold = false;
   let serial = 0;
@@ -50,6 +51,7 @@ export function createFakeKeychain(options?: {
       }
       const ref = item.ref ?? nextRef();
       values.set(ref, item.value.slice());
+      purposes.set(ref, item.purpose);
       return Promise.resolve(ok(ref));
     },
     load(ref) {
@@ -59,6 +61,16 @@ export function createFakeKeychain(options?: {
           value === undefined ? err(KEYCHAIN_NOT_FOUND) : ok(value.slice()),
         ),
       );
+    },
+    listRefs(purpose, prefix) {
+      if (status !== "available") {
+        return Promise.resolve(err(KEYCHAIN_UNAVAILABLE));
+      }
+      return Promise.resolve(ok(
+        [...values.keys()].filter((ref) =>
+          purposes.get(ref) === purpose && ref.startsWith(prefix)
+        ),
+      ));
     },
     remove(ref) {
       if (status !== "available") {
@@ -71,6 +83,7 @@ export function createFakeKeychain(options?: {
         return Promise.resolve(err(KEYCHAIN_UNAVAILABLE));
       }
       values.delete(ref);
+      purposes.delete(ref);
       pending.delete(ref);
       return Promise.resolve(ok(undefined));
     },

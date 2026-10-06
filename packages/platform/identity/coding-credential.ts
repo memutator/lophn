@@ -36,6 +36,8 @@ export type CodingCredentialVault = {
   prepare(connection: string, token: string): Promise<Result<void>>;
   read(connection: string): Promise<Result<string, CredentialDeliveryFailure>>;
   discard(connection: string): Promise<Result<void>>;
+  // 고정 위치 이름 공간의 connection id 목록(값 없음). 시작 때 중단 고아를 찾는다.
+  list(): Promise<Result<readonly string[]>>;
 };
 
 // 준비했지만 commit 결과를 아직 모르는 connection의 기록이다. 중단 뒤 고아를 찾는 근거이며 값이
@@ -108,9 +110,12 @@ export type CodingCredentialAuthority = ExternalCredentialResolver & {
     signal?: AbortSignal,
   ): Promise<Result<{ connection: ConnectionId }>>;
   // 재시작 때 commit 결과를 모른 채 남은 준비를 정리한다. commit된 것은 살리고 아닌 것만 지운다.
+  // 기록이 없어도 keychain의 고정 위치 목록으로 commit된 active connection이 없는 고아를 찾는다.
   recover(): Promise<{ kept: number; discarded: number; retry: number }>;
   // 재시작 때 active connection의 digest를 다시 읽어 인증 색인을 채운다.
   restore(connections: readonly string[]): Promise<number>;
+  // active connection의 현재 인증 값. 없거나 회수됐으면 undefined다. 원장 credential 기록에 쓴다.
+  credentialFor(connection: string): Promise<ExternalCredential | undefined>;
   registerChild(child: CodingLoaderChild): Result<void>;
   endChild(processGeneration: string): void;
   endConnection(connection: string): number;
@@ -145,6 +150,19 @@ function principalOf(connection: string): string {
   return `coding_agent:${connection}`;
 }
 
+function externalOf(
+  connection: string,
+  scope: ConnectionScope,
+): ExternalCredential {
+  const app = scope.kind === "app" ? scope.app : undefined;
+  return {
+    actor: `coding_agent:${connection}`,
+    principal: principalOf(connection),
+    targets: app === undefined ? {} : { app },
+    conditions: app === undefined ? {} : { app },
+  };
+}
+
 function sameScope(left: ConnectionScope, right: ConnectionScope): boolean {
   return left.kind === right.kind && left.app === right.app;
 }
@@ -157,6 +175,8 @@ export function createCodingCredentialAuthority(
   // principal → 검증 digest 색인. 인증이 bearer의 digest에서 connection을 찾는 데만 쓴다.
   const index = new Map<string, Uint8Array>();
   const children = new Map<string, CodingLoaderChild>();
+  // 이 process에서 준비 중이라 commit 결과가 아직 정해지지 않은 connection. 고아 정리가 건드리지 않는다.
+  const inflight = new Set<string>();
 
   function denied(event: string): void {
     try {
@@ -195,6 +215,61 @@ export function createCodingCredentialAuthority(
     return removed.ok || removed.error.code === "not_found";
   }
 
+  async function attempt(
+    connection: ConnectionId,
+    label: string,
+    scope: ConnectionScope,
+    submit: (input: CodingConnectionSubmission) => Promise<Result<unknown>>,
+    signal: AbortSignal | undefined,
+  ): Promise<Result<{ connection: ConnectionId }>> {
+    let token: string | undefined = randomToken(options.random);
+    const digestHex = await sha256Hex(token);
+    await pending.add(connection);
+    const prepared = await options.vault.prepare(connection, token);
+    token = undefined;
+    if (!prepared.ok) {
+      // 보관하지 못한 것은 만들지 않은 것이다. 일부 쓴 흔적이 있으면 지운다.
+      if (await discardPrepared(connection)) await pending.remove(connection);
+      return unavailable();
+    }
+    if (signal?.aborted) {
+      if (await discardPrepared(connection)) await pending.remove(connection);
+      return unavailable();
+    }
+    let submitted: Result<unknown>;
+    try {
+      submitted = await submit({
+        id: connection,
+        label,
+        scope,
+        token_digest: digestHex,
+      });
+    } catch {
+      submitted = unavailable();
+    }
+    if (submitted.ok) {
+      index.set(principalOf(connection), hexBytes(digestHex)!);
+      await pending.remove(connection);
+      return ok({ connection });
+    }
+    // 응답을 잃은 실패는 commit됐을 수 있다. 소유 module에서 digest를 다시 읽어 확인한다.
+    const current = await currentOf(connection);
+    if (current.status === "error") {
+      // 확인할 수 없으면 지우지 않고 기록에 남겨 recover가 결정한다.
+      return submitted;
+    }
+    if (
+      current.status === "found" &&
+      constantTimeDigestEqual(current.digest, hexBytes(digestHex)!)
+    ) {
+      index.set(principalOf(connection), current.digest);
+      await pending.remove(connection);
+      return ok({ connection });
+    }
+    if (await discardPrepared(connection)) await pending.remove(connection);
+    return submitted;
+  }
+
   return {
     async connect(input, submit, signal) {
       const scope = connectionScopeSchema.safeParse(input.scope);
@@ -207,59 +282,27 @@ export function createCodingCredentialAuthority(
       const id = connectionIdSchema.safeParse(options.ids.newId("cac"));
       if (!id.success) return unavailable();
       const connection = id.data;
-      let token: string | undefined = randomToken(options.random);
-      const digestHex = await sha256Hex(token);
-      await pending.add(connection);
-      const prepared = await options.vault.prepare(connection, token);
-      token = undefined;
-      if (!prepared.ok) {
-        // 보관하지 못한 것은 만들지 않은 것이다. 일부 쓴 흔적이 있으면 지운다.
-        if (await discardPrepared(connection)) await pending.remove(connection);
-        return unavailable();
-      }
-      if (signal?.aborted) {
-        if (await discardPrepared(connection)) await pending.remove(connection);
-        return unavailable();
-      }
-      let submitted: Result<unknown>;
+      inflight.add(connection);
       try {
-        submitted = await submit({
-          id: connection,
-          label: input.label,
-          scope: scope.data,
-          token_digest: digestHex,
-        });
-      } catch {
-        submitted = unavailable();
+        return await attempt(
+          connection,
+          input.label,
+          scope.data,
+          submit,
+          signal,
+        );
+      } finally {
+        inflight.delete(connection);
       }
-      if (submitted.ok) {
-        index.set(principalOf(connection), hexBytes(digestHex)!);
-        await pending.remove(connection);
-        return ok({ connection });
-      }
-      // 응답을 잃은 실패는 commit됐을 수 있다. 소유 module에서 digest를 다시 읽어 확인한다.
-      const current = await currentOf(connection);
-      if (current.status === "error") {
-        // 확인할 수 없으면 지우지 않고 기록에 남겨 recover가 결정한다.
-        return submitted;
-      }
-      if (
-        current.status === "found" &&
-        constantTimeDigestEqual(current.digest, hexBytes(digestHex)!)
-      ) {
-        index.set(principalOf(connection), current.digest);
-        await pending.remove(connection);
-        return ok({ connection });
-      }
-      if (await discardPrepared(connection)) await pending.remove(connection);
-      return submitted;
     },
-
     async recover() {
       let kept = 0;
       let discarded = 0;
       let retry = 0;
+      const handled = new Set<string>();
       for (const connection of await pending.list()) {
+        if (inflight.has(connection)) continue;
+        handled.add(connection);
         const current = await currentOf(connection);
         if (current.status === "error") {
           retry++;
@@ -272,6 +315,23 @@ export function createCodingCredentialAuthority(
           await pending.remove(connection);
           discarded++;
         } else retry++;
+      }
+      // 기록을 잃은 고아(재시작 사이에 기록이 없는 준비)는 keychain의 고정 위치 목록으로 찾는다.
+      // commit된 connection이 없는 위치만 지운다. 목록을 못 읽으면 지우지 않는다.
+      const listed = await options.vault.list();
+      if (listed.ok) {
+        for (const connection of listed.value) {
+          if (handled.has(connection) || inflight.has(connection)) continue;
+          const current = await currentOf(connection);
+          if (current.status === "error") {
+            retry++;
+          } else if (current.status === "found") {
+            index.set(principalOf(connection), current.digest);
+            kept++;
+          } else if (await discardPrepared(connection)) {
+            discarded++;
+          } else retry++;
+        }
       }
       return { kept, discarded, retry };
     },
@@ -304,13 +364,15 @@ export function createCodingCredentialAuthority(
         denied("coding_credential_denied");
         return undefined;
       }
-      const app = current.scope.kind === "app" ? current.scope.app : undefined;
-      return {
-        actor: `coding_agent:${connection}`,
-        principal: matched,
-        targets: app === undefined ? {} : { app },
-        conditions: app === undefined ? {} : { app },
-      };
+      return externalOf(connection, current.scope);
+    },
+
+    async credentialFor(connection) {
+      const current = await currentOf(connection);
+      if (current.status !== "found" || current.state !== "active") {
+        return undefined;
+      }
+      return externalOf(connection, current.scope);
     },
 
     registerChild(child) {

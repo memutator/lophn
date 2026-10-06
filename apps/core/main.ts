@@ -12,6 +12,7 @@ import {
   problemsTestDefinitions,
 } from "./problems.ts";
 import { ticketDefinitions } from "./tickets.ts";
+import { productKeychain } from "./secret-store.ts";
 
 // 최상위 팀마다 등록 파일 하나. main은 이 목록만 부른다.
 const TEAMS = [
@@ -48,6 +49,9 @@ const started = await startCore({
     new URL("./tickets.ts", import.meta.url).href,
   ],
   parent,
+  // coding agent connection credential은 OS keychain에 둔다. loader identity 목록은 설치 쪽이 정하면
+  // 채운다(그 전에는 child를 등록할 수 없어 보호 전달이 열리지 않는다).
+  codingKeychain: productKeychain(),
 });
 if (!started.ok) {
   console.error(`core: ${started.error.message}`);

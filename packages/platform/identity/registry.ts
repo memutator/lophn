@@ -377,7 +377,14 @@ export class CredentialRegistry {
     }
   }
 
-  // 소유 module이 현재 active라고 확인한 credential의 context. 상한은 actor별 동작 상한이다.
+  // 소유 module이 현재 active라고 확인한 credential의 context. 원장 credential 기록에 쓴다.
+  externalContext(
+    credential: ExternalCredential,
+  ): Result<AuthenticatedContext & { scope: AgentCredentialScope }> {
+    return this.#external(credential);
+  }
+
+  // 상한은 actor별 동작 상한이다.
   #external(
     credential: ExternalCredential,
   ): Result<AuthenticatedContext & { scope: AgentCredentialScope }> {

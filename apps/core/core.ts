@@ -54,6 +54,10 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import {
+  type CodingCredentials,
+  createCodingCredentials,
+} from "./coding-credential.ts";
 import { productKeychain } from "./secret-store.ts";
 import {
   createSecretInputRelay,
@@ -214,6 +218,11 @@ export type CoreOptions = {
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
   secretKeychain?: KeychainAdapter;
+  // coding agent connection credential을 준비·읽는 keychain adapter. 없으면 coding credential 인증은
+  // 꺼져 있다. 제품 main만 OS adapter를 주고 테스트는 fake를 준다(사람의 실제 keychain에 닿지 않는다).
+  codingKeychain?: KeychainAdapter;
+  // 설치된 보호 loader의 identity 목록. 설치 쪽이 정하기 전에는 비어 있어 child를 등록할 수 없다.
+  codingLoaders?: readonly string[];
   // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다(예: fake keychain을
   // 쥔 I/O worker). 제품 기동에는 없다.
   spawn?: (request: SpawnRequest) => Spawned;
@@ -282,6 +291,11 @@ export type Core = {
   sweepApprovalExpiry(): Promise<void>;
   // 재시작 때 접수·실행 중으로 남은 invocation을 미확인으로 확정한다(기동이 한 번 부른다).
   sweepInterruptedInvocations(): Promise<void>;
+  // codingKeychain이 있을 때만 있다. 사람의 연결 결정 입구가 connect를, 신뢰 감독이 registerChild를
+  // 부른다(입구의 contract는 coding-agent 소유라 HTTP route는 없다).
+  codingCredentials?: CodingCredentials;
+  // 시작 때의 고아 정리·색인 복원이 끝나면 resolve한다. 실패해도 resolve한다(기동을 막지 않는다).
+  codingCredentialsReady?: Promise<void>;
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
   // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
   documentsFeed?: InternalSubscription;
@@ -396,10 +410,21 @@ async function open(
   // machine은 command kind 정책에만 닿는다(identity model operationCeiling).
   // 문서 관측 제출은 machine document.prepare(준비 route)와 document.save command다
   // (documents#T11). 준비 route도 machine이 닿도록 command kind로 올린다.
+  const coding = options.codingKeychain
+    ? createCodingCredentials({
+      ledgerPath,
+      dataRoot: root.path,
+      keychain: options.codingKeychain,
+      clock,
+      random,
+      loaders: options.codingLoaders ?? [],
+    })
+    : undefined;
   const productRegistry = new CredentialRegistry({
     epoch,
     clock,
     random,
+    ...(coding ? { external: coding.authority } : {}),
     operations: [
       {
         name: "platform/status",
@@ -1131,6 +1156,11 @@ async function open(
     }
     await bootstrapState.inflight;
   };
+  // 고아 정리와 active connection 색인 복원은 기동을 기다리게 하지 않는다. 실패는 진단 log뿐이다.
+  const codingReady = coding
+    ? coding.start(productRegistry, (context) => runtime!.record(context))
+      .catch(() => {})
+    : undefined;
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
   const parent = options.parent;
@@ -1158,6 +1188,9 @@ async function open(
     epoch,
     dataRoot: root.path,
     done: Promise.resolve(),
+    ...(coding
+      ? { codingCredentials: coding, codingCredentialsReady: codingReady }
+      : {}),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),

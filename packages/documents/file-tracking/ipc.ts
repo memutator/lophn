@@ -102,6 +102,27 @@ export const DOCUMENT_OPS = {
   // 저장 준비의 format 검사(file-tracking#R5, versions#R4). 원문 바이트는 이 요청 앞에
   // byte chunk frame으로 먼저 가고, 요청은 channel과 길이로 그 바이트를 가리킨다.
   validateFiles: "documents.validate_files",
+  // 사람 파일 작업(file-tracking#R2, R11, R12). 요청은 user 자격으로 core가 검사한 뒤에만 온다.
+  // write의 바이트는 이 요청 앞에 byte chunk frame으로 먼저 가고 요청이 channel로 가리킨다.
+  fileRead: "documents.file_read",
+  fileWrite: "documents.file_write",
+  fileRename: "documents.file_rename",
+  fileDelete: "documents.file_delete",
+  // 편집 연결의 현재 변화 상태. 마지막 관측이 바뀌거나 기한이 지나면 답한다.
+  fileWatch: "documents.file_watch",
+  // working copy의 확정 판이 바뀐 것을 사본 metadata에 남긴다.
+  workingCopyConfirm: "documents.working_copy_confirm",
+} as const;
+
+// coordinator가 준비 worker에 보내는 op. 목표는 이미 실제 root와 경로로 풀려 있다.
+export const PREPARATION_OPS = {
+  readFile: "documents.read_file",
+  writeFile: "documents.write_file",
+  renameFile: "documents.rename_file",
+  deleteFile: "documents.delete_file",
+  confirmCopy: "documents.confirm_copy",
+  // 후보 배분 묶음의 안정 읽기(hash·크기). 결과는 후보 순서와 같다.
+  hashBatch: "documents.hash_batch",
 } as const;
 
 // `documents.validate_files` 요청 본문. 파일마다 앞서 보낸 byte channel과 그 길이다. 검사가

@@ -9,8 +9,10 @@ import {
 Deno.test("documents/file-tracking#R3: launch spec의 읽기·쓰기는 활성 root로 한정된다", () => {
   const specs = workerSpecs("/data/lophn", ["/work/notes", "/work/other"]);
   const coordinator = specs.find((spec) => spec.kind === "documents/worker");
-  const preparation = specs.find((spec) =>
-    spec.kind === "documents/preparation"
+  // 준비 worker는 coordinator가 띄우는 자식이라 core가 선언하지 않는다(documents#T12).
+  assertEquals(
+    specs.some((spec) => spec.kind === "documents/preparation"),
+    false,
   );
   // 사용자 root 읽기는 활성 root뿐이고, 그 뒤는 코드·deno 캐시다.
   assertEquals(coordinator?.allow_read.slice(0, 3), [
@@ -20,11 +22,10 @@ Deno.test("documents/file-tracking#R3: launch spec의 읽기·쓰기는 활성 r
   ]);
   assertEquals(coordinator?.allow_read.length, 5);
   assertEquals(coordinator?.allow_write.includes("/work/notes"), true);
-  assertEquals(preparation?.allow_read.includes("/work/other"), true);
-  // network는 core loopback뿐이고 run은 format runner를 띄우는 deno 하나뿐이다(T11).
+  // network는 core loopback뿐이다. run은 format runner·준비 worker를 띄우는 deno 하나와
+  // process group 종료를 확인하는 kill 도구 하나다(T11, T12).
   assertEquals(coordinator?.allow_net, ["127.0.0.1"]);
-  assertEquals(coordinator?.allow_run, [Deno.execPath()]);
-  assertEquals(preparation?.allow_net, []);
+  assertEquals(coordinator?.allow_run, [Deno.execPath(), "/usr/bin/kill"]);
 });
 
 Deno.test("documents/file-tracking#R3: root가 바뀌면 documents worker만 새 spec으로 다시 띄운다", async () => {
@@ -43,7 +44,7 @@ Deno.test("documents/file-tracking#R3: root가 바뀌면 documents worker만 새
     ["/work/a", "/work/b"],
   );
   assertEquals(decision.kind, "relaunch");
-  // documents worker만 다시 띄운다. 준비 worker는 감독이 따로 본다.
+  // documents worker만 다시 띄운다. 준비 worker는 그 coordinator가 새로 띄운다.
   assertEquals(relaunched, ["documents/worker"]);
   if (decision.kind === "relaunch") {
     const coordinator = decision.specs.find((spec) =>

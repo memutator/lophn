@@ -6,6 +6,7 @@ import type {
   ApprovalRequest,
   NotificationRow,
   QuestionRequest,
+  QuestionText,
   Request,
   RequestSource,
   ReviewIntent,
@@ -91,10 +92,32 @@ export function notification(
   };
 }
 
+/** 질문의 글. 고치지 않으면 선택지마다 설명이 있는 기본 글이다. */
+export function questionText(
+  request: QuestionRequest,
+  patch: Partial<QuestionText> = {},
+): QuestionText {
+  return {
+    prompt: "Which copy of the notes should stay?",
+    reason: "Both copies changed since yesterday.",
+    options: new Map(
+      request.options.map((option) => [option.key, `About: ${option.label}`]),
+    ),
+    recommendation: request.recommended === null
+      ? null
+      : "The newer copy has this week's numbers.",
+    answer: null,
+    closedReason: null,
+    ...patch,
+  };
+}
+
 export interface FakeRequests {
   requests: Request[];
   notifications: NotificationRow[];
   reasons: Record<string, string | null>;
+  /** 질문별 글. 없으면 questionText 기본 글, null이면 읽지 못한다. */
+  texts: Record<string, QuestionText | null>;
   /** 다음 답·미루기·취소의 결과. 비면 접수한다. */
   replies: SourceResult<void>[];
   /** review가 열리는지. false면 이 창에 보호 창 통로가 없다. */
@@ -104,6 +127,8 @@ export interface FakeRequests {
   approvalsFail: boolean;
   notificationsFail: boolean;
   answered: { question: string; answer: Answer }[];
+  /** 글을 읽은 질문 id. */
+  textReads: string[];
   deferred: string[];
   cancelled: { question: string; reason: string }[];
   marked: string[];
@@ -116,12 +141,14 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
     requests: [],
     notifications: [],
     reasons: {},
+    texts: {},
     replies: [],
     reviewOpens: true,
     readsFail: false,
     approvalsFail: false,
     notificationsFail: false,
     answered: [],
+    textReads: [],
     deferred: [],
     cancelled: [],
     marked: [],
@@ -187,10 +214,27 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
         value: state.reasons[request.id] ?? null,
       });
     },
+    text(target) {
+      state.textReads.push(target.id);
+      const found = state.texts[target.id];
+      if (found === null) return Promise.resolve(failed);
+      const current = state.requests.find((request) =>
+        request.id === target.id
+      ) as QuestionRequest | undefined;
+      return Promise.resolve({
+        ok: true,
+        value: found ?? questionText(current ?? target),
+      });
+    },
     answer(target, answer) {
       state.answered.push({ question: target.id, answer });
       const result = reply();
       if (result.ok) {
+        if (answer.kind === "text") {
+          state.texts[target.id] = questionText(target, {
+            answer: answer.text,
+          });
+        }
         close(target.id, {
           status: "answered",
           answer: answer.kind === "option"
@@ -212,6 +256,7 @@ export function fakeRequests(initial: Partial<FakeRequests> = {}) {
       state.cancelled.push({ question: target.id, reason });
       const result = reply();
       if (result.ok) {
+        state.texts[target.id] = questionText(target, { closedReason: reason });
         close(target.id, { status: "cancelled", closedReason: "cancelled" });
       }
       return Promise.resolve(result);

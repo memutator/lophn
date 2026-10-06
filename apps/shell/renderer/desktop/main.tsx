@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
+import { useConnection } from "./connection/connection.tsx";
 import { Launcher } from "./launcher/launcher.tsx";
 import { LAUNCHER, openLophn, openProject, type Route } from "./router.ts";
 import { Workspace } from "../workspace/workspace.tsx";
@@ -11,6 +12,8 @@ import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
+import type { LauncherSource } from "./launcher/source.ts";
+import type { TrackingSource } from "../workspace/tracking/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
@@ -32,6 +35,10 @@ export interface DesktopProps {
   lophn?: LophnSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
+  /** 런처의 프로젝트 카드·등록 통로. 없으면 카드 자리는 비었음 상태다. */
+  projects?: LauncherSource;
+  /** 작업대의 파일 추적 켜기 통로. */
+  tracking?: TrackingSource;
   /** main이 시키는 것(전역 팔레트, OS notification 클릭). 없으면 받지 않는다. */
   intents?: IntentApi;
 }
@@ -48,6 +55,8 @@ export function Desktop(
     terminal,
     lophn,
     palette,
+    projects,
+    tracking,
     intents,
   }: DesktopProps,
 ) {
@@ -76,8 +85,12 @@ export function Desktop(
       }));
     }
   };
+  // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 런처의 연결 화면을 보이고, 준비되면 그때
+  // 작업대를 열어 읽는다.
+  const connection = useConnection(source);
+  const live = connection.state === "ready" || connection.state === "stale";
   let space: ReactNode;
-  if (route.space === "project" && route.project && workspace) {
+  if (route.space === "project" && route.project && workspace && live) {
     space = (
       <Workspace
         projectId={route.project}
@@ -89,6 +102,7 @@ export function Desktop(
         onThingsToConfirm={thingsToConfirm}
         editor={editor}
         terminal={terminal}
+        tracking={tracking}
       />
     );
   } else if (route.space === "lophn" && lophn) {
@@ -109,6 +123,8 @@ export function Desktop(
         source={source}
         formatTime={formatTime}
         onLophn={lophnSpace}
+        projects={projects}
+        onProject={(project) => setRoute(openProject(project))}
       />
     );
   }

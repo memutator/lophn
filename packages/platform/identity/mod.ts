@@ -30,6 +30,8 @@ export {
   type ConfirmationBridge,
   confirmationBridge,
   disconnectedConfirmationBridge,
+  type RouteConfirmation,
+  routeConfirmation,
 } from "./confirmation-bridge.ts";
 export { consumeRouteConfirmation } from "./confirmation-route.ts";
 export {

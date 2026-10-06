@@ -47,6 +47,8 @@ import {
 } from "../editor/document-view.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
 import { TerminalTab } from "../terminal/terminal-tab.tsx";
+import { TrackingStrip } from "./tracking/tracking.tsx";
+import type { TrackingSource } from "./tracking/source.ts";
 import {
   DockSlot,
   DockToggle,
@@ -76,6 +78,8 @@ export interface WorkspaceProps {
   editor?: EditorDeps;
   /** 터미널 탭 통로. 없으면 터미널 열기 버튼을 두지 않는다. */
   terminal?: TerminalDeps;
+  /** 파일 추적 켜기 통로. 없으면 추적 안내 줄을 두지 않는다. */
+  tracking?: TrackingSource;
 }
 
 interface Loaded {
@@ -163,6 +167,7 @@ export function Workspace(
     onThingsToConfirm,
     terminal,
     editor,
+    tracking,
   }: WorkspaceProps,
 ) {
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
@@ -220,6 +225,19 @@ export function Workspace(
       live = false;
     };
   }, [projectId, source]);
+
+  // 추적을 켠 뒤 문서·파일 목록만 다시 읽는다. 열린 탭과 배치는 그대로 둔다.
+  const refreshDocuments = async () => {
+    const [documents, files] = await Promise.all([
+      source.documents(projectId),
+      source.files(projectId),
+    ]);
+    setLoaded((current) => ({
+      ...current,
+      documents: documents.ok ? documents.value : current.documents,
+      files: files.ok ? files.value : current.files,
+    }));
+  };
 
   const sidebarShown = sidebarView(measuredWindow, sidebar, userChoseWidth);
   const crumbs = breadcrumbs(loaded.project?.title ?? "", view);
@@ -521,6 +539,15 @@ export function Workspace(
             <p className={styles.notice} data-load-failed="">
               {t("project-workspace.error.load-failed")}
             </p>
+          )
+          : null}
+        {tracking
+          ? (
+            <TrackingStrip
+              project={projectId}
+              source={tracking}
+              onTracking={() => void refreshDocuments()}
+            />
           )
           : null}
         <div className={styles.content} ref={mainRef}>

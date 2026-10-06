@@ -97,6 +97,22 @@ export type Answer =
   | { readonly kind: "option"; readonly option: string }
   | { readonly kind: "text"; readonly text: string };
 
+/**
+ * 질문의 글. core가 redaction을 거쳐 둔 값이다(lophn-agent ReadQuestionText). 화면은 React
+ * 글로만 그린다.
+ */
+export interface QuestionText {
+  readonly prompt: string;
+  readonly reason: string;
+  /** 선택지 key별 설명. */
+  readonly options: ReadonlyMap<string, string>;
+  readonly recommendation: string | null;
+  /** 자유 답의 글. 선택지 답·미답이면 null이다. */
+  readonly answer: string | null;
+  /** 취소 이유의 글. 미루기·만료·미종료면 null이다. */
+  readonly closedReason: string | null;
+}
+
 /** 사람이 [Review]로 여는 보호 창의 대상. contracts shell confirmation intent다. */
 export type ReviewIntent =
   | { readonly kind: "approval_request"; readonly approval: string }
@@ -117,14 +133,19 @@ export interface RequestSource {
   unread(): Promise<SourceResult<readonly NotificationRow[]>>;
   /** approval의 설명 글. 읽을 수 없으면 null이다. */
   reason(request: ApprovalRequest): Promise<SourceResult<string | null>>;
-  /** action 없는 답. 같은 질문·답이면 같은 key라 다시 보내도 답이 하나다. */
+  /** 질문의 본문·이유·선택지 설명·추천 이유와 남은 답·취소 글. */
+  text(question: QuestionRequest): Promise<SourceResult<QuestionText>>;
+  /**
+   * action 없는 선택지 답이나 자유 답. 확인 handle 없이 일반 답 경로로 간다. 같은 질문·답이면
+   * 같은 key라 다시 보내도 답이 하나다.
+   */
   answer(
     question: QuestionRequest,
     answer: Answer,
   ): Promise<SourceResult<void>>;
   /** 미루기. 답 없음으로 닫는다. */
   defer(question: QuestionRequest): Promise<SourceResult<void>>;
-  /** 이유를 남기는 취소. */
+  /** 이유 글을 남기는 취소. */
   cancel(
     question: QuestionRequest,
     reason: string,

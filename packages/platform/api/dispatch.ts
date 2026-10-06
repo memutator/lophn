@@ -30,6 +30,7 @@ import {
   type ConfirmationBridge,
   consumeRouteConfirmation,
   type CredentialTarget,
+  type RouteConfirmation,
 } from "../identity/mod.ts";
 import {
   contentTypeJson,
@@ -118,7 +119,7 @@ export type DispatchDeps = {
   workers?: WorkerTargets;
   uploads?: ReadonlyMap<string, UploadHandler>;
   // file route의 사람 결정 확인. 없으면 confirmation file route는 넘기지 않는다.
-  confirmation?: ConfirmationBridge;
+  confirmation?: ConfirmationBridge | RouteConfirmation;
   // 동작별 body 상한. 없으면 RPC JSON 256KiB.
   bodyLimit?: (route: Route) => number;
   bodyTimeoutMs: number;

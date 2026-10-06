@@ -84,6 +84,7 @@ export {
   type IpcWriter,
   markUnavailable,
   parseValidateFilesRequest,
+  PREPARATION_OPS,
   type RequestPayload,
   sendPreparationRequest,
   VALIDATE_INPUT_MAX_BYTES,
@@ -92,8 +93,16 @@ export {
 } from "./ipc.ts";
 export {
   createStatusRecorder,
+  fileStatusView,
   statusKey,
   type StatusMemory,
   type StatusObservation,
   type StatusRecorder,
 } from "./status.ts";
+export {
+  createFileReads,
+  type WorkingCopyCheck,
+  workingCopyCheck,
+} from "./reads.ts";
+export { createFileCommands } from "./commands.ts";
+export { workingCopyLocation } from "./working-copy.ts";

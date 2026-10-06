@@ -503,6 +503,7 @@ concerns: [documents]
 
 ### T24 context watch
 
+- 상태: 완료 (#318) — 한 것: `context.record_watch_change`·`context_watch_changes`, 구성 재생(`pendingWatches`), coordinator watch consumer와 core driver, `watch_unverified` 재확인(질문 Q33). 남은 것: 복원 event의 watch 여부, 모듈이 달라 미확인인 비교를 재추출로 푸는 길(Q33). 앱·노션 전달은 platform#T53, flow build-context의 notification 단계는 T27
 - 등급: 기본
 - concern: documents/contexts
 - 요구: documents/contexts#R9, R10, R11, R12, R13

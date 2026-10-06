@@ -4,7 +4,10 @@ import {
   createAppsReads,
   lookupAppRegistration,
 } from "../../packages/apps/registration/mod.ts";
-import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
+import {
+  appConnect,
+  appRegistrationLookup,
+} from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createConfirmCommands } from "../../packages/apps/invocations/confirm.ts";
 import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
@@ -12,6 +15,7 @@ import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.t
 import {
   createGrantCommands,
   createGrantsReads,
+  createSecretAllowance,
   permissionsSchemaSteps,
 } from "../../packages/apps/permissions/mod.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
@@ -28,6 +32,7 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
 import { releaseActivationFailed } from "../../packages/contracts/apps/mod.ts";
+import { SecretAllowance } from "../../packages/contracts/platform/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -39,6 +44,8 @@ type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
+  // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립이 apps-control의 service로 붙인다.
+  memoryRoutes?: readonly unknown[];
   ports?: readonly TxPortRegistration[];
 };
 
@@ -106,6 +113,9 @@ export function createLedgerRegistration(
       sdkReads.versions,
       sdkReads.usage,
     ],
+    // apps.connect는 supervisor의 메모리 관측과 인증 연결을 읽는 제어 어댑터라 ledger queue를
+    // 거치지 않는다(apps/runtime#R9, architecture/apps 5.1).
+    memoryRoutes: [appConnect],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [
@@ -114,6 +124,11 @@ export function createLedgerRegistration(
         create: (tx) => ({
           get: (app: string) => lookupAppRegistration(tx.sql, app),
         }),
+      },
+      // 앱 secret 전송의 현재 grant 판정이다(platform/secrets#R10, apps/permissions#R14).
+      {
+        key: SecretAllowance,
+        create: (tx) => createSecretAllowance(tx),
       },
       // documents가 하나로 나눈 place 이름 공간이다(dm#C7). documents 조립도 같은
       // 구현을 등록하므로 harness 등록을 겹치지 않게 documents만 실지 등록했다.

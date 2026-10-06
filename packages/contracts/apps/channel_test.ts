@@ -66,8 +66,16 @@ Deno.test("apps/runtime#R5, apps/runtime#R31, apps/preview#R7: POST /v1/apps/con
   const output = appConnectOutputSchema.parse({
     endpoint: "/run/user/lophn/a-1.sock",
     connection,
+    signature: "A".repeat(86),
   });
   assertEquals(output.connection.mode, "live");
+  // 서명 없는 connection은 앱이 받지 않으므로 출력에도 없을 수 없다.
+  assert(
+    appConnectOutputSchema.safeParse({
+      endpoint: "/run/user/lophn/a-1.sock",
+      connection,
+    }).success === false,
+  );
   assert(
     appConnectInputSchema.safeParse({ ...input, mode: "test" }).success ===
       false,

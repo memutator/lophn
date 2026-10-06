@@ -56,6 +56,8 @@ export const editorSessionSchema = z.object({ session }).strict();
 export const editorRestoreSchema = z.object({
   document: documentId,
   version: versionId,
+  /** 비교 화면이 지금 판으로 보여 준 최신 판. 복원은 이 판 위에서만 쓴다(그 사이 바뀌었으면 충돌). */
+  base_version: versionId,
   request_key: requestKey,
 }).strict();
 
@@ -282,7 +284,12 @@ export interface EditorFilesApi {
   ): Promise<EditorReply<WatchReport>>;
   release(input: { session: string }): Promise<void>;
   restore(
-    input: { document: string; version: string; request_key: string },
+    input: {
+      document: string;
+      version: string;
+      base_version: string;
+      request_key: string;
+    },
   ): Promise<EditorReply<RestoreReport>>;
   create(input: EditorCreate): Promise<EditorReply<CreateReport>>;
   place(

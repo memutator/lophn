@@ -28,6 +28,8 @@ export type ConfirmationIntent =
     purpose: string;
     /** provider credential의 값 아닌 등록 정보. */
     credential?: ProviderCredentialFields;
+    /** 이미 등록한 계정 하나의 교체·삭제. */
+    change?: { key: string; action: "replace" | "revoke" };
   };
 
 /** contracts shell providerCredentialFieldsSchema. */
@@ -38,7 +40,8 @@ export interface ProviderCredentialFields {
   readonly account: string | null;
   readonly organization: string | null;
   readonly plan: string | null;
-  readonly dedup_fingerprint: string;
+  /** 없으면 main이 제출 때 넣은 값에서 만든다. */
+  readonly dedup_fingerprint?: string;
 }
 
 /**

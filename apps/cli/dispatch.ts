@@ -65,13 +65,13 @@ import {
   inspectIntegration,
   type Inspection,
   installSelected,
+  integrationsStore,
   launchOf,
   LOPHN_SKILL_NAMES,
   NATIVE_ENVIRONMENT,
   planSelected,
   removeSelected,
   stdioMcpProbe,
-  storeOf,
   updateSelected,
 } from "../../packages/coding-agent/harnesses/mod.ts";
 import {
@@ -263,6 +263,16 @@ function connectionRequired(): Result<never, LophnError> {
   });
 }
 
+// receipt·journal 폴더다. data root `H`의 `integrations`이고 launcher가 이 폴더 하나만 쓰기로 연다.
+function integrationsDirOf(runtime: CliRuntime): string {
+  const root = runtime.dataRoot ?? `${runtime.home ?? ""}/.lophn`;
+  return `${root.replace(/\/$/, "")}/integrations`;
+}
+
+function storeOf(runtime: CliRuntime) {
+  return integrationsStore(integrationsDirOf(runtime));
+}
+
 // `lophn doctor`와 설치가 쓰는 launch 입력이다. 모두 설치 묶음 기준 절대 경로다.
 function launchInputs(runtime: CliRuntime, target: IntegrationTarget) {
   return launchBase(
@@ -372,7 +382,7 @@ export async function runCliCommand(
             now: runtime.now(),
           }, {
             files: filePort(),
-            store: storeOf(runtime.home ?? ""),
+            store: storeOf(runtime),
           }),
       },
     );
@@ -495,7 +505,7 @@ async function runDoctor(
   }, {
     files: filePort(),
     mcp: stdioMcpProbe({ ambient: (key) => runtime.env.get(key) }),
-    store: storeOf(home),
+    store: storeOf(runtime),
     daemon: { status: () => portsOf(runtime).daemon.status() },
     connections: {
       async read(id) {
@@ -591,7 +601,7 @@ async function runHarness(
   const ports = portsOf(runtime);
   const home = runtime.home ?? "";
   const files = filePort();
-  const store = storeOf(home);
+  const store = storeOf(runtime);
   const client = runtime.client;
   const connections = connectionReader(client);
   const deps = {
@@ -601,7 +611,7 @@ async function runHarness(
       detectHarnesses(
         mode,
         ports.detect,
-        detectionCacheOf(home, files),
+        detectionCacheOf(home, files, integrationsDirOf(runtime)),
         runtime.now(),
       ),
     async inspect(

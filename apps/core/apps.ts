@@ -1,3 +1,4 @@
+import { err } from "../../packages/base/mod.ts";
 import {
   appsSchemaSteps,
   createAppCommands,
@@ -66,7 +67,10 @@ import {
   placeNameReservation,
 } from "../../packages/contracts/documents/mod.ts";
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
-import { releaseActivationFailed } from "../../packages/contracts/apps/mod.ts";
+import {
+  packagesGuideBody,
+  releaseActivationFailed,
+} from "../../packages/contracts/apps/mod.ts";
 import { SecretAllowance } from "../../packages/contracts/platform/mod.ts";
 import type {
   EventRegistration,
@@ -84,6 +88,12 @@ type LedgerRegistration = {
   // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립이 apps-control의 service로 붙인다.
   memoryRoutes?: readonly unknown[];
   ports?: readonly TxPortRegistration[];
+};
+
+const unattachedGuideBodyRead = {
+  route: packagesGuideBody,
+  handle: () =>
+    err({ code: "unavailable", message: "안내 원문 읽기가 붙어 있지 않다" }),
 };
 
 // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
@@ -122,7 +132,11 @@ export function createLedgerRegistration(
     blobFields: [BACKUP_BLOB_FIELD, PACKAGE_GUIDE_BLOB_FIELD],
     // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
-    apiReads: createPreviewReads(() => unattachedPreviewService()),
+    apiReads: [
+      ...createPreviewReads(() => unattachedPreviewService()),
+      // SDK 안내 원문 읽기다. route만 선언하고 handler는 blob 바이트 통로를 가진 core 조립(runtime)이 붙인다.
+      unattachedGuideBodyRead,
+    ],
     // place_names 표는 documents 등록의 몫이다(R6, R10).
     schemaSteps: [
       ...appsSchemaSteps,

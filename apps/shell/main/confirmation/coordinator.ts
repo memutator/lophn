@@ -69,7 +69,10 @@ export type SubmitReceipt =
     /** 접수(accepted)와 결정 자체가 적용인 command의 결과를 구별한다. */
     readonly result?: ConfirmationResult;
   }
-  | { readonly secret_ref: string; readonly stored: "stored" | "unchanged" };
+  | {
+    readonly secret_ref: string;
+    readonly stored: "stored" | "unchanged" | "revoked";
+  };
 
 export interface SubmitPort {
   /**

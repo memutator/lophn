@@ -47,8 +47,15 @@ export function outcomeText(
   const result = done.result as {
     result?: string;
     secret_ref?: string;
+    stored?: string;
   };
   if (kind === "secret") {
+    // 삭제는 새 일에서 막았다는 것만 말한다. 값을 지웠다고 하지 않는다.
+    if (result.stored === "revoked") {
+      return t("confirmation-window.result.removed", {
+        name: result.secret_ref ?? "",
+      });
+    }
     return t("confirmation-window.result.saved", {
       name: result.secret_ref ?? "",
     });

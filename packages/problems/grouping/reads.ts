@@ -6,6 +6,10 @@ import type {
   RequestContext,
 } from "../../contracts/platform/mod.ts";
 import {
+  type ProblemWordingFact,
+  ProblemWordingPort,
+} from "../../contracts/problems/mod.ts";
+import {
   closureSchema,
   getProblem,
   type GroupKey,
@@ -26,9 +30,12 @@ import {
 
 const BROKEN = "저장된 문제를 읽을 수 없다";
 
-// 선언 code의 당시 문구는 release 선언을 읽는 problems#T27이 채운다. 그 전과 선언을
-// 읽을 수 없을 때는 이 안내다. 앱 이름은 목록 항목의 `app`으로 화면이 붙인다.
+// 선언 code의 당시 문구는 보고 당시 release의 선언이다(problem-codes#R4). 그 release가
+// 없거나 선언을 읽을 수 없을 때는 이 안내고, 앱 이름을 알면 이름을 붙인다.
 const DECLARED_FALLBACK = "There is a problem to check in this app.";
+
+// fixer가 user인 선언의 다음 행동이다(problem-codes#R4, #261 이어받음).
+const USER_ACTION = "Adjust the app's settings or input for this problem.";
 
 const RESERVED_MESSAGE: ReadonlyMap<string, string> = new Map(
   reservedProblemCodes().map((reserved) => [reserved.code, reserved.message]),
@@ -37,6 +44,49 @@ const RESERVED_MESSAGE: ReadonlyMap<string, string> = new Map(
 // 예약 3종은 catalog en 그대로다(problem-codes#R6).
 export function symptomOf(key: GroupKey): string {
   return RESERVED_MESSAGE.get(key.code) ?? DECLARED_FALLBACK;
+}
+
+type Wording = {
+  symptom: string;
+  next_action: string | null;
+};
+
+// 보고 당시 release의 선언 문구가 나온다(problems#T27). release를 모르는 보고, port가
+// 등록되지 않은 core, 그 release가 없거나 선언에 그 code가 없는 경우에는 fallback이고,
+// 앱 이름을 알면 이름을 붙인다. 예약 code는 catalog en 그대로다(problem-codes#R6).
+function declaredWording(
+  snapshot: ReadSnapshot,
+  app: string,
+  release: string | null,
+  code: string,
+): Result<Wording> {
+  if (RESERVED_MESSAGE.has(code)) {
+    return ok({ symptom: RESERVED_MESSAGE.get(code)!, next_action: null });
+  }
+  const fallbackWith = (name: string | null): Wording => ({
+    symptom: name === null
+      ? DECLARED_FALLBACK
+      : DECLARED_FALLBACK.replace("this app", name),
+    next_action: null,
+  });
+  if (release === null) return ok(fallbackWith(null));
+  let found: Result<ProblemWordingFact | null>;
+  try {
+    const lookup = snapshot.port(ProblemWordingPort);
+    found = lookup(snapshot.sql, app, release, code);
+  } catch {
+    return ok(fallbackWith(null));
+  }
+  if (!found.ok) {
+    return ok(fallbackWith(null));
+  }
+  if (found.value === null) return ok(fallbackWith(null));
+  const { app_name, declaration } = found.value;
+  if (declaration === null) return ok(fallbackWith(app_name));
+  return ok({
+    symptom: declaration.message,
+    next_action: declaration.fixer === "user" ? USER_ACTION : null,
+  });
 }
 
 function groupKeyOf(row: Record<string, unknown>): Result<GroupKey> {
@@ -115,9 +165,8 @@ function parseCursor(
   return ok({ pin: pin.value, before: before.value });
 }
 
-// 기본 항목은 앱·증상·진행·필요한 다음 행동뿐이다(grouping#R11). 사람이 해야 할 행동은
-// 선언의 fixer를 읽는 problems#T27 전에는 알 수 없어 null이다. claim·기한·연결 식별자·
-// 보고 수는 싣지 않는다.
+// 기본 항목은 앱·증상·진행·필요한 다음 행동뿐이다(grouping#R11). 당시 선언의 fixer가
+// user면 사람이 할 일을 채운다(problems#T27). claim·기한·연결 식별자·보고 수는 싣지 않는다.
 export const listProblemsRead = {
   route: listProblems,
   handle(
@@ -148,12 +197,28 @@ export const listProblemsRead = {
     for (const row of page.value.rows) {
       const key = groupKeyOf({ group_key: row.group_key });
       if (!key.ok) return key;
+      // 보고 당시 release의 선언 문구다(problems#T27). 목록은 seq 내림차순이라 최근
+      // 보고의 release를 찾을 때까지 row마다 내려가지 않아도 문제마다 한 번 본다.
+      const lastReport = snapshot.sql.get(
+        `select release from reports
+         where app = ? and code = ?
+         order by observed_at desc, id desc limit 1`,
+        [row.app, key.value.code],
+      );
+      if (!lastReport) return err({ code: "internal", message: BROKEN });
+      const wording = declaredWording(
+        snapshot,
+        row.app,
+        lastReport["release"] === null ? null : String(lastReport["release"]),
+        key.value.code,
+      );
+      if (!wording.ok) return wording;
       problems.push({
         id: row.id,
         app: row.app,
         status: row.status,
-        symptom: symptomOf(key.value),
-        next_action: null,
+        symptom: wording.value.symptom,
+        next_action: wording.value.next_action,
         seq: String(row.seq),
       });
     }
@@ -232,6 +297,14 @@ export const getProblemRead = {
     ) {
       return err({ code: "internal", message: BROKEN });
     }
+    // 상세 문구도 보고 당시 release의 선언이다(problems#T27). 최근 보고의 release를 쓴다.
+    const wording = declaredWording(
+      snapshot,
+      String(row["app"]),
+      lastReport["release"] === null ? null : String(lastReport["release"]),
+      key.value.code,
+    );
+    if (!wording.ok) return wording;
     const problem = problemSchema.safeParse({
       id: String(row["id"]),
       app: String(row["app"]),
@@ -250,7 +323,7 @@ export const getProblemRead = {
     if (!problem.success) return err({ code: "internal", message: BROKEN });
     return ok({
       problem: problem.data,
-      text: symptomOf(key.value),
+      text: wording.value.symptom,
       report_count: Number(observed["total"]),
       first_observed_at: observed["first_at"] === null
         ? null

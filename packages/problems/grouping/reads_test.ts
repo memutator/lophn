@@ -843,6 +843,13 @@ Deno.test("problems/problem-codes#R4: 선언 문제의 증상은 보고 당시 r
       null,
     );
 
+    // 새 release에서 선언을 지워도 이전 보고는 당시 문구다(R4).
+    await declare(h, NEWER_RELEASE, "payment_declined", null);
+    assertEquals(
+      value(await get(h, "get", { problem }))["text"],
+      "The card was declined by the issuer.",
+    );
+
     // 보고했던 release의 당시 선언을 지운다. 선언을 읽을 수 없으므로 앱 이름과
     // fallback 안내다(R4).
     await declare(h, RELEASE, "payment_declined", null);

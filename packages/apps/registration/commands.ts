@@ -18,7 +18,7 @@ import {
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import { placeNameReservation } from "../../contracts/documents/mod.ts";
-import { type AppAccessTarget, authorizeApp } from "./model.ts";
+import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
 import { insertApp, loadApp, replaceApp } from "./store.ts";
 
 function forbidden(message: string): Result<never> {
@@ -143,9 +143,6 @@ export function createAppCommands(): {
         const current = loadApp(tx.sql, input.app);
         if (!current.ok) return current;
         if (current.value === null) return notFound();
-        if (current.value.revision !== compare.base_revision) {
-          return conflict("app revision changed");
-        }
         // 경로 문법은 contract가 이미 판정했으므로 그대로 저장한다. 폴더 확인은
         // core에 두지 않는다(R4, architecture/apps 배치표). bundle 준비 때 release
         // worker가 연결된 실제 source 경계를 읽고, 없는 source는 준비 실패가 된다.
@@ -157,7 +154,12 @@ export function createAppCommands(): {
           appConnectSource.name,
           accessTarget(current.value, changed),
         );
+        // 범위 밖 앱은 revision 비교보다 먼저 없는 앱과 같은 응답으로 닫는다.
+        if (denied(access)) return notFound();
         if (!access.ok) return access;
+        if (current.value.revision !== compare.base_revision) {
+          return conflict("app revision changed");
+        }
         // source 연결은 운영 상태를 건드리지 않는다(R5). active_release·
         // run_enabled·status는 current 값을 그대로 쓴다.
         const seq = tx.emit(appSourceConnected, changed.id, {
@@ -231,12 +233,6 @@ function transition(
   const current = loadApp(tx.sql, id);
   if (!current.ok) return current;
   if (current.value === null) return notFound();
-  if (current.value.status !== move.from) {
-    return conflict(`app status is not ${move.from}`);
-  }
-  if (current.value.revision !== compare.base_revision) {
-    return conflict("app revision changed");
-  }
   const changed: App = {
     ...current.value,
     status: move.to,
@@ -248,7 +244,15 @@ function transition(
     operation,
     accessTarget(current.value, changed),
   );
+  // 범위 밖 앱은 상태·revision 비교보다 먼저 없는 앱과 같은 응답으로 닫는다.
+  if (denied(access)) return notFound();
   if (!access.ok) return access;
+  if (current.value.status !== move.from) {
+    return conflict(`app status is not ${move.from}`);
+  }
+  if (current.value.revision !== compare.base_revision) {
+    return conflict("app revision changed");
+  }
   const seq = tx.emit(move.event, changed.id, move.payload);
   const next: App = { ...changed, revision: seq };
   const stored = replaceApp(tx, next);

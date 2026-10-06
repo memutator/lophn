@@ -10,6 +10,7 @@ import {
   otherHash,
   project,
   saved,
+  version,
 } from "./document-fixtures.ts";
 import {
   FILE_EVENTS,
@@ -301,4 +302,123 @@ Deno.test("documents/file-tracking#R2: delete registers the owner decision and t
   assert(
     !filesRead.input.safeParse({ target: { kind: "disk", path } }).success,
   );
+});
+
+const existingContent = {
+  kind: "existing" as const,
+  reference: {
+    owner_kind: "document_version",
+    owner_key: `${version}/report.md`,
+    field: "file",
+    hash,
+    registered_seq: "7",
+  },
+};
+const placeWrite = {
+  request_key: key,
+  target: projectTarget,
+  base_hash: null,
+  content: existingContent,
+  place: { document: doc, version },
+};
+
+Deno.test("documents/file-tracking#R13: 두기 의도는 새 project 파일과 판 파일의 원본 참조에만 붙고 기존 호출은 그대로다", () => {
+  assert(filesWrite.input.safeParse(placeWrite).success);
+  assert(fileWriteRequestSchema.safeParse(placeWrite).success);
+  // 의도가 없는 기존 쓰기는 바뀌지 않는다.
+  assert(fileWriteRequestSchema.safeParse(writeRequest).success);
+  const { place: _place, ...withoutPlace } = placeWrite;
+  assert(fileWriteRequestSchema.safeParse(withoutPlace).success);
+  for (
+    const invalid of [
+      // 기존 파일 위에는 두지 않는다.
+      { ...placeWrite, base_hash: otherHash },
+      // 사본·지침 파일 목표에는 두지 않는다.
+      { ...placeWrite, target: workingCopy },
+      { ...placeWrite, target: instructionTarget },
+      // 쓸 바이트는 그 판 파일의 원본 참조다.
+      { ...placeWrite, content: fileInput.content },
+      // 판 확정 요청과 함께 쓰지 않는다.
+      {
+        ...placeWrite,
+        version_request: {
+          document: doc,
+          base_version: version,
+          idempotency_key: key,
+        },
+      },
+      { ...placeWrite, place: { document: doc } },
+      { ...placeWrite, place: { document: doc, version, extra: true } },
+      { ...placeWrite, place: { document: "x", version } },
+    ]
+  ) assert(!fileWriteRequestSchema.safeParse(invalid).success);
+});
+
+Deno.test("documents/file-tracking#R14: 빼기 의도는 문서만 가리키고 확인 묶음은 그대로다", () => {
+  const input = {
+    request_key: key,
+    target: projectTarget,
+    base_hash: hash,
+  };
+  assert(filesDelete.input.safeParse(input).success);
+  assert(
+    filesDelete.input.safeParse({ ...input, unlink: { document: doc } })
+      .success,
+  );
+  assert(!filesDelete.input.safeParse({ ...input, unlink: {} }).success);
+  assert(
+    !filesDelete.input.safeParse({
+      ...input,
+      unlink: { document: doc, version },
+    }).success,
+  );
+  // 사람이 확인하는 대상은 파일 삭제 하나다. 연결 해제는 확인 묶음에 들어가지 않는다.
+  assertEquals(filesDelete.binding, ["request_key", "target", "base_hash"]);
+  assertEquals(filesDelete.confirmation, "required");
+});
+
+Deno.test("documents/file-tracking#R15: 연결 확정 단계 결과는 파일 결과와 따로 싣고 없어도 된다", () => {
+  const done = { state: "done" as const };
+  const placement = {
+    source: done,
+    tracking: {
+      state: "skipped" as const,
+      reason: "the file is already tracked",
+    },
+    move: {
+      state: "failed" as const,
+      error: { code: "conflict" as const, message: "name is reserved" },
+    },
+  };
+  assert(
+    fileOperationResultSchema.safeParse({ ...written, placement }).success,
+  );
+  assert(
+    fileOperationResultSchema.safeParse({
+      ...written,
+      operation: "delete" as const,
+      outcome: "deleted" as const,
+      unlinking: { source: done, move: { state: "not_attempted" } },
+    }).success,
+  );
+  assert(fileOperationResultSchema.safeParse(written).success);
+  for (
+    const invalid of [
+      { ...written, placement: { ...placement, move: { state: "unknown" } } },
+      { ...written, placement: { source: done, tracking: done } },
+      {
+        ...written,
+        placement: {
+          ...placement,
+          move: { state: "failed", error: { code: "teapot", message: "x" } },
+        },
+      },
+      {
+        ...written,
+        placement: { ...placement, tracking: { state: "skipped" } },
+      },
+    ]
+  ) assert(!fileOperationResultSchema.safeParse(invalid).success);
+  assert(filesWrite.output.safeParse({ ...written, placement }).success);
+  assert(filesDelete.output.safeParse({ ...written, placement }).success);
 });

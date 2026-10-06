@@ -28,6 +28,7 @@ import {
   WORKSPACE_GROUPS,
 } from "./model.ts";
 import { documentSearch } from "./search.ts";
+import { appRow, fakeApps } from "../lophn-space/apps/testdata/fake-apps.ts";
 
 const core: CoreSource = {
   subscribe(listener) {
@@ -351,6 +352,29 @@ Deno.test("shell/desktop#R30: lophn 공간 팔레트의 컨텍스트·앱·행�
   await win.press("palette");
   await win.choose("Back to launcher");
   assert(!view.container.querySelector("[data-space='lophn']"));
+});
+
+Deno.test("shell/desktop#R30: 앱 통로가 있는 창에서 팔레트의 앱 행은 그 앱 공간으로 간다", async () => {
+  const win = fakeWindow();
+  const { source } = fakeSource();
+  const apps = fakeApps({ rows: [appRow("app_1", "Groceries")] });
+  using view = render(
+    <Desktop
+      source={core}
+      initial={openLophn()}
+      lophn={source}
+      palette={win.deps}
+      apps={apps.source}
+    />,
+  );
+  await flush();
+  await win.press("palette");
+  await win.choose("Groceries");
+  await flush();
+  assertEquals(
+    find(view.container, "[data-space='app']").getAttribute("data-app"),
+    "app_1",
+  );
 });
 
 Deno.test("shell/desktop#R18: 팔레트 키는 다시 누르면 닫고 런처 복귀 키는 어느 공간에서든 런처로 간다", async () => {

@@ -30,6 +30,8 @@ import {
 import { lophnScope } from "../palette/lophn-scope.ts";
 import { ThingsToConfirm } from "./things-to-confirm/things-to-confirm.tsx";
 import { useRequests } from "./things-to-confirm/context.tsx";
+import { AppsScreen } from "./apps/apps-screen.tsx";
+import type { AppsSource } from "./apps/source.ts";
 import styles from "./lophn-space.module.css";
 
 export interface LophnSpaceProps {
@@ -47,6 +49,10 @@ export interface LophnSpaceProps {
   initialRead?: { readonly document: string; readonly version: string };
   /** things-to-confirm에서 처음 고를 요청. */
   initialRequest?: string;
+  /** apps 화면 통로. 없으면 apps는 준비 전 안내다. */
+  apps?: AppsSource;
+  /** 그 앱의 앱 공간으로 간다. apps 화면의 열기와 팔레트의 앱 행이 쓴다. */
+  onApp?: (app: string) => void;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -62,6 +68,8 @@ export function LophnSpace(
     now,
     initialRead,
     initialRequest,
+    apps,
+    onApp,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
@@ -129,8 +137,10 @@ export function LophnSpace(
         else if (target.kind === "project") onProject?.(target.id);
         else if (target.kind === "screen") setCurrent(target.screen);
         else if (target.kind === "context") setCurrent("contexts");
-        else if (target.kind === "app") setCurrent("apps");
-        else {
+        else if (target.kind === "app") {
+          if (onApp) onApp(target.id);
+          else setCurrent("apps");
+        } else {
           setCurrent("documents");
           setReading((last) => ({
             target: {
@@ -205,6 +215,8 @@ export function LophnSpace(
                 initialRead={reading?.target}
               />
             )
+            : current === "apps" && apps && onApp
+            ? <AppsScreen source={apps} onOpen={onApp} />
             : current === "things-to-confirm" && requests !== null
             ? (
               <ThingsToConfirm

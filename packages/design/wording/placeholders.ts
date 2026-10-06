@@ -2,6 +2,40 @@
 import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
+  "app-space.button.add-shortcut": Record<never, never>;
+  "app-space.button.app-details": Record<never, never>;
+  "app-space.button.documents": Record<never, never>;
+  "app-space.button.new-window": Record<never, never>;
+  "app-space.button.remove-shortcut": Record<never, never>;
+  "app-space.empty.archived": Record<never, never>;
+  "app-space.empty.no-version": Record<never, never>;
+  "app-space.empty.not-found": Record<never, never>;
+  "app-space.empty.screen-not-ready": Record<never, never>;
+  "app-space.heading.app-details": Record<never, never>;
+  "app-space.heading.this-computer": Record<never, never>;
+  "app-space.label.this-app": Record<never, never>;
+  "app-space.notice.shortcut-added": Record<never, never>;
+  "app-space.notice.shortcut-failed": Record<never, never>;
+  "app-space.notice.shortcut-not-installed": Record<never, never>;
+  "app-space.notice.shortcut-removed": Record<never, never>;
+  "app-space.notice.window-failed": Record<never, never>;
+  "apps.button.archive": Record<never, never>;
+  "apps.button.open": Record<never, never>;
+  "apps.button.restore": Record<never, never>;
+  "apps.empty.no-apps": Record<never, never>;
+  "apps.error.action-failed": {
+    name: "string";
+  };
+  "apps.error.changed": Record<never, never>;
+  "apps.label.list-target": Record<never, never>;
+  "apps.label.name": Record<never, never>;
+  "apps.label.status": Record<never, never>;
+  "apps.notice.archived": {
+    name: "string";
+  };
+  "apps.notice.restored": {
+    name: "string";
+  };
   "app-card.notice.contract-changed": Record<never, never>;
   "app-card.notice.not-card": Record<never, never>;
   "app-card.notice.unavailable": Record<never, never>;
@@ -83,6 +117,12 @@ export type PlaceholderKinds = {
   "common.label.all-of": {
     dimension: "string";
   };
+  "common.label.app-archived": Record<never, never>;
+  "common.label.app-preparing": Record<never, never>;
+  "common.label.app-running": Record<never, never>;
+  "common.label.app-stopped": Record<never, never>;
+  "common.label.app-unavailable": Record<never, never>;
+  "common.label.app-unknown": Record<never, never>;
   "common.label.app-mode-live": Record<never, never>;
   "common.label.app-mode-preview": Record<never, never>;
   "common.label.app-state-preparing": Record<never, never>;

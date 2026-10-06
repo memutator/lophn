@@ -16,7 +16,7 @@ import {
   WebContentsView,
 } from "electron";
 import { randomBytes, randomFillSync, randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -81,6 +81,18 @@ import { createRestorer } from "../editor/restore.ts";
 import { registerEditorIpc, removeEditorIpc } from "../editor/ipc.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
 import { type AppWindowConfig, createAppWindows } from "./app-window.ts";
+import {
+  type AppWindowIpcMain,
+  createAppWindowIpc,
+  registerAppWindowIpc,
+  removeAppWindowIpc,
+} from "./app-window-ipc.ts";
+import {
+  type EntryFiles,
+  installOsEntry,
+  type OsEntryEnv,
+  removeOsEntry,
+} from "./os-entry/entry.ts";
 import {
   type OpenIntent,
   openUrlIntent,
@@ -271,7 +283,7 @@ function coreInternal(
 function windowOfRef(ref: string): BrowserWindow | undefined {
   return [...windows].find((window) =>
     !window.isDestroyed() && windowRef(window) === ref
-  );
+  ) ?? appWindowRefs.get(ref);
 }
 
 // 앱 view registry(shell#T37). 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
@@ -603,6 +615,69 @@ const appWindows = createAppWindows({
   log,
 });
 
+// 앱 바로가기의 실제 OS 쓰기(shell/desktop#R14). 같은 디렉터리의 임시 파일을 rename해 쓰고,
+// macOS bundle은 폴더째 지운다. installOsEntry가 headless·개발 실행에서는 부르지 않는다.
+const nodeEntryFiles: EntryFiles = {
+  write(path, data, mode) {
+    mkdirSync(dirname(path), { recursive: true });
+    const temp = `${path}.${process.pid}.tmp`;
+    writeFileSync(temp, data, { mode });
+    renameSync(temp, path);
+  },
+  remove(path) {
+    rmSync(path, { recursive: true, force: true });
+  },
+};
+const osEntryEnv: OsEntryEnv = {
+  platform: process.platform,
+  packaged: app.isPackaged,
+  headless: headless.headless,
+  execPath: process.execPath,
+  ...(process.env.APPIMAGE ? { appImage: process.env.APPIMAGE } : {}),
+  home: homedir(),
+  dataHome: process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"),
+  appData: process.env.APPDATA || join(homedir(), "AppData", "Roaming"),
+  probe: nodeExecutableProbe,
+  files: nodeEntryFiles,
+  shortcuts: {
+    write(path, options) {
+      mkdirSync(dirname(path), { recursive: true });
+      return shell.writeShortcutLink(path, "create", options);
+    },
+  },
+  log,
+};
+
+// 앱 공간의 [Open in new window]와 바로가기 추가·삭제. desktop 창 본문만 부른다.
+const appWindowIpcMain: AppWindowIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(
+      channel,
+      (event, input: unknown) => listener(event as unknown as IpcEvent, input),
+    ),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerAppWindowIpc(
+  appWindowIpcMain,
+  createAppWindowIpc({
+    registry: overlays.overlayRegistry(),
+    openWindow: (app) => appWindows.open(app),
+    readApp: (app) => {
+      const session = core.session();
+      return session
+        ? session.internal("read", "apps", "get", { app })
+        : Promise.resolve({
+          ok: false,
+          error: { code: "unavailable", message: "core is not ready" },
+        });
+    },
+    entries: {
+      install: (app) => installOsEntry(osEntryEnv, app),
+      remove: (app) => removeOsEntry(osEntryEnv, app),
+    },
+  }),
+);
+
 /** 창 열기 intent. 열 수 없는 앱은 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. */
 function openIntent(intent: OpenIntent): void {
   if (intent.kind === "app") {
@@ -731,6 +806,7 @@ function stopAll(): void {
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   removeEditorIpc(editorIpc);
   removeViewIpc(viewIpcMain);
+  removeAppWindowIpc(appWindowIpcMain);
   viewVisibility.dispose();
   removeAppIpc(appIpc);
   removeConfirmationIpc(confirmationIpc);
@@ -1015,7 +1091,8 @@ function openDesktopWindow(): BrowserWindow | undefined {
     // 개발 확인 전용. 제품 실행은 이 변수를 주지 않는다.
     // `LOPHN_SHELL_START=lophn`은 headless 확인에서 런처 대신 lophn 공간부터 연다.
     // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다. `things-to-confirm`은
-    // lophn 공간의 things-to-confirm 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터 연다.
+    // lophn 공간의 things-to-confirm 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터,
+    // `apps`는 apps 형제부터, `app:<id>`는 그 앱 공간부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
@@ -1026,6 +1103,10 @@ function openDesktopWindow(): BrowserWindow | undefined {
       ? `${DESKTOP_URL}#things-to-confirm`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
       ? `${DESKTOP_URL}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
+      : process.env.LOPHN_SHELL_START === "apps"
+      ? `${DESKTOP_URL}#apps`
+      : /^app:app_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
+      ? `${DESKTOP_URL}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
       : DESKTOP_URL,
     windows: {
       create: (config: WindowConfig) => {

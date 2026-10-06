@@ -860,6 +860,8 @@ concerns: [shell]
   - 화면 테스트.
 - 후속: 앱 이름 변경 command app.rename(#354). apps 화면의 행 동작은 이 command를 부른다.
 - 가져올 것: legacy `spaces/AppSpace.tsx`의 얇은 chrome 배치, `screens/Apps.tsx`.
+- 상태: 완료 (#353) — 이어보냄: 앱 공간 screen의 blueprint read → shell#T45, [Report a problem] 자리 → shell#T52, 운영 패널 안 app-detail → shell#T43. 막힘: apps 화면의 이름 바꾸기(apps/registration에 앱 이름 바꾸는 command가 없다, lead에 보고)
+- 정한 것: (1) 앱 공간은 renderer route `{space: "app", app}`이고 apps 화면의 [Open]과 팔레트의 앱 행이 연다(앱 통로가 없는 창은 apps 형제로 간다). 본문은 그 앱의 지금 version을 live·full로 여는 `EmbeddedView` 하나이고, 열 screen은 `AppsSource.entryScreen`(blueprint가 `full`을 선언한 첫 screen)이 준다. 그 read가 없거나 view 통로가 없으면 view를 열지 않고 "This app's screen can't open here yet."을, 보관·version 없음·없는 앱도 각각 한 문장을 보인다. 연결 상태는 view가 알린 `connectionState`, 그 전에는 `apps/runtime`이다. (2) 운영 패널(`ops-panel-frame.tsx`)은 720px, 창 1,024px 이상은 본문 옆 열, 미만은 overlay이고 `useViewCover`로 앱 view를 덮이지 않은 폭으로 줄인다. 대화 도크가 열리면 패널은 자리를 내주고 닫히면 돌아온다. 좁은 창의 도크 overlay도 덮개로 등록한다. 패널 안에는 지금 "On this computer"(OS 앱 메뉴 추가·삭제)만 있고 나머지는 T43이 채운다. (3) 바: 런처 복귀, 이름·상태(`StatusMark`, 화면 말 Running·Stopped·Getting ready·Not responding·Archived·Status unknown), `SpaceDecisions`, [Report a problem] 자리(`AppBar.report`, 비어 있음), Documents(lophn 공간 documents로 전환), [Open in new window], App details, 도크 토글. 전역 관리 진입점은 두지 않는다. (4) 새 창·바로가기 IPC는 `shell:app-window-open`·`shell:app-shortcut-add`·`shell:app-shortcut-remove`(`ipc/app-window.ts`, preload `lophnAppWindows`)이고 desktop 창 main frame만 부르며 입력은 `{app}` 하나다. main(`main/desktop/app-window-ipc.ts`)은 바로가기 이름을 `apps/get`의 active 앱에서 읽고 결과를 `ok`·고정 code(`not_installed`=설치한 lophn이 아님, `os_failed`, `unavailable` 등)로만 돌려준다. 실제 writer(같은 폴더 임시 파일 rename·mode, 폴더째 제거, Windows `shell.writeShortcutLink`)와 `OsEntryEnv` 조립은 main.ts에 있고, headless·개발 실행은 `installOsEntry`가 쓰지 않는다. (5) apps 화면: 보관하지 않은 앱 먼저 이름 순, 이름·상태·[Open]·[Archive]/[Restore]. 보관은 되돌릴 수 있어 묻지 않고 결과만 알리고, 낡은 기준(conflict)이면 최신을 다시 읽는다. core가 다시 준비되면 다시 읽는다. (6) 이름 바꾸기는 하지 않았다: apps/registration에 앱 이름을 바꾸는 command가 없다(documents#T5가 예약 port의 "이름 변경 transaction"을 전제할 뿐). apps 쪽 command가 생기면 apps 화면 행에 붙인다. (7) 개발 확인용 `LOPHN_SHELL_START=apps`·`app:<app id>`(renderer `#apps`·`#app=<id>`)
 
 ### T43 app-detail: Version, Access, Automations, Connections, Activity, Data
 
@@ -878,6 +880,7 @@ concerns: [shell]
   - Connections(다른 앱 command), Activity(invocation은 기본에서 숨기고 펼치면 Activity), Data(export).
   - app [Instructions] 진입(T32), Issues·Tasks 탭 자리(T53, T50).
   - flow change-app, restore-app-release, run-app-automation, manage-app-permissions, connect-apps, use-app-command(app-detail 쪽) 화면. 화면 테스트.
+- shell#T42에서 넘어온 것: 운영 패널 틀은 `renderer/app-frame/ops-panel-frame.tsx`의 `OpsPanelFrame`(720px, 좁은 창 overlay·덮개 등록, 머리 "App details"와 닫기)이고 `app-space.tsx`가 children으로 지금 "On this computer"(OS 앱 메뉴 추가·삭제) 칸만 넘긴다. app-detail 탭은 그 children 자리에 둔다
 
 ### T44 앱 패널 탭과 세션 앱 카드
 
@@ -922,6 +925,7 @@ concerns: [shell]
 - shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
 - shell#T41에서 넘어온 것: @lophn/ui-action `CommandButton`은 confirm 거절·만료도 `lophnApp.call`의 일반 실패("<label> didn't finish. Try again.", `onFailed(code)`)로 보인다. 거절·만료에 따로 보일 code를 정하면 `packages/sdk/ui-action/use-command.ts`의 code 읽기와 문구를 그 code에 맞춘다
 - shell#T47에서 넘어온 것: main.ts `appWindows`의 `entryScreen`(앱 전용 창에 여는 screen)을 같은 `/v1/apps/blueprint` read로 잇는다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen이다. 지금은 unavailable이라 실제 shell에서 `--open-app`은 전용 창 대신 가장 최근 창을 앞으로 가져온다
+- shell#T42에서 넘어온 것: 앱 공간 본문의 screen도 같은 blueprint read로 잇는다. renderer `desktop/lophn-space/apps/core-source.ts`의 `entryScreen(app, release)`가 지금 unavailable을 돌려줘 실제 shell의 앱 공간은 "This app's screen can't open here yet."만 보인다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen key를 돌려주면 `EmbeddedView`가 연다(route가 contract에 생기면 renderer allowlist에도 자동으로 들어간다)
 
 ### T46 앱 화면 검사 host
 
@@ -1048,6 +1052,7 @@ concerns: [shell]
   - 앱 view가 crash·무한 loop여도 버튼과 dialog가 동작한다. 안내에 stack·log·원문 오류가 없고 문제 문구는 problems가 정한 값 그대로.
   - contracts/problems 문구 상수 key를 wording 검사의 알려진 key로 잇는다.
   - `feedback_test`와 `e2e/shell/report-problem_test.ts`(깨진 view에서 dialog 열림, 캡처 동안 view가 보임)에 위 요구 테스트. problems#T23의 선행.
+- shell#T42에서 넘어온 것: 앱 공간 바의 [Report a problem] 자리는 `renderer/app-frame/app-bar.tsx`의 `AppBar.report`(지금 `app-space.tsx`가 넘기지 않아 비어 있다)다. 버튼이 묶일 view_session은 `EmbeddedView`의 `onState`가 알린 값이다
 
 ### T53 app-detail Issues: 문제, 수리 결과, 사람 결정
 

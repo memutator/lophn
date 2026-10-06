@@ -37,6 +37,13 @@ export function contextFixture(authorize: TargetAuthorizer = allowAll) {
   ) {
     db.exec(step.sql);
   }
+  // command가 읽는 ledger events 표. emit이 같은 모양으로 쌓는다(seq는 integer).
+  db.exec(
+    `CREATE TABLE events (
+       seq INTEGER PRIMARY KEY, type TEXT NOT NULL, subject TEXT,
+       actor TEXT, run TEXT, payload TEXT NOT NULL, at TEXT
+     )`,
+  );
   let seq = 0n;
   let minted = 0;
   const emitted: Emitted[] = [];
@@ -78,6 +85,9 @@ export function contextFixture(authorize: TargetAuthorizer = allowAll) {
           seq += 1n;
           const value = seq.toString();
           emitted.push({ type: _event.type, subject, payload, seq: value });
+          db.prepare(
+            "INSERT INTO events (seq, type, subject, payload) VALUES (?, ?, ?, ?)",
+          ).run(Number(value), _event.type, subject, JSON.stringify(payload));
           return value;
         },
         now: () => "2026-10-05T00:00:00.000Z",
@@ -134,6 +144,14 @@ export function contextFixture(authorize: TargetAuthorizer = allowAll) {
           return authorizer.current as T;
         },
       };
+    },
+    // 다른 concern이 낸 event(DocumentSaved 같은 것)를 ledger events 표에 남긴다. 새 seq를 준다.
+    recordEvent(type: string, subject: string | null, payload: unknown) {
+      seq += 1n;
+      db.prepare(
+        "INSERT INTO events (seq, type, subject, payload) VALUES (?, ?, ?, ?)",
+      ).run(Number(seq), type, subject, JSON.stringify(payload));
+      return seq.toString();
     },
     // 문서 대상 검사가 통과할 documents 행을 심는다. place·source는 없다.
     seedDocument(id: string): void {

@@ -105,17 +105,10 @@ function flow(sourcePath: string | null = SOURCE) {
         next_cursor: null,
       };
     },
-    "blob.read": (input) => {
-      const { owner_kind, owner_key, field } = input as {
-        owner_kind: string;
-        owner_key: string;
-        field: string;
-      };
-      const text = GUIDES[owner_key];
-      if (owner_kind !== "package_version" || field !== "guide") {
-        return fail("not_found", "없는 blob이다");
-      }
-      if (text === undefined) return fail("not_found", "없는 blob이다");
+    "packages.guide_body": (input) => {
+      const { name, version } = input as { name: string; version: string };
+      const text = GUIDES[`${name}@${version}`];
+      if (text === undefined) return fail("not_found", "blob 참조가 없다");
       const bytes = new TextEncoder().encode(text);
       return {
         status: "available",

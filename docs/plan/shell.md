@@ -903,6 +903,7 @@ concerns: [shell]
 
 ### T46 앱 화면 검사 host
 
+- 상태: 완료 (#360)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: problems/tests#R7(view 예외·깨진 view의 feedback 화면 검사), R19(관측 private IPC)

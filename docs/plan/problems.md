@@ -234,13 +234,17 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: problems#T9, contracts#T36, apps#T17, apps#T21
-- 완료:
-  - 빈 test DB 전체 migration과 이전 release schema → 새 schema migration을 각각 돌리고 한쪽 실패면 통과하지 않는다(R8)
-  - 잘못된 입력·read의 업무 쓰기·grant 없는 접근·confirm automation은 실패; grant된 secret 대역의 read·write 가져오기·동기화와 한 번 승인한 external automation은 허용; 출력 schema는 필수로 만들지 않는다(R9)
-  - net·secret·문서 쓰기는 고정 대역뿐이고 실제 외부 host 접속이 없다(R15)
-  - observations가 검사한 고정 기준·입력 범위와 인접 불변식을 별도 항목으로 구별한다(R12)
-  - 되돌리기를 지원하는 write는 변경 → 되돌림 → 원래 업무 상태 일치, 후속 변경 뒤 되돌림 충돌, 중복 되돌림 거절을 검사한다(apps/blueprint#R21의 확인; 같은 PR에서 problems/tests#R9와 architecture/problems 7.4를 고친다, 질문 Q10)
-  - 통합: change-app 5단계의 migration 2종 app test
+- 상태: 진행 (#347) — 체크 정의와 생성 로직 완료, harness 지원 대기
+- 완료 (진행 중):
+  - `harness/definitions.ts`: 5개 app contract check 추가 (migration_empty, migration_upgrade, read_contract, automation_scope, adapter_isolation)
+  - `app-test/generate.ts`: blueprint 기능별로 check 조건부 생성 (automations, read commands, external features)
+  - `app-test_test.ts`: check 생성 검증 테스트 4개 추가, observations scope 검증 추가
+  - observations에 scope 필드 포함으로 검사 대상 범위 명시 (R12)
+- 남은 것:
+  - apps#T21(preview/test-mode doubles) 기다려 harness fixture 지원
+  - apps#T17(data migration) 기다려 migration check harness 구현
+  - 실제 app test harness에서 각 check 관측(frame) 생성
+  - 미재: apps/blueprint#R21 되돌림 검사
 
 ### T11 app test: 화면 검사
 

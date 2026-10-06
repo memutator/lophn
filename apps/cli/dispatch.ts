@@ -11,6 +11,7 @@ import {
 } from "../../packages/base/mod.ts";
 import {
   connectionShow,
+  HUMAN_ONLY_NAMES,
   type IntegrationTarget,
   LOPHN_CONNECTION,
 } from "../../packages/contracts/coding-agent/mod.ts";
@@ -28,6 +29,19 @@ import { runApp } from "../../packages/coding-agent/cli/commands/app.ts";
 import { runApprovalOpen } from "../../packages/coding-agent/cli/commands/approval.ts";
 import { runContextPropose } from "../../packages/coding-agent/cli/commands/context.ts";
 import {
+  type DaemonLogFiles,
+  type DaemonPort,
+  runDaemon,
+} from "../../packages/coding-agent/cli/commands/daemon.ts";
+import {
+  type HarnessWriteName,
+  runHarnessDetect,
+  runHarnessInspect,
+  runHarnessList,
+  runHarnessWrite,
+} from "../../packages/coding-agent/cli/commands/harness-run.ts";
+import { mcpConfigOf } from "../../packages/coding-agent/cli/commands/mcp.ts";
+import {
   doctorOf,
   doctorSummary,
 } from "../../packages/coding-agent/cli/commands/doctor.ts";
@@ -36,12 +50,31 @@ import { runSave } from "../../packages/coding-agent/cli/commands/save.ts";
 import { runSdk } from "../../packages/coding-agent/cli/commands/sdk.ts";
 import { findCommand } from "../../packages/coding-agent/cli/registry.ts";
 import {
+  catalogOf,
+  detectHarnesses,
+  detectionCacheOf,
+  type DetectPorts,
   filePort,
+  inspectIntegration,
+  type Inspection,
   installSelected,
   launchOf,
+  LOPHN_SKILL_NAMES,
+  NATIVE_ENVIRONMENT,
+  planSelected,
+  removeSelected,
   stdioMcpProbe,
   storeOf,
+  systemExecPort,
+  systemFilesPort,
+  updateSelected,
 } from "../../packages/coding-agent/harnesses/mod.ts";
+import {
+  daemonStart,
+  daemonStatus,
+  daemonStop,
+  readRunMetadata,
+} from "../../packages/platform/install-and-update/mod.ts";
 import type { Route } from "../../packages/contracts/platform/mod.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
 
@@ -73,7 +106,100 @@ export type CliRuntime = {
   installRoot: string;
   daemonUrl: string;
   now(): string;
+  // 시험이 끼우는 눈이다. 없으면 실제 파일·process·platform daemon 판정을 쓴다.
+  ports?: Partial<CliPorts>;
 };
+
+export type CliPorts = {
+  detect: DetectPorts;
+  daemon: DaemonPort;
+  daemonLogs: DaemonLogFiles;
+  launch(
+    decision: { executable: string; argv: readonly string[] },
+  ): Promise<Result<void, LophnError>>;
+};
+
+// 실제 눈이다. platform의 instance lock·위치 metadata 판정을 그대로 쓰고 detect는 PATH와 catalog
+// fallback만 읽는다.
+function defaultPorts(runtime: CliRuntime): CliPorts {
+  const home = runtime.home ?? "";
+  const dataRoot = runtime.dataRoot ?? `${home}/.lophn`;
+  const runDir = `${dataRoot}/run`;
+  const root = runtime.installRoot.replace(/\/$/, "");
+  const executable = `${root}/lophn-desktop`;
+  const probeEnv: Record<string, string> = {};
+  for (const name of ["PATH", "HOME"]) {
+    const value = runtime.env.get(name);
+    if (value !== undefined) probeEnv[name] = value;
+  }
+  return {
+    detect: {
+      files: systemFilesPort(),
+      execFor: (classifier) => systemExecPort(classifier, probeEnv),
+      path: runtime.env.get("PATH"),
+      home,
+    },
+    daemon: {
+      start() {
+        const decision = daemonStart(dataRoot, executable);
+        return Promise.resolve(
+          decision.ok
+            ? ok({ executable, argv: decision.value.argv })
+            : decision,
+        );
+      },
+      startFail: (error) => Promise.resolve(err(error)),
+      stop() {
+        const decision = daemonStop(dataRoot, executable);
+        return Promise.resolve(
+          decision.ok
+            ? ok({ executable, argv: decision.value.argv })
+            : decision,
+        );
+      },
+      stopFail: (error) => Promise.resolve(err(error)),
+      status: () => daemonStatus(runDir),
+      async runMetadata() {
+        const read = await readRunMetadata(runDir);
+        return read.ok
+          ? ok({
+            api_port: read.value.api_port,
+            core_epoch: read.value.core_epoch,
+            started_at: read.value.started_at,
+          })
+          : read;
+      },
+    },
+    daemonLogs: {
+      paths: () =>
+        [0, 1, 2, 3, 4].map((index) =>
+          `${dataRoot}/logs/platform-${index}.jsonl`
+        ),
+    },
+    launch(decision) {
+      try {
+        const child = new Deno.Command(decision.executable, {
+          args: [...decision.argv],
+          env: { LOPHN_HOME: dataRoot },
+          stdin: "null",
+          stdout: "null",
+          stderr: "null",
+        }).spawn();
+        child.unref();
+        return Promise.resolve(ok(undefined));
+      } catch {
+        return Promise.resolve(err({
+          code: "unavailable",
+          message: "launcher를 띄우지 못했다(실행 권한 또는 설치 묶음)",
+        }));
+      }
+    },
+  };
+}
+
+function portsOf(runtime: CliRuntime): CliPorts {
+  return { ...defaultPorts(runtime), ...runtime.ports };
+}
 
 export function ambientEnv(): { get(name: string): string | undefined } {
   return {
@@ -117,6 +243,13 @@ function connectionRequired(): Result<never, LophnError> {
 
 // `lophn doctor`와 설치가 쓰는 launch 입력이다. 모두 설치 묶음 기준 절대 경로다.
 function launchInputs(runtime: CliRuntime, target: IntegrationTarget) {
+  return launchBase(
+    runtime,
+    target.scope_kind === "app" ? target.app_realpath : runtime.cwd,
+  );
+}
+
+function launchBase(runtime: CliRuntime, submissionRoot: string) {
   const root = runtime.installRoot.replace(/\/$/, "");
   const url = new URL(runtime.daemonUrl);
   return {
@@ -127,9 +260,7 @@ function launchInputs(runtime: CliRuntime, target: IntegrationTarget) {
     discoveryFiles: runtime.dataRoot === undefined
       ? []
       : [`${runtime.dataRoot}/run/location.json`],
-    submissionRoot: target.scope_kind === "app"
-      ? target.app_realpath
-      : runtime.cwd,
+    submissionRoot,
     coreAddress: url.host,
     appAddresses: [] as string[],
     credentialHelper: `${root}/lophn-credential`,
@@ -160,6 +291,16 @@ export async function runCliCommand(
         "MCP의 lophn_ticket으로 claim·보고한다. CLI는 지정 ticket 읽기만 한다",
       ],
       isError: true,
+    });
+  }
+  if (
+    (HUMAN_ONLY_NAMES as readonly string[]).includes(name) &&
+    runtime.actor !== "user"
+  ) {
+    // 관리 쓰기·daemon 시작·중지는 coding credential context에서 실행 전 거절이다(cli#R6, R40).
+    return err({
+      code: "forbidden",
+      message: "이 command는 사람 전용이다",
     });
   }
   const client = runtime.client;
@@ -209,6 +350,22 @@ export async function runCliCommand(
     );
   }
   if (name === "doctor") return await runDoctor(input, runtime);
+  if (name === "mcp config") return mcpConfig(input, runtime);
+  if (name.startsWith("daemon ")) {
+    return await runDaemonCommand(name, input, runtime);
+  }
+  if (name === "harness list") return ok(runHarnessList());
+  if (name.startsWith("harness ")) {
+    return await runHarness(name, input, runtime);
+  }
+  if (name.startsWith("skills ")) {
+    // 배포 skill 원본(guides)이 설치 묶음에 없다. 성공으로 꾸미지 않는다.
+    return unwired(name);
+  }
+  if (name.startsWith("session ")) {
+    // session summary의 core route와 plan(sessions)이 아직 없다.
+    return unwired(name);
+  }
   if (client === undefined) return connectionRequired();
   // 같은 호출을 다시 확인할 수 있게 사람이 준 key를 그대로 쓴다. 없으면 호출마다 새 key다.
   const idempotency = () =>
@@ -303,13 +460,7 @@ async function runDoctor(
     files: filePort(),
     mcp: stdioMcpProbe({ ambient: (key) => runtime.env.get(key) }),
     store: storeOf(home),
-    daemon: {
-      // 실행 중 daemon 판정은 이 command가 읽지 못한다. 알 수 없음으로 둔다.
-      status: () =>
-        Promise.resolve(
-          err({ code: "unavailable", message: "daemon 상태를 읽지 못했다" }),
-        ),
-    },
+    daemon: { status: () => portsOf(runtime).daemon.status() },
     connections: {
       async read(id) {
         if (client === undefined) return connectionRequired();
@@ -336,4 +487,173 @@ async function runDoctor(
     data: report.value,
     next: summary.next,
   });
+}
+
+function connectionReader(client: CoreClient | undefined) {
+  return {
+    async read(
+      id: string,
+    ): Promise<Result<{ state: "active" | "revoked" }, LophnError>> {
+      if (client === undefined) return connectionRequired();
+      const shown = await client.read(connectionShow, { connection: id });
+      if (!shown.ok) return shown;
+      const state = (shown.value as { connection?: { state?: string } })
+        .connection?.state;
+      return state === "active" || state === "revoked"
+        ? ok({ state })
+        : err({ code: "unavailable", message: "연결 상태를 읽지 못했다" });
+    },
+  };
+}
+
+// `lophn mcp config`: 설정 조각만 낸다. 제품 설정 파일은 읽지도 쓰지도 않는다(cli#R9).
+function mcpConfig(
+  input: Record<string, unknown>,
+  runtime: CliRuntime,
+): Result<CommandOutput, LophnError> {
+  const request = input as Parameters<typeof mcpConfigOf>[0];
+  // 설정 조각에는 운영 data 위치(daemon 위치 파일)를 싣지 않는다(cli#R9).
+  const made = mcpConfigOf(request, {
+    ...launchBase(runtime, runtime.cwd),
+    discoveryFiles: [],
+  });
+  return made.ok
+    ? ok({
+      summary:
+        `${request.target}의 MCP 설정 조각이다. 설정 파일은 바꾸지 않았다`,
+      data: made.value,
+      next: ["조각을 기존 설정과 비교해 사람이 넣는다"],
+    })
+    : made;
+}
+
+async function runDaemonCommand(
+  name: string,
+  input: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<Result<CommandOutput, LophnError>> {
+  const ports = portsOf(runtime);
+  const ran = await runDaemon(
+    name as Parameters<typeof runDaemon>[0],
+    strip(input) as Parameters<typeof runDaemon>[1],
+    {
+      actor: runtime.actor,
+      port: ports.daemon,
+      logs: ports.daemonLogs,
+      launch: ports.launch,
+    },
+  );
+  return ran;
+}
+
+// 사람이 고른 target 하나만 다룬다. 감지된 다른 제품은 읽지도 쓰지도 않는다(harnesses#R6).
+async function runHarness(
+  name: string,
+  input: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<Result<CommandOutput, LophnError>> {
+  const ports = portsOf(runtime);
+  const home = runtime.home ?? "";
+  const files = filePort();
+  const store = storeOf(home);
+  const client = runtime.client;
+  const connections = connectionReader(client);
+  const deps = {
+    actor: runtime.actor,
+    connections,
+    detect: (mode: "detect" | "refresh") =>
+      detectHarnesses(
+        mode,
+        ports.detect,
+        detectionCacheOf(home, files),
+        runtime.now(),
+      ),
+    async inspect(
+      harness: IntegrationTarget["harness_id"],
+    ): Promise<Result<Inspection, LophnError>> {
+      const target: IntegrationTarget = {
+        scope_kind: "user",
+        environment: NATIVE_ENVIRONMENT,
+        profile_id: null,
+        harness_id: harness,
+        app: null,
+        app_realpath: null,
+      };
+      const definition = catalogOf(harness);
+      if (definition === undefined) {
+        return err({ code: "invalid_input", message: "알 수 없는 제품이다" });
+      }
+      const id = typeof input.connection === "string"
+        ? input.connection
+        : runtime.env.get(LOPHN_CONNECTION) ?? null;
+      let connection: Parameters<typeof inspectIntegration>[0]["connection"] =
+        null;
+      if (id !== null) {
+        const read = await connections.read(id);
+        connection = { id, state: read.ok ? read.value.state : "unknown" };
+      }
+      return ok(
+        await inspectIntegration({
+          definition,
+          target,
+          roots: { home, env: runtime.env, cwd: runtime.cwd },
+          denoExecutable: `${runtime.installRoot.replace(/\/$/, "")}/deno`,
+          expectedTools: ["lophn_index", "lophn_read"],
+          expectedSkills: LOPHN_SKILL_NAMES,
+          connection,
+          now: runtime.now(),
+        }, {
+          files,
+          mcp: stdioMcpProbe({ ambient: (key) => runtime.env.get(key) }),
+          store,
+        }),
+      );
+    },
+    write(
+      action: HarnessWriteName,
+      request: {
+        connection: string;
+        target: IntegrationTarget;
+        components: readonly string[];
+        operationId: string;
+      },
+    ) {
+      const base = {
+        target: request.target,
+        connection: request.connection,
+        launch: launchOf({
+          ...launchInputs(runtime, request.target),
+          connection: request.connection,
+          toolsets: "core,app",
+        }),
+        version: null,
+        roots: { home, env: runtime.env, cwd: runtime.cwd },
+        operationId: request.operationId,
+        now: runtime.now(),
+        components: request.components,
+      };
+      const apply = action === "harness plan"
+        ? planSelected
+        : action === "harness update"
+        ? updateSelected
+        : action === "harness remove"
+        ? removeSelected
+        : installSelected;
+      return apply(base, { files, store });
+    },
+  };
+  if (name === "harness detect" || name === "harness refresh") {
+    return await runHarnessDetect(
+      name === "harness refresh" ? "refresh" : "detect",
+      deps,
+    );
+  }
+  if (name === "harness inspect") {
+    return await runHarnessInspect(input as { harness?: never }, deps);
+  }
+  return await runHarnessWrite(
+    name as HarnessWriteName,
+    input as Parameters<typeof runHarnessWrite>[1],
+    deps,
+  );
 }

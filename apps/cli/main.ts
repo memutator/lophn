@@ -38,7 +38,12 @@ import {
   createKnownSecretRegistry,
   createRedactionStream,
 } from "../../packages/platform/redaction/mod.ts";
-import { actorOf, ambientEnv, runCliCommand } from "./dispatch.ts";
+import {
+  actorOf,
+  ambientEnv,
+  type CliPorts,
+  runCliCommand,
+} from "./dispatch.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
 import type { RpcFetch } from "../../packages/contracts/platform/mod.ts";
 
@@ -93,6 +98,7 @@ export type CliOptions = {
   cwd?: string;
   home?: string;
   installRoot?: string;
+  ports?: Partial<CliPorts>;
 };
 
 // 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/apps/cli/main.ts`라 세 단계 위다.
@@ -278,6 +284,7 @@ export async function cliMain(
       installRoot: options.installRoot ?? INSTALL_ROOT,
       daemonUrl: address.value.url,
       now: () => new Date().toISOString(),
+      ...(options.ports === undefined ? {} : { ports: options.ports }),
     },
   );
   if (!ran.ok) {

@@ -32,6 +32,7 @@ import {
   boundsValid,
   type BoundView,
   boundViewOf,
+  type CardDisplay,
   checkOpen,
   closedOf,
   type ClosedView,
@@ -40,10 +41,12 @@ import {
   stateOf as state,
   targetOf,
   type ViewBounds,
+  type ViewListing,
 } from "./view-model.ts";
 
 export type {
   AppFrameOpen,
+  CardDisplay,
   AppFrameViewState,
   AppViewContents,
   AppViewHost,
@@ -51,6 +54,7 @@ export type {
   ClosedView,
   ConnectionState,
   ViewBounds,
+  ViewListing,
 } from "./view-model.ts";
 export { checkOpen } from "./view-model.ts";
 
@@ -79,6 +83,8 @@ interface Entry extends Bound, Placed {
   connectionState: ConnectionState;
   refreshing: Promise<void> | undefined;
   renewedFor: number | undefined;
+  /** 세션 카드가 묶인 message·block. 카드가 아니면 null이다. */
+  card: CardDisplay | null;
 }
 
 export function createAppFrame(deps: AppFrameDeps) {
@@ -219,7 +225,9 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry.refreshing !== undefined) return entry.refreshing;
     const generation = entry.generation;
     entry.refreshing = (async () => {
-      const next = await bind(entry.target, true);
+      // 세션 카드는 만든 때의 release에 고정된다. 다른 release로 바꿔 열지 않고 연결을 잃는다
+      // (lophn-agent/visuals AppCardReference). 다른 크기는 지금 채택된 release를 따른다.
+      const next = await bind(entry.target, entry.target.size !== "card");
       // 그 사이 닫히거나 교체됐으면 늦은 결과를 붙이지 않는다.
       if (
         entries.get(entry.view_session) !== entry ||
@@ -266,9 +274,12 @@ export function createAppFrame(deps: AppFrameDeps) {
 
   return {
     /** 연결을 얻어 view에 묶는다. bounds가 비어 있지 않으면 준비된 뒤 창 본문에 붙인다. */
-    async open(value: unknown): Promise<Outcome<AppFrameViewState>> {
+    async open(
+      value: unknown,
+      card?: CardDisplay,
+    ): Promise<Outcome<AppFrameViewState>> {
       const input = checkOpen(value);
-      if (input === undefined) {
+      if (input === undefined || (input.size === "card") !== (card !== undefined)) {
         return failure("invalid_input", "view request is invalid");
       }
       if (!deps.views.hasWindow(input.parentWindow)) {
@@ -293,6 +304,9 @@ export function createAppFrame(deps: AppFrameDeps) {
         connectionState: "running",
         refreshing: undefined,
         renewedFor: undefined,
+        card: card === undefined
+          ? null
+          : { message: card.message, block: card.block },
       } as Entry;
       entries.set(entry.view_session, entry);
       mount(entry);
@@ -306,7 +320,11 @@ export function createAppFrame(deps: AppFrameDeps) {
     ): Promise<Outcome<AppFrameViewState>> {
       const entry = entries.get(view_session);
       const input = checkOpen(value);
-      if (entry === undefined || input === undefined) {
+      // 카드는 묶인 답 자리 그대로 다른 대상으로 바꾸지 않는다.
+      if (
+        entry === undefined || input === undefined ||
+        entry.card !== null || input.size === "card"
+      ) {
         return failure("invalid_input", "view request is invalid");
       }
       if (!deps.views.hasWindow(input.parentWindow)) {
@@ -374,6 +392,22 @@ export function createAppFrame(deps: AppFrameDeps) {
           .filter((entry) => app === undefined || entry.target.app === app)
           .map(refreshEntry),
       );
+    },
+
+    /** 그 창에 열린 view의 참조. 앱 화면 내용·DOM·캡처는 싣지 않는다. */
+    views(window: string): ViewListing[] {
+      return [...entries.values()]
+        .filter((entry) => entry.window === window)
+        .map((entry) => ({
+          view_session: entry.view_session,
+          generation: entry.generation,
+          app: entry.target.app,
+          release: entry.target.release,
+          mode: entry.target.mode,
+          screen: entry.target.screen,
+          size: entry.target.size,
+          card: entry.card === null ? null : { ...entry.card },
+        }));
     },
 
     state(view_session: string): AppFrameViewState | undefined {

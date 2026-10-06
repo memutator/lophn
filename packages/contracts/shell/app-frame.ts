@@ -10,6 +10,7 @@ import {
   screenSizeSchema,
   viewModeSchema,
 } from "../apps/channel-values.ts";
+import { visualKeySchema } from "../lophn-agent/visual-source.ts";
 
 // view ID는 main이 만든 메모리 식별이다. credential이 아니다(architecture/shell 5.2).
 const viewSessionSchema = z.string().min(1).refine(
@@ -108,12 +109,22 @@ export type AppFrame = {
   close(view_session: string): Promise<void>;
 };
 
+// 세션 앱 카드는 답의 message·block 표시 참조에 묶여 열린다(architecture/shell 5.4). 카드만
+// 싣고 다른 크기는 싣지 않는다. 카드 입력은 여기 없다.
+export const appViewCardSchema = z.strictObject({
+  message: idSchema("msg"),
+  block: visualKeySchema,
+});
+
 export const appViewOpenSchema = z.strictObject({
   app: idSchema("app"),
   mode: viewModeSchema,
   release: idSchema("rel").optional(),
   screen: screenKeySchema,
   size: screenSizeSchema,
+  card: appViewCardSchema.optional(),
+}).refine((value) => (value.size === "card") === (value.card !== undefined), {
+  message: "card views carry their message and block, other sizes do not",
 });
 
 export const documentViewOpenSchema = z.strictObject({

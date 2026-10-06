@@ -112,12 +112,16 @@ export interface DiagramContent {
   }[];
 }
 
-/** 앱 카드 참조. 카드 입력(input)은 이 화면이 쓰지 않아 옮기지 않는다. */
+/**
+ * 앱 카드 참조. 카드 입력(input)은 그리지 않고 앱 view 계약에 넘길 값으로 그대로 옮긴다
+ * (lophn-agent/visuals AppCardReference). owner가 view 계약·redaction을 검사했다.
+ */
 export interface AppCardContent {
   readonly kind: "app_card";
   readonly app: string;
   readonly release: string;
   readonly view: string;
+  readonly input: Readonly<Record<string, unknown>>;
 }
 
 export type VisualContent =
@@ -419,13 +423,15 @@ function diagram(raw: unknown): DiagramContent {
 
 function appCard(raw: unknown): AppCardContent {
   const value = fields(raw, ["app", "release", "view", "input"]);
-  // 카드 입력은 view 계약의 JSON object다. owner가 검사하고 이 화면은 쓰지 않는다.
-  if (!plain(value["input"])) fail();
+  // 카드 입력은 view 계약의 JSON object다. owner가 검사했고 이 화면은 그리지 않고 옮긴다.
+  const input = value["input"];
+  if (!plain(input)) fail();
   return {
     kind: "app_card",
     app: matching(value["app"], APP_ID),
     release: matching(value["release"], RELEASE_ID),
     view: text(value["view"]),
+    input,
   };
 }
 

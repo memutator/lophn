@@ -1,0 +1,62 @@
+/* 앱 패널 탭. 위 한 줄 shell 크롬 아래를 앱 view 자리가 채운다. */
+.panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.view {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  min-height: var(--space-0);
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--page-list);
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.heading {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.spaceOnly {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+}
+
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--layout-pane-padding-wide);
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  overflow-wrap: anywhere;
+}

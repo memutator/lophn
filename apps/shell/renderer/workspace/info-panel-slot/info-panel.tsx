@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef } from "react";
 import { t } from "@lophn/wording";
 
+import { useViewCover } from "../../app-frame/embedded-view.tsx";
 import { INFO_PANEL_WIDTH, type InfoPanelPlacement } from "../model.ts";
 import styles from "./info-panel.module.css";
 
@@ -36,6 +37,8 @@ export function InfoPanel(
   const ref = useRef<HTMLElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
+  // 좁은 창에서 본문을 덮는 동안 앱 view는 숨지 않고 덮이지 않은 폭으로 준다(app-frame#R36).
+  useViewCover(ref, placement === "overlay");
   // overlay일 때만 Escape와 바깥 click으로 닫는다. dock이면 본문 옆 열이라 그대로 둔다.
   useEffect(() => {
     if (placement !== "overlay") return;

@@ -1,0 +1,31 @@
+/* 앱 패널·카드 위 한 줄 크롬. 앱 bounds 밖이다. 이름, 모드, 연결 상태, 끝에 문제 알리기. */
+.chrome {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: var(--space-0);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border-base);
+  background: var(--color-surface-subtle);
+}
+
+.name {
+  min-width: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.mode {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.end {
+  margin-left: auto;
+}

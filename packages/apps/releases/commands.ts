@@ -10,8 +10,8 @@ import {
   releasePrepared,
   releaseSchema,
 } from "../../contracts/apps/mod.ts";
-import { validateBlueprint } from "../../contracts/apps/blueprint.ts";
-import { canonicalJson } from "../../contracts/apps/blueprint-json.ts";
+import { canonicalJson, validateBlueprint } from "../blueprint/mod.ts";
+import { missingSdkPermission } from "./sdk-permissions.ts";
 import {
   type ConnectionId,
   TicketClaimCheck,
@@ -25,7 +25,7 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { missingSdkPermission } from "../blueprint/sdk-permissions.ts";
+
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { declarationsOfBlueprint } from "./facts.ts";

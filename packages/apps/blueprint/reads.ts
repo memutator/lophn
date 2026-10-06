@@ -8,7 +8,7 @@ import {
   type AppBlueprintCommand,
   type Release,
 } from "../../contracts/apps/mod.ts";
-import type { Blueprint } from "../../contracts/apps/blueprint.ts";
+import type { Blueprint } from "./mod.ts";
 import type {
   ReadDefinition,
   ReadSnapshot,

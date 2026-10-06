@@ -5,6 +5,7 @@
 // 알림을 보낸다: 기다림은 OpenCode 기본 tool timeout 30초 안에서 끝난다(조사 T1).
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
+  appBlueprint,
   appConnect,
   appConnectSource,
   appCreate,
@@ -39,7 +40,7 @@ import {
 import { UNREADABLE_MESSAGE } from "./unreadable.ts";
 import type { FlowClient } from "./document-save.ts";
 
-// op마다 첫 소유 route다. blueprint·sync_tools는 core에 아직 소유 route가 없어 contract가 입력을
+// op마다 첫 소유 route다. sync_tools는 core에 아직 소유 route가 없어 contract가 입력을
 // 빌린 appRuntime을 가리키고, 실행은 구별해 거절한다(아래). command의 첫 core 요청은 앱 통로를
 // 여는 apps/connect이고 그 뒤는 core를 지나지 않는다(mcp#R29).
 export const APP_OP_ROUTES = {
@@ -54,7 +55,7 @@ export const APP_OP_ROUTES = {
   preview_stop: previewsStop,
   release_prepare: releasePrepareBundle,
   status: appRuntime,
-  blueprint: appRuntime,
+  blueprint: appBlueprint,
   invocations: invocationsList,
   invocation: invocationsGet,
   logs: appLogs,
@@ -263,11 +264,7 @@ export async function runAppOp(
     case "status":
       return await appStatus(input, deps);
     case "blueprint":
-      return unrouted(
-        deps,
-        "blueprint",
-        "command 중심 blueprint를 읽는 core route가 아직 없다(apps#T19 `/v1/apps/blueprint`)",
-      );
+      return await readBlueprint(input, deps);
     case "sync_tools":
       return unrouted(
         deps,
@@ -817,6 +814,33 @@ async function stopPreview(
 }
 
 // 개발 상태다: 운영 active release와 현재 preview를 따로 낸다(cli#R24).
+// active release에 고정된 blueprint다. 설명·구조 검증·실제 test 통과는 다른 근거로 표시한다
+// (apps/blueprint#R3). 범위 밖·없는 앱·active release 없는 앱은 같은 not_found라 합쳐 낸다.
+async function readBlueprint(
+  input: Obj,
+  deps: AppOpDeps,
+): Promise<AppOpOutput> {
+  const read = await deps.client.read(appBlueprint, { app: input.app });
+  if (!read.ok) return failure(read.error, [refer(deps, "list")]);
+  const value = obj(read.value);
+  const commands = Array.isArray(value.commands) ? value.commands : [];
+  const evidence = obj(value.evidence);
+  const test = obj(evidence.test);
+  const description = obj(evidence.description);
+  return {
+    summary: `release ${
+      hash12(value.release)
+    }의 blueprint: command ${commands.length}개, 설명 ${
+      description.complete === true ? "완성" : "빈자리 있음"
+    }, 실제 test ${test.passed === true ? "통과" : "근거 없음"}`,
+    data: value,
+    next: [
+      refer(deps, "command", "로 선언된 command를 호출한다"),
+      refer(deps, "invocations", "로 최근 호출 이력을 읽는다"),
+    ],
+  };
+}
+
 async function appStatus(input: Obj, deps: AppOpDeps): Promise<AppOpOutput> {
   const app = await deps.client.read(appGet, { app: input.app });
   if (!app.ok) return failure(app.error, [refer(deps, "list")]);

@@ -3,12 +3,12 @@
 // 이름·설명만 바뀐 것은 따로 낸다. 업무 의미의 동일성은 증명하지 않으므로 바뀐 것이 있으면
 // `review_required`다. 데이터 계약은 apps/data 근거(`data_schema`·`data_changes`), 접근 요청은
 // apps/permissions 근거(`added_permissions`)로 나눠 낸다.
-import type {
-  Blueprint,
-  CommandDeclaration,
-  InputSchema,
-} from "../../contracts/apps/blueprint.ts";
-import { canonicalJson } from "../../contracts/apps/blueprint-json.ts";
+import {
+  type Blueprint,
+  canonicalJson,
+  type CommandDeclaration,
+  type InputSchema,
+} from "../blueprint/mod.ts";
 import type {
   CommandChange,
   DataChange,

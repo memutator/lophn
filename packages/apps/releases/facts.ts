@@ -1,9 +1,8 @@
 // 고정 blueprint에서 현재 release의 선언 사실을 만든다. permissions의 `currentDeclarations` port가
 // 읽는 값이고 준비 때 한 번 계산해 release 행에 둔다(permissions는 blueprint를 해석하지 않는다).
 import { createHash } from "node:crypto";
-import type { Blueprint } from "../../contracts/apps/blueprint.ts";
-import { validateInput } from "../../contracts/apps/blueprint.ts";
-import { canonicalJson } from "../../contracts/apps/blueprint-json.ts";
+import type { Blueprint } from "../blueprint/mod.ts";
+import { canonicalJson, validateInput } from "../blueprint/mod.ts";
 import type { GrantPermissionRequirement } from "../../contracts/apps/mod.ts";
 import type {
   AppDeclarations,

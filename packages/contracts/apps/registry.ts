@@ -6,11 +6,13 @@ import {
   appCreated,
   appGet,
   appList,
+  appRename,
+  appRenamed,
   appSourceConnected,
   appUnarchive,
   appUnarchived,
 } from "./apps.ts";
-import { appConnect } from "./channel.ts";
+import { appConnect, appViewClosed } from "./channel.ts";
 import {
   appAutomations,
   appDisableExecution,
@@ -51,10 +53,12 @@ import {
 
 export const ROUTES = [
   appConnect,
+  appViewClosed,
   appCreate,
   appConnectSource,
   appArchive,
   appUnarchive,
+  appRename,
   appEnableExecution,
   appDisableExecution,
   appRecordStarted,
@@ -78,6 +82,7 @@ export const EVENTS = [
   appSourceConnected,
   appArchived,
   appUnarchived,
+  appRenamed,
   appExecutionEnabled,
   appExecutionDisabled,
   appStarted,

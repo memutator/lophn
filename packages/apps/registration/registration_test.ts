@@ -68,6 +68,7 @@ const operations = [
   "app.connect_source",
   "app.archive",
   "app.unarchive",
+  "app.rename",
   "app.list",
   "app.get",
   // place_names 이름 공간을 나누는(R6) project command다.
@@ -690,6 +691,138 @@ Deno.test("apps/registration#R5: a stale base_revision conflicts", async () => {
     } finally {
       await Deno.remove(folder, { recursive: true });
     }
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: rename works and moves the revision", async () => {
+  const opened = await harness();
+  try {
+    const created = commandResult(await create(opened));
+    const id = (created.result as { id: string }).id;
+    const active = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { name: string; revision: string } };
+    assertEquals(active.app.name, "Usage");
+    commandResult(
+      await opened.command(
+        user,
+        envelope("app.rename", "rename-usage", {
+          app: id,
+          name: "Usage Analytics",
+        }, {
+          base_revision: active.app.revision,
+        }),
+      ),
+    );
+    const renamed = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { name: string; revision: string } };
+    assertEquals(renamed.app.name, "Usage Analytics");
+    assertEquals(renamed.app.revision !== active.app.revision, true);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: a stale revision conflicts on rename", async () => {
+  const opened = await harness();
+  try {
+    const created = commandResult(await create(opened));
+    const id = (created.result as { id: string }).id;
+    const active = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { revision: string } };
+    commandResult(
+      await opened.command(
+        user,
+        envelope(
+          "app.rename",
+          "rename-first",
+          { app: id, name: "First Name" },
+          {
+            base_revision: active.app.revision,
+          },
+        ),
+      ),
+    );
+    // 낡은 base_revision은 conflict다.
+    code(
+      await opened.command(
+        user,
+        envelope(
+          "app.rename",
+          "rename-stale",
+          { app: id, name: "Second Name" },
+          {
+            base_revision: active.app.revision,
+          },
+        ),
+      ),
+      "conflict",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: a non-user actor is refused on rename", async () => {
+  const opened = await harness([user, coding]);
+  try {
+    const created = commandResult(await create(opened));
+    const id = (created.result as { id: string }).id;
+    const active = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { revision: string } };
+    // coding agent의 rename은 거절된다.
+    code(
+      await opened.command(
+        coding,
+        envelope("app.rename", "rename-coded", { app: id, name: "New Name" }, {
+          base_revision: active.app.revision,
+        }),
+      ),
+      "forbidden",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: absent app is not found on rename", async () => {
+  const opened = await harness();
+  try {
+    // non-existent app
+    const nonExistentId = "app_00000000000000000000000000";
+    code(
+      await opened.command(
+        user,
+        envelope("app.rename", "rename-absent", {
+          app: nonExistentId,
+          name: "New Name",
+        }, {
+          base_revision: "1",
+        }),
+      ),
+      "not_found",
+    );
   } finally {
     await opened.close();
   }

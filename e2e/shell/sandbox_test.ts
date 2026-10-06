@@ -244,8 +244,19 @@ Deno.test({
       };
       assertEquals(
         result.shell,
-        ["open", "close", "result", "subscribe"],
-        "lophnShell이 고정된 overlay api만 노출하지 않는다",
+        [
+          "open",
+          "close",
+          "update",
+          "result",
+          "subscribe",
+          "openApp",
+          "setViewBounds",
+          "setViewsHidden",
+          "closeView",
+          "subscribeViewState",
+        ],
+        "lophnShell이 고정된 overlay·view api만 노출하지 않는다",
       );
       assertEquals(
         result.shellFrozen,
@@ -268,7 +279,7 @@ Deno.test({
         "renderer에서 electron에 접근할 수 있다",
       );
 
-      // lophnShell은 임의 channel 이름을 받지 않는다. 4개 method 외에는 없다.
+      // lophnShell은 임의 channel 이름을 받지 않는다. 정한 method 외에는 없다.
       const arbitrary = await shell.evaluate(
         `typeof window.lophnShell?.arbitraryMethod`,
       );
@@ -417,7 +428,14 @@ Deno.test({
         database: string;
         db: string;
       };
-      assertEquals(result.shellKeys, ["open", "close", "result", "subscribe"]);
+      // overlay view에는 앱 view API가 없다.
+      assertEquals(result.shellKeys, [
+        "open",
+        "close",
+        "update",
+        "result",
+        "subscribe",
+      ]);
       assertEquals(result.coreKeys, ["subscribe", "call"]);
       assertEquals(result.token, "undefined");
       assertEquals(result.accessToken, "undefined");

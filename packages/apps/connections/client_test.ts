@@ -3,6 +3,8 @@
 import { assertEquals } from "@std/assert";
 import { BROKER_SOCKET_PATHS, SOCKET_HOST } from "../../contracts/apps/mod.ts";
 import {
+  APP_CONFIRM_POLL_PATH,
+  APP_CONFIRM_REQUEST_PATH,
   APP_CONNECT_PATH,
   createPairPort,
   installPairPort,
@@ -13,6 +15,11 @@ import {
 
 Deno.test("apps/connections#R4: 통로의 경로·host·심볼은 contracts와 SDK가 쓰는 값과 같다", () => {
   assertEquals(APP_CONNECT_PATH, BROKER_SOCKET_PATHS.appsConnect);
+  assertEquals(
+    APP_CONFIRM_REQUEST_PATH,
+    BROKER_SOCKET_PATHS.appsConfirmRequest,
+  );
+  assertEquals(APP_CONFIRM_POLL_PATH, BROKER_SOCKET_PATHS.appsConfirmPoll);
   assertEquals(PAIR_SOCKET_HOST, SOCKET_HOST);
   assertEquals(PAIR_PORT, Symbol.for("lophn.cap-apps"));
 });
@@ -36,6 +43,8 @@ Deno.test("apps/sdk#R40: 통로를 설치하기 전에는 아무것도 열려 �
   assertEquals((globalThis as Record<symbol, unknown>)[PAIR_PORT], undefined);
   const port = installPairPort(createPairPort({
     postConnect: () => Promise.resolve({ status: 503, body: null }),
+    postConfirmRequest: () => Promise.resolve({ status: 503, body: null }),
+    postConfirmPoll: () => Promise.resolve({ status: 503, body: null }),
     direct: () => Promise.resolve({ status: 503, body: null }),
   }));
   assertEquals((globalThis as Record<symbol, unknown>)[PAIR_PORT], port);

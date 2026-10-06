@@ -157,3 +157,16 @@ Deno.test("apps/connections#R4: 서비스를 달지 않은 broker에는 이 경�
   assertEquals(response.status, 500);
   assert((await response.json()).error.code === "internal");
 });
+
+Deno.test("apps/connections#R7: 받은 호출의 출처 식별은 준비로 전해지고 path 주장은 계약에서 거절된다", async () => {
+  const { requests, post } = setup();
+  const incoming = { app: TARGET, release: RELEASE, parent_invocation: null };
+  const response = await post(withChild({ ...request, incoming }));
+  assertEquals(response.status, 200);
+  assertEquals(requests[0].incoming, incoming);
+  const forged = await post(
+    withChild({ ...request, incoming: { ...incoming, path: [TARGET] } }),
+  );
+  assertEquals(forged.status, 400);
+  assertEquals(requests.length, 1);
+});

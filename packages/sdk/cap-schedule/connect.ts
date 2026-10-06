@@ -18,7 +18,14 @@ export type PairPort = {
     app: string;
     commands: readonly string[];
     parent_invocation: string | null;
+    incoming?: {
+      app: string;
+      release: string;
+      parent_invocation: string | null;
+    };
   }): Promise<PortResponse>;
+  confirmRequest(body: Record<string, unknown>): Promise<PortResponse>;
+  confirmPoll(body: Record<string, unknown>): Promise<PortResponse>;
   direct(endpoint: string, request: DirectRequest): Promise<PortResponse>;
 };
 
@@ -56,8 +63,13 @@ export type AppCommandOutcome =
 export type AppCallOptions = {
   // 같은 호출의 식별이다. 없으면 새로 정한다. 다시 부를 때는 같은 값을 쓴다.
   requestKey?: string;
-  // confirm=true command는 사람 approval 뒤 core가 서명한 proof를 붙인다.
+  // 이미 가진 proof를 붙인다. 없으면 confirm=true command는 아래 흐름으로 proof를 받는다.
   proof?: unknown;
+  // true면 처음부터 사람 확인 흐름으로 간다. 지정하지 않으면 대상 앱이 confirm을 요구했을 때만
+  // 간다. false면 자동으로 하지 않는다.
+  confirm?: boolean;
+  // 사람의 결정을 기다리는 한도(ms). 기본 5분이다. 넘으면 unavailable이고 details에 approval이 있다.
+  confirmTimeoutMs?: number;
 };
 
 export type AppCommandsClient = {
@@ -135,10 +147,13 @@ export async function connectAppCommands(
   if (host === undefined) return failure("app connections are not available");
   let response: PortResponse;
   try {
+    const context = currentContext();
     response = await host.connect({
       app,
       commands: [...commands],
-      parent_invocation: currentContext()?.invocation ?? null,
+      parent_invocation: context?.invocation ?? null,
+      // 다른 앱에게서 받은 호출이면 그 출처의 식별만 보낸다. path는 서비스가 정한다.
+      ...(context?.caller ? { incoming: context.caller } : {}),
     });
   } catch {
     return failure("connection could not be prepared");
@@ -162,6 +177,71 @@ export async function connectAppCommands(
     payload: connection,
     signature: body["signature"],
   });
+  const targetNonce = connection["process_nonce"];
+  const origin = plain(connection["caller"]);
+  const connectionParent = typeof origin?.["parent_invocation"] === "string"
+    ? origin["parent_invocation"]
+    : null;
+
+  // confirm=true command의 approval을 요청하고 사람의 결정을 짧은 poll로 기다려 proof를 받는다.
+  // 소켓을 오래 잡지 않고, 기다림은 호출한 쪽의 한도까지다.
+  async function proofFor(
+    command: string,
+    input: unknown,
+    timeoutMs: number,
+  ): Promise<AppResult<unknown>> {
+    if (release === undefined || typeof targetNonce !== "string") {
+      return failure("response did not match");
+    }
+    let requested: PortResponse;
+    try {
+      requested = await host!.confirmRequest({
+        app,
+        command,
+        ...(input === undefined ? {} : { input }),
+        target_release: release,
+        target_process_nonce: targetNonce,
+        parent_invocation: connectionParent,
+      });
+    } catch {
+      return failure("confirmation could not be requested");
+    }
+    if (requested.status !== 200) return failed(requested);
+    const approval = plain(requested.body)?.["approval"];
+    if (typeof approval !== "string") return failure("response did not match");
+    const deadline = Date.now() + timeoutMs;
+    while (true) {
+      let polled: PortResponse;
+      try {
+        polled = await host!.confirmPoll({ approval, wait_ms: 3000 });
+      } catch {
+        return failure("confirmation could not be read");
+      }
+      if (polled.status !== 200) return failed(polled);
+      const state = plain(polled.body)?.["state"];
+      if (state === "granted") {
+        const proof = plain(polled.body)?.["proof"];
+        return proof === undefined
+          ? failure("response did not match")
+          : { ok: true, value: proof };
+      }
+      if (state === "rejected") {
+        return failure("confirmation was rejected", "forbidden");
+      }
+      if (state === "expired") return failure("confirmation expired");
+      if (state !== "pending") return failure("response did not match");
+      if (Date.now() >= deadline) {
+        return {
+          ok: false,
+          error: {
+            code: "unavailable",
+            message: "confirmation is still pending",
+            details: { approval },
+          },
+        };
+      }
+    }
+  }
 
   async function direct(
     request: DirectRequest,
@@ -183,18 +263,40 @@ export async function connectAppCommands(
           return failure("command is outside the connection", "forbidden");
         }
         const requestKey = options.requestKey ?? crypto.randomUUID();
-        const sent = await direct({
-          method: "POST",
-          path: INVOKE_PATH,
-          authorization,
-          body: {
-            request_key: requestKey,
-            ...(release === undefined ? {} : { release }),
-            command,
-            ...(input === undefined ? {} : { input }),
-            ...(options.proof === undefined ? {} : { proof: options.proof }),
-          },
-        });
+        const timeoutMs = options.confirmTimeoutMs ?? 300_000;
+        let proof = options.proof;
+        if (proof === undefined && options.confirm === true) {
+          const obtained = await proofFor(command, input, timeoutMs);
+          if (!obtained.ok) return obtained;
+          proof = obtained.value;
+        }
+        const invoke = (attached: unknown) =>
+          direct({
+            method: "POST",
+            path: INVOKE_PATH,
+            authorization,
+            body: {
+              request_key: requestKey,
+              ...(release === undefined ? {} : { release }),
+              command,
+              ...(input === undefined ? {} : { input }),
+              ...(attached === undefined ? {} : { proof: attached }),
+            },
+          });
+        let sent = await invoke(proof);
+        // 대상 앱이 사람 확인을 요구하면(보낸 요청은 handler 전에 거절됐다) 확인 흐름으로 가서
+        // 같은 입력·같은 request_key로 한 번만 다시 보낸다.
+        if (
+          proof === undefined && options.confirm !== false &&
+          typeof sent === "object" && sent.status === 403 &&
+          plain(plain(plain(sent.body)?.["error"])?.["details"])?.[
+              "confirm_required"
+            ] === true
+        ) {
+          const obtained = await proofFor(command, input, timeoutMs);
+          if (!obtained.ok) return obtained;
+          sent = await invoke(obtained.value);
+        }
         // 요청이 나가지 않았으면 안전하게 다시 부를 수 있다. 보낸 뒤 끊겼으면 결과 모름이고
         // 자동으로 다시 부르지 않는다.
         if (sent === "not_sent") return failure("app is not reachable");

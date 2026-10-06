@@ -11,6 +11,7 @@ import {
 import type { Grant } from "../../contracts/apps/mod.ts";
 import {
   type BrokerEndpoint,
+  createAppsConfirmService,
   createAppsConnectService,
   createBrokerEndpoint,
   createInvocationBroker,
@@ -33,6 +34,7 @@ import {
   type PairResponse,
   unixPairDirect,
 } from "./mod.ts";
+import type { PairConfirmer } from "./confirm-request.ts";
 import { observeStarts } from "./origin.ts";
 import {
   createPairPreparer,
@@ -86,7 +88,7 @@ export type PairWorld = {
   // source 앱의 broker 자식 신원.
   child(peer: Peer): PairSource;
   // source 앱의 broker endpoint를 만들고 SDK가 읽는 앱 쌍 통로를 그 endpoint에 잇는다.
-  bridge(peer: Peer): Bridge;
+  bridge(peer: Peer, options?: { confirmer?: PairConfirmer }): Bridge;
   close(): Promise<void>;
 };
 
@@ -258,7 +260,7 @@ export async function openPairWorld(
         processNonce: peer.nonce,
       };
     },
-    bridge(peer) {
+    bridge(peer, bridgeOptions = {}) {
       const queued: unknown[] = [];
       const invocations = observeStarts(
         createInvocationBroker({
@@ -277,6 +279,13 @@ export async function openPairWorld(
         services: {
           invocations,
           apps: createAppsConnectService({ preparer }),
+          ...(bridgeOptions.confirmer
+            ? {
+              appsConfirm: createAppsConfirmService({
+                confirmer: bridgeOptions.confirmer as never,
+              }),
+            }
+            : {}),
         },
       });
       const direct: { path: string; command?: string }[] = [];
@@ -314,6 +323,10 @@ export async function openPairWorld(
       };
       installPairPort(createPairPort({
         postConnect: (body) => post("/_lophn/broker/apps/connect", body),
+        postConfirmRequest: (body) =>
+          post("/_lophn/broker/apps/confirm/request", body),
+        postConfirmPoll: (body) =>
+          post("/_lophn/broker/apps/confirm/poll", body),
         direct: counted,
       }));
       return {
@@ -407,6 +420,8 @@ export async function userAuthorization(
 }
 
 export const CONNECT = "/_lophn/broker/apps/connect";
+export const CONFIRM_REQUEST = "/_lophn/broker/apps/confirm/request";
+export const CONFIRM_POLL = "/_lophn/broker/apps/confirm/poll";
 
 export type Prepared = {
   endpoint: string;
@@ -420,6 +435,7 @@ export async function connectPair(
   app: string,
   commands: string[],
   parent: string | null = null,
+  incoming?: { app: string; release: string; parent_invocation: string | null },
 ): Promise<
   { ok: true; value: Prepared } | { ok: false; response: PairResponse }
 > {
@@ -427,6 +443,7 @@ export async function connectPair(
     app,
     commands,
     parent_invocation: parent,
+    ...(incoming === undefined ? {} : { incoming }),
   });
   if (response.status !== 200) return { ok: false, response };
   const body = response.body as {

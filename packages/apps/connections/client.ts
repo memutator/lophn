@@ -6,6 +6,8 @@
 
 export const PAIR_PORT = Symbol.for("lophn.cap-apps");
 export const APP_CONNECT_PATH = "/_lophn/broker/apps/connect";
+export const APP_CONFIRM_REQUEST_PATH = "/_lophn/broker/apps/confirm/request";
+export const APP_CONFIRM_POLL_PATH = "/_lophn/broker/apps/confirm/poll";
 // contracts/apps/channel-values.ts의 값과 같다. 시험이 같음을 확인한다.
 export const PAIR_SOCKET_HOST = "lophn.invalid";
 
@@ -23,10 +25,19 @@ export type PairConnectRequest = {
   commands: readonly string[];
   // 호출하는 현재 invocation. 서비스가 알려진 호출만 부모로 남긴다.
   parent_invocation: string | null;
+  // 처리 중인 호출을 다른 앱에게서 받았다면 그 출처의 식별. path는 보내지 않는다.
+  incoming?: {
+    app: string;
+    release: string;
+    parent_invocation: string | null;
+  };
 };
 
 export type PairPort = {
   connect(request: PairConnectRequest): Promise<PairResponse>;
+  // confirm=true command의 approval 요청과 결과 수령. 본문의 child 신원은 broker client가 붙인다.
+  confirmRequest(body: Record<string, unknown>): Promise<PairResponse>;
+  confirmPoll(body: Record<string, unknown>): Promise<PairResponse>;
   // 요청을 보내지 못하면 name이 "NotSent", 보낸 뒤 응답을 잃으면 "ResultLost"인 오류를 던진다.
   direct(endpoint: string, request: PairDirectRequest): Promise<PairResponse>;
 };
@@ -50,10 +61,14 @@ export type PairDirect = PairPort["direct"];
 export function createPairPort(deps: {
   // child의 process_nonce·mode는 broker client가 붙인다.
   postConnect(body: PairConnectRequest): Promise<PairResponse>;
+  postConfirmRequest(body: Record<string, unknown>): Promise<PairResponse>;
+  postConfirmPoll(body: Record<string, unknown>): Promise<PairResponse>;
   direct: PairDirect;
 }): PairPort {
   return {
     connect: (request) => deps.postConnect(request),
+    confirmRequest: (body) => deps.postConfirmRequest(body),
+    confirmPoll: (body) => deps.postConfirmPoll(body),
     direct: (endpoint, request) => deps.direct(endpoint, request),
   };
 }

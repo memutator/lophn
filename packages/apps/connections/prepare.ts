@@ -51,6 +51,12 @@ export type PairRequest = {
   app: string;
   commands: readonly string[];
   parent_invocation: string | null;
+  // 처리 중인 호출이 다른 앱에게서 받은 것이면 그 출처의 식별(path는 서비스가 정한다).
+  incoming?: {
+    app: string;
+    release: string;
+    parent_invocation: string | null;
+  };
 };
 
 export type PairConnection = {
@@ -243,6 +249,13 @@ export function createPairPreparer(deps: PairDeps): PairPreparer {
         target: request.app,
         grant: found.value.grant,
         parent: request.parent_invocation,
+        ...(request.incoming === undefined ? {} : {
+          incoming: {
+            app: request.incoming.app,
+            release: request.incoming.release,
+            parent: request.incoming.parent_invocation,
+          },
+        }),
       });
       if (!origin.ok) return origin;
       // 읽는 동안 source나 target이 교체됐으면 옛 사실로 서명하지 않는다.

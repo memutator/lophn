@@ -16,6 +16,11 @@ export type AppsConnectRequest = {
   app: string;
   commands: readonly string[];
   parent_invocation: string | null;
+  incoming?: {
+    app: string;
+    release: string;
+    parent_invocation: string | null;
+  };
 };
 
 // 연결 준비 서비스(core 쪽 apps/connections)의 포트다.
@@ -51,6 +56,7 @@ export function createAppsConnectService(deps: {
         app: input.app,
         commands: input.commands,
         parent_invocation: input.parent_invocation,
+        ...(input.incoming === undefined ? {} : { incoming: input.incoming }),
       });
       if (!prepared.ok) return prepared;
       const output = brokerAppsConnectOutputSchema.safeParse(prepared.value);

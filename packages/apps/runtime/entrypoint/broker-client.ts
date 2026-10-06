@@ -50,8 +50,20 @@ export function createBrokerClient(deps: {
       app: string;
       commands: readonly string[];
       parent_invocation: string | null;
+      incoming?: {
+        app: string;
+        release: string;
+        parent_invocation: string | null;
+      };
     }) {
       return post(BROKER_PATHS.appsConnect, body);
+    },
+    // confirm=true command의 approval 요청과 결과 수령(apps/connections#R3).
+    appsConfirmRequest(body: Record<string, unknown>) {
+      return post(BROKER_PATHS.appsConfirmRequest, body);
+    },
+    appsConfirmPoll(body: Record<string, unknown>) {
+      return post(BROKER_PATHS.appsConfirmPoll, body);
     },
   };
 }

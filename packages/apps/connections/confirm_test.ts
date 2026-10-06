@@ -3,6 +3,13 @@
 // 적용돼 접수가 확정된 뒤에만 proof가 서명돼 호출한 앱에 가고, B가 그 proof로 handler를 한 번 부른다.
 // core는 temp 홈에서 뜨고 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
+import {
+  createIdSource,
+  cryptoRandom,
+  err,
+  ok,
+  systemClock,
+} from "../../base/mod.ts";
 import { createLedgerRegistration } from "../../../apps/core/apps.ts";
 import {
   type CoreHarness,
@@ -12,6 +19,7 @@ import {
   actionOf,
   call,
   command,
+  count,
   createInput,
   decide,
 } from "../../../apps/core/testing/approvals-fixture.ts";
@@ -26,6 +34,13 @@ import {
   createConfirmProofIssuer,
 } from "./confirm.ts";
 import {
+  type ConfirmApprovals,
+  type ConfirmTargets,
+  createPairConfirmer,
+} from "./confirm-request.ts";
+import {
+  CONFIRM_POLL,
+  CONFIRM_REQUEST,
   connectPair,
   invokePair,
   openPairWorld,
@@ -246,67 +261,217 @@ async function close(
   await core.harness.close();
 }
 
-Deno.test("apps/connections#R3: A→B confirm=true는 사람 approval 적용 뒤 서명된 proof가 있어야만 B의 handler를 한 번 부른다", async () => {
+// core의 approval 쪽 어댑터다. 요청자는 호출한 앱(app credential)이고 허락은 사람이 하며 적용은
+// machine이 한다. 서비스가 poll에서 허락을 보면 적용하고 접수된 proof를 서명한다.
+function approvalsOf(core: Core): ConfirmApprovals {
+  const read = async (approval: string) => {
+    const reply = await call(
+      core.harness,
+      "approvals/get",
+      core.machine.token,
+      { approval },
+    );
+    return reply.status === 200
+      ? reply.body["request"] as ApprovalRequest
+      : undefined;
+  };
+  return {
+    async create({ approval, accept }) {
+      const action = await actionOf({
+        concern: "apps/invocations",
+        command: "invocation.accept_confirm",
+        caller: core.caller.context.actor,
+        targets: [accept.app, accept.release],
+        value: accept as never,
+        comparison: { release: accept.release },
+      });
+      const created = await call(
+        core.harness,
+        "approvals/create",
+        core.caller.token,
+        command(await createInput(approval, core.caller.context.actor, action)),
+      );
+      return created.status === 200 ? ok(undefined) : err({
+        code: "unavailable",
+        message: "approval could not be requested",
+      });
+    },
+    async state(approval) {
+      const found = await read(approval);
+      if (found === undefined) {
+        return err({ code: "not_found", message: "approval not found" });
+      }
+      const status = found.status as string;
+      return ok(
+        status === "pending" || status === "granted" || status === "expired"
+          ? status
+          : "rejected",
+      );
+    },
+    async apply(approval) {
+      const found = await read(approval);
+      if (found === undefined) {
+        return err({ code: "not_found", message: "approval not found" });
+      }
+      const applied = await call(
+        core.harness,
+        "approvals/apply",
+        core.machine.token,
+        command({
+          approval,
+          action: found.action,
+          idempotency_key: `apply-${approval}`,
+        }),
+      );
+      return applied.status === 200 ? ok(undefined) : err({
+        code: "conflict",
+        message: "approval could not be applied",
+      });
+    },
+  };
+}
+
+const targets: ConfirmTargets = {
+  async prepare(input) {
+    if (input.command !== PURGE) {
+      return err({
+        code: "invalid_input",
+        message: "command needs no confirm",
+      });
+    }
+    const hashed = await canonicalInputHash(PURGE_INPUT as never, input.input);
+    return hashed.ok ? ok({ input_hash: hashed.value }) : err({
+      code: "invalid_input",
+      message: hashed.error.message,
+    });
+  },
+};
+
+function confirmerOf(core: Core, world: PairWorld) {
+  return createPairConfirmer({
+    process: world.preparerDeps.process,
+    facts: world.preparerDeps.facts,
+    signer: world.signer,
+    paths: world.preparer.paths,
+    ids: createIdSource({ clock: systemClock, random: cryptoRandom }),
+    targets,
+    approvals: approvalsOf(core),
+    accepted: acceptances(core),
+    sleep: () => Promise.resolve(),
+  });
+}
+
+async function decideApproval(
+  core: Core,
+  approval: string,
+  decision: "grant" | "reject",
+) {
+  const reply = await call(core.harness, "approvals/get", core.machine.token, {
+    approval,
+  });
+  assertEquals(reply.status, 200, JSON.stringify(reply.body));
+  const decided = await decide(
+    core.harness,
+    core.user.token,
+    reply.body["request"] as ApprovalRequest,
+    decision,
+  );
+  assertEquals(decided.status, 200, JSON.stringify(decided.body));
+}
+
+Deno.test("apps/connections#R3: 호출한 앱이 broker로 approval을 요청해 사람의 결정을 poll로 기다리고 적용 뒤 서명된 proof로 B의 handler를 한 번 부른다", async () => {
   const ctx = await openWorld();
   const { core, world, a, b } = ctx;
   try {
-    const bridge = world.bridge(a);
+    const bridge = world.bridge(a, { confirmer: confirmerOf(core, world) });
     const prepared = await connectPair(bridge, b.app, ["usage.read", PURGE]);
     assert(prepared.ok);
-    const issuer = createConfirmProofIssuer({
-      process: world.preparerDeps.process,
-      facts: world.preparerDeps.facts,
-      signer: world.signer,
-      paths: world.preparer.paths,
-      accepted: acceptances(core),
-    });
     const hash = await inputHash(AMOUNT);
-    const input = acceptInput(a, b, hash);
-    const source = world.child(a);
 
-    // 연결 허락만으로는 proof 없이 실행되지 않는다.
+    // 연결 허락만으로는 proof 없이 실행되지 않고, 거절은 확인이 필요하다는 사실을 알린다.
     const bare = await invokePair(
       prepared.value,
       b.release,
       PURGE,
       AMOUNT,
-      "run-0",
+      "r0",
     );
     assertEquals(bare.status, 403);
-
-    // 사람이 허락해도 적용되기 전에는 접수가 없어 proof를 서명하지 않는다.
-    const apply = await approve(core, input);
-    const early = await issuer.issue({ source, accept: input });
-    assert(
-      !early.ok,
-      "proof must not be issued before the approval is applied",
-    );
     assertEquals(
-      (await core.access.invocations()).length,
-      0,
-      "the early lookup must not create an acceptance",
+      (bare.body as { error: { details: unknown } }).error.details,
+      { confirm_required: true },
     );
 
-    const applied = await apply();
-    assertEquals(applied.status, 200, JSON.stringify(applied.body));
-    const issued = await issuer.issue({ source, accept: input });
-    assert(issued.ok, JSON.stringify(issued));
-    assertEquals(issued.value.proof.payload.caller, input.caller);
-    assertEquals(issued.value.proof.payload.process_nonce, b.nonce);
+    const request = {
+      app: b.app,
+      command: PURGE,
+      input: AMOUNT,
+      target_release: b.release,
+      target_process_nonce: b.nonce,
+      parent_invocation: null,
+    };
+    // 신원은 자식 연결이 정한다. 다른 프로세스를 가리키거나 확인이 필요 없는 command는 거절된다.
+    const stale = await bridge.post(CONFIRM_REQUEST, {
+      ...request,
+      target_process_nonce: "old-nonce",
+    });
+    assertEquals(stale.status, 409);
+    const plain = await bridge.post(CONFIRM_REQUEST, {
+      ...request,
+      command: "usage.read",
+      input: undefined,
+    });
+    assertEquals(plain.status, 400);
+    assertEquals(
+      (await bridge.post(CONFIRM_REQUEST, { ...request, caller: {} })).status,
+      400,
+    );
 
-    // 호출한 앱은 같은 입력과 함께 B의 direct 호출에 붙인다.
+    const requested = await bridge.post(CONFIRM_REQUEST, request);
+    assertEquals(requested.status, 200, JSON.stringify(requested.body));
+    const { approval, input_hash } = requested.body as {
+      approval: string;
+      input_hash: string;
+    };
+    assertEquals(input_hash, hash);
+
+    // 사람이 결정하기 전에는 pending이고 접수도 proof도 없다.
+    const waiting = await bridge.post(CONFIRM_POLL, { approval, wait_ms: 0 });
+    assertEquals(waiting.body, { state: "pending" });
+    assertEquals((await core.access.invocations()).length, 0);
+    // 다른 자식의 approval 조회는 없는 것과 같다.
+    const other = await world.addPeer(5);
+    const stranger = await world.bridge(other).post(CONFIRM_POLL, { approval });
+    assertEquals(stranger.status, 404);
+
+    await decideApproval(core, approval, "grant");
+    const granted = await bridge.post(CONFIRM_POLL, { approval, wait_ms: 0 });
+    assertEquals(granted.status, 200, JSON.stringify(granted.body));
+    const result = granted.body as {
+      state: string;
+      invocation: string;
+      proof: { payload: Record<string, unknown>; signature: string };
+    };
+    assertEquals(result.state, "granted");
+    // approval은 이 적용에서 한 번 쓰였다.
+    assertEquals(
+      count(core.harness, "select count(*) as n from approval_uses"),
+      1,
+    );
+    assertEquals(result.proof.payload["process_nonce"], b.nonce);
+
     const run = await invokePair(
       prepared.value,
       b.release,
       PURGE,
       AMOUNT,
-      "run-1",
-      issued.value.proof,
+      "r1",
+      result.proof,
     );
     assertEquals(run.status, 200, JSON.stringify(run.body));
     assertEquals(
       (run.body as { invocation?: string }).invocation,
-      issued.value.invocation,
+      result.invocation,
     );
     // 같은 proof를 다시 보내도 handler는 다시 실행되지 않는다.
     const replay = await invokePair(
@@ -314,12 +479,20 @@ Deno.test("apps/connections#R3: A→B confirm=true는 사람 approval 적용 뒤
       b.release,
       PURGE,
       AMOUNT,
-      "run-2",
-      issued.value.proof,
+      "r2",
+      result.proof,
     );
     assert(replay.status === 200 || replay.status === 409);
-    const ran = b.child!.output().split("ran usage.purge").length - 1;
-    assertEquals(ran, 1);
+    assertEquals(b.child!.output().split("ran usage.purge").length - 1, 1);
+    // 끝난 approval은 다시 조회되지 않고 approval 사용도 늘지 않는다.
+    assertEquals(
+      (await bridge.post(CONFIRM_POLL, { approval, wait_ms: 0 })).status,
+      404,
+    );
+    assertEquals(
+      count(core.harness, "select count(*) as n from approval_uses"),
+      1,
+    );
 
     // 다른 입력에 옮긴 proof와 caller를 바꾼 proof는 거절된다.
     const moved = await invokePair(
@@ -327,26 +500,57 @@ Deno.test("apps/connections#R3: A→B confirm=true는 사람 approval 적용 뒤
       b.release,
       PURGE,
       { amount: 13 },
-      "run-3",
-      issued.value.proof,
+      "r3",
+      result.proof,
     );
     assertEquals(moved.status, 409);
     const forged = {
       payload: {
-        ...issued.value.proof.payload,
-        caller: { ...input.caller, app: "app_01h455vb4pex5v6nkc6gd5fd77" },
+        ...result.proof.payload,
+        caller: {
+          ...(result.proof.payload["caller"] as object),
+          app: "app_01h455vb4pex5v6nkc6gd5fd77",
+        },
       },
-      signature: issued.value.proof.signature,
+      signature: result.proof.signature,
     };
     const stolen = await invokePair(
       prepared.value,
       b.release,
       PURGE,
       AMOUNT,
-      "run-4",
+      "r4",
       forged,
     );
     assertEquals(stolen.status, 401);
+  } finally {
+    await close(ctx);
+  }
+});
+
+Deno.test("apps/connections#R3: 사람이 거절한 approval은 접수도 proof도 없이 rejected로 끝난다", async () => {
+  const ctx = await openWorld();
+  const { core, world, a, b } = ctx;
+  try {
+    const bridge = world.bridge(a, { confirmer: confirmerOf(core, world) });
+    const requested = await bridge.post(CONFIRM_REQUEST, {
+      app: b.app,
+      command: PURGE,
+      input: AMOUNT,
+      target_release: b.release,
+      target_process_nonce: b.nonce,
+      parent_invocation: null,
+    });
+    assertEquals(requested.status, 200, JSON.stringify(requested.body));
+    const approval = (requested.body as { approval: string }).approval;
+    await decideApproval(core, approval, "reject");
+    const polled = await bridge.post(CONFIRM_POLL, { approval, wait_ms: 0 });
+    assertEquals(polled.body, { state: "rejected" });
+    assertEquals((await core.access.invocations()).length, 0);
+    assertEquals(
+      count(core.harness, "select count(*) as n from approval_uses"),
+      0,
+    );
   } finally {
     await close(ctx);
   }

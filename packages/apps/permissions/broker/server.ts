@@ -9,6 +9,7 @@ import type { SecretUseService } from "./secrets.ts";
 import type { DocumentSaveService } from "./documents.ts";
 import type { ProblemReportService } from "./problems.ts";
 import type { AppsConnectService } from "./apps-connect.ts";
+import type { AppsConfirmService } from "./apps-confirm.ts";
 
 export const BROKER_ROUTES = {
   invocationsSubmit: "/_lophn/broker/invocations/submit",
@@ -17,6 +18,8 @@ export const BROKER_ROUTES = {
   documentsSave: "/_lophn/broker/documents/save",
   problemsReport: "/_lophn/broker/problems/report",
   appsConnect: "/_lophn/broker/apps/connect",
+  appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
+  appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
 } as const;
 
 export const BROKER_BODY_MAX_BYTES = 1_048_576;
@@ -28,6 +31,7 @@ export type BrokerServices = {
   documents?: DocumentSaveService;
   problems?: ProblemReportService;
   apps?: AppsConnectService;
+  appsConfirm?: AppsConfirmService;
 };
 
 export type BrokerSession = {
@@ -47,7 +51,8 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const { invocations, net, secrets, documents, problems, apps } = services;
+  const { invocations, net, secrets, documents, problems, apps, appsConfirm } =
+    services;
   if (invocations) {
     table.set(
       BROKER_ROUTES.invocationsSubmit,
@@ -63,6 +68,13 @@ function routes(services: BrokerServices): Map<string, Handler> {
     table.set(BROKER_ROUTES.problemsReport, (c, b) => problems.report(c, b));
   }
   if (apps) table.set(BROKER_ROUTES.appsConnect, (c, b) => apps.connect(c, b));
+  if (appsConfirm) {
+    table.set(
+      BROKER_ROUTES.appsConfirmRequest,
+      (c, b) => appsConfirm.request(c, b),
+    );
+    table.set(BROKER_ROUTES.appsConfirmPoll, (c, b) => appsConfirm.poll(c, b));
+  }
   return table;
 }
 

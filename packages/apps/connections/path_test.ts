@@ -7,6 +7,7 @@ import {
   connectPair,
   openPairWorld,
   type PairWorld,
+  PARENT,
   type Peer,
 } from "./world_test.ts";
 
@@ -256,5 +257,97 @@ Deno.test("apps/permissions#R29: 앱을 닫으면 그 앱이 source이거나 tar
     const closedSource = await connectPair(world.bridge(a), b.app, [READ]);
     assert(!closedSource.ok);
     assertEquals(closedSource.response.status, 503);
+  });
+});
+
+function incomingOf(peer: Peer, parent: string | null = null) {
+  return {
+    app: peer.app,
+    release: peer.release,
+    parent_invocation: parent,
+  };
+}
+
+Deno.test("apps/connections#R7: 호출을 받은 출처(incoming)를 싣으면 ledger에 남지 않는 읽기만 거친 A→B→A도 준비 때 거절된다", async () => {
+  await withWorld(async (world) => {
+    const a = await world.addPeer(1);
+    const b = await world.addPeer(2);
+    const c = await world.addPeer(3);
+    for (const [from, to] of [[a, b], [b, a], [c, a]]) {
+      world.declare(from, to, [READ]);
+      world.grant(from, to, [READ]);
+    }
+    const viaA = world.bridge(a);
+    const viaB = world.bridge(b);
+    const first = await connectPair(viaA, b.app, [READ]);
+    assert(first.ok);
+    // B는 A에게서 받은 호출(start 사실 없음)을 처리하다 A로 돌아간다.
+    const loop = await connectPair(viaB, a.app, [READ], null, incomingOf(a));
+    assert(!loop.ok);
+    assertEquals(loop.response.status, 400);
+    // 출처를 싣지 않으면 서비스는 알 수 없어 독립 호출로 본다(기록된 start가 없는 경우의 기존 동작).
+    assert((await connectPair(viaB, a.app, [READ])).ok);
+
+    // 서비스가 발급하지 않은 출처, 다른 release, 다른 부모를 주장하는 것은 거절된다.
+    for (
+      const claim of [
+        incomingOf(c),
+        { ...incomingOf(a), release: "rel_01h455vb4pex5v6nkc6gd5fd77" },
+        incomingOf(a, PARENT),
+      ]
+    ) {
+      const forged = await connectPair(viaB, a.app, [READ], null, claim);
+      assert(!forged.ok);
+      assertEquals(forged.response.status, 400);
+      assertEquals(
+        (forged.response.body as { error: { message: string } }).error.message,
+        "call origin is not known",
+      );
+    }
+    // 이 프로세스가 받지 않은 출처는 다른 앱이 대신 주장할 수 없다.
+    const viaC = world.bridge(c);
+    const borrowed = await connectPair(
+      viaC,
+      a.app,
+      [READ],
+      null,
+      incomingOf(a),
+    );
+    assert(!borrowed.ok);
+    assertEquals(borrowed.response.status, 400);
+  });
+});
+
+Deno.test("apps/connections#R7: 출처를 이어 싣는 호출도 여덟 앱까지이고 아홉 번째 앱은 거절된다", async () => {
+  await withWorld(async (world) => {
+    const chain: Peer[] = [];
+    for (let n = 1; n <= 9; n++) chain.push(await world.addPeer(n));
+    for (let n = 0; n < 8; n++) {
+      world.declare(chain[n], chain[n + 1], [READ]);
+      world.grant(chain[n], chain[n + 1], [READ]);
+    }
+    for (let n = 0; n < 7; n++) {
+      const prepared = await connectPair(
+        world.bridge(chain[n]),
+        chain[n + 1].app,
+        [READ],
+        null,
+        n === 0 ? undefined : incomingOf(chain[n - 1]),
+      );
+      assert(prepared.ok, `hop ${n + 1}: ${JSON.stringify(prepared)}`);
+      assertEquals(
+        (prepared.value.connection["caller"] as { path: string[] }).path,
+        chain.slice(0, n + 1).map((peer) => peer.app),
+      );
+    }
+    const ninth = await connectPair(
+      world.bridge(chain[7]),
+      chain[8].app,
+      [READ],
+      null,
+      incomingOf(chain[6]),
+    );
+    assert(!ninth.ok);
+    assertEquals(ninth.response.status, 400);
   });
 });

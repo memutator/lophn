@@ -94,6 +94,7 @@ export async function handleInvoke(
       STATUS[verified.error.code] ?? 400,
       verified.error.code,
       verified.error.message,
+      verified.error.details,
     );
   }
   const existing = state.byRequest.get(parsed.value.request_key);
@@ -246,6 +247,13 @@ async function runHandler(
         release: state.identity.release,
         mode: state.identity.mode,
         invocation: id,
+        caller: call.caller.kind === "app"
+          ? {
+            app: call.caller.app,
+            release: call.caller.release,
+            parent_invocation: call.caller.parent_invocation,
+          }
+          : null,
       },
       () => handler.handle(call.input),
     );

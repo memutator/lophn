@@ -102,6 +102,11 @@ export {
   type DocumentsSaveRequest,
 } from "./broker/documents.ts";
 export {
+  type AppPairConfirmer,
+  type AppsConfirmService,
+  createAppsConfirmService,
+} from "./broker/apps-confirm.ts";
+export {
   type AppPairPreparer,
   type AppsConnectRequest,
   type AppsConnectService,

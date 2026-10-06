@@ -68,6 +68,8 @@ export function startRuntime(deps: {
   // SDK의 connectAppCommands가 쓰는 앱 쌍 통로다. 준비 요청만 broker로 가고 업무 요청은 direct다.
   installPairPort(createPairPort({
     postConnect: (body) => state.broker.appsConnect(body),
+    postConfirmRequest: (body) => state.broker.appsConfirmRequest(body),
+    postConfirmPoll: (body) => state.broker.appsConfirmPoll(body),
     direct: deps.pairDirect ?? unixPairDirect,
   }));
   return { start: parsed, state };

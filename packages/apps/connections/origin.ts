@@ -47,6 +47,9 @@ export type PathBook = {
     target: string;
     grant: string;
     parent: string | null;
+    // 처리 중인 호출이 다른 앱에게서 받은 것이면 그 출처의 식별. 서비스가 발급한 origin 중
+    // 이 프로세스가 받은 것과 맞춰 보고 path는 서비스의 값을 쓴다. 모르면 거절한다.
+    incoming?: { app: string; release: string; parent: string | null };
   }): Result<AppCallOrigin>;
   // 알려진 부모면 그대로, 모르면 null이다(부모 없음으로 남긴다).
   parentOf(processNonce: string, parent: string | null): string | null;
@@ -109,11 +112,30 @@ export function createPathBook(clock: { nowMs(): number }): PathBook {
       if (parent === null) return null;
       return known.get(processNonce)?.has(parent) ? parent : null;
     },
-    next({ source, target, grant, parent }) {
+    next({ source, target, grant, parent, incoming: claimed }) {
       const calls = known.get(source.processNonce);
       const inherited = parent === null ? undefined : calls?.get(parent);
       const knownParent = inherited === undefined ? null : parent;
-      const path = [...(inherited ?? [])];
+      let base: readonly string[] = inherited ?? [];
+      if (claimed !== undefined) {
+        const list = incoming.get(source.processNonce) ?? [];
+        prune(list);
+        const matches = list.filter((item) =>
+          item.app === claimed.app && item.release === claimed.release &&
+          item.parent === claimed.parent
+        );
+        if (matches.length === 0) {
+          return err({
+            code: "invalid_input",
+            message: "call origin is not known",
+          });
+        }
+        // 같은 식별로 들어온 경로가 여럿이면 가장 긴 것으로 본다. 짧은 경로를 고르게 두지 않는다.
+        for (const item of matches) {
+          if (item.path.length > base.length) base = item.path;
+        }
+      }
+      const path = [...base];
       if (path.includes(source.app)) {
         return err({
           code: "invalid_input",

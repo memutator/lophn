@@ -2,6 +2,8 @@
 // core 쪽 준비·proof 발급(prepare.ts, confirm.ts, origin.ts)은 Zod를 쓰므로 core 조립이
 // 직접 부른다(apps/invocations/mod.ts와 같은 구분).
 export {
+  APP_CONFIRM_POLL_PATH,
+  APP_CONFIRM_REQUEST_PATH,
   APP_CONNECT_PATH,
   createPairPort,
   installPairPort,

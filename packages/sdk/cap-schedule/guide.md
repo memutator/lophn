@@ -33,7 +33,10 @@ import {
   `call(command, input?, {requestKey?, proof?})`는 대상 앱의 같은 handler·입력
   검사·confirm 규칙으로 간다. 현재 invocation이 부모로 전달되고 호출자 신원은
   lophn이 정한다. 전송이 끊기면 `{kind: "unknown"}`이고 자동으로 다시 부르지
-  않는다. 허락 없는 앱·command는 없는 것처럼 거절된다.
+  않는다. 허락 없는 앱·command는 없는 것처럼 거절된다. 대상 command가
+  confirm=true면 `call`이 사람 확인 흐름(approval 요청 → 짧은 poll로 대기 →
+  서명된 proof)으로 가서 같은 입력으로 다시 보낸다. `confirm: true`로 처음부터
+  그 흐름을 쓰고, `confirmTimeoutMs`(기본 5분)를 넘으면 unavailable이다.
 - type: `InvocationContext`, `RegisteredHandler`, `SchedulePort`, `ReadQuery`,
   `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`,
   `AppCommandsClient`, `AppCommandOutcome`, `AppResult`

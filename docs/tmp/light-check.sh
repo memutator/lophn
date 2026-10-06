@@ -15,9 +15,10 @@ dirs=$(echo "$changed" | grep -E '\.(ts|tsx)$' | grep -vE '^apps/shell/main/|^e2
 existing=""; for d in $dirs; do [ -d "$d" ] && existing="$existing $d"; done
 # 바뀐 자리와 상관없이 항상: 저장소 전체를 보는 tripwire와 core 기동 테스트.
 existing="$existing packages/platform/responsiveness/core_imports_test.ts apps/core/core_test.ts"
+# 형 검사는 위의 저장소 전체 deno check가 한다. deno test가 Worker module을 다시 형 검사하면 부하 아래서 reader Worker 기동이 10초를 넘겨 멈출 수 있다(#299).
 if true; then
   echo "== deno test$existing"
-  tlog=$(mktemp); timeout --kill-after=10 900 deno test --allow-all --permit-no-files $existing </dev/null >"$tlog" 2>&1; rc=$?; out=$(cat "$tlog"); rm -f "$tlog"
+  tlog=$(mktemp); timeout --kill-after=10 900 deno test --no-check --allow-all --permit-no-files $existing </dev/null >"$tlog" 2>&1; rc=$?; out=$(cat "$tlog"); rm -f "$tlog"
   echo "$out" | grep -E 'passed \|' | tail -1
   if [ $rc -eq 124 ]; then
     echo "실패: deno test가 900초 안에 끝나지 않았다(멈춘 test 의심)"

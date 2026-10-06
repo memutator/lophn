@@ -12,3 +12,12 @@ export {
   type CheckObservation,
   judgeAppTest,
 } from "./judge.ts";
+export {
+  brokenScreens,
+  openViewDriver,
+  type ScreenFeedbackFacts,
+  type ScreenHostResult,
+  type ScreenReportSink,
+  type ScreenReportTarget,
+  type ViewDriverOptions,
+} from "./screens.ts";

@@ -9,6 +9,7 @@ export {
   REDACTION_CANARY,
   RUNNER_CHECKS,
   UNDECLARED_PROBE_CODE,
+  VIEW_HOST_INCONCLUSIVE,
 } from "./definitions.ts";
 export type {
   CheckDefinition,
@@ -17,6 +18,7 @@ export type {
   PlatformCheckName,
   RunnerCheckName,
 } from "./definitions.ts";
+export { ViewHostInconclusive } from "./driver.ts";
 export type {
   AppDriver,
   Attestation,

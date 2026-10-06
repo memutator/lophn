@@ -261,6 +261,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - host가 돌려준 view 예외·feedback 관측은 runner가 그 요청의 `mode=test`·scope로 collector에 넘겨 test 진단 scope에만 남는다; test view는 운영 view session·credential·DB를 쓰지 않는다
   - runner의 `--allow-run`에 host 실행 파일이 더해지므로 같은 PR에서 architecture/problems 2.2를 고친다(질문 Q11)
   - 통합: 화면 있는 fixture 앱의 app test가 pass이고, view 예외 수집을 뺀 fixture는 fail
+- 정한 것(T11): view 검사의 근거는 host가 관측한 bundle 화면의 실제 오류다. 관측한 오류가 하나라도 test 진단 scope로 접수되지 않거나 관측이 없으면 view_exception은 fail이고, 깨진 화면(load 실패·오류)마다 feedback(binding·dialog 열림)이 접수돼야 feedback이 pass다. 그래서 화면 검사에 주는 bundle 화면 폴더에는 오류를 내는 화면과 멈춘 화면이 들어 있어야 한다(fixture는 `fixtures/app-screens/`). host를 띄울 수 없으면(실행 파일 없음) view가 null이라 fail, exit 2·3·4·기한·잘못된 관측은 `inconclusive`다(harness는 `ViewHostInconclusive`, 판정은 검사 evidence `view_host`). runner가 넘길 통로는 `ScreenReportSink`(mode=test와 scope를 인자로 받는다)이고 실제 collector 연결은 runner 조립이 맡는다.
 
 ### T12 개발 fixture로 test runner 검증
 
@@ -272,6 +273,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: problems#T10, problems#T11, apps#T23, apps#T24, apps#T25, apps#T26
+- T11에서 넘어온 것: `ScreenReportSink`·`runScreenHost`·`serveTestAppSocket`(packages/problems/tests/)을 runner 조립에 연결(host 실행 파일 `SCREEN_TEST_HOST` 경로, 요청 작업 폴더, `--allow-run` 값, mode=test·scope로 collector 접수)
 - T9에서 넘어온 것: harness frame의 runner 쪽 비공개 통로(지금은 자식 scratch의 frames.jsonl), 실제 AppDriver, app-test 계획·판정을 test-runner·core launch spec·RecordVerification까지 연결(#247)
 - 완료:
   - 3종 fixture의 app test가 각각 기간·시간대·coverage, blob·충돌, 효과 불확실성 관측을 남기고 pass한다; 새 제품 앱 등록 약속으로 다루지 않는다(R18)

@@ -34,6 +34,17 @@ export type InvokeResult = {
   reports: ReceivedReport[];
 };
 
+// 화면 검사 host가 판정할 수 없게 끝났다(exit 2–4·기한·잘못된 관측). 화면 검사는
+// fail이 아니라 판정 불가로 남는다(shell#T46 계약, problems/tests#R7).
+export class ViewHostInconclusive extends Error {
+  readonly reason: string;
+  constructor(reason: string) {
+    super(reason);
+    this.reason = reason;
+    this.name = "ViewHostInconclusive";
+  }
+}
+
 export type ViewDriver = {
   exception(): Promise<ReceivedReport[]>;
   feedback(): Promise<ReceivedReport[]>;

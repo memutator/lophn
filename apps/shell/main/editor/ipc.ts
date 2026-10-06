@@ -7,12 +7,14 @@ import {
   EDITOR_LOOKUP_CHANNEL,
   EDITOR_OPEN_CHANNEL,
   EDITOR_RELEASE_CHANNEL,
+  EDITOR_RESTORE_CHANNEL,
   EDITOR_WATCH_CHANNEL,
   EDITOR_WRITE_CHANNEL,
   editorCloseAnswerSchema,
   editorCountsSchema,
   editorLookupSchema,
   editorOpenSchema,
+  editorRestoreSchema,
   editorSessionSchema,
   editorWatchSchema,
   editorWriteSchema,
@@ -25,6 +27,7 @@ import {
 } from "../desktop/ipc-guard.ts";
 import type { CloseGuard } from "./close-guard.ts";
 import type { FileAdapter } from "./file-adapter.ts";
+import type { Restorer } from "./restore.ts";
 
 export interface EditorIpcMain {
   handle(
@@ -39,6 +42,7 @@ export interface EditorIpcMain {
 export interface EditorIpcDeps {
   registry: ContentsRegistry;
   adapter: FileAdapter;
+  restorer: Restorer;
   /** sender 창의 guard. 창 본문이 아니면 없다. */
   guardOf(contentsId: number): CloseGuard | undefined;
 }
@@ -50,6 +54,7 @@ const HANDLED = [
   EDITOR_CURRENT_CHANNEL,
   EDITOR_WATCH_CHANNEL,
   EDITOR_RELEASE_CHANNEL,
+  EDITOR_RESTORE_CHANNEL,
 ] as const;
 const HEARD = [EDITOR_COUNTS_CHANNEL, EDITOR_CLOSE_ANSWER_CHANNEL] as const;
 
@@ -134,6 +139,17 @@ export function registerEditorIpc(ipc: EditorIpcMain, deps: EditorIpcDeps) {
       );
     }
     return Promise.resolve(undefined);
+  });
+
+  ipc.handle(EDITOR_RESTORE_CHANNEL, async (event, input) => {
+    const checked = guardIpc(
+      deps.registry,
+      event as IpcEvent,
+      editorRestoreSchema,
+      input,
+    );
+    if (!checked.ok) return reject(checked.error.code);
+    return await deps.restorer.restore(checked.value);
   });
 
   ipc.on(EDITOR_COUNTS_CHANNEL, (event, input) => {

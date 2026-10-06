@@ -463,10 +463,11 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T25 사람 기다림과 재개
 
+- 상태: 완료 (#309) — 이어보냄: option action 적용 사이 각 지점 kill 시험 → T29, 재시도 시각·횟수의 재시작 보존과 T26 loop의 WaitRun 호출·고정 call 실제 입력 전달 → T26, R8–R10·R12·RecoverRun·RunRecovered → T27, 기다림 표시(R6) → shell. 설계는 Q42
 - 등급: 기본
 - concern: lophn-agent/harness/waiting-and-recovery
 - 요구: lophn-agent/harness/waiting-and-recovery#R1, R2, R3, R4, R5, R6, R7, R11
-- 자리: packages/lophn-agent/harness/waiting-and-recovery/ (model.ts, commands.ts, reads.ts, work.ts: wait resolver), apps/core/lophn-agent.ts
+- 자리: packages/lophn-agent/harness/waiting-and-recovery/ (model.ts, schema.ts, commands.ts, work.ts: wait resolver; 읽기 contract가 없어 reads.ts는 없다), apps/core/lophn-agent.ts
 - 쓰는 contract: approval(contracts#T22), read·event 구독
 - 내놓는 contract: WaitRun, ResolveRunWait, CorrectWaitingRun, event RunWaited·RunResumed (contracts#T26)
 - slice: agent
@@ -488,6 +489,8 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md, docs/research/provider-adapters.md
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
+- T25에서 넘어온 것: loop가 ask에서 WaitRun을 부르고 resolver에 고정 call의 실제 입력을 주는 연결, `retryWait` 재시도 시각·횟수의 재시작 보존(#309)
+- T32에서 넘어온 것: 받는 run이 맡긴 내용 blob을 prompt로 읽는 통로, handoff 뒤 보낸 run을 끝내는 일, flow resume-agent-session의 handoff 갈래(#308)
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다
 - T10에서 넘어온 것: run basis와 result의 blob 영구 참조 등록(#250은 hash만 둔다)
 - T11에서 넘어온 것(#281): runtime이 답을 남길 때는 `RecordMessage`에 `content`(글·시각 블록 값, 240KiB 이하)를 싣는다(Q29). hash·blob은 만들지 않고 envelope의 `run`은 자격의 run이다
@@ -508,6 +511,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md, docs/research/session-and-conversation.md
 - 선행: T26, T28
+- T25에서 넘어온 것: R8–R10·R12, RecoverRun·RunRecovered(#309의 resolver `recover` 위에)
 - 완료:
   - recovery_test.ts에 R8–R10, R12 테스트: 완전 응답·확정 결과를 다음 판단 전에 저장, 각 command commit 직후 죽여도 중복 run·효과·usage 없음, 순차 세 call 중 둘째 뒤 끊기면 셋째부터, 저장 실패를 완료로 가정하지 않음, 비사용자 중단만 자동 복구하고 현재 assignment·판정·안전·대상·credential·누적 한도 재확인, 멈춘 assignment를 풀지 않음, 결과 모르는 write·external은 결과 조회·멱등 확인 전 반복 없음·확인 불가면 effect_unknown 종료와 충돌 후속 call 차단, opaque 추론 상태 유실은 state-free 검증 또는 configuration_unavailable, 압축 summary는 완성 출력과 원문 보호 범위로 같은 run에 복구·이어가기 summary와 합치지 않음
   - 앱 invocation 결과 조회 연결은 T44
@@ -540,6 +544,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/questions-and-hitl.md
 - 선행: T23, T24, T30, platform#T24, platform#T27, documents#T29, documents#T30, apps#T1
+- T25에서 넘어온 것: 답 저장→option 적용→ResolveRunWait 사이 각 지점에서 죽여도 한 번만 적용되는 시험(#309는 적용 전 action option 답을 재개하지 않는다)
 - 완료:
   - option_actions_test.ts에 questions#R13–R16 테스트: 고정 대상·입력·비교 기준만 사람의 실제 선택 뒤 한 번 적용(actor=user, run=null), 전제 바뀌면 답 보존·동작 미적용과 달라진 대상·이유, 자유 답·일반 tool 결과를 동작으로 parse하지 않음(owner마다 등록 adapter), owner CAS와 `(question, answered_seq, option_key)` 한 번 적용, 채택은 고정 version의 질문 답
   - lophn_guide_test.ts에 roles/lophn#R14, R15, R17, R20–R22, tools#R20 테스트: 자리 추천 run당 최대 5개와 이유 한 줄·후보 없으면 이동 선택지 없음, 보조 근거 두 조건·자동 주기 run 없음, 사용 안내는 기존 안내로 답하고 바뀐 경우에만 새 version 요청, 동봉 안내·공개 설정 정의·적용값·출처만 읽음·secret과 credential은 읽거나 묻지 않음, 설정 변경은 현재·새 값·영향·적용 시점이 고정된 선택지와 추천, 권한 확대·secret·외부 효과는 owner 보호 화면 안내, 설정 변경 command를 agent tool로 제공하지 않음
@@ -579,6 +584,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T32 handoff와 agent 일 tool
 
+- 상태: 완료 (#308) — 이어보냄: `approval.submit_assignment` → T52, resume-agent-session의 handoff 갈래·받는 run이 맡긴 내용 blob을 읽는 통로·handoff 뒤 보낸 run 끝내기 → T26
 - 등급: 기본
 - concern: lophn-agent/handoff, lophn-agent/harness/run-loop, lophn-agent/harness/tools
 - 요구: lophn-agent/handoff#R1, R2, R3, R4, R5, R6, R7, R8, R9, lophn-agent/harness/run-loop#R7, lophn-agent/harness/tools#R10
@@ -915,6 +921,7 @@ E2E는 T53이 쓴다.
 - slice: operator
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T9, T22, T43, T51, platform#T21, platform#T23
+- T32에서 넘어온 것: `approval.submit_assignment` tool(OperatorApprovalBundle 모양은 T52 소유, #308)
 - T51에서 넘어온 것: ApplyOperatorAssignment의 주기 변경 규칙(새 `first_at`이 적용 시각보다 미래가 아니면 `invalid_input`, 주기가 바뀔 때만 `last_due_at`을 null로, 책임·상태만 바꾸면 유지, paused는 그대로)은 #267이 먼저 넣었다. 생성 경로가 `assignment_outputs`·`assignment_read_apps`·`assignment_read_commands` 행을 아직 넣지 않는 것은 이 작업이 채운다
 - 완료:
   - operator_assignment_test.ts에 assignments#R4–R8, R15, presets#R15, tool-judgment#R4 테스트: 사람이 승인한 고정 bundle만 적용·agent가 자기·다른 assignment를 적용하지 않음, preset 전체 판·범위·남길 문서·주기·승인 read의 전후·이유가 bundle에 묶이고 내용·이전 판이 다르면 거절, 실제 첫 version이 있는 기존 문서 최소 1개·원본 연결·보관·빈 예약·시리즈·동적 이름 거절, 이름·자리가 바뀌어도 같은 문서·자료 속 주소 추가 읽기 없음, 남길 문서 독점(멈춤도 유지)과 사람 직접 편집 허용·충돌 검사, 승인 outputs 새 version만 allow·선언 밖 쓰기는 deny, 주기·사람 요청 외 자동 접수 없음, 초안의 판단·근거·비교 기준·갱신 조건·책임 밖과 구성 전체 검토 자료
@@ -1076,3 +1083,5 @@ eval은 제품 프로세스가 아니라 개발 runner다(`deno task eval`). 네
 - **Q38 질문 글의 값 입력과 답 route 분리** (정함, lead·shell Q16). shell Q16: (1) `AnswerQuestion`이 모든 답에 confirmation을 요구해 일반 답이 거절되고, (2) 본문·이유·설명·추천 blob이 `general_read: false`라 어느 화면도 질문 글을 읽지 못하며, (3) 자유 답·취소 이유를 클라이언트가 만든 hash로 보냈다. 정함: 메시지 본문(Q29)과 같은 길이다. 질문 글은 요청에 값(UTF-8 글, 글 하나 32KiB 이하, 공백뿐인 글 금지)으로 싣고 core(apps/core/question-text.ts)가 command 앞에서 redaction해(자유 답은 `screenAnswerText`의 secret 판정까지: secret이면 invalid_input, 판정 못 하면 unavailable) UTF-8 bytes로 blob을 준비(purpose `question_text`, 보낸 자격의 principal)하고 command가 같은 transaction에서 영구 참조(owner_kind `question`, field prompt·reason·option_description·recommendation·answer·closed)를 등록한다. 저장·event·record는 그대로 blob hash다. `CreateQuestion`도 agent가 글을 값으로 보낸다(대기 요청 `submittedWaitRequestSchema`의 question 입력도 같은 모양). `AnswerQuestion`은 확인 없이 action 없는 선택지·자유 답을 받고 action이 있는 선택지를 고르면 forbidden이다. `AnswerQuestionAction`은 action이 있는 선택지만 받고 binding_hash·evidence·confirmation handle이 필수다(binding: question·created_seq·answer·binding_hash). 읽기는 `ReadQuestionText`(`/v1/questions/text`): 허용된 읽는 쪽(user·machine·coding_agent, 그 assignment의 agent)만 읽고 그 밖은 없는 질문과 같은 not_found, blob 하나라도 읽을 수 없으면 일부만 주지 않고 unavailable이다. 사람이 남긴 글(자유 답·취소 이유)은 coding_agent에게 싣지 않는다(coding-agent/mcp-server#R18). 이전 모양(hash만 있는 질문)은 참조가 없어 unavailable이다. 영향: T24, T25(대기 요청 모양), shell Q16.
 - **Q40 Anthropic Messages adapter의 text 뒤 tool_use와 tool 판정 시험의 protocol (정함, #305).** T22(#301)가 fake provider의 Anthropic tool_use 응답이 partial·빈 `toolCalls`로 읽힌다고 보고했다. 원인은 adapter였다(fake provider가 아니다): `adapters/messages.ts`의 `judge`가 `toolCalls`(content block index로 찬 희소 배열)의 빈 자리를 "content_block_start가 빠진 구멍"으로 보고 partial로 세웠는데, text·thinking block도 index를 차지하므로 설명 text나 thinking 뒤의 tool_use(실제 Anthropic stream에서 흔한 모양)는 항상 partial이었다. fake provider의 고정 응답(`reply`)은 text → tool_use 순서로 content block을 내고 batch 변환이 index를 이어 붙이므로 맞다. 고침: `StreamResult`가 `content_block_start`를 본 index(block 종류 무관)와 마지막 block index를 기록하고, `judge`는 start를 본 적 없는 index만 구멍(잘린 stream)으로 보고 partial로 세운다. tool이 아닌 block의 자리는 건너뛴다. tool 완성은 그대로 content_block_stop·input_json_delta 누적·JSON 검증·stop_reason `tool_use`·message_stop이 모두 있어야 한다. 확인: `invoke_test.ts`가 실제 fake provider HTTP로 text 뒤 tool_use(고정 응답 JSON과 input_json_delta 조각 SSE)·thinking 뒤 두 tool·text 없는 tool_use가 complete이고 content_block_stop 없이 끊긴 tool_use는 partial이며 tool call이 없음을 본다. `apps/core/tool-judgment_test.ts`의 R1 #R8 테스트는 이제 Anthropic Messages protocol로 model이 tool을 요청한다(`modelAsks`의 protocol 인자, 나머지 판정 테스트는 chat completions 그대로).
 - **Q39 tool 판정의 기한·주기 쓰기·시작 gate** (추천으로 진행). (1) tool-judgment#R8은 approval에 기한을 묶으라 하지만 숫자가 없다. 추천: 판정 모듈이 기본값을 만들지 않고 호출자가 `approvalTtlMs`로 넘긴다(T26 조립이 정한다). (2) 판정표에는 주기(Operator) run의 되돌릴 수 있는 쓰기가 선언 문서 새 Version 행 하나뿐이라, 그 행이 들어오는 T52(R4) 전까지 주기 run의 되돌릴 수 있는 쓰기는 deny이고 되돌릴 수 없는 쓰기와 external은 ask다. (3) `StartToolCall`(T21 command)은 ask 판정의 approval 허락을 확인하지 않는다. 이 작업의 `admit`이 허락·기한·정확한 action·한 번 사용을 읽어 진입을 정하고 소유 변경과 approval 한 번 사용은 platform의 `apply_approved_action`이 한 transaction으로 막는다. 추천: T26 조립은 tool 시작을 이 모듈의 `admit`·`start`로만 부른다. 영향: T22, T25, T26, T52.
+- **Q41 handoff 근거·결과·접수 세부** (추천으로 진행, T32). handoff#R3·R8·R9가 정하지 않은 것을 추천으로 구현했다. (1) 근거는 고정 판 하나 이상이 필요하고, 질문을 단 근거는 그 질문의 채택 답(answered 선택지의 adoption)이 같은 document·version이어야 한다. 기획·설계 문서인지는 documents가 알려 주지 않으므로 App Engineer에게 가는 handoff에는 채택한 판 하나를 요구하고 다른 방향은 질문을 단 근거만 검사한다. (2) 결과는 받은 run이 저장한 가장 최근 문서 version이다(documents versions의 run 열을 core 조립이 조회). 문서를 저장하지 않았으면 이유는 run이 확정한 최종 결과 blob이다. (3) 접수 유일성은 (보낸 run, 중복 방지 key)이고 재전송이 새 수신 run ID를 들고 와도 먼저 접수한 run을 돌려준다(같은 key에 다른 수신 assignment·내용·근거는 conflict). (4) 받는 run의 session은 null이다(독립 run, 대화 제어권 이전 없음). (5) 현황·결과 읽기는 사람·machine과, 담당이 withdrawn이 아닌 보낸·받은 assignment의 agent만 본다(그 밖은 없는 handoff와 같다). 내용은 무엇·왜·제외·기대 결과만 담는 16 KiB 이하 blob이고 secret은 core가 가린다(Q25: 상한이 의미상 복사를 막지는 않는다). 영향: T26(수신 run 내용 읽기·보낸 run 종료), T52(approval.submit_assignment), handoff·run-loop requirements 문구는 바꾸지 않았다.
+- **Q42 사람 기다림의 구현 모양** (추천으로 진행, T25 #309). (1) WaitRun은 machine 전용인데 CreateQuestion은 agent, approval 생성은 요청자=자격이라 `tx.call`로 부를 수 없다. 그래서 core 조립(`apps/core/lophn-agent.ts`)이 두 owner의 handler를 같은 Tx에서 이 run의 assignment 자격(`agent:<asg>`, 자격의 run 고정)으로 부른다(scheduling·conversation의 AcceptRun과 같은 방식). 요청자는 항상 run의 assignment이고 다른 actor를 대신 요청하지 못한다. (2) approval id가 이미 있으면(T22 `decide`가 먼저 만든 것) 같은 run·같은 요청자·같은 binding hash의 대기 approval일 때만 만들지 않고 잇는다. (3) ResolveRunWait는 결정 값을 입력으로 받지 않고 owner ledger의 질문·approval·고정 call 행만 읽으며, 허락은 고정 call이 재검사 뒤 시작됐거나 미실행으로 닫힌 상태를 요구한다(그 전에는 conflict). 재검사·시작·미실행 종료는 runtime 해소기가 하고(`WaitWorkDeps.judgment`), 고정 call은 RunWaited event의 call과 판정의 approval로 찾는다. (4) CorrectWaitingRun은 요청 소유 영역이 먼저 취소한 요청(질문 superseded, approval 취소)만 받는다: 취소 이유 글을 값으로 준비하는 것은 core 앞단뿐이라 command 안에서 만들 수 없다. 질문 취소는 답 없음 종료와 수정 메시지의 새 담당 run 접수·이동(AcceptRun·AssignMessage handler)을 한 transaction에서 한다. (5) 결정 접수와 적용의 구별(R5)은 ResolveRunWait 결과·`runs/read`·질문 `applied`로 확인하고 별도 read는 만들지 않았다(contracts 변경이 필요해 두었다). RecoverRun·RunRecovered(R8–R10, R12)는 T27이다.

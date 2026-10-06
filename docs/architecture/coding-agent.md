@@ -155,7 +155,7 @@ MCP protocol 오류는 JSON parse `-32700`, request 모양 `-32600`, 없는 meth
 |---|---|---|---|
 | `lophn_session` / core | `summary` / app?, cursor? | scope, observed_seq/at, 문제·ticket 요약, 자기 claim·기한, reported 남은 조건, next_cursor, claim_rule | S; 조회만, 본문·log 없음 |
 | `lophn_index` / core | `root`, `place`, `context`, `document`, `section`, `search`, `status` / place?, context?, address?, query?, depth?, cursor? | 목차·keyword 결과·고정 version·derived 반영 지연·이어 읽기 | S; context는 실제 관점, 소속 아님. 깊이·cursor는 outline contract |
-| `lophn_project` / core | `list`, `show`, `current` / project?, cwd? | 등록 폴더·label·역할 설명·폴더 문서 수·연결 context; current 다중 일치 | S; tracking 규칙 없음. cwd는 위치 매칭 값이지 파일 read 권한 아님 |
+| `lophn_project` / core | `list`, `show`, `current` / project? | 이름·제목·목적·프로젝트 문서 수·읽을 자료 참조; current는 가장 깊은 등록 폴더의 project 참조 하나, 불일치는 빈 목록과 등록 안내 | S; 절대 경로·폴더·tracking 규칙 없음. cwd는 입력이 아니라 연결 credential의 고정 근거 |
 | `lophn_document` / core | `list`, `history`, `diff` / place? 또는 unplaced?, state?, limit?, cursor?, address?, from?, to?, section? | 목록·남은 허용 수·cursor; 고정 판 이력·줄 diff·누락 | S; list 1~500. diff 두 고정 판 필수, 의미 rename 추정 없음 |
 | `lophn_read` / core | address, version?, section?, start?, length?, cursor? | 정확한 고정 판의 부분 본문·다음 범위·새 판 존재·부재/추출 실패 | S; cursor의 고정 version을 새 최신 판으로 바꾸지 않음 |
 | `lophn_save` / core | paths(제출 root 기준 상대 경로, 첫 경로 primary), place?, slug?, title?, format?, series?, key?, base_revision?, idempotency_key | document·version·고정 주소·unchanged·format 경고·derived 지연 | S; local bytes 제출만. series면 key 필수. 명시 format 부적합은 무저장 |

@@ -16,7 +16,10 @@ import {
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type { Tx } from "../../packages/contracts/platform/mod.ts";
-import { approvalRunLineage } from "../../packages/platform/approvals/mod.ts";
+import {
+  approvalRunLineage,
+  createApprovalCommands,
+} from "../../packages/platform/approvals/mod.ts";
 import {
   createModelDefaultsCommands,
   createModelDefaultsReads,
@@ -75,11 +78,20 @@ import {
   questionTextRead,
 } from "../../packages/lophn-agent/questions/mod.ts";
 import {
+  createHandoffCommands,
+  createHandoffReads,
+  handoffBodyFields,
+} from "../../packages/lophn-agent/handoff/mod.ts";
+import {
   createToolCommands,
   createToolReads,
   toolCallBodyFields,
   toolsSchemaSteps,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
+import {
+  createWaitCommands,
+  waitSchemaSteps,
+} from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import {
   DEFAULT_RUN_LIMITS,
   type McpServerConfig,
@@ -297,6 +309,32 @@ const conversationCommands = createConversationCommands({
 });
 const conversationReads = createConversationReads();
 
+// handoff(concern handoff). SubmitHandoff는 AcceptRun의 출처 검사 wrapper라서 run-loop의
+// AcceptRun handler를 같은 Tx에서 부른다. AcceptRun은 machine 전용 기록이라 이 접수에 한해
+// machine 자격으로 바꿔 넘기고(command 안에서 보낸 run·방향·원래 요청을 먼저 검사한다) 바깥
+// command의 actor·event 기록은 그대로다. 내용 blob은 core가 준비한다(apps/core/handoff-body.ts).
+const handoffCommands = createHandoffCommands({
+  acceptRun: (tx, ctx, input, compare) =>
+    runCommands.accept.handle(tx, { ...ctx, actor: "machine" }, input, compare),
+});
+// 받는 run이 저장한 가장 최근 문서 고정 version은 documents/versions의 표에서 읽는다. 표를
+// 소유한 concern이 다르므로 lophn-agent leaf는 표를 모르고 이 조립이 조회를 넣는다. 문서 표가
+// 없는 등록(문서 concern 없는 harness)에서는 version이 없는 것이다.
+const handoffReads = createHandoffReads({
+  savedVersion: (snapshot, run) => {
+    try {
+      const row = snapshot.sql.get(
+        `select id from versions where run = ?
+         order by rowid desc limit 1`,
+        [run],
+      );
+      return row === undefined ? null : String(row["id"]);
+    } catch {
+      return null;
+    }
+  },
+});
+
 // tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
 // 원문은 blob 참조만 남긴다.
 const toolCommands = createToolCommands();
@@ -308,6 +346,21 @@ const toolReads = createToolReads();
 // blob으로 준비하고(apps/core/question-text.ts) blob 참조만 남는다.
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
+
+// 사람 기다림(concern harness/waiting-and-recovery). 기다림 연결(WaitRun)은 요청 생성과
+// waiting_on 연결, 결정 반영(ResolveRunWait)은 run 재개·종료와 반영 기록을 한 transaction에서
+// 확정한다. approval 생성은 platform의 create handler를, 수정 입력 보존은 run 접수와 메시지
+// 이동의 handler를 같은 Tx에서 부른다. 두 command는 machine 전용 기록이라 이 연결에 한해 자격을
+// 바꿔 넘기고 바깥 command의 actor와 event 기록은 그대로다.
+const approvalCommands = createApprovalCommands();
+const waitCommands = createWaitCommands({
+  createApproval: (tx, ctx, input, compare) =>
+    approvalCommands.create.handle(tx, ctx, input, compare),
+  acceptRun: (tx, ctx, input, compare) =>
+    runCommands.accept.handle(tx, ctx, input, compare),
+  assignMessage: (tx, ctx, input, compare) =>
+    conversationCommands.assign.handle(tx, ctx, input, compare),
+});
 
 // agent 자격의 command(CreateQuestion 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
@@ -362,6 +415,7 @@ export const lophnAgentDefinitions = {
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
     ...questionSchemaSteps,
+    ...waitSchemaSteps,
   ],
   commands: [
     commands.register,
@@ -400,6 +454,7 @@ export const lophnAgentDefinitions = {
     conversationCommands.record,
     conversationCommands.apply,
     conversationCommands.assign,
+    handoffCommands.submit,
     toolCommands.request,
     toolCommands.decide,
     toolCommands.start,
@@ -412,6 +467,9 @@ export const lophnAgentDefinitions = {
     questionCommands.defer,
     questionCommands.cancel,
     questionCommands.expire,
+    waitCommands.wait,
+    waitCommands.resolve,
+    waitCommands.correct,
   ],
   reads: [
     reads.read,
@@ -435,6 +493,8 @@ export const lophnAgentDefinitions = {
     conversationReads.session,
     conversationReads.sessions,
     conversationReads.messages,
+    handoffReads.status,
+    handoffReads.result,
     toolReads.read,
     toolReads.list,
     questionReads.read,
@@ -447,6 +507,7 @@ export const lophnAgentDefinitions = {
     ...toolCallBodyFields,
     ...questionBodyFields,
     ...messageBodyFields,
+    ...handoffBodyFields,
   ],
   ports: [runAdmissionPort, approvalLineagePort],
   workers: [],
@@ -519,6 +580,8 @@ export function createReaderRegistration(): ReaderRegistration {
       conversationReads.session,
       conversationReads.sessions,
       conversationReads.messages,
+      handoffReads.status,
+      handoffReads.result,
       toolReads.read,
       toolReads.list,
       questionReads.read,

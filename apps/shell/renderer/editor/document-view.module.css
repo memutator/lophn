@@ -19,3 +19,12 @@
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
 }
+
+/* 버전 비교는 읽기 기둥 밖에서 칸 전체 폭을 쓴다(나란히 보기는 1,100px 이상, shell/editor#R13). */
+.compare {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: var(--space-0);
+  overflow: hidden;
+  background: var(--color-surface-base);
+}

@@ -7,9 +7,12 @@ import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
 // 막지 않으려고 worker에서 조립할 뿐 읽기다. 쓰기·준비·파일 통로 worker는 넣지 않는다.
 // lophn 공간 documents 화면(shell#T19)의 검색과 saved view 열기도 같은 이유의 읽기다.
 // 추적 미리보기(shell#T15)는 폴더를 scan해 포함·제외만 돌려주고 아무것도 바꾸지 않는다.
+// 버전 비교(shell#T18)의 section 이력·줄 diff도 고정 판 두 개를 읽기만 한다.
 export const READING_WORKER_ROUTES: readonly string[] = [
   "worker:outline/document",
   "worker:documents/read",
+  "worker:documents/section_history",
+  "worker:documents/diff",
   "worker:search/query",
   "worker:views/open",
   "worker:projects/preview_tracking",

@@ -67,9 +67,12 @@
   border-radius: var(--radius-sm);
 }
 
+/* 안 여백 16px(shell/editor#R6). 본문이 길면 패널 안에서 scroll한다. */
 .body {
+  box-sizing: border-box;
   flex: 1;
   min-height: var(--space-0);
+  overflow-y: auto;
   padding: var(--space-6);
   color: var(--color-text-muted);
   font-size: var(--type-small-size);

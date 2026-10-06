@@ -1,0 +1,322 @@
+import { assert, assertEquals } from "@std/assert";
+import { err, ok, type Result } from "../../../base/mod.ts";
+import { ROUTES } from "../../../contracts/lophn-agent/mod.ts";
+import { approvalsGet } from "../../../contracts/platform/mod.ts";
+import {
+  AGENT_TOOLS,
+  type AgentToolPorts,
+  BUILTIN_TOOLS,
+  createAgentToolHandlers,
+  executeTool,
+  listTools,
+  type RunCredential,
+} from "./mod.ts";
+
+// agent 일 tool 묶음(question·approval·preset·assignment·run·handoff)의 정의와 handler를 본다.
+// 실제 core를 거친 handoff 계보는 apps/core/handoff_test.ts가 본다.
+
+const RUN = "run_01arz3ndektsv4rrffq69g5fav";
+const MSG = "msg_01arz3ndektsv4rrffq69g5fav";
+const ASG = "asg_01arz3ndektsv4rrffq69g5fbw";
+const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
+const VER = "ver_01arz3ndektsv4rrffq69g5fav";
+
+type Call = { contract: string; input: unknown; run: string };
+
+function ports(
+  calls: Call[],
+  facts: { original_message: string | null } = { original_message: MSG },
+): AgentToolPorts {
+  let counter = 0;
+  return {
+    call: (contract, input, run) => {
+      calls.push({ contract, input, run });
+      return Promise.resolve(ok({ as_of_seq: "1", next_cursor: null }));
+    },
+    newId: (prefix) => {
+      counter += 1;
+      return `${prefix}_01arz3ndektsv4rrffq69g5f${"abcdefgh"[counter]}${"a"}`;
+    },
+    runFacts: () =>
+      Promise.resolve(ok({
+        session: null,
+        role: "lophn" as const,
+        original_message: facts.original_message,
+      })),
+  };
+}
+
+function credential(contracts: readonly string[]): RunCredential {
+  return {
+    run: RUN,
+    targets: new Set(),
+    operations: new Set(contracts),
+  };
+}
+
+function listedAll() {
+  const names = AGENT_TOOLS.map((tool) => tool.name);
+  return listTools(
+    { builtin: BUILTIN_TOOLS, app: [], external: [] },
+    { presetTools: names, roleTools: names },
+  );
+}
+
+Deno.test("lophn-agent/harness/tools#R10: preset·assignment tool은 읽기만 있고 소유 contract의 변경 command를 부르는 tool이 없다", () => {
+  const owned = AGENT_TOOLS.filter((tool) =>
+    tool.name.startsWith("preset.") || tool.name.startsWith("assignment.")
+  );
+  assertEquals(owned.map((tool) => tool.name).sort(), [
+    "assignment.list",
+    "assignment.read",
+    "preset.list",
+    "preset.read",
+  ]);
+  for (const tool of owned) {
+    assertEquals(tool.effect, "read", tool.name);
+    assertEquals(tool.confirm, false, tool.name);
+  }
+  // 어떤 tool도 preset·assignment·run ledger의 변경 command를 소유 contract로 갖지 않는다.
+  const mutating = new Set(
+    ROUTES.filter((route) =>
+      route.kind === "command" &&
+      ["presets", "assignments", "assignment-occurrences", "runs"].includes(
+        route.resource,
+      )
+    ).map((route) => route.name),
+  );
+  assert(mutating.size > 0);
+  for (const tool of AGENT_TOOLS) {
+    assert(!mutating.has(tool.contract), `${tool.name} → ${tool.contract}`);
+  }
+  // 읽기 tool은 소유 contract의 읽기 route를 가리킨다.
+  const reads = new Set(
+    [...ROUTES, approvalsGet].filter((route) => route.kind === "read").map((
+      route,
+    ) => route.name),
+  );
+  for (const tool of AGENT_TOOLS.filter((tool) => tool.effect === "read")) {
+    assert(reads.has(tool.contract), `${tool.name} → ${tool.contract}`);
+  }
+  // 적용·변경 동작은 이름 자체가 없어 실행기가 소유 contract를 부르기 전에 없는 tool로 답한다.
+  const calls: Call[] = [];
+  const names = [
+    "preset.create",
+    "preset.revise",
+    "assignment.create",
+    "assignment.apply",
+    "assignment.pause",
+    "assignment.change_preset",
+  ];
+  for (const name of names) {
+    assertEquals(listedAll().some((tool) => tool.name === name), false, name);
+  }
+  return Promise.all(names.map(async (name) => {
+    const outcome = await executeTool(
+      {
+        listed: listedAll(),
+        handlers: createAgentToolHandlers(ports(calls)),
+        credential: credential(["CreateAssignment", "ApplyOperatorAssignment"]),
+      },
+      name,
+      { assignment: ASG },
+    );
+    assertEquals(outcome.executed, false, name);
+    assertEquals(outcome.outcome.code, "not_found", name);
+  })).then(() => assertEquals(calls, []));
+});
+
+Deno.test("lophn-agent/harness/tools#R10: 읽기 tool은 소유 읽기 contract 하나만 부르고 입력의 모르는 필드는 소유 contract에 닿기 전에 거절한다", async () => {
+  const calls: Call[] = [];
+  const deps = {
+    listed: listedAll(),
+    handlers: createAgentToolHandlers(ports(calls)),
+    credential: credential(["ListAssignments", "ReadAssignment"]),
+  };
+  const listed = await executeTool(deps, "assignment.list", { role: "lophn" });
+  assertEquals(listed.outcome.kind, "success");
+  assertEquals(calls, [{
+    contract: "ListAssignments",
+    input: { role: "lophn" },
+    run: RUN,
+  }]);
+  // 직접 적용을 흉내 내는 필드는 정의에 없어 invalid_input이다.
+  const smuggled = await executeTool(deps, "assignment.read", {
+    assignment: ASG,
+    apply: true,
+  });
+  assertEquals(smuggled.outcome.code, "invalid_input");
+  assertEquals(calls.length, 1);
+  // 현재 run scope에 contract 권한이 없으면 없는 tool과 같다.
+  const noScope = await executeTool(
+    { ...deps, credential: credential([]) },
+    "assignment.list",
+    {},
+  );
+  assertEquals(noScope.outcome.code, "not_found");
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("lophn-agent/handoff#R3: handoff.submit tool은 호출 run의 사실로 보낸 역할·원래 사람 요청·내용 hash를 채우고 모델이 정하는 필드는 설명·근거·대상뿐이다", async () => {
+  const calls: Call[] = [];
+  const deps = {
+    listed: listedAll(),
+    handlers: createAgentToolHandlers(ports(calls)),
+    credential: credential(["SubmitHandoff"]),
+  };
+  const input = {
+    receiver_assignment: ASG,
+    to_role: "context_engineer",
+    what: "정리한다",
+    why: "요청이다",
+    excludes: [],
+    expected_outputs: ["context"],
+    references: [{
+      document: DOC,
+      version: VER,
+      section: null,
+      question: null,
+    }],
+    dedup_key: "once",
+  };
+  const sent = await executeTool(deps, "handoff.submit", input);
+  assertEquals(sent.outcome.kind, "success");
+  assertEquals(calls.length, 1);
+  const submitted = calls[0]!.input as Record<string, unknown>;
+  assertEquals(calls[0]!.contract, "SubmitHandoff");
+  assertEquals(submitted["sender_run"], RUN);
+  assertEquals(submitted["from_role"], "lophn");
+  assertEquals(submitted["original_message"], MSG);
+  assertEquals(submitted["dedup_key"], "once");
+  assertEquals(
+    (submitted["body"] as string).length,
+    64,
+  );
+  // 보낸 run·원래 요청·수신 run을 모델이 정하는 입력은 거절한다.
+  for (
+    const over of [
+      { sender_run: RUN },
+      { original_message: MSG },
+      { receiver_run: RUN },
+      { from_role: "operator" },
+      { body: "a".repeat(64) },
+    ]
+  ) {
+    const refused = await executeTool(deps, "handoff.submit", {
+      ...input,
+      ...over,
+    });
+    assertEquals(refused.outcome.code, "invalid_input");
+  }
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("lophn-agent/handoff#R5: 원래 사람 요청이 없는 run의 handoff.submit은 소유 contract를 부르지 않는다", async () => {
+  const calls: Call[] = [];
+  const outcome = await executeTool(
+    {
+      listed: listedAll(),
+      handlers: createAgentToolHandlers(
+        ports(calls, { original_message: null }),
+      ),
+      credential: credential(["SubmitHandoff"]),
+    },
+    "handoff.submit",
+    {
+      receiver_assignment: ASG,
+      to_role: "lophn",
+      what: "맡긴다",
+      why: "이유",
+      excludes: [],
+      expected_outputs: ["결과"],
+      references: [{
+        document: DOC,
+        version: VER,
+        section: null,
+        question: null,
+      }],
+      dedup_key: "periodic",
+    },
+  );
+  assertEquals(outcome.outcome.kind, "failure");
+  assertEquals(calls, []);
+});
+
+Deno.test("lophn-agent/handoff#R9: handoff 현황 tool은 호출 run을 보낸 run으로 묻고 결과 tool은 받는 run 하나만 묻는다", async () => {
+  const calls: Call[] = [];
+  const deps = {
+    listed: listedAll(),
+    handlers: createAgentToolHandlers(ports(calls)),
+    credential: credential(["ReadHandoffStatus", "ReadHandoffResult"]),
+  };
+  assertEquals(
+    (await executeTool(deps, "handoff.read_status", { dedup_key: "once" }))
+      .outcome.kind,
+    "success",
+  );
+  assertEquals(calls[0], {
+    contract: "ReadHandoffStatus",
+    input: { sender_run: RUN, dedup_key: "once" },
+    run: RUN,
+  });
+  const result = await executeTool(deps, "handoff.read_result", {
+    receiver_run: "run_01arz3ndektsv4rrffq69g5fbw",
+  });
+  assertEquals(result.outcome.kind, "success");
+  assertEquals(calls[1]?.contract, "ReadHandoffResult");
+});
+
+Deno.test("lophn-agent/harness/tools#R2: question.submit tool은 호출 run의 세션과 새 질문 ID로 CreateQuestion 하나를 부르고 선택지의 고정 action은 모델이 싣지 못한다", async () => {
+  const calls: Call[] = [];
+  const deps = {
+    listed: listedAll(),
+    handlers: createAgentToolHandlers(ports(calls)),
+    credential: credential(["CreateQuestion"]),
+  };
+  const input = {
+    prompt: "어느 쪽으로 갈까요",
+    reason: "취향이 갈린다",
+    options: [],
+    recommendation: null,
+    expires_at: null,
+  };
+  const asked = await executeTool(deps, "question.submit", input);
+  assertEquals(asked.outcome.kind, "success");
+  const created = calls[0]!.input as Record<string, unknown>;
+  assertEquals(calls[0]!.contract, "CreateQuestion");
+  assertEquals(created["run"], RUN);
+  assertEquals(created["session"], null);
+  assert(/^qst_/.test(String(created["id"])));
+  const withAction = await executeTool(deps, "question.submit", {
+    ...input,
+    options: [{
+      key: "a",
+      label: "A",
+      description: "A",
+      evidence: [],
+      adoption: null,
+      action: { concern: "platform/settings", command: "apply_settings" },
+    }],
+  });
+  assertEquals(withAction.outcome.code, "invalid_input");
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("lophn-agent/harness/tools#R12: 소유 contract가 거절한 오류 문장은 대상의 존재를 새지 않는다", async () => {
+  const failing: AgentToolPorts = {
+    ...ports([]),
+    call: (): Promise<Result<unknown>> =>
+      Promise.resolve(err({ code: "not_found", message: `no ${ASG}` })),
+  };
+  const outcome = await executeTool(
+    {
+      listed: listedAll(),
+      handlers: createAgentToolHandlers(failing),
+      credential: credential(["ReadAssignment"]),
+    },
+    "assignment.read",
+    { assignment: ASG },
+  );
+  assertEquals(outcome.outcome.code, "not_found");
+  assertEquals(outcome.result.summary.includes(ASG), false);
+});

@@ -1,3 +1,4 @@
+import { type ReactNode, useEffect, useRef } from "react";
 import { t } from "@lophn/wording";
 
 import { INFO_PANEL_WIDTH, type InfoPanelPlacement } from "../model.ts";
@@ -22,13 +23,50 @@ export interface InfoPanelProps {
   placement: InfoPanelPlacement;
   tab: InfoTab;
   onTab: (tab: InfoTab) => void;
+  /** overlay를 Escape·바깥 click으로 닫는다(shell/editor#R6). */
+  onClose?: () => void;
+  /** 탭 본문. 없으면 빈 안내를 둔다. 내용은 편집기의 정보 패널(editor/info-panel)이 그린다. */
+  children?: ReactNode;
 }
 
-// 정보 패널 자리. 내용(버전 이력·비교)은 T18이 채운다. 여기는 자리만 둔다.
-export function InfoPanel({ placement, tab, onTab }: InfoPanelProps) {
+// 정보 패널 자리. 탭 줄과 틀만 두고 본문은 편집기의 정보 패널이 채운다.
+export function InfoPanel(
+  { placement, tab, onTab, onClose, children }: InfoPanelProps,
+) {
+  const ref = useRef<HTMLElement>(null);
+  const close = useRef(onClose);
+  close.current = onClose;
+  // overlay일 때만 Escape와 바깥 click으로 닫는다. dock이면 본문 옆 열이라 그대로 둔다.
+  useEffect(() => {
+    if (placement !== "overlay") return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      close.current?.();
+    };
+    const onPointer = (event: PointerEvent) => {
+      const panel = ref.current;
+      const target = event.target;
+      if (!panel || !(target instanceof Node) || panel.contains(target)) return;
+      // Radix가 body에 띄운 popover(고르기 목록)는 패널의 일부다.
+      if (
+        target instanceof Element &&
+        target.closest("[data-radix-popper-content-wrapper]")
+      ) return;
+      close.current?.();
+    };
+    const owner = ref.current?.ownerDocument ?? document;
+    owner.addEventListener("keydown", onKey);
+    owner.addEventListener("pointerdown", onPointer, true);
+    return () => {
+      owner.removeEventListener("keydown", onKey);
+      owner.removeEventListener("pointerdown", onPointer, true);
+    };
+  }, [placement]);
   if (placement === "hidden") return null;
   return (
     <aside
+      ref={ref}
       className={`${styles.slot} ${
         placement === "overlay" ? styles.overlay : ""
       }`}
@@ -51,7 +89,7 @@ export function InfoPanel({ placement, tab, onTab }: InfoPanelProps) {
         ))}
       </div>
       <div className={styles.body} data-info-body="">
-        {t("project-workspace.info.empty")}
+        {children ?? t("project-workspace.info.empty")}
       </div>
     </aside>
   );

@@ -95,7 +95,10 @@ export function fileReadStreams(
         });
       }
       if (!checked.value.eligible) return notAvailable();
-    } else if (target.kind !== "project_file") {
+    } else if (
+      target.kind !== "project_file" && target.kind !== "instruction_file"
+    ) {
+      // 지침 파일은 coordinator가 exact 등록과 맞춰 본다(file-tracking#R19).
       return notAvailable();
     }
     const opened = await deps.request(

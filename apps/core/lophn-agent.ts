@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { err } from "../../packages/base/mod.ts";
+import { err, ok } from "../../packages/base/mod.ts";
 import {
   defineSetting,
   type KindLaunchSpec,
@@ -12,10 +12,14 @@ import {
 } from "../../packages/platform/ledger/mod.ts";
 import {
   assignmentPaused,
+  InstructionAttachments,
   questionCreated,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
-import type { Tx } from "../../packages/contracts/platform/mod.ts";
+import type {
+  CommandDefinition,
+  Tx,
+} from "../../packages/contracts/platform/mod.ts";
 import {
   approvalRunLineage,
   createApprovalCommands,
@@ -42,6 +46,7 @@ import {
 import {
   createPresetCommands,
   createPresetReads,
+  instructionAttachmentsOf,
   presetSchemaSteps,
   ROLE_CAPS,
 } from "../../packages/lophn-agent/presets/mod.ts";
@@ -71,8 +76,11 @@ import {
   messageBodyRead,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
+  createApplyQuestionOption,
   createQuestionCommands,
   createQuestionReads,
+  OPTION_ACTION_OWNERS,
+  type OptionOwnerHandlers,
   questionBodyFields,
   questionSchemaSteps,
   questionTextRead,
@@ -364,6 +372,29 @@ const toolReads = createToolReads();
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
 
+// 사람이 고른 선택지의 고정 action을 소유 command로 적용한다(ApplyQuestionOption). 소유 command의
+// handler는 다른 팀 등록에 있으므로 writer가 모든 등록을 모은 뒤 묶는다(bindQuestionOptionOwners).
+// 묶기 전에는 비어 있어 어느 동작도 적용하지 않는다. writer Worker마다 이 module 상태가 따로
+// 있다(platform.ts의 approval owner 목록과 같다).
+let optionOwners: OptionOwnerHandlers = new Map();
+
+export function bindQuestionOptionOwners(
+  commands: readonly CommandDefinition[],
+): void {
+  const handlers = new Map<string, CommandDefinition["handle"]>();
+  for (const owner of OPTION_ACTION_OWNERS) {
+    const found = commands.find((command) =>
+      command.route.name === owner.route.name
+    );
+    if (found !== undefined) handlers.set(owner.route.name, found.handle);
+  }
+  optionOwners = handlers;
+}
+
+const questionApply = createApplyQuestionOption({
+  handlers: () => optionOwners,
+});
+
 // 사람 기다림(concern harness/waiting-and-recovery). 기다림 연결(WaitRun)은 요청 생성과
 // waiting_on 연결, 결정 반영(ResolveRunWait)은 run 재개·종료와 반영 기록을 한 transaction에서
 // 확정한다. approval 생성은 platform의 create handler를, 수정 입력 보존은 run 접수와 메시지
@@ -410,6 +441,20 @@ const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
     return null;
   },
 }));
+
+// documents가 document.save·update의 같은 Tx에서 묻는 지침 문서 판정이다(documents/versions#R20).
+// 지금 preset 판의 지침 첨부가 그 문서를 가리키면 비어 있지 않은 목록이다. 분류는 현재 상태로만 한다.
+const instructionAttachmentsPort = defineTxPort(
+  InstructionAttachments,
+  (tx) => ({
+    attachments: (document: string) => {
+      const found = instructionAttachmentsOf(tx.sql, document);
+      return found.ok
+        ? ok(found.value.map(({ preset, revision }) => ({ preset, revision })))
+        : found;
+    },
+  }),
+);
 
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
@@ -485,6 +530,7 @@ export const lophnAgentDefinitions = {
     questionCommands.defer,
     questionCommands.cancel,
     questionCommands.expire,
+    questionApply,
     waitCommands.wait,
     waitCommands.resolve,
     waitCommands.correct,
@@ -530,7 +576,7 @@ export const lophnAgentDefinitions = {
     ...messageBodyFields,
     ...handoffBodyFields,
   ],
-  ports: [runAdmissionPort, approvalLineagePort],
+  ports: [runAdmissionPort, approvalLineagePort, instructionAttachmentsPort],
   workers: [],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,

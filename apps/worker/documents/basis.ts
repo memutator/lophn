@@ -5,6 +5,7 @@ import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type {
   ObservationBasisChunk,
   ObservationFolderBasis,
+  ObservationInstructionBasis,
   ObservationLinkBasis,
   ObservationRootBasis,
 } from "../../../packages/documents/file-tracking/mod.ts";
@@ -19,6 +20,9 @@ export type BasisStore = {
   // 경로에 연결된 문서. 없으면 아직 연결되지 않은 파일이다.
   link(path: string): ObservationLinkBasis | undefined;
   links(): Iterable<ObservationLinkBasis>;
+  // 정확히 등록된 지침 파일(일반 root와 따로, tracking을 껐어도 있다).
+  instructions(): readonly ObservationInstructionBasis[];
+  instruction(path: string): ObservationInstructionBasis | undefined;
   rootOf(root: string): ObservationRootBasis | undefined;
   // 반영 횟수. 늦은 제출이 새 근거를 기다리는 기준이다.
   readonly version: number;
@@ -32,6 +36,7 @@ type Staged = {
   full: boolean;
   roots: ObservationRootBasis[];
   folders: ObservationFolderBasis[];
+  instructions: ObservationInstructionBasis[];
   upsert: ObservationLinkBasis[];
   remove: string[];
 };
@@ -39,6 +44,7 @@ type Staged = {
 export function createBasisStore(): BasisStore {
   let roots: ObservationRootBasis[] = [];
   let folders: ObservationFolderBasis[] = [];
+  let instructions: ObservationInstructionBasis[] = [];
   let links = new Map<string, ObservationLinkBasis>();
   let staged: Staged | undefined;
   let version = 0;
@@ -52,6 +58,7 @@ export function createBasisStore(): BasisStore {
           full: chunk.full,
           roots: chunk.roots ?? [],
           folders: chunk.folders ?? [],
+          instructions: chunk.instructions ?? [],
           upsert: [],
           remove: [],
         };
@@ -76,6 +83,7 @@ export function createBasisStore(): BasisStore {
       links = next;
       roots = done.roots;
       folders = done.folders;
+      instructions = done.instructions;
       version += 1;
       for (const listener of [...listeners]) listener();
       for (const wake of [...waiters]) wake();
@@ -85,6 +93,8 @@ export function createBasisStore(): BasisStore {
     folders: () => folders,
     link: (path) => links.get(path),
     links: () => links.values(),
+    instructions: () => instructions,
+    instruction: (path) => instructions.find((entry) => entry.path === path),
     rootOf: (root) => roots.find((entry) => entry.root === root),
     get version() {
       return version;

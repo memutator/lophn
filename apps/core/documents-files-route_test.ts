@@ -256,7 +256,7 @@ Deno.test("documents/file-tracking#R15: 파일이 성공이 아니면(unverified
   assertEquals(subject.prepared.length, 0);
 });
 
-Deno.test("documents/file-tracking#R2 documents/file-tracking#R1: 남의 준비 blob·만기 blob·원본 연결 문서·instruction 목표는 coordinator에 닿기 전에 같은 invalid_input이다", async () => {
+Deno.test("documents/file-tracking#R2 documents/file-tracking#R1: 남의 준비 blob·만기 blob·원본 연결 문서는 coordinator에 닿기 전에 같은 invalid_input이다", async () => {
   const attempts: [string, FakeOptions, Record<string, unknown>][] = [
     ["foreign blob", { principal: "someone-else" }, {}],
     ["expired blob", { live: false }, {}],
@@ -274,18 +274,6 @@ Deno.test("documents/file-tracking#R2 documents/file-tracking#R1: 남의 준비 
             hash: HASH,
             registered_seq: "1",
           },
-        },
-      },
-    ],
-    [
-      "instruction target",
-      {},
-      {
-        target: {
-          kind: "instruction_file",
-          instruction_target: "ins_01kq12a1pha000000000000000",
-          project: null,
-          path: "/data/LOPHN.md",
         },
       },
     ],
@@ -311,6 +299,24 @@ Deno.test("documents/file-tracking#R2 documents/file-tracking#R1: 남의 준비 
     assertEquals(subject.requests, [], name);
   }
   assertEquals(messages.size, 1);
+});
+
+Deno.test("documents/file-tracking#R19 documents/file-tracking#R20: 지침 파일 목표는 core가 목표를 풀지 않고 coordinator의 exact 등록 확인에 맡기며 판은 관측이 만든다", async () => {
+  const subject = fake();
+  const done = result(
+    await write(subject, {
+      target: {
+        kind: "instruction_file",
+        instruction_target: "global",
+        project: null,
+        path: "/data/LOPHN.md",
+      },
+    }),
+  );
+  assertEquals(done.outcome, "written");
+  // 지침 파일 쓰기는 파일 작업 하나뿐이다. working copy 판 확정을 부르지 않는다.
+  assertEquals(subject.requests, [DOCUMENT_OPS.fileWrite]);
+  assertEquals(subject.prepared.length, 0);
 });
 
 Deno.test("documents/file-tracking#R2: credential이 없는 요청은 unauthorized다", async () => {

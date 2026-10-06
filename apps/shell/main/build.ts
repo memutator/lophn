@@ -1,4 +1,4 @@
-// main과 preload 세 개를 각각 CJS 한 파일로 묶는다.
+// main과 preload를 각각 CJS 한 파일로 묶는다.
 // sandbox preload는 Node 모듈을 못 읽으므로 electron 말고는 아무것도 묶인 채 남기면 안 된다.
 // 저장소의 .ts 원본이 import한 zod는 npm 쪽 node_modules에서 찾는다.
 // package.json의 "type": "module"이 .js를 ESM으로 읽으므로 출력은 .cjs로 낸다.
@@ -40,11 +40,15 @@ function lophnPackages(repoRoot: string): esbuild.Plugin {
 }
 
 const entries: BuildEntry[] = [
-  { in: join(here, "desktop/main.ts"), out: "main" },
+  // main.cjs는 시작 flag로 desktop main과 앱 화면 검사 host 중 하나만 연다(shell#T46).
+  { in: join(here, "entry.ts"), out: "main" },
+  { in: join(here, "desktop/main.ts"), out: "desktop" },
+  { in: join(here, "entry-screen-test.ts"), out: "screen-test" },
   { in: join(shell, "terminal-host/cli.ts"), out: "terminal-host" },
   { in: join(shell, "preload/shell.ts"), out: "preload-shell" },
   { in: join(shell, "preload/confirmation.ts"), out: "preload-confirmation" },
   { in: join(shell, "preload/app.ts"), out: "preload-app" },
+  { in: join(shell, "preload/screen-test.ts"), out: "preload-screen-test" },
 ];
 
 export function build(

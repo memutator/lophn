@@ -3,6 +3,7 @@ import { type AgentToolPorts, createAgentToolHandlers } from "./agent.ts";
 import { createContextToolHandlers } from "./context.ts";
 import { createDocumentToolHandlers } from "./document.ts";
 import { createFormatToolHandlers } from "./format.ts";
+import { createGuideToolHandlers } from "./guide.ts";
 import { createMetadataToolHandlers } from "./metadata.ts";
 import { createReadLog } from "./read-log.ts";
 import { createVisualToolHandlers } from "./visual.ts";
@@ -23,6 +24,7 @@ export function createBuiltinToolHandlers(
       createMetadataToolHandlers(ports),
       createFormatToolHandlers(ports),
       createVisualToolHandlers(ports, reads),
+      createGuideToolHandlers(ports),
       createAgentToolHandlers(ports),
     ]
   ) {

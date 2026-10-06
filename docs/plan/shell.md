@@ -588,6 +588,9 @@ concerns: [shell]
 - platform#T19 후속(#294)에서 넘어온 것: secret 입력 창의 main 쪽 길이 core에 열렸다. 값이 있는 곳은 창의 보호 입력과 main 메모리뿐이다. main은 (1) `POST /v1/secrets/input`(`content-type: application/octet-stream`, `x-lophn-input`에 `{purpose, owner, bytes}`의 base64url JSON, body는 값의 바이트, 상한 64KiB)으로 값을 보내 값 없는 준비 증거 `{preparation, sealed_ref, purpose, owner}`를 받고, (2) 그 증거가 들어간 `SetSecret` 입력(앱 secret은 `purpose: app_secret`, `owner == name`)의 binding으로 confirmation handle을 main↔core 비공개 연결에 등록하고(handle은 증거를 받은 뒤에만 만들 수 있다), (3) `SetSecret`(교체는 `compare: {sealed_ref, revision}`, 처음은 null 둘)을 보내고, (4) 결과로 창에는 안전 이름·저장 결과만 돌려준다. 제거는 `RemoveSecret`이다. 표시용 `/v1/secrets/list`(이름·설정 여부·판)도 열렸다. 실패는 keychain 잠김이면 `unavailable`(값은 어디에도 남지 않음), 크기 불일치면 `invalid_input`이다. provider credential(`RegisterProviderCredential`·`ChangeProviderCredentials`)은 같은 route에 `purpose: provider_credential`로 값을 보내 증거를 받고 소유 command를 부른다(T31). 제출·취소·창 종료 때 값을 지운다. core가 값을 쥐는 곳은 없으므로 main이 값을 로그·오류·IPC 결과에 넣지 않는 것이 이 작업의 시험이다.
 - platform Q29(#305)에서 넘어온 것: approval 결정 창은 `approvals/get`(exact 동작·대상·입력·기한·상태)과 함께 `ReadApprovalText`(`/v1/approvals/text`, 입력 `{approval}`)로 이유·변경·외부 영향·되돌림 글을 읽어 문장으로 보인다. 글은 core가 redaction한 값이고 blob 하나라도 읽지 못하면 `unavailable`이라 일부만 보이지 않는다. 거절 창은 선택 입력인 거절 이유를 `closed_reason` 글 값(없으면 `null`, 글 하나 32KiB 이하, 공백뿐인 글은 보내지 않는다)으로 `approvals/reject`에 싣는다. hash를 만들거나 blob을 준비하지 않고 core가 한다. 이유는 handle binding(approval·created_seq·binding_hash)에 들어가지 않는다. 종료된 request의 `ReadApprovalText.closed_reason`이 적은 거절·취소 이유이고 만료는 null이다(상태가 이유다).
 - lophn-agent#T34(Q44)에서 넘어온 것: revert 창의 main은 (1) `reverts/preview`로 본 묶음(`groups`)을 보이고, (2) 복원 가능한 묶음마다 문서의 이전 판을 사람 자격의 `documents/prepare`(`existing` 원문 참조와 그 판의 FormatRef)로 준비해 `buildRevertInput`(packages/lophn-agent/revert/work.ts)으로 `RevertRun` 입력의 `groups`(준비 결과는 `comparison.prepared`, `prepared_ref`는 그 hash)를 만들고 준비 참조를 요청의 `prepared`에 싣는다. (3) 확인 handle은 binding(`id, run, allow_partial, preview_hash`)으로 발급하고 결정 이름은 command 이름 `RevertRun`(= contract의 `REVERT_RUN_DECISION`)이다. (4) 이유(`reason`)는 고정 코드(`revertReasonSchema`)이므로 코드로 wording을 고른다. 결과 event는 사람이 `events/list`로 따라 볼 수 있다(payload는 run·지문·결과별 수). 준비 결과가 없으면 문서 내용 복원은 blocked(복원 준비 불충족)로 끝난다
+- 상태: 완료 (#350)
+- 정한 것(T29): shell#T23(#154)은 계획만 완료로 적히고 코드가 main에 없어 이 PR이 그 branch를 merge해 함께 싣는다(layout·details·before-after·owner decision 화면, 화면 테스트는 `apps/shell/renderer/confirmation/screens_test.ts`로 등록). T28이 넘긴 길을 이었다: shell preload `lophnShell.openConfirmation`, main의 `shell:confirmation-open`(부모는 IPC를 보낸 desktop 창)·`confirmation:display`(무효면 다시 읽는 최신 내용 열기)·`confirmation:submit`·`confirmation:cancel`, coordinator 조립, 비공개 pipe의 handle 등록(응답에 짝 id가 없어 한 번에 하나, 5초 안에 답이 없으면 unavailable). contract는 additive로 늘렸다(contracts shell confirmation): owner decision 열기의 `targets`, secret 입력 열기의 provider `credential`(값 아닌 등록 정보), 표시의 `view`·`state`·`decisions`·`second`, 제출의 `confirmedSecond`, 결과의 `result`(accepted는 결정 접수, applying·applied·partial·uncertain·blocked는 RevertRun의 실제 결과), 보호 preload의 `subscribe`. approval은 `approvals/get`·`ReadApprovalText`로 그리고 허락·거절은 handle로, 대기 요청의 명시 취소는 handle 없는 `cancel_approval_request`로 보낸다. 거절·취소 이유는 같은 선택 입력칸이다. option action은 `questions/read`·`questions/text`로 그리고 `AnswerQuestionAction`(evidence 포함)을 보낸다. revert 열기는 `{kind: owner_decision, concern: lophn-agent/revert, decision: RevertRun, targets: [run]}`이다. revert id는 창마다 main이 만든다. 복원 불가·유지·충돌이 섞이면 `allow_partial: true`로 결합하고 남는 묶음을 다시 보이는 2차 확인 뒤에만 보내며, 복원 가능한 묶음이 없으면 결정이 없다. 문서 준비는 binding 밖이라 제출 때 `documents/get`·`documents/prepare`(existing 참조)로 하고 `buildRevertInput`과 같은 규칙으로 groups와 `prepared`를 싣는다(shell main은 packages를 import하지 않아 규칙을 `apps/shell/main/confirmation/kinds/revert.ts`에 옮겼다). secret 입력은 열 때 handle을 만들지 않고 제출 때 upload→증거→증거를 넣은 binding으로 handle→command 순서이며 창에는 안전 이름(앱 secret 이름, provider credential label)과 저장 결과만 돌려준다. 이미 값이 있는 앱 secret은 교체 비교 기준이 없어 결정 없이 이유만 보인다
+- 남긴 것(T29): T23의 `delete_file` owner decision은 main 정본 read·제출이 없다(열면 not_found). 실제 core로 네 종류 창을 끝까지 연 확인은 seed가 없어 하지 못했고 화면은 offscreen probe로 보았다
 - 완료: 아래 확인이 통과한다
   - approval request: 결정을 문장으로 묻고 exact 대상·입력·영향·되돌릴 범위. 허락·거절·명시 취소. 승인 접수와 실제 적용을 구별해 돌려준다.
   - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
@@ -605,6 +608,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T12, shell#T27, contracts#T26, contracts#T27, contracts#T30, lophn-agent#T7, lophn-agent#T9, lophn-agent#T39
+- shell#T29에서 넘어온 것: revert 진입은 `lophnShell.openConfirmation({request: {kind: "owner_decision", concern: "lophn-agent/revert", decision: "RevertRun", targets: [run]}, parentWindow})`이다. 창이 `reverts/preview`를 다시 읽고 문서 준비·`RevertRun` 제출까지 한다. 결과(접수·실제 복원 결과)는 창이 말하고 목록은 `reverts/list`·`events/list`로 다시 읽는다
 - 완료: 아래 확인이 통과한다
   - 역할 목록은 같은 열 배치. 상세는 하는 일·만든 것·대화 탭. 회수된 담당은 지난 대화만 보이고 입력창이 없다. 멈춘 담당의 입력은 소유 concern의 허용 결과를 그대로 따른다.
   - 하는 일은 In progress / Waiting / Stopped / Done 순, 다시 시작과 다시 시키기는 다른 버튼.
@@ -624,6 +628,7 @@ concerns: [shell]
 - slice: agent
 - 선행: shell#T12, shell#T29, contracts#T24, contracts#T29, platform#T25, lophn-agent#T3, lophn-agent#T15, lophn-agent#T35, lophn-agent#T36
 - platform#T19 후속(#294)에서 넘어온 것: provider key·로그인 응답의 값은 T29의 secret 입력 창이 `/v1/secrets/input`(`purpose: provider_credential`)으로 보내 증거를 받은 뒤 `RegisterProviderCredential`·`ChangeProviderCredentials`를 부른다(순서는 T29의 넘어온 것을 따른다). 확정 뒤 core가 그 credential의 값을 알려진 값 registry에 등록하므로(documents 읽기·메시지 본문에서 가려진다) 화면이 따로 할 일은 없다.
+- shell#T29에서 넘어온 것: provider key는 `openConfirmation({request: {kind: "secret_input", owner: <provider id>, purpose: "provider_credential", credential: {key, kind, label, account, organization, plan, dedup_fingerprint}}})`로 연다. 창은 `providers/read`의 revision을 비교 기준으로 `RegisterProviderCredential`까지 보낸다. 교체·회수(`ChangeProviderCredentials`)와 앱 secret 제거(`RemoveSecret`)는 창 종류가 아직 없다(열기 모양을 정해 `apps/shell/main/confirmation/kinds/secret-input.ts`에 더한다)
 - 완료: 아래 확인이 통과한다
   - provider 연결: contract가 알려 준 인증 방식(API key, 공식 로그인, 로컬)만 보이고 과금·한도·금액 모름을 구별한다. key와 로그인 응답은 confirmation window의 secret 입력으로만 받는다.
   - 계정: 같은 provider의 계정 순서, 사용 가능·인증 문제·사용량 한도·확인된 리셋 시각, 다음 행동 하나. 교체·삭제·재로그인은 confirmation window.
@@ -911,6 +916,7 @@ concerns: [shell]
 
 ### T46 앱 화면 검사 host
 
+- 상태: 완료 (#360)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: problems/tests#R7(view 예외·깨진 view의 feedback 화면 검사), R19(관측 private IPC)
@@ -927,6 +933,7 @@ concerns: [shell]
   - `screen-test-host_test`와 problems#T11이 쓰는 fixture 하나로 확인한다.
 - 가져올 것: legacy `app.ts`의 offscreen option 기록(hidden window는 첫 frame 뒤 capture가 멈춘다).
 - shell#T38에서 넘어온 것: 앱 preload가 main world의 error·unhandledrejection·`lophn:render-error`를 내부 `app:view-error`로 보낸다(`apps/shell/preload/app-api.ts`). 화면 검사 host는 같은 preload를 쓰고 `registerAppIpc`(`main/app-frame/app-ipc.ts`)의 viewError를 collector 대신 관측 frame으로 바꿔 끼운다
+- 정한 것: (1) fd 3 확인 — Deno 부모(`node:child_process` stdio 4번째 `pipe`)와 Electron 자식(`net.Socket({fd: 3, allowHalfOpen: true})`) 사이 JSON lines가 실제로 된다(`e2e/shell/app-screen-test_test.ts`). 그래서 stdin·stdout frame으로 바꾸지 않았다. (2) `main.cjs`는 `entry.ts` 분기만 하고 desktop main은 `desktop.cjs`, host는 `screen-test.cjs`다. desktop main은 module 몸통에서 데이터 root·core를 열어 같은 bundle 안에서는 막을 수 없다. (3) shell tsc가 contracts 원본을 검사하지 못해(Q22) contracts schema는 deno가 검사하는 `entry-screen-test.ts`만 쓰고 `screen-test-host.ts`는 같은 모양의 타입을 둔다. (4) 화면 byte는 운영 protocol handler에 bundle 폴더 upstream을 끼워 CSP·MIME·경로 검사를 그대로 지난다. (5) CSP가 막은 요청은 webRequest에 닿지 않아 test session에만 `preload-screen-test.cjs`를 더해 `securitypolicyviolation`의 주소를 받는다. 탐색 guard가 막은 main frame 이동은 관측에 넣지 않는다. (6) feedback 검사는 binding(살아 있는 view의 main frame이 그 화면 주소), invalidate 뒤 새 offscreen frame, 앱 view 위 다른 renderer의 고정 dialog 문서 load를 각각 1500ms까지 본다. (7) `lophnApp.call`은 blueprint 검사 없이 `{request_key, command, input}`을 test 앱 socket에 빈 Authorization으로 보내고 응답 판정은 운영 `outcomeOf`다. 외부 링크는 열지 않고 `unavailable`이다
 
 ### T47 앱 전용 창, OS 앱 바로가기, 창 열기 intent
 

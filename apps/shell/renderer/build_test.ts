@@ -17,7 +17,7 @@ Deno.test("shell/app-frame#R24: default entry HTML script stylesheet and font UR
   try {
     await build(dir);
     const handler = createShellHandler({ distDir: dir });
-    for (const name of ["desktop", "overlay"]) {
+    for (const name of ["desktop", "overlay", "confirmation"]) {
       const base = `lophn-shell://${name}/index.html`;
       const html = await handler(new Request(base));
       assertEquals(html.status, 200);

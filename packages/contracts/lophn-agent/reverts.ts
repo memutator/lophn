@@ -14,6 +14,7 @@ import { readCursorSchema } from "./run-values.ts";
 import {
   revertCapabilitySchema,
   revertOutcomeSchema,
+  revertReasonSchema,
   revertResultSchema,
 } from "./decision-values.ts";
 
@@ -72,7 +73,7 @@ const revertGroupSchema = z.strictObject({
   target: targetSchema.nullable(),
   source_seqs: sourceSeqsSchema,
   capability: revertCapabilitySchema,
-  reason_blob: sha256Schema.nullable(),
+  reason: revertReasonSchema.nullable(),
   comparison: jsonObjectSchema.nullable(),
   before_ref: jsonObjectSchema.nullable(),
   dependencies: z.array(dependencySchema),
@@ -85,7 +86,7 @@ const revertGroupSchema = z.strictObject({
     (value.capability === "reversible" ? value.before_ref !== null : true) &&
     (value.capability === "retained" || value.capability === "irreversible" ||
         value.capability === "conflict"
-      ? value.reason_blob !== null
+      ? value.reason !== null
       : true),
   { message: "revert group fields disagree with its capability" },
 );
@@ -97,11 +98,11 @@ const revertChangeSchema = z.strictObject({
   source_seqs: sourceSeqsSchema,
   capability: revertCapabilitySchema,
   result: revertResultSchema,
-  reason_blob: sha256Schema.nullable(),
+  reason: revertReasonSchema.nullable(),
   restored_seqs: z.array(seqSchema),
   app_revert: appRevertBindingSchema.nullable(),
 }).refine(
-  (value) => value.result === "restored" || value.reason_blob !== null,
+  (value) => value.result === "restored" || value.reason !== null,
   { message: "a non-restored change needs a reason" },
 );
 
@@ -111,8 +112,9 @@ const preparedSchema = z.strictObject({
   prepared_ref: sha256Schema.nullable(),
 });
 
-// 사람 결정은 적용 자체다. 표시는 같은 run의 reverts/preview를 읽는다.
-export const REVERT_RUN_DECISION = defineDecision("revert_run");
+// 사람 결정은 적용 자체다. 표시는 같은 run의 reverts/preview를 읽는다. ledger는 확인 handle의
+// 결정 이름으로 command 이름(route.name)을 검사하므로 이 이름이 command 이름과 같아야 한다.
+export const REVERT_RUN_DECISION = defineDecision("RevertRun");
 
 export const revertRunInputSchema = z.strictObject({
   id: idSchema("rvt"),
@@ -230,6 +232,17 @@ export const revertList = defineRead({
 
 const revertSubject = idSchema("rvt");
 
+// 결과 event는 변경 목록을 싣지 않고 결과별 묶음 수만 싣는다. 목록은 reverts/list가 읽는다.
+export const revertResultCountsSchema = z.strictObject({
+  restored: z.number().int().nonnegative(),
+  retained: z.number().int().nonnegative(),
+  irreversible: z.number().int().nonnegative(),
+  conflict: z.number().int().nonnegative(),
+  unchanged: z.number().int().nonnegative(),
+  failure: z.number().int().nonnegative(),
+  uncertain: z.number().int().nonnegative(),
+});
+
 export const revertStarted = defineEvent("RevertStarted", {
   subject: revertSubject,
   payload: z.object({
@@ -245,7 +258,7 @@ export const revertApplied = defineEvent("RevertApplied", {
     run: idSchema("run"),
     allow_partial: z.boolean(),
     partial: z.boolean(),
-    changes: sha256Schema,
+    results: revertResultCountsSchema,
   }),
 });
 
@@ -253,7 +266,7 @@ export const revertBlocked = defineEvent("RevertBlocked", {
   subject: revertSubject,
   payload: z.object({
     run: idSchema("run"),
-    changes: sha256Schema,
+    results: revertResultCountsSchema,
   }),
 });
 
@@ -262,7 +275,7 @@ export const revertFinished = defineEvent("RevertFinished", {
   payload: z.object({
     run: idSchema("run"),
     outcome: z.enum(["partial", "uncertain"]),
-    changes: sha256Schema,
+    results: revertResultCountsSchema,
   }),
 });
 

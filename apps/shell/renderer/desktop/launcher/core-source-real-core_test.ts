@@ -1,6 +1,6 @@
 // 실제 core 위의 프로젝트 등록과 작업대 열기. fake core는 command 응답 모양을 잘못 흉내 내도
 // 통과하므로 temp LOPHN_HOME core에 temp 폴더를 등록해 응답을 그대로 읽는지 본다. 추적 미리보기
-// (`/v1/projects/preview_tracking`)는 아직 제품 core가 서빙하지 않아 여기서 부르지 않는다.
+// (`/v1/projects/preview_tracking`)·켜기·사람 파일 목록(`/v1/files/list`)도 실제 core로 본다.
 import { assert, assertEquals } from "@std/assert";
 
 import { startRealCore } from "../../testdata/real-core.ts";
@@ -10,9 +10,23 @@ import { newId } from "../lophn-space/model.ts";
 import { coreLauncherSource } from "./core-source.ts";
 import { registerFailure, shortNameOf } from "./model.ts";
 
-Deno.test("shell/desktop#R25, documents/projects#R1, R3: 실제 core에 temp 폴더 프로젝트를 등록하면 카드와 작업대가 그 프로젝트를 추적 꺼짐으로 읽는다", async () => {
+async function until<T>(
+  label: string,
+  read: () => Promise<T | undefined>,
+): Promise<T> {
+  const deadline = Date.now() + 60_000;
+  for (;;) {
+    const found = await read();
+    if (found !== undefined) return found;
+    if (Date.now() > deadline) throw new Error(`기다림 초과: ${label}`);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+}
+
+Deno.test("shell/desktop#R25, documents/projects#R1, R3, R6, R7: 실제 core에 temp 폴더 프로젝트를 등록하면 카드와 작업대가 그 프로젝트를 추적 꺼짐으로 읽고, 미리본 구성 그대로 추적을 켠다", async () => {
   const folder = await Deno.makeTempDir({ prefix: "lophn-launcher-project-" });
   await Deno.writeTextFile(`${folder}/goals.md`, "# Goals\n");
+  await Deno.writeTextFile(`${folder}/scratch.txt`, "scratch\n");
   const core = await startRealCore();
   try {
     const launcher = coreLauncherSource(core.source, undefined);
@@ -79,6 +93,46 @@ Deno.test("shell/desktop#R25, documents/projects#R1, R3: 실제 core에 temp 폴
       useGitignore: true,
     });
     assertEquals(await tracking.trackedRoots(id), { ok: true, value: [] });
+
+    // 추적 미리보기와 켜기(shell#T15에서 넘어옴, documents#T12가 서빙). 미리보기는 폴더를
+    // 실제로 scan해 포함·제외와 그 이유를 돌려주고, 켜기는 미리 본 구성을 그대로 보낸다.
+    const preview = await tracking.preview(project.value, project.value.proposal);
+    assert(preview.ok, JSON.stringify(preview));
+    const goals = preview.value.entries.find((entry) =>
+      entry.path === "goals.md"
+    );
+    assertEquals(goals?.included, true);
+    assert((goals?.reason ?? "").length > 0);
+    const scratch = preview.value.entries.find((entry) =>
+      entry.path === "scratch.txt"
+    );
+    if (scratch) {
+      assertEquals(scratch.included, false);
+      assert(scratch.reason.length > 0);
+    }
+    const turnedOn = await tracking.apply(project.value, preview.value);
+    assert(turnedOn.ok, JSON.stringify(turnedOn));
+    assertEquals(turnedOn.value.tracking.enabled, true);
+    // 다른 프로젝트에서 보면 이 폴더가 켜진 폴더다(겹침 검사).
+    const roots = await tracking.trackedRoots(newId("prj"));
+    assert(roots.ok);
+    assertEquals(roots.value.map((root) => root.path), [folder]);
+    // 켠 폴더의 파일이 사람 파일 목록에 오고, 작업대 팔레트 파일 묶음 읽기는 실패하지 않는다.
+    const listed = await until("files.list", async () => {
+      const reply = await core.source.call({
+        kind: "read",
+        resource: "files",
+        method: "list",
+        body: { project: id },
+      });
+      const targets = reply.ok
+        ? (reply.value as { targets: { path?: string }[] }).targets
+        : [];
+      return targets.length > 0 ? targets : undefined;
+    });
+    assertEquals(listed.map((target) => target.path), [`${folder}/goals.md`]);
+    const files = await workspace.files(id);
+    assert(files.ok, JSON.stringify(files));
   } catch (error) {
     throw new Error(`${(error as Error).message}\n--- core ---\n${core.log()}`);
   } finally {

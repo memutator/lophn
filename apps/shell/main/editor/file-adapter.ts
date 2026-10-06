@@ -140,7 +140,6 @@ export interface FilesPort {
     path: string,
     limit: number,
   ): Promise<PortResult<Uint8Array>>;
-  status(target: FileTarget): Promise<PortResult<FileStatus>>;
   watch(
     target: FileTarget,
     cursor: string | undefined,
@@ -537,14 +536,18 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
           value: { state: "unknown", observed_hash: null, observed_at: null },
         };
       }
-      const status = await port.status(session.target);
-      if (!status.ok) {
+      // 지금 디스크 바이트를 documents 파일 통로로 읽어 그 hash를 본다. 추적을 끈 폴더는
+      // 관측 상태(files.status)에 hash가 없어서 상태만으로는 가릴 수 없다.
+      const read = await port.read(session.target, EDITOR_MAX_BYTES);
+      let observed: string | null;
+      if (read.ok) observed = hash(read.value);
+      else if (read.error.code === "not_found") observed = null;
+      else {
         return {
           ok: true,
           value: { state: "unknown", observed_hash: null, observed_at: null },
         };
       }
-      const observed = status.value.observed_hash;
       const state: LookupReport["state"] = observed === attempt.hash
         ? "written"
         : observed === attempt.base
@@ -556,7 +559,7 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
         value: {
           state,
           observed_hash: observed,
-          observed_at: status.value.observed_at,
+          observed_at: new Date().toISOString(),
         },
       };
     },

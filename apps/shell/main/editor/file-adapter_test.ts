@@ -7,7 +7,6 @@ import {
   type DocumentRead,
   type FileOperationResult,
   type FilesPort,
-  type FileStatus,
   type PortResult,
   sha256,
   type ValidateInput,
@@ -65,7 +64,6 @@ function fake(over: {
   versionFile?: PortResult<Uint8Array>;
   upload?: PortResult<never>;
   write?: (request: WriteRequest) => PortResult<FileOperationResult>;
-  status?: PortResult<FileStatus>;
   diagnostics?: {
     severity: "error" | "warning";
     message: string;
@@ -92,13 +90,6 @@ function fake(over: {
     read: () => Promise.resolve(over.read ?? { ok: true, value: ORIGINAL }),
     versionFile: () =>
       Promise.resolve(over.versionFile ?? { ok: true, value: ORIGINAL }),
-    status: () =>
-      Promise.resolve(
-        over.status ?? {
-          ok: false,
-          error: { code: "unavailable", message: "x" },
-        },
-      ),
     watch: () =>
       Promise.resolve({
         ok: true,
@@ -359,7 +350,6 @@ test("shell/editor#R15: base_hash가 낡으면 conflict이고 파일은 document
 });
 
 test("shell/editor#R12: 결과를 모르는 쓰기는 다시 쓰지 않고 documents 상태로 그 바이트가 있는지 본다", async () => {
-  let observed = sha256(ORIGINAL);
   const state = fake({
     write: () => ({
       ok: false,
@@ -370,16 +360,9 @@ test("shell/editor#R12: 결과를 모르는 쓰기는 다시 쓰지 않고 docum
       },
     }),
   });
-  state.port.status = () =>
-    Promise.resolve({
-      ok: true,
-      value: {
-        state: "version_pending",
-        observed_at: "2026-10-06T00:00:01.000Z",
-        observed_hash: observed,
-        compared_version: null,
-      },
-    });
+  // 결과 조회는 지금 디스크 바이트를 읽어 hash를 본다.
+  let disk = ORIGINAL;
+  state.port.read = () => Promise.resolve({ ok: true, value: disk });
   const { adapter, opened } = await openOne(state);
   const reply = await adapter.write(
     7,
@@ -392,20 +375,15 @@ test("shell/editor#R12: 결과를 모르는 쓰기는 다시 쓰지 않고 docum
     session: opened.session,
     request_key: "key-0000000000000001",
   });
-  assert.deepEqual(before, {
-    ok: true,
-    value: {
-      state: "not_written",
-      observed_hash: sha256(ORIGINAL),
-      observed_at: "2026-10-06T00:00:01.000Z",
-    },
-  });
+  assert.ok(before.ok);
+  assert.equal(before.value.state, "not_written");
+  assert.equal(before.value.observed_hash, sha256(ORIGINAL));
   // 다른 key로 다시 모르는 쓰기를 만들고, 이번에는 그 바이트가 디스크에 있다.
   await adapter.write(
     7,
     writeInput(opened.session, "z\n", opened.base_hash, false, "key-0000000000000002"),
   );
-  observed = sha256(encoder.encode("z\n"));
+  disk = encoder.encode("z\n");
   const after = await adapter.lookup(7, {
     session: opened.session,
     request_key: "key-0000000000000002",

@@ -52,17 +52,6 @@ export function coreFilesPort(core: CoreCalls): FilesPort {
       core.readStream("files", "read", { target }, limit),
     versionFile: (version, path, limit) =>
       core.readStream("documents", "file", { version, path }, limit),
-    async status(target) {
-      const result = await core.internal("read", "files", "status", {
-        target,
-      });
-      return result.ok
-        ? {
-          ok: true,
-          value: (result.value as { status: FileStatus }).status,
-        }
-        : result;
-    },
     async watch(target, cursor) {
       const result = await core.internal("worker", "files", "watch", {
         target,

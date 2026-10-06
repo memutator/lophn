@@ -10,7 +10,8 @@ import {
   packagesList,
   packagesVersions,
 } from "../apps/package-routes.ts";
-import { commandKeySchema } from "../apps/channel-values.ts";
+import { appIdSchema, commandKeySchema } from "../apps/channel-values.ts";
+import { packageVersionNameSchema } from "../apps/packages.ts";
 import {
   ticketClaim,
   ticketReleaseClaim,
@@ -64,12 +65,26 @@ const appReaderInput = z.discriminatedUnion("op", [
   commandOpInput,
 ]);
 
-// SDK tool은 catalog 검색·상세·exact version 추가뿐이다. apply 선택 반영은
-// owner route 입력을 그대로 빌려 구별한다(mcp#R22, R23).
+// SDK tool은 catalog 검색·상세·exact version 추가뿐이다(mcp#R22, R23). owner route 입력에
+// 통로가 쓰는 field만 더한다: catalog의 설명·API 이름 검색어(`query`), show의 고를 version,
+// add의 source 반영 선택(`apply`)과 반영할 앱. 더한 field는 owner route로 보내지 않는다.
+export const sdkCatalogFields = {
+  query: z.string().regex(/\S/).max(200).optional(),
+};
+export const sdkShowFields = {
+  version: packageVersionNameSchema.optional(),
+};
+export const sdkAddFields = {
+  apply: z.boolean().optional(),
+  app: appIdSchema.optional(),
+};
 const sdkInput = z.discriminatedUnion("op", [
-  packagesList.input.extend({ op: z.literal("catalog") }),
-  packagesVersions.input.extend({ op: z.literal("show") }),
-  packagesGuide.input.extend({ op: z.literal("add") }),
+  packagesList.input.extend({
+    op: z.literal("catalog"),
+    ...sdkCatalogFields,
+  }),
+  packagesVersions.input.extend({ op: z.literal("show"), ...sdkShowFields }),
+  packagesGuide.input.extend({ op: z.literal("add"), ...sdkAddFields }),
 ]);
 
 // ticket tool은 목록·본문·조건 검사와 claim 읽기·갱신·반납·release 연결·완료 보고다.

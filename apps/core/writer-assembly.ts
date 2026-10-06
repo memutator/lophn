@@ -36,6 +36,7 @@ import {
   createPreparationRegistry,
   type PreparationRegistry,
 } from "../../packages/platform/blob-store/mod.ts";
+import { bindQuestionOptionOwners } from "./lophn-agent.ts";
 import { bindApprovalOwners } from "./platform.ts";
 import { SECRET_COMMANDS } from "../../packages/platform/secrets/mod.ts";
 import type { TeamModule } from "./registration.ts";
@@ -120,6 +121,8 @@ export async function assembleWriter(
   ) {
     throw new Error("dispatchOnly command must be dispatchable");
   }
+  // ApplyQuestionOption은 등록된 command 중 선택지로 열 수 있는 소유 동작의 handler만 부른다.
+  bindQuestionOptionOwners(commands);
   // apply_approved_action은 등록된 command 중 dispatchable 표시가 있는 것만 소유 command로 부른다.
   bindApprovalOwners(
     commands.filter((command) => command.dispatchable === true).map((command) =>

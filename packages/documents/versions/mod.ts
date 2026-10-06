@@ -17,9 +17,13 @@ export { createSourceCommands } from "./source.ts";
 export { createExportAssembly } from "./work.ts";
 export { authorizeDocument } from "./authorization.ts";
 export {
+  insertDocument,
+  insertVersion,
   type LinkedDocument,
+  listDocuments,
   loadDocument,
   loadFiles,
+  loadInstructionDocuments,
   loadLatestVersion,
   loadLinkedDocuments,
   loadSourcelessDocuments,

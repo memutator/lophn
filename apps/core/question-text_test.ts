@@ -12,6 +12,7 @@ import {
 } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { id } from "../../packages/lophn-agent/conversation/testing/mod.ts";
+import { settingsOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import {
   createLedgerRegistration,
@@ -249,23 +250,17 @@ async function sha(text: string): Promise<string> {
 }
 
 function settingsAction(question: string) {
-  const input = {
+  return settingsOptionAction({
+    question,
     changes: [{
       layer: "common",
       key: "shell.reading_width",
       action: "set",
       value: 90,
     }],
-  };
-  return {
-    concern: "platform/settings",
-    command: "apply_settings",
-    targets: [question],
-    input: { kind: "inline", value: input },
-    input_hash: "a".repeat(64),
-    comparison: { revision: 0, defaults_revision: "defaults-1" },
-    binding_hash: "c".repeat(64),
-  };
+    revision: 0,
+    defaults_revision: "defaults-1",
+  });
 }
 
 type Created = { id: string; status: string; created_seq: string };

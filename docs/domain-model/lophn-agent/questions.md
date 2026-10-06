@@ -140,7 +140,7 @@ option·action·recommendation·answer는 질문 안의 값이고 독립 ID·표
 | `apply_question_option` | `machine` | question, answered_seq, option_key, 고정 action | answered·실제 선택 key 일치·action 완전 일치·현재 범위·소유 CAS·미적용 | → action.concern의 접수·변경 event | `forbidden`, `not_found`, `conflict` |
 | `read_question_text` | `user`, `machine`, `coding_agent`, 그 assignment의 `agent` | question | 질문을 읽을 수 있는 범위; 범위 밖은 없는 질문과 같은 `not_found`; 글 blob 하나라도 읽을 수 없으면 `unavailable` | 없음 | `invalid_input`, `not_found`, `unavailable` |
 
-`apply_question_option`은 등록된 소유 command로만 dispatch한다. action 없음·자유 답은 적용할 command가 없다. 기존 `(question, option_key)` 적용이 있으면 새 적용 없이 그 기록을 반환한다. 답 저장은 적용 성공을 뜻하지 않는다.
+`apply_question_option`은 등록된 소유 command로만 dispatch한다. action 없음·자유 답은 적용할 command가 없다. 같은 `(question, option_key)`를 이미 적용했으면 conflict다(새 적용 없음, 적용 결과는 질문 읽기의 `applied`). 적용 일회 기록은 platform/ledger의 `question_evidence`이고 소유 변경과 같은 transaction이라 소유 command가 실패하면 함께 되돌아간다. settings 선택지의 action command는 `apply_settings`, 대상은 그 질문 ID다. 답 저장은 적용 성공을 뜻하지 않는다.
 
 ## event
 

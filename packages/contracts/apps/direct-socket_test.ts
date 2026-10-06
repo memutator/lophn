@@ -4,6 +4,7 @@ import {
   commandInvokeOutputSchema,
   commandRevertResultSchema,
   commandStatusOutputSchema,
+  controlOpenInputSchema,
   controlProbeInputSchema,
   controlShutdownInputSchema,
   DIRECT_SOCKET_PATHS,
@@ -170,4 +171,24 @@ Deno.test("apps/runtime#R11, apps/invocations#R7: 모르는 field와 틀린 ID �
       extra: 1,
     }).success === false,
   );
+});
+
+Deno.test("apps/preview#R9: control/open은 준비 전 bundle의 preview를 위해 release null을 받고 모양이 다른 release는 거절한다", () => {
+  const nonce = "nonce-aaaa1111";
+  const release = "rel_01arz3ndektsv4rrffq69g5fav";
+  assert(
+    controlOpenInputSchema.safeParse({ process_nonce: nonce, release })
+      .success,
+  );
+  assert(
+    controlOpenInputSchema.safeParse({ process_nonce: nonce, release: null })
+      .success,
+  );
+  for (const bad of ["", "rel_nope", undefined]) {
+    assert(
+      !controlOpenInputSchema.safeParse({ process_nonce: nonce, release: bad })
+        .success,
+    );
+  }
+  assert(!controlOpenInputSchema.safeParse({ process_nonce: nonce }).success);
 });

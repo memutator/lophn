@@ -248,6 +248,11 @@ Deno.test("apps/runtime#R11: hand-written wire agrees with contract schemas", ()
   assert(commandInvokeInputSchema.safeParse(body).success);
   const open = { process_nonce: NONCE, release: REL };
   assert(controlOpenInputSchema.safeParse(open).success);
+  // release 없는 preview의 open도 contract와 같이 받는다(apps/preview#R9).
+  assert(
+    controlOpenInputSchema.safeParse({ process_nonce: NONCE, release: null })
+      .success,
+  );
   assert(appConnectionSchema.safeParse(connection()).success);
   assert(
     !commandInvokeInputSchema.safeParse({ ...body, actor: "user" }).success,

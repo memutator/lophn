@@ -94,6 +94,7 @@ export async function readObservationBasis(
     const payload = parseObservationBasis({
       roots: roots.value["roots"],
       folders: roots.value["folders"],
+      instructions: roots.value["instructions"],
       links,
     });
     if (!payload.ok) return payload;

@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  applyQuestionOption,
   cancelQuestion,
   correctWaitingRun,
   questionRead,
@@ -60,8 +61,9 @@ export type WaitStep =
   | { kind: "idle" }
   // 아직 사람의 결정이 없다.
   | { kind: "pending"; request: string }
-  // 답은 받았지만 고정 action의 적용이 아직이다(접수와 적용은 다르다).
-  | { kind: "action_pending"; request: string }
+  // 답은 받았지만 고정 action의 적용이 아직이다(접수와 적용은 다르다). 전제가 달라져 적용하지
+  // 못했다면 why가 달라진 이유다(questions#R14).
+  | { kind: "action_pending"; request: string; why?: string }
   // 미시작을 확인하지 못했다. approval을 쓰지 않고 그대로 둔다(R11).
   | { kind: "unverified"; request: string; why: string }
   | {
@@ -152,6 +154,46 @@ export function createWaitResolver(deps: WaitWorkDeps) {
     });
   }
 
+  // 사람이 고른 선택지에 고정 action이 있고 아직 적용하지 않았으면 소유 command로 적용한다
+  // (questions#R13). 답 저장 → 적용 → ResolveRunWait는 각각 따로 확정되고 읽은 현재 사실에서
+  // 이어 가므로 어느 지점에서 죽어도 적용은 한 번이다: 적용했다면 `applied`가 이미 참이라 다시
+  // 부르지 않고, 적용 중 죽었다면 transaction이 통째로 되돌아가 처음부터 다시 적용한다.
+  // 전제가 달라져 적용하지 못하면 답은 그대로 두고 재개하지 않는다(questions#R14).
+  async function applyChosen(
+    record: z.output<typeof questionRead.output>["question"],
+  ): Promise<Result<{ applied: boolean; why?: string }>> {
+    const answer = record.answer;
+    if (record.status !== "answered" || answer === null) {
+      return ok({ applied: true });
+    }
+    if (answer.kind !== "option") return ok({ applied: true });
+    const chosen = record.options.find((option) =>
+      option.key === answer.option_key
+    );
+    if (chosen === undefined || chosen.action === null) {
+      return ok({ applied: true });
+    }
+    if (record.applied) return ok({ applied: true });
+    if (record.closed_seq === null) return ok({ applied: true });
+    const applied = await post(deps.machine, applyQuestionOption, {
+      input: {
+        question: record.id,
+        answered_seq: record.closed_seq,
+        option_key: chosen.key,
+        action: chosen.action,
+        evidence: { question: record.id, option: chosen.key },
+      },
+      idempotency_key: `${record.id}:${chosen.key}:apply`,
+      compare: {},
+      prepared: [],
+    });
+    if (applied.ok) return ok({ applied: true });
+    if (applied.error.code === "conflict") {
+      return ok({ applied: false, why: applied.error.message });
+    }
+    return applied;
+  }
+
   // 질문 하나를 본다. 사람의 답·만료·미루기·취소만 결정이다(R1).
   async function settleQuestion(
     run: { id: string; state_seq: string },
@@ -162,6 +204,16 @@ export function createWaitResolver(deps: WaitWorkDeps) {
     const question = read.value.question;
     if (question.status === "pending" || question.closed_seq === null) {
       return ok({ kind: "pending", request });
+    }
+    const chosen = await applyChosen(question);
+    if (!chosen.ok) return chosen;
+    // 적용하지 못했다. 접수와 적용은 다르므로 재개하지 않는다.
+    if (!chosen.value.applied) {
+      return ok({
+        kind: "action_pending",
+        request,
+        ...(chosen.value.why === undefined ? {} : { why: chosen.value.why }),
+      });
     }
     return await resolve(run, request, question.closed_seq);
   }

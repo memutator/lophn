@@ -115,9 +115,10 @@ export const controlProbeInputSchema = z.strictObject({
   process_nonce: processNonceSchema,
 });
 export const controlProbeOutputSchema = readyAttestationSchema;
+// release 없는 preview(준비 전 bundle)는 null이다. live 자식은 null이면 release 불일치로 거절한다.
 export const controlOpenInputSchema = z.strictObject({
   process_nonce: processNonceSchema,
-  release: releaseIdSchema,
+  release: releaseIdSchema.nullable(),
 });
 export const controlOpenOutputSchema = z.object({ accepting: z.literal(true) });
 export const controlCloseInputSchema = z.strictObject({

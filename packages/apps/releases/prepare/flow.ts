@@ -2,7 +2,10 @@
 // extract → 상한 → UI build → blueprint extract → seal → blob prepare.
 // 취소·worker 종료·상한 초과는 부분 bundle을 지우고 확정하지 않는다.
 import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
-import { RELEASE_PREPARATION_LIMIT_MS } from "../../../contracts/apps/mod.ts";
+import {
+  type BundleManifest,
+  RELEASE_PREPARATION_LIMIT_MS,
+} from "../../../contracts/apps/mod.ts";
 import {
   extractBlueprint,
   type ExtractSpawner,
@@ -45,12 +48,17 @@ export type PrepareReleaseInput = {
   assets?: readonly { path: string; bytes: Uint8Array }[];
   sdkDependencies: readonly { name: string; version: string }[];
   uiDependencies: readonly { name: string; version: string }[];
+  // 설치 SDK 사본의 byte(`sdk/<이름>/<version>/...`). bundle 안에서 앱 코드가 읽는다(apps/sdk#R10).
+  sdkCopies?: readonly { path: string; bytes: Uint8Array }[];
+  // bundle 안 상대 경로로 잠근 앱 import map. 있으면 `import-map.json`으로 bundle에 담는다.
+  lockedImports?: Readonly<Record<string, string>>;
 };
 
 export type PreparedRelease = {
   bundleHash: string;
   copyPath: string;
   blueprintHash: string;
+  manifest: BundleManifest;
 };
 
 export type PrepareDeps = {
@@ -125,9 +133,17 @@ export async function prepareRelease(
   // 화면·blueprint·source map이 더해지기 전에 파일 수만 먼저 본다.
   // byte는 아래 bundle 합에서 한 번만 더한다.
   const assets = input.assets ?? [];
+  const sdkCopies = input.sdkCopies ?? [];
+  const lockedMap = input.lockedImports === undefined ? [] : [{
+    path: "import-map.json",
+    bytes: new TextEncoder().encode(
+      JSON.stringify({ imports: input.lockedImports }),
+    ),
+  }];
   const countedFiles = counter.addBundle(
     0,
-    input.screens.length + assets.length + 2,
+    input.screens.length + assets.length + sdkCopies.length +
+      lockedMap.length + 2,
   );
   if (countedFiles) return fromLimit(countedFiles);
   if (deps.cancelled?.()) return fail("cancelled");
@@ -164,6 +180,8 @@ export async function prepareRelease(
     ...extracted.value,
     ...built.value.files,
     ...assets,
+    ...sdkCopies,
+    ...lockedMap,
     { path: "blueprint.json", bytes: blueprintBytes },
   ];
   if (
@@ -196,7 +214,12 @@ export async function prepareRelease(
   );
   const copy = bundleCopyPath(input.dataRoot, input.app, bundleHash);
   if (!copy.ok) return fail(copy.error.message);
-  const sealed = await sealBundle({
+  // 같은 hash의 봉인 사본이 이미 있으면 같은 byte다. 다시 쓰지 않는다. 봉인(0555)이 끝나지 않은
+  // 사본은 끊긴 준비가 남긴 것이라 지우고 다시 쓴다.
+  const found = await Deno.stat(copy.value).then((info) => info, () => null);
+  const existing = found !== null && ((found.mode ?? 0) & 0o222) === 0;
+  if (found !== null && !existing) await removePartial(copy.value);
+  const sealed = existing ? { ok: true as const } : await sealBundle({
     copyPath: copy.value,
     manifest: manifest.value,
     blueprintJson: blueprintBytes,
@@ -211,7 +234,7 @@ export async function prepareRelease(
     deps.cancelled?.() || await watch.changedSince() ||
     now() - started > limitMs
   ) {
-    await removePartial(copy.value);
+    if (!existing) await removePartial(copy.value);
     return fail(
       deps.cancelled?.()
         ? "cancelled"
@@ -227,7 +250,7 @@ export async function prepareRelease(
       bytes: streamOf(new TextEncoder().encode(JSON.stringify(manifest.value))),
     });
     if (!prepared.ok) {
-      await removePartial(copy.value);
+      if (!existing) await removePartial(copy.value);
       return fail("blob_prepare", "unavailable");
     }
   }
@@ -235,5 +258,6 @@ export async function prepareRelease(
     bundleHash,
     copyPath: copy.value,
     blueprintHash: await sha256Hex(blueprintBytes),
+    manifest: manifest.value,
   });
 }

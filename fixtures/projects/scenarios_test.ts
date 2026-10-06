@@ -58,6 +58,14 @@ const EXPECTED_FILES: Record<(typeof FIXTURE_NAMES)[number], string[]> = {
     "migration.md",
     "glossary.md",
   ],
+  "two-apps": [
+    "app-a/blueprint.json",
+    "app-a/main.ts",
+    "app-a/docs/plan.md",
+    "app-b/blueprint.json",
+    "app-b/main.ts",
+    "app-b/docs/plan.md",
+  ],
 };
 
 async function withCopy(

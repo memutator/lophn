@@ -123,6 +123,8 @@ AppCallOrigin은 kind=app으로 app/release/parent_invocation만 projection하�
 | `invocation.record_finished` | machine | 검증된 사실,status,started_at?,finished_at,summary,detail_hash? | 같은 ID terminal; unknown은 알려진 ID만 | `InvocationFinished` | `conflict`, `unauthorized`, `invalid_input` |
 | `invocation.record_denied` | machine | 검증된 사실,finished_at,summary | handler 미시작; 같은 ID 사실 | `InvocationDenied` | `conflict`, `unauthorized`, `invalid_input` |
 
+`invocation.accept_confirm`은 dispatch 전용이다. `apply_approved_action`이 같은 transaction에서만 부르고 approval 사용(`approval_uses`)과 함께 확정한다. HTTP로 직접 부르면 어느 자격이든 등록되지 않은 command와 같은 `invalid_input`으로 거절되고 접수·proof·approval 사용이 남지 않는다(platform Q31). 접수된 호출의 proof는 직접 재전송이 아니라 core 안에 저장된 접수(`InvocationAccepted`의 접수 시각·같은 접수 입력)에서 만든다.
+
 ## event
 
 | event | subject | payload | 구독(concern) |

@@ -195,7 +195,7 @@ AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·c
 
 screen은 `앱 화면 틀`의 좁은 preload와 Electron main을 통해 부른다. main은 송신 view 신원에서 app·release·mode를 정하며 임의 socket과 token을 view에 노출하지 않는다. MCP·CLI·agent runtime은 같은 `runtime/client`로 direct socket을 부른다. Operator의 승인된 read scope 등 호출자의 제한은 `인증`과 해당 호출자 concern을 따른다. 앱 read는 effect=read인 command이지 별도 Query/read-model 통로가 아니다.
 
-**confirm.** `confirm=true`는 인증된 user·app·agent 요청 모두에서 정확한 사람 approval을 요구한다. 앱 쌍 Grant와 agent.commands Grant는 이 결정을 대신하지 않는다. shell main 또는 agent/앱 호출의 플랫폼 어댑터가 고정 blueprint로 검증·default 적용한 정규 입력과 인증된 원래 caller를 `approval`과 `confirmation window`에 묶는다. 정확한 approval 뒤 broker의 플랫폼 어댑터가 `invocation.accept_confirm` command로 accepted와 approval 사용을 한 transaction에 확정한다. 출력은 inv ID와 ConfirmExecutionProof다. caller는 그 proof를 실제 입력과 함께 direct 호출에 붙인다. core는 handler를 중계하지 않는다.
+**confirm.** `confirm=true`는 인증된 user·app·agent 요청 모두에서 정확한 사람 approval을 요구한다. 앱 쌍 Grant와 agent.commands Grant는 이 결정을 대신하지 않는다. shell main 또는 agent/앱 호출의 플랫폼 어댑터가 고정 blueprint로 검증·default 적용한 정규 입력과 인증된 원래 caller를 `approval`과 `confirmation window`에 묶는다. 정확한 approval 뒤 `apply_approved_action`이 `invocation.accept_confirm`을 같은 transaction에서 불러 accepted와 approval 사용을 한 번에 확정한다. 이 command는 dispatch 전용이라 HTTP 직접 호출은 등록되지 않은 command와 같게 거절되고 approval 사용 없는 접수·proof는 나오지 않는다. ConfirmExecutionProof는 core 안에 저장된 접수(inv ID, `InvocationAccepted` 접수 시각, 같은 접수 입력)에서 만들고 core 서명 key로 서명한다. 직접 재전송으로 얻지 않는다. 출력은 inv ID와 proof다. caller는 그 proof를 실제 입력과 함께 direct 호출에 붙인다. core는 handler를 중계하지 않는다.
 
 앱은 proof의 서명·inv ID·현재 nonce·release·command·input_hash·InvocationCaller projection·expires_at을 비교하고 handler 전에 메모리 marker에 넣는다. 같은 접수는 알고 있는 같은 진행/결과만 반환한다. marker는 proof 만료 전 제거하지 않으며 프로세스당 4096개 한도에 닿으면 새 접수를 거절한다. 종료 결과의 큰 본문 대신 inv ID와 진행/종료 여부를 유지하므로 marker를 비워 재실행하지 않는다. 새 프로세스에서는 옛 proof를 쓸 수 없다. accepted는 started_at을 만들지 않는다. 저장 실패·입력 변경·재시작 때 사람 결정을 재사용하지 않는다.
 
@@ -235,7 +235,7 @@ SDK의 `@lophn/blueprint.defineAgentContext`, `@lophn/cap-schedule.registerScree
 
 | RPC | 출력 사실 | event |
 |---|---|---|
-| `POST /v1/invocations/accept_confirm` | 동일 key의 accepted와 proof; 정확한 approval 사용과 원자적 접수 | `InvocationAccepted` |
+| `POST /v1/invocations/accept_confirm` | dispatch 전용: `apply_approved_action`만 부른다. 직접 호출은 없는 command와 같게 거절; 정확한 approval 사용과 원자적 접수 | `InvocationAccepted` |
 | `POST /v1/invocations/record_started` | inv의 실제 running 또는 이미 확정한 같은 사실 | `InvocationStarted` |
 | `POST /v1/invocations/record_finished` | succeeded/failed/unknown의 실제 종료·미확인 결과 | `InvocationFinished` |
 | `POST /v1/invocations/record_denied` | handler 미시작 거절 | `InvocationDenied` |
@@ -353,8 +353,9 @@ confirm command의 흐름이다. confirm=false command는 approval 단계 없이
 [앱 view의 사람] command 요청
   → [shell main] 당시 blueprint 검사·default 적용·정규 input hash
   → [confirmation window / approval] 정확한 release·command·입력·영향 결정
-  → [플랫폼 broker 어댑터] invocation.accept_confirm command
-  → [core] approval 사용 + accepted 원자적 확정, proof 반환
+  → [플랫폼 broker 어댑터] approvals/apply (machine)
+  → [core] apply가 invocation.accept_confirm을 dispatch: approval 사용 + accepted 원자적 확정
+  → [core] 저장된 접수에서 proof 생성·서명
   → [shell main] 같은 입력·proof를 앱 direct socket에 전송
   → [앱] proof 검사 + handler 전 marker, 실제 시작
   → [broker 전송부] secret.use 검사(선언 이름∩grant) → secret·redaction contract → 인증 전송

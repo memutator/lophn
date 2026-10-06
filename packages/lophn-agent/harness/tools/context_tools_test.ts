@@ -86,6 +86,16 @@ function ledgerWorld() {
   const contexts = new Map<string, Ctx>();
   const terms = new Map<string, Term>();
   const calls: Call[] = [];
+  // 사람이 답한 질문(정의 답 전달의 질문 정본). 답이 없거나 action이 없는 선택지는 거절 소스다.
+  const questions = new Map<string, {
+    status: string;
+    closed_seq: string | null;
+    answer: { kind: string; option_key: string | null } | null;
+    options: {
+      key: string;
+      action: Record<string, unknown> | null;
+    }[];
+  }>();
   // 범위 밖 context. 읽기도 변경도 없는 것과 같은 not_found다.
   const hidden = new Set<string>();
   let seq = 10;
@@ -110,6 +120,7 @@ function ledgerWorld() {
   const world = {
     contexts,
     terms,
+    questions,
     calls,
     hidden,
     setUnavailable(value: boolean) {
@@ -147,6 +158,47 @@ function ledgerWorld() {
       };
       terms.set(term.id, term);
       return term;
+    },
+    // 사람이 고른 정의 답 질문. 답 없는 질문·action 없는 선택지는 거절을 본 소스다.
+    seedQuestion(
+      n: number,
+      over: {
+        status?: string;
+        answer?: { kind: string; option_key: string | null } | null;
+        option?: { key: string; action: Record<string, unknown> | null };
+      } = {},
+    ) {
+      const option = over.option ?? { key: "apply", action: null };
+      const question = {
+        status: over.status ?? "answered",
+        closed_seq: (over.status ?? "answered") === "answered"
+          ? next()
+          : null,
+        answer: over.answer === undefined
+          ? { kind: "option", option_key: option.key }
+          : over.answer,
+        options: [option],
+      };
+      questions.set(id("qst", n), question);
+      return question;
+    },
+    seedApplyAction(n: number): Record<string, unknown> {
+      return {
+        concern: "documents/terms",
+        command: "term.define",
+        targets: [id("trm", n)],
+        input: {
+          kind: "inline",
+          value: {
+            term: id("trm", n),
+            name: `용어 ${n}`,
+            definition: "사람이 고른 뜻",
+          },
+        },
+        comparison: { base_revision: "7" },
+        input_hash: "a".repeat(64),
+        binding_hash: "b".repeat(64),
+      };
     },
     call(
       contract: string,
@@ -411,6 +463,31 @@ function ledgerWorld() {
         }
         case "CreateQuestion":
           return ok({ id: body["id"], status: "open" });
+        case "ReadQuestion": {
+          const question = questions.get(String(body["question"]));
+          return question === undefined ? notFound() : ok({
+            as_of_seq: "1",
+            question,
+            next_cursor: null,
+          });
+        }
+        case "ApplyQuestionOption": {
+          // 전달된 질문·option·action은 질문 정본과 같아야 한다. 시험은 호출 내용을 본다.
+          const question = questions.get(String(body["question"]));
+          if (question === undefined) return notFound();
+          const option = question.options.find((entry) =>
+            entry.key === body["option_key"]
+          );
+          if (option === undefined) {
+            return err({ code: "forbidden", message: "not the chosen option" });
+          }
+          return ok({
+            question: body["question"],
+            option_key: body["option_key"],
+            applied: true,
+            receipt_seq: next(),
+          });
+        }
         default:
           return err({ code: "invalid_input", message: contract });
       }
@@ -678,7 +755,6 @@ Deno.test("lophn-agent/roles/context-engineer#R4: Context Engineer의 읽기 선
   assertEquals(undefinedYet, [
     "app.commands",
     "approval.submit_assignment",
-    "term.submit_definition_answer",
   ]);
 });
 
@@ -813,6 +889,7 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 쓰기 tool은 context 생성�
     "term.propose_candidate",
     "term.update_candidate",
     "term.remove_candidate",
+    "term.submit_definition_answer",
   ]);
   const defined = new Map(BUILTIN_TOOLS.map((tool) => [tool.name, tool]));
   for (const name of CONTEXT_WRITE_TOOL_NAMES) {
@@ -881,13 +958,13 @@ Deno.test("lophn-agent/roles/context-engineer#R5: Context Engineer의 쓰기 선
   );
   assertEquals(defined.get("question.submit")!.contract, "CreateQuestion");
   assertEquals(defined.get("handoff.submit")!.contract, "SubmitHandoff");
-  // 아직 정의가 없는 쓰기 선택은 Operator 초안 제출(assignments 소유 bundle)과 정의 답 전달(questions의 option
-  // action 경로)이다. 실제 assignment 적용·권한 예외·사람 대신 승인 tool은 선택에도 정의에도 없다.
+  // 아직 정의가 없는 쓰기 선택은 Operator 초안 제출(assignments 소유 bundle)뿐이다. 실제 assignment
+  // 적용·권한 예외·사람 대신 승인 tool은 선택에도 정의에도 없다.
   assertEquals(
     caps.filter((name) => !defined.has(name)).filter((name) =>
       /submit|apply|approve/.test(name)
     ).sort(),
-    ["approval.submit_assignment", "term.submit_definition_answer"],
+    ["approval.submit_assignment"],
   );
   for (const name of defined.keys()) {
     assertEquals(
@@ -1245,6 +1322,74 @@ Deno.test("lophn-agent/roles/context-engineer#R5: 사람의 정의 답은 질문
     world.calls.some((call) => call.contract === "term.define"),
     false,
   );
+});
+
+Deno.test("lophn-agent/roles/context-engineer#R5: 정의 답 전달 tool은 Context Engineer에게만 열리고 사람 고정 action을 그대로 전하며 답이 없거나 action 없는 선택지면 전하지 않는다", async () => {
+  const { world, listed, run } = rig();
+  const anchor = world.seedContext(1);
+  // 이 tool은 context·term 묶음의 write이고 contract는 ApplyQuestionOption이다.
+  const submission = listed.find((tool) =>
+    tool.name === "term.submit_definition_answer"
+  );
+  assert(submission !== undefined);
+  assertEquals(submission.contract, "ApplyQuestionOption");
+  assertEquals(submission.effect, "write");
+  // 역할 상한: Context Engineer만, Operator는 없다.
+  const engineerCaps = ROLE_CAPS.get("context_engineer")!.tools;
+  const operatorCaps = ROLE_CAPS.get("operator")!.tools;
+  assert(engineerCaps.includes("term.submit_definition_answer"));
+  assert(!operatorCaps.includes("term.submit_definition_answer"));
+  // Context Engineer의 선택으로 실행하면 질문 정본을 먼저 읽는다.
+  const action = world.seedApplyAction(1);
+  world.seedQuestion(10, { option: { key: "apply", action } });
+  const answered = await run("term.submit_definition_answer", {
+    question: id("qst", 10),
+  }, id("tcl", 40));
+  assertEquals(answered.outcome.kind, "success", JSON.stringify(answered.result));
+  const read = world.calls.find((call) => call.contract === "ReadQuestion");
+  assert(read !== undefined);
+  assertEquals(read.input, { question: id("qst", 10) });
+  const applied = world.calls.find(
+    (call) => call.contract === "ApplyQuestionOption",
+  );
+  assert(applied !== undefined);
+  // 전달은 사람이 고른 고정 action 그대로다. 모델이 정한 값은 없다.
+  assertEquals(applied.input, {
+    question: id("qst", 10),
+    answered_seq: "12",
+    option_key: "apply",
+    action,
+    evidence: { question: id("qst", 10), option: "apply" },
+  });
+  void anchor;
+  // 답이 없는 질문(미답·만료)은 전달하지 않는다.
+  world.seedQuestion(11, {
+    status: "pending",
+    answer: null,
+    option: { key: "apply", action: world.seedApplyAction(2) },
+  });
+  const none = await run("term.submit_definition_answer", {
+    question: id("qst", 11),
+  }, id("tcl", 41));
+  assertEquals(none.outcome.code, "invalid_input");
+  // action이 없는 선택지를 골랐으면 자유 답으로 해석하지 않는다(questions#R15).
+  world.seedQuestion(12, {
+    option: { key: "apply", action: null },
+  });
+  const plain = await run("term.submit_definition_answer", {
+    question: id("qst", 12),
+  }, id("tcl", 42));
+  assertEquals(plain.outcome.code, "invalid_input");
+  assertEquals(
+    world.calls.filter((call) => call.contract === "ApplyQuestionOption")
+      .length,
+    1,
+  );
+  // 없는 질문과 범위 밖 질문은 같은 결과다.
+  const absent = await run("term.submit_definition_answer", {
+    question: id("qst", 90),
+  }, id("tcl", 43));
+  assertEquals(absent.outcome.code, "not_found");
 });
 
 Deno.test("lophn-agent/roles/context-engineer#R5: 응답이 없는 변경은 완료도 실패도 아닌 효과 불명확이고 같은 ToolCall의 재전송은 같은 새 ID와 key를 쓴다", async () => {

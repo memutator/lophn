@@ -193,6 +193,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: apps
 - 선행: problems#T7, contracts#T34, platform#T7, platform#T8, platform#T12, platform#T30, apps#T6, apps#T7
 - 상태: 완료 (#191, #203)
+- coding-agent#T21에서 넘어온 것: 접수 기록의 `request_timeout_ms`(RequestTest `timeout_ms`, payload에 저장됨)를 runner 실행 입력(`PrepareInput.request_timeout_ms`)에 잇는다. `prepareCommand`는 이미 동결 method의 timeout과 짧은 쪽을 쓰지만 접수 기록에서 `PrepareInput`을 만드는 조립은 아직 없다
 - 완료:
   - 자식은 `deno test --no-prompt --cached-only --frozen-lockfile --v8-flags=--max-old-space-size=256`, 읽기는 고정 source·의존·harness, 쓰기는 side의 scratch·fixture DB, 환경은 명시한 안전 변수만; `-A`·무제한 read/write/env/net·`--allow-run`·FFI 요청은 거절(R13, R14). deno 2.9에 `--locked`가 없어 잠긴 lockfile은 `--frozen-lockfile`이다
   - 운영 DB·backup·keychain·홈 경로 접근이 실패하고 fixture DB만 바뀐다(R13)
@@ -234,17 +235,15 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: problems#T9, contracts#T36, apps#T17, apps#T21
-- 상태: 진행 (#347) — 체크 정의와 생성 로직 완료, harness 지원 대기
-- 완료 (진행 중):
-  - `harness/definitions.ts`: 5개 app contract check 추가 (migration_empty, migration_upgrade, read_contract, automation_scope, adapter_isolation)
-  - `app-test/generate.ts`: blueprint 기능별로 check 조건부 생성 (automations, read commands, external features)
-  - `app-test_test.ts`: check 생성 검증 테스트 4개 추가, observations scope 검증 추가
-  - observations에 scope 필드 포함으로 검사 대상 범위 명시 (R12)
-- 남은 것:
-  - apps#T21(preview/test-mode doubles) 기다려 harness fixture 지원
-  - apps#T17(data migration) 기다려 migration check harness 구현
-  - 실제 app test harness에서 각 check 관측(frame) 생성
-  - 미재: apps/blueprint#R21 되돌림 검사
+- 상태: 완료 (#347) — 이어보냄: 실제 AppDriver가 이 검사의 driver 통로(migrate·probeRead·runAutomation·attemptConfirmAutomation·useSecret·exerciseAdapters·change·revert)를 data worker job·broker 대역·실제 앱 command로 채우기 → T12
+- 정한 것: AppTestInput에 `data: {schema, previous_schema}`를 더했다(DB 미사용 schema 0과 이전 release 없는 첫 release만 이유 있는 not_applicable). 필수 검사는 blueprint가 선언한 기능마다 생긴다(read·automation/confirm·secret.use·외부 효과·되돌리기 지원 write). 인접 불변식이 깨지면 고정 기준을 만족해도 통과가 아니다. apps#T21 PR(#327)의 브랜치를 병합해 쓰므로 #327이 먼저 병합돼야 한다.
+- 완료:
+  - 빈 test DB 전체 migration과 이전 release schema → 새 schema migration을 각각 돌리고 한쪽 실패면 통과하지 않는다(R8)
+  - 잘못된 입력·read의 업무 쓰기·grant 없는 접근·confirm automation은 실패; grant된 secret 대역의 read·write 가져오기·동기화와 한 번 승인한 external automation은 허용; 출력 schema는 필수로 만들지 않는다(R9)
+  - net·secret·문서 쓰기는 고정 대역뿐이고 실제 외부 host 접속이 없다(R15)
+  - observations가 검사한 고정 기준·입력 범위와 인접 불변식을 별도 항목으로 구별한다(R12)
+  - 되돌리기를 지원하는 write는 변경 → 되돌림 → 원래 업무 상태 일치, 후속 변경 뒤 되돌림 충돌, 중복 되돌림 거절을 검사한다(apps/blueprint#R21의 확인; 같은 PR에서 problems/tests#R9와 architecture/problems 7.4를 고친다, 질문 Q10)
+  - 통합: change-app 5단계의 migration 2종 app test
 
 ### T11 app test: 화면 검사
 

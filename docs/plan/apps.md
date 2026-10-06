@@ -72,6 +72,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T4 grant command와 read
 
+- 상태: 완료 (#303) — 이어보냄: 현재 선언 port(`currentDeclarations`)의 실제 구현과 activation event 발생 → apps#T18·T19, platform#T47의 doctor 관측 교체 → platform#T48
 - 등급: 기본
 - concern: apps/permissions
 - 요구: apps/permissions#R1, R2, R3, R24, R26, R27, apps/automations#R13
@@ -320,6 +321,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - 이어받음: apps#T17의 activation 순서(종료 확인 → backup 확정 → migration → 복원) 조립. 보호 backup의 blob field 등록(general_read 없음)은 record_backup hash로 이 작업이 확정한다. T17은 backup 파일을 앱 데이터 영역에 남긴다
   - 이어받음: platform#T33의 fail_activation 발생 작업. `fail_activation`이 `ReleaseActivationFailed`를 내는 것은 이 작업의 자리다
   - 이어받음: platform#T43의 release activation 복구 command. 재시작 점검이 미완료 activation을 실제 관측으로 확정하는 연결은 이 작업이 낸다
+  - 이어받음: apps#T4의 activation 진행 판정 상대. grant.create·revoke는 ReleaseActivationStarted와 그 seq를 started_seq로 가리키는 ReleaseActivated·ReleaseActivationFailed event로 "activation 진행 중"을 본다(`permissions/store.ts`). start_activation은 `expected_grants_seq`에 apps/permissions의 grant 집합 seq(앱의 마지막 GrantCreated·GrantRevoked event seq, 없으면 0)를 쓰고, 시작 event의 시도 식별은 그 event의 seq다
 
 ### T19 release 준비 확정, 비교, blueprint read
 
@@ -336,6 +338,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `compare_test.ts`: 새 필수 입력·external 효과·permission 추가·파괴 migration이 각각 비교에 보임(R9), schema가 같아도 효과가 바뀌면 호환이라 하지 않고 설명만 바뀐 경우를 구별(R10), 데이터 계약 변경은 apps/data 근거, 새 접근 요청은 grant 근거로 따로(R11)
   - `blueprint-read_test.ts`: 설명·구조 검증·실제 test 통과를 다른 필드로 내고 설명만 있는 앱에 test 성공 표시가 없음(apps/blueprint#R3), 화면·command 설명에서 결과·시작 위치·선택·예시·정보 종류·보존·제약·automation 끄는 법 필드가 있는지 검사(빈 값 거절, apps/blueprint#R2)
   - prepare_bundle 진행은 core command queue 밖 supervisor 메모리이고 메모리 유실이면 unknown
+  - 이어받음: apps#T4의 현재 선언 port. `permissions/declarations.ts`의 `currentDeclarations`(`get(sql, app)`: 현재 release의 release id·permissions·app_connections·command key·automations(key, command, external, input_hash, when))를 releases 조립이 같은 key로 등록한다. tx port는 `apps/core/apps.ts`의 ports에, grants.list의 표시 자료는 같은 파일의 `createReaderRegistration` ports map에 고정 값으로 등록한다. 등록 전에는 app.call·agent.commands·automation.run의 grant.create가 `unavailable`이고 grants.list의 display는 null이다
 
 ### T20 automation
 
@@ -552,3 +555,9 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - **Q11 ui-chart 지원 종류.** lophn-agent/visuals#R1(산점 차트, node·edge 도표)과 apps/sdk#R17(산점도는 첫 판 밖)이 부딪쳤다. shell·lophn-agent 팀과 맞춰 apps/sdk#R17과 domain-model/apps/sdk의 SharedVisualInput에 산점 차트와 node·edge 도표를 더했다(누적 면만 첫 판 밖). 구현은 shell#T34다.
 
 - **Q12 폴더 direct grant를 broker로 옮길지.** T3는 하위 포함 폴더의 직접 grant를 허용하고, grant 때 폴더 밖을 가리키는 lexical link만 `--deny-read`/`--deny-write`로 넣는다. 다른 프로세스가 grant 계산 뒤 link를 심는 것은 `permissions.limit.symlink-changes`로 공개한다. broker cap-fs(T13)가 생기면 폴더 direct grant를 broker로 옮길지 정한다. 추천안: 옮긴다. broker가 실제 경로를 매번 확인하면 그 TOCTOU 한계가 사라진다. 결정은 T13에서 한다.
+
+- **Q13 grants.list의 표시 자료 field(해결, T4).** contracts#T37의 `grants.list` 출력은 `Grant[]`와 read 공통 field뿐이라 요구·reason·조합 경고·Deno 한계 문구 key를 실을 자리가 없다. 정했다(lead): additive 표시 field를 더한다. grants.list 출력에 `display`(요구별 `kind·scope·reason·granted·warnings·outside_links`, `combination_warnings`, `limit_keys`)를 더했고 `permissions/display.ts`의 `buildGrantDisplay`가 채운다. 앱을 지정하고 현재 release 선언을 알 때만 있고 그 밖에는 null이다. read는 파일 I/O를 하지 않아 `outside_links`는 빈 목록이며 폴더 밖 link 검사는 부여 준비(T3 `resolveRequirement`)가 한다.
+- **Q14 점이 든 route 이름과 approval·confirmation(해결, T4·platform#T32).** apps route 이름은 `grant.create`처럼 점으로 나뉘는데 `approvals`의 action.command 정규식과 confirmation handle의 decision 이름 정규식이 점을 거절해 apply·확인 창이 apps command를 쓸 수 없었다. approval의 command 정규식은 platform#T32(#300)가 같은 문법으로 풀었고, T4는 confirmation handle의 decision 이름 정규식(`confirmation-handle.ts`)에 점으로 나뉜 마디를 허용하고 테스트를 더했다.
+- **Q15 현재 release 선언 port(이어보냄, T4).** grant.create의 app.call·agent.commands·automation.run 선언 비교는 `currentDeclarations` port(`permissions/declarations.ts`)로 현재 선언을 읽는다. `get(sql, app)`이라 tx port와 reader port가 같은 구현을 쓴다. 구현은 releases(T18·T19)가 같은 key로 등록한다(T18·T19에 이어받음으로 적었다). 등록이 없는 core에서는 이 세 kind의 grant.create가 `unavailable`이다(선언을 모른 채 만들지 않는다). 시험은 `permissions/testing/mod.ts`의 시험 team이 같은 port·activation event를 낸다. activation 진행 판정은 ReleaseActivationStarted와 그 seq를 started_seq로 가리키는 Activated·Failed event로 하므로 release 표 없이 동작한다.
+- **Q16 doctor 관측 교체(이어보냄 platform#T48, T4).** platform#T47이 넘긴 "doctor 보안 진단을 관측 파일 대신 grant 위험 read와 SDK hash로 교체"는 하지 않았다. grant 위험 read의 contract가 없고, `last_used_at`의 근거(broker가 실제로 쓴 시각, check/platform#Q21)가 T13 전이라 없으며, doctor를 core에 연결하는 일은 platform#T48이다. 추천안: T13이 grant 사용 시각을 남긴 뒤 contracts에 grant 위험 read(`app·kind·file·network·broad·last_used_at`)를 더하고 doctor worker를 그 read로 바꾼다.
+

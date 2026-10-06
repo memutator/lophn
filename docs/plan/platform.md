@@ -1010,7 +1010,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T47 doctor와 보안 진단
 
-- 상태: 완료 (#180) — 이어보냄: core.ts doctor·diagnostics source 연결 → platform#T48, apps grant 위험 read·SDK hash로 관측 파일 교체 → apps#T4
+- 상태: 완료 (#180) — 이어보냄: core.ts doctor·diagnostics source 연결 → platform#T48, apps grant 위험 read·SDK hash로 관측 파일 교체 → apps#T4가 platform#T48로 다시 넘김
 - 등급: 기본
 - concern: platform/diagnostics
 - 요구: platform/diagnostics#R4, R5, R6, R9, R10
@@ -1041,6 +1041,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - Chromium sandbox 파일 root 소유·4755와 Ubuntu 24.04 이상에서 실제 sandbox 활성 검사. sandbox를 끈 실행은 배포 테스트 통과로 세지 않는다(R2, R3, security R4).
   - Deno cache `~/.cache/lophn/deno`를 지워도 H가 그대로다(R8). 의존성은 lock과 integrity hash로 고정(security R5).
   - 실제 build·설치·기동·앱 호출·backup restore를 Ubuntu에서 확인하기 전에는 Linux 배포를 사용 가능으로 표시하지 않는다(R1 Linux).
+  - 이어받음: apps#T4가 넘긴 platform#T47의 doctor 관측 교체. grant 위험 read(`app·kind·file·network·broad·last_used_at`)와 SDK hash read가 contracts에 생기고 apps#T13이 grant 사용 시각을 남긴 뒤, `apps/worker/platform/doctor.ts`의 관측 파일(grants.json, sdk.json)을 그 read로 바꾸고 core.ts에 doctor·diagnostics source를 연결한다. 미관측을 미사용으로 단정하지 않는다(check/platform#Q21)
   - flow install-lophn E2E 단계(Linux)
 
 ### T49 macOS·Windows 설치 묶음과 OS adapter

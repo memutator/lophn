@@ -8,6 +8,11 @@ import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
 import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.ts";
+import {
+  createGrantCommands,
+  createGrantsReads,
+  permissionsSchemaSteps,
+} from "../../packages/apps/permissions/mod.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
 import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
@@ -52,10 +57,14 @@ export function createLedgerRegistration(
   // 과거 event만으로 running이라 하지 않는다(R13).
   const runtime = createRuntimeCommands();
   const runtimeReads = createRuntimeReads();
+  // grant 변경은 정확한 approval 적용(create)과 사람 확인(revoke)으로만 한다.
+  const grants = createGrantCommands();
+  const grantReads = createGrantsReads();
   return {
     // place_names 표는 documents 등록의 몫이다(R6, R10).
     schemaSteps: [
       ...appsSchemaSteps,
+      ...permissionsSchemaSteps,
       ...invocationsSchemaSteps,
       ...sdkSchemaSteps,
       ...dataSchemaSteps,
@@ -65,6 +74,8 @@ export function createLedgerRegistration(
       commands.connectSource,
       commands.archive,
       commands.unarchive,
+      grants.create,
+      grants.revoke,
       invocations.recordStarted,
       invocations.recordFinished,
       invocations.recordDenied,
@@ -81,6 +92,7 @@ export function createLedgerRegistration(
     reads: [
       reads.list,
       reads.get,
+      grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
       invocationReads.list,
@@ -120,10 +132,12 @@ export function createReaderRegistration(): ReaderRegistration {
   const invocations = createInvocationsReads();
   const sdkReads = createSdkReads();
   const runtimeReads = createRuntimeReads();
+  const grantReads = createGrantsReads();
   return {
     reads: [
       reads.list,
       reads.get,
+      grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
       invocations.list,

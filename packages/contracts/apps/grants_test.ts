@@ -5,9 +5,11 @@ import { routePath } from "../platform/route.ts";
 import {
   GRANT_EVENTS,
   GRANT_ROUTES,
+  GRANT_WARNING_KEYS,
   grantCreate,
   grantCreated,
   grantCreateInputSchema,
+  grantDisplaySchema,
   grantRevoke,
   grantRevoked,
   grantRevokeInputSchema,
@@ -236,6 +238,75 @@ Deno.test("apps/permissions#R1, apps/permissions#R3: grant 목록은 현재 app�
   assert(!grantsListInputSchema.safeParse({ extra: true }).success);
   assert(!grantsListInputSchema.safeParse({ limit: 201 }).success);
   assert(!grantsListInputSchema.safeParse({ app: GRT }).success);
+});
+
+Deno.test("apps/permissions#R24, apps/permissions#R25: grant 목록의 표시 자료는 요구·조합 경고·한계 key를 담고 없어도 읽는다", () => {
+  const display = {
+    app: APP,
+    release: "rel_01h455vb4pex5v6nkc6gd5fdw1",
+    requirements: [
+      {
+        kind: "fs.read",
+        scope: { path: "/data/reports", recursive: true },
+        reason: "read reports",
+        granted: false,
+        warnings: [],
+        outside_links: [],
+      },
+      {
+        kind: "net.fetch",
+        scope: { host: "api.example.com", port: 443 },
+        reason: "upload",
+        granted: true,
+        warnings: [],
+        outside_links: [],
+      },
+    ],
+    combination_warnings: [{
+      key: "permissions.warning.file-read-and-network",
+      kinds: ["fs.read", "net.fetch"],
+    }],
+    limit_keys: ["permissions.limit.not-isolated"],
+  };
+  const page = grantsListOutputSchema.parse({
+    ...META,
+    grants: [grant],
+    display,
+  });
+  assertEquals(page.display?.combination_warnings.length, 1);
+  // display가 null이거나 없는 응답도 같은 schema로 읽는다.
+  assertEquals(
+    grantsListOutputSchema.parse({ ...META, grants: [], display: null })
+      .display,
+    null,
+  );
+  assertEquals(
+    grantsListOutputSchema.parse({ ...META, grants: [] }).display,
+    undefined,
+  );
+  assertEquals(GRANT_WARNING_KEYS.length, 2);
+  // 모르는 경고 key·kind와 scope가 kind와 다른 모양은 거절한다.
+  assert(
+    !grantDisplaySchema.safeParse({
+      ...display,
+      combination_warnings: [{ key: "x", kinds: ["fs.read"] }],
+    }).success,
+  );
+  assert(
+    !grantDisplaySchema.safeParse({
+      ...display,
+      requirements: [{ ...display.requirements[0], kind: "app.call" }],
+    }).success,
+  );
+  assert(
+    !grantDisplaySchema.safeParse({
+      ...display,
+      requirements: [{
+        ...display.requirements[0],
+        scope: { path: "relative" },
+      }],
+    }).success,
+  );
 });
 
 Deno.test("apps/permissions#R1: GrantCreated와 GrantRevoked payload는 정본과 같다", () => {

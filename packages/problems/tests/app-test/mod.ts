@@ -7,8 +7,10 @@ export {
   sdkDependenciesHash,
 } from "./generate.ts";
 export {
+  type AdjacentObservation,
   type AppTestJudgment,
   type AppTestObservations,
   type CheckObservation,
   judgeAppTest,
+  type ObservedCoverage,
 } from "./judge.ts";

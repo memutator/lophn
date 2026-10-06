@@ -156,6 +156,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/model-catalog-and-usage.md, docs/research/provider-adapters.md
 - 선행: T3, T4, contracts#T30, platform#T13, platform#T14, platform#T15
+- platform#T42에서 넘어온 것: backup 복원 뒤 `derived/lophn-agent`(`usage.sqlite`·catalog 상태·summaries)가 기록한 `ledger_id`가 `platform/status`와 다르면 버리고 ledger에서 다시 만든다. 지금은 `ledger_id`를 확인하지 않아 다른 ledger의 같은 seq 위에서 합계가 이어진다(platform의 `derived/api-subscriptions`와 documents의 `reconcileLedgerBasis`가 같은 일을 한다)
 - 완료:
   - `model_calls`, `model_call_supplements` 표
   - usage_test.ts에 R1–R11 테스트: 시작 기록 저장 실패면 전송 없음, 실제 시도마다 한 번(retry·credential 이동·요약·연결 test 포함), 용도·원래 선택·전송·응답 model·과금 경로 기록, 오류 본문 없음, 새 입력·출력·cache 읽기·쓰기·추론 구별과 포함 관계(Anthropic은 cache 제외, OpenAI는 cache 포함, 추론은 출력의 부분), 미보고와 누락 요율은 null·모름(0으로 바꾸지 않음, 현재 가격으로 과거 누락 비용을 채우지 않음), 비용 다섯 종류, 십진수 문자열로 입력·계산·저장(float 변환 없음)과 출처·확인 시각·통화·문맥 구간·cache 시간(질문 Q18), adapter마다 usage 정의 판을 기록해 cache 포함 관계를 provider 이름으로 추측하지 않음, 가격 갱신으로 과거 비용 덮지 않음, supplement append, 같은 호출 한 번만 합계, handoff 수신 run 귀속, 재전송 수신은 이중 계산 없음, 금액 상한 없음
@@ -386,9 +387,13 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - T18에서 넘어온 것: model call 직전마다 `resolveInstructions`를 불러 `status: ready`일 때만 `layers[].text`를 `user_instructions` 층에 넣고, ContextBasis에는 본문 없이 `layers`의 place·document·version·source_hash·transmitted_hash·status·bytes를 남긴다. `blocked`면 호출하지 않는다. 작업 자리는 `instructionPlace({role, session, scope})`로 고르고 runtime은 `core.instructionFiles`를 읽기 통로로 쓴다
 - 완료:
   - assemble_test.ts에 R1–R3, R7–R9, R24, R30 테스트: 다섯 층 순서와 필수 제품·역할·지침 누락 시 호출 없음, 작업 재료 순서(목적·run 사실 → 이어가기 summary → 자료 → 압축 summary → 이력, 현재 요청·미반영 steering 전부), 같은 판·재료면 byte-identical, ContextBasis에 층별 hash·출처·version·크기·cache 경계, tool schema는 이번 call 목록만(다른 역할 tool을 cache용으로 보태지 않음), cache 경계 최대 3곳(제품+tool 끝, 역할+preset 끝, 사람 지침 끝)을 구조로 정하고 Anthropic wire marker도 3개 이하(tools를 포함하는 system 경계로 매핑, 문자열로 경계를 찾지 않음, 질문 Q11), 입력 예산 `min(input_limit, context_limit - reserved_output)`과 tool schema·provider 포장·opaque 상태까지 전체 wire bytes로 계산(chars/4·bytes/4 하한 추정 없음)·필수만으로 초과면 호출 없음, 추론 본문 제외, 지침 편집은 다음 call의 새 prefix
+  - 구현: `prompt-assemble/`의 `model.ts`(PromptAssembly·ContextBasis·입력 값), `layers.ts`(system 세 층·작업 재료 message·동적 context 붙이기·Anthropic 대응), `budget.ts`(입력 예산·전체 wire 크기), `work.ts`(`assemblePrompt`: 매 call `resolveInstructions` → 필수·예산 검사 → 층·prefix hash). 조립은 provider 중립 요청(`system` 세 블록·`tools`·`messages`)과 본문 없는 ContextBasis를 낸다. 필수(제품·역할·지침 `ready`)가 없거나 예약 출력이 출력 한계를 넘거나 필수만으로·전체가 예산을 넘으면 `blocked`(reason 코드)이고 줄이지 않는다
+  - 정한 것: 사람 지침이 모두 부재면 `user_instructions` 층의 system 블록과 그 경계는 없다(경계는 최대 3곳). 경계는 층마다 하나이고 prefix hash는 앞 층 hash를 이어 만든다. 크기는 provider 포장 뒤 body의 UTF-8 byte에 adapter가 따로 쥔 opaque 상태 byte를 더한 것이며 `count_method`는 `wire-utf8-bytes.1`이다. tool은 이름 순, schema key는 canonical 순으로 직렬화한다. 이력의 reasoning 조각은 조립에서 빠진다
+  - Q11 구현: Anthropic은 tools → system → messages 순이라 system 블록 끝 marker(`anthropicSystem`)가 tools를 덮고 tools에는 marker를 달지 않는다(wire marker 3개 이하). 문자열로 경계를 찾지 않는다
 
 ### T20 작업 재료와 turn context
 
+- 상태: 완료 (#371)
 - 등급: 기본
 - concern: lophn-agent/harness/prompt-assemble
 - 요구: lophn-agent/harness/prompt-assemble#R4, R5, R6, R18, R25, R26, R27, R28
@@ -398,6 +403,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/prompt-assembly-and-compaction.md
 - 선행: T19, contracts#T25, documents#T13, documents#T14, shell#T26, platform#T57
+- T19에서 넘어온 것: 이 작업의 `material.ts`·`turn_context.ts`는 `assemblePrompt`의 입력을 만든다. 자료 목록(`material.materials`)과 tool 결과는 safety `wireData`로 이미 포장한 문자열이어야 하고 `turn_context`는 포장·8 KiB 제한을 끝낸 문자열 하나다(없으면 null). 조립은 그 문자열을 마지막 메시지 끝에 붙일 뿐 다시 포장하거나 자르지 않는다. 초기 자료 초과 축소(R18)는 `blocked: input_over_budget`을 받아 줄인 뒤 다시 조립하는 쪽에서 한다
 - 완료:
   - material_test.ts에 R4, R5, R6, R18 테스트: 기준·참고·watch 자료의 주소·version·summary·outline만과 요청한 section만 본문, 같은 대상·version·관점은 한 번·다르면 합치지 않음, skill 이름·설명은 지시에·본문은 tool 이력에만, 초기 자료 초과는 참고 summary→기준 outline→선택 자료 순으로 줄이고 생략 범위·수 표시
   - turn_context_test.ts에 R25–R28 테스트: UTC·timezone·탭·초점·앱 요약을 이력 뒤 맨 마지막 최신 메시지에, 8 KiB·탭 20개·앱 요약 2 KiB, 초점 우선, 수집 실패·주기 run은 없음과 이유, 이전 turn 값 재사용 없음, 탭은 redaction 거친 data이고 command 허락이 아님, 실제 포함한 값·수집 시각을 ModelCall 근거에
@@ -499,6 +505,8 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - 조사: docs/research/agent-run-loop.md, docs/research/provider-adapters.md
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
 - T29에서 넘어온 것: (1) 적용 conflict(전제가 달라져 미적용)로 답만 남은 질문은 해소기가 `action_pending`(+why)으로 두고 run은 계속 waiting_user이며 사람이 멈추는 것 외에 풀 길이 없다. loop는 why를 사람에게 보이고 새 질문(새 고정 option)이나 멈춤을 제안하는 길을 잇는다(ResolveRunWait가 최종 미적용을 받아 같은 run을 미적용 결과와 재개하게 하려면 contracts 변경이 필요하니 필요해지면 질문으로 올린다). (2) `ApplyQuestionOption`을 부르는 machine 자격은 `OPTION_ACTION_OPERATIONS`(적용 command와 소유 command operation)를 scope에 가져야 한다. 소유 command의 대상 권한은 바깥 요청 자격의 scope로 판정되기 때문이다. 해소기를 돌리는 runtime의 credential 조립이 이를 따른다.
+- T19에서 넘어온 것: loop는 model call마다 `assemblePrompt`(harness/prompt-assemble)를 부르고 `blocked`이면 호출하지 않는다. `deps.pack`은 선택한 provider adapter의 `buildRequest`로 `PromptRequest`를 번역하고 opaque 상태 byte 수를 더한 것이다. Anthropic은 `anthropicSystem(request)`·`anthropicTools(request)`를 `system`·`tools`로 넘기고 adapter의 `boundaries`는 모두 false로 둔다(marker는 system 블록에 이미 있다). `input_hash`·`basis_hash`는 ModelCall의 `input`·`context_basis` 근거에 쓴다. `ContextBasis`의 turn_context·references·message_ranges·summaries는 T20·compaction 작업이 더한다
+- T20에서 넘어온 것: 매 judgment turn 직전 loop가 relay `read {session}`(첫 page, `next_page`가 있으면 이어서)로 화면을 모아 `buildTurnContext`(prompt-assemble)에 준다. 세션 없는 주기 run은 `view: {availability: "no_session"}`, read 실패는 `collect_failed`로 준다. deps의 `redact`는 core가 platform redaction을 꽂는다. 결과 `text`는 `assemblePrompt`의 `turn_context`로, `basis`는 `evidence.turn_context`로 넘기고 자료는 `renderMaterial`·`shrinkMaterial`(`blocked: input_over_budget`일 때 재조립 callback)로 만들어 `evidence.references`·`omissions`와 함께 넘긴다. outline·summary·section 본문과 skill 목록 읽기는 loop가 documents 읽기·`skillPromptSection`으로 채운다
 - T25에서 넘어온 것: loop가 ask에서 WaitRun을 부르고 resolver에 고정 call의 실제 입력을 주는 연결, `retryWait` 재시도 시각·횟수의 재시작 보존(#309)
 - T32에서 넘어온 것: 받는 run이 맡긴 내용 blob을 prompt로 읽는 통로, handoff 뒤 보낸 run을 끝내는 일, flow resume-agent-session의 handoff 갈래(#308)
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다

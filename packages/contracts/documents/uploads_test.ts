@@ -8,7 +8,7 @@ Deno.test("coding-agent/mcp-server#R13: 파일 제출 route는 hash·크기만 J
   assertEquals(documentUpload.kind, "upload");
   assertEquals(routePath(documentUpload), "/v1/documents/upload");
   assertEquals(documentUpload.max_bytes, DOCUMENT_UPLOAD_MAX_BYTES);
-  assertEquals(documentUpload.actors, ["user", "coding_agent"]);
+  assertEquals(documentUpload.actors, ["user", "coding_agent", "app"]);
   assert(ROUTES.includes(documentUpload));
   assert(documentUpload.input.safeParse({ blob_hash: hash, bytes: 3 }).success);
   // 경로·MIME·purpose·principal은 호출자가 주장하지 않는다.

@@ -114,6 +114,51 @@ async function arrange(
   );
 }
 
+type Declared = {
+  message: string;
+  message_key?: string;
+  fixer?: "coding_agent" | "user";
+  app_name?: string;
+};
+
+// 문제 문구 fixture를 release·code별로 정한다(problems#T27). message를 null로 주면
+// 그 release의 선언을 지운다(선언을 읽을 수 없는 상태).
+async function declare(
+  h: LedgerHarness,
+  release: string,
+  code: string,
+  wording: Declared | null,
+  app?: string,
+): Promise<void> {
+  value(
+    await h.command(COLLECTOR, {
+      command: "problems.testing.set-wording",
+      input: {
+        release,
+        code,
+        message: wording === null ? null : wording.message,
+        message_key: wording?.message_key ?? null,
+        fixer: wording?.fixer ?? null,
+        app_name: wording?.app_name ?? null,
+      },
+      compare: {},
+      idempotency_key: `declare-${++keySerial}`,
+      prepared: [],
+    }),
+  );
+  if (wording?.app_name !== undefined && app !== undefined) {
+    value(
+      await h.command(COLLECTOR, {
+        command: "problems.testing.set-app-name",
+        input: { app, name: wording.app_name },
+        compare: {},
+        idempotency_key: `app-name-${++keySerial}`,
+        prepared: [],
+      }),
+    );
+  }
+}
+
 type Summary = {
   id: string;
   app: string;
@@ -754,6 +799,224 @@ Deno.test("problems/reporting#R3 problems/grouping#R1: 같은 key의 두 번째 
     // 다시 관측된 문제가 가장 최근 변경으로 목록 맨 앞에 온다.
     const listed = value(await list(h));
     assertEquals(listed.problems.map((item) => item.id), [first, other]);
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("problems/problem-codes#R4: 선언 문제의 증상은 보고 당시 release의 선언 문구다; 새 release에서 바꾸거나 지워도 이전 보고는 당시 문구다", async () => {
+  const h = await open();
+  try {
+    // 보고 당시 release(fixture RELEASE)의 선언 문구를 먼저 정한다.
+    await declare(h, RELEASE, "payment_declined", {
+      message: "The card was declined by the issuer.",
+      message_key: "app-detail.issue.payment_declined",
+      fixer: "coding_agent",
+      app_name: "Ledger Desk",
+    }, APP_A);
+    const problem = await record(h, {
+      serial: 1,
+      kind: "declared",
+      code: "payment_declined",
+      release: RELEASE,
+    });
+    const detail = value(await get(h, "get", { problem }));
+    assertEquals(detail["text"], "The card was declined by the issuer.");
+
+    // 새 release에서 선언을 바꾼다. 이전 보고의 release는 그대로다.
+    await declare(h, NEWER_RELEASE, "payment_declined", {
+      message: "Payment needs a different card.",
+      message_key: "app-detail.issue.payment_declined",
+      fixer: "coding_agent",
+    });
+    assertEquals(
+      value(await get(h, "get", { problem }))["text"],
+      "The card was declined by the issuer.",
+    );
+    const listed = value(await list(h));
+    assertEquals(
+      listed.problems.find((item) => item.id === problem)!.symptom,
+      "The card was declined by the issuer.",
+    );
+    assertEquals(
+      listed.problems.find((item) => item.id === problem)!.next_action,
+      null,
+    );
+
+    // 새 release에서 선언을 지워도 이전 보고는 당시 문구다(R4).
+    await declare(h, NEWER_RELEASE, "payment_declined", null);
+    assertEquals(
+      value(await get(h, "get", { problem }))["text"],
+      "The card was declined by the issuer.",
+    );
+
+    // 보고했던 release의 당시 선언을 지운다. 선언을 읽을 수 없으므로 앱 이름과
+    // fallback 안내다(R4).
+    await declare(h, RELEASE, "payment_declined", null);
+    const fallback = value(await get(h, "get", { problem }))["text"] as string;
+    assert(/problem to check/i.test(fallback), fallback);
+    assertEquals(fallback, "There is a problem to check in Ledger Desk.");
+    assertEquals(
+      value(await list(h)).problems.find((item) => item.id === problem)!
+        .symptom,
+      "There is a problem to check in Ledger Desk.",
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("problems/problem-codes#R4: 보고했던 당시 선언을 읽을 수 없으면 앱 이름과 확인할 문제 안내다", async () => {
+  const h = await open();
+  try {
+    await declare(h, RELEASE, "payment_declined", {
+      message: "The card was declined by the issuer.",
+      app_name: "Ledger Desk",
+    }, APP_A);
+    const problem = await record(h, {
+      serial: 1,
+      kind: "declared",
+      code: "payment_declined",
+      release: RELEASE,
+    });
+    // 당시 선언이 있을 때는 당시 문구다.
+    assertEquals(
+      value(await get(h, "get", { problem }))["text"],
+      "The card was declined by the issuer.",
+    );
+    // 당시 선언을 지운다(선언을 읽을 수 없는 상태). fallback에 앱 이름이 붙는다.
+    await declare(h, RELEASE, "payment_declined", null);
+    const fallback = value(await get(h, "get", { problem }))["text"] as string;
+    assert(/problem to check/i.test(fallback), fallback);
+    assertEquals(fallback, "There is a problem to check in Ledger Desk.");
+    assertEquals(
+      value(await list(h)).problems.find((item) => item.id === problem)!
+        .symptom,
+      "There is a problem to check in Ledger Desk.",
+    );
+
+    // release를 모르는 보고는 이름 없는 fallback이다.
+    const noRelease = await record(h, {
+      serial: 2,
+      kind: "declared",
+      code: "payment_declined",
+      release: null,
+    });
+    assertEquals(
+      value(await get(h, "get", { problem: noRelease }))["text"],
+      "There is a problem to check in this app.",
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("problems/problem-codes#R4: 당시 선언의 fixer가 user이면 목록의 다음 행동에 사람이 할 일을 채운다", async () => {
+  const h = await open();
+  try {
+    await declare(h, RELEASE, "payment_declined", {
+      message: "The card was declined by the issuer.",
+      fixer: "user",
+    });
+    await declare(h, RELEASE, "quota_exceeded", {
+      message: "The app's storage quota is full.",
+      fixer: "coding_agent",
+    });
+    const userProblem = await record(h, {
+      serial: 1,
+      kind: "declared",
+      code: "payment_declined",
+      release: RELEASE,
+    });
+    const agentProblem = await record(h, {
+      serial: 2,
+      kind: "declared",
+      code: "quota_exceeded",
+      release: RELEASE,
+    });
+    const listed = value(await list(h));
+    const first = listed.problems.find((item) => item.id === userProblem)!;
+    const second = listed.problems.find((item) => item.id === agentProblem)!;
+    assertEquals(first.symptom, "The card was declined by the issuer.");
+    assertEquals(
+      first.next_action,
+      "Adjust the app's settings or input for this problem.",
+    );
+    assertEquals(second.symptom, "The app's storage quota is full.");
+    assertEquals(second.next_action, null);
+    // 상세 문구는 목록과 같다.
+    assertEquals(
+      value(await get(h, "get", { problem: userProblem }))["text"],
+      first.symptom,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+Deno.test("problems/grouping#R11: 문제 목록의 기본 항목(앱·증상·진행·다음 행동)에 당시 선언 문구가 들어간다", async () => {
+  const h = await open();
+  try {
+    await declare(h, RELEASE, "payment_declined", {
+      message: "The card was declined by the issuer.",
+      fixer: "user",
+      app_name: "Ledger Desk",
+    }, APP_A);
+    await declare(h, RELEASE, "sync_failed", {
+      message: "The external calendar could not be reached.",
+      fixer: "coding_agent",
+      app_name: "Calendar Sync",
+    }, APP_B);
+    const mine = await record(h, {
+      serial: 1,
+      kind: "declared",
+      code: "payment_declined",
+      release: RELEASE,
+    });
+    const theirs = await record(h, {
+      serial: 2,
+      app: APP_B,
+      kind: "declared",
+      code: "sync_failed",
+      release: RELEASE,
+    });
+
+    const byApp = value(await list(h, { app: APP_A }));
+    assertEquals(byApp.problems.length, 1);
+    const item = byApp.problems[0];
+    assertEquals(item.id, mine);
+    // 기본 항목은 앱·증상·진행·다음 행동뿐이고 당시 선언 문구가 증상이다.
+    assertEquals(Object.keys(item).sort(), [
+      "app",
+      "id",
+      "next_action",
+      "seq",
+      "status",
+      "symptom",
+    ]);
+    assertEquals(item.app, APP_A);
+    assertEquals(item.status, "open");
+    assertEquals(item.symptom, "The card was declined by the issuer.");
+    assertEquals(
+      item.next_action,
+      "Adjust the app's settings or input for this problem.",
+    );
+
+    // 두 앱의 문제가 서로의 당시 선언을 섞지 않는다.
+    const all = value(await list(h));
+    assertEquals(
+      all.problems.find((entry) => entry.id === theirs)!.symptom,
+      "The external calendar could not be reached.",
+    );
+    assertEquals(
+      all.problems.find((entry) => entry.id === theirs)!.next_action,
+      null,
+    );
+    // 펼친 상세도 같은 당시 문구를 읽는다(grouping#R11).
+    assertEquals(
+      value(await get(h, "get", { problem: theirs }))["text"],
+      "The external calendar could not be reached.",
+    );
   } finally {
     await h.close();
   }

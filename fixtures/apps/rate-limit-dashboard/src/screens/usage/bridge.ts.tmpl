@@ -1,0 +1,55 @@
+// 화면이 앱 command를 부르는 유일한 통로. lophn의 앱 preload가 `window.lophnApp`을 주고, command는
+// 이 view의 고정 blueprint에 선언한 key뿐이다. 화면은 앱 socket·credential을 알지 못한다.
+export type UsageRow = {
+  day: string;
+  provider: string;
+  samples: number;
+  peak_used: number;
+  quota: number;
+  peak_percent: number;
+  limited_samples: number;
+};
+
+export type UsageReport = {
+  rows: UsageRow[];
+  coverage: "complete" | "partial" | "uncollected";
+  freshness: "fresh" | "stale" | "unknown";
+  continuation: string | null;
+  period: { from: string; to: string; timezone: string };
+  collected_through: string | null;
+  providers: string[];
+};
+
+export type UsageQuery = {
+  from: string;
+  to: string;
+  timezone: string;
+  providers: string[];
+};
+
+type LophnApp = {
+  call(command: string, input: Record<string, unknown>): Promise<unknown>;
+};
+
+function bridge(): LophnApp {
+  const app = (globalThis as { lophnApp?: LophnApp }).lophnApp;
+  if (!app) throw new Error("lophnApp is not available");
+  return app;
+}
+
+// 이어 읽기는 같은 조건을 다시 보내야 받아 준다. 모든 쪽을 읽은 하나의 보고로 돌려준다.
+export async function loadReport(query: UsageQuery): Promise<UsageReport> {
+  let first: UsageReport | undefined;
+  let rows: UsageRow[] = [];
+  let continuation: string | null = null;
+  do {
+    const page = await bridge().call("usage_report", {
+      ...query,
+      ...(continuation === null ? {} : { continuation }),
+    }) as UsageReport;
+    first ??= page;
+    rows = rows.concat(page.rows);
+    continuation = page.continuation;
+  } while (continuation !== null);
+  return { ...first, rows, continuation: null };
+}

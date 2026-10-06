@@ -996,7 +996,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T46 OS notification 표시와 전달 실패
 
-- 상태: 완료 (#322) — 이어보냄: 전달 실패를 notifications get·list 응답과 shell 보고로 잇는 wire(contract 변경)와 core 조립 → platform#T61
+- 상태: 완료 (#322) — 이어보냄: flow catch-up-notifications의 OS 전달 실패 갈래 E2E → platform#T54
 - 등급: 기본
 - concern: platform/notifications
 - 요구: platform/notifications#R9, R10, R12
@@ -1009,7 +1009,10 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - OS 표시는 사람이 켰을 때만, redaction한 최소 제목·대상 열기만 shell main에 준다(R9).
   - 전달 실패는 retry 업무 표 없이 다음 조회에서 안전 이유로 보인다(R10). 자동 표시는 focus·문서·앱을 바꾸지 않는다(R12).
   - `os_display_test.ts`에 위 요구 테스트, flow catch-up-notifications E2E 단계(shell과 함께)
-  - 한 일: `os-display.ts`의 `osDisplayRequest`(켠 때만, 열 곳 하나와 제목만, redaction 한 번 더)와 `createOsDeliveryObservations`(ledger 밖 bounded 메모리, 고정 이유 `unsupported`·`show_failed`와 관측 시각, 관측 없으면 `unconfirmed`, 켜지 않았으면 `not_requested`, `delivered`는 없다). 이 모듈은 ledger를 쓰지 않고 `notifications` 표에 배달 열도 없다. 테스트가 이를 확인한다. flow E2E 단계는 wire가 생긴 뒤 platform#T54와 shell#T58이 맡는다.
+  - 한 일: `os-display.ts`의 `osDisplayRequest`(켠 때만, 열 곳 하나와 제목 종류만, redaction 한 번 더)와 `createOsDeliveryObservations`(ledger 밖 bounded 메모리, 고정 이유 `unsupported`·`show_failed`와 관측 시각, 관측 없으면 `unconfirmed`, 켜지 않았으면 `not_requested`, `delivered`는 없다). 이 모듈은 ledger를 쓰지 않고 `notifications` 표에 배달 열도 없다. 테스트가 이를 확인한다.
+  - 한 일(contract, lead 승인): `/v1/notifications/get·list` 응답의 선택 `delivery`, shell main용 read `/v1/notifications/display`(OS 표시 요청, `notification.os_display`), shell 전용 core 메모리 route `/v1/notifications/delivery`(`notification.os_delivery_failed`, 고정 이유만, 원문은 invalid_input). 모두 덧붙임이다. architecture 5.1 표에 세 줄을 더했다.
+  - 한 일(core): `apps/core/notification-delivery.ts`가 core 시작마다 관측 보관 하나를 만들고 get·list·display 응답을 꾸민다(`shell.os_notifications`가 꺼져 있으면 `not_requested`와 빈 display). 보고 route는 이 operation 자격이 없는 호출자와 없는 notification에 같은 not_found를 준다. `apps/core/notification-delivery_test.ts`(임시 LOPHN_HOME)가 꺼짐·켬 보고 없음·보고 뒤 failed·재시작 뒤 unconfirmed·원문 invalid_input·shell 아닌 actor 거절을 본다.
+  - 한 일(shell main): `os-notification.ts`가 core의 display 요청이 있을 때만 계기 종류의 고정 문구(제목 `lophn`, 본문은 things-to-confirm 계기 이름)로 올리고, 올리지 못한 notification을 고정 이유로 보고한다(OS를 다시 두드리지 않는다). 시험은 가짜 notifier다.
 
 ### T47 doctor와 보안 진단
 
@@ -1124,25 +1127,10 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - slice: operations
 - 선행: platform#T42, platform#T43, platform#T46, platform#T48, platform#T50, platform#T52, contracts#T10, shell#T28, shell#T56, shell#T57, shell#T58, shell#T59
 - platform#T52에서 넘어온 것: work-offline flow의 응답성 단계(#226)
+- platform#T46에서 넘어온 것: flow catch-up-notifications의 OS 전달 실패 갈래(표시 실패 뒤 다음 조회에서 같은 notification과 안전한 이유, 재시도 업무 없음). wire·core·shell main은 T46에 있다. 화면은 shell#T58·things-to-confirm이 쓴다
 - 완료: 아래 확인이 통과한다
   - `e2e/flows/install-lophn_test.ts`, `update-lophn_test.ts`, `backup-and-restore_test.ts`, `catch-up-notifications_test.ts`, `work-offline_test.ts`가 flow 문서의 단계·다른 갈래·끝을 그대로 돈다(Linux, fake provider와 fixture).
   - `deno task e2e`에서 operations slice의 다섯 flow가 모두 통과한다.
-
-### T61 OS 표시 전달 실패의 wire와 core 조립
-
-- 등급: 기본
-- concern: platform/notifications
-- 요구: platform/notifications#R9, R10
-- 자리: packages/contracts/platform/notifications.ts(contracts 팀 승인), packages/platform/notifications/, apps/core/platform.ts, apps/shell/main/desktop/os-notification.ts·main.ts(shell 팀 승인)
-- 쓰는 contract: notification, platform#T46의 `os-display.ts`
-- 내놓는 contract: notification(get·list 응답의 `delivery`, 전달 실패 보고 route)
-- slice: operations
-- 선행: platform#T46, shell#T56
-- platform#T46에서 넘어온 것: contracts#T22의 notifications 응답에는 전달 상태 필드가, shell에는 실패를 core로 알리는 route가 없다. 둘 다 contract 변경이라 T46 자리에서 하지 않았다.
-- 완료: 아래 확인이 통과한다
-  - get·list 응답의 항목마다 선택 필드 `delivery`(`not_requested`·`unconfirmed`·`failed {reason, observed_at}`, `delivered` 없음)를 `createOsDeliveryObservations`로 채우고, 사람이 켠 값(settings `shell.os_notifications`)을 읽어 `lookup`에 준다.
-  - shell main의 `unavailable` 안내와 같은 순간에 고정 이유(`unsupported`·`show-failed`→`show_failed`)만 core에 알리는 route를 둔다. 없는 notification과 범위 밖 호출자는 같은 답이다. ledger 표·event·재시도 상태가 늘지 않는다.
-  - `delivery_wire_test.ts`(core)에 위 요구 테스트, flow catch-up-notifications의 OS 전달 실패 갈래 E2E(platform#T54와 shell#T58 화면과 함께)
 
 ---
 
@@ -1158,7 +1146,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 | platform/identity | 15 | 15 | T5, T6, T11, T14, T24, T34, T57 |
 | platform/install-and-update | 15 | 15 | T9, T43, T48, T49, T50, T54, T55 |
 | platform/ledger | 23 | 23 | T1, T2, T3, T4, T9, T18, T24, T42 |
-| platform/notifications | 12 | 12 | T17, T29, T33, T36, T39, T46, T53, T54, T61 |
+| platform/notifications | 12 | 12 | T17, T29, T33, T36, T39, T46, T53, T54 |
 | platform/redaction | 16 | 16 | T8, T15, T16, T57 |
 | platform/responsiveness | 10 | 10 | T8, T10, T11, T12, T51, T52, T54 |
 | platform/secrets | 12 | 12 | T19, T20, T31, T34, T45 |

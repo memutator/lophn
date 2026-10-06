@@ -4,6 +4,10 @@
 // 업무 상태·event·재시도 표는 없다. 재시작 뒤에는 관측이 없으므로 성공으로 채우지 않는다.
 
 import { type Clock, err, ok, type Result } from "../../base/mod.ts";
+import {
+  OS_DELIVERY_FAILURE_REASONS,
+  type OsDeliveryFailureReason,
+} from "../../contracts/platform/mod.ts";
 import { redactScreen } from "../redaction/mod.ts";
 import type { NotificationView } from "./model.ts";
 
@@ -11,7 +15,7 @@ import type { NotificationView } from "./model.ts";
 // 고른 뒤 shell이 `open`이 가리키는 대상 화면으로 한다(R12).
 export type OsDisplayRequest = {
   notification: string;
-  title: unknown;
+  title: { kind: string };
   open: { kind: string; id: string } | null;
 };
 
@@ -58,9 +62,15 @@ export function osDisplayRequest(
     return null;
   }
   const shaped = value as Record<string, unknown>;
+  const title = shaped["title"];
+  // 제목이 계기 종류 하나가 아니면(redaction이 모양을 바꾼 경우) 아무것도 올리지 않는다.
+  if (
+    title === null || typeof title !== "object" || Array.isArray(title) ||
+    typeof (title as Record<string, unknown>)["kind"] !== "string"
+  ) return null;
   return {
     notification: view.notification.id,
-    title: shaped["title"] ?? null,
+    title: { kind: (title as { kind: string }).kind },
     open: asOpen(shaped["open"]),
   };
 }
@@ -75,13 +85,8 @@ function asOpen(value: unknown): { kind: string; id: string } | null {
     : null;
 }
 
-// 표시 실패 이유는 이 고정 값뿐이다. OS 원문 오류는 담지 않는다.
-export const OS_DELIVERY_FAILURE_REASONS = [
-  "unsupported",
-  "show_failed",
-] as const;
-export type OsDeliveryFailureReason =
-  (typeof OS_DELIVERY_FAILURE_REASONS)[number];
+// 표시 실패 이유는 contract의 고정 값뿐이다. OS 원문 오류는 담지 않는다.
+export { OS_DELIVERY_FAILURE_REASONS, type OsDeliveryFailureReason };
 
 // 조회에 붙는 전달 상태. "delivered"는 없다: 배달 성공은 보장하지 않는다.
 // not_requested는 사람이 켜지 않아 OS로 올리지 않은 것, unconfirmed는 켰지만 이 실행에서

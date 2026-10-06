@@ -823,6 +823,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 ### T44 앱 command 자동 tool, 앱 command 판정, SDK 안내 tool
 
 - 등급: 기본
+- 상태: 완료 (#403) — 이어보냄: 제품 core가 agent runtime child를 띄워 `createRunPreparer`에 `createAppToolkit({machine})`을 `apps`로 넘기는 자리는 T26 이어보냄 (1)과 같은 조립이다(시험은 prepare·toolkit을 직접 조립한다). confirm 앱 command의 proof 발급은 apps#T27, `tool_calls.app_command` 입력은 T48로 넘겼다.
 - concern: lophn-agent/harness/tools, lophn-agent/harness/tool-judgment
 - 요구: lophn-agent/harness/tools#R7, R8, R16, R17, lophn-agent/harness/tool-judgment#R10, R11
 - 자리: packages/lophn-agent/harness/tools/ (app-tools.ts, bundles/app.ts: `project.*`, `app.*`, `problem.*`, `report.read`, `snapshot.read`, `verification.read`, `repair.read`, bundles/sdk.ts: `sdk.*`), packages/lophn-agent/harness/tool-judgment/ (앱 판정 근거), packages/lophn-agent/waiting-and-recovery 쪽 앱 invocation 결과 조회 연결

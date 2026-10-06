@@ -420,7 +420,7 @@ concerns: [shell]
   - export: 문서·고정 판 선택, 포함·제외·반환 불가 이유와 실제 결과.
   - 이름 충돌·대상 변경은 "This changed since you opened it" 패턴.
   - flow organize-documents의 사람 갈래 화면. 화면 테스트.
-- 상태: 완료 (#PR)
+- 상태: 완료 (#356)
 - 정한 것: projects 화면은 왼쪽 목록(보관은 "Show archived projects"로만 보임)과 오른쪽 상세(제목·이름·목적 저장, 보관·해제, 소속 문서, export)다. 문서를 고르면 같은 칸에 정리 칸(`organize/document-panel.tsx`: 링크 이름, 자리 이동, 파일)이 열린다. 통로는 `organize/source.ts`의 `OrganizeSource`이고 `coreOrganizeSource`가 core 통로·편집 통로·보호 창을 나눠 부른다. 충돌(conflict)은 다시 읽은 revision이 그대로면 "이름이 이미 쓰임", 바뀌었으면 "This changed since you opened it"과 [Show latest]로 나눈다.
 - 정한 것: 파일로 두기는 renderer allowlist 밖인 `files/write`를 main 편집 통로 `shell:editor-place`(`apps/shell/main/editor/place.ts`)로 부른다. renderer는 문서·최신 판·프로젝트·절대 경로만 보내고 main이 그 판의 유일한 파일 `existing` 참조와 `place`를 싣는다. 결과 `PlaceReport`는 파일 결과와 `placement` 단계(source, tracking, move)를 꾸미지 않고 옮기고 화면은 단계별 줄과 "끝나지 않은 단계" 안내로 보인다. 빼기는 `lophnShell.openConfirmation`에 owner_decision(`documents/file-tracking`, `delete_file`)과 대상 문서 ID만 싣는다. 이를 위해 contracts shell confirmation의 owner_decision intent에 선택 `targets`를 더했다(additive). 결정 결과(`unlinking` 단계)를 받으면 `UnlinkResult`가 파일 삭제와 연결 해제·자리 되돌리기를 따로 보인다.
 - 정한 것: export는 읽기라 renderer allowlist에 `worker:documents/export`를 더했다. 결과는 포함한 문서·판·원래 파일, Markdown으로 못 바꿔 원래 파일로 남는 것, 원래 파일을 돌려줄 수 없는 판(목록 blob), 고르지 않은 문서를 나눠 보인다. conflict는 "아무것도 내보내지 않음", 그 밖의 실패는 원인을 추측하지 않는다. 내보낸 결과를 파일로 저장하는 길은 없다(결과 확인까지).

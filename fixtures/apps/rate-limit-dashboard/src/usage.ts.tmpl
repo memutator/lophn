@@ -1,0 +1,252 @@
+// 앱의 업무 규칙. DB 구조와 질의는 이 앱에 남고 SDK로 올리지 않는다(apps/sdk#R36).
+// 수집(collect_usage)은 원천의 한 구간을 통째로 저장하고, 집계(usage_report)는 요청한 기간·시간대의 하루별
+// provider별 표본을 모은다. 집계 결과는 그 기간이 수집됐는지(coverage)와 얼마나 최신인지(freshness)를 같이 낸다.
+import { CommandRejection } from "@lophn/cap-schedule";
+import type { ReadCoverage, ReadFreshness } from "@lophn/cap-schedule";
+import type { Migration, Store } from "@lophn/cap-store";
+import { addDays, dayStart, localDay } from "./time.ts";
+
+export const SCHEMA_VERSION = 1;
+// 수집한 구간이 요청 기간의 끝(또는 지금)보다 이만큼 이상 앞서 끝나면 신선도 부족이다.
+export const FRESH_MS = 60 * 60 * 1000;
+export const MAX_PERIOD_DAYS = 62;
+export const MAX_SAMPLES = 5000;
+
+// DB schema 단계다. SQL은 migrations/에 있고 공개한 단계는 고치지 않고 새 단계를 더한다.
+export function migrations(): Migration[] {
+  return [{
+    from: 0,
+    to: SCHEMA_VERSION,
+    sql: Deno.readTextFileSync(
+      new URL("../migrations/0-1.sql", import.meta.url),
+    ),
+  }];
+}
+
+// preview·test는 여기서 schema를 맞춘다. 운영(live)은 activation 때 data worker가 이미 맞췄다.
+export async function ensureSchema(store: Store): Promise<void> {
+  if (store.schema() < SCHEMA_VERSION) {
+    await store.migrate(migrations(), { target: SCHEMA_VERSION });
+  }
+}
+
+export type Sample = {
+  provider: string;
+  at: string;
+  used: number;
+  quota: number;
+};
+
+export type Collection = { from: string; to: string; samples: Sample[] };
+
+function invalid(message: string): never {
+  throw new CommandRejection("invalid_input", message);
+}
+
+function instant(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? undefined : new Date(time).toISOString();
+}
+
+// 수집 파일 하나다. `{from, to, samples:[{provider, at, used, quota}]}`이고 표본은 모두 [from, to) 안이다.
+export function parseCollection(text: string): Collection {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return invalid("the usage file is not JSON");
+  }
+  const body = value as { from?: unknown; to?: unknown; samples?: unknown };
+  const from = instant(body?.from);
+  const to = instant(body?.to);
+  if (from === undefined || to === undefined || to <= from) {
+    return invalid("the usage file needs a from and a later to");
+  }
+  if (!Array.isArray(body.samples) || body.samples.length > MAX_SAMPLES) {
+    return invalid("the usage file needs a list of samples");
+  }
+  const samples: Sample[] = [];
+  for (const item of body.samples as Record<string, unknown>[]) {
+    const at = instant(item?.at);
+    const { provider, used, quota } = item ?? {};
+    if (
+      typeof provider !== "string" || provider === "" ||
+      provider.length > 80 || at === undefined || at < from || at >= to ||
+      !Number.isInteger(used) || (used as number) < 0 ||
+      !Number.isInteger(quota) || (quota as number) <= 0
+    ) {
+      return invalid("a sample in the usage file is not valid");
+    }
+    samples.push({
+      provider,
+      at,
+      used: used as number,
+      quota: quota as number,
+    });
+  }
+  return { from, to, samples };
+}
+
+// 한 구간과 그 표본을 한 transaction으로 저장한다. 같은 provider·시각의 표본은 새 값으로 바뀐다.
+export function saveCollection(
+  store: Store,
+  collection: Collection,
+  collectedAt: string,
+): { collection: number; samples: number } {
+  return store.transaction((db) => {
+    const row = db
+      .prepare(
+        "insert into collection (from_at, to_at, collected_at) values (?, ?, ?) returning id",
+      )
+      .get(collection.from, collection.to, collectedAt) as { id: number };
+    const insert = db.prepare(
+      "insert into sample (collection, provider, at, used, quota) values (?, ?, ?, ?, ?) " +
+        "on conflict (provider, at) do update set collection = excluded.collection, used = excluded.used, quota = excluded.quota",
+    );
+    for (const sample of collection.samples) {
+      insert.run(row.id, sample.provider, sample.at, sample.used, sample.quota);
+    }
+    return { collection: row.id, samples: collection.samples.length };
+  });
+}
+
+// 이어 읽기의 "데이터 기준"이다. 수집이 하나라도 더해지면 값이 바뀐다.
+export function dataBasis(store: Store): string {
+  const row = store.db.prepare(
+    "select coalesce(max(id), 0) as id from collection",
+  )
+    .get() as { id: number };
+  return `collection:${row.id}`;
+}
+
+export type ReportQuery = {
+  from: string;
+  to: string;
+  timezone: string;
+  providers: string[];
+  order: "asc" | "desc";
+};
+
+export type Row = {
+  day: string;
+  provider: string;
+  samples: number;
+  peak_used: number;
+  quota: number;
+  peak_percent: number;
+  limited_samples: number;
+};
+
+export type Report = {
+  rows: Row[];
+  coverage: ReadCoverage;
+  freshness: ReadFreshness;
+  // 요청 기간을 UTC 순간으로 푼 것이다. [start_at, end_at).
+  period: {
+    from: string;
+    to: string;
+    timezone: string;
+    start_at: string;
+    end_at: string;
+  };
+  // 수집이 닿은 가장 늦은 순간. 기간 안에 수집이 없으면 null이다.
+  collected_through: string | null;
+  // 기간 안에 표본이 있는 provider 전부(provider filter와 무관). 화면의 선택 목록이다.
+  providers: string[];
+};
+
+export function rowKey(row: Row): string {
+  return `${row.day}|${row.provider}`;
+}
+
+export function aggregate(
+  store: Store,
+  query: ReportQuery,
+  nowMs: number,
+): Report {
+  const startMs = dayStart(query.from, query.timezone);
+  const endMs = dayStart(addDays(query.to, 1), query.timezone);
+  const start = new Date(startMs).toISOString();
+  const end = new Date(endMs).toISOString();
+
+  const collections = store.db
+    .prepare(
+      "select from_at, to_at from collection where to_at > ? and from_at < ? order by from_at",
+    )
+    .all(start, end) as { from_at: string; to_at: string }[];
+  let covered = 0;
+  let through = 0;
+  let cursor = startMs;
+  for (const item of collections) {
+    const from = Math.max(Date.parse(item.from_at), cursor);
+    const to = Math.min(Date.parse(item.to_at), endMs);
+    if (to > from) {
+      covered += to - from;
+      cursor = to;
+    }
+    through = Math.max(through, Date.parse(item.to_at));
+  }
+  const coverage: ReadCoverage = covered === 0
+    ? "uncollected"
+    : covered < endMs - startMs
+    ? "partial"
+    : "complete";
+  const freshness: ReadFreshness = covered === 0
+    ? "unknown"
+    : through >= Math.min(endMs, nowMs) - FRESH_MS
+    ? "fresh"
+    : "stale";
+
+  const samples = store.db
+    .prepare(
+      "select provider, at, used, quota from sample where at >= ? and at < ? order by provider, at",
+    )
+    .all(start, end) as Sample[];
+  const wanted = new Set(query.providers);
+  const grouped = new Map<string, Row>();
+  const providers = new Set<string>();
+  for (const sample of samples) {
+    providers.add(sample.provider);
+    if (wanted.size > 0 && !wanted.has(sample.provider)) continue;
+    const day = localDay(Date.parse(sample.at), query.timezone);
+    const key = `${day}|${sample.provider}`;
+    const percent = Math.round(sample.used * 100 / sample.quota);
+    const row = grouped.get(key) ?? {
+      day,
+      provider: sample.provider,
+      samples: 0,
+      peak_used: 0,
+      quota: sample.quota,
+      peak_percent: 0,
+      limited_samples: 0,
+    };
+    row.samples += 1;
+    if (percent >= row.peak_percent) {
+      row.peak_percent = percent;
+      row.peak_used = sample.used;
+      row.quota = sample.quota;
+    }
+    if (sample.used >= sample.quota) row.limited_samples += 1;
+    grouped.set(key, row);
+  }
+  const rows = [...grouped.values()].sort((left, right) =>
+    rowKey(left) < rowKey(right) ? -1 : 1
+  );
+  if (query.order === "desc") rows.reverse();
+
+  return {
+    rows,
+    coverage,
+    freshness,
+    period: {
+      from: query.from,
+      to: query.to,
+      timezone: query.timezone,
+      start_at: start,
+      end_at: end,
+    },
+    collected_through: covered === 0 ? null : new Date(through).toISOString(),
+    providers: [...providers].sort(),
+  };
+}

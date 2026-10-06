@@ -1,0 +1,168 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Gauge } from "lucide-react";
+import { LineChart } from "@lophn/ui-chart";
+import {
+  type DateRange,
+  DateRangeFilter,
+  FilterBar,
+  MultiSelectFilter,
+  resolveRange,
+} from "@lophn/ui-filter";
+import { AppShell } from "@lophn/ui-layout";
+import { StatRow, StatTile } from "@lophn/ui-stat";
+import { ReadState } from "@lophn/ui-state";
+import { t } from "../../wording/t.ts";
+import { loadReport, type UsageReport } from "./bridge.ts";
+import styles from "./app.module.css";
+
+const DEFAULT_RANGE: DateRange = { preset: "last-7-days" };
+
+// from부터 to까지(양 끝 포함)의 달력 날짜. 차트의 시간 축이다.
+function daysOf(from: string, to: string): string[] {
+  const days: string[] = [];
+  for (
+    let time = Date.parse(from);
+    time <= Date.parse(to);
+    time += 24 * 60 * 60 * 1000
+  ) {
+    days.push(new Date(time).toISOString().slice(0, 10));
+  }
+  return days;
+}
+
+// usage 화면. 기간·provider를 고르면 그 조건의 read command 결과를 읽어 수치와 차트로 보인다. 같은 화면이
+// 전체·패널(320px)·카드(240px)에 모두 쓰이므로 폭에 따라 줄바꿈하는 틀만 쓴다. 문구는 모두 en catalog의 key고
+// 읽기 결과의 loading·empty·error·freshness는 ui-state의 ReadState가 그린다. 수집하지 않은 기간·일부만 수집한
+// 기간·오래된 수집은 실제 0건과 다른 문장으로 보인다.
+export function App() {
+  const now = useMemo(() => new Date(), []);
+  const timezone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone,
+    [],
+  );
+  const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
+  const [providers, setProviders] = useState<string[]>([]);
+  const [report, setReport] = useState<UsageReport | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setReport(
+        await loadReport({ ...resolveRange(range, now), timezone, providers }),
+      );
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [range, providers, now, timezone]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const rows = report?.rows ?? [];
+  const coverage = report?.coverage ?? "complete";
+  const dirty = range.preset !== DEFAULT_RANGE.preset || providers.length > 0;
+  const days = report ? daysOf(report.period.from, report.period.to) : [];
+  const names = [...new Set(rows.map((row) => row.provider))];
+  const series = names.map((name) => ({
+    key: name,
+    label: name,
+    values: days.map((day) =>
+      rows.find((row) => row.day === day && row.provider === name)
+        ?.peak_percent ?? null
+    ),
+  }));
+
+  return (
+    <AppShell title={t("usage.title.screen")}>
+      <div className={styles.page}>
+        <FilterBar
+          dirty={dirty}
+          onReset={() => {
+            setRange(DEFAULT_RANGE);
+            setProviders([]);
+          }}
+        >
+          <DateRangeFilter value={range} now={now} onChange={setRange} />
+          <MultiSelectFilter
+            dimension={t("usage.label.providers")}
+            options={(report?.providers ?? []).map((name) => ({
+              value: name,
+              label: name,
+            }))}
+            value={providers}
+            onChange={setProviders}
+          />
+        </FilterBar>
+        <ReadState
+          loading={loading}
+          failed={failed ? t("usage.label.report") : undefined}
+          onRetry={() => void load()}
+          isEmpty={rows.length === 0}
+          empty={{
+            icon: Gauge,
+            message: coverage === "uncollected"
+              ? t("usage.empty.uncollected")
+              : coverage === "partial"
+              ? t("usage.empty.partial")
+              : t("usage.empty.no-usage"),
+            action: {
+              label: t("usage.button.reload"),
+              onSelect: () => void load(),
+            },
+          }}
+          freshness={report?.freshness === "stale" &&
+              report.collected_through !== null
+            ? {
+              updatedAt: new Date(report.collected_through),
+              now,
+              staleAfterMs: 0,
+            }
+            : undefined}
+        >
+          {coverage === "partial" && (
+            <p className={styles.note} role="status">
+              {t("usage.note.partial")}
+            </p>
+          )}
+          <StatRow>
+            <StatTile
+              label={t("usage.label.peak")}
+              value={Math.max(...rows.map((row) => row.peak_percent))}
+              unit="%"
+            />
+            <StatTile
+              label={t("usage.label.limited")}
+              value={rows.reduce((sum, row) => sum + row.limited_samples, 0)}
+            />
+            <StatTile
+              label={t("usage.label.samples")}
+              value={rows.reduce((sum, row) => sum + row.samples, 0)}
+            />
+          </StatRow>
+          <LineChart
+            loading={false}
+            onRetry={() => void load()}
+            empty={{
+              message: t("usage.empty.no-usage"),
+              action: {
+                label: t("usage.button.reload"),
+                onSelect: () => void load(),
+              },
+            }}
+            x={days.map((day) => new Date(day))}
+            series={series}
+            domain={report?.providers}
+            xLabel={t("usage.label.chart-day")}
+            timeZone="UTC"
+          />
+        </ReadState>
+      </div>
+    </AppShell>
+  );
+}

@@ -760,7 +760,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T23 blueprint 유래 앱 read tool
 
-- 상태: 진행 (#PR) — 남은 것: `/v1/apps/blueprint` core read route와 `appBlueprint` 배선 → apps#T19, coding-agent#T36
+- 상태: 완료 (#357) — 이어보냄: `/v1/apps/blueprint` core read route → apps#T19, `appBlueprint` 배선 → coding-agent#T36
 - 등급: 기본
 - concern: coding-agent/mcp-server
 - 요구: coding-agent/mcp-server#R4, R34, R35

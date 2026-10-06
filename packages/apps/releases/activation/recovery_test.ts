@@ -23,6 +23,7 @@ import { loadMigrationHistory } from "./recovery.ts";
 import {
   complete,
   prepare,
+  recordBackup,
   start,
   startedSeq,
   withWorld,
@@ -321,17 +322,23 @@ Deno.test("apps/data#R9: migration 이력에서 출발·도착 schema·설명·b
     const failed = startedSeq(
       (await start(world, migrating, { schema: 0 })).reply,
     );
-    assertEquals(
-      (await record("record_backup", {
-        release: migrating,
-        activation_seq: failed,
-        backup_hash: "e".repeat(64),
-        data_schema: 0,
-      })).status,
-      200,
+    const savedFailed = await recordBackup(
+      world,
+      migrating,
+      failed,
+      0,
+      "first",
     );
     assertEquals(
-      (await record("record_data_restore", restoreBody(failed, "e".repeat(64))))
+      savedFailed.reply.status,
+      200,
+      JSON.stringify(savedFailed.reply.body),
+    );
+    assertEquals(
+      (await record(
+        "record_data_restore",
+        restoreBody(failed, savedFailed.hash),
+      ))
         .status,
       200,
     );
@@ -349,12 +356,18 @@ Deno.test("apps/data#R9: migration 이력에서 출발·도착 schema·설명·b
       (await start(world, migrating, { schema: 0 })).reply,
     );
     const invocation = "inv_01h455vb4pex5v6nkc6gd5fdw1";
-    await record("record_backup", {
-      release: migrating,
-      activation_seq: applied,
-      backup_hash: "f".repeat(64),
-      data_schema: 0,
-    });
+    const savedApplied = await recordBackup(
+      world,
+      migrating,
+      applied,
+      0,
+      "second",
+    );
+    assertEquals(
+      savedApplied.reply.status,
+      200,
+      JSON.stringify(savedApplied.reply.body),
+    );
     await record("record_data_change", {
       result: {
         release: migrating,
@@ -387,16 +400,16 @@ Deno.test("apps/data#R9: migration 이력에서 출발·도착 schema·설명·b
       to: 1,
       description: "add the events table (drops nothing)",
     }]);
-    assertEquals(one.backup?.hash, "e".repeat(64));
+    assertEquals(one.backup?.hash, savedFailed.hash);
     assertEquals(one.change, null);
-    assertEquals(one.restore?.backup_hash, "e".repeat(64));
+    assertEquals(one.restore?.backup_hash, savedFailed.hash);
     assertEquals(one.restore?.data_schema, 0);
     assertEquals(one.result, "restored");
     assert(one.started_at.length > 0 && one.backup!.at.length > 0);
     assert(one.finished_at !== null);
 
     assertEquals([two.release, two.started_seq], [migrating, applied]);
-    assertEquals(two.backup?.hash, "f".repeat(64));
+    assertEquals(two.backup?.hash, savedApplied.hash);
     assertEquals(two.change?.invocation, invocation);
     assertEquals(two.change?.data_schema, 1);
     assertEquals(two.restore, null);

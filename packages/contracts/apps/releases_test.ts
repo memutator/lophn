@@ -367,11 +367,19 @@ Deno.test("apps/releases#R15, apps/releases#R18: fail_activation은 실패 근�
   );
 });
 
-Deno.test("apps/releases#R4: record_backup은 보호 hash와 실제 schema를 받는다", () => {
+Deno.test("apps/releases#R4: record_backup은 보호 hash와 그 byte를 준비한 blob과 실제 schema를 받는다", () => {
+  const blob = {
+    preparation: "prep-1",
+    principal: "machine:apps-supervisor",
+    purpose: "app_backup",
+    hash: HASH,
+    size_bytes: 12,
+  };
   releaseRecordBackup.input.parse({
     release: REL,
     activation_seq: "12",
     backup_hash: HASH,
+    blob,
     data_schema: 2,
   });
   assert(
@@ -379,6 +387,16 @@ Deno.test("apps/releases#R4: record_backup은 보호 hash와 실제 schema를 �
       release: REL,
       activation_seq: "12",
       backup_hash: "xyz",
+      blob,
+      data_schema: 2,
+    }).success,
+  );
+  // 보존한 blob 없이 hash만 주장하는 입력은 받지 않는다.
+  assert(
+    !releaseRecordBackup.input.safeParse({
+      release: REL,
+      activation_seq: "12",
+      backup_hash: HASH,
       data_schema: 2,
     }).success,
   );

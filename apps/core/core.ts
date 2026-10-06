@@ -1580,6 +1580,19 @@ async function open(
     const recorded = issued.ok && current.ok
       ? await runtime.record(current.value)
       : current;
+    const supervisorBlob = createChildBlobPrepare({
+      kind: APPS_SUPERVISOR_KIND,
+      gauge: blobBuffer,
+      send: (message) =>
+        appsSupervision.send(APPS_SUPERVISOR_KIND, message).then((sent) =>
+          sent.ok
+        ),
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+    });
     if (issued.ok && current.ok && recorded.ok) {
       const started = await appsSupervision.start(
         appSupervisorSpec({
@@ -1602,7 +1615,15 @@ async function open(
           credential: issued.value.token,
           api_port: server.port,
         },
-        { onMessage: (message) => appsControl.onSupervisorMessage(message) },
+        {
+          onMessage: (message) => {
+            // supervisor의 보호 backup blob 준비 요청이다. 나머지는 apps 제어의 질의다.
+            if (!supervisorBlob.onMessage(message)) {
+              appsControl.onSupervisorMessage(message);
+            }
+          },
+          onFrame: (frame) => supervisorBlob.onFrame(frame),
+        },
       );
       if (started.ok) {
         appsControl.channel.bind((payload) =>

@@ -67,7 +67,7 @@ migration은 새 파일로 추가한다. 공개한 기존 script와 release의 D
 
 ## 정책
 
-- **writer.** 운영 프로세스 또는 단독 앱 전용 migration/backup/restore 프로세스만 앱 DB를 직접 연다. core·supervisor·agent는 앱 DB를 열지 않는다. 기본 위치는 apps/<app ID>/data/data.db다.
+- **writer.** 운영 프로세스 또는 단독 앱 전용 migration/backup/restore 프로세스만 앱 DB를 직접 연다. core·supervisor·agent는 앱 DB를 열지 않는다. 기본 위치는 apps/<app ID>/data/app.sqlite다.
 - **배타.** 기존 프로세스 종료 확인 후 데이터 작업을 시작한다. schema 번호와 migration 내용을 같은 앱 DB transaction으로 확정한다. migration 동안 network·secret·외부 파일·하위 프로세스 권한은 없다(→ apps/permissions).
 - **backup 관문.** migration 전 보호 backup 참조를 먼저 ledger에 확정한다. 그 전 새 업무 쓰기는 없다. agent·앱 credential에 운영 backup 읽기 scope를 주지 않는다.
 - **실패 복원.** 새 업무 통로를 열기 전의 activation 실패만 backup으로 복원할 수 있다. 무결성·schema 실제 확인 뒤 이전 release를 준비한다. 불확실/복원 실패는 unavailable이며 → problems/reporting.

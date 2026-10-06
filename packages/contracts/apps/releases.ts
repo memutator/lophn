@@ -6,6 +6,7 @@ import {
   defineEvent,
   defineRead,
   idempotencyKeySchema,
+  preparedBlobSchema,
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
@@ -362,6 +363,9 @@ const releaseRecordBackupInputSchema = z.strictObject({
     message: "activation_seq must be positive",
   }),
   backup_hash: sha256Schema,
+  // backup byte를 준비한 보호 blob이다. hash가 backup_hash와 같아야 하고 일반 blob 읽기가 없는 field로
+  // 등록된다(domain-model apps/data DataBackup).
+  blob: preparedBlobSchema,
   data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
 });
 const releaseRecordBackupOutputSchema = z.object({

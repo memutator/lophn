@@ -118,6 +118,7 @@ export {
   bundleFlags,
   type BundleParts,
   createCopyPreviewBundles,
+  dataChangesOf,
   dataSchemaOf,
   desiredFromBundle,
   readBundleCopy,

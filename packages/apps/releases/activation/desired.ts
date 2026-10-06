@@ -7,6 +7,8 @@ import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
   type BundleManifest,
   bundleManifestSchema,
+  type DataChange,
+  dataChangeSchema,
 } from "../../../contracts/apps/mod.ts";
 import { validateBlueprint } from "../../blueprint/mod.ts";
 import {
@@ -52,6 +54,42 @@ export function dataSchemaOf(manifest: BundleManifest): number {
     if (match !== null) schema = Math.max(schema, Number(match[2]));
   }
   return schema;
+}
+
+// release.prepare의 data_changes다(apps/data#R8). 사본의 `migrations/<from>-<to>.sql`마다 한 단계이고
+// script_hash는 그 파일 byte의 sha256이다. data worker가 같은 파일을 같은 hash로 확인한다
+// (`scriptFromBundle`). 설명은 파일 앞의 `--` 주석 줄이고 없으면 schema 번호 이동이다.
+export async function dataChangesOf(
+  parts: Pick<BundleParts, "root" | "manifest">,
+): Promise<Result<DataChange[]>> {
+  const changes: DataChange[] = [];
+  for (const file of parts.manifest.files) {
+    const match = STEP_FILE.exec(file.path);
+    if (match === null) continue;
+    let text: string;
+    try {
+      text = await Deno.readTextFile(`${parts.root}/${file.path}`);
+    } catch {
+      return unavailable("migration file cannot be read");
+    }
+    const from = Number(match[1]);
+    const to = Number(match[2]);
+    const described = text.split("\n").map((line) => line.trim()).filter(
+      (line) => line.length > 0,
+    ).filter((line, index, lines) =>
+      line.startsWith("--") &&
+      lines.slice(0, index).every((before) => before.startsWith("--"))
+    ).map((line) => line.replace(/^--\s*/, "")).join(" ");
+    const change = dataChangeSchema.safeParse({
+      from,
+      to,
+      script_hash: await sha256Hex(text),
+      description: described.length > 0 ? described : `schema ${from} to ${to}`,
+    });
+    if (!change.success) return unavailable("migration step is invalid");
+    changes.push(change.data);
+  }
+  return ok(changes.sort((a, b) => a.from - b.from));
 }
 
 // 앱의 bundle 사본을 읽는다. 없는 사본·다른 앱의 hash는 undefined다. 사본이 있는데 manifest가 hash와 다르거나

@@ -19,6 +19,7 @@ import {
   events,
   grantNetwork,
   prepare,
+  recordBackup,
   releaseRow,
   start,
   startedSeq,
@@ -249,18 +250,8 @@ Deno.test("apps/releases#R16, apps/data#R4: 다른 schema의 옛 release는 바�
     // backup 확정과 변경 결과가 없으면 확정하지 못한다.
     const early = await complete(world, migrating, seq, { schema: 1 });
     assertEquals(codeOf(early), "unavailable", JSON.stringify(early.body));
-    const backed = await call(
-      world.harness,
-      "releases/record_backup",
-      world.machine.token,
-      command({
-        release: migrating,
-        activation_seq: seq,
-        backup_hash: "e".repeat(64),
-        data_schema: 0,
-      }),
-    );
-    assertEquals(backed.status, 200, JSON.stringify(backed.body));
+    const backed = await recordBackup(world, migrating, seq, 0, "backup one");
+    assertEquals(backed.reply.status, 200, JSON.stringify(backed.reply.body));
     const invocation = "inv_01h455vb4pex5v6nkc6gd5fdw1";
     const changed = await call(
       world.harness,
@@ -280,7 +271,7 @@ Deno.test("apps/releases#R16, apps/data#R4: 다른 schema의 옛 release는 바�
     const activation = JSON.parse(
       String(releaseRow(world, migrating)["activation"]),
     );
-    assertEquals(activation.backup_hash, "e".repeat(64));
+    assertEquals(activation.backup_hash, backed.hash);
     assertEquals(activation.data_change_invocation, invocation);
     const done = await complete(world, migrating, seq, {
       schema: 1,
@@ -343,19 +334,9 @@ Deno.test("apps/releases#R15: backup을 확정한 시도는 복원 결과를 확
     const seq = startedSeq(
       (await start(world, migrating, { schema: 0 })).reply,
     );
-    const backup = "e".repeat(64);
-    const backed = await call(
-      world.harness,
-      "releases/record_backup",
-      world.machine.token,
-      command({
-        release: migrating,
-        activation_seq: seq,
-        backup_hash: backup,
-        data_schema: 0,
-      }),
-    );
-    assertEquals(backed.status, 200, JSON.stringify(backed.body));
+    const saved = await recordBackup(world, migrating, seq, 0, "backup two");
+    const backup = saved.hash;
+    assertEquals(saved.reply.status, 200, JSON.stringify(saved.reply.body));
     const failure = { code: "migration_failed", summary: "the change failed" };
     const early = await call(
       world.harness,

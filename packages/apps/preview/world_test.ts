@@ -182,7 +182,7 @@ export async function openPreviewWorld(
   const bundles = new Map<string, string>();
   const liveApp = `${root}/live`;
   await Deno.mkdir(liveApp, { recursive: true });
-  const liveData = `${liveApp}/data.db`;
+  const liveData = `${liveApp}/app.sqlite`;
   await Deno.writeTextFile(liveData, LIVE_DATA);
 
   const socketsOf = (app: string) => ({

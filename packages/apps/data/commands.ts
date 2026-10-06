@@ -12,6 +12,12 @@ import {
   releaseRecordDataChange,
   releaseRecordDataRestore,
 } from "../../contracts/apps/mod.ts";
+import {
+  BACKUP_BLOB_FIELD_NAME,
+  BACKUP_BLOB_OWNER_KIND,
+  BACKUP_BLOB_PURPOSE,
+  backupBlobOwnerKey,
+} from "./blobs.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -114,6 +120,13 @@ export function createDataCommands(
           "backup",
         );
         if (existing !== null) return conflict("backup is already recorded");
+        // ledger에는 실제로 보존한 byte의 hash만 둔다. 보존하지 않은 blob의 hash를 주장할 수 없다.
+        if (
+          input.blob.hash !== input.backup_hash ||
+          input.blob.purpose !== BACKUP_BLOB_PURPOSE
+        ) {
+          return invalid("backup hash is not the preserved backup blob");
+        }
         const record: DataRecord = {
           kind: "backup",
           release: input.release,
@@ -130,11 +143,30 @@ export function createDataCommands(
           backupHash: input.backup_hash,
           invocation: null,
         });
-        tx.emit(releaseBackupRecorded, input.release, {
+        const seq = tx.emit(releaseBackupRecorded, input.release, {
           activation_seq: input.activation_seq,
           backup_hash: input.backup_hash,
           data_schema: input.data_schema,
         });
+        // 보호 blob 참조는 일반 읽기가 없는 field로 같은 transaction에서 등록한다. 실패하면 기록도 없다.
+        const registered = tx.registerBlobRef({
+          owner_kind: BACKUP_BLOB_OWNER_KIND,
+          owner_key: backupBlobOwnerKey(input.release, input.activation_seq),
+          field: BACKUP_BLOB_FIELD_NAME,
+          registered_seq: seq,
+          source: { kind: "prepared", blob: { ...input.blob } },
+        });
+        if (!registered.ok) {
+          // 이 command가 내는 오류 목록 밖의 코드(준비 주체 불일치 등)는 입력 거절이다.
+          const code = registered.error.code;
+          return code === "conflict" || code === "unavailable" ||
+              code === "invalid_input"
+            ? registered
+            : invalid("backup blob is not a prepared blob of this caller");
+        }
+        if (registered.value.hash !== input.backup_hash) {
+          return conflict("the registered backup blob differs");
+        }
         return ok(ACCEPTED);
       },
     },

@@ -53,6 +53,7 @@ import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
 import { unattachedPreviewService } from "../../packages/apps/preview/service.ts";
 import { createDataCommands } from "../../packages/apps/data/commands.ts";
 import { dataSchemaSteps } from "../../packages/apps/data/schema.ts";
+import { BACKUP_BLOB_FIELD } from "../../packages/apps/data/blobs.ts";
 import { createDataRecordStore } from "../../packages/apps/data/store.ts";
 import {
   type PlaceNameReservation,
@@ -69,6 +70,7 @@ import type {
 import { notificationsOnlyVisibility } from "./platform.ts";
 
 type LedgerRegistration = {
+  blobFields?: readonly unknown[];
   apiReads?: readonly unknown[];
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
@@ -110,6 +112,8 @@ export function createLedgerRegistration(
   const releaseReads = createReleaseReads();
   const blueprintReads = createBlueprintReads(loadActiveBlueprint);
   return {
+    // 보호 backup blob. 일반 blob 읽기가 없는 field다(apps/data#R4).
+    blobFields: [BACKUP_BLOB_FIELD],
     // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
     apiReads: createPreviewReads(() => unattachedPreviewService()),

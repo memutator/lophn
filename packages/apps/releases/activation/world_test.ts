@@ -375,3 +375,39 @@ export async function withWorld(
     await world.harness.close();
   }
 }
+
+// backup byte를 보호 blob으로 준비하고(실제 I/O worker가 저장한다) `release.record_backup`으로 확정한다.
+// 준비 주체는 이 machine 자격과 같아야 등록된다.
+export async function recordBackup(
+  world: World,
+  release: string,
+  seq: string,
+  schema: number,
+  content: string,
+): Promise<{ reply: Reply; hash: string; size: number }> {
+  const bytes = new TextEncoder().encode(content);
+  const prepared = await world.harness.prepareBlob({
+    principal: world.machine.context.principal,
+    purpose: "app_backup",
+    bytes: new ReadableStream({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    }),
+  });
+  assert(prepared.ok, prepared.ok ? "" : prepared.error.message);
+  const reply = await call(
+    world.harness,
+    "releases/record_backup",
+    world.machine.token,
+    command({
+      release,
+      activation_seq: seq,
+      backup_hash: prepared.value.hash,
+      blob: prepared.value,
+      data_schema: schema,
+    }),
+  );
+  return { reply, hash: prepared.value.hash, size: bytes.length };
+}

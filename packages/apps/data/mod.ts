@@ -12,3 +12,11 @@ export { dataSchemaSteps } from "./schema.ts";
 export { createDataRecordStore, loadDataRecords } from "./store.ts";
 // 현재 schema에서 목표까지의 연속 경로 계산이다. IO가 없어 core가 start_activation에서 쓴다.
 export { migrationPath } from "./worker/schema.ts";
+export {
+  BACKUP_BLOB_FIELD,
+  BACKUP_BLOB_FIELD_NAME,
+  BACKUP_BLOB_OWNER_KIND,
+  BACKUP_BLOB_PURPOSE,
+  BACKUP_BLOB_PURPOSE_DEFINITION,
+  backupBlobOwnerKey,
+} from "./blobs.ts";

@@ -131,7 +131,7 @@ core의 command·read는 동기이고 파일을 읽지 않으므로 `releases` �
     bundles/<bundle hash>/          읽기 전용으로 풀어놓은 검증 사본
     data/app.sqlite                  운영 SQLite DB, WAL·SHM
     data/files/                     앱의 로컬 파일 영역; DB backup에 포함했다고 주장하지 않음
-    preview/<process_nonce>/data.db disposable fixture DB와 파일 영역
+    preview/<process_nonce>/app.sqlite disposable fixture DB와 파일 영역
     staging/<request key hash>/    commit 추출·build·bundle 준비 중 자료
   sdk/<Package.name>/<version>/     설치 제공 SDK의 읽기 전용 사본(지원 소스 design·wording 포함)
   templates/app/                    hash 검증한 설치 템플릿
@@ -143,7 +143,7 @@ app test Verification은 완성된 bundle hash를 대상으로 만들어지고 R
 
 운영 DB는 해당 앱 또는 종료 확인 뒤 단독 data worker만 연다. 앱 DB에는 앱의 실제 현재 schema(0 이상)와 마지막 migration 결과를 보관한다. DB 미사용 앱에는 schema 0을 허용하며 빈 migration을 강제하지 않는다. core와 supervisor는 실제 DB를 열지 않고 data worker의 검증된 결과를 받는다.
 
-DataBackup은 SQLite backup API로 WAL의 확정 내용까지 포함한 일관된 복사본을 만든 뒤 무결성·schema를 검사해 보호 `blob`으로 설치한다. 일반 문서 읽기·agent·앱 credential에 그 원문을 공개하지 않는다. backup metadata는 app·activation_seq·schema·database_hash이며 참조는 Activation.backup_hash다. 기본 최근 5개를 유지하지만 진행 중 복원 참조는 보호한다. DB backup을 첨부 파일까지 포함한 전체 복구라고 표시하지 않는다. export는 data worker가 일관된 DB 사본과 고정 blueprint·release 이력·각 불변 실행 bundle·정확한 SDK 의존 byte를 묶는다. secret 원값·credential은 제외하고 앱 외부 자료·첨부의 포함 여부를 명시한다.
+DataBackup은 SQLite backup API로 WAL의 확정 내용까지 포함한 일관된 복사본을 만든 뒤 무결성·schema를 검사해 보호 `blob`으로 설치한다. 일반 문서 읽기·agent·앱 credential에 그 원문을 공개하지 않는다. backup metadata는 app·activation_seq·schema·database_hash이며 참조는 Activation.backup_hash다. data worker의 backup 작업이 파일 byte의 hash를 내고, supervisor가 그 byte를 감독 pipe의 blob 준비(purpose `app_backup`)로 보존한 뒤 `release.record_backup`이 준비 결과를 owner `release_backup`·field `backup`(일반 읽기 없음)으로 등록하며 hash가 backup_hash와 같아야 한다. 복원은 영역의 backup 파일이 그 hash와 같을 때만 한다. migration 단계는 bundle의 `migrations/<from>-<to>.sql`이고 `script_hash`는 그 파일 byte의 sha256이며 release.prepare의 data_changes와 data worker가 같은 규칙이다. 기본 최근 5개를 유지하지만 진행 중 복원 참조는 보호한다. DB backup을 첨부 파일까지 포함한 전체 복구라고 표시하지 않는다. export는 data worker가 일관된 DB 사본과 고정 blueprint·release 이력·각 불변 실행 bundle·정확한 SDK 의존 byte를 묶는다. secret 원값·credential은 제외하고 앱 외부 자료·첨부의 포함 여부를 명시한다.
 
 secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취급한다. runtime log buffer와 memory 표본은 메모리이며 지속 log 정본이나 derived 검색 index를 새로 두지 않는다. 플랫폼 자체 진단은 `platform/diagnostics`를 가리킨다.
 

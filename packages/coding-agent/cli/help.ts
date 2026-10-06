@@ -273,6 +273,162 @@ const CORE_HELP: readonly CommandHelp[] = [
   },
 ];
 
+// 앱 개발 command다(T21, cli#R24–R28, R31). 접수와 읽기는 변경이 아니다: test·release 준비·
+// preview는 요청을 접수할 뿐이고 결과는 다음 조회로 읽는다. 사람 전용은 결정 화면 링크만 낸다.
+function appHelp(
+  command: string,
+  purpose: string,
+  required: string[],
+  options: {
+    optional?: string[];
+    mutate?: boolean;
+    humanOnly?: boolean;
+    next?: string[];
+    example?: Record<string, unknown>;
+  } = {},
+): CommandHelp {
+  return {
+    command,
+    purpose,
+    required,
+    optional: ["--input", "--input-file", "--app", ...(options.optional ?? [])],
+    jsonExample: { command, ...(options.example ?? {}), json: true },
+    mutate: options.mutate ?? false,
+    humanOnly: options.humanOnly ?? false,
+    confirmation: false,
+    next: options.next ?? [],
+  };
+}
+
+const APP_HELP: readonly CommandHelp[] = [
+  appHelp("app list", "접수한 앱 목록을 읽는다", [], {
+    optional: ["status", "cursor", "limit"],
+    next: ["app show"],
+  }),
+  appHelp(
+    "app show",
+    "앱 하나의 source·active release 상태를 읽는다",
+    ["app"],
+    {
+      next: ["app status", "app source"],
+    },
+  ),
+  appHelp("app path", "앱의 연결 source 위치만 읽는다", ["app"], {
+    next: ["app source"],
+  }),
+  appHelp(
+    "app register",
+    "이름·한 줄 목적으로 앱을 가볍게 등록한다. 전체 범위 연결만 된다",
+    ["slug", "name", "description"],
+    { mutate: true, optional: ["planning_version"], next: ["app source"] },
+  ),
+  appHelp(
+    "app source",
+    "구현 시작 source 위치를 앱에 연결한다",
+    ["app", "source_path"],
+    { mutate: true, next: ["app validate", "app preview start"] },
+  ),
+  appHelp(
+    "app validate",
+    "commit의 blueprint 구조를 검사한다. 실제 test result가 아니다",
+    ["app", "commit", "request_key"],
+    { next: ["app test"] },
+  ),
+  appHelp(
+    "app test",
+    "같은 묶음 hash의 실제 app test를 runner에 요청한다. 기본 timeout은 300초다",
+    ["kind", "app", "target", "request_key"],
+    { optional: ["ticket", "problem"], next: ["app release prepare"] },
+  ),
+  appHelp(
+    "app preview start",
+    "fixture 격리 preview를 시작한다. 운영 앱은 그대로다",
+    ["input"],
+    { next: ["app command", "app preview stop"] },
+  ),
+  appHelp(
+    "app preview stop",
+    "preview 하나를 중지한다. 운영 앱은 멈추지 않는다",
+    ["app", "process_nonce"],
+    { next: ["app status"] },
+  ),
+  appHelp(
+    "app release prepare",
+    "ticket·claim_seq와 같은 묶음 hash의 app test 통과로 release를 준비한다. activation은 사람이 고른다",
+    ["app", "commit", "request_key", "ticket_source"],
+    { next: ["app status"] },
+  ),
+  appHelp(
+    "app status",
+    "운영 active release와 preview 상태를 따로 읽는다",
+    ["app"],
+    { next: ["app invocations", "app logs"] },
+  ),
+  appHelp("app blueprint", "command 중심 blueprint를 읽는다", ["app"], {
+    next: ["app show"],
+  }),
+  appHelp(
+    "app invocations",
+    "최대 20개 invocation 이력과 cursor를 읽는다",
+    [],
+    {
+      optional: ["app", "status", "limit", "cursor"],
+      next: ["app invocation"],
+    },
+  ),
+  appHelp(
+    "app invocation",
+    "같은 환경(기본 preview)의 invocation 하나의 실제 상태를 읽는다",
+    ["invocation"],
+    { optional: ["environment"], next: ["app logs"] },
+  ),
+  appHelp(
+    "app logs",
+    "redaction된 앱 log를 한 번에 1~200줄 읽는다",
+    ["app"],
+    {
+      optional: ["invocation", "limit", "max_bytes"],
+      next: ["app invocations"],
+    },
+  ),
+  appHelp("app sync-tools", "앱의 개발 도구 안내를 재배포한다", ["app"], {
+    next: ["app status"],
+  }),
+  appHelp(
+    "app command",
+    "앱 command를 부른다. read 효과·confirm 없는 command만이고 기본 환경은 preview다",
+    ["app", "command"],
+    {
+      optional: ["input", "environment", "timeout_ms"],
+      next: ["app invocation"],
+    },
+  ),
+  appHelp(
+    "app start",
+    "운영 앱 시작은 사람만 한다. 결정 화면 링크만 낸다",
+    [],
+    { humanOnly: true, next: ["app status"] },
+  ),
+  appHelp(
+    "app stop",
+    "운영 앱 중지는 사람만 한다. 결정 화면 링크만 낸다",
+    [],
+    { humanOnly: true, next: ["app status"] },
+  ),
+  appHelp(
+    "app release activate",
+    "release activation은 사람만 고른다. 결정 화면 링크만 낸다",
+    [],
+    { humanOnly: true, next: ["app status"] },
+  ),
+  appHelp(
+    "app automation run",
+    "automation 수동 수행은 사람만 한다. 결정 화면 링크만 낸다",
+    [],
+    { humanOnly: true, next: ["app status"] },
+  ),
+];
+
 const TICKET_HELP: readonly CommandHelp[] = [
   {
     command: "ticket list",
@@ -533,6 +689,7 @@ const DECISION_HELP: readonly CommandHelp[] = [
     confirmation: false,
     next: ["approval show"],
   },
+  ...APP_HELP,
   ...TICKET_HELP,
 ];
 

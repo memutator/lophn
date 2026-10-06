@@ -195,7 +195,11 @@ function changePlace(
     return err({ code: "conflict", message: "document revision changed" });
   }
   const place = change.place === undefined ? document.place : change.place;
-  const name = change.name ?? document.name;
+  // rename은 이름만 받으므로 자리를 그대로 둔다. move는 이름까지 정한 값이고, 자리 없음으로
+  // 옮기는 move(place null)는 이름도 null이다. 옛 이름은 예약이 남아 같은 문서의 것이다.
+  const name = change.place === undefined
+    ? change.name ?? document.name
+    : change.name;
   if (place === null && name !== null) {
     return err({
       code: "invalid_input",

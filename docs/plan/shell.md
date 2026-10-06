@@ -1144,6 +1144,7 @@ concerns: [shell]
   - 진단: 보안 상태 점검과 doctor 결과는 영향 한 문장과 다음 행동, 원문은 개발자 diagnostics 펼침에만.
   - OS notification opt-in.
   - flow backup-and-restore, update-lophn 화면. 화면 테스트.
+- platform#T42에서 넘어온 것: 복원 확인 창과 main 연결. main↔core 감독 pipe(`apps/shell/main/desktop/core/supervise.ts`)로 `restore_plan_request`(묶음 `created_at`)를 보내 `restore_plan`(`lost` 잃을 범위, `target`·`content_hash`)을 읽어 창에 보이고, 사람이 확인하면 그 `target`·`content_hash`로 결정 `restore_backup`의 handle을 `confirmation_handle_register`로 발급해 `restore_request`를 보낸다(contract `packages/contracts/platform/restore-pipe.ts`). 결과는 `restore_result` 또는 `restore_failed`(`code`, `restarted`)다. 복원 뒤 core가 같은 pipe로 새 hello(새 epoch·token·port)를 보내므로 `supervise.ts`는 첫 hello 이후의 hello도 받아 session·구독을 새 값으로 다시 열어야 한다(지금은 hello 이후 frame을 listener에 넘기기만 한다)
 
 ### T59 offline: provider 끊김과 core 끊김
 

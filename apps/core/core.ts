@@ -28,6 +28,7 @@ import {
   RESTORE_DECISION,
   restoreBinding,
   type RestoreOutcome,
+  type RestorePlan,
 } from "../../packages/platform/backup-and-migration/mod.ts";
 import { backupStamp } from "../../packages/platform/backup-and-migration/mod.ts";
 import { type StatusSource } from "../../packages/platform/diagnostics/mod.ts";
@@ -293,6 +294,7 @@ export type CoreOptions = {
   // 기동에는 없다. credential은 log에 남기지 않는다.
   onDocumentsHello?: (hello: { credential: string; api_port: number }) => void;
 };
+export type RestoreBinding = { target: string; content: string };
 export type RestoreRequest = {
   // 복원할 묶음(manifest.created_at).
   created_at: string;
@@ -354,6 +356,13 @@ export type Core = {
   // `startCore`하면 새 epoch·새 ledger_id로 시작하고 derived가 복원 ledger 기준으로 다시 만들어진다.
   // 검증·보존이 실패하면 현재 자료는 그대로이고 core는 멈춘 채 오류를 돌려준다.
   restore(request: RestoreRequest): Promise<Result<RestoreOutcome>>;
+  // 고른 묶음의 복원 계획(잃을 범위)과 사람 확인에 묶는 기준. 아무것도 바꾸거나 멈추지 않는다.
+  restorePlan(
+    createdAt: string,
+  ): Promise<Result<{ plan: RestorePlan; binding: RestoreBinding }>>;
+  // 확인한 restore가 이 core를 멈췄는가. 멈췄으면 같은 data root로 다시 `startCore`해야 한다
+  // (apps/core/main.ts가 한다). 복원이 실패해도 core는 이미 멈춘 뒤라 true다.
+  restoreStopped(): boolean;
   // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다(platform Q25).
   sweepApprovalExpiry(): Promise<void>;
   // 재시작 때 접수·실행 중으로 남은 invocation을 미확인으로 확정한다(기동이 한 번 부른다).
@@ -1667,6 +1676,26 @@ async function open(
         code: "unavailable",
         message: "blob 준비 통로가 없다",
       })),
+    async restorePlan(createdAt) {
+      if (stopped || !ready) {
+        return err({
+          code: "unavailable",
+          message: "core가 아직 준비되지 않았다",
+        });
+      }
+      const planned = await planRestore(
+        root.path,
+        ledgerPath,
+        createdAt,
+        schemaSteps.length,
+      );
+      if (!planned.ok) return planned;
+      return ok({
+        plan: planned.value,
+        binding: await restoreBinding(planned.value),
+      });
+    },
+    restoreStopped: () => pendingRestore !== undefined,
     async restore(request) {
       if (stopped || restoring) {
         return err({ code: "conflict", message: "이미 멈추는 중이다" });
@@ -1808,6 +1837,11 @@ async function open(
     ? watchParent(parent, () => core.shutdown(), {
       confirmation: (body) => runtime!.confirmation(body),
       reply: (message) => writeParent(parent, message),
+      restore: {
+        plan: (createdAt) => core.restorePlan(createdAt),
+        run: (request) => core.restore(request),
+        stopped: () => core.restoreStopped(),
+      },
     }, shellViewLog(root.path))
     : Promise.resolve();
   const accepting = registry as CredentialRegistry & {

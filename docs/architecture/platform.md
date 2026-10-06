@@ -303,6 +303,8 @@ platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`,
 
 사람 클릭이 필요한 command의 confirmation handle은 main↔core 비공개 연결에서만 발급한다. 메모리 값이며 core epoch·main 연결·window·정확한 대상·내용 기준·허용 결정·120초 기한에 묶는다. 창 닫기·main/core 재시작은 무효다. writer transaction 안에서 현재 상태와 함께 검증·소비하며 ledger commit 실패면 같은 살아 있는 handle의 예약을 풀되 종료/만료 handle을 되살리지 않는다. commit 뒤 응답 유실의 동일 key는 저장 결과를 먼저 반환한다. handle 원문은 ledger·fingerprint·event·log에 없다.
 
+backup 복원도 같은 비공개 연결로 오간다. main이 `restore_plan_request`(묶음 `created_at`)로 사람이 잃을 범위를 읽고(`restore_plan`: 묶음 끝·현재 끝·`lost`·확인 기준), 그 기준에 묶은 `restore_backup` handle을 발급한 뒤 `restore_request`를 보내면 core가 모든 worker·writer를 멈추고 복원한 다음 같은 pipe로 `restore_result`와 새 hello(새 epoch·token·`ledger_id`)를 보내며 다시 시작한다. 정지에 이르지 못한 실패(없는 묶음·틀린 확인)는 `restore_failed(restarted:false)`만 답하고 core는 그대로이며, 정지 뒤 실패하면 현재 자료 그대로 다시 시작한다(`restarted:true`). 메시지 모양은 `packages/contracts/platform/restore-pipe.ts`다.
+
 QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사람이 고른 option·고정 action을 확인한 뒤 machine의 정확히 같은 되돌릴 수 있는 안쪽 동작을 한 번 적용하는 경우에만 actor=user로 기록한다. 일반 machine의 actor 주장이나 자유 답 해석은 거절한다.
 
 **보장하지 않는 것:** token 소지가 실제 클릭, 회수가 이미 전달한 자료를 잊게 함, lophn scope가 외부 coding agent OS 접근을 제한함.

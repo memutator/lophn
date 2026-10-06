@@ -1,5 +1,19 @@
 // en catalog. 값은 완성된 문장 하나의 ICU MessageFormat이다. 화면 코드는 문장 조각을 이어 붙이지 않는다.
 export const en = {
+  "app-card.notice.contract-changed":
+    "This app changed after the card was made, so the card isn't shown.",
+  "app-card.notice.not-card": "This screen can't be shown as a card.",
+  "app-card.notice.unavailable":
+    "This app is no longer available, so the card isn't shown.",
+  "app-panel.button.open-app-space": "Open in app space",
+  "app-panel.empty.no-apps": "No apps are registered yet.",
+  "app-panel.label.screen": "{app} · {screen}",
+  "app-panel.notice.app-gone": "This app is no longer available.",
+  "app-panel.notice.app-space-only": "{app} opens only in the app space.",
+  "app-panel.notice.no-version": "This app has no version ready to open yet.",
+  "app-panel.notice.not-panel":
+    "This screen can't open in a tab. Open it in the app space.",
+  "app-panel.title.choose": "Open an app in this tab",
   "apps.title.screen": "Apps",
   "common.activity.agent": "Agent activity",
   "common.activity.app": "App activity",
@@ -20,6 +34,7 @@ export const en = {
   "common.button.previous-page": "Previous page",
   "common.button.quit": "Quit",
   "common.button.reload": "Reload",
+  "common.button.report-problem": "Report a problem",
   "common.button.retry": "Try again",
   "common.button.show-chart": "Show chart",
   "common.button.show-table": "Show table",
@@ -43,6 +58,12 @@ export const en = {
   "common.heading.palette-files": "Files",
   "common.heading.palette-projects": "Projects",
   "common.heading.palette-tabs": "Open tabs",
+  "common.label.app-mode-live": "Live",
+  "common.label.app-mode-preview": "Preview",
+  "common.label.app-state-preparing": "Starting",
+  "common.label.app-state-running": "Connected",
+  "common.label.app-state-stopped": "Stopped",
+  "common.label.app-state-unavailable": "Not connected",
   "common.label.date-with-weekday": "{date} ({weekday})",
   "common.label.decisions-waiting":
     "{count, plural, one {# decision waiting} other {# decisions waiting}}",
@@ -717,6 +738,7 @@ export const en = {
   "project-workspace.button.expand-sidebar": "Expand sidebar",
   "project-workspace.button.info-panel": "Info panel",
   "project-workspace.button.launcher": "Launcher",
+  "project-workspace.button.open-app-panel": "Open app in tab",
   "project-workspace.button.open-terminal": "Open terminal",
   "project-workspace.button.preview-again": "Preview again",
   "project-workspace.button.remove-rule": "Remove rule",
@@ -733,6 +755,7 @@ export const en = {
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.info.empty": "Nothing to show yet.",
+  "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
   "project-workspace.label.gitignore": "Skip files listed in .gitignore",

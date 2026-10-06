@@ -1112,6 +1112,7 @@ concerns: [shell]
 
 ### T57 Electron 패키징과 설치 실패 안내
 
+- 상태: 완료 (#363)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R11(패키징), R12, R20(bundle된 Deno)

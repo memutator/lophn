@@ -789,6 +789,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T18 activation
 
+- 상태: 완료 (#381) — 이어보냄: activation 실제 조립(`ActivationPorts` 구현·ReleaseActivationStarted 구독 뒤 `runActivation`·supervisor 연결 때 `recoverActivation`·grant에서 푼 운영 flag) → apps#T27
 - 등급: 최상위
 - concern: apps/releases, apps/data
 - 요구: apps/releases#R8, R12, R13, R14, R15, R16, apps/data#R4, R9, R11, R12
@@ -1418,6 +1419,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     전송 callback 메모리에만 있다. (3) `GrantApplier`(`permissions/broker/apply-grant.ts`)의 supervisor 쪽
     `AppProcesses`(stop·start)와 core `GrantRevoker` 조립: grant 확정·회수가 broker 연결을 막고 자식 종료를 확인한
     뒤 새 범위로 재시작하는 흐름(manage-app-permissions flow)
+  - apps#T18에서 넘어온 것: (1) activation은 core command(`start_activation`은 approval 적용 전용, `complete_activation`·`fail_activation`·`record_*`는 machine)와 순서·복원·이어받기 모듈(`releases/activation/`의 `runActivation`·`recoverActivation`)까지다. 실제 `ActivationPorts` 조립이 없다: supervisor가 `ReleaseActivationStarted`를 구독해(또는 `releases.list` status=activating을 읽어) `runActivation`을 부르고, supervisor 연결 때 진행 중인 시도마다 `recoverActivation`을 부르며, port를 실제 supervisor(`stopCurrent`·`startCandidate`(준비 모드, commit 전 open 금지)·`openCandidate`·`run`)·data worker(`inspect`·`backup`(보호 backup hash)·`migrate`·`restore`)·core machine command·problems 보고에 잇는다. 시작은 `/v1/approvals/apply`로 한다(approval 대상은 정확한 release, concern `apps/releases`, command `release.start_activation`, 입력 inline). (2) 운영 DesiredApp 조립: `desiredFromBundle`(`releases/activation/desired.ts`)이 사본 부분을 만들고 grant에서 푼 요구 permission으로 `bundleFlags`를 부르는 core 쪽 호출(`core.reconcileApp`)이 없다. (3) migration 단계 파일 이름이 템플릿은 `migrations/<from>-<to>.sql`이고 data worker의 `scriptFromBundle`은 `migrations/<script_hash>.sql`이다. `release.prepare`의 data_changes 산출과 함께 하나로 맞춘다. (4) 보호 backup의 blob field 등록(general_read 없음)은 하지 않았다: backup 파일은 앱 데이터 영역에 있고 ledger에는 hash만 있다. (5) preview 영역의 fixture 파일 이름이 `data.db`(`preview/area.ts`)라 `app.sqlite`를 여는 cap-store가 읽지 못한다.
 
 ### T29 @lophn/format-document
 

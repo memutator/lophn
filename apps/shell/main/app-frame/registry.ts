@@ -2,82 +2,53 @@
 // 앱 통로로 main이 얻고 view에 묶으며, 페이지가 주장한 앱·release·actor는 받을 자리가 없다
 // (shell/app-frame#R12, R19). 실제 붙이기·숨기기·폐기는 이 모듈만 하고 같은 view_session과
 // generation으로 진단을 남긴다(R22). view가 있다는 것만으로 권한이 생기지 않는다(R20): view는
-// main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는 없다.
+// main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는 없다. command는
+// `app:call`(app-call.ts)이 이 view의 신원으로 따로 얻은 연결로만 부른다.
 import {
   appEntryUrl,
   type ProtocolView,
   type Upstream,
 } from "./app-protocol.ts";
 import {
-  type AppBinding,
   type AppConnector,
   type ConnectTarget,
   failure,
   type Outcome,
-  type ScreenSize,
-  type ViewMode,
 } from "./app-connection.ts";
 import type { ViewDiagnostics, ViewEvent } from "./diagnostics.ts";
-import { type FetchHost, navigationAllowed } from "./network-policy.ts";
+import { navigationAllowed } from "./network-policy.ts";
 import {
   appHostLabel,
   appPartition,
   type AppSessionHandle,
   createAppSessions,
 } from "./session-policy.ts";
+import {
+  type AppFrameViewState,
+  type AppViewContents,
+  type AppViewHost,
+  type Bound,
+  boundsValid,
+  type BoundView,
+  boundViewOf,
+  checkOpen,
+  type ConnectionState,
+  sameConnection,
+  stateOf,
+  targetOf,
+  type ViewBounds,
+} from "./view-model.ts";
 
-export interface ViewBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-export interface AppFrameOpen {
-  app: string;
-  mode: ViewMode;
-  release: string | null;
-  screen: string;
-  size: ScreenSize;
-  parentWindow: string;
-  bounds: ViewBounds;
-}
-
-export type ConnectionState =
-  | "preparing"
-  | "stopped"
-  | "running"
-  | "unavailable";
-
-export interface AppFrameViewState {
-  view_session: string;
-  app: string;
-  release: string | null;
-  mode: ViewMode;
-  screen: string;
-  size: ScreenSize;
-  connectionState: ConnectionState;
-}
-
-/** Electron WebContentsView 하나. */
-export interface AppViewContents {
-  readonly id: number;
-  load(url: string): Promise<void>;
-  destroy(): void;
-}
-
-/** 창과 native view를 다루는 adapter. 앱 UI 코드는 shell renderer로 오지 않는다. */
-export interface AppViewHost {
-  hasWindow(window: string): boolean;
-  /** partition의 sandbox view를 만든다. main frame 탐색은 allowNavigation이 true일 때만 둔다. */
-  create(input: {
-    partition: string;
-    allowNavigation(url: string): boolean;
-  }): AppViewContents;
-  /** 창 본문에 붙이거나 bounds를 옮긴다. 창이 없으면 false다. */
-  attach(window: string, view: AppViewContents, bounds: ViewBounds): boolean;
-  detach(window: string, view: AppViewContents): void;
-}
+export type {
+  AppFrameOpen,
+  AppFrameViewState,
+  AppViewContents,
+  AppViewHost,
+  BoundView,
+  ConnectionState,
+  ViewBounds,
+} from "./view-model.ts";
+export { checkOpen } from "./view-model.ts";
 
 export interface AppFrameDeps {
   connector: Pick<AppConnector, "connect" | "hosts">;
@@ -94,50 +65,6 @@ export interface AppFrameDeps {
 // 만료 이만큼 전에 연결을 다시 얻는다.
 export const CONNECTION_RENEW_MS = 30_000;
 
-const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-const SIZES: readonly string[] = ["full", "panel", "card"];
-const MODES: readonly string[] = ["live", "preview"];
-const SAFE_TEXT = (value: unknown): value is string =>
-  typeof value === "string" && value.trim().length > 0 &&
-  !/\p{Cc}/u.test(value);
-
-function boundsValid(value: unknown): value is ViewBounds {
-  if (typeof value !== "object" || value === null) return false;
-  const bounds = value as Record<string, unknown>;
-  const keys = Object.keys(bounds).sort().join(",");
-  return keys === "height,width,x,y" &&
-    [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isInteger) &&
-    (bounds.width as number) >= 0 && (bounds.height as number) >= 0;
-}
-
-/** contracts#T38 appFrameOpenSchema와 같은 검사. 모르는 field도 거절한다. */
-export function checkOpen(value: unknown): AppFrameOpen | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const input = value as Record<string, unknown>;
-  const keys = Object.keys(input).sort().join(",");
-  if (keys !== "app,bounds,mode,parentWindow,release,screen,size") return;
-  if (
-    typeof input.app !== "string" || !APP_ID.test(input.app) ||
-    !MODES.includes(input.mode as string) ||
-    !(input.release === null ||
-      (typeof input.release === "string" && RELEASE_ID.test(input.release))) ||
-    (input.mode === "live" && input.release === null) ||
-    !SAFE_TEXT(input.screen) || !SIZES.includes(input.size as string) ||
-    !SAFE_TEXT(input.parentWindow) || !boundsValid(input.bounds)
-  ) {
-    return undefined;
-  }
-  return input as unknown as AppFrameOpen;
-}
-
-interface Bound {
-  target: ConnectTarget;
-  binding: AppBinding;
-  hosts: FetchHost[];
-  partition: string;
-}
-
 interface Entry extends Bound {
   view_session: string;
   token: string;
@@ -149,23 +76,6 @@ interface Entry extends Bound {
   connectionState: ConnectionState;
   refreshing: Promise<void> | undefined;
   renewedFor: number | undefined;
-}
-
-function sameHosts(a: readonly FetchHost[], b: readonly FetchHost[]): boolean {
-  const key = (host: FetchHost) => `${host.host} ${host.port}`;
-  const left = new Set(a.map(key));
-  return a.length === b.length && b.every((host) => left.has(key(host))) &&
-    left.size === new Set(b.map(key)).size;
-}
-
-// release·프로세스·bundle·endpoint·host가 같으면 같은 연결이다. 만료만 다르면 새 서명만 쓴다.
-function sameConnection(entry: Entry, next: Bound): boolean {
-  return entry.partition === next.partition &&
-    entry.binding.release === next.binding.release &&
-    entry.binding.bundleHash === next.binding.bundleHash &&
-    entry.binding.processNonce === next.binding.processNonce &&
-    entry.binding.endpoint === next.binding.endpoint &&
-    sameHosts(entry.hosts, next.hosts);
 }
 
 export function createAppFrame(deps: AppFrameDeps) {
@@ -262,18 +172,6 @@ export function createAppFrame(deps: AppFrameDeps) {
     };
   }
 
-  function state(entry: Entry): AppFrameViewState {
-    return {
-      view_session: entry.view_session,
-      app: entry.target.app,
-      release: entry.target.release,
-      mode: entry.target.mode,
-      screen: entry.target.screen,
-      size: entry.target.size,
-      connectionState: entry.connectionState,
-    };
-  }
-
   // 새 contents를 만들어 등록하고 붙인 뒤 화면을 연다. 첫 load 실패는 view 실패 경로가 다룬다.
   function mount(entry: Entry): void {
     const label = appHostLabel(entry.target.app);
@@ -359,16 +257,6 @@ export function createAppFrame(deps: AppFrameDeps) {
     record(entry, "disposed");
   }
 
-  function targetOf(input: AppFrameOpen): ConnectTarget {
-    return {
-      app: input.app,
-      mode: input.mode,
-      release: input.release,
-      screen: input.screen,
-      size: input.size,
-    };
-  }
-
   return {
     /** 연결을 얻어 view에 묶고 창 본문에 붙인다. */
     async open(value: unknown): Promise<Outcome<AppFrameViewState>> {
@@ -398,7 +286,7 @@ export function createAppFrame(deps: AppFrameDeps) {
       } as Entry;
       entries.set(entry.view_session, entry);
       mount(entry);
-      return { ok: true, value: state(entry) };
+      return { ok: true, value: stateOf(entry) };
     },
 
     /** 같은 view_session을 새 대상으로 다시 연다. 실패하면 옛 view를 그대로 둔다. */
@@ -426,7 +314,7 @@ export function createAppFrame(deps: AppFrameDeps) {
         window: input.parentWindow,
         bounds: input.bounds,
       });
-      return { ok: true, value: state(entry) };
+      return { ok: true, value: stateOf(entry) };
     },
 
     close,
@@ -479,9 +367,18 @@ export function createAppFrame(deps: AppFrameDeps) {
       );
     },
 
+    /** webContents id로 지금 살아 있는 view를 찾는다. 폐기·교체된 contents는 없다. */
+    senderView(contentsId: number): BoundView | undefined {
+      const entry = byContents.get(contentsId);
+      if (entry === undefined || entries.get(entry.view_session) !== entry) {
+        return undefined;
+      }
+      return boundViewOf(entry);
+    },
+
     state(view_session: string): AppFrameViewState | undefined {
       const entry = entries.get(view_session);
-      return entry === undefined ? undefined : state(entry);
+      return entry === undefined ? undefined : stateOf(entry);
     },
 
     /** 닫힌 창의 view를 모두 폐기한다. */

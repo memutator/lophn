@@ -1,7 +1,11 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import type { RequestContext } from "../../contracts/platform/mod.ts";
-import { createReaderPool, type ReaderPool } from "./reader-pool.ts";
+import {
+  createReaderPool,
+  type ReaderPool,
+  type ReaderPoolOptions,
+} from "./reader-pool.ts";
 import { fixtureRead, storageRegression } from "./read-fixture.ts";
 import { READ_TIMEOUT_MS } from "./reads.ts";
 
@@ -20,7 +24,10 @@ type Fixture = {
   close(): Promise<void>;
 };
 
-async function fixture(): Promise<Fixture> {
+// 격리만 보는 시험은 다시 띄우지 않게(한도 0) 연다.
+const ISOLATE_ONLY = { respawnLimit: 0, onExhausted: () => {} };
+
+async function fixture(options?: ReaderPoolOptions): Promise<Fixture> {
   const dir = await Deno.makeTempDir({ prefix: "ledger-reads-" });
   const path = `${dir}/ledger.db`;
   const writer = new DatabaseSync(path);
@@ -31,7 +38,7 @@ async function fixture(): Promise<Fixture> {
     insert into events values(1, 'fixture');
     insert into items values(1, 'before');
   `);
-  const opened = await createReaderPool(path, modules);
+  const opened = await createReaderPool(path, modules, options);
   if (!opened.ok) {
     writer.close();
     await Deno.remove(dir, { recursive: true });
@@ -181,8 +188,8 @@ Deno.test("platform/ledger#R14: 500행·1MiB를 넘으면 page 또는 명시 한
   }
 });
 
-Deno.test("platform/ledger#R14: parent wall-clock timeout이 native SQL reader를 unhealthy로 격리한다", async () => {
-  const f = await fixture();
+Deno.test("platform/ledger#R14: parent wall-clock timeout이 native SQL reader를 unhealthy로 격리한다(다시 띄우지 않으면 그대로 남는다)", async () => {
+  const f = await fixture(ISOLATE_ONLY);
   try {
     const gate = new SharedArrayBuffer(8);
     const started = performance.now();
@@ -324,8 +331,8 @@ Deno.test("platform/ledger#R14: read 대기는 64개·principal당 8개이고 pr
   }
 });
 
-Deno.test("platform/ledger#R14: 두 reader가 unhealthy면 실행·대기·새 입장을 unavailable로 닫는다", async () => {
-  const f = await fixture();
+Deno.test("platform/ledger#R14: 두 reader가 unhealthy면 실행·대기·새 입장을 unavailable로 닫는다(다시 띄우지 않으면 그대로 남는다)", async () => {
+  const f = await fixture(ISOLATE_ONLY);
   try {
     const gates = [new SharedArrayBuffer(8), new SharedArrayBuffer(8)];
     const running = gates.map((gate) =>
@@ -396,5 +403,81 @@ Deno.test("platform/ledger#R14: storage·snapshot 종료 오류는 safe unavaila
     assert(!result.ok);
     assertEquals(result.error.code, "unavailable");
     assert(!JSON.stringify(result).includes("private"));
+  }
+});
+
+async function untilHealthy(
+  pool: ReaderPool,
+  want: readonly string[],
+  ms = 20_000,
+) {
+  const deadline = performance.now() + ms;
+  while (performance.now() < deadline) {
+    if (JSON.stringify(pool.health()) === JSON.stringify(want)) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`reader health stayed ${JSON.stringify(pool.health())}`);
+}
+
+Deno.test("platform/ledger#R14: 격리된 두 reader를 한 번에 하나씩 다시 띄워 read가 돌아온다", async () => {
+  let respawned = 0;
+  const f = await fixture({
+    backoffMs: [10],
+    onRespawn: () => {
+      respawned++;
+    },
+  });
+  try {
+    const gates = [new SharedArrayBuffer(8), new SharedArrayBuffer(8)];
+    const running = gates.map((gate) =>
+      f.pool.read(fixtureRead, ctx, { action: "slow", gate })
+    );
+    await Promise.all(gates.map(entered));
+    for (const result of await Promise.all(running)) {
+      assert(!result.ok);
+      assertEquals(result.error.code, "unavailable");
+    }
+    // 둘 다 시간을 넘겨 격리된 직후에는 읽을 수 없다.
+    assertEquals(f.pool.health(), ["unhealthy", "unhealthy"]);
+    const during = await f.pool.read(fixtureRead, ctx, { action: "probe" });
+    assert(!during.ok);
+    // 다시 뜬 뒤에는 읽힌다.
+    await untilHealthy(f.pool, ["healthy", "healthy"]);
+    const after = await f.pool.read(fixtureRead, ctx, { action: "probe" });
+    assert(after.ok, "reads must recover after the respawn");
+    assertEquals(respawned, 2);
+    // 다시 뜬 reader도 읽기 전용 연결이다.
+    const value = after.value as { data: Record<string, unknown> };
+    assertEquals(value.data.writeBlocked, true);
+  } finally {
+    await f.close();
+  }
+});
+
+Deno.test("platform/ledger#R14: 다시 띄우는 횟수에 한도가 있고 넘으면 격리된 채 한 번만 알린다", async () => {
+  const exhausted: number[] = [];
+  const f = await fixture({
+    respawnLimit: 1,
+    backoffMs: [10],
+    onExhausted: (limit) => exhausted.push(limit),
+  });
+  try {
+    const slowOnce = async () => {
+      const gate = new SharedArrayBuffer(8);
+      const slow = f.pool.read(fixtureRead, ctx, { action: "slow", gate });
+      await entered(gate);
+      return await slow;
+    };
+    // 첫 격리는 다시 뜬다.
+    assert(!(await slowOnce()).ok);
+    await untilHealthy(f.pool, ["healthy", "healthy"]);
+    // 둘째 격리는 한도를 넘어 그대로 남는다. 다른 slot은 계속 읽는다.
+    const results = await Promise.all([slowOnce(), slowOnce()]);
+    for (const result of results) assert(!result.ok);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert(f.pool.health().includes("unhealthy"));
+    assertEquals(exhausted, [1]);
+  } finally {
+    await f.close();
   }
 });

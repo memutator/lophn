@@ -6,6 +6,8 @@ import { type CanonicalRoot, rootRelation } from "./model.ts";
 
 // 등록 root 안의 lophn data 폴더. install의 ~/.lophn과 같은 이름이다.
 export const LOPHN_DATA_DIR = ".lophn";
+// 사람 파일 쓰기가 같은 폴더에 잠깐 만드는 임시 파일의 이름 접두. 추적 대상이 아니다.
+export const WRITE_TEMP_PREFIX = ".lophn-write-";
 
 export type TrackingDecision = {
   included: boolean;
@@ -50,6 +52,9 @@ export function hardExclusion(relativePath: string): string | null {
   const parts = relativePath.split("/");
   if (parts.includes(".git")) return "inside .git";
   if (parts.includes(LOPHN_DATA_DIR)) return "inside lophn data";
+  if (parts.some((part) => part.startsWith(WRITE_TEMP_PREFIX))) {
+    return "lophn temporary file";
+  }
   return null;
 }
 

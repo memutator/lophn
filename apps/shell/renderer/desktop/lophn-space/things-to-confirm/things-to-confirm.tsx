@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   confirmIcons,
   Field,
@@ -92,13 +92,29 @@ export function ThingsToConfirm(
   const [markFailed, setMarkFailed] = useState<string | null>(null);
   const [, setVersion] = useState(0);
 
+  // 읽는 중에 또 부르면(처음 열기와 연결 ready가 겹칠 때) 한꺼번에 읽지 않고 끝난 뒤 한 번
+  // 더 읽는다. core reader는 한 사람의 동시 읽기를 많이 받지 않는다.
+  const reading = useRef(false);
+  const again = useRef(false);
   const refresh = useCallback(async () => {
-    const read = await source.overview();
-    setLoaded((state) =>
-      read.ok
-        ? { overview: read.value, checkedAt: now(), failed: false }
-        : { ...state, failed: true }
-    );
+    if (reading.current) {
+      again.current = true;
+      return;
+    }
+    reading.current = true;
+    try {
+      do {
+        again.current = false;
+        const read = await source.overview();
+        setLoaded((state) =>
+          read.ok
+            ? { overview: read.value, checkedAt: now(), failed: false }
+            : { ...state, failed: true }
+        );
+      } while (again.current);
+    } finally {
+      reading.current = false;
+    }
   }, [source, now]);
 
   useEffect(() => {

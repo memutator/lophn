@@ -1,0 +1,214 @@
+/* 이전 lophn 작업대의 추적 꺼짐 줄: 본문 위 muted 띠, 왼쪽 안내, 오른쪽 주 행동. */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin: var(--space-6) var(--layout-pane-padding-wide) var(--space-0);
+  padding: var(--space-4) var(--space-6);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+@media (width < 1024px) {
+  .strip {
+    margin-right: var(--layout-pane-padding-narrow);
+    margin-left: var(--layout-pane-padding-narrow);
+  }
+}
+
+.stripIcon {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.stripText {
+  flex: 1;
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: var(--space-0);
+}
+
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-bottom: var(--space-6);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.rulesHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.ruleSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.ruleList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.ruleRow {
+  display: grid;
+  grid-template-columns: var(--page-toc) minmax(var(--space-0), 1fr)
+    max-content;
+  align-items: end;
+  gap: var(--space-4);
+}
+
+.editorFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.problem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+}
+
+.problemIcon {
+  flex: none;
+  color: var(--status-warning-text);
+}
+
+.problemText {
+  flex: 1;
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.groupHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.count {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 이전 lophn 목록 보기: muted 상자 안의 고정폭 경로. */
+.entries {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--chart-height);
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-5);
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  list-style: none;
+}
+
+.entry {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-6);
+  min-width: var(--space-0);
+  padding: var(--space-1) var(--space-0);
+}
+
+.entryPath {
+  min-width: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entryReason {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.more {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}

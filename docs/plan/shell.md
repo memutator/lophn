@@ -629,6 +629,7 @@ concerns: [shell]
 - 선행: shell#T12, shell#T29, contracts#T24, contracts#T29, platform#T25, lophn-agent#T3, lophn-agent#T15, lophn-agent#T35, lophn-agent#T36
 - platform#T19 후속(#294)에서 넘어온 것: provider key·로그인 응답의 값은 T29의 secret 입력 창이 `/v1/secrets/input`(`purpose: provider_credential`)으로 보내 증거를 받은 뒤 `RegisterProviderCredential`·`ChangeProviderCredentials`를 부른다(순서는 T29의 넘어온 것을 따른다). 확정 뒤 core가 그 credential의 값을 알려진 값 registry에 등록하므로(documents 읽기·메시지 본문에서 가려진다) 화면이 따로 할 일은 없다.
 - shell#T29에서 넘어온 것: provider key는 `openConfirmation({request: {kind: "secret_input", owner: <provider id>, purpose: "provider_credential", credential: {key, kind, label, account, organization, plan, dedup_fingerprint}}})`로 연다. 창은 `providers/read`의 revision을 비교 기준으로 `RegisterProviderCredential`까지 보낸다. 교체·회수(`ChangeProviderCredentials`)와 앱 secret 제거(`RemoveSecret`)는 창 종류가 아직 없다(열기 모양을 정해 `apps/shell/main/confirmation/kinds/secret-input.ts`에 더한다)
+- shell#T32에서 넘어온 것: 전역 [Instructions] 단추는 `InstructionsButton`(`renderer/editor/instructions-entry.tsx`)을 놓고 누르면 `openInstructions({ layer: "global" })` route(`desktop/router.ts`)로 가서 `Desktop`이 `InstructionsEntry`를 연다. 같은 진입을 개발 시작 자리 `LOPHN_SHELL_START=instructions:global`로도 연다
 - 완료: 아래 확인이 통과한다
   - provider 연결: contract가 알려 준 인증 방식(API key, 공식 로그인, 로컬)만 보이고 과금·한도·금액 모름을 구별한다. key와 로그인 응답은 confirmation window의 secret 입력으로만 받는다.
   - 계정: 같은 provider의 계정 순서, 사용 가능·인증 문제·사용량 한도·확인된 리셋 시각, 다음 행동 하나. 교체·삭제·재로그인은 confirmation window.
@@ -865,6 +866,7 @@ concerns: [shell]
 - 쓰는 contract: apps#T19(release list·get·compare), apps#T18(activation 진행), apps#T4(grants.list), apps#T20(automations), apps#T15(앱 쌍 연결), apps#T11(invocation read), apps#T28(앱 export)
 - 내놓는 contract: 없음
 - slice: apps
+- shell#T32에서 넘어온 것: app [Instructions] 단추는 `InstructionsButton`을 놓고 `openInstructions({ layer: "app", place: <app id> })`로 연다. app 층은 documents에 앱 자리의 `LOPHN.md` 등록이 없어(documents#T28에서 넘어온 것: apps/registration이 앱 자리 경로를 내놓은 뒤 `instructionRegistrations`에 더한다) `main/editor/instructions.ts`가 없는 대상과 같게 not_found로 답한다. 등록이 서면 그 파일의 `app` 갈래만 `resolve`에 채운다
 - 선행: shell#T42, apps#T19, apps#T4, apps#T20
 - 완료: 아래 확인이 통과한다
   - Version(release는 화면에서 Version): 현재·다른 version, 바뀐 것의 요약, 그 version의 실제 Test result(당시 테스트는 지금 앱의 증명이 아님), 운영과 분리된 preview 열기(preview partition의 앱 view), 고르기는 confirmation window(T45). 준비·적용·시작 확인·ticket 확인을 서로 다른 결과로 보인다.

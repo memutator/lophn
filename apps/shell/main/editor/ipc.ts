@@ -22,6 +22,12 @@ import {
   editorWriteSchema,
 } from "../../ipc/editor.ts";
 import {
+  INSTRUCTIONS_CREATE_CHANNEL,
+  INSTRUCTIONS_OPEN_CHANNEL,
+  instructionsCreateSchema,
+  instructionsOpenSchema,
+} from "../../ipc/instructions.ts";
+import {
   checkCaller,
   type ContentsRegistry,
   guardIpc,
@@ -30,6 +36,7 @@ import {
 import type { CloseGuard } from "./close-guard.ts";
 import type { DocumentCreator } from "./create.ts";
 import type { FileAdapter } from "./file-adapter.ts";
+import type { Instructions } from "./instructions.ts";
 import type { Restorer } from "./restore.ts";
 
 export interface EditorIpcMain {
@@ -47,6 +54,7 @@ export interface EditorIpcDeps {
   adapter: FileAdapter;
   restorer: Restorer;
   creator: DocumentCreator;
+  instructions: Instructions;
   /** sender 창의 guard. 창 본문이 아니면 없다. */
   guardOf(contentsId: number): CloseGuard | undefined;
 }
@@ -60,6 +68,8 @@ const HANDLED = [
   EDITOR_RELEASE_CHANNEL,
   EDITOR_RESTORE_CHANNEL,
   EDITOR_CREATE_CHANNEL,
+  INSTRUCTIONS_OPEN_CHANNEL,
+  INSTRUCTIONS_CREATE_CHANNEL,
 ] as const;
 const HEARD = [EDITOR_COUNTS_CHANNEL, EDITOR_CLOSE_ANSWER_CHANNEL] as const;
 
@@ -164,6 +174,26 @@ export function registerEditorIpc(ipc: EditorIpcMain, deps: EditorIpcDeps) {
     const parsed = editorCreateSchema.safeParse(input);
     if (!parsed.success) return reject("invalid_input");
     return await deps.creator.create(parsed.data);
+  });
+
+  ipc.handle(INSTRUCTIONS_OPEN_CHANNEL, async (event, input) => {
+    const checked = guardIpc(
+      deps.registry,
+      event as IpcEvent,
+      instructionsOpenSchema,
+      input,
+    );
+    if (!checked.ok) return reject(checked.error.code);
+    return await deps.instructions.open(checked.value);
+  });
+
+  ipc.handle(INSTRUCTIONS_CREATE_CHANNEL, async (event, input) => {
+    // 바이트를 싣으므로 쓰기처럼 64 KiB JSON 상한 대신 schema의 바이트 상한으로 검사한다.
+    const caller = checkCaller(deps.registry, event as IpcEvent);
+    if (!caller.ok) return reject("forbidden");
+    const parsed = instructionsCreateSchema.safeParse(input);
+    if (!parsed.success) return reject("invalid_input");
+    return await deps.instructions.create(parsed.data);
   });
 
   ipc.on(EDITOR_COUNTS_CHANNEL, (event, input) => {

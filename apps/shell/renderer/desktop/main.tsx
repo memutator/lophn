@@ -4,6 +4,10 @@ import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
 import { Launcher } from "./launcher/launcher.tsx";
 import { LAUNCHER, openLophn, openProject, type Route } from "./router.ts";
+import {
+  InstructionsEntry,
+  type InstructionsSource,
+} from "../editor/instructions-entry.tsx";
 import { Workspace } from "../workspace/workspace.tsx";
 import type { WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
@@ -41,6 +45,8 @@ export interface DesktopProps {
   tracking?: TrackingSource;
   /** main이 시키는 것(전역 팔레트, OS notification 클릭). 없으면 받지 않는다. */
   intents?: IntentApi;
+  /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
+  instructions?: InstructionsSource;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -58,6 +64,7 @@ export function Desktop(
     projects,
     tracking,
     intents,
+    instructions,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -108,6 +115,18 @@ export function Desktop(
         editor={editor}
         terminal={terminal}
         tracking={tracking}
+      />
+    );
+  } else if (
+    route.space === "instructions" && route.instructions && instructions &&
+    editor && live
+  ) {
+    space = (
+      <InstructionsEntry
+        place={route.instructions}
+        source={instructions}
+        editor={editor}
+        onBack={launcher}
       />
     );
   } else if (route.space === "lophn" && lophn) {

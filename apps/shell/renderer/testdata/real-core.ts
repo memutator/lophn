@@ -8,6 +8,8 @@ import type { CoreCalls } from "../../main/editor/core-port.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 
 export interface RealCore {
+  /** core의 temp LOPHN_HOME(data root). 전역 지침 파일(LOPHN.md)이 그 바로 아래에 있다. */
+  readonly home: string;
   readonly source: CoreSource;
   /**
    * main 편집기 파일 adapter가 쓰는 core 통로 모양(read·worker JSON, file stream, upload)을 같은
@@ -205,5 +207,5 @@ export async function startRealCore(
       return { ok: true, value: await response.json() };
     },
   };
-  return { source, mainCalls, log: () => stderr, stop };
+  return { home, source, mainCalls, log: () => stderr, stop };
 }

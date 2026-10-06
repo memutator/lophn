@@ -115,6 +115,11 @@ export async function assembleWriter(
     blobFields.push(...loose?.blobFields ?? []);
     subscribers.push(...loose?.subscribers ?? []);
   }
+  if (
+    commands.some((c) => c.dispatchOnly === true && c.dispatchable !== true)
+  ) {
+    throw new Error("dispatchOnly command must be dispatchable");
+  }
   // apply_approved_action은 등록된 command 중 dispatchable 표시가 있는 것만 소유 command로 부른다.
   bindApprovalOwners(
     commands.filter((command) => command.dispatchable === true).map((command) =>

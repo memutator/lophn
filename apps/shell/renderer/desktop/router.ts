@@ -11,6 +11,8 @@ export interface Route {
   readonly screen?: LophnScreen;
   /** documents 화면에서 바로 읽을 문서. 전역 팔레트의 문서 행이 쓴다. */
   readonly read?: { readonly document: string; readonly version: string };
+  /** things-to-confirm에서 처음 고를 요청. `lophn://things-to-confirm/<id>` 링크가 쓴다. */
+  readonly request?: string;
 }
 
 export const LAUNCHER: Route = { space: "launcher" };

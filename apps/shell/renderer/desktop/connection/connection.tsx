@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { t } from "@lophn/wording";
 import {
-  Button,
   connectionFailedIcon,
   connectionStaleIcon,
-  Icon,
   iconPixels,
   retryIcon,
-  Skeleton,
 } from "@lophn/design/components";
+import { Button, Icon } from "@lophn/ui-control";
+import { Skeleton } from "@lophn/ui-state";
 
 import type { ConnectionState, CoreSource } from "./connection.ts";
 import { initialConnection } from "./connection.ts";

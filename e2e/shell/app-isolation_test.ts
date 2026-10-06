@@ -9,6 +9,9 @@
 // - shell/app-frame#R3, R4, R9: view에 Node·socket 경로가 없고 새 창·camera·location·scheme 밖
 //   탐색을 거절한다.
 // - shell/app-frame#R22: view 생성·attach·폐기가 같은 view_session으로 진단에 남는다.
+// - shell/app-frame#R18, shell/desktop#R13, R14(shell#T47): 같은 앱을 앱 전용 창과 OS
+//   바로가기(`.desktop` Exec의 `--open-app` argv를 second-instance로 받은 창)로 열어도 본문
+//   view와 같은 session·scheme·preload이고 같은 저장·network·표면 검사가 통과한다.
 import { assert, assertEquals } from "@std/assert";
 
 import {
@@ -156,9 +159,24 @@ async function waitExit(
 
 type Storage = { local: string | null; idb: unknown };
 
+type Inspected = {
+  sameSession: boolean;
+  attached: number;
+  storage: Storage;
+  cookie: string;
+  network: Record<string, string>;
+  surface: {
+    require: string;
+    process: string;
+    bridge: string[];
+    opened: boolean;
+    href: string;
+  };
+};
+
 Deno.test({
   name:
-    "shell/app-frame#R1, R2, R3, R4, R8, R9, R16, R22: 앱 사이·preview 사이 저장은 섞이지 않고 미부여 host는 막히며 view에 Node·socket이 없다",
+    "shell/app-frame#R1, R2, R3, R4, R8, R9, R16, R18, R22, shell/desktop#R13, R14: 앱 사이·preview 사이 저장은 섞이지 않고 미부여 host는 막히며 view에 Node·socket이 없으며 앱 전용 창·OS 바로가기 창도 같은 경계다",
   ignore: !e2eEnabled(),
   sanitizeResources: false,
   sanitizeOps: false,
@@ -269,6 +287,9 @@ Deno.test({
           html: string;
         };
         afterNavigate: string;
+        osArgv: string[];
+        appWindow: Inspected;
+        osEntry: Inspected;
         destroyed: boolean[];
         diagnostics: Record<string, number | string>[];
       };
@@ -319,7 +340,11 @@ Deno.test({
       assertEquals(denied.seen, []);
       // 새 창(/popup)·main frame 탐색(/navigate)은 부여한 host여도 나가지 않는다.
       assertEquals(
-        granted.seen.filter((path) => !path.startsWith("/cookie-")).sort(),
+        [
+          ...new Set(
+            granted.seen.filter((path) => !path.startsWith("/cookie-")),
+          ),
+        ].sort(),
         ["/ok", "/redirect"],
       );
 
@@ -338,6 +363,30 @@ Deno.test({
       assertEquals(visible.includes(home), false);
       assertEquals(visible.includes("probe "), false);
 
+      // 앱 전용 창과 OS 바로가기 창도 본문 view와 같은 경계다(R18).
+      assertEquals(result.osArgv, [
+        "/opt/lophn/lophn-desktop",
+        "--open-app",
+        APP_A,
+      ]);
+      for (
+        const [name, shown] of Object.entries({
+          appWindow: result.appWindow,
+          osEntry: result.osEntry,
+        })
+      ) {
+        assertEquals(shown.sameSession, true, name);
+        assertEquals(shown.attached, 1, name);
+        assertEquals(shown.storage, { local: "a-live", idb: "a-live" }, name);
+        assertEquals(shown.cookie, "k=a-live", name);
+        assertEquals(shown.network, result.networkA, name);
+        assertEquals(shown.surface.require, "undefined", name);
+        assertEquals(shown.surface.process, "undefined", name);
+        assertEquals(shown.surface.bridge, ["call", "openExternal"], name);
+        assertEquals(shown.surface.opened, true, name);
+        assertEquals(shown.surface.href, label, name);
+      }
+
       // 각 view는 자기 연결의 앱 socket에만 갔다.
       for (const app of apps) {
         assert(app.seen.length > 0, app.key);
@@ -347,11 +396,16 @@ Deno.test({
       }
       assertEquals(
         apps.map((app) => [...new Set(app.seen.map((s) => s.view))]),
-        [["view-1", "view-2"], ["view-3"], ["view-4"], ["view-5"]],
+        [
+          ["view-1", "view-2", "view-6", "view-7"],
+          ["view-3"],
+          ["view-4"],
+          ["view-5"],
+        ],
       );
 
       // 생성·attach·폐기를 같은 view_session으로 남겼다.
-      assertEquals(result.destroyed, [true, true, true, true, true]);
+      assertEquals(result.destroyed, Array(7).fill(true));
       const disposed = result.diagnostics.filter((payload) =>
         payload.disposed === 1
       );
@@ -360,10 +414,8 @@ Deno.test({
           payload.view_id,
           payload.created,
           payload.attached,
-        ]),
-        ["view-1", "view-2", "view-3", "view-4", "view-5"].map((
-          id,
-        ) => [id, 1, 1]),
+        ]).sort(),
+        [1, 2, 3, 4, 5, 6, 7].map((n) => [`view-${n}`, 1, 1]),
       );
     } finally {
       if (child !== undefined) {

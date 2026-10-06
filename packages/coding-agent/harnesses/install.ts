@@ -20,6 +20,7 @@ import {
   type Store,
 } from "./integration/apply.ts";
 import { planOf } from "./integration/plan.ts";
+import { remove } from "./integration/remove.ts";
 import type { McpLaunch } from "./launch.ts";
 import { type RootInputs, rootOf } from "./resolvers.ts";
 
@@ -44,7 +45,21 @@ export type InstallInput = {
   roots: RootInputs;
   operationId: string;
   now: string;
+  // 고른 component만 만든다(`mcp`·`skill`·`guide`·`hook`). 없으면 만들 수 있는 전부다.
+  components?: readonly string[];
 };
+
+// component 이름이 가리키는 resource identity의 앞부분이다(builder).
+const COMPONENT_PREFIX: Readonly<Record<string, string>> = {
+  mcp: "mcp:",
+  skill: "skill:",
+  guide: "instruction:",
+  hook: "hook:",
+};
+
+export const INSTALL_COMPONENTS = Object.keys(COMPONENT_PREFIX);
+
+export type InstallAction = "install" | "update" | "remove";
 
 export type InstallOutcome = {
   // resource별 결과다.
@@ -87,9 +102,95 @@ async function currentTexts(
   return current;
 }
 
+// 설치 계획이다. 같은 흐름을 쓰되 파일·receipt·journal에는 쓰지 않고 메모리에만 겹쳐 쓴다.
+// 결과의 `changed`는 실제로 쓰였다는 뜻이 아니라 쓰게 될 것이라는 뜻이다(harnesses#R9: 계획을
+// 설치 결과로 표시하지 않는다).
+function dryRunPorts(ports: InstallPorts): InstallPorts {
+  const texts = new Map<string, string>();
+  const trees = new Map<string, readonly { path: string; content: string }[]>();
+  const files: FilePort = {
+    ...ports.files,
+    async read(path) {
+      const text = texts.get(path);
+      if (text !== undefined) return { kind: "file", text };
+      if (trees.has(path)) return { kind: "directory" };
+      return await ports.files.read(path);
+    },
+    async listFiles(dir) {
+      const tree = trees.get(dir);
+      if (tree !== undefined) {
+        return {
+          kind: "files",
+          files: tree.map((file) => ({ path: file.path, text: file.content })),
+        };
+      }
+      return await ports.files.listFiles(dir);
+    },
+    writeAtomic(path, text) {
+      texts.set(path, text);
+      return Promise.resolve(true);
+    },
+    writeTree(dir, tree) {
+      trees.set(dir, tree);
+      return Promise.resolve(true);
+    },
+    remove(path) {
+      texts.delete(path);
+      trees.delete(path);
+      return Promise.resolve(true);
+    },
+  };
+  const store: Store = {
+    receipt: (target) => ports.store.receipt(target),
+    saveReceipt: () => Promise.resolve(true),
+    journal: () => ports.store.journal(),
+    saveJournal: () => Promise.resolve(true),
+  };
+  return { files, store };
+}
+
 export async function installSelected(
   input: InstallInput,
   ports: InstallPorts,
+): Promise<Result<InstallOutcome>> {
+  return await runSelected(input, ports, "install");
+}
+
+// `harness plan`: 쓰지 않고 설치할 때의 resource별 결과를 미리 낸다.
+export async function planSelected(
+  input: InstallInput,
+  ports: InstallPorts,
+): Promise<Result<InstallOutcome>> {
+  return await runSelected(input, dryRunPorts(ports), "install");
+}
+
+// `harness update`: receipt가 있는 target의 소유 resource만 새로 쓴다(R7). receipt 없는 target의
+// 설치는 install이 한다.
+export async function updateSelected(
+  input: InstallInput,
+  ports: InstallPorts,
+): Promise<Result<InstallOutcome>> {
+  if (await ports.store.receipt(input.target) === null) {
+    return err({
+      code: "not_found",
+      message: "이 target의 설치 receipt가 없다. 설치는 install로 한다",
+    });
+  }
+  return await runSelected(input, ports, "update");
+}
+
+// `harness remove`: receipt의 소유 resource만 지운다. 사람이 고친 것은 conflict로 남긴다(R7).
+export async function removeSelected(
+  input: InstallInput,
+  ports: InstallPorts,
+): Promise<Result<InstallOutcome>> {
+  return await runSelected(input, ports, "remove");
+}
+
+async function runSelected(
+  input: InstallInput,
+  ports: InstallPorts,
+  action: InstallAction,
 ): Promise<Result<InstallOutcome>> {
   const definition = catalogOf(input.target.harness_id);
   if (definition === undefined) {
@@ -116,6 +217,31 @@ export async function installSelected(
     ...(input.skill === undefined ? {} : { skill: input.skill }),
   });
   notices.push(...built.notices);
+  if (input.components !== undefined) {
+    const prefixes = input.components.map((name) => COMPONENT_PREFIX[name]);
+    if (prefixes.some((prefix) => prefix === undefined)) {
+      return err({
+        code: "invalid_input",
+        message: `component는 ${INSTALL_COMPONENTS.join("·")}만 받는다`,
+      });
+    }
+    for (const group of built.groups) {
+      group.resources = group.resources.filter((resource) =>
+        prefixes.some((prefix) => resource.identity.startsWith(prefix))
+      );
+    }
+    built.groups = built.groups.filter((group) => group.resources.length > 0);
+    for (const name of input.components) {
+      const made = built.groups.some((group) =>
+        group.resources.some((resource) =>
+          resource.identity.startsWith(COMPONENT_PREFIX[name])
+        )
+      );
+      if (!made) {
+        notices.push(`${name}: 이 target에서 만들 resource가 없어 건너뛴다`);
+      }
+    }
+  }
   if (built.groups.length === 0) {
     return ok({
       resources,
@@ -149,6 +275,20 @@ export async function installSelected(
         );
       }
       stored = false;
+      continue;
+    }
+    if (action === "remove") {
+      const removedGroup = await remove(
+        ports.files,
+        ports.store,
+        root.value,
+        plan.value,
+        `${input.operationId}:${group.root_resolver}`,
+        input.now,
+      );
+      resources.push(...removedGroup.resources);
+      stored = stored && removedGroup.receipt_stored;
+      recoveryPending = recoveryPending || removedGroup.recovery_pending;
       continue;
     }
     const seen = await observe(ports.files, root.value, plan.value);

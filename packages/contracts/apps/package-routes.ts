@@ -5,6 +5,7 @@ import {
   defineRead,
   defineWorker,
   idempotencyKeySchema,
+  preparedBlobSchema,
   sha256Schema,
   withReadCommon,
 } from "../platform/mod.ts";
@@ -29,6 +30,9 @@ export const packageRegisterVersionInputSchema = z.strictObject({
   version: packageVersionNameSchema,
   bundle_hash: z.string().regex(/^[0-9a-f]{64}$/),
   guide_hash: z.string().regex(/^[0-9a-f]{64}$/),
+  // 안내 byte를 blob으로 준비한 결과다. 있으면 같은 transaction에서 `package_version/guide` field로
+  // 등록해 안내 원문을 읽을 수 있다. hash가 guide_hash와 같아야 한다. 없으면 hash만 남고 원문은 못 읽는다.
+  guide_blob: preparedBlobSchema.optional(),
 });
 export type PackageRegisterVersionInput = z.infer<
   typeof packageRegisterVersionInputSchema

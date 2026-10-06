@@ -104,6 +104,8 @@ export function authorizeTarget(
     document,
     place_kind: placeKind,
     place: placeId,
+    // 앱 하나 범위 연결의 앱은 문서의 자리가 앱일 때만 준다(project·자리 없음은 범위 밖).
+    ...(placeKind === "app" && placeId !== undefined ? { app: placeId } : {}),
   } as AuthorizationTarget);
 }
 

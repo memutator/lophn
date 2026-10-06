@@ -1,103 +1,14 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
-  applyQuestionOption,
-  assignmentList,
-  assignmentRead,
-  cancelQuestion,
-  checkpointRun,
-  correctWaitingRun,
-  decideToolCall,
-  finishModelCall,
-  finishRun,
-  finishToolCall,
-  messageBody,
-  messagesList,
-  modelCallList,
-  presetRead,
-  processAssignmentOccurrence,
-  questionRead,
-  recordMessage,
-  recordToolRequest,
-  recoverRun,
-  resolveRunWait,
-  runBody,
-  runList,
-  runRead,
-  sessionRead,
-  startModelCall,
-  startRun,
-  startToolCall,
-  stopRun,
-  toolCallList,
-  toolCallRead,
-  waitRun,
-} from "../../packages/contracts/lophn-agent/mod.ts";
-import { OPTION_ACTION_OPERATIONS } from "../../packages/lophn-agent/questions/mod.ts";
-import {
-  applyApprovedAction,
-  approvalsGet,
-  approvalsList,
-  approvalsText,
-  cancelApprovalRequest,
-  eventsList,
-  routePath,
-  settingsGet,
-} from "../../packages/contracts/platform/mod.ts";
+  RUNTIME_MACHINE_ROUTES,
+} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { routePath } from "../../packages/contracts/platform/mod.ts";
 import type { CoreCall } from "./core-call.ts";
 
-// runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
-// 요청하지 않는다. run의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.
-
-export const RUNTIME_MACHINE_ROUTES = [
-  eventsList,
-  runList,
-  runRead,
-  assignmentList,
-  assignmentRead,
-  presetRead,
-  sessionRead,
-  settingsGet,
-  startRun,
-  checkpointRun,
-  finishRun,
-  waitRun,
-  resolveRunWait,
-  correctWaitingRun,
-  recoverRun,
-  runBody,
-  stopRun,
-  startModelCall,
-  finishModelCall,
-  modelCallList,
-  messagesList,
-  messageBody,
-  recordMessage,
-  recordToolRequest,
-  decideToolCall,
-  startToolCall,
-  finishToolCall,
-  toolCallRead,
-  toolCallList,
-  approvalsGet,
-  approvalsList,
-  approvalsText,
-  applyApprovedAction,
-  cancelApprovalRequest,
-  questionRead,
-  cancelQuestion,
-  applyQuestionOption,
-  processAssignmentOccurrence,
-] as const;
-
-// machine credential이 가져야 하는 operation 이름이다. 사람이 고른 선택지의 고정 action을 적용하는
-// 소유 command의 operation도 더한다: 소유 command의 대상 권한은 바깥 요청 자격의 scope로 판정된다
-// (questions#R13). 이 목록이 core가 runtime에 주는 machine credential의 scope 기준이다.
-export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
-  ...new Set([
-    ...RUNTIME_MACHINE_ROUTES.map((route) => route.name),
-    ...OPTION_ACTION_OPERATIONS,
-  ]),
-];
+export {
+  RUNTIME_MACHINE_OPERATIONS,
+  RUNTIME_MACHINE_ROUTES,
+} from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 
 const MACHINE_PATHS: ReadonlySet<string> = new Set(
   RUNTIME_MACHINE_ROUTES.map((route) => routePath(route)),

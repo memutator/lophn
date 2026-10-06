@@ -14,11 +14,8 @@ import {
   eventsList,
   routePath,
 } from "../../packages/contracts/platform/mod.ts";
-import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
-import {
-  BUILTIN_TOOLS,
-  runOperations,
-} from "../../packages/lophn-agent/harness/tools/mod.ts";
+import { roleOperations } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+export { roleOperations };
 import type { AgentCredentialIssuer } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 
 // agent runtime 감독 pipe의 agent credential 발급(lophn-agent/harness/run-loop). child가 보낸
@@ -37,14 +34,6 @@ export type AgentCredentialLink = {
     message: ChildMessage,
   ): Promise<AgentCredentialResponse | undefined>;
 };
-
-// 역할이 닿을 수 있는 operation의 상한. 역할 tool 상한(ROLE_CAPS)의 소유 contract와 보조 operation이다.
-export function roleOperations(role: string): readonly string[] {
-  const cap = ROLE_CAPS.get(role);
-  if (cap === undefined) return [];
-  const names = new Set(cap.tools);
-  return runOperations(BUILTIN_TOOLS.filter((tool) => names.has(tool.name)));
-}
 
 export function createAgentCredentialLink(options: {
   // 발급은 인증 경계(CredentialRegistry)가 한다.

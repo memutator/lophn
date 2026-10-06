@@ -319,7 +319,7 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 
 **보장:** keychain OS 준비는 core 밖에서 먼저 끝낸다. CAS를 통과한 `SetSecret`만 참조를 바꾸고 실패하면 이전 참조를 유지한다. 교체/제거 commit은 이후 사용부터 막는다. I/O worker는 keychain의 불투명 항목 중 ledger가 현재 참조하는 것과 준비 중인 것을 구별하여 고아·이전 값을 정리한다. 값 삭제·그 값을 쓴 프로세스 종료가 실제 확인되기 전에는 정리 완료라고 표시하지 않는다.
 
-앱 secret 전송은 apps 소유의 실제 전송 경계가 앱·고정 release·선언 이름∩유효 grant·허락된 목적지를 확인한다. 호출마다 사람 approval을 요구하지 않는다. 플랫폼 adapter가 keychain에서 값을 꺼내 현재 허용 destination의 인증 header에 **전송 직전** 붙인다. 앱 사용자 코드는 secret 이름만 지정하고 header 원값을 받지 않는다. command를 부른 쪽(사람 화면·agent·automation·다른 앱)으로 secret 사용을 막지 않는다. provider 인증도 model 호출의 신뢰 adapter 안에서 현재 provider 참조/revision을 검사하여 HTTPS 전송 직전에만 붙인다. model loop·tool 인자·기록 body에는 값이 없다. redirect는 자동 인증 전달하지 않고 매 목적지를 다시 검사한다.
+앱 secret 전송은 apps 소유의 실제 전송 경계가 앱·고정 release·선언 이름∩유효 grant·허락된 목적지를 확인한다. 호출마다 사람 approval을 요구하지 않는다. 플랫폼 adapter가 keychain에서 값을 꺼내 현재 허용 destination의 인증 header에 **전송 직전** 붙인다. 앱 사용자 코드는 secret 이름만 지정하고 header 원값을 받지 않는다. command를 부른 쪽(사람 화면·agent·automation·다른 앱)으로 secret 사용을 막지 않는다. provider 인증도 model 호출의 신뢰 adapter 안에서 현재 provider 참조/revision을 검사하여 HTTPS(같은 기계의 로컬 model 서버는 loopback HTTP origin, 목적지 kind `loopback_http`) 전송 직전에만 붙인다. agent runtime은 값을 감독 pipe의 `secret_send_request`/`secret_send_response`로 core에서 한 번 받아 인증 transport callback 메모리에서만 쓰고, core는 값이 알려진 값 registry에 모두 등록된 때만 건넨다. model loop·tool 인자·기록 body에는 값이 없다. redirect는 자동 인증 전달하지 않고 매 목적지를 다시 검사한다.
 
 #### 내부 contract: secret 전송 부착·갱신 결과 저장
 

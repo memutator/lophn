@@ -352,7 +352,7 @@ export const releaseStartActivation = defineCommand({
   name: "release.start_activation",
   input: releaseStartActivationInputSchema,
   output: releaseStartActivationOutputSchema,
-  actors: releaseRecordActors,
+  actors: ["machine", "user"],
   errors: ["forbidden", "conflict", "invalid_input"],
 });
 

@@ -21,6 +21,7 @@ import {
 import {
   secretComparisonRequestSchema,
   secretComparisonResponseSchema,
+  secretUseSchema,
 } from "./secrets.ts";
 import { atSchema, durationMsSchema, sha256Schema } from "./values.ts";
 
@@ -329,6 +330,83 @@ export type AgentCredentialResponse = z.infer<
   typeof agentCredentialResponseSchema
 >;
 
+// agent runtime이 model로 보낼 글을 core의 안전화에 맡기는 통로(lophn-agent/harness/run-loop). 알려진 secret
+// 값은 core의 보호 registry에만 있고 child로 가지 않는다. child가 글 조각(window)을 보내면 core가 같은
+// 검출 규칙과 알려진 값으로 지울 자리(index·length, 조각 안의 UTF-16 위치)만 돌려준다. 요청 하나는 조각
+// 128개·합 32,768 단위 이내이고 응답의 자리는 4,096개 이내다. core가 안전화를 끝낼 수 없으면 ok=false이고
+// child는 그 글을 보내지 않는다(fail-closed).
+export const REDACT_WINDOWS_MAX = 128;
+export const REDACT_UNITS_MAX = 32_768;
+export const REDACT_SPANS_MAX = 4_096;
+export const redactRequestSchema = z.strictObject({
+  type: z.literal("redact_request"),
+  request_id: opaque,
+  windows: z.array(z.string()).min(1).max(REDACT_WINDOWS_MAX).refine(
+    (windows) =>
+      windows.reduce((sum, window) => sum + window.length, 0) <=
+        REDACT_UNITS_MAX,
+    { message: "redact request is too large" },
+  ),
+});
+const redactSpanSchema = z.strictObject({
+  index: z.number().int().min(0),
+  length: z.number().int().min(1),
+});
+export const redactResponseSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    type: z.literal("redact_response"),
+    request_id: opaque,
+    ok: z.literal(true),
+    spans: z.array(z.array(redactSpanSchema)),
+  }),
+  z.strictObject({
+    type: z.literal("redact_response"),
+    request_id: opaque,
+    ok: z.literal(false),
+  }),
+]);
+export type RedactRequest = z.infer<typeof redactRequestSchema>;
+export type RedactResponse = z.infer<typeof redactResponseSchema>;
+
+// agent runtime의 provider 호출이 credential 값을 받는 통로(lophn-agent/harness/provider#R7,
+// platform/secrets#R5). 요청은 값 없이 secret 참조·판·용도·목적지와 보낼 요청의 url·method만 싣는다.
+// core가 현재 참조·판·목적지와 대조하고 값을 읽을 수 있을 때만 `value`를 답한다. 값은 이 응답 하나로만
+// child에 닿고 child의 인증 전송 callback 메모리에서만 쓰인다. 읽을 수 없거나 대조에 실패하면 값 없이
+// 오류이고 child는 요청을 보내지 않는다(fail-closed).
+export const SECRET_SEND_ERROR_CODES = [
+  "invalid_input",
+  "forbidden",
+  "conflict",
+  "unavailable",
+] as const;
+export const secretSendRequestSchema = z.strictObject({
+  type: z.literal("secret_send_request"),
+  request_id: opaque,
+  use: secretUseSchema,
+  operation: opaque,
+  url: opaque,
+  method: opaque,
+});
+export const secretSendResponseSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    type: z.literal("secret_send_response"),
+    request_id: opaque,
+    ok: z.literal(true),
+    value: opaque,
+  }),
+  z.strictObject({
+    type: z.literal("secret_send_response"),
+    request_id: opaque,
+    ok: z.literal(false),
+    error: z.strictObject({
+      code: z.enum(SECRET_SEND_ERROR_CODES),
+      message: z.string().max(200),
+    }),
+  }),
+]);
+export type SecretSendRequest = z.infer<typeof secretSendRequestSchema>;
+export type SecretSendResponse = z.infer<typeof secretSendResponseSchema>;
+
 export const DIAGNOSTIC_KINDS = [
   "lophn_internal",
   "unattributed_observation",
@@ -429,6 +507,8 @@ export const parentMessageSchema = z.union([
   workerRequestEnvelopeSchema,
   appCredentialResponseSchema,
   agentCredentialResponseSchema,
+  redactResponseSchema,
+  secretSendResponseSchema,
   blobPrepareResultSchema,
 ]);
 export const childMessageSchema = z.union([
@@ -440,6 +520,8 @@ export const childMessageSchema = z.union([
   appCredentialRequestSchema,
   agentCredentialRequestSchema,
   agentCredentialEndSchema,
+  redactRequestSchema,
+  secretSendRequestSchema,
   blobPrepareRequestSchema,
 ]);
 // 사람 결정 handle 등록과 secret 비교 read는 main↔core 비공개 연결로만 오간다

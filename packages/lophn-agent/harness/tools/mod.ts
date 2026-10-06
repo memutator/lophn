@@ -1,4 +1,4 @@
-export { toolsSchemaSteps } from "./model.ts";
+export { callRevision, loadToolCall, toolsSchemaSteps } from "./model.ts";
 export { createToolCommands, toolCallBodyFields } from "./commands.ts";
 export { createToolReads } from "./reads.ts";
 export {

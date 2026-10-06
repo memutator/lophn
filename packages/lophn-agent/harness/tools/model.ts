@@ -130,6 +130,36 @@ const CALL_COLUMNS = `id, run, model_call, response_key, response_order, tool,
 
 export const callColumns = CALL_COLUMNS;
 
+// 읽은 ToolCall의 state_seq(CAS 기준). 요청 기록이 0이고 판정·진입·종료 기록마다 하나씩 오른다.
+// 요청 상태에서 시작하는 call의 기록 순서(요청 → 판정 → 진입 또는 미실행 종료 → 종료)만 가리킨다.
+export function callRevision(
+  call: Pick<ToolCall, "decision" | "started_at" | "state">,
+): string {
+  return String(
+    (call.decision !== null ? 1 : 0) + (call.started_at !== null ? 1 : 0) +
+      (call.state === "finished" ? 1 : 0),
+  );
+}
+
+// 다른 leaf가 기다림·복구를 정할 때 읽는 tool call 한 건. 쓰기는 이 concern의 command만 한다.
+export function loadToolCall(
+  lookup: {
+    sql: {
+      get: (
+        query: string,
+        params: SqlParam[],
+      ) => Record<string, SqlParam> | undefined;
+    };
+  },
+  id: string,
+): ToolCall | undefined {
+  const row = lookup.sql.get(
+    `select ${CALL_COLUMNS} from tool_calls where id = ?`,
+    [id],
+  );
+  return row === undefined ? undefined : callFromRow(row);
+}
+
 // 입력 schema 검사 실패는 보정 없이 invalid_input이다(R3). 숫자 문자열을 숫자로
 // 바꾸거나 모르는 필드를 버리지 않는다.
 export function invalidInput(message: string): Result<never> {

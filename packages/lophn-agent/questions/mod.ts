@@ -1,6 +1,7 @@
 export {
   actionAllowed,
   appliedOf,
+  loadQuestion,
   QUESTION_ACTIONS,
   questionBodyFields,
   type QuestionRecord,

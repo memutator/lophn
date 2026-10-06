@@ -1,6 +1,7 @@
 export {
   conversationSchemaSteps,
   hasUnappliedSteering,
+  loadMessage,
   messageBodyFields,
   type MessageRow,
   type SessionRow,

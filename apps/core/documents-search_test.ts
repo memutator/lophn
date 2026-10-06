@@ -41,6 +41,7 @@ import {
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const NOW_MS = Date.UTC(2024, 0, 1);
 const AT = "2024-01-01T00:00:00.000Z";
@@ -468,11 +469,16 @@ async function openCore(
     workers: new Map<string, WorkerRouteTarget>([["search/query", target]]),
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+  });
   const core = started.value;
   const accepted = await core.acceptTestCredential?.(context, token);
   assert(accepted?.ok, "test credential seed failed");
   const recorded = await core.record(context);
   assert(recorded.ok, recorded.ok ? "" : recorded.error?.message ?? "");
+  guard.keep();
   return { core, token, context, home };
 }
 

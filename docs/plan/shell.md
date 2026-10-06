@@ -344,6 +344,7 @@ concerns: [shell]
 
 ### T17 저장 흐름: 파일 통로, 저장 상태, 충돌, 닫기 guard
 
+- 상태: 진행 (#306) — 한 것: main 파일 adapter(`files/read` stream·`documents/upload`·`files/write` base_hash CAS·편집 종료의 `version_request`·`latest_version`·결과 불명 조회·형식 검사), 창 닫기 guard와 `QuitWork.pendingSaves`, 저장 상태 줄·상세·notice·충돌 해결 화면·닫기 dialog, 실제 core 테스트, headless E2E(`e2e/shell/save_test.ts`, `read-edit_test.ts` 실제 실행), T15에서 넘어온 추적 미리보기·켜기·파일 목록 실제 core 확인. 남은 것: T19에서 넘어온 series 새 멤버 쓰기 길(새 파일·series draft), 읽기 폭 재시작 E2E와 version 충돌의 최신 판 비교(제품 core의 worker `documents/read`가 unavailable, Q19(6)). Q19
 - 등급: 기본
 - concern: shell/editor
 - 요구: shell/editor#R1, R2, R12, R15

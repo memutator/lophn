@@ -150,3 +150,39 @@ export function resolveDaemonAddress(
   }
   return ok(defaultAddress());
 }
+
+// 현재 daemon 연결 정보(`<H>/run/location.json`)까지 읽어 주소를 정한다. 파일을 읽는 일은
+// 주입한 `readText`가 한다(없거나 못 읽으면 undefined). MCP·CLI 실행 entry가 같은 순서를 쓴다.
+export function discoverDaemonAddress(sources: {
+  option?: string;
+  env?: string;
+  dataRoot?: string;
+  readText(path: string): string | undefined;
+}): Result<DaemonAddress> {
+  let runMetadata: unknown;
+  if (
+    sources.option === undefined && sources.env === undefined &&
+    sources.dataRoot !== undefined && sources.dataRoot !== ""
+  ) {
+    const text = sources.readText(
+      `${sources.dataRoot.replace(/\/$/, "")}/run/location.json`,
+    );
+    if (text !== undefined) {
+      try {
+        runMetadata = JSON.parse(text);
+      } catch {
+        // 읽을 수 없는 metadata는 없는 것과 같다. 다음 출처로 내려간다.
+      }
+    }
+  }
+  const resolved = resolveDaemonAddress({
+    option: sources.option,
+    env: sources.env,
+    runMetadata,
+  });
+  // metadata가 올바르지 않아 not_found면 기본 주소로 내려간다. 명시 주소의 거절은 그대로다.
+  if (!resolved.ok && resolved.error.code === "not_found") {
+    return ok(defaultAddress());
+  }
+  return resolved;
+}

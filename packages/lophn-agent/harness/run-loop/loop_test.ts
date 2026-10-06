@@ -279,6 +279,9 @@ function rig(setup: Setup) {
         state.toolSeq++;
         return done("success", "ok", `tcl_${state.toolSeq}`);
       },
+      resume() {
+        return Promise.reject(new Error("no resumed call"));
+      },
       close(request, why) {
         log.push(`close:${request.name}:${why.code}`);
         closed.push({ call: request, code: why.code, status: why.status });

@@ -39,6 +39,7 @@ import { createCredentialLink } from "./credential-link.ts";
 import {
   createRunDriver,
   type DriveDeps,
+  type RecoverReport,
   type RunDriver,
 } from "./run-driver.ts";
 
@@ -61,6 +62,8 @@ export type Runtime = {
   credentials: RunCredentials;
   // 고른 run을 시작해 loop를 돌린다. 시작 재료(`driver` 입력)를 받았을 때만 있다.
   driver: RunDriver | undefined;
+  // 기동 때 끊겼던 run을 저장된 경계에서 이은 결과. 새 run을 고르기 전에 끝난 일이다.
+  recovered: RecoverReport[];
   // 새 model·tool 진입을 막는다. 진행 호출 취소는 나중 작업이 이 신호에 붙는다.
   readonly stopped: boolean;
   done: Promise<void>;
@@ -84,7 +87,12 @@ export async function startAgentRuntime(input: {
   occurrences?: boolean;
   // run 시작 재료(basis 준비, StartRun, loop의 port)를 만드는 쪽이다. core 연결(machine 자격과 run의
   // agent 자격 호출)을 받아 `createRunPreparer` 같은 것을 돌려준다.
-  driver?: (calls: CoreCalls) => Pick<DriveDeps, "prepare" | "closeUnusable">;
+  driver?: (
+    calls: CoreCalls,
+  ) => Pick<
+    DriveDeps,
+    "prepare" | "closeUnusable" | "liveRuns" | "prepareResume"
+  >;
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Deno.stdin.readable,
@@ -233,18 +241,24 @@ export async function startAgentRuntime(input: {
     return started;
   }
   const selector = createRunSelector({ read: selectorRead! });
+  // 기동 순서: 새 run을 고르기 전에 끊겼던 run(진행 중·사람 기다림)을 먼저 잇는다. 사람이 멈춘 run은
+  // 이미 끝나 있어 대상이 아니다. 복구를 못 해도 기동은 막지 않고 그 run은 이어지지 않은 채 남는다.
+  let recovered: RecoverReport[] = [];
   if (input.driver !== undefined) {
     driver = createRunDriver({
       selector,
       credentials,
       ...input.driver(calls!),
     });
+    const report = await driver.recover();
+    if (report.ok) recovered = report.value;
   }
   const runtime: Runtime = {
     startup: startup!,
     selector,
     credentials,
     driver,
+    recovered,
     get stopped() {
       return stopped;
     },

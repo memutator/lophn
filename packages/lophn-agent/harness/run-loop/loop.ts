@@ -34,8 +34,16 @@ export function startRunLoop(
     },
     modelCalls: new Set(),
     serverCalls: new Map(),
-    history: [],
-    facts: { changes: [], unexecuted: [], unknown_effects: [] },
+    history: input.resume?.history ?? [],
+    facts: input.resume?.facts ?? {
+      changes: [],
+      unexecuted: [],
+      unknown_effects: [],
+    },
+    resume: {
+      pending: input.resume?.pending ?? null,
+      retry: input.resume?.retry ?? null,
+    },
   };
 
   async function run(): Promise<LoopEnd> {

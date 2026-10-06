@@ -102,3 +102,16 @@ export {
   type Inspection,
   type InspectPorts,
 } from "./inspect.ts";
+export {
+  type InstallInput,
+  type InstallOutcome,
+  type InstallPorts,
+  installSelected,
+} from "./install.ts";
+export {
+  decideDefaultHarness,
+  type DefaultHarnessDecision,
+  type DefaultHarnessState,
+  runnableOf,
+  type SelectionEntry,
+} from "./selection.ts";

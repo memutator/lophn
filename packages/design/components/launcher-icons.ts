@@ -1,0 +1,28 @@
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Folder,
+  FolderPlus,
+  type LucideIcon,
+  Plus,
+  RotateCw,
+  SlidersHorizontal,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+
+// 런처 카드·프로젝트 등록·추적 미리보기가 쓰는 아이콘. 화면이 lucide를 직접 들이지 않도록 design이 고른다.
+export const launcherIcons = {
+  project: Folder,
+  register: Plus,
+  addFolder: FolderPlus,
+  remove: X,
+  expand: ChevronRight,
+  collapse: ChevronDown,
+  addRule: Plus,
+  editRules: SlidersHorizontal,
+  preview: Eye,
+  previewAgain: RotateCw,
+  warning: TriangleAlert,
+} as const satisfies Record<string, LucideIcon>;

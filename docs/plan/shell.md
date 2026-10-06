@@ -302,6 +302,7 @@ concerns: [shell]
 
 ### T15 launcher: 프로젝트 등록과 추적 미리보기
 
+- 상태: 완료 (#290) — 이어보냄: 실제 core의 추적 미리보기·켜기와 팔레트 파일 묶음 확인(documents#T12가 `/v1/projects/preview_tracking`·`/v1/files/list`를 서빙한 뒤) → shell#T17. 제품 작업대의 layout 저장·복원 통로(main·preload)는 아직 없다. Q18
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/desktop#R25(프로젝트 카드, 프로젝트 등록), R26(카드), shell/wording#R2, R4, R10, R12
@@ -354,6 +355,7 @@ concerns: [shell]
 - T16에서 넘어온 것: `e2e/shell/read-edit_test.ts`를 headless harness로 실제 실행하고, 제품 core가 settings route·`shell.reading_width`·outline/document·documents/read를 서빙하면 읽기 폭의 재시작 반영 확인을 더한다(#238, Q13)
 - shell#T16에서 넘어온 것: `apps/shell/renderer/editor/document-view.tsx`의 초안(`draft`)을 파일 통로로 보내고, 저장 상태 변경을 머리 메타 줄(상태 줄, editor#R11)에 보인다. 준비 결과의 `FormatDiagnostic`을 `problems-gutter/problems.ts`의 `editorProblems`로 바꿔 `DocumentView`의 `problems`에 넘긴다.
 - shell#T55에서 넘어온 것: 저장 중 변경 수를 끄기 확인(`apps/shell/main/desktop/quit.ts`의 `QuitWork.pendingSaves`, 지금 main은 0)에 잇는다(tray Quit 확인과 터미널 수는 #233)
+- shell#T15에서 넘어온 것: documents#T12가 `/v1/projects/preview_tracking`과 `/v1/files/list`를 서빙하면 temp LOPHN_HOME 실제 core 테스트(`apps/shell/renderer/desktop/launcher/core-source-real-core_test.ts`)에 temp 폴더의 추적 미리보기(포함·제외 이유)와 `set_tracking` 켜기, 작업대 팔레트 파일 묶음(`coreWorkspaceSource.files`)을 더한다(Q18).
 - shell#T19에서 넘어온 것: flow write-series 2·5단계의 새 멤버 쓰기. documents 화면(`apps/shell/renderer/desktop/lophn-space/series/series-detail.tsx`)은 이미 있는 같은 자리·format 문서에 key를 붙여 멤버로 더한다. 다음 key 제안으로 새 문서를 만들어 쓰는 길(편집기 저장과 `series.set_draft`·`clear_draft`의 draft 보존, 저장 상태와 판 확정 구별)은 파일 통로와 함께 잇는다.
 - 완료: 아래 확인이 통과한다
   - 저장 버튼 없이 고침을 main의 파일 adapter로 보낸다(target, base_hash, request_key, 바이트). main이 파일 통로를 부르고 renderer는 경로·port를 모른다.
@@ -1192,3 +1194,11 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (5) 재연결 backlog 판정: main 구독은 붙을 때 `events.list`의 `head_seq`를 기억하고 socket으로 온 event 중 그 뒤의 것만 "지금 도착"으로 넘긴다. 한 page로 다 따라잡지 못한 나머지도 socket으로 오기 때문이다.
   - (6) 제품 core가 platform notifications를 조립하지 않아(Q16(3)) 지금은 `NotificationCreated`가 오지 않는다. main은 실제 event 구독에 붙어 있으므로 core 조립이 들어오면 추가 연결 없이 표시된다. 그 확인은 platform 조립 작업과 platform#T46(flow catch-up-notifications)이 한다.
   - (7) `apps/shell/renderer/editor/reading-width.ts`의 settings.apply compare에 `defaults_revision`이 없던 버그는 #285가 고쳤다(실제 core 시험 포함).
+- **Q18 프로젝트 등록과 추적 켜기의 제품 경로(T15, 추천안으로 진행).**
+  - (1) 제품 core는 아직 `/v1/projects/preview_tracking`과 `/v1/files/list`를 서빙하지 않는다(둘 다 `not_found` "route not found"). shell 쪽은 contract대로 이었다: 추적 켜기 창은 worker `projects/preview_tracking`을 끝 page까지 모으고, 켜기는 미리 본 폴더·규칙과 complete인 마지막 page를 `projects/set_tracking`에 `compare.base_revision`과 함께 보낸다. 이 모양은 가짜 core 통로 테스트(`workspace/tracking/core-source_test.ts`)가 보고, 화면은 주입한 통로로 테스트한다. 실제 core의 등록·목록·작업대 읽기는 temp LOPHN_HOME core 테스트(`desktop/launcher/core-source-real-core_test.ts`)가 본다. 미리보기·켜기와 팔레트 파일 묶음의 실제 core 확인은 documents#T12 뒤 shell#T17로 넘긴다. 그 전까지 미리보기는 "The file check for … didn't finish"를 보이고 추적을 켜지 않는다.
+  - (2) Q13과 같은 이유로 renderer allowlist에 `worker:projects/preview_tracking`을 더 열었다. 폴더를 scan해 포함·제외만 돌려주는 읽기다. 적용은 command `projects/set_tracking`이다.
+  - (3) 등록 창은 이름·목적·폴더만 묻는다. 안쪽 짧은 이름(slug)은 이름에서 만들고 이미 쓰는 이름이면 번호를 붙이며 펼친 상세에만 보인다. 등록은 `tracking {enabled:false, patterns:[], use_gitignore:false}`로 만들고, 규칙을 고른 적 없는 프로젝트의 첫 켜기는 read의 `initial_tracking_proposal`(Markdown과 .gitignore)을 보인다.
+  - (4) 겹침(documents/projects#R7)은 켜기 전에 다른 활성 프로젝트의 켜진 폴더(`projects/list`)와 경로로 비교해 켜기를 막는다. 켜기가 `conflict`면 오류 글을 읽지 않고 현재 판과 켜진 폴더를 다시 읽어 "미리보기 뒤 바뀜"과 "겹침"을 가른다. 미리보기 실패는 `unavailable`·`forbidden`만 폴더를 읽지 못함으로 말하고 다른 실패는 원인을 추측하지 않는다.
+  - (5) 연관 컨텍스트를 프로젝트로 묻는 read가 없어(contexts.related는 문서·앱 command 대상) 제품 작업대는 그 프로젝트 문서를 하나라도 담은 활성 컨텍스트를 보인다. main은 아직 layout 저장·복원 통로를 renderer에 열지 않았다(`ipc/workspace.ts`의 channel만 있다). 그래서 제품 작업대는 빈 배치로 시작하고 배치를 저장하지 않는다. main·preload 연결은 lead가 배정한다.
+  - (6) 창 시작 공간이 프로젝트여도 core 연결이 준비되기 전에는 런처의 연결 화면을 보이고, 준비되면 작업대를 열어 읽는다(실패한 첫 읽기로 "Couldn't load this project."를 남기지 않는다).
+  - (7) headless 확인용으로 main이 `LOPHN_SHELL_START=project:<prj id>`면 그 작업대부터 연다. headless에서는 OS 폴더 선택기를 띄우지 않고 `LOPHN_SHELL_PICK_FOLDER`만 고른 것으로 돌려준다(개발 전용, stack.md).

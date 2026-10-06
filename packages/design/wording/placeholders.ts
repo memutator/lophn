@@ -376,24 +376,68 @@ export type PlaceholderKinds = {
     name: "string";
   };
   "documents.title.screen": Record<never, never>;
+  "launcher.button.add-folder": Record<never, never>;
+  "launcher.button.hide-details": Record<never, never>;
   "launcher.button.lophn": Record<never, never>;
   "launcher.button.reconnect": Record<never, never>;
+  "launcher.button.register": Record<never, never>;
+  "launcher.button.register-project": Record<never, never>;
+  "launcher.button.remove-folder": Record<never, never>;
   "launcher.button.retry": Record<never, never>;
+  "launcher.button.show-details": Record<never, never>;
   "launcher.connection.confirmed-at": {
     when: "string";
   };
   "launcher.connection.disconnected": Record<never, never>;
   "launcher.connection.failed": Record<never, never>;
   "launcher.connection.starting": Record<never, never>;
+  "launcher.dialog.register-note": Record<never, never>;
   "launcher.empty.no-cards": Record<never, never>;
+  "launcher.empty.no-folders": Record<never, never>;
+  "launcher.empty.no-projects": Record<never, never>;
+  "launcher.error.name-required": Record<never, never>;
+  "launcher.error.name-taken": Record<never, never>;
+  "launcher.error.picker-failed": Record<never, never>;
+  "launcher.error.register-failed": {
+    name: "string";
+  };
+  "launcher.field.purpose-help": Record<never, never>;
+  "launcher.heading.projects": Record<never, never>;
+  "launcher.label.detail-documents": {
+    count: "plural";
+  };
+  "launcher.label.detail-gitignore": Record<never, never>;
+  "launcher.label.detail-id": Record<never, never>;
+  "launcher.label.detail-name": Record<never, never>;
+  "launcher.label.detail-no-folders": Record<never, never>;
+  "launcher.label.folder-description": Record<never, never>;
+  "launcher.label.folders": Record<never, never>;
+  "launcher.label.name": Record<never, never>;
+  "launcher.label.projects": Record<never, never>;
+  "launcher.label.purpose": Record<never, never>;
+  "launcher.label.rule-exclude": {
+    glob: "string";
+  };
+  "launcher.label.rule-include": {
+    glob: "string";
+  };
+  "launcher.label.status-no-folder": Record<never, never>;
+  "launcher.label.status-not-tracking": Record<never, never>;
+  "launcher.label.status-tracking": Record<never, never>;
   "launcher.label.wordmark": Record<never, never>;
+  "launcher.title.register": Record<never, never>;
+  "project-workspace.button.add-rule": Record<never, never>;
   "project-workspace.button.close-tab": Record<never, never>;
   "project-workspace.button.collapse-sidebar": Record<never, never>;
+  "project-workspace.button.edit-rules": Record<never, never>;
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
   "project-workspace.button.open-terminal": Record<never, never>;
+  "project-workspace.button.preview-again": Record<never, never>;
+  "project-workspace.button.remove-rule": Record<never, never>;
   "project-workspace.button.split-pane": Record<never, never>;
+  "project-workspace.button.turn-on-tracking": Record<never, never>;
   "project-workspace.empty.no-contexts": Record<never, never>;
   "project-workspace.empty.no-documents": Record<never, never>;
   "project-workspace.empty.no-folders": Record<never, never>;
@@ -402,9 +446,12 @@ export type PlaceholderKinds = {
   "project-workspace.heading.contexts": Record<never, never>;
   "project-workspace.heading.documents": Record<never, never>;
   "project-workspace.heading.folders": Record<never, never>;
+  "project-workspace.heading.left-out": Record<never, never>;
+  "project-workspace.heading.tracked": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
+  "project-workspace.label.gitignore": Record<never, never>;
   "project-workspace.label.info-tab-contexts": Record<never, never>;
   "project-workspace.label.info-tab-info": Record<never, never>;
   "project-workspace.label.info-tab-versions": Record<never, never>;
@@ -412,9 +459,59 @@ export type PlaceholderKinds = {
   "project-workspace.label.kind-document-editor": Record<never, never>;
   "project-workspace.label.kind-document-viewer": Record<never, never>;
   "project-workspace.label.kind-terminal": Record<never, never>;
+  "project-workspace.label.more-files": {
+    count: "plural";
+  };
   "project-workspace.label.path": Record<never, never>;
+  "project-workspace.label.reason-excluded": {
+    glob: "string";
+  };
+  "project-workspace.label.reason-gitignore": Record<never, never>;
+  "project-workspace.label.reason-included": {
+    glob: "string";
+  };
+  "project-workspace.label.reason-inside-git": Record<never, never>;
+  "project-workspace.label.reason-inside-lophn": Record<never, never>;
+  "project-workspace.label.reason-other": Record<never, never>;
+  "project-workspace.label.reason-outside-link": Record<never, never>;
+  "project-workspace.label.reason-tracking-off": Record<never, never>;
+  "project-workspace.label.reason-unmatched": Record<never, never>;
+  "project-workspace.label.rule-effect": Record<never, never>;
+  "project-workspace.label.rule-exclude": Record<never, never>;
+  "project-workspace.label.rule-include": Record<never, never>;
+  "project-workspace.label.rule-pattern": Record<never, never>;
   "project-workspace.label.tabs": Record<never, never>;
   "project-workspace.sidebar.label": Record<never, never>;
+  "project-workspace.title.tracking": {
+    project: "string";
+  };
+  "project-workspace.tracking.apply-failed": {
+    project: "string";
+  };
+  "project-workspace.tracking.changed": {
+    project: "string";
+  };
+  "project-workspace.tracking.excluded-count": {
+    count: "plural";
+  };
+  "project-workspace.tracking.included-count": {
+    count: "plural";
+  };
+  "project-workspace.tracking.no-folder": Record<never, never>;
+  "project-workspace.tracking.off": Record<never, never>;
+  "project-workspace.tracking.overlap": {
+    other: "string";
+    path: "string";
+  };
+  "project-workspace.tracking.preparing": Record<never, never>;
+  "project-workspace.tracking.preview-failed": {
+    project: "string";
+  };
+  "project-workspace.tracking.stale": Record<never, never>;
+  "project-workspace.tracking.unreadable-many": Record<never, never>;
+  "project-workspace.tracking.unreadable-one": {
+    folder: "string";
+  };
   "projects.title.screen": Record<never, never>;
   "roles.title.screen": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;

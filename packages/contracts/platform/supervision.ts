@@ -300,6 +300,35 @@ export const appCredentialResponseSchema = z.strictObject({
   expires_at: atSchema.optional(),
 });
 
+// agent runtime이 run마다 `agent:<asg>` credential을 core에 청하는 통로(lophn-agent/harness/run-loop).
+// StartRun이 확정된 run에만 청하고 core의 인증 경계가 발급한다. platform은 scope.agent를 해석하지
+// 않고 그대로 싣는다. operations는 발급 상한 안이어야 하고 넓히지 못한다.
+export const agentCredentialRequestSchema = z.strictObject({
+  type: z.literal("agent_credential_request"),
+  request_id: opaque,
+  run: idSchema("run"),
+  assignment: idSchema("asg"),
+  operations: z.array(opaque),
+  scope: z.record(z.string(), z.unknown()),
+});
+export const agentCredentialResponseSchema = z.strictObject({
+  type: z.literal("agent_credential_response"),
+  request_id: opaque,
+  credential: opaque,
+  credential_ref: opaque,
+});
+// run 종료·멈춤·assignment 회수에 그 run의 credential을 끝낸다. 감독 상실은 core가 process 조건으로 끝낸다.
+export const agentCredentialEndSchema = z.strictObject({
+  type: z.literal("agent_credential_end"),
+  run: idSchema("run"),
+});
+export type AgentCredentialRequest = z.infer<
+  typeof agentCredentialRequestSchema
+>;
+export type AgentCredentialResponse = z.infer<
+  typeof agentCredentialResponseSchema
+>;
+
 export const DIAGNOSTIC_KINDS = [
   "lophn_internal",
   "unattributed_observation",
@@ -399,6 +428,7 @@ export const parentMessageSchema = z.union([
   streamCreditSchema,
   workerRequestEnvelopeSchema,
   appCredentialResponseSchema,
+  agentCredentialResponseSchema,
   blobPrepareResultSchema,
 ]);
 export const childMessageSchema = z.union([
@@ -408,6 +438,8 @@ export const childMessageSchema = z.union([
   workerResponseEnvelopeSchema,
   diagnosticSchema,
   appCredentialRequestSchema,
+  agentCredentialRequestSchema,
+  agentCredentialEndSchema,
   blobPrepareRequestSchema,
 ]);
 // 사람 결정 handle 등록과 secret 비교 read는 main↔core 비공개 연결로만 오간다

@@ -30,7 +30,6 @@ import { synthesizedResult } from "./tool-batch.ts";
 // 자리(ModelPort)의 script이고 시계·대기·무작위는 주입한다. 실제 provider와 core를 부르지 않는다.
 
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
-const RUN_B = "run_01arz3ndektsv4rrffq69g5faw";
 const SESSION = "ses_01arz3ndektsv4rrffq69g5fav";
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
 const START = Date.parse("2026-10-06T00:00:00.000Z");

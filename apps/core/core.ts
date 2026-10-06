@@ -122,7 +122,10 @@ import {
   withPlatform,
 } from "./platform.ts";
 import { observeApprovals } from "../../packages/platform/approvals/mod.ts";
-import { observeInvocations } from "../../packages/apps/invocations/restart.ts";
+import {
+  INVOCATION_RECOVERY_CONTEXT,
+  observeInvocations,
+} from "../../packages/apps/invocations/restart.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createValidatePort } from "./documents-validate.ts";
@@ -269,6 +272,8 @@ export type Core = {
   restore(request: RestoreRequest): Promise<Result<RestoreOutcome>>;
   // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다(platform Q25).
   sweepApprovalExpiry(): Promise<void>;
+  // 재시작 때 접수·실행 중으로 남은 invocation을 미확인으로 확정한다(기동이 한 번 부른다).
+  sweepInterruptedInvocations(): Promise<void>;
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
   // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
   documentsFeed?: InternalSubscription;
@@ -519,6 +524,15 @@ async function open(
   if (!expiryCredential.ok) {
     await runtime.close();
     return expiryCredential;
+  }
+  // 재시작 때 접수·실행 중 invocation을 미확인으로 확정하는 core 내부 자격의 기록이다. 기록이 없으면
+  // writer가 확정을 거절해 행이 계속 남으므로 기동을 여기서 멈춘다(apps/invocations#R10).
+  const recoveryCredential = await runtime.record(
+    INVOCATION_RECOVERY_CONTEXT as never,
+  );
+  if (!recoveryCredential.ok) {
+    await runtime.close();
+    return recoveryCredential;
   }
   // notifications 구독자(machine:notifications)의 자격 기록. token이 없는 core 내부 자격이라
   // HTTP로는 이 principal이 될 수 없다. reader·writer는 이 ledger 기록으로 현재 자격을 본다.
@@ -853,6 +867,8 @@ async function open(
     APPROVAL_EXPIRY_SWEEP_INTERVAL_MS,
   );
   await runtime?.sweepApprovalExpiry();
+  // 재시작 점검이 unknown으로 본 접수·실행 중 invocation을 미확인으로 확정한다. 한 번만 돈다.
+  await runtime?.sweepInterruptedInvocations();
   stopPrune.run = () => {
     clearInterval(timer);
     clearInterval(claimSweep);
@@ -1106,6 +1122,7 @@ async function open(
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
+    sweepInterruptedInvocations: () => runtime!.sweepInterruptedInvocations(),
     ...(options.testCredentials
       ? { documentsFeed, eventSessions: () => runtime!.trackedSessions() }
       : {}),

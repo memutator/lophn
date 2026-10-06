@@ -127,4 +127,13 @@ export const outlineAndSearchSchemaSteps: readonly SchemaStep[] = [
     id: "documents.outline-and-search.unverified-reason",
     sql: `ALTER TABLE derived_versions ADD COLUMN unverified_reason TEXT;`,
   },
+  {
+    // watch 미확인은 대상을 문서와 section으로도 남긴다. target_key의 구분자(NUL)는 SQLite에서
+    // 읽을 때 잘리므로 다시 확인할 때는 이 열을 읽는다(documents#T24).
+    id: "documents.outline-and-search.watch-target",
+    sql: `
+      ALTER TABLE watch_unverified ADD COLUMN document TEXT NOT NULL DEFAULT '';
+      ALTER TABLE watch_unverified ADD COLUMN section TEXT;
+    `,
+  },
 ];

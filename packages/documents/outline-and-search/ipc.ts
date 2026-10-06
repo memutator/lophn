@@ -184,3 +184,111 @@ export function parseSearchLedger(value: unknown): string | undefined {
   const id = (value as Record<string, unknown>).ledger_id;
   return typeof id === "string" && id.length > 0 ? id : undefined;
 }
+
+// context watch consumer(documents#T24)의 요청. core가 DocumentSaved를 읽고 source_seq 당시의
+// watch 항목을 가려 coordinator에 보낸다. 비교·미확인 기록·command 제출·cursor는 coordinator가
+// 한다(architecture/documents 7.6). 같은 derived store의 `watch` cursor다.
+export const WATCH_OPS = {
+  // 이어 받을 자리. 응답은 `{ processed_seq }`다.
+  cursor: "documents.watch_cursor",
+  // 저장 event 하나의 비교. 응답은 `{ processed_seq }`다. 같은 event를 다시 보내도 같은 결과다.
+  apply: "documents.watch_apply",
+  // 확인할 일이 없는 event를 지나 cursor만 앞으로 보낸다.
+  advance: "documents.watch_advance",
+  // 다시 확인할 수 있게 된 미확인 비교의 source_seq 목록. 응답은 `{ source_seqs }`다.
+  pending: "documents.watch_pending",
+} as const;
+
+// watch consumer가 읽는 event는 새 최신 판을 만드는 저장과 복원이다. 항목이 바뀌었는가는
+// 전후 판의 내용으로 정하고 event 이름은 기준이 아니다(plan Q33).
+export const WATCH_CONSUMED_EVENTS: ReadonlySet<string> = new Set([
+  "DocumentSaved",
+  "DocumentRestored",
+]);
+
+export type WatchVersionInfo = {
+  version: string;
+  content_hash: string;
+  module_hash: string;
+};
+
+export type WatchApplyRequest = {
+  event: {
+    seq: string;
+    document: string;
+    version: string;
+    previous_version: string | null;
+  };
+  before: WatchVersionInfo | null;
+  after: WatchVersionInfo;
+  targets: {
+    context: string;
+    context_revision: string;
+    section: string | null;
+  }[];
+};
+
+function parseWatchVersion(value: unknown): WatchVersionInfo | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const body = value as Record<string, unknown>;
+  if (
+    !text(body.version) || !text(body.content_hash) ||
+    !text(body.module_hash)
+  ) return undefined;
+  return {
+    version: body.version,
+    content_hash: body.content_hash,
+    module_hash: body.module_hash,
+  };
+}
+
+export function parseWatchApply(
+  value: unknown,
+): WatchApplyRequest | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const body = value as Record<string, unknown>;
+  const event = body.event as Record<string, unknown> | undefined;
+  if (
+    typeof event !== "object" || event === null || !seq(event.seq) ||
+    !text(event.document) || !text(event.version) ||
+    !(event.previous_version === null || text(event.previous_version))
+  ) return undefined;
+  const after = parseWatchVersion(body.after);
+  if (after === undefined || after.version !== event.version) return undefined;
+  let before: WatchVersionInfo | null = null;
+  if (body.before !== null) {
+    const parsed = parseWatchVersion(body.before);
+    if (parsed === undefined || parsed.version !== event.previous_version) {
+      return undefined;
+    }
+    before = parsed;
+  } else if (event.previous_version !== null) {
+    return undefined;
+  }
+  if (!Array.isArray(body.targets)) return undefined;
+  const targets: WatchApplyRequest["targets"] = [];
+  for (const raw of body.targets) {
+    if (typeof raw !== "object" || raw === null) return undefined;
+    const entry = raw as Record<string, unknown>;
+    if (
+      !text(entry.context) || !seq(entry.context_revision) ||
+      !(entry.section === null || text(entry.section))
+    ) return undefined;
+    targets.push({
+      context: entry.context,
+      context_revision: entry.context_revision,
+      section: entry.section as string | null,
+    });
+  }
+  return {
+    event: {
+      seq: event.seq,
+      document: event.document,
+      version: event.version,
+      previous_version: event.previous_version as string | null,
+    },
+    before,
+    after,
+    targets,
+  };
+}

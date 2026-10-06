@@ -357,8 +357,7 @@ export const en = {
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",
   "conversation.notice.unconfirmed":
     "lophn couldn't confirm this message arrived. Check before sending it again.",
-  "conversation.notice.visual-app-card":
-    "App cards can't be shown in the conversation yet.",
+  "conversation.notice.visual-app-card": "App cards can't be shown here.",
   "conversation.notice.visual-as-table": "This chart is shown as a table.",
   "conversation.notice.visual-not-saved":
     "lophn didn't save a document. Its answer says why.",

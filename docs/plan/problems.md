@@ -289,6 +289,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 `observe-exception`(view 출처)
 - slice: apps
 - 선행: problems#T4, contracts#T38, shell#T38
+- 상태: 완료 (#340)
 - 완료:
   - view의 `error`·`unhandledrejection`·루트 render 오류가 해당 앱 Report가 되고 원래 실패가 성공으로 바뀌지 않는다(reporting#R5)
   - 다른 앱 이름을 넣은 view 오류도 실제 view 앱의 진단으로만 접수, 페이지의 app·release·mode는 무시(reporting#R6)

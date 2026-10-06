@@ -167,7 +167,7 @@ import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
 import type {
   PreviewBundles,
   PreviewReleases,
-} from "../../packages/apps/preview/mod.ts";
+} from "../../packages/apps/preview/service.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import {
   BOOTSTRAP_RETRY_MS,

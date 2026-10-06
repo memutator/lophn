@@ -7,16 +7,26 @@ import {
   type AppChild,
   type AppEnvironment,
   type ChildIdentity,
-  type ObservationWire,
-  type PreviewLaunch,
+  type ObservationWire as WireObservation,
+  type PreviewLaunch as WireLaunch,
   previewLaunchSchema,
 } from "../runtime/mod.ts";
 import type { FlagSet } from "../permissions/mod.ts";
+import { previewFlagsViolation } from "./flags.ts";
 import {
   PREVIEW_STARTING,
   PREVIEW_UNAVAILABLE,
-  previewFlagsViolation,
+  type PreviewLaunch,
+  type PreviewObservationWire as ObservationWire,
 } from "./model.ts";
+
+// core 쪽 모양(model.ts)과 supervisor 통로의 wire 모양(runtime/control-protocol)이 달라지면
+// 컴파일이 실패한다.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+const launchShape: Same<PreviewLaunch, WireLaunch> = true;
+const observationShape: Same<ObservationWire, WireObservation> = true;
+void launchShape;
+void observationShape;
 
 export type PreviewProbe =
   | {
@@ -263,6 +273,11 @@ export function createPreviewLauncher(
     );
     // 스스로 끝난 preview는 다시 띄우지 않는다. 종료를 확인하고 이유만 남긴다.
     void child.exited.then(() => onExit(entry, child));
+    // 띄우는 동안 정지 요청이 왔으면 준비 확인을 기다리지 않고 바로 끝낸다.
+    if (entry.intended) {
+      await terminate(entry, false);
+      return;
+    }
     const probe = await Promise.race([
       deps.probe(child, sockets.direct, launch),
       deps.wait(timeout).then(() => ({

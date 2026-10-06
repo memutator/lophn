@@ -31,7 +31,7 @@ import type { DesiredApp } from "../../../packages/apps/runtime/supervisor/mod.t
 import type {
   PreviewBundles,
   PreviewReleases,
-} from "../../../packages/apps/preview/mod.ts";
+} from "../../../packages/apps/preview/service.ts";
 import type { TeamModule } from "../registration.ts";
 
 export type CoreHarnessCredential = {

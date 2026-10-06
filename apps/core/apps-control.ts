@@ -65,14 +65,14 @@ import {
   withRuntimeLogs,
   withRuntimeObservation,
 } from "../../packages/apps/runtime/reads.ts";
+import { createFsPreviewArea } from "../../packages/apps/preview/area.ts";
+import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
 import {
-  createFsPreviewArea,
-  createPreviewReads,
   createPreviewService,
   type PreviewBundles,
   type PreviewReleases,
   type PreviewService,
-} from "../../packages/apps/preview/mod.ts";
+} from "../../packages/apps/preview/service.ts";
 
 export const APPS_SUPERVISOR_KIND = "apps/supervisor";
 export const APPS_CONTROL_PRINCIPAL = "machine:apps-control";

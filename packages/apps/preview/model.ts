@@ -2,11 +2,42 @@
 // 프로세스 메모리와 disposable 파일에만 있다.
 import type { RuntimeReason } from "../../contracts/apps/mod.ts";
 import type { Blueprint } from "../blueprint/mod.ts";
-import {
-  flagsAccepted,
-  type PreviewLaunch,
-  previewNonceSchema,
-} from "../runtime/mod.ts";
+import type { LimitKey } from "../permissions/mod.ts";
+
+// core가 supervisor에 알리는 preview 시작 입력이다. runtime/control-protocol의 PreviewLaunch와 같은
+// 모양이고(launcher.ts가 두 type이 같음을 컴파일 때 확인한다), core graph가 runtime 구현을
+// import하지 않도록 이 leaf가 모양만 따로 쥔다.
+export type PreviewLaunch = {
+  app: string;
+  nonce: string;
+  // 준비 전 bundle이면 null이다. 가짜 release를 만들지 않는다.
+  release: string | null;
+  bundleHash: string;
+  commands: string[];
+  screens?: Record<string, ("full" | "panel" | "card")[]>;
+  dataSchema: number;
+  flags: { args: string[]; limits: LimitKey[] };
+  entry: string;
+  importMap: string;
+  // disposable 영역. `apps/<app ID>/preview/<nonce>`다.
+  dataPath: string;
+};
+
+// supervisor가 알리는 프로세스 관측(runtime/control-protocol의 ObservationWire와 같은 모양).
+export type PreviewObservationWire = {
+  app: string;
+  release: string | null;
+  mode: "live" | "preview";
+  bundle_hash: string | null;
+  process_nonce: string;
+  endpoint: string;
+  commands: string[];
+  screens: Record<string, ("full" | "panel" | "card")[]>;
+  ready: boolean;
+  accepting: boolean;
+  reason?: { code: string; summary: string };
+  record_failed?: string;
+};
 
 export const PREVIEW_UNAVAILABLE: RuntimeReason = {
   code: "preview_unavailable",
@@ -26,61 +57,11 @@ export function previewDirectory(
   return `${dataRoot}/apps/${app}/preview/${nonce}`;
 }
 
+// runtime/control-protocol의 previewNonceSchema와 같은 규칙이다(경로에 들어가므로 `/`·`.`이 없다).
+const NONCE = /^[0-9A-Za-z-]{8,64}$/;
+
 export function validNonce(value: string): boolean {
-  return previewNonceSchema.safeParse(value).success;
-}
-
-function inside(path: string, parent: string): boolean {
-  return path === parent || path.startsWith(`${parent}/`);
-}
-
-function listOf(flag: string): string[] {
-  const at = flag.indexOf("=");
-  return at < 0 ? [] : flag.slice(at + 1).split(",").filter((v) => v !== "");
-}
-
-// 운영 data 자리: `.../apps/<app>/preview/<nonce>` 옆의 `.../apps/<app>/data`다.
-// preview 입력의 dataPath가 이 모양이 아니면 disposable 영역이 아니다.
-export function liveDataOf(
-  launch: Pick<PreviewLaunch, "app" | "nonce" | "dataPath">,
-): string | undefined {
-  const suffix = `/apps/${launch.app}/preview/${launch.nonce}`;
-  if (!launch.dataPath.endsWith(suffix)) return undefined;
-  const root = launch.dataPath.slice(0, -suffix.length);
-  return `${root}/apps/${launch.app}/data`;
-}
-
-// preview 자식의 Deno flag가 disposable 영역 밖을 쓰지 못하는지 본다. 두 socket과 가상 host의
-// 허락은 supervisor가 시작마다 더하므로 입력 flag에는 net 허락이 없어야 하고(외부·loopback host
-// 듣기·연결 없음), 쓰기 허락은 disposable 영역 하나이며, 읽기 허락은 운영 data와 그 위 폴더를
-// 포함하지 않는다(apps/preview#R2, R4). 위반이면 이유를, 괜찮으면 undefined를 돌려준다.
-export function previewFlagsViolation(
-  launch: PreviewLaunch,
-): string | undefined {
-  const live = liveDataOf(launch);
-  if (live === undefined) {
-    return "preview data path is not a disposable preview directory";
-  }
-  if (!flagsAccepted(launch.flags)) {
-    return "preview flags include a forbidden flag";
-  }
-  for (const flag of launch.flags.args) {
-    const name = flag.split("=")[0];
-    if (name === "--allow-net") return "preview flags cannot allow network";
-    if (name === "--allow-write") {
-      if (listOf(flag).some((path) => path !== launch.dataPath)) {
-        return "preview can write only its disposable directory";
-      }
-    }
-    if (name === "--allow-read") {
-      for (const path of listOf(flag)) {
-        if (inside(path, live) || inside(live, path)) {
-          return "preview cannot read production data";
-        }
-      }
-    }
-  }
-  return undefined;
+  return NONCE.test(value);
 }
 
 // preview 대역이 검사하는 선언이다. 운영과 같은 모양의 선언 검사만 하고 grant는 없다.

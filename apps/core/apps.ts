@@ -23,10 +23,8 @@ import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
 import { createSdkReads } from "../../packages/apps/sdk/reads.ts";
 import { sdkSchemaSteps } from "../../packages/apps/sdk/schema.ts";
-import {
-  createPreviewReads,
-  unattachedPreviewService,
-} from "../../packages/apps/preview/mod.ts";
+import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
+import { unattachedPreviewService } from "../../packages/apps/preview/service.ts";
 import { createDataCommands } from "../../packages/apps/data/commands.ts";
 import { dataSchemaSteps } from "../../packages/apps/data/schema.ts";
 import { createDataRecordStore } from "../../packages/apps/data/store.ts";

@@ -9,13 +9,16 @@ export {
   type PreviewProbe,
   type PreviewSpawnRequest,
 } from "./launcher.ts";
+export { liveDataOf, previewFlagsViolation } from "./flags.ts";
 export {
   PREVIEW_STARTING,
   PREVIEW_UNAVAILABLE,
   previewDirectory,
-  previewFlagsViolation,
+  type PreviewLaunch,
+  type PreviewObservationWire,
   type PreviewScope,
   previewScopeOf,
+  validNonce,
 } from "./model.ts";
 export { createFsPreviewArea, type PreviewArea } from "./area.ts";
 export {

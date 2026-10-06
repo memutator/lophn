@@ -15,9 +15,13 @@ import type {
 import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import type { z } from "zod";
 import type { FlagSet } from "../permissions/mod.ts";
-import type { ObservationWire, PreviewLaunch } from "../runtime/mod.ts";
 import type { PreviewArea } from "./area.ts";
-import { PREVIEW_STARTING, validNonce } from "./model.ts";
+import {
+  PREVIEW_STARTING,
+  type PreviewLaunch,
+  type PreviewObservationWire as ObservationWire,
+  validNonce,
+} from "./model.ts";
 
 type StartInput = z.infer<typeof previewsStartInputSchema>;
 type StartOutput = z.infer<typeof previewsStartOutputSchema>;

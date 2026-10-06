@@ -1,6 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
-import { createPreviewLauncher, type PreviewLauncher } from "./mod.ts";
-import type { PreviewLaunch } from "../runtime/mod.ts";
+import {
+  createPreviewLauncher,
+  type PreviewLauncher,
+  validNonce,
+} from "./mod.ts";
+import { type PreviewLaunch, previewNonceSchema } from "../runtime/mod.ts";
 import {
   type FakeChild,
   fakeChild,
@@ -322,4 +326,58 @@ Deno.test("apps/preview#R1: 입력이 PreviewLaunch 모양이 아니면 invalid_
   const bad = launcher.start({ app: "nope" } as unknown as PreviewLaunch);
   assert(!bad.ok);
   assertEquals(bad.error.code, "invalid_input");
+});
+
+Deno.test("apps/preview#R2: core 쪽 nonce 검사는 supervisor wire의 nonce 규칙과 같고 경로를 벗어나는 값을 받지 않는다", () => {
+  for (
+    const value of [
+      "nonce-aaaa1111",
+      "b090ea4e-68be-42f2-895a-c85c7d40311e",
+      "short",
+      "../escape-1234",
+      "has/slash-1234",
+      "has.dot-12345",
+      "a".repeat(65),
+      "a".repeat(64),
+      "",
+    ]
+  ) {
+    assertEquals(
+      validNonce(value),
+      previewNonceSchema.safeParse(value).success,
+      value,
+    );
+  }
+  assertEquals(validNonce("../escape-1234"), false);
+});
+
+Deno.test("apps/preview#R3: 띄우는 중에 정지하면 준비 확인 없이 자식을 끝내고 종료 확인 뒤 true를 답한다", async () => {
+  const children: FakeChild[] = [];
+  let finish: () => void = () => {};
+  let probed = 0;
+  const { deps } = fakeDeps({
+    spawn(request) {
+      const child = fakeChild(request);
+      children.push(child);
+      return new Promise((resolve) => {
+        finish = () => resolve(child);
+      });
+    },
+    probe: () => {
+      probed += 1;
+      return { ok: false, reason: "must not be asked" };
+    },
+  });
+  const launcher = createPreviewLauncher(deps);
+  const launch = launchOf();
+  launcher.start(launch);
+  for (let i = 0; i < 50 && children.length === 0; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  const stopping = launcher.stop(launch.app, launch.nonce);
+  finish();
+  assertEquals(await stopping, { ok: true, value: true });
+  assertEquals(children[0].killed, true);
+  assertEquals(probed, 0);
+  assertEquals(launcher.observation(launch.app, launch.nonce), null);
 });

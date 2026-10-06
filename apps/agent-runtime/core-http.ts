@@ -1,7 +1,9 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
+  applyQuestionOption,
   assignmentList,
   assignmentRead,
+  cancelQuestion,
   checkpointRun,
   correctWaitingRun,
   decideToolCall,
@@ -12,6 +14,8 @@ import {
   messagesList,
   modelCallList,
   presetRead,
+  processAssignmentOccurrence,
+  questionRead,
   recordMessage,
   recordToolRequest,
   resolveRunWait,
@@ -25,11 +29,13 @@ import {
   toolCallRead,
   waitRun,
 } from "../../packages/contracts/lophn-agent/mod.ts";
+import { OPTION_ACTION_OPERATIONS } from "../../packages/lophn-agent/questions/mod.ts";
 import {
   applyApprovedAction,
   approvalsGet,
   approvalsList,
   approvalsText,
+  cancelApprovalRequest,
   eventsList,
   routePath,
   settingsGet,
@@ -70,7 +76,22 @@ export const RUNTIME_MACHINE_ROUTES = [
   approvalsList,
   approvalsText,
   applyApprovedAction,
+  cancelApprovalRequest,
+  questionRead,
+  cancelQuestion,
+  applyQuestionOption,
+  processAssignmentOccurrence,
 ] as const;
+
+// machine credential이 가져야 하는 operation 이름이다. 사람이 고른 선택지의 고정 action을 적용하는
+// 소유 command의 operation도 더한다: 소유 command의 대상 권한은 바깥 요청 자격의 scope로 판정된다
+// (questions#R13). 이 목록이 core가 runtime에 주는 machine credential의 scope 기준이다.
+export const RUNTIME_MACHINE_OPERATIONS: readonly string[] = [
+  ...new Set([
+    ...RUNTIME_MACHINE_ROUTES.map((route) => route.name),
+    ...OPTION_ACTION_OPERATIONS,
+  ]),
+];
 
 const MACHINE_PATHS: ReadonlySet<string> = new Set(
   RUNTIME_MACHINE_ROUTES.map((route) => routePath(route)),

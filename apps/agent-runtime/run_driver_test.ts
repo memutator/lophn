@@ -15,6 +15,8 @@ import {
   type Selection,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { createCredentialLink } from "./credential-link.ts";
+import { OPTION_ACTION_OPERATIONS } from "../../packages/lophn-agent/questions/mod.ts";
+import { RUNTIME_MACHINE_OPERATIONS } from "./core-http.ts";
 import { createRunDriver } from "./run-driver.ts";
 
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";
@@ -331,4 +333,98 @@ Deno.test("lophn-agent/harness/run-loop#R15: 감독이 끊기면 진행 loop의 
   // 진행 호출이 취소돼 끝난다. 끝난 run에 credential이 남지 않는다.
   assert(end.kind === "finished" || end.kind === "finish_failed");
   assertEquals(core.credentials.live(), []);
+});
+
+Deno.test("lophn-agent/harness/run-loop#R8: 사람의 결정을 기다리는 run은 이 process가 들고 있는 기다림 해소기로 결정을 반영한다", async () => {
+  const core = fakeCore();
+  const material = loopMaterial();
+  material.deps.ports.model.call = () =>
+    Promise.resolve(ok({
+      id: "mcl_01arz3ndektsv4rrffq69g5fav",
+      outcome: {
+        kind: "complete" as const,
+        code: null,
+        retry_at: null,
+        finish_reason: "tool_use",
+        http_status: 200,
+        provider_code: null,
+      },
+      text: "",
+      toolCalls: [{ id: "t1", name: "doc.write", args: "{}" }],
+    }));
+  material.deps.ports.tools.info = () => ({
+    effect: "write",
+    idempotent: false,
+    server: null,
+  });
+  material.deps.ports.tools.attempt = () =>
+    Promise.resolve({
+      kind: "waiting" as const,
+      tool_call: "tcl_01arz3ndektsv4rrffq69g5fav",
+      approval: "apr_01arz3ndektsv4rrffq69g5fav",
+      result: {
+        status: "not_executed" as const,
+        summary: "waiting",
+        content: null,
+        complete: true,
+        source: null,
+        continuation: null,
+        pending: [],
+      },
+    });
+  let settled = 0;
+  const driver = createRunDriver({
+    selector: { next: () => Promise.resolve(ok(SELECTION)) },
+    credentials: core.credentials,
+    prepare: () =>
+      Promise.resolve(ok({
+        begin: {
+          run: RUN,
+          assignment: ASG,
+          stateSeq: "3",
+          basis: "a".repeat(64),
+          limits: {
+            model_attempts: 30,
+            stall_ms: 300_000,
+            active_ms: 1_800_000,
+          },
+          scope: SCOPE,
+        },
+        startRun: () =>
+          Promise.resolve(
+            ok({ run: RUN, state_seq: "4", basis: "a".repeat(64) }),
+          ),
+        loop: () => ({
+          ...material,
+          settle: () => {
+            settled += 1;
+            return Promise.resolve(ok("resolved"));
+          },
+        }),
+      })),
+    closeUnusable: () => Promise.resolve(),
+  });
+  assertEquals(driver.settle(RUN), undefined);
+  const started = await driver.startNext();
+  assert(started.kind === "started");
+  assertEquals((await started.done).kind, "waiting");
+  // 기다림에 들어간 run의 credential은 끝났다. 결정 반영은 같은 process의 해소기가 한다.
+  assertEquals(core.credentials.live(), []);
+  assertEquals(await driver.settle(RUN), ok("resolved"));
+  assertEquals(settled, 1);
+});
+
+Deno.test("lophn-agent/questions#R13: runtime machine credential의 operation 기준에는 option action 소유 command의 operation이 모두 들어 있다", () => {
+  for (const operation of OPTION_ACTION_OPERATIONS) {
+    assert(RUNTIME_MACHINE_OPERATIONS.includes(operation), operation);
+  }
+  for (
+    const operation of [
+      "StartRun",
+      "ProcessAssignmentOccurrence",
+      "ApplyQuestionOption",
+    ]
+  ) {
+    assert(RUNTIME_MACHINE_OPERATIONS.includes(operation), operation);
+  }
 });

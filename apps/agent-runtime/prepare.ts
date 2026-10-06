@@ -28,6 +28,7 @@ import {
   type RunContext,
   type Selection,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { createWaitResolver } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import type { ToolBinding } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -309,7 +310,13 @@ export function createRunPreparer(
           },
           context,
         });
+        const resolver = createWaitResolver({
+          machine,
+          judgment: ported.judgment,
+          callRequest: ported.callRequest,
+        });
         return {
+          settle: () => resolver.settle(seat.run),
           deps: {
             clock,
             wait: abortableWait,

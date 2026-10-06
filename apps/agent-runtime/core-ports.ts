@@ -94,6 +94,8 @@ export type CorePortsDeps = {
 
 export type CorePorts = {
   ports: RunPorts;
+  // 진입 직전 재검사·시작·미실행 종료. 기다림 해소기가 같은 기준으로 쓴다.
+  judgment: ReturnType<typeof createToolJudgment>;
   // 기다림 해소기가 쓰는 고정 call의 실제 입력(model 응답에서 온 값)이다. 이 process가 낸 call만 있다.
   callRequest(toolCall: string): Promise<Result<CallRequest>>;
 };
@@ -669,6 +671,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
 
   return {
     ports,
+    judgment,
     callRequest(toolCall) {
       const found = requests.get(toolCall);
       return Promise.resolve(

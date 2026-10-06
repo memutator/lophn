@@ -2,6 +2,11 @@ import type { z } from "zod";
 import type { ToolEffect } from "../../../contracts/lophn-agent/mod.ts";
 import { AGENT_TOOLS } from "./bundles/agent.ts";
 import {
+  CONTEXT_READ_TOOL_NAMES,
+  CONTEXT_TOOLS,
+  CONTEXT_WRITE_TOOL_NAMES,
+} from "./bundles/context.ts";
+import {
   DOCUMENT_READ_TOOL_NAMES,
   DOCUMENT_TOOLS,
   DOCUMENT_WRITE_TOOL_NAMES,
@@ -39,6 +44,7 @@ export type ToolCatalog = {
 // 웹 검색·브라우저·코드 run·subagent·coding agent 시작은 정의 자체가 없다.
 export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...DOCUMENT_TOOLS,
+  ...CONTEXT_TOOLS,
   ...FORMAT_TOOLS,
   ...VISUAL_TOOLS,
   ...AGENT_TOOLS,
@@ -50,6 +56,8 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
 export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["document-read", DOCUMENT_READ_TOOL_NAMES],
   ["document-write", DOCUMENT_WRITE_TOOL_NAMES],
+  ["context-read", CONTEXT_READ_TOOL_NAMES],
+  ["context-write", CONTEXT_WRITE_TOOL_NAMES],
   ["format", FORMAT_TOOL_NAMES],
   ["visual", VISUAL_TOOL_NAMES],
 ]);

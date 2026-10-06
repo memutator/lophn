@@ -1,5 +1,7 @@
 import { createAuditOwners } from "./audit-owners.ts";
+import { createContextOwner } from "./context-owner.ts";
 import { createDocumentsOwner } from "./documents-owner.ts";
+import { createTermOwner } from "./term-owner.ts";
 import type { RevertOwner } from "./model.ts";
 
 // 제품이 쓰는 owner 목록. 앞선 owner가 event type을 먼저 맡는다. 문서 변경은 documents/versions,
@@ -7,5 +9,10 @@ import type { RevertOwner } from "./model.ts";
 // 복원 불가로 남는다(model.ts). context·term 보상(lophn-agent#T42)과 앱 복원(lophn-agent#T48)은
 // 이 목록에 owner를 더한다.
 export function defaultRevertOwners(): RevertOwner[] {
-  return [createDocumentsOwner(), ...createAuditOwners()];
+  return [
+    createDocumentsOwner(),
+    createContextOwner(),
+    createTermOwner(),
+    ...createAuditOwners(),
+  ];
 }

@@ -63,6 +63,7 @@ function fakeApi(write: () => EditorReply<SaveReport>) {
       Promise.resolve({ ok: true, value: { text: "x", hash: null } }),
     watch: () => Promise.resolve({ ok: false, code: "unavailable" }),
     restore: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    create: () => Promise.resolve({ ok: false, code: "unavailable" }),
     release: (input) => {
       released.push(input.session);
       return Promise.resolve();

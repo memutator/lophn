@@ -13,6 +13,7 @@ import {
 import { DEFAULT_SCREEN, type LophnScreen } from "./model.ts";
 import { screenLabel } from "./screens.ts";
 import type { Catalog, LophnSource } from "./source.ts";
+import type { EditorSessions } from "../../editor/sessions.ts";
 import { LophnSidebar } from "./sidebar/sidebar.tsx";
 import { DocumentsScreen } from "./documents/documents-screen.tsx";
 import type { ReaderTarget } from "./documents/reader.tsx";
@@ -47,6 +48,8 @@ export interface LophnSpaceProps {
   initialRead?: { readonly document: string; readonly version: string };
   /** things-to-confirm에서 처음 고를 요청. */
   initialRequest?: string;
+  /** 창의 편집 session 묶음. documents 화면의 series 새 멤버 쓰기가 쓴다. */
+  sessions?: EditorSessions;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -62,6 +65,7 @@ export function LophnSpace(
     now,
     initialRead,
     initialRequest,
+    sessions,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
@@ -203,6 +207,7 @@ export function LophnSpace(
                 source={source}
                 now={now}
                 initialRead={reading?.target}
+                {...(sessions ? { sessions } : {})}
               />
             )
             : current === "things-to-confirm" && requests !== null

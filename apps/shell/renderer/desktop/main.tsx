@@ -119,6 +119,7 @@ export function Desktop(
         initialRead={route.read}
         initialRequest={route.request}
         windowWidth={windowWidth}
+        {...(editor?.files ? { sessions: editor.files } : {})}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
       />

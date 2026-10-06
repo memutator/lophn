@@ -5,6 +5,7 @@ import {
   EDITOR_CLOSE_ANSWER_CHANNEL,
   EDITOR_CLOSE_REQUEST_CHANNEL,
   EDITOR_COUNTS_CHANNEL,
+  EDITOR_CREATE_CHANNEL,
   EDITOR_CURRENT_CHANNEL,
   EDITOR_LOOKUP_CHANNEL,
   EDITOR_OPEN_CHANNEL,
@@ -48,6 +49,7 @@ export function createEditorApi(transport: EditorTransport): EditorFilesApi {
       current: (input) => invoke(EDITOR_CURRENT_CHANNEL, input),
       watch: (input) => invoke(EDITOR_WATCH_CHANNEL, input),
       restore: (input) => invoke(EDITOR_RESTORE_CHANNEL, input),
+      create: (input) => invoke(EDITOR_CREATE_CHANNEL, input),
       async release(input) {
         await invoke(EDITOR_RELEASE_CHANNEL, input);
       },

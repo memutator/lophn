@@ -69,6 +69,14 @@
   line-height: var(--type-small-line);
 }
 
+/* 가족 draft: 첫 판 전의 새 멤버와 이어 쓰기. */
+.draft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
 .state {
   display: flex;
   flex: 1;

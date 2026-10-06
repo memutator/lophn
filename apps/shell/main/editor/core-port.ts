@@ -15,6 +15,7 @@ import type {
   RestorePort,
   RestoreSaved,
 } from "./restore.ts";
+import type { CreatePort, PreparedNew } from "./create.ts";
 
 type Called<T = unknown> = { ok: true; value: T } | {
   ok: false;
@@ -92,6 +93,31 @@ export function coreFilesPort(core: CoreCalls): FilesPort {
       return as<ValidatePage>(
         await core.internal("worker", "formats", "validate", input),
       );
+    },
+  };
+}
+
+/** 새 문서 첫 판 통로. 업로드·준비·저장 명령을 같은 core session으로 부른다. */
+export function coreCreatePort(core: CoreCalls): CreatePort {
+  const files = coreFilesPort(core);
+  return {
+    upload: files.upload,
+    async prepare(input) {
+      return as<PreparedNew>(
+        await core.internal("worker", "documents", "prepare", input),
+      );
+    },
+    async save(request) {
+      // 성공 응답은 route output(SaveResult) 그대로다(platform/api#R3).
+      return as<{ version: string }>(
+        await core.internal("command", "documents", "save", request),
+      );
+    },
+    async latest(document) {
+      const result = await files.document(document);
+      return result.ok
+        ? { ok: true, value: { version: result.value.document.latest_version } }
+        : result;
     },
   };
 }

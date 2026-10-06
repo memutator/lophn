@@ -560,6 +560,8 @@ export type PlaceholderKinds = {
   "documents.button.back-to-series": Record<never, never>;
   "documents.button.clear-conditions": Record<never, never>;
   "documents.button.confirm-save-view": Record<never, never>;
+  "documents.button.continue-draft": Record<never, never>;
+  "documents.button.discard-draft": Record<never, never>;
   "documents.button.go-search": Record<never, never>;
   "documents.button.include-archived": Record<never, never>;
   "documents.button.more-results": Record<never, never>;
@@ -575,6 +577,7 @@ export type PlaceholderKinds = {
   "documents.button.search": Record<never, never>;
   "documents.button.search-again": Record<never, never>;
   "documents.button.unarchive-series": Record<never, never>;
+  "documents.button.write-member": Record<never, never>;
   "documents.empty.no-candidates": Record<never, never>;
   "documents.empty.no-matches": Record<never, never>;
   "documents.empty.no-matches-active": Record<never, never>;
@@ -588,6 +591,7 @@ export type PlaceholderKinds = {
   "documents.error.change-failed": Record<never, never>;
   "documents.error.changed": Record<never, never>;
   "documents.error.key-taken": Record<never, never>;
+  "documents.error.key-unnamed": Record<never, never>;
   "documents.error.link-unknown": Record<never, never>;
   "documents.error.name-invalid": Record<never, never>;
   "documents.error.read-failed": Record<never, never>;
@@ -659,6 +663,9 @@ export type PlaceholderKinds = {
   "documents.label.view-name": Record<never, never>;
   "documents.label.whole-document": Record<never, never>;
   "documents.notice.archived-document": Record<never, never>;
+  "documents.notice.draft": {
+    key: "string";
+  };
   "documents.notice.first-key": Record<never, never>;
   "documents.notice.lagging": Record<never, never>;
   "documents.notice.link-moved": {
@@ -686,6 +693,9 @@ export type PlaceholderKinds = {
   "documents.notice.view-saved": {
     name: "string";
   };
+  "documents.status.draft": Record<never, never>;
+  "documents.status.draft-conflict": Record<never, never>;
+  "documents.status.draft-failed": Record<never, never>;
   "documents.title.screen": Record<never, never>;
   "launcher.button.add-folder": Record<never, never>;
   "launcher.button.hide-details": Record<never, never>;

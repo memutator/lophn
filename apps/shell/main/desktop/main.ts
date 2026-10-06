@@ -64,7 +64,12 @@ import {
   CloseGuards,
   guardWindowClose,
 } from "../editor/close-guard.ts";
-import { coreFilesPort, coreRestorePort } from "../editor/core-port.ts";
+import {
+  coreCreatePort,
+  coreFilesPort,
+  coreRestorePort,
+} from "../editor/core-port.ts";
+import { createDocumentCreator } from "../editor/create.ts";
 import { createFileAdapter } from "../editor/file-adapter.ts";
 import { createRestorer } from "../editor/restore.ts";
 import { registerEditorIpc, removeEditorIpc } from "../editor/ipc.ts";
@@ -605,10 +610,18 @@ const restorer = createRestorer({
   },
   log,
 });
+// 판이 없는 새 문서(series 새 멤버)의 첫 판. 준비·업로드는 renderer allowlist 밖이다.
+const creator = createDocumentCreator({
+  port: () => {
+    const session = core.session();
+    return session ? coreCreatePort(session) : null;
+  },
+});
 registerEditorIpc(editorIpc, {
   registry: overlays.overlayRegistry(),
   adapter: fileAdapter,
   restorer,
+  creator,
   guardOf: (id) => closeGuards.get(id),
 });
 

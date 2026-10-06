@@ -754,6 +754,7 @@ context slice의 선행은 documents와 agent다(lead 결정). E2E는 documents#
 
 ### T42 context·term tool과 revert 연결
 
+- 상태: 완료 (#336)
 - 등급: 기본
 - concern: lophn-agent/roles/context-engineer, lophn-agent/harness/tools
 - 요구: lophn-agent/roles/context-engineer#R4, R5

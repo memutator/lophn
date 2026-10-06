@@ -63,7 +63,7 @@ export type SubmitResult =
     receipt?: { kind: "entity"; id: string } | { kind: "event"; seq: string };
     result?: ConfirmationResult;
     secret_ref?: string;
-    stored?: "stored" | "unchanged";
+    stored?: "stored" | "unchanged" | "revoked";
   }
   | { ok: true }
   | { ok: false; error: { code: string; message: string } };

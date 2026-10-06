@@ -1,0 +1,82 @@
+import { type Blueprint, defineBlueprint } from "@lophn/blueprint";
+import { en } from "./src/wording/en.ts";
+
+// blueprint가 정본이다. 코드를 바꾸기 전에 먼저 바꾼다.
+// 사람에게 보이는 이름·설명은 en catalog 문구고, command·screen의 key는 문구와 별개의 식별자다.
+// catalog 문구를 바꿔도 key는 같다(tests/wording_test.ts).
+type Text = Readonly<Record<keyof typeof en, string>>;
+
+export function makeBlueprint(text: Text = en): Blueprint {
+  return defineBlueprint({
+    name: "{{TITLE}}",
+    description: text["common.summary.app"],
+    screens: [
+      {
+        key: "items",
+        label: text["items.title.screen"],
+        path: "/screens/items/index.html",
+        sizes: ["full", "panel", "card"],
+      },
+    ],
+    commands: [
+      {
+        key: "list_items",
+        label: text["items.label.list-items"],
+        description: text["items.summary.list-items"],
+        effect: "read",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      {
+        key: "add_item",
+        label: text["items.label.add-item"],
+        description: text["items.summary.add-item"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            title: {
+              type: "string",
+              description: text["items.summary.item-title"],
+              minLength: 1,
+              maxLength: 200,
+            },
+          },
+          required: ["title"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+    ],
+    automatic_tasks: [],
+    permissions: [],
+    // 선언한 code마다 실제 command의 실패 경로 test가 하나 이상 있어야 한다(tests/failure_path_test.ts).
+    problem_codes: [
+      {
+        code: "store_unavailable",
+        message_key: "common.problem.store-unavailable",
+        message: text["common.problem.store-unavailable"],
+        fixer: "coding_agent",
+      },
+    ],
+    documents: [],
+    agent_context: [],
+    app_connections: [],
+    // 정확한 version만 쓴다. deno.json의 import map과 같아야 한다(tests/blueprint_test.ts).
+    sdk_dependencies: [
+      { name: "@lophn/blueprint", version: "1.0.0" },
+      { name: "@lophn/cap-problem", version: "1.0.0" },
+      { name: "@lophn/cap-schedule", version: "1.0.0" },
+      { name: "@lophn/cap-store", version: "1.0.0" },
+      { name: "@lophn/design", version: "1.0.0" },
+      { name: "@lophn/ui-control", version: "1.0.0" },
+      { name: "@lophn/ui-layout", version: "1.0.0" },
+      { name: "@lophn/ui-state", version: "1.0.0" },
+      { name: "@lophn/wording", version: "1.0.0" },
+    ],
+  });
+}
+
+export default makeBlueprint();

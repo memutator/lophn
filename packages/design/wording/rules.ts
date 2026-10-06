@@ -22,11 +22,16 @@ export const SCREENS = [
   "common",
 ];
 
-export const KEY_SHAPE = new RegExp(
-  `^(?:${
-    SCREENS.join("|")
-  })\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`,
-);
+// 앱 catalog는 앱의 screen key를 첫 구간으로 쓴다(apps/sdk#R41). 기본은 lophn 화면 목록이다.
+export function keyShape(screens: readonly string[] = SCREENS): RegExp {
+  return new RegExp(
+    `^(?:${
+      screens.join("|")
+    })\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*\\.[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$`,
+  );
+}
+
+export const KEY_SHAPE = keyShape();
 
 export const TEXT_ATTRIBUTES = new Set([
   "title",

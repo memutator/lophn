@@ -39,6 +39,7 @@ export function startRuntime(deps: {
   broker: BrokerTransport;
   dataSchema: number;
   screenBytes?: RuntimeState["screenBytes"];
+  contentType?: RuntimeState["contentType"];
   // 다른 앱 direct socket 전송. 기본은 Unix socket HTTP다.
   pairDirect?: PairDirect;
 }): Started {
@@ -67,6 +68,7 @@ export function startRuntime(deps: {
       child: { process_nonce: parsed.process_nonce, mode: parsed.mode },
     }),
     screenBytes: deps.screenBytes,
+    contentType: deps.contentType,
   });
   // 화면 context의 선언은 release에 고정된 blueprint에서, view는 이 프로세스가 연 session에서 온다.
   installScreenContextHost({

@@ -169,3 +169,49 @@ export function wantsNoGrant(
   }
   return ok(undefined);
 }
+
+// ticket.cancel actor는 user라면 종료 전 어느 상태나 된다(R22). machine은 App
+// Engineer 생성의 revert 적용 분이라 외부 claim·보고·결과가 한 번도 없을 때만
+// 허용한다(R22). machine의 이력 검사는 handler가 현재 표로 본다.
+export function cancelActorAllowed(actor: string): boolean {
+  const parts = parseActor(actor);
+  if (!parts) return false;
+  return parts.kind === "user" || parts.kind === "machine";
+}
+
+// R15 release 역조회. releases.ticket_source는 claim 출처의 사본이 아니라 원 seq다.
+// 같은 앱이면서 이 ticket·이 claim seq로 준비된 release만 완료 보고가 받는다.
+export function releaseSourceMatches(
+  source: { ticket: string; claim_seq: string } | null,
+  app: string,
+  ticketApp: string,
+  ticket: string,
+  claimSeq: string,
+): boolean {
+  return app === ticketApp && source !== null &&
+    source.ticket === ticket && source.claim_seq === claimSeq;
+}
+
+// JSON 열의 ticket_source. null이거나 모양이 다르면 출처 없는 과거 release다.
+export function parseTicketSource(
+  raw: string | null,
+): { ticket: string; claim_seq: string } | null {
+  if (raw === null) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object") return null;
+  const record = parsed as Record<string, unknown>;
+  const ticket = record["ticket"];
+  const claimSeq = record["claim_seq"];
+  if (
+    typeof ticket !== "string" || typeof claimSeq !== "string" ||
+    ticket === "" || claimSeq === "" || claimSeq === "0"
+  ) {
+    return null;
+  }
+  return { ticket, claim_seq: claimSeq };
+}

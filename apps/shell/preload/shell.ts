@@ -15,21 +15,24 @@ import {
   type FolderPickReply,
 } from "../ipc/folder-picker.ts";
 import { createConfirmationOpener } from "./confirmation-open.ts";
+import { createAppWindowsApi } from "./app-window-api.ts";
 import { createEditorApi } from "./editor-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
+import { createViewsApi } from "./views-api.ts";
 
 const location =
   (globalThis as unknown as { location: { host: string } }).location;
 const role = location.host === "overlay" ? "overlay" : "shell";
-// 보호 창 열기는 desktop 창 본문만 갖는다. 창을 열 뿐 결정을 제출하지 못한다.
+// 보호 창 열기와 앱 view 열기·bounds·숨김·폐기는 desktop 창 본문만 갖는다. overlay view에는 열지 않는다.
 contextBridge.exposeInMainWorld(
   "lophnShell",
   role === "shell"
     ? Object.freeze({
       ...createShellApi(ipcRenderer, role),
       openConfirmation: createConfirmationOpener(ipcRenderer),
+      ...createViewsApi(ipcRenderer),
     })
     : createShellApi(ipcRenderer, role),
 );
@@ -62,6 +65,11 @@ if (role === "shell") {
     ),
   );
   contextBridge.exposeInMainWorld("lophnIntents", createIntentApi(ipcRenderer));
+  // 앱 공간의 [Open in new window]와 OS 앱 바로가기. 앱 ID만 보낸다.
+  contextBridge.exposeInMainWorld(
+    "lophnAppWindows",
+    createAppWindowsApi(ipcRenderer),
+  );
   // 문서 편집기의 파일 통로(shell/editor#R1). 경로·core port는 main에만 있다.
   contextBridge.exposeInMainWorld("lophnEditor", createEditorApi(ipcRenderer));
 }

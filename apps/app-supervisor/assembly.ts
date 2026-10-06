@@ -26,6 +26,7 @@ import {
   observeInputSchema,
   restartInputSchema,
   SUPERVISOR_OPS,
+  viewClosedInputSchema,
 } from "../../packages/apps/runtime/control-protocol.ts";
 import {
   createLogBuffer,
@@ -283,12 +284,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   }
 
   // core가 서명한 machine connection. 제어 요청(probe·open·close·shutdown)의 Authorization이다.
-  async function authorization(
-    desired: DesiredApp,
-  ): Promise<Result<string>> {
+  async function authorization(app: string): Promise<Result<string>> {
     try {
       const response = await io.post("apps/connect", hello.credential, {
-        app: desired.app,
+        app,
         mode: "live",
         screens: [CONTROL_SCREEN],
         screen_sizes: {},
@@ -316,12 +315,12 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   }
 
   async function control(
-    desired: DesiredApp,
+    app: string,
     direct: string,
     path: string,
     body: unknown,
   ): Promise<Result<{ status: number; body: unknown }>> {
-    const signed = await authorization(desired);
+    const signed = await authorization(app);
     if (!signed.ok) return signed;
     try {
       return ok(
@@ -393,7 +392,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       while (io.clock.nowMs() < deadline) {
         if (exited) return { ok: false, reason: "exited before ready" };
         const answered = await control(
-          desired,
+          desired.app,
           direct,
           DIRECT_SOCKET_PATHS.probe,
           { process_nonce: nonce },
@@ -430,7 +429,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
     async open(child, direct, desired) {
       const answered = await control(
-        desired,
+        desired.app,
         direct,
         DIRECT_SOCKET_PATHS.open,
         {
@@ -443,11 +442,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     async requestStop(child, direct, desired) {
       const nonce = child.identity.processNonce;
       // 새 호출·clock부터 닫고 종료를 요청한다. 닿지 않아도 유예 뒤 강제 종료가 이어진다.
-      await control(desired, direct, DIRECT_SOCKET_PATHS.close, {
+      await control(desired.app, direct, DIRECT_SOCKET_PATHS.close, {
         process_nonce: nonce,
         reason: "stop",
       });
-      await control(desired, direct, DIRECT_SOCKET_PATHS.shutdown, {
+      await control(desired.app, direct, DIRECT_SOCKET_PATHS.shutdown, {
         process_nonce: nonce,
         grace_ms: 10_000,
       });
@@ -556,6 +555,28 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       return {
         restarted: await supervisor.restart(input.app, input.process_nonce),
       };
+    },
+    // shell이 닫은 화면 view를 지금 live 자식에 알린다. nonce는 지금 쥔 자식의 것이고 요청에서
+    // 받지 않는다. 자식이 없거나 멈추는 중이면 그 view의 상태도 없으니 보내지 않는다.
+    [SUPERVISOR_OPS.viewClosed]: async (payload) => {
+      const input = parse(viewClosedInputSchema, payload);
+      const observation = supervisor.observation(input.app);
+      if (
+        observation === undefined || !observation.ready ||
+        observation.processNonce === "" || observation.endpoint === ""
+      ) {
+        return { relayed: false };
+      }
+      const answered = await control(
+        input.app,
+        observation.endpoint,
+        DIRECT_SOCKET_PATHS.viewClosed,
+        {
+          process_nonce: observation.processNonce,
+          view_session: input.view_session,
+        },
+      );
+      return { relayed: answered.ok && answered.value.status === 200 };
     },
   };
 

@@ -5,6 +5,8 @@
 // exit 0과 contract schema·frame 상한 안의 관측 한 줄일 때만 관측이다. exit 2·3·4, 기한, 잘못된
 // 관측은 판정 불가이고 실행 파일을 띄울 수 없으면 unavailable이다. stdout은 판정에 쓰지 않는다.
 import { spawn } from "node:child_process";
+import { readdir, readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { Readable, Writable } from "node:stream";
 import {
   SCREEN_TEST_FD,
@@ -144,4 +146,47 @@ export async function runScreenHost(
     return { kind: "inconclusive", reason: `host가 exit ${code}로 끝났다` };
   }
   return observationOf(new TextDecoder().decode(concat(chunks)));
+}
+
+// SDK 루트 오류 경계(AppErrorBoundary)가 render 오류를 알리는 DOM event 이름. 경계가 있는 화면
+// 번들에는 이 글자가 남는다.
+export const RENDER_ERROR_EVENT = "lophn:render-error";
+const BOUNDARY_FILE = /\.(?:m?js|html)$/i;
+const BOUNDARY_FILE_MAX_BYTES = 16 * 1024 * 1024;
+
+async function textFiles(dir: string): Promise<string[]> {
+  const found: string[] = [];
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...await textFiles(path));
+    else if (entry.isFile() && BOUNDARY_FILE.test(entry.name)) found.push(path);
+  }
+  return found;
+}
+
+// 화면마다 그 화면 폴더 안에 루트 오류 경계의 글자가 있는지 본다. symlink는 따라가지 않는다.
+export async function screenErrorBoundaries(
+  input: Pick<ScreenTestInput, "bundle_screens_dir" | "screens">,
+): Promise<Set<string>> {
+  const has = new Set<string>();
+  for (const screen of input.screens) {
+    const dir = join(input.bundle_screens_dir, dirname(screen.path));
+    let files: string[];
+    try {
+      files = await textFiles(dir);
+    } catch {
+      continue;
+    }
+    for (const file of files) {
+      const bytes = await readFile(file).catch(() => null);
+      if (
+        bytes !== null && bytes.byteLength <= BOUNDARY_FILE_MAX_BYTES &&
+        bytes.includes(RENDER_ERROR_EVENT)
+      ) {
+        has.add(screen.key);
+        break;
+      }
+    }
+  }
+  return has;
 }

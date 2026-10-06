@@ -41,8 +41,12 @@ export type ScreenReportSink = {
 };
 
 export type ViewDriverOptions = {
-  // host를 한 번 돌린다. 화면 검사 한 번이 모든 화면을 본다.
-  run: () => Promise<ScreenHostResult>;
+  // host를 한 번 돌린다. 화면 검사 한 번이 모든 화면을 본다. nonce는 host에 probe_nonce로 준다.
+  run: (nonce: string) => Promise<ScreenHostResult>;
+  // 이 실행의 probe nonce. runner가 실행마다 정하고 bundle 화면은 모른다.
+  nonce: string;
+  // 그 화면에 루트 오류 경계(render 오류 event를 내는 AppErrorBoundary)가 있는가.
+  has_boundary: (screen: string) => boolean;
   sink: ScreenReportSink;
   scope: string;
   newReportId: () => string;
@@ -64,19 +68,28 @@ function received(code: string, reportId: string): ReceivedReport {
   return { report_id: reportId, code, invocation_id: null, stored: "" };
 }
 
-// 깨진 view: load가 안 됐거나 오류를 낸 화면.
-export function brokenScreens(observation: ScreenTestObservation): string[] {
-  const broken = new Set<string>();
-  for (const load of observation.load) if (!load.ok) broken.add(load.screen);
-  for (const error of observation.errors) broken.add(error.screen);
-  return [...broken];
+export const PROBE_KINDS = [
+  "error",
+  "unhandledrejection",
+  "render_error",
+] as const;
+
+// host preload가 일으키는 probe 오류의 message. runner nonce가 들어 있다.
+export function probeText(nonce: string, kind: string): string {
+  return `lophn-probe:${nonce}:${kind}`;
 }
 
 // host를 한 번 돌려 ViewDriver를 만든다. 화면 검사를 띄울 수 없으면 null이다.
+//
+// view_exception: runner가 host preload로 load된 화면마다 오류 probe 셋(error·unhandledrejection·
+// render_error)을 일으킨다. 화면마다 셋이 nonce와 함께 관측되고(render_error는 화면에 루트 오류
+// 경계가 있어야 한다), 관측된 오류 전부(화면 자신의 실제 오류 포함)가 test scope로 접수돼야 한다.
+// feedback: host가 일부러 멈춘 화면과 load에 실패한 화면마다 binding·dialog·접수가 모두 있어야 한다.
+// host가 renderer를 멈추지 못했으면(induced가 없으면) 통과하지 못한다.
 export async function openViewDriver(
   options: ViewDriverOptions,
 ): Promise<ViewDriver | null> {
-  const host = await options.run();
+  const host = await options.run(options.nonce);
   if (host.kind === "unavailable") return null;
   if (host.kind === "inconclusive") {
     const inconclusive = () =>
@@ -85,11 +98,25 @@ export async function openViewDriver(
   }
   const { observation } = host;
   const target: ScreenReportTarget = { mode: "test", scope: options.scope };
+  const loaded = observation.load.filter((item) => item.ok).map((item) =>
+    item.screen
+  );
   let exceptions: Promise<ReceivedReport[]> | undefined;
   let feedback: Promise<ReceivedReport[]> | undefined;
   return {
     exception() {
       exceptions ??= (async () => {
+        const probed = loaded.length > 0 &&
+          loaded.every((screen) =>
+            PROBE_KINDS.every((kind) =>
+              (kind !== "render_error" || options.has_boundary(screen)) &&
+              observation.errors.some((error) =>
+                error.screen === screen && error.observation === kind &&
+                (error.message ?? "").includes(probeText(options.nonce, kind))
+              )
+            )
+          );
+        if (!probed) return [];
         const reports: ReceivedReport[] = [];
         for (const error of observation.errors) {
           const id = options.newReportId();
@@ -119,13 +146,23 @@ export async function openViewDriver(
     },
     feedback() {
       feedback ??= (async () => {
+        const induced = observation.feedback_check.filter((facts) =>
+          facts.induced === true
+        );
+        // host가 renderer를 멈추지 못했으면 깨진 view를 만들지 못한 것이다.
+        if (induced.length === 0) return [];
+        const broken = new Set([
+          ...induced.map((facts) => facts.screen),
+          ...observation.load.filter((item) => !item.ok).map((item) =>
+            item.screen
+          ),
+        ]);
         const reports: ReceivedReport[] = [];
-        const broken = new Set(brokenScreens(observation));
-        for (const facts of observation.feedback_check) {
-          if (
-            !broken.has(facts.screen) || !facts.binding ||
-            facts.dialog !== "opened"
-          ) continue;
+        for (const screen of broken) {
+          const facts = observation.feedback_check.find((item) =>
+            item.screen === screen
+          );
+          if (!facts || !facts.binding || facts.dialog !== "opened") continue;
           const report = accepted(
             await options.sink.feedback(facts, target),
             options.scope,
@@ -133,7 +170,7 @@ export async function openViewDriver(
           if (report !== null) reports.push(received("_feedback", report));
         }
         // 깨진 화면마다 feedback 경로가 접수돼야 한다. 하나라도 빠지면 경로가 없는 것이다.
-        return broken.size > 0 && reports.length === broken.size ? reports : [];
+        return reports.length === broken.size ? reports : [];
       })();
       return feedback;
     },

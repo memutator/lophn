@@ -262,7 +262,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - host가 돌려준 view 예외·feedback 관측은 runner가 그 요청의 `mode=test`·scope로 collector에 넘겨 test 진단 scope에만 남는다; test view는 운영 view session·credential·DB를 쓰지 않는다
   - runner의 `--allow-run`에 host 실행 파일이 더해지므로 같은 PR에서 architecture/problems 2.2를 고친다(질문 Q11)
   - 통합: 화면 있는 fixture 앱의 app test가 pass이고, view 예외 수집을 뺀 fixture는 fail
-- 정한 것(T11): view 검사의 근거는 host가 관측한 bundle 화면의 실제 오류다. 관측한 오류가 하나라도 test 진단 scope로 접수되지 않거나 관측이 없으면 view_exception은 fail이고, 깨진 화면(load 실패·오류)마다 feedback(binding·dialog 열림)이 접수돼야 feedback이 pass다. 그래서 화면 검사에 주는 bundle 화면 폴더에는 오류를 내는 화면과 멈춘 화면이 들어 있어야 한다(fixture는 `fixtures/app-screens/`). host를 띄울 수 없으면(실행 파일 없음) view가 null이라 fail, exit 2·3·4·기한·잘못된 관측은 `inconclusive`다(harness는 `ViewHostInconclusive`, 판정은 검사 evidence `view_host`). runner가 넘길 통로는 `ScreenReportSink`(mode=test와 scope를 인자로 받는다)이고 실제 collector 연결은 runner 조립이 맡는다.
+- 정한 것(T11): 앱이 깨진 화면을 따로 두지 않아도 되도록 runner가 host에 `probe_nonce`를 주고(contracts/shell 입력의 선택 field), host의 test preload가 load된 화면마다 오류 probe 셋(`error`·`unhandledrejection`·`lophn:render-error`, message에 nonce)을 일으키며 load된 첫 화면을 일부러 멈춘다(renderer가 JS 실행에 답하지 않을 때만 feedback 관측에 `induced`, 선택 field). view_exception은 load된 화면마다 세 probe가 관측되고(render_error는 화면 폴더에 루트 오류 경계 글자 `lophn:render-error`가 있어야 한다) 화면 자신의 실제 오류를 포함한 관측 전부가 test 진단 scope로 접수돼야 pass, feedback은 induced·load 실패 화면마다 binding·dialog 열림·접수가 있어야 pass다. host를 띄울 수 없으면(실행 파일 없음) view가 null이라 fail, exit 2·3·4·기한·잘못된 관측은 `inconclusive`다(harness는 `ViewHostInconclusive`, 판정은 검사 evidence `view_host`). 통로는 `ScreenReportSink`(mode=test와 scope를 인자로 받는다)이고 실제 collector 연결은 runner 조립이 맡는다.
 
 ### T12 개발 fixture로 test runner 검증
 

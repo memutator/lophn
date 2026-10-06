@@ -13,8 +13,9 @@ export {
   judgeAppTest,
 } from "./judge.ts";
 export {
-  brokenScreens,
   openViewDriver,
+  PROBE_KINDS,
+  probeText,
   type ScreenFeedbackFacts,
   type ScreenHostResult,
   type ScreenReportSink,

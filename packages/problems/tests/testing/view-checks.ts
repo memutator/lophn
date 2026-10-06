@@ -94,8 +94,12 @@ export function fakeCollector(options: {
 
 // 화면 있는 앱의 app test를 화면 검사 host 결과로 in-process 판정한다. 화면 검사만
 // 주어진 host 결과이고 나머지 경로는 모두 갖춘 앱이다.
+export const PROBE_NONCE = "testnonce12345678";
+
 export async function judgeWithScreens(options: {
-  host: () => Promise<ScreenHostResult>;
+  host: (nonce: string) => Promise<ScreenHostResult>;
+  // 화면에 루트 오류 경계가 있는가. 없으면 모든 화면에 있다.
+  has_boundary?: (screen: string) => boolean;
   collector: FakeCollector;
   has_view?: boolean;
 }) {
@@ -140,10 +144,12 @@ export async function judgeWithScreens(options: {
   let hostRuns = 0;
   const view = plan.harness.has_view
     ? await openViewDriver({
-      run: () => {
+      run: (nonce) => {
         hostRuns += 1;
-        return options.host();
+        return options.host(nonce);
       },
+      nonce: PROBE_NONCE,
+      has_boundary: options.has_boundary ?? (() => true),
       sink: options.collector.sink,
       scope: "app-test-scope-1",
       newReportId: () => ids.newId("rpt"),

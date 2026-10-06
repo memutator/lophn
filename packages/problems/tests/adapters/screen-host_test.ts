@@ -1,6 +1,10 @@
 import { assertEquals, assertFalse } from "@std/assert";
 import type { ScreenTestInput } from "../../../contracts/shell/mod.ts";
-import { runScreenHost, SCREEN_OBSERVATION_MAX_BYTES } from "./screen-host.ts";
+import {
+  runScreenHost,
+  SCREEN_OBSERVATION_MAX_BYTES,
+  screenErrorBoundaries,
+} from "./screen-host.ts";
 import { serveTestAppSocket } from "./test-app-socket.ts";
 
 const OBSERVATION = JSON.stringify({
@@ -162,4 +166,18 @@ Deno.test("problems/tests#R7: test 앱 socket은 연결 증명(빈 Authorization
     await socket.shutdown();
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test("problems/tests#R7: 화면 폴더에 render 오류 event 글자가 있는 화면만 루트 오류 경계가 있다고 본다", async () => {
+  const bundle = new URL("../../../../fixtures/app-screens", import.meta.url)
+    .pathname;
+  const boundaries = await screenErrorBoundaries({
+    bundle_screens_dir: bundle,
+    screens: [
+      { key: "clean", path: "clean/index.html" },
+      { key: "plain", path: "plain/index.html" },
+      { key: "missing", path: "missing/index.html" },
+    ],
+  });
+  assertEquals([...boundaries], ["clean"]);
 });

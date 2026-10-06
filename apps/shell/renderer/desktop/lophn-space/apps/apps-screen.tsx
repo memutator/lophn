@@ -45,7 +45,10 @@ function noticeText(notice: Notice): string {
 
 export function AppsScreen({ source, onOpen }: AppsScreenProps) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
-  const [runs, setRuns] = useState<Readonly<Record<string, RunState>>>({});
+  // 실행 상태를 다 읽기 전에는 null이다. 그동안 상태 칸을 비워 둔다.
+  const [runs, setRuns] = useState<Readonly<Record<string, RunState>> | null>(
+    null,
+  );
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -57,14 +60,14 @@ export function AppsScreen({ source, onOpen }: AppsScreenProps) {
     }
     const rows = sortApps(result.value);
     setLoaded({ state: "ready", rows });
-    // 보관하지 않은 앱만 지금 실행 상태를 읽는다. 읽지 못한 앱은 상태를 모른다고 보인다.
-    const read = await Promise.all(
-      rows.filter((row) => !row.archived).map(async (row) =>
-        [row.id, await source.runtime(row.id)] as const
-      ),
-    );
+    // 보관하지 않은 앱만 지금 실행 상태를 읽는다. core reader는 한 사람의 동시 읽기 수를
+    // 제한하므로 하나씩 읽는다. 읽지 못한 앱은 상태를 모른다고 보인다.
     const next: Record<string, RunState> = {};
-    for (const [id, run] of read) if (run.ok) next[id] = run.value;
+    for (const row of rows) {
+      if (row.archived) continue;
+      const run = await source.runtime(row.id);
+      if (run.ok) next[row.id] = run.value;
+    }
     setRuns(next);
   }, [source]);
 
@@ -124,19 +127,23 @@ export function AppsScreen({ source, onOpen }: AppsScreenProps) {
             <span />
           </li>
           {(loaded.state === "ready" ? loaded.rows : []).map((row) => {
-            const status = appStatus(row, runs[row.id] ?? null);
+            const status = row.archived || runs !== null
+              ? appStatus(row, runs?.[row.id] ?? null)
+              : null;
             return (
               <li
                 key={row.id}
                 className={styles.row}
                 data-app-row=""
-                data-status={status}
+                data-status={status ?? undefined}
               >
                 <span className={styles.name}>{row.name}</span>
-                <StatusMark
-                  tone={statusTone(status)}
-                  label={statusLabel(status)}
-                />
+                {status === null ? <span /> : (
+                  <StatusMark
+                    tone={statusTone(status)}
+                    label={statusLabel(status)}
+                  />
+                )}
                 <span className={styles.actions}>
                   {row.archived ? null : (
                     <Button

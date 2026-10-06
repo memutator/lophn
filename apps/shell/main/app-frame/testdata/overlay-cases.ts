@@ -490,3 +490,62 @@ test("shell/app-frame#R24: 검색 palette는 검색어를 연 쪽에 돌려주�
   );
   f.controller.dispose();
 });
+
+test("shell/app-frame#R31, problems/feedback#R5: main이 연 feedback dialog는 창 본문 전체에 그리고 feedback 통로로만 닫으며 crash에는 초안을 버리게 알린다", () => {
+  const f = fixture();
+  const overlay = f.views[0]!;
+  assert.equal(f.controller.subscribe(f.event(overlay.wc.object), {}).ok, true);
+  assert.equal(f.controller.dialogOpen(), false);
+  assert.equal(f.controller.openFeedback("draft-1"), true);
+  assert.equal(f.controller.dialogOpen(), true);
+  const state = overlay.wc.messages.at(-1) as {
+    bounds: unknown;
+    surfaces: {
+      kind: string;
+      feedback?: string;
+      surfaceId: string;
+      rect: unknown;
+    }[];
+  };
+  assert.deepEqual(state.bounds, f.body);
+  assert.equal(state.surfaces[0]?.kind, "dialog");
+  assert.equal(state.surfaces[0]?.feedback, "draft-1");
+  assert.deepEqual(state.surfaces[0]?.rect, {
+    x: 0,
+    y: 0,
+    width: f.body.width,
+    height: f.body.height,
+  });
+  // overlay 페이지가 일반 결과로 닫을 수 없다.
+  const surfaceId = state.surfaces[0]!.surfaceId;
+  assert.equal(
+    f.controller.result(f.event(overlay.wc.object), {
+      surfaceId,
+      generation: 1,
+      type: "closed",
+    }).ok,
+    false,
+  );
+  // 미리보기는 그 창 overlay에만 간다.
+  f.controller.sendFeedback({
+    draftRef: "draft-1",
+    text: null,
+    screen: null,
+    screen_missing_reason: { reason: "none" },
+    screenshot: null,
+  });
+  assert.equal(
+    (overlay.wc.messages.at(-1) as { draftRef?: string }).draftRef,
+    "draft-1",
+  );
+  assert.equal(f.controller.isOverlay(overlay.wc.object), true);
+  assert.equal(f.controller.isOverlay(f.shell.object), false);
+  f.controller.closeFeedback("draft-1");
+  assert.equal(f.controller.dialogOpen(), false);
+  assert.deepEqual(f.ended, []);
+  // overlay crash로 닫힌 dialog는 feedback에 알린다.
+  f.controller.openFeedback("draft-2");
+  overlay.fail("crashed");
+  assert.deepEqual(f.ended, ["draft-2"]);
+  f.controller.dispose();
+});

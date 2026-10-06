@@ -32,8 +32,14 @@ import {
   previewsStart,
   previewsStop,
   releaseCancelPreparation,
+  releaseCompleteActivation,
+  releaseFailActivation,
   releasePreparation,
   releasePrepareBundle,
+  releaseRecordBackup,
+  releaseRecordDataChange,
+  releaseRecordDataRestore,
+  releasesGet,
 } from "../../packages/contracts/apps/mod.ts";
 import {
   observeException,
@@ -106,6 +112,12 @@ import {
   withRuntimeLogs,
   withRuntimeObservation,
 } from "../../packages/apps/runtime/reads.ts";
+import {
+  type ActivationDriver,
+  createActivationDriver,
+} from "./apps-activation.ts";
+import type { BlobPrepareCall } from "./core.ts";
+import type { PreparedRelayResult } from "./blob-prepare.ts";
 import { createFsPreviewArea } from "../../packages/apps/preview/area.ts";
 import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
 import {
@@ -129,6 +141,14 @@ export const APPS_CONTROL_CONTEXT: RequestContext = {
       grantsList.name,
       applyApprovedAction.name,
       invocationAcceptConfirm.name,
+      // activation 진행(apps/releases)이 시도의 상태를 읽고 참조·결과를 확정하고 사용 불가를 남긴다.
+      releasesGet.name,
+      releaseRecordBackup.name,
+      releaseRecordDataChange.name,
+      releaseRecordDataRestore.name,
+      releaseCompleteActivation.name,
+      releaseFailActivation.name,
+      appRecordUnavailable.name,
     ],
     targets: {},
   },
@@ -150,6 +170,14 @@ const SUPERVISOR_OPERATIONS = [
   // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다(apps/permissions#R2, R14).
   appBlueprint.name,
   grantsList.name,
+  // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다
+  // (apps/releases#R12–R15, apps/data#R4). 시작은 사람 approval의 적용(`apply_approved_action`)이다.
+  releaseRecordBackup.name,
+  releaseRecordDataChange.name,
+  releaseRecordDataRestore.name,
+  releaseCompleteActivation.name,
+  releaseFailActivation.name,
+  releasesGet.name,
 ];
 // 자식 앱마다 받는 app credential이 닿는 operation. 문제 보고와 process 관측뿐이다.
 const APP_CHILD_OPERATIONS = [reportProblem.name, observeException.name];
@@ -187,6 +215,18 @@ export function appsOperationPolicies(): OperationPolicy[] {
       kind: "command",
     })),
     { name: grantsList.name, actors: ["machine"], kind: "command" },
+    ...[
+      releaseRecordBackup,
+      releaseRecordDataChange,
+      releaseRecordDataRestore,
+      releaseCompleteActivation,
+      releaseFailActivation,
+      releasesGet,
+    ].map((route): OperationPolicy => ({
+      name: route.name,
+      actors: ["machine"],
+      kind: "command",
+    })),
     // 호출한 앱 자신이 다른 앱의 confirm 호출 approval을 요청한다(요청자는 자격과 같아야 한다). core가
     // 그 요청 한 번을 위해서만 짧은 app credential을 발급한다. 앱 자식에게 주는 credential에는 없다.
     { name: createApprovalRequest.name, actors: ["app"], kind: "command" },
@@ -242,6 +282,23 @@ export type AppsControlDeps = {
     targets?: ConfirmTargets;
   };
   ids?: IdSource;
+  // activation 진행과 운영 DesiredApp 맞춤. core 조립이 없으면(시험의 부분 조립) 하지 않는다.
+  activation?: {
+    dataRoot: string;
+    command(
+      ctx: RequestContext,
+      envelope: {
+        command: string;
+        input: unknown;
+        idempotency_key: string;
+        compare: unknown;
+        prepared: string[];
+      },
+    ): Promise<Result<unknown>> | undefined;
+    machine(): RequestContext | undefined;
+    prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
+    platformPorts: () => readonly number[];
+  };
   // preview(`/v1/previews/*`). disposable 영역은 data root 아래에 만든다. bundle을 여는 자리가
   // 없으면 시작은 unavailable이고 조회·종료는 그대로 된다(apps/preview).
   previews?: {
@@ -275,6 +332,8 @@ export type AppsControl = {
   // 원하는 앱 상태를 supervisor에 알린다. 마지막 상태를 기억해 supervisor가 다시 떠도
   // 같은 상태로 맞춘다(releases 조립이 활성 release를 보고 부른다).
   reconcile(desired: DesiredApp): Promise<Result<void>>;
+  // activation 진행·운영 DesiredApp 맞춤. 조립이 없으면 null이다.
+  readonly activation: ActivationDriver | null;
   // supervisor 감독 callback의 message. credential 요청과 진단을 처리한다.
   onSupervisorMessage(message: { type: string }): void;
   // app credential 발급을 켠다. 감독 pipe가 열린 뒤 부른다.
@@ -692,6 +751,34 @@ export async function createAppsControl(
     return cancelled.ok ? ok({ accepted: true as const }) : cancelled;
   };
 
+  async function reconcileApp(next: DesiredApp): Promise<Result<void>> {
+    desired.set(next.app, next);
+    return await client.reconcile(next);
+  }
+
+  const activation: ActivationDriver | null = deps.activation === undefined
+    ? null
+    : createActivationDriver({
+      clock: deps.clock,
+      ids: deps.ids ?? createIdSource({
+        clock: deps.clock,
+        random: {
+          fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes),
+        },
+      }),
+      ledgerPath: deps.ledgerPath,
+      dataRoot: deps.activation.dataRoot,
+      client,
+      bound: () => channel.bound,
+      facts,
+      readers: deps.readers,
+      command: deps.activation.command,
+      machine: deps.activation.machine,
+      prepareBlob: deps.activation.prepareBlob,
+      platformPorts: deps.activation.platformPorts,
+      reconcile: reconcileApp,
+    });
+
   // 사람의 shell이 닫은 화면 view를 그 앱의 지금 live 자식에 중계한다. 앱 프로세스 nonce는
   // supervisor가 지금 쥔 자식에서 정하고 본문에서 받지 않는다. 범위 밖 앱은 없는 앱과 같다.
   const viewClosed: MemoryHandler = async (ctx, value) => {
@@ -711,6 +798,7 @@ export async function createAppsControl(
 
   async function sweep(): Promise<void> {
     await connector.sweep().catch(() => 0);
+    await activation?.sweep().catch(() => undefined);
     // supervisor가 다시 떠서 상태를 잃었으면 마지막으로 알린 상태로 맞춘다.
     for (const app of desired.values()) {
       if (!channel.bound) return;
@@ -785,10 +873,8 @@ export async function createAppsControl(
     preparer,
     confirmer,
     facts,
-    async reconcile(next) {
-      desired.set(next.app, next);
-      return await client.reconcile(next);
-    },
+    reconcile: reconcileApp,
+    activation,
     onSupervisorMessage(message) {
       if (channel.onMessage(message)) return;
       if (message.type === "app_credential_request" && issuer) {

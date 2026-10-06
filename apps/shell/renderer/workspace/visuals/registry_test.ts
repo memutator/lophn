@@ -65,6 +65,10 @@ Deno.test("shell/workspace#R12: 허용 registry는 표·차트·도표만 SDK로
   assert(table.ok && table.content.kind === "table");
   assertEquals(table.content.rows[1]!["total"], null);
   assertEquals(observedAt(table.sources), OBSERVED);
+  // 앱 카드 입력은 그리지 않지만 앱 view 계약에 넘길 값이라 그대로 옮긴다.
+  const card = checkVisual(appCardBlock);
+  assert(card.ok && card.content.kind === "app_card");
+  assertEquals(card.content.input, { range: "7d" });
 });
 
 Deno.test("shell/workspace#R12: script 입력은 실행 없이 거절되고 이유와 안전한 설명·출처만 남는다", () => {

@@ -156,6 +156,8 @@ import {
   INVOCATION_RECOVERY_CONTEXT,
   observeInvocations,
 } from "../../packages/apps/invocations/restart.ts";
+import { createCopyPreviewBundles } from "../../packages/apps/releases/activation/desired.ts";
+import { observeReleaseActivations } from "../../packages/apps/releases/activation/recovery.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createStreamer, createValidatePort } from "./documents-validate.ts";
@@ -487,7 +489,11 @@ async function open(
   // 구성 요소 관측이고 소유 concern 관측은 복구 command로 남는다.
   const restart = await checkRestart(ledgerPath, {
     clock,
-    owners: [observeApprovals, observeInvocations],
+    owners: [
+      observeApprovals,
+      observeInvocations,
+      observeReleaseActivations,
+    ],
   });
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);
@@ -728,6 +734,8 @@ async function open(
       known: () => runtime?.knownSecrets,
     }),
   );
+  // preview 자식이 loopback으로 core API에 닿지 못하게 막을 port다. API를 연 뒤에 정해진다.
+  let apiPort = 0;
   const appsControl = await createAppsControl({
     clock,
     ledgerPath,
@@ -791,7 +799,30 @@ async function open(
         "text/plain",
         line,
       ),
-    previews: { dataRoot: root.path, ...options.appPreviews },
+    // 봉인 bundle 사본을 여는 실제 자리다. 시험이 `appPreviews.bundles`로 바꿔 끼울 수 있다.
+    activation: {
+      dataRoot: root.path,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+      platformPorts: () => apiPort === 0 ? [] : [apiPort],
+    },
+    previews: {
+      dataRoot: root.path,
+      bundles: createCopyPreviewBundles({
+        dataRoot: root.path,
+        platformPorts: () => apiPort === 0 ? [] : [apiPort],
+      }),
+      ...options.appPreviews,
+    },
     ...(options.appProcess ? { process: options.appProcess } : {}),
     ...(options.appsSweepMs === undefined
       ? {}
@@ -1179,6 +1210,7 @@ async function open(
     await runtime.close();
     return err({ code: "unavailable", message: "API를 열 수 없다" });
   }
+  apiPort = server.port;
   const recorded = await writeRunMetadata(root.run, {
     apiPort: server.port,
     coreEpoch: epoch,

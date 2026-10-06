@@ -15,6 +15,7 @@ import { spawnApp } from "./spawn.ts";
 import { createCoreSender, createSupervisorDelivery } from "./delivery.ts";
 import { createPreparationService } from "../../packages/apps/releases/preparation.ts";
 import { createChildPreparationRunner } from "./release-runner.ts";
+import { createChildDataRunner } from "./data-runner.ts";
 
 const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
   async read(buffer) {
@@ -114,6 +115,15 @@ const preparation = dataRoot === undefined
 
 const assembled = assembleSupervisor({
   ...(preparation === undefined ? {} : { preparation }),
+  // activation의 backup·migration·restore는 종료 확인 뒤 앱 전용 data worker가 한다(apps/data#R1).
+  ...(dataRoot === undefined ? {} : {
+    data: createChildDataRunner({
+      dataRoot,
+      deno: () => Deno.env.get("LOPHN_DENO") ?? Deno.execPath(),
+      denoDir: Deno.env.get("DENO_DIR") ??
+        `${Deno.env.get("HOME") ?? "/tmp"}/.cache/deno`,
+    }),
+  }),
   childExited: (nonce) => delivery.childExited(nonce),
   // 앱이 broker로 보낸 invocation 후행 기록은 이 전달 목록이 core로 보낸다(apps/invocations#R1).
   invocations: delivery.broker,

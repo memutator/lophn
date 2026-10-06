@@ -38,16 +38,24 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-// bundle 안에서 script_hash와 같은 파일을 찾는다. hash가 같은 파일이 없으면
-// 그 release의 migration은 준비되지 않은 것이다(R8).
+// script_hash는 단계 파일 byte의 sha256이다. 파일 이름은 앱 템플릿의 `migrations/<from>-<to>.sql`이고
+// release.prepare의 data_changes가 같은 규칙으로 hash를 낸다(`dataChangesOf`). "sha256:" 접두는 있어도 같다.
+function plain(hash: string): string {
+  return hash.startsWith(HASH_PREFIX) ? hash.slice(HASH_PREFIX.length) : hash;
+}
+
+export function stepFile(change: Pick<DataChange, "from" | "to">): string {
+  return `migrations/${change.from}-${change.to}.sql`;
+}
+
+// bundle 안의 그 단계 파일을 읽고 byte의 hash가 script_hash와 같은지 본다. 없거나 다르면 그 release의
+// migration은 준비되지 않은 것이다(R8).
 export async function scriptFromBundle(
   bundlePath: string,
   change: DataChange,
 ): Promise<Result<MigrationScript>> {
-  const hash = change.script_hash.startsWith("sha256:")
-    ? change.script_hash.slice("sha256:".length)
-    : change.script_hash;
-  const file = `${bundlePath}/migrations/${hash}.sql`;
+  const hash = plain(change.script_hash);
+  const file = `${bundlePath}/${stepFile(change)}`;
   let sql: string;
   try {
     sql = await Deno.readTextFile(file);
@@ -77,8 +85,7 @@ export async function publishedScriptChanged(
 }
 
 async function scriptMatches(script: MigrationScript): Promise<boolean> {
-  const hash = `${HASH_PREFIX}${await sha256Hex(script.sql)}`;
-  return hash === script.change.script_hash;
+  return await sha256Hex(script.sql) === plain(script.change.script_hash);
 }
 
 // 연속 경로를 순서대로 적용한다. 단계 실패는 그 단계 transaction rollback에 더해
@@ -122,7 +129,8 @@ export async function migrateAppDatabase(
       }
       const applied = db.applyStep(script.sql, {
         dataSchema: step.to,
-        scriptHash: step.script_hash,
+        // lophn_data_schema에는 cap-store와 같은 `sha256:` 형식으로 남긴다.
+        scriptHash: `${HASH_PREFIX}${plain(step.script_hash)}`,
         appliedAt: input.appliedAt,
       });
       if (!applied.ok) {

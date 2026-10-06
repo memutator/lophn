@@ -152,7 +152,10 @@ Deno.test(
           name: "mahas",
           title: "Notes",
           purpose: "",
-          folders: [{ path: "/tmp/lophn-test-series", description: "" }],
+          folders: [{
+            path: `${harness.dataRoot}/project-folder`,
+            description: "",
+          }],
           tracking: { enabled: false, patterns: [], use_gitignore: false },
         },
         idempotency_key: "project-1",

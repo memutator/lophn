@@ -144,7 +144,7 @@ async function openUpload(): Promise<Opened> {
           name: "mahas",
           title: "Notes",
           purpose: "",
-          folders: [{ path: "/tmp/lophn-test-large-text", description: "" }],
+          folders: [{ path: `${work}/project-folder`, description: "" }],
           tracking: { enabled: false, patterns: [], use_gitignore: false },
         },
         idempotency_key: "project-1",

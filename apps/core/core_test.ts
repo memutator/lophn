@@ -233,7 +233,7 @@ Deno.test("documents/projects#R8: 사람 user token은 등록 프로젝트의 �
         name: "alpha",
         title: "Alpha",
         purpose: "",
-        folders: [{ path: "/tmp/lophn-q12-alpha", description: "a" }],
+        folders: [{ path: `${dir}/alpha-folder`, description: "a" }],
         tracking: { enabled: false, patterns: [], use_gitignore: false },
       },
       idempotency_key: "create-alpha",
@@ -256,7 +256,7 @@ Deno.test("documents/projects#R8: 사람 user token은 등록 프로젝트의 �
     assertEquals(first.id, "prj_01kq12a1pha000000000000000");
     assertEquals(
       first.folders?.map((folder) => folder.path),
-      ["/tmp/lophn-q12-alpha"],
+      [`${dir}/alpha-folder`],
     );
     assertEquals(first.folders?.[0].description, "a");
   } finally {
@@ -367,7 +367,7 @@ Deno.test("platform/identity#R4: parent.ts가 내는 사람 token은 user route�
         name: "alpha",
         title: "Alpha",
         purpose: "",
-        folders: [{ path: "/tmp/lophn-identity-r4", description: "a" }],
+        folders: [{ path: `${dir}/identity-folder`, description: "a" }],
         tracking: { enabled: false, patterns: [], use_gitignore: false },
       },
       idempotency_key: "identity-r4-create",

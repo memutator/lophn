@@ -13,17 +13,21 @@ import {
   runElapsedSchema,
   runOutcomeOutputSchema,
 } from "./run-values.ts";
-import { createApprovalRequestInputSchema } from "../platform/mod.ts";
+import {
+  createApprovalRequestInputSchema,
+  createApprovalRequestStoredSchema,
+} from "../platform/mod.ts";
 import {
   createQuestionInputSchema,
   createQuestionSubmissionOutputSchema,
 } from "./question-submission.ts";
 
+// 제출 결과는 저장된 모양이다(설명 글은 blob hash).
 const approvalSubmissionOutputSchema = z.object({
-  ...createApprovalRequestInputSchema.shape,
-  effect: z.object(createApprovalRequestInputSchema.shape.effect.shape),
+  ...createApprovalRequestStoredSchema.shape,
+  effect: z.object(createApprovalRequestStoredSchema.shape.effect.shape),
   action: z.object({
-    ...createApprovalRequestInputSchema.shape.action.shape,
+    ...createApprovalRequestStoredSchema.shape.action.shape,
     input: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("inline"), value: jsonObjectSchema }),
       z.object({ kind: z.literal("blob"), sha256: sha256Schema }),

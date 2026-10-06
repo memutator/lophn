@@ -114,6 +114,7 @@ function revisionOf(harness: CoreHarness): string {
 
 async function open() {
   const opened = await createCoreHarness({
+    io: true,
     teams,
     teamModules: [new URL("./documents.ts", import.meta.url).href],
   });

@@ -202,7 +202,7 @@ Deno.test("platform/approvals#R14 #R15: 거절은 이유 없이도 하고 이유
     );
     // 다른 대기는 그대로다.
     assertEquals(await statusOf(harness, OTHER), "pending");
-    const reason = await sha256Hex("지금은 필요 없다");
+    const reason = "지금은 필요 없다";
     const second = await decisionInput(harness, OTHER, reason);
     const why = requestOf(
       value(
@@ -217,7 +217,17 @@ Deno.test("platform/approvals#R14 #R15: 거절은 이유 없이도 하고 이유
       ),
     );
     assertEquals(why["status"], "rejected");
-    assertEquals(why["closed_reason_blob"], reason);
+    assertEquals(why["closed_reason_blob"], await sha256Hex(reason));
+    // 이유 글은 같은 transaction의 영구 참조다.
+    assertEquals(
+      value(
+        await harness.inspect(
+          "select field, hash from blob_refs where owner_key = ? and field = 'closed_reason'",
+          [OTHER],
+        ),
+      ).map((ref) => [ref["field"], ref["hash"]]),
+      [["closed_reason", await sha256Hex(reason)]],
+    );
     assertEquals(
       value(
         await harness.inspect("select count(*) as n from approval_uses"),

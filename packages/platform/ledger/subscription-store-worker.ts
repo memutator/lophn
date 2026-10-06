@@ -13,7 +13,10 @@ const self = globalThis as unknown as {
 let db: DatabaseSync;
 self.onmessage = async (event) => {
   try {
-    const { directory } = event.data as { directory: string };
+    const { directory, ledgerId } = event.data as {
+      directory: string;
+      ledgerId: string;
+    };
     await Deno.mkdir(directory, { recursive: true });
     // busy_timeout=0은 기동 직후 create table재시도나 다른 코어 종료 뒤의
     // 잠깐의 잠금에 바로 실패한다. derived writer도 bounded 대기를 둔다.
@@ -23,8 +26,23 @@ self.onmessage = async (event) => {
       create table if not exists positions(principal text not null, name text not null,
         through_seq text not null, primary key(principal,name));
       create table if not exists provenance(principal text not null, name text not null,
-        value text not null, primary key(principal,name));`,
+        value text not null, primary key(principal,name));
+      create table if not exists meta(key text primary key, value text not null);`,
     );
+    // 기록한 ledger 식별이 현재와 다르면 위치를 모두 버린다. 위치와 식별 갱신은 한 transaction이다.
+    if (!ledgerId) throw new Error("ledger id is required");
+    const recorded = db.prepare(
+      "select value from meta where key = 'ledger_id'",
+    )
+      .get();
+    if (recorded?.value !== ledgerId) {
+      db.exec("begin immediate");
+      db.exec("delete from positions; delete from provenance;");
+      db.prepare(
+        "insert into meta values('ledger_id', ?) on conflict(key) do update set value=excluded.value",
+      ).run(ledgerId);
+      db.exec("commit");
+    }
     if (
       db.prepare("pragma journal_mode").get()?.journal_mode !== "wal" ||
       db.prepare("pragma synchronous").get()?.synchronous !== 2

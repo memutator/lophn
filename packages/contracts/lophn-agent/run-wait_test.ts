@@ -39,17 +39,18 @@ const storedQuestion = {
   recommendation: null,
   expires_at: null,
 };
+// 승인 요청도 설명 글을 값으로 싣고 대기 결과는 저장된 요청(blob hash)을 돌려준다.
 const approvalInput = {
   id: approval,
   run,
   requester: "machine",
-  reason_blob: hash,
+  reason: "Save a version.",
   expires_at: null,
   effect: {
-    changes_blob: hash,
-    external_blob: null,
+    changes: "One version is added.",
+    external: null,
     reversible: true,
-    reversibility_blob: hash,
+    reversibility: "The version can be removed.",
   },
   action: {
     concern: "documents/versions",
@@ -61,6 +62,20 @@ const approvalInput = {
     comparison: {},
     binding_hash: hash,
   },
+};
+const storedApproval = {
+  id: approval,
+  run,
+  requester: "machine",
+  reason_blob: hash,
+  expires_at: null,
+  effect: {
+    changes_blob: hash,
+    external_blob: null,
+    reversible: true,
+    reversibility_blob: hash,
+  },
+  action: approvalInput.action,
 };
 const resolution = {
   run,
@@ -140,13 +155,13 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R1: WaitRun carries exact ne
         kind: "approval",
         tool_call: call,
         input: {
-          ...approvalInput,
+          ...storedApproval,
           future: true,
-          effect: { ...approvalInput.effect, future: true },
+          effect: { ...storedApproval.effect, future: true },
           action: {
-            ...approvalInput.action,
+            ...storedApproval.action,
             future: true,
-            input: { ...approvalInput.action.input, future: true },
+            input: { ...storedApproval.action.input, future: true },
           },
         },
       },

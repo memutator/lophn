@@ -12,12 +12,11 @@ import {
   ok,
   type Result,
   seededRandom,
-  sha256Hex,
 } from "../../base/mod.ts";
 import {
   type ApprovalAction,
   approvalBinding,
-  type ApprovalEffect,
+  type ApprovalEffectInput,
   type AuthenticatedContext,
   type RequestContext,
 } from "../../contracts/platform/mod.ts";
@@ -26,6 +25,7 @@ import {
   APPROVAL_SCHEMA_STEPS,
   createApprovalCommands,
 } from "../approvals/mod.ts";
+import { effectText } from "../approvals/testing/mod.ts";
 import {
   createSubscriberGate,
   LEDGER_COMMANDS,
@@ -236,13 +236,11 @@ async function approvalAction(): Promise<ApprovalAction> {
   };
 }
 
-async function approvalEffect(): Promise<ApprovalEffect> {
-  return {
-    changes_blob: await sha256Hex("release 하나를 시작한다"),
-    external_blob: null,
-    reversible: false,
-    reversibility_blob: await sha256Hex("시작한 뒤에는 되돌리지 못한다"),
-  };
+function approvalEffect(): ApprovalEffectInput {
+  return effectText({
+    changes: "release 하나를 시작한다",
+    reversibility: "시작한 뒤에는 되돌리지 못한다",
+  });
 }
 
 Deno.test("platform/notifications#R1: approval request 생성은 항상 notification을 만든다", async () => {
@@ -253,7 +251,33 @@ Deno.test("platform/notifications#R1: approval request 생성은 항상 notifica
     const approvals = createApprovalCommands();
     const requested = await runCommand(
       connection,
-      ledgerDeps(),
+      {
+        ...ledgerDeps(),
+        // 설명 글의 영구 참조는 같은 transaction의 실제 blob_refs 표에 넣는다.
+        registerBlobRef: (reference) => {
+          assert(reference.source.kind === "prepared");
+          const blob = reference.source.blob;
+          connection.sql.run(
+            `insert into blob_refs (owner_kind, owner_key, field, hash,
+               size_bytes, registered_seq) values (?, ?, ?, ?, ?, ?)`,
+            [
+              reference.owner_kind,
+              reference.owner_key,
+              reference.field,
+              blob.hash,
+              blob.size_bytes,
+              BigInt(reference.registered_seq),
+            ],
+          );
+          return ok({
+            owner_kind: reference.owner_kind,
+            owner_key: reference.owner_key,
+            field: reference.field,
+            hash: blob.hash,
+            registered_seq: reference.registered_seq,
+          });
+        },
+      },
       [approvals.create, createNotificationCommand],
       machine(),
       {
@@ -262,8 +286,8 @@ Deno.test("platform/notifications#R1: approval request 생성은 항상 notifica
           id: APPROVAL,
           requester: machine().actor,
           run: null,
-          reason_blob: await sha256Hex("배포 전 확인이 필요하다"),
-          effect: await approvalEffect(),
+          reason: "배포 전 확인이 필요하다",
+          effect: approvalEffect(),
           action: await approvalAction(),
           expires_at: null,
         },

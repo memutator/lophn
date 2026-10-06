@@ -629,3 +629,32 @@ end;`,
     await Deno.remove(dir, { recursive: true });
   },
 );
+
+Deno.test(
+  "platform/backup-and-migration#R3: 권한을 제한한 core 모양의 프로세스에서도 변환 전 복구본을 만든다",
+  async () => {
+    const dir = await tempDir();
+    const repo = new URL("../../..", import.meta.url).pathname;
+    const script = new URL("./testdata/restricted-migrate.ts", import.meta.url)
+      .pathname;
+    const home = Deno.env.get("HOME");
+    // packaged core의 권한처럼 쓰기는 데이터 root뿐이다. 이 권한에서는 SQLite attach가 막힌다.
+    const outcome = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        `--allow-read=${dir},${repo}${home ? `,${home}/.cache/deno` : ""}`,
+        `--allow-write=${dir}`,
+        "--no-prompt",
+        script,
+        dir,
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const out = new TextDecoder().decode(outcome.stdout) +
+      new TextDecoder().decode(outcome.stderr);
+    assert(outcome.success, out);
+    assertEquals(recoveryFolders(dir).length, 1);
+    await Deno.remove(dir, { recursive: true });
+  },
+);

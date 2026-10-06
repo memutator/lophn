@@ -10,7 +10,17 @@ import {
   invocationRecordFinishedInputSchema,
   invocationRecordStartedInputSchema,
 } from "../../../contracts/apps/mod.ts";
-import type { DeliveryQueue } from "../../invocations/mod.ts";
+
+// 전달 목록에서 쓰는 모양만 본다. 목록 구현(apps/invocations/delivery)은 supervisor 쪽이 넘긴다.
+export type BrokerQueue = {
+  enqueue(message: {
+    invocation: string;
+    fact: "start" | "finish" | "deny";
+    app: string;
+    body: unknown;
+  }): unknown;
+  pump(): Promise<void>;
+};
 
 // 한 자식이 한 번에 열어 둘 수 있는 호출 수다. confirm marker 한도와 같다.
 const OPEN_LIMIT = 4096;
@@ -51,7 +61,7 @@ function invalid(message: string): Result<never> {
 }
 
 export function createInvocationBroker(deps: {
-  queue: DeliveryQueue;
+  queue: BrokerQueue;
   clock: Clock;
 }): InvocationBroker {
   const open = new Map<string, Map<string, Open>>();

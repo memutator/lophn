@@ -52,6 +52,7 @@ export {
 } from "./display.ts";
 export {
   type BrokerChild,
+  type BrokerQueue,
   type CoreRecord,
   type CoreRecordMethod,
   createInvocationBroker,

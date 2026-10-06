@@ -1,7 +1,8 @@
 // 문서 탭 본문: 같은 기둥에서 읽고 고친다(shell/editor#R4, R8, R9, R16, design-system#R23).
 // 읽기는 design의 Markdown renderer, 편집은 CodeMirror다. 둘은 같은 ReadingFrame·머리·
-// scroll 칸을 쓰고 본문 자리만 바뀌어 전환 전후 첫 블록 위치가 같다. 고친 글은 이 화면의
-// 초안으로만 남는다. 디스크 저장은 shell#T17의 저장 흐름이 맡는다.
+// scroll 칸을 쓰고 본문 자리만 바뀌어 전환 전후 첫 블록 위치가 같다. 편집을 시작하면 main의
+// 파일 adapter로 지금 디스크 글을 열고, 고침은 저장 버튼 없이 저장 흐름(save-state.ts)으로
+// 보낸다(R1, R2, R12). 저장 상태는 머리 메타 줄에, 충돌은 문서 옆 notice와 해결 화면에 보인다(R15).
 import {
   type KeyboardEvent,
   useCallback,
@@ -20,6 +21,7 @@ import {
 import { Markdown, Toc } from "@lophn/design/reading";
 import { formatRelativeTime, t } from "@lophn/wording";
 
+import { ConflictView } from "./conflict/conflict-view.tsx";
 import { DocumentHead, StickyHeadBar } from "./document-head.tsx";
 import type { MenuOpener } from "./document-menu.ts";
 import {
@@ -27,7 +29,21 @@ import {
   type MarkdownEditorHandle,
 } from "./markdown-editor.tsx";
 import { type HeadingTop, type StickyHead, stickyHead } from "./model.ts";
-import type { EditorProblem } from "./problems-gutter/problems.ts";
+import { NoticeBar } from "./notice-bar.tsx";
+import {
+  type EditorProblem,
+  editorProblems,
+} from "./problems-gutter/problems.ts";
+import {
+  type NoticeKind,
+  type SaveAction,
+  type SaveFacts,
+  saveHeadline,
+  saveNotices,
+  topNotice,
+} from "./save-state.ts";
+import { SaveDetails, SaveStatus } from "./save-status.tsx";
+import type { EditorSessions, OpenedSession, OpenFailure } from "./sessions.ts";
 import type { LinkTarget } from "./link-picker/link-picker.ts";
 import type { ReadingWidthStore } from "./reading-width.ts";
 import type {
@@ -50,6 +66,8 @@ export interface EditorDeps {
   readonly source: EditorSource;
   readonly readingWidth: ReadingWidthStore;
   readonly menu: MenuOpener;
+  /** 파일 통로와 창의 편집 session. 없으면 고친 글은 이 화면의 초안으로만 남는다. */
+  readonly files?: EditorSessions;
 }
 
 export interface DocumentViewProps extends EditorDeps {
@@ -57,7 +75,7 @@ export interface DocumentViewProps extends EditorDeps {
   projectId: string;
   infoOpen?: boolean;
   onToggleInfo?: () => void;
-  /** 형식 검사 문제. 저장 흐름(shell#T17)이 준비 결과에서 넘긴다. */
+  /** 바깥에서 넘기는 형식 검사 문제. 저장 흐름의 검사 결과와 함께 보인다. */
   problems?: readonly EditorProblem[];
   onMeta?: (meta: DocumentTabMeta) => void;
   /** 문서 링크를 따라 다른 문서를 연다. */
@@ -71,6 +89,30 @@ type InfoState =
   | { readonly kind: "ready"; readonly info: DocumentInfo };
 
 type Notice = "width-failed" | "menu-unavailable" | null;
+
+/** 충돌 해결 화면. theirs는 지금 디스크 글이나 최신 판 글이다. */
+type Resolving =
+  | {
+    readonly against: "disk";
+    readonly theirs: string;
+    readonly hash: string | null;
+  }
+  | {
+    readonly against: "newest";
+    readonly theirs: string;
+    readonly latest: string;
+  };
+
+const EDIT_FAILURE: Record<OpenFailure, NoticeKind> = {
+  offline: "edit-offline",
+  too_large: "edit-too-large",
+  unsupported: "edit-unsupported",
+  not_found: "edit-unavailable",
+  unavailable: "edit-unavailable",
+};
+
+/** files.watch가 실패하면 이만큼 쉬고 다시 묻는다. */
+const WATCH_RETRY_MS = 5000;
 
 const STICKY_HEIGHT = 32;
 const HIDDEN_STICKY: StickyHead = { shown: false, section: null };
@@ -103,6 +145,7 @@ export function DocumentView(
     infoOpen = false,
     onToggleInfo,
     problems = [],
+    files,
     onMeta,
     onOpenDocument,
     now = Date.now,
@@ -117,6 +160,15 @@ export function DocumentView(
   const [sticky, setSticky] = useState<StickyHead>(HIDDEN_STICKY);
   const [notice, setNotice] = useState<Notice>(null);
   const [attempt, setAttempt] = useState(0);
+  // 저장 흐름. 편집을 처음 시작할 때 연다. 창의 session 묶음이 탭이 사라진 뒤에도 남긴다.
+  const [opened, setOpened] = useState<OpenedSession | null>(null);
+  const [facts, setFacts] = useState<SaveFacts | null>(null);
+  const [editFailure, setEditFailure] = useState<NoticeKind | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [resolving, setResolving] = useState<Resolving | null>(null);
+  const [reloadShown, setReloadShown] = useState(false);
+  const [compareFailed, setCompareFailed] = useState(false);
+  const mounted = useRef(true);
   const [width, setWidth] = useReadingWidth(readingWidth);
   const scrollRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -132,6 +184,9 @@ export function DocumentView(
     setSections([]);
     setDraft(null);
     setEditing(false);
+    setOpened(null);
+    setFacts(null);
+    setResolving(null);
     void (async () => {
       const read = await source.document(documentId);
       if (!live) return;
@@ -162,6 +217,59 @@ export function DocumentView(
   }, [documentId, source, attempt]);
 
   useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  // 저장 사실을 듣는다. 화면이 사라지면 편집을 끝내고(탭 전환·닫기) 남은 저장은 창이 센다.
+  useEffect(() => {
+    if (!opened || !files) return;
+    setFacts(opened.session.facts);
+    const stop = opened.session.subscribe(setFacts);
+    return () => {
+      stop();
+      files.detach(documentId);
+    };
+  }, [opened, files, documentId]);
+
+  // documents가 알린 지금 파일 상태. 판 확정(유휴 종료 포함)과 바깥 변경을 여기서만 안다.
+  useEffect(() => {
+    if (!opened || !files) return;
+    let live = true;
+    let cursor: string | undefined;
+    let wait: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      while (live) {
+        const reply = await files.watch(documentId, cursor);
+        if (!live) return;
+        if (!reply.ok) {
+          if (reply.code === "unknown_session") return;
+          await new Promise((resolve) => {
+            wait = setTimeout(resolve, WATCH_RETRY_MS);
+          });
+          continue;
+        }
+        cursor = reply.value.cursor;
+        if (opened.session.applyStatus(reply.value) !== "reload") continue;
+        const current = await files.current(documentId);
+        if (!live || !current.ok) continue;
+        // 고침이 없을 때만 받는다. 그 사이 고쳤으면 다음 쓰기가 충돌을 알린다.
+        if (opened.session.applyStatus(reply.value) !== "reload") continue;
+        opened.session.reloaded(current.value.text, current.value.hash);
+        editorRef.current?.replaceText(current.value.text);
+        setDraft(current.value.text);
+        setReloadShown(true);
+      }
+    })();
+    return () => {
+      live = false;
+      clearTimeout(wait);
+    };
+  }, [opened, files, documentId]);
+
+  useEffect(() => {
     void readingWidth.load();
   }, [readingWidth]);
 
@@ -183,12 +291,118 @@ export function DocumentView(
   }, [editing, projectId, source]);
 
   const text = draft ?? bodyText(body);
-  const canEdit = body.kind === "text" && body.complete;
+  // 파일 통로가 있으면 편집 글은 main이 연 지금 디스크 글이라 판 본문 읽기를 기다리지 않는다.
+  // 통로가 없으면 끝까지 읽은 판 본문만 고친다(일부만 고치면 나머지를 잃는다).
+  const canEdit = files
+    ? state.kind === "ready" && body.kind !== "loading"
+    : body.kind === "text" && body.complete;
+  const info = state.kind === "ready" ? state.info : null;
 
   const toggleEdit = useCallback(() => {
     if (!canEdit) return;
-    setEditing((current) => !current);
-  }, [canEdit]);
+    if (editing) {
+      // 읽기 전환은 편집 종료다. 마지막 고침을 보내고 version 준비 경계를 연다(R1).
+      setEditing(false);
+      setResolving(null);
+      void opened?.session.flush(true);
+      return;
+    }
+    if (!files || opened) {
+      setEditing(true);
+      return;
+    }
+    setEditFailure(null);
+    void files.attach(documentId, info?.fileName ?? documentId).then(
+      (result) => {
+        if (typeof result === "string") {
+          if (mounted.current) setEditFailure(EDIT_FAILURE[result]);
+          return;
+        }
+        if (!mounted.current) {
+          files.detach(documentId);
+          return;
+        }
+        setOpened(result);
+        setDraft(result.session.text);
+        setEditing(true);
+      },
+    );
+  }, [canEdit, editing, files, opened, documentId, info]);
+
+  const onDraft = useCallback((next: string) => {
+    setDraft(next);
+    opened?.session.edit(next);
+  }, [opened]);
+
+  const openCompare = async (against: "disk" | "newest") => {
+    if (!opened || !files) return;
+    setCompareFailed(false);
+    if (against === "disk") {
+      const current = await files.current(documentId);
+      if (!current.ok) {
+        setCompareFailed(true);
+        return;
+      }
+      setResolving({
+        against: "disk",
+        theirs: current.value.text,
+        hash: current.value.hash,
+      });
+      return;
+    }
+    const latest = opened.session.facts.version.latest;
+    if (latest === null) return;
+    const read = await source.body(documentId, latest, () => {});
+    if (read.kind !== "text" || !read.complete) {
+      setCompareFailed(true);
+      return;
+    }
+    setResolving({ against: "newest", theirs: read.text, latest });
+  };
+
+  const keepMine = () => {
+    if (!opened || !resolving) return;
+    setResolving(null);
+    if (resolving.against === "disk") {
+      void opened.session.keepMine(resolving.hash);
+    } else void opened.session.keepMineAsVersion(resolving.latest);
+  };
+
+  const useTheirs = () => {
+    if (!opened || !resolving) return;
+    setResolving(null);
+    setDraft(resolving.theirs);
+    if (resolving.against === "disk") {
+      opened.session.takeTheirs(resolving.theirs, resolving.hash);
+    } else {
+      opened.session.edit(resolving.theirs);
+      void opened.session.keepMineAsVersion(resolving.latest);
+    }
+  };
+
+  const saveProblems: readonly EditorProblem[] = facts && opened
+    ? editorProblems(facts.format.problems, opened.primaryPath ?? "")
+    : [];
+  const shownProblems = saveProblems.length > 0
+    ? [...problems, ...saveProblems]
+    : problems;
+
+  const onSaveAction = (action: Exclude<SaveAction, null>) => {
+    if (!opened) return;
+    if (action === "retry") opened.session.retry();
+    else if (action === "check") void opened.session.check();
+    else if (action === "compare") {
+      void openCompare(
+        opened.session.facts.disk.state === "conflict" ? "disk" : "newest",
+      );
+    } else {
+      const first = shownProblems.find((problem) => problem.line !== null);
+      if (first && first.line !== null) {
+        if (!editing) setEditing(true);
+        editorRef.current?.revealLine(first.line);
+      }
+    }
+  };
 
   useEffect(() => {
     if (editing) editorRef.current?.focus();
@@ -277,13 +491,17 @@ export function DocumentView(
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const mod = event.metaKey || event.ctrlKey;
-    if (
-      mod && !event.altKey && !event.shiftKey &&
-      event.key.toLowerCase() === "e"
-    ) {
+    if (!mod || event.altKey || event.shiftKey) return;
+    const key = event.key.toLowerCase();
+    if (key === "e") {
       event.preventDefault();
       event.stopPropagation();
       toggleEdit();
+    } else if (key === "s") {
+      // 명시 저장. 저장 버튼은 없고 이 키는 편집 종료와 같은 경계다(R1).
+      event.preventDefault();
+      event.stopPropagation();
+      void opened?.session.flush(true);
     }
   };
 
@@ -300,13 +518,31 @@ export function DocumentView(
     );
   }
 
-  const info = state.kind === "ready" ? state.info : null;
-  const meta = info
+  const versionMeta = info
     ? t("document.label.meta", {
       number: info.versionNumber,
       when: formatRelativeTime(new Date(info.savedAt), new Date(now())),
     })
     : "";
+  const saving = facts !== null && saveHeadline(facts).kind !== "none";
+  const meta = saving && facts
+    ? (
+      <SaveStatus
+        facts={facts}
+        detailsOpen={detailsOpen}
+        onToggleDetails={() => setDetailsOpen((value) => !value)}
+        onAction={onSaveAction}
+      />
+    )
+    : versionMeta;
+  const notices: NoticeKind[] = [
+    ...(facts ? saveNotices(facts) : []),
+    ...(compareFailed ? ["compare-failed" as const] : []),
+    ...(editFailure ? [editFailure] : []),
+    ...(notice ? [notice] : []),
+    ...(reloadShown ? ["reloaded" as const] : []),
+  ];
+  const shownNotice = resolving ? null : topNotice(notices);
 
   return (
     <div
@@ -336,13 +572,19 @@ export function DocumentView(
                 onMenu={openMenu}
                 titleRef={titleRef}
               />
-              {notice
+              {saving && facts && detailsOpen
+                ? <SaveDetails facts={facts} now={now()} />
+                : null}
+              {shownNotice
                 ? (
-                  <p className={styles.headNotice} role="status">
-                    {notice === "width-failed"
-                      ? t("document.error.width-failed")
-                      : t("common.overlay.unavailable")}
-                  </p>
+                  <NoticeBar
+                    kind={shownNotice}
+                    onCompare={() =>
+                      void openCompare(
+                        shownNotice === "conflict" ? "disk" : "newest",
+                      )}
+                    onDismiss={() => setReloadShown(false)}
+                  />
                 )
                 : null}
             </>
@@ -375,15 +617,26 @@ export function DocumentView(
                   {bodyError(body)}
                 </p>
               )
+              : resolving && opened
+              ? (
+                <ConflictView
+                  against={resolving.against}
+                  theirs={resolving.theirs}
+                  mine={opened.session.text}
+                  onKeepMine={keepMine}
+                  onUseTheirs={useTheirs}
+                  onBack={() => setResolving(null)}
+                />
+              )
               : editing
               ? (
                 <MarkdownEditor
                   ref={editorRef}
                   initialText={text}
                   label={info?.title ?? ""}
-                  problems={problems}
+                  problems={shownProblems}
                   linkTargets={links}
-                  onChange={setDraft}
+                  onChange={onDraft}
                   onOpenLink={openLink}
                 />
               )

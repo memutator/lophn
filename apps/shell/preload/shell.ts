@@ -14,6 +14,7 @@ import {
   type FolderPickerApi,
   type FolderPickReply,
 } from "../ipc/folder-picker.ts";
+import { createEditorApi } from "./editor-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
@@ -54,6 +55,8 @@ if (role === "shell") {
     ),
   );
   contextBridge.exposeInMainWorld("lophnIntents", createIntentApi(ipcRenderer));
+  // 문서 편집기의 파일 통로(shell/editor#R1). 경로·core port는 main에만 있다.
+  contextBridge.exposeInMainWorld("lophnEditor", createEditorApi(ipcRenderer));
 }
 
 const unavailable: CoreReply = {

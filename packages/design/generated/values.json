@@ -392,7 +392,8 @@
       "gutter": "24px",
       "problemList": "200px",
       "stickyHead": "32px",
-      "linkPicker": "320px"
+      "linkPicker": "320px",
+      "notice": "32px"
     },
     "table": {
       "row": {

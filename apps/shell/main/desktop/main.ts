@@ -18,6 +18,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
+import { EDITOR_CLOSE_REQUEST_CHANNEL } from "../../ipc/editor.ts";
 import { FOLDER_PICK_CHANNEL } from "../../ipc/folder-picker.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
@@ -27,7 +28,15 @@ import {
 
 import { electronOverlays } from "../app-frame/electron-overlay.ts";
 import { startCoreConnection } from "./core/connection.ts";
-import { nodeFetch, nodeSockets } from "./core/node-io.ts";
+import { nodeFetch, nodeSockets, nodeStreamFetch } from "./core/node-io.ts";
+import {
+  CloseGuard,
+  CloseGuards,
+  guardWindowClose,
+} from "../editor/close-guard.ts";
+import { coreFilesPort } from "../editor/core-port.ts";
+import { createFileAdapter } from "../editor/file-adapter.ts";
+import { registerEditorIpc, removeEditorIpc } from "../editor/ipc.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
 import {
@@ -158,6 +167,7 @@ const core = startCoreConnection({
   },
   ipc: { handle: (channel, listener) => ipcMain.handle(channel, listener) },
   fetch: nodeFetch,
+  stream: nodeStreamFetch,
   sockets: nodeSockets(),
   clock: { now: () => Date.now() },
   targets: () =>
@@ -216,6 +226,33 @@ ipcMain.handle(
   }),
 );
 
+// 편집기 파일 adapter와 창 닫기 guard(shell#T17). renderer는 문서 id와 session handle만 보내고
+// 실제 FileTarget·경로·core port는 여기서 정한다. 창마다 guard가 저장 중 수를 기억한다.
+const fileAdapter = createFileAdapter({
+  port: () => {
+    const session = core.session();
+    return session ? coreFilesPort(session) : null;
+  },
+  log,
+});
+const closeGuards = new CloseGuards();
+const editorIpc = {
+  handle: (
+    channel: string,
+    listener: (event: unknown, input: unknown) => Promise<unknown>,
+  ) => ipcMain.handle(channel, listener),
+  on: (channel: string, listener: (event: unknown, input: unknown) => void) =>
+    void ipcMain.on(channel, listener),
+  removeHandler: (channel: string) => ipcMain.removeHandler(channel),
+  removeAllListeners: (channel: string) =>
+    void ipcMain.removeAllListeners(channel),
+};
+registerEditorIpc(editorIpc, {
+  registry: overlays.overlayRegistry(),
+  adapter: fileAdapter,
+  guardOf: (id) => closeGuards.get(id),
+});
+
 let globalPalette: GlobalPalette | undefined;
 
 // 터미널 host와 core를 멈추는 한 번의 순서. tray Quit·`--quit`·OS 종료가 같이 쓴다.
@@ -230,6 +267,7 @@ function stopAll(): void {
     } satisfies MainIpc,
   );
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
+  removeEditorIpc(editorIpc);
   terminals.stop();
   core.shutdown();
   overlays.dispose();
@@ -238,14 +276,14 @@ function stopAll(): void {
 }
 
 // 명시 종료. 진행 중 터미널·저장이 있으면 OS 확인 창으로 묻는다(desktop#R21).
-// 저장 수는 편집기 닫기 guard(shell#T17)가 생기면 그 값을 잇는다.
+// 저장 수는 창마다 편집기가 알린 저장 중·실패·불명·충돌 문서 수다(shell#T17).
 const quitFlow = createQuitFlow({
   work: {
     runningTerminals: () =>
       terminals.runtimes().filter((runtime) =>
         runtime.state === "running" || runtime.state === "starting"
       ).length,
-    pendingSaves: () => 0,
+    pendingSaves: () => closeGuards.pendingSaves(),
   },
   confirm: async (prompt) => {
     const options = quitDialogOptions(prompt);
@@ -261,6 +299,12 @@ const quitFlow = createQuitFlow({
 
 // OS 종료(logout, macOS Cmd+Q)도 터미널과 core를 멈춘다. 이미 멈췄으면 아무것도 안 한다.
 app.once("will-quit", () => stopAll());
+// 앱 끄기가 창 닫기를 부르면 편집기 guard가 먼저 묻는다. 막으면 Electron이 끄기를 멈추므로
+// renderer가 허락한 뒤 다시 잇는다(shell/editor#R1).
+let appQuitRequested = false;
+app.on("before-quit", () => {
+  appQuitRequested = true;
+});
 
 const autostartOs: AutostartOs = {
   platform: process.platform,
@@ -517,6 +561,37 @@ function openDesktopWindow(): BrowserWindow | undefined {
         attachTerminalSurface(overlays.overlayRegistry(), window);
         windows.add(window);
         created = window;
+        // 창 닫기는 편집기의 마지막 고침과 편집 종료를 먼저 본다(editor#R1).
+        const contentsId = window.webContents.id;
+        const guard = new CloseGuard({
+          send: (request) => {
+            if (!window.isDestroyed()) {
+              window.webContents.send(EDITOR_CLOSE_REQUEST_CHANNEL, request);
+            }
+          },
+          log,
+        });
+        closeGuards.add(contentsId, guard);
+        guardWindowClose(
+          {
+            onClose: (listener) => window.on("close", listener),
+            close: () => window.close(),
+            isDestroyed: () => window.isDestroyed(),
+          },
+          guard,
+          {
+            quitting: () => quitFlow.quitting,
+            quitRequested: () => appQuitRequested,
+            resumeQuit: () => app.quit(),
+            quitCancelled: () => {
+              appQuitRequested = false;
+            },
+          },
+        );
+        window.on("closed", () => {
+          closeGuards.remove(contentsId);
+          fileAdapter.dropOwner(contentsId);
+        });
         window.on("focus", () => {
           windows.delete(window);
           windows.add(window);

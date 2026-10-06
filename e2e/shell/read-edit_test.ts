@@ -124,7 +124,7 @@ Deno.test({
       );
       // 다른 문서도 같은 전역 폭이다.
       await shell.evaluate(
-        `(() => { [...document.querySelectorAll("[data-document]")].find((item) => item.textContent === "plan").click(); return true; })()`,
+        `(() => { document.querySelector('[data-document="doc_plan"]').click(); return true; })()`,
       );
       await waitFor(
         shell.evaluate,

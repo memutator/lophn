@@ -1398,6 +1398,14 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   - apps#T16에서 넘어온 것: ask-app-hint flow에서 탭을 닫은 뒤 agent의 context
     조회·주석 쓰기가 `unavailable`이고 옛 상태를 최신으로 내보내지 않는다(실제
     앱 view와 T23 fixture)
+  - apps#T23에서 넘어온 것: (1) fixture의 `edit_todo`가 화면이 고치는 할 일을
+    view_session과 함께 알리는데 화면은 자기 view_session을 지금 알 길이 없다
+    (앱 화면 URL에 query가 안 간다). fixture 화면은 `?view_session=`을 읽고
+    없으면 알리지 않는다. ask-app-hint E2E는 shell이 앱 화면에 view_session을
+    주는 통로(shell#T39)를 정한 뒤 돈다. (2) 화면이 `lophnApp.call`로 받는 값은
+    앱 응답 전체 `{result:{result,revert?},invocation?,mode}`다. fixture 화면은
+    안쪽 result를 읽고, 템플릿 화면의 `result.rows`는 이 모양과 맞지 않으니
+    템플릿(apps#T22)을 고칠 때 함께 본다
   - apps#T12에서 넘어온 것: agent 요청자의 confirm은 agent 요청 → 허락 →
     `apply_approved_action` → proof 서명(`CoreSigner.signConfirmProof`) → direct
     호출로 이어 E2E로 본다. agent의 asg id는 접수 입력 caller(run·tool_call)가

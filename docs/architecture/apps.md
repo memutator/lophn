@@ -193,6 +193,7 @@ AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·c
 | `POST /_lophn/control/probe` | 플랫폼 인증 연결·현재 nonce | ReadyAttestation의 실제 연결 근거 |
 | `POST /_lophn/control/open` | 플랫폼 인증 연결·확정된 release/activation 기준 | accepting 전환. activation commit 전 거절 |
 | `POST /_lophn/control/close` | 플랫폼 인증 연결·의도된 종료 이유 | 새 호출·clock 차단 확인 |
+| `POST /_lophn/control/view-closed` | 플랫폼 인증 연결·현재 nonce·`view_session` | 그 view session을 버린다. 이후 그 session의 화면 요청은 conflict, context 조회·주석 쓰기는 unavailable. 앱의 협조가 필요 없다 |
 | `POST /_lophn/control/shutdown` | 플랫폼 인증 연결·grace_ms | 종료 요청 접수. 앱은 새 호출을 닫은 채 진행 호출이 끝나는 대로(grace_ms 안에서) 스스로 끝나고 유예가 지나면 supervisor가 강제 종료한다. OS 종료 확인은 별도 |
 
 screen은 `앱 화면 틀`의 좁은 preload와 Electron main을 통해 부른다. main은 송신 view 신원에서 app·release·mode를 정하며 임의 socket과 token을 view에 노출하지 않는다. MCP·CLI·agent runtime은 같은 `runtime/client`로 direct socket을 부른다. Operator의 승인된 read scope 등 호출자의 제한은 `인증`과 해당 호출자 concern을 따른다. 앱 read는 effect=read인 command이지 별도 Query/read-model 통로가 아니다.
@@ -225,7 +226,7 @@ blueprint의 `screens[].sizes=[full|panel|card]`는 실제 반응형 entrypoint�
 
 `agent_context[]`는 AgentContextDeclaration이고 read_command와 annotation_targets[].write_command는 같은 commands 목록의 안정된 앱 key다. 예약 context command 이름이나 DOM 접근은 없다. `ScreenContextReadInput {screen,view_session,detail}`에서 `AppScreenContext {app,release,screen,view_session,revision,summary,data?,redacted}`를 반환한다. summary는 redaction 후 2048byte 이하이고 turn에는 요약만, 상세는 같은 read command tool로 조회한다. 앱은 sensitive_paths를 제거하고 model 전달 경계는 `platform/redaction`을 다시 쓴다. 안전성 미확인은 원문 생략이다. 상태는 앱이 소유하며 lophn ledger에 복제하지 않는다.
 
-주석 입력 `AnnotationWriteInput {screen,view_session,expected_revision,target,text}`는 선언된 target과 현재 revision에 CAS한다. 닫힌 view=unavailable, revision 변경=conflict다. command.revert가 지원하는 write만 `{result,revert:{invocation,receipt,expected_revision}}`를 반환하며 receipt는 앱 내부 변경 전 상태 참조다. 되돌림 command도 같은 command 통로·현재 revision 검사를 사용한다. 앱 업무 보상과 run revert 연계는 `lophn-agent/revert`가 소유하며 성공 선언만으로 복원을 확정하지 않는다.
+주석 입력 `AnnotationWriteInput {screen,view_session,expected_revision,target,text}`는 선언된 target과 현재 revision에 CAS한다. 닫힌 view=unavailable, revision 변경=conflict다. handler는 효과 전의 거절을 `CommandRejection`(코드 `invalid_input|forbidden|conflict|unavailable`)으로 알리고 entrypoint가 그 코드와 안내 문장으로 답한다. 다른 예외는 원문 없는 500이다. command.revert가 지원하는 write만 `{result,revert:{invocation,receipt,expected_revision}}`를 반환하며 receipt는 앱 내부 변경 전 상태 참조다. 되돌림 command도 같은 command 통로·현재 revision 검사를 사용한다. 앱 업무 보상과 run revert 연계는 `lophn-agent/revert`가 소유하며 성공 선언만으로 복원을 확정하지 않는다.
 
 SDK의 `@lophn/blueprint.defineAgentContext`, `@lophn/cap-schedule.registerScreenContext/registerAnnotationTarget/connectAppCommands`는 위 type과 검사를 공유한다. chart/table의 선언형 JSON은 기존 ui-chart/ui-table가 앱과 lophn 화면에서 함께 그린다. 임의 script는 입력에 없으며 앱 카드는 격리된 app view다. 시각 블록 보관과 문서화는 `lophn-agent/visuals`다.
 

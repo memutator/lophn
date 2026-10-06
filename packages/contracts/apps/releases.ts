@@ -181,6 +181,9 @@ export const dataResultSchema = z.object({
 export type DataResult = z.infer<typeof dataResultSchema>;
 
 const releaseRecordActors = ["machine"] as const;
+// 준비 접수와 진행 조회는 coding agent 통로도 보낸다(architecture/apps 7.3, coding-agent#T21).
+// 접수는 요청일 뿐 release 확정이 아니고 확정(prepare)은 machine만 한다.
+const releaseRequestActors = ["coding_agent", "machine"] as const;
 
 // 준비 접수. 접수는 release 확정이 아니고 request_key는 메모리 진행 식별이다.
 const releasePrepareBundleInputSchema = z.strictObject({
@@ -202,7 +205,7 @@ export const releasePrepareBundle = defineCommand({
   name: "release.prepare_bundle",
   input: releasePrepareBundleInputSchema,
   output: releasePrepareBundleOutputSchema,
-  actors: releaseRecordActors,
+  actors: releaseRequestActors,
   errors: ["forbidden", "invalid_input", "conflict", "unavailable"],
 });
 
@@ -225,7 +228,7 @@ export const releasePreparation = defineCommand({
   name: "release.preparation",
   input: releasePreparationInputSchema,
   output: releasePreparationOutputSchema,
-  actors: releaseRecordActors,
+  actors: releaseRequestActors,
   errors: ["forbidden", "invalid_input", "not_found", "unavailable"],
 });
 

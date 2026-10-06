@@ -240,6 +240,9 @@ export const requestTestInputSchema = z.strictObject({
   ...connectionFields,
   target: testTargetInputSchema,
   ticket: ticketTestLinkInputSchema.nullable(),
+  // 이 요청의 실행 기한이다. 동결 test method의 timeout_ms보다 길어지지 않는다(runner가 둘 중 짧은
+  // 쪽을 쓴다). 생략하면 method의 timeout_ms다. 요청 identity(request hash)에는 들어가지 않는다.
+  timeout_ms: integer.min(1).max(TEST_EXECUTION_LIMITS.timeout_ms).optional(),
 }).refine(validConnections, { message: "invalid kind connections" });
 export const requestTestOutputSchema = z.object({
   request_key: idempotencyKeySchema,

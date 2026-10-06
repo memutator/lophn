@@ -31,12 +31,18 @@ export type RuntimeObservationSource = (
 
 export type RuntimeLogSource = (
   app: string,
-  input: { invocation?: string; limit: number; max_bytes?: number },
+  input: {
+    invocation?: string;
+    limit: number;
+    max_bytes?: number;
+    cursor?: string;
+  },
 ) => {
   state: AppLogState;
   lines: string[];
   collected_at: string | null;
   truncated: boolean;
+  next_cursor?: string | null;
 } | undefined;
 
 export type RuntimeReadDeps = {
@@ -104,6 +110,7 @@ export function createRuntimeReads(
           invocation: input.invocation,
           limit,
           max_bytes: input.max_bytes,
+          ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
         });
         return ok({
           ...(feed ?? {
@@ -113,7 +120,7 @@ export function createRuntimeReads(
             truncated: false,
           }),
           as_of_seq: snapshot.as_of_seq,
-          next_cursor: null,
+          next_cursor: feed?.next_cursor ?? null,
         });
       },
     },
@@ -138,13 +145,19 @@ export type RuntimeSources = {
   observation(app: string): Promise<Result<RuntimeObservation | null>>;
   logs(
     app: string,
-    query: { invocation?: string; limit: number; max_bytes?: number },
+    query: {
+      invocation?: string;
+      limit: number;
+      max_bytes?: number;
+      cursor?: string;
+    },
   ): Promise<
     Result<{
       state: AppLogState;
       lines: string[];
       collected_at: string | null;
       truncated: boolean;
+      next_cursor?: string | null;
     }>
   >;
   // 지금 ledger의 App. 상태 계산에 쓴다.
@@ -199,6 +212,7 @@ export function withRuntimeLogs(
       invocation?: string;
       limit?: number;
       max_bytes?: number;
+      cursor?: string;
     };
     const feed = await sources.logs(query.app, {
       ...(query.invocation === undefined
@@ -206,6 +220,7 @@ export function withRuntimeLogs(
         : { invocation: query.invocation }),
       limit: query.limit ?? DEFAULT_LOG_LIMIT,
       ...(query.max_bytes === undefined ? {} : { max_bytes: query.max_bytes }),
+      ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
     });
     // supervisor에 닿지 못하면 source가 없는 것이다. 없는 log를 만들지 않는다(R14).
     if (!feed.ok) return pooled;
@@ -229,6 +244,7 @@ export function withRuntimeLogs(
       lines,
       collected_at: feed.value.collected_at,
       truncated: feed.value.truncated,
+      next_cursor: feed.value.next_cursor ?? null,
     });
   };
 }

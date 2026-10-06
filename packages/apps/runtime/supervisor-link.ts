@@ -158,7 +158,12 @@ export type SupervisorClient = {
   observe(app: string): Promise<Result<ObservationWire | null>>;
   logs(
     app: string,
-    query: { invocation?: string; limit: number; max_bytes?: number },
+    query: {
+      invocation?: string;
+      limit: number;
+      max_bytes?: number;
+      cursor?: string;
+    },
   ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
   // 닫힌 화면 view를 그 앱의 지금 live 자식에 알린다. 자식이 없으면 false다.

@@ -246,3 +246,36 @@ Deno.test("apps/runtime#R27: 실제 자식이 실패로 끝나면 flush가 마�
   );
   assert(elapsed < 20 + 30, `flush waited ${elapsed}ms`);
 });
+
+Deno.test("coding-agent/cli#R24, apps/runtime#R27: cursor로 더 오래된 줄을 이어 읽고 새 줄이 와도 같은 자리에서 이어진다", () => {
+  const log = buffer();
+  for (let index = 0; index < 10; index++) log.addLine(`line-${index}`);
+  const first = log.read({ limit: 4 });
+  assertEquals(first.lines, ["line-6", "line-7", "line-8", "line-9"]);
+  assertEquals(first.truncated, true);
+  assertEquals(first.next_cursor, "6");
+  // 새 줄이 와도 cursor는 절대 줄 번호라 이어 읽는 자리가 밀리지 않는다.
+  log.addLine("line-10");
+  const second = log.read({ limit: 4, cursor: first.next_cursor! });
+  assertEquals(second.lines, ["line-2", "line-3", "line-4", "line-5"]);
+  assertEquals(second.next_cursor, "2");
+  const last = log.read({ limit: 4, cursor: second.next_cursor! });
+  assertEquals(last.lines, ["line-0", "line-1"]);
+  assertEquals(last.next_cursor, undefined);
+  assertEquals(last.truncated, false);
+});
+
+Deno.test("apps/runtime#R27: 밀려난 쪽을 넘는 cursor와 byte 예산은 남은 줄 안에서만 이어진다", () => {
+  const log = buffer();
+  for (let index = 0; index < 600; index++) log.addLine(`line-${index}`);
+  // 최근 500줄만 남는다. 밀려난 앞쪽 번호는 남은 줄 끝으로 맞춘다.
+  const gone = log.read({ limit: 5, cursor: "10" });
+  assertEquals(gone.lines, []);
+  const tail = log.read({ limit: 200, cursor: "9999" });
+  assertEquals(tail.lines.length, 200);
+  assertEquals(tail.next_cursor, "400");
+  // byte 예산으로 줄어든 쪽도 다음 cursor가 남은 줄의 시작을 가리킨다.
+  const small = log.read({ limit: 200, max_bytes: 16 });
+  assert(small.lines.length < 200);
+  assertEquals(small.next_cursor, String(600 - small.lines.length));
+});

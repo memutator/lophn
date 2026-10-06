@@ -416,19 +416,23 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
         message: "connection does not match its mode, screens, or caller",
       });
     }
-    prune(nowMs);
-    if (issued.length >= ISSUED_CONNECTION_LIMIT) {
-      return unavailable("too many open connections");
-    }
     const signature = await deps.signer.sign(checked.data);
-    issued.push({
-      credentialRef: ctx.credential_ref,
-      app: input.app,
-      processNonce: found.processNonce,
-      expiresAtMs,
-      agent: kind === "agent",
-      commands,
-    });
+    // 제어(machine) connection은 supervisor의 짧은 요청이고 그 자격은 supervisor 수명이다.
+    // 회수로 닫을 통로는 사람·agent·coding agent connection이다.
+    if (kind !== "machine") {
+      prune(nowMs);
+      if (issued.length >= ISSUED_CONNECTION_LIMIT) {
+        return unavailable("too many open connections");
+      }
+      issued.push({
+        credentialRef: ctx.credential_ref,
+        app: input.app,
+        processNonce: found.processNonce,
+        expiresAtMs,
+        agent: kind === "agent",
+        commands,
+      });
+    }
     return ok({
       endpoint: found.endpoint,
       connection: checked.data,

@@ -1,6 +1,7 @@
 // 시험 전용: 실제 core(임시 LOPHN_HOME)와 실제 앱 자식 프로세스로 connect·client를 보는
 // 준비. mod.ts에서 내보내지 않는다. core의 supervisor 관측만 시험 출처로 바꿔 끼우고(자식이
 // 이 폴더의 실제 앱 프로세스다), 그 밖은 제품 조립 그대로다. 사람 데이터 root는 열지 않는다.
+import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../../base/mod.ts";
 import type {
@@ -59,6 +60,8 @@ export type SourceState = {
   restarts: { app: string; nonce: string }[];
   // true면 supervisor에 닿지 못한 것처럼 답한다.
   down: boolean;
+  // true면 재시작 요청이 supervisor에 닿지 못한다.
+  failRestart: boolean;
 };
 
 function processSource(state: SourceState): ProcessSource {
@@ -79,6 +82,11 @@ function processSource(state: SourceState): ProcessSource {
       );
     },
     restart(app, nonce) {
+      if (state.failRestart) {
+        return Promise.resolve(
+          err({ code: "unavailable", message: "supervisor is down" }),
+        );
+      }
       state.restarts.push({ app, nonce });
       return Promise.resolve(ok(undefined));
     },
@@ -149,6 +157,7 @@ export async function openWorld(
     preview: undefined,
     restarts: [],
     down: false,
+    failRestart: false,
   };
   const runtimeDir = options.supervisor
     ? await Deno.makeTempDir({ prefix: "lop-run-" })
@@ -424,4 +433,17 @@ export async function grant(
     world.machine.token,
     command({ approval, action, idempotency_key: `apply-${approval}` }),
   );
+}
+
+// 시험 credential을 회수한다(ledger credential 기록의 상태). 이후 그 credential은 현재 자격이 아니다.
+export function revokeCredential(world: World, login: Login): void {
+  const db = new DatabaseSync(`${world.harness.dataRoot}/lophn.db`);
+  try {
+    db.exec("PRAGMA busy_timeout = 5000");
+    db.prepare(
+      "UPDATE credentials SET state = 'revoked' WHERE credential_ref = ?",
+    ).run(login.context.credential_ref);
+  } finally {
+    db.close();
+  }
 }

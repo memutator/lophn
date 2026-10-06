@@ -9,6 +9,7 @@ import {
   direct,
   observationOf,
   openWorld,
+  revokeCredential,
   type World,
 } from "./testing/world.ts";
 
@@ -435,5 +436,67 @@ Deno.test("apps/runtime#R9: connection 기한은 원래 credential 기한을 넘
       (connected.body["connection"] as Record<string, unknown>)["expires_at"],
       soon,
     );
+  });
+});
+
+Deno.test("apps/runtime#R9: 회수된 credential의 connection은 그 프로세스를 한 번만 다시 띄우게 하고 다른 연결·만료된 연결은 건드리지 않는다", async () => {
+  await withWorld(async (world) => {
+    const child = await world.start();
+    const control = world.harness.appsControl;
+    const connect = async (login: { token: string }) => {
+      const connected = await call(
+        world.harness,
+        "apps/connect",
+        login.token,
+        connectBody(world.app),
+      );
+      assertEquals(connected.status, 200, JSON.stringify(connected.body));
+    };
+    const revoked = await world.login("user", ["app.connect"]);
+    const healthy = await world.login("user", ["app.connect"]);
+    await connect(revoked);
+    await connect(healthy);
+    assertEquals(control.connector.issued, 2);
+    // 회수 전에는 닫을 것이 없다.
+    await control.sweep();
+    assertEquals(world.state.restarts, []);
+    revokeCredential(world, revoked);
+    // 시작을 알리지 못하면 기록이 남아 다음 검사가 다시 시도한다.
+    world.state.failRestart = true;
+    await control.sweep();
+    assertEquals(world.state.restarts, []);
+    assertEquals(control.connector.issued, 2);
+    world.state.failRestart = false;
+    await control.sweep();
+    assertEquals(world.state.restarts, [{
+      app: world.app,
+      nonce: child.nonce,
+    }]);
+    // 그 프로세스의 통로를 닫았으니 두 연결의 기록이 모두 사라지고 두 번 닫지 않는다.
+    assertEquals(control.connector.issued, 0);
+    await control.sweep();
+    assertEquals(world.state.restarts.length, 1);
+  });
+});
+
+Deno.test("apps/runtime#R9: 기한이 지난 connection의 credential이 회수돼도 프로세스를 다시 띄우지 않는다", async () => {
+  await withWorld(async (world) => {
+    await world.start();
+    const control = world.harness.appsControl;
+    const holder = await world.login("user", ["app.connect"]);
+    const connected = await call(
+      world.harness,
+      "apps/connect",
+      holder.token,
+      connectBody(world.app),
+    );
+    assertEquals(connected.status, 200);
+    // 10분이 지나면 connection은 어차피 앱이 거절한다. 그 뒤 회수는 닫을 통로가 없다.
+    const clock = world.harness.clock as { advance(ms: number): void };
+    clock.advance(11 * 60_000);
+    revokeCredential(world, holder);
+    await control.sweep();
+    assertEquals(world.state.restarts, []);
+    assertEquals(control.connector.issued, 0);
   });
 });

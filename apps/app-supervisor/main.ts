@@ -163,7 +163,9 @@ globalThis.addEventListener("unhandledrejection", (event) => {
   // 원인을 stderr에 남긴다(감독이 줄 단위로 받는다). 자식은 남기지 않고 끝낸다.
   console.error(
     `unhandled rejection: ${
-      event.reason instanceof Error ? event.reason.message : String(event.reason)
+      event.reason instanceof Error
+        ? event.reason.message
+        : String(event.reason)
     }`,
   );
   shutdown();

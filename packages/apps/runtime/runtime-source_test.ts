@@ -3,7 +3,11 @@
 // 프로세스를 띄워 probe·open·record_started를 마친다. 사람 데이터 root는 열지 않는다.
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
-import { call, count } from "../../../apps/core/testing/approvals-fixture.ts";
+import {
+  call,
+  command,
+  count,
+} from "../../../apps/core/testing/approvals-fixture.ts";
 import { appFlags } from "../permissions/mod.ts";
 import type { DesiredApp } from "./supervisor/mod.ts";
 import { createRuntimeClient } from "./client/mod.ts";
@@ -86,6 +90,7 @@ async function withSupervisor(
     "app.logs",
     "app.connect",
     "app.disable_execution",
+    "app.get",
   ]);
   const prepared = await prepare(world);
   try {
@@ -292,11 +297,40 @@ Deno.test("apps/runtime#R26: problems collector(machine)는 지금 contract로�
 Deno.test("apps/runtime#R15: 사람이 멈추면 새 호출부터 닫히고 종료를 확인한 뒤에야 stopped다", async () => {
   await withSupervisor(async (world, prepared, token) => {
     await running(world, prepared, token);
+    // 사람이 멈춘다: ledger의 실행 허용을 끄고, 그 결과를 supervisor에 알린다.
+    const got = await call(world.harness, "apps/get", token, {
+      app: world.app,
+    });
+    assertEquals(got.status, 200, JSON.stringify(got.body));
+    const disabled = await call(
+      world.harness,
+      "apps/disable_execution",
+      token,
+      command(
+        { app: world.app },
+        {
+          compare: {
+            base_revision: String(
+              (got.body["app"] as { revision: string }).revision,
+            ),
+          },
+        },
+      ),
+    );
+    assertEquals(disabled.status, 200, JSON.stringify(disabled.body));
     const stopped = await world.harness.reconcileApp({
       ...prepared.desired,
       runEnabled: false,
     });
     assert(stopped.ok);
+    // 정지를 요청했지만 OS 종료를 확인하기 전에는 종료 중이다. supervisor의 terminating 근거가
+    // 관측으로 올라오고 완료로 표시하지 않는다(R15).
+    const pending = await until("termination to be pending", async () => {
+      const read = await runtimeOf(world, token);
+      return read.state.termination_pending ? read : undefined;
+    }, 8_000);
+    assertEquals(pending.observation!.reason?.code, "terminating");
+    assertEquals(pending.observation!.accepting, false);
     const done = await until("the app to stop", async () => {
       const read = await runtimeOf(world, token);
       return read.observation === null ? read : undefined;

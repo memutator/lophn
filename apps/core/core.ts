@@ -110,7 +110,11 @@ import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
 import { startNotifications } from "./notifications.ts";
-import { NOTIFICATIONS_CONTEXT, withPlatform } from "./platform.ts";
+import {
+  APPROVAL_EXPIRY_CONTEXT,
+  NOTIFICATIONS_CONTEXT,
+  withPlatform,
+} from "./platform.ts";
 import { observeApprovals } from "../../packages/platform/approvals/mod.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
@@ -141,6 +145,9 @@ import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
+
+// approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
+const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;
 
 // 시작 순서: lock → ledger schema step → writer·reader → event 배포 → API → I/O worker 감독.
 export type CoreOptions = {
@@ -233,6 +240,8 @@ export type Core = {
   ): Promise<Result<void>>;
   // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
   sweepTicketClaims(): Promise<void>;
+  // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다(platform Q25).
+  sweepApprovalExpiry(): Promise<void>;
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
   // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
   documentsFeed?: InternalSubscription;
@@ -463,6 +472,13 @@ async function open(
   if (!sweepCredential.ok) {
     await runtime.close();
     return sweepCredential;
+  }
+  // approval 만료 정리(machine:approval-expiry)의 자격 기록. 기록이 없으면 reader·writer가 정리를
+  // 거절해 대기가 영원히 pending으로 남으므로 기동을 여기서 멈춘다(platform/approvals#R12).
+  const expiryCredential = await runtime.record(APPROVAL_EXPIRY_CONTEXT);
+  if (!expiryCredential.ok) {
+    await runtime.close();
+    return expiryCredential;
   }
   // notifications 구독자(machine:notifications)의 자격 기록. token이 없는 core 내부 자격이라
   // HTTP로는 이 principal이 될 수 없다. reader·writer는 이 ledger 기록으로 현재 자격을 본다.
@@ -777,9 +793,16 @@ async function open(
     ticketClaimSweepIntervalMs,
   );
   await runtime?.sweepTicketClaims();
+  // approval 만료 정리. 기한에 도달한 대기를 expired로 확정한다. 같은 간격과 재시작 때 돈다.
+  const approvalSweep = setInterval(
+    () => runtime?.sweepApprovalExpiry(),
+    APPROVAL_EXPIRY_SWEEP_INTERVAL_MS,
+  );
+  await runtime?.sweepApprovalExpiry();
   stopPrune.run = () => {
     clearInterval(timer);
     clearInterval(claimSweep);
+    clearInterval(approvalSweep);
     rootsWatch?.stop();
   };
   // 보호 입력의 값은 I/O worker로만 간다. 준비 증거(값 없음)는 writer가 ledger에 남긴다.
@@ -1022,6 +1045,7 @@ async function open(
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
+    sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     ...(options.testCredentials
       ? { documentsFeed, eventSessions: () => runtime!.trackedSessions() }
       : {}),

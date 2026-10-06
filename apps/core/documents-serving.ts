@@ -188,9 +188,8 @@ export function createDocumentsChannel(
     },
     onMessage(message) {
       if (message.type !== "worker_response") return;
-      const settle = pending.get(message.request_id);
+      const settle = leave(message.request_id);
       if (!settle) return;
-      pending.delete(message.request_id);
       settle(
         message.ok ? ok(message.payload) : err({
           code: message.error.code,

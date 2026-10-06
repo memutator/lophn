@@ -1208,3 +1208,72 @@ Deno.test("documents/file-tracking#R1 documents/file-tracking#R11: 옛 판 복�
     await opened.dispose();
   }
 });
+
+// 추적을 켜면 core가 새 root 권한으로 coordinator를 다시 띄운다. 그 직전에 coordinator에 보낸 요청은
+// 옛 child와 함께 사라져 답이 오지 않았고, 요청의 기한(preview는 70초)까지 멈췄다.
+Deno.test("documents/file-tracking#R3 platform/responsiveness#R3: 추적을 켠 직후 preview는 coordinator를 바꾸는 동안에도 기한을 다 기다리지 않고 답한다", async () => {
+  for (let round = 0; round < 3; round++) {
+    const opened = await open({ "a.md": "# a\n" });
+    try {
+      const created = await post(opened, "projects/create", {
+        input: {
+          id: PROJECT,
+          name: "alpha",
+          title: "Alpha",
+          purpose: "",
+          folders: [{ path: opened.folder, description: "a" }],
+          tracking: { enabled: false, patterns: [], use_gitignore: false },
+        },
+        idempotency_key: "create-alpha",
+        compare: {},
+        prepared: [],
+      });
+      assertEquals(created.status, 200, JSON.stringify(created.body));
+      const folders = [{ path: opened.folder, description: "a" }];
+      const tracking = {
+        enabled: true,
+        patterns: [{ effect: "include" as const, glob: "**/*.md" }],
+        use_gitignore: false,
+      };
+      const first = await post(opened, "projects/preview_tracking", {
+        project: PROJECT,
+        base_revision: String(created.body["revision"]),
+        folders,
+        tracking,
+      });
+      assertEquals(first.status, 200, JSON.stringify(first.body));
+      const applied = await post(opened, "projects/set_tracking", {
+        input: { project: PROJECT, folders, tracking, preview: first.body },
+        idempotency_key: "track-alpha",
+        compare: { base_revision: String(created.body["revision"]) },
+        prepared: [],
+      });
+      assertEquals(applied.status, 200, JSON.stringify(applied.body));
+      // 곧바로 여러 번 겹쳐 부른다. 교체가 시작되는 때(적용 뒤 0.1초쯤)에 걸린 요청이 있어야 한다.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const calls = Array.from({ length: 10 }, async (_, index) => {
+        await new Promise((resolve) => setTimeout(resolve, index * 40));
+        return await post(opened, "projects/preview_tracking", {
+          project: PROJECT,
+          base_revision: String(applied.body["revision"]),
+          folders,
+          tracking,
+        });
+      });
+      const replies = await Promise.race([
+        Promise.all(calls),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("preview did not answer within 25s")),
+            25_000,
+          );
+        }),
+      ]).finally(() => clearTimeout(timer));
+      for (const reply of replies) {
+        assertEquals(reply.status, 200, JSON.stringify(reply.body));
+      }
+    } finally {
+      await opened.dispose();
+    }
+  }
+});

@@ -642,6 +642,7 @@ concerns: [shell]
 
 ### T32 [Instructions]: 지침 파일을 같은 편집기로
 
+- 상태: 완료 (#380) — 이어보냄: app 층 열기(앱 자리 `LOPHN.md` 등록, documents#T28 후속이라 지금은 없는 대상과 같게 not_found) · [Instructions] 단추 배치(전역 → T31, app → T43, project-workspace는 작업대 화면에 `InstructionsButton`·`openInstructions`를 놓는 일이 남음)
 - 등급: 기본
 - concern: shell/editor
 - 요구: shell/editor#R17

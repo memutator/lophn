@@ -179,7 +179,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T10 apps.connect와 runtime client
 
-- 상태: 진행 (#PR) — 남은 것: problems collector가 apps.logs에 닿는 contract(Q18, contracts 팀), release 활성화가 `core.reconcileApp`을 부르는 연결(T18)
+- 상태: 진행 (#312) — 남은 것: problems collector가 apps.logs에 닿는 contract(Q18, contracts 팀), release 활성화가 `core.reconcileApp`을 부르는 연결(T18)
 - 등급: 기본
 - concern: apps/runtime, apps/permissions
 - 요구: apps/runtime#R9, R32, apps/permissions#R28

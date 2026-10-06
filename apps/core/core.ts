@@ -150,7 +150,13 @@ import { createStreamer, createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
-import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
+import {
+  greet,
+  type ParentPipe,
+  shellViewLog,
+  watchParent,
+  writeParent,
+} from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
   appCredentialIssuer,
@@ -1576,7 +1582,7 @@ async function open(
     ? watchParent(parent, () => core.shutdown(), {
       confirmation: (body) => runtime!.confirmation(body),
       reply: (message) => writeParent(parent, message),
-    })
+    }, shellViewLog(root.path))
     : Promise.resolve();
   const accepting = registry as CredentialRegistry & {
     acceptTestCredential?(

@@ -1003,10 +1003,13 @@ function selecting(
 
 Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 펼쳐 고정되고 쓰기 묶음은 읽기 묶음과 따로 고른다", () => {
   assertEquals([...TOOL_BUNDLES.keys()].sort(), [
+    "context-read",
+    "context-write",
     "document-read",
     "document-write",
     "format",
     "lophn-guide",
+    "metadata-read",
     "visual",
   ]);
   assertEquals(TOOL_BUNDLES.get("document-read"), DOCUMENT_READ_TOOL_NAMES);

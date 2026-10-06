@@ -24,6 +24,22 @@ export {
   type DocumentToolPorts,
 } from "./bundles/document.ts";
 export {
+  CONTEXT_READ_TOOL_NAMES,
+  CONTEXT_TOOL_REVISION,
+  CONTEXT_TOOLS,
+  CONTEXT_WRITE_TOOL_NAMES,
+  type ContextToolPorts,
+  createContextToolHandlers,
+  TERM_EVIDENCE_MAX,
+} from "./bundles/context.ts";
+export {
+  createMetadataToolHandlers,
+  METADATA_TOOL_NAMES,
+  METADATA_TOOL_REVISION,
+  METADATA_TOOLS,
+  type MetadataToolPorts,
+} from "./bundles/metadata.ts";
+export {
   createFormatToolHandlers,
   FORMAT_TOOL_NAMES,
   FORMAT_TOOL_REVISION,

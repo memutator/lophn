@@ -35,6 +35,7 @@ void invalidEnvelopeCompare;
 const definition: CommandDefinition<typeof route> = {
   route,
   dispatchable: true,
+  dispatchOnly: false,
   handle(tx, ctx, input, compare) {
     tx.sql.run("UPDATE documents SET title = ?", [input.title]);
     tx.emit(

@@ -245,6 +245,57 @@ Deno.test("platform/approvals#R8 #R7: 다른 앱의 confirm 호출은 사람이 
   }
 });
 
+Deno.test("platform/approvals#R7 #R9: 허락 뒤 apply 전에 접수 command를 직접 부르면 없는 command와 같게 거절되고 아무것도 남지 않으며 apply가 한 번만 사용을 기록한다", async () => {
+  const world = await open();
+  const { harness } = world;
+  try {
+    const exact = await accept(world, APR_ONE);
+    const action = confirmAction(world.caller.context.actor, exact);
+    await granted(world, world.caller, APR_ONE, action);
+
+    // machine 자격으로 직접 부르면 허락된 approval이어도 접수·proof가 나오지 않는다.
+    const direct = await call(
+      harness,
+      "invocations/accept_confirm",
+      world.machine.token,
+      command(exact),
+    );
+    assertEquals(direct.status, 400, JSON.stringify(direct.body));
+    assertEquals(codeOf(direct), "invalid_input");
+    assertEquals(
+      (direct.body["error"] as { message: string }).message,
+      "등록되지 않은 command다",
+    );
+    assertEquals(direct.body["proof"], undefined);
+    assertEquals(count(harness, INVOCATIONS), 0);
+    assertEquals(count(harness, ACCEPTED), 0);
+    assertEquals(count(harness, USES), 0);
+
+    // 직접 시도가 approval을 소모하지 않았으므로 apply는 200이고 사용은 정확히 한 번이다.
+    const applied = await apply(world, world.machine, APR_ONE, action, "a-1");
+    assertEquals(applied.status, 200, JSON.stringify(applied.body));
+    assertEquals(applied.body["replayed"], false);
+    assertEquals(count(harness, INVOCATIONS), 1);
+    assertEquals(count(harness, ACCEPTED), 1);
+    assertEquals(count(harness, USES), 1);
+
+    // apply 뒤의 직접 호출도 같은 답이고 새 접수도 proof도 없다.
+    const after = await call(
+      harness,
+      "invocations/accept_confirm",
+      world.machine.token,
+      command(exact),
+    );
+    assertEquals(after.status, 400, JSON.stringify(after.body));
+    assertEquals(codeOf(after), "invalid_input");
+    assertEquals(after.body["proof"], undefined);
+    assertEquals(count(harness, INVOCATIONS), 1);
+    assertEquals(count(harness, USES), 1);
+  } finally {
+    await harness.close();
+  }
+});
+
 Deno.test("platform/approvals#R8 #R5 #R11: 허락 뒤 release·command·입력·호출 주체를 바꾸면 시작되지 않고 허락은 소비되지 않는다", async () => {
   const world = await open();
   const { harness } = world;

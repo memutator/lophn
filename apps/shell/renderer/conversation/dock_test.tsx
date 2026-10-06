@@ -25,9 +25,26 @@ import {
   sessionId,
 } from "./testdata/fake-source.ts";
 import type { MessageRow, ResultLink } from "./source.ts";
+import {
+  type ResizeSource,
+  ResizeSourceProvider,
+} from "@lophn/design/components";
+import {
+  barBlock,
+  DOC,
+  tableBlock,
+  VER,
+} from "../workspace/visuals/testdata/blocks.ts";
 import { MESSAGE_TEXT_MAX_BYTES } from "./delivery-state.ts";
 
 const NOW = Date.parse("2026-10-06T09:00:00Z");
+
+const fixedSize: ResizeSource = {
+  observe(_element, onSize) {
+    onSize({ width: 360, height: 240 });
+    return () => {};
+  },
+};
 
 async function flush(): Promise<void> {
   for (let round = 0; round < 6; round += 1) {
@@ -765,36 +782,141 @@ Deno.test("lophn-agent/conversation#R2: 이 창이 보낸 말은 접수 뒤 core
   );
 });
 
-Deno.test("shell/workspace#R12: 시각 블록은 블록 renderer 전까지 제목과 안내만 글로 보이고 agent의 HTML·script를 실행하지 않는다", async () => {
+Deno.test("shell/workspace#R12: 답의 시각 블록은 본문 순서대로 블록 renderer가 그리고 agent의 HTML·script를 실행하지 않는다", async () => {
   const title = '<img src=x onerror="alert(1)"><script>alert(2)</script>';
   const fake = fakeSource({
     messages: { [sessionId(1)]: [agentMessage(1)] },
     bodies: {
       [messageId(1)]: [
         { kind: "text", text: "Here is the chart." },
-        { kind: "visual", key: "spend", visual: "chart", title },
+        { kind: "visual", block: barBlock },
+        { kind: "visual", block: { ...tableBlock, title } },
         { kind: "text", text: "<b>not bold</b>" },
       ],
     },
   });
-  using view = render(dockOf(fake));
+  using view = render(
+    <ResizeSourceProvider value={fixedSize}>
+      {dockOf(fake)}
+    </ResizeSourceProvider>,
+  );
   await flush();
   const answer = find(view.container, "[data-actor='agent'] [data-body]");
-  const pending = find(answer, "[data-visual-pending='chart']");
-  assertEquals(pending.firstElementChild!.textContent, title);
-  assertEquals(
-    pending.lastElementChild!.textContent,
-    "Charts, tables, and diagrams can't be shown in the conversation yet.",
-  );
   // 순서는 본문 그대로다. 글 사이의 블록 자리에 둔다.
   assertEquals(
     [...answer.children].map((item) =>
-      item.getAttribute("data-visual-pending") ?? item.textContent
+      item.getAttribute("data-visual") ?? item.textContent
     ),
-    ["Here is the chart.", "chart", "<b>not bold</b>"],
+    ["Here is the chart.", "chart", "unavailable", "<b>not bold</b>"],
   );
-  // 제목·글의 태그는 글자로만 있다. 요소로 만들어지지 않는다.
+  assert(answer.querySelector("svg[data-chart='bar']"));
+  // 제목·글의 태그는 요소로 만들어지지 않는다.
   assertEquals(answer.querySelectorAll("img, script, b").length, 0);
+});
+
+Deno.test("shell/workspace#R13: 문서로 남기기는 요청을 대화 입력으로 보내고 작성 중 글·focus·읽던 위치를 지키며 저장 뒤 고정 문서 링크를 보인다", async () => {
+  const fake = fakeSource({
+    messages: { [sessionId(1)]: [agentMessage(1)] },
+    bodies: { [messageId(1)]: [{ kind: "visual", block: barBlock }] },
+    titles: { [DOC]: "Budget 2026" },
+  });
+  const drafts = new DraftStore();
+  const ticks = manualTicks();
+  const opened: [string, string | null][] = [];
+  using view = render(
+    <ResizeSourceProvider value={fixedSize}>
+      <Dock
+        source={fake.source}
+        drafts={drafts}
+        placement="docked"
+        workPlace={{ kind: "global", id: null }}
+        onClose={() => {}}
+        onOpenResult={(document, version) => opened.push([document, version])}
+        ticks={ticks.ticks}
+        now={() => NOW}
+      />
+    </ResizeSourceProvider>,
+  );
+  await flush();
+  const list = find(view.container, "[data-message-list]");
+  Object.defineProperty(list, "scrollHeight", {
+    configurable: true,
+    get: () => 2000,
+  });
+  Object.defineProperty(list, "clientHeight", {
+    configurable: true,
+    get: () => 400,
+  });
+  // 사람이 위로 올려 읽는다.
+  act(() => {
+    list.scrollTop = 120;
+    list.dispatchEvent(new Event("scroll"));
+  });
+  const input = composer(view.container);
+  write(input, "half a thought");
+  focus(input);
+  click(find(view.container, "[data-save-visual='spend']"));
+  await flush();
+  // 따로 저장 contract를 부르지 않고 대화 입력 하나를 보낸다.
+  assertEquals(fake.state.sent.length, 1);
+  const sent = fake.state.sent[0]!;
+  assertEquals(sent.mode, "request");
+  assertEquals(
+    sent.content.parts[0].text,
+    `Save the visual \u201cMonthly spend\u201d (block spend in message ${
+      messageId(1)
+    }) as a document.`,
+  );
+  // 작성 중 글·focus·읽던 위치는 그대로다.
+  assertEquals(composer(view.container).value, "half a thought");
+  assert(isFocused(input), "saving moved the focus");
+  assertEquals(list.scrollTop, 120);
+  const save = () => find(view.container, "[data-visual-save]");
+  assertEquals(save().getAttribute("data-visual-save"), "requested");
+  // 요청을 맡은 run의 lophn 답에 판 결과가 오면 그 블록에 고정 문서 링크를 보인다.
+  fake.state.messages[sessionId(1)]!.push({
+    ...agentMessage(3, [{ kind: "version", document: DOC, version: VER }]),
+    run: runId(9),
+  });
+  fake.state.bodies[messageId(3)] = [{ kind: "text", text: "Saved it." }];
+  ticks.tick();
+  await flush();
+  assertEquals(save().getAttribute("data-visual-save"), "saved");
+  const link = find(save(), `[data-visual-document='${DOC}@${VER}']`);
+  assertEquals(link.textContent, "Budget 2026");
+  click(link);
+  assertEquals(opened, [[DOC, VER]]);
+  assert(isFocused(input), "a saved answer moved the focus");
+});
+
+Deno.test("shell/workspace#R13: 보내지 못한 문서로 남기기 요청은 그 블록에 실패를 보이고 입력칸을 바꾸지 않는다", async () => {
+  const fake = fakeSource({
+    messages: { [sessionId(1)]: [agentMessage(1)] },
+    bodies: { [messageId(1)]: [{ kind: "visual", block: barBlock }] },
+    replies: [{ ok: false, code: "conflict" }],
+  });
+  const drafts = new DraftStore();
+  using view = render(
+    <ResizeSourceProvider value={fixedSize}>
+      {dockOf(fake, drafts)}
+    </ResizeSourceProvider>,
+  );
+  await flush();
+  write(composer(view.container), "keep me");
+  click(find(view.container, "[data-save-visual='spend']"));
+  await flush();
+  assertEquals(
+    find(view.container, "[data-visual-save]").getAttribute("data-visual-save"),
+    "failed",
+  );
+  assertEquals(drafts.draft(sessionId(1)).outgoing, null);
+  assertEquals(view.container.querySelector("[data-provisional]"), null);
+  assertEquals(composer(view.container).value, "keep me");
+  assertEquals(
+    (find(view.container, "[data-save-visual='spend']") as HTMLButtonElement)
+      .disabled,
+    false,
+  );
 });
 
 Deno.test("shell/desktop#R8: 본문 상한을 넘는 글은 보내지 않고 이유를 보이며 글을 그대로 둔다", async () => {

@@ -13,3 +13,5 @@ export type { CommandRef, ParsedArgs } from "./parser.ts";
 export { CLI_EXITS, createOutput } from "./output.ts";
 export type { OutputOptions, OutputWriter } from "./output.ts";
 export { COMMAND_HELP, commandHelp, helpJson, helpText } from "./help.ts";
+export { APP_COMMANDS, CLI_APP_OPS, runApp } from "./commands/app.ts";
+export type { CliAppName } from "./commands/app.ts";

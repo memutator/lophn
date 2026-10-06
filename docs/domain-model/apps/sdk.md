@@ -56,7 +56,7 @@ Package와 불변 공개 SDK version, 템플릿 값을 정의한다.
 
 ## Screen context SDK API (값)
 
-`@lophn/blueprint`의 `defineAgentContext`는 → apps/agent-context의 AgentContextDeclaration 검증을 공유한다. `@lophn/cap-schedule`의 `registerScreenContext`는 read handler·revision 공급자·민감 path 제거를 등록하고 `registerAnnotationTarget`는 선언된 write handler의 target/revision 검사를 연결한다. 새로운 예약 command key나 DOM 접근 통로를 만들지 않는다. AppScreenContext·ScreenContextReadInput·AnnotationWriteInput type 정본은 → apps/agent-context다.
+`@lophn/blueprint`의 `defineAgentContext`는 → apps/agent-context의 AgentContextDeclaration 검증을 공유한다. `@lophn/cap-schedule`의 `registerScreenContext({screen, command, read, revision?})`는 선언한 read_command의 handler를 등록한다. `read({view_session, detail})`는 그 view session의 `{revision, summary, data?}`를 돌려주고 앱이 그 session의 상태를 갖고 있지 않으면(닫힘·모름) undefined를 돌려준다. `registerAnnotationTarget({screen, target, command, write})`는 선언한 target의 write handler를 등록한다. `write({view_session, target, text, revision, input})`은 SDK가 view session별로 차례로 처리하며 현재 revision이 expected_revision과 같을 때만 불리고 `{revision, result?}`를 돌려준다. 선언·민감 path·열린 view session은 앱 코드가 아니라 runtime이 설치한 host port(release에 고정된 blueprint와 이 프로세스의 view)에서 오고, 제거·요약 크기 규칙은 → apps/agent-context의 플랫폼 진입 파일이 갖는다. host가 없거나 blueprint에 선언되지 않은 화면·자리는 등록 또는 호출이 거절된다. 새로운 예약 command key나 DOM 접근 통로를 만들지 않는다. AppScreenContext·ScreenContextReadInput·AnnotationWriteInput type 정본은 → apps/agent-context다.
 
 ## App command client API (값)
 

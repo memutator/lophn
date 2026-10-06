@@ -22,6 +22,11 @@ export const HARNESS_CHECKS = [
   "permission_denial",
   "view_exception",
   "feedback",
+  "migration_empty",
+  "migration_upgrade",
+  "read_contract",
+  "automation_scope",
+  "adapter_isolation",
 ] as const;
 export type RunnerCheckName = (typeof RUNNER_CHECKS)[number];
 export type HarnessCheckName = (typeof HARNESS_CHECKS)[number];

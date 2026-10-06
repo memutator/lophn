@@ -5,6 +5,7 @@
 // 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
+import { registerProviderCredential } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
   type AuthenticatedContext,
   setSecret,
@@ -45,6 +46,7 @@ const USER_OPERATIONS = [
   "ReadSession",
   "ReceiveMessage",
   "RegisterProvider",
+  "RegisterProviderCredential",
   "ChangeModelDefaults",
   "ReadModelDefaults",
   "ReadRun",
@@ -54,7 +56,12 @@ const USER_OPERATIONS = [
 ];
 const MODEL = "claude-sonnet-4-5";
 
-type Child = { request: SpawnRequest; spawned: Spawned };
+// stderr는 감독이 읽는 그대로 곁에서 모은다. 시험이 그 안에 값이 없음을 본다.
+type Child = {
+  request: SpawnRequest;
+  spawned: Spawned;
+  stderr: Uint8Array[];
+};
 
 type World = {
   core: Core;
@@ -112,7 +119,14 @@ async function openWorld(options: {
         return io.spawn(request);
       }
       const spawned = spawnProcess(request);
-      children.push({ request, spawned });
+      const stderr: Uint8Array[] = [];
+      const read = spawned.stderr.read.bind(spawned.stderr);
+      spawned.stderr.read = async (buffer) => {
+        const count = await read(buffer);
+        if (count !== null) stderr.push(buffer.slice(0, count));
+        return count;
+      };
+      children.push({ request, spawned, stderr });
       return spawned;
     },
   });
@@ -703,5 +717,335 @@ Deno.test("lophn-agent/harness/run-loop#R8: core가 안전화를 끝낼 수 없�
     await world.close();
     await provider.close();
     await Deno.remove(world.home, { recursive: true });
+  }
+});
+
+// ---- provider API key: 전송 직전 부착 ----
+
+const API_KEY = "violet-harbor-credential-5d8e2f41-lantern";
+
+type Wire = {
+  protocol:
+    | "anthropic-messages"
+    | "openai-responses"
+    | "openai-chat-completions";
+  step: "messages" | "responses" | "chat_completions";
+  definition: string;
+  model: string;
+  // API key가 실리는 header와 그 값의 모양.
+  header: "x-api-key" | "authorization";
+  sent(value: string): string;
+};
+
+const WIRES: Wire[] = [
+  {
+    protocol: "anthropic-messages",
+    step: "messages",
+    definition: "anthropic",
+    model: "claude-sonnet-4-5",
+    header: "x-api-key",
+    sent: (value) => value,
+  },
+  {
+    protocol: "openai-responses",
+    step: "responses",
+    definition: "openai",
+    model: "gpt-5",
+    header: "authorization",
+    sent: (value) => `Bearer ${value}`,
+  },
+  {
+    protocol: "openai-chat-completions",
+    step: "chat_completions",
+    definition: "openai",
+    model: "gpt-5",
+    header: "authorization",
+    sent: (value) => `Bearer ${value}`,
+  },
+];
+
+// key를 확인하는 provider. 올바른 key가 아닌 요청은 401이고 fake provider까지 가지 않는다.
+// 받은 header 원문은 시험만 본다(제품 fake는 값 대신 종류만 남긴다).
+function keyedProvider(
+  upstream: ReturnType<typeof startFakeProvider>,
+  header: string,
+  expected: string,
+) {
+  const seen: string[] = [];
+  let received = 0;
+  const server = Deno.serve(
+    { hostname: "127.0.0.1", port: 0, onListen: () => {} },
+    async (request) => {
+      received += 1;
+      const value = request.headers.get(header);
+      if (value !== null) seen.push(value);
+      if (value !== expected) {
+        return Response.json({ error: { type: "authentication_error" } }, {
+          status: 401,
+        });
+      }
+      const forwarded = new Headers(request.headers);
+      forwarded.delete("host");
+      const response = await fetch(
+        upstream.url + new URL(request.url).pathname,
+        {
+          method: request.method,
+          headers: forwarded,
+          body: await request.text(),
+        },
+      );
+      return new Response(response.body, {
+        status: response.status,
+        headers: response.headers,
+      });
+    },
+  );
+  return {
+    url: `http://127.0.0.1:${server.addr.port}`,
+    seen,
+    received: () => received,
+    close: () => server.shutdown(),
+  };
+}
+
+// 사람이 API key provider를 등록한다: 값은 keychain에 있고 ledger에는 준비 증거와 참조만 남는다.
+async function chooseKeyedModel(
+  world: World,
+  keychain: FakeKeychain,
+  wire: Wire,
+  endpoint: string,
+): Promise<void> {
+  const { server } = world;
+  const registered = await call(
+    server,
+    "providers/register",
+    USER_TOKEN,
+    command({
+      id: PVD,
+      name: "fixture",
+      definition: {
+        key: wire.definition,
+        display_name: wire.definition,
+        protocols: [wire.protocol],
+        auth_kinds: ["api_key"],
+        models_endpoint: null,
+        oauth: null,
+        revision: "2026-01-01",
+      },
+      endpoint,
+      protocol: wire.protocol,
+    }),
+  );
+  assertEquals(registered.status, 200, JSON.stringify(registered.body));
+  const stored = await keychain.store({
+    name: `${PVD}/main`,
+    purpose: "provider_credential",
+    owner: PVD,
+    value: new TextEncoder().encode(API_KEY),
+  });
+  assert(stored.ok);
+  const preparation = `prep-${crypto.randomUUID()}`;
+  const db = new DatabaseSync(`${world.home}/lophn.db`);
+  try {
+    db.exec("PRAGMA busy_timeout = 5000");
+    db.prepare(
+      "INSERT INTO secret_preparations (preparation, sealed_ref, purpose, owner) VALUES (?, ?, 'provider_credential', ?)",
+    ).run(preparation, stored.value, PVD);
+  } finally {
+    db.close();
+  }
+  const input = {
+    provider: PVD,
+    key: "main",
+    kind: "api_key",
+    label: "main key",
+    preparation: {
+      preparation,
+      sealed_ref: stored.value,
+      purpose: "provider_credential",
+      owner: PVD,
+    },
+    account: null,
+    organization: null,
+    plan: null,
+    dedup_fingerprint: "a".repeat(64),
+  };
+  const binding = await confirmationBinding(registerProviderCredential, input);
+  assert(binding);
+  const issued = await world.core.confirmation?.({
+    action: "issue",
+    request: {
+      type: "confirmation_handle_register",
+      window_id: `win-${crypto.randomUUID()}`,
+      target_ref: binding.target,
+      content_hash: binding.content,
+      allowed_decisions: [registerProviderCredential.name],
+      expires_at: new Date(Date.now() + 600_000).toISOString(),
+    },
+  });
+  assert(issued?.ok, JSON.stringify(issued));
+  const revision = (registered.body["provider"] as { revision: number })
+    .revision;
+  const added = await call(
+    server,
+    "provider-credentials/register",
+    USER_TOKEN,
+    command(input, {
+      compare: { revision },
+      confirmation: (issued.value as { confirmation: string }).confirmation,
+    }),
+  );
+  assertEquals(added.status, 200, JSON.stringify(added.body));
+  const defaults = await call(
+    server,
+    "agent-model-defaults/read",
+    USER_TOKEN,
+    {},
+  );
+  const seq = (defaults.body["defaults"] as { settings_seq: string })
+    .settings_seq;
+  const changed = await call(
+    server,
+    "agent-model-defaults/change",
+    USER_TOKEN,
+    command({
+      judgment: {
+        provider: PVD,
+        credentials: ["main"],
+        model_name: wire.model,
+        reasoning_level: "provider_default",
+        options: {},
+      },
+      organizing: null,
+      settings_seq: seq,
+    }, { compare: { settings_seq: seq } }),
+  );
+  assertEquals(changed.status, 200, JSON.stringify(changed.body));
+}
+
+// 값을 담은 파일이 data root(ledger·WAL·blob·log·파생)에 있는지.
+async function filesWithValue(root: string, value: string): Promise<string[]> {
+  const needle = new TextEncoder().encode(value);
+  const found: string[] = [];
+  async function walk(directory: string): Promise<void> {
+    for await (const entry of Deno.readDir(directory)) {
+      const path = `${directory}/${entry.name}`;
+      if (entry.isDirectory) await walk(path);
+      else if (entry.isFile) {
+        const bytes = await Deno.readFile(path);
+        if (contains(bytes, needle)) found.push(path);
+      }
+    }
+  }
+  await walk(root);
+  return found;
+}
+
+function contains(bytes: Uint8Array, needle: Uint8Array): boolean {
+  outer: for (let i = 0; i + needle.length <= bytes.length; i++) {
+    for (let j = 0; j < needle.length; j++) {
+      if (bytes[i + j] !== needle[j]) continue outer;
+    }
+    return true;
+  }
+  return false;
+}
+
+function stderrText(world: World): string {
+  return world.children.map((child) =>
+    child.stderr.map((chunk) => new TextDecoder().decode(chunk)).join("")
+  ).join("");
+}
+
+async function keyedWorld(wire: Wire, script: string[]) {
+  const keychain = createFakeKeychain();
+  const upstream = startFakeProvider({
+    script: {
+      steps: script.map((text) => ({
+        id: `answer-${text.replace(/\W+/g, "-")}`,
+        protocol: wire.step,
+        reply: { text, usage: { input: 40, output: 9 }, stop: "end" as const },
+      })),
+    },
+    nowMs: () => Date.now(),
+    instant: true,
+  });
+  const keyed = keyedProvider(upstream, wire.header, wire.sent(API_KEY));
+  const world = await openWorld({ provider: upstream, keychain });
+  await chooseKeyedModel(world, keychain, wire, keyed.url);
+  // 등록한 provider 목적지가 권한 목록에 들어가도록 child가 새 목록으로 다시 뜬다.
+  await until("restart with the provider", () => world.children.length >= 2);
+  return {
+    world,
+    keychain,
+    upstream,
+    keyed,
+    async close() {
+      await world.close();
+      await keyed.close();
+      await upstream.close();
+      await Deno.remove(world.home, { recursive: true });
+    },
+  };
+}
+
+for (const wire of WIRES) {
+  Deno.test(`lophn-agent/harness/provider#R7 platform/secrets#R5: ${wire.protocol} API key provider의 run은 전송 직전에 붙은 key로 끝나고 key는 ledger·blob·log·stderr 어디에도 없다`, async () => {
+    const opened = await keyedWorld(wire, ["The projects are empty."]);
+    const { world } = opened;
+    try {
+      const run = await ask(
+        world,
+        "What projects exist?",
+        "msg_01arz3ndektsv4rrffq69g5fav",
+      );
+      await until("run finished", () => finished(world, run));
+      assertEquals(
+        runRow(world, run)!["outcome_kind"],
+        "completed",
+        JSON.stringify(runRow(world, run)),
+      );
+      // provider가 받은 요청은 올바른 key 하나다. 그 key는 protocol이 정한 header로 갔다.
+      assertEquals(opened.keyed.seen, [wire.sent(API_KEY)]);
+      assertEquals(opened.keyed.received(), 1);
+      assertEquals(opened.upstream.requests().length, 1);
+      const request = opened.upstream.requests()[0]!;
+      assert(request.headers.some((entry) => entry.name === wire.header));
+      // key는 요청 본문(prompt)에도 없다.
+      assert(!JSON.stringify(request.body).includes(API_KEY));
+      const calls = inspect(
+        world.server,
+        "select state from model_calls where run = ?",
+        [run],
+      );
+      assertEquals(calls.length, 1);
+      assertEquals(calls[0]!["state"], "finished");
+      // data root 전체(ledger·WAL·blob·log·파생)와 child stderr에 key가 없다.
+      assertEquals(await filesWithValue(world.core.dataRoot, API_KEY), []);
+      assert(!stderrText(world).includes(API_KEY));
+    } finally {
+      await opened.close();
+    }
+  });
+}
+
+Deno.test("lophn-agent/harness/provider#R4 platform/secrets#R8: keychain이 잠기면 run은 configuration_unavailable로 끝나고 provider로 요청이 나가지 않는다", async () => {
+  const opened = await keyedWorld(WIRES[0]!, ["never sent"]);
+  const { world, keychain } = opened;
+  try {
+    // 알려진 값은 core 메모리에 이미 있다. 값을 읽는 keychain이 잠겨 값을 건넬 수 없다.
+    keychain.setStatus("unavailable");
+    const run = await ask(world, "hello", "msg_01arz3ndektsv4rrffq69g5fav");
+    await until("run finished", () => finished(world, run));
+    const row = runRow(world, run)!;
+    assertEquals(row["outcome_kind"], "failed", JSON.stringify(row));
+    assertEquals(row["outcome_reason"], "configuration_unavailable");
+    // 요청은 어디로도 나가지 않았다: provider(wrapper)도 fake도 받은 것이 없다.
+    assertEquals(opened.keyed.received(), 0);
+    assertEquals(opened.upstream.requests().length, 0);
+    assertEquals(await filesWithValue(world.core.dataRoot, API_KEY), []);
+    assert(!stderrText(world).includes(API_KEY));
+  } finally {
+    await opened.close();
   }
 });

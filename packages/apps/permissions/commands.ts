@@ -1,6 +1,7 @@
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
   type App,
+  automationGrantRevoke,
   type Grant,
   grantCreate,
   grantCreated,
@@ -243,6 +244,7 @@ function checkDeclared(
 export function createGrantCommands(): {
   create: CommandDefinition<typeof grantCreate>;
   revoke: CommandDefinition<typeof grantRevoke>;
+  revokeAutomation: CommandDefinition<typeof automationGrantRevoke>;
 } {
   return {
     create: {
@@ -306,15 +308,73 @@ export function createGrantCommands(): {
         return ok({ grant });
       },
     },
+    revokeAutomation: {
+      route: automationGrantRevoke,
+      handle(tx, ctx, input, compare) {
+        const absent = () =>
+          err({
+            code: "not_found" as const,
+            message: "automation grant not found",
+          });
+        if (ctx.actor !== "user") return absent();
+        const loaded = loadGrant(tx.sql, input.grant);
+        if (!loaded.ok) return loaded;
+        const grant = loaded.value;
+        if (
+          grant === null || grant.app !== input.app ||
+          grant.kind !== "automation.run" ||
+          grant.scope.kind !== "automation.run" ||
+          grant.scope.automation !== input.automation
+        ) return absent();
+        const app = loadApp(tx.sql, input.app);
+        if (!app.ok) return app;
+        if (app.value === null) return absent();
+        const access = authorizeApp(tx.port, ctx, automationGrantRevoke.name, {
+          kind: "command",
+          before: app.value,
+          after: app.value,
+        });
+        if (!access.ok) {
+          return access.error.code === "forbidden" ||
+              access.error.code === "not_found"
+            ? absent()
+            : access;
+        }
+        if (
+          grant.status !== "active" ||
+          compare.grants_seq !== grantsSeq(tx.sql, input.app)
+        ) return conflict("the grant set changed");
+        const at = tx.now();
+        const revoked = markRevoked(tx, grant.id, at);
+        if (!revoked.ok) return revoked;
+        tx.emit(grantRevoked, grant.id, {
+          app: grant.app,
+          kind: grant.kind,
+          revoked_by: "user",
+          revoked_at: at,
+        });
+        return ok({
+          grant: {
+            ...grant,
+            status: "revoked" as const,
+            revoked_by: "user" as const,
+            revoked_at: at,
+          },
+        });
+      },
+    },
     revoke: {
       route: grantRevoke,
+      dispatchable: true,
       handle(tx, ctx, input, compare) {
         // 없는 grant·범위 밖 앱·이미 회수한 grant는 같은 답이다.
         const absent = () => conflict("the grant is not active");
         const found = loadGrant(tx.sql, input.grant);
         if (!found.ok) return found;
         const grant = found.value;
-        if (grant === null) return absent();
+        if (
+          grant === null || (input.app !== undefined && input.app !== grant.app)
+        ) return absent();
         const app = loadApp(tx.sql, grant.app);
         if (!app.ok) return app;
         if (app.value === null) return absent();

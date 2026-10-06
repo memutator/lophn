@@ -180,7 +180,7 @@ Deno.test("shell/wording#R10: 결정은 보호 창 열기로만 보내고 정확
         kind: "owner_decision",
         concern: "apps/permissions",
         decision: "revoke_grant",
-        targets: ["grt_01h455vb4pex5v6nkc6gd5fd01"],
+        targets: [APP, "grt_01h455vb4pex5v6nkc6gd5fd01"],
       },
       parentWindow: "requesting-window",
     },
@@ -259,15 +259,46 @@ Deno.test("shell/wording#R10: preview는 준비될 때까지 기다린 뒤에만
   });
 });
 
-Deno.test("shell/wording#R10: automation 끄기는 확인 없는 회수 경로가 core에 생기기 전에는 부르지 않고 열 수 없다고 답한다", async () => {
-  const fake = core({});
-  const source = coreAppDetailSource(fake.source, undefined);
-  assertEquals(
-    await source.turnOffAutomation("grt_01h455vb4pex5v6nkc6gd5fd03"),
-    {
-      ok: false,
-      code: "unavailable",
+Deno.test("apps/automations#R13: automation 끄기는 화면에서 읽은 grant·automation·CAS를 확인 창 없이 보낸다", async () => {
+  const grant = "grt_01h455vb4pex5v6nkc6gd5fd03";
+  const fake = core({
+    "grants/list": {
+      grants_seq: "18",
+      grants: [{
+        id: grant,
+        kind: "automation.run",
+        scope: {
+          automation: "weekly",
+          command: "send",
+          input_hash: "a".repeat(64),
+        },
+        status: "active",
+      }],
     },
-  );
-  assertEquals(fake.calls, []);
+    "grants/revoke_automation": {},
+  });
+  const source = coreAppDetailSource(fake.source, () => {
+    throw new Error("no confirmation");
+  });
+  assertEquals(await source.turnOffAutomation(grant), {
+    ok: false,
+    code: "not_found",
+  });
+  await source.access(APP);
+  assertEquals(await source.turnOffAutomation(grant), {
+    ok: true,
+    value: true,
+  });
+  assertEquals(fake.calls.at(-1)?.body, {
+    input: { app: APP, grant, automation: "weekly" },
+    compare: { grants_seq: "18" },
+    prepared: [],
+    idempotency_key: `automation-off:${grant}:18`,
+  });
+});
+
+Deno.test("apps/blueprint#R2: Version preview는 선택한 release의 blueprint를 읽는다", async () => {
+  const fake = core({});
+  await coreAppDetailSource(fake.source).blueprint(APP, REL);
+  assertEquals(fake.calls[0].body, { app: APP, release: REL });
 });

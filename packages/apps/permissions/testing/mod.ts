@@ -208,6 +208,16 @@ export function createGrantSnapshot(options: {
   close(): void;
 } {
   const db = new DatabaseSync(":memory:");
+  // grants.list의 grants_seq는 실제 ledger의 events 표에서 읽는다.
+  db.exec(`CREATE TABLE events (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    subject TEXT,
+    actor TEXT NOT NULL,
+    run TEXT,
+    payload TEXT NOT NULL,
+    at TEXT NOT NULL
+  ) STRICT`);
   for (const step of appsSchemaSteps) db.exec(step.sql);
   for (const step of releasesSchemaSteps) db.exec(step.sql);
   for (const step of permissionsSchemaSteps) db.exec(step.sql);

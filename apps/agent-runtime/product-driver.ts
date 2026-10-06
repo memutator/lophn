@@ -13,11 +13,12 @@ import { createModelResolver } from "./resolve-model.ts";
 import { PRODUCT_INSTRUCTIONS, rolePrompt } from "./role-prompts.ts";
 import type { RunDriver } from "./run-driver.ts";
 import type { DriveDeps } from "./run-driver.ts";
+import { createAppToolkit } from "./app-toolkit.ts";
 import { createBuiltinToolkit } from "./toolkit.ts";
 
 // 제품 runtime의 driver 재료(lophn-agent/harness/run-loop). core 연결을 받아 run 시작 재료, 복구 재료,
 // 기본 harness 묶음(내장 tool, 역할 prompt, model 선택 검증)을 만든다. 아래는 소유 작업이 채울 자리라
-// 비어 있다: 쓰기·external tool의 소유 계약 연결(`binding`)과 결과 조회(`lookups`), 앱 command 선언(`offers`),
+// 비어 있다: 쓰기·external tool의 소유 계약 연결(`binding`)과 결과 조회(`lookups`),
 // skill·MCP·material source, 사람 지침 파일 읽기(`InstructionFiles`).
 export function productDriver(options: { fetch?: typeof fetch } = {}) {
   return (
@@ -35,6 +36,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       blobs: calls.blobs,
       resolveModel: createModelResolver({
         machine: calls.machine,
+        ...(calls.secrets === undefined ? {} : { attach: calls.secrets }),
         catalog: async () => {
           if (calls.catalog === undefined) {
             return err({
@@ -52,6 +54,8 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
         machine: calls.machine,
         ids,
       }),
+      // 앱 command 선언·허락 읽기와 앱 통로 호출, 결과 조회(lophn-agent/harness/tools R16).
+      apps: createAppToolkit({ machine: calls.machine }),
       product: PRODUCT_INSTRUCTIONS,
       rolePrompt,
       instructions: {

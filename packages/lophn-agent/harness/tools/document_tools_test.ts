@@ -966,15 +966,11 @@ Deno.test("lophn-agent/harness/tools#R7: format 안내는 읽기만이고 본문
   }
 });
 
-Deno.test("lophn-agent/harness/tools#R7: SDK 안내는 이 묶음의 일이 아니고 format tool은 저장·설치 동작을 정의에 갖지 않는다", () => {
+Deno.test("lophn-agent/harness/tools#R7: format tool은 저장·설치 동작을 정의에 갖지 않고 SDK 안내는 sdk 묶음이 읽기로만 한다", () => {
   for (const tool of FORMAT_TOOLS) {
     assertEquals(tool.name.startsWith("format."), true);
     assertEquals(tool.contract === "SaveToolDocument", false);
   }
-  assertEquals(
-    BUILTIN_TOOLS.some((tool) => tool.name.startsWith("sdk.")),
-    false,
-  );
 });
 
 // preset 저장 검사(presets#R7, R11)가 쓰는 묶음 판이다. 묶음은 이름 목록일 뿐이어서 역할 상한이 따로 적용된다.
@@ -1004,6 +1000,7 @@ function selecting(
 
 Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 펼쳐 고정되고 쓰기 묶음은 읽기 묶음과 따로 고른다", () => {
   assertEquals([...TOOL_BUNDLES.keys()].sort(), [
+    "app-read",
     "context-read",
     "context-write",
     "document-read",
@@ -1011,6 +1008,8 @@ Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 �
     "format",
     "lophn-guide",
     "metadata-read",
+    "problem-read",
+    "sdk",
     "visual",
   ]);
   assertEquals(TOOL_BUNDLES.get("document-read"), DOCUMENT_READ_TOOL_NAMES);

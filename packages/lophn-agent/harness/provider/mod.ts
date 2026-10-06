@@ -3,10 +3,14 @@ export { createProviderCommands } from "./commands.ts";
 export { createProviderReads } from "./reads.ts";
 export {
   createProviderSecretRefSource,
+  lookupProviderSecretUse,
   PROVIDER_SECRET_OWNER,
+  providerSecretDestination,
 } from "./secret-refs.ts";
 export { createInvokeModelCall } from "./invoke.ts";
 export {
+  type AuthKind,
+  type AuthTransport,
   createAuthTransport,
   type SecretAttachLike,
 } from "./adapters/auth-transport.ts";

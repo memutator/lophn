@@ -2,6 +2,7 @@
 // stdin/stdout으로 stdio transport를 열고, credential provider는 helper loader
 // 자리다(coding-agent/harnesses). label·toolsets·connection은 argv와 환경 설정
 // 순서로 찾는다(connection#R3). core RPC는 소유 route 하나로만 routing한다(R2).
+import { unixAppDirectTransport } from "../../packages/coding-agent/connection/app-direct-unix.ts";
 import { ok, type Result } from "../../packages/base/mod.ts";
 import type { LophnError } from "../../packages/base/mod.ts";
 import {
@@ -39,6 +40,7 @@ import {
 } from "../../packages/coding-agent/mcp-server/mod.ts";
 import {
   type AppDirect,
+  createAppDirect,
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
 import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";
@@ -85,8 +87,9 @@ export type McpOptions = {
   dataRoot?: string;
   // 제출 파일 root다. 없으면 작업 위치(--cwd <submission-root>)다.
   submissionRoot?: string;
-  // 앱 통로(direct call)다. 실제 socket transport와 권한은 설치·loader 배선(coding-agent#T36)이
-  // 끼운다. 없으면 lophn_app command는 unavailable이다.
+  // 앱 통로(direct call)다. 없으면 core의 `apps/connect`가 준 socket으로 unix socket transport가
+  // 연결한다. 닿는 socket은 실행 argv가 허락한 앱 direct socket의 정확한 경로뿐이고 권한이 없으면
+  // unavailable이다(mcp#R29).
   appDirect?: AppDirect;
   // active release blueprint의 command 정의를 읽는다(T23). 소유 route(apps#T19)가 서면 그 read로
   // 만든다. 없으면 blueprint 유래 앱 tool은 나오지 않는다.
@@ -187,12 +190,16 @@ export function startMcpServer(
       idempotencyKey: () => `mcp-ticket-${crypto.randomUUID()}`,
     })
     : undefined;
+  const direct = options.appDirect ??
+    (caller
+      ? createAppDirect({ client: caller, transport: unixAppDirectTransport() })
+      : undefined);
   // 앱 개발 tool의 실행이다(T21). 소유 route로만 보내고 CLI와 같은 흐름을 쓴다.
   const appTool = caller
     ? createAppTool({
       client: caller,
       idempotencyKey: () => `mcp-app-${crypto.randomUUID()}`,
-      direct: options.appDirect,
+      direct,
     })
     : undefined;
   // blueprint 유래 앱 read tool이다(T23). app toolset과 blueprint source가 있을 때만 난다.
@@ -200,7 +207,7 @@ export function startMcpServer(
     ? createAppCommandTools({
       client: caller,
       idempotencyKey: () => `mcp-app-${crypto.randomUUID()}`,
-      direct: options.appDirect,
+      direct,
       // 소유 read(`/v1/apps/blueprint`)로 active release의 command 정의를 읽는다.
       blueprint: options.appBlueprint ?? appBlueprintSourceOf(caller),
       listChanged: () =>

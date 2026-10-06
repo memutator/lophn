@@ -590,14 +590,13 @@ concerns: [documents]
 - 내놓는 contract: 파일 쓰기와 저장 준비 contract의 instruction_file 가지, 지침 대상(등록 locator 또는 preset 첨부)의 현재 확정 판 read와 지침 문서 여부 표시(lophn-agent/instructions#R3, R6이 씀)
 - slice: agent
 - 선행: T12, T19, contracts#T27(지침 값·첨부 read·첨부 판정 port; lophn-agent 구현 T18은 이 작업 뒤)
-- 상태: 진행 (#346) — 남은 것: document.move·set_source 보호, instruction_file 파일 관측 로직
+- 상태: 완료 (#346)
 - 완료:
-  - agent·coding_agent·app의 document.save·update(제목)가 지침 문서에 forbidden (InstructionAttachments·OperatorOutput 포트 확인)
-  - 포트 모킹으로 테스트 기반 마련 (documents/versions: 20개 테스트 통과)
-- 남은 것:
-  - document.move·document.set_source가 지침 문서에 forbidden (addressing 자리)
-  - FileObservationBasis의 instruction_file 가지 처리와 관측 로직
-  - file-tracking#R19 exact 등록 파일만 관측 (data root·부모 순회·cwd 추측 없음)
+  - agent·coding_agent·app의 document.save·update(제목)가 지침 문서에 forbidden (InstructionAttachments·OperatorOutput 포트 확인, versions#R20)
+  - document.move·document.set_source는 이미 user-only로 보호됨 (addressing/commands.ts:180, R3)
+  - 포트 모킹으로 테스트 기반 마련 (documents/versions: 24개 테스트 통과)
+- T28에서 넘어온 것:
+  - FileObservationBasis의 instruction_file 가지 처리와 파일 관측 로직 (file-tracking#R19)
   - 지침 문서 생성 방지 (createDocument)
 
 ### T29 설치 안내 읽기

@@ -291,6 +291,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
   - 다른 앱 이름을 넣은 view 오류도 실제 view 앱의 진단으로만 접수, 페이지의 app·release·mode는 무시(reporting#R6)
   - view stack은 당시 release source map으로 원래 TSX 파일·줄; map이 없으면 위치를 추측하지 않고 이유(snapshots#R11)
   - 앱 자격은 확실한데 앱 frame만 없으면 Report별 key로 받고, 귀속 불명은 platform/diagnostics
+- shell#T38에서 넘어온 것: shell main은 view 오류를 `{view: {view_session, generation, app, release, mode, bundle_hash, binding}, observation}`으로 만든다(`apps/shell/main/app-frame/view-error.ts`). `binding`은 core가 서명한 그 view의 AppConnection Authorization이고 `observation`은 `observe-exception` 본문(stack은 null, 이유 `view_stack_not_collected`)이다. 페이지가 주장한 앱·release는 받지 않고 view마다 창당 20개까지만 보낸다. collector가 이 binding을 인증된 view 출처로 받는 통로(observe-exception에 view binding을 싣는 자리, view에서 온 error·unhandledrejection도 `view_observer`)가 아직 없어 `apps/shell/main/desktop/main.ts`의 `viewErrors.send`는 false(log에 `unsent`)다. 통로가 정해지면 그 send를 통로에 잇는다(shell 계획 Q22)
 
 ### T27 문제 문구: 보고 당시 release 선언
 

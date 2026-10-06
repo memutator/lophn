@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
-import { createAppApi, installViewErrors } from "../../preload/app-api.ts";
+import {
+  createAppApi,
+  createViewErrorReport,
+  RENDER_ERROR_EVENT,
+  watchMainWorldErrors,
+} from "../../preload/app-api.ts";
 import {
   APP_CALL_CHANNEL,
   APP_OPEN_EXTERNAL_CHANNEL,
@@ -87,26 +92,26 @@ test("shell/app-frame#R13: 실패는 code와 main 문구로만 reject하고 tran
   );
 });
 
-test("problems/reporting#R5: 설치 preload는 window error·unhandledrejection을 이름·message만 담아 view-error로 보내고 쏟아지면 멈춘다", () => {
+test("problems/reporting#R5: 설치 preload는 main world의 error·unhandledrejection·루트 render 오류를 이름·message만 담아 view-error로 보내고 쏟아지면 멈춘다", () => {
   const listeners = new Map<string, (event: unknown) => void>();
   const t = transport(() => undefined);
   let now = 0;
-  installViewErrors(
-    {
-      addEventListener(type, listener) {
-        listeners.set(type, listener);
-      },
+  // main world에서는 직렬화한 원문으로 돈다. 바깥 이름을 쓰지 않아야 한다.
+  const isolated = new Function(
+    `return (${watchMainWorldErrors.toString()})`,
+  )() as typeof watchMainWorldErrors;
+  isolated(createViewErrorReport(t, () => now), {
+    addEventListener(type, listener) {
+      listeners.set(type, listener);
     },
-    t,
-    () => now,
-  );
+  });
   listeners.get("error")!({
     message: "Uncaught TypeError: x",
     error: { name: "TypeError", message: "x", stack: "at secret.js:1" },
   });
   listeners.get("unhandledrejection")!({ reason: "plain text" });
   listeners.get("unhandledrejection")!({ reason: undefined });
-  // 다른 world의 값을 읽다 throw해도 이름만 남긴다.
+  // 페이지 값을 읽다 throw해도 이름만 남긴다.
   listeners.get("error")!({
     message: "Script error.",
     get error() {
@@ -135,6 +140,15 @@ test("problems/reporting#R5: 설치 preload는 window error·unhandledrejection�
       message: "Script error.",
     }],
   ]);
+  // SDK 루트 오류 경계의 DOM event는 render_error다.
+  listeners.get(RENDER_ERROR_EVENT)!({
+    detail: { name: "RenderError", message: "root failed" },
+  });
+  assert.deepEqual(t.sent.at(-1), [APP_VIEW_ERROR_CHANNEL, {
+    observation: "render_error",
+    name: "RenderError",
+    message: "root failed",
+  }]);
   for (let index = 0; index < 50; index++) {
     listeners.get("error")!({ message: "loop", error: null });
   }
@@ -142,4 +156,14 @@ test("problems/reporting#R5: 설치 preload는 window error·unhandledrejection�
   now = 60_000;
   listeners.get("error")!({ message: "later", error: null });
   assert.equal(t.sent.length, 21);
+  // 페이지가 report를 직접 불러도 정한 모양 밖 값은 보내지 않는다.
+  const report = createViewErrorReport(t, () => now);
+  report("process_exit", "Error", "x");
+  report("error", { toString: () => "x" }, 42);
+  assert.deepEqual(t.sent.at(-1), [APP_VIEW_ERROR_CHANNEL, {
+    observation: "error",
+    name: "Error",
+    message: null,
+  }]);
+  assert.equal(t.sent.length, 22);
 });

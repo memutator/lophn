@@ -61,72 +61,111 @@ const ERROR_WINDOW_MS = 60_000;
 const NAME_MAX_CHARS = 256;
 const MESSAGE_MAX_CHARS = 16_384;
 
-export interface ErrorTarget {
-  addEventListener(type: string, listener: (event: unknown) => void): void;
-}
+/** main world에서 본 오류 하나. 문자열이 아닌 값은 버린다. */
+export type ViewErrorReport = (
+  observation: unknown,
+  name: unknown,
+  message: unknown,
+) => void;
 
 function text(value: unknown, limit: number): string | undefined {
   return typeof value === "string" ? value.slice(0, limit) : undefined;
 }
 
-function field(value: unknown, key: string): unknown {
-  try {
-    return typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)[key]
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 /**
- * window의 `error`·`unhandledrejection`을 내부 `app:view-error`로 보낸다(problems/reporting#R5).
- * 이름과 message만 싣고, 페이지 값을 읽다 실패하면 이름만 남긴다. 원래 오류의 처리는 바꾸지 않는다.
+ * main world의 오류(error·unhandledrejection·render_error)를 내부 `app:view-error`로 보내는
+ * 함수(problems/reporting#R5). 이름과
+ * message만 싣고 창당 상한을 넘으면 버린다. 보내지 못해도 페이지 동작은 바꾸지 않는다.
  */
-export function installViewErrors(
-  target: ErrorTarget,
+export function createViewErrorReport(
   transport: Pick<AppTransport, "send">,
   now: () => number,
-): void {
+): ViewErrorReport {
   let start = now();
   let count = 0;
-  function report(
-    observation: "error" | "unhandledrejection",
-    error: unknown,
-    fallback: unknown,
-  ): void {
+  return (observation, name, message) => {
+    if (
+      observation !== "error" && observation !== "unhandledrejection" &&
+      observation !== "render_error"
+    ) {
+      return;
+    }
     const at = now();
     if (at - start >= ERROR_WINDOW_MS) {
       start = at;
       count = 0;
     }
     if (++count > ERRORS_PER_WINDOW) return;
-    const name = text(field(error, "name"), NAME_MAX_CHARS);
-    const message = text(field(error, "message"), MESSAGE_MAX_CHARS) ??
-      text(fallback, MESSAGE_MAX_CHARS) ?? null;
+    const shown = text(name, NAME_MAX_CHARS);
     try {
       transport.send(APP_VIEW_ERROR_CHANNEL, {
         observation,
-        name: name !== undefined && /\S/.test(name)
-          ? name
-          : observation === "error"
-          ? "Error"
-          : "UnhandledRejection",
-        message,
+        name: shown !== undefined && /\S/.test(shown)
+          ? shown
+          : observation === "unhandledrejection"
+          ? "UnhandledRejection"
+          : "Error",
+        message: text(message, MESSAGE_MAX_CHARS) ?? null,
       });
     } catch {
       // 보내지 못한 오류는 페이지 동작을 바꾸지 않는다.
     }
-  }
-  target.addEventListener("error", (event) => {
-    report("error", field(event, "error"), field(event, "message"));
+  };
+}
+
+export interface ErrorTarget {
+  addEventListener(type: string, listener: (event: unknown) => void): void;
+}
+
+/**
+ * SDK 루트 오류 경계(@lophn/ui-state AppErrorBoundary)가 main world에서 보내는 DOM event.
+ * `detail`은 `{name, message}`다. watchMainWorldErrors 안에는 같은 글자를 직접 쓴다(직렬화돼 돈다).
+ */
+export const RENDER_ERROR_EVENT = "lophn:render-error";
+
+/**
+ * 페이지의 오류는 그 world에서만 보이므로(context isolation) 이 함수를 main world에서 돌린다
+ * (`contextBridge.executeInMainWorld`). report는 bridge된 함수로 closure에만 있고 window에 걸리지
+ * 않는다. 바깥 변수를 쓰지 않는 자기 완결 함수여야 한다. 원래 오류 처리는 바꾸지 않는다.
+ */
+export function watchMainWorldErrors(
+  report: ViewErrorReport,
+  target?: ErrorTarget,
+): void {
+  const on = target ?? (globalThis as unknown as ErrorTarget);
+  const read = (value: unknown, key: string): unknown => {
+    try {
+      return typeof value === "object" && value !== null
+        ? (value as Record<string, unknown>)[key]
+        : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const textOf = (value: unknown) =>
+    typeof value === "string" ? value : undefined;
+  on.addEventListener("error", (event) => {
+    const error = read(event, "error");
+    report(
+      "error",
+      textOf(read(error, "name")),
+      textOf(read(error, "message")) ?? textOf(read(event, "message")),
+    );
   });
-  target.addEventListener("unhandledrejection", (event) => {
-    const reason = field(event, "reason");
+  on.addEventListener("unhandledrejection", (event) => {
+    const reason = read(event, "reason");
     report(
       "unhandledrejection",
-      reason,
-      typeof reason === "string" ? reason : undefined,
+      textOf(read(reason, "name")),
+      textOf(read(reason, "message")) ?? textOf(reason),
+    );
+  });
+  on.addEventListener("lophn:render-error", (event) => {
+    const detail = read(event, "detail");
+    report(
+      "render_error",
+      textOf(read(detail, "name")),
+      textOf(read(detail, "message")),
     );
   });
 }

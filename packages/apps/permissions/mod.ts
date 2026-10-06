@@ -114,6 +114,17 @@ export {
   type DocumentsClient,
 } from "./adapters/documents-save.ts";
 export {
+  type AppPairConfirmer,
+  type AppsConfirmService,
+  createAppsConfirmService,
+} from "./broker/apps-confirm.ts";
+export {
+  type AppPairPreparer,
+  type AppsConnectRequest,
+  type AppsConnectService,
+  createAppsConnectService,
+} from "./broker/apps-connect.ts";
+export {
   type AutomationBroker,
   type AutomationPermitPort,
   type AutomationTryAcquireOutput,

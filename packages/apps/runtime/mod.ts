@@ -6,3 +6,10 @@ export { createSupervisor } from "./supervisor/mod.ts";
 export type { DesiredApp, Supervisor } from "./supervisor/mod.ts";
 export type { CoreLink, RuntimeRecord } from "./core-link.ts";
 export { type CoreSigner, createCoreSigner } from "./signing.ts";
+export type {
+  AppFacts,
+  ConnectFacts,
+  ProcessObservation,
+  ProcessQuery,
+  ProcessSource,
+} from "./connect.ts";

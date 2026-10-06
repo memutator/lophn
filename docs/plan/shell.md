@@ -787,6 +787,7 @@ concerns: [shell]
   - 탭 전환은 옛 view를 먼저 숨기고 새 view가 준비되면 붙인다. T10 pointer DTO로 갱신된 T14 pane·sidebar layout과 resize를 받아 실제 앱 native view의 bounds 적용을 16ms마다 한 번으로 묶는다.
   - 좁은 창에서 대화·정보 패널·운영 패널이 본문을 덮으면 앱 view를 숨기지 않고 덮이지 않는 영역으로 bounds를 줄인다. 닫으면 원래 bounds.
   - 앱 view는 배정된 경계 안에서 자기 페이지 머리부터 그리고 바깥 크롬은 shell이 그린다.
+  - apps#T16에서 넘어온 것: view를 폐기하거나 교체할 때 옛 `view_session`이 닫혔음을 앱 runtime에 알린다. runtime 쪽은 끝났다(`POST /_lophn/control/view-closed {process_nonce, view_session}`, 플랫폼 machine 연결만 부른다). shell은 machine 연결이 없으므로 폐기 → core(apps control 어댑터가 그 앱의 현재 live nonce로 중계하는 command) → 앱 순서로 보낸다. 그 command의 contract는 contracts 팀에 먼저 요청한다. 이것이 오기 전에는 앱이 닫힌 view의 context를 내보낼 수 있다(shell#T37의 registry가 view를 닫은 뒤에도)
   - `visibility_test`와 `e2e/shell/native-view_test.ts`(두 view 동시 표시, drag 중 view가 보임, 전환 중 겹친 frame 없음, 1024px 미만 bounds 축소)에 위 요구 테스트.
 - 가져올 것: legacy `views.ts`의 `#mount`·`setBounds`·`toDip`·latest requested bounds 처리, `renderer/src/shell/EmbeddedView.tsx`의 ResizeObserver+rAF.
 - shell#T37에서 넘어온 것: main.ts에 `appFrame`(`main/app-frame/registry.ts`의 `createAppFrame`)이 조립돼 있다. shell preload의 `openApp`·`setViewBounds`·`setViewsHidden`·`closeView`와 IPC(`shell:view-open-app` 등, sender 검사)를 registry의 `open`·`setBounds`·`hide`·`close`·`state`에 잇고 `shell:view-state` push를 더한다. 붙이기는 `electron-app-frame.ts`가 하고 붙일 때 overlay를 맨 위로 다시 둔다(`electronOverlays().raise`). `setBounds`는 실제 attach일 때만 generation을 올리고 진단을 남긴다

@@ -235,3 +235,28 @@ Deno.test("problems/tests#R2: blob 등록 실패는 결과 행이 없다", () =>
   assertFalse(rejected.ok);
   assertEquals(tx.sql.rows("verifications").length, 0);
 });
+
+Deno.test("coding-agent/mcp-server#R33: 요청 timeout은 접수 기록에 남고 같은 key의 다른 timeout은 conflict다", () => {
+  const tx = fakeTx();
+  const timed = { ...input(), timeout_ms: 90_000 };
+  const first = handleRequestTest(tx, requester(), timed, prepared(timed));
+  assert(first.ok);
+  const stored = JSON.parse(
+    String(tx.sql.rows("test_requests")[0].payload),
+  ) as { request_timeout_ms?: number };
+  assertEquals(stored.request_timeout_ms, 90_000);
+  const same = handleRequestTest(tx, requester(), timed, () => {
+    throw new Error("retry must not prepare");
+  });
+  assert(same.ok);
+  const other = handleRequestTest(
+    tx,
+    requester(),
+    { ...timed, timeout_ms: 30_000 },
+    () => null,
+  );
+  assertFalse(other.ok);
+  assertEquals(other.ok ? "" : other.error.code, "conflict");
+  const none = handleRequestTest(tx, requester(), input(), () => null);
+  assertFalse(none.ok);
+});

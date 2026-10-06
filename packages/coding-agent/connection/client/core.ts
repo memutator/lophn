@@ -25,6 +25,7 @@ import type {
   UploadRoute,
 } from "../../../contracts/platform/mod.ts";
 import type { CredentialProvider } from "../credential/provider.ts";
+import { UNREADABLE_MESSAGE } from "../unreadable.ts";
 
 // 바이트 body를 stream으로 보내는 fetch다. 선언한 길이만큼만 흐른다.
 export type UploadFetch = (
@@ -93,8 +94,7 @@ export function effectUnknown(
 // 없는 대상과 이 연결의 범위 밖 대상은 같은 답이다(connection#R5, mcp-server#R30). core가
 // 준 not_found의 메시지·details를 버려 제목·본문·건수·첨부는 물론 존재 여부도 새지 않게 하고,
 // MCP와 CLI가 이 client 하나를 지나므로 두 통로의 거절이 같다(connection#R6).
-export const UNREADABLE_MESSAGE =
-  "현재 연결로 읽을 수 없다. 없는 대상이거나 이 연결의 범위 밖이다";
+export { UNREADABLE_MESSAGE } from "../unreadable.ts";
 
 function sameAsAbsent<T>(result: Result<T>): Result<T> {
   if (result.ok || result.error.code !== "not_found") return result;

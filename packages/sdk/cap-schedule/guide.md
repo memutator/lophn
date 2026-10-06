@@ -17,8 +17,9 @@ import {
 } from "@lophn/cap-schedule";
 ```
 
-- `command(definition)` — 명령 handler를 등록한다. automation도 같은 handler를
-  쓴다.
+- `command(name, handle)` — blueprint에 선언한 command key의 handler를 등록한다.
+  automation도 같은 handler를 쓴다. handler는 입력 하나를 받고 결과를 돌려주거나
+  `CommandRejection`을 던진다.
 - `runWith(context, work)` — invocation 문맥 안에서 업무를 돌린다.
 - `currentContext()` — 현재 invocation 문맥(앱·release·mode·invocation)을
   읽는다.
@@ -69,13 +70,10 @@ command와 목적을 선언하고 사람이 방향 있는 앱 쌍과 command 범
 ## 예제
 
 ```ts
-import { command, runWith } from "@lophn/cap-schedule";
+import { command } from "@lophn/cap-schedule";
 
-command({
-  key: "usage.sync",
-  async handler(input, context) {
-    await runWith(context, () => sync());
-  },
+command("usage.sync", async (input) => {
+  return await sync(input);
 });
 ```
 

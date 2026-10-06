@@ -1,0 +1,88 @@
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { Inbox } from "lucide-react";
+import { Button, Field, Input } from "@lophn/ui-control";
+import { AppShell } from "@lophn/ui-layout";
+import { ReadState } from "@lophn/ui-state";
+import { t } from "../../wording/t.ts";
+import { addItem, type Item, listItems } from "./bridge.ts";
+import styles from "./app.module.css";
+
+// items 화면. 목록과 새 항목 입력 하나다. 문구는 모두 en catalog의 key고, 읽기 결과의 loading·
+// empty·error는 ui-state의 ReadState가 그린다. 앱 DB 구조나 이 화면 전용 prop은 SDK로 올리지 않는다.
+export function App() {
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [title, setTitle] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setItems(await listItems());
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (title.trim() === "") return;
+    try {
+      await addItem(title);
+      setTitle("");
+      setSaveFailed(false);
+      await load();
+    } catch {
+      setSaveFailed(true);
+    }
+  }
+
+  return (
+    <AppShell title={t("items.title.screen")}>
+      <form className={styles.form} onSubmit={submit}>
+        <Field
+          label={t("items.label.new-item")}
+          error={saveFailed ? t("items.error.save-failed") : undefined}
+        >
+          <Input
+            value={title}
+            maxLength={200}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </Field>
+        <div className={styles.actions}>
+          <Button type="submit" variant="primary">
+            {t("items.button.add")}
+          </Button>
+        </div>
+      </form>
+      <ReadState
+        loading={loading}
+        failed={failed ? t("items.label.items") : undefined}
+        onRetry={() => void load()}
+        isEmpty={items.length === 0}
+        empty={{
+          icon: Inbox,
+          message: t("items.empty.none"),
+          action: {
+            label: t("items.button.reload"),
+            onSelect: () => void load(),
+          },
+        }}
+      >
+        <p>{t("items.label.count", { count: items.length })}</p>
+        <ul className={styles.list}>
+          {items.map((item) => <li key={item.id}>{item.title}</li>)}
+        </ul>
+      </ReadState>
+    </AppShell>
+  );
+}

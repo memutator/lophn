@@ -15,7 +15,6 @@ import {
   rewriteSpecifiers,
   type SourceFile,
   SUPPORT_PACKAGES,
-  type SupportPackage,
   VENDOR_RULES,
 } from "./vendor.ts";
 
@@ -316,21 +315,75 @@ export async function installSupportPackage(
   });
 }
 
+export type TemplateInstallResult = {
+  hash: string;
+  install_path: string;
+  files: readonly string[];
+};
+
+async function removeInstallCopy(target: string): Promise<void> {
+  // 읽기 전용 사본은 디렉터리 쓰기 권한을 먼저 돌려줘야 지울 수 있다.
+  async function open(directory: string): Promise<void> {
+    await Deno.chmod(directory, 0o755);
+    for await (const entry of Deno.readDir(directory)) {
+      if (entry.isDirectory) await open(`${directory}/${entry.name}`);
+    }
+  }
+  try {
+    await open(target);
+    await Deno.remove(target, { recursive: true });
+  } catch {
+    // 없는 사본이다.
+  }
+}
+
+// 설치 템플릿을 `<dataRoot>/templates/app/`에 읽기 전용(파일 0444·디렉터리 0555)으로 둔다(apps/sdk#R35).
+// 내용은 고정 hash와 같을 때만 설치한다. 같은 byte의 사본이 있으면 그대로 두고, 다른 사본(옛 판)이면
+// 새 판으로 바꾼다. 템플릿은 SDK Package가 아니라 catalog 등록은 없다.
+export async function installTemplate(
+  files: readonly SourceFile[],
+  expectedHash: string,
+  deps: Pick<InstallDeps, "dataRoot">,
+): Promise<Result<TemplateInstallResult>> {
+  const sorted = sortFiles([...files]);
+  const hash = await sha256Hex(bundleBytes(sorted));
+  if (hash !== expectedHash) {
+    return invalid("template content does not match its pinned hash");
+  }
+  const target = `${deps.dataRoot}/templates/app`;
+  if (!await sameInstallCopy(target, sorted)) {
+    await removeInstallCopy(target);
+    const copied = await writeInstallCopy(target, sorted);
+    if (!copied.ok) return copied;
+  }
+  return ok({
+    hash,
+    install_path: target,
+    files: sorted.map((file) => file.path),
+  });
+}
+
+async function copiedPaths(
+  directory: string,
+  prefix: string,
+): Promise<string[]> {
+  const found: string[] = [];
+  for await (const entry of Deno.readDir(directory)) {
+    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory) {
+      found.push(...await copiedPaths(`${directory}/${entry.name}`, path));
+    } else found.push(path);
+  }
+  return found;
+}
+
 // 사본이 있고 파일 목록과 byte가 모두 같은지 본다.
 export async function sameInstallCopy(
   target: string,
   files: readonly SourceFile[],
 ): Promise<boolean> {
   try {
-    const found: string[] = [];
-    async function visit(directory: string, prefix: string): Promise<void> {
-      for await (const entry of Deno.readDir(directory)) {
-        const path = prefix ? `${prefix}/${entry.name}` : entry.name;
-        if (entry.isDirectory) await visit(`${directory}/${entry.name}`, path);
-        else found.push(path);
-      }
-    }
-    await visit(target, "");
+    const found = await copiedPaths(target, "");
     if (found.length !== files.length) return false;
     for (const file of files) {
       const bytes = await Deno.readFile(`${target}/${file.path}`);
@@ -355,9 +408,10 @@ export async function writeInstallCopy(
     await Deno.mkdir(target, { recursive: true, mode: 0o755 });
     directories = [target];
     for (const file of files) {
-      const slash = file.path.lastIndexOf("/");
-      if (slash > 0) {
-        const directory = `${target}/${file.path.slice(0, slash)}`;
+      // 깊은 파일의 중간 폴더도 모두 0555로 좁힌다(R9).
+      const segments = file.path.split("/").slice(0, -1);
+      for (let depth = 1; depth <= segments.length; depth += 1) {
+        const directory = `${target}/${segments.slice(0, depth).join("/")}`;
         await Deno.mkdir(directory, { recursive: true, mode: 0o755 });
         directories.push(directory);
       }
@@ -384,7 +438,7 @@ export async function writeInstallCopy(
   return ok(undefined);
 }
 
-// 설치된 사본이 정말 0444·0555인지 본다(R9). 테스트와 install checker가 쓴다.
+// 설치된 사본이 정말 0444·0555인지 폴더 끝까지 본다(R9). 테스트와 install checker가 쓴다.
 export async function verifyInstallPermissions(
   target: string,
 ): Promise<Result<void>> {
@@ -395,20 +449,26 @@ export async function verifyInstallPermissions(
     return invalid("install copy is missing");
   }
   if (!stat.isDirectory) return invalid("install copy is not a directory");
-  if (((stat.mode ?? 0) & 0o222) !== 0) {
-    return invalid("install copy directory is writable");
-  }
-  for await (const entry of Deno.readDir(target)) {
-    const child = await Deno.stat(`${target}/${entry.name}`);
-    if (entry.isDirectory) {
-      if (((child.mode ?? 0) & 0o222) !== 0) {
-        return invalid(`install copy directory is writable: ${entry.name}`);
-      }
-    } else if (((child.mode ?? 0) & 0o222) !== 0) {
-      return invalid(`install copy file is writable: ${entry.name}`);
+  async function visit(path: string, label: string): Promise<Result<void>> {
+    const info = await Deno.stat(path);
+    if (((info.mode ?? 0) & 0o222) !== 0) {
+      return invalid(
+        `install copy ${
+          info.isDirectory ? "directory" : "file"
+        } is writable: ${label}`,
+      );
     }
+    if (!info.isDirectory) return ok(undefined);
+    for await (const entry of Deno.readDir(path)) {
+      const visited = await visit(
+        `${path}/${entry.name}`,
+        label === "." ? entry.name : `${label}/${entry.name}`,
+      );
+      if (!visited.ok) return visited;
+    }
+    return ok(undefined);
   }
-  return ok(undefined);
+  return await visit(target, ".");
 }
 
 // catalog read에서 쓰는 잡힌 조회. install 확인 내용만 목록에 남는다(R13).

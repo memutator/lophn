@@ -326,20 +326,26 @@ export async function buildImportMap(
   });
 }
 
-// 앱 deno.json의 `lophn-sdk:` 값을 설치 사본의 file URL로 바꾼 개발용 import map이다. 이 map은 이 장치의
-// 설치 위치를 담으므로 앱 source에 넣지 않는다.
+// 앱 deno.json의 `lophn-sdk:` 값을 설치 사본의 file URL로 바꾼 개발용 import map이다. 상대 경로 값은
+// 앱 폴더 기준 file URL로 바꾼다(map 파일은 `.lophn/`에 있다). 이 map은 이 장치의 설치 위치를 담으므로
+// 앱 source에 넣지 않는다.
 export function devImportMap(
   imports: Readonly<Record<string, string>>,
   sdkRoot: string,
+  appDir: string,
 ): ImportMap {
+  const sdkBase = `file://${sdkRoot.replace(/\/?$/, "/")}`;
+  const appBase = `file://${appDir.replace(/\/?$/, "/")}`;
   const mapped: Record<string, string> = {};
   for (const [key, value] of Object.entries(imports)) {
     const match = /^lophn-sdk:(@[^/]+\/[^@]+)@([^@/]+)\/(.+)$/.exec(value);
     mapped[key] = match
       ? new URL(
         `${installPart(match[1])}/${match[2]}/${match[3]}`,
-        `file://${sdkRoot.replace(/\/?$/, "/")}`,
+        sdkBase,
       ).href
+      : value.startsWith("./") || value.startsWith("../")
+      ? new URL(value, appBase).href
       : value;
   }
   return { imports: mapped };

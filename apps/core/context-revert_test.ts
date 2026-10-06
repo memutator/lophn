@@ -357,6 +357,7 @@ async function open(): Promise<World> {
         session: null,
         role: "context_engineer" as const,
         original_message: MSG_ONE,
+        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
       })),
   };
   const names = BUILTIN_TOOLS.map((tool) => tool.name);

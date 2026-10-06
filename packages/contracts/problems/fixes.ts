@@ -4,6 +4,7 @@ import {
   defineEvent,
   defineRead,
   idSchema,
+  preparedBlobSchema,
   seqSchema,
   sha256Schema,
   withReadCommon,
@@ -42,10 +43,21 @@ export const fixRecordInputSchema = z.strictObject({
 });
 export type FixRecord = z.infer<typeof fixRecordSchema>;
 
+// summary blob의 준비 증거다(hash만 싣는 기록은 가리키는 바이트가 저장된 blob이어야 한다).
+// handler가 같은 준비를 본 뒤 같은 transaction에서 영구 참조를 등록한다(contracts#T40).
+export const fixSummaryBlobSchema = z.strictObject(preparedBlobSchema.shape)
+  .refine(
+    (value) => value.purpose === "fix_summary",
+    { message: "summary blob purpose must be fix_summary" },
+  );
+
 export const recordProblemFixInputSchema = z.strictObject({
   problem: idSchema("prb"),
   fix: fixRecordInputSchema,
+  summary_blob: fixSummaryBlobSchema,
   idempotency_key: z.string().min(1).max(128),
+}).refine((value) => value.summary_blob.hash === value.fix.summary, {
+  message: "summary blob hash must match fix.summary",
 });
 export const recordProblemFixCompareSchema = z.strictObject({
   problem_seq: seqSchema,

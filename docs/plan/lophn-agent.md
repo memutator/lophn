@@ -330,6 +330,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/provider-auth.md
 - 선행: T3, T15, platform#T20, shell#T29(code·최종 URL secret 입력), shell#T31(공식 로그인 버튼은 확인 없이 OS 브라우저로 연다)
+- shell#T29에서 넘어온 것: OAuth code·최종 주소 붙여넣기는 보호 창의 secret 입력(`credential.kind: "oauth"`, 화면은 "Code or final address")이 받는다. 지금은 값을 `/v1/secrets/input`(`provider_credential`)으로 보내 `RegisterProviderCredential`을 부른다. login-complete 교환이 필요하면 그 sink를 `apps/shell/main/confirmation/kinds/secret-input.ts`의 command 고르기에 더한다
 - 완료:
   - D31(질문 Q1): Claude OAuth는 없다. ChatGPT는 공식 Sign in with ChatGPT, xAI는 SuperGrok device code다. 두 경로 모두 lophn 이름의 실제 login·text·tool 성공을 `LOPHN_LIVE_PROVIDER=1`로 확인하기 전까지 활성 gate는 false다(fake 성공으로 열지 않는다)
   - oauth_test.ts에 R1, R12–R16 테스트(fake provider): Sign in with ChatGPT는 실제 앱 이름의 dynamic client 등록·발급 client_id 재사용·127.0.0.1 loopback callback·state·nonce·S256·id_token 검증, 공개 Responses만(backend-api 없음)·store=false·stream=true·system item 대신 instructions·previous_response_id 없음, access 3600초·refresh 30일과 earliest_refresh_at 존중. SuperGrok은 `https://auth.x.ai/.well-known/openid-configuration` discovery와 HTTPS `x.ai`·하위 도메인 재검사, device code만·여섯 scope만, 간격 없으면 5초·slow_down마다 +5초·만료 없으면 최대 5분. 거절·만료·취소·기한 뒤 늦은 성공은 등록 없음, lophn 제품 이름 식별(Claude Code·Codex·Grok CLI 위장·tool 이름 치환 없음), token 목적지 고정과 다른 host redirect에 token 없음

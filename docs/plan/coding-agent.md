@@ -758,6 +758,23 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     반영(변경·무변경·충돌), 범위 version·미설치 version·조용한 upgrade 거절, 두
     번 추가해도 중복 없음(mcp#R23, cli#R30)
   - 개인 SDK는 지원 범위 밖으로 구별해 표시
+  - 구현 메모(T22):
+    - 흐름은 `connection/sdk-ops.ts` 하나를 MCP `lophn_sdk`와 CLI `sdk …`가 같이 지난다.
+      통로 입력에 catalog `query`, show `version`, add `apply`·`app`을 더했다
+      (`contracts/coding-agent/mcp-app.ts`의 `sdk*Fields`). 더한 field는 소유 route로 보내지
+      않는다. catalog 검색은 `packages.list` 결과를 이름·설명으로 거른다.
+    - 찾지 못한 이름은 `not_installed`(@lophn)와 `personal_unsupported`(@me)로 구별하고,
+      있는 package의 없는 version은 `version_not_installed`와 설치 version 목록이다.
+    - apply는 `app.get`의 source 위치의 `deno.json` imports에
+      `"lophn-sdk:<name>@<version>": "./sdk/<name>/<version>/"`를 더한다. 같은 항목은
+      unchanged, 같은 이름의 다른 version·다른 대상·깨진/없는 deno.json은 conflict이고 원문을
+      바꾸지 않는다. changed 뒤에만 lock을 다시 만든다. 파일 쓰기는 주입 port(`SdkSourcePort`)다.
+      MCP는 `--allow-write` 없이 뜨므로 port를 주지 않아 apply가 `unavailable`이다(Q33).
+    - apps에 source용 import map 생성 함수(buildImportMap)가 main에 아직 없다. key 모양은
+      bundle 잠금(`apps/releases/bundle/import-map.ts`의 `sdkPathMap`)과 같게 두었고, apps가
+      source용 함수를 내면 `planImportMap`을 그것으로 바꾼다.
+    - 이어보냄: CLI `runSdk`의 dispatch 배선과 실제 source port(파일 쓰기·`deno install`로
+      lock 재생성) → T36. 안내 원문(API·type·permission·peer·예제) 읽기 → Q33.
 
 ### T23 blueprint 유래 앱 read tool
 
@@ -1652,6 +1669,16 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   target(`app`)을 credential 조건 값으로 덮어 판정을 통과시킨 것이었다(덮지 않고 거절하도록 고쳤다).
   apps 쪽은 `app.connect_source`·archive·unarchive가 범위 밖 앱을 revision·status 비교보다 먼저
   없는 앱과 같게 닫고, `invocations.list·get`이 앱별 범위를 판정한다(범위 밖 기록은 없는 기록).
+- **Q33 T22 SDK tool의 안내 원문과 MCP apply(구현).**
+  (a) mcp#R22·cli#R30의 show는 API·type·permission·peer·예제를 내야 하지만 `packages.guide`는
+  `guide_hash`만 내고, 그 blob을 읽을 owner 등록(`blob.read`의 owner_kind·field)이 apps에 없다.
+  지금 show는 version 목록과 `guide_hash`를 내고 `body: null`과 이유를 함께 낸다. 추천: apps가
+  package guide blob의 owner 등록(예: owner_kind `package_version`, field `guide`)을 contracts에
+  더하고, 통로는 그것으로 원문을 읽어 낸다.
+  (b) MCP는 `--allow-write` 없이 뜬다(T11, connection#R16). 그래서 MCP의 `apply`는 실행 전
+  `unavailable`이고 고정 import 안내로 끝난다. 추천: apply는 CLI(`lophn sdk add --apply --app`)로만
+  실제 실행하고 MCP 응답의 next가 그 command를 안내한다. MCP에 앱 source 범위의 쓰기 권한을
+  줄지는 harnesses·connection이 정한다.
 - **Q15 ticket claim의 readiness.** coding-agent/tickets#R11 본문은
   needs_confirmation ticket도 claim할 수 있다고 적고, T19 완료 줄과
   checkTicketClaim의 not_ready 거절은 ready만 허용한다. 구현은 완료 줄을

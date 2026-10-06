@@ -6,11 +6,7 @@ import { commandKeySchema } from "../apps/channel-values.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
 import { releasePrepareBundle } from "../apps/releases.ts";
 import { requestTest } from "../problems/tests.ts";
-import {
-  sdkAddFields,
-  sdkCatalogFields,
-  sdkShowFields,
-} from "./mcp-app.ts";
+import { sdkAddFields, sdkCatalogFields, sdkShowFields } from "./mcp-app.ts";
 import {
   packagesGuide,
   packagesList,

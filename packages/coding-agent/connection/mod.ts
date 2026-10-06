@@ -112,11 +112,19 @@ export {
   runAppOp,
 } from "./app-ops.ts";
 export {
+  compareSemver,
+  type ImportMapOutcome,
+  isPersonalSdk,
+  isRangeVersion,
   isSdkOp,
+  planImportMap,
   runSdkOp,
   SDK_OP_CLI_NAMES,
   SDK_OP_ROUTES,
+  SDK_SUPPORT,
+  sdkImportEntry,
   type SdkOp,
   type SdkOpDeps,
   type SdkOpOutput,
+  type SdkSourcePort,
 } from "./sdk-ops.ts";

@@ -1,155 +1,140 @@
-// lophn_sdk tool 테스트다(T22, mcp#R22·R23). tool 입력과 결과를 보고,
-// 실행은 fixture flow client로 한다.
+// lophn_sdk tool 테스트다(T22, mcp#R22·R23). discovery·입력 검사·route 해석을 server 경계에서
+// 보고, 실행은 route별 답을 정한 흐름 client로 한다.
 import { assert, assertEquals } from "@std/assert";
-import {
-  type Package,
-  packagesGuide,
-  packagesList,
-  packagesVersions,
-} from "../../../contracts/apps/mod.ts";
 import { scriptedFlow } from "../../connection/testing/mod.ts";
+import { createHandler, type JsonRpcResponse } from "../server.ts";
+import { resolveRoute, toolEntries } from "../registry.ts";
 import { createSdkTool } from "./sdk.ts";
 
-const mockPackages: Package[] = [
-  {
-    id: "pkg_123",
-    name: "@lophn/test-pkg",
-    description: "테스트 component",
-    kind: "component",
-    versions: [
-      {
-        version: "1.0.0",
-        bundle_hash: "a".repeat(64),
-        guide_hash: "b".repeat(64),
-      },
-      {
-        version: "0.9.0",
-        bundle_hash: "c".repeat(64),
-        guide_hash: "d".repeat(64),
-      },
-    ],
-  },
-  {
-    id: "pkg_456",
-    name: "@me/private-sdk",
-    description: "개인 SDK",
-    kind: "component",
-    versions: [
-      {
-        version: "1.0.0",
-        bundle_hash: "e".repeat(64),
-        guide_hash: "f".repeat(64),
-      },
-    ],
-  },
-];
+const APP = "app_01arz3ndektsv4rrffq69g5fav";
 
-Deno.test("mcp#R22: SDK tool catalog 검색 없음", async () => {
-  const flow = scriptedFlow({
-    "packages.list": {
-      packages: mockPackages,
-      as_of_seq: 1,
-      next_cursor: null,
+const PACKAGE = {
+  id: "pkg_01arz3ndektsv4rrffq69g5fav",
+  name: "@lophn/ui-table",
+  description: "정렬과 선택이 되는 표 component",
+  kind: "component",
+  versions: [
+    {
+      version: "1.2.0",
+      bundle_hash: "a".repeat(64),
+      guide_hash: "b".repeat(64),
     },
-  });
-  const tool = createSdkTool({ client: flow.client });
-  const result = await tool("lophn_sdk", packagesList, { op: "catalog" });
-  assertEquals(result.isError, undefined);
-  assertEquals(result.summary.includes("2개"), true);
-  const data = result.data as Record<string, unknown>;
-  assert(Array.isArray(data.packages));
-  assertEquals((data.packages as unknown[]).length, 2);
-  const pkg = (data.packages as unknown[])[0] as Record<string, unknown>;
-  assertEquals(pkg.name, "@lophn/test-pkg");
-  assertEquals(pkg.latest_version, "1.0.0");
-  assertEquals(pkg.kind, "component");
-  assertEquals(pkg.description, "테스트 component");
-});
+  ],
+};
 
-Deno.test("mcp#R22: SDK tool catalog 이름 검색", async () => {
+function setup() {
   const flow = scriptedFlow({
-    "packages.list": (input: unknown) => {
-      const inputObj = input as Record<string, unknown>;
-      const found = mockPackages.find((p) => p.name === inputObj.name);
-      return {
-        packages: found ? [found] : [],
-        as_of_seq: 1,
-        next_cursor: null,
-      };
-    },
-  });
-  const tool = createSdkTool({ client: flow.client });
-  const result = await tool("lophn_sdk", packagesList, {
-    op: "catalog",
-    name: "@lophn/test-pkg",
-  });
-  assertEquals(result.isError, undefined);
-  const data = result.data as Record<string, unknown>;
-  assertEquals((data.packages as unknown[]).length, 1);
-});
-
-Deno.test("mcp#R22: SDK tool show 성공", async () => {
-  const flow = scriptedFlow({
+    "packages.list": { packages: [PACKAGE], as_of_seq: 1, next_cursor: null },
     "packages.versions": {
-      name: "@lophn/test-pkg",
-      versions: mockPackages[0].versions,
+      name: PACKAGE.name,
+      versions: PACKAGE.versions,
       as_of_seq: 1,
       next_cursor: null,
     },
-  });
-  const tool = createSdkTool({ client: flow.client });
-  const result = await tool("lophn_sdk", packagesVersions, {
-    op: "show",
-    name: "@lophn/test-pkg",
-  });
-  assertEquals(result.isError, undefined);
-  assertEquals(result.summary.includes("@lophn/test-pkg"), true);
-  assertEquals(result.summary.includes("2개"), true);
-  const data = result.data as Record<string, unknown>;
-  assertEquals(data.name, "@lophn/test-pkg");
-  assert(Array.isArray(data.versions));
-  assertEquals((data.versions as unknown[]).length, 2);
-});
-
-Deno.test("mcp#R23: SDK tool add exact version", async () => {
-  const flow = scriptedFlow({
     "packages.guide": {
-      name: "@lophn/test-pkg",
-      version: "1.0.0",
-      guide_hash: "a".repeat(64),
+      name: PACKAGE.name,
+      version: "1.2.0",
+      guide_hash: "b".repeat(64),
       as_of_seq: 1,
       next_cursor: null,
     },
   });
   const tool = createSdkTool({ client: flow.client });
-  const result = await tool("lophn_sdk", packagesGuide, {
-    op: "add",
-    name: "@lophn/test-pkg",
-    version: "1.0.0",
+  const handler = createHandler({
+    toolsets: ["core", "app"],
+    notify: () => {},
+    callTool: (name, args) => {
+      const route = resolveRoute(name, (args as { op?: string }).op)!.route;
+      return tool(name, route, args);
+    },
   });
-  assertEquals(result.isError, undefined);
-  assertEquals(result.summary.includes("추가 안내"), true);
-  const data = result.data as Record<string, unknown>;
+  async function call(args: Record<string, unknown>): Promise<JsonRpcResponse> {
+    const response = await handler(JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "lophn_sdk", arguments: args },
+    }));
+    assert(response !== undefined);
+    return response;
+  }
+  return { flow, call };
+}
+
+function resultOf(response: JsonRpcResponse) {
+  return response.result as {
+    isError?: boolean;
+    structuredContent?: { summary: string; data: Record<string, unknown> };
+  };
+}
+
+Deno.test("coding-agent/mcp-server#R22: lophn_sdk는 app toolset에만 있고 catalog·show·add와 검색어·apply 입력을 낸다", () => {
+  assert(!toolEntries(["core"]).some((entry) => entry.name === "lophn_sdk"));
+  const entry = toolEntries(["core", "app"]).find((item) =>
+    item.name === "lophn_sdk"
+  );
+  assert(entry);
+  const schema = entry.inputSchema as {
+    properties: Record<string, { enum?: string[] }>;
+  };
+  assertEquals(schema.properties.op.enum, ["catalog", "show", "add"]);
+  for (const field of ["name", "query", "version", "apply", "app"]) {
+    assert(field in schema.properties, field);
+  }
   assertEquals(
-    data.import_key,
-    "lophn-sdk:@lophn/test-pkg@1.0.0",
+    resolveRoute("lophn_sdk", "catalog")?.route.name,
+    "packages.list",
   );
   assertEquals(
-    data.import_value,
-    "./sdk/@lophn/test-pkg/1.0.0/",
+    resolveRoute("lophn_sdk", "show")?.route.name,
+    "packages.versions",
   );
+  assertEquals(resolveRoute("lophn_sdk", "add")?.route.name, "packages.guide");
 });
 
-Deno.test("mcp#R23: SDK tool add range version 거절", async () => {
-  const flow = scriptedFlow({});
-  const tool = createSdkTool({ client: flow.client });
-  const result = await tool("lophn_sdk", packagesGuide, {
+Deno.test("coding-agent/mcp-server#R22: catalog 검색 결과는 structuredContent에 이름·최신 version·종류·설명이다", async () => {
+  const { call } = setup();
+  const result = resultOf(await call({ op: "catalog", query: "표" }));
+  assertEquals(result.isError, undefined);
+  assertEquals(result.structuredContent?.data.packages, [{
+    name: "@lophn/ui-table",
+    latest_version: "1.2.0",
+    kind: "component",
+    description: "정렬과 선택이 되는 표 component",
+    support: "supported",
+  }]);
+});
+
+Deno.test("coding-agent/mcp-server#R23: 범위 version add는 core에 닿기 전에 isError다", async () => {
+  const { flow, call } = setup();
+  const response = await call({
     op: "add",
-    name: "@lophn/test-pkg",
-    version: "^1.0.0",
+    name: "@lophn/ui-table",
+    version: "^1.2.0",
   });
-  assertEquals(result.isError, true);
-  const data = result.data as Record<string, unknown>;
-  assertEquals(data.code, "invalid_input");
-  assertEquals(result.summary.includes("범위"), true);
+  assertEquals(resultOf(response).isError, true);
+  assertEquals(flow.sent.length, 0);
+});
+
+Deno.test("coding-agent/mcp-server#R23: MCP add는 고정 import 안내를 내고 apply는 source 쓰기 통로 없이 거절한다", async () => {
+  const { call } = setup();
+  const guide = resultOf(
+    await call({ op: "add", name: "@lophn/ui-table", version: "1.2.0" }),
+  );
+  assertEquals(guide.isError, undefined);
+  assertEquals(
+    guide.structuredContent?.data.import_key,
+    "lophn-sdk:@lophn/ui-table@1.2.0",
+  );
+  const applied = resultOf(
+    await call({
+      op: "add",
+      name: "@lophn/ui-table",
+      version: "1.2.0",
+      apply: true,
+      app: APP,
+    }),
+  );
+  assertEquals(applied.isError, true);
+  assertEquals(applied.structuredContent?.data.code, "unavailable");
 });

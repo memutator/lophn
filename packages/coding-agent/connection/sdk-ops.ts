@@ -1,10 +1,21 @@
 // SDK tool의 공통 실행이다(T22, mcp#R22·R23, cli#R30). catalog·show·add가 같은
-// credential·입력의 결과와 거절을 공유하도록 MCP와 CLI가 이 한 흐름을 지난다.
-// (connection#R6, cli#R1). op마다 소유 route로만 보내는 것은 catalog와 show는
-// app tool과 다르게 추가 로직이 없지만, add 작업은 app import map과 lock을 현재
-// 앱 source에 반영해야 한다(apps#T22의 buildImportMap).
-import type { LophnError } from "../../base/mod.ts";
+// credential·입력의 결과와 거절을 공유하도록 MCP와 CLI가 이 한 흐름을 지난다
+// (connection#R6, cli#R1). op마다 소유 읽기 route로만 보내고, 통로가 더한 입력
+// field(query·version·apply·app)는 소유 route로 보내지 않는다.
+//
+// - catalog: 설치 catalog(packages.list)를 읽고 설명·API 이름 검색어로 거른다. 결과는
+//   이름·최신 version·종류·한 줄 설명이다. 이름으로 찾았는데 없으면 비설치(@lophn)와
+//   지원 범위 밖 개인 SDK(@me)를 구별한다.
+// - show: version 목록과 고른 version의 사용 안내(packages.guide의 guide_hash)를 낸다.
+//   안내 원문(API·type·permission·peer·예제)은 owner blob read 자리가 계약에 아직 없어
+//   guide_hash와 그 사실만 낸다(plan coding-agent Q33).
+// - add: exact version만 받는다. 범위·별칭 version, 설치 catalog에 없는 package·version은
+//   거절이다. 결과는 고정 import 안내이고 `apply`일 때만 앱 source의 deno.json에 반영한다.
+//   반영 결과는 changed·unchanged·conflict 셋이다. 다른 version이 이미 있으면 conflict로
+//   멈추고 바꾸지 않는다(조용한 upgrade 없음).
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
+  appGet,
   packagesGuide,
   packagesList,
   packagesVersions,
@@ -15,7 +26,7 @@ import type { FlowClient } from "./document-save.ts";
 export const SDK_OP_ROUTES = {
   catalog: packagesList,
   show: packagesVersions,
-  add: packagesGuide, // version 존재 확인
+  add: packagesGuide,
 } as const;
 
 export type SdkOp = keyof typeof SDK_OP_ROUTES;
@@ -38,15 +49,34 @@ export type SdkOpOutput = {
   isError?: true;
 };
 
+// 앱 source의 파일 통로다. MCP는 쓰기 권한 없이 뜨므로(mcp-server/launch.ts) 실행 entry가
+// 이 port를 주입할 때만 `apply`가 된다. 없으면 apply는 실행 전 거절이다.
+export type SdkSourcePort = {
+  // 없는 파일은 ok(undefined)다.
+  readText(path: string): Promise<Result<string | undefined, LophnError>>;
+  writeText(path: string, text: string): Promise<Result<void, LophnError>>;
+  // deno.json을 바꾼 뒤 개발 import map과 deno.lock을 다시 만든다.
+  refreshLock(sourceDir: string): Promise<Result<void, LophnError>>;
+};
+
 export type SdkOpDeps = {
   client: Pick<FlowClient, "read">;
   surface?: "mcp" | "cli";
+  source?: SdkSourcePort;
 };
+
+export const SDK_SUPPORT = {
+  supported: "supported",
+  // 개인 SDK(@me)는 현재 지원 범위 밖이다(apps/sdk#R6, mcp#R22).
+  personal: "personal_unsupported",
+} as const;
 
 type Obj = Record<string, unknown>;
 
 function obj(value: unknown): Obj {
-  return typeof value === "object" && value !== null ? value as Obj : {};
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Obj
+    : {};
 }
 
 function str(value: unknown): string | undefined {
@@ -69,68 +99,402 @@ function refer(deps: SdkOpDeps, op: SdkOp, note = ""): string {
   return note === "" ? name : `${name} ${note}`;
 }
 
-function withoutOp(input: unknown): Obj {
-  const { op: _op, ...rest } = obj(input);
-  return rest;
+function pick(input: Obj, keys: readonly string[]): Obj {
+  const out: Obj = {};
+  for (const key of keys) {
+    if (input[key] !== undefined) out[key] = input[key];
+  }
+  return out;
+}
+
+export function isPersonalSdk(name: string): boolean {
+  return name.startsWith("@me/");
+}
+
+function support(name: string): string {
+  return isPersonalSdk(name) ? SDK_SUPPORT.personal : SDK_SUPPORT.supported;
+}
+
+// 범위·별칭 version이다. 계약의 exact SemVer 검사보다 먼저 이유를 분명히 한다.
+export function isRangeVersion(version: string): boolean {
+  const core = version.split(/[-+]/)[0];
+  return /^[~^<>=*]/.test(version) || /\s|\|\|/.test(version) ||
+    /(^|\.)[xX*](\.|$)/.test(core) || ["latest", "next"].includes(version);
+}
+
+// SemVer 2.0.0 precedence 비교다. build metadata는 무시한다.
+export function compareSemver(a: string, b: string): number {
+  const split = (value: string) => {
+    const [core, pre] = value.split("+")[0].split(/-(.*)/s);
+    return { core: core.split(".").map(Number), pre };
+  };
+  const x = split(a);
+  const y = split(b);
+  for (let i = 0; i < 3; i++) {
+    const d = (x.core[i] ?? 0) - (y.core[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  if (x.pre === undefined || y.pre === undefined) {
+    return x.pre === y.pre ? 0 : x.pre === undefined ? 1 : -1;
+  }
+  const xp = x.pre.split(".");
+  const yp = y.pre.split(".");
+  for (let i = 0; i < Math.max(xp.length, yp.length); i++) {
+    if (xp[i] === undefined) return -1;
+    if (yp[i] === undefined) return 1;
+    const xn = /^\d+$/.test(xp[i]);
+    const yn = /^\d+$/.test(yp[i]);
+    if (xn && yn) {
+      const d = Number(xp[i]) - Number(yp[i]);
+      if (d !== 0) return d;
+    } else if (xn !== yn) {
+      return xn ? -1 : 1;
+    } else if (xp[i] !== yp[i]) {
+      return xp[i] < yp[i] ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
+function versionNames(versions: unknown): string[] {
+  return (Array.isArray(versions) ? versions : [])
+    .map((item) => str(obj(item).version))
+    .filter((value): value is string => value !== undefined)
+    .sort((a, b) => compareSemver(b, a));
+}
+
+function catalogEntry(pkg: Obj) {
+  const name = str(pkg.name) ?? "";
+  return {
+    name,
+    latest_version: versionNames(pkg.versions)[0] ?? null,
+    kind: pkg.kind,
+    description: pkg.description,
+    support: support(name),
+  };
+}
+
+function matches(pkg: Obj, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  return [pkg.name, pkg.description].some((value) =>
+    typeof value === "string" && value.toLowerCase().includes(needle)
+  );
+}
+
+// 설치 catalog에서 찾지 못한 이름의 판정이다(mcp#R22): 개인 SDK는 지원 범위 밖, 그 밖은 비설치.
+function absence(name: string) {
+  return isPersonalSdk(name)
+    ? {
+      name,
+      status: SDK_SUPPORT.personal,
+      reason: "개인 SDK(@me)는 현재 지원 범위 밖이다",
+    }
+    : {
+      name,
+      status: "not_installed",
+      reason: "설치 catalog에 없는 package다",
+    };
+}
+
+function absentFailure(
+  deps: SdkOpDeps,
+  name: string,
+): SdkOpOutput {
+  const found = absence(name);
+  return failure({
+    code: "not_found",
+    message: `${name}: ${found.reason}`,
+    details: found,
+  }, [refer(deps, "catalog", "로 설치된 package를 찾는다")]);
 }
 
 async function catalogPackages(
   input: Obj,
   deps: SdkOpDeps,
 ): Promise<SdkOpOutput> {
-  const read = await deps.client.read(packagesList, input);
+  const read = await deps.client.read(
+    packagesList,
+    pick(input, ["name", "cursor", "limit"]),
+  );
   if (!read.ok) return failure(read.error, [refer(deps, "catalog")]);
   const value = obj(read.value);
-  const packages = Array.isArray(value.packages) ? value.packages : [];
-  const result = packages.map((pkg: Obj) => ({
-    name: pkg.name,
-    latest_version: Array.isArray(pkg.versions)
-      ? ((pkg.versions as Obj[])[0]?.version ?? null)
-      : null,
-    kind: pkg.kind,
-    description: pkg.description,
-  }));
+  const all = (Array.isArray(value.packages) ? value.packages : []).map(obj);
+  const query = str(input.query);
+  const found = query === undefined
+    ? all
+    : all.filter((pkg) => matches(pkg, query));
+  const packages = found.map(catalogEntry);
+  const name = str(input.name);
+  const lookup = name !== undefined && packages.length === 0
+    ? absence(name)
+    : undefined;
+  const nextCursor = value.next_cursor ?? null;
   return {
-    summary: `catalog: SDK ${packages.length}개`,
+    summary: lookup !== undefined
+      ? `${name}: ${lookup.reason}`
+      : `catalog: SDK ${packages.length}개${
+        nextCursor === null ? "" : ", 더 있음"
+      }`,
     data: {
-      packages: result,
-      total: packages.length,
-      next_cursor: value.next_cursor ?? null,
+      packages,
+      ...(query === undefined ? {} : { query }),
+      ...(lookup === undefined ? {} : { lookup }),
+      next_cursor: nextCursor,
     },
     next: [
-      refer(deps, "show", "로 상세 정보와 예제를 읽는다"),
-      refer(deps, "add", "로 version을 앱에 더한다"),
+      refer(deps, "show", "로 version과 사용 안내를 읽는다"),
+      refer(deps, "add", "로 exact version을 앱에 더한다"),
     ],
   };
+}
+
+// 이름의 version 목록이다. 없는 package는 비설치·개인 SDK로 구별한 거절이다.
+async function readVersions(
+  name: string,
+  deps: SdkOpDeps,
+  nextOp: SdkOp,
+): Promise<Result<string[], SdkOpOutput>> {
+  const read = await deps.client.read(packagesVersions, { name });
+  if (!read.ok) {
+    return err(
+      read.error.code === "not_found"
+        ? absentFailure(deps, name)
+        : failure(read.error, [refer(deps, nextOp)]),
+    );
+  }
+  const versions = versionNames(obj(read.value).versions);
+  if (versions.length === 0) return err(absentFailure(deps, name));
+  return ok(versions);
+}
+
+function versionNotInstalled(
+  deps: SdkOpDeps,
+  name: string,
+  version: string,
+  installed: string[],
+): SdkOpOutput {
+  return failure({
+    code: "not_found",
+    message: `${name}@${version}은 설치된 version이 아니다`,
+    details: { name, version, status: "version_not_installed", installed },
+  }, [refer(deps, "show", "로 설치된 exact version을 고른다")]);
 }
 
 async function showPackage(
   input: Obj,
   deps: SdkOpDeps,
 ): Promise<SdkOpOutput> {
-  const read = await deps.client.read(packagesVersions, input);
-  if (!read.ok) return failure(read.error, [refer(deps, "catalog")]);
-  const value = obj(read.value);
+  const name = str(input.name) ?? "";
+  const versions = await readVersions(name, deps, "catalog");
+  if (!versions.ok) return versions.error;
+  const asked = str(input.version);
+  if (asked !== undefined && !versions.value.includes(asked)) {
+    return versionNotInstalled(deps, name, asked, versions.value);
+  }
+  const version = asked ?? versions.value[0];
+  const guide = await deps.client.read(packagesGuide, { name, version });
+  if (!guide.ok) return failure(guide.error, [refer(deps, "show")]);
   return {
-    summary: `SDK ${value.name}: ${
-      Array.isArray(value.versions)
-        ? `version ${value.versions.length}개`
-        : "version 없음"
-    }`,
-    data: value,
-    next: [
-      refer(deps, "add", "로 exact version을 선택해 앱에 더한다"),
-    ],
+    summary: `SDK ${name}: version ${versions.value.length}개, ${version} 안내`,
+    data: {
+      name,
+      support: support(name),
+      versions: versions.value,
+      latest_version: versions.value[0],
+      version,
+      guide: {
+        guide_hash: obj(guide.value).guide_hash ?? null,
+        // API·type·permission·peer·예제는 안내 원문에 있다. 원문 read 자리는 Q33.
+        body: null,
+        body_unavailable: "안내 원문 read 자리가 계약에 아직 없다",
+      },
+    },
+    next: [refer(deps, "add", "로 이 exact version을 앱에 더한다")],
   };
+}
+
+export const SDK_IMPORT_PREFIX = "lophn-sdk:";
+
+// 고정 import 안내다. bundle 준비(apps/releases/bundle/import-map.ts)가 같은 key를 bundle 안
+// `sdk/<name>/<version>/`로 잠근다.
+export function sdkImportEntry(name: string, version: string) {
+  return {
+    key: `${SDK_IMPORT_PREFIX}${name}@${version}`,
+    value: `./sdk/${name}/${version}/`,
+  };
+}
+
+// import key가 가리키는 SDK 이름·version이다. `lophn-sdk:<name>@<version>[/<subpath>]`와
+// 맨 이름(`<name>`, `<name>/…`)을 본다.
+function keyTarget(
+  key: string,
+  name: string,
+): { version: string | undefined } | undefined {
+  if (key.startsWith(`${SDK_IMPORT_PREFIX}${name}@`)) {
+    const rest = key.slice(`${SDK_IMPORT_PREFIX}${name}@`.length);
+    return { version: rest.split("/")[0] };
+  }
+  if (key === name || key.startsWith(`${name}/`)) return { version: undefined };
+  return undefined;
+}
+
+export type ImportMapOutcome =
+  | { outcome: "changed"; text: string; entry: { key: string; value: string } }
+  | { outcome: "unchanged"; entry: { key: string; value: string } }
+  | {
+    outcome: "conflict";
+    reason:
+      | "missing_config"
+      | "invalid_config"
+      | "other_version"
+      | "different_target";
+    existing: Record<string, string>;
+    entry: { key: string; value: string };
+  };
+
+// deno.json 원문에 SDK import 하나를 더한 결과다. 같은 항목이면 unchanged, 같은 이름의 다른
+// version·다른 대상이 있으면 conflict이고 원문을 바꾸지 않는다(mcp#R23).
+export function planImportMap(
+  text: string | undefined,
+  name: string,
+  version: string,
+): ImportMapOutcome {
+  const entry = sdkImportEntry(name, version);
+  if (text === undefined) {
+    return {
+      outcome: "conflict",
+      reason: "missing_config",
+      existing: {},
+      entry,
+    };
+  }
+  let config: unknown;
+  try {
+    config = JSON.parse(text);
+  } catch {
+    return {
+      outcome: "conflict",
+      reason: "invalid_config",
+      existing: {},
+      entry,
+    };
+  }
+  const root = obj(config);
+  if (
+    typeof config !== "object" || config === null || Array.isArray(config) ||
+    (root.imports !== undefined &&
+      (typeof root.imports !== "object" || root.imports === null ||
+        Array.isArray(root.imports)))
+  ) {
+    return {
+      outcome: "conflict",
+      reason: "invalid_config",
+      existing: {},
+      entry,
+    };
+  }
+  const imports = obj(root.imports);
+  const existing: Record<string, string> = {};
+  for (const [key, value] of Object.entries(imports)) {
+    if (keyTarget(key, name) !== undefined) existing[key] = String(value);
+  }
+  if (imports[entry.key] === entry.value) {
+    return { outcome: "unchanged", entry };
+  }
+  for (const key of Object.keys(existing)) {
+    const target = keyTarget(key, name);
+    if (target?.version !== undefined && target.version !== version) {
+      return { outcome: "conflict", reason: "other_version", existing, entry };
+    }
+  }
+  if (Object.keys(existing).length > 0) {
+    return { outcome: "conflict", reason: "different_target", existing, entry };
+  }
+  const next = { ...root, imports: { ...imports, [entry.key]: entry.value } };
+  return {
+    outcome: "changed",
+    text: `${JSON.stringify(next, null, 2)}\n`,
+    entry,
+  };
+}
+
+const CONFLICT_REASONS: Record<
+  Extract<ImportMapOutcome, { outcome: "conflict" }>["reason"],
+  string
+> = {
+  missing_config: "앱 source에 deno.json이 없다",
+  invalid_config: "deno.json을 JSON 객체로 읽지 못했다",
+  other_version: "같은 SDK의 다른 version이 이미 있다. 조용히 바꾸지 않는다",
+  different_target: "같은 SDK 이름의 import가 다른 대상을 가리킨다",
+};
+
+async function applyToSource(
+  input: Obj,
+  deps: SdkOpDeps,
+  name: string,
+  version: string,
+): Promise<Result<Obj, SdkOpOutput>> {
+  const app = str(input.app);
+  if (app === undefined) {
+    return err(failure({
+      code: "invalid_input",
+      message: "apply에는 반영할 앱(app)이 필요하다",
+    }, [refer(deps, "add", "에 app을 넣거나 apply 없이 안내만 받는다")]));
+  }
+  if (deps.source === undefined) {
+    return err(failure({
+      code: "unavailable",
+      message:
+        "이 통로에서는 앱 source에 쓸 수 없다. 고정 import 안내로 직접 반영한다",
+      details: { apply: "unavailable" },
+    }, [
+      refer(deps, "add", "를 apply 없이 불러 고정 import 안내를 받는다"),
+      `lophn sdk add --apply --app ${app}로 source에 반영한다`,
+    ]));
+  }
+  const read = await deps.client.read(appGet, { app });
+  if (!read.ok) {
+    return err(failure(read.error, ["lophn_app show로 앱을 읽는다"]));
+  }
+  const sourceDir = str(obj(obj(read.value).app).source_path);
+  if (sourceDir === undefined) {
+    return err(failure({
+      code: "conflict",
+      message: "앱에 연결된 source가 없다",
+      details: { app },
+    }, ["lophn_app source로 구현 시작 source를 연결한다"]));
+  }
+  const path = `${sourceDir.replace(/\/+$/, "")}/deno.json`;
+  const text = await deps.source.readText(path);
+  if (!text.ok) return err(failure(text.error, [refer(deps, "add")]));
+  const planned = planImportMap(text.value, name, version);
+  if (planned.outcome === "conflict") {
+    return ok({
+      outcome: "conflict",
+      reason: planned.reason,
+      message: CONFLICT_REASONS[planned.reason],
+      existing: planned.existing,
+      config: path,
+    });
+  }
+  if (planned.outcome === "unchanged") {
+    return ok({ outcome: "unchanged", config: path });
+  }
+  const wrote = await deps.source.writeText(path, planned.text);
+  if (!wrote.ok) return err(failure(wrote.error, [refer(deps, "add")]));
+  const lock = await deps.source.refreshLock(sourceDir);
+  return ok({
+    outcome: "changed",
+    config: path,
+    lock: lock.ok ? "refreshed" : "failed",
+    ...(lock.ok ? {} : { lock_error: lock.error.message }),
+  });
 }
 
 async function addPackage(
   input: Obj,
   deps: SdkOpDeps,
 ): Promise<SdkOpOutput> {
-  // add는 name·version을 받아 앱 import map에 반영한다(mcp#R23, cli#R30).
-  // apply=true일 때만 deno.json을 수정한다(apps#T22 buildImportMap 패턴).
-  // packagesGuide로 version 존재를 확인한다(contract mcp-app.ts).
   const name = str(input.name);
   if (name === undefined) {
     return failure({
@@ -139,68 +503,56 @@ async function addPackage(
     }, [refer(deps, "catalog", "로 이름을 찾는다")]);
   }
   const version = str(input.version);
-  if (version === undefined) {
+  if (version === undefined || isRangeVersion(version)) {
     return failure({
       code: "invalid_input",
-      message: "exact version이 필요하다(^·~ 없음)",
-    }, [refer(deps, "show", "로 exact version을 보는다")]);
+      message: version === undefined
+        ? "exact version이 필요하다"
+        : `범위·별칭 version은 거절한다: ${version}`,
+      details: { version: version ?? null },
+    }, [refer(deps, "show", "로 설치된 exact version을 고른다")]);
   }
-
-  // 범위 버전인지 먼저 확인한다.
-  if (/^[~^]/.test(version) || ["latest", "next", "x"].includes(version)) {
-    return failure({
-      code: "invalid_input",
-      message: `범위 지정 version은 거절한다: ${version}`,
-      details: { version },
-    }, [refer(deps, "show", "로 exact version을 고른다")]);
+  if (isPersonalSdk(name)) return absentFailure(deps, name);
+  const versions = await readVersions(name, deps, "add");
+  if (!versions.ok) return versions.error;
+  if (!versions.value.includes(version)) {
+    return versionNotInstalled(deps, name, version, versions.value);
   }
-
-  // packagesGuide로 version 존재 확인한다.
-  const read = await deps.client.read(packagesGuide, { name, version });
-  if (!read.ok) {
-    return failure(read.error, [
-      refer(deps, "show", "로 설치된 version을 본다"),
-    ]);
-  }
-
-  // 고정 import 안내를 만든다.
-  const importKey = `lophn-sdk:${name}@${version}`;
-  const importValue = `./sdk/${name}/${version}/`;
-
-  // apply 없으면 안내만 돌려준다.
+  const guide = await deps.client.read(packagesGuide, { name, version });
+  if (!guide.ok) return failure(guide.error, [refer(deps, "show")]);
+  const entry = sdkImportEntry(name, version);
+  const base = {
+    name,
+    version,
+    import_key: entry.key,
+    import_value: entry.value,
+    guide_hash: obj(guide.value).guide_hash ?? null,
+  };
   if (input.apply !== true) {
     return {
-      summary: `SDK ${name}@${version} 추가 안내`,
-      data: {
-        name,
-        version,
-        import_key: importKey,
-        import_value: importValue,
-        applied: false,
-      },
+      summary: `SDK ${name}@${version} 고정 import 안내`,
+      data: { ...base, apply: null },
       next: [
-        `--apply로 자동 반영하려면 다시 부른다`,
+        `deno.json imports에 "${entry.key}": "${entry.value}"를 더하고 deno.lock을 다시 만든다`,
+        refer(deps, "add", "에 apply를 켜면 앱 source에 반영한다"),
       ],
     };
   }
-
-  // apply=true이면 caller는 deno.json을 수정하고 lock을 재생성해야 한다.
-  // 이 구현은 안내만 돌려주고, 실제 파일 수정과 lock 재생성은 앱 tool이 한다.
+  const applied = await applyToSource(input, deps, name, version);
+  if (!applied.ok) return applied.error;
+  const outcome = applied.value.outcome;
   return {
-    summary: `SDK ${name}@${version} 추가 지시`,
-    data: {
-      name,
-      version,
-      import_key: importKey,
-      import_value: importValue,
-      applied: false,
-      apply_required: true,
-      instruction:
-        "실제 deno.json 수정과 lock 재생성은 buildImportMap (apps#T22) 구현이 필요",
-    },
-    next: [
-      "apps#T22의 buildImportMap 완료 후 이 기능을 활성화한다",
-    ],
+    summary: outcome === "changed"
+      ? `SDK ${name}@${version}을 deno.json에 더했다`
+      : outcome === "unchanged"
+      ? `SDK ${name}@${version}은 이미 deno.json에 있다(무변경)`
+      : `SDK ${name}@${version} 충돌: ${applied.value.message}`,
+    data: { ...base, apply: applied.value },
+    next: outcome === "conflict"
+      ? [
+        "사람이 정한 source를 보존한다. 기존 항목을 사람과 정한 뒤 다시 add한다",
+      ]
+      : ["lophn_app validate로 blueprint와 import map을 검사한다"],
   };
 }
 
@@ -208,17 +560,14 @@ export async function runSdkOp(
   rawInput: unknown,
   deps: SdkOpDeps,
 ): Promise<SdkOpOutput> {
-  const op = obj(rawInput).op;
+  const { op, ...input } = obj(rawInput);
   if (!isSdkOp(op)) {
     return failure({
       code: "invalid_input",
       message: "sdk tool 표에 없는 op다",
       details: { op: typeof op === "string" ? op : null },
-    }, [
-      refer(deps, "catalog", "로 도움말을 본다"),
-    ]);
+    }, [refer(deps, "catalog", "로 설치 SDK를 찾는다")]);
   }
-  const input = withoutOp(rawInput);
   switch (op) {
     case "catalog":
       return await catalogPackages(input, deps);

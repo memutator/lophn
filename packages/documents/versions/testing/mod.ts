@@ -24,6 +24,18 @@ export type Emitted = {
 
 const allowAll: TargetAuthorizer = () => ok(undefined);
 
+// ULID id의 Crockford base32(i·l·o·u 없음). 판을 많이 쌓아도 id 모양이 유효하다.
+const CROCKFORD = "0123456789abcdefghjkmnpqrstvwxyz";
+function crockford(value: number): string {
+  let rest = value;
+  let out = "";
+  do {
+    out = CROCKFORD[rest % 32] + out;
+    rest = Math.floor(rest / 32);
+  } while (rest > 0);
+  return out;
+}
+
 export function versionFixture(authorize: TargetAuthorizer = allowAll) {
   const authorizer = { current: authorize };
   const directory = Deno.makeTempDirSync({ prefix: "versions-test-" });
@@ -82,7 +94,7 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
         newId: (prefix: string) => {
           guard();
           minted += 1;
-          return `${prefix}_${minted.toString(36).padStart(26, "0")}`;
+          return `${prefix}_${crockford(minted).padStart(26, "0")}`;
         },
         port<T>(key: PortKey<T>): T {
           guard();

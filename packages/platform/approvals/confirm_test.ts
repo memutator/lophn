@@ -77,10 +77,8 @@ async function create(
       id,
       requester: requester.actor,
       run: null,
-      reason_blob: await sha256Hex(
-        "송장 보내기는 외부 전송이라 확인이 필요하다",
-      ),
-      effect: await effect("kim@example.com 으로 송장 전송"),
+      reason: "송장 보내기는 외부 전송이라 확인이 필요하다",
+      effect: effect("kim@example.com 으로 송장 전송"),
       action: fixed,
       expires_at: null,
     },

@@ -381,18 +381,18 @@ export function createToolJudgment(deps: JudgmentDeps) {
       return err({ code: "internal", message: "approval has no action" });
     }
     const id = deps.ids.newId("apr");
+    // 설명은 값으로 싣는다. core가 redaction을 거쳐 blob으로 준비하고 platform이 영구 참조를
+    // 등록한다. 여기서 hash를 만들지도 blob을 준비하지도 않는다.
     const body = {
       id,
       requester: `agent:${deps.assignment}`,
       run: request.run,
-      reason_blob: await sha256Hex(reasonOf(request, action)),
+      reason: reasonOf(request, action),
       effect: {
-        changes_blob: await sha256Hex(resolved.changes),
-        external_blob: resolved.external === null
-          ? null
-          : await sha256Hex(resolved.external),
+        changes: resolved.changes,
+        external: resolved.external,
         reversible: false,
-        reversibility_blob: await sha256Hex(resolved.reversibility),
+        reversibility: resolved.reversibility,
       },
       action,
       expires_at: formatAt(deps.clock.nowMs() + deps.approvalTtlMs),

@@ -81,6 +81,7 @@ const MACHINE_OPERATIONS = [
   "ReadToolCall",
   "ListApprovals",
   "GetApproval",
+  "ReadApprovalText",
   "apply_approved_action",
   "expire_approval_request",
   "record_owned_note",
@@ -186,6 +187,7 @@ export async function openWorld(): Promise<World> {
       "grant_approval_request",
       "GetApproval",
       "ListApprovals",
+      "ReadApprovalText",
       "PauseAssignment",
     ]),
     USER_TOKEN,
@@ -230,7 +232,10 @@ export async function openWorld(): Promise<World> {
     const token = `x${key.repeat(42)}`;
     await accept(
       core,
-      context(`agent:${assignment.id}`, ["create_approval_request"], {
+      context(`agent:${assignment.id}`, [
+        "create_approval_request",
+        "ReadApprovalText",
+      ], {
         assignment: assignment.id,
         run,
       }),
@@ -384,20 +389,44 @@ const attach: SecretAttachLike = {
   send: async (_input, transmit) => await transmit(SECRET),
 };
 
+// model이 말하는 protocol. adapter와 fake provider의 응답 모양이 함께 바뀐다.
+export type ModelProtocol = "openai-chat-completions" | "anthropic-messages";
+
+const PROTOCOLS = {
+  "openai-chat-completions": {
+    fake: "chat_completions",
+    header: "authorization",
+    kind: "bearer",
+    call: "call_1",
+  },
+  "anthropic-messages": {
+    fake: "messages",
+    header: "x-api-key",
+    kind: "api_key",
+    call: "toolu_1",
+  },
+} as const;
+
 // model 쪽은 실제 HTTP로 fake provider를 부른다. script가 준 tool 요청과 글만 받는다.
 export async function modelAsks(
   text: string,
   name: string,
   args: unknown,
+  protocol: ModelProtocol = "openai-chat-completions",
 ): Promise<{ text: string; name: string; input: unknown }> {
+  const wire = PROTOCOLS[protocol];
   const provider = startFakeProvider({
     script: {
       steps: [{
         id: "ask",
-        protocol: "chat_completions",
+        protocol: wire.fake,
         reply: {
           text,
-          toolCalls: [{ id: "call_1", name, arguments: JSON.stringify(args) }],
+          toolCalls: [{
+            id: wire.call,
+            name,
+            arguments: JSON.stringify(args),
+          }],
           usage: { input: 5, output: 4 },
           stop: "tool_calls",
         },
@@ -414,8 +443,8 @@ export async function modelAsks(
         context: {} as never,
         use: {} as never,
         operation: "model.call",
-        headerName: "authorization",
-        kind: "bearer",
+        headerName: wire.header,
+        kind: wire.kind,
       }),
       nowMs: () => Date.UTC(2024, 0, 1),
       at: (ms) => new Date(ms).toISOString(),
@@ -423,7 +452,7 @@ export async function modelAsks(
     const model: ModelCallInput["model"] = {
       provider: id("pvd", 1),
       name: "fixture-model",
-      protocol: "openai-chat-completions",
+      protocol,
       credential_key: "key-a",
       credential_revision: 1,
       options: {},

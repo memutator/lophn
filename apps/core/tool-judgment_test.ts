@@ -15,6 +15,7 @@ import {
   kit,
   MACHINE_TOKEN,
   modelAsks,
+  type ModelProtocol,
   NOTES,
   openWorld,
   OTHER_TARGET,
@@ -84,8 +85,14 @@ async function decideAsModel(
   note: string,
   text = "please record this",
   options: Parameters<typeof kit>[3] = {},
+  protocol: ModelProtocol = "openai-chat-completions",
 ) {
-  const asked = await modelAsks(text, entry.definition.name, { note });
+  const asked = await modelAsks(
+    text,
+    entry.definition.name,
+    { note },
+    protocol,
+  );
   const harness = kit(world, key, [noteRecord, noteDraft, noteRead], options);
   const request = await requested(
     world,
@@ -101,12 +108,19 @@ async function decideAsModel(
 Deno.test("lophn-agent/harness/tool-judgment#R1 #R8: ask는 정확한 동작·대상·입력·비교 기준·기한의 approval request를 만들고 미시작이며 허락 뒤 한 번만 적용된다", async () => {
   const world = await openWorld();
   try {
-    const { harness, request, decided } = await decideAsModel(
+    // model은 Anthropic Messages로 말한다: 설명 text 뒤의 tool_use를 adapter가 완성된 tool
+    // call로 읽고(provider#R25), 판정이 그 입력으로 approval을 만든다.
+    const { harness, request, decided, asked } = await decideAsModel(
       world,
       "a",
       noteRecord,
       "first-note",
+      "please record this",
+      {},
+      "anthropic-messages",
     );
+    assertEquals(asked.name, "note.record");
+    assertEquals(asked.input, { note: "first-note" });
     assertEquals(decided.decision.decision, "ask");
     assertEquals(decided.decision.effect, "irreversible");
     const approvalId = decided.decision.approval;

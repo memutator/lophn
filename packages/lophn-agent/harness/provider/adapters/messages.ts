@@ -230,6 +230,11 @@ export type StreamResult = {
   completedToolIds: string[];
   stopReason?: string;
   messageEnded: boolean;
+  // content_block_start를 본 index(text·thinking·tool_use 모두). tool이 아닌 block도 index를
+  // 차지하므로 toolCalls의 빈 자리와 start가 빠진 구멍은 이 집합으로만 구별한다.
+  startedBlocks: number[];
+  // content_block 계열 frame이 가리킨 가장 큰 index. 없으면 -1이다.
+  lastBlock: number;
   usage?: TokenUsage;
   // error frame의 provider type·message. 오류 본문은 보존하지 않는다(R19).
   errorType?: string;
@@ -244,8 +249,17 @@ export function createStreamResult(): StreamResult {
     toolCalls: [],
     completedToolIds: [],
     messageEnded: false,
+    startedBlocks: [],
+    lastBlock: -1,
     sawUnknownEvent: false,
   };
+}
+
+function noteBlock(out: StreamResult, index: number, started: boolean): void {
+  if (index > out.lastBlock) out.lastBlock = index;
+  if (started && !out.startedBlocks.includes(index)) {
+    out.startedBlocks.push(index);
+  }
 }
 
 // frame 하나를 누적한다. tool 인자 조각은 index로 slot을 찾아 더한다.
@@ -298,6 +312,7 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
     const index = typeof record.index === "number" ? record.index : undefined;
     const block = record.content_block as Record<string, unknown> | undefined;
     if (index === undefined || block === undefined) return;
+    noteBlock(out, index, true);
     if (block.type === "tool_use") {
       out.toolCalls[index] = {
         id: typeof block.id === "string" ? block.id : "",
@@ -311,6 +326,7 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
     const index = typeof record.index === "number" ? record.index : undefined;
     const delta = record.delta as Record<string, unknown> | undefined;
     if (index === undefined || delta === undefined) return;
+    noteBlock(out, index, false);
     if (delta.type === "text_delta" && typeof delta.text === "string") {
       out.text += delta.text;
       return;
@@ -329,6 +345,7 @@ function applyFrame(out: StreamResult, frame: SseFrame): void {
   if (type === "content_block_stop") {
     const index = typeof record.index === "number" ? record.index : undefined;
     if (index === undefined) return;
+    noteBlock(out, index, false);
     const slot = out.toolCalls[index];
     if (slot !== undefined && !out.completedToolIds.includes(slot.id)) {
       out.completedToolIds.push(slot.id);
@@ -431,11 +448,18 @@ export function judge(out: StreamResult): Verdict {
   }
   // tool_use는 인자 완성(JSON 검증) 뒤에만 complete다.
   if (out.stopReason === "tool_use") {
-    if (out.toolCalls.length === 0) return { kind: "partial" };
+    if (out.toolCalls.every((call) => call === undefined)) {
+      return { kind: "partial" };
+    }
+    // block은 text·thinking·tool_use가 index를 함께 쓴다. 앞선 text·thinking block 때문에
+    // toolCalls에 빈 자리가 있는 것은 정상이다. content_block_start를 본 적 없는 index만
+    // 구멍이다(잘린 stream). 구멍이 있으면 complete가 아니고, 던지지 않고 partial로 세운다.
+    for (let index = 0; index <= out.lastBlock; index++) {
+      if (!out.startedBlocks.includes(index)) return { kind: "partial" };
+    }
     for (const call of out.toolCalls) {
-      // toolCalls는 index로 찬 희소 배열이다. content_block_start가 빠진 index는
-      // 구멍이고, 조각도 없으니 complete가 아니다. 던지지 않고 partial로 세운다.
-      if (call === undefined) return { kind: "partial" };
+      // 빈 자리는 tool이 아닌 block이다.
+      if (call === undefined) continue;
       if (!out.completedToolIds.includes(call.id)) return { kind: "partial" };
       if (!verifiedJson(call.args)) return { kind: "partial" };
     }

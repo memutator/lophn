@@ -65,6 +65,7 @@ async function login(
 
 async function open(): Promise<World> {
   const opened = await createCoreHarness({
+    io: true,
     teams: [
       { createLedgerRegistration: createAppsRegistration },
       confirmOwner,
@@ -132,15 +133,8 @@ function request(
   action: ApprovalAction,
   expiresAt: string | null = null,
 ): Promise<Reply> {
-  return createInput(id, login.context.actor, action, { expiresAt }).then(
-    (input) =>
-      call(
-        world.harness,
-        "approvals/create",
-        login.token,
-        command(input),
-      ),
-  );
+  const input = createInput(id, login.context.actor, action, { expiresAt });
+  return call(world.harness, "approvals/create", login.token, command(input));
 }
 
 async function granted(

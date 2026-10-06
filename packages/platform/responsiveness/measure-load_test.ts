@@ -99,12 +99,12 @@ async function sendControl(
       id: `apr_${body.join("")}`,
       requester: "user",
       run: null,
-      reason_blob: HASH,
+      reason: "Start the release.",
       effect: {
-        changes_blob: HASH,
-        external_blob: null,
+        changes: "One release starts.",
+        external: null,
         reversible: false,
-        reversibility_blob: HASH,
+        reversibility: "The release cannot be stopped once started.",
       },
       action: {
         concern: "apps/invocations",

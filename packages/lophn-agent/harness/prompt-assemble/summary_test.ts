@@ -8,9 +8,12 @@ import {
 import { envelope, presetDefinitionJson } from "../run-loop/testing/mod.ts";
 import {
   assertsNoPreferenceGeneralization,
+  checkCompletion,
   clampSummaryText,
   CONTINUATION_RESHRINK_MAX,
   latestContinuationSummary,
+  precheckCompaction,
+  SUMMARY_PART_KEYS,
   summaryBodyHash,
   summaryBodyTokens,
   type SummaryParts,
@@ -518,7 +521,7 @@ Deno.test("lophn-agent/conversation#R9: 이어가기 새 세션은 원문 구간
   }
 });
 
-// 닫힌 세션을 늦은 notification으로 다시 활성화하지 않는다(conversation#R11).
+// 닫힌 ���션을 늦은 notification으로 다시 활성화하지 않는다(conversation#R11).
 Deno.test("lophn-agent/conversation#R11: 늦은 소식 뒤에도 세션은 닫힌 채다", async () => {
   const h = value(
     await createLedgerHarness({
@@ -560,6 +563,210 @@ Deno.test("lophn-agent/conversation#R11: 늦은 소식 뒤에도 세션은 닫�
       [SES],
     ))[0]!;
     assertEquals(String(row["state"]), "closed");
+  } finally {
+    await h.close();
+  }
+});
+
+// flow resume-agent-session 7의 agent 갈래다. 세션이 끝났으면 같은 담당의 새 세션에서
+// 원문 구간을 선택하고, lophn은 선택한 원문과 출처를 참조해 필요한 요약만 준비하며
+// 원문 메시지·미답 질문·approval·run을 복제하지 않는다(conversation#R8·R9, R19·R23).
+// 요약 실패 갈래는 원문이 한계 안이면 원문 그대로, 밖이면 context_limit이고
+// 미완성 요약으로 시작하지 않는다(conversation#R10, R22).
+Deno.test("lophn-agent/conversation#R8: resume-agent-session agent branch는 끝난 세션 뒤 선택한 원문 구간으로 필요한 요약만 준비해 연결하고 복제하지 않는다", async () => {
+  const h = value(
+    await createLedgerHarness({
+      registrationModules: [
+        new URL("../provider/registration_test.ts", import.meta.url),
+        new URL("../usage/registration_test.ts", import.meta.url),
+        new URL("../../conversation/registration_test.ts", import.meta.url),
+      ],
+      credentials: [userCred, machineCred, agentOf(ASG_LOPHN)],
+      nowMs: NOW,
+    }),
+  );
+  try {
+    await seed(h);
+    // 1. 세션이 이미 끝났다: 사람이 종료한다(conversation#R8).
+    await openSession(h, SES);
+    await receiveAndFinish(h, MSG, SES, "첫 요청이다");
+    await receiveAndFinish(h, MSG_NEXT, SES, "두 번째다");
+    value(await closeSession(h, SES));
+
+    // 2. 원문 요약은 계획 단계다: 구간 끝은 사람이 고른 마지막 메시지의 created_seq다.
+    const anchor = (await sql(
+      h,
+      "select cast(created_seq as text) as seq from messages where id = ?",
+      [MSG_NEXT],
+    ))[0]!;
+    const selected = {
+      session: SES,
+      // 원문 구간은 저장된 구간이고, 사람이 구간 끝(마지막 메시지 created_seq)을 고른다.
+      through_seq: Number(anchor["seq"]) as number,
+      measured: 34800,
+      inputBudget: 80000,
+      wholeInputLimit: 40000,
+    };
+    // 3. 필요한 요약만 준비한다: 사전 검사로 summary 호출이 0회인지 본다(Q10).
+    // 구간 텍스트가 한계(40,000) 안이면 요약 없이 진행한다.
+    const precheck = precheckCompaction(
+      selected.measured,
+      selected.inputBudget,
+      selected.wholeInputLimit,
+    );
+    assertEquals(precheck.summary_calls, 0);
+    assertEquals(precheck.within_limit, true);
+    const parts = partsOf();
+    const body_hash = await summaryBodyHash("이어가기 본문");
+    const ref: SummaryRef = {
+      kind: "continuation",
+      session: SES,
+      run: null,
+      from_seq: 1n,
+      through_seq: BigInt(selected.through_seq),
+      created_at: AT_1,
+      summary_call: "mcl_1",
+      body_hash,
+      rule_version: "compaction.1",
+      references: [],
+      parts,
+    };
+    // 4. 준비한 요약은 원문 구간·출처·생성 시각을 연결한다(R19).
+    assertEquals(clampSummaryText("이어가기 본문", 1).status, "within");
+    assertEquals(ref.from_seq <= ref.through_seq, true);
+    assertEquals(ref.kind === "continuation", true);
+    // 5. 재사용은 사람이 지정한 같은 세션의 최신 완성본 하나만 고른다(R23).
+    const chosen = latestContinuationSummary([ref, ref], SES);
+    assertEquals(chosen?.session, SES);
+    // 6. completion: 완료 조건을 모두 통과해야 준비가 끝난다.
+    const completion = checkCompletion({
+      text: "이어가기 본문",
+      partsCount: parts ? SUMMARY_PART_KEYS.length : 0,
+      PARTS_TOTAL: SUMMARY_PART_KEYS.length,
+      ranges: [{ from_seq: 1n, through_seq: BigInt(selected.through_seq) }],
+      expected_ranges: 1,
+      protectedKept: true,
+      restructured: 0,
+      smallerThanBefore: true,
+      withinTarget: true,
+    });
+    assertEquals(completion.completed, true);
+
+    // 7. 복제를 하지 않는다: 원문 메시지·run은 옛 세션에 그대로 남는다.
+    await openSession(h, SES_NEXT, {
+      session: SES,
+      through_seq: String(selected.through_seq),
+    });
+    assertEquals(
+      await count(h, "select count(*) as n from messages where session = ?", [
+        SES,
+      ]),
+      2,
+    );
+    assertEquals(
+      await count(h, "select count(*) as n from messages where session = ?", [
+        SES_NEXT,
+      ]),
+      0,
+    );
+    assertEquals(
+      await count(
+        h,
+        "select count(*) as n from runs r join sessions s on r.session = s.id where s.id = ?",
+        [SES_NEXT],
+      ),
+      0,
+    );
+    // 8. 출처(continued_from)는 선택한 원문 구간을 가리킨다.
+    const row = (await sql(
+      h,
+      "select continued_from_session, continued_from_through_seq from sessions where id = ?",
+      [SES_NEXT],
+    ))[0]!;
+    assertEquals(String(row["continued_from_session"]), SES);
+    assertEquals(
+      Number(row["continued_from_through_seq"]),
+      selected.through_seq,
+    );
+  } finally {
+    await h.close();
+  }
+});
+
+// flow resume-agent-session의 요약 실패 갈래다. 요약이 실패해도 원문과 사람의 종료를
+// 막지 않는다: conversation 화면 원문이 입력 한계 안이면 그대로 이어 가고, 밖이면
+// 실패 이유를 보고 선택 구간을 줄이거나 새 세션을 시작한다. 미완성 요약으로 시작하지
+// 않는다(conversation#R10, prompt-assemble#R22).
+Deno.test("lophn-agent/conversation#R10: 요약 실패 갈래는 한계 안이면 원문 그대로이고 밖이면 context_limit이며 미완성 요약으로 시작하지 않는다", async () => {
+  const h = value(
+    await createLedgerHarness({
+      registrationModules: [
+        new URL("../provider/registration_test.ts", import.meta.url),
+        new URL("../usage/registration_test.ts", import.meta.url),
+        new URL("../../conversation/registration_test.ts", import.meta.url),
+      ],
+      credentials: [userCred, machineCred, agentOf(ASG_LOPHN)],
+      nowMs: NOW,
+    }),
+  );
+  try {
+    await seed(h);
+    await openSession(h, SES);
+    await receiveAndFinish(h, MSG, SES, "첫 요청이다");
+    await receiveAndFinish(h, MSG_NEXT, SES, "두 번째다");
+    value(await closeSession(h, SES));
+
+    // 실패 상태다: 요약은 완성되지 않았다. 미완성 요약은 parts가 비어 있다(R22).
+    const incompleteParts: SummaryParts = {
+      purpose: "",
+      decisions_constraints: "",
+      progress_evidence: "",
+      incomplete: "",
+      failures_next: "",
+      estimations_uncertainty: "",
+    };
+    assert(incompleteParts.purpose === "");
+
+    // 원문이 입력 한계(40,000) 안이면 요약 없이 그대로 이어 간다.
+    const within = precheckCompaction(30000, 80000, 40000);
+    assertEquals(within.within_limit, true);
+    assertEquals(within.summary_calls, 0);
+
+    // 원문이 한계 밖이면 context_limit 이유를 알린다.
+    const outside = precheckCompaction(45000, 80000, 40000);
+    assertEquals(outside.within_limit, false);
+    if (!outside.within_limit) {
+      assertEquals(outside.reason, "context_limit");
+    }
+
+    // 미완성 요약으로 시작하지 않는다: 빈 purpose의 parts는 완료 조건을 깬다.
+    const completion = checkCompletion({
+      text: "이어가기 본문",
+      partsCount: 0,
+      PARTS_TOTAL: SUMMARY_PART_KEYS.length,
+      ranges: [{ from_seq: 1n, through_seq: 12n }],
+      expected_ranges: 1,
+      protectedKept: true,
+      restructured: 0,
+      smallerThanBefore: true,
+      withinTarget: true,
+    });
+    assertEquals(completion.completed, false);
+    assert(
+      completion.broken.includes("empty_or_parts"),
+      "빈 parts는 완료가 아니다",
+    );
+
+    // 세션은 원래 요청과 이유·새 세션 행동을 제공한다: 닫힌 세션은 그대로 닫혀 있다.
+    const closedRow = (await sql(
+      h,
+      "select state from sessions where id = ?",
+      [SES],
+    ))[0]!;
+    assertEquals(String(closedRow["state"]), "closed");
+    // 새 세션의 연속은 지정 세션의 완성 summary만 쓴다(R23). 실패하면 요약이
+    // 준비되지 않았으므로 아무 요약도 고르지 않는다.
+    assertEquals(latestContinuationSummary([], SES_NEXT), null);
   } finally {
     await h.close();
   }

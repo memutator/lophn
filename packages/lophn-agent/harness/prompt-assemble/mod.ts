@@ -28,6 +28,7 @@ export {
   CONTINUATION_BODY_MAX_TOKENS,
   CONTINUATION_RESHRINK_MAX,
   latestContinuationSummary,
+  SUMMARY_PART_KEYS,
   summaryBodyHash,
   summaryBodyTokens,
 } from "./summary.ts";

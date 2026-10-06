@@ -12,9 +12,9 @@ export {
 } from "./context.ts";
 export type {
   InvocationContext,
-  RejectionCode,
   InvocationStageState,
   RegisteredHandler,
+  RejectionCode,
   SchedulePort,
   StagePort,
 } from "./context.ts";

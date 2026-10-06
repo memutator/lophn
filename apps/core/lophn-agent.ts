@@ -85,6 +85,7 @@ import {
 import {
   createToolCommands,
   createToolReads,
+  TOOL_BUNDLES,
   toolCallBodyFields,
   toolsSchemaSteps,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
@@ -96,6 +97,7 @@ import {
   DEFAULT_RUN_LIMITS,
   type McpServerConfig,
   mcpServersSetting,
+  TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
@@ -235,13 +237,13 @@ const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();
 
 // preset 구성 검증 deps(R11). MCP server 설정은 extensions의 settings registry
-// 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23이다. 역할
-// 상한은 T8이 고정한 ROLE_CAPS 표다. catalog는 동봉 snapshot에서 읽고(T4,
+// 값이므로 setting_choices 행을 펼친다(contracts#T24). tool 묶음은 T23이 정한 문서·format
+// 묶음 판이다(TOOL_BUNDLES). 역할 상한은 T8이 고정한 ROLE_CAPS 표다. catalog는 동봉 snapshot에서 읽고(T4,
 // harness/model R5), credential key와 provider 정의 key는 같은 Tx의 provider
 // 표·provider_credentials 표에서 읽는다(R6, R10).
 function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
   return {
-    bundles: new Map<string, readonly string[]>(),
+    bundles: TOOL_BUNDLES,
     mcpServers: new Map<string, McpServerConfig>(),
     roleCaps: ROLE_CAPS,
     // provider 정의 key는 provider 표 definition_key다. 기록이 없으면
@@ -511,6 +513,8 @@ export const lophnAgentDefinitions = {
   ],
   ports: [runAdmissionPort, approvalLineagePort],
   workers: [],
+  // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
+  workerRoutes: TOOL_DOCUMENT_ROUTES,
 };
 
 // ReadMessageBody는 ledger snapshot 없이 blob 바이트를 기다리는 core read다. core가 기동

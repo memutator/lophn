@@ -61,10 +61,17 @@ Deno.test("apps/runtime#R24: supervisor 실행 권한은 데이터 root·코드 
 Deno.test("apps/runtime#R9: registry 상한은 machine에게 관측 기록과 제어 connection만, 자식 앱에게 문제 보고만 연다", () => {
   const policies = appsOperationPolicies();
   const machine = operationCeiling("machine", policies);
-  // supervisor의 관측 기록·제어 connection에 더해 collector가 자기 앱 log를 읽는 app.logs다.
+  // supervisor의 관측 기록·제어 connection에 더해 collector가 자기 앱 log를 읽는 app.logs, release 준비
+  // 접수·진행·취소(apps/releases)다.
   assertEquals(
     [...machine].sort(),
-    [...SUPERVISOR_CREDENTIAL_OPERATIONS, "app.logs"].sort(),
+    [
+      ...SUPERVISOR_CREDENTIAL_OPERATIONS,
+      "app.logs",
+      "release.cancel_preparation",
+      "release.prepare_bundle",
+      "release.preparation",
+    ].sort(),
   );
   // 앱 자식은 app.connect·record_*를 받지 못한다. agent는 connect만 받는다.
   const app = operationCeiling(`app:${APP}`, policies);
@@ -78,7 +85,8 @@ Deno.test("apps/runtime#R9: registry 상한은 machine에게 관측 기록과 �
     operationCeiling("agent:asg_01arz3ndektsv4rrffq69g5fav", policies),
     ["app.connect"],
   );
-  // coding agent는 connect에 더해 preview를 연다(apps/preview#R1). 사람은 route 상한 전체를 받는다.
+  // coding agent는 connect에 더해 preview(apps/preview#R1)와 release 준비 접수·진행을 연다. 취소는 machine만
+  // 한다. 사람은 route 상한 전체를 받는다.
   assertEquals(
     [
       ...operationCeiling(
@@ -86,7 +94,14 @@ Deno.test("apps/runtime#R9: registry 상한은 machine에게 관측 기록과 �
         policies,
       ),
     ].sort(),
-    ["app.connect", "previews.get", "previews.start", "previews.stop"],
+    [
+      "app.connect",
+      "previews.get",
+      "previews.start",
+      "previews.stop",
+      "release.preparation",
+      "release.prepare_bundle",
+    ],
   );
 });
 

@@ -103,6 +103,24 @@ export function lockAppImports(
 
 // 설치 사본(`<sdkRoot>/<이름>/<version>/`)의 byte를 bundle 안 `sdk/<이름>/<version>/` 파일로 읽는다.
 // 설치 안 된 사본은 준비를 막는다. 실행 때 새로 받지 않는다(apps/sdk#R10).
+async function collect(
+  directory: string,
+  prefix: string,
+  files: { path: string; bytes: Uint8Array }[],
+): Promise<void> {
+  for await (const entry of Deno.readDir(directory)) {
+    const path = `${prefix}/${entry.name}`;
+    if (entry.isDirectory) {
+      await collect(`${directory}/${entry.name}`, path, files);
+    } else if (entry.isFile) {
+      files.push({
+        path,
+        bytes: await Deno.readFile(`${directory}/${entry.name}`),
+      });
+    }
+  }
+}
+
 export async function readSdkCopies(
   sdkRoot: string,
   packages: readonly SdkRef[],
@@ -115,20 +133,12 @@ export async function readSdkCopies(
   const files: { path: string; bytes: Uint8Array }[] = [];
   for (const item of packages) {
     const base = `sdk/${installPart(item.name)}/${item.version}`;
-    async function visit(directory: string, prefix: string): Promise<void> {
-      for await (const entry of Deno.readDir(directory)) {
-        const path = `${prefix}/${entry.name}`;
-        if (entry.isDirectory) await visit(`${directory}/${entry.name}`, path);
-        else if (entry.isFile) {
-          files.push({
-            path,
-            bytes: await Deno.readFile(`${directory}/${entry.name}`),
-          });
-        }
-      }
-    }
     try {
-      await visit(`${sdkRoot}/${installPart(item.name)}/${item.version}`, base);
+      await collect(
+        `${sdkRoot}/${installPart(item.name)}/${item.version}`,
+        base,
+        files,
+      );
     } catch {
       return err({
         code: "invalid_input",

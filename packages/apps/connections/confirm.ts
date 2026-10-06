@@ -10,7 +10,7 @@ import {
   type InvocationAcceptConfirmOutput,
   type SignedConfirmProof,
 } from "../../contracts/apps/mod.ts";
-import type { CoreSigner } from "../runtime/mod.ts";
+import type { CoreSigner } from "../runtime/signing.ts";
 import { inspectPair, type PairDeps, type PairSource } from "./prepare.ts";
 import type { PathBook } from "./origin.ts";
 

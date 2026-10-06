@@ -11,7 +11,7 @@ import {
 } from "./confirm.ts";
 import type { PathBook } from "./origin.ts";
 import { inspectPair, type PairDeps, type PairSource } from "./prepare.ts";
-import type { CoreSigner } from "../runtime/mod.ts";
+import type { CoreSigner } from "../runtime/signing.ts";
 
 export type ApprovalState = "pending" | "granted" | "rejected" | "expired";
 

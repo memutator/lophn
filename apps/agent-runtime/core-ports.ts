@@ -1,12 +1,9 @@
 import {
-  canonicalize,
   type Clock,
   err,
-  fingerprint,
   type IdSource,
   ok,
   type Result,
-  sha256Hex,
 } from "../../packages/base/mod.ts";
 import {
   type CallCost,

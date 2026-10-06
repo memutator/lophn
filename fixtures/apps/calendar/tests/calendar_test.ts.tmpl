@@ -1,0 +1,197 @@
+// 캘린더 앱의 업무 규칙 test. 외부 캘린더는 fake-external(메모리)이고 secret은 SDK의 대역이다.
+import { assert, assertEquals, assertRejects } from "@std/assert";
+import { CommandRejection } from "@lophn/cap-schedule";
+import blueprint from "../blueprint.ts";
+import {
+  addEventHandler,
+  createExternalEventHandler,
+  deleteAllEventsHandler,
+  listEventsHandler,
+  revertEventHandler,
+  syncEventsHandler,
+} from "../src/commands.ts";
+import { EXTERNAL, TOKEN } from "../src/external.ts";
+import { createFakeExternal } from "../fake-external/server.ts";
+import { depsFor, withData } from "./support.ts";
+
+const REMOTE = [
+  { id: "ext-1", title: "Dentist", starts_at: "2026-02-03T09:00:00Z" },
+  { id: "ext-2", title: "Review", starts_at: "2026-02-02T09:00:00Z" },
+];
+
+Deno.test("apps/blueprint#R5: list_events는 read라 호출 전후 업무 데이터와 외부 대상이 같다", async () => {
+  await withData(async (dataPath) => {
+    const fake = createFakeExternal(REMOTE);
+    const { deps, secret } = depsFor(dataPath, fake);
+    await addEventHandler(deps)({
+      title: "Standup",
+      starts_at: "2026-02-04T09:00:00Z",
+    });
+    const before = (await listEventsHandler(deps)()).rows;
+    const remoteBefore = structuredClone(fake.events);
+    const again = await listEventsHandler(deps)();
+    assertEquals(again.rows, before);
+    assertEquals(again.coverage, "complete");
+    assertEquals(fake.events, remoteBefore);
+    // 읽기는 외부로도 나가지 않고 secret도 쓰지 않는다.
+    assertEquals(fake.seen, []);
+    assertEquals(secret.uses, []);
+  });
+});
+
+Deno.test("apps/blueprint#R5: sync_events는 외부에서 가져와 저장하고(write) 외부는 바꾸지 않으며 다시 해도 겹치지 않는다", async () => {
+  await withData(async (dataPath) => {
+    const fake = createFakeExternal(REMOTE);
+    const { deps } = depsFor(dataPath, fake);
+    const first = await syncEventsHandler(deps)();
+    assertEquals(first, { fetched: 2, added: 2, updated: 0 });
+    assertEquals(
+      (await listEventsHandler(deps)()).rows.map((
+        row,
+      ) => [row.title, row.starts_at, row.source]),
+      [
+        ["Review", "2026-02-02T09:00:00.000Z", "external"],
+        ["Dentist", "2026-02-03T09:00:00.000Z", "external"],
+      ],
+    );
+    // 외부에서 제목이 바뀌면 같은 일정을 고친다.
+    fake.events[0] = { ...fake.events[0], title: "Dentist (moved)" };
+    const second = await syncEventsHandler(deps)();
+    assertEquals(second, { fetched: 2, added: 0, updated: 2 });
+    assertEquals((await listEventsHandler(deps)()).rows.length, 2);
+    // 가져오기만 했다: 외부로 간 요청은 GET뿐이다.
+    assertEquals(fake.seen.map((request) => request.method), ["GET", "GET"]);
+  });
+});
+
+Deno.test("apps/blueprint#R5: create_external_event는 외부에 일정을 만들고(external) 앱 DB는 바꾸지 않는다", async () => {
+  await withData(async (dataPath) => {
+    const fake = createFakeExternal();
+    const { deps } = depsFor(dataPath, fake);
+    const result = await createExternalEventHandler(deps)({
+      title: "Launch & party",
+      starts_at: "2026-03-01T10:00:00Z",
+    });
+    assertEquals(result.event.title, "Launch & party");
+    assertEquals(fake.events, [result.event]);
+    assertEquals(fake.seen.map((request) => request.method), ["POST"]);
+    assertEquals((await listEventsHandler(deps)()).rows, []);
+  });
+});
+
+Deno.test("apps/blueprint#R6 apps/permissions#R14: 외부를 부르는 command는 confirm=false로 선언하고 호출마다 이름 선언 secret을 목적지에 쓴다", async () => {
+  const byKey = new Map(blueprint.commands.map((item) => [item.key, item]));
+  for (const key of ["sync_events", "create_external_event"]) {
+    assertEquals(byKey.get(key)?.confirm, false, key);
+  }
+  await withData(async (dataPath) => {
+    const fake = createFakeExternal(REMOTE);
+    const { deps, secret } = depsFor(dataPath, fake);
+    await syncEventsHandler(deps)();
+    await createExternalEventHandler(deps)({
+      title: "Lunch",
+      starts_at: "2026-03-02T12:00:00Z",
+    });
+    assertEquals(secret.uses, [
+      { name: TOKEN, destination: EXTERNAL },
+      { name: TOKEN, destination: EXTERNAL },
+    ]);
+    // 값은 대역에도 요청에도 없다. 인증 header는 앱이 붙이지 않는다.
+    assertEquals(fake.seen.map((request) => request.authorization), [
+      null,
+      null,
+    ]);
+  });
+});
+
+Deno.test("apps/permissions#R14: secret 이름이 grant 밖이면 외부 요청 없이 forbidden으로 거절한다", async () => {
+  await withData(async (dataPath) => {
+    const fake = createFakeExternal(REMOTE);
+    const { deps } = depsFor(dataPath, fake, ["calendar.other"]);
+    const error = await assertRejects(
+      async () => await syncEventsHandler(deps)(),
+      CommandRejection,
+    );
+    assertEquals(error.code, "forbidden");
+    assertEquals(fake.seen, []);
+    assertEquals((await listEventsHandler(deps)()).rows, []);
+  });
+});
+
+Deno.test("apps/blueprint#R5: add_event는 revert를 지원하고 revert_event는 add_event가 돌려준 id만 지운다", async () => {
+  const add = blueprint.commands.find((item) => item.key === "add_event");
+  assertEquals(add?.effect, "write");
+  assertEquals(add?.revert, { supported: true, command: "revert_event" });
+  await withData(async (dataPath) => {
+    const { deps } = depsFor(dataPath, createFakeExternal());
+    const kept = await addEventHandler(deps)({
+      title: "Keep",
+      starts_at: "2026-02-05T09:00:00Z",
+    });
+    const added = await addEventHandler(deps)({
+      title: "Mistake",
+      starts_at: "2026-02-06T09:00:00Z",
+    });
+    assertEquals(await revertEventHandler(deps)({ id: added.id }), {
+      removed: 1,
+    });
+    assertEquals(
+      (await listEventsHandler(deps)()).rows.map((row) => row.id),
+      [kept.id],
+    );
+    // 이미 지운 id를 다시 되돌려도 다른 일정은 그대로다.
+    assertEquals(await revertEventHandler(deps)({ id: added.id }), {
+      removed: 0,
+    });
+    await assertRejects(
+      async () => await revertEventHandler(deps)({ id: "x" }),
+      CommandRejection,
+    );
+  });
+});
+
+Deno.test("apps/blueprint#R5: add_event는 빈 제목과 읽을 수 없는 시각을 저장소를 열기 전에 거절한다", async () => {
+  const deps = {
+    ...depsFor("unused", createFakeExternal()).deps,
+    openStore: () => {
+      throw new Error("must not open");
+    },
+  };
+  for (
+    const input of [
+      { title: "  ", starts_at: "2026-02-05T09:00:00Z" },
+      { title: "Meeting", starts_at: "tomorrow-ish" },
+    ]
+  ) {
+    const error = await assertRejects(
+      async () => await addEventHandler(deps)(input),
+      CommandRejection,
+    );
+    assertEquals(error.code, "invalid_input");
+  }
+});
+
+Deno.test("apps/automations#R13: delete_all_events는 confirm=true로 앱 일정만 모두 지우고 automation으로 연결하지 않는다", async () => {
+  const command = blueprint.commands.find((item) =>
+    item.key === "delete_all_events"
+  );
+  assertEquals([command?.effect, command?.confirm], ["write", true]);
+  assert(
+    blueprint.automatic_tasks.every((task) =>
+      task.command !== "delete_all_events"
+    ),
+  );
+  await withData(async (dataPath) => {
+    const fake = createFakeExternal(REMOTE);
+    const { deps } = depsFor(dataPath, fake);
+    await syncEventsHandler(deps)();
+    await addEventHandler(deps)({
+      title: "Local",
+      starts_at: "2026-02-07T09:00:00Z",
+    });
+    assertEquals(await deleteAllEventsHandler(deps)(), { deleted: 3 });
+    assertEquals((await listEventsHandler(deps)()).rows, []);
+    // 외부 캘린더는 그대로다.
+    assertEquals(fake.events.length, 2);
+  });
+});

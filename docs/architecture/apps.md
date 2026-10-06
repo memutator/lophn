@@ -34,7 +34,7 @@ secret 인증 전송·문서 저장·문제 보고와 다른 앱 연결 준비�
 
 | 프로세스 | 누가 띄우고 멈추나 | 모듈과 수명 | 통신·권한 |
 |---|---|---|---|
-| core의 앱 영역 | platform의 core 수명 | `registration/commands`, `releases/commands`, `permissions/commands`, `invocations/commands`, `sdk/catalog` | 짧은 ledger command와 read만 수행. 앱 코드를 import하지 않음 |
+| core의 앱 영역 | platform의 core 수명 | `registration/commands`, `releases/commands`, `releases/activation`(activation driver), `permissions/commands`, `invocations/commands`, `sdk/catalog` | 짧은 ledger command와 read만 수행. 앱 코드를 import하지 않음 |
 | 공유 앱 supervisor 하나 | core가 띄우고 전용 제어 연결·OS 자식 handle을 감독 | `runtime/supervisor`, `runtime/processes`, `runtime/observations`, `permissions/broker`, `invocations/delivery` | core에는 `command`, `read`, `event 구독`; 앱에는 로컬 socket. 앱 DB를 직접 열지 않음 |
 | 운영 앱, 앱마다 최대 하나 | supervisor가 현재 release·grant·run_enabled로 띄움 | `runtime/entrypoint`와 bundle의 앱 코드·SDK | command·화면 서버와 앱 안 clock. 자기 업무 DB writer |
 | release worker | supervisor가 준비 요청마다 띄우고 완료·취소·timeout에 종료 | `releases/prepare`, `releases/bundle` | source의 정확한 git object 읽기, staging 쓰기, 부모와 stdio JSON. 플랫폼 credential 없음 |
@@ -143,7 +143,7 @@ app test Verification은 완성된 bundle hash를 대상으로 만들어지고 R
 
 운영 DB는 해당 앱 또는 종료 확인 뒤 단독 data worker만 연다. 앱 DB에는 앱의 실제 현재 schema(0 이상)와 마지막 migration 결과를 보관한다. DB 미사용 앱에는 schema 0을 허용하며 빈 migration을 강제하지 않는다. core와 supervisor는 실제 DB를 열지 않고 data worker의 검증된 결과를 받는다.
 
-DataBackup은 SQLite backup API로 WAL의 확정 내용까지 포함한 일관된 복사본을 만든 뒤 무결성·schema를 검사해 보호 `blob`으로 설치한다. 일반 문서 읽기·agent·앱 credential에 그 원문을 공개하지 않는다. backup metadata는 app·activation_seq·schema·database_hash이며 참조는 Activation.backup_hash다. data worker의 backup 작업이 파일 byte의 hash를 내고, supervisor가 그 byte를 감독 pipe의 blob 준비(purpose `app_backup`)로 보존한 뒤 `release.record_backup`이 준비 결과를 owner `release_backup`·field `backup`(일반 읽기 없음)으로 등록하며 hash가 backup_hash와 같아야 한다. 복원은 영역의 backup 파일이 그 hash와 같을 때만 한다. migration 단계는 bundle의 `migrations/<from>-<to>.sql`이고 `script_hash`는 그 파일 byte의 sha256이며 release.prepare의 data_changes와 data worker가 같은 규칙이다. 기본 최근 5개를 유지하지만 진행 중 복원 참조는 보호한다. DB backup을 첨부 파일까지 포함한 전체 복구라고 표시하지 않는다. export는 data worker가 일관된 DB 사본과 고정 blueprint·release 이력·각 불변 실행 bundle·정확한 SDK 의존 byte를 묶는다. secret 원값·credential은 제외하고 앱 외부 자료·첨부의 포함 여부를 명시한다.
+DataBackup은 SQLite backup API로 WAL의 확정 내용까지 포함한 일관된 복사본을 만든 뒤 무결성·schema를 검사해 보호 `blob`으로 설치한다. 일반 문서 읽기·agent·앱 credential에 그 원문을 공개하지 않는다. backup metadata는 app·activation_seq·schema·database_hash이며 참조는 Activation.backup_hash다. data worker의 backup 작업이 파일 byte의 hash를 내고, core가 그 byte를 blob 준비 통로(purpose `app_backup`)로 흘려 자기 내부 machine 자격으로 보존한 뒤 `release.record_backup`이 준비 결과를 owner `release_backup`·field `backup`(일반 읽기 없음)으로 등록하며 hash가 backup_hash와 같아야 한다. 복원은 영역의 backup 파일이 그 hash와 같을 때만 한다. migration 단계는 bundle의 `migrations/<from>-<to>.sql`이고 `script_hash`는 그 파일 byte의 sha256이며 release.prepare의 data_changes와 data worker가 같은 규칙이다. 기본 최근 5개를 유지하지만 진행 중 복원 참조는 보호한다. DB backup을 첨부 파일까지 포함한 전체 복구라고 표시하지 않는다. export는 data worker가 일관된 DB 사본과 고정 blueprint·release 이력·각 불변 실행 bundle·정확한 SDK 의존 byte를 묶는다. secret 원값·credential은 제외하고 앱 외부 자료·첨부의 포함 여부를 명시한다.
 
 secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취급한다. runtime log buffer와 memory 표본은 메모리이며 지속 log 정본이나 derived 검색 index를 새로 두지 않는다. 플랫폼 자체 진단은 `platform/diagnostics`를 가리킨다.
 
@@ -161,7 +161,7 @@ secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취�
 |---|---|---|---|---|
 | apps/registration | core; source 확인은 release worker | `registration/commands`, `registration/read` | apps; source_path | command, read |
 | apps/blueprint | blueprint 추출 자식; release worker; 앱 | `blueprint/schema`, `blueprint/extract`, `blueprint/validate` | 정규 JSON blob, bundle | blob, test 실행 |
-| apps/releases | core; supervisor; release worker | `releases/commands`, `releases/prepare`, `releases/activation` | releases, release_tests, bundle | release 준비·적용, approval |
+| apps/releases | core(activation driver); supervisor(작업 단계); release worker | `releases/commands`, `releases/prepare`, `releases/activation` | releases, release_tests, bundle | release 준비·적용, approval |
 | apps/runtime | core 제어 어댑터; supervisor; 운영 앱 | `runtime/connect`, `runtime/supervisor`, `runtime/entrypoint`, `runtime/client`, `runtime/observations` | apps.run_enabled, 메모리 관측·log | 앱 통로, 인증, event 구독 |
 | apps/agent-context | 앱; agent runtime·shell 소비자 | `agent-context/schema`, `agent-context/redaction`; handler는 앱 | blueprint blob; 앱 현재 view 상태 | 앱 통로, redaction, 앱 화면 틀 |
 | apps/connections | core 연결 준비 어댑터; supervisor; source·target 앱 | `connections/resolve`, `connections/client`, `connections/origin` | blueprint blob; grants; 일시 connection | 앱 통로, 인증, approval |
@@ -228,7 +228,7 @@ blueprint의 `screens[].sizes=[full|panel|card]`는 실제 반응형 entrypoint�
 
 `agent_context[]`는 AgentContextDeclaration이고 read_command와 annotation_targets[].write_command는 같은 commands 목록의 안정된 앱 key다. 예약 context command 이름이나 DOM 접근은 없다. `ScreenContextReadInput {screen,view_session,detail}`에서 `AppScreenContext {app,release,screen,view_session,revision,summary,data?,redacted}`를 반환한다. summary는 redaction 후 2048byte 이하이고 turn에는 요약만, 상세는 같은 read command tool로 조회한다. 앱은 sensitive_paths를 제거하고 model 전달 경계는 `platform/redaction`을 다시 쓴다. 안전성 미확인은 원문 생략이다. 상태는 앱이 소유하며 lophn ledger에 복제하지 않는다.
 
-주석 입력 `AnnotationWriteInput {screen,view_session,expected_revision,target,text}`는 선언된 target과 현재 revision에 CAS한다. 닫힌 view=unavailable, revision 변경=conflict다. handler는 효과 전의 거절을 `CommandRejection`(코드 `invalid_input|forbidden|conflict|unavailable`)으로 알리고 entrypoint가 그 코드와 안내 문장으로 답한다. 다른 예외는 원문 없는 500이다. command.revert가 지원하는 write만 `{result,revert:{invocation,receipt,expected_revision}}`를 반환하며 receipt는 앱 내부 변경 전 상태 참조다. 되돌림 command도 같은 command 통로·현재 revision 검사를 사용한다. 앱 업무 보상과 run revert 연계는 `lophn-agent/revert`가 소유하며 성공 선언만으로 복원을 확정하지 않는다.
+주석 입력 `AnnotationWriteInput {screen,view_session,expected_revision,target,text}`는 선언된 target과 현재 revision에 CAS한다. 닫힌 view=unavailable, revision 변경=conflict다. handler는 효과 전의 거절을 `CommandRejection`(코드 `invalid_input|forbidden|conflict|unavailable`)으로 알리고 entrypoint가 그 코드와 안내 문장으로 답한다. 다른 예외는 원문 없는 500이다. command.revert가 지원하는 write만 `{result,revert:{invocation,receipt,expected_revision}}`를 반환하며 receipt는 앱 내부 변경 전 상태 참조다. SDK `withRevert`가 만든 값은 entrypoint가 command 결과의 `revert`로 올린다. 되돌림 command도 같은 command 통로·현재 revision 검사를 사용한다. 앱 업무 보상과 run revert 연계는 `lophn-agent/revert`가 소유하며 성공 선언만으로 복원을 확정하지 않는다.
 
 SDK의 `@lophn/blueprint.defineAgentContext`, `@lophn/cap-schedule.registerScreenContext/registerAnnotationTarget/connectAppCommands`는 위 type과 검사를 공유한다. chart/table의 선언형 JSON은 기존 ui-chart/ui-table가 앱과 lophn 화면에서 함께 그린다. 임의 script는 입력에 없으며 앱 카드는 격리된 app view다. 시각 블록 보관과 문서화는 `lophn-agent/visuals`다.
 
@@ -406,18 +406,21 @@ confirm command의 흐름이다. confirm=false command는 approval 단계 없이
 [confirmation window] release 비교·permission·schema·손실 가능성 확인
   → [플랫폼 어댑터] release.start_activation command
   → [core] approval·CAS 확인, 앱의 activating 하나 접수
-  → [supervisor] 새 호출/clock close → 의도된 종료 표시 → 이전 자식 종료 확인
+  → [core activation driver] 이어서 runActivation 진행
+  → [supervisor] 새 호출/clock close → 의도된 종료 표시 → 이전 자식 종료 확인(pause)
   → [data worker] 실제 schema 확인 → 필요하면 SQLite backup API·무결성 검사
-  → [supervisor] release.record_backup command, 보호 참조 확정 기다림
+  → [core] backup byte를 blob 준비로 보존, release.record_backup command, 보호 참조 확정 기다림
   → [data worker] 연속 migration; 각 단계 데이터+schema 한 transaction
-  → [supervisor] release.record_data_change command
-  → [새 앱] 준비 모드 시작, hash·handler·schema·직접 연결 확인
-  → [supervisor] release.complete_activation command
+  → [core] release.record_data_change command
+  → [새 앱] supervisor가 준비 모드 시작(prepare), hash·handler·schema·직접 연결 확인
+  → [core] release.complete_activation command
   → [core] 새 active + 이전 superseded + App active_release/name/description 원자적 변경
-  → [supervisor] 확정 확인 후 accepting과 automation clock open
+  → [supervisor] 확정 확인 뒤 accepting과 automation clock open(open), 붙들기 해제(resume)
 ```
 
 첫 성공은 run_enabled=true도 함께 확정한다. migration이 없으면 backup/변경 단계는 생략한다. 새 업무 open 전 실패는 새 자식부터 종료 확인한다. 변경이 있었으면 단독 data worker가 첫 변경 전 backup을 restore하고 무결성·schema를 확인하여 `release.record_data_restore` command로 보고한다. `release.fail_activation`은 이전 active 참조와 실패 근거를 유지한다. 복원 성공 뒤만 이전 앱을 다시 준비한다. 복원이 실패하거나 모르면 unavailable이다.
+
+진행의 주체는 core 조립(`apps/core/apps-activation.ts`)이다(이유: 운영 DesiredApp·grant·ledger command가 모두 core 쪽이고 backup byte를 core의 blob 준비 통로로 비동기 stream하면 core가 파일을 동기로 읽지 않는다). approval 적용으로 시작한 시도를 sweep이 이어받아 `runActivation`을 돌리고, core가 다시 떴거나 단계가 끊겨 끝내지 못한 시도는 `recoverActivation`이 ledger와 실제 관측에서 이어받고 종료·복원을 확인하지 못해 unavailable로 끝난 시도는 앱을 붙든 채 30초 간격으로 다시 이어받는다. supervisor는 단계의 실제 일만 한다: 앱을 붙들고 이전 자식의 종료를 확인(`apps.activation_pause`), 후보를 준비 모드로 시작해 검사만 확인(`prepare`), commit 뒤 통로를 열고 시작을 알림(`open`), 붙들기 해제(`resume`), 앱 전용 data worker 작업(`apps.data_job`: inspect·backup·migrate·restore). ledger 확정은 core 내부 machine 자격의 command다. backup byte는 core가 blob 준비 통로로 흘려(내부 machine 자격, purpose `app_backup`) 보호 blob이 되고 core는 앱 DB를 열지 않는다. 운영 DesiredApp은 같은 sweep이 활성 release의 봉인 사본과 선언 ∩ active grant에서 푼 permission(`bundleFlags`)으로 만들어 알린다.
 
 ### 7.5 automation 회차
 
@@ -469,7 +472,7 @@ grant.create도 기존 자식 종료 후 새 권한 경계로 적용한다. 종�
 
 daemon 종료·release 교체·재시작은 await나 shutdown 전 자식을 모두 의도된 종료로 분류한다. Ctrl-C가 process tree에 동시에 전달되어도 crash로 세지 않는다. 강제 종료 요청과 실제 OS 종료 확인은 다른 사실이며 확인 불가 상태에서 두 번째 DB writer를 만들지 않는다.
 
-재시작 때 supervisor는 먼저 현재 apps/releases/grants와 진행 Activation을 `read`로 읽는다. event cursor는 후속 변화용이며 event replay를 업무 replay로 사용하지 않는다. core는 전체 source scan이나 hash 준비를 기다리지 않는다. 현재 active commit 이후 업무가 있었을 가능성을 배제할 수 없으면 옛 backup 복원 대신 현재 release의 schema·준비를 확인한다. ledger의 진행 invocation을 다시 실행 queue로 읽지 않는다.
+재시작 때 supervisor는 먼저 현재 apps/releases/grants를 `read`로 읽고, 진행 Activation은 core의 activation driver가 `read`와 실제 관측(supervisor 붙들기·data worker inspect)으로 읽어 `recoverActivation`으로 잇는다. event cursor는 후속 변화용이며 event replay를 업무 replay로 사용하지 않는다. core는 전체 source scan이나 hash 준비를 기다리지 않는다. 현재 active commit 이후 업무가 있었을 가능성을 배제할 수 없으면 옛 backup 복원 대신 현재 release의 schema·준비를 확인한다. ledger의 진행 invocation을 다시 실행 queue로 읽지 않는다.
 
 구현 테스트는 panel/card container resize·동일 앱 여러 view session·민감 context 제거·stale 주석 CAS·앱 쌍 방향/범위·caller 위조·A→B→A 거절·source/target 교체·agent 허락과 역할 교집합·되돌림 receipt 충돌을 포함한다. 기존 구현 테스트는 각 activation 단계에서 child/core/supervisor 종료, 끝 통보가 시작보다 먼저 도착, confirm 동시 재전송, 옛 connection, grant 회수 중 무응답, 메모리 전달 상한, stdout 무한 줄, 85% RSS 지속·표본 누락, 절전 후 clock, 준비/build 중 다른 앱 direct 응답을 포함한다. 성공 test는 준비와 경계를 확인할 뿐 problem 닫힘은 `problems/closing`의 근거로만 판단한다.
 

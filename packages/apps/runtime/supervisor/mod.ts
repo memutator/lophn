@@ -20,6 +20,7 @@ export { createSupervisor, STOP_GRACE_MS } from "./supervisor.ts";
 export type {
   AppChild,
   AppObservation,
+  CandidateStart,
   DesiredApp,
   ProbeResult,
   Supervisor,

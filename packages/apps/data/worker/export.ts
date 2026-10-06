@@ -75,12 +75,14 @@ export type ExportInput = {
 
 // export 준비 한 번. 배타 lock을 잡고 데이터 영역 안에서만 일한다. 하나라도
 // 실패하면 staging을 지우고 아무것도 남기지 않는다. 확인을 통과한 것만
-// `exports/<name>`으로 남는다.
+// `exports/<name>`으로 남는다. dataRoot는 bundle 봉인 사본과 SDK 사본의 기준이고
+// 데이터 영역은 그 안 `apps/<app>/data`다.
 export async function prepareAppExport(
-  dataArea: string,
+  dataRoot: string,
   databasePath: string,
   input: ExportInput,
 ): Promise<Result<PreparedExport, ExportFailure>> {
+  const dataArea = `${dataRoot}/apps/${input.app}/data`;
   if (!contained(dataArea, databasePath)) {
     return invalid("database leaves the data area");
   }
@@ -132,7 +134,7 @@ export async function prepareAppExport(
     const bundles: { bundle_hash: string; manifest: BundleManifest }[] = [];
     try {
       for (const bundle of input.bundles) {
-        const found = bundleCopyPath(dataArea, input.app, bundle.bundle_hash);
+        const found = bundleCopyPath(dataRoot, input.app, bundle.bundle_hash);
         if (!found.ok) {
           await removeCopy(copy);
           return err({ code: found.error.code, message: found.error.message });

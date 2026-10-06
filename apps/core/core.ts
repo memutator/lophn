@@ -22,7 +22,13 @@ import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/m
 import {
   applyMigrations,
   checkRestart,
+  ensureLedgerId,
+  planRestore,
+  RESTORE_DECISION,
+  restoreBinding,
+  type RestoreOutcome,
 } from "../../packages/platform/backup-and-migration/mod.ts";
+import { backupStamp } from "../../packages/platform/backup-and-migration/mod.ts";
 import { type StatusSource } from "../../packages/platform/diagnostics/mod.ts";
 import {
   CredentialRegistry,
@@ -186,6 +192,8 @@ export type CoreOptions = {
   failShutdown?: () => Promise<void>;
   // 정지 유지보수 시간 제한. 없으면 30초. 테스트가 짧게 줄인다.
   maintenanceTimeoutMs?: number;
+  // restore 프로세스 시간 제한. 없으면 10분. 테스트가 줄인다.
+  restoreTimeoutMs?: number;
   // 내장 assignment 준비의 역할 prompt 자산과 재시도 대기(ms). 제품 기동은 소스 배치의
   // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
   roleAsset?: (role: BuiltinRole) => Promise<Result<Uint8Array>>;
@@ -202,6 +210,12 @@ export type CoreOptions = {
   // 재시작마다 불린다. 제품
   // 기동에는 없다. credential은 log에 남기지 않는다.
   onDocumentsHello?: (hello: { credential: string; api_port: number }) => void;
+};
+export type RestoreRequest = {
+  // 복원할 묶음(manifest.created_at).
+  created_at: string;
+  // main이 사람 확인으로 발급한 handle 참조.
+  confirmation: string;
 };
 export type BlobPrepareCall = {
   principal: string;
@@ -244,6 +258,13 @@ export type Core = {
   ): Promise<Result<void>>;
   // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
   sweepTicketClaims(): Promise<void>;
+  // 사람이 잃을 범위를 확인한 backup 복원(platform/backup-and-migration#R13, R14). handle은
+  // `restoreBinding(plan)`의 target·content에 묶인 `restore_backup` 결정이어야 한다. 확인이
+  // 맞으면 새 command 입장을 닫고 모든 worker·writer를 멈춘 뒤 현재 자료를 보존하고 검증한
+  // 묶음으로 ledger를 바꾼다. 끝나면 이 core는 종료한 상태다(lock 해제). 같은 data root를 다시
+  // `startCore`하면 새 epoch·새 ledger_id로 시작하고 derived가 복원 ledger 기준으로 다시 만들어진다.
+  // 검증·보존이 실패하면 현재 자료는 그대로이고 core는 멈춘 채 오류를 돌려준다.
+  restore(request: RestoreRequest): Promise<Result<RestoreOutcome>>;
   // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다(platform Q25).
   sweepApprovalExpiry(): Promise<void>;
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
@@ -329,18 +350,23 @@ async function open(
   } catch {
     return err({ code: "internal", message: "route 등록이 겹친다" });
   }
-  const migrated = await applyMigrations(
-    ledgerPath,
-    [
-      ...LEDGER_SCHEMA_STEPS,
-      CREDENTIAL_SCHEMA,
-      ...assembled.value.schemaSteps,
-      ...SETTINGS_SCHEMA_STEPS,
-      ...SECRET_SCHEMA_STEPS,
-    ],
-    { clock, recovery: { root: root.path } },
-  );
+  // ledger를 새로 만드는 기동인지는 migration이 파일을 만들기 전에 본다(Q12: ledger_id는
+  // ledger를 만들거나 복원할 때마다 새 값이다).
+  const ledgerExisted = await fileExists(ledgerPath);
+  const schemaSteps = [
+    ...LEDGER_SCHEMA_STEPS,
+    CREDENTIAL_SCHEMA,
+    ...assembled.value.schemaSteps,
+    ...SETTINGS_SCHEMA_STEPS,
+    ...SECRET_SCHEMA_STEPS,
+  ];
+  const migrated = await applyMigrations(ledgerPath, schemaSteps, {
+    clock,
+    recovery: { root: root.path },
+  });
   if (!migrated.ok) return migrated;
+  const ledgerId = await ensureLedgerId(root.path, ledgerExisted);
+  if (!ledgerId.ok) return ledgerId;
   // 중단 작업 점검 → cursor 복원 치는 R11 순서다. SQLite 복구·schema 점검 뒤
   // 정상 read를 열고 전체 scan·index·큰 hash를 기다리지 않는다(R15). 소유
   // concern의 복구 command가 아직 없는 영역은 unknown 관측값과 근거를 남기고
@@ -426,8 +452,9 @@ async function open(
     },
     schema: LEDGER_SCHEMA_STEPS.length + assembled.value.schemaSteps.length,
     dataRoot: root.path,
-    // ledger 파일 하나의 식별. 내용은 노출하지 않는다.
-    ledgerId: await ledgerIdentity(ledgerPath),
+    // ledger를 만들거나 복원할 때마다 새로 정한 식별(data root의 ledger-id). 내용은 노출하지 않는다.
+    // derived는 출처에 이 값을 적고 다르면 버리고 다시 만든다(backup-and-migration#R14).
+    ledgerId: ledgerId.value,
     components() {
       return [
         ["ledger", { available: true }],
@@ -1056,6 +1083,12 @@ async function open(
     )
     : Promise.resolve(ok(undefined));
   let stopped = false;
+  // restore가 정지 단계에서 할 일과 그 결과. 한 번에 하나만 받는다.
+  let restoring = false;
+  let pendingRestore:
+    | { created_at: string; expectedCurrentSeq: string }
+    | undefined;
+  let restoreResult: Result<RestoreOutcome> | undefined;
   const core: Core = {
     port: server.port,
     epoch,
@@ -1080,6 +1113,53 @@ async function open(
         code: "unavailable",
         message: "blob 준비 통로가 없다",
       })),
+    async restore(request) {
+      if (stopped || restoring) {
+        return err({ code: "conflict", message: "이미 멈추는 중이다" });
+      }
+      if (!ready) {
+        return err({
+          code: "unavailable",
+          message: "core가 아직 준비되지 않았다",
+        });
+      }
+      restoring = true;
+      // 묶음이 복원 가능한지와 잃을 범위는 정지 전에 본다. 사람이 본 범위가 바로 이 값이다.
+      const planned = await planRestore(
+        root.path,
+        ledgerPath,
+        request.created_at,
+        schemaSteps.length,
+      );
+      if (!planned.ok) {
+        restoring = false;
+        return planned;
+      }
+      const binding = await restoreBinding(planned.value);
+      // 확인은 writer의 registry가 대상·내용·결정을 맞춰 보고 한 번에 소비한다. 맞지 않으면
+      // 아무것도 멈추지 않는다.
+      const used = await runtime!.confirmation({
+        action: "consume",
+        request: {
+          ref: request.confirmation,
+          decision: RESTORE_DECISION,
+          binding,
+        },
+      });
+      if (!used.ok) {
+        restoring = false;
+        return used;
+      }
+      pendingRestore = {
+        created_at: request.created_at,
+        expectedCurrentSeq: planned.value.current_through_seq,
+      };
+      await core.shutdown();
+      return restoreResult ?? err({
+        code: "unavailable",
+        message: "복원을 시작하지 못했다",
+      });
+    },
     async shutdown() {
       if (stopped) return;
       stopped = true;
@@ -1124,7 +1204,18 @@ async function open(
         // 읽기는 core graph 밖 프로세스의 몫이다(responsiveness#R1). 관측을
         // 못 하면 건너뛰고(fail-closed), 시간 제한을 넘기면 그 프로세스만
         // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
-        if (
+        if (pendingRestore !== undefined) {
+          // restore는 같은 정지 조건 위에서만 돈다. 이번 종료에는 blob GC를 하지 않는다.
+          restoreResult = await runStoppedRestore({
+            dataRoot: root.path,
+            ledgerPath,
+            request: pendingRestore,
+            conditions: stoppedAt,
+            supportedSchema: schemaSteps.length,
+            nowIso: clock.now(),
+            timeoutMs: options.restoreTimeoutMs,
+          });
+        } else if (
           stoppedAt.preparationsBlocked && stoppedAt.commandsBlocked &&
           stoppedAt.writerStopped
         ) {
@@ -1177,9 +1268,12 @@ async function open(
   return ok(core);
 }
 
-async function ledgerIdentity(path: string): Promise<string> {
-  const stat = await Deno.stat(path);
-  return `${path}:${stat.size}`;
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    return (await Deno.stat(path)).isFile;
+  } catch {
+    return false;
+  }
 }
 
 function hex(random: RandomSource, bytes: number): string {
@@ -1272,6 +1366,93 @@ async function runStoppedMaintenance(input: {
     return;
   }
   if (!outcome.success) await noteMaintenanceFailure(input.dataRoot, false);
+}
+
+// restore 프로세스 입구(apps/worker/platform/restore-entry.ts)를 띄워 정지한 data root를
+// 복원한다. 파일 복사·hash·검증은 core graph 밖 프로세스의 몫이다(responsiveness#R1).
+// 어떤 실패도 현재 자료를 바꾸지 않은 채 오류로 돌아온다.
+const RESTORE_TIMEOUT_MS = 10 * 60_000;
+
+async function runStoppedRestore(input: {
+  dataRoot: string;
+  ledgerPath: string;
+  request: { created_at: string; expectedCurrentSeq: string };
+  conditions: {
+    preparationsBlocked: boolean;
+    commandsBlocked: boolean;
+    writerStopped: boolean;
+  };
+  supportedSchema: number;
+  nowIso: string;
+  timeoutMs?: number;
+}): Promise<Result<RestoreOutcome>> {
+  const { preparationsBlocked, commandsBlocked, writerStopped } =
+    input.conditions;
+  if (!(preparationsBlocked && commandsBlocked && writerStopped)) {
+    return err({
+      code: "unavailable",
+      message: "정지를 확인하지 못해 복원하지 않았다",
+    });
+  }
+  const stamp = backupStamp(input.nowIso);
+  if (!stamp.ok) return stamp;
+  const entry = new URL("../worker/platform/restore-entry.ts", import.meta.url)
+    .pathname;
+  let outcome: Deno.CommandOutput;
+  try {
+    outcome = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        `--allow-read=${input.dataRoot},${repoRoot()},${denoDir()}`,
+        `--allow-write=${input.dataRoot}`,
+        "--allow-env=LOPHN_HOME,LOPHN_RESTORE,HOME,PATH",
+        "--no-prompt",
+        entry,
+      ],
+      stdin: "null",
+      stdout: "piped",
+      stderr: "null",
+      clearEnv: true,
+      signal: AbortSignal.timeout(input.timeoutMs ?? RESTORE_TIMEOUT_MS),
+      env: {
+        ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+        ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+        LOPHN_HOME: input.dataRoot,
+        LOPHN_RESTORE: JSON.stringify({
+          ledger: input.ledgerPath,
+          createdAt: input.request.created_at,
+          expectedCurrentSeq: input.request.expectedCurrentSeq,
+          stamp: stamp.value,
+          supportedSchema: input.supportedSchema,
+          conditions: input.conditions,
+          now: input.nowIso,
+        }),
+      },
+    }).output();
+  } catch {
+    return err({
+      code: "unavailable",
+      message:
+        "복원 프로세스가 끝나지 않았다. 현재 자료는 확인 전까지 믿지 않는다",
+    });
+  }
+  const text = new TextDecoder().decode(outcome.stdout).trim();
+  try {
+    const reply = JSON.parse(text.slice(text.lastIndexOf("\n") + 1)) as {
+      ok?: boolean;
+      value?: RestoreOutcome;
+      error?: { code?: string; message?: string };
+    };
+    if (reply.ok === true && reply.value !== undefined) {
+      return ok(reply.value);
+    }
+    return err({
+      code: reply.error?.code === "conflict" ? "conflict" : "unavailable",
+      message: reply.error?.message ?? "복원하지 못했다",
+    });
+  } catch {
+    return err({ code: "unavailable", message: "복원 결과를 읽지 못했다" });
+  }
 }
 
 // 유지보수 실패의 diagnostics 기록. 종료를 막지 않으므로 기록 실패도 삼킨다.

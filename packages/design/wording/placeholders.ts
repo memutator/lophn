@@ -8,10 +8,13 @@ export type PlaceholderKinds = {
   "common.author.label": {
     author: "string";
   };
+  "common.button.apply": Record<never, never>;
   "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
+  "common.button.clear": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
+  "common.button.copy-address": Record<never, never>;
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-page": Record<never, never>;
@@ -26,7 +29,9 @@ export type PlaceholderKinds = {
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
+  "common.button.reset-filters": Record<never, never>;
   "common.button.retry": Record<never, never>;
+  "common.button.select-all": Record<never, never>;
   "common.button.show-chart": Record<never, never>;
   "common.button.show-table": Record<never, never>;
   "common.button.sort-ascending": Record<never, never>;
@@ -38,6 +43,9 @@ export type PlaceholderKinds = {
   "common.chart.unreadable": Record<never, never>;
   "common.copy.failed": Record<never, never>;
   "common.empty.not-ready": Record<never, never>;
+  "common.error.action-failed": {
+    action: "string";
+  };
   "common.error.load-failed": {
     target: "string";
   };
@@ -55,11 +63,20 @@ export type PlaceholderKinds = {
   "common.heading.palette-files": Record<never, never>;
   "common.heading.palette-projects": Record<never, never>;
   "common.heading.palette-tabs": Record<never, never>;
+  "common.label.all-of": {
+    dimension: "string";
+  };
+  "common.label.date-from": Record<never, never>;
+  "common.label.date-to": Record<never, never>;
   "common.label.date-with-weekday": {
     date: "string";
     weekday: "string";
   };
   "common.label.decisions-waiting": {
+    count: "plural";
+  };
+  "common.label.first-and-more": {
+    first: "string";
     count: "plural";
   };
   "common.label.lophn-space": Record<never, never>;
@@ -78,11 +95,18 @@ export type PlaceholderKinds = {
     kind: "string";
     pane: "string";
   };
+  "common.label.range-custom": Record<never, never>;
+  "common.label.range-last-30-days": Record<never, never>;
+  "common.label.range-last-7-days": Record<never, never>;
+  "common.label.range-last-90-days": Record<never, never>;
+  "common.label.range-this-month": Record<never, never>;
+  "common.label.range-today": Record<never, never>;
   "common.label.row-range": {
     start: "number";
     end: "number";
     total: "number";
   };
+  "common.label.search": Record<never, never>;
   "common.label.sort-by": Record<never, never>;
   "common.label.tray-global-search-unavailable": Record<never, never>;
   "common.label.tray-launcher": Record<never, never>;
@@ -95,7 +119,9 @@ export type PlaceholderKinds = {
     start: "string";
     end: "string";
   };
+  "common.notice.asks-first": Record<never, never>;
   "common.notice.core-down": Record<never, never>;
+  "common.notice.waiting-confirmation": Record<never, never>;
   "common.notification.body": Record<never, never>;
   "common.notification.title": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;

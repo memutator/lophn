@@ -27,6 +27,7 @@ function fakeApi(replies: EditorReply<CreateReport>[]) {
     current: unavailable,
     watch: unavailable,
     restore: unavailable,
+    place: unavailable,
     create: (input) => {
       created.push(new TextDecoder().decode(input.bytes));
       return Promise.resolve(replies.shift()!);

@@ -50,6 +50,8 @@ export type SecretInputRelay = {
   ): Promise<Result<SecretPreparation>>;
   // worker→core worker_response. 기다리는 요청이 없는 응답은 버린다.
   accept(message: ChildMessage): void;
+  // I/O worker가 끝났다. 응답을 기다리던 준비는 기한(30초)까지 기다리지 않고 바로 unavailable이다.
+  failPending(message: string): void;
 };
 
 type Answer =
@@ -176,6 +178,12 @@ export function createSecretInputRelay(
 
   return {
     prepare,
+    failPending(message) {
+      for (const [id, resolve] of [...waiting]) {
+        waiting.delete(id);
+        resolve({ ok: false, error: { code: "unavailable", message } });
+      }
+    },
     accept(message) {
       if (message.type !== "worker_response") return;
       const resolve = waiting.get(message.request_id);

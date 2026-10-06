@@ -67,6 +67,26 @@ function sourceOf(over: Partial<VersionSource> = {}): VersionSource {
   };
 }
 
+Deno.test("shell/editor#R6: 컨텍스트 탭에서 고른 Focus는 그 Focus를 연다", async () => {
+  const opened: string[] = [];
+  using view = render(
+    <DocumentInfoPanel
+      tab="contexts"
+      document="doc_plan"
+      source={sourceOf()}
+      onCompare={() => {}}
+      onOpenContext={(context) => opened.push(context)}
+      now={() => NOW}
+    />,
+  );
+  await settle();
+  const row = one(view.container, "[data-open-context='ctx_1']");
+  assertEquals(row.textContent, "Launch review");
+  assertEquals(style(row.closest("li")!).height, "32px");
+  click(row);
+  assertEquals(opened, ["ctx_1"]);
+});
+
 function panel(
   tab: InfoTabId,
   options: {

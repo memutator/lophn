@@ -496,6 +496,7 @@ function filesOf(write: (input: EditorWrite) => EditorReply<SaveReport>) {
     watch: () => new Promise(() => {}),
     restore: () => Promise.resolve({ ok: false, code: "unavailable" }),
     create: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    place: () => Promise.resolve({ ok: false, code: "unavailable" }),
     release: () => Promise.resolve(),
     counts: () => {},
     onCloseRequest: () => () => {},

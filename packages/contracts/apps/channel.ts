@@ -237,6 +237,27 @@ export const appConnect = defineMemory({
   ],
 });
 
+// shell main이 폐기하거나 다른 앱으로 교체한 화면 view를 그 앱의 지금 live 프로세스에 알린다.
+// shell은 앱 machine 연결이 없으므로 core 제어 어댑터가 `control/view-closed`로 중계한다. 그 뒤
+// 앱 runtime은 그 view_session의 context 조회·주석 쓰기를 받지 않는다(apps/agent-context#R2, R5).
+// ledger를 거치지 않는다. relayed는 지금 받을 live 프로세스가 있었는지다.
+export const appViewClosedInputSchema = z.strictObject({
+  app: appIdSchema,
+  view_session: opaqueSchema,
+});
+export type AppViewClosedInput = z.infer<typeof appViewClosedInputSchema>;
+export const appViewClosedOutputSchema = z.object({ relayed: z.boolean() });
+
+export const appViewClosed = defineMemory({
+  resource: "apps",
+  method: "view_closed",
+  name: "app.view_closed",
+  input: appViewClosedInputSchema,
+  output: appViewClosedOutputSchema,
+  actors: ["user"],
+  errors: ["unauthorized", "invalid_input", "not_found", "unavailable"],
+});
+
 // path는 최초 caller부터 현재 caller까지다. 다음 대상을 더한 앱 수가 8을 넘거나
 // 현재 path에 이미 있으면 handler 전에 거절한다(apps/connections#R7).
 export function appCallDepthAllowed(

@@ -17,6 +17,7 @@ import type {
 } from "./restore.ts";
 import type { CreatePort, PreparedNew } from "./create.ts";
 import type { InstructionsPort, PlacelessDocument } from "./instructions.ts";
+import type { PlacedResult, PlacePort } from "./place.ts";
 
 type Called<T = unknown> = { ok: true; value: T } | {
   ok: false;
@@ -209,6 +210,25 @@ export function coreRestorePort(core: CoreCalls): RestorePort {
       // 성공 응답은 route output(SaveResult) 그대로다(platform/api#R3).
       return as<RestoreSaved>(
         await core.internal("command", "documents", "restore", request),
+      );
+    },
+  };
+}
+
+/** 파일로 두기 통로. 고정 판 읽기와 파일 쓰기만 부른다. */
+export function corePlacePort(core: CoreCalls): PlacePort {
+  return {
+    async fixed(document, version) {
+      return as<FixedRead>(
+        await core.internal("read", "documents", "get", {
+          document,
+          ...(version === undefined ? {} : { version }),
+        }),
+      );
+    },
+    async write(request) {
+      return as<PlacedResult>(
+        await core.internal("worker", "files", "write", request),
       );
     },
   };

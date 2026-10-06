@@ -15,6 +15,7 @@ import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [
   { createLedgerRegistration },
@@ -67,6 +68,13 @@ async function open(
     superviseIo: false,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    if (before === undefined) Deno.env.delete("LOPHN_INSTALL_ROOT");
+    else Deno.env.set("LOPHN_INSTALL_ROOT", before);
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(install, { recursive: true });
+  });
   const core = started.value;
   const token = "g".repeat(43);
   const context: AuthenticatedContext = {
@@ -80,6 +88,7 @@ async function open(
   assert(accepted?.ok);
   const recorded = await core.record(context);
   assert(recorded.ok);
+  guard.keep();
   return {
     core,
     home,

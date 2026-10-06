@@ -9,6 +9,7 @@ import {
 
 import {
   observeException,
+  observeViewError,
   problemObserved,
   problemOpened,
   recordReport,
@@ -48,6 +49,7 @@ import {
 export const ROUTES = [
   reportProblem,
   observeException,
+  observeViewError,
   submitFeedback,
   recordReport,
   requestTest,

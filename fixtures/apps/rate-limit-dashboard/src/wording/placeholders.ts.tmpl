@@ -1,0 +1,52 @@
+// en.ts에서 생성한다. 직접 고치지 않고 `deno task wording --check`로 맞춘다.
+import type { MessageKey } from "./en.ts";
+
+export type PlaceholderKinds = {
+  "common.problem.file-unavailable": Record<never, never>;
+  "common.problem.store-unavailable": Record<never, never>;
+  "common.reason.import-folder": Record<never, never>;
+  "common.summary.app": Record<never, never>;
+  "usage.button.reload": Record<never, never>;
+  "usage.empty.no-usage": Record<never, never>;
+  "usage.empty.partial": Record<never, never>;
+  "usage.empty.uncollected": Record<never, never>;
+  "usage.label.chart-day": Record<never, never>;
+  "usage.label.collect-usage": Record<never, never>;
+  "usage.label.limited": Record<never, never>;
+  "usage.label.peak": Record<never, never>;
+  "usage.label.providers": Record<never, never>;
+  "usage.label.report": Record<never, never>;
+  "usage.label.samples": Record<never, never>;
+  "usage.label.usage-report": Record<never, never>;
+  "usage.note.partial": Record<never, never>;
+  "usage.summary.collect-usage": Record<never, never>;
+  "usage.summary.continuation": Record<never, never>;
+  "usage.summary.file-name": Record<never, never>;
+  "usage.summary.from": Record<never, never>;
+  "usage.summary.limit": Record<never, never>;
+  "usage.summary.order": Record<never, never>;
+  "usage.summary.providers": Record<never, never>;
+  "usage.summary.timezone": Record<never, never>;
+  "usage.summary.to": Record<never, never>;
+  "usage.summary.usage-report": Record<never, never>;
+  "usage.title.screen": Record<never, never>;
+};
+
+type ValueFor<T> = T extends "plural" | "number" ? number
+  : T extends "date" ? Date
+  : string;
+
+export type ValuesOf<K extends MessageKey> = {
+  [P in keyof PlaceholderKinds[K]]: ValueFor<PlaceholderKinds[K][P]>;
+};
+
+export type HasPlaceholders<K extends MessageKey> = [
+  keyof PlaceholderKinds[K],
+] extends [never] ? false
+  : true;
+
+type _SameKeys =
+  | Exclude<MessageKey, keyof PlaceholderKinds>
+  | Exclude<keyof PlaceholderKinds, MessageKey>;
+const _sameKeys: [_SameKeys] extends [never] ? true : never = true;
+void _sameKeys;

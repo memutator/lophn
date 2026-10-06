@@ -19,6 +19,7 @@ import {
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
   checkRestart,
@@ -1051,25 +1052,32 @@ async function open(
                   current: (ref) => runtime!.current(ref),
                   observedAt: () => new Date().toISOString(),
                 }),
-                mergedWorkers(
-                  collectorWorkers({
-                    channel: collectorChannel,
-                    observation: () =>
-                      io?.observation(COLLECTOR_KIND) ?? {
-                        component: COLLECTOR_KIND,
-                        available: false,
-                        reason: "report collector 감독이 없다",
-                        observed_at: clock.now(),
+                // 문제 collector route는 view binding 검증 뒤에만 worker로 닿는다(problems#T16).
+                withViewBinding(
+                  mergedWorkers(
+                    collectorWorkers({
+                      channel: collectorChannel,
+                      observation: () =>
+                        io?.observation(COLLECTOR_KIND) ?? {
+                          component: COLLECTOR_KIND,
+                          available: false,
+                          reason: "report collector 감독이 없다",
+                          observed_at: clock.now(),
+                        },
+                      conditionsOf: (request) => {
+                        const slash = request.request_id.lastIndexOf("/");
+                        const ctx = slash > 0
+                          ? runtime!.current(request.request_id.slice(0, slash))
+                          : undefined;
+                        return ctx?.ok ? ctx.value.conditions : undefined;
                       },
-                    conditionsOf: (request) => {
-                      const slash = request.request_id.lastIndexOf("/");
-                      const ctx = slash > 0
-                        ? runtime!.current(request.request_id.slice(0, slash))
-                        : undefined;
-                      return ctx?.ok ? ctx.value.conditions : undefined;
-                    },
-                  }),
-                  options.workers,
+                    }),
+                    options.workers,
+                  ),
+                  {
+                    signer: appsControl.signer,
+                    nowMs: () => clock.nowMs(),
+                  },
                 ),
               ),
             ),

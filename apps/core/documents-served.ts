@@ -112,6 +112,26 @@ export const WORKING_COPY_ROUTE: ReadRoute = {
   errors: ["invalid_input", "forbidden", "unavailable", "internal"],
 };
 
+// 두기·빼기가 core 안에서 쓰는 읽기. 요청 자격으로 문서 접근을 판정하고 문서·프로젝트·최신 판의
+// 파일 목록·경로에 연결된 문서·쓸 수 있는 이름을 한 snapshot에서 돌려준다. 범위 밖·없는 문서는
+// 같은 null이다. 공개 route가 아니라 core 안에서만 쓴다.
+export const FILE_PLACEMENT_ROUTE: ReadRoute = {
+  kind: "read",
+  resource: "documents-worker",
+  method: "file_placement",
+  name: "document.file_placement",
+  input: z.strictObject({
+    document: z.string().min(1),
+    operation: z.string().min(1),
+    project: z.string().min(1).optional(),
+    path: z.string().min(1).optional(),
+    suggest_name: z.boolean().optional(),
+  }),
+  output: z.looseObject({}),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable", "internal"],
+};
+
 // coordinator에 넘길 관측 근거의 core 쪽 읽기(Q15). 공개 route가 아니라 core가 소유자로
 // 읽는 내부 read다. 응답 한도(500행)가 있어 root·규칙과 경로→문서 연결을 따로, 연결은
 // 경로 순서의 page로 읽는다.

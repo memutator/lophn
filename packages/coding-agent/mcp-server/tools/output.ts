@@ -27,3 +27,38 @@ export function withoutOp(input: unknown): Record<string, unknown> {
   const { op: _op, ...rest } = (input ?? {}) as Record<string, unknown>;
   return rest;
 }
+
+type Paged = {
+  complete?: boolean;
+  next_cursor?: string | null;
+  omitted?: { reason: string; count: number }[];
+};
+
+const OMIT_REASON: Record<string, string> = {
+  page_limit: "쪽 한도로",
+  byte_limit: "크기 한도로",
+};
+
+// 한 쪽 읽기의 잘림과 이어 읽기를 한 문장으로 알린다. 허용 밖 대상은 세지 않으므로
+// 생략 수는 읽을 수 있는 것의 남은 수다. 이어 읽을 것이 없으면 text가 비어 있다.
+export function continuation(value: Paged): { text: string; more: boolean } {
+  const parts: string[] = [];
+  for (const item of value.omitted ?? []) {
+    if (item.count > 0) {
+      parts.push(
+        `${OMIT_REASON[item.reason] ?? "한도로"} ${item.count}개 생략`,
+      );
+    }
+  }
+  const cursor = typeof value.next_cursor === "string" &&
+    value.next_cursor !== "";
+  const more = cursor || value.complete === false;
+  if (more) parts.push("이어 읽을 것이 더 있다(next_cursor)");
+  return { text: parts.join(", "), more };
+}
+
+// 요약 뒤에 잘림 안내를 붙인다.
+export function withContinuation(summary: string, value: Paged): string {
+  const { text } = continuation(value);
+  return text === "" ? summary : `${summary}. ${text}`;
+}

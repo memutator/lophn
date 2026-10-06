@@ -92,6 +92,7 @@ export {
   loadReleases,
   loadStoredBlueprint,
   releaseDeclarations,
+  releaseWording,
   type StoredBlueprint,
 } from "./store.ts";
 // activation: 한 시도를 순서대로 진행·복원·이어받는 모듈과 봉인 사본에서 앱 자식 입력을 만드는 함수다.

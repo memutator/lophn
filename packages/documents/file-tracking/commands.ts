@@ -33,7 +33,9 @@ const OUTCOME_OF = {
 } as const;
 
 // event의 subject: project 파일은 project, working copy는 원본 연결이 없는 문서다.
-// instruction_file 목표는 이 command의 범위 밖이다.
+// 지침 파일은 project 층이면 그 project, 전역이면 그 파일에 연결된 문서다. 전역 파일의 첫
+// 저장은 아직 연결된 문서가 없어 subject를 정할 수 없고 기록은 unverified로 남는다(파일 결과와
+// 따로 본다).
 function subjectOf(tx: Tx, result: FileOperationResult): Result<string> {
   const invalid = () =>
     err({ code: "invalid_input" as const, message: "file result is invalid" });
@@ -52,7 +54,17 @@ function subjectOf(tx: Tx, result: FileOperationResult): Result<string> {
     }
     return ok(target.document);
   }
-  return invalid();
+  if (target.project !== null) {
+    const found = tx.sql.get("SELECT 1 AS found FROM projects WHERE id = ?", [
+      target.project,
+    ]);
+    return found === undefined ? invalid() : ok(target.project);
+  }
+  const linked = tx.sql.get(
+    "SELECT id FROM documents WHERE source_kind = 'instruction_file' AND source_instruction_target = ? AND source_path = ?",
+    [target.instruction_target, target.path],
+  );
+  return linked === undefined ? invalid() : ok(String(linked["id"]));
 }
 
 export function createFileCommands(): {

@@ -211,7 +211,10 @@ export function fileWorkers(
     request: WorkerRequest,
     target: FileTarget,
   ): Promise<Result<WorkingCopyCheck | undefined>> {
-    if (target.kind === "project_file") return ok(undefined);
+    // 지침 파일은 coordinator가 exact 등록과 맞춰 본다(file-tracking#R19).
+    if (target.kind === "project_file" || target.kind === "instruction_file") {
+      return ok(undefined);
+    }
     if (target.kind !== "working_copy") {
       return err({ code: "invalid_input", message: "target is not available" });
     }
@@ -315,8 +318,8 @@ export function fileWorkers(
       };
     }
     const blob = source;
-    // instruction 파일은 이 통로의 범위 밖이다(지침 파일 목표는 따로 등록한다).
-    if (input.target.kind === "instruction_file") return notAvailable(request);
+    // instruction_file 목표는 coordinator가 exact 등록과 맞춰 본다. 등록에 없는 경로·층은 같은
+    // not available이다(file-tracking#R19, R20).
     let copy: WorkingCopyBasis | undefined;
     if (input.target.kind === "working_copy") {
       const version = input.version_request;

@@ -407,7 +407,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T22 앱 템플릿
 
-- 상태: 진행 (#PR)
+- 상태: 완료 (#355) — 이어보냄: SDK byte·잠긴 import map의 bundle 담기와 reportProblem broker 응답·화면 build 직접 실행 → T19, 템플릿 관리 구간 본문 → coding-agent#T34, `sdk add`의 import map 갱신 → coding-agent#T22
 - 등급: 기본
 - concern: apps/sdk
 - 요구: apps/sdk#R1, R29, R33, R35, R36, R41

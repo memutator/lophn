@@ -1052,6 +1052,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T48 Linux 설치 묶음(.deb)
 
+- 상태: 완료 (#379) — Linux 배포는 미검증이다: Ubuntu 24.04+ 설치에서 `tools/verify-linux-install.ts`와 `deno task e2e install-lophn`이 통과하기 전에는 사용 가능으로 표시하지 않는다(R1)
 - 등급: 기본
 - concern: platform/install-and-update, platform/security
 - 요구: platform/install-and-update#R1, R2, R3, R4, R5, R6, R8, platform/security#R4, R5

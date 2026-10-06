@@ -3,10 +3,13 @@
   flex-direction: column;
 }
 
+/* 칸보다 탭이 많으면 페이지가 아니라 탭 줄이 가로로 scroll한다(apps/sdk#R37). */
 .list {
   display: flex;
   align-items: flex-end;
   gap: var(--space-5);
+  min-width: var(--space-0);
+  overflow-x: auto;
   border-bottom: var(--border-width) solid var(--color-border-subtle);
 }
 

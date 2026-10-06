@@ -122,6 +122,8 @@ export const tokenNames = [
   "--layout-sidebar-min",
   "--layout-sidebar-max",
   "--layout-sidebar-collapsed",
+  "--layout-container-panel",
+  "--layout-container-card",
   "--control-sm-height",
   "--control-sm-pad-x",
   "--control-sm-icon",

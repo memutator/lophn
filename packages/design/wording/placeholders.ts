@@ -2,6 +2,202 @@
 import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
+  "app-detail.button.change-access": Record<never, never>;
+  "app-detail.button.close-preview": Record<never, never>;
+  "app-detail.button.hide-activity": Record<never, never>;
+  "app-detail.button.hide-changes": Record<never, never>;
+  "app-detail.button.open-preview": Record<never, never>;
+  "app-detail.button.remove-access": Record<never, never>;
+  "app-detail.button.review-connection": Record<never, never>;
+  "app-detail.button.see-changes": Record<never, never>;
+  "app-detail.button.show-activity": Record<never, never>;
+  "app-detail.button.turn-off": Record<never, never>;
+  "app-detail.button.turn-on": Record<never, never>;
+  "app-detail.button.use-version": Record<never, never>;
+  "app-detail.error.apply-failed": {
+    number: "string";
+  };
+  "app-detail.error.decision-failed": Record<never, never>;
+  "app-detail.error.preview-failed": Record<never, never>;
+  "app-detail.error.turn-off-failed": {
+    name: "string";
+  };
+  "app-detail.heading.access-agents": Record<never, never>;
+  "app-detail.heading.access-asks": Record<never, never>;
+  "app-detail.heading.access-documents": Record<never, never>;
+  "app-detail.heading.access-files-read": Record<never, never>;
+  "app-detail.heading.access-files-write": Record<never, never>;
+  "app-detail.heading.access-listen": Record<never, never>;
+  "app-detail.heading.access-network": Record<never, never>;
+  "app-detail.heading.access-removed": Record<never, never>;
+  "app-detail.heading.access-secrets": Record<never, never>;
+  "app-detail.heading.current-version": Record<never, never>;
+  "app-detail.heading.detail-access": Record<never, never>;
+  "app-detail.heading.detail-actions": Record<never, never>;
+  "app-detail.heading.detail-automations": Record<never, never>;
+  "app-detail.heading.detail-data": Record<never, never>;
+  "app-detail.heading.detail-screens": Record<never, never>;
+  "app-detail.heading.other-versions": Record<never, never>;
+  "app-detail.heading.what-changes": Record<never, never>;
+  "app-detail.label.access-target": Record<never, never>;
+  "app-detail.label.activity-target": Record<never, never>;
+  "app-detail.label.an-action": Record<never, never>;
+  "app-detail.label.another-app": Record<never, never>;
+  "app-detail.label.applied-before": Record<never, never>;
+  "app-detail.label.applied-failed": Record<never, never>;
+  "app-detail.label.applied-no": Record<never, never>;
+  "app-detail.label.applied-working": Record<never, never>;
+  "app-detail.label.applied-yes": Record<never, never>;
+  "app-detail.label.automation-off": Record<never, never>;
+  "app-detail.label.automation-on": Record<never, never>;
+  "app-detail.label.automations-target": Record<never, never>;
+  "app-detail.label.by-agent": Record<never, never>;
+  "app-detail.label.by-app": Record<never, never>;
+  "app-detail.label.by-applying": Record<never, never>;
+  "app-detail.label.by-automation": Record<never, never>;
+  "app-detail.label.by-direct": Record<never, never>;
+  "app-detail.label.by-restart": Record<never, never>;
+  "app-detail.label.change-access-added": {
+    count: "plural";
+  };
+  "app-detail.label.change-access-removed": {
+    count: "plural";
+  };
+  "app-detail.label.change-actions-added": {
+    count: "plural";
+  };
+  "app-detail.label.change-actions-changed": {
+    count: "plural";
+  };
+  "app-detail.label.change-actions-external": {
+    count: "plural";
+  };
+  "app-detail.label.change-actions-removed": {
+    count: "plural";
+  };
+  "app-detail.label.change-automations": {
+    count: "plural";
+  };
+  "app-detail.label.change-data": {
+    from: "string";
+    to: "string";
+  };
+  "app-detail.label.change-screens": {
+    count: "plural";
+  };
+  "app-detail.label.changes-target": Record<never, never>;
+  "app-detail.label.checked-at": {
+    age: "string";
+  };
+  "app-detail.label.connection-actions": {
+    count: "plural";
+  };
+  "app-detail.label.connection-allowed": Record<never, never>;
+  "app-detail.label.connection-asks": Record<never, never>;
+  "app-detail.label.connection-partly": Record<never, never>;
+  "app-detail.label.connections-target": Record<never, never>;
+  "app-detail.label.data-format": {
+    number: "string";
+  };
+  "app-detail.label.data-target": Record<never, never>;
+  "app-detail.label.details": Record<never, never>;
+  "app-detail.label.did-action": {
+    action: "string";
+  };
+  "app-detail.label.did-action-unnamed": Record<never, never>;
+  "app-detail.label.did-data-change": Record<never, never>;
+  "app-detail.label.did-start": Record<never, never>;
+  "app-detail.label.fact-action": Record<never, never>;
+  "app-detail.label.fact-applied": Record<never, never>;
+  "app-detail.label.fact-can-start": Record<never, never>;
+  "app-detail.label.fact-input": Record<never, never>;
+  "app-detail.label.fact-saved": Record<never, never>;
+  "app-detail.label.fact-schedule": Record<never, never>;
+  "app-detail.label.fact-seen": Record<never, never>;
+  "app-detail.label.fact-start": Record<never, never>;
+  "app-detail.label.fact-task": Record<never, never>;
+  "app-detail.label.fact-test": Record<never, never>;
+  "app-detail.label.input-saved": Record<never, never>;
+  "app-detail.label.last-activity": {
+    status: "string";
+    age: "string";
+  };
+  "app-detail.label.mode-preview": Record<never, never>;
+  "app-detail.label.mode-test": Record<never, never>;
+  "app-detail.label.no": Record<never, never>;
+  "app-detail.label.not-yet": Record<never, never>;
+  "app-detail.label.preview-banner": {
+    number: "string";
+  };
+  "app-detail.label.schedule-interval": {
+    minutes: "plural";
+  };
+  "app-detail.label.schedule-start": Record<never, never>;
+  "app-detail.label.start-ok": Record<never, never>;
+  "app-detail.label.start-unconfirmed": Record<never, never>;
+  "app-detail.label.status-applying": Record<never, never>;
+  "app-detail.label.status-blocked": Record<never, never>;
+  "app-detail.label.status-current": Record<never, never>;
+  "app-detail.label.status-didnt-finish": Record<never, never>;
+  "app-detail.label.status-done": Record<never, never>;
+  "app-detail.label.status-failed": Record<never, never>;
+  "app-detail.label.status-older": Record<never, never>;
+  "app-detail.label.status-prepared": Record<never, never>;
+  "app-detail.label.status-result-unknown": Record<never, never>;
+  "app-detail.label.status-waiting": Record<never, never>;
+  "app-detail.label.status-working": Record<never, never>;
+  "app-detail.label.tab-access": Record<never, never>;
+  "app-detail.label.tab-activity": Record<never, never>;
+  "app-detail.label.tab-automations": Record<never, never>;
+  "app-detail.label.tab-connections": Record<never, never>;
+  "app-detail.label.tab-data": Record<never, never>;
+  "app-detail.label.tab-issues": Record<never, never>;
+  "app-detail.label.tab-tasks": Record<never, never>;
+  "app-detail.label.tab-version": Record<never, never>;
+  "app-detail.label.task-failed": Record<never, never>;
+  "app-detail.label.task-none": Record<never, never>;
+  "app-detail.label.task-passed": Record<never, never>;
+  "app-detail.label.task-pending": Record<never, never>;
+  "app-detail.label.task-unavailable": Record<never, never>;
+  "app-detail.label.task-unclear": Record<never, never>;
+  "app-detail.label.test-fail": Record<never, never>;
+  "app-detail.label.test-inconclusive": Record<never, never>;
+  "app-detail.label.test-pass": Record<never, never>;
+  "app-detail.label.test-unavailable": Record<never, never>;
+  "app-detail.label.time-unknown": Record<never, never>;
+  "app-detail.label.version": {
+    number: "string";
+  };
+  "app-detail.label.versions-target": Record<never, never>;
+  "app-detail.label.yes": Record<never, never>;
+  "app-detail.note.access-empty": Record<never, never>;
+  "app-detail.note.access-removal-scope": Record<never, never>;
+  "app-detail.note.access-removed": Record<never, never>;
+  "app-detail.note.access-removing": Record<never, never>;
+  "app-detail.note.access-removing-stop": Record<never, never>;
+  "app-detail.note.activity-scope": Record<never, never>;
+  "app-detail.note.automation-follows-app": Record<never, never>;
+  "app-detail.note.automations-empty": Record<never, never>;
+  "app-detail.note.connection-scope": Record<never, never>;
+  "app-detail.note.connections-empty": Record<never, never>;
+  "app-detail.note.data-converts": Record<never, never>;
+  "app-detail.note.decision-waiting": Record<never, never>;
+  "app-detail.note.export-unavailable": Record<never, never>;
+  "app-detail.note.issues-unavailable": Record<never, never>;
+  "app-detail.note.no-activity": Record<never, never>;
+  "app-detail.note.no-changes": Record<never, never>;
+  "app-detail.note.no-current": Record<never, never>;
+  "app-detail.note.no-other-versions": Record<never, never>;
+  "app-detail.note.review-needed": Record<never, never>;
+  "app-detail.note.secret-deleted": Record<never, never>;
+  "app-detail.note.secret-missing": Record<never, never>;
+  "app-detail.note.secret-still-stored": Record<never, never>;
+  "app-detail.note.secret-stored": Record<never, never>;
+  "app-detail.note.tasks-unavailable": Record<never, never>;
+  "app-detail.note.test-scope": Record<never, never>;
+  "app-detail.note.warning-other": Record<never, never>;
+  "app-detail.note.warning-outside-link": Record<never, never>;
+  "app-detail.note.warning-read-network": Record<never, never>;
   "app-space.button.add-shortcut": Record<never, never>;
   "app-space.button.app-details": Record<never, never>;
   "app-space.button.documents": Record<never, never>;

@@ -11,7 +11,10 @@ export {
   type RebuildModel,
   rebuildResume,
   type RebuildTool,
+  recoverCompactionSummaries,
   type RecoveryPlan,
+  type SummaryCallRecord,
+  type ToolView,
 } from "./recovery.ts";
 export {
   recoverRunFromLedger,

@@ -3,7 +3,11 @@ import type {
   RunElapsed,
   ToolResult,
 } from "../../../contracts/lophn-agent/mod.ts";
-import type { HistoryMessage } from "../prompt-assemble/mod.ts";
+import {
+  type HistoryMessage,
+  SUMMARY_RULE_VERSION,
+  type SummaryRef,
+} from "../prompt-assemble/mod.ts";
 import {
   type CallResult,
   historyResultPart,
@@ -413,4 +417,62 @@ export async function rebuildResume(input: {
     }
   }
   return { history, facts, pending, retry };
+}
+
+// ---------------------------------------------------------------------------
+// 압축 summary 복구(R12)
+// ---------------------------------------------------------------------------
+
+// ledger에 남은 summary 요약 call 하나와 그 근거다. 값은 호출자가 ModelCall 행(purpose, run,
+// session, outcome)과 저장된 완전 출력·context_basis에서 읽는다.
+export type SummaryCallRecord = {
+  call: string;
+  purpose: "title_summary" | "conversation_compression";
+  run: string | null;
+  session: string | null;
+  outcome_kind: string;
+  // 완전 출력 blob의 hash와 본문. 없으면 완성이 아니다.
+  output_hash: string | null;
+  text: string | null;
+  // context_basis가 가리키는 원문 구간과 보호 원문 보존 여부.
+  range: { from_seq: bigint; through_seq: bigint } | null;
+  protected_kept: boolean;
+  created_at: string;
+  parts: SummaryRef["parts"];
+};
+
+// derived `summaries/` cache를 잃은 뒤, 같은 run의 압축 summary만 완성 호출의 출력과 원문 구간으로 다시
+// 만든다. 완전하지 않거나 구간·보호 원문을 확인할 수 없는 호출, 다른 run·세션의 호출, 세션 이어가기
+// 요약은 가져오지 않는다. 이어가기 요약과 합치지 않는다.
+export function recoverCompactionSummaries(
+  run: string,
+  calls: readonly SummaryCallRecord[],
+): SummaryRef[] {
+  const found: SummaryRef[] = [];
+  for (const call of calls) {
+    if (call.purpose !== "conversation_compression" || call.run !== run) {
+      continue;
+    }
+    if (
+      call.outcome_kind !== "complete" || call.output_hash === null ||
+      call.text === null || call.text.trim() === "" || call.range === null ||
+      !call.protected_kept
+    ) continue;
+    found.push({
+      kind: "compaction",
+      session: null,
+      run,
+      from_seq: call.range.from_seq,
+      through_seq: call.range.through_seq,
+      created_at: call.created_at,
+      summary_call: call.call,
+      body_hash: call.output_hash,
+      rule_version: SUMMARY_RULE_VERSION,
+      references: [],
+      parts: call.parts,
+    });
+  }
+  return found.sort((a, b) =>
+    a.from_seq < b.from_seq ? -1 : a.from_seq > b.from_seq ? 1 : 0
+  );
 }

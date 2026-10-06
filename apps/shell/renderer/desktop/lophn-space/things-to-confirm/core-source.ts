@@ -1,7 +1,8 @@
 // RequestSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output
 // schema로 이미 검사했다. 아래 모양은 그 schema(assignments·runs·sessions·questions list,
-// runs.read, approvals.list, notifications.list, events.list, blobs.read, questions
-// answer·defer·cancel, notifications.read)에서 이 화면들이 읽는 field만 옮긴 것이다.
+// runs.read, approvals.list, notifications.list, events.list, blobs.read, questions text·
+// answer·defer·cancel, notifications.read)에서 이 화면들이 읽는 field만 옮긴 것이다. command
+// 성공 응답은 route output 그대로다(envelope 없음, platform/api#R3).
 import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import type {
@@ -71,6 +72,15 @@ interface ApprovalValue {
 interface NotificationValue {
   notification: { id: string; source_seq: string; read_at: string | null };
   source_event: string;
+}
+
+interface QuestionTextValue {
+  prompt: string;
+  reason: string;
+  options: { key: string; description: string }[];
+  recommendation: { option_key: string | null; explanation: string } | null;
+  answer_text: string | null;
+  closed_reason_text: string | null;
 }
 
 interface EventValue {
@@ -162,14 +172,17 @@ async function pages<T, V extends Page>(
   return { ok: true, value: found };
 }
 
-async function sha256(text: string): Promise<string> {
+// 같은 답을 다시 보내면 같은 key가 되도록 답을 줄인 값. core로 가는 글이나 blob hash가
+// 아니라 idempotency key의 꼬리일 뿐이다.
+async function keyTag(text: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(text),
   );
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
+    .join("")
+    .slice(0, 32);
 }
 
 function placeOf(session: SessionValue | undefined): Place | null {
@@ -323,49 +336,40 @@ export function coreRequestSource(
     watch: (listener) => core.subscribe(listener),
 
     async overview() {
-      const [assignments, runs, sessions, questions, approvals, notifications] =
-        await Promise.all([
-          pages<AssignmentValue, Page & { assignments: AssignmentValue[] }>(
-            core,
-            "assignments",
-            "list",
-            {},
-            (value) => value.assignments,
-          ),
-          pages<RunValue, Page & { runs: RunValue[] }>(
-            core,
-            "runs",
-            "list",
-            {},
-            (value) => value.runs,
-          ),
-          pages<SessionValue, Page & { sessions: SessionValue[] }>(
-            core,
-            "sessions",
-            "list",
-            {},
-            (value) => value.sessions,
-          ),
-          pages<QuestionValue, Page & { questions: QuestionValue[] }>(
-            core,
-            "questions",
-            "list",
-            {},
-            (value) => value.questions,
-          ),
-          call<{ requests: ApprovalValue[] }>(
-            core,
-            "read",
-            "approvals",
-            "list",
-            {},
-          ),
-          readNotifications(core, false),
-        ]);
+      // 읽기는 하나씩 보낸다. core reader는 한 사람(principal)의 대기 읽기를 8개까지만 받고
+      // 넘으면 unavailable로 답한다. 칸·chip·도크가 같은 사람 token으로 같이 읽으므로 한
+      // 화면이 한꺼번에 여러 개를 내지 않는다.
+      const assignments = await pages<
+        AssignmentValue,
+        Page & { assignments: AssignmentValue[] }
+      >(core, "assignments", "list", {}, (value) => value.assignments);
       if (!assignments.ok) return assignments;
+      const runs = await pages<RunValue, Page & { runs: RunValue[] }>(
+        core,
+        "runs",
+        "list",
+        {},
+        (value) => value.runs,
+      );
       if (!runs.ok) return runs;
+      const sessions = await pages<
+        SessionValue,
+        Page & { sessions: SessionValue[] }
+      >(core, "sessions", "list", {}, (value) => value.sessions);
       if (!sessions.ok) return sessions;
+      const questions = await pages<
+        QuestionValue,
+        Page & { questions: QuestionValue[] }
+      >(core, "questions", "list", {}, (value) => value.questions);
       if (!questions.ok) return questions;
+      const approvals = await call<{ requests: ApprovalValue[] }>(
+        core,
+        "read",
+        "approvals",
+        "list",
+        {},
+      );
+      const notifications = await readNotifications(core, false);
       // approval·notification을 읽지 못해도 질문은 보인다. 못 읽은 쪽은 0으로 보이지 않게
       // 표시한다(desktop#R7).
       const approvalRows = approvals.ok ? approvals.value.requests : [];
@@ -402,30 +406,32 @@ export function coreRequestSource(
     },
 
     async pending(session) {
-      const [questions, approvals, waiting] = await Promise.all([
-        pages<QuestionValue, Page & { questions: QuestionValue[] }>(
-          core,
-          "questions",
-          "list",
-          { status: "pending" },
-          (value) => value.questions,
-        ),
-        call<{ requests: ApprovalValue[] }>(
-          core,
-          "read",
-          "approvals",
-          "list",
-          { status: "pending" },
-        ),
-        pages<RunValue, Page & { runs: RunValue[] }>(
-          core,
-          "runs",
-          "list",
-          { state: "waiting_user" },
-          (value) => value.runs,
-        ),
-      ]);
+      // 하나씩 읽는다(overview와 같은 이유).
+      const questions = await pages<
+        QuestionValue,
+        Page & { questions: QuestionValue[] }
+      >(
+        core,
+        "questions",
+        "list",
+        { status: "pending" },
+        (value) => value.questions,
+      );
       if (!questions.ok) return questions;
+      const approvals = await call<{ requests: ApprovalValue[] }>(
+        core,
+        "read",
+        "approvals",
+        "list",
+        { status: "pending" },
+      );
+      const waiting = await pages<RunValue, Page & { runs: RunValue[] }>(
+        core,
+        "runs",
+        "list",
+        { state: "waiting_user" },
+        (value) => value.runs,
+      );
       if (!waiting.ok) return waiting;
       // approval을 읽지 못하면 질문만 칸에 둔다. 없는 것으로 말하지 않을 뿐 칸은 비우지 않는다.
       const approvalRows = approvals.ok ? approvals.value.requests : [];
@@ -485,26 +491,47 @@ export function coreRequestSource(
       };
     },
 
+    async text(question) {
+      const read = await call<QuestionTextValue>(
+        core,
+        "read",
+        "questions",
+        "text",
+        { question: question.id },
+      );
+      if (!read.ok) return read;
+      const value = read.value;
+      return {
+        ok: true,
+        value: {
+          prompt: value.prompt,
+          reason: value.reason,
+          options: new Map(
+            value.options.map((option) => [option.key, option.description]),
+          ),
+          recommendation: value.recommendation?.explanation ?? null,
+          answer: value.answer_text,
+          closedReason: value.closed_reason_text,
+        },
+      };
+    },
+
     async answer(question, answer) {
-      // 자유 답은 글의 hash만 보낸다. 사람 글을 blob으로 올리는 길은 아직 없다(shell Q15).
+      // action 없는 답은 확인 handle 없이 일반 답 경로로 간다. 자유 답은 글을 값으로 싣고
+      // core가 redaction을 거쳐 blob으로 둔다(lophn-agent Q38). action 있는 선택지는 여기로
+      // 오지 않고 [Review]로 보호 창을 연다.
       const value = answer.kind === "option"
-        ? { kind: "option", option_key: answer.option, text_blob: null }
-        : {
-          kind: "text",
-          option_key: null,
-          text_blob: await sha256(answer.text),
-        };
-      const tag = await sha256(JSON.stringify(value));
+        ? { kind: "option", option_key: answer.option }
+        : { kind: "text", text: answer.text };
+      const tag = await keyTag(JSON.stringify(value));
       return command(core, "questions", "answer", {
         input: {
           question: question.id,
           created_seq: question.createdSeq,
           answer: value,
-          binding_hash: null,
-          evidence: null,
         },
         compare: { created_seq: question.createdSeq },
-        key: `questions-answer-${question.id}-${tag.slice(0, 32)}`,
+        key: `questions-answer-${question.id}-${tag}`,
       });
     },
 
@@ -515,18 +542,18 @@ export function coreRequestSource(
         key: `questions-defer-${question.id}`,
       }),
 
-    async cancel(question, reason) {
-      return command(core, "questions", "cancel", {
+    cancel: (question, reason) =>
+      command(core, "questions", "cancel", {
         input: {
           question: question.id,
           created_seq: question.createdSeq,
           closed_reason: "cancelled",
-          closed_reason_blob: await sha256(reason),
+          // 이유는 글을 값으로 싣는다. core가 blob으로 둔다(lophn-agent Q38).
+          closed_reason_text: reason,
         },
         compare: { created_seq: question.createdSeq },
         key: `questions-cancel-${question.id}`,
-      });
-    },
+      }),
 
     markRead: (notification) =>
       command(core, "notifications", "read", {

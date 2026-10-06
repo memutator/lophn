@@ -6,7 +6,9 @@ import type { CoreCall } from "../../../../ipc/core.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { coreRequestSource } from "./core-source.ts";
+import { QUESTION_TEXT_MAX_BYTES } from "./model.ts";
 import type { QuestionRequest, ReviewIntent } from "./source.ts";
+import { questionContract } from "./testdata/question-contract.ts";
 
 const QST = "qst_01k6aaaaaaaaaaaaaaaaaaaaa1";
 const QST2 = "qst_01k6aaaaaaaaaaaaaaaaaaaaa2";
@@ -41,16 +43,6 @@ function name(call: CoreCall): string {
 }
 
 const ok = (value: unknown): CoreReply => ({ ok: true, value });
-
-async function sha256(text: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(text),
-  );
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 function questionValue(patch: Record<string, unknown> = {}) {
   return {
@@ -127,7 +119,8 @@ const QUESTION: QuestionRequest = {
   applied: false,
 };
 
-Deno.test("lophn-agent/questions#R6: 답은 그 질문과 생성 seq를 지정한 questions/answer이고 같은 답은 같은 key다", async () => {
+Deno.test("lophn-agent/questions#R6: action 없는 답은 확인 handle 없이 questions/answer로 가고 자유 답은 글을 값으로 싣는다", async () => {
+  const contract = await questionContract();
   const { core, calls } = coreOf(() => ok({}));
   const source = coreRequestSource(core, undefined);
   assertEquals(
@@ -147,29 +140,41 @@ Deno.test("lophn-agent/questions#R6: 답은 그 질문과 생성 seq를 지정�
       idempotency_key: string;
       compare: unknown;
       prepared: unknown[];
+      confirmation?: unknown;
     }
   );
   assertEquals(first!.input, {
     question: QST,
     created_seq: "10",
-    answer: { kind: "option", option_key: "keep", text_blob: null },
-    binding_hash: null,
-    evidence: null,
+    answer: { kind: "option", option_key: "keep" },
   });
   assertEquals(first!.compare, { created_seq: "10" });
   assertEquals(first!.prepared, []);
+  // 일반 답에는 확인 handle이 없다. action 답 route의 handle은 보호 창이 맡는다.
+  assertEquals("confirmation" in first!, false);
   assert(first!.idempotency_key.startsWith(`questions-answer-${QST}-`));
   assert(new TextEncoder().encode(first!.idempotency_key).length <= 128);
   assertEquals(again!.idempotency_key, first!.idempotency_key);
   assert(text!.idempotency_key !== first!.idempotency_key);
   assertEquals(text!.input["answer"], {
     kind: "text",
-    option_key: null,
-    text_blob: await sha256("Keep the newer one"),
+    text: "Keep the newer one",
   });
+  for (const body of [first!, text!]) {
+    assert(contract.answerQuestion.input.safeParse(body.input).success);
+    // action 답 route는 binding_hash·evidence가 없으면 받지 않는다.
+    assert(!contract.answerQuestionAction.input.safeParse(body.input).success);
+  }
+  assertEquals(contract.answerQuestionAction.binding, [
+    "question",
+    "created_seq",
+    "answer",
+    "binding_hash",
+  ]);
 });
 
-Deno.test("lophn-agent/questions#R6: 미루기와 취소는 따로 닫는 command이고 취소만 이유 글의 hash를 싣는다", async () => {
+Deno.test("lophn-agent/questions#R6: 미루기와 취소는 따로 닫는 command이고 취소만 이유 글을 값으로 싣는다", async () => {
+  const contract = await questionContract();
   const { core, calls } = coreOf(() => ok({}));
   const source = coreRequestSource(core, undefined);
   await source.defer(QUESTION);
@@ -178,16 +183,17 @@ Deno.test("lophn-agent/questions#R6: 미루기와 취소는 따로 닫는 comman
     "command:questions/defer",
     "command:questions/cancel",
   ]);
-  assertEquals((calls[0]!.body as { input: unknown }).input, {
-    question: QST,
-    created_seq: "10",
-  });
-  assertEquals((calls[1]!.body as { input: unknown }).input, {
+  const deferred = (calls[0]!.body as { input: unknown }).input;
+  const cancelled = (calls[1]!.body as { input: unknown }).input;
+  assertEquals(deferred, { question: QST, created_seq: "10" });
+  assertEquals(cancelled, {
     question: QST,
     created_seq: "10",
     closed_reason: "cancelled",
-    closed_reason_blob: await sha256("Not needed anymore"),
+    closed_reason_text: "Not needed anymore",
   });
+  assert(contract.deferQuestion.input.safeParse(deferred).success);
+  assert(contract.cancelQuestion.input.safeParse(cancelled).success);
   const failing = coreRequestSource(
     coreOf(() => ({ ok: false, error: { code: "conflict", message: "" } }))
       .core,
@@ -196,6 +202,39 @@ Deno.test("lophn-agent/questions#R6: 미루기와 취소는 따로 닫는 comman
   assertEquals(await failing.defer(QUESTION), {
     ok: false,
     code: "conflict",
+  });
+});
+
+Deno.test("lophn-agent/questions#R4: 질문의 글은 questions/text로 읽고 선택지 설명은 key로 찾는다", async () => {
+  const contract = await questionContract();
+  // 칸이 보내기 전에 막는 상한이 contract의 상한과 같다.
+  assertEquals(QUESTION_TEXT_MAX_BYTES, contract.QUESTION_TEXT_MAX_BYTES);
+  let reply: CoreReply = ok({
+    question: QST,
+    prompt: "Which copy should stay?",
+    reason: "Both changed.",
+    options: [{ key: "keep", description: "Keep both, renamed." }],
+    recommendation: { option_key: "keep", explanation: "Nothing is lost." },
+    answer_text: null,
+    closed_reason_text: null,
+  });
+  const { core, calls } = coreOf(() => reply);
+  const source = coreRequestSource(core, undefined);
+  const read = await source.text(QUESTION);
+  assert(read.ok);
+  assertEquals(read.value.prompt, "Which copy should stay?");
+  assertEquals(read.value.reason, "Both changed.");
+  assertEquals(read.value.options.get("keep"), "Keep both, renamed.");
+  assertEquals(read.value.recommendation, "Nothing is lost.");
+  assertEquals(read.value.answer, null);
+  assertEquals(read.value.closedReason, null);
+  assertEquals(calls.map(name), ["read:questions/text"]);
+  assertEquals(calls[0]!.body, { question: QST });
+  assert(contract.questionText.input.safeParse(calls[0]!.body).success);
+  reply = { ok: false, error: { code: "unavailable", message: "" } };
+  assertEquals(await source.text(QUESTION), {
+    ok: false,
+    code: "unavailable",
   });
 });
 

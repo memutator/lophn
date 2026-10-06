@@ -68,6 +68,7 @@ export {
 } from "./shared.ts";
 export { folderOpenIcon, Icon, type IconProps } from "./icon.tsx";
 export { workspaceIcons } from "./workspace-icons.ts";
+export { launcherIcons } from "./launcher-icons.ts";
 export { editorIcons } from "./editor-icons.ts";
 export { lophnSpaceIcons } from "./lophn-space-icons.ts";
 export { paletteIcons } from "./palette-icons.ts";

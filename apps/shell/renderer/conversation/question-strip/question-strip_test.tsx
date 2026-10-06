@@ -23,6 +23,7 @@ import {
   manualTicks,
   question,
   questionId,
+  questionText,
   sessionOf,
 } from "../../desktop/lophn-space/things-to-confirm/testdata/fake-source.ts";
 
@@ -180,7 +181,10 @@ Deno.test("lophn-agent/questions#R4: 선택지를 고르는 것만으로는 답�
   const options = view.container.querySelectorAll("[role=radio]");
   assertEquals(
     [...options].map((option) => option.textContent),
-    ["Keep both filesRecommended", "Merge them"],
+    [
+      "Keep both filesAbout: Keep both filesRecommended",
+      "Merge themAbout: Merge them",
+    ],
   );
   const send = find(view.container, "[data-send-answer]") as HTMLButtonElement;
   assertEquals(send.getAttribute("aria-label"), "Send answer");
@@ -197,6 +201,101 @@ Deno.test("lophn-agent/questions#R4: 선택지를 고르는 것만으로는 답�
   }]);
   // 접수되면 칸에서 빠진다.
   assertEquals(view.container.querySelector("[data-question-strip]"), null);
+});
+
+Deno.test("lophn-agent/questions#R4: 칸은 질문 본문·이유·선택지 설명·추천 이유를 core가 둔 글로 보인다", async () => {
+  const fake = fakeRequests({ requests: [question(1)] });
+  fake.state.texts[questionId(1)] = questionText(question(1), {
+    prompt: "Which copy of <b>notes</b> should stay?",
+    reason: "Both copies changed.\nThe newer one has numbers.",
+    options: new Map([["keep", "Nothing is deleted."]]),
+    recommendation: "Nothing is lost.",
+  });
+  const { node } = strip(fake);
+  using view = render(node);
+  await flush();
+  const prompt = find(view.container, "[data-question-text]");
+  assertEquals(prompt.getAttribute("data-question-text"), "ready");
+  // agent가 쓴 글은 글자로만 그린다.
+  assertEquals(prompt.textContent, "Which copy of <b>notes</b> should stay?");
+  assertEquals(prompt.querySelector("b"), null);
+  assertEquals(
+    find(view.container, "[data-question-reason]").textContent,
+    "Both copies changed.\nThe newer one has numbers.",
+  );
+  assertEquals(
+    find(view.container, "[data-option=keep] [data-option-description]")
+      .textContent,
+    "Nothing is deleted.",
+  );
+  // 설명이 없는 선택지는 이름만 둔다.
+  assertEquals(
+    view.container.querySelector(
+      "[data-option=merge] [data-option-description]",
+    ),
+    null,
+  );
+  assertEquals(
+    find(view.container, "[data-recommendation]").textContent,
+    "Why it's recommendedNothing is lost.",
+  );
+  assertEquals(
+    view.container.textContent?.includes("can't be shown here yet"),
+    false,
+  );
+  nothingSent(fake);
+});
+
+Deno.test("lophn-agent/questions#R4: 질문 글을 읽지 못하면 그렇다고 말하고 선택지 답은 그대로 보낼 수 있다", async () => {
+  const fake = fakeRequests({ requests: [question(1)] });
+  fake.state.texts[questionId(1)] = null;
+  const { node } = strip(fake);
+  using view = render(node);
+  await flush();
+  const prompt = find(view.container, "[data-question-text]");
+  assertEquals(prompt.getAttribute("data-question-text"), "failed");
+  assertEquals(prompt.textContent, "Couldn't load this question's text.");
+  assertEquals(view.container.querySelector("[data-recommendation]"), null);
+  click(find(view.container, "[data-option=keep]"));
+  await flush();
+  click(find(view.container, "[data-send-answer]"));
+  await flush();
+  assertEquals(fake.state.answered, [{
+    question: questionId(1),
+    answer: { kind: "option", option: "keep" },
+  }]);
+});
+
+Deno.test("lophn-agent/questions#R3: 상한을 넘는 자유 답과 취소 이유는 보내지 않고 쓴 글을 그대로 둔다", async () => {
+  const fake = fakeRequests({ requests: [question(1)] });
+  const { node } = strip(fake);
+  using view = render(node);
+  await flush();
+  const long = "가".repeat(11_000); // 33,000 bytes
+  write(find(view.container, "[data-own-answer]"), long);
+  await flush();
+  assertEquals(
+    (find(view.container, "[data-send-answer]") as HTMLButtonElement).disabled,
+    true,
+  );
+  assertEquals(
+    find(view.container, "[data-too-long]").textContent,
+    "This is too long to send. Shorten it.",
+  );
+  assertEquals(
+    (find(view.container, "[data-own-answer]") as HTMLTextAreaElement).value,
+    long,
+  );
+  click(find(view.container, "[data-cancel-question]"));
+  await flush();
+  write(find(view.container, "[data-cancel-reason]"), long);
+  await flush();
+  assertEquals(
+    (find(view.container, "[data-confirm-cancel]") as HTMLButtonElement)
+      .disabled,
+    true,
+  );
+  nothingSent(fake);
 });
 
 Deno.test("lophn-agent/questions#R3: 선택지가 있어도 자유 답을 쓸 수 있고 쓰면 고른 선택지가 풀린다", async () => {

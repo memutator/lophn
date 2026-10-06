@@ -24,6 +24,7 @@ const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 const CAC_SCOPED = "cac_01arz3ndektsv4rrffq69g5faw";
 const ALL_TOKEN = "a".repeat(43);
 const SCOPED_TOKEN = "b".repeat(43);
+const ABSENT = "app_01arz3ndektsv4rrffq69g5fb9";
 const OPERATIONS = [
   "app.create",
   "app.connect_source",
@@ -271,6 +272,53 @@ Deno.test("coding-agent/mcp-server#R19: core가 아직 서빙하지 않는 준�
     // preview 상태를 읽지 못해도 운영 상태·source는 읽힌다.
     assertEquals(status.isError, false, status.summary);
     assert(status.summary.includes("active release 없음"));
+  } finally {
+    await opened.dispose();
+  }
+});
+
+Deno.test("coding-agent/connection#R5, coding-agent/connection#R6: 앱 하나 범위 연결에서 다른 앱은 없는 앱과 같은 응답이고 목록에는 자기 앱만 있다", async () => {
+  const opened = await open();
+  try {
+    const own = await register(opened, "notes");
+    const other = await register(opened, "other");
+    await opened.scope(own);
+    const listed = await opened.call("scoped", { op: "list" });
+    assertEquals(
+      (listed.data.apps as { id: string }[]).map((app) => app.id),
+      [own],
+    );
+    const folder = `${opened.work}/foreign-source`;
+    await Deno.mkdir(folder);
+    // op table이 닿는 앱 route마다 다른 앱과 없는 앱의 응답이 같다.
+    const cases: Record<string, unknown>[] = [
+      { op: "show" },
+      { op: "status" },
+      { op: "logs" },
+      { op: "invocations" },
+      { op: "source", source_path: folder },
+    ];
+    for (const extra of cases) {
+      const foreign = await opened.call("scoped", { ...extra, app: other });
+      const absent = await opened.call("scoped", { ...extra, app: ABSENT });
+      assertEquals(foreign.isError, absent.isError, String(extra.op));
+      assertEquals(foreign.summary, absent.summary, String(extra.op));
+      assertEquals(foreign.data, absent.data, String(extra.op));
+    }
+    // 같은 앱 source 연결은 된다. 다른 앱의 source는 연결되지 않았다.
+    const linked = await opened.call("scoped", {
+      op: "source",
+      app: own,
+      source_path: folder,
+    });
+    assertEquals(linked.isError, false, linked.summary);
+    const check = await opened.call("all", { op: "show", app: other });
+    assert(check.summary.includes("source 미연결"));
+    const invocation = await opened.call("scoped", {
+      op: "invocation",
+      invocation: "inv_01arz3ndektsv4rrffq69g5fav",
+    });
+    assertEquals(invocation.isError, true);
   } finally {
     await opened.dispose();
   }

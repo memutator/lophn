@@ -164,3 +164,62 @@ Deno.test("coding-agent/cli#R1, coding-agent/connection#R6: 같은 credential·�
     assertEquals(viaCli.value.isError, viaMcp.isError, item.name);
   }
 });
+
+Deno.test("coding-agent/cli#R31, coding-agent/connection#R6: app command는 CLI와 MCP가 같은 앱 통로 요청을 보낸다", async () => {
+  const handlers = {
+    "previews.get": {
+      observation: { ready: true, process_nonce: "n1", accepting: false },
+    },
+  };
+  const seen: unknown[][] = [[], []];
+  const direct = (log: unknown[]) => ({
+    invoke: (request: unknown) => {
+      log.push(request);
+      return Promise.resolve({
+        ok: true as const,
+        value: {
+          kind: "result" as const,
+          output: {
+            result: { result: { total: 3 } },
+            invocation: "inv_01arz3ndektsv4rrffq69g5fav",
+            mode: "preview" as const,
+          },
+        },
+      });
+    },
+  });
+  const cliFlow = scriptedFlow(handlers);
+  const mcpFlow = scriptedFlow(handlers);
+  const requestKey = () => "rk-1";
+  const parsed = entry("app command").input.safeParse({
+    command: "app command",
+    app: APP,
+    name: "usage.read",
+    input: '{"month":10}',
+  });
+  assert(parsed.success);
+  const viaCli = await runApp(
+    "app command",
+    parsed.data as Record<string, unknown>,
+    {
+      client: cliFlow.client,
+      ...deps,
+      direct: direct(seen[0]),
+      requestKey,
+    },
+  );
+  const viaMcp = await createAppTool({
+    client: mcpFlow.client,
+    ...deps,
+    direct: direct(seen[1]),
+    requestKey,
+  })(
+    "lophn_app",
+    resolveRoute("lophn_app", "command")!.route,
+    { op: "command", app: APP, command: "usage.read", input: { month: 10 } },
+  );
+  assert(viaCli.ok);
+  assertEquals(seen[0], seen[1]);
+  assertEquals(viaCli.value.data, viaMcp.data);
+  assertEquals(cliFlow.sent, mcpFlow.sent);
+});

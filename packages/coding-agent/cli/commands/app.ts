@@ -129,6 +129,11 @@ export function appOpInput(
       body[key] = value;
     }
   }
+  if (name === "app command") {
+    // CLI의 `command`는 command 이름 literal이라 앱 command key는 `name`으로 받는다.
+    const { name: key, ...rest } = body;
+    return { ...rest, command: key };
+  }
   return body;
 }
 
@@ -152,7 +157,19 @@ export async function runApp(
   if (!Object.hasOwn(CLI_APP_OPS, name)) {
     return err({ code: "invalid_input", message: `없는 command다: ${name}` });
   }
-  const ran = await runAppOp(appOpInput(name, input), {
+  const body = appOpInput(name, input);
+  if (name === "app command" && typeof input.input === "string") {
+    // 앱 command의 JSON 입력은 공통 `--input` 문자열이다(`--input-file`은 entry가 풀어 준다).
+    try {
+      body.input = JSON.parse(input.input);
+    } catch {
+      return err({
+        code: "invalid_input",
+        message: "command 입력 JSON을 읽지 못했다",
+      });
+    }
+  }
+  const ran = await runAppOp(body, {
     ...deps,
     surface: "cli",
   });

@@ -735,7 +735,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
       → T36. (2) `sync_tools` 실제 실행 → T34(지금은 `unavailable`). (3) `blueprint`의 core
       read route는 apps#T19(`/v1/apps/blueprint`)가 내고 계약 표에는 아직 없다: 계약 표가 생기면
       `APP_OP_ROUTES.blueprint`를 그 route로 바꾼다(지금은 `unavailable`, 성공을 꾸미지 않는다).
-      그 밖의 막힌 것·계약 질문은 "## 질문" Q32.
+      그 밖의 계약 보정과 범위 판정 수정은 "## 질문" Q32.
 
 ### T22 SDK tool
 
@@ -1637,18 +1637,20 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   보니 빈 operation으로 읽기를 시험하는 platform/api 시험 넷이 깨졌다. 추천: platform이 이
   읽기들의 operation 요건을 정하고(일괄 검사 또는 handler별 검사) 시험의 credential을 맞춘다.
   coding-agent는 이 읽기에서 비밀을 내지 않는다.
-- **Q32 T21 앱 개발 tool의 계약·다른 팀 확인(구현).** 추천안으로 진행했다.
+- **Q32 T21 앱 개발 tool의 계약·범위 보정(구현, lead 승인).**
   (a) `release.prepare_bundle`·`preparation` actor에 coding_agent를 더했다(T21 구현 메모).
-  (b) app test timeout: `RequestTest` 입력에 timeout이 없고 동결 test method의 `timeout_ms`가
-  유일한 근거라 coding 통로가 300,000ms를 "명시해 전달"할 수 없다. 응답에 runner timeout 기준만
-  표시한다 → problems(동결 test 만들 때 method.timeout_ms 기본 300,000) 확인 필요.
-  (c) CLI `app command`: `cli-app.ts`의 schema가 `command` 필드를 CLI command 이름 literal로
-  쓰고 strict라 앱 command key·environment·timeout_ms를 담을 수 없다. MCP 입력과 같게 맞추는
-  계약 보정이 필요하다(contracts). 지금 `runApp`은 MCP와 같은 op 입력 모양을 받는다.
-  (d) `app logs`에는 이어 읽기 cursor 입력이 없다(출력의 next_cursor만): 잘림만 표시한다.
-  (e) 실제 core에서 앱 하나 범위(conditions.app·targets.app) test credential로 `app.get`·`app.list`·
-  `app.connect_source`가 다른 앱에도 열렸다(등록만 forbidden): apps registration의 읽기 범위
-  판정을 apps 팀이 확인해야 한다. 이 PR의 core 시험은 그 격리를 단언하지 않는다.
+  (b) `RequestTest`에 선택 `timeout_ms`(1~300,000)를 더했다. 접수 기록에 `request_timeout_ms`로
+  남고 runner는 동결 method의 timeout과 짧은 쪽을 쓴다(`prepareCommand`). 요청 identity(request
+  hash)에는 넣지 않고 같은 key의 다른 timeout은 conflict다. 통로는 생략된 값을 기본 300,000으로
+  채워 명시한다. 접수 기록을 runner 실행 입력에 잇는 조립은 problems#T8 쪽에 아직 없다.
+  (c) CLI `app command` schema에 앱 command key `name`·`environment`(preview 기본)·`timeout_ms`를
+  더했고 command의 JSON 입력은 공통 `--input`이다. `app invocation`에도 `environment`를 더했다.
+  (d) `appLogs`에 선택 `cursor`(앞선 next_cursor, 숫자 문자열)를 더했다. supervisor log buffer가
+  줄의 절대 번호로 더 오래된 줄을 이어 주고 `next_cursor`를 낸다.
+  (e) 앱 하나 범위 연결의 범위 밖 앱 읽기·쓰기 틈을 막았다. 원인은 platform `mergeTarget`이 owner가 준
+  target(`app`)을 credential 조건 값으로 덮어 판정을 통과시킨 것이었다(덮지 않고 거절하도록 고쳤다).
+  apps 쪽은 `app.connect_source`·archive·unarchive가 범위 밖 앱을 revision·status 비교보다 먼저
+  없는 앱과 같게 닫고, `invocations.list·get`이 앱별 범위를 판정한다(범위 밖 기록은 없는 기록).
 - **Q15 ticket claim의 readiness.** coding-agent/tickets#R11 본문은
   needs_confirmation ticket도 claim할 수 있다고 적고, T19 완료 줄과
   checkTicketClaim의 not_ready 거절은 ready만 허용한다. 구현은 완료 줄을

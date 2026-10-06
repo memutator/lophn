@@ -198,3 +198,38 @@ Deno.test("coding-agent/cli#R28: release prepare는 ticket 출처 없이 실행�
   assertEquals(done.value.isError, true);
   assertEquals(flow.sent.length, 0);
 });
+
+Deno.test("coding-agent/cli#R31: app command는 name·환경·timeout·입력 JSON을 MCP command op 입력으로 옮긴다", () => {
+  const parsed = entry("app command").input.safeParse({
+    command: "app command",
+    app: APP,
+    name: "usage.read",
+    environment: "live",
+    timeout_ms: 5_000,
+    input: '{"month":10}',
+  });
+  assert(parsed.success);
+  assertEquals(
+    appOpInput("app command", parsed.data as Record<string, unknown>),
+    {
+      op: "command",
+      app: APP,
+      command: "usage.read",
+      environment: "live",
+      timeout_ms: 5_000,
+    },
+  );
+});
+
+Deno.test("coding-agent/cli#R31: app command의 입력 JSON이 깨졌으면 앱 통로에 가지 않고 거절한다", async () => {
+  const flow = scriptedFlow({});
+  const done = await runApp("app command", {
+    command: "app command",
+    app: APP,
+    name: "usage.read",
+    input: "{broken",
+  }, { client: flow.client, ...deps });
+  assert(!done.ok);
+  assertEquals(done.error.code, "invalid_input");
+  assertEquals(flow.sent.length, 0);
+});

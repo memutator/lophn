@@ -1022,3 +1022,57 @@ Deno.test("coding-agent/cli#R28, coding-agent/connection#R6: 같은 입력의 �
   assert(a.next.some((line) => line.startsWith("lophn_app ")));
   assert(b.next.some((line) => line.startsWith("lophn app ")));
 });
+
+Deno.test("coding-agent/mcp-server#R33: timeout_ms를 주지 않아도 기본 300,000ms를 요청에 명시해 runner에 넘기고 준 값은 그대로다", async () => {
+  const flow = testFlow({}, {});
+  await runAppOp(TEST_INPUT, {
+    client: flow.client,
+    ...now,
+    wait: { budget_ms: 0, interval_ms: 1_000 },
+  });
+  assertEquals(
+    (flow.calls("RequestTest")[0].input as { timeout_ms: number }).timeout_ms,
+    300_000,
+  );
+  const short = testFlow({}, {});
+  const done = await runAppOp({ ...TEST_INPUT, timeout_ms: 45_000 }, {
+    client: short.client,
+    ...now,
+    wait: { budget_ms: 0, interval_ms: 1_000 },
+  });
+  assertEquals(
+    (short.calls("RequestTest")[0].input as { timeout_ms: number }).timeout_ms,
+    45_000,
+  );
+  assertEquals(
+    (done.data as { runner_timeout_ms: number }).runner_timeout_ms,
+    45_000,
+  );
+  assert(done.summary.includes("45000ms"));
+});
+
+Deno.test("coding-agent/cli#R24: log가 잘리고 더 오래된 줄이 있으면 cursor로 이어 읽는 안내를 낸다", async () => {
+  const flow = scriptedFlow({
+    "app.logs": {
+      state: "ok",
+      lines: ["a"],
+      truncated: true,
+      next_cursor: "40",
+    },
+  });
+  const first = await runAppOp({ op: "logs", app: APP, limit: 1 }, {
+    client: flow.client,
+    ...now,
+  });
+  assert(first.summary.includes("next_cursor"));
+  assert(first.next[0].includes("cursor=next_cursor"));
+  await runAppOp({ op: "logs", app: APP, limit: 1, cursor: "40" }, {
+    client: flow.client,
+    ...now,
+  });
+  assertEquals(flow.calls("app.logs")[1].input, {
+    app: APP,
+    limit: 1,
+    cursor: "40",
+  });
+});

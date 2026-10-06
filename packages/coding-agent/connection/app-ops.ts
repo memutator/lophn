@@ -93,8 +93,8 @@ export const APP_OP_CLI_NAMES: Record<AppOp, string> = {
 export const INVOCATION_PAGE_MAX = 20;
 export const LOG_LINES_MAX = 200;
 
-// app test 기본 timeout이다. 요청 입력에는 timeout field가 없어 runner가 읽는 동결 test method의
-// timeout_ms가 유일한 근거다. 이 값은 안내와 응답에 같이 보인다(mcp#R33).
+// app test 기본 timeout이다. 요청이 timeout_ms를 주지 않으면 이 값을 요청에 명시해 runner에
+// 넘긴다. runner는 동결 test method의 timeout_ms와 짧은 쪽을 쓴다(mcp#R33).
 export const APP_TEST_TIMEOUT_MS = TEST_EXECUTION_LIMITS.timeout_ms;
 
 // 접수 뒤 결과를 기다리는 한도다. OpenCode 기본 tool timeout 30초보다 짧게 끝낸다.
@@ -582,17 +582,21 @@ async function requestAppTest(
   input: Obj,
   deps: AppOpDeps,
 ): Promise<AppOpOutput> {
+  // 기본 timeout도 생략하지 않고 요청에 명시한다(mcp#R33).
+  const timeoutMs = typeof input.timeout_ms === "number"
+    ? input.timeout_ms
+    : APP_TEST_TIMEOUT_MS;
   const sent = await send(
     deps,
     requestTest,
-    input,
+    { ...input, timeout_ms: timeoutMs },
     undefined,
     input.request_key as string,
   );
   if (!sent.ok) return failure(sent.error, [refer(deps, "test")]);
   const accepted = obj(sent.value);
   const requestKey = input.request_key as string;
-  const timeoutNote = `runner timeout 기준 ${APP_TEST_TIMEOUT_MS}ms`;
+  const timeoutNote = `runner timeout ${timeoutMs}ms`;
   if (accepted.accepted !== true) {
     return {
       summary: "test 요청을 접수하지 못했다",
@@ -649,7 +653,7 @@ async function requestAppTest(
       data: {
         request_key: requestKey,
         state: request.started_at ? "running" : "accepted",
-        runner_timeout_ms: APP_TEST_TIMEOUT_MS,
+        runner_timeout_ms: timeoutMs,
         request,
       },
       next: [
@@ -664,14 +668,14 @@ async function requestAppTest(
   if (!verified.ok) return failure(verified.error, [refer(deps, "test")]);
   return describeVerification(
     obj(obj(verified.value).verification) as Verified & Obj,
-    timeoutNote,
+    timeoutMs,
     deps,
   );
 }
 
 function describeVerification(
   verification: Verified & Obj,
-  timeoutNote: string,
+  timeoutMs: number,
   deps: AppOpDeps,
 ): AppOpOutput {
   const result = verification.result;
@@ -693,12 +697,12 @@ function describeVerification(
   return {
     summary: `${text}(${verification.kind}, bundle ${
       hash12(verification.target?.bundle_hash)
-    }) ${verification.id}: ${reason}. ${timeoutNote}`,
+    }) ${verification.id}: ${reason}. runner timeout ${timeoutMs}ms`,
     data: {
       state,
       real_test: true,
       verification,
-      runner_timeout_ms: APP_TEST_TIMEOUT_MS,
+      runner_timeout_ms: timeoutMs,
     },
     next: state === "pass"
       ? [
@@ -949,11 +953,18 @@ async function readLogs(input: Obj, deps: AppOpDeps): Promise<AppOpOutput> {
     summary: joined(
       text[state] ?? state,
       value.truncated === true
-        ? "잘렸다. 더 있다. limit·max_bytes나 invocation으로 좁혀 읽는다"
+        ? str(value.next_cursor) === undefined
+          ? "잘렸다. limit·max_bytes나 invocation으로 좁혀 읽는다"
+          : "더 오래된 줄이 남았다(next_cursor)"
         : "",
     ),
     data: value,
-    next: [refer(deps, "invocations", "로 호출 이력을 함께 읽는다")],
+    next: [
+      ...(str(value.next_cursor) === undefined ? [] : [
+        refer(deps, "logs", "에 cursor=next_cursor를 넣어 이어 읽는다"),
+      ]),
+      refer(deps, "invocations", "로 호출 이력을 함께 읽는다"),
+    ],
   };
 }
 

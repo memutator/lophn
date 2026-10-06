@@ -51,6 +51,8 @@ export type TestConnection = {
   ticket: Verification["ticket"];
   test: string;
   before_bundle_hash: string | null;
+  // 접수한 요청의 실행 기한이다. 요청 identity가 아니라 runner에 넘길 값만이다.
+  request_timeout_ms?: number;
 };
 
 export type RequestRecord = {

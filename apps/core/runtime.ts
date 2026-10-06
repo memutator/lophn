@@ -56,7 +56,16 @@ import {
   findBackup,
   listBackups,
 } from "../../packages/platform/backup-and-migration/mod.ts";
-import { authorize } from "../../packages/platform/identity/mod.ts";
+import {
+  authorize,
+  CONDITION_TARGET_KEYS,
+} from "../../packages/platform/identity/mod.ts";
+import { packagesGuideBody } from "../../packages/contracts/apps/mod.ts";
+import {
+  PACKAGE_GUIDE_BLOB_FIELD_NAME,
+  PACKAGE_GUIDE_BLOB_OWNER_KIND,
+  packageGuideOwnerKey,
+} from "../../packages/apps/sdk/blobs.ts";
 import {
   interruptedFinish,
   INVOCATION_RECOVERY_CONTEXT,
@@ -291,6 +300,13 @@ export async function openRuntime(input: {
       (ctx, body) => Promise.resolve(read.handle(ctx, body)),
     ]),
   ]);
+  // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이
+  // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다(coding-agent#T36).
+  reads.set(
+    `${packagesGuideBody.resource}/${packagesGuideBody.method}`,
+    (ctx, body) =>
+      packageGuideBodyHandler(input.ledgerPath, input.blob, ctx, body),
+  );
   // OS 표시 전달 상태(R9, R10). get·list·display 응답을 꾸미고 shell의 실패 보고를 받는다.
   const delivery = createNotificationDelivery({
     clock: input.clock,
@@ -720,22 +736,35 @@ function blobNoted(message: WriterResponse): Result<void> {
   });
 }
 
+type BlobReadSource = {
+  fields: readonly BlobFieldDefinition[];
+  read(
+    hash: string,
+    offset: number,
+    length: number,
+  ): Promise<
+    Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>
+  >;
+};
+
+type BlobRefAuthorizer = (
+  current: RequestContext,
+  reference: { owner_kind: string; owner_key: string },
+) => Result<void>;
+
 // /v1/blobs/read. 참조 행은 ledger snapshot에서, 바이트는 그 뒤 I/O worker에서 읽는다.
 // scope는 시작과 바이트 반환 직전에 다시 검사한다(platform/blob-store#R5).
 function blobReadHandler(
   ledgerPath: string,
-  blob: {
-    fields: readonly BlobFieldDefinition[];
-    read(
-      hash: string,
-      offset: number,
-      length: number,
-    ): Promise<
-      Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>
-    >;
-  } | undefined,
+  blob: BlobReadSource | undefined,
   ctx: RequestContext,
   body: unknown,
+  // 참조 하나를 이 자격으로 읽을 수 있는지다. 기본은 일반 `blobs/read` operation이다.
+  authorizeRef: BlobRefAuthorizer = (current, reference) =>
+    authorize(current, "blobs/read", {
+      owner_kind: reference.owner_kind,
+      owner_key: reference.owner_key,
+    }),
 ): Promise<Result<unknown>> {
   if (!blob) {
     return Promise.resolve(
@@ -744,17 +773,7 @@ function blobReadHandler(
   }
   const opened = openConnection(ledgerPath);
   if (!opened.ok) return Promise.resolve(opened);
-  const judging = {
-    fields: blob.fields,
-    authorize: (
-      current: RequestContext,
-      reference: { owner_kind: string; owner_key: string },
-    ) =>
-      authorize(current, "blobs/read", {
-        owner_kind: reference.owner_kind,
-        owner_key: reference.owner_key,
-      }),
-  };
+  const judging = { fields: blob.fields, authorize: authorizeRef };
   // 참조 판정만 snapshot에서 하고 바로 닫는다. 바이트는 그 뒤에 읽는다.
   const plan = planBlobRead(
     opened.value.sql,
@@ -768,6 +787,42 @@ function blobReadHandler(
     return Promise.resolve(ok(plan.value.result));
   }
   return finishBlobRead({ ...judging, bytes: blob }, ctx, plan.value);
+}
+
+// /v1/packages/guide_body. owner_kind·field가 `package_version`·`guide`로 고정이라 입력으로 다른 blob을
+// 가리킬 수 없다. 자격은 이 route의 operation(`packages.guide_body`)이고 일반 `blobs/read`는 필요 없다.
+// 앱 범위 연결의 고정 조건 target만 함께 검사한다(packages는 공개 catalog라 앱 안의 대상이 아니다).
+function packageGuideBodyHandler(
+  ledgerPath: string,
+  blob: BlobReadSource | undefined,
+  ctx: RequestContext,
+  body: unknown,
+): Promise<Result<unknown>> {
+  const parsed = packagesGuideBody.input.safeParse(body);
+  if (!parsed.success) {
+    return Promise.resolve(
+      err({ code: "invalid_input", message: "안내 읽기 입력이 올바르지 않다" }),
+    );
+  }
+  const input: BlobReadInput = {
+    owner_kind: PACKAGE_GUIDE_BLOB_OWNER_KIND,
+    owner_key: packageGuideOwnerKey(parsed.data.name, parsed.data.version),
+    field: PACKAGE_GUIDE_BLOB_FIELD_NAME,
+    offset_bytes: parsed.data.offset_bytes,
+    length_bytes: parsed.data.length_bytes,
+  };
+  return blobReadHandler(ledgerPath, blob, ctx, input, (current) => {
+    const target: NonNullable<Parameters<typeof authorize>[2]> = {};
+    for (const key of CONDITION_TARGET_KEYS) {
+      const value = current.conditions[key];
+      if (value !== undefined && Object.hasOwn(current.scope.targets, key)) {
+        target[key] = value;
+      }
+    }
+    return authorize(current, packagesGuideBody.name, target, {
+      domain: "skip",
+    });
+  });
 }
 
 function currentCredential(

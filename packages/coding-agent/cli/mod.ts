@@ -22,3 +22,18 @@ export {
   sdkOpInput,
 } from "./commands/sdk.ts";
 export type { CliSdkName } from "./commands/sdk.ts";
+export {
+  CLI_ENTRY,
+  CLI_ENV_NAMES,
+  cliLaunchArgv,
+  cliStaticFlags,
+  NO_SELECTION,
+  planSelection,
+  selectionFlags,
+} from "./launch.ts";
+export type {
+  CliLaunchInputs,
+  CliSelection,
+  SelectionDeps,
+  SelectionRequest,
+} from "./launch.ts";

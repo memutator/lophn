@@ -23,6 +23,7 @@ import { dirname, join } from "node:path";
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
 import { EDITOR_CLOSE_REQUEST_CHANNEL } from "../../ipc/editor.ts";
 import { FOLDER_PICK_CHANNEL } from "../../ipc/folder-picker.ts";
+import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,
@@ -148,6 +149,7 @@ import {
   surfaceOptions,
 } from "./headless.ts";
 import { createFolderPicker } from "./folder-picker.ts";
+import { createOpenExternal } from "./open-external.ts";
 import {
   type GlobalPalette,
   type GlobalShortcutPort,
@@ -879,6 +881,18 @@ ipcMain.handle(
   }),
 );
 
+// shell 크롬의 외부 링크와 provider 공식 로그인 버튼. 확인 창 없이 OS browser로 연다(shell/app-frame#R7).
+// headless 확인에서는 사람 화면에 browser를 띄우지 않는다.
+ipcMain.handle(
+  OPEN_EXTERNAL_CHANNEL,
+  createOpenExternal({
+    registry: overlays.overlayRegistry(),
+    open: (url) =>
+      headless.headless ? Promise.resolve() : shell.openExternal(url),
+    log,
+  }),
+);
+
 // 편집기 파일 adapter와 창 닫기 guard(shell#T17). renderer는 문서 id와 session handle만 보내고
 // 실제 FileTarget·경로·core port는 여기서 정한다. 창마다 guard가 저장 중 수를 기억한다.
 const fileAdapter = createFileAdapter({
@@ -952,6 +966,7 @@ function stopAll(): void {
     } satisfies MainIpc,
   );
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
+  ipcMain.removeHandler(OPEN_EXTERNAL_CHANNEL);
   removeEditorIpc(editorIpc);
   removeViewIpc(viewIpcMain);
   removeAppWindowIpc(appWindowIpcMain);
@@ -1241,7 +1256,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
     // `LOPHN_SHELL_START=lophn`은 headless 확인에서 런처 대신 lophn 공간부터 연다.
     // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다. `things-to-confirm`은
     // lophn 공간의 things-to-confirm 형제부터, `projects`는 projects 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터,
-    // `apps`는 apps 형제부터, `app:<id>`는 그 앱 공간부터 연다.
+    // `apps`는 apps 형제부터, `settings`는 settings 형제부터, `app:<id>`는 그 앱 공간부터 연다.
     // `contexts`·`contexts:<ctx id>`는 contexts 형제(와 그 Focus)부터 연다.
     // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
@@ -1268,6 +1283,8 @@ function openDesktopWindow(): BrowserWindow | undefined {
       }`
       : process.env.LOPHN_SHELL_START === "apps"
       ? `${DESKTOP_URL}#apps`
+      : process.env.LOPHN_SHELL_START === "settings"
+      ? `${DESKTOP_URL}#settings`
       : /^app:app_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
       ? `${DESKTOP_URL}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
       : DESKTOP_URL,

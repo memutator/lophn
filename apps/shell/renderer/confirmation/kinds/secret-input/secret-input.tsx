@@ -18,31 +18,62 @@ export function SecretInputKind({ view, decide, cancel, busy }: KindProps) {
   const decision = (view.decisions ?? [])[0];
   const configured = shown.configured === true;
   const [value, setValue] = useState("");
-  const display: Display = {
-    title: entry === "code"
-      ? t("confirmation-window.secret-code.title")
-      : entry === "key"
-      ? t("confirmation-window.secret-key.title", { name })
-      : t("confirmation-window.secret-app.title", { name }),
-    subject: t("confirmation-window.secret.subject"),
-    path: name === "" ? undefined : name,
-    effect: configured
-      ? t("confirmation-window.secret.configured", { name })
-      : t("confirmation-window.secret.effect"),
-    reversible: true,
-    revertNote: t("confirmation-window.secret.revert"),
-    noteOnly: true,
-    action: t("confirmation-window.button.save"),
-    details: [],
-    noChange: true,
-  };
+  const revoking = entry === "revoke";
+  const replacing = entry === "replace";
+  const display: Display = revoking
+    ? {
+      title: t("confirmation-window.secret-revoke.title", { name }),
+      subject: t("confirmation-window.secret-revoke.subject"),
+      path: name === "" ? undefined : name,
+      effect: t("confirmation-window.secret-revoke.effect"),
+      reversible: true,
+      revertNote: t("confirmation-window.secret-revoke.revert"),
+      noteOnly: true,
+      action: t("confirmation-window.button.remove"),
+      details: [],
+      noChange: true,
+    }
+    : {
+      title: entry === "code"
+        ? t("confirmation-window.secret-code.title")
+        : replacing
+        ? t("confirmation-window.secret-replace.title", { name })
+        : entry === "key"
+        ? t("confirmation-window.secret-key.title", { name })
+        : t("confirmation-window.secret-app.title", { name }),
+      subject: t("confirmation-window.secret.subject"),
+      path: name === "" ? undefined : name,
+      effect: configured
+        ? t("confirmation-window.secret.configured", { name })
+        : replacing
+        ? t("confirmation-window.secret-replace.effect")
+        : t("confirmation-window.secret.effect"),
+      reversible: true,
+      revertNote: replacing
+        ? t("confirmation-window.secret-replace.revert")
+        : t("confirmation-window.secret.revert"),
+      noteOnly: true,
+      action: replacing
+        ? t("confirmation-window.button.replace")
+        : t("confirmation-window.button.save"),
+      details: [],
+      noChange: true,
+    };
   const label = entry === "code"
     ? t("confirmation-window.label.secret-code")
+    : replacing
+    ? t("confirmation-window.label.secret-new-key")
     : entry === "key"
     ? t("confirmation-window.label.secret-key")
     : t("confirmation-window.label.secret-value");
   const send = () => {
-    if (decision === undefined || value === "") return;
+    if (decision === undefined) return;
+    // 삭제는 보낼 값이 없다.
+    if (revoking) {
+      decide(decision, {});
+      return;
+    }
+    if (value === "") return;
     const sent = value;
     // 보내기 전에 칸을 비운다. 값은 이 호출의 인자로만 main에 간다.
     setValue("");
@@ -51,7 +82,7 @@ export function SecretInputKind({ view, decide, cancel, busy }: KindProps) {
   return (
     <ConfirmationLayout
       display={display}
-      input={decision === undefined ? null : (
+      input={decision === undefined || revoking ? null : (
         <Field label={label}>
           <Input
             type="password"
@@ -72,7 +103,7 @@ export function SecretInputKind({ view, decide, cancel, busy }: KindProps) {
             <Button
               variant="primary"
               data-decision={decision}
-              disabled={busy || value === ""}
+              disabled={busy || (!revoking && value === "")}
               onClick={send}
             >
               {display.action}

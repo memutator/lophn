@@ -55,7 +55,14 @@ const providerCredentialFieldsSchema = z.strictObject({
   account: z.string().regex(/\S/).nullable(),
   organization: z.string().regex(/\S/).nullable(),
   plan: z.string().regex(/\S/).nullable(),
-  dedup_fingerprint: sha256Schema,
+  // 열 때는 값이 없어 만들 수 없다. 없으면 main이 사람이 넣은 값에서 만든다(같은 key 중복 거절).
+  dedup_fingerprint: sha256Schema.optional(),
+});
+
+// 등록한 계정 하나의 교체(새 값 입력)·삭제(그 계정을 새 일에서 막는다). key는 계정 key다.
+const providerCredentialChangeSchema = z.strictObject({
+  key: z.string().regex(/\S/),
+  action: z.enum(["replace", "revoke"]),
 });
 
 // preload가 창을 열 때 보내는 참조. command 본문·HTML·허락값은 받지 않는다.
@@ -85,10 +92,17 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
     owner: z.string().min(1),
     purpose: z.string().min(1),
     credential: providerCredentialFieldsSchema.optional(),
+    // 이미 등록한 계정의 교체·삭제(ChangeProviderCredentials). 등록 정보와 함께 오지 않는다.
+    change: providerCredentialChangeSchema.optional(),
   }).refine(
     (value) =>
-      value.credential === undefined || value.purpose === "provider_credential",
-    { message: "credential fields belong to a provider credential input" },
+      (value.credential === undefined && value.change === undefined) ||
+      (value.purpose === "provider_credential" &&
+        (value.credential === undefined || value.change === undefined)),
+    {
+      message:
+        "credential fields or a change belong to a provider credential input",
+    },
   ),
 ]);
 
@@ -217,7 +231,7 @@ export const confirmationOutcomeSchema = z.union([
   z.strictObject({
     outcome: z.literal("decided"),
     secret_ref: z.string().min(1),
-    stored: z.enum(["stored", "unchanged"]),
+    stored: z.enum(["stored", "unchanged", "revoked"]),
   }),
   z.strictObject({ outcome: z.literal("dismissed") }),
 ]);

@@ -43,6 +43,8 @@ export type LogQuery = {
   invocation?: string;
   limit: number;
   max_bytes?: number;
+  // 앞선 읽기의 next_cursor다. 그 위치보다 오래된 줄을 이어 읽는다.
+  cursor?: string;
 };
 
 export type LogRead = {
@@ -50,6 +52,8 @@ export type LogRead = {
   lines: string[];
   collected_at: string | null;
   truncated: boolean;
+  // 더 오래된 줄이 남았을 때만 있다. 같은 buffer의 절대 줄 번호라 새 줄이 와도 이어진다.
+  next_cursor?: string | null;
 };
 
 export type LogBuffer = {
@@ -68,7 +72,8 @@ export type LogBuffer = {
   collect(query: LogQuery): Promise<LogRead>;
 };
 
-type Ring = { lines: string[]; limit: number };
+// pushed는 지금까지 넣은 줄 수다. 남은 줄의 절대 번호는 [pushed - lines.length, pushed)다.
+type Ring = { lines: string[]; limit: number; pushed: number };
 
 function byteLength(text: string): number {
   return new TextEncoder().encode(text).length;
@@ -78,7 +83,11 @@ export function createLogBuffer(deps: LogBufferDeps): LogBuffer {
   const invocations = new Map<string, Ring>();
   // Map은 삽입 순서를 지키므로 첫 key가 가장 오래된 invocation이다.
   const evicted = new Set<string>();
-  const unattached: Ring = { lines: [], limit: LOG_UNATTACHED_MAX_LINES };
+  const unattached: Ring = {
+    lines: [],
+    limit: LOG_UNATTACHED_MAX_LINES,
+    pushed: 0,
+  };
   const draining = new Set<Promise<void>>();
   let lastAtMs: number | undefined;
   let collecting = true;
@@ -117,6 +126,7 @@ export function createLogBuffer(deps: LogBufferDeps): LogBuffer {
 
   function push(ring: Ring, line: string, invocation?: string): void {
     ring.lines.push(line);
+    ring.pushed += 1;
     if (ring.lines.length > ring.limit) {
       ring.lines.shift();
       lose(1, "buffer_limit", invocation);
@@ -126,7 +136,11 @@ export function createLogBuffer(deps: LogBufferDeps): LogBuffer {
   function ringFor(invocation: string): Ring {
     const found = invocations.get(invocation);
     if (found) return found;
-    const created: Ring = { lines: [], limit: LOG_INVOCATION_MAX_LINES };
+    const created: Ring = {
+      lines: [],
+      limit: LOG_INVOCATION_MAX_LINES,
+      pushed: 0,
+    };
     invocations.set(invocation, created);
     if (invocations.size > LOG_INVOCATIONS_MAX) {
       const oldest = invocations.keys().next().value as string;
@@ -163,8 +177,17 @@ export function createLogBuffer(deps: LogBufferDeps): LogBuffer {
       };
     }
     const limit = Math.min(query.limit, LOG_LINE_MAX_COUNT);
-    let lines = ring.lines.slice(-limit);
-    let truncated = ring.lines.length > lines.length;
+    const base = ring.pushed - ring.lines.length;
+    // 이어 읽기는 cursor 위치의 앞쪽 줄이다. 밀려난 쪽을 넘는 cursor는 남은 줄 끝으로 맞춘다.
+    const end = query.cursor === undefined
+      ? ring.pushed
+      : Math.min(Number(query.cursor), ring.pushed);
+    const first = Math.max(end - limit, base);
+    let lines = ring.lines.slice(
+      Math.max(first - base, 0),
+      Math.max(end - base, 0),
+    );
+    let truncated = first > base;
     if (query.max_bytes !== undefined) {
       // 가장 최근 줄부터 byte 예산 안에 드는 만큼만 돌려준다.
       let used = 0;
@@ -179,7 +202,15 @@ export function createLogBuffer(deps: LogBufferDeps): LogBuffer {
         truncated = true;
       }
     }
-    return { state: "ok", lines, collected_at: collected, truncated };
+    const start = end - lines.length;
+    const older = start > base;
+    return {
+      state: "ok",
+      lines,
+      collected_at: collected,
+      truncated: truncated || older,
+      ...(older ? { next_cursor: String(start) } : {}),
+    };
   }
 
   return {

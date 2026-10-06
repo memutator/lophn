@@ -165,11 +165,13 @@ Deno.test(
     cliAppCommandSchema.parse({
       command: "app command",
       app: APP,
+      name: "usage.read",
       json: true,
     });
     cliAppCommandSchema.parse({
       command: "app command",
       app: APP,
+      name: "usage.read",
       input: '{"month":"2026-10"}',
     });
     cliAppInvocationSchema.parse({
@@ -186,6 +188,7 @@ Deno.test(
       cliAppCommandSchema.safeParse({
         command: "app command",
         app: APP,
+        name: "usage.read",
         input: "{}",
         input_file: "x.json",
       }).success,
@@ -303,5 +306,51 @@ Deno.test(
         "ticket report",
       ],
     );
+  },
+);
+
+Deno.test(
+  "coding-agent/cli#R31, coding-agent/cli#R32: app command는 command key·환경·timeout을 싣고 invocation은 환경을 고른다",
+  () => {
+    const parsed = cliAppCommandSchema.parse({
+      command: "app command",
+      app: APP,
+      name: "usage.read",
+      environment: "live",
+      timeout_ms: 5_000,
+      input: '{"month":"2026-10"}',
+    });
+    assertEquals(parsed.name, "usage.read");
+    assertEquals(parsed.environment, "live");
+    // command key가 없으면 어느 command인지 모른다.
+    assertEquals(
+      cliAppCommandSchema.safeParse({ command: "app command", app: APP })
+        .success,
+      false,
+    );
+    for (
+      const bad of [
+        { environment: "production" },
+        { timeout_ms: 0 },
+        { timeout_ms: 1.5 },
+      ]
+    ) {
+      assertEquals(
+        cliAppCommandSchema.safeParse({
+          command: "app command",
+          app: APP,
+          name: "usage.read",
+          ...bad,
+        }).success,
+        false,
+      );
+    }
+    const invocation = cliAppInvocationSchema.parse({
+      command: "app invocation",
+      app: APP,
+      invocation: `inv_${APP.slice(4)}`,
+      environment: "live",
+    });
+    assertEquals(invocation.environment, "live");
   },
 );

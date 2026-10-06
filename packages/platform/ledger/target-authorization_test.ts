@@ -16,6 +16,7 @@ import { openConnection, openLedger } from "./mod.ts";
 import { openReaderConnection } from "./reader-connection.ts";
 import { executeRead } from "./reads.ts";
 import { LEDGER_SCHEMA_STEPS } from "./schema.ts";
+import { createTargetAuthorizer } from "./target-authorization.ts";
 
 function code(result: Result<unknown>): string {
   assert(!result.ok);
@@ -204,4 +205,21 @@ Deno.test("platform/identity#R3 platform/identity#R8: read snapshot port도 doma
   } finally {
     await Deno.remove(dir, { recursive: true });
   }
+});
+
+Deno.test("platform/identity#R3, coding-agent/connection#R5: owner가 준 target이 고정 조건과 다르면 조건 값으로 덮지 않고 거절한다", () => {
+  const A = "app_00000000000000000000000000";
+  const B = "app_00000000000000000000000001";
+  const ctx = {
+    ...user("owner-1"),
+    actor: "coding_agent:cac_00000000000000000000000000" as const,
+    scope: { operations: ["app.get"], targets: {} },
+    conditions: { app: A },
+  };
+  const authorize = createTargetAuthorizer(ctx);
+  assert(authorize(ctx, "app.get", { app: A }).ok);
+  // 조건이 앱 A로 고정된 credential이 앱 B를 가리키면 없는 대상과 같은 거절이다.
+  assertEquals(code(authorize(ctx, "app.get", { app: B })), "not_found");
+  // 대상을 주지 않으면 조건의 값으로 채운다.
+  assert(authorize(ctx, "app.get", {}).ok);
 });

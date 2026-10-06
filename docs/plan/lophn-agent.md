@@ -894,6 +894,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: apps
 - 조사: docs/research/revert-and-checkpoints.md
 - 선행: T34, T44, apps#T23
+- apps#T23에서 넘어온 것: 되돌림 근거는 command 결과 `result.revert={invocation,receipt,expected_revision}`(`withRevert`가 만들고 앱 entrypoint가 올림)이고 expected_revision은 양의 정수 문자열이다. fixture의 `revert_todo`는 이 세 값을 그대로 입력으로 받아 앞선 변경이 없을 때만 되돌린다(뒤 변경이 있으면 `conflict`, 같은 근거 재사용도 `conflict`).
 - T34에서 넘어온 것: (1) 앱 write 복원 owner. `defaultRevertOwners()`에 앱 owner를 더하고 `revert_changes.app_revert`(지금은 null)·RevertStarted·applying 단계 갱신(`revert_changes_final_rows` trigger는 applying 헤더의 미확정 단계만 CAS로 한 번 바꾸도록 풀어야 한다)을 쓴다. ToolCall.run으로 연결한 성공 앱 write Invocation은 지금 event.run에 없으면 목록에 나오지 않는다. 있으면 분류되지 않은 복원 불가다. (2) 문서 제목 변경(`title_change`)은 user 자격의 `document.restore`가 제목 보상 값을 받지 못해 복원 불가로 남는다. FinishRevert(machine)가 `document.restore`의 `title`로 되돌리면 이 묶음을 복원 가능으로 바꾼다
 - 완료:
   - app_revert_test.ts에 R10, R11 테스트: 저장한 invocation·receipt·현재 revision 검증 뒤 원래 호출 역순 direct call, applying 단계와 step_key 조회로 중복 방지, 시작 전 실패는 blocked·시작 뒤 실패·충돌·응답 유실은 실제 복원·미시작·불명확으로 보존(전체 완료·전체 미실행으로 덮지 않음), 네트워크와 ledger를 한 transaction으로 주장하지 않음

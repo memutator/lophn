@@ -665,7 +665,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T21 MCP·CLI 앱 개발 tool
 
-- 상태: STATUS_PLACEHOLDER
+- 상태: 완료 (#325) — 이어보냄: 앱 통로 production transport·`appDirect` 배선·CLI `runApp` 실행 배선 → coding-agent#T36, `sync_tools` 실제 실행 → coding-agent#T34, `blueprint` core read route → apps#T19(계약 표 생기면 교체)
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli, coding-agent/connection
 - 요구: coding-agent/mcp-server#R19, R20, R21, R29, R32, R33;

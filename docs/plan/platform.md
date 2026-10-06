@@ -800,6 +800,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T34 coding agent credential: 발급, keychain, loader 전달
 
+- 상태: 완료 (#314) — package 단계의 발급·준비·정리·인증·보호 전달과 ledger harness 통합 테스트까지. core 조립 연결(연결 입구·`credentials` 기록·시작 때 restore·recover)과 OS 보호 통로·`lophn-credential` binary 등 남은 것은 Q30
 - 등급: 최상위
 - concern: platform/identity, platform/secrets
 - 요구: platform/identity#R5, R15, platform/secrets#R12

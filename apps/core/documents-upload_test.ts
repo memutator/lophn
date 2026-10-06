@@ -19,6 +19,7 @@ import {
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [{ createLedgerRegistration }];
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
@@ -50,6 +51,11 @@ async function open(
     superviseIo: options.superviseIo ?? true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(work, { recursive: true });
+  });
   const context: AuthenticatedContext = {
     principal: PRINCIPAL,
     actor: `coding_agent:${CAC}`,
@@ -64,6 +70,7 @@ async function open(
   assert(accepted?.ok);
   const recorded = await started.value.record(context);
   assert(recorded.ok);
+  guard.keep();
   return {
     core: started.value,
     home,

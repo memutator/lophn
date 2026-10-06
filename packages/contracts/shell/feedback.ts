@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { sha256Schema } from "../platform/values.ts";
-import { feedbackTextSchema } from "../problems/feedback.ts";
+import {
+  FEEDBACK_CAPTURE_BLOCKS,
+  feedbackTextSchema,
+} from "../problems/feedback.ts";
 import { missingReasonInputSchema } from "../problems/snapshots.ts";
 import { REPORTING_LIMITS } from "../problems/sdk-report.ts";
 
@@ -39,24 +42,46 @@ export const feedbackCancelSchema = z.strictObject({
 
 export type FeedbackCancel = z.infer<typeof feedbackCancelSchema>;
 
+// 접수된 feedback이 묶인 Issue로 간다. dialog를 닫고 그 앱 공간을 연다(problems/feedback#R13).
+export const feedbackOpenIssueSchema = feedbackCancelSchema;
+
 export const FEEDBACK_IPC = {
   "shell:feedback-begin": feedbackBeginSchema,
   "shell:feedback-submit": feedbackSubmitSchema,
   "shell:feedback-cancel": feedbackCancelSchema,
+  "shell:feedback-open-issue": feedbackOpenIssueSchema,
 } as const;
 
 export type FeedbackIpc = keyof typeof FEEDBACK_IPC;
 
+// 이미지를 아직 얻는 중(pending)이거나 얻을 수 없었던 분류.
+export const FEEDBACK_SCREENSHOT_STATES = [
+  "pending",
+  ...FEEDBACK_CAPTURE_BLOCKS,
+] as const;
+
 // 미리보기는 글·화면 상태의 redaction 결과와 없는 이유만 담는다.
 // screenshot은 사람이 고른 그대로라 redaction 불가 이유·가림 값을 두지 않는다(D32).
+// `screenshot_png`는 main이 캡처한 같은 PNG를 가리지 않고 dialog 미리보기에 보이는 data URL이고,
+// `screen_summary`는 보낼 화면 상태 중 사람이 알아볼 화면 이름·URL path다.
 export const feedbackPreviewSchema = z.strictObject({
   draftRef: draftRefSchema,
   text: feedbackTextSchema.nullable(),
   screen: sha256Schema.nullable(),
   screen_missing_reason: missingReasonInputSchema.nullable(),
   screenshot: sha256Schema.nullable(),
+  screenshot_png: z.string().regex(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/)
+    .nullable().optional(),
+  screenshot_block: z.enum(FEEDBACK_SCREENSHOT_STATES).nullable().optional(),
+  screen_summary: z.strictObject({
+    name: z.string().regex(/\S/),
+    path: z.string().nullable(),
+  }).nullable().optional(),
 }).refine((value) =>
   (value.screen === null) !== (value.screen_missing_reason === null)
+).refine((value) =>
+  value.screenshot_png === undefined ||
+  (value.screenshot === null) === (value.screenshot_png === null)
 );
 
 export type FeedbackPreview = z.infer<typeof feedbackPreviewSchema>;
@@ -80,6 +105,7 @@ export type LophnShellFeedback = {
     draftRef: string,
     text: string,
     selection: { screen: boolean; screenshot: boolean },
-  ): Promise<{ report: string }>;
+  ): Promise<{ report: string; problem: string | null }>;
   cancelFeedback(draftRef: string): Promise<void>;
+  openFeedbackIssue(draftRef: string): Promise<void>;
 };

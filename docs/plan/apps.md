@@ -987,6 +987,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   어댑터를 supervisor에 조립할 때 같은 모양으로 응답해야 한다. (3) 화면
   build(`scripts/build-ui.ts`, esbuild)를 준비 단계가 직접 돌려
   `screens`·`assets`를 만든다. 지금 입력은 이미 build된 JS와 자원이다
+- documents#T31에서 넘어온 것: `DocumentsSave` 실제 어댑터(`packages/apps/permissions/adapters/documents-save.ts`의 `createAppDocumentsSave`)는 documents#T31이 끝냈다(실제 core로 시험). supervisor 조립(위 apps#T13 줄)이 그 deps 셋을 채운다. (1) `client(child)`: 그 자식의 app credential(`app_credential_request`로 받은 token, 앱 코드는 못 봄)로 core API를 부르는 client. `createRpcClient`(contracts/platform)와 upload route(`x-lophn-input` base64url JSON header, body 바이트 stream)를 쓰며 구조는 `command`·`read`·`upload` 셋이다. (2) `output`(`AppOutputSource`): 앱이 선언한 key의 출력 bytes 근원. broker 요청에는 본문이 없으므로 근원을 정해야 한다(documents plan Q35 추천: 앱이 자기 `data/files/outputs/<key>/`에 쓰고 supervisor가 realpath로 앱 data 안임을 검사해 읽는다, hash·크기는 읽어서 재고 core가 실제 bytes와 맞춘다). cap-save의 안내(`guide.md`)에 그 규칙을 적어야 앱이 쓸 수 있다. (3) `declarations`(`AppOutputDeclarations`): 현재 release의 blueprint documents[] name·format·document. 이 작업의 blueprint read에서 낸다
 - 완료:
   - `prepare_test.ts`: release 없이 bundle을 테스트한 뒤 같은 hash의 pass만
     준비되고 한 byte 바꾼 bundle·자가 제출 결과는 거절(R5),
@@ -1165,6 +1166,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   - 템플릿 앱이 T6 bundle 준비와 problems app test를 통과한다
 - shell#T37에서 넘어온 것: 앱 entrypoint(`packages/apps/runtime/entrypoint/main.ts`의 `startRuntime`)가 `screenBytes`를 넘기지 않아 실제 앱 프로세스의 `GET /screens/<screen>/<path>`가 모두 404다. 템플릿 앱의 build된 화면 자원을 bundle에서 내주게 잇는다. shell main은 view를 `lophn-app://<app label>/<screen key>/index.html`로 열어 `/screens/<screen key>/index.html`을 그 screen의 진입으로 부르고, 자원은 같은 screen 아래 상대 경로로 부른다(다른 screen 경로는 shell이 막는다). content type은 text/html·text/css·text/javascript·application/json·wasm·이미지·글꼴만 받는다(`apps/shell/main/app-frame/app-protocol.ts`)
 - shell#T41에서 넘어온 것: @lophn/ui-reading은 `@lophn/design/reading`도, @lophn/ui-action은 `@lophn/blueprint`(type만)도 import한다. 템플릿 화면 build의 import map·설치 묶음이 ui-reading·ui-filter·ui-stat·ui-action과 함께 이것을 풀어야 한다. 템플릿의 명령 버튼은 `CommandButton`에 blueprint command 선언을 그대로 주면 confirm 표시와 `lophnApp.call` 호출이 따라온다
+- shell#T44에서 넘어온 것: 세션 앱 카드의 입력(AppCardReference `input`)을 앱의 card 화면에 넘길 통로가 없다. shell renderer registry(`workspace/visuals/registry.ts`)는 그 값을 그대로 들고 있고 card view는 screen·size·view_session만으로 열린다. AppScreenRequest(contracts)에 카드 입력을 더하고 SDK가 card 화면에서 읽게 하면, shell은 view 열기 IPC의 `card`에 입력을 실어 main이 화면 요청에 붙인다
 - shell#T40에서 넘어온 것: @lophn/ui-control·ui-overlay·ui-layout·ui-state(ui-table·ui-chart도)는 `@lophn/design`·`@lophn/design/components`·`@lophn/wording`을 import한다. 설치(`install.ts`)는 packages/sdk/<name>만 묶으므로 템플릿 화면 build의 import map·설치 묶음이 이 셋을 함께 풀어야 한다. root 오류 경계는 `@lophn/ui-state`의 `AppErrorBoundary`로 화면 root를 감싸기만 하면 앱 preload가 `lophn:render-error`를 받아 넘긴다(따로 잇는 통로 없음)
 - shell#T37에서 넘어온 것: 앱
   entrypoint(`packages/apps/runtime/entrypoint/main.ts`의 `startRuntime`)가
@@ -1451,6 +1453,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - 쓰는 contract: lophn-agent/questions의 option action(OPTION_ACTION_OWNERS, 값 type은 contracts/lophn-agent)
 - 내놓는 contract: `app.create`의 미리 배정한 app ID 입력과 option 적용 경로(contracts 변경 필요)
 - slice: apps
+- 상태: 완료 (#374)
 - 선행: apps#T1, lophn-agent#T29, platform#T58
 - lophn-agent#T29에서 넘어온 것: option action의 생성 대상은 미리 배정한 ID여야 하는데 `app.create`는 ID를 만들어 돌려주고 dispatchable이 아니며 user·coding_agent만 받는다. lophn 제안의 새 앱 등록 선택지(questions#R13)는 이 경로가 있어야 열린다. 열면 `packages/lophn-agent/questions/option-actions.ts`의 `OPTION_ACTION_OWNERS`에 한 줄을 더하고 core 조립이 같은 handler를 묶는다.
 - 완료:

@@ -9,6 +9,7 @@ import {
   type ContextItem,
   contextList,
   contextRelated,
+  contextWatch,
   type SECTION_STATUSES,
 } from "../../contracts/documents/mod.ts";
 import {
@@ -26,6 +27,7 @@ import {
   type ContextItemRow,
   listContexts,
   listContextsByTargetKey,
+  listWatchChanges,
   loadContext,
 } from "./store.ts";
 
@@ -96,18 +98,37 @@ export type ContextExportDeps = {
   ) => (typeof SECTION_STATUSES)[number];
 };
 
-export type ContextReadDeps = ContextExportDeps;
+// watch 미확인 목록의 근원. derived store(documents/outline-and-search의 `watch_unverified`)를
+// 읽는 reader가 준다. 없으면 미확인을 읽지 못한 것이라 watch read는 unavailable이다(빈 목록으로
+// 꾸미지 않는다).
+export type WatchUnverifiedSource = (contextId: string) => Result<
+  readonly {
+    document: string;
+    section: string | null;
+    before_version: string | null;
+    after_version: string;
+    reason: string;
+  }[]
+>;
+
+export type ContextReadDeps = ContextExportDeps & {
+  unverified?: WatchUnverifiedSource;
+};
+
+/** watch read가 돌려주는 확인된 변화 수의 상한. 최근 기록부터다. */
+export const WATCH_CHANGES_LIMIT = 100;
 
 // 문서 대상 권한. 판정을 못 하면(port 없음·throw·Promise) 없는 것과 같이 뺀다.
 function readableTarget(
   snapshot: ReadSnapshot,
   ctx: RequestContext,
   target: Record<string, string | undefined>,
+  operation: string = contextExport.name,
 ): boolean {
   try {
     const decision = snapshot.port(TargetAuthorization)(
       ctx,
-      contextExport.name,
+      operation,
       target as never,
     ) as unknown;
     if (typeof decision !== "object" || decision === null) return false;
@@ -256,14 +277,92 @@ function exportHandle(
   };
 }
 
+// 한 context의 문서 watch 결과. 확인된 변화는 ledger 기록에서, 미확인은 주입받은 derived
+// 근원에서 읽어 따로 낸다(contexts#R10, R11). 권한 밖 문서의 결과는 없는 것과 같이 빠진다.
+function watchHandle(
+  deps: ContextReadDeps,
+): ReadDefinition<typeof contextWatch>["handle"] {
+  return (snapshot, ctx, input) => {
+    if (!readActorAllowed(ctx, contextWatch.actors)) {
+      return rejected("forbidden", "actor cannot read contexts");
+    }
+    const loaded = loadContext(snapshot.sql as never, input.context);
+    if (!loaded.ok) return loaded;
+    if (loaded.value === null) {
+      return rejected("not_found", "context not found");
+    }
+    const decision = allowed(snapshot, ctx, contextWatch.name, input.context);
+    if (!decision.ok) return decision;
+    if (decision.value === null) {
+      return rejected("not_found", "context not found");
+    }
+    if (deps.unverified === undefined) {
+      return rejected("unavailable", "watch results are not connected");
+    }
+    const unverified = deps.unverified(input.context);
+    if (!unverified.ok) return unverified;
+    const changes = listWatchChanges(
+      snapshot.sql as never,
+      input.context,
+      WATCH_CHANGES_LIMIT,
+    );
+    if (!changes.ok) return changes;
+    const readable = new Map<string, boolean>();
+    const visible = (document: string): Result<boolean> => {
+      const known = readable.get(document);
+      if (known !== undefined) return ok(known);
+      const row = loadDocument(snapshot.sql as never, document);
+      if (!row.ok) return row;
+      const value = row.value !== null &&
+        readableTarget(snapshot, ctx, {
+          document: row.value.id,
+          place_kind: row.value.place?.kind,
+          place: row.value.place?.id,
+        }, contextWatch.name);
+      readable.set(document, value);
+      return ok(value);
+    };
+    const shownChanges = [];
+    for (const change of changes.value) {
+      const shown = visible(change.target.document);
+      if (!shown.ok) return shown;
+      if (shown.value) shownChanges.push(change);
+    }
+    const shownUnverified = [];
+    for (const row of unverified.value) {
+      const shown = visible(row.document);
+      if (!shown.ok) return shown;
+      if (!shown.value) continue;
+      shownUnverified.push({
+        target: {
+          kind: "document" as const,
+          document: row.document,
+          section: row.section,
+        },
+        before_version: row.before_version,
+        after_version: row.after_version,
+        reason: row.reason,
+      });
+    }
+    return ok({
+      changes: shownChanges,
+      unverified: shownUnverified,
+      as_of_seq: snapshot.as_of_seq,
+      next_cursor: null,
+    } as never);
+  };
+}
+
 export function createContextReads(deps: ContextReadDeps = {}): {
   list: ReadDefinition<typeof contextList>;
   get: ReadDefinition<typeof contextGet>;
   related: ReadDefinition<typeof contextRelated>;
   export: ReadDefinition<typeof contextExport>;
+  watch: ReadDefinition<typeof contextWatch>;
 } {
   return {
     export: { route: contextExport, handle: exportHandle(deps) },
+    watch: { route: contextWatch, handle: watchHandle(deps) },
     list: {
       route: contextList,
       handle(snapshot, ctx, input) {

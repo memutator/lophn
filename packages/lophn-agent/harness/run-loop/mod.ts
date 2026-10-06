@@ -8,6 +8,7 @@ export { runSchemaSteps } from "./schema.ts";
 export {
   createRunCommands,
   finishRow as finishRunRow,
+  runBodyFields,
   type RunLoopDeps,
 } from "./commands.ts";
 export { loadRun, type RunRow } from "./model.ts";
@@ -63,3 +64,45 @@ export {
   runStatus,
   type RunStatusView,
 } from "./status.ts";
+export { startRunLoop } from "./loop.ts";
+export {
+  type FinishRequest,
+  type FinishResult,
+  type LoopDeps,
+  type LoopEnd,
+  type LoopFailureReason,
+  type ModelAttempt,
+  type ModelCallRequest,
+  type ModelPort,
+  type PendingInputs,
+  type RunContext,
+  type RunInput,
+  type RunLoopHandle,
+  type RunPorts,
+  type StopCheck,
+  type StopReason,
+  type ToolAttempt,
+  type ToolCallRequest,
+  type ToolDone,
+  type ToolInfo,
+  type ToolPort,
+  type ToolWaiting,
+} from "./ports.ts";
+export {
+  abortableWait,
+  isTransientFailure,
+  MODEL_RETRY_DEFAULT_MS,
+  MODEL_RETRY_MAX,
+  modelRetryDelayMs,
+  TOOL_RETRY_BASE_MS,
+  TOOL_RETRY_MAX,
+  toolFailureRetryable,
+  toolMayRetry,
+  toolRetryDelayMs,
+} from "./retry.ts";
+export {
+  type BatchOutcome,
+  type CallResult,
+  type ModelToolCall,
+  runToolBatch,
+} from "./tool-batch.ts";

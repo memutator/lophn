@@ -749,6 +749,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: apps
 - 조사: docs/research/coding-agent-mcp-server.md
 - 선행: T21, contracts#T37, contracts#T50, apps#T5
+- 상태: 완료 (#358)
 - 완료:
   - catalog(설명·API 이름 검색 → 이름·최신 version·종류·한 줄 설명),
     show(API·type·permission·peer·예제), 비설치·없는 package 구별(mcp#R22,
@@ -758,6 +759,23 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     번 추가해도 중복 없음(mcp#R23, cli#R30)
   - 개인 SDK는 지원 범위 밖으로 구별해 표시
 - apps#T22에서 넘어온 것: `add`가 앱 deno.json의 import map을 고칠 때 `buildImportMap`(`packages/apps/sdk`)이 같은 결과를 내야 한다(설치 사본의 `@lophn/*`·npm import를 따라간 정확한 pin). 바꾼 뒤 개발용 map(`.lophn/import-map.json`, `devImportMap`)과 deno.lock도 다시 만든다
+  - 구현 메모(T22):
+    - 흐름은 `connection/sdk-ops.ts` 하나를 MCP `lophn_sdk`와 CLI `sdk …`가 같이 지난다.
+      통로 입력에 catalog `query`, show `version`, add `apply`·`app`을 더했다
+      (`contracts/coding-agent/mcp-app.ts`의 `sdk*Fields`). 더한 field는 소유 route로 보내지
+      않는다. catalog 검색은 `packages.list` 결과를 이름·설명으로 거른다.
+    - 찾지 못한 이름은 `not_installed`(@lophn)와 `personal_unsupported`(@me)로 구별하고,
+      있는 package의 없는 version은 `version_not_installed`와 설치 version 목록이다.
+    - apply는 `app.get`의 source 위치의 `deno.json` imports에
+      `"lophn-sdk:<name>@<version>": "./sdk/<name>/<version>/"`를 더한다. 같은 항목은
+      unchanged, 같은 이름의 다른 version·다른 대상·깨진/없는 deno.json은 conflict이고 원문을
+      바꾸지 않는다. changed 뒤에만 lock을 다시 만든다. 파일 쓰기는 주입 port(`SdkSourcePort`)다.
+      MCP는 `--allow-write` 없이 뜨므로 port를 주지 않아 apply가 `unavailable`이다(Q33).
+    - apps에 source용 import map 생성 함수(buildImportMap)가 main에 아직 없다. key 모양은
+      bundle 잠금(`apps/releases/bundle/import-map.ts`의 `sdkPathMap`)과 같게 두었고, apps가
+      source용 함수를 내면 `planImportMap`을 그것으로 바꾼다.
+    - 이어보냄: CLI `runSdk`의 dispatch 배선과 실제 source port(파일 쓰기·`deno install`로
+      lock 재생성) → T36. 안내 원문(API·type·permission·peer·예제) 읽기 → Q33.
 
 ### T23 blueprint 유래 앱 read tool
 
@@ -1226,8 +1244,11 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-connection-credential.md
 - platform#T19 후속(#294)에서 넘어온 것: connection credential(keychain의 token)의 값도 core의 알려진 값 registry에 등록·회수되어야 한다(documents 읽기·메시지 본문에 token이 나오지 않게). 통로는 열렸다: 등록 파일의 `secretRefs`에 `SecretRefSource`(contracts/platform/secrets.ts: `owner`, 참조를 바꾸는 command 이름 `commands`, `read(sql)`가 `{name, sealedRef}` 목록)를 더하면 core secret store가 같은 keychain에서 값을 읽어 등록하고 command 확정 뒤 다시 맞춘다. 지금 연결 표에는 keychain 참조가 없어(digest만) 연결할 source가 없다. T36이 token의 `coding_connection_credential` 참조를 표에 두면 그 표를 읽는 source를 낸다. 회수된 연결의 token도 참조가 남는 동안은 알려진 값으로 둔다.
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48,
+- coding-agent#T22에서 넘어온 것: `sdk show`의 API·type·permission·peer·예제는 `packages.guide`가 `guide_hash`만 돌려줘 지금 낼 수 없다. guide 본문 read(blob.read 등록 또는 guide text route)를 잇고 show에 채운다. MCP launch에는 `--allow-write`가 없으니 apply는 CLI에서만 쓰고 MCP는 거절한다
+- coding-agent#T22에서 넘어온 것: `lophn_sdk add apply`의 `SdkSourcePort`(deno.json 읽기·쓰기, lock 재생성)를 MCP·CLI 실행 entry에 주입한다. 지금은 주입이 없어 apply가 unavailable이다
   platform#T35, contracts#T24
 - platform#T34에서 넘어온 것: 사람의 연결 결정 입구(사람 선택 → 신뢰 경계 token·keychain → core create). 지금 contract에 입구가 없다. 발급 경계는 `createCodingCredentialAuthority`의 `connect(input, submit)`(packages/platform/identity)이고 core 조립은 `Core.codingCredentials.connect`(apps/core/coding-credential.ts, `codingKeychain` 옵션)다. 이 작업이 그 입구(route 또는 main↔core 메시지, contracts 요청 필요)를 정해 사람 credential로 `submit`(connection create command)을 보내고 token 없는 결과만 사람에게 보인다. `registerChild`(MCP·CLI child의 process generation 등록)의 loader 쪽 요청 모양(`process_generation`, `loader_identity`)은 production provider가 채운다
+- platform#T48에서 넘어온 것: helper `lophn-credential`(설치 묶음 `/opt/lophn/lophn-credential`, `/usr/bin/lophn`·`lophn-mcp` launcher의 `--allow-run`이 이것 하나)과 core 쪽 보호 통로(소유자 전용 `H/run/credential.sock`)가 서 있다. production provider는 helper를 stdin `CredentialDeliveryRequest`(purpose `mcp_cli_loader`, `loader_identity`는 helper 절대 경로)로 부르고 stdout `{"token"}`(종료 0) 또는 `{"reason"}`(종료 1)을 읽는다. 실제 설치에서 등록된 child가 token을 받는 양성 경로는 connection 생성 입구와 child generation 등록(`registerChild`, T38) 뒤에야 확인할 수 있어 이 작업이 `tools/verify-linux-install.ts`에 그 단계를 더한다(지금은 등록되지 않은 child가 `not_found`, core 없음이 `no_secret_service`인 것까지 확인). `apps/cli`·`apps/mcp`의 daemon 주소 발견·core 연결도 뼈대라 launcher 시작과 MCP initialize 응답까지만 확인했다
 - coding-agent#T21에서 넘어온 것: 앱 개발 tool의 production 배선. (1) 앱 통로
   transport: `AppDirectTransport`(connection/app-direct.ts)의 unix socket 구현과 MCP
   실행 권한(socket 경로가 실행 때 정해지므로 argv의 `--allow-read/--allow-write` 범위를
@@ -1676,6 +1697,16 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   target(`app`)을 credential 조건 값으로 덮어 판정을 통과시킨 것이었다(덮지 않고 거절하도록 고쳤다).
   apps 쪽은 `app.connect_source`·archive·unarchive가 범위 밖 앱을 revision·status 비교보다 먼저
   없는 앱과 같게 닫고, `invocations.list·get`이 앱별 범위를 판정한다(범위 밖 기록은 없는 기록).
+- **Q33 T22 SDK tool의 안내 원문과 MCP apply(구현).**
+  (a) mcp#R22·cli#R30의 show는 API·type·permission·peer·예제를 내야 하지만 `packages.guide`는
+  `guide_hash`만 내고, 그 blob을 읽을 owner 등록(`blob.read`의 owner_kind·field)이 apps에 없다.
+  지금 show는 version 목록과 `guide_hash`를 내고 `body: null`과 이유를 함께 낸다. 추천: apps가
+  package guide blob의 owner 등록(예: owner_kind `package_version`, field `guide`)을 contracts에
+  더하고, 통로는 그것으로 원문을 읽어 낸다.
+  (b) MCP는 `--allow-write` 없이 뜬다(T11, connection#R16). 그래서 MCP의 `apply`는 실행 전
+  `unavailable`이고 고정 import 안내로 끝난다. 추천: apply는 CLI(`lophn sdk add --apply --app`)로만
+  실제 실행하고 MCP 응답의 next가 그 command를 안내한다. MCP에 앱 source 범위의 쓰기 권한을
+  줄지는 harnesses·connection이 정한다.
 - **Q15 ticket claim의 readiness.** coding-agent/tickets#R11 본문은
   needs_confirmation ticket도 claim할 수 있다고 적고, T19 완료 줄과
   checkTicketClaim의 not_ready 거절은 ready만 허용한다. 구현은 완료 줄을

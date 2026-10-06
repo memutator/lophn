@@ -69,6 +69,9 @@ export const appCompareSchema = z.strictObject({
 });
 
 export const appCreateInputSchema = z.strictObject({
+  // 미리 배정한 app ID. 사람이 고른 질문 선택지의 고정 action만 앱 ID를 먼저 정할 수 있다
+  // (lophn-agent/questions#R13). 없으면 등록이 ID를 만든다. 사람 자격(user)만 쓴다.
+  id: appIdSchema.optional(),
   slug: slugSchema,
   name: appNameSchema,
   description: appDescriptionSchema,
@@ -121,6 +124,20 @@ export const appUnarchive = defineCommand({
   compare: appCompareSchema,
   actors: ["user"],
   errors: ["conflict", "not_found"],
+});
+export const appRenameInputSchema = z.strictObject({
+  app: appIdSchema,
+  name: appNameSchema,
+});
+export const appRename = defineCommand({
+  resource: "apps",
+  method: "rename",
+  name: "app.rename",
+  input: appRenameInputSchema,
+  output: appSchema,
+  compare: appCompareSchema,
+  actors: ["user"],
+  errors: ["conflict", "invalid_input", "not_found"],
 });
 
 export const appListInputSchema = z.strictObject({
@@ -176,4 +193,8 @@ export const appArchived = defineEvent("AppArchived", {
 export const appUnarchived = defineEvent("AppUnarchived", {
   subject: appIdSchema,
   payload: z.object({ run_enabled: z.literal(false) }),
+});
+export const appRenamed = defineEvent("AppRenamed", {
+  subject: appIdSchema,
+  payload: z.object({ name: appNameSchema }),
 });

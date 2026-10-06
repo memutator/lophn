@@ -34,6 +34,7 @@ import {
   releasePrepareInputSchema,
   restartInputSchema,
   SUPERVISOR_OPS,
+  viewClosedInputSchema,
 } from "../../packages/apps/runtime/control-protocol.ts";
 import type { PreparationService } from "../../packages/apps/releases/preparation.ts";
 import type { DataJobRunner } from "./data-runner.ts";
@@ -944,6 +945,28 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       return {
         restarted: await supervisor.restart(input.app, input.process_nonce),
       };
+    },
+    // shell이 닫은 화면 view를 지금 live 자식에 알린다. nonce는 지금 쥔 자식의 것이고 요청에서
+    // 받지 않는다. 자식이 없거나 멈추는 중이면 그 view의 상태도 없으니 보내지 않는다.
+    [SUPERVISOR_OPS.viewClosed]: async (payload) => {
+      const input = parse(viewClosedInputSchema, payload);
+      const observation = supervisor.observation(input.app);
+      if (
+        observation === undefined || !observation.ready ||
+        observation.processNonce === "" || observation.endpoint === ""
+      ) {
+        return { relayed: false };
+      }
+      const answered = await control(
+        { app: input.app },
+        observation.endpoint,
+        DIRECT_SOCKET_PATHS.viewClosed,
+        {
+          process_nonce: observation.processNonce,
+          view_session: input.view_session,
+        },
+      );
+      return { relayed: answered.ok && answered.value.status === 200 };
     },
     [SUPERVISOR_OPS.previewStart]: (payload) => {
       const launch = parse(previewLaunchSchema, payload);

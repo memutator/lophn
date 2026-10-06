@@ -88,3 +88,25 @@ test("shell/desktop#R14: preload는 things-to-confirm 링크 대상을 검사한
   assert.deepEqual(received, [{ kind: "things-to-confirm", request: APR }]);
   assert.ok(Object.isFrozen(received[0]));
 });
+
+test("problems/feedback#R13: preload는 접수된 feedback의 Issue 열기를 검사한 앱·문제 ID만 넘기고 다른 모양은 버린다", () => {
+  const listeners = new Map<
+    string,
+    (event: unknown, payload: unknown) => void
+  >();
+  const api = createIntentApi({
+    on: (channel, callback) => void listeners.set(channel, callback),
+    removeListener: () => {},
+  });
+  const received: DesktopIntent[] = [];
+  api.subscribe((intent) => received.push(intent));
+  const deliver = listeners.get(DESKTOP_INTENT_CHANNEL)!;
+  const APP = "app_01j9zzzzzzzzzzzzzzzzzzzzzz";
+  const PRB = "prb_01j9zzzzzzzzzzzzzzzzzzzzzz";
+  deliver({}, { kind: "app-issue", app: APP, problem: PRB });
+  deliver({}, { kind: "app-issue", app: APP, problem: PRB, report: "rpt" });
+  deliver({}, { kind: "app-issue", app: "app_bad", problem: PRB });
+  deliver({}, { kind: "app-issue", app: APP, problem: `apr_${PRB.slice(4)}` });
+  assert.deepEqual(received, [{ kind: "app-issue", app: APP, problem: PRB }]);
+  assert.ok(Object.isFrozen(received[0]));
+});

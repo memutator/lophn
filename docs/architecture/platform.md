@@ -64,7 +64,7 @@ SQL import는 ledger/read 실행기에만 허용한다. core 모듈의 동기 �
 | read | 실행 2개, 대기 64개, principal당 대기 8개, 최대 500행·1MiB 응답 | 페이지 또는 명시적 한도 오류 |
 | HTTP | header 8KiB, 동시 요청 128개·principal당 16개, body 수신 5초 | 한도 오류; chunked도 누적 bytes로 검사 |
 | event | 연결 32개·principal당 4개, batch 256개·256KiB, 연결 buffer 1MiB | 느린 구독 연결 종료; event 건너뛰기 금지 |
-| 신뢰 child | ready 10초, 정상 정지 5초, 실패 재기동 1·2·4초 후 최대 3회 | 해당 구성 요소만 사용 불가; 무한 재시작 금지 |
+| 신뢰 child | ready 10초, 정상 정지 5초, child stdin의 frame 하나 쓰기 20초, 실패 재기동 1·2·4초 후 최대 3회 | 해당 구성 요소만 사용 불가; 무한 재시작 금지. 쓰기 기한을 넘으면 그 child를 끝내고 재기동 경로로 보낸다. 끝난 child에게 보낸 요청은 기한을 기다리지 않고 바로 `unavailable`. documents coordinator는 감독이 포기한 뒤 core가 backoff(250ms부터 두 배, 최대 8초)로 core 시작마다 6회까지 다시 띄운다 |
 | platform I/O | 무거운 작업 동시 2개, 대기 32개, principal당 4개 | `unavailable`; 작업 사이 round-robin |
 | 안전 log | info, 파일당 10MiB ×5(오래된 파일부터 정리), crash 관측 30일, 메모리 대기 1MiB | 진단만 누락 이유/계수 표시; API 대기 금지 |
 
@@ -97,7 +97,9 @@ core 자신(부모)의 실행 permission에는 두 개의 정확한 이름을 �
 
 ### 3.1 설치 폴더와 data root
 
-Linux 설치 묶음은 `/opt/lophn/` 아래 `deno`, `platform/`(source·lock·vendor), `desktop/`, `skills/`, `sdk/`를 둔다. `/usr/bin/lophn-desktop`, `/usr/bin/lophn`, `/usr/bin/lophn-mcp`는 이 묶음의 launcher다. .deb는 Chromium sandbox 파일을 root 소유·4755로 설치하고 실제 OS sandbox 활성화를 검사한다. AppImage는 sandbox가 확인된 환경에서만 대안이다. macOS는 `Lophn.app/Contents/Resources/`, Windows는 설치한 `Lophn/resources/` 아래 같은 runtime 묶음을 둔다. 서명·공증·OS별 build 검증 없이 배포 완료라고 표시하지 않는다.
+Linux 설치 묶음은 `/opt/lophn/` 아래 `deno`, `platform/`(apps·packages source, `deno.json`, `deno.lock`, `vendor/`, `node_modules/`), `desktop/`(빌드된 desktop 화면), `skills/`(coding agent skill 배포 원본), `guides/`(안내 원문, lophn-agent의 `roles/lophn/guides/`에서 복사한 `.md`), `sdk`(`platform/packages/sdk`로 가는 링크, 설치 도구가 그 자리에서 SDK source를 읽는다), `lophn-credential`(keychain 전달 helper compile binary), Electron 실행 파일 `lophn-desktop`과 `chrome-sandbox`를 둔다. `/usr/bin/lophn-desktop`(링크), `/usr/bin/lophn`, `/usr/bin/lophn-mcp`는 이 묶음의 launcher다. 의존성은 `deno.lock`과 integrity hash로 고정하고 묶음 안 `vendor/`·`node_modules/`에서 읽으므로 시작은 항상 `--cached-only --frozen`이며 다운로드가 없다. Deno transpile cache는 `DENO_DIR=~/.cache/lophn/deno`로 core와 모든 child가 같은 자리를 쓰고(지워도 H는 그대로고 다시 만든다), 설치 폴더에는 쓰지 않는다. 묶음은 `tools/package-linux.ts`가 `dpkg-deb`로 만들고 `tools/verify-linux-install.ts`가 설치된 묶음을 확인한다. .deb는 Chromium sandbox 파일을 root 소유·4755로 설치하고(설치 script가 못 지키면 설치를 멈춘다) 실제 OS sandbox 활성화를 검사한다: 설치된 Electron을 headless로 띄워 renderer의 seccomp·no_new_privs·별도 net·pid namespace를 `/proc`에서 본다. `--no-sandbox` 실행은 통과가 아니다.
+
+coding connection token 전달 helper `lophn-credential`은 의존성 없는 compile binary다(권한 `--allow-net --allow-read --allow-write --allow-env=LOPHN_HOME,HOME`; Deno 2.9의 compile은 unix socket 연결에 이 셋을 함께 요구하고 경로는 data root마다 달라 한 값으로 정할 수 없다. 코드는 `<H>/run/credential.sock` 하나만 연다. run·ffi·sys는 없다). keychain을 직접 열지 않는다. stdin의 `CredentialDeliveryRequest`를 core가 연 소유자 전용(0600, `H/run/`은 0700) unix socket에 건네고 core의 `authority.deliver`가 active connection·현재 scope·등록된 child(process generation·loader identity)·keychain 값 digest를 모두 확인한 응답만 stdout에 낸다(성공 `{"token":...}` 종료 0, 실패 `{"reason":...}` 종료 1; socket이 없으면 `no_secret_service`, 5초 안에 끝나지 않으면 `timeout`). 이 연결 하나가 Linux의 `ProtectedChannel`(non-inheritable, 요청 하나·응답 하나 뒤 닫힘)이다. 보호 loader identity는 helper의 고정 절대 경로(`/opt/lophn/lophn-credential`)이고 core `main.ts`가 `codingLoaders`로 채운다. core의 net 권한은 loopback과 이 socket 하나다. AppImage는 sandbox가 확인된 환경에서만 대안이다. macOS는 `Lophn.app/Contents/Resources/`, Windows는 설치한 `Lophn/resources/` 아래 같은 runtime 묶음을 둔다. 서명·공증·OS별 build 검증 없이 배포 완료라고 표시하지 않는다.
 
 data root `H`는 Linux/macOS의 `~/.lophn`, Windows의 `%USERPROFILE%\.lophn`이다. `LOPHN_HOME`은 시작 전에 root를 선택할 뿐 일반 설정 override가 아니다. root는 소유자와 symlink를 확인한 하나의 정규 경로로 고정한다. 설치 파일을 update해도 H를 초기화하지 않는다. Linux Deno cache는 `~/.cache/lophn/deno`; macOS는 `~/Library/Caches/lophn/deno`, Windows는 `%LOCALAPPDATA%\lophn\deno`이며 삭제해도 고정 의존성으로 재생성할 수 있다.
 
@@ -302,6 +304,8 @@ platform 소유 event 이름은 `SecretSet`, `SecretRemoved`, `SettingsChanged`,
 **보장:** 쓰기는 transaction에서, 읽기는 snapshot에서 현재 자격·scope를 재검사한다. 회수·assignment 멈춤·app grant 회수·감독 상실은 모든 새 read/write/blob/구독/direct 연결에서 즉시 제한한다. direct 연결의 강제는 앱 통로 소유 코드가 한다. source 주소·slug·blob hash·handoff가 권한을 늘리지 않는다.
 
 사람 클릭이 필요한 command의 confirmation handle은 main↔core 비공개 연결에서만 발급한다. 메모리 값이며 core epoch·main 연결·window·정확한 대상·내용 기준·허용 결정·120초 기한에 묶는다. 창 닫기·main/core 재시작은 무효다. writer transaction 안에서 현재 상태와 함께 검증·소비하며 ledger commit 실패면 같은 살아 있는 handle의 예약을 풀되 종료/만료 handle을 되살리지 않는다. commit 뒤 응답 유실의 동일 key는 저장 결과를 먼저 반환한다. handle 원문은 ledger·fingerprint·event·log에 없다.
+
+backup 복원도 같은 비공개 연결로 오간다. main이 `restore_plan_request`(묶음 `created_at`)로 사람이 잃을 범위를 읽고(`restore_plan`: 묶음 끝·현재 끝·`lost`·확인 기준), 그 기준에 묶은 `restore_backup` handle을 발급한 뒤 `restore_request`를 보내면 core가 모든 worker·writer를 멈추고 복원한 다음 같은 pipe로 `restore_result`와 새 hello(새 epoch·token·`ledger_id`)를 보내며 다시 시작한다. 정지에 이르지 못한 실패(없는 묶음·틀린 확인)는 `restore_failed(restarted:false)`만 답하고 core는 그대로이며, 정지 뒤 실패하면 현재 자료 그대로 다시 시작한다(`restarted:true`). 메시지 모양은 `packages/contracts/platform/restore-pipe.ts`다.
 
 QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사람이 고른 option·고정 action을 확인한 뒤 machine의 정확히 같은 되돌릴 수 있는 안쪽 동작을 한 번 적용하는 경우에만 actor=user로 기록한다. 일반 machine의 actor 주장이나 자유 답 해석은 거절한다.
 

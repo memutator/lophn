@@ -93,8 +93,9 @@ export const SUPPORT_PACKAGES: readonly SupportPackage[] = [
     name: "@lophn/wording",
     version: SUPPORT_VERSION,
     source: "design/wording",
-    // generate.ts는 앱 catalog의 placeholder 생성이 쓰므로 남긴다.
-    skipNames: ["testdata"],
+    // generate.ts는 앱 catalog의 placeholder 생성이 쓰므로 남긴다. repo-check.ts는 저장소
+    // 화면 검사라 contracts를 import하므로 사본에 넣지 않는다.
+    skipNames: ["testdata", "repo-check.ts"],
     skipSuffixes: ["_test.ts"],
   },
 ];

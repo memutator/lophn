@@ -5,10 +5,12 @@
 import {
   type BrowserWindow,
   type Event as ElectronEvent,
+  type NativeImage,
   session as electronSession,
   WebContentsView,
 } from "electron";
 
+import { FEEDBACK_LIMITS } from "../../ipc/feedback.ts";
 import { type HeadlessMode, surfaceOptions } from "../desktop/headless.ts";
 import { webPreferences } from "../desktop/security.ts";
 import type { AppViewContents, AppViewHost, ViewBounds } from "./registry.ts";
@@ -31,6 +33,10 @@ export function electronAppViews(input: ElectronAppViewsInput): {
   sessionHandle(partition: string): AppSessionHandle;
 } {
   const native = new Map<AppViewContents, WebContentsView>();
+  // headless(offscreen) view는 capturePage가 실패한다. 개발 확인에서는 마지막 paint를 쓴다.
+  const painted = new Map<AppViewContents, NativeImage>();
+  // renderer가 사라진 view. 그 뒤로는 찍을 화면이 없다.
+  const gone = new Set<AppViewContents>();
 
   function live(ref: string): BrowserWindow | undefined {
     const window = input.windowOf(ref);
@@ -66,10 +72,21 @@ export function electronAppViews(input: ElectronAppViewsInput): {
         load: (url) => contents.loadURL(url),
         destroy() {
           native.delete(adapter);
+          painted.delete(adapter);
+          gone.delete(adapter);
           if (!contents.isDestroyed()) contents.close();
         },
       };
       native.set(adapter, view);
+      contents.on("render-process-gone", () => {
+        gone.add(adapter);
+        painted.delete(adapter);
+      });
+      if (input.headless.headless) {
+        contents.on("paint", (_event, _dirty, image) => {
+          if (native.has(adapter)) painted.set(adapter, image);
+        });
+      }
       return adapter;
     },
     attach(ref, adapter, bounds: ViewBounds) {
@@ -88,6 +105,48 @@ export function electronAppViews(input: ElectronAppViewsInput): {
       const view = native.get(adapter);
       if (window === undefined || view === undefined) return;
       window.contentView.removeChildView(view);
+    },
+    focused(adapter) {
+      const view = native.get(adapter);
+      return view !== undefined && !view.webContents.isDestroyed() &&
+        view.webContents.isFocused();
+    },
+    // 그 view의 webContents만 찍는다. 창·overlay·다른 view는 담지 않는다. 긴 변이 1,600px를
+    // 넘으면 비율대로 줄인다(problems/feedback#R8).
+    async capture(adapter) {
+      const view = native.get(adapter);
+      if (view === undefined || view.webContents.isDestroyed()) {
+        throw new Error("view is gone");
+      }
+      if (gone.has(adapter) || view.webContents.isCrashed()) {
+        throw new Error("view crashed");
+      }
+      let image = input.headless.headless
+        ? painted.get(adapter)
+        : await view.webContents.capturePage();
+      if (image === undefined) throw new Error("nothing painted yet");
+      if (image.isEmpty()) throw new Error("capture is empty");
+      const { width, height } = image.getSize();
+      const long = Math.max(width, height);
+      if (long > FEEDBACK_LIMITS.png_long_side) {
+        const scale = FEEDBACK_LIMITS.png_long_side / long;
+        image = image.resize({
+          width: Math.max(1, Math.floor(width * scale)),
+          height: Math.max(1, Math.floor(height * scale)),
+        });
+      }
+      return new Uint8Array(image.toPNG());
+    },
+    pageUrl(adapter) {
+      const view = native.get(adapter);
+      if (view === undefined || view.webContents.isDestroyed()) return null;
+      return view.webContents.getURL() || null;
+    },
+    focusShell(ref) {
+      const window = live(ref);
+      if (window !== undefined && !window.webContents.isDestroyed()) {
+        window.webContents.focus();
+      }
     },
   };
 

@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  err,
-  fingerprint,
-  ok,
-  type Result,
-} from "../../../../base/mod.ts";
+import { err, fingerprint, ok, type Result } from "../../../../base/mod.ts";
 import {
   agentRoleSchema,
   fixedVersionReferenceSchema,

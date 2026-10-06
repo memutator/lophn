@@ -162,7 +162,12 @@ export function judge(facts: CallFacts): Judgment {
   const denied = callDenial(facts);
   if (denied !== undefined) return denied;
   const targets = facts.targets.length === 0
-    ? [{ id: "", inScope: true, declared: false, reversibility: "reversible" as const }]
+    ? [{
+      id: "",
+      inScope: true,
+      declared: false,
+      reversibility: "reversible" as const,
+    }]
     : facts.targets;
   let result: Judgment | undefined;
   for (const target of targets) {

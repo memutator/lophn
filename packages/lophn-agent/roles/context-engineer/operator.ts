@@ -100,7 +100,9 @@ export function checkDraft(
       problems.push(`document without a first version: ${output.document}`);
     }
   }
-  const commandApps = new Set(draft.read_commands.map((command) => command.app));
+  const commandApps = new Set(
+    draft.read_commands.map((command) => command.app),
+  );
   for (const app of commandApps) {
     if (!draft.read_apps.includes(app)) {
       problems.push(`read command without an approval read app: ${app}`);

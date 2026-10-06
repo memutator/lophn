@@ -2,9 +2,9 @@ import { assert, assertEquals } from "@std/assert";
 import {
   checkDraft,
   type DraftOverlap,
-  type OperatorDraft,
   evidenceEnough,
   MANUAL_RUNS_MIN,
+  type OperatorDraft,
   overlapOf,
   overlapRevision,
   WATCH_CHANGE_MIN,
@@ -45,20 +45,45 @@ function draft(over: Partial<OperatorDraft> = {}): OperatorDraft {
   };
 }
 
-function draftScope(kind: "project" | "app", id: string): DraftOverlap["scope"] {
+function draftScope(
+  kind: "project" | "app",
+  id: string,
+): DraftOverlap["scope"] {
   return kind === "project" ? { kind: "project", id } : { kind: "app", id };
 }
 
 Deno.test("lophn-agent/roles/context-engineer#R11: 후보 근거가 요구 횟수·기간을 넘을 때만 제안으로 간다", () => {
   // watch 변화가 4회 이상이면 시작한다(R11).
-  assert(evidenceEnough({ watch_changes_30d: WATCH_CHANGE_MIN, basis_lag_days: 0, manual_runs_30d: 0 }));
+  assert(
+    evidenceEnough({
+      watch_changes_30d: WATCH_CHANGE_MIN,
+      basis_lag_days: 0,
+      manual_runs_30d: 0,
+    }),
+  );
   // 기준 자료 뒤처짐이 14일 이상이면 시작한다(R11).
-  assert(evidenceEnough({ watch_changes_30d: 0, basis_lag_days: 14, manual_runs_30d: 0 }));
+  assert(
+    evidenceEnough({
+      watch_changes_30d: 0,
+      basis_lag_days: 14,
+      manual_runs_30d: 0,
+    }),
+  );
   // 같은 수동 업무가 4회 이상이면 시작한다(R11).
-  assert(evidenceEnough({ watch_changes_30d: 0, basis_lag_days: 0, manual_runs_30d: MANUAL_RUNS_MIN }));
+  assert(
+    evidenceEnough({
+      watch_changes_30d: 0,
+      basis_lag_days: 0,
+      manual_runs_30d: MANUAL_RUNS_MIN,
+    }),
+  );
   // 세 근거가 모두 요구에 못 미치면 단순 합계·수집만 있는 일이라 제안하지 않는다(R11).
   assertEquals(
-    evidenceEnough({ watch_changes_30d: WATCH_CHANGE_MIN - 1, basis_lag_days: 13, manual_runs_30d: MANUAL_RUNS_MIN - 1 }),
+    evidenceEnough({
+      watch_changes_30d: WATCH_CHANGE_MIN - 1,
+      basis_lag_days: 13,
+      manual_runs_30d: MANUAL_RUNS_MIN - 1,
+    }),
     false,
   );
 });
@@ -72,7 +97,14 @@ Deno.test("lophn-agent/roles/context-engineer#R12: 초안은 판단 항목 전�
   const checked = checkDraft(draft(), versions);
   assert(checked.ok, JSON.stringify(checked.problems));
   // 판단 항목이 비면 거절된다(R12).
-  for (const field of ["judgment", "evidence_rule", "comparison_basis", "update_condition"] as const) {
+  for (
+    const field of [
+      "judgment",
+      "evidence_rule",
+      "comparison_basis",
+      "update_condition",
+    ] as const
+  ) {
     const blanked = draft({
       judgment: { ...draft().judgment, [field]: " " },
     });
@@ -83,7 +115,10 @@ Deno.test("lophn-agent/roles/context-engineer#R12: 초안은 판단 항목 전�
   const no_outputs = checkDraft(draft({ outputs: [] }), versions);
   assertEquals(no_outputs.ok, false);
   // 첫 version이 없는 문서는 남길 문서가 아니다(R12, assignments#R6).
-  const no_first = checkDraft(draft({ outputs: [{ document: DOC_B, content: "x" }] }), versions);
+  const no_first = checkDraft(
+    draft({ outputs: [{ document: DOC_B, content: "x" }] }),
+    versions,
+  );
   assert(no_first.ok, JSON.stringify(no_first.problems));
   const no_version = checkDraft(
     draft({ outputs: [{ document: DOC_A, content: "x" }] }),
@@ -95,16 +130,22 @@ Deno.test("lophn-agent/roles/context-engineer#R12: 초안은 판단 항목 전�
 Deno.test("lophn-agent/roles/context-engineer#R12: 읽을 자료는 승인 앱 안에서만 선언된다", () => {
   const versions = new Map([[DOC_A, 1]]);
   // 읽을 명령의 앱이 승인 read 앱 목록에 있으면 통과한다(R12).
-  const with_command = checkDraft(draft({
-    read_apps: [APP],
-    read_commands: [{ app: APP, command: "usage.read" }],
-  }), versions);
+  const with_command = checkDraft(
+    draft({
+      read_apps: [APP],
+      read_commands: [{ app: APP, command: "usage.read" }],
+    }),
+    versions,
+  );
   assert(with_command.ok, JSON.stringify(with_command.problems));
   // 승인 앱 목록에 없는 명령은 거절된다(R12, assignments#R8).
-  const outside = checkDraft(draft({
-    read_apps: [],
-    read_commands: [{ app: APP, command: "usage.read" }],
-  }), versions);
+  const outside = checkDraft(
+    draft({
+      read_apps: [],
+      read_commands: [{ app: APP, command: "usage.read" }],
+    }),
+    versions,
+  );
   assertEquals(outside.ok, false);
 });
 
@@ -133,6 +174,9 @@ Deno.test("lophn-agent/roles/context-engineer#R13: 겹치는 Operator는 기존 
   assert(revision.reason.includes("같은 project의 Operator가 이미 있다"));
   assert(revision.reason.includes(DOC_A));
   // 다른 scope는 겹치지 않는다(R13).
-  const other_project = overlapOf(draft({ scope: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fa2" } }), [existing]);
+  const other_project = overlapOf(
+    draft({ scope: { kind: "project", id: "prj_01arz3ndektsv4rrffq69g5fa2" } }),
+    [existing],
+  );
   assertEquals(other_project, undefined);
 });

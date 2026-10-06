@@ -139,7 +139,12 @@ function world(
     newId: () => NEXT_MESSAGE,
     runFacts: () =>
       Promise.resolve(
-        ok({ session, role: "lophn" as const, original_message: msg, assignment: "asg_01arz3ndektsv4rrffq69g5fav" }),
+        ok({
+          session,
+          role: "lophn" as const,
+          original_message: msg,
+          assignment: "asg_01arz3ndektsv4rrffq69g5fav",
+        }),
       ),
   };
   return ports;

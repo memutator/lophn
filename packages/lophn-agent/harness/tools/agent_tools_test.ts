@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { z } from "zod";
+import type { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   operatorApprovalBundleSchema,
@@ -382,8 +382,8 @@ Deno.test("lophn-agent/harness/tools#R4: approval.submit_assignment는 create_ap
   assert(action["binding_hash"] !== action["input_hash"]);
   // 입력은 apply가 받는 모양 그대로다. 생성은 bundle.assignment를 호출 run의
   // assignment로 채운다. apply의 접수 필드(approval·decision_seq·id)는 입력에 없다.
-  const applyInput = (action["input"] as { value: Record<string, unknown> })
-    ["value"]!;
+  const applyInput =
+    (action["input"] as { value: Record<string, unknown> })["value"]!;
   assertEquals("approval" in applyInput, false);
   assertEquals("decision_seq" in applyInput, false);
   assertEquals("id" in applyInput, false);
@@ -401,12 +401,22 @@ Deno.test("lophn-agent/harness/tools#R4: 같은 bundle 초안은 같은 binding 
   };
   const first = await executeTool(deps, "approval.submit_assignment", bundle());
   assertEquals(first.outcome.kind, "success");
-  const hashOne = (calls[0]!.input as Record<string, unknown>)["action"] as
-    Record<string, unknown>;
-  const second = await executeTool(deps, "approval.submit_assignment", bundle());
+  const hashOne =
+    (calls[0]!.input as Record<string, unknown>)["action"] as Record<
+      string,
+      unknown
+    >;
+  const second = await executeTool(
+    deps,
+    "approval.submit_assignment",
+    bundle(),
+  );
   assertEquals(second.outcome.kind, "success");
-  const hashTwo = (calls[1]!.input as Record<string, unknown>)["action"] as
-    Record<string, unknown>;
+  const hashTwo =
+    (calls[1]!.input as Record<string, unknown>)["action"] as Record<
+      string,
+      unknown
+    >;
   assertEquals(hashOne["binding_hash"], hashTwo["binding_hash"]);
   assertEquals(hashOne["input_hash"], hashTwo["input_hash"]);
   assertEquals(calls.length, 2);
@@ -426,4 +436,3 @@ Deno.test("lophn-agent/harness/tools#R4: 같은 bundle 초안은 같은 binding 
   assertEquals(blank.outcome.code, "invalid_input");
   assertEquals(calls.length, 2);
 });
-

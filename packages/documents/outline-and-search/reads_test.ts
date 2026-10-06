@@ -2099,27 +2099,30 @@ Deno.test("documents/outline-and-search#R4: 읽을 수 없는 문서의 근거�
   }
 });
 
-Deno.test("documents/outline-and-search#R5: 여섯 단계까지 깊은 문서의 목차도 숨긴 자식 수가 직접 자식 수를 넘지 않아 계약 출력을 지킨다", async () => {
-  const { extractFormat } = await import("../formats/guest.ts");
-  const { BUILTIN_MODULE_HASH } = await import("../formats/mod.ts");
+Deno.test("documents/outline-and-search#R5: 깊은 문서의 목차도 숨긴 자식 수가 직접 자식 수를 넘지 않아 계약 출력을 지킨다", async () => {
   const { documentOutlinePageSchema } = await import(
     "../../contracts/documents/mod.ts"
   );
-  // notes-basic/index.md는 h2~h6가 차례로 이어지고 level을 건너뛰는 제목도 있다.
-  const text = await Deno.readTextFile(
-    new URL("../../../fixtures/projects/notes-basic/index.md", import.meta.url),
-  );
-  const extracted = extractFormat("document", {
-    input_hash: HASH,
-    module_hash: BUILTIN_MODULE_HASH,
-    files: [{
-      path: "index.md",
-      media_type: "text/markdown",
-      primary: true,
-      content: Array.from(new TextEncoder().encode(text)),
-    }],
+  // h2 아웃라인 > h3 > (h4, h5)와 h2 회의 > h4(level을 건너뛴 제목)다. depth 2 밖은 숨는다.
+  const section = (
+    key: string,
+    position: number,
+    level: number,
+    parent: string | null,
+    own: number,
+    subtree: [number, number],
+  ) => ({
+    key,
+    title: key,
+    parent,
+    position,
+    level,
+    anchor: null,
+    own_ranges: [{ start_line: own, end_line: own }],
+    subtree_range: { start_line: subtree[0], end_line: subtree[1] },
+    characters: 4,
+    body_hash: HASH,
   });
-  assertEquals(extracted.status, "ready");
   const fx = openDerivedFixture();
   try {
     ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
@@ -2127,8 +2130,21 @@ Deno.test("documents/outline-and-search#R5: 여섯 단계까지 깊은 문서의
       document: DOC_A,
       version: VER_A,
       content_hash: HASH,
-      module_hash: BUILTIN_MODULE_HASH,
-      extraction: extracted as ExtractionRecord["extraction"],
+      module_hash: HASH,
+      extraction: {
+        status: "ready",
+        title: "깊은 문서",
+        text: ["하나", "둘", "셋", "넷", "다섯", "여섯"].join("\n"),
+        text_hash: HASH,
+        sections: [
+          section("아웃라인", 0, 2, null, 1, [1, 4]),
+          section("첫-항목", 1, 3, "아웃라인", 2, [2, 4]),
+          section("하위", 2, 4, "첫-항목", 3, [3, 3]),
+          section("더-깊은", 3, 5, "첫-항목", 4, [4, 4]),
+          section("회의", 4, 2, null, 5, [5, 6]),
+          section("건너뜀", 5, 4, "회의", 6, [6, 6]),
+        ],
+      },
     }, "1"));
     fx.consumed("5");
     const page = keep(
@@ -2139,9 +2155,10 @@ Deno.test("documents/outline-and-search#R5: 여섯 단계까지 깊은 문서의
     }
     const parsed = documentOutlinePageSchema.safeParse(page);
     assert(parsed.success, JSON.stringify(parsed.error?.issues));
-    // h2 "아웃라인"의 직접 자식(h3)은 depth 2 밖이라 하나가 숨는다.
-    const outline = page.entries.find((entry) => entry.key === "아웃라인");
-    assertEquals(outline?.hidden_children_count, 1);
+    const byKey = new Map(page.entries.map((entry) => [entry.key, entry]));
+    // 직접 자식이 depth 밖에 숨는 만큼만 센다. 손자는 그 자식 아래에 숨는다.
+    assertEquals(byKey.get("아웃라인")?.hidden_children_count, 1);
+    assertEquals(byKey.get("회의")?.hidden_children_count, 1);
   } finally {
     fx.close();
   }

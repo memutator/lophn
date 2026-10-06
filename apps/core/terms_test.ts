@@ -16,7 +16,6 @@ import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
 
 const teams: TeamModule[] = [{ createLedgerRegistration }];
-const HASH = "ab".repeat(32);
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 const AGENT_TOKEN = "a".repeat(43);
 const USER_TOKEN = "u".repeat(43);

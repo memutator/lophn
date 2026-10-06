@@ -4,6 +4,7 @@
 // 재생성·재파생은 ledger에 아무것도 쓰지 않는다. model·agent run을 시작하지 않는다.
 import { ok, parseSeq, type Result } from "../../base/mod.ts";
 import type { DerivedRead, DerivedStore } from "./adapters/store.ts";
+import type { ConsumerEvent } from "./ipc.ts";
 import { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
 
 export type SearchConsumerDeps = {
@@ -24,12 +25,7 @@ export type ConsumerEventBatch = {
   head_seq: string;
 };
 
-export type ConsumerEvent = {
-  seq: string;
-  type: string;
-  subject: string | null;
-  payload: unknown;
-};
+export type { ConsumerEvent };
 
 export const COALESCE_MS = 500;
 export const EVENT_PAGE_LIMIT = 200;

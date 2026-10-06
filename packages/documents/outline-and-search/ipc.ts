@@ -2,7 +2,14 @@
 // core는 event 구독에서 event를 읽고, 저장 event의 판은 원문 바이트를 byte chunk frame으로
 // 먼저 보낸 뒤 같은 channel을 가리키는 요청을 보낸다(file-tracking의 format 검사와 같은
 // 통로). coordinator가 유일한 derived writer라서 결과·FTS·cursor는 coordinator가 쓴다.
-import type { ConsumerEvent } from "./work.ts";
+// consumer가 받는 event 한 건. 이 파일이 정의한다(core graph가 이 파일을 import하므로 derived
+// store 어댑터에 닿는 파일을 import하지 않는다).
+export type ConsumerEvent = {
+  seq: string;
+  type: string;
+  subject: string | null;
+  payload: unknown;
+};
 
 export const SEARCH_OPS = {
   // 이어 받을 자리. 응답은 `{ processed_seq }`다.

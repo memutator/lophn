@@ -1,9 +1,5 @@
-import { parseSeq, type Result } from "../../base/mod.ts";
-import {
-  defineBlobField,
-  defineBlobPurpose,
-  type Tx,
-} from "../../contracts/platform/mod.ts";
+import { parseSeq } from "../../base/mod.ts";
+import type { Tx } from "../../contracts/platform/mod.ts";
 
 // 같은 문제의 최신 변경 seq. 문제마다 별도 counter가 없어 subject event에서 읽는다.
 // event 없는 문제는 0이다. seq는 삭제 trigger가 있어 빈 번호가 생기지 않는다.

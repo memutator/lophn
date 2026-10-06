@@ -117,13 +117,21 @@ async function open(files: Record<string, string> = {}): Promise<Opened> {
   });
   assert(started.ok, started.ok ? "" : started.error.message);
   const core = started.value;
-  await accept(core, {
-    principal: "user",
-    actor: "user",
-    scope: { operations: USER_OPERATIONS, targets: {} },
-    conditions: {},
-    credential_ref: "cred-files-user",
-  }, USER);
+  try {
+    await accept(core, {
+      principal: "user",
+      actor: "user",
+      scope: { operations: USER_OPERATIONS, targets: {} },
+      conditions: {},
+      credential_ref: "cred-files-user",
+    }, USER);
+  } catch (thrown) {
+    // 띄운 core를 닫지 않으면 서버·worker가 test process를 붙들어 실패가 멈춤으로 바뀐다.
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(folder, { recursive: true });
+    throw thrown;
+  }
   return {
     core,
     home,

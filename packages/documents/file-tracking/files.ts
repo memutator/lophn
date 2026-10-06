@@ -52,6 +52,9 @@ export type WriteInput = {
   content: AsyncIterable<Uint8Array>;
   // 호출자가 준 내용의 hash. 실제로 쓴 바이트의 hash와 다르면 설치하지 않는다.
   contentHash: string;
+  // 임시 파일을 둘 폴더. 없으면 목표의 폴더다. 목표 폴더를 쓸 수 없는 전역 지침 파일이 쓴다
+  // (같은 파일 시스템 안의 교체여야 하고, 아니면 복사로 바꾸지 않고 unavailable이다).
+  tempRoot?: string;
 };
 
 type Done = Result<FileDone, FileFailure>;
@@ -180,7 +183,7 @@ async function writeOnce(
   if (!base.ok) return base;
   const beforeHash = base.value;
 
-  const temp = tempNameFor(target.parent, deps.token());
+  const temp = tempNameFor(input.tempRoot ?? target.parent, deps.token());
   let handle: TempFile;
   try {
     handle = await ops.createTemp(

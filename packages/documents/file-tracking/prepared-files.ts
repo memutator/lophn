@@ -179,6 +179,9 @@ export async function writeLocation(
     baseHash: request.base_hash,
     content,
     contentHash: request.content.hash,
+    ...(request.location.temp_root === undefined
+      ? {}
+      : { tempRoot: request.location.temp_root }),
   });
   if (!done.ok || request.meta_create === undefined) return done;
   const metaPath = request.location.meta;

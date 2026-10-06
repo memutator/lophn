@@ -45,6 +45,8 @@ export function preparationSpec(
     [
       `${dataRoot}/documents/staging`,
       `${dataRoot}/documents/working-copies`,
+      // 전역 지침 파일 하나만 쓴다. data root 전체를 쓰지 않는다(임시 파일은 staging에 둔다).
+      `${dataRoot}/LOPHN.md`,
       ...active,
     ],
   );

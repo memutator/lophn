@@ -23,6 +23,7 @@ export {
   listDocuments,
   loadDocument,
   loadFiles,
+  loadInstructionDocuments,
   loadLatestVersion,
   loadLinkedDocuments,
   loadSourcelessDocuments,

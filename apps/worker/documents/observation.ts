@@ -10,14 +10,19 @@ import type {
   FileSource,
   FileTarget,
 } from "../../../packages/contracts/documents/mod.ts";
-import type {
-  ObservationBasisCheck,
-  ObservationCandidate,
-  ObservationSubmit,
-  StatusObservation,
-  StatusRecorder,
+import {
+  isUtf8,
+  type ObservationBasisCheck,
+  type ObservationCandidate,
+  type ObservationInstructionBasis,
+  type ObservationSubmit,
+  type StableOutcome,
+  type StatusObservation,
+  type StatusRecorder,
 } from "../../../packages/documents/file-tracking/mod.ts";
+import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
 import type { BasisStore } from "./basis.ts";
+import type { PreparationPool } from "./pool.ts";
 import type { CoreClient } from "./submit.ts";
 
 // 관측 파일이 이어지는 project·문서 근거. 근원은 core가 감독 pipe로 보낸 관측 근거다
@@ -383,5 +388,304 @@ export function retryOnNewBasis(
     if (first.ok || first.error.code !== "conflict") return first;
     if (!await store.changedSince(before, waitMs)) return first;
     return await inner(submission);
+  };
+}
+
+// 일반 root 관측이 등록된 지침 파일을 project 문서로 만들지 않는다. 그 파일은 지침 관측만 본다
+// (file-tracking#R19: 일반 폴더 tracking 범위와 지침 등록은 서로 넓히지 않는다).
+export function skipInstructionFiles(
+  inner: (submission: ObservationSubmit) => Promise<Result<void>>,
+  store: Pick<BasisStore, "instruction">,
+): (submission: ObservationSubmit) => Promise<Result<void>> {
+  return (submission) =>
+    store.instruction(submission.candidate.canonical) === undefined
+      ? inner(submission)
+      : Promise.resolve(ok(undefined));
+}
+
+export type InstructionObservationPorts =
+  & Omit<
+    ObservationPorts,
+    "link"
+  >
+  & {
+    store: Pick<BasisStore, "instruction">;
+    newDocumentId(): string;
+  };
+
+function instructionTarget(entry: ObservationInstructionBasis): FileTarget {
+  return {
+    kind: "instruction_file",
+    instruction_target: entry.instruction_target,
+    project: entry.project,
+    path: entry.path,
+  };
+}
+
+function instructionTitle(entry: ObservationInstructionBasis): string {
+  return entry.project === null
+    ? "Global instructions"
+    : "Project instructions";
+}
+
+// 등록된 지침 파일의 관측 하나를 Version까지 올린다. 처음 관측하는 파일은 사람의 첫 저장이거나
+// 사람이 미리 둔 파일이고(base_version null) 문서는 place·name 없이 instruction_file 원본에
+// 연결된다. 파일이 없으면 판도 없다. 읽기·UTF-8·hash 검사에 걸리면 판을 만들지 않고 상태만 남긴다.
+export function createInstructionSubmit(
+  ports: InstructionObservationPorts,
+): (submission: ObservationSubmit) => Promise<Result<void>> {
+  return async (submission) => {
+    const at = ports.nowIso();
+    const path = submission.candidate.canonical;
+    const entry = ports.store.instruction(path);
+    // 등록에서 사라진 파일의 늦은 제출이다. 추적 중으로 꾸미지 않는다.
+    if (entry === undefined) {
+      return err({
+        code: "not_found",
+        message: "instruction file is no longer registered",
+      });
+    }
+    const key = instructionTarget(entry);
+    const link = entry.link;
+    const status = (base: Partial<StatusObservation>): StatusObservation => ({
+      tracked: true,
+      missing: false,
+      unverified: false,
+      validationFailed: false,
+      observedHash: null,
+      latestHash: link?.latest_hash ?? null,
+      observedAt: at,
+      comparedVersion: link?.latest_version ?? null,
+      projectRevision: entry.project_revision,
+      details: null,
+      ...base,
+    });
+    if (submission.outcome.kind === "unverified") {
+      ports.status.report(
+        key,
+        status({ unverified: true, details: submission.outcome.reason }),
+      );
+      return ok(undefined);
+    }
+    const read = submission.outcome.read;
+    if (link?.status === "archived") {
+      ports.status.report(
+        key,
+        status({
+          unverified: true,
+          observedHash: read.hash,
+          details: "document archived",
+        }),
+      );
+      return ok(undefined);
+    }
+    if (!isUtf8(read.bytes)) {
+      ports.status.report(
+        key,
+        status({
+          validationFailed: true,
+          observedHash: read.hash,
+          details: "instruction file is not UTF-8",
+        }),
+      );
+      return ok(undefined);
+    }
+    if (link !== null && link.latest_hash === read.hash) {
+      ports.status.report(
+        key,
+        status({ observedHash: read.hash, latestHash: read.hash }),
+      );
+      return ok(undefined);
+    }
+    const blob = await ports.prepareBlob(read.bytes, read.hash);
+    if (!blob.ok) {
+      ports.status.report(
+        key,
+        status({ observedHash: read.hash, details: "blob preparation" }),
+      );
+      return blob;
+    }
+    const document = link?.document ?? ports.newDocumentId();
+    const baseVersion = link?.latest_version ?? null;
+    const basis: FileObservationBasis = {
+      kind: "instruction_file",
+      instruction_target: entry.instruction_target,
+      project: entry.project,
+      path,
+      instruction_revision: entry.instruction_revision,
+      project_revision: entry.project_revision,
+      file_source: link === null ? null : {
+        kind: "instruction_file",
+        instruction_target: entry.instruction_target,
+        project: entry.project,
+        path,
+      },
+      ...(link === null ? {} : {
+        document_revision: link.document_revision,
+        document_status: "active" as const,
+      }),
+      original_hash: read.hash,
+      observed_at: at,
+    };
+    const idempotency_key = ports.newKey();
+    const prepared = await ports.client.call("documents/prepare", {
+      document,
+      base_version: baseVersion,
+      ...(baseVersion === null
+        ? {
+          metadata: { title: instructionTitle(entry), place: null, name: null },
+        }
+        : {}),
+      files: [{
+        path: submission.candidate.relative,
+        blob_hash: read.hash,
+        bytes: read.bytes.length,
+        media_type: "text/markdown",
+        primary: true,
+        content: { kind: "prepared", blob: blob.value },
+      }],
+      file_basis: basis,
+      source: {
+        kind: "instruction_file",
+        instruction_target: entry.instruction_target,
+        project: entry.project,
+        path,
+        original_hash: read.hash,
+        observed_at: at,
+      },
+      idempotency_key,
+    });
+    if (!prepared.ok) {
+      ports.status.report(
+        key,
+        status({
+          observedHash: read.hash,
+          validationFailed: prepared.error.code === "invalid_input",
+          details: prepared.error.code,
+        }),
+      );
+      return err(prepared.error);
+    }
+    const preparedVersion = prepared.value as {
+      preparation_ref: string;
+      files: readonly { preparation_ref: string }[];
+    };
+    const saved = await ports.client.call("documents/save", {
+      input: preparedVersion,
+      idempotency_key,
+      compare: { base_version: baseVersion },
+      prepared: [
+        preparedVersion.preparation_ref,
+        ...preparedVersion.files.map((file) => file.preparation_ref),
+      ],
+    });
+    if (!saved.ok) {
+      ports.status.report(
+        key,
+        status({ observedHash: read.hash, details: saved.error.code }),
+      );
+      return err(saved.error);
+    }
+    ports.status.report(
+      key,
+      status({ observedHash: read.hash, latestHash: read.hash }),
+    );
+    return ok(undefined);
+  };
+}
+
+// 등록된 지침 파일의 관측 제출 근거. 등록의 문서 판·상태를 비교한다.
+export function instructionBasisFromStore(
+  store: Pick<BasisStore, "instruction">,
+): (candidate: ObservationCandidate) => ObservationBasisCheck {
+  return (candidate) => {
+    const entry = store.instruction(candidate.canonical);
+    return {
+      project: entry?.project ?? "",
+      projectRevision: entry?.instruction_revision ?? "",
+      path: candidate.canonical,
+      documentRevision: entry?.link?.document_revision ?? null,
+      active: entry?.link === null || entry?.link === undefined ||
+        entry.link.status === "active",
+      archived: entry?.link?.status === "archived",
+      rootPresent: entry !== undefined,
+    };
+  };
+}
+
+// 등록은 있는데 파일이 없다. 첫 저장 전에는 판이 없고(아무것도 만들지 않는다), 연결 문서가 있으면
+// source_missing 상태다. 지침 부재 성공이 아니다.
+export function reportInstructionMissing(
+  ports: Pick<InstructionObservationPorts, "store" | "status" | "nowIso">,
+  candidate: ObservationCandidate,
+): void {
+  const entry = ports.store.instruction(candidate.canonical);
+  if (entry === undefined) return;
+  const link = entry.link;
+  ports.status.report(instructionTarget(entry), {
+    tracked: link !== null,
+    missing: true,
+    unverified: false,
+    validationFailed: false,
+    observedHash: null,
+    latestHash: link?.latest_hash ?? null,
+    observedAt: ports.nowIso(),
+    comparedVersion: link?.latest_version ?? null,
+    projectRevision: entry.project_revision,
+    details: null,
+  });
+}
+
+// 등록된 지침 파일을 준비 worker로 읽는 port. coordinator는 등록 폴더(tracking을 끈 project 포함)를
+// 읽을 권한이 없고, 준비 worker가 등록 폴더 전부와 data root를 읽는다. 소유자·symlink·일반 파일
+// 검사와 안정 읽기는 준비 worker가 하고 coordinator는 hash·identity·바이트만 받는다.
+export function poolInstructionRead(
+  pool: Pick<PreparationPool, "request">,
+  dataRoot: string,
+): (path: string) => Promise<Result<StableOutcome, LophnError>> {
+  return async (path) => {
+    const answered = await pool.request({
+      op: PREPARATION_OPS.readInstruction,
+      payload: (_channel, replyChannel) => ({
+        path,
+        data_root: dataRoot,
+        channel: replyChannel,
+      }),
+      replyBytes: true,
+      priority: "background",
+      keys: [path],
+    });
+    if (!answered.ok) return answered;
+    const { payload, bytes } = answered.value as {
+      payload: {
+        kind: "stable" | "unverified";
+        reason?: string;
+        hash?: string;
+        identity?: {
+          realPath: string;
+          device: number;
+          inode: number;
+          size: number;
+          mtimeMs: number;
+        };
+      };
+      bytes: Uint8Array;
+    };
+    if (payload.kind === "unverified") {
+      return ok({
+        kind: "unverified",
+        reason: payload.reason ?? "instruction file is not stable",
+      });
+    }
+    if (payload.hash === undefined || payload.identity === undefined) {
+      return err({
+        code: "unavailable",
+        message: "instruction file read is invalid",
+      });
+    }
+    return ok({
+      kind: "stable",
+      read: { hash: payload.hash, bytes, identity: payload.identity },
+    });
   };
 }

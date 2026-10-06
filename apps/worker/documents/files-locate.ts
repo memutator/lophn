@@ -26,7 +26,7 @@ export type LocatorDeps = {
   // LOPHN_HOME. working copy 폴더의 근원이다.
   dataRoot: string;
   // 파일을 쓸 수 있는 폴더는 관측 root(tracking)가 아니라 등록 폴더 전부다.
-  basis: Pick<BasisStore, "folders">;
+  basis: Pick<BasisStore, "folders" | "instructions">;
   ops: Pick<FileOps, "realPath" | "makeDirectory">;
 };
 
@@ -69,6 +69,35 @@ export function createLocator(deps: LocatorDeps): Locator {
         return ok({
           location: { root, path: target.path },
           key: await canonicalKey(target.path),
+        });
+      }
+      if (target.kind === "instruction_file") {
+        // 사람이 [Instructions]로 연 exact 등록 파일만이다. 임의 경로·다른 target 참조는 같은
+        // invalid_input이다. 전역 파일의 폴더(data root)는 쓸 수 없어 임시 파일은 staging에 둔다.
+        const entry = deps.basis.instructions().find((item) =>
+          item.path === target.path &&
+          item.instruction_target === target.instruction_target &&
+          item.project === target.project
+        );
+        if (entry === undefined) return notAvailable();
+        if (entry.project === null) {
+          try {
+            await deps.ops.makeDirectory(`${deps.dataRoot}/documents`);
+            await deps.ops.makeDirectory(`${deps.dataRoot}/documents/staging`);
+          } catch {
+            return notAvailable();
+          }
+        }
+        const slash = entry.path.lastIndexOf("/");
+        return ok({
+          location: {
+            root: slash <= 0 ? "/" : entry.path.slice(0, slash),
+            path: entry.path,
+            ...(entry.project === null
+              ? { temp_root: `${deps.dataRoot}/documents/staging` }
+              : {}),
+          },
+          key: await canonicalKey(entry.path),
         });
       }
       if (target.kind === "working_copy") {

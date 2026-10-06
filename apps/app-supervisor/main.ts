@@ -46,7 +46,8 @@ const port: { value: number } = { value: 0 };
 // 앱마다 고정 자리의 socket이다(allow-net이 정확한 경로만 받아서 자리를 미리 허락한다).
 // 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다.
 const slots = new Map<string, number>();
-function socketPathsOf(app: string): { broker: string; direct: string } {
+// 앱의 두 socket 자리. 자리는 앱마다 한 번 정하고 계속 쓴다. 파일은 건드리지 않는다.
+function placeOf(app: string): { broker: string; direct: string } {
   let slot = slots.get(app);
   if (slot === undefined) {
     slot = slots.size;
@@ -63,12 +64,18 @@ function socketPathsOf(app: string): { broker: string; direct: string } {
   if (!created.ok) throw new Error(created.error.message);
   const made = slotSockets(created.value.directory, slot);
   if (!made.ok) throw new Error(made.error.message);
-  for (const path of [made.value.brokerSocket, made.value.directSocket]) {
+  return { broker: made.value.brokerSocket, direct: made.value.directSocket };
+}
+
+// 이전 자식이 남긴 socket 파일은 종료 확인 뒤 새 자식을 띄울 때 지운다.
+function socketPathsOf(app: string): { broker: string; direct: string } {
+  const made = placeOf(app);
+  for (const path of [made.broker, made.direct]) {
     try {
       Deno.removeSync(path);
     } catch { /* 없으면 지울 것이 없다 */ }
   }
-  return { broker: made.value.brokerSocket, direct: made.value.directSocket };
+  return made;
 }
 
 async function readBody(response: Response): Promise<unknown> {
@@ -110,6 +117,8 @@ const assembled = assembleSupervisor({
     ...(Deno.env.get("PATH") ? { path: Deno.env.get("PATH") } : {}),
   },
   socketPaths: socketPathsOf,
+  // app.call 대상의 direct socket 자리다. 대상이 지금 듣고 있을 수 있어 파일은 지우지 않는다.
+  directSocketOf: (app) => placeOf(app).direct,
   nonce: () => crypto.randomUUID(),
   wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   spawn: (launch) => spawnApp(launch),

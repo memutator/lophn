@@ -52,6 +52,7 @@ import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod
 import {
   type BrokerChild,
   type InvocationBroker,
+  pairSocketFlags,
   type ProblemsReport,
   socketFlags,
 } from "../../packages/apps/permissions/mod.ts";
@@ -60,7 +61,7 @@ import {
   createAutomationPermits,
 } from "../../packages/apps/automations/permits.ts";
 import { reportAcceptanceSchema } from "../../packages/contracts/problems/mod.ts";
-import { createCoreBrokerAccess } from "./access.ts";
+import { createCoreAppCallTargets, createCoreBrokerAccess } from "./access.ts";
 import { createCorePairs, forgetAtCore, observeStartsAtCore } from "./pairs.ts";
 import {
   type BrokerAdapters,
@@ -90,6 +91,9 @@ export type SupervisorIo = {
   deno: () => string;
   environment: AppEnvironment;
   socketPaths: (app: string) => { broker: string; direct: string };
+  // 다른 앱의 고정 자리 direct socket이다. 자리를 정하기만 하고 파일을 지우지 않는다(그 앱이 지금 듣고
+  // 있을 수 있다). 없으면 앱 자식에게 다른 앱 socket 허락을 더하지 않는다.
+  directSocketOf?: (app: string) => string;
   nonce: () => string;
   wait: (ms: number) => Promise<void>;
   spawn: (launch: AppLaunch) => Promise<Spawned>;
@@ -293,6 +297,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   }
 
   const toCore = { post: io.post, bearer: () => hello.credential };
+  const callTargets = createCoreAppCallTargets(toCore);
   const broker = createSupervisorBroker({
     adapters: {
       access: createCoreBrokerAccess(toCore),
@@ -493,6 +498,16 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       // 두 socket의 허락은 시작마다 새로 정한 경로로 supervisor가 더한다.
       const sockets = socketFlags(request.sockets);
       if (!sockets.ok) throw new Error(sockets.error.message);
+      // 사람이 허락한 app.call 대상의 direct socket에는 이 자식도 닿아야 한다. 조회가 막혔으면 더하지
+      // 않는다: 그 앱 호출만 NotCapable로 닫히고 나머지 시작은 그대로다.
+      let pairFlags: string[] = [];
+      if (io.directSocketOf !== undefined) {
+        const targets = await callTargets(request.app);
+        if (targets.ok) {
+          const made = pairSocketFlags(targets.value.map(io.directSocketOf));
+          if (made.ok) pairFlags = made.value;
+        }
+      }
       // 자식이 연결하기 전에 broker socket이 이미 듣고 있어야 한다. credential은 시작 입력에 있다.
       const credential = brokerCredentialOf(request.startLine);
       if (credential === undefined) {
@@ -517,7 +532,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
           entry: request.entry,
           flags: {
             ...request.flags,
-            args: [...request.flags.args, ...sockets.value],
+            args: [...request.flags.args, ...sockets.value, ...pairFlags],
           },
           importMap: request.importMap,
           environment: request.environment,

@@ -48,6 +48,9 @@ type RigOptions = {
   ) => { status: number; body: unknown } | undefined;
   adapters?: SupervisorIo["brokerAdapters"];
   invocations?: SupervisorIo["invocations"];
+  directSocketOf?: SupervisorIo["directSocketOf"];
+  // 띄운 자식의 실행 인자를 시험이 본다.
+  launched?: { flags: { args: string[] } }[];
 };
 
 async function rig(options: RigOptions = {}): Promise<Rig> {
@@ -145,7 +148,13 @@ async function rig(options: RigOptions = {}): Promise<Rig> {
     },
     nonce: () => crypto.randomUUID(),
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    spawn: (launch) => spawnApp(launch),
+    spawn: (launch) => {
+      options.launched?.push(launch);
+      return spawnApp(launch);
+    },
+    ...(options.directSocketOf === undefined
+      ? {}
+      : { directSocketOf: options.directSocketOf }),
     post: fake.post,
     direct: (endpoint, request) => unixDirectTransport(endpoint, request),
     send(message) {
@@ -464,7 +473,7 @@ function coreWorld() {
     release: FIXTURE_RELEASE as string | null,
     declarations: {
       permissions: [] as unknown[],
-      app_connections: [],
+      app_connections: [] as { app: string; commands: string[] }[],
       commands: [...COMMANDS],
       automations: [] as unknown[],
       problem_codes: [] as string[],
@@ -1003,6 +1012,66 @@ Deno.test("apps/permissions#R20: block 요청은 그 앱의 broker 연결을 새
       }),
       { blocked: 0 },
     );
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/connections#R4: 사람이 허락한 app.call 대상의 direct socket만 앱 자식의 Deno 허락에 더해진다", async () => {
+  const world = coreWorld();
+  const targetDirect = "/run/lophn/a7.sock";
+  world.declarations.app_connections = [
+    { app: PEER, commands: ["usage.read"] },
+    // 선언했지만 grant가 없는 앱, grant는 있지만 선언하지 않은 command는 허락이 아니다.
+    { app: "app_01h455vb4pex5v6nkc6gd5fdw7", commands: ["usage.read"] },
+  ];
+  world.grants = [
+    {
+      ...GRANT("app.call", { app: PEER, commands: ["usage.read"] }, 3),
+      id: "grt_01h455vb4pex5v6nkc6gd5fd03",
+    },
+    {
+      ...GRANT(
+        "app.call",
+        { app: "app_01h455vb4pex5v6nkc6gd5fdw7", commands: ["other.cmd"] },
+        4,
+      ),
+      id: "grt_01h455vb4pex5v6nkc6gd5fd04",
+    },
+  ];
+  const launched: { flags: { args: string[] } }[] = [];
+  const asked: string[] = [];
+  const r = await rig({
+    answer: (p, b, body) => world.answer(p, b, body),
+    launched,
+    directSocketOf: (app) => {
+      asked.push(app);
+      return app === PEER ? targetDirect : `/run/lophn/other-${app}.sock`;
+    },
+  });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    await until("ready", () => readyOf(r));
+    assertEquals(asked, [PEER]);
+    const args = launched[0].flags.args;
+    assert(args.includes(`--allow-net=unix:${targetDirect}`));
+    assert(
+      args.some((arg) =>
+        arg.startsWith("--allow-read=") && arg.includes(targetDirect)
+      ),
+    );
+    assert(
+      args.some((arg) =>
+        arg.startsWith("--allow-write=") && arg.includes(targetDirect)
+      ),
+    );
+    // 그 허락은 대상의 direct socket 하나뿐이고 외부 host는 없다.
+    for (
+      const arg of args.filter((entry) => entry.startsWith("--allow-net="))
+    ) {
+      assert(!arg.includes("*"));
+    }
+    assert(!args.some((arg) => arg.includes("other-")));
   } finally {
     await r.stop();
   }

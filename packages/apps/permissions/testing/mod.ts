@@ -32,7 +32,6 @@ import {
 } from "../../../contracts/platform/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 import {
-  type AppDeclarations,
   type CurrentDeclarations,
   currentDeclarations,
 } from "../declarations.ts";

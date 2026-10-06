@@ -677,3 +677,38 @@ export async function untilFile(path: string, expected: string): Promise<void> {
   }
   throw new Error(`파일이 기대한 글이 아니다: ${JSON.stringify(last)}`);
 }
+
+/** 최신 판의 본문 추출이 끝나 worker `documents/read`가 본문을 줄 때까지 기다린다. */
+export async function untilReadable(
+  flow: FlowShell,
+  document: string,
+  what: string,
+): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  for (;;) {
+    const got = await flow.call({
+      kind: "read",
+      resource: "documents",
+      method: "get",
+      body: { document },
+    });
+    if (got.ok) {
+      const latest = (got.value as { document: { latest_version: string } })
+        .document.latest_version;
+      const read = await flow.call({
+        kind: "worker",
+        resource: "documents",
+        method: "read",
+        body: { reference: { document, version: latest, section: null } },
+      });
+      if (
+        read.ok &&
+        (read.value as { text: string | null }).text !== null &&
+        (read.value as { section_status: string }).section_status !==
+          "unverified"
+      ) return;
+    }
+    assert(Date.now() < deadline, `${what}: 본문을 아직 읽을 수 없다`);
+    await delay(250);
+  }
+}

@@ -7,13 +7,11 @@ import { assert, assertEquals } from "@std/assert";
 import { e2eEnabled, READY_TIMEOUT_MS } from "../harness.ts";
 import { launchShell, type RunningShell } from "../run.ts";
 import {
-  documentTitled,
-  mustCall,
-  openFlowShell,
-  PROJECT,
-  registerTrackedProject,
+  openProjectWorkspace,
   removeHome,
-  untilDocuments,
+  typeAtEnd,
+  untilFile,
+  versionHistory,
 } from "../flow-support.ts";
 
 const repoRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
@@ -168,35 +166,14 @@ Deno.test({
     const file = `${folder}/notes.md`;
     const first = "# Notes\n\nFirst line.\n";
     await Deno.writeTextFile(file, first);
-    // 첫 실행: 사람이 프로젝트를 등록하고 추적을 켠다.
-    const setup = await openFlowShell();
-    const home = setup.home;
-    let documentId: string;
-    try {
-      await registerTrackedProject(setup, {
-        folder,
-        name: "notes",
-        title: "Notes",
-      });
-      await untilDocuments(
-        setup,
-        ["notes"],
-        "추적한 파일이 문서가 되지 않았다",
-      );
-      documentId = (await documentTitled(setup, "notes")).id;
-    } finally {
-      await setup.close();
-    }
-    // 두 번째 실행: 그 project 작업대부터 연다.
-    const flow = await openFlowShell({ home, start: `project:${PROJECT}` });
-    const versions = async () =>
-      ((await mustCall(flow, {
-        kind: "read",
-        resource: "documents",
-        method: "history",
-        body: { document: documentId },
-      })).versions as { number: number; saved_by: string }[])
-        .toSorted((a, b) => b.number - a.number);
+    const { flow, documentId } = await openProjectWorkspace({
+      folder,
+      name: "notes",
+      title: "Notes",
+      document: "notes",
+    });
+    const home = flow.home;
+    const versions = () => versionHistory(flow, documentId);
     let restore: (() => Promise<void>) | undefined;
     try {
       await t.step(
@@ -234,13 +211,9 @@ Deno.test({
             `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "edit"`,
             "편집 화면이 열리지 않았다",
           );
-          await flow.evaluate(
-            `(() => { const line = [...document.querySelectorAll(".cm-line")].at(-1); const range = document.createRange(); range.selectNodeContents(line); range.collapse(false); const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range); document.querySelector(".cm-content").focus(); return true; })()`,
-          );
-          const page = await flow.shell.connect("://desktop/");
-          await page.command("Input.insertText", { text: "Second line." });
+          await typeAtEnd(flow, "Second line.");
           // 입력이 멈추면 자동 저장이 파일을 원자 교체한다.
-          await waitForFile(file, `${first}Second line.`);
+          await untilFile(file, `${first}Second line.`);
           await flow.until(
             `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") === "saved"`,
             "파일 저장됨 상태가 오지 않았다",
@@ -265,9 +238,7 @@ Deno.test({
         async () => {
           const outside = "# Notes\n\nOutside.\n";
           await Deno.writeTextFile(file, outside);
-          await focusEnd(flow);
-          const page = await flow.shell.connect("://desktop/");
-          await page.command("Input.insertText", { text: " Mine." });
+          await typeAtEnd(flow, " Mine.");
           await flow.until(
             `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") === "conflict"`,
             "충돌 상태가 오지 않았다",
@@ -281,7 +252,7 @@ Deno.test({
           );
           assertEquals(await Deno.readTextFile(file), outside);
           await flow.click("[data-conflict-mine]");
-          await waitForFile(file, `${first}Second line. Mine.`);
+          await untilFile(file, `${first}Second line. Mine.`);
           await flow.until(
             `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") === "saved"`,
             "충돌을 푼 뒤 저장됨 상태가 오지 않았다",
@@ -291,11 +262,9 @@ Deno.test({
       await t.step(
         "edit-document 5 다른 갈래: 파일을 쓸 수 없으면 실패와 다시 시도를 알리고 풀리면 이어서 저장한다",
         async () => {
-          await focusEnd(flow);
           await Deno.chmod(folder, 0o555);
           restore = () => Deno.chmod(folder, 0o755);
-          const page = await flow.shell.connect("://desktop/");
-          await page.command("Input.insertText", { text: " Lost." });
+          await typeAtEnd(flow, " Lost.");
           await flow.until(
             `document.querySelector("[data-save-status]")?.getAttribute("data-save-status") === "failed"`,
             "저장 실패 상태가 오지 않았다",
@@ -312,7 +281,7 @@ Deno.test({
           restore = undefined;
           await flow.click("[data-save-action='retry']");
           // 풀린 뒤 다시 시도하면 사람의 글이 파일에 쓰인다.
-          await waitForFile(file, `${first}Second line. Mine. Lost.`);
+          await untilFile(file, `${first}Second line. Mine. Lost.`);
           // 쓴 뒤 편집기가 바깥 변경으로 읽으면 충돌 해결 길로 끝낸다(해결 뒤에는 저장됨이다).
           await flow.until(
             `/^(saved|conflict)$/.test(document.querySelector("[data-save-status]")?.getAttribute("data-save-status") ?? "")`,
@@ -344,22 +313,3 @@ Deno.test({
     }
   },
 });
-
-async function focusEnd(
-  flow: { evaluate(e: string): Promise<unknown> },
-): Promise<void> {
-  await flow.evaluate(
-    `(() => { const line = [...document.querySelectorAll(".cm-line")].at(-1); const range = document.createRange(); range.selectNodeContents(line); range.collapse(false); const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range); document.querySelector(".cm-content").focus(); return true; })()`,
-  );
-}
-
-async function waitForFile(path: string, expected: string): Promise<void> {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  let last = "";
-  while (Date.now() < deadline) {
-    last = await Deno.readTextFile(path);
-    if (last === expected) return;
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  throw new Error(`파일이 기대한 글이 아니다: ${JSON.stringify(last)}`);
-}

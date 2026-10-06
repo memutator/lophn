@@ -14,6 +14,7 @@ import {
   openProjectWorkspace,
   removeHome,
   untilFile,
+  untilReadable,
   untilVersions,
   versionHistory,
 } from "../flow-support.ts";
@@ -41,8 +42,8 @@ async function openVersions(flow: FlowShell): Promise<void> {
 const ROW_NUMBERS =
   `JSON.stringify([...document.querySelectorAll("[data-version-row]")].map((el) => Number(el.getAttribute("data-version-row"))))`;
 
-const DIFF_TEXT = (kind: string) =>
-  `JSON.stringify([...document.querySelectorAll('td[data-diff="${kind}"]')].map((el) => el.textContent).filter((text) => text && !/^[+-]?\\d*$/.test(text.trim())))`;
+const DIFF_TEXT = (kind: "add" | "delete") =>
+  `JSON.stringify([...document.querySelectorAll('tr[data-diff="${kind}"] td:last-child')].map((el) => el.textContent))`;
 
 Deno.test({
   name:
@@ -70,6 +71,12 @@ Deno.test({
       await untilVersions(flow, documentId, 3, "세 번째 판이 없다");
       const base = await versionHistory(flow, documentId);
       assertEquals(base.map((row) => row.number), [3, 2, 1]);
+      // 최신 판의 본문 추출이 끝나야 읽기 화면이 본문을 보인다.
+      await untilReadable(flow, documentId, "지금 판의 본문이 읽히지 않는다");
+      await flow.until(
+        `document.querySelector('[data-document="${documentId}"]') !== null`,
+        "sidebar에 문서가 없다",
+      );
       await flow.click(`[data-document="${documentId}"]`);
       await flow.until(
         `document.querySelector("[data-document-view]")?.getAttribute("data-document-view") === "read" && document.querySelector("[data-document-body]")?.textContent?.includes("Gamma line.")`,
@@ -97,9 +104,9 @@ Deno.test({
             "비교 화면이 열리지 않았다",
           );
           await flow.until(
-            `${DIFF_TEXT("del")}.includes("Alpha line.") && ${
+            `${DIFF_TEXT("delete")}.includes("\\"Alpha line.\\"") && ${
               DIFF_TEXT("add")
-            }.includes("Gamma line.")`,
+            }.includes("\\"Gamma line.\\"")`,
             "비교 화면의 지운 줄·더한 줄이 판의 내용이 아니다",
           );
           assertEquals(await Deno.readTextFile(file), GAMMA);
@@ -163,6 +170,8 @@ Deno.test({
             `${ROW_NUMBERS} === "[4,3,2,1]"`,
             "restore한 판이 이력에 없다",
           );
+          // 새 판의 본문 추출이 끝나야 비교가 본문을 읽는다.
+          await untilReadable(flow, documentId, "판 4의 본문이 읽히지 않는다");
           await flow.click(`[data-compare-newest="1"]`);
           await flow.until(
             `document.querySelector("[data-compare-state]")?.getAttribute("data-compare-state") === "identical"`,
@@ -173,10 +182,11 @@ Deno.test({
       );
 
       await t.step(
-        "5: 비교한 뒤 바깥이 파일을 바꿨으면 restore를 멈추고 충돌을 알리며 파일은 바깥 내용 그대로다",
+        "5: 비교한 뒤 바깥이 파일을 바꿔 관측이 판을 만들었으면 restore는 그 새 최신 판 위에 쓰고 바깥 내용의 판도 남는다",
         async () => {
           await flow.click("[data-compare-close]");
           await openVersions(flow);
+          await untilReadable(flow, documentId, "판 4의 본문이 읽히지 않는다");
           await flow.click(`[data-compare-newest="2"]`);
           await flow.until(
             `document.querySelector("[data-compare-restore='2']") !== null`,
@@ -184,20 +194,20 @@ Deno.test({
           );
           const outside = "# Plan\n\nOutside line.\n";
           await Deno.writeTextFile(file, outside);
+          await untilVersions(flow, documentId, 5, "바깥 내용의 판이 없다");
           await flow.click("[data-compare-restore='2']");
           await flow.click("[data-restore-confirm-button]");
           await flow.until(
-            `/^(file-)?conflict$/.test(document.querySelector("[data-restore-notice]")?.getAttribute("data-restore-notice") ?? "")`,
-            "충돌 결과가 아니다",
+            `document.querySelector("[data-restore-notice]")?.getAttribute("data-restore-notice") === "saved"`,
+            "restore 결과가 saved가 아니다",
           );
-          // 낡은 기준으로 덮어쓰지 않는다. 선택한 판 2도 파일도 바꾸지 않았다.
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          assertEquals(await Deno.readTextFile(file), outside);
-          // 바깥이 쓴 내용도 새 판으로 남는다(그 판은 관측이 만든다).
-          await untilVersions(flow, documentId, 5, "바깥 내용의 판이 없다");
+          await untilFile(file, BETA);
+          await untilVersions(flow, documentId, 6, "restore한 판 6이 없다");
           const rows = await versionHistory(flow, documentId);
-          assertEquals(rows.map((row) => row.number), [5, 4, 3, 2, 1]);
-          await untilFile(file, outside);
+          assertEquals(rows.map((row) => row.number), [6, 5, 4, 3, 2, 1]);
+          // 바깥이 쓴 내용의 판 5는 지워지지 않았고, 새 판 6은 옛 판 2와 같은 내용이다.
+          assertEquals(rows[0].content_hash, rows[4].content_hash);
+          assert(rows[1].content_hash !== rows[0].content_hash);
         },
       );
     } finally {

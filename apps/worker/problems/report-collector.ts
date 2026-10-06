@@ -13,6 +13,7 @@ import type {
   WorkerRequest,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
+  observeViewErrorInputSchema,
   REPORT_RETRY_DELAYS_MS,
   reportProblemInputSchema,
 } from "../../../packages/contracts/problems/mod.ts";
@@ -258,6 +259,16 @@ export async function runCollectorWorker(): Promise<void> {
       }
       if (request.op === "ObserveException") {
         return await observeExceptionPayload(
+          request.payload,
+          client,
+          redaction,
+          queue,
+          session,
+          position,
+        );
+      }
+      if (request.op === "ObserveViewError") {
+        return await observeViewErrorPayload(
           request.payload,
           client,
           redaction,
@@ -1058,6 +1069,147 @@ async function confirmInvocation(
   } catch {
     return undefined;
   }
+}
+
+// view 출처 exception 보고 접수(reporting#R5, R6). 모든 observation 종류(error,
+// unhandledrejection, render_error)를 view_observer 출처로 받는다. view stack은
+// 수집하지 않고, 다른 처리는 process exception과 같다.
+export async function observeViewErrorPayload(
+  payload: unknown,
+  client: CoreClientOptions,
+  redaction: RedactionEngine,
+  queue: ReturnType<typeof createCollectorQueue>,
+  session: ChildSession,
+  position: CollectorPosition,
+  logs: CollectorLogs = coreLogs(client),
+): Promise<unknown> {
+  // view의 app·release·mode·bundle_hash는 core가 서명 검증한 binding에서 정해 보낸
+  // 값이다(apps/core/view-binding.ts). 페이지 주장은 그 전에 덮여 여기까지 오지 않는다.
+  const parsedView = observeViewErrorInputSchema.safeParse(payload);
+  if (!parsedView.success) {
+    throw new Error("invalid view error payload");
+  }
+  const { app, release, mode, bundle_hash } = parsedView.data.view;
+  const obs = parsedView.data.observation;
+  // view error는 항상 view_observer 출처다(reporting#R5).
+  const origin = "view_observer" as const;
+  // raw 문자는 bounded memory에서 redaction을 거친다(R1).
+  const rawError = obs.error;
+  const redactedName = rawError === null
+    ? ""
+    : await redactText(redaction, rawError.name) ?? "*";
+  const redactedMessage = rawError === null ? null : await redactText(
+    redaction,
+    rawError.message === null ? undefined : rawError.message,
+  );
+  const messageMissing = rawError === null
+    ? null
+    : rawError.message === null
+    ? rawError.message_missing_reason
+    : redactedMessage === null
+    ? { reason: "redaction" }
+    : null;
+  const stackMissing = { reason: "view_stack_not_collected" };
+  // view error는 stack을 수집하지 않는다(reporting#R5).
+  const redactedStack = null;
+  // 조립은 process exception과 같다.
+  const assembled = await assembleException(
+    {
+      report_id: obs.report_id,
+      observed_at: obs.observed_at,
+      observation: obs.observation,
+      error: rawError === null ? null : {
+        name: redactedName,
+        message: redactedMessage,
+        message_missing_reason: messageMissing,
+        stack: redactedStack,
+        stack_missing_reason: stackMissing,
+      },
+      error_missing_reason: obs.error_missing_reason,
+      invocation: obs.invocation,
+    },
+    {
+      app,
+      bundle_hash,
+    },
+    {
+      blobPrepare: {
+        prepare: (input, bytes) => prepareViaStream(session, input, bytes),
+      },
+      folder: {
+        appsRoot: collectorAppsRoot(),
+      },
+      nowAt: atNow(),
+      principal: "collector",
+      logs: {
+        detailCollection: await logs.detailCollection(),
+        source: logs.source,
+        redact: (text) => redactText(redaction, text),
+      },
+    },
+  );
+  if (!assembled.ok) {
+    throw new Error("view error snapshot assembly failed");
+  }
+  const result = assembled.value;
+  const checked = snapshotInputSchema.safeParse(result.snapshot);
+  if (!checked.success) {
+    throw new Error("assembled snapshot does not pass snapshot schema");
+  }
+  const report: RecordReportInput["report"] = {
+    id: obs.report_id,
+    source: "exception",
+    code: "_exception",
+    text: null,
+    details: null,
+    snapshot: result.snapshot.id,
+    observed_at: obs.observed_at,
+    principal: "collector",
+    app,
+    mode,
+    diagnostic_scope: null,
+    release,
+    release_missing_reason: release === null ? "collector" : null,
+    bundle_hash,
+    content_hash: "",
+  } as RecordReportInput["report"];
+  const invocation = await confirmInvocation(
+    client,
+    obs.invocation,
+  );
+  const snapshot: RecordReportInput["snapshot"] = invocation === undefined
+    ? {
+      ...result.snapshot,
+      invocation: result.snapshot.invocation,
+      invocation_missing_reason: result.snapshot.invocation_missing_reason,
+    }
+    : result.snapshot.invocation?.id === invocation.id
+    ? {
+      ...result.snapshot,
+      invocation: {
+        id: invocation.id,
+        binding: result.snapshot.invocation!.binding,
+        record_missing_reason: null,
+      },
+      invocation_missing_reason: null,
+    }
+    : {
+      ...result.snapshot,
+      invocation: result.snapshot.invocation,
+      invocation_missing_reason: result.snapshot.invocation_missing_reason,
+    };
+  return await submitException(
+    client,
+    report,
+    snapshot,
+    result.group_key,
+    result.stack_prepared,
+    result.logs_prepared,
+    queue,
+    session,
+    origin,
+    position,
+  );
 }
 
 // launchArgv가 내는 argv의 entry는 이 모듈 자체다(T8 worker main과 다른 갈래).

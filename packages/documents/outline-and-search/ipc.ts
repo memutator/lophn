@@ -20,6 +20,9 @@ export const SEARCH_OPS = {
   apply: "documents.search_apply",
   // consumer가 쓰지 않는 event를 지나 cursor만 앞으로 보낸다.
   advance: "documents.search_advance",
+  // core가 지금 ledger의 식별(`platform/status`의 ledger_id)을 알린다. 응답은 `{}`다. coordinator의
+  // derived store가 다른 ledger의 것이면(복원 뒤) 이 식별로 맞춘 뒤에야 위 요청에 답한다.
+  ledger: "documents.search_ledger",
 } as const;
 
 // consumer가 이해하는 event. 이 밖의 event(대상 불명)는 전체 무효화가 되므로 보내지 않고
@@ -174,4 +177,10 @@ export function parseSearchAdvance(value: unknown): string | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   const to = (value as Record<string, unknown>).to;
   return seq(to) ? to : undefined;
+}
+
+export function parseSearchLedger(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const id = (value as Record<string, unknown>).ledger_id;
+  return typeof id === "string" && id.length > 0 ? id : undefined;
 }

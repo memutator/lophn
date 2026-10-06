@@ -28,9 +28,11 @@ import type { ExtractionRecord } from "../../../packages/documents/outline-and-s
 import {
   parseSearchAdvance,
   parseSearchApply,
+  parseSearchLedger,
   SEARCH_OPS,
   type SearchExtractionRequest,
 } from "../../../packages/documents/outline-and-search/mod.ts";
+import type { LedgerGate } from "./ledger-gate.ts";
 import type { ByteInbox } from "./validation.ts";
 
 // 같은 event의 추출이 이만큼 연달아 끝나지 않으면 판을 failed로 남기고 cursor를 진행한다.
@@ -48,6 +50,9 @@ export type SearchDeps = {
   inbox: ByteInbox;
   // format runner 호출. 제품은 `createFormatHandlers().call`이다.
   call(input: FormatCall): Promise<Result<unknown, LophnError>>;
+  // store가 지금 ledger의 것임을 확인하는 문. 있으면 맞춰질 때까지 consumer 요청은 기다린다
+  // (복원 뒤 옛 ledger의 cursor로 받지 않는다).
+  gate?: LedgerGate;
 };
 
 // 데이터 root의 derived 폴더에서 store를 연다. 못 열면 consumer를 올리지 않는다(요청은
@@ -204,29 +209,51 @@ export function createSearchServing(deps: SearchDeps): SearchServing {
     );
   }
 
+  function route(request: WorkerRequest): Promise<WorkerResponse> | undefined {
+    if (request.op === SEARCH_OPS.ledger) {
+      const id = parseSearchLedger(request.payload);
+      if (id === undefined) {
+        return Promise.resolve(
+          respond(request, err({ code: "invalid_input", message: "bad" })),
+        );
+      }
+      // 한 coordinator 수명에 한 번 맞춘다. 같은 요청이 다시 와도 이미 맞춘 뒤다.
+      deps.gate?.attach(() => Promise.resolve(ok(id)));
+      return Promise.resolve(respond(request, ok({})));
+    }
+    if (request.op === SEARCH_OPS.cursor) {
+      return Promise.resolve(
+        respond(
+          request,
+          ok({ processed_seq: searchCursorOf(deps.store.read) }),
+        ),
+      );
+    }
+    if (request.op === SEARCH_OPS.advance) {
+      const to = parseSearchAdvance(request.payload);
+      if (to === undefined) {
+        return Promise.resolve(
+          respond(request, err({ code: "invalid_input", message: "bad" })),
+        );
+      }
+      return Promise.resolve(
+        respond(request, advanceSearchCursor(deps.store, to)),
+      );
+    }
+    if (request.op === SEARCH_OPS.apply) return apply(request);
+    return undefined;
+  }
+
   return {
     handle(request) {
-      if (request.op === SEARCH_OPS.cursor) {
-        return Promise.resolve(
-          respond(
-            request,
-            ok({ processed_seq: searchCursorOf(deps.store.read) }),
-          ),
-        );
-      }
-      if (request.op === SEARCH_OPS.advance) {
-        const to = parseSearchAdvance(request.payload);
-        if (to === undefined) {
-          return Promise.resolve(
-            respond(request, err({ code: "invalid_input", message: "bad" })),
-          );
-        }
-        return Promise.resolve(
-          respond(request, advanceSearchCursor(deps.store, to)),
-        );
-      }
-      if (request.op === SEARCH_OPS.apply) return apply(request);
-      return undefined;
+      const consumer = request.op === SEARCH_OPS.cursor ||
+        request.op === SEARCH_OPS.advance || request.op === SEARCH_OPS.apply;
+      if (!consumer || deps.gate === undefined) return route(request);
+      return deps.gate.ready().then((ready) =>
+        ready.ok
+          ? route(request) ?? respond(request, ok(undefined))
+          : respond(request, ready)
+      );
     },
     close() {
       deps.store.close();

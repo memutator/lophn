@@ -62,6 +62,7 @@ export {
   extractionTargetOf,
   parseSearchAdvance,
   parseSearchApply,
+  parseSearchLedger,
   SEARCH_CONSUMED_EVENTS,
   SEARCH_INPUT_MAX_BYTES,
   SEARCH_OPS,

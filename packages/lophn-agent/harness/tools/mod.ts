@@ -7,11 +7,29 @@ export {
   findTool,
   FORBIDDEN_TOOL_NAMES,
   listTools,
+  TOOL_BUNDLES,
   type ToolCatalog,
   type ToolDefinition,
   type ToolOrigin,
   type ToolSource,
 } from "./registry.ts";
+export {
+  createDocumentToolHandlers,
+  DOCUMENT_READ_CODEPOINTS,
+  DOCUMENT_READ_TOOL_NAMES,
+  DOCUMENT_TOOL_REVISION,
+  DOCUMENT_TOOLS,
+  DOCUMENT_WRITE_TOOL_NAMES,
+  type DocumentToolPorts,
+} from "./bundles/document.ts";
+export {
+  createFormatToolHandlers,
+  FORMAT_TOOL_NAMES,
+  FORMAT_TOOL_REVISION,
+  FORMAT_TOOLS,
+  type FormatToolPorts,
+} from "./bundles/format.ts";
+export { createBuiltinToolHandlers } from "./bundles/handlers.ts";
 export {
   AGENT_TOOL_REVISION,
   AGENT_TOOLS,

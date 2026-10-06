@@ -152,3 +152,99 @@ export function boundedResult(
 ): ToolResult {
   return limited.complete ? result : { ...result, complete: false };
 }
+
+// 소유 contract의 cursor를 감싸는 이어 보기 위치다. 조건(scope)을 같이 담아 다른 조건의 목록에서
+// 온 cursor를 거절하고(R13), 한 page에서 앞 20개만 보여 준 뒤의 위치(skip)도 지킨다.
+// 소유 contract의 cursor는 그대로 안에 둔다. 해석하거나 만들어 내지 않는다.
+export type WindowCursor = {
+  inner: string | null;
+  skip: number;
+  scope: string;
+};
+
+function toBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+export function encodeWindowCursor(cursor: WindowCursor): string {
+  return toBase64(JSON.stringify(cursor));
+}
+
+export function decodeWindowCursor(cursor: string): WindowCursor | null {
+  try {
+    const bytes = Uint8Array.from(atob(cursor), (char) => char.charCodeAt(0));
+    const parsed = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+    ) as Partial<WindowCursor>;
+    return (parsed.inner === null || typeof parsed.inner === "string") &&
+        typeof parsed.skip === "number" && Number.isInteger(parsed.skip) &&
+        parsed.skip >= 0 && typeof parsed.scope === "string"
+      ? { inner: parsed.inner, skip: parsed.skip, scope: parsed.scope }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export type FitJson = {
+  content: unknown;
+  complete: boolean;
+  originalBytes: number;
+  // 빠진 항목 수. 키마다 따로 content.omitted에도 있다.
+  omittedCount: number;
+};
+
+function jsonBytes(value: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+}
+
+// 상한을 넘는 JSON 결과는 지정한 배열 키의 뒤쪽 항목부터 덜어 낸다. 항목 하나를 쪼개지 않으므로
+// JSON·문자열 경계가 깨지지 않고, 덜어 낸 수는 content.omitted에 남는다(R14). 덜어 낼 배열이
+// 없으면 content를 비운다(limitJson과 같다).
+export function fitJson(
+  value: Record<string, unknown>,
+  arrayKeys: readonly string[],
+): FitJson {
+  const originalBytes = jsonBytes(value);
+  if (originalBytes <= TEXT_MAX_BYTES) {
+    return { content: value, complete: true, originalBytes, omittedCount: 0 };
+  }
+  const copy: Record<string, unknown> = { ...value };
+  const omitted: Record<string, number> = {};
+  // omitted 표시가 들어갈 자리를 먼저 비운다.
+  const reserve = 256;
+  const arrays = () =>
+    arrayKeys.filter((key) =>
+      Array.isArray(copy[key]) && (copy[key] as unknown[]).length > 0
+    );
+  while (jsonBytes(copy) + reserve > TEXT_MAX_BYTES) {
+    const keys = arrays();
+    if (keys.length === 0) {
+      return {
+        content: null,
+        complete: false,
+        originalBytes,
+        omittedCount: 0,
+      };
+    }
+    const longest = keys.reduce((best, key) =>
+      (copy[key] as unknown[]).length > (copy[best] as unknown[]).length
+        ? key
+        : best
+    );
+    const items = copy[longest] as unknown[];
+    const drop = Math.max(1, Math.floor(items.length / 4));
+    copy[longest] = items.slice(0, items.length - drop);
+    omitted[longest] = (omitted[longest] ?? 0) + drop;
+  }
+  copy["omitted"] = omitted;
+  return {
+    content: copy,
+    complete: false,
+    originalBytes,
+    omittedCount: Object.values(omitted).reduce((a, b) => a + b, 0),
+  };
+}

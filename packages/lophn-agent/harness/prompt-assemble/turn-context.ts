@@ -31,7 +31,7 @@ export type TurnContextInput = {
 
 export type TurnContextDeps = {
   // 화면 글의 redaction. 끝내지 못하면 null이고 그 값은 넣지 않는다.
-  redact(text: string): string | null;
+  redact(text: string): string | null | Promise<string | null>;
 };
 
 export type TurnContext = {
@@ -145,15 +145,18 @@ export async function buildTurnContext(
     ...input.tabs.filter((tab) => !tab.selected),
   ];
   const candidates: Plan["tabs"] = [];
-  for (const tab of focusFirst) {
-    const line = deps.redact(tabLine(tab));
+  const lines = await Promise.all(
+    focusFirst.map((tab) => deps.redact(tabLine(tab))),
+  );
+  focusFirst.forEach((tab, index) => {
+    const line = lines[index]!;
     if (line !== null && candidates.length < TURN_CONTEXT_MAX_TABS) {
       candidates.push({ tab, line });
     }
-  }
+  });
   const focusedCount = candidates.filter((c) => c.tab.selected).length;
 
-  let summary: string | null = deps.redact(view.summary);
+  let summary: string | null = await deps.redact(view.summary);
   let note = "없음";
   if (summary === null) {
     basis.unavailable.push("redacted");

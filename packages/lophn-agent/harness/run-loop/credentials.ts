@@ -36,7 +36,10 @@ export type AgentRunCredential = {
 export type RunCredentialOptions = {
   issuer: AgentCredentialIssuer;
   // agent actor가 닿을 수 있는 operation 이름. platform의 발급 상한 안이어야 한다.
-  operations: readonly string[];
+  // 함수이면 run의 AgentAppScope(역할)마다 정한다. 역할 상한 안의 목록만 발급을 받는다.
+  operations:
+    | readonly string[]
+    | ((scope: AgentAppScope) => readonly string[]);
   // 감독 pipe가 정한 runtime process 이름.
   process: string;
 };
@@ -82,7 +85,11 @@ export function createRunCredentials(
         actor: `agent:${input.assignment}`,
         principal: `agent:${input.assignment}`,
         scope: {
-          operations: [...options.operations],
+          operations: [
+            ...(typeof options.operations === "function"
+              ? options.operations(input.scope)
+              : options.operations),
+          ],
           targets: { assignment: input.assignment, run: input.run },
           agent: input.scope,
         },

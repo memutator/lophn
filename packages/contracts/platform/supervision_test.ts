@@ -25,6 +25,8 @@ import {
   PROCESS_KINDS,
   processKindSchema,
   readySchema,
+  redactRequestSchema,
+  redactResponseSchema,
   runMetadataSchema,
   stoppedSchema,
   stopSchema,
@@ -644,4 +646,44 @@ Deno.test("lophn-agent/harness/run-loop#R8: agent credential 요청·응답·종
   assert(agentCredentialEndSchema.safeParse(end).success);
   assert(childMessageSchema.safeParse(end).success);
   assert(!parentMessageSchema.safeParse(end).success);
+});
+
+Deno.test("lophn-agent/harness/run-loop#R8: 안전화 요청은 조각 수와 합 크기를 제한하고 응답은 자리만 싣는다", () => {
+  const request = {
+    type: "redact_request",
+    request_id: "r",
+    windows: ["a secret", "b"],
+  };
+  assert(redactRequestSchema.safeParse(request).success);
+  assert(childMessageSchema.safeParse(request).success);
+  assert(!parentMessageSchema.safeParse(request).success);
+  assert(!redactRequestSchema.safeParse({ ...request, windows: [] }).success);
+  assert(
+    !redactRequestSchema.safeParse({
+      ...request,
+      windows: Array.from({ length: 129 }, () => "x"),
+    }).success,
+  );
+  assert(
+    !redactRequestSchema.safeParse({
+      ...request,
+      windows: ["x".repeat(32_769)],
+    }).success,
+  );
+  const ok = {
+    type: "redact_response",
+    request_id: "r",
+    ok: true,
+    spans: [[{ index: 2, length: 6 }], []],
+  };
+  assert(redactResponseSchema.safeParse(ok).success);
+  assert(parentMessageSchema.safeParse(ok).success);
+  assert(
+    redactResponseSchema.safeParse({
+      type: "redact_response",
+      request_id: "r",
+      ok: false,
+    }).success,
+  );
+  assert(!redactResponseSchema.safeParse({ ...ok, text: "raw" }).success);
 });

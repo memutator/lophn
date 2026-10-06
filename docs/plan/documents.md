@@ -589,12 +589,15 @@ concerns: [documents]
 - 내놓는 contract: 파일 쓰기와 저장 준비 contract의 instruction_file 가지, 지침 대상(등록 locator 또는 preset 첨부)의 현재 확정 판 read와 지침 문서 여부 표시(lophn-agent/instructions#R3, R6이 씀)
 - slice: agent
 - 선행: T12, T19, contracts#T27(지침 값·첨부 read·첨부 판정 port; lophn-agent 구현 T18은 이 작업 뒤)
+- 상태: 진행 (#346) — 남은 것: document.move·set_source 보호, instruction_file 파일 관측 로직
 - 완료:
-  - 전역 `~/.lophn/LOPHN.md`·project·app LOPHN.md·preset 첨부 지침은 exact 등록 파일만 관측(data root 재귀 tracking·부모 순회·cwd 추측 없음), owner·실제 열린 파일·symlink·UTF-8·hash 검사
-  - 최초 생성은 미존재 CAS, 저장·복원은 base_hash와 base_version CAS 뒤 재관측으로 새 판. 파일이 없으면 첫 저장 전에는 version 없음, agent가 빈 파일을 만들지 않음
-  - 지침 문서는 agent·coding agent·app의 create·save·제목·move·source 변경이 forbidden(다른 출력으로 지정해도). agent는 question 제안만
-  - 전역 지침은 place·name null의 instruction_file source, Project·system place 자동 생성 없음. LOPHN.md와 AGENTS.md 구별
-  - `*_test.ts`에 각 요구 번호 테스트
+  - agent·coding_agent·app의 document.save·update(제목)가 지침 문서에 forbidden (InstructionAttachments·OperatorOutput 포트 확인)
+  - 포트 모킹으로 테스트 기반 마련 (documents/versions: 20개 테스트 통과)
+- 남은 것:
+  - document.move·document.set_source가 지침 문서에 forbidden (addressing 자리)
+  - FileObservationBasis의 instruction_file 가지 처리와 관측 로직
+  - file-tracking#R19 exact 등록 파일만 관측 (data root·부모 순회·cwd 추측 없음)
+  - 지침 문서 생성 방지 (createDocument)
 
 ### T29 설치 안내 읽기
 

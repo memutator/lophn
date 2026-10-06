@@ -52,6 +52,7 @@ function editorOf(): EditorDeps {
     watch: () => new Promise(() => {}),
     restore: unavailable,
     create: unavailable,
+    place: unavailable,
     release: () => Promise.resolve(),
     counts: () => {},
     onCloseRequest: () => () => {},

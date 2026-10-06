@@ -11,6 +11,10 @@ import { manualClock, ok, seededRandom } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import {
   diffPageSchema,
+  documentPrepare,
+  documentSave,
+  documentUpload,
+  FORMAT_CHECK_CONTENT_MAX_BYTES,
   sectionHistoryPageSchema,
 } from "../../packages/contracts/documents/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
@@ -663,6 +667,112 @@ Deno.test("documents/versions#R10: 낡은 base로 restore하면 conflict고 권�
     }, LIMITED_TOKEN);
     assert(hidden.status >= 400);
     assertEquals(hidden.status, missing.status);
+  } finally {
+    await opened.dispose();
+  }
+});
+
+const BIG_DOCUMENT = "doc_01arz3ndektsv4rrffq69g5fb0";
+
+Deno.test("documents/versions#R10 documents/formats#R4: 검사 한도(1 MiB)를 넘는 명시 format 판도 restore되고 새 바이트의 같은 저장은 그대로 거절된다", async () => {
+  const opened = await open();
+  try {
+    await createProject(opened);
+    const client = createCoreClient({
+      baseUrl: `http://127.0.0.1:${opened.core.port}`,
+      connection: CAC,
+      provider: () =>
+        Promise.resolve({ ok: true, value: { token: AGENT_TOKEN } }),
+    });
+    const big = `${V1}${"한 줄\n".repeat(400_000)}`;
+    const bigBytes = new TextEncoder().encode(big);
+    assert(bigBytes.length > FORMAT_CHECK_CONTENT_MAX_BYTES);
+    const blobHash = createHash("sha256").update(bigBytes).digest("hex");
+    const upload = async () => {
+      const sent = await client.upload(
+        documentUpload,
+        { blob_hash: blobHash, bytes: bigBytes.length },
+        new Blob([bigBytes]).stream(),
+      );
+      assert(sent.ok, sent.ok ? "" : JSON.stringify(sent.error));
+      return [{
+        path: "plan.md",
+        blob_hash: blobHash,
+        bytes: bigBytes.length,
+        media_type: "text/markdown",
+        primary: true,
+        content: { kind: "prepared", blob: sent.value },
+      }];
+    };
+    // 새 바이트를 명시 format으로 저장하려는 시도는 검사 한도 때문에 거절된다.
+    const implicit = await client.read(documentPrepare, {
+      document: BIG_DOCUMENT,
+      base_version: null,
+      metadata: { title: "계획서", place: PLACE, name: "plan" },
+      files: await upload(),
+      source: null,
+      idempotency_key: "big-1",
+    });
+    assert(implicit.ok, implicit.ok ? "" : JSON.stringify(implicit.error));
+    const prepared = implicit.value as {
+      preparation_ref: string;
+      format: { name: string; module_hash: string; explicit: boolean };
+    };
+    const explicitFormat = { ...prepared.format, explicit: true };
+    const refused = await client.read(documentPrepare, {
+      document: BIG_DOCUMENT,
+      base_version: null,
+      metadata: { title: "계획서", place: PLACE, name: "plan" },
+      files: await upload(),
+      format: explicitFormat,
+      source: null,
+      idempotency_key: "big-2",
+    });
+    assert(!refused.ok);
+    assertEquals(refused.error.code, "invalid_input");
+    // 명시 format 아래 이미 저장돼 있던 큰 판(한도가 생기기 전의 저장)을 같은 FormatRef로 확정한다.
+    const sent = await client.command(documentSave, {
+      input: { ...prepared, format: explicitFormat },
+      idempotency_key: "big-1",
+      compare: { base_version: null },
+      prepared: [prepared.preparation_ref],
+    });
+    assert(sent.ok, sent.ok ? "" : JSON.stringify(sent.error));
+    const bigVersion = (sent.value as { version: string }).version;
+    // 작은 판이 이어진다(생략한 계약은 base의 정확한 FormatRef다).
+    const small = await savePlan(opened, V1);
+    assertEquals(small.document, BIG_DOCUMENT);
+    const before = await fixedOf(opened, {
+      document: BIG_DOCUMENT,
+      version: bigVersion,
+      text: big,
+    });
+    assertEquals(before.version.format.explicit, true);
+    assertEquals(before.version.files[0].bytes, bigBytes.length);
+    // 큰 판으로 restore한다: 한도 초과 검사 생략은 warning이고 새 판이 같은 바이트·FormatRef로 선다.
+    const restored = await restoreOf(
+      opened,
+      BIG_DOCUMENT,
+      { document: BIG_DOCUMENT, version: bigVersion, text: big },
+      "restore-big",
+    );
+    assertEquals(restored.status, "saved");
+    const after = await fixedOf(opened, {
+      document: BIG_DOCUMENT,
+      version: restored.version,
+      text: big,
+    });
+    assertEquals(after.version.number, 3);
+    assertEquals(after.version.content_hash, before.version.content_hash);
+    assertEquals(after.version.format, before.version.format);
+    const read = await post(opened, "documents/file", {
+      version: restored.version,
+      path: "plan.md",
+    });
+    assertEquals(read.status, 200);
+    const digest = createHash("sha256");
+    for await (const chunk of read.body!) digest.update(chunk);
+    assertEquals(digest.digest("hex"), blobHash);
   } finally {
     await opened.dispose();
   }

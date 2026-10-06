@@ -4,13 +4,15 @@ import {
   isFailurePathName,
   REDACTION_CANARY,
   UNDECLARED_PROBE_CODE,
+  VIEW_HOST_INCONCLUSIVE,
 } from "./definitions.ts";
-import type {
-  AppDriver,
-  HarnessPlan,
-  HarnessPlanCheck,
-  MigrationScenario,
-  ReceivedReport,
+import {
+  type AppDriver,
+  type HarnessPlan,
+  type HarnessPlanCheck,
+  type MigrationScenario,
+  type ReceivedReport,
+  ViewHostInconclusive,
 } from "./driver.ts";
 import type { Emitter } from "./emit.ts";
 import { scanCodeUsage, type SourceFile } from "./source-scan.ts";
@@ -524,13 +526,19 @@ export async function runPlatformChecks(
     try {
       verdict = await run(check.name, input);
     } catch (cause) {
-      verdict = {
-        met: false,
-        reason: `검사가 실행 중 실패했다: ${
-          cause instanceof Error ? cause.name : "error"
-        }`,
-        evidence: {},
-      };
+      verdict = cause instanceof ViewHostInconclusive
+        ? {
+          met: false,
+          reason: `화면 검사 host가 판정하지 못했다: ${cause.reason}`,
+          evidence: { view_host: VIEW_HOST_INCONCLUSIVE },
+        }
+        : {
+          met: false,
+          reason: `검사가 실행 중 실패했다: ${
+            cause instanceof Error ? cause.name : "error"
+          }`,
+          evidence: {},
+        };
     }
     const sent = frame(check, verdict, input.emitter);
     if (!sent.ok) return sent;

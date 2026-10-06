@@ -943,17 +943,62 @@ Deno.test("coding-agent/mcp-server#R29: 읽기 원천이 부분·미수집이면
   assert(done.summary.includes("정상 0행"));
 });
 
-Deno.test("coding-agent/mcp-server#R19: 소유 route가 아직 없는 blueprint·sync_tools는 성공을 꾸미지 않는다", async () => {
+Deno.test("coding-agent/mcp-server#R19: 소유 route가 아직 없는 sync_tools는 성공을 꾸미지 않는다", async () => {
   const flow = scriptedFlow({});
-  for (const op of ["blueprint", "sync_tools"]) {
-    const done = await runAppOp({ op, app: APP }, {
-      client: flow.client,
-      ...now,
-    });
-    assertEquals(done.isError, true);
-    assertEquals((done.data as { code: string }).code, "unavailable");
-  }
+  const done = await runAppOp({ op: "sync_tools", app: APP }, {
+    client: flow.client,
+    ...now,
+  });
+  assertEquals(done.isError, true);
+  assertEquals((done.data as { code: string }).code, "unavailable");
   assertEquals(flow.sent.length, 0);
+});
+
+Deno.test("coding-agent/mcp-server#R19, apps/blueprint#R3: blueprint op는 apps.blueprint를 읽고 설명·test 근거를 구별해 보인다", async () => {
+  assertEquals(APP_OP_ROUTES.blueprint.name, "app.blueprint");
+  const flow = scriptedFlow({
+    "app.blueprint": {
+      app: APP,
+      release: REL,
+      blueprint_hash: HASH,
+      name: "Notes",
+      description: "메모",
+      commands: [{
+        key: "list",
+        label: "목록",
+        description: "목록을 읽는다",
+        effect: "read",
+        confirm: false,
+        input: null,
+      }],
+      screens: [],
+      automations: [],
+      evidence: {
+        description: { complete: true, gaps: [] },
+        structure: { validated: true },
+        test: { passed: true, verifications: [VRF] },
+      },
+      as_of_seq: "3",
+      next_cursor: null,
+    },
+  });
+  const done = await runAppOp({ op: "blueprint", app: APP }, {
+    client: flow.client,
+    ...now,
+  });
+  assertEquals(done.isError, undefined);
+  assert(done.summary.includes("command 1개"));
+  assert(done.summary.includes("설명 완성"));
+  assert(done.summary.includes("실제 test 통과"));
+  assertEquals(flow.calls("app.blueprint")[0].input, { app: APP });
+  // 범위 밖·없는 앱·active release 없는 앱은 같은 not_found로 온다.
+  const absent = scriptedFlow({ "app.blueprint": fail("not_found", "없다") });
+  const out = await runAppOp({ op: "blueprint", app: APP }, {
+    client: absent.client,
+    ...now,
+  });
+  assertEquals(out.isError, true);
+  assertEquals((out.data as { code: string }).code, "not_found");
 });
 
 Deno.test("coding-agent/mcp-server#R19: 표 밖 op는 실행하지 않는다", async () => {

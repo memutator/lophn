@@ -23,6 +23,10 @@ SHA-256 hash다. 사람이 읽고 고치는 글이지 기계 값이 아니다(pr
 - 판단의 경계는 로컬 문서와 앱 계약이다. 웹을 찾지 않는다.
 - 계획은 이미 읽은 고정 근거만 가리킨다. 확인하지 않은 수치는 완료 사실로 쓰지
   않는다.
+- 질문 draft를 `question.submit` tool로 싣는다: 모델은 대상·값 후보와 설명만
+  고르고, `recommendPlaces`·`settingChangeQuestion`이 만든 고정 action은 draft
+  함수의 것을 그대로 실린다. 선택지에 고정 action을 직접 쓰지 않고 hash·CAS도
+  만들지 않는다.
 
 ## 기대 결과
 

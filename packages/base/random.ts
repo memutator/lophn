@@ -4,7 +4,9 @@ export type RandomSource = {
 
 export const cryptoRandom: RandomSource = {
   fill(bytes: Uint8Array) {
-    crypto.getRandomValues(bytes);
+    // 저장소 전체 형 검사에 npm 형(esbuild 등)이 함께 들면 Uint8Array 기본 buffer가
+    // ArrayBufferLike로 넓어진다. getRandomValues는 SharedArrayBuffer를 받지 않는다.
+    crypto.getRandomValues(bytes as Uint8Array<ArrayBuffer>);
   },
 };
 

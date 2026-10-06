@@ -10,6 +10,8 @@ import {
 } from "../../connections/mod.ts";
 import { type AppStart, parseAppStart } from "./start-input.ts";
 import { type BrokerTransport, createBrokerClient } from "./broker-client.ts";
+import { createCapHost, installCapHost } from "./cap-host.ts";
+import { ensureSchedulePort } from "./schedule.ts";
 import { createRuntimeState, type RuntimeState } from "./state.ts";
 import { commandsMatchBlueprint } from "./control.ts";
 import { decodeVerifyKey, type VerifyKey } from "./signature.ts";
@@ -79,6 +81,14 @@ export function startRuntime(deps: {
     postConfirmRequest: (body) => state.broker.appsConfirmRequest(body),
     postConfirmPoll: (body) => state.broker.appsConfirmPoll(body),
     direct: deps.pairDirect ?? unixPairDirect,
+  }));
+  // cap-net·cap-secret·cap-save·cap-store의 host다. broker 연결과 호출 문맥을 앱 코드에 내주지 않고
+  // SDK가 port로만 쓴다(apps/sdk#R22–R32).
+  installCapHost(createCapHost({
+    mode: parsed.mode,
+    dataPath: parsed.data_path,
+    post: (path, body) => state.broker.post(path, body),
+    current: () => ensureSchedulePort().current(),
   }));
   return { start: parsed, state };
 }

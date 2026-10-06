@@ -117,6 +117,43 @@ function proofFor(
   };
 }
 
+// 이미 확정된 접수를 같은 접수 입력으로 다시 읽는다. 접수가 없으면 undefined이고 다른 호출에 쓰인
+// approval이면 conflict다. 새 접수도 새 proof 수명도 만들지 않는다(R7, R8).
+export function existingAcceptance(
+  sql: Pick<Tx["sql"], "get" | "all">,
+  input: InvocationAcceptConfirmInput,
+): Result<
+  { invocation: string; proof: ReturnType<typeof proofFor> } | undefined
+> {
+  const prior = sql.get("select id from invocations where approval = ?", [
+    input.approval,
+  ]);
+  if (prior === undefined) return ok(undefined);
+  const existing = loadInvocation(sql, String(prior["id"]));
+  if (!existing.ok) return existing;
+  const row = existing.value;
+  if (
+    row === null || row.app !== input.app || row.release !== input.release ||
+    row.operation.kind !== "command" ||
+    row.operation.command !== input.command ||
+    row.input_hash !== input.input_hash ||
+    canonicalize(row.caller) !== canonicalize(input.caller)
+  ) {
+    return conflict("approval was accepted for a different call");
+  }
+  const accepted = sql.get(
+    "select at from events where subject = ? and type = ?",
+    [row.id, invocationAccepted.type],
+  );
+  if (accepted === undefined) {
+    return err({ code: "internal", message: "accepted event is missing" });
+  }
+  return ok({
+    invocation: row.id,
+    proof: proofFor(row.id, input, String(accepted["at"])),
+  });
+}
+
 export function createConfirmCommands(): {
   acceptConfirm: CommandDefinition<typeof invocationAcceptConfirm>;
 } {
@@ -146,40 +183,10 @@ export function createConfirmCommands(): {
             message: "invalid approval requester",
           });
         }
-        const prior = tx.sql.get(
-          "select id from invocations where approval = ?",
-          [input.approval],
-        );
-        if (prior !== undefined) {
-          // 같은 접수의 재전송은 기존 접수만 돌려준다. 새 접수도 새 proof 수명도 없다(R7, R8).
-          const existing = loadInvocation(tx.sql, String(prior["id"]));
-          if (!existing.ok) return existing;
-          const row = existing.value;
-          if (
-            row === null || row.app !== input.app ||
-            row.release !== input.release ||
-            row.operation.kind !== "command" ||
-            row.operation.command !== input.command ||
-            row.input_hash !== input.input_hash ||
-            canonicalize(row.caller) !== canonicalize(input.caller)
-          ) {
-            return conflict("approval was accepted for a different call");
-          }
-          const accepted = tx.sql.get(
-            "select at from events where subject = ? and type = ?",
-            [row.id, invocationAccepted.type],
-          );
-          if (accepted === undefined) {
-            return err({
-              code: "internal",
-              message: "accepted event is missing",
-            });
-          }
-          return ok({
-            invocation: row.id,
-            proof: proofFor(row.id, input, String(accepted["at"])),
-          });
-        }
+        // 같은 접수의 재전송은 기존 접수만 돌려준다. 새 접수도 새 proof 수명도 없다(R7, R8).
+        const prior = existingAcceptance(tx.sql, input);
+        if (!prior.ok) return prior;
+        if (prior.value !== undefined) return ok(prior.value);
         const invocation = tx.newId("inv");
         const at = tx.now();
         insertInvocation(tx, {

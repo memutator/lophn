@@ -4,6 +4,7 @@ import { createIdSource, systemClock } from "@lophn/base";
 import { installCrashExit } from "./crash.ts";
 import { startRuntime } from "./startup.ts";
 import { startDirectServer } from "./direct-server.ts";
+import { type AutomationTimers, installAutomations } from "./automation.ts";
 import type { Blueprint } from "../../blueprint/mod.ts";
 import type { BrokerTransport } from "./broker-client.ts";
 
@@ -29,6 +30,8 @@ export type MainDeps = {
   dataSchema: number;
   // 예외 보고는 이 transport 한 곳이다. crash exit는 같은 실패를 다시 보내지 않는다.
   reportTransport: (input: unknown) => Promise<unknown>;
+  // automation 시계의 tick·타이머. 시험이 가짜 시계를 준다.
+  automationTimers?: AutomationTimers;
   exit?: (code: number) => void;
   writeStderr?: (text: string) => void;
 };
@@ -62,6 +65,7 @@ export async function main(deps: MainDeps): Promise<void> {
     dataSchema: deps.dataSchema,
   });
   await deps.importModule(APP);
+  installAutomations(started.state, deps.automationTimers);
   startDirectServer(started.state);
 }
 

@@ -111,6 +111,7 @@ export function createAccessFixture(
         }),
         commands: declarationsNow.commands,
         problemCodes: fixture.problemCodes,
+        automations: declarationsNow.automations,
       }));
     },
   };

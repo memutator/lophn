@@ -625,6 +625,8 @@ concerns: [shell]
 
 ### T31 settings: provider 연결과 계정, 확장, 전역 Instructions 진입
 
+- 상태: 완료 (#409) — 이어보냄: 로그인 시작·완료·취소 통로(`providers/login-begin·complete·cancel`)와 login-complete sink → lophn-agent#T16, MCP 인증 `oauth2` 시작·완료 → lophn-agent#T38. 연결 테스트 `providers/test`는 lophn-agent#T15가 T26에 넘겼고 T26은 완료인데 route가 core에 없다(lead가 소유를 정해야 한다). 내장 연결 정의(Claude·ChatGPT 등)를 등록하는 곳이 없어 실제 설치에서는 연결 목록이 비어 있다(lophn-agent#T3 후속). 한도 대기의 `until`이 서버가 확인한 리셋 시각인지 lophn이 정한 1시간 대기인지 구별하는 field가 없어 화면은 "예상 시각"으로만 말한다(lophn-agent#T3·T15). MCP server별 연결 상태·skill 발견 결과를 읽는 route가 없어 화면에 없다(lophn-agent#T35·T36).
+- 정한 것(T31): settings 화면은 Connections·Tools and skills·General 세 탭이고 통로는 `SettingsSource`다. key·로그인 응답·MCP credential 값은 이 통로를 지나지 않고 보호 창이 받는다. 보호 창에 계정 교체·삭제를 더했다(secret_input 열기의 `change: {key, action: "replace" | "revoke"}`, 결정 `ChangeProviderCredentials`, 삭제 결과는 `stored: "revoked"`라 값을 지웠다고 말하지 않는다). 등록 정보의 `dedup_fingerprint`는 선택으로 바꿔 main이 제출 때 넣은 값의 sha256으로 만든다(같은 key 중복 거절). MCP credential은 `app_secret` 입력(`SetSecret`, 이름 `mcp-<server>`)으로 받고 설정은 `sec:mcp-<server>`를 가리킨다. shell 크롬 링크는 `lophnShell.openExternal(url)` → `shell:open-external`(desktop 창 본문만, 앱 view의 `app:open-external`과 별개)이고 shell/app-frame#R7을 확인 없이 여는 쪽으로 고쳤다. `loginBeginOutputSchema`에 선택 `sign_in {url, user_code}`를 additive로 더했다. 전역 [Instructions] 단추는 General 탭에 놓고 편집기의 돌아가기는 settings다. 개발 시작 자리 `LOPHN_SHELL_START=settings`·`#settings`.
 - 등급: frontend
 - concern: shell/wording, shell/desktop, shell/app-frame
 - 요구: shell/wording#R10, R13(For decisions·For summaries), shell/app-frame#R7(shell 크롬 외부 링크)

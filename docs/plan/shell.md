@@ -730,6 +730,7 @@ concerns: [shell]
 
 ### T37 앱 view registry, scheme proxy, session, network 정책
 
+- 상태: 완료 (#323) — 이어보냄: preload·IPC·`shell:view-state` 연결 → shell#T39, view 연결의 command 범위 → shell#T38, 앱 entrypoint의 화면 자원(`screenBytes`) → apps#T22. 진단 payload의 앱·release는 Q21
 - 등급: 기본
 - concern: shell/app-frame, shell/desktop
 - 요구: shell/app-frame#R1(앱), R2, R3, R4, R8, R9, R11, R12, R16, R18, R19, R20, R22, shell/desktop#R13
@@ -765,6 +766,7 @@ concerns: [shell]
   - `app:view-error`: main이 view registry의 `{view_session, generation, app, release, mode, binding}`을 붙여 인증된 client로 collector에 보낸다. 페이지가 주장한 값은 버린다.
   - `app-call_test`, `external-link_test`(8,193자·다른 scheme·userinfo 거절), `view-error_test`에 위 요구 테스트.
 - 가져올 것: legacy `preload/app-preload.ts`의 contextBridge 모양, `security.ts`의 외부 URL 검사 원리. `lophnApp.action`·permit 계약은 가져오지 않는다.
+- shell#T37에서 넘어온 것: view 연결은 지금 화면만 열려고 `commands: []`로 얻는다(`main/app-frame/app-connection.ts`의 `connect`). `app:call`은 그 view의 blueprint command를 연결 범위에 넣어 얻어야 한다(core는 요청한 것 중 프로세스가 등록한 command만 넣는다). 인증 header·endpoint는 registry entry의 `binding`에 있고 view·preload에는 없다. 연결 만료·회수는 registry의 `refresh`가 다시 얻는다
 
 ### T39 native view 배치: 동시 표시, focus, bounds, 좁은 창
 
@@ -784,6 +786,7 @@ concerns: [shell]
   - 앱 view는 배정된 경계 안에서 자기 페이지 머리부터 그리고 바깥 크롬은 shell이 그린다.
   - `visibility_test`와 `e2e/shell/native-view_test.ts`(두 view 동시 표시, drag 중 view가 보임, 전환 중 겹친 frame 없음, 1024px 미만 bounds 축소)에 위 요구 테스트.
 - 가져올 것: legacy `views.ts`의 `#mount`·`setBounds`·`toDip`·latest requested bounds 처리, `renderer/src/shell/EmbeddedView.tsx`의 ResizeObserver+rAF.
+- shell#T37에서 넘어온 것: main.ts에 `appFrame`(`main/app-frame/registry.ts`의 `createAppFrame`)이 조립돼 있다. shell preload의 `openApp`·`setViewBounds`·`setViewsHidden`·`closeView`와 IPC(`shell:view-open-app` 등, sender 검사)를 registry의 `open`·`setBounds`·`hide`·`close`·`state`에 잇고 `shell:view-state` push를 더한다. 붙이기는 `electron-app-frame.ts`가 하고 붙일 때 overlay를 맨 위로 다시 둔다(`electronOverlays().raise`). `setBounds`는 실제 attach일 때만 generation을 올리고 진단을 남긴다
 
 ### T40 SDK UI: ui-control, ui-overlay, ui-layout, ui-state
 
@@ -1225,3 +1228,4 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (2) 복원: 고른 판의 경로별 원문 blob 참조(`existing`, owner_key `<판>/<경로>`)와 정확한 FormatRef로 준비하고 `document.restore`에 최신 판·revision CAS를 싣는다. 원본 연결 문서는 먼저 고른 판의 대표 파일 바이트(`documents/file`)를 지금 디스크 hash로 CAS해 `files/write`로 쓰고, 그 쓰기 결과의 관측(`observed_hash`·`observed_at`)과 `documents/get`·`projects/get`의 revision으로 `source`·`file_basis`를 만들어 준비한다. 관측 loop가 같은 바이트로 판을 먼저 만들어 복원 명령이 conflict·unchanged가 되면, 최신 판이 고른 판과 같은 내용·형식일 때 그 판을 이 복원의 결과로 보인다(DocumentRestored event는 그때 없다). 디스크와 최신 판이 이미 고른 판이면 쓰지 않고 unchanged다. 지침 파일은 관측 loop가 판을 정하므로 파일만 쓰고 pending으로 답한다(지침 revision read가 없다). 검사 한도(1 MiB)를 넘는 명시 format 판도 원문 참조 준비라 그대로 되살아난다(documents Q30 (5)). 판 바이트는 main 메모리에 64 MiB까지 둔다.
   - (3) 제품 core에는 파생 store를 쓰는 consumer가 아직 없어(documents#T21) `documents/diff`·`section_history`·`outline/document`·`documents/read`가 모두 unavailable이다. 그래서 제품에서 비교 화면은 "Couldn't load this comparison"과 다시 시도로 답하고, 버전 탭의 절 고르기는 나오지 않는다. 이력·정보·복원은 파생 store 없이 돈다. 실제 core 테스트(`editor/versions/versions-real-core_test.ts`)는 이력·연결 문서 복원·1 MiB 넘는 명시 format 복원을 보고, 비교 화면은 documents.diff 모양의 통로로 component test(`editor/compare/compare_test.tsx`)가 본다. headless 확인은 documents의 실제 core 시험처럼 실제 format module로 두 판을 추출해 파생 store에 심은 뒤 비교·복원을 돌렸다. documents#T21이 consumer를 조립하면 심지 않고도 같은 화면이 나와야 한다. documents에 알린다.
   - (4) 정보 패널 틀(폭·머리·탭·열림 기억)은 shell#T14의 작업대 자리(`workspace/info-panel-slot`)가 그대로 두고, 탭 본문만 `editor/info-panel`이 그린다. overlay일 때 Escape·바깥 click 닫기와 CommandOrControl+Alt+B는 작업대 자리에 더했다(창 shortcut 표가 아니라 renderer keydown이라 앱 view에 focus가 있으면 오지 않는다). 비교는 정보 패널 버전 탭에서 열어 focus 칸 문서 탭 본문 자리(읽기 기둥 밖, 칸 전체 폭)에 그리고, 복원은 비교 화면의 secondary 아이콘과 확인 줄로만 한다.
+- **Q21 view 수명 진단의 앱·release(T37, contracts 팀 판단 대기).** `shell_view_lifetime` 진단 payload에는 app·release가 없다(contracts#T6). main은 view_session·generation·개수를 감독 pipe로 보내고 core가 `<데이터 root>/logs/shell-view.jsonl`에 그 field만 쓴다(`apps/core/parent.ts`). shell/app-frame#R22의 "어떤 앱·release가 표시됐는지"는 main log 줄(view_session·generation·app·release·mode, URL·token 없음)에 함께 남겼다. payload에 app·release를 더할지는 contracts 팀이 정한다.

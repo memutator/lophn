@@ -123,7 +123,10 @@ test("lophn-agent/revert#R3, lophn-agent/revert#R7: 복원 가능·유지·충�
   if (!other.ok) return;
   assert.notEqual((other.value.content as { id: string }).id, content.id);
   // 모두 복원 가능하면 부분 적용도 2차 확인도 없다.
-  assert.equal((other.value.content as { allow_partial: boolean }).allow_partial, false);
+  assert.equal(
+    (other.value.content as { allow_partial: boolean }).allow_partial,
+    false,
+  );
   assert.equal(other.value.secondConfirm, false);
   // 복원 가능한 것이 없으면 고를 결정이 없다.
   const none = await readRevert(

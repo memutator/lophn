@@ -19,8 +19,7 @@ export function ApprovalKind({ view, decide, cancel, busy }: KindProps) {
   const shown = obj(view.view);
   const decisions = view.decisions ?? [];
   const [reason, setReason] = useState("");
-  const withReason = () =>
-    reason.trim() === "" ? {} : { input: { reason } };
+  const withReason = () => reason.trim() === "" ? {} : { input: { reason } };
   const display: Display = {
     title: t("confirmation-window.approval.title"),
     subject: str(shown.changes) ?? t("confirmation-window.change.missing"),

@@ -194,7 +194,7 @@ export type PlaceholderKinds = {
   "confirmation-window.revert-why.no-earlier": Record<never, never>;
   "confirmation-window.revert-why.not-lophn": Record<never, never>;
   "confirmation-window.revert-why.stale": Record<never, never>;
-  "confirmation-window.revert-why.title": Record<never, never>;
+  "confirmation-window.revert-why.title-change": Record<never, never>;
   "confirmation-window.revert-why.unknown-document": Record<never, never>;
   "confirmation-window.revert-why.unknown": Record<never, never>;
   "confirmation-window.revert-second.body": Record<never, never>;
@@ -204,7 +204,7 @@ export type PlaceholderKinds = {
   "confirmation-window.revert.effect-partial": Record<never, never>;
   "confirmation-window.revert.note": Record<never, never>;
   "confirmation-window.revert.subject": {
-    count: "plural";
+    count: "number";
   };
   "confirmation-window.revert.title": Record<never, never>;
   "confirmation-window.revert.unknown": Record<never, never>;

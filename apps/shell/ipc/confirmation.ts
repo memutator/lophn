@@ -15,9 +15,7 @@ const DECISION = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
 const NONBLANK = /\S/;
 
 function prefixed(prefix: string) {
-  return z.string().regex(ID).refine((value) =>
-    value.startsWith(`${prefix}_`)
-  );
+  return z.string().regex(ID).refine((value) => value.startsWith(`${prefix}_`));
 }
 
 const credentialSchema = z.object({

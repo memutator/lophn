@@ -178,7 +178,10 @@ export interface RevertState {
   /** 창마다 고정한 revert id. 같은 창의 다시 읽기는 같은 id로 결합한다. */
   idFor(windowId: string): string;
   /** 사람이 본 preview. 제출은 이 묶음으로만 입력을 만든다. */
-  remember(windowId: string, preview: { hash: string; groups: PreviewGroup[] }): void;
+  remember(
+    windowId: string,
+    preview: { hash: string; groups: PreviewGroup[] },
+  ): void;
   shown(windowId: string): { hash: string; groups: PreviewGroup[] } | undefined;
   forget(windowId: string): void;
 }
@@ -215,7 +218,9 @@ export async function readRevert(
   const groups = groupsOf(preview.groups);
   const hash = String(preview.binding_hash);
   if (groups.length === 0) return failed("not_found", "되돌릴 변경이 없다");
-  const reversible = groups.filter((group) => group.capability === "reversible");
+  const reversible = groups.filter((group) =>
+    group.capability === "reversible"
+  );
   const kept = groups.length - reversible.length;
   // 복원 가능한 것이 없으면 고를 결정이 없다. 안전하지 않은 묶음이 섞이면 그 묶음을 빼고
   // 안전한 묶음만 적용하는 부분 적용을 2차 확인 뒤에만 고른다.

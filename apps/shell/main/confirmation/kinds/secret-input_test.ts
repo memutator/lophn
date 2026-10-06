@@ -51,8 +51,10 @@ function secretCore(
 }
 
 function everything(value: unknown): string {
-  return JSON.stringify(value, (_key, item) =>
-    item instanceof Uint8Array ? [...item] : item);
+  return JSON.stringify(
+    value,
+    (_key, item) => item instanceof Uint8Array ? [...item] : item,
+  );
 }
 
 test("platform/secrets#R2, shell/confirmation-window#R6: secret 값은 보호 입력에서 upload 바이트로만 가고 handle은 준비 증거를 받은 뒤 그 binding으로 만든다", async () => {
@@ -236,7 +238,11 @@ test("shell/confirmation-window#R9, platform/secrets#R2: secret 창은 열 때 h
     connected: () => true,
   });
   const opened = await confirm.open({
-    intent: { kind: "secret_input", owner: "weather.key", purpose: "app_secret" },
+    intent: {
+      kind: "secret_input",
+      owner: "weather.key",
+      purpose: "app_secret",
+    },
     parent: parent("shell-1"),
     requestedByPerson: true,
   });

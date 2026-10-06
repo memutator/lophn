@@ -100,7 +100,8 @@ export function createKinds(options: KindsOptions): {
       });
     }
     if (
-      request?.kind === "owner_decision" && request.concern === REVERT_CONCERN &&
+      request?.kind === "owner_decision" &&
+      request.concern === REVERT_CONCERN &&
       decision === REVERT_RUN && request.input.kind === "inline"
     ) {
       return submitRevert(core, reverts, {

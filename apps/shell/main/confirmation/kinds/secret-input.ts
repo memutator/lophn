@@ -179,7 +179,9 @@ export function createSecretSubmitter(
         } catch {
           return { ok: false, error: safeError("unavailable") };
         }
-        if (!uploaded.ok) return { ok: false, error: safeError(uploaded.error.code) };
+        if (!uploaded.ok) {
+          return { ok: false, error: safeError(uploaded.error.code) };
+        }
         evidence = evidenceOf(uploaded.value);
       } finally {
         bytes.fill(0);

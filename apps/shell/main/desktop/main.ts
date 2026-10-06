@@ -327,10 +327,12 @@ const confirmationHost: ConfirmationHost = {
     const parent = [...windows].find((window) =>
       !window.isDestroyed() && windowRef(window) === config.parent.id
     );
-    const window = new BrowserWindow({
-      ...config,
-      ...(parent === undefined ? {} : { parent }),
-    } as unknown as ConstructorParameters<typeof BrowserWindow>[0]);
+    const window = new BrowserWindow(
+      {
+        ...config,
+        ...(parent === undefined ? {} : { parent }),
+      } as unknown as ConstructorParameters<typeof BrowserWindow>[0],
+    );
     capturePaints(
       window.webContents,
       `confirmation-${++confirmationShots}`,

@@ -55,11 +55,19 @@ export function ExactAction({ view }: { view: Record<string, unknown> }) {
     [];
   const owner = str(view.concern);
   if (owner !== undefined) {
-    rows.push({ key: "owner", label: t("confirmation-window.label.owner"), value: owner });
+    rows.push({
+      key: "owner",
+      label: t("confirmation-window.label.owner"),
+      value: owner,
+    });
   }
   const command = str(view.command);
   if (command !== undefined) {
-    rows.push({ key: "command", label: t("confirmation-window.label.action"), value: command });
+    rows.push({
+      key: "command",
+      label: t("confirmation-window.label.action"),
+      value: command,
+    });
   }
   const targets = list(view.targets);
   if (targets.length > 0) {

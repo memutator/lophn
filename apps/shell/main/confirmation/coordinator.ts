@@ -341,7 +341,10 @@ export function createCoordinator(options: CoordinatorOptions) {
       };
     }
     if (live.gate.state !== "ready") {
-      return { ok: false, error: { code: "conflict", message: "확인이 무효다" } };
+      return {
+        ok: false,
+        error: { code: "conflict", message: "확인이 무효다" },
+      };
     }
     if (!options.connected() || options.deferred === undefined) {
       live.gate = { state: "stale", reason: STALE };

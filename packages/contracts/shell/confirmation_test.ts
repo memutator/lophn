@@ -1,10 +1,10 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import {
-  confirmationDisplaySchema,
   CONFIRMATION_ERRORS,
   CONFIRMATION_IPC,
   CONFIRMATION_REQUEST_KINDS,
+  confirmationDisplaySchema,
   confirmationOpenInputSchema,
   confirmationOpenIntentSchema,
   type ConfirmationOutcome,

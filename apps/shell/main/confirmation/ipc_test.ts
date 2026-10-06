@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { createConfirmationOpener } from "../../preload/confirmation-open.ts";
+import { type ConfirmationIpcEvent, registerConfirmationIpc } from "./ipc.ts";
 import {
-  type ConfirmationIpcEvent,
-  registerConfirmationIpc,
-} from "./ipc.ts";
-import { coordinator, fake, INTENT, parent, REF } from "./coordinator_fixture.ts";
+  coordinator,
+  fake,
+  INTENT,
+  parent,
+  REF,
+} from "./coordinator_fixture.ts";
 
 type Listener = (
   event: ConfirmationIpcEvent,

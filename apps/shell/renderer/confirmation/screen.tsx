@@ -101,7 +101,11 @@ function Notice(
       <p className={styles.message} tabIndex={0} data-focus="first">{body}</p>
       <div className={layout.actions} role="group">
         {onRefresh === undefined ? null : (
-          <Button variant="secondary" data-action="refresh" onClick={onRefresh}>
+          <Button
+            variant="secondary"
+            data-action="refresh"
+            onClick={onRefresh}
+          >
             {t("confirmation-window.button.refresh")}
           </Button>
         )}

@@ -72,6 +72,8 @@ export interface Display {
   readonly reversible: boolean | null;
   /** 되돌릴 수 있는 범위·남는 영향의 글. 있으면 가능 여부 뒤에 보인다. */
   readonly revertNote?: string;
+  /** 글이 가능 여부를 이미 말하면 일반 문장을 빼고 글만 보인다. */
+  readonly noteOnly?: boolean;
   /** 주 결정 버튼의 이름. */
   readonly action: string;
   /** 주체·시각·이유·근거·상세 전후. 기본에서는 접는다. */

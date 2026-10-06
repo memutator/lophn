@@ -182,6 +182,8 @@ export const confirmationSubmitSchema = z.strictObject({
   displayId: z.string().min(1),
   decision: decisionNameSchema,
   input: jsonObjectSchema.optional(),
+  // 2차 확인 단계에서 영향과 범위를 다시 본 뒤의 제출이다.
+  confirmedSecond: z.boolean().optional(),
 });
 
 export type ConfirmationSubmission = z.infer<typeof confirmationSubmitSchema>;

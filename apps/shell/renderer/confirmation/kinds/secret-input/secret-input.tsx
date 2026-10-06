@@ -31,6 +31,7 @@ export function SecretInputKind({ view, decide, cancel, busy }: KindProps) {
       : t("confirmation-window.secret.effect"),
     reversible: true,
     revertNote: t("confirmation-window.secret.revert"),
+    noteOnly: true,
     action: t("confirmation-window.button.save"),
     details: [],
     noChange: true,

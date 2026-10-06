@@ -60,7 +60,7 @@ export function reasonText(code: string | undefined): string | undefined {
     case "not_agent_output":
       return t("confirmation-window.revert-why.not-lophn");
     case "title_change":
-      return t("confirmation-window.revert-why.title");
+      return t("confirmation-window.revert-why.title-change");
     case "no_previous_version":
       return t("confirmation-window.revert-why.no-earlier");
     case "unclassified_document_event":
@@ -125,6 +125,7 @@ export function RevertKind({ view, decide, cancel, busy }: KindProps) {
       effect: t("confirmation-window.revert.effect-partial"),
       reversible: true,
       revertNote: t("confirmation-window.revert.note"),
+      noteOnly: true,
       action: t("confirmation-window.button.undo-rest"),
       details: [],
       noChange: true,
@@ -167,6 +168,7 @@ export function RevertKind({ view, decide, cancel, busy }: KindProps) {
       : t("confirmation-window.revert.effect-all"),
     reversible: can,
     revertNote: can ? t("confirmation-window.revert.note") : undefined,
+    noteOnly: true,
     action: t("confirmation-window.button.undo"),
     details: [],
     noChange: true,
@@ -187,9 +189,7 @@ export function RevertKind({ view, decide, cancel, busy }: KindProps) {
                 data-decision={REVERT_RUN}
                 disabled={busy}
                 onClick={() =>
-                  view.second === true
-                    ? setSecond(true)
-                    : decide(REVERT_RUN)}
+                  view.second === true ? setSecond(true) : decide(REVERT_RUN)}
               >
                 {display.action}
               </Button>

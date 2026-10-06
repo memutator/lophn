@@ -196,7 +196,8 @@ export const en = {
   "confirmation-window.revert-why.not-lophn": "lophn didn't make this change.",
   "confirmation-window.revert-why.stale":
     "This list changed. Open the latest version.",
-  "confirmation-window.revert-why.title": "Title changes stay as they are.",
+  "confirmation-window.revert-why.title-change":
+    "Title changes stay as they are.",
   "confirmation-window.revert-why.unknown-document":
     "lophn can't tell what this document change was.",
   "confirmation-window.revert-why.unknown":
@@ -213,7 +214,7 @@ export const en = {
   "confirmation-window.revert.note":
     "Undoing saves new versions. Earlier history stays.",
   "confirmation-window.revert.subject":
-    "{count, plural, one {# change from this work was checked.} other {# changes from this work were checked.}}",
+    "Every change from this work is listed here, {count, number} in all.",
   "confirmation-window.revert.title": "Undo the changes from this work?",
   "confirmation-window.revert.unknown":
     "Whether this can be undone isn't known.",

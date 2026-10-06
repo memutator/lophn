@@ -55,13 +55,17 @@ export function ConfirmationLayout(
         <h2 className={styles.heading}>
           {t("confirmation-window.heading.revert")}
         </h2>
-        <p className={styles.body}>
-          {display.reversible === null
-            ? t("confirmation-window.revert.unknown")
-            : display.reversible
-            ? t("confirmation-window.revert.possible")
-            : t("confirmation-window.revert.impossible")}
-        </p>
+        {display.noteOnly && display.revertNote !== undefined
+          ? null
+          : (
+            <p className={styles.body}>
+              {display.reversible === null
+                ? t("confirmation-window.revert.unknown")
+                : display.reversible
+                ? t("confirmation-window.revert.possible")
+                : t("confirmation-window.revert.impossible")}
+            </p>
+          )}
         {display.revertNote !== undefined
           ? <p className={styles.body}>{display.revertNote}</p>
           : null}

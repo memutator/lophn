@@ -483,6 +483,7 @@ concerns: [documents]
   - Context는 Operator 담당 범위를 만들지 않는다(preset이 여러 context를 고름)
   - apps 쪽 구현 전에는 contract를 흉내 내는 test double로 app item을 검사한다
   - CE agent run의 context 변경을 lophn-agent revert가 보상하는 경로: 이후 revision이 그대로일 때만, 아니면 conflict
+  - lophn-agent#T42에서 고침: `context.set_item`·`remove_item`이 revision을 옮기지 않던 것(요구는 마지막 항목 변경 seq)과 run revert가 부르는 `CONTEXT_DISPATCHABLE_COMMANDS`(lophn-agent Q47)
   - `commands_test.ts`, `reads_test.ts`에 각 요구 번호 테스트
 
 ### T23 context outline
@@ -541,6 +542,7 @@ concerns: [documents]
   - 보관은 정의·근거를 지우지 않고 정의를 후보로 돌리는 경로가 없다
   - CE agent run의 후보 변경만 revert로 보상(이후 revision이 그대로일 때), 사람 정의는 revert 대상이 아님
   - 앱 read command를 item으로 가진 context의 사람 정의를 앱 설명 읽기 근거로 제공, blueprint로 복사하지 않음
+  - lophn-agent#T42에서 더함: run revert가 후보 보상으로 부르는 `TERM_DISPATCHABLE_COMMANDS`(update·archive·unarchive, 정의 확정은 아님)
   - `commands_test.ts`, `reads_test.ts`에 각 요구 번호 테스트(정의 35개를 30개·5개로)
 
 ### T26 context export

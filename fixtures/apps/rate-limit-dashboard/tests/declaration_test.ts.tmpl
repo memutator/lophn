@@ -1,0 +1,28 @@
+// blueprint 선언이 이 앱이 하는 일과 맞는지 본다. 선언 자체의 검증과 command 등록 일치는 blueprint_test.ts가 본다.
+import { assert, assertEquals } from "@std/assert";
+import blueprint from "../blueprint.ts";
+import { IMPORT_DIR } from "../src/places.ts";
+
+Deno.test("apps/blueprint#R19: usage 화면은 전체·패널·카드를 모두 선언한다", () => {
+  assertEquals(blueprint.screens.map((s) => [s.key, s.sizes]), [
+    ["usage", ["full", "panel", "card"]],
+  ]);
+});
+
+Deno.test("apps/invocations#R14: usage_report는 기간과 시간대를 꼭 받는 read command이고 수집은 write다", () => {
+  const by = new Map(blueprint.commands.map((c) => [c.key, c]));
+  const report = by.get("usage_report")!;
+  assertEquals(report.effect, "read");
+  assertEquals([...report.input?.required ?? []].sort(), [
+    "from",
+    "timezone",
+    "to",
+  ]);
+  // 이어 읽기 입력이 있다.
+  assert(report.input?.properties?.["continuation"]);
+  assertEquals(by.get("collect_usage")?.effect, "write");
+  assertEquals(
+    blueprint.permissions.map((p) => [p.kind, p.scope]),
+    [["fs.read", { path: IMPORT_DIR, recursive: true }]],
+  );
+});

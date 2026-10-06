@@ -37,13 +37,17 @@ import { releasesSchemaSteps } from "../../packages/apps/releases/schema.ts";
 import {
   loadActiveBlueprint,
   releaseDeclarations,
+  releaseWording,
 } from "../../packages/apps/releases/store.ts";
 import { checkTicketClaim } from "../../packages/coding-agent/tickets/claims.ts";
 import {
   TicketClaimCheck,
   type TicketClaimChecker,
 } from "../../packages/contracts/coding-agent/mod.ts";
-import { AppTestVerificationLookupPort } from "../../packages/contracts/problems/mod.ts";
+import {
+  AppTestVerificationLookupPort,
+  ProblemWordingPort,
+} from "../../packages/contracts/problems/mod.ts";
 import { findAppTestVerification } from "../../packages/problems/tests/app-test-lookup.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
 import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
@@ -212,6 +216,9 @@ export function createLedgerRegistration(
         create: (tx) => (verification: string) =>
           findAppTestVerification(tx.sql, verification),
       },
+      // 보고 당시 release의 선언 code 문구다(problems#T27). problems의 문구 projection이
+      // 같은 snapshot sql로 읽는다.
+      { key: ProblemWordingPort, create: () => releaseWording },
       {
         key: TicketClaimCheck,
         create: (tx): TicketClaimChecker => (input) =>
@@ -262,10 +269,14 @@ export function createReaderRegistration(): ReaderRegistration {
       sdkReads.usage,
     ],
     // 선언 port의 고정 값이다. grants.list의 표시 자료와 apps.automations가 같은 key로 읽는다.
-    ports: new Map<unknown, unknown>([[
-      currentDeclarations,
-      releaseDeclarations,
-    ]]),
+    // 보고 당시 release의 선언 문구도 problems의 문구 projection이 같은 key로 읽는다(problems#T27).
+    ports: new Map<unknown, unknown>([
+      [
+        currentDeclarations,
+        releaseDeclarations,
+      ],
+      [ProblemWordingPort, releaseWording],
+    ]),
   };
 }
 

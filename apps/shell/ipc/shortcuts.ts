@@ -37,11 +37,30 @@ export const DESKTOP_INTENT_CHANNEL = "shell:intent";
  */
 export const DESKTOP_INTENTS = ["global-palette", "things-to-confirm"] as const;
 
-export type DesktopIntent = typeof DESKTOP_INTENTS[number];
+/**
+ * `lophn://things-to-confirm/<id>` 링크(desktop#R14). things-to-confirm에서 그 요청을 고른
+ * 화면을 연다. confirmation window는 열지 않는다(사람이 그 화면에서 누를 때 연다).
+ */
+export interface ConfirmTargetIntent {
+  readonly kind: "things-to-confirm";
+  readonly request: string;
+}
+
+export type DesktopIntent =
+  | typeof DESKTOP_INTENTS[number]
+  | ConfirmTargetIntent;
+
+const CONFIRM_TARGET = /^(?:apr|qst)_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 export function isDesktopIntent(value: unknown): value is DesktopIntent {
-  return typeof value === "string" &&
-    (DESKTOP_INTENTS as readonly string[]).includes(value);
+  if (typeof value === "string") {
+    return (DESKTOP_INTENTS as readonly string[]).includes(value);
+  }
+  if (typeof value !== "object" || value === null) return false;
+  const target = value as Record<string, unknown>;
+  return Object.keys(target).sort().join(",") === "kind,request" &&
+    target.kind === "things-to-confirm" &&
+    typeof target.request === "string" && CONFIRM_TARGET.test(target.request);
 }
 
 export interface IntentApi {

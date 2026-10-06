@@ -840,6 +840,7 @@ concerns: [shell]
 - 선행: shell#T37, shell#T39, apps#T9
 - shell#T28에서 넘어온 것: 앱 공간 바의 lophn 크롬은 `apps/shell/renderer/desktop/notification-chip/space-decisions.tsx`의 `SpaceDecisions`(place `{kind: "app", id}`, 열기는 things-to-confirm)를 둔다. 프로젝트 작업대 바에는 T28에서 두었다
 - shell#T21에서 넘어온 것: lophn 공간 팔레트의 앱 행은 지금 apps 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 app target). 앱 공간이 생기면 그 앱 공간으로 간다.
+- shell#T47에서 넘어온 것: 앱 공간 바(또는 운영 패널)에 [Open in new window]와 OS 바로가기 추가·제거를 둔다. 새 창은 main의 `appWindows.open(app)`(`main/desktop/app-window.ts`)을, 바로가기는 `installOsEntry`·`removeOsEntry`(`main/desktop/os-entry/entry.ts`)를 sender 검사한 IPC로 부른다. renderer는 앱 ID만 보내고 이름은 main이 `apps/get`으로 읽는다. 실제 writer(`EntryFiles`의 원자 쓰기·mode, macOS 폴더 제거, Windows `shell.writeShortcutLink`)와 `OsEntryEnv`(XDG_DATA_HOME, APPDATA, home) 조립은 main.ts에 아직 없다. headless와 개발 실행은 쓰지 않는다
 - shell#T27에서 넘어온 것: 앱 공간 바의 대화 도크 토글(`DockToggle`)과 본문 오른쪽 `DockSlot`(새 세션 작업 자리 `{kind: "app"}`). 도크가 앱 view를 덮거나 밀 때의 native bounds는 T39를 따른다
 - 완료: 아래 확인이 통과한다
   - 앱 공간은 얇은 바와 앱 view 전체 본문. 바에 런처 복귀, 앱 이름·연결 상태, [Report a problem] 자리(T52), 운영 패널 진입, 문서 작업대 전환. 운영 패널 720px, 1024px 미만이면 overlay이되 앱 view는 남은 영역으로 줄어든다.
@@ -903,6 +904,7 @@ concerns: [shell]
   - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
   - 종류별 테스트.
 - shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
+- shell#T47에서 넘어온 것: main.ts `appWindows`의 `entryScreen`(앱 전용 창에 여는 screen)을 같은 `/v1/apps/blueprint` read로 잇는다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen이다. 지금은 unavailable이라 실제 shell에서 `--open-app`은 전용 창 대신 가장 최근 창을 앞으로 가져온다
 
 ### T46 앱 화면 검사 host
 
@@ -938,6 +940,8 @@ concerns: [shell]
   - Linux `.desktop`, macOS app bundle, Windows shortcut은 고정 앱 ID를 `--open-app` intent로만 넘긴다. 앱 코드·source path·token·port를 실행하지 않는다.
   - `lophn://things-to-confirm/<id>`는 OS URL scheme으로 등록하고 single instance로 받아 엄격히 parse한 뒤 그 대상 화면을 창에 연다. confirmation window를 자동으로 띄우지 않는다(사람이 그 화면에서 누를 때 그 창을 부모로 연다).
   - `open-intent_test`, `os-entry_test`와 세 표시 방식에서 같은 격리 spec(`e2e/shell/app-isolation_test.ts` 확장).
+- 정한 것: (1) 앱 전용 창(`main/desktop/app-window.ts`)은 시스템 제목 표시줄이 있는 빈 BrowserWindow(preload 없음)이고 본문 전체를 앱 view 하나가 채운다. view는 본문 view와 같은 `appFrame`·`electronAppViews`로 열어 session·scheme·preload가 같다. main이 `apps/get`으로 보관되지 않았고 채택된 release가 있는지 보고 그 release를 live·full로 연다. 앱 하나에 전용 창은 하나이고 다시 요청하면 그 창을 앞으로 가져온다. 열지 못하면 창을 남기지 않고 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. 전용 창은 shell 창이 아니라 shortcut·intent·core 상태를 받지 않는다. (2) 창 열기 intent(`main/desktop/open-intent.ts`)는 `--quit`, 정확히 한 번의 `--open-app <app ID>`(바로 뒤 값만, `=` 형식 거절), 정확히 하나의 `lophn://things-to-confirm/<apr|qst ID>`만 읽고 나머지·둘이 섞인 것은 기본 창이다. 첫 시작 argv, second-instance argv, macOS `open-url`이 같은 parser를 쓴다. node test가 zod를 풀지 못해 contracts/shell/launch.ts와 같은 모양을 정규식으로 본다. URL scheme은 packaged·headless 아님일 때만 `setAsDefaultProtocolClient("lophn")`로 등록한다. (3) 링크는 shell renderer에 `{kind: "things-to-confirm", request}` intent로 가 그 요청을 고른 things-to-confirm을 열 뿐이고 결정 창은 사람이 [Review]를 누를 때 그 창을 부모로 연다. (4) OS 바로가기(`main/desktop/os-entry/`)는 packaged 실행 파일의 검증된 경로(autostart와 같은 검사에 shell 특수 글자 거절)와 `--open-app <app ID>`만 담는다. 자리는 앱 ID로 정한다: Linux `$XDG_DATA_HOME/applications/lophn-<app>.desktop`, macOS `~/Applications/lophn-<app>.app`(Info.plist와 exec 두 줄 script, LSUIElement), Windows 시작 메뉴 `lophn\lophn-<app>.lnk`(`shell.writeShortcutLink`). headless·개발 실행은 쓰지 않는다
+- 상태: 완료 (#344) — 이어보냄: 등록 버튼·IPC와 실제 writer → shell#T42, 전용 창 screen의 blueprint read → shell#T45, 설치 묶음의 lophn scheme 등록 → shell#T57
 
 ### T48 깨진 앱 격리 확인
 
@@ -1107,6 +1111,7 @@ concerns: [shell]
 - 선행: shell#T3, shell#T24, shell#T47
 - shell#T24에서 넘어온 것: Windows terminal child의 Job Object 종료 확인(POSIX group 종료와 fail-closed unknown은 #232)
 - shell#T55에서 넘어온 것: tray 아이콘 `apps/shell/main/desktop/icon.png`를 packaged resources의 `icon.png`로 넣기, packaged Linux XDG autostart 실제 등록과 macOS·Windows login item(macOS `wasOpenedAtLogin` tray mode 포함)·tray의 실제 OS 확인(주입 adapter 단위 테스트와 개발 실행 Linux `--tray`·`--quit` smoke는 #233)
+- shell#T47에서 넘어온 것: electron-builder `protocols`로 `lophn` URL scheme을 설치 묶음에 넣는다(Linux `.desktop`의 `MimeType=x-scheme-handler/lophn;`과 `%u`, macOS `CFBundleURLTypes`). main은 packaged 실행에서 `setAsDefaultProtocolClient("lophn")`도 부른다(`main/desktop/open-intent.ts`의 `registerUrlScheme`). packaged smoke에서 링크·`--open-app`이 실행 중 main의 second-instance로 들어와 앱 전용 창·things-to-confirm을 여는지 본다
 - 완료: 아래 확인이 통과한다
   - electron-builder로 Linux .deb(먼저), macOS·Windows 설정. shell build, preload, renderer, 로컬 글꼴, 고정 의존성, bundle된 Deno, node-pty native 모듈을 staging에 넣는다. sandbox를 끄지 않는다(Ubuntu AppArmor userns는 chrome-sandbox 권한으로 맞추고 `--no-sandbox` 우회 없음).
   - packaged main은 bundle된 Deno로 core를 띄운다. 시작 실패·sandbox 실패·schema 비호환은 런처의 실패 갈래로 정상처럼 보이지 않게 안내하고 다음 행동 하나를 준다.

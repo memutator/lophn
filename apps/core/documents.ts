@@ -66,7 +66,10 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import { SERVED_ROUTES } from "./documents-served.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
-import { createVersionCommands } from "../../packages/documents/versions/mod.ts";
+import {
+  createSourceCommands,
+  createVersionCommands,
+} from "../../packages/documents/versions/mod.ts";
 import { createVersionReads } from "../../packages/documents/versions/mod.ts";
 import { versionsSchemaSteps } from "../../packages/documents/versions/mod.ts";
 import {
@@ -350,6 +353,7 @@ export function createLedgerRegistration(
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
   const versions = createVersionCommands({ joinSeries: joinSeriesOnSave });
+  const sourceCommands = createSourceCommands();
   const fileCommands = createFileCommands();
   const fileReads = createFileReads();
   const addressing = createDocumentChangeCommands();
@@ -390,6 +394,7 @@ export function createLedgerRegistration(
       versions.update,
       versions.archive,
       versions.unarchive,
+      sourceCommands.setSource,
       fileCommands.recordResult,
       // 사람이 허락한 approval 적용(apply_approved_action)이 같은 transaction에서 부를 수 있다.
       // 어느 command가 그런지는 contract가 정한다(DOCUMENT_DISPATCHABLE_COMMANDS).

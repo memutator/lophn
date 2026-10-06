@@ -13,6 +13,7 @@ export {
   type ExportRedactor,
   storedFile,
 } from "./reads.ts";
+export { createSourceCommands } from "./source.ts";
 export { createExportAssembly } from "./work.ts";
 export { authorizeDocument } from "./authorization.ts";
 export {

@@ -1,6 +1,7 @@
 // 열린 창의 제출. handle을 쓰기 전에 정본을 다시 읽고, 불명이면 receipt만 다시 본다.
 import { checkSubmission } from "./check.ts";
 import type {
+  Canonical,
   CanonPort,
   Gate,
   SubmitPort,
@@ -11,6 +12,8 @@ import type { ConfirmationRequest } from "./types.ts";
 
 export interface DecidingWindow {
   readonly intent: Parameters<CanonPort["read"]>[0];
+  readonly windowId: string;
+  canonical: Canonical | null;
   displayId: string;
   gate: Gate;
   request: ConfirmationRequest | null;
@@ -57,7 +60,7 @@ export async function decide(input: {
   }
   const repeated = await spent(handle, live, input.submit, input.publish);
   if (repeated !== undefined) return repeated;
-  const read = await input.canon.read(live.intent);
+  const read = await input.canon.read(live.intent, live.windowId);
   const checked = checkSubmission({
     handle,
     decision: input.request.decision,
@@ -73,6 +76,7 @@ export async function decide(input: {
     if (checked.clearDisplay || checked.request !== null) {
       live.request = checked.request;
     }
+    if (read.ok) live.canonical = read.value;
     input.publish(live);
     return checked;
   }
@@ -96,7 +100,7 @@ async function spent(
       error: { code: "conflict", message: "이미 제출한 확인이다" },
     };
   }
-  const found = await submit.receipt(handle);
+  const found = await submit.receipt(handle, live.canonical);
   if (found !== undefined) return { ok: true, value: found };
   live.gate = { state: "unknown" };
   publish(live);
@@ -123,6 +127,7 @@ async function send(
     handle,
     decision: input.request.decision,
     commandInput: input.request.commandInput ?? {},
+    canonical: live.canonical,
   });
   if (!sent.ok && sent.unknown) {
     handle.unknown = true;

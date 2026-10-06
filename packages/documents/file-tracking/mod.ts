@@ -62,6 +62,7 @@ export {
   type ScanEntry,
   type ScanPort,
   scanRoot,
+  type StableOutcome,
   type StableRead,
   type StableReadPort,
   type WatchPort,
@@ -126,3 +127,22 @@ export {
   type PlacementReadInput,
 } from "./placement-read.ts";
 export { workingCopyLocation } from "./working-copy.ts";
+export {
+  GLOBAL_INSTRUCTION_REVISION,
+  GLOBAL_INSTRUCTION_TARGET,
+  INSTRUCTION_FILE_NAME,
+  type InstructionLinkBasis,
+  type InstructionProject,
+  type InstructionRegistration,
+  instructionRegistrations,
+  isInstructionPath,
+  isUtf8,
+  type ObservationInstructionBasis,
+  parseInstructionBasis,
+  projectInstructionTarget,
+} from "./instruction.ts";
+export {
+  type ObserveInstruction,
+  type ObserveInstructionDeps,
+  observeInstructionFile,
+} from "./instruction-work.ts";

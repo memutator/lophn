@@ -538,7 +538,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T29 lophn 제안의 question option action: 문서 자리, 설정 변경
 
-- 상태: 진행 (#PR) — 남은 것: 새 앱 등록 option action → apps#T30(app.create의 미리 배정 ID·dispatchable), actor=user로 event 기록 → platform#T58, 모델이 action 있는 선택지를 싣는 통로 → T31, 적용 conflict 뒤 run 이어 가기와 적용 machine 자격 조립 → T26. 설계는 Q44
+- 상태: 완료 (#333)
 - 등급: 기본
 - concern: lophn-agent/questions, lophn-agent/roles/lophn, lophn-agent/harness/tools
 - 요구: lophn-agent/questions#R13, R14, R15, R16, lophn-agent/roles/lophn#R14, R15, R17, R20, R21, R22, lophn-agent/harness/tools#R20

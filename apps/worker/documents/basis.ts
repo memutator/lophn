@@ -4,6 +4,7 @@
 import { err, ok, type Result } from "../../../packages/base/mod.ts";
 import type {
   ObservationBasisChunk,
+  ObservationFolderBasis,
   ObservationLinkBasis,
   ObservationRootBasis,
 } from "../../../packages/documents/file-tracking/mod.ts";
@@ -11,7 +12,10 @@ import type {
 export type BasisStore = {
   // 조각 하나를 받는다. 마지막 조각이면 반영하고 committed=true다.
   apply(chunk: ObservationBasisChunk): Result<{ committed: boolean }>;
+  // 관측할 root(tracking을 켠 활성 project의 폴더).
   roots(): readonly ObservationRootBasis[];
+  // 파일을 쓸 수 있는 폴더(활성 project의 등록 폴더 전부). 관측 root의 상위 집합이다.
+  folders(): readonly ObservationFolderBasis[];
   // 경로에 연결된 문서. 없으면 아직 연결되지 않은 파일이다.
   link(path: string): ObservationLinkBasis | undefined;
   links(): Iterable<ObservationLinkBasis>;
@@ -27,12 +31,14 @@ export type BasisStore = {
 type Staged = {
   full: boolean;
   roots: ObservationRootBasis[];
+  folders: ObservationFolderBasis[];
   upsert: ObservationLinkBasis[];
   remove: string[];
 };
 
 export function createBasisStore(): BasisStore {
   let roots: ObservationRootBasis[] = [];
+  let folders: ObservationFolderBasis[] = [];
   let links = new Map<string, ObservationLinkBasis>();
   let staged: Staged | undefined;
   let version = 0;
@@ -45,6 +51,7 @@ export function createBasisStore(): BasisStore {
         staged = {
           full: chunk.full,
           roots: chunk.roots ?? [],
+          folders: chunk.folders ?? [],
           upsert: [],
           remove: [],
         };
@@ -68,12 +75,14 @@ export function createBasisStore(): BasisStore {
       for (const link of done.upsert) next.set(link.path, link);
       links = next;
       roots = done.roots;
+      folders = done.folders;
       version += 1;
       for (const listener of [...listeners]) listener();
       for (const wake of [...waiters]) wake();
       return ok({ committed: true });
     },
     roots: () => roots,
+    folders: () => folders,
     link: (path) => links.get(path),
     links: () => links.values(),
     rootOf: (root) => roots.find((entry) => entry.root === root),

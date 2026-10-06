@@ -17,6 +17,8 @@ const ROOT = {
   use_gitignore: false,
 };
 
+const FOLDER = { project: PROJECT, path: "/work" };
+
 function link(path: string, version = "ver_1"): ObservationLinkBasis {
   return {
     project: PROJECT,
@@ -35,6 +37,7 @@ function full(links: ObservationLinkBasis[]): ObservationBasisChunk {
     begin: true,
     full: true,
     roots: [ROOT],
+    folders: [FOLDER],
     upsert: links,
     remove: [],
     more: false,
@@ -47,6 +50,7 @@ Deno.test("documents/file-tracking#R3: 여러 조각의 push는 마지막 조각
     begin: true,
     full: true,
     roots: [ROOT],
+    folders: [FOLDER],
     upsert: [link("/work/a.md")],
     remove: [],
     more: true,
@@ -59,6 +63,7 @@ Deno.test("documents/file-tracking#R3: 여러 조각의 push는 마지막 조각
     begin: false,
     full: true,
     roots: null,
+    folders: null,
     upsert: [link("/work/b.md")],
     remove: [],
     more: false,
@@ -78,6 +83,7 @@ Deno.test("documents/file-tracking#R7: 변화 조각은 연결을 바꾸고 지�
     begin: true,
     full: false,
     roots: [ROOT],
+    folders: [FOLDER],
     upsert: [link("/work/a.md", "ver_2"), link("/work/c.md")],
     remove: ["/work/b.md"],
     more: false,
@@ -103,6 +109,7 @@ Deno.test("documents/file-tracking#R3: 시작 없이 온 꼬리 조각은 거절
     begin: false,
     full: false,
     roots: null,
+    folders: null,
     upsert: [link("/work/x.md")],
     remove: ["/work/a.md"],
     more: false,
@@ -120,6 +127,7 @@ Deno.test("documents/file-tracking#R3: 끊긴 push 뒤 새 begin은 쌓아 둔 �
     begin: true,
     full: true,
     roots: [ROOT],
+    folders: [FOLDER],
     upsert: [link("/work/stale.md")],
     remove: [],
     more: true,
@@ -148,4 +156,22 @@ Deno.test("documents/file-tracking#R3: 반영될 때마다 구독자를 부르�
   off();
   store.apply(full([]));
   assertEquals(calls, 1);
+});
+
+Deno.test("documents/file-tracking#R1: store는 관측 root와 쓰기 폴더를 따로 쥔다", () => {
+  const store = createBasisStore();
+  const off = { project: "prj_01arz3ndektsv4rrffq69g5fax", path: "/off" };
+  store.apply({
+    begin: true,
+    full: true,
+    roots: [ROOT],
+    folders: [FOLDER, off],
+    upsert: [],
+    remove: [],
+    more: false,
+  });
+  assertEquals(store.roots().map((root) => root.root), ["/work"]);
+  assertEquals(store.folders().map((folder) => folder.path), ["/work", "/off"]);
+  // 관측 root가 아닌 폴더는 loop 대상이 아니다.
+  assertEquals(store.rootOf("/off"), undefined);
 });

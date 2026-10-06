@@ -76,9 +76,12 @@ import { formatValidateRoute } from "./documents-format-validate.ts";
 import {
   documentPrepare,
   documentUpload,
+  filesRead,
 } from "../../packages/contracts/documents/mod.ts";
 import type { VersionRow } from "../../packages/documents/versions/store.ts";
 import { connectDocumentsRelaunch, workerSpecs } from "./documents.ts";
+import { fileReadStreams } from "./documents-file-read.ts";
+import { createFileWindows } from "./documents-file-windows.ts";
 import {
   createDocumentsChannel,
   servedWorkers,
@@ -88,6 +91,7 @@ import {
 import {
   OBSERVATION_BASIS_ROUTE,
   PREPARE_BASE_ROUTE,
+  STORED_FILE_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
@@ -259,6 +263,8 @@ async function open(
 ): Promise<Result<Core>> {
   // documents coordinator 요청 통로. FileStatus 조회가 이 통로로 묻는다.
   const documentsChannel = createDocumentsChannel();
+  // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
+  const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
   // writer·reader가 import하는 팀 module. 문서 worker route를 서빙하는 reader는 항상 붙는다.
   const modules = withPlatformModule(
@@ -572,18 +578,34 @@ async function open(
         documentUploadHandler(prepareRelay),
       ]]),
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
-      fileStreams: storedFileStreams({
-        readers: runtime.readers,
-        current: (ref) => runtime!.current(ref),
-        readBlob: (hash, offset, length) =>
-          validateWiring.readBlob
-            ? validateWiring.readBlob(hash, offset, length)
-            : Promise.resolve(err({
-              code: "unavailable" as const,
-              message: "blob 읽기 통로가 없다",
-            })),
-        blobReady: () => validateWiring.readBlob !== undefined,
-      }),
+      fileStreams: new Map([
+        ...storedFileStreams({
+          readers: runtime.readers,
+          current: (ref) => runtime!.current(ref),
+          readBlob: (hash, offset, length) =>
+            validateWiring.readBlob
+              ? validateWiring.readBlob(hash, offset, length)
+              : Promise.resolve(err({
+                code: "unavailable" as const,
+                message: "blob 읽기 통로가 없다",
+              })),
+          blobReady: () => validateWiring.readBlob !== undefined,
+        }),
+        // 현재 디스크 파일은 헤더와 창 단위 byte frame으로 흘린다(한 JSON frame에 싣지 않는다).
+        ...fileReadStreams({
+          request: (op, payload, timeoutMs) =>
+            documentsChannel.request(op, payload, timeoutMs),
+          bound: () => documentsChannel.bound,
+          windows: fileWindows,
+          current: (ref) => runtime!.current(ref),
+          copyCheck: (ctx, document) =>
+            runtime!.readers.read(WORKING_COPY_ROUTE, ctx, {
+              document,
+              base_version: null,
+              operation: filesRead.name,
+            }) as ReturnType<FilesRouteDeps["copyCheck"]>,
+        }),
+      ]),
       workers: mergedWorkers(
         fileWorkers({
           request: (op, payload, timeoutMs) =>
@@ -603,6 +625,18 @@ async function open(
           principalOf: requestPrincipal(runtime),
           live: (prepared) =>
             validateWiring.live?.(prepared, clock.nowMs()) ?? false,
+          stored: async (request, source) => {
+            const read = await readAs(runtime!, request, STORED_FILE_ROUTE, {
+              version: source.version,
+              path: source.path,
+            });
+            // 없는 판·없는 경로·접근 밖은 reader가 같은 not_found로 답한다.
+            if (!read.ok) {
+              return read.error.code === "not_found" ? ok(undefined) : read;
+            }
+            const file = read.value as { hash: string; bytes: number };
+            return ok({ hash: file.hash, bytes: file.bytes });
+          },
           copyCheck: (request, document, baseVersion) =>
             readAs(runtime!, request, WORKING_COPY_ROUTE, {
               document,
@@ -780,7 +814,10 @@ async function open(
         onMessage: (message: ChildMessage) => {
           if (!handler.onMessage(message)) documentsChannel.onMessage(message);
         },
-        onFrame: (frame: Frame) => handler.onFrame(frame),
+        onFrame: (frame: Frame) => {
+          handler.onFrame(frame);
+          fileWindows.onFrame(frame);
+        },
       };
     };
     closeChildBlob = () => childBlob?.close();

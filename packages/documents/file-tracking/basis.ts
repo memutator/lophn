@@ -15,6 +15,14 @@ export type ObservationRootBasis = {
   use_gitignore: boolean;
 };
 
+// 사람이 파일을 쓸 수 있는 폴더 하나. 활성 project의 등록 폴더 전부이고 tracking을 껐어도
+// 들어간다. 관측할 root(`ObservationRootBasis`)와 따로 둔다: 권한 집합과 관측 집합이 다르다.
+export type ObservationFolderBasis = {
+  project: string;
+  // 등록 폴더의 절대 경로.
+  path: string;
+};
+
 // 파일 경로에 연결된 문서. `documents.source_path`가 근원이다.
 export type ObservationLinkBasis = {
   project: string;
@@ -30,7 +38,10 @@ export type ObservationLinkBasis = {
 };
 
 export type ObservationBasisPayload = {
+  // 관측할 root(활성이고 tracking을 켠 project의 폴더).
   roots: ObservationRootBasis[];
+  // 활성 project의 모든 등록 폴더. 파일 쓰기의 root 권한 집합이다.
+  folders: ObservationFolderBasis[];
   links: ObservationLinkBasis[];
 };
 
@@ -79,6 +90,24 @@ function rootOf(entry: unknown): ObservationRootBasis | undefined {
   };
 }
 
+function folderOf(entry: unknown): ObservationFolderBasis | undefined {
+  if (!isRecord(entry) || !text(entry.project) || !text(entry.path)) {
+    return undefined;
+  }
+  return { project: entry.project, path: entry.path };
+}
+
+function foldersOf(value: unknown): ObservationFolderBasis[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const folders: ObservationFolderBasis[] = [];
+  for (const entry of value) {
+    const folder = folderOf(entry);
+    if (folder === undefined) return undefined;
+    folders.push(folder);
+  }
+  return folders;
+}
+
 function linkOf(entry: unknown): ObservationLinkBasis | undefined {
   if (!isRecord(entry)) return undefined;
   if (
@@ -108,6 +137,8 @@ export function parseObservationBasis(
   if (!Array.isArray(value.roots) || !Array.isArray(value.links)) {
     return invalid();
   }
+  const folders = foldersOf(value.folders);
+  if (folders === undefined) return invalid();
   const roots: ObservationRootBasis[] = [];
   for (const entry of value.roots) {
     const root = rootOf(entry);
@@ -120,7 +151,7 @@ export function parseObservationBasis(
     if (link === undefined) return invalid();
     links.push(link);
   }
-  return ok({ roots, links });
+  return ok({ roots, folders, links });
 }
 
 // 한 번에 보내는 조각. 감독 pipe의 제어 frame은 256 KiB가 상한이라 근거 전체를 한
@@ -133,6 +164,8 @@ export type ObservationBasisChunk = {
   full: boolean;
   // begin 조각에서만 온다(그 push의 root 전부). 그 밖의 조각은 null이다.
   roots: ObservationRootBasis[] | null;
+  // begin 조각에서만 온다(그 push의 쓰기 폴더 전부). roots와 같이 null이거나 아니다.
+  folders: ObservationFolderBasis[] | null;
   upsert: ObservationLinkBasis[];
   // 연결이 없어진 경로.
   remove: string[];
@@ -160,6 +193,13 @@ export function parseObservationChunk(
     }
   }
   if ((roots === null) === value.begin) return invalid();
+  let folders: ObservationFolderBasis[] | null = null;
+  if (value.folders !== null) {
+    const parsed = foldersOf(value.folders);
+    if (parsed === undefined) return invalid();
+    folders = parsed;
+  }
+  if ((folders === null) === value.begin) return invalid();
   const upsert: ObservationLinkBasis[] = [];
   for (const entry of value.upsert) {
     const link = linkOf(entry);
@@ -176,6 +216,7 @@ export function parseObservationChunk(
     begin: value.begin,
     full: value.full,
     roots,
+    folders,
     upsert,
     remove,
     more: value.more,
@@ -210,18 +251,20 @@ export function chunkObservationBasis(
     ? []
     : [...before.keys()].filter((path) => !present.has(path));
   const rootsChanged = prev === undefined ||
-    JSON.stringify(prev.roots) !== JSON.stringify(next.roots);
+    JSON.stringify(prev.roots) !== JSON.stringify(next.roots) ||
+    JSON.stringify(prev.folders) !== JSON.stringify(next.folders);
   if (!rootsChanged && upsert.length === 0 && remove.length === 0) return [];
   const chunks: ObservationBasisChunk[] = [];
   let current: ObservationBasisChunk = {
     begin: true,
     full,
     roots: next.roots,
+    folders: next.folders,
     upsert: [],
     remove: [],
     more: false,
   };
-  let bytes = encoder.encode(JSON.stringify(next.roots)).length;
+  let bytes = encoder.encode(JSON.stringify([next.roots, next.folders])).length;
   const flush = () => {
     current.more = true;
     chunks.push(current);
@@ -229,6 +272,7 @@ export function chunkObservationBasis(
       begin: false,
       full,
       roots: null,
+      folders: null,
       upsert: [],
       remove: [],
       more: false,

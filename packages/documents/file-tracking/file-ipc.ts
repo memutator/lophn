@@ -45,7 +45,32 @@ export const coreFileRenameSchema = z.strictObject({
 export const coreFileDeleteSchema = z.strictObject({
   request: filesDelete.input,
 });
+// 읽은 파일의 identity. 창을 읽을 때마다 파일이 그대로인지 가리는 근거다(core는 이 값을
+// 해석하지 않고 헤더 응답을 그대로 되돌려 보낸다).
+export const fileIdentitySchema = z.strictObject({
+  device: z.number().int().min(0),
+  inode: z.number().int().min(0),
+  size: z.number().int().min(0),
+  mtime_ms: z.number().min(0),
+});
+export type FileIdentity = z.infer<typeof fileIdentitySchema>;
+
+// 읽는 창 하나의 크기 상한. 한 byte chunk frame(1 MiB) 안이고 core의 blob 읽기 창과 같다.
+export const FILE_WINDOW_MAX_BYTES = 256 * 1024;
+
+// `documents.file_read`: 파일의 헤더(hash·크기·identity)만 묻는다. 바이트는 `file_window`가
+// 창 단위 byte frame으로 보낸다.
 export const coreFileReadSchema = z.strictObject({ target: fileTargetSchema });
+// `documents.file_window`: 헤더의 identity가 그대로인 파일의 한 창. 바이트는 core가 정한
+// channel의 byte chunk frame으로 응답 전에 가고, 응답은 보낸 길이를 말한다.
+export const coreFileWindowSchema = z.strictObject({
+  target: fileTargetSchema,
+  identity: fileIdentitySchema,
+  offset: z.number().int().min(0),
+  length: z.number().int().min(1).max(FILE_WINDOW_MAX_BYTES),
+  channel: channelSchema,
+});
+export type CoreFileWindow = z.infer<typeof coreFileWindowSchema>;
 export const coreFileWatchSchema = z.strictObject({
   target: fileTargetSchema,
   cursor: z.string().min(1).optional(),
@@ -66,6 +91,15 @@ export const fileLocationSchema = z.strictObject({
 export type FileLocation = z.infer<typeof fileLocationSchema>;
 
 export const prepReadSchema = z.strictObject({ location: fileLocationSchema });
+export const prepWindowSchema = z.strictObject({
+  location: fileLocationSchema,
+  identity: fileIdentitySchema,
+  offset: z.number().int().min(0),
+  length: z.number().int().min(1).max(FILE_WINDOW_MAX_BYTES),
+  // 준비 worker가 바이트를 보낼 channel. 응답 전에 byte chunk frame으로 간다.
+  channel: channelSchema,
+});
+export type PrepWindow = z.infer<typeof prepWindowSchema>;
 export const prepWriteSchema = z.strictObject({
   location: fileLocationSchema,
   base_hash: sha256Schema.nullable(),
@@ -92,14 +126,13 @@ export const prepConfirmSchema = z.strictObject({
   confirmed_hash: sha256Schema,
 });
 
-// 준비 worker 읽기 응답. 큰 파일은 bytes_b64가 null이다(한 응답 frame 한도).
+// 준비 worker 읽기 응답(헤더). 바이트는 싣지 않는다: 파일은 크기와 무관하게 창 단위 byte
+// frame으로 읽는다(`prepWindowSchema`). 없는 파일은 exists=false다.
 export type FileReadReply = {
   exists: boolean;
   hash: string | null;
   size: number;
-  bytes_b64: string | null;
+  // 읽은 파일의 identity. 없는 파일은 null이다.
+  identity: FileIdentity | null;
   meta: unknown;
 };
-
-// 한 응답 JSON frame은 1 MiB다. base64가 4/3로 늘어나므로 읽기 상한은 그 안이다.
-export const FILE_READ_MAX_BYTES = 512 * 1024;

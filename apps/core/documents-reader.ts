@@ -487,7 +487,9 @@ export function createReaderRegistration(): ReaderRegistration {
         },
       },
       // coordinator가 파일을 관측할 근거(Q15). core만 부르는 내부 read다. 활성이고 tracking이
-      // 켜진 project의 root·규칙(roots)과 그 project 파일에 연결된 문서(links, 경로 page)다.
+      // 켜진 project의 root·규칙(roots), 활성 project의 모든 등록 폴더(folders: 파일 쓰기의
+      // root 권한 집합이고 tracking을 껐어도 들어간다), 그 project 파일에 연결된 문서(links,
+      // 경로 page)다. roots와 folders는 같은 snapshot의 한 응답이다.
       {
         route: OBSERVATION_BASIS_ROUTE,
         handle(snapshot, _ctx, input) {
@@ -502,6 +504,14 @@ export function createReaderRegistration(): ReaderRegistration {
           );
           if (part === "roots") {
             return ok({
+              folders: projects.value.flatMap((project) =>
+                project.status === "active"
+                  ? project.folders.map((folder) => ({
+                    project: project.id,
+                    path: folder.path,
+                  }))
+                  : []
+              ),
               roots: tracked.flatMap((project) =>
                 project.folders.map((folder) => ({
                   root: folder.path,

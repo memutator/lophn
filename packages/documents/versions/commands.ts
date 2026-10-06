@@ -465,6 +465,25 @@ function contentFileOf(file: PreparedFile): ContentFile {
   };
 }
 
+// `existing` 원본 참조가 가리키는 판 파일(`document_version/file`, owner_key `<판>/<경로>`).
+// 판 파일 참조가 아니거나 owner_key가 그 모양이 아니면 undefined다. 판정(그 판의 행과
+// 문서 접근)은 부르는 쪽이 같은 규칙으로 한다: 저장(existingFileAllowed)과 파일 쓰기의
+// 옛 판 복원이 이 함수 하나로 참조를 푼다.
+export function existingFileSource(
+  reference: { owner_kind: string; owner_key: string; field: string },
+): { version: string; path: string } | undefined {
+  if (
+    reference.owner_kind !== versionFileField.owner_kind ||
+    reference.field !== versionFileField.field
+  ) return undefined;
+  const slash = reference.owner_key.indexOf("/");
+  if (slash <= 0 || slash === reference.owner_key.length - 1) return undefined;
+  return {
+    version: reference.owner_key.slice(0, slash),
+    path: reference.owner_key.slice(slash + 1),
+  };
+}
+
 // 이미 등록된 원문 blob을 새 판의 파일로 다시 묶을 수 있는지. 그 blob은 documents의 판 파일
 // 참조여야 하고, 그 판의 문서를 이 자격이 읽을 수 있어야 한다. 없는 참조와 권한 밖은 같은
 // 답이다(존재를 새지 않는다).
@@ -477,15 +496,10 @@ function existingFileAllowed(
     "forbidden",
     "existing blob reference is not allowed",
   );
-  const ref = file.existing;
-  if (
-    ref.owner_kind !== versionFileField.owner_kind ||
-    ref.field !== versionFileField.field
-  ) return absent;
-  const slash = ref.owner_key.indexOf("/");
-  if (slash < 0) return absent;
-  const sourceVersion = ref.owner_key.slice(0, slash);
-  const sourcePath = ref.owner_key.slice(slash + 1);
+  const source = existingFileSource(file.existing);
+  if (source === undefined) return absent;
+  const sourceVersion = source.version;
+  const sourcePath = source.path;
   const row = tx.sql.get(
     `SELECT v.document AS document FROM versions v
      JOIN version_files f ON f.version = v.id

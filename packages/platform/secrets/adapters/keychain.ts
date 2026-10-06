@@ -9,6 +9,9 @@ export type KeychainItem = {
   purpose: SecretPurpose;
   owner: string;
   value: Uint8Array;
+  // 소유 경계가 고정 위치를 정할 때만 준다(coding connection credential). 없으면 adapter가
+  // 값과 무관한 무작위 참조를 만든다.
+  ref?: string;
 };
 
 export type KeychainStatus = "available" | "unavailable";

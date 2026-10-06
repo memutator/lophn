@@ -54,7 +54,7 @@ export function createLinuxSecretServiceAdapter(options: {
       return "available";
     },
     async store(item: KeychainItem): Promise<Result<string>> {
-      const ref = options.randomRef();
+      const ref = item.ref ?? options.randomRef();
       const stored = await runner.run([
         "store",
         "--label",

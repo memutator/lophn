@@ -48,7 +48,7 @@ export function createFakeKeychain(options?: {
       if (status !== "available") {
         return Promise.resolve(err(KEYCHAIN_UNAVAILABLE));
       }
-      const ref = nextRef();
+      const ref = item.ref ?? nextRef();
       values.set(ref, item.value.slice());
       return Promise.resolve(ok(ref));
     },

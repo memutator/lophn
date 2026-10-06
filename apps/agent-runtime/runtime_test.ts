@@ -105,6 +105,7 @@ Deno.test("lophn-agent/harness/run-loop#R4: runtime은 selector를 주고 select
       headers: { "content-type": "application/json" },
     });
   const started = await startAgentRuntime({
+    occurrences: false,
     streams: {
       stdin: io.toChild.readable,
       stdout: io.fromChild.writable,
@@ -281,3 +282,57 @@ async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {
   const decoder = new TextDecoder();
   return chunks.map((chunk) => decoder.decode(chunk)).join("");
 }
+
+Deno.test("lophn-agent/scheduling#R4: runtime 기동에서 회차 시계가 machine 자격으로 assignment 목록을 읽고 종료 때 멈춘다", async () => {
+  const seen: string[] = [];
+  const io = pipes();
+  const parent = parentWriter(io.toChild.writable);
+  const written = parent.write(HELLO);
+  const reply = (body: unknown) =>
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  const started = await startAgentRuntime({
+    occurrences: true,
+    streams: {
+      stdin: io.toChild.readable,
+      stdout: io.fromChild.writable,
+      stderr: io.diagnostics.writable,
+    },
+    fetch: (input, init) => {
+      const url = new URL(String(input));
+      seen.push(url.pathname);
+      assertEquals(
+        new Headers(init?.headers).get("authorization"),
+        "Bearer machine-credential-1",
+      );
+      return Promise.resolve(
+        url.pathname === "/v1/events/list"
+          ? reply(CURSOR)
+          : reply({ assignments: [], as_of_seq: "7", next_cursor: null }),
+      );
+    },
+  });
+  await written;
+  assert(started.ok);
+  const frames = collectFrames(io.fromChild.readable);
+  try {
+    assertEquals(await frames.next(), { type: "ready" });
+    // 시계의 첫 tick은 기동 직후 assignment 목록을 읽는다.
+    for (
+      let waited = 0;
+      !seen.includes("/v1/assignments/list") && waited < 50;
+      waited++
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    assert(seen.includes("/v1/assignments/list"));
+    await parent.write({ type: "stop", grace_ms: 0 });
+    assertEquals(await frames.next(), { type: "stopped" });
+    await parent.close();
+    await started.value.done;
+  } finally {
+    frames.close();
+  }
+});

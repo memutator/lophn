@@ -20,6 +20,7 @@ import {
   trimmedQuery,
 } from "./model.ts";
 import {
+  authorize,
   authorizeTarget,
   coverageOfLike,
   cutOutline,
@@ -824,7 +825,11 @@ function buildRootEntries(
     placed.push({ kind: "context", ...summary });
   }
   placed.sort(compareActivity);
-  const unplaced = placeDocumentCount(deps, null, null);
+  // 자리 없는 문서는 자리 target이 없다. 자리·문서로 범위가 좁은 credential은 이 묶음의 건수도
+  // 볼 수 없으므로 target 없는 판정이 통과할 때만 묶음을 낸다.
+  const unplaced = authorize(deps.ports, ctx, "outline.root", {})
+    ? placeDocumentCount(deps, null, null)
+    : 0;
   if (unplaced > 0) {
     placed.push({ kind: "unplaced", document_count: unplaced });
   }

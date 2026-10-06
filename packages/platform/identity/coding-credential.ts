@@ -150,7 +150,9 @@ function principalOf(connection: string): string {
   return `coding_agent:${connection}`;
 }
 
-function externalOf(
+// connection이 발급받는 자격의 대상 범위·조건이다. 앱 하나 범위는 `targets.app`과 `conditions.app`이고
+// owner(documents·apps·problems)는 자기 target의 앱을 직접 줘서 이 범위와 맞춘다.
+export function externalOf(
   connection: string,
   scope: ConnectionScope,
 ): ExternalCredential {

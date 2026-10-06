@@ -163,6 +163,14 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - 선행: apps#T1, apps#T3, contracts#T37, platform#T23
 - platform#T47에서 넘어온 것: doctor 보안 진단이 지금 읽는 관측 파일 대신 grant
   위험 read와 SDK hash(T5 contract)를 읽게 교체(#180)
+- shell#T43에서 넘어온 것: app-detail Automations [Turn off]는 `automation.run`
+  grant를 확인 창 없이 `grant.revoke`로 거두는데 지금 호출할 수 없다. (1)
+  `grant.revoke`가 contract에서 `confirmation: "required"`라 확인 handle 없는
+  호출은 invalid_input이다. automation.run만 확인 없이 받는 경로가 필요하다.
+  (2) `grants.list`가 비교 기준 `grants_seq`(앱의 마지막 Grant 사건 seq)를 내지
+  않아 shell이 `compare`를 채울 수 없다(additive 출력 field). 둘이 서기 전에는
+  shell의 `turnOffAutomation`이 unavailable을 답하고 화면은 "아직 켜져 있다"만
+  보인다
 - 완료:
   - `commands_test.ts`: 선언만 있는 접근은 실행 범위가 0이고 같은 범위의
     approval 적용 뒤만 grant가 생긴다(R1), 실행 범위 = 현재 release 요구 ∩
@@ -197,6 +205,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   import map 해석 함수(T6이 쓴다)
 - slice: apps
 - 선행: apps#T2, contracts#T37, platform#T13, platform#T14
+- coding-agent#T36에서 넘어온 것: `sdk show`의 안내 원문(API·type·permission·peer·예제) read. `packages.guide`는 `guide_hash`만 돌려주고 `blob.read`는 owner가 blob field를 등록해야 읽힌다(`owner_kind`·`owner_key`·`field`). guide blob field 등록(coding credential·agent·app가 읽는 `general_read`)과 owner 키를 정하면 coding-agent의 `sdk show`가 `body`를 채운다(connection/sdk-ops.ts의 `body: null`).
 - 완료:
   - `install_test.ts`: 설치가 packages/sdk/*를 패키지마다 자기 완결 byte로 묶고
     hash·guide hash를 blob에 넣은 뒤 register_version을 machine으로 부른다. 설치
@@ -889,6 +898,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - apps#T13에서 넘어온 것: `apps/app-supervisor/main.ts`에서 운영 자식마다 broker socket을 열고(`createBrokerHub`·`serveBroker`, `permissions/broker/`) 서비스 어댑터를 조립한다. `BrokerAccess`는 이 작업의 blueprint read(현재 release 선언 ∩ active grant, 요청마다 다시 읽음), `SecretDelivery`·`RedactionGate`는 core secret store의 전송 부착(contracts#T23), `ProblemsReport`는 problems collector, `GrantRevoker`·`AppProcesses`는 core 제어 메시지. `DocumentsSave`는 documents#T31이 낸다. 지금은 시험 fake(`permissions/testing/broker.ts`)만 있어 broker가 아무 데서도 돌지 않는다
 - apps#T15에서 넘어온 것: (1) core에서 `createPairPreparer({clock, signer, process, facts})`(`connections/prepare.ts`)를 만든다. `signer`는 T10의 같은 `createCoreSigner()` 하나, `process`는 `supervisor-link`의 `ProcessSource`, `facts`는 T10의 `ConnectFacts`에 `declarations(app)`(현재 release 선언 `{release, app_connections}`, 위 `currentDeclarations`)를 더한 것이다. (2) supervisor의 자식 broker 서비스에 `apps: createAppsConnectService({preparer})`를 달되 supervisor는 core의 preparer를 부르는 `AppPairPreparer` 어댑터(감독 pipe `worker_request`)를 쓴다. `invocations`는 `observeStarts(createInvocationBroker(...), preparer.paths)`로 감싸 start 사실이 path 장부에 알려지게 하고(`childExited`가 장부를 비운다), `ConnectionGate.close`는 `preparer.close`다. (3) 앱 자식의 Deno 허락에 app.call target의 direct socket(`unix:<고정 자리 socket>`과 읽기·쓰기)을 `effectiveScope.app_calls`의 대상마다 더한다. 지금 `appFlags`는 자기 두 socket만 열어 실제 자식의 `unixPairDirect`는 NotCapable이다. (3-1) confirm: core에서 `createPairConfirmer({process, facts, signer, paths: preparer.paths, ids, targets, approvals, accepted})`(`connections/confirm-request.ts`)를 만들고 supervisor 자식 broker에 `appsConfirm: createAppsConfirmService({confirmer})`를 단다. 어댑터는 이 작업(T19)이 만든다: `ConfirmTargets`(대상 release의 고정 blueprint로 `canonicalInputHash`와 confirm=true 확인, 아니면 invalid_input), `ConfirmApprovals`(요청자 `app:<호출 앱>`의 `confirmAction`으로 approval 생성·상태 읽기·machine의 `apply_approved_action`), `ConfirmAcceptances`(core에 저장된 접수 사실(`invocations`의 approval과 `InvocationAccepted` event 시각)에서 proof payload를 다시 만든다. `invocation.accept_confirm`은 dispatch 전용이라 직접 HTTP 재전송은 거절되고(platform Q32, #328), 접수가 없으면 `not_found`다). 시험 어댑터는 `connections/confirm_test.ts`에 있고 같은 방식으로 읽는다. (4) 앱 프로세스 entrypoint는 `startRuntime`이 `PairPort`(`Symbol.for("lophn.cap-apps")`)를 이미 설치한다. 위 cap-host port를 설치할 때 broker `post`를 공유하도록 합치려면 `connections/client.ts`의 `createPairPort`를 `CAP_HOST.post`로 바꾸면 된다
 - apps#T21에서 넘어온 것: (1) 실제 `PreviewReleases`(release→bundle hash, 없는 release·다른 앱의 release는 undefined)를 `appPreviews.releases`로 낸다. (2) supervisor 조립이 자식마다 broker socket을 열 때 preview 자식에는 `createPreviewBrokerServices({scope: previewScopeOf(blueprint), invocations, problems})`(`packages/apps/preview`)를 `BrokerServices`로 쓰고 launcher의 `attachBroker`가 그 자리다. invocation·problems 서비스는 운영과 같은 구현이고 mode와 release(null이면 기록 없음)로 구별된다
+- shell#T43에서 넘어온 것: `apps.blueprint`는 active release의 blueprint만 읽는다(입력이 `{app}`뿐). app-detail의 준비만 된 Version preview는 그 Version이 여는 화면 key를 읽을 길이 없어 지금 쓰는 Version의 full 화면 key로 연다. `{app, release}`로 그 Version의 화면 선언을 읽는 additive 입력이 필요하다. 그 전에 새 Version이 첫 화면 key를 바꾸면 preview가 열리지 않는다
 - apps#T20에서 넘어온 것: 같은 supervisor 조립에서 (1) `createAutomationPermits()`(`automations/permits.ts`) 인스턴스를 supervisor에 하나 쥐고(앱마다가 아니라 전체 동시 4개 한도) 자식마다 `createAutomationBroker({access, permits})`(`permissions/broker/automations.ts`)를 `BrokerServices.automations`에 넣는다. (2) `BrokerAccess.current`의 `AccessState`에 `automations`(현재 release 선언의 `AutomationDeclarationFact` 목록)를 채운다. 이 작업의 `currentDeclarations` port가 낸다. (3) 자식 종료를 확인하면 `permits.childExited(processNonce)`를 `InvocationBroker.childExited`와 같은 자리에서 부른다. (4) `apps.automations` read가 선언을 알려면 이 작업의 `currentDeclarations`를 `apps/core/apps.ts` `createReaderRegistration`의 `ports` map에 같은 key로 등록해야 한다(지금은 등록이 없어 core에서 빈 목록이다). 등록한 뒤 `automations/core_http_test.ts`에 선언·승인·관측 흐름(permissions/testing의 `set_declarations` 등)을 더한다
 - 선행: apps#T6, apps#T8, contracts#T36, contracts#T41, problems#T9,
   problems#T10, problems#T11, coding-agent#T19
@@ -1490,6 +1500,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - 내놓는 contract: `/v1/apps/export`(준비 중·완성·실패 구별) (contracts#T20)
 - slice: operations
 - 선행: apps#T17, apps#T19, platform#T12, platform#T13
+- shell#T43에서 넘어온 것: core에 `worker:apps/export`가 서면 app-detail Data 탭에 [Export]를 붙인다. 지금은 route가 core에 없어 탭이 "아직 내보낼 수 없다"만 보인다. shell main의 renderer allowlist(`main/desktop/core/allowlist.ts`의 `READING_WORKER_ROUTES`)에 이 worker route를 더하는 일도 그때 한다
 - 완료:
   - export 안에 고정 blueprint·release 이력·각 불변 bundle·정확한 SDK byte·WAL
     확정 내용을 포함한 무결성 확인 DB 사본이 있고 secret 원값·credential이

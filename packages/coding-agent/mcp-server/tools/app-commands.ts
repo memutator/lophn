@@ -10,7 +10,7 @@ import {
   type Result,
   sha256Hex,
 } from "../../../base/mod.ts";
-import { appList } from "../../../contracts/apps/mod.ts";
+import { appBlueprint, appList } from "../../../contracts/apps/mod.ts";
 import type {
   CommandDeclaration,
   InputSchema,
@@ -42,6 +42,29 @@ export type AppBlueprintView = {
 export type AppBlueprintSource = (
   app: string,
 ) => Promise<Result<AppBlueprintView | null, LophnError>>;
+
+// 소유 read(`/v1/apps/blueprint`, apps#T19)로 source를 만든다. 범위 밖·없는 앱·active release가
+// 없는 앱은 같은 not_found라 null이다(같은 답). 그 밖의 실패는 호출 쪽이 앱이 없는 것과 같이 다룬다.
+export function appBlueprintSourceOf(
+  client: Pick<AppOpDeps["client"], "read">,
+): AppBlueprintSource {
+  return async (app) => {
+    const read = await client.read(appBlueprint, { app });
+    if (!read.ok) {
+      return read.error.code === "not_found" ? ok(null) : read;
+    }
+    const value = read.value as {
+      release: string;
+      blueprint_hash: string;
+      commands: AppBlueprintView["commands"];
+    };
+    return ok({
+      release: value.release,
+      blueprint_hash: value.blueprint_hash,
+      commands: value.commands,
+    });
+  };
+}
 
 export type AppCommandToolsDeps = Omit<AppOpDeps, "surface" | "progress"> & {
   blueprint: AppBlueprintSource;

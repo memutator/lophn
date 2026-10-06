@@ -187,7 +187,7 @@ concerns: [coding-agent/mcp-server]
 
 ### 앱 개발과 SDK
 
-**[R32]** 앱 invocation 이력은 앱·command 또는 automation 선택으로 페이지당 최대 20개를, 앱 log는 요청 줄 수 1~2,000 범위로 제공하고 남은 자료는 실제 이어 읽기와 redaction된 반환 수를 표시한다.
+**[R32]** 앱 invocation 이력은 앱·command 또는 automation 선택으로 페이지당 최대 20개를, 앱 log는 한 번에 요청 줄 수 1~200 범위로 제공하고 남은 자료는 실제 이어 읽기와 redaction된 반환 수를 표시한다.
 - 이유: 옛 앱 adapter의 개수와 log 입력 상한을 보존하되 큰 결과를 조용히 자르지 않는다.
 - 확인: 21개 이력과 2,001줄 요청을 비교하고 문제의 추가 log 페이지에는 coding-agent/repair-context의 더 작은 별도 상한을 적용한다.
 - 의도: coding-agent#I3

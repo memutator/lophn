@@ -331,6 +331,7 @@ export function screenAssetPath(value: string): boolean {
 export type ControlProbe = { process_nonce: string };
 export type ControlOpen = { process_nonce: string; release: string };
 export type ControlClose = { process_nonce: string; reason: string };
+export type ControlViewClosed = { process_nonce: string; view_session: string };
 export type ControlShutdown = { process_nonce: string; grace_ms: number };
 
 function controlNonce(source: Record<string, unknown>): string | undefined {
@@ -363,6 +364,17 @@ export function parseControlClose(value: unknown): ControlClose | undefined {
     return;
   }
   return { process_nonce: nonce, reason: source.reason };
+}
+
+export function parseControlViewClosed(
+  value: unknown,
+): ControlViewClosed | undefined {
+  const source = record(value);
+  if (!source || exact(source, ["process_nonce", "view_session"])) return;
+  const nonce = controlNonce(source);
+  const view = opaque(source.view_session, "opaque value");
+  if (!nonce || !view) return;
+  return { process_nonce: nonce, view_session: view };
 }
 
 export function parseControlShutdown(

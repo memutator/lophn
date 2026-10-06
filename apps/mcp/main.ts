@@ -25,7 +25,11 @@ import {
   startLineReader,
   type StdioStreams,
 } from "../../packages/coding-agent/mcp-server/mod.ts";
-import { uploadPrepareBytes } from "../../packages/coding-agent/connection/mod.ts";
+import {
+  type AppDirect,
+  uploadPrepareBytes,
+} from "../../packages/coding-agent/connection/mod.ts";
+import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";
 import { createContextTool } from "../../packages/coding-agent/mcp-server/tools/context.ts";
 import { createDocumentTool } from "../../packages/coding-agent/mcp-server/tools/document.ts";
 import { createIndexTool } from "../../packages/coding-agent/mcp-server/tools/index.ts";
@@ -58,6 +62,9 @@ export type McpOptions = {
   redact?: (text: string) => string;
   // 제출 파일 root다. 없으면 작업 위치(--cwd <submission-root>)다.
   submissionRoot?: string;
+  // 앱 통로(direct call)다. 실제 socket transport와 권한은 설치·loader 배선(coding-agent#T36)이
+  // 끼운다. 없으면 lophn_app command는 unavailable이다.
+  appDirect?: AppDirect;
 };
 
 // tools/call의 실행이다. registry route 하나로만 routing된다(R2).
@@ -127,6 +134,14 @@ export function startMcpServer(
       idempotencyKey: () => `mcp-ticket-${crypto.randomUUID()}`,
     })
     : undefined;
+  // 앱 개발 tool의 실행이다(T21). 소유 route로만 보내고 CLI와 같은 흐름을 쓴다.
+  const appTool = caller
+    ? createAppTool({
+      client: caller,
+      idempotencyKey: () => `mcp-app-${crypto.randomUUID()}`,
+      direct: options.appDirect,
+    })
+    : undefined;
   // 문서 저장·format·series·context tool의 실행이다(T14·T17). 같은 core client로 소유 route만 부른다.
   const submission = {
     scope: { root: options.submissionRoot ?? Deno.cwd(), forbidden: [] },
@@ -173,7 +188,8 @@ export function startMcpServer(
     onClientInfo: (name) => {
       clientName = name;
     },
-    callTool: (toolName, callArgs) => {
+    notify: (message) => sink.send(JSON.stringify(message)),
+    callTool: (toolName, callArgs, context) => {
       // server가 route 표와 input을 검사한다. 여기는 연결 상태와 실행뿐이다.
       const params = (callArgs ?? {}) as { op?: unknown };
       const op = typeof params.op === "string" ? params.op : undefined;
@@ -193,6 +209,15 @@ export function startMcpServer(
             next: ["lophn doctor로 연결과 credential을 확인한다"],
           })
           : ticketTool(toolName, resolved.route, callArgs);
+      }
+      if (toolName === "lophn_app") {
+        return appTool === undefined
+          ? Promise.resolve({
+            summary: "tool 실행 준비가 안 됐다",
+            data: { tool: toolName, op, connected: false },
+            next: ["lophn doctor로 연결과 credential을 확인한다"],
+          })
+          : appTool(toolName, resolved.route, callArgs, context);
       }
       const documentTool = documentTools !== undefined &&
           Object.hasOwn(documentTools, toolName)

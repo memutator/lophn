@@ -1,23 +1,18 @@
-import { createRoot } from "react-dom/client";
-
 import type { ConfirmationFrameApi } from "./frame/api.ts";
-import { ConfirmationFrame } from "./frame/frame.tsx";
+import { ConfirmationScreen } from "./screen.tsx";
 
 type Bridge = {
   lophnConfirmation?: ConfirmationFrameApi;
 };
 
-// 사용자 slot·fork는 읽지 않는다. theme은 main이 검증해 넘긴 token 값만 쓴다.
-export function mountConfirmation(
-  root: HTMLElement,
-  api: ConfirmationFrameApi,
-  theme: Record<string, string>,
-): void {
-  createRoot(root).render(<ConfirmationFrame api={api} theme={theme} />);
-}
-
-const bridge = globalThis as unknown as Bridge;
-const node = document.getElementById("root");
-if (node !== null && bridge.lophnConfirmation !== undefined) {
-  mountConfirmation(node, bridge.lophnConfirmation, {});
+/**
+ * 보호 preload가 연 API로 화면을 그린다. 사용자 slot·fork는 읽지 않는다. theme은 main이
+ * 검증해 넘긴 token 값만 쓴다. preload가 없으면 아무것도 그리지 않는다.
+ */
+export function ConfirmationApp(
+  { theme = {} }: { theme?: Record<string, string> },
+) {
+  const api = (globalThis as unknown as Bridge).lophnConfirmation;
+  if (api === undefined) return null;
+  return <ConfirmationScreen api={api} theme={theme} />;
 }

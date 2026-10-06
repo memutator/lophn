@@ -5,6 +5,10 @@ import { registerComponentTests } from "./component-tests.ts";
 const bundled = await registerComponentTests([
   new URL("./components/", import.meta.url),
   new URL("./reading/", import.meta.url),
+  new URL("../sdk/ui-control/", import.meta.url),
+  new URL("../sdk/ui-overlay/", import.meta.url),
+  new URL("../sdk/ui-layout/", import.meta.url),
+  new URL("../sdk/ui-state/", import.meta.url),
   new URL("../sdk/ui-table/", import.meta.url),
   new URL("../sdk/ui-chart/", import.meta.url),
 ]);

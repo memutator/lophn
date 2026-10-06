@@ -235,6 +235,7 @@ Deno.test("shell/design-system#R24: breakpoint·pane padding·sidebar 범위를 
   assertEquals(tokens.layout, {
     panePadding: { narrow: "16px", wide: "32px" },
     sidebar: { min: "200px", max: "400px", collapsed: "56px" },
+    container: { panel: "320px", card: "240px" },
   });
 });
 

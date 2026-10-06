@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { err } from "../../packages/base/mod.ts";
+import { err, ok } from "../../packages/base/mod.ts";
 import {
   defineSetting,
   type KindLaunchSpec,
@@ -12,6 +12,7 @@ import {
 } from "../../packages/platform/ledger/mod.ts";
 import {
   assignmentPaused,
+  InstructionAttachments,
   questionCreated,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
@@ -42,6 +43,7 @@ import {
 import {
   createPresetCommands,
   createPresetReads,
+  instructionAttachmentsOf,
   presetSchemaSteps,
   ROLE_CAPS,
 } from "../../packages/lophn-agent/presets/mod.ts";
@@ -411,6 +413,20 @@ const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
   },
 }));
 
+// documents가 document.save·update의 같은 Tx에서 묻는 지침 문서 판정이다(documents/versions#R20).
+// 지금 preset 판의 지침 첨부가 그 문서를 가리키면 비어 있지 않은 목록이다. 분류는 현재 상태로만 한다.
+const instructionAttachmentsPort = defineTxPort(
+  InstructionAttachments,
+  (tx) => ({
+    attachments: (document: string) => {
+      const found = instructionAttachmentsOf(tx.sql, document);
+      return found.ok
+        ? ok(found.value.map(({ preset, revision }) => ({ preset, revision })))
+        : found;
+    },
+  }),
+);
+
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
   settings: [
@@ -530,7 +546,7 @@ export const lophnAgentDefinitions = {
     ...messageBodyFields,
     ...handoffBodyFields,
   ],
-  ports: [runAdmissionPort, approvalLineagePort],
+  ports: [runAdmissionPort, approvalLineagePort, instructionAttachmentsPort],
   workers: [],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,

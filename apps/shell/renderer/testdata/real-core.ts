@@ -2,7 +2,8 @@
 // 묶는다. main의 contract client 대신 같은 HTTP route(`POST /v1/<resource>/<method>`)를
 // 사람 token으로 부른다. 사람 데이터 root(~/.lophn)는 열지 않고, 띄운 core만 정확히 멈춘다.
 // component test는 temp bundle에서 돌아 import.meta.url이 repo를 가리키지 않으므로 repo
-// root는 실행 위치에서 위로 찾는다.
+// root는 실행 위치에서 위로 찾는다. entry를 주면 그 파일(예: 질문을 심는 question-core.ts)을
+// 같은 모양으로 띄운다.
 import type { CoreSource } from "../desktop/connection/connection.ts";
 
 export interface RealCore {
@@ -73,10 +74,20 @@ function readHello(stdout: ReadableStream<Uint8Array>): Promise<Hello> {
   });
 }
 
-export async function startRealCore(): Promise<RealCore> {
+/** 질문 하나·approval 하나를 심고 hello를 주는 core. question-seed.ts의 값이다. */
+export const QUESTION_CORE = "apps/shell/renderer/testdata/question-core.ts";
+
+export async function startRealCore(
+  options: { entry?: string } = {},
+): Promise<RealCore> {
   const home = await Deno.makeTempDir({ prefix: "lophn-dock-core-" });
   const child = new Deno.Command(Deno.execPath(), {
-    args: ["run", "--allow-all", "apps/core/main.ts", "--port=0"],
+    args: [
+      "run",
+      "--allow-all",
+      options.entry ?? "apps/core/main.ts",
+      "--port=0",
+    ],
     cwd: await repoRoot(),
     env: { LOPHN_HOME: home },
     stdin: "piped",

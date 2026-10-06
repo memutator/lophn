@@ -36,7 +36,7 @@ export type FilesDeps = {
   // LOPHN_HOME. working copy 폴더의 근원이다.
   dataRoot: string;
   // 쓸 수 있는 폴더(folders)와 관측 root(roots)를 구별해서 쓴다.
-  basis: Pick<BasisStore, "roots" | "folders">;
+  basis: Pick<BasisStore, "roots" | "folders" | "instructions">;
   pool: Pick<PreparationPool, "request">;
   inbox: ByteInbox;
   status: StatusRecorder;
@@ -48,6 +48,8 @@ export type FilesDeps = {
   ): Promise<Result<FileOperationResult, LophnError>>;
   // core에 byte chunk frame을 보낸다(파일 창). 보내지 못하면 던진다.
   sendBytes(channel: number, bytes: Uint8Array): Promise<void>;
+  // 지침 파일에 쓴 직후 그 파일을 바로 다시 관측하게 한다(file-tracking#R19, R20).
+  nudge?(path: string): void;
   nowIso(): string;
   watchWaitMs?: number;
   watchPollMs?: number;
@@ -213,7 +215,7 @@ export function createFileHandlers(deps: FilesDeps): FileHandlers {
         priority: "human",
         keys: [located.value.key],
       });
-      return await finish(
+      const answered = await finish(
         {
           request_key: request.request_key,
           operation: "write",
@@ -222,6 +224,11 @@ export function createFileHandlers(deps: FilesDeps): FileHandlers {
         done,
         versionResultOf(request.version_request !== undefined),
       );
+      // 쓴 지침 파일의 새 판은 관측이 만든다. 60초 주기를 기다리지 않고 바로 다시 읽게 한다.
+      if (request.target.kind === "instruction_file" && done.ok) {
+        deps.nudge?.(located.value.location.path);
+      }
+      return answered;
     },
     async rename(payload) {
       const parsed = coreFileRenameSchema.safeParse(payload);

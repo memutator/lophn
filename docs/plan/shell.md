@@ -913,6 +913,7 @@ concerns: [shell]
 
 ### T46 앱 화면 검사 host
 
+- 상태: 완료 (#360)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: problems/tests#R7(view 예외·깨진 view의 feedback 화면 검사), R19(관측 private IPC)
@@ -929,6 +930,7 @@ concerns: [shell]
   - `screen-test-host_test`와 problems#T11이 쓰는 fixture 하나로 확인한다.
 - 가져올 것: legacy `app.ts`의 offscreen option 기록(hidden window는 첫 frame 뒤 capture가 멈춘다).
 - shell#T38에서 넘어온 것: 앱 preload가 main world의 error·unhandledrejection·`lophn:render-error`를 내부 `app:view-error`로 보낸다(`apps/shell/preload/app-api.ts`). 화면 검사 host는 같은 preload를 쓰고 `registerAppIpc`(`main/app-frame/app-ipc.ts`)의 viewError를 collector 대신 관측 frame으로 바꿔 끼운다
+- 정한 것: (1) fd 3 확인 — Deno 부모(`node:child_process` stdio 4번째 `pipe`)와 Electron 자식(`net.Socket({fd: 3, allowHalfOpen: true})`) 사이 JSON lines가 실제로 된다(`e2e/shell/app-screen-test_test.ts`). 그래서 stdin·stdout frame으로 바꾸지 않았다. (2) `main.cjs`는 `entry.ts` 분기만 하고 desktop main은 `desktop.cjs`, host는 `screen-test.cjs`다. desktop main은 module 몸통에서 데이터 root·core를 열어 같은 bundle 안에서는 막을 수 없다. (3) shell tsc가 contracts 원본을 검사하지 못해(Q22) contracts schema는 deno가 검사하는 `entry-screen-test.ts`만 쓰고 `screen-test-host.ts`는 같은 모양의 타입을 둔다. (4) 화면 byte는 운영 protocol handler에 bundle 폴더 upstream을 끼워 CSP·MIME·경로 검사를 그대로 지난다. (5) CSP가 막은 요청은 webRequest에 닿지 않아 test session에만 `preload-screen-test.cjs`를 더해 `securitypolicyviolation`의 주소를 받는다. 탐색 guard가 막은 main frame 이동은 관측에 넣지 않는다. (6) feedback 검사는 binding(살아 있는 view의 main frame이 그 화면 주소), invalidate 뒤 새 offscreen frame, 앱 view 위 다른 renderer의 고정 dialog 문서 load를 각각 1500ms까지 본다. (7) `lophnApp.call`은 blueprint 검사 없이 `{request_key, command, input}`을 test 앱 socket에 빈 Authorization으로 보내고 응답 판정은 운영 `outcomeOf`다. 외부 링크는 열지 않고 `unavailable`이다
 
 ### T47 앱 전용 창, OS 앱 바로가기, 창 열기 intent
 

@@ -7,6 +7,8 @@ import {
   PAGE_SIZE,
   type WindowCursor,
 } from "../result.ts";
+import type { RunCredential } from "../work.ts";
+import type { ContractCall } from "./common.ts";
 
 // 목록·검색·이력·검사 진단의 이어 보기. 소유 contract의 cursor를 조건과 함께 감싼다(R13).
 
@@ -89,4 +91,42 @@ export function windowedResult(
     continuation: continuation(next),
     pending: [],
   };
+}
+
+// 목차·차이·용어처럼 소유 contract가 쪽을 정하는 읽기다. cursor만 조건과 함께 감싸고, 상한을 넘으면
+// 지정한 배열 키의 뒤쪽 항목부터 덜어 낸다. `shape`가 있으면 소유 contract의 결과에서 보일 값만 고른다.
+export async function pageThrough(
+  ports: ContractCall,
+  summary: string,
+  contract: string,
+  scope: string,
+  given: string | undefined,
+  fixed: Record<string, unknown>,
+  arrayKeys: readonly string[],
+  credential: RunCredential,
+  shape?: (body: Body) => Record<string, unknown>,
+): Promise<Result<ToolResult>> {
+  const resumed = resume(given, scope);
+  if (!resumed.ok) return resumed;
+  const inner = resumed.value?.inner ?? null;
+  const read = await ports.call(contract, {
+    ...fixed,
+    ...(inner === null ? {} : { cursor: inner }),
+  }, credential.run);
+  if (!read.ok) return read;
+  const body = bodyOf(read.value);
+  const { next_cursor: nextInner, ...rest } = body;
+  const fitted = fitJson(shape === undefined ? rest : shape(rest), arrayKeys);
+  const next = nextInner === null || nextInner === undefined
+    ? null
+    : wrap(scope, nextInner, 0);
+  return ok({
+    status: "success",
+    summary,
+    content: fitted.content as ToolResult["content"],
+    complete: fitted.complete && next === null,
+    source: null,
+    continuation: continuation(next),
+    pending: [],
+  });
 }

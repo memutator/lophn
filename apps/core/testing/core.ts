@@ -123,6 +123,7 @@ export async function createCoreHarness(
   const random = seededRandom(seed + 7);
   const ids = createIdSource({ clock, random });
   let sequence = 0;
+  let closing: Promise<void> | undefined;
   return ok({
     port: core.port,
     epoch: core.epoch,
@@ -160,9 +161,15 @@ export async function createCoreHarness(
       }
       return await core.confirmation(body);
     },
-    async close() {
-      await core.shutdown();
-      await Deno.remove(directory, { recursive: true });
+    // 여러 번 불러도 한 번만 끝낸다. shutdown이 던져도 데이터 root는 지운다.
+    close() {
+      return closing ??= (async () => {
+        try {
+          await core.shutdown();
+        } finally {
+          await Deno.remove(directory, { recursive: true });
+        }
+      })();
     },
   });
 }

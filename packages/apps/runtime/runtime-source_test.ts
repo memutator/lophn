@@ -12,7 +12,11 @@ import { appFlags } from "../permissions/mod.ts";
 import type { DesiredApp } from "./supervisor/mod.ts";
 import { createRuntimeClient } from "./client/mod.ts";
 import { COMMANDS, openWorld, SCREENS, type World } from "./world_test.ts";
-import { FIXTURE_RELEASE, writeFixtureBundle } from "./testing/app-process.ts";
+import {
+  FIXTURE_RELEASE,
+  reapAppProcesses,
+  writeFixtureBundle,
+} from "./testing/app-process.ts";
 
 type Prepared = { desired: DesiredApp; dir: string };
 
@@ -81,24 +85,40 @@ async function runtimeOf(world: World, token: string): Promise<RuntimeRead> {
   return read.body as unknown as RuntimeRead;
 }
 
+// 실제 supervisor가 띄운 앱 자식은 시험이 실패하거나 중간에 던지면 core가 정리하지 못해 고아로 남는다
+// (자식은 supervisor와 다른 세션이라 test process가 끝나도 살아 있다). 어떤 길로 끝나도 core를 닫고,
+// 그 폴더를 읽는 자식을 pid로 찾아 끝낸 뒤 폴더를 지운다.
+async function closeAndReap(world: World, prepared: Prepared | undefined) {
+  try {
+    await world.close();
+  } finally {
+    if (prepared) {
+      await reapAppProcesses(prepared.dir);
+      await Deno.remove(prepared.dir, { recursive: true }).catch(() =>
+        undefined
+      );
+    }
+  }
+}
+
 async function withSupervisor(
   run: (world: World, prepared: Prepared, reader: string) => Promise<void>,
 ) {
   const world = await openWorld({ supervisor: true, sweepMs: 200 });
-  const reader = await world.login("user", [
-    "app.runtime",
-    "app.logs",
-    "app.connect",
-    "app.disable_execution",
-    "app.get",
-  ]);
-  const prepared = await prepare(world);
+  let prepared: Prepared | undefined;
   try {
+    const reader = await world.login("user", [
+      "app.runtime",
+      "app.logs",
+      "app.connect",
+      "app.disable_execution",
+      "app.get",
+    ]);
+    prepared = await prepare(world);
     await world.allow();
     await run(world, prepared, reader.token);
   } finally {
-    await world.close();
-    await Deno.remove(prepared.dir, { recursive: true }).catch(() => undefined);
+    await closeAndReap(world, prepared);
   }
 }
 
@@ -350,6 +370,9 @@ Deno.test("apps/runtime#R15: 사람이 멈추면 새 호출부터 닫히고 종�
   await withSupervisor(async (world, prepared, token) => {
     await running(world, prepared, token);
     // 느린 호출이 도는 동안 멈춘다. 앱은 새 호출을 닫고 이 호출이 끝나기를 기다린 뒤 스스로 끝난다.
+    // slow 호출을 시험이 풀어 줄 때까지 붙든다: 정지 순서를 시계가 아니라 조건으로 본다.
+    const hold = `${prepared.dir}/hold`;
+    await Deno.writeTextFile(hold, "");
     const connected = await createRuntimeClient({
       core: { baseUrl: `http://127.0.0.1:${world.harness.port}`, token },
     }).connect({
@@ -361,8 +384,15 @@ Deno.test("apps/runtime#R15: 사람이 멈추면 새 호출부터 닫히고 종�
     });
     assert(connected.ok, connected.ok ? "" : connected.error.message);
     const inflight = connected.value.invoke({ command: "slow" });
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    const stoppingAt = Date.now();
+    // 앱이 slow를 시작했다는 표시(data 폴더의 파일)를 기다린다. 고정 시간을 재지 않는다.
+    await until("slow to start", async () => {
+      try {
+        await Deno.stat(`${prepared.dir}/data/slow-started`);
+        return true;
+      } catch {
+        return undefined;
+      }
+    });
     // 사람이 멈춘다: ledger의 실행 허용을 끄고, 그 결과를 supervisor에 알린다.
     const got = await call(world.harness, "apps/get", token, {
       app: world.app,
@@ -397,12 +427,20 @@ Deno.test("apps/runtime#R15: 사람이 멈추면 새 호출부터 닫히고 종�
     }, 8_000);
     assertEquals(pending.observation!.reason?.code, "terminating");
     assertEquals(pending.observation!.accepting, false);
+    // 진행 호출이 아직 도는 동안은 종료를 확인하지 못했으니 stopped가 아니다.
+    assertEquals(
+      (await runtimeOf(world, token)).state.termination_pending,
+      true,
+    );
+    // 이제 진행 호출을 끝낸다. 앱은 새 호출을 닫은 채 이 호출이 끝나기를 기다린 뒤 스스로 끝난다.
+    const releasedAt = Date.now();
+    await Deno.remove(hold);
     const done = await until("the app to stop", async () => {
       const read = await runtimeOf(world, token);
       return read.observation === null ? read : undefined;
     }, 40_000);
     // 앱이 shutdown에 스스로 끝나므로 10초 유예를 다 기다리지 않는다. 진행 호출은 끝까지 갔다.
-    assert(Date.now() - stoppingAt < 8_000, "stop waited for the full grace");
+    assert(Date.now() - releasedAt < 8_000, "stop waited for the full grace");
     const finished = await inflight;
     assert(finished.ok && finished.value.kind === "result");
     // 종료 확인(record_stopped)이 AppStopped로 남는다.
@@ -431,9 +469,10 @@ Deno.test("apps/runtime#R15: 사람이 멈추면 새 호출부터 닫히고 종�
 
 Deno.test("apps/runtime#R17: core가 끝나면 supervisor가 앱 자식을 끝낸다", async () => {
   const world = await openWorld({ supervisor: true, sweepMs: 200 });
-  const prepared = await prepare(world);
+  let prepared: Prepared | undefined;
   let endpoint = "";
   try {
+    prepared = await prepare(world);
     await world.allow();
     const token = (await world.login("user", ["app.runtime", "app.connect"]))
       .token;
@@ -449,19 +488,20 @@ Deno.test("apps/runtime#R17: core가 끝나면 supervisor가 앱 자식을 끝�
     endpoint = String(connected.body["endpoint"]);
     // 앱 socket에 닿는다.
     (await Deno.connect({ path: endpoint, transport: "unix" })).close();
-  } finally {
     await world.close();
-    await Deno.remove(prepared.dir, { recursive: true }).catch(() => undefined);
+    // core 제어가 끊기면 새 호출을 닫고 자식을 끝낸다. 자식을 대신 끝내지 않고 supervisor가 끝내기를 기다린다.
+    await until("the app socket to close", async () => {
+      try {
+        (await Deno.connect({ path: endpoint, transport: "unix" })).close();
+        return undefined;
+      } catch {
+        return true;
+      }
+    }, 40_000);
+  } finally {
+    // 시험이 실패했거나 supervisor가 끝내지 못했어도 자식을 남기지 않는다.
+    await closeAndReap(world, prepared);
   }
-  // core 제어가 끊기면 새 호출을 닫고 자식을 끝낸다.
-  await until("the app socket to close", async () => {
-    try {
-      (await Deno.connect({ path: endpoint, transport: "unix" })).close();
-      return undefined;
-    } catch {
-      return true;
-    }
-  }, 20_000);
 });
 
 Deno.test("apps/runtime#R9: 회수된 credential의 connection은 통로를 닫는다: 프로세스가 새 nonce로 다시 뜨고 옛 connection은 거절된다", async () => {

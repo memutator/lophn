@@ -793,6 +793,7 @@ context slice의 선행은 documents와 agent다(lead 결정). E2E는 documents#
 
 ### T43 Context Engineer 역할
 
+- 상태: 완료 (#383)
 - 등급: 기본
 - concern: lophn-agent/roles/context-engineer
 - 요구: lophn-agent/roles/context-engineer#R1, R2, R3, R6, R7, R8, R9, R10, R14

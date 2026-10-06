@@ -1412,6 +1412,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - 쓰는 contract: lophn-agent/questions의 option action(OPTION_ACTION_OWNERS, 값 type은 contracts/lophn-agent)
 - 내놓는 contract: `app.create`의 미리 배정한 app ID 입력과 option 적용 경로(contracts 변경 필요)
 - slice: apps
+- 상태: 완료 (#374)
 - 선행: apps#T1, lophn-agent#T29, platform#T58
 - lophn-agent#T29에서 넘어온 것: option action의 생성 대상은 미리 배정한 ID여야 하는데 `app.create`는 ID를 만들어 돌려주고 dispatchable이 아니며 user·coding_agent만 받는다. lophn 제안의 새 앱 등록 선택지(questions#R13)는 이 경로가 있어야 열린다. 열면 `packages/lophn-agent/questions/option-actions.ts`의 `OPTION_ACTION_OWNERS`에 한 줄을 더하고 core 조립이 같은 handler를 묶는다.
 - 완료:

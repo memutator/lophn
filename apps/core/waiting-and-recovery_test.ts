@@ -5,6 +5,7 @@
 // 규칙은 packages/lophn-agent/harness/waiting-and-recovery/waiting_test.ts가 본다.
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import { answerQuestionAction } from "../../packages/contracts/lophn-agent/mod.ts";
+import { settingsOptionAction } from "../../packages/lophn-agent/questions/mod.ts";
 import {
   actionOf,
   call,
@@ -953,25 +954,17 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R2: WaitRun이 approval 요�
 // ---------------------------------------------------------------------------
 
 function settingsAction(question: string) {
-  return {
-    concern: "platform/settings",
-    command: "apply_settings",
-    targets: [question],
-    input: {
-      kind: "inline",
-      value: {
-        changes: [{
-          layer: "common",
-          key: "shell.reading_width",
-          action: "set",
-          value: 90,
-        }],
-      },
-    },
-    input_hash: "a".repeat(64),
-    comparison: { revision: 0, defaults_revision: "defaults-1" },
-    binding_hash: "c".repeat(64),
-  };
+  return settingsOptionAction({
+    question,
+    changes: [{
+      layer: "common",
+      key: "shell.reading_width",
+      action: "set",
+      value: "wide",
+    }],
+    revision: 0,
+    defaults_revision: "defaults-1",
+  });
 }
 
 function option(key: string, action: unknown = null) {
@@ -999,7 +992,7 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R5: 고정 action이 있는 
       question,
       created_seq: created,
       answer: { kind: "option", option_key: "apply" },
-      binding_hash: "c".repeat(64),
+      binding_hash: settingsAction(question).binding_hash,
       evidence: { question, option: "apply" },
     };
     const reply = await call(
@@ -1026,13 +1019,43 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R5: 고정 action이 있는 
     };
     assertEquals(record.status, "answered");
     assertEquals(record.applied, false);
+    // 적용 전에 결정을 반영하라고 해도 재개하지 않는다.
+    const decisionSeq = String(
+      inspect(
+        world.server,
+        "select closed_seq as s from questions where id = ?",
+        [
+          question,
+        ],
+      )[0]!["s"],
+    );
+    const early = await world.post("runs/resolve-wait", MACHINE_TOKEN, {
+      run: world.lophn.run,
+      request: question,
+      decision_seq: decisionSeq,
+    }, {
+      state_seq: await stateSeqOf(world, world.lophn.run),
+      waiting_on: question,
+    });
+    assertEquals(early.status, 409, JSON.stringify(early.body));
+    // 해소기는 적용을 시도하지만 설정 판이 질문을 만든 때와 달라져(기준 불일치) 적용하지 못한다.
+    // 답은 보존되고 이유가 남으며 재개하지 않는다(questions#R14).
     const step = resolver(world, world.lophn);
     const held = await step.settle(world.lophn.run);
     assert(held.ok, held.ok ? "" : JSON.stringify(held.error));
-    assertEquals(held.value, { kind: "action_pending", request: question });
+    assert(held.value.kind === "action_pending");
+    assertEquals(held.value.request, question);
+    assert(held.value.why !== undefined && held.value.why.length > 0);
     assertEquals(runRow(world, world.lophn.run)["state"], "waiting_user");
     assertEquals(count(world.server, RESUMED), 0);
     assertEquals(count(world.server, RESOLUTIONS), 0);
+    const kept = await world.read("questions/read", MACHINE_TOKEN, {
+      question,
+    });
+    assertEquals(
+      (kept.body["question"] as { status: string }).status,
+      "answered",
+    );
   } finally {
     await world.dispose();
   }
@@ -1080,6 +1103,336 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R11: 답을 저장한 직후
     assertEquals(count(world.server, RESUMED), 1);
     assertEquals(count(world.server, RESOLUTIONS), 1);
     assertEquals(runRow(world, world.lophn.run)["state"], "running");
+  } finally {
+    await world.dispose();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// option action 적용(lophn-agent/questions#R13–R16): 답 저장 → 적용 → ResolveRunWait
+// ---------------------------------------------------------------------------
+
+const APPLIED = "select count(*) as n from question_evidence";
+const SETTINGS_CHANGED =
+  "select count(*) as n from events where type = 'SettingsChanged'";
+
+async function readingWidth(world: WaitingWorld) {
+  const read = await world.read("settings/get", USER_TOKEN, {
+    keys: ["shell.reading_width"],
+  });
+  assertEquals(read.status, 200, JSON.stringify(read.body));
+  return read.body as {
+    revision: number;
+    defaults_revision: string;
+    settings: { value: unknown }[];
+  };
+}
+
+// 설정 판을 실제로 읽은 기준으로 고정한 선택지를 만들어 질문을 하고 사람이 그 선택지를 고른다.
+async function askAndChoose(
+  world: WaitingWorld,
+  seat: Seat,
+  value: string,
+  stale = false,
+) {
+  const basis = await readingWidth(world);
+  questionCounter += 1;
+  const question = id("qst", questionCounter);
+  const action = settingsOptionAction({
+    question,
+    changes: [{
+      layer: "common",
+      key: "shell.reading_width",
+      action: "set",
+      value,
+    }],
+    revision: stale ? basis.revision + 5 : basis.revision,
+    defaults_revision: basis.defaults_revision,
+  });
+  const waited = await askQuestionWith(world, seat, question, {
+    prompt: `Which reading width? (${question})`,
+    options: [option("plain"), option("apply", action)],
+    recommendation: { option_key: "apply", explanation: "It reads better." },
+  });
+  assertEquals(waited.status, 200, JSON.stringify(waited.body));
+  const created = await createdSeq(world, question);
+  const input = {
+    question,
+    created_seq: created,
+    answer: { kind: "option", option_key: "apply" },
+    binding_hash: action.binding_hash,
+    evidence: { question, option: "apply" },
+  };
+  const reply = await call(
+    world.server,
+    "questions/answer-action",
+    USER_TOKEN,
+    command(input, {
+      compare: { created_seq: created },
+      confirmation: await issueConfirmation(world, answerQuestionAction, input),
+    }),
+  );
+  assertEquals(reply.status, 200, JSON.stringify(reply.body));
+  return { question, action };
+}
+
+function applyBody(
+  question: string,
+  action: unknown,
+  answeredSeq: string,
+  option = "apply",
+) {
+  return {
+    question,
+    answered_seq: answeredSeq,
+    option_key: option,
+    action,
+    evidence: { question, option },
+  };
+}
+
+function answeredSeqOf(world: WaitingWorld, question: string): string {
+  return String(
+    inspect(
+      world.server,
+      "select closed_seq as s from questions where id = ?",
+      [
+        question,
+      ],
+    )[0]!["s"],
+  );
+}
+
+Deno.test("lophn-agent/questions#R13: 선택 전에는 적용이 없고 고른 뒤 고정한 설정 변경만 한 번 적용되며 재개도 한 번이다", async () => {
+  const world = await openWaitingWorld();
+  try {
+    const before = await readingWidth(world);
+    const { question } = await askAndChoose(world, world.lophn, "wide");
+    // 답을 접수했을 뿐 변경은 없다.
+    assertEquals((await readingWidth(world)).revision, before.revision);
+    assertEquals(count(world.server, SETTINGS_CHANGED), 0);
+    assertEquals(count(world.server, APPLIED), 0);
+    const step = resolver(world, world.lophn);
+    const done = await step.settle(world.lophn.run);
+    assert(done.ok, done.ok ? "" : JSON.stringify(done.error));
+    assert(done.value.kind === "resolved");
+    assertEquals(done.value.resolution.result, "resumed");
+    const after = await readingWidth(world);
+    assertEquals(after.settings[0]!.value, "wide");
+    assertEquals(after.revision, before.revision + 1);
+    assertEquals(count(world.server, SETTINGS_CHANGED), 1);
+    assertEquals(count(world.server, APPLIED), 1);
+    assertEquals(count(world.server, RESUMED), 1);
+    // 적용은 질문 읽기에 적용 결과로 드러나고 사람의 답과 구별된다.
+    const read = await world.read("questions/read", MACHINE_TOKEN, {
+      question,
+    });
+    assertEquals(
+      (read.body["question"] as { applied: boolean }).applied,
+      true,
+    );
+    // machine이 적용한 변경은 run에 묶이지 않는다(agent run revert 목록 밖).
+    const events = inspect(
+      world.server,
+      "select run from events where type = 'SettingsChanged'",
+    );
+    assertEquals(events[0]!["run"], null);
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/questions#R13: 답 저장 직후와 적용 직후에 죽어도 설정은 한 번만 바뀌고 run은 한 번만 재개한다", async () => {
+  const world = await openWaitingWorld();
+  try {
+    const before = await readingWidth(world);
+    // (1) 답을 저장한 직후 죽었다. 재시작한 해소기가 현재 사실에서 적용하고 재개한다.
+    const first = await askAndChoose(world, world.lophn, "wide");
+    const restarted = resolver(world, world.lophn);
+    const recovered = await restarted.recover();
+    assert(recovered.ok, recovered.ok ? "" : JSON.stringify(recovered.error));
+    assertEquals(recovered.value.length, 1);
+    assert(recovered.value[0]!.step.kind === "resolved");
+    assertEquals(count(world.server, APPLIED), 1);
+    assertEquals(count(world.server, SETTINGS_CHANGED), 1);
+    assertEquals(count(world.server, RESUMED), 1);
+    // 다시 재시작해도 더 하지 않는다.
+    const again = await resolver(world, world.lophn).recover();
+    assert(again.ok);
+    assertEquals(again.value, []);
+    assertEquals(count(world.server, SETTINGS_CHANGED), 1);
+    // (2) 적용은 끝났고 ResolveRunWait 전에 죽었다. 적용을 다시 하지 않고 결정만 반영한다.
+    const second = await askAndChoose(world, world.lophn, "narrow");
+    const applied = await world.post(
+      "questions/apply-option",
+      MACHINE_TOKEN,
+      applyBody(
+        second.question,
+        second.action,
+        answeredSeqOf(world, second.question),
+      ),
+    );
+    assertEquals(applied.status, 200, JSON.stringify(applied.body));
+    assertEquals((applied.body as { applied: boolean }).applied, true);
+    assertEquals(count(world.server, SETTINGS_CHANGED), 2);
+    const settled = await resolver(world, world.lophn).recover();
+    assert(settled.ok, settled.ok ? "" : JSON.stringify(settled.error));
+    assertEquals(settled.value.length, 1);
+    assert(settled.value[0]!.step.kind === "resolved");
+    assertEquals(count(world.server, SETTINGS_CHANGED), 2);
+    assertEquals(count(world.server, APPLIED), 2);
+    assertEquals(count(world.server, RESUMED), 2);
+    assertEquals((await readingWidth(world)).settings[0]!.value, "narrow");
+    assertEquals(
+      (await readingWidth(world)).revision,
+      before.revision + 2,
+    );
+    // 같은 선택지의 두 번째 적용은 conflict이고 아무것도 더하지 않는다.
+    const twice = await world.post(
+      "questions/apply-option",
+      MACHINE_TOKEN,
+      applyBody(
+        first.question,
+        first.action,
+        answeredSeqOf(world, first.question),
+      ),
+    );
+    assertEquals(twice.status, 409, JSON.stringify(twice.body));
+    assertEquals(count(world.server, SETTINGS_CHANGED), 2);
+    assertEquals(count(world.server, APPLIED), 2);
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/questions#R14: 질문 뒤 설정이 바뀌면 답은 남고 적용은 일어나지 않으며 달라진 대상과 이유를 알리고 재개하지 않는다", async () => {
+  const world = await openWaitingWorld();
+  try {
+    const { question, action } = await askAndChoose(
+      world,
+      world.lophn,
+      "wide",
+      true,
+    );
+    const before = await readingWidth(world);
+    const held = await resolver(world, world.lophn).settle(world.lophn.run);
+    assert(held.ok, held.ok ? "" : JSON.stringify(held.error));
+    assert(held.value.kind === "action_pending");
+    assert(held.value.why !== undefined);
+    // 적용 시도는 transaction 통째로 되돌아가 변경도 일회 기록도 없다.
+    assertEquals((await readingWidth(world)).revision, before.revision);
+    assertEquals(count(world.server, SETTINGS_CHANGED), 0);
+    assertEquals(count(world.server, APPLIED), 0);
+    assertEquals(count(world.server, RESUMED), 0);
+    assertEquals(runRow(world, world.lophn.run)["state"], "waiting_user");
+    // 답은 그대로이고 적용 안 됨으로 읽힌다.
+    const read = await world.read("questions/read", MACHINE_TOKEN, {
+      question,
+    });
+    const record = read.body["question"] as {
+      status: string;
+      applied: boolean;
+      answer: { option_key: string };
+    };
+    assertEquals(record.status, "answered");
+    assertEquals(record.answer.option_key, "apply");
+    assertEquals(record.applied, false);
+    // 직접 적용해도 같다: 달라진 대상(질문 ID)과 이유를 오류가 알린다.
+    const direct = await world.post(
+      "questions/apply-option",
+      MACHINE_TOKEN,
+      applyBody(question, action, answeredSeqOf(world, question)),
+    );
+    assertEquals(direct.status, 409, JSON.stringify(direct.body));
+    const details = (direct.body["error"] as {
+      details?: { targets: string[]; reason: string };
+    }).details;
+    assertEquals(details?.targets, [question]);
+    assert((details?.reason ?? "").length > 0);
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/questions#R15: 자유 답·다른 선택지·바뀐 action·사람 자격으로는 적용하지 않는다", async () => {
+  const world = await openWaitingWorld();
+  try {
+    const before = await readingWidth(world);
+    // 자유 답으로 끝난 질문은 적용할 command가 없다.
+    const basis = await readingWidth(world);
+    questionCounter += 1;
+    const free = id("qst", questionCounter);
+    const action = settingsOptionAction({
+      question: free,
+      changes: [{
+        layer: "common",
+        key: "shell.reading_width",
+        action: "set",
+        value: "wide",
+      }],
+      revision: basis.revision,
+      defaults_revision: basis.defaults_revision,
+    });
+    const waited = await askQuestionWith(world, world.lophn, free, {
+      options: [option("apply", action)],
+    });
+    assertEquals(waited.status, 200, JSON.stringify(waited.body));
+    const given = await answer(world, free, "그 설정을 wide로 바꿔 주세요");
+    assertEquals(given.status, 200, JSON.stringify(given.body));
+    const seq = answeredSeqOf(world, free);
+    const refused = await world.post(
+      "questions/apply-option",
+      MACHINE_TOKEN,
+      applyBody(free, action, seq),
+    );
+    assertEquals(refused.status, 403, JSON.stringify(refused.body));
+    // 사람 자격은 적용 command를 부를 수 없다.
+    const person = await world.post(
+      "questions/apply-option",
+      USER_TOKEN,
+      applyBody(free, action, seq),
+    );
+    assertEquals(person.status, 403, JSON.stringify(person.body));
+    assertEquals((await readingWidth(world)).revision, before.revision);
+    assertEquals(count(world.server, SETTINGS_CHANGED), 0);
+    assertEquals(count(world.server, APPLIED), 0);
+    // 선택한 답이어도 고정한 action과 다른 내용은 적용하지 않는다.
+    const chosen = await askAndChoose(world, world.editor, "wide");
+    const tampered = settingsOptionAction({
+      question: chosen.question,
+      changes: [{
+        layer: "common",
+        key: "shell.reading_width",
+        action: "set",
+        value: "narrow",
+      }],
+      revision: basis.revision,
+      defaults_revision: basis.defaults_revision,
+    });
+    const other = await world.post(
+      "questions/apply-option",
+      MACHINE_TOKEN,
+      applyBody(
+        chosen.question,
+        tampered,
+        answeredSeqOf(world, chosen.question),
+      ),
+    );
+    assertEquals(other.status, 403, JSON.stringify(other.body));
+    // 고르지 않은 선택지 key로도 적용하지 않는다.
+    const wrongKey = await world.post(
+      "questions/apply-option",
+      MACHINE_TOKEN,
+      applyBody(
+        chosen.question,
+        chosen.action,
+        answeredSeqOf(world, chosen.question),
+        "plain",
+      ),
+    );
+    assertEquals(wrongKey.status, 403, JSON.stringify(wrongKey.body));
+    assertEquals(count(world.server, SETTINGS_CHANGED), 0);
+    assertEquals(count(world.server, APPLIED), 0);
   } finally {
     await world.dispose();
   }

@@ -183,6 +183,10 @@ import {
 } from "./apps-control.ts";
 import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+import type {
+  PreviewBundles,
+  PreviewReleases,
+} from "../../packages/apps/preview/service.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import {
   BOOTSTRAP_RETRY_MS,
@@ -203,6 +207,8 @@ import {
   messageBodyEnvironment,
   withMessageBody,
 } from "./message-body.ts";
+import { instructionFilesEnvironment } from "./instruction-files.ts";
+import type { InstructionFiles } from "../../packages/lophn-agent/instructions/mod.ts";
 import {
   createQuestionTextPreparer,
   withQuestionText,
@@ -274,6 +280,12 @@ export type CoreOptions = {
   appProcess?: ProcessSource;
   // 발급한 앱 connection의 회수 검사 간격(ms). 없으면 1초. 테스트가 줄인다.
   appsSweepMs?: number;
+  // preview가 준비된 bundle·release를 여는 자리(apps/preview). 없으면 preview 시작은 unavailable이다.
+  appPreviews?: {
+    bundles?: PreviewBundles;
+    releases?: PreviewReleases;
+    nonce?: () => string;
+  };
   // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
   // 재시작마다 불린다. 제품
   // 기동에는 없다. credential은 log에 남기지 않는다.
@@ -317,6 +329,8 @@ export type Core = {
   // 원하는 앱 프로세스 상태를 apps supervisor에 알린다. 마지막 상태를 기억해 supervisor가
   // 다시 떠도 같은 상태로 맞춘다. releases 조립이 활성 release를 보고 부른다.
   reconcileApp(desired: DesiredApp): Promise<Result<void>>;
+  // lophn agent runtime이 model call 직전에 사람 지침(LOPHN.md)의 확정 판을 읽는 통로다. 읽기만 있다.
+  instructionFiles: InstructionFiles;
   // testCredentials일 때만 있다. apps 제어(connect 어댑터·supervisor 질의)다.
   appsControl?: AppsControl;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
@@ -696,6 +710,7 @@ async function open(
         "text/plain",
         line,
       ),
+    previews: { dataRoot: root.path, ...options.appPreviews },
     ...(options.appProcess ? { process: options.appProcess } : {}),
     ...(options.appsSweepMs === undefined
       ? {}
@@ -1548,6 +1563,10 @@ async function open(
       ? { codingCredentials: coding, codingCredentialsReady: codingReady }
       : {}),
     record: (context) => runtime!.record(context),
+    instructionFiles: instructionFilesEnvironment({
+      ledgerPath,
+      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+    }),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),

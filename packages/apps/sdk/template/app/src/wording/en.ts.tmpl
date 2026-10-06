@@ -1,0 +1,23 @@
+// 앱의 en catalog다(apps/sdk#R41). 값은 완성된 문장 하나의 ICU MessageFormat이고 화면 코드는 문장 조각을
+// 이어 붙이지 않는다. key는 `<screen>.<part>.<name>`이며 첫 구간은 이 앱의 screen key나 common이다.
+// placeholders.ts는 이 파일에서 생성한다(`deno task wording`). 사용자 이름·업무 데이터는 catalog에 넣지 않는다.
+export const en = {
+  "common.problem.store-unavailable": "Items couldn't be saved or read.",
+  "common.summary.app": "Keep a short list of items.",
+  "items.button.add": "Add",
+  "items.button.reload": "Reload",
+  "items.empty.none": "No items yet. Add the first one.",
+  "items.error.save-failed": "Couldn't save the item. Try again.",
+  "items.label.add-item": "Add item",
+  "items.label.count": "{count, plural, one {# item} other {# items}}",
+  "items.label.items": "items",
+  "items.label.list-items": "List items",
+  "items.label.new-item": "New item",
+  "items.summary.add-item": "Save one new item.",
+  "items.summary.item-title": "The text of the new item.",
+  "items.summary.list-items": "Read the saved items, newest first.",
+  "items.title.screen": "Items",
+} as const;
+
+export type Catalog = typeof en;
+export type MessageKey = keyof Catalog;

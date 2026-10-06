@@ -26,6 +26,9 @@ export const FIXED_UI_DEPENDENCIES = [
   "@lophn/ui-stat",
   "@lophn/ui-state",
   "@lophn/ui-action",
+  // 공용 UI Package가 import하는 지원 소스(apps/sdk 설치 사본). 같은 판으로 고정해 bundle에 담는다.
+  "@lophn/design",
+  "@lophn/wording",
   "react",
   "react-dom",
 ] as const;

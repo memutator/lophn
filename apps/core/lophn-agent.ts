@@ -16,7 +16,10 @@ import {
   questionCreated,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
-import type { Tx } from "../../packages/contracts/platform/mod.ts";
+import type {
+  CommandDefinition,
+  Tx,
+} from "../../packages/contracts/platform/mod.ts";
 import {
   approvalRunLineage,
   createApprovalCommands,
@@ -73,8 +76,11 @@ import {
   messageBodyRead,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
+  createApplyQuestionOption,
   createQuestionCommands,
   createQuestionReads,
+  OPTION_ACTION_OWNERS,
+  type OptionOwnerHandlers,
   questionBodyFields,
   questionSchemaSteps,
   questionTextRead,
@@ -366,6 +372,29 @@ const toolReads = createToolReads();
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
 
+// 사람이 고른 선택지의 고정 action을 소유 command로 적용한다(ApplyQuestionOption). 소유 command의
+// handler는 다른 팀 등록에 있으므로 writer가 모든 등록을 모은 뒤 묶는다(bindQuestionOptionOwners).
+// 묶기 전에는 비어 있어 어느 동작도 적용하지 않는다. writer Worker마다 이 module 상태가 따로
+// 있다(platform.ts의 approval owner 목록과 같다).
+let optionOwners: OptionOwnerHandlers = new Map();
+
+export function bindQuestionOptionOwners(
+  commands: readonly CommandDefinition[],
+): void {
+  const handlers = new Map<string, CommandDefinition["handle"]>();
+  for (const owner of OPTION_ACTION_OWNERS) {
+    const found = commands.find((command) =>
+      command.route.name === owner.route.name
+    );
+    if (found !== undefined) handlers.set(owner.route.name, found.handle);
+  }
+  optionOwners = handlers;
+}
+
+const questionApply = createApplyQuestionOption({
+  handlers: () => optionOwners,
+});
+
 // 사람 기다림(concern harness/waiting-and-recovery). 기다림 연결(WaitRun)은 요청 생성과
 // waiting_on 연결, 결정 반영(ResolveRunWait)은 run 재개·종료와 반영 기록을 한 transaction에서
 // 확정한다. approval 생성은 platform의 create handler를, 수정 입력 보존은 run 접수와 메시지
@@ -501,6 +530,7 @@ export const lophnAgentDefinitions = {
     questionCommands.defer,
     questionCommands.cancel,
     questionCommands.expire,
+    questionApply,
     waitCommands.wait,
     waitCommands.resolve,
     waitCommands.correct,

@@ -413,7 +413,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T22 tool 판정과 approval request
 
-- 상태: 완료 (#301) — R1–R3, R5–R9. 판정표(model.ts)와 판정 기록·approval 생성·진입 직전 재검사·시작·적용(work.ts)을 실제 core와 fake provider로 확인(apps/core/tool-judgment_test.ts, 판정표 단위는 judgment_test.ts). 남은 것: 제품 조립은 T26(run-loop)이 `admit`·`start`로만 tool을 시작하도록 부르고 approval 대기 연결은 T25, 주기 run의 선언 문서 쓰기 행은 T52(R4), 앱 command·MCP 안전 표시(R10–R12)는 T47·T51(Q39)
+- 상태: 완료 (#301) — R1–R3, R5–R9. 판정표(model.ts)와 판정 기록·approval 생성·진입 직전 재검사·시작·적용(work.ts)을 실제 core와 fake provider로 확인(apps/core/tool-judgment_test.ts, 판정표 단위는 judgment_test.ts). 남은 것: 제품 조립은 T26(run-loop)이 `admit`·`start`로만 tool을 시작하도록 부르고 approval 대기 연결은 T25, 주기 run의 선언 문서 쓰기 행은 T52(R4), 앱 command 판정(R10, R11)은 T44, 앱 주석 되쓰기(R12)는 T47, MCP 안전 표시 입력은 T37(Q39)
 - 등급: 기본
 - concern: lophn-agent/harness/tool-judgment
 - 요구: lophn-agent/harness/tool-judgment#R1, R2, R3, R5, R6, R7, R8, R9

@@ -231,6 +231,89 @@ export const en = {
   "confirmation-window.secret.subject":
     "What you type goes straight to your system keychain. lophn and apps never show it.",
   "confirmation-window.title.confirm": "Confirm",
+  "contexts.button.archive": "Archive focus",
+  "contexts.button.ask": "Ask in conversation",
+  "contexts.button.change": "Change",
+  "contexts.button.decide": "Set meaning",
+  "contexts.button.export": "Save as Markdown",
+  "contexts.button.later": "Later",
+  "contexts.button.new-meaning": "Add a meaning",
+  "contexts.button.open": "Open",
+  "contexts.button.open-after": "Open newer version",
+  "contexts.button.open-before": "Open earlier version",
+  "contexts.button.save-meaning": "Save meaning",
+  "contexts.button.show-latest": "Show latest",
+  "contexts.button.unarchive": "Restore focus",
+  "contexts.empty.candidates": "No undecided words.",
+  "contexts.empty.definitions": "No meanings set for this focus yet.",
+  "contexts.empty.no-focus":
+    "No focus yet. Tell lophn what you want to look at together.",
+  "contexts.empty.perspective": "Nothing here yet.",
+  "contexts.empty.pick-focus": "Pick a focus to see its materials.",
+  "contexts.error.change-failed": "That didn't go through. Nothing changed.",
+  "contexts.error.changed": "This focus changed since you opened it.",
+  "contexts.error.define-failed":
+    "Couldn't save this meaning. Nothing changed.",
+  "contexts.error.export-failed":
+    "Couldn't save this focus as Markdown. Nothing was saved.",
+  "contexts.error.meaning-changed":
+    "This word changed since you opened it. The latest is shown.",
+  "contexts.heading.candidates": "Not decided yet",
+  "contexts.heading.definitions": "Your meanings",
+  "contexts.label.archived": "Archived",
+  "contexts.label.evidence": "Where it appears",
+  "contexts.label.evidence-lines": "Lines {start, number}–{end, number}",
+  "contexts.label.evidence-more":
+    "{count, plural, one {# more place} other {# more places}}",
+  "contexts.label.export-app": "{title} (app data)",
+  "contexts.label.export-section": "{title}, section {section}",
+  "contexts.label.gaps": "What's missing",
+  "contexts.label.item-count": "{count, plural, one {# item} other {# items}}",
+  "contexts.label.meaning": "Meaning",
+  "contexts.label.read-version": "Version read",
+  "contexts.label.reason": "Why it's here",
+  "contexts.label.section": "Section {section}",
+  "contexts.label.show-archived": "Show archived",
+  "contexts.label.tab-materials": "Materials",
+  "contexts.label.tab-meanings": "Meanings",
+  "contexts.label.target-focus": "this focus",
+  "contexts.label.target-list": "the focus list",
+  "contexts.label.target-meanings": "the meanings",
+  "contexts.label.untitled": "Untitled",
+  "contexts.label.watch-added": "Section added in a newer version",
+  "contexts.label.watch-changed": "Changed in a newer version",
+  "contexts.label.watch-missing": "Section gone",
+  "contexts.label.watch-quiet": "No changes found",
+  "contexts.label.watch-unread": "Changes not checked",
+  "contexts.label.watch-unverified": "Couldn't check",
+  "contexts.label.word": "Word",
+  "contexts.notice.archived":
+    "This focus is archived. Changes aren't followed while it's archived, and its documents and apps are unchanged.",
+  "contexts.notice.deferred": "Left undecided for now.",
+  "contexts.notice.gap-no-version":
+    "This document has no saved version to read.",
+  "contexts.notice.gap-section-missing":
+    "This section isn't in the latest version. Pick the part to use again.",
+  "contexts.notice.gap-section-unverified":
+    "This section couldn't be checked in the latest version yet.",
+  "contexts.notice.gap-unreadable": "You can't open this right now.",
+  "contexts.notice.gap-unsupported": "This format has no sections to find.",
+  "contexts.notice.partial": "Only the first part is shown.",
+  "contexts.notice.watch-app":
+    "App data isn't checked for changes automatically.",
+  "contexts.notice.watch-format":
+    "The format changed, so the parts can't be compared.",
+  "contexts.notice.watch-missing":
+    "This part isn't in the latest version. Pick what to follow again.",
+  "contexts.notice.watch-other":
+    "The latest version couldn't be read, so this isn't counted as a change.",
+  "contexts.notice.watch-pending":
+    "The latest version is still being read. Check back later.",
+  "contexts.notice.watch-unavailable":
+    "Couldn't check what changed. Change states may be out of date.",
+  "contexts.notice.write-own":
+    "Write the meaning you use. Nothing is filled in for you.",
+  "contexts.title.focus": "Focus: {title}",
   "contexts.title.screen": "Focus",
   "contexts.view.baseline": "Baseline",
   "contexts.view.follow-changes": "Follow changes",

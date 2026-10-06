@@ -30,6 +30,8 @@ import {
 import { lophnScope } from "../palette/lophn-scope.ts";
 import { ThingsToConfirm } from "./things-to-confirm/things-to-confirm.tsx";
 import { useRequests } from "./things-to-confirm/context.tsx";
+import { ContextsScreen } from "./contexts/contexts-screen.tsx";
+import type { ContextsSource } from "./contexts/source.ts";
 import styles from "./lophn-space.module.css";
 
 export interface LophnSpaceProps {
@@ -47,6 +49,12 @@ export interface LophnSpaceProps {
   initialRead?: { readonly document: string; readonly version: string };
   /** things-to-confirm에서 처음 고를 요청. */
   initialRequest?: string;
+  /** contexts 화면 통로. 없으면 contexts는 준비 전 안내다. */
+  contexts?: ContextsSource;
+  /** contexts 화면에서 처음 열 Focus(팔레트·정보 패널의 컨텍스트 탭). */
+  initialFocus?: string;
+  /** core 연결이 (다시) 준비될 때마다 오른다. contexts가 현재 기록을 다시 읽는다. */
+  connected?: number;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -62,6 +70,9 @@ export function LophnSpace(
     now,
     initialRead,
     initialRequest,
+    contexts,
+    initialFocus,
+    connected = 0,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
@@ -99,6 +110,23 @@ export function LophnSpace(
       : null,
   );
 
+  // 팔레트에서 고른 Focus. 바뀔 때마다 contexts 화면을 그 Focus로 다시 연다.
+  const [focusing, setFocusing] = useState<
+    { readonly id: string; readonly count: number } | null
+  >(initialFocus ? { id: initialFocus, count: 1 } : null);
+  // 문서를 documents 화면에서 읽는다(contexts의 항목·근거·바뀐 판).
+  const readDocument = (
+    document: string,
+    version: string | null,
+    section: string | null,
+  ) => {
+    setCurrent("documents");
+    setReading((last) => ({
+      target: { document, version, section },
+      count: (last?.count ?? 0) + 1,
+    }));
+  };
+
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
   // 질문·approval 통로. 없으면(통로 없는 테스트) things-to-confirm은 준비 전 안내다.
   const requests = useRequests();
@@ -128,8 +156,13 @@ export function LophnSpace(
         if (target.kind === "launcher") onLauncher();
         else if (target.kind === "project") onProject?.(target.id);
         else if (target.kind === "screen") setCurrent(target.screen);
-        else if (target.kind === "context") setCurrent("contexts");
-        else if (target.kind === "app") setCurrent("apps");
+        else if (target.kind === "context") {
+          setCurrent("contexts");
+          setFocusing((last) => ({
+            id: target.id,
+            count: (last?.count ?? 0) + 1,
+          }));
+        } else if (target.kind === "app") setCurrent("apps");
         else {
           setCurrent("documents");
           setReading((last) => ({
@@ -203,6 +236,17 @@ export function LophnSpace(
                 source={source}
                 now={now}
                 initialRead={reading?.target}
+              />
+            )
+            : current === "contexts" && contexts
+            ? (
+              <ContextsScreen
+                key={focusing?.count ?? 0}
+                source={contexts}
+                initialFocus={focusing?.id}
+                connected={connected}
+                onRead={readDocument}
+                onAsk={conversation ? () => setDockOpen(true) : undefined}
               />
             )
             : current === "things-to-confirm" && requests !== null

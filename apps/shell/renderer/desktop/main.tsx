@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
@@ -10,6 +10,7 @@ import type { EditorDeps } from "../editor/document-view.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
+import type { ContextsSource } from "./lophn-space/contexts/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
 import type { LauncherSource } from "./launcher/source.ts";
@@ -33,6 +34,8 @@ export interface DesktopProps {
   terminal?: TerminalDeps;
   /** lophn 공간(documents·series) 통로. 없으면 lophn 공간 대신 런처를 보인다. */
   lophn?: LophnSource;
+  /** lophn 공간 contexts 화면 통로. 없으면 contexts는 준비 전 안내다. */
+  contexts?: ContextsSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
   /** 런처의 프로젝트 카드·등록 통로. 없으면 카드 자리는 비었음 상태다. */
@@ -54,6 +57,7 @@ export function Desktop(
     editor,
     terminal,
     lophn,
+    contexts,
     palette,
     projects,
     tracking,
@@ -71,6 +75,9 @@ export function Desktop(
     setRoute(next);
   };
   const thingsToConfirm = () => visit(openLophn("things-to-confirm"));
+  // contexts의 Focus 하나를 연다(팔레트의 Focus 행, 정보 패널의 컨텍스트 탭).
+  const openFocus = (focus: string) =>
+    visit({ ...openLophn("contexts"), focus });
   // 링크로 온 요청은 고르기만 한다. 결정 창은 사람이 그 화면에서 누를 때 연다(desktop#R14).
   const confirmTarget = (request?: string) =>
     request === undefined
@@ -81,7 +88,7 @@ export function Desktop(
     if (target.kind === "launcher") launcher();
     else if (target.kind === "project") setRoute(openProject(target.id));
     else if (target.kind === "screen") visit(openLophn(target.screen));
-    else if (target.kind === "context") visit(openLophn("contexts"));
+    else if (target.kind === "context") openFocus(target.id);
     else if (target.kind === "app") visit(openLophn("apps"));
     else {
       visit(openLophn("documents", {
@@ -94,6 +101,11 @@ export function Desktop(
   // 작업대를 열어 읽는다.
   const connection = useConnection(source);
   const live = connection.state === "ready" || connection.state === "stale";
+  // core 연결이 (다시) 준비된 횟수. contexts 화면이 재연결 뒤 현재 기록을 다시 읽는다.
+  const [ready, setReady] = useState(0);
+  useEffect(() => {
+    if (connection.state === "ready") setReady((value) => value + 1);
+  }, [connection.state]);
   let space: ReactNode;
   if (route.space === "project" && route.project && workspace && live) {
     space = (
@@ -105,6 +117,7 @@ export function Desktop(
         onLauncher={launcher}
         onLophn={lophnSpace}
         onThingsToConfirm={thingsToConfirm}
+        onContext={openFocus}
         editor={editor}
         terminal={terminal}
         tracking={tracking}
@@ -118,6 +131,9 @@ export function Desktop(
         screen={route.screen}
         initialRead={route.read}
         initialRequest={route.request}
+        contexts={contexts}
+        initialFocus={route.focus}
+        connected={ready}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}

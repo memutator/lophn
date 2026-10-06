@@ -67,6 +67,12 @@ test("shell/desktop#R1: documents 화면의 검색과 saved view 열기 worker�
   assert.equal(isAllowed("worker", "documents", "prepare"), false);
 });
 
+test("shell/desktop#R28: contexts 화면의 Focus 목차 worker는 읽기라 통과하고 context watch는 사람 read로 간다", () => {
+  assert.equal(isAllowed("worker", "outline", "context"), true);
+  assert.equal(isAllowed("read", "contexts", "watch"), true);
+  assert.equal(isAllowed("read", "contexts", "export"), true);
+});
+
 test("documents/projects#R6: 추적 미리보기 worker는 읽기라 통과하고 추적 적용은 command로만 간다", () => {
   assert.equal(isAllowed("worker", "projects", "preview_tracking"), true);
   assert.equal(isAllowed("command", "projects", "set_tracking"), true);

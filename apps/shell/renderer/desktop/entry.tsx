@@ -5,6 +5,7 @@ import { devSeed } from "./dev-seed.ts";
 import { windowEditorDeps } from "../editor/window-deps.ts";
 import { openLophn, openProject, type Route } from "./router.ts";
 import { coreLophnSource } from "./lophn-space/core-source.ts";
+import { coreContextsSource } from "./lophn-space/contexts/core-source.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
@@ -34,6 +35,7 @@ const seed = devSeed();
 const core = windowCoreSource();
 const editor = windowEditorDeps(core);
 const lophn = coreLophnSource(core);
+const contexts = coreContextsSource(core);
 // 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
 const projects = coreLauncherSource(core, windowFolderPicker());
 const workspace = seed?.source ?? coreWorkspaceSource(core);
@@ -51,13 +53,21 @@ const requests = {
 };
 // 개발 확인용 시작 자리. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
 // 거기에 대화 도크까지 열어 두고, `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
-// 프로젝트 작업대부터 연다. 기본은 런처다.
+// 프로젝트 작업대부터 연다. `#contexts`면 contexts 형제부터, `#contexts=<id>`면 그 Focus까지 연다.
+// 기본은 런처다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
   : location.hash === "#lophn" || location.hash === "#conversation"
   ? openLophn()
   : location.hash === "#things-to-confirm"
   ? openLophn("things-to-confirm")
+  : location.hash === "#contexts"
+  ? openLophn("contexts")
+  : location.hash.startsWith("#contexts=")
+  ? {
+    ...openLophn("contexts"),
+    focus: location.hash.slice("#contexts=".length),
+  }
   : location.hash.startsWith("#project=")
   ? openProject(location.hash.slice("#project=".length))
   : undefined;
@@ -94,6 +104,7 @@ mount(
           windowWidth={seed ? 1440 : undefined}
           terminal={terminal}
           lophn={lophn}
+          contexts={contexts}
           palette={palette}
           projects={projects}
           tracking={tracking}

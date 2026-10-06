@@ -909,6 +909,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
     // `LOPHN_SHELL_START=lophn`은 headless 확인에서 런처 대신 lophn 공간부터 연다.
     // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다. `things-to-confirm`은
     // lophn 공간의 things-to-confirm 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터 연다.
+    // `contexts`·`contexts:<ctx id>`는 contexts 형제(와 그 Focus)부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
@@ -917,6 +918,10 @@ function openDesktopWindow(): BrowserWindow | undefined {
       ? `${DESKTOP_URL}#conversation`
       : process.env.LOPHN_SHELL_START === "things-to-confirm"
       ? `${DESKTOP_URL}#things-to-confirm`
+      : /^contexts(:ctx_[0-9a-z]{26})?$/.test(
+          process.env.LOPHN_SHELL_START ?? "",
+        )
+      ? `${DESKTOP_URL}#${process.env.LOPHN_SHELL_START!.replace(":", "=")}`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
       ? `${DESKTOP_URL}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
       : DESKTOP_URL,

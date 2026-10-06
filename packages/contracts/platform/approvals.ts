@@ -11,8 +11,11 @@ import { atSchema, seqSchema, sha256Schema } from "./values.ts";
 // concern id는 최상위 또는 최상위/leaf다(domain-model platform/approvals).
 const concernSchema = z.string().regex(/^[a-z][a-z0-9-]*(\/[a-z][a-z0-9-]*)*$/);
 
-// command 이름은 소유 concern의 등록된 이름이다. 임의 함수 이름은 받지 않는다.
-const commandNameSchema = z.string().regex(/^[a-z][a-z0-9_]*$/);
+// command 이름은 소유 concern의 등록된 route 이름이다. 임의 함수 이름은 받지 않는다.
+// apps의 route 이름은 `grant.create`처럼 점으로 나뉜 마디다(apply가 route.name과 같게 찾는다).
+const commandNameSchema = z.string().regex(
+  /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/,
+);
 
 const nonemptyTextSchema = z.string().regex(/\S/);
 

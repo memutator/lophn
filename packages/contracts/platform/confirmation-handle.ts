@@ -12,8 +12,9 @@ export const confirmationRefSchema = z.string().regex(CONFIRMATION_REF);
 export type ConfirmationRef = z.infer<typeof confirmationRefSchema>;
 
 // 소유 contracts가 등록하는 결정 이름. 등록 표는 소유 contracts가 갖는다.
-// command route 이름(RevokeCodingAgentConnection)과 snake_case 선언(delete_file)을 모두 담는다.
-const DECISION_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
+// command route 이름(RevokeCodingAgentConnection, apps의 grant.revoke처럼 점으로 나뉜 이름)과
+// snake_case 선언(delete_file)을 모두 담는다. ledger는 command의 결정 이름을 route.name으로 쓴다.
+const DECISION_NAME = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)*$/;
 
 export const decisionNameSchema = z.string().regex(DECISION_NAME);
 

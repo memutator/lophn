@@ -175,6 +175,14 @@ Deno.test("platform/approvals#R1, platform/approvals#R5: 모르는 field·틀린
   assert(approvalRequestSchema.safeParse({ ...request, extra: 1 }).success);
   assert(!approvalActionSchema.safeParse({ ...action, secret: "x" }).success);
   assert(!approvalActionSchema.safeParse({ ...action, targets: [] }).success);
+  // apps route 이름처럼 점으로 나뉜 마디는 받고, 점이 비거나 대문자·공백이면 거절한다.
+  assert(
+    approvalActionSchema.safeParse({ ...action, command: "grant.create" })
+      .success,
+  );
+  for (const command of ["grant.", ".create", "Grant.create", "grant create"]) {
+    assert(!approvalActionSchema.safeParse({ ...action, command }).success);
+  }
   assert(
     !approvalActionSchema.safeParse({ ...action, targets: [DOC, DOC] }).success,
   );

@@ -90,6 +90,10 @@ Deno.test(
       "RevokeCodingAgentConnection",
     );
     assertThrows(() => defineDecision("delete-file"));
+    // apps의 command route 이름은 점으로 나뉜다. 마디가 비면 거절한다.
+    assertEquals(defineDecision("grant.revoke"), "grant.revoke");
+    assertThrows(() => defineDecision("grant."));
+    assertThrows(() => defineDecision(".revoke"));
   },
 );
 

@@ -36,6 +36,7 @@ import {
   createPreparationRegistry,
   type PreparationRegistry,
 } from "../../packages/platform/blob-store/mod.ts";
+import { bindApprovalOwners } from "./platform.ts";
 import type { TeamModule } from "./registration.ts";
 
 export type WriterBoot = {
@@ -109,6 +110,12 @@ export async function assembleWriter(
     blobFields.push(...loose?.blobFields ?? []);
     subscribers.push(...loose?.subscribers ?? []);
   }
+  // apply_approved_action은 등록된 command 중 dispatchable 표시가 있는 것만 소유 command로 부른다.
+  bindApprovalOwners(
+    commands.filter((command) => command.dispatchable === true).map((command) =>
+      command.route
+    ),
+  );
   // 이름 있는 구독자만 자기 cursor를 올린다. 등록이 없으면 gate도 없어 cursor 전진은 거절된다.
   const subscriberGate = subscribers.length === 0
     ? undefined

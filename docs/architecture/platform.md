@@ -361,7 +361,9 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 
 `apply_approved_action`은 고정 소유 command에 dispatch하며 **현재 권한·원래 run·대상·CAS·정확 action → approval_uses INSERT(approval PK) → 소유 접수/변경·event·상호 FK → command 결과**를 한 transaction에 확정한다. approval만 먼저 소비하는 공개 command는 없다. ledger 밖 작업은 receipt와 사용을 먼저 같이 commit한 뒤 소유 worker가 수행한다. confirm 앱 호출도 이 원칙의 apps/invocations 소유 접수 예외다. 사용 후 실패/unknown은 새 호출 허락이 아니며 같은 key는 같은 receipt다.
 
-거절은 이유 없이 가능하며 이유가 있으면 redaction 후 해당 역할에 전달한다. 거절·만료·취소는 그 호출 미실행이며 tool 반복 실패가 아니다. 같은 run 및 같은 사람 요청의 handoff 계보에서 거절된 같은 동작·대상·입력은 설명만 바꿔 다시 묻지 않는다. 계보 판정은 소유 contract를 사용한다. 새 사람 요청은 별개다.
+적용은 `machine`이거나 request에 고정된 호출자일 때만 하고 그 밖의 자격에는 없는 request와 같게 답한다. 같은 허락의 재호출은 처음 접수의 receipt를 `replayed`로 돌려주고 새 동작을 만들지 않는다. 사용 기록은 platform/ledger의 공통 `Tx.useApproval`만 쓴다.
+
+거절은 이유 없이 가능하며 이유가 있으면 redaction 후 해당 역할에 전달한다. 거절·만료·취소는 그 호출 미실행이며 tool 반복 실패가 아니다. 같은 run 및 같은 사람 요청의 handoff 계보에서 거절된 같은 동작·대상·입력은 설명만 바꿔 다시 묻지 않는다. 계보 판정은 소유 contract를 사용한다: lophn-agent가 Tx에서 채우는 run 계보 port가 사람 요청에서 시작한 run의 message 또는 handoff run의 original_message를 준다. 같은 동작은 concern·command·정확한 대상·입력 지문이며 설명·호출자·비교 기준은 보지 않는다. 새 사람 요청은 별개다.
 
 **보장하지 않는 것:** 허락 저장이 적용 성공, 지속 범위 확대, 침묵·창 닫기·notification·일반 긍정·질문 답·CLI TTY가 approval이라는 해석. 실제 결과는 action.concern 소유다.
 

@@ -1,120 +1,28 @@
 // approval 허락·거절(platform/approvals#R3, R4, R5, R6, R12, R14, R15). 실제 ledger(임시 파일
 // SQLite)와 writer의 confirmation registry를 쓴다. handle은 main↔core 비공개 통로와 같은
-// 발급 경로(harness.confirmation)로 만든다. 허락 적용(T23)과 거절 억제 계보(R16)는 여기 없다.
+// 발급 경로(harness.confirmation)로 만든다. 허락 적용(apply_test.ts)과 거절 억제 계보(R16, apps/core/platform-lineage_test.ts)는 여기 없다.
 
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
-import {
-  type ApprovalRequest,
-  type AuthenticatedContext,
-  grantApprovalRequest,
-  rejectApprovalRequest,
-} from "../../contracts/platform/mod.ts";
-import { confirmationBinding } from "../identity/mod.ts";
 import {
   APP,
   APPROVAL,
   create,
   credential,
+  decide,
+  decisionInput,
   failure,
-  type LedgerHarness,
+  issue,
   machine,
   NOW,
   openHarness,
   requestOf,
+  statusOf,
   user,
   value,
 } from "./requests_fixture_test.ts";
 
 const OTHER = "apr_01h455vb4pex5v6nkc6gd5fdw2";
-
-type Decision = "grant" | "reject";
-
-async function decisionInput(
-  harness: LedgerHarness,
-  id: string,
-  reason?: string | null,
-): Promise<Record<string, unknown>> {
-  const read = value(
-    await harness.read({ resource: "approvals", method: "get" }, user, {
-      approval: id,
-    }),
-  ) as { request: ApprovalRequest };
-  return {
-    approval: id,
-    created_seq: read.request.created_seq,
-    binding_hash: read.request.action.binding_hash,
-    ...(reason === undefined ? {} : { closed_reason_blob: reason }),
-  };
-}
-
-// 사람이 confirmation window에서 본 내용으로 handle을 발급한다.
-async function issue(
-  harness: LedgerHarness,
-  decision: Decision,
-  input: Record<string, unknown>,
-): Promise<string> {
-  const route = decision === "grant"
-    ? grantApprovalRequest
-    : rejectApprovalRequest;
-  const binding = await confirmationBinding(route, input);
-  assert(binding);
-  const issued = value(
-    await harness.confirmation({
-      action: "issue",
-      request: {
-        type: "confirmation_handle_register",
-        window_id: `win-${decision}`,
-        target_ref: binding.target,
-        content_hash: binding.content,
-        allowed_decisions: [route.name],
-        expires_at: new Date(NOW + 120_000).toISOString(),
-      },
-    }),
-  ) as { confirmation: string };
-  return issued.confirmation;
-}
-
-// 거절 입력은 이유 칸이 항상 있고(없으면 null) 허락 입력에는 이유 칸이 없다.
-function shaped(
-  decision: Decision,
-  input: Record<string, unknown>,
-): Record<string, unknown> {
-  const { closed_reason_blob: reason, ...rest } = input;
-  return decision === "reject"
-    ? { ...rest, closed_reason_blob: reason ?? null }
-    : rest;
-}
-
-function decide(
-  harness: LedgerHarness,
-  ctx: AuthenticatedContext,
-  decision: Decision,
-  input: Record<string, unknown>,
-  key: string,
-  confirmation?: string,
-) {
-  return harness.command(ctx, {
-    command: decision === "grant"
-      ? "grant_approval_request"
-      : "reject_approval_request",
-    input: shaped(decision, input),
-    idempotency_key: key,
-    compare: { created_seq: input["created_seq"] },
-    prepared: [],
-    ...(confirmation === undefined ? {} : { confirmation }),
-  });
-}
-
-async function statusOf(harness: LedgerHarness, id: string): Promise<string> {
-  const rows = value(
-    await harness.inspect(
-      "select status from approval_requests where id = ?",
-      [id],
-    ),
-  );
-  return String(rows[0]?.["status"]);
-}
 
 Deno.test("platform/approvals#R3: handle 없이는 user 자격만으로 허락·거절하지 못한다", async () => {
   const harness = await openHarness([user]);

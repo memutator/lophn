@@ -2,7 +2,7 @@ import type { SchemaStep } from "../../contracts/platform/mod.ts";
 
 // approval_requests는 고정 JSON과 blob 참조를 담는다(domain model ledger 표).
 // 생성 뒤 내용 컬럼은 바꾸지 않고, 종료는 pending에서 한 번만 기록한다.
-// 거절은 이유 없이 할 수 있다(R14). 만료·취소는 이유가 필수다. approval_uses는 T23이 쓴다. 여기서는 표만 만든다.
+// 거절은 이유 없이 할 수 있다(R14). 만료·취소는 이유가 필수다. approval_uses는 platform/ledger의 공통 사용 함수(Tx.useApproval)만 쓴다.
 export const APPROVAL_SCHEMA_STEPS: SchemaStep[] = [
   {
     id: "approvals",

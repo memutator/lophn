@@ -1,7 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { ok, type Result } from "../../base/mod.ts";
-import type { PlaceRef } from "../../contracts/documents/mod.ts";
+import {
+  DOCUMENT_DISPATCHABLE_COMMANDS,
+  type PlaceRef,
+} from "../../contracts/documents/mod.ts";
 import type { Sql } from "../../contracts/platform/mod.ts";
 import {
   createDocumentNameReservation,
@@ -621,6 +624,143 @@ Deno.test("documents/addressing#R9: rename은 place를 그대로 두고 이름�
     assertEquals(command.value.name, "memo");
     const moved = fixture.emitted as Emitted[];
     assertEquals(moved.map((event) => event.type), ["DocumentRenamed"]);
+  } finally {
+    fixture.close();
+  }
+});
+
+// 사람이 고른 option action이 부르는 경로(addressing#R9). lophn-agent가 고정한 action을 platform이
+// 사람 결정으로 검증한 뒤 같은 transaction의 user 자격으로 dispatch한다. 이 command는 그 user
+// 자격과 고정된 대상·place·이름·base_revision만 받는다.
+Deno.test("documents/addressing#R9: option action이 부르는 move와 rename은 dispatch할 수 있는 user command다", () => {
+  const routes = DOCUMENT_DISPATCHABLE_COMMANDS.map((item) => item.route.name);
+  assertEquals(routes, ["document.move", "document.rename"]);
+  for (const item of DOCUMENT_DISPATCHABLE_COMMANDS) {
+    assertEquals([...item.route.actors], ["user"]);
+  }
+  assertEquals(commands.move.route.name, "document.move");
+  assertEquals(commands.rename.route.name, "document.rename");
+});
+
+Deno.test("documents/addressing#R9: 고정 option을 적용한 뒤 같은 option을 다시 적용하면 낡은 기준이라 conflict다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    // option을 만든 시점의 revision. 적용이 revision을 옮기면 같은 option은 낡은 기준이다.
+    fixture.sql.run("UPDATE documents SET revision = '9' WHERE id = ?", [
+      docId,
+    ]);
+    const fixed = {
+      document: docId,
+      place: { kind: "project", id: projectId },
+      name: "memo",
+    };
+    const apply = () =>
+      fixture.transaction((tx) =>
+        commands.move.handle(
+          tx as never,
+          userContext() as never,
+          fixed as never,
+          { base_revision: "9" } as never,
+        ) as unknown as Result<{ revision: string }>
+      );
+    const first = apply();
+    assert(first.ok);
+    assertEquals(fixture.emitted.map((event) => event.type), [
+      "DocumentMoved",
+    ]);
+    const again = apply();
+    errorCode(again, "conflict");
+    // 두 번째 시도는 event도 예약도 남기지 않는다.
+    assertEquals(fixture.emitted.length, 1);
+    const reserved = fixture.sql.get(
+      "SELECT COUNT(*) AS count FROM document_names WHERE document = ?",
+      [docId],
+    );
+    assertEquals(reserved?.["count"], 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R9: 자리 없는 문서는 option이 고정한 place가 있을 때만 옮기고 그 밖에는 자리 없음 그대로다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, null, null);
+    // 자리·이름이 모두 비어 있는 입력은 아무것도 바꾸지 않는 요청이라 거절한다.
+    const nothing = fixture.transaction((tx) =>
+      commands.move.handle(
+        tx as never,
+        userContext() as never,
+        { document: docId, place: null, name: null } as never,
+        { base_revision: "1" } as never,
+      ) as unknown as Result<never>
+    );
+    errorCode(nothing, "invalid_input");
+    // 이름만 있고 place 없는 rename은 임의 경로로 자리를 만들지 않는다.
+    const renamed = fixture.transaction((tx) =>
+      commands.rename.handle(
+        tx as never,
+        userContext() as never,
+        { document: docId, name: "memo" } as never,
+        { base_revision: "1" } as never,
+      ) as unknown as Result<never>
+    );
+    errorCode(renamed, "invalid_input");
+    const row = fixture.sql.get(
+      "SELECT place_kind, name FROM documents WHERE id = ?",
+      [docId],
+    );
+    assertEquals(row?.["place_kind"], null);
+    assertEquals(row?.["name"], null);
+    assertEquals(fixture.emitted.length, 0);
+    // option이 place와 이름을 고정했으면 그 자리로만 간다.
+    const moved = fixture.transaction((tx) =>
+      commands.move.handle(
+        tx as never,
+        userContext() as never,
+        {
+          document: docId,
+          place: { kind: "project", id: projectId },
+          name: "memo",
+        } as never,
+        { base_revision: "1" } as never,
+      ) as unknown as Result<{ place: unknown; name: string | null }>
+    );
+    assert(moved.ok);
+    assertEquals(moved.value.place, { kind: "project", id: projectId });
+    assertEquals(moved.value.name, "memo");
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R9: agent와 machine이 직접 보낸 move는 option 근거가 없어 forbidden이다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    for (
+      const actor of [
+        "machine",
+        "agent:asg_01arz3ndektsv4rrffq69g5fav",
+        "coding_agent:cac_01arz3ndektsv4rrffq69g5fav",
+      ]
+    ) {
+      const denied = fixture.transaction((tx) =>
+        commands.move.handle(
+          tx as never,
+          userContext(actor) as never,
+          {
+            document: docId,
+            place: { kind: "project", id: projectId },
+            name: "memo",
+          } as never,
+          { base_revision: "1" } as never,
+        ) as unknown as Result<never>
+      );
+      errorCode(denied, "forbidden");
+    }
+    assertEquals(fixture.emitted.length, 0);
   } finally {
     fixture.close();
   }

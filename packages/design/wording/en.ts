@@ -1,5 +1,38 @@
 // en catalog. 값은 완성된 문장 하나의 ICU MessageFormat이다. 화면 코드는 문장 조각을 이어 붙이지 않는다.
 export const en = {
+  "app-space.button.add-shortcut": "Add to app menu",
+  "app-space.button.app-details": "App details",
+  "app-space.button.documents": "Documents",
+  "app-space.button.new-window": "Open in new window",
+  "app-space.button.remove-shortcut": "Remove from app menu",
+  "app-space.empty.archived":
+    "This app is archived. Restore it in Apps to open it again.",
+  "app-space.empty.no-version": "This app has nothing to show yet.",
+  "app-space.empty.not-found": "This app isn't here anymore.",
+  "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
+  "app-space.heading.app-details": "App details",
+  "app-space.heading.this-computer": "On this computer",
+  "app-space.label.this-app": "this app",
+  "app-space.notice.shortcut-added": "Added to your computer's app menu.",
+  "app-space.notice.shortcut-failed":
+    "Your computer's app menu didn't change. Try again.",
+  "app-space.notice.shortcut-not-installed":
+    "Only the installed lophn app can change your computer's app menu.",
+  "app-space.notice.shortcut-removed": "Removed from your computer's app menu.",
+  "app-space.notice.window-failed":
+    "The app didn't open in a new window. Try again.",
+  "apps.button.archive": "Archive",
+  "apps.button.open": "Open",
+  "apps.button.restore": "Restore",
+  "apps.empty.no-apps": "No apps yet.",
+  "apps.error.action-failed": "{name} didn't change. Try again.",
+  "apps.error.changed": "This changed since you opened it. Showing the latest.",
+  "apps.label.list-target": "your apps",
+  "apps.label.name": "Name",
+  "apps.label.status": "Status",
+  "apps.notice.archived": "{name} is archived and won't start.",
+  "apps.notice.restored":
+    "{name} is back. It stays stopped until you start it.",
   "apps.title.screen": "Apps",
   "common.activity.agent": "Agent activity",
   "common.activity.app": "App activity",
@@ -41,6 +74,12 @@ export const en = {
   "common.heading.palette-files": "Files",
   "common.heading.palette-projects": "Projects",
   "common.heading.palette-tabs": "Open tabs",
+  "common.label.app-archived": "Archived",
+  "common.label.app-preparing": "Getting ready",
+  "common.label.app-running": "Running",
+  "common.label.app-stopped": "Stopped",
+  "common.label.app-unavailable": "Not responding",
+  "common.label.app-unknown": "Status unknown",
   "common.label.date-with-weekday": "{date} ({weekday})",
   "common.label.decisions-waiting":
     "{count, plural, one {# decision waiting} other {# decisions waiting}}",

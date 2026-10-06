@@ -632,12 +632,23 @@ Deno.test("documents/addressing#R9: rename은 place를 그대로 두고 이름�
 // 사람이 고른 option action이 부르는 경로(addressing#R9). lophn-agent가 고정한 action을 platform이
 // 사람 결정으로 검증한 뒤 같은 transaction의 user 자격으로 dispatch한다. 이 command는 그 user
 // 자격과 고정된 대상·place·이름·base_revision만 받는다.
-Deno.test("documents/addressing#R9: option action이 부르는 move와 rename은 dispatch할 수 있는 user command다", () => {
+Deno.test("documents/addressing#R9: option action이 부르는 move와 rename은 user만 받는 dispatch 가능 command이고 revert가 부르는 archive와 restore는 user·machine이 받는다", () => {
   const routes = DOCUMENT_DISPATCHABLE_COMMANDS.map((item) => item.route.name);
-  assertEquals(routes, ["document.move", "document.rename"]);
-  for (const item of DOCUMENT_DISPATCHABLE_COMMANDS) {
-    assertEquals([...item.route.actors], ["user"]);
-  }
+  assertEquals(routes, [
+    "document.move",
+    "document.rename",
+    "document.archive",
+    "document.restore",
+  ]);
+  const actorsOf = (name: string) =>
+    [...DOCUMENT_DISPATCHABLE_COMMANDS.find((item) => item.route.name === name)!
+      .route.actors];
+  // option action이 부르는 둘은 사람 결정의 user 자격만 받는다.
+  assertEquals(actorsOf("document.move"), ["user"]);
+  assertEquals(actorsOf("document.rename"), ["user"]);
+  // revert가 부르는 둘은 사람의 보관·복원과 같은 route라서 user와 요청된 revert의 machine이다.
+  assertEquals(actorsOf("document.archive"), ["user", "machine"]);
+  assertEquals(actorsOf("document.restore"), ["user", "machine"]);
   assertEquals(commands.move.route.name, "document.move");
   assertEquals(commands.rename.route.name, "document.rename");
 });

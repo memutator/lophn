@@ -83,6 +83,12 @@ import {
   handoffBodyFields,
 } from "../../packages/lophn-agent/handoff/mod.ts";
 import {
+  createRevertCommands,
+  createRevertReads,
+  defaultRevertOwners,
+  revertSchemaSteps,
+} from "../../packages/lophn-agent/revert/mod.ts";
+import {
   createToolCommands,
   createToolReads,
   TOOL_BUNDLES,
@@ -337,6 +343,14 @@ const handoffReads = createHandoffReads({
   },
 });
 
+// run revert(concern revert). 종료한 run의 event 전체를 owner별로 분류해 복원 가능한 변경을
+// 소유 concern의 새 변경으로 되돌린다. 문서 복원은 documents가 dispatchable로 선언한
+// `document.archive`·`document.restore`를 같은 Tx에서 부르고(`tx.call`), 과거 사실은 모두
+// 유지한다. 요청은 사람만 하고 확인 handle이 필요하다. 앱 복원 단계는 lophn-agent#T48이 더한다.
+const revertOwners = defaultRevertOwners();
+const revertCommands = createRevertCommands({ owners: revertOwners });
+const revertReads = createRevertReads({ owners: revertOwners });
+
 // tool call ledger(concern harness/tools). 기록은 machine 전용이다. 입력·출력
 // 원문은 blob 참조만 남긴다.
 const toolCommands = createToolCommands();
@@ -418,6 +432,7 @@ export const lophnAgentDefinitions = {
     ...toolsSchemaSteps,
     ...questionSchemaSteps,
     ...waitSchemaSteps,
+    ...revertSchemaSteps,
   ],
   commands: [
     commands.register,
@@ -472,6 +487,7 @@ export const lophnAgentDefinitions = {
     waitCommands.wait,
     waitCommands.resolve,
     waitCommands.correct,
+    revertCommands.run,
   ],
   reads: [
     reads.read,
@@ -501,6 +517,8 @@ export const lophnAgentDefinitions = {
     toolReads.list,
     questionReads.read,
     questionReads.list,
+    revertReads.preview,
+    revertReads.list,
   ],
   // model.call 본문은 blob 참조만 남는다(R4). tool call 입력·출력도 같은 종류다.
   // 메시지 본문은 영구 참조다(conversation#R2).
@@ -590,6 +608,8 @@ export function createReaderRegistration(): ReaderRegistration {
       toolReads.list,
       questionReads.read,
       questionReads.list,
+      revertReads.preview,
+      revertReads.list,
     ],
     ports: new Map(),
   };

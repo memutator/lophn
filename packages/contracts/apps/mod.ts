@@ -2,6 +2,8 @@ export * from "./apps.ts";
 export * from "./runtime.ts";
 export { EVENTS, ROUTES } from "./registry.ts";
 export * from "./blueprint.ts";
+export * from "./blueprint-read.ts";
+export * from "./pair-routes.ts";
 export {
   type GrantPermissionKind,
   type GrantPermissionRequirement,

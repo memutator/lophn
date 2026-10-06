@@ -26,7 +26,10 @@ import {
   screenTestLine,
   screenTestObservationSchema,
 } from "../../../packages/contracts/shell/screen-test.ts";
-import { SCREEN_TEST_BLOCKED_CHANNEL } from "../ipc/screen-test.ts";
+import {
+  SCREEN_TEST_BLOCKED_CHANNEL,
+  SCREEN_TEST_PROBE_CHANNEL,
+} from "../ipc/screen-test.ts";
 import { nodeInvoke } from "./app-frame/app-invoke.ts";
 import { registerAppIpc } from "./app-frame/app-ipc.ts";
 import { parseAppUrl, type ProtocolView } from "./app-frame/app-protocol.ts";
@@ -34,6 +37,7 @@ import { electronAppViews } from "./app-frame/electron-app-frame.ts";
 import { navigationAllowed } from "./app-frame/network-policy.ts";
 import type { BoundView } from "./app-frame/registry.ts";
 import {
+  BLOCK_RESPONSE_MS,
   bundleUpstream,
   createScreenTestCall,
   createScreenTestRecorder,
@@ -305,6 +309,22 @@ function electronPorts(
         } catch {
           return false;
         }
+      },
+      probe() {
+        if (!contents.isDestroyed()) {
+          contents.send(SCREEN_TEST_PROBE_CHANNEL, { kind: "errors" });
+        }
+      },
+      async block() {
+        if (contents.isDestroyed()) return false;
+        contents.send(SCREEN_TEST_PROBE_CHANNEL, { kind: "block" });
+        // 멈춘 main thread는 JS 실행에 답하지 못한다. 답이 오면 멈추지 않은 것이다.
+        await wait(BLOCK_RESPONSE_MS);
+        const answered = await Promise.race([
+          contents.executeJavaScript("1").then(() => true, () => false),
+          wait(BLOCK_RESPONSE_MS).then(() => false),
+        ]);
+        return !answered;
       },
       async capture(ms) {
         const before = frames;

@@ -37,6 +37,7 @@ import {
   lophnAgentDefinitions,
 } from "../lophn-agent.ts";
 import { createLedgerRegistration as createDocumentsRegistration } from "../documents.ts";
+import { createLedgerRegistration as createAppsRegistration } from "../apps.ts";
 import * as approvalOwner from "./approval-owner.ts";
 import {
   call,
@@ -99,6 +100,7 @@ const MACHINE_OPERATIONS = [
   "SettingsDefinitions",
   "document.move",
   "document.rename",
+  "app.create",
 ];
 
 const USER_OPERATIONS = [
@@ -193,7 +195,8 @@ export async function acceptCredential(
 let tokens = 0;
 
 // documents를 함께 띄우면 문서 자리 이동 같은 소유 command의 option action을 실제 문서로 본다.
-export type WaitingWorldOptions = { documents?: boolean };
+// apps는 앱 등록의 option action을 본다(place 이름 공간이 documents 등록의 몫이라 documents도 띄운다).
+export type WaitingWorldOptions = { documents?: boolean; apps?: boolean };
 
 export async function openWaitingWorld(
   options: WaitingWorldOptions = {},
@@ -206,16 +209,20 @@ export async function openWaitingWorld(
     teams: [
       { lophnAgentDefinitions, createLedgerRegistration },
       approvalOwner,
-      ...(options.documents
+      ...(options.documents || options.apps
         ? [{ createLedgerRegistration: createDocumentsRegistration }]
+        : []),
+      ...(options.apps
+        ? [{ createLedgerRegistration: createAppsRegistration }]
         : []),
     ],
     teamModules: [
       new URL("../lophn-agent.ts", import.meta.url).href,
       new URL("./approval-owner.ts", import.meta.url).href,
-      ...(options.documents
+      ...(options.documents || options.apps
         ? [new URL("../documents.ts", import.meta.url).href]
         : []),
+      ...(options.apps ? [new URL("../apps.ts", import.meta.url).href] : []),
     ],
     clock,
     random: seededRandom(51),

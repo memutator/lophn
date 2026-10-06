@@ -89,6 +89,9 @@ export type BlobPrepareRelay = {
   take(frame: Frame): void;
   // worker→core worker_response와 credit. 그 밖의 메시지는 무시한다.
   accept(message: ChildMessage): void;
+  // I/O worker가 끝났다(crash·재기동·정지). 답을 기다리던 준비·읽기는 기한(credit 30초·응답
+  // 120초·읽기 6초)까지 기다리지 않고 바로 unavailable로 끝난다.
+  failPending(message: string): void;
 };
 
 export type PreparedRelayResult = {
@@ -429,6 +432,17 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
       } finally {
         collected.stop();
         forget(requestId, channel);
+      }
+    },
+    failPending(message) {
+      for (const pending of byRequest.values()) {
+        if (pending.answer !== undefined) continue;
+        pending.answer = {
+          ok: false,
+          error: { code: "unavailable", message },
+        };
+        pending.respond();
+        pending.wake?.();
       }
     },
     get size() {

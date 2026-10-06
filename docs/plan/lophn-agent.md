@@ -156,6 +156,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/model-catalog-and-usage.md, docs/research/provider-adapters.md
 - 선행: T3, T4, contracts#T30, platform#T13, platform#T14, platform#T15
+- platform#T42에서 넘어온 것: backup 복원 뒤 `derived/lophn-agent`(`usage.sqlite`·catalog 상태·summaries)가 기록한 `ledger_id`가 `platform/status`와 다르면 버리고 ledger에서 다시 만든다. 지금은 `ledger_id`를 확인하지 않아 다른 ledger의 같은 seq 위에서 합계가 이어진다(platform의 `derived/api-subscriptions`와 documents의 `reconcileLedgerBasis`가 같은 일을 한다)
 - 완료:
   - `model_calls`, `model_call_supplements` 표
   - usage_test.ts에 R1–R11 테스트: 시작 기록 저장 실패면 전송 없음, 실제 시도마다 한 번(retry·credential 이동·요약·연결 test 포함), 용도·원래 선택·전송·응답 model·과금 경로 기록, 오류 본문 없음, 새 입력·출력·cache 읽기·쓰기·추론 구별과 포함 관계(Anthropic은 cache 제외, OpenAI는 cache 포함, 추론은 출력의 부분), 미보고와 누락 요율은 null·모름(0으로 바꾸지 않음, 현재 가격으로 과거 누락 비용을 채우지 않음), 비용 다섯 종류, 십진수 문자열로 입력·계산·저장(float 변환 없음)과 출처·확인 시각·통화·문맥 구간·cache 시간(질문 Q18), adapter마다 usage 정의 판을 기록해 cache 포함 관계를 provider 이름으로 추측하지 않음, 가격 갱신으로 과거 비용 덮지 않음, supplement append, 같은 호출 한 번만 합계, handoff 수신 run 귀속, 재전송 수신은 이중 계산 없음, 금액 상한 없음

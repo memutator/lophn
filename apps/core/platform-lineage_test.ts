@@ -23,6 +23,7 @@ import {
   type Reply,
   type Server,
 } from "./testing/approvals-fixture.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const ALPHA = "0123456789abcdefghjkmnpqrstvwxyz";
 function id(prefix: string, n: number): string {
@@ -100,6 +101,10 @@ async function open(): Promise<World> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+  });
   const core = started.value;
   const server: Server = {
     port: core.port,
@@ -198,6 +203,7 @@ async function open(): Promise<World> {
       agent.token,
     );
   }
+  guard.keep();
   return world;
 }
 

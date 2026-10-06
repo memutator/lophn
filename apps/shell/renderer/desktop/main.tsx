@@ -3,7 +3,13 @@ import { type ReactNode, useState } from "react";
 import type { CoreSource } from "./connection/connection.ts";
 import { useConnection } from "./connection/connection.tsx";
 import { Launcher } from "./launcher/launcher.tsx";
-import { LAUNCHER, openLophn, openProject, type Route } from "./router.ts";
+import {
+  LAUNCHER,
+  openApp,
+  openLophn,
+  openProject,
+  type Route,
+} from "./router.ts";
 import { Workspace } from "../workspace/workspace.tsx";
 import type { WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
@@ -18,6 +24,11 @@ import type { TrackingSource } from "../workspace/tracking/source.ts";
 import type { IntentApi } from "../../ipc/shortcuts.ts";
 import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
+import { AppSpace } from "../app-frame/app-space.tsx";
+import type { AppsSource } from "./lophn-space/apps/source.ts";
+import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
+import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
+import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -44,6 +55,14 @@ export interface DesktopProps {
   tracking?: TrackingSource;
   /** main이 시키는 것(전역 팔레트, OS notification 클릭). 없으면 받지 않는다. */
   intents?: IntentApi;
+  /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
+  apps?: AppsSource;
+  /** shell preload의 앱 view 통로. 앱 공간 본문이 쓴다. */
+  views?: LophnShellViewsApi;
+  /** 앱 공간의 새 창 열기와 OS 앱 바로가기 통로. */
+  appWindows?: LophnAppWindowsApi;
+  /** [Report a problem] 통로. 앱 공간 바의 버튼이 쓴다. */
+  feedback?: LophnShellFeedbackBegin;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -62,6 +81,10 @@ export function Desktop(
     projects,
     tracking,
     intents,
+    apps,
+    views,
+    appWindows,
+    feedback,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -75,6 +98,9 @@ export function Desktop(
     setRoute(next);
   };
   const thingsToConfirm = () => visit(openLophn("things-to-confirm"));
+  // 앱 행은 그 앱 공간으로 간다. 앱 통로가 없는 창은 apps 형제 화면으로 간다.
+  const appSpace = (app: string) =>
+    apps ? setRoute(openApp(app)) : visit(openLophn("apps"));
   // 링크로 온 요청은 고르기만 한다. 결정 창은 사람이 그 화면에서 누를 때 연다(desktop#R14).
   const confirmTarget = (request?: string) =>
     request === undefined
@@ -86,7 +112,7 @@ export function Desktop(
     else if (target.kind === "project") setRoute(openProject(target.id));
     else if (target.kind === "screen") visit(openLophn(target.screen));
     else if (target.kind === "context") visit(openLophn("contexts"));
-    else if (target.kind === "app") visit(openLophn("apps"));
+    else if (target.kind === "app") appSpace(target.id);
     else {
       visit(openLophn("documents", {
         document: target.document,
@@ -114,6 +140,27 @@ export function Desktop(
         tracking={tracking}
       />
     );
+  } else if (route.space === "app" && route.app && apps && live) {
+    space = (
+      <AppSpace
+        key={route.app}
+        app={route.app}
+        source={apps}
+        views={views}
+        windows={appWindows}
+        feedback={feedback}
+        windowWidth={windowWidth}
+        onLauncher={launcher}
+        onDocuments={() => visit(openLophn("documents"))}
+        onOpenResult={(document, version) =>
+          visit(
+            version === null
+              ? openLophn("documents")
+              : openLophn("documents", { document, version }),
+          )}
+        onThingsToConfirm={thingsToConfirm}
+      />
+    );
   } else if (route.space === "lophn" && lophn) {
     space = (
       <LophnSpace
@@ -126,6 +173,8 @@ export function Desktop(
         windowWidth={windowWidth}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
+        apps={apps}
+        onApp={appSpace}
       />
     );
   } else {

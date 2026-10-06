@@ -2,6 +2,56 @@
 import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
+  "app-space.button.add-shortcut": Record<never, never>;
+  "app-space.button.app-details": Record<never, never>;
+  "app-space.button.documents": Record<never, never>;
+  "app-space.button.new-window": Record<never, never>;
+  "app-space.button.remove-shortcut": Record<never, never>;
+  "app-space.empty.archived": Record<never, never>;
+  "app-space.empty.no-version": Record<never, never>;
+  "app-space.empty.not-found": Record<never, never>;
+  "app-space.empty.screen-not-ready": Record<never, never>;
+  "app-space.heading.app-details": Record<never, never>;
+  "app-space.heading.this-computer": Record<never, never>;
+  "app-space.label.this-app": Record<never, never>;
+  "app-space.notice.shortcut-added": Record<never, never>;
+  "app-space.notice.shortcut-failed": Record<never, never>;
+  "app-space.notice.shortcut-not-installed": Record<never, never>;
+  "app-space.notice.shortcut-removed": Record<never, never>;
+  "app-space.notice.window-failed": Record<never, never>;
+  "apps.button.archive": Record<never, never>;
+  "apps.button.open": Record<never, never>;
+  "apps.button.restore": Record<never, never>;
+  "apps.empty.no-apps": Record<never, never>;
+  "apps.error.action-failed": {
+    name: "string";
+  };
+  "apps.error.changed": Record<never, never>;
+  "apps.label.list-target": Record<never, never>;
+  "apps.label.name": Record<never, never>;
+  "apps.label.status": Record<never, never>;
+  "apps.notice.archived": {
+    name: "string";
+  };
+  "apps.notice.restored": {
+    name: "string";
+  };
+  "app-card.notice.contract-changed": Record<never, never>;
+  "app-card.notice.not-card": Record<never, never>;
+  "app-card.notice.unavailable": Record<never, never>;
+  "app-panel.button.open-app-space": Record<never, never>;
+  "app-panel.empty.no-apps": Record<never, never>;
+  "app-panel.label.screen": {
+    app: "string";
+    screen: "string";
+  };
+  "app-panel.notice.app-gone": Record<never, never>;
+  "app-panel.notice.app-space-only": {
+    app: "string";
+  };
+  "app-panel.notice.no-version": Record<never, never>;
+  "app-panel.notice.not-panel": Record<never, never>;
+  "app-panel.title.choose": Record<never, never>;
   "apps.title.screen": Record<never, never>;
   "common.activity.agent": Record<never, never>;
   "common.activity.app": Record<never, never>;
@@ -29,6 +79,7 @@ export type PlaceholderKinds = {
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
+  "common.button.report-problem": Record<never, never>;
   "common.button.reset-filters": Record<never, never>;
   "common.button.retry": Record<never, never>;
   "common.button.select-all": Record<never, never>;
@@ -66,6 +117,18 @@ export type PlaceholderKinds = {
   "common.label.all-of": {
     dimension: "string";
   };
+  "common.label.app-archived": Record<never, never>;
+  "common.label.app-preparing": Record<never, never>;
+  "common.label.app-running": Record<never, never>;
+  "common.label.app-stopped": Record<never, never>;
+  "common.label.app-unavailable": Record<never, never>;
+  "common.label.app-unknown": Record<never, never>;
+  "common.label.app-mode-live": Record<never, never>;
+  "common.label.app-mode-preview": Record<never, never>;
+  "common.label.app-state-preparing": Record<never, never>;
+  "common.label.app-state-running": Record<never, never>;
+  "common.label.app-state-stopped": Record<never, never>;
+  "common.label.app-state-unavailable": Record<never, never>;
   "common.label.date-from": Record<never, never>;
   "common.label.date-to": Record<never, never>;
   "common.label.date-with-weekday": {
@@ -744,6 +807,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
+  "project-workspace.button.open-app-panel": Record<never, never>;
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
   "project-workspace.button.remove-rule": Record<never, never>;
@@ -760,6 +824,7 @@ export type PlaceholderKinds = {
   "project-workspace.heading.left-out": Record<never, never>;
   "project-workspace.heading.tracked": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
+  "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
   "project-workspace.label.gitignore": Record<never, never>;
@@ -921,6 +986,30 @@ export type PlaceholderKinds = {
   "projects.result.file-unknown": Record<never, never>;
   "projects.result.file-written": Record<never, never>;
   "projects.title.screen": Record<never, never>;
+  "report-problem.button.copy-text": Record<never, never>;
+  "report-problem.button.open": Record<never, never>;
+  "report-problem.button.send": Record<never, never>;
+  "report-problem.button.view-issue": Record<never, never>;
+  "report-problem.error.rejected": Record<never, never>;
+  "report-problem.error.too-long": Record<never, never>;
+  "report-problem.error.unreachable": Record<never, never>;
+  "report-problem.heading.sent-with": Record<never, never>;
+  "report-problem.hint.draft-memory": Record<never, never>;
+  "report-problem.label.screen-details": Record<never, never>;
+  "report-problem.label.screenshot": Record<never, never>;
+  "report-problem.label.what-happened": Record<never, never>;
+  "report-problem.notice.capturing": Record<never, never>;
+  "report-problem.notice.copy-text": Record<never, never>;
+  "report-problem.notice.new-issue": Record<never, never>;
+  "report-problem.notice.open-failed": Record<never, never>;
+  "report-problem.notice.screen-not-sent": Record<never, never>;
+  "report-problem.notice.screenshot-failed": Record<never, never>;
+  "report-problem.notice.screenshot-hidden": Record<never, never>;
+  "report-problem.notice.screenshot-not-selected": Record<never, never>;
+  "report-problem.notice.screenshot-protected": Record<never, never>;
+  "report-problem.status.received": Record<never, never>;
+  "report-problem.status.sending": Record<never, never>;
+  "report-problem.title.report": Record<never, never>;
   "roles.title.screen": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;
   "settings.models.for-summaries": Record<never, never>;

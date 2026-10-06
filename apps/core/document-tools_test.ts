@@ -34,6 +34,7 @@ import {
   type Reply,
   type Server,
 } from "./testing/approvals-fixture.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [
   { lophnAgentDefinitions },
@@ -149,6 +150,11 @@ async function open(
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(work, { recursive: true });
+  });
   const core = started.value;
   const server: Server = {
     port: core.port,
@@ -297,6 +303,7 @@ async function open(
   );
   // 읽기 기록은 handler 묶음 하나가 run 동안 쥔다.
   const handlers = createBuiltinToolHandlers(ports);
+  guard.keep();
   return {
     core,
     server,

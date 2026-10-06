@@ -20,6 +20,11 @@ export const appBlueprintCommandSchema = z.object({
   confirm: z.boolean(),
   // 정규 InputSchema. 입력이 없는 명령은 null이다.
   input: jsonValueSchema.nullable(),
+  // 되돌리기 선언. 지원하면 대응 command 키가 있다. 이 필드를 모르는 옛 소비자는 무시하므로 additive다.
+  revert: z.object({
+    supported: z.boolean(),
+    command: z.string().min(1).optional(),
+  }).optional(),
 });
 export type AppBlueprintCommand = z.infer<typeof appBlueprintCommandSchema>;
 

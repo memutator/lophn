@@ -681,6 +681,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T36 외부 MCP 연결 관리
 
+- 상태: 완료 (#401)
 - 등급: 기본
 - concern: lophn-agent/extensions
 - 요구: lophn-agent/extensions#R12, R13, R14, R15, R18, R19, R20, R21, R22, R25

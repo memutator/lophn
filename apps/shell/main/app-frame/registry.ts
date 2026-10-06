@@ -46,11 +46,11 @@ import {
 
 export type {
   AppFrameOpen,
-  CardDisplay,
   AppFrameViewState,
   AppViewContents,
   AppViewHost,
   BoundView,
+  CardDisplay,
   ClosedView,
   ConnectionState,
   ViewBounds,
@@ -279,7 +279,9 @@ export function createAppFrame(deps: AppFrameDeps) {
       card?: CardDisplay,
     ): Promise<Outcome<AppFrameViewState>> {
       const input = checkOpen(value);
-      if (input === undefined || (input.size === "card") !== (card !== undefined)) {
+      if (
+        input === undefined || (input.size === "card") !== (card !== undefined)
+      ) {
         return failure("invalid_input", "view request is invalid");
       }
       if (!deps.views.hasWindow(input.parentWindow)) {

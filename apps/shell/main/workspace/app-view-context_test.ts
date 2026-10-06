@@ -107,8 +107,7 @@ test("shell/workspace#R11: 앱 탭의 현재 보기는 요청 창 패널 view의
     observed_at: AT,
   });
   assert.equal(preview.ok, true);
-  const previewState =
-    (preview as Extract<typeof preview, { ok: true }>).state;
+  const previewState = (preview as Extract<typeof preview, { ok: true }>).state;
   assert.equal(previewState.app_view, null);
   assert.deepEqual(previewState.omissions, [{
     reason: "app_not_live",

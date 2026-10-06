@@ -6,13 +6,11 @@ export const en = {
   "app-card.notice.unavailable":
     "This app is no longer available, so the card isn't shown.",
   "app-panel.button.open-app-space": "Open in app space",
-  "app-panel.empty.choose-hint": "Apps that fit in a tab are listed here.",
   "app-panel.empty.no-apps": "No apps are registered yet.",
-  "app-panel.label.app-space-only": "{app} opens only in the app space.",
   "app-panel.label.screen": "{app} · {screen}",
-  "app-panel.label.screens": "App screens",
   "app-panel.notice.app-gone": "This app is no longer available.",
-  "app-panel.notice.no-version": "This app has no version ready to run yet.",
+  "app-panel.notice.app-space-only": "{app} opens only in the app space.",
+  "app-panel.notice.no-version": "This app has no version ready to open yet.",
   "app-panel.notice.not-panel":
     "This screen can't open in a tab. Open it in the app space.",
   "app-panel.title.choose": "Open an app in this tab",

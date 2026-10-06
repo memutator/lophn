@@ -421,6 +421,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - 템플릿 업무 프로세스는 Deno, 화면은 React, lophn 화면과 같은 설치 Package를 쓴다(R1), guide에 재사용 기준(실제 사용처 2개 이상, 앱 DB 구조·앱 전용 prop은 앱에 남김)(R36)
   - 템플릿 앱이 T6 bundle 준비와 problems app test를 통과한다
 - shell#T37에서 넘어온 것: 앱 entrypoint(`packages/apps/runtime/entrypoint/main.ts`의 `startRuntime`)가 `screenBytes`를 넘기지 않아 실제 앱 프로세스의 `GET /screens/<screen>/<path>`가 모두 404다. 템플릿 앱의 build된 화면 자원을 bundle에서 내주게 잇는다. shell main은 view를 `lophn-app://<app label>/<screen key>/index.html`로 열어 `/screens/<screen key>/index.html`을 그 screen의 진입으로 부르고, 자원은 같은 screen 아래 상대 경로로 부른다(다른 screen 경로는 shell이 막는다). content type은 text/html·text/css·text/javascript·application/json·wasm·이미지·글꼴만 받는다(`apps/shell/main/app-frame/app-protocol.ts`)
+- shell#T44에서 넘어온 것: 세션 앱 카드의 입력(AppCardReference `input`)을 앱의 card 화면에 넘길 통로가 없다. shell renderer registry(`workspace/visuals/registry.ts`)는 그 값을 그대로 들고 있고 card view는 screen·size·view_session만으로 열린다. AppScreenRequest(contracts)에 카드 입력을 더하고 SDK가 card 화면에서 읽게 하면, shell은 view 열기 IPC의 `card`에 입력을 실어 main이 화면 요청에 붙인다
 
 ### T23 fixture: 할 일 앱
 

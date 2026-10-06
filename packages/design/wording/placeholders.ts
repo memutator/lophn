@@ -6,17 +6,15 @@ export type PlaceholderKinds = {
   "app-card.notice.not-card": Record<never, never>;
   "app-card.notice.unavailable": Record<never, never>;
   "app-panel.button.open-app-space": Record<never, never>;
-  "app-panel.empty.choose-hint": Record<never, never>;
   "app-panel.empty.no-apps": Record<never, never>;
-  "app-panel.label.app-space-only": {
-    app: "string";
-  };
   "app-panel.label.screen": {
     app: "string";
     screen: "string";
   };
-  "app-panel.label.screens": Record<never, never>;
   "app-panel.notice.app-gone": Record<never, never>;
+  "app-panel.notice.app-space-only": {
+    app: "string";
+  };
   "app-panel.notice.no-version": Record<never, never>;
   "app-panel.notice.not-panel": Record<never, never>;
   "app-panel.title.choose": Record<never, never>;

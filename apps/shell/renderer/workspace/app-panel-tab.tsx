@@ -100,7 +100,7 @@ export function AppPanelPicker(
                   data-app-space-only={app.app}
                 >
                   <span className={styles.note}>
-                    {t("app-panel.label.app-space-only", { app: app.name })}
+                    {t("app-panel.notice.app-space-only", { app: app.name })}
                   </span>
                   {onOpenAppSpace === undefined ? null : (
                     <Button

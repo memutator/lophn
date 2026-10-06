@@ -19,7 +19,14 @@ if true; then
   echo "== deno test$existing"
   tlog=$(mktemp); timeout --kill-after=10 900 deno test --allow-all --permit-no-files $existing </dev/null >"$tlog" 2>&1; rc=$?; out=$(cat "$tlog"); rm -f "$tlog"
   echo "$out" | grep -E 'passed \|' | tail -1
-  [ $rc -eq 124 ] && echo "실패: deno test가 900초 안에 끝나지 않았다(멈춘 test 의심)"; [ $rc -eq 0 ] || { echo "실패: deno test"; echo "$out" | grep -E 'FAILED|=>' | tail -15; echo "$out" | sed -n '/ERRORS/,/FAILURES/p' | head -60; fail=1; }
+  if [ $rc -eq 124 ]; then
+    echo "실패: deno test가 900초 안에 끝나지 않았다(멈춘 test 의심)"
+    # 멈춘 자리 단서: deno가 60초마다 찍는 "has been running" 줄과 마지막으로 시작한 test 이름.
+    echo "--- 멈춘 test 단서"
+    echo "$out" | sed 's/\x1b\[[0-9;]*m//g' | grep -E 'has been running| \.\.\.' | tail -4 | cut -c1-200
+    echo "--- log 끝"
+    echo "$out" | sed 's/\x1b\[[0-9;]*m//g' | tail -8 | cut -c1-200
+  fi; [ $rc -eq 0 ] || { echo "실패: deno test"; echo "$out" | grep -E 'FAILED|=>' | tail -15; echo "$out" | sed -n '/ERRORS/,/FAILURES/p' | head -60; fail=1; }
 fi
 if echo "$changed" | grep -qE '^apps/shell/|^packages/design/'; then [ -x apps/shell/main/node_modules/.bin/tsc ] || npm --prefix apps/shell/main ci --no-audit --no-fund >/dev/null 2>&1; run npm --prefix apps/shell/main run check; fi
 [ $fail -eq 0 ] && echo "LIGHT OK" || echo "LIGHT FAILED"

@@ -199,6 +199,10 @@ export const vars = {
       "max": "var(--layout-sidebar-max)",
       "collapsed": "var(--layout-sidebar-collapsed)",
     },
+    "container": {
+      "panel": "var(--layout-container-panel)",
+      "card": "var(--layout-container-card)",
+    },
   },
   "control": {
     "sm": {

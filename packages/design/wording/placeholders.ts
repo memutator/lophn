@@ -8,6 +8,7 @@ export type PlaceholderKinds = {
   "common.author.label": {
     author: "string";
   };
+  "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
@@ -40,6 +41,7 @@ export type PlaceholderKinds = {
   "common.error.load-failed": {
     target: "string";
   };
+  "common.error.show-failed": Record<never, never>;
   "common.heading.column-unit": {
     header: "string";
     unit: "string";
@@ -121,6 +123,11 @@ export type PlaceholderKinds = {
   "contexts.view.baseline": Record<never, never>;
   "contexts.view.follow-changes": Record<never, never>;
   "contexts.view.reference": Record<never, never>;
+  "conversation.body.save-visual-request": {
+    title: "string";
+    block: "string";
+    message: "string";
+  };
   "conversation.button.check-delivery": Record<never, never>;
   "conversation.button.close": Record<never, never>;
   "conversation.button.jump-latest": Record<never, never>;
@@ -131,12 +138,15 @@ export type PlaceholderKinds = {
   "conversation.button.open": Record<never, never>;
   "conversation.button.previous-request": Record<never, never>;
   "conversation.button.resend": Record<never, never>;
+  "conversation.button.save-visual": Record<never, never>;
   "conversation.button.send": Record<never, never>;
   "conversation.button.show-all-results": Record<never, never>;
   "conversation.button.stop": Record<never, never>;
+  "conversation.button.visual-read-description": Record<never, never>;
   "conversation.empty.no-agent": Record<never, never>;
   "conversation.empty.no-messages": Record<never, never>;
   "conversation.empty.no-session": Record<never, never>;
+  "conversation.empty.visual-no-data": Record<never, never>;
   "conversation.error.load-failed": Record<never, never>;
   "conversation.error.message-body": Record<never, never>;
   "conversation.error.open-failed": Record<never, never>;
@@ -175,6 +185,25 @@ export type PlaceholderKinds = {
   "conversation.label.status-in-progress": Record<never, never>;
   "conversation.label.status-stopped": Record<never, never>;
   "conversation.label.status-waiting": Record<never, never>;
+  "conversation.label.visual-axes": {
+    y: "string";
+    x: "string";
+  };
+  "conversation.label.visual-document-unavailable": Record<never, never>;
+  "conversation.label.visual-no": Record<never, never>;
+  "conversation.label.visual-observed": {
+    at: "string";
+  };
+  "conversation.label.visual-saved": Record<never, never>;
+  "conversation.label.visual-source-app": {
+    command: "string";
+  };
+  "conversation.label.visual-source-estimate": {
+    label: "string";
+  };
+  "conversation.label.visual-sources": Record<never, never>;
+  "conversation.label.visual-untitled": Record<never, never>;
+  "conversation.label.visual-yes": Record<never, never>;
   "conversation.notice.ended": Record<never, never>;
   "conversation.notice.message-loading": Record<never, never>;
   "conversation.notice.not-found": Record<never, never>;
@@ -186,7 +215,16 @@ export type PlaceholderKinds = {
   };
   "conversation.notice.stale-never": Record<never, never>;
   "conversation.notice.unconfirmed": Record<never, never>;
-  "conversation.notice.visual-pending": Record<never, never>;
+  "conversation.notice.visual-app-card": Record<never, never>;
+  "conversation.notice.visual-as-table": Record<never, never>;
+  "conversation.notice.visual-not-saved": Record<never, never>;
+  "conversation.notice.visual-save-failed": Record<never, never>;
+  "conversation.notice.visual-save-requested": Record<never, never>;
+  "conversation.notice.visual-save-sending": Record<never, never>;
+  "conversation.notice.visual-unavailable-drawing": Record<never, never>;
+  "conversation.notice.visual-unavailable-kind": Record<never, never>;
+  "conversation.notice.visual-unavailable-markup": Record<never, never>;
+  "conversation.notice.visual-unavailable-shape": Record<never, never>;
   "conversation.title.dock": Record<never, never>;
   "document.button.back-to-editing": Record<never, never>;
   "document.button.check-again": Record<never, never>;

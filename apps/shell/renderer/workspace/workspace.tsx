@@ -480,8 +480,8 @@ export function Workspace(
       event.preventDefault();
       toggleInfo.current();
     };
-    globalThis.addEventListener("keydown", onKey);
-    return () => globalThis.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 
   const setInfo = (open: boolean, tab: InfoTab) => {

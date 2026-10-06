@@ -318,6 +318,7 @@ Deno.test("shell/editor#R4: 문서를 읽으면 탭에 파일 이름·문서 제
     fileName: "doc_notes.md",
     title: "Release notes",
     path: "docs/doc_notes.md",
+    version: "ver_doc_notes",
   }]);
 });
 

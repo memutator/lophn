@@ -55,11 +55,12 @@ export function InfoPanel(
       ) return;
       close.current?.();
     };
-    globalThis.addEventListener("keydown", onKey);
-    globalThis.addEventListener("pointerdown", onPointer, true);
+    const owner = ref.current?.ownerDocument ?? document;
+    owner.addEventListener("keydown", onKey);
+    owner.addEventListener("pointerdown", onPointer, true);
     return () => {
-      globalThis.removeEventListener("keydown", onKey);
-      globalThis.removeEventListener("pointerdown", onPointer, true);
+      owner.removeEventListener("keydown", onKey);
+      owner.removeEventListener("pointerdown", onPointer, true);
     };
   }, [placement]);
   if (placement === "hidden") return null;

@@ -1,59 +1,93 @@
 import { err, ok } from "../../base/mod.ts";
 import {
+  TERM_EVENTS,
   termArchive,
   termArchived,
   termProposed,
   termUnarchive,
   termUnarchived,
+  termUpdate,
   termUpdated,
-  TERM_EVENTS,
 } from "../../contracts/documents/mod.ts";
 import type { JsonObject } from "../../contracts/platform/mod.ts";
 import {
-  compareSeq,
+  applySteps,
+  bySubject,
+  callOf,
+  currentRevision,
+  draftOf,
+  hasForeignChange,
+  type Step,
+} from "./chain.ts";
+import {
   type GroupDraft,
-  type ReasonCode,
   type RevertOwner,
-  type RevertRunGroup,
   type RunEvent,
-  sortSeqs,
   subjectEvents,
+  targetOf,
 } from "./model.ts";
 
-// term 변경의 복원 판정(documents/terms). agent 후보 제안만 복원하고 사람 정의는 대상 아님.
-// run 이후의 변경이 없으면 역복 (이후 revision이 같을 때만, documents/terms#T25 참고).
+// term 변경의 복원 판정(documents/terms, documents/terms#R6). Context Engineer agent가 만든 후보의 변경만
+// 되돌린다: 후보 제안은 보관하고(근거를 지우지 않는다), 이름·근거 수정은 event가 남긴 이전 값으로, 보관·
+// 해제는 반대로 되돌린다. 사람이 정의한 것(`TermDefined`)과 정의의 수정은 대상이 아니다. 복원은 documents가
+// dispatchable로 선언한 `term.update`·`archive`·`unarchive`를 같은 Tx에서 부르고 revision CAS와 범위
+// 검사는 그 command가 다시 한다.
+
 export const TERM_REVERT_OWNER = "documents/terms";
 
 const OWN_TYPES = new Set<string>(TERM_EVENTS.map((event) => event.type));
 
-function revisionOf(all: readonly RunEvent[]): string {
-  let revision = "0";
-  for (const event of all) {
-    if (OWN_TYPES.has(event.type) && compareSeq(event.seq, revision) > 0) {
-      revision = event.seq;
-    }
-  }
-  return revision;
-}
-
-function draft(
+const draft = (
   target: string | null,
   seqs: readonly string[],
   capability: GroupDraft["capability"],
-  reason: ReasonCode | null,
+  reason: GroupDraft["reason"],
   comparison: JsonObject | null,
   beforeRef: JsonObject | null,
-): GroupDraft {
-  return {
-    owner: TERM_REVERT_OWNER,
+) =>
+  draftOf(
+    TERM_REVERT_OWNER,
     target,
-    source_seqs: sortSeqs(seqs),
+    seqs,
     capability,
     reason,
     comparison,
-    before_ref: beforeRef,
-    dependencies: [],
-  };
+    beforeRef,
+  );
+
+// event를 거꾸로 되돌리는 호출의 열이다. 풀 수 없는 event(정의 변경, 근거 blob 참조)가 있으면 null이다.
+function stepsOf(own: readonly RunEvent[]): Step[] | null {
+  const steps: Step[] = [];
+  for (const event of [...own].reverse()) {
+    if (event.type === termUpdated.type) {
+      const parsed = termUpdated.payload.safeParse(event.payload);
+      if (!parsed.success) return null;
+      const { before } = parsed.data;
+      // 정의는 agent가 바꾸지 못한다. 정의가 낀 변경은 이 owner가 되돌리지 않는다. 근거가 blob 참조로만
+      // 남은 변경은 이전 값을 복원할 수 없다.
+      if (before.definition !== undefined) return null;
+      if (before.evidence !== undefined && !Array.isArray(before.evidence)) {
+        return null;
+      }
+      steps.push({ op: "update", ...before } as Step);
+    } else if (event.type === termArchived.type) {
+      steps.push({ op: "unarchive" });
+    } else if (event.type === termUnarchived.type) {
+      steps.push({ op: "archive" });
+    } else {
+      return null;
+    }
+  }
+  return steps;
+}
+
+function endsActive(own: readonly RunEvent[]): boolean {
+  let active = true;
+  for (const event of own) {
+    if (event.type === termArchived.type) active = false;
+    if (event.type === termUnarchived.type) active = true;
+  }
+  return active;
 }
 
 function classifyTerm(
@@ -62,14 +96,8 @@ function classifyTerm(
   all: readonly RunEvent[],
 ): GroupDraft[] {
   const seqs = own.map((event) => event.seq);
-  const ownSet = new Set(seqs);
-  const first = own[0].seq;
-  const revision = revisionOf(all);
-  // 처음 변경 뒤에 이 run이 아닌 변경이 있으면 충돌. documents/terms#T25 참고.
-  const foreign = all.some((event) =>
-    !ownSet.has(event.seq) && compareSeq(event.seq, first) > 0
-  );
-  if (foreign) {
+  const revision = currentRevision(all, OWN_TYPES);
+  if (hasForeignChange(own, all, OWN_TYPES)) {
     return [
       draft(term, seqs, "conflict", "later_change", {
         kind: "term",
@@ -78,88 +106,43 @@ function classifyTerm(
       }, null),
     ];
   }
-  // agent run만 복원 가능.
+  // 사람 정의와 사람·machine의 변경은 되돌리지 않는다.
   if (!own.every((event) => event.actor.startsWith("agent:"))) {
+    return [draft(term, seqs, "irreversible", "not_agent_output", null, null)];
+  }
+  const proposed = own[0].type === termProposed.type;
+  const rest = proposed ? own.slice(1) : own;
+  const steps = proposed
+    ? rest.every((event) =>
+        event.type === termArchived.type || event.type === termUnarchived.type
+      )
+      ? (endsActive(rest) ? [{ op: "archive" } as Step] : [])
+      : null
+    : stepsOf(own);
+  if (steps === null) {
     return [
-      draft(term, seqs, "irreversible", "not_agent_output", null, null),
+      draft(term, seqs, "irreversible", "unclassified_event", null, null),
     ];
   }
-  // 사람 정의(TermDefined)는 복원 대상이 아님 (CE agent 후보만).
-  if (
-    own.some((event) =>
-      event.type === "TermDefined"
-    )
-  ) {
-    return [
-      draft(
-        term,
-        seqs,
-        "irreversible",
-        "not_agent_output",
-        null,
-        null,
-      ),
-    ];
-  }
-  // 분류되지 않은 event는 복원 불가.
-  if (
-    !own.every((event) =>
-      event.type === termProposed.type ||
-      event.type === termUpdated.type ||
-      event.type === termArchived.type ||
-      event.type === termUnarchived.type
-    )
-  ) {
-    return [
-      draft(
-        term,
-        seqs,
-        "irreversible",
-        "unclassified_event",
-        null,
-        null,
-      ),
-    ];
-  }
-  // term 제안(후보)는 archive로 보상.
-  if (own[0].type === termProposed.type) {
-    return [
-      draft(term, seqs, "reversible", null, {
-        kind: "archive",
+  const first = own[0].payload as { before_revision?: unknown } | undefined;
+  return [
+    draft(
+      term,
+      seqs,
+      "reversible",
+      null,
+      {
+        kind: "term",
         term,
         base_revision: revision,
-      }, { kind: "proposed_term", term }),
-    ];
-  }
-  // 그 외 변경들(update, archive/unarchive)은 각각 보상.
-  const drafts: GroupDraft[] = [];
-  if (own.some((e) => e.type === termUpdated.type)) {
-    // 후보 업데이트는 원래 상태로 복원.
-    drafts.push(
-      draft(term, seqs, "reversible", null, {
-        kind: "restore",
-        term,
-        base_revision: revision,
-      }, {
+        steps,
+      },
+      proposed ? { kind: "proposed_term", term } : {
         kind: "term_state",
         term,
-      }),
-    );
-  }
-  if (own.some((e) =>
-    e.type === termArchived.type || e.type === termUnarchived.type
-  )) {
-    // 보관 상태 복원.
-    drafts.push(
-      draft(term, seqs, "reversible", null, {
-        kind: "restore_archive_state",
-        term,
-        base_revision: revision,
-      }, { kind: "term_archive_state", term }),
-    );
-  }
-  return drafts.length > 0 ? drafts : [
-    draft(term, seqs, "irreversible", "unclassified_event", null, null),
+        revision: String(first?.before_revision ?? ""),
+      },
+    ),
   ];
 }
 
@@ -168,46 +151,50 @@ export function createTermOwner(): RevertOwner {
     concern: TERM_REVERT_OWNER,
     claims: (type) => OWN_TYPES.has(type),
     classify({ events, lookup }) {
-      const bySubject = new Map<string, RunEvent[]>();
-      for (const event of events) {
-        const list = bySubject.get(event.subject as string) ?? [];
-        list.push(event);
-        bySubject.set(event.subject as string, list);
-      }
       const drafts: GroupDraft[] = [];
-      for (const [term, own] of bySubject) {
-        drafts.push(
-          ...classifyTerm(term, own, subjectEvents(lookup, term)),
-        );
+      for (const { subject, own } of bySubject(events)) {
+        const term = targetOf(subject === "" ? null : subject);
+        if (term === null) {
+          drafts.push(draft(
+            null,
+            own.map((event) => event.seq),
+            "irreversible",
+            "unclassified_event",
+            null,
+            null,
+          ));
+          continue;
+        }
+        drafts.push(...classifyTerm(term, own, subjectEvents(lookup, term)));
       }
       return drafts;
     },
-    ready(_group, _input) {
-      // term 복원은 사전 준비 없음.
-      return ok(null);
-    },
-    restore(tx, group, _input) {
-      const comparison = group.comparison;
+    restore(tx, group) {
       const term = group.target;
-      if (comparison === null || term === null) {
+      if (term === null) {
         return err({
           code: "invalid_input",
           message: "this group has nothing to restore",
         });
       }
-      if (comparison["kind"] === "archive") {
-        const result = tx.call(termArchive, { term }, {
-          base_revision: String(comparison["base_revision"]),
-        });
-        if (!result.ok) return err(result.error);
-      } else if (comparison["kind"] === "restore") {
-        const result = tx.call(termUnarchive, { term }, {
-          base_revision: String(comparison["base_revision"]),
-        });
-        if (!result.ok) return err(result.error);
-      }
-      // 다른 종류의 변경은 추후 documents concern이 처리할 명령 구현.
-      return ok(undefined);
+      const applied = applySteps(tx, group.comparison, (tx, step, base) => {
+        switch (step.op) {
+          case "update": {
+            const { op: _op, ...fields } = step;
+            return callOf(tx, termUpdate, { term, ...fields }, base);
+          }
+          case "archive":
+            return callOf(tx, termArchive, { term }, base);
+          case "unarchive":
+            return callOf(tx, termUnarchive, { term }, base);
+          default:
+            return err({
+              code: "invalid_input",
+              message: "this step is not a term restore",
+            });
+        }
+      });
+      return applied.ok ? ok(undefined) : applied;
     },
   };
 }

@@ -8,6 +8,7 @@ import {
 } from "./documents-events.ts";
 import type { BasisSync } from "./documents-basis.ts";
 import type { SearchSync } from "./documents-search.ts";
+import type { WatchSync } from "./documents-watch.ts";
 import { SEARCH_CONSUMED_EVENTS } from "../../packages/documents/outline-and-search/mod.ts";
 import type { RootsWatch } from "./documents-roots.ts";
 import {
@@ -23,6 +24,8 @@ export type DocumentsFeedDeps = {
   basis(): BasisSync | undefined;
   // derived index를 따라잡게 하는 확인. 없으면(documents worker가 없는 core) 맞출 것이 없다.
   search?(): SearchSync | undefined;
+  // context watch를 따라잡게 하는 확인(documents#T24). 자기 cursor로 search와 따로 따라간다.
+  watch?(): WatchSync | undefined;
   // 한 묶음의 event가 몰릴 때 한 번만 맞추는 대기.
   debounceMs?: number;
   retryMs?: number;
@@ -45,6 +48,7 @@ export function startDocumentsFeed(
   function catchUpSearch(): void {
     if (stopped) return;
     void deps.search?.()?.check();
+    void deps.watch?.()?.check();
   }
   const subscription = openInternalSubscription({
     context: DOCUMENTS_FEED_CONTEXT,

@@ -115,6 +115,7 @@ import {
   SEARCH_VERSION_ROUTE,
   STORED_FILE_ROUTE,
   TERM_OCCURRENCE_ROUTE,
+  WATCH_INPUT_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
@@ -127,6 +128,11 @@ import {
   type SearchVersion,
   watchSearchIndex,
 } from "./documents-search.ts";
+import {
+  watchContextChanges,
+  type WatchInput,
+  type WatchSync,
+} from "./documents-watch.ts";
 import { startNotifications } from "./notifications.ts";
 import {
   APPROVAL_EXPIRY_CONTEXT,
@@ -465,6 +471,12 @@ async function open(
       { name: "document.prepare", actors: ["machine"], kind: "command" },
       // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
       { name: "file.record_result", actors: ["machine"], kind: "command" },
+      // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
+      {
+        name: "context.record_watch_change",
+        actors: ["machine"],
+        kind: "command",
+      },
       // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
       ...appsOperationPolicies(),
       // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
@@ -541,6 +553,8 @@ async function open(
   let basisSync: BasisSync | undefined;
   // coordinator의 search consumer에 event와 저장 판 원문을 보내는 동기화(documents#T21).
   let searchSync: SearchSync | undefined;
+  // coordinator의 context watch consumer에 저장 event를 보내는 동기화(documents#T24).
+  let watchSync: WatchSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
   // deno-lint-ignore prefer-const
@@ -679,7 +693,12 @@ async function open(
       actor: "machine",
       principal: "machine:documents",
       scope: {
-        operations: ["document.prepare", "document.save", "file.record_result"],
+        operations: [
+          "document.prepare",
+          "document.save",
+          "file.record_result",
+          "context.record_watch_change",
+        ],
         targets: { task: "documents" },
       },
       conditions: { task: "documents", process: "documents/worker" },
@@ -1182,6 +1201,25 @@ async function open(
       streamer: coordinatorStreamer,
       ledgerId: ledgerId.value,
       retryMs: DOCUMENTS_SEARCH_RETRY_MS,
+      // 추출이 끝나면 그 판의 미확인 watch 비교를 다시 확인할 수 있다.
+      onSettled: () => void watchSync?.check(),
+    });
+    watchSync = watchContextChanges({
+      events: runtime.events,
+      context: DOCUMENTS_FEED_CONTEXT,
+      request: (op, payload, timeoutMs) =>
+        documentsChannel.request(op, payload, timeoutMs),
+      inputOf: async (event): Promise<Result<WatchInput>> => {
+        const read = await runtime!.readers.read(
+          WATCH_INPUT_ROUTE,
+          watchReader,
+          event,
+        );
+        if (!read.ok) return read;
+        return ok(read.value as WatchInput);
+      },
+      ledgerId: ledgerId.value,
+      retryMs: DOCUMENTS_SEARCH_RETRY_MS,
     });
   }
   // core 안 notifications 구독자. 계기 event를 notification으로 바꾸고 cursor를 올린다.
@@ -1196,6 +1234,7 @@ async function open(
     roots: () => rootsWatch,
     basis: () => basisSync,
     search: () => searchSync,
+    watch: () => watchSync,
   });
   // 내장 lophn·Context Engineer assignment 준비. I/O 감독이 없는 기동은 prompt blob을
   // 준비할 수 없어 건너뛴다(lophn-agent/assignments#R2). 이미 있으면 아무것도 보내지 않는다.
@@ -1432,6 +1471,7 @@ async function open(
         rootsWatch?.stop();
         basisSync?.stop();
         searchSync?.stop();
+        watchSync?.stop();
         closeChildBlob?.();
         // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
         runtime?.memory.disconnect();
@@ -1775,6 +1815,15 @@ const searchReader: RequestContext = {
   scope: { operations: [SEARCH_VERSION_ROUTE.name], targets: {} },
   conditions: {},
   credential_ref: "machine:documents-search",
+};
+
+// watch consumer가 저장 event의 비교 근거를 읽는 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.
+const watchReader: RequestContext = {
+  principal: "machine:documents-watch",
+  actor: "machine",
+  scope: { operations: [WATCH_INPUT_ROUTE.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:documents-watch",
 };
 
 // tracking root 읽기의 자격. machine만 읽는 project.tracking_roots를 core가 직접 읽는다.

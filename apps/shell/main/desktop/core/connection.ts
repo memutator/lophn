@@ -63,6 +63,8 @@ export interface CoreConnection {
   session(): CoreSession | null;
   /** 명시 종료. 창 닫기는 부르지 않는다. */
   shutdown(): void;
+  /** main의 안전 진단을 감독 pipe로 보낸다. 보내지 못하면 false다. */
+  diagnostic(message: unknown): boolean;
 }
 
 /** main 조립이 부른다. 준비 전에 창은 이미 열려 있다. */
@@ -150,6 +152,9 @@ export function startCoreConnection(
     },
     shutdown() {
       core.stop();
+    },
+    diagnostic(message) {
+      return core.diagnostic(message);
     },
   };
 }

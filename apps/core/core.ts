@@ -150,7 +150,13 @@ import { createStreamer, createValidatePort } from "./documents-validate.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
 import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts";
-import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
+import {
+  greet,
+  type ParentPipe,
+  shellViewLog,
+  watchParent,
+  writeParent,
+} from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
   appCredentialIssuer,
@@ -177,6 +183,7 @@ import {
   withApprovalText,
 } from "./approval-text.ts";
 import { createHandoffBodyPreparer, withHandoffBody } from "./handoff-body.ts";
+import { toolDocumentWorkers } from "./tool-documents.ts";
 import {
   type BodyPrepare,
   createMessageBodyPreparer,
@@ -768,6 +775,39 @@ async function open(
   const preparedRoute = prepareWorkers.get(
     `${documentPrepare.resource}/${documentPrepare.method}`,
   )!.handle;
+  // 요청한 credential의 자격으로 판을 준비·확정한다. 사람 파일 쓰기의 판 확정과 agent의 문서
+  // tool 저장이 같은 길을 쓴다(저장 범위·기준 판 비교는 documents/versions가 정한다).
+  const requestVersion = {
+    prepare: (request: WorkerRequest, payload: unknown) =>
+      Promise.resolve(
+        preparedRoute.forward({
+          ...request,
+          op: documentPrepare.name,
+          payload,
+        }),
+      ),
+    save: (
+      request: WorkerRequest,
+      envelope: {
+        command: string;
+        input: unknown;
+        idempotency_key: string;
+        compare: unknown;
+        prepared: string[];
+      },
+    ) => {
+      const slash = request.request_id.lastIndexOf("/");
+      const ctx = slash > 0
+        ? runtime!.current(request.request_id.slice(0, slash))
+        : undefined;
+      return ctx?.ok
+        ? runtime!.writer.command(ctx.value as never, envelope as never)
+        : Promise.resolve(err({
+          code: "unauthorized" as const,
+          message: "credential이 없다",
+        }));
+    },
+  };
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -908,50 +948,43 @@ async function open(
               base_version: baseVersion,
               operation: request.op,
             }) as ReturnType<FilesRouteDeps["copyCheck"]>,
-          version: {
-            prepare: (request, payload) =>
-              Promise.resolve(
-                preparedRoute.forward({
-                  ...request,
-                  op: documentPrepare.name,
-                  payload,
-                }),
-              ),
-            save: (request, envelope) => {
-              const slash = request.request_id.lastIndexOf("/");
-              const ctx = slash > 0
-                ? runtime!.current(request.request_id.slice(0, slash))
-                : undefined;
-              return ctx?.ok
-                ? runtime!.writer.command(ctx.value as never, envelope as never)
-                : Promise.resolve(err({
-                  code: "unauthorized" as const,
-                  message: "credential이 없다",
-                }));
-            },
-          },
+          version: requestVersion,
           observedAt: () => new Date().toISOString(),
         }),
         mergedWorkers(
-          formatValidateWorkers({
-            validate: validatePort,
+          toolDocumentWorkers({
+            relay: () => prepareRelay.current,
+            known: () => runtime?.knownSecrets,
             principalOf: requestPrincipal(runtime),
-            live: (prepared) =>
-              validateWiring.live?.(prepared, clock.nowMs()) ?? false,
+            version: requestVersion,
+            validate: validatePort,
             available: () =>
+              prepareRelay.current !== undefined &&
               validateWiring.live !== undefined &&
               validateWiring.sendBytes !== undefined,
             observedAt: () => new Date().toISOString(),
           }),
           mergedWorkers(
-            prepareWorkers,
+            formatValidateWorkers({
+              validate: validatePort,
+              principalOf: requestPrincipal(runtime),
+              live: (prepared) =>
+                validateWiring.live?.(prepared, clock.nowMs()) ?? false,
+              available: () =>
+                validateWiring.live !== undefined &&
+                validateWiring.sendBytes !== undefined,
+              observedAt: () => new Date().toISOString(),
+            }),
             mergedWorkers(
-              servedWorkers({
-                readers: runtime.readers,
-                current: (ref) => runtime!.current(ref),
-                observedAt: () => new Date().toISOString(),
-              }),
-              options.workers,
+              prepareWorkers,
+              mergedWorkers(
+                servedWorkers({
+                  readers: runtime.readers,
+                  current: (ref) => runtime!.current(ref),
+                  observedAt: () => new Date().toISOString(),
+                }),
+                options.workers,
+              ),
             ),
           ),
         ),
@@ -1542,7 +1575,7 @@ async function open(
     ? watchParent(parent, () => core.shutdown(), {
       confirmation: (body) => runtime!.confirmation(body),
       reply: (message) => writeParent(parent, message),
-    })
+    }, shellViewLog(root.path))
     : Promise.resolve();
   const accepting = registry as CredentialRegistry & {
     acceptTestCredential?(

@@ -211,3 +211,35 @@ Deno.test("apps/blueprint#R2: 범위 밖·없는 앱·active release가 없는 �
     ledger.close();
   }
 });
+
+Deno.test("apps/blueprint#R2: active release 없이 선택한 release의 고정 screen을 읽고 다른 앱의 release는 없는 것과 같다", () => {
+  const ledger = releasesLedger();
+  try {
+    const release = prepared(
+      ledger,
+      blueprint({
+        screens: [{
+          key: "preview-only",
+          label: "Preview",
+          path: "/preview",
+          sizes: ["full"],
+        }],
+      }),
+      false,
+    );
+    const got = reads.blueprint.handle(ledger.snapshot(), userContext(), {
+      app: APP,
+      release: release.id,
+    });
+    assert(got.ok, JSON.stringify(got));
+    assertEquals(got.value.screens[0].key, "preview-only");
+    const absent = reads.blueprint.handle(ledger.snapshot(), userContext(), {
+      app: OTHER_APP,
+      release: release.id,
+    });
+    assert(!absent.ok);
+    assertEquals(absent.error.code, "not_found");
+  } finally {
+    ledger.close();
+  }
+});

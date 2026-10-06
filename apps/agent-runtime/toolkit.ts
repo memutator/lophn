@@ -87,6 +87,7 @@ export function createBuiltinToolkit(options: {
               : source.kind === "handoff"
               ? source.original_message
               : null,
+            assignment: read.value.run.assignment,
           });
         },
       });

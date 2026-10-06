@@ -31,6 +31,8 @@ export type OpenDecision = (
       concern: string;
       decision: string;
       targets: string[];
+      automation?: string;
+      requirement?: number;
     };
     parentWindow: string;
   },
@@ -286,24 +288,30 @@ function intentOf(decision: AppDecision) {
         concern: "apps/permissions",
         decision: "grant_access",
         targets: [decision.app],
+        ...(decision.requirement === undefined
+          ? {}
+          : { requirement: decision.requirement }),
       };
     case "remove_access":
       return {
         concern: "apps/permissions",
         decision: "revoke_grant",
-        targets: [decision.grant],
+        targets: [decision.app, decision.grant],
       };
     case "turn_on_automation":
       return {
         concern: "apps/automations",
         decision: "enable_automation",
         targets: [decision.app],
+        automation: decision.automation,
       };
     case "connect_apps":
       return {
         concern: "apps/connections",
         decision: "connect_apps",
-        targets: [decision.app],
+        targets: decision.target === undefined
+          ? [decision.app]
+          : [decision.app, decision.target],
       };
   }
 }
@@ -314,6 +322,10 @@ export function coreAppDetailSource(
   core: CoreSource,
   openDecision: OpenDecision | undefined = windowDecision(),
 ): AppDetailSource {
+  const automationGrants = new Map<
+    string,
+    { app: string; automation: string; seq: string }
+  >();
   return {
     async versions(app) {
       const [releases, current] = await Promise.all([
@@ -418,9 +430,10 @@ export function coreAppDetailSource(
       };
     },
 
-    async blueprint(app) {
+    async blueprint(app, release) {
       const result = await read<BlueprintValue>(core, "apps", "blueprint", {
         app,
+        ...(release === undefined ? {} : { release }),
       });
       if (!result.ok) {
         return result.code === "not_found" ? { ok: true, value: null } : result;
@@ -432,6 +445,7 @@ export function coreAppDetailSource(
       const result = await read<
         {
           grants: GrantValue[];
+          grants_seq?: string;
           display?: {
             requirements: {
               kind: AccessKind;
@@ -444,6 +458,18 @@ export function coreAppDetailSource(
         } & Paged
       >(core, "grants", "list", { app, limit: 200 });
       if (!result.ok) return result;
+      for (const grant of result.value.grants) {
+        if (
+          grant.kind === "automation.run" && "automation" in grant.scope &&
+          result.value.grants_seq !== undefined
+        ) {
+          automationGrants.set(grant.id, {
+            app,
+            automation: grant.scope.automation,
+            seq: result.value.grants_seq,
+          });
+        }
+      }
       const display = result.value.display ?? null;
       const view: AccessView = {
         grants: result.value.grants.map(grantOf),
@@ -603,10 +629,16 @@ export function coreAppDetailSource(
       }
     },
 
-    // grant.revoke는 앱의 grant 집합 seq를 비교 기준으로 받고 contract가 confirmation을 필수로
-    // 둔다. 지금 grants.list는 그 seq를 내지 않고 automation.run의 확인 없는 회수 경로가 없어
-    // 부를 수 없다(apps#T4·T20으로 넘김). 부를 수 없다고 알린다.
-    turnOffAutomation: () =>
-      Promise.resolve({ ok: false, code: "unavailable" }),
+    async turnOffAutomation(grant) {
+      const bound = automationGrants.get(grant);
+      if (bound === undefined) return { ok: false, code: "not_found" };
+      const reply = await call(core, "command", "grants", "revoke_automation", {
+        input: { app: bound.app, grant, automation: bound.automation },
+        compare: { grants_seq: bound.seq },
+        prepared: [],
+        idempotency_key: `automation-off:${grant}:${bound.seq}`,
+      });
+      return reply.ok ? { ok: true, value: true } : reply;
+    },
   };
 }

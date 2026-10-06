@@ -19,6 +19,8 @@ import { PROJECT_COMMANDS } from "./commands/project.ts";
 import { SAVE_COMMANDS } from "./commands/save.ts";
 import { SDK_COMMANDS } from "./commands/sdk.ts";
 import { SERIES_COMMANDS } from "./commands/series.ts";
+import { SESSION_COMMANDS } from "./commands/session.ts";
+import { SKILLS_COMMANDS } from "./commands/skills.ts";
 import { TICKET_COMMANDS } from "./commands/ticket.ts";
 
 // command 표 하나다. name은 `lophn <group> <command>`의 `<group> <command>`다.
@@ -41,6 +43,8 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...HARNESS_COMMANDS,
   ...CONNECTION_COMMANDS,
   ...MCP_COMMANDS,
+  ...SKILLS_COMMANDS,
+  ...SESSION_COMMANDS,
 ];
 
 export function findCommand(name: string): CommandEntry | undefined {

@@ -3,6 +3,7 @@ import { err, ok } from "../../packages/base/mod.ts";
 import {
   defineSetting,
   type KindLaunchSpec,
+  questionOption,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   defineTxPort,
@@ -76,6 +77,7 @@ import {
   messageBodyRead,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
+  chosenOptionCall,
   createApplyQuestionOption,
   createQuestionCommands,
   createQuestionReads,
@@ -413,6 +415,12 @@ const waitCommands = createWaitCommands({
 // agent 자격의 command(CreateQuestion 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
 // unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
+// platform/ledger의 callChosenOption이 대조하는 질문 정본(identity R14). 사람이 고른 option의
+// 고정 action이 내는 소유 command 호출을 같은 Tx에서 읽어 준다.
+const questionOptionPort = defineTxPort(questionOption, (tx) => ({
+  chosen: (question: string) => chosenOptionCall(tx, question),
+}));
+
 const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   status: (run: string) => {
     const row = tx.sql.get("select state from runs where id = ?", [run]);
@@ -576,7 +584,12 @@ export const lophnAgentDefinitions = {
     ...messageBodyFields,
     ...handoffBodyFields,
   ],
-  ports: [runAdmissionPort, approvalLineagePort, instructionAttachmentsPort],
+  ports: [
+    runAdmissionPort,
+    approvalLineagePort,
+    instructionAttachmentsPort,
+    questionOptionPort,
+  ],
   workers: [],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,

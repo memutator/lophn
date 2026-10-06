@@ -26,6 +26,7 @@ import {
   removeHome,
   untilDocuments,
   untilSearch,
+  untilSectionStatus,
 } from "../flow-support.ts";
 
 const HITS = "[data-hits] [data-hit]";
@@ -222,6 +223,13 @@ Deno.test({
             assert(Date.now() < deadline, "두 번째 판이 확정되지 않았다");
             await delay(250);
           }
+          // 새 판의 목차·검색이 따라온 뒤에 연다(반영 전에는 구조를 아직 읽지 못한 판이다).
+          await untilSearch(
+            flow,
+            "판으로 남는다",
+            (page) => page.results.some((row) => row.document === glossary.id),
+            "새 판이 index에 오르지 않았다",
+          );
           await openLink(flow, "alpha/glossary@1");
           await flow.until(
             `document.querySelector("[data-link-pinned]") !== null`,
@@ -309,6 +317,12 @@ Deno.test({
           );
           // PDF는 원문을 읽을 수 있지만 section 구조는 지원하지 않는다. 문서가 없다는 말이 아니다.
           const pdf = await documentTitled(flow, "sample");
+          await untilSectionStatus(
+            flow,
+            pdf.id,
+            "unsupported",
+            "PDF의 section 상태가 정해지지 않았다",
+          );
           await placeDocument(flow, pdf, "sample");
           await openLink(flow, "alpha/sample");
           await flow.until(

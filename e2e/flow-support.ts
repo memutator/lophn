@@ -574,3 +574,27 @@ export async function placeDocument(
     ),
   });
 }
+
+/** 문서의 최신 판 section 상태가 `status`가 될 때까지 기다린다(추출은 판을 뒤따른다). */
+export async function untilSectionStatus(
+  flow: FlowShell,
+  document: string,
+  status: string,
+  what: string,
+): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  for (;;) {
+    const reply = await flow.call({
+      kind: "worker",
+      resource: "outline",
+      method: "document",
+      body: { reference: { document, version: null, section: null } },
+    });
+    if (
+      reply.ok &&
+      (reply.value as { section_status: string }).section_status === status
+    ) return;
+    assert(Date.now() < deadline, `${what}: ${JSON.stringify(reply)}`);
+    await delay(250);
+  }
+}

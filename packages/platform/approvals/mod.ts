@@ -1,4 +1,5 @@
 export { APPROVAL_BLOB_FIELDS, APPROVAL_OWNER_KIND } from "./blobs.ts";
+export { createApplyCommand } from "./apply.ts";
 export {
   createApprovalCommands,
   EXPIRY_REASON_HASH,
@@ -16,6 +17,8 @@ export {
   isClosed,
   repairDescribed,
 } from "./model.ts";
+export { type ApprovalRunLineage, approvalRunLineage } from "./lineage.ts";
+export { observeApprovals, RESTART_GRANTED_LIMIT } from "./restart.ts";
 export { approvalsGetRead, approvalsListRead } from "./reads.ts";
 export { createLedgerTestRegistration } from "./harness_test.ts";
 export {

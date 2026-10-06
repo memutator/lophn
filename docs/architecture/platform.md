@@ -104,6 +104,7 @@ data root `H`는 Linux/macOS의 `~/.lophn`, Windows의 `%USERPROFILE%\.lophn`이
 ```text
 H/
   lophn.db                         ledger (+ SQLite WAL·SHM)
+  ledger-id                        ledger를 만들거나 복원할 때마다 새로 정하는 식별(`platform/status`의 `ledger_id`); derived가 출처에 적는다
   blobs/sha256/<2자>/<62자>         불변 blob, POSIX 0400
   blobs/tmp/                       아직 완성되지 않은 streaming 파일
   derived/                         소유 concern별 derived DB·출처·cursor
@@ -114,6 +115,7 @@ H/
   logs/                            안전 운영 log·crash 관측
   backups/<UTC stamp>/             manifest.json·ledger.db·blobs/...
   backups/migrations/s<N>-<stamp>/  migration 전 schema N의 검증 복구본
+  backups/restore/<stamp>/         restore 작업 자리: previous/(복원 전 현재 ledger·WAL·참조 blob의 보존본), staging/(검증 중인 묶음 ledger)
   settings/                        명시 import/export용 TOML, 원본 아님
 ```
 
@@ -474,6 +476,8 @@ CAS 실패는 이전 참조를 유지한다. keychain 잠김은 로컬 문서/se
  → [I/O] 현재 자료 별도 보존 → 검증본 staging → 교체
  → [core] 새 epoch·자격 재검증·derived/전송 cursor 초기화 → 정상 시작 순서
 ```
+
+restore는 core 안에서 이 순서로 한다: 사람이 확인한 handle(결정 `restore_backup`, 대상 `manifest.created_at`, 내용 기준은 묶음 끝과 현재 끝)을 writer registry가 한 번에 소비 → 새 command 입장 닫기 → 모든 child·writer 정지(정상 종료 순서) → 별도 프로세스(`apps/worker/platform/restore-entry.ts`)가 묶음 검증(ledger hash·integrity·끝 seq·참조 blob 존재, 모든 blob의 실제 hash·size)·현재 자료 보존(ledger·WAL 복사, 참조 blob hard link)·묶음 blob 설치·새 `ledger-id` 기록 → staging ledger를 `lophn.db`로 rename. 정지 뒤 다시 읽은 현재 끝이 사람이 확인한 끝과 다르면 교체하지 않는다. 실패하면 현재 자료는 그대로이고 core는 멈춘 채 오류만 돌려준다. 같은 data root를 다시 시작하면 새 epoch·새 `ledger_id`로 뜨고 `derived/api-subscriptions`는 기록한 `ledger_id`가 다르면 위치를 버리며, 소유 concern의 derived도 같은 값을 보고 다시 만든다.
 
 manifest format 1은 `schema_version,through_seq,created_at,ledger_hash,blobs,settings,integrity,complete`를 포함한다. 상대 경로는 `ledger.db`, `blobs/sha256/<2>/<62>`로 고정하고 제외 범위 안내를 함께 둔다. ledger 선택 설정은 snapshot에 들어간다. 앱 DB·외부 원본/source·keychain·token은 자동 포함하지 않는다. 실패/미완성 묶음 때문에 마지막 완료 7개를 지우지 않는다.
 

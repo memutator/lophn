@@ -136,7 +136,10 @@ Deno.test("documents/versions#R8: 여러 파일을 가진 판은 경로마다 �
             name: "mahas",
             title: "Notes",
             purpose: "",
-            folders: [{ path: "/tmp/lophn-test-doc-file", description: "" }],
+            folders: [{
+              path: `${opened.work}/project-folder`,
+              description: "",
+            }],
             tracking: { enabled: false, patterns: [], use_gitignore: false },
           },
           idempotency_key: "project-1",

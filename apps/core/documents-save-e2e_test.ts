@@ -165,7 +165,7 @@ async function createProject(opened: Opened) {
       name: "mahas",
       title: "Notes",
       purpose: "",
-      folders: [{ path: "/tmp/lophn-test-save-e2e", description: "" }],
+      folders: [{ path: `${opened.work}/project-folder`, description: "" }],
       tracking: { enabled: false, patterns: [], use_gitignore: false },
     },
     idempotency_key: "project-1",

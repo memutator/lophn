@@ -1416,6 +1416,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T40 연결 회수
 
+- 상태: 완료 (#411) — 이어보냄: 아래
 - 이어보냄: shell#T50(회수 결정 화면) — CLI가 내는 링크는 `lophn://things-to-confirm/<cac_...>`이고(`decisionLink(connection)`) shell `open-intent`는 지금 `apr`·`qst`만 받는다. shell이 `cac` 링크를 받아 그 연결의 현재 판을 `ShowCodingAgentConnection`으로 읽고 `RevokeCodingAgentConnection` confirmation window(결정 `coding_agent_connection_revoke`, binding connection·base_revision)를 여는 일은 shell#T50에서 한다. 화면 E2E는 shell#T50 뒤 T41에서 돈다.
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/cli, coding-agent/tickets

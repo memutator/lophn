@@ -30,6 +30,9 @@ lead(Claude)가 팀을 돌리며 세션 임시 폴더(scratchpad)에만 두던 �
 | `team-roster.md`         | worker 배정 기록과 규칙(UI는 opus, 비UI는 glm, glm 리뷰는 한 번)                                                                                                   |
 | `merge.sh`               | lead의 병합 절차: origin/main 합치기 → light check → push → review 코멘트 → squash merge → branch·worktree 정리                                                    |
 | `light-check.sh`         | full check 대신 쓰는 가벼운 확인(사람 허락). 저장소 전체 fmt·lint·deps·contract coverage·type check·docs check, 바뀐 폴더의 test, core graph tripwire, shell check |
+| `handoff.md`              | 다음 lead가 먼저 읽을 운영 규칙·현재 상태·함정 |
+| `merge-queue.sh`, `keepboth.py` | 대기열 파일을 계속 merge하는 chain과 plan 충돌 자동 해결 |
+| `progress-snap.sh`, `plan-count.js` | 진행도 기록(`.dev-data/progress-log.md`) |
 
 ## 쓸 때 주의
 

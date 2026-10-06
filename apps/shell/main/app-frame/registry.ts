@@ -16,11 +16,11 @@ import {
   targetOf,
   type ViewBounds,
 } from "./open-input.ts";
+import { createPlacement, type Placed } from "./placement.ts";
 import { appHostLabel, createAppSessions } from "./session-policy.ts";
 import {
   type AppFrameDeps,
   type AppFrameViewState,
-  type AppViewContents,
   closedOf,
   type ConnectionState,
   viewState as state,
@@ -39,20 +39,9 @@ export type {
 // 만료 이만큼 전에 연결을 다시 얻는다.
 export const CONNECTION_RENEW_MS = 30_000;
 
-interface Entry extends Bound {
+interface Entry extends Bound, Placed {
   view_session: string;
   token: string;
-  generation: number;
-  window: string;
-  bounds: ViewBounds;
-  // renderer가 보이라고 한 view다. 숨김 요청이나 빈 bounds면 false다.
-  shown: boolean;
-  // 지금 contents의 첫 load가 끝났다. 준비 전에는 붙이지 않는다(R29).
-  ready: boolean;
-  // 지금 contents를 한 번 붙였다. 다시 붙일 때만 generation이 오른다.
-  placed: boolean;
-  attached: boolean;
-  contents: AppViewContents;
   connectionState: ConnectionState;
   refreshing: Promise<void> | undefined;
   renewedFor: number | undefined;
@@ -133,24 +122,8 @@ export function createAppFrame(deps: AppFrameDeps) {
     deps.onState?.(entry.window, state(entry));
   }
 
-  // 보이라고 했고 지금 contents가 준비됐을 때만 붙인다. 이미 붙었으면 아무것도 하지 않는다.
-  function place(entry: Entry): void {
-    if (!entry.shown || !entry.ready || entry.attached) return;
-    if (!deps.views.attach(entry.window, entry.contents, entry.bounds)) return;
-    entry.attached = true;
-    if (entry.placed) entry.generation += 1;
-    entry.placed = true;
-    record(entry, "attached");
-  }
-
-  // 뗀다. 숨긴 view에 키보드 focus가 남지 않게 shell로 돌린다(R28).
-  function detach(entry: Entry): void {
-    if (!entry.attached) return;
-    const focused = deps.views.focused?.(entry.contents) === true;
-    deps.views.detach(entry.window, entry.contents);
-    entry.attached = false;
-    if (focused) deps.views.focusShell?.(entry.window);
-  }
+  // 붙이기·떼기·숨기기는 placement만 한다.
+  const placement = createPlacement<Entry>({ views: deps.views, record });
 
   // 새 contents를 만들어 등록하고 화면을 연다. 첫 load가 끝나면(실패도) 붙인다. 실패 화면은
   // view 실패 경로가 다룬다.
@@ -166,15 +139,13 @@ export function createAppFrame(deps: AppFrameDeps) {
     byContents.set(entry.contents.id, entry);
     byToken.set(entry.token, entry);
     record(entry, "created");
-    entry.ready = false;
-    entry.placed = false;
+    placement.mounted(entry);
     const contents = entry.contents;
     void contents.load(appEntryUrl(label, screen)).catch(() => {}).then(() => {
       // 그 사이 닫히거나 다른 contents로 바뀌었으면 옛 load 결과로 붙이지 않는다.
       if (entries.get(entry.view_session) !== entry) return;
       if (entry.contents !== contents) return;
-      entry.ready = true;
-      place(entry);
+      placement.loaded(entry);
     });
   }
 
@@ -182,8 +153,7 @@ export function createAppFrame(deps: AppFrameDeps) {
   function unmount(entry: Entry): void {
     byContents.delete(entry.contents.id);
     byToken.delete(entry.token);
-    detach(entry);
-    entry.ready = false;
+    placement.unmounted(entry);
     entry.contents.destroy();
   }
 
@@ -257,13 +227,7 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry === undefined) {
       return failure("invalid_input", "view is not open");
     }
-    entry.shown = false;
-    if (entry.attached) {
-      detach(entry);
-      entry.generation += 1;
-      record(entry, "hidden");
-    }
-    return { ok: true, value: { generation: entry.generation } };
+    return placement.hide(entry);
   }
 
   return {
@@ -347,20 +311,7 @@ export function createAppFrame(deps: AppFrameDeps) {
       if (entry === undefined || !boundsValid(bounds)) {
         return failure("invalid_input", "view bounds are invalid");
       }
-      if (!deps.views.hasWindow(entry.window)) {
-        return failure("unavailable", "window is not open");
-      }
-      entry.bounds = bounds;
-      if (boundsEmpty(bounds)) return hide(view_session);
-      entry.shown = true;
-      if (
-        entry.attached &&
-        !deps.views.attach(entry.window, entry.contents, bounds)
-      ) {
-        return failure("unavailable", "window is not open");
-      }
-      place(entry);
-      return { ok: true, value: { generation: entry.generation } };
+      return placement.setBounds(entry, bounds);
     },
 
     hide,

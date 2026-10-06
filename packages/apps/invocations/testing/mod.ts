@@ -157,6 +157,12 @@ export type RuntimeWorld = {
     body: Record<string, unknown>,
     over?: Record<string, unknown>,
   ): ReturnType<typeof handleInvoke>;
+  // direct socket의 cancel·status 같은 다른 경로를 같은 연결로 부른다.
+  call(
+    path: string,
+    body: Record<string, unknown>,
+    over?: Record<string, unknown>,
+  ): ReturnType<typeof handleInvoke>;
 };
 
 // 앱 runtime 하나와 그 broker·전달 목록. 응답은 전달을 기다리지 않는다.
@@ -198,9 +204,12 @@ export function openRuntimeWorld(deps: {
     state: started.state,
     frames,
     invoke(body, over = {}) {
+      return this.call("/_lophn/commands/invoke", body, over);
+    },
+    call(path, body, over = {}) {
       return handleInvoke(
         started.state,
-        "/_lophn/commands/invoke",
+        path,
         new TextEncoder().encode(JSON.stringify(body)),
         connection({ commands: ALL_COMMANDS, ...over }) as AppConnection,
       );

@@ -142,7 +142,12 @@ export type Emitted = {
 
 export type ClaimScript = (
   input: { ticket: string; claim_seq: string; connection: string; now: string },
-) => Result<{ ok: true; expires_at: string } | { ok: false; reason: string }>;
+) => Result<
+  { ok: true; expires_at: string; app?: string } | {
+    ok: false;
+    reason: string;
+  }
+>;
 
 export type ReleasesLedger = {
   db: DatabaseSync;

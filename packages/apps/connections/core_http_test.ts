@@ -7,7 +7,13 @@ import {
   call,
   codeOf,
   command,
+  count,
+  decide,
 } from "../../../apps/core/testing/approvals-fixture.ts";
+import {
+  canonicalPayload,
+  decodeVerifyKey,
+} from "../runtime/entrypoint/signature.ts";
 import {
   type CoreHarness,
   createCoreHarness,
@@ -123,7 +129,10 @@ function observation(
 }
 
 // 두 앱과 채택된 release를 만든다. A는 B의 usage.read를 부르겠다고 선언한다.
-async function world(grant = true): Promise<World> {
+async function world(
+  grant = true,
+  granted: string[] = ["usage.read"],
+): Promise<World> {
   const observations = new Map<string, ProcessObservation>();
   const harness = await open(observations);
   const user = await login(harness, "user", USER);
@@ -148,7 +157,7 @@ async function world(grant = true): Promise<World> {
       blueprint({
         app_connections: [{
           app: b,
-          commands: ["usage.read"],
+          commands: granted,
           reason: "reads",
         }],
       }),
@@ -202,7 +211,7 @@ async function world(grant = true): Promise<World> {
         id: "grt_01h455vb4pex5v6nkc6gd5fd01",
         app: a,
         kind: "app.call",
-        scope: { app: b, commands: ["usage.read"] },
+        scope: { app: b, commands: granted },
         approval: "apr_01h455vb4pex5v6nkc6gd5fd01",
       }),
     );
@@ -330,7 +339,7 @@ Deno.test("apps/connections#R3: grant가 없으면 선언한 대상도 허락 �
     );
     assert(refused.status === 403 || refused.status === 404);
     assert(codeOf(refused) !== undefined);
-    // confirm 어댑터가 이어지지 않은 core는 성공을 꾸미지 않는다.
+    // grant가 없으면 confirm 준비도 같은 허락 밖이다.
     const confirm = await call(
       w.harness,
       "apps/pair_confirm_request",
@@ -344,11 +353,21 @@ Deno.test("apps/connections#R3: grant가 없으면 선언한 대상도 허락 �
         parent_invocation: null,
       },
     );
-    assertEquals(confirm.status, 503, JSON.stringify(confirm.body));
+    assert(confirm.status === 403 || confirm.status === 404);
   } finally {
     await w.harness.close();
   }
 });
+
+// core의 공개 검증 key로 서명을 확인한다. 앱 entrypoint가 쓰는 검증과 같다.
+async function verifySigned(
+  verifyKey: string,
+  signed: { payload: unknown; signature: string },
+): Promise<boolean> {
+  const key = decodeVerifyKey(verifyKey);
+  return key !== undefined &&
+    await key.verify(canonicalPayload(signed.payload), signed.signature);
+}
 
 function callerOf(body: unknown): Record<string, unknown> {
   return appConnectOutputSchema.parse(body).connection.caller as Record<
@@ -414,6 +433,112 @@ Deno.test("apps/connections#R7: 알려진 호출의 path가 다음 연결의 부
       callerOf(forgotten.body).parent_invocation,
       null,
     );
+  } finally {
+    await w.harness.close();
+  }
+});
+
+Deno.test("apps/connections#R3: confirm=true command는 사람이 허락한 approval을 적용한 뒤에만 core가 서명한 proof를 내고 거절·선언 밖 command는 proof가 없다", async () => {
+  const w = await world(true, ["usage.read", "usage.admin"]);
+  try {
+    const user = await login(w.harness, "user", [
+      "GetApproval",
+      "grant_approval_request",
+      "reject_approval_request",
+    ]);
+    const source = prepareBody(w).source;
+    const request = (command: string) =>
+      call(w.harness, "apps/pair_confirm_request", w.machine, {
+        source,
+        app: w.b,
+        command,
+        input: undefined,
+        target_release: w.releases.b,
+        target_process_nonce: "nonce-b",
+        parent_invocation: null,
+      });
+    const poll = (approval: string, wait_ms = 0) =>
+      call(w.harness, "apps/pair_confirm_poll", w.machine, {
+        source,
+        approval,
+        wait_ms,
+      });
+    // confirm 선언이 없는 command는 approval을 만들지 않는다.
+    const plain = await request("usage.read");
+    assertEquals(plain.status, 400, JSON.stringify(plain.body));
+    const asked = await request("usage.admin");
+    assertEquals(asked.status, 200, JSON.stringify(asked.body));
+    const approval = String(asked.body["approval"]);
+    assertEquals(asked.body["state"], "pending");
+    // 사람이 결정하기 전에는 proof가 없다.
+    assertEquals((await poll(approval)).body["state"], "pending");
+    // approval의 요청자는 호출한 앱 자신이다.
+    const read = await call(w.harness, "approvals/get", user, { approval });
+    assertEquals(read.status, 200, JSON.stringify(read.body));
+    const stored = read.body["request"] as {
+      requester: string;
+      status: string;
+    };
+    assertEquals(stored.requester, `app:${w.a}`);
+    assertEquals(stored.status, "pending");
+    const decided = await decide(
+      w.harness,
+      user,
+      read.body["request"] as never,
+      "grant",
+    );
+    assertEquals(decided.status, 200, JSON.stringify(decided.body));
+    const granted = await poll(approval);
+    assertEquals(granted.status, 200, JSON.stringify(granted.body));
+    assertEquals(granted.body["state"], "granted");
+    const proof = (granted.body as {
+      proof: { payload: Record<string, unknown>; signature: string };
+    }).proof;
+    assertEquals(proof.payload["command"], "usage.admin");
+    assertEquals(proof.payload["release"], w.releases.b);
+    assertEquals(proof.payload["process_nonce"], "nonce-b");
+    assertEquals(proof.payload["invocation"], granted.body["invocation"]);
+    assertEquals(
+      (proof.payload["caller"] as { app: string }).app,
+      w.a,
+    );
+    // 서명은 core가 한다.
+    assert(await verifySigned(w.harness.appsControl.verifyKey, proof));
+    // 접수는 core에 한 번 남는다. 같은 approval로 새 접수가 생기지 않는다.
+    const accepted = count(
+      w.harness,
+      "SELECT COUNT(*) AS n FROM invocations WHERE approval = ?",
+      [approval],
+    );
+    assertEquals(accepted, 1);
+
+    // 사람이 거절한 approval은 proof가 없다.
+    const second = await request("usage.admin");
+    assertEquals(second.status, 200, JSON.stringify(second.body));
+    const secondApproval = String(second.body["approval"]);
+    const secondRead = await call(w.harness, "approvals/get", user, {
+      approval: secondApproval,
+    });
+    const rejected = await decide(
+      w.harness,
+      user,
+      secondRead.body["request"] as never,
+      "reject",
+    );
+    assertEquals(rejected.status, 200, JSON.stringify(rejected.body));
+    assertEquals((await poll(secondApproval)).body["state"], "rejected");
+    // 다른 자식의 approval은 없는 것과 같다.
+    const stranger = await call(
+      w.harness,
+      "apps/pair_confirm_poll",
+      w.machine,
+      {
+        source: { ...source, process_nonce: "other-nonce" },
+        approval: secondApproval,
+        wait_ms: 0,
+      },
+    );
+    assertEquals(stranger.status, 404);
   } finally {
     await w.harness.close();
   }

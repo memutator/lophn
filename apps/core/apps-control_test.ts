@@ -68,7 +68,12 @@ Deno.test("apps/runtime#R9: registry 상한은 machine에게 관측 기록과 �
   );
   // 앱 자식은 app.connect·record_*를 받지 못한다. agent는 connect만 받는다.
   const app = operationCeiling(`app:${APP}`, policies);
-  assertEquals([...app].sort(), ["ObserveException", "ReportProblem"]);
+  // 상한이다: 앱 자식에게 주는 credential은 문제 보고 둘뿐이고(아래 R7), approval 요청은 core가 한 번의
+  // confirm 요청을 위해서만 발급하는 짧은 자격이 쓴다.
+  assertEquals(
+    [...app].sort(),
+    ["ObserveException", "ReportProblem", "create_approval_request"],
+  );
   assertEquals(
     operationCeiling("agent:asg_01arz3ndektsv4rrffq69g5fav", policies),
     ["app.connect"],

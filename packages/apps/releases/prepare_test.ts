@@ -291,10 +291,10 @@ Deno.test("apps/releases#R6: 새 coding 준비는 ticket 출처가 필수이고 
     ledger.claims.script = (call) => {
       seen.push(call);
       return current
-        ? ok({ ok: true, expires_at: "2026-10-06T01:00:00.000Z" })
+        ? ok({ ok: true, expires_at: "2026-10-06T01:00:00.000Z", app: APP })
         : ok({ ok: false, reason: "changed" });
     };
-    const atRequest = checkPreparationClaim(ledger.tx(), CODING, CLAIM);
+    const atRequest = checkPreparationClaim(ledger.tx(), CODING, CLAIM, APP);
     assert(atRequest.ok);
     current = false;
     rejected(run(ledger, withSource), "conflict");
@@ -320,7 +320,7 @@ Deno.test("apps/releases#R6: claim이 현재면 출처를 불변으로 남기고
     });
     passingTest(ledger, input);
     ledger.claims.script = () =>
-      ok({ ok: true, expires_at: "2026-10-06T01:00:00.000Z" });
+      ok({ ok: true, expires_at: "2026-10-06T01:00:00.000Z", app: APP });
     const prepared = run(ledger, input);
     assert(prepared.ok, JSON.stringify(prepared));
     assertEquals(prepared.value.release.ticket_source, CLAIM);
@@ -491,6 +491,100 @@ Deno.test("apps/releases#R1: 준비한 release의 선언 사실은 command·auto
     assertEquals(facts.automations[0].external, true);
     // default를 채운 정규 입력의 hash다.
     assertEquals(facts.automations[0].input_hash, sha256('{"days":7}'));
+  } finally {
+    ledger.close();
+  }
+});
+
+Deno.test("apps/releases#R6: 다른 앱의 ticket claim으로 이 앱의 release를 준비하지 못하고 없는 ticket과 같은 거절이다", () => {
+  const ledger = releasesLedger();
+  try {
+    const input = prepareInput(blueprint(), {
+      created_by: CODING,
+      ticket_source: CLAIM,
+    });
+    passingTest(ledger, input);
+    ledger.claims.script = () =>
+      ok({
+        ok: true,
+        expires_at: "2026-10-06T01:00:00.000Z",
+        app: OTHER_APP,
+      });
+    const elsewhere = run(ledger, input);
+    rejected(elsewhere, "conflict");
+    ledger.claims.script = () => ok({ ok: false, reason: "missing" });
+    const absent = run(ledger, input);
+    assertEquals(
+      !elsewhere.ok && elsewhere.error.message,
+      !absent.ok && absent.error.message,
+    );
+    // 앱을 알려 주지 않는 검사 결과는 믿지 않는다.
+    ledger.claims.script = () =>
+      ok({ ok: true, expires_at: "2026-10-06T01:00:00.000Z" });
+    rejected(run(ledger, input), "conflict");
+    assertEquals(ledger.emitted, []);
+  } finally {
+    ledger.close();
+  }
+});
+
+Deno.test("apps/releases#R9: compare 읽기는 명시한 이전 release나 채택한 release를 기준으로 하고 다른 앱의 release는 없는 것과 같다", () => {
+  const ledger = releasesLedger();
+  try {
+    const reads = createReleaseReads();
+    const prepareOne = (
+      value: Parameters<typeof blueprint>[0],
+      key: string,
+    ) => {
+      const input = prepareInput(blueprint(value), { key });
+      passingTest(ledger, input);
+      const prepared = run(ledger, input);
+      assert(prepared.ok, JSON.stringify(prepared));
+      return prepared.value.release;
+    };
+    const first = prepareOne({}, "prepare-key-0010");
+    // 채택된 release가 없으면 이전이 없는 처음 release와의 비교다.
+    const alone = reads.compare.handle(ledger.snapshot(), userContext(), {
+      release: first.id,
+    });
+    assert(alone.ok);
+    assertEquals(alone.value.comparison.previous_release, null);
+    ledger.db.prepare("UPDATE releases SET status = 'active' WHERE id = ?")
+      .run(first.id);
+    const second = prepareOne(
+      { commands: [command("list"), command("export")] },
+      "prepare-key-0011",
+    );
+    const against = reads.compare.handle(ledger.snapshot(), userContext(), {
+      release: second.id,
+    });
+    assert(against.ok, JSON.stringify(against));
+    assertEquals(against.value.comparison.previous_release, first.id);
+    assertEquals(against.value.comparison.added_commands, ["export"]);
+    // 같은 앱의 다른 release를 기준으로 고를 수도 있다.
+    const chosen = reads.compare.handle(ledger.snapshot(), userContext(), {
+      release: first.id,
+      previous_release: second.id,
+    });
+    assert(chosen.ok);
+    assertEquals(chosen.value.comparison.removed_commands, ["export"]);
+    // 다른 앱의 release는 기준으로 쓸 수 없고 없는 release와 같은 답이다.
+    // 준비한 release는 앱을 바꿀 수 없다. 다른 앱의 release와 같은 모양을 만들려고 보호를 푼다.
+    ledger.db.exec("DROP TRIGGER releases_immutable");
+    ledger.db.prepare("UPDATE releases SET app = ? WHERE id = ?").run(
+      OTHER_APP,
+      first.id,
+    );
+    const elsewhere = reads.compare.handle(ledger.snapshot(), userContext(), {
+      release: second.id,
+      previous_release: first.id,
+    });
+    const absent = reads.compare.handle(ledger.snapshot(), userContext(), {
+      release: second.id,
+      previous_release: "rel_01h455vb4pex5v6nkc6gd5fdw9",
+    });
+    assertEquals(elsewhere, absent);
+    assert(!elsewhere.ok && elsewhere.error.code === "not_found");
   } finally {
     ledger.close();
   }

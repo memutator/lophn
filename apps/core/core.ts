@@ -12,7 +12,10 @@ import type {
   RequestContext,
   WorkerRequest,
 } from "../../packages/contracts/platform/mod.ts";
-import { ROUTES } from "../../packages/contracts/platform/mod.ts";
+import {
+  createApprovalRequest,
+  ROUTES,
+} from "../../packages/contracts/platform/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -174,6 +177,7 @@ import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
 import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
+  APPS_CONTROL_PRINCIPAL,
   APPS_SUPERVISOR_KIND,
   type AppsControl,
   appsOperationPolicies,
@@ -181,6 +185,7 @@ import {
   createAppsControl,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
 } from "./apps-control.ts";
+import { createConfirmAdapters } from "./apps-confirm.ts";
 import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
@@ -688,10 +693,69 @@ async function open(
   }
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
+  // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
+  const confirmWriter = withApprovalText(
+    runtime.writer,
+    createApprovalTextPreparer({
+      relay: () => bodyPrepare.current,
+      known: () => runtime?.knownSecrets,
+    }),
+  );
   const appsControl = await createAppsControl({
     clock,
     ledgerPath,
     readers: runtime.readers,
+    confirm: createConfirmAdapters({
+      clock,
+      ledgerPath,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      // 호출한 앱 자신의 짧은 app credential이다. 요청 하나를 마치면 끝낸다.
+      async requester(source) {
+        // 앱 자격은 앱·release·process·mode에 고정된다. release가 없는 자식은 confirm을 요청하지 못한다.
+        if (source.release === null) {
+          return err({
+            code: "forbidden",
+            message: "app confirm is live only",
+          });
+        }
+        const issued = await productRegistry.issue({
+          actor: `app:${source.app}`,
+          principal: `app:${source.app}`,
+          scope: {
+            operations: [createApprovalRequest.name],
+            targets: {
+              app: source.app,
+              release: source.release,
+              process: source.processNonce,
+              mode: source.mode,
+            },
+          },
+          conditions: {
+            app: source.app,
+            release: source.release,
+            process: source.processNonce,
+            mode: source.mode,
+          },
+        });
+        if (!issued.ok) return issued;
+        const ref = issued.value.credential_ref;
+        const current = productRegistry.revalidate({ credential_ref: ref });
+        if (!current.ok) return current;
+        const recorded = await runtime!.record(current.value);
+        if (!recorded.ok) return recorded;
+        const context = runtime!.current(ref);
+        if (!context.ok) return context;
+        return ok({
+          context: context.value,
+          end: () => void productRegistry.end(ref),
+        });
+      },
+    }),
     revalidate: (credentialRef) =>
       registry.revalidate({ credential_ref: credentialRef }),
     redact: (line) =>

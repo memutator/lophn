@@ -67,6 +67,8 @@ export function checkPreparationClaim(
   tx: Pick<Tx, "port" | "now">,
   createdBy: string,
   source: { ticket: string; claim_seq: string } | undefined,
+  // 준비 대상 앱. ticket은 이 앱의 것이어야 한다.
+  app: string,
 ): Result<void> {
   const actor = parseActor(createdBy);
   if (actor === undefined) return invalid("created_by is not an actor");
@@ -97,6 +99,10 @@ export function checkPreparationClaim(
   if (!checked.ok) return checked;
   if (!checked.value.ok) {
     return conflict(`ticket claim is not current: ${checked.value.reason}`);
+  }
+  // 다른 앱의 ticket으로 이 앱의 release를 준비하지 못한다. 없는 ticket과 같은 거절이다.
+  if (checked.value.app !== app) {
+    return conflict("ticket claim is not current: missing");
   }
   return ok(undefined);
 }
@@ -175,6 +181,7 @@ export function createReleaseCommands(): {
           tx,
           input.created_by,
           input.ticket_source,
+          input.app,
         );
         if (!claim.ok) return claim;
         const id = tx.newId("rel");

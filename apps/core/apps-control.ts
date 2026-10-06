@@ -25,15 +25,18 @@ import {
   appRuntime,
   type Grant,
   grantsList,
+  invocationAcceptConfirm,
 } from "../../packages/contracts/apps/mod.ts";
 import {
   observeException,
   reportProblem,
 } from "../../packages/contracts/problems/mod.ts";
-import type {
-  AuthenticatedContext,
-  KindLaunchSpec,
-  RequestContext,
+import {
+  applyApprovedAction,
+  type AuthenticatedContext,
+  createApprovalRequest,
+  type KindLaunchSpec,
+  type RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import type {
   MemoryHandler,
@@ -102,7 +105,15 @@ export const APPS_CONTROL_PRINCIPAL = "machine:apps-control";
 export const APPS_CONTROL_CONTEXT: RequestContext = {
   principal: APPS_CONTROL_PRINCIPAL,
   actor: "machine",
-  scope: { operations: [grantsList.name], targets: {} },
+  // approval 적용(`apply_approved_action`)은 A→B confirm의 접수를 core 안에서 확정할 때만 쓴다.
+  scope: {
+    operations: [
+      grantsList.name,
+      applyApprovedAction.name,
+      invocationAcceptConfirm.name,
+    ],
+    targets: {},
+  },
   conditions: {},
   credential_ref: APPS_CONTROL_PRINCIPAL,
 };
@@ -158,6 +169,9 @@ export function appsOperationPolicies(): OperationPolicy[] {
       kind: "command",
     })),
     { name: grantsList.name, actors: ["machine"], kind: "command" },
+    // 호출한 앱 자신이 다른 앱의 confirm 호출 approval을 요청한다(요청자는 자격과 같아야 한다). core가
+    // 그 요청 한 번을 위해서만 짧은 app credential을 발급한다. 앱 자식에게 주는 credential에는 없다.
+    { name: createApprovalRequest.name, actors: ["app"], kind: "command" },
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
   ];

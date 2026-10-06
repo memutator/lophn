@@ -4,7 +4,10 @@
 // core graph는 node:sqlite를 열지 않는다. 거절하면 command를 부르지 않는다.
 import type { Result } from "../../packages/base/mod.ts";
 import type { RequestContext } from "../../packages/contracts/platform/mod.ts";
-import type { CommandEnvelope, Writer } from "../../packages/platform/ledger/mod.ts";
+import type {
+  CommandEnvelope,
+  Writer,
+} from "../../packages/platform/ledger/mod.ts";
 
 export const TERM_OCCURRENCE_COMMANDS: ReadonlySet<string> = new Set([
   "term.propose",

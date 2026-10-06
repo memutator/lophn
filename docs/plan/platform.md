@@ -738,6 +738,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T58 question option 적용의 user 자격 전환
 
+- 상태: 완료 (#372)
 - 등급: 기본
 - concern: platform/ledger, platform/identity
 - 요구: platform/identity#R14

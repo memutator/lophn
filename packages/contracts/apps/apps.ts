@@ -122,6 +122,20 @@ export const appUnarchive = defineCommand({
   actors: ["user"],
   errors: ["conflict", "not_found"],
 });
+export const appRenameInputSchema = z.strictObject({
+  app: appIdSchema,
+  name: appNameSchema,
+});
+export const appRename = defineCommand({
+  resource: "apps",
+  method: "rename",
+  name: "app.rename",
+  input: appRenameInputSchema,
+  output: appSchema,
+  compare: appCompareSchema,
+  actors: ["user"],
+  errors: ["conflict", "invalid_input", "not_found"],
+});
 
 export const appListInputSchema = z.strictObject({
   status: archiveStateSchema.optional(),
@@ -176,4 +190,8 @@ export const appArchived = defineEvent("AppArchived", {
 export const appUnarchived = defineEvent("AppUnarchived", {
   subject: appIdSchema,
   payload: z.object({ run_enabled: z.literal(false) }),
+});
+export const appRenamed = defineEvent("AppRenamed", {
+  subject: appIdSchema,
+  payload: z.object({ name: appNameSchema }),
 });

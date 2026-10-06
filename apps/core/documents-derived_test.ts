@@ -14,6 +14,7 @@ import {
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
 const teams: TeamModule[] = [
@@ -71,6 +72,12 @@ async function open(home?: string, work?: string): Promise<Opened> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    // 다시 여는 core의 폴더는 처음 연 시험의 것이다.
+    if (!reopening) await Deno.remove(dataRoot, { recursive: true });
+    if (work === undefined) await Deno.remove(workRoot, { recursive: true });
+  });
   const core = started.value;
   const contexts: [AuthenticatedContext, string][] = [
     [{
@@ -96,6 +103,7 @@ async function open(home?: string, work?: string): Promise<Opened> {
     const recorded = await core.record(context);
     assert(recorded.ok);
   }
+  guard.keep();
   return {
     core,
     home: dataRoot,

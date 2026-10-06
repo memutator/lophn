@@ -57,6 +57,9 @@ export type DocumentsChannel = {
   // 기다리지 않고 바로 unavailable로 끝낸다. 그동안 온 새 요청은 보내지 않고 교체가 끝나기를
   // (그 요청의 기한 안에서) 기다렸다가 새 child로 보낸다.
   replacing<T>(work: () => Promise<T>): Promise<T>;
+  // coordinator가 끝났다(crash·정지). 보낸 요청은 답이 오지 않으므로 기한까지 기다리지 않고 바로
+  // unavailable로 끝낸다.
+  failPending(message: string): void;
 };
 
 const REQUEST_TIMEOUT_MS = 5_000;
@@ -170,6 +173,8 @@ export function createDocumentsChannel(
       return await deliver(sender, op, payload, budget);
     },
     async replacing(work) {
+      // 다른 교체(감독 포기 뒤 다시 띄움과 root 변경이 겹칠 수 있다)가 끝나기를 기다린 뒤 한다.
+      while (replacing !== null) await replacing;
       let open: () => void = () => {};
       const gate = new Promise<void>((resolve) => {
         open = resolve;
@@ -186,6 +191,7 @@ export function createDocumentsChannel(
         open();
       }
     },
+    failPending,
     onMessage(message) {
       if (message.type !== "worker_response") return;
       const settle = leave(message.request_id);

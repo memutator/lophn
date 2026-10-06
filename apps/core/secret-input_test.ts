@@ -40,6 +40,7 @@ import {
   lophnAgentDefinitions,
 } from "./lophn-agent.ts";
 import { inProcessIo } from "./testing/in-process-io.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const HASH = "a".repeat(64);
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
@@ -128,6 +129,9 @@ async function boot(
     spawn: io.spawn,
   });
   assert(started.ok, started.ok ? "" : JSON.stringify(started.error));
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+  });
   const core = started.value;
   const context: AuthenticatedContext = {
     principal: "user-1",
@@ -138,6 +142,7 @@ async function boot(
   };
   assert((await core.acceptTestCredential?.(context, TOKEN))?.ok);
   if (!restart) assert((await core.record(context)).ok);
+  guard.keep();
   return { core, io };
 }
 
@@ -145,9 +150,14 @@ async function open(): Promise<Opened> {
   const home = await Deno.makeTempDir({ prefix: "lophn-secret-input-" });
   const keychain = createFakeKeychain();
   const { core, io } = await boot(home, keychain, false);
+  await using guard = closeUnlessKept(async () => {
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
+  });
   await Deno.mkdir(`${home}/derived`, { recursive: true });
   const store = openDerived(derivedPath(`${home}/derived`));
   assert(store.ok, store.ok ? "" : store.error.message);
+  guard.keep();
   return { core, home, keychain, store: store.value, io };
 }
 

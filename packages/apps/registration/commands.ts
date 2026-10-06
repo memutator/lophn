@@ -6,6 +6,8 @@ import {
   appConnectSource,
   appCreate,
   appCreated,
+  appRename,
+  appRenamed,
   appSchema,
   appSourceConnected,
   appUnarchive,
@@ -87,6 +89,7 @@ export function createAppCommands(): {
   connectSource: CommandDefinition<typeof appConnectSource>;
   archive: CommandDefinition<typeof appArchive>;
   unarchive: CommandDefinition<typeof appUnarchive>;
+  rename: CommandDefinition<typeof appRename>;
 } {
   return {
     create: {
@@ -210,6 +213,34 @@ export function createAppCommands(): {
             payload: { run_enabled: false as const },
           },
         );
+      },
+    },
+    rename: {
+      route: appRename,
+      handle(tx, ctx, input, compare) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const current = loadApp(tx.sql, input.app);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const changed: App = { ...current.value, name: input.name };
+        const access = authorizeApp(
+          tx.port,
+          ctx,
+          appRename.name,
+          accessTarget(current.value, changed),
+        );
+        // 범위 밖 앱은 revision 비교보다 먼저 없는 앱과 같은 응답으로 닫는다.
+        if (denied(access)) return notFound();
+        if (!access.ok) return access;
+        if (current.value.revision !== compare.base_revision) {
+          return conflict("app revision changed");
+        }
+        const seq = tx.emit(appRenamed, changed.id, { name: input.name });
+        const next: App = { ...changed, revision: seq };
+        const stored = replaceApp(tx, next);
+        if (!stored.ok) return stored;
+        return appView(next);
       },
     },
   };

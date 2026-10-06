@@ -170,7 +170,7 @@ export function registerEditorIpc(ipc: EditorIpcMain, deps: EditorIpcDeps) {
     const parsed = editorCreateSchema.safeParse(input);
     if (!parsed.success) return reject("invalid_input");
     return await deps.creator.create(parsed.data);
-});
+  });
 
   ipc.handle(EDITOR_PLACE_CHANNEL, async (event, input) => {
     const checked = guardIpc(

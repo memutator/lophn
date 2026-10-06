@@ -3,7 +3,6 @@
 // draft로 보이고 판 확정과 따로 보인다.
 import { assert, assertEquals } from "@std/assert";
 import { act } from "react";
-import { EditorView } from "@codemirror/view";
 import {
   click,
   render,
@@ -17,6 +16,7 @@ import type {
   EditorReply,
 } from "../../../../ipc/editor.ts";
 import { EditorSessions } from "../../../editor/sessions.ts";
+import { appendText } from "../../../editor/testing.ts";
 import { DocumentsScreen } from "../documents/documents-screen.tsx";
 import type { Series } from "../source.ts";
 import { fakeSource, SERIES } from "../testdata/fake-source.ts";
@@ -40,6 +40,7 @@ function sessionsOf(replies: EditorReply<CreateReport>[]) {
     current: unavailable,
     watch: unavailable,
     restore: unavailable,
+    place: unavailable,
     create: (input) => {
       created.push(input);
       return Promise.resolve(replies.shift()!);
@@ -56,12 +57,7 @@ function sessionsOf(replies: EditorReply<CreateReport>[]) {
 }
 
 function typeText(container: HTMLElement, text: string): void {
-  const editor = EditorView.findFromDOM(find(container, ".cm-editor"))!;
-  act(() =>
-    editor.dispatch({
-      changes: { from: editor.state.doc.length, insert: text },
-    })
-  );
+  act(() => appendText(find(container, ".cm-editor"), text));
 }
 
 function ctrlS(target: Element): void {

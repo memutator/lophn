@@ -8,6 +8,9 @@ import type {
   InstructionLayerKind,
   InstructionStatus,
 } from "../../instructions/mod.ts";
+import type { SummaryRef } from "./summary.ts";
+
+export type { SummaryRef } from "./summary.ts";
 
 // prompt 조립의 값과 입력이다(lophn-agent/harness/prompt-assemble 요구 R1–R3, R7–R9, R24, R30).
 // 순수 값만 두고 I/O와 hash는 work.ts가 한다. 자료·tool 결과의 포장(`~~~data`)은 safety가 하고
@@ -113,10 +116,21 @@ export type TurnContextBasis = {
   bytes: number;
 };
 
+// 실제 포함한 원문 세션·구간 근거다(T28 이어가기·압축). 명시 세션만 쓰고 원래
+// 순서·구간을 보존한다.
+export type MessageRange = {
+  session: string;
+  from_seq: bigint;
+  through_seq: bigint;
+};
+
 export type PromptEvidence = {
   references: readonly MaterialReference[];
   omissions: readonly MaterialOmission[];
   turn_context: TurnContextBasis | null;
+  // compaction·continuation이 더한 원문 구간과 summary 근거다. 없으면 비운다.
+  message_ranges?: readonly MessageRange[];
+  summaries?: readonly SummaryRef[];
 };
 
 export type PromptInput = {
@@ -168,6 +182,9 @@ export type ContextBasis = {
   references: MaterialReference[];
   omissions: MaterialOmission[];
   turn_context: TurnContextBasis | null;
+  // T28 compaction·continuation이 더한 원문 구간과 summary 근거다. 기본 []다.
+  message_ranges: MessageRange[];
+  summaries: SummaryRef[];
   tool_names: string[];
   size: {
     input_budget: number;

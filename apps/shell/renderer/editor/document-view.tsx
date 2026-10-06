@@ -22,6 +22,10 @@ import { Markdown, Toc } from "@lophn/design/reading";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import { ConflictView } from "./conflict/conflict-view.tsx";
+import {
+  CompareView,
+  type RestoreAnswer,
+} from "./compare/compare-view.tsx";
 import { DocumentHead, StickyHeadBar } from "./document-head.tsx";
 import type { MenuOpener } from "./document-menu.ts";
 import {
@@ -46,6 +50,7 @@ import { SaveDetails, SaveStatus } from "./save-status.tsx";
 import type { EditorSessions, OpenedSession, OpenFailure } from "./sessions.ts";
 import type { LinkTarget } from "./link-picker/link-picker.ts";
 import type { ReadingWidthStore } from "./reading-width.ts";
+import type { VersionSource } from "./versions/source.ts";
 import type {
   BodyState,
   DocumentInfo,
@@ -59,6 +64,8 @@ export interface DocumentTabMeta {
   readonly fileName: string;
   readonly title: string;
   readonly path: string | null;
+  /** 이 탭이 보이는 판. 정보 패널의 버전 탭이 그 행에 표시를 단다. */
+  readonly version?: string;
 }
 
 /** 문서 탭이 쓰는 통로. 창마다 entry가 만들어 넘긴다. */
@@ -68,6 +75,14 @@ export interface EditorDeps {
   readonly menu: MenuOpener;
   /** 파일 통로와 창의 편집 session. 없으면 고친 글은 이 화면의 초안으로만 남는다. */
   readonly files?: EditorSessions;
+  /** 버전 이력·비교·복원 통로(shell#T18). 없으면 비교를 열지 않는다. */
+  readonly versions?: VersionSource;
+}
+
+/** 문서 탭 본문 자리에 여는 버전 비교. */
+export interface CompareTarget {
+  readonly before: string;
+  readonly after: string;
 }
 
 export interface DocumentViewProps extends EditorDeps {
@@ -80,6 +95,11 @@ export interface DocumentViewProps extends EditorDeps {
   onMeta?: (meta: DocumentTabMeta) => void;
   /** 문서 링크를 따라 다른 문서를 연다. */
   onOpenDocument?: (document: string) => void;
+  /** 열린 버전 비교. null이면 문서를 읽거나 고친다. */
+  compare?: CompareTarget | null;
+  onCompare?: (target: CompareTarget | null) => void;
+  /** 복원으로 판이 바뀌었다. 정보 패널이 다시 읽는다. */
+  onVersionsChanged?: () => void;
   now?: () => number;
 }
 
@@ -148,6 +168,10 @@ export function DocumentView(
     files,
     onMeta,
     onOpenDocument,
+    versions,
+    compare = null,
+    onCompare,
+    onVersionsChanged,
     now = Date.now,
   }: DocumentViewProps,
 ) {
@@ -200,6 +224,7 @@ export function DocumentView(
         fileName: info.fileName,
         title: info.title,
         path: info.path,
+        version: info.version,
       });
       const [outline] = await Promise.all([
         source.outline(info.id, info.version),
@@ -504,6 +529,38 @@ export function DocumentView(
       void opened?.session.flush(true);
     }
   };
+
+  // 복원 전에 이 탭의 마지막 고침을 보내 편집을 끝낸다. 저장이 끝나지 않으면 복원하지 않는다.
+  const restoreVersion = async (version: string): Promise<RestoreAnswer> => {
+    if (!versions) return { kind: "failed", code: "unavailable" };
+    if (opened && !(await opened.session.flush(true))) {
+      return { kind: "unsaved" };
+    }
+    const result = await versions.restore(documentId, version);
+    return result.ok
+      ? { kind: "report", report: result.value }
+      : { kind: "failed", code: result.code };
+  };
+
+  if (compare && versions && onCompare) {
+    return (
+      <div className={styles.compare} data-document-view="compare">
+        <CompareView
+          document={documentId}
+          before={compare.before}
+          after={compare.after}
+          source={versions}
+          onChange={(before, after) => onCompare({ before, after })}
+          onClose={() => onCompare(null)}
+          onRestore={restoreVersion}
+          onRestored={() => {
+            setAttempt((value) => value + 1);
+            onVersionsChanged?.();
+          }}
+        />
+      </div>
+    );
+  }
 
   if (state.kind === "failed") {
     return (

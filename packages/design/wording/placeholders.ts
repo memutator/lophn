@@ -308,6 +308,84 @@ export type PlaceholderKinds = {
   "document.title.compare-disk": Record<never, never>;
   "document.title.compare-newest": Record<never, never>;
   "document.title.unsaved": Record<never, never>;
+  "document.title.compare-versions": Record<never, never>;
+  "document.button.compare-previous": Record<never, never>;
+  "document.button.compare-newest": Record<never, never>;
+  "document.button.compare-close": Record<never, never>;
+  "document.button.compare-swap": Record<never, never>;
+  "document.button.compare-unified": Record<never, never>;
+  "document.button.compare-side-by-side": Record<never, never>;
+  "document.button.compare-changes-only": Record<never, never>;
+  "document.button.compare-all-lines": Record<never, never>;
+  "document.button.restore-version": {
+    number: "number";
+  };
+  "document.button.restore-confirm": Record<never, never>;
+  "document.button.show-unchanged": {
+    count: "plural";
+  };
+  "document.label.compare-before": Record<never, never>;
+  "document.label.compare-after": Record<never, never>;
+  "document.label.version-number": {
+    number: "number";
+  };
+  "document.label.version-newest": Record<never, never>;
+  "document.label.changed-sections": Record<never, never>;
+  "document.label.section-counts": {
+    added: "number";
+    removed: "number";
+  };
+  "document.label.section-modified": Record<never, never>;
+  "document.label.section-added": Record<never, never>;
+  "document.label.section-missing": Record<never, never>;
+  "document.label.section-unchanged": Record<never, never>;
+  "document.label.section-filter": Record<never, never>;
+  "document.label.section-whole": Record<never, never>;
+  "document.label.saver-user": Record<never, never>;
+  "document.label.saver-agent": Record<never, never>;
+  "document.label.saver-coding-agent": Record<never, never>;
+  "document.label.saver-app": Record<never, never>;
+  "document.label.saver-machine": Record<never, never>;
+  "document.label.saver-other": Record<never, never>;
+  "document.label.info-file": Record<never, never>;
+  "document.label.info-source": Record<never, never>;
+  "document.label.info-linked": Record<never, never>;
+  "document.label.info-unlinked": Record<never, never>;
+  "document.label.info-format": Record<never, never>;
+  "document.label.info-format-explicit": {
+    name: "string";
+  };
+  "document.label.info-saved": Record<never, never>;
+  "document.label.info-versions": {
+    count: "plural";
+  };
+  "document.label.info-archived": Record<never, never>;
+  "document.label.versions-target": Record<never, never>;
+  "document.label.contexts-target": Record<never, never>;
+  "document.label.info-target": Record<never, never>;
+  "document.label.compare-target": Record<never, never>;
+  "document.notice.no-document": Record<never, never>;
+  "document.empty.versions": Record<never, never>;
+  "document.empty.contexts": Record<never, never>;
+  "document.notice.section-omitted": Record<never, never>;
+  "document.notice.side-by-side-narrow": Record<never, never>;
+  "document.notice.compare-pick-section": Record<never, never>;
+  "document.notice.compare-omitted": Record<never, never>;
+  "document.notice.compare-incomplete": Record<never, never>;
+  "document.notice.compare-unreadable": Record<never, never>;
+  "document.notice.restore-confirm": {
+    number: "number";
+  };
+  "document.notice.restoring": Record<never, never>;
+  "document.notice.restore-saved": Record<never, never>;
+  "document.notice.restore-unchanged": Record<never, never>;
+  "document.notice.restore-conflict": Record<never, never>;
+  "document.notice.restore-file-conflict": Record<never, never>;
+  "document.notice.restore-pending": Record<never, never>;
+  "document.notice.restore-file-unknown": Record<never, never>;
+  "document.notice.restore-failed": Record<never, never>;
+  "document.notice.restore-unsupported": Record<never, never>;
+  "document.notice.restore-unsaved": Record<never, never>;
   "documents.button.add-member": Record<never, never>;
   "documents.button.archive-series": Record<never, never>;
   "documents.button.back-to-series": Record<never, never>;

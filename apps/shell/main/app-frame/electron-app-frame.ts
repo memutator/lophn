@@ -35,6 +35,8 @@ export function electronAppViews(input: ElectronAppViewsInput): {
   const native = new Map<AppViewContents, WebContentsView>();
   // headless(offscreen) view는 capturePage가 실패한다. 개발 확인에서는 마지막 paint를 쓴다.
   const painted = new Map<AppViewContents, NativeImage>();
+  // renderer가 사라진 view. 그 뒤로는 찍을 화면이 없다.
+  const gone = new Set<AppViewContents>();
 
   function live(ref: string): BrowserWindow | undefined {
     const window = input.windowOf(ref);
@@ -71,10 +73,15 @@ export function electronAppViews(input: ElectronAppViewsInput): {
         destroy() {
           native.delete(adapter);
           painted.delete(adapter);
+          gone.delete(adapter);
           if (!contents.isDestroyed()) contents.close();
         },
       };
       native.set(adapter, view);
+      contents.on("render-process-gone", () => {
+        gone.add(adapter);
+        painted.delete(adapter);
+      });
       if (input.headless.headless) {
         contents.on("paint", (_event, _dirty, image) => {
           if (native.has(adapter)) painted.set(adapter, image);
@@ -111,7 +118,9 @@ export function electronAppViews(input: ElectronAppViewsInput): {
       if (view === undefined || view.webContents.isDestroyed()) {
         throw new Error("view is gone");
       }
-      if (view.webContents.isCrashed()) throw new Error("view crashed");
+      if (gone.has(adapter) || view.webContents.isCrashed()) {
+        throw new Error("view crashed");
+      }
       let image = input.headless.headless
         ? painted.get(adapter)
         : await view.webContents.capturePage();

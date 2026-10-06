@@ -114,7 +114,12 @@ export function FeedbackDialog(
 
   const actions = received
     ? [
-      <Button key="close" variant="secondary" onClick={close}>
+      <Button
+        key="close"
+        variant="secondary"
+        data-feedback="close"
+        onClick={close}
+      >
         {t("common.button.close")}
       </Button>,
       phase.accepted.problem !== null
@@ -123,8 +128,7 @@ export function FeedbackDialog(
             key="issue"
             variant="primary"
             data-feedback="view-issue"
-            onClick={() =>
-              void api.openFeedbackIssue(draftRef).catch(() => {})}
+            onClick={() => void api.openFeedbackIssue(draftRef).catch(() => {})}
           >
             {t("report-problem.button.view-issue")}
           </Button>
@@ -135,6 +139,7 @@ export function FeedbackDialog(
       <Button
         key="cancel"
         variant="secondary"
+        data-feedback="cancel"
         disabled={sending}
         onClick={close}
       >

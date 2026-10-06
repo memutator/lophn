@@ -34,7 +34,11 @@ export function testCredentialFront(
       if (!ref) return known;
       return readRecord(ledgerPath, ref);
     },
-    revalidate: inner.revalidate.bind(inner),
+    // 제품 registry가 모르는 테스트 자격은 ledger 기록의 현재 상태로 다시 확인한다.
+    revalidate(ctx: Pick<AuthenticatedContext, "credential_ref">) {
+      const known = inner.revalidate(ctx);
+      return known.ok ? known : readRecord(ledgerPath, ctx.credential_ref);
+    },
     authorize: inner.authorize.bind(inner),
     revoke: inner.revoke.bind(inner),
     end: inner.end.bind(inner),

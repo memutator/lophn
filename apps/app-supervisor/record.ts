@@ -32,7 +32,7 @@ export function recordInput(record: RuntimeRecord): Record<string, unknown> {
   };
 }
 
-// 성공 본문은 command envelope의 { output: { app, state } }다.
+// 성공 본문은 command 출력 그대로 { app, state }다(실제 core 응답 모양).
 export function readRecordState(
   response: RecordResponse,
 ): Result<{ state: string }> {
@@ -42,10 +42,8 @@ export function readRecordState(
       error: { code: "unavailable", message: "core record failed" },
     };
   }
-  const body = response.body as
-    | { output?: { state?: { state?: unknown } } }
-    | null;
-  const state = body?.output?.state?.state;
+  const body = response.body as { state?: { state?: unknown } } | null;
+  const state = body?.state?.state;
   if (typeof state !== "string") {
     return {
       ok: false,

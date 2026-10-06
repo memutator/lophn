@@ -210,13 +210,15 @@ export const appLogsOutputSchema = withReadCommon(z.object({
   collected_at: atSchema.nullable(),
   truncated: z.boolean(),
 }));
+// machine은 problems report collector만 부른다. 그 credential의 scope가 operation `app.logs`와
+// 대상 app을 함께 이름 짓는 경우에만 열리고(그 밖은 없는 앱과 같은 응답), 판정은 read handler가 한다.
 export const appLogs = defineRead({
   resource: "apps",
   method: "logs",
   name: "app.logs",
   input: appLogsInputSchema,
   output: appLogsOutputSchema,
-  actors: readActors,
+  actors: [...readActors, "machine"],
   errors: readErrors,
 });
 

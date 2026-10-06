@@ -4,7 +4,10 @@ import {
   createAppsReads,
   lookupAppRegistration,
 } from "../../packages/apps/registration/mod.ts";
-import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
+import {
+  appConnect,
+  appRegistrationLookup,
+} from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createConfirmCommands } from "../../packages/apps/invocations/confirm.ts";
 import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
@@ -41,6 +44,8 @@ type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
+  // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립이 apps-control의 service로 붙인다.
+  memoryRoutes?: readonly unknown[];
   ports?: readonly TxPortRegistration[];
 };
 
@@ -108,6 +113,9 @@ export function createLedgerRegistration(
       sdkReads.versions,
       sdkReads.usage,
     ],
+    // apps.connect는 supervisor의 메모리 관측과 인증 연결을 읽는 제어 어댑터라 ledger queue를
+    // 거치지 않는다(apps/runtime#R9, architecture/apps 5.1).
+    memoryRoutes: [appConnect],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [

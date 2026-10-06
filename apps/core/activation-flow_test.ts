@@ -477,10 +477,10 @@ Deno.test("apps/permissions#R21: 사람 approval revoke는 실제 supervisor 자
     await Deno.writeTextFile(readPath, "input");
     const bundle = await sealed(world, { version: 1, schema: 0, readPath });
     const release = await prepare(world, bundle.over);
-    async function approved(
+    const approved = async (
       action: Parameters<typeof createInput>[2],
       approval: string,
-    ) {
+    ) => {
       const made = await call(
         world.harness,
         "approvals/create",
@@ -501,7 +501,7 @@ Deno.test("apps/permissions#R21: 사람 approval revoke는 실제 supervisor 자
         world.user.token,
         command({ approval, action, idempotency_key: approval }),
       );
-    }
+    };
     const grantApproval = "apr_01h455vb4pex5v6nkc6gd5fd01";
     const scope = { kind: "fs.read", path: readPath, recursive: false };
     const grantAction = await actionOf({

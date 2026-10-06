@@ -168,7 +168,7 @@ export function VersionsTab(
                             : null}
                           previewing={preview?.release === version.id}
                           opening={opening === version.id}
-                          canPreview={true}
+                          canPreview
                           onChoose={() => void choose(version)}
                           onPreview={() => void openPreview(version)}
                           onClosePreview={() => onPreview(null)}

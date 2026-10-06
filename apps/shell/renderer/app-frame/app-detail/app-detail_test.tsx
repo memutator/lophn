@@ -606,14 +606,14 @@ Deno.test("shell/wording#R10: Automation 켜기는 확인 창으로 보내고 �
   const on = detail({
     access: { ...ACCESS, grants: [...ACCESS.grants, grant] },
   });
-  on.fake.source.turnOffAutomation = async (id) => {
+  on.fake.source.turnOffAutomation = (id) => {
     on.fake.calls.push(["turnOff", id]);
     on.fake.source.access = () =>
       Promise.resolve({
         ok: true,
         value: { ...ACCESS, grants: ACCESS.grants },
       });
-    return { ok: true, value: true };
+    return Promise.resolve({ ok: true, value: true });
   };
   using onView = render(on.ui);
   await flush();

@@ -68,7 +68,7 @@ async function statusOf(
 }
 
 Deno.test("platform/approvals#R12 #R15: 기한에 도달한 대기만 expired가 되고 기한 없는 대기·허락·취소된 것은 그대로이며 다시 돌려도 같다", async () => {
-  const opened = await createCoreHarness();
+  const opened = await createCoreHarness({ io: true });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   try {
@@ -189,7 +189,7 @@ Deno.test("platform/approvals#R12 #R15: 기한에 도달한 대기만 expired가
 });
 
 Deno.test("platform/approvals#R12: 만료된 request는 늦게 허락하거나 사용하지 못한다", async () => {
-  const opened = await createCoreHarness();
+  const opened = await createCoreHarness({ io: true });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   try {
@@ -247,7 +247,6 @@ Deno.test("platform/approvals#R12: 재시작한 core는 기동 직후 이미 기
       clock: manualClock(start),
       random: seededRandom(1),
       testCredentials: true,
-      superviseIo: false,
     });
     assert(first.ok, first.ok ? undefined : JSON.stringify(first.error));
     let created: ApprovalRequest;
@@ -294,7 +293,6 @@ Deno.test("platform/approvals#R12: 재시작한 core는 기동 직후 이미 기
       clock: manualClock(start + 61_000),
       random: seededRandom(2),
       testCredentials: true,
-      superviseIo: false,
     });
     assert(second.ok, second.ok ? undefined : JSON.stringify(second.error));
     try {

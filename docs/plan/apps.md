@@ -276,6 +276,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T15 앱 쌍 연결
 
+- 상태: 완료 (#324) — 이어보냄: 준비 서비스의 core 조립·supervisor broker 서비스·target direct socket의 Deno 허락 → T19, A→B confirm의 요청·proof 수령 broker 경로(contract 필요)와 E2E → T27
 - 등급: 기본
 - concern: apps/connections, apps/runtime, apps/sdk
 - 요구: apps/connections#R1–R7, apps/runtime#R30, apps/sdk#R40

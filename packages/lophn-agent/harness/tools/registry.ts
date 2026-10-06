@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { ToolEffect } from "../../../contracts/lophn-agent/mod.ts";
+import { AGENT_TOOLS } from "./bundles/agent.ts";
 
 // tool 하나는 정의 하나다. 목록과 실행이 같은 schema·효과·실패 종류를 쓴다(R2).
 // 내장 이름은 `<영역>.<동작>` 점 표기다(domain model ToolDefinition).
@@ -29,7 +30,7 @@ export type ToolCatalog = {
 
 // 내장 tool은 문서·앱·context와 agent 일만 다룬다(R1). shell·임의 파일·임의 URL·
 // 웹 검색·브라우저·코드 run·subagent·coding agent 시작은 정의 자체가 없다.
-export const BUILTIN_TOOLS: readonly ToolDefinition[] = [];
+export const BUILTIN_TOOLS: readonly ToolDefinition[] = [...AGENT_TOOLS];
 
 // 금지 통로 이름. 내장·앱·외부 어디에도 이 이름이 있으면 목록에서 뺀다(R1).
 export const FORBIDDEN_TOOL_NAMES: readonly string[] = [

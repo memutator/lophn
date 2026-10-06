@@ -117,6 +117,9 @@ export function openSecretStore(deps: SecretStoreDeps): SecretStore {
       if (held.get(name)?.sealedRef === sealedRef) continue;
       keychain ??= deps.keychain();
       const read = await keychain.load(sealedRef);
+      // 없는 항목은 읽을 값이 없다. 알려진 값이 새는 것이 아니라서 준비 상태를 막지 않고, 다음 맞춤에서
+      // 다시 읽는다. 잠김·사용 불가는 값을 모르는 것이라 계속 막는다.
+      if (!read.ok && read.error.code === "not_found") continue;
       if (!read.ok) {
         incomplete = err({
           code: "unavailable",

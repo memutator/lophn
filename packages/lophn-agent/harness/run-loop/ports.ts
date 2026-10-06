@@ -8,6 +8,7 @@ import type { WorkspaceReadOutput } from "../../../contracts/shell/mod.ts";
 import type { InstructionDeps } from "../../instructions/mod.ts";
 import type { SkillEntry } from "../../extensions/mod.ts";
 import type {
+  HistoryMessage,
   MaterialSource,
   ModelLimits,
   PromptAssembly,
@@ -16,6 +17,7 @@ import type {
   WirePacker,
 } from "../prompt-assemble/mod.ts";
 import type { ConfirmedFacts, RunLimits } from "./limits.ts";
+import type { CallResult } from "./tool-batch.ts";
 
 // agent loop가 밖과 닿는 자리다. loop는 ledger·provider·tool 실행을 직접 부르지 않고 이 port만
 // 부른다. 실제 연결(core command·read, provider adapter, 판정·실행기)은 agent runtime이 꽂는다.
@@ -137,6 +139,13 @@ export type ToolPort = {
     call: ToolCallRequest,
     signal: AbortSignal,
   ): Promise<ToolAttempt>;
+  // 사람의 허락 뒤 이미 진입을 기록한 call을 실행하고 끝낸다. 판정·진입 기록은 다시 하지 않는다.
+  // 결정 반영(`ResolveRunWait`)이 재검사를 마치고 시작을 기록한 call만 여기로 온다.
+  resume(
+    call: ToolCallRequest,
+    toolCall: string,
+    signal: AbortSignal,
+  ): Promise<ToolDone>;
   // 진입하지 않고 끝나는 call(없는 tool·잘못된 인자·미실행)을 기록한다.
   close(
     call: ToolCallRequest,
@@ -210,6 +219,28 @@ export type LoopDeps = {
   abortGraceMs?: number;
 };
 
+// 저장된 경계에서 같은 run을 잇는 재료다(lophn-agent/harness/waiting-and-recovery R8, R9). 이력과
+// 사실은 ledger에서 다시 만든 것이고, 이미 확정한 model 응답과 tool 결과는 다시 부르지 않는다.
+export type ResumeState = {
+  history: HistoryMessage[];
+  facts: {
+    changes: string[];
+    unexecuted: string[];
+    unknown_effects: string[];
+  };
+  // 완전하게 받았지만 아직 다 처리하지 않은 마지막 model 응답. 있으면 첫 turn은 model을 부르지
+  // 않고 이 응답의 남은 일(tool call, 답 기록)부터 잇는다.
+  pending: {
+    attempt: ModelAttempt;
+    // 이미 확정한 call의 결과(요청 key의 순서대로).
+    confirmed: CallResult[];
+    // 사람의 허락으로 진입이 이미 기록된 call: 요청 key → ToolCall ID. 판정 없이 실행한다.
+    started: Record<string, string>;
+  } | null;
+  // 일시 실패 뒤 retry를 기다리는 중이었다. 예정 시각과 쓴 횟수를 그대로 잇는다(R7).
+  retry: { previous: string; retries: number; retry_at: string | null } | null;
+};
+
 export type RunInput = {
   run: string;
   limits: RunLimits;
@@ -218,6 +249,8 @@ export type RunInput = {
   attempts: number;
   // 세션이 없으면(주기 run) null이다. 화면은 no_session으로 준다.
   session: string | null;
+  // 복구·결정 뒤 재개일 때 ledger에서 다시 만든 상태. 새 run은 없다.
+  resume?: ResumeState;
 };
 
 export type LoopEnd =

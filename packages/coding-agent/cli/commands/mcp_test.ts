@@ -21,6 +21,7 @@ const BASE = {
   submissionRoot: "/work/app",
   coreAddress: "127.0.0.1:7431",
   appAddresses: [],
+  credentialHelper: "/opt/lophn/lophn-credential",
 };
 
 Deno.test("coding-agent/cli#R9: mcp config는 일곱 제품의 조각만 내고 설정 파일 bytes를 바꾸지 않는다", async () => {

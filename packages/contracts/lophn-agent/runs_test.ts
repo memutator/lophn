@@ -45,7 +45,7 @@ const base = {
   accepted_seq: "1",
 };
 
-Deno.test("lophn-agent/harness/run-loop#R2: thirteen run routes and six named events", () => {
+Deno.test("lophn-agent/harness/run-loop#R2: fourteen run routes and six named events", () => {
   assertEquals(RUN_COMMANDS.map(routePath), [
     "/v1/runs/accept",
     "/v1/runs/start",
@@ -60,6 +60,7 @@ Deno.test("lophn-agent/harness/run-loop#R2: thirteen run routes and six named ev
     "/v1/runs/read",
     "/v1/runs/list",
     "/v1/runs/result",
+    "/v1/runs/body",
   ]);
   assertEquals(RUN_EVENTS.map((event) => event.type), [
     "RunAccepted",

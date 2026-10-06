@@ -63,6 +63,7 @@ const LAUNCH: LaunchInputs = {
   appAddresses: [],
   connection: CAC,
   toolsets: "core,app",
+  credentialHelper: "/opt/lophn/lophn-credential",
 };
 
 function target(harness: HarnessId, scope: "user" | "app", fx: Fixture) {

@@ -1228,6 +1228,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T36 keychain loader·연결 생성·설치 흐름과 기본 harness
 
+- 상태: 진행 (#393) — 끝낸 것: 완료 기준 전부(helper loader production provider, 사람의 연결 결정 입구 `connect` route와 연결·설치·doctor 흐름 통합 시험, 무생성·partial 분리, 기본 harness 선택, `connection install`, R1 process 시험)와 넘어온 것 중 platform#T19 알려진 값 source, platform#T34 연결 결정 입구, platform#T48 helper 양성 경로(fake keychain 통합 시험), T22 `SdkSourcePort` 외 MCP 쪽, T23 `appBlueprint`, T15 (1) CLI core 실행 배선·(2) `forbidden` data root, T13 문서 읽기 CLI 실행, T16 CLI question·approval open, T21 (2) CLI `runApp` 배선, T32 `doctorOf` 배선. 남은 것: (1) CLI의 `harness list|detect|refresh|inspect|plan|install|update|remove`, `skills`, `mcp config`, `session`, `daemon`(`DaemonPort`) 실행 배선(지금은 성공으로 꾸미지 않고 unavailable) — 감지 port·launcher 권한 결정(platform#T48 (3)) 뒤 (2) `doctor`의 daemon 상태 port (3) 앱 direct socket transport와 MCP 권한(T21 (1), platform#T48 (3)) (4) CLI `SdkSourcePort`(`sdk add --apply`의 deno.json 쓰기·lock 재생성; CLI에 write·run 권한이 없다) (5) `sdk show` 안내 원문 → apps#T5로 넘김 (6) T13의 `cliDocumentHistorySchema` section과 CLI 6단계 통합 시험 (7) T15 (3) 앱 하나 범위 credential 모양 불일치 → platform#T34로 넘김(위 platform 줄) (8) `tools/verify-linux-install.ts`의 양성 단계 → platform#T48로 넘김(실제 Secret Service 필요)
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/harnesses, coding-agent/cli,
   coding-agent/mcp-server
@@ -1344,6 +1345,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 조사: docs/research/coding-agent-session-launch.md
 - 선행: T28, T27, contracts#T42, contracts#T43
 - platform#T34에서 넘어온 것: lophn이 띄운 TUI 아래의 MCP·CLI child process generation을 신뢰 감독(terminal host가 runtime_ref·generation을 아는 쪽)이 관측해 `CodingCredentialAuthority.registerChild`(connection·scope·loader identity)로 등록하고 종료 때 `endChild`·회수 때 `endConnection`을 부르는 일. TUI env는 `codingTuiEnvironment`(`LOPHN_CONNECTION` 참조만)를 쓴다. 자기 터미널의 session은 lophn이 시작하지 않아 이 길이 없다(보호 전달은 등록된 child에만 열린다). 이 일을 맡을 작업이 따로 없어 LaunchPlan·terminal host spawn이 만나는 이 작업에 가장 가깝다고 보고 넘겼다(shell terminal 쪽 관측 입구가 필요하면 lead가 shell 작업으로 나눈다)
+- coding-agent#T36에서 넘어온 것: loader child의 `process_generation`은 `<pid>.<시작 tick>`(`processGenerationOf`·`currentProcessGeneration`, coding-agent/connection/credential/helper.ts; `/proc/<pid>/stat` 22번째 field, 읽지 못하면 pid)이고 `loader_identity`는 helper 절대 경로(`<설치 root>/lophn-credential`)다. 신뢰 감독이 TUI 아래 MCP·CLI process를 같은 값으로 관측해 `registerChild`로 등록해야 helper가 token을 전달한다(`apps/core/coding-connect-flow_test.ts`가 같은 값으로 등록하는 양성 경로).
 - 완료:
   - 시작은 ticket·harness·방식 하나, 방식은 자기 터미널 안내와 terminal_tui
     둘만(R1)

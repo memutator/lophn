@@ -25,6 +25,8 @@ export type McpLaunchInputs = {
   label?: string;
   // 현재 작업 폴더다. 대상 앱 blueprint 발견 기준이다.
   cwd?: string;
+  // 설치 묶음의 credential helper 절대 경로다. 있으면 실행 권한은 이 경로 하나뿐이다.
+  credentialHelper?: string;
 };
 
 // MCP 실행 entry의 설치 resource root 기준 경로다. 설치 설정(harnesses)과 doctor
@@ -76,6 +78,8 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
     inputs.cache,
     ...(inputs.discoveryFiles ?? []),
     ...(inputs.submissionRoot ? [inputs.submissionRoot] : []),
+    // helper 요청의 process generation(시작 tick)을 읽는 고정 파일이다.
+    ...(inputs.credentialHelper ? ["/proc/self/stat"] : []),
   ].join(",");
 
   const args = [
@@ -86,6 +90,7 @@ export function mcpLaunchArgv(inputs: McpLaunchInputs): {
     `--allow-read=${read}`,
     "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR",
     `--allow-net=${net}`,
+    ...(inputs.credentialHelper ? [helperArg(inputs.credentialHelper)] : []),
     entry,
   ];
   if (inputs.connection !== "") args.push(CONNECTION_ARG, inputs.connection);

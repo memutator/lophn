@@ -114,6 +114,7 @@ import {
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
   createWaitCommands,
+  runBodyRead,
   waitSchemaSteps,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import {
@@ -552,6 +553,7 @@ export const lophnAgentDefinitions = {
     waitCommands.wait,
     waitCommands.resolve,
     waitCommands.correct,
+    waitCommands.recover,
     revertCommands.run,
   ],
   reads: [
@@ -629,6 +631,8 @@ export function createLedgerRegistration(
     apiReads: [
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
+      runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
     ],
     // provider credential의 secret 값도 core의 알려진 값 registry에 등록·회수된다
     // (platform/secrets#R1). 외부 MCP credential은 extensions의 참조가 생기면 더한다.

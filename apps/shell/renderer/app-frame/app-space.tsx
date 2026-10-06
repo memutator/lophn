@@ -34,6 +34,9 @@ import type {
   AppsSource,
   RunState,
 } from "../desktop/lophn-space/apps/source.ts";
+import { AppDetail } from "./app-detail/app-detail.tsx";
+import type { PreviewOpen } from "./app-detail/model.ts";
+import type { AppDetailSource } from "./app-detail/source.ts";
 import { AppBar } from "./app-bar.tsx";
 import {
   createViewCovers,
@@ -54,6 +57,10 @@ export interface AppSpaceProps {
   windows?: LophnAppWindowsApi;
   /** [Report a problem] 통로. 없으면 버튼을 두지 않는다. */
   feedback?: LophnShellFeedbackBegin;
+  /** 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
+  detail?: AppDetailSource;
+  /** app 층 [Instructions]를 연다. 없으면 단추를 두지 않는다. */
+  onInstructions?: () => void;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
   windowWidth: number;
   onLauncher: () => void;
@@ -144,6 +151,8 @@ export function AppSpace(
     views,
     windows,
     feedback,
+    detail,
+    onInstructions,
     windowWidth,
     onLauncher,
     onDocuments,
@@ -174,6 +183,24 @@ export function AppSpace(
   // 도크가 열리면 운영 패널은 자리를 내주고, 닫히면 사람이 둔 상태로 돌아간다.
   const [detailsOpen, setDetailsOpen] = useState(false);
   const ops = opsPanelPlacement(detailsOpen && dock === "hidden", width);
+
+  // 운영과 분리된 preview. 열려 있는 동안 본문은 그 preview이고 사람이 닫으면 앱으로 돌아온다.
+  const [preview, setPreview] = useState<PreviewOpen | null>(null);
+  const previewRef = useRef<PreviewOpen | null>(null);
+  previewRef.current = preview;
+  function changePreview(next: PreviewOpen | null): void {
+    const closing = previewRef.current;
+    if (closing !== null && closing.nonce !== next?.nonce) {
+      void detail?.stopPreview(app, { nonce: closing.nonce });
+    }
+    setPreview(next);
+  }
+  useEffect(() => () => {
+    const closing = previewRef.current;
+    if (closing !== null) {
+      void detail?.stopPreview(app, { nonce: closing.nonce });
+    }
+  }, [detail, app]);
 
   const [windowFailed, setWindowFailed] = useState(false);
   const [shortcut, setShortcut] = useState<ShortcutNotice | null>(null);
@@ -210,6 +237,35 @@ export function AppSpace(
     );
   } else if (record.state === "missing") {
     body = <p className={styles.state}>{t("app-space.empty.not-found")}</p>;
+  } else if (preview !== null && views !== undefined) {
+    // 운영 앱이 아니라 그 Version의 preview다. 모드를 바꿔 보이고 닫는 길을 바로 둔다.
+    body = (
+      <>
+        <p className={styles.notice} role="status" data-preview-banner="">
+          {t("app-detail.label.preview-banner", {
+            number: String(preview.number),
+          })}{" "}
+          <Button
+            size="sm"
+            data-preview-close=""
+            onClick={() => changePreview(null)}
+          >
+            {t("app-detail.button.close-preview")}
+          </Button>
+        </p>
+        <EmbeddedView
+          key={preview.nonce}
+          views={views}
+          app={app}
+          mode="preview"
+          release={preview.release}
+          screen={preview.screen}
+          size="full"
+          label={row?.name ?? t("app-space.label.this-app")}
+        />
+      </>
+    );
+    embedded = false;
   } else if (row?.archived) {
     body = <p className={styles.state}>{t("app-space.empty.archived")}</p>;
   } else if (row !== null && row.release === null) {
@@ -316,6 +372,18 @@ export function AppSpace(
             placement={ops}
             onClose={() => setDetailsOpen(false)}
           >
+            {detail && row
+              ? (
+                <AppDetail
+                  app={app}
+                  name={row.name}
+                  source={detail}
+                  preview={preview}
+                  onPreview={changePreview}
+                  onInstructions={onInstructions}
+                />
+              )
+              : null}
             {windows
               ? (
                 <section

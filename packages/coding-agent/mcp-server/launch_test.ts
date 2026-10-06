@@ -110,3 +110,18 @@ Deno.test(
     assertEquals(argv.command, "/usr/bin/deno");
   },
 );
+
+Deno.test("coding-agent/connection#R17 coding-agent/mcp-server#R36: 실행 권한은 helper 절대 경로 하나뿐이고 token·일반 run·write 권한이 없다", () => {
+  const helper = "/opt/lophn/lophn-credential";
+  const argv = mcpLaunchArgv({ ...inputs, credentialHelper: helper });
+  const runs = argv.args.filter((arg) => arg.startsWith("--allow-run"));
+  assertEquals(runs, [`--allow-run=${helper}`]);
+  assertEquals(argv.args.includes("--allow-run"), false);
+  assertEquals(argv.args.includes("--allow-write"), false);
+  assertEquals(argv.args.some((arg) => arg.includes("token")), false);
+  assertEquals(
+    argv.args.find((arg) => arg.startsWith("--allow-read="))?.split(",")
+      .includes("/proc/self/stat"),
+    true,
+  );
+});

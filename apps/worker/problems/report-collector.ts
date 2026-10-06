@@ -256,6 +256,16 @@ export async function runCollectorWorker(): Promise<void> {
           position,
         );
       }
+      if (request.op === "ObserveViewError") {
+        return await observeViewErrorPayload(
+          request.payload,
+          client,
+          redaction,
+          queue,
+          session,
+          position,
+        );
+      }
       throw new Error(`unknown report worker op: ${request.op}`);
     },
   });
@@ -1019,6 +1029,176 @@ async function confirmInvocation(
   } catch {
     return undefined;
   }
+}
+
+// view 출처 exception 보고 접수(reporting#R5, R6). binding은 core가 서명한
+// view connection 증거다. 모든 observation 종류(error, unhandledrejection,
+// render_error)를 view_observer 출처로 받는다(problems/reporting#R5, R6).
+// stack은 준비 폴더 source로 위치를 찾고, 다른 처리는 process exception과 같다.
+export async function observeViewErrorPayload(
+  payload: unknown,
+  client: CoreClientOptions,
+  redaction: RedactionEngine,
+  queue: ReturnType<typeof createCollectorQueue>,
+  session: ChildSession,
+  position: CollectorPosition,
+  logs: CollectorLogs = coreLogs(client),
+): Promise<unknown> {
+  if (
+    typeof payload !== "object" || payload === null || Array.isArray(payload)
+  ) {
+    throw new Error("invalid view error payload");
+  }
+  const viewError = payload as Record<string, unknown>;
+  const view = viewError["view"];
+  const observation = viewError["observation"];
+  if (
+    typeof view !== "object" || view === null || typeof observation !== "object" ||
+    observation === null
+  ) {
+    throw new Error("invalid view error structure");
+  }
+  const viewObj = view as Record<string, unknown>;
+  // binding은 core가 서명한 AppConnection Authorization(base64url signature)다.
+  // 기본 검증만 한다: 비어있지 않은 문자열이어야 한다.
+  const binding = viewObj["binding"];
+  if (typeof binding !== "string" || binding.length === 0) {
+    throw new Error("invalid view error binding");
+  }
+  // app·mode 주장은 credential 위치에서만 온다. view의 app은 무시한다(R6).
+  if (position.claims.app === undefined || position.claims.mode === undefined) {
+    throw new Error("view error credential has no app or mode claim");
+  }
+  // view error는 항상 view_observer 출처다(reporting#R5).
+  const origin = "view_observer" as const;
+  // observation을 schema로 검증한다. 다른 처리는 process exception과 같다.
+  const parsed = exceptionObservationInputSchema.safeParse(observation);
+  if (!parsed.success) {
+    throw new Error("invalid view error observation");
+  }
+  const obs = parsed.data;
+  // raw 문자는 bounded memory에서 redaction을 거친다(R1).
+  const rawError = obs.error;
+  const redactedName = rawError === null
+    ? ""
+    : await redactText(redaction, rawError.name) ?? "*";
+  const redactedMessage = rawError === null ? null : await redactText(
+    redaction,
+    rawError.message === null ? undefined : rawError.message,
+  );
+  const messageMissing = rawError === null
+    ? null
+    : rawError.message === null
+    ? rawError.message_missing_reason
+    : redactedMessage === null
+    ? { reason: "redaction" }
+    : null;
+  const stackMissing = { reason: "view_stack_not_collected" };
+  // view error는 stack을 수집하지 않는다(reporting#R5).
+  const redactedStack = null;
+  // 조립은 process exception과 같다.
+  const assembled = await assembleException(
+    {
+      report_id: obs.report_id,
+      observed_at: obs.observed_at,
+      observation: obs.observation,
+      error: rawError === null ? null : {
+        name: redactedName,
+        message: redactedMessage,
+        message_missing_reason: messageMissing,
+        stack: redactedStack,
+        stack_missing_reason: stackMissing,
+      },
+      error_missing_reason: obs.error_missing_reason,
+      invocation: obs.invocation,
+    },
+    {
+      app: position.claims.app,
+      bundle_hash: position.claims.bundle_hash ?? null,
+    },
+    {
+      blobPrepare: {
+        prepare: (input, bytes) => prepareViaStream(session, input, bytes),
+      },
+      folder: {
+        appsRoot: collectorAppsRoot(),
+      },
+      nowAt: atNow(),
+      principal: "collector",
+      logs: {
+        detailCollection: await logs.detailCollection(),
+        source: logs.source,
+        redact: (text) => redactText(redaction, text),
+      },
+    },
+  );
+  if (!assembled.ok) {
+    throw new Error("view error snapshot assembly failed");
+  }
+  const result = assembled.value;
+  const checked = snapshotInputSchema.safeParse(result.snapshot);
+  if (!checked.success) {
+    throw new Error("assembled snapshot does not pass snapshot schema");
+  }
+  if (position.claims.mode === undefined) {
+    throw new Error("view error credential has no mode claim");
+  }
+  const report: RecordReportInput["report"] = {
+    id: obs.report_id,
+    source: "exception",
+    code: "_exception",
+    text: null,
+    details: null,
+    snapshot: result.snapshot.id,
+    observed_at: obs.observed_at,
+    principal: "collector",
+    app: position.claims.app,
+    mode: position.claims.mode,
+    diagnostic_scope: position.claims.diagnostic_scope ?? null,
+    release: position.claims.release ?? null,
+    release_missing_reason: position.claims.release === undefined
+      ? "collector"
+      : null,
+    bundle_hash: position.claims.bundle_hash ?? null,
+    content_hash: "",
+  } as RecordReportInput["report"];
+  const invocation = await confirmInvocation(
+    client,
+    obs.invocation,
+  );
+  const snapshot: RecordReportInput["snapshot"] = invocation === undefined
+    ? {
+      ...result.snapshot,
+      invocation: result.snapshot.invocation,
+      invocation_missing_reason: result.snapshot.invocation_missing_reason,
+    }
+    : result.snapshot.invocation?.id === invocation.id
+    ? {
+      ...result.snapshot,
+      invocation: {
+        id: invocation.id,
+        binding: result.snapshot.invocation!.binding,
+        record_missing_reason: null,
+      },
+      invocation_missing_reason: null,
+    }
+    : {
+      ...result.snapshot,
+      invocation: result.snapshot.invocation,
+      invocation_missing_reason: result.snapshot.invocation_missing_reason,
+    };
+  return await submitException(
+    client,
+    report,
+    snapshot,
+    result.group_key,
+    result.stack_prepared,
+    result.logs_prepared,
+    queue,
+    session,
+    origin,
+    position,
+  );
 }
 
 // launchArgv가 내는 argv의 entry는 이 모듈 자체다(T8 worker main과 다른 갈래).

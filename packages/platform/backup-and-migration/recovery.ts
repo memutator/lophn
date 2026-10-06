@@ -1,6 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { BACKUP_LEDGER_PATH } from "../../contracts/platform/mod.ts";
-import { type LedgerConnection, openConnection } from "../ledger/mod.ts";
+import { openConnection } from "../ledger/mod.ts";
 
 // 복구본 stamp. yyyyMMddThhmmssSSSZ 하나다. colon·slash가 없어 파일 이름이 된다.
 export const RECOVERY_STAMP = /^[0-9]{8}T[0-9]{6}[0-9]{3}Z$/;
@@ -39,22 +39,6 @@ export function recoveryStamp(at: string): Result<string> {
 
 export function recoveryName(schemaVersion: number, stamp: string): string {
   return `s${schemaVersion}-${stamp}`;
-}
-
-// vacuum이 만든 복구본을 attach한 연결로 integrity를 본다.
-function copyIntegrityOk(
-  connection: LedgerConnection,
-  attached: string,
-): boolean {
-  try {
-    const rows = connection.sql.all(
-      `select * from ${attached}.pragma_integrity_check`,
-      [],
-    );
-    return rows.length === 1 && rows[0]?.["integrity_check"] === "ok";
-  } catch {
-    return false;
-  }
 }
 
 // migration 적용 전 복구본. SQLite backup API(VACUUM INTO)가 일관된 snapshot을
@@ -96,49 +80,52 @@ export async function createRecoveryCopy(
       });
     }
   }
-  // 원본 연결 하나로 vacuum과 검사를 같이 한다. WAL 안의 내용도 snapshot에 들어간다.
+  // SQLite online backup API가 일관된 사본을 만든다(WAL 안의 내용 포함). 권한을 제한한 core에서는
+  // VACUUM INTO·ATTACH가 쓰는 attach가 막혀 쓸 수 없다. 사본은 원본과 다른 연결로 열어 검사한다.
   const opened = openConnection(sourcePath);
   if (!opened.ok) return opened;
   const connection = opened.value;
-  let vacuumed = false;
+  let copied = false;
   let failed: Result<never> | undefined;
   try {
-    connection.exec(`vacuum into '${copyPath}'`);
-    vacuumed = true;
-    //vacuum이 만든 복구본을 attach해 integrity를 검사한다.
-    let attached = false;
-    try {
-      connection.exec(`attach database '${copyPath}' as migration_recovery`);
-      attached = true;
-      if (!copyIntegrityOk(connection, "migration_recovery")) {
-        failed = err({
-          code: "unavailable",
-          message: "복구본 무결성 검사가 실패해 migration을 시작하지 않는다",
-        });
-      }
-    } catch {
-      failed = err({ code: "unavailable", message: "복구본 검사에 실패했다" });
-    } finally {
-      if (attached) {
-        try {
-          connection.exec("detach database migration_recovery");
-        } catch {
-          //detach가 실패해도 연결을 닫는다.
-        }
-      }
-    }
+    await connection.backupTo(copyPath);
+    copied = true;
   } catch {
     failed = err({ code: "unavailable", message: "복구본을 만들지 못했다" });
   } finally {
     connection.close();
   }
+  if (failed === undefined) {
+    const checked = openConnection(copyPath);
+    if (!checked.ok) {
+      failed = err({ code: "unavailable", message: "복구본 검사에 실패했다" });
+    } else {
+      try {
+        if (!checked.value.integrityOk()) {
+          failed = err({
+            code: "unavailable",
+            message: "복구본 무결성 검사가 실패해 migration을 시작하지 않는다",
+          });
+        }
+      } catch {
+        failed = err({
+          code: "unavailable",
+          message: "복구본 검사에 실패했다",
+        });
+      } finally {
+        checked.value.close();
+      }
+    }
+  }
   if (failed !== undefined) {
     // 실패한 복구본은 남기지 않는다. R18의 대상은 성공한 복구본이다.
-    if (vacuumed) {
-      try {
-        await Deno.remove(copyPath);
-      } catch {
-        // 이미 사라진 파일
+    if (copied) {
+      for (const suffix of ["", "-wal", "-shm"]) {
+        try {
+          await Deno.remove(`${copyPath}${suffix}`);
+        } catch {
+          // 이미 사라진 파일
+        }
       }
     }
     return failed;

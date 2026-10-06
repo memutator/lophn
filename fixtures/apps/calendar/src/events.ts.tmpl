@@ -1,0 +1,105 @@
+// 앱의 업무 규칙. DB 구조와 질의는 이 앱에 남고 SDK로 올리지 않는다(apps/sdk#R36).
+import type { Migration, Store } from "@lophn/cap-store";
+import type { ExternalEvent } from "./external.ts";
+
+export type CalendarEvent = {
+  id: number;
+  title: string;
+  starts_at: string;
+  source: "local" | "external";
+};
+
+export const SCHEMA_VERSION = 1;
+export const LIST_LIMIT = 500;
+
+// DB schema 단계다. SQL은 migrations/에 있고 공개한 단계는 고치지 않고 새 단계를 더한다.
+export function migrations(): Migration[] {
+  return [{
+    from: 0,
+    to: SCHEMA_VERSION,
+    sql: Deno.readTextFileSync(
+      new URL("../migrations/0-1.sql", import.meta.url),
+    ),
+  }];
+}
+
+// preview·test는 여기서 schema를 맞춘다. 운영(live)은 activation 때 data worker가 이미 맞췄다.
+export async function ensureSchema(store: Store): Promise<void> {
+  if (store.schema() < SCHEMA_VERSION) {
+    await store.migrate(migrations(), { target: SCHEMA_VERSION });
+  }
+}
+
+// 시작 시각은 ISO 8601로 정규화해 저장한다. 읽을 수 없는 값은 null이다.
+export function normalizeStart(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? null : new Date(time).toISOString();
+}
+
+export function addEvent(
+  store: Store,
+  title: string,
+  startsAt: string,
+  createdAt: string,
+): CalendarEvent {
+  const row = store.db
+    .prepare(
+      "insert into event (title, starts_at, source, created_at) values (?, ?, 'local', ?) returning id",
+    )
+    .get(title, startsAt, createdAt) as { id: number };
+  return { id: row.id, title, starts_at: startsAt, source: "local" };
+}
+
+export function listEvents(store: Store): CalendarEvent[] {
+  return store.db
+    .prepare(
+      "select id, title, starts_at, source from event order by starts_at, id limit ?",
+    )
+    .all(LIST_LIMIT) as CalendarEvent[];
+}
+
+export function removeEvent(store: Store, id: number): number {
+  return Number(
+    store.db.prepare("delete from event where id = ?").run(id).changes,
+  );
+}
+
+export function deleteAllEvents(store: Store): number {
+  return Number(store.db.prepare("delete from event").run().changes);
+}
+
+// 가져온 일정을 external_id로 맞춘다. 이미 있는 것은 고치고 없는 것은 더한다. 한 transaction이다.
+export function saveExternal(
+  store: Store,
+  events: readonly ExternalEvent[],
+  createdAt: string,
+): { added: number; updated: number } {
+  return store.transaction((db) => {
+    let added = 0;
+    let updated = 0;
+    for (const event of events) {
+      const startsAt = normalizeStart(event.starts_at);
+      const title = typeof event.title === "string"
+        ? event.title.trim().slice(0, 200)
+        : "";
+      if (typeof event.id !== "string" || startsAt === null || title === "") {
+        continue;
+      }
+      const known = db.prepare("select id from event where external_id = ?")
+        .get(event.id);
+      if (known) {
+        db.prepare(
+          "update event set title = ?, starts_at = ? where external_id = ?",
+        ).run(title, startsAt, event.id);
+        updated += 1;
+      } else {
+        db.prepare(
+          "insert into event (title, starts_at, source, external_id, created_at) values (?, ?, 'external', ?, ?)",
+        ).run(title, startsAt, event.id, createdAt);
+        added += 1;
+      }
+    }
+    return { added, updated };
+  });
+}

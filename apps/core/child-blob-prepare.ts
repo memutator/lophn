@@ -14,6 +14,10 @@ import {
   type Frame,
   type ParentMessage,
 } from "../../packages/contracts/platform/mod.ts";
+import {
+  AGENT_RUNTIME_PRINCIPAL,
+  RUN_BLOB_PURPOSES,
+} from "../../packages/contracts/lophn-agent/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { BufferGauge, PreparedRelayResult } from "./blob-prepare.ts";
 import { problemsReportDefinitions } from "./problems.ts";
@@ -46,6 +50,19 @@ export const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
             ["document_file", BLOB_PREPARE_MAX_BYTES],
             ["document_files", BLOB_PREPARE_MAX_BYTES],
           ]),
+        },
+      ],
+      [
+        "lophn-agent/runtime",
+        {
+          // run 근거·결과와 model·tool 기록의 본문이다. 준비 principal은 command가 보는 현재 자격의
+          // principal(core가 runtime에 주는 machine credential)과 같아야 등록된다.
+          principal: AGENT_RUNTIME_PRINCIPAL,
+          purposes: new Map(
+            Object.values(RUN_BLOB_PURPOSES).map((
+              purpose,
+            ) => [purpose, 16 * 1024 * 1024] as const),
+          ),
         },
       ],
       [

@@ -1,5 +1,7 @@
 export * from "./problem-codes.ts";
+export * from "./release-wording.ts";
 export * from "./tests.ts";
+export * from "./app-test-lookup.ts";
 export * from "./test-frames.ts";
 export * from "./reports.ts";
 export * from "./exception-observation.ts";

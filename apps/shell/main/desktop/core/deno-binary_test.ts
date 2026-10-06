@@ -11,7 +11,7 @@ test("shell/desktop#R20: development uses system deno command", () => {
   assert.equal(binary, "deno", "development mode should use 'deno' command");
 });
 
-test("shell/desktop#R20: packaged app resolves bundled Deno from resourcesPath", () => {
+test("shell/desktop#R20: packaged app resolves bundled Deno at the install root", () => {
   const resourcesPath = "/opt/lophn/resources";
   const binary = resolveDenoBinary(
     { isPackaged: true, resourcesPath },
@@ -19,8 +19,8 @@ test("shell/desktop#R20: packaged app resolves bundled Deno from resourcesPath",
   );
 
   const expected = process.platform === "win32"
-    ? "/opt/lophn/resources/bin/deno.exe"
-    : "/opt/lophn/resources/bin/deno";
+    ? "/opt/lophn/deno.exe"
+    : "/opt/lophn/deno";
   assert.equal(
     binary,
     expected,

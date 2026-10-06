@@ -15,10 +15,15 @@ import {
   assignmentPaused,
   InstructionAttachments,
   questionCreated,
+  runAccepted,
+  runFinished,
+  runStarted,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type {
   CommandDefinition,
+  EventDefinition,
+  EventVisibilityDefinition,
   Tx,
 } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -60,6 +65,7 @@ import {
   createRunCommands,
   createRunReads,
   RUN_LIMIT_SETTING_KEYS,
+  runBodyFields,
   runSchemaSteps,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
@@ -108,6 +114,7 @@ import {
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import {
   createWaitCommands,
+  runBodyRead,
   waitSchemaSteps,
 } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import {
@@ -262,7 +269,11 @@ export const runActiveSetting = runLimitSetting(
 // wire에 더한다.
 const commands = createProviderCommands();
 const modelCommands = createModelDefaultsCommands();
-const usage = createUsageCommands();
+// 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다(Q30).
+const usage = createUsageCommands({
+  applyMessages: (tx, ctx, input, compare) =>
+    conversationCommands.apply.handle(tx, ctx, input, compare),
+});
 const reads = createProviderReads();
 const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();
@@ -577,6 +588,7 @@ export const lophnAgentDefinitions = {
     waitCommands.wait,
     waitCommands.resolve,
     waitCommands.correct,
+    waitCommands.recover,
     revertCommands.run,
   ],
   reads: [
@@ -615,6 +627,7 @@ export const lophnAgentDefinitions = {
   blobFields: [
     ...modelCallBodyFields,
     ...toolCallBodyFields,
+    ...runBodyFields,
     ...questionBodyFields,
     ...messageBodyFields,
     ...handoffBodyFields,
@@ -653,6 +666,8 @@ export function createLedgerRegistration(
     apiReads: [
       messageBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
       questionTextRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
+      // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
+      runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
     ],
     // provider credential과 외부 MCP credential의 secret 값도 core의 알려진 값
     // registry에 등록·회수된다(platform/secrets#R1). MCP 참조는 extensions
@@ -669,9 +684,20 @@ export function createEventRegistration(): EventRegistration {
     visibility: [
       notificationsOnlyVisibility(questionCreated),
       notificationsOnlyVisibility(assignmentPaused),
+      // agent runtime(machine 자격)만 run의 접수·시작·끝남을 따라 읽는다. selector가 RunStarted를 훑고
+      // 감독 pipe의 credential 발급이 StartRun이 확정한 scope를 대조한다. 사람·agent·app은 못 본다.
+      machineOnlyVisibility(runAccepted),
+      machineOnlyVisibility(runStarted),
+      machineOnlyVisibility(runFinished),
       ...createRevertEventVisibility(),
     ],
   };
+}
+
+function machineOnlyVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return { event, handle: (_snapshot, ctx) => ok(ctx.actor === "machine") };
 }
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는

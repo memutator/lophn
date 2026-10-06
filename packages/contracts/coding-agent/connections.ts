@@ -4,7 +4,7 @@ import { defineDecision } from "../platform/confirmation-handle.ts";
 import { withReadCommon } from "../platform/envelope.ts";
 import { defineEvent } from "../platform/events.ts";
 import { idSchema } from "../platform/ids.ts";
-import { defineCommand, defineRead } from "../platform/route.ts";
+import { defineCommand, defineMemory, defineRead } from "../platform/route.ts";
 import { seqSchema, sha256Schema } from "../platform/values.ts";
 
 export const connectionIdSchema = idSchema("cac");
@@ -124,6 +124,29 @@ export const connectionCreate = defineCommand({
   errors: ["invalid_input", "forbidden", "conflict"],
 });
 
+// 사람의 연결 결정 입구다(coding-agent/connection#R2). 사람이 고른 이름·범위만 받고 token 생성·
+// 붙여 넣기 field가 없다. core의 인증 경계가 token을 자동 발급해 OS keychain에 보관한 뒤 검증 hash만
+// connection create command로 제출한다. 결과에는 connection 참조만 있고 token·hash는 없다. 확인 창은
+// 없다(회수만 묻는다). coding agent·app는 호출할 수 없다.
+export const connectionConnectInputSchema = z.strictObject({
+  label: labelSchema,
+  scope: connectionScopeSchema,
+});
+
+export const connectionConnectOutputSchema = z.strictObject({
+  connection: connectionIdSchema,
+});
+
+export const connectionConnect = defineMemory({
+  resource: "coding_agent_connections",
+  method: "connect",
+  name: "ConnectCodingAgent",
+  input: connectionConnectInputSchema,
+  output: connectionConnectOutputSchema,
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "conflict", "unavailable"],
+});
+
 // 회수만 사람 결정이다. 표시와 제출이 같은 대상·판을 묶는다.
 export const CODING_AGENT_CONNECTION_REVOKE = defineDecision(
   "coding_agent_connection_revoke",
@@ -182,6 +205,7 @@ export const CONNECTION_ROUTES = [
   connectionList,
   connectionShow,
   connectionCreate,
+  connectionConnect,
   connectionRevoke,
 ] as const;
 

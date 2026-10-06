@@ -11,7 +11,7 @@ import {
 import type { DataResult } from "../../../contracts/apps/mod.ts";
 import { migrationFlags } from "../../permissions/mod.ts";
 import { createAppBackup } from "./backup.ts";
-import { openAppDatabase } from "./db.ts";
+import { databaseHash, openAppDatabase } from "./db.ts";
 import { acquireDataLock } from "./lock.ts";
 import { migrateAppDatabase, type MigrationScript } from "./migrate.ts";
 import { contained, insideDataArea } from "./paths.ts";
@@ -92,10 +92,18 @@ export function migrationChildFlags(
   return ok(flags.value.args);
 }
 
+type JobOutcome = { result: DataResult; backup_hash?: string };
+
+const HASH_PREFIX = "sha256:";
+
+function plainHash(hash: string): string {
+  return hash.startsWith(HASH_PREFIX) ? hash.slice(HASH_PREFIX.length) : hash;
+}
+
 async function runBackup(
   ctx: DataJobContext,
   input: DataJobInput,
-): Promise<Result<DataResult, DataJobFailure>> {
+): Promise<Result<JobOutcome, DataJobFailure>> {
   const name = `backup-${input.activation_seq}`;
   const created = await createAppBackup(
     ctx.dataArea,
@@ -105,19 +113,52 @@ async function runBackup(
   if (!created.ok) {
     return err({ code: "unavailable", message: "backup failed" });
   }
+  // 보호 blob이 될 byte의 hash다. 이 hash의 byte만 나중에 복원된다.
   return ok({
-    release: input.release,
-    activation_seq: input.activation_seq,
-    invocation: null,
-    data_schema: created.value.verified.state.dataSchema,
-    integrity_ok: true,
+    result: {
+      release: input.release,
+      activation_seq: input.activation_seq,
+      invocation: null,
+      data_schema: created.value.verified.state.dataSchema,
+      integrity_ok: true,
+    },
+    backup_hash: plainHash(created.value.verified.databaseHash),
   });
+}
+
+// 실제 schema와 무결성만 확인한다. 데이터는 바꾸지 않는다.
+function runInspect(
+  ctx: DataJobContext,
+  input: DataJobInput,
+): Result<JobOutcome, DataJobFailure> {
+  const opened = openAppDatabase(ctx.databasePath);
+  if (!opened.ok) {
+    return err({
+      code: "unavailable",
+      message: "app database cannot be opened",
+    });
+  }
+  const db = opened.value;
+  try {
+    const integrity = db.integrityOk();
+    return ok({
+      result: {
+        release: input.release,
+        activation_seq: input.activation_seq,
+        invocation: null,
+        data_schema: db.schemaState().dataSchema,
+        integrity_ok: integrity,
+      },
+    });
+  } finally {
+    db.close();
+  }
 }
 
 async function runMigrate(
   ctx: DataJobContext,
   input: DataJobInput,
-): Promise<Result<DataResult, DataJobFailure>> {
+): Promise<Result<JobOutcome, DataJobFailure>> {
   if (
     ctx.scripts === undefined || ctx.appliedAt === undefined ||
     ctx.invocation === undefined
@@ -145,13 +186,13 @@ async function runMigrate(
   if (!migrated.ok) {
     return err({ code: "unavailable", message: migrated.error.message });
   }
-  return ok(migrated.value.result);
+  return ok({ result: migrated.value.result });
 }
 
 async function runRestore(
   ctx: DataJobContext,
   input: DataJobInput,
-): Promise<Result<DataResult, DataJobFailure>> {
+): Promise<Result<JobOutcome, DataJobFailure>> {
   if (input.backup_hash === undefined) {
     return invalid("restore needs a backup");
   }
@@ -160,6 +201,15 @@ async function runRestore(
     `backups/backup-${input.activation_seq}`,
   );
   if (!backup.ok) return backup;
+  // 복원은 ledger가 확정하고 보호 blob으로 보존한 그 byte만 쓴다. 영역의 파일이 그 hash와 다르면
+  // (바뀌었거나 다른 파일이면) 복원하지 않고 운영 DB를 건드리지 않는다.
+  const present = await databaseHash(backup.value);
+  if (!present.ok || plainHash(present.value) !== input.backup_hash) {
+    return err({
+      code: "unavailable",
+      message: "backup does not match the preserved backup",
+    });
+  }
   const restored = await restoreAppBackup(
     ctx.dataArea,
     ctx.databasePath,
@@ -169,11 +219,13 @@ async function runRestore(
     return err({ code: "unavailable", message: "restore failed" });
   }
   return ok({
-    release: input.release,
-    activation_seq: input.activation_seq,
-    invocation: ctx.invocation ?? null,
-    data_schema: restored.value.verified.state.dataSchema,
-    integrity_ok: true,
+    result: {
+      release: input.release,
+      activation_seq: input.activation_seq,
+      invocation: ctx.invocation ?? null,
+      data_schema: restored.value.verified.state.dataSchema,
+      integrity_ok: true,
+    },
   });
 }
 
@@ -202,7 +254,9 @@ export async function runDataJob(
   }
   try {
     const resolved: DataJobContext = { ...ctx, databasePath: database.value };
-    const outcome = input.kind === "backup"
+    const outcome = input.kind === "inspect"
+      ? runInspect(resolved, input)
+      : input.kind === "backup"
       ? await runBackup(resolved, input)
       : input.kind === "migrate"
       ? await runMigrate(resolved, input)
@@ -210,10 +264,10 @@ export async function runDataJob(
       ? await runRestore(resolved, input)
       : invalid("test jobs are not data changes");
     if (!outcome.ok) return outcome;
-    if (!outcome.value.integrity_ok) {
+    if (!outcome.value.result.integrity_ok) {
       return err({ code: "unavailable", message: "integrity check failed" });
     }
-    return ok(encodeDataJobOutput({ result: outcome.value }));
+    return ok(encodeDataJobOutput(outcome.value));
   } finally {
     await locked.value.release();
   }

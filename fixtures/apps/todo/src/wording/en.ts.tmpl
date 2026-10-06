@@ -1,0 +1,89 @@
+// 앱의 en catalog다(apps/sdk#R41). 값은 완성된 문장 하나의 ICU MessageFormat이고 화면 코드는 문장 조각을
+// 이어 붙이지 않는다. key는 `<screen>.<part>.<name>`이며 첫 구간은 이 앱의 screen key나 common이다.
+// placeholders.ts는 이 파일에서 생성한다(`deno task wording`). 사용자 이름·업무 데이터는 catalog에 넣지 않는다.
+export const en = {
+  "common.problem.file-unavailable":
+    "The todo file couldn't be read or written.",
+  "common.problem.store-unavailable": "Todos couldn't be saved or read.",
+  "common.summary.app":
+    "Keep a todo list, move it to and from Markdown files, and put todos on the calendar.",
+  "todos.button.add": "Add",
+  "todos.button.calendar": "Add to calendar",
+  "todos.button.edit": "Edit",
+  "todos.button.export": "Export",
+  "todos.button.import": "Import",
+  "todos.button.reload": "Reload",
+  "todos.empty.none": "No todos yet. Add the first one.",
+  "todos.error.calendar-failed": "Couldn't add it to the calendar.",
+  "todos.error.file-failed": "Couldn't read or write the file.",
+  "todos.error.save-failed": "Couldn't save the todo. Try again.",
+  "todos.label.add-to-calendar": "Add to calendar",
+  "todos.label.add-todo": "Add todo",
+  "todos.label.complete-todo": "Complete todo",
+  "todos.label.count": "{count, plural, one {# todo} other {# todos}}",
+  "todos.label.due": "Due",
+  "todos.label.edit-todo": "Edit todo",
+  "todos.label.editing": "Editing",
+  "todos.label.export-markdown": "Export to Markdown",
+  "todos.label.file-name": "Markdown file name",
+  "todos.label.hint": "Hint",
+  "todos.label.hint-count":
+    "{count, plural, one {# hint} other {# hints}} from the agent",
+  "todos.label.hint-todo": "Hint on the todo being edited",
+  "todos.label.import-markdown": "Import from Markdown",
+  "todos.label.list-todos": "List todos",
+  "todos.label.new-todo": "New todo",
+  "todos.label.private-note": "Private note",
+  "todos.label.revert-todo": "Revert todo change",
+  "todos.label.todo-context": "Read the todo being edited",
+  "todos.label.todos": "todos",
+  "todos.reason.calendar":
+    "Create a calendar event for a todo with a due time.",
+  "todos.reason.export-folder": "Write the exported Markdown file.",
+  "todos.reason.import-folder": "Read the Markdown file to import.",
+  "todos.status.exported": "Exported.",
+  "todos.status.imported":
+    "{added, plural, one {# todo added} other {# todos added}}.",
+  "todos.status.calendar-added": "Added to the calendar.",
+  "todos.summary.add-to-calendar":
+    "Create a calendar event for one todo through the calendar app. Needs a due time on the todo or a start time here.",
+  "todos.summary.add-todo":
+    "Save one new todo. Returns the saved todo and what is needed to revert it.",
+  "todos.summary.complete-todo":
+    "Mark one open todo as done. Returns the todo and what is needed to revert it.",
+  "todos.summary.due": "When the todo is due, as an ISO date and time.",
+  "todos.summary.edit-todo":
+    "Tell lophn which todo this screen is editing, so an agent can see it. Leave the todo out when editing ends.",
+  "todos.summary.export-markdown":
+    "Write all todos as a Markdown checklist to a file in the export folder. Private notes are not written.",
+  "todos.summary.expected-revision":
+    "The revision the todos had right after the change.",
+  "todos.summary.file-name": "A plain file name ending in .md.",
+  "todos.summary.hint": "Add an agent hint to the todo being edited.",
+  "todos.summary.hint-text": "The hint text.",
+  "todos.summary.import-markdown":
+    "Add the checklist items of a Markdown file in the import folder as todos. Titles that already exist are skipped.",
+  "todos.summary.invocation": "The call that made the change.",
+  "todos.summary.list-todos":
+    "Read the saved todos, newest first, with their hints.",
+  "todos.summary.private-note":
+    "A note only the person sees. It is never shown to the agent or exported.",
+  "todos.summary.receipt": "The receipt the change returned.",
+  "todos.summary.revert-todo":
+    "Undo one earlier add or complete when nothing changed after it.",
+  "todos.summary.screen": "The screen key.",
+  "todos.summary.start-time": "When the event starts, as an ISO date and time.",
+  "todos.summary.target": "The place to attach the hint.",
+  "todos.summary.todo-context":
+    "Read what the todo editing screen shows: the todo being edited and its hints.",
+  "todos.summary.todo-id": "The id of the todo.",
+  "todos.summary.todo-title": "The text of the new todo.",
+  "todos.summary.view-session": "The screen view this call is about.",
+  "todos.summary.detail": "Include the full todo, not only the summary.",
+  "todos.summary.expected-view-revision":
+    "The revision read just before. The hint is refused when the todo changed since.",
+  "todos.title.screen": "Todos",
+} as const;
+
+export type Catalog = typeof en;
+export type MessageKey = keyof Catalog;

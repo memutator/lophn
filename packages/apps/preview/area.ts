@@ -1,12 +1,12 @@
 // preview의 disposable 영역(apps/preview#R2). `apps/<app ID>/preview/<process nonce>/`에 만들고
-// fixture를 `data.db`로 놓는다. 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. 종료 확인 뒤
+// fixture를 `app.sqlite`로 놓는다. 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. 종료 확인 뒤
 // 폐기한다. core 안에서 쓰므로 동기 파일 I/O를 쓰지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import { appIdSchema } from "../../contracts/apps/mod.ts";
 import { previewDirectory, validNonce } from "./model.ts";
 
 export type PreviewArea = {
-  // 영역을 만들고 (있으면) fixture byte를 data.db로 놓는다. 영역의 절대 경로를 돌려준다.
+  // 영역을 만들고 (있으면) fixture byte를 app.sqlite로 놓는다. 영역의 절대 경로를 돌려준다.
   create(
     app: string,
     nonce: string,
@@ -38,7 +38,7 @@ export function createFsPreviewArea(dataRoot: string): PreviewArea {
         await Deno.mkdir(directory, { recursive: true, mode: DIRECTORY_MODE });
         await Deno.mkdir(`${directory}/files`, { mode: DIRECTORY_MODE });
         if (fixture !== null) {
-          await Deno.writeFile(`${directory}/data.db`, fixture, {
+          await Deno.writeFile(`${directory}/app.sqlite`, fixture, {
             createNew: true,
             mode: FILE_MODE,
           });

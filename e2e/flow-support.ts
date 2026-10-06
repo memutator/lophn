@@ -115,7 +115,11 @@ export interface FlowShell {
 
 export interface FlowOptions {
   /** `LOPHN_SHELL_START` 값. 기본은 런처, `lophn`은 lophn 공간(documents)이다. */
-  start?: "lophn" | "conversation" | "things-to-confirm";
+  start?:
+    | "lophn"
+    | "conversation"
+    | "things-to-confirm"
+    | "instructions:global";
   /** 이미 있는 데이터 root를 다시 연다(core를 다시 띄운 뒤에도 남는 것을 본다). */
   home?: string;
 }

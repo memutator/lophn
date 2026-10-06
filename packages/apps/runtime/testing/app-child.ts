@@ -31,6 +31,13 @@ const parsed = validateBlueprint(
 );
 if (!parsed.ok) throw new Error(parsed.error.message);
 const blueprint = parsed.value;
+// 같은 폴더의 `data-schema` 파일이 있으면 그 번호가 이 앱의 DB schema다(activation의 준비 확인이 본다).
+let dataSchema = 0;
+try {
+  dataSchema = Number(
+    (await Deno.readTextFile(new URL("data-schema", mainDir))).trim(),
+  );
+} catch { /* 파일이 없으면 schema 0이다 */ }
 const line = await readLine();
 const clock = systemClock;
 const started = startRuntime({
@@ -43,7 +50,7 @@ const started = startRuntime({
   }),
   // broker는 이 시험에 없다. 관측 전달은 앱 응답을 막지 않는다.
   broker: () => Promise.resolve({ status: 503, body: null }),
-  dataSchema: 0,
+  dataSchema,
   screenBytes: (screen, path) =>
     new TextEncoder().encode(`screen ${screen} ${path}`),
 });

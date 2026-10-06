@@ -139,6 +139,8 @@ export type BeginRunInput = {
   assignment: string;
   stateSeq: string;
   basis: string;
+  // 준비한 basis blob의 크기. 있으면 StartRun이 영구 참조를 등록한다.
+  basisSize?: number;
   limits: RunBasis["limits"];
   scope: AgentAppScope;
 };

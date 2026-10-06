@@ -2,7 +2,7 @@
 // 실제 shell을 임시 LOPHN_HOME으로 띄우고 개발 시드(?dev-seed) 작업대의 문서 탭을 쓴다.
 // - shell/editor#R8: 읽기↔편집 전환 전후 첫 블록 위치 차이가 4px 이하다.
 // - shell/design-system#R23: 문서 메뉴(overlay menu)로 읽기 폭을 바꾸면 다른 문서도 같은 폭이다.
-//   재시작 뒤 반영은 core가 settings route를 서빙한 뒤(platform 연결) 이 시나리오에 더한다.
+//   개발 시드는 폭을 메모리에 두므로 재시작 뒤 반영은 제품 core settings로 save_test.ts가 본다.
 // 화면이 없으면 건너뛴다.
 import { assert, assertEquals } from "@std/assert";
 

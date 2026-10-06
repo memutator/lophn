@@ -156,6 +156,13 @@ export type SeriesOrder =
     readonly direction: "ascending" | "descending";
   };
 
+/** 가족이 보존하는 작성 중 값(documents/series#R11). 첫 판 전에는 문서가 아니다. */
+export interface SeriesDraft {
+  /** 첫 판을 저장하면 이 id의 문서가 생기고 멤버가 된다. */
+  readonly document: string;
+  readonly key: string;
+}
+
 export interface Series {
   readonly id: string;
   readonly place: PlaceRef;
@@ -166,6 +173,8 @@ export interface Series {
   readonly nextRule: string;
   readonly revision: string;
   readonly archived: boolean;
+  /** 가족당 하나의 작성 중 값. 없으면 null이다. */
+  readonly draft: SeriesDraft | null;
 }
 
 export interface SeriesRow extends Series {
@@ -251,6 +260,15 @@ export interface LophnSource {
     key: string,
   ): Promise<SourceResult<Series>>;
   setArchived(series: Series, archived: boolean): Promise<SourceResult<Series>>;
+  /**
+   * 이 key로 새 멤버를 쓰기 시작한다. 예정 문서 id와 key·가족 format을 가족 draft에 둔다. 글은
+   * 아직 싣지 않는다(첫 판 저장이 같은 transaction에서 멤버로 넣고 draft를 비운다).
+   */
+  startDraft(series: Series, key: string): Promise<SourceResult<Series>>;
+  /** 작성 중 값을 버린다. 문서는 없으므로 지울 문서도 없다. */
+  clearDraft(series: Series): Promise<SourceResult<Series>>;
+  /** 문서의 지금 최신 판. 아직 없으면 null이다. */
+  latestVersion(document: string): Promise<SourceResult<string | null>>;
   placeDocuments(
     place: PlaceRef,
   ): Promise<SourceResult<readonly PlaceDocument[]>>;

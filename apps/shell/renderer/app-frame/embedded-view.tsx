@@ -7,6 +7,7 @@
 // 옛 view 숨김이 먼저 main에 간다. 새 view는 main이 준비를 확인한 뒤에 붙인다.
 import {
   createContext,
+  type ReactNode,
   useContext,
   useEffect,
   useMemo,
@@ -60,19 +61,31 @@ export interface EmbeddedViewProps extends AppViewOpen {
   /** false면 view를 남긴 채 숨긴다(다른 탭·다른 공간). */
   shown?: boolean;
   onState?(state: AppFrameViewState): void;
+  /**
+   * 열기 실패를 그 자리 안내로 바꾼다. code는 main이 준 거절 code다. null이면 기본 오류와
+   * 다시 열기를 둔다.
+   */
+  renderFailure?(code: string, retry: () => void): ReactNode | null;
+  /** 열기가 거절됐다. code는 main이 준 거절 code다. */
+  onFailed?(code: string): void;
 }
 
 export function EmbeddedView(props: EmbeddedViewProps) {
   const { views, app, mode, release, screen, size, label, onState } = props;
+  const cardMessage = props.card?.message;
+  const cardBlock = props.card?.block;
   const shown = props.shown ?? true;
   const ref = useRef<HTMLDivElement | null>(null);
   const covers = useContext(ViewCoversContext);
   const fallbackCovers = useMemo(createViewCovers, []);
   const [viewSession, setViewSession] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("opening");
+  const [failure, setFailure] = useState("unavailable");
   const [attempt, setAttempt] = useState(0);
   const stateListener = useRef(onState);
   stateListener.current = onState;
+  const failedListener = useRef(props.onFailed);
+  failedListener.current = props.onFailed;
 
   // 여는 동안 이 자리가 사라지면 늦게 온 view를 바로 닫는다.
   useEffect(() => {
@@ -85,6 +98,9 @@ export function EmbeddedView(props: EmbeddedViewProps) {
       screen,
       size,
       ...(release === undefined ? {} : { release }),
+      ...(cardMessage === undefined || cardBlock === undefined
+        ? {}
+        : { card: { message: cardMessage, block: cardBlock } }),
     };
     views.openApp(input).then(
       (state) => {
@@ -98,8 +114,12 @@ export function EmbeddedView(props: EmbeddedViewProps) {
         setPhase("ready");
         stateListener.current?.(state);
       },
-      () => {
-        if (alive) setPhase("failed");
+      (error: unknown) => {
+        if (!alive) return;
+        const code = error instanceof Error ? error.message : "unavailable";
+        setFailure(code);
+        setPhase("failed");
+        failedListener.current?.(code);
       },
     );
     return () => {
@@ -109,7 +129,17 @@ export function EmbeddedView(props: EmbeddedViewProps) {
         void views.closeView({ view_session: opened }).catch(() => {});
       }
     };
-  }, [views, app, mode, release, screen, size, attempt]);
+  }, [
+    views,
+    app,
+    mode,
+    release,
+    screen,
+    size,
+    cardMessage,
+    cardBlock,
+    attempt,
+  ]);
 
   useEffect(() => {
     if (viewSession === null) return;
@@ -153,6 +183,8 @@ export function EmbeddedView(props: EmbeddedViewProps) {
     };
   }, [views, viewSession, shown, covers, fallbackCovers]);
 
+  const retry = () => setAttempt((count) => count + 1);
+
   return (
     <div
       ref={ref}
@@ -161,12 +193,9 @@ export function EmbeddedView(props: EmbeddedViewProps) {
       data-shown={shown}
     >
       {phase === "failed"
-        ? (
-          <ErrorState
-            target={label}
-            onRetry={() => setAttempt((count) => count + 1)}
-          />
-        )
+        ? (props.renderFailure?.(failure, retry) ?? (
+          <ErrorState target={label} onRetry={retry} />
+        ))
         : (
           <Loading
             loading={phase === "opening"}

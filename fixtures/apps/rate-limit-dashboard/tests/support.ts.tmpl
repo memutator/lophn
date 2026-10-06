@@ -1,0 +1,55 @@
+// test 공통 도구. 앱 DB와 수집 파일 폴더는 test 전용 임시 폴더에 만든다. 운영 DB와 다른 앱의 DB, 사람의 실제
+// 폴더는 열지 않는다.
+import { openStore } from "@lophn/cap-store";
+import { defaults, type Deps } from "../src/deps.ts";
+import type { Sample } from "../src/usage.ts";
+
+export const NOW = "2026-10-05T12:00:00.000Z";
+
+export type Place = { data: string; imports: string };
+
+export async function withPlace<T>(
+  work: (place: Place) => Promise<T>,
+): Promise<T> {
+  const root = await Deno.makeTempDir({ prefix: "app-rate-limit-" });
+  try {
+    const place = { data: `${root}/data`, imports: `${root}/import` };
+    for (const dir of Object.values(place)) await Deno.mkdir(dir);
+    return await work(place);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+}
+
+export function depsAt(place: Place, over: Partial<Deps> = {}): Deps {
+  return {
+    ...defaults,
+    openStore: () =>
+      openStore({ host: { mode: "test", dataPath: place.data } }),
+    now: () => NOW,
+    dir: place.imports,
+    readText: (path) => Deno.readTextFile(path),
+    ...over,
+  };
+}
+
+// 수집 파일을 폴더에 쓴다.
+export async function writeUsage(
+  place: Place,
+  file: string,
+  collection: { from: string; to: string; samples: Sample[] },
+): Promise<void> {
+  await Deno.writeTextFile(
+    `${place.imports}/${file}`,
+    JSON.stringify(collection),
+  );
+}
+
+export function sample(
+  provider: string,
+  at: string,
+  used: number,
+  quota = 100,
+): Sample {
+  return { provider, at, used, quota };
+}

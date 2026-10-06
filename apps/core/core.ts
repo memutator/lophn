@@ -1,3 +1,8 @@
+import {
+  type UpdateNotice,
+  updateNotice,
+  type UpdatePackage,
+} from "../../packages/platform/install-and-update/mod.ts";
 import { systemClock } from "../../packages/base/clock.ts";
 import { cryptoRandom } from "../../packages/base/random.ts";
 import type { Clock, RandomSource, Result } from "../../packages/base/mod.ts";
@@ -12,7 +17,10 @@ import type {
   RequestContext,
   WorkerRequest,
 } from "../../packages/contracts/platform/mod.ts";
-import { ROUTES } from "../../packages/contracts/platform/mod.ts";
+import {
+  createApprovalRequest,
+  ROUTES,
+} from "../../packages/contracts/platform/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -56,8 +64,11 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import { connectionConnect } from "../../packages/contracts/coding-agent/mod.ts";
+import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
+  connectHandler,
   createCodingCredentials,
 } from "./coding-credential.ts";
 import { productKeychain } from "./secret-store.ts";
@@ -153,6 +164,8 @@ import {
   INVOCATION_RECOVERY_CONTEXT,
   observeInvocations,
 } from "../../packages/apps/invocations/restart.ts";
+import { createCopyPreviewBundles } from "../../packages/apps/releases/activation/desired.ts";
+import { observeReleaseActivations } from "../../packages/apps/releases/activation/recovery.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createStreamer, createValidatePort } from "./documents-validate.ts";
@@ -177,13 +190,16 @@ import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
 import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
+  APPS_CONTROL_PRINCIPAL,
   APPS_SUPERVISOR_KIND,
   type AppsControl,
   appsOperationPolicies,
   appSupervisorSpec,
   createAppsControl,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
+  withReleasePreparation,
 } from "./apps-control.ts";
+import { createConfirmAdapters } from "./apps-confirm.ts";
 import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
 import type {
@@ -316,6 +332,12 @@ export type Core = {
   done: Promise<void>;
   // 새 command 입장을 닫고 연 것을 정리한 뒤 lock을 푼다(ledger R21).
   shutdown(): Promise<void>;
+  // 신뢰 main용 안내·정지 입구다. HTTP command나 자동 update 경로가 아니다.
+  updateNotice(
+    installedVersion: string,
+    candidate: UpdatePackage,
+  ): Result<UpdateNotice>;
+  stopForUpdate(): Promise<Result<void>>;
   record(context: AuthenticatedContext): Promise<Result<void>>;
   // 신뢰 프로세스의 blob.prepare 호출. HTTP route가 아니다(Q6).
   // I/O worker가 설치하고 writer 메모리에 준비 참조를 남긴 뒤에 끝난다.
@@ -481,7 +503,11 @@ async function open(
   // 구성 요소 관측이고 소유 concern 관측은 복구 command로 남는다.
   const restart = await checkRestart(ledgerPath, {
     clock,
-    owners: [observeApprovals, observeInvocations],
+    owners: [
+      observeApprovals,
+      observeInvocations,
+      observeReleaseActivations,
+    ],
   });
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);
@@ -557,6 +583,9 @@ async function open(
       // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
       ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
       ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+      ...(Deno.env.get("DENO_DIR")
+        ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
+        : {}),
       // I/O worker의 secret-tool이 session bus를 찾는 데 필요한 주소만이다. secret 값이 아니다.
       ...(kind === "platform/io" ? sessionBusEnv() : {}),
     }),
@@ -656,11 +685,22 @@ async function open(
     seed: seedOf(random),
     // 문서 worker route를 서빙하는 reader 등록은 항상 붙는다(documents-reader.ts).
     modules,
-    assembled: assembled.value,
+    // connection credential의 알려진 값 참조는 coding keychain이 있을 때만 읽는다. 없는 core(시험)가
+    // 사람의 실제 keychain으로 그 참조를 찾지 않게 한다.
+    assembled: options.codingKeychain === undefined
+      ? {
+        ...assembled.value,
+        secretRefs: assembled.value.secretRefs.filter((source) =>
+          source.owner !== CONNECTION_SECRET_OWNER
+        ),
+      }
+      : assembled.value,
     source,
     blob: blobRead.deps,
-    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다.
-    keychain: () => options.secretKeychain ?? productKeychain(),
+    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다. coding
+    // keychain만 준 core는 같은 adapter로 connection credential 값을 읽는다.
+    keychain: () =>
+      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
@@ -711,10 +751,71 @@ async function open(
   }
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
+  // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
+  const confirmWriter = withApprovalText(
+    runtime.writer,
+    createApprovalTextPreparer({
+      relay: () => bodyPrepare.current,
+      known: () => runtime?.knownSecrets,
+    }),
+  );
+  // preview 자식이 loopback으로 core API에 닿지 못하게 막을 port다. API를 연 뒤에 정해진다.
+  let apiPort = 0;
   const appsControl = await createAppsControl({
     clock,
     ledgerPath,
     readers: runtime.readers,
+    confirm: createConfirmAdapters({
+      clock,
+      ledgerPath,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      // 호출한 앱 자신의 짧은 app credential이다. 요청 하나를 마치면 끝낸다.
+      async requester(source) {
+        // 앱 자격은 앱·release·process·mode에 고정된다. release가 없는 자식은 confirm을 요청하지 못한다.
+        if (source.release === null) {
+          return err({
+            code: "forbidden",
+            message: "app confirm is live only",
+          });
+        }
+        const issued = await productRegistry.issue({
+          actor: `app:${source.app}`,
+          principal: `app:${source.app}`,
+          scope: {
+            operations: [createApprovalRequest.name],
+            targets: {
+              app: source.app,
+              release: source.release,
+              process: source.processNonce,
+              mode: source.mode,
+            },
+          },
+          conditions: {
+            app: source.app,
+            release: source.release,
+            process: source.processNonce,
+            mode: source.mode,
+          },
+        });
+        if (!issued.ok) return issued;
+        const ref = issued.value.credential_ref;
+        const current = productRegistry.revalidate({ credential_ref: ref });
+        if (!current.ok) return current;
+        const recorded = await runtime!.record(current.value);
+        if (!recorded.ok) return recorded;
+        const context = runtime!.current(ref);
+        if (!context.ok) return context;
+        return ok({
+          context: context.value,
+          end: () => void productRegistry.end(ref),
+        });
+      },
+    }),
     revalidate: (credentialRef) =>
       registry.revalidate({ credential_ref: credentialRef }),
     redact: (line) =>
@@ -723,7 +824,30 @@ async function open(
         "text/plain",
         line,
       ),
-    previews: { dataRoot: root.path, ...options.appPreviews },
+    // 봉인 bundle 사본을 여는 실제 자리다. 시험이 `appPreviews.bundles`로 바꿔 끼울 수 있다.
+    activation: {
+      dataRoot: root.path,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+      platformPorts: () => apiPort === 0 ? [] : [apiPort],
+    },
+    previews: {
+      dataRoot: root.path,
+      bundles: createCopyPreviewBundles({
+        dataRoot: root.path,
+        platformPorts: () => apiPort === 0 ? [] : [apiPort],
+      }),
+      ...options.appPreviews,
+    },
     ...(options.appProcess ? { process: options.appProcess } : {}),
     ...(options.appsSweepMs === undefined
       ? {}
@@ -867,38 +991,43 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
-      writer: withPlacementReservation(
-        withTermOccurrence(
-          withApprovalText(
-            withQuestionText(
-              withHandoffBody(
-                withMessageBody(
-                  runtime.writer,
-                  createMessageBodyPreparer({
+      writer: withReleasePreparation(
+        withPlacementReservation(
+          withTermOccurrence(
+            withApprovalText(
+              withQuestionText(
+                withHandoffBody(
+                  withMessageBody(
+                    runtime.writer,
+                    createMessageBodyPreparer({
+                      relay: () => bodyPrepare.current,
+                      // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                      known: () => runtime?.knownSecrets,
+                    }),
+                  ),
+                  createHandoffBodyPreparer({
                     relay: () => bodyPrepare.current,
-                    // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                     known: () => runtime?.knownSecrets,
                   }),
                 ),
-                createHandoffBodyPreparer({
+                createQuestionTextPreparer({
                   relay: () => bodyPrepare.current,
-                  known: () => runtime?.knownSecrets,
                 }),
               ),
-              createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
+              createApprovalTextPreparer({
+                relay: () => bodyPrepare.current,
+                known: () => runtime?.knownSecrets,
+              }),
             ),
-            createApprovalTextPreparer({
-              relay: () => bodyPrepare.current,
-              known: () => runtime?.knownSecrets,
-            }),
+            (ctx, command, input) =>
+              runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                command,
+                input,
+              }),
           ),
-          (ctx, command, input) =>
-            runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-              command,
-              input,
-            }),
+          placementReservations,
         ),
-        placementReservations,
+        appsControl.commands,
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.
@@ -906,6 +1035,15 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
+        // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
+        ...(coding
+          ? [
+            [
+              `${connectionConnect.resource}/${connectionConnect.method}`,
+              connectHandler(coding, () => runtime!.writer),
+            ] as const,
+          ]
+          : []),
       ]),
       events: runtime.events,
       subscriptions: runtime.subscriptions,
@@ -1106,6 +1244,7 @@ async function open(
     await runtime.close();
     return err({ code: "unavailable", message: "API를 열 수 없다" });
   }
+  apiPort = server.port;
   const recorded = await writeRunMetadata(root.run, {
     apiPort: server.port,
     coreEpoch: epoch,
@@ -1633,6 +1772,8 @@ async function open(
     )
     : Promise.resolve(ok(undefined));
   let stopped = false;
+  let normallyStopped = false;
+  let shutdownRun: Promise<void> | undefined;
   // restore가 정지 단계에서 할 일과 그 결과. 한 번에 하나만 받는다.
   let restoring = false;
   let pendingRestore:
@@ -1743,89 +1884,118 @@ async function open(
         message: "복원을 시작하지 못했다",
       });
     },
-    async shutdown() {
-      if (stopped) return;
-      stopped = true;
-      // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기 → 입장한
-      // 짧은 command 확정 또는 실패 → child 정상 정지 → writer 닫기.
-      // 정지 유지보수(T44)는 이 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가
-      // 예외를 던져도 metadata 정리와 lock 해제는 그대로 실행한다.
-      const stoppedAt: {
-        preparationsBlocked: boolean;
-        commandsBlocked: boolean;
-        writerStopped: boolean;
-      } = {
-        preparationsBlocked: false,
-        commandsBlocked: false,
-        writerStopped: false,
-      };
+    updateNotice(installedVersion, candidate) {
+      return updateNotice({
+        installedVersion,
+        installedSchema: schemaSteps.length,
+        os: Deno.build.os,
+        candidate,
+      });
+    },
+    async stopForUpdate() {
       try {
-        // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
-        ready = false;
-        documentsFeed.stop();
-        // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
-        await notifications.stop();
-        rootsWatch?.stop();
-        respawnStop?.();
-        basisSync?.stop();
-        searchSync?.stop();
-        watchSync?.stop();
-        closeChildBlob?.();
-        closeCollectorBlob?.();
-        // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
-        runtime?.memory.disconnect();
-        // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야
-        // 새 command 입장이 실제로 닫힌 것이다.
-        await server.stop();
-        if (options.failShutdown) await options.failShutdown();
-        stoppedAt.commandsBlocked = ready === false;
-        // 앱 supervisor가 먼저 앱 자식을 정지한다. 그 뒤 질의 통로를 닫는다.
-        appsControl.stop();
-        if (appsSupervision) await appsSupervision.stopAll();
-        // child 정상 정지. stopAll이 돌아온 뒤에야 새 blob 준비 접수가 없다.
-        if (io) await io.stopAll();
-        stoppedAt.preparationsBlocked = true;
-        stopPrune.run?.();
-        await stopPrune.bootstrap?.();
-        // writer Worker와 reader 연결을 닫는다. close가 돌아온 뒤에야 writer가 멈춘 것이다.
-        await runtime?.close();
-        stoppedAt.writerStopped = true;
-        // 세 조건이 모두 관측될 때만 유지보수를 부른다. 파일 작업과 blob_refs
-        // 읽기는 core graph 밖 프로세스의 몫이다(responsiveness#R1). 관측을
-        // 못 하면 건너뛰고(fail-closed), 시간 제한을 넘기면 그 프로세스만
-        // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
-        if (pendingRestore !== undefined) {
-          // restore는 같은 정지 조건 위에서만 돈다. 이번 종료에는 blob GC를 하지 않는다.
-          restoreResult = await runStoppedRestore({
-            dataRoot: root.path,
-            ledgerPath,
-            request: pendingRestore,
-            conditions: stoppedAt,
-            supportedSchema: schemaSteps.length,
-            nowIso: clock.now(),
-            timeoutMs: options.restoreTimeoutMs,
-          });
-        } else if (
-          stoppedAt.preparationsBlocked && stoppedAt.commandsBlocked &&
-          stoppedAt.writerStopped
-        ) {
-          await runStoppedMaintenance({
-            dataRoot: root.path,
-            ledgerPath,
-            conditions: stoppedAt,
-            fields: retentionRules(assembled.value.blobFields),
-            nowMs: clock.nowMs(),
-            timeoutMs: options.maintenanceTimeoutMs,
-            run: options.maintenance,
-          });
-        }
-      } finally {
-        try {
-          await removeRunMetadata(root.run);
-        } finally {
-          await lock.release();
-        }
+        await core.shutdown();
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "정상 정지를 확인하지 못해 설치 파일 교체로 넘어갈 수 없다",
+        });
       }
+      return normallyStopped
+        ? ok(undefined)
+        : err({ code: "unavailable", message: "정상 정지가 미확인이다" });
+    },
+    shutdown() {
+      // 같은 시각의 두 종료 요청도 실제 종료가 끝날 때까지 같은 barrier를 기다린다.
+      return shutdownRun ??= (async () => {
+        if (stopped) return;
+        stopped = true;
+        // 종료 순서(architecture 7.5): 새 command·prepare 입장 닫기 → 입장한
+        // 짧은 command 확정 또는 실패 → child 정상 정지 → writer 닫기.
+        // 정지 유지보수(T44)는 이 세 조건이 실제로 끝난 뒤에만 돈다. 앞 단계가
+        // 예외를 던져도 metadata 정리와 lock 해제는 그대로 실행한다.
+        const stoppedAt: {
+          preparationsBlocked: boolean;
+          commandsBlocked: boolean;
+          writerStopped: boolean;
+        } = {
+          preparationsBlocked: false,
+          commandsBlocked: false,
+          writerStopped: false,
+        };
+        try {
+          // 새 입장을 먼저 닫는다. 이미 입장한 command는 writer가 확정 또는 실패로 마친다.
+          ready = false;
+          documentsFeed.stop();
+          // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
+          await notifications.stop();
+          rootsWatch?.stop();
+          respawnStop?.();
+          basisSync?.stop();
+          searchSync?.stop();
+          watchSync?.stop();
+          closeChildBlob?.();
+          closeCollectorBlob?.();
+          // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
+          runtime?.memory.disconnect();
+          // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야
+          // 새 command 입장이 실제로 닫힌 것이다.
+          await server.stop();
+          if (options.failShutdown) await options.failShutdown();
+          stoppedAt.commandsBlocked = ready === false;
+          // 앱 supervisor가 먼저 앱 자식을 정지한다. 그 뒤 질의 통로를 닫는다.
+          appsControl.stop();
+          const appsStopped = appsSupervision
+            ? await appsSupervision.stopAll()
+            : true;
+          // stop 요청과 실제 정지 확인은 다르다. unconfirmed이면 update barrier와
+          // 정지 유지보수는 fail-closed로 남긴다(P11).
+          const ioStopped = io ? await io.stopAll() : true;
+          stoppedAt.preparationsBlocked = appsStopped && ioStopped;
+          stopPrune.run?.();
+          await stopPrune.bootstrap?.();
+          // writer Worker와 reader 연결을 닫는다. close가 돌아온 뒤에야 writer가 멈춘 것이다.
+          await runtime?.close();
+          stoppedAt.writerStopped = true;
+          // 세 조건이 모두 관측될 때만 유지보수를 부른다. 파일 작업과 blob_refs
+          // 읽기는 core graph 밖 프로세스의 몫이다(responsiveness#R1). 관측을
+          // 못 하면 건너뛰고(fail-closed), 시간 제한을 넘기면 그 프로세스만
+          // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
+          if (pendingRestore !== undefined) {
+            // restore는 같은 정지 조건 위에서만 돈다. 이번 종료에는 blob GC를 하지 않는다.
+            restoreResult = await runStoppedRestore({
+              dataRoot: root.path,
+              ledgerPath,
+              request: pendingRestore,
+              conditions: stoppedAt,
+              supportedSchema: schemaSteps.length,
+              nowIso: clock.now(),
+              timeoutMs: options.restoreTimeoutMs,
+            });
+          } else if (
+            stoppedAt.preparationsBlocked && stoppedAt.commandsBlocked &&
+            stoppedAt.writerStopped
+          ) {
+            await runStoppedMaintenance({
+              dataRoot: root.path,
+              ledgerPath,
+              conditions: stoppedAt,
+              fields: retentionRules(assembled.value.blobFields),
+              nowMs: clock.nowMs(),
+              timeoutMs: options.maintenanceTimeoutMs,
+              run: options.maintenance,
+            });
+          }
+        } finally {
+          try {
+            await removeRunMetadata(root.run);
+          } finally {
+            await lock.release();
+          }
+        }
+        normallyStopped = stoppedAt.preparationsBlocked &&
+          stoppedAt.commandsBlocked && stoppedAt.writerStopped;
+      })();
     },
   };
   const greeted = await hello;
@@ -2155,6 +2325,12 @@ function repoRoot(): string {
 }
 
 function denoDir(): string {
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
+  let configured: string | undefined;
+  try {
+    configured = Deno.env.get("DENO_DIR");
+  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
+  if (configured) return configured;
   const home = Deno.env.get("HOME");
   return home ? `${home}/.cache/deno` : "/tmp";
 }

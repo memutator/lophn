@@ -233,7 +233,7 @@ async function startCall(
       machineCred,
       envelope("StartModelCall", {
         call,
-        applied_messages: [`msg_${SUFFIX}`],
+        applied_messages: [],
         state_seq: "4",
         timeout_ms: null,
       }),
@@ -259,7 +259,7 @@ Deno.test("lophn-agent/harness/usage#R1: a started call stores once and repeats 
       machineCred,
       envelope("StartModelCall", {
         call: started,
-        applied_messages: [`msg_${SUFFIX}`],
+        applied_messages: [],
         state_seq: "4",
         timeout_ms: null,
       }),
@@ -290,7 +290,7 @@ Deno.test("lophn-agent/harness/usage#R1: retry attempts are one record each", as
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -331,7 +331,7 @@ Deno.test("lophn-agent/harness/usage#R1: retry attempts are one record each", as
         machineCred,
         envelope("StartModelCall", {
           call: retry,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -371,7 +371,7 @@ Deno.test("lophn-agent/harness/usage#R1: credential change attempts are one reco
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -413,7 +413,7 @@ Deno.test("lophn-agent/harness/usage#R1: credential change attempts are one reco
         machineCred,
         envelope("StartModelCall", {
           call: changed,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -441,7 +441,7 @@ Deno.test("lophn-agent/harness/usage#R1: a start that fails to store sends nothi
       machineCred,
       envelope("StartModelCall", {
         call: started,
-        applied_messages: [`msg_${SUFFIX}`],
+        applied_messages: [],
         state_seq: "4",
         timeout_ms: null,
       }),
@@ -468,7 +468,7 @@ Deno.test("lophn-agent/harness/usage#R2: a call records use, choice, model and b
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -497,7 +497,7 @@ Deno.test("lophn-agent/harness/usage#R3: finish keeps outcome, timing, no error 
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -547,7 +547,7 @@ Deno.test("lophn-agent/harness/usage#R3: a failed outcome keeps kind and code, n
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -595,7 +595,7 @@ Deno.test("lophn-agent/harness/usage#R4: input and output keep blob refs, finish
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -662,7 +662,7 @@ Deno.test("lophn-agent/harness/usage#R5: cache in input and reasoning in output 
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -719,7 +719,7 @@ Deno.test("lophn-agent/harness/usage#R6: unknown usage stays null, not zero", as
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -768,7 +768,7 @@ Deno.test("lophn-agent/harness/usage#R7: the five cost kinds stay apart", async 
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -831,7 +831,7 @@ Deno.test("lophn-agent/harness/usage#R8: estimated amount keeps basis and curren
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -902,7 +902,7 @@ Deno.test("lophn-agent/harness/usage#R9: supplement appends a late fact without 
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -975,7 +975,7 @@ Deno.test("lophn-agent/harness/usage#R10: usage read counts each call once", asy
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -1049,7 +1049,7 @@ Deno.test("lophn-agent/harness/usage#R11: no amount cost gate on records", async
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -1110,7 +1110,7 @@ Deno.test("lophn-agent/harness/usage#R2: supplement CAS rejects a stale state_se
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),
@@ -1205,7 +1205,7 @@ Deno.test("lophn-agent/harness/usage#R10: rebuild gives the same totals", async 
         machineCred,
         envelope("StartModelCall", {
           call: started,
-          applied_messages: [`msg_${SUFFIX}`],
+          applied_messages: [],
           state_seq: "4",
           timeout_ms: null,
         }),

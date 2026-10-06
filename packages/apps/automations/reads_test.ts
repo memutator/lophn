@@ -18,7 +18,10 @@ import {
 import type { DatabaseSync } from "node:sqlite";
 import type { App } from "../../contracts/apps/mod.ts";
 import { invocationsSchemaSteps } from "../invocations/testing/mod.ts";
-import { createGrantSnapshot } from "../permissions/testing/mod.ts";
+import {
+  createGrantSnapshot,
+  seedDeclarations,
+} from "../permissions/testing/mod.ts";
 
 // ---- apps.automations read 시험용 ledger snapshot ----
 // 실제 schema의 메모리 DB다. 다른 leaf의 fixture는 *_test.ts에서만 import할 수 있어 이 시험 안에 둔다.
@@ -82,19 +85,13 @@ export function declareAutomations(
   app = APP,
   release = RELEASE,
 ): void {
-  db.prepare(
-    `INSERT INTO permissions_test_declarations (app, body) VALUES (?, ?)
-     ON CONFLICT(app) DO UPDATE SET body = excluded.body`,
-  ).run(
-    app,
-    JSON.stringify({
-      release,
-      permissions: [],
-      app_connections: [],
-      commands: [...new Set(automations.map((a) => a.command))],
-      automations,
-    }),
-  );
+  seedDeclarations(db, app, {
+    release,
+    permissions: [],
+    app_connections: [],
+    commands: [...new Set(automations.map((a) => a.command))],
+    automations,
+  });
 }
 
 let grantCounter = 0;

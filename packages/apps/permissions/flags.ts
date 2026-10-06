@@ -175,6 +175,22 @@ export function socketFlags(
   return ok([read.value!, write.value!, net.value!]);
 }
 
+// 이 앱이 부를 수 있는 다른 앱의 direct socket에 닿는 Deno flag다(apps/connections#R4). source 앱 자식은
+// 자기 두 socket만 열려 있어 target의 direct socket에 연결하면 NotCapable이다. 허락은 그 target의
+// 고정 자리 socket의 읽기·쓰기·연결이고 외부 host나 broker socket은 넣지 않는다.
+export function pairSocketFlags(
+  directSockets: readonly string[],
+): Result<string[]> {
+  if (directSockets.length === 0) return ok([]);
+  const read = flag("allow-read", directSockets);
+  if (!read.ok) return read;
+  const write = flag("allow-write", directSockets);
+  if (!write.ok) return write;
+  const net = flag("allow-net", directSockets.map((path) => `unix:${path}`));
+  if (!net.ok) return net;
+  return ok([read.value!, write.value!, net.value!]);
+}
+
 // migration은 외부 grant를 물려받지 않는다. bundle 읽기와 자기 DB 작업 영역만.
 export function migrationFlags(
   app: Pick<AppPaths, "bundle" | "data">,

@@ -12,8 +12,14 @@ const MEMORY_LIMIT_BYTES = 256 * 1024 * 1024;
 // child가 코드와 deno 캐시를 올리는 읽기. 사용자 root가 아니다.
 function codeReads(): string[] {
   const repo = new URL("../../..", import.meta.url).pathname.replace(/\/$/, "");
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
   const home = Deno.env.get("HOME");
-  return [repo, home ? `${home}/.cache/deno` : "/tmp"];
+  let configured: string | undefined;
+  try {
+    configured = Deno.env.get("DENO_DIR");
+  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
+  const cache = configured ?? (home ? `${home}/.cache/deno` : "/tmp");
+  return [repo, cache];
 }
 
 function specOf(

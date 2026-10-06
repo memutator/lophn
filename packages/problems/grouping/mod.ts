@@ -12,4 +12,4 @@ export {
   invalidReportGroupKey,
   isAppFrame,
 } from "./fingerprint.ts";
-export { getProblemRead, listProblemsRead, symptomOf } from "./reads.ts";
+export { getProblemRead, listProblemsRead } from "./reads.ts";

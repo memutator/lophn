@@ -11,6 +11,7 @@ import type { FrameTimer } from "./frame.ts";
 import type {
   AppFrameService,
   AppFrameViewState,
+  CardDisplay,
   ViewBounds,
 } from "./registry.ts";
 
@@ -32,6 +33,8 @@ export interface AppViewOpenRequest {
   release?: string;
   screen: string;
   size: "full" | "panel" | "card";
+  /** 카드의 message·block 표시 참조. 카드만 싣는다. */
+  card?: CardDisplay;
 }
 
 type Generation = Outcome<{ generation: number }>;
@@ -128,7 +131,7 @@ export function createViewVisibility(deps: {
         size: input.size,
         parentWindow: window,
         bounds: EMPTY_BOUNDS,
-      });
+      }, input.card);
     },
 
     /** 이 frame의 마지막 bounds로 둔다. 적용한 뒤의 generation으로 끝난다. */

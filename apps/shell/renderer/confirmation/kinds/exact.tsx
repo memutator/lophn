@@ -100,8 +100,22 @@ export function ExactAction({ view }: { view: Record<string, unknown> }) {
     });
   }
   if (rows.length === 0) return null;
+  return <ExactRows rows={rows} action />;
+}
+
+export interface ExactRow {
+  key: string;
+  label: string;
+  value: string;
+  note?: string;
+}
+
+/** 고정폭 원문 행. 값은 줄이지 않고 길면 줄바꿈한다. */
+export function ExactRows(
+  { rows, action }: { rows: readonly ExactRow[]; action?: boolean },
+) {
   return (
-    <dl className={styles.exact} data-exact="action">
+    <dl className={styles.exact} data-exact={action ? "action" : "scope"}>
       {rows.map((row) => (
         <div key={row.key} className={styles.row} data-exact-row={row.key}>
           <dt className={styles.label}>{row.label}</dt>
@@ -113,4 +127,20 @@ export function ExactAction({ view }: { view: Record<string, unknown> }) {
       ))}
     </dl>
   );
+}
+
+/** 요청이 싣고 온 정확한 동작 전체. 앱 결정은 읽기 쉬운 표시 아래에 접어 둔다. */
+export function FoldedExact({ view }: { view: Record<string, unknown> }) {
+  return (
+    <details className={styles.folded} data-exact="folded">
+      <summary>{t("confirmation-window.label.exact-request")}</summary>
+      <ExactAction view={view} />
+    </details>
+  );
+}
+
+/** 앱 이름. 모르면 정확한 ID를 보인다. */
+export function appLabel(app: unknown): string {
+  const shown = obj(app);
+  return str(shown.name) ?? str(shown.id) ?? "";
 }

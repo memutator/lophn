@@ -1,5 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import {
+  Button,
+  editorIcons,
   ErrorState,
   Field,
   IconButton,
@@ -12,12 +14,13 @@ import {
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import { isLatest, placeTitle } from "../model.ts";
+import { documentNameForKey, isLatest, placeTitle } from "../model.ts";
 import type {
   Catalog,
   LophnSource,
   NextSuggestion,
   PlaceDocument,
+  Series,
   SeriesDetail,
   SeriesMember,
 } from "../source.ts";
@@ -33,6 +36,11 @@ export interface SeriesDetailProps {
   onRead: (members: readonly SeriesMember[], index: number) => void;
   /** 가족이 바뀌었다(보관·멤버 추가). 목록을 다시 읽게 한다. */
   onChanged: () => void;
+  /**
+   * draft가 선 가족의 새 멤버를 쓴다. 편집 통로가 있는 창에서만 준다. 편집기는 Markdown 글을
+   * 쓰므로 document format 가족만 쓴다.
+   */
+  onWrite?: (series: Series) => void;
 }
 
 type Loaded =
@@ -49,12 +57,13 @@ type Change =
   | { readonly kind: "idle" }
   | { readonly kind: "changed" }
   | { readonly kind: "key-taken" }
+  | { readonly kind: "key-unnamed" }
   | { readonly kind: "failed" };
 
 // 한 가족: 순서대로 key·제목·판, 다음 key 제안과 근거, 멤버 추가, 보관·해제.
 // 제안은 읽기만 한다. 문서·key를 만들거나 예약하지 않는다(documents/series#R6).
 export function SeriesDetailView(
-  { source, id, catalog, onRead, onChanged }: SeriesDetailProps,
+  { source, id, catalog, onRead, onChanged, onWrite }: SeriesDetailProps,
 ) {
   const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -147,10 +156,37 @@ export function SeriesDetailView(
     reload();
   };
 
+  // 이 key로 새 멤버를 쓰기 시작한다. 가족 draft(예정 문서·key)만 서고 문서는 아직 없다.
+  const write = async () => {
+    const chosen = key.trim();
+    if (chosen === "" || !onWrite) return;
+    if (documentNameForKey(chosen) === null) {
+      setChange({ kind: "key-unnamed" });
+      return;
+    }
+    const result = await source.startDraft(series, chosen);
+    if (!result.ok) {
+      setChange(
+        result.code === "conflict"
+          ? members.some((item) => item.key === chosen) ||
+              next?.taken === true && next.key === chosen
+            ? { kind: "key-taken" }
+            : { kind: "changed" }
+          : { kind: "failed" },
+      );
+      return;
+    }
+    setChange({ kind: "idle" });
+    onChanged();
+    onWrite(result.value);
+  };
+  const writable = onWrite !== undefined && series.format === "document";
+
   const archiveLabel = series.archived
     ? t("documents.button.unarchive-series")
     : t("documents.button.archive-series");
   const addLabel = t("documents.button.add-member");
+  const writeLabel = t("documents.button.write-member");
 
   return (
     <OverviewFrame
@@ -258,6 +294,30 @@ export function SeriesDetailView(
             members={members.length}
             rule={series.nextRule}
           />
+          {series.draft !== null && !series.archived
+            ? (
+              <div
+                className={styles.draft}
+                data-series-draft={series.draft.key}
+              >
+                <p className={listStyles.hint}>
+                  {t("documents.notice.draft", { key: series.draft.key })}
+                </p>
+                {writable
+                  ? (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      data-continue-draft=""
+                      onClick={() => onWrite?.(series)}
+                    >
+                      {t("documents.button.continue-draft")}
+                    </Button>
+                  )
+                  : null}
+              </div>
+            )
+            : null}
           {series.archived ? null : (
             <form
               className={styles.addForm}
@@ -269,6 +329,8 @@ export function SeriesDetailView(
                   label={t("documents.label.key")}
                   error={change.kind === "key-taken"
                     ? t("documents.error.key-taken")
+                    : change.kind === "key-unnamed"
+                    ? t("documents.error.key-unnamed")
                     : undefined}
                 >
                   <Input
@@ -307,6 +369,21 @@ export function SeriesDetailView(
                   disabled={document === undefined || key.trim() === ""}
                 />
               </Tooltip>
+              {writable && series.draft === null
+                ? (
+                  <Tooltip content={writeLabel}>
+                    <IconButton
+                      icon={editorIcons.edit}
+                      label={writeLabel}
+                      type="button"
+                      variant="secondary"
+                      data-write-member=""
+                      disabled={key.trim() === ""}
+                      onClick={() => void write()}
+                    />
+                  </Tooltip>
+                )
+                : null}
             </form>
           )}
           {change.kind === "failed"

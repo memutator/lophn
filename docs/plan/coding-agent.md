@@ -433,6 +433,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T15 범위 검사·금지 동작·MCP와 CLI parity
 
+- 상태: 완료 (#317) — 이어보냄: CLI core 실행 배선과 production credential·제출 `forbidden` 목록 → coding-agent#T36. 남은 platform·documents 쪽 거절은 "## 질문" Q31
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/connection#R5, R6, R10, R11; coding-agent/mcp-server#R30,

@@ -184,3 +184,96 @@ Deno.test("lophn-agent/harness/run-loop#R10: 수정 입력의 처음 반영은 M
     await world.dispose();
   }
 });
+
+Deno.test("platform/blob-store#R4: 준비하지 않은 hash는 영구 참조가 되지 못하고 기록 command가 통째로 거절된다", async () => {
+  const world = await openWaitingWorld();
+  try {
+    await acceptCredential(
+      world.core,
+      context(
+        "machine",
+        ["StartModelCall", "RecordToolRequest"],
+        {},
+        "calls",
+      ),
+      MACHINE,
+    );
+    await acceptCredential(
+      world.core,
+      context("user", ["RegisterProvider"], {}, "u2") as AuthenticatedContext,
+      USER,
+    );
+    const registered = await call(
+      world.server,
+      "providers/register",
+      USER,
+      command({
+        id: PVD,
+        name: "fixture",
+        definition: {
+          key: "anthropic",
+          display_name: "Anthropic",
+          protocols: ["anthropic-messages"],
+          auth_kinds: ["none"],
+          models_endpoint: null,
+          oauth: null,
+          revision: "2026-01-01",
+        },
+        endpoint: "http://127.0.0.1:9",
+        protocol: "anthropic-messages",
+      }),
+    );
+    assertEquals(registered.status, 200, JSON.stringify(registered.body));
+    const seat = world.lophn;
+    const started = await call(
+      world.server,
+      "model-calls/start",
+      MACHINE,
+      command({
+        call: modelCall(
+          seat.run,
+          seat.session,
+          "mcl_01arz3ndektsv4rrffq69g5faz",
+        ),
+        applied_messages: [],
+        // 이 hash를 준비한 적이 없다.
+        blob_sizes: { input: 10, context_basis: 10 },
+        state_seq: "1",
+        timeout_ms: null,
+      }, { compare: { state_seq: "1" } }),
+    );
+    assert(started.status !== 200, JSON.stringify(started.body));
+    assertEquals(
+      count(world.server, "select count(*) as n from model_calls"),
+      0,
+    );
+    const requested = await call(
+      world.server,
+      "tool-calls/request",
+      MACHINE,
+      command({
+        id: "tcl_01arz3ndektsv4rrffq69g5fav",
+        run: seat.run,
+        model_call: "mcl_01arz3ndektsv4rrffq69g5fav",
+        response_key: "k1",
+        response_order: 0,
+        tool: "project.list",
+        definition_revision: "1",
+        effect: "read",
+        confirm: false,
+        extension: null,
+        input: "c".repeat(64),
+        input_size: 2,
+        retry_of: null,
+        attempt: 0,
+      }, { compare: { run_state_seq: "0", model_call_finished_seq: "0" } }),
+    );
+    assert(requested.status !== 200, JSON.stringify(requested.body));
+    assertEquals(
+      count(world.server, "select count(*) as n from tool_calls"),
+      0,
+    );
+  } finally {
+    await world.dispose();
+  }
+});

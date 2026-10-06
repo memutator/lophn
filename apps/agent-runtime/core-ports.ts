@@ -19,6 +19,7 @@ import {
   modelCallList,
   recordMessage,
   recordToolRequest,
+  RUN_BLOB_PURPOSES,
   runRead,
   startModelCall,
   type TokenUsage,
@@ -59,6 +60,7 @@ import type {
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import type { ModelBinding } from "./model-binding.ts";
+import { type BlobPort, storeValue } from "./run-blobs.ts";
 
 // agent loop의 port를 실제 core 호출로 잇는다(lophn-agent/harness/run-loop). 읽기와 기록은 machine
 // 자격의 loopback이고, tool 진입(판정의 approval 요청·소유 command)은 이 run의 agent 자격이다.
@@ -87,6 +89,9 @@ export type CorePortsDeps = {
   ids: IdSource;
   machine: CoreCall;
   agent: CoreCall;
+  // 기록이 hash로 가리키는 본문을 먼저 저장하는 통로와 전송 전 redaction.
+  blobs: BlobPort;
+  redact(text: string): string | null;
   model: ModelBinding;
   tools: ToolSetup;
   context(): Promise<Result<RunContext>>;
@@ -135,6 +140,8 @@ const UNKNOWN_COST: CallCost = {
 
 export function createCorePorts(deps: CorePortsDeps): CorePorts {
   const { seat, machine, agent, clock, ids } = deps;
+  const store = (purpose: string, value: unknown) =>
+    storeValue(deps.blobs, deps.redact, purpose, value);
   let attempts: number | undefined;
   let lastModelCall: string | null = null;
   const requests = new Map<string, CallRequest>();
@@ -222,6 +229,17 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       attempts = listed.value.calls.length;
     }
     attempts += 1;
+    // 요청과 조립 근거는 전송 전에 저장한다. 저장하지 못하면 보내지 않는다.
+    const inputBlob = await store(
+      RUN_BLOB_PURPOSES.model_call_input,
+      request.body,
+    );
+    if (!inputBlob.ok) return inputBlob;
+    const basisBlob = await store(
+      RUN_BLOB_PURPOSES.model_call_basis,
+      request.assembly.basis,
+    );
+    if (!basisBlob.ok) return basisBlob;
     const id = ids.newId("mcl");
     const startedAt = clock.now();
     const model = deps.model;
@@ -238,8 +256,8 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       retry_of: request.retry_of,
       credential_change_of: null,
       model: model.call,
-      input: request.assembly.input_hash,
-      context_basis: request.assembly.basis_hash,
+      input: inputBlob.value.hash,
+      context_basis: basisBlob.value.hash,
       output: null,
       state: "started" as const,
       started_at: startedAt,
@@ -257,6 +275,10 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       {
         call,
         applied_messages: request.applied,
+        blob_sizes: {
+          input: inputBlob.value.size,
+          context_basis: basisBlob.value.size,
+        },
         state_seq: "1",
         timeout_ms: null,
       },
@@ -272,8 +294,8 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       purpose: "judgment",
       model: model.call,
       endpoint: model.endpoint,
-      inputHash: request.assembly.input_hash,
-      contextBasisHash: request.assembly.basis_hash,
+      inputHash: inputBlob.value.hash,
+      contextBasisHash: basisBlob.value.hash,
       body: request.body,
       timeoutMs: model.timeoutMs,
       usageRevision: model.usageRevision,
@@ -299,19 +321,22 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     };
     const kept = output !== undefined &&
       (output.text.length > 0 || output.toolCalls.length > 0);
+    let outputBlob: { hash: string; size: number } | null = null;
+    if (kept || outcome.kind === "partial") {
+      const stored = await store(RUN_BLOB_PURPOSES.model_call_output, {
+        text: output?.text ?? "",
+        tools: output?.toolCalls ?? [],
+      });
+      if (!stored.ok) return stored;
+      outputBlob = stored.value;
+    }
     const finished = await commandOf(
       machine,
       finishModelCall,
       {
         call: id,
-        output: kept || outcome.kind === "partial"
-          ? await sha256Hex(
-            canonicalize({
-              text: output?.text ?? "",
-              tools: output?.toolCalls ?? [],
-            }),
-          )
-          : null,
+        output: outputBlob?.hash ?? null,
+        ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
         outcome,
         usage,
         cost,
@@ -353,6 +378,12 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     id: string,
     definition: ToolDefinition | undefined,
   ): Promise<Result<unknown>> {
+    // 인자는 redaction한 바이트를 blob으로 저장한 뒤 그 hash로 기록한다.
+    const inputBlob = await store(
+      RUN_BLOB_PURPOSES.tool_call_input,
+      call.input,
+    );
+    if (!inputBlob.ok) return inputBlob;
     return await commandOf(
       machine,
       recordToolRequest,
@@ -367,7 +398,8 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
         effect: definition?.effect ?? "read",
         confirm: definition?.confirm ?? false,
         extension: null,
-        input: await fingerprint(call.input),
+        input: inputBlob.value.hash,
+        input_size: inputBlob.value.size,
         retry_of: call.retry_of,
         attempt: call.attempt,
       },
@@ -481,15 +513,31 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     if (signal.aborted && outcome.outcome.kind === "failure") {
       // 중단 요청 뒤의 실패는 그대로 기록한다. 이미 보낸 효과는 결과 확인 경계가 본다.
     }
+    let outputBlob: { hash: string; size: number } | null = null;
+    if (outcome.outcome.kind === "success") {
+      const stored = await store(
+        RUN_BLOB_PURPOSES.tool_call_output,
+        outcome.result,
+      );
+      // 결과를 저장하지 못하면 확정 사실이 없다. 불명확으로 닫는다.
+      if (!stored.ok) {
+        return done(
+          id,
+          "uncertain",
+          "uncertain",
+          "the result could not be stored",
+        );
+      }
+      outputBlob = stored.value;
+    }
     const finished = await commandOf(
       machine,
       finishToolCall,
       {
         tool_call: id,
         outcome: outcome.outcome,
-        output: outcome.outcome.kind === "success"
-          ? await fingerprint(outcome.result)
-          : null,
+        output: outputBlob?.hash ?? null,
+        ...(outputBlob === null ? {} : { output_size: outputBlob.size }),
         result: outcome.result,
         finished_at: clock.now(),
         duration_ms: Math.max(0, clock.nowMs() - startedMs),
@@ -547,16 +595,22 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
   async function finish(request: FinishRequest) {
     const seq = await currentSeq();
     if (!seq.ok) return seq;
-    // 결과 hash는 확정한 사실의 지문이다. 본문 blob 보관은 이 hash를 가리키는 쪽이 한다.
-    const result = await sha256Hex(canonicalize({
+    // 결과는 확정한 사실이고 redaction한 바이트를 blob으로 저장한 뒤 그 hash로 끝낸다.
+    const result = await store(RUN_BLOB_PURPOSES.run_result, {
       outcome: request.outcome,
       facts: request.facts,
       limit: request.limit,
-    }));
+    });
+    if (!result.ok) return result;
     const finished = await commandOf(
       machine,
       finishRun,
-      { run: seat.run, outcome: request.outcome, result },
+      {
+        run: seat.run,
+        outcome: request.outcome,
+        result: result.value.hash,
+        result_size: result.value.size,
+      },
       { state_seq: seq.value },
       `${seat.run}:finish`,
     );

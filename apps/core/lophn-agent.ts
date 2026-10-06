@@ -64,6 +64,7 @@ import {
   createRunCommands,
   createRunReads,
   RUN_LIMIT_SETTING_KEYS,
+  runBodyFields,
   runSchemaSteps,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
@@ -581,6 +582,7 @@ export const lophnAgentDefinitions = {
   blobFields: [
     ...modelCallBodyFields,
     ...toolCallBodyFields,
+    ...runBodyFields,
     ...questionBodyFields,
     ...messageBodyFields,
     ...handoffBodyFields,

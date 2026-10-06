@@ -34,6 +34,7 @@ import { startCatalogRefresher } from "./catalog.ts";
 import { agentCall, machineCall } from "./core-http.ts";
 import type { CoreCall } from "./core-call.ts";
 import { readOf } from "./core-call.ts";
+import type { BlobPort } from "./run-blobs.ts";
 import { createCredentialLink } from "./credential-link.ts";
 import {
   createRunDriver,
@@ -47,6 +48,8 @@ export type CoreCalls = {
   machine: CoreCall;
   // run의 agent credential token으로 부르는 loopback.
   agentCall(token: string): CoreCall;
+  // 기록이 hash로 가리키는 본문을 감독 pipe로 core에 준비한다.
+  blobs: BlobPort;
 };
 
 export type Runtime = {
@@ -149,6 +152,21 @@ export async function startAgentRuntime(input: {
                 child.credentialUsable ? hello.credential : undefined,
               ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
             }),
+            blobs: {
+              async prepare(purpose, bytes) {
+                const prepared = await child.prepareBlob({
+                  purpose,
+                  sizeBytes: bytes.length,
+                  bytes,
+                });
+                return prepared.ok
+                  ? ok({
+                    hash: prepared.value.hash,
+                    size_bytes: prepared.value.size_bytes,
+                  })
+                  : prepared;
+              },
+            },
             agentCall: (token) =>
               agentCall({
                 port: hello.api_port,

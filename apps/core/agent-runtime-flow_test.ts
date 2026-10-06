@@ -319,6 +319,27 @@ Deno.test("lophn-agent/harness/run-loop#R8: 접수된 run이 selector 선택부�
       clock,
       ids,
       machine,
+      // 감독 pipe의 blob 준비를 대신한다. 준비 주체는 machine credential의 principal이다.
+      blobs: {
+        async prepare(purpose, bytes) {
+          const prepared = await core.prepareBlob({
+            principal: "machine",
+            purpose,
+            bytes: new ReadableStream({
+              start(controller) {
+                controller.enqueue(bytes);
+                controller.close();
+              },
+            }),
+          });
+          return prepared.ok
+            ? ok({
+              hash: prepared.value.hash,
+              size_bytes: prepared.value.size_bytes,
+            })
+            : prepared;
+        },
+      },
       agentCall: (token) => agentCall({ port: core.port, token }),
       resolveModel: ({ preset }) =>
         Promise.resolve(ok({
@@ -416,6 +437,97 @@ Deno.test("lophn-agent/harness/run-loop#R8: 접수된 run이 selector 선택부�
     const requests = provider.requests();
     assertEquals(requests.length, 2);
     assert(JSON.stringify(requests[1]!.body).includes("tool_result"));
+
+    // 기록이 가리키는 hash는 모두 저장된 blob이다: 영구 참조가 있고 저장소의 바이트가 hash·크기와 맞는다.
+    const refs = inspect(
+      server,
+      "select owner_kind, owner_key, field, hash, size_bytes from blob_refs where owner_kind in ('run', 'model_call', 'tool_call')",
+      [],
+    );
+    const byOwner = (owner: string, field: string) =>
+      refs.filter((ref) =>
+        ref["owner_kind"] === owner && ref["field"] === field
+      );
+    assertEquals(byOwner("run", "basis").length, 1);
+    assertEquals(byOwner("run", "result").length, 1);
+    assertEquals(byOwner("model_call", "input").length, 2);
+    assertEquals(byOwner("model_call", "context_basis").length, 2);
+    assertEquals(byOwner("model_call", "output").length, 2);
+    assertEquals(byOwner("tool_call", "input").length, 1);
+    assertEquals(byOwner("tool_call", "output").length, 1);
+    assertEquals(refs.length, 10);
+    for (const ref of refs) {
+      const hash = String(ref["hash"]);
+      const bytes = await Deno.readFile(
+        `${core.dataRoot}/blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`,
+      );
+      assertEquals(bytes.length, Number(ref["size_bytes"]));
+      const digest = new Uint8Array(
+        await crypto.subtle.digest("SHA-256", bytes),
+      );
+      assertEquals(
+        Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join(
+          "",
+        ),
+        hash,
+      );
+    }
+    // 열에 남은 hash가 곧 그 참조의 hash다.
+    const hashes = new Set(
+      refs.map((ref) => `${ref["owner_key"]}/${ref["field"]}/${ref["hash"]}`),
+    );
+    const column = (
+      sql: string,
+      owner: string,
+      field: string,
+      params: string[],
+    ) => {
+      for (const row of inspect(server, sql, params)) {
+        assert(
+          hashes.has(`${row["id"]}/${field}/${row["value"]}`),
+          `${owner}.${field} ${row["id"]}`,
+        );
+      }
+    };
+    column("select id, basis as value from runs where id = ?", "run", "basis", [
+      run,
+    ]);
+    column(
+      "select id, result as value from runs where id = ?",
+      "run",
+      "result",
+      [run],
+    );
+    column(
+      "select id, input as value from model_calls where run = ?",
+      "model_call",
+      "input",
+      [run],
+    );
+    column(
+      "select id, context_basis as value from model_calls where run = ?",
+      "model_call",
+      "context_basis",
+      [run],
+    );
+    column(
+      "select id, output as value from model_calls where run = ?",
+      "model_call",
+      "output",
+      [run],
+    );
+    column(
+      "select id, input as value from tool_calls where run = ?",
+      "tool_call",
+      "input",
+      [run],
+    );
+    column(
+      "select id, output as value from tool_calls where run = ?",
+      "tool_call",
+      "output",
+      [run],
+    );
   } finally {
     await provider.close();
     await core.shutdown();

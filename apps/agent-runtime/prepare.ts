@@ -10,6 +10,7 @@ import {
   assignmentRead,
   finishRun,
   presetRead,
+  RUN_BLOB_PURPOSES,
   runRead,
   sessionRead,
   startRun,
@@ -41,6 +42,7 @@ import {
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
+import { type BlobPort, storeValue } from "./run-blobs.ts";
 import type { DriveDeps, PreparedRun } from "./run-driver.ts";
 
 // 선택한 run을 시작하기 전의 재료를 core 기록에서 모은다(lophn-agent/harness/run-loop). assignment와
@@ -80,6 +82,8 @@ export type PreparerDeps = {
   product: string;
   rolePrompt(role: string): Promise<Result<string>>;
   instructions: InstructionDeps;
+  // run 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
+  blobs: BlobPort;
   skills?(): Promise<readonly SkillEntry[]>;
   timezone?(): string | null;
   redact?: (text: string) => string | null;
@@ -186,29 +190,36 @@ export function createRunPreparer(
       if (session.ok) place = session.value.session.work_place as WorkPlace;
     }
 
-    const basis = await fingerprint({
-      preset: {
-        id: preset.id,
-        revision: preset.revision,
-        snapshot_hash: preset.definition_hash,
-        basis_seq: run.value.as_of_seq,
+    // run 근거는 영구 참조다. 저장한 바이트의 hash로 StartRun에 싣는다.
+    const basis = await storeValue(
+      deps.blobs,
+      deps.instructions.redact,
+      RUN_BLOB_PURPOSES.run_basis,
+      {
+        preset: {
+          id: preset.id,
+          revision: preset.revision,
+          snapshot_hash: preset.definition_hash,
+          basis_seq: run.value.as_of_seq,
+        },
+        assignment: {
+          id: assignment.id,
+          revision: assignment.revision,
+          snapshot_hash: await fingerprint(assignment),
+          basis_seq: run.value.as_of_seq,
+        },
+        tools: {
+          revision: "1",
+          definitions_hash: await fingerprint(
+            listed.map((tool) => [tool.name, tool.revision]),
+          ),
+        },
+        models: { judgment: model.value.call, organizing: model.value.call },
+        initial_work_place: place,
+        limits: limits.value,
       },
-      assignment: {
-        id: assignment.id,
-        revision: assignment.revision,
-        snapshot_hash: await fingerprint(assignment),
-        basis_seq: run.value.as_of_seq,
-      },
-      tools: {
-        revision: "1",
-        definitions_hash: await fingerprint(
-          listed.map((tool) => [tool.name, tool.revision]),
-        ),
-      },
-      models: { judgment: model.value.call, organizing: model.value.call },
-      initial_work_place: place,
-      limits: limits.value,
-    });
+    );
+    if (!basis.ok) return basis;
     const seat: RunSeat = {
       run: selection.run,
       assignment: selection.assignment,
@@ -227,7 +238,8 @@ export function createRunPreparer(
         run: selection.run,
         assignment: selection.assignment,
         stateSeq: selection.stateSeq,
-        basis,
+        basis: basis.value.hash,
+        basisSize: basis.value.size,
         limits: limits.value,
         scope: scope.value,
       },
@@ -238,6 +250,9 @@ export function createRunPreparer(
           {
             run: input.run,
             basis: input.basis,
+            ...(input.basisSize === undefined
+              ? {}
+              : { basis_size: input.basisSize }),
             limits: input.limits,
             scope: input.scope,
           },
@@ -294,6 +309,8 @@ export function createRunPreparer(
           ids,
           machine,
           agent,
+          blobs: deps.blobs,
+          redact: deps.instructions.redact,
           model: model.value,
           tools: {
             listed,
@@ -342,13 +359,21 @@ export function createRunPreparer(
     async closeUnusable(selection) {
       const run = await readOf(machine, runRead, { run: selection.run });
       if (!run.ok) return;
+      const result = await storeValue(
+        deps.blobs,
+        deps.instructions.redact,
+        RUN_BLOB_PURPOSES.run_result,
+        { run: selection.run, why: "credential" },
+      );
+      if (!result.ok) return;
       await commandOf(
         machine,
         finishRun,
         {
           run: selection.run,
           outcome: { kind: "failed", reason: "configuration_unavailable" },
-          result: await fingerprint({ run: selection.run, why: "credential" }),
+          result: result.value.hash,
+          result_size: result.value.size,
         },
         { state_seq: run.value.run.state_seq },
         `${selection.run}:finish:credential`,

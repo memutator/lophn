@@ -1,3 +1,4 @@
+import { blobSizeSchema } from "./run-blobs.ts";
 import { z } from "zod";
 import {
   defineCommand,
@@ -46,6 +47,11 @@ const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 export const startModelCallInputSchema = z.strictObject({
   call: modelCallRecordSchema.strict(),
   applied_messages: z.array(idSchema("msg")),
+  // 준비한 input·context_basis blob의 크기. 있으면 command가 영구 참조를 등록한다.
+  blob_sizes: z.strictObject({
+    input: blobSizeSchema,
+    context_basis: blobSizeSchema,
+  }).optional(),
   state_seq: seqSchema,
   timeout_ms: z.literal(MODEL_CALL_TEST_TIMEOUT_MS).nullable(),
 }).refine(
@@ -62,6 +68,8 @@ export const modelCallCompareSchema = z.strictObject({ state_seq: seqSchema });
 export const finishModelCallInputSchema = z.strictObject({
   call: idSchema("mcl"),
   output: sha256Schema.nullable(),
+  // 준비한 output blob의 크기. 있으면 command가 영구 참조를 등록한다.
+  output_size: blobSizeSchema.optional(),
   outcome: modelOutcomeSchema,
   usage: tokenUsageSchema,
   cost: callCostOutputSchema,

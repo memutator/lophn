@@ -82,6 +82,8 @@ export function failurePathDefinition(code: string): CheckDefinition {
 export const REDACTION_CANARY = "lophn-canary-secret-0123456789";
 // 선언하지 않은 code. 동적 검사가 SDK에 직접 보내 거절을 확인한다.
 export const UNDECLARED_PROBE_CODE = "undeclared_probe_code";
+// 화면 검사 host가 판정하지 못했을 때 view 검사 frame의 evidence.view_host 값.
+export const VIEW_HOST_INCONCLUSIVE = "inconclusive";
 
 // 통과가 증명하는 범위(problems/tests#R12). 검사마다 고정 기준과 입력 범위를 runner의
 // 설치 자료로 두고, observations는 이것을 인접 불변식과 따로 적는다.

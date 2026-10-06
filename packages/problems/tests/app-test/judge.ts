@@ -3,7 +3,10 @@ import type {
   TestResult,
 } from "../../../contracts/problems/mod.ts";
 import { canonicalHash } from "../canonical.ts";
-import { isFailurePathName } from "../harness/definitions.ts";
+import {
+  isFailurePathName,
+  VIEW_HOST_INCONCLUSIVE,
+} from "../harness/definitions.ts";
 import type { AppTestPlan, PlanCheck } from "./generate.ts";
 
 export type AdjacentObservation = { name: string; held: boolean };
@@ -225,6 +228,22 @@ export function judgeAppTest(input: {
   }
   const failed = checks.filter((check) => check.status === "fail");
   const value = observations(checks);
+  // 화면 검사 host가 판정하지 못했으면 fail이 아니라 판정 불가다(problems/tests#R7).
+  const unjudged = plan.checks.filter((check) => {
+    const actual = actuals[check.name] as Record<string, unknown> | undefined;
+    return check.source === "harness" &&
+      actual?.view_host === VIEW_HOST_INCONCLUSIVE;
+  });
+  if (unjudged.length > 0) {
+    return {
+      result: "inconclusive",
+      reason: `화면 검사 host가 판정하지 못했다: ${
+        unjudged.map((check) => check.name).join(", ")
+      }`,
+      observations: value,
+      actuals,
+    };
+  }
   if (failed.length > 0) {
     return {
       result: "fail",

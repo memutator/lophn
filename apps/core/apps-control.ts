@@ -414,6 +414,11 @@ export function appCredentialIssuer(
 export const SUPERVISOR_CREDENTIAL_OPERATIONS = SUPERVISOR_OPERATIONS;
 
 function denoDir(): string {
+  let configured: string | undefined;
+  try {
+    configured = Deno.env.get("DENO_DIR");
+  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
+  if (configured) return configured;
   const home = Deno.env.get("HOME");
   return home ? `${home}/.cache/deno` : "/tmp";
 }

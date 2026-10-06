@@ -13,6 +13,10 @@ import {
 } from "./problems.ts";
 import { ticketDefinitions } from "./tickets.ts";
 import { productKeychain } from "./secret-store.ts";
+import {
+  credentialLoaderIdentity,
+  serveCredentialSocket,
+} from "../../packages/platform/install-and-update/mod.ts";
 
 // 최상위 팀마다 등록 파일 하나. main은 이 목록만 부른다.
 const TEAMS = [
@@ -51,9 +55,10 @@ const started = await startCore({
     new URL("./tickets.ts", import.meta.url).href,
   ],
   parent,
-  // coding agent connection credential은 OS keychain에 둔다. loader identity 목록은 설치 쪽이 정하면
-  // 채운다(그 전에는 child를 등록할 수 없어 보호 전달이 열리지 않는다).
+  // coding agent connection credential은 OS keychain에 둔다. 보호 loader는 설치 묶음의 helper
+  // `lophn-credential` 하나이고 identity는 그 고정 절대 경로다(Linux .deb. 다른 OS는 platform#T49).
   codingKeychain: productKeychain(),
+  codingLoaders: [credentialLoaderIdentity()],
 });
 if (!started.ok) {
   console.error(`core: ${started.error.message}`);
@@ -61,11 +66,22 @@ if (!started.ok) {
 }
 const core = started.value;
 
-Deno.addSignalListener(
-  "SIGINT",
-  () => void core.shutdown().then(() => Deno.exit(0)),
-);
-Deno.addSignalListener(
-  "SIGTERM",
-  () => void core.shutdown().then(() => Deno.exit(0)),
-);
+// 보호 통로: helper가 이어 주는 소유자 전용 unix socket(Linux). 열지 못해도 core는 시작하고,
+// coding credential 전달만 unavailable로 남는다(secrets#R12).
+const credentialSocket = Deno.build.os === "linux" && core.codingCredentials
+  ? await serveCredentialSocket({
+    dataRoot: core.dataRoot,
+    authority: core.codingCredentials.authority,
+  })
+  : undefined;
+if (credentialSocket !== undefined && !credentialSocket.ok) {
+  console.error("core: credential socket unavailable");
+}
+const closeCredentialSocket = () =>
+  credentialSocket?.ok ? credentialSocket.value.close() : Promise.resolve();
+void core.done.then(closeCredentialSocket);
+
+const stop = () =>
+  void core.shutdown().then(closeCredentialSocket).then(() => Deno.exit(0));
+Deno.addSignalListener("SIGINT", stop);
+Deno.addSignalListener("SIGTERM", stop);

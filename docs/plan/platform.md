@@ -1068,6 +1068,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 실제 build·설치·기동·앱 호출·backup restore를 Ubuntu에서 확인하기 전에는 Linux 배포를 사용 가능으로 표시하지 않는다(R1 Linux).
   - 이어받음: apps#T4가 넘긴 platform#T47의 doctor 관측 교체. grant 위험 read(`app·kind·file·network·broad·last_used_at`)와 SDK hash read가 contracts에 생기고 apps#T13이 grant 사용 시각을 남긴 뒤, `apps/worker/platform/doctor.ts`의 관측 파일(grants.json, sdk.json)을 그 read로 바꾸고 core.ts에 doctor·diagnostics source를 연결한다. 미관측을 미사용으로 단정하지 않는다(check/platform#Q21)
   - flow install-lophn E2E 단계(Linux)
+- 정한 것(T48): 배치는 architecture/platform 3.1이다(`sdk`는 `platform/packages/sdk` 링크, `skills/`는 `packages/coding-agent/guides/skills`가 생기기 전까지 빈 자리). 묶음은 `tools/package-linux.ts`(electron-builder `--linux dir` → `dpkg-deb`; fpm·system Deno 없음)가 만들고 `tools/verify-linux-install.ts`가 설치된 묶음을 확인한다. helper `lophn-credential`은 keychain을 열지 않고 core의 소유자 전용 unix socket(`H/run/credential.sock`)으로 요청을 건네는 relay이며, 그 연결이 Linux `ProtectedChannel`이다(`packages/platform/install-and-update/credential-*.ts`). Linux 배포는 **미검증**이다: root 소유 4755 설치와 실제 sandbox 확인(`tools/verify-linux-install.ts`가 Ubuntu 24.04+ 설치에서 통과하고 `deno task e2e install-lophn`이 돌기 전)은 이 환경에서 설치할 수 없어 하지 못했고, 풀어 놓은 묶음에서 배치·cached-only 시작·cache 삭제·helper 왕복·CLI/MCP 시작까지만 확인했다. shell#T57의 packaged 경로(`resources/bin`·`resources/core` 가정, `stage.ts`의 `__dirname`, `package.json`의 `main`, electron-builder 설정 오류, core flag의 `::1`·sys 권한)를 이 작업이 맞췄다. 문서 format runner의 wasm 위치(`packages/documents/formats/guest/contract.ts`)와 child의 Deno cache 위치(`DENO_DIR`)도 설치 묶음에 맞게 더했다
+- coding-agent#T36으로 넘김: 실제 설치에서 MCP·CLI child가 token을 받는 양성 경로(등록된 child가 있어야 한다)는 connection 생성 입구와 child generation 등록(T36·T38) 뒤에 확인한다. production provider는 `/opt/lophn/lophn-credential`을 stdin `CredentialDeliveryRequest`로 부르고 stdout `{"token"}`·실패 `{"reason"}`(종료 1)을 읽는다. `apps/cli`·`apps/mcp`의 daemon 주소 발견·core 연결은 아직 뼈대라 설치 확인은 launcher 시작과 MCP initialize 응답까지다
 
 ### T49 macOS·Windows 설치 묶음과 OS adapter
 
@@ -1080,6 +1082,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - slice: operations
 - 선행: platform#T48, shell#T57
 - platform#T34에서 넘어온 것: macOS·Windows의 `ProtectedChannel` 구현과 `lophn-credential` binary·loader identity, keychain adapter의 `listRefs`(시작 때 고아 정리, Linux는 `secret-tool search`로 구현됨)와 잠김 구별(`details.reason: "locked"`)
+- platform#T48에서 넘어온 것: Linux 보호 통로는 core의 소유자 전용 unix socket과 relay helper(`credential-channel.ts`·`credential-helper.ts`)다. macOS는 같은 socket을 쓸 수 있고 Windows는 같은 모양을 named pipe·소유자 ACL로 만든다. `electron-builder.yml`은 Linux만 `dir` 대상으로 정리했고 mac·win 설정과 `scripts/stage.ts`(`__dirname` 오류가 남은 채 Linux 묶음은 쓰지 않는다)는 T57 그대로라, 그 OS 묶음은 `tools/package-linux.ts`와 같은 모양의 build 도구가 필요하다
 - 완료: 아래 확인이 통과한다
   - macOS `Lophn.app/Contents/Resources/`, Windows `Lophn/resources/` 묶음, 서명·공증 검증
   - macOS Keychain·Windows Credential Manager adapter, Windows Job Object 자식 종료, 감독 frame 통로 동작(→ Q2), 소유자 전용 ACL 검사

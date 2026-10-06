@@ -546,6 +546,9 @@ async function open(
       // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
       ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
       ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+      ...(Deno.env.get("DENO_DIR")
+        ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
+        : {}),
       // I/O worker의 secret-tool이 session bus를 찾는 데 필요한 주소만이다. secret 값이 아니다.
       ...(kind === "platform/io" ? sessionBusEnv() : {}),
     }),
@@ -2044,6 +2047,12 @@ function repoRoot(): string {
 }
 
 function denoDir(): string {
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
+  let configured: string | undefined;
+  try {
+    configured = Deno.env.get("DENO_DIR");
+  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
+  if (configured) return configured;
   const home = Deno.env.get("HOME");
   return home ? `${home}/.cache/deno` : "/tmp";
 }

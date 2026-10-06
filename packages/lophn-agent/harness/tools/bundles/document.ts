@@ -33,6 +33,7 @@ import {
 } from "../../../../contracts/lophn-agent/mod.ts";
 import { archiveStateSchema } from "../../../../contracts/platform/mod.ts";
 import { fitJson, limitText, PAGE_SIZE } from "../result.ts";
+import { createReadLog, type ReadLog } from "./read-log.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";
 import {
@@ -295,27 +296,20 @@ function rangeText(
     : ranges.map((range) => `${range.start_line}-${range.end_line}`).join(",");
 }
 
-// 이 run이 실제로 읽은 고정 판의 기록이다. 본문을 받은 읽기만 센다. 재시작하면 비어 새로 읽어야
-// 한다(fail closed).
-const READ_LOG_CAP = 500;
-
-function readKey(document: string, version: string): string {
-  return `${document}@${version}`;
-}
-
 type Evidence = {
   relied_on: { document: string; version: string }[];
   missing: string[];
 };
 
 function evidenceOf(
-  log: ReadonlySet<string> | undefined,
+  run: string,
+  reads: ReadLog,
   evidence: Evidence | undefined,
 ) {
   const read: Evidence["relied_on"] = [];
   const notRead: Evidence["relied_on"] = [];
   for (const reference of evidence?.relied_on ?? []) {
-    (log?.has(readKey(reference.document, reference.version)) ? read : notRead)
+    (reads.has(run, reference.document, reference.version) ? read : notRead)
       .push(reference);
   }
   const missing = evidence?.missing ?? [];
@@ -330,22 +324,10 @@ function evidenceOf(
 
 export function createDocumentToolHandlers(
   ports: DocumentToolPorts,
+  reads: ReadLog = createReadLog(),
 ): ReadonlyMap<string, ToolHandler> {
   const handlers = new Map<string, ToolHandler>();
-  const logs = new Map<string, Set<string>>();
-
-  function remember(run: string, document: string, version: string): void {
-    let log = logs.get(run);
-    if (log === undefined) {
-      log = new Set();
-      logs.set(run, log);
-    }
-    if (log.size >= READ_LOG_CAP) {
-      const oldest = log.values().next().value;
-      if (oldest !== undefined) log.delete(oldest);
-    }
-    log.add(readKey(document, version));
-  }
+  const remember = reads.remember;
 
   handlers.set(
     documentListTool.name,
@@ -729,11 +711,10 @@ export function createDocumentToolHandlers(
     },
     credential: RunCredential,
   ): Promise<Result<ToolResult>> {
-    const log = logs.get(credential.run);
     // 읽지 않은 기준 위에는 쓰지 않는다. 사람이 그 뒤 고친 판과의 충돌은 documents가 CAS로 막는다.
     if (
       request.base_version !== null && request.document !== null &&
-      log?.has(readKey(request.document, request.base_version)) !== true
+      !reads.has(credential.run, request.document, request.base_version)
     ) {
       return invalid("the base version was not read in this run");
     }
@@ -748,7 +729,7 @@ export function createDocumentToolHandlers(
       format: request.format,
       idempotency_key: key,
     }, credential.run);
-    const evidence = evidenceOf(log, request.evidence);
+    const evidence = evidenceOf(credential.run, reads, request.evidence);
     if (!sent.ok) {
       // 응답이 없으면 접수·확정 어느 쪽도 알 수 없다. 완료로도 실패로도 보이지 않는다.
       if (sent.error.code === "unavailable") {

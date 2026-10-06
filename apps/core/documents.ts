@@ -386,9 +386,9 @@ export function createLedgerRegistration(
       commands.archive,
       commands.unarchive,
       versions.save,
-      versions.restore,
+      dispatchableByContract(versions.restore),
       versions.update,
-      versions.archive,
+      dispatchableByContract(versions.archive),
       versions.unarchive,
       fileCommands.recordResult,
       // 사람이 허락한 approval 적용(apply_approved_action)이 같은 transaction에서 부를 수 있다.

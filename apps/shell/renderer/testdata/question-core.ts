@@ -359,7 +359,6 @@ async function seed(): Promise<void> {
       contracts.approvalBinding({ ...draft, binding_hash: "ab".repeat(32) }),
     ),
   };
-  const hash = (text: string) => base.sha256Hex(new TextEncoder().encode(text));
   await post(
     "approvals/create",
     command(
@@ -367,12 +366,12 @@ async function seed(): Promise<void> {
         id: SEED_APPROVAL,
         requester: draft.caller,
         run: null,
-        reason_blob: await hash("Start the release before review"),
+        reason: "Start the release before review",
         effect: {
-          changes_blob: await hash("Starts one release"),
-          external_blob: null,
+          changes: "Starts one release",
+          external: null,
           reversible: false,
-          reversibility_blob: await hash("A started release can't be undone"),
+          reversibility: "A started release can't be undone",
         },
         action,
         expires_at: null,

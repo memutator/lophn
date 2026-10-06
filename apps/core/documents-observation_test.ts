@@ -9,6 +9,7 @@ import { previewTracking } from "../../packages/documents/projects/work.ts";
 import { directoryScanner } from "../../packages/documents/projects/scan.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const PROJECT = "prj_01kq12a1pha000000000000000";
 const TOKEN = "d".repeat(43);
@@ -85,6 +86,9 @@ async function startCoreAt(
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+  });
   const core = started.value;
   const context = {
     principal: "user",
@@ -114,6 +118,7 @@ async function startCoreAt(
     const recorded = await core.record(context);
     assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
   }
+  guard.keep();
   return core;
 }
 
@@ -135,6 +140,11 @@ async function openTrackedFolder(
     await Deno.writeTextFile(`${folder}/${name}`, text);
   }
   const core = await startCoreAt(home, "cred_observe_person");
+  await using guard = closeUnlessKept(async () => {
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(folder, { recursive: true });
+  });
   // 사람이 프로젝트를 만들고 tracking을 켠다. 미리보기는 준비 worker가 아직 없어
   // (documents#T11 남은 것) 같은 계산을 시험이 직접 하고, 적용 command는 실제로 낸다.
   const created = await post(core, "projects/create", {
@@ -173,6 +183,7 @@ async function openTrackedFolder(
     prepared: [],
   });
   assertEquals(applied.status, 200, JSON.stringify(applied.body));
+  guard.keep();
   return { core, home, folder };
 }
 

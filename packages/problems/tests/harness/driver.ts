@@ -34,6 +34,62 @@ export type InvokeResult = {
   reports: ReceivedReport[];
 };
 
+export type MigrationScenario = "empty" | "upgrade";
+
+// 고정 fixture DB에서 돌린 migration 한 번의 결과. 빈 DB 전체 migration은 schema 0에서,
+// 이전 release schema는 이전 release의 schema에서 시작한다(problems/tests#R8).
+export type MigrationRun = {
+  ok: boolean;
+  from_schema: number;
+  data_schema: number;
+  integrity_ok: boolean;
+  // 중간 실패로 첫 변경 전 backup으로 되돌렸으면 true다(apps/data#R7).
+  restored: boolean;
+  reason: string;
+};
+
+// read command 한 번을 fixture에서 불러 본 관측. 상태는 hash로만 주고받는다.
+export type ReadProbe = {
+  // 입력 계약을 어긴 입력이 거절됐는지.
+  invalid_input_rejected: boolean;
+  business_before: string;
+  business_after: string;
+  external_effects: number;
+};
+
+export type AutomationRun = {
+  ran: boolean;
+  approvals_used: number;
+  reason: string;
+};
+
+export type SecretOperation = "import" | "write" | "sync";
+export type SecretUseResult = {
+  allowed: boolean;
+  approvals_requested: number;
+};
+
+// net·secret·문서 쓰기가 닿은 곳. 고정 대역이 받은 요청과, 대역 밖으로 나간 접속이다.
+export type AdapterEffects = {
+  net: { host: string; port: number }[];
+  secret_uses: { name: string }[];
+  document_writes: { key: string }[];
+  real_connections: string[];
+};
+
+export type ChangeResult = {
+  ok: boolean;
+  // 변경에 묶인 되돌림 자료. 되돌릴 수 없으면 null이다.
+  revert: string | null;
+  state_after: string;
+};
+
+export type RevertResult = {
+  ok: boolean;
+  code: "conflict" | "already_reverted" | "invalid_input" | null;
+  state_after: string;
+};
+
 export type ViewDriver = {
   exception(): Promise<ReceivedReport[]>;
   feedback(): Promise<ReceivedReport[]>;
@@ -60,7 +116,42 @@ export type AppDriver = {
   attemptDenied(): Promise<{ denied: boolean; reason: string }>;
   // 화면 있는 bundle의 화면 검사 host. 없으면 띄울 수 없다.
   view: ViewDriver | null;
+  // 고정 fixture DB의 migration. 빈 DB 전체와 이전 release schema → 새 schema다.
+  migrate(scenario: MigrationScenario): Promise<MigrationRun>;
+  // read command를 fixture에서 잘못된 입력과 정상 입력으로 불러 본다.
+  probeRead(command: string): Promise<ReadProbe>;
+  // 선언한 automation을 실행한다. approval은 사람이 켤 때 한 번 하는 승인이다.
+  runAutomation(
+    key: string,
+    approval: "none" | "once",
+  ): Promise<AutomationRun>;
+  // confirm command를 automation으로 실행하려 하고 거절됐는지 돌려준다.
+  attemptConfirmAutomation(
+    command: string,
+  ): Promise<{ refused: boolean; reason: string }>;
+  // grant된 secret을 대역으로 쓴다. caller는 사람이 부른 command나 automation이다.
+  useSecret(input: {
+    name: string;
+    operation: SecretOperation;
+    caller: "command" | "automation";
+  }): Promise<SecretUseResult>;
+  // 외부에 닿는 command를 대역으로만 실행하고 닿은 곳을 돌려준다.
+  exerciseAdapters(): Promise<AdapterEffects>;
+  // 업무 데이터의 현재 상태 hash.
+  businessState(): Promise<string>;
+  // 되돌리기를 지원하는 write command를 fixture 입력으로 한 번 실행한다.
+  change(command: string): Promise<ChangeResult>;
+  revert(token: string): Promise<RevertResult>;
 };
+
+export type PlanCommand = {
+  key: string;
+  effect: "read" | "write" | "external";
+  confirm: boolean;
+  revert: { supported: boolean; command?: string };
+};
+
+export type PlanAutomation = { key: string; command: string };
 
 export type HarnessPlanCheck = CheckDefinition & {
   digest: string;
@@ -75,5 +166,14 @@ export type HarnessPlan = {
   declared_codes: string[];
   commands: string[];
   has_view: boolean;
+  command_details: PlanCommand[];
+  automations: PlanAutomation[];
+  // 선언한 secret.use 이름. 사람이 grant한 것으로 대역이 받는다.
+  secrets: string[];
+  // 선언한 net.fetch 목적지와 document.save key. 대역이 받을 수 있는 곳이다.
+  net: { host: string; port: number }[];
+  documents: string[];
+  // 새 bundle의 data schema(0은 DB 미사용)와 이전 release의 schema.
+  data: { schema: number; previous_schema: number | null };
   checks: HarnessPlanCheck[];
 };

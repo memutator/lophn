@@ -101,7 +101,12 @@ export type UploadHandler = (
 // file·worker route가 등록된 worker kind의 감독 pipe로 넘기는 통로. 준비 여부·기한·응답
 // 상한은 route마다 등록값이고 응답 envelope는 core가 해석하지 않는다(platform#T12).
 export type WorkerRouteTarget = {
-  forward(request: WorkerRequest): Promise<Result<WorkerResponse, LophnError>>;
+  forward(
+    request: WorkerRequest,
+    bytes?: Uint8Array,
+  ): Promise<Result<WorkerResponse, LophnError>>;
+  // 바이트 body를 받는 worker route의 상한. 없으면 JSON body만 받는다.
+  requestBytesMax?: number;
 };
 
 export type WorkerTargets = ReadonlyMap<string, WorkerRouteTarget>;
@@ -223,6 +228,22 @@ export async function dispatchHttp(
       return await upload(request, route, ctx, deps);
     } catch (thrown) {
       return rejected(asInternalError(thrown));
+    }
+  }
+  if (isWorkerRoute(route)) {
+    const target = deps.workers?.get(routeKey(route));
+    if (target?.requestBytesMax !== undefined && isByteBody(request)) {
+      try {
+        return await workerWithBytes(
+          request,
+          route,
+          target.requestBytesMax,
+          ctx,
+          deps,
+        );
+      } catch (thrown) {
+        return rejected(asInternalError(thrown));
+      }
     }
   }
   const maxBytes = deps.bodyLimit?.(route) ?? deps.jsonMaxBytes;
@@ -579,6 +600,8 @@ async function worker(
   confirmation: string | undefined,
   ctx: AuthenticatedContext,
   deps: DispatchDeps,
+  // 바이트 body를 함께 받는 요청의 읽기. 범위·대상 검사를 통과한 뒤에만 부른다.
+  readBytes?: () => Promise<Result<Uint8Array, RequestFailure>>,
 ): Promise<HttpResult> {
   const parsed = route.input.safeParse(value);
   if (!parsed.success) {
@@ -607,13 +630,19 @@ async function worker(
     );
     if (!consumed.ok) return rejected(consumed.error);
   }
+  let bytes: Uint8Array | undefined;
+  if (readBytes !== undefined) {
+    const read = await readBytes();
+    if (!read.ok) return fromFailure(read.error);
+    bytes = read.value;
+  }
   const envelope: WorkerRequest = {
     type: "worker_request",
     request_id: `${ctx.credential_ref}/${deps.clock.nowMs()}`,
     op: route.name,
     payload: parsed.data,
   };
-  const answer = await target.forward(envelope);
+  const answer = await target.forward(envelope, bytes);
   if (!answer.ok) return rejected(answer.error);
   const response = answer.value;
   if (response.request_id !== envelope.request_id) {
@@ -625,6 +654,38 @@ async function worker(
     return rejected(asInternalError(new Error("worker output")));
   }
   return { status: 200, json: output.data };
+}
+
+function isByteBody(request: Request): boolean {
+  const type = request.headers.get("content-type");
+  return type !== null &&
+    type.split(";", 1)[0].trim().toLowerCase() === UPLOAD_TYPE;
+}
+
+// 바이트 body를 받는 worker route. upload와 같은 모양(입력은 header의 base64url JSON, body는
+// octet-stream)이고, core는 바이트를 해석하지 않고 worker로 중계만 한다.
+async function workerWithBytes(
+  request: Request,
+  route: WorkerRoute,
+  maxBytes: number,
+  ctx: AuthenticatedContext,
+  deps: DispatchDeps,
+): Promise<HttpResult> {
+  const encoded = request.headers.get(UPLOAD_INPUT_HEADER);
+  const decoded = encoded === null ? undefined : decodeInputHeader(encoded);
+  if (decoded === undefined) {
+    return rejected({ code: "invalid_input", message: "invalid worker body" });
+  }
+  const input = parseLimitedJson(decoded);
+  if (!input.ok) return fromFailure(input.error);
+  return await worker(
+    route,
+    input.value,
+    undefined,
+    ctx,
+    deps,
+    () => readLimitedBody(request, { maxBytes, timeoutMs: deps.bodyTimeoutMs }),
+  );
 }
 
 export function registeredPath(

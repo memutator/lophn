@@ -407,6 +407,52 @@ Deno.test("platform/identity#R3 platform/diagnostics#R2: main↔core의 hello·r
     );
   }
 });
+Deno.test("platform/backup-and-migration#R13: 복원 통로는 main→core 요청과 core→main 응답으로 나뉘고 정해진 field만 받는다", () => {
+  const at = "2024-01-02T03:04:05.000Z";
+  const requests = [
+    { type: "restore_plan_request", created_at: at },
+    { type: "restore_request", created_at: at, confirmation: "c".repeat(43) },
+  ];
+  const responses = [
+    {
+      type: "restore_plan",
+      created_at: at,
+      through_seq: "2",
+      current_through_seq: "4",
+      lost: { from_seq: "3", through_seq: "4", events: 2 },
+      target: at,
+      content_hash: "a".repeat(64),
+    },
+    {
+      type: "restore_result",
+      created_at: at,
+      restored_through_seq: "2",
+      previous_through_seq: null,
+    },
+    {
+      type: "restore_failed",
+      stage: "restore",
+      created_at: at,
+      code: "unavailable",
+      message: "복원하지 못했다",
+      restarted: true,
+    },
+  ];
+  for (const value of requests) {
+    assert(mainToCoreMessageSchema.safeParse(value).success);
+    assert(!coreToMainMessageSchema.safeParse(value).success);
+    assert(
+      !mainToCoreMessageSchema.safeParse({ ...value, extra: true }).success,
+    );
+  }
+  for (const value of responses) {
+    assert(coreToMainMessageSchema.safeParse(value).success);
+    assert(!mainToCoreMessageSchema.safeParse(value).success);
+    assert(
+      !coreToMainMessageSchema.safeParse({ ...value, extra: true }).success,
+    );
+  }
+});
 Deno.test("platform/identity#R2 platform/identity#R6: launch spec 권한·메모리 방식과 credential 없는 run metadata", () => {
   assert(
     kindLaunchSpecSchema.safeParse({

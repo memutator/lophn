@@ -5,6 +5,7 @@ import type { CommandRoute } from "../../contracts/platform/mod.ts";
 import { createApplyCommand } from "./apply.ts";
 import { APPROVAL_BLOB_FIELDS } from "./blobs.ts";
 import { createApprovalCommands } from "./commands.ts";
+import { approvalExpirySweepRead } from "./expiry.ts";
 import { approvalsGetRead, approvalsListRead } from "./reads.ts";
 import { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
 
@@ -26,7 +27,11 @@ export function createApprovalRegistration(
         ? []
         : [createApplyCommand(options.owners)]),
     ],
-    reads: [approvalsGetRead(), approvalsListRead()],
+    reads: [
+      approvalsGetRead(),
+      approvalsListRead(),
+      approvalExpirySweepRead(),
+    ],
     blobFields: APPROVAL_BLOB_FIELDS,
   };
 }

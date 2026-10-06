@@ -7,8 +7,10 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   contextExport,
+  documentDiff,
   documentExport,
   documentRead,
+  documentSectionHistory,
   guideGet,
   guideList,
   guideOutline,
@@ -45,6 +47,7 @@ import type {
   ContextItemSource,
   SearchSnapshot,
 } from "../../packages/documents/outline-and-search/types.ts";
+import { createHistoryHandlers } from "../../packages/documents/outline-and-search/history-reads.ts";
 import { createViewOpenHandler } from "../../packages/documents/outline-and-search/saved-views-open.ts";
 import {
   listItems,
@@ -323,6 +326,16 @@ function outline(ready: Prepared) {
   });
 }
 
+// section 이력·diff. 같은 ledger snapshot과 derived store를 읽고 계산은 reader Worker에서 한다.
+function history(ready: Prepared) {
+  return createHistoryHandlers({
+    read: ready.read,
+    snapshot: ready.search,
+    ports: ready.snapshot,
+    redactor: ready.redactor,
+  });
+}
+
 // context export. 공개 read route(`/v1/contexts/export`)를 reader Worker가 서빙한다.
 // 외부 출력이라 제품 redactor를 붙이고(없으면 내보내지 않는다), glossary는 같은 ledger
 // snapshot의 terms에서, section 상태는 derived store에서 읽는다. derived가 아직 없으면
@@ -389,6 +402,15 @@ export function createReaderRegistration(): ReaderRegistration {
       worker(
         documentRead,
         (ready, ctx, input) => outline(ready).read(ctx, input as never),
+      ),
+      worker(
+        documentSectionHistory,
+        (ready, ctx, input) =>
+          history(ready).sectionHistory(ctx, input as never),
+      ),
+      worker(
+        documentDiff,
+        (ready, ctx, input) => history(ready).diff(ctx, input as never),
       ),
       worker(searchQuery, (ready, ctx, input) =>
         createSearchHandlers({

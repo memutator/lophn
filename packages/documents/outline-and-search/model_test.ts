@@ -1,12 +1,19 @@
 import { assertEquals } from "@std/assert";
-import { err } from "../../base/mod.ts";
+import { err, sha256Hex } from "../../base/mod.ts";
 import {
   bodyChunk,
+  type ComparedVersion,
+  compareSectionKey,
+  compareSections,
   decodeBodyCursor,
   decodeOutlineCursor,
   encodeBodyCursor,
   encodeOutlineCursor,
   estimatedTokens,
+  sectionChangeStatus,
+  sectionHistory,
+  type SectionSide,
+  type SectionSnapshot,
 } from "./model.ts";
 
 // estimated token은 Unicode codepoint 수를 3으로 나눈 올림이다(R6).
@@ -221,4 +228,208 @@ Deno.test("documents/outline-and-search#R9: decode 약속은 Result err 코드 �
     versions: [{ document: "", version: "" }],
     credential: "current",
   }, 0);
+});
+
+// section-comparison 시험의 입력. body_hash는 본문의 실제 sha256이다.
+const MODULE = "a".repeat(64);
+async function side(
+  key: string,
+  position: number,
+  body: string,
+  title = key,
+): Promise<SectionSide> {
+  return { key, title, position, body_hash: await sha256Hex(body) };
+}
+
+function snapshot(
+  sections: SectionSide[],
+  module_hash = MODULE,
+): SectionSnapshot {
+  return { module_hash, sections };
+}
+
+Deno.test("documents/outline-and-search#R19: 같은 key는 변경 없음·본문 수정을, 한쪽에만 있는 key는 추가·소실을 낸다", async () => {
+  const before = snapshot([
+    await side("개요", 0, "그대로"),
+    await side("계획", 1, "옛 계획"),
+    await side("메모", 2, "곧 사라진다"),
+  ]);
+  const after = snapshot([
+    await side("개요", 0, "그대로"),
+    await side("계획", 1, "새 계획"),
+    await side("부록", 2, "새로 생겼다"),
+  ]);
+  const compared = compareSections(before, after);
+  assertEquals(compared.comparable, true);
+  if (!compared.comparable) return;
+  assertEquals(
+    compared.changes.map((change) => [change.key, change.status]),
+    [
+      ["개요", "unchanged"],
+      ["계획", "modified"],
+      ["부록", "added"],
+      ["메모", "missing"],
+    ],
+  );
+  assertEquals(sectionChangeStatus(null, null), null);
+  assertEquals(sectionChangeStatus("x", "x"), "unchanged");
+});
+
+Deno.test("documents/outline-and-search#R19: 이름이 바뀌면 옛 key 소실과 새 key 추가고 같은 본문이어도 대응하지 않는다", async () => {
+  const body = "같은 본문 한 줄";
+  const before = snapshot([await side("옛 이름", 0, body)]);
+  const after = snapshot([await side("새 이름", 0, body, "새 이름")]);
+  const compared = compareSections(before, after);
+  assertEquals(compared.comparable, true);
+  if (!compared.comparable) return;
+  assertEquals(
+    compared.changes.map((change) => [change.key, change.status]),
+    [["새 이름", "added"], ["옛 이름", "missing"]],
+  );
+  // 같은 hash인 두 key를 짝짓거나 제목·유사도로 이름 변경을 추측하지 않는다.
+  assertEquals(compared.changes[0].before, null);
+  assertEquals(compared.changes[1].after, null);
+  const single = compareSectionKey(before, after, "새 이름");
+  assertEquals(single.comparable && single.change?.status, "added");
+});
+
+Deno.test("documents/outline-and-search#R19: 첫 판은 모든 section이 추가고 module이 다르면 비교하지 않는다", async () => {
+  const first = compareSections(
+    null,
+    snapshot([await side("a", 0, "1"), await side("b", 1, "2")]),
+  );
+  assertEquals(first.comparable, true);
+  if (first.comparable) {
+    assertEquals(first.changes.map((change) => change.status), [
+      "added",
+      "added",
+    ]);
+  }
+  const other = compareSections(
+    snapshot([await side("a", 0, "1")]),
+    snapshot([await side("a", 0, "1")], "b".repeat(64)),
+  );
+  assertEquals(other, { comparable: false, reason: "module_changed" });
+});
+
+Deno.test("documents/outline-and-search#R20: 소실 행은 살아 있는 행들 뒤에 모이고 앞 판의 순서를 따른다", async () => {
+  const before = snapshot([
+    await side("a", 0, "1"),
+    await side("gone-1", 1, "2"),
+    await side("b", 2, "3"),
+    await side("gone-2", 3, "4"),
+  ]);
+  const after = snapshot([
+    await side("n", 0, "5"),
+    await side("a", 1, "1"),
+    await side("b", 2, "changed"),
+  ]);
+  const compared = compareSections(before, after);
+  assertEquals(compared.comparable, true);
+  if (!compared.comparable) return;
+  assertEquals(
+    compared.changes.map((change) => [change.key, change.status]),
+    [
+      ["n", "added"],
+      ["a", "unchanged"],
+      ["b", "modified"],
+      ["gone-1", "missing"],
+      ["gone-2", "missing"],
+    ],
+  );
+});
+
+async function chainOf(
+  bodies: (string | null)[],
+): Promise<ComparedVersion<string>[]> {
+  const chain: ComparedVersion<string>[] = [];
+  for (let index = 0; index < bodies.length; index++) {
+    const body = bodies[index];
+    chain.push({
+      version: `v${index + 1}`,
+      format: "document",
+      state: {
+        kind: "ready",
+        snapshot: snapshot(
+          body === null ? [] : [await side("계획", 0, body)],
+        ),
+      },
+    });
+  }
+  return chain;
+}
+
+Deno.test("documents/outline-and-search#R19: 한 key의 이력은 판마다 추가·수정·변경 없음·소실이고 둘 다 없는 판은 행이 없다", async () => {
+  const chain = await chainOf([
+    null,
+    "처음",
+    "처음",
+    "고침",
+    null,
+    null,
+    "다시",
+  ]);
+  const history = sectionHistory(chain, 0, "계획");
+  assertEquals(
+    history.rows.map((row) => [row.version, row.status]),
+    [
+      ["v2", "added"],
+      ["v3", "unchanged"],
+      ["v4", "modified"],
+      ["v5", "missing"],
+      ["v7", "added"],
+    ],
+  );
+  assertEquals(history.omissions, []);
+  const modified = history.rows[2];
+  assertEquals(modified.before?.version, "v3");
+  assertEquals(modified.after.version, "v4");
+  const missing = history.rows[3];
+  assertEquals(missing.before?.version, "v4");
+  assertEquals(missing.after.side, null);
+});
+
+Deno.test("documents/outline-and-search#R20: 중간 판부터 잘라도 첫 행은 직전 판과 비교해 추가로 오판하지 않는다", async () => {
+  const chain = await chainOf(["처음", "처음", "고침", "고침"]);
+  // v3부터 보인다: chain[1]은 직전 판이고 행은 v3, v4만이다.
+  const cropped = sectionHistory(chain.slice(1), 1, "계획");
+  assertEquals(
+    cropped.rows.map((row) => [row.version, row.status, row.before?.version]),
+    [["v3", "modified", "v2"], ["v4", "unchanged", "v3"]],
+  );
+  // 직전 판 없이 첫 판으로 보면(잘못된 자름) 모두 추가로 오판한다는 대조.
+  const naive = sectionHistory(chain.slice(2), 0, "계획");
+  assertEquals(naive.rows[0].status, "added");
+});
+
+Deno.test("documents/outline-and-search#R22: 확인하지 못한 판은 행을 만들지 않고 그 판의 누락으로 남긴다", async () => {
+  const chain = await chainOf(["처음", "처음", "고침"]);
+  chain[1] = {
+    ...chain[1],
+    state: { kind: "unknown", reason: "extraction unverified" },
+  };
+  const history = sectionHistory(chain, 0, "계획");
+  assertEquals(history.rows.map((row) => [row.version, row.status]), [[
+    "v1",
+    "added",
+  ]]);
+  assertEquals(history.omissions, [{
+    version: "v2",
+    reason: "extraction unverified",
+  }]);
+  // module이 바뀐 판 사이도 비교하지 않는다.
+  const moved = await chainOf(["처음", "고침"]);
+  moved[1] = {
+    ...moved[1],
+    state: {
+      kind: "ready",
+      snapshot: snapshot([await side("계획", 0, "고침")], "c".repeat(64)),
+    },
+  };
+  const crossed = sectionHistory(moved, 1, "계획");
+  assertEquals(crossed.rows, []);
+  assertEquals(crossed.omissions, [{
+    version: "v2",
+    reason: "format module changed",
+  }]);
 });

@@ -1,6 +1,18 @@
 export { APPROVAL_BLOB_FIELDS, APPROVAL_OWNER_KIND } from "./blobs.ts";
 export { createApplyCommand } from "./apply.ts";
 export {
+  checkConfirmAction,
+  CONFIRM_COMMAND,
+  CONFIRM_CONCERN,
+  confirmAction,
+  overlappingConfirm,
+} from "./confirm.ts";
+export {
+  approvalExpirySweep,
+  approvalExpirySweepRead,
+  EXPIRY_SWEEP_BATCH,
+} from "./expiry.ts";
+export {
   createApprovalCommands,
   EXPIRY_REASON_HASH,
   EXPIRY_REASON_TEXT,

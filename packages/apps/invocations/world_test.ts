@@ -11,6 +11,7 @@ import {
   type SupervisorDelivery,
 } from "../../../apps/app-supervisor/delivery.ts";
 import type { BrokerChild } from "../permissions/mod.ts";
+import type { CoreSigner } from "../runtime/mod.ts";
 import {
   APP,
   type AppConnection,
@@ -72,6 +73,9 @@ export function openRuntimeWorld(deps: {
   send: (message: DeliveryMessage) => Promise<DeliveryOutcome>;
   blueprint?: Blueprint;
   limits?: DeliveryLimits;
+  // 실제 Ed25519 key로 proof 서명을 검증한다. 없으면 시험용 hash 서명이다.
+  signer?: CoreSigner;
+  directSocket?: string;
   mode?: "live";
 }): RuntimeWorld {
   const frames: Uint8Array[] = [];
@@ -91,9 +95,12 @@ export function openRuntimeWorld(deps: {
     processNonce: NONCE,
   };
   const started = startRuntime({
-    line: startLine(),
+    line: startLine({
+      ...(deps.signer ? { verify_key: deps.signer.verifyKey } : {}),
+      ...(deps.directSocket ? { direct_socket: deps.directSocket } : {}),
+    }),
     blueprint: deps.blueprint ?? fixtureBlueprint(),
-    key: shaKey(),
+    ...(deps.signer ? {} : { key: shaKey() }),
     clock: deps.clock,
     ids: createIdSource({ clock: deps.clock, random: seededRandom(11) }),
     broker: brokerTransport(delivery, child),

@@ -27,6 +27,7 @@ import {
 } from "./testing/mod.ts";
 import {
   APP,
+  connection,
   installHandlers,
   NONCE,
   openRuntimeWorld,
@@ -38,6 +39,11 @@ import {
   CONFIRM_PROOF_LIFETIME_MS,
 } from "./confirm.ts";
 import { createConfirmMarkers } from "../runtime/testing/mod.ts";
+import {
+  type CoreSigner,
+  createCoreSigner,
+  startDirectServer,
+} from "../runtime/mod.ts";
 import { observeInvocations } from "./restart.ts";
 
 const PURGE = "usage.purge";
@@ -82,13 +88,15 @@ type World = {
   harness: CoreHarness;
   access: CoreAccess;
   runtime: RuntimeWorld;
+  // core가 접수한 proof를 서명하는 실제 Ed25519 key(apps Q5).
+  signer: CoreSigner;
   user: Login;
   machine: Login;
   // 다른 앱: 이 앱이 대상 앱의 confirm 명령을 부르는 실제 요청자다.
   caller: Login;
 };
 
-async function open(): Promise<World> {
+async function open(directSocket?: string): Promise<World> {
   handler.calls = 0;
   handler.hold = undefined;
   const opened = await createCoreHarness({
@@ -100,12 +108,19 @@ async function open(): Promise<World> {
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   const access = await coreAccess(harness);
+  const signer = await createCoreSigner();
   const reads = ["GetApproval", "ListApprovals", "invocations.get"];
   const creating = ["create_approval_request", "cancel_approval_request"];
   return {
     harness,
     access,
-    runtime: openRuntimeWorld({ clock: harness.clock, send: access.send }),
+    signer,
+    runtime: openRuntimeWorld({
+      clock: harness.clock,
+      send: access.send,
+      signer,
+      ...(directSocket ? { directSocket } : {}),
+    }),
     user: await login(harness, "user", "user-1", [
       ...creating,
       "grant_approval_request",
@@ -221,18 +236,24 @@ async function proofOf(world: World, input: AcceptInput): Promise<Proof> {
   return replay.body["proof"] as Proof;
 }
 
-function invoke(
+// proof는 core가 서명한 envelope로 앱에 간다. 바꾼 payload도 실제 key로 서명해 서명이 아니라
+// 대상·입력·호출자 검사에서 거절되는지 따로 본다.
+function signed(world: World, proof: Proof) {
+  return world.signer.signConfirmProof(proof as never);
+}
+
+async function invoke(
   world: World,
   proof: Proof | undefined,
   key: string,
   over = {},
 ) {
-  return world.runtime.invoke({
+  return await world.runtime.invoke({
     request_key: key,
     release: REL,
     command: PURGE,
     input: AMOUNT,
-    ...(proof ? { proof } : {}),
+    ...(proof ? { proof: await signed(world, proof) } : {}),
   }, over);
 }
 
@@ -409,7 +430,11 @@ Deno.test("apps/invocations#R8: 같은 proof를 동시에 보내도 handler는 �
       invoke(world, proof, "other-key-2"),
     ];
     // 모두 handler 앞에서 marker를 보고 결정한다. 진행 중에는 성공으로 답하지 않는다.
-    await Promise.resolve();
+    // 첫 호출이 handler에서 멈춰 있는 동안 나머지가 모두 marker를 본다.
+    for (let attempt = 0; attempt < 200 && handler.calls === 0; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
     release();
     const replies = await Promise.all(sends);
     assertEquals(handler.calls, 1);
@@ -457,7 +482,7 @@ Deno.test("apps/invocations#R8: 옛 프로세스의 proof와 release·command·�
       release: REL,
       command: PURGE,
       input: { amount: 13 },
-      proof,
+      proof: await signed(world, proof),
     });
     assertEquals(swapped.status, 409);
     assertEquals(handler.calls, 0);
@@ -635,7 +660,7 @@ Deno.test("apps/invocations#R9 #R10: 재시작 점검은 접수만 있거나 결
       release: REL,
       command: PURGE,
       input: AMOUNT,
-      proof: nextProof,
+      proof: await signed(world, nextProof),
     });
     for (let attempt = 0; attempt < 200; attempt += 1) {
       await world.runtime.delivery.queue.pump();
@@ -679,5 +704,103 @@ Deno.test("apps/invocations#R9 #R10: 재시작 점검은 접수만 있거나 결
     assertEquals(handler.calls, 1);
   } finally {
     await world.harness.close();
+  }
+});
+
+// 앱의 direct socket을 실제로 열고 core가 서명한 연결과 proof로 부른다.
+async function socketPost(
+  socket: string,
+  authorization: string,
+  body: unknown,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const client = Deno.createHttpClient({
+    proxy: { transport: "unix", path: socket },
+  });
+  try {
+    const response = await fetch(
+      "http://lophn.invalid/_lophn/commands/invoke",
+      {
+        method: "POST",
+        headers: { authorization, "content-type": "application/json" },
+        body: JSON.stringify(body),
+        client,
+      },
+    );
+    return {
+      status: response.status,
+      body: await response.json() as Record<string, unknown>,
+    };
+  } finally {
+    client.close();
+  }
+}
+
+Deno.test("apps/invocations#R8 #R7: direct socket에서 위조·변조·다른 호출에 쓴·만료된 proof는 거절되고 core가 서명한 proof만 한 번 실행된다", async () => {
+  const dir = await Deno.makeTempDir();
+  const socket = `${dir}/a.sock`;
+  const world = await open(socket);
+  const server = startDirectServer(world.runtime.state);
+  try {
+    const input = await acceptInput(APR(1));
+    const granted = await request(world, world.user, input);
+    assertEquals((await apply(world, granted, "a")).status, 200);
+    const proof = await proofOf(world, input);
+    const authorization = JSON.stringify(
+      await world.signer.signConnection(
+        connection({
+          commands: ["usage.purge"],
+          // 연결은 proof보다 오래 살아 있어, 거절 이유가 proof 만료임을 본다.
+          expires_at: "2026-10-04T01:00:00.000Z",
+        }) as never,
+      ),
+    );
+    const call = (
+      confirm: unknown,
+      key: string,
+      over: Record<string, unknown> = {},
+    ) =>
+      socketPost(socket, authorization, {
+        request_key: key,
+        release: REL,
+        command: PURGE,
+        input: AMOUNT,
+        proof: confirm,
+        ...over,
+      });
+    const attacker = await createCoreSigner();
+    const genuine = await world.signer.signConfirmProof(proof as never);
+
+    // 서명 없는 payload, 다른 key의 서명, 서명한 뒤 바꾼 payload는 handler 전에 거절된다.
+    assertEquals((await call(proof, "unsigned")).status, 400);
+    const forged = await attacker.signConfirmProof(proof as never);
+    assertEquals((await call(forged, "forged")).status, 401);
+    const tampered = {
+      payload: { ...genuine.payload, expires_at: "2099-01-01T00:00:00.000Z" },
+      signature: genuine.signature,
+    };
+    assertEquals((await call(tampered, "tampered")).status, 401);
+    const notMine = { ...genuine, signature: "A".repeat(86) };
+    assertEquals((await call(notMine, "garbage")).status, 401);
+    // 접수한 입력과 다른 호출에 같은 서명 proof를 옮겨 쓰면 거절된다.
+    const moved = await call(genuine, "moved", { input: { amount: 13 } });
+    assertEquals(moved.status, 409);
+    assertEquals(handler.calls, 0);
+
+    // core가 서명한 proof는 한 번만 실행되고 다시 보내도 같은 결과일 뿐이다.
+    const accepted = await call(genuine, "genuine");
+    assertEquals(accepted.status, 200, JSON.stringify(accepted.body));
+    assertEquals(handler.calls, 1);
+    assertEquals((await call(genuine, "genuine-again")).status, 200);
+    assertEquals(handler.calls, 1);
+
+    // 만료된 proof는 서명이 맞아도 거절된다.
+    world.harness.clock.advance(CONFIRM_PROOF_LIFETIME_MS + 1);
+    const late = await call(genuine, "late");
+    assertEquals(late.status, 401);
+    assertEquals(handler.calls, 1);
+  } finally {
+    await server.shutdown();
+    await world.harness.close();
+    await Deno.remove(dir, { recursive: true });
   }
 });

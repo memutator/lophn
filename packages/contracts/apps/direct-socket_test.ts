@@ -40,16 +40,36 @@ Deno.test("apps/runtime#R11, apps/invocations#R7, apps/invocations#R8: invoke �
     command: "usage.save",
     input: { day: "2026-10-04" },
     proof: {
-      invocation: INV,
-      process_nonce: "nonce-1",
-      release: REL,
-      command: "usage.save",
-      input_hash: HASH,
-      caller: { kind: "direct" },
-      expires_at: AT,
+      payload: {
+        invocation: INV,
+        process_nonce: "nonce-1",
+        release: REL,
+        command: "usage.save",
+        input_hash: HASH,
+        caller: { kind: "direct" },
+        expires_at: AT,
+      },
+      signature: "A".repeat(86),
     },
   });
-  assertEquals(invoke.proof?.invocation, INV);
+  assertEquals(invoke.proof?.payload.invocation, INV);
+  // 서명 없는 proof payload는 받지 않는다.
+  assertEquals(
+    commandInvokeInputSchema.safeParse({
+      request_key: "call-1",
+      command: "usage.save",
+      proof: {
+        invocation: INV,
+        process_nonce: "nonce-1",
+        release: REL,
+        command: "usage.save",
+        input_hash: HASH,
+        caller: { kind: "direct" },
+        expires_at: AT,
+      },
+    }).success,
+    false,
+  );
   const output = commandInvokeOutputSchema.parse({
     result: {
       result: { saved: true },

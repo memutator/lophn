@@ -45,6 +45,7 @@ function push(
     begin: true,
     full: true,
     roots,
+    folders: roots.map((root) => ({ project: root.project, path: root.root })),
     upsert: links,
     remove: [],
     more: false,

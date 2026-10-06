@@ -72,6 +72,7 @@ export {
   OBSERVATION_CHUNK_BYTES,
   type ObservationBasisChunk,
   type ObservationBasisPayload,
+  type ObservationFolderBasis,
   type ObservationLinkBasis,
   type ObservationRootBasis,
   parseObservationBasis,

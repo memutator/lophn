@@ -45,6 +45,8 @@ export interface FileOps {
   lstat(path: string): Promise<FileStat | undefined>;
   realPath(path: string): Promise<string | undefined>;
   read(path: string): AsyncIterable<Uint8Array>;
+  // offset부터 최대 length 바이트. 파일이 끝나면 더 적게 돌려준다(없는 범위는 빈 값).
+  readRange(path: string, offset: number, length: number): Promise<Uint8Array>;
   // 같은 이름이 있으면 "exists" fault다(exclusive create).
   createTemp(path: string, mode: number | null): Promise<TempFile>;
   // 같은 파일 시스템 안의 원자 교체. 교체 불가면 fault다. 복사로 대체하지 않는다.

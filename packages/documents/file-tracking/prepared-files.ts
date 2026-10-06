@@ -8,18 +8,19 @@ import {
   fail,
   type FileFailure,
   type FileOps,
+  type FileStat,
   hashFile,
   resolveTarget,
   sameFileIdentity,
 } from "./file-ops.ts";
 import { type FileDeps, type FileDone, writeFile } from "./files.ts";
-import {
-  FILE_READ_MAX_BYTES,
-  type FileLocation,
-  type FileReadReply,
-  type PrepWrite,
+import type {
+  FileIdentity,
+  FileLocation,
+  FileReadReply,
+  PrepWindow,
+  PrepWrite,
 } from "./file-ipc.ts";
-import { toBase64 } from "./base64.ts";
 import { encodeWorkingCopyMeta, parseWorkingCopyMeta } from "./working-copy.ts";
 
 const textEncoder = new TextEncoder();
@@ -46,52 +47,58 @@ async function slurp(
   return { bytes, hash: hash.digest("hex") };
 }
 
-// 파일 하나를 읽는다. 읽는 동안 파일이 바뀌면(열기 전후 identity가 다르면) 한 번 더 읽고,
-// 그래도 흔들리면 unavailable이다. 없으면 exists=false다(존재하지 않는 것은 오류가 아니다).
+function identityOf(stat: FileStat): FileIdentity {
+  return {
+    device: stat.device,
+    inode: stat.inode,
+    size: stat.size,
+    mtime_ms: stat.mtimeMs,
+  };
+}
+
+function sameIdentity(stat: FileStat, identity: FileIdentity): boolean {
+  return stat.device === identity.device && stat.inode === identity.inode &&
+    stat.size === identity.size && stat.mtimeMs === identity.mtime_ms;
+}
+
+// 파일 하나의 헤더(hash·크기·identity)를 읽는다. 바이트는 싣지 않는다: 크기와 무관하게
+// stream으로 hash만 계산하고 바이트는 `readWindow`가 창 단위로 보낸다. hash를 계산하는 동안
+// 파일이 바뀌면(읽기 전후 identity가 다르면) 한 번 더 읽고, 그래도 흔들리면 unavailable이다.
+// 없으면 exists=false다(존재하지 않는 것은 오류가 아니다).
 export async function readLocation(
   deps: FileDeps,
   location: FileLocation,
 ): Promise<Result<FileReadReply, FileFailure>> {
   const { ops } = deps;
+  const absent = (meta: unknown): FileReadReply => ({
+    exists: false,
+    hash: null,
+    size: 0,
+    identity: null,
+    meta,
+  });
   // 아직 만들지 않은 working copy 폴더는 사본이 없는 것이다(오류가 아니다).
   if (
     location.meta !== undefined &&
     await ops.realPath(location.root) === undefined
   ) {
-    return ok({
-      exists: false,
-      hash: null,
-      size: 0,
-      bytes_b64: null,
-      meta: null,
-    });
+    return ok(absent(null));
   }
   for (let attempt = 0; attempt < 2; attempt++) {
     const target = await resolveTarget(ops, location.root, location.path);
     if (!target.ok) return target;
     const meta = await readMeta(deps, location);
-    if (target.value.stat === undefined) {
-      return ok({ exists: false, hash: null, size: 0, bytes_b64: null, meta });
-    }
+    if (target.value.stat === undefined) return ok(absent(meta));
     const stat = target.value.stat;
     try {
-      if (stat.size > FILE_READ_MAX_BYTES) {
-        return ok({
-          exists: true,
-          hash: await hashFile(ops, target.value.path),
-          size: stat.size,
-          bytes_b64: null,
-          meta,
-        });
-      }
-      const read = await slurp(ops, target.value.path);
+      const hash = await hashFile(ops, target.value.path);
       const after = await ops.lstat(target.value.path);
       if (after === undefined || !sameFileIdentity(stat, after)) continue;
       return ok({
         exists: true,
-        hash: read.hash,
-        size: read.bytes.length,
-        bytes_b64: toBase64(read.bytes),
+        hash,
+        size: stat.size,
+        identity: identityOf(stat),
         meta,
       });
     } catch (error) {
@@ -99,6 +106,48 @@ export async function readLocation(
     }
   }
   return fail("unavailable", "file changed while reading");
+}
+
+// 헤더를 읽은 그대로인 파일의 한 창을 읽는다. 파일이 바뀌었으면(identity가 다르거나 창이
+// 파일 밖이거나 읽은 길이가 모자라면) 일부 바이트로 꾸미지 않고 오류다: 바뀐 파일은
+// conflict, 모자란 읽기는 unavailable이다.
+export async function readWindow(
+  deps: FileDeps,
+  request: PrepWindow,
+): Promise<Result<Uint8Array, FileFailure>> {
+  const { ops } = deps;
+  const target = await resolveTarget(
+    ops,
+    request.location.root,
+    request.location.path,
+  );
+  if (!target.ok) return target;
+  const stat = target.value.stat;
+  if (stat === undefined) return fail("conflict", "the file changed");
+  if (!sameIdentity(stat, request.identity)) {
+    return fail("conflict", "the file changed");
+  }
+  if (request.offset + request.length > stat.size) {
+    return fail("conflict", "the file changed");
+  }
+  try {
+    const bytes = await ops.readRange(
+      target.value.path,
+      request.offset,
+      request.length,
+    );
+    if (bytes.length !== request.length) {
+      return fail("unavailable", "file changed while reading");
+    }
+    // 읽은 뒤에도 같은 파일이어야 한다.
+    const after = await ops.lstat(target.value.path);
+    if (after === undefined || !sameIdentity(after, request.identity)) {
+      return fail("conflict", "the file changed");
+    }
+    return ok(bytes);
+  } catch (error) {
+    return err(diskFailure(error));
+  }
 }
 
 async function readMeta(

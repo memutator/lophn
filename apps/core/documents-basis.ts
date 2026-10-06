@@ -93,6 +93,7 @@ export async function readObservationBasis(
     if (!consistent) continue;
     const payload = parseObservationBasis({
       roots: roots.value["roots"],
+      folders: roots.value["folders"],
       links,
     });
     if (!payload.ok) return payload;

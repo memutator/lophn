@@ -17,18 +17,17 @@ import {
   type FileOperationResult,
   fileOperationResultSchema,
   filesDelete,
-  filesRead,
   filesRename,
   filesWatch,
   filesWrite,
   type FileTarget,
+  type FileWriteRequest,
   projectPreviewTracking,
   type SaveResult,
   saveResultSchema,
 } from "../../packages/contracts/documents/mod.ts";
 import {
   BLOB_READ_MAX_BYTES,
-  type PreparedBlob,
   type WorkerRequest,
   type WorkerResponse,
 } from "../../packages/contracts/platform/mod.ts";
@@ -37,8 +36,10 @@ import {
   DOCUMENT_OPS,
   type WorkingCopyCheck,
 } from "../../packages/documents/file-tracking/mod.ts";
-import { fromBase64 } from "../../packages/documents/file-tracking/base64.ts";
 import type { WorkingCopyBasis } from "../../packages/documents/file-tracking/file-ipc.ts";
+import { existingFileSource } from "../../packages/documents/versions/mod.ts";
+
+type FileWriteRequestContent = FileWriteRequest["content"];
 
 export type FilesRouteDeps = {
   // documents coordinator 요청 통로.
@@ -59,6 +60,13 @@ export type FilesRouteDeps = {
   principalOf(request: WorkerRequest): string | undefined;
   // 이 주체·purpose·내용의 준비가 아직 살아 있는지.
   live(prepared: { principal: string; purpose: string; hash: string }): boolean;
+  // `existing` 원본 참조(옛 판의 파일)가 가리키는 저장 바이트. 요청 credential로 그 판의 행과
+  // `document.file` 접근을 reader Worker의 snapshot에서 본다(저장의 existing 검사와 같다).
+  // 없는 판·없는 경로·접근 밖은 같은 undefined다(존재를 새지 않는다).
+  stored(
+    request: WorkerRequest,
+    source: { version: string; path: string },
+  ): Promise<Result<{ hash: string; bytes: number } | undefined>>;
   // working copy의 문서 근거. 요청 credential로 reader Worker의 snapshot을 읽는다.
   copyCheck(
     request: WorkerRequest,
@@ -90,6 +98,14 @@ export type FilesRouteDeps = {
 export function routeDecision(name: string): string {
   return name === filesDelete.name ? FILE_DELETE_DECISION : name;
 }
+
+// 쓸 원문. hash·크기는 신뢰한 값(준비 참조의 blob 또는 판 파일 행)이고 content는 판 확정이
+// 같은 원문을 `document.prepare`에 그대로 넘기는 출처다.
+type ContentSource = {
+  hash: string;
+  size_bytes: number;
+  content: FileWriteRequestContent;
+};
 
 // 한 파일 쓰기가 coordinator에 닿기까지와 결과를 기다리는 한도.
 const WRITE_TIMEOUT_MS = 35_000;
@@ -195,7 +211,9 @@ export function fileWorkers(
     return next;
   };
 
-  async function sendContent(blob: PreparedBlob): Promise<Result<number>> {
+  async function sendContent(
+    blob: { hash: string; size_bytes: number },
+  ): Promise<Result<number>> {
     counter = (counter + 1) % 0x7fffffff;
     const channel = CHANNEL_BASE + counter;
     let offset = 0;
@@ -237,19 +255,45 @@ export function fileWorkers(
     if (principal === undefined) {
       return failed(request, "unauthorized", "credential이 없다");
     }
-    // 요청 주체가 upload로 준비해 아직 살아 있는 원문만 쓴다. 없거나 남의 것이면 없는 것과
-    // 같은 답이다(hash는 읽기 권한이 아니다).
+    // 쓸 원문은 둘 중 하나다. 요청 주체가 upload로 준비해 아직 살아 있는 것, 또는 이 자격이
+    // 읽을 수 있는 옛 판 파일의 원본 참조(`existing`, 옛 판 복원)다. 준비 참조가 없거나
+    // 남의 것이고 원본 참조가 위조거나 접근 밖이면 없는 것과 같은 답이다(hash는 읽기 권한이
+    // 아니다).
     const content = input.content;
-    if (
-      content.kind !== "prepared" || content.blob.principal !== principal ||
-      content.blob.purpose !== "document_file" ||
-      !deps.live({
-        principal,
-        purpose: content.blob.purpose,
+    let source: ContentSource;
+    if (content.kind === "prepared") {
+      if (
+        content.blob.principal !== principal ||
+        content.blob.purpose !== "document_file" ||
+        !deps.live({
+          principal,
+          purpose: content.blob.purpose,
+          hash: content.blob.hash,
+        })
+      ) return notAvailable(request);
+      source = {
         hash: content.blob.hash,
-      })
-    ) return notAvailable(request);
-    const blob = content.blob;
+        size_bytes: content.blob.size_bytes,
+        content,
+      };
+    } else {
+      const located = existingFileSource(content.reference);
+      if (located === undefined) return notAvailable(request);
+      const stored = await deps.stored(request, located);
+      if (!stored.ok) {
+        return failed(request, workerCode(stored.error.code), "failed");
+      }
+      if (
+        stored.value === undefined ||
+        stored.value.hash !== content.reference.hash
+      ) return notAvailable(request);
+      source = {
+        hash: stored.value.hash,
+        size_bytes: stored.value.bytes,
+        content,
+      };
+    }
+    const blob = source;
     // instruction 파일은 이 통로의 범위 밖이다(지침 파일 목표는 따로 등록한다).
     if (input.target.kind === "instruction_file") return notAvailable(request);
     let copy: WorkingCopyBasis | undefined;
@@ -313,11 +357,25 @@ export function fileWorkers(
           request,
           input.target.document,
           input.version_request,
-          blob,
+          source,
           result.data,
         ),
       );
     });
+  }
+
+  // 충돌이면 새 기준(그 문서의 지금 최신 판)을 결과에 싣는다. 읽지 못하면 싣지 않는다:
+  // 충돌은 그대로이고 사람은 `document.get`으로 최신 판을 읽는다(Q26).
+  async function withLatest(
+    request: WorkerRequest,
+    document: string,
+    result: FileOperationResult,
+  ): Promise<FileOperationResult> {
+    if (result.version_result !== "conflict") return result;
+    const latest = await deps.copyCheck(request, document, null);
+    return latest.ok && latest.value.latest_version !== null
+      ? { ...result, latest_version: latest.value.latest_version }
+      : result;
   }
 
   // 사본 쓰기가 성공한 뒤 판 확정을 따로 시도한다. 판 확정의 실패는 파일 저장 실패가 아니다.
@@ -325,7 +383,7 @@ export function fileWorkers(
     request: WorkerRequest,
     document: string,
     version: { base_version: string | null; idempotency_key: string },
-    blob: PreparedBlob,
+    blob: ContentSource,
     written: FileOperationResult,
   ): Promise<FileOperationResult> {
     const base = version.base_version;
@@ -343,7 +401,7 @@ export function fileWorkers(
         bytes: blob.size_bytes,
         media_type: primary.media_type,
         primary: true,
-        content: { kind: "prepared", blob },
+        content: blob.content,
       }],
       source: null,
       idempotency_key: version.idempotency_key,
@@ -355,13 +413,18 @@ export function fileWorkers(
         ? "conflict"
         : "preparing";
     if (!prepared.ok) {
-      return { ...written, version_result: rejected(prepared.error.code) };
+      return await withLatest(
+        request,
+        document,
+        { ...written, version_result: rejected(prepared.error.code) },
+      );
     }
     if (!prepared.value.ok) {
-      return {
-        ...written,
-        version_result: rejected(prepared.value.error.code),
-      };
+      return await withLatest(
+        request,
+        document,
+        { ...written, version_result: rejected(prepared.value.error.code) },
+      );
     }
     const preparedVersion = prepared.value.payload as {
       preparation_ref: string;
@@ -378,7 +441,11 @@ export function fileWorkers(
       ],
     });
     if (!saved.ok) {
-      return { ...written, version_result: rejected(saved.error.code) };
+      return await withLatest(
+        request,
+        document,
+        { ...written, version_result: rejected(saved.error.code) },
+      );
     }
     const result = saveResultSchema.safeParse(
       (saved.value as { result?: unknown }).result,
@@ -392,30 +459,6 @@ export function fileWorkers(
       confirmed_hash: blob.hash,
     }, READ_TIMEOUT_MS);
     return { ...written, version_result: "confirmed", save_result: save };
-  }
-
-  async function forwardRead(
-    request: WorkerRequest,
-  ): Promise<Result<WorkerResponse>> {
-    const parsed = filesRead.input.safeParse(request.payload);
-    if (!parsed.success) {
-      return failed(request, "invalid_input", "invalid input");
-    }
-    const allowed = await copyAllowed(request, parsed.data.target);
-    if (!allowed.ok) {
-      return failed(request, workerCode(allowed.error.code), "failed");
-    }
-    const reply = await deps.request(
-      DOCUMENT_OPS.fileRead,
-      { target: parsed.data.target },
-      READ_TIMEOUT_MS,
-    );
-    // 파일 route의 성공 payload는 원본 bytes다.
-    return relay(request, reply, (payload) => ({
-      bytes: Array.from(
-        fromBase64((payload as { bytes_b64: string }).bytes_b64),
-      ),
-    }));
   }
 
   async function forwardWatch(
@@ -460,7 +503,6 @@ export function fileWorkers(
 
   return new Map([
     [key(filesWrite), handle("documents/files-write", forwardWrite)],
-    [key(filesRead), handle("documents/files-read", forwardRead)],
     [key(filesWatch), handle("documents/files-watch", forwardWatch)],
     [
       key(filesRename),

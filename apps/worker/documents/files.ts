@@ -35,7 +35,8 @@ import type { PreparationPool } from "./pool.ts";
 export type FilesDeps = {
   // LOPHN_HOME. working copy 폴더의 근원이다.
   dataRoot: string;
-  basis: Pick<BasisStore, "roots">;
+  // 쓸 수 있는 폴더(folders)와 관측 root(roots)를 구별해서 쓴다.
+  basis: Pick<BasisStore, "roots" | "folders">;
   pool: Pick<PreparationPool, "request">;
   inbox: ByteInbox;
   status: StatusRecorder;
@@ -45,6 +46,8 @@ export type FilesDeps = {
   record(
     result: FileOperationResult,
   ): Promise<Result<FileOperationResult, LophnError>>;
+  // core에 byte chunk frame을 보낸다(파일 창). 보내지 못하면 던진다.
+  sendBytes(channel: number, bytes: Uint8Array): Promise<void>;
   nowIso(): string;
   watchWaitMs?: number;
   watchPollMs?: number;
@@ -182,6 +185,17 @@ export function createFileHandlers(deps: FilesDeps): FileHandlers {
           return made;
         }
       }
+      // project 파일의 판은 관측 loop가 만든다. 관측 root가 아닌 폴더(tracking을 끈 project)는
+      // 관측하지 않으니 판 요청에 기다릴 판이 없다(Q28).
+      const versionResultOf = (requested: boolean) =>
+        !requested
+          ? "not_requested" as const
+          : request.target.kind === "project_file" &&
+              !deps.basis.roots().some((root) =>
+                root.root === located.value.location.root
+              )
+          ? "not_requested" as const
+          : "preparing" as const;
       const bytes = bytesOf(content);
       if (!bytes.ok) return bytes;
       const meta = basis === undefined
@@ -206,7 +220,7 @@ export function createFileHandlers(deps: FilesDeps): FileHandlers {
           target: request.target,
         },
         done,
-        request.version_request === undefined ? "not_requested" : "preparing",
+        versionResultOf(request.version_request !== undefined),
       );
     },
     async rename(payload) {

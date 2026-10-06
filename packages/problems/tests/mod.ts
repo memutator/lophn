@@ -46,6 +46,7 @@ export {
 } from "./reads.ts";
 export { expectedBundle, judgeRecordable } from "./judge.ts";
 export { testAdmissionPort, testEvidencePort } from "./ports.ts";
+export { findAppTestVerification } from "./app-test-lookup.ts";
 export { TEST_SCHEMA_STEPS } from "./schema.ts";
 export { TEST_BLOB_FIELDS, TEST_BLOB_PURPOSES } from "./blobs.ts";
 export { schemaSql, strictTargetAuthorizer } from "./support.ts";

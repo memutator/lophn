@@ -1,6 +1,7 @@
 import "@lophn/design/tokens.css";
 import "@lophn/design/base.css";
 import { t } from "@lophn/wording";
+import type { LophnOverlayFeedback } from "../../ipc/feedback.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { overlayRegistry } from "./registry.ts";
 import { surfaceMount } from "./surfaces/surface.tsx";
@@ -8,6 +9,7 @@ import styles from "./entry.module.css";
 
 declare global {
   var lophnShell: OverlayApi;
+  var lophnFeedback: LophnOverlayFeedback | undefined;
 }
 const root = document.getElementById("root");
 if (root) {
@@ -28,7 +30,7 @@ if (root) {
     () => {
       status.hidden = false;
     },
-    surfaceMount(),
+    surfaceMount({ feedback: globalThis.lophnFeedback }),
   );
   retry.addEventListener("click", () => {
     status.hidden = true;

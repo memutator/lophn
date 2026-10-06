@@ -72,6 +72,16 @@ export interface CoreSession {
     input: unknown,
     bytes: Uint8Array,
   ): Promise<CallResult>;
+  /**
+   * worker route에 request byte channel을 붙여 보낸다(problems SubmitFeedback의 선택한 PNG).
+   * 입력은 upload와 같은 header이고 core는 바이트를 해석하지 않고 worker로 넘긴다.
+   */
+  workerBytes(
+    resource: string,
+    method: string,
+    input: unknown,
+    bytes: Uint8Array,
+  ): Promise<CallResult>;
 }
 
 export interface SessionInput {
@@ -234,57 +244,67 @@ export function openSession(input: SessionInput): CoreSession {
         return lost();
       }
     },
-    async upload(resource, method, body, bytes) {
-      const route = routeOf("upload", resource, method);
-      if (route === undefined || input.stream === undefined) return forbidden();
-      const checked = route.input.safeParse(body);
-      if (!checked.success) {
-        return {
-          ok: false,
-          error: { code: "invalid_input", message: "invalid input" },
-        };
-      }
-      let response: Awaited<ReturnType<StreamFetch>>;
-      try {
-        response = await input.stream(`${base}${routePath(route)}`, {
-          method: "POST",
-          headers: {
-            authorization: `Bearer ${input.userToken}`,
-            "content-type": "application/octet-stream",
-            [UPLOAD_INPUT_HEADER]: encodeInput(checked.data),
-          },
-          body: bytes,
-        });
-      } catch {
-        return lost();
-      }
-      if (response.status !== 200) {
-        return await failure(response.status, response.body);
-      }
-      const raw = await drain(response.body, 64 * 1024).catch(() =>
-        "too_large" as const
-      );
-      let json: unknown;
-      try {
-        json = raw === "too_large"
-          ? undefined
-          : JSON.parse(new TextDecoder().decode(raw));
-      } catch {
-        json = undefined;
-      }
-      const output = (route.output as {
-        safeParse(value: unknown): {
-          success: boolean;
-          data?: unknown;
-        };
-      }).safeParse(json);
-      if (!output.success) {
-        return {
-          ok: false,
-          error: { code: "internal", message: "internal error" },
-        };
-      }
-      return { ok: true, value: output.data };
+    upload(resource, method, body, bytes) {
+      return sendBytes(routeOf("upload", resource, method), body, bytes);
+    },
+    workerBytes(resource, method, body, bytes) {
+      return sendBytes(routeOf("worker", resource, method), body, bytes);
     },
   };
+
+  async function sendBytes(
+    route: Route | undefined,
+    body: unknown,
+    bytes: Uint8Array,
+  ): Promise<CallResult> {
+    if (route === undefined || input.stream === undefined) return forbidden();
+    const checked = route.input.safeParse(body);
+    if (!checked.success) {
+      return {
+        ok: false,
+        error: { code: "invalid_input", message: "invalid input" },
+      };
+    }
+    let response: Awaited<ReturnType<StreamFetch>>;
+    try {
+      response = await input.stream(`${base}${routePath(route)}`, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${input.userToken}`,
+          "content-type": "application/octet-stream",
+          [UPLOAD_INPUT_HEADER]: encodeInput(checked.data),
+        },
+        body: bytes,
+      });
+    } catch {
+      return lost();
+    }
+    if (response.status !== 200) {
+      return await failure(response.status, response.body);
+    }
+    const raw = await drain(response.body, 64 * 1024).catch(() =>
+      "too_large" as const
+    );
+    let json: unknown;
+    try {
+      json = raw === "too_large"
+        ? undefined
+        : JSON.parse(new TextDecoder().decode(raw));
+    } catch {
+      json = undefined;
+    }
+    const output = (route.output as {
+      safeParse(value: unknown): {
+        success: boolean;
+        data?: unknown;
+      };
+    }).safeParse(json);
+    if (!output.success) {
+      return {
+        ok: false,
+        error: { code: "internal", message: "internal error" },
+      };
+    }
+    return { ok: true, value: output.data };
+  }
 }

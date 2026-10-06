@@ -30,11 +30,13 @@ export function createBrokerClient(deps: {
       socketPath: deps.socketPath,
       credential: deps.credential,
       path,
-      body: { ...deps.child, ...(body as object) },
+      body: { ...(body as object), ...deps.child },
     });
   }
   return {
     host: SOCKET_HOST,
+    // cap-host port의 `post`다. 신원(process_nonce·mode)은 연결이 붙이고 본문은 그 위에 얹힌다.
+    post,
     ready(attestation: unknown) {
       return post(BROKER_PATHS.ready, { attestation });
     },

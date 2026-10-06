@@ -46,7 +46,7 @@ const create = {
 };
 
 // deno-fmt-ignore
-const contextRoutePaths = ["/v1/contexts/create", "/v1/contexts/update", "/v1/contexts/set_item", "/v1/contexts/remove_item", "/v1/contexts/archive", "/v1/contexts/unarchive", "/v1/contexts/record_watch_change", "/v1/contexts/list", "/v1/contexts/get", "/v1/contexts/related", "/v1/contexts/export"];
+const contextRoutePaths = ["/v1/contexts/create", "/v1/contexts/update", "/v1/contexts/set_item", "/v1/contexts/remove_item", "/v1/contexts/archive", "/v1/contexts/unarchive", "/v1/contexts/record_watch_change", "/v1/contexts/list", "/v1/contexts/get", "/v1/contexts/related", "/v1/contexts/export", "/v1/contexts/watch"];
 // deno-fmt-ignore
 const contextEventTypes = ["ContextCreated", "ContextUpdated", "ContextItemSet", "ContextItemRemoved", "ContextArchived", "ContextUnarchived", "ContextWatchedItemChanged"];
 

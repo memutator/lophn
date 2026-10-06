@@ -60,6 +60,7 @@ const series: Series = {
   nextRule: "week-{n}",
   revision: "7",
   archived: false,
+  draft: null,
 };
 
 Deno.test("shell/desktop#R1: 검색은 worker search/query로 조건을 보내고 지연·누락을 옮긴다", async () => {
@@ -398,4 +399,51 @@ Deno.test("shell/desktop#R1: series 등록·멤버 추가·보관은 base_revisi
   assertEquals(name(calls[2]!), "command:series/archive");
   await source.setArchived({ ...series, archived: true }, false);
   assertEquals(name(calls[3]!), "command:series/unarchive");
+});
+
+Deno.test("documents/series#R11: 새 멤버 쓰기는 예정 문서·key·가족 format의 FormatRef를 글 없이 draft에 두고, 버리기는 base_revision을 비교한다", async () => {
+  const MODULE = "ab".repeat(32);
+  const { core, calls } = coreOf((call) =>
+    call.resource === "formats"
+      ? {
+        ok: true,
+        value: {
+          formats: [{ name: "pdf", module_hash: "cd".repeat(32) }, {
+            name: "document",
+            module_hash: MODULE,
+          }],
+        },
+      }
+      : {
+        ok: true,
+        value: {
+          ...seriesValue,
+          revision: "8",
+          draft: { document: DOC, key: "week-3" },
+        },
+      }
+  );
+  const source = coreLophnSource(core, (prefix) => `${prefix}_${ULID}`);
+  const started = await source.startDraft(series, "week-3");
+  assert(started.ok);
+  assertEquals(started.value.draft, { document: DOC, key: "week-3" });
+  assertEquals(name(calls[1]!), "command:series/set_draft");
+  const body = calls[1]!.body as { input: unknown; compare: unknown };
+  assertEquals(body.input, {
+    series: SER,
+    draft: {
+      document: DOC,
+      key: "week-3",
+      base_version: null,
+      format: { name: "document", module_hash: MODULE, explicit: false },
+      content: null,
+    },
+  });
+  assertEquals(body.compare, { base_revision: "7" });
+  await source.clearDraft(started.value);
+  assertEquals(name(calls[2]!), "command:series/clear_draft");
+  assertEquals(
+    (calls[2]!.body as { compare: unknown }).compare,
+    { base_revision: "8" },
+  );
 });

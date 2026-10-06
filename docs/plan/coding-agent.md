@@ -433,7 +433,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T15 범위 검사·금지 동작·MCP와 CLI parity
 
-- 상태: 완료 (#317) — 이어보냄: CLI core 실행 배선과 production credential·제출 `forbidden` 목록 → coding-agent#T36. 남은 platform·documents 쪽 거절은 "## 질문" Q31
+- 상태: 완료 (#317) — 이어보냄: CLI core 실행 배선·`forbidden` data root·실제 app scope 발급 → coding-agent#T36. 남은 platform 읽기 operation 검사는 "## 질문" Q31
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/connection#R5, R6, R10, R11; coding-agent/mcp-server#R30,
@@ -476,9 +476,10 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
       팀 조립 그대로 띄운 core에 허용 operation만 가진 연결과 금지 operation을 직접 열어
       준 연결로 금지 route를 모두 보내 거절을 본다.
     - fixture `fixtures/projects/two-apps/`는 앱 source 폴더 둘이다.
-    - 이어보냄: CLI의 core 실행(dispatch) 배선은 T36이다. CLI 쪽 parity는 command 표의
-      route와 같은 core client로 본다(`cliRead`는 시험 안의 얇은 실행이다). `apps/mcp/main.ts`는
-      제출 scope의 `forbidden`을 비워 둔다. 운영 data root를 넣는 일은 T36 조립 몫이다.
+    - 계약 보정: `ListBackups`·`GetBackup`·`ListSecrets`의 actor에서 `coding_agent`를 뺐다
+      (platform 계약, daemon이 actor로 거절). `outline.root`의 `unplaced` 묶음은 target 없는
+      판정이 통과할 때만 낸다(앱 하나 범위 연결에는 건수도 없다).
+    - 이어보냄: CLI core 실행 배선·`forbidden` data root·실제 app scope 발급 → T36.
 
 ## agent slice
 
@@ -1172,6 +1173,14 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48,
   platform#T35, contracts#T24
 - platform#T34에서 넘어온 것: 사람의 연결 결정 입구(사람 선택 → 신뢰 경계 token·keychain → core create). 지금 contract에 입구가 없다. 발급 경계는 `createCodingCredentialAuthority`의 `connect(input, submit)`(packages/platform/identity)이고 core 조립은 `Core.codingCredentials.connect`(apps/core/coding-credential.ts, `codingKeychain` 옵션)다. 이 작업이 그 입구(route 또는 main↔core 메시지, contracts 요청 필요)를 정해 사람 credential로 `submit`(connection create command)을 보내고 token 없는 결과만 사람에게 보인다. `registerChild`(MCP·CLI child의 process generation 등록)의 loader 쪽 요청 모양(`process_generation`, `loader_identity`)은 production provider가 채운다
+- coding-agent#T15에서 넘어온 것: (1) CLI의 core 실행(dispatch) 배선. T15의 parity는
+  command 표의 route와 같은 core client로 본다(`cliRead`는 시험 안의 얇은 실행이다).
+  실행 entry를 이 표와 같은 route·같은 client로 잇고 `not_found`의 통일 메시지
+  (`UNREADABLE_MESSAGE`)를 그대로 낸다. (2) `apps/mcp/main.ts`가 제출 scope의
+  `forbidden`을 비워 둔다. 운영 data root(와 다른 앱 source)를 넣는다(connection#R10).
+  (3) 앱 하나 범위 연결의 실제 credential 발급. T15 시험은 `scope.targets
+  {place_kind:"app", place:<app>}`로 직접 만들었으니 발급이 같은 모양의 scope를 내는지
+  맞춘다.
 - T13에서 넘어온 것: 문서 읽기 CLI command(index·project·document·read)의 core 실행과 시험, `cliDocumentHistorySchema`에 section 추가, CLI 6단계 통합 시험(MCP 쪽은 #307)
 - T16에서 넘어온 것: CLI `question list|show|open`·`approval list|show|open`을
   apps/cli 실행 entry에서 core client로 잇는다(`runQuestionOpen`·`runApprovalOpen`
@@ -1582,20 +1591,16 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ## 질문
 
-- **Q31 coding credential이 닿는 platform 읽기와 root 목차의 건수(T15, 구현).**
-  (1) `ListBackups`·`GetBackup`(contracts/platform/backups.ts, `actors: ACTOR_KINDS`)과
-  `ListSecrets`는 계약 actor에 `coding_agent`가 있고, core가 서빙하는 platform 읽기
-  (`apps/core/runtime.ts`의 backup·status 읽기와 secrets 읽기)는 `scope.operations`를
-  보지 않는다. 그래서 연결 credential이 operation을 열어 주지 않아도 요청이 거절되지
-  않는다(daemon 시험으로 확인). mcp-server#R30·cli#R38의 "backup·secret은 coding
-  credential에서 거절"이 daemon에서는 지켜지지 않는다. `ListSecrets`는 이름·설정 여부·
-  revision만 낸다. 추천: platform이 `ListBackups`·`GetBackup`의 actor에서 `coding_agent`를
-  빼고 `ListSecrets`는 앱 범위 연결에 다른 앱의 secret 이름이 나오지 않게 한다. 이
-  PR의 daemon 시험은 이 셋을 목록으로 고정해 두었으니 고치면 시험이 깨져 목록을 지우게
-  한다. (2) `outline.root`(documents/outline-and-search)의 `unplaced` 항목은 권한 판정 없이
-  자리 없는 문서 수를 낸다. 앱 하나 범위 연결은 자리 없는 문서를 읽지 못하는데도 그 건수는
-  본다. 추천: documents가 `unplaced` 항목에도 대상 판정을 걸어 범위가 좁은 연결에는 빼고,
-  이 시험의 root 확인(`unplaced`만 거르는 줄)을 고친다.
+- **Q31 core가 직접 서빙하는 platform 읽기의 operation 검사(T15, 구현).**
+  `ListBackups`·`GetBackup`·`ListSecrets`는 이 작업에서 계약 actor에서 `coding_agent`를 빼
+  daemon이 거절한다(mcp-server#R30, cli#R38; documents `outline.root`의 `unplaced`
+  묶음도 범위가 좁은 연결에는 내지 않는다). 남은 것: core가 직접 서빙하는 읽기(상태·
+  health·진단 목록·진단 검사·blob 읽기, `apps/core/runtime.ts`)는 dispatch가 `scope.operations`를
+  보지 않고 handler가 정한다. `PlatformStatus` 같은 읽기는 `coding_agent`가 받는 것이 맞지만
+  operation을 열어 주지 않은 연결도 닿는다. dispatch의 `read()`에 operation 검사를 일괄로 걸어
+  보니 빈 operation으로 읽기를 시험하는 platform/api 시험 넷이 깨졌다. 추천: platform이 이
+  읽기들의 operation 요건을 정하고(일괄 검사 또는 handler별 검사) 시험의 credential을 맞춘다.
+  coding-agent는 이 읽기에서 비밀을 내지 않는다.
 - **Q15 ticket claim의 readiness.** coding-agent/tickets#R11 본문은
   needs_confirmation ticket도 claim할 수 있다고 적고, T19 완료 줄과
   checkTicketClaim의 not_ready 거절은 ready만 허용한다. 구현은 완료 줄을

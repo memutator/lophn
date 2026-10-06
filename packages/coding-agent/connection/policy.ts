@@ -58,7 +58,7 @@ export const FORBIDDEN_ROUTES: Readonly<
 > = {
   "approval.decide": ["grant_approval_request", "reject_approval_request"],
   "grant.change": ["grant.create", "grant.revoke"],
-  // 값을 읽는 route는 없다. 등록·삭제·입력과 이름 조회를 coding credential에 주지 않는다.
+  // 값을 읽는 route는 없다. 등록·삭제·입력과 이름 조회를 coding credential에 주지 않는다(cli#R38).
   "secret.read": ["SetSecret", "RemoveSecret", "secret.input", "ListSecrets"],
   "backup.read": ["ListBackups", "GetBackup"],
   "problem.close": ["CloseProblemVerified", "ApplyProblemDecision"],

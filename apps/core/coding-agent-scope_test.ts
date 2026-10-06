@@ -242,12 +242,18 @@ Deno.test("coding-agent/connection#R5 coding-agent/mcp-server#R30: 앱 하나 �
     assertEquals(shown, shownAbsent);
     seen.push(shown);
     const root = await world.mcp("appA", "lophn_index", { op: "root" });
-    const entries = (root.data.entries as { kind: string; id?: string }[])
-      .filter((entry) => entry.kind !== "unplaced");
+    // 자리 없는 문서 묶음의 건수도 앱 하나 범위 연결에는 나오지 않는다.
+    const entries = root.data.entries as { kind: string; id?: string }[];
     assertEquals(entries.map((entry) => `${entry.kind}:${entry.id}`), [
       `app:${world.appA}`,
     ]);
-    seen.push({ ...root, data: { ...root.data, entries } });
+    seen.push(root);
+    const wideRoot = await world.mcp("all", "lophn_index", { op: "root" });
+    assert(
+      (wideRoot.data.entries as { kind: string }[]).some((entry) =>
+        entry.kind === "unplaced"
+      ),
+    );
     // 범위 밖 문서의 제목·본문·ID·판·첨부 이름은 어느 응답에도 없다.
     const text = JSON.stringify(seen);
     for (
@@ -535,12 +541,14 @@ Deno.test("coding-agent/mcp-server#R30 coding-agent/mcp-server#R31 coding-agent/
       (ALL_ROUTES as Route[]).map((route) => [route.name, route]),
     );
     const names = forbiddenRouteNames();
-    // 계약 actor가 coding_agent를 받는 이름 조회 셋은 operation을 열지 않아도 platform이
-    // 읽기를 서빙한다(질문 Q31). 이 목록에 없는 금지 route는 모두 거절이어야 한다.
-    const ungated = names.filter((name) =>
-      byName.get(name)!.actors.includes("coding_agent")
-    ).sort();
-    assertEquals(ungated, ["GetBackup", "ListBackups", "ListSecrets"]);
+    // 금지 route는 계약 actor에서 coding_agent를 뺐다. 서빙 여부와 상관없이 모두 거절이어야 한다.
+    for (const name of names) {
+      assertEquals(
+        byName.get(name)!.actors.includes("coding_agent"),
+        false,
+        name,
+      );
+    }
     const before = await world.mcp("all", "lophn_document", { op: "list" });
     const beforeProjects = await world.mcp("all", "lophn_project", {
       op: "list",
@@ -548,7 +556,7 @@ Deno.test("coding-agent/mcp-server#R30 coding-agent/mcp-server#R31 coding-agent/
     // (1) 허용 operation(문서 읽기·저장)만 가진 연결은 금지 route 어디에도 닿지 못한다.
     //     제품 core가 서빙하지 않는 route는 route 자체가 없다.
     for (const who of ["all", "appA", "appB"] as const) {
-      for (const name of names.filter((one) => !ungated.includes(one))) {
+      for (const name of names) {
         const route = byName.get(name);
         assert(route, name);
         const sent = await sendEmpty(world, who, route);
@@ -566,25 +574,12 @@ Deno.test("coding-agent/mcp-server#R30 coding-agent/mcp-server#R31 coding-agent/
       ...names,
       ...DOCUMENT_OPERATIONS,
     ]);
-    for (const name of names.filter((one) => !ungated.includes(one))) {
+    for (const name of names) {
       const sent = await sendEmpty(world, granted, byName.get(name)!);
       assert(
         sent.status === 403 || sent.status === 404,
         `granted ${name}: ${sent.status} ${JSON.stringify(sent.body)}`,
       );
-    }
-    // 이름 조회는 값이 없다: 이름·설정 여부·revision뿐이다.
-    const secrets = await world.post(granted, "secrets/list", {});
-    assertEquals(secrets.status, 200);
-    for (
-      const entry of (secrets.body as { secrets: Record<string, unknown>[] })
-        .secrets
-    ) {
-      assertEquals(Object.keys(entry).sort(), [
-        "configured",
-        "name",
-        "revision",
-      ]);
     }
     // 거절된 요청이 아무것도 만들거나 바꾸지 않았다.
     const after = await world.mcp("all", "lophn_document", { op: "list" });

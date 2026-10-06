@@ -61,7 +61,7 @@ Deno.test("coding-agent/connection#R4: app registration is allowed only for scop
   );
 });
 
-Deno.test("coding-agent/mcp-server#R31 coding-agent/cli#R6: 금지 동작마다 route 이름이 있고 계약 표에 실제로 있으며 coding_agent actor를 받는 것은 이름 조회뿐이다", () => {
+Deno.test("coding-agent/mcp-server#R31 coding-agent/cli#R6: 금지 동작마다 route 이름이 있고 계약 표에 실제로 있으며 어느 것도 coding_agent actor를 받지 않는다", () => {
   const routes = contractRoutesByName();
   // 모든 금지 동작이 표에 있다. route가 없는 동작은 빈 배열로 없는 것이 거절이다.
   assertEquals(
@@ -73,17 +73,15 @@ Deno.test("coding-agent/mcp-server#R31 coding-agent/cli#R6: 금지 동작마다 
     assert(routes.has(name), `계약 route 표에 없는 금지 route: ${name}`);
   }
   assert(HUMAN_ONLY_DOCUMENT_ROUTES.every((name) => names.includes(name)));
-  // 계약 actor가 이미 coding_agent를 빼는 route가 대부분이고, 남는 읽기 세 개는
-  // 이름·metadata만 낸다. 값은 어느 route에도 없고, coding credential의 operation 목록에
-  // 넣지 않는 것이 그 거절이다(daemon 시험이 같은 목록으로 본다).
-  const acceptingCodingAgent = names.filter((name) =>
-    routes.get(name)!.actors.includes("coding_agent")
-  ).sort();
-  assertEquals(acceptingCodingAgent, [
-    "GetBackup",
-    "ListBackups",
-    "ListSecrets",
-  ]);
+  // 금지 route는 어느 것도 coding_agent actor를 받지 않는다. 읽기 route(ListBackups·GetBackup·
+  // ListSecrets)도 계약에서 coding_agent를 뺐다(mcp-server#R30, cli#R38).
+  for (const name of names) {
+    assertEquals(
+      routes.get(name)!.actors.includes("coding_agent"),
+      false,
+      name,
+    );
+  }
   // 사람이 허락하는 route의 actor에 coding_agent가 없다.
   for (
     const name of [

@@ -3,9 +3,9 @@
 // plan·install·update·remove는 사람이 고른 exact target 하나만 다루고(R6) coding credential은 거절한다
 // (cli#R40). 감지는 `detect`가 저장 결과를, `refresh`만 사람 요청 재감지를 먹는다(R2).
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
-import {
-  type HarnessId,
-  type IntegrationTarget,
+import type {
+  HarnessId,
+  IntegrationTarget,
 } from "../../../contracts/coding-agent/mod.ts";
 import {
   catalogOf,

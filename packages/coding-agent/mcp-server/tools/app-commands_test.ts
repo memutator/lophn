@@ -18,6 +18,7 @@ import {
 } from "../server.ts";
 import { toolEntries } from "../registry.ts";
 import {
+  appBlueprintSourceOf,
   type AppBlueprintView,
   createAppCommandTools,
 } from "./app-commands.ts";
@@ -397,4 +398,31 @@ Deno.test("coding-agent/mcp-server#R4: 동적 목록을 포함한 discovery sche
     `MCP discovery token: 고정 ${fixed}, 동적 ${dynamic.length}개 +${added}`,
   );
   assert(added > 0);
+});
+
+Deno.test("coding-agent/mcp-server#R34: blueprint source는 소유 read의 command 정의만 옮기고 범위 밖·active release 없는 앱은 같은 null이다", async () => {
+  const hash = await sha256Hex("blueprint");
+  const flow = scriptedFlow({
+    "app.blueprint": (input) =>
+      (input as { app: string }).app === APP
+        ? ok({
+          app: APP,
+          release: REL,
+          blueprint_hash: hash,
+          name: "x",
+          commands: [command("usage")],
+          screens: [],
+          automations: [],
+        })
+        : err({ code: "not_found", message: "다른 사유" }),
+  });
+  const source = appBlueprintSourceOf(flow.client);
+  const found = await source(APP);
+  assert(found.ok && found.value !== null);
+  assertEquals(found.value.release, REL);
+  assertEquals(found.value.blueprint_hash, hash);
+  assertEquals(found.value.commands.map((item) => item.key), ["usage"]);
+  const outside = await source(OUTSIDE);
+  assert(outside.ok);
+  assertEquals(outside.value, null);
 });

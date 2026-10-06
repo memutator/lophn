@@ -133,3 +133,18 @@ export {
   CONNECTION_SECRET_OWNER,
   createConnectionSecretRefSource,
 } from "./credential/secret-refs.ts";
+export {
+  createHelperCredentialProvider,
+  currentProcessGeneration,
+  denoHelperRunner,
+  type HelperProviderOptions,
+  type HelperRun,
+  type HelperRunner,
+  processGenerationOf,
+  registeringProvider,
+  startTicksOf,
+} from "./credential/helper.ts";
+export type {
+  ConnectionCredential,
+  CredentialProvider,
+} from "./credential/provider.ts";

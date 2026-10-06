@@ -11,6 +11,10 @@ export interface LayoutProps {
   display: Display;
   /** 결정 버튼 자리. 주 행동은 오른쪽 끝 하나다. */
   actions: ReactNode;
+  /** 대상·변경 칸 안에서 경로 뒤에 두는 정확한 동작·목록. */
+  exact?: ReactNode;
+  /** 결정 바로 앞의 입력(거절 이유, 보호 입력칸). */
+  input?: ReactNode;
 }
 
 /**
@@ -18,7 +22,9 @@ export interface LayoutProps {
  * 순서: 대상·변경 → 영향·위험 → revert 가능 → 결정(confirmation-window#R2).
  * 제목은 결정 자체를 문장으로 말한다.
  */
-export function ConfirmationLayout({ display, actions }: LayoutProps) {
+export function ConfirmationLayout(
+  { display, actions, exact, input }: LayoutProps,
+) {
   return (
     <article className={styles.layout} data-layout="confirmation">
       <header className={styles.header}>
@@ -30,11 +36,14 @@ export function ConfirmationLayout({ display, actions }: LayoutProps) {
         <h2 className={styles.heading}>
           {t("confirmation-window.heading.subject")}
         </h2>
-        <p className={styles.body}>{display.subject}</p>
+        <p className={styles.body} tabIndex={0} data-focus="first">
+          {display.subject}
+        </p>
         {display.path !== undefined
           ? <p className={styles.path}>{display.path}</p>
           : null}
-        <BeforeAfter change={display.change} />
+        {exact}
+        {display.noChange ? null : <BeforeAfter change={display.change} />}
       </section>
       <section className={styles.section} data-section="effect">
         <h2 className={styles.heading}>
@@ -47,12 +56,18 @@ export function ConfirmationLayout({ display, actions }: LayoutProps) {
           {t("confirmation-window.heading.revert")}
         </h2>
         <p className={styles.body}>
-          {display.reversible
+          {display.reversible === null
+            ? t("confirmation-window.revert.unknown")
+            : display.reversible
             ? t("confirmation-window.revert.possible")
             : t("confirmation-window.revert.impossible")}
         </p>
+        {display.revertNote !== undefined
+          ? <p className={styles.body}>{display.revertNote}</p>
+          : null}
       </section>
       <Details facts={display.details} />
+      {input}
       <div className={styles.actions} role="group">{actions}</div>
     </article>
   );

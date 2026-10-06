@@ -68,13 +68,17 @@ export interface Display {
   readonly path?: string;
   /** 영향·위험. */
   readonly effect: string;
-  /** revert 가능 여부. */
-  readonly reversible: boolean;
+  /** revert 가능 여부. 모르면 null이다. */
+  readonly reversible: boolean | null;
+  /** 되돌릴 수 있는 범위·남는 영향의 글. 있으면 가능 여부 뒤에 보인다. */
+  readonly revertNote?: string;
   /** 주 결정 버튼의 이름. */
   readonly action: string;
   /** 주체·시각·이유·근거·상세 전후. 기본에서는 접는다. */
   readonly details: readonly DetailFact[];
   readonly change?: Change;
+  /** 전후 자료가 없는 결정(허락·secret 입력)은 전후 칸을 그리지 않는다. */
+  readonly noChange?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

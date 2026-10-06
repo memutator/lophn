@@ -1,4 +1,4 @@
 import { mount } from "../entry.tsx";
-import styles from "./entry.module.css";
+import { ConfirmationApp } from "./main.tsx";
 
-mount(styles.root);
+mount(<ConfirmationApp />);

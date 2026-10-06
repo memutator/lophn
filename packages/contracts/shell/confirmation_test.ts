@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { ERROR_CODES } from "../../base/mod.ts";
 import {
+  confirmationDisplaySchema,
   CONFIRMATION_ERRORS,
   CONFIRMATION_IPC,
   CONFIRMATION_REQUEST_KINDS,
@@ -195,6 +196,136 @@ Deno.test(
       !CONFIRMATION_IPC["shell:confirmation-open"].safeParse({
         request: { kind: "approval_request", approval: APR, body: {} },
         parentWindow: "win-1",
+      }).success,
+    );
+  },
+);
+
+const RUN = "run_01arz3ndektsv4rrffq69g5fav";
+const RVT = "rvt_01arz3ndektsv4rrffq69g5fav";
+
+Deno.test(
+  "shell/confirmation-window#R2, lophn-agent/revert#R2: owner decision 열기는 대상 ID를, provider credential 입력은 값 아닌 등록 정보만 싣는다",
+  () => {
+    const revert = confirmationOpenIntentSchema.parse({
+      request: {
+        kind: "owner_decision",
+        concern: "lophn-agent/revert",
+        decision: "RevertRun",
+        targets: [RUN],
+      },
+      parentWindow: "win-1",
+    });
+    assertEquals(revert.request.kind, "owner_decision");
+    assert(
+      !confirmationOpenIntentSchema.safeParse({
+        request: {
+          kind: "owner_decision",
+          concern: "lophn-agent/revert",
+          decision: "RevertRun",
+          targets: [RUN, RUN],
+        },
+        parentWindow: "win-1",
+      }).success,
+    );
+    const credential = {
+      key: "main",
+      kind: "api_key",
+      label: "Main key",
+      account: null,
+      organization: null,
+      plan: null,
+      dedup_fingerprint: HASH,
+    };
+    assert(
+      confirmationOpenIntentSchema.safeParse({
+        request: {
+          kind: "secret_input",
+          owner: "pvd_01arz3ndektsv4rrffq69g5fav",
+          purpose: "provider_credential",
+          credential,
+        },
+        parentWindow: "win-1",
+      }).success,
+    );
+    assert(
+      !confirmationOpenIntentSchema.safeParse({
+        request: {
+          kind: "secret_input",
+          owner: "weather.key",
+          purpose: "app_secret",
+          credential,
+        },
+        parentWindow: "win-1",
+      }).success,
+    );
+    assert(
+      !confirmationOpenIntentSchema.safeParse({
+        request: {
+          kind: "secret_input",
+          owner: "pvd_01arz3ndektsv4rrffq69g5fav",
+          purpose: "provider_credential",
+          credential: { ...credential, value: "raw-secret" },
+        },
+        parentWindow: "win-1",
+      }).success,
+    );
+  },
+);
+
+Deno.test(
+  "shell/confirmation-window#R5, platform/approvals#R9: 표시는 종류별 view·상태·결정을, 결과는 접수와 실제 적용을 구별한다",
+  () => {
+    const display = confirmationDisplaySchema.parse({
+      displayId: "dsp_1",
+      request: {
+        kind: "owner_decision",
+        concern: "lophn-agent/revert",
+        decision: "RevertRun",
+        targets: [RUN],
+        input: {
+          kind: "inline",
+          value: {
+            id: RVT,
+            run: RUN,
+            allow_partial: true,
+            preview_hash: HASH,
+          },
+        },
+        comparison: { preview_hash: HASH },
+      },
+      view: { kind: "revert", groups: [] },
+      state: "ready",
+      decisions: ["RevertRun"],
+      second: true,
+    });
+    assertEquals(display.decisions, ["RevertRun"]);
+    assert(
+      !confirmationDisplaySchema.safeParse({ ...display, state: "granted" })
+        .success,
+    );
+    assert(
+      !confirmationDisplaySchema.safeParse({ ...display, handle: "raw" })
+        .success,
+    );
+    const accepted = confirmationOutcomeSchema.parse({
+      outcome: "decided",
+      receipt: { kind: "entity", id: APR },
+      result: "accepted",
+    });
+    assertEquals(accepted.outcome, "decided");
+    assert(
+      confirmationOutcomeSchema.safeParse({
+        outcome: "decided",
+        receipt: { kind: "entity", id: RVT },
+        result: "partial",
+      }).success,
+    );
+    assert(
+      !confirmationOutcomeSchema.safeParse({
+        outcome: "decided",
+        receipt: { kind: "entity", id: APR },
+        result: "done",
       }).success,
     );
   },

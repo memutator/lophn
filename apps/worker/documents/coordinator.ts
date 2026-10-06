@@ -32,6 +32,7 @@ import { createByteInbox, validateFiles } from "./validation.ts";
 import { createFormatHandlers } from "../../../packages/documents/formats/reads.ts";
 import { createLedgerGate } from "./ledger-gate.ts";
 import { createSearchServing, openSearchStore } from "./search.ts";
+import { createWatchServing, watchSubmitKey } from "./watch.ts";
 import { createRootObservers } from "./observers.ts";
 import { createPreparationPool } from "./pool.ts";
 import { createBatchDispatch } from "./batch.ts";
@@ -378,6 +379,24 @@ export async function runCoordinator(root: string): Promise<void> {
   });
   // 성공한 파일 작업을 machine credential로 기록한다. hello 전에는 core에 닿을 수 없다.
   const core: { client?: CoreClient } = {};
+  // context watch consumer(documents#T24). 확인된 변화는 같은 machine credential로 제출한다.
+  const watch = store.ok
+    ? createWatchServing({
+      store: store.value,
+      gate: ledgerGate,
+      async submit(comparison, baseRevision) {
+        if (core.client === undefined) {
+          return err({ code: "unavailable", message: "core is not connected" });
+        }
+        return await core.client.call("contexts/record_watch_change", {
+          input: comparison,
+          idempotency_key: await watchSubmitKey(comparison, baseRevision),
+          compare: { base_revision: baseRevision },
+          prepared: [],
+        });
+      },
+    })
+    : undefined;
   const files = createFileHandlers({
     dataRoot: root,
     basis,
@@ -455,9 +474,9 @@ export async function runCoordinator(root: string): Promise<void> {
     handleRequest: createRequestHandler({
       status,
       basis,
-      ...(search === undefined
-        ? {}
-        : { search: (request) => search.handle(request) }),
+      ...(search === undefined && watch === undefined ? {} : {
+        search: (request) => search?.handle(request) ?? watch?.handle(request),
+      }),
       files,
       preview: (payload) => previewTracking(pool, payload),
       validate: (request) =>

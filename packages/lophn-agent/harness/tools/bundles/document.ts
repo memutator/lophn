@@ -32,7 +32,7 @@ import {
   toolTextSchema,
 } from "../../../../contracts/lophn-agent/mod.ts";
 import { archiveStateSchema } from "../../../../contracts/platform/mod.ts";
-import { fitJson, limitText, PAGE_SIZE } from "../result.ts";
+import { limitText, PAGE_SIZE } from "../result.ts";
 import { createReadLog, type ReadLog } from "./read-log.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";
@@ -44,8 +44,8 @@ import {
 } from "./common.ts";
 import {
   bodyOf,
-  continuation,
   invalid,
+  pageThrough,
   resume,
   scopeOf,
   windowedResult,
@@ -436,46 +436,12 @@ export function createDocumentToolHandlers(
     },
   );
 
-  // 목차·차이는 소유 contract가 쪽을 정한다. cursor만 조건과 함께 감싼다.
-  async function pageThrough(
-    summary: string,
-    contract: string,
-    scope: string,
-    given: string | undefined,
-    fixed: Record<string, unknown>,
-    arrayKeys: readonly string[],
-    credential: RunCredential,
-  ): Promise<Result<ToolResult>> {
-    const resumed = resume(given, scope);
-    if (!resumed.ok) return resumed;
-    const inner = resumed.value?.inner ?? null;
-    const read = await ports.call(contract, {
-      ...fixed,
-      ...(inner === null ? {} : { cursor: inner }),
-    }, credential.run);
-    if (!read.ok) return read;
-    const body = bodyOf(read.value);
-    const { next_cursor: nextInner, ...rest } = body;
-    const fitted = fitJson(rest, arrayKeys);
-    const next = nextInner === null || nextInner === undefined
-      ? null
-      : wrap(scope, nextInner, 0);
-    return ok({
-      status: "success",
-      summary,
-      content: fitted.content as ToolResult["content"],
-      complete: fitted.complete && next === null,
-      source: null,
-      continuation: continuation(next),
-      pending: [],
-    });
-  }
-
   handlers.set(
     documentOutlineTool.name,
     (input, credential) => {
       const value = input as z.infer<typeof outlineInput>;
       return pageThrough(
+        ports,
         "outline read",
         outlineDocument.name,
         scopeOf("document.outline", {
@@ -498,6 +464,7 @@ export function createDocumentToolHandlers(
     (input, credential) => {
       const value = input as z.infer<typeof diffInput>;
       return pageThrough(
+        ports,
         "versions compared",
         documentDiff.name,
         scopeOf("document.diff", {

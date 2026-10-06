@@ -215,7 +215,7 @@ export function createContextCommands(deps: ContextCommandDeps = {}): {
           );
         const position = next.find((item) => item.target_key === key)
           ?.position ?? 0;
-        tx.emit(contextItemSet, current.value.id, {
+        const seq = tx.emit(contextItemSet, current.value.id, {
           target: recordOf(input.item.target),
           before_item: before === null ? null : itemRecord(before),
           item: itemRecord(input.item),
@@ -224,6 +224,8 @@ export function createContextCommands(deps: ContextCommandDeps = {}): {
           before_revision: current.value.revision,
         });
         replaceItems(tx, input.context, next);
+        // revision은 마지막 구성 변경 seq다. 항목 변경도 CAS 기준을 옮긴다.
+        updateContext(tx, { ...current.value, revision: seq });
         return contextOutput(tx.sql, input.context);
       },
     },
@@ -258,13 +260,14 @@ export function createContextCommands(deps: ContextCommandDeps = {}): {
               ? { ...item, position: item.position - 1 }
               : item
           );
-        tx.emit(contextItemRemoved, current.value.id, {
+        const seq = tx.emit(contextItemRemoved, current.value.id, {
           target: recordOf(removed.target),
           before_item: itemRecord(removed),
           before_position: removed.position,
           before_revision: current.value.revision,
         });
         replaceItems(tx, input.context, next);
+        updateContext(tx, { ...current.value, revision: seq });
         return contextOutput(tx.sql, input.context);
       },
     },

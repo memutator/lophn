@@ -1,11 +1,25 @@
 import { assert, assertEquals } from "@std/assert";
+import { DatabaseSync } from "node:sqlite";
 import { err, ok } from "../../base/mod.ts";
-import type { DocumentRef } from "../../contracts/documents/mod.ts";
-import type { TargetAuthorizer } from "../../contracts/platform/mod.ts";
+import type { Document, DocumentRef } from "../../contracts/documents/mod.ts";
+import type {
+  PortKey,
+  Sql,
+  SqlRow,
+  TargetAuthorizer,
+  Tx,
+} from "../../contracts/platform/mod.ts";
+import { TargetAuthorization } from "../../contracts/platform/mod.ts";
 import { initialTrackingProposal } from "./mod.ts";
 import { createProjectReads, type ProjectReadDeps } from "./reads.ts";
 import { createProjectCommands } from "./commands.ts";
 import { ids, projectFixture, userContext } from "./testing-fixture.ts";
+import { addressingSchemaSteps } from "../addressing/mod.ts";
+import { projectsSchemaSteps } from "./schema.ts";
+import {
+  insertDocument,
+  versionsSchemaSteps,
+} from "../versions/mod.ts";
 
 const commands = createProjectCommands();
 const hidden = "doc_01arz3ndektsv4rrffq69g5faw";
@@ -214,5 +228,259 @@ Deno.test("documents/projects#R10: resolve uses the deepest root and links nothi
     assert(!agent.ok && agent.error.code === "forbidden");
   } finally {
     fixture.close();
+  }
+});
+
+Deno.test("documents/projects#R8: project.get and project.list return real document count and refs", () => {
+  // Create a fixture with both projects and versions schemas for real document reads.
+  const directory = Deno.makeTempDirSync({
+    prefix: "projects-with-docs-test-",
+  });
+  const db = new DatabaseSync(`${directory}/ledger.sqlite`);
+  db.exec(
+    "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;",
+  );
+
+  // Initialize all necessary schemas.
+  for (
+    const step of [
+      ...addressingSchemaSteps,
+      ...projectsSchemaSteps,
+      ...versionsSchemaSteps,
+    ]
+  ) {
+    db.exec(step.sql);
+  }
+
+  try {
+    let seq = 0n;
+    const allowAll = () => ok(undefined);
+    const sqlOf = (active: () => void): Sql => ({
+      run: (statement, params) => {
+        active();
+        return db.prepare(statement).run(...params);
+      },
+      get: (statement, params) => {
+        active();
+        return db.prepare(statement).get(...params) as SqlRow | undefined;
+      },
+      all: (statement, params) => {
+        active();
+        return db.prepare(statement).all(...params) as SqlRow[];
+      },
+    });
+    const base = sqlOf(() => {});
+
+    // Helper to create a transaction context.
+    // deno-lint-ignore no-explicit-any
+    const transaction = (handle: (tx: Tx) => any) => {
+      let open = true;
+      const guard = () => {
+        if (!open) throw new Error("transaction is closed");
+      };
+      db.exec("BEGIN IMMEDIATE");
+      const tx = {
+        sql: sqlOf(guard),
+        emit(
+          _event: { type: string },
+          _subject: string | null,
+          _payload: unknown,
+        ) {
+          guard();
+          seq += 1n;
+          return seq.toString();
+        },
+        now: () => "2026-10-04T00:00:00.000Z",
+        newId: (_prefix: string) => {
+          guard();
+          throw new Error("should not mint ids in this test");
+        },
+        port<T>(key: PortKey<T>): T {
+          guard();
+          if (!Object.is(key, TargetAuthorization)) {
+            throw new Error("unregistered port");
+          }
+          return allowAll as unknown as T;
+        },
+        registerBlobRef: () => {
+          throw new Error("unused");
+        },
+        advanceSubscriberCursor: () => {
+          throw new Error("unused");
+        },
+        useApproval: () => {
+          throw new Error("unused");
+        },
+        call: () => {
+          throw new Error("unused");
+        },
+      } as Tx;
+      try {
+        const result = handle(tx);
+        db.exec("COMMIT");
+        return result;
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      } finally {
+        open = false;
+      }
+    };
+
+    // Create a project.
+    const createProjectCmd = createProjectCommands();
+    const projCreated = transaction((tx) =>
+      createProjectCmd.create.handle(tx, userContext(), {
+        id: ids.project,
+        name: "test-project",
+        title: "Test Project",
+        purpose: "testing",
+        folders: [{ path: "/test/project", description: "test" }],
+        tracking: {
+          enabled: false,
+          patterns: [],
+          use_gitignore: false,
+        },
+      }, {})
+    );
+    assert(
+      projCreated.ok,
+      `failed to create project: ${projCreated.error?.code}`,
+    );
+
+    // Insert active documents and an archived document.
+    const doc1: Document = {
+      id: "doc_01arz3ndektsv4rrffq69g5fab",
+      place: { kind: "project", id: ids.project },
+      name: "doc1",
+      title: "Document 1",
+      file_source: {
+        kind: "project_file",
+        project: ids.project,
+        path: "file1.md",
+      },
+      latest_version: "ver_01arz3ndektsv4rrffq69g5fab",
+      revision: "1",
+      status: "active",
+    };
+
+    const doc2: Document = {
+      id: "doc_01arz3ndektsv4rrffq69g5fac",
+      place: { kind: "project", id: ids.project },
+      name: "doc2",
+      title: "Document 2",
+      file_source: {
+        kind: "project_file",
+        project: ids.project,
+        path: "file2.md",
+      },
+      latest_version: "ver_01arz3ndektsv4rrffq69g5fac",
+      revision: "1",
+      status: "active",
+    };
+
+    const archivedDoc: Document = {
+      id: "doc_01arz3ndektsv4rrffq69g5fad",
+      place: { kind: "project", id: ids.project },
+      name: "archived",
+      title: "Archived Document",
+      file_source: {
+        kind: "project_file",
+        project: ids.project,
+        path: "archived.md",
+      },
+      latest_version: "ver_01arz3ndektsv4rrffq69g5fad",
+      revision: "1",
+      status: "archived",
+    };
+
+    transaction((tx) => {
+      insertDocument(tx, doc1);
+      insertDocument(tx, doc2);
+      insertDocument(tx, archivedDoc);
+      return ok(undefined);
+    });
+
+    // Create a snapshot to read.
+    const snapshot = {
+      sql: base,
+      as_of_seq: seq.toString(),
+      port<T>(key: PortKey<T>): T {
+        if (!Object.is(key, TargetAuthorization)) {
+          throw new Error("unregistered port");
+        }
+        return allowAll as unknown as T;
+      },
+    };
+
+    // Create the real documents dependency function.
+    const realDocumentsDep: ProjectReadDeps = {
+      documents(snap, projectId: string) {
+        const result = snap.sql.all(
+          `SELECT id, latest_version FROM documents
+           WHERE place_kind = 'project' AND place_id = ? AND status = 'active'`,
+          [projectId],
+        ) as Array<{ id: string; latest_version: string }>;
+        return ok(result.map((doc) => ({
+          document: doc.id,
+          version: doc.latest_version,
+          section: null,
+        })));
+      },
+    };
+
+    // Test project.get
+    const reads = createProjectReads(realDocumentsDep);
+    const got = reads.get.handle(snapshot, userContext(), {
+      project: ids.project,
+    });
+    if (!got.ok) {
+      throw new Error("project.get failed");
+    }
+    const project = got.value.project;
+    assert("document_count" in project, "user should get document_count");
+    // deno-lint-ignore no-explicit-any
+    const userProject = project as any;
+    assertEquals(
+      userProject.document_count,
+      2,
+      "should count only active documents",
+    );
+    assertEquals(
+      userProject.documents.length,
+      2,
+      "should return 2 document refs",
+    );
+    assertEquals(
+      userProject.documents
+        // deno-lint-ignore no-explicit-any
+        .map((d: any) => d.document)
+        .sort(),
+      [doc1.id, doc2.id].sort(),
+      "should return refs for active documents only",
+    );
+
+    // Test project.list
+    const listed = reads.list.handle(snapshot, userContext(), {});
+    if (!listed.ok) {
+      throw new Error("project.list failed");
+    }
+    const listedProject = listed.value.projects[0];
+    assert(listedProject, "should have at least one project");
+    // deno-lint-ignore no-explicit-any
+    const listedUserProject = listedProject as any;
+    assertEquals(
+      listedUserProject.document_count,
+      2,
+      "list should also show correct count",
+    );
+    assertEquals(
+      listedUserProject.documents.length,
+      2,
+      "list should return document refs",
+    );
+  } finally {
+    db.close();
+    Deno.removeSync(directory, { recursive: true });
   }
 });

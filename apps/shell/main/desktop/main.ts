@@ -65,6 +65,13 @@ import { createFileAdapter } from "../editor/file-adapter.ts";
 import { createRestorer } from "../editor/restore.ts";
 import { registerEditorIpc, removeEditorIpc } from "../editor/ipc.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
+import { type AppWindowConfig, createAppWindows } from "./app-window.ts";
+import {
+  type OpenIntent,
+  openUrlIntent,
+  readOpenIntent,
+  registerUrlScheme,
+} from "./open-intent.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
 import {
   type AutostartOs,
@@ -169,6 +176,8 @@ let shotSerial = 0;
 const overlays = electronOverlays(headless);
 // 순서는 최근에 focus를 받은 창이 끝이다. 창 밖에서 온 일은 끝의 창에 시킨다.
 const windows = new Set<BrowserWindow>();
+// 앱 전용 창(shell#T47). shell 창이 아니라서 shortcut·intent·core 상태를 받지 않는다.
+const appWindowRefs = new Map<string, BrowserWindow>();
 const log = (message: string) => console.log(`[lophn] ${message}`);
 let tray: InstalledTray | undefined;
 
@@ -241,7 +250,7 @@ function coreInternal(
 function windowOfRef(ref: string): BrowserWindow | undefined {
   return [...windows].find((window) =>
     !window.isDestroyed() && windowRef(window) === ref
-  );
+  ) ?? appWindowRefs.get(ref);
 }
 
 // 앱 view registry(shell#T37). 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
@@ -384,6 +393,61 @@ registerAppIpc(appIpc, {
 
 function windowRef(window: BrowserWindow): string {
   return `window-${window.id}`;
+}
+
+// 앱 전용 창(shell#T47, desktop#R13, R14). 본문 view와 같은 appFrame·Electron adapter로 연다.
+// 전용 창의 screen은 blueprint read(`/v1/apps/blueprint`, apps#T19)가 정한다. 아직 core 통로가
+// 없어 unavailable이고, 그동안 `--open-app`은 기본 창을 앞으로 가져온다.
+const appWindows = createAppWindows({
+  readApp: (app) => {
+    const session = core.session();
+    return session
+      ? session.internal("read", "apps", "get", { app })
+      : Promise.resolve({
+        ok: false,
+        error: { code: "unavailable", message: "core is not ready" },
+      });
+  },
+  entryScreen: () =>
+    Promise.resolve({
+      ok: false,
+      error: { code: "unavailable", message: "blueprint read is not ready" },
+    }),
+  create: (config: AppWindowConfig) => {
+    const window = new BrowserWindow(surfaceOptions(config, headless));
+    // 창 자신은 page가 없다. 새 창 요청도 받지 않는다.
+    window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    const ref = windowRef(window);
+    appWindowRefs.set(ref, window);
+    window.on("closed", () => appWindowRefs.delete(ref));
+    return {
+      ref,
+      body: () => {
+        const [width = 0, height = 0] = window.getContentSize();
+        return { x: 0, y: 0, width, height };
+      },
+      onResize: (listener) => void window.on("resize", listener),
+      onClosed: (listener) => void window.on("closed", listener),
+      reveal: () => reveal(window, headless),
+      close: () => window.destroy(),
+    };
+  },
+  frame: appFrame,
+  packaged: app.isPackaged,
+  log,
+});
+
+/** 창 열기 intent. 열 수 없는 앱은 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. */
+function openIntent(intent: OpenIntent): void {
+  if (intent.kind === "app") {
+    void appWindows.open(intent.app).then((opened) => {
+      if (opened.ok) return;
+      log(`앱 전용 창을 열지 못했다: ${opened.error.message}`);
+      showDesktopWindow();
+    });
+  } else if (intent.kind === "things-to-confirm") {
+    sendIntent({ kind: "things-to-confirm", request: intent.request });
+  } else openDesktopWindow();
 }
 
 // 권한·release가 바뀌면 옛 view와 연결을 버리고 다시 연다. release event는 앱을 싣지 않아
@@ -565,6 +629,9 @@ const instance = startSingleInstance({
   app,
   dataRoot,
   onOpenWindow: () => openDesktopWindow(),
+  onOpenApp: (app) => openIntent({ kind: "app", app }),
+  onThingsToConfirm: (request) =>
+    openIntent({ kind: "things-to-confirm", request }),
   onQuitIntent: () =>
     requestQuit({
       windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
@@ -572,6 +639,15 @@ const instance = startSingleInstance({
       quitApp: () => {},
       confirmWithWindows: () => void quitFlow.request(),
     }),
+});
+
+// macOS는 링크를 argv가 아니라 open-url로 준다. 준비 전에 와도 준비된 뒤 연다.
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  const intent = openUrlIntent(url);
+  if (intent.kind === "things-to-confirm" && instance.acquired) {
+    void app.whenReady().then(() => openIntent(intent));
+  }
 });
 
 // 창 안 shortcut. 창 본문·overlay·앱 view 어디에 focus가 있어도 그 창의 shell renderer가
@@ -646,8 +722,18 @@ if (instance.acquired) {
       unavailable: () => tray?.notice("global-search-unavailable"),
       log,
     });
-    // 창 없는 시작은 main과 core만 띄운다(desktop#R21).
-    if (!mode.tray) openDesktopWindow();
+    registerUrlScheme({
+      packaged: app.isPackaged,
+      headless: headless.headless,
+      port: app,
+      log,
+    });
+    // 창 없는 시작은 main과 core만 띄운다(desktop#R21). 첫 시작의 `--open-app`은 기본 창
+    // 대신 앱 전용 창을, 링크는 그 대상을 고른 기본 창을 연다.
+    const start = readOpenIntent(process.argv);
+    if (start.kind === "app" || start.kind === "things-to-confirm") {
+      openIntent(start);
+    } else if (!mode.tray) openDesktopWindow();
   });
 }
 

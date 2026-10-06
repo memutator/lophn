@@ -1,11 +1,16 @@
 // e2e/shell/app-isolation_test.ts가 build해 띄우는 Electron main. 실제 shell과 같은
 // app-frame 조립(scheme 등록, electron adapter, registry, session 정책, scheme proxy)을 쓰고
 // core 앱 통로만 가짜 connector로 바꾼다. 창은 화면에 띄우지 않는다(show:false·offscreen).
-// 결과는 JSON 파일 하나로 쓰고 끝난다.
+// 본문 view에 더해 앱 전용 창(desktop/app-window.ts)과 OS 바로가기의 `--open-app` intent가
+// second-instance로 연 창에서도 같은 검사를 한다(shell#T47). 결과는 JSON 파일 하나로 쓰고 끝난다.
 import { app, BrowserWindow, protocol, webContents } from "electron";
 import { writeFileSync } from "node:fs";
 
+import { createAppWindows } from "../../desktop/app-window.ts";
+import { surfaceOptions } from "../../desktop/headless.ts";
+import { linuxEntry } from "../../desktop/os-entry/linux.ts";
 import { registerViewSchemes } from "../../desktop/security.ts";
+import { startSingleInstance } from "../../desktop/single-instance.ts";
 import { nodeUpstream } from "../app-protocol.ts";
 import type { AppBinding, ConnectTarget, Outcome } from "../app-connection.ts";
 import {
@@ -169,8 +174,9 @@ async function run(): Promise<unknown> {
     height: 600,
     webPreferences: { offscreen: true },
   });
+  const appWindowRefs = new Map<string, BrowserWindow>();
   const adapter = electronAppViews({
-    windowOf: (ref) => ref === "window-1" ? parent : undefined,
+    windowOf: (ref) => ref === "window-1" ? parent : appWindowRefs.get(ref),
     preload: config.preload,
     packaged: false,
     headless: { headless: true },
@@ -292,6 +298,116 @@ async function run(): Promise<unknown> {
   await new Promise((resolve) => setTimeout(resolve, 1000));
   const afterNavigate = webContents.fromId(aLive)!.getURL();
 
+  // 같은 앱 view를 앱 전용 창과 OS 바로가기 intent로 연다(shell/app-frame#R18).
+  const appWindows = createAppWindows({
+    readApp: (id) =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          app: {
+            id,
+            name: "Probe",
+            status: "active",
+            active_release: config.release,
+          },
+        },
+      }),
+    entryScreen: () => Promise.resolve({ ok: true, value: "main" }),
+    create(windowConfig) {
+      const window = new BrowserWindow(
+        surfaceOptions(windowConfig, { headless: true }),
+      );
+      const ref = `window-${window.id}`;
+      appWindowRefs.set(ref, window);
+      window.on("closed", () => appWindowRefs.delete(ref));
+      return {
+        ref,
+        body: () => {
+          const [width = 0, height = 0] = window.getContentSize();
+          return { x: 0, y: 0, width, height };
+        },
+        onResize: (listener) => void window.on("resize", listener),
+        onClosed: (listener) => void window.on("closed", listener),
+        reveal: () => {},
+        close: () => window.destroy(),
+      };
+    },
+    frame,
+    packaged: false,
+    log: () => {},
+  });
+  const bodySession = webContents.fromId(aLive)!.session;
+  async function inspect(id: number, window: string) {
+    const contents = webContents.fromId(id)!;
+    const host = appWindowRefs.get(window);
+    return {
+      sameSession: contents.session === bodySession,
+      attached: host?.contentView.children.length ?? 0,
+      storage: await exec(id, STORAGE_READ),
+      cookie: await exec(id, COOKIE("cookie-echo")),
+      network: await exec(id, NETWORK(appHostLabel(config.appB))),
+      surface: await exec(id, SURFACE),
+    };
+  }
+  async function viewOf(window: string): Promise<number> {
+    const id = created.at(-1)!;
+    await loads.get(id);
+    // 첫 load 뒤에 붙는다(shell#T39). 붙을 때까지 잠시 기다린다.
+    for (let wait = 0; wait < 40; wait++) {
+      if ((appWindowRefs.get(window)?.contentView.children.length ?? 0) > 0) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return id;
+  }
+
+  const inWindow = await appWindows.open(config.appA);
+  if (!inWindow.ok) throw new Error(`app window: ${inWindow.error.message}`);
+  const windowView = await viewOf(inWindow.value.window);
+  const appWindow = await inspect(windowView, inWindow.value.window);
+  appWindowRefs.get(inWindow.value.window)!.close();
+  for (
+    let wait = 0;
+    wait < 60 && frame.state(inWindow.value.view.view_session) !== undefined;
+    wait++
+  ) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  // 설치형: Linux .desktop의 Exec가 넘기는 argv 그대로 second-instance로 받는다.
+  const execLine = linuxEntry("/opt/lophn/lophn-desktop", {
+    id: config.appA,
+    name: "Probe",
+  }).split("\n").find((line) => line.startsWith("Exec="))!;
+  const argv = execLine.slice("Exec=".length).split(" ").map((part) =>
+    part.replace(/^"|"$/g, "")
+  );
+  let fire: ((...args: unknown[]) => void) | undefined;
+  let fromOs: ReturnType<typeof appWindows.open> | undefined;
+  startSingleInstance({
+    dataRoot: config.userData,
+    onOpenWindow: () => {},
+    onQuitIntent: () => {},
+    onOpenApp: (id) => {
+      fromOs = appWindows.open(id);
+    },
+    app: {
+      requestSingleInstanceLock: () => true,
+      quit: () => {},
+      on: (_event, listener) => {
+        fire = listener;
+      },
+    },
+  });
+  fire?.({}, argv, "/", { dataRoot: config.userData });
+  const installed = await fromOs;
+  if (installed === undefined || !installed.ok) {
+    throw new Error("os entry did not open the app window");
+  }
+  const osView = await viewOf(installed.value.window);
+  const osEntry = await inspect(osView, installed.value.window);
+
   frame.dispose();
   // webContents.close()는 비동기로 끝난다. 잠시 기다린 뒤 남은 view가 있는지 본다.
   const gone = () =>
@@ -318,6 +434,9 @@ async function run(): Promise<unknown> {
     networkB,
     surface,
     afterNavigate,
+    osArgv: argv,
+    appWindow,
+    osEntry,
     destroyed: created.map((id) => {
       const contents = webContents.fromId(id);
       return contents === undefined || contents.isDestroyed();

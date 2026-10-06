@@ -32,8 +32,8 @@ export {
 } from "./model.ts";
 export {
   readSecretStatuses,
-  type SecretView,
   secretsListRead,
+  type SecretView,
 } from "./reads.ts";
 export { readSecretRefs, type SecretReference } from "./refs.ts";
 export type { SecretRefSource } from "../../contracts/platform/mod.ts";

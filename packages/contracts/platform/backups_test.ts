@@ -39,7 +39,8 @@ Deno.test("platform/backup-and-migration#R8: backup read 이름은 architecture 
   ]);
   for (const route of BACKUP_ROUTES) {
     assertEquals(route.kind, "read");
-    assert(route.actors.length === 5);
+    // coding agent는 backup을 읽지 못한다(coding-agent/mcp-server#R30).
+    assertEquals([...route.actors], ["user", "agent", "app", "machine"]);
     assert(route.errors.every((code) => ERROR_CODES.includes(code)));
   }
 });

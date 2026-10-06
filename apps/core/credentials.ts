@@ -90,11 +90,17 @@ const FIXED_CREDENTIALS = new Set([
   NOTIFICATIONS_PRINCIPAL,
 ]);
 
+// coding agent connection의 인증 context는 connection마다 고정 ref(`coding:<cac>`)이고 시작마다
+// 같은 권한으로 다시 기록한다(platform#T34). 권한이 다르면 위의 비교가 거절한다.
+function isFixedCredential(ref: string): boolean {
+  return FIXED_CREDENTIALS.has(ref) || /^coding:cac_[0-9a-z]{26}$/.test(ref);
+}
+
 function sameFixedCredential(
   row: Record<string, unknown>,
   context: AuthenticatedContext,
 ): boolean {
-  if (!FIXED_CREDENTIALS.has(context.credential_ref)) return false;
+  if (!isFixedCredential(context.credential_ref)) return false;
   if (row.state !== "active" || typeof row.context !== "string") return false;
   let stored: {
     scope?: unknown;

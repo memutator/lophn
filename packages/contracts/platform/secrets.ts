@@ -72,7 +72,8 @@ export const listSecrets = defineRead({
   name: "ListSecrets",
   input: listSecretsInputSchema,
   output: listSecretsOutputSchema,
-  actors: ["user", "coding_agent", "agent", "app", "machine"],
+  // coding agent는 secret 이름·설정 여부도 읽지 못한다(coding-agent/cli#R38).
+  actors: ["user", "agent", "app", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 

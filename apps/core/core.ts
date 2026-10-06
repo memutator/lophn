@@ -54,6 +54,10 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import {
+  type CodingCredentials,
+  createCodingCredentials,
+} from "./coding-credential.ts";
 import { productKeychain } from "./secret-store.ts";
 import {
   createSecretInputRelay,
@@ -111,6 +115,7 @@ import {
   SEARCH_VERSION_ROUTE,
   STORED_FILE_ROUTE,
   TERM_OCCURRENCE_ROUTE,
+  WATCH_INPUT_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
@@ -123,6 +128,11 @@ import {
   type SearchVersion,
   watchSearchIndex,
 } from "./documents-search.ts";
+import {
+  watchContextChanges,
+  type WatchInput,
+  type WatchSync,
+} from "./documents-watch.ts";
 import { startNotifications } from "./notifications.ts";
 import {
   APPROVAL_EXPIRY_CONTEXT,
@@ -228,6 +238,11 @@ export type CoreOptions = {
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
   secretKeychain?: KeychainAdapter;
+  // coding agent connection credential을 준비·읽는 keychain adapter. 없으면 coding credential 인증은
+  // 꺼져 있다. 제품 main만 OS adapter를 주고 테스트는 fake를 준다(사람의 실제 keychain에 닿지 않는다).
+  codingKeychain?: KeychainAdapter;
+  // 설치된 보호 loader의 identity 목록. 설치 쪽이 정하기 전에는 비어 있어 child를 등록할 수 없다.
+  codingLoaders?: readonly string[];
   // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다(예: fake keychain을
   // 쥔 I/O worker). 제품 기동에는 없다.
   spawn?: (request: SpawnRequest) => Spawned;
@@ -308,6 +323,11 @@ export type Core = {
   sweepApprovalExpiry(): Promise<void>;
   // 재시작 때 접수·실행 중으로 남은 invocation을 미확인으로 확정한다(기동이 한 번 부른다).
   sweepInterruptedInvocations(): Promise<void>;
+  // codingKeychain이 있을 때만 있다. 사람의 연결 결정 입구가 connect를, 신뢰 감독이 registerChild를
+  // 부른다(입구의 contract는 coding-agent 소유라 HTTP route는 없다).
+  codingCredentials?: CodingCredentials;
+  // 시작 때의 고아 정리·색인 복원이 끝나면 resolve한다. 실패해도 resolve한다(기동을 막지 않는다).
+  codingCredentialsReady?: Promise<void>;
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
   // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
   documentsFeed?: InternalSubscription;
@@ -422,10 +442,21 @@ async function open(
   // machine은 command kind 정책에만 닿는다(identity model operationCeiling).
   // 문서 관측 제출은 machine document.prepare(준비 route)와 document.save command다
   // (documents#T11). 준비 route도 machine이 닿도록 command kind로 올린다.
+  const coding = options.codingKeychain
+    ? createCodingCredentials({
+      ledgerPath,
+      dataRoot: root.path,
+      keychain: options.codingKeychain,
+      clock,
+      random,
+      loaders: options.codingLoaders ?? [],
+    })
+    : undefined;
   const productRegistry = new CredentialRegistry({
     epoch,
     clock,
     random,
+    ...(coding ? { external: coding.authority } : {}),
     operations: [
       {
         name: "platform/status",
@@ -441,6 +472,12 @@ async function open(
       { name: "document.prepare", actors: ["machine"], kind: "command" },
       // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
       { name: "file.record_result", actors: ["machine"], kind: "command" },
+      // 확인된 문서 watch 변화 기록(documents#T24). coordinator의 watch consumer만 쓴다.
+      {
+        name: "context.record_watch_change",
+        actors: ["machine"],
+        kind: "command",
+      },
       // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
       ...appsOperationPolicies(),
       // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
@@ -517,6 +554,8 @@ async function open(
   let basisSync: BasisSync | undefined;
   // coordinator의 search consumer에 event와 저장 판 원문을 보내는 동기화(documents#T21).
   let searchSync: SearchSync | undefined;
+  // coordinator의 context watch consumer에 저장 event를 보내는 동기화(documents#T24).
+  let watchSync: WatchSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
   // deno-lint-ignore prefer-const
@@ -655,7 +694,12 @@ async function open(
       actor: "machine",
       principal: "machine:documents",
       scope: {
-        operations: ["document.prepare", "document.save", "file.record_result"],
+        operations: [
+          "document.prepare",
+          "document.save",
+          "file.record_result",
+          "context.record_watch_change",
+        ],
         targets: { task: "documents" },
       },
       conditions: { task: "documents", process: "documents/worker" },
@@ -1184,6 +1228,25 @@ async function open(
       streamer: coordinatorStreamer,
       ledgerId: ledgerId.value,
       retryMs: DOCUMENTS_SEARCH_RETRY_MS,
+      // 추출이 끝나면 그 판의 미확인 watch 비교를 다시 확인할 수 있다.
+      onSettled: () => void watchSync?.check(),
+    });
+    watchSync = watchContextChanges({
+      events: runtime.events,
+      context: DOCUMENTS_FEED_CONTEXT,
+      request: (op, payload, timeoutMs) =>
+        documentsChannel.request(op, payload, timeoutMs),
+      inputOf: async (event): Promise<Result<WatchInput>> => {
+        const read = await runtime!.readers.read(
+          WATCH_INPUT_ROUTE,
+          watchReader,
+          event,
+        );
+        if (!read.ok) return read;
+        return ok(read.value as WatchInput);
+      },
+      ledgerId: ledgerId.value,
+      retryMs: DOCUMENTS_SEARCH_RETRY_MS,
     });
   }
   // core 안 notifications 구독자. 계기 event를 notification으로 바꾸고 cursor를 올린다.
@@ -1198,6 +1261,7 @@ async function open(
     roots: () => rootsWatch,
     basis: () => basisSync,
     search: () => searchSync,
+    watch: () => watchSync,
   });
   // 내장 lophn·Context Engineer assignment 준비. I/O 감독이 없는 기동은 prompt blob을
   // 준비할 수 없어 건너뛴다(lophn-agent/assignments#R2). 이미 있으면 아무것도 보내지 않는다.
@@ -1302,6 +1366,11 @@ async function open(
     }
   }
   appsControl.start();
+  // 고아 정리와 active connection 색인 복원은 기동을 기다리게 하지 않는다. 실패는 진단 log뿐이다.
+  const codingReady = coding
+    ? coding.start(productRegistry, (context) => runtime!.record(context))
+      .catch(() => {})
+    : undefined;
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
   const parent = options.parent;
@@ -1329,6 +1398,9 @@ async function open(
     epoch,
     dataRoot: root.path,
     done: Promise.resolve(),
+    ...(coding
+      ? { codingCredentials: coding, codingCredentialsReady: codingReady }
+      : {}),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
@@ -1426,6 +1498,7 @@ async function open(
         rootsWatch?.stop();
         basisSync?.stop();
         searchSync?.stop();
+        watchSync?.stop();
         closeChildBlob?.();
         // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
         runtime?.memory.disconnect();
@@ -1769,6 +1842,15 @@ const searchReader: RequestContext = {
   scope: { operations: [SEARCH_VERSION_ROUTE.name], targets: {} },
   conditions: {},
   credential_ref: "machine:documents-search",
+};
+
+// watch consumer가 저장 event의 비교 근거를 읽는 자격. core가 reader에 넘기는 context라 발급 자격이 아니다.
+const watchReader: RequestContext = {
+  principal: "machine:documents-watch",
+  actor: "machine",
+  scope: { operations: [WATCH_INPUT_ROUTE.name], targets: {} },
+  conditions: {},
+  credential_ref: "machine:documents-watch",
 };
 
 // tracking root 읽기의 자격. machine만 읽는 project.tracking_roots를 core가 직접 읽는다.

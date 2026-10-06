@@ -1066,8 +1066,8 @@ Deno.test("platform/notifications#R1, R11: engine step은 ticket·context·relea
 });
 
 // T53: machine watch 확정 변화·절 소실만 계기다(R1). unchanged·unverified는
-// conditionMet이 거절한다. record_watch_change의 발생 작업(documents T24)은 아직
-// 없으므로 source event를 직접 적는다(남은 것).
+// conditionMet이 거절한다. record_watch_change(documents T24)가 이 event를 내지만 이 시험은
+// 계기 판정만 보므로 source event를 직접 적는다.
 Deno.test("platform/notifications#R1: machine watch 확정 변화만 계기다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "ntf-trigger-ctx-" });
   const connection = await schema(dir);

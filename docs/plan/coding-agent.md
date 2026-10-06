@@ -362,7 +362,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T13 문서 읽기 tool: 목차·검색·project·목록·이력·본문
 
-- 상태: 진행 (#PR) — 한 것: MCP 쪽 전부(`lophn_index`·`lophn_project`·`lophn_document`·`lophn_read`, 실제 core 시험 포함). 남은 것: CLI `index`·`search`·`read`·`document list|history|diff`·`project …`의 실행(apps/cli가 command를 아직 실행하지 않는다)과 cli#R11–R14·R22 시험, find-documents 6단계 중 CLI 쪽 통합 시험(MCP 쪽은 apps/core/coding-agent-read-tools_test.ts), 질문 Q30
+- 상태: 진행 (#307) — 한 것: MCP 쪽 전부(`lophn_index`·`lophn_project`·`lophn_document`·`lophn_read`, 실제 core 시험 포함). 남은 것: CLI `index`·`search`·`read`·`document list|history|diff`·`project …`의 실행(apps/cli가 command를 아직 실행하지 않는다)과 cli#R11–R14·R22 시험, find-documents 6단계 중 CLI 쪽 통합 시험(MCP 쪽은 apps/core/coding-agent-read-tools_test.ts), 질문 Q30
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R8, R9, R10, R11, R12; coding-agent/cli#R11,

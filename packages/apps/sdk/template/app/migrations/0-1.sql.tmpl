@@ -1,0 +1,6 @@
+create table item (
+  id integer primary key,
+  title text not null check (length(title) between 1 and 200),
+  created_at text not null
+);
+create index item_created on item (created_at desc, id desc);

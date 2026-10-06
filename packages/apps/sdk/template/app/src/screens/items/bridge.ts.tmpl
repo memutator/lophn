@@ -1,0 +1,25 @@
+// 화면이 앱 command를 부르는 유일한 통로. lophn의 앱 preload가 `window.lophnApp`을 주고, command는
+// 이 view의 고정 blueprint에 선언한 key뿐이다. 화면은 앱 socket·credential을 알지 못한다.
+export type Item = { id: number; title: string; created_at: string };
+
+type LophnApp = {
+  call(
+    command: string,
+    input: Record<string, never> | { title: string },
+  ): Promise<unknown>;
+};
+
+function bridge(): LophnApp {
+  const app = (globalThis as { lophnApp?: LophnApp }).lophnApp;
+  if (!app) throw new Error("lophnApp is not available");
+  return app;
+}
+
+export async function listItems(): Promise<Item[]> {
+  const result = await bridge().call("list_items", {}) as { rows?: Item[] };
+  return result.rows ?? [];
+}
+
+export async function addItem(title: string): Promise<void> {
+  await bridge().call("add_item", { title });
+}

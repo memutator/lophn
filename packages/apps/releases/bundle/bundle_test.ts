@@ -165,6 +165,54 @@ Deno.test("apps/releases#R1: ..와 절대 경로는 봉인하지 않고 파일�
   await Deno.remove(home, { recursive: true });
 });
 
+Deno.test("apps/releases#R1: 깊은 파일의 중간 폴더까지 모두 0555로 봉인한다", async () => {
+  const home = await Deno.makeTempDir({ prefix: "lophn-bundle-deep-" });
+  const copy = bundleCopyPath(home, APP, "ff".repeat(32));
+  assert(copy.ok);
+  const manifest = sealManifest({
+    entrypoint: "main.js",
+    files: FILES,
+    sdk_dependencies: SDKS,
+  });
+  assert(manifest.ok);
+  const sealed = await sealBundle({
+    copyPath: copy.value,
+    manifest: manifest.value,
+    blueprintJson: new TextEncoder().encode("{}\n"),
+    bundleFiles: [{
+      path: "sdk/ui-state/1.0.0/components/mod.ts",
+      bytes: new TextEncoder().encode("export const a = 1;\n"),
+    }],
+  });
+  assert(sealed.ok, sealed.ok ? "" : sealed.error.message);
+  // 파일 바로 위 폴더만이 아니라 sdk·sdk/ui-state·sdk/ui-state/1.0.0도 쓸 수 없다.
+  for (
+    const folder of [
+      "sdk",
+      "sdk/ui-state",
+      "sdk/ui-state/1.0.0",
+      "sdk/ui-state/1.0.0/components",
+    ]
+  ) {
+    const info = await Deno.stat(`${copy.value}/${folder}`);
+    assertEquals((info.mode ?? 0) & 0o777, 0o555, folder);
+  }
+  const permissions = await verifySealedPermissions(copy.value);
+  assert(permissions.ok, permissions.ok ? "" : permissions.error.message);
+  for (
+    const folder of [
+      "",
+      "sdk",
+      "sdk/ui-state",
+      "sdk/ui-state/1.0.0",
+      "sdk/ui-state/1.0.0/components",
+    ]
+  ) {
+    await Deno.chmod(`${copy.value}/${folder}`, 0o755);
+  }
+  await Deno.remove(home, { recursive: true });
+});
+
 Deno.test("apps/sdk#R7: lophn-sdk import map을 bundle 안 상대 경로로 바꾼다", () => {
   const map = sdkPathMap(SDKS);
   // mapped specifier는 그 version 사본 상대 경로다.

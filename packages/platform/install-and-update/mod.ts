@@ -1,5 +1,11 @@
 export { type DataRoot, resolveDataRoot } from "./data-root.ts";
 export {
+  readUpdatePackage,
+  type UpdateNotice,
+  updateNotice,
+  type UpdatePackage,
+} from "./update.ts";
+export {
   type DaemonStart,
   daemonStart,
   daemonStatus,

@@ -115,3 +115,38 @@ Deno.test(
     assertEquals(JSON.stringify(schema).includes(" "), false);
   },
 );
+
+Deno.test(
+  "coding-agent/mcp-server#R8: 문서 읽기 tool의 모든 op가 읽기 route로 좁혀지고 쓰기 route는 없다",
+  () => {
+    const ops: [string, readonly string[]][] = [
+      ["lophn_index", [
+        "root",
+        "place",
+        "context",
+        "document",
+        "section",
+        "search",
+        "status",
+      ]],
+      ["lophn_project", ["list", "show", "current"]],
+      ["lophn_document", ["list", "history", "diff"]],
+    ];
+    for (const [tool, names] of ops) {
+      for (const op of names) {
+        const resolved = resolveRoute(tool, op);
+        assertEquals(resolved !== undefined, true, `${tool} ${op}`);
+        assertEquals(
+          resolved?.route.kind === "command",
+          false,
+          `${tool} ${op}`,
+        );
+      }
+    }
+    const read = resolveRoute("lophn_read", undefined);
+    assertEquals(read?.route.kind === "command", false);
+    // 저장·복원·등록 같은 op는 표에 없다.
+    assertEquals(resolveRoute("lophn_document", "restore"), undefined);
+    assertEquals(resolveRoute("lophn_project", "register"), undefined);
+  },
+);

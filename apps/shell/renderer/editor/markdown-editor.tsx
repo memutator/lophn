@@ -20,6 +20,7 @@ import {
   minimalChange,
   setFindMatches,
 } from "./live-preview.ts";
+import { adoptHeadStyles } from "./adopt-styles.ts";
 import { setProblems } from "./problems-gutter/gutter.ts";
 import type { EditorProblem } from "./problems-gutter/problems.ts";
 import { ProblemList } from "./problems-gutter/problem-list.tsx";
@@ -98,6 +99,8 @@ export function MarkdownEditor(
 
   useEffect(() => {
     if (!host.current) return;
+    // CSP가 막는 CodeMirror <style>을 이 창에서 쓸 수 있게 옮긴다.
+    adoptHeadStyles(host.current.ownerDocument);
     const created = new EditorView({
       parent: host.current,
       state: EditorState.create({

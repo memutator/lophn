@@ -41,7 +41,9 @@ function manualClock() {
     /** ms만큼 흘리고 그때까지 온 timer를 부른다. */
     async advance(ms: number) {
       now += ms;
-      for (const [id, entry] of [...pending].sort((a, b) => a[1].at - b[1].at)) {
+      for (
+        const [id, entry] of [...pending].sort((a, b) => a[1].at - b[1].at)
+      ) {
         if (entry.at > now) continue;
         pending.delete(id);
         entry.callback();
@@ -262,7 +264,10 @@ Deno.test("shell/editor#R12: 연결이 끊긴 쓰기는 연결 끊김으로 보�
 Deno.test("shell/editor#R12: 결과를 모르는 쓰기는 다시 쓰지 않고 documents 결과 조회부터 하며, 조회가 그 바이트를 찾으면 저장으로 본다", async () => {
   let found: LookupReport["state"] = "unknown";
   const { session, sent, lookups, time } = harness(
-    () => ({ ok: true, value: report({ disk: "unknown", failure: "unknown" }) }),
+    () => ({
+      ok: true,
+      value: report({ disk: "unknown", failure: "unknown" }),
+    }),
     () => ({
       ok: true,
       value: {

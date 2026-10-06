@@ -144,28 +144,46 @@ export interface ClosableWindow {
   isDestroyed(): boolean;
 }
 
+/** 앱 끄기와 창 닫기 guard의 연결. */
+export interface QuitLink {
+  /** tray Quit처럼 사람이 이미 확인한 끄기다. 묻지 않고 닫는다. */
+  quitting(): boolean;
+  /** 앱 끄기(OS 끄기·app.quit)가 이 닫기를 불렀다. guard가 막으면 끄기는 멈춘다. */
+  quitRequested(): boolean;
+  /** renderer가 허락하면 멈춘 앱 끄기를 다시 잇는다. */
+  resumeQuit(): void;
+  /** 사람이 남기를 골라 앱 끄기가 멈췄다. */
+  quitCancelled(): void;
+}
+
 /**
  * 창의 close event에 guard를 건다. 물을 것이 없거나 끄는 중이면 그대로 닫는다. 물으면 닫기를
- * 막고, renderer가 허락하면 한 번만 다시 닫는다.
+ * 막고, renderer가 허락하면 한 번만 다시 닫는다. 앱 끄기가 부른 닫기면 창 대신 끄기를 다시 잇는다.
  */
 export function guardWindowClose(
   window: ClosableWindow,
   guard: CloseGuard,
-  quitting: () => boolean,
+  quit: QuitLink,
 ): void {
   let allowed = false;
   window.onClose((event) => {
-    if (allowed || quitting()) return;
+    if (allowed || quit.quitting()) return;
     const asked = guard.ask();
     if (asked === null) {
       if (guard.busy) event.preventDefault();
       return;
     }
     event.preventDefault();
+    const quitting = quit.quitRequested();
     void asked.then((allow) => {
-      if (!allow || window.isDestroyed()) return;
+      if (window.isDestroyed()) return;
+      if (!allow) {
+        if (quitting) quit.quitCancelled();
+        return;
+      }
       allowed = true;
-      window.close();
+      if (quitting) quit.resumeQuit();
+      else window.close();
     });
   });
 }

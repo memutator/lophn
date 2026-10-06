@@ -581,9 +581,8 @@ export function saveHeadline(facts: SaveFacts): SaveHeadline {
         kind: "format-failed",
         tone: "warning",
         action: facts.format.problems.length > 0 ? "problems" : null,
-        count: facts.format.problems.filter((item) =>
-          item.severity === "error"
-        ).length,
+        count: facts.format.problems.filter((item) => item.severity === "error")
+          .length,
       };
     case "preparing":
       return { kind: "version-pending", tone: "muted", action: null };

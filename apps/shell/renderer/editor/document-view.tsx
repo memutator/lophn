@@ -291,7 +291,11 @@ export function DocumentView(
   }, [editing, projectId, source]);
 
   const text = draft ?? bodyText(body);
-  const canEdit = body.kind === "text" && body.complete;
+  // 파일 통로가 있으면 편집 글은 main이 연 지금 디스크 글이라 판 본문 읽기를 기다리지 않는다.
+  // 통로가 없으면 끝까지 읽은 판 본문만 고친다(일부만 고치면 나머지를 잃는다).
+  const canEdit = files
+    ? state.kind === "ready" && body.kind !== "loading"
+    : body.kind === "text" && body.complete;
   const info = state.kind === "ready" ? state.info : null;
 
   const toggleEdit = useCallback(() => {

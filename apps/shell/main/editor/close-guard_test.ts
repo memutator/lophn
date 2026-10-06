@@ -82,10 +82,24 @@ function fakeWindow() {
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
+function link(over: { quitting?: boolean; requested?: boolean } = {}) {
+  const calls: string[] = [];
+  let requested = over.requested ?? false;
+  return Object.assign({
+    quitting: () => over.quitting ?? false,
+    quitRequested: () => requested,
+    resumeQuit: () => calls.push("resume"),
+    quitCancelled: () => {
+      requested = false;
+      calls.push("cancelled");
+    },
+  }, { calls });
+}
+
 test("shell/editor#R1: 편집 중인 문서가 없으면 묻지 않고 창을 닫는다", () => {
   const { guard: made, sent } = guard();
   const win = fakeWindow();
-  guardWindowClose(win.window, made, () => false);
+  guardWindowClose(win.window, made, link());
   assert.equal(win.emit(), false);
   assert.equal(win.destroyed, true);
   assert.deepEqual(sent, []);
@@ -94,7 +108,7 @@ test("shell/editor#R1: 편집 중인 문서가 없으면 묻지 않고 창을 �
 test("shell/editor#R1: 저장 중이거나 편집 종료가 남으면 창 닫기를 막고 renderer가 마지막 고침을 보낸 뒤 허락하면 한 번만 닫는다", async () => {
   const { guard: made, sent } = guard();
   const win = fakeWindow();
-  guardWindowClose(win.window, made, () => false);
+  guardWindowClose(win.window, made, link());
   made.setCounts({ unsettled: 0, open: 1 });
   assert.equal(win.emit(), true);
   assert.deepEqual(sent, [1]);
@@ -107,7 +121,7 @@ test("shell/editor#R1: 저장 중이거나 편집 종료가 남으면 창 닫기
 test("shell/editor#R1: 질문이 나가 있는 동안 온 닫기는 다시 묻지 않고 삼킨다", () => {
   const { guard: made, sent } = guard();
   const win = fakeWindow();
-  guardWindowClose(win.window, made, () => false);
+  guardWindowClose(win.window, made, link());
   made.setCounts({ unsettled: 1, open: 0 });
   assert.equal(win.emit(), true);
   assert.equal(win.emit(), true);
@@ -119,7 +133,7 @@ test("shell/editor#R1: 사람이 계속 편집을 고르면 창을 남기고, �
   const timer = manualTimer();
   const { guard: made, sent } = guard(timer);
   const win = fakeWindow();
-  guardWindowClose(win.window, made, () => false);
+  guardWindowClose(win.window, made, link());
   made.setCounts({ unsettled: 1, open: 0 });
   win.emit();
   assert.equal(timer.pending.size, 1);
@@ -138,7 +152,7 @@ test("shell/editor#R1: renderer가 답하지 않으면 기한 뒤 닫고 그 사
   const timer = manualTimer();
   const { guard: made, logs } = guard(timer);
   const win = fakeWindow();
-  guardWindowClose(win.window, made, () => false);
+  guardWindowClose(win.window, made, link());
   made.setCounts({ unsettled: 1, open: 0 });
   win.emit();
   timer.fire();
@@ -152,7 +166,7 @@ test("shell/editor#R1: renderer가 답하지 않으면 기한 뒤 닫고 그 사
 test("shell/editor#R1: 끄는 중이면 창 닫기를 묻지 않는다", () => {
   const { guard: made, sent } = guard();
   const win = fakeWindow();
-  guardWindowClose(win.window, made, () => true);
+  guardWindowClose(win.window, made, link({ quitting: true }));
   made.setCounts({ unsettled: 2, open: 0 });
   assert.equal(win.emit(), false);
   assert.deepEqual(sent, []);
@@ -187,4 +201,30 @@ test("shell/editor#R1 shell/desktop#R21: 끄기 확인의 저장 중 수는 창�
   assert.equal(guards.pendingSaves(), 1);
   second.setCounts({ unsettled: 0, open: 1 });
   assert.equal(guards.pendingSaves(), 0);
+});
+
+test("shell/editor#R1: 앱 끄기가 부른 닫기를 막으면 renderer가 허락한 뒤 창 대신 끄기를 다시 잇고, 남기를 고르면 끄기를 멈춘다", async () => {
+  const { guard: made } = guard();
+  const win = fakeWindow();
+  const quit = link({ requested: true });
+  guardWindowClose(win.window, made, quit);
+  made.setCounts({ unsettled: 0, open: 1 });
+  assert.equal(win.emit(), true);
+  made.answer(1, "stay");
+  await settle();
+  assert.deepEqual(quit.calls, ["cancelled"]);
+  assert.equal(win.destroyed, false);
+
+  const second = guard();
+  const other = fakeWindow();
+  const resumed = link({ requested: true });
+  guardWindowClose(other.window, second.guard, resumed);
+  second.guard.setCounts({ unsettled: 1, open: 0 });
+  other.emit();
+  second.guard.answer(1, "allow");
+  await settle();
+  assert.deepEqual(resumed.calls, ["resume"]);
+  // 창은 직접 닫지 않는다. 다시 이은 앱 끄기가 닫을 때는 묻지 않는다.
+  assert.equal(other.closes, 0);
+  assert.equal(other.emit(), false);
 });

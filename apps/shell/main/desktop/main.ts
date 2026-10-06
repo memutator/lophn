@@ -299,6 +299,12 @@ const quitFlow = createQuitFlow({
 
 // OS 종료(logout, macOS Cmd+Q)도 터미널과 core를 멈춘다. 이미 멈췄으면 아무것도 안 한다.
 app.once("will-quit", () => stopAll());
+// 앱 끄기가 창 닫기를 부르면 편집기 guard가 먼저 묻는다. 막으면 Electron이 끄기를 멈추므로
+// renderer가 허락한 뒤 다시 잇는다(shell/editor#R1).
+let appQuitRequested = false;
+app.on("before-quit", () => {
+  appQuitRequested = true;
+});
 
 const autostartOs: AutostartOs = {
   platform: process.platform,
@@ -573,7 +579,14 @@ function openDesktopWindow(): BrowserWindow | undefined {
             isDestroyed: () => window.isDestroyed(),
           },
           guard,
-          () => quitFlow.quitting,
+          {
+            quitting: () => quitFlow.quitting,
+            quitRequested: () => appQuitRequested,
+            resumeQuit: () => app.quit(),
+            quitCancelled: () => {
+              appQuitRequested = false;
+            },
+          },
         );
         window.on("closed", () => {
           closeGuards.remove(contentsId);

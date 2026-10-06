@@ -96,7 +96,10 @@ Deno.test("shell/desktop#R25, documents/projects#R1, R3, R6, R7: 실제 core에 
 
     // 추적 미리보기와 켜기(shell#T15에서 넘어옴, documents#T12가 서빙). 미리보기는 폴더를
     // 실제로 scan해 포함·제외와 그 이유를 돌려주고, 켜기는 미리 본 구성을 그대로 보낸다.
-    const preview = await tracking.preview(project.value, project.value.proposal);
+    const preview = await tracking.preview(
+      project.value,
+      project.value.proposal,
+    );
     assert(preview.ok, JSON.stringify(preview));
     const goals = preview.value.entries.find((entry) =>
       entry.path === "goals.md"

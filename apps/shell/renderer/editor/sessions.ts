@@ -9,7 +9,7 @@ import type {
   EditorReply,
   WatchReport,
 } from "../../ipc/editor.ts";
-import { SaveSession, type SavePort } from "./save-state.ts";
+import { type SavePort, SaveSession } from "./save-state.ts";
 
 /** 남은 저장을 두고 떠날 때 사람의 선택. */
 export type LeaveChoice = "keep" | "discard" | "check";
@@ -109,8 +109,7 @@ export class EditorSessions {
     const handle = reply.value.session;
     const port: SavePort = {
       write: (input) => this.#api.write({ session: handle, ...input }),
-      lookup: (key) =>
-        this.#api.lookup({ session: handle, request_key: key }),
+      lookup: (key) => this.#api.lookup({ session: handle, request_key: key }),
     };
     const session = new SaveSession({
       port,

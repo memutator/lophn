@@ -8,6 +8,7 @@ import type { AppConnection, InvocationCaller, Json } from "./wire.ts";
 import {
   type DenyFact,
   type FinishFact,
+  readRejection,
   readSchedulePort,
   type RecordedJson,
   recordingMode,
@@ -175,6 +176,14 @@ function known(state: RuntimeState, invocation: string): InvokeResult {
     });
   }
   if (found.progress === "failed") {
+    if (found.rejection) {
+      return fail(
+        STATUS[found.rejection.code] ?? 400,
+        found.rejection.code,
+        found.rejection.message,
+        { invocation: found.id },
+      );
+    }
     return fail(500, "internal", "handler failed", { invocation: found.id });
   }
   return {
@@ -249,8 +258,11 @@ async function runHandler(
       },
       () => handler.handle(call.input),
     );
-  } catch (_error) {
+  } catch (error) {
+    // handler가 효과 전에 받지 않겠다고 알린 호출만 그 코드로 답한다. 그 밖의 예외는 원문 없이 500이다.
+    const rejection = readRejection(error);
     record.progress = "failed";
+    if (rejection) record.rejection = rejection;
     const finish = finishFact(
       record,
       call.command.confirm,
@@ -262,6 +274,13 @@ async function runHandler(
       void submit(state, id, { fact: "start", body: start });
     }
     void submit(state, id, { fact: "finish", body: finish });
+    if (rejection) {
+      return fail(
+        STATUS[rejection.code] ?? 400,
+        rejection.code,
+        rejection.message,
+      );
+    }
     return fail(500, "internal", "handler failed");
   }
   record.progress = "succeeded";
@@ -313,8 +332,10 @@ function finishFact(
   }
   if (record.cancelRequested) summary.cancel_requested = true;
   if (status === "failed") {
-    summary.error = "handler_failed";
-    if (record.effect !== "read") summary.effects = "unconfirmed";
+    summary.error = record.rejection?.code ?? "handler_failed";
+    if (record.effect !== "read" && !record.rejection) {
+      summary.effects = "unconfirmed";
+    }
   }
   return {
     status,

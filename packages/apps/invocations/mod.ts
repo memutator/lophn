@@ -2,13 +2,17 @@
 // 모양·규칙만 내보낸다(sdk/cap-schedule#R5, platform/responsiveness#R1). 모두 Zod 없이 순수하다.
 // ledger 조립은 commands.ts·reads.ts·schema.ts·store.ts를 직접 부르고, 전달 목록은 delivery/를 부른다.
 export {
+  COMMAND_REJECTION,
+  readRejection,
   readSchedulePort,
   readStagePort,
+  REJECTION_CODES,
   SCHEDULE_PORT,
   STAGE_PORT,
 } from "./context.ts";
 export type {
   InvocationContext,
+  RejectionCode,
   InvocationStageState,
   RegisteredHandler,
   SchedulePort,

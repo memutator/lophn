@@ -21,6 +21,8 @@ export type InvocationRecord = {
   recorded: boolean;
   // 취소 요청을 받았다는 사실뿐이다. 효과가 취소됐다는 뜻이 아니다(apps/invocations#R11).
   cancelRequested?: boolean;
+  // handler가 효과 전에 받지 않겠다고 알린 호출(apps/agent-context#R5). 효과 없음이 알려진 실패다.
+  rejection?: { code: string; message: string };
 };
 
 export type ViewSession = {

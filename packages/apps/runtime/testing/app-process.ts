@@ -107,14 +107,17 @@ export type FixtureAppOptions = {
   mode?: "live" | "preview";
   nonce?: string;
   blueprint?: Record<string, unknown>;
+  // 앱 자식 entry의 URL. 없으면 이 폴더의 app-child.ts(command를 되돌려 주는 handler)다.
+  child?: string;
 };
 
 // 앱 폴더(진입 파일·blueprint·import map)만 만든다. 자식은 띄우지 않는다.
 export async function writeFixtureBundle(
   dir: string,
   blueprint: Record<string, unknown> = fixtureBlueprint(),
+  childUrl?: string,
 ): Promise<{ entry: string; importMap: string; bundleHash: string }> {
-  const child = new URL("./app-child.ts", import.meta.url).href;
+  const child = childUrl ?? new URL("./app-child.ts", import.meta.url).href;
   const entrySource = `import ${JSON.stringify(child)};\n`;
   const blueprintSource = JSON.stringify(blueprint);
   await Deno.writeTextFile(`${dir}/main.ts`, entrySource);
@@ -202,7 +205,11 @@ export async function startFixtureApp(
 ): Promise<FixtureApp> {
   const dir = await Deno.makeTempDir({ prefix: "lop-" });
   await Deno.mkdir(`${dir}/data`);
-  const bundle = await writeFixtureBundle(dir, options.blueprint);
+  const bundle = await writeFixtureBundle(
+    dir,
+    options.blueprint,
+    options.child,
+  );
   const app = options.app ?? FIXTURE_APP;
   const mode = options.mode ?? "live";
   const release = options.release === undefined

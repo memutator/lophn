@@ -27,8 +27,22 @@ import {
   `TRACE_NAME_MAX_CHARS`).
 - `readResult(source, query)` — 읽기 명령 결과를 coverage·freshness와 함께
   돌려준다.
+- `registerScreenContext({ screen, command, read, revision? })` — blueprint의
+  `agent_context`에 선언한 화면의 read handler를 등록한다(apps/sdk#R39).
+  `read({ view_session, detail })`는 그 view의 `{ revision, summary, data? }`를
+  돌려주고, 상태가 없는 view(닫힘·모름)는 `undefined`를 돌려준다. 민감한 칸 제거와
+  요약 2048byte 제한은 선언의 `sensitive_paths`로 플랫폼이 적용한다.
+- `registerAnnotationTarget({ screen, target, command, write })` — 선언한 주석
+  자리의 write handler를 등록한다. `write`는 조회한 revision이 지금 revision과 같을
+  때만 불리고 `{ revision, result? }`를 돌려준다. 다른 revision은 `conflict`,
+  닫힌 view는 `unavailable`이다.
+- `CommandRejection(code, message)` — handler가 효과 전에 호출을 받지 않겠다고
+  알린다(`invalid_input|forbidden|conflict|unavailable`). 안내 문장에 입력·상태
+  값을 넣지 않는다.
 - type: `InvocationContext`, `RegisteredHandler`, `SchedulePort`, `ReadQuery`,
-  `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`
+  `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`,
+  `ScreenContextRegistration`, `ScreenViewState`, `AnnotationTargetRegistration`,
+  `AnnotationWriteRequest`, `AnnotationWriteResult`, `RejectionCode`
 
 ## 요구 permission
 
@@ -48,6 +62,37 @@ command({
   async handler(input, context) {
     await runWith(context, () => sync());
   },
+});
+```
+
+화면 context(코드 입력과 지난 attempt를 agent에게 보여 주고 힌트를 받는다):
+
+```ts
+import {
+  registerAnnotationTarget,
+  registerScreenContext,
+} from "@lophn/cap-schedule";
+
+registerScreenContext({
+  screen: "editor",
+  command: "editor.context", // blueprint agent_context의 read_command
+  read: ({ view_session, detail }) => {
+    const view = views.get(view_session);
+    if (!view) return undefined;
+    return {
+      revision: view.revision,
+      summary: `Editing ${view.name}`,
+      data: detail ? { code: view.code, note: view.note } : undefined,
+    };
+  },
+});
+registerAnnotationTarget({
+  screen: "editor",
+  target: "hint",
+  command: "editor.hint", // 그 target의 write_command
+  write: ({ view_session, text }) => ({
+    revision: views.get(view_session)!.addHint(text),
+  }),
 });
 ```
 

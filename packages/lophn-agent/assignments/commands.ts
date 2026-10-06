@@ -465,6 +465,40 @@ export function createAssignmentCommands(): {
             "operator",
             input.approval,
           );
+          // 남길 문서·읽기 선언 표 생성·변경은 같은 transaction이다(R5, R8).
+          tx.sql.run(
+            "delete from assignment_outputs where assignment_id = ?",
+            [input.id],
+          );
+          for (const output of definition.outputs) {
+            tx.sql.run(
+              `insert into assignment_outputs (assignment_id, document_id,
+                 content, owns_output) values (?, ?, ?, 1)`,
+              [input.id, output.document, output.content],
+            );
+          }
+          tx.sql.run(
+            "delete from assignment_read_apps where assignment_id = ?",
+            [input.id],
+          );
+          for (const app of definition.read_apps) {
+            tx.sql.run(
+              `insert into assignment_read_apps (assignment_id, app_id)
+               values (?, ?)`,
+              [input.id, app],
+            );
+          }
+          tx.sql.run(
+            "delete from assignment_read_commands where assignment_id = ?",
+            [input.id],
+          );
+          for (const command of definition.read_commands) {
+            tx.sql.run(
+              `insert into assignment_read_commands (assignment_id, app_id,
+                 command) values (?, ?, ?)`,
+              [input.id, command.app, command.command],
+            );
+          }
         } else {
           // 생성·변경과 선언 표 갱신은 같은 transaction이다(domain model ledger 표).
           // 책임·상태만 바뀌면 처리한 예정 시점을 유지하고 주기를 바꿀 때만 새로

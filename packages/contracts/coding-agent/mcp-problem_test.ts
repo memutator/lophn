@@ -39,6 +39,13 @@ const fixInput = {
     ticket: TKT,
     claim_seq: "12",
   },
+  summary_blob: {
+    preparation: "prep-fix-1",
+    principal: "coding_agent:cac_01arz3ndektsv4rrffq69g5fav",
+    purpose: "fix_summary",
+    hash: HASH,
+    size_bytes: 64,
+  },
   idempotency_key: "fix-1",
 };
 
@@ -301,6 +308,13 @@ Deno.test(
         verification: [VRF],
         ticket: TKT,
         claim_seq: "12",
+      },
+      summary_blob: {
+        preparation: "prep-fix-1",
+        principal: "coding_agent:cac_01arz3ndektsv4rrffq69g5fav",
+        purpose: "fix_summary",
+        hash: HASH,
+        size_bytes: 64,
       },
       idempotency_key: "fix-1",
     });

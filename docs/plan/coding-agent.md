@@ -1572,6 +1572,10 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - `app test --kind reproduction` 요청과 실제 결과 read(cli#R26)
   - `problem attachment open`은 scope 검사한 허용 첨부만, 운영 경로 대신 안전한
     참조(cli#R33)
+  - problems#T14에서 넘어온 것: `lophn_problem` record_fix는 준비 증거가 필요한
+    `summary_blob`을 받는다. tool이 먼저 blob을 준비하는 신뢰 프로세스 요청
+    (core `prepareBlob`, purpose `fix_summary`)을 하고 그 준비 결과를 입력에 싣는다.
+    hash만 싣는 기록은 거절된다(problems/repairs#T40)
   - lead 결정(D27, problems/feedback#R1): CLI는 feedback을 접수하지 않는다.
     `problem report`는 shell의 문제 알리기 화면을 여는 안내만,
     `request-repair`는 담당 agent의 ticket 준비 화면 링크, `confirm|dismiss`와

@@ -17,6 +17,7 @@ import {
 import {
   APPROVAL_BLOB_FIELDS,
   APPROVAL_SCHEMA_STEPS,
+  approvalExpirySweepRead,
   approvalsGetRead,
   approvalsListRead,
   createApplyCommand,
@@ -55,6 +56,21 @@ export const NOTIFICATIONS_CONTEXT: RequestContext = {
   },
   conditions: {},
   credential_ref: NOTIFICATIONS_PRINCIPAL,
+};
+
+// approval 만료 정리의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수 없다.
+// 기한에 도달한 대기를 읽고 `expire_approval_request`만 낸다. 허락·거절·취소·사용은 하지 못한다.
+export const APPROVAL_EXPIRY_PRINCIPAL = "machine:approval-expiry";
+
+export const APPROVAL_EXPIRY_CONTEXT: RequestContext = {
+  principal: APPROVAL_EXPIRY_PRINCIPAL,
+  actor: "machine",
+  scope: {
+    operations: ["ApprovalExpirySweep", "expire_approval_request"],
+    targets: {},
+  },
+  conditions: {},
+  credential_ref: APPROVAL_EXPIRY_PRINCIPAL,
 };
 
 export function isNotifications(ctx: RequestContext): boolean {
@@ -97,6 +113,7 @@ export const platformDefinitions = {
   reads: [
     approvalsGetRead(),
     approvalsListRead(),
+    approvalExpirySweepRead(),
     notificationsGetRead(),
     notificationsListRead(),
     // SetSecret·RemoveSecret의 display_read다. 이름·설정 여부·판만 보인다.

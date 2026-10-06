@@ -146,6 +146,38 @@ Deno.test("platform/approvals#R5: binding_hash는 RFC 8785 정규화의 sha256�
   );
 });
 
+Deno.test("platform/approvals#R5: command는 소유 route 이름 그대로여서 dot 이름도 받고 이름을 바꾸거나 맞추지 않는다", () => {
+  const named = (command: string) =>
+    approvalActionSchema.safeParse({ ...action, command }).success;
+  // 실제 소유 command의 route 이름: documents, apps, platform, lophn-agent.
+  for (
+    const command of [
+      "document.rename",
+      "document.move",
+      "invocation.accept_confirm",
+      "create_approval_request",
+      "ApplySettings",
+    ]
+  ) {
+    assert(named(command), command);
+  }
+  // 문법 밖: 비어 있음, 점으로 시작·끝, 빈 조각, 경로·공백·wildcard.
+  for (
+    const command of [
+      "",
+      ".rename",
+      "document.",
+      "document..rename",
+      "document/rename",
+      "document rename",
+      "document.*",
+      "1document",
+    ]
+  ) {
+    assert(!named(command), command);
+  }
+});
+
 Deno.test("platform/approvals#R5: inline input과 comparison의 own JSON key를 hash 전에 보존한다", async () => {
   const value = JSON.parse('{"__proto__":"kept","nested":{"__proto__":42}}');
   const comparison = JSON.parse('{"__proto__":{"seq":"41"}}');
@@ -175,14 +207,6 @@ Deno.test("platform/approvals#R1, platform/approvals#R5: 모르는 field·틀린
   assert(approvalRequestSchema.safeParse({ ...request, extra: 1 }).success);
   assert(!approvalActionSchema.safeParse({ ...action, secret: "x" }).success);
   assert(!approvalActionSchema.safeParse({ ...action, targets: [] }).success);
-  // apps route 이름처럼 점으로 나뉜 마디는 받고, 점이 비거나 대문자·공백이면 거절한다.
-  assert(
-    approvalActionSchema.safeParse({ ...action, command: "grant.create" })
-      .success,
-  );
-  for (const command of ["grant.", ".create", "Grant.create", "grant create"]) {
-    assert(!approvalActionSchema.safeParse({ ...action, command }).success);
-  }
   assert(
     !approvalActionSchema.safeParse({ ...action, targets: [DOC, DOC] }).success,
   );

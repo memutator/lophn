@@ -12,6 +12,12 @@ export {
   type ToolOrigin,
   type ToolSource,
 } from "./registry.ts";
+export {
+  AGENT_TOOL_REVISION,
+  AGENT_TOOLS,
+  type AgentToolPorts,
+  createAgentToolHandlers,
+} from "./bundles/agent.ts";
 export { checkInput, unchanged } from "./schema.ts";
 export {
   boundedResult,

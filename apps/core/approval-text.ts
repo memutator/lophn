@@ -1,5 +1,5 @@
-// approval 설명 글의 core 쪽 길(platform/approvals#R1, R2, R17). 호출자(agent runtime·machine·
-// app)는 blob을 준비하지 않고 글 값(이유·변경·외부 영향·되돌림)을 요청에 싣는다. core가
+// approval 설명 글의 core 쪽 길(platform/approvals#R1, R2, R14, R17). 호출자(agent runtime·machine·
+// app)는 blob을 준비하지 않고 글 값(이유·변경·외부 영향·되돌림, 거절·취소의 종료 이유)을 요청에 싣는다. core가
 // command 앞에서 글을 redaction해 UTF-8 bytes로 blob을 준비하고, command가 같은 transaction에서
 // 영구 참조를 등록한다. 읽기(ReadApprovalText)는 apps/core/platform.ts가 붙인다. 메시지 본문
 // (message-body.ts)·질문 글(question-text.ts)과 같은 길이다.
@@ -8,7 +8,9 @@ import {
   APPROVAL_TEXT_PURPOSE,
   approvalTextBytes,
   approvalTextSchema,
+  cancelApprovalRequest,
   createApprovalRequest,
+  rejectApprovalRequest,
 } from "../../packages/contracts/platform/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -36,13 +38,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 // 글 자리. 요청 모양이 틀리면 건드리지 않고 지나가 command의 schema 검사가 거절한다.
-function slotsOf(input: Record<string, unknown>): Slot[] {
+function slotsOf(command: string, input: Record<string, unknown>): Slot[] {
   const slot = (owner: Record<string, unknown>, key: string): Slot => ({
     read: () => owner[key],
     write: (text) => {
       owner[key] = text;
     },
   });
+  // 거절·취소는 이유 글 하나다(null이면 글이 없다).
+  if (command !== createApprovalRequest.name) {
+    return [slot(input, "closed_reason")];
+  }
   const slots = [slot(input, "reason")];
   const effect = input["effect"];
   if (isRecord(effect)) {
@@ -68,10 +74,14 @@ export function createApprovalTextPreparer(deps: {
   envelope: CommandEnvelope,
 ) => Promise<Result<CommandEnvelope>> {
   return async (ctx, envelope) => {
-    if (envelope.command !== createApprovalRequest.name) return ok(envelope);
+    if (
+      envelope.command !== createApprovalRequest.name &&
+      envelope.command !== rejectApprovalRequest.name &&
+      envelope.command !== cancelApprovalRequest.name
+    ) return ok(envelope);
     if (!isRecord(envelope.input)) return ok(envelope);
     const input = structuredClone(envelope.input);
-    const slots = slotsOf(input).filter((slot) =>
+    const slots = slotsOf(envelope.command, input).filter((slot) =>
       typeof slot.read() === "string"
     );
     if (slots.length === 0) return ok(envelope);

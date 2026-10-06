@@ -12,11 +12,7 @@ export {
   approvalExpirySweepRead,
   EXPIRY_SWEEP_BATCH,
 } from "./expiry.ts";
-export {
-  createApprovalCommands,
-  EXPIRY_REASON_HASH,
-  EXPIRY_REASON_TEXT,
-} from "./commands.ts";
+export { createApprovalCommands } from "./commands.ts";
 export {
   cancelActorAllowed,
   closeAllowed,

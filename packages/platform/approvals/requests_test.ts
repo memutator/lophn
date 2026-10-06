@@ -9,7 +9,6 @@ import type {
   ApprovalAction,
   ApprovalEffect,
 } from "../../contracts/platform/mod.ts";
-import { EXPIRY_REASON_HASH, EXPIRY_REASON_TEXT } from "./commands.ts";
 import {
   action,
   APP,
@@ -157,14 +156,14 @@ Deno.test("platform/approvals#R6: 생성한 내용과 기한은 그대로 남고
     const deadline = "2026-10-06T00:00:00.000Z";
     const created = value(await create(harness, user, { expiresAt: deadline }));
     const seq = String(requestOf(created)["created_seq"]);
-    const reasonHash = await sha256Hex("사람이 취소했다");
+    const reason = "사람이 취소했다";
     const cancelled = value(
       await harness.command(user, {
         command: "cancel_approval_request",
         input: {
           approval: APPROVAL,
           created_seq: seq,
-          closed_reason_blob: reasonHash,
+          closed_reason: reason,
         },
         idempotency_key: "cancel-1",
         compare: { created_seq: seq },
@@ -182,7 +181,7 @@ Deno.test("platform/approvals#R6: 생성한 내용과 기한은 그대로 남고
       input: {
         approval: APPROVAL,
         created_seq: seq,
-        closed_reason_blob: reasonHash,
+        closed_reason: reason,
       },
       idempotency_key: "cancel-2",
       compare: { created_seq: seq },
@@ -237,7 +236,6 @@ Deno.test("platform/approvals#R12: 기한이 없거나 아직 도달하지 않�
 });
 
 Deno.test("platform/approvals#R12: 기한 경계에 도달한 대기는 machine이 만료하고 그 뒤 결정을 거절한다", async () => {
-  assertEquals(await sha256Hex(EXPIRY_REASON_TEXT), EXPIRY_REASON_HASH);
   const harness = await openHarness([machine]);
   try {
     const deadline = new Date(NOW).toISOString();
@@ -263,7 +261,25 @@ Deno.test("platform/approvals#R12: 기한 경계에 도달한 대기는 machine�
       }),
     );
     assertEquals(requestOf(expired)["status"], "expired");
-    assertEquals(requestOf(expired)["closed_reason_blob"], EXPIRY_REASON_HASH);
+    // 만료는 이유 글이 없다: 가짜 hash 없이 null이고 참조도 없다.
+    assertEquals(requestOf(expired)["closed_reason_blob"], null);
+    const events = value(
+      await harness.inspect(
+        "select payload from events where type = 'ApprovalRequestExpired'",
+        [],
+      ),
+    );
+    assertEquals(
+      JSON.parse(String(events[0]["payload"]))["closed_reason_blob"],
+      null,
+    );
+    const refs = value(
+      await harness.inspect(
+        "select count(*) as n from blob_refs where owner_key = ?",
+        [APPROVAL],
+      ),
+    );
+    assertEquals(Number(refs[0]["n"]), 0);
     const late = await harness.command(machine, {
       command: "expire_approval_request",
       input: { approval: APPROVAL, created_seq: seq },
@@ -284,13 +300,13 @@ Deno.test("platform/approvals#R13: 사람·원래 요청자·machine만 취소�
   try {
     const created = value(await create(harness, requester));
     const seq = String(requestOf(created)["created_seq"]);
-    const reasonHash = await sha256Hex("취소한다");
+    const reason = "취소한다";
     const denied = await harness.command(other, {
       command: "cancel_approval_request",
       input: {
         approval: APPROVAL,
         created_seq: seq,
-        closed_reason_blob: reasonHash,
+        closed_reason: reason,
       },
       idempotency_key: "cancel-other",
       compare: { created_seq: seq },
@@ -303,7 +319,7 @@ Deno.test("platform/approvals#R13: 사람·원래 요청자·machine만 취소�
         input: {
           approval: APPROVAL,
           created_seq: seq,
-          closed_reason_blob: reasonHash,
+          closed_reason: reason,
         },
         idempotency_key: "cancel-own",
         compare: { created_seq: seq },
@@ -316,7 +332,7 @@ Deno.test("platform/approvals#R13: 사람·원래 요청자·machine만 취소�
   }
 });
 
-Deno.test("platform/approvals#R14: 취소 이유는 요청 역할에 hash 그대로 보이고 다른 대기는 유지한다", async () => {
+Deno.test("platform/approvals#R14: 취소 이유는 글의 hash와 영구 참조로 남고 이유 없는 취소는 null이며 다른 대기는 유지한다", async () => {
   const harness = await openHarness([user]);
   try {
     const first = value(await create(harness, user));
@@ -331,7 +347,7 @@ Deno.test("platform/approvals#R14: 취소 이유는 요청 역할에 hash 그대
         input: {
           approval: APPROVAL,
           created_seq: seq,
-          closed_reason_blob: reasonHash,
+          closed_reason: reasonText,
         },
         idempotency_key: "cancel-reason",
         compare: { created_seq: seq },
@@ -350,6 +366,38 @@ Deno.test("platform/approvals#R14: 취소 이유는 요청 역할에 hash 그대
       }),
     ) as { request: { status: string } };
     assertEquals(kept.request.status, "pending");
+    const refs = value(
+      await harness.inspect(
+        `select field, hash from blob_refs where owner_key = ?
+          and field = 'closed_reason'`,
+        [APPROVAL],
+      ),
+    );
+    assertEquals(refs.map((ref) => [ref["field"], ref["hash"]]), [[
+      "closed_reason",
+      reasonHash,
+    ]]);
+    // 이유 없이 취소하면 hash도 참조도 없다.
+    const second = value(
+      await harness.read({ resource: "approvals", method: "get" }, user, {
+        approval: secondId,
+      }),
+    ) as { request: { created_seq: string } };
+    const bare = value(
+      await harness.command(user, {
+        command: "cancel_approval_request",
+        input: {
+          approval: secondId,
+          created_seq: second.request.created_seq,
+          closed_reason: null,
+        },
+        idempotency_key: "cancel-bare",
+        compare: { created_seq: second.request.created_seq },
+        prepared: [],
+      }),
+    );
+    assertEquals(requestOf(bare)["status"], "cancelled");
+    assertEquals(requestOf(bare)["closed_reason_blob"], null);
   } finally {
     await harness.close();
   }

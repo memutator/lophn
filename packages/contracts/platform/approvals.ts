@@ -62,6 +62,8 @@ export const APPROVAL_TEXT_FIELDS = {
   changes: "changes",
   external: "external",
   reversibility: "reversibility",
+  // 거절·취소에 사람이나 요청자가 적은 이유. 없으면 참조도 없다.
+  closed: "closed_reason",
 } as const;
 
 const encoder = new TextEncoder();
@@ -144,10 +146,11 @@ export const approvalRequestSchema = z.object({
   closed_seq: seqSchema.nullable(),
 }).refine(
   (value) =>
+    // 종료 이유는 거절·취소에서 적었을 때만 있다(platform/approvals#R14). 만료는 이유 글이 없고
+    // 상태가 곧 이유다. 가짜 hash는 두지 않는다.
     value.status === "pending" || value.status === "granted"
       ? value.closed_reason_blob === null
-      // 거절은 이유 없이 할 수 있다(platform/approvals#R14). 만료·취소는 이유가 필수다.
-      : value.status === "rejected" || value.closed_reason_blob !== null,
+      : true,
   { message: "closed reason presence does not match status" },
 ).refine(
   (value) => (value.status === "pending") === (value.closed_seq === null),
@@ -222,6 +225,8 @@ export const approvalsTextOutputSchema = withReadCommon(z.object({
   changes: z.string(),
   external: z.string().nullable(),
   reversibility: z.string(),
+  // 거절·취소에 적은 이유. 적지 않았거나 아직 끝나지 않았거나 만료면 null이다.
+  closed_reason: z.string().nullable(),
 }));
 export const approvalsText = defineRead({
   resource: "approvals",
@@ -298,7 +303,9 @@ export const rejectApprovalRequestInputSchema = z.strictObject({
   approval: idSchema("apr"),
   created_seq: seqSchema,
   binding_hash: sha256Schema,
-  closed_reason_blob: sha256Schema.nullable(),
+  // 거절 이유 글. 이유 없이도 거절한다(R14). core가 redaction·blob 준비를 하고 command가 영구 참조를
+  // 등록한다.
+  closed_reason: approvalTextSchema.nullable(),
 });
 export const rejectApprovalRequestOutputSchema = z.object({
   request: approvalRequestSchema,
@@ -339,7 +346,8 @@ export const expireApprovalRequest = defineCommand({
 export const cancelApprovalRequestInputSchema = z.strictObject({
   approval: idSchema("apr"),
   created_seq: seqSchema,
-  closed_reason_blob: sha256Schema,
+  // 취소 이유 글. 없을 수 있다.
+  closed_reason: approvalTextSchema.nullable(),
 });
 export const cancelApprovalRequestOutputSchema = z.object({
   request: approvalRequestSchema,
@@ -401,11 +409,11 @@ export const approvalRequestRejectedPayloadSchema = z.object({
 });
 export const approvalRequestExpiredPayloadSchema = z.object({
   created_seq: seqSchema,
-  closed_reason_blob: sha256Schema,
+  closed_reason_blob: z.null(),
 });
 export const approvalRequestCancelledPayloadSchema = z.object({
   created_seq: seqSchema,
-  closed_reason_blob: sha256Schema,
+  closed_reason_blob: sha256Schema.nullable(),
 });
 
 export const approvalRequestCreated = defineEvent("ApprovalRequestCreated", {

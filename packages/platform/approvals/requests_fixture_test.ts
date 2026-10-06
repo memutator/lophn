@@ -190,7 +190,7 @@ export async function decisionInput(
     approval: id,
     created_seq: read.request.created_seq,
     binding_hash: read.request.action.binding_hash,
-    ...(reason === undefined ? {} : { closed_reason_blob: reason }),
+    ...(reason === undefined ? {} : { closed_reason: reason }),
   };
 }
 
@@ -226,9 +226,9 @@ export function shaped(
   decision: Decision,
   input: Record<string, unknown>,
 ): Record<string, unknown> {
-  const { closed_reason_blob: reason, ...rest } = input;
+  const { closed_reason: reason, ...rest } = input;
   return decision === "reject"
-    ? { ...rest, closed_reason_blob: reason ?? null }
+    ? { ...rest, closed_reason: reason ?? null }
     : rest;
 }
 

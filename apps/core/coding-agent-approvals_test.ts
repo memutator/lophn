@@ -216,7 +216,7 @@ Deno.test("coding-agent/mcp-server#R18: 사람이 취소한 요청은 대기가 
         input: {
           approval: second,
           created_seq: createdSeq,
-          closed_reason_blob: await sha256Hex("필요 없어졌다"),
+          closed_reason: "필요 없어졌다",
         },
         idempotency_key: "cancel-second",
         compare: { created_seq: createdSeq },
@@ -267,7 +267,7 @@ Deno.test("coding-agent/connection#R7: 승인 대기 응답 뒤 같은 연결의
           approval: first,
           created_seq: seq,
           binding_hash: request.action.binding_hash,
-          closed_reason_blob: null,
+          closed_reason: null,
         },
       },
       {
@@ -290,7 +290,7 @@ Deno.test("coding-agent/connection#R7: 승인 대기 응답 뒤 같은 연결의
       input: {
         approval: first,
         created_seq: seq,
-        closed_reason_blob: await sha256Hex("남의 요청"),
+        closed_reason: "남의 요청",
       },
       idempotency_key: "refuse-cancel",
       compare: { created_seq: seq },

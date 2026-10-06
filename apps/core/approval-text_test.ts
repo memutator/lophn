@@ -26,6 +26,8 @@ import {
   codeOf,
   command,
   createInput,
+  decide as humanDecide,
+  type Server,
 } from "./testing/approvals-fixture.ts";
 import {
   binding,
@@ -52,6 +54,7 @@ type Text = {
   changes: string;
   external: string | null;
   reversibility: string;
+  closed_reason: string | null;
 };
 
 function refs(home: string, approval: string): Record<string, unknown>[] {
@@ -457,6 +460,257 @@ Deno.test("platform/approvals#R1: oversize or blank text is rejected before anyt
       }
     } finally {
       await core.shutdown();
+    }
+  } finally {
+    await Deno.remove(f.home, { recursive: true });
+  }
+});
+
+// ── 종료 이유: 거절·취소의 글과 만료 ────────────────────────────────────────
+
+const REJECTED = "apr_01h455vb4pex5v6nkc6gd5fdw6";
+const BARE = "apr_01h455vb4pex5v6nkc6gd5fdw7";
+const CANCELLED = "apr_01h455vb4pex5v6nkc6gd5fdw8";
+const DUE = "apr_01h455vb4pex5v6nkc6gd5fdw9";
+
+function serverOf(f: Fixture, core: Core): Server {
+  return {
+    port: core.port,
+    dataRoot: core.dataRoot,
+    clock: f.clock,
+    confirmation: (body) =>
+      core.confirmation?.(body) ??
+        Promise.resolve({ ok: false as const, error: { message: "없다" } }),
+  };
+}
+
+async function createFor(
+  core: Core,
+  token: string,
+  id: string,
+  expiresAt: string | null = null,
+) {
+  const fixed = await actionOf({
+    command: "record_owned_note",
+    caller: "user",
+    targets: [TARGET],
+    value: { note: id },
+  });
+  const made = await call(
+    core,
+    "approvals/create",
+    token,
+    command(createInput(id, "user", fixed, { expiresAt })),
+  );
+  assertEquals(made.status, 200, JSON.stringify(made.body));
+  return made.body["request"] as ApprovalRequest;
+}
+
+function closedRefs(home: string, approval: string) {
+  return refs(home, approval).filter((ref) => ref["field"] === "closed_reason");
+}
+
+Deno.test("platform/approvals#R14: a rejection reason is read back redacted with one permanent reference, and a rejection without a reason has null and no reference", async () => {
+  const f: Fixture = {
+    home: await Deno.makeTempDir({ prefix: "lophn-approval-text-" }),
+    clock: manualClock(Date.UTC(2024, 0, 1)),
+    starts: 0,
+  };
+  try {
+    const core = await start(f);
+    try {
+      const user = await grant(f, core, "user", [
+        "create_approval_request",
+        "reject_approval_request",
+        "cancel_approval_request",
+        "GetApproval",
+        "ReadApprovalText",
+      ]);
+      const server = serverOf(f, core);
+      const first = await createFor(core, user, REJECTED);
+      const bare = await createFor(core, user, BARE);
+      const cancelled = await createFor(core, user, CANCELLED);
+
+      // 아직 끝나지 않은 request는 종료 이유가 없다.
+      const open = await call(core, "approvals/text", user, {
+        approval: REJECTED,
+      });
+      assertEquals(open.body["closed_reason"], null);
+
+      const rejected = await humanDecide(
+        server,
+        user,
+        first,
+        "reject",
+        `Not now ${SECRET} please`,
+      );
+      assertEquals(rejected.status, 200, JSON.stringify(rejected.body));
+      const read = await call(core, "approvals/text", user, {
+        approval: REJECTED,
+      });
+      assertEquals(read.status, 200, JSON.stringify(read.body));
+      // 이유 글은 redaction을 거친 값이다. 설명 글은 그대로 읽힌다.
+      assertEquals(read.body["closed_reason"], "Not now * please");
+      assertEquals(read.body["reason"], "사람이 보고 정해야 한다");
+      assert(!JSON.stringify(read.body).includes(SECRET));
+      const stored = rejected.body["request"] as ApprovalRequest;
+      assertEquals(stored.status, "rejected");
+      assertEquals(
+        stored.closed_reason_blob,
+        await sha256Hex("Not now * please"),
+      );
+      assertEquals(
+        closedRefs(f.home, REJECTED).map((ref) => ref["hash"]),
+        [stored.closed_reason_blob],
+      );
+      const event = new DatabaseSync(`${f.home}/lophn.db`, { readOnly: true });
+      try {
+        const payload = event.prepare(
+          "select payload from events where type = 'ApprovalRequestRejected' and subject = ?",
+        ).get(REJECTED)!["payload"];
+        assertEquals(
+          JSON.parse(String(payload))["closed_reason_blob"],
+          stored.closed_reason_blob,
+        );
+      } finally {
+        event.close();
+      }
+      for (const hash of await blobHashes(f.home)) {
+        assert(!(await blobText(f.home, hash)).includes(SECRET));
+      }
+
+      // 이유 없이 거절하면 null이고 hash도 참조도 없다.
+      const none = await humanDecide(server, user, bare, "reject");
+      assertEquals(none.status, 200, JSON.stringify(none.body));
+      assertEquals(
+        (none.body["request"] as ApprovalRequest).closed_reason_blob,
+        null,
+      );
+      assertEquals(closedRefs(f.home, BARE), []);
+      const bareRead = await call(core, "approvals/text", user, {
+        approval: BARE,
+      });
+      assertEquals(bareRead.body["closed_reason"], null);
+
+      // 취소 이유도 같은 길이다.
+      const cancel = await call(
+        core,
+        "approvals/cancel",
+        user,
+        command(
+          {
+            approval: CANCELLED,
+            created_seq: cancelled.created_seq,
+            closed_reason: `Changed my mind ${SECRET}`,
+          },
+          { compare: { created_seq: cancelled.created_seq } },
+        ),
+      );
+      assertEquals(cancel.status, 200, JSON.stringify(cancel.body));
+      const cancelRead = await call(core, "approvals/text", user, {
+        approval: CANCELLED,
+      });
+      assertEquals(cancelRead.body["closed_reason"], "Changed my mind *");
+      assertEquals(closedRefs(f.home, CANCELLED).length, 1);
+
+      // 옛 hash 입력과 공백뿐인 이유는 어떤 것도 만들지 않고 거절된다.
+      const old = await call(
+        core,
+        "approvals/cancel",
+        user,
+        command({
+          approval: BARE,
+          created_seq: bare.created_seq,
+          closed_reason_blob: "ab".repeat(32),
+        }),
+      );
+      assertEquals(old.status, 400, JSON.stringify(old.body));
+    } finally {
+      await core.shutdown();
+    }
+  } finally {
+    await Deno.remove(f.home, { recursive: true });
+  }
+});
+
+Deno.test("platform/approvals#R12: an expired approval has a null closed reason, no fake hash and no reference, and the reason blobs outlive the preparation TTL and the unreferenced grace", async () => {
+  const f: Fixture = {
+    home: await Deno.makeTempDir({ prefix: "lophn-approval-text-" }),
+    clock: manualClock(Date.UTC(2024, 0, 1)),
+    starts: 0,
+  };
+  try {
+    const kept: string[] = [];
+    {
+      const core = await start(f);
+      try {
+        const user = await grant(f, core, "user", [
+          "create_approval_request",
+          "reject_approval_request",
+          "GetApproval",
+          "ReadApprovalText",
+        ]);
+        const server = serverOf(f, core);
+        const deadline = new Date(f.clock.nowMs() + 60_000).toISOString();
+        const due = await createFor(core, user, DUE, deadline);
+        const first = await createFor(core, user, REJECTED);
+        const rejected = await humanDecide(
+          server,
+          user,
+          first,
+          "reject",
+          "오래 남아야 하는 거절 이유",
+        );
+        assertEquals(rejected.status, 200, JSON.stringify(rejected.body));
+        kept.push(
+          ...refs(f.home, REJECTED).map((ref) => String(ref["hash"])),
+        );
+        assertEquals(kept.length, 4);
+
+        // 기한이 지나면 machine 정리가 만료한다. 이유 hash도 참조도 없다.
+        f.clock.advance(60_000);
+        await core.sweepApprovalExpiry();
+        const got = await call(core, "approvals/get", user, { approval: DUE });
+        const expired = got.body["request"] as ApprovalRequest;
+        assertEquals(expired.status, "expired");
+        assertEquals(expired.closed_reason_blob, null);
+        assertEquals(closedRefs(f.home, DUE), []);
+        assertEquals(expired.created_seq, due.created_seq);
+        const text = await call(core, "approvals/text", user, {
+          approval: DUE,
+        });
+        assertEquals(text.status, 200, JSON.stringify(text.body));
+        assertEquals(text.body["closed_reason"], null);
+
+        // 준비 TTL과 7일 유예기간이 지나도 이유 글이 남는다.
+        f.clock.advance(BLOB_PREPARATION_TTL_MS + MINUTE);
+        await core.sweepTicketClaims();
+        const read = await call(core, "approvals/text", user, {
+          approval: REJECTED,
+        });
+        assertEquals(read.body["closed_reason"], "오래 남아야 하는 거절 이유");
+        f.clock.advance(8 * DAY);
+        for (const hash of kept) {
+          await ageUnreferenced(f.home, hash, f.clock.nowMs());
+        }
+      } finally {
+        await core.shutdown();
+      }
+    }
+    const left = await blobHashes(f.home);
+    for (const hash of kept) {
+      assert(left.includes(hash), "참조된 blob이 지워졌다");
+    }
+    const again = await start(f);
+    try {
+      const user = await grant(f, again, "user", ["ReadApprovalText"]);
+      const read = await call(again, "approvals/text", user, {
+        approval: REJECTED,
+      });
+      assertEquals(read.status, 200, JSON.stringify(read.body));
+      assertEquals(read.body["closed_reason"], "오래 남아야 하는 거절 이유");
+    } finally {
+      await again.shutdown();
     }
   } finally {
     await Deno.remove(f.home, { recursive: true });

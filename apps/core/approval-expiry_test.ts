@@ -8,7 +8,6 @@ import type {
   ApprovalRequest,
   AuthenticatedContext,
 } from "../../packages/contracts/platform/mod.ts";
-import { EXPIRY_REASON_HASH } from "../../packages/platform/approvals/mod.ts";
 import {
   actionOf,
   call,
@@ -119,7 +118,7 @@ Deno.test("platform/approvals#R12 #R15: 기한에 도달한 대기만 expired가
       command({
         approval: CANCELLED,
         created_seq: toCancel.created_seq,
-        closed_reason_blob: EXPIRY_REASON_HASH,
+        closed_reason: null,
       }, { compare: { created_seq: toCancel.created_seq } }),
     );
     assertEquals(cancelled.status, 200, JSON.stringify(cancelled.body));
@@ -133,12 +132,20 @@ Deno.test("platform/approvals#R12 #R15: 기한에 도달한 대기만 expired가
       "pending",
     );
 
-    // 기한 경계에서 그 request만 expired다. 이유는 machine이 고정한 글이고 event 주체는 machine이다.
+    // 기한 경계에서 그 request만 expired다. 만료는 이유 글이 없어 hash도 참조도 없고 event 주체는 machine이다.
     harness.clock.advance(1);
     await harness.sweepApprovalExpiry();
     const expired = await statusOf(harness, user.token, DUE_SOON);
     assertEquals(expired.status, "expired");
-    assertEquals(expired.closed_reason_blob, EXPIRY_REASON_HASH);
+    assertEquals(expired.closed_reason_blob, null);
+    assertEquals(
+      inspect(
+        harness,
+        "select count(*) as n from blob_refs where owner_key = ? and field = 'closed_reason'",
+        [DUE_SOON],
+      ).map((row) => Number(row["n"])),
+      [0],
+    );
     assertEquals(
       inspect(harness, "select actor from events where type = ?", [
         "ApprovalRequestExpired",

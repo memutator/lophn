@@ -184,6 +184,8 @@ export async function decide(
   token: string,
   request: ApprovalRequest,
   decision: "grant" | "reject",
+  // 거절 이유 글. 없으면 이유 없이 거절한다(R14).
+  reason: string | null = null,
 ): Promise<Reply> {
   const base = {
     approval: request.id,
@@ -192,7 +194,7 @@ export async function decide(
   };
   const input = decision === "grant"
     ? base
-    : { ...base, closed_reason_blob: null };
+    : { ...base, closed_reason: reason };
   const route = decision === "grant"
     ? grantApprovalRequest
     : rejectApprovalRequest;

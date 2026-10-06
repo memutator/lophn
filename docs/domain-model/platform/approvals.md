@@ -18,7 +18,7 @@ ApprovalRequest의 고정 동작, 사람의 결정, 한 번 사용 연결을 정
 | `action` | ApprovalAction | 아니오 | 생성 뒤 불변 | 허락할 동작 하나 |
 | `expires_at` | UTC ISO 8601 밀리초 문자열 | 예 | 지정 시 생성 시각보다 뒤; 결정·사용 모두 `now < expires_at` | 사용 가능한 기한 |
 | `status` | `pending / granted / rejected / expired / cancelled` | 아니오 | 생성 시 `pending` | 결정 상태 |
-| `closed_reason_blob` | sha256 | 예 | `pending / granted`이면 null; `expired / cancelled`이면 필수; → platform/blob-store | 종료 설명 |
+| `closed_reason_blob` | sha256 | 예 | `pending / granted / expired`이면 null; `rejected / cancelled`이면 이유를 적었을 때만 있음(없으면 null); → platform/blob-store | 거절·취소 이유 글. 만료는 이유 글이 없고 상태가 곧 이유다(가짜 hash 없음) |
 | `created_seq` | event seq | 아니오 | 생성 event 참조; 불변; → platform/ledger | 내용 비교 기준 |
 | `closed_seq` | event seq | 예 | `pending`과 null이 동치; 종료 event 참조 | 결정 참조 |
 
@@ -113,11 +113,11 @@ ApprovalRequest의 고정 동작, 사람의 결정, 한 번 사용 연결을 정
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
 | `create_approval_request` | 권한 있는 요청자 또는 `machine` | id, 원래 requester 근거, run?, reason(글), effect(changes·external?·reversible·reversibility 글), action, expires_at? | 소유 command schema·현재 권한·run 유효성·거절 억제 범위 | `ApprovalRequestCreated` | `invalid_input`, `forbidden`, `not_found`, `conflict`, `unavailable` |
-| `read_approval_text` | `user`, `machine`, 그 request를 볼 수 있는 요청자 | approval | request를 볼 수 있는 범위; 범위 밖은 없는 request와 같은 `not_found`; 글 blob 하나라도 읽을 수 없으면 `unavailable` | 없음 | `invalid_input`, `not_found`, `unavailable` |
+| `read_approval_text` | `user`, `machine`, 그 request를 볼 수 있는 요청자 | approval | request를 볼 수 있는 범위(설명 글과 거절·취소 이유 글, 이유가 없으면 null); 범위 밖은 없는 request와 같은 `not_found`; 글 blob 하나라도 읽을 수 없으면 `unavailable` | 없음 | `invalid_input`, `not_found`, `unavailable` |
 | `grant_approval_request` | `user` | approval, created_seq, binding_hash, confirmation 증거 | pending·현재 내용·전제·기한; 증거와 결정 저장 원자적 | `ApprovalRequestGranted` | `forbidden`, `not_found`, `conflict` |
-| `reject_approval_request` | `user` | approval, created_seq, binding_hash, confirmation 증거, closed_reason_blob? | pending·현재 내용·기한 | `ApprovalRequestRejected` | `forbidden`, `not_found`, `conflict` |
+| `reject_approval_request` | `user` | approval, created_seq, binding_hash, confirmation 증거, closed_reason(글)? | pending·현재 내용·기한 | `ApprovalRequestRejected` | `forbidden`, `not_found`, `conflict` |
 | `expire_approval_request` | `machine` | approval, created_seq | pending·지정 기한 도달 | `ApprovalRequestExpired` | `forbidden`, `not_found`, `conflict` |
-| `cancel_approval_request` | `user`, 원래 요청자, `machine` | approval, created_seq, closed_reason_blob | pending; 원래 요청자 일치 또는 종료·전제 변경 근거 | `ApprovalRequestCancelled` | `forbidden`, `not_found`, `conflict` |
+| `cancel_approval_request` | `user`, 원래 요청자, `machine` | approval, created_seq, closed_reason(글)? | pending; 원래 요청자 일치 또는 종료·전제 변경 근거 | `ApprovalRequestCancelled` | `forbidden`, `not_found`, `conflict` |
 | `apply_approved_action` | 적용 권한이 있는 `machine` 또는 고정 caller | approval, 고정 action, 소유 접수·변경의 idempotency key | granted·미사용·기한·원래 일 유효·action 완전 일치·현재 권한·소유 CAS | → action.concern의 접수·변경 event | `forbidden`, `not_found`, `conflict` |
 
 `apply_approved_action`은 고정 action의 등록된 소유 command로만 dispatch한다. 승인 확인과 사용 연결만 따로 확정하는 공개 command는 없다. 소유 command의 성공 재전송은 동일 접수·변경을 반환하고 새 event·사용 행을 만들지 않는다.
@@ -129,14 +129,14 @@ ApprovalRequest의 고정 동작, 사람의 결정, 한 번 사용 연결을 정
 | `ApprovalRequestCreated` | approval | `binding_hash` | platform/notifications, lophn-agent/harness/waiting-and-recovery |
 | `ApprovalRequestGranted` | approval | `created_seq`, `binding_hash` | action.concern, lophn-agent/harness/waiting-and-recovery |
 | `ApprovalRequestRejected` | approval | `created_seq`, `closed_reason_blob?` | action.concern, lophn-agent/harness/waiting-and-recovery |
-| `ApprovalRequestExpired` | approval | `created_seq`, `closed_reason_blob` | action.concern, lophn-agent/harness/waiting-and-recovery |
-| `ApprovalRequestCancelled` | approval | `created_seq`, `closed_reason_blob` | action.concern, lophn-agent/harness/waiting-and-recovery |
+| `ApprovalRequestExpired` | approval | `created_seq`, `closed_reason_blob`(항상 null) | action.concern, lophn-agent/harness/waiting-and-recovery |
+| `ApprovalRequestCancelled` | approval | `created_seq`, `closed_reason_blob?` | action.concern, lophn-agent/harness/waiting-and-recovery |
 
 허락·거절 event의 actor는 `user`, envelope의 run은 null이다. 원래 run은 request에서 읽는다. 적용 성공·실패 event는 적용 concern이 소유한다.
 
 ## 정책
 
-- **글은 값이다.** 요청의 `reason`과 `effect`의 `changes`·`external`·`reversibility`는 글(UTF-8, 글 하나 32KiB 이하, 공백뿐인 글 금지)을 값으로 싣는다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다. core가 command 앞에서 글을 redaction해 UTF-8 bytes로 blob을 준비(purpose `approval_text`, 보낸 자격의 principal)하고 command가 같은 transaction에서 영구 참조(owner_kind `approval_request`, field reason·changes·external·reversibility)를 등록한다. 저장·event·record는 그대로 blob hash(`reason_blob`, `effect.*_blob`)다. 글은 일반 blob read로 열지 않고 `ReadApprovalText`(`/v1/approvals/text`)가 request를 볼 수 있는 쪽에만 돌려준다. 메시지 본문·질문 글과 같은 길이다. → lophn-agent/conversation, lophn-agent/questions
+- **글은 값이다.** 요청의 `reason`과 `effect`의 `changes`·`external`·`reversibility`, 거절·취소의 `closed_reason`은 글(UTF-8, 글 하나 32KiB 이하, 공백뿐인 글 금지)을 값으로 싣는다. 호출자는 hash를 만들지도 blob을 준비하지도 않는다. core가 command 앞에서 글을 redaction해 UTF-8 bytes로 blob을 준비(purpose `approval_text`, 보낸 자격의 principal)하고 command가 같은 transaction에서 영구 참조(owner_kind `approval_request`, field reason·changes·external·reversibility·closed_reason; 종료 이유는 종료와 같은 transaction에서)를 등록한다. 저장·event·record는 그대로 blob hash(`reason_blob`, `effect.*_blob`)다. 글은 일반 blob read로 열지 않고 `ReadApprovalText`(`/v1/approvals/text`)가 request를 볼 수 있는 쪽에만 돌려준다. 메시지 본문·질문 글과 같은 길이다. → lophn-agent/conversation, lophn-agent/questions
 - **결정 표시.** 기본 화면은 동작·대상·이유·변경과 외부 전송·보존 데이터·되돌릴 수 없는 영향을 사람이 아는 말로 요약한다. 필수 설명을 숨겨 결정을 유도하지 않는다. 기술적인 호출 출처·정확한 입력·CAS는 redaction된 상세에서 확인하며 표시용 요약이 action 결속을 바꾸지 않는다. en·message key·child modal과 입력 차단은 → shell/wording, shell/confirmation-window다. → platform/approvals#R17
 - **한 번 사용.** ledger 변경은 유효성 검사·`approval_uses` INSERT·소유 변경을 같은 짧은 transaction에서 한다. ledger 밖 동작은 접수·사용 연결부터 함께 확정하고 밖에서 수행한다. 동작 시작 뒤 사용 연결을 쓰지 않는다.
 - **confirm 접수.** 앱 confirm은 `accepted` invocation과 approval 사용을 같은 command에서 확정한다. 결과 불명확·실패·재전송은 같은 접수이며 허락을 다시 쓰지 않는다. → apps/invocations

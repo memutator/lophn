@@ -215,7 +215,7 @@ Deno.test("platform/approvals#R3: handle 없는 허락·거절은 거절되고 c
     for (
       const [path, input] of [
         ["approvals/grant", decision],
-        ["approvals/reject", { ...decision, closed_reason_blob: null }],
+        ["approvals/reject", { ...decision, closed_reason: null }],
       ] as const
     ) {
       const bare = await call(

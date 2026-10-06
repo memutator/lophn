@@ -9,9 +9,13 @@ import {
   approvalActionSchema,
   approvalBindingHash,
   approvalEffectSchema,
+  approvalRequestCancelled,
+  approvalRequestExpired,
+  approvalRequestRejected,
   approvalRequestSchema,
   approvalsText,
   approvalUseSchema,
+  cancelApprovalRequest,
   createApprovalRequestInputSchema,
   grantApprovalRequest,
   rejectApprovalRequest,
@@ -245,18 +249,10 @@ Deno.test("platform/approvals#R1, platform/approvals#R5: 모르는 field·틀린
       status: "granted",
     }).success,
   );
-  // 거절은 이유 없이 할 수 있다(R14). 만료·취소는 이유가 필수다.
-  assert(
-    approvalRequestSchema.safeParse({
-      ...request,
-      status: "rejected",
-      closed_reason_blob: null,
-      closed_seq: "43",
-    }).success,
-  );
-  for (const status of ["expired", "cancelled"]) {
+  // 종료 이유는 거절·취소에서 적었을 때만 있다(R14). 이유 없이 끝난 것과 만료는 null이다.
+  for (const status of ["rejected", "expired", "cancelled"]) {
     assert(
-      !approvalRequestSchema.safeParse({
+      approvalRequestSchema.safeParse({
         ...request,
         status,
         closed_reason_blob: null,
@@ -264,6 +260,31 @@ Deno.test("platform/approvals#R1, platform/approvals#R5: 모르는 field·틀린
       }).success,
     );
   }
+  for (const status of ["rejected", "cancelled"]) {
+    assert(
+      approvalRequestSchema.safeParse({
+        ...request,
+        status,
+        closed_reason_blob: HASH,
+        closed_seq: "43",
+      }).success,
+    );
+  }
+  // 끝나지 않았거나 허락한 request에는 종료 이유가 없다.
+  assert(
+    !approvalRequestSchema.safeParse({
+      ...request,
+      closed_reason_blob: HASH,
+    }).success,
+  );
+  assert(
+    !approvalRequestSchema.safeParse({
+      ...request,
+      status: "granted",
+      closed_reason_blob: HASH,
+      closed_seq: "43",
+    }).success,
+  );
   assert(
     !createApprovalRequestInputSchema.safeParse({
       ...createInput,
@@ -333,6 +354,55 @@ Deno.test("platform/approvals#R1 #R2: 생성 입력은 글 값만 받고 hash �
   );
 });
 
+Deno.test("platform/approvals#R14: 거절·취소는 이유를 글 값(없으면 null)으로 받고 hash를 받지 않는다", () => {
+  const base = { approval: APR, created_seq: "42", binding_hash: HASH };
+  for (
+    const [schema, extra] of [
+      [rejectApprovalRequest.input, base],
+      [cancelApprovalRequest.input, { approval: APR, created_seq: "42" }],
+    ] as const
+  ) {
+    assert(schema.safeParse({ ...extra, closed_reason: null }).success);
+    assert(
+      schema.safeParse({ ...extra, closed_reason: "No longer needed." })
+        .success,
+    );
+    // 이유 칸은 있어야 하고(없으면 null) 공백뿐이거나 옛 hash 모양은 거절한다.
+    assert(!schema.safeParse(extra).success);
+    assert(!schema.safeParse({ ...extra, closed_reason: "  " }).success);
+    assert(!schema.safeParse({ ...extra, closed_reason_blob: HASH }).success);
+    assert(
+      !schema.safeParse({
+        ...extra,
+        closed_reason: "a".repeat(APPROVAL_TEXT_MAX_BYTES + 1),
+      }).success,
+    );
+  }
+  // 만료 event에는 이유 hash가 없다. 거절·취소 event는 적었을 때만 hash가 있다.
+  assert(
+    approvalRequestExpired.payload.safeParse({
+      created_seq: "42",
+      closed_reason_blob: null,
+    }).success,
+  );
+  assert(
+    !approvalRequestExpired.payload.safeParse({
+      created_seq: "42",
+      closed_reason_blob: HASH,
+    }).success,
+  );
+  for (const event of [approvalRequestRejected, approvalRequestCancelled]) {
+    for (const closed of [null, HASH]) {
+      assert(
+        event.payload.safeParse({
+          created_seq: "42",
+          closed_reason_blob: closed,
+        }).success,
+      );
+    }
+  }
+});
+
 Deno.test("platform/approvals#R17: ReadApprovalText는 request를 볼 수 있는 자격이 읽는 글 read다", () => {
   assertEquals(approvalsText.kind, "read");
   assertEquals(routePath(approvalsText), "/v1/approvals/text");
@@ -349,6 +419,7 @@ Deno.test("platform/approvals#R17: ReadApprovalText는 request를 볼 수 있는
       changes: "One note is added.",
       external: null,
       reversibility: "The note cannot be removed.",
+      closed_reason: null,
       as_of_seq: "42",
       next_cursor: null,
     }).success,

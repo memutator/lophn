@@ -1,5 +1,5 @@
-// ReadApprovalText(platform/approvals#R17). 결정 화면이 보는 설명 글(이유·변경·외부 영향·
-// 되돌림)을 돌려준다. 메시지 본문·질문 글 읽기와 같은 길이다: 참조 행 판정은 ledger
+// ReadApprovalText(platform/approvals#R14, R17). 결정 화면이 보는 설명 글(이유·변경·외부 영향·
+// 되돌림)과 거절·취소에 적은 종료 이유를 돌려준다. 메시지 본문·질문 글 읽기와 같은 길이다: 참조 행 판정은 ledger
 // snapshot에서 짧게 하고, blob 바이트는 그 뒤에 읽는다. 글은 준비 단계에서 이미 redaction을
 // 거쳤다. request를 볼 수 있는 쪽(사람·machine·요청한 자격)만 읽고, 그 밖은 없는 request와
 // 똑같이 not_found다. 참조가 없거나 바이트를 읽지 못하거나 hash가 다르면 일부만 돌려주지 않고
@@ -86,7 +86,7 @@ export function approvalsTextRead(
         { needs: Map<string, Need>; asOf: string } | undefined
       >((sql, asOfSeq) => {
         const row = sql.get(
-          "select requester, reason_blob, effect from approval_requests where id = ?",
+          "select requester, reason_blob, effect, closed_reason_blob from approval_requests where id = ?",
           [id],
         );
         if (row === undefined || !visible(ctx, String(row["requester"]))) {
@@ -107,13 +107,17 @@ export function approvalsTextRead(
           [APPROVAL_TEXT_FIELDS.changes, effect.changes_blob],
           [APPROVAL_TEXT_FIELDS.external, effect.external_blob],
           [APPROVAL_TEXT_FIELDS.reversibility, effect.reversibility_blob],
+          [APPROVAL_TEXT_FIELDS.closed, row["closed_reason_blob"]],
         ];
         const needs = new Map<string, Need>();
         for (const [field, hash] of wanted) {
-          // 외부 영향이 없는 request는 external 글이 없다.
-          if (hash === null && field === APPROVAL_TEXT_FIELDS.external) {
-            continue;
-          }
+          // 외부 영향이 없는 request는 external 글이 없고, 이유 없이 끝났거나 끝나지 않은
+          // request는 종료 이유 글이 없다.
+          if (
+            hash === null &&
+            (field === APPROVAL_TEXT_FIELDS.external ||
+              field === APPROVAL_TEXT_FIELDS.closed)
+          ) continue;
           if (typeof hash !== "string") return unavailable();
           const ref = sql.get(
             `select size_bytes from blob_refs
@@ -149,6 +153,7 @@ export function approvalsTextRead(
         changes: texts.get(APPROVAL_TEXT_FIELDS.changes)!,
         external: texts.get(APPROVAL_TEXT_FIELDS.external) ?? null,
         reversibility: texts.get(APPROVAL_TEXT_FIELDS.reversibility)!,
+        closed_reason: texts.get(APPROVAL_TEXT_FIELDS.closed) ?? null,
         as_of_seq: found.value.asOf,
         next_cursor: null,
       });

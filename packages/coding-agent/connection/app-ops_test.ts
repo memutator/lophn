@@ -3,10 +3,10 @@
 // 앱 process를 부르지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
-import {
-  type AppDirect,
-  type AppInvokeOutcome,
-  type AppInvokeRequest,
+import type {
+  AppDirect,
+  AppInvokeOutcome,
+  AppInvokeRequest,
 } from "./app-direct.ts";
 import {
   APP_OP_ROUTES,
@@ -19,7 +19,6 @@ import { fail, scriptedFlow } from "./testing/mod.ts";
 const APP = "app_01arz3ndektsv4rrffq69g5fav";
 const REL = "rel_01arz3ndektsv4rrffq69g5fav";
 const VRF = "vrf_01arz3ndektsv4rrffq69g5fav";
-const VRF2 = "vrf_01arz3ndektsv4rrffq69g5faw";
 const INV = "inv_01arz3ndektsv4rrffq69g5fav";
 const APR = "apr_01arz3ndektsv4rrffq69g5fav";
 const TKT = "tkt_01arz3ndektsv4rrffq69g5fav";

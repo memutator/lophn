@@ -665,6 +665,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T21 MCP·CLI 앱 개발 tool
 
+- 상태: STATUS_PLACEHOLDER
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli, coding-agent/connection
 - 요구: coding-agent/mcp-server#R19, R20, R21, R29, R32, R33;
@@ -709,6 +710,32 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     고친다)
   - 사람 전용 `app start|stop|release activate`, `app automation run`은 결정
     화면 링크·대기 사실만 출력하고 coding credential은 거절(cli#R7, R27, R31)
+  - 구현 메모(T21):
+    - MCP와 CLI는 한 흐름이다: `connection/app-ops.ts`의 `runAppOp`(op → 소유 route 표
+      `APP_OP_ROUTES`, 접수·기다림·결과 구별)를 MCP `tools/app.ts`와 CLI
+      `commands/app.ts`(`runApp`)가 함께 쓰고, registry·CLI 표의 route도 그 표 하나다.
+      앱 통로(direct)는 `connection/app-direct.ts`의 `createAppDirect`(core `apps/connect` →
+      서명 envelope → 주입 transport)로 연결 불발(요청 안 나감)과 응답 유실(결과 불명)을
+      구별한다.
+    - 접수와 기다림: test·preview_start·validate·release_prepare는 접수 뒤 20초(`DEFAULT_WAIT`)
+      안에서만 다시 읽고 기다리는 동안 `notifications/progress`를 보낸다(server가 요청의
+      `_meta.progressToken`을 `ToolCallContext.progress`로 넘긴다). 끝나지 않으면 접수와
+      다음 read를 돌려준다.
+    - release_prepare는 ticket_source가 없으면 core에 가지 않고 거절하고, 준비가 끝난 묶음의
+      같은 hash app test(ListVerifications)가 없거나 통과하지 못하면 준비를 거절로 낸다.
+      다른 hash의 통과는 근거가 아니다.
+    - 계약 보정: `release.prepare_bundle`·`release.preparation`의 actor에 `coding_agent`를
+      더했다(architecture/apps 7.3이 coding agent 통로의 준비 접수를 말하는데 계약이
+      machine 전용이었다; T15의 "모든 op route가 coding_agent를 받는다" 시험이 이를 잡는다).
+      확정(`release.prepare`)은 machine 전용 그대로다.
+    - 문서 보정(질문 Q2·Q3): log는 한 번에 1~200줄(requirements mcp#R32·cli#R24),
+      environment는 `preview|live`(architecture 5.2).
+    - 이어보냄: (1) 앱 통로 production transport(unix socket 연결 권한 — 지금 MCP 실행 argv에는
+      `--allow-write`가 없다)와 `apps/mcp/main.ts`의 `appDirect` 배선, CLI `runApp` 실행 배선
+      → T36. (2) `sync_tools` 실제 실행 → T34(지금은 `unavailable`). (3) `blueprint`의 core
+      read route는 apps#T19(`/v1/apps/blueprint`)가 내고 계약 표에는 아직 없다: 계약 표가 생기면
+      `APP_OP_ROUTES.blueprint`를 그 route로 바꾼다(지금은 `unavailable`, 성공을 꾸미지 않는다).
+      그 밖의 막힌 것·계약 질문은 "## 질문" Q32.
 
 ### T22 SDK tool
 
@@ -1124,6 +1151,10 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - release bundle 제외 목록(안내·skill·hook·wrapper·제품 local MCP 설정)을
     contracts에 두고 apps bundle이 쓰는지 통합 테스트, local hook 설정은 ignore
     관리 구간에(R19)
+- coding-agent#T21에서 넘어온 것: `sync_tools` op·`app sync-tools`의 실제 실행.
+  지금 `lophn_app sync_tools`는 `connection/app-ops.ts`에서 `unavailable`을 돌려준다
+  (소유 route 표에는 appRuntime이 입력 자리로 있다). 파일별 변경·무변경·건너뜀
+  결과가 생기면 그 분기를 실행으로 바꾼다.
 
 ### T35 session 시작 summary와 Claude Code hook
 
@@ -1173,6 +1204,11 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48,
   platform#T35, contracts#T24
 - platform#T34에서 넘어온 것: 사람의 연결 결정 입구(사람 선택 → 신뢰 경계 token·keychain → core create). 지금 contract에 입구가 없다. 발급 경계는 `createCodingCredentialAuthority`의 `connect(input, submit)`(packages/platform/identity)이고 core 조립은 `Core.codingCredentials.connect`(apps/core/coding-credential.ts, `codingKeychain` 옵션)다. 이 작업이 그 입구(route 또는 main↔core 메시지, contracts 요청 필요)를 정해 사람 credential로 `submit`(connection create command)을 보내고 token 없는 결과만 사람에게 보인다. `registerChild`(MCP·CLI child의 process generation 등록)의 loader 쪽 요청 모양(`process_generation`, `loader_identity`)은 production provider가 채운다
+- coding-agent#T21에서 넘어온 것: 앱 개발 tool의 production 배선. (1) 앱 통로
+  transport: `AppDirectTransport`(connection/app-direct.ts)의 unix socket 구현과 MCP
+  실행 권한(socket 경로가 실행 때 정해지므로 argv의 `--allow-read/--allow-write` 범위를
+  정해야 한다), `apps/mcp/main.ts`의 `appDirect` 옵션 채우기. (2) CLI `runApp`
+  (cli/commands/app.ts)을 apps/cli 실행 entry에 잇고 `isError`를 비성공 exit로 낸다.
 - coding-agent#T15에서 넘어온 것: (1) CLI의 core 실행(dispatch) 배선. T15의 parity는
   command 표의 route와 같은 core client로 본다(`cliRead`는 시험 안의 얇은 실행이다).
   실행 entry를 이 표와 같은 route·같은 client로 잇고 `not_found`의 통일 메시지
@@ -1601,6 +1637,18 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   보니 빈 operation으로 읽기를 시험하는 platform/api 시험 넷이 깨졌다. 추천: platform이 이
   읽기들의 operation 요건을 정하고(일괄 검사 또는 handler별 검사) 시험의 credential을 맞춘다.
   coding-agent는 이 읽기에서 비밀을 내지 않는다.
+- **Q32 T21 앱 개발 tool의 계약·다른 팀 확인(구현).** 추천안으로 진행했다.
+  (a) `release.prepare_bundle`·`preparation` actor에 coding_agent를 더했다(T21 구현 메모).
+  (b) app test timeout: `RequestTest` 입력에 timeout이 없고 동결 test method의 `timeout_ms`가
+  유일한 근거라 coding 통로가 300,000ms를 "명시해 전달"할 수 없다. 응답에 runner timeout 기준만
+  표시한다 → problems(동결 test 만들 때 method.timeout_ms 기본 300,000) 확인 필요.
+  (c) CLI `app command`: `cli-app.ts`의 schema가 `command` 필드를 CLI command 이름 literal로
+  쓰고 strict라 앱 command key·environment·timeout_ms를 담을 수 없다. MCP 입력과 같게 맞추는
+  계약 보정이 필요하다(contracts). 지금 `runApp`은 MCP와 같은 op 입력 모양을 받는다.
+  (d) `app logs`에는 이어 읽기 cursor 입력이 없다(출력의 next_cursor만): 잘림만 표시한다.
+  (e) 실제 core에서 앱 하나 범위(conditions.app·targets.app) test credential로 `app.get`·`app.list`·
+  `app.connect_source`가 다른 앱에도 열렸다(등록만 forbidden): apps registration의 읽기 범위
+  판정을 apps 팀이 확인해야 한다. 이 PR의 core 시험은 그 격리를 단언하지 않는다.
 - **Q15 ticket claim의 readiness.** coding-agent/tickets#R11 본문은
   needs_confirmation ticket도 claim할 수 있다고 적고, T19 완료 줄과
   checkTicketClaim의 not_ready 거절은 ready만 허용한다. 구현은 완료 줄을
@@ -1616,10 +1664,10 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   `daemon …`은 platform의 로컬 시작 contract로 한다. problems 팀도 같은 방식을
   추천했다(feedback은 shell 사람 제출만, problems/feedback#R1). platform 팀에
   확인 요청을 보냈다.
-- **Q2 앱 log 줄 수.** coding-agent/mcp-server#R32, cli#R24는 요청 1~2,000줄인데
+- **Q2 앱 log 줄 수.** (정함: T21 PR에서 requirements를 200줄로 고쳤다) coding-agent/mcp-server#R32, cli#R24는 요청 1~2,000줄인데
   apps/runtime#R27은 한 번에 200줄이다. 추천: 한 번에 1~200줄과 cursor 이어
   읽기로 맞추고 T21 PR에서 두 요구를 고친다(MCP 출력 상한에도 맞다).
-- **Q3 command environment 이름.** architecture 5.2의 `preview|production`을
+- **Q3 command environment 이름.** (정함: T21 PR에서 architecture를 고쳤다) architecture 5.2의 `preview|production`을
   apps·shell wire의 `preview|live`로 맞춘다(apps 팀 합의). T21 PR에서
   architecture를 고친다.
 - **Q4 validate op.** apps에 별도 blueprint 검사 RPC가 없어 `validate`를

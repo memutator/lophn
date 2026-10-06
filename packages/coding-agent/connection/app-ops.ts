@@ -36,6 +36,7 @@ import {
   type AppEnvironment,
   type AppInvokeOutcome,
 } from "./app-direct.ts";
+import { UNREADABLE_MESSAGE } from "./unreadable.ts";
 import type { FlowClient } from "./document-save.ts";
 
 // op마다 첫 소유 route다. blueprint·sync_tools는 core에 아직 소유 route가 없어 contract가 입력을
@@ -99,10 +100,6 @@ export const APP_TEST_TIMEOUT_MS = TEST_EXECUTION_LIMITS.timeout_ms;
 // 접수 뒤 결과를 기다리는 한도다. OpenCode 기본 tool timeout 30초보다 짧게 끝낸다.
 export const DEFAULT_WAIT = { budget_ms: 20_000, interval_ms: 1_000 } as const;
 
-// 범위 밖과 없는 대상은 같은 답이다(connection#R5).
-const ABSENT =
-  "현재 연결로 읽을 수 없다. 없는 대상이거나 이 연결의 범위 밖이다";
-
 export type AppOpOutput = {
   summary: string;
   data: unknown;
@@ -145,7 +142,7 @@ function failure(error: LophnError, next: string[]): AppOpOutput {
 }
 
 function absent(next: string[]): AppOpOutput {
-  return failure({ code: "not_found", message: ABSENT }, next);
+  return failure({ code: "not_found", message: UNREADABLE_MESSAGE }, next);
 }
 
 function refer(deps: AppOpDeps, op: AppOp, note = ""): string {

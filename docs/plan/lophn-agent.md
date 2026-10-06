@@ -524,7 +524,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T27 중단 뒤 복구
 
-- 상태: 완료 (#PR)
+- 상태: 완료 (#394)
 - 등급: 최상위
 - concern: lophn-agent/harness/waiting-and-recovery
 - 요구: lophn-agent/harness/waiting-and-recovery#R8, R9, R10, R12

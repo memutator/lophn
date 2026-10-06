@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
+  canonicalize,
   type Clock,
+  err,
   fingerprint,
   type IdSource,
   ok,
@@ -11,6 +13,8 @@ import {
   finishRun,
   presetRead,
   RUN_BLOB_PURPOSES,
+  runBody,
+  runList,
   runRead,
   sessionRead,
   startRun,
@@ -22,14 +26,21 @@ import type { SkillEntry } from "../../packages/lophn-agent/extensions/mod.ts";
 import { ROLE_CAPS } from "../../packages/lophn-agent/presets/mod.ts";
 import {
   abortableWait,
+  type AgentRunCredential,
   type AppOffer,
   computeAgentAppScope,
+  type LoopDeps,
   resolveRunLimits,
   RUN_LIMIT_SETTING_KEYS,
   type RunContext,
+  type RunCredentials,
   type Selection,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
-import { createWaitResolver } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
+import {
+  createWaitResolver,
+  recoverRunFromLedger,
+  type ToolLookup,
+} from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import type { ToolBinding } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
   BUILTIN_TOOLS,
@@ -43,7 +54,7 @@ import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { type BlobPort, storeValue } from "./run-blobs.ts";
-import type { DriveDeps, PreparedRun } from "./run-driver.ts";
+import type { DriveDeps, PreparedResume, PreparedRun } from "./run-driver.ts";
 
 // 선택한 run을 시작하기 전의 재료를 core 기록에서 모은다(lophn-agent/harness/run-loop). assignment와
 // preset 판, 역할 상한과 preset이 고른 tool 목록, 적용 한도, StartRun이 확정할 AgentAppScope, 고정할
@@ -62,6 +73,9 @@ export type Toolkit = {
   ): string[];
   server?(definition: ToolDefinition): string | null;
   mcpConnection?(definition: ToolDefinition): { revision: number } | undefined;
+  // 결과를 모르는 쓰기·external의 저장된 결과를 소유 계약에서 조회한다(tool 이름 → 조회). 없는 tool은
+  // 결과를 확인할 수 없는 것으로 다룬다.
+  lookups?(seat: RunSeat, agent: CoreCall): ReadonlyMap<string, ToolLookup>;
 };
 
 export type PreparerDeps = {
@@ -116,24 +130,34 @@ function placeOf(
     : { kind: scope.kind, id: scope.id }) as WorkPlace;
 }
 
-export function createRunPreparer(
-  deps: PreparerDeps,
-): Pick<DriveDeps, "prepare" | "closeUnusable"> {
+type RunRecord = z.output<typeof runRead.output>["run"];
+type AssignmentRecord = z.output<typeof assignmentRead.output>["assignment"];
+
+export type PreparerResult =
+  & Pick<
+    DriveDeps,
+    "prepare" | "closeUnusable" | "liveRuns"
+  >
+  & {
+    // 재시작·사람의 결정 뒤 같은 run을 잇는 재료(lophn-agent/harness/waiting-and-recovery).
+    prepareResume(
+      run: string,
+      credentials: RunCredentials,
+    ): Promise<Result<PreparedResume>>;
+  };
+
+export function createRunPreparer(deps: PreparerDeps): PreparerResult {
   const { machine, clock, ids } = deps;
 
-  async function prepare(
-    selection: Selection,
-  ): Promise<Result<PreparedRun>> {
-    const run = await readOf(machine, runRead, { run: selection.run });
-    if (!run.ok) return run;
-    const assigned = await readOf(machine, assignmentRead, {
-      assignment: selection.assignment,
-    });
-    if (!assigned.ok) return assigned;
-    const assignment = assigned.value.assignment;
+  // run과 assignment, 고른 preset 판으로 이번 run의 tool·scope·model을 모은다.
+  async function material(
+    run: RunRecord,
+    assignment: AssignmentRecord,
+    pinned: { id: string; revision: number },
+  ) {
     const read = await readOf(machine, presetRead, {
-      preset: assignment.preset,
-      revision: assignment.preset_revision,
+      preset: pinned.id,
+      revision: pinned.revision,
     });
     if (!read.ok) return read;
     const preset = read.value.preset;
@@ -156,13 +180,6 @@ export function createRunPreparer(
       { presetTools, roleTools },
     );
 
-    const settings = await readOf(machine, settingsGet, {
-      keys: Object.values(RUN_LIMIT_SETTING_KEYS),
-    });
-    if (!settings.ok) return settings;
-    const limits = resolveRunLimits(settings.value.settings);
-    if (!limits.ok) return limits;
-
     const offers = deps.offers === undefined
       ? []
       : await deps.offers(assignment);
@@ -183,12 +200,144 @@ export function createRunPreparer(
     if (!model.ok) return model;
 
     let place: WorkPlace = placeOf(assignment.scope);
-    if (run.value.run.session !== null) {
+    if (run.session !== null) {
       const session = await readOf(machine, sessionRead, {
-        session: run.value.run.session,
+        session: run.session,
       });
       if (session.ok) place = session.value.session.work_place as WorkPlace;
     }
+    const seat: RunSeat = {
+      run: run.id,
+      assignment: assignment.id,
+      session: run.session,
+    };
+    return ok({
+      preset,
+      definition,
+      listed,
+      scope: scope.value,
+      model: model.value,
+      place,
+      seat,
+    });
+  }
+
+  type Material = Extract<
+    Awaited<ReturnType<typeof material>>,
+    { ok: true }
+  >["value"];
+
+  // 이 run의 loop deps와 core port. agent 호출은 credential token을 받은 뒤에 열린다.
+  function loopFor(
+    m: Material,
+    assignment: AssignmentRecord,
+    agent: CoreCall,
+  ) {
+    const { seat, listed, model, definition, place } = m;
+    const toolkit = deps.toolkit;
+    const bindings = new Map<string, ToolBinding>();
+    for (const tool of listed) {
+      const bound = toolkit.binding(tool) ??
+        (tool.effect === "read" ? readBinding(tool) : undefined);
+      if (bound !== undefined) bindings.set(tool.name, bound);
+    }
+    const context = async (): Promise<Result<RunContext>> => {
+      const role = await deps.rolePrompt(assignment.role);
+      if (!role.ok) return role;
+      return ok({
+        product: { instructions: deps.product },
+        role: { instructions: role.value, preset_prompt: null },
+        tools: listed.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          input_schema: z.toJSONSchema(tool.input),
+        })),
+        work: {
+          role: assignment.role,
+          session: place,
+          scope: assignment.scope,
+        },
+        attachments: definition.instructions,
+        purpose: null,
+        run_facts: null,
+        continuation_summary: null,
+        sources: [],
+        skills: (await deps.skills?.()) ?? [],
+        timezone: deps.timezone?.() ?? null,
+        limits: {
+          context_limit: model.call.limits.context_limit,
+          input_limit: model.call.limits.input_limit,
+          output_limit: model.call.limits.output_limit,
+        },
+        reserved_output: Math.min(
+          deps.reservedOutput ?? 8000,
+          model.call.limits.output_limit,
+        ),
+      });
+    };
+    const ported = createCorePorts({
+      seat,
+      clock,
+      ids,
+      machine,
+      agent,
+      blobs: deps.blobs,
+      redact: deps.instructions.redact,
+      model,
+      tools: {
+        listed,
+        bindings,
+        handlers: toolkit.handlers(seat, agent),
+        credential: {
+          run: seat.run,
+          targets: new Set(toolkit.targets?.(assignment) ?? []),
+          operations: new Set(runOperations(listed)),
+        },
+        mcpConnection: toolkit.mcpConnection ?? (() => undefined),
+        ...(toolkit.server === undefined ? {} : { server: toolkit.server }),
+        approvalTtlMs: deps.approvalTtlMs ?? 600_000,
+      },
+      context,
+    });
+    const resolver = createWaitResolver({
+      machine,
+      judgment: ported.judgment,
+      callRequest: ported.callRequest,
+    });
+    const loopDeps: LoopDeps = {
+      clock,
+      wait: abortableWait,
+      random: Math.random,
+      instructions: deps.instructions,
+      ports: ported.ports,
+    };
+    return { ported, resolver, loopDeps };
+  }
+
+  async function prepare(
+    selection: Selection,
+  ): Promise<Result<PreparedRun>> {
+    const run = await readOf(machine, runRead, { run: selection.run });
+    if (!run.ok) return run;
+    const assigned = await readOf(machine, assignmentRead, {
+      assignment: selection.assignment,
+    });
+    if (!assigned.ok) return assigned;
+    const assignment = assigned.value.assignment;
+
+    const settings = await readOf(machine, settingsGet, {
+      keys: Object.values(RUN_LIMIT_SETTING_KEYS),
+    });
+    if (!settings.ok) return settings;
+    const limits = resolveRunLimits(settings.value.settings);
+    if (!limits.ok) return limits;
+
+    const found = await material(run.value.run, assignment, {
+      id: assignment.preset,
+      revision: assignment.preset_revision,
+    });
+    if (!found.ok) return found;
+    const { preset, listed, scope, model, place } = found.value;
 
     // run 근거는 영구 참조다. 저장한 바이트의 hash로 StartRun에 싣는다.
     const basis = await storeValue(
@@ -214,24 +363,12 @@ export function createRunPreparer(
             listed.map((tool) => [tool.name, tool.revision]),
           ),
         },
-        models: { judgment: model.value.call, organizing: model.value.call },
+        models: { judgment: model.call, organizing: model.call },
         initial_work_place: place,
         limits: limits.value,
       },
     );
     if (!basis.ok) return basis;
-    const seat: RunSeat = {
-      run: selection.run,
-      assignment: selection.assignment,
-      session: run.value.run.session,
-    };
-    const toolkit = deps.toolkit;
-    const bindings = new Map<string, ToolBinding>();
-    for (const tool of listed) {
-      const bound = toolkit.binding(tool) ??
-        (tool.effect === "read" ? readBinding(tool) : undefined);
-      if (bound !== undefined) bindings.set(tool.name, bound);
-    }
 
     return ok({
       begin: {
@@ -241,7 +378,7 @@ export function createRunPreparer(
         basis: basis.value.hash,
         basisSize: basis.value.size,
         limits: limits.value,
-        scope: scope.value,
+        scope,
       },
       async startRun(input) {
         const started = await commandOf(
@@ -268,82 +405,17 @@ export function createRunPreparer(
           : started;
       },
       loop(credential) {
-        const agent = deps.agentCall(credential.token);
-        const context = async (): Promise<Result<RunContext>> => {
-          const role = await deps.rolePrompt(assignment.role);
-          if (!role.ok) return role;
-          return ok({
-            product: { instructions: deps.product },
-            role: { instructions: role.value, preset_prompt: null },
-            tools: listed.map((tool) => ({
-              name: tool.name,
-              description: tool.description,
-              input_schema: z.toJSONSchema(tool.input),
-            })),
-            work: {
-              role: assignment.role,
-              session: place,
-              scope: assignment.scope,
-            },
-            attachments: definition.instructions,
-            purpose: null,
-            run_facts: null,
-            continuation_summary: null,
-            sources: [],
-            skills: (await deps.skills?.()) ?? [],
-            timezone: deps.timezone?.() ?? null,
-            limits: {
-              context_limit: model.value.call.limits.context_limit,
-              input_limit: model.value.call.limits.input_limit,
-              output_limit: model.value.call.limits.output_limit,
-            },
-            reserved_output: Math.min(
-              deps.reservedOutput ?? 8000,
-              model.value.call.limits.output_limit,
-            ),
-          });
-        };
-        const ported = createCorePorts({
-          seat,
-          clock,
-          ids,
-          machine,
-          agent,
-          blobs: deps.blobs,
-          redact: deps.instructions.redact,
-          model: model.value,
-          tools: {
-            listed,
-            bindings,
-            handlers: toolkit.handlers(seat, agent),
-            credential: {
-              run: seat.run,
-              targets: new Set(toolkit.targets?.(assignment) ?? []),
-              operations: new Set(runOperations(listed)),
-            },
-            mcpConnection: toolkit.mcpConnection ?? (() => undefined),
-            ...(toolkit.server === undefined ? {} : { server: toolkit.server }),
-            approvalTtlMs: deps.approvalTtlMs ?? 600_000,
-          },
-          context,
-        });
-        const resolver = createWaitResolver({
-          machine,
-          judgment: ported.judgment,
-          callRequest: ported.callRequest,
-        });
+        const built = loopFor(
+          found.value,
+          assignment,
+          deps.agentCall(credential.token),
+        );
         return {
-          settle: () => resolver.settle(seat.run),
-          deps: {
-            clock,
-            wait: abortableWait,
-            random: Math.random,
-            instructions: deps.instructions,
-            ports: ported.ports,
-          },
+          settle: () => built.resolver.settle(selection.run),
+          deps: built.loopDeps,
           input: {
-            run: seat.run,
-            session: seat.session,
+            run: selection.run,
+            session: found.value.seat.session,
             limits: limits.value,
             elapsed: { active_ms: 0, stall_ms: 0, checkpoint_at: null },
             attempts: 0,
@@ -353,8 +425,135 @@ export function createRunPreparer(
     });
   }
 
+  // 시작한 run을 저장된 경계에서 잇는 재료다. preset은 run basis가 고정한 판을 쓰고 한도는 StartRun이
+  // 고정한 값이다. 현재 assignment·scope·credential·model은 새 진입 전에 다시 확인한다(R9).
+  async function prepareResume(
+    runId: string,
+    credentials: RunCredentials,
+  ): Promise<Result<PreparedResume>> {
+    const run = await readOf(machine, runRead, { run: runId });
+    if (!run.ok) return run;
+    const record = run.value.run;
+    const assigned = await readOf(machine, assignmentRead, {
+      assignment: record.assignment,
+    });
+    if (!assigned.ok) return assigned;
+    const assignment = assigned.value.assignment;
+    const basis = await readOf(machine, runBody, {
+      kind: "run_basis",
+      id: runId,
+    });
+    if (!basis.ok) return basis;
+    const pinned = (basis.value.value as {
+      preset?: { id?: string; revision?: number };
+    }).preset;
+    if (pinned?.id === undefined || pinned.revision === undefined) {
+      return err({
+        code: "unavailable",
+        message: "the run basis is unreadable",
+      });
+    }
+    const found = await material(record, assignment, {
+      id: pinned.id,
+      revision: pinned.revision,
+    });
+    if (!found.ok) return found;
+    const holder: { agent?: CoreCall } = {};
+    const agent: CoreCall = (path, body) =>
+      holder.agent === undefined
+        ? Promise.resolve(
+          err({ code: "unauthorized" as const, message: "no run credential" }),
+        )
+        : holder.agent(path, body);
+    const built = loopFor(found.value, assignment, agent);
+    const lookups = deps.toolkit.lookups?.(found.value.seat, agent);
+    let held: AgentRunCredential | undefined;
+    const recoveryDeps = {
+      machine,
+      clock,
+      store: (purpose: string, value: unknown) =>
+        storeValue(deps.blobs, deps.instructions.redact, purpose, value),
+      lookup: (tool: string) => lookups?.get(tool),
+      close: built.ported.ports.tools.close,
+    };
+    return ok({
+      assignment: record.assignment,
+      settle: () => built.resolver.settle(runId),
+      async recover(executing) {
+        // 이 run의 ledger 사실로 경계를 확정한다. credential은 새 진입이 확정된 뒤에만 받는다.
+        const outcome = await recoverRunFromLedger(recoveryDeps, runId, {
+          ...(executing === undefined ? {} : { executing }),
+          async preflight(fixed) {
+            // 현재 scope가 StartRun이 고정한 값과 다르면 진행하지 않는다.
+            if (
+              canonicalize(fixed.scope) !== canonicalize(found.value.scope)
+            ) return "target_unavailable";
+            if (!(await found.value.model.available())) {
+              return "configuration_unavailable";
+            }
+            const opened = await credentials.open({
+              run: runId,
+              assignment: record.assignment,
+              scope: found.value.scope,
+            });
+            if (!opened.ok) return "configuration_unavailable";
+            held = opened.value;
+            holder.agent = deps.agentCall(opened.value.token);
+            return null;
+          },
+        });
+        if (!outcome.ok || outcome.value.kind !== "resume") {
+          if (held !== undefined) credentials.end(runId);
+          return outcome.ok
+            ? ok({ kind: "ended" as const, outcome: outcome.value })
+            : outcome;
+        }
+        const resumed = outcome.value;
+        built.ported.resumeAfter(resumed.lastModelCall);
+        return ok({
+          kind: "resumed" as const,
+          credential: held!,
+          deps: built.loopDeps,
+          settle: () => built.resolver.settle(runId),
+          input: {
+            run: runId,
+            session: resumed.session,
+            limits: record.limits,
+            elapsed: resumed.elapsed,
+            attempts: resumed.attempts,
+            resume: resumed.resume,
+          },
+        });
+      },
+    });
+  }
+
   return {
     prepare,
+    prepareResume,
+    // 재시작 뒤 복구할 run: 시작했고 끝나지 않은 run. 사람이 멈춘 run은 이미 끝나 있다.
+    async liveRuns() {
+      const live: { run: string; state: "running" | "waiting_user" }[] = [];
+      for (const state of ["running", "waiting_user"] as const) {
+        let cursor: string | undefined;
+        for (let page = 0; page < 100; page++) {
+          const listed = await readOf(machine, runList, {
+            state,
+            ...(cursor === undefined ? {} : { cursor }),
+          });
+          if (!listed.ok) return listed;
+          for (const run of listed.value.runs) {
+            live.push({ run: run.id, state });
+          }
+          if (
+            listed.value.next_cursor === null ||
+            listed.value.next_cursor === undefined
+          ) break;
+          cursor = listed.value.next_cursor;
+        }
+      }
+      return ok(live);
+    },
     // StartRun은 확정됐지만 credential을 받지 못한 run은 설정 불가로 끝낸다.
     async closeUnusable(selection) {
       const run = await readOf(machine, runRead, { run: selection.run });

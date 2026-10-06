@@ -12,10 +12,22 @@ import {
 } from "../../packages/contracts/coding-agent/mod.ts";
 import { connectionFromRef } from "../../packages/coding-agent/connection/client/core.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
+import {
+  createHelperCredentialProvider,
+  registeringProvider,
+} from "../../packages/coding-agent/connection/credential/helper.ts";
+import {
+  createKnownSecretRegistry,
+  createRedactionStream,
+} from "../../packages/platform/redaction/mod.ts";
 import { createCoreClient } from "../../packages/coding-agent/connection/client/core.ts";
 import {
+  REDACTION_REPLACEMENT,
+  type RpcFetch,
+} from "../../packages/contracts/platform/mod.ts";
+import {
+  discoverDaemonAddress,
   LOPHN_DAEMON_URL,
-  resolveDaemonAddress,
 } from "../../packages/coding-agent/connection/client/daemon.ts";
 import { isEffectUnknown } from "../../packages/coding-agent/connection/client/core.ts";
 import {
@@ -33,6 +45,7 @@ import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.
 import { createSdkTool } from "../../packages/coding-agent/mcp-server/tools/sdk.ts";
 import {
   type AppBlueprintSource,
+  appBlueprintSourceOf,
   createAppCommandTools,
 } from "../../packages/coding-agent/mcp-server/tools/app-commands.ts";
 import { createContextTool } from "../../packages/coding-agent/mcp-server/tools/context.ts";
@@ -65,6 +78,11 @@ export type McpOptions = {
   args?: readonly string[];
   env?: Record<string, string | undefined>;
   redact?: (text: string) => string;
+  // credential provider다. 없으면 설치 묶음의 helper `lophn-credential`에서 받는 production provider다
+  // (connection#R17). 시험은 fake helper를 끼운다.
+  provider?: CredentialProvider;
+  // 제출 root가 거절할 운영 data root다. 없으면 LOPHN_HOME이다(connection#R10).
+  dataRoot?: string;
   // 제출 파일 root다. 없으면 작업 위치(--cwd <submission-root>)다.
   submissionRoot?: string;
   // 앱 통로(direct call)다. 실제 socket transport와 권한은 설치·loader 배선(coding-agent#T36)이
@@ -73,6 +91,8 @@ export type McpOptions = {
   // active release blueprint의 command 정의를 읽는다(T23). 소유 route(apps#T19)가 서면 그 read로
   // 만든다. 없으면 blueprint 유래 앱 tool은 나오지 않는다.
   appBlueprint?: AppBlueprintSource;
+  // 시험이 core 응답을 끼운다. 없으면 전역 fetch다.
+  fetch?: RpcFetch;
 };
 
 // tools/call의 실행이다. registry route 하나로만 routing된다(R2).
@@ -118,19 +138,44 @@ export function startMcpServer(
   const connection = connectionFromRef(
     optionValue(args, "--connection") ?? source[LOPHN_CONNECTION],
   );
-  const sink = createMessageSink(streams, options.redact);
+  // 받은 token을 알려진 값으로 올려 어떤 출력도 이 redaction을 거친다(connection#R17).
+  const known = createKnownSecretRegistry();
+  const redact = options.redact ?? ((text: string) => {
+    const stream = createRedactionStream(known);
+    stream.push(text);
+    return stream.finish();
+  });
+  const rawSink = createMessageSink(streams, redact);
+  // protocol 메시지(tool 결과)도 받은 token을 가린다. core가 이미 알려진 값을 가리지만 이 process가
+  // 받은 값은 어떤 출력에도 남지 않게 마지막으로 한 번 더 지운다(connection#R17).
+  const sink: typeof rawSink = {
+    ...rawSink,
+    send: (line: string) => rawSink.send(scrubKnown(known, line)),
+  };
   let clientName: string | undefined;
+  const dataRoot = options.dataRoot ?? source["LOPHN_HOME"];
   const address = options.daemonUrl !== undefined
     ? ok({ url: options.daemonUrl })
-    : resolveDaemonAddress({ env: source[LOPHN_DAEMON_URL] });
+    : discoverDaemonAddress({
+      env: source[LOPHN_DAEMON_URL],
+      dataRoot,
+      readText: readTextOrUndefined,
+    });
   const daemon = address.ok ? address.value.url : "";
   const runner = options.client;
-  const caller = connection.ok && daemon !== "" && runner
+  const caller = connection.ok && daemon !== ""
     ? createCoreClient({
       baseUrl: daemon,
-      // 실제 helper loader는 coding-agent/harnesses가 채운다. T11에서는 seam이다.
-      provider: noopProvider,
+      // connection 참조로 시작할 때 helper에서 credential을 한 번 받는다. 평문 파일·user credential
+      // fallback은 없다(connection#R17, mcp-server#R36).
+      provider: registeringProvider(
+        options.provider ?? createHelperCredentialProvider({
+          helper: INSTALLED_HELPER,
+        }),
+        known,
+      ),
       connection: connection.value,
+      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
     })
     : undefined;
   // lophn_ticket의 실행이다(T20). claim·renew·release를 실제 core에 보내고
@@ -151,13 +196,13 @@ export function startMcpServer(
     })
     : undefined;
   // blueprint 유래 앱 read tool이다(T23). app toolset과 blueprint source가 있을 때만 난다.
-  const appCommands = caller && options.appBlueprint !== undefined &&
-      toolsets.includes("app")
+  const appCommands = caller && toolsets.includes("app")
     ? createAppCommandTools({
       client: caller,
       idempotencyKey: () => `mcp-app-${crypto.randomUUID()}`,
       direct: options.appDirect,
-      blueprint: options.appBlueprint,
+      // 소유 read(`/v1/apps/blueprint`)로 active release의 command 정의를 읽는다.
+      blueprint: options.appBlueprint ?? appBlueprintSourceOf(caller),
       listChanged: () =>
         sink.send(JSON.stringify({
           jsonrpc: "2.0",
@@ -167,7 +212,12 @@ export function startMcpServer(
     : undefined;
   // 문서 저장·format·series·context tool의 실행이다(T14·T17). 같은 core client로 소유 route만 부른다.
   const submission = {
-    scope: { root: options.submissionRoot ?? Deno.cwd(), forbidden: [] },
+    // 운영 data root는 제출 파일이 될 수 없다. 앱 source와 이어진 symlink도 실제 경로로 푼 뒤 같이
+    // 거절된다(connection#R10).
+    scope: {
+      root: options.submissionRoot ?? Deno.cwd(),
+      forbidden: dataRoot === undefined || dataRoot === "" ? [] : [dataRoot],
+    },
     prepareBytes: caller === undefined ? undefined : uploadPrepareBytes(caller),
   };
   const documentTools = caller && submission.prepareBytes
@@ -223,7 +273,7 @@ export function startMcpServer(
         return appCommands.call(toolName, callArgs, context);
       }
       const resolved = resolveRoute(toolName, op);
-      if (!resolved || !caller || !runner) {
+      if (!resolved || !caller) {
         return Promise.resolve({
           summary: "tool 실행 준비가 안 됐다",
           data: { tool: toolName, op, connected: Boolean(caller) },
@@ -269,6 +319,14 @@ export function startMcpServer(
       if (decisionTool !== undefined) {
         return decisionTool(toolName, resolved.route, callArgs);
       }
+      // 전용 실행이 없는 tool은 주입된 runner만 부른다. 없으면 준비 안 됨이다.
+      if (runner === undefined) {
+        return Promise.resolve({
+          summary: "tool 실행 준비가 안 됐다",
+          data: { tool: toolName, op, connected: true },
+          next: ["lophn doctor로 연결과 credential을 확인한다"],
+        });
+      }
       return runner(toolName, resolved.route, callArgs);
     },
   });
@@ -283,12 +341,30 @@ export function startMcpServer(
   }));
 }
 
-// provider seam이다. 실제 helper loader가 아니면 credential을 받지 못한다.
-const noopProvider: CredentialProvider = () =>
-  Promise.resolve({
-    ok: false as const,
-    error: "no_secret_service" as const,
-  });
+// 설치 묶음의 helper다. 이 entry는 `<설치 root>/platform/apps/mcp/main.ts`라 설치 root는 세 단계 위다.
+// 이 경로가 `--allow-run` 하나이자 loader identity다(platform 3.1).
+const INSTALLED_HELPER = new URL("../../../lophn-credential", import.meta.url)
+  .pathname;
+
+function scrubKnown(
+  known: ReturnType<typeof createKnownSecretRegistry>,
+  text: string,
+): string {
+  let out = text;
+  for (let hit = known.match(out); hit !== undefined; hit = known.match(out)) {
+    out = out.slice(0, hit.index) + REDACTION_REPLACEMENT +
+      out.slice(hit.index + hit.length);
+  }
+  return out;
+}
+
+function readTextOrUndefined(path: string): string | undefined {
+  try {
+    return Deno.readTextFileSync(path);
+  } catch {
+    return undefined;
+  }
+}
 
 async function run(
   streams: StdioStreams,
@@ -332,6 +408,7 @@ function readEnv(): Record<string, string | undefined> {
     "LOPHN_MCP_TOOLSETS",
     LOPHN_CONNECTION,
     LOPHN_DAEMON_URL,
+    "LOPHN_HOME",
   ];
   const source: Record<string, string | undefined> = {};
   for (const name of names) {

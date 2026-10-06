@@ -10,6 +10,9 @@ import {
   codingAgentConnectionRevoked,
   CONNECTION_EVENTS,
   CONNECTION_ROUTES,
+  connectionConnect,
+  connectionConnectInputSchema,
+  connectionConnectOutputSchema,
   connectionCreate,
   connectionCreateInputSchema,
   connectionCreateOutputSchema,
@@ -49,6 +52,7 @@ Deno.test("coding-agent/connection#R1, coding-agent/connection#R2, coding-agent/
       ["read", "/v1/coding_agent_connections/list"],
       ["read", "/v1/coding_agent_connections/show"],
       ["command", "/v1/coding_agent_connections/create"],
+      ["memory", "/v1/coding_agent_connections/connect"],
       ["command", "/v1/coding_agent_connections/revoke"],
     ],
   );
@@ -230,4 +234,28 @@ Deno.test("coding-agent/connection#R2, coding-agent/connection#R8: 오류 코드
   for (const route of PLATFORM_ROUTES) {
     assert(route.resource !== "coding_agent_connections");
   }
+});
+
+Deno.test("coding-agent/connection#R2: 연결 결정 입구는 사람만 부르고 이름·범위만 받으며 결과에 token·hash가 없다", () => {
+  assertEquals(connectionConnect.actors, ["user"]);
+  assertEquals(connectionConnect.confirmation, undefined);
+  const input = { label: "claude code", scope: allScope };
+  assert(connectionConnectInputSchema.safeParse(input).success);
+  // token 생성·붙여 넣기·hash field는 입구에 없다.
+  for (const extra of ["token", "token_digest", "id"]) {
+    assert(
+      !connectionConnectInputSchema.safeParse({ ...input, [extra]: "x" })
+        .success,
+    );
+  }
+  assert(
+    !connectionConnectInputSchema.safeParse({ ...input, label: " " }).success,
+  );
+  assert(connectionConnectOutputSchema.safeParse({ connection: CAC }).success);
+  assert(
+    !connectionConnectOutputSchema.safeParse({
+      connection: CAC,
+      token: "x",
+    }).success,
+  );
 });

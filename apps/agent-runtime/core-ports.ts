@@ -17,9 +17,11 @@ import {
   recordMessage,
   recordToolRequest,
   RUN_BLOB_PURPOSES,
+  runBody,
   runRead,
   startModelCall,
   type TokenUsage,
+  toolCallRead,
   waitRun,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import {
@@ -38,6 +40,7 @@ import {
   type ToolBinding,
 } from "../../packages/lophn-agent/harness/tool-judgment/mod.ts";
 import {
+  callRevision,
   executeTool,
   type RunCredential,
   type ToolDefinition,
@@ -55,6 +58,7 @@ import type {
   ToolDone,
   ToolInfo,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import { parseToolArgs } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import type { ModelBinding } from "./model-binding.ts";
 import { type BlobPort, storeValue } from "./run-blobs.ts";
@@ -96,6 +100,8 @@ export type CorePortsDeps = {
 
 export type CorePorts = {
   ports: RunPorts;
+  // 복구로 이은 run의 가장 마지막 model call. 답 기록의 idempotency 기준이 이어진다.
+  resumeAfter(modelCall: string | null): void;
   // 진입 직전 재검사·시작·미실행 종료. 기다림 해소기가 같은 기준으로 쓴다.
   judgment: ReturnType<typeof createToolJudgment>;
   // 기다림 해소기가 쓰는 고정 call의 실제 입력(model 응답에서 온 값)이다. 이 process가 낸 call만 있다.
@@ -494,6 +500,16 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
     }
     request = { ...request, stateSeq: started.value };
     requests.set(id, request);
+    return await executeStarted(id, call, request.stateSeq, signal);
+  }
+
+  // 진입이 기록된 call을 실행하고 끝낸다. 판정·진입 기록은 이미 끝난 상태다.
+  async function executeStarted(
+    id: string,
+    call: ToolCallRequest,
+    stateSeq: string,
+    signal: AbortSignal,
+  ): Promise<ToolDone> {
     const startedMs = clock.nowMs();
     const outcome = await executeTool(
       {
@@ -539,7 +555,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
         finished_at: clock.now(),
         duration_ms: Math.max(0, clock.nowMs() - startedMs),
       },
-      { state_seq: request.stateSeq },
+      { state_seq: stateSeq },
       `${id}:finish`,
     );
     if (!finished.ok) {
@@ -557,6 +573,35 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       code: outcome.outcome.code,
       result: outcome.result,
     };
+  }
+
+  // 사람의 허락으로 진입이 이미 기록된 call. 현재 기록을 읽어 시작만 있을 때 실행하고, 이미 끝났으면
+  // 기록한 결과를 돌려준다. 다시 판정하거나 진입을 기록하지 않는다(R11).
+  async function resumeTool(
+    call: ToolCallRequest,
+    id: string,
+    signal: AbortSignal,
+  ): Promise<ToolDone> {
+    const live = await readOf(machine, toolCallRead, { tool_call: id });
+    if (!live.ok) {
+      return done(
+        id,
+        "uncertain",
+        "uncertain",
+        "the call state is not readable",
+      );
+    }
+    const record = live.value.tool_call;
+    if (record.state !== "started") {
+      const outcome = record.outcome;
+      return done(
+        id,
+        outcome?.kind ?? "uncertain",
+        outcome?.code ?? "uncertain",
+        "the call was already closed",
+      );
+    }
+    return await executeStarted(id, call, callRevision(record), signal);
   }
 
   async function close(
@@ -641,7 +686,7 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
       available: () => deps.model.available(),
       call: modelAttempt,
     },
-    tools: { info, attempt: attemptTool, close },
+    tools: { info, attempt: attemptTool, resume: resumeTool, close },
     async checkpoint(elapsed) {
       const record = await runRecord();
       if (!record.ok || record.value.run.state !== "running") return;
@@ -722,14 +767,47 @@ export function createCorePorts(deps: CorePortsDeps): CorePorts {
 
   return {
     ports,
+    resumeAfter(modelCall) {
+      lastModelCall = modelCall;
+    },
     judgment,
-    callRequest(toolCall) {
+    async callRequest(toolCall) {
       const found = requests.get(toolCall);
-      return Promise.resolve(
-        found === undefined
-          ? err({ code: "not_found", message: "the call input is not held" })
-          : ok(found),
-      );
+      if (found !== undefined) return ok(found);
+      // 이 process가 낸 call이 아니다(재시작). ledger의 call 행과 저장된 model 응답에서 고정 call의
+      // 실제 입력을 다시 읽는다. 읽지 못하면 허락을 쓰지 않는다.
+      const row = await readOf(machine, toolCallRead, { tool_call: toolCall });
+      if (!row.ok || row.value.tool_call.run !== seat.run) {
+        return err({
+          code: "not_found",
+          message: "the call input is not held",
+        });
+      }
+      const stored = row.value.tool_call;
+      const body = await readOf(machine, runBody, {
+        kind: "model_call_output",
+        id: stored.model_call,
+      });
+      if (!body.ok) return body;
+      const sent = (body.value.value as {
+        tools?: { id: string; args: string }[];
+      }).tools?.find((entry) => entry.id === stored.response_key);
+      if (sent === undefined) {
+        return err({
+          code: "not_found",
+          message: "the call input is not held",
+        });
+      }
+      const parsed = parseToolArgs(sent.args);
+      const request: CallRequest = {
+        toolCall,
+        run: seat.run,
+        tool: stored.tool,
+        input: parsed.ok ? parsed.value : sent.args,
+        stateSeq: callRevision(stored),
+      };
+      requests.set(toolCall, request);
+      return ok(request);
     },
   };
 }

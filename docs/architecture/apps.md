@@ -167,7 +167,7 @@ secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취�
 | apps/automations | 앱; 전체 permit만 supervisor | `automations/clock`, `automations/permits` | 메모리 clock·permit; invocation | 앱 통로, invocation 전달 |
 | apps/invocations | 앱; supervisor; core | `invocations/context`, `invocations/delivery`, `invocations/commands` | invocations, detail blob, bounded 메모리 | invocation 전달, command, approval |
 | apps/data | 단독 data worker; 운영 앱; 결과만 core | `data/worker`, `data/commands` | data.db, 보호 backup blob, Activation 참조 | release 준비·적용, blob, invocation 전달 |
-| apps/preview | supervisor; preview 앱 | `preview/launcher`, `preview/adapters` | disposable DB·파일·메모리 | 앱 통로, 앱 화면 틀, test 실행 |
+| apps/preview | supervisor(launcher); core(service·disposable 영역); preview 앱 | `preview/launcher`, `preview/service`, `preview/adapters` | disposable DB·파일·메모리 | 앱 통로, 앱 화면 틀, test 실행 |
 | apps/sdk | 설치 worker; core catalog; 앱·shell 소비자 | `sdk/catalog`, `sdk/resolve`; 공개 구현은 `packages/sdk/` | packages, package_versions, 코드/guide blob·사본 | read, blob, format 실행 |
 
 leaf concern 12개 모두 배치하며 다른 concern의 table에 직접 접근하는 런타임 코드를 두지 않는다.

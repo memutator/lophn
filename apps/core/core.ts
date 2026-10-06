@@ -176,6 +176,10 @@ import {
 } from "./apps-control.ts";
 import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+import type {
+  PreviewBundles,
+  PreviewReleases,
+} from "../../packages/apps/preview/service.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import {
   BOOTSTRAP_RETRY_MS,
@@ -267,6 +271,12 @@ export type CoreOptions = {
   appProcess?: ProcessSource;
   // 발급한 앱 connection의 회수 검사 간격(ms). 없으면 1초. 테스트가 줄인다.
   appsSweepMs?: number;
+  // preview가 준비된 bundle·release를 여는 자리(apps/preview). 없으면 preview 시작은 unavailable이다.
+  appPreviews?: {
+    bundles?: PreviewBundles;
+    releases?: PreviewReleases;
+    nonce?: () => string;
+  };
   // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
   // 재시작마다 불린다. 제품
   // 기동에는 없다. credential은 log에 남기지 않는다.
@@ -684,6 +694,7 @@ async function open(
         "text/plain",
         line,
       ),
+    previews: { dataRoot: root.path, ...options.appPreviews },
     ...(options.appProcess ? { process: options.appProcess } : {}),
     ...(options.appsSweepMs === undefined
       ? {}

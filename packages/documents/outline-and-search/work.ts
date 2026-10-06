@@ -4,6 +4,7 @@
 // 재생성·재파생은 ledger에 아무것도 쓰지 않는다. model·agent run을 시작하지 않는다.
 import { ok, parseSeq, type Result } from "../../base/mod.ts";
 import type { DerivedRead, DerivedStore } from "./adapters/store.ts";
+import type { ConsumerEvent } from "./ipc.ts";
 import { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
 
 export type SearchConsumerDeps = {
@@ -24,12 +25,7 @@ export type ConsumerEventBatch = {
   head_seq: string;
 };
 
-export type ConsumerEvent = {
-  seq: string;
-  type: string;
-  subject: string | null;
-  payload: unknown;
-};
+export type { ConsumerEvent };
 
 export const COALESCE_MS = 500;
 export const EVENT_PAGE_LIMIT = 200;
@@ -60,20 +56,27 @@ export function applySearchEvent(
   store: DerivedStore,
   event: ConsumerEvent,
 ): Result<SearchCoverage> {
+  return store.transaction((tx) => applySearchEventTx(tx, event));
+}
+
+// 이미 열린 derived transaction 안의 한 event 적용. 결과 기록과 cursor를 같은 transaction에
+// 쓰려는 consumer(consumer.ts)가 쓴다.
+export function applySearchEventTx(
+  tx: { sql: DerivedRead["sql"] },
+  event: ConsumerEvent,
+): Result<SearchCoverage> {
   const parsed = parseEvent(event);
   if (!parsed.ok) {
     // 대상 불명 event는 전체 무효화다. cursor는 진행하고 무효화만 남긴다.
-    return store.transaction((tx) =>
-      ok({
-        processed_seq: event.seq,
-        ledger_basis_seq: event.seq,
-        lagging: false,
-        rebuilding: false,
-        omissions: invalidateAll(tx.sql),
-      })
-    );
+    return ok({
+      processed_seq: event.seq,
+      ledger_basis_seq: event.seq,
+      lagging: false,
+      rebuilding: false,
+      omissions: invalidateAll(tx.sql),
+    });
   }
-  return store.transaction((tx) => writeEvent(tx, event, parsed.value));
+  return writeEvent(tx, event, parsed.value);
 }
 
 function invalidateAll(sql: DerivedRead["sql"]): SearchCoverage["omissions"] {
@@ -277,7 +280,7 @@ function pendingOmissions(
   document: string,
 ): SearchCoverage["omissions"] {
   const rows = sql.all(
-    `SELECT version, extraction_status, failure_reason
+    `SELECT version, extraction_status, failure_reason, unverified_reason
      FROM derived_versions WHERE document = ? AND extraction_status <> 'ready'
      ORDER BY version`,
     [document],
@@ -298,7 +301,9 @@ export function omissionRow(
     ? String(row.failure_reason ?? OMISSION_FAILED)
     : status === "unsupported"
     ? OMISSION_UNSUPPORTED
-    : OMISSION_UNVERIFIED;
+    : row.unverified_reason === null || row.unverified_reason === undefined
+    ? OMISSION_UNVERIFIED
+    : String(row.unverified_reason);
   return {
     document,
     version: String(row.version),
@@ -313,7 +318,7 @@ export function allOmissions(
   allowed?: ReadonlySet<string>,
 ): SearchCoverage["omissions"] {
   const rows = sql.all(
-    `SELECT document, version, extraction_status, failure_reason
+    `SELECT document, version, extraction_status, failure_reason, unverified_reason
      FROM derived_versions WHERE extraction_status <> 'ready' ORDER BY document, version`,
     [],
   );

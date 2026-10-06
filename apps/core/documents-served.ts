@@ -131,3 +131,34 @@ export const OBSERVATION_BASIS_ROUTE: ReadRoute = {
 
 // 연결 page 크기. 응답 한도(행 500·1MiB) 안이다.
 export const OBSERVATION_LINK_PAGE = 400;
+
+// search consumer가 저장 판을 추출하려고 묻는 판 정보. 판의 내용 hash·format·파일 목록(경로별
+// blob hash·바이트 수·MIME)이다. 공개 route가 아니라 core가 소유자로 읽는 내부 read다.
+// 판이 없으면 null이다.
+export const SEARCH_VERSION_ROUTE: ReadRoute = {
+  kind: "read",
+  resource: "documents-worker",
+  method: "search_version",
+  name: "document.search_version",
+  input: z.strictObject({ version: z.string().min(1) }),
+  output: z.looseObject({}),
+  actors: ["machine"],
+  errors: ["invalid_input", "unavailable", "internal"],
+};
+
+// route 앞단의 용어 출현 확인(documents/terms, 질문 Q8). command 앞에서 고정 판의 section
+// 또는 줄 범위를 derived store로 읽어 이름이 실제로 나오는지 본다. 공개 route가 아니라 core가
+// command를 writer에 보내기 전에 부르는 내부 read다. 출현이 아니면 invalid_input이다.
+export const TERM_OCCURRENCE_ROUTE: ReadRoute = {
+  kind: "read",
+  resource: "documents-worker",
+  method: "term_occurrence",
+  name: "term.occurrence",
+  input: z.strictObject({
+    command: z.enum(["term.propose", "term.update"]),
+    input: z.unknown(),
+  }),
+  output: z.looseObject({}),
+  actors: ["user", "agent", "app", "coding_agent", "machine"],
+  errors: ["invalid_input", "not_found", "unavailable", "internal"],
+};

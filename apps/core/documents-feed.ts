@@ -7,6 +7,8 @@ import {
   isDocumentsFeedEvent,
 } from "./documents-events.ts";
 import type { BasisSync } from "./documents-basis.ts";
+import type { SearchSync } from "./documents-search.ts";
+import { SEARCH_CONSUMED_EVENTS } from "../../packages/documents/outline-and-search/mod.ts";
 import type { RootsWatch } from "./documents-roots.ts";
 import {
   type InternalSubscription,
@@ -19,6 +21,8 @@ export type DocumentsFeedDeps = {
   // 아직 없으면(documents worker를 띄우지 않은 core) 맞출 것이 없다.
   roots(): RootsWatch | undefined;
   basis(): BasisSync | undefined;
+  // derived index를 따라잡게 하는 확인. 없으면(documents worker가 없는 core) 맞출 것이 없다.
+  search?(): SearchSync | undefined;
   // 한 묶음의 event가 몰릴 때 한 번만 맞추는 대기.
   debounceMs?: number;
   retryMs?: number;
@@ -29,6 +33,7 @@ export function startDocumentsFeed(
 ): InternalSubscription {
   const debounceMs = deps.debounceMs ?? 100;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   // root가 바뀌면 worker가 새 권한으로 다시 뜨고 그 뒤에 근거를 보낸다. 순서대로 한다.
   async function resync(): Promise<void> {
@@ -36,13 +41,25 @@ export function startDocumentsFeed(
     await deps.roots()?.check();
     await deps.basis()?.check();
   }
+  // index는 root·근거와 따로, 자기 자리(cursor)부터 따라잡는다. 서로를 기다리지 않는다.
+  function catchUpSearch(): void {
+    if (stopped) return;
+    void deps.search?.()?.check();
+  }
   const subscription = openInternalSubscription({
     context: DOCUMENTS_FEED_CONTEXT,
     backend: deps.runtime.events,
     track: (session) => deps.runtime.track(session),
     retryMs: deps.retryMs,
-    onSubscribed: resync,
+    onSubscribed: async () => {
+      catchUpSearch();
+      await resync();
+    },
     onEvents(events) {
+      if (events.some((event) => SEARCH_CONSUMED_EVENTS.has(event.type))) {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(catchUpSearch, debounceMs);
+      }
       if (!events.some((event) => isDocumentsFeedEvent(event.type))) return;
       clearTimeout(timer);
       timer = setTimeout(() => void resync(), debounceMs);
@@ -56,6 +73,7 @@ export function startDocumentsFeed(
     stop() {
       stopped = true;
       clearTimeout(timer);
+      clearTimeout(searchTimer);
       subscription.stop();
     },
   };

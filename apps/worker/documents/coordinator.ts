@@ -30,6 +30,8 @@ import {
 import { createBasisStore } from "./basis.ts";
 import { createByteInbox, validateFiles } from "./validation.ts";
 import { createFormatHandlers } from "../../../packages/documents/formats/reads.ts";
+import { createLedgerGate } from "./ledger-gate.ts";
+import { createSearchServing, openSearchStore } from "./search.ts";
 import { createRootObservers } from "./observers.ts";
 import { createPreparationPool } from "./pool.ts";
 import { createBatchDispatch } from "./batch.ts";
@@ -339,6 +341,22 @@ export async function runCoordinator(root: string): Promise<void> {
     clock: monotonicClock(systemClock),
     random: cryptoRandom,
   });
+  // derived 검색 store. 이 process가 유일한 writer고 search consumer가 core가 보낸 event와
+  // 원문으로 채운다. 못 열면 search 요청은 unavailable이고 빈 index로 꾸미지 않는다.
+  const store = openSearchStore(root);
+  // store가 지금 ledger의 것임을 확인하는 문. core가 search consumer 통로로 보낸 `ledger_id`로
+  // 맞춘다. 복원한 ledger의 derived는 옛 cursor를 버리고 처음부터 다시 만든다(platform#T42).
+  const ledgerGate = store.ok
+    ? createLedgerGate({ store: store.value })
+    : undefined;
+  const search = store.ok
+    ? createSearchServing({
+      store: store.value,
+      inbox,
+      call: (input) => formats.call(input),
+      gate: ledgerGate,
+    })
+    : undefined;
   // hello가 싣는 machine credential과 core api port로 제출 client를 만든다. 원문 blob은
   // 자식 session이 감독 pipe로 core에 준비한다. credential은 이 process 메모리에만 있다.
   const session: { current?: ChildSession } = {};
@@ -437,6 +455,9 @@ export async function runCoordinator(root: string): Promise<void> {
     handleRequest: createRequestHandler({
       status,
       basis,
+      ...(search === undefined
+        ? {}
+        : { search: (request) => search.handle(request) }),
       files,
       preview: (payload) => previewTracking(pool, payload),
       validate: (request) =>
@@ -460,6 +481,8 @@ export async function runCoordinator(root: string): Promise<void> {
   });
   coordinator.current = created;
   session.current = created.session;
+  created.onStop(() => ledgerGate?.stop());
+  if (search !== undefined) created.onStop(() => search.close());
   created.onStop(() => void pool.stop());
   await created.session.run();
 }

@@ -157,7 +157,18 @@ function boolOf(value: unknown): boolean {
   return value === 1 || value === 1n || value === true;
 }
 
-export function createUsageCommands(): {
+// 처음 반영하는 수정 입력은 ModelCall 시작과 같은 transaction에서 반영한다(Q30). 반영 command는
+// 입력 표를 소유한 conversation이 주입한다. 반영이 거절되면 시작 기록도 남지 않고 전송도 없다.
+export type UsageDeps = {
+  applyMessages?: (
+    tx: Tx,
+    ctx: RequestContext,
+    input: { messages: string[]; call: string },
+    compare: { applied_at_call: null },
+  ) => Result<unknown>;
+};
+
+export function createUsageCommands(deps: UsageDeps = {}): {
   start: CommandDefinition<typeof startModelCall>;
   finish: CommandDefinition<typeof finishModelCall>;
   supplement: CommandDefinition<typeof supplementModelCall>;
@@ -197,6 +208,16 @@ export function createUsageCommands(): {
         // 기록의 판 순번과는 다르다(compare가 같은 값을 다시 보낼 수 있어야 한다).
         void seq;
         storeStart(tx, call.value, Number(input.state_seq));
+        if (input.applied_messages.length > 0) {
+          if (deps.applyMessages === undefined) {
+            return conflict("applying messages is not connected");
+          }
+          const applied = deps.applyMessages(tx, ctx, {
+            messages: input.applied_messages,
+            call: call.value.id,
+          }, { applied_at_call: null });
+          if (!applied.ok) return applied;
+        }
         return ok({ call: call.value });
       },
     },

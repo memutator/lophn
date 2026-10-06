@@ -24,6 +24,8 @@ import {
   runOperations,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { startCatalogRefresher } from "./catalog.ts";
+import { agentCall, machineCall } from "./core-http.ts";
+import type { CoreCall } from "./core-call.ts";
 import { createCredentialLink } from "./credential-link.ts";
 import {
   createRunDriver,
@@ -32,6 +34,13 @@ import {
 } from "./run-driver.ts";
 
 // core가 감독하는 agent runtime. ledger writer는 core만 소유하고 이 프로세스는 read만 한다.
+export type CoreCalls = {
+  // machine 자격의 loopback. 열린 route만 부른다.
+  machine: CoreCall;
+  // run의 agent credential token으로 부르는 loopback.
+  agentCall(token: string): CoreCall;
+};
+
 export type Runtime = {
   startup: Startup;
   // 시작할 accepted run을 고른다(run-loop R4). 읽기만 하고 ledger를 바꾸지 않는다.
@@ -60,8 +69,9 @@ export async function startAgentRuntime(input: {
   fetch?: typeof fetch;
   // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다(T3와 같은 근원).
   dataRoot?: string;
-  // run 시작 재료(basis 준비, StartRun, loop의 port). core 연결이 만든다.
-  driver?: Pick<DriveDeps, "prepare" | "closeUnusable">;
+  // run 시작 재료(basis 준비, StartRun, loop의 port)를 만드는 쪽이다. core 연결(machine 자격과 run의
+  // agent 자격 호출)을 받아 `createRunPreparer` 같은 것을 돌려준다.
+  driver?: (calls: CoreCalls) => Pick<DriveDeps, "prepare" | "closeUnusable">;
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Deno.stdin.readable,
@@ -73,6 +83,7 @@ export async function startAgentRuntime(input: {
   const childStderr = new TransformStream<Uint8Array>();
   let startup: Startup | undefined;
   let selectorRead: CoreRead | undefined;
+  let calls: CoreCalls | undefined;
   let resolveReady: (result: Result<Startup>) => void = () => {};
   const ready = new Promise<Result<Startup>>((resolve) => {
     resolveReady = resolve;
@@ -104,6 +115,20 @@ export async function startAgentRuntime(input: {
         if (started.ok) {
           startup = started.value;
           selectorRead = read;
+          calls = {
+            machine: input.read ?? machineCall({
+              port: hello.api_port,
+              credential: () =>
+                child.credentialUsable ? hello.credential : undefined,
+              ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
+            }),
+            agentCall: (token) =>
+              agentCall({
+                port: hello.api_port,
+                token,
+                ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
+              }),
+          };
           // ready는 감독이 읽기 전에 나간다. 전송 완료를 기다리면 역압이 기동을 막는다.
           void send(child, { type: "ready" });
           // catalog 자동 갱신은 기동을 막지 않는 single-flight다(R4). 끈 날에는
@@ -158,7 +183,11 @@ export async function startAgentRuntime(input: {
   }
   const selector = createRunSelector({ read: selectorRead! });
   if (input.driver !== undefined) {
-    driver = createRunDriver({ selector, credentials, ...input.driver });
+    driver = createRunDriver({
+      selector,
+      credentials,
+      ...input.driver(calls!),
+    });
   }
   const runtime: Runtime = {
     startup: startup!,

@@ -251,7 +251,11 @@ export const runActiveSetting = runLimitSetting(
 // wire에 더한다.
 const commands = createProviderCommands();
 const modelCommands = createModelDefaultsCommands();
-const usage = createUsageCommands();
+// 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다(Q30).
+const usage = createUsageCommands({
+  applyMessages: (tx, ctx, input, compare) =>
+    conversationCommands.apply.handle(tx, ctx, input, compare),
+});
 const reads = createProviderReads();
 const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();

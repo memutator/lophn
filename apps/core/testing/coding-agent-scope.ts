@@ -13,6 +13,7 @@ import {
 } from "../../../packages/documents/outline-and-search/adapters/store.ts";
 import { recordExtraction } from "../../../packages/documents/outline-and-search/extraction.ts";
 import type { AuthenticatedContext } from "../../../packages/contracts/platform/mod.ts";
+import { codingExternalCredential } from "../../../packages/platform/identity/mod.ts";
 import { createCoreClient } from "../../../packages/coding-agent/connection/client/core.ts";
 import {
   type PathSaveDeps,
@@ -180,23 +181,31 @@ export async function openScopeWorld(
   });
   assert(started.ok, started.ok ? "" : started.error.message);
   const core = started.value;
+  // 발급(platform/identity의 `codingExternalCredential`)이 내는 모양 그대로다. 앱 하나 연결은
+  // `targets.app`·`conditions.app`이고 문서 owner는 문서 자리의 앱을 target에 줘서 맞춘다.
   const agent = (
     who: Who,
-    targets: Record<string, string>,
-  ): AuthenticatedContext => ({
-    principal: `coding_agent:${CONNECTIONS[who]}`,
-    actor: `coding_agent:${CONNECTIONS[who]}`,
-    scope: { operations: [...operations], targets },
-    conditions: {},
-    credential_ref: `cred-${who}`,
-  });
+    app: string | null,
+  ): AuthenticatedContext => {
+    const issued = codingExternalCredential(
+      CONNECTIONS[who],
+      app === null ? { kind: "all", app: null } : { kind: "app", app },
+    );
+    return {
+      principal: issued.principal,
+      actor: issued.actor,
+      scope: { operations: [...operations], targets: issued.targets },
+      conditions: issued.conditions,
+      credential_ref: `cred-${who}`,
+    };
+  };
   async function accept(context: AuthenticatedContext, token: string) {
     const accepted = await core.acceptTestCredential?.(context, token);
     assert(accepted?.ok);
     const recorded = await core.record(context);
     assert(recorded.ok);
   }
-  await accept(agent("all", {}), TOKENS.all);
+  await accept(agent("all", null), TOKENS.all);
   await accept({
     principal: "user",
     actor: "user",
@@ -217,8 +226,8 @@ export async function openScopeWorld(
     appIds.push((created.body as { id: string }).id);
   }
   const [appA, appB] = appIds;
-  await accept(agent("appA", { place_kind: "app", place: appA }), TOKENS.appA);
-  await accept(agent("appB", { place_kind: "app", place: appB }), TOKENS.appB);
+  await accept(agent("appA", appA), TOKENS.appA);
+  await accept(agent("appB", appB), TOKENS.appB);
   const projectBody = await postJson(baseUrl, USER_TOKEN, "projects/create", {
     input: {
       id: PROJECT,

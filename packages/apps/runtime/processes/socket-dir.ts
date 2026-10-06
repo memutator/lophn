@@ -1,6 +1,11 @@
 // 앱 socket 디렉터리. slug는 경로에 넣지 않고 무작위 파일 이름만 쓴다.
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { SOCKET_PATH_MAX_BYTES } from "../../../contracts/apps/mod.ts";
+import {
+  APP_SOCKET_SLOTS,
+  appBrokerSocketPath,
+  appDirectSocketPath,
+  SOCKET_PATH_MAX_BYTES,
+} from "../../../contracts/apps/mod.ts";
 
 export type SocketDirError = { code: "invalid_input"; message: string };
 
@@ -56,7 +61,7 @@ export function createSocketDirectory(
 // 없다) supervisor가 앱 socket에 연결하려면 경로를 시작 전에 허락 목록에 넣어야 한다. 그래서
 // 앱 socket은 시작마다 새 무작위 이름이 아니라 이 고정 자리의 경로이고, 앱 하나는 자리 하나를
 // 계속 쓴다(slug를 경로에 넣지 않는다, R6). 자리가 다 차면 새 앱은 시작하지 않는다.
-export const SOCKET_SLOTS = 64;
+export const SOCKET_SLOTS = APP_SOCKET_SLOTS;
 
 export function slotSockets(
   directory: string,
@@ -65,8 +70,8 @@ export function slotSockets(
   if (!Number.isInteger(slot) || slot < 0 || slot >= SOCKET_SLOTS) {
     return fail("socket slot is out of range");
   }
-  const brokerSocket = `${directory}/b${slot}.sock`;
-  const directSocket = `${directory}/a${slot}.sock`;
+  const brokerSocket = appBrokerSocketPath(directory, slot);
+  const directSocket = appDirectSocketPath(directory, slot);
   for (const path of [brokerSocket, directSocket]) {
     if (byteLength(path) >= SOCKET_PATH_MAX_BYTES) {
       return fail("socket path exceeds the byte limit");

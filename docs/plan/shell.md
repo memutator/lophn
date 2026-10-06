@@ -1019,6 +1019,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: coding-agent
 - 선행: shell#T29, shell#T43, shell#T49, coding-agent#T27, coding-agent#T36, coding-agent#T40
+- coding-agent#T36에서 넘어온 것: 연결 생성 입구는 core의 `POST /v1/coding_agent_connections/connect`(memory route, user만; 입력 `{label, scope}`, 출력 `{connection}`)다. renderer allowlist는 read·command만이라 main이 사람 credential로 부른다(`CONNECTION_INTENT`의 route 이름도 이 route로 바꾼다). 이어서 `lophn connection install --connection <id> --input '{"target":...}' --json`으로 선택 target을 설치하고 `lophn doctor --json`을 부른다. 순서와 결과 모양은 `connectAndInstall`(packages/coding-agent/cli/commands/connection.ts)이다. `harness detect|refresh --json`의 CLI 실행은 coding-agent#T36 남은 것이다.
 - 완료: 아래 확인이 통과한다
   - Connection: 감지된 harness(예: "Claude Code")를 고르기만 한다. renderer는 "이 harness로 연결" 고정 intent만 보내고 main이 따로 검증한다. main이 `lophn harness detect|refresh|install --json`, `lophn doctor --json`을 child로 부른다(refresh는 사람 클릭만). 감지 기록·MCP·skill 위치는 펼친 자리에만. 회수만 confirmation window.
   - Tasks(ticket): 목록·상세, 상태, 복사할 요청 문장, [Start](누르는 것이 허락, 확인 창 없음, 등록 project 폴더가 여럿이면 고른 뒤 누른다), TUI 상태(starting/ready/working/waiting_input/ended/unknown)를 Task 상태와 구별. 한 줄 사유로 취소, claim이 풀린 일을 다시 맡기기, 완료 주장과 실제 검사(통과·실패·미확인)와 남은 확인을 구별한다.

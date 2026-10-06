@@ -210,7 +210,11 @@ export async function runCliCommand(
   }
   if (name === "doctor") return await runDoctor(input, runtime);
   if (client === undefined) return connectionRequired();
-  const idempotency = () => `cli-${crypto.randomUUID()}`;
+  // 같은 호출을 다시 확인할 수 있게 사람이 준 key를 그대로 쓴다. 없으면 호출마다 새 key다.
+  const idempotency = () =>
+    typeof input.idempotency_key === "string"
+      ? input.idempotency_key
+      : `cli-${crypto.randomUUID()}`;
   if (name === "save") {
     const scope = {
       root: runtime.cwd,

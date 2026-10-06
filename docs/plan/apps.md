@@ -197,6 +197,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   import map 해석 함수(T6이 쓴다)
 - slice: apps
 - 선행: apps#T2, contracts#T37, platform#T13, platform#T14
+- coding-agent#T36에서 넘어온 것: `sdk show`의 안내 원문(API·type·permission·peer·예제) read. `packages.guide`는 `guide_hash`만 돌려주고 `blob.read`는 owner가 blob field를 등록해야 읽힌다(`owner_kind`·`owner_key`·`field`). guide blob field 등록(coding credential·agent·app가 읽는 `general_read`)과 owner 키를 정하면 coding-agent의 `sdk show`가 `body`를 채운다(connection/sdk-ops.ts의 `body: null`).
 - 완료:
   - `install_test.ts`: 설치가 packages/sdk/*를 패키지마다 자기 완결 byte로 묶고
     hash·guide hash를 blob에 넣은 뒤 register_version을 machine으로 부른다. 설치

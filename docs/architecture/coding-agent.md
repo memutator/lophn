@@ -187,6 +187,7 @@ secret 사용은 호출자 종류가 아니라 현재 앱 grant와 network host�
 |---|---|---|
 | `/v1/coding_agent_connections/list`, `/show` | filter/cursor 또는 connection → 원문·hash 없는 connection | 인증 scope; 다른 연결 token 없음 |
 | `/v1/coding_agent_connections/create` | id,label,scope,인증 경계의 준비된 token 검증 hash,key → connection; 원문 없음; 확인 창 없음 | user만; ID 미존재·app 존재·사람이 고른 입력 일치·보호 보관 준비; invalid_input/forbidden/conflict |
+| `/v1/coding_agent_connections/connect` (memory) | label,scope → connection 참조만; token·hash 없음; 확인 창 없음; ledger envelope 없음 | user만(shell main이 사람 credential로 부름). core의 인증 경계가 token을 자동 발급·keychain 보관한 뒤 같은 사람 credential로 `create`를 제출한다; 보관 준비 실패는 무생성(unavailable); coding agent·app는 호출 불가 |
 | `/v1/coding_agent_connections/revoke` | connection,base_revision,confirmation window 근거,key → revoked connection | user만; active·revision·exact 확인; not_found/forbidden/conflict |
 | `/v1/coding_agent_sessions/summary` | app?,cursor? → CodingAgentSessionSummary | coding connection scope; worker 조립. 인증 실패를 빈 결과로 바꾸지 않음 |
 | `/v1/repair_context/summary`, `/bundle` | problem 또는 repair ticket → 요약 또는 RepairContext | 현재 connection의 모든 참조 검사; 둘 다 상태 무변경 |

@@ -300,9 +300,14 @@ export async function cliMain(
   ) as typeof result;
   await output.result(safe);
   // 실패·거절·검사 실패 결과는 성공 exit가 아니다(cli#R26).
-  const refused: AgentFailure | undefined = isError === true
-    ? { code: "conflict", message: "결과가 실패를 알린다" }
-    : undefined;
+  // 쓰기 응답을 잃은 결과는 실제 오류와 구별한 effect_unknown(exit 6)이다(cli#R5).
+  const lost = (result.data as { details?: Record<string, unknown> } | null)
+    ?.details;
+  const refused: AgentFailure | undefined = isError !== true
+    ? undefined
+    : lost?.diagnosis === "effect_unknown"
+    ? { code: "unavailable", message: result.summary, details: lost }
+    : { code: "conflict", message: "결과가 실패를 알린다" };
   return output.exitCode(refused);
 }
 

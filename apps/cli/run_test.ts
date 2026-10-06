@@ -213,3 +213,46 @@ Deno.test("coding-agent/cli#R2: 연결 참조가 없으면 core를 부르는 com
   assertEquals(claim.exit, 4);
   assert(claim.stdout.includes("mcp_only"));
 });
+
+Deno.test("coding-agent/cli#R5: 쓰기 응답을 잃으면 실제 오류와 구별한 effect_unknown(exit 6)이고 자동으로 다시 실행하지 않는다", async () => {
+  const helper = await fakeHelper(`printf '%s' '{"token":"${TOKEN}"}'`);
+  const sent: string[] = [];
+  try {
+    const result = await run(
+      [
+        "app",
+        "register",
+        "--connection",
+        CAC,
+        "--json",
+        "--idempotency-key",
+        "cli-key-1",
+        "--input",
+        '{"slug":"notes","name":"Notes","description":"한 줄 목적"}',
+      ],
+      {
+        env: ENV(),
+        provider: createHelperCredentialProvider({
+          helper,
+          generation: () => "1",
+        }),
+        fetch: (url) => {
+          sent.push(url);
+          return Promise.reject(new Error("연결이 끊겼다"));
+        },
+      },
+    );
+    assertEquals(result.exit, 6, result.stdout + result.stderr);
+    assert(result.stdout.includes("effect_unknown"), result.stdout);
+    assertFalse(result.stdout.includes(TOKEN));
+    // 사람이 준 key가 그대로 남아 같은 key로 결과를 다시 읽을 수 있다.
+    assert(result.stdout.includes("cli-key-1"), result.stdout);
+    // 쓰기는 한 번 보냈고 같은 key로 결과를 다시 읽을 뿐 새 쓰기를 만들지 않는다.
+    assertEquals(
+      sent.filter((url) => url.endsWith("/v1/apps/create")).length,
+      1,
+    );
+  } finally {
+    await removeHelper(helper);
+  }
+});

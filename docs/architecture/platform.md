@@ -188,6 +188,7 @@ command body는 `{input,idempotency_key,compare,run?,prepared:[],confirmation?}`
 | command | `/v1/events/advance-cursor` | `AdvanceSubscriberCursor`; 반응 완료 위치 |
 | read | `/v1/blobs/read` | 허용 owner·고정 판·field·offset·length → BlobReadResult + base64 안전 bytes |
 | read | `/v1/secrets/list` | 허용 이름·설정 여부만; sealed_ref 없음 |
+| upload | `/v1/secrets/input` | 사람의 보호 입력 값(body 바이트, 입력 header는 용도·owner·길이); core는 해석·보관 없이 I/O worker의 `secret.prepare`로 흘리고 값 없는 준비 증거를 돌려준다 |
 | command | `/v1/secrets/set` | `SetSecret`; 보호 준비 참조만 |
 | command | `/v1/secrets/remove` | `RemoveSecret`; 참조 제거 확정 |
 | read | `/v1/secrets/cleanup` | 안전 `SecretCleanupResult`; 삭제·종료 완료 분리 |
@@ -303,7 +304,7 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 
 ### 5.7 secret
 
-**입력:** `secret.prepare`는 전용 보호 입력의 값·용도·owner를 검증된 pipe로 받는다. `SetSecret`은 그 SecretPreparation과 이전 참조/revision CAS만 받는다. `secret.send`는 신뢰 소비 경계에서 현재 SecretUse·고정 destination·동작·안전 body를 받는다. 일반 secret 값 read는 없다.
+**입력:** `secret.prepare`는 전용 보호 입력의 값·용도·owner를 검증된 pipe로 받는다. 사람 화면에서 이 pipe까지 닿는 HTTP 입구는 upload route `/v1/secrets/input` 하나이고 actor는 사람뿐이다. core는 받은 chunk를 모으거나 해석하지 않고 I/O worker의 byte chunk frame으로 먼저 넘긴 뒤 값 없는 요청(core가 만든 machine context·용도·owner)을 보낸다. 값은 요청 JSON·응답·오류·log·argv·환경 변수 어디에도 없다. I/O worker는 ledger를 쓰지 않으므로 keychain에 둔 뒤 값 없는 준비 증거를 응답으로 돌려주고, core의 writer가 그 증거를 `secret_preparations`에 남긴다(남기지 못하면 준비는 실패다). `SetSecret`은 그 SecretPreparation과 이전 참조/revision CAS만 받는다. `secret.send`는 신뢰 소비 경계에서 현재 SecretUse·고정 destination·동작·안전 body를 받는다. 일반 secret 값 read는 없다.
 
 **출력:** 설정은 안전 이름·설정 여부·판, 사용은 소비 경계 안의 전송 결과, 정리는 `reference_blocked/os_deleted/processes_ended`를 각각 실제 관측으로 반환한다. **오류:** 자격·용도 위반, CAS 충돌, keychain 잠김/누락/안전 경계 불가는 공통 오류이며 값·length·공개 hash·OS 내부 경로를 넣지 않는다.
 
@@ -447,9 +448,12 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 
 ```text
 [사람] 보호 입력 → [main/보호 adapter] 값은 전용 pipe
- → [platform I/O] keychain 준비·known-secret 등록 → SecretPreparation
+ → [core] /v1/secrets/input: 값은 해석 없이 I/O worker로(byte chunk)
+ → [platform I/O] keychain 준비 → SecretPreparation(값 없음)
+ → [core writer] 준비 증거 기록
  → [main] SetSecret command(이전 참조/revision)
  → [writer] CAS·참조·SecretSet commit
+ → [core] 현재 참조의 값을 keychain에서 읽어 알려진 값 registry에 등록·옛 값 회수(응답 전)
  → [I/O/앱 supervisor] 이전 참조 차단·OS 정리·사용 프로세스 종료 각각 관측
 사용 → [신뢰 소비 adapter] 현재 참조/판·용도·목적지·앱의 현재 grant 검사(호출마다 secret approval 없음)
  → [keychain 경계] 값 조회 → 실제 허용 전송 직전 인증 첨부

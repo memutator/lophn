@@ -190,8 +190,9 @@ export function createBlobPrepareRelay(deps: BlobRelayDeps): BlobPrepareRelay {
     };
   }
   function nextChannel(): number {
-    for (let tries = 0; tries < 0xffffffff; tries++) {
-      channelCounter = channelCounter % 0xffffffff + 1;
+    // 1..0x7fffffff만 쓴다. 0x80000000 위는 보호 입력 중계의 channel이다(secret-input.ts).
+    for (let tries = 0; tries < 0x7fffffff; tries++) {
+      channelCounter = channelCounter % 0x7fffffff + 1;
       if (!byChannel.has(channelCounter) && !incoming.has(channelCounter)) {
         return channelCounter;
       }

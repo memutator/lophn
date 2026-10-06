@@ -12,6 +12,13 @@ import {
   type KeychainStatus,
 } from "./keychain.ts";
 
+// 실행 권한을 절대 경로로만 받는 child(I/O worker)가 secret-tool을 부르는 후보. 그 child의
+// launch spec allow_run과 같은 목록이다.
+export const SECRET_TOOL_PATHS: readonly string[] = [
+  "/usr/bin/secret-tool",
+  "/usr/local/bin/secret-tool",
+];
+
 const LABEL_PREFIX = "lophn secret";
 const ATTR_REF = "lophn_ref";
 
@@ -90,35 +97,47 @@ export function sessionEnv(
 }
 
 // 제품 실행. 값은 secret-tool stdin으로만 보내고 자식 env는 session bus 주소만 남긴다.
-export function secretToolRunner(): SecretToolRunner {
+// commands는 secret-tool 실행 파일 후보다. 처음 실행되는 것을 쓴다. 실행 권한을 절대 경로로만
+// 받는 child(I/O worker)는 절대 경로 후보를 넘긴다.
+export function secretToolRunner(
+  commands: readonly string[] = ["secret-tool"],
+): SecretToolRunner {
   return {
     async run(args, stdin) {
-      try {
-        const command = new Deno.Command("secret-tool", {
-          args: [...args],
-          stdin: stdin === undefined ? "null" : "piped",
-          stdout: "piped",
-          stderr: "null",
-          clearEnv: true,
-          env: sessionEnv((name) => Deno.env.get(name)),
-        });
-        const child = command.spawn();
-        if (stdin !== undefined) {
-          const writer = child.stdin.getWriter();
-          try {
-            await writer.write(stdin);
-          } finally {
-            await writer.close();
-          }
+      for (const executable of commands) {
+        let child: Deno.ChildProcess;
+        try {
+          child = new Deno.Command(executable, {
+            args: [...args],
+            stdin: stdin === undefined ? "null" : "piped",
+            stdout: "piped",
+            stderr: "null",
+            clearEnv: true,
+            env: sessionEnv((name) => Deno.env.get(name)),
+          }).spawn();
+        } catch {
+          // 이 후보는 실행되지 않는다. 다음 후보를 본다.
+          continue;
         }
-        const [status, stdout] = await Promise.all([
-          child.status,
-          child.stdout.bytes(),
-        ]);
-        return ok({ code: status.code, stdout });
-      } catch {
-        return err(KEYCHAIN_UNAVAILABLE);
+        try {
+          if (stdin !== undefined) {
+            const writer = child.stdin.getWriter();
+            try {
+              await writer.write(stdin);
+            } finally {
+              await writer.close();
+            }
+          }
+          const [status, stdout] = await Promise.all([
+            child.status,
+            child.stdout.bytes(),
+          ]);
+          return ok({ code: status.code, stdout });
+        } catch {
+          return err(KEYCHAIN_UNAVAILABLE);
+        }
       }
+      return err(KEYCHAIN_UNAVAILABLE);
     },
   };
 }

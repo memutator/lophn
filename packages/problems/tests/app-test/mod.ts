@@ -14,3 +14,13 @@ export {
   judgeAppTest,
   type ObservedCoverage,
 } from "./judge.ts";
+export {
+  openViewDriver,
+  PROBE_KINDS,
+  probeText,
+  type ScreenFeedbackFacts,
+  type ScreenHostResult,
+  type ScreenReportSink,
+  type ScreenReportTarget,
+  type ViewDriverOptions,
+} from "./screens.ts";

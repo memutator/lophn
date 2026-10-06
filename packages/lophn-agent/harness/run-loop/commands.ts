@@ -5,6 +5,8 @@ import {
   checkpointRun,
   confirmNextRun,
   finishRun,
+  registerPreparedBlob,
+  RUN_BLOB_PURPOSES,
   runAccepted,
   runFinished,
   runStarted,
@@ -12,7 +14,9 @@ import {
   stopRun,
 } from "../../../contracts/lophn-agent/mod.ts";
 import {
+  type BlobFieldDefinition,
   type CommandDefinition,
+  defineBlobField,
   type Input,
   parseActor,
   type RequestContext,
@@ -35,6 +39,22 @@ import {
 
 // 등록 순서: 입력 검사 → 상태 재검사 → CAS 비교 → 쓰기 → event. 짧은 transaction
 // 하나다. 실패하면 이전 판 전체가 유지된다. finished 행은 trigger도 다시 못 바꾼다(R18).
+
+// run 근거와 결과는 영구 참조다(run-loop domain model). 준비한 blob의 hash만 StartRun·FinishRun이 싣는다.
+export const runBodyFields: readonly BlobFieldDefinition[] = [
+  defineBlobField({
+    owner_kind: "run",
+    field: "basis",
+    retention: { kind: "permanent" },
+    general_read: false,
+  }),
+  defineBlobField({
+    owner_kind: "run",
+    field: "result",
+    retention: { kind: "permanent" },
+    general_read: false,
+  }),
+];
 
 export type RunLoopDeps = {
   // 정상 종료를 막는 미반영 steering이 있는지(R14). 입력 표를 소유한 concern
@@ -391,6 +411,18 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
           started_at: startedAt,
           scope: input.scope,
         });
+        if (input.basis_size !== undefined) {
+          const registered = registerPreparedBlob(tx, ctx, {
+            owner_kind: "run",
+            owner_key: row.id,
+            field: "basis",
+            hash: input.basis,
+            size: input.basis_size,
+            purpose: RUN_BLOB_PURPOSES.run_basis,
+            seq,
+          });
+          if (!registered.ok) return registered;
+        }
         tx.sql.run(
           `update runs set state = 'running', basis = ?, limits = ?,
              started_at = ?, state_seq = ? where id = ?`,
@@ -492,6 +524,18 @@ export function createRunCommands(deps: RunLoopDeps = {}): {
         }
         const done = finishRow(tx, row, outcome, input.result, null, null);
         if (!done.ok) return done;
+        if (input.result_size !== undefined) {
+          const registered = registerPreparedBlob(tx, ctx, {
+            owner_kind: "run",
+            owner_key: row.id,
+            field: "result",
+            hash: input.result,
+            size: input.result_size,
+            purpose: RUN_BLOB_PURPOSES.run_result,
+            seq: done.value.seq,
+          });
+          if (!registered.ok) return registered;
+        }
         return ok({
           id: row.id,
           state: "finished" as const,

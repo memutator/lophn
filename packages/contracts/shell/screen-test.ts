@@ -25,6 +25,10 @@ export const screenTestInputSchema = z.strictObject({
   screens: z.array(screenEntrySchema).min(1),
   app_socket_path: endpointSchema,
   deadline_ms: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  // runner가 실행마다 정하는 불투명 nonce. 있으면 host가 화면마다 오류 probe(error·
+  // unhandledrejection·render-error)를 main world에 일으키고 첫 화면을 일부러 멈춰 feedback
+  // 경로를 본다. probe 오류의 message에 이 nonce가 들어 runner가 알아본다(problems#T11).
+  probe_nonce: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).optional(),
 });
 
 export type ScreenTestInput = z.infer<typeof screenTestInputSchema>;
@@ -47,6 +51,8 @@ const feedbackCheckSchema = z.strictObject({
   binding: z.boolean(),
   capture: z.enum(["captured", "missing"]),
   dialog: z.enum(["opened", "blocked"]),
+  // host가 probe로 일부러 깨뜨린 화면이다.
+  induced: z.boolean().optional(),
 });
 
 const blockedRequestSchema = z.strictObject({

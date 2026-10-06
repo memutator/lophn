@@ -81,3 +81,37 @@ Deno.test(
     assert(SCREEN_TEST_HOST.windows.endsWith("lophn-desktop.exe"));
   },
 );
+
+Deno.test(
+  "problems/tests#R7: probe nonce와 induced 표시는 선택 field이고 형식을 지킨다",
+  () => {
+    const base = {
+      bundle_screens_dir: "/tmp/bundle/screens",
+      screens: [{ key: "usage", path: "usage/index.html" }],
+      app_socket_path: "/tmp/app.sock",
+      deadline_ms: 5000,
+    };
+    assert(screenTestInputSchema.safeParse(base).success);
+    assert(
+      screenTestInputSchema.safeParse({ ...base, probe_nonce: "abcd1234" })
+        .success,
+    );
+    assert(
+      !screenTestInputSchema.safeParse({ ...base, probe_nonce: "a b" }).success,
+    );
+    assert(
+      screenTestObservationSchema.safeParse({
+        load: [],
+        errors: [],
+        feedback_check: [{
+          screen: "usage",
+          binding: true,
+          capture: "missing",
+          dialog: "opened",
+          induced: true,
+        }],
+        blocked_requests: [],
+      }).success,
+    );
+  },
+);

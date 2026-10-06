@@ -4,6 +4,8 @@ import {
   modelCallFinished,
   modelCallStarted,
   modelCallSupplemented,
+  registerPreparedBlob,
+  RUN_BLOB_PURPOSES,
   startModelCall,
   supplementModelCall,
 } from "../../../contracts/lophn-agent/mod.ts";
@@ -27,6 +29,12 @@ export const modelCallBodyFields: readonly BlobFieldDefinition[] = [
   defineBlobField({
     owner_kind: "model_call",
     field: "input",
+    retention: { kind: "capacity", category: "model_call_body" },
+    general_read: false,
+  }),
+  defineBlobField({
+    owner_kind: "model_call",
+    field: "context_basis",
     retention: { kind: "capacity", category: "model_call_body" },
     general_read: false,
   }),
@@ -157,7 +165,18 @@ function boolOf(value: unknown): boolean {
   return value === 1 || value === 1n || value === true;
 }
 
-export function createUsageCommands(): {
+// 처음 반영하는 수정 입력은 ModelCall 시작과 같은 transaction에서 반영한다(Q30). 반영 command는
+// 입력 표를 소유한 conversation이 주입한다. 반영이 거절되면 시작 기록도 남지 않고 전송도 없다.
+export type UsageDeps = {
+  applyMessages?: (
+    tx: Tx,
+    ctx: RequestContext,
+    input: { messages: string[]; call: string },
+    compare: { applied_at_call: null },
+  ) => Result<unknown>;
+};
+
+export function createUsageCommands(deps: UsageDeps = {}): {
   start: CommandDefinition<typeof startModelCall>;
   finish: CommandDefinition<typeof finishModelCall>;
   supplement: CommandDefinition<typeof supplementModelCall>;
@@ -195,8 +214,47 @@ export function createUsageCommands(): {
         });
         // 호출자가 보낸 CAS 기준 state_seq를 저장한다. emit seq는 event 순번이고
         // 기록의 판 순번과는 다르다(compare가 같은 값을 다시 보낼 수 있어야 한다).
-        void seq;
         storeStart(tx, call.value, Number(input.state_seq));
+        // 준비한 input·basis blob의 영구 참조는 시작 기록과 같은 transaction이다.
+        if (input.blob_sizes !== undefined) {
+          for (
+            const [field, hash, size, purpose] of [
+              [
+                "input",
+                call.value.input,
+                input.blob_sizes.input,
+                RUN_BLOB_PURPOSES.model_call_input,
+              ],
+              [
+                "context_basis",
+                call.value.context_basis,
+                input.blob_sizes.context_basis,
+                RUN_BLOB_PURPOSES.model_call_basis,
+              ],
+            ] as const
+          ) {
+            const registered = registerPreparedBlob(tx, ctx, {
+              owner_kind: "model_call",
+              owner_key: call.value.id,
+              field,
+              hash,
+              size,
+              purpose,
+              seq,
+            });
+            if (!registered.ok) return registered;
+          }
+        }
+        if (input.applied_messages.length > 0) {
+          if (deps.applyMessages === undefined) {
+            return conflict("applying messages is not connected");
+          }
+          const applied = deps.applyMessages(tx, ctx, {
+            messages: input.applied_messages,
+            call: call.value.id,
+          }, { applied_at_call: null });
+          if (!applied.ok) return applied;
+        }
         return ok({ call: call.value });
       },
     },
@@ -221,7 +279,18 @@ export function createUsageCommands(): {
           duration_ms: input.duration_ms,
           first_output_ms: input.first_output_ms,
         });
-        void seq;
+        if (input.output_size !== undefined && input.output !== null) {
+          const registered = registerPreparedBlob(tx, ctx, {
+            owner_kind: "model_call",
+            owner_key: input.call,
+            field: "output",
+            hash: input.output,
+            size: input.output_size,
+            purpose: RUN_BLOB_PURPOSES.model_call_output,
+            seq,
+          });
+          if (!registered.ok) return registered;
+        }
         tx.sql.run(
           `update model_calls set
              output = ?, state = 'finished', state_seq = ?, finished_at = ?,

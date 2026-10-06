@@ -71,6 +71,8 @@ const FORMAT = {
   explicit: false,
 };
 
+const BLOB_HASH = "ab".repeat(32);
+
 function request(bytes: number, media = "text/markdown") {
   return {
     files: [{
@@ -78,7 +80,8 @@ function request(bytes: number, media = "text/markdown") {
       media_type: media,
       primary: true,
       bytes,
-      channel: 1,
+      blob_hash: BLOB_HASH,
+      channel: 1 as number | null,
     }],
     format: FORMAT,
   };
@@ -165,4 +168,78 @@ Deno.test("documents/formats#R4: 실제 format runner는 document format에 맞�
   };
   assertEquals(outcome.status, "failed");
   assertEquals(outcome.diagnostics[0].code, "unsupported_media_type");
+});
+
+Deno.test("documents/formats#R4: channel이 없는 첨부는 바이트 없이 경로만 guest로 가고 대표 파일 바이트는 그대로 간다", async () => {
+  const inbox = createByteInbox();
+  inbox.collect(bytesFrame(1, encoder.encode("# a\n")));
+  let seen: FormatCall | undefined;
+  const result = await validateFiles({
+    files: [
+      { ...request(4).files[0], media_type: "text/html" },
+      {
+        path: "big.png",
+        media_type: "image/png",
+        primary: false,
+        bytes: 64 * 1024 * 1024,
+        blob_hash: "cd".repeat(32),
+        channel: null,
+      },
+    ],
+    format: FORMAT,
+  }, {
+    inbox,
+    call(input) {
+      seen = input;
+      return Promise.resolve(ok({ status: "passed" }));
+    },
+  });
+  assert(result.ok);
+  assertEquals(seen?.input.files[1].path, "big.png");
+  assertEquals(seen?.input.files[1].content, []);
+  assertEquals(seen?.input.files[0].content, [...encoder.encode("# a\n")]);
+});
+
+Deno.test("documents/formats#R4: 바이트를 읽지 않는 format의 대표 파일은 바이트 없이 요청의 blob hash가 input_hash다", async () => {
+  let seen: FormatCall | undefined;
+  const result = await validateFiles({
+    files: [{
+      path: "scan.pdf",
+      media_type: "application/pdf",
+      primary: true,
+      bytes: 200 * 1024 * 1024,
+      blob_hash: BLOB_HASH,
+      channel: null,
+    }],
+    format: { ...FORMAT, name: "pdf" },
+  }, {
+    inbox: createByteInbox(),
+    call(input) {
+      seen = input;
+      return Promise.resolve(ok({ status: "passed" }));
+    },
+  });
+  assert(result.ok);
+  assertEquals(seen?.input.input_hash, BLOB_HASH);
+  assertEquals(seen?.input.files[0].content, []);
+});
+
+Deno.test("documents/formats#R4: 바이트를 읽는 format의 대표 파일에 바이트가 없으면 빈 입력으로 통과시키지 않는다", async () => {
+  let called = false;
+  const result = await validateFiles(
+    {
+      files: [{ ...request(4).files[0], channel: null }],
+      format: FORMAT,
+    },
+    {
+      inbox: createByteInbox(),
+      call() {
+        called = true;
+        return Promise.resolve(ok({}));
+      },
+    },
+  );
+  assert(!result.ok);
+  assertEquals(result.error.code, "invalid_input");
+  assertEquals(called, false);
 });

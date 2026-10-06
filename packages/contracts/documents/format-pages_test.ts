@@ -1,13 +1,17 @@
 import { assert, assertEquals } from "@std/assert";
 import { declaration, hash, other, section } from "./format-fixtures_test.ts";
+import { DOCUMENT_UPLOAD_MAX_BYTES } from "./uploads.ts";
 import {
   DATA_MEDIA_TYPE,
   FORMAT_CALL_TIMEOUT_MS,
+  FORMAT_CHECK_CONTENT_MAX_BYTES,
   FORMAT_GUEST_MEMORY_BYTES,
   FORMAT_INPUT_MAX_BYTES,
   FORMAT_OUTPUT_MAX_BYTES,
   FORMAT_PUBLIC_JSON_MAX_BYTES,
   FORMAT_TEXT_PAGE_MAX_CODEPOINTS,
+  formatCheckLimitMessage,
+  formatChecksContent,
   formatExtract,
   formatExtractionPageSchema,
   formatValidate,
@@ -147,6 +151,20 @@ Deno.test("documents/formats#R20: missing, failed and unsupported extraction sta
   assertEquals(FORMAT_INPUT_MAX_BYTES, 16 * 1024 * 1024);
   assertEquals(FORMAT_OUTPUT_MAX_BYTES, 8 * 1024 * 1024);
   assertEquals(FORMAT_PUBLIC_JSON_MAX_BYTES, 256 * 1024);
+});
+
+Deno.test("documents/formats#R4: 검사 한도는 guest 입력 JSON 안에서 끝나는 대표 파일 1 MiB이고 document만 바이트를 읽는다", () => {
+  assertEquals(FORMAT_CHECK_CONTENT_MAX_BYTES, 1024 * 1024);
+  // 한 바이트는 JSON 숫자 배열에서 최대 4자("255,")다. 한도의 파일이 guest 입력 상한 안에 든다.
+  assert(FORMAT_CHECK_CONTENT_MAX_BYTES * 4 <= FORMAT_INPUT_MAX_BYTES);
+  assert(FORMAT_CHECK_CONTENT_MAX_BYTES <= DOCUMENT_UPLOAD_MAX_BYTES);
+  assertEquals(formatChecksContent("document"), true);
+  for (const name of ["pdf", "image", "data"]) {
+    assertEquals(formatChecksContent(name), false);
+  }
+  const message = formatCheckLimitMessage(FORMAT_CHECK_CONTENT_MAX_BYTES + 1);
+  assert(message.includes("1048577"));
+  assert(message.includes("1048576"));
 });
 
 Deno.test("documents/formats#R4: validation continuation ends at the total and rejects count contradictions", () => {

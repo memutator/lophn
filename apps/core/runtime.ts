@@ -93,6 +93,28 @@ export type CoreRuntime = {
   close(): Promise<void>;
 };
 
+// writer Worker가 close에 답하는 기한. 부하로 기동이 느린 writer가 닫기 요청을 못 읽어도
+// 기동 실패·종료가 멈추지 않게 한다.
+const WRITER_CLOSE_MS = 15_000;
+
+// 닫기 요청이 기한 안에 답하지 않으면 expire를 부른다. 답이 오면 부르지 않는다.
+export async function closeWithin(
+  close: () => Promise<unknown>,
+  ms: number,
+  expire: () => void,
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<"expired">((resolve) => {
+    timer = setTimeout(() => resolve("expired"), ms);
+  });
+  try {
+    const outcome = await Promise.race([close(), expired]);
+    if (outcome === "expired") expire();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const WRITER_DEAD = {
   code: "unavailable" as const,
   message: "writer가 끝났다",
@@ -479,7 +501,16 @@ function openProductWriter(
       },
       async close() {
         if (dead !== undefined) return;
-        await send({ id: nextId++, op: "close" });
+        // writer가 아직 module을 올리는 중이거나 멈춰 있어도 닫기가 영원히 기다리지 않는다.
+        // SQLite commit은 원자적이라 기한이 지나면 Worker를 끝내고 죽은 것으로 친다.
+        await closeWithin(
+          () => send({ id: nextId++, op: "close" }),
+          WRITER_CLOSE_MS,
+          () => {
+            worker.terminate();
+            fail();
+          },
+        );
       },
     },
     // main↔core 비공개 통로의 확인 등록을 writer 프로세스의 registry로 넘긴다.

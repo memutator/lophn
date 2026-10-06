@@ -15,6 +15,8 @@ export interface Route {
   readonly read?: { readonly document: string; readonly version: string };
   /** things-to-confirm에서 처음 고를 요청. `lophn://things-to-confirm/<id>` 링크가 쓴다. */
   readonly request?: string;
+  /** contexts에서 처음 열 Focus. 팔레트·정보 패널의 컨텍스트 탭이 쓴다. */
+  readonly focus?: string;
 }
 
 export const LAUNCHER: Route = { space: "launcher" };

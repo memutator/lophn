@@ -8,10 +8,12 @@ import { ALL_ROUTES } from "../../../../../packages/contracts/mod.ts";
 // lophn 공간 documents 화면(shell#T19)의 검색과 saved view 열기도 같은 이유의 읽기다.
 // 추적 미리보기(shell#T15)는 폴더를 scan해 포함·제외만 돌려주고 아무것도 바꾸지 않는다.
 // 버전 비교(shell#T18)의 section 이력·줄 diff도 고정 판 두 개를 읽기만 한다.
+// contexts 화면(shell#T36)의 Focus 항목 제목·읽기 가능 여부·section 상태도 목차 읽기다.
 // projects 화면의 export(shell#T20)는 사람이 고른 고정 판을 redaction을 거쳐 묶어 읽을 뿐
 // 판·자리를 바꾸지 않는다.
 export const READING_WORKER_ROUTES: readonly string[] = [
   "worker:outline/document",
+  "worker:outline/context",
   "worker:documents/read",
   "worker:documents/section_history",
   "worker:documents/diff",

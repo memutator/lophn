@@ -323,3 +323,64 @@ export function updateContext(
     ],
   );
 }
+
+export type WatchChangeRow = {
+  target: { kind: "document"; document: string; section: string | null };
+  change_kind: "content_changed" | "section_added" | "section_missing";
+  before_version: string | null;
+  after_version: string;
+  source_seq: string;
+};
+
+const CHANGE_KINDS = ["content_changed", "section_added", "section_missing"];
+
+// 기록된 확인된 watch 변화. 최근 기록부터 limit개다. target_key는 NUL에서 잘려 읽히므로
+// 대상은 함께 저장한 비교 입력(comparison)에서 꺼낸다.
+export function listWatchChanges(
+  sql: Sql,
+  contextId: string,
+  limit: number,
+): Result<WatchChangeRow[]> {
+  const rows = sql.all(
+    `SELECT comparison FROM context_watch_changes WHERE context = ?
+     ORDER BY CAST(event_seq AS INTEGER) DESC LIMIT ?`,
+    [contextId, limit],
+  );
+  const changes: WatchChangeRow[] = [];
+  for (const row of rows) {
+    const raw = text(row, "comparison");
+    if (raw === undefined) return invalidRow();
+    let value: {
+      target?: { kind?: string; document?: string; section?: string | null };
+      result?: string;
+      before_version?: string | null;
+      after_version?: string;
+      source_seq?: string;
+    };
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return invalidRow();
+    }
+    const target = value.target;
+    if (
+      target?.kind !== "document" || typeof target.document !== "string" ||
+      typeof value.result !== "string" ||
+      !CHANGE_KINDS.includes(value.result) ||
+      typeof value.after_version !== "string" ||
+      typeof value.source_seq !== "string"
+    ) return invalidRow();
+    changes.push({
+      target: {
+        kind: "document",
+        document: target.document,
+        section: target.section ?? null,
+      },
+      change_kind: value.result as WatchChangeRow["change_kind"],
+      before_version: value.before_version ?? null,
+      after_version: value.after_version,
+      source_seq: value.source_seq,
+    });
+  }
+  return ok(changes);
+}

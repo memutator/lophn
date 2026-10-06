@@ -60,6 +60,7 @@ Deno.test("apps/permissions#R1, apps/permissions#R21, apps/automations#R13: rout
     [
       ["command", "/v1/grants/create", "grant.create"],
       ["command", "/v1/grants/revoke", "grant.revoke"],
+      ["command", "/v1/grants/revoke_automation", "grant.revoke_automation"],
       ["read", "/v1/grants/list", "grants.list"],
     ],
   );
@@ -83,7 +84,7 @@ Deno.test("apps/permissions#R1, apps/permissions#R21, apps/automations#R13: rout
     ),
     ["GrantCreated", "GrantRevoked"],
   );
-  assertEquals(grantCreate.actors, ["machine"]);
+  assertEquals(grantCreate.actors, ["machine", "user"]);
   assertEquals(grantRevoke.actors, ["user"]);
   assertEquals(grantCreate.errors, ["forbidden", "invalid_input", "conflict"]);
   assertEquals(grantRevoke.errors, ["conflict", "unavailable"]);

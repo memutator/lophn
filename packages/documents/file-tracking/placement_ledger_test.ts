@@ -262,12 +262,10 @@ Deno.test("documents/file-tracking#R14: 실제 command로 빼면 같은 내용�
       const names: string[] = [];
       for await (const entry of Deno.readDir(root)) names.push(entry.name);
       assertEquals(names, []);
-      console.log("MOVE", JSON.stringify(removed.value.move));
-      // 자리 되돌리기는 별도 단계 결과로 보인다.
-      assert(
-        removed.value.move.state === "done" ||
-          removed.value.move.state === "failed",
-      );
+      // 자리 되돌리기는 별도 단계고, 옛 이름 예약은 남긴다.
+      assertEquals(removed.value.move, { state: "done" });
+      assertEquals(after.value.place, null);
+      assertEquals(after.value.name, null);
     } finally {
       fixture.close();
     }

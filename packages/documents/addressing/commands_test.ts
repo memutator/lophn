@@ -787,3 +787,55 @@ Deno.test("documents/addressing#R9: 같은 place와 name의 move는 invalid_inpu
     fixture.close();
   }
 });
+
+Deno.test("documents/addressing#R7: 자리 없음으로 옮기면 이름도 비우고 옛 이름 예약은 같은 문서의 것으로 남는다", () => {
+  const fixture = versionFixture();
+  try {
+    seedDocument(fixture, docId, { kind: "project", id: projectId }, "report");
+    fixture.db
+      .prepare(
+        `INSERT INTO document_names (place_kind, place_id, name, document, reserved_seq)
+         VALUES ('project', ?, 'report', ?, '1')`,
+      )
+      .run(projectId, docId);
+    const moved = fixture.transaction((tx) =>
+      commands.move.handle(
+        tx as never,
+        userContext() as never,
+        { document: docId, place: null, name: null } as never,
+        { base_revision: "1" } as never,
+      )
+    );
+    assert(moved.ok);
+    assertEquals(moved.value.place, null);
+    assertEquals(moved.value.name, null);
+    const row = fixture.db
+      .prepare("SELECT place_kind, place_id, name FROM documents WHERE id = ?")
+      .get(docId);
+    assertEquals(row?.place_kind, null);
+    assertEquals(row?.name, null);
+    const reservation = fixture.db
+      .prepare(
+        "SELECT document FROM document_names WHERE place_id = ? AND name = 'report'",
+      )
+      .get(projectId);
+    assertEquals(reservation?.document, docId);
+    assertEquals(fixture.emitted.at(-1)?.type, "DocumentMoved");
+    // 자리 없는 문서는 다시 같은 자리·같은 이름으로 돌아올 수 있다.
+    const back = fixture.transaction((tx) =>
+      commands.move.handle(
+        tx as never,
+        userContext() as never,
+        {
+          document: docId,
+          place: { kind: "project", id: projectId },
+          name: "report",
+        } as never,
+        { base_revision: moved.ok ? moved.value.revision : "1" } as never,
+      )
+    );
+    assert(back.ok);
+  } finally {
+    fixture.close();
+  }
+});

@@ -215,7 +215,13 @@ async function run(): Promise<unknown> {
   ]);
   const state = () => ({ shown: shownIds(), loaded: [...loaded], timeline });
   await until("two views", () => shownIds().length === 2, state);
-  const [idA, idB] = appViews().map(idOf) as [number, number];
+  // 붙은 순서는 load가 끝난 순서라 view_session으로 찾는다.
+  const idOfSession = (view_session: string): number =>
+    appViews().map(idOf).find((id) =>
+      frame.senderView(id)?.view_session === view_session
+    )!;
+  const idA = idOfSession(a);
+  const idB = idOfSession(b);
   const twoViews = {
     contentSize: window.getContentSize(),
     beforeBounds,
@@ -269,7 +275,7 @@ async function run(): Promise<unknown> {
     () => shownIds().length === 2 && !shownIds().includes(idA),
     state,
   );
-  const idC = shownIds().find((id) => id !== idB)!;
+  const idC = idOfSession(c);
   const tabSwitch = {
     steps: timeline.slice(switchMark).map((step) => step.step),
     c: boundsOf(idC),

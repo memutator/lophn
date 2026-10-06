@@ -103,7 +103,9 @@ function classifyDocument(
     ];
   }
   if (!own.every((event) => event.actor.startsWith("agent:"))) {
-    return [draft(document, seqs, "irreversible", "not_agent_output", null, null)];
+    return [
+      draft(document, seqs, "irreversible", "not_agent_output", null, null),
+    ];
   }
   if (
     !own.every((event) =>

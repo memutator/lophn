@@ -73,6 +73,8 @@ event와 소유 concern의 복원 검사에서 만든 읽기 결과다. 정본 e
 - before_ref·comparison의 schema와 실제 복원 command는 owner가 정의한다. 이 concern은 역변경 종류 목록·다른 entity 필드를 정의하지 않는다.
 - 원래 run의 같은 대상에 연속한 변경은 한 묶음이다. 시작 전 값으로 돌아가며 중간 판 하나를 선택하지 않는다. 다른 run·user의 변경이 끼거나 이후 판·seq가 달라졌으면 conflict다. 값이 우연히 같아도 충돌이다.
 - 감사 event는 retained로 모두 설명한다. 업무 변경을 retained로 숨기지 않는다. 큰 이전 내용은 불변 version·blob을 참조하고 원래 변경과 같은 transaction에 소유 concern이 근거를 남긴다.
+- `reason_blob`은 이유 코드 하나(`{"code": ...}`)의 정규 JSON SHA-256이다. 가능한 코드는 유한하고(유지하는 사실, 외부 효과, 뒤따른 변경, 원본 연결 문서, 제목 변경, 분류 안 된 event, 차단 이유 같은 코드) 이 leaf가 hash에서 코드를 되찾는 표를 내놓는다. 이유를 따로 blob으로 저장하거나 영구 참조로 등록하지 않으며, 화면 문장은 코드로 wording을 고른다. `RevertApplied/RevertBlocked`의 `changes`도 `revert_changes` 결과 목록의 정규 JSON hash다.
+- 복원 준비 결과(문서의 이전 판을 다시 준비한 결과처럼 transaction 안에서 만들 수 없는 값)는 owner가 정의한 값으로 `RevertRun` 입력의 그 묶음 `comparison.prepared`에 싣고 `prepared_ref`가 그 정규 JSON hash다. 준비 결과는 비교 기준과 `binding_hash`에 들지 않는다. 준비가 없으면 owner가 복원 준비 불충족으로 전체를 막는다.
 
 ## AppRevertBinding (값)
 
@@ -191,6 +193,7 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 
 - **run 범위.** event.run 전체에 ToolCall.run으로 고정 연결된 성공 앱 write Invocation·receipt를 더한다. Invocation 후행 기록이 아직 없으면 확인 불가로 표시하고 안전한 복원으로 가정하지 않는다. actor·시각 범위로 추정하지 않는다. completed·failed·stopped run의 확정 변경을 모두 포함한다. 기다리는 run은 먼저 stopped가 되어야 한다. → lophn-agent/harness/run-loop
 - **부분 revert.** 기본 allow_partial=false다. irreversible 업무 변경이 섞이면 blocked다. true이면 독립적으로 유효한 reversible 변경 전체만 복원하고 irreversible 영향은 남긴다. retained 감사 사실만 있는 것은 부분 복원이 아니다.
+- **분류 근거.** run의 변경은 ledger의 event(`event.run`)에서 읽고 소유 concern의 복원 판정(adapter)이 묶음·분류·복원 command 호출을 정한다. 대상의 처음 변경 뒤에 이 run이 아닌 event가 하나라도 있으면(끼었거나 뒤따랐거나) 값이 같아도 충돌이다. 어느 adapter도 맡지 않은 event는 분류하지 않은 복원 불가로 남고 목록에서 빠지지 않는다. 문서의 제목 변경은 사람 자격으로 부를 수 없는 보상 값이라 남는 변경(복원 불가)이다.
 - **충돌.** 다른 변경이 끼거나 소유 CAS가 달라진 대상 하나라도 있으면 전체 blocked다. 부분 동의는 강제 복원·자동 병합의 허락이 아니다. 이 전체 blocked는 사전 검사에 적용하며 앱 복원 시작 뒤 새 충돌은 partial로 기록한다.
 - **의존.** irreversible 변경에 의존하는 대상도 복원 후 관계가 유효해야 한다. 안전한 전체 묶음이 없으면 blocked다.
 - **새 변경.** 문서 version pointer만 과거로 옮기거나 event를 삭제하지 않는다. 복원은 소유 concern의 새 변경이다. 새 복원 event의 actor=user/run=null이며 원래 run을 다시 수행한 것으로 기록하지 않는다.

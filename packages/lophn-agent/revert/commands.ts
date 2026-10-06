@@ -220,7 +220,9 @@ export function createRevertCommands(deps: RevertDeps): {
         // 가능한 변경 전체를 나중 변경부터 소유 concern의 새 변경으로 되돌린다. 하나라도 실패하면
         // 오류로 끝나 이 transaction의 모든 복원이 함께 취소된다(일부만 남지 않는다).
         const restored = new Map<number, string[]>();
-        const order = groups.filter((group) => group.capability === "reversible")
+        const order = groups.filter((group) =>
+          group.capability === "reversible"
+        )
           .sort((a, b) => b.ordinal - a.ordinal);
         for (const group of order) {
           const owner = ownerOf(group.owner) as RevertOwner;

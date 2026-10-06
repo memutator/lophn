@@ -1,8 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import {
-  revertList,
-  revertPreview,
-} from "../../contracts/lophn-agent/mod.ts";
+import { revertList, revertPreview } from "../../contracts/lophn-agent/mod.ts";
 import {
   parseActor,
   type ReadDefinition,
@@ -12,8 +9,8 @@ import {
 import {
   bindingHash,
   buildGroups,
-  type Lookup,
   loadRunRef,
+  type Lookup,
   revertColumns,
   type RevertOwner,
   revertRowOf,
@@ -150,7 +147,9 @@ export function createRevertReads(deps: RevertReadDeps): {
           params.push(input.run);
         }
         const rows = snapshot.sql.all(
-          `select ${revertColumns("v")} from reverts v join runs r on r.id = v.run
+          `select ${
+            revertColumns("v")
+          } from reverts v join runs r on r.id = v.run
             where ${clauses.join(" and ")} order by v.created_seq limit ?`,
           [...params, PAGE + 1],
         ).map(revertRowOf);

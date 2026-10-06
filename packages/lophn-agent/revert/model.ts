@@ -13,7 +13,11 @@ import type {
 // 이 leaf는 다른 concern의 표를 읽지 않는다: run의 변경은 ledger의 event에서, 복원은 소유
 // concern의 dispatchable command로만 한다(R5, R9). 분류와 복원 호출은 owner adapter가 맡는다.
 
-export type Capability = "reversible" | "retained" | "irreversible" | "conflict";
+export type Capability =
+  | "reversible"
+  | "retained"
+  | "irreversible"
+  | "conflict";
 export type ChangeOutcome =
   | "restored"
   | "retained"
@@ -33,6 +37,7 @@ export type Outcome =
 // 유한하다(REVERT_REASONS). 사람에게 보이는 문장은 shell이 코드로 wording을 고른다.
 export const REVERT_REASON_CODES = [
   "audit_fact",
+  "external_effect",
   "later_change",
   "linked_document",
   "not_agent_output",
@@ -268,7 +273,10 @@ export function buildGroups(
 
 // 사람 결정에 고정하는 지문. run·전체 source seq·owner CAS·복원 기준·분류·남는 영향·의존이
 // 하나라도 달라지면 달라진다. 준비 결과는 사람이 본 내용이 아니라서 넣지 않는다.
-export function bindingHash(run: string, groups: readonly RevertGroup[]): string {
+export function bindingHash(
+  run: string,
+  groups: readonly RevertGroup[],
+): string {
   return hashOf({
     run,
     groups: groups.map((group) => ({
@@ -438,7 +446,10 @@ export function resultsHash(changes: readonly ChangeResult[]): string {
 }
 
 export function headSeq(sql: Pick<Sql, "get">): string {
-  const row = sql.get("select cast(coalesce(max(seq), 0) as text) as seq from events", []);
+  const row = sql.get(
+    "select cast(coalesce(max(seq), 0) as text) as seq from events",
+    [],
+  );
   return row === undefined ? "0" : String(row["seq"]);
 }
 

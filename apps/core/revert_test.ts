@@ -282,7 +282,10 @@ async function open(): Promise<World> {
     [...DOCUMENT_ROUTES, ...AGENT_ROUTES].map((route) => [route.name, route]),
   );
   const ports = {
-    call: async (contract: string, input: unknown): Promise<Result<unknown>> => {
+    call: async (
+      contract: string,
+      input: unknown,
+    ): Promise<Result<unknown>> => {
       const route = routes.get(contract);
       assert(route !== undefined, contract);
       const reply = await call(
@@ -565,7 +568,9 @@ async function revert(
     ? undefined
     : await handleFor(world, input);
   const prepared = groups
-    .map((group) => group.comparison["prepared"] as { preparation_ref?: string })
+    .map((group) =>
+      group.comparison["prepared"] as { preparation_ref?: string }
+    )
     .filter((item) => item !== undefined)
     .map((item) => item.preparation_ref as string);
   return await call(
@@ -794,7 +799,10 @@ Deno.test("lophn-agent/revert#R4: run 뒤에 다른 변경이 있으면 어느 �
     const reply = await revert(world, shown);
     assertEquals(reply.status, 200, JSON.stringify(reply.body));
     assertEquals(reply.body["outcome"], "blocked");
-    assertEquals((await fixedOf(world, work.created)).document.status, "active");
+    assertEquals(
+      (await fixedOf(world, work.created)).document.status,
+      "active",
+    );
     assertEquals(versionsOf(world, work.base.document), versions);
     const events = inspect(
       world.server,

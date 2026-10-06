@@ -640,9 +640,12 @@ Deno.test("documents/addressing#R9: option action이 부르는 move와 rename은
     "document.archive",
     "document.restore",
   ]);
-  const actorsOf = (name: string) =>
-    [...DOCUMENT_DISPATCHABLE_COMMANDS.find((item) => item.route.name === name)!
-      .route.actors];
+  const actorsOf = (
+    name: string,
+  ) => [
+    ...DOCUMENT_DISPATCHABLE_COMMANDS.find((item) => item.route.name === name)!
+      .route.actors,
+  ];
   // option action이 부르는 둘은 사람 결정의 user 자격만 받는다.
   assertEquals(actorsOf("document.move"), ["user"]);
   assertEquals(actorsOf("document.rename"), ["user"]);

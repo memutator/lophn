@@ -50,6 +50,9 @@ export type SupervisorChannel = {
   bind(send: (payload: unknown) => Promise<boolean>): void;
   // supervisor가 멈췄다. 기다리던 요청은 unavailable로 끝난다.
   unbind(): void;
+  // supervisor child가 끝났다(crash·재기동). 보낸 요청은 답이 오지 않으므로 기한(5초·재시작 30초)까지
+  // 기다리지 않고 바로 unavailable로 끝낸다. 연결(bind)은 그대로다: 감독이 새 child를 띄운다.
+  failPending(message: string): void;
   readonly bound: boolean;
 };
 
@@ -57,6 +60,12 @@ export function createSupervisorChannel(): SupervisorChannel {
   let send: ((payload: unknown) => Promise<boolean>) | null = null;
   let counter = 0;
   const pending = new Map<string, (answer: Result<unknown>) => void>();
+  function failPending(message: string) {
+    for (const [id, settle] of [...pending]) {
+      pending.delete(id);
+      settle(err({ code: "unavailable", message }));
+    }
+  }
   return {
     request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS) {
       const sender = send;
@@ -121,15 +130,10 @@ export function createSupervisorChannel(): SupervisorChannel {
     bind(next) {
       send = next;
     },
+    failPending,
     unbind() {
       send = null;
-      for (const [id, settle] of [...pending]) {
-        pending.delete(id);
-        settle(err({
-          code: "unavailable",
-          message: "app supervisor stopped",
-        }));
-      }
+      failPending("app supervisor stopped");
     },
     get bound() {
       return send !== null;

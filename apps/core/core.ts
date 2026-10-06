@@ -120,6 +120,7 @@ import {
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
+import { createDocumentsRespawner } from "./documents-respawn.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
 import { withTermOccurrence } from "./documents-term-check.ts";
@@ -564,6 +565,8 @@ async function open(
   let watchSync: WatchSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
+  // 종료 때 감독이 포기한 documents worker를 다시 띄우는 일을 멈춘다.
+  let respawnStop: (() => void) | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
   const source: StatusSource = {
@@ -1094,6 +1097,12 @@ async function open(
         onFrame(frame) {
           blobRelay?.callbacks.onFrame(frame);
         },
+        // I/O worker가 끝나면(crash·재기동) 답을 기다리던 준비·읽기·보호 입력을 기한까지 두지 않고 끝낸다.
+        onEnd() {
+          const message = "I/O worker가 끝나 요청이 끝나지 못했다";
+          blobRelay?.failPending(message);
+          secretRelay?.failPending(message);
+        },
       },
     )
     : undefined;
@@ -1129,9 +1138,8 @@ async function open(
     // 자식이 멈추면(재시작·종료) 열린 준비는 unavailable로 닫는다(platform Q6).
     // 나머지 메시지의 worker_response는 통로가 요청 id로 맞춘다.
     let childBlob: ChildBlobPrepare | undefined;
-    const freshCallbacks = () => {
-      childBlob?.close();
-      const handler = createChildBlobPrepare({
+    const newBlobHandler = () =>
+      createChildBlobPrepare({
         kind: "documents/worker",
         gauge: blobBuffer,
         send: (message) =>
@@ -1142,6 +1150,9 @@ async function open(
             message: "blob 준비 통로가 없다",
           })),
       });
+    const freshCallbacks = () => {
+      childBlob?.close();
+      let handler = newBlobHandler();
       childBlob = handler;
       return {
         onMessage: (message: ChildMessage) => {
@@ -1151,6 +1162,23 @@ async function open(
           handler.onFrame(frame);
           fileWindows.onFrame(frame);
         },
+        // coordinator가 끝났다(crash·교체·정지). 보낸 요청은 답이 오지 않으니 기한까지 두지 않고 끝내고,
+        // 열린 blob 준비는 닫는다. 감독이 같은 callbacks로 다시 띄우면 새 child는 새 handler가 받는다.
+        // 새 coordinator는 관측 근거가 없다. 다음 확인이 전체를 다시 보낸다.
+        onEnd: () => {
+          documentsChannel.failPending(
+            "documents worker가 끝나 요청이 끝나지 못했다",
+          );
+          handler.close();
+          // 이미 다른 callbacks로 바뀐 옛 child의 끝은 지금 handler를 건드리지 않는다.
+          if (childBlob === handler) {
+            handler = newBlobHandler();
+            childBlob = handler;
+          }
+          basisSync?.invalidate();
+        },
+        // 감독이 포기했다. 한도 안에서 backoff로 다시 띄운다.
+        onGiveUp: (reason: string) => documentsRespawner.giveUp(reason),
       };
     };
     closeChildBlob = () => childBlob?.close();
@@ -1172,14 +1200,37 @@ async function open(
     const spec = workerSpecs(root.path, active).find((entry) =>
       entry.kind === "documents/worker"
     );
-    const started = spec
-      ? await io.start(spec, documentsHello, freshCallbacks())
-      : undefined;
-    if (started?.ok) {
+    const bindDocumentsChannel = () =>
       documentsChannel.bind((payload) =>
         io.send("documents/worker", payload).then((sent) => sent.ok)
       );
-    }
+    // 감독이 포기한 coordinator를 가장 최근에 띄우려 한 spec(root 집합)으로 다시 띄운다.
+    let launchedSpec = spec;
+    const documentsRespawner = createDocumentsRespawner({
+      respawn: async () => {
+        if (!launchedSpec) return false;
+        announceHello();
+        const restarted = await documentsChannel.replacing(() =>
+          io.updateSpec(launchedSpec!, documentsHello, freshCallbacks())
+        );
+        if (restarted.ok) {
+          // 처음 시작이 실패했다면 통로가 아직 묶이지 않았다.
+          bindDocumentsChannel();
+          basisSync?.invalidate();
+          void basisSync?.check();
+        }
+        return restarted.ok;
+      },
+      onExhausted: (reason) =>
+        console.error(
+          `documents worker를 다시 띄우지 못해 unavailable로 둔다: ${reason}`,
+        ),
+    });
+    respawnStop = () => documentsRespawner.stop();
+    const started = spec
+      ? await io.start(spec, documentsHello, freshCallbacks())
+      : undefined;
+    if (started?.ok) bindDocumentsChannel();
     // root가 바뀌면 documents worker만 새 권한으로 다시 띄운다(file-tracking#R3).
     // 시작 읽기가 실패했으면 known은 비어 있고 다음 확인이 맞춘다.
     rootsWatch = watchTrackingRoots({
@@ -1188,6 +1239,7 @@ async function open(
         connectDocumentsRelaunch(
           {
             updateSpec: async (updated) => {
+              launchedSpec = updated;
               announceHello();
               // 바꾸는 동안 이미 보낸 요청은 옛 child와 함께 사라지므로 바로 끝내고, 새 요청은
               // 새 child가 뜨기를 기다린다. 이 처리가 없으면 그 요청은 기한까지 답이 없다.
@@ -1364,7 +1416,14 @@ async function open(
           credential: issued.value.token,
           api_port: server.port,
         },
-        { onMessage: (message) => appsControl.onSupervisorMessage(message) },
+        {
+          onMessage: (message) => appsControl.onSupervisorMessage(message),
+          // supervisor child가 끝나면 답을 기다리던 질의를 기한(5초·재시작 30초)까지 두지 않고 끝낸다.
+          onEnd: () =>
+            appsControl.channel.failPending(
+              "app supervisor가 끝나 요청이 끝나지 못했다",
+            ),
+        },
       );
       if (started.ok) {
         appsControl.channel.bind((payload) =>
@@ -1506,6 +1565,7 @@ async function open(
         // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
         await notifications.stop();
         rootsWatch?.stop();
+        respawnStop?.();
         basisSync?.stop();
         searchSync?.stop();
         watchSync?.stop();
@@ -1988,6 +2048,7 @@ function blobRelayFor(
     onMessage(message: ChildMessage): void;
     onFrame(frame: Frame): void;
   };
+  failPending(message: string): void;
   prune(nowMs: number): void;
   live: BlobPrepareRelay["live"];
   prepare(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
@@ -2029,6 +2090,7 @@ function blobRelayFor(
         relay.take(frame);
       },
     },
+    failPending: (message) => relay.failPending(message),
     prune: (nowMs) => relay.prune(nowMs),
     live: (prepared, nowMs) => relay.live(prepared, nowMs),
     prepare: (call) =>
@@ -2055,6 +2117,7 @@ function startPlatformIo(
   blob?: {
     onMessage(message: ChildMessage): void;
     onFrame(frame: Frame): void;
+    onEnd?(): void;
   },
 ): Promise<Result<void>> {
   return io.start(

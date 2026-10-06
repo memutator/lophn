@@ -792,6 +792,7 @@ concerns: [shell]
 
 ### T40 SDK UI: ui-control, ui-overlay, ui-layout, ui-state
 
+- 상태: 완료 (#343) — 이어보냄: 설치 사본·템플릿 화면 build가 ui-*의 `@lophn/design`·`@lophn/wording` import를 푸는 일 → apps#T22
 - 등급: frontend
 - concern: shell/design-system
 - 요구: apps/sdk#R4(ui-control·ui-overlay·ui-layout·ui-state 1.0.0), R14, R15, R18(ui-state), R21, R29(AppErrorBoundary component), R37, R41(공용 UI SDK)

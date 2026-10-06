@@ -11,6 +11,9 @@ import {
   appPairObserve,
   appPairPrepare,
   appRegistrationLookup,
+  releaseCancelPreparation,
+  releasePreparation,
+  releasePrepareBundle,
 } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createConfirmCommands } from "../../packages/apps/invocations/confirm.ts";
@@ -162,6 +165,10 @@ export function createLedgerRegistration(
       appPairConfirmRequest,
       appPairConfirmPoll,
       appPairObserve,
+      // release 준비 접수·진행·취소. 진행은 supervisor 메모리라 ledger queue를 거치지 않는다.
+      releasePrepareBundle,
+      releasePreparation,
+      releaseCancelPreparation,
     ],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.

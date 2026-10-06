@@ -3,6 +3,7 @@
 // supervisor 관측만 시험 출처로 바꿔 끼운다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { err, ok } from "../../base/mod.ts";
+import { canonicalize } from "../../base/canonical-json.ts";
 import {
   call,
   codeOf,
@@ -10,10 +11,6 @@ import {
   count,
   decide,
 } from "../../../apps/core/testing/approvals-fixture.ts";
-import {
-  canonicalPayload,
-  decodeVerifyKey,
-} from "../runtime/entrypoint/signature.ts";
 import {
   type CoreHarness,
   createCoreHarness,
@@ -364,9 +361,28 @@ async function verifySigned(
   verifyKey: string,
   signed: { payload: unknown; signature: string },
 ): Promise<boolean> {
-  const key = decodeVerifyKey(verifyKey);
-  return key !== undefined &&
-    await key.verify(canonicalPayload(signed.payload), signed.signature);
+  const raw = fromBase64Url(verifyKey);
+  const sig = fromBase64Url(signed.signature);
+  const key = await crypto.subtle.importKey("raw", raw, "Ed25519", false, [
+    "verify",
+  ]);
+  return await crypto.subtle.verify(
+    "Ed25519",
+    key,
+    sig,
+    new TextEncoder().encode(canonicalize(signed.payload)),
+  );
+}
+
+function fromBase64Url(value: string): Uint8Array<ArrayBuffer> {
+  const padded = value.replaceAll("-", "+").replaceAll("_", "/") +
+    "=".repeat((4 - value.length % 4) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
 }
 
 function callerOf(body: unknown): Record<string, unknown> {

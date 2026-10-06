@@ -13,6 +13,8 @@ import { attachControlLink } from "../../packages/apps/runtime/supervisor/mod.ts
 import { assembleSupervisor } from "./assembly.ts";
 import { spawnApp } from "./spawn.ts";
 import { createCoreSender, createSupervisorDelivery } from "./delivery.ts";
+import { createPreparationService } from "../../packages/apps/releases/preparation.ts";
+import { createChildPreparationRunner } from "./release-runner.ts";
 
 const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
   async read(buffer) {
@@ -98,7 +100,20 @@ const delivery = createSupervisorDelivery({
 });
 const credential: { value: string } = { value: "" };
 
+// release 준비는 core가 data root(LOPHN_HOME)와 함께 띄우는 이 supervisor가 요청마다 좁은 권한의
+// 자식으로 돌린다. 진행은 이 프로세스의 메모리다(apps/releases).
+const dataRoot = Deno.env.get("LOPHN_HOME");
+const preparation = dataRoot === undefined
+  ? undefined
+  : createPreparationService(createChildPreparationRunner({
+    dataRoot,
+    deno: () => Deno.env.get("LOPHN_DENO") ?? Deno.execPath(),
+    denoDir: Deno.env.get("DENO_DIR") ??
+      `${Deno.env.get("HOME") ?? "/tmp"}/.cache/deno`,
+  }));
+
 const assembled = assembleSupervisor({
+  ...(preparation === undefined ? {} : { preparation }),
   childExited: (nonce) => delivery.childExited(nonce),
   // 앱이 broker로 보낸 invocation 후행 기록은 이 전달 목록이 core로 보낸다(apps/invocations#R1).
   invocations: delivery.broker,

@@ -28,9 +28,12 @@ import {
   previewLaunchSchema,
   previewObserveInputSchema,
   previewStopInputSchema,
+  releasePreparationInputSchema,
+  releasePrepareInputSchema,
   restartInputSchema,
   SUPERVISOR_OPS,
 } from "../../packages/apps/runtime/control-protocol.ts";
+import type { PreparationService } from "../../packages/apps/releases/preparation.ts";
 import {
   createLogBuffer,
   type LogBuffer,
@@ -139,6 +142,8 @@ export type SupervisorIo = {
     bundleHash: string;
     dataPath: string;
   }) => Promise<PreviewScope>;
+  // release 준비 요청의 진행(메모리)이다. 없으면 준비 요청은 unavailable이다.
+  preparation?: PreparationService;
   // 앱이 broker로 보낸 invocation 후행 기록을 core에 전달하는 쪽이다. 없으면 기록 통로는 unavailable이다.
   invocations?: Pick<InvocationBroker, "submit">;
   // broker 서비스에 더하는 어댑터와 시험 대역(외부 전송 등). 기본은 core read·route를 지나는 어댑터다.
@@ -874,6 +879,13 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
   };
 
+  function preparationOf(): PreparationService {
+    if (io.preparation === undefined) {
+      throw new OpError("unavailable", "release preparation is not attached");
+    }
+    return io.preparation;
+  }
+
   const ops: OpHandlers = {
     [SUPERVISOR_OPS.reconcile]: (payload) => {
       const desired = parse(desiredAppSchema, payload) as DesiredApp;
@@ -945,6 +957,31 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       return Promise.resolve({
         observation: previews.observation(input.app, input.process_nonce),
       });
+    },
+    [SUPERVISOR_OPS.releasePrepare]: (payload) => {
+      const input = parse(releasePrepareInputSchema, payload);
+      const started = preparationOf().start(input);
+      if (!started.ok) {
+        throw new OpError(started.error.code, started.error.message);
+      }
+      return Promise.resolve(started.value);
+    },
+    [SUPERVISOR_OPS.releasePreparation]: (payload) => {
+      const input = parse(releasePreparationInputSchema, payload);
+      return Promise.resolve(
+        preparationOf().get(input.app, input.request_key),
+      );
+    },
+    [SUPERVISOR_OPS.releaseCancel]: async (payload) => {
+      const input = parse(releasePreparationInputSchema, payload);
+      const cancelled = await preparationOf().cancel(
+        input.app,
+        input.request_key,
+      );
+      if (!cancelled.ok) {
+        throw new OpError(cancelled.error.code, cancelled.error.message);
+      }
+      return { accepted: true };
     },
     [SUPERVISOR_OPS.previewStop]: async (payload) => {
       const input = parse(previewStopInputSchema, payload);

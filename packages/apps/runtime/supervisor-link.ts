@@ -22,6 +22,9 @@ import {
   previewStartOutputSchema,
   previewStopOutputSchema,
   reconcileOutputSchema,
+  releaseCancelOutputSchema,
+  releasePreparationOutputSchema,
+  type ReleasePreparationWire,
   restartOutputSchema,
   SUPERVISOR_OPS,
 } from "./control-protocol.ts";
@@ -32,6 +35,8 @@ const REQUEST_TIMEOUT_MS = 5_000;
 const RESTART_TIMEOUT_MS = 30_000;
 // preview 종료도 정지 유예와 종료 확인까지 기다린다.
 const PREVIEW_STOP_TIMEOUT_MS = 30_000;
+// 준비 취소는 자식 종료 확인까지 기다린다.
+const RELEASE_CANCEL_TIMEOUT_MS = 30_000;
 
 type WorkerResponse =
   | { type: "worker_response"; request_id: string; ok: true; payload: unknown }
@@ -180,6 +185,18 @@ export type SupervisorClient = {
     processNonce: string,
   ): Promise<Result<ObservationWire | null>>;
   previewStop(app: string, processNonce: string): Promise<Result<boolean>>;
+  // release 준비. 진행은 supervisor 메모리라 supervisor가 없으면 unavailable이다.
+  releasePrepare(input: {
+    app: string;
+    commit: string;
+    request_key: string;
+    source_path: string;
+  }): Promise<Result<ReleasePreparationWire>>;
+  releasePreparation(
+    app: string,
+    requestKey: string,
+  ): Promise<Result<ReleasePreparationWire>>;
+  releaseCancel(app: string, requestKey: string): Promise<Result<void>>;
 };
 
 export function createSupervisorClient(
@@ -251,6 +268,32 @@ export function createSupervisorClient(
         ),
       );
       return answer.ok ? ok(answer.value.stopped) : answer;
+    },
+    async releasePrepare(input) {
+      return shaped(
+        releasePreparationOutputSchema,
+        await channel.request(SUPERVISOR_OPS.releasePrepare, input),
+      );
+    },
+    async releasePreparation(app, requestKey) {
+      return shaped(
+        releasePreparationOutputSchema,
+        await channel.request(SUPERVISOR_OPS.releasePreparation, {
+          app,
+          request_key: requestKey,
+        }),
+      );
+    },
+    async releaseCancel(app, requestKey) {
+      const answer = shaped(
+        releaseCancelOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.releaseCancel,
+          { app, request_key: requestKey },
+          RELEASE_CANCEL_TIMEOUT_MS,
+        ),
+      );
+      return answer.ok ? ok(undefined) : answer;
     },
   };
 }

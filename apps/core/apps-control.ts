@@ -29,6 +29,9 @@ import {
   previewsGet,
   previewsStart,
   previewsStop,
+  releaseCancelPreparation,
+  releasePreparation,
+  releasePrepareBundle,
 } from "../../packages/contracts/apps/mod.ts";
 import {
   observeException,
@@ -194,6 +197,19 @@ export function appsOperationPolicies(): OperationPolicy[] {
     })),
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
+    // release 준비 접수·진행은 coding agent와 machine, 취소는 machine만 한다. 확정(release.prepare)은 아니다.
+    ...[releasePrepareBundle, releasePreparation].map((
+      route,
+    ): OperationPolicy => ({
+      name: route.name,
+      actors: ["coding_agent", "machine"],
+      kind: "command",
+    })),
+    {
+      name: releaseCancelPreparation.name,
+      actors: ["machine"],
+      kind: "command",
+    },
   ];
 }
 
@@ -597,6 +613,81 @@ export async function createAppsControl(
     });
   };
 
+  // release 준비 요청. 범위 밖 앱과 없는 앱, source가 연결되지 않은 앱은 같은 거절이다.
+  // 진행은 core가 아니라 supervisor 메모리에 있고 core는 요청 하나씩 전달한다(apps/releases).
+  function sourcePathOf(app: string): Promise<Result<string | null>> {
+    const opened = openConnection(deps.ledgerPath);
+    if (!opened.ok) return Promise.resolve(internalError());
+    try {
+      const found = loadApp(opened.value.sql, app);
+      if (!found.ok) return Promise.resolve(internalError());
+      return Promise.resolve(ok(found.value?.source_path ?? null));
+    } catch {
+      return Promise.resolve(internalError());
+    } finally {
+      opened.value.close();
+    }
+  }
+  const releaseGate = async (
+    ctx: AuthenticatedContext,
+    route: { name: string },
+    app: string,
+    absent: "forbidden" | "not_found",
+  ): Promise<Result<string>> => {
+    const refuse = (): Result<never> =>
+      err({ code: absent, message: "app not found" });
+    if (ctx.actor === "coding_agent") {
+      const allowed = createTargetAuthorizer(ctx)(ctx, route.name, { app });
+      if (!allowed.ok) return refuse();
+    }
+    const source = await sourcePathOf(app);
+    if (!source.ok) return source;
+    return source.value === null ? refuse() : ok(source.value);
+  };
+  const releasePrepareBundleHandler: MemoryHandler = async (ctx, input) => {
+    const body = input as {
+      app: string;
+      commit: string;
+      request_key: string;
+    };
+    const source = await releaseGate(
+      ctx,
+      releasePrepareBundle,
+      body.app,
+      "forbidden",
+    );
+    if (!source.ok) return source;
+    return await client.releasePrepare({
+      app: body.app,
+      commit: body.commit,
+      request_key: body.request_key,
+      source_path: source.value,
+    });
+  };
+  const releasePreparationHandler: MemoryHandler = async (ctx, input) => {
+    const body = input as { app: string; request_key: string };
+    const source = await releaseGate(
+      ctx,
+      releasePreparation,
+      body.app,
+      "not_found",
+    );
+    if (!source.ok) return source;
+    return await client.releasePreparation(body.app, body.request_key);
+  };
+  const releaseCancelHandler: MemoryHandler = async (ctx, input) => {
+    const body = input as { app: string; request_key: string };
+    const source = await releaseGate(
+      ctx,
+      releaseCancelPreparation,
+      body.app,
+      "forbidden",
+    );
+    if (!source.ok) return source;
+    const cancelled = await client.releaseCancel(body.app, body.request_key);
+    return cancelled.ok ? ok({ accepted: true as const }) : cancelled;
+  };
+
   async function sweep(): Promise<void> {
     await connector.sweep().catch(() => 0);
     // supervisor가 다시 떠서 상태를 잃었으면 마지막으로 알린 상태로 맞춘다.
@@ -626,6 +717,18 @@ export async function createAppsControl(
         pairConfirmPoll,
       ],
       [`${appPairObserve.resource}/${appPairObserve.method}`, pairObserve],
+      [
+        `${releasePrepareBundle.resource}/${releasePrepareBundle.method}`,
+        releasePrepareBundleHandler,
+      ],
+      [
+        `${releasePreparation.resource}/${releasePreparation.method}`,
+        releasePreparationHandler,
+      ],
+      [
+        `${releaseCancelPreparation.resource}/${releaseCancelPreparation.method}`,
+        releaseCancelHandler,
+      ],
     ]),
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);

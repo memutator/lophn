@@ -1,0 +1,99 @@
+// release 준비 한 번을 권한을 좁힌 별도 Deno 자식(`apps/worker/apps/release-job.ts`)으로 돌린다
+// (architecture/apps 2.1). supervisor는 data root를 쓰지 못하므로 쓰기는 이 자식이 그 앱의 폴더에만
+// 한다. 취소·종료는 자식을 SIGKILL하고 끝난 것을 확인한 뒤에야 돌려준다. 끊긴 준비가 남긴 staging은 지운다.
+import { err, ok, type Result } from "../../packages/base/mod.ts";
+import { bundleManifestSchema } from "../../packages/contracts/apps/mod.ts";
+import type {
+  PreparationJob,
+  PreparationOutcome,
+  PreparationRunner,
+} from "../../packages/apps/releases/preparation.ts";
+import { RELEASE_PREPARATION_LIMIT_MS } from "../../packages/contracts/apps/mod.ts";
+
+const JOB = new URL("../worker/apps/release-job.ts", import.meta.url).pathname;
+const REPO = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
+
+export function createChildPreparationRunner(options: {
+  dataRoot: string;
+  deno: () => string;
+  denoDir: string;
+  limitMs?: number;
+}): PreparationRunner {
+  return {
+    async run(job: PreparationJob, signal: AbortSignal) {
+      const appRoot = `${options.dataRoot}/apps/${job.app}`;
+      const child = new Deno.Command(options.deno(), {
+        args: [
+          "run",
+          "--quiet",
+          "--no-prompt",
+          `--config=${REPO}/deno.json`,
+          `--allow-read=${job.source_path},${options.dataRoot}/sdk,${appRoot},${REPO},${options.denoDir}`,
+          `--allow-write=${appRoot}`,
+          "--allow-env",
+          "--allow-run",
+          JOB,
+          JSON.stringify({
+            dataRoot: options.dataRoot,
+            app: job.app,
+            sourceRoot: job.source_path,
+            commit: job.commit,
+          }),
+        ],
+        stdin: "null",
+        stdout: "piped",
+        stderr: "null",
+      }).spawn();
+      let stopped = false;
+      const stop = () => {
+        stopped = true;
+        try {
+          child.kill("SIGKILL");
+        } catch { /* 이미 끝났다 */ }
+      };
+      if (signal.aborted) stop();
+      signal.addEventListener("abort", stop, { once: true });
+      const timer = setTimeout(
+        stop,
+        options.limitMs ?? RELEASE_PREPARATION_LIMIT_MS,
+      );
+      try {
+        const output = await child.output();
+        if (stopped) {
+          await Deno.remove(`${appRoot}/staging`, { recursive: true }).catch(
+            () => undefined,
+          );
+          return err({ code: "unavailable", message: "preparation stopped" });
+        }
+        return readOutcome(new TextDecoder().decode(output.stdout));
+      } finally {
+        clearTimeout(timer);
+        signal.removeEventListener("abort", stop);
+      }
+    },
+  };
+}
+
+function readOutcome(stdout: string): Result<PreparationOutcome> {
+  try {
+    const line = stdout.trim().split("\n").at(-1) ?? "";
+    const parsed = JSON.parse(line) as {
+      ok?: boolean;
+      bundle_hash?: string;
+      blueprint_hash?: string;
+      manifest?: unknown;
+    };
+    const manifest = bundleManifestSchema.safeParse(parsed.manifest);
+    if (
+      parsed.ok === true && typeof parsed.bundle_hash === "string" &&
+      typeof parsed.blueprint_hash === "string" && manifest.success
+    ) {
+      return ok({
+        bundle_hash: parsed.bundle_hash,
+        blueprint_hash: parsed.blueprint_hash,
+        manifest: manifest.data,
+      });
+    }
+  } catch { /* 결과 줄이 없다 */ }
+  return err({ code: "unavailable", message: "preparation failed" });
+}

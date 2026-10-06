@@ -65,7 +65,7 @@ event와 소유 concern의 복원 검사에서 만든 읽기 결과다. 정본 e
 | `target` | ID | 예 | 대상 변경이면 필수; target 없는 감사 event만 null | 고정 대상 |
 | `source_seqs` | event seq 배열 | 아니오 | 비어 있지 않음; 중복 없음; 오름차순; 앱은 원래 ToolCall 완료 event를 출처로 사용 | 원래 event 묶음 |
 | `capability` | `reversible / retained / irreversible / conflict` | 아니오 | owner가 판정; retained는 감사 사실만 | 복원 분류 |
-| `reason_blob` | sha256 | 예 | retained·irreversible·conflict이면 필수; → platform/blob-store | 분류·남는 영향 설명 |
+| `reason` | 이유 코드 | 예 | retained·irreversible·conflict이면 필수; 고정 코드(contracts의 revertReasonSchema) | 분류·남는 영향 설명 |
 | `comparison` | JSON object | 예 | reversible·conflict 대상이면 소유 concern CAS 필수 | run이 남긴 판·seq와 현재 기준 |
 | `before_ref` | JSON object | 예 | reversible이면 필수; 앱은 AppRevertBinding, 그 밖 이전 값·불변 판/blob | 복원할 기준 |
 | `dependencies` | `{owner: concern id, target: ID, comparison: JSON object}` 배열 | 아니오 | 빈 배열 허용; owner가 복원 후 참조 검사 | 복원 의존 관계 |
@@ -73,6 +73,8 @@ event와 소유 concern의 복원 검사에서 만든 읽기 결과다. 정본 e
 - before_ref·comparison의 schema와 실제 복원 command는 owner가 정의한다. 이 concern은 역변경 종류 목록·다른 entity 필드를 정의하지 않는다.
 - 원래 run의 같은 대상에 연속한 변경은 한 묶음이다. 시작 전 값으로 돌아가며 중간 판 하나를 선택하지 않는다. 다른 run·user의 변경이 끼거나 이후 판·seq가 달라졌으면 conflict다. 값이 우연히 같아도 충돌이다.
 - 감사 event는 retained로 모두 설명한다. 업무 변경을 retained로 숨기지 않는다. 큰 이전 내용은 불변 version·blob을 참조하고 원래 변경과 같은 transaction에 소유 concern이 근거를 남긴다.
+- `reason`은 글이 아니라 고정 이유 코드다(유지하는 사실, 외부 효과, 뒤따른 변경, 원본 연결 문서, 제목 변경, 분류 안 된 event, 차단 이유 같은 코드). blob이나 hash로 저장하지 않으며 화면 문장은 shell이 코드로 wording을 고른다. 결과 event(`RevertApplied/RevertBlocked/RevertFinished`)는 변경 목록 대신 결과별 묶음 수(`results`)만 싣고 목록은 `reverts/list`가 읽는다.
+- 복원 준비 결과(문서의 이전 판을 다시 준비한 결과처럼 transaction 안에서 만들 수 없는 값)는 owner가 정의한 값으로 `RevertRun` 입력의 그 묶음 `comparison.prepared`에 싣고 `prepared_ref`가 그 정규 JSON hash다. 준비 결과는 비교 기준과 `binding_hash`에 들지 않는다. 준비가 없으면 owner가 복원 준비 불충족으로 전체를 막는다.
 
 ## AppRevertBinding (값)
 
@@ -99,7 +101,7 @@ preview는 receipt 원문을 UI·model에 보여 주지 않고 앱·command·변
 | `source_seqs` | event seq 배열 | 아니오 | RevertGroup과 동일한 원래 event 묶음 | 변경 출처 |
 | `capability` | `reversible / retained / irreversible / conflict` | 아니오 | 최종 transaction의 owner 판정 | 복원 가능 여부 |
 | `result` | `restored / retained / irreversible / conflict / unchanged / failure / uncertain` | 아니오 | 아래 조합만 허용 | 실제 시도 결과 |
-| `reason_blob` | sha256 | 예 | result≠restored이면 필수 | 남은 변경·감사 사실·차단 설명 |
+| `reason` | 이유 코드 | 예 | result≠restored이면 필수 | 남은 변경·감사 사실·차단 설명 |
 | `restored_seqs` | event seq 배열 | 아니오 | ledger 복원은 필수; 앱 복원은 후행 Invocation event 또는 아래 invocation 참조; 그 외 빈 배열 | 실제 보상 event |
 | `app_revert` | AppRevertBinding | 예 | 앱 묶음에 필수; 성공·실패·불명을 Invocation으로 확인 | 앱 복원 결과 |
 
@@ -128,11 +130,11 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
 | `reverts` | Revert 헤더 | `id` PK | partial run WHERE outcome IN ('applying','applied','partial','uncertain'); `result_seq` | `(run, result_seq)` | run FK → lophn-agent/harness/run-loop; result_seq FK → `events.seq`(platform/ledger) |
-| `revert_changes` | RevertChange의 owner·target·capability·result·reason | `(revert, ordinal)` PK | PK | `(owner, target)` | revert FK → `reverts.id`; reason hash → platform/blob-store; target는 owner 존재 검사 |
+| `revert_changes` | RevertChange의 owner·target·capability·result·reason | `(revert, ordinal)` PK | PK | `(owner, target)` | revert FK → `reverts.id`; reason은 고정 코드; target는 owner 존재 검사 |
 | `revert_change_sources` | source_seqs의 각 event 연결 | `(revert, source_seq)` PK | 같은 Revert 안 source event 하나당 한 묶음 | `(revert, ordinal, source_seq)`; `(source_seq)` | `(revert, ordinal)` FK → `revert_changes`; source_seq FK → `events.seq` |
 | `revert_change_compensations` | restored_seqs의 각 event 연결 | `(revert, ordinal, restored_seq)` PK | 같은 묶음 안 중복 없음 | `(restored_seq)` | `(revert, ordinal)` FK → `revert_changes`; restored_seq FK → `events.seq` |
 
-최종 결과 행은 불변이다. `reverts`에 preview_hash blob 참조·state_seq를, `revert_changes`에 AppRevertBinding·단계 결과를 담는다. 단계 계획은 RevertStarted 때 만들고 checkpoint는 아직 미확정 단계의 결과만 CAS로 한 번 설정한다. applying 헤더는 최종 outcome·result_seq로 한 번 바뀐다. 최종 결과·완료 단계는 덮어쓰지 않는다. source event가 정확히 원래 run 전체와 같은지, ledger compensation event는 이 transaction의 actor=user/run=null이고 앱 compensation은 고정 receipt·사람 결정에 연결된 Invocation인지 command가 검사한다. 하나의 복원 event가 여러 원래 event를 보상할 수 있으므로 여러 묶음의 참조는 허용한다. blob 영구 참조 등록·공통 요청 결과는 → platform/blob-store, platform/ledger.
+최종 결과 행은 불변이다. `reverts`에 preview_hash 지문·state_seq를, `revert_changes`에 AppRevertBinding·단계 결과를 담는다. 단계 계획은 RevertStarted 때 만들고 checkpoint는 아직 미확정 단계의 결과만 CAS로 한 번 설정한다. applying 헤더는 최종 outcome·result_seq로 한 번 바뀐다. 최종 결과·완료 단계는 덮어쓰지 않는다. source event가 정확히 원래 run 전체와 같은지, ledger compensation event는 이 transaction의 actor=user/run=null이고 앱 compensation은 고정 receipt·사람 결정에 연결된 Invocation인지 command가 검사한다. 하나의 복원 event가 여러 원래 event를 보상할 수 있으므로 여러 묶음의 참조는 허용한다. blob 영구 참조 등록·공통 요청 결과는 → platform/blob-store, platform/ledger.
 
 ## command
 
@@ -163,9 +165,9 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 | event | subject | payload | 구독(concern) |
 |---|---|---|---|
 | `RevertStarted` | revert | `run`, preview_hash, 전체 앱 단계 참조 | lophn-agent/revert, shell/desktop |
-| `RevertFinished` | revert | `run`, outcome=partial/uncertain, 실제 단계 결과·남은 영향 | lophn-agent/observability, shell/desktop |
-| `RevertApplied` | revert | `run`, `allow_partial`, `partial: boolean`, 변경 결과 참조 | lophn-agent/observability, shell/desktop; 대상 owner |
-| `RevertBlocked` | revert | `run`, 변경 결과 참조 | lophn-agent/observability, shell/desktop |
+| `RevertFinished` | revert | `run`, outcome=partial/uncertain, 결과별 묶음 수(`results`) | lophn-agent/observability, shell/desktop |
+| `RevertApplied` | revert | `run`, `allow_partial`, `partial: boolean`, 결과별 묶음 수(`results`) | lophn-agent/observability, shell/desktop; 대상 owner |
+| `RevertBlocked` | revert | `run`, 결과별 묶음 수(`results`) | lophn-agent/observability, shell/desktop |
 
 복원 event의 actor는 user, envelope run은 null이다. payload.run은 원래 run의 연결이다. `partial=true`는 irreversible 업무 변경이 남았다는 뜻이며 retained 감사 사실만 남으면 false다. 대상 복원 event는 각 owner가 소유한다.
 
@@ -191,6 +193,7 @@ changes는 시도 결과와 event 연결이며 원래 내용 복사본이 아니
 
 - **run 범위.** event.run 전체에 ToolCall.run으로 고정 연결된 성공 앱 write Invocation·receipt를 더한다. Invocation 후행 기록이 아직 없으면 확인 불가로 표시하고 안전한 복원으로 가정하지 않는다. actor·시각 범위로 추정하지 않는다. completed·failed·stopped run의 확정 변경을 모두 포함한다. 기다리는 run은 먼저 stopped가 되어야 한다. → lophn-agent/harness/run-loop
 - **부분 revert.** 기본 allow_partial=false다. irreversible 업무 변경이 섞이면 blocked다. true이면 독립적으로 유효한 reversible 변경 전체만 복원하고 irreversible 영향은 남긴다. retained 감사 사실만 있는 것은 부분 복원이 아니다.
+- **분류 근거.** run의 변경은 ledger의 event(`event.run`)에서 읽고 소유 concern의 복원 판정(adapter)이 묶음·분류·복원 command 호출을 정한다. 대상의 처음 변경 뒤에 이 run이 아닌 event가 하나라도 있으면(끼었거나 뒤따랐거나) 값이 같아도 충돌이다. 어느 adapter도 맡지 않은 event는 분류하지 않은 복원 불가로 남고 목록에서 빠지지 않는다. 문서의 제목 변경은 사람 자격으로 부를 수 없는 보상 값이라 남는 변경(복원 불가)이다.
 - **충돌.** 다른 변경이 끼거나 소유 CAS가 달라진 대상 하나라도 있으면 전체 blocked다. 부분 동의는 강제 복원·자동 병합의 허락이 아니다. 이 전체 blocked는 사전 검사에 적용하며 앱 복원 시작 뒤 새 충돌은 partial로 기록한다.
 - **의존.** irreversible 변경에 의존하는 대상도 복원 후 관계가 유효해야 한다. 안전한 전체 묶음이 없으면 blocked다.
 - **새 변경.** 문서 version pointer만 과거로 옮기거나 event를 삭제하지 않는다. 복원은 소유 concern의 새 변경이다. 새 복원 event의 actor=user/run=null이며 원래 run을 다시 수행한 것으로 기록하지 않는다.

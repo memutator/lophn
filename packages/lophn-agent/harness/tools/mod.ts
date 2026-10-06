@@ -38,6 +38,13 @@ export {
   GUIDE_TOOLS,
   type GuideToolPorts,
 } from "./bundles/guide.ts";
+export {
+  createVisualToolHandlers,
+  VISUAL_TOOL_NAMES,
+  VISUAL_TOOL_REVISION,
+  VISUAL_TOOLS,
+  type VisualToolPorts,
+} from "./bundles/visual.ts";
 export { createBuiltinToolHandlers } from "./bundles/handlers.ts";
 export {
   AGENT_TOOL_REVISION,

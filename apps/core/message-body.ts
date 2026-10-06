@@ -29,6 +29,7 @@ import {
   type Writer,
 } from "../../packages/platform/ledger/mod.ts";
 import type { MessageBodyEnvironment } from "../../packages/lophn-agent/conversation/mod.ts";
+import { checkVisualContent } from "../../packages/lophn-agent/visuals/mod.ts";
 import type { KnownSecretMatch } from "../../packages/platform/ledger/mod.ts";
 import {
   createProductRedactor,
@@ -164,6 +165,12 @@ export function createMessageBodyPreparer(deps: {
     const checked = schema.safeParse(redacted.value);
     if (!checked.success) {
       return rejected("invalid_input", "message content is not valid");
+    }
+    // 시각 블록의 markup·URL·상한은 blob을 준비하기 전에 owner 검사로 거절한다(준비한 뒤 거절하면
+    // 참조 없는 blob이 만료까지 남는다).
+    if (kind === "agent") {
+      const visual = checkVisualContent(checked.data);
+      if (!visual.ok) return rejected("invalid_input", visual.error.message);
     }
     const bytes = serializeMessageContent(checked.data);
     if (bytes.length > max) {

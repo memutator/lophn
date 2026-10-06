@@ -106,16 +106,57 @@ export const bundleManifestSchema = z.object({
 });
 export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 
+// command 하나의 바뀐 점. `kinds`는 입력·효과·확인·되돌림 지원이고 설명·이름만 바뀐 것은
+// `description_only_commands`로 구별한다(apps/releases#R10). 같은 입력 schema라도 효과가 바뀌면 동작 변경이다.
+export const COMMAND_CHANGE_KINDS = [
+  "input",
+  "effect",
+  "confirm",
+  "revert",
+] as const;
+const commandEffectSchema = z.enum(["read", "write", "external"]);
+export const commandChangeSchema = z.object({
+  command: commandKeySchema,
+  kinds: z.array(z.enum(COMMAND_CHANGE_KINDS)),
+  effect_from: commandEffectSchema.nullable(),
+  effect_to: commandEffectSchema.nullable(),
+  // 이전에 없던 필수 입력 이름.
+  new_required_inputs: z.array(z.string().min(1)),
+});
+export type CommandChange = z.infer<typeof commandChangeSchema>;
+
 // 이전 release와 사람에게 보여줄 비교. 같은 입력 schema만으로 호환을 주장하지 않는다.
+// 데이터 계약(`data_schema`·`data_changes`)은 apps/data, 접근 요청(`added_permissions`·
+// `removed_permissions`)은 apps/permissions의 근거로 따로 둔다(apps/releases#R11).
 export const releaseComparisonSchema = z.object({
   previous_release: releaseIdSchema.nullable(),
   added_permissions: z.array(z.string().min(1)),
   removed_permissions: z.array(z.string().min(1)),
   added_commands: z.array(commandKeySchema),
   removed_commands: z.array(commandKeySchema),
+  // 동작이 바뀐 command(입력·효과·확인·되돌림). 설명만 바뀐 것은 포함하지 않는다.
   changed_commands: z.array(commandKeySchema),
+  command_changes: z.array(commandChangeSchema),
+  // 효과가 external인 command 가운데 이전에는 external이 아니었거나 없던 것.
+  external_commands: z.array(commandKeySchema),
+  // 이름·설명만 바뀌어 동작 변경과 구별되는 command.
+  description_only_commands: z.array(commandKeySchema),
+  added_automations: z.array(z.string().min(1)),
+  removed_automations: z.array(z.string().min(1)),
+  changed_automations: z.array(z.string().min(1)),
+  added_screens: z.array(z.string().min(1)),
+  removed_screens: z.array(z.string().min(1)),
+  changed_screens: z.array(z.string().min(1)),
+  // 선언이 삭제되거나 바뀐 problem code. 열린 problem이 있어도 닫힘 근거가 아니다(apps/releases#R18).
   added_problem_code_warnings: z.array(z.string().min(1)),
+  data_schema: z.object({
+    from: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    to: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  }),
   data_changes: z.array(dataChangeSchema),
+  // 정적 비교는 업무 의미의 동일성을 증명하지 못한다. 이전 release가 있고 바뀐 것이 있으면 true이며
+  // 호환이라고 자동 표시하지 않는다(apps/releases#R10).
+  review_required: z.boolean(),
 });
 export type ReleaseComparison = z.infer<typeof releaseComparisonSchema>;
 
@@ -256,6 +297,9 @@ const releasePrepareInputSchema = z.strictObject({
   commit: z.string().regex(/^[0-9a-f]{40}$/),
   bundle_hash: sha256Schema,
   blueprint_hash: sha256Schema,
+  // 정규 blueprint JSON. core는 파일을 읽지 않으므로 준비한 bundle 안의 `blueprint.json` 그대로를
+  // 싣고, core가 검증기와 hash로 `blueprint_hash`와 같은지 확인한다(apps/releases#R1).
+  blueprint: z.record(z.string(), z.unknown()),
   manifest: bundleManifestSchema,
   data_schema: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   data_changes: z.array(dataChangeSchema),
@@ -266,6 +310,7 @@ const releasePrepareInputSchema = z.strictObject({
     { message: "release test reference is duplicated" },
   ),
   ticket_source: ticketSourceInputSchema.optional(),
+  // 비교는 core가 이전 active release의 고정 blueprint로 다시 계산한다. 보내도 쓰지 않는다.
   comparison: releaseComparisonSchema.optional(),
   created_by: actorSchema,
   key: idempotencyKeySchema,

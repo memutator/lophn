@@ -17,3 +17,30 @@ export {
   removeRunMetadata,
   writeRunMetadata,
 } from "./run-metadata.ts";
+export {
+  type CredentialSocket,
+  serveCredentialSocket,
+  unixProtectedChannel,
+} from "./credential-channel.ts";
+export {
+  CREDENTIAL_SOCKET_NAME,
+  credentialSocketPath,
+  relayCredential,
+} from "./credential-helper.ts";
+export {
+  checkRunningSandbox,
+  checkSandboxFile,
+  linuxProcReader,
+} from "./sandbox-check.ts";
+export {
+  cliLauncher,
+  credentialLoaderIdentity,
+  debControl,
+  denoCacheDir,
+  desktopEntry,
+  LINUX_INSTALL_ROOT,
+  LINUX_LAUNCHERS,
+  linuxInstallLayout,
+  mcpLauncher,
+  postinstScript,
+} from "./linux-install.ts";

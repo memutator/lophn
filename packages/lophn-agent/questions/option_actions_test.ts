@@ -151,6 +151,7 @@ Deno.test("lophn-agent/questions#R13: 적용 자격이 가져야 하는 operatio
     [
       "ApplyQuestionOption",
       "ApplySettings",
+      "app.create",
       "document.move",
       "document.rename",
     ],

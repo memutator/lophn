@@ -1,10 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import {
-  checkRepo,
-  checkSource,
-  errorsOf,
-  PROBLEM_MESSAGE_KEYS,
-} from "./check.ts";
+import { checkSource, errorsOf } from "./check.ts";
+import { checkRepo, PROBLEM_MESSAGE_KEYS } from "./repo-check.ts";
 import { en } from "./en.ts";
 
 const root = new URL("../../../", import.meta.url).pathname;

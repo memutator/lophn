@@ -1,3 +1,4 @@
+import { blobSizeSchema } from "./run-blobs.ts";
 import { z } from "zod";
 import {
   atSchema,
@@ -47,6 +48,8 @@ const requestFields = {
   input: hash,
   retry_of: idSchema("tcl").nullable(),
   attempt: z.union([z.literal(0), z.literal(1)]),
+  // 준비한 input blob의 크기. 있으면 command가 영구 참조를 등록한다.
+  input_size: blobSizeSchema.optional(),
 };
 
 export const recordToolRequestInputSchema = z.strictObject(requestFields)
@@ -126,6 +129,8 @@ export const finishToolCallInputSchema = z.strictObject({
   tool_call: idSchema("tcl"),
   outcome: toolOutcomeSchema,
   output: hash.nullable(),
+  // 준비한 output blob의 크기. 있으면 command가 영구 참조를 등록한다.
+  output_size: blobSizeSchema.optional(),
   result: toolResultSchema.nullable(),
   finished_at: atSchema,
   duration_ms: durationMsSchema.nullable(),

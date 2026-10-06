@@ -17,6 +17,7 @@ export {
   LIMIT_KEYS,
   type LimitKey,
   migrationFlags,
+  pairSocketFlags,
   type PlatformPorts,
   socketFlags,
 } from "./flags.ts";

@@ -146,6 +146,13 @@ type Tracked = {
   opened: boolean;
   // probe가 확인한 실제 등록 command. probe 전에는 선언한 목록이다.
   commands: string[];
+  // 준비 모드(activation 후보)로 probe만 통과하고 아직 열지 않았다. 열 때 시작 사실에 쓴다.
+  attestation?: {
+    release: string;
+    bundleHash: string;
+    commands: string[];
+    dataSchema: number;
+  };
 };
 
 // 진행 호출이 끝날 시간을 주는 정지. daemon 종료·core 단절은 바로 끝낸다.
@@ -165,6 +172,16 @@ export type Supervisor = {
   // 그 nonce의 자식을 정지 확인 뒤 새 nonce로 다시 띄운다. 이미 다른 자식이면 하지 않는다.
   // 회수된 credential·줄어든 agent 허락의 이전 통로를 닫는 길이다(apps Q5).
   restart(app: string, nonce: string): Promise<boolean>;
+  // activation: 그 앱의 자식을 의도된 종료로 끝내고 OS 종료를 확인한 뒤 새 시작을 막는다. true만 종료
+  // 확인이다. 자식이 없으면 곧바로 true다. 이미 붙들고 있으면 남은 자식(후보)의 종료만 다시 확인한다.
+  pause(app: string): Promise<boolean>;
+  // activation: 붙든 앱에 후보를 준비 모드로 띄운다. 검사(probe)까지만 하고 업무 통로·clock은 열지 않고
+  // 실행 상태도 알리지 않는다. 붙들고 있지 않거나 자식이 남아 있으면 시작하지 않는다.
+  prepare(desired: DesiredApp): Promise<CandidateStart>;
+  // activation: 성공 commit 뒤에만 부른다. 준비 모드 후보의 통로를 열고 시작을 알린다.
+  open(app: string): Promise<boolean>;
+  // activation: 붙들기를 풀고 core가 알린 원하는 상태로 맞춘다.
+  resume(app: string): Promise<void>;
   // core 제어 연결이 끊겼다. 새 호출을 닫고 자식을 모두 끝낸다.
   coreClosed(): Promise<void>;
   // 관측. 테스트와 runtime read가 본다.
@@ -197,7 +214,24 @@ type AppRuntime = {
   recordFailed: string | undefined;
   // 진행 중인 reconcile이 있으면 다음 요청은 그 뒤로 붙는다.
   pending: Promise<void>;
+  // activation이 이 앱을 붙들고 있다. 이전 자식은 종료를 확인했고 core가 알리는 원하는 상태는
+  // 저장만 하며 시작하지 않는다. `resume`이 풀고 그때의 원하는 상태로 맞춘다(apps/releases#R13).
+  paused: boolean;
 };
+
+// 후보 시작의 결과다. 준비 모드의 자식이 hash·handler·schema·연결 검사를 통과했다는 확인이다.
+export type CandidateStart =
+  | {
+    ok: true;
+    processNonce: string;
+    attestation: {
+      release: string;
+      bundleHash: string;
+      commands: string[];
+      dataSchema: number;
+    };
+  }
+  | { ok: false; reason: string };
 
 function startLine(input: {
   desired: DesiredApp;
@@ -263,6 +297,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       held: undefined,
       recordFailed: undefined,
       pending: Promise.resolve(),
+      paused: false,
     };
     apps.set(app, created);
     return created;
@@ -318,7 +353,11 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     return true;
   }
 
-  async function launch(runtime: AppRuntime, desired: DesiredApp) {
+  async function launch(
+    runtime: AppRuntime,
+    desired: DesiredApp,
+    mode: { open: boolean } = { open: true },
+  ): Promise<CandidateStart> {
     const nonce = deps.nonce();
     const sockets = deps.socketPaths(desired.app);
     const identity: ChildIdentity = {
@@ -339,7 +378,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
           summary: "app credential is unavailable",
         },
       });
-      return;
+      return { ok: false, reason: "app credential is unavailable" };
     }
     const child = await deps.spawn({
       app: desired.app,
@@ -385,13 +424,16 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         reason: "ready timeout",
       })),
     ]);
-    if (!sameChild(identity, child.identity)) return;
+    if (!sameChild(identity, child.identity)) {
+      return { ok: false, reason: "the child was replaced" };
+    }
     if (!probe.ok || probe.bundleHash !== desired.bundleHash) {
+      const reason = probe.ok ? "bundle mismatch" : probe.reason;
       await failStart(runtime, tracked, {
         code: "start_failed",
-        summary: probe.ok ? "bundle mismatch" : probe.reason,
+        summary: reason,
       });
-      return;
+      return { ok: false, reason };
     }
     const declared = [...desired.commands].sort();
     const reported = [...probe.commands].sort();
@@ -402,10 +444,37 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         code: "start_failed",
         summary: "handler or schema mismatch",
       });
-      return;
+      return { ok: false, reason: "handler or schema mismatch" };
     }
     tracked.probed = true;
     tracked.commands = [...probe.commands];
+    const attestation = {
+      release: desired.release,
+      bundleHash: probe.bundleHash,
+      commands: [...probe.commands],
+      dataSchema: probe.dataSchema,
+    };
+    // activation 후보는 검사까지만 한다. 통로를 열고 시작을 알리는 일은 commit 뒤의 `open`이다.
+    if (!mode.open) {
+      tracked.attestation = attestation;
+      return { ok: true, processNonce: nonce, attestation };
+    }
+    const opened = await openTracked(runtime, tracked, attestation);
+    return opened
+      ? { ok: true, processNonce: nonce, attestation }
+      : { ok: false, reason: "open failed" };
+  }
+
+  // probe를 통과한 자식의 통로를 열고 시작 사실을 core에 알린다. 열지 못하면 시작 실패다.
+  async function openTracked(
+    runtime: AppRuntime,
+    tracked: Tracked,
+    attestation: NonNullable<Tracked["attestation"]>,
+  ): Promise<boolean> {
+    const { child, desired, direct } = tracked;
+    const identity = child.identity;
+    const nonce = identity.processNonce;
+    const sockets = { direct };
     // open 연결이 없으면 probe 통과가 곧 연 것이다. 연결했는데 열지 못하면 시작 실패다.
     if (deps.open) {
       let opened = false;
@@ -414,13 +483,13 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       } catch {
         opened = false;
       }
-      if (!sameChild(identity, child.identity)) return;
+      if (!sameChild(identity, child.identity)) return false;
       if (!opened) {
         await failStart(runtime, tracked, {
           code: "start_failed",
           summary: "open failed",
         });
-        return;
+        return false;
       }
     }
     tracked.opened = true;
@@ -431,13 +500,14 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       started_at: startedAt(identity.startedAtMs),
       attestation: {
         release: desired.release,
-        bundle_hash: probe.bundleHash,
-        commands: probe.commands,
-        data_schema: probe.dataSchema,
+        bundle_hash: attestation.bundleHash,
+        commands: attestation.commands,
+        data_schema: attestation.dataSchema,
         process_nonce: nonce,
         connection_ok: true,
       },
     });
+    return true;
   }
 
   // 시작 실패는 종료를 확인한 뒤에만 자식을 놓는다. 확인되지 않으면 다음 시작을 막는다.
@@ -468,6 +538,8 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
   }
 
   async function apply(runtime: AppRuntime) {
+    // activation이 붙든 앱은 core가 알린 상태를 저장만 한다.
+    if (runtime.paused && !closed) return;
     const desired = runtime.desired;
     if (closed || !desired || !desired.runEnabled || desired.archived) {
       await stopTracked(runtime, closed ? "core_eof" : "user_stop");
@@ -571,6 +643,49 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       runtime.desired = desired;
       if (desired.runEnabled) runtime.held = undefined;
       return enqueue(runtime, () => apply(runtime));
+    },
+    async pause(app) {
+      const runtime = runtimeOf(app);
+      let confirmed = false;
+      await enqueue(runtime, async () => {
+        runtime.paused = true;
+        // 새 호출·clock을 닫고(requestStop) 유예 뒤 강제 종료해 OS 종료를 확인한다.
+        confirmed = await stopTracked(runtime, "release_change");
+      });
+      return confirmed;
+    },
+    async prepare(desired) {
+      const runtime = runtimeOf(desired.app);
+      let outcome: CandidateStart = { ok: false, reason: "not paused" };
+      await enqueue(runtime, async () => {
+        if (closed || !runtime.paused || runtime.tracked !== undefined) return;
+        outcome = await launch(runtime, desired, { open: false });
+      });
+      return outcome;
+    },
+    async open(app) {
+      const runtime = apps.get(app);
+      if (!runtime) return false;
+      let opened = false;
+      await enqueue(runtime, async () => {
+        const tracked = runtime.tracked;
+        if (
+          closed || tracked === undefined || tracked.intended !== undefined ||
+          !tracked.probed || tracked.opened || tracked.attestation === undefined
+        ) return;
+        opened = await openTracked(runtime, tracked, tracked.attestation);
+        // 채택된 release의 자식이 열렸다. 붙들기를 풀 때 이 자식을 이전 상태로 되돌리지 않는다.
+        if (opened) runtime.desired = tracked.desired;
+      });
+      return opened;
+    },
+    async resume(app) {
+      const runtime = apps.get(app);
+      if (!runtime) return;
+      await enqueue(runtime, async () => {
+        runtime.paused = false;
+        await apply(runtime);
+      });
     },
     async coreClosed() {
       closed = true;

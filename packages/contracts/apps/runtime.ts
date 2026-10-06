@@ -199,6 +199,8 @@ export const appLogsInputSchema = z.strictObject({
   app: appIdSchema,
   invocation: idSchema("inv").optional(),
   limit: z.number().int().min(1).max(LOG_LINE_MAX_COUNT).optional(),
+  // 이어 읽기다. 앞선 응답의 next_cursor만 받는다(더 오래된 줄 쪽으로 이어진다).
+  cursor: z.string().regex(/^[0-9]+$/).optional(),
   max_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER)
     .optional(),
 });

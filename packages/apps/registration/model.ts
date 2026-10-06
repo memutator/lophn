@@ -64,6 +64,19 @@ export function authorizeApp(
   }
 }
 
+// App row 없이 ID만으로 범위를 판정한다. 다른 앱의 기록(invocation 등)을 읽는 곳이 쓴다.
+export function authorizeAppId(
+  port: (<T>(key: { readonly name: string }) => T) | undefined,
+  ctx: RequestContext,
+  operation: string,
+  app: string,
+): Result<void> {
+  return authorizeApp(port, ctx, operation, {
+    kind: "app",
+    app: { id: app } as unknown as App,
+  });
+}
+
 function authorizationTarget(target: AppAccessTarget): AuthorizationTarget {
   const value: Record<string, string> = {
     app: target.kind === "command" ? target.after.id : target.app.id,

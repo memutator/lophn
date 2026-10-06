@@ -43,7 +43,15 @@ async function importMap(
   const packages = [
     design,
     wording,
-    ...["tokens/", "ui-table/", "ui-chart/"].map((path) => new URL(path, sdk)),
+    ...[
+      "tokens/",
+      "ui-control/",
+      "ui-overlay/",
+      "ui-layout/",
+      "ui-state/",
+      "ui-table/",
+      "ui-chart/",
+    ].map((path) => new URL(path, sdk)),
   ];
   const files = [
     new URL("deno.json", root),

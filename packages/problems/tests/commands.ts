@@ -54,6 +54,8 @@ export function handleRequestTest(
   if (prior) {
     if (
       !sameConnection(prior.payload, { ...input, before_bundle_hash: null }) ||
+      (prior.payload.request_timeout_ms ?? null) !==
+        (input.timeout_ms ?? null) ||
       prior.request_principal !== ctx.principal
     ) {
       return err({ code: "conflict", message: CONFLICT });
@@ -83,6 +85,9 @@ export function handleRequestTest(
     payload: {
       ...connectionOf({ ...input, before_bundle_hash: null }),
       before_bundle_hash: checked.value.before_bundle_hash,
+      ...(input.timeout_ms === undefined
+        ? {}
+        : { request_timeout_ms: input.timeout_ms }),
     },
   });
   if (!appended.ok) return appended;

@@ -488,6 +488,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md, docs/research/provider-adapters.md
 - 선행: T11, T12, T15, T19, T20, T21, T22, T25
+- T32에서 넘어온 것: 받는 run이 맡긴 내용 blob을 prompt로 읽는 통로, handoff 뒤 보낸 run을 끝내는 일, flow resume-agent-session의 handoff 갈래(#308)
 - T15에서 넘어온 것: `/v1/providers/test` route의 runtime 연결. runConnectionTest·ConnectionTestPort는 #249에 있다
 - T10에서 넘어온 것: run basis와 result의 blob 영구 참조 등록(#250은 hash만 둔다)
 - T11에서 넘어온 것(#281): runtime이 답을 남길 때는 `RecordMessage`에 `content`(글·시각 블록 값, 240KiB 이하)를 싣는다(Q29). hash·blob은 만들지 않고 envelope의 `run`은 자격의 run이다
@@ -579,7 +580,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T32 handoff와 agent 일 tool
 
-- 상태: 진행 (#308) — 남은 것: `approval.submit_assignment`(OperatorApprovalBundle 모양은 T52), handoff 갈래의 flow resume-agent-session(T25·T26·T27 선행), 받는 run이 내용 blob(맡긴 내용)을 읽는 통로(contract에 읽기 route가 없어 run-loop prompt 조립이 쓸 core 읽기 환경과 함께 T26에서 정한다), 보낸 run을 handoff 뒤 끝내는 loop 연결(T26). 구현: SubmitHandoff(AcceptRun 출처 검사 wrapper, 한 transaction), 현황·결과 read, 내용 blob core 준비(redaction), agent 일 tool 열한 개 정의·handler, 실제 core 시험(apps/core/handoff_test.ts)
+- 상태: 완료 (#308) — 이어보냄: `approval.submit_assignment` → T52, resume-agent-session의 handoff 갈래·받는 run이 맡긴 내용 blob을 읽는 통로·handoff 뒤 보낸 run 끝내기 → T26
 - 등급: 기본
 - concern: lophn-agent/handoff, lophn-agent/harness/run-loop, lophn-agent/harness/tools
 - 요구: lophn-agent/handoff#R1, R2, R3, R4, R5, R6, R7, R8, R9, lophn-agent/harness/run-loop#R7, lophn-agent/harness/tools#R10
@@ -916,6 +917,7 @@ E2E는 T53이 쓴다.
 - slice: operator
 - 조사: docs/research/presets-and-agent-config.md
 - 선행: T9, T22, T43, T51, platform#T21, platform#T23
+- T32에서 넘어온 것: `approval.submit_assignment` tool(OperatorApprovalBundle 모양은 T52 소유, #308)
 - T51에서 넘어온 것: ApplyOperatorAssignment의 주기 변경 규칙(새 `first_at`이 적용 시각보다 미래가 아니면 `invalid_input`, 주기가 바뀔 때만 `last_due_at`을 null로, 책임·상태만 바꾸면 유지, paused는 그대로)은 #267이 먼저 넣었다. 생성 경로가 `assignment_outputs`·`assignment_read_apps`·`assignment_read_commands` 행을 아직 넣지 않는 것은 이 작업이 채운다
 - 완료:
   - operator_assignment_test.ts에 assignments#R4–R8, R15, presets#R15, tool-judgment#R4 테스트: 사람이 승인한 고정 bundle만 적용·agent가 자기·다른 assignment를 적용하지 않음, preset 전체 판·범위·남길 문서·주기·승인 read의 전후·이유가 bundle에 묶이고 내용·이전 판이 다르면 거절, 실제 첫 version이 있는 기존 문서 최소 1개·원본 연결·보관·빈 예약·시리즈·동적 이름 거절, 이름·자리가 바뀌어도 같은 문서·자료 속 주소 추가 읽기 없음, 남길 문서 독점(멈춤도 유지)과 사람 직접 편집 허용·충돌 검사, 승인 outputs 새 version만 allow·선언 밖 쓰기는 deny, 주기·사람 요청 외 자동 접수 없음, 초안의 판단·근거·비교 기준·갱신 조건·책임 밖과 구성 전체 검토 자료

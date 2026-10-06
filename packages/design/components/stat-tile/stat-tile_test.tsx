@@ -53,7 +53,7 @@ Deno.test("shell/design-system#R31: 수치 타일은 한 줄에 최대 4개다",
       ))}
     </StatRow>,
   );
-  const row = style(view.container.firstElementChild!);
+  const row = style(view.container.firstElementChild!.firstElementChild!);
   assertEquals(row.display, "grid");
   assert(
     /^repeat\(4, minmax\(0(px)?, 1fr\)\)$/.test(row.gridTemplateColumns),

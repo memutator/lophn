@@ -512,10 +512,19 @@ Deno.test("apps/sdk#R32: the public API of the capability clients has no path to
 });
 
 Deno.test("apps/sdk#R26: cap-problem needs no extra permission and exposes no way to close a problem", async () => {
+  // 보고 함수와 runtime이 설치하는 보고 port뿐이다(apps#T22). 닫기·해소 API는 없다.
   assertEquals(Object.keys(capProblem).sort(), [
+    "REPORTER_PORT",
     "createExceptionObserver",
     "createProblemReporter",
+    "installProblemReporter",
+    "reportProblem",
   ]);
+  assert(
+    !Object.keys(capProblem).some((name) =>
+      /close|resolve|dismiss/i.test(name)
+    ),
+  );
   const reporter = createProblemReporter({
     transport: () =>
       Promise.resolve({

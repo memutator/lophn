@@ -1,8 +1,9 @@
 export {
-  actionAllowed,
+  type Adoption,
+  adoptionOf,
   appliedOf,
+  evidenceKey,
   loadQuestion,
-  QUESTION_ACTIONS,
   questionBodyFields,
   type QuestionRecord,
   type QuestionRow,
@@ -10,6 +11,27 @@ export {
   settingChangesOf,
 } from "./model.ts";
 export { createQuestionCommands } from "./commands.ts";
+export {
+  buildOptionAction,
+  checkOptionAction,
+  createApplyQuestionOption,
+  findOptionOwner,
+  moveOptionAction,
+  OPTION_ACTION_OPERATIONS,
+  OPTION_ACTION_OWNERS,
+  type OptionActionOwner,
+  type OptionApplyDeps,
+  optionBindingHash,
+  optionInputHash,
+  type OptionOwnerHandlers,
+  renameOptionAction,
+  settingsOptionAction,
+} from "./option-actions.ts";
+export {
+  type ProtectedSetting,
+  protectedSetting,
+  type ProtectedSettingKind,
+} from "./protected-settings.ts";
 export { createQuestionReads } from "./reads.ts";
 export { questionTextRead } from "./text-read.ts";
 export {

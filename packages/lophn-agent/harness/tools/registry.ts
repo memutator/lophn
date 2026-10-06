@@ -12,6 +12,7 @@ import {
   DOCUMENT_WRITE_TOOL_NAMES,
 } from "./bundles/document.ts";
 import { FORMAT_TOOL_NAMES, FORMAT_TOOLS } from "./bundles/format.ts";
+import { GUIDE_TOOL_NAMES, GUIDE_TOOLS } from "./bundles/guide.ts";
 import { METADATA_TOOL_NAMES, METADATA_TOOLS } from "./bundles/metadata.ts";
 import { VISUAL_TOOL_NAMES, VISUAL_TOOLS } from "./bundles/visual.ts";
 
@@ -49,6 +50,7 @@ export const BUILTIN_TOOLS: readonly ToolDefinition[] = [
   ...METADATA_TOOLS,
   ...FORMAT_TOOLS,
   ...VISUAL_TOOLS,
+  ...GUIDE_TOOLS,
   ...AGENT_TOOLS,
 ];
 
@@ -62,6 +64,7 @@ export const TOOL_BUNDLES: ReadonlyMap<string, readonly string[]> = new Map([
   ["context-write", CONTEXT_WRITE_TOOL_NAMES],
   ["metadata-read", METADATA_TOOL_NAMES],
   ["format", FORMAT_TOOL_NAMES],
+  ["lophn-guide", GUIDE_TOOL_NAMES],
   ["visual", VISUAL_TOOL_NAMES],
 ]);
 
@@ -127,6 +130,9 @@ export function listTools(
 // 저장 범위와 기준 판 비교를 그대로 적용하려고 요청한 agent의 자격으로 부른다).
 const SUPPORTING_OPERATIONS: ReadonlyMap<string, readonly string[]> = new Map([
   ["SaveToolDocument", ["document.prepare", "document.save"]],
+  // 제품 안내 읽기는 안내 목록과 설정 정의를 같은 읽기 자격으로 함께 읽는다.
+  ["guide.read", ["guide.list"]],
+  ["GetSettings", ["SettingsDefinitions"]],
   // 항목 추가·변경과 후보 변경은 같은 revision의 현재 상태를 읽어 확인한다.
   ["context.set_item", ["context.get"]],
   ["term.update", ["term.get"]],

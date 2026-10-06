@@ -1227,10 +1227,10 @@ async function open(
           {
             updateSpec: async (updated) => {
               announceHello();
-              const restarted = await io.updateSpec(
-                updated,
-                documentsHello,
-                freshCallbacks(),
+              // 바꾸는 동안 이미 보낸 요청은 옛 child와 함께 사라지므로 바로 끝내고, 새 요청은
+              // 새 child가 뜨기를 기다린다. 이 처리가 없으면 그 요청은 기한까지 답이 없다.
+              const restarted = await documentsChannel.replacing(() =>
+                io.updateSpec(updated, documentsHello, freshCallbacks())
               );
               // 새 coordinator는 근거가 없다. 다음 확인이 전체를 다시 보낸다.
               if (restarted.ok) basisSync?.invalidate();

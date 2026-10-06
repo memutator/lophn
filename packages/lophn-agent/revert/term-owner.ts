@@ -112,9 +112,11 @@ function classifyTerm(
   }
   const proposed = own[0].type === termProposed.type;
   const rest = proposed ? own.slice(1) : own;
+  // 제안한 후보는 그 뒤 이 run이 이름·근거를 고치거나 보관·해제했어도 끝에 활성이면 보관 하나로 돌아간다.
   const steps = proposed
     ? rest.every((event) =>
-        event.type === termArchived.type || event.type === termUnarchived.type
+        event.type === termUpdated.type || event.type === termArchived.type ||
+        event.type === termUnarchived.type
       )
       ? (endsActive(rest) ? [{ op: "archive" } as Step] : [])
       : null

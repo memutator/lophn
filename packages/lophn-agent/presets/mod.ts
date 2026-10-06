@@ -1,6 +1,6 @@
 export { presetSchemaSteps } from "./schema.ts";
 export { createPresetCommands } from "./commands.ts";
-export { createPresetReads } from "./reads.ts";
+export { createPresetReads, instructionAttachmentsOf } from "./reads.ts";
 export {
   nameKey,
   parseDefinition,

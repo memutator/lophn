@@ -213,3 +213,40 @@ export function fileReadPort(): StableReadPort {
     },
   };
 }
+
+// 등록된 지침 파일을 읽는 port(file-tracking#R19). 일반 읽기에 더해 열기 전에 exact 경로가
+// symlink가 아니고(상위 폴더 symlink 포함, canonical과 같아야 한다) 일반 파일이며 data root와 같은
+// 소유자인지 본다. data root의 소유자는 시작할 때 platform이 이미 확인했다. 검사에 걸리면
+// invalid_input이고 없는 파일은 not_found다.
+export function instructionReadPort(dataRoot: string): StableReadPort {
+  const base = fileReadPort();
+  let owner: Promise<number | null> | undefined;
+  const ownerOf = () =>
+    owner ??= Deno.stat(dataRoot).then((info) => info.uid, () => null);
+  const refused = (message: string) =>
+    err({ code: "invalid_input" as const, message });
+  return {
+    ...base,
+    async open(path) {
+      let info: Deno.FileInfo;
+      try {
+        info = await Deno.lstat(path);
+      } catch (error) {
+        if (error instanceof Deno.errors.NotFound) {
+          return err({ code: "not_found", message: "file is missing" });
+        }
+        return err({ code: "unavailable", message: "file cannot be read" });
+      }
+      if (info.isSymlink) return refused("instruction file is a symlink");
+      if (!info.isFile) return refused("instruction file is not a file");
+      if ((await realOf(path)) !== path) {
+        return refused("instruction file path is not canonical");
+      }
+      const uid = await ownerOf();
+      if (uid !== null && info.uid !== null && info.uid !== uid) {
+        return refused("instruction file owner differs");
+      }
+      return await base.open(path);
+    },
+  };
+}

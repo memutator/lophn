@@ -555,3 +555,26 @@ test("shell/app-frame#R19: shell renderer는 앱 UI 코드나 앱 scheme 자원�
     );
   }
 });
+
+test("shell/app-frame#R12, problems/reporting#R6: IPC sender view는 지금 살아 있는 contents의 main 신원만 돌려주고 폐기·교체된 contents는 없다", async () => {
+  const w = world();
+  const view = await opened(w);
+  const first = w.contents[0]!;
+  const bound = w.frame.senderView(first.id);
+  assert.equal(bound?.view_session, view.view_session);
+  assert.equal(bound?.target.app, APP_A);
+  assert.equal(bound?.target.release, REL_1);
+  assert.equal(bound?.target.mode, "live");
+  assert.equal(bound?.binding.processNonce, "nonce-1");
+  assert.equal(w.frame.senderView(9999), undefined);
+  // release가 바뀌어 다시 열리면 옛 contents는 어느 view에도 묶이지 않는다.
+  w.state.release = REL_2;
+  w.state.nonce = "nonce-2";
+  await w.frame.refresh(APP_A);
+  assert.equal(w.frame.senderView(first.id), undefined);
+  const next = w.contents.at(-1)!;
+  assert.equal(w.frame.senderView(next.id)?.target.release, REL_2);
+  assert.equal(w.frame.senderView(next.id)?.binding.processNonce, "nonce-2");
+  w.frame.close(view.view_session);
+  assert.equal(w.frame.senderView(next.id), undefined);
+});

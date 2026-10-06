@@ -79,15 +79,21 @@ async function startAt(home: string): Promise<Core> {
   });
   assert(started.ok, started.ok ? "" : started.error.message);
   const core = started.value;
-  assert(core.acceptTestCredential);
-  for (const who of Object.keys(TOKENS) as Who[]) {
-    const accepted = await core.acceptTestCredential(
-      context(who),
-      TOKENS[who],
-    );
-    assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
-    const recorded = await core.record(context(who));
-    assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+  try {
+    assert(core.acceptTestCredential);
+    for (const who of Object.keys(TOKENS) as Who[]) {
+      const accepted = await core.acceptTestCredential(
+        context(who),
+        TOKENS[who],
+      );
+      assert(accepted.ok, accepted.ok ? "" : accepted.error.message);
+      const recorded = await core.record(context(who));
+      assert(recorded.ok, recorded.ok ? "" : recorded.error.message);
+    }
+  } catch (thrown) {
+    // 띄운 core를 닫지 않으면 서버·worker가 test process를 붙들어 실패가 멈춤으로 바뀐다.
+    await core.shutdown();
+    throw thrown;
   }
   return core;
 }
@@ -146,6 +152,38 @@ type Client = {
   close(): void;
 };
 
+// 이 test가 연 연결. withCore가 끝날 때 남은 연결을 닫아 core 종료와 겹치지 않게 한다.
+const liveSockets = new Set<WebSocket>();
+const OPEN_MS = 15_000;
+const CLOSE_MS = 10_000;
+
+// 기한 안에 settle하지 않으면 이름을 담아 던진다. 기다림이 끝없이 걸리지 않게 한다.
+async function within<T>(
+  what: string,
+  ms: number,
+  work: Promise<T>,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`${what}: ${ms}ms 안에 끝나지 않았다`)),
+          ms,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// 닫은 연결의 닫힘 확인을 기다린다. 기한 안에 오지 않으면 던진다.
+function closedWithin(client: Client): Promise<number> {
+  return within("WebSocket 닫힘", CLOSE_MS, client.closed);
+}
+
 async function connect(
   core: Core,
   who: Who,
@@ -155,11 +193,15 @@ async function connect(
     `ws://127.0.0.1:${core.port}/v1/events/subscribe`,
     { headers: { authorization: `Bearer ${TOKENS[who]}` } },
   );
+  liveSockets.add(socket);
   const client: Client = {
     events: [],
     frames: [],
-    closed: new Promise((resolve) => {
-      socket.onclose = (event) => resolve(event.code);
+    closed: new Promise<number>((resolve) => {
+      socket.onclose = (event) => {
+        liveSockets.delete(socket);
+        resolve(event.code);
+      };
     }),
     close: () => socket.close(),
   };
@@ -170,10 +212,14 @@ async function connect(
       client.events.push(...frame["events"] as EventEnvelope[]);
     }
   };
-  const opened = await new Promise<boolean>((resolve) => {
-    socket.onopen = () => resolve(true);
-    socket.onerror = () => resolve(false);
-  });
+  const opened = await within(
+    "WebSocket 열림",
+    OPEN_MS,
+    new Promise<boolean>((resolve) => {
+      socket.onopen = () => resolve(true);
+      socket.onerror = () => resolve(false);
+    }),
+  );
   assert(opened, "WebSocket이 열리지 않았다");
   socket.send(JSON.stringify({
     type: "subscribe",
@@ -186,8 +232,12 @@ async function connect(
   return client;
 }
 
+// 부하 아래서는 구독·event 전달이 느려진다. 반복 횟수가 아니라 실제 경과 시간으로 기한을 둔다.
+const UNTIL_MS = 20_000;
+
 async function until(test: () => boolean, message: string) {
-  for (let waited = 0; waited < 200; waited++) {
+  const deadline = performance.now() + UNTIL_MS;
+  while (performance.now() < deadline) {
     if (test()) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
@@ -204,6 +254,18 @@ async function withCore(run: (core: Core) => Promise<void>): Promise<void> {
   try {
     await run(core);
   } finally {
+    // 닫지 않은 연결이 있으면 닫고, 닫힘을 잠깐 기다린 뒤 core를 끝낸다.
+    const left = [...liveSockets];
+    for (const socket of left) {
+      try {
+        socket.close();
+      } catch { /* 이미 닫힘 */ }
+    }
+    const deadline = performance.now() + CLOSE_MS;
+    while (liveSockets.size > 0 && performance.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    liveSockets.clear();
     await core.shutdown();
     await Deno.remove(home, { recursive: true });
   }
@@ -235,7 +297,7 @@ Deno.test("platform/api#R5 platform/ledger#R15: WebSocket 구독자는 구독 �
     assertEquals(typesOf(user.events), ["ProjectCreated", "ProjectArchived"]);
     assert(BigInt(user.events[1].seq) > BigInt(user.events[0].seq));
     user.close();
-    await user.closed;
+    await closedWithin(user);
   });
 });
 
@@ -252,7 +314,7 @@ Deno.test("platform/api#R5: 닫힌 WebSocket 연결은 event를 더 받지 않�
     await until(() => second.events.length >= 1, "event가 오지 않았다");
     // 하나를 닫으면 그 session만 빠진다.
     first.close();
-    await first.closed;
+    await closedWithin(first);
     await until(
       () => core.eventSessions!() === baseline + 1,
       "닫힌 연결의 session이 남았다",
@@ -265,7 +327,7 @@ Deno.test("platform/api#R5: 닫힌 WebSocket 연결은 event를 더 받지 않�
     await until(() => second.events.length >= 3, "남은 연결이 받지 못했다");
     assertEquals(first.events.length, seen);
     second.close();
-    await second.closed;
+    await closedWithin(second);
     await until(
       () => core.eventSessions!() === baseline,
       "모든 연결을 닫았는데 session이 남았다",
@@ -284,13 +346,17 @@ Deno.test("platform/api#R5: WebSocket 연결 한도는 닫힌 연결의 자리�
       `ws://127.0.0.1:${core.port}/v1/events/subscribe`,
       { headers: { authorization: `Bearer ${TOKENS.user}` } },
     );
-    const opened = await new Promise<boolean>((resolve) => {
-      rejected.onopen = () => resolve(true);
-      rejected.onerror = () => resolve(false);
-    });
+    const opened = await within(
+      "거절된 WebSocket",
+      OPEN_MS,
+      new Promise<boolean>((resolve) => {
+        rejected.onopen = () => resolve(true);
+        rejected.onerror = () => resolve(false);
+      }),
+    );
     assertEquals(opened, false);
     open[0].close();
-    await open[0].closed;
+    await closedWithin(open[0]);
     // 자리가 돌아왔다. 닫힘 처리가 끝나기를 잠깐 기다린다.
     let again: Client | undefined;
     for (let attempt = 0; attempt < 40 && !again; attempt++) {

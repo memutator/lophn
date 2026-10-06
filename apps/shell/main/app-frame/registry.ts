@@ -1,40 +1,74 @@
 // 앱 view registry. `appFrame.open/replace/close`(contracts#T38)의 main service다. 연결은
 // 앱 통로로 main이 얻고 view에 묶으며, 페이지가 주장한 앱·release·actor는 받을 자리가 없다
-// (shell/app-frame#R12, R19). 실제 붙이기·숨기기·폐기는 이 모듈만 하고 같은 view_session과
-// generation으로 진단을 남긴다(R22). view가 있다는 것만으로 권한이 생기지 않는다(R20): view는
-// main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는 없다.
-import { appEntryUrl, type ProtocolView } from "./app-protocol.ts";
-import { type ConnectTarget, failure, type Outcome } from "./app-connection.ts";
-import { bindTarget, type Bound, sameConnection } from "./binding.ts";
-import type { ViewEvent } from "./diagnostics.ts";
-import { navigationAllowed } from "./network-policy.ts";
+// (shell/app-frame#R12, R19). 실제 붙이기·숨기기·폐기는 이 모듈과 placement.ts만 하고 같은
+// view_session과 generation으로 진단을 남긴다(R22). view가 있다는 것만으로 권한이 생기지
+// 않는다(R20): view는 main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는
+// 없다. command는 `app:call`(app-call.ts)이 이 view의 신원으로 따로 얻은 연결로만 부른다.
 import {
-  type AppFrameOpen,
+  appEntryUrl,
+  type ProtocolView,
+  type Upstream,
+} from "./app-protocol.ts";
+import {
+  type AppConnector,
+  type ConnectTarget,
+  failure,
+  type Outcome,
+} from "./app-connection.ts";
+import type { ViewDiagnostics, ViewEvent } from "./diagnostics.ts";
+import { bindTarget } from "./binding.ts";
+import { navigationAllowed } from "./network-policy.ts";
+import { createPlacement, type Placed } from "./placement.ts";
+import {
+  appHostLabel,
+  type AppSessionHandle,
+  createAppSessions,
+} from "./session-policy.ts";
+import {
+  type AppFrameViewState,
+  type AppViewHost,
+  type Bound,
   boundsEmpty,
   boundsValid,
+  type BoundView,
+  boundViewOf,
   checkOpen,
+  closedOf,
+  type ClosedView,
+  type ConnectionState,
+  sameConnection,
+  stateOf as state,
   targetOf,
   type ViewBounds,
-} from "./open-input.ts";
-import { createPlacement, type Placed } from "./placement.ts";
-import { appHostLabel, createAppSessions } from "./session-policy.ts";
-import {
-  type AppFrameDeps,
-  type AppFrameViewState,
-  closedOf,
-  type ConnectionState,
-  viewState as state,
-} from "./view-host.ts";
+} from "./view-model.ts";
 
-export type { AppFrameOpen, ViewBounds };
 export type {
-  AppFrameDeps,
+  AppFrameOpen,
   AppFrameViewState,
   AppViewContents,
   AppViewHost,
+  BoundView,
   ClosedView,
   ConnectionState,
-} from "./view-host.ts";
+  ViewBounds,
+} from "./view-model.ts";
+export { checkOpen } from "./view-model.ts";
+
+export interface AppFrameDeps {
+  connector: Pick<AppConnector, "connect" | "hosts">;
+  views: AppViewHost;
+  sessionHandle(partition: string): AppSessionHandle;
+  upstream: Upstream;
+  /** loopback에서 막을 플랫폼 port. */
+  platformPorts(): readonly number[];
+  diagnostics: ViewDiagnostics;
+  ids: { viewSession(): string; token(): string };
+  clock: { nowMs(): number };
+  /** 연결 상태·release가 바뀐 view를 그 창의 shell renderer에 알린다(`shell:view-state`). */
+  onState?(window: string, state: AppFrameViewState): void;
+  /** view가 그 앱에서 닫혔다. 앱 runtime이 그 view_session을 버리게 한다(apps/agent-context). */
+  closed?(view: ClosedView): void;
+}
 
 // 만료 이만큼 전에 연결을 다시 얻는다.
 export const CONNECTION_RENEW_MS = 30_000;
@@ -315,6 +349,15 @@ export function createAppFrame(deps: AppFrameDeps) {
     },
 
     hide,
+
+    /** webContents id로 지금 살아 있는 view를 찾는다. 폐기·교체된 contents는 없다. */
+    senderView(contentsId: number): BoundView | undefined {
+      const entry = byContents.get(contentsId);
+      if (entry === undefined || entries.get(entry.view_session) !== entry) {
+        return undefined;
+      }
+      return boundViewOf(entry);
+    },
 
     /** 그 view가 붙는 창. 없는 view는 undefined다. */
     owner(view_session: string): string | undefined {

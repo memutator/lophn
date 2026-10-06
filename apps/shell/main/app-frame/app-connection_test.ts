@@ -256,3 +256,41 @@ test("shell/app-frame#R16: fetch host는 active net.fetch grant이고 지금 rel
     "unavailable",
   );
 });
+
+test("shell/app-frame#R15, shell/app-frame#R20: app:call 연결은 view 대상에 blueprint command 범위를 요청하고 core가 넣은 것 중 요청한 것만 받으며 release를 따라가지 않는다", async () => {
+  const { calls, connector } = core({
+    "memory:apps/connect": () =>
+      signed(connection({ commands: ["note.save", "usage.list", "other.x"] })),
+  });
+  const result = await connector.connectCommands(LIVE, [
+    "usage.list",
+    "note.save",
+    "secret.export",
+  ]);
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls[0]!.body, {
+    app: APP,
+    mode: "live",
+    screens: ["main"],
+    screen_sizes: { main: ["panel"] },
+    commands: ["usage.list", "note.save", "secret.export"],
+  });
+  const value = (result as {
+    ok: true;
+    value: { commands: string[]; binding: { authorization: string } };
+  }).value;
+  assert.deepEqual(value.commands, ["note.save", "usage.list"]);
+  assert.equal(
+    JSON.parse(value.binding.authorization).payload.commands.length,
+    3,
+  );
+  const moved = core({
+    "memory:apps/connect": () => signed(connection({ release: REL_2 })),
+  });
+  const conflict = await moved.connector.connectCommands(LIVE, ["usage.list"]);
+  assert.equal(conflict.ok, false);
+  assert.equal(
+    (conflict as { error: { code: string } }).error.code,
+    "conflict",
+  );
+});

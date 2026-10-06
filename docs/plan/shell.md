@@ -586,6 +586,7 @@ concerns: [shell]
 - shell#T28에서 넘어온 것: 질문 칸·things-to-confirm의 [Review]는 `lophnShell.openConfirmation({request, parentWindow})`(contracts shell confirmation)을 부른다(`apps/shell/renderer/desktop/lophn-space/things-to-confirm/core-source.ts`의 `windowConfirmation`). shell preload에 `openConfirmation`과 main의 `shell:confirmation-open` 등록·coordinator 연결이 아직 없어 지금은 "The review window can't open here yet."를 보인다. main은 renderer가 보낸 `parentWindow` 값이 아니라 IPC를 보낸 창을 부모로 쓴다
 - platform#T19 후속(#294)에서 넘어온 것: secret 입력 창의 main 쪽 길이 core에 열렸다. 값이 있는 곳은 창의 보호 입력과 main 메모리뿐이다. main은 (1) `POST /v1/secrets/input`(`content-type: application/octet-stream`, `x-lophn-input`에 `{purpose, owner, bytes}`의 base64url JSON, body는 값의 바이트, 상한 64KiB)으로 값을 보내 값 없는 준비 증거 `{preparation, sealed_ref, purpose, owner}`를 받고, (2) 그 증거가 들어간 `SetSecret` 입력(앱 secret은 `purpose: app_secret`, `owner == name`)의 binding으로 confirmation handle을 main↔core 비공개 연결에 등록하고(handle은 증거를 받은 뒤에만 만들 수 있다), (3) `SetSecret`(교체는 `compare: {sealed_ref, revision}`, 처음은 null 둘)을 보내고, (4) 결과로 창에는 안전 이름·저장 결과만 돌려준다. 제거는 `RemoveSecret`이다. 표시용 `/v1/secrets/list`(이름·설정 여부·판)도 열렸다. 실패는 keychain 잠김이면 `unavailable`(값은 어디에도 남지 않음), 크기 불일치면 `invalid_input`이다. provider credential(`RegisterProviderCredential`·`ChangeProviderCredentials`)은 같은 route에 `purpose: provider_credential`로 값을 보내 증거를 받고 소유 command를 부른다(T31). 제출·취소·창 종료 때 값을 지운다. core가 값을 쥐는 곳은 없으므로 main이 값을 로그·오류·IPC 결과에 넣지 않는 것이 이 작업의 시험이다.
 - platform Q29(#305)에서 넘어온 것: approval 결정 창은 `approvals/get`(exact 동작·대상·입력·기한·상태)과 함께 `ReadApprovalText`(`/v1/approvals/text`, 입력 `{approval}`)로 이유·변경·외부 영향·되돌림 글을 읽어 문장으로 보인다. 글은 core가 redaction한 값이고 blob 하나라도 읽지 못하면 `unavailable`이라 일부만 보이지 않는다. 거절 창은 선택 입력인 거절 이유를 `closed_reason` 글 값(없으면 `null`, 글 하나 32KiB 이하, 공백뿐인 글은 보내지 않는다)으로 `approvals/reject`에 싣는다. hash를 만들거나 blob을 준비하지 않고 core가 한다. 이유는 handle binding(approval·created_seq·binding_hash)에 들어가지 않는다. 종료된 request의 `ReadApprovalText.closed_reason`이 적은 거절·취소 이유이고 만료는 null이다(상태가 이유다).
+- lophn-agent#T34(Q44)에서 넘어온 것: revert 창의 main은 (1) `reverts/preview`로 본 묶음(`groups`)을 보이고, (2) 복원 가능한 묶음마다 문서의 이전 판을 사람 자격의 `documents/prepare`(`existing` 원문 참조와 그 판의 FormatRef)로 준비해 `buildRevertInput`(packages/lophn-agent/revert/work.ts)으로 `RevertRun` 입력의 `groups`(준비 결과는 `comparison.prepared`, `prepared_ref`는 그 hash)를 만들고 준비 참조를 요청의 `prepared`에 싣는다. (3) 확인 handle은 binding(`id, run, allow_partial, preview_hash`)으로 발급하고 결정 이름은 command 이름 `RevertRun`(= contract의 `REVERT_RUN_DECISION`)이다. (4) 이유(`reason`)는 고정 코드(`revertReasonSchema`)이므로 코드로 wording을 고른다. 결과 event는 사람이 `events/list`로 따라 볼 수 있다(payload는 run·지문·결과별 수). 준비 결과가 없으면 문서 내용 복원은 blocked(복원 준비 불충족)로 끝난다
 - 완료: 아래 확인이 통과한다
   - approval request: 결정을 문장으로 묻고 exact 대상·입력·영향·되돌릴 범위. 허락·거절·명시 취소. 승인 접수와 실제 적용을 구별해 돌려준다.
   - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
@@ -695,6 +696,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T27, shell#T33, shell#T34, contracts#T30, lophn-agent#T33
+- lophn-agent#T33에서 넘어온 것: 블록 틀의 [Save as document]는 별도 visuals 저장 contract를 부르지 않는다(그런 contract는 없다). 누르면 "이 블록을 문서로 남겨 달라"는 요청을 대화 입력(`ReceiveMessage`)으로 보내고, agent가 `visual.prepare_document`와 문서 tool로 준비·저장한다(visuals#R6, lophn-agent 질문 Q45 (6), lead 승인). 저장 뒤 고정 문서 링크는 그 답 메시지의 링크에서 온다.
 - lophn-agent#Q29에서 넘어온 것(#281, 계약이 정해졌다): (1) 보내기는 `ReceiveMessage` 입력의 `body`(hash)를 `content`(`{schema_version: 1, parts: [{kind: "text", text}]}`, 정규 직렬화 64KiB 이하)로 바꾼다. renderer·main은 hash도 blob도 만들지 않고 core가 redaction·준비·영구 참조를 한다. 같은 id·같은 idempotency key의 재전송은 이전 결과다. 본문 hash는 응답의 `message.body`에서 온다. (2) 읽기는 `ReadMessageBody`(`/v1/messages/body`, 입력 `{message}`, 출력 `{message, session, body, size_bytes, content, as_of_seq, next_cursor}`)이고 `content.parts`는 글·시각 블록이다. 사람·그 assignment의 agent·machine만 읽으며 없는 메시지와 다른 assignment의 것은 같은 `not_found`, 본문 blob을 못 읽으면 `unavailable`이다. (3) 새 데이터 root에도 lophn assignment가 있다(core 기동이 만든다, lophn-agent Q37). model이 미준비라 run은 provider를 고르기 전까지 시작하지 못한다. → (1)·(2)는 #285에서 했다: 도크가 `content`를 보내고(보내기 전에 64KiB 상한을 보고 넘으면 보내지 않고 이유를 둔다) 확정 메시지 본문을 `ReadMessageBody`로 읽는다. 블록 renderer만 이 작업에 남는다
 - shell#T27에서 넘어온 것: 메시지 본문(MessageContent) 읽기와 그 글·블록 표시. → 읽기와 글 표시는 #285에서 했다: 도크(`apps/shell/renderer/conversation/`)는 사람 말·lophn 답·machine 사실·다른 창이 보낸 말의 본문을 모두 읽어 글 part를 그리고, 읽은 본문은 창 메모리(`DraftStore`)에 둔다. 이 창이 보낸 말은 읽기 전까지 보낸 글로 자리를 채운다. 시각 블록 part는 지금 제목과 "Charts, tables, and diagrams can't be shown in the conversation yet."만 글로 보이는 자리 표시다(`message-list.tsx`의 `VisualPending`). 이 작업의 블록 renderer가 그 자리를 바꾼다. 남은 것: 블록 그리기, lophn 답의 streaming 임시 글(확정 메시지로 바꾸기, renderer로 오는 streaming 통로가 아직 없다, Q15 (3))
 - 완료: 아래 확인이 통과한다
@@ -750,6 +752,7 @@ concerns: [shell]
 
 ### T38 앱 preload: command 호출, 외부 링크, view 예외 전달
 
+- 상태: 완료 (#334) — 이어보냄: main 조립의 blueprint read(`/v1/apps/blueprint`)·confirm gate → shell#T45, view 오류의 collector view binding 통로와 main.ts `viewErrors.send` 연결 → problems#T16, SDK 루트 render 오류 event → shell#T40, 화면 검사 host의 view 오류 관측 → shell#T46. 자리와 판단은 Q22
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R5, R6, R13, R15, problems/reporting#R5, R6(view 예외 귀속)
@@ -802,6 +805,7 @@ concerns: [shell]
   - shell 화면이 같은 package를 쓴다(첫 소비자). 고정 문구는 wording key·en·ICU·Intl을 쓰고 package의 문구 검사를 기본 test에 잇는다. message key와 command·screen key를 섞지 않는다.
   - 예제와 package 옆 테스트. apps#T22·T23–T26보다 먼저 main에 들어간다.
 - 가져올 것: legacy `ui-control`, `ui-overlay`, `ui-layout`, `ui-state`(presented.ts, reportError.ts 빼고).
+- shell#T38에서 넘어온 것: 앱 preload는 main world에서 `lophn:render-error` DOM event(`detail: {name, message}`)를 `render_error`로 view 오류 통로에 보낸다(`apps/shell/preload/app-api.ts`의 `RENDER_ERROR_EVENT`·`watchMainWorldErrors`). ui-state의 AppErrorBoundary는 루트 render 오류를 잡으면 이 event를 `window`에 dispatch한다. `lophnApp`에 새 이름을 더하지 않는다(Q22)
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
@@ -893,6 +897,7 @@ concerns: [shell]
   - confirm command: label·설명·effect·revert와 정규 입력. diff로 못 보이는 동작은 현재·바뀐 뒤 설명을 세로로, 안전 preview는 apps/preview 결과로만, 없으면 없다고.
   - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
   - 종류별 테스트.
+- shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
 
 ### T46 앱 화면 검사 host
 
@@ -911,6 +916,7 @@ concerns: [shell]
   - 상속 fd 3이 실제로 되는지 먼저 확인한다(Node 부모의 fd 3을 Deno 자식이 EBADF로 못 쓴 사례가 있다. 여기는 Deno 부모, Electron 자식이다). 안 되면 감독 통로와 같은 stdin·stdout 길이 prefix frame(contracts#T6 codec)으로 바꾸고 contracts 팀에 알린다.
   - `screen-test-host_test`와 problems#T11이 쓰는 fixture 하나로 확인한다.
 - 가져올 것: legacy `app.ts`의 offscreen option 기록(hidden window는 첫 frame 뒤 capture가 멈춘다).
+- shell#T38에서 넘어온 것: 앱 preload가 main world의 error·unhandledrejection·`lophn:render-error`를 내부 `app:view-error`로 보낸다(`apps/shell/preload/app-api.ts`). 화면 검사 host는 같은 preload를 쓰고 `registerAppIpc`(`main/app-frame/app-ipc.ts`)의 viewError를 collector 대신 관측 frame으로 바꿔 끼운다
 
 ### T47 앱 전용 창, OS 앱 바로가기, 창 열기 intent
 
@@ -1230,6 +1236,12 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (3) 제품 core에는 파생 store를 쓰는 consumer가 아직 없어(documents#T21) `documents/diff`·`section_history`·`outline/document`·`documents/read`가 모두 unavailable이다. 그래서 제품에서 비교 화면은 "Couldn't load this comparison"과 다시 시도로 답하고, 버전 탭의 절 고르기는 나오지 않는다. 이력·정보·복원은 파생 store 없이 돈다. 실제 core 테스트(`editor/versions/versions-real-core_test.ts`)는 이력·연결 문서 복원·1 MiB 넘는 명시 format 복원을 보고, 비교 화면은 documents.diff 모양의 통로로 component test(`editor/compare/compare_test.tsx`)가 본다. headless 확인은 documents의 실제 core 시험처럼 실제 format module로 두 판을 추출해 파생 store에 심은 뒤 비교·복원을 돌렸다. documents#T21이 consumer를 조립하면 심지 않고도 같은 화면이 나와야 한다. documents에 알린다.
   - (4) 정보 패널 틀(폭·머리·탭·열림 기억)은 shell#T14의 작업대 자리(`workspace/info-panel-slot`)가 그대로 두고, 탭 본문만 `editor/info-panel`이 그린다. overlay일 때 Escape·바깥 click 닫기와 CommandOrControl+Alt+B는 작업대 자리에 더했다(창 shortcut 표가 아니라 renderer keydown이라 앱 view에 focus가 있으면 오지 않는다). 비교는 정보 패널 버전 탭에서 열어 focus 칸 문서 탭 본문 자리(읽기 기둥 밖, 칸 전체 폭)에 그리고, 복원은 비교 화면의 secondary 아이콘과 확인 줄로만 한다.
 - **Q21 view 수명 진단의 앱·release(T37, contracts 팀 판단 대기).** `shell_view_lifetime` 진단 payload에는 app·release가 없다(contracts#T6). main은 view_session·generation·개수를 감독 pipe로 보내고 core가 `<데이터 root>/logs/shell-view.jsonl`에 그 field만 쓴다(`apps/core/parent.ts`). shell/app-frame#R22의 "어떤 앱·release가 표시됐는지"는 main log 줄(view_session·generation·app·release·mode, URL·token 없음)에 함께 남겼다. payload에 app·release를 더할지는 contracts 팀이 정한다.
+- **Q22 앱 preload 통로의 자리와 아직 없는 core 통로(T38, 추천안으로 진행).**
+  - (1) `app:call`은 view의 화면 연결(`commands: []`)을 넓히지 않고 같은 view 대상(app·mode·release·screen·size)에 blueprint의 모든 command를 범위로 한 연결을 따로 얻는다(`app-connection.ts`의 `connectCommands`). 처음 부를 때 얻고 view의 프로세스·bundle·release가 바뀌거나 만료가 30초 안이면 다시 얻는다. 화면 열기가 blueprint read에 묶이지 않게 하려는 것이다. 앱이 401을 주면 handler 전 거절이라 같은 request_key로 한 번만 다시 보낸다. 보낸 뒤 끊긴 쓰기는 다시 부르지 않고 `command result is unknown`이다.
+  - (2) 선언 밖 command와 core가 연결에 넣지 않은 command는 같은 `invalid_input: command is not available`이다. 앱 handler 실패(500)는 페이지에 `unavailable: command failed`로 보인다. 페이지에서 실패는 `Error("<code>: <message>")`로 reject된다.
+  - (3) shell tsc는 contracts의 `blueprint-schema.ts`를 `noUncheckedIndexedAccess`로 검사하면 실패한다. 그래서 `validateInput`·`canonicalInputHash`는 deno가 검사하는 main.ts 조립이 app-call에 넘긴다(`InputRules`). app-call 테스트는 같은 contracts 함수를 쓴다.
+  - (4) context isolation 때문에 페이지의 error·unhandledrejection은 preload(isolated world) listener에 오지 않는다(e2e에서 확인). 감시 함수를 `contextBridge.executeInMainWorld`로 main world에서 돌리고 보고 함수는 인자로만 넘겨 `window`에 이름을 더하지 않는다. SDK 루트 render 오류는 `lophn:render-error` DOM event로 받는다(→ T40).
+  - (5) 아직 core 통로가 없는 것: blueprint read(apps#T19 `/v1/apps/blueprint`)와 confirm gate(→ T45), view 오류의 collector 전달 binding과 main 조립 연결(→ problems#T16, contracts 판단 필요). 그 전까지 main은 각각 unavailable·unsent다. headless 확인(`LOPHN_SHELL_HEADLESS=1`)에서는 외부 링크를 OS browser로 열지 않고 log만 남긴다. 앱 view의 `<a target=_blank>`·main frame 탐색은 지금처럼 막히고 OS browser로 넘기지 않는다. 링크는 `lophnApp.openExternal`로만 연다.
 - **Q23 native view 배치의 자리와 닫힌 view 중계(T39, 추천안으로 진행).**
   - (1) 자리: renderer는 자리 사각형만 보낸다(`renderer/app-frame/bounds.ts`). 칸·카드 목록 경계(overflow가 visible이 아닌 조상)로 자르고, 덮개(`useViewCover`로 등록한 좁은 창 패널)를 빼서 남은 네 쪽 중 가장 넓은 사각형을 보낸다. 넓이가 없으면 숨김을 보낸다. IPC contract(`shell:view-bounds`)는 bounds 하나라 경계·덮개 계산은 renderer가 하고, main(`main/app-frame/visibility.ts`)은 CSS pixel을 page zoom으로 창 DIP로 바꾼 뒤 창 본문(상단 바 아래)과 다시 교차해 그 밖으로는 붙이지 않는다. 붙이기·숨기기·폐기는 registry만 한다.
   - (2) 순서: bounds 적용은 모든 view를 함께 16ms마다 한 번(마지막 값)이다. 숨김·폐기는 묶지 않고 바로 하며 그 view의 기다리던 bounds를 버린다. `openApp`은 bounds 없이 열고(contract의 open 입력에 bounds가 없다), registry는 bounds가 왔고 그 contents의 첫 load가 끝났을 때만 붙인다. 준비 전에 온 bounds는 마지막 것만 기억한다. 그래서 탭 전환은 옛 view 숨김 → 새 view 열기 → 준비 뒤 붙이기다. 숨긴 view나 폐기한 view에 키보드 focus가 있었으면 그 창의 shell renderer로 돌린다.

@@ -6,8 +6,12 @@
 // - 뗀 view가 키보드 focus를 가졌으면 그 창의 shell renderer로 돌린다.
 import { failure, type Outcome } from "./app-connection.ts";
 import type { ViewEvent } from "./diagnostics.ts";
-import { boundsEmpty, type ViewBounds } from "./open-input.ts";
-import type { AppViewContents, AppViewHost } from "./view-host.ts";
+import {
+  type AppViewContents,
+  type AppViewHost,
+  boundsEmpty,
+  type ViewBounds,
+} from "./view-model.ts";
 
 export interface Placed {
   window: string;

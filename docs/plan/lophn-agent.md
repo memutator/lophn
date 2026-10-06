@@ -594,6 +594,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T31 lophn 역할: 기획과 안내
 
+- 상태: 완료 (#382) — 이어보냄: 새 앱 등록(`app.create`)의 option action owner → apps#T30(apps/registration#R3), 앱 기획(R6, R9, R10, R12) → T47, 판단 품질 eval → T55
 - 등급: 기본
 - concern: lophn-agent/roles/lophn
 - 요구: lophn-agent/roles/lophn#R1, R2, R3, R4, R5, R7, R8, R11, R13, R16, R19

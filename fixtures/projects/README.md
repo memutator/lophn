@@ -10,6 +10,7 @@ documents 테스트가 쓰는 예시 project 폴더. `scenarios.ts`가 이 폴�
 - `multi-folder/` — 두 root에 같은 상대 경로 `notes/plan.md`, 그 안에 또 다른 등록 후보인 중첩 폴더. projects tracking 규칙 테스트와 file-tracking 관측 테스트가 쓴다.
 - `mixed-formats/` — HTML(script·style·template·nav·textarea·hidden·aria-hidden·section id·title fallback)·XHTML·plain text·PDF·PNG·알 수 없는 data. formats#R2, R10–R16의 형식별 저장과 추출 테스트가 쓴다.
 - `weekly-report/` — series 정렬과 다음 이름 재료. 정수 증가(`P001`, `P002`)와 소수판(`0.2`, `0.9`, `0.10`, `0.2.1`), 자유 이름 key. series#R5, R8 테스트가 쓴다.
+- `two-apps/` — 앱 source 폴더 둘(`app-a`, `app-b`). 각자 blueprint(이름이 그 앱 ID)·source·계획 문서가 있다. coding-agent connection의 앱 하나 범위·대상 앱 찾기·제출 root 시험(connection#R5, R10, R11)이 쓴다.
 - `korean-search/` — 긴 한국어 합성어(`데이터베이스마이그레이션계획서`)와 두 글자 단어(`문서`, `용어`). outline-and-search#R11 한국어 검색 테스트가 쓴다.
 
 ## helper (`scenarios.ts`)

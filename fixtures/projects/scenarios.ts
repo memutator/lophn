@@ -21,7 +21,8 @@ export type FixtureName =
   | "multi-folder"
   | "mixed-formats"
   | "weekly-report"
-  | "korean-search";
+  | "korean-search"
+  | "two-apps";
 
 export const FIXTURE_NAMES: readonly FixtureName[] = [
   "notes-basic",
@@ -29,6 +30,7 @@ export const FIXTURE_NAMES: readonly FixtureName[] = [
   "mixed-formats",
   "weekly-report",
   "korean-search",
+  "two-apps",
 ];
 
 // fixture 원본은 이 파일과 같은 폴더에 있다.

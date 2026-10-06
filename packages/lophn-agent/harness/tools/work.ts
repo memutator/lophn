@@ -17,6 +17,9 @@ export type RunCredential = {
   targets: ReadonlySet<string>;
   // 현재 run의 scope가 허용하는 동작.
   operations: ReadonlySet<string>;
+  // 이 호출의 최초 ToolCall ID. 소유 contract의 idempotency key로 쓴다(같은 요청의 재전송이 새
+  // 판·새 문서를 만들지 않는다). 모르면 handler가 호출 내용에서 정한다.
+  call?: string;
 };
 
 export type ToolHandler = (

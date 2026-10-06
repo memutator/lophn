@@ -1329,6 +1329,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T25 fixture: rate limit 대시보드 앱
 
+- 상태: 완료 (#398) — 남은 것: ui-filter 날짜 범위 popover의 카드 폭 잘림(shell), import map의 `@types` 지시문 따라가기(apps/sdk)
 - 등급: frontend
 - concern: apps/blueprint, apps/runtime, apps/invocations
 - 요구: apps/blueprint#R19, apps/runtime#R31, apps/invocations#R14
@@ -1343,6 +1344,9 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     panel 두 개와 card 하나가 프로세스 하나
   - 집계 기간·시간대가 있는 read command, 미수집·부분 범위·신선도 부족을 정상
     0행과 구별(problems/tests#R18의 "집계 기간·시간대")
+  - 정한 것: 앱 원본은 `fixtures/apps/rate-limit-dashboard/`에 `.tmpl` 접미로 두고 시험(`apps/core/app-rate-limit-dashboard-fixture_test.ts`)이 `readTemplateDirectory(stripSuffix)`로 풀어 T6 `prepareFromSource`로 준비한다. 수집은 외부 service가 아니라 fs.read 선언 폴더의 JSON 파일(`collect_usage {file}`, 원천 구간 `from`·`to`와 표본)이라 fake 서버가 없다. 읽기는 `usage_report {from, to, timezone, providers?, order?, limit?, continuation?}`이고 결과는 `{rows, coverage, freshness, continuation, period, collected_through, providers}`다(`coverage`는 구간 수집 합집합이 기간을 덮는 정도로 `complete`·`partial`·`uncollected`, `freshness`는 수집이 기간 끝 또는 지금보다 1시간 넘게 뒤처지면 `stale`, 수집이 없으면 `unknown`). 이어 읽기는 처음 조건(기간·시간대·provider)·정렬·데이터 기준(수집 id)이 바뀌면 `conflict`다. 되돌림이 필요한 write가 없어 `withRevert`는 쓰지 않는다. 화면 폭 검사는 실제 Electron을 화면 없이(show:false·offscreen) 띄워 잰다(Electron이 없는 곳은 건너뜀)
+  - 남은 것(shell, ui-filter): `DateRangeFilter` popover가 카드 240px에서 오른쪽(직접 기간의 To·Apply)이 잘린다. 정한 기간 선택은 남지만 직접 기간은 못 쓴다
+  - 남은 것(apps/sdk 준비): `buildImportMap`이 `// @ts-types="@types/d3-scale"` 지시문의 `@types/*`를 따라가지 못해 ui-chart를 쓰는 앱은 deno.json에 `@types/d3-scale`·`@types/d3-shape`를 손으로 더해야 type 검사가 선다
 
 ### T26 fixture: 일부러 깨지는 앱
 

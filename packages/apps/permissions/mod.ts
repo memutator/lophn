@@ -59,3 +59,64 @@ export {
   createInvocationBroker,
   type InvocationBroker,
 } from "./broker/invocations.ts";
+export {
+  type AccessState,
+  type BrokerAccess,
+  currentAccess,
+  type Permission,
+} from "./broker/access.ts";
+export {
+  BROKER_BODY_MAX_BYTES,
+  BROKER_ROUTES,
+  type BrokerEndpoint,
+  type BrokerHub,
+  type BrokerListener,
+  type BrokerServices,
+  type BrokerSession,
+  createBrokerEndpoint,
+  createBrokerHub,
+  serveBroker,
+} from "./broker/server.ts";
+export {
+  createNetFetchService,
+  destinationAllowed,
+  isLoopbackHost,
+  type NetFetchDeps,
+  type NetFetchOutput,
+  type NetFetchService,
+} from "./broker/net-fetch.ts";
+export {
+  createSecretUseService,
+  type RedactionGate,
+  secretAllowed,
+  type SecretDelivery,
+  type SecretDeliveryRequest,
+  type SecretUseDeps,
+  type SecretUseService,
+} from "./broker/secrets.ts";
+export {
+  createDocumentSaveService,
+  type DocumentSaveOutput,
+  type DocumentSaveService,
+  type DocumentsSave,
+  type DocumentsSaveRequest,
+} from "./broker/documents.ts";
+export {
+  createProblemReportService,
+  type ProblemReportRequest,
+  type ProblemReportService,
+  type ProblemsReport,
+} from "./broker/problems.ts";
+export {
+  type ApplyGrantDeps,
+  type ApplyOutcome,
+  type AppProcesses,
+  type BrokerGate,
+  type ConnectionGate,
+  createGrantApplier,
+  type GrantApplier,
+  type GrantRevoker,
+  type SecretUsers,
+  type StopResult,
+} from "./broker/apply-grant.ts";
+export { createSecretAllowance } from "./secret-allowance.ts";

@@ -12,6 +12,7 @@ import type {
 } from "../../contracts/documents/mod.ts";
 import { denoFileOps } from "./adapters/file-ops.ts";
 import { createFileSerializer, type FileOps } from "./file-ops.ts";
+import { localPlacementFiles } from "./testing/mod.ts";
 import {
   gitignoreChain,
   placeDocumentFile,
@@ -47,6 +48,8 @@ type World = {
   before: (call: string) => void;
   fail: Map<string, { code: "conflict" | "forbidden"; message: string }>;
   revisionsSeen: Map<string, string>;
+  // 지금 잡혀 있는 경로.
+  held: Set<string>;
 };
 
 function documentOf(overrides: Partial<Document> = {}): Document {
@@ -100,6 +103,7 @@ function worldAt(
     before: () => {},
     fail: new Map(),
     revisionsSeen: new Map(),
+    held: new Set(),
   };
 }
 
@@ -114,12 +118,6 @@ function ledgerOf(world: World): PlacementLedger {
         ok({ version: VERSION, files: world.files }),
       ),
     linked: (path) => Promise.resolve(ok(world.linkedPaths.get(path) ?? null)),
-    async *content() {
-      const bytes = encoder.encode(world.stored);
-      for (let at = 0; at < bytes.length; at += 7) {
-        yield bytes.subarray(at, at + 7);
-      }
-    },
     placeName: () => Promise.resolve(ok("plan" as Slug)),
     gitignore: (_root, relative) =>
       Promise.resolve(
@@ -133,8 +131,9 @@ function ledgerOf(world: World): PlacementLedger {
         void relative;
         return value;
       }),
-    previewTracking: (request) =>
-      Promise.resolve(ok<TrackingPreview>({
+    previewTracking: (request) => {
+      world.calls.push("preview");
+      return Promise.resolve(ok<TrackingPreview>({
         project: request.project,
         base_revision: request.baseRevision,
         folders: [...request.folders],
@@ -143,7 +142,8 @@ function ledgerOf(world: World): PlacementLedger {
         entries: [],
         complete: true,
         next_cursor: null,
-      })),
+      }));
+    },
   };
 }
 
@@ -200,24 +200,36 @@ function commandsOf(world: World): PlacementCommands {
         };
         return world.document;
       })),
-    recordFile: (entry) => {
-      world.calls.push(`record:${entry.operation}`);
-      return Promise.resolve(ok(undefined));
-    },
   };
 }
 
 function depsOf(world: World, ops: FileOps = denoFileOps()): PlacementDeps {
   let counter = 0;
   return {
-    files: {
+    files: localPlacementFiles({
       ops,
       serializer: createFileSerializer(),
       clock: { nowIso: () => "2026-10-06T00:00:00.000Z" },
       token: () => `p${++counter}`,
-    },
+    }, {
+      async *content() {
+        const bytes = encoder.encode(world.stored);
+        for (let at = 0; at < bytes.length; at += 7) {
+          yield bytes.subarray(at, at + 7);
+        }
+      },
+      record: (operation) => world.calls.push(`record:${operation}`),
+    }),
     ledger: ledgerOf(world),
     commands: commandsOf(world),
+    reserve: (path) => {
+      world.calls.push(`reserve:${path.slice(path.lastIndexOf("/") + 1)}`);
+      world.held.add(path);
+      return () => {
+        world.held.delete(path);
+        world.calls.push("release");
+      };
+    },
   };
 }
 
@@ -273,12 +285,17 @@ Deno.test("documents/file-tracking#R13: 두기는 최신 판 바이트를 새 �
     assertEquals(done.value.tracking, { state: "done" });
     assertEquals(done.value.move, { state: "done" });
     assertEquals(done.value.source, { state: "done" });
+    // 경로를 잡고 쓰고, 원본 연결을 먼저 확정한 뒤 추적 규칙과 자리를 확정하고 경로를 놓는다.
     assertEquals(world.calls, [
+      "preview",
+      "reserve:plan.txt",
       "record:write",
+      "setSource",
       "setTracking",
       "move",
-      "setSource",
+      "release",
     ]);
+    assertEquals(world.held.size, 0);
     // 파일 바이트는 최신 판 그대로고 임시 파일은 남지 않는다.
     assertEquals(await Deno.readTextFile(`${root}/notes/plan.txt`), TEXT);
     assertEquals(await names(`${root}/notes`), ["plan.txt"]);
@@ -369,7 +386,8 @@ Deno.test("documents/file-tracking#R13: 확인과 생성 사이에 만들어진 
     assertEquals(placed.error.code, "conflict");
     assertEquals(await Deno.readTextFile(`${root}/plan.md`), "someone else");
     assertEquals(await names(root), ["plan.md"]);
-    assertEquals(world.calls, []);
+    // 잡았던 경로는 놓았고 연결 단계는 하나도 시도하지 않았다.
+    assertEquals(world.calls, ["reserve:plan.md", "release"]);
     assertEquals(world.document.file_source, null);
   });
 });
@@ -398,7 +416,7 @@ Deno.test("documents/file-tracking#R13: 저장 바이트가 판이 기록한 has
     assert(!placed.ok);
     assertEquals(placed.error.code, "invalid_input");
     assertEquals(await names(root), []);
-    assertEquals(world.calls, []);
+    assertEquals(world.calls, ["reserve:plan.md", "release"]);
   });
 });
 
@@ -415,8 +433,9 @@ Deno.test("documents/file-tracking#R13: 연결 확정이 실패해도 파일은 
     assert(placed.ok);
     assertEquals(placed.value.file.outcome, "written");
     assertEquals(placed.value.recording, "recorded");
-    assertEquals(placed.value.tracking.state, "skipped");
-    assertEquals(placed.value.move, { state: "done" });
+    // 원본 연결이 먼저라 실패하면 추적 규칙·자리는 시도하지 않는다.
+    assertEquals(placed.value.tracking, { state: "not_attempted" });
+    assertEquals(placed.value.move, { state: "not_attempted" });
     assertEquals(placed.value.source, {
       state: "failed",
       error: {
@@ -431,16 +450,21 @@ Deno.test("documents/file-tracking#R13: 연결 확정이 실패해도 파일은 
 
 Deno.test("documents/file-tracking#R13: 앞 단계가 실패하면 뒤 단계는 시도하지 않고 파일은 그대로 둔다", async () => {
   await withWorld(async (world, root) => {
-    world.fail.set("move", { code: "conflict", message: "name is reserved" });
+    world.fail.set("setTracking", {
+      code: "conflict",
+      message: "project revision changed",
+    });
     const placed = await placeDocumentFile(
       depsOf(world),
-      placing(world, "plan.md"),
+      placing(world, "plan.txt"),
     );
     assert(placed.ok);
-    assertEquals(placed.value.move.state, "failed");
-    assertEquals(placed.value.source, { state: "not_attempted" });
-    assertFalse(world.calls.includes("setSource"));
-    assertEquals(await names(root), ["plan.md"]);
+    // 원본 연결은 이미 확정됐고 추적 규칙이 실패해 자리는 시도하지 않는다. 파일은 그대로다.
+    assertEquals(placed.value.source, { state: "done" });
+    assertEquals(placed.value.tracking.state, "failed");
+    assertEquals(placed.value.move, { state: "not_attempted" });
+    assertFalse(world.calls.includes("move"));
+    assertEquals(await names(root), ["plan.txt"]);
   });
 });
 
@@ -455,13 +479,13 @@ Deno.test("documents/file-tracking#R13: 각 연결 단계는 그 순간의 현�
     assertEquals(placed.value.tracking, { state: "done" });
     assertEquals(placed.value.move, { state: "done" });
     assertEquals(placed.value.source, { state: "done" });
-    // 처음 문서 revision은 3, move가 12로 올렸고 source는 그 12로 확정했다.
+    // 처음 문서 revision은 3, source가 11로 올렸고 move는 그 11로 확정했다.
+    assertEquals(world.revisionsSeen.get("setSource"), "3");
     assertEquals(world.revisionsSeen.get("setTracking"), "5");
-    assertEquals(world.revisionsSeen.get("move"), "3");
-    assertEquals(world.revisionsSeen.get("setSource"), "12");
+    assertEquals(world.revisionsSeen.get("move"), "11");
   });
   await withWorld(async (world) => {
-    // move가 막 읽은 revision 뒤에 다른 변경이 끼면 그 단계는 conflict로 멈추고 파일은 남는다.
+    // 원본 연결이 막 읽은 revision 뒤에 다른 변경이 끼면 그 단계는 conflict로 멈추고 파일은 남는다.
     world.before = (call) => {
       if (call === "setSource") {
         world.document = { ...world.document, revision: "99" };
@@ -472,8 +496,8 @@ Deno.test("documents/file-tracking#R13: 각 연결 단계는 그 순간의 현�
       placing(world, "plan.md"),
     );
     assert(placed.ok);
-    assertEquals(placed.value.move, { state: "done" });
     assertEquals(placed.value.source.state, "failed");
+    assertEquals(placed.value.move, { state: "not_attempted" });
     assertEquals(world.document.file_source, null);
   });
 });
@@ -589,7 +613,84 @@ Deno.test("documents/file-tracking#R16: 디스크가 받지 못하면 unavailabl
     assert(!placed.ok);
     assertEquals(placed.error.code, "unavailable");
     assertEquals(await names(root), []);
+    assertEquals(world.calls, ["reserve:plan.md", "release"]);
+  });
+});
+
+Deno.test("documents/projects#R12: 규칙 변경의 미리보기는 파일을 쓰기 전에 하고 그사이 프로젝트가 바뀌지 않았으면 그대로 적용한다", async () => {
+  await withWorld(async (world) => {
+    const placed = await placeDocumentFile(
+      depsOf(world),
+      placing(world, "plan.txt"),
+    );
+    assert(placed.ok);
+    assertEquals(placed.value.tracking, { state: "done" });
+    // 미리보기는 한 번이고 어떤 쓰기·연결보다 앞선다.
+    assertEquals(world.calls.filter((call) => call === "preview").length, 1);
+    assertEquals(world.calls[0], "preview");
+  });
+  await withWorld(async (world) => {
+    // 파일을 쓰는 사이 프로젝트가 바뀌면 낡은 미리보기는 쓰지 않고 지금 기준으로 다시 본다.
+    world.before = (call) => {
+      if (call === "setSource") {
+        world.project = { ...world.project, revision: "6" };
+      }
+    };
+    const placed = await placeDocumentFile(
+      depsOf(world),
+      placing(world, "plan.txt"),
+    );
+    assert(placed.ok);
+    assertEquals(placed.value.tracking, { state: "done" });
+    assertEquals(world.calls.filter((call) => call === "preview").length, 2);
+    assertEquals(world.revisionsSeen.get("setTracking"), "6");
+  });
+});
+
+Deno.test("documents/projects#R12: 미리보기를 끝내지 못하면 파일을 만들기 전에 거절한다", async () => {
+  await withWorld(async (world, root) => {
+    const deps = depsOf(world);
+    const failing: PlacementDeps = {
+      ...deps,
+      ledger: {
+        ...deps.ledger,
+        previewTracking: () =>
+          Promise.resolve(err({ code: "unavailable", message: "no preview" })),
+      },
+    };
+    const placed = await placeDocumentFile(failing, placing(world, "plan.txt"));
+    assert(!placed.ok);
+    assertEquals(placed.error.code, "unavailable");
+    assertEquals(await names(root), []);
     assertEquals(world.calls, []);
+  });
+});
+
+Deno.test("documents/file-tracking#R13: 파일을 쓰는 순간부터 원본 연결이 확정될 때까지 경로를 잡고 연결 뒤에는 놓는다", async () => {
+  await withWorld(async (world, root) => {
+    const heldAt: Record<string, boolean> = {};
+    world.before = (call) => {
+      heldAt[call] = world.held.has(`${root}/plan.md`);
+    };
+    const placed = await placeDocumentFile(
+      depsOf(world),
+      placing(world, "plan.md"),
+    );
+    assert(placed.ok);
+    // 파일이 생긴 뒤 원본 연결을 확정하는 순간에도 잡혀 있고, 끝나면 놓는다.
+    assertEquals(heldAt["setSource"], true);
+    assertEquals(world.held.size, 0);
+    // 실패해도 놓는다.
+    world.document = documentOf();
+    world.fail.set("setSource", { code: "conflict", message: "x" });
+    await Deno.remove(`${root}/plan.md`);
+    const failed = await placeDocumentFile(
+      depsOf(world),
+      placing(world, "plan.md"),
+    );
+    assert(failed.ok);
+    assertEquals(failed.value.source.state, "failed");
+    assertEquals(world.held.size, 0);
   });
 });
 

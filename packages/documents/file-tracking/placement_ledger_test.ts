@@ -32,6 +32,7 @@ import {
 } from "../versions/testing/mod.ts";
 import { denoFileOps } from "./adapters/file-ops.ts";
 import { createFileSerializer } from "./file-ops.ts";
+import { localPlacementFiles } from "./testing/mod.ts";
 import {
   placeDocumentFile,
   type PlacementCommands,
@@ -103,16 +104,19 @@ function depsOf(
       call((tx) => move.handle(tx, user, input, compare)) as Promise<never>,
     setSource: (input, compare) =>
       call((tx) => source.handle(tx, user, input, compare)) as Promise<never>,
-    recordFile: () => Promise.resolve(ok(undefined)),
   };
   let counter = 0;
   return {
-    files: {
+    files: localPlacementFiles({
       ops: denoFileOps(),
       serializer: createFileSerializer(),
       clock: { nowIso: () => "2026-10-06T00:00:00.000Z" },
       token: () => `l${++counter}`,
-    },
+    }, {
+      async *content() {
+        yield encoder.encode(TEXT);
+      },
+    }),
     commands,
     ledger: {
       document: (id) => Promise.resolve(loadDocument(fixture.sql, id)),
@@ -134,9 +138,6 @@ function depsOf(
             path,
           ])?.["id"] as string | undefined) ?? null,
         )),
-      async *content() {
-        yield encoder.encode(TEXT);
-      },
       placeName: (_place, document) =>
         Promise.resolve(ok(suggestName(document.title))),
       gitignore: () => Promise.resolve(ok([])),
@@ -200,7 +201,7 @@ Deno.test("documents/file-tracking#R13: 실제 command로 두면 파일·추적 
       });
       assertEquals(
         fixture.emitted.map((event) => event.type).slice(-3),
-        ["ProjectTrackingChanged", "DocumentMoved", "DocumentSourceChanged"],
+        ["DocumentSourceChanged", "ProjectTrackingChanged", "DocumentMoved"],
       );
       // 판은 늘지 않는다: 두기는 파일을 쓸 뿐 내용을 새로 저장하지 않는다.
       assertEquals(

@@ -106,6 +106,7 @@ import {
   storedFileStreams,
 } from "./documents-serving.ts";
 import {
+  FILE_PLACEMENT_ROUTE,
   OBSERVATION_BASIS_ROUTE,
   PREPARE_BASE_ROUTE,
   SEARCH_VERSION_ROUTE,
@@ -117,7 +118,12 @@ import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
+import type { PlacementRead } from "../../packages/documents/file-tracking/placement-read.ts";
 import { withTermOccurrence } from "./documents-term-check.ts";
+import {
+  createPlacementReservations,
+  withPlacementReservation,
+} from "./documents-placement.ts";
 import {
   type SearchSync,
   type SearchVersion,
@@ -637,6 +643,8 @@ async function open(
   const preparedRoute = prepareWorkers.get(
     `${documentPrepare.resource}/${documentPrepare.method}`,
   )!.handle;
+  // 두기가 파일을 쓰기 전부터 원본 연결까지 잡는 경로. 그 사이 같은 경로의 관측 저장은 conflict다.
+  const placementReservations = createPlacementReservations();
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -648,32 +656,38 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
-      writer: withTermOccurrence(
-        withApprovalText(
-          withQuestionText(
-            withHandoffBody(
-              withMessageBody(
-                runtime.writer,
-                createMessageBodyPreparer({
+      writer: withPlacementReservation(
+        withTermOccurrence(
+          withApprovalText(
+            withQuestionText(
+              withHandoffBody(
+                withMessageBody(
+                  runtime.writer,
+                  createMessageBodyPreparer({
+                    relay: () => bodyPrepare.current,
+                    // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                    known: () => runtime?.knownSecrets,
+                  }),
+                ),
+                createHandoffBodyPreparer({
                   relay: () => bodyPrepare.current,
-                  // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                   known: () => runtime?.knownSecrets,
                 }),
               ),
-              createHandoffBodyPreparer({
-                relay: () => bodyPrepare.current,
-                known: () => runtime?.knownSecrets,
-              }),
+              createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
             ),
-            createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
+            createApprovalTextPreparer({
+              relay: () => bodyPrepare.current,
+              known: () => runtime?.knownSecrets,
+            }),
           ),
-          createApprovalTextPreparer({
-            relay: () => bodyPrepare.current,
-            known: () => runtime?.knownSecrets,
-          }),
+          (ctx, command, input) =>
+            runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+              command,
+              input,
+            }),
         ),
-        (ctx, command, input) =>
-          runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, { command, input }),
+        placementReservations,
       ),
       reads: runtime.reads,
       memory: runtime.memory.handlers,
@@ -793,6 +807,30 @@ async function open(
                   message: "credential이 없다",
                 }));
             },
+          },
+          placement: {
+            read: async (request, input) => {
+              const read = await readAs(
+                runtime!,
+                request,
+                FILE_PLACEMENT_ROUTE,
+                input,
+              );
+              return read.ok ? ok(read.value as PlacementRead) : read;
+            },
+            command: (request, envelope) => {
+              const slash = request.request_id.lastIndexOf("/");
+              const ctx = slash > 0
+                ? runtime!.current(request.request_id.slice(0, slash))
+                : undefined;
+              return ctx?.ok
+                ? runtime!.writer.command(ctx.value as never, envelope)
+                : Promise.resolve(err({
+                  code: "unauthorized" as const,
+                  message: "credential이 없다",
+                }));
+            },
+            reserve: (path) => placementReservations.reserve(path),
           },
           observedAt: () => new Date().toISOString(),
         }),

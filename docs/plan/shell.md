@@ -413,6 +413,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: documents
 - 선행: shell#T19, shell#T23, documents#T9, documents#T19, documents#T20
+- documents#T19에서 넘어온 것: 파일로 두기와 빼기는 `files.write`·`files.delete`의 선택 의도다. 두기는 `files.write`에 `base_hash: null`, `content: { kind: "existing", reference }`(그 문서 최신 판의 유일한 파일 원본 참조), `place: { document, version }`을 싣고, 빼기는 `files.delete`에 `unlink: { document }`를 더한다(확인 handle 묶음은 request_key·target·base_hash 그대로). 결과의 `placement`(source, tracking, move)·`unlinking`(source, move) 단계를 파일 결과와 따로 보이고, 실패한 단계 뒤는 "not_attempted"다. 사람 자격에 `document.set_source`·`document.move`·`project.set_tracking` 범위가 있어야 연결 단계가 선다. 따로 이을 command는 없다.
 - 완료: 아래 확인이 통과한다
   - 프로젝트 목록·이름·목적·보관. 보관은 소속 문서 삭제가 아니다.
   - 문서 이름·자리 이동은 묻지 않고 하고 결과를 보인다. 파일에서 빼며 지우기는 confirmation window의 owner decision으로 보낸다(T23).

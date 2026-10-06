@@ -828,6 +828,7 @@ concerns: [shell]
 - 가져올 것: legacy `ui-control`, `ui-overlay`, `ui-layout`, `ui-state`(presented.ts, reportError.ts 빼고).
 - shell#T38에서 넘어온 것: 앱 preload는 main world에서 `lophn:render-error` DOM event(`detail: {name, message}`)를 `render_error`로 view 오류 통로에 보낸다(`apps/shell/preload/app-api.ts`의 `RENDER_ERROR_EVENT`·`watchMainWorldErrors`). ui-state의 AppErrorBoundary는 루트 render 오류를 잡으면 이 event를 `window`에 dispatch한다. `lophnApp`에 새 이름을 더하지 않는다(Q22)
 - 정한 것: 네 package는 lophn 화면과 같은 packages/design component를 다시 내보내고(R21) 새로 짠 것은 ui-layout의 `AppShell`·`Sidebar`·`Grid`·`containerSpace`, ui-overlay의 `ToastProvider`·`useToast`, ui-state의 `ReadState`·`AppErrorBoundary`다. 패널·카드 최소 폭은 token `layout.container`(320·240px)로 두고, 칸 640px 미만에서 design의 `ListDetailFrame`은 `active` 한 쪽과 [Back](`onBack`), `DashboardFrame`은 한 줄 한 칸, 탭 줄은 가로 scroll, toast 쌓임은 view 폭 안으로 바꿨다. `Checkbox`·`Switch`에 `size`(28·32·36px)를 더했다. AppErrorBoundary는 `document.defaultView`에 event를 보내고 화면에는 `common.error.show-failed`와 [Try again]만 둔다. shell 첫 소비자는 overlay surface(ui-overlay·ui-control), 연결 상태(ui-control·ui-state), 시리즈 등록 폼(ui-layout·ui-control)이다
+- apps#T24에서 넘어온 것: `AppShell`에 `nav`를 주지 않으면 `.body` grid(`var(--layout-sidebar-min) minmax(0,1fr)`)의 첫 칸(sidebar 폭)에 `main`이 들어가 전체 크기에서 본문이 좁은 한 줄로 나온다(캘린더 fixture 화면 screenshot, 패널 320px은 정상). nav가 없으면 `main`이 두 칸을 쓰게 한다
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
@@ -916,6 +917,7 @@ concerns: [shell]
 
 ### T45 confirmation window: 앱 결정 4종
 
+- 상태: 완료 (#391) — 이어보냄: (1) 실제 `confirm` gate(`ConfirmGate`)와 user-direct accept_confirm proof(요청 생성·`apply`·proof 읽기 route가 사람 자격으로 열려야 한다) → contracts·apps 요청, (2) renderer blueprint read 연결(T44 `AppViewsDeps.screens`, T42 `entryScreen`)은 renderer allowlist에 `apps/blueprint`를 열어야 해 → shell#T44·T42. 정한 것: 결정 종류는 approval request의 고정 concern·command(`apps/releases` `release.start_activation`, `apps/permissions` `grant.create`(scope kind `automation.run`이면 automation), `apps/invocations` `invocation.accept_confirm`)로 고르고 표시 값만 apps read로 채운다. 접수 입력에는 입력 본문 없이 `input_hash`만 있어 confirm command와 automation은 입력 지문과 blueprint의 입력 shape로 보인다. command의 revert 지원은 blueprint read에 없어 요청의 `effect.reversible`·되돌림 글을 쓴다. 데이터 손실은 `data_changes[].description`이 싣는다
 - 등급: frontend
 - concern: shell/confirmation-window
 - 요구: shell/confirmation-window#R8, R10

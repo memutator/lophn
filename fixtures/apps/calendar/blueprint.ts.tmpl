@@ -1,0 +1,187 @@
+import {
+  type Blueprint,
+  defineBlueprint,
+  type InputSchema,
+} from "@lophn/blueprint";
+import { en } from "./src/wording/en.ts";
+
+// blueprint가 정본이다. 코드를 바꾸기 전에 먼저 바꾼다.
+// 사람에게 보이는 이름·설명·이유는 en catalog 문구고, command·screen·automation의 key는 문구와 별개의
+// 식별자다. catalog 문구를 바꿔도 key는 같다(tests/wording_test.ts).
+type Text = Readonly<Record<keyof typeof en, string>>;
+
+// 외부 캘린더는 이 fixture 전용 fake server다(fake-external/). 선언은 정확한 host·port 하나다.
+const EXTERNAL = { host: "127.0.0.1", port: 38917 };
+const TOKEN = "calendar.external-token";
+
+export function makeBlueprint(text: Text = en): Blueprint {
+  const eventInput: InputSchema = {
+    type: "object",
+    properties: {
+      title: {
+        type: "string",
+        description: text["events.summary.event-title"],
+        minLength: 1,
+        maxLength: 200,
+      },
+      starts_at: {
+        type: "string",
+        description: text["events.summary.event-starts"],
+        minLength: 10,
+        maxLength: 40,
+      },
+    },
+    required: ["title", "starts_at"],
+    additionalProperties: false,
+  };
+  return defineBlueprint({
+    name: "Calendar",
+    description: text["common.summary.app"],
+    screens: [
+      {
+        key: "events",
+        label: text["events.title.screen"],
+        path: "/screens/events/index.html",
+        sizes: ["full", "panel"],
+      },
+    ],
+    commands: [
+      {
+        key: "list_events",
+        label: text["events.label.list-events"],
+        description: text["events.summary.list-events"],
+        effect: "read",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      {
+        key: "add_event",
+        label: text["events.label.add-event"],
+        description: text["events.summary.add-event"],
+        effect: "write",
+        confirm: false,
+        input: eventInput,
+        revert: { supported: true, command: "revert_event" },
+      },
+      {
+        key: "revert_event",
+        label: text["events.label.revert-event"],
+        description: text["events.summary.revert-event"],
+        effect: "write",
+        confirm: false,
+        input: {
+          type: "object",
+          properties: {
+            id: {
+              type: "integer",
+              description: text["events.summary.event-id"],
+              minimum: 1,
+            },
+          },
+          required: ["id"],
+          additionalProperties: false,
+        },
+        revert: { supported: false },
+      },
+      {
+        key: "sync_events",
+        label: text["events.label.sync-events"],
+        description: text["events.summary.sync-events"],
+        effect: "write",
+        confirm: false,
+        input: null,
+        revert: { supported: false },
+      },
+      {
+        key: "create_external_event",
+        label: text["events.label.create-external-event"],
+        description: text["events.summary.create-external-event"],
+        effect: "external",
+        confirm: false,
+        input: eventInput,
+        revert: { supported: false },
+      },
+      {
+        key: "delete_all_events",
+        label: text["events.label.delete-all-events"],
+        description: text["events.summary.delete-all-events"],
+        effect: "write",
+        confirm: true,
+        input: null,
+        revert: { supported: false },
+      },
+    ],
+    automatic_tasks: [
+      {
+        key: "sync_on_start",
+        label: text["common.label.sync-on-start"],
+        when: { kind: "on_start" },
+        command: "sync_events",
+      },
+      {
+        key: "sync_every_minute",
+        label: text["common.label.sync-every-minute"],
+        when: { kind: "interval", interval_ms: 60000 },
+        command: "sync_events",
+      },
+      // external command라 사람이 이 automation을 켤 때 command·입력·주기를 한 번 승인해야 돈다.
+      {
+        key: "external_sync",
+        label: text["common.label.external-sync"],
+        when: { kind: "interval", interval_ms: 3600000 },
+        command: "create_external_event",
+        input: {
+          title: "Weekly review",
+          starts_at: "2026-01-05T09:00:00.000Z",
+        },
+      },
+    ],
+    permissions: [
+      {
+        kind: "net.fetch",
+        scope: EXTERNAL,
+        reason: text["common.reason.external-host"],
+      },
+      {
+        kind: "secret.use",
+        scope: { name: TOKEN },
+        reason: text["common.reason.external-token"],
+      },
+    ],
+    // 선언한 code마다 실제 command의 실패 경로 test가 하나 이상 있어야 한다(tests/failure_path_test.ts).
+    problem_codes: [
+      {
+        code: "external_calendar_unavailable",
+        message_key: "common.problem.external-unavailable",
+        message: text["common.problem.external-unavailable"],
+        fixer: "user",
+      },
+      {
+        code: "store_unavailable",
+        message_key: "common.problem.store-unavailable",
+        message: text["common.problem.store-unavailable"],
+        fixer: "coding_agent",
+      },
+    ],
+    documents: [],
+    agent_context: [],
+    app_connections: [],
+    // 정확한 version만 쓴다. deno.json의 import map과 같아야 한다(tests/blueprint_test.ts).
+    sdk_dependencies: [
+      { name: "@lophn/blueprint", version: "1.0.0" },
+      { name: "@lophn/cap-net", version: "1.0.0" },
+      { name: "@lophn/cap-problem", version: "1.0.0" },
+      { name: "@lophn/cap-schedule", version: "1.0.0" },
+      { name: "@lophn/cap-secret", version: "1.0.0" },
+      { name: "@lophn/cap-store", version: "1.0.0" },
+      { name: "@lophn/design", version: "1.0.0" },
+      { name: "@lophn/ui-control", version: "1.0.0" },
+      { name: "@lophn/ui-layout", version: "1.0.0" },
+      { name: "@lophn/ui-state", version: "1.0.0" },
+      { name: "@lophn/wording", version: "1.0.0" },
+    ],
+  });
+}
+
+export default makeBlueprint();

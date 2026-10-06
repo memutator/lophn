@@ -499,3 +499,64 @@ Deno.test("apps/runtime#R19: 멈춘 앱은 지난 crash loop 근거를 관측에
   await env.supervisor.reconcile(desired({ runEnabled: false }));
   assertEquals(env.supervisor.observation(APP)!.reason, undefined);
 });
+
+Deno.test("apps/releases#R13, R14: activation은 이전 자식 종료를 확인해 붙들고 후보는 검사까지만 하며 commit 뒤 open이 통로를 열고 시작을 알린다", async () => {
+  const opened: number[] = [];
+  const env = harness({
+    open: (index) => {
+      opened.push(index);
+      return Promise.resolve(true);
+    },
+  });
+  await env.supervisor.reconcile(desired());
+  assertEquals(env.spawned, 1);
+  assertEquals(opened, [0]);
+  const started = env.records.filter((r) => r.method === "record_started");
+  assertEquals(started.length, 1);
+
+  // 붙들면 이전 자식은 종료를 확인하고, 그동안 core가 알리는 상태로 새 자식을 띄우지 않는다.
+  assertEquals(await env.supervisor.pause(APP), true);
+  assertEquals(env.child(0).stopRequests, 1);
+  await env.supervisor.reconcile(desired());
+  assertEquals(env.spawned, 1);
+
+  // 후보는 검사까지만 한다: 통로를 열지도 시작을 알리지도 않는다.
+  const next = desired({ release: "rel_00000000000000000000000002" });
+  const candidate = await env.supervisor.prepare(next);
+  assert(candidate.ok);
+  assertEquals(candidate.attestation.release, next.release);
+  assertEquals(opened, [0]);
+  assertEquals(
+    env.records.filter((r) => r.method === "record_started").length,
+    1,
+  );
+  // 붙들지 않은 앱에는 후보를 띄우지 않는다.
+  assertEquals(
+    (await env.supervisor.prepare(desired({ app: "app_x" }))).ok,
+    false,
+  );
+  // 자식이 남아 있으면 둘째 후보를 띄우지 않는다(같은 DB를 둘이 쓰지 못한다).
+  assertEquals((await env.supervisor.prepare(next)).ok, false);
+
+  // commit 뒤에만 연다.
+  assertEquals(await env.supervisor.open(APP), true);
+  assertEquals(opened, [0, 1]);
+  assertEquals(
+    env.records.filter((r) => r.method === "record_started").length,
+    2,
+  );
+  await env.supervisor.resume(APP);
+  assertEquals(env.spawned, 2);
+  assertEquals(env.alive(), 1);
+});
+
+Deno.test("apps/releases#R13: 종료를 확인하지 못하면 붙들기는 확인 아님을 알리고 새 자식을 띄우지 않는다", async () => {
+  const env = harness({ confirm: false });
+  await env.supervisor.reconcile(desired());
+  assertEquals(await env.supervisor.pause(APP), false);
+  const candidate = await env.supervisor.prepare(
+    desired({ release: "rel_00000000000000000000000002" }),
+  );
+  assertEquals(candidate.ok, false);
+  assertEquals(env.spawned, 1);
+});

@@ -29,6 +29,15 @@ export async function runDataJobLine(
   }
   const dataArea = `${root}/apps/${input.app}/data`;
   const context = { dataArea, databasePath: `${dataArea}/app.sqlite` };
+  // 첫 activation 전의 앱은 데이터 영역이 아직 없다. 이 작업이 그 영역(과 앱 폴더)만 만든다.
+  try {
+    await Deno.mkdir(dataArea, { recursive: true });
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "app data area cannot be made",
+    });
+  }
   if (input.kind !== "migrate") {
     const outcome = await runDataJob(context, line);
     return outcome.ok ? outcome : err(outcome.error);

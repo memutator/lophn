@@ -28,6 +28,13 @@ export const SUPERVISOR_OPS = {
   releasePrepare: "releases.prepare_bundle",
   releasePreparation: "releases.preparation",
   releaseCancel: "releases.cancel_preparation",
+  // activation(apps/releases): 앱을 붙들고 자식 종료를 확인, 후보를 준비 모드로 시작, commit 뒤 열기,
+  // 붙들기 해제. 데이터 작업(backup·migrate·restore)은 앱 전용 data worker를 supervisor가 띄운다.
+  activationPause: "apps.activation_pause",
+  activationPrepare: "apps.activation_prepare",
+  activationOpen: "apps.activation_open",
+  activationResume: "apps.activation_resume",
+  dataJob: "apps.data_job",
 } as const;
 
 export type SupervisorOp = (typeof SUPERVISOR_OPS)[keyof typeof SUPERVISOR_OPS];
@@ -166,6 +173,37 @@ export const releasePreparationOutputSchema = z.strictObject({
 export type ReleasePreparationWire = z.infer<
   typeof releasePreparationOutputSchema
 >;
+export const activationAppInputSchema = z.strictObject({ app: appId });
+export const activationPauseOutputSchema = z.strictObject({
+  confirmed: z.boolean(),
+});
+export const activationPrepareOutputSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    ok: z.literal(true),
+    process_nonce: z.string().min(1),
+    attestation: z.strictObject({
+      release: releaseId,
+      bundle_hash: sha256,
+      commands: z.array(z.string()),
+      data_schema: z.number().int().nonnegative(),
+    }),
+  }),
+  z.strictObject({ ok: z.literal(false), reason: z.string() }),
+]);
+export const activationOpenOutputSchema = z.strictObject({
+  opened: z.boolean(),
+});
+export const activationResumeOutputSchema = z.strictObject({
+  accepted: z.literal(true),
+});
+
+// 앱 전용 data worker 작업 한 번이다. 입력은 `DataJobInput` 한 줄이고 출력은 `DataJobOutput` 한 줄이다.
+export const dataJobInputSchema = z.strictObject({ line: z.string().min(1) });
+export const dataJobOutputSchema = z.strictObject({
+  ok: z.boolean(),
+  line: z.string().nullable(),
+});
+
 export const releaseCancelOutputSchema = z.strictObject({
   accepted: z.literal(true),
 });

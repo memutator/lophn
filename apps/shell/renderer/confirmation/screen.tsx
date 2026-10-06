@@ -16,7 +16,11 @@ import {
   GRANT,
   REJECT,
 } from "./kinds/approval/approval.tsx";
+import { AutomationKind } from "./kinds/automation/automation.tsx";
+import { ConfirmCommandKind } from "./kinds/confirm-command/confirm-command.tsx";
+import { GrantKind } from "./kinds/grant/grant.tsx";
 import { OptionActionKind } from "./kinds/option-action/option-action.tsx";
+import { ReleaseActivationKind } from "./kinds/release-activation/release-activation.tsx";
 import { RevertKind } from "./kinds/revert/revert.tsx";
 import { SecretInputKind } from "./kinds/secret-input/secret-input.tsx";
 import type { KindProps } from "./kinds/exact.tsx";
@@ -260,6 +264,14 @@ export function ConfirmationScreen({ api, theme }: ScreenProps) {
   const props: KindProps = { view, decide, cancel: close, busy };
   const body = kind === "approval"
     ? <ApprovalKind {...props} />
+    : kind === "release_activation"
+    ? <ReleaseActivationKind {...props} />
+    : kind === "grant"
+    ? <GrantKind {...props} />
+    : kind === "confirm_command"
+    ? <ConfirmCommandKind {...props} />
+    : kind === "automation"
+    ? <AutomationKind {...props} />
     : kind === "option_action"
     ? <OptionActionKind {...props} />
     : kind === "revert"

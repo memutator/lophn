@@ -1,0 +1,97 @@
+// 앱 test의 공통 준비. 앱 test는 network 권한이 없어 외부 캘린더는 fake의 `fetch`(메모리)로 잇는다.
+import { createNetClient } from "@lophn/cap-net";
+import { createSecretStandIn } from "@lophn/cap-secret";
+import { openStore, type Store } from "@lophn/cap-store";
+import type { Deps } from "../src/commands.ts";
+import { EXTERNAL } from "../src/external.ts";
+import type { FakeExternal } from "../fake-external/server.ts";
+
+const CALL = {
+  command: "sync_events",
+  inputHash: "ab".repeat(32),
+  release: "rel_01h455vb4pex5v6nkc6gd5fdw1",
+  invocation: "inv_01h455vb4pex5v6nkc6gd5fdw1",
+};
+
+// broker의 net/fetch처럼 선언한 host·port 밖은 forbidden으로 거절하고, 안은 fake에 요청해 `{status, body}`로 답한다.
+export function bridgedNet(fake: FakeExternal) {
+  return createNetClient({
+    sleep: () => Promise.resolve(),
+    host: {
+      mode: "test",
+      call: () => CALL,
+      async post(_path, body) {
+        const { host, port, method, path } = body as {
+          host: string;
+          port: number;
+          method: string;
+          path: string;
+        };
+        if (host !== EXTERNAL.host || port !== EXTERNAL.port) {
+          return {
+            status: 403,
+            body: {
+              error: {
+                code: "forbidden",
+                message: "not granted",
+                details: {
+                  permission: "net.fetch",
+                  scope: { host, port },
+                },
+              },
+            },
+          };
+        }
+        const response = fake.fetch(
+          new Request(`https://${host}:${port}${path}`, { method }),
+        );
+        return {
+          status: 200,
+          body: { status: response.status, body: await response.json() },
+        };
+      },
+    },
+  });
+}
+
+// 전송이 끊기는 net. 요청이 상대에 닿았는지 모르는 상태다.
+export function cutNet() {
+  return createNetClient({
+    sleep: () => Promise.resolve(),
+    host: {
+      mode: "test",
+      call: () => CALL,
+      post: () => Promise.reject(new Error("connection cut")),
+    },
+  });
+}
+
+export async function withData<T>(
+  work: (dataPath: string) => Promise<T>,
+): Promise<T> {
+  const dir = await Deno.makeTempDir({ prefix: "app-calendar-" });
+  try {
+    return await work(dir);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+}
+
+export function openAt(dataPath: string): () => Store {
+  return () => openStore({ host: { mode: "test", dataPath } });
+}
+
+export function depsFor(
+  dataPath: string,
+  fake: FakeExternal,
+  allowed: readonly string[] = ["calendar.external-token"],
+) {
+  const secret = createSecretStandIn({ allowed });
+  const deps: Deps = {
+    openStore: openAt(dataPath),
+    now: () => "2026-02-01T00:00:00.000Z",
+    net: bridgedNet(fake),
+    secret,
+  };
+  return { deps, secret };
+}

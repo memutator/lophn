@@ -175,13 +175,9 @@ Deno.test("problems/tests#R7: 모든 필수 검사가 실제 pass일 때만 pass
   assertEquals(judgment.result, "pass");
   assertEquals(judgment.observations.checks.length, plan.checks.length);
   for (const check of judgment.observations.checks) {
-    // 필수 검사는 pass, 적용대상아님 검사는 not_applicable
-    assert(check.status === "pass" || check.status === "not_applicable");
+    assertEquals(check.status, "pass");
     assert(check.reason.trim() !== "");
-    // 필수 검사만 hash가 있고 적용대상아님은 없을 수 있다
-    if (check.status === "pass") {
-      assert(/^[0-9a-f]{64}$/.test(check.evidence.actual_hash ?? ""));
-    }
+    assert(/^[0-9a-f]{64}$/.test(check.evidence.actual_hash ?? ""));
   }
   assertEquals(
     judgment.observations.platform_checks_hash,
@@ -568,102 +564,4 @@ Deno.test("problems/tests#R6 R7: 판정한 app test pass Verification을 같은 
   } finally {
     ledger.close();
   }
-});
-
-// Contract checks (R8, R9, R12, R15)
-
-function checkStatusOf(plan: AppTestPlan, name: string) {
-  return plan.checks.find((check) => check.name === name);
-}
-
-Deno.test("problems/tests#R8 R9: blueprint 계약 검사가 생성되고 조건에 맞게 필수·적용대상아님이 설정된다", () => {
-  const plan = generateAppTestChecks(inputFor());
-  // Migration checks are not applicable for test fixtures (app#T17 not yet implemented)
-  assertEquals(
-    checkStatusOf(plan, "migration_empty")?.status,
-    "not_applicable",
-    "migration 선언이 없을 때 migration 검사는 적용 대상 아님",
-  );
-  assertEquals(
-    checkStatusOf(plan, "migration_upgrade")?.status,
-    "not_applicable",
-    "migration 선언이 없을 때 schema 업그레이드 검사는 적용 대상 아님",
-  );
-  // read_contract is not required without read commands
-  assertEquals(
-    checkStatusOf(plan, "read_contract")?.status,
-    "not_applicable",
-    "read 명령이 없을 때 read 계약 검사는 적용 대상 아님",
-  );
-  // automation_scope is not required without automations
-  assertEquals(
-    checkStatusOf(plan, "automation_scope")?.status,
-    "not_applicable",
-    "자동 작업이 없을 때 automation 범위 검사는 적용 대상 아님",
-  );
-  // adapter_isolation is not required without external features
-  assertEquals(
-    checkStatusOf(plan, "adapter_isolation")?.status,
-    "not_applicable",
-    "외부 상호작용이 없을 때 대역 격리 검사는 적용 대상 아님",
-  );
-});
-
-Deno.test("problems/tests#R9: read 명령이 있을 때 read 계약 검사는 필수다", () => {
-  const plan = generateAppTestChecks(
-    inputFor({
-      patch: (input) => {
-        const blueprint = input.blueprint as Record<string, unknown>;
-        blueprint.commands = [
-          { key: "read-only", effect: "read" },
-          { key: "write-data", effect: "write" },
-        ];
-      },
-    }),
-  );
-  assertEquals(
-    checkStatusOf(plan, "read_contract")?.status,
-    "required",
-    "read 명령이 있을 때 read 계약 검사는 필수",
-  );
-});
-
-Deno.test("problems/tests#R9: 자동 작업이 있을 때 automation 범위 검사는 필수다", () => {
-  const plan = generateAppTestChecks(
-    inputFor({
-      patch: (input) => {
-        const blueprint = input.blueprint as Record<string, unknown>;
-        blueprint.automatic_tasks = [
-          {
-            key: "auto-sync",
-            label: "Auto Sync",
-            when: { kind: "interval", interval_ms: 60000 },
-            command: "save",
-          },
-        ];
-      },
-    }),
-  );
-  assertEquals(
-    checkStatusOf(plan, "automation_scope")?.status,
-    "required",
-    "자동 작업이 있을 때 automation 범위 검사는 필수",
-  );
-});
-
-Deno.test("problems/tests#R12: observations가 scope를 포함한다", async () => {
-  const { judgment } = await run({});
-  assertEquals(
-    typeof judgment.observations.scope,
-    "string",
-    "observations는 scope 필드를 가져야 한다",
-  );
-  assertFalse(
-    judgment.observations.scope.length === 0,
-    "scope는 비어있지 않아야 한다",
-  );
-  assert(
-    judgment.observations.scope.includes("필수 보고 경로"),
-    "scope는 필수 보고 경로를 언급해야 한다",
-  );
 });

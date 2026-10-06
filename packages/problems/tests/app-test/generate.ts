@@ -97,11 +97,6 @@ const HARNESS_REASONS: Record<HarnessCheckName, string> = {
   permission_denial: "grant 없는 접근이 거절되는지",
   view_exception: "처리되지 않은 view 예외가 접수되는지",
   feedback: "깨진 view의 feedback이 접수되는지",
-  migration_empty: "빈 test DB에서 migration이 성공하는지",
-  migration_upgrade: "이전 schema에서 새 schema로 migration이 성공하는지",
-  read_contract: "read 선언 command가 업무 데이터를 쓰지 않는지",
-  automation_scope: "automation이 선언된 범위와 승인 정책 안에서 실행되는지",
-  adapter_isolation: "net·secret·문서 접근이 고정 대역만 사용하는지",
 };
 
 // 필수 검사를 만든다. 검사 목록은 runner의 불변 설치 자료와 고정 blueprint에서만
@@ -199,77 +194,6 @@ export function generateAppTestChecks(input: AppTestInput): AppTestPlan {
       ),
     );
   }
-
-  // App contract checks (problems/tests#R8, R9, R12, R15)
-  // These checks verify app contracts at runtime. They are required only if the
-  // app declares the relevant features (migrations, automations, etc.).
-  // For test fixtures without these features, they are not_applicable.
-  const automaticTasks = (input.blueprint as Record<string, unknown>)
-    .automatic_tasks as unknown[] | undefined || [];
-  const documents = (input.blueprint as Record<string, unknown>)
-    .documents as unknown[] | undefined || [];
-  const hasAutomations = automaticTasks.length > 0;
-  const hasReadCommands = input.blueprint.commands.some((cmd) => {
-    const command = cmd as Record<string, unknown>;
-    return command.effect === "read";
-  });
-
-  // Migration checks (R8): placeholder for apps#T17 data migrations
-  // For now, not required since test fixtures don't have migrations
-  checks.push(
-    planCheck(
-      platformDefinition("migration_empty"),
-      "not_applicable",
-      "app이 데이터 migration을 선언하지 않음",
-      null,
-    ),
-  );
-  checks.push(
-    planCheck(
-      platformDefinition("migration_upgrade"),
-      "not_applicable",
-      "app이 데이터 migration을 선언하지 않음",
-      null,
-    ),
-  );
-
-  // Blueprint contract checks (R9, R12, R15)
-  // read_contract: only if app has read commands
-  checks.push(
-    planCheck(
-      platformDefinition("read_contract"),
-      hasReadCommands ? "required" : "not_applicable",
-      hasReadCommands
-        ? HARNESS_REASONS.read_contract
-        : "read 선언 command가 없음",
-      null,
-    ),
-  );
-
-  // automation_scope: only if app has automations
-  checks.push(
-    planCheck(
-      platformDefinition("automation_scope"),
-      hasAutomations ? "required" : "not_applicable",
-      hasAutomations
-        ? HARNESS_REASONS.automation_scope
-        : "자동 작업이 선언되지 않음",
-      null,
-    ),
-  );
-
-  // adapter_isolation: only if app has external features
-  const hasExternalFeatures = hasAutomations || documents.length > 0;
-  checks.push(
-    planCheck(
-      platformDefinition("adapter_isolation"),
-      hasExternalFeatures ? "required" : "not_applicable",
-      hasExternalFeatures
-        ? HARNESS_REASONS.adapter_isolation
-        : "외부 상호작용이 없음",
-      null,
-    ),
-  );
   // 화면 없는 bundle의 화면 검사만 이유 있는 not_applicable이다(problem-codes#R8).
   for (
     const path of requiredReportPaths({

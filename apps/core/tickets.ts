@@ -5,6 +5,8 @@ import {
   createTicketFinishCommands,
   createTicketReads,
   expiredClaims,
+  TICKET_BLOB_FIELDS,
+  TICKET_BLOB_PURPOSES,
   ticketSchemaSteps,
 } from "../../packages/coding-agent/mod.ts";
 import {
@@ -53,6 +55,8 @@ export function createEventRegistration(): EventRegistration {
 
 export const ticketDefinitions = {
   schema: ticketSchemaSteps,
+  blobFields: TICKET_BLOB_FIELDS,
+  blobPurposes: TICKET_BLOB_PURPOSES,
   commands: [
     commands.create,
     commands.make_ready,

@@ -6,12 +6,12 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { appRegistrationLookup } from "../../contracts/apps/mod.ts";
 import {
-  type TicketCancelInput,
-  type TicketReportCompletionInput,
   ticketCancel,
+  type TicketCancelInput,
   ticketCancelled,
   ticketCompletionReported,
   ticketReportCompletion,
+  type TicketReportCompletionInput,
 } from "../../contracts/coding-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -19,13 +19,13 @@ import type {
   Tx,
 } from "../../contracts/platform/mod.ts";
 import {
-  type StoredTicket,
   connectionOf,
   inScope,
   loadClaim,
   loadTicket,
   nextEventSeq,
   revisionAgrees,
+  type StoredTicket,
 } from "./claims.ts";
 import {
   cancelActorAllowed,

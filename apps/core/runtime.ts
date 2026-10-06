@@ -54,6 +54,7 @@ import {
   listBackups,
 } from "../../packages/platform/backup-and-migration/mod.ts";
 import { authorize } from "../../packages/platform/identity/mod.ts";
+import { APPROVAL_EXPIRY_CONTEXT } from "./platform.ts";
 import type { Assembled } from "./registration.ts";
 import { openSecretStore, withSecretSync } from "./secret-store.ts";
 import type { KeychainAdapter } from "../../packages/platform/secrets/mod.ts";
@@ -77,6 +78,8 @@ export type CoreRuntime = {
   prunePrepared(nowMs: number): Promise<Result<void>>;
   // 만료·회수된 ticket claim을 정리한다. 60초 timer와 재시작이 부른다(R13).
   sweepTicketClaims(): Promise<void>;
+  // 기한에 도달한 대기 approval request를 만료로 확정한다. 60초 timer와 재시작이 부른다(platform Q25).
+  sweepApprovalExpiry(): Promise<void>;
   readers: ReaderPool;
   // credential_ref의 현재 context. 폐기·만료·없는 자격은 err다. worker route 서빙이
   // 요청 자격을 다시 읽는 데 쓴다.
@@ -314,6 +317,40 @@ export async function openRuntime(input: {
       }
     });
   }
+  // approval 만료 정리. ticket claim 정리와 같다: 기한에 도달한 대기를 후보 read로 읽고 machine이
+  // expire_approval_request를 제출한다. 이미 끝난 request는 후보에 없고, 그 사이 허락·취소된 것은
+  // command가 conflict로 거절해 그대로 둔다. 여러 번 불러도 같은 결과다.
+  const approvalExpiry = APPROVAL_EXPIRY_CONTEXT as AuthenticatedContext;
+  function sweepApprovalExpiry(): Promise<void> {
+    if (!readers.ok) return Promise.resolve();
+    const nowMs = input.clock.nowMs();
+    const noted = isManualClock(input.clock)
+      ? openedWriter.noteTime(nowMs)
+      : Promise.resolve(ok(undefined));
+    const now = new Date(nowMs).toISOString();
+    return noted.then(() =>
+      readers.value.read(
+        { resource: "approvals", method: "expiry_sweep" },
+        approvalExpiry,
+        { now },
+      )
+    ).then(async (found) => {
+      if (!found.ok) return;
+      const approvals = (found.value as {
+        approvals?: { approval: string; created_seq: string }[];
+      }).approvals ?? [];
+      for (const candidate of approvals) {
+        await openedWriter.writer.command(approvalExpiry as never, {
+          command: "expire_approval_request",
+          input: candidate,
+          compare: { created_seq: candidate.created_seq },
+          idempotency_key:
+            `expire-approval:${candidate.approval}:${candidate.created_seq}`,
+          prepared: [],
+        });
+      }
+    });
+  }
   const events = createReaderEventBackend(
     readers.value,
     (ref) => Promise.resolve(currentCredential(input.ledgerPath, ref)),
@@ -346,6 +383,7 @@ export async function openRuntime(input: {
     track: (session) => dispatcher.add(session),
     trackedSessions: () => dispatcher.size,
     sweepTicketClaims,
+    sweepApprovalExpiry,
     async close() {
       dispatcher.close();
       secretStore.stop();

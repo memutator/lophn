@@ -13,7 +13,12 @@ import type {
   ProcessSource,
 } from "./connect.ts";
 import {
+  activationOpenOutputSchema,
+  activationPauseOutputSchema,
+  activationPrepareOutputSchema,
+  activationResumeOutputSchema,
   blockOutputSchema,
+  dataJobOutputSchema,
   logsOutputSchema,
   type LogsWire,
   type ObservationWire,
@@ -27,6 +32,7 @@ import {
   type ReleasePreparationWire,
   restartOutputSchema,
   SUPERVISOR_OPS,
+  viewClosedOutputSchema,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
 
@@ -37,6 +43,10 @@ const RESTART_TIMEOUT_MS = 30_000;
 const PREVIEW_STOP_TIMEOUT_MS = 30_000;
 // 준비 취소는 자식 종료 확인까지 기다린다.
 const RELEASE_CANCEL_TIMEOUT_MS = 30_000;
+// activation의 자식 종료 확인·후보 준비 확인(ready 기한 30초와 정지 유예)을 기다린다.
+const ACTIVATION_TIMEOUT_MS = 90_000;
+// data worker 작업은 backup·migration·restore가 끝날 때까지 기다린다.
+const DATA_JOB_TIMEOUT_MS = 300_000;
 
 type WorkerResponse =
   | { type: "worker_response"; request_id: string; ok: true; payload: unknown }
@@ -61,6 +71,9 @@ export type SupervisorChannel = {
   bind(send: (payload: unknown) => Promise<boolean>): void;
   // supervisor가 멈췄다. 기다리던 요청은 unavailable로 끝난다.
   unbind(): void;
+  // supervisor child가 끝났다(crash·재기동). 보낸 요청은 답이 오지 않으므로 기한(5초·재시작 30초)까지
+  // 기다리지 않고 바로 unavailable로 끝낸다. 연결(bind)은 그대로다: 감독이 새 child를 띄운다.
+  failPending(message: string): void;
   readonly bound: boolean;
 };
 
@@ -68,6 +81,12 @@ export function createSupervisorChannel(): SupervisorChannel {
   let send: ((payload: unknown) => Promise<boolean>) | null = null;
   let counter = 0;
   const pending = new Map<string, (answer: Result<unknown>) => void>();
+  function failPending(message: string) {
+    for (const [id, settle] of [...pending]) {
+      pending.delete(id);
+      settle(err({ code: "unavailable", message }));
+    }
+  }
   return {
     request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS) {
       const sender = send;
@@ -132,15 +151,10 @@ export function createSupervisorChannel(): SupervisorChannel {
     bind(next) {
       send = next;
     },
+    failPending,
     unbind() {
       send = null;
-      for (const [id, settle] of [...pending]) {
-        pending.delete(id);
-        settle(err({
-          code: "unavailable",
-          message: "app supervisor stopped",
-        }));
-      }
+      failPending("app supervisor stopped");
     },
     get bound() {
       return send !== null;
@@ -178,6 +192,8 @@ export type SupervisorClient = {
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
   // 그 앱의 broker 연결을 새 요청부터 막고 막은 연결 수를 돌려준다.
   block(app: string): Promise<Result<number>>;
+  // 닫힌 화면 view를 그 앱의 지금 live 자식에 알린다. 자식이 없으면 false다.
+  viewClosed(app: string, viewSession: string): Promise<Result<boolean>>;
   // preview 프로세스. 운영 자식과 다른 통로이고 운영 관측을 바꾸지 않는다(apps/preview).
   previewStart(launch: PreviewLaunch): Promise<Result<void>>;
   previewObserve(
@@ -197,6 +213,28 @@ export type SupervisorClient = {
     requestKey: string,
   ): Promise<Result<ReleasePreparationWire>>;
   releaseCancel(app: string, requestKey: string): Promise<Result<void>>;
+  // activation. 앱을 붙들고 자식 종료를 확인한다(true만 확인).
+  activationPause(app: string): Promise<Result<boolean>>;
+  // 후보를 준비 모드로 시작한다. 검사를 통과하면 확인을, 아니면 이유를 낸다.
+  activationPrepare(desired: DesiredApp): Promise<
+    Result<
+      | {
+        ok: true;
+        processNonce: string;
+        attestation: {
+          release: string;
+          bundleHash: string;
+          commands: string[];
+          dataSchema: number;
+        };
+      }
+      | { ok: false; reason: string }
+    >
+  >;
+  activationOpen(app: string): Promise<Result<boolean>>;
+  activationResume(app: string): Promise<Result<void>>;
+  // 앱 전용 data worker 작업 한 번(backup·migrate·restore). 성공이면 출력 한 줄이다.
+  dataJob(app: string, line: string): Promise<Result<string>>;
 };
 
 export function createSupervisorClient(
@@ -241,6 +279,16 @@ export function createSupervisorClient(
       );
       return answer.ok ? ok(answer.value.blocked) : answer;
     },
+    async viewClosed(app, viewSession) {
+      const answer = shaped(
+        viewClosedOutputSchema,
+        await channel.request(SUPERVISOR_OPS.viewClosed, {
+          app,
+          view_session: viewSession,
+        }),
+      );
+      return answer.ok ? ok(answer.value.relayed) : answer;
+    },
     async previewStart(launch) {
       const answer = shaped(
         previewStartOutputSchema,
@@ -283,6 +331,78 @@ export function createSupervisorClient(
           request_key: requestKey,
         }),
       );
+    },
+    async activationPause(app) {
+      const answer = shaped(
+        activationPauseOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.activationPause,
+          { app },
+          ACTIVATION_TIMEOUT_MS,
+        ),
+      );
+      return answer.ok ? ok(answer.value.confirmed) : answer;
+    },
+    async activationPrepare(desired) {
+      const answer = shaped(
+        activationPrepareOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.activationPrepare,
+          desired,
+          ACTIVATION_TIMEOUT_MS,
+        ),
+      );
+      if (!answer.ok) return answer;
+      return ok(
+        answer.value.ok
+          ? {
+            ok: true as const,
+            processNonce: answer.value.process_nonce,
+            attestation: {
+              release: answer.value.attestation.release,
+              bundleHash: answer.value.attestation.bundle_hash,
+              commands: answer.value.attestation.commands,
+              dataSchema: answer.value.attestation.data_schema,
+            },
+          }
+          : { ok: false as const, reason: answer.value.reason },
+      );
+    },
+    async activationOpen(app) {
+      const answer = shaped(
+        activationOpenOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.activationOpen,
+          { app },
+          ACTIVATION_TIMEOUT_MS,
+        ),
+      );
+      return answer.ok ? ok(answer.value.opened) : answer;
+    },
+    async activationResume(app) {
+      const answer = shaped(
+        activationResumeOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.activationResume,
+          { app },
+          ACTIVATION_TIMEOUT_MS,
+        ),
+      );
+      return answer.ok ? ok(undefined) : answer;
+    },
+    async dataJob(app, line) {
+      const answer = shaped(
+        dataJobOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.dataJob,
+          { app, line },
+          DATA_JOB_TIMEOUT_MS,
+        ),
+      );
+      if (!answer.ok) return answer;
+      return answer.value.ok && answer.value.line !== null
+        ? ok(answer.value.line)
+        : err({ code: "unavailable", message: "data job failed" });
     },
     async releaseCancel(app, requestKey) {
       const answer = shaped(

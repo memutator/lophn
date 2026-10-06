@@ -4,6 +4,7 @@
 // (cli#R1, architecture 5.1).
 import { APP_COMMANDS } from "./commands/app.ts";
 import { APPROVAL_COMMANDS } from "./commands/approval.ts";
+import { CONNECTION_COMMANDS } from "./commands/connection.ts";
 import { CONTEXT_COMMANDS } from "./commands/context.ts";
 import { QUESTION_COMMANDS } from "./commands/question.ts";
 import { DAEMON_COMMANDS } from "./commands/daemon.ts";
@@ -16,6 +17,7 @@ import { INDEX_COMMANDS } from "./commands/index.ts";
 import { MCP_COMMANDS } from "./commands/mcp.ts";
 import { PROJECT_COMMANDS } from "./commands/project.ts";
 import { SAVE_COMMANDS } from "./commands/save.ts";
+import { SDK_COMMANDS } from "./commands/sdk.ts";
 import { SERIES_COMMANDS } from "./commands/series.ts";
 import { TICKET_COMMANDS } from "./commands/ticket.ts";
 
@@ -32,10 +34,12 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...QUESTION_COMMANDS,
   ...APPROVAL_COMMANDS,
   ...APP_COMMANDS,
+  ...SDK_COMMANDS,
   ...TICKET_COMMANDS,
   ...DAEMON_COMMANDS,
   ...DOCTOR_COMMANDS,
   ...HARNESS_COMMANDS,
+  ...CONNECTION_COMMANDS,
   ...MCP_COMMANDS,
 ];
 

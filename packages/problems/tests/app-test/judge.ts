@@ -3,8 +3,21 @@ import type {
   TestResult,
 } from "../../../contracts/problems/mod.ts";
 import { canonicalHash } from "../canonical.ts";
-import { isFailurePathName } from "../harness/definitions.ts";
+import {
+  isFailurePathName,
+  VIEW_HOST_INCONCLUSIVE,
+} from "../harness/definitions.ts";
 import type { AppTestPlan, PlanCheck } from "./generate.ts";
+
+export type AdjacentObservation = { name: string; held: boolean };
+
+// 통과가 증명하는 범위(problems/tests#R12). 검사한 고정 기준과 입력 범위는 runner의
+// 설치 자료이고, 인접 불변식은 harness가 따로 관측한 항목이라 둘을 구별해 적는다.
+export type ObservedCoverage = {
+  criteria: string[];
+  input_range: string;
+  adjacent_invariants: AdjacentObservation[];
+};
 
 export type CheckObservation = {
   name: string;
@@ -12,6 +25,7 @@ export type CheckObservation = {
   reason: string;
   // 관측 actual의 hash만 넣는다. 원문은 runner가 redaction 뒤 blob으로 준비한다.
   evidence: { actual_hash: string | null; source: "runner" | "harness" };
+  coverage: ObservedCoverage;
 };
 
 export type AppTestObservations = {
@@ -31,7 +45,35 @@ export type AppTestJudgment = {
 };
 
 const SCOPE =
-  "필수 보고 경로와 선언 검사의 고정 기준·입력만 증명한다. 앱 계약 검사와 인접 기능은 별도 관측이다";
+  "검사마다 적은 고정 기준과 입력 범위만 증명한다. 인접 불변식은 별도 항목으로 관측하고 그 밖의 기능과 데이터는 증명하지 않는다";
+
+function coverageFor(
+  check: PlanCheck,
+  adjacent: AdjacentObservation[] = [],
+): ObservedCoverage {
+  return {
+    criteria: check.coverage.criteria,
+    input_range: check.coverage.input_range,
+    adjacent_invariants: adjacent,
+  };
+}
+
+function adjacentOf(actual: unknown): AdjacentObservation[] | null {
+  if (actual === null || typeof actual !== "object") return [];
+  const value = (actual as Record<string, unknown>).adjacent;
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) return null;
+  const items: AdjacentObservation[] = [];
+  for (const item of value) {
+    const record = item as Record<string, unknown> | null;
+    if (
+      record === null || typeof record !== "object" ||
+      typeof record.name !== "string" || typeof record.held !== "boolean"
+    ) return null;
+    items.push({ name: record.name, held: record.held });
+  }
+  return items;
+}
 
 function fromFrame(
   check: PlanCheck,
@@ -45,11 +87,13 @@ function fromFrame(
         status: "fail",
         reason: "필수 검사의 관측이 없다. 검사가 빠졌거나 실행되지 않았다",
         evidence: { actual_hash: null, source: harness },
+        coverage: coverageFor(check),
       },
       actual: undefined,
     };
   }
   const actual = frame.actual as Record<string, unknown> | null;
+  const adjacent = adjacentOf(actual);
   const hash = canonicalHash(frame.actual);
   const digest = actual && typeof actual === "object" && !Array.isArray(actual)
     ? actual.check_digest
@@ -62,6 +106,7 @@ function fromFrame(
         status: "fail",
         reason: "검사 정의가 runner의 설치 자료와 다르다",
         evidence: base,
+        coverage: coverageFor(check),
       },
       actual: frame.actual,
     };
@@ -79,12 +124,24 @@ function fromFrame(
       reason = "실제 command의 실패 경로로 접수된 근거가 아니다";
     }
   }
+  // 인접 불변식이 깨졌거나 형식이 틀리면 고정 기준을 만족해도 통과가 아니다.
+  if (met && (adjacent === null || adjacent.some((item) => !item.held))) {
+    met = false;
+    reason = adjacent === null
+      ? "인접 불변식 관측의 형식이 올바르지 않다"
+      : `인접 불변식이 깨졌다: ${
+        adjacent.filter((item) => !item.held).map((item) => item.name).join(
+          ", ",
+        )
+      }`;
+  }
   return {
     observation: {
       name: check.name,
       status: met ? "pass" : "fail",
       reason,
       evidence: base,
+      coverage: coverageFor(check, adjacent ?? []),
     },
     actual: frame.actual,
   };
@@ -147,6 +204,7 @@ export function judgeAppTest(input: {
         status: "not_applicable",
         reason: check.reason,
         evidence: { actual_hash: null, source: check.source },
+        coverage: coverageFor(check),
       });
       continue;
     }
@@ -159,6 +217,7 @@ export function judgeAppTest(input: {
           actual_hash: canonicalHash(check.precomputed.evidence),
           source: "runner",
         },
+        coverage: coverageFor(check),
       });
       actuals[check.name] = check.precomputed.evidence;
       continue;
@@ -169,6 +228,22 @@ export function judgeAppTest(input: {
   }
   const failed = checks.filter((check) => check.status === "fail");
   const value = observations(checks);
+  // 화면 검사 host가 판정하지 못했으면 fail이 아니라 판정 불가다(problems/tests#R7).
+  const unjudged = plan.checks.filter((check) => {
+    const actual = actuals[check.name] as Record<string, unknown> | undefined;
+    return check.source === "harness" &&
+      actual?.view_host === VIEW_HOST_INCONCLUSIVE;
+  });
+  if (unjudged.length > 0) {
+    return {
+      result: "inconclusive",
+      reason: `화면 검사 host가 판정하지 못했다: ${
+        unjudged.map((check) => check.name).join(", ")
+      }`,
+      observations: value,
+      actuals,
+    };
+  }
   if (failed.length > 0) {
     return {
       result: "fail",

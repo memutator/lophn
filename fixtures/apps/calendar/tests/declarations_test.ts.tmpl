@@ -1,0 +1,81 @@
+// 캘린더 앱의 선언 test. 권한·automation·command 설명이 코드가 쓰는 값과 같고 요구 문장을 지키는지 본다.
+import { assert, assertEquals } from "@std/assert";
+import { checkDeclaration as checkNet } from "@lophn/cap-net";
+import { checkDeclaration as checkSecret } from "@lophn/cap-secret";
+import blueprint from "../blueprint.ts";
+import { EXTERNAL, TOKEN } from "../src/external.ts";
+
+const command = (key: string) =>
+  blueprint.commands.find((item) => item.key === key)!;
+
+Deno.test("apps/permissions#R8 apps/permissions#R14: 선언한 net.fetch는 코드가 쓰는 정확한 host·port 하나고 secret.use는 이름 하나다", () => {
+  assertEquals(blueprint.permissions.map((item) => [item.kind, item.scope]), [
+    ["net.fetch", { host: EXTERNAL.host, port: EXTERNAL.port }],
+    ["secret.use", { name: TOKEN }],
+  ]);
+  assert(!/[*]/.test(EXTERNAL.host));
+  assert(EXTERNAL.port >= 1 && EXTERNAL.port <= 65535);
+  // cap-net·cap-secret을 쓰는 선언이 필요한 permission을 빠뜨리지 않는다.
+  assertEquals(checkNet(blueprint).ok, true);
+  assertEquals(checkSecret(blueprint).ok, true);
+});
+
+Deno.test("apps/automations#R13: 시작 때와 60000ms마다 sync_events를 돌리고, external 동기화는 external command를 고정 입력으로 돌린다", () => {
+  const tasks = new Map(
+    blueprint.automatic_tasks.map((task) => [task.key, task]),
+  );
+  assertEquals(tasks.get("sync_on_start")?.when, { kind: "on_start" });
+  assertEquals(tasks.get("sync_on_start")?.command, "sync_events");
+  assertEquals(tasks.get("sync_every_minute")?.when, {
+    kind: "interval",
+    interval_ms: 60000,
+  });
+  assertEquals(tasks.get("sync_every_minute")?.command, "sync_events");
+  const external = tasks.get("external_sync")!;
+  assertEquals(command(external.command).effect, "external");
+  assertEquals(external.input, {
+    title: "Weekly review",
+    starts_at: "2026-01-05T09:00:00.000Z",
+  });
+  // 어떤 automation도 사람 확인이 필요한 command를 부르지 않는다.
+  for (const task of blueprint.automatic_tasks) {
+    assertEquals(command(task.command).confirm, false, task.key);
+  }
+});
+
+Deno.test("apps/blueprint#R5: command 효과는 read·write·external 순서의 가장 큰 효과다", () => {
+  assertEquals(
+    blueprint.commands.map((item) => [item.key, item.effect, item.confirm]),
+    [
+      ["add_event", "write", false],
+      ["create_external_event", "external", false],
+      ["delete_all_events", "write", true],
+      ["list_events", "read", false],
+      ["revert_event", "write", false],
+      ["sync_events", "write", false],
+    ],
+  );
+});
+
+Deno.test("apps/blueprint#R20: command마다 목적·입력 뜻·효과가 이름과 설명, 입력 설명에 있다", () => {
+  for (const item of blueprint.commands) {
+    assert(item.description.length >= 30, `${item.key} description is short`);
+    for (const [name, schema] of Object.entries(item.input?.properties ?? {})) {
+      assert(
+        (schema.description ?? "").length >= 10,
+        `${item.key}.${name} has no description`,
+      );
+    }
+    assertEquals(
+      [...(item.input?.required ?? [])].sort(),
+      Object.keys(item.input?.properties ?? {}).sort(),
+      item.key,
+    );
+  }
+  // 부작용이 있는 command의 설명은 무엇이 바뀌는지 밝힌다.
+  assert(
+    command("create_external_event").description.includes("external calendar"),
+  );
+  assert(command("delete_all_events").description.includes("confirmation"));
+  assert(command("sync_events").description.includes("only read"));
+});

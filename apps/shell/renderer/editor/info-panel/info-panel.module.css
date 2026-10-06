@@ -80,6 +80,29 @@
   color: var(--color-text-muted);
 }
 
+/* 행 전체를 누르는 단추. 행의 높이·여백은 .row가 정한다. */
+.rowButton {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+  height: 100%;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowButton:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
 .version {
   flex: none;
   font-family: var(--font-mono);

@@ -13,13 +13,18 @@ type Fixture = ReturnType<typeof versionFixture>;
 
 let placeSeq = 0;
 
-function seedPlace(fixture: Fixture, slug: string, target: string) {
+function seedPlace(
+  fixture: Fixture,
+  slug: string,
+  target: string,
+  kind: "project" | "app" = "project",
+) {
   placeSeq += 1;
   fixture.db
     .prepare(
-      "INSERT INTO place_names (slug, kind, target, reserved_seq) VALUES (?, 'project', ?, ?)",
+      "INSERT INTO place_names (slug, kind, target, reserved_seq) VALUES (?, ?, ?, ?)",
     )
-    .run(slug, target, String(placeSeq));
+    .run(slug, kind, target, String(placeSeq));
 }
 
 function seedDocumentName(
@@ -27,13 +32,14 @@ function seedDocumentName(
   placeId: string,
   name: string,
   document: string,
+  kind: "project" | "app" = "project",
 ) {
   placeSeq += 1;
   fixture.db
     .prepare(
-      "INSERT INTO document_names (place_kind, place_id, name, document, reserved_seq) VALUES ('project', ?, ?, ?, ?)",
+      "INSERT INTO document_names (place_kind, place_id, name, document, reserved_seq) VALUES (?, ?, ?, ?, ?)",
     )
-    .run(placeId, name, document, String(placeSeq));
+    .run(kind, placeId, name, document, String(placeSeq));
 }
 
 // 판 하나짜리 문서 row. place가 null이면 자리 없는 문서다.
@@ -183,6 +189,66 @@ Deno.test("documents/addressing#R6: 옛 project 이름과 옛 문서 이름도 �
       section: null,
       version: 1,
     });
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R6: 앱 자리도 옛 앱 이름과 옛 문서 이름으로 같은 대상의 현재 참조를 안내한다", () => {
+  const fixture = versionFixture();
+  try {
+    // old-app이 옛 앱 이름, report-app이 현재 이름이다. weekly-report가 옛 문서 이름이다.
+    seedPlace(fixture, "old-app", ids.app, "app");
+    seedPlace(fixture, "report-app", ids.app, "app");
+    seedDocumentName(fixture, ids.app, "weekly-report", ids.doc, "app");
+    seedDocumentName(fixture, ids.app, "summary", ids.doc, "app");
+    seedDocument(fixture, ids.doc, { kind: "app", id: ids.app }, "summary");
+    const resolved = keep(
+      resolve(fixture, testAddress("old-app", "weekly-report")),
+    );
+    assertEquals(resolved.resolved.document, ids.doc);
+    assertEquals(resolved.resolved.redirected, true);
+    assertEquals(resolved.resolved.current_reference, {
+      place: "report-app",
+      document: "summary",
+      section: null,
+      version: 1,
+    });
+    // 현재 이름의 주소는 그대로 닿고 안내가 아니다.
+    const current = keep(
+      resolve(fixture, testAddress("report-app", "summary")),
+    );
+    assertEquals(current.resolved.redirected, false);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/addressing#R6: 현재 앱 이름은 예약 seq의 숫자 순서로 정한다(9 다음이 10)", () => {
+  const fixture = versionFixture();
+  try {
+    for (const [slug, seq] of [["old-app", "9"], ["new-app", "10"]]) {
+      fixture.db
+        .prepare(
+          "INSERT INTO place_names (slug, kind, target, reserved_seq) VALUES (?, 'app', ?, ?)",
+        )
+        .run(slug, ids.app, seq);
+    }
+    seedDocumentName(fixture, ids.app, "weekly-report", ids.doc, "app");
+    seedDocument(
+      fixture,
+      ids.doc,
+      { kind: "app", id: ids.app },
+      "weekly-report",
+    );
+    const resolved = keep(
+      resolve(fixture, testAddress("old-app", "weekly-report")),
+    );
+    assertEquals(resolved.resolved.redirected, true);
+    assertEquals(
+      (resolved.resolved.current_reference as { place: string }).place,
+      "new-app",
+    );
   } finally {
     fixture.close();
   }

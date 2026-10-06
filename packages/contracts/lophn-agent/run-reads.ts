@@ -91,4 +91,43 @@ export const runResult = defineRead({
   errors: [...readErrors],
 });
 
-export const RUN_READS = [runRead, runList, runResult] as const;
+// 복구가 저장된 본문(run basis, model 응답, tool 결과)을 다시 읽는 길이다. 값은 core가 blob 바이트를
+// 읽고 hash를 확인한 JSON 값이다. machine만 읽고 그 밖은 없는 대상과 똑같이 답한다.
+export const RUN_BODY_KINDS = [
+  "run_basis",
+  "model_call_output",
+  "tool_call_output",
+] as const;
+
+const BODY_ID_PREFIX = {
+  run_basis: "run_",
+  model_call_output: "mcl_",
+  tool_call_output: "tcl_",
+} as const;
+
+export const runBodyInputSchema = z.strictObject({
+  kind: z.enum(RUN_BODY_KINDS),
+  id: z.union([idSchema("run"), idSchema("mcl"), idSchema("tcl")]),
+}).refine(
+  (value) => value.id.startsWith(BODY_ID_PREFIX[value.kind]),
+  { message: "body kind and id do not match" },
+);
+
+export const runBody = defineRead({
+  resource: "runs",
+  method: "body",
+  name: "ReadRunBody",
+  input: runBodyInputSchema,
+  output: withReadCommon(z.object({
+    kind: z.enum(RUN_BODY_KINDS),
+    id: z.union([idSchema("run"), idSchema("mcl"), idSchema("tcl")]),
+    run: idSchema("run"),
+    hash: sha256Schema,
+    size_bytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    value: z.json(),
+  })),
+  actors: ["machine"],
+  errors: [...readErrors],
+});
+
+export const RUN_READS = [runRead, runList, runResult, runBody] as const;

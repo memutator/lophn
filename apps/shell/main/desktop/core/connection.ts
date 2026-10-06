@@ -53,7 +53,14 @@ export interface ConnectionOptions {
 }
 
 export interface ConnectionState {
-  state: "starting" | "ready" | "stale" | "failed";
+  state:
+    | "starting"
+    | "ready"
+    | "stale"
+    | "failed"
+    | "failed-start"
+    | "failed-sandbox"
+    | "failed-schema";
   confirmedAt: number | null;
 }
 
@@ -126,7 +133,7 @@ export function startCoreConnection(
       },
     });
   }).catch(() => {
-    state.state = "failed";
+    state.state = "failed-start";
     push();
   });
 

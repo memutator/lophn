@@ -47,6 +47,11 @@
   min-height: var(--space-0);
 }
 
+/* nav가 없으면 본문이 전체 폭을 쓴다. */
+.body[data-nav="none"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .nav {
   min-width: var(--space-0);
   min-height: var(--space-0);

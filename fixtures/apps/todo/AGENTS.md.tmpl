@@ -1,0 +1,44 @@
+# Todo
+
+lophn 앱 `todo`이다. 업무 프로세스는 Deno, 화면은 React이고 lophn 화면과 같은
+설치 SDK Package를 쓴다.
+
+<!-- begin lophn-managed -->
+<!-- end lophn-managed -->
+
+## 자리
+
+- `blueprint.ts`: 앱의 정본 선언(화면·command·problem code·고정 SDK 의존).
+  코드를 바꾸기 전에 먼저 바꾼다.
+- `main.ts`: 진입. command 등록만 한다. 예외 수집과 문제 보고 통로는 lophn
+  진입점이 설치한다.
+- `src/commands.ts`: command handler. `src/todos.ts`: 업무 규칙·DB 질의·되돌림.
+  `src/context.ts`: agent가 읽는 화면 상태와 힌트. `src/calendar.ts`: 캘린더 앱
+  호출. `src/deps.ts`: 저장소·파일·시계. `src/places.ts`: blueprint가 선언하는
+  폴더와 대상 앱.
+- `migrations/`: release의 schema는 이 폴더의 마지막 단계 번호다(0→1 한 release,
+  0→1→2 다른 release).
+- `src/screens/<key>/`: React 화면. root는 `AppErrorBoundary`로 감싼 채 둔다.
+- `src/wording/en.ts`: 화면 문구의 en catalog. 화면 코드에 문구를 직접 쓰지 않고
+  `t("key")`만 쓴다.
+- `tests/`: `blueprint_test.ts`는 lophn가 만든 파일이라 고치지 않는다. 실패 경로
+  test는 선언한 problem code마다 하나 이상이다.
+- `deno.json`: 정확한 SDK import map. `lophn-sdk:` 값은 정확한 version만 받는다.
+  `.lophn/`는 이 장치의 개발용 파생물이라 commit하지 않는다.
+
+## 명령
+
+- `deno task test`: 앱 test(blueprint·업무 규칙·실패 경로·문구).
+- `deno task build`: 화면을 `dist/screens/`에 build한다. release 준비가 같은
+  결과를 bundle에 담는다.
+- `deno task wording`: en catalog를 바꾼 뒤 `src/wording/placeholders.ts`를 다시
+  만든다.
+- `deno task check`: type 검사.
+
+## 재사용 기준
+
+- 새 SDK Package나 공용 component로 올리는 것은 lophn 화면과 이 앱 같은 실제
+  사용처가 둘 이상이고, 도메인 이름·입출력이 분명하며, 스타일이 token 기반일
+  때뿐이다.
+- 앱 DB 구조, 앱 전용 prop, 한 곳의 layout 조정은 이 앱에 남긴다. 한 번 쓴 것을
+  미리 일반화하지 않는다.

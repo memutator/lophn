@@ -1,0 +1,244 @@
+// 봉인 bundle 사본에서 앱 자식의 시작 입력을 만든다(apps/releases#R4, apps/runtime#R8). 운영 DesiredApp과
+// preview의 `PreviewBundle`이 같은 함수로 사본의 entry·import map·command·화면·data schema·flag를 읽는다.
+// 사본의 모양: manifest.json, blueprint.json, import-map.json(상대 경로는 사본 root 기준), 앱 코드와 build한
+// screens/, 설치 SDK 사본 sdk/<이름>/<version>/, 앱 deno.lock, migrations/<from>-<to>.sql. 자식의 읽기 허락은
+// 사본 root를 덮는다(`appFlags`의 bundle). 파일은 async로만 읽는다(core module graph).
+import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
+import {
+  type BundleManifest,
+  bundleManifestSchema,
+  type DataChange,
+  dataChangeSchema,
+} from "../../../contracts/apps/mod.ts";
+import { validateBlueprint } from "../../blueprint/mod.ts";
+import {
+  appFlags,
+  type FlagSet,
+  type PlatformPorts,
+  type ResolvedRequirement,
+} from "../../permissions/mod.ts";
+import type { PreviewBundle, PreviewBundles } from "../../preview/mod.ts";
+import {
+  BLUEPRINT_COPY_NAME,
+  bundleCopyPath,
+  MANIFEST_COPY_NAME,
+} from "../bundle/seal.ts";
+import type { DesiredApp } from "../../runtime/mod.ts";
+
+export const IMPORT_MAP_COPY_NAME = "import-map.json";
+
+export type ScreenSizes = Record<string, ("full" | "panel" | "card")[]>;
+
+export type BundleParts = {
+  // 사본 root. 자식의 읽기 허락과 import map 상대 경로의 기준이다.
+  root: string;
+  manifest: BundleManifest;
+  entry: string;
+  importMap: string;
+  commands: string[];
+  screens: ScreenSizes;
+  // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다(apps/data#R3).
+  dataSchema: number;
+};
+
+function unavailable(message: string): Result<never> {
+  return err({ code: "unavailable", message });
+}
+
+const STEP_FILE = /^migrations\/(\d+)-(\d+)\.sql$/;
+
+export function dataSchemaOf(manifest: BundleManifest): number {
+  let schema = 0;
+  for (const file of manifest.files) {
+    const match = STEP_FILE.exec(file.path);
+    if (match !== null) schema = Math.max(schema, Number(match[2]));
+  }
+  return schema;
+}
+
+// release.prepare의 data_changes다(apps/data#R8). 사본의 `migrations/<from>-<to>.sql`마다 한 단계이고
+// script_hash는 그 파일 byte의 sha256이다. data worker가 같은 파일을 같은 hash로 확인한다
+// (`scriptFromBundle`). 설명은 파일 앞의 `--` 주석 줄이고 없으면 schema 번호 이동이다.
+export async function dataChangesOf(
+  parts: Pick<BundleParts, "root" | "manifest">,
+): Promise<Result<DataChange[]>> {
+  const changes: DataChange[] = [];
+  for (const file of parts.manifest.files) {
+    const match = STEP_FILE.exec(file.path);
+    if (match === null) continue;
+    let text: string;
+    try {
+      text = await Deno.readTextFile(`${parts.root}/${file.path}`);
+    } catch {
+      return unavailable("migration file cannot be read");
+    }
+    const from = Number(match[1]);
+    const to = Number(match[2]);
+    const described = text.split("\n").map((line) => line.trim()).filter(
+      (line) => line.length > 0,
+    ).filter((line, index, lines) =>
+      line.startsWith("--") &&
+      lines.slice(0, index).every((before) => before.startsWith("--"))
+    ).map((line) => line.replace(/^--\s*/, "")).join(" ");
+    const change = dataChangeSchema.safeParse({
+      from,
+      to,
+      script_hash: await sha256Hex(text),
+      description: described.length > 0 ? described : `schema ${from} to ${to}`,
+    });
+    if (!change.success) return unavailable("migration step is invalid");
+    changes.push(change.data);
+  }
+  return ok(changes.sort((a, b) => a.from - b.from));
+}
+
+// 앱의 bundle 사본을 읽는다. 없는 사본·다른 앱의 hash는 undefined다. 사본이 있는데 manifest가 hash와 다르거나
+// import map·blueprint를 읽지 못하면 unavailable이다. 사본 파일은 읽기만 한다.
+export async function readBundleCopy(
+  dataRoot: string,
+  app: string,
+  bundleHash: string,
+): Promise<Result<BundleParts | undefined>> {
+  const copy = bundleCopyPath(dataRoot, app, bundleHash);
+  if (!copy.ok) return ok(undefined);
+  const root = copy.value;
+  let manifestText: string;
+  try {
+    manifestText = await Deno.readTextFile(`${root}/${MANIFEST_COPY_NAME}`);
+  } catch (thrown) {
+    return thrown instanceof Deno.errors.NotFound
+      ? ok(undefined)
+      : unavailable("bundle copy cannot be read");
+  }
+  let manifest: BundleManifest;
+  try {
+    const parsed = bundleManifestSchema.safeParse(JSON.parse(manifestText));
+    if (!parsed.success) return unavailable("bundle manifest is invalid");
+    manifest = parsed.data;
+  } catch {
+    return unavailable("bundle manifest is invalid");
+  }
+  // bundle hash는 manifest의 정규 byte의 sha256이다. 다르면 이 사본은 그 hash가 아니다.
+  if (await sha256Hex(manifestText) !== bundleHash) {
+    return unavailable("bundle copy does not match its hash");
+  }
+  let blueprintText: string;
+  try {
+    blueprintText = await Deno.readTextFile(`${root}/${BLUEPRINT_COPY_NAME}`);
+    await Deno.stat(`${root}/${IMPORT_MAP_COPY_NAME}`);
+  } catch {
+    return unavailable("bundle copy is incomplete");
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(blueprintText);
+  } catch {
+    return unavailable("bundle blueprint is invalid");
+  }
+  const blueprint = validateBlueprint(raw, { app });
+  if (!blueprint.ok) return unavailable("bundle blueprint is invalid");
+  return ok({
+    root,
+    manifest,
+    entry: `${root}/${manifest.entrypoint}`,
+    importMap: `${root}/${IMPORT_MAP_COPY_NAME}`,
+    commands: blueprint.value.commands.map((command) => command.key),
+    screens: Object.fromEntries(
+      blueprint.value.screens.map((screen) => [screen.key, [...screen.sizes]]),
+    ),
+    dataSchema: dataSchemaOf(manifest),
+  });
+}
+
+// 사본의 앱 자식 flag다. data 영역과 grant에서 푼 요구 permission만 사본 root 읽기에 더해진다.
+export function bundleFlags(
+  parts: Pick<BundleParts, "root">,
+  input: {
+    requirements: readonly ResolvedRequirement[];
+    dataPath: string;
+    platform: PlatformPorts;
+    protectedDenies: readonly string[];
+  },
+): Result<FlagSet> {
+  return appFlags(
+    input.requirements,
+    { bundle: parts.root, data: input.dataPath },
+    input.platform,
+    input.protectedDenies,
+  );
+}
+
+// supervisor에 알리는 운영 앱의 원하는 상태다(apps/runtime `DesiredApp`). 사본에서 읽은 부분과 ledger가 정한
+// 부분(release·실행 허용·archive·data schema)을 하나로 합친다.
+export function desiredFromBundle(
+  parts: BundleParts,
+  input: {
+    app: string;
+    release: string;
+    bundleHash: string;
+    runEnabled: boolean;
+    archived: boolean;
+    dataSchema: number;
+    dataPath: string;
+    flags: FlagSet;
+  },
+): DesiredApp {
+  return {
+    app: input.app,
+    release: input.release,
+    bundleHash: input.bundleHash,
+    runEnabled: input.runEnabled,
+    archived: input.archived,
+    commands: parts.commands,
+    screens: parts.screens,
+    dataSchema: input.dataSchema,
+    flags: input.flags,
+    entry: parts.entry,
+    importMap: parts.importMap,
+    dataPath: input.dataPath,
+  };
+}
+
+// preview가 여는 bundle이다. 같은 사본 읽기와 flag 계산에 disposable 영역을 data로 준다. grant가 없는
+// preview는 요구 permission이 없다. fixture는 manifest 파일 중 그 hash의 byte다.
+export function createCopyPreviewBundles(options: {
+  dataRoot: string;
+  platformPorts: () => readonly number[];
+}): PreviewBundles {
+  return {
+    async open(app, bundleHash) {
+      const read = await readBundleCopy(options.dataRoot, app, bundleHash);
+      if (!read.ok) return read;
+      if (read.value === undefined) return ok(undefined);
+      const parts = read.value;
+      const bundle: PreviewBundle = {
+        entry: parts.entry,
+        importMap: parts.importMap,
+        commands: parts.commands,
+        screens: parts.screens,
+        dataSchema: parts.dataSchema,
+        async fixture(hash) {
+          const file = parts.manifest.files.find((entry) =>
+            entry.hash === hash
+          );
+          if (file === undefined) return undefined;
+          try {
+            const bytes = await Deno.readFile(`${parts.root}/${file.path}`);
+            return await sha256Hex(bytes) === hash ? bytes : undefined;
+          } catch {
+            return undefined;
+          }
+        },
+        flags(dataPath) {
+          return bundleFlags(parts, {
+            requirements: [],
+            dataPath,
+            platform: { ports: [...options.platformPorts()] },
+            protectedDenies: [],
+          });
+        },
+      };
+      return ok(bundle);
+    },
+  };
+}

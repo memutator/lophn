@@ -1,0 +1,128 @@
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { CalendarDays } from "lucide-react";
+import { Button, Field, Input } from "@lophn/ui-control";
+import { AppShell } from "@lophn/ui-layout";
+import { ReadState } from "@lophn/ui-state";
+import { t } from "../../wording/t.ts";
+import {
+  addEvent,
+  type CalendarEvent,
+  listEvents,
+  syncEvents,
+} from "./bridge.ts";
+import styles from "./app.module.css";
+
+// events 화면. 일정 목록, 새 일정 입력, 외부 캘린더와 맞추는 버튼이다. 문구는 모두 en catalog의 key고,
+// 읽기 결과의 loading·empty·error는 ui-state의 ReadState가 그린다. 앱 DB 구조나 이 화면 전용 prop은
+// SDK로 올리지 않는다.
+export function App() {
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [syncFailed, setSyncFailed] = useState(false);
+  const [title, setTitle] = useState("");
+  const [starts, setStarts] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setEvents(await listEvents());
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const time = new Date(starts);
+    if (title.trim() === "" || Number.isNaN(time.getTime())) return;
+    try {
+      await addEvent(title, time.toISOString());
+      setTitle("");
+      setStarts("");
+      setSaveFailed(false);
+      await load();
+    } catch {
+      setSaveFailed(true);
+    }
+  }
+
+  async function sync() {
+    try {
+      await syncEvents();
+      setSyncFailed(false);
+      await load();
+    } catch {
+      setSyncFailed(true);
+    }
+  }
+
+  return (
+    <AppShell title={t("events.title.screen")}>
+      <form className={styles.form} onSubmit={submit}>
+        <Field
+          label={t("events.label.new-title")}
+          error={saveFailed ? t("events.error.save-failed") : undefined}
+        >
+          <Input
+            value={title}
+            maxLength={200}
+            onChange={(event) => setTitle(event.target.value)}
+          />
+        </Field>
+        <Field label={t("events.label.new-starts")}>
+          <Input
+            type="datetime-local"
+            value={starts}
+            onChange={(event) => setStarts(event.target.value)}
+          />
+        </Field>
+        <div className={styles.actions}>
+          <Button type="button" onClick={() => void sync()}>
+            {t("events.button.sync")}
+          </Button>
+          <Button type="submit" variant="primary">
+            {t("events.button.add")}
+          </Button>
+        </div>
+        {syncFailed
+          ? <p role="alert">{t("events.error.sync-failed")}</p>
+          : null}
+      </form>
+      <ReadState
+        loading={loading}
+        failed={failed ? t("events.label.events") : undefined}
+        onRetry={() => void load()}
+        isEmpty={events.length === 0}
+        empty={{
+          icon: CalendarDays,
+          message: t("events.empty.none"),
+          action: {
+            label: t("events.button.reload"),
+            onSelect: () => void load(),
+          },
+        }}
+      >
+        <p className={styles.count}>
+          {t("events.label.count", { count: events.length })}
+        </p>
+        <ul className={styles.list}>
+          {events.map((event) => (
+            <li key={event.id} className={styles.event}>
+              <span>{event.title}</span>
+              <time dateTime={event.starts_at}>{event.starts_at}</time>
+            </li>
+          ))}
+        </ul>
+      </ReadState>
+    </AppShell>
+  );
+}

@@ -1,0 +1,255 @@
+// agent context와 힌트(apps/agent-context#R1–R5). SDK의 등록 handler를 lophn이 설치하는 화면 context host의 대역
+// 위에서 돌린다. 대역은 선언 조회·열린 view 조회·입력 검사·민감 path 제거(요약 2048byte)를 같은 모양으로 한다.
+// 실제 host의 검사는 packages/apps/agent-context의 test가 맡고, 여기서는 이 앱의 선언과 상태가 맞는지 본다.
+import { assert, assertEquals, assertRejects } from "@std/assert";
+import {
+  CommandRejection,
+  runWith,
+  SCHEDULE_PORT,
+  type SchedulePort,
+} from "@lophn/cap-schedule";
+import blueprint from "../blueprint.ts";
+import { registerCommands } from "../src/commands.ts";
+import { addTodoHandler, completeTodoHandler } from "../src/commands.ts";
+import { depsAt } from "./support.ts";
+
+const HOST = Symbol.for("lophn.screen-context");
+const LIVE = {
+  app: "app_a",
+  release: "rel_a",
+  mode: "live",
+  invocation: null,
+} as const;
+const SECRET = "private-note-9f3c";
+
+type Json = { [key: string]: unknown };
+
+// 지금 열려 있는 view session과 그 화면이다. 닫으면 지운다(runtime의 view-closed).
+const open = new Map<string, string>();
+
+// JSON Pointer 하나를 지운다. 지운 path를 돌려준다.
+function remove(data: Json, pointer: string): string[] {
+  const keys = pointer.split("/").slice(1);
+  let node: unknown = data;
+  for (const key of keys.slice(0, -1)) {
+    node = (node as Json | undefined)?.[key];
+  }
+  const last = keys.at(-1)!;
+  if (node && typeof node === "object" && last in node) {
+    delete (node as Json)[last];
+    return [pointer];
+  }
+  return [];
+}
+
+(globalThis as Record<symbol, unknown>)[HOST] = {
+  declaration: (screen: string) =>
+    blueprint.agent_context.find((item) => item.screen === screen),
+  view: (id: string) => open.has(id) ? { screen: open.get(id)! } : undefined,
+  parseRead: (raw: Json) => ({
+    ok: true,
+    value: {
+      screen: raw["screen"],
+      view_session: raw["view_session"],
+      detail: raw["detail"] === true,
+    },
+  }),
+  parseWrite: (raw: Json) => ({
+    ok: true,
+    value: { ...raw, input: raw },
+  }),
+  prepare(
+    input: {
+      summary: string;
+      data?: Json;
+      detail: boolean;
+      sensitive_paths: string[];
+    },
+  ) {
+    const data = input.data === undefined
+      ? undefined
+      : structuredClone(input.data);
+    const redacted = data === undefined
+      ? []
+      : input.sensitive_paths.flatMap((path) => remove(data, path));
+    return { summary: input.summary, data, redacted };
+  },
+};
+
+// 이 test 파일의 앱은 한 DB를 쓰고 command는 한 번만 등록한다.
+const root = Deno.makeTempDirSync({ prefix: "app-todo-context-" });
+Deno.mkdirSync(`${root}/data`);
+const place = { data: `${root}/data`, exports: root, imports: root };
+const deps = depsAt(place);
+registerCommands(deps);
+addEventListener("unload", () => Deno.removeSync(root, { recursive: true }));
+
+const port =
+  (globalThis as Record<symbol, unknown>)[SCHEDULE_PORT] as SchedulePort;
+
+// 등록한 command handler를 runtime처럼 부른다.
+function call(command: string, input: Json): Promise<unknown> {
+  const found = port.handlers().find((handler) => handler.command === command);
+  assert(found, `${command} is not registered`);
+  return runWith(LIVE, () => Promise.resolve(found.handle(input)));
+}
+
+function read(session: string, detail = false, screen = "todos") {
+  return call("todo_context", {
+    screen,
+    view_session: session,
+    detail,
+  }) as Promise<{
+    revision: string;
+    summary: string;
+    data?: { todo: Json; hints: string[] };
+    redacted: string[];
+  }>;
+}
+
+function hint(
+  session: string,
+  revision: string,
+  text: string,
+  target = "hint",
+) {
+  return call("hint_todo", {
+    screen: "todos",
+    view_session: session,
+    expected_revision: revision,
+    target,
+    text,
+  }) as Promise<{ revision: string }>;
+}
+
+async function newTodo(title: string, note = ""): Promise<number> {
+  const added = await addTodoHandler(deps)({
+    title,
+    private_note: note,
+  }) as unknown as {
+    result: { id: number };
+  };
+  return added.result.id;
+}
+
+async function rejection(work: Promise<unknown>): Promise<CommandRejection> {
+  return await assertRejects(() => work, CommandRejection);
+}
+
+Deno.test("apps/agent-context#R1: 선언한 todos 화면의 상태만 조회되고 선언하지 않은 화면과 주석 자리는 조회·변경되지 않는다", async () => {
+  // 선언은 한 화면의 read command 하나와 hint 주석 자리 하나다.
+  assertEquals(blueprint.agent_context.map((item) => item.screen), ["todos"]);
+  assertEquals(
+    blueprint.agent_context[0].annotation_targets.map((t) => t.key),
+    [
+      "hint",
+    ],
+  );
+  const id = await newTodo("Read me");
+  open.set("v-r1", "todos");
+  await call("edit_todo", { view_session: "v-r1", todo: id });
+  assertEquals((await read("v-r1")).summary.includes("Read me"), true);
+
+  // 선언하지 않은 화면은 조회되지 않는다.
+  assertEquals(
+    (await rejection(read("v-r1", false, "journal"))).code,
+    "invalid_input",
+  );
+  // 선언하지 않은 주석 자리(target)는 변경되지 않는다.
+  const state = await read("v-r1");
+  const refused = await rejection(hint("v-r1", state.revision, "x", "note"));
+  assertEquals(refused.code, "invalid_input");
+  assertEquals((await read("v-r1")).revision, state.revision);
+});
+
+Deno.test("apps/agent-context#R2: 같은 앱의 두 view는 각자의 상태와 revision을 돌려주고, 닫힌 view나 모르는 view의 옛 상태는 내보내지 않는다", async () => {
+  const first = await newTodo("First todo");
+  const second = await newTodo("Second todo");
+  open.set("v-a", "todos");
+  open.set("v-b", "todos");
+  open.set("v-never", "todos");
+  await call("edit_todo", { view_session: "v-a", todo: first });
+  await call("edit_todo", { view_session: "v-b", todo: second });
+
+  const a = await read("v-a");
+  const b = await read("v-b");
+  assert(a.summary.includes("First todo") && !a.summary.includes("Second"));
+  assert(b.summary.includes("Second todo") && !b.summary.includes("First"));
+  assert(a.revision !== b.revision);
+
+  // 이 앱이 고치는 할 일을 모르는 view는 없음(unavailable)이다.
+  assertEquals((await rejection(read("v-never"))).code, "unavailable");
+  // 탭을 닫으면(runtime이 view를 닫는다) 옛 상태를 최신으로 내보내지 않는다.
+  open.delete("v-a");
+  assertEquals((await rejection(read("v-a"))).code, "unavailable");
+  assertEquals((await read("v-b")).summary.includes("Second todo"), true);
+
+  // 고치는 일을 마친 view는 옛 할 일을 말하지 않는다.
+  await call("edit_todo", { view_session: "v-b" });
+  assertEquals((await read("v-b")).summary, "No todo is being edited.");
+});
+
+Deno.test("apps/agent-context#R3: 요약은 2KiB 이하이고 상세 자료는 detail 조회에서만 나온다", async () => {
+  const long = "한".repeat(200);
+  const id = await newTodo(long, "n".repeat(500));
+  open.set("v-r3", "todos");
+  await call("edit_todo", { view_session: "v-r3", todo: id });
+  const summary = await read("v-r3");
+  assert(new TextEncoder().encode(summary.summary).byteLength <= 2048);
+  assertEquals("data" in summary, false);
+  const detail = await read("v-r3", true);
+  assert(detail.data);
+  assertEquals(detail.data.todo["title"], long);
+});
+
+Deno.test("apps/agent-context#R4: 선언한 민감 칸 private_note는 요약과 상세 어디에도 나오지 않는다", async () => {
+  assertEquals(blueprint.agent_context[0].sensitive_paths, [
+    "/todo/private_note",
+  ]);
+  const id = await newTodo("With note", SECRET);
+  open.set("v-r4", "todos");
+  await call("edit_todo", { view_session: "v-r4", todo: id });
+
+  // 선언한 path가 실제 상세 데이터 안의 그 칸을 가리킨다(host가 지울 대상).
+  const detail = await read("v-r4", true);
+  assertEquals(detail.redacted, ["/todo/private_note"]);
+  assertEquals(detail.data?.todo["title"], "With note");
+  for (const output of [await read("v-r4"), detail]) {
+    assertEquals(JSON.stringify(output).includes(SECRET), false);
+  }
+});
+
+Deno.test("apps/agent-context#R5: 힌트는 조회한 revision이 지금과 같을 때만 쓰이고, 그 사이 상태가 바뀌었거나 view가 닫혔으면 적용되지 않는다", async () => {
+  const id = await newTodo("Hint me");
+  open.set("v-r5", "todos");
+  await call("edit_todo", { view_session: "v-r5", todo: id });
+  const before = await read("v-r5");
+  const applied = await hint(
+    "v-r5",
+    before.revision,
+    "Start with the easy part",
+  );
+  assert(applied.revision !== before.revision);
+  assertEquals((await read("v-r5")).revision, applied.revision);
+  assertEquals((await read("v-r5", true)).data?.hints, [
+    "Start with the easy part",
+  ]);
+
+  // 조회한 뒤 사람이 그 할 일을 끝냈다. 옛 revision의 힌트는 충돌이고 아무것도 쓰지 않는다.
+  const stale = (await read("v-r5")).revision;
+  await completeTodoHandler(deps)({ id });
+  const conflict = await rejection(hint("v-r5", stale, "Too late"));
+  assertEquals(conflict.code, "conflict");
+  assertEquals((await read("v-r5", true)).data?.hints, [
+    "Start with the easy part",
+  ]);
+
+  // 현재 화면을 다시 읽으면 쓸 수 있다.
+  const fresh = (await read("v-r5")).revision;
+  await hint("v-r5", fresh, "Second hint");
+
+  // view를 닫은 뒤의 쓰기는 unavailable이다.
+  open.delete("v-r5");
+  const closed = await rejection(hint("v-r5", fresh, "After close"));
+  assertEquals(closed.code, "unavailable");
+});

@@ -21,6 +21,7 @@ export {
   createPlaceNameReservation,
   type DocumentNameReservation,
 } from "./commands.ts";
+export { actingApp, isAppPlace } from "./app-place.ts";
 export { addressingSchemaSteps } from "./schema.ts";
 export { createAddressingReads } from "./reads.ts";
 export {

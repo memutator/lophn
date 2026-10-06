@@ -36,7 +36,10 @@ export function AppShell({ title, actions, nav, children }: AppShellProps) {
             <div className={styles.actions}>{actions}</div>
           )}
         </header>
-        <div className={styles.body}>
+        <div
+          className={styles.body}
+          data-nav={nav === undefined ? "none" : undefined}
+        >
           {nav !== undefined && <nav className={styles.nav}>{nav}</nav>}
           <main className={styles.main}>{children}</main>
         </div>

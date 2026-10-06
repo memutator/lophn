@@ -22,6 +22,7 @@ import {
   startApiServer,
 } from "../../packages/platform/api/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
+import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
   checkRestart,
@@ -30,6 +31,7 @@ import {
   RESTORE_DECISION,
   restoreBinding,
   type RestoreOutcome,
+  type RestorePlan,
 } from "../../packages/platform/backup-and-migration/mod.ts";
 import { backupStamp } from "../../packages/platform/backup-and-migration/mod.ts";
 import { type StatusSource } from "../../packages/platform/diagnostics/mod.ts";
@@ -57,8 +59,11 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import { connectionConnect } from "../../packages/contracts/coding-agent/mod.ts";
+import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
+  connectHandler,
   createCodingCredentials,
 } from "./coding-credential.ts";
 import { productKeychain } from "./secret-store.ts";
@@ -124,6 +129,7 @@ import {
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
+import { createDocumentsRespawner } from "./documents-respawn.ts";
 import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
 import type { PlacementRead } from "../../packages/documents/file-tracking/placement-read.ts";
@@ -153,6 +159,8 @@ import {
   INVOCATION_RECOVERY_CONTEXT,
   observeInvocations,
 } from "../../packages/apps/invocations/restart.ts";
+import { createCopyPreviewBundles } from "../../packages/apps/releases/activation/desired.ts";
+import { observeReleaseActivations } from "../../packages/apps/releases/activation/recovery.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createStreamer, createValidatePort } from "./documents-validate.ts";
@@ -297,6 +305,7 @@ export type CoreOptions = {
   // 기동에는 없다. credential은 log에 남기지 않는다.
   onDocumentsHello?: (hello: { credential: string; api_port: number }) => void;
 };
+export type RestoreBinding = { target: string; content: string };
 export type RestoreRequest = {
   // 복원할 묶음(manifest.created_at).
   created_at: string;
@@ -358,6 +367,13 @@ export type Core = {
   // `startCore`하면 새 epoch·새 ledger_id로 시작하고 derived가 복원 ledger 기준으로 다시 만들어진다.
   // 검증·보존이 실패하면 현재 자료는 그대로이고 core는 멈춘 채 오류를 돌려준다.
   restore(request: RestoreRequest): Promise<Result<RestoreOutcome>>;
+  // 고른 묶음의 복원 계획(잃을 범위)과 사람 확인에 묶는 기준. 아무것도 바꾸거나 멈추지 않는다.
+  restorePlan(
+    createdAt: string,
+  ): Promise<Result<{ plan: RestorePlan; binding: RestoreBinding }>>;
+  // 확인한 restore가 이 core를 멈췄는가. 멈췄으면 같은 data root로 다시 `startCore`해야 한다
+  // (apps/core/main.ts가 한다). 복원이 실패해도 core는 이미 멈춘 뒤라 true다.
+  restoreStopped(): boolean;
   // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다(platform Q25).
   sweepApprovalExpiry(): Promise<void>;
   // 재시작 때 접수·실행 중으로 남은 invocation을 미확인으로 확정한다(기동이 한 번 부른다).
@@ -476,7 +492,11 @@ async function open(
   // 구성 요소 관측이고 소유 concern 관측은 복구 command로 남는다.
   const restart = await checkRestart(ledgerPath, {
     clock,
-    owners: [observeApprovals, observeInvocations],
+    owners: [
+      observeApprovals,
+      observeInvocations,
+      observeReleaseActivations,
+    ],
   });
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);
@@ -552,6 +572,9 @@ async function open(
       // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
       ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
       ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+      ...(Deno.env.get("DENO_DIR")
+        ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
+        : {}),
       // I/O worker의 secret-tool이 session bus를 찾는 데 필요한 주소만이다. secret 값이 아니다.
       ...(kind === "platform/io" ? sessionBusEnv() : {}),
     }),
@@ -601,6 +624,8 @@ async function open(
   let watchSync: WatchSync | undefined;
   // 종료 때 documents worker의 열린 blob 준비를 닫는다.
   let closeChildBlob: (() => void) | undefined;
+  // 종료 때 감독이 포기한 documents worker를 다시 띄우는 일을 멈춘다.
+  let respawnStop: (() => void) | undefined;
   let closeCollectorBlob: (() => void) | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
@@ -649,11 +674,22 @@ async function open(
     seed: seedOf(random),
     // 문서 worker route를 서빙하는 reader 등록은 항상 붙는다(documents-reader.ts).
     modules,
-    assembled: assembled.value,
+    // connection credential의 알려진 값 참조는 coding keychain이 있을 때만 읽는다. 없는 core(시험)가
+    // 사람의 실제 keychain으로 그 참조를 찾지 않게 한다.
+    assembled: options.codingKeychain === undefined
+      ? {
+        ...assembled.value,
+        secretRefs: assembled.value.secretRefs.filter((source) =>
+          source.owner !== CONNECTION_SECRET_OWNER
+        ),
+      }
+      : assembled.value,
     source,
     blob: blobRead.deps,
-    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다.
-    keychain: () => options.secretKeychain ?? productKeychain(),
+    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다. coding
+    // keychain만 준 core는 같은 adapter로 connection credential 값을 읽는다.
+    keychain: () =>
+      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
@@ -712,6 +748,8 @@ async function open(
       known: () => runtime?.knownSecrets,
     }),
   );
+  // preview 자식이 loopback으로 core API에 닿지 못하게 막을 port다. API를 연 뒤에 정해진다.
+  let apiPort = 0;
   const appsControl = await createAppsControl({
     clock,
     ledgerPath,
@@ -775,7 +813,30 @@ async function open(
         "text/plain",
         line,
       ),
-    previews: { dataRoot: root.path, ...options.appPreviews },
+    // 봉인 bundle 사본을 여는 실제 자리다. 시험이 `appPreviews.bundles`로 바꿔 끼울 수 있다.
+    activation: {
+      dataRoot: root.path,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+      platformPorts: () => apiPort === 0 ? [] : [apiPort],
+    },
+    previews: {
+      dataRoot: root.path,
+      bundles: createCopyPreviewBundles({
+        dataRoot: root.path,
+        platformPorts: () => apiPort === 0 ? [] : [apiPort],
+      }),
+      ...options.appPreviews,
+    },
     ...(options.appProcess ? { process: options.appProcess } : {}),
     ...(options.appsSweepMs === undefined
       ? {}
@@ -963,6 +1024,15 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
+        // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
+        ...(coding
+          ? [
+            [
+              `${connectionConnect.resource}/${connectionConnect.method}`,
+              connectHandler(coding, () => runtime!.writer),
+            ] as const,
+          ]
+          : []),
       ]),
       events: runtime.events,
       subscriptions: runtime.subscriptions,
@@ -1118,25 +1188,40 @@ async function open(
                   current: (ref) => runtime!.current(ref),
                   observedAt: () => new Date().toISOString(),
                 }),
-                mergedWorkers(
-                  collectorWorkers({
-                    channel: collectorChannel,
-                    observation: () =>
-                      io?.observation(COLLECTOR_KIND) ?? {
-                        component: COLLECTOR_KIND,
-                        available: false,
-                        reason: "report collector 감독이 없다",
-                        observed_at: clock.now(),
+                // 문제 collector route의 view 출처는 binding 검증 뒤에만 worker로 닿는다(problems#T16).
+                withViewBinding(
+                  mergedWorkers(
+                    collectorWorkers({
+                      channel: collectorChannel,
+                      observation: () =>
+                        io?.observation(COLLECTOR_KIND) ?? {
+                          component: COLLECTOR_KIND,
+                          available: false,
+                          reason: "report collector 감독이 없다",
+                          observed_at: clock.now(),
+                        },
+                      callerOf: (request) => {
+                        const slash = request.request_id.lastIndexOf("/");
+                        const ctx = slash > 0
+                          ? runtime!.current(request.request_id.slice(0, slash))
+                          : undefined;
+                        return ctx?.ok
+                          ? {
+                            actor: ctx.value.actor,
+                            conditions: ctx.value.conditions,
+                          }
+                          : undefined;
                       },
-                    conditionsOf: (request) => {
-                      const slash = request.request_id.lastIndexOf("/");
-                      const ctx = slash > 0
-                        ? runtime!.current(request.request_id.slice(0, slash))
-                        : undefined;
-                      return ctx?.ok ? ctx.value.conditions : undefined;
-                    },
-                  }),
-                  options.workers,
+                      sendBytes: async (channel, chunk) =>
+                        io !== undefined &&
+                        (await io.sendBytes(COLLECTOR_KIND, channel, chunk)).ok,
+                    }),
+                    options.workers,
+                  ),
+                  {
+                    signer: appsControl.signer,
+                    nowMs: () => clock.nowMs(),
+                  },
                 ),
               ),
             ),
@@ -1148,6 +1233,7 @@ async function open(
     await runtime.close();
     return err({ code: "unavailable", message: "API를 열 수 없다" });
   }
+  apiPort = server.port;
   const recorded = await writeRunMetadata(root.run, {
     apiPort: server.port,
     coreEpoch: epoch,
@@ -1248,6 +1334,12 @@ async function open(
         onFrame(frame) {
           blobRelay?.callbacks.onFrame(frame);
         },
+        // I/O worker가 끝나면(crash·재기동) 답을 기다리던 준비·읽기·보호 입력을 기한까지 두지 않고 끝낸다.
+        onEnd() {
+          const message = "I/O worker가 끝나 요청이 끝나지 못했다";
+          blobRelay?.failPending(message);
+          secretRelay?.failPending(message);
+        },
       },
     )
     : undefined;
@@ -1283,9 +1375,8 @@ async function open(
     // 자식이 멈추면(재시작·종료) 열린 준비는 unavailable로 닫는다(platform Q6).
     // 나머지 메시지의 worker_response는 통로가 요청 id로 맞춘다.
     let childBlob: ChildBlobPrepare | undefined;
-    const freshCallbacks = () => {
-      childBlob?.close();
-      const handler = createChildBlobPrepare({
+    const newBlobHandler = () =>
+      createChildBlobPrepare({
         kind: "documents/worker",
         gauge: blobBuffer,
         send: (message) =>
@@ -1296,6 +1387,9 @@ async function open(
             message: "blob 준비 통로가 없다",
           })),
       });
+    const freshCallbacks = () => {
+      childBlob?.close();
+      let handler = newBlobHandler();
       childBlob = handler;
       return {
         onMessage: (message: ChildMessage) => {
@@ -1305,6 +1399,23 @@ async function open(
           handler.onFrame(frame);
           fileWindows.onFrame(frame);
         },
+        // coordinator가 끝났다(crash·교체·정지). 보낸 요청은 답이 오지 않으니 기한까지 두지 않고 끝내고,
+        // 열린 blob 준비는 닫는다. 감독이 같은 callbacks로 다시 띄우면 새 child는 새 handler가 받는다.
+        // 새 coordinator는 관측 근거가 없다. 다음 확인이 전체를 다시 보낸다.
+        onEnd: () => {
+          documentsChannel.failPending(
+            "documents worker가 끝나 요청이 끝나지 못했다",
+          );
+          handler.close();
+          // 이미 다른 callbacks로 바뀐 옛 child의 끝은 지금 handler를 건드리지 않는다.
+          if (childBlob === handler) {
+            handler = newBlobHandler();
+            childBlob = handler;
+          }
+          basisSync?.invalidate();
+        },
+        // 감독이 포기했다. 한도 안에서 backoff로 다시 띄운다.
+        onGiveUp: (reason: string) => documentsRespawner.giveUp(reason),
       };
     };
     closeChildBlob = () => childBlob?.close();
@@ -1326,14 +1437,37 @@ async function open(
     const spec = workerSpecs(root.path, active).find((entry) =>
       entry.kind === "documents/worker"
     );
-    const started = spec
-      ? await io.start(spec, documentsHello, freshCallbacks())
-      : undefined;
-    if (started?.ok) {
+    const bindDocumentsChannel = () =>
       documentsChannel.bind((payload) =>
         io.send("documents/worker", payload).then((sent) => sent.ok)
       );
-    }
+    // 감독이 포기한 coordinator를 가장 최근에 띄우려 한 spec(root 집합)으로 다시 띄운다.
+    let launchedSpec = spec;
+    const documentsRespawner = createDocumentsRespawner({
+      respawn: async () => {
+        if (!launchedSpec) return false;
+        announceHello();
+        const restarted = await documentsChannel.replacing(() =>
+          io.updateSpec(launchedSpec!, documentsHello, freshCallbacks())
+        );
+        if (restarted.ok) {
+          // 처음 시작이 실패했다면 통로가 아직 묶이지 않았다.
+          bindDocumentsChannel();
+          basisSync?.invalidate();
+          void basisSync?.check();
+        }
+        return restarted.ok;
+      },
+      onExhausted: (reason) =>
+        console.error(
+          `documents worker를 다시 띄우지 못해 unavailable로 둔다: ${reason}`,
+        ),
+    });
+    respawnStop = () => documentsRespawner.stop();
+    const started = spec
+      ? await io.start(spec, documentsHello, freshCallbacks())
+      : undefined;
+    if (started?.ok) bindDocumentsChannel();
     // root가 바뀌면 documents worker만 새 권한으로 다시 띄운다(file-tracking#R3).
     // 시작 읽기가 실패했으면 known은 비어 있고 다음 확인이 맞춘다.
     rootsWatch = watchTrackingRoots({
@@ -1342,6 +1476,7 @@ async function open(
         connectDocumentsRelaunch(
           {
             updateSpec: async (updated) => {
+              launchedSpec = updated;
               announceHello();
               // 바꾸는 동안 이미 보낸 요청은 옛 child와 함께 사라지므로 바로 끝내고, 새 요청은
               // 새 child가 뜨기를 기다린다. 이 처리가 없으면 그 요청은 기한까지 답이 없다.
@@ -1423,7 +1558,8 @@ async function open(
   ) {
     const issued = await productRegistry.issue({
       actor: "machine",
-      principal: "machine:problems-collector",
+      // 준비 참조의 주체(child-blob-prepare 정책)와 Report의 원주체가 이 값과 같아야 등록된다.
+      principal: "collector",
       scope: {
         operations: [...COLLECTOR_CREDENTIAL_OPERATIONS],
         targets: { task: "problems" },
@@ -1585,7 +1721,14 @@ async function open(
           credential: issued.value.token,
           api_port: server.port,
         },
-        { onMessage: (message) => appsControl.onSupervisorMessage(message) },
+        {
+          onMessage: (message) => appsControl.onSupervisorMessage(message),
+          // supervisor child가 끝나면 답을 기다리던 질의를 기한(5초·재시작 30초)까지 두지 않고 끝낸다.
+          onEnd: () =>
+            appsControl.channel.failPending(
+              "app supervisor가 끝나 요청이 끝나지 못했다",
+            ),
+        },
       );
       if (started.ok) {
         appsControl.channel.bind((payload) =>
@@ -1661,6 +1804,26 @@ async function open(
         code: "unavailable",
         message: "blob 준비 통로가 없다",
       })),
+    async restorePlan(createdAt) {
+      if (stopped || !ready) {
+        return err({
+          code: "unavailable",
+          message: "core가 아직 준비되지 않았다",
+        });
+      }
+      const planned = await planRestore(
+        root.path,
+        ledgerPath,
+        createdAt,
+        schemaSteps.length,
+      );
+      if (!planned.ok) return planned;
+      return ok({
+        plan: planned.value,
+        binding: await restoreBinding(planned.value),
+      });
+    },
+    restoreStopped: () => pendingRestore !== undefined,
     async restore(request) {
       if (stopped || restoring) {
         return err({ code: "conflict", message: "이미 멈추는 중이다" });
@@ -1731,6 +1894,7 @@ async function open(
         // 진행 중인 notification 생성은 writer가 닫히기 전에 끝난다.
         await notifications.stop();
         rootsWatch?.stop();
+        respawnStop?.();
         basisSync?.stop();
         searchSync?.stop();
         watchSync?.stop();
@@ -1801,6 +1965,11 @@ async function open(
     ? watchParent(parent, () => core.shutdown(), {
       confirmation: (body) => runtime!.confirmation(body),
       reply: (message) => writeParent(parent, message),
+      restore: {
+        plan: (createdAt) => core.restorePlan(createdAt),
+        run: (request) => core.restore(request),
+        stopped: () => core.restoreStopped(),
+      },
     }, shellViewLog(root.path))
     : Promise.resolve();
   const accepting = registry as CredentialRegistry & {
@@ -2114,6 +2283,12 @@ function repoRoot(): string {
 }
 
 function denoDir(): string {
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
+  let configured: string | undefined;
+  try {
+    configured = Deno.env.get("DENO_DIR");
+  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
+  if (configured) return configured;
   const home = Deno.env.get("HOME");
   return home ? `${home}/.cache/deno` : "/tmp";
 }
@@ -2214,6 +2389,7 @@ function blobRelayFor(
     onMessage(message: ChildMessage): void;
     onFrame(frame: Frame): void;
   };
+  failPending(message: string): void;
   prune(nowMs: number): void;
   live: BlobPrepareRelay["live"];
   prepare(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
@@ -2255,6 +2431,7 @@ function blobRelayFor(
         relay.take(frame);
       },
     },
+    failPending: (message) => relay.failPending(message),
     prune: (nowMs) => relay.prune(nowMs),
     live: (prepared, nowMs) => relay.live(prepared, nowMs),
     prepare: (call) =>
@@ -2281,6 +2458,7 @@ function startPlatformIo(
   blob?: {
     onMessage(message: ChildMessage): void;
     onFrame(frame: Frame): void;
+    onEnd?(): void;
   },
 ): Promise<Result<void>> {
   return io.start(

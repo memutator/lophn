@@ -143,7 +143,7 @@ leaf concern은 9개이며 빠진 leaf는 없다. `documents/contracts`는 위 �
 
 | 경로 | 동작 |
 |---|---|
-| `/v1/documents/upload` | `upload` kind. coding agent·사람이 제출한 파일 하나의 바이트(body)를 입력의 hash·크기와 맞춰 blob 준비 중계로 보내 요청 credential 주체의 준비 참조를 돌려준다; 이어지는 `/v1/documents/prepare`의 파일 입력이 된다 |
+| `/v1/documents/upload` | `upload` kind. coding agent·사람·앱(자기 출력, 자기 app credential)이 제출한 파일 하나의 바이트(body)를 입력의 hash·크기와 맞춰 blob 준비 중계로 보내 요청 credential 주체의 준비 참조를 돌려준다; 이어지는 `/v1/documents/prepare`의 파일 입력이 된다 |
 | `/v1/documents/prepare` | 저장 입력·기준을 blob과 FormatValidationResult로 준비; 아직 Version 없음 |
 | `/v1/documents/save` | 동일 준비 경로 뒤 `document.save`; PreparedVersion만 받은 내부 제출도 이 handler가 검증 |
 | `/v1/documents/restore` | 선택 고정 판을 준비하고 `document.restore`; 원본 연결이면 사람 파일 쓰기·관측 근거 필수 |
@@ -263,7 +263,7 @@ root는 활동 순, place·context는 갱신 순으로 시작하고 seq·ID로 �
 | `/v1/documents/update`, `/set_source`, `/archive`, `/unarchive`, `/move`, `/rename` | `document.update`, `document.set_source`, `document.archive`, `document.unarchive`, `document.move`, `document.rename` |
 | `/v1/documents/list`, `/get`, `/resolve`, `/export` | 현재 metadata·고정 판·Address 예약 해석·사람의 Markdown/JSON 및 원문 export |
 | `/v1/contexts/create`, `/update`, `/set_item`, `/remove_item`, `/archive`, `/unarchive`, `/record_watch_change` | 대응 `context.*` 이름; 마지막은 좁은 machine 내부 제출 |
-| `/v1/contexts/list`, `/get`, `/related`, `/export` | 현재 구성·직접 item 역조회·사람의 목적/항목/고정 참조/glossary export |
+| `/v1/contexts/list`, `/get`, `/related`, `/export`, `/watch` | 현재 구성·직접 item 역조회·사람의 목적/항목/고정 참조/glossary export·문서 watch의 확인된 변화와 미확인 이유(사람만) |
 | `/v1/terms/propose`, `/define`, `/update`, `/archive`, `/unarchive` | 대응 `term.*` 이름; 정의는 사람 또는 검증된 option action만 |
 | `/v1/terms/list`, `/get` | 정의·후보 분리·고정 출현 근거 read |
 | `/v1/series/create`, `/update`, `/set_draft`, `/clear_draft`, `/add_instance`, `/update_instance`, `/remove_instance`, `/archive`, `/unarchive` | 대응 `series.*`; create·update·add_instance·update_instance는 user와 허용 coding_agent·app, 나머지 가족 변경은 user, lophn agent 가족 mutation 없음 |

@@ -20,6 +20,8 @@ export type LaunchInputs = {
   appAddresses: readonly string[];
   connection: string;
   toolsets: string;
+  // 설치 묶음의 credential helper 절대 경로다. 실행 권한은 이 경로 하나뿐이다(architecture 2.2).
+  credentialHelper: string;
 };
 
 export type McpLaunch = {
@@ -30,11 +32,13 @@ export type McpLaunch = {
 
 // 일곱 제품이 같은 server를 같은 권한으로 시작하게 하는 argv다.
 export function launchOf(input: LaunchInputs): McpLaunch {
+  // /proc/self/stat은 helper 요청의 process generation(시작 tick)을 읽는 고정 파일이다.
   const read = [
     input.resources,
     input.cache,
     ...input.discoveryFiles,
     input.submissionRoot,
+    "/proc/self/stat",
   ];
   const net = [input.coreAddress, ...input.appAddresses];
   return {
@@ -48,6 +52,8 @@ export function launchOf(input: LaunchInputs): McpLaunch {
       `--allow-read=${read.join(",")}`,
       "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR",
       `--allow-net=${net.join(",")}`,
+      // credential helper 하나만 실행한다. 다른 실행·쓰기·ffi 권한은 없다.
+      `--allow-run=${input.credentialHelper}`,
       `${input.resources}/${MCP_ENTRY}`,
       "--connection",
       input.connection,

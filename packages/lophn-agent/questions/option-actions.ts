@@ -11,14 +11,15 @@ import {
   documentRename,
   type PlaceRef,
 } from "../../contracts/documents/mod.ts";
+import { appCreate } from "../../contracts/apps/mod.ts";
 import {
   applyQuestionOption,
   type OptionAction,
   optionActionSchema,
-  type QuestionActionEvidence,
 } from "../../contracts/lophn-agent/mod.ts";
 import {
   applySettings,
+  type ChosenOptionCall,
   type CommandDefinition,
   type CommandRoute,
   type Input,
@@ -27,7 +28,7 @@ import {
   type SettingMutation,
   type Tx,
 } from "../../contracts/platform/mod.ts";
-import { evidenceKey, loadQuestion, type QuestionRow } from "./model.ts";
+import { loadQuestion, type QuestionRow } from "./model.ts";
 import { protectedSetting } from "./protected-settings.ts";
 
 // 사람이 고른 선택지의 고정 action을 소유 command로 적용한다(domain model lophn-agent/questions
@@ -40,8 +41,8 @@ import { protectedSetting } from "./protected-settings.ts";
 //   증거 기록(question_evidence)은 소유 변경과 같은 transaction이라 소유 command가 실패하면 함께
 //   되돌아가고, 그 option은 다시 적용할 수 있는 상태로 남는다.
 // - 소유 command는 같은 Tx에서 부른다. 소유 command가 user만 받으므로(documents move·rename)
-//   근거를 검증한 뒤에 한해 이 적용만 user 자격으로 넘긴다. 바깥 command의 actor·event 기록은
-//   그대로다(platform/ledger의 Tx 자격은 바깥 command의 것이다).
+//   Tx의 callChosenOption이 질문 정본과 대조한 뒤 그 호출 한 번만 user 자격(event actor=user,
+//   run=null)으로 넘긴다. 바깥 ApplyQuestionOption의 요청 자격(machine)은 그대로다.
 // - 소유 command의 전제(CAS)가 달라졌으면 답은 그대로 두고 동작은 적용하지 않으며, 달라진 대상과
 //   이유를 오류 details로 돌려준다(R14). 소유 변경이 일부만 남지 않도록 오류는 transaction 전체를
 //   되돌린다.
@@ -130,6 +131,28 @@ const settingsOwner: OptionActionOwner = {
   },
 };
 
+// 앱 등록은 미리 배정한 app ID가 고정 입력에 들어 있어야 하고 그 ID가 대상이다. 비교 기준은 없다:
+// 낡은 전제(같은 slug·ID가 이미 있음)는 등록 command가 conflict로 막는다(apps/registration#R3).
+const appCreateOwner: OptionActionOwner = {
+  concern: "apps/registration",
+  command: appCreate.name,
+  route: appCreate,
+  prepare(_question, action) {
+    const value = inlineValue(action);
+    if (!value.ok) return value;
+    const input = appCreate.input.safeParse(value.value);
+    const compare = appCreate.compare?.safeParse(action.comparison);
+    if (!input.success || compare === undefined || !compare.success) {
+      return invalid("the action does not match the owner command");
+    }
+    const app = (input.data as { id?: string }).id;
+    if (app === undefined) return invalid("an app action fixes the app id");
+    const target = onlyTarget(action, app);
+    if (!target.ok) return target;
+    return ok({ input: input.data, compare: compare.data });
+  },
+};
+
 // 선택지로 열 수 있는 owner 동작. 안쪽에서 되돌릴 수 있는 동작만이다. 권한 부여·외부 효과·
 // 복원 불가 동작은 이 목록에 없으므로 질문을 만들 때 막힌다(R12). 새 owner 동작은 이 목록에
 // 더하고 그 owner의 handler를 core 조립이 묶는다(apps/core/lophn-agent.ts).
@@ -137,6 +160,7 @@ export const OPTION_ACTION_OWNERS: readonly OptionActionOwner[] = [
   documentOwner(documentMove),
   documentOwner(documentRename),
   settingsOwner,
+  appCreateOwner,
 ];
 
 export function findOptionOwner(
@@ -223,6 +247,22 @@ export function renameOptionAction(fixed: {
   });
 }
 
+// 새 앱 등록 선택지. 미리 배정한 app ID와 등록할 slug·이름·목적이 고정된다.
+export function appCreateOptionAction(fixed: {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+}): OptionAction {
+  return buildOptionAction({
+    concern: "apps/registration",
+    command: appCreate.name,
+    targets: [fixed.id],
+    input: fixed,
+    comparison: {},
+  });
+}
+
 // 설정 변경 선택지. 현재 값을 읽은 settings revision과 registry 판이 비교 기준이다.
 export function settingsOptionAction(fixed: {
   question: string;
@@ -303,16 +343,13 @@ function lastSeq(tx: Tx): bigint {
 // 사람이 고른 option과 그 고정 action. 답이 없거나 선택지가 아니거나 action이 없으면 없다.
 function chosenOf(
   row: QuestionRow,
-  evidence: QuestionActionEvidence,
-): { action: OptionAction } | undefined {
+): { key: string; action: OptionAction } | undefined {
   if (row.status !== "answered" || row.answer === null) return undefined;
   const answer = JSON.parse(row.answer) as {
     kind: string;
     option_key: string | null;
   };
-  if (answer.kind !== "option" || answer.option_key !== evidence.option) {
-    return undefined;
-  }
+  if (answer.kind !== "option" || answer.option_key === null) return undefined;
   const options = JSON.parse(row.options) as {
     key: string;
     action: unknown;
@@ -322,7 +359,33 @@ function chosenOf(
   );
   if (option === undefined || option.action === null) return undefined;
   const parsed = optionActionSchema.safeParse(option.action);
-  return parsed.success ? { action: parsed.data } : undefined;
+  return parsed.success
+    ? { key: answer.option_key, action: parsed.data }
+    : undefined;
+}
+
+// platform/ledger의 질문 정본 port가 쓰는 read. 사람이 고른 option의 고정 action이 내는 소유 command
+// 호출(route·입력·CAS)을 돌려준다. ledger가 제출 호출과 대조한다(identity R14).
+export function chosenOptionCall(
+  tx: Pick<Tx, "sql">,
+  question: string,
+): Result<ChosenOptionCall> {
+  const row = loadQuestion(tx, question);
+  const chosen = row === undefined ? undefined : chosenOf(row);
+  const owner = chosen === undefined
+    ? undefined
+    : findOptionOwner(chosen.action);
+  if (row === undefined || chosen === undefined || owner === undefined) {
+    return err({ code: "not_found", message: "no chosen option action" });
+  }
+  const prepared = owner.prepare(row.id, chosen.action);
+  if (!prepared.ok) return prepared;
+  return ok({
+    option: chosen.key,
+    route: owner.route.name,
+    input: prepared.value.input,
+    compare: prepared.value.compare,
+  });
 }
 
 export function createApplyQuestionOption(
@@ -346,9 +409,10 @@ export function createApplyQuestionOption(
       }
       // 증거: 답한 사람이 고른 option의 고정 action과 제출 action 전체가 같아야 한다.
       // 답이 없거나 다른 option이거나 자유 답이면 사람이 고른 근거가 아니다.
-      const chosen = chosenOf(row, input.evidence);
+      const chosen = chosenOf(row);
       if (
-        chosen === undefined || row.closed_seq !== input.answered_seq ||
+        chosen === undefined || chosen.key !== input.evidence.option ||
+        row.closed_seq !== input.answered_seq ||
         input.option_key !== input.evidence.option ||
         canonicalize(chosen.action) !== canonicalize(input.action) ||
         row.binding_hash !== input.action.binding_hash
@@ -370,55 +434,51 @@ export function createApplyQuestionOption(
       }
       const prepared = owner.prepare(row.id, input.action);
       if (!prepared.ok) return prepared;
-      // 같은 질문 option은 한 번만 적용한다. 소유 command가 실패하면 이 기록도 되돌아간다.
-      const key = evidenceKey(row.id, input.option_key);
-      if (
-        tx.sql.get(
-          "select 1 as found from question_evidence where evidence_key = ?",
-          [
-            key,
-          ],
-        ) !== undefined
-      ) {
+      if (tx.callChosenOption === undefined) {
         return err({
-          code: "conflict",
-          message: "the question option was already applied",
+          code: "forbidden",
+          message: "the action is not the one the person chose",
         });
       }
-      tx.sql.run(
-        `insert into question_evidence (evidence_key, question, option, at)
-         values (?, ?, ?, ?)`,
-        [key, row.id, input.option_key, tx.now()],
-      );
       const before = lastSeq(tx);
-      const applied = handle(
-        tx,
-        { ...ctx, actor: "user" },
+      // ledger가 질문 정본과 대조하고 한 번만 적용하게 기록한 뒤(question_evidence) 소유 handler를
+      // 사람 자격(event actor=user, run=null)으로 부른다. 소유 command가 실패하면 기록도 되돌아간다.
+      const applied = tx.callChosenOption(
+        owner.route,
         prepared.value.input as never,
         prepared.value.compare as never,
+        input.evidence,
+        (userTx) => {
+          const result = handle(
+            userTx,
+            { ...ctx, actor: "user", run: undefined },
+            prepared.value.input as never,
+            prepared.value.compare as never,
+          );
+          if (result.ok) return result;
+          // 범위 밖 대상은 없는 대상과 같은 답이다. 전제가 달라졌으면 달라진 대상과 이유를 알린다.
+          if (
+            result.error.code === "forbidden" ||
+            result.error.code === "not_found"
+          ) {
+            return err({ code: "not_found", message: "target not found" });
+          }
+          if (result.error.code === "conflict") {
+            return err({
+              code: "conflict",
+              message: result.error.message,
+              details: {
+                question: row.id,
+                option_key: input.option_key,
+                targets: input.action.targets,
+                reason: result.error.message,
+              },
+            });
+          }
+          return result;
+        },
       );
-      if (!applied.ok) {
-        // 범위 밖 대상은 없는 대상과 같은 답이다. 전제가 달라졌으면 달라진 대상과 이유를 알린다.
-        if (
-          applied.error.code === "forbidden" ||
-          applied.error.code === "not_found"
-        ) {
-          return err({ code: "not_found", message: "target not found" });
-        }
-        if (applied.error.code === "conflict") {
-          return err({
-            code: "conflict",
-            message: applied.error.message,
-            details: {
-              question: row.id,
-              option_key: input.option_key,
-              targets: input.action.targets,
-              reason: applied.error.message,
-            },
-          });
-        }
-        return applied;
-      }
+      if (!applied.ok) return applied;
       const after = lastSeq(tx);
       return ok({
         question: row.id,

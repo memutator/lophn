@@ -16,6 +16,7 @@ import {
   ERRORS_PER_SCREEN,
   fitsFrame,
   FRAME_MAX_BYTES,
+  probeScript,
   readFrame,
   runScreenTest,
   type ScreenEntry,
@@ -92,6 +93,64 @@ test("problems/tests#R7: 화면마다 load를 보고 깨진 view(멈춤·죽음)
   ]);
   assert.deepEqual(opened, ["main", "hang", "gone"]);
   assert.deepEqual(closed, opened);
+});
+
+test("problems/tests#R7: probe nonce가 있으면 load된 화면마다 오류 probe를 일으키고 첫 load된 화면만 일부러 멈춘다", async () => {
+  const probed: string[] = [];
+  const blocked: string[] = [];
+  const { ports } = fakePorts({ hang: "hang" });
+  const open = ports.open;
+  ports.open = (screen) => {
+    const surface = open(screen);
+    surface.probe = () => void probed.push(screen.key);
+    surface.block = () => {
+      blocked.push(screen.key);
+      return Promise.resolve(true);
+    };
+    return surface;
+  };
+  const recorder = createScreenTestRecorder();
+  await runScreenTest(
+    {
+      ...input([
+        { key: "hang", path: "hang/index.html" },
+        { key: "a", path: "a/index.html" },
+        { key: "b", path: "b/index.html" },
+      ]),
+      probe_nonce: "nonce-12345678",
+    },
+    ports,
+    recorder,
+  );
+  assert.deepEqual(probed, ["a", "b"]);
+  assert.deepEqual(blocked, ["a"]);
+  const flags = recorder.observation().feedback_check.map((
+    item,
+  ) => [item.screen, item.induced ?? false]);
+  assert.deepEqual(flags, [["hang", false], ["a", true], ["b", false]]);
+
+  // nonce가 없으면 probe도 멈춤도 없다.
+  const plain = createScreenTestRecorder();
+  probed.length = 0;
+  blocked.length = 0;
+  await runScreenTest(
+    input([{ key: "a", path: "a/index.html" }]),
+    ports,
+    plain,
+  );
+  assert.deepEqual([probed, blocked], [[], []]);
+});
+
+test("problems/tests#R7: probe script는 nonce가 있을 때만 내주고 오류 message에 nonce와 갈래가 든다", () => {
+  const errors = probeScript("lophn-probe-errors.js", "abcd1234");
+  assert.ok(errors?.includes("lophn-probe:abcd1234:error"));
+  assert.ok(errors?.includes("lophn-probe:abcd1234:unhandledrejection"));
+  assert.ok(errors?.includes("lophn-probe:abcd1234:render_error"));
+  assert.ok(
+    probeScript("lophn-probe-block.js", "abcd1234")?.includes("for (;;)"),
+  );
+  assert.equal(probeScript("lophn-probe-errors.js", undefined), undefined);
+  assert.equal(probeScript("other.js", "abcd1234"), undefined);
 });
 
 test("problems/tests#R7: 기한이 지난 화면은 열지 않고 deadline으로 남긴다", async () => {

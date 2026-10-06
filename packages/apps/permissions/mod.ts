@@ -28,7 +28,7 @@ export {
 } from "./protected-paths.ts";
 export { realPathResolver } from "./adapters/realpath.ts";
 export { createGrantCommands, GRANT_APPROVAL_CONCERN } from "./commands.ts";
-export { loadGrants } from "./store.ts";
+export { activationInProgress, grantsSeq, loadGrants } from "./store.ts";
 export { createGrantsReads } from "./reads.ts";
 export { permissionsSchemaSteps } from "./schema.ts";
 export {
@@ -104,6 +104,16 @@ export {
   type DocumentsSave,
   type DocumentsSaveRequest,
 } from "./broker/documents.ts";
+export {
+  type AppDocumentsSaveDeps,
+  type AppOutputDeclaration,
+  type AppOutputDeclarations,
+  type AppOutputFile,
+  type AppOutputRead,
+  type AppOutputSource,
+  createAppDocumentsSave,
+  type DocumentsClient,
+} from "./adapters/documents-save.ts";
 export {
   type AppPairConfirmer,
   type AppsConfirmService,

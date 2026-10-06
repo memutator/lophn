@@ -1,0 +1,41 @@
+// 앱의 업무 규칙. DB 구조와 질의는 이 앱에 남고 SDK로 올리지 않는다(apps/sdk#R36).
+import type { Migration, Store } from "@lophn/cap-store";
+
+export type Item = { id: number; title: string; created_at: string };
+
+export const SCHEMA_VERSION = 1;
+export const LIST_LIMIT = 200;
+
+// DB schema 단계다. SQL은 migrations/에 있고 공개한 단계는 고치지 않고 새 단계를 더한다.
+// DB를 쓰지 않는 앱은 이 파일과 migrations/를 지운다.
+export function migrations(): Migration[] {
+  return [{
+    from: 0,
+    to: SCHEMA_VERSION,
+    sql: Deno.readTextFileSync(
+      new URL("../migrations/0-1.sql", import.meta.url),
+    ),
+  }];
+}
+
+// preview·test는 여기서 schema를 맞춘다. 운영(live)은 activation 때 data worker가 이미 맞췄다.
+export async function ensureSchema(store: Store): Promise<void> {
+  if (store.schema() < SCHEMA_VERSION) {
+    await store.migrate(migrations(), { target: SCHEMA_VERSION });
+  }
+}
+
+export function addItem(store: Store, title: string, createdAt: string): Item {
+  const row = store.db
+    .prepare("insert into item (title, created_at) values (?, ?) returning id")
+    .get(title, createdAt) as { id: number };
+  return { id: row.id, title, created_at: createdAt };
+}
+
+export function listItems(store: Store): Item[] {
+  return store.db
+    .prepare(
+      "select id, title, created_at from item order by created_at desc, id desc limit ?",
+    )
+    .all(LIST_LIMIT) as Item[];
+}

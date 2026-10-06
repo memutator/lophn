@@ -41,7 +41,10 @@ export const OVERLAY_URL = "lophn-shell://overlay/index.html";
 export interface OverlayContents extends CallerContents {
   loadURL(url: string): Promise<void>;
   send(
-    channel: "overlay:state" | "shell:overlay-result" | "shell:feedback-preview",
+    channel:
+      | "overlay:state"
+      | "shell:overlay-result"
+      | "shell:feedback-preview",
     event: OverlayEvent | FeedbackPreview,
   ): void;
   focus(): void;

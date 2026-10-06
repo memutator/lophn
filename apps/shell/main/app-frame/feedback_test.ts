@@ -46,12 +46,14 @@ function world(options: WorldOptions = {}) {
   const otherDesk = contents(3, "lophn-shell://desktop/index.html");
   const otherOverlay = contents(4, "lophn-shell://overlay/index.html");
   const registry = new ContentsRegistry();
-  for (const [item, host] of [
-    [desk, "desktop"],
-    [overlay, "overlay"],
-    [otherDesk, "desktop"],
-    [otherOverlay, "overlay"],
-  ] as const) {
+  for (
+    const [item, host] of [
+      [desk, "desktop"],
+      [overlay, "overlay"],
+      [otherDesk, "desktop"],
+      [otherOverlay, "overlay"],
+    ] as const
+  ) {
     registry.register({
       contents: item,
       origin: { scheme: "lophn-shell", host, path: "/index.html" },
@@ -65,7 +67,10 @@ function world(options: WorldOptions = {}) {
   const timers: (() => void)[] = [];
   let current = true;
   let opened = false;
-  const view = (window: string, view_session: string): FeedbackViewSnapshot => ({
+  const view = (
+    window: string,
+    view_session: string,
+  ): FeedbackViewSnapshot => ({
     view_session,
     window,
     generation: 3,
@@ -102,7 +107,11 @@ function world(options: WorldOptions = {}) {
   const feedback = createFeedback({
     registry,
     windowOfShell: (sender) =>
-      sender === desk ? "window-1" : sender === otherDesk ? "window-2" : undefined,
+      sender === desk
+        ? "window-1"
+        : sender === otherDesk
+        ? "window-2"
+        : undefined,
     windowOfOverlay: (sender) =>
       sender === overlay
         ? "window-1"
@@ -119,12 +128,13 @@ function world(options: WorldOptions = {}) {
     protectedWindow: () => options.protectedWindow ?? false,
     submit(input, png) {
       submitted.push({ input, png });
-      return options.submit
-        ? options.submit(input, png)
-        : Promise.resolve({
-          ok: true,
-          value: { report: input.report_id, problem: "prb_01j9zzzzzzzzzzzzzzzzzzzzzz" },
-        });
+      return options.submit ? options.submit(input, png) : Promise.resolve({
+        ok: true,
+        value: {
+          report: input.report_id,
+          problem: "prb_01j9zzzzzzzzzzzzzzzzzzzzzz",
+        },
+      });
     },
     openIssue: (window, target) => issues.push([window, target]),
     ids: {
@@ -309,7 +319,10 @@ test("problems/feedback#R11: 접수 실패는 초안을 남겨 다시 보낼 수
   assert.deepEqual(second, third);
   assert.equal(w.submitted.length, 2);
   // 다시 보내도 같은 Report ID다.
-  assert.equal(w.submitted[0]!.input.report_id, w.submitted[1]!.input.report_id);
+  assert.equal(
+    w.submitted[0]!.input.report_id,
+    w.submitted[1]!.input.report_id,
+  );
 });
 
 test("problems/feedback#R12, R13: 취소는 초안을 버리고 접수한 뒤에는 묶인 Issue로 간다", async () => {

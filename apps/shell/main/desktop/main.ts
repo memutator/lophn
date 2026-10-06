@@ -460,9 +460,8 @@ const feedback = createFeedback({
   },
   // confirmation window는 요청 창의 child modal이다(shell/confirmation-window#R6).
   protectedWindow: (ref) =>
-    windowOfRef(ref)?.getChildWindows().some((child) =>
-      !child.isDestroyed()
-    ) ?? false,
+    windowOfRef(ref)?.getChildWindows().some((child) => !child.isDestroyed()) ??
+      false,
   async submit(input, screenshot) {
     const session = core.session();
     if (session === null) {
@@ -493,7 +492,10 @@ const feedback = createFeedback({
       };
     }
     const value = reply.value as { report: string; problem: string | null };
-    return { ok: true, value: { report: value.report, problem: value.problem } };
+    return {
+      ok: true,
+      value: { report: value.report, problem: value.problem },
+    };
   },
   openIssue: (ref, target) => {
     const window = windowOfRef(ref);

@@ -82,13 +82,16 @@ const deskEvent: IpcEvent = { sender: desk, senderFrame: deskFrame };
 async function run(): Promise<unknown> {
   await app.whenReady();
   const serve = createShellHandler({ distDir: config.rendererDist });
-  protocol.handle("lophn-shell", (request) =>
-    serve(request).then((res) =>
-      new Response(res.body ? Buffer.from(res.body) : null, {
-        status: res.status,
-        headers: res.headers,
-      })
-    ));
+  protocol.handle(
+    "lophn-shell",
+    (request) =>
+      serve(request).then((res) =>
+        new Response(res.body ? Buffer.from(res.body) : null, {
+          status: res.status,
+          headers: res.headers,
+        })
+      ),
+  );
   const window = new BrowserWindow({
     show: false,
     width: 1000,
@@ -302,7 +305,9 @@ async function run(): Promise<unknown> {
   }
 
   async function click(selector: string): Promise<void> {
-    await inOverlay(`document.querySelector(${JSON.stringify(selector)}).click()`);
+    await inOverlay(
+      `document.querySelector(${JSON.stringify(selector)}).click()`,
+    );
   }
 
   // 1) 건강한 view: 캡처한 그대로를 미리보기에 보이고, 글을 써서 screenshot과 함께 보낸다.

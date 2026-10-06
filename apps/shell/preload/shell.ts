@@ -17,10 +17,7 @@ import {
 import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createEditorApi } from "./editor-api.ts";
-import {
-  createFeedbackBegin,
-  createOverlayFeedback,
-} from "./feedback-api.ts";
+import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";

@@ -750,6 +750,7 @@ concerns: [shell]
 
 ### T38 앱 preload: command 호출, 외부 링크, view 예외 전달
 
+- 상태: 완료 (#334) — 이어보냄: main 조립의 blueprint read(`/v1/apps/blueprint`)·confirm gate → shell#T45, view 오류의 collector view binding 통로 → problems#T16, SDK 루트 render 오류 event → shell#T40, 화면 검사 host의 view 오류 관측 → shell#T46. 자리와 판단은 Q22
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: shell/app-frame#R5, R6, R13, R15, problems/reporting#R5, R6(view 예외 귀속)

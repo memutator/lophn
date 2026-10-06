@@ -1093,6 +1093,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T50 lophn update 절차
 
+- 상태: 완료 (#395) — 실제 OS 설치와 전체 shell E2E는 미검증이다(T48와 같은 기준). 로컬 후보 안내·core 정상 정지 barrier·temp 설치 교체와 H 보존·검증 migration backup/실패 rollback을 확인했다
 - 등급: 기본
 - concern: platform/install-and-update
 - 요구: platform/install-and-update#R13, R14, R15
@@ -1105,6 +1106,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 사람이 새 .deb를 설치하는 수동 update만. 자동 다운로드·설치·무단 재시작 없음(R13).
   - 진행 작업과 플랫폼을 정상 정지한 뒤 설치 파일만 바꾸고 H를 초기화하지 않으며, schema 변경은 T40의 검증 복구본 뒤 migration(R14). 기술 기반은 Electron·Deno·SQLite·MCP/CLI 그대로(R15).
   - flow update-lophn E2E 단계
+- 정한 것(T50): `packages/platform/install-and-update/update.ts`는 사람이 가진 로컬 package metadata(version·OS·형식·schema 판)의 안내만 만들고 fetch·설치·재시작을 하지 않는다. `apps/core/core.ts`의 신뢰 main 입구 `updateNotice`·`stopForUpdate`가 실제 schema 판과 정상 정지 결과를 연결한다. schema 판 비교와 이력 검증을 구별하고 OS 배포는 미검증으로 남긴다. `apps/core/update-flow_test.ts`는 실제 문서/version/blob·앱 SQLite·설정·pinned SDK/release를 넣은 temp H에서 정상 정지 후 temp 설치 파일만 바꾸고 재기동해 보존을 확인하며, migration 전 검증 복구본·실패 rollback·backup 실패 원본 보존·호환 backup restore의 명시 승인 안내를 확인한다. Linux 실제 .deb 설치/전체 Electron·MCP·CLI 연결, settings 화면의 후보 선택/안내 및 Electron main 연결, agent·workspace 소유 복구 단계의 전체 UI E2E는 이 환경에서 확인하지 않았다
+- shell#T57로 넘김: settings의 사람이 고른 로컬 package metadata 안내와 정상 종료 연결에 core 신뢰 입구 `updateNotice`·`stopForUpdate`를 쓴다. 이 PR은 shell 자리 밖이라 UI 연결은 하지 않았다
 
 ### T51 응답성 측정 harness와 목표
 

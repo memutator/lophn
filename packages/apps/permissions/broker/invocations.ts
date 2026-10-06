@@ -10,7 +10,7 @@ import {
   invocationRecordFinishedInputSchema,
   invocationRecordStartedInputSchema,
 } from "../../../contracts/apps/mod.ts";
-import type { DeliveryQueue } from "../../invocations/delivery/queue.ts";
+import type { DeliveryQueue } from "../../invocations/mod.ts";
 
 // 한 자식이 한 번에 열어 둘 수 있는 호출 수다. confirm marker 한도와 같다.
 const OPEN_LIMIT = 4096;

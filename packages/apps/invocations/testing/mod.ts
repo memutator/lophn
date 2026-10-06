@@ -1,45 +1,14 @@
 /**
  * apps/invocations의 test fixture다. mod.ts에서 내보내지 않는다.
  *
- * 실제 앱 runtime entrypoint(handleInvoke)와 supervisor 쪽 broker·전달 목록을 잇고, 실제 core로
- * 가는 sender만 시험이 넣는다. core harness(apps/core/testing)는 `*_test.ts`만 import할 수 있어 여기서
- * 띄우지 않는다.
+ * 전달 목록을 막았다 여는 문, 확인이 필요한 명령까지 갖춘 blueprint, 실제 core로 가는 sender를 쓴다.
+ * 앱 runtime과 잇는 부분은 다른 leaf의 fixture를 import해야 해서 `world_test.ts`에 있고,
+ * core harness(apps/core/testing)도 `*_test.ts`만 import할 수 있어 시험이 띄워 넘긴다.
  */
-import {
-  createIdSource,
-  type ManualClock,
-  seededRandom,
-} from "../../../base/mod.ts";
 import { validateBlueprint } from "../../blueprint/mod.ts";
 import type { Blueprint } from "../../blueprint/mod.ts";
-import {
-  createCoreSender,
-  createSupervisorDelivery,
-  type SupervisorDelivery,
-} from "../../../../apps/app-supervisor/delivery.ts";
-import type { BrokerChild } from "../../permissions/broker/invocations.ts";
-import type {
-  DeliveryLimits,
-  DeliveryMessage,
-  DeliveryOutcome,
-} from "../delivery/queue.ts";
-import type { BrokerTransport } from "../../runtime/entrypoint/broker-client.ts";
-import { handleInvoke } from "../../runtime/entrypoint/invoke.ts";
-import { startRuntime } from "../../runtime/entrypoint/startup.ts";
-import {
-  APP,
-  connection,
-  installHandlers,
-  NONCE,
-  REL,
-  shaKey,
-  startLine,
-} from "../../runtime/entrypoint/testing.ts";
-import type { AppConnection } from "../../runtime/entrypoint/wire.ts";
-
-export { APP, connection, installHandlers, NONCE, REL };
-
-const ALL_COMMANDS = ["usage.read", "usage.save", "usage.sync", "usage.purge"];
+import { createCoreSender } from "../../../../apps/app-supervisor/delivery.ts";
+import type { DeliveryMessage, DeliveryOutcome } from "../mod.ts";
 
 function command(
   key: string,
@@ -95,21 +64,6 @@ export function fixtureBlueprint(): Blueprint {
   return parsed.value;
 }
 
-// 앱 runtime이 broker socket으로 보내는 요청을 supervisor 쪽 broker가 받게 잇는다.
-export function brokerTransport(
-  delivery: SupervisorDelivery,
-  child: BrokerChild,
-): BrokerTransport {
-  return (request) => {
-    const result = delivery.broker.submit(child, request.body);
-    return Promise.resolve(
-      result.ok
-        ? { status: 200, body: result.value }
-        : { status: 400, body: { error: result.error } },
-    );
-  };
-}
-
 export type Gate = {
   // 열기 전까지 core로 가는 전송은 멈춰 있다.
   open(): void;
@@ -145,74 +99,6 @@ export function gatedSend(
       await waiting;
       sends.push(message);
       return await send(message);
-    },
-  };
-}
-
-export type RuntimeWorld = {
-  delivery: SupervisorDelivery;
-  state: ReturnType<typeof startRuntime>["state"];
-  frames: Uint8Array[];
-  invoke(
-    body: Record<string, unknown>,
-    over?: Record<string, unknown>,
-  ): ReturnType<typeof handleInvoke>;
-  // direct socket의 cancel·status 같은 다른 경로를 같은 연결로 부른다.
-  call(
-    path: string,
-    body: Record<string, unknown>,
-    over?: Record<string, unknown>,
-  ): ReturnType<typeof handleInvoke>;
-};
-
-// 앱 runtime 하나와 그 broker·전달 목록. 응답은 전달을 기다리지 않는다.
-export function openRuntimeWorld(deps: {
-  clock: ManualClock;
-  send: (message: DeliveryMessage) => Promise<DeliveryOutcome>;
-  blueprint?: Blueprint;
-  limits?: DeliveryLimits;
-  mode?: "live";
-}): RuntimeWorld {
-  const frames: Uint8Array[] = [];
-  const delivery = createSupervisorDelivery({
-    clock: deps.clock,
-    send: deps.send,
-    write: (frame) => frames.push(frame),
-    limits: deps.limits,
-    // 시험이 clock과 pump를 직접 다룬다.
-    setTimer: () => 0,
-    clearTimer: () => {},
-  });
-  const child: BrokerChild = {
-    app: APP,
-    release: REL,
-    mode: "live",
-    processNonce: NONCE,
-  };
-  const started = startRuntime({
-    line: startLine(),
-    blueprint: deps.blueprint ?? fixtureBlueprint(),
-    key: shaKey(),
-    clock: deps.clock,
-    ids: createIdSource({ clock: deps.clock, random: seededRandom(11) }),
-    broker: brokerTransport(delivery, child),
-    dataSchema: 0,
-  });
-  started.state.accepting = true;
-  return {
-    delivery,
-    state: started.state,
-    frames,
-    invoke(body, over = {}) {
-      return this.call("/_lophn/commands/invoke", body, over);
-    },
-    call(path, body, over = {}) {
-      return handleInvoke(
-        started.state,
-        path,
-        new TextEncoder().encode(JSON.stringify(body)),
-        connection({ commands: ALL_COMMANDS, ...over }) as AppConnection,
-      );
     },
   };
 }

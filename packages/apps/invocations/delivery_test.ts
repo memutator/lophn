@@ -17,13 +17,8 @@ import {
   type LossReport,
 } from "./delivery/queue.ts";
 import { deliveryKey, recordingMode } from "./mod.ts";
-import {
-  coreAccess,
-  gatedSend,
-  installHandlers,
-  openRuntimeWorld,
-  REL,
-} from "./testing/mod.ts";
+import { coreAccess, gatedSend } from "./testing/mod.ts";
+import { installHandlers, openRuntimeWorld, REL } from "./world_test.ts";
 
 const behavior = {
   save: (): unknown => ({ saved: true }),

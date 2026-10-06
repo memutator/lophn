@@ -18,9 +18,9 @@ export { deliveryKey, recordingMode } from "./recording.ts";
 export type {
   DenyFact,
   FinishFact,
-  JsonValue,
   RecordedCaller,
   RecordedFact,
+  RecordedJson,
   RecordedOperation,
   RecordedTrigger,
   RecordingMode,
@@ -28,3 +28,11 @@ export type {
   StartFact,
   SubmittedFact,
 } from "./recording.ts";
+// 전달 목록의 모양은 type만 내보낸다(런타임 import가 없다). 목록 구현은 delivery/queue.ts다.
+export type {
+  DeliveryLimits,
+  DeliveryMessage,
+  DeliveryOutcome,
+  DeliveryQueue,
+  LossReport,
+} from "./delivery/queue.ts";

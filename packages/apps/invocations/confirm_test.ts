@@ -21,21 +21,23 @@ import type {
   AuthenticatedContext,
 } from "../../contracts/platform/mod.ts";
 import {
-  APP,
   type CoreAccess,
   coreAccess,
   fixtureBlueprint,
+} from "./testing/mod.ts";
+import {
+  APP,
   installHandlers,
   NONCE,
   openRuntimeWorld,
   REL,
   type RuntimeWorld,
-} from "./testing/mod.ts";
+} from "./world_test.ts";
 import {
   callerMatchesRequester,
   CONFIRM_PROOF_LIFETIME_MS,
 } from "./confirm.ts";
-import { createConfirmMarkers } from "../runtime/entrypoint/confirm-marker.ts";
+import { createConfirmMarkers } from "../runtime/testing/mod.ts";
 import { observeInvocations } from "./restart.ts";
 
 const PURGE = "usage.purge";

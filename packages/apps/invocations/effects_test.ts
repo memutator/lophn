@@ -4,13 +4,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { createCoreHarness } from "../../../apps/core/testing/core.ts";
 import { createLedgerRegistration } from "../../../apps/core/apps.ts";
-import {
-  coreAccess,
-  gatedSend,
-  installHandlers,
-  openRuntimeWorld,
-  REL,
-} from "./testing/mod.ts";
+import { coreAccess, gatedSend } from "./testing/mod.ts";
+import { installHandlers, openRuntimeWorld, REL } from "./world_test.ts";
 import { readStagePort } from "./mod.ts";
 
 const behavior = {

@@ -109,3 +109,19 @@ export function createAppSnapshot(
   };
   return { snapshot, close: () => db.close() };
 }
+
+// apps/invocations의 시험이 앱 runtime entrypoint를 실제로 돌릴 때 쓰는 준비다.
+export { createConfirmMarkers } from "../entrypoint/confirm-marker.ts";
+export { handleInvoke } from "../entrypoint/invoke.ts";
+export { startRuntime } from "../entrypoint/startup.ts";
+export type { BrokerTransport } from "../entrypoint/broker-client.ts";
+export type { AppConnection } from "../entrypoint/wire.ts";
+export {
+  APP,
+  connection,
+  installHandlers,
+  NONCE,
+  REL,
+  shaKey,
+  startLine,
+} from "../entrypoint/testing.ts";

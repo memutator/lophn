@@ -1,13 +1,13 @@
 // 어떤 호출을 invocation으로 남기는지와 후행 기록 사실의 모양(apps/invocations#R2, R18).
 // 앱 runtime(Zod 없음)도 쓰므로 순수 타입과 규칙만 둔다. 값의 검증은 core command가 한다.
 
-export type JsonValue =
+export type RecordedJson =
   | null
   | boolean
   | number
   | string
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  | RecordedJson[]
+  | { [key: string]: RecordedJson };
 
 export type RecordedOperation =
   | { kind: "command"; command: string }
@@ -45,7 +45,7 @@ export type FinishFact = {
   status: "succeeded" | "failed" | "unknown";
   started_at: string | null;
   finished_at: string;
-  summary: JsonValue;
+  summary: RecordedJson;
   detail_hash: string | null;
 };
 
@@ -55,7 +55,7 @@ export type DenyFact = {
   caller: RecordedCaller;
   actor: string;
   finished_at: string;
-  summary: JsonValue;
+  summary: RecordedJson;
 };
 
 export type RecordedFact = "start" | "finish" | "deny";

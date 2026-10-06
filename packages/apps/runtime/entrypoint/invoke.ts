@@ -8,8 +8,8 @@ import type { AppConnection, InvocationCaller, Json } from "./wire.ts";
 import {
   type DenyFact,
   type FinishFact,
-  type JsonValue,
   readSchedulePort,
+  type RecordedJson,
   recordingMode,
   type StartFact,
   type SubmittedFact,
@@ -300,7 +300,7 @@ function finishFact(
   state: RuntimeState,
 ): FinishFact {
   const stages = takeStages(record.id);
-  const summary: { [key: string]: JsonValue } = {
+  const summary: { [key: string]: RecordedJson } = {
     command: record.command,
     effect: record.effect,
   };

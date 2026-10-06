@@ -52,7 +52,8 @@ const readActors = ["user", "agent", "machine", "coding_agent"] as const;
 // 사람 결정은 답 자체다. 표시는 같은 질문의 questions/read를 읽는다. 고정 action이 있는
 // 선택지를 고르는 답만 사람 결정 확인(confirmation handle)을 요구한다. user token은 직접
 // 사람 클릭의 증거가 아니므로(platform/identity#R14) action 답은 이 route로만 받는다.
-export const QUESTION_ANSWER_DECISION = defineDecision("answer_question");
+// 확인 handle의 결정 이름은 ledger가 검사하는 command 이름(route.name)이다.
+export const QUESTION_ANSWER_DECISION = defineDecision("AnswerQuestionAction");
 
 // 일반 답: action이 없는 선택지 또는 자유 답. 자유 답은 글을 값으로 싣는다(Q38).
 export const answerQuestionInputSchema = questionRefSchema.extend({

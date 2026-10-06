@@ -36,7 +36,13 @@ type Rig = {
   stop(): Promise<void>;
 };
 
-async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
+async function rig(
+  options: {
+    stopGraceMs?: number;
+    // 그 경로의 direct 요청에 자식 대신 답한다. 없으면 자식 socket으로 보낸다.
+    answer?: (path: string) => { status: number; body: unknown } | undefined;
+  } = {},
+): Promise<Rig> {
   const dir = await Deno.makeTempDir({ prefix: "lop-s-" });
   const bundleDir = `${dir}/bundle`;
   await Deno.mkdir(`${bundleDir}/data`, { recursive: true });
@@ -134,6 +140,8 @@ async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
     post: fake.post,
     direct: (endpoint, request) => {
       directs.push({ path: request.path, body: request.body });
+      const answered = options.answer?.(request.path);
+      if (answered) return Promise.resolve(answered);
       return unixDirectTransport(endpoint, request);
     },
     send(message) {
@@ -424,7 +432,14 @@ Deno.test("apps/runtime#R17: core 제어가 끊기면 새 호출을 닫고 자�
 });
 
 Deno.test("apps/agent-context#R2, apps/agent-context#R5: 닫힌 화면 view는 지금 live 자식의 nonce로 control/view-closed에 보내고 자식이 없으면 보내지 않는다", async () => {
-  const r = await rig();
+  // runtime의 view-closed 처리는 apps 쪽 테스트가 본다. 여기서는 자식의 답만 정해 중계를 본다.
+  let childStatus = 200;
+  const r = await rig({
+    answer: (path) =>
+      path === "/_lophn/control/view-closed"
+        ? { status: childStatus, body: {} }
+        : undefined,
+  });
   try {
     const op = r.assembled.ops["apps.view_closed"];
     assertEquals(await op({ app: FIXTURE_APP, view_session: "view-1" }), {
@@ -442,6 +457,11 @@ Deno.test("apps/agent-context#R2, apps/agent-context#R5: 닫힌 화면 view는 �
     assertEquals(sent[0]!.body, {
       process_nonce: observation.processNonce,
       view_session: "view-1",
+    });
+    // 자식이 nonce를 거절하면 중계하지 못한 것이다.
+    childStatus = 401;
+    assertEquals(await op({ app: FIXTURE_APP, view_session: "view-2" }), {
+      relayed: false,
     });
   } finally {
     await r.stop();

@@ -179,7 +179,9 @@ Deno.test({
       const frames = Math.ceil(result.drag.ms / 16) + 2;
       assert(
         result.drag.nativeMoves <= frames * 2,
-        `${result.drag.updates * 2}번의 요청을 ${result.drag.nativeMoves}번 적용했다 (${result.drag.ms}ms)`,
+        `${
+          result.drag.updates * 2
+        }번의 요청을 ${result.drag.nativeMoves}번 적용했다 (${result.drag.ms}ms)`,
       );
       assert(result.drag.nativeMoves < result.drag.updates * 2);
       assertEquals(result.drag.a, { x: 0, width: 300, ...pane });

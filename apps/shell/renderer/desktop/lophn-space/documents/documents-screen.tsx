@@ -3,12 +3,7 @@ import { Tab, TabList, Tabs } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
 import type { EditorSessions } from "../../../editor/sessions.ts";
-import type {
-  Catalog,
-  LophnSource,
-  Series,
-  SeriesMember,
-} from "../source.ts";
+import type { Catalog, LophnSource, Series, SeriesMember } from "../source.ts";
 import { MemberWriter } from "../series/member-writer.tsx";
 import { SeriesDetailView } from "../series/series-detail.tsx";
 import { SeriesPanel } from "../series/series-panel.tsx";
@@ -120,7 +115,9 @@ export function DocumentsScreen(
           onRead={(members, index) => readMember(detail.id, members, index)}
           onChanged={() => setSeriesRevision((value) => value + 1)}
           {...(sessions
-            ? { onWrite: (series: Series) => setDetail({ kind: "write", series }) }
+            ? {
+              onWrite: (series: Series) => setDetail({ kind: "write", series }),
+            }
             : {})}
         />
       );

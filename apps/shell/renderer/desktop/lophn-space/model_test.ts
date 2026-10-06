@@ -4,6 +4,7 @@ import {
   conditionsOfView,
   coverageNotes,
   DEFAULT_SCREEN,
+  documentNameForKey,
   EMPTY_CONDITIONS,
   emptyHint,
   LOPHN_SCREENS,
@@ -13,7 +14,6 @@ import {
   searchBody,
   validNextRule,
   validSeriesName,
-  documentNameForKey,
   viewFilterOf,
 } from "./model.ts";
 
@@ -111,9 +111,21 @@ Deno.test("documents/series#R2: 새 멤버 문서 이름은 contracts의 key→�
     documentNameForKey(key: string): string | null;
   };
   for (
-    const key of ["P003", "week-3", " Week 3 ", "0.3", "v1.2.0", "보고", "a".repeat(70)]
+    const key of [
+      "P003",
+      "week-3",
+      " Week 3 ",
+      "0.3",
+      "v1.2.0",
+      "보고",
+      "a".repeat(70),
+    ]
   ) {
-    assertEquals(documentNameForKey(key), contract.documentNameForKey(key), key);
+    assertEquals(
+      documentNameForKey(key),
+      contract.documentNameForKey(key),
+      key,
+    );
   }
   assertEquals(documentNameForKey("P003"), "p003");
 });

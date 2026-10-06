@@ -113,13 +113,13 @@ Deno.test("documents/series#R11 shell/editor#R2 shell/editor#R12: 이 key로 쓰
   // 첫 판 전에는 draft다. 판 확정과 다른 상태로 보인다.
   const writer = find(view.container, "[data-member-writer='week-3']");
   assertEquals(
-    find(view.container, "[data-new-document]").getAttribute(
-      "data-new-document",
+    find(view.container, "[data-draft-document]").getAttribute(
+      "data-draft-document",
     ),
     "draft",
   );
   assertEquals(
-    find(view.container, "[data-new-document]").textContent,
+    find(view.container, "[data-draft-document]").textContent,
     "Not saved yet. Finish editing to keep it.",
   );
   // 저장 버튼은 없다.

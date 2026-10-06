@@ -252,7 +252,7 @@ Deno.test({
           // 첫 판 전에는 가족 draft(key·예정 문서)만 있고 문서는 없다.
           assertEquals(
             await flow.evaluate(
-              `document.querySelector("[data-new-document]").getAttribute("data-new-document")`,
+              `document.querySelector("[data-draft-document]").getAttribute("data-draft-document")`,
             ),
             "draft",
           );

@@ -17,7 +17,7 @@ import { coreLophnSource } from "../desktop/lophn-space/core-source.ts";
 import { newId } from "../desktop/lophn-space/model.ts";
 import { startRealCore } from "../testdata/real-core.ts";
 import { coreEditorSource } from "./core-source.ts";
-import { NewDocumentSession } from "./new-document.ts";
+import { DraftDocumentSession } from "./draft-document.ts";
 import { type SaveClock, SaveSession } from "./save-state.ts";
 import type { BodyState } from "./source.ts";
 
@@ -92,7 +92,7 @@ Deno.test({
       const creator = createDocumentCreator({
         port: () => coreCreatePort(core.mainCalls),
       });
-      const writer = new NewDocumentSession({
+      const writer = new DraftDocumentSession({
         text: "# P001\n\n",
         port: {
           create: (input) =>

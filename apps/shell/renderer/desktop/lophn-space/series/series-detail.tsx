@@ -296,7 +296,10 @@ export function SeriesDetailView(
           />
           {series.draft !== null && !series.archived
             ? (
-              <div className={styles.draft} data-series-draft={series.draft.key}>
+              <div
+                className={styles.draft}
+                data-series-draft={series.draft.key}
+              >
                 <p className={listStyles.hint}>
                   {t("documents.notice.draft", { key: series.draft.key })}
                 </p>

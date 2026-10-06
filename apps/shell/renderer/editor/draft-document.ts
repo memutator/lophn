@@ -11,7 +11,7 @@ import type { CreateReport, EditorReply } from "../../ipc/editor.ts";
  * saved: 첫 판이 생겼다. conflict: 그 사이 key·가족이 바뀌어 저장하지 않았다. failed·offline:
  * 저장하지 않았다. unknown: 저장했는지 모른다.
  */
-export type NewDocumentState =
+export type DraftDocumentState =
   | "draft"
   | "saving"
   | "saved"
@@ -20,8 +20,8 @@ export type NewDocumentState =
   | "offline"
   | "unknown";
 
-export interface NewDocumentFacts {
-  readonly state: NewDocumentState;
+export interface DraftDocumentFacts {
+  readonly state: DraftDocumentState;
   /** 처음 글에서 고쳤다. 첫 판이 아직이면 편집 종료가 그 판을 만든다. */
   readonly edited: boolean;
   /** 첫 판. */
@@ -30,7 +30,7 @@ export interface NewDocumentFacts {
   readonly at: number | null;
 }
 
-export interface NewDocumentPort {
+export interface DraftDocumentPort {
   create(
     input: { request_key: string; bytes: Uint8Array },
   ): Promise<EditorReply<CreateReport>>;
@@ -38,8 +38,8 @@ export interface NewDocumentPort {
   lookup(): Promise<string | null | undefined>;
 }
 
-export interface NewDocumentOptions {
-  port: NewDocumentPort;
+export interface DraftDocumentOptions {
+  port: DraftDocumentPort;
   /** 처음 글. */
   text: string;
   now?: () => number;
@@ -48,13 +48,13 @@ export interface NewDocumentOptions {
 
 const encoder = new TextEncoder();
 
-export class NewDocumentSession {
-  readonly #port: NewDocumentPort;
+export class DraftDocumentSession {
+  readonly #port: DraftDocumentPort;
   readonly #now: () => number;
   readonly #newKey: () => string;
-  readonly #listeners = new Set<(facts: NewDocumentFacts) => void>();
+  readonly #listeners = new Set<(facts: DraftDocumentFacts) => void>();
   #text: string;
-  #facts: NewDocumentFacts = {
+  #facts: DraftDocumentFacts = {
     state: "draft",
     edited: false,
     version: null,
@@ -63,11 +63,11 @@ export class NewDocumentSession {
   #inFlight: Promise<void> | null = null;
   #closed = false;
 
-  constructor(options: NewDocumentOptions) {
+  constructor(options: DraftDocumentOptions) {
     this.#port = options.port;
     this.#now = options.now ?? Date.now;
     this.#newKey = options.newKey ??
-      (() => `new-document-${crypto.randomUUID()}`);
+      (() => `draft-document-${crypto.randomUUID()}`);
     this.#text = options.text;
   }
 
@@ -75,11 +75,11 @@ export class NewDocumentSession {
     return this.#text;
   }
 
-  get facts(): NewDocumentFacts {
+  get facts(): DraftDocumentFacts {
     return this.#facts;
   }
 
-  subscribe(listener: (facts: NewDocumentFacts) => void): () => void {
+  subscribe(listener: (facts: DraftDocumentFacts) => void): () => void {
     this.#listeners.add(listener);
     return () => this.#listeners.delete(listener);
   }
@@ -152,7 +152,7 @@ export class NewDocumentSession {
     this.#listeners.clear();
   }
 
-  #set(patch: Partial<NewDocumentFacts>): void {
+  #set(patch: Partial<DraftDocumentFacts>): void {
     this.#facts = { ...this.#facts, ...patch };
     for (const listener of this.#listeners) listener(this.#facts);
   }

@@ -1,6 +1,6 @@
 // 새 문서 첫 판의 main 통로(shell#T17, flow write-series 2·5). core 통로를 주입해 업로드·준비·저장에
 // 무엇을 싣고 결과(첫 판, 충돌, 실패, 응답 유실)를 어떻게 돌려주는지 본다. 실제 core 위의 같은
-// 흐름(가족 가입과 draft 비움)은 renderer/editor/new-document-real-core_test.ts가 본다.
+// 흐름(가족 가입과 draft 비움)은 renderer/editor/draft-document-real-core_test.ts가 본다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -20,10 +20,13 @@ const INPUT = {
   bytes: BYTES,
 };
 
-function fakePort(save: () => { ok: true; value: { version: string } } | {
-  ok: false;
-  error: PortError;
-}, latest: PortError | null = null) {
+function fakePort(
+  save: () => { ok: true; value: { version: string } } | {
+    ok: false;
+    error: PortError;
+  },
+  latest: PortError | null = null,
+) {
   const calls: { name: string; input: unknown }[] = [];
   const port: CreatePort = {
     upload: (bytes, hash) => {
@@ -82,7 +85,10 @@ test("shell/editor#R12 documents/series#R2: 새 문서의 첫 판은 바이트�
     "prepare",
     "save",
   ]);
-  assert.deepEqual(calls[0]!.input, { size: BYTES.byteLength, hash: sha256(BYTES) });
+  assert.deepEqual(calls[0]!.input, {
+    size: BYTES.byteLength,
+    hash: sha256(BYTES),
+  });
   const prepared = calls[1]!.input as Record<string, unknown>;
   assert.equal(prepared["document"], DOC);
   assert.equal(prepared["base_version"], null);
@@ -134,7 +140,10 @@ test("shell/editor#R2 documents/series#R2: 그 사이 key·가족이 바뀐 저�
   // 연결된 core가 없으면 아무것도 보내지 않는다.
   assert.deepEqual(
     await createDocumentCreator({ port: () => null }).create(INPUT),
-    { ok: true, value: { outcome: "failed", version: null, failure: "offline" } },
+    {
+      ok: true,
+      value: { outcome: "failed", version: null, failure: "offline" },
+    },
   );
 });
 

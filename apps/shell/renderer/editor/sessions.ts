@@ -11,7 +11,7 @@ import type {
   EditorReply,
   WatchReport,
 } from "../../ipc/editor.ts";
-import type { NewDocumentSession } from "./new-document.ts";
+import type { DraftDocumentSession } from "./draft-document.ts";
 import { type SavePort, SaveSession } from "./save-state.ts";
 
 /** 남은 저장을 두고 떠날 때 사람의 선택. */
@@ -36,9 +36,9 @@ interface Entry extends OpenedSession {
 }
 
 /** 판이 아직 없는 새 문서의 편집. 파일 session처럼 창 닫기·끄기 확인이 센다. */
-interface NewEntry {
+interface DraftEntry {
   readonly name: string;
-  readonly session: NewDocumentSession;
+  readonly session: DraftDocumentSession;
   views: number;
   unsubscribe: () => void;
 }
@@ -54,7 +54,7 @@ export class EditorSessions {
   readonly #api: EditorFilesApi;
   readonly #asker: LeaveAsker;
   readonly #entries = new Map<string, Entry>();
-  readonly #drafts = new Map<string, NewEntry>();
+  readonly #drafts = new Map<string, DraftEntry>();
   readonly #opening = new Map<
     string,
     Promise<OpenedSession | OpenFailure>
@@ -146,11 +146,11 @@ export class EditorSessions {
   }
 
   /** 판이 아직 없는 새 문서의 편집을 이 창이 붙든다. 이미 있으면 그 글을 이어 쓴다. */
-  holdNew(
+  holdDraft(
     document: string,
     name: string,
-    make: () => NewDocumentSession,
-  ): NewDocumentSession {
+    make: () => DraftDocumentSession,
+  ): DraftDocumentSession {
     const live = this.#drafts.get(document);
     if (live) {
       live.views += 1;
@@ -161,18 +161,18 @@ export class EditorSessions {
       name,
       session,
       views: 1,
-      unsubscribe: session.subscribe(() => this.#changedNew(document)),
+      unsubscribe: session.subscribe(() => this.#changedDraft(document)),
     });
     return session;
   }
 
   /** 새 문서 화면이 사라졌다. 고친 글이 있으면 편집 종료로 첫 판을 만들고, 끝나면 놓는다. */
-  releaseNew(document: string): void {
+  releaseDraft(document: string): void {
     const entry = this.#drafts.get(document);
     if (!entry) return;
     entry.views = Math.max(0, entry.views - 1);
     if (entry.views > 0) return;
-    void entry.session.flush(true).then(() => this.#changedNew(document));
+    void entry.session.flush(true).then(() => this.#changedDraft(document));
   }
 
   /** 화면이 그 문서를 떠났다(탭 전환·읽기 전환 없이 사라짐). 편집을 끝내고 남으면 둔다. */
@@ -209,8 +209,10 @@ export class EditorSessions {
   async closeWindow(
     progress: (answer: CloseAnswer) => void = () => {},
   ): Promise<CloseAnswer> {
-    const entries: { name: string; session: SaveSession | NewDocumentSession }[] =
-      [...this.#entries.values(), ...this.#drafts.values()];
+    const entries: {
+      name: string;
+      session: SaveSession | DraftDocumentSession;
+    }[] = [...this.#entries.values(), ...this.#drafts.values()];
     await Promise.all(entries.map((entry) => entry.session.flush(true)));
     for (;;) {
       const left = entries.filter((entry) => entry.session.unsettled());
@@ -266,7 +268,7 @@ export class EditorSessions {
     return { unsettled, open };
   }
 
-  #changedNew(document: string): void {
+  #changedDraft(document: string): void {
     const entry = this.#drafts.get(document);
     if (
       entry && entry.views === 0 && !entry.session.unsettled() &&

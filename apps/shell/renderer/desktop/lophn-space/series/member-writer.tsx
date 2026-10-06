@@ -18,9 +18,9 @@ import { t } from "@lophn/wording";
 import { editShortcut } from "../../../editor/document-head.tsx";
 import { MarkdownEditor } from "../../../editor/markdown-editor.tsx";
 import {
-  type NewDocumentFacts,
-  NewDocumentSession,
-} from "../../../editor/new-document.ts";
+  type DraftDocumentFacts,
+  DraftDocumentSession,
+} from "../../../editor/draft-document.ts";
 import type { EditorSessions } from "../../../editor/sessions.ts";
 import { documentNameForKey } from "../model.ts";
 import type { LophnSource, Series } from "../source.ts";
@@ -38,7 +38,7 @@ export interface MemberWriterProps {
   onBack: () => void;
 }
 
-function statusText(facts: NewDocumentFacts): string {
+function statusText(facts: DraftDocumentFacts): string {
   switch (facts.state) {
     case "draft":
       return t("documents.status.draft");
@@ -62,50 +62,53 @@ export function MemberWriter(
 ) {
   const draft = series.draft!;
   const [session] = useState(() =>
-    sessions.holdNew(draft.document, draft.key, () =>
-      new NewDocumentSession({
-        text: `# ${draft.key}\n\n`,
-        port: {
-          async create(input) {
-            // 가족 draft가 아직 이 예정 문서를 가리킬 때만 저장한다. 바뀌었으면 가입 없는 문서가
-            // 생기므로 저장하지 않는다.
-            const current = await source.series(series.id);
-            if (!current.ok) {
-              return {
-                ok: true,
-                value: {
-                  outcome: "failed",
-                  version: null,
-                  failure: current.code,
-                },
-              };
-            }
-            const now = current.value.series.draft;
-            const name = documentNameForKey(draft.key);
-            if (
-              now?.document !== draft.document || now.key !== draft.key ||
-              name === null
-            ) {
-              return {
-                ok: true,
-                value: { outcome: "conflict", version: null, failure: null },
-              };
-            }
-            return await sessions.createDocument({
-              document: draft.document,
-              request_key: input.request_key,
-              title: draft.key,
-              place: series.place,
-              name,
-              bytes: input.bytes,
-            });
+    sessions.holdDraft(
+      draft.document,
+      draft.key,
+      () =>
+        new DraftDocumentSession({
+          text: `# ${draft.key}\n\n`,
+          port: {
+            async create(input) {
+              // 가족 draft가 아직 이 예정 문서를 가리킬 때만 저장한다. 바뀌었으면 가입 없는 문서가
+              // 생기므로 저장하지 않는다.
+              const current = await source.series(series.id);
+              if (!current.ok) {
+                return {
+                  ok: true,
+                  value: {
+                    outcome: "failed",
+                    version: null,
+                    failure: current.code,
+                  },
+                };
+              }
+              const now = current.value.series.draft;
+              const name = documentNameForKey(draft.key);
+              if (
+                now?.document !== draft.document || now.key !== draft.key ||
+                name === null
+              ) {
+                return {
+                  ok: true,
+                  value: { outcome: "conflict", version: null, failure: null },
+                };
+              }
+              return await sessions.createDocument({
+                document: draft.document,
+                request_key: input.request_key,
+                title: draft.key,
+                place: series.place,
+                name,
+                bytes: input.bytes,
+              });
+            },
+            async lookup() {
+              const found = await source.latestVersion(draft.document);
+              return found.ok ? found.value : undefined;
+            },
           },
-          async lookup() {
-            const found = await source.latestVersion(draft.document);
-            return found.ok ? found.value : undefined;
-          },
-        },
-      })
+        }),
     )
   );
   const [facts, setFacts] = useState(session.facts);
@@ -119,7 +122,7 @@ export function MemberWriter(
     return () => {
       stop();
       // 화면을 떠나는 것도 편집 종료다. 고친 글이 있으면 첫 판을 만든다(R1).
-      sessions.releaseNew(draft.document);
+      sessions.releaseDraft(draft.document);
     };
   }, [session, sessions, draft.document]);
 
@@ -208,7 +211,7 @@ export function MemberWriter(
         </div>
       </div>
       <p className={readerStyles.meta} data-document-meta="">
-        <span data-new-document={facts.state} role="status">
+        <span data-draft-document={facts.state} role="status">
           {statusText(facts)}
         </span>
         {action
@@ -216,7 +219,7 @@ export function MemberWriter(
             <Button
               variant="ghost"
               size="sm"
-              data-new-document-action=""
+              data-draft-document-action=""
               onClick={action.run}
             >
               {action.label}

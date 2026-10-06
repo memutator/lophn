@@ -3,7 +3,7 @@
 import { assert, assertEquals } from "@std/assert";
 
 import type { CreateReport, EditorReply } from "../../ipc/editor.ts";
-import { NewDocumentSession } from "./new-document.ts";
+import { DraftDocumentSession } from "./draft-document.ts";
 
 const V1 = "ver_01kq12a1pha000000000000001";
 
@@ -13,7 +13,7 @@ function harness(
 ) {
   const sent: string[] = [];
   let looked = 0;
-  const session = new NewDocumentSession({
+  const session = new DraftDocumentSession({
     text: "# P003\n\n",
     now: () => 1000,
     newKey: () => `key-${sent.length + 1}`,
@@ -67,7 +67,10 @@ Deno.test("shell/editor#R1 shell/editor#R2: 새 문서는 입력 멈춤에 보�
 
 Deno.test("shell/editor#R2 shell/editor#R12: 저장하지 못하면 글을 그대로 두고 실패를 보이며 사람의 다시 시도로만 다시 보낸다", async () => {
   const { session, sent } = harness([
-    { ok: true, value: { outcome: "failed", version: null, failure: "unavailable" } },
+    {
+      ok: true,
+      value: { outcome: "failed", version: null, failure: "unavailable" },
+    },
     saved,
   ]);
   session.edit("# P003\n\nthird\n");

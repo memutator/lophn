@@ -206,7 +206,11 @@ export function fakeSource(data: FakeData = {}): {
           }),
       ),
     clearDraft: (series) =>
-      log("clearDraft", [series], ok({ ...series, revision: "11", draft: null })),
+      log(
+        "clearDraft",
+        [series],
+        ok({ ...series, revision: "11", draft: null }),
+      ),
     latestVersion: (document) =>
       log("latestVersion", [document], data.latestVersion ?? ok(null)),
   };

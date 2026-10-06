@@ -8,7 +8,7 @@ import type {
   EditorFilesApi,
   EditorReply,
 } from "../../ipc/editor.ts";
-import { NewDocumentSession } from "./new-document.ts";
+import { DraftDocumentSession } from "./draft-document.ts";
 import { EditorSessions, type LeaveChoice } from "./sessions.ts";
 
 const DOC = "doc_01kq12a1pha000000000000001";
@@ -52,9 +52,9 @@ function asker(choices: LeaveChoice[]) {
   };
 }
 
-function hold(sessions: EditorSessions): NewDocumentSession {
-  return sessions.holdNew(DOC, "P003", () =>
-    new NewDocumentSession({
+function hold(sessions: EditorSessions): DraftDocumentSession {
+  return sessions.holdDraft(DOC, "P003", () =>
+    new DraftDocumentSession({
       text: "# P003\n\n",
       port: {
         create: (input) =>
@@ -105,7 +105,7 @@ Deno.test("shell/editor#R1: 새 문서 화면이 고친 글을 둔 채 떠나면
   const sessions = new EditorSessions(fake.api, asker([]).asker);
   const draft = hold(sessions);
   draft.edit("# P003\n\nthird\n");
-  sessions.releaseNew(DOC);
+  sessions.releaseDraft(DOC);
   await tick();
   await tick();
   assertEquals(fake.created, ["# P003\n\nthird\n"]);
@@ -115,7 +115,7 @@ Deno.test("shell/editor#R1: 새 문서 화면이 고친 글을 둔 채 떠나면
   const untouched = fakeApi([]);
   const other = new EditorSessions(untouched.api, asker([]).asker);
   hold(other);
-  other.releaseNew(DOC);
+  other.releaseDraft(DOC);
   await tick();
   assertEquals(untouched.created, []);
   assert(other.counts().open === 0 && other.counts().unsettled === 0);

@@ -588,6 +588,9 @@ concerns: [shell]
 - platform#T19 후속(#294)에서 넘어온 것: secret 입력 창의 main 쪽 길이 core에 열렸다. 값이 있는 곳은 창의 보호 입력과 main 메모리뿐이다. main은 (1) `POST /v1/secrets/input`(`content-type: application/octet-stream`, `x-lophn-input`에 `{purpose, owner, bytes}`의 base64url JSON, body는 값의 바이트, 상한 64KiB)으로 값을 보내 값 없는 준비 증거 `{preparation, sealed_ref, purpose, owner}`를 받고, (2) 그 증거가 들어간 `SetSecret` 입력(앱 secret은 `purpose: app_secret`, `owner == name`)의 binding으로 confirmation handle을 main↔core 비공개 연결에 등록하고(handle은 증거를 받은 뒤에만 만들 수 있다), (3) `SetSecret`(교체는 `compare: {sealed_ref, revision}`, 처음은 null 둘)을 보내고, (4) 결과로 창에는 안전 이름·저장 결과만 돌려준다. 제거는 `RemoveSecret`이다. 표시용 `/v1/secrets/list`(이름·설정 여부·판)도 열렸다. 실패는 keychain 잠김이면 `unavailable`(값은 어디에도 남지 않음), 크기 불일치면 `invalid_input`이다. provider credential(`RegisterProviderCredential`·`ChangeProviderCredentials`)은 같은 route에 `purpose: provider_credential`로 값을 보내 증거를 받고 소유 command를 부른다(T31). 제출·취소·창 종료 때 값을 지운다. core가 값을 쥐는 곳은 없으므로 main이 값을 로그·오류·IPC 결과에 넣지 않는 것이 이 작업의 시험이다.
 - platform Q29(#305)에서 넘어온 것: approval 결정 창은 `approvals/get`(exact 동작·대상·입력·기한·상태)과 함께 `ReadApprovalText`(`/v1/approvals/text`, 입력 `{approval}`)로 이유·변경·외부 영향·되돌림 글을 읽어 문장으로 보인다. 글은 core가 redaction한 값이고 blob 하나라도 읽지 못하면 `unavailable`이라 일부만 보이지 않는다. 거절 창은 선택 입력인 거절 이유를 `closed_reason` 글 값(없으면 `null`, 글 하나 32KiB 이하, 공백뿐인 글은 보내지 않는다)으로 `approvals/reject`에 싣는다. hash를 만들거나 blob을 준비하지 않고 core가 한다. 이유는 handle binding(approval·created_seq·binding_hash)에 들어가지 않는다. 종료된 request의 `ReadApprovalText.closed_reason`이 적은 거절·취소 이유이고 만료는 null이다(상태가 이유다).
 - lophn-agent#T34(Q44)에서 넘어온 것: revert 창의 main은 (1) `reverts/preview`로 본 묶음(`groups`)을 보이고, (2) 복원 가능한 묶음마다 문서의 이전 판을 사람 자격의 `documents/prepare`(`existing` 원문 참조와 그 판의 FormatRef)로 준비해 `buildRevertInput`(packages/lophn-agent/revert/work.ts)으로 `RevertRun` 입력의 `groups`(준비 결과는 `comparison.prepared`, `prepared_ref`는 그 hash)를 만들고 준비 참조를 요청의 `prepared`에 싣는다. (3) 확인 handle은 binding(`id, run, allow_partial, preview_hash`)으로 발급하고 결정 이름은 command 이름 `RevertRun`(= contract의 `REVERT_RUN_DECISION`)이다. (4) 이유(`reason`)는 고정 코드(`revertReasonSchema`)이므로 코드로 wording을 고른다. 결과 event는 사람이 `events/list`로 따라 볼 수 있다(payload는 run·지문·결과별 수). 준비 결과가 없으면 문서 내용 복원은 blocked(복원 준비 불충족)로 끝난다
+- 상태: 완료 (#350)
+- 정한 것(T29): shell#T23(#154)은 계획만 완료로 적히고 코드가 main에 없어 이 PR이 그 branch를 merge해 함께 싣는다(layout·details·before-after·owner decision 화면, 화면 테스트는 `apps/shell/renderer/confirmation/screens_test.ts`로 등록). T28이 넘긴 길을 이었다: shell preload `lophnShell.openConfirmation`, main의 `shell:confirmation-open`(부모는 IPC를 보낸 desktop 창)·`confirmation:display`(무효면 다시 읽는 최신 내용 열기)·`confirmation:submit`·`confirmation:cancel`, coordinator 조립, 비공개 pipe의 handle 등록(응답에 짝 id가 없어 한 번에 하나, 5초 안에 답이 없으면 unavailable). contract는 additive로 늘렸다(contracts shell confirmation): owner decision 열기의 `targets`, secret 입력 열기의 provider `credential`(값 아닌 등록 정보), 표시의 `view`·`state`·`decisions`·`second`, 제출의 `confirmedSecond`, 결과의 `result`(accepted는 결정 접수, applying·applied·partial·uncertain·blocked는 RevertRun의 실제 결과), 보호 preload의 `subscribe`. approval은 `approvals/get`·`ReadApprovalText`로 그리고 허락·거절은 handle로, 대기 요청의 명시 취소는 handle 없는 `cancel_approval_request`로 보낸다. 거절·취소 이유는 같은 선택 입력칸이다. option action은 `questions/read`·`questions/text`로 그리고 `AnswerQuestionAction`(evidence 포함)을 보낸다. revert 열기는 `{kind: owner_decision, concern: lophn-agent/revert, decision: RevertRun, targets: [run]}`이다. revert id는 창마다 main이 만든다. 복원 불가·유지·충돌이 섞이면 `allow_partial: true`로 결합하고 남는 묶음을 다시 보이는 2차 확인 뒤에만 보내며, 복원 가능한 묶음이 없으면 결정이 없다. 문서 준비는 binding 밖이라 제출 때 `documents/get`·`documents/prepare`(existing 참조)로 하고 `buildRevertInput`과 같은 규칙으로 groups와 `prepared`를 싣는다(shell main은 packages를 import하지 않아 규칙을 `apps/shell/main/confirmation/kinds/revert.ts`에 옮겼다). secret 입력은 열 때 handle을 만들지 않고 제출 때 upload→증거→증거를 넣은 binding으로 handle→command 순서이며 창에는 안전 이름(앱 secret 이름, provider credential label)과 저장 결과만 돌려준다. 이미 값이 있는 앱 secret은 교체 비교 기준이 없어 결정 없이 이유만 보인다
+- 남긴 것(T29): T23의 `delete_file` owner decision은 main 정본 read·제출이 없다(열면 not_found). 실제 core로 네 종류 창을 끝까지 연 확인은 seed가 없어 하지 못했고 화면은 offscreen probe로 보았다
 - 완료: 아래 확인이 통과한다
   - approval request: 결정을 문장으로 묻고 exact 대상·입력·영향·되돌릴 범위. 허락·거절·명시 취소. 승인 접수와 실제 적용을 구별해 돌려준다.
   - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
@@ -605,6 +608,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T12, shell#T27, contracts#T26, contracts#T27, contracts#T30, lophn-agent#T7, lophn-agent#T9, lophn-agent#T39
+- shell#T29에서 넘어온 것: revert 진입은 `lophnShell.openConfirmation({request: {kind: "owner_decision", concern: "lophn-agent/revert", decision: "RevertRun", targets: [run]}, parentWindow})`이다. 창이 `reverts/preview`를 다시 읽고 문서 준비·`RevertRun` 제출까지 한다. 결과(접수·실제 복원 결과)는 창이 말하고 목록은 `reverts/list`·`events/list`로 다시 읽는다
 - 완료: 아래 확인이 통과한다
   - 역할 목록은 같은 열 배치. 상세는 하는 일·만든 것·대화 탭. 회수된 담당은 지난 대화만 보이고 입력창이 없다. 멈춘 담당의 입력은 소유 concern의 허용 결과를 그대로 따른다.
   - 하는 일은 In progress / Waiting / Stopped / Done 순, 다시 시작과 다시 시키기는 다른 버튼.
@@ -624,6 +628,7 @@ concerns: [shell]
 - slice: agent
 - 선행: shell#T12, shell#T29, contracts#T24, contracts#T29, platform#T25, lophn-agent#T3, lophn-agent#T15, lophn-agent#T35, lophn-agent#T36
 - platform#T19 후속(#294)에서 넘어온 것: provider key·로그인 응답의 값은 T29의 secret 입력 창이 `/v1/secrets/input`(`purpose: provider_credential`)으로 보내 증거를 받은 뒤 `RegisterProviderCredential`·`ChangeProviderCredentials`를 부른다(순서는 T29의 넘어온 것을 따른다). 확정 뒤 core가 그 credential의 값을 알려진 값 registry에 등록하므로(documents 읽기·메시지 본문에서 가려진다) 화면이 따로 할 일은 없다.
+- shell#T29에서 넘어온 것: provider key는 `openConfirmation({request: {kind: "secret_input", owner: <provider id>, purpose: "provider_credential", credential: {key, kind, label, account, organization, plan, dedup_fingerprint}}})`로 연다. 창은 `providers/read`의 revision을 비교 기준으로 `RegisterProviderCredential`까지 보낸다. 교체·회수(`ChangeProviderCredentials`)와 앱 secret 제거(`RemoveSecret`)는 창 종류가 아직 없다(열기 모양을 정해 `apps/shell/main/confirmation/kinds/secret-input.ts`에 더한다)
 - 완료: 아래 확인이 통과한다
   - provider 연결: contract가 알려 준 인증 방식(API key, 공식 로그인, 로컬)만 보이고 과금·한도·금액 모름을 구별한다. key와 로그인 응답은 confirmation window의 secret 입력으로만 받는다.
   - 계정: 같은 provider의 계정 순서, 사용 가능·인증 문제·사용량 한도·확인된 리셋 시각, 다음 행동 하나. 교체·삭제·재로그인은 confirmation window.
@@ -798,6 +803,7 @@ concerns: [shell]
 
 ### T40 SDK UI: ui-control, ui-overlay, ui-layout, ui-state
 
+- 상태: 완료 (#343) — 이어보냄: 설치 사본·템플릿 화면 build가 ui-*의 `@lophn/design`·`@lophn/wording` import를 푸는 일 → apps#T22
 - 등급: frontend
 - concern: shell/design-system
 - 요구: apps/sdk#R4(ui-control·ui-overlay·ui-layout·ui-state 1.0.0), R14, R15, R18(ui-state), R21, R29(AppErrorBoundary component), R37, R41(공용 UI SDK)
@@ -812,6 +818,7 @@ concerns: [shell]
   - 예제와 package 옆 테스트. apps#T22·T23–T26보다 먼저 main에 들어간다.
 - 가져올 것: legacy `ui-control`, `ui-overlay`, `ui-layout`, `ui-state`(presented.ts, reportError.ts 빼고).
 - shell#T38에서 넘어온 것: 앱 preload는 main world에서 `lophn:render-error` DOM event(`detail: {name, message}`)를 `render_error`로 view 오류 통로에 보낸다(`apps/shell/preload/app-api.ts`의 `RENDER_ERROR_EVENT`·`watchMainWorldErrors`). ui-state의 AppErrorBoundary는 루트 render 오류를 잡으면 이 event를 `window`에 dispatch한다. `lophnApp`에 새 이름을 더하지 않는다(Q22)
+- 정한 것: 네 package는 lophn 화면과 같은 packages/design component를 다시 내보내고(R21) 새로 짠 것은 ui-layout의 `AppShell`·`Sidebar`·`Grid`·`containerSpace`, ui-overlay의 `ToastProvider`·`useToast`, ui-state의 `ReadState`·`AppErrorBoundary`다. 패널·카드 최소 폭은 token `layout.container`(320·240px)로 두고, 칸 640px 미만에서 design의 `ListDetailFrame`은 `active` 한 쪽과 [Back](`onBack`), `DashboardFrame`은 한 줄 한 칸, 탭 줄은 가로 scroll, toast 쌓임은 view 폭 안으로 바꿨다. `Checkbox`·`Switch`에 `size`(28·32·36px)를 더했다. AppErrorBoundary는 `document.defaultView`에 event를 보내고 화면에는 `common.error.show-failed`와 [Try again]만 둔다. shell 첫 소비자는 overlay surface(ui-overlay·ui-control), 연결 상태(ui-control·ui-state), 시리즈 등록 폼(ui-layout·ui-control)이다
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
@@ -840,6 +847,7 @@ concerns: [shell]
 - 선행: shell#T37, shell#T39, apps#T9
 - shell#T28에서 넘어온 것: 앱 공간 바의 lophn 크롬은 `apps/shell/renderer/desktop/notification-chip/space-decisions.tsx`의 `SpaceDecisions`(place `{kind: "app", id}`, 열기는 things-to-confirm)를 둔다. 프로젝트 작업대 바에는 T28에서 두었다
 - shell#T21에서 넘어온 것: lophn 공간 팔레트의 앱 행은 지금 apps 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 app target). 앱 공간이 생기면 그 앱 공간으로 간다.
+- shell#T47에서 넘어온 것: 앱 공간 바(또는 운영 패널)에 [Open in new window]와 OS 바로가기 추가·제거를 둔다. 새 창은 main의 `appWindows.open(app)`(`main/desktop/app-window.ts`)을, 바로가기는 `installOsEntry`·`removeOsEntry`(`main/desktop/os-entry/entry.ts`)를 sender 검사한 IPC로 부른다. renderer는 앱 ID만 보내고 이름은 main이 `apps/get`으로 읽는다. 실제 writer(`EntryFiles`의 원자 쓰기·mode, macOS 폴더 제거, Windows `shell.writeShortcutLink`)와 `OsEntryEnv`(XDG_DATA_HOME, APPDATA, home) 조립은 main.ts에 아직 없다. headless와 개발 실행은 쓰지 않는다
 - shell#T27에서 넘어온 것: 앱 공간 바의 대화 도크 토글(`DockToggle`)과 본문 오른쪽 `DockSlot`(새 세션 작업 자리 `{kind: "app"}`). 도크가 앱 view를 덮거나 밀 때의 native bounds는 T39를 따른다
 - shell#T39에서 넘어온 것: 앱 공간 본문에 `renderer/app-frame/embedded-view.tsx`의 `EmbeddedView`(views는 `globalThis.lophnShell`의 view 통로)를 두고, 창마다 `createViewCovers()`를 `ViewCoversProvider`로 준다. 1,024px 미만에서 overlay로 본문을 덮는 운영 패널과 대화 도크(`conversation/dock.tsx`의 overlay 배치)는 `useViewCover(ref, covering)`를 불러야 앱 view가 덮이지 않은 폭으로 준다(R26, R36). 덮개 등록이 없으면 앱 view가 패널 아래로 그대로 남는다
 - shell#T44에서 넘어온 것: 프로젝트 작업대의 `Workspace.onOpenApp(app)`(패널을 선언하지 않은 앱·화면의 [Open in app space])을 앱 공간 route로 잇는다. 지금 desktop `main.tsx`가 넘기지 않아 안내 글만 보인다. 창마다 `AppViewsProvider`(views 통로와 `apps.get`)가 desktop entry에 있으니 앱 공간도 같은 것을 쓸 수 있다
@@ -909,6 +917,7 @@ concerns: [shell]
   - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
   - 종류별 테스트.
 - shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
+- shell#T47에서 넘어온 것: main.ts `appWindows`의 `entryScreen`(앱 전용 창에 여는 screen)을 같은 `/v1/apps/blueprint` read로 잇는다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen이다. 지금은 unavailable이라 실제 shell에서 `--open-app`은 전용 창 대신 가장 최근 창을 앞으로 가져온다
 
 ### T46 앱 화면 검사 host
 
@@ -944,6 +953,8 @@ concerns: [shell]
   - Linux `.desktop`, macOS app bundle, Windows shortcut은 고정 앱 ID를 `--open-app` intent로만 넘긴다. 앱 코드·source path·token·port를 실행하지 않는다.
   - `lophn://things-to-confirm/<id>`는 OS URL scheme으로 등록하고 single instance로 받아 엄격히 parse한 뒤 그 대상 화면을 창에 연다. confirmation window를 자동으로 띄우지 않는다(사람이 그 화면에서 누를 때 그 창을 부모로 연다).
   - `open-intent_test`, `os-entry_test`와 세 표시 방식에서 같은 격리 spec(`e2e/shell/app-isolation_test.ts` 확장).
+- 정한 것: (1) 앱 전용 창(`main/desktop/app-window.ts`)은 시스템 제목 표시줄이 있는 빈 BrowserWindow(preload 없음)이고 본문 전체를 앱 view 하나가 채운다. view는 본문 view와 같은 `appFrame`·`electronAppViews`로 열어 session·scheme·preload가 같다. main이 `apps/get`으로 보관되지 않았고 채택된 release가 있는지 보고 그 release를 live·full로 연다. 앱 하나에 전용 창은 하나이고 다시 요청하면 그 창을 앞으로 가져온다. 열지 못하면 창을 남기지 않고 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. 전용 창은 shell 창이 아니라 shortcut·intent·core 상태를 받지 않는다. (2) 창 열기 intent(`main/desktop/open-intent.ts`)는 `--quit`, 정확히 한 번의 `--open-app <app ID>`(바로 뒤 값만, `=` 형식 거절), 정확히 하나의 `lophn://things-to-confirm/<apr|qst ID>`만 읽고 나머지·둘이 섞인 것은 기본 창이다. 첫 시작 argv, second-instance argv, macOS `open-url`이 같은 parser를 쓴다. node test가 zod를 풀지 못해 contracts/shell/launch.ts와 같은 모양을 정규식으로 본다. URL scheme은 packaged·headless 아님일 때만 `setAsDefaultProtocolClient("lophn")`로 등록한다. (3) 링크는 shell renderer에 `{kind: "things-to-confirm", request}` intent로 가 그 요청을 고른 things-to-confirm을 열 뿐이고 결정 창은 사람이 [Review]를 누를 때 그 창을 부모로 연다. (4) OS 바로가기(`main/desktop/os-entry/`)는 packaged 실행 파일의 검증된 경로(autostart와 같은 검사에 shell 특수 글자 거절)와 `--open-app <app ID>`만 담는다. 자리는 앱 ID로 정한다: Linux `$XDG_DATA_HOME/applications/lophn-<app>.desktop`, macOS `~/Applications/lophn-<app>.app`(Info.plist와 exec 두 줄 script, LSUIElement), Windows 시작 메뉴 `lophn\lophn-<app>.lnk`(`shell.writeShortcutLink`). headless·개발 실행은 쓰지 않는다
+- 상태: 완료 (#344) — 이어보냄: 등록 버튼·IPC와 실제 writer → shell#T42, 전용 창 screen의 blueprint read → shell#T45, 설치 묶음의 lophn scheme 등록 → shell#T57
 
 ### T48 깨진 앱 격리 확인
 
@@ -1114,6 +1125,7 @@ concerns: [shell]
 - 선행: shell#T3, shell#T24, shell#T47
 - shell#T24에서 넘어온 것: Windows terminal child의 Job Object 종료 확인(POSIX group 종료와 fail-closed unknown은 #232)
 - shell#T55에서 넘어온 것: tray 아이콘 `apps/shell/main/desktop/icon.png`를 packaged resources의 `icon.png`로 넣기, packaged Linux XDG autostart 실제 등록과 macOS·Windows login item(macOS `wasOpenedAtLogin` tray mode 포함)·tray의 실제 OS 확인(주입 adapter 단위 테스트와 개발 실행 Linux `--tray`·`--quit` smoke는 #233)
+- shell#T47에서 넘어온 것: electron-builder `protocols`로 `lophn` URL scheme을 설치 묶음에 넣는다(Linux `.desktop`의 `MimeType=x-scheme-handler/lophn;`과 `%u`, macOS `CFBundleURLTypes`). main은 packaged 실행에서 `setAsDefaultProtocolClient("lophn")`도 부른다(`main/desktop/open-intent.ts`의 `registerUrlScheme`). packaged smoke에서 링크·`--open-app`이 실행 중 main의 second-instance로 들어와 앱 전용 창·things-to-confirm을 여는지 본다
 - 완료: 아래 확인이 통과한다
   - electron-builder로 Linux .deb(먼저), macOS·Windows 설정. shell build, preload, renderer, 로컬 글꼴, 고정 의존성, bundle된 Deno, node-pty native 모듈을 staging에 넣는다. sandbox를 끄지 않는다(Ubuntu AppArmor userns는 chrome-sandbox 권한으로 맞추고 `--no-sandbox` 우회 없음).
   - packaged main은 bundle된 Deno로 core를 띄운다. 시작 실패·sandbox 실패·schema 비호환은 런처의 실패 갈래로 정상처럼 보이지 않게 안내하고 다음 행동 하나를 준다.

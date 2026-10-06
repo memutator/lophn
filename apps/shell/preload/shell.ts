@@ -14,6 +14,7 @@ import {
   type FolderPickerApi,
   type FolderPickReply,
 } from "../ipc/folder-picker.ts";
+import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createEditorApi } from "./editor-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
@@ -24,12 +25,14 @@ const location =
   (globalThis as unknown as { location: { host: string } }).location;
 const role = location.host === "overlay" ? "overlay" : "shell";
 // 앱 view 열기·bounds·숨김·폐기는 desktop renderer만 부른다. overlay view에는 열지 않는다.
+// 보호 창 열기는 desktop 창 본문만 갖는다. 창을 열 뿐 결정을 제출하지 못한다.
 contextBridge.exposeInMainWorld(
   "lophnShell",
   role === "shell"
     ? Object.freeze({
       ...createShellApi(ipcRenderer, role),
       ...createViewsApi(ipcRenderer),
+      openConfirmation: createConfirmationOpener(ipcRenderer),
     })
     : createShellApi(ipcRenderer, role),
 );

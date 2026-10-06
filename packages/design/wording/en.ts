@@ -1,23 +1,10 @@
 // en catalog. 값은 완성된 문장 하나의 ICU MessageFormat이다. 화면 코드는 문장 조각을 이어 붙이지 않는다.
 export const en = {
-  "app-card.notice.contract-changed":
-    "This app changed after the card was made, so the card isn't shown.",
-  "app-card.notice.not-card": "This screen can't be shown as a card.",
-  "app-card.notice.unavailable":
-    "This app is no longer available, so the card isn't shown.",
-  "app-panel.button.open-app-space": "Open in app space",
-  "app-panel.empty.no-apps": "No apps are registered yet.",
-  "app-panel.label.screen": "{app} · {screen}",
-  "app-panel.notice.app-gone": "This app is no longer available.",
-  "app-panel.notice.app-space-only": "{app} opens only in the app space.",
-  "app-panel.notice.no-version": "This app has no version ready to open yet.",
-  "app-panel.notice.not-panel":
-    "This screen can't open in a tab. Open it in the app space.",
-  "app-panel.title.choose": "Open an app in this tab",
   "apps.title.screen": "Apps",
   "common.activity.agent": "Agent activity",
   "common.activity.app": "App activity",
   "common.author.label": "Written by {author}",
+  "common.button.back": "Back",
   "common.button.cancel": "Cancel",
   "common.button.close": "Close",
   "common.button.columns": "Columns",
@@ -33,7 +20,6 @@ export const en = {
   "common.button.previous-page": "Previous page",
   "common.button.quit": "Quit",
   "common.button.reload": "Reload",
-  "common.button.report-problem": "Report a problem",
   "common.button.retry": "Try again",
   "common.button.show-chart": "Show chart",
   "common.button.show-table": "Show table",
@@ -46,6 +32,7 @@ export const en = {
   "common.copy.failed": "Couldn't copy. Try again.",
   "common.empty.not-ready": "This screen isn't ready yet.",
   "common.error.load-failed": "Couldn't load {target}.",
+  "common.error.show-failed": "Couldn't show this screen.",
   "common.heading.column-unit": "{header} ({unit})",
   "common.heading.count": "Count",
   "common.heading.group": "Group",
@@ -56,12 +43,6 @@ export const en = {
   "common.heading.palette-files": "Files",
   "common.heading.palette-projects": "Projects",
   "common.heading.palette-tabs": "Open tabs",
-  "common.label.app-mode-live": "Live",
-  "common.label.app-mode-preview": "Preview",
-  "common.label.app-state-preparing": "Starting",
-  "common.label.app-state-running": "Connected",
-  "common.label.app-state-stopped": "Stopped",
-  "common.label.app-state-unavailable": "Not connected",
   "common.label.date-with-weekday": "{date} ({weekday})",
   "common.label.decisions-waiting":
     "{count, plural, one {# decision waiting} other {# decisions waiting}}",
@@ -115,6 +96,140 @@ export const en = {
   "confirmation-window.button.cancel": "Cancel",
   "confirmation-window.button.decide": "Decide",
   "confirmation-window.button.refresh": "Open latest",
+  "confirmation-window.button.delete-file": "Delete file",
+  "confirmation-window.change.missing":
+    "There is nothing to compare for this change.",
+  "confirmation-window.change.none": "Nothing here.",
+  "confirmation-window.change.omitted":
+    "Some of this change could not be shown.",
+  "confirmation-window.file-delete.effect":
+    "The file leaves the project. This cannot be undone.",
+  "confirmation-window.file-delete.subject":
+    "This file will be removed from the project.",
+  "confirmation-window.file-delete.title": "Delete this file?",
+  "confirmation-window.heading.effect": "What this affects",
+  "confirmation-window.heading.revert": "Undo",
+  "confirmation-window.heading.subject": "What changes",
+  "confirmation-window.label.current": "Now",
+  "confirmation-window.label.details": "Details",
+  "confirmation-window.label.full": "Full change",
+  "confirmation-window.label.next": "After",
+  "confirmation-window.revert.impossible": "You cannot undo this.",
+  "confirmation-window.revert.possible": "You can undo this later.",
+  "confirmation-window.approval.no-external":
+    "Nothing outside lophn is affected.",
+  "confirmation-window.approval.title": "Allow this action?",
+  "confirmation-window.button.allow": "Allow",
+  "confirmation-window.button.back": "Back",
+  "confirmation-window.button.cancel-request": "Cancel request",
+  "confirmation-window.button.choose": "Choose this option",
+  "confirmation-window.button.close": "Close",
+  "confirmation-window.button.reject": "Reject",
+  "confirmation-window.button.save": "Save",
+  "confirmation-window.button.undo": "Undo changes",
+  "confirmation-window.button.undo-rest": "Undo the rest",
+  "confirmation-window.error.save": "Couldn't save the value. Try again.",
+  "confirmation-window.error.send": "Couldn't send this decision. Try again.",
+  "confirmation-window.error.too-long":
+    "This text is too long. Shorten it and try again.",
+  "confirmation-window.error.unavailable":
+    "lophn can't take this right now. Try again later.",
+  "confirmation-window.input.blob":
+    "The full input is kept separately and checked by this fingerprint.",
+  "confirmation-window.label.action": "Action",
+  "confirmation-window.label.cannot-undo": "Can't be undone",
+  "confirmation-window.label.close-reason":
+    "Reason for rejecting or cancelling (optional)",
+  "confirmation-window.label.comparison": "Checked against",
+  "confirmation-window.label.conflict": "Changed since then",
+  "confirmation-window.label.expires": "Decide by",
+  "confirmation-window.label.input": "Exact input",
+  "confirmation-window.label.owner": "Handled by",
+  "confirmation-window.label.question": "Question",
+  "confirmation-window.label.reason": "Why",
+  "confirmation-window.label.recommended": "Recommended",
+  "confirmation-window.label.requested-by": "Requested by",
+  "confirmation-window.label.secret-code": "Code or final address",
+  "confirmation-window.label.secret-key": "Key",
+  "confirmation-window.label.secret-value": "Value",
+  "confirmation-window.label.stays": "Stays as is",
+  "confirmation-window.label.targets": "Applies to",
+  "confirmation-window.label.will-undo": "Will be undone",
+  "confirmation-window.label.yes": "Yes",
+  "confirmation-window.option-action.effect":
+    "After you choose, lophn makes exactly the change shown here.",
+  "confirmation-window.option-action.title": "Choose {option}?",
+  "confirmation-window.result.allowed":
+    "You allowed this. It hasn't happened yet, and its result will show in Things to confirm.",
+  "confirmation-window.result.answered":
+    "Your answer is saved. lophn makes the change next, and its result will show in Things to confirm.",
+  "confirmation-window.result.cancelled":
+    "You cancelled this request. Nothing will happen.",
+  "confirmation-window.result.not-undone":
+    "Nothing was undone. Something changed or wasn't ready.",
+  "confirmation-window.result.partly-undone":
+    "Some changes were undone. The others stay as they are.",
+  "confirmation-window.result.rejected":
+    "You rejected this. Nothing will happen.",
+  "confirmation-window.result.saved": "{name} is saved.",
+  "confirmation-window.result.undo-unknown":
+    "Some results aren't known yet. Nothing will be repeated.",
+  "confirmation-window.result.undoing":
+    "Undoing the changes. The result will show in Things to confirm.",
+  "confirmation-window.result.undone": "The changes were undone.",
+  "confirmation-window.revert-why.audit-fact":
+    "This is a record of what happened, so it stays.",
+  "confirmation-window.revert-why.conflict":
+    "Another change conflicts with this one.",
+  "confirmation-window.revert-why.dependency":
+    "Something else depends on this change.",
+  "confirmation-window.revert-why.irreversible":
+    "Some of these changes can't be undone.",
+  "confirmation-window.revert-why.not-prepared":
+    "The earlier content isn't ready to bring back.",
+  "confirmation-window.revert-why.external":
+    "This already reached something outside lophn.",
+  "confirmation-window.revert-why.later-change":
+    "It changed again after this work.",
+  "confirmation-window.revert-why.linked":
+    "This document is linked to a file outside lophn.",
+  "confirmation-window.revert-why.no-earlier":
+    "There is no earlier version to go back to.",
+  "confirmation-window.revert-why.not-lophn": "lophn didn't make this change.",
+  "confirmation-window.revert-why.stale":
+    "This list changed. Open the latest version.",
+  "confirmation-window.revert-why.title-change":
+    "Title changes stay as they are.",
+  "confirmation-window.revert-why.unknown-document":
+    "lophn can't tell what this document change was.",
+  "confirmation-window.revert-why.unknown":
+    "lophn can't tell what this change was.",
+  "confirmation-window.revert-second.body":
+    "These changes stay as they are after you undo the rest.",
+  "confirmation-window.revert-second.title": "Some changes will stay",
+  "confirmation-window.revert.effect-all":
+    "Every change listed here is undone.",
+  "confirmation-window.revert.effect-none":
+    "Nothing listed here can be undone.",
+  "confirmation-window.revert.effect-partial":
+    "Only the changes marked Will be undone are undone. The others stay as they are.",
+  "confirmation-window.revert.note":
+    "Undoing saves new versions. Earlier history stays.",
+  "confirmation-window.revert.subject":
+    "Every change from this work is listed here, {count, number} in all.",
+  "confirmation-window.revert.title": "Undo the changes from this work?",
+  "confirmation-window.revert.unknown":
+    "Whether this can be undone isn't known.",
+  "confirmation-window.secret-app.title": "Save a value for {name}?",
+  "confirmation-window.secret-code.title": "Finish signing in?",
+  "confirmation-window.secret-key.title": "Add the key {name}?",
+  "confirmation-window.secret.configured":
+    "{name} already has a value. Replacing it isn't available here yet.",
+  "confirmation-window.secret.effect":
+    "Apps you allowed can use it without seeing it.",
+  "confirmation-window.secret.revert": "You can remove it later.",
+  "confirmation-window.secret.subject":
+    "What you type goes straight to your system keychain. lophn and apps never show it.",
   "confirmation-window.title.confirm": "Confirm",
   "contexts.title.screen": "Focus",
   "contexts.view.baseline": "Baseline",
@@ -201,7 +316,8 @@ export const en = {
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",
   "conversation.notice.unconfirmed":
     "lophn couldn't confirm this message arrived. Check before sending it again.",
-  "conversation.notice.visual-app-card": "App cards can't be shown here.",
+  "conversation.notice.visual-app-card":
+    "App cards can't be shown in the conversation yet.",
   "conversation.notice.visual-as-table": "This chart is shown as a table.",
   "conversation.notice.visual-not-saved":
     "lophn didn't save a document. Its answer says why.",
@@ -601,7 +717,6 @@ export const en = {
   "project-workspace.button.expand-sidebar": "Expand sidebar",
   "project-workspace.button.info-panel": "Info panel",
   "project-workspace.button.launcher": "Launcher",
-  "project-workspace.button.open-app-panel": "Open app in tab",
   "project-workspace.button.open-terminal": "Open terminal",
   "project-workspace.button.preview-again": "Preview again",
   "project-workspace.button.remove-rule": "Remove rule",
@@ -618,7 +733,6 @@ export const en = {
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.info.empty": "Nothing to show yet.",
-  "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
   "project-workspace.label.gitignore": "Skip files listed in .gitignore",

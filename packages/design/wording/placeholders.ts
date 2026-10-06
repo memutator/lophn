@@ -2,28 +2,13 @@
 import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
-  "app-card.notice.contract-changed": Record<never, never>;
-  "app-card.notice.not-card": Record<never, never>;
-  "app-card.notice.unavailable": Record<never, never>;
-  "app-panel.button.open-app-space": Record<never, never>;
-  "app-panel.empty.no-apps": Record<never, never>;
-  "app-panel.label.screen": {
-    app: "string";
-    screen: "string";
-  };
-  "app-panel.notice.app-gone": Record<never, never>;
-  "app-panel.notice.app-space-only": {
-    app: "string";
-  };
-  "app-panel.notice.no-version": Record<never, never>;
-  "app-panel.notice.not-panel": Record<never, never>;
-  "app-panel.title.choose": Record<never, never>;
   "apps.title.screen": Record<never, never>;
   "common.activity.agent": Record<never, never>;
   "common.activity.app": Record<never, never>;
   "common.author.label": {
     author: "string";
   };
+  "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
@@ -41,7 +26,6 @@ export type PlaceholderKinds = {
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
-  "common.button.report-problem": Record<never, never>;
   "common.button.retry": Record<never, never>;
   "common.button.show-chart": Record<never, never>;
   "common.button.show-table": Record<never, never>;
@@ -57,6 +41,7 @@ export type PlaceholderKinds = {
   "common.error.load-failed": {
     target: "string";
   };
+  "common.error.show-failed": Record<never, never>;
   "common.heading.column-unit": {
     header: "string";
     unit: "string";
@@ -70,12 +55,6 @@ export type PlaceholderKinds = {
   "common.heading.palette-files": Record<never, never>;
   "common.heading.palette-projects": Record<never, never>;
   "common.heading.palette-tabs": Record<never, never>;
-  "common.label.app-mode-live": Record<never, never>;
-  "common.label.app-mode-preview": Record<never, never>;
-  "common.label.app-state-preparing": Record<never, never>;
-  "common.label.app-state-running": Record<never, never>;
-  "common.label.app-state-stopped": Record<never, never>;
-  "common.label.app-state-unavailable": Record<never, never>;
   "common.label.date-with-weekday": {
     date: "string";
     weekday: "string";
@@ -139,6 +118,111 @@ export type PlaceholderKinds = {
   "confirmation-window.button.cancel": Record<never, never>;
   "confirmation-window.button.decide": Record<never, never>;
   "confirmation-window.button.refresh": Record<never, never>;
+  "confirmation-window.button.delete-file": Record<never, never>;
+  "confirmation-window.change.missing": Record<never, never>;
+  "confirmation-window.change.none": Record<never, never>;
+  "confirmation-window.change.omitted": Record<never, never>;
+  "confirmation-window.file-delete.effect": Record<never, never>;
+  "confirmation-window.file-delete.subject": Record<never, never>;
+  "confirmation-window.file-delete.title": Record<never, never>;
+  "confirmation-window.heading.effect": Record<never, never>;
+  "confirmation-window.heading.revert": Record<never, never>;
+  "confirmation-window.heading.subject": Record<never, never>;
+  "confirmation-window.label.current": Record<never, never>;
+  "confirmation-window.label.details": Record<never, never>;
+  "confirmation-window.label.full": Record<never, never>;
+  "confirmation-window.label.next": Record<never, never>;
+  "confirmation-window.revert.impossible": Record<never, never>;
+  "confirmation-window.revert.possible": Record<never, never>;
+  "confirmation-window.approval.no-external": Record<never, never>;
+  "confirmation-window.approval.title": Record<never, never>;
+  "confirmation-window.button.allow": Record<never, never>;
+  "confirmation-window.button.back": Record<never, never>;
+  "confirmation-window.button.cancel-request": Record<never, never>;
+  "confirmation-window.button.choose": Record<never, never>;
+  "confirmation-window.button.close": Record<never, never>;
+  "confirmation-window.button.reject": Record<never, never>;
+  "confirmation-window.button.save": Record<never, never>;
+  "confirmation-window.button.undo": Record<never, never>;
+  "confirmation-window.button.undo-rest": Record<never, never>;
+  "confirmation-window.error.save": Record<never, never>;
+  "confirmation-window.error.send": Record<never, never>;
+  "confirmation-window.error.too-long": Record<never, never>;
+  "confirmation-window.error.unavailable": Record<never, never>;
+  "confirmation-window.input.blob": Record<never, never>;
+  "confirmation-window.label.action": Record<never, never>;
+  "confirmation-window.label.cannot-undo": Record<never, never>;
+  "confirmation-window.label.close-reason": Record<never, never>;
+  "confirmation-window.label.comparison": Record<never, never>;
+  "confirmation-window.label.conflict": Record<never, never>;
+  "confirmation-window.label.expires": Record<never, never>;
+  "confirmation-window.label.input": Record<never, never>;
+  "confirmation-window.label.owner": Record<never, never>;
+  "confirmation-window.label.question": Record<never, never>;
+  "confirmation-window.label.reason": Record<never, never>;
+  "confirmation-window.label.recommended": Record<never, never>;
+  "confirmation-window.label.requested-by": Record<never, never>;
+  "confirmation-window.label.secret-code": Record<never, never>;
+  "confirmation-window.label.secret-key": Record<never, never>;
+  "confirmation-window.label.secret-value": Record<never, never>;
+  "confirmation-window.label.stays": Record<never, never>;
+  "confirmation-window.label.targets": Record<never, never>;
+  "confirmation-window.label.will-undo": Record<never, never>;
+  "confirmation-window.label.yes": Record<never, never>;
+  "confirmation-window.option-action.effect": Record<never, never>;
+  "confirmation-window.option-action.title": {
+    option: "string";
+  };
+  "confirmation-window.result.allowed": Record<never, never>;
+  "confirmation-window.result.answered": Record<never, never>;
+  "confirmation-window.result.cancelled": Record<never, never>;
+  "confirmation-window.result.not-undone": Record<never, never>;
+  "confirmation-window.result.partly-undone": Record<never, never>;
+  "confirmation-window.result.rejected": Record<never, never>;
+  "confirmation-window.result.saved": {
+    name: "string";
+  };
+  "confirmation-window.result.undo-unknown": Record<never, never>;
+  "confirmation-window.result.undoing": Record<never, never>;
+  "confirmation-window.result.undone": Record<never, never>;
+  "confirmation-window.revert-why.audit-fact": Record<never, never>;
+  "confirmation-window.revert-why.conflict": Record<never, never>;
+  "confirmation-window.revert-why.dependency": Record<never, never>;
+  "confirmation-window.revert-why.irreversible": Record<never, never>;
+  "confirmation-window.revert-why.not-prepared": Record<never, never>;
+  "confirmation-window.revert-why.external": Record<never, never>;
+  "confirmation-window.revert-why.later-change": Record<never, never>;
+  "confirmation-window.revert-why.linked": Record<never, never>;
+  "confirmation-window.revert-why.no-earlier": Record<never, never>;
+  "confirmation-window.revert-why.not-lophn": Record<never, never>;
+  "confirmation-window.revert-why.stale": Record<never, never>;
+  "confirmation-window.revert-why.title-change": Record<never, never>;
+  "confirmation-window.revert-why.unknown-document": Record<never, never>;
+  "confirmation-window.revert-why.unknown": Record<never, never>;
+  "confirmation-window.revert-second.body": Record<never, never>;
+  "confirmation-window.revert-second.title": Record<never, never>;
+  "confirmation-window.revert.effect-all": Record<never, never>;
+  "confirmation-window.revert.effect-none": Record<never, never>;
+  "confirmation-window.revert.effect-partial": Record<never, never>;
+  "confirmation-window.revert.note": Record<never, never>;
+  "confirmation-window.revert.subject": {
+    count: "number";
+  };
+  "confirmation-window.revert.title": Record<never, never>;
+  "confirmation-window.revert.unknown": Record<never, never>;
+  "confirmation-window.secret-app.title": {
+    name: "string";
+  };
+  "confirmation-window.secret-code.title": Record<never, never>;
+  "confirmation-window.secret-key.title": {
+    name: "string";
+  };
+  "confirmation-window.secret.configured": {
+    name: "string";
+  };
+  "confirmation-window.secret.effect": Record<never, never>;
+  "confirmation-window.secret.revert": Record<never, never>;
+  "confirmation-window.secret.subject": Record<never, never>;
   "confirmation-window.title.confirm": Record<never, never>;
   "contexts.title.screen": Record<never, never>;
   "contexts.view.baseline": Record<never, never>;
@@ -634,7 +718,6 @@ export type PlaceholderKinds = {
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
-  "project-workspace.button.open-app-panel": Record<never, never>;
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
   "project-workspace.button.remove-rule": Record<never, never>;
@@ -651,7 +734,6 @@ export type PlaceholderKinds = {
   "project-workspace.heading.left-out": Record<never, never>;
   "project-workspace.heading.tracked": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
-  "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
   "project-workspace.label.gitignore": Record<never, never>;

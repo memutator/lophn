@@ -55,6 +55,8 @@ export interface AppSpaceProps {
   onLauncher: () => void;
   /** 문서 작업대(lophn 공간 documents)로 바꾼다. */
   onDocuments: () => void;
+  /** 대화의 결과 링크로 그 문서를 연다. */
+  onOpenResult?: (document: string, version: string | null) => void;
   onThingsToConfirm: () => void;
 }
 
@@ -140,6 +142,7 @@ export function AppSpace(
     windowWidth,
     onLauncher,
     onDocuments,
+    onOpenResult,
     onThingsToConfirm,
   }: AppSpaceProps,
 ) {
@@ -341,7 +344,7 @@ export function AppSpace(
             placement={dock}
             workPlace={{ kind: "app", id: app }}
             onClose={() => setDockOpen(false)}
-            onOpenResult={onDocuments}
+            onOpenResult={onOpenResult}
           />
         </div>
       </ViewCoversProvider>

@@ -15,12 +15,7 @@ import {
   WebContentsView,
 } from "electron";
 import { randomBytes, randomUUID } from "node:crypto";
-import {
-  mkdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 

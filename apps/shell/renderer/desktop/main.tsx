@@ -143,6 +143,12 @@ export function Desktop(
         windowWidth={windowWidth}
         onLauncher={launcher}
         onDocuments={() => visit(openLophn("documents"))}
+        onOpenResult={(document, version) =>
+          visit(
+            version === null
+              ? openLophn("documents")
+              : openLophn("documents", { document, version }),
+          )}
         onThingsToConfirm={thingsToConfirm}
       />
     );

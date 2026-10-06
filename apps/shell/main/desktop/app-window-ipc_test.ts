@@ -126,10 +126,13 @@ test("shell/desktop#R13: [Open in new window]은 desktop 창 본문이 보낸 �
   assert.deepEqual(
     await handlers.openWindow({
       sender: desk,
-      senderFrame: { url: "lophn-shell://desktop/index.html", parent: {
+      senderFrame: {
         url: "lophn-shell://desktop/index.html",
-        parent: null,
-      } },
+        parent: {
+          url: "lophn-shell://desktop/index.html",
+          parent: null,
+        },
+      },
     }, { app: APP }),
     { ok: false, code: "forbidden" },
   );

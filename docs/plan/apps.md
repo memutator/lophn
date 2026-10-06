@@ -257,6 +257,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T14 cap-fs, cap-net, cap-store, cap-save, cap-secret
 
+- 상태: 완료 (#320) — 이어보냄: 앱 프로세스 entrypoint의 host port 설치와 실제 자식에서의 broker 시험, release 준비의 선언 permission 검사(R22) → T19, DB 파일 이름 `app.sqlite` 합의 → T18
 - 등급: 기본
 - concern: apps/sdk
 - 요구: apps/sdk#R22, R23, R24, R25, R26, R30, R31, R32

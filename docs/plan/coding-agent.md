@@ -1148,6 +1148,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: coding-agent
 - 조사: docs/research/coding-agent-harness-integration.md,
   docs/research/coding-agent-connection-credential.md
+- platform#T19 후속(#294)에서 넘어온 것: connection credential(keychain의 token)의 값도 core의 알려진 값 registry에 등록·회수되어야 한다(documents 읽기·메시지 본문에 token이 나오지 않게). 통로는 열렸다: 등록 파일의 `secretRefs`에 `SecretRefSource`(contracts/platform/secrets.ts: `owner`, 참조를 바꾸는 command 이름 `commands`, `read(sql)`가 `{name, sealedRef}` 목록)를 더하면 core secret store가 같은 keychain에서 값을 읽어 등록하고 command 확정 뒤 다시 맞춘다. 지금 연결 표에는 keychain 참조가 없어(digest만) 연결할 source가 없다. T36이 token의 `coding_connection_credential` 참조를 표에 두면 그 표를 읽는 source를 낸다. 회수된 연결의 token도 참조가 남는 동안은 알려진 값으로 둔다.
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48,
   platform#T35, contracts#T24
 - T16에서 넘어온 것: CLI `question list|show|open`·`approval list|show|open`을

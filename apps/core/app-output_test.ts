@@ -497,7 +497,7 @@ Deno.test("documents/versions#R14: 보관된 앱은 새 출력을 남기지 못�
       opened.core,
       "apps/archive",
       command({ app: app.id }, "archive-1", {
-        base_revision: await appRevision(opened, app.id),
+        base_revision: appRevision(opened, app.id),
       }),
     );
     assertEquals(archived.status, 200, JSON.stringify(archived.body));
@@ -517,7 +517,7 @@ Deno.test("documents/versions#R14: 보관된 앱은 새 출력을 남기지 못�
   }
 });
 
-async function appRevision(opened: Opened, app: string): Promise<string> {
+function appRevision(opened: Opened, app: string): string {
   const db = ledger(opened.home);
   try {
     const row = db.prepare("SELECT revision FROM apps WHERE id = ?").get(

@@ -28,6 +28,10 @@ import { type Core, startCore } from "../core.ts";
 import type { AppsControl } from "../apps-control.ts";
 import type { ProcessSource } from "../../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../../packages/apps/runtime/supervisor/mod.ts";
+import type {
+  PreviewBundles,
+  PreviewReleases,
+} from "../../../packages/apps/preview/service.ts";
 import type { TeamModule } from "../registration.ts";
 
 export type CoreHarnessCredential = {
@@ -51,6 +55,12 @@ export type CoreHarnessOptions = {
     supervisor?: boolean | { runtimeDir?: string };
     process?: ProcessSource;
     sweepMs?: number;
+    // preview가 bundle·release를 여는 자리와 nonce(apps/preview 시험).
+    previews?: {
+      bundles?: PreviewBundles;
+      releases?: PreviewReleases;
+      nonce?: () => string;
+    };
   };
 };
 
@@ -114,6 +124,7 @@ export async function createCoreHarness(
     ...(options.apps?.sweepMs === undefined
       ? {}
       : { appsSweepMs: options.apps.sweepMs }),
+    ...(options.apps?.previews ? { appPreviews: options.apps.previews } : {}),
   });
   if (!started.ok) {
     await Deno.remove(directory, { recursive: true });

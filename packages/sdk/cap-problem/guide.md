@@ -11,9 +11,17 @@
 import {
   createExceptionObserver,
   createProblemReporter,
+  reportProblem,
 } from "@lophn/cap-problem";
 ```
 
+- `reportProblem(code, details?)` — 앱 code가 선언 code로 보고한다.
+  `{ report_id, completion }`을 돌려주고 업무 응답을 막지 않는다. transport는 앱
+  진입점이 설치한 reporter가 쥐고 있어 앱 code는 모른다. 진입점이 reporter를
+  설치하지 않은 곳(단위 test)에서는 보내지 않고 `completion`이 실패 값으로
+  끝난다.
+- `installProblemReporter(reporter)` — 진입점이 transport를 넣어 만든 reporter를
+  설치한다. 앱 code는 부르지 않는다.
 - `createProblemReporter(deps)` — 선언 code의 보고·해소 주장·변경 메모 전달
   클라이언트를 만든다.
 - `createExceptionObserver(deps)` — 처리되지 않은 예외를 선언 code 보고로
@@ -31,12 +39,11 @@ import {
 ## 예제
 
 ```ts
-import { createProblemReporter } from "@lophn/cap-problem";
+import { reportProblem } from "@lophn/cap-problem";
 
-const reporter = createProblemReporter({
-  deliver: (report) => deliver(report),
-});
-await reporter.report({ code: "sync_failed", message: "동기화에 실패했다" });
+// blueprint problem_codes에 선언한 code만 보고한다. code는 문자열 literal이다.
+const reported = reportProblem("sync_failed", { command: "sync" });
+await reported.completion;
 ```
 
 ## version 정책

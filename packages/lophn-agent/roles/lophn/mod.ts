@@ -20,6 +20,32 @@ export {
   type SettingExplanationInput,
 } from "./settings-explanation.ts";
 export {
+  answerFromGuides,
+  type GuideAnswer,
+  type GuideAsk,
+  type GuideText,
+  sectionText,
+} from "./guide-answer.ts";
+export {
+  oneLine,
+  type PlaceCandidate,
+  type PlaceRecommendations,
+  type PlaceTarget,
+  type QuestionDraft,
+  RECOMMENDATION_LIMIT,
+  recommendPlaces,
+  SUPPORT_THRESHOLDS,
+  type SupportingEvidence,
+  supportingEvidence,
+  type SupportSignals,
+} from "./place-recommendation.ts";
+export {
+  protectedGuidance,
+  settingChangeQuestion,
+  type SettingProposal,
+  type SettingQuestionDraft,
+} from "./setting-proposal.ts";
+export {
   type BundledGuideFile,
   copyBytes,
   guideBytesFromFiles,

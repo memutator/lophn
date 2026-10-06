@@ -34,6 +34,10 @@ import {
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import {
+  InstructionAttachments,
+  OperatorOutput,
+} from "../../contracts/lophn-agent/mod.ts";
+import {
   createDocumentNameReservation,
   type PlaceRef,
   SLUG_MAX_LENGTH,
@@ -205,6 +209,95 @@ function revertArchiveRejected(
   return undefined;
 }
 
+// 지침 문서는 agent·coding_agent·app의 create·save·제목·move·source 변경이 forbidden이다
+// (file-tracking#R20, versions#R20). 같은 출력으로 지정해도 거절한다.
+// 사람과 기계는 이 규칙을 따르지 않는다(원본 파일 편집과 준비 worker의 파일 관측).
+function instructionFileRejected(
+  ctx: RequestContext,
+  tx: Tx,
+  documentId: string,
+): Result<never> | undefined {
+  const kind = parseActor(ctx.actor)?.kind;
+  // user, machine, 또는 unknown은 허용한다.
+  if (kind === "user" || kind === undefined || kind === "machine") {
+    return undefined;
+  }
+  // agent, coding_agent, app은 지침 문서 쓰기가 forbidden이다.
+  if (kind !== "agent" && kind !== "coding_agent" && kind !== "app") {
+    return undefined;
+  }
+
+  // 지침 첨부 확인
+  let attachments: unknown;
+  try {
+    attachments = tx.port?.(InstructionAttachments);
+  } catch {
+    // port가 없거나 오류가 나면 통과
+    return undefined;
+  }
+  if (
+    typeof attachments === "object" && attachments !== null &&
+    "attachments" in attachments
+  ) {
+    const attachmentsFn = (attachments as Record<string, unknown>).attachments;
+    if (typeof attachmentsFn === "function") {
+      try {
+        const result = (attachmentsFn as (id: string) => unknown)(documentId);
+        if (
+          typeof result === "object" && result !== null &&
+          "ok" in result && result.ok === true && "value" in result
+        ) {
+          const value = (result as { value: unknown }).value;
+          if (Array.isArray(value) && value.length > 0) {
+            return rejected(
+              "forbidden",
+              "instruction document cannot be modified by this actor",
+            );
+          }
+        }
+      } catch {
+        // 포트 호출 오류는 무시하고 계속
+      }
+    }
+  }
+
+  // Operator 출력 확인
+  let operatorOutput: unknown;
+  try {
+    operatorOutput = tx.port?.(OperatorOutput);
+  } catch {
+    // port가 없거나 오류가 나면 통과
+    return undefined;
+  }
+  if (
+    typeof operatorOutput === "object" && operatorOutput !== null &&
+    "output" in operatorOutput
+  ) {
+    const outputFn = (operatorOutput as Record<string, unknown>).output;
+    if (typeof outputFn === "function") {
+      try {
+        const result = (outputFn as (id: string) => unknown)(documentId);
+        if (
+          typeof result === "object" && result !== null &&
+          "ok" in result && result.ok === true && "value" in result
+        ) {
+          const value = (result as { value: unknown }).value;
+          if (value !== null && typeof value === "object") {
+            return rejected(
+              "forbidden",
+              "instruction document cannot be modified by this actor",
+            );
+          }
+        }
+      } catch {
+        // 포트 호출 오류는 무시하고 계속
+      }
+    }
+  }
+
+  return undefined;
+}
+
 // 첫 저장이 같은 tx 안에서 가족 가입을 부르는 seam. 구현은 documents/series가 갖고
 // core 등록이 주입한다(versions는 series를 import하지 않는다). 거절은 저장 전체의 거절이다.
 export type SeriesJoin = (
@@ -242,6 +335,8 @@ export function createVersionCommands(
         if (existing.value === null) {
           return createDocument(tx, ctx, input, options.joinSeries);
         }
+        const isInstruction = instructionFileRejected(ctx, tx, input.document);
+        if (isInstruction !== undefined) return isInstruction;
         return saveVersion(tx, ctx, existing.value, input);
       },
     },
@@ -268,6 +363,8 @@ export function createVersionCommands(
         if (!access.ok) return access;
         const output = agentOutputRejected(ctx, current.value, null);
         if (output !== undefined) return output;
+        const isInstruction = instructionFileRejected(ctx, tx, input.document);
+        if (isInstruction !== undefined) return isInstruction;
         if (current.value.revision !== compare.base_revision) {
           return rejected("conflict", "document revision changed");
         }

@@ -34,7 +34,8 @@ import { createAppConnector } from "../app-frame/app-connection.ts";
 import { nodeUpstream } from "../app-frame/app-protocol.ts";
 import { createViewDiagnostics } from "../app-frame/diagnostics.ts";
 import { createAppFrame } from "../app-frame/registry.ts";
-import { createAppCall, nodeInvoke } from "../app-frame/app-call.ts";
+import { createAppCall } from "../app-frame/app-call.ts";
+import { nodeInvoke } from "../app-frame/app-invoke.ts";
 import {
   canonicalInputHash,
   validateInput,

@@ -4,10 +4,8 @@
 // 보낸다(apps/invocations 직접 호출). 응답은 앱 handler의 결과이고 ledger 기록을 기다리지 않는다.
 // confirm command는 사람 approval을 거쳐 받은 proof를 붙여야만 보낸다(platform/approvals).
 // socket 경로·Authorization·proof는 main에만 있고 페이지로 가지 않는다(R9, R13).
-import { request as httpRequest } from "node:http";
-
 import type { AppBinding, ConnectTarget, Outcome } from "./app-connection.ts";
-import { SOCKET_HOST } from "./app-protocol.ts";
+import type { Invoker, InvokeResponse } from "./app-invoke.ts";
 import type { BoundView } from "./registry.ts";
 import { CONNECTION_RENEW_MS } from "./registry.ts";
 
@@ -61,9 +59,6 @@ function fail(code: CallErrorCode, message: string): CallOutcome<never> {
 
 // IPC 입력 상한. contracts의 IPC 상한(64 KiB)과 같다.
 export const CALL_INPUT_MAX_BYTES = 64 * 1024;
-// 앱 응답을 main 메모리에 모으는 상한. 넘으면 결과를 페이지로 넘기지 않는다.
-export const CALL_RESULT_MAX_BYTES = 8 * 1024 * 1024;
-export const INVOKE_PATH = "/_lophn/commands/invoke";
 
 /** 고정 bundle의 blueprint를 읽는다. 같은 bundle은 같은 blueprint다. */
 export type BlueprintSource = (view: {
@@ -95,20 +90,6 @@ export interface ConfirmRequest {
 export type ConfirmGate = (
   request: ConfirmRequest,
 ) => Promise<CallOutcome<SignedProof>>;
-
-export interface InvokeRequest {
-  endpoint: string;
-  authorization: string;
-  body: Record<string, unknown>;
-}
-
-export interface InvokeResponse {
-  status: number;
-  body: unknown;
-}
-
-/** 앱 socket POST. 응답을 받지 못하면 throw한다. */
-export type Invoker = (request: InvokeRequest) => Promise<InvokeResponse>;
 
 export interface AppCallDeps {
   connector: {
@@ -373,47 +354,3 @@ function outcomeOf(response: InvokeResponse): CallOutcome<unknown> {
   }
   return fail("unavailable", "command failed");
 }
-
-/**
- * main의 Node client. 연결 endpoint의 Unix socket에 POST한다. 응답 상한을 넘으면 끊고 throw한다.
- * 보낸 요청을 다시 보내지 않는다.
- */
-export const nodeInvoke: Invoker = (input) =>
-  new Promise((resolve, reject) => {
-    const payload = JSON.stringify(input.body);
-    const outgoing = httpRequest({
-      socketPath: input.endpoint,
-      path: INVOKE_PATH,
-      method: "POST",
-      headers: {
-        host: SOCKET_HOST,
-        authorization: input.authorization,
-        "content-type": "application/json",
-        "content-length": Buffer.byteLength(payload),
-      },
-    });
-    outgoing.once("error", reject);
-    outgoing.once("response", (incoming) => {
-      const chunks: Buffer[] = [];
-      let size = 0;
-      incoming.on("data", (chunk: Buffer) => {
-        size += chunk.byteLength;
-        if (size > CALL_RESULT_MAX_BYTES) {
-          incoming.destroy(new Error("app response is too large"));
-          return;
-        }
-        chunks.push(chunk);
-      });
-      incoming.once("error", reject);
-      incoming.once("end", () => {
-        let body: unknown;
-        try {
-          body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-        } catch {
-          body = undefined;
-        }
-        resolve({ status: incoming.statusCode ?? 502, body });
-      });
-    });
-    outgoing.end(payload);
-  });

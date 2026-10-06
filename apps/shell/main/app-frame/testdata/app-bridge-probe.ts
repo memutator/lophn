@@ -11,8 +11,8 @@ import {
   createAppCall,
   type InputRules,
   type JsonValue,
-  nodeInvoke,
 } from "../app-call.ts";
+import { nodeInvoke } from "../app-invoke.ts";
 import type { AppBinding } from "../app-connection.ts";
 import { registerAppIpc } from "../app-ipc.ts";
 import { nodeUpstream } from "../app-protocol.ts";

@@ -91,8 +91,7 @@ import {
 } from "./global-shortcut.ts";
 import {
   createOsNotifications,
-  optInFromSettings,
-  OS_NOTIFICATIONS_KEY,
+  displayFromReply,
   type OsNotifier,
 } from "./os-notification.ts";
 import { registerViewSchemes } from "./security.ts";
@@ -157,17 +156,27 @@ const windows = new Set<BrowserWindow>();
 const log = (message: string) => console.log(`[lophn] ${message}`);
 let tray: InstalledTray | undefined;
 
-// OS notification(shell#T56). 사람이 켰을 때만 지금 도착한 NotificationCreated를 고정 문구로
-// 올린다. 클릭은 things-to-confirm을 열 뿐 읽음이 아니다. headless는 OS에 올리지 않는다.
+// OS notification(shell#T56, platform#T46). 지금 도착한 NotificationCreated마다 core가 주는 OS
+// 표시 요청(사람이 켰을 때만 값이 있다)으로 계기 종류의 고정 문구만 올린다. 클릭은
+// things-to-confirm을 열 뿐 읽음이 아니다. 표시 실패는 고정 이유로 core에 알린다. headless는
+// OS에 올리지 않는다.
 const osNotifications = createOsNotifications({
   notifier: guardNotifier(electronNotifier(), headless, log),
-  optedIn: async () => {
+  display: async (notification) => {
     const session = core.session();
-    if (!session) return false;
-    const reply = await session.call("read", "settings", "get", {
-      keys: [OS_NOTIFICATIONS_KEY],
+    if (!session) return null;
+    const reply = await session.internal("read", "notifications", "display", {
+      notification,
     });
-    return reply.ok && optInFromSettings(reply.value);
+    return reply.ok ? displayFromReply(reply.value) : null;
+  },
+  report: async (notification, reason) => {
+    const session = core.session();
+    if (!session) return;
+    await session.internal("memory", "notifications", "delivery", {
+      notification,
+      reason,
+    });
   },
   open: () => sendIntent("things-to-confirm"),
   unavailable: () => tray?.notice("notifications-unavailable"),

@@ -212,6 +212,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T12 invocation 후행 전달과 confirm 실행
 
+- 상태: 진행 (#311) — 남은 것: confirm proof 서명 검증(contracts의 direct `proof`가 서명 없는 payload, Q17), broker 서버(T13)가 `delivery.broker.submit`을 자식 credential에 묶어 `/_lophn/broker/invocations/submit`으로 여는 연결, 재시작 점검 뒤 running·accepted로 남은 행을 unknown으로 확정하는 command(지금은 점검 관측만), automation trigger의 기록(T19), agent 요청자 E2E(T27)
 - 등급: 기본
 - concern: apps/invocations
 - 요구: apps/invocations#R1, R2, R5, R7, R8, R11, R12, R18, R19

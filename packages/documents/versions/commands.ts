@@ -153,6 +153,58 @@ function directSaveOfLinked(
   return source === null || source.kind === "app";
 }
 
+// agent 출력은 일반 문서의 고정 판이다(versions#R14). 파일 관측 source를 주장하지 못하고,
+// 원본 연결·지침 문서와 보관 문서는 출력 대상이 아니다. 범위 밖 대상의 답은 platform이
+// 이미 정했고(authorizeDocument) 이 규칙은 그 범위 안에서도 쓰지 못하는 상태만 거절한다.
+function agentOutputRejected(
+  ctx: RequestContext,
+  document: Document | null,
+  source: PreparedVersion["source"],
+): Result<never> | undefined {
+  if (parseActor(ctx.actor)?.kind !== "agent") return undefined;
+  if (source !== null) {
+    return rejected("forbidden", "agent output has no file or app source");
+  }
+  if (document === null) return undefined;
+  if (document.file_source !== null) {
+    return rejected("forbidden", "linked document is not an agent output");
+  }
+  if (document.status !== "active") {
+    return rejected("forbidden", "archived document is not an agent output");
+  }
+  return undefined;
+}
+
+// 요청된 revert의 machine이 하는 보관은 agent run이 만든 문서의 보상만이다
+// (versions domain model, lophn-agent/revert). 모든 판을 agent가 남겼고 원본 연결이 없을 때만 한다.
+// 첫 판이 agent가 아니면 보상 대상이 아니라 forbidden이고, 이후 다른 주체의 판이 있으면 그
+// 변경 뒤라서 conflict다. 문서 revision의 이후 변경은 base_revision 비교가 conflict로 막는다.
+function revertArchiveRejected(
+  tx: Tx,
+  document: Document,
+): Result<never> | undefined {
+  const versions = tx.sql.all(
+    "SELECT number, saved_by FROM versions WHERE document = ? ORDER BY number",
+    [document.id],
+  );
+  const byAgent = (row: { [key: string]: unknown }) =>
+    typeof row["saved_by"] === "string" &&
+    parseActor(row["saved_by"])?.kind === "agent";
+  if (
+    document.file_source !== null || versions.length === 0 ||
+    !byAgent(versions[0])
+  ) {
+    return rejected(
+      "forbidden",
+      "revert archives only agent-created documents",
+    );
+  }
+  if (!versions.every(byAgent)) {
+    return rejected("conflict", "document changed after the agent run");
+  }
+  return undefined;
+}
+
 // 첫 저장이 같은 tx 안에서 가족 가입을 부르는 seam. 구현은 documents/series가 갖고
 // core 등록이 주입한다(versions는 series를 import하지 않는다). 거절은 저장 전체의 거절이다.
 export type SeriesJoin = (
@@ -183,6 +235,8 @@ export function createVersionCommands(
         if (claimedActor(ctx, input)) {
           return rejected("forbidden", "claimed actor is not the credential");
         }
+        const claimed = agentOutputRejected(ctx, null, input.source);
+        if (claimed !== undefined) return claimed;
         const existing = loadDocument(tx.sql, input.document);
         if (!existing.ok) return existing;
         if (existing.value === null) {
@@ -212,6 +266,8 @@ export function createVersionCommands(
           document: current.value,
         });
         if (!access.ok) return access;
+        const output = agentOutputRejected(ctx, current.value, null);
+        if (output !== undefined) return output;
         if (current.value.revision !== compare.base_revision) {
           return rejected("conflict", "document revision changed");
         }
@@ -403,6 +459,8 @@ function saveVersion(
     document,
   });
   if (!access.ok) return access;
+  const output = agentOutputRejected(ctx, document, prepared.source);
+  if (output !== undefined) return output;
   if (prepared.base_version === null) {
     return rejected("conflict", "document already exists");
   }
@@ -827,6 +885,10 @@ function transition(
   const expected = action === "archive" ? "active" : "archived";
   if (current.value.status !== expected) {
     return rejected("conflict", "document status changed");
+  }
+  if (action === "archive" && parseActor(ctx.actor)?.kind === "machine") {
+    const compensable = revertArchiveRejected(tx, current.value);
+    if (compensable !== undefined) return compensable;
   }
   const seq = tx.emit(
     action === "archive" ? documentArchived : documentUnarchived,

@@ -1,0 +1,75 @@
+import { assertEquals, assertRejects } from "@std/assert";
+import { CommandRejection } from "@lophn/cap-schedule";
+import { openStore, type Store } from "@lophn/cap-store";
+import { addItemHandler, listItemsHandler } from "../src/commands.ts";
+import {
+  addItem,
+  ensureSchema,
+  listItems,
+  SCHEMA_VERSION,
+} from "../src/items.ts";
+
+type Seed = { title: string; created_at: string };
+
+const fixture = JSON.parse(
+  Deno.readTextFileSync(new URL("./fixtures/items.json", import.meta.url)),
+) as Seed[];
+
+// 앱 DB는 test 전용 폴더에 만든다. 운영 DB와 다른 앱의 DB는 열지 않는다.
+async function withData<T>(work: (dataPath: string) => Promise<T>): Promise<T> {
+  const dir = await Deno.makeTempDir({ prefix: "app-items-" });
+  try {
+    return await work(dir);
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+}
+
+function openAt(dataPath: string): () => Store {
+  return () => openStore({ host: { mode: "test", dataPath } });
+}
+
+Deno.test("items: a new database migrates from schema 0 and keeps the fixture rows newest first", async () => {
+  await withData(async (dataPath) => {
+    const store = openAt(dataPath)();
+    assertEquals(store.schema(), 0);
+    await ensureSchema(store);
+    assertEquals(store.schema(), SCHEMA_VERSION);
+    for (const seed of fixture) addItem(store, seed.title, seed.created_at);
+    assertEquals(
+      listItems(store).map((item) => item.title),
+      ["Water the plants", "Call the dentist", "Buy milk"],
+    );
+    store.close();
+  });
+});
+
+Deno.test("items: list_items returns the rows with their coverage and freshness", async () => {
+  await withData(async (dataPath) => {
+    const deps = {
+      openStore: openAt(dataPath),
+      now: () => "2026-02-01T00:00:00.000Z",
+    };
+    await addItemHandler(deps)({ title: "First" });
+    const result = await listItemsHandler(deps)();
+    assertEquals(result.rows.map((row) => row.title), ["First"]);
+    assertEquals(result.coverage, "complete");
+    assertEquals(result.freshness, "fresh");
+  });
+});
+
+Deno.test("items: add_item rejects a blank title before touching the store", async () => {
+  let opened = false;
+  const deps = {
+    openStore: () => {
+      opened = true;
+      throw new Error("must not open");
+    },
+    now: () => "2026-02-01T00:00:00.000Z",
+  };
+  await assertRejects(
+    async () => await addItemHandler(deps)({ title: "   " }),
+    CommandRejection,
+  );
+  assertEquals(opened, false);
+});

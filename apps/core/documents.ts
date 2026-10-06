@@ -97,6 +97,8 @@ import {
   createViewReads,
   savedViewsSchemaSteps,
 } from "../../packages/documents/outline-and-search/mod.ts";
+import { listDocuments } from "../../packages/documents/versions/mod.ts";
+import type { ReadSnapshot } from "../../packages/contracts/platform/mod.ts";
 
 type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
@@ -110,9 +112,32 @@ type LedgerRegistration = {
   blobFields?: readonly unknown[];
 };
 
-// 문서 목록은 versions concern의 read다. seam이 없어 빈 목록만 준다.
-function emptyDocuments(): Result<readonly DocumentRef[]> {
-  return ok([]);
+// 프로젝트 문서 목록. 활성 문서의 최신 버전을 반환한다(보관 제외).
+function projectDocuments(
+  snapshot: ReadSnapshot,
+  project: string,
+): Result<readonly DocumentRef[]> {
+  // snapshot.sql은 읽기 전용(get, all)이고 listDocuments는 모든 sql 메서드를 요구한다.
+  // 목록만 사용하므로 일부 메서드는 구현하지 않는다.
+  // deno-lint-ignore no-explicit-any
+  const readOnlySql: any = {
+    get: snapshot.sql.get.bind(snapshot.sql),
+    all: snapshot.sql.all.bind(snapshot.sql),
+  };
+  const docs = listDocuments(readOnlySql, {
+    place: { kind: "project", id: project },
+    status: "active",
+    limit: 10000,
+    offset: 0,
+  });
+  if (!docs.ok) return docs;
+  return ok(
+    docs.value.map((doc) => ({
+      document: doc.id,
+      version: doc.latest_version,
+      section: null,
+    })),
+  );
 }
 
 // format read는 ledger snapshot을 쓰지 않는다. core가 reader pool 밖에서 바로 열고,
@@ -374,7 +399,7 @@ export function createLedgerRegistration(
   const seriesOutline = createSeriesOutlineRead();
   const viewReads = createViewReads();
   const deps: ProjectReadDeps = {
-    documents: emptyDocuments,
+    documents: projectDocuments,
   };
   const reads = createProjectReads(deps);
   return {
@@ -521,7 +546,7 @@ export function createReaderRegistration(): ReaderRegistration {
   const viewReads = createViewReads();
   const fileReads = createFileReads();
   const deps: ProjectReadDeps = {
-    documents: emptyDocuments,
+    documents: projectDocuments,
   };
   const projectReads = createProjectReads(deps);
   return {

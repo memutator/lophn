@@ -539,3 +539,27 @@ Deno.test("platform/blob-store#R1 platform/api#R4: 부모의 blob 준비 결과�
     }).success,
   );
 });
+
+Deno.test("apps/preview#R9: app_credential_request는 release 없는 preview를 위해 release null을 받고 모양이 다른 release는 거절한다", () => {
+  const suffix = "01arz3ndektsv4rrffq69g5fav";
+  const base = {
+    type: "app_credential_request",
+    request_id: "r",
+    app: `app_${suffix}`,
+    process: "process",
+    mode: "preview",
+    bundle_hash: "a".repeat(64),
+  };
+  assert(
+    appCredentialRequestSchema.safeParse({ ...base, release: null }).success,
+  );
+  assert(
+    appCredentialRequestSchema.safeParse({ ...base, release: `rel_${suffix}` })
+      .success,
+  );
+  assert(
+    !appCredentialRequestSchema.safeParse({ ...base, release: "rel_x" })
+      .success,
+  );
+  assert(!appCredentialRequestSchema.safeParse(base).success);
+});

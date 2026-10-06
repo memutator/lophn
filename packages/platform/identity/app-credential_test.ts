@@ -206,3 +206,37 @@ Deno.test("platform/identity#R2: 요청마다 새 credential이고 이전 token�
   assert((await registry.authenticate(first.credential)).ok);
   assert((await registry.authenticate(second.credential)).ok);
 });
+
+Deno.test("platform/identity#R2: release 없는 preview 요청은 가짜 release 없이 발급하고 조건·대상에 release가 없다", async () => {
+  const registry = fresh();
+  const appIssuer = issuer(registry);
+  const responded = await appIssuer.request(
+    request({ release: null, mode: "preview", bundle_hash: "a".repeat(64) }),
+  );
+  assert(
+    responded.ok,
+    responded.ok ? undefined : JSON.stringify(responded.error),
+  );
+  const ctx = value(await registry.authenticate(responded.value.credential));
+  assertEquals(ctx.conditions, {
+    app: APP,
+    process: PROCESS,
+    mode: "preview",
+    bundle_hash: "a".repeat(64),
+  });
+  assertEquals("release" in ctx.scope.targets, false);
+  // release 없는 live, bundle hash 없는 release 없는 preview는 발급하지 않는다.
+  assertEquals(
+    code(await appIssuer.request(request({ release: null, mode: "live" }))),
+    "invalid_input",
+  );
+  assertEquals(
+    code(await appIssuer.request(request({ release: null, mode: "preview" }))),
+    "invalid_input",
+  );
+  // 같은 요청에 모양이 다른 release를 넣으면 발급하지 않는다.
+  assertEquals(
+    code(await appIssuer.request(request({ release: "rel_x" }))),
+    "invalid_input",
+  );
+});

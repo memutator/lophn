@@ -826,6 +826,7 @@ concerns: [shell]
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
+- 상태: 완료 (#348) — 이어보냄: 템플릿 build·설치가 `@lophn/design/reading`·`@lophn/blueprint`를 푸는 일 → apps#T22, confirm 거절·만료 code → shell#T45
 - 등급: frontend
 - concern: shell/design-system
 - 요구: apps/sdk#R4(ui-reading·ui-filter·ui-stat·ui-action 1.0.0), R16(ui-reading), R18(ui-filter·ui-stat), R19, R41(공용 UI SDK)
@@ -838,6 +839,7 @@ concerns: [shell]
   - ui-reading: Markdown·목차 tree·code block·문서 주소 표시. ui-filter: 기간·다중 선택·검색. ui-stat: 수치·변화량. ui-action: 명령 버튼과 확인 표시, blueprint의 사람 확인 선언(confirm)을 따르고 확인 호출은 `lophnApp.call`로만.
   - 예제, package 옆 테스트. apps#T23–T26보다 먼저 main에 들어간다.
 - 가져올 것: legacy `ui-reading`, `ui-filter`, `ui-stat`, `ui-action`의 버튼 pending·error 표현만(구 invoker 계약은 빼고).
+- 정한 것: ui-reading은 design의 `Markdown`·`CodeBlock`·`Toc`·`parseMarkdown`·`ReadingFrame`을 다시 내보내고 새로 `DocumentAddress`(code 글꼴, 줄이지 않음, [Copy address])를 둔다. ui-filter는 `DateRangeFilter`(Today·Last 7/30/90 days·This month와 직접 기간, `resolveRange`가 양 끝 포함 `YYYY-MM-DD`로 푼다)·`MultiSelectFilter`(빈 값 = 전체, 6개 넘으면 검색 칸)·`SearchFilter`·`FilterBar`를 새로 짰고 값은 read command 입력에 그대로 싣는다. ui-stat은 design `StatTile`·`StatRow`를 다시 내보내고, `StatRow`는 넣은 칸이 640px 미만이면 한 줄 2개로 줄였다(container query). ui-action의 `CommandButton`·`useCommand`는 `confirm` 선언만 보고 방패 표시와 "lophn asks you before this runs." tooltip, 기다리는 동안 "Waiting for your confirmation."을 보인다. 사람 확인은 `lophnApp.call` 안에서 lophn 확인 창이 받으므로 앱 안 확인 dialog는 두지 않는다. pending은 spinner 대신 disabled·`aria-busy`·시계 아이콘, 실패는 원문 없이 버튼 옆 "<label> didn't finish. Try again."이다. `lophnApp` 타입은 SDK 쪽 사본(`AppBridge`)이고 blueprint는 type만 import한다. wording key 19개를 common에 더했다
 
 ### T42 app-space 화면과 apps 화면
 
@@ -915,10 +917,12 @@ concerns: [shell]
   - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
   - 종류별 테스트.
 - shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
+- shell#T41에서 넘어온 것: @lophn/ui-action `CommandButton`은 confirm 거절·만료도 `lophnApp.call`의 일반 실패("<label> didn't finish. Try again.", `onFailed(code)`)로 보인다. 거절·만료에 따로 보일 code를 정하면 `packages/sdk/ui-action/use-command.ts`의 code 읽기와 문구를 그 code에 맞춘다
 - shell#T47에서 넘어온 것: main.ts `appWindows`의 `entryScreen`(앱 전용 창에 여는 screen)을 같은 `/v1/apps/blueprint` read로 잇는다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen이다. 지금은 unavailable이라 실제 shell에서 `--open-app`은 전용 창 대신 가장 최근 창을 앞으로 가져온다
 
 ### T46 앱 화면 검사 host
 
+- 상태: 완료 (#360)
 - 등급: 기본
 - concern: shell/app-frame
 - 요구: problems/tests#R7(view 예외·깨진 view의 feedback 화면 검사), R19(관측 private IPC)
@@ -935,6 +939,7 @@ concerns: [shell]
   - `screen-test-host_test`와 problems#T11이 쓰는 fixture 하나로 확인한다.
 - 가져올 것: legacy `app.ts`의 offscreen option 기록(hidden window는 첫 frame 뒤 capture가 멈춘다).
 - shell#T38에서 넘어온 것: 앱 preload가 main world의 error·unhandledrejection·`lophn:render-error`를 내부 `app:view-error`로 보낸다(`apps/shell/preload/app-api.ts`). 화면 검사 host는 같은 preload를 쓰고 `registerAppIpc`(`main/app-frame/app-ipc.ts`)의 viewError를 collector 대신 관측 frame으로 바꿔 끼운다
+- 정한 것: (1) fd 3 확인 — Deno 부모(`node:child_process` stdio 4번째 `pipe`)와 Electron 자식(`net.Socket({fd: 3, allowHalfOpen: true})`) 사이 JSON lines가 실제로 된다(`e2e/shell/app-screen-test_test.ts`). 그래서 stdin·stdout frame으로 바꾸지 않았다. (2) `main.cjs`는 `entry.ts` 분기만 하고 desktop main은 `desktop.cjs`, host는 `screen-test.cjs`다. desktop main은 module 몸통에서 데이터 root·core를 열어 같은 bundle 안에서는 막을 수 없다. (3) shell tsc가 contracts 원본을 검사하지 못해(Q22) contracts schema는 deno가 검사하는 `entry-screen-test.ts`만 쓰고 `screen-test-host.ts`는 같은 모양의 타입을 둔다. (4) 화면 byte는 운영 protocol handler에 bundle 폴더 upstream을 끼워 CSP·MIME·경로 검사를 그대로 지난다. (5) CSP가 막은 요청은 webRequest에 닿지 않아 test session에만 `preload-screen-test.cjs`를 더해 `securitypolicyviolation`의 주소를 받는다. 탐색 guard가 막은 main frame 이동은 관측에 넣지 않는다. (6) feedback 검사는 binding(살아 있는 view의 main frame이 그 화면 주소), invalidate 뒤 새 offscreen frame, 앱 view 위 다른 renderer의 고정 dialog 문서 load를 각각 1500ms까지 본다. (7) `lophnApp.call`은 blueprint 검사 없이 `{request_key, command, input}`을 test 앱 socket에 빈 Authorization으로 보내고 응답 판정은 운영 `outcomeOf`다. 외부 링크는 열지 않고 `unavailable`이다
 
 ### T47 앱 전용 창, OS 앱 바로가기, 창 열기 intent
 

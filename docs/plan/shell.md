@@ -874,6 +874,7 @@ concerns: [shell]
 
 ### T43 app-detail: Version, Access, Automations, Connections, Activity, Data
 
+- 상태: 완료 (#392) — 이어보냄: automation 끄기(grant.revoke의 확인 handle·grants_seq) → apps#T4, 준비만 된 Version의 화면 선언 read → apps#T19, 앱 export → apps#T28, 결정 intent 5종 main 처리 → T45, Issues·Tasks 탭 내용 → T53·T50
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/wording#R4, R10, R12

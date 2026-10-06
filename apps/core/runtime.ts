@@ -10,7 +10,10 @@ import type {
   RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
-import type { ReadHandler } from "../../packages/platform/api/mod.ts";
+import type {
+  MemoryHandler,
+  ReadHandler,
+} from "../../packages/platform/api/mod.ts";
 import {
   createWorkspaceRelay,
   type WorkspaceRelay,
@@ -58,6 +61,7 @@ import {
   interruptedFinish,
   INVOCATION_RECOVERY_CONTEXT,
 } from "../../packages/apps/invocations/restart.ts";
+import { createNotificationDelivery } from "./notification-delivery.ts";
 import { APPROVAL_EXPIRY_CONTEXT } from "./platform.ts";
 import type { Assembled } from "./registration.ts";
 import { openSecretStore, withSecretSync } from "./secret-store.ts";
@@ -93,6 +97,8 @@ export type CoreRuntime = {
   current(credentialRef: string): Result<RequestContext>;
   reads: Map<string, ReadHandler>;
   memory: WorkspaceRelay;
+  // core 시작마다 하나인 OS 표시 전달 관측의 memory route(notifications/delivery).
+  deliveryMemory: ReadonlyMap<string, MemoryHandler>;
   events: ReturnType<typeof createReaderEventBackend>;
   subscriptions: SubscriptionStore;
   wake(): void;
@@ -187,11 +193,13 @@ export async function openRuntime(input: {
       readerModules.push(new URL(url));
     }
   }
+  // 격리됐다 다시 뜬 reader는 알려진 secret 값을 모른다. secret store가 현재 값을 다시 넣는다.
+  const resync: { run?: () => Promise<unknown> } = {};
   const readers = await createReaderPool(input.ledgerPath, [
     new URL("./reader-registration.ts", import.meta.url),
     // createReaderRegistration을 내보내는 팀 read도 같은 풀로 붙는다.
     ...readerModules,
-  ]);
+  ], { onRespawn: () => resync.run?.() });
   if (!readers.ok) {
     await openedWriter.writer.close();
     return readers;
@@ -205,6 +213,7 @@ export async function openRuntime(input: {
     keychain: input.keychain,
     sources: input.assembled.secretRefs,
   });
+  resync.run = () => secretStore.sync();
   await secretStore.sync();
   const writer = withSecretSync(
     openedWriter.writer,
@@ -282,6 +291,21 @@ export async function openRuntime(input: {
       (ctx, body) => Promise.resolve(read.handle(ctx, body)),
     ]),
   ]);
+  // OS 표시 전달 상태(R9, R10). get·list·display 응답을 꾸미고 shell의 실패 보고를 받는다.
+  const delivery = createNotificationDelivery({
+    clock: input.clock,
+    read: (route, ctx, body) => readers.value.read(route, ctx, body),
+  });
+  for (
+    const key of [
+      "notifications/get",
+      "notifications/list",
+      "notifications/display",
+    ]
+  ) {
+    const inner = reads.get(key);
+    if (inner !== undefined) reads.set(key, delivery.decorate(key, inner));
+  }
   // ticket claim 정리. 후보 read 뒤 expire_claim을 제출한다. timer는 표를 쓰지 않는다.
   const machine: RequestContext = {
     principal: "machine:ticket-claims",
@@ -423,6 +447,7 @@ export async function openRuntime(input: {
     current: (ref) => currentCredential(input.ledgerPath, ref),
     reads,
     memory,
+    deliveryMemory: delivery.memory,
     events,
     subscriptions: subscriptions.value,
     wake: () => dispatcher.wake(),

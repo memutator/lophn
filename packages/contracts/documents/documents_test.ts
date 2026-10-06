@@ -332,16 +332,28 @@ Deno.test("documents/versions#R11: command inputs reject unknown fields and bad 
   assertEquals(documentUpdate.actors, ["user", "coding_agent", "agent"]);
 });
 
-Deno.test("documents/addressing#R9: move and rename are dispatchable for a verified user action", () => {
+Deno.test("documents/addressing#R9: move and rename are dispatchable for a verified user action, archive and restore for a run revert", () => {
   assertEquals(
     DOCUMENT_DISPATCHABLE_COMMANDS.map((item) => item.route.name),
-    ["document.move", "document.rename"],
+    [
+      "document.move",
+      "document.rename",
+      "document.archive",
+      "document.restore",
+    ],
   );
   for (const item of DOCUMENT_DISPATCHABLE_COMMANDS) {
     assertEquals(item.dispatchable, true);
-    assertEquals(item.route.actors, ["user"]);
     assertEquals(item.route.kind, "command");
   }
+  // option action이 부르는 둘은 사람 결정의 user만 받는다.
   assertEquals(documentMove, DOCUMENT_DISPATCHABLE_COMMANDS[0].route);
   assertEquals(documentRename, DOCUMENT_DISPATCHABLE_COMMANDS[1].route);
+  assertEquals(documentMove.actors, ["user"]);
+  assertEquals(documentRename.actors, ["user"]);
+  // revert가 부르는 둘은 사람의 보관·복원과 같은 route다.
+  assertEquals(documentArchive, DOCUMENT_DISPATCHABLE_COMMANDS[2].route);
+  assertEquals(documentRestore, DOCUMENT_DISPATCHABLE_COMMANDS[3].route);
+  assertEquals(documentArchive.actors, ["user", "machine"]);
+  assertEquals(documentRestore.actors, ["user", "machine"]);
 });

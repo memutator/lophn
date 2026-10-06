@@ -13,4 +13,18 @@ export type {
   NotificationsEngine,
   NotificationsEngineOptions,
 } from "./engine.ts";
-export { notificationsGetRead, notificationsListRead } from "./reads.ts";
+export {
+  notificationsDisplayRead,
+  notificationsGetRead,
+  notificationsListRead,
+} from "./reads.ts";
+export {
+  createOsDeliveryObservations,
+  OS_DELIVERY_FAILURE_REASONS,
+  OS_DELIVERY_MEMORY,
+  type OsDeliveryFailureReason,
+  type OsDeliveryObservations,
+  type OsDeliveryState,
+  type OsDisplayRequest,
+  osDisplayRequest,
+} from "./os-display.ts";

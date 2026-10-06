@@ -17,3 +17,10 @@ export type { AppChild } from "./supervisor/mod.ts";
 export type { AppEnvironment, ChildIdentity } from "./processes/mod.ts";
 export { appArgv, appEnv, flagsAccepted } from "./processes/mod.ts";
 export { SOCKET_SLOTS } from "./processes/mod.ts";
+export type {
+  AppFacts,
+  ConnectFacts,
+  ProcessObservation,
+  ProcessQuery,
+  ProcessSource,
+} from "./connect.ts";

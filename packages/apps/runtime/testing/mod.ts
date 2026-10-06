@@ -131,10 +131,15 @@ export {
   startLine,
 } from "../entrypoint/testing.ts";
 
+// 실제 앱 자식 프로세스 fixture. 다른 leaf의 시험(apps/connections)이 앱 쌍 호출에 쓰고,
 // preview·test 시험이 실제 앱 자식과 같은 bundle을 만드는 입구다.
 export {
+  COMMANDS,
   FIXTURE_APP,
   FIXTURE_RELEASE,
+  type FixtureApp,
   fixtureBlueprint,
+  SCREENS,
+  startFixtureApp,
   writeFixtureBundle,
 } from "./app-process.ts";

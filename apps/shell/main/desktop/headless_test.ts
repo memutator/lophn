@@ -208,7 +208,12 @@ test("shell/desktop#R10: headless는 OS notification을 올리지 않고 log만 
       { headless: true },
       (m) => logs.push(m),
     ),
-    optedIn: () => Promise.resolve(true),
+    display: (notification) =>
+      Promise.resolve({
+        notification,
+        title: { kind: "QuestionCreated" },
+        open: null,
+      }),
     open: () => assert.fail("no click in headless"),
     log: () => {},
   });

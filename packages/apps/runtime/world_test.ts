@@ -183,6 +183,23 @@ export async function openWorld(
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
+  try {
+    return await buildWorld(harness, state, runtimeDir);
+  } catch (thrown) {
+    // 준비가 실패해도 띄운 core(와 앱 supervisor)를 남기지 않는다.
+    await harness.close().catch(() => undefined);
+    if (runtimeDir) {
+      await Deno.remove(runtimeDir, { recursive: true }).catch(() => undefined);
+    }
+    throw thrown;
+  }
+}
+
+async function buildWorld(
+  harness: CoreHarness,
+  state: SourceState,
+  runtimeDir: string | undefined,
+): Promise<World> {
   let sequence = 0;
   const login: World["login"] = async (actor, operations, extra = {}) => {
     sequence += 1;

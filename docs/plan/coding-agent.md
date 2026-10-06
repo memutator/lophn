@@ -1416,6 +1416,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T40 연결 회수
 
+- 이어보냄: shell#T50(회수 결정 화면) — CLI가 내는 링크는 `lophn://things-to-confirm/<cac_...>`이고(`decisionLink(connection)`) shell `open-intent`는 지금 `apr`·`qst`만 받는다. shell이 `cac` 링크를 받아 그 연결의 현재 판을 `ShowCodingAgentConnection`으로 읽고 `RevokeCodingAgentConnection` confirmation window(결정 `coding_agent_connection_revoke`, binding connection·base_revision)를 여는 일은 shell#T50에서 한다. 화면 E2E는 shell#T50 뒤 T41에서 돈다.
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/cli, coding-agent/tickets
 - 요구: coding-agent/connection#R2, R8, R18; coding-agent/cli#R7;
@@ -1456,6 +1457,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   docs/research/coding-agent-harness-integration.md
 - 선행: T25, T26, T27, T32, T34, T35, T37, T39, T40, lophn-agent#T49, shell#T25,
   shell#T47, shell#T49, shell#T50, shell#T51
+- coding-agent#T40에서 넘어온 것: 제품 core의 coding credential operation 상한(`apps/core/core.ts`의 registry operations)에는 아직 ticket claim·문서 저장 같은 command가 없어 실제 coding token이 `ClaimTicket` 등을 부르면 403이다(읽기 route와 `app.connect`는 닿는다). claim→작업→보고 E2E는 이 상한을 platform이 정한 뒤에 실제 token으로 돈다(사람 결정 필요, T36 남은 것 (3)과 같은 문제)
 - problems#T13에서 넘어온 것: manage-tickets 6단계 acceptance check가 problems Verification(TicketTestLink)을 쓰는 통합 확인(#222)
 - 완료:
   - fake harness: PATH fixture로 감지되고 테스트 catalog의 ExecutionSpec(argv

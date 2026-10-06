@@ -98,6 +98,8 @@ async function startCoreAt(
         "document.move",
         "document.export",
         "document.file",
+        "document.read",
+        "document.list",
         "blobs/read",
       ],
       targets: {},
@@ -124,6 +126,12 @@ async function openTrackedFolder(
     await Deno.makeTempDir({ prefix: "lophn-docs-observe-folder-" }),
   );
   for (const [name, text] of Object.entries(files)) {
+    const slash = name.lastIndexOf("/");
+    if (slash > 0) {
+      await Deno.mkdir(`${folder}/${name.slice(0, slash)}`, {
+        recursive: true,
+      });
+    }
     await Deno.writeTextFile(`${folder}/${name}`, text);
   }
   const core = await startCoreAt(home, "cred_observe_person");
@@ -250,6 +258,78 @@ Deno.test("documents/file-tracking#R4 documents/versions#R13: 등록 폴더의 �
       return body.status?.state === "tracked" ? "tracked" : undefined;
     });
     assertEquals(state, "tracked");
+  } finally {
+    await close(opened);
+  }
+});
+
+Deno.test("documents/addressing#R3 documents/file-tracking#R1: 폴더에서 관측해 만든 문서는 그 프로젝트에 두고 같은 이름은 -2부터 붙이며 본문과 프로젝트 문서 목록이 읽힌다", async () => {
+  const opened = await openTrackedFolder({
+    "a.md": "# a\n\n가을 출시를 정한다.\n",
+    "sub/a.md": "# a again\n",
+  });
+  const { core, home, folder } = opened;
+  try {
+    const rows = await until("two documents", () => {
+      const found = ledger(home, (db) =>
+        db.prepare(
+          "SELECT id, place_kind, place_id, name, source_path FROM documents ORDER BY source_path",
+        ).all() as unknown as Json[]);
+      return found.length === 2 ? found : undefined;
+    });
+    // 같은 파일 이름의 두 문서는 같은 프로젝트의 서로 다른 이름이다.
+    assertEquals(rows.map((row) => [row["place_kind"], row["place_id"]]), [
+      ["project", PROJECT],
+      ["project", PROJECT],
+    ]);
+    assertEquals(
+      rows.map((row) => [row["source_path"], row["name"]]),
+      [[`${folder}/a.md`, "a"], [`${folder}/sub/a.md`, "a-2"]],
+    );
+    // 이름은 예약 표에도 올라 같은 이름을 다른 문서가 쓸 수 없다.
+    const reserved = ledger(home, (db) =>
+      db.prepare(
+        "SELECT name FROM document_names WHERE place_id = ? ORDER BY name",
+      ).all(PROJECT) as unknown as Json[]);
+    assertEquals(reserved.map((row) => row["name"]), ["a", "a-2"]);
+
+    // 본문 읽기는 unavailable이 아니라 추출한 본문이다.
+    const first = rows[0];
+    const version = ledger(
+      home,
+      (db) =>
+        (db.prepare("SELECT id FROM versions WHERE document = ?").get(
+          String(first["id"]),
+        ) as Json)["id"],
+    );
+    const read = await until("document read", async () => {
+      const answered = await post(core, "documents/read", {
+        reference: {
+          document: String(first["id"]),
+          version: String(version),
+          section: null,
+        },
+      });
+      return answered.status === 200 &&
+          String(answered.body["text"] ?? "").includes("가을 출시")
+        ? answered
+        : undefined;
+    });
+    assertEquals(read.status, 200, JSON.stringify(read.body));
+
+    // 프로젝트 자리의 문서 목록(documents/list)에 보이고 자리 없는 문서 목록에는 없다.
+    const placed = await post(core, "documents/list", {
+      place: { kind: "project", id: PROJECT },
+    });
+    assertEquals(placed.status, 200, JSON.stringify(placed.body));
+    assertEquals(
+      (placed.body["documents"] as { document: { name: string } }[])
+        .map((row) => row.document.name).sort(),
+      ["a", "a-2"],
+    );
+    const placeless = await post(core, "documents/list", { place: null });
+    assertEquals(placeless.status, 200, JSON.stringify(placeless.body));
+    assertEquals(placeless.body["documents"], []);
   } finally {
     await close(opened);
   }

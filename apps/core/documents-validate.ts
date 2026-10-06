@@ -12,7 +12,10 @@ import {
   formatValidationResultSchema,
 } from "../../packages/contracts/documents/mod.ts";
 import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
-import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
+import {
+  DOCUMENT_OPS,
+  VALIDATE_INPUT_MAX_BYTES,
+} from "../../packages/documents/file-tracking/mod.ts";
 import { overLimitOutcome } from "../../packages/documents/formats/mod.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 
@@ -41,12 +44,109 @@ function unavailable(message: string) {
   return err({ code: "unavailable" as const, message });
 }
 
-export function createValidatePort(deps: ValidateDeps): ValidatePort {
-  // 한 번에 하나만 보낸다. coordinator는 요청을 순서대로 처리하므로 앞 검사의 바이트가
-  // 그 요청 뒤에 줄을 서서 pipe의 read-ahead 한도를 넘기지 않게 한다.
+export type StreamedFile = {
+  path: string;
+  media_type: string;
+  primary: boolean;
+  bytes: number;
+  // 파일 바이트의 sha256. 바이트를 보내지 않은 파일도 이 값으로 가리킨다.
+  blob_hash: string;
+  // 바이트를 보낸 파일만 channel이 있다.
+  channel: number | null;
+};
+
+// coordinator pipe로 원문 바이트를 보내는 통로. 검사(validate)와 search 추출이 같은 pipe와
+// 같은 channel 번호 공간을 쓰므로 한 인스턴스를 나눠 쓴다. 한 번에 하나만 보낸다:
+// coordinator는 요청을 순서대로 처리하므로 앞 일의 바이트가 그 요청 뒤에 줄을 서서 pipe의
+// read-ahead 한도를 넘지 않게 한다.
+export type StreamInput = {
+  path: string;
+  blob_hash: string;
+  bytes: number;
+  media_type: string;
+  primary: boolean;
+};
+
+export type Streamer = {
+  // 바이트를 보내는 일부터 그 바이트를 쓰는 요청이 끝날 때까지를 한 묶음으로 직렬화한다.
+  exclusive<T>(run: () => Promise<T>): Promise<T>;
+  // `reads`가 참인 파일만 blob을 읽어 channel로 보내고, 나머지는 바이트 없이 설명만 낸다
+  // (guest는 대표 파일 밖의 바이트를 읽지 않는다). exclusive 안에서 부른다.
+  stream(
+    files: readonly StreamInput[],
+    reads: (file: StreamInput) => boolean,
+  ): Promise<Result<StreamedFile[]>>;
+};
+
+export function createStreamer(
+  deps: Pick<ValidateDeps, "readBlob" | "sendBytes">,
+): Streamer {
   let tail: Promise<unknown> = Promise.resolve();
   let channelCounter = 0;
+  return {
+    exclusive<T>(run: () => Promise<T>): Promise<T> {
+      const next = tail.then(run);
+      tail = next.catch(() => undefined);
+      return next;
+    },
+    async stream(files, reads) {
+      const total = files.reduce(
+        (sum, file) => sum + (reads(file) ? file.bytes : 0),
+        0,
+      );
+      if (total > VALIDATE_INPUT_MAX_BYTES) {
+        // 입력 한도를 넘는 일은 통과로 꾸미지 않는다.
+        return unavailable("validation input exceeds the limit");
+      }
+      const described: StreamedFile[] = [];
+      for (const file of files) {
+        if (!reads(file)) {
+          described.push({
+            path: file.path,
+            media_type: file.media_type,
+            primary: file.primary,
+            bytes: file.bytes,
+            blob_hash: file.blob_hash,
+            channel: null,
+          });
+          continue;
+        }
+        channelCounter = channelCounter % 0xffffffff + 1;
+        const channel = channelCounter;
+        let offset = 0;
+        while (offset < file.bytes) {
+          const read = await deps.readBlob(
+            file.blob_hash,
+            offset,
+            Math.min(BLOB_READ_MAX_BYTES, file.bytes - offset),
+          );
+          if (!read.ok) return unavailable("validation input was not readable");
+          if (read.value.bytes.length === 0) {
+            return unavailable("validation input ended early");
+          }
+          if (!await deps.sendBytes(channel, read.value.bytes)) {
+            return unavailable("validation input was not delivered");
+          }
+          offset += read.value.bytes.length;
+        }
+        described.push({
+          path: file.path,
+          media_type: file.media_type,
+          primary: file.primary,
+          bytes: file.bytes,
+          blob_hash: file.blob_hash,
+          channel,
+        });
+      }
+      return ok(described);
+    },
+  };
+}
 
+export function createValidatePort(
+  deps: ValidateDeps,
+  streamer: Streamer = createStreamer(deps),
+): ValidatePort {
   async function run(
     files: Parameters<ValidatePort>[0],
     format: Parameters<ValidatePort>[1],
@@ -60,56 +160,11 @@ export function createValidatePort(deps: ValidateDeps): ValidatePort {
       const skipped = overLimitOutcome(primary, format);
       if (skipped !== null) return ok(skipped);
     }
-    const described: {
-      path: string;
-      media_type: string;
-      primary: boolean;
-      bytes: number;
-      blob_hash: string;
-      channel: number | null;
-    }[] = [];
-    for (const file of files) {
-      if (!reads(file)) {
-        described.push({
-          path: file.path,
-          media_type: file.media_type,
-          primary: file.primary,
-          bytes: file.bytes,
-          blob_hash: file.blob_hash,
-          channel: null,
-        });
-        continue;
-      }
-      channelCounter = channelCounter % 0xffffffff + 1;
-      const channel = channelCounter;
-      let offset = 0;
-      while (offset < file.bytes) {
-        const read = await deps.readBlob(
-          file.blob_hash,
-          offset,
-          Math.min(BLOB_READ_MAX_BYTES, file.bytes - offset),
-        );
-        if (!read.ok) return unavailable("validation input was not readable");
-        if (read.value.bytes.length === 0) {
-          return unavailable("validation input ended early");
-        }
-        if (!await deps.sendBytes(channel, read.value.bytes)) {
-          return unavailable("validation input was not delivered");
-        }
-        offset += read.value.bytes.length;
-      }
-      described.push({
-        path: file.path,
-        media_type: file.media_type,
-        primary: file.primary,
-        bytes: file.bytes,
-        blob_hash: file.blob_hash,
-        channel,
-      });
-    }
+    const described = await streamer.stream(files, reads);
+    if (!described.ok) return unavailable(described.error.message);
     const answered = await deps.request(
       DOCUMENT_OPS.validateFiles,
-      { files: described, format },
+      { files: described.value, format },
       deps.timeoutMs ?? REQUEST_TIMEOUT_MS,
     );
     if (!answered.ok) {
@@ -128,9 +183,5 @@ export function createValidatePort(deps: ValidateDeps): ValidatePort {
     return ok({ ...parsed.data, diagnostics: parsed.data.diagnostics });
   }
 
-  return (files, format) => {
-    const next = tail.then(() => run(files, format));
-    tail = next.catch(() => undefined);
-    return next;
-  };
+  return (files, format) => streamer.exclusive(() => run(files, format));
 }

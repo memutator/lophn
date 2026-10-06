@@ -121,4 +121,10 @@ export const outlineAndSearchSchemaSteps: readonly SchemaStep[] = [
     CREATE INDEX watch_unverified_source ON watch_unverified(source_seq);
   `,
   },
+  {
+    // 확인하지 못한 판(unverified)이 이유를 남긴다(대표 파일이 추출 한도를 넘음 같은 것).
+    // failed의 failure_reason과 CHECK가 묶여 있어 따로 둔다.
+    id: "documents.outline-and-search.unverified-reason",
+    sql: `ALTER TABLE derived_versions ADD COLUMN unverified_reason TEXT;`,
+  },
 ];

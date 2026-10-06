@@ -139,7 +139,7 @@ Deno.test("coding-agent/connection#R2 coding-agent/connection#R17 coding-agent/m
     assert((await core.acceptTestCredential(context, user)).ok);
     assert((await core.record(context)).ok);
 
-    const generation = currentProcessGeneration();
+    const generation = await currentProcessGeneration();
     const provider = createHelperCredentialProvider({ helper });
     const target = targetOf("claude", "user", fx);
     const roots = { home: fx.home, env: fx.env, cwd: fx.project };

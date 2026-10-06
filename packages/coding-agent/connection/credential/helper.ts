@@ -108,11 +108,11 @@ export function startTicksOf(stat: string): string | undefined {
   return value !== undefined && /^\d+$/.test(value) ? value : undefined;
 }
 
-export function currentProcessGeneration(): string {
+export async function currentProcessGeneration(): Promise<string> {
   try {
     return processGenerationOf(
       Deno.pid,
-      startTicksOf(Deno.readTextFileSync("/proc/self/stat")),
+      startTicksOf(await Deno.readTextFile("/proc/self/stat")),
     );
   } catch {
     return processGenerationOf(Deno.pid, undefined);
@@ -122,7 +122,7 @@ export function currentProcessGeneration(): string {
 export type HelperProviderOptions = {
   // 설치 묶음의 helper 절대 경로다. 이 값이 loader identity이기도 하다.
   helper: string;
-  generation?: () => string;
+  generation?: () => string | Promise<string>;
   run?: HelperRunner;
   timeoutMs?: number;
 };
@@ -153,7 +153,7 @@ export function createHelperCredentialProvider(
     if (!options.helper.startsWith("/")) return err("no_secret_service");
     const request = credentialDeliveryRequestSchema.safeParse({
       connection,
-      process_generation: generation(),
+      process_generation: await generation(),
       loader_identity: options.helper,
       purpose: "mcp_cli_loader",
     });

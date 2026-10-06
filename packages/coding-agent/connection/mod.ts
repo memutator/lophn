@@ -111,3 +111,12 @@ export {
   LOG_LINES_MAX,
   runAppOp,
 } from "./app-ops.ts";
+export {
+  isSdkOp,
+  SDK_OP_CLI_NAMES,
+  SDK_OP_ROUTES,
+  type SdkOp,
+  type SdkOpDeps,
+  type SdkOpOutput,
+  runSdkOp,
+} from "./sdk-ops.ts";

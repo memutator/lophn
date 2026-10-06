@@ -9,7 +9,7 @@ import {
   SDK_COMMANDS,
   sdkOpInput,
 } from "../../cli/mod.ts";
-import { scriptedFlow } from "../../connection/testing/mod.ts";
+import { fail, scriptedFlow } from "../../connection/testing/mod.ts";
 import { SDK_OP_ROUTES } from "../../connection/mod.ts";
 import { createSdkTool } from "./sdk.ts";
 
@@ -40,6 +40,8 @@ function flow() {
       as_of_seq: 1,
       next_cursor: null,
     },
+    // 안내 blob은 이 fake core에서 읽을 수 없다(원문은 null이고 이유가 남는다).
+    "blob.read": fail("forbidden", "blob read forbidden"),
   });
 }
 

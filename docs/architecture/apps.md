@@ -191,6 +191,7 @@ AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·c
 | `POST /_lophn/control/probe` | 플랫폼 인증 연결·현재 nonce | ReadyAttestation의 실제 연결 근거 |
 | `POST /_lophn/control/open` | 플랫폼 인증 연결·확정된 release/activation 기준 | accepting 전환. activation commit 전 거절 |
 | `POST /_lophn/control/close` | 플랫폼 인증 연결·의도된 종료 이유 | 새 호출·clock 차단 확인 |
+| `POST /_lophn/control/view-closed` | 플랫폼 인증 연결·현재 nonce·`view_session` | 그 view session을 버린다. 이후 그 session의 화면 요청은 conflict, context 조회·주석 쓰기는 unavailable. 앱의 협조가 필요 없다 |
 | `POST /_lophn/control/shutdown` | 플랫폼 인증 연결·grace_ms | 종료 요청 접수. 앱은 새 호출을 닫은 채 진행 호출이 끝나는 대로(grace_ms 안에서) 스스로 끝나고 유예가 지나면 supervisor가 강제 종료한다. OS 종료 확인은 별도 |
 
 screen은 `앱 화면 틀`의 좁은 preload와 Electron main을 통해 부른다. main은 송신 view 신원에서 app·release·mode를 정하며 임의 socket과 token을 view에 노출하지 않는다. MCP·CLI·agent runtime은 같은 `runtime/client`로 direct socket을 부른다. Operator의 승인된 read scope 등 호출자의 제한은 `인증`과 해당 호출자 concern을 따른다. 앱 read는 effect=read인 command이지 별도 Query/read-model 통로가 아니다.

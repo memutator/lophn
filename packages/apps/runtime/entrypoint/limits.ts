@@ -9,6 +9,7 @@ export const DIRECT_SOCKET_PATHS = {
   open: "/_lophn/control/open",
   close: "/_lophn/control/close",
   shutdown: "/_lophn/control/shutdown",
+  viewClosed: "/_lophn/control/view-closed",
 } as const;
 
 export const BROKER_PATHS = {

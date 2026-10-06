@@ -282,6 +282,32 @@ Deno.test("apps/agent-context#R6 apps/sdk#R39: the agent reads and annotates ope
     );
     const after = await readView("view-a", true);
     assertEquals(after.data?.hints, ["try a retry"]);
+    // 닫힌 view는 앱이 상태를 그대로 갖고 있어도 조회·주석이 unavailable이고 다른 view는 그대로다.
+    const closedView = await control(
+      world,
+      child,
+      "/_lophn/control/view-closed",
+      {
+        process_nonce: child.nonce,
+        view_session: "view-b",
+      },
+    );
+    assertEquals(closedView.status, 200, JSON.stringify(closedView.body));
+    for (
+      const [name, input] of [
+        ["ctx.read", { screen: "usage", view_session: "view-b" }],
+        ["ctx.hint", {
+          screen: "usage",
+          view_session: "view-b",
+          expected_revision: "r1",
+          target: "hint",
+          text: "late",
+        }],
+      ] as const
+    ) {
+      assertEquals((await invoke(name, input)).status, 503);
+    }
+    assertEquals((await readView("view-a")).view_session, "view-a");
     // 열지 않은 session은 닫힌 view와 같은 답이다.
     const ghost = await invoke("ctx.read", {
       screen: "usage",

@@ -49,9 +49,25 @@ export type RuntimeState = {
   byRequest: Map<string, string>;
   markers: ConfirmMarkers;
   views: Map<string, ViewSession>;
+  // 닫히거나 교체된 view session. 늦게 온 화면 요청이 닫힌 session을 되살리지 못한다. 상한을 넘으면
+  // 가장 오래된 것부터 잊는다.
+  closedViews: Set<string>;
   screenBytes: (screen: string, path: string) => Uint8Array | undefined;
   contentType: (path: string) => string;
 };
+
+export const CLOSED_VIEW_LIMIT = 1024;
+
+export function closeView(state: RuntimeState, viewSession: string): void {
+  state.views.delete(viewSession);
+  state.closedViews.delete(viewSession);
+  state.closedViews.add(viewSession);
+  while (state.closedViews.size > CLOSED_VIEW_LIMIT) {
+    const oldest = state.closedViews.values().next().value;
+    if (oldest === undefined) break;
+    state.closedViews.delete(oldest);
+  }
+}
 
 export function createRuntimeState(input: {
   identity: ProcessIdentity;
@@ -75,6 +91,7 @@ export function createRuntimeState(input: {
     byRequest: new Map(),
     markers: createConfirmMarkers(),
     views: new Map(),
+    closedViews: new Set(),
     screenBytes: input.screenBytes ?? (() => undefined),
     contentType: input.contentType ??
       ((path) =>

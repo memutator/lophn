@@ -12,6 +12,8 @@ import {
   startRuntime,
 } from "../../apps/runtime/testing/mod.ts";
 import { clockAt, startLine } from "../../apps/runtime/entrypoint/testing.ts";
+import { handleControl } from "../../apps/runtime/entrypoint/control.ts";
+import { handleScreen } from "../../apps/runtime/entrypoint/screens.ts";
 import {
   CommandRejection,
   registerAnnotationTarget,
@@ -628,4 +630,97 @@ Deno.test("apps/agent-context#R6: the context handlers are ordinary commands wit
     ["editor.context", "editor.gated", "editor.hint", "journal.read"],
   );
   assert(CommandRejection.name === "CommandRejection");
+});
+
+function closeView(
+  state: ReturnType<typeof open>,
+  view: string,
+  over: Record<string, unknown> = {},
+  nonce = state.identity.processNonce,
+) {
+  return handleControl(
+    state,
+    "/_lophn/control/view-closed",
+    { process_nonce: nonce, view_session: view },
+    connection({ actor: "machine", ...over }) as never,
+  );
+}
+
+Deno.test("apps/agent-context#R2 apps/agent-context#R5: a closed or replaced view is unavailable for read and annotation without the app dropping its state", async () => {
+  const state = open();
+  addView(state, "view-a");
+  addView(state, "view-b");
+  const current = await read(state, "view-a");
+  // 앱은 view-a의 상태를 그대로 갖고 있다. runtime이 닫힘을 알리면 조회·주석 모두 닫힌다.
+  const closed = closeView(state, "view-a");
+  assertEquals(closed.status, 200);
+  assert(views.has("view-a"));
+  const refusedRead = await invoke(state, "editor.context", {
+    screen: "editor",
+    view_session: "view-a",
+  });
+  assertEquals(refusedRead.status, 503);
+  assertEquals(refusedRead.error?.code, "unavailable");
+  const refusedWrite = await invoke(
+    state,
+    "editor.hint",
+    hint("view-a", current.revision),
+  );
+  assertEquals(refusedWrite.status, 503);
+  assertEquals(hints, []);
+  // 같은 session을 다시 알려도 같고 다른 view는 그대로다.
+  assertEquals(closeView(state, "view-a").status, 200);
+  assertEquals((await read(state, "view-b")).view_session, "view-b");
+  // 교체: 새 session을 열고 옛 session을 닫으면 옛 것만 닫힌다.
+  addView(state, "view-a2");
+  assertEquals(closeView(state, "view-b").status, 200);
+  assertEquals((await read(state, "view-a2")).view_session, "view-a2");
+  assertEquals(
+    (await invoke(state, "editor.context", {
+      screen: "editor",
+      view_session: "view-b",
+    })).status,
+    503,
+  );
+});
+
+Deno.test("apps/agent-context#R2: a late screen request cannot reopen a closed view session", () => {
+  const state = open();
+  addView(state, "view-a");
+  closeView(state, "view-a");
+  const url = new URL(
+    "http://lophn.invalid/screens/editor/app.js?size=full&view_session=view-a",
+  );
+  const reopened = handleScreen(
+    state,
+    url,
+    connection({
+      screens: ["editor"],
+      screen_sizes: { editor: ["full"] },
+    }) as never,
+  );
+  assert("error" in reopened);
+  assertEquals(reopened.status, 409);
+  assertEquals(state.views.has("view-a"), false);
+});
+
+Deno.test("apps/agent-context#R6: only the platform connection with the current nonce can close a view", async () => {
+  const state = open();
+  addView(state, "view-a");
+  // 사람·agent 연결은 제어 경로를 쓰지 못한다.
+  for (const over of [{ actor: "user" }, { actor: "user", caller: null }]) {
+    const refused = closeView(state, "view-a", over);
+    assertEquals(refused.status, 403);
+  }
+  const stale = closeView(state, "view-a", {}, "other-nonce");
+  assertEquals(stale.status, 401);
+  const malformed = handleControl(
+    state,
+    "/_lophn/control/view-closed",
+    { process_nonce: state.identity.processNonce },
+    connection({ actor: "machine" }) as never,
+  );
+  assertEquals(malformed.status, 401);
+  assertEquals(state.views.has("view-a"), true);
+  assertEquals((await read(state, "view-a")).view_session, "view-a");
 });

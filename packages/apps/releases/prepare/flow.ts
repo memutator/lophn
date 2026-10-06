@@ -41,6 +41,8 @@ export type PrepareReleaseInput = {
   entrypoint: string;
   blueprintSource: string;
   screens: readonly { path: string; bytes: Uint8Array }[];
+  // 화면 build가 JS 말고 만든 자원(index.html·CSS·글꼴). 그대로 bundle에 담고 runtime이 screens/ 아래에서 내준다.
+  assets?: readonly { path: string; bytes: Uint8Array }[];
   sdkDependencies: readonly { name: string; version: string }[];
   uiDependencies: readonly { name: string; version: string }[];
 };
@@ -122,7 +124,11 @@ export async function prepareRelease(
   if (sourceLimit) return fromLimit(sourceLimit);
   // 화면·blueprint·source map이 더해지기 전에 파일 수만 먼저 본다.
   // byte는 아래 bundle 합에서 한 번만 더한다.
-  const countedFiles = counter.addBundle(0, input.screens.length + 2);
+  const assets = input.assets ?? [];
+  const countedFiles = counter.addBundle(
+    0,
+    input.screens.length + assets.length + 2,
+  );
   if (countedFiles) return fromLimit(countedFiles);
   if (deps.cancelled?.()) return fail("cancelled");
   if (await watch.changedSince()) return fail("source_changed");
@@ -157,6 +163,7 @@ export async function prepareRelease(
   const files = [
     ...extracted.value,
     ...built.value.files,
+    ...assets,
     { path: "blueprint.json", bytes: blueprintBytes },
   ];
   if (

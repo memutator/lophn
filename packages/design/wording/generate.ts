@@ -45,12 +45,16 @@ function field(names: Map<string, Kind>): string {
   return `{\n${lines.join("\n")}\n  }`;
 }
 
-export function render(catalog: Record<string, string>): string {
+// command는 헤더 문장의 재생성 명령이다. 앱 catalog는 자기 명령(deno task wording)을 준다.
+export function render(
+  catalog: Record<string, string>,
+  command = "deno run -A generate.ts",
+): string {
   const entries = Object.entries(catalog).map(([key, message]) =>
     `  ${JSON.stringify(key)}: ${field(placeholdersOf(message))};`
   );
   return [
-    "// en.ts에서 생성한다. 직접 고치지 않고 `deno run -A generate.ts --check`로 맞춘다.",
+    `// en.ts에서 생성한다. 직접 고치지 않고 \`${command} --check\`로 맞춘다.`,
     'import type { MessageKey } from "./en.ts";',
     "",
     "export type PlaceholderKinds = {",

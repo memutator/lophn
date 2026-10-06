@@ -4,17 +4,21 @@
 // 전에 거친다(R1).
 import {
   err,
+  type ErrorCode,
   fingerprint,
   ok,
   type Result,
 } from "../../../packages/base/mod.ts";
 import { sha256Hex } from "../../../packages/base/mod.ts";
 import type {
+  Frame,
   WorkerRequest,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
+  observeViewErrorInputSchema,
   REPORT_RETRY_DELAYS_MS,
   reportProblemInputSchema,
+  submitFeedbackInputSchema,
 } from "../../../packages/contracts/problems/mod.ts";
 import type {
   RecordReportInput,
@@ -43,6 +47,11 @@ import {
   type CoreClientOptions,
   postRecordReport,
 } from "../../../packages/problems/reporting/adapters/core-client.ts";
+import {
+  assembleFeedback,
+  coreProblemLookup,
+  type FeedbackCaller,
+} from "../../../packages/problems/feedback/mod.ts";
 import {
   type AppLogSource,
   assembleException,
@@ -91,7 +100,16 @@ export type CollectorWorkerOptions = {
   // op별 접수. 출처 확인·redaction·조립·제출은 이 함수 몫이다.
   accept(request: WorkerRequest, position: CollectorPosition): Promise<unknown>;
   cancelled?: () => boolean;
+  // 요청 앞에 도착한 byte chunk frame. 바이트 body를 받는 요청(feedback PNG)이 쓴다.
+  onFrame?: (frame: Frame) => void;
 };
+
+// 접수를 거절한 사유. 코드는 호출자에게 그대로 가고 그 밖의 실패는 unavailable이다.
+export class CollectorRejection extends Error {
+  constructor(readonly code: ErrorCode, message: string) {
+    super(message);
+  }
+}
 
 // 등록 시점 kind 검사(T8의 runnerReady와 같은 모양).
 export function collectorReady(kind: string): Result<true> {
@@ -141,6 +159,9 @@ export function createCollectorWorker(
       options.cancelled?.();
       return session.send({ type: "stopped" });
     },
+    onFrame(frame) {
+      options.onFrame?.(frame);
+    },
     async onParent(message) {
       if (message.type !== "worker_request") return;
       const parsed = workerRequest(message);
@@ -164,7 +185,16 @@ export function createCollectorWorker(
           ok: true,
           payload,
         });
-      } catch {
+      } catch (thrown) {
+        if (thrown instanceof CollectorRejection) {
+          await session.send({
+            type: "worker_response",
+            request_id: message.request_id,
+            ok: false,
+            error: { code: thrown.code, message: thrown.message },
+          });
+          return;
+        }
         // collector 내부 실패는 unavailable이다. 본문·경로를 응답에 넣지 않는다.
         await session.send({
           type: "worker_response",
@@ -216,12 +246,14 @@ export async function runCollectorWorker(): Promise<void> {
     pending_count: COLLECTOR_CAPS.pending_count,
     pending_bytes: COLLECTOR_CAPS.pending_bytes,
   });
+  const inbox = createByteInbox();
   const session = await createCollectorWorker({
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
     cancelled: () => {
       stopped = true;
       return stopped;
     },
+    onFrame: (frame) => inbox.collect(frame),
     async accept(request, hello) {
       // core가 요청마다 credential의 위치 주장(request_claims)과 본문(body)을 싣는다. 제품
       // collector 하나가 여러 앱을 받으므로 위치는 hello가 아니라 요청에서 온다. 싣지 않은
@@ -233,6 +265,8 @@ export async function runCollectorWorker(): Promise<void> {
       if (carried !== undefined) {
         request = { ...request, payload: carried.body };
       }
+      // 요청이 가리키는 channel의 바이트는 처리 여부와 관계없이 이 요청이 가져가 비운다.
+      const bytesChannel = carried?.bytesChannel;
       // 세션당 한 위치다. hello 뒤에만 접수한다(helloSchema 검사는 startChild 몫).
       const client: CoreClientOptions = {
         baseUrl: `http://127.0.0.1:${position.api_port}`,
@@ -266,6 +300,32 @@ export async function runCollectorWorker(): Promise<void> {
           position,
         );
       }
+      if (request.op === "ObserveViewError") {
+        return await observeViewErrorPayload(
+          request.payload,
+          client,
+          redaction,
+          queue,
+          session,
+          position,
+        );
+      }
+      if (request.op === "SubmitFeedback") {
+        return await acceptSubmitFeedback(
+          request.payload,
+          {
+            caller: carried?.caller ?? { actor: "unknown", surface: "unknown" },
+            screenshot: (size) =>
+              bytesChannel === undefined
+                ? null
+                : inbox.take(bytesChannel, size),
+          },
+          client,
+          redaction,
+          queue,
+          session,
+        );
+      }
       throw new Error(`unknown report worker op: ${request.op}`);
     },
   });
@@ -281,10 +341,14 @@ const CLAIM_KEYS = [
   "diagnostic_scope",
 ] as const;
 
-// core가 worker 요청 payload에 싣는 `{request_claims, body}`를 푼다. 모양이 아니면 undefined다.
-function requestClaims(
-  payload: unknown,
-): { claims: CollectorPosition["claims"]; body: unknown } | undefined {
+// core가 worker 요청 payload에 싣는 `{request_claims, caller, body, bytes_channel}`을 푼다. 모양이
+// 아니면 undefined다.
+function requestClaims(payload: unknown): {
+  claims: CollectorPosition["claims"];
+  caller: FeedbackCaller | undefined;
+  bytesChannel: number | undefined;
+  body: unknown;
+} | undefined {
   if (typeof payload !== "object" || payload === null) return undefined;
   const record = payload as Record<string, unknown>;
   const carried = record["request_claims"];
@@ -298,7 +362,63 @@ function requestClaims(
     const value = (carried as Record<string, unknown>)[key];
     if (typeof value === "string") claims[key] = value;
   }
-  return { claims, body: record["body"] };
+  const who = record["caller"] as Record<string, unknown> | null | undefined;
+  const channel = record["bytes_channel"];
+  return {
+    claims,
+    caller: typeof who?.["actor"] === "string" &&
+        typeof who["surface"] === "string"
+      ? { actor: who["actor"], surface: who["surface"] }
+      : undefined,
+    bytesChannel: typeof channel === "number" ? channel : undefined,
+    body: record["body"],
+  };
+}
+
+// 요청 앞에 도착한 PNG 바이트를 channel별로 모은다. 요청이 가져가면 비운다. 요청이 오지 않은
+// channel(중간에 끊긴 core)이 쌓이지 않도록 오래된 channel부터 버린다.
+const INBOX_CHANNELS = 4;
+
+function createByteInbox() {
+  const channels = new Map<
+    number,
+    { chunks: Uint8Array[]; size: number }
+  >();
+  return {
+    collect(frame: Frame): void {
+      if (frame.kind !== "bytes") return;
+      let held = channels.get(frame.channel);
+      if (held === undefined) {
+        held = { chunks: [], size: 0 };
+        channels.set(frame.channel, held);
+        while (channels.size > INBOX_CHANNELS) {
+          const oldest = channels.keys().next().value;
+          if (oldest === undefined) break;
+          channels.delete(oldest);
+        }
+      }
+      if (
+        held.size + frame.payload.length > REPORTING_LIMITS.feedback_png_bytes
+      ) {
+        return;
+      }
+      held.chunks.push(frame.payload);
+      held.size += frame.payload.length;
+    },
+    // channel의 바이트를 정확히 `size`만큼 가져간다. 모자라거나 넘치면 null이다.
+    take(channel: number, size: number): Uint8Array | null {
+      const held = channels.get(channel);
+      channels.delete(channel);
+      if (held === undefined || held.size !== size) return null;
+      const joined = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of held.chunks) {
+        joined.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return joined;
+    },
+  };
 }
 
 // 로그 증거의 출처. 기본은 core loopback의 apps.logs와 settings.get이고, 테스트와
@@ -1058,6 +1178,223 @@ async function confirmInvocation(
   } catch {
     return undefined;
   }
+}
+
+// view 출처 exception 보고 접수(reporting#R5, R6). 모든 observation 종류(error,
+// unhandledrejection, render_error)를 view_observer 출처로 받는다. view stack은
+// 수집하지 않고, 다른 처리는 process exception과 같다.
+export async function observeViewErrorPayload(
+  payload: unknown,
+  client: CoreClientOptions,
+  redaction: RedactionEngine,
+  queue: ReturnType<typeof createCollectorQueue>,
+  session: ChildSession,
+  position: CollectorPosition,
+  logs: CollectorLogs = coreLogs(client),
+): Promise<unknown> {
+  // view의 app·release·mode·bundle_hash는 core가 서명 검증한 binding에서 정해 보낸
+  // 값이다(apps/core/view-binding.ts). 페이지 주장은 그 전에 덮여 여기까지 오지 않는다.
+  const parsedView = observeViewErrorInputSchema.safeParse(payload);
+  if (!parsedView.success) {
+    throw new Error("invalid view error payload");
+  }
+  const { app, release, mode, bundle_hash } = parsedView.data.view;
+  const obs = parsedView.data.observation;
+  // view error는 항상 view_observer 출처다(reporting#R5).
+  const origin = "view_observer" as const;
+  // raw 문자는 bounded memory에서 redaction을 거친다(R1).
+  const rawError = obs.error;
+  const redactedName = rawError === null
+    ? ""
+    : await redactText(redaction, rawError.name) ?? "*";
+  const redactedMessage = rawError === null ? null : await redactText(
+    redaction,
+    rawError.message === null ? undefined : rawError.message,
+  );
+  const messageMissing = rawError === null
+    ? null
+    : rawError.message === null
+    ? rawError.message_missing_reason
+    : redactedMessage === null
+    ? { reason: "redaction" }
+    : null;
+  const stackMissing = { reason: "view_stack_not_collected" };
+  // view error는 stack을 수집하지 않는다(reporting#R5).
+  const redactedStack = null;
+  // 조립은 process exception과 같다.
+  const assembled = await assembleException(
+    {
+      report_id: obs.report_id,
+      observed_at: obs.observed_at,
+      observation: obs.observation,
+      error: rawError === null ? null : {
+        name: redactedName,
+        message: redactedMessage,
+        message_missing_reason: messageMissing,
+        stack: redactedStack,
+        stack_missing_reason: stackMissing,
+      },
+      error_missing_reason: obs.error_missing_reason,
+      invocation: obs.invocation,
+    },
+    {
+      app,
+      bundle_hash,
+    },
+    {
+      blobPrepare: {
+        prepare: (input, bytes) => prepareViaStream(session, input, bytes),
+      },
+      folder: {
+        appsRoot: collectorAppsRoot(),
+      },
+      nowAt: atNow(),
+      principal: "collector",
+      logs: {
+        detailCollection: await logs.detailCollection(),
+        source: logs.source,
+        redact: (text) => redactText(redaction, text),
+      },
+    },
+  );
+  if (!assembled.ok) {
+    throw new Error("view error snapshot assembly failed");
+  }
+  const result = assembled.value;
+  const checked = snapshotInputSchema.safeParse(result.snapshot);
+  if (!checked.success) {
+    throw new Error("assembled snapshot does not pass snapshot schema");
+  }
+  const report: RecordReportInput["report"] = {
+    id: obs.report_id,
+    source: "exception",
+    code: "_exception",
+    text: null,
+    details: null,
+    snapshot: result.snapshot.id,
+    observed_at: obs.observed_at,
+    principal: "collector",
+    app,
+    mode,
+    diagnostic_scope: null,
+    release,
+    release_missing_reason: release === null ? "collector" : null,
+    bundle_hash,
+    content_hash: "",
+  } as RecordReportInput["report"];
+  const invocation = await confirmInvocation(
+    client,
+    obs.invocation,
+  );
+  const snapshot: RecordReportInput["snapshot"] = invocation === undefined
+    ? {
+      ...result.snapshot,
+      invocation: result.snapshot.invocation,
+      invocation_missing_reason: result.snapshot.invocation_missing_reason,
+    }
+    : result.snapshot.invocation?.id === invocation.id
+    ? {
+      ...result.snapshot,
+      invocation: {
+        id: invocation.id,
+        binding: result.snapshot.invocation!.binding,
+        record_missing_reason: null,
+      },
+      invocation_missing_reason: null,
+    }
+    : {
+      ...result.snapshot,
+      invocation: result.snapshot.invocation,
+      invocation_missing_reason: result.snapshot.invocation_missing_reason,
+    };
+  return await submitException(
+    client,
+    report,
+    snapshot,
+    result.group_key,
+    result.stack_prepared,
+    result.logs_prepared,
+    queue,
+    session,
+    origin,
+    position,
+  );
+}
+
+// shell user의 feedback 접수(feedback#R1–R10, grouping#R6). core는 사람 자격을 인증하고 호출자
+// 출처(caller)와 선택한 PNG 바이트를 해석 없이 넘긴다. 검증·redaction·blob 준비·조립은
+// assembleFeedback이 하고 이 함수는 제품 의존(redaction, core 읽기, blob 준비)을 꽂아 record-report로
+// 제출한다. 조립이 거절한 사유는 코드 그대로 호출자에게 간다.
+export async function acceptSubmitFeedback(
+  payload: unknown,
+  intake: {
+    caller: FeedbackCaller;
+    // 선언한 크기만큼 도착한 PNG 바이트. 없거나 크기가 어긋나면 null이다.
+    screenshot: (size: number) => Uint8Array | null;
+  },
+  client: CoreClientOptions,
+  redaction: RedactionEngine,
+  queue: ReturnType<typeof createCollectorQueue>,
+  session: ChildSession,
+  logs: CollectorLogs = coreLogs(client),
+): Promise<unknown> {
+  const parsed = submitFeedbackInputSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new CollectorRejection("invalid_input", "invalid feedback body");
+  }
+  const submitted = parsed.data;
+  const assembled = await assembleFeedback(
+    submitted,
+    intake.screenshot(submitted.screenshot?.size_bytes ?? 0),
+    {
+      caller: intake.caller,
+      blobPrepare: {
+        prepare: (input, bytes) => prepareViaStream(session, input, bytes),
+      },
+      principal: "collector",
+      nowAt: atNow(),
+      redact: (body, mediaType) => redact({ redaction, body, mediaType }),
+      detailCollection: await logs.detailCollection(),
+      lookupProblem: coreProblemLookup(client),
+      invocationArrived: async (id) =>
+        await confirmInvocation(client, {
+          id,
+          binding: "view_context",
+          record_missing_reason: null,
+        }) !== undefined,
+      logSource: logs.source,
+    },
+  );
+  if (!assembled.ok) {
+    throw new CollectorRejection(assembled.error.code, assembled.error.message);
+  }
+  const { input, prepared } = assembled.value;
+  const frozen = freezeDeep(input);
+  const over = queue.admit(input.report.id, frozen);
+  if (over !== undefined) {
+    throw new Error(over.message);
+  }
+  const completion = await deliverReport(
+    async () => {
+      const result = await postRecordReport(client, {
+        input: queue.held(input.report.id) ?? frozen,
+        idempotency_key: `${input.report.id}/${atNow()}`,
+        compare: { active_release: null, problem_seq: null },
+        prepared,
+      });
+      return result.ok
+        ? ok(result.value as ReportAcceptance)
+        : err(result.error);
+    },
+    { delays: REPORT_RETRY_DELAYS_MS },
+    (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    "response lost",
+  );
+  queue.release(input.report.id);
+  if (completion.status !== "accepted") {
+    throw new Error(completion.reason.message);
+  }
+  return completion.acceptance;
 }
 
 // launchArgv가 내는 argv의 entry는 이 모듈 자체다(T8 worker main과 다른 갈래).

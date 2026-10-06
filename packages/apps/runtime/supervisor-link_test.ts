@@ -213,3 +213,20 @@ Deno.test("apps/runtime#R13: 관측을 RuntimeObservation으로 바꿀 때 연�
   assertEquals(held?.reason?.code, "crash_loop");
   assertEquals(held?.process_nonce, "none");
 });
+
+Deno.test("platform/responsiveness#R3: supervisor child가 끝나면 기다리던 요청은 기한(재시작 30초)까지 두지 않고 끝나되 통로는 묶인 채다", async () => {
+  const channel = createSupervisorChannel();
+  channel.bind(() => Promise.resolve(true));
+  const client = createSupervisorClient(channel);
+  const begun = performance.now();
+  const restarting = client.restart(APP, "nonce-1");
+  const observing = client.observe(APP);
+  channel.failPending("supervisor ended");
+  for (const answer of [await restarting, await observing]) {
+    assert(!answer.ok);
+    assertEquals(answer.error.code, "unavailable");
+  }
+  assert(performance.now() - begun < 2_000);
+  // 감독이 새 child를 띄우면 같은 통로로 계속 쓴다.
+  assert(channel.bound);
+});

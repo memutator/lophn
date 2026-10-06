@@ -47,6 +47,7 @@ import {
   type Reply,
   type Server,
 } from "./testing/approvals-fixture.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [
   { lophnAgentDefinitions },
@@ -196,6 +197,11 @@ async function open(): Promise<World> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(work, { recursive: true });
+  });
   const core = started.value;
   const server: Server = {
     port: core.port,
@@ -341,6 +347,7 @@ async function open(): Promise<World> {
     { presetTools: names, roleTools: names },
   );
   const runner = makeRunner(listedTools, createBuiltinToolHandlers(ports));
+  guard.keep();
   return {
     core,
     server,

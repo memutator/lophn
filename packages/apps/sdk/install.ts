@@ -10,6 +10,13 @@ import {
   type PackageRegisterVersionInput,
 } from "../../contracts/apps/mod.ts";
 import { isWithheldPackageName } from "./model.ts";
+import {
+  keepSupportFile,
+  rewriteSpecifiers,
+  type SourceFile,
+  SUPPORT_PACKAGES,
+  VENDOR_RULES,
+} from "./vendor.ts";
 
 // 설치 worker가 core에 제출할 결과. hash·guide hash와 machine 제출 입력이다.
 export type InstallSubmission = {
@@ -31,7 +38,12 @@ export type InstallDeps = {
   ) => Promise<Result<unknown>>;
   // 설치 소스 경계. 제품은 packages/sdk/*를 쓴다(테스트가 주입한다).
   sourceRoot?: string;
+  // packages/ 저장소 폴더. 사본이 가져오는 contracts·design 같은 지원 소스의 기준이다.
+  packagesRoot?: string;
 };
+
+const PACKAGES_ROOT = new URL("../../", import.meta.url).pathname
+  .replace(/\/$/, "");
 
 function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
@@ -49,8 +61,9 @@ function installRefused(name: string): Result<never> {
 // packages/sdk/<name>의 파일을 상대 경로와 함께 모은다.
 async function collectSourceFiles(
   root: string,
-): Promise<Result<{ path: string; bytes: Uint8Array }[]>> {
-  const files: { path: string; bytes: Uint8Array }[] = [];
+  keep: (path: string) => boolean = () => true,
+): Promise<Result<SourceFile[]>> {
+  const files: SourceFile[] = [];
   async function visit(
     directory: string,
     prefix: string,
@@ -65,9 +78,11 @@ async function collectSourceFiles(
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
       const target = `${directory}/${entry.name}`;
       if (entry.isDirectory) {
+        if (!keep(`${path}/`)) continue;
         const walked = await visit(target, path);
         if (!walked.ok) return walked;
       } else if (entry.isFile) {
+        if (!keep(path)) continue;
         try {
           files.push({ path, bytes: await Deno.readFile(target) });
         } catch {
@@ -84,6 +99,35 @@ async function collectSourceFiles(
   }
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return ok(files);
+}
+
+function sortFiles(files: SourceFile[]): SourceFile[] {
+  return files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+// 사본이 packages/sdk/<name> 밖에서 가져오는 소스를 vendor/로 함께 담고 specifier를 바꾼다(R9, R10).
+async function vendorFiles(
+  name: string,
+  files: readonly SourceFile[],
+  packagesRoot: string,
+): Promise<Result<SourceFile[]>> {
+  const rule = VENDOR_RULES[name];
+  if (rule === undefined) return ok([...files]);
+  const out = files.map((file) => rewriteSpecifiers(file, rule.rewrite));
+  for (const [from, to] of Object.entries(rule.files)) {
+    try {
+      out.push({
+        path: to,
+        bytes: await Deno.readFile(`${packagesRoot}/${from}`),
+      });
+    } catch {
+      return invalid(`vendored source is missing: ${from}`);
+    }
+  }
+  for (const [path, text] of Object.entries(rule.generated ?? {})) {
+    out.push({ path, bytes: new TextEncoder().encode(text) });
+  }
+  return ok(sortFiles(out));
 }
 
 // manifest + 파일 내용을 순서대로 이은 자기 완결 byte다. hash는 이 byte의 sha256이다.
@@ -147,10 +191,12 @@ export async function installPackage(
   }
   const split = splitPackageName(name);
   if (!split.ok) return split;
-  const sourceRoot = deps.sourceRoot ?? new URL("../../sdk", import.meta.url)
-    .pathname;
+  const packagesRoot = deps.packagesRoot ?? PACKAGES_ROOT;
+  const sourceRoot = deps.sourceRoot ?? `${packagesRoot}/sdk`;
   const source = `${sourceRoot}/${split.value.part}`;
-  const files = await collectSourceFiles(source);
+  const collected = await collectSourceFiles(source);
+  if (!collected.ok) return collected;
+  const files = await vendorFiles(name, collected.value, packagesRoot);
   if (!files.ok) return files;
   const bundle = bundleBytes(files.value);
   const bundleHash = await sha256Hex(bundle);
@@ -219,6 +265,15 @@ export async function installPackage(
   });
 }
 
+// 지원 소스(@lophn/design·@lophn/wording)의 설치 사본. catalog에 등록하지 않으므로 guide·등록이 없다.
+export type SupportInstallResult = {
+  name: string;
+  version: string;
+  bundle_hash: string;
+  install_path: string;
+  files: readonly string[];
+};
+
 export type InstallResult = {
   name: string;
   version: string;
@@ -227,6 +282,121 @@ export type InstallResult = {
   install_path: string;
   files: readonly string[];
 };
+
+// 공용 UI Package가 import하는 지원 소스를 sdk/<name>/<version>/에 읽기 전용으로 풀어 놓는다.
+// catalog Package가 아니라 register_version은 없다(apps/sdk#R13). 같은 byte면 hash도 같다.
+export async function installSupportPackage(
+  name: string,
+  deps: Pick<InstallDeps, "dataRoot" | "packagesRoot">,
+): Promise<Result<SupportInstallResult>> {
+  const support = SUPPORT_PACKAGES.find((item) => item.name === name);
+  if (support === undefined) return installRefused(name);
+  const split = splitPackageName(name);
+  if (!split.ok) return split;
+  const packagesRoot = deps.packagesRoot ?? PACKAGES_ROOT;
+  const collected = await collectSourceFiles(
+    `${packagesRoot}/${support.source}`,
+    (path) => keepSupportFile(path, support),
+  );
+  if (!collected.ok) return collected;
+  const files = sortFiles(collected.value);
+  const target = `${deps.dataRoot}/sdk/${split.value.part}/${support.version}`;
+  // 같은 byte의 사본이 이미 있으면 그대로 둔다. 읽기 전용 사본을 다시 쓰지 않는다(R8, R9).
+  if (!await sameInstallCopy(target, files)) {
+    const copied = await writeInstallCopy(target, files);
+    if (!copied.ok) return copied;
+  }
+  return ok({
+    name,
+    version: support.version,
+    bundle_hash: await sha256Hex(bundleBytes(files)),
+    install_path: target,
+    files: files.map((file) => file.path),
+  });
+}
+
+export type TemplateInstallResult = {
+  hash: string;
+  install_path: string;
+  files: readonly string[];
+};
+
+async function removeInstallCopy(target: string): Promise<void> {
+  // 읽기 전용 사본은 디렉터리 쓰기 권한을 먼저 돌려줘야 지울 수 있다.
+  async function open(directory: string): Promise<void> {
+    await Deno.chmod(directory, 0o755);
+    for await (const entry of Deno.readDir(directory)) {
+      if (entry.isDirectory) await open(`${directory}/${entry.name}`);
+    }
+  }
+  try {
+    await open(target);
+    await Deno.remove(target, { recursive: true });
+  } catch {
+    // 없는 사본이다.
+  }
+}
+
+// 설치 템플릿을 `<dataRoot>/templates/app/`에 읽기 전용(파일 0444·디렉터리 0555)으로 둔다(apps/sdk#R35).
+// 내용은 고정 hash와 같을 때만 설치한다. 같은 byte의 사본이 있으면 그대로 두고, 다른 사본(옛 판)이면
+// 새 판으로 바꾼다. 템플릿은 SDK Package가 아니라 catalog 등록은 없다.
+export async function installTemplate(
+  files: readonly SourceFile[],
+  expectedHash: string,
+  deps: Pick<InstallDeps, "dataRoot">,
+): Promise<Result<TemplateInstallResult>> {
+  const sorted = sortFiles([...files]);
+  const hash = await sha256Hex(bundleBytes(sorted));
+  if (hash !== expectedHash) {
+    return invalid("template content does not match its pinned hash");
+  }
+  const target = `${deps.dataRoot}/templates/app`;
+  if (!await sameInstallCopy(target, sorted)) {
+    await removeInstallCopy(target);
+    const copied = await writeInstallCopy(target, sorted);
+    if (!copied.ok) return copied;
+  }
+  return ok({
+    hash,
+    install_path: target,
+    files: sorted.map((file) => file.path),
+  });
+}
+
+async function copiedPaths(
+  directory: string,
+  prefix: string,
+): Promise<string[]> {
+  const found: string[] = [];
+  for await (const entry of Deno.readDir(directory)) {
+    const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory) {
+      found.push(...await copiedPaths(`${directory}/${entry.name}`, path));
+    } else found.push(path);
+  }
+  return found;
+}
+
+// 사본이 있고 파일 목록과 byte가 모두 같은지 본다.
+export async function sameInstallCopy(
+  target: string,
+  files: readonly SourceFile[],
+): Promise<boolean> {
+  try {
+    const found = await copiedPaths(target, "");
+    if (found.length !== files.length) return false;
+    for (const file of files) {
+      const bytes = await Deno.readFile(`${target}/${file.path}`);
+      if (
+        bytes.length !== file.bytes.length ||
+        bytes.some((byte, index) => byte !== file.bytes[index])
+      ) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function writeInstallCopy(
   target: string,
@@ -238,9 +408,10 @@ export async function writeInstallCopy(
     await Deno.mkdir(target, { recursive: true, mode: 0o755 });
     directories = [target];
     for (const file of files) {
-      const slash = file.path.lastIndexOf("/");
-      if (slash > 0) {
-        const directory = `${target}/${file.path.slice(0, slash)}`;
+      // 깊은 파일의 중간 폴더도 모두 0555로 좁힌다(R9).
+      const segments = file.path.split("/").slice(0, -1);
+      for (let depth = 1; depth <= segments.length; depth += 1) {
+        const directory = `${target}/${segments.slice(0, depth).join("/")}`;
         await Deno.mkdir(directory, { recursive: true, mode: 0o755 });
         directories.push(directory);
       }
@@ -267,7 +438,7 @@ export async function writeInstallCopy(
   return ok(undefined);
 }
 
-// 설치된 사본이 정말 0444·0555인지 본다(R9). 테스트와 install checker가 쓴다.
+// 설치된 사본이 정말 0444·0555인지 폴더 끝까지 본다(R9). 테스트와 install checker가 쓴다.
 export async function verifyInstallPermissions(
   target: string,
 ): Promise<Result<void>> {
@@ -278,20 +449,26 @@ export async function verifyInstallPermissions(
     return invalid("install copy is missing");
   }
   if (!stat.isDirectory) return invalid("install copy is not a directory");
-  if (((stat.mode ?? 0) & 0o222) !== 0) {
-    return invalid("install copy directory is writable");
-  }
-  for await (const entry of Deno.readDir(target)) {
-    const child = await Deno.stat(`${target}/${entry.name}`);
-    if (entry.isDirectory) {
-      if (((child.mode ?? 0) & 0o222) !== 0) {
-        return invalid(`install copy directory is writable: ${entry.name}`);
-      }
-    } else if (((child.mode ?? 0) & 0o222) !== 0) {
-      return invalid(`install copy file is writable: ${entry.name}`);
+  async function visit(path: string, label: string): Promise<Result<void>> {
+    const info = await Deno.stat(path);
+    if (((info.mode ?? 0) & 0o222) !== 0) {
+      return invalid(
+        `install copy ${
+          info.isDirectory ? "directory" : "file"
+        } is writable: ${label}`,
+      );
     }
+    if (!info.isDirectory) return ok(undefined);
+    for await (const entry of Deno.readDir(path)) {
+      const visited = await visit(
+        `${path}/${entry.name}`,
+        label === "." ? entry.name : `${label}/${entry.name}`,
+      );
+      if (!visited.ok) return visited;
+    }
+    return ok(undefined);
   }
-  return ok(undefined);
+  return await visit(target, ".");
 }
 
 // catalog read에서 쓰는 잡힌 조회. install 확인 내용만 목록에 남는다(R13).

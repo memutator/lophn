@@ -579,7 +579,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T32 handoff와 agent 일 tool
 
-- 상태: 진행 (#PR) — 남은 것: `approval.submit_assignment`(OperatorApprovalBundle 모양은 T52), handoff 갈래의 flow resume-agent-session(T25·T26·T27 선행), 받는 run이 내용 blob(맡긴 내용)을 읽는 통로(contract에 읽기 route가 없어 run-loop prompt 조립이 쓸 core 읽기 환경과 함께 T26에서 정한다), 보낸 run을 handoff 뒤 끝내는 loop 연결(T26). 구현: SubmitHandoff(AcceptRun 출처 검사 wrapper, 한 transaction), 현황·결과 read, 내용 blob core 준비(redaction), agent 일 tool 열한 개 정의·handler, 실제 core 시험(apps/core/handoff_test.ts)
+- 상태: 진행 (#308) — 남은 것: `approval.submit_assignment`(OperatorApprovalBundle 모양은 T52), handoff 갈래의 flow resume-agent-session(T25·T26·T27 선행), 받는 run이 내용 blob(맡긴 내용)을 읽는 통로(contract에 읽기 route가 없어 run-loop prompt 조립이 쓸 core 읽기 환경과 함께 T26에서 정한다), 보낸 run을 handoff 뒤 끝내는 loop 연결(T26). 구현: SubmitHandoff(AcceptRun 출처 검사 wrapper, 한 transaction), 현황·결과 read, 내용 blob core 준비(redaction), agent 일 tool 열한 개 정의·handler, 실제 core 시험(apps/core/handoff_test.ts)
 - 등급: 기본
 - concern: lophn-agent/handoff, lophn-agent/harness/run-loop, lophn-agent/harness/tools
 - 요구: lophn-agent/handoff#R1, R2, R3, R4, R5, R6, R7, R8, R9, lophn-agent/harness/run-loop#R7, lophn-agent/harness/tools#R10

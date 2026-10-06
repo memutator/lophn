@@ -11,6 +11,7 @@ import {
 } from "./terms.ts";
 import {
   GLOSSARY_PAGE_LIMIT,
+  TERM_DISPATCHABLE_COMMANDS,
   TERM_ROUTES,
   termDefine,
   termListOutputSchema,
@@ -165,4 +166,24 @@ Deno.test("documents/terms#R2: term.define compare는 새 등록에 base_revisio
   assert(termDefineCompareSchema.safeParse({ base_revision: "7" }).success);
   assert(!termDefineCompareSchema.safeParse({ base_revision: "0" }).success);
   assert(!termDefineCompareSchema.safeParse({ extra: true }).success);
+});
+
+Deno.test("documents/terms#R5: run revert가 후보 보상으로 부르는 term command만 dispatchable이고 정의 확정은 아니다", () => {
+  assertEquals(
+    TERM_DISPATCHABLE_COMMANDS.map((item) => item.route.name),
+    ["term.update", "term.archive", "term.unarchive"],
+  );
+  for (const item of TERM_DISPATCHABLE_COMMANDS) {
+    assertEquals(item.dispatchable, true);
+    assertEquals(item.route.kind, "command");
+    assertEquals(item.route.actors.includes("user"), true);
+    assert(TERM_ROUTES.includes(item.route as never));
+  }
+  // 사람 정의는 revert 대상이 아니라서 term.define은 dispatchable이 아니다.
+  assertEquals(
+    TERM_DISPATCHABLE_COMMANDS.some((item) =>
+      item.route.name === termDefine.name
+    ),
+    false,
+  );
 });

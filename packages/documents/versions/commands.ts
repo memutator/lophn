@@ -33,6 +33,7 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import { InstructionAttachments } from "../../contracts/lophn-agent/mod.ts";
 import {
   createDocumentNameReservation,
   type PlaceRef,
@@ -114,6 +115,11 @@ function observationBasisStale(
   const basis = prepared.file_basis;
   if (basis === undefined) return false;
   const source = document.file_source;
+  // 지침 파일은 같은 등록 대상(층)의 제출만 이어진다. 다른 대상의 제출은 늦은 것이다.
+  if (
+    basis.kind === "instruction_file" && source?.kind === "instruction_file" &&
+    basis.instruction_target !== source.instruction_target
+  ) return true;
   // 연결이 없는 문서의 제출은 경로로 비교하지 않는다. root 제거는 연결이 사라졌을 때다.
   const linked = source !== null && basis.file_source !== null;
   const currentPath = linked && basis.path === source.path &&
@@ -208,6 +214,33 @@ function revertArchiveRejected(
   return undefined;
 }
 
+// 지침 문서는 agent·coding_agent·app의 create·save·제목 변경이 forbidden이다
+// (file-tracking#R20, versions#R20). 분류는 이름·place·본문이 아니라 두 근거로만 한다:
+// 문서가 instruction_file 원본에 연결돼 있거나(등록 locator), 지금 preset 판의 지침 첨부로
+// 가리켜진 문서다. 다른 출력(Operator·앱)으로 지정돼 있어도 풀리지 않는다. 사람과 machine(좁은
+// 파일 관측)은 이 규칙의 대상이 아니다. 포트가 없거나 실패하면 쓰기를 거절한다(fail closed).
+function instructionWriteRejected(
+  ctx: RequestContext,
+  tx: Tx,
+  document: Document | null,
+  documentId: string,
+  source: PreparedVersion["source"],
+): Result<never> | undefined {
+  const kind = parseActor(ctx.actor)?.kind;
+  if (kind !== "agent" && kind !== "coding_agent" && kind !== "app") {
+    return undefined;
+  }
+  const forbidden = () =>
+    rejected("forbidden", "instruction document is not written by this actor");
+  if (
+    source?.kind === "instruction_file" ||
+    document?.file_source?.kind === "instruction_file"
+  ) return forbidden();
+  const attached = tx.port(InstructionAttachments).attachments(documentId);
+  if (!attached.ok) return attached;
+  return attached.value.length > 0 ? forbidden() : undefined;
+}
+
 // 첫 저장이 같은 tx 안에서 가족 가입을 부르는 seam. 구현은 documents/series가 갖고
 // core 등록이 주입한다(versions는 series를 import하지 않는다). 거절은 저장 전체의 거절이다.
 export type SeriesJoin = (
@@ -246,6 +279,14 @@ export function createVersionCommands(
         // 문서와 같은 답이다.
         const appOutput = appOutputRejected(tx, ctx, existing.value, input);
         if (appOutput !== undefined) return appOutput;
+        const instruction = instructionWriteRejected(
+          ctx,
+          tx,
+          existing.value,
+          input.document,
+          input.source,
+        );
+        if (instruction !== undefined) return instruction;
         if (existing.value === null) {
           return createDocument(tx, ctx, input, options.joinSeries);
         }
@@ -275,6 +316,14 @@ export function createVersionCommands(
         if (!access.ok) return access;
         const output = agentOutputRejected(ctx, current.value, null);
         if (output !== undefined) return output;
+        const instruction = instructionWriteRejected(
+          ctx,
+          tx,
+          current.value,
+          input.document,
+          null,
+        );
+        if (instruction !== undefined) return instruction;
         if (current.value.revision !== compare.base_revision) {
           return rejected("conflict", "document revision changed");
         }

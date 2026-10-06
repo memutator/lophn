@@ -10,6 +10,7 @@ import type {
 } from "../../../contracts/platform/mod.ts";
 import { TargetAuthorization } from "../../../contracts/platform/mod.ts";
 import { appRegistrationLookup } from "../../../contracts/apps/mod.ts";
+import { InstructionAttachments } from "../../../contracts/lophn-agent/mod.ts";
 import { addressingSchemaSteps } from "../../addressing/mod.ts";
 import { versionsSchemaSteps } from "../../versions/mod.ts";
 import { seriesSchemaSteps } from "../mod.ts";
@@ -95,6 +96,10 @@ export function seriesFixture(authorize: TargetAuthorizer = allowAll) {
               get: (app: string) =>
                 ok({ id: app, slug: "report-app", status: "active" }),
             } as T;
+          }
+          // 지침 첨부 판정(documents/versions#R20): 이 fixture에는 첨부가 없다.
+          if (Object.is(key, InstructionAttachments)) {
+            return { attachments: () => ok([]) } as T;
           }
           if (!Object.is(key, TargetAuthorization)) {
             throw new Error("unregistered document port");

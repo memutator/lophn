@@ -8,12 +8,15 @@ import { build } from "./build.ts";
 
 const outputs = [
   "main.cjs",
+  "desktop.cjs",
+  "screen-test.cjs",
   "preload-shell.cjs",
   "preload-confirmation.cjs",
   "preload-app.cjs",
+  "preload-screen-test.cjs",
 ];
 
-test("shell/desktop#R17: build가 main과 preload 세 파일을 .cjs로 만들고 밖의 zod import를 묶는다", async () => {
+test("shell/desktop#R17: build가 main·desktop·화면 검사 host와 preload 파일을 .cjs로 만들고 밖의 zod import를 묶는다", async () => {
   const dir = await mkdtemp(join(tmpdir(), "shell-build-"));
   const fixture = join(dir, "fixture.ts");
   await writeFile(

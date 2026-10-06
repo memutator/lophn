@@ -590,12 +590,23 @@ concerns: [documents]
 - 내놓는 contract: 파일 쓰기와 저장 준비 contract의 instruction_file 가지, 지침 대상(등록 locator 또는 preset 첨부)의 현재 확정 판 read와 지침 문서 여부 표시(lophn-agent/instructions#R3, R6이 씀)
 - slice: agent
 - 선행: T12, T19, contracts#T27(지침 값·첨부 read·첨부 판정 port; lophn-agent 구현 T18은 이 작업 뒤)
+- 상태: 완료 (#346)
 - 완료:
-  - 전역 `~/.lophn/LOPHN.md`·project·app LOPHN.md·preset 첨부 지침은 exact 등록 파일만 관측(data root 재귀 tracking·부모 순회·cwd 추측 없음), owner·실제 열린 파일·symlink·UTF-8·hash 검사
-  - 최초 생성은 미존재 CAS, 저장·복원은 base_hash와 base_version CAS 뒤 재관측으로 새 판. 파일이 없으면 첫 저장 전에는 version 없음, agent가 빈 파일을 만들지 않음
-  - 지침 문서는 agent·coding agent·app의 create·save·제목·move·source 변경이 forbidden(다른 출력으로 지정해도). agent는 question 제안만
-  - 전역 지침은 place·name null의 instruction_file source, Project·system place 자동 생성 없음. LOPHN.md와 AGENTS.md 구별
-  - `*_test.ts`에 각 요구 번호 테스트
+  - 전역 `<data root>/LOPHN.md`와 활성 project 첫 폴더의 `LOPHN.md`만 exact 등록으로 관측한다. 등록은 documents가 data root와 project 목록에서 스스로 정하고(`file-tracking/instruction.ts`) core reader가 기존 관측 근거(`instructions`)에 실어 coordinator에 보낸다. 폴더 재귀·부모 순회·cwd 추측이 없고 tracking을 끈 project도 관측한다. 일반 root 관측은 등록된 지침 파일을 건너뛰어 project 문서로 만들지 않는다
+  - FileObservationBasis·VersionSource·FileSource의 instruction_file 가지로 판을 만든다. 파일은 소유자(data root와 같음)·symlink 아님(상위 폴더 포함 canonical)·일반 파일·열기 전후 identity·UTF-8·hash를 검사하고, 걸리면 판 없이 상태(unverified·validation_failed)만 남긴다. 파일이 없으면 첫 저장 전에는 문서도 판도 없고(source_missing은 연결 문서가 있을 때만) 아무것도 만들지 않는다. 문서는 place·name null이고 Project·system place를 만들지 않는다
+  - 사람의 지침 파일 쓰기는 `files.write`의 instruction_file 목표다. exact 등록 경로·대상·층과 맞는 목표만 풀고(아니면 같은 invalid_input) 최초 생성은 미존재 CAS, 저장은 base_hash CAS, 쓴 뒤 그 파일을 바로 다시 관측해 새 판을 만든다. agent·coding agent·app는 route가 user 전용이라 못 쓴다
+  - agent·coding_agent·app의 document.save(첫 저장 포함)·update(제목)는 instruction_file에 연결된 문서이거나 현재 preset 판의 지침 첨부가 가리키는 문서에 forbidden이다. instruction_file 원본을 달고 문서를 만드는 것도 forbidden이다. Operator 출력으로 지정돼 있어도 풀리지 않는다. 판정 port가 없거나 실패하면 거절한다. document.move·document.set_source는 이미 user 전용이다
+  - `InstructionAttachments` port를 apps/core/lophn-agent.ts가 등록한다(preset 현재 판의 지침 첨부, 같은 근원을 `/v1/presets/instruction-attachments` read가 쓴다)
+  - `*_test.ts`에 각 요구 번호 테스트(versions/instruction-file_test.ts, file-tracking/instruction_test.ts, apps/worker/documents/instruction_test.ts, apps/core/documents-instruction_test.ts·documents-instruction-files_test.ts 실제 core)
+- 정한 것:
+  - instruction_target은 `global` 또는 `project:<prj>`다. 등록 판은 전역 `1`, project는 그 project의 revision이다. project 층 파일은 project의 첫 등록 폴더 바로 아래 LOPHN.md다
+  - 전역 파일의 쓰기는 data root 전체 쓰기를 주지 않으려고 임시 파일을 `documents/staging`에 두고 대상 파일 하나에만 쓰기 권한을 준다(같은 파일 시스템 안의 교체만 한다)
+  - 외부 편집은 watch 없이 시작·60초 주기·사람이 쓴 직후에 그 파일 하나를 다시 읽어 관측한다. 읽기(소유자·symlink·일반 파일·안정 읽기)는 등록 폴더를 읽을 권한이 있는 준비 worker가 하고(`documents.read_instruction`, 한 frame 256 KiB를 넘는 파일은 미확인) coordinator는 hash·바이트만 받는다. 그래서 project를 만들어도 worker를 다시 띄우지 않는다
+  - 전역 지침의 첫 쓰기는 연결된 문서가 아직 없어 `file.record_result` event의 subject를 정할 수 없고 기록은 unverified로 남는다(파일 결과·판은 정상). 파일 결과에 문서 참조를 싣는 계약은 따로 바꾼다
+  - OperatorOutput port는 T32가 쓴다(지침 여부 판정에는 쓰지 않는다)
+  - `/v1/presets/instruction-attachments` read의 쿼리가 없는 열(presets.definition)을 읽던 것을 preset_revisions.definition으로 고쳤다(lophn-agent#T7의 숨은 오류)
+- T28에서 넘어온 것:
+  - app 층 `<앱 자리>/LOPHN.md`는 앱 자리의 파일 경로를 documents가 알 수 없어 등록 목록에 들어오지 않는다 (apps/registration이 앱 자리 경로를 내놓는 작업 뒤 `instructionRegistrations`에 더한다)
 
 ### T29 설치 안내 읽기
 

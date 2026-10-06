@@ -3,7 +3,6 @@
 // 출처를 정하고 본문 주장은 따르지 않는다. redaction은 이 worker가 ledger에 닿기
 // 전에 거친다(R1).
 import {
-  canonicalize,
   err,
   fingerprint,
   ok,
@@ -14,6 +13,7 @@ import type {
   WorkerRequest,
 } from "../../../packages/contracts/platform/mod.ts";
 import {
+  observeViewErrorInputSchema,
   REPORT_RETRY_DELAYS_MS,
   reportProblemInputSchema,
 } from "../../../packages/contracts/problems/mod.ts";
@@ -1032,136 +1032,9 @@ async function confirmInvocation(
   }
 }
 
-// view binding 검증(reporting#R6). binding은 core가 서명한 SignedConnection이다.
-// 서명을 검증하고 payload에서 app·release·mode·bundle_hash를 가져온다.
-// 잘못되거나 만료된 binding은 unknown route와 같이 거절한다.
-async function verifyViewBinding(
-  signedConnection: unknown,
-  client: CoreClientOptions,
-): Promise<
-  Result<
-    { app: string; release: string | null; mode: string; bundle_hash: string }
-  >
-> {
-  if (
-    typeof signedConnection !== "object" || signedConnection === null ||
-    Array.isArray(signedConnection)
-  ) {
-    return err({ code: "forbidden", message: "invalid signed connection" });
-  }
-  const sc = signedConnection as Record<string, unknown>;
-  const payload = sc["payload"];
-  const signature = sc["signature"];
-  if (
-    typeof payload !== "object" || payload === null ||
-    typeof signature !== "string"
-  ) {
-    return err({ code: "forbidden", message: "invalid signed connection" });
-  }
-  const connPayload = payload as Record<string, unknown>;
-  const app = connPayload["app"];
-  const release = connPayload["release"];
-  const mode = connPayload["mode"];
-  const bundle_hash = connPayload["bundle_hash"];
-  if (
-    typeof app !== "string" || typeof mode !== "string" ||
-    typeof bundle_hash !== "string"
-  ) {
-    return err({
-      code: "forbidden",
-      message: "missing app, mode or bundle_hash",
-    });
-  }
-  // verify_key를 core appsControl에서 가져온다.
-  try {
-    const base = client.baseUrl.replace(/\/$/, "");
-    const response = await client.fetch(
-      `${base}/internal/apps/control/signer`,
-      {
-        method: "GET",
-        headers: {
-          "authorization": `Bearer ${client.credential}`,
-        },
-        body: "",
-      },
-    );
-    if (response.status !== 200) {
-      return err({ code: "unavailable", message: "could not get verify key" });
-    }
-    const body = JSON.parse(new TextDecoder().decode(response.bytes)) as {
-      verify_key?: unknown;
-    };
-    const verifyKey = body.verify_key;
-    if (typeof verifyKey !== "string") {
-      return err({ code: "unavailable", message: "invalid verify key" });
-    }
-    // 서명을 검증한다. canonicalize한 payload로 검증한다.
-    const signingBytes = canonicalize(connPayload);
-    const verified = await verifySignature(signingBytes, signature, verifyKey);
-    if (!verified) {
-      return err({ code: "forbidden", message: "invalid binding signature" });
-    }
-    return ok({
-      app,
-      release: release === null ? null : String(release),
-      mode: String(mode),
-      bundle_hash,
-    });
-  } catch (e) {
-    return err({
-      code: "unavailable",
-      message: `binding verification failed: ${
-        e instanceof Error ? e.message : "unknown error"
-      }`,
-    });
-  }
-}
-
-// Ed25519 서명 검증(packages/apps/runtime/signing.ts와 같은 방식).
-async function verifySignature(
-  payload: string,
-  signatureBase64Url: string,
-  verifyKeyBase64Url: string,
-): Promise<boolean> {
-  try {
-    const signature = base64UrlToBytes(signatureBase64Url);
-    const verifyKey = base64UrlToBytes(verifyKeyBase64Url);
-    const keyBuffer = verifyKey as BufferSource;
-    const sigBuffer = signature as BufferSource;
-    const key = await crypto.subtle.importKey(
-      "raw",
-      keyBuffer,
-      "Ed25519",
-      false,
-      ["verify"],
-    );
-    return await crypto.subtle.verify(
-      "Ed25519",
-      key,
-      sigBuffer,
-      new TextEncoder().encode(payload),
-    );
-  } catch {
-    return false;
-  }
-}
-
-// base64url을 bytes로 변환.
-function base64UrlToBytes(str: string): Uint8Array {
-  const base64 = str.replaceAll("-", "+").replaceAll("_", "/");
-  const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-// view 출처 exception 보고 접수(reporting#R5, R6). binding은 core가 서명한
-// view connection 증거다. 모든 observation 종류(error, unhandledrejection,
-// render_error)를 view_observer 출처로 받는다(problems/reporting#R5, R6).
-// stack은 준비 폴더 source로 위치를 찾고, 다른 처리는 process exception과 같다.
+// view 출처 exception 보고 접수(reporting#R5, R6). 모든 observation 종류(error,
+// unhandledrejection, render_error)를 view_observer 출처로 받는다. view stack은
+// 수집하지 않고, 다른 처리는 process exception과 같다.
 export async function observeViewErrorPayload(
   payload: unknown,
   client: CoreClientOptions,
@@ -1171,50 +1044,16 @@ export async function observeViewErrorPayload(
   position: CollectorPosition,
   logs: CollectorLogs = coreLogs(client),
 ): Promise<unknown> {
-  if (
-    typeof payload !== "object" || payload === null || Array.isArray(payload)
-  ) {
+  // view의 app·release·mode·bundle_hash는 core가 서명 검증한 binding에서 정해 보낸
+  // 값이다(apps/core/view-binding.ts). 페이지 주장은 그 전에 덮여 여기까지 오지 않는다.
+  const parsedView = observeViewErrorInputSchema.safeParse(payload);
+  if (!parsedView.success) {
     throw new Error("invalid view error payload");
   }
-  const viewError = payload as Record<string, unknown>;
-  const view = viewError["view"];
-  const observation = viewError["observation"];
-  if (
-    typeof view !== "object" || view === null ||
-    typeof observation !== "object" ||
-    observation === null
-  ) {
-    throw new Error("invalid view error structure");
-  }
-  const viewObj = view as Record<string, unknown>;
-  // binding은 core가 서명한 SignedConnection(JSON 문자열)이다.
-  // 검증: 서명을 검증하고 payload에서 app·release·mode를 가져온다.
-  const binding = viewObj["binding"];
-  if (typeof binding !== "string" || binding.length === 0) {
-    throw new Error("invalid view error binding");
-  }
-  let signedConnection: unknown;
-  try {
-    signedConnection = JSON.parse(binding);
-  } catch {
-    throw new Error("invalid view error binding format");
-  }
-  const verified = await verifyViewBinding(
-    signedConnection,
-    client,
-  );
-  if (!verified.ok) {
-    throw new Error(verified.error.message);
-  }
-  const { app, release, mode, bundle_hash } = verified.value;
+  const { app, release, mode, bundle_hash } = parsedView.data.view;
+  const obs = parsedView.data.observation;
   // view error는 항상 view_observer 출처다(reporting#R5).
   const origin = "view_observer" as const;
-  // observation을 schema로 검증한다. 다른 처리는 process exception과 같다.
-  const parsed = exceptionObservationInputSchema.safeParse(observation);
-  if (!parsed.success) {
-    throw new Error("invalid view error observation");
-  }
-  const obs = parsed.data;
   // raw 문자는 bounded memory에서 redaction을 거친다(R1).
   const rawError = obs.error;
   const redactedName = rawError === null
@@ -1278,9 +1117,6 @@ export async function observeViewErrorPayload(
   if (!checked.success) {
     throw new Error("assembled snapshot does not pass snapshot schema");
   }
-  if (position.claims.mode === undefined) {
-    throw new Error("view error credential has no mode claim");
-  }
   const report: RecordReportInput["report"] = {
     id: obs.report_id,
     source: "exception",
@@ -1295,7 +1131,7 @@ export async function observeViewErrorPayload(
     diagnostic_scope: null,
     release,
     release_missing_reason: release === null ? "collector" : null,
-    bundle_hash: position.claims.bundle_hash ?? null,
+    bundle_hash,
     content_hash: "",
   } as RecordReportInput["report"];
   const invocation = await confirmInvocation(

@@ -68,7 +68,7 @@ export interface ExceptionObservation {
   invocation: null;
 }
 
-/** 오류를 귀속할 view. registry가 정한 값만 싣는다. binding은 core가 서명한 연결(SignedConnection JSON)이다. */
+/** 오류를 귀속할 view. registry가 정한 값만 싣는다. binding은 core가 서명한 연결이다. */
 export interface ViewErrorOrigin {
   view_session: string;
   generation: number;
@@ -76,7 +76,7 @@ export interface ViewErrorOrigin {
   release: string | null;
   mode: ConnectTarget["mode"];
   bundle_hash: string;
-  binding: string; // JSON-encoded SignedConnection(payload: AppConnection, signature: string)
+  binding: string;
 }
 
 export interface ViewErrorForward {
@@ -156,23 +156,7 @@ export function createViewErrors(deps: ViewErrorDeps) {
           release: view.binding.release,
           mode: view.target.mode,
           bundle_hash: view.binding.bundleHash,
-          binding: JSON.stringify({
-            payload: {
-              app: view.target.app,
-              release: view.binding.release,
-              bundle_hash: view.binding.bundleHash,
-              mode: view.target.mode,
-              process_nonce: view.binding.processNonce,
-              actor: `app:${view.target.app}`,
-              credential_ref: "view-connection",
-              screens: [],
-              screen_sizes: {},
-              caller: null,
-              commands: [],
-              expires_at: new Date(view.binding.expiresAtMs ?? Date.now()).toISOString(),
-            },
-            signature: view.binding.authorization,
-          }),
+          binding: view.binding.authorization,
         },
         observation: {
           report_id: deps.ids.reportId(),

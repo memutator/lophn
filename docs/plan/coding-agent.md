@@ -362,7 +362,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T13 문서 읽기 tool: 목차·검색·project·목록·이력·본문
 
-- 상태: 진행 (#307) — 한 것: MCP 쪽 전부(`lophn_index`·`lophn_project`·`lophn_document`·`lophn_read`, 실제 core 시험 포함). 남은 것: CLI `index`·`search`·`read`·`document list|history|diff`·`project …`의 실행(apps/cli가 command를 아직 실행하지 않는다)과 cli#R11–R14·R22 시험, find-documents 6단계 중 CLI 쪽 통합 시험(MCP 쪽은 apps/core/coding-agent-read-tools_test.ts), 질문 Q30
+- 상태: 완료 (#307) — 이어보냄: CLI 쪽 문서 읽기 command 실행·시험(cli R11~R14, R22, `cliDocumentHistorySchema`의 section, CLI 6단계 통합 시험) → T36
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R8, R9, R10, R11, R12; coding-agent/cli#R11,
@@ -1152,6 +1152,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - platform#T19 후속(#294)에서 넘어온 것: connection credential(keychain의 token)의 값도 core의 알려진 값 registry에 등록·회수되어야 한다(documents 읽기·메시지 본문에 token이 나오지 않게). 통로는 열렸다: 등록 파일의 `secretRefs`에 `SecretRefSource`(contracts/platform/secrets.ts: `owner`, 참조를 바꾸는 command 이름 `commands`, `read(sql)`가 `{name, sealedRef}` 목록)를 더하면 core secret store가 같은 keychain에서 값을 읽어 등록하고 command 확정 뒤 다시 맞춘다. 지금 연결 표에는 keychain 참조가 없어(digest만) 연결할 source가 없다. T36이 token의 `coding_connection_credential` 참조를 표에 두면 그 표를 읽는 source를 낸다. 회수된 연결의 token도 참조가 남는 동안은 알려진 값으로 둔다.
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48,
   platform#T35, contracts#T24
+- T13에서 넘어온 것: 문서 읽기 CLI command(index·project·document·read)의 core 실행과 시험, `cliDocumentHistorySchema`에 section 추가, CLI 6단계 통합 시험(MCP 쪽은 #307)
 - T16에서 넘어온 것: CLI `question list|show|open`·`approval list|show|open`을
   apps/cli 실행 entry에서 core client로 잇는다(`runQuestionOpen`·`runApprovalOpen`
   은 `read`만 가진 client를 받는다). MCP `lophn_question`·`lophn_approval`은

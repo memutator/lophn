@@ -296,7 +296,10 @@ async function upload(
   if (declared !== null) {
     length = /^\d+$/.test(declared) ? Number(declared) : Number.NaN;
     if (!Number.isSafeInteger(length) || length > route.max_bytes) {
-      return rejected({ code: "invalid_input", message: "body exceeds limit" });
+      return rejected({
+        code: "invalid_input",
+        message: `body exceeds the ${route.max_bytes} byte limit`,
+      });
     }
   }
   const handler = deps.uploads?.get(routeKey(route));

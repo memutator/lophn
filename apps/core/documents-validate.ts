@@ -2,14 +2,18 @@
 // worker가 설치한 원문 blob을 창 단위로 읽어 감독 pipe의 byte chunk frame으로 documents
 // coordinator에 넘기고, 같은 channel을 가리키는 `documents.validate_files` 요청을 보낸다.
 // coordinator가 권한 없는 format runner로 검사하고 그 결과를 돌려준다. 바이트는 core
-// 메모리에 창 하나보다 오래 머물지 않는다.
+// 메모리에 창 하나보다 오래 머물지 않는다. 바이트는 검사가 읽는 format의 대표 파일만
+// 보낸다(첨부와 pdf·image·data는 보내지 않는다). 그 대표 파일이 한도(1 MiB)를 넘으면
+// 보내지 않고 검사를 하지 못한 결과(명시 format은 error, 미지정은 warning, 한도를 밝힌
+// 진단)를 돌려준다. unavailable로 숨기지 않고 통과로 꾸미지도 않는다.
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import { formatValidationResultSchema } from "../../packages/contracts/documents/mod.ts";
-import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
 import {
-  DOCUMENT_OPS,
-  VALIDATE_INPUT_MAX_BYTES,
-} from "../../packages/documents/file-tracking/mod.ts";
+  formatChecksContent,
+  formatValidationResultSchema,
+} from "../../packages/contracts/documents/mod.ts";
+import { BLOB_READ_MAX_BYTES } from "../../packages/contracts/platform/mod.ts";
+import { DOCUMENT_OPS } from "../../packages/documents/file-tracking/mod.ts";
+import { overLimitOutcome } from "../../packages/documents/formats/mod.ts";
 import type { ValidatePort } from "../../packages/documents/versions/work.ts";
 
 export type ValidateDeps = {
@@ -47,19 +51,35 @@ export function createValidatePort(deps: ValidateDeps): ValidatePort {
     files: Parameters<ValidatePort>[0],
     format: Parameters<ValidatePort>[1],
   ): ReturnType<ValidatePort> {
-    const total = files.reduce((sum, file) => sum + file.bytes, 0);
-    if (total > VALIDATE_INPUT_MAX_BYTES) {
-      // 입력 한도를 넘는 검사는 통과로 꾸미지 않는다.
-      return unavailable("validation input exceeds the limit");
+    // 검사가 읽는 바이트: 바이트를 읽는 format의 대표 파일뿐이다.
+    const reads = (file: (typeof files)[number]) =>
+      formatChecksContent(format.name) && file.primary;
+    const primary = files.find((file) => file.primary);
+    if (primary !== undefined) {
+      // 입력 한도를 넘는 검사는 통과로 꾸미지 않고 한도를 밝힌 결과를 낸다.
+      const skipped = overLimitOutcome(primary, format);
+      if (skipped !== null) return ok(skipped);
     }
     const described: {
       path: string;
       media_type: string;
       primary: boolean;
       bytes: number;
-      channel: number;
+      blob_hash: string;
+      channel: number | null;
     }[] = [];
     for (const file of files) {
+      if (!reads(file)) {
+        described.push({
+          path: file.path,
+          media_type: file.media_type,
+          primary: file.primary,
+          bytes: file.bytes,
+          blob_hash: file.blob_hash,
+          channel: null,
+        });
+        continue;
+      }
       channelCounter = channelCounter % 0xffffffff + 1;
       const channel = channelCounter;
       let offset = 0;
@@ -83,6 +103,7 @@ export function createValidatePort(deps: ValidateDeps): ValidatePort {
         media_type: file.media_type,
         primary: file.primary,
         bytes: file.bytes,
+        blob_hash: file.blob_hash,
         channel,
       });
     }
@@ -93,8 +114,9 @@ export function createValidatePort(deps: ValidateDeps): ValidatePort {
     );
     if (!answered.ok) {
       return err({
-        code: answered.error.code === "not_found"
-          ? "not_found" as const
+        code: answered.error.code === "not_found" ||
+            answered.error.code === "invalid_input"
+          ? answered.error.code
           : "unavailable" as const,
         message: "format validation did not complete",
       });

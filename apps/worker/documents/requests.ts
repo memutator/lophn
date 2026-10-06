@@ -96,8 +96,9 @@ export function createRequestHandler(
             request_id: request.request_id,
             ok: false,
             error: {
-              code: result.error.code === "not_found"
-                ? "not_found"
+              code: result.error.code === "not_found" ||
+                  result.error.code === "invalid_input"
+                ? result.error.code
                 : "unavailable",
               message: "format validation failed",
             },

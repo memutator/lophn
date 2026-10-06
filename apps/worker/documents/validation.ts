@@ -8,6 +8,7 @@ import type { LophnError } from "../../../packages/base/mod.ts";
 import {
   BUILTIN_FORMAT_NAMES,
   type BuiltinFormatName,
+  formatChecksContent,
 } from "../../../packages/contracts/documents/mod.ts";
 import type { Frame } from "../../../packages/contracts/platform/mod.ts";
 import {
@@ -99,8 +100,30 @@ export async function validateFiles(
     primary: boolean;
     content: readonly number[];
   }[] = [];
+  // 바이트를 읽는 format의 대표 파일은 바이트가 와야 한다. 빈 입력으로 통과시키지 않는다.
+  if (
+    formatChecksContent(request.format.name) &&
+    request.files.some((file) => file.primary && file.channel === null)
+  ) {
+    return err({
+      code: "invalid_input",
+      message: "format check needs the primary file bytes",
+    });
+  }
   let primaryBytes: Uint8Array | undefined;
+  let primaryBlobHash: string | undefined;
   for (const file of request.files) {
+    if (file.primary) primaryBlobHash = file.blob_hash;
+    // channel이 없는 파일은 검사가 바이트를 읽지 않는다: 경로·MIME·대표 여부만 넘긴다.
+    if (file.channel === null) {
+      files.push({
+        path: file.path,
+        media_type: file.media_type,
+        primary: file.primary,
+        content: [],
+      });
+      continue;
+    }
     const taken = deps.inbox.take(file.channel, file.bytes);
     if (!taken.ok) return taken;
     if (file.primary) primaryBytes = taken.value;
@@ -114,8 +137,11 @@ export async function validateFiles(
   if (!isBuiltin(request.format.name)) {
     return err({ code: "not_found", message: "format is not supported" });
   }
-  // guest 입력의 input_hash는 주 파일의 hash다. 준비 조립이 목록 hash로 다시 정한다.
-  const inputHash = await sha256Hex(primaryBytes ?? new Uint8Array());
+  // guest 입력의 input_hash는 대표 파일의 hash다. 준비 조립이 목록 hash로 다시 정한다.
+  // 바이트를 받았으면 그 hash를, 보내지 않은 대표 파일은 요청의 blob hash를 쓴다.
+  const inputHash = primaryBytes !== undefined
+    ? await sha256Hex(primaryBytes)
+    : primaryBlobHash ?? await sha256Hex(new Uint8Array());
   return await deps.call({
     operation: "validate",
     name: request.format.name,

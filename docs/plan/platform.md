@@ -558,7 +558,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T22 approval 허락·거절
 
-- 상태: 완료 (#292) — #286: 허락·거절 command와 core 조립(handle 필수, 앱·agent·coding agent·machine 거부, 본 동작·생성 seq·기한 검사, 이유 없는 거절은 null). #292: R16 거절 억제(create가 같은 run이나 같은 원래 사람 요청의 handoff 계보에서 거절된 같은 동작을 conflict로 막는다. 계보는 lophn-agent가 같은 Tx에서 채우는 `approvalRunLineage` port이고 runs/read의 source.message·handoff original_message와 같은 값, Q23)와 approval 대기의 재시작 관측(`observeApprovals`를 `checkRestart`의 owner로 core 기동에 연결, Q24). 남은 것: handoff tool을 거친 계보 E2E는 lophn-agent#T32, machine 만료 timer의 core 연결(Q25)
+- 상태: 완료 (#292) — #286: 허락·거절 command와 core 조립(handle 필수, 앱·agent·coding agent·machine 거부, 본 동작·생성 seq·기한 검사, 이유 없는 거절은 null). #292: R16 거절 억제(create가 같은 run이나 같은 원래 사람 요청의 handoff 계보에서 거절된 같은 동작을 conflict로 막는다. 계보는 lophn-agent가 같은 Tx에서 채우는 `approvalRunLineage` port이고 runs/read의 source.message·handoff original_message와 같은 값, Q23)와 approval 대기의 재시작 관측(`observeApprovals`를 `checkRestart`의 owner로 core 기동에 연결, Q24). 남은 것: handoff tool을 거친 계보 E2E는 lophn-agent#T32. machine 만료 timer의 core 연결(Q25)은 #300에서 했다
 - 등급: 기본
 - concern: platform/approvals
 - 요구: platform/approvals#R3, R4, R5, R15, R16
@@ -770,6 +770,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T32 confirm 앱 command의 approval 사용
 
+- 상태: 완료 (#300) — `confirm.ts`: `invocation.accept_confirm` request는 실제 호출 주체를 요청자로 두고(사람의 허락·거절은 별도 command·event) 정확한 앱·release·command·접수 입력 전체·approval id에 묶이며, 같은 호출의 중복 request는 첫 approval을 가리키는 conflict라 agent 질문과 앱 confirm이 겹쳐도 한 번만 소비된다. 접수와 사용의 한 transaction은 `apply_approved_action`(machine)이 낸다(Q28). 시험: `confirm_test.ts`, 실제 core `apps/core/platform-confirm_test.ts`(접수 command는 시험 전용 `confirm-owner.ts`). 이어보냄: apps#T12가 같은 route로 handler를 등록하면 confirm-owner를 그 등록으로 바꾼다. agent 호출 E2E는 apps#T27
 - 등급: 기본
 - concern: platform/approvals
 - 요구: platform/approvals#R8

@@ -1,0 +1,23 @@
+/* 기다림과 실패 안내는 버튼 옆의 중립 secondary 글이다. 좁으면 버튼 아래로 넘긴다. */
+.action {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+}
+
+.note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.critical {
+  flex: none;
+  color: var(--status-critical-icon);
+}

@@ -85,6 +85,9 @@ function classify(
   if (
     action.concern === RELEASES && action.command === "release.start_activation"
   ) return "release";
+  if (action.concern === PERMISSIONS && action.command === "grant.revoke") {
+    return "grant";
+  }
   if (action.concern === PERMISSIONS && action.command === "grant.create") {
     return record(record(action.value).scope).kind === "automation.run"
       ? "automation"
@@ -152,6 +155,26 @@ async function grant(
   action: Action,
   value: Record<string, unknown>,
 ): Promise<Found> {
+  if (action.command === "grant.revoke") {
+    const listed = await read(core, "grants", "list", {
+      ...(typeof value.app === "string" ? { app: value.app } : {}),
+      limit: 200,
+    });
+    if (!listed.ok) return listed;
+    const found =
+      (Array.isArray(listed.value.grants) ? listed.value.grants : []).map(
+        record,
+      ).find((item) => item.id === value.grant && item.status === "active");
+    if (found === undefined || action.targets[0] !== value.grant) return MOVED;
+    const shown = await grant(core, {
+      ...action,
+      command: "grant.create",
+      targets: [String(found.app)],
+    }, found);
+    return shown.ok
+      ? { ok: true, value: { ...shown.value, operation: "revoke" } }
+      : shown;
+  }
   const app = value.app;
   const kind = value.kind;
   if (

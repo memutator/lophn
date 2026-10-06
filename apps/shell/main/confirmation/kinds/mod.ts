@@ -8,7 +8,8 @@ import type {
 } from "../coordinator.ts";
 import type { LiveHandle } from "../handle.ts";
 import type { ConfirmationIntent } from "../types.ts";
-import { readApproval, submitApproval } from "./approval.ts";
+import { appDecisions } from "./app-decisions.ts";
+import { GRANT, readApproval, submitApproval } from "./approval.ts";
 import { failed, type KindCore, record, type Sent } from "./core.ts";
 import { readOptionAction, submitOptionAction } from "./option-action.ts";
 import {
@@ -43,6 +44,7 @@ export function createKinds(options: KindsOptions): {
     newRevertId(options.clock.now(), options.random)
   );
   // 결과를 모르면 같은 handle·같은 결정으로 다시 보내 receipt만 받는다(idempotency).
+  const apps = appDecisions(() => options.clock.now(), options.random);
   const sentWith = new Map<string, { decision: string; input: unknown }>();
 
   const canon: CanonPort = {
@@ -63,7 +65,7 @@ export function createKinds(options: KindsOptions): {
           ) {
             return readRevert(core, reverts, windowId, run);
           }
-          return Promise.resolve(failed("not_found", "이 결정을 찾지 못했다"));
+          return apps.read(core, intent, windowId);
         }
         case "secret_input":
           return readSecretInput(core, intent);
@@ -71,7 +73,7 @@ export function createKinds(options: KindsOptions): {
     },
   };
 
-  const send = (
+  const send = async (
     handle: LiveHandle,
     decision: string,
     commandInput: unknown,
@@ -81,7 +83,7 @@ export function createKinds(options: KindsOptions): {
     if (core === null) return Promise.resolve({ ok: false, unknown: true });
     const request = canonical?.request;
     if (request?.kind === "approval_request") {
-      return submitApproval(core, {
+      const sent = await submitApproval(core, {
         handle,
         decision,
         approval: request.approval,
@@ -89,6 +91,8 @@ export function createKinds(options: KindsOptions): {
         bindingHash: request.binding_hash,
         commandInput,
       });
+      if (!sent.ok || decision !== GRANT) return sent;
+      return await apps.apply(core, request.approval) ?? sent;
     }
     if (request?.kind === "question_option_action") {
       return submitOptionAction(core, {
@@ -141,6 +145,7 @@ export function createKinds(options: KindsOptions): {
     ),
     closed(windowId) {
       reverts.forget(windowId);
+      apps.forget(windowId);
     },
   };
 }

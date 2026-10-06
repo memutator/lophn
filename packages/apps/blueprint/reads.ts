@@ -40,6 +40,7 @@ export type ActiveBlueprint = {
 export type ActiveBlueprintLoader = (
   sql: ReadSnapshot["sql"],
   app: string,
+  release?: string,
 ) => Result<ActiveBlueprint | null>;
 
 function notFound(): Result<never> {
@@ -63,9 +64,11 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
         });
         if (appAccessDenied(access)) return notFound();
         if (!access.ok) return access;
-        const active = load(snapshot.sql, input.app);
+        const active = load(snapshot.sql, input.app, input.release);
         if (!active.ok) return active;
-        if (active.value === null) return notFound();
+        if (active.value === null || active.value.release.app !== input.app) {
+          return notFound();
+        }
         const { release, blueprint, declarations } = active.value;
         const gaps = descriptionGaps(blueprint);
         const commands: AppBlueprintCommand[] = blueprint.commands.map((

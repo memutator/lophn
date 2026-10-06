@@ -41,6 +41,8 @@ export interface ThingsToConfirmProps {
   deps: RequestDeps;
   /** 처음 고른 탭. 테스트와 chip이 고른다. */
   initialTab?: ConfirmTab;
+  /** 처음 고른 요청. 링크로 열 때 쓴다. 고르기만 하고 결정 창은 열지 않는다. */
+  initialSelected?: string;
 }
 
 interface Loaded {
@@ -75,12 +77,14 @@ function periodLabel(period: PeriodFilter): string {
 // 역할·기간으로 거른다(shell/desktop#R9). 목록을 읽거나 고르는 것만으로는 아무것도 보내지
 // 않는다. 세션 없는 요청도 여기서 열어 답한다(R6).
 export function ThingsToConfirm(
-  { deps, initialTab = "waiting" }: ThingsToConfirmProps,
+  { deps, initialTab = "waiting", initialSelected }: ThingsToConfirmProps,
 ) {
   const { source, drafts, ticks = intervalTicks, now = Date.now } = deps;
   const [tab, setTab] = useState<ConfirmTab>(initialTab);
   const [filter, setFilter] = useState<Filter>(ALL);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(
+    initialSelected ?? null,
+  );
   const [loaded, setLoaded] = useState<Loaded>({
     overview: null,
     checkedAt: null,

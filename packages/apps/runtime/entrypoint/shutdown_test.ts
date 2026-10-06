@@ -44,7 +44,7 @@ async function until(read: () => boolean, ms = 3_000): Promise<boolean> {
   return false;
 }
 
-async function boot(dir: string, exits: number[]) {
+function boot(dir: string, exits: number[]) {
   const socket = `${dir}/a.sock`;
   const started = startRuntime({
     line: startLine({ direct_socket: socket, broker_socket: `${dir}/b.sock` }),
@@ -64,7 +64,7 @@ async function boot(dir: string, exits: number[]) {
 Deno.test("apps/runtime#R15: shutdown 요청은 진행 중인 호출이 없으면 응답 뒤 바로 프로세스를 끝낸다", async () => {
   const dir = await Deno.makeTempDir();
   const exits: number[] = [];
-  const { socket, state, server } = await boot(dir, exits);
+  const { socket, state, server } = boot(dir, exits);
   try {
     // platform machine 연결이 아니면 받지 않고 끝내지도 않는다.
     assertEquals(await shutdownCall(socket, "user"), 403);
@@ -88,7 +88,7 @@ Deno.test("apps/runtime#R15: shutdown 요청은 진행 중인 호출이 없으�
 Deno.test("apps/runtime#R15: 진행 중인 호출은 끝나기를 기다리고 유예가 지나면 기다리지 않는다", async () => {
   const dir = await Deno.makeTempDir();
   const exits: number[] = [];
-  const { socket, state, server } = await boot(dir, exits);
+  const { socket, state, server } = boot(dir, exits);
   try {
     state.invocations.set("inv_01h455vb4pex5v6nkc6gd5fdw8", {
       id: "inv_01h455vb4pex5v6nkc6gd5fdw8",
@@ -115,7 +115,7 @@ Deno.test("apps/runtime#R15: 진행 중인 호출은 끝나기를 기다리고 �
 Deno.test("apps/runtime#R15: 유예가 지나도 끝나지 않는 호출이 있으면 그 호출을 두고 끝낸다", async () => {
   const dir = await Deno.makeTempDir();
   const exits: number[] = [];
-  const { socket, state, server } = await boot(dir, exits);
+  const { socket, state, server } = boot(dir, exits);
   try {
     state.invocations.set("inv_01h455vb4pex5v6nkc6gd5fdw8", {
       id: "inv_01h455vb4pex5v6nkc6gd5fdw8",

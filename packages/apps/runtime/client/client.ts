@@ -4,7 +4,7 @@
 // 돌려주고 자동으로 다시 부르지 않는다(R12). 같은 request_key로 다시 부르면 앱이 같은 결과를
 // 돌려준다(handler를 다시 실행하지 않는다).
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { z } from "zod";
+import type { z } from "zod";
 import {
   type AppConnectInput,
   type AppConnection,

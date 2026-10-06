@@ -76,6 +76,8 @@ export function handleControl(
       return error(409, "conflict", "open release mismatch");
     }
     state.accepting = true;
+    // 업무 통로가 열린 때가 automation 시작 기준이다(apps/automations#R3).
+    state.automations?.open();
     return { status: 200, body: { accepting: true } };
   }
   if (path.endsWith("/close")) {
@@ -85,6 +87,7 @@ export function handleControl(
     }
     state.accepting = false;
     state.closed = true;
+    state.automations?.close();
     return { status: 200, body: { closed: true } };
   }
   if (path.endsWith("/shutdown")) {
@@ -94,6 +97,7 @@ export function handleControl(
     }
     state.accepting = false;
     state.closed = true;
+    state.automations?.close();
     return { status: 200, body: { accepted: true } };
   }
   return error(404, "not_found", "unknown control path");

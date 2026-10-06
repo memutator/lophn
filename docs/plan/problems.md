@@ -193,6 +193,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - slice: apps
 - 선행: problems#T7, contracts#T34, platform#T7, platform#T8, platform#T12, platform#T30, apps#T6, apps#T7
 - 상태: 완료 (#191, #203)
+- coding-agent#T21에서 넘어온 것: 접수 기록의 `request_timeout_ms`(RequestTest `timeout_ms`, payload에 저장됨)를 runner 실행 입력(`PrepareInput.request_timeout_ms`)에 잇는다. `prepareCommand`는 이미 동결 method의 timeout과 짧은 쪽을 쓰지만 접수 기록에서 `PrepareInput`을 만드는 조립은 아직 없다
 - 완료:
   - 자식은 `deno test --no-prompt --cached-only --frozen-lockfile --v8-flags=--max-old-space-size=256`, 읽기는 고정 source·의존·harness, 쓰기는 side의 scratch·fixture DB, 환경은 명시한 안전 변수만; `-A`·무제한 read/write/env/net·`--allow-run`·FFI 요청은 거절(R13, R14). deno 2.9에 `--locked`가 없어 잠긴 lockfile은 `--frozen-lockfile`이다
   - 운영 DB·backup·keychain·홈 경로 접근이 실패하고 fixture DB만 바뀐다(R13)

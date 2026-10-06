@@ -1,7 +1,14 @@
 import { assert, assertEquals } from "@std/assert";
 import type { App, RuntimeObservation } from "../../contracts/apps/mod.ts";
 import type { RequestContext } from "../../contracts/platform/mod.ts";
-import { createRuntimeReads } from "./reads.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
+import {
+  createRuntimeReads,
+  type MainRead,
+  type RuntimeSources,
+  withRuntimeLogs,
+  withRuntimeObservation,
+} from "./reads.ts";
 import { createAppSnapshot } from "./testing/mod.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
@@ -184,4 +191,179 @@ Deno.test("apps/runtime#R14: 범위 밖 앱과 없는 앱은 같은 not_found로
   } finally {
     fixture.close();
   }
+});
+
+// reader Worker가 접근을 판정하고 만든 값. 메인 스레드가 현재 관측·log로 덮는다.
+const pooled = (extra: Record<string, unknown> = {}): MainRead => () =>
+  ok({
+    app: APP,
+    state: { state: "unavailable", termination_pending: false },
+    observation: null,
+    observed_at: null,
+    as_of_seq: "7",
+    next_cursor: null,
+    ...extra,
+  });
+
+function sources(over: Partial<RuntimeSources> = {}): RuntimeSources {
+  return {
+    observation: () => Promise.resolve(ok(live)),
+    logs: () =>
+      Promise.resolve(ok({
+        state: "ok" as const,
+        lines: ["one", "two"],
+        collected_at: "2026-10-05T00:00:00.000Z",
+        truncated: false,
+      })),
+    app: () =>
+      Promise.resolve(ok({
+        active_release: REL,
+        status: "active" as const,
+        run_enabled: true,
+      })),
+    redact: (line) => line,
+    now: () => "2026-10-05T00:00:01.000Z",
+    ...over,
+  };
+}
+
+Deno.test("apps/runtime#R13: 메인의 관측 source는 reader가 낸 값에 현재 관측과 계산한 상태를 얹고 접근 판정은 reader 것을 그대로 쓴다", async () => {
+  const read = withRuntimeObservation(pooled(), sources());
+  const answered = await read(ctx as never, { app: APP });
+  assert(answered.ok);
+  const value = answered.value as {
+    state: { state: string };
+    observation: RuntimeObservation | null;
+    observed_at: string | null;
+    as_of_seq: string;
+  };
+  assertEquals(value.state.state, "running");
+  assertEquals(value.observation, live);
+  assertEquals(value.observed_at, "2026-10-05T00:00:01.000Z");
+  assertEquals(value.as_of_seq, "7");
+  // reader가 거절한 요청(범위 밖 앱)은 source를 부르지 않고 그대로 거절이다.
+  let asked = 0;
+  const denied = withRuntimeObservation(
+    () => err({ code: "not_found", message: "app not found" }),
+    sources({
+      observation: () => {
+        asked += 1;
+        return Promise.resolve(ok(live));
+      },
+    }),
+  );
+  const refused = await denied(ctx as never, { app: APP });
+  assert(!refused.ok);
+  assertEquals(asked, 0);
+});
+
+Deno.test("apps/runtime#R13: supervisor를 읽지 못하면 과거 event로 running이라 하지 않고 관측 없음이다", async () => {
+  const down = withRuntimeObservation(
+    pooled(),
+    sources({
+      observation: (): Promise<Result<RuntimeObservation | null>> =>
+        Promise.resolve(err({ code: "unavailable", message: "down" })),
+    }),
+  );
+  const answered = await down(ctx as never, { app: APP });
+  assert(answered.ok);
+  const value = answered.value as {
+    state: { state: string; reason?: { code: string } };
+    observation: unknown;
+    observed_at: unknown;
+  };
+  assertEquals(value.state.state, "unavailable");
+  assertEquals(value.state.reason?.code, "no_observation");
+  assertEquals(value.observation, null);
+  assertEquals(value.observed_at, null);
+});
+
+Deno.test("apps/runtime#R15: 멈춘 앱의 live 관측은 종료 확인 전이라는 뜻이다", async () => {
+  const stopped = withRuntimeObservation(
+    pooled(),
+    sources({
+      app: () =>
+        Promise.resolve(ok({
+          active_release: REL,
+          status: "active" as const,
+          run_enabled: false,
+        })),
+      observation: () =>
+        Promise.resolve(ok({
+          ...live,
+          ready: false,
+          accepting: false,
+          reason: { code: "terminating", summary: "stop requested" },
+        })),
+    }),
+  );
+  const answered = await stopped(ctx as never, { app: APP });
+  assert(answered.ok);
+  assertEquals(
+    (answered.value as { state: unknown }).state,
+    { state: "stopped", termination_pending: true },
+  );
+});
+
+Deno.test("apps/runtime#R14: log source는 접근을 통과한 앱의 줄을 redaction해서 주고 없거나 안전화 못 하면 none이다", async () => {
+  const logs = withRuntimeLogs(
+    () =>
+      ok({
+        state: "none",
+        lines: [],
+        collected_at: null,
+        truncated: false,
+        as_of_seq: "7",
+        next_cursor: null,
+      }),
+    sources({ redact: (line) => line.replace("two", "[redacted]") }),
+  );
+  const answered = await logs(ctx as never, { app: APP, limit: 10 });
+  assert(answered.ok);
+  const value = answered.value as {
+    state: string;
+    lines: string[];
+    collected_at: string | null;
+  };
+  assertEquals(value.state, "ok");
+  assertEquals(value.lines, ["one", "[redacted]"]);
+  // source에 닿지 못하면 없는 log를 만들지 않는다.
+  const unreachable = withRuntimeLogs(
+    () =>
+      ok({
+        state: "none",
+        lines: [],
+        collected_at: null,
+        truncated: false,
+        as_of_seq: "7",
+        next_cursor: null,
+      }),
+    sources({
+      logs: () =>
+        Promise.resolve(err({ code: "unavailable", message: "down" })),
+    }),
+  );
+  const none = await unreachable(ctx as never, { app: APP });
+  assert(none.ok);
+  assertEquals((none.value as { state: string }).state, "none");
+  // 알려진 secret 목록을 아직 다 모르면(redact가 null) 줄을 내보내지 않는다.
+  const unsafe = withRuntimeLogs(
+    () =>
+      ok({
+        state: "none",
+        lines: [],
+        collected_at: null,
+        truncated: false,
+        as_of_seq: "7",
+        next_cursor: null,
+      }),
+    sources({ redact: () => null }),
+  );
+  const withheld = await unsafe(ctx as never, { app: APP });
+  assert(withheld.ok);
+  assertEquals(
+    (withheld.value as { state: string; lines: string[] }).lines,
+    [],
+  );
+  assertEquals((withheld.value as { state: string }).state, "none");
 });

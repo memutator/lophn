@@ -40,6 +40,8 @@ const started = await startCore({
   // 제품 writer는 자기 system clock으로 커밋 시각을 따라간다.
   writerClock: "system",
   teams: TEAMS,
+  // 앱 프로세스 감독(apps/supervisor)은 상시 신뢰 child다. 제품 기동만 띄운다.
+  appSupervisor: true,
   teamModules: [
     new URL("./documents.ts", import.meta.url).href,
     new URL("./apps.ts", import.meta.url).href,

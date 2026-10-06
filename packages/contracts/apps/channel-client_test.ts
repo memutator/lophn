@@ -37,6 +37,7 @@ Deno.test("apps/runtime#R5, apps/runtime#R8, apps/preview#R3: transport 주입�
         bytes: new TextEncoder().encode(JSON.stringify({
           endpoint: "/run/user/lophn/a-1.sock",
           connection,
+          signature: "A".repeat(86),
         })),
       });
     },
@@ -69,6 +70,7 @@ Deno.test("apps/runtime#R5, apps/runtime#R8, apps/preview#R3: transport 주입�
   };
   const connected = await client.connect(input);
   assert(connected.ok);
+  assertEquals(connected.value.signature, "A".repeat(86));
   const invoked = await client.invoke(
     connected.value.endpoint,
     "connection-1",

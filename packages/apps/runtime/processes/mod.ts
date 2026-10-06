@@ -1,4 +1,9 @@
-export { createSocketDirectory } from "./socket-dir.ts";
+export {
+  allSlotSockets,
+  createSocketDirectory,
+  slotSockets,
+  SOCKET_SLOTS,
+} from "./socket-dir.ts";
 export type { SocketDirDeps, SocketDirectory } from "./socket-dir.ts";
 export { sameChild } from "./identity.ts";
 export type { ChildIdentity } from "./identity.ts";

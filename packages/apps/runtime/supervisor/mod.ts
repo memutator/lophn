@@ -8,11 +8,13 @@ export {
   recentExits,
 } from "./restart-policy.ts";
 export type { UnexpectedExit } from "./restart-policy.ts";
-export { attachControlLink, encodeControl } from "./control-link.ts";
+export { attachControlLink, encodeControl, OpError } from "./control-link.ts";
 export type {
+  ControlHello,
   ControlLink,
-  ControlMessage,
+  ControlLinkOptions,
   ControlReader,
+  OpHandlers,
 } from "./control-link.ts";
 export { createSupervisor, STOP_GRACE_MS } from "./supervisor.ts";
 export type {
@@ -22,4 +24,5 @@ export type {
   ProbeResult,
   Supervisor,
   SupervisorDeps,
+  SupervisorEvent,
 } from "./supervisor.ts";

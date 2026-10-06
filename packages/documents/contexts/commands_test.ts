@@ -611,3 +611,449 @@ function assertThrowsAbort(run: () => unknown) {
   }
   assert(thrown);
 }
+
+// ---- context.record_watch_change (documents#T24) ----
+
+const VER_1 = "ver_01arz3ndektsv4rrffq69g5fav";
+const VER_2 = "ver_01arz3ndektsv4rrffq69g5fb0";
+const HASH_1 = "a".repeat(64);
+const HASH_2 = "b".repeat(64);
+const machine = userContext("machine");
+
+type Fixture = ReturnType<typeof contextFixture>;
+
+// 저장 event를 ledger에 남긴다. command는 이 event의 전후 판과 같은 비교만 받는다.
+function save(
+  fixture: Fixture,
+  version = VER_2,
+  previous: string | null = VER_1,
+) {
+  return fixture.recordEvent("DocumentSaved", ids.doc, {
+    version,
+    previous_version: previous,
+    content_hash: HASH_2,
+    format: { name: "document", module_hash: HASH_1 },
+    source: null,
+  });
+}
+
+function comparison(
+  sourceSeq: string,
+  revision: string,
+  over: Record<string, unknown> = {},
+) {
+  return {
+    context: ids.context,
+    context_revision: revision,
+    target: { kind: "document", document: ids.doc, section: null },
+    source_seq: sourceSeq,
+    before_version: VER_1,
+    after_version: VER_2,
+    result: "content_changed",
+    before_hash: HASH_1,
+    after_hash: HASH_2,
+    module_hashes: { before: HASH_1, after: HASH_1 },
+    unverified_reason: null,
+    ...over,
+  };
+}
+
+function record(
+  fixture: Fixture,
+  input: ReturnType<typeof comparison>,
+  actor = machine,
+) {
+  return fixture.transaction((tx) =>
+    commands.recordWatchChange.handle(tx, actor, input as never, {
+      base_revision: input.context_revision,
+    })
+  );
+}
+
+function changedEvents(fixture: Fixture) {
+  return fixture.emitted.filter((event) =>
+    event.type === "ContextWatchedItemChanged"
+  );
+}
+
+function changeCount(fixture: Fixture): unknown {
+  return fixture.sql.get(
+    "SELECT COUNT(*) AS count FROM context_watch_changes",
+    [],
+  )
+    ?.["count"];
+}
+
+Deno.test("documents/contexts#R10: 확인된 변화는 전후 고정 판과 대상을 담은 event 하나와 기록 하나를 남기고 revision은 그대로다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, "요약", "watch")]),
+    );
+    const sourceSeq = save(fixture);
+    const result = keep(record(
+      fixture,
+      comparison(sourceSeq, created.revision, {
+        target: { kind: "document", document: ids.doc, section: "요약" },
+        result: "section_missing",
+        after_hash: null,
+      }),
+    ));
+    // 기록은 구성 변경이 아니다.
+    assertEquals(result, {
+      id: ids.context,
+      revision: created.revision,
+      status: "active",
+    });
+    const events = changedEvents(fixture);
+    assertEquals(events.length, 1);
+    assertEquals(events[0].subject, ids.context);
+    assertEquals(events[0].payload, {
+      target: { kind: "document", document: ids.doc, section: "요약" },
+      before_version: VER_1,
+      after_version: VER_2,
+      source_seq: sourceSeq,
+      change_kind: "section_missing",
+    });
+    assertEquals(changeCount(fixture), 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R11: 같음·미확인 비교는 event도 기록도 만들지 않는다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, null, "watch")]),
+    );
+    const sourceSeq = save(fixture);
+    const same = record(
+      fixture,
+      comparison(sourceSeq, created.revision, {
+        result: "unchanged",
+        after_hash: HASH_1,
+      }),
+    );
+    assert(!same.ok);
+    assertEquals(same.error.code, "invalid_input");
+    const unknown = record(
+      fixture,
+      comparison(sourceSeq, created.revision, {
+        result: "unverified",
+        before_hash: null,
+        after_hash: null,
+        unverified_reason: "after version: extraction failed",
+      }),
+    );
+    assert(!unknown.ok);
+    assertEquals(unknown.error.code, "invalid_input");
+    assertEquals(changedEvents(fixture).length, 0);
+    assertEquals(changeCount(fixture), 0);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R12: 같은 context·항목·새 판의 재전달은 event 하나만 남긴다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, null, "watch")]),
+    );
+    const sourceSeq = save(fixture);
+    const input = comparison(sourceSeq, created.revision);
+    keep(record(fixture, input));
+    // 같은 결과를 다시 받는다(응답이 늦거나 잃은 재시도).
+    const again = keep(record(fixture, input));
+    assertEquals(again.id, ids.context);
+    assertEquals(changedEvents(fixture).length, 1);
+    assertEquals(changeCount(fixture), 1);
+    // 그 뒤 구성이 바뀌어도(보관) 이미 남은 기록의 재전달은 같은 결과다.
+    const archived = keep(
+      fixture.transaction((tx) =>
+        commands.archive.handle(tx, userContext(), { context: ids.context }, {
+          base_revision: created.revision,
+        })
+      ),
+    );
+    const late = keep(record(
+      fixture,
+      comparison(sourceSeq, archived.revision),
+    ));
+    assertEquals(late.status, "archived");
+    assertEquals(changedEvents(fixture).length, 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R12: 비교 중 관점·대상을 바꾸거나 보관하거나 저장 뒤에 추가한 항목의 결과는 거절한다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [
+        item(ids.doc, null, "watch"),
+        item(ids.doc, "요약", "watch"),
+      ]),
+    );
+    const sourceSeq = save(fixture);
+    // 비교하는 동안 문서 전체 항목의 관점을 기준으로 바꿨다.
+    const changed = keep(
+      fixture.transaction((tx) =>
+        commands.setItem.handle(
+          tx,
+          userContext(),
+          {
+            context: ids.context,
+            item: item(ids.doc, null, "basis"),
+          } as never,
+          { base_revision: created.revision },
+        )
+      ),
+    );
+    const stale = record(fixture, comparison(sourceSeq, changed.revision));
+    assert(!stale.ok);
+    assertEquals(stale.error.code, "conflict");
+    // 바뀌지 않은 section 항목은 같은 시점의 결과를 받는다.
+    keep(record(
+      fixture,
+      comparison(sourceSeq, changed.revision, {
+        target: { kind: "document", document: ids.doc, section: "요약" },
+      }),
+    ));
+    // 저장 뒤에 추가한 항목은 과거 변화의 대상이 아니다.
+    const added = keep(
+      fixture.transaction((tx) =>
+        commands.setItem.handle(
+          tx,
+          userContext(),
+          {
+            context: ids.context,
+            item: item(ids.doc, "위험", "watch"),
+          } as never,
+          { base_revision: changed.revision },
+        )
+      ),
+    );
+    const late = record(
+      fixture,
+      comparison(sourceSeq, added.revision, {
+        target: { kind: "document", document: ids.doc, section: "위험" },
+      }),
+    );
+    assert(!late.ok);
+    assertEquals(late.error.code, "conflict");
+    // 보관한 context의 변화는 기록하지 않는다(contexts#R7).
+    const archived = keep(
+      fixture.transaction((tx) =>
+        commands.archive.handle(tx, userContext(), { context: ids.context }, {
+          base_revision: added.revision,
+        })
+      ),
+    );
+    const next = "ver_01arz3ndektsv4rrffq69g5fb1";
+    const afterArchive = save(fixture, next, VER_2);
+    const inactive = record(
+      fixture,
+      comparison(afterArchive, archived.revision, {
+        before_version: VER_2,
+        after_version: next,
+        target: { kind: "document", document: ids.doc, section: "요약" },
+      }),
+    );
+    assert(!inactive.ok);
+    assertEquals(inactive.error.code, "conflict");
+    assertEquals(changedEvents(fixture).length, 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R12: context revision이 낡았거나 입력의 revision과 다르면 거절한다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, null, "watch")]),
+    );
+    const sourceSeq = save(fixture);
+    // 비교하는 동안 제목이 바뀌어 revision이 앞섰다.
+    keep(
+      fixture.transaction((tx) =>
+        commands.update.handle(
+          tx,
+          userContext(),
+          { context: ids.context, title: "Renamed" },
+          { base_revision: created.revision },
+        )
+      ),
+    );
+    const stale = record(fixture, comparison(sourceSeq, created.revision));
+    assert(!stale.ok);
+    assertEquals(stale.error.code, "conflict");
+    // 입력의 비교 기준과 base_revision이 다르면 모양이 틀린 제출이다.
+    const mismatch = fixture.transaction((tx) =>
+      commands.recordWatchChange.handle(
+        tx,
+        machine,
+        comparison(sourceSeq, created.revision) as never,
+        { base_revision: "3" },
+      )
+    );
+    assert(!mismatch.ok);
+    assertEquals(mismatch.error.code, "invalid_input");
+    assertEquals(changedEvents(fixture).length, 0);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R10: 기록은 machine만 하고 원래 저장 event와 전후 판이 다른 제출은 거절한다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, null, "watch")]),
+    );
+    const sourceSeq = save(fixture);
+    for (const actor of ["user", "agent:run"]) {
+      const denied = record(
+        fixture,
+        comparison(sourceSeq, created.revision),
+        userContext(actor, actor === "user" ? undefined : ids.run),
+      );
+      assert(!denied.ok);
+      assertEquals(denied.error.code, "forbidden");
+    }
+    // 저장 event가 아닌 seq, 다른 판을 가리키는 비교는 꾸민 근거다.
+    const notSaved = record(fixture, comparison("1", created.revision));
+    assert(!notSaved.ok);
+    assertEquals(notSaved.error.code, "invalid_input");
+    const wrongVersion = record(
+      fixture,
+      comparison(sourceSeq, created.revision, {
+        after_version: "ver_01arz3ndektsv4rrffq69g5fb2",
+      }),
+    );
+    assert(!wrongVersion.ok);
+    assertEquals(wrongVersion.error.code, "invalid_input");
+    assertEquals(changedEvents(fixture).length, 0);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R13: 앱 read command 항목의 watch는 변화 기록 대상이 아니다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(create(fixture, ids.context, [appItem("watch")]));
+    const sourceSeq = save(fixture);
+    // 앱 target으로는 비교를 제출할 수 없고, 같은 문서 항목이 없으니 기록도 없다.
+    const app = record(
+      fixture,
+      comparison(sourceSeq, created.revision, {
+        target: { kind: "app_command", app: ids.app, command: "read_notes" },
+      }),
+    );
+    assert(!app.ok);
+    assertEquals(app.error.code, "invalid_input");
+    const document = record(fixture, comparison(sourceSeq, created.revision));
+    assert(!document.ok);
+    assertEquals(document.error.code, "conflict");
+    assertEquals(changedEvents(fixture).length, 0);
+    // 앱 호출이나 다른 event도 만들지 않는다.
+    assertEquals(fixture.emitted.map((event) => event.type), [
+      "ContextCreated",
+    ]);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R12: event가 열 개를 넘어도 구성은 seq 순서(숫자)로 재생한다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    let current = keep(
+      create(fixture, ids.context, [item(ids.doc, null, "watch")]),
+    );
+    // 관점을 왔다 갔다 바꿔 seq를 두 자리까지 올리고 마지막은 watch로 둔다.
+    for (let round = 0; round < 13; round += 1) {
+      const perspective = round % 2 === 0 ? "watch" : "basis";
+      current = keep(
+        fixture.transaction((tx) =>
+          commands.setItem.handle(
+            tx,
+            userContext(),
+            {
+              context: ids.context,
+              item: item(ids.doc, null, perspective),
+            } as never,
+            { base_revision: current.revision },
+          )
+        ),
+      );
+    }
+    const sourceSeq = save(fixture);
+    assertEquals(Number(sourceSeq) > 10, true);
+    keep(record(fixture, comparison(sourceSeq, current.revision)));
+    assertEquals(changedEvents(fixture).length, 1);
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R10: 복원이 만든 새 판의 변화도 저장과 같은 전후 판 비교로 한 번 기록한다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, null, "watch")]),
+    );
+    // VER_1을 복원해 새 최신 판(VER_2)이 생겼다. 비교 기준은 event 이름이 아니라 전후 판이다.
+    const restoredSeq = fixture.recordEvent("DocumentRestored", ids.doc, {
+      restore_version: VER_1,
+      previous_version: VER_1,
+      version: VER_2,
+    });
+    const input = comparison(restoredSeq, created.revision);
+    keep(record(fixture, input));
+    keep(record(fixture, input));
+    const events = changedEvents(fixture);
+    assertEquals(events.length, 1);
+    assertEquals(
+      (events[0].payload as { source_seq: string }).source_seq,
+      restoredSeq,
+    );
+    // 복원 event의 판과 다른 비교는 거절한다.
+    const wrong = record(
+      fixture,
+      comparison(restoredSeq, created.revision, {
+        after_version: "ver_01arz3ndektsv4rrffq69g5fb2",
+      }),
+    );
+    assert(!wrong.ok);
+    assertEquals(wrong.error.code, "invalid_input");
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R12: 없는 context는 not_found다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const sourceSeq = save(fixture);
+    const missing = record(fixture, comparison(sourceSeq, "1"));
+    assert(!missing.ok);
+    assertEquals(missing.error.code, "not_found");
+  } finally {
+    fixture.close();
+  }
+});

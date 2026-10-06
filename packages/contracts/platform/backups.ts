@@ -1,7 +1,12 @@
 import { z } from "zod";
 import { withReadCommon } from "./envelope.ts";
-import { ACTOR_KINDS, defineRead } from "./route.ts";
+import { ACTOR_KINDS, type ActorKind, defineRead } from "./route.ts";
 import { atSchema, seqSchema, sha256Schema } from "./values.ts";
+
+// backup은 coding agent가 읽지 못한다(coding-agent/mcp-server#R30).
+const BACKUP_READERS: readonly ActorKind[] = ACTOR_KINDS.filter((kind) =>
+  kind !== "coding_agent"
+);
 
 // architecture/platform 7.5. domain model의 BackupManifest 필드와 같다.
 export const BACKUP_MANIFEST_FORMAT = 1;
@@ -89,7 +94,7 @@ export const backupsList = defineRead({
   output: withReadCommon(z.object({
     backups: z.array(backupManifestSchema),
   })),
-  actors: ACTOR_KINDS,
+  actors: BACKUP_READERS,
   errors: readErrors,
 });
 
@@ -99,7 +104,7 @@ export const backupsGet = defineRead({
   name: "GetBackup",
   input: z.strictObject({ created_at: atSchema }),
   output: withReadCommon(z.object({ manifest: backupManifestSchema })),
-  actors: ACTOR_KINDS,
+  actors: BACKUP_READERS,
   errors: readErrors,
 });
 

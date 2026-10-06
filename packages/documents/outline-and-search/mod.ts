@@ -46,6 +46,18 @@ export {
   trimmedQuery,
 } from "./model.ts";
 export { SEARCH_CONSUMER, WATCH_CONSUMER } from "./work-consumers.ts";
+export {
+  advanceWatchCursor,
+  applyWatchStep,
+  type DerivedSectionState,
+  listWatchUnverified,
+  loadWatchSectionState,
+  WATCH_PENDING_REASON,
+  watchCursorOf,
+  type WatchRead,
+  type WatchStore,
+  type WatchUnverifiedRow,
+} from "./watch.ts";
 
 export type {
   ContextOutlineItem,
@@ -63,11 +75,16 @@ export {
   parseSearchAdvance,
   parseSearchApply,
   parseSearchLedger,
+  parseWatchApply,
   SEARCH_CONSUMED_EVENTS,
   SEARCH_INPUT_MAX_BYTES,
   SEARCH_OPS,
   type SearchApplyRequest,
   type SearchExtractionRequest,
+  WATCH_CONSUMED_EVENTS,
+  WATCH_OPS,
+  type WatchApplyRequest,
+  type WatchVersionInfo,
 } from "./ipc.ts";
 export {
   type ComparedVersion,

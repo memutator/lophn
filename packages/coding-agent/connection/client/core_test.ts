@@ -7,7 +7,11 @@ import {
   type RpcFetch,
   UPLOAD_INPUT_HEADER,
 } from "../../../contracts/platform/mod.ts";
-import { createCoreClient, type UploadFetch } from "./core.ts";
+import {
+  createCoreClient,
+  UNREADABLE_MESSAGE,
+  type UploadFetch,
+} from "./core.ts";
 
 const save = defineCommand({
   resource: "documents",
@@ -317,6 +321,67 @@ Deno.test(
     assert(!conflict.ok);
     assertEquals(conflict.error.code, "conflict");
     assertEquals(conflict.error.message, "document already exists");
+  },
+);
+
+const probe = defineRead({
+  resource: "documents",
+  method: "get",
+  name: "Probe",
+  input: z.strictObject({ id: z.string() }),
+  output: z.object({ title: z.string() }),
+  actors: ["user"],
+  errors: [],
+});
+
+Deno.test(
+  "coding-agent/connection#R5 coding-agent/connection#R6: core의 not_found는 메시지·details를 버리고 같은 답이며 다른 오류는 그대로다",
+  async () => {
+    function clientFor(status: number, error: Record<string, unknown>) {
+      return createCoreClient({
+        baseUrl: "http://127.0.0.1:7431",
+        connection: "cac_01arz3ndektsv4rrffq69g5fav",
+        provider: providerAlways("tok"),
+        fetch: scripted(() => ({
+          status,
+          body: json({ error }),
+          type: "application/json",
+        })),
+      });
+    }
+    // 범위 밖과 없는 대상은 core 메시지가 달라도 이 client를 지나면 같은 답이다.
+    const hidden = await clientFor(404, {
+      code: "not_found",
+      message: "document doc_secret in prj_other not found",
+      details: { title: "비공개 제목" },
+    }).read(probe, { id: "a" });
+    const absent = await clientFor(404, {
+      code: "not_found",
+      message: "document not found",
+    }).read(probe, { id: "b" });
+    assert(!hidden.ok && !absent.ok);
+    assertEquals(hidden.error, {
+      code: "not_found",
+      message: UNREADABLE_MESSAGE,
+    });
+    assertEquals(hidden.error, absent.error);
+    // command의 not_found도 같다.
+    const written = await clientFor(404, {
+      code: "not_found",
+      message: "no such thing",
+      details: { id: "x" },
+    }).command(save, { input: { title: "a" }, idempotency_key: "key-nf" });
+    assert(!written.ok);
+    assertEquals(written.error.message, UNREADABLE_MESSAGE);
+    assertEquals(written.error.details, undefined);
+    // not_found가 아닌 오류는 소유 route의 오류 그대로다.
+    const refused = await clientFor(403, {
+      code: "forbidden",
+      message: "operation forbidden",
+    }).read(probe, { id: "c" });
+    assert(!refused.ok);
+    assertEquals(refused.error.code, "forbidden");
+    assertEquals(refused.error.message, "operation forbidden");
   },
 );
 

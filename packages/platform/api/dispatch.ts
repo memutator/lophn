@@ -30,6 +30,7 @@ import {
   type ConfirmationBridge,
   consumeRouteConfirmation,
   type CredentialTarget,
+  type RouteConfirmation,
 } from "../identity/mod.ts";
 import {
   contentTypeJson,
@@ -66,6 +67,22 @@ export type FileHandler = (
   input: unknown,
 ) => Result<Uint8Array> | Promise<Result<Uint8Array>>;
 
+// file route의 stream 응답. 한 파일을 core 메모리에 모으지 않고 창 단위로 흘린다.
+// - contentType: 저장된 media type 그대로다. dispatch가 형식만 검사하고 sniffing하지 않는다.
+// - length: 응답 본문의 정확한 길이(Content-Length). 그보다 적게 흐르고 끝나면 응답이 끊긴다.
+// - body: 소비자가 당길 때만 다음 창을 읽는다(backpressure). 크기·hash 검사가 끝에서
+//   어긋나면 body를 오류로 끝내 응답을 완료하지 않는다.
+export type FileStream = {
+  contentType: string;
+  length: number;
+  body: ReadableStream<Uint8Array>;
+};
+
+export type FileStreamHandler = (
+  ctx: AuthenticatedContext,
+  input: unknown,
+) => Promise<Result<FileStream>>;
+
 // upload route의 처리. 바이트 body는 core가 해석·보관하지 않고 stream으로 넘긴다.
 // stream은 route 상한(max_bytes)을 넘으면 오류로 끝난다. length는 Content-Length를 보낸
 // 요청의 선언 길이이고(그만큼만 흐른다) chunked 전송이면 없다. 입력이 크기를 선언하는
@@ -97,10 +114,12 @@ export type DispatchDeps = {
   reads?: ReadonlyMap<string, ReadHandler>;
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
+  // file route를 stream으로 서빙하는 대상. 있으면 workers의 같은 route보다 먼저 쓴다.
+  fileStreams?: ReadonlyMap<string, FileStreamHandler>;
   workers?: WorkerTargets;
   uploads?: ReadonlyMap<string, UploadHandler>;
   // file route의 사람 결정 확인. 없으면 confirmation file route는 넘기지 않는다.
-  confirmation?: ConfirmationBridge;
+  confirmation?: ConfirmationBridge | RouteConfirmation;
   // 동작별 body 상한. 없으면 RPC JSON 256KiB.
   bodyLimit?: (route: Route) => number;
   bodyTimeoutMs: number;
@@ -115,7 +134,13 @@ export type DispatchDeps = {
 
 export type HttpResult =
   | { status: number; json: unknown }
-  | { status: number; bytes: Uint8Array; contentType: string };
+  | { status: number; bytes: Uint8Array; contentType: string }
+  | {
+    status: number;
+    stream: ReadableStream<Uint8Array>;
+    length: number;
+    contentType: string;
+  };
 
 function routeKey(route: { resource: string; method: string }): string {
   return `${route.resource}/${route.method}`;
@@ -477,6 +502,8 @@ async function file(
     );
     if (!consumed.ok) return rejected(consumed.error);
   }
+  const streaming = deps.fileStreams?.get(routeKey(route));
+  if (streaming) return await fileStream(route, streaming, parsed.data, ctx);
   // file route도 등록된 worker kind로 넘긴다. 등록된 바이트 응답 통로가 없으면 unavailable이다.
   const target = deps.workers?.get(routeKey(route));
   if (!target) {
@@ -499,11 +526,46 @@ async function file(
   if (!validBytesPayload(response.payload)) {
     return rejected(asInternalError(new Error("file bytes")));
   }
+  // worker가 저장된 media type을 함께 주면 그것을 보낸다. 없으면 route의 fallback이다.
+  // 형식이 어긋난 값은 fallback으로 바꾸지 않고 internal로 거절한다.
+  const contentType = response.payload.media_type === undefined
+    ? route.output.contentType
+    : response.payload.media_type;
+  if (!validMediaType(contentType)) {
+    return rejected(asInternalError(new Error("file media type")));
+  }
   return {
     status: 200,
     bytes: new Uint8Array(response.payload.bytes),
-    contentType: route.output.contentType,
+    contentType,
   };
+}
+
+async function fileStream(
+  route: FileRoute,
+  handler: FileStreamHandler,
+  input: unknown,
+  ctx: AuthenticatedContext,
+): Promise<HttpResult> {
+  const answer = await handler(ctx, input);
+  if (!answer.ok) return rejected(commonWorkerError(answer.error));
+  const { body, contentType, length } = answer.value;
+  if (
+    !validMediaType(contentType) || !Number.isSafeInteger(length) || length < 0
+  ) {
+    await body.cancel().catch(() => undefined);
+    return rejected(asInternalError(new Error(`file stream ${route.name}`)));
+  }
+  return { status: 200, stream: body, length, contentType };
+}
+
+// 저장된 media type의 형식(`type/subtype`, 매개변수·공백·제어 문자 없음). header에 그대로
+// 실리므로 CR·LF나 `;` 뒤 덧붙임을 통과시키지 않는다. 값을 고르거나 고쳐 쓰지 않는다.
+const MEDIA_TYPE = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/;
+
+export function validMediaType(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 255 &&
+    MEDIA_TYPE.test(value);
 }
 
 // file route와 같은 길이다. worker route의 JSON 결과·공통 오류는 envelope를 벗기지 않고
@@ -569,7 +631,9 @@ export function registeredPath(
 }
 
 // file route의 성공 payload. worker가 돌려주는 원본 bytes다. core는 해석하지 않는다.
-function validBytesPayload(value: unknown): value is { bytes: number[] } {
+function validBytesPayload(
+  value: unknown,
+): value is { bytes: number[]; media_type?: string } {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }

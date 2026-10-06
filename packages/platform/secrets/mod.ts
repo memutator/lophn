@@ -30,6 +30,7 @@ export {
   toStatus,
 } from "./model.ts";
 export { readSecretStatuses, type SecretView } from "./reads.ts";
+export { readSecretRefs, type SecretReference } from "./refs.ts";
 export { SECRET_SCHEMA_STEPS } from "./schema.ts";
 export {
   createSecretWork,

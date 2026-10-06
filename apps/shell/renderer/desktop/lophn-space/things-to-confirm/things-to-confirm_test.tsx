@@ -20,6 +20,7 @@ import {
   notification,
   question,
   questionId,
+  questionText,
 } from "./testdata/fake-source.ts";
 
 const NOW = Date.parse("2026-10-06T09:00:00Z");
@@ -185,6 +186,60 @@ Deno.test("shell/desktop#R9: 기다리는 것은 종류별 개수와 다음 행�
   assertEquals(
     find(view.container, "[data-detail-column] [data-answer]").textContent,
     "You chose Keep both files.",
+  );
+  nothingSent(fake);
+});
+
+Deno.test("lophn-agent/questions#R10: 지난 질문은 본문과 받은 자유 답·취소 이유를 core가 둔 글로 다시 보인다", async () => {
+  const answered = question(1, {
+    status: "answered",
+    closedSeq: "50",
+    answer: { kind: "text" },
+  });
+  const cancelled = question(2, {
+    status: "cancelled",
+    closedReason: "cancelled",
+    closedSeq: "40",
+  });
+  const fake = fakeRequests({
+    requests: [answered, cancelled],
+    texts: {
+      [questionId(1)]: questionText(answered, {
+        prompt: "What should the summary cover?",
+        answer: "Only this week's numbers.",
+      }),
+      [questionId(2)]: questionText(cancelled, {
+        closedReason: "Not needed anymore.",
+      }),
+    },
+  });
+  using view = render(screen(fake, "past"));
+  await flush();
+  const rows = () =>
+    view.container.querySelectorAll(
+      "[data-tab-panel] ul:not([data-counts]) li > button",
+    );
+  click(rows()[0]!);
+  await flush();
+  const detail = find(view.container, "[data-detail-column]");
+  assertEquals(
+    find(detail, "[data-question-text]").textContent,
+    "What should the summary cover?",
+  );
+  assertEquals(
+    find(detail, "[data-answer]").textContent,
+    "You wrote your own answer.",
+  );
+  assertEquals(
+    find(detail, "[data-answer-text]").textContent,
+    "Only this week's numbers.",
+  );
+  click(rows()[1]!);
+  await flush();
+  assertEquals(
+    find(view.container, "[data-detail-column] [data-closed-reason]")
+      .textContent,
+    "Not needed anymore.",
   );
   nothingSent(fake);
 });

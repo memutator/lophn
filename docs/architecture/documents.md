@@ -20,7 +20,7 @@ concerns: [documents]
 
 ### 2.1 구성과 수명
 
-문서 영역의 상시 프로세스는 coordinator 하나와 준비 worker 두 개다. core가 coordinator를 띄우고 종료·crash를 감독한다. coordinator가 정확한 실행 파일로 준비 worker 두 개를 띄우고 작업별 format runner를 시작한다. 준비 worker가 죽으면 그 slot을 새 프로세스로 채운다. format runner는 호출마다 시작하고 한 결과를 낸 뒤 종료한다. format 동시 run은 최대 두 개다. core·shell은 다른 concern의 프로세스이며 문서 프로세스 수에 포함하지 않는다.
+문서 영역의 상시 프로세스는 coordinator 하나와 준비 worker 두 개다. core가 coordinator를 띄우고 종료·crash를 감독한다. coordinator가 정확한 실행 파일(Deno와 `apps/worker/documents/preparation-entry.ts`)로 준비 worker 두 slot을 띄우고 작업별 format runner를 시작한다. 준비 worker는 core가 아니라 coordinator가 띄운다: core의 platform 감독은 kind마다 child 하나라 slot 둘을 선언할 수 없고, 준비 worker의 읽기·쓰기 권한이 coordinator가 아는 현재 등록 루트로 정해지기 때문이다. coordinator는 platform의 `createSupervisor`를 slot마다 하나씩 쓴다(ready 기한, 3회 재기동과 backoff, process group 종료 확인이 platform 규칙 그대로다). 준비 worker가 죽으면 감독이 그 slot을 새 프로세스로 채우고 진행 중이던 요청은 결과 불명(unavailable)이며 자동으로 다시 보내지 않는다. worker는 첫 요청에서 띄운다(core 기동 시간·메모리를 아끼려는 구현 선택이고, 한 번 뜬 뒤에는 상주한다). 등록 루트 근거가 바뀌면 다음 요청이 worker를 새 권한으로 다시 띄우고, 루트 추가·해제로 core가 coordinator를 교체하면 pool도 함께 새로 만들어진다. coordinator의 `--allow-run`은 Deno 하나와 감독이 process group 종료를 확인하는 `/usr/bin/kill`이고, `--allow-env`에는 감독이 child를 띄울 때 읽는 이름 `NODE_V8_COVERAGE`가 더해진다. 폴더 미리보기(`/v1/projects/preview_tracking`)는 아직 등록하지 않은 폴더를 읽어야 해서 상시 slot의 권한 밖이다. 그 요청의 폴더만 `--allow-read`로 가진 준비 worker 하나를 요청마다 띄워 한 번 쓰고 끝낸다. format runner는 호출마다 시작하고 한 결과를 낸 뒤 종료한다. format 동시 run은 최대 두 개다. core·shell은 다른 concern의 프로세스이며 문서 프로세스 수에 포함하지 않는다.
 
 ```text
 shell main / agent runtime / MCP·CLI / 앱
@@ -46,7 +46,7 @@ worker가 쓰는 platform contract 호출은 coordinator가 중계한다. 원래
 ### 2.2 실제 권한
 
 - coordinator의 Deno 권한은 등록한 활성 루트와 `~/.lophn/documents/`, `~/.lophn/derived/`의 필요한 `--allow-read`, derived 및 작업 staging의 `--allow-write`, 고정 worker·runner 실행 파일의 `--allow-run`만 준다. `--allow-net`, `--allow-env`, `--allow-ffi`는 주지 않고 `--no-prompt`로 시작한다. core 통신은 상속한 stdio다. 루트 추가·해제 때 core가 새 권한 목록으로 문서 프로세스를 교체하고 재scan한다.
-- 준비 worker에는 현재 루트·working copy·staging의 `--allow-read`와 파일 작업에 필요한 경로의 `--allow-write`만 준다. network·env·subprocess·FFI 권한은 없다. 이 프로세스는 신뢰한 플랫폼 코드만 실행하며 사람이 선택한 목표인지 요청마다 별도로 검사한다. Deno 경로 권한은 사용자 자격 검사의 대체가 아니다.
+- 준비 worker에는 현재 루트·working copy·staging의 `--allow-read`와 파일 작업에 필요한 경로(등록 루트, `documents/working-copies`, `documents/staging`)의 `--allow-write`만 준다. spec은 coordinator가 관측 근거의 등록 루트로 만든다(`apps/worker/documents/launch.ts`). network·env·subprocess·FFI 권한은 없다. 이 프로세스는 신뢰한 플랫폼 코드만 실행하며 사람이 선택한 목표인지 요청마다 별도로 검사한다. Deno 경로 권한은 사용자 자격 검사의 대체가 아니다.
 - format runner는 Deno 기반 고정 host 실행 파일과 내장 QuickJS WASM을 묶어 배포한다. 호출 입력과 module 바이트를 IPC로 받으므로 파일·network·env·subprocess·FFI 권한을 전부 주지 않는다. guest module을 Deno에 직접 import하거나 Deno Worker 전역에서 실행하지 않는다.
 - QuickJS guest에는 JSON·문자열·배열·순수 계산만 제공한다. `Date`, 시간 API, `Math.random`, crypto 난수, `eval`, `Function`, 동적 import, host object·WASM·FFI 접근을 설치하지 않는다. 정적 module loader는 요청의 정확한 묶음 안 module만 로드한다. guest에는 바이트 입력을 복사해 주고 출력 JSON만 받는다. Deno의 시간·난수를 지우는 것만으로 격리가 됐다고 하지 않는다.
 - host가 QuickJS memory limit와 interrupt handler를 설정하고, coordinator는 별도 deadline에서 runner를 강제 종료한다. 초기 구현값은 guest memory 64 MiB, 호출 5초, 입력 16 MiB, 출력 8 MiB다. runner 프로세스의 최대 heap도 제한하며 crash·한도 초과는 그 호출의 `unavailable`이다. 이 값은 구현 조절값이지 문서 원문 전체 크기의 domain 제한이 아니다. 검사에 필요한 입력이 한도를 넘으면 미지원처럼 꾸미지 않는다.
@@ -183,6 +183,10 @@ leaf concern은 9개이며 빠진 leaf는 없다. `documents/contracts`는 위 �
 **오류.** base_hash 불일치·새 목표 존재는 `conflict`·HTTP 409, 디스크 권한·read-only·용량·quota·안전한 원자 교체 불가는 `unavailable`·HTTP 503이다. 잘못된 목표는 `invalid_input`, user가 아닌 요청은 `forbidden`이다. 경로·hash·안전한 OS 오류만 log·감사 payload에 넣고 편집 본문은 넣지 않는다.
 
 **보장.** 시작과 교체 직전에 hash를 비교하고 확인된 충돌에는 쓰지 않는다. 성공한 각 작업을 `file.record_result`로 보고하여 `FileWritten`, `FileRenamed`, `FileDeleted`를 남긴다. 같은 편집 세션의 두 작업도 두 결과다. 자동 저장은 파일 쓰기만이고 명시 저장·편집 종료가 version 준비 경계다.
+
+**구현 모양.** core는 user 자격과 준비 참조(요청 주체가 upload로 만든 `document_file` blob)를 확인하고 원문을 I/O worker에서 읽어 byte chunk frame으로 coordinator에 보낸 뒤 같은 channel을 가리키는 요청을 보낸다. coordinator는 FileTarget을 등록 폴더(관측 근거의 root, 범위 밖·모르는 project는 없는 것과 같은 `invalid_input`) 또는 working copy 폴더로 풀고, 같은 canonical 목표의 요청을 줄 세워 준비 worker의 human slot에 맡기며, 성공한 작업을 machine credential의 `file.record_result`로 기록한다(idempotency key는 `(request_key, operation)`에서 만든다). 읽기 응답은 한 JSON frame(1 MiB)에 들어가는 512 KiB 이하만 돌려주고 넘으면 `unavailable`이다. `files.watch`는 마지막 관측이 바뀌거나 기한(10초)이 지나면 답한다. 이름 변경은 새 이름을 hard link로 no-replace 설치한 뒤 옛 이름을 지운다(중간에 끊기면 두 이름이 같은 파일을 가리킬 뿐 내용을 잃지 않는다). 쓰기 중 임시 파일은 같은 폴더의 `.lophn-write-*.tmp`이고 tracking은 이 이름을 관측하지 않는다.
+
+**working copy.** `~/.lophn/documents/working-copies/<doc>/`에 대표 파일 `content`와 작은 metadata `meta.json`(연 판, 대표 파일 경로·MIME, 마지막 확정 내용 hash)을 둔다. 첫 쓰기에서 폴더와 metadata를 만들고 core가 ledger에서 읽은 근거(원본 연결 없는 활성 문서, 연 판의 대표 파일)로만 만든다. `version_request`가 있으면 core가 사본 쓰기 성공 뒤 **요청한 사람의 자격으로** `document.prepare`·`document.save`를 따로 시도하고(`base_version` CAS) 결과를 `version_result`(`confirmed | validation_failed | conflict | preparing`)로 낸다. 새 최신 판과 충돌해도 사본은 남는다. project 파일의 `version_request`는 관측 loop가 쓴 파일을 판 하나로 기록하므로 `preparing`이다.
 
 **보장하지 않는 것.** 외부 편집기와 공동 잠금, 마지막 비교와 교체 사이 외부 쓰기 차단, 파일·ledger 단일 transaction은 없다. 교체 뒤 재관측으로 다시 바뀜을 표시한다. 응답 유실·결과 불명에 자동 재쓰기하지 않는다. 이미 성공한 파일 바이트를 format 실패 때문에 이전 내용으로 바꾸지 않는다.
 

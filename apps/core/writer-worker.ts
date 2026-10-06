@@ -81,7 +81,7 @@ type WorkerMessage = WriterRequest | {
 } | {
   id: number;
   op: "confirmation";
-  action: "issue" | "close-window" | "clear";
+  action: "issue" | "close-window" | "clear" | "consume";
   request?: unknown;
   windowId?: string;
 };
@@ -116,6 +116,20 @@ async function handle(
           id: data.id,
           op: "confirmation",
           body: { ok: true, value: null },
+        } as never,
+      );
+      return;
+    }
+    if (data.action === "consume") {
+      // file·worker route의 확인 사용. 예약과 소비를 이 thread에서 한 번에 한다.
+      const use = data.request as Parameters<typeof registry.reserve>[0];
+      const reserved = registry.reserve(use);
+      if (reserved.ok) registry.consume(use.ref);
+      worker.postMessage(
+        {
+          id: data.id,
+          op: "confirmation",
+          body: reserved.ok ? { ok: true, value: null } : reserved,
         } as never,
       );
       return;

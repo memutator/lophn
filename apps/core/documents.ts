@@ -3,8 +3,14 @@ import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
   contextExport,
   documentPrepare,
+  filesDelete,
+  filesRead,
+  filesRename,
+  filesWatch,
+  filesWrite,
   formatValidate,
   outlineRoot,
+  projectPreviewTracking,
   READ_ROUTES,
   UPLOAD_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
@@ -40,6 +46,10 @@ import {
   fileStatusRead,
   type StatusMemory,
 } from "../../packages/documents/file-tracking/status.ts";
+import {
+  createFileCommands,
+  createFileReads,
+} from "../../packages/documents/file-tracking/mod.ts";
 import { runnerWasmPath } from "../../packages/documents/formats/guest/contract.ts";
 import { BUILTIN_MODULE_HASH } from "../../packages/documents/formats/guest/module-hash.ts";
 import {
@@ -169,7 +179,8 @@ function formatReads(): ApiReadDefinition[] {
 // 활성 root가 바뀌면 이 spec을 다시 만들고 platform이 documents worker만 다시 띄운다.
 // network는 core loopback뿐이다: 관측 제출이 같은 process의 API에 Bearer credential로
 // 닿는다(T11). 코드(repo)와 deno 캐시 읽기는 child가 자기 entry를 올리는 데 필요하다
-// (platform/io spec과 같다). run은 format runner 하나(deno 실행 파일)만 연다.
+// (platform/io spec과 같다). 준비 worker는 이 coordinator가 띄우는 자식이라 core가 따로
+// 선언하지 않는다(spec은 apps/worker/documents/launch.ts).
 export function workerSpecs(
   dataRoot: string,
   activeRoots: readonly string[] = [],
@@ -187,26 +198,21 @@ export function workerSpecs(
       allow_read: [...reads, ...code],
       allow_write: [`${dataRoot}/documents`, `${dataRoot}/derived`, ...writes],
       allow_net: ["127.0.0.1"],
-      // format runner는 호출마다 시작한다(architecture/documents 2). 고정 실행 파일은 이
-      // deno 하나고, runner의 읽기·env·network·run 권한은 호출 쪽(runner flags)이 좁힌다.
-      allow_run: [Deno.execPath()],
+      // 고정 실행 파일은 이 deno 하나다. format runner는 호출마다, 준비 worker 두 slot은 첫
+      // 요청에서 이 coordinator가 띄운다(architecture/documents 2.1). runner·준비 worker의
+      // 읽기·env·network·run 권한은 띄우는 쪽(launch spec)이 좁힌다. process group 종료를
+      // 확인하는 kill 도구 하나(platform 감독의 adapter)가 더 필요하다.
+      allow_run: [Deno.execPath(), "/usr/bin/kill"],
       allow_sys: [],
-      allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
-      policy: "always",
-      memory_limit_bytes: 256 * 1024 * 1024,
-    },
-    {
-      kind: "documents/preparation",
-      entry: new URL(
-        "../worker/documents/preparation.ts",
-        import.meta.url,
-      ).pathname,
-      allow_read: reads,
-      allow_write: [`${dataRoot}/documents/staging`, ...writes],
-      allow_net: [],
-      allow_run: [],
-      allow_sys: [],
-      allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
+      // NODE_V8_COVERAGE는 platform 감독이 자식을 띄울 때(node:child_process) deno가 읽는
+      // 이름 하나다. 값을 쓰지도 자식에게 넘기지도 않는다.
+      allow_env: [
+        "LOPHN_HOME",
+        "LOPHN_WORKER_KIND",
+        "HOME",
+        "PATH",
+        "NODE_V8_COVERAGE",
+      ],
       policy: "always",
       memory_limit_bytes: 256 * 1024 * 1024,
     },
@@ -331,6 +337,8 @@ export function createLedgerRegistration(
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
   const versions = createVersionCommands({ joinSeries: joinSeriesOnSave });
+  const fileCommands = createFileCommands();
+  const fileReads = createFileReads();
   const addressing = createDocumentChangeCommands();
   // 앱 command 효과 검사는 apps blueprint read가 들어올 때 교체한다(documents T22).
   const contexts = createContextCommands();
@@ -368,6 +376,7 @@ export function createLedgerRegistration(
       versions.update,
       versions.archive,
       versions.unarchive,
+      fileCommands.recordResult,
       addressing.move,
       addressing.rename,
       contexts.create,
@@ -416,6 +425,7 @@ export function createLedgerRegistration(
       seriesOutline,
       viewReads.list,
       viewReads.get,
+      fileReads.list,
       outlineRootRoute(),
     ],
     // 판 원문과 정규화 목록 blob. 일반 읽기는 원문 파일만 연다.
@@ -428,11 +438,24 @@ export function createLedgerRegistration(
     // worker route. 준비(documentPrepare)는 core의 준비 조립이, 나머지(outline·읽기·
     // search·view open·export)는 reader Worker 등록(documents-reader.ts)이 서빙한다.
     // core는 요청마다 현재 credential로 그 읽기를 실행한다(documents-serving.ts).
-    workerRoutes: [documentPrepare, formatValidate, ...SERVED_ROUTES],
+    // 사람 파일 작업과 폴더 미리보기도 worker route다(core는 파일을 열지 않는다).
+    workerRoutes: [
+      documentPrepare,
+      formatValidate,
+      filesWrite,
+      filesRename,
+      filesDelete,
+      filesWatch,
+      projectPreviewTracking,
+      ...SERVED_ROUTES,
+    ],
     // 제출 파일 바이트 route. 준비 중계로 흘려 보내는 handler는 core.ts가 붙인다.
     uploadRoutes: UPLOAD_ROUTES,
     // 단계적 읽기(T14). 선택 판 본문 통로는 stored bytes다(redaction은 host 책임).
-    files: [...READ_ROUTES].filter((route) => route.kind === "file"),
+    files: [
+      ...[...READ_ROUTES].filter((route) => route.kind === "file"),
+      filesRead,
+    ],
     // 문서 worker 뼈대(T2). 등록 시점 env에서 data root를 결정해 절대 경로로 좁힌다.
     // core가 root를 좁히는 T11 교체는 core 쪽 감독 seam이 넣는다.
     workers: registerWorkers(),
@@ -470,6 +493,7 @@ export function createReaderRegistration(): ReaderRegistration {
   const seriesReads = createSeriesReads();
   const seriesOutline = createSeriesOutlineRead();
   const viewReads = createViewReads();
+  const fileReads = createFileReads();
   const deps: ProjectReadDeps = {
     documents: emptyDocuments,
   };
@@ -496,6 +520,7 @@ export function createReaderRegistration(): ReaderRegistration {
       projectReads.resolve,
       projectReads.resolveCwd,
       projectReads.trackingRoots,
+      fileReads.list,
     ],
     ports: new Map(),
   };

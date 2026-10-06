@@ -53,11 +53,13 @@ import {
 } from "../../packages/platform/backup-and-migration/mod.ts";
 import { authorize } from "../../packages/platform/identity/mod.ts";
 import type { Assembled } from "./registration.ts";
+import { openSecretStore, withSecretSync } from "./secret-store.ts";
+import type { KeychainAdapter } from "../../packages/platform/secrets/mod.ts";
 
 export type CoreRuntime = {
   writer: Writer;
   confirmation(body: {
-    action: "issue" | "close-window" | "clear";
+    action: "issue" | "close-window" | "clear" | "consume";
     request?: unknown;
     windowId?: string;
   }): Promise<Result<unknown>>;
@@ -100,6 +102,9 @@ export async function openRuntime(input: {
   source: StatusSource;
   // doctor 관측. 없으면 diagnostics/check는 등록하지 않는다(R9, R10).
   doctor?: DoctorSource;
+  // secret store가 값을 읽는 OS keychain. 참조가 있을 때 처음 한 번 만든다. 제품 기동은
+  // 실제 adapter, 테스트는 fake를 준다.
+  keychain: () => KeychainAdapter;
   // 기록된 안전 진단. 없으면 diagnostics/list는 등록하지 않는다(R5).
   diagnostics?: DiagnosticListSource;
   // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
@@ -150,11 +155,22 @@ export async function openRuntime(input: {
     await openedWriter.writer.close();
     return readers;
   }
+  // secret store: ledger의 현재 secret 참조의 값을 keychain에서 읽어 reader의 알려진 값
+  // registry에 넣는다. 기동 때 한 번 맞춘다(못 읽으면 reader가 준비되지 않음이라 알려진 값을
+  // 모른 채 원문을 내보내지 않고, 재시도가 이어서 맞춘다).
+  const secretStore = openSecretStore({
+    ledgerPath: input.ledgerPath,
+    channel: readers.value.known,
+    keychain: input.keychain,
+  });
+  await secretStore.sync();
+  const writer = withSecretSync(openedWriter.writer, secretStore.sync);
   const root = input.ledgerPath.slice(0, input.ledgerPath.lastIndexOf("/"));
   const directory = `${root}/derived/api-subscriptions`;
   await Deno.mkdir(directory, { recursive: true });
   const subscriptions = await createSubscriptionStore(directory);
   if (!subscriptions.ok) {
+    secretStore.stop();
     readers.value.close();
     await openedWriter.writer.close();
     return subscriptions;
@@ -274,7 +290,7 @@ export async function openRuntime(input: {
     runSession: runRead && ((ctx, run) => runSessionOf(runRead, ctx, run)),
   });
   return ok({
-    writer: openedWriter.writer,
+    writer,
     confirmation: openedWriter.confirmation,
     record: openedWriter.record,
     notePrepared: openedWriter.notePrepared,
@@ -291,6 +307,7 @@ export async function openRuntime(input: {
     sweepTicketClaims,
     async close() {
       dispatcher.close();
+      secretStore.stop();
       readers.value.close();
       subscriptions.value.close();
       await openedWriter.writer.close();
@@ -363,7 +380,7 @@ function openProductWriter(
 ): {
   writer: Writer;
   confirmation(body: {
-    action: "issue" | "close-window" | "clear";
+    action: "issue" | "close-window" | "clear" | "consume";
     request?: unknown;
     windowId?: string;
   }): Promise<Result<unknown>>;
@@ -448,7 +465,7 @@ function openProductWriter(
     },
     // main↔core 비공개 통로의 확인 등록을 writer 프로세스의 registry로 넘긴다.
     confirmation(body: {
-      action: "issue" | "close-window" | "clear";
+      action: "issue" | "close-window" | "clear" | "consume";
       request?: unknown;
       windowId?: string;
     }) {

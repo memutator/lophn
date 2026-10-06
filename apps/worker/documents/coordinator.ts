@@ -32,6 +32,19 @@ import { createByteInbox, validateFiles } from "./validation.ts";
 import { createFormatHandlers } from "../../../packages/documents/formats/reads.ts";
 import { createSearchServing, openSearchStore } from "./search.ts";
 import { createRootObservers } from "./observers.ts";
+import { createPreparationPool } from "./pool.ts";
+import { createBatchDispatch } from "./batch.ts";
+import { preparationSpec, previewSpec } from "./launch.ts";
+import { createFileHandlers, recordKeyOf } from "./files.ts";
+import { denoFileOps } from "../../../packages/documents/file-tracking/adapters/file-ops.ts";
+import {
+  fileOperationResultSchema,
+  projectPreviewTracking,
+  projectPreviewTrackingInputSchema,
+} from "../../../packages/contracts/documents/mod.ts";
+import { err, ok, type Result } from "../../../packages/base/mod.ts";
+import type { LophnError } from "../../../packages/base/mod.ts";
+import type { CoreClient } from "./submit.ts";
 import {
   createIdSource,
   cryptoRandom,
@@ -64,8 +77,15 @@ export type CoordinatorOptions = {
   streams: ChildStreams;
   // 준비 worker를 띄우고 지켜본다. 테스트가 넣는다.
   spawnPreparation(kind: string): Promise<ChildSession>;
-  // 준비 결과 command를 core에 제출한다. 제출은 동시 2개까지다.
-  submitResult(candidate: Candidate): Promise<void>;
+  // 준비 결과 command를 core에 제출한다. 제출은 동시 2개까지다. outcome은 준비 worker가
+  // 그 후보에 낸 안정 읽기 결과다(dispatchBatch가 있을 때만).
+  submitResult(candidate: Candidate, outcome?: unknown): Promise<void>;
+  // 후보 묶음을 준비 worker에 보내고 후보 순서대로 결과를 받는다. 없으면 session.send로
+  // 보내던 옛 배분을 쓴다. 준비 worker의 실패는 이 배분의 unavailable이다.
+  dispatchBatch?(
+    slot: PrepareSlot,
+    scheduled: { root: string; batch: readonly Candidate[] },
+  ): Promise<Result<readonly unknown[], LophnError>>;
   // 안정 읽기까지의 대기와 req id는 주입받는다.
   deps: CoordinatorDepsLike;
   // hello가 싣는 machine credential과 core api port. 제출 client가 Bearer로 쓴다.
@@ -170,12 +190,17 @@ export function createCoordinator(
             message: "documents worker does not serve requests",
           },
         });
-      return answer.catch((): WorkerResponse => ({
+      // 답을 기다리지 않는다: 오래 걸리는 요청(파일 쓰기, 변화 기다리기)이 뒤따르는 요청과
+      // byte chunk frame을 막지 않는다. 요청은 request_id로 짝을 짓는다.
+      void answer.catch((): WorkerResponse => ({
         type: "worker_response",
         request_id: request.request_id,
         ok: false,
         error: { code: "internal", message: "documents worker request failed" },
-      })).then((response) => session.send(response));
+      })).then((response) => session.send(response)).catch(() => {
+        // 답을 못 보낸 요청은 core의 기한이 unavailable로 끝낸다.
+      });
+      return;
     },
   });
 
@@ -193,6 +218,18 @@ export function createCoordinator(
       lastServed = scheduled.next;
       const slot = pickSlot(slots, false);
       if (!slot) continue;
+      if (options.dispatchBatch) {
+        const answered = await options.dispatchBatch(slot, {
+          root: scheduled.root,
+          batch: scheduled.batch,
+        });
+        // 준비 worker가 답하지 못한 배분은 제출하지 않는다. 성공으로 바꾸지 않는다.
+        if (!answered.ok) continue;
+        for (const [index, candidate] of scheduled.batch.entries()) {
+          await options.submitResult(candidate, answered.value[index]);
+        }
+        continue;
+      }
       let worker: ChildSession;
       try {
         worker = await supervisor.acquire(slot.name);
@@ -317,19 +354,62 @@ export async function runCoordinator(root: string): Promise<void> {
   // 자식 session이 감독 pipe로 core에 준비한다. credential은 이 process 메모리에만 있다.
   const session: { current?: ChildSession } = {};
   const coordinator: { current?: Coordinator } = {};
+  // 준비 worker pool(architecture/documents 2.1). coordinator가 띄우고 감독한다. 등록 root는
+  // core가 보낸 관측 근거에서 온다. worker는 첫 요청에서 띄운다.
+  const rootsOf = () => basis.roots().map((entry) => entry.root);
+  const pool = createPreparationPool({
+    specFor: () => preparationSpec(root, rootsOf()),
+    signature: () => rootsOf().join("\n"),
+    denoCommand: Deno.execPath(),
+    env: (kind) => ({
+      LOPHN_WORKER_KIND: kind,
+      LOPHN_HOME: root,
+      ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+      ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+    }),
+  });
+  // 성공한 파일 작업을 machine credential로 기록한다. hello 전에는 core에 닿을 수 없다.
+  const core: { client?: CoreClient } = {};
+  const files = createFileHandlers({
+    dataRoot: root,
+    basis,
+    pool,
+    inbox,
+    status,
+    ops: denoFileOps(),
+    nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
+    async record(result) {
+      if (core.client === undefined) {
+        return err({ code: "unavailable", message: "core is not connected" });
+      }
+      const recorded = await core.client.call("files/record_result", {
+        input: result,
+        idempotency_key: await recordKeyOf(result),
+        compare: {},
+        prepared: [],
+      });
+      if (!recorded.ok) return recorded;
+      const parsed = fileOperationResultSchema.safeParse(recorded.value);
+      return parsed.success
+        ? ok(parsed.data)
+        : err({ code: "internal", message: "file result is invalid" });
+    },
+  });
   const created = await createCoordinator({
     root,
     streams: { stdin: Deno.stdin, stdout: Deno.stdout, stderr: Deno.stderr },
     onHello(received) {
       const current = session.current;
       if (current === undefined) return;
+      const client = createCoreClient({
+        baseUrl: `http://127.0.0.1:${received.api_port}`,
+        credential: received.credential,
+        fetch: productFetch(),
+      });
+      core.client = client;
       const submit = retryOnNewBasis(
         createObservationSubmit({
-          client: createCoreClient({
-            baseUrl: `http://127.0.0.1:${received.api_port}`,
-            credential: received.credential,
-            fetch: productFetch(),
-          }),
+          client,
           prepareBlob: sharePreparedBlob(childBlobPort(current)),
           link: linkFromStore(basis, () => ids.newId("doc")),
           status,
@@ -363,17 +443,20 @@ export async function runCoordinator(root: string): Promise<void> {
       ...(search === undefined
         ? {}
         : { search: (request) => search.handle(request) }),
+      files,
+      preview: (payload) => previewTracking(pool, payload),
       validate: (request) =>
         validateFiles(request, { inbox, call: (input) => formats.call(input) }),
     }),
-    // 준비 worker는 아직 띄우지 않는다. platform 감독(createSupervisor)을 이 process에서
-    // 쓰려면 slot마다 kind가 따로 있어야 하고(kind마다 child 하나) process group 정리에 쓰는
-    // kill adapter까지 run 권한이 더 필요하다. batch의 준비 worker 요청·응답 protocol과
-    // preview_tracking 서빙도 정해지지 않았다(documents#T11 이어보냄). 파일 관측은 이
-    // process의 관측 loop가 직접 한다. 그때까지 batch 제출은 성공이 아니라 unavailable이다.
+    // 준비 worker는 pool이 띄우고 감독한다(platform createSupervisor를 slot마다 하나씩).
+    // coordinator 자신의 slot 감독(slots)은 쓰지 않는다. 파일 관측은 이 process의 관측
+    // loop가 직접 한다: 관측 제출은 읽은 바이트를 core의 blob으로 준비해야 해서 읽기를
+    // 준비 worker로 옮기려면 바이트 전달이 따로 있어야 한다. 그래서 후보 배분의 결과
+    // 제출은 연결하지 않았고 성공이 아니라 unavailable이다.
     spawnPreparation: () => {
-      throw new Error("preparation spawn is not wired");
+      throw new Error("preparation spawn is owned by the pool");
     },
+    dispatchBatch: createBatchDispatch(pool),
     submitResult: () =>
       Promise.reject(new Error("preparation results are not submitted yet")),
     deps: {
@@ -384,5 +467,28 @@ export async function runCoordinator(root: string): Promise<void> {
   coordinator.current = created;
   session.current = created.session;
   if (search !== undefined) created.onStop(() => search.close());
+  created.onStop(() => void pool.stop());
   await created.session.run();
+}
+
+// 폴더 미리보기. 아직 등록하지 않은 폴더를 읽어야 해서 그 폴더만 읽는 새 준비 worker 하나가
+// 한 번 맡는다. 폴더는 사람이 고른 것이고(route는 user만) 그 요청의 읽기 권한으로만 준다.
+function previewTracking(
+  pool: ReturnType<typeof createPreparationPool>,
+  payload: unknown,
+): Promise<Result<unknown, LophnError>> {
+  const parsed = projectPreviewTrackingInputSchema.safeParse(payload);
+  const spec = parsed.success
+    ? previewSpec(parsed.data.folders.map((folder) => folder.path))
+    : undefined;
+  if (!parsed.success || spec === undefined) {
+    return Promise.resolve(
+      err({ code: "invalid_input", message: "invalid preview input" }),
+    );
+  }
+  return pool.requestOnce(spec, {
+    op: projectPreviewTracking.name,
+    payload: parsed.data,
+    timeoutMs: 60_000,
+  });
 }

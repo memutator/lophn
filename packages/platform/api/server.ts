@@ -9,7 +9,7 @@ import {
   type WorkerResponse,
 } from "../../contracts/platform/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
-import type { ConfirmationBridge } from "../identity/mod.ts";
+import type { ConfirmationBridge, RouteConfirmation } from "../identity/mod.ts";
 import type {
   EventBackend,
   EventSession,
@@ -25,6 +25,7 @@ import {
   type DispatchDeps,
   dispatchHttp,
   type FileHandler,
+  type FileStreamHandler,
   type MemoryHandler,
   type ReadHandler,
   type UploadHandler,
@@ -51,10 +52,12 @@ export type ApiServerOptions = {
   reads?: ReadonlyMap<string, ReadHandler>;
   memory?: ReadonlyMap<string, MemoryHandler>;
   files?: ReadonlyMap<string, FileHandler>;
+  // file route를 stream으로 서빙하는 대상(큰 파일). core 메모리에 한 파일을 모으지 않는다.
+  fileStreams?: ReadonlyMap<string, FileStreamHandler>;
   workers?: ReadonlyMap<string, ResponsivenessTarget>;
   uploads?: ReadonlyMap<string, UploadHandler>;
   // file·worker route의 사람 결정 확인. 없으면 confirmation route는 unavailable이다.
-  confirmation?: ConfirmationBridge;
+  confirmation?: ConfirmationBridge | RouteConfirmation;
   events?: EventBackend;
   subscriptions?: SubscriptionStore;
   // 열린 WebSocket event session을 dispatcher에 올린다. 돌려받은 함수로 뺀다.
@@ -65,6 +68,9 @@ export type ApiServerOptions = {
   registry?: RouteRegistry;
   // command·HTTP·event 입장 한도(responsiveness 2.3 표). 없으면 createAdmission()이다.
   admission?: Admission;
+  // stream 응답에서 소비자가 다음 조각을 당기지 않고 기다리는 최대 시간. 넘으면 응답을 끊고
+  // 입장 자리를 돌려준다(멈춘 client가 자리를 붙잡지 못하게). 없으면 60초.
+  streamIdleMs?: number;
 };
 
 export type ApiServer = {
@@ -85,6 +91,7 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
     reads: options.reads,
     memory: options.memory,
     files: options.files,
+    fileStreams: options.fileStreams,
     workers: options.workers === undefined
       ? undefined
       : adaptedWorkers(options.workers),
@@ -212,6 +219,8 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
       if (!arrival.ok) {
         return json(failure(arrival.error));
       }
+      // stream 응답은 본문이 끝날 때까지 입장 자리를 붙잡는다. 아래 finally는 그때 풀지 않는다.
+      let streaming = false;
       try {
         const entry = registry.lookup(url.pathname);
         if (!entry) {
@@ -226,6 +235,23 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
           decision.context,
           deps,
         );
+        if ("stream" in result) {
+          streaming = true;
+          return new Response(
+            held(
+              result.stream,
+              options.streamIdleMs ?? STREAM_IDLE_MS,
+              () => arrival.value.release(),
+            ),
+            {
+              status: result.status,
+              headers: {
+                "content-type": result.contentType,
+                "content-length": String(result.length),
+              },
+            },
+          );
+        }
         if ("bytes" in result) {
           return new Response(
             result.bytes.buffer.slice(
@@ -240,10 +266,57 @@ export function startApiServer(options: ApiServerOptions): Promise<ApiServer> {
         }
         return Response.json(result.json, { status: result.status });
       } finally {
-        arrival.value.release();
+        if (!streaming) arrival.value.release();
       }
     }
   });
+}
+
+const STREAM_IDLE_MS = 60_000;
+
+// source를 소비자가 당길 때만 읽는다(backpressure). 끝·오류·취소 때 한 번 `done`을 부르고,
+// 소비자가 idleMs 동안 다음 조각을 당기지 않으면 source를 취소하고 응답을 오류로 끝낸다.
+function held(
+  source: ReadableStream<Uint8Array>,
+  idleMs: number,
+  done: () => void,
+): ReadableStream<Uint8Array> {
+  const reader = source.getReader();
+  let finished = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const finish = () => {
+    clearTimeout(timer);
+    if (finished) return;
+    finished = true;
+    done();
+  };
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      clearTimeout(timer);
+      try {
+        const next = await reader.read();
+        if (next.done) {
+          finish();
+          controller.close();
+          return;
+        }
+        controller.enqueue(next.value);
+        // 이 조각을 소비자가 가져가 다음 pull을 부를 때까지의 대기를 잰다.
+        timer = setTimeout(() => {
+          reader.cancel().catch(() => undefined);
+          controller.error(new Error("stream consumer stalled"));
+          finish();
+        }, idleMs);
+      } catch (thrown) {
+        finish();
+        controller.error(thrown);
+      }
+    },
+    async cancel(reason) {
+      finish();
+      await reader.cancel(reason).catch(() => undefined);
+    },
+  }, { highWaterMark: 0 });
 }
 
 // 회수·정지 제어만 예약 영역(responsiveness R3)으로 입장시킨다. caller의 priority 주장은

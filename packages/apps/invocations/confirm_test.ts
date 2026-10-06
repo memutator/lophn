@@ -38,12 +38,11 @@ import {
   callerMatchesRequester,
   CONFIRM_PROOF_LIFETIME_MS,
 } from "./confirm.ts";
-import { createConfirmMarkers } from "../runtime/testing/mod.ts";
 import {
-  type CoreSigner,
-  createCoreSigner,
+  createConfirmMarkers,
   startDirectServer,
-} from "../runtime/mod.ts";
+} from "../runtime/testing/mod.ts";
+import { type CoreSigner, createCoreSigner } from "../runtime/mod.ts";
 import { observeInvocations } from "./restart.ts";
 
 const PURGE = "usage.purge";

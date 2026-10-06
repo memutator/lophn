@@ -1015,7 +1015,8 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     `release.prepare_bundle`의 요청 때 검사·`releases.list·get·compare`), `blueprint/reads.ts`
     (`apps.blueprint`), 준비 진행 `releases/preparation.ts`(supervisor 메모리, 모르면 `unknown`)와 실제 일
     `releases/prepare/from-source.ts`(commit 추출 → 설치 SDK 사본·잠근 `import-map.json` → blueprint 평가 →
-    화면 build → 봉인; `bundle/lock.ts`), supervisor 쪽 `apps/app-supervisor/{release-runner,assembly,broker,
+    화면 build → 봉인; `bundle/lock.ts`; 앱 source는 신뢰하지 않아 앱의 build script를 실행하지 않고 신뢰된
+    `ui-build/{app-build,eval-blueprint,binaries}.ts`가 권한을 좁혀 한다, apps/releases#R3), supervisor 쪽 `apps/app-supervisor/{release-runner,assembly,broker,
     access,pairs,preview-broker}.ts`와 자식 `apps/worker/apps/release-job.ts`, core 쪽 `apps/core/{apps,
     apps-control,apps-confirm}.ts`. 준비 접수·진행·취소는 command route지만 진행이 메모리라
     `withReleasePreparation`이 writer 앞에서 supervisor로 넘긴다(접수만 먼저 ledger transaction에서 앱 범위·

@@ -155,3 +155,103 @@ Deno.test("apps/sdk#R7: 범위 version 의존이나 설치 안 된 SDK가 있는
     await made.dispose();
   }
 });
+
+async function exists(path: string): Promise<boolean> {
+  return await Deno.stat(path).then(() => true, () => false);
+}
+
+Deno.test("apps/releases#R3: 앱이 쓴 build script는 준비 중 실행되지 않아 process 실행·환경 읽기·staging 밖 쓰기를 하지 못하고 일반 준비는 그대로 된다", async () => {
+  const made = await committedApp();
+  const outside = await Deno.makeTempDir({ prefix: "lophn-escape-" });
+  try {
+    await Deno.writeTextFile(
+      `${made.dir}/scripts/build-ui.ts`,
+      [
+        `await Deno.writeTextFile(${
+          JSON.stringify(`${outside}/script-write`)
+        }, "x");`,
+        `new Deno.Command("sh", { args: ["-c", ${
+          JSON.stringify(`touch ${outside}/script-spawn`)
+        }] }).outputSync();`,
+        `await Deno.writeTextFile(${
+          JSON.stringify(`${outside}/script-env`)
+        }, Deno.env.get("HOME") ?? "");`,
+      ].join("\n"),
+    );
+    // 화면 코드가 같은 일을 하려 해도 build는 번들할 뿐 실행하지 않는다.
+    const screen = `${made.dir}/src/screens/items/main.tsx`;
+    await Deno.writeTextFile(
+      screen,
+      `new Deno.Command("sh", { args: ["-c", ${
+        JSON.stringify(`touch ${outside}/screen-spawn`)
+      }] }).outputSync();\n` + await Deno.readTextFile(screen),
+    );
+    await git(made.dir, ["add", "-A"]);
+    await git(made.dir, ["commit", "-qm", "hostile build"]);
+    const prepared = await prepareFromSource({
+      dataRoot: made.installed.home,
+      app: APP,
+      sourceRoot: made.dir,
+      commit: await git(made.dir, ["rev-parse", "HEAD"]),
+    });
+    assert(prepared.ok, prepared.ok ? "" : JSON.stringify(prepared.error));
+    for (
+      const name of [
+        "script-write",
+        "script-spawn",
+        "script-env",
+        "screen-spawn",
+      ]
+    ) {
+      assertEquals(await exists(`${outside}/${name}`), false, name);
+    }
+    // 앱의 build script는 bundle의 소스로만 남고 build 결과는 신뢰된 build가 만든 것이다.
+    assert(
+      prepared.value.manifest.files.some((file) =>
+        file.path === "screens/items/main.js"
+      ),
+    );
+  } finally {
+    await removeTree(outside);
+    await made.dispose();
+  }
+});
+
+Deno.test("apps/releases#R3: 준비 중 실행되는 blueprint 평가는 process 실행·환경 읽기·network·staging 밖 쓰기가 막히고 준비가 실패한다", async () => {
+  const made = await committedApp();
+  const outside = await Deno.makeTempDir({ prefix: "lophn-escape-" });
+  try {
+    const attempts: Record<string, string> = {
+      spawn: `new Deno.Command("sh", { args: ["-c", ${
+        JSON.stringify(`touch ${outside}/spawn`)
+      }] }).outputSync();`,
+      env: `Deno.env.get("HOME");`,
+      write: `Deno.writeTextFileSync(${
+        JSON.stringify(`${outside}/write`)
+      }, "x");`,
+      net: `await fetch("http://127.0.0.1:9/");`,
+    };
+    const original = await Deno.readTextFile(`${made.dir}/blueprint.ts`);
+    for (const [name, code] of Object.entries(attempts)) {
+      await Deno.writeTextFile(
+        `${made.dir}/blueprint.ts`,
+        `${code}\n${original}`,
+      );
+      await git(made.dir, ["commit", "-qam", `attempt ${name}`]);
+      const prepared = await prepareFromSource({
+        dataRoot: made.installed.home,
+        app: APP,
+        sourceRoot: made.dir,
+        commit: await git(made.dir, ["rev-parse", "HEAD"]),
+      });
+      assert(!prepared.ok, `${name} was allowed`);
+      assertEquals(prepared.error.reason, "blueprint_eval_failed", name);
+    }
+    for (const name of ["spawn", "write"]) {
+      assertEquals(await exists(`${outside}/${name}`), false, name);
+    }
+  } finally {
+    await removeTree(outside);
+    await made.dispose();
+  }
+});

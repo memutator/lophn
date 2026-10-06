@@ -8,6 +8,10 @@ import type {
   PreparationOutcome,
   PreparationRunner,
 } from "../../packages/apps/releases/preparation.ts";
+import {
+  buildEnvironment,
+  esbuildBinaries,
+} from "../../packages/apps/releases/ui-build/binaries.ts";
 import { RELEASE_PREPARATION_LIMIT_MS } from "../../packages/contracts/apps/mod.ts";
 
 const JOB = new URL("../worker/apps/release-job.ts", import.meta.url).pathname;
@@ -22,7 +26,12 @@ export function createChildPreparationRunner(options: {
   return {
     async run(job: PreparationJob, signal: AbortSignal) {
       const appRoot = `${options.dataRoot}/apps/${job.app}`;
-      const child = new Deno.Command(options.deno(), {
+      const deno = options.deno();
+      // 자식은 git·deno·esbuild만 실행하고 환경은 몇 개 이름만 갖는다. 앱 source는 실행되지 않는다.
+      const programs = ["git", deno, ...await esbuildBinaries(options.denoDir)];
+      const child = new Deno.Command(deno, {
+        clearEnv: true,
+        env: buildEnvironment(Deno.env.get("TMPDIR") ?? "/tmp"),
         args: [
           "run",
           "--quiet",
@@ -30,8 +39,9 @@ export function createChildPreparationRunner(options: {
           `--config=${REPO}/deno.json`,
           `--allow-read=${job.source_path},${options.dataRoot}/sdk,${appRoot},${REPO},${options.denoDir}`,
           `--allow-write=${appRoot}`,
+          // esbuild의 node 호환 spawn이 환경 전체 접근을 요구한다. 자식 환경이 이미 최소다.
           "--allow-env",
-          "--allow-run",
+          `--allow-run=${programs.join(",")}`,
           JOB,
           JSON.stringify({
             dataRoot: options.dataRoot,

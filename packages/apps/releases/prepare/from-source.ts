@@ -5,6 +5,11 @@
 import { err, type Result } from "../../../base/mod.ts";
 import { devImportMap } from "../../sdk/mod.ts";
 import { lockAppImports, readSdkCopies } from "../bundle/lock.ts";
+import {
+  buildEnvironment,
+  denoDirOf,
+  esbuildBinaries,
+} from "../ui-build/binaries.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
 import {
   extractCommit,
@@ -56,6 +61,7 @@ async function runDeno(
     signal?: AbortSignal;
     limitMs: number;
     env?: Record<string, string>;
+    clearEnv?: boolean;
   },
 ): Promise<Run | "aborted" | "timeout"> {
   if (options.signal?.aborted) return "aborted";
@@ -63,6 +69,7 @@ async function runDeno(
     args: [...args],
     cwd: options.cwd,
     ...(options.env === undefined ? {} : { env: options.env }),
+    ...(options.clearEnv === true ? { clearEnv: true } : {}),
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
@@ -91,13 +98,14 @@ async function runDeno(
   }
 }
 
-function denoDirOf(): string {
-  const set = Deno.env.get("DENO_DIR");
-  if (set) return set;
-  const cache = Deno.env.get("XDG_CACHE_HOME");
-  if (cache) return `${cache}/deno`;
-  return `${Deno.env.get("HOME") ?? "/tmp"}/.cache/deno`;
-}
+const EVAL_BLUEPRINT = new URL("../ui-build/eval-blueprint.ts", import.meta.url)
+  .pathname;
+const APP_BUILD = new URL("../ui-build/app-build.ts", import.meta.url)
+  .pathname;
+const REPO = new URL("../../../..", import.meta.url).pathname.replace(
+  /\/$/,
+  "",
+);
 
 // 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. 진입 JS는 화면, 나머지는 자원이다.
 async function readBuiltScreens(
@@ -146,6 +154,7 @@ export async function prepareFromSource(
   const deno = deps.deno ?? Deno.execPath();
   const limitMs = deps.stepLimitMs ?? STEP_LIMIT_MS;
   const sdkRoot = input.sdkRoot ?? `${input.dataRoot}/sdk`;
+  const denoDir = denoDirOf();
   const aborted = () =>
     deps.signal?.aborted === true || deps.cancelled?.() === true;
   const extracted = await extractCommit(git, {
@@ -194,12 +203,16 @@ export async function prepareFromSource(
     );
     if (aborted()) return fail("cancelled");
 
+    // `deno eval`은 모든 권한으로 돌므로 쓰지 않는다. read(staging·설치 SDK)만 허락한 `deno run`이다.
     const evaluated = await runDeno(deno, [
-      "eval",
+      "run",
       "--no-prompt",
+      // 앱의 deno.json(설정·task)은 읽지 않는다. 풀이는 신뢰된 import map 하나다.
+      "--no-config",
       `--import-map=${staging}/.lophn/import-map.json`,
       `--allow-read=${staging},${sdkRoot}`,
-      `import b from "file://${staging}/blueprint.ts"; console.log(JSON.stringify(b));`,
+      EVAL_BLUEPRINT,
+      `${staging}/blueprint.ts`,
     ], { cwd: staging, signal: deps.signal, limitMs });
     if (evaluated === "aborted") return fail("cancelled");
     if (evaluated === "timeout") return fail("elapsed_ms");
@@ -214,23 +227,31 @@ export async function prepareFromSource(
     }
     const sdkDependencies = blueprint.sdk_dependencies ?? [];
 
+    // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될
+    // 뿐 실행되지 않는다. run은 deno와 esbuild 실행 파일만, write는 staging만, env는 이름만 허락한다.
     const built = await runDeno(deno, [
       "run",
       "--no-prompt",
-      `--allow-read=${staging},${sdkRoot},${denoDirOf()}`,
+      `--config=${REPO}/deno.json`,
+      `--allow-read=${staging},${sdkRoot},${denoDir}`,
       `--allow-write=${staging}`,
       "--allow-env",
-      "--allow-run",
-      "scripts/build-ui.ts",
+      `--allow-run=${[deno, ...await esbuildBinaries(denoDir)].join(",")}`,
+      APP_BUILD,
+      staging,
     ], {
       cwd: staging,
       signal: deps.signal,
       limitMs,
-      env: { TMPDIR: `${staging}/.tmp` },
+      env: buildEnvironment(`${staging}/.tmp`),
+      clearEnv: true,
     });
     if (built === "aborted") return fail("cancelled");
     if (built === "timeout") return fail("elapsed_ms");
-    if (built.code !== 0) return fail("ui_build_failed", "unavailable");
+    if (built.code !== 0) {
+      console.error(built.stderr);
+      return fail("ui_build_failed", "unavailable");
+    }
     const screens = await readBuiltScreens(staging);
     if (aborted()) return fail("cancelled");
 

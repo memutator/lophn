@@ -9,10 +9,10 @@ import {
 } from "../../contracts/apps/mod.ts";
 import type {
   ConnectFacts,
+  CoreSigner,
   ProcessObservation,
   ProcessSource,
-} from "../runtime/connect.ts";
-import type { CoreSigner } from "../runtime/signing.ts";
+} from "../runtime/mod.ts";
 import { createPathBook, type PathBook } from "./origin.ts";
 import { type PairDeclaration, pairScope, resolveCall } from "./resolve.ts";
 

@@ -253,7 +253,7 @@ write/external·confirm·automation의 read 포함 전체 호출·실패/거절 
 
 ### 5.3 release 준비·적용
 
-**작업 요청 API.** 요청 수락은 release 확정이 아니다. control 어댑터가 인증·앱 scope를 확인하여 core command queue 밖 supervisor에 요청한다. request_key는 메모리 진행 식별이며 새 영구 job entity가 아니다. 접수(`prepare_bundle`)는 먼저 ledger transaction에서 앱 범위·source 연결·ticket claim(있으면)을 확인하고(아무것도 기록하지 않는다), 통과한 요청만 core가 writer 앞에서 감독 pipe로 supervisor에 넘긴다. 진행 조회와 취소는 ledger를 거치지 않는다. 범위 밖·없는 앱·source가 연결되지 않은 앱은 같은 거절이다. supervisor는 요청마다 권한을 좁힌 release 자식(`apps/worker/apps/release-job.ts`)을 띄워 commit 추출·SDK 설치 사본과 잠근 import map 담기·blueprint 평가·화면 build·봉인을 하고, 취소는 그 자식을 종료한 뒤 staging을 지운다.
+**작업 요청 API.** 요청 수락은 release 확정이 아니다. control 어댑터가 인증·앱 scope를 확인하여 core command queue 밖 supervisor에 요청한다. request_key는 메모리 진행 식별이며 새 영구 job entity가 아니다. 접수(`prepare_bundle`)는 먼저 ledger transaction에서 앱 범위·source 연결·ticket claim(있으면)을 확인하고(아무것도 기록하지 않는다), 통과한 요청만 core가 writer 앞에서 감독 pipe로 supervisor에 넘긴다. 진행 조회와 취소는 ledger를 거치지 않는다. 범위 밖·없는 앱·source가 연결되지 않은 앱은 같은 거절이다. supervisor는 요청마다 권한을 좁힌 release 자식(`apps/worker/apps/release-job.ts`)을 띄워 commit 추출·SDK 설치 사본과 잠근 import map 담기·blueprint 평가·화면 build·봉인을 한다. 앱 source는 신뢰하지 않으므로 앱이 쓴 `scripts/build-ui.ts`는 준비에서 실행하지 않고 신뢰된 `releases/ui-build/app-build.ts`가 같은 build를 한다(앱 코드는 번들될 뿐이다). blueprint 평가는 read만 허락한 `deno run`(`eval-blueprint.ts`)이고 build 자식은 write를 staging에, run을 deno·esbuild 실행 파일에 좁히며 두 자식 모두 `clearEnv`로 환경 변수 몇 개만 갖는다. 취소는 그 자식을 종료한 뒤 staging을 지운다.
 
 | RPC | 입력 | 출력 |
 |---|---|---|

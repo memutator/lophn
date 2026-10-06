@@ -585,3 +585,95 @@ export async function untilSectionStatus(
     await delay(250);
   }
 }
+
+/**
+ * 사람이 폴더 하나를 프로젝트로 등록해 추적을 켠 뒤, 그 project의 작업대를 연다. 등록은 launcher
+ * 화면이 아니라 같은 사람 command를 core 통로로 내고(first-project가 화면 조작을 따로 본다),
+ * 작업대는 core를 다시 띄워 그 프로젝트부터 연다. 첫 문서(폴더의 `*.md` 하나)의 id를 함께 준다.
+ */
+export async function openProjectWorkspace(
+  options: { folder: string; name: string; title: string; document: string },
+): Promise<{ flow: FlowShell; documentId: string }> {
+  const setup = await openFlowShell();
+  const home = setup.home;
+  let documentId: string;
+  try {
+    await registerTrackedProject(setup, {
+      folder: options.folder,
+      name: options.name,
+      title: options.title,
+    });
+    await untilDocuments(
+      setup,
+      [options.document],
+      "추적한 파일이 문서가 되지 않았다",
+    );
+    documentId = (await documentTitled(setup, options.document)).id;
+  } finally {
+    await setup.close();
+  }
+  const flow = await openFlowShell({ home, start: `project:${PROJECT}` });
+  await flow.until(
+    `document.querySelector("[data-space]")?.getAttribute("data-space") === "project"`,
+    "project 작업대가 서지 않았다",
+  );
+  return { flow, documentId };
+}
+
+/** 문서의 고정 판 이력을 번호 큰 순서로 준다(사람 token의 documents/history 읽기). */
+export async function versionHistory(
+  flow: FlowShell,
+  document: string,
+): Promise<
+  { id: string; number: number; saved_by: string; content_hash: string }[]
+> {
+  const value = await mustCall(flow, {
+    kind: "read",
+    resource: "documents",
+    method: "history",
+    body: { document },
+  });
+  return (value.versions as {
+    id: string;
+    number: number;
+    saved_by: string;
+    content_hash: string;
+  }[]).toSorted((left, right) => right.number - left.number);
+}
+
+/** 판이 `count`개가 될 때까지 기다린다(파일 관측이 새 판을 만든다). */
+export async function untilVersions(
+  flow: FlowShell,
+  document: string,
+  count: number,
+  what: string,
+): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  for (;;) {
+    const rows = await versionHistory(flow, document);
+    if (rows.length >= count) return;
+    assert(Date.now() < deadline, `${what}: 판이 ${rows.length}개`);
+    await delay(250);
+  }
+}
+
+/** 편집기(CodeMirror) 글 끝에 커서를 두고 글을 입력한다(실제 입력 event). */
+export async function typeAtEnd(flow: FlowShell, text: string): Promise<void> {
+  await flow.evaluate(
+    `(() => { const line = [...document.querySelectorAll(".cm-line")].at(-1); const range = document.createRange(); range.selectNodeContents(line); range.collapse(false); const selection = getSelection(); selection.removeAllRanges(); selection.addRange(range); document.querySelector(".cm-content").focus(); return true; })()`,
+  );
+  const page = await flow.shell.connect("://desktop/");
+  await page.command("Input.insertText", { text });
+}
+
+/** 파일이 `expected` 글이 될 때까지 기다린다. */
+export async function untilFile(path: string, expected: string): Promise<void> {
+  const deadline = Date.now() + READY_TIMEOUT_MS;
+  let last = "";
+  while (Date.now() < deadline) {
+    last = await Deno.readTextFile(path);
+    if (last === expected) return;
+    await delay(200);
+  }
+  throw new Error(`파일이 기대한 글이 아니다: ${JSON.stringify(last)}`);
+}

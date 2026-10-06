@@ -626,6 +626,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/revert-and-checkpoints.md
 - 선행: T21, T23, contracts#T28, documents#T30
+- documents#T30에서 넘어온 것: `tx.call`로 machine `document.archive`·`document.restore`를 부르려면 `packages/contracts/documents/documents.ts`의 `DOCUMENT_DISPATCHABLE_COMMANDS`에 두 route를 더한다(지금은 user만 받는 move·rename만 있다. `addressing/commands_test.ts`의 user-only 단언도 함께 고친다). documents 쪽 보상 규칙은 documents Q32.
 - 완료:
   - `reverts`, `revert_changes`, `revert_change_sources`, `revert_change_compensations` 표
   - revert_test.ts에 R1–R9 테스트: 끝난 run 하나의 확정 변경 전체(별도 묶음 확정 없음), 사람만 요청·agent tool 없음, preview의 복원 가능·불가·남길 사실·충돌과 적용 뒤 실제·남은 영향·부분 구별, 후속 변경이 있으면 아무것도 시작하지 않음, 복원은 소유 concern의 새 변경(과거 사실·version 보존), 외부 영향·activation·secret·source·디스크 원본을 복구했다고 하지 않음, 복원 불가 섞이면 기본 차단·명시 동의만 독립 부분, 같은 요청 반복은 저장된 결과를 돌려주고 한 번만 적용(두 번째 거절이 아님)·원래 답·승인·호출·사용량 보존, 분류 안 된 영향 누락 없음, 읽기 전용 호출도 목록에서 지우지 않음, preview 뒤 대상이 바뀌면 revert_run이 owner CAS로 전부 blocked(preview는 저장 diff 합산이 아니라 현재 판 비교)

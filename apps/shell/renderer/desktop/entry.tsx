@@ -9,6 +9,12 @@ import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
+import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
+import {
+  type AppViewsDeps,
+  AppViewsProvider,
+  coreAppRead,
+} from "../app-frame/app-views.tsx";
 import type { IntentApi, ShortcutApi } from "../../ipc/shortcuts.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { documentSearch } from "./palette/search.ts";
@@ -69,7 +75,7 @@ const terminal = windowTerminalDeps(
 
 // 창 안 팔레트. overlay와 shortcut 통로는 desktop preload가 연다.
 const bridges = globalThis as {
-  lophnShell?: OverlayApi;
+  lophnShell?: OverlayApi & Partial<LophnShellViewsApi>;
   lophnShortcuts?: ShortcutApi;
   lophnIntents?: IntentApi;
 };
@@ -82,24 +88,36 @@ const palette: PaletteDeps | undefined =
     }
     : undefined;
 
+// 앱 패널 탭과 세션 앱 카드의 view 통로. desktop 창 preload에만 있다. 화면 선언(blueprint) read와
+// 문제 알리기는 아직 core 통로가 없어 두지 않는다.
+const shellViews = bridges.lophnShell;
+const appViews: AppViewsDeps | null = shellViews?.openApp
+  ? {
+    views: shellViews as LophnShellViewsApi,
+    app: coreAppRead(core),
+  }
+  : null;
+
 mount(
   <div className={styles.root}>
-    <ConversationProvider deps={conversation}>
-      <RequestsProvider deps={requests}>
-        <Desktop
-          source={core}
-          initial={start}
-          workspace={workspace}
-          editor={seed ? { ...seed.editor, menu: editor.menu } : editor}
-          windowWidth={seed ? 1440 : undefined}
-          terminal={terminal}
-          lophn={lophn}
-          palette={palette}
-          projects={projects}
-          tracking={tracking}
-          intents={bridges.lophnIntents}
-        />
-      </RequestsProvider>
-    </ConversationProvider>
+    <AppViewsProvider value={appViews}>
+      <ConversationProvider deps={conversation}>
+        <RequestsProvider deps={requests}>
+          <Desktop
+            source={core}
+            initial={start}
+            workspace={workspace}
+            editor={seed ? { ...seed.editor, menu: editor.menu } : editor}
+            windowWidth={seed ? 1440 : undefined}
+            terminal={terminal}
+            lophn={lophn}
+            palette={palette}
+            projects={projects}
+            tracking={tracking}
+            intents={bridges.lophnIntents}
+          />
+        </RequestsProvider>
+      </ConversationProvider>
+    </AppViewsProvider>
   </div>,
 );

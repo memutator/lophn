@@ -404,6 +404,7 @@ concerns: [documents]
 - 내놓는 contract: `document.set_source`, 두기·빼기 요청(파일 쓰기 contract 안의 동작); event `DocumentSourceChanged`
 - slice: documents
 - 선행: T9, T10, T12, platform#T56
+- 상태: 완료 (#315) — 두기·빼기를 부르는 route와 제품 조립(요청 자격 command 호출, 삭제 confirmation handle 소비)은 contract 변경 없이 만들지 않았다 → shell#T20·lead 결정(Q33)
 - 완료:
   - 두기: tracking이 켜진 project만(꺼졌으면 conflict). 최신 고정 판 바이트를 no-replace로 쓰고, 패턴 밖이면 그 파일 하나의 include를 `project.set_tracking`으로, `document.move`, `document.set_source`를 각각 현재 CAS로 확정. 파일 성공 뒤 연결 확정 실패는 파일을 남기고 따로 표시
   - 빼기: 디스크 hash가 최신 판 원문과 같을 때만 파일 삭제, 다르면 conflict로 파일을 남김

@@ -358,6 +358,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T20 automation
 
+- 상태: 완료 (#321) — 이어보냄: supervisor 조립(permits 하나·자식마다 automations broker 서비스·`AccessState.automations`·자식 종료 때 `permits.childExited`)과 `apps.automations` reader의 `currentDeclarations` port 등록 → T19, automation 켜기·끄기 화면 → shell#T43, 실제 supervisor·앱 자식 automation 회차 E2E → T27
 - 등급: 기본
 - concern: apps/automations, apps/blueprint
 - 요구: apps/automations#R1–R13, apps/blueprint#R14

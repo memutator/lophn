@@ -3,11 +3,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import {
-  schemaFailure,
-  sandboxFailure,
-  startFailure,
-} from "./model.ts";
+import { sandboxFailure, schemaFailure, startFailure } from "./model.ts";
 
 test("shell/desktop#R11, R12: start failure shows distinct message and one action", () => {
   const failure = startFailure();

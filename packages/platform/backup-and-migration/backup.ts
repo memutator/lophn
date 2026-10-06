@@ -169,33 +169,23 @@ async function copyBlobs(
   directory: string,
   refs: readonly { hash: string; sizeBytes: bigint }[],
 ): Promise<Result<BackupBlobCopy[]>> {
-  // 같은 hash가 여러 참조에 있으면 첫 size만 본다. 등록 size가 다르면 이미
-  // 검사가 실패한다(R10). dedupe는 검사 전에 보든다.
-  const seen = new Map<string, bigint>();
-  for (const ref of refs) {
-    const known = seen.get(ref.hash);
-    if (known !== undefined && known !== ref.sizeBytes) {
-      return err({
-        code: "unavailable",
-        message: "blob 내용이 등록 hash와 다르다",
-      });
-    }
-    if (known === undefined) seen.set(ref.hash, ref.sizeBytes);
-  }
+  // 같은 hash가 여러 참조에 있어도 복사는 한 번이다. 등록 size는 소유 concern이 넘긴 값이라
+  // (documents의 files 목록 blob은 0으로 등록된다) 믿고 비교하지 않는다. 내용은 hash가 지키고
+  // manifest에는 실제 바이트 길이를 둔다.
+  const hashes = new Set(refs.map((ref) => ref.hash));
   const blobs: BackupBlobCopy[] = [];
-  for (const [hash, registered] of seen) {
+  for (const hash of hashes) {
     const source = `${root}/blobs/sha256/${hash.slice(0, 2)}/${hash.slice(2)}`;
     let bytes: Uint8Array;
     try {
       bytes = await Deno.readFile(source);
     } catch {
-      // blob 존재 실패다. 참조가 남앴도 실제 내용이 빠진 묶음은 미완성이다(R10).
+      // blob 존재 실패다. 참조가 남았도 실제 내용이 빠진 묶음은 미완성이다(R10).
       return err({ code: "unavailable", message: "snapshot blob이 없다" });
     }
-    // 실제 sha256을 다시 계산한다. 등록 hash·size와 다르면 검증 실패다(R10).
-    // size_bytes는 ledger 연결이 bigint로 돌려주므로 Number로 명시히 좁힌다.
+    // 실제 sha256을 다시 계산한다. 등록 hash와 다르면 검증 실패다(R10).
     const digest = await sha256Hex(bytes);
-    if (digest !== hash || bytes.length !== Number(registered)) {
+    if (digest !== hash) {
       return err({
         code: "unavailable",
         message: "blob 내용이 등록 hash와 다르다",

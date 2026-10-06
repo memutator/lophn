@@ -52,7 +52,11 @@ function openExtra(path: string): DatabaseSync {
 
 // 실제 blob 파일을 원본 자리에 남기고 blob_refs에 등록한다(R8). size는 실제
 // 바이트 길이다. 등록값과 다르면 만들기가 검증에 실패한다(R10).
-async function seedBlob(root: string, body: string): Promise<string> {
+async function seedBlob(
+  root: string,
+  body: string,
+  registeredSize?: number,
+): Promise<string> {
   const bytes = new TextEncoder().encode(body);
   const hash = await sha256Hex(bytes);
   const directory = `${root}/blobs/sha256/${hash.slice(0, 2)}`;
@@ -68,7 +72,14 @@ async function seedBlob(root: string, body: string): Promise<string> {
     };
     db.prepare(
       "insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes, registered_seq) values (?, ?, ?, ?, ?, ?)",
-    ).run("document_version", "doc_1", "file", hash, bytes.length, head.seq);
+    ).run(
+      "document_version",
+      "doc_1",
+      "file",
+      hash,
+      registeredSize ?? bytes.length,
+      head.seq,
+    );
   } finally {
     db.close();
   }
@@ -536,6 +547,31 @@ Deno.test(
     assert(backup.ok);
     // 중복 참조도 manifest blob은 하나다(이미 등록된 원본 blob이 1개라서도 아니다).
     assertEquals(backup.value.blobs.length, 1);
+    await Deno.remove(dir, { recursive: true });
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R10: 등록 size가 실제와 달라도 hash가 맞으면 담고 manifest에는 실제 길이를 둔다",
+  async () => {
+    const dir = await tempDir();
+    const { path, version } = await ledger(dir);
+    // documents의 files 목록 blob은 size_bytes 0으로 등록된다. 내용 손상이 아니다.
+    await seedBlob(dir, "files listing blob", 0);
+    const stamp = backupStamp("2026-02-03T03:04:05.678Z");
+    assert(stamp.ok);
+    const backup = await createBackup(path, {
+      root: dir,
+      schemaVersion: version,
+      stamp: stamp.value,
+      now: () => "2026-02-03T03:04:06.000Z",
+    });
+    assert(backup.ok, backup.ok ? "" : backup.error.message);
+    assertEquals(backup.value.complete, true);
+    assertEquals(
+      backup.value.blobs.map((blob) => blob.size_bytes),
+      [new TextEncoder().encode("files listing blob").length],
+    );
     await Deno.remove(dir, { recursive: true });
   },
 );

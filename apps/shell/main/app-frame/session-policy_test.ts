@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createDocumentSessions, DOCUMENT_SCHEME } from "./session-policy.ts";
+import {
+  appHostLabel,
+  appPartition,
+  createAppSessions,
+  createDocumentSessions,
+  DOCUMENT_SCHEME,
+} from "./session-policy.ts";
 
 function session() {
   let cleared = 0;
@@ -56,4 +62,56 @@ test("shell/app-frame#R10: 닫으면 그 session의 저장 상태를 지우고 r
   );
   await sessions.close("missing-partition");
   assert.equal(again.cleared(), 0);
+});
+
+test("shell/app-frame#R1, shell/app-frame#R8: 앱 partition은 앱·live·preview bundle로 나뉘고 한 partition에 정책을 한 번만 단다", async () => {
+  const app = "app_01j9zzzzzzzzzzzzzzzzzzzzzz";
+  const hash = "a".repeat(64);
+  assert.equal(appPartition(app, "live", hash), `persist:app-${app}:live`);
+  assert.equal(
+    appPartition(app, "preview", hash),
+    `persist:app-${app}:preview-${hash}`,
+  );
+  assert.notEqual(
+    appPartition(app, "preview", hash),
+    appPartition(app, "preview", "b".repeat(64)),
+  );
+  assert.equal(appHostLabel(app), "app-01j9zzzzzzzzzzzzzzzzzzzzzz");
+  const handles: string[] = [];
+  let prevented = 0;
+  let cleared = 0;
+  const sessions = createAppSessions({
+    handle(partition) {
+      handles.push(partition);
+      return {
+        denyPermissions() {},
+        onDownload(listener) {
+          listener({ preventDefault: () => prevented++ });
+        },
+        onBeforeRequest() {},
+        onBeforeSendHeaders() {},
+        handleProtocol() {},
+        clearCache() {
+          cleared++;
+          return Promise.resolve();
+        },
+      };
+    },
+    viewOf: () => undefined,
+    protocol: {
+      viewFor: () => undefined,
+      upstream: () => Promise.reject(new Error("unused")),
+      stale() {},
+    },
+    platformPorts: () => [],
+  });
+  const live = appPartition(app, "live", hash);
+  sessions.ensure(live, appHostLabel(app));
+  sessions.ensure(live, appHostLabel(app));
+  assert.deepEqual(handles, [live]);
+  assert.equal(prevented, 1);
+  assert.throws(() => sessions.ensure(live, "app-01j9yyyyyyyyyyyyyyyyyyyyyy"));
+  await sessions.clearCache(live);
+  await sessions.clearCache("persist:app-other:live");
+  assert.equal(cleared, 1);
 });

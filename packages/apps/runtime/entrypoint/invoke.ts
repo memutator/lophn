@@ -11,7 +11,10 @@ import {
   readRejection,
   readSchedulePort,
   type RecordedJson,
+  type RecordedTrigger,
   recordingMode,
+  type RegisteredHandler,
+  type SchedulePort,
   type StartFact,
   type SubmittedFact,
 } from "../../invocations/mod.ts";
@@ -202,6 +205,121 @@ function recordedInvocation(
   return found.effect !== "read" || found.progress === "failed";
 }
 
+type Origin = { trigger: RecordedTrigger; actor: string };
+
+type Launched = {
+  record: InvocationRecord;
+  // handler가 실제로 끝났을 때 정해진다. reject하지 않는다.
+  outcome: Promise<{ ok: true; result: unknown } | { ok: false }>;
+};
+
+// command 경계 하나를 시작한다. 직접 호출과 automation 회차가 같은 handler 경로를 쓴다. 호출 방식
+// (trigger·actor)만 다르고 입력 검사는 부르는 쪽이 이미 마쳤다(apps/automations#R1).
+function launch(
+  state: RuntimeState,
+  id: string,
+  requestKey: string | null,
+  call: {
+    command: CommandDeclaration;
+    input: unknown;
+    caller: InvocationCaller;
+    origin: Origin;
+    handler: RegisteredHandler;
+    port: SchedulePort;
+  },
+): Launched {
+  const { command, origin } = call;
+  const record: InvocationRecord = {
+    id,
+    // 요청 key가 없는 호출(automation)은 어떤 client도 같은 key로 찾지 못하는 값을 쓴다.
+    requestKey: requestKey ?? `automation:${id}`,
+    command: command.key,
+    effect: command.effect,
+    caller: call.caller,
+    progress: "running",
+    recorded: false,
+  };
+  state.invocations.set(id, record);
+  if (requestKey !== null) state.byRequest.set(requestKey, id);
+  // 일반 성공 읽기는 남기지 않고(R2), 그 밖에는 실제 시작을 관측한 뒤 후행으로 알린다(R9).
+  // automation 회차는 읽기도 항상 남긴다(apps/automations#R10).
+  const mode = recordingMode({
+    operation: "command",
+    effect: command.effect,
+    confirm: command.confirm,
+    trigger: origin.trigger.kind,
+  });
+  const startedAt = state.clock.now();
+  record.startedAt = startedAt;
+  const start: StartFact = {
+    operation: { kind: "command", command: command.key },
+    trigger: origin.trigger,
+    caller: call.caller,
+    actor: origin.actor,
+    started_at: startedAt,
+  };
+  if (mode === "always") void submit(state, id, { fact: "start", body: start });
+  openStages(id);
+  const outcome = (async () => {
+    let result: unknown;
+    try {
+      result = await call.port.run(
+        {
+          app: state.identity.app,
+          release: state.identity.release,
+          mode: state.identity.mode,
+          invocation: id,
+        },
+        () => call.handler.handle(call.input),
+      );
+    } catch (error) {
+      // timeout으로 이미 결과 모름을 남겼으면 늦은 종료가 그 사실을 바꾸지 않는다.
+      if (record.settled) {
+        takeStages(id);
+        return { ok: false as const };
+      }
+      record.progress = "failed";
+      // 효과 전의 거절은 코드를 남기고 같은 접수의 재전송도 같은 거절로 답한다.
+      const rejection = readRejection(error);
+      if (rejection) record.rejection = rejection;
+      const finish = finishFact(
+        record,
+        command.confirm,
+        "failed",
+        startedAt,
+        state,
+      );
+      if (mode === "on_failure") {
+        void submit(state, id, { fact: "start", body: start });
+      }
+      void submit(state, id, { fact: "finish", body: finish });
+      return { ok: false as const };
+    }
+    if (record.settled) {
+      takeStages(id);
+      return { ok: true as const, result };
+    }
+    record.progress = "succeeded";
+    if (origin.trigger.kind === "direct") record.result = result as Json;
+    if (mode === "always") {
+      void submit(state, id, {
+        fact: "finish",
+        body: finishFact(
+          record,
+          command.confirm,
+          "succeeded",
+          startedAt,
+          state,
+        ),
+      });
+    } else {
+      takeStages(id);
+    }
+    return { ok: true as const, result };
+  })();
+  return { record, outcome };
+}
+
 async function runHandler(
   state: RuntimeState,
   requestKey: string,
@@ -217,63 +335,22 @@ async function runHandler(
   const handler = port?.handlers().find((item) =>
     item.command === call.command.key
   );
-  if (!handler) return fail(409, "conflict", "handler is not registered");
+  if (!port || !handler) {
+    return fail(409, "conflict", "handler is not registered");
+  }
   const id = call.proof?.invocation ?? state.ids.newId("inv");
-  const record: InvocationRecord = {
-    id,
-    requestKey,
-    command: call.command.key,
-    effect: call.command.effect,
+  const run = launch(state, id, requestKey, {
+    command: call.command,
+    input: call.input,
     caller: call.caller,
-    progress: "running",
-    recorded: false,
-  };
-  state.invocations.set(id, record);
-  state.byRequest.set(requestKey, id);
-  // 일반 성공 읽기는 남기지 않고(R2), 그 밖에는 실제 시작을 관측한 뒤 후행으로 알린다(R9).
-  const mode = recordingMode({
-    operation: "command",
-    effect: call.command.effect,
-    confirm: call.command.confirm,
-    trigger: "direct",
+    origin: { trigger: { kind: "direct" }, actor: call.connection.actor },
+    handler,
+    port,
   });
-  const startedAt = state.clock.now();
-  const start: StartFact = {
-    operation: { kind: "command", command: call.command.key },
-    trigger: { kind: "direct" },
-    caller: call.caller,
-    actor: call.connection.actor,
-    started_at: startedAt,
-  };
-  if (mode === "always") void submit(state, id, { fact: "start", body: start });
-  openStages(id);
-  let result: unknown;
-  try {
-    result = await port!.run(
-      {
-        app: state.identity.app,
-        release: state.identity.release,
-        mode: state.identity.mode,
-        invocation: id,
-      },
-      () => handler.handle(call.input),
-    );
-  } catch (error) {
+  const done = await run.outcome;
+  if (!done.ok) {
     // handler가 효과 전에 받지 않겠다고 알린 호출만 그 코드로 답한다. 그 밖의 예외는 원문 없이 500이다.
-    const rejection = readRejection(error);
-    record.progress = "failed";
-    if (rejection) record.rejection = rejection;
-    const finish = finishFact(
-      record,
-      call.command.confirm,
-      "failed",
-      startedAt,
-      state,
-    );
-    if (mode === "on_failure") {
-      void submit(state, id, { fact: "start", body: start });
-    }
-    void submit(state, id, { fact: "finish", body: finish });
+    const rejection = run.record.rejection;
     if (rejection) {
       return fail(
         STATUS[rejection.code] ?? 400,
@@ -283,30 +360,101 @@ async function runHandler(
     }
     return fail(500, "internal", "handler failed");
   }
-  record.progress = "succeeded";
-  record.result = result as Json;
-  if (mode === "always") {
-    void submit(state, id, {
-      fact: "finish",
-      body: finishFact(
-        record,
-        call.command.confirm,
-        "succeeded",
-        startedAt,
-        state,
-      ),
-    });
-  } else {
-    takeStages(id);
-  }
   return {
     status: 200,
     body: {
-      result: { result: result ?? null },
-      ...(recordedInvocation(record) ? { invocation: id } : {}),
+      result: { result: done.result ?? null },
+      ...(recordedInvocation(run.record) ? { invocation: id } : {}),
       mode: state.identity.mode,
     },
   };
+}
+
+export type AutomationLaunch = {
+  invocation: string;
+  done: Promise<void>;
+};
+
+// automation 회차의 handler 호출. 입력은 부르는 쪽이 선언 schema로 검사한 정규 입력이다. actor는
+// machine, trigger와 caller는 automation key다(apps/invocations#R16, apps/automations domain).
+export function launchAutomation(
+  state: RuntimeState,
+  automation: { key: string; command: CommandDeclaration; input: unknown },
+): AutomationLaunch | undefined {
+  const port = readSchedulePort();
+  const handler = port?.handlers().find((item) =>
+    item.command === automation.command.key
+  );
+  if (!port || !handler) return undefined;
+  const id = state.ids.newId("inv");
+  const run = launch(state, id, null, {
+    command: automation.command,
+    input: automation.input,
+    caller: { kind: "automation", key: automation.key },
+    origin: {
+      trigger: { kind: "automation", key: automation.key },
+      actor: "machine",
+    },
+    handler,
+    port,
+  });
+  // 회차는 requestKey로 다시 찾는 호출이 아니므로 끝난 기록을 메모리에 쌓지 않는다. 기록은 이미
+  // 후행 전달로 나갔다.
+  return {
+    invocation: id,
+    done: run.outcome.then(() => {
+      state.invocations.delete(id);
+    }),
+  };
+}
+
+// timeout은 종료 요청과 timeout 사실일 뿐 handler 종료나 효과 취소가 아니다. 결과를 모르는 호출로 남기고
+// 늦은 종료가 그 사실을 바꾸지 않는다(apps/automations#R9, apps/invocations#R11).
+export function timeoutAutomation(state: RuntimeState, id: string): void {
+  const record = state.invocations.get(id);
+  if (!record || record.settled || record.progress !== "running") return;
+  record.settled = true;
+  record.cancelRequested = true;
+  record.progress = "unknown";
+  const summary: { [key: string]: RecordedJson } = {
+    command: record.command,
+    effect: record.effect,
+    timeout: true,
+    cancel_requested: true,
+  };
+  if (record.effect !== "read") summary.effects = "unconfirmed";
+  void submit(state, id, {
+    fact: "finish",
+    body: {
+      status: "unknown",
+      started_at: record.startedAt ?? null,
+      finished_at: state.clock.now(),
+      summary,
+      detail_hash: null,
+    },
+  });
+}
+
+// 선언을 어긴 회차(confirm=true, 잘못된 고정 입력)는 handler 없이 거절 사실로 남긴다.
+export function denyAutomation(
+  state: RuntimeState,
+  automation: { key: string; command: CommandDeclaration },
+  code: string,
+): void {
+  const deny: DenyFact = {
+    operation: { kind: "command", command: automation.command.key },
+    trigger: { kind: "automation", key: automation.key },
+    caller: { kind: "automation", key: automation.key },
+    actor: "machine",
+    finished_at: state.clock.now(),
+    summary: {
+      command: automation.command.key,
+      effect: automation.command.effect,
+      automation: automation.key,
+      code,
+    },
+  };
+  void submit(state, state.ids.newId("inv"), { fact: "deny", body: deny });
 }
 
 // 종료 사실의 요약. 입출력 본문이나 오류 원문은 담지 않는다. 실패·중단한 write·external은

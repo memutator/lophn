@@ -23,6 +23,9 @@ export type InvocationRecord = {
   cancelRequested?: boolean;
   // handler가 효과 전에 받지 않겠다고 알린 호출(apps/agent-context#R5). 효과 없음이 알려진 실패다.
   rejection?: { code: string; message: string };
+  // 종료 사실(timeout의 결과 모름)을 이미 보냈다. 늦은 handler 종료가 그 사실을 바꾸지 않는다.
+  settled?: boolean;
+  startedAt?: string;
 };
 
 export type ViewSession = {
@@ -52,6 +55,8 @@ export type RuntimeState = {
   // 닫히거나 교체된 view session. 늦게 온 화면 요청이 닫힌 session을 되살리지 못한다. 상한을 넘으면
   // 가장 오래된 것부터 잊는다.
   closedViews: Set<string>;
+  // live 프로세스의 automation 수명. 업무 통로가 열리면 시작하고 닫히면 멈춘다.
+  automations?: { open(): void; close(): void };
   screenBytes: (screen: string, path: string) => Uint8Array | undefined;
   contentType: (path: string) => string;
 };

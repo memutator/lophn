@@ -54,8 +54,8 @@ import {
   `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`,
   `ScreenContextRegistration`, `ScreenViewState`,
   `AnnotationTargetRegistration`, `AnnotationWriteRequest`,
-  `AnnotationWriteResult`, `RejectionCode`,
-  `AppCommandsClient`, `AppCommandOutcome`, `AppResult`
+  `AnnotationWriteResult`, `RejectionCode`, `AppCommandsClient`,
+  `AppCommandOutcome`, `AppResult`
 
 ## 요구 permission
 

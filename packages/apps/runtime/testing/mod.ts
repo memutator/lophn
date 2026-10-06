@@ -130,3 +130,14 @@ export {
   shaKey,
   startLine,
 } from "../entrypoint/testing.ts";
+
+// 실제 앱 자식 프로세스 fixture. 다른 leaf의 시험(apps/connections)이 앱 쌍 호출에 쓴다.
+export {
+  COMMANDS,
+  FIXTURE_APP,
+  FIXTURE_RELEASE,
+  type FixtureApp,
+  fixtureBlueprint,
+  SCREENS,
+  startFixtureApp,
+} from "./app-process.ts";

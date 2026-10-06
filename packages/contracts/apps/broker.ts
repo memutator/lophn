@@ -10,9 +10,10 @@ import {
   secretNameSchema,
 } from "../platform/mod.ts";
 import { problemCodeSchema } from "../problems/problem-codes.ts";
-import { appConnectOutputSchema } from "./channel.ts";
+import { appConnectOutputSchema, signedConfirmProofSchema } from "./channel.ts";
 import {
   appIdSchema,
+  approvalIdSchema,
   AUTOMATION_CONCURRENCY_LIMIT,
   AUTOMATION_TIMEOUT_MS,
   BROKER_SOCKET_PATHS,
@@ -148,8 +149,59 @@ export const brokerAppsConnectInputSchema = z.strictObject({
     message: "duplicate command",
   }),
   parent_invocation: invocationIdSchema.nullable(),
+  // 지금 처리 중인 호출이 다른 앱에게서 받은 것이면 그 연결의 출처(받은 AppConnection의 caller
+  // 식별)다. 준비 서비스가 자기가 발급한 origin 중 이 자식 프로세스가 받은 것과 맞춰 보고 path는
+  // 서비스가 가진 값을 쓴다. 자식이 주장하는 path는 없다. 모르는 출처는 거절한다.
+  incoming: z.strictObject({
+    app: appIdSchema,
+    release: releaseIdSchema,
+    parent_invocation: invocationIdSchema.nullable(),
+  }).optional(),
 });
 export const brokerAppsConnectOutputSchema = appConnectOutputSchema;
+
+// 다른 앱의 confirm=true command 호출 준비(apps/connections#R3). 호출한 앱 자식이 정확한 대상·
+// command·입력의 approval을 요청하고 사람의 결정을 poll로 기다려 서명된 proof를 받는다. 신원은
+// 자식 연결이 정하며 입력 지문은 서비스가 대상의 고정 blueprint로 계산한다. proof는 approval이
+// 적용돼 접수가 확정된 뒤에만 나온다.
+export const APPS_CONFIRM_POLL_WAIT_MAX_MS = 5_000;
+
+export const brokerAppsConfirmRequestInputSchema = z.strictObject({
+  ...childFields,
+  app: appIdSchema,
+  command: commandKeySchema,
+  input: jsonValueSchema.optional(),
+  // 호출할 연결이 묶인 대상 프로세스. 다르면 conflict다.
+  target_release: releaseIdSchema,
+  target_process_nonce: processNonceSchema,
+  parent_invocation: invocationIdSchema.nullable(),
+});
+export const brokerAppsConfirmRequestOutputSchema = z.object({
+  approval: approvalIdSchema,
+  input_hash: sha256Schema,
+  state: z.literal("pending"),
+});
+
+export const brokerAppsConfirmPollInputSchema = z.strictObject({
+  ...childFields,
+  approval: approvalIdSchema,
+  // 결정이 나기를 이 시간까지 기다린다. 소켓을 오래 잡지 않도록 짧게 제한한다.
+  wait_ms: z.number().int().min(0).max(APPS_CONFIRM_POLL_WAIT_MAX_MS)
+    .optional(),
+});
+export const brokerAppsConfirmPollOutputSchema = z.discriminatedUnion(
+  "state",
+  [
+    z.object({ state: z.literal("pending") }),
+    z.object({
+      state: z.literal("granted"),
+      invocation: invocationIdSchema,
+      proof: signedConfirmProofSchema,
+    }),
+    z.object({ state: z.literal("rejected") }),
+    z.object({ state: z.literal("expired") }),
+  ],
+);
 
 // capability 거절은 필요한 permission 이름과 scope를 알린다(apps/sdk#R23).
 export const brokerPermissionErrorSchema = errorBodySchema.refine(

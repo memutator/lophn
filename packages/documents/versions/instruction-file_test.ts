@@ -4,7 +4,6 @@ import { createVersionCommands } from "./commands.ts";
 import {
   file,
   ids,
-  keep,
   preparedInput,
   userContext,
   versionFixture,
@@ -34,17 +33,19 @@ Deno.test("documents/versions#R20: 지침 문서의 agent save는 forbidden", ()
   const fixture = versionFixture(undefined, instructionAttachments);
   try {
     // Create as user first
-    const createRes = save(fixture, preparedInput(docId, [file("LOPHN.md", true, 100)]));
+    const createRes = save(
+      fixture,
+      preparedInput(docId, [file("LOPHN.md", true, 100)]),
+    );
     assert(createRes.ok);
 
     // Agent save should be forbidden
-    const agentRes = fixture.transaction((tx) =>
-      commands.save.handle(
-        tx,
-        userContext("agent:agn_aaa"),
-        preparedInput(docId, [file("LOPHN.md", true, 101)]) as never,
-        { base_version: (createRes as any).value.version },
-      )
+    if (!createRes.ok) throw new Error("setup failed");
+    const agentRes = save(
+      fixture,
+      preparedInput(docId, [file("LOPHN.md", true, 101)]),
+      userContext("agent:agn_aaa"),
+      { base_version: createRes.value.version },
     );
     assert(!agentRes.ok);
     assertEquals(agentRes.error?.code, "forbidden");
@@ -62,7 +63,10 @@ Deno.test("documents/versions#R20: 지침 문서의 agent update는 forbidden", 
   const fixture = versionFixture(undefined, instructionAttachments);
   try {
     // Create as user first
-    const createRes = save(fixture, preparedInput(docId, [file("LOPHN.md", true, 100)]));
+    const createRes = save(
+      fixture,
+      preparedInput(docId, [file("LOPHN.md", true, 100)]),
+    );
     assert(createRes.ok);
 
     // Agent update title should be forbidden
@@ -90,7 +94,10 @@ Deno.test("documents/versions#R20: 지침 문서는 user save는 allowed", () =>
   const fixture = versionFixture(undefined, instructionAttachments);
   try {
     // Create as user
-    const createRes = save(fixture, preparedInput(docId, [file("LOPHN.md", true, 100)]));
+    const createRes = save(
+      fixture,
+      preparedInput(docId, [file("LOPHN.md", true, 100)]),
+    );
     assert(createRes.ok);
 
     // User save allowed (should not be blocked by instruction file protection)
@@ -119,7 +126,10 @@ Deno.test("documents/versions#R20: 지침 문서의 coding_agent·app save도 fo
   };
   const fixture = versionFixture(undefined, instructionAttachments);
   try {
-    const createRes = save(fixture, preparedInput(docId, [file("LOPHN.md", true, 100)]));
+    const createRes = save(
+      fixture,
+      preparedInput(docId, [file("LOPHN.md", true, 100)]),
+    );
     assert(createRes.ok);
 
     // coding_agent save should be forbidden

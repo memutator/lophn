@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { encodeFrame } from "../../../../../packages/contracts/platform/mod.ts";
+import { createViewDiagnostics } from "../../app-frame/diagnostics.ts";
 
 import {
   CORE_PERMISSION_FLAGS,
@@ -121,6 +122,40 @@ test("shell/desktop#R21: 명시 종료만 stop frame을 보내고 창 닫기는 
   const text = new TextDecoder().decode(child.sent[0]);
   assert.ok(text.includes(`"grace_ms":${STOP_GRACE_MS}`));
   assert.equal(text.includes("user-token-value"), false);
+});
+
+test("shell/app-frame#R22: view 수명 진단은 contract 모양일 때만 감독 pipe로 가고 멈춘 core에는 보내지 않는다", () => {
+  const child = fakeChild();
+  const core = supervise(child);
+  child.push(encodeFrame({ kind: "json", channel: 0, payload: hello }));
+  const diagnostics = createViewDiagnostics({
+    send: (message) => core.diagnostic(message),
+    log: () => {},
+    clock: { nowIso: () => "2026-10-06T00:00:00.000Z" },
+  });
+  const view = {
+    view_session: "view-1",
+    generation: 1,
+    app: "app_01j9zzzzzzzzzzzzzzzzzzzzzz",
+    release: "rel_01j9zzzzzzzzzzzzzzzzzzzzz1",
+    mode: "live",
+  };
+  diagnostics.record(view, "created");
+  assert.equal(child.sent.length, 1);
+  const text = new TextDecoder().decode(child.sent[0]);
+  assert.ok(text.includes('"kind":"shell_view_lifetime"'));
+  assert.equal(text.includes(view.app), false);
+  assert.equal(core.diagnostic({ type: "stop", grace_ms: 1 }), false);
+  assert.equal(
+    core.diagnostic({ type: "diagnostic", kind: "shell_view_lifetime" }),
+    false,
+  );
+  core.ended();
+  assert.equal(
+    core.diagnostic(JSON.parse(text.slice(text.indexOf("{")))),
+    false,
+  );
+  assert.equal(child.sent.length, 1);
 });
 
 test("shell/desktop#R20: frame이 아닌 stdout은 protocol 위반으로 core를 멈춘다", async () => {

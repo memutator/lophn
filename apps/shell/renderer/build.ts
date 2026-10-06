@@ -135,7 +135,17 @@ export async function build(
     );
     await addPackage(imports, design);
     await addPackage(imports, new URL("wording/", design));
-    for (const name of ["tokens", "ui-table", "ui-chart"]) {
+    for (
+      const name of [
+        "tokens",
+        "ui-control",
+        "ui-overlay",
+        "ui-layout",
+        "ui-state",
+        "ui-table",
+        "ui-chart",
+      ]
+    ) {
       await addPackage(imports, new URL(`../sdk/${name}/`, design));
     }
     await writeFile(configPath, JSON.stringify({ imports }));
@@ -161,7 +171,7 @@ export async function build(
       });
     }
     // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.
-    for (const name of ["desktop", "overlay"]) {
+    for (const name of ["desktop", "overlay", "confirmation"]) {
       await mkdir(join(outdir, name), { recursive: true });
       await copyFile(
         join(here, name, "index.html"),

@@ -2,6 +2,7 @@
 // stdin/stdout으로 stdio transport를 열고, credential provider는 helper loader
 // 자리다(coding-agent/harnesses). label·toolsets·connection은 argv와 환경 설정
 // 순서로 찾는다(connection#R3). core RPC는 소유 route 하나로만 routing한다(R2).
+import { unixAppDirectTransport } from "../../packages/coding-agent/connection/app-direct-unix.ts";
 import { ok, type Result } from "../../packages/base/mod.ts";
 import type { LophnError } from "../../packages/base/mod.ts";
 import {
@@ -40,7 +41,6 @@ import {
 import {
   type AppDirect,
   createAppDirect,
-  unixAppDirectTransport,
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
 import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";

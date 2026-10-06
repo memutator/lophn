@@ -19,10 +19,12 @@ import {
   type CoreClient,
   UNREADABLE_MESSAGE,
 } from "../../packages/coding-agent/connection/client/core.ts";
+import { uploadPrepareBytes } from "../../packages/coding-agent/connection/mod.ts";
+import { createSdkSourcePort } from "../../packages/coding-agent/connection/sdk-source.ts";
 import {
-  createSdkSourcePort,
-  uploadPrepareBytes,
-} from "../../packages/coding-agent/connection/mod.ts";
+  systemExecPort,
+  systemFilesPort,
+} from "../../packages/coding-agent/harnesses/system-ports.ts";
 import {
   type CommandOutput,
   humanDecisionGuide,
@@ -68,8 +70,6 @@ import {
   removeSelected,
   stdioMcpProbe,
   storeOf,
-  systemExecPort,
-  systemFilesPort,
   updateSelected,
 } from "../../packages/coding-agent/harnesses/mod.ts";
 import {

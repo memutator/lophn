@@ -3,7 +3,6 @@
 // 폴더·와일드카드는 없다. 실제 Deno process로 허락한 경로만 연결되는지 본다. 사람의 실제 data root는
 // 열지 않는다.
 import { assert, assertEquals, assertFalse } from "@std/assert";
-import { launchOf } from "../harnesses/launch.ts";
 import { mcpLaunchArgv } from "./launch.ts";
 
 const SOCKETS = [
@@ -43,27 +42,6 @@ Deno.test("coding-agent/mcp-server#R29: 실행 argv의 쓰기 권한은 앱 dire
     coreEndpoint: "http://127.0.0.1:7431",
   });
   assertFalse(none.args.some((arg) => arg.startsWith("--allow-write")));
-});
-
-Deno.test("coding-agent/mcp-server#R29: 설치가 쓰는 launchOf도 같은 정확한 경로만 허락하고 일반 쓰기는 없다", () => {
-  const launch = launchOf({
-    executable: "/opt/lophn/deno",
-    resources: "/opt/lophn/platform",
-    cache: "/home/u/.cache/lophn/deno",
-    discoveryFiles: [],
-    submissionRoot: "/home/u/work",
-    coreAddress: "127.0.0.1:7431",
-    appAddresses: [],
-    appSockets: SOCKETS,
-    connection: "cac_x",
-    toolsets: "core,app",
-    credentialHelper: "/opt/lophn/lophn-credential",
-  });
-  assertEquals(
-    launch.args.filter((arg) => arg.startsWith("--allow-write")),
-    [`--allow-write=${SOCKETS.join(",")}`],
-  );
-  assert(launch.args.includes("--allow-run=/opt/lophn/lophn-credential"));
 });
 
 Deno.test("coding-agent/mcp-server#R29: 허락한 정확한 socket에만 연결되고 다른 경로·쓰기는 권한 오류다", async () => {

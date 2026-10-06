@@ -122,11 +122,6 @@ export {
   parseDetections,
 } from "./detect.ts";
 export {
-  classifyProbe,
-  systemExecPort,
-  systemFilesPort,
-} from "./system-ports.ts";
-export {
   decideDefaultHarness,
   type DefaultHarnessDecision,
   type DefaultHarnessState,

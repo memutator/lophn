@@ -54,7 +54,7 @@ export function createLinuxSecretServiceAdapter(options: {
       return "available";
     },
     async store(item: KeychainItem): Promise<Result<string>> {
-      const ref = options.randomRef();
+      const ref = item.ref ?? options.randomRef();
       const stored = await runner.run([
         "store",
         "--label",
@@ -69,6 +69,23 @@ export function createLinuxSecretServiceAdapter(options: {
       const loaded = await runner.run(["lookup", ATTR_REF, sealedRef]);
       if (!loaded.ok || loaded.value.code !== 0) return err(KEYCHAIN_NOT_FOUND);
       return ok(loaded.value.stdout);
+    },
+    async listRefs(purpose, prefix): Promise<Result<readonly string[]>> {
+      // search는 항목의 secret도 stdout에 낸다. 참조 줄만 읽고 bytes는 바로 지운다.
+      const found = await runner.run([
+        "search",
+        "--all",
+        "lophn_purpose",
+        purpose,
+      ]);
+      if (!found.ok) return err(KEYCHAIN_UNAVAILABLE);
+      const text = new TextDecoder().decode(found.value.stdout);
+      found.value.stdout.fill(0);
+      const refs: string[] = [];
+      for (const match of text.matchAll(/^attribute\.lophn_ref = (.+)$/gm)) {
+        if (match[1].startsWith(prefix)) refs.push(match[1]);
+      }
+      return ok(refs);
     },
     async remove(sealedRef: string): Promise<Result<void>> {
       const removed = await runner.run(["clear", ATTR_REF, sealedRef]);

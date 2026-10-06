@@ -51,3 +51,36 @@ export function createSocketDirectory(
   deps.ensureDir(directory, MODE);
   return ok({ directory, brokerSocket, directSocket });
 }
+
+// 앱 socket 자리의 수. Deno의 net 허락은 `unix:<정확한 경로>`뿐이라(폴더 prefix도 와일드카드도
+// 없다) supervisor가 앱 socket에 연결하려면 경로를 시작 전에 허락 목록에 넣어야 한다. 그래서
+// 앱 socket은 시작마다 새 무작위 이름이 아니라 이 고정 자리의 경로이고, 앱 하나는 자리 하나를
+// 계속 쓴다(slug를 경로에 넣지 않는다, R6). 자리가 다 차면 새 앱은 시작하지 않는다.
+export const SOCKET_SLOTS = 64;
+
+export function slotSockets(
+  directory: string,
+  slot: number,
+): Result<{ brokerSocket: string; directSocket: string }, SocketDirError> {
+  if (!Number.isInteger(slot) || slot < 0 || slot >= SOCKET_SLOTS) {
+    return fail("socket slot is out of range");
+  }
+  const brokerSocket = `${directory}/b${slot}.sock`;
+  const directSocket = `${directory}/a${slot}.sock`;
+  for (const path of [brokerSocket, directSocket]) {
+    if (byteLength(path) >= SOCKET_PATH_MAX_BYTES) {
+      return fail("socket path exceeds the byte limit");
+    }
+  }
+  return ok({ brokerSocket, directSocket });
+}
+
+// 허락 목록용: 모든 자리의 socket 경로.
+export function allSlotSockets(directory: string): string[] {
+  const paths: string[] = [];
+  for (let slot = 0; slot < SOCKET_SLOTS; slot++) {
+    const made = slotSockets(directory, slot);
+    if (made.ok) paths.push(made.value.brokerSocket, made.value.directSocket);
+  }
+  return paths;
+}

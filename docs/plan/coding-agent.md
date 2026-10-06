@@ -1152,6 +1152,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - platform#T19 후속(#294)에서 넘어온 것: connection credential(keychain의 token)의 값도 core의 알려진 값 registry에 등록·회수되어야 한다(documents 읽기·메시지 본문에 token이 나오지 않게). 통로는 열렸다: 등록 파일의 `secretRefs`에 `SecretRefSource`(contracts/platform/secrets.ts: `owner`, 참조를 바꾸는 command 이름 `commands`, `read(sql)`가 `{name, sealedRef}` 목록)를 더하면 core secret store가 같은 keychain에서 값을 읽어 등록하고 command 확정 뒤 다시 맞춘다. 지금 연결 표에는 keychain 참조가 없어(digest만) 연결할 source가 없다. T36이 token의 `coding_connection_credential` 참조를 표에 두면 그 표를 읽는 source를 낸다. 회수된 연결의 token도 참조가 남는 동안은 알려진 값으로 둔다.
 - 선행: T9, T10, T29, T32, contracts#T43, platform#T34, platform#T48,
   platform#T35, contracts#T24
+- platform#T34에서 넘어온 것: 사람의 연결 결정 입구(사람 선택 → 신뢰 경계 token·keychain → core create). 지금 contract에 입구가 없다. 발급 경계는 `createCodingCredentialAuthority`의 `connect(input, submit)`(packages/platform/identity)이고 core 조립은 `Core.codingCredentials.connect`(apps/core/coding-credential.ts, `codingKeychain` 옵션)다. 이 작업이 그 입구(route 또는 main↔core 메시지, contracts 요청 필요)를 정해 사람 credential로 `submit`(connection create command)을 보내고 token 없는 결과만 사람에게 보인다. `registerChild`(MCP·CLI child의 process generation 등록)의 loader 쪽 요청 모양(`process_generation`, `loader_identity`)은 production provider가 채운다
 - T13에서 넘어온 것: 문서 읽기 CLI command(index·project·document·read)의 core 실행과 시험, `cliDocumentHistorySchema`에 section 추가, CLI 6단계 통합 시험(MCP 쪽은 #307)
 - T16에서 넘어온 것: CLI `question list|show|open`·`approval list|show|open`을
   apps/cli 실행 entry에서 core client로 잇는다(`runQuestionOpen`·`runApprovalOpen`
@@ -1232,6 +1233,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: coding-agent
 - 조사: docs/research/coding-agent-session-launch.md
 - 선행: T28, T27, contracts#T42, contracts#T43
+- platform#T34에서 넘어온 것: lophn이 띄운 TUI 아래의 MCP·CLI child process generation을 신뢰 감독(terminal host가 runtime_ref·generation을 아는 쪽)이 관측해 `CodingCredentialAuthority.registerChild`(connection·scope·loader identity)로 등록하고 종료 때 `endChild`·회수 때 `endConnection`을 부르는 일. TUI env는 `codingTuiEnvironment`(`LOPHN_CONNECTION` 참조만)를 쓴다. 자기 터미널의 session은 lophn이 시작하지 않아 이 길이 없다(보호 전달은 등록된 child에만 열린다). 이 일을 맡을 작업이 따로 없어 LaunchPlan·terminal host spawn이 만나는 이 작업에 가장 가깝다고 보고 넘겼다(shell terminal 쪽 관측 입구가 필요하면 lead가 shell 작업으로 나눈다)
 - 완료:
   - 시작은 ticket·harness·방식 하나, 방식은 자기 터미널 안내와 terminal_tui
     둘만(R1)

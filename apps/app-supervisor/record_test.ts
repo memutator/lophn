@@ -24,14 +24,12 @@ Deno.test("apps/runtime#R2: record 입력에 관측 식별이 있고 base_revisi
   assert(!("base_revision" in input));
 });
 
-Deno.test("apps/runtime#R2: record 응답은 command envelope의 output.state를 읽는다", () => {
+Deno.test("apps/runtime#R2: record 응답은 command 출력의 state를 읽는다", () => {
   const ok = readRecordState({
     status: 200,
     body: {
-      output: {
-        app: STARTED.app,
-        state: { state: "running", termination_pending: false },
-      },
+      app: STARTED.app,
+      state: { state: "running", termination_pending: false },
     },
   });
   assert(ok.ok);
@@ -45,6 +43,13 @@ Deno.test("apps/runtime#R2: record 응답은 command envelope의 output.state를
     status: 200,
     body: { state: "running" },
   });
+  // envelope로 감싼 모양은 실제 응답이 아니다.
+  assert(
+    !readRecordState({
+      status: 200,
+      body: { output: { app: STARTED.app, state: { state: "running" } } },
+    }).ok,
+  );
   assert(!malformed.ok);
 });
 

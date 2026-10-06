@@ -44,11 +44,11 @@ secret 인증 전송·문서 저장·문제 보고와 다른 앱 연결 준비�
 
 이는 상시 공유 supervisor 1개와 운영 앱 N개에 필요할 때만 작업 프로세스를 더한 구성이다. 앱마다 별도 신뢰 host나 ledger writer를 두지 않는다. core 밖에 두었더라도 supervisor의 event loop에서 디렉터리 순회·큰 hash·build·SQLite backup을 하지 않는다. release worker가 앱 작성 코드를 실행할 때에는 더 좁은 추출/build 자식으로 내려보낸다. 앱 작성 코드와 migration에는 부모의 machine credential을 전달하지 않고 부모가 검증한 작업 결과만 command로 제출한다.
 
-core↔supervisor는 platform pipe(길이 prefix frame)와 자식 handle을 함께 사용한다. 제어 pipe는 caller가 선택한 일반 IPC 경로가 아니다. supervisor는 앱의 broker 제어 연결을 길게 유지한다. core 연결 EOF이면 새 호출과 automation부터 닫고 자식을 끝낸다. 앱도 broker 제어 연결 EOF이면 닫고 종료한다. socket 주소·PID만으로 생존을 판정하지 않는다. 자식 handle, 시작 nonce, OS 시작 신원과 실제 응답을 대조한다. 종료를 확인할 수 없으면 다음 writer를 시작하지 않는다.
+core↔supervisor는 platform pipe(길이 prefix frame)와 자식 handle을 함께 사용한다. 감독 pipe의 platform hello가 machine credential·core API port와, 앱이 쓸 서명 검증 공개 key(`scope.targets.verify_key`)를 한 번에 준다. supervisor는 `ready`로 답하고 그 뒤 core의 `worker_request`를 읽기 loop를 막지 않고 처리한다. op는 `apps.reconcile`(원하는 앱 상태를 알리고 접수만 답한다; 시작은 비동기이고 관측과 `record_*`로 따라간다), `apps.observe`(앱 하나의 현재 프로세스 관측: release·bundle·nonce·endpoint·ready·accepting·등록 command·선언 화면), `apps.logs`(log buffer 조각), `apps.restart`(그 nonce의 프로세스를 정지 확인 뒤 새 nonce로 다시 띄움)이다. 자식 앱마다 supervisor가 `app_credential_request`를 보내 core가 app credential을 발급하고(supervisor 자신의 machine credential은 자식에게 주지 않는다), 버린 log 줄은 `app_log_line_loss` 진단 frame으로 보낸다. core는 supervisor가 다시 떠서 상태를 잃은 것을 `apps.observe`가 비었다는 사실로 알고 마지막으로 알린 상태로 맞춘다. 제어 pipe는 caller가 선택한 일반 IPC 경로가 아니다. supervisor는 앱의 broker 제어 연결을 길게 유지한다. core 연결 EOF이면 새 호출과 automation부터 닫고 자식을 끝낸다. 앱도 broker 제어 연결 EOF이면 닫고 종료한다. socket 주소·PID만으로 생존을 판정하지 않는다. 자식 handle, 시작 nonce, OS 시작 신원과 실제 응답을 대조한다. 종료를 확인할 수 없으면 다음 writer를 시작하지 않는다.
 
 ### 2.2 두 로컬 socket과 시작 준비
 
-앱 프로세스마다 broker socket `b-<random>.sock`과 direct socket `a-<random>.sock` 두 개를 만든다. broker는 supervisor가 듣고, direct는 앱이 `Deno.serve({transport:"unix",path})`로 듣는다. HTTP/1.1 JSON의 가상 host는 `lophn.invalid`다. broker는 해당 자식의 인증된 좁은 요청만 받으며 core API의 임의 proxy가 아니다. direct의 제어 경로는 플랫폼의 인증된 연결만 받는다.
+앱마다 broker socket `b<slot>.sock`과 direct socket `a<slot>.sock` 두 개를 쓴다. Deno의 socket 듣기·연결 허락은 `--allow-net=unix:<정확한 경로>`뿐이라(폴더 prefix·와일드카드가 없다) supervisor가 앱 socket에 연결하려면 경로를 시작 전에 허락 목록에 넣어야 한다. 그래서 socket은 시작마다 새 무작위 이름이 아니라 고정 자리 64개의 경로이고, 앱 하나는 같은 자리를 계속 쓴다. 이전 자식의 종료를 확인한 뒤에만 같은 자리를 다시 쓰며 남은 socket 파일은 그때 지운다. 자리가 다 차면 새 앱은 시작하지 않는다. broker는 supervisor가 듣고, direct는 앱이 `Deno.serve({transport:"unix",path})`로 듣는다. HTTP/1.1 JSON의 가상 host는 `lophn.invalid`다. broker는 해당 자식의 인증된 좁은 요청만 받으며 core API의 임의 proxy가 아니다. direct의 제어 경로는 플랫폼의 인증된 연결만 받는다.
 
 Linux는 `$XDG_RUNTIME_DIR/lophn/`을 먼저 쓰고 없으면 OS 사용자별 임시 디렉터리 `lophn-<uid>/`를 0700으로 생성한다. 소켓은 사용자 전용이며 app slug를 경로에 넣지 않는다. 생성 전에 UTF-8 경로가 104byte 미만인지 검사한다. 부족하면 짧은 사용자 전용 위치를 사용하거나 시작을 거절한다. Windows도 우선 고정 Deno의 AF_UNIX 지원을 설치 테스트로 확인하고 같은 두 socket contract를 사용한다. 지원하지 않으면 사용자 전용 ACL의 named pipe HTTP 어댑터를 사용하는 추천안을 적용하며, 그 어댑터의 검증 전에는 `unavailable`이고 TCP로 몰래 바꾸지 않는다.
 
@@ -160,7 +160,7 @@ secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취�
 | apps/registration | core; source 확인은 release worker | `registration/commands`, `registration/read` | apps; source_path | command, read |
 | apps/blueprint | blueprint 추출 자식; release worker; 앱 | `blueprint/schema`, `blueprint/extract`, `blueprint/validate` | 정규 JSON blob, bundle | blob, test 실행 |
 | apps/releases | core; supervisor; release worker | `releases/commands`, `releases/prepare`, `releases/activation` | releases, release_tests, bundle | release 준비·적용, approval |
-| apps/runtime | supervisor; 운영 앱 | `runtime/supervisor`, `runtime/entrypoint`, `runtime/client`, `runtime/observations` | apps.run_enabled, 메모리 관측·log | 앱 통로, 인증, event 구독 |
+| apps/runtime | core 제어 어댑터; supervisor; 운영 앱 | `runtime/connect`, `runtime/supervisor`, `runtime/entrypoint`, `runtime/client`, `runtime/observations` | apps.run_enabled, 메모리 관측·log | 앱 통로, 인증, event 구독 |
 | apps/agent-context | 앱; agent runtime·shell 소비자 | `agent-context/schema`, `agent-context/redaction`; handler는 앱 | blueprint blob; 앱 현재 view 상태 | 앱 통로, redaction, 앱 화면 틀 |
 | apps/connections | core 연결 준비 어댑터; supervisor; source·target 앱 | `connections/resolve`, `connections/client`, `connections/origin` | blueprint blob; grants; 일시 connection | 앱 통로, 인증, approval |
 | apps/permissions | core; supervisor broker; 앱 | `permissions/commands`, `permissions/flags`, `permissions/broker` | grants; secret 이름만 | 인증, approval, secret, redaction |
@@ -176,7 +176,7 @@ leaf concern 12개 모두 배치하며 다른 concern의 table에 직접 접근�
 
 ### 5.1 앱 통로
 
-**연결 요청.** `POST /v1/apps/connect`는 `{app,mode,screens,screen_sizes,commands,caller?,preview_nonce?}`를 받는다. core의 read 경로 밖 제어 어댑터가 supervisor의 현재 연결을 확인하고 `인증` contract로 원래 credential의 actor·scope를 제한한다. 출력은 현재 direct endpoint와 서명된 AppConnection이다. endpoint·nonce는 ledger에 저장하지 않는다. release 없는 preview는 bundle 기준의 개발 연결만 발급하며 가짜 rel ID를 만들지 않는다. 화면 연결의 endpoint와 credential은 Electron main에만 둔다.
+**연결 요청.** `POST /v1/apps/connect`는 `{app,mode,screens,screen_sizes,commands,caller?,preview_nonce?}`를 받는다. core의 read 경로 밖 제어 어댑터가 supervisor의 현재 연결을 확인하고 `인증` contract로 원래 credential의 actor·scope를 제한한다. 출력은 현재 direct endpoint와 서명된 AppConnection `{endpoint, connection, signature}`이다. `{payload: connection, signature}`가 앱 direct 요청의 Authorization이다. 호출 자격마다 범위가 다르다: 사람(user)은 요청한 화면·크기와 command 중 선언과 만나는 것, agent는 현재 active agent.commands 허락 ∩ 역할·assignment 범위(AgentAppScope) ∩ 현재 프로세스가 등록한 command와 인증된 run·tool call 호출자, coding agent는 선언 command, machine(supervisor)은 화면·command가 없는 제어 connection이다. 범위 밖 앱은 없는 앱과 같은 응답이다. 원래 credential이 닫히거나 agent 허락이 줄면 발급한 connection의 프로세스를 정지 확인 뒤 새 nonce로 다시 띄워 이전 통로를 닫는다(credential 상태와 grant를 주기적으로 다시 읽는다). endpoint·nonce는 ledger에 저장하지 않는다. release 없는 preview는 bundle 기준의 개발 연결만 발급하며 가짜 rel ID를 만들지 않는다. 화면 연결의 endpoint와 credential은 Electron main에만 둔다.
 
 AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·credential_ref·screen/size/command 범위·인증된 caller·기한을 묶는다. mode는 `live`·`preview`·`test`다. Authorization과 confirm proof는 `{payload, signature}` envelope다. 서명 대상은 payload의 RFC 8785 canonical JSON UTF-8이고 signature는 raw 64byte Ed25519의 base64url이다. key 순서가 달라도 같은 payload는 같은 서명 bytes다. 서명 key는 core 안 apps 제어 어댑터가 core 시작마다 만들고, 앱은 시작 입력의 공개 검증 key만 받아 매 요청을 로컬 검증한다. 재시작·activation·grant 변경·credential 회수/축소는 이전 통로 종료와 새 nonce로 나눈다. 본문 actor·effect·mode 주장은 권한 근거가 아니다.
 
@@ -191,7 +191,7 @@ AppConnection은 app·release·bundle_hash·mode·process_nonce·원래 actor·c
 | `POST /_lophn/control/probe` | 플랫폼 인증 연결·현재 nonce | ReadyAttestation의 실제 연결 근거 |
 | `POST /_lophn/control/open` | 플랫폼 인증 연결·확정된 release/activation 기준 | accepting 전환. activation commit 전 거절 |
 | `POST /_lophn/control/close` | 플랫폼 인증 연결·의도된 종료 이유 | 새 호출·clock 차단 확인 |
-| `POST /_lophn/control/shutdown` | 플랫폼 인증 연결·grace_ms | 종료 요청 접수. OS 종료 확인은 별도 |
+| `POST /_lophn/control/shutdown` | 플랫폼 인증 연결·grace_ms | 종료 요청 접수. 앱은 새 호출을 닫은 채 진행 호출이 끝나는 대로(grace_ms 안에서) 스스로 끝나고 유예가 지나면 supervisor가 강제 종료한다. OS 종료 확인은 별도 |
 
 screen은 `앱 화면 틀`의 좁은 preload와 Electron main을 통해 부른다. main은 송신 view 신원에서 app·release·mode를 정하며 임의 socket과 token을 view에 노출하지 않는다. MCP·CLI·agent runtime은 같은 `runtime/client`로 direct socket을 부른다. Operator의 승인된 read scope 등 호출자의 제한은 `인증`과 해당 호출자 concern을 따른다. 앱 read는 effect=read인 command이지 별도 Query/read-model 통로가 아니다.
 

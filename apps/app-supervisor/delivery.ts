@@ -36,7 +36,8 @@ function outcomeOf(status: number, body: unknown): DeliveryOutcome {
 }
 
 export function createCoreSender(deps: {
-  baseUrl: string;
+  // core API 위치는 감독 hello가 와야 알 수 있어 호출 때 읽는다.
+  baseUrl: string | (() => string);
   token: () => string;
   fetch?: typeof fetch;
 }): (message: DeliveryMessage) => Promise<DeliveryOutcome> {
@@ -46,7 +47,9 @@ export function createCoreSender(deps: {
     let response: Response;
     try {
       response = await request(
-        `${deps.baseUrl}/v1/invocations/${record.method}`,
+        `${
+          typeof deps.baseUrl === "string" ? deps.baseUrl : deps.baseUrl()
+        }/v1/invocations/${record.method}`,
         {
           method: "POST",
           headers: {

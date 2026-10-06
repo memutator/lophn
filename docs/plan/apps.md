@@ -380,7 +380,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T21 preview와 test mode 대역
 
-- 상태: 진행 (#PR) — 남은 것은 아래 "이어받음"(T18·T19·T20·T27, contracts, platform)
+- 상태: 완료 (#327) — 이어보냄: 실제 `PreviewBundles` → apps#T18, `PreviewReleases`·preview 자식의 broker 서비스 조립 → apps#T19, 앱 쌍 연결 대역 자리 → apps#T15, automation clock의 mode 검사 → apps#T20, `control/open`·`app_credential_request`의 release null 허용 → contracts(Q28), 대역 확인 표시 → shell#T37·T45(Q29)
 - 등급: 기본
 - concern: apps/preview
 - 요구: apps/preview#R1–R10

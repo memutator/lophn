@@ -2,7 +2,10 @@
   "name": "@lophn/apps",
   "exports": "./mod.ts",
   "imports": {
-    "esbuild": "npm:esbuild@0.28.2"
+    "esbuild": "npm:esbuild@0.28.2",
+    "@luca/esbuild-deno-loader": "jsr:@luca/esbuild-deno-loader@0.11.1"
   },
-  "compilerOptions": { "erasableSyntaxOnly": true }
+  "compilerOptions": {
+    "erasableSyntaxOnly": true
+  }
 }

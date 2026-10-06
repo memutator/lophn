@@ -367,14 +367,14 @@ Deno.test("apps/permissions#R1: 선언만 있는 접근은 실행 범위가 0이
     });
     assertEquals(codeOf(pending.reply), "conflict");
     assertEquals(await listGrants(world, { app }), []);
-    // 직접 부른 grant.create도 허락 없는 approval은 거절한다.
+    // grant.create는 dispatch 전용이라 직접 부르면 허락 여부와 상관없이 없는 command와 같게 거절된다.
     const direct = await call(
       world.harness,
       "grants/create",
       world.machine.token,
       command(pending.input, { compare: { grants_seq: "0" } }),
     );
-    assertEquals(codeOf(direct), "forbidden");
+    assertEquals(codeOf(direct), "invalid_input");
 
     // 정확히 허락된 approval을 적용하면 grant 하나가 active로 생긴다.
     const applied = await grantViaApproval(world, app, scope);
@@ -409,7 +409,7 @@ Deno.test("apps/permissions#R1: 선언만 있는 접근은 실행 범위가 0이
         compare: { grants_seq: grantsSeq(world, app) },
       }),
     );
-    assertEquals(codeOf(reused), "conflict");
+    assertEquals(codeOf(reused), "invalid_input");
     assertEquals((await listGrants(world, { app })).length, 1);
 
     // 허락된 approval의 입력과 다른 범위로는 만들지 못한다.
@@ -429,7 +429,7 @@ Deno.test("apps/permissions#R1: 선언만 있는 접근은 실행 범위가 0이
         compare: { grants_seq: grantsSeq(world, app) },
       }),
     );
-    assertEquals(codeOf(swapped), "forbidden");
+    assertEquals(codeOf(swapped), "invalid_input");
     assertEquals((await listGrants(world, { app })).length, 1);
   } finally {
     await world.harness.close();

@@ -21,6 +21,10 @@ import { formatRelativeTime, t } from "@lophn/wording";
 
 import type { ConnectionState } from "../desktop/connection/connection.ts";
 import { newId } from "../desktop/lophn-space/model.ts";
+import type {
+  SaveRequest,
+  VisualHost,
+} from "../workspace/visuals/block-frame.tsx";
 import {
   afterCheck,
   afterReply,
@@ -40,6 +44,7 @@ import {
   latestRun,
   listItems,
   sessionChoices,
+  visualSaveState,
   type WorkStatus,
   workStatus,
 } from "./model.ts";
@@ -255,6 +260,10 @@ export function Dock(
     if (next.phase === "accepted") {
       drafts.sent(target.id, next);
       void refresh();
+    } else if (next.phase === "not_sent" && drafts.isSaveRequest(next.id)) {
+      // 문서로 남기기 요청은 입력칸의 글이 아니다. 블록 틀이 실패를 보이고 다시 누르게 한다.
+      drafts.saveFailed(next.id);
+      drafts.save(target.id, { outgoing: null });
     } else {
       drafts.save(target.id, { outgoing: next });
     }
@@ -277,6 +286,31 @@ export function Dock(
       text,
       mode,
       run: mode === "correction" && active ? active.id : null,
+    });
+    drafts.save(session.id, { outgoing });
+    await deliver(session, agent, outgoing);
+  };
+
+  // 시각 블록을 문서로 남겨 달라는 요청을 대화 입력으로 보낸다(lophn-agent Q45 (6)). 따로 저장
+  // contract를 부르지 않고 agent가 visual.prepare_document와 문서 tool로 준비·저장한다. 작성 중인
+  // 글과 focus·읽던 위치는 건드리지 않는다(shell/workspace#R13).
+  const saveVisual = async (request: SaveRequest) => {
+    if (!session || !agent || !draft || composerLocked(draft.outgoing)) return;
+    const text = t("conversation.body.save-visual-request", {
+      title: request.title,
+      block: request.block,
+      message: request.message,
+    });
+    if (!fitsMessage(text)) return;
+    const id = newId("msg", now());
+    drafts.remember(id, text);
+    drafts.requestSave(request.message, request.block, id);
+    const outgoing = startSend({
+      id,
+      key: `messages-receive-${id}`,
+      text,
+      mode: "request",
+      run: null,
     });
     drafts.save(session.id, { outgoing });
     await deliver(session, agent, outgoing);
@@ -450,6 +484,21 @@ export function Dock(
       );
     }
     const readOnly = session.state === "closed" || agent.state === "withdrawn";
+    const shown = loaded.messages[current] ?? [];
+    const visuals: VisualHost = {
+      documentTitle: source.documentTitle,
+      open: onOpenResult,
+      save: readOnly ? undefined : (request) => void saveVisual(request),
+      saveLocked: offline || composerLocked(draft.outgoing),
+      saveState: (message, block) =>
+        visualSaveState(
+          drafts.saveOf(message, block),
+          draft.outgoing,
+          shown,
+          loaded.runs,
+        ),
+      now: () => new Date(now()),
+    };
     return (
       <>
         {run
@@ -464,7 +513,7 @@ export function Dock(
           : null}
         <MessageList
           key={current}
-          items={listItems(loaded.messages[current] ?? [], draft.outgoing)}
+          items={listItems(shown, draft.outgoing)}
           textOf={(message) => drafts.textOf(message)}
           bodyOf={(message) => drafts.body(message)}
           source={source}
@@ -473,6 +522,7 @@ export function Dock(
           onCheck={() => void check()}
           onResend={() => void sendAgain()}
           onOpenResult={onOpenResult}
+          visuals={visuals}
         />
         <QuestionStrip session={current} offline={offline} />
         {readOnly

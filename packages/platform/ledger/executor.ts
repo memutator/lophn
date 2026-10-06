@@ -346,7 +346,11 @@ export async function executeCommand(
     if (!credential.ok) return credential;
   }
   const definition = commands.get(envelope.command);
-  if (definition === undefined || definition.route.kind !== "command") {
+  // dispatch 전용 command는 직접 호출에서 없는 command와 같은 답이다(존재·approval 상태를 새지 않는다).
+  if (
+    definition === undefined || definition.route.kind !== "command" ||
+    definition.dispatchOnly === true
+  ) {
     return err({ code: "invalid_input", message: "등록되지 않은 command다" });
   }
   if (!idempotencyKeySchema.safeParse(envelope.idempotency_key).success) {

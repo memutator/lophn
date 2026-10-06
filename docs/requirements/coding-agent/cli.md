@@ -143,7 +143,7 @@ concerns: [coding-agent/cli]
 
 ### 앱 개발과 SDK
 
-**[R24]** 앱 목록·상세·source 위치·개발과 release 현재 상태·command 중심 blueprint·redaction된 log·command와 automation의 invocation 이력을 읽고 앱·command·상태·개수 선택으로 좁히고 invocation 이력 최대 20개·앱 log 요청 1~2,000줄 및 실제 이어 읽기를 제공한다.
+**[R24]** 앱 목록·상세·source 위치·개발과 release 현재 상태·command 중심 blueprint·redaction된 log·command와 automation의 invocation 이력을 읽고 앱·command·상태·개수 선택으로 좁히고 invocation 이력 최대 20개·앱 log 한 번에 요청 1~200줄 및 잘림 표시를 제공한다.
 - 이유: 옛 앱·runtime의 읽기 능력을 하나의 앱 모델로 유지한다.
 - 확인: apps/registration·apps/runtime·apps/invocations 계약대로 active release와 preview를 구별하고 source 미연결은 없는 이유를 반환하며 별도 host journal은 없다.
 - 의도: coding-agent#I3

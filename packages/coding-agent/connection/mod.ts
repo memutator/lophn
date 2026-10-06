@@ -84,3 +84,27 @@ export {
   proposalText,
   proposeContextChange,
 } from "./context-proposal.ts";
+export {
+  type AppDirect,
+  type AppDirectTransport,
+  type AppEnvironment,
+  type AppInvokeOutcome,
+  type AppInvokeRequest,
+  createAppDirect,
+  NotSent,
+} from "./app-direct.ts";
+export {
+  APP_HUMAN_ONLY,
+  APP_OP_CLI_NAMES,
+  APP_OP_ROUTES,
+  APP_TEST_TIMEOUT_MS,
+  type AppHumanOnly,
+  type AppOp,
+  type AppOpDeps,
+  type AppOpOutput,
+  humanOnlyReport,
+  INVOCATION_PAGE_MAX,
+  isAppOp,
+  LOG_LINES_MAX,
+  runAppOp,
+} from "./app-ops.ts";

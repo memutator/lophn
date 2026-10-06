@@ -13,6 +13,7 @@ import type {
   ProcessSource,
 } from "./connect.ts";
 import {
+  blockOutputSchema,
   logsOutputSchema,
   type LogsWire,
   type ObservationWire,
@@ -21,6 +22,9 @@ import {
   previewStartOutputSchema,
   previewStopOutputSchema,
   reconcileOutputSchema,
+  releaseCancelOutputSchema,
+  releasePreparationOutputSchema,
+  type ReleasePreparationWire,
   restartOutputSchema,
   SUPERVISOR_OPS,
   viewClosedOutputSchema,
@@ -32,6 +36,8 @@ const REQUEST_TIMEOUT_MS = 5_000;
 const RESTART_TIMEOUT_MS = 30_000;
 // preview 종료도 정지 유예와 종료 확인까지 기다린다.
 const PREVIEW_STOP_TIMEOUT_MS = 30_000;
+// 준비 취소는 자식 종료 확인까지 기다린다.
+const RELEASE_CANCEL_TIMEOUT_MS = 30_000;
 
 type WorkerResponse =
   | { type: "worker_response"; request_id: string; ok: true; payload: unknown }
@@ -175,6 +181,8 @@ export type SupervisorClient = {
     },
   ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
+  // 그 앱의 broker 연결을 새 요청부터 막고 막은 연결 수를 돌려준다.
+  block(app: string): Promise<Result<number>>;
   // 닫힌 화면 view를 그 앱의 지금 live 자식에 알린다. 자식이 없으면 false다.
   viewClosed(app: string, viewSession: string): Promise<Result<boolean>>;
   // preview 프로세스. 운영 자식과 다른 통로이고 운영 관측을 바꾸지 않는다(apps/preview).
@@ -184,6 +192,18 @@ export type SupervisorClient = {
     processNonce: string,
   ): Promise<Result<ObservationWire | null>>;
   previewStop(app: string, processNonce: string): Promise<Result<boolean>>;
+  // release 준비. 진행은 supervisor 메모리라 supervisor가 없으면 unavailable이다.
+  releasePrepare(input: {
+    app: string;
+    commit: string;
+    request_key: string;
+    source_path: string;
+  }): Promise<Result<ReleasePreparationWire>>;
+  releasePreparation(
+    app: string,
+    requestKey: string,
+  ): Promise<Result<ReleasePreparationWire>>;
+  releaseCancel(app: string, requestKey: string): Promise<Result<void>>;
 };
 
 export function createSupervisorClient(
@@ -220,6 +240,13 @@ export function createSupervisorClient(
         ),
       );
       return answer.ok ? ok(answer.value.restarted) : answer;
+    },
+    async block(app) {
+      const answer = shaped(
+        blockOutputSchema,
+        await channel.request(SUPERVISOR_OPS.block, { app }),
+      );
+      return answer.ok ? ok(answer.value.blocked) : answer;
     },
     async viewClosed(app, viewSession) {
       const answer = shaped(
@@ -258,6 +285,32 @@ export function createSupervisorClient(
         ),
       );
       return answer.ok ? ok(answer.value.stopped) : answer;
+    },
+    async releasePrepare(input) {
+      return shaped(
+        releasePreparationOutputSchema,
+        await channel.request(SUPERVISOR_OPS.releasePrepare, input),
+      );
+    },
+    async releasePreparation(app, requestKey) {
+      return shaped(
+        releasePreparationOutputSchema,
+        await channel.request(SUPERVISOR_OPS.releasePreparation, {
+          app,
+          request_key: requestKey,
+        }),
+      );
+    },
+    async releaseCancel(app, requestKey) {
+      const answer = shaped(
+        releaseCancelOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.releaseCancel,
+          { app, request_key: requestKey },
+          RELEASE_CANCEL_TIMEOUT_MS,
+        ),
+      );
+      return answer.ok ? ok(undefined) : answer;
     },
   };
 }

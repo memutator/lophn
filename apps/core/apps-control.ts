@@ -1,12 +1,24 @@
 // core 안 apps 제어 조립. `POST /v1/apps/connect`(메모리 route)와 runtime·logs read의
 // 메인 스레드 덮기, supervisor 감독 pipe의 질의 통로, app credential 발급을 한곳에서 잇는다.
 // 업무 규칙은 packages/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
-import { type Clock, err, ok, type Result } from "../../packages/base/mod.ts";
+import {
+  type Clock,
+  createIdSource,
+  err,
+  type IdSource,
+  ok,
+  type Result,
+} from "../../packages/base/mod.ts";
 import {
   appAutomations,
+  appBlueprint,
   appConnect,
   type AppConnectInput,
   appLogs,
+  appPairConfirmPoll,
+  appPairConfirmRequest,
+  appPairObserve,
+  appPairPrepare,
   appRecordStarted,
   appRecordStopped,
   appRecordUnavailable,
@@ -15,18 +27,24 @@ import {
   type AppViewClosedInput,
   type Grant,
   grantsList,
+  invocationAcceptConfirm,
   previewsGet,
   previewsStart,
   previewsStop,
+  releaseCancelPreparation,
+  releasePreparation,
+  releasePrepareBundle,
 } from "../../packages/contracts/apps/mod.ts";
 import {
   observeException,
   reportProblem,
 } from "../../packages/contracts/problems/mod.ts";
-import type {
-  AuthenticatedContext,
-  KindLaunchSpec,
-  RequestContext,
+import {
+  applyApprovedAction,
+  type AuthenticatedContext,
+  createApprovalRequest,
+  type KindLaunchSpec,
+  type RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import type {
   MemoryHandler,
@@ -43,6 +61,25 @@ import {
   openConnection,
 } from "../../packages/platform/ledger/mod.ts";
 import { loadApp } from "../../packages/apps/registration/mod.ts";
+import type { Writer } from "../../packages/platform/ledger/mod.ts";
+import {
+  loadRelease,
+  loadStoredBlueprint,
+  releaseDeclarations,
+} from "../../packages/apps/releases/store.ts";
+import { canonicalInputHash } from "../../packages/apps/blueprint/mod.ts";
+import {
+  createPairPreparer,
+  type PairFacts,
+  type PairPreparer,
+} from "../../packages/apps/connections/prepare.ts";
+import {
+  type ConfirmApprovals,
+  type ConfirmTargets,
+  createPairConfirmer,
+  type PairConfirmer,
+} from "../../packages/apps/connections/confirm-request.ts";
+import type { ConfirmAcceptances } from "../../packages/apps/connections/confirm.ts";
 import { withAutomationObservation } from "../../packages/apps/automations/reads.ts";
 import {
   type AppConnector,
@@ -86,7 +123,15 @@ export const APPS_CONTROL_PRINCIPAL = "machine:apps-control";
 export const APPS_CONTROL_CONTEXT: RequestContext = {
   principal: APPS_CONTROL_PRINCIPAL,
   actor: "machine",
-  scope: { operations: [grantsList.name], targets: {} },
+  // approval 적용(`apply_approved_action`)은 A→B confirm의 접수를 core 안에서 확정할 때만 쓴다.
+  scope: {
+    operations: [
+      grantsList.name,
+      applyApprovedAction.name,
+      invocationAcceptConfirm.name,
+    ],
+    targets: {},
+  },
   conditions: {},
   credential_ref: APPS_CONTROL_PRINCIPAL,
 };
@@ -97,6 +142,14 @@ const SUPERVISOR_OPERATIONS = [
   appRecordStopped.name,
   appRecordUnavailable.name,
   appConnect.name,
+  // 앱 쌍 연결 준비와 confirm은 core만 쥔 서명 key로 한다. 앱 자식의 요청을 supervisor가 신원과 함께 보낸다.
+  appPairPrepare.name,
+  appPairConfirmRequest.name,
+  appPairConfirmPoll.name,
+  appPairObserve.name,
+  // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다(apps/permissions#R2, R14).
+  appBlueprint.name,
+  grantsList.name,
 ];
 // 자식 앱마다 받는 app credential이 닿는 operation. 문제 보고와 process 관측뿐이다.
 const APP_CHILD_OPERATIONS = [reportProblem.name, observeException.name];
@@ -119,6 +172,24 @@ export function appsOperationPolicies(): OperationPolicy[] {
     },
     // problems report collector(machine)가 자기 credential의 앱 log를 읽는다.
     { name: appLogs.name, actors: ["machine"], kind: "command" },
+    // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
+    { name: appBlueprint.name, actors: ["machine"], kind: "command" },
+    ...[
+      appPairPrepare,
+      appPairConfirmRequest,
+      appPairConfirmPoll,
+      appPairObserve,
+    ].map((
+      route,
+    ): OperationPolicy => ({
+      name: route.name,
+      actors: ["machine"],
+      kind: "command",
+    })),
+    { name: grantsList.name, actors: ["machine"], kind: "command" },
+    // 호출한 앱 자신이 다른 앱의 confirm 호출 approval을 요청한다(요청자는 자격과 같아야 한다). core가
+    // 그 요청 한 번을 위해서만 짧은 app credential을 발급한다. 앱 자식에게 주는 credential에는 없다.
+    { name: createApprovalRequest.name, actors: ["app"], kind: "command" },
     // preview는 사람(전체 user 상한)과 coding agent가 연다(apps/preview#R1).
     ...[previewsStart, previewsGet, previewsStop].map((
       route,
@@ -129,6 +200,19 @@ export function appsOperationPolicies(): OperationPolicy[] {
     })),
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
+    // release 준비 접수·진행은 coding agent와 machine, 취소는 machine만 한다. 확정(release.prepare)은 아니다.
+    ...[releasePrepareBundle, releasePreparation].map((
+      route,
+    ): OperationPolicy => ({
+      name: route.name,
+      actors: ["coding_agent", "machine"],
+      kind: "command",
+    })),
+    {
+      name: releaseCancelPreparation.name,
+      actors: ["machine"],
+      kind: "command",
+    },
   ];
 }
 
@@ -150,6 +234,14 @@ export type AppsControlDeps = {
   process?: ProcessSource;
   // 발급한 connection의 회수 검사 간격(ms). 기본 1000.
   sweepMs?: number;
+  // A→B confirm의 approval·접수 어댑터. 없으면 confirm 준비는 unavailable이다. 대상의 고정 blueprint
+  // 검사(`ConfirmTargets`)는 core가 ledger에서 읽어 제품 조립이 항상 채운다.
+  confirm?: {
+    approvals: ConfirmApprovals;
+    accepted: ConfirmAcceptances;
+    targets?: ConfirmTargets;
+  };
+  ids?: IdSource;
   // preview(`/v1/previews/*`). disposable 영역은 data root 아래에 만든다. bundle을 여는 자리가
   // 없으면 시작은 unavailable이고 조회·종료는 그대로 된다(apps/preview).
   previews?: {
@@ -166,11 +258,18 @@ export type AppsControl = {
   // core 안에서 하나뿐인 서명 key 쥠이다. AppConnection과 confirm proof를 같은 key로 서명한다.
   readonly signer: CoreSigner;
   readonly memory: ReadonlyMap<string, MemoryHandler>;
+  // release 준비 접수·진행·취소. command route지만 진행이 supervisor 메모리라 ledger queue를 거치지 않는다.
+  // 키는 command 이름이고 `withReleasePreparation`이 writer 앞에서 이 처리기로 돌린다.
+  readonly commands: ReadonlyMap<string, MemoryHandler>;
   // reader pool의 apps.runtime·apps.logs를 현재 관측·log로 덮는다.
   overlayReads(reads: Map<string, ReadHandler>): void;
   readonly channel: SupervisorChannel;
   readonly client: SupervisorClient;
   readonly connector: AppConnector;
+  // 앱 쌍 연결 준비. 그 앱이 source이거나 target인 발급 연결을 막는 `close`도 이 서비스가 쥔다.
+  readonly preparer: PairPreparer;
+  // A→B confirm. approval·접수 어댑터가 없으면 null이다.
+  readonly confirmer: PairConfirmer | null;
   // connect·runtime이 읽는 현재 ledger 사실(App 한 행과 active grant). 시험이 같은 읽기를 쓴다.
   readonly facts: ConnectFacts;
   // 원하는 앱 상태를 supervisor에 알린다. 마지막 상태를 기억해 supervisor가 다시 떠도
@@ -192,6 +291,72 @@ function internalError(): Result<never> {
 }
 
 const GRANT_PAGES = 20;
+
+// preview가 release로 여는 bundle이다. 없는 release·다른 앱의 release는 undefined라 같은 거절이다.
+export function ledgerPreviewReleases(ledgerPath: string): PreviewReleases {
+  return {
+    bundleOf(app, release) {
+      const opened = openConnection(ledgerPath);
+      if (!opened.ok) return Promise.resolve(internalError());
+      try {
+        const found = loadRelease(opened.value.sql, release);
+        if (!found.ok) return Promise.resolve(internalError());
+        return Promise.resolve(
+          ok(
+            found.value === null || found.value.app !== app
+              ? undefined
+              : found.value.bundle_hash,
+          ),
+        );
+      } catch {
+        return Promise.resolve(internalError());
+      } finally {
+        opened.value.close();
+      }
+    },
+  };
+}
+
+// confirm=true command의 입력 지문이다. 대상 release의 고정 blueprint로 계산하고 confirm 선언이 없는
+// command나 선언 schema에 맞지 않는 입력은 invalid_input이다(apps/connections#R3).
+export function ledgerConfirmTargets(ledgerPath: string): ConfirmTargets {
+  return {
+    async prepare(request) {
+      const opened = openConnection(ledgerPath);
+      if (!opened.ok) return internalError();
+      let stored;
+      try {
+        stored = loadStoredBlueprint(opened.value.sql, request.release);
+      } catch {
+        return internalError();
+      } finally {
+        opened.value.close();
+      }
+      if (!stored.ok) return internalError();
+      // 다른 앱의 release나 없는 release는 없는 대상과 같다.
+      if (stored.value === null || stored.value.release.app !== request.app) {
+        return err({ code: "not_found", message: "app not found" });
+      }
+      const declared = stored.value.blueprint.commands.find((entry) =>
+        entry.key === request.command
+      );
+      if (declared === undefined || !declared.confirm) {
+        return err({
+          code: "invalid_input",
+          message: "the command is not a confirm command",
+        });
+      }
+      const hashed = await canonicalInputHash(declared.input, request.input);
+      if (!hashed.ok) {
+        return err({
+          code: "invalid_input",
+          message: "the input does not match the command schema",
+        });
+      }
+      return ok({ input_hash: hashed.value });
+    },
+  };
+}
 
 export async function createAppsControl(
   deps: AppsControlDeps,
@@ -299,7 +464,9 @@ export async function createAppsControl(
       authorize: (ctx, operation, target) =>
         createTargetAuthorizer(ctx)(ctx, operation, target),
       ...(deps.previews.bundles ? { bundles: deps.previews.bundles } : {}),
-      ...(deps.previews.releases ? { releases: deps.previews.releases } : {}),
+      // release → bundle 대응은 ledger의 준비된 release가 정한다. 시험이 바꿔 끼울 수 있다.
+      releases: deps.previews.releases ??
+        ledgerPreviewReleases(deps.ledgerPath),
     })
     : undefined;
 
@@ -309,6 +476,220 @@ export async function createAppsControl(
       input as AppConnectInput,
     );
     return connected;
+  };
+
+  // 앱 쌍 연결·confirm이 읽는 사실이다. connect와 같은 App 행·grant에 현재 release의 선언을 더한다.
+  const pairFacts: PairFacts = {
+    ...facts,
+    declarations(app) {
+      const opened = openConnection(deps.ledgerPath);
+      if (!opened.ok) return Promise.resolve(internalError());
+      try {
+        const found = releaseDeclarations.get(opened.value.sql, app);
+        if (!found.ok) return Promise.resolve(internalError());
+        return Promise.resolve(ok(
+          found.value === null ? null : {
+            release: found.value.release,
+            app_connections: found.value.app_connections,
+          },
+        ));
+      } catch {
+        return Promise.resolve(internalError());
+      } finally {
+        opened.value.close();
+      }
+    },
+  };
+  const process = deps.process ?? processSourceOf(client);
+  const preparer = createPairPreparer({
+    clock: deps.clock,
+    signer,
+    process,
+    facts: pairFacts,
+  });
+  const confirmer = deps.confirm === undefined ? null : createPairConfirmer({
+    process,
+    facts: pairFacts,
+    signer,
+    paths: preparer.paths,
+    ids: deps.ids ?? createIdSource({
+      clock: deps.clock,
+      random: { fill: (bytes: Uint8Array) => crypto.getRandomValues(bytes) },
+    }),
+    targets: deps.confirm.targets ?? ledgerConfirmTargets(deps.ledgerPath),
+    approvals: deps.confirm.approvals,
+    accepted: deps.confirm.accepted,
+  });
+
+  // supervisor(machine)가 앱 자식의 요청을 그 자식 연결의 신원과 함께 보낸다. 신원 주장은 서비스가
+  // 현재 supervisor 관측과 맞춰 본다(옛 프로세스·교체된 release의 요청은 거절).
+  const sourceOf = (value: {
+    app: string;
+    release: string | null;
+    mode: "live" | "preview" | "test";
+    process_nonce: string;
+  }) => ({
+    app: value.app,
+    release: value.release,
+    mode: value.mode,
+    processNonce: value.process_nonce,
+  });
+  const pairUnavailable = (): Result<never> =>
+    err({ code: "unavailable", message: "app confirm is not available" });
+  const pairPrepare: MemoryHandler = (_ctx, input) => {
+    const body = input as {
+      source: Parameters<typeof sourceOf>[0];
+      app: string;
+      commands: string[];
+      parent_invocation: string | null;
+      incoming?: {
+        app: string;
+        release: string;
+        parent_invocation: string | null;
+      };
+    };
+    return preparer.prepare({
+      source: sourceOf(body.source),
+      app: body.app,
+      commands: body.commands,
+      parent_invocation: body.parent_invocation,
+      ...(body.incoming === undefined ? {} : { incoming: body.incoming }),
+    });
+  };
+  const pairConfirmRequest: MemoryHandler = (_ctx, input) => {
+    if (confirmer === null) return Promise.resolve(pairUnavailable());
+    const body = input as {
+      source: Parameters<typeof sourceOf>[0];
+      app: string;
+      command: string;
+      input?: unknown;
+      target_release: string;
+      target_process_nonce: string;
+      parent_invocation: string | null;
+    };
+    return confirmer.request({
+      source: sourceOf(body.source),
+      app: body.app,
+      command: body.command,
+      ...(body.input === undefined ? {} : { input: body.input }),
+      target_release: body.target_release,
+      target_process_nonce: body.target_process_nonce,
+      parent_invocation: body.parent_invocation,
+    });
+  };
+  const pairObserve: MemoryHandler = (_ctx, input) => {
+    const body = input as
+      | {
+        event: "start";
+        process_nonce: string;
+        invocation: string;
+        caller: { kind: string };
+      }
+      | { event: "exit"; process_nonce: string };
+    if (body.event === "start") {
+      const caller = body.caller as Record<string, unknown>;
+      preparer.paths.started(
+        { processNonce: body.process_nonce },
+        body.invocation,
+        {
+          kind: body.caller.kind,
+          app: typeof caller.app === "string" ? caller.app : undefined,
+          release: typeof caller.release === "string"
+            ? caller.release
+            : undefined,
+          parent: caller.parent_invocation,
+        },
+      );
+    } else {
+      preparer.paths.forget(body.process_nonce);
+    }
+    return Promise.resolve(ok({ accepted: true as const }));
+  };
+  const pairConfirmPoll: MemoryHandler = (_ctx, input) => {
+    if (confirmer === null) return Promise.resolve(pairUnavailable());
+    const body = input as {
+      source: Parameters<typeof sourceOf>[0];
+      approval: string;
+      wait_ms?: number;
+    };
+    return confirmer.poll({
+      source: sourceOf(body.source),
+      approval: body.approval,
+      wait_ms: body.wait_ms ?? 0,
+    });
+  };
+
+  // release 준비 요청. 범위 밖 앱과 없는 앱, source가 연결되지 않은 앱은 같은 거절이다.
+  // 진행은 core가 아니라 supervisor 메모리에 있고 core는 요청 하나씩 전달한다(apps/releases).
+  function sourcePathOf(app: string): Promise<Result<string | null>> {
+    const opened = openConnection(deps.ledgerPath);
+    if (!opened.ok) return Promise.resolve(internalError());
+    try {
+      const found = loadApp(opened.value.sql, app);
+      if (!found.ok) return Promise.resolve(internalError());
+      return Promise.resolve(ok(found.value?.source_path ?? null));
+    } catch {
+      return Promise.resolve(internalError());
+    } finally {
+      opened.value.close();
+    }
+  }
+  const releaseGate = async (
+    ctx: AuthenticatedContext,
+    route: { name: string },
+    app: string,
+    absent: "forbidden" | "not_found",
+  ): Promise<Result<string>> => {
+    const refuse = (): Result<never> =>
+      err({ code: absent, message: "app not found" });
+    const allowed = createTargetAuthorizer(ctx)(ctx, route.name, { app });
+    if (!allowed.ok) return refuse();
+    const source = await sourcePathOf(app);
+    if (!source.ok) return source;
+    return source.value === null ? refuse() : ok(source.value);
+  };
+  const releasePrepareBundleHandler: MemoryHandler = async (ctx, input) => {
+    const body = input as {
+      app: string;
+      commit: string;
+      request_key: string;
+    };
+    const source = await releaseGate(
+      ctx,
+      releasePrepareBundle,
+      body.app,
+      "forbidden",
+    );
+    if (!source.ok) return source;
+    return await client.releasePrepare({
+      app: body.app,
+      commit: body.commit,
+      request_key: body.request_key,
+      source_path: source.value,
+    });
+  };
+  const releasePreparationHandler: MemoryHandler = async (ctx, input) => {
+    const body = input as { app: string; request_key: string };
+    const source = await releaseGate(
+      ctx,
+      releasePreparation,
+      body.app,
+      "not_found",
+    );
+    if (!source.ok) return source;
+    return await client.releasePreparation(body.app, body.request_key);
+  };
+  const releaseCancelHandler: MemoryHandler = async (ctx, input) => {
+    const body = input as { app: string; request_key: string };
+    const source = await releaseGate(
+      ctx,
+      releaseCancelPreparation,
+      body.app,
+      "forbidden",
+    );
+    if (!source.ok) return source;
+    const cancelled = await client.releaseCancel(body.app, body.request_key);
+    return cancelled.ok ? ok({ accepted: true as const }) : cancelled;
   };
 
   // 사람의 shell이 닫은 화면 view를 그 앱의 지금 live 자식에 중계한다. 앱 프로세스 nonce는
@@ -345,9 +726,24 @@ export async function createAppsControl(
   return {
     verifyKey: signer.verifyKey,
     signer,
-    memory: new Map([
+    memory: new Map<string, MemoryHandler>([
       [`${appConnect.resource}/${appConnect.method}`, connect],
       [`${appViewClosed.resource}/${appViewClosed.method}`, viewClosed],
+      [`${appPairPrepare.resource}/${appPairPrepare.method}`, pairPrepare],
+      [
+        `${appPairConfirmRequest.resource}/${appPairConfirmRequest.method}`,
+        pairConfirmRequest,
+      ],
+      [
+        `${appPairConfirmPoll.resource}/${appPairConfirmPoll.method}`,
+        pairConfirmPoll,
+      ],
+      [`${appPairObserve.resource}/${appPairObserve.method}`, pairObserve],
+    ]),
+    commands: new Map<string, MemoryHandler>([
+      [releasePrepareBundle.name, releasePrepareBundleHandler],
+      [releasePreparation.name, releasePreparationHandler],
+      [releaseCancelPreparation.name, releaseCancelHandler],
     ]),
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);
@@ -386,6 +782,8 @@ export async function createAppsControl(
     channel,
     client,
     connector,
+    preparer,
+    confirmer,
     facts,
     async reconcile(next) {
       desired.set(next.app, next);
@@ -494,5 +892,34 @@ export function appSupervisorSpec(input: {
     ],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
+  };
+}
+
+// release 준비 command는 ledger queue 앞에서 supervisor 메모리 진행으로 돌린다(apps/releases). 나머지
+// command와 Writer 동작은 그대로다.
+export function withReleasePreparation(
+  writer: Writer,
+  commands: ReadonlyMap<string, MemoryHandler>,
+): Writer {
+  return {
+    ...writer,
+    async command(ctx, envelope) {
+      const handler = commands.get(envelope.command);
+      if (handler === undefined) return await writer.command(ctx, envelope);
+      // 접수는 요청 때 검사(앱 범위·source·ticket claim)를 ledger transaction에서 먼저 지난다.
+      if (envelope.command === releasePrepareBundle.name) {
+        const checked = await writer.command(ctx, envelope);
+        if (!checked.ok) return checked;
+      }
+      const handled = await handler(ctx, envelope.input);
+      if (!handled.ok) return handled;
+      return ok({
+        result: handled.value,
+        replayed: false,
+        first_seq: null,
+        last_seq: null,
+        wake: false,
+      });
+    },
   };
 }

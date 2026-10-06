@@ -10,7 +10,7 @@ import {
 } from "../../../apps/core/testing/approvals-fixture.ts";
 import { appFlags } from "../permissions/mod.ts";
 import type { DesiredApp } from "./supervisor/mod.ts";
-import { createRuntimeClient } from "./client/mod.ts";
+import { createRuntimeClient, unixDirectTransport } from "./client/mod.ts";
 import { COMMANDS, openWorld, SCREENS, type World } from "./world_test.ts";
 import {
   FIXTURE_RELEASE,
@@ -588,5 +588,100 @@ Deno.test("apps/runtime#R17: 플랫폼 상태는 apps supervisor 감독 상태�
       return apps?.available ? apps : undefined;
     });
     assertEquals(read.component, "apps");
+  });
+});
+
+Deno.test("apps/permissions#R14, apps/permissions#R19: 실제 core·supervisor·앱 자식에서 broker가 core의 선언·grant 조회를 machine credential로 지나 거절하고 연결의 신원을 쓴다", async () => {
+  await withSupervisor(async (world, prepared, token) => {
+    await running(world, prepared, token);
+    // 제어 connection으로 앱의 direct socket 자리를 안다. broker socket은 같은 자리 번호의 b<slot>이다.
+    const control = await call(
+      world.harness,
+      "apps/connect",
+      world.machine.token,
+      {
+        app: world.app,
+        mode: "live",
+        screens: ["control"],
+        screen_sizes: {},
+        commands: [],
+      },
+    );
+    assertEquals(control.status, 200, JSON.stringify(control.body));
+    const endpoint = String(control.body["endpoint"]);
+    const brokerSocket = endpoint.replace(/\/a(\d+)\.sock$/, "/b$1.sock");
+    assert(brokerSocket !== endpoint);
+    const observation = (await runtimeOf(world, token)).observation!;
+    // 앱 자식이 시작 입력으로 받은 broker credential을 사람이 부른 fixture command로 꺼낸다.
+    const connection = {
+      app: world.app,
+      release: FIXTURE_RELEASE,
+      bundle_hash: prepared.desired.bundleHash,
+      mode: "live" as const,
+      process_nonce: observation.process_nonce,
+      actor: "user" as const,
+      credential_ref: "user-1",
+      screens: [],
+      screen_sizes: {},
+      caller: null,
+      commands: ["credential"],
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+    };
+    const given = await unixDirectTransport(endpoint, {
+      method: "POST",
+      path: "/_lophn/commands/invoke",
+      authorization: JSON.stringify({
+        payload: connection,
+        signature:
+          (await world.harness.appsControl.signer.signConnection(connection))
+            .signature,
+      }),
+      body: {
+        request_key: "credential-e2e",
+        release: FIXTURE_RELEASE,
+        command: "credential",
+      },
+    });
+    assertEquals(given.status, 200, JSON.stringify(given.body));
+    const credential = (given.body as {
+      result: { result: { broker_credential: string } };
+    }).result.result.broker_credential;
+    const onBroker = (
+      path: string,
+      body: Record<string, unknown>,
+      bearer = credential,
+    ) =>
+      unixDirectTransport(brokerSocket, {
+        method: "POST",
+        path,
+        authorization: `Bearer ${bearer}`,
+        body: {
+          process_nonce: observation.process_nonce,
+          mode: "live",
+          ...body,
+        },
+      });
+    // 자식 credential만 받는다.
+    const stranger = await onBroker(
+      "/_lophn/broker/automations/try_acquire",
+      { release: FIXTURE_RELEASE, key: "nightly" },
+      world.machine.token,
+    );
+    assertEquals(stranger.status, 401);
+    // 이 world에는 채택된 release 행이 없다. core의 `apps/blueprint`가 not_found라 실행 범위가 없고 옛
+    // release의 자식은 새 회차를 시작하지 못한다(409). 조회가 machine credential로 막혔다면 503이다.
+    const refused = await onBroker(
+      "/_lophn/broker/automations/try_acquire",
+      { release: FIXTURE_RELEASE, key: "nightly" },
+    );
+    assertEquals(refused.status, 409, JSON.stringify(refused.body));
+    // 본문의 다른 nonce는 연결이 거절한다.
+    const forged = await unixDirectTransport(brokerSocket, {
+      method: "POST",
+      path: "/_lophn/broker/net/fetch",
+      authorization: `Bearer ${credential}`,
+      body: { process_nonce: "forged", mode: "live" },
+    });
+    assertEquals(forged.status, 401);
   });
 });

@@ -21,7 +21,8 @@ export type ClaimReject =
   | "not_ready"
   | "ticket_closed";
 
-export type ClaimCheck = { ok: true; expires_at: string } | {
+// 성공에는 ticket이 속한 앱도 싣는다. release 준비가 준비 대상 앱과 ticket의 앱이 같은지 대조한다.
+export type ClaimCheck = { ok: true; expires_at: string; app?: string } | {
   ok: false;
   reason: ClaimReject;
 };

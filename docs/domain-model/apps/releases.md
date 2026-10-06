@@ -99,14 +99,14 @@ bundle 안의 manifest이며 release에 별도 mutable 표로 복제하지 않�
 
 | 표 | 담는 것 | 키 | unique | index | 참조 |
 |---|---|---|---|---|---|
-| `releases` | Release, activation·failure JSON; blueprint는 hash | PK `id` | `(app,id)`, `(app,number)`; partial unique app WHERE status='active'; partial unique app WHERE status='activating' | `(app,created_at,id)`, `(app,status)`, `(ticket_source.ticket,ticket_source.claim_seq)` | app → apps; previous_release → releases; approval → platform/approvals; backup_hash → blob; data_change_invocation → invocations |
+| `releases` | Release, activation·failure JSON; blueprint는 hash와 같은 byte의 정규 JSON 사본·선언 사실(동기 read용, 준비 뒤 불변) | PK `id` | `(app,id)`, `(app,number)`; partial unique app WHERE status='active'; partial unique app WHERE status='activating' | `(app,created_at,id)`, `(app,status)`, `(ticket_source.ticket,ticket_source.claim_seq)` | app → apps; previous_release → releases; approval → platform/approvals; backup_hash → blob; data_change_invocation → invocations |
 | `release_tests` | tests 관계 | PK `(release,verification)` | 동일 PK | `(verification,release)` | release → releases; verification → problems/tests |
 
 ## command
 
 | command | actor | 입력 | 비교 기준 | event | 거절(error code) |
 |---|---|---|---|---|---|
-| `release.prepare` | machine | 신뢰된 준비 결과,app,commit,bundle_hash,blueprint_hash,data_schema,data_changes,tests,ticket_source,key | App source; 같은 bundle test; 현재 claim; 요청 connection scope | `ReleasePrepared` | `forbidden`, `invalid_input`, `conflict`, `unavailable` |
+| `release.prepare` | machine | 신뢰된 준비 결과,app,commit,bundle_hash,blueprint_hash,정규 blueprint JSON,manifest,data_schema,data_changes,tests,ticket_source,key | App source; 같은 bundle test; 현재 claim; 요청 connection scope | `ReleasePrepared` | `forbidden`, `invalid_input`, `conflict`, `unavailable` |
 | `release.start_activation` | machine | release,approval,expected previous release,grants seq,schema,key | 현재 활성 참조·grant 집합·approval; 앱 activation lock | `ReleaseActivationStarted` | `forbidden`, `conflict`, `invalid_input` |
 | `release.complete_activation` | machine | release,started_seq,실제 schema·준비 확인 | 같은 시도·이전 활성 참조·grant seq; 데이터 결과 | `ReleaseActivated`, `ReleaseSuperseded` | `conflict`, `unavailable` |
 | `release.fail_activation` | machine | release,started_seq,failure | 같은 진행 시도 | `ReleaseActivationFailed` | `conflict`, `invalid_input` |

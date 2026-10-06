@@ -13,7 +13,6 @@ import {
   appRegistrationLookup,
   releaseCancelPreparation,
   releasePreparation,
-  releasePrepareBundle,
 } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createConfirmCommands } from "../../packages/apps/invocations/confirm.ts";
@@ -138,6 +137,7 @@ export function createLedgerRegistration(
       data.recordDataChange,
       data.recordDataRestore,
       releaseCommands.prepare,
+      releaseCommands.prepareBundle,
     ],
     reads: [
       reads.list,
@@ -165,9 +165,8 @@ export function createLedgerRegistration(
       appPairConfirmRequest,
       appPairConfirmPoll,
       appPairObserve,
-      // release 준비 접수·진행·취소는 command route지만 진행이 supervisor 메모리라 ledger handler가 없다.
+      // release 준비 진행·취소는 command route지만 진행이 supervisor 메모리라 ledger handler가 없다.
       // core가 writer 앞(`withReleasePreparation`)에서 처리하므로 route만 등록한다.
-      releasePrepareBundle,
       releasePreparation,
       releaseCancelPreparation,
     ],

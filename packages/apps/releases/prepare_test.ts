@@ -1,7 +1,11 @@
 // release.prepare 확정(apps/releases#R5, R6, R7, R18, apps/sdk#R22). 같은 bundle hash의 통과한 app test와
 // 현재 ticket claim을 같은 transaction에서 다시 확인하고, 불변 prepared Release를 남긴다.
 import { assert, assertEquals } from "@std/assert";
-import { releasePrepare, releasesGet } from "../../contracts/apps/mod.ts";
+import {
+  releasePrepare,
+  releasePrepareBundle,
+  releasesGet,
+} from "../../contracts/apps/mod.ts";
 import { createReleaseCommands } from "./commands.ts";
 import { createReleaseReads } from "./reads.ts";
 import {
@@ -592,3 +596,60 @@ Deno.test("apps/releases#R9: compare 읽기는 명시한 이전 release나 채�
 
 import { ok } from "../../base/mod.ts";
 import { checkPreparationClaim } from "./commands.ts";
+
+Deno.test("apps/releases#R6: 준비 접수는 요청 때 claim·앱 범위·source 연결을 확인하고 아무것도 기록하지 않는다", () => {
+  const ledger = releasesLedger();
+  try {
+    const bundle = createReleaseCommands().prepareBundle;
+    const ask = (
+      overrides: Record<string, unknown> = {},
+      ctx = machineContext(),
+    ) =>
+      bundle.handle(
+        ledger.tx(),
+        ctx,
+        releasePrepareBundle.input.parse({
+          app: APP,
+          commit: "1".repeat(40),
+          request_key: "prep-1",
+          ...overrides,
+        }),
+        {},
+      );
+    // source가 연결되지 않은 앱과 없는 앱은 같은 거절이다.
+    const unconnected = ask();
+    rejected(unconnected, "forbidden");
+    assertEquals(unconnected, ask({ app: "app_01h455vb4pex5v6nkc6gd5fdw9" }));
+    ledger.tx().sql.run("UPDATE apps SET source_path = ? WHERE id = ?", [
+      "/work/calendar",
+      APP,
+    ]);
+    const accepted = ask();
+    assert(accepted.ok, JSON.stringify(accepted));
+    assertEquals(accepted.value.status, "preparing");
+    assertEquals(ledger.emitted, []);
+    // 사람은 준비를 접수하지 못한다.
+    rejected(ask({}, userContext()), "forbidden");
+    // coding 접수의 ticket claim은 요청 때도 현재여야 한다.
+    const coding = { ...machineContext(), actor: CODING };
+    const withSource = { ticket_source: CLAIM };
+    for (const reason of ["missing", "expired", "released", "changed"]) {
+      ledger.claims.script = () => ok({ ok: false, reason });
+      const refused = ask(withSource, coding);
+      rejected(refused, "conflict");
+      assert(!refused.ok && refused.error.message.includes(reason));
+    }
+    ledger.claims.script = () =>
+      ok({ ok: true, expires_at: "2026-10-06T01:00:00.000Z", app: APP });
+    assert(ask(withSource, coding).ok);
+    // 다른 앱의 ticket claim으로 이 앱의 준비를 접수하지 못한다.
+    ledger.claims.script = () =>
+      ok({ ok: true, expires_at: "2026-10-06T01:00:00.000Z", app: OTHER_APP });
+    rejected(ask(withSource, coding), "conflict");
+    // 사람·machine 접수에 coding ticket을 붙일 수 없다.
+    rejected(ask(withSource), "invalid_input");
+    assertEquals(ledger.emitted, []);
+  } finally {
+    ledger.close();
+  }
+});

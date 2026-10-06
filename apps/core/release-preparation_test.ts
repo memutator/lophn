@@ -83,7 +83,7 @@ async function withPreparation(): Promise<Prepared> {
       "release.preparation",
       "release.cancel_preparation",
     ],
-    { targets: { app: world.app } },
+    { conditions: { app: world.app } },
   )).token;
   const machine = (await world.login("machine", [
     "release.prepare_bundle",
@@ -224,7 +224,7 @@ Deno.test("apps/releases#R1: 범위 밖 앱과 없는 앱과 source가 없는 �
     const other = (await p.world.login(
       "coding_agent",
       ["release.prepare_bundle", "release.preparation"],
-      { targets: { app: "app_01arz3ndektsv4rrffq69g5faw" } },
+      { conditions: { app: "app_01arz3ndektsv4rrffq69g5faw" } },
     )).token;
     const body = (app: string) =>
       command({ app, commit: p.commit, request_key: "prep-3" });

@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   releasePrepare,
+  releasePrepareBundle,
   releasePrepared,
   releaseSchema,
 } from "../../contracts/apps/mod.ts";
@@ -109,8 +110,52 @@ export function checkPreparationClaim(
 
 export function createReleaseCommands(): {
   prepare: CommandDefinition<typeof releasePrepare>;
+  prepareBundle: CommandDefinition<typeof releasePrepareBundle>;
 } {
   return {
+    // 준비 접수의 요청 때 검사다(apps/releases#R6). 앱 범위·source 연결·ticket claim을 이 transaction에서
+    // 확인하고 아무것도 기록하지 않는다. 실제 준비는 supervisor 메모리 진행이고 core는 이 검사를 통과한
+    // 요청만 그쪽으로 넘긴다(apps/core/apps-control.ts의 `withReleasePreparation`). 범위 밖·없는 앱·
+    // source가 없는 앱은 같은 거절이다.
+    prepareBundle: {
+      route: releasePrepareBundle,
+      handle(tx, ctx, input) {
+        const kind = parseActor(ctx.actor)?.kind;
+        if (kind !== "coding_agent" && kind !== "machine") {
+          return unreachableTarget();
+        }
+        const app = loadApp(tx.sql, input.app);
+        if (!app.ok) return app;
+        if (app.value === null || app.value.source_path === null) {
+          return unreachableTarget();
+        }
+        const access = authorizeApp(tx.port, ctx, releasePrepareBundle.name, {
+          kind: "app",
+          app: app.value,
+        });
+        if (appAccessDenied(access)) return unreachableTarget();
+        if (!access.ok) return access;
+        if (app.value.status === "archived") {
+          return conflict("archived app cannot prepare a release");
+        }
+        if (input.ticket_source !== undefined) {
+          const claim = checkPreparationClaim(
+            tx,
+            ctx.actor,
+            input.ticket_source,
+            input.app,
+          );
+          if (!claim.ok) return claim;
+        }
+        return ok({
+          request_key: input.request_key,
+          status: "preparing" as const,
+          bundle_hash: null,
+          blueprint_hash: null,
+          manifest: null,
+        });
+      },
+    },
     prepare: {
       route: releasePrepare,
       handle(tx, ctx, input) {

@@ -881,6 +881,11 @@ export function withReleasePreparation(
     async command(ctx, envelope) {
       const handler = commands.get(envelope.command);
       if (handler === undefined) return await writer.command(ctx, envelope);
+      // 접수는 요청 때 검사(앱 범위·source·ticket claim)를 ledger transaction에서 먼저 지난다.
+      if (envelope.command === releasePrepareBundle.name) {
+        const checked = await writer.command(ctx, envelope);
+        if (!checked.ok) return checked;
+      }
       const handled = await handler(ctx, envelope.input);
       if (!handled.ok) return handled;
       return ok({

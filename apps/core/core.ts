@@ -8,6 +8,7 @@ import type {
   Frame,
   KindLaunchSpec,
   ParentMessage,
+  ReadRoute,
   RequestContext,
   WorkerRequest,
 } from "../../packages/contracts/platform/mod.ts";
@@ -66,8 +67,16 @@ import {
   relaySink,
 } from "./documents-prepare.ts";
 import { documentUploadHandler } from "./documents-upload.ts";
+import {
+  type FilesRouteDeps,
+  fileWorkers,
+  routeDecision,
+} from "./documents-files.ts";
 import { formatValidateRoute } from "./documents-format-validate.ts";
-import { documentUpload } from "../../packages/contracts/documents/mod.ts";
+import {
+  documentPrepare,
+  documentUpload,
+} from "../../packages/contracts/documents/mod.ts";
 import type { VersionRow } from "../../packages/documents/versions/store.ts";
 import { connectDocumentsRelaunch, workerSpecs } from "./documents.ts";
 import {
@@ -79,6 +88,7 @@ import {
 import {
   OBSERVATION_BASIS_ROUTE,
   PREPARE_BASE_ROUTE,
+  WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { type RootsWatch, watchTrackingRoots } from "./documents-roots.ts";
 import { type BasisSync, watchObservationBasis } from "./documents-basis.ts";
@@ -318,6 +328,8 @@ async function open(
       },
       { name: "document.save", actors: ["machine"], kind: "command" },
       { name: "document.prepare", actors: ["machine"], kind: "command" },
+      // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
+      { name: "file.record_result", actors: ["machine"], kind: "command" },
       // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
       ...eventNames.map((name): OperationPolicy => ({
         name,
@@ -448,7 +460,7 @@ async function open(
       actor: "machine",
       principal: "machine:documents",
       scope: {
-        operations: ["document.prepare", "document.save"],
+        operations: ["document.prepare", "document.save", "file.record_result"],
         targets: { task: "documents" },
       },
       conditions: { task: "documents", process: "documents/worker" },
@@ -503,6 +515,16 @@ async function open(
     request: (op, payload, timeoutMs) =>
       documentsChannel.request(op, payload, timeoutMs),
   });
+  // 준비 route의 handle. 사람 파일 쓰기가 working copy의 판을 확정할 때 같은 조립을 쓴다.
+  const prepareWorkers = documentPrepareWorkers(
+    prepareRelay,
+    baseVersionRead(runtime),
+    requestPrincipal(runtime),
+    validatePort,
+  );
+  const preparedRoute = prepareWorkers.get(
+    `${documentPrepare.resource}/${documentPrepare.method}`,
+  )!.handle;
   let server: ApiServer;
   try {
     server = await startApiServer({
@@ -523,6 +545,17 @@ async function open(
       events: runtime.events,
       subscriptions: runtime.subscriptions,
       track: (session) => runtime.track(session),
+      // 확인이 필요한 file·worker route(files.delete)는 writer Worker의 registry가 한 번에
+      // 검증·소비한 뒤에만 worker로 넘어간다(platform#T56, ledger#R22).
+      confirmation: {
+        useOnce: (use) =>
+          runtime!.confirmation({
+            action: "consume",
+            request: { ...use, decision: routeDecision(use.decision) },
+          }).then(
+            (answered) => answered.ok ? ok(undefined) : answered,
+          ),
+      },
       // command·read·file·worker route는 같은 조립에서 온다. platform 기본 route와
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
@@ -548,30 +581,75 @@ async function open(
         blobReady: () => validateWiring.readBlob !== undefined,
       }),
       workers: mergedWorkers(
-        formatValidateWorkers({
-          validate: validatePort,
+        fileWorkers({
+          request: (op, payload, timeoutMs) =>
+            documentsChannel.request(op, payload, timeoutMs),
+          bound: () => documentsChannel.bound,
+          readBlob: (hash, offset, length) =>
+            validateWiring.readBlob
+              ? validateWiring.readBlob(hash, offset, length)
+              : Promise.resolve(err({
+                code: "unavailable" as const,
+                message: "blob 읽기 통로가 없다",
+              })),
+          sendBytes: (channel, chunk) =>
+            validateWiring.sendBytes
+              ? validateWiring.sendBytes(channel, chunk)
+              : Promise.resolve(false),
           principalOf: requestPrincipal(runtime),
           live: (prepared) =>
             validateWiring.live?.(prepared, clock.nowMs()) ?? false,
-          available: () =>
-            validateWiring.live !== undefined &&
-            validateWiring.sendBytes !== undefined,
+          copyCheck: (request, document, baseVersion) =>
+            readAs(runtime!, request, WORKING_COPY_ROUTE, {
+              document,
+              base_version: baseVersion,
+              operation: request.op,
+            }) as ReturnType<FilesRouteDeps["copyCheck"]>,
+          version: {
+            prepare: (request, payload) =>
+              Promise.resolve(
+                preparedRoute.forward({
+                  ...request,
+                  op: documentPrepare.name,
+                  payload,
+                }),
+              ),
+            save: (request, envelope) => {
+              const slash = request.request_id.lastIndexOf("/");
+              const ctx = slash > 0
+                ? runtime!.current(request.request_id.slice(0, slash))
+                : undefined;
+              return ctx?.ok
+                ? runtime!.writer.command(ctx.value as never, envelope as never)
+                : Promise.resolve(err({
+                  code: "unauthorized" as const,
+                  message: "credential이 없다",
+                }));
+            },
+          },
           observedAt: () => new Date().toISOString(),
         }),
         mergedWorkers(
-          documentPrepareWorkers(
-            prepareRelay,
-            baseVersionRead(runtime),
-            requestPrincipal(runtime),
-            validatePort,
-          ),
+          formatValidateWorkers({
+            validate: validatePort,
+            principalOf: requestPrincipal(runtime),
+            live: (prepared) =>
+              validateWiring.live?.(prepared, clock.nowMs()) ?? false,
+            available: () =>
+              validateWiring.live !== undefined &&
+              validateWiring.sendBytes !== undefined,
+            observedAt: () => new Date().toISOString(),
+          }),
           mergedWorkers(
-            servedWorkers({
-              readers: runtime.readers,
-              current: (ref) => runtime!.current(ref),
-              observedAt: () => new Date().toISOString(),
-            }),
-            options.workers,
+            prepareWorkers,
+            mergedWorkers(
+              servedWorkers({
+                readers: runtime.readers,
+                current: (ref) => runtime!.current(ref),
+                observedAt: () => new Date().toISOString(),
+              }),
+              options.workers,
+            ),
           ),
         ),
       ),
@@ -1391,6 +1469,22 @@ function requestPrincipal(
     const ctx = ref === undefined ? undefined : runtime.current(ref);
     return ctx?.ok ? ctx.value.principal : undefined;
   };
+}
+
+// 요청 credential의 현재 context로 reader Worker의 내부 read를 연다.
+async function readAs(
+  runtime: CoreRuntime,
+  request: WorkerRequest,
+  route: ReadRoute,
+  input: unknown,
+): Promise<Result<unknown>> {
+  const slash = request.request_id.lastIndexOf("/");
+  const ref = slash > 0 ? request.request_id.slice(0, slash) : undefined;
+  const ctx = ref === undefined ? undefined : runtime.current(ref);
+  if (!ctx?.ok) {
+    return err({ code: "unauthorized", message: "credential이 없다" });
+  }
+  return await runtime.readers.read(route, ctx.value, input);
 }
 
 // 기준 판 읽기. 요청 credential의 현재 context로 reader Worker의 snapshot을 읽는다.

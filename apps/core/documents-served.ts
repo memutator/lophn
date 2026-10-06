@@ -89,6 +89,25 @@ export const PREPARE_BASE_ROUTE: ReadRoute = {
   errors: ["invalid_input", "unavailable", "internal"],
 };
 
+// working copy 근거의 판정 read. 요청 자격으로 원본 없는 활성 문서인지와 연 판의 대표 파일을
+// 읽는다(core가 사본을 읽고 쓰기 전에 부른다). 범위 밖·없는 문서는 같은 `eligible: false`다.
+// 공개 route가 아니라 core 안에서만 쓴다.
+export const WORKING_COPY_ROUTE: ReadRoute = {
+  kind: "read",
+  resource: "documents-worker",
+  method: "working_copy",
+  name: "document.working_copy",
+  input: z.strictObject({
+    document: z.string().min(1),
+    base_version: z.string().min(1).nullable(),
+    // 사람이 부른 route 이름. 문서 접근은 그 route의 operation 범위로 판정한다.
+    operation: z.string().min(1),
+  }),
+  output: z.looseObject({}),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable", "internal"],
+};
+
 // coordinator에 넘길 관측 근거의 core 쪽 읽기(Q15). 공개 route가 아니라 core가 소유자로
 // 읽는 내부 read다. 응답 한도(500행)가 있어 root·규칙과 경로→문서 연결을 따로, 연결은
 // 경로 순서의 page로 읽는다.

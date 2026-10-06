@@ -13,7 +13,7 @@ import {
   screenTestInputSchema,
   screenTestLine,
   screenTestObservationSchema,
-} from "../../../contracts/shell/screen-test.ts";
+} from "../../../contracts/shell/mod.ts";
 import type { ScreenHostResult } from "../app-test/screens.ts";
 
 // 관측 frame 상한. host도 같은 값으로 자른다(shell#T46).

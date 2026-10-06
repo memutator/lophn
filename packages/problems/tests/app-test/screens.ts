@@ -8,7 +8,7 @@ import type {
   AcceptedReport,
   ObserveExceptionInput,
 } from "../../../contracts/problems/mod.ts";
-import type { ScreenTestObservation } from "../../../contracts/shell/screen-test.ts";
+import type { ScreenTestObservation } from "../../../contracts/shell/mod.ts";
 import {
   type ReceivedReport,
   type ViewDriver,

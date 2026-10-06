@@ -355,6 +355,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T18 사람 지침(LOPHN.md) 층
 
+- 상태: 완료 (#364)
 - 등급: 기본
 - concern: lophn-agent/instructions
 - 요구: lophn-agent/instructions#R1, R2, R3, R4, R5, R6, R7, R8

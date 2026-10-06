@@ -46,6 +46,10 @@ function supervisor(): Supervisor & { closed: number; stopped: number } {
     stopped: 0,
     reconcile: () => Promise.resolve(),
     restart: () => Promise.resolve(false),
+    pause: () => Promise.resolve(true),
+    prepare: () => Promise.resolve({ ok: false, reason: "unused" }),
+    open: () => Promise.resolve(false),
+    resume: () => Promise.resolve(),
     coreClosed() {
       this.closed += 1;
       return Promise.resolve();

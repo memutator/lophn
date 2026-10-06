@@ -17,6 +17,5 @@ export {
   BACKUP_BLOB_FIELD_NAME,
   BACKUP_BLOB_OWNER_KIND,
   BACKUP_BLOB_PURPOSE,
-  BACKUP_BLOB_PURPOSE_DEFINITION,
   backupBlobOwnerKey,
 } from "./blobs.ts";

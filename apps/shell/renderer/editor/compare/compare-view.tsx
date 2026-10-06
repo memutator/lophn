@@ -89,7 +89,7 @@ type RestoreNotice =
   | "unsaved";
 
 type NoticeKey =
-  | "document.notice.restoring"
+  | "document.label.restoring"
   | "document.notice.restore-saved"
   | "document.notice.restore-unchanged"
   | "document.notice.restore-conflict"
@@ -106,7 +106,7 @@ type HintKey =
   | "document.notice.compare-incomplete";
 
 const NOTICE_TEXT: Record<RestoreNotice, NoticeKey> = {
-  restoring: "document.notice.restoring",
+  restoring: "document.label.restoring",
   saved: "document.notice.restore-saved",
   unchanged: "document.notice.restore-unchanged",
   conflict: "document.notice.restore-conflict",

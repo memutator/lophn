@@ -376,7 +376,7 @@ export type PlaceholderKinds = {
   "document.notice.restore-confirm": {
     number: "number";
   };
-  "document.notice.restoring": Record<never, never>;
+  "document.label.restoring": Record<never, never>;
   "document.notice.restore-saved": Record<never, never>;
   "document.notice.restore-unchanged": Record<never, never>;
   "document.notice.restore-conflict": Record<never, never>;

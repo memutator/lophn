@@ -346,7 +346,7 @@ export const en = {
     "The text of these versions can't be compared here.",
   "document.notice.restore-confirm":
     "Make version {number, number} the newest version? The versions in between stay in the history.",
-  "document.notice.restoring": "Restoring…",
+  "document.label.restoring": "Restoring…",
   "document.notice.restore-saved": "Restored. It's now the newest version.",
   "document.notice.restore-unchanged":
     "The newest version already has this content. No new version was made.",

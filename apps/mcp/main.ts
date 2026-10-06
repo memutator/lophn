@@ -27,6 +27,10 @@ import {
 } from "../../packages/coding-agent/mcp-server/mod.ts";
 import { uploadPrepareBytes } from "../../packages/coding-agent/connection/mod.ts";
 import { createContextTool } from "../../packages/coding-agent/mcp-server/tools/context.ts";
+import { createDocumentTool } from "../../packages/coding-agent/mcp-server/tools/document.ts";
+import { createIndexTool } from "../../packages/coding-agent/mcp-server/tools/index.ts";
+import { createProjectTool } from "../../packages/coding-agent/mcp-server/tools/project.ts";
+import { createReadTool } from "../../packages/coding-agent/mcp-server/tools/read.ts";
 import { createFormatTool } from "../../packages/coding-agent/mcp-server/tools/format.ts";
 import { createApprovalTool } from "../../packages/coding-agent/mcp-server/tools/approval.ts";
 import { createQuestionTool } from "../../packages/coding-agent/mcp-server/tools/question.ts";
@@ -148,6 +152,15 @@ export function startMcpServer(
       }),
     }
     : undefined;
+  // 문서 읽기 tool의 실행이다(T13): 목차·검색·project·목록·이력·본문. 소유 읽기 route만 부른다.
+  const readTools = caller
+    ? {
+      lophn_index: createIndexTool({ client: caller }),
+      lophn_project: createProjectTool({ client: caller }),
+      lophn_document: createDocumentTool({ client: caller }),
+      lophn_read: createReadTool({ client: caller }),
+    }
+    : undefined;
   // 질문·approval 읽기 tool의 실행이다(T16). 읽기 route만 부르고 결정하지 않는다.
   const decisionTools = caller
     ? {
@@ -187,6 +200,13 @@ export function startMcpServer(
         : undefined;
       if (documentTool !== undefined) {
         return documentTool(toolName, resolved.route, callArgs);
+      }
+      const readTool = readTools !== undefined &&
+          Object.hasOwn(readTools, toolName)
+        ? readTools[toolName as keyof typeof readTools]
+        : undefined;
+      if (readTool !== undefined) {
+        return readTool(toolName, resolved.route, callArgs);
       }
       const decisionTool = decisionTools !== undefined &&
           Object.hasOwn(decisionTools, toolName)

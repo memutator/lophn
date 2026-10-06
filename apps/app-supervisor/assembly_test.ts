@@ -16,7 +16,11 @@ import {
   SCREENS,
   writeFixtureBundle,
 } from "../../packages/apps/runtime/testing/app-process.ts";
-import { assembleSupervisor, type Assembly } from "./assembly.ts";
+import {
+  assembleSupervisor,
+  type Assembly,
+  type SupervisorIo,
+} from "./assembly.ts";
 import { spawnApp } from "./spawn.ts";
 
 const MACHINE = "machine-credential-of-the-supervisor";
@@ -34,7 +38,19 @@ type Rig = {
   stop(): Promise<void>;
 };
 
-async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
+type RigOptions = {
+  stopGraceMs?: number;
+  // core 대역의 답을 시험이 정한다. undefined면 기본 대역이 답한다.
+  answer?: (
+    path: string,
+    bearer: string,
+    body: unknown,
+  ) => { status: number; body: unknown } | undefined;
+  adapters?: SupervisorIo["brokerAdapters"];
+  invocations?: SupervisorIo["invocations"];
+};
+
+async function rig(options: RigOptions = {}): Promise<Rig> {
   const dir = await Deno.makeTempDir({ prefix: "lop-s-" });
   const bundleDir = `${dir}/bundle`;
   await Deno.mkdir(`${bundleDir}/data`, { recursive: true });
@@ -60,6 +76,8 @@ async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
   const fake = {
     async post(path: string, bearer: string, body: unknown) {
       posted.push({ path, bearer, body });
+      const answered = options.answer?.(path, bearer, body);
+      if (answered !== undefined) return answered;
       if (path === "apps/connect") {
         const request = body as { app: string };
         const observation = assembled.supervisor.observation(request.app);
@@ -151,6 +169,12 @@ async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
     },
     rss: procRssReader(),
     stopGraceMs: options.stopGraceMs ?? 300,
+    ...(options.adapters === undefined
+      ? {}
+      : { brokerAdapters: options.adapters }),
+    ...(options.invocations === undefined
+      ? {}
+      : { invocations: options.invocations }),
   });
   assembled.onHello({
     credential: MACHINE,
@@ -411,6 +435,356 @@ Deno.test("apps/runtime#R17: core 제어가 끊기면 새 호출을 닫고 자�
       r.posted.filter((entry) => entry.path === "apps/record_stopped").length,
       0,
     );
+  } finally {
+    await r.stop();
+  }
+});
+
+// ---- broker: 자식마다 socket과 서비스 어댑터(apps/permissions#R19, apps/runtime#R6) ----
+
+const GRANT = (kind: string, scope: Record<string, unknown>, n: number) => ({
+  id: `grt_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`,
+  app: FIXTURE_APP,
+  kind,
+  scope: { kind, ...scope },
+  approval: `apr_01h455vb4pex5v6nkc6gd5fd${String(n).padStart(2, "0")}`,
+  status: "active",
+  created_by: "user",
+  created_at: "2026-10-06T00:00:00.000Z",
+  revoked_by: null,
+  revoked_at: null,
+});
+
+const NET = { host: "api.example.com", port: 443 };
+
+// core의 apps/blueprint·grants/list·problems/report 대역이다. 시험이 선언과 grant를 바꾼다.
+function coreWorld() {
+  const world = {
+    grants: [] as ReturnType<typeof GRANT>[],
+    release: FIXTURE_RELEASE as string | null,
+    declarations: {
+      permissions: [] as unknown[],
+      app_connections: [],
+      commands: [...COMMANDS],
+      automations: [] as unknown[],
+      problem_codes: [] as string[],
+      documents: [] as unknown[],
+    },
+    reports: [] as { bearer: string; body: unknown }[],
+    answer(path: string, bearer: string, body: unknown) {
+      if (path === "apps/blueprint") {
+        if (world.release === null) {
+          return { status: 404, body: { error: { code: "not_found" } } };
+        }
+        return {
+          status: 200,
+          body: {
+            app: FIXTURE_APP,
+            release: world.release,
+            blueprint_hash: "ab".repeat(32),
+            name: "Fixture",
+            description: "a fixture app",
+            commands: [],
+            screens: [],
+            automations: [],
+            declarations: world.declarations,
+            evidence: {
+              description: { complete: true, gaps: [] },
+              structure: { validated: true },
+              test: { passed: true, verifications: [] },
+            },
+            as_of_seq: "1",
+            next_cursor: null,
+          },
+        };
+      }
+      if (path === "grants/list") {
+        return {
+          status: 200,
+          body: {
+            grants: world.grants,
+            display: null,
+            as_of_seq: "1",
+            next_cursor: null,
+          },
+        };
+      }
+      if (path === "problems/report") {
+        world.reports.push({ bearer, body });
+        return {
+          status: 200,
+          body: {
+            report: "rpt_01h455vb4pex5v6nkc6gd5fdw1",
+            snapshot: "snp_01h455vb4pex5v6nkc6gd5fdw1",
+            problem: "prb_01h455vb4pex5v6nkc6gd5fdw1",
+            diagnostic_scope: null,
+          },
+        };
+      }
+      return undefined;
+    },
+  };
+  return world;
+}
+
+async function onBroker(
+  r: Rig,
+  path: string,
+  body: Record<string, unknown>,
+  credential?: string,
+) {
+  const observation = r.assembled.supervisor.observation(FIXTURE_APP)!;
+  const made = slotSockets(`${r.dir}/s`, 0);
+  assert(made.ok);
+  return await unixDirectTransport(made.value.brokerSocket, {
+    method: "POST",
+    path,
+    authorization: `Bearer ${credential ?? r.issued[0]}`,
+    body: {
+      process_nonce: observation.processNonce,
+      mode: "live",
+      ...body,
+    },
+  });
+}
+
+Deno.test("apps/permissions#R19, apps/runtime#R6: 자식마다 broker socket이 서고 그 자식의 credential만 받고 자식이 끝나면 닫힌다", async () => {
+  const world = coreWorld();
+  const r = await rig({ answer: (p, b, body) => world.answer(p, b, body) });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    await until("ready", () => readyOf(r));
+    // 서비스가 올라 있다: 모르는 경로는 없는 경로와 같다.
+    const unknown = await onBroker(r, "/_lophn/broker/nothing", {});
+    assertEquals(unknown.status, 404);
+    // 다른 credential(supervisor의 machine credential 포함)은 거절한다.
+    for (const bearer of [MACHINE, "app-credential-99"]) {
+      const refused = await onBroker(
+        r,
+        "/_lophn/broker/automations/try_acquire",
+        { release: FIXTURE_RELEASE, key: "x" },
+        bearer,
+      );
+      assertEquals(refused.status, 401);
+    }
+    const made = slotSockets(`${r.dir}/s`, 0);
+    assert(made.ok);
+    await r.assembled.supervisor.stop();
+    await until("the broker socket to close", async () => {
+      try {
+        (await Deno.connect({
+          path: made.value.brokerSocket,
+          transport: "unix",
+        })).close();
+        return undefined;
+      } catch {
+        return true;
+      }
+    });
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/permissions#R14: broker는 요청마다 선언과 grant를 다시 읽어 회수는 다음 사용부터 거절한다", async () => {
+  const world = coreWorld();
+  world.declarations.permissions = [{
+    kind: "net.fetch",
+    scope: NET,
+    reason: "reads usage",
+  }];
+  world.grants = [GRANT("net.fetch", NET, 1)];
+  const seen: string[] = [];
+  const r = await rig({
+    answer: (p, b, body) => world.answer(p, b, body),
+    adapters: {
+      netScheme: "http",
+      netTransport: (input) => {
+        seen.push(String(input));
+        return Promise.resolve(
+          new Response(JSON.stringify({ rows: 3 }), {
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      },
+    },
+  });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    await until("ready", () => readyOf(r));
+    const request = {
+      invocation: null,
+      command: "usage.read",
+      host: NET.host,
+      port: NET.port,
+      method: "GET",
+      path: "/usage",
+    };
+    const allowed = await onBroker(r, "/_lophn/broker/net/fetch", request);
+    assertEquals(allowed.status, 200, JSON.stringify(allowed.body));
+    assertEquals(allowed.body, { status: 200, body: { rows: 3 } });
+    assertEquals(seen, ["http://api.example.com:443/usage"]);
+    // 사람이 회수하면 다음 요청부터 거절이다. 프로세스를 다시 띄우지 않았다.
+    world.grants = [];
+    const refused = await onBroker(r, "/_lophn/broker/net/fetch", request);
+    assertEquals(refused.status, 403);
+    assertEquals(seen.length, 1);
+    // 선언 밖 host는 grant가 있어도 거절이다.
+    world.grants = [GRANT("net.fetch", NET, 1)];
+    const outside = await onBroker(r, "/_lophn/broker/net/fetch", {
+      ...request,
+      host: "other.example.com",
+    });
+    assertEquals(outside.status, 403);
+    // 선언과 grant 조회는 supervisor의 machine credential이다.
+    for (
+      const entry of r.posted.filter((e) =>
+        e.path === "apps/blueprint" || e.path === "grants/list"
+      )
+    ) assertEquals(entry.bearer, MACHINE);
+    // 교체된 release의 옛 자식은 새 선언으로 접근을 얻지 못한다.
+    world.release = "rel_01h455vb4pex5v6nkc6gd5fdw9";
+    const replaced = await onBroker(r, "/_lophn/broker/net/fetch", request);
+    assertEquals(replaced.status, 403);
+    // active release가 없으면 실행 범위도 없다.
+    world.release = null;
+    assertEquals(
+      (await onBroker(r, "/_lophn/broker/net/fetch", request)).status,
+      403,
+    );
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/automations#R6: automation permit은 supervisor 하나가 쥐고 자식 종료를 확인하면 돌려받는다", async () => {
+  const world = coreWorld();
+  const r = await rig({ answer: (p, b, body) => world.answer(p, b, body) });
+  world.declarations.automations = [{
+    key: "nightly",
+    command: "usage.read",
+    external: false,
+    input_hash: "ab".repeat(32),
+    when: { kind: "interval", interval_ms: 60_000 },
+  }];
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    await until("ready", () => readyOf(r));
+    const acquire = await onBroker(
+      r,
+      "/_lophn/broker/automations/try_acquire",
+      { release: FIXTURE_RELEASE, key: "nightly" },
+    );
+    assertEquals(acquire.status, 200, JSON.stringify(acquire.body));
+    assertEquals((acquire.body as { permit: boolean }).permit, true);
+    assertEquals(r.assembled.permits.inUse, 1);
+    // 선언하지 않은 automation은 permit이 없다.
+    const unknown = await onBroker(
+      r,
+      "/_lophn/broker/automations/try_acquire",
+      { release: FIXTURE_RELEASE, key: "other" },
+    );
+    assert(unknown.status >= 400);
+    assertEquals(r.assembled.permits.inUse, 1);
+    // 자식 종료를 확인하면 그 자식의 점유를 모두 돌려받는다.
+    await r.assembled.supervisor.stop();
+    await until(
+      "the permit to return",
+      () => r.assembled.permits.inUse === 0 ? true : undefined,
+    );
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/sdk#R26: 문제 보고는 그 자식의 app credential로 core에 가고 선언하지 않은 code는 core에 닿지 않는다", async () => {
+  const world = coreWorld();
+  world.declarations.problem_codes = ["usage_sync_failed"];
+  const r = await rig({ answer: (p, b, body) => world.answer(p, b, body) });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    await until("ready", () => readyOf(r));
+    const reported = await onBroker(r, "/_lophn/broker/problems/report", {
+      code: "usage_sync_failed",
+    });
+    assertEquals(reported.status, 200, JSON.stringify(reported.body));
+    assertEquals(reported.body, {
+      report_id: "rpt_01h455vb4pex5v6nkc6gd5fdw1",
+    });
+    assertEquals(world.reports.length, 1);
+    // supervisor의 machine credential이 아니라 이 자식의 app credential이다.
+    assertEquals(world.reports[0].bearer, r.issued[0]);
+    assertEquals(
+      (world.reports[0].body as { code: string }).code,
+      "usage_sync_failed",
+    );
+    const undeclared = await onBroker(r, "/_lophn/broker/problems/report", {
+      code: "made_up_code",
+    });
+    assertEquals(undeclared.status, 400);
+    assertEquals(world.reports.length, 1);
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/invocations#R1: 앱이 보낸 기록은 자식 연결의 신원으로 전달 목록에 들어간다", async () => {
+  const world = coreWorld();
+  const submitted: { child: unknown; body: unknown }[] = [];
+  const r = await rig({
+    answer: (p, b, body) => world.answer(p, b, body),
+    invocations: {
+      submit(child, body) {
+        submitted.push({ child, body });
+        return { ok: true as const, value: { accepted: true as const } };
+      },
+    },
+  });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    const observation = await until("ready", () => readyOf(r));
+    const reply = await onBroker(r, "/_lophn/broker/invocations/submit", {
+      invocation: "inv_01h455vb4pex5v6nkc6gd5fdw1",
+      fact: "start",
+      summary: {},
+    });
+    assertEquals(reply.status, 200, JSON.stringify(reply.body));
+    assertEquals(submitted.length, 1);
+    assertEquals(submitted[0].child, {
+      app: FIXTURE_APP,
+      release: FIXTURE_RELEASE,
+      mode: "live",
+      processNonce: observation.processNonce,
+    });
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/permissions#R13: 아직 이어지지 않은 외부 통로는 서비스 검사를 지난 요청만 unavailable로 닫고 성공을 꾸미지 않는다", async () => {
+  const world = coreWorld();
+  world.declarations.permissions = [{
+    kind: "document.save",
+    scope: { key: "report" },
+    reason: "saves the report",
+  }];
+  const r = await rig({ answer: (p, b, body) => world.answer(p, b, body) });
+  try {
+    await r.assembled.supervisor.reconcile(r.desired);
+    await until("ready", () => readyOf(r));
+    const save = {
+      key: "report",
+      base_version: null,
+      idempotency_key: "save-1",
+    };
+    // grant가 없으면 평소와 같은 forbidden이다.
+    assertEquals(
+      (await onBroker(r, "/_lophn/broker/documents/save", save)).status,
+      403,
+    );
+    world.grants = [GRANT("document.save", { key: "report" }, 2)];
+    const closed = await onBroker(r, "/_lophn/broker/documents/save", save);
+    assertEquals(closed.status, 503, JSON.stringify(closed.body));
   } finally {
     await r.stop();
   }

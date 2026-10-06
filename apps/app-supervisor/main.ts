@@ -93,6 +93,8 @@ const credential: { value: string } = { value: "" };
 
 const assembled = assembleSupervisor({
   childExited: (nonce) => delivery.childExited(nonce),
+  // 앱이 broker로 보낸 invocation 후행 기록은 이 전달 목록이 core로 보낸다(apps/invocations#R1).
+  invocations: delivery.broker,
   clock: systemClock,
   ids: createIdSource({
     clock: systemClock,

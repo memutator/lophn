@@ -98,6 +98,11 @@ Deno.test("apps/blueprint#R2: active release의 command·화면·automation을 �
       ["home", "/home", ["full"]],
     ]);
     assertEquals(reply.value.automations[0].label, "Nightly cleanup");
+    // 실행 범위를 계산하는 쪽이 쓰는 선언 사실도 같은 release의 고정 blueprint에서 나온다.
+    assertEquals(reply.value.declarations.commands, ["add_item", "list_items"]);
+    assertEquals(reply.value.declarations.automations.length, 1);
+    assertEquals(reply.value.declarations.automations[0].external, false);
+    assertEquals(reply.value.declarations.problem_codes, []);
     // 화면·command 설명이 모두 있으면 설명이 완성이다.
     assertEquals(reply.value.evidence.description, {
       complete: true,

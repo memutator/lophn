@@ -53,6 +53,7 @@ export function declarationsOfBlueprint(
     commands: blueprint.commands.map((command) => command.key),
     automations,
     problem_codes: blueprint.problem_codes.map((entry) => entry.code),
+    documents: blueprint.documents.map((entry) => ({ ...entry })),
   };
 }
 

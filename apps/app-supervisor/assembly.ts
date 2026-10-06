@@ -48,7 +48,23 @@ import type {
 import { DIRECT_SOCKET_PATHS } from "../../packages/contracts/apps/mod.ts";
 import { diagnosticSchema } from "../../packages/contracts/platform/mod.ts";
 import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
-import { socketFlags } from "../../packages/apps/permissions/mod.ts";
+import {
+  type BrokerChild,
+  type InvocationBroker,
+  type ProblemsReport,
+  socketFlags,
+} from "../../packages/apps/permissions/mod.ts";
+import {
+  type AutomationPermits,
+  createAutomationPermits,
+} from "../../packages/apps/automations/permits.ts";
+import { reportAcceptanceSchema } from "../../packages/contracts/problems/mod.ts";
+import { createCoreBrokerAccess } from "./access.ts";
+import {
+  type BrokerAdapters,
+  createSupervisorBroker,
+  type SupervisorBroker,
+} from "./broker.ts";
 import { lineRedactor } from "./log-redact.ts";
 import { readRecordState, recordInput } from "./record.ts";
 
@@ -99,10 +115,27 @@ export type SupervisorIo = {
   credentialWaitMs?: number;
   // 자식 종료를 관측하면 알린다(결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다).
   childExited?: (processNonce: string) => void;
+  // 앱이 broker로 보낸 invocation 후행 기록을 core에 전달하는 쪽이다. 없으면 기록 통로는 unavailable이다.
+  invocations?: Pick<InvocationBroker, "submit">;
+  // broker 서비스에 더하는 어댑터와 시험 대역(외부 전송 등). 기본은 core read·route를 지나는 어댑터다.
+  brokerAdapters?: Partial<
+    Pick<
+      BrokerAdapters,
+      | "netTransport"
+      | "netScheme"
+      | "documents"
+      | "secrets"
+      | "pairs"
+    >
+  >;
 };
 
 export type Assembly = {
   supervisor: Supervisor;
+  // 앱 자식마다 여는 broker socket과 서비스다. 시험과 grant 적용이 앱 단위로 막는다.
+  broker: SupervisorBroker;
+  // automation 전체 동시 한도의 permit이다. 앱마다가 아니라 하나뿐이다(apps/automations#R6).
+  permits: AutomationPermits;
   ops: OpHandlers;
   // 감독 pipe의 hello. core API 위치와 machine credential이 온다.
   onHello(
@@ -138,6 +171,49 @@ function wireOf(
   };
 }
 
+// core 응답을 오류 code로 읽는다. 본문의 code가 우선이고 없으면 상태로 정한다.
+function errorCodeOf(
+  status: number,
+  body: unknown,
+):
+  | "unauthorized"
+  | "forbidden"
+  | "not_found"
+  | "conflict"
+  | "invalid_input"
+  | "unavailable" {
+  const code = (body as { error?: { code?: unknown } } | null)?.error?.code;
+  const known = [
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "invalid_input",
+    "unavailable",
+  ] as const;
+  const found = known.find((entry) => entry === code);
+  if (found !== undefined) return found;
+  if (status === 401) return "unauthorized";
+  if (status === 403) return "forbidden";
+  if (status === 404) return "not_found";
+  if (status === 409) return "conflict";
+  if (status >= 400 && status < 500) return "invalid_input";
+  return "unavailable";
+}
+
+// 시작 입력(stdin JSON 한 줄)의 자식 broker credential이다.
+function brokerCredentialOf(startLine: string): string | undefined {
+  try {
+    const parsed = JSON.parse(startLine) as { broker_credential?: unknown };
+    return typeof parsed.broker_credential === "string" &&
+        parsed.broker_credential.length > 0
+      ? parsed.broker_credential
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function parse<T>(
   schema: {
     safeParse(
@@ -166,6 +242,67 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const waiting = new Map<string, (credential: string) => void>();
   // 알려진 secret 값은 supervisor가 모른다. credential 모양 pattern만 지운다.
   const redact = lineRedactor(createKnownSecretRegistry());
+  // automation 전체 동시 한도는 앱마다가 아니라 supervisor 하나가 쥔다(apps/automations#R6).
+  const permits = createAutomationPermits();
+
+  const closedInvocations: Pick<InvocationBroker, "submit"> = {
+    submit: () =>
+      err({
+        code: "unavailable",
+        message: "invocation delivery is not connected",
+      }),
+  };
+
+  function problemsFor(child: BrokerChild): ProblemsReport {
+    return {
+      async report(request) {
+        // 보고는 그 자식의 app credential로만 core에 간다. app·release·mode는 그 credential이 정한다.
+        const bearer = credentials.get(child.processNonce);
+        if (bearer === undefined) {
+          return err({
+            code: "unavailable",
+            message: "the app has no reporting credential",
+          });
+        }
+        let response: { status: number; body: unknown };
+        try {
+          response = await io.post("problems/report", bearer, {
+            report_id: io.ids.newId("rpt"),
+            code: request.code,
+            observed_at: io.clock.now(),
+            ...(request.trace === undefined ? {} : { text: request.trace }),
+            ...(request.details === undefined
+              ? {}
+              : { details: request.details }),
+          });
+        } catch {
+          return err({ code: "unavailable", message: "core is unreachable" });
+        }
+        const accepted = reportAcceptanceSchema.safeParse(response.body);
+        if (response.status === 200 && accepted.success) {
+          return ok({ report_id: accepted.data.report });
+        }
+        return err({
+          code: errorCodeOf(response.status, response.body),
+          message: "the report was refused",
+        });
+      },
+    };
+  }
+
+  const broker = createSupervisorBroker({
+    adapters: {
+      access: createCoreBrokerAccess({
+        post: io.post,
+        bearer: () => hello.credential,
+      }),
+      invocations: io.invocations ?? closedInvocations,
+      permits,
+      platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
+      problems: problemsFor,
+      ...(io.brokerAdapters ?? {}),
+    },
+  });
 
   function send(message: unknown): void {
     try {
@@ -351,18 +488,41 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       // 두 socket의 허락은 시작마다 새로 정한 경로로 supervisor가 더한다.
       const sockets = socketFlags(request.sockets);
       if (!sockets.ok) throw new Error(sockets.error.message);
-      const spawned = await io.spawn({
-        deno: request.deno,
-        entry: request.entry,
-        flags: {
-          ...request.flags,
-          args: [...request.flags.args, ...sockets.value],
-        },
-        importMap: request.importMap,
-        environment: request.environment,
-        startLine: request.startLine,
-      });
+      // 자식이 연결하기 전에 broker socket이 이미 듣고 있어야 한다. credential은 시작 입력에 있다.
+      const credential = brokerCredentialOf(request.startLine);
+      if (credential === undefined) {
+        throw new Error("the start input has no broker credential");
+      }
       const nonce = request.identity.processNonce;
+      const opened = broker.open({
+        child: {
+          app: request.app,
+          release: request.release,
+          mode: "live",
+          processNonce: nonce,
+        },
+        credential,
+        socketPath: request.sockets.brokerSocket,
+      });
+      if (!opened.ok) throw new Error(opened.error.message);
+      let spawned: Awaited<ReturnType<SupervisorIo["spawn"]>>;
+      try {
+        spawned = await io.spawn({
+          deno: request.deno,
+          entry: request.entry,
+          flags: {
+            ...request.flags,
+            args: [...request.flags.args, ...sockets.value],
+          },
+          importMap: request.importMap,
+          environment: request.environment,
+          startLine: request.startLine,
+        });
+      } catch (thrown) {
+        // 자식이 뜨지 못했으면 열어 둔 socket과 점유를 바로 거둔다.
+        await broker.closed(nonce);
+        throw thrown;
+      }
       const log = bufferOf(request.app);
       void log.attach(spawned.stdout);
       void log.attach(tee(spawned.stderr, nonce));
@@ -442,6 +602,8 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     },
     async requestStop(child, direct, desired) {
       const nonce = child.identity.processNonce;
+      // broker도 새 요청부터 막는다. 이미 한 전송을 취소하지는 않는다.
+      broker.blockApp(desired.app);
       // 새 호출·clock부터 닫고 종료를 요청한다. 닿지 않아도 유예 뒤 강제 종료가 이어진다.
       await control(desired, direct, DIRECT_SOCKET_PATHS.close, {
         process_nonce: nonce,
@@ -457,7 +619,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       ? {}
       : { readyTimeoutMs: io.readyTimeoutMs }),
     ...(io.stopGraceMs === undefined ? {} : { stopGraceMs: io.stopGraceMs }),
-    ...(io.childExited ? { childExited: io.childExited } : {}),
+    // 자식 종료를 확인하면 socket을 닫고 그 자식의 점유·열린 기록을 거둔다.
+    childExited(processNonce) {
+      void broker.closed(processNonce);
+      io.childExited?.(processNonce);
+    },
     onEvent(event) {
       void observeEvent(event);
     },
@@ -561,6 +727,8 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
 
   return {
     supervisor,
+    broker,
+    permits,
     ops,
     onHello(received) {
       hello.credential = received.credential;

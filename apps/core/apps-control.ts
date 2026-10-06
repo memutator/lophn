@@ -4,6 +4,7 @@
 import { type Clock, err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   appAutomations,
+  appBlueprint,
   appConnect,
   type AppConnectInput,
   appLogs,
@@ -84,6 +85,9 @@ const SUPERVISOR_OPERATIONS = [
   appRecordStopped.name,
   appRecordUnavailable.name,
   appConnect.name,
+  // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다(apps/permissions#R2, R14).
+  appBlueprint.name,
+  grantsList.name,
 ];
 // 자식 앱마다 받는 app credential이 닿는 operation. 문제 보고와 process 관측뿐이다.
 const APP_CHILD_OPERATIONS = [reportProblem.name, observeException.name];
@@ -106,6 +110,9 @@ export function appsOperationPolicies(): OperationPolicy[] {
     },
     // problems report collector(machine)가 자기 credential의 앱 log를 읽는다.
     { name: appLogs.name, actors: ["machine"], kind: "command" },
+    // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
+    { name: appBlueprint.name, actors: ["machine"], kind: "command" },
+    { name: grantsList.name, actors: ["machine"], kind: "command" },
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
   ];

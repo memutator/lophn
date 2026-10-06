@@ -16,7 +16,25 @@ import type {
 import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { descriptionGaps } from "./describe.ts";
 
-export type ActiveBlueprint = { release: Release; blueprint: Blueprint };
+export type ActiveBlueprint = {
+  release: Release;
+  blueprint: Blueprint;
+  // release 준비 때 blueprint에서 만들어 둔 선언 사실.
+  declarations: {
+    permissions: readonly unknown[];
+    app_connections: readonly { app: string; commands: readonly string[] }[];
+    commands: readonly string[];
+    automations: readonly {
+      key: string;
+      command: string;
+      external: boolean;
+      input_hash: string;
+      when: unknown;
+    }[];
+    problem_codes?: readonly string[];
+    documents?: readonly unknown[];
+  };
+};
 
 // 앱이 채택한 release와 그 고정 blueprint. active release가 없으면 null이다.
 export type ActiveBlueprintLoader = (
@@ -48,7 +66,7 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
         const active = load(snapshot.sql, input.app);
         if (!active.ok) return active;
         if (active.value === null) return notFound();
-        const { release, blueprint } = active.value;
+        const { release, blueprint, declarations } = active.value;
         const gaps = descriptionGaps(blueprint);
         const commands: AppBlueprintCommand[] = blueprint.commands.map((
           command,
@@ -81,6 +99,19 @@ export function createBlueprintReads(load: ActiveBlueprintLoader): {
           })),
           // 설명·구조·test는 서로 다른 근거다. 구조는 준비 때 검증기를 통과한 것만 저장되고
           // test 통과는 release에 고정한 같은 hash의 app test 참조다.
+          declarations: {
+            permissions: declarations.permissions as never,
+            app_connections: declarations.app_connections.map((entry) => ({
+              app: entry.app,
+              commands: [...entry.commands],
+            })),
+            commands: [...declarations.commands],
+            automations: declarations.automations.map((entry) => ({
+              ...entry,
+            })) as never,
+            problem_codes: [...(declarations.problem_codes ?? [])],
+            documents: [...(declarations.documents ?? [])] as never,
+          },
           evidence: {
             description: { complete: gaps.length === 0, gaps },
             structure: { validated: true },

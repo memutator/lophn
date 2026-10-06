@@ -7,6 +7,7 @@ import {
 } from "../platform/mod.ts";
 import { appIdSchema } from "../documents/values.ts";
 import { appInputSchema, releaseIdSchema } from "./apps.ts";
+import { permissionRequirementSchema } from "./permissions.ts";
 
 // 앱 하나의 active release 고정 blueprint를 사람과 agent가 읽는 모양이다(apps/blueprint#R2·R3).
 // 선언 전체가 아니라 command·화면·automation의 설명과 근거 구분이다. 범위 밖·없는 앱·active release가
@@ -54,6 +55,39 @@ export const appBlueprintEvidenceSchema = z.object({
   }),
 });
 
+// 현재 release의 선언 사실이다. 실행 범위(선언 ∩ active grant)를 계산하는 읽는 쪽(supervisor의
+// broker, 화면)이 쓴다. blueprint에 이미 있는 값을 계산에 쓰기 좋게 풀어 둔 것이고 새 사실이 아니다.
+export const appDeclarationsSchema = z.object({
+  permissions: z.array(permissionRequirementSchema),
+  app_connections: z.array(z.object({
+    app: appIdSchema,
+    commands: z.array(z.string().min(1)),
+  })),
+  commands: z.array(z.string().min(1)),
+  automations: z.array(z.object({
+    key: z.string().min(1),
+    command: z.string().min(1),
+    // effect가 external인 command를 부른다.
+    external: z.boolean(),
+    // default를 채운 고정 입력의 정규 hash.
+    input_hash: sha256Schema,
+    when: appBlueprintAutomationSchema.shape.when,
+  })),
+  problem_codes: z.array(z.string().min(1)),
+  documents: z.array(z.object({
+    key: z.string().min(1),
+    name: z.string().min(1),
+    description: z.string().min(1),
+    format: z.object({
+      name: z.string().min(1),
+      module_hash: sha256Schema,
+      explicit: z.boolean(),
+    }),
+    document: z.string().min(1).optional(),
+  })),
+});
+export type AppDeclarationsView = z.infer<typeof appDeclarationsSchema>;
+
 export const appBlueprintOutputSchema = withReadCommon(z.object({
   app: appIdSchema,
   release: releaseIdSchema,
@@ -63,6 +97,7 @@ export const appBlueprintOutputSchema = withReadCommon(z.object({
   commands: z.array(appBlueprintCommandSchema),
   screens: z.array(appBlueprintScreenSchema),
   automations: z.array(appBlueprintAutomationSchema),
+  declarations: appDeclarationsSchema,
   evidence: appBlueprintEvidenceSchema,
 }));
 

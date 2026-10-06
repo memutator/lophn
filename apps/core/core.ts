@@ -1042,6 +1042,7 @@ async function open(
         );
       },
       streamer: coordinatorStreamer,
+      ledgerId: ledgerId.value,
       retryMs: DOCUMENTS_SEARCH_RETRY_MS,
     });
   }

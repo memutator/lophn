@@ -48,6 +48,9 @@ export type SearchSyncDeps = {
   // 판 행을 읽는다(reader의 내부 read). 없는 판은 null이다.
   versionOf(version: string): Promise<Result<SearchVersion | null>>;
   streamer: Streamer;
+  // 지금 ledger의 식별. coordinator가 derived store를 이 ledger에 맞춘 뒤에 cursor를 돌려준다
+  // (복원한 ledger의 같은 seq를 옛 cursor로 건너뛰지 않는다, platform#T42).
+  ledgerId: string;
   // 읽기·보내기가 실패했을 때 다시 확인하기까지의 대기. 성공이면 timer를 두지 않는다.
   retryMs: number;
   pageLimit?: number;
@@ -200,6 +203,13 @@ export function watchSearchIndex(deps: SearchSyncDeps): SearchSync {
     const ctx = await deps.events.current(deps.context.credential_ref);
     if (stopped) return;
     if (!ctx.ok) return retryLater();
+    const known = await deps.request(
+      SEARCH_OPS.ledger,
+      { ledger_id: deps.ledgerId },
+      REQUEST_TIMEOUT_MS,
+    );
+    if (stopped) return;
+    if (!known.ok) return retryLater();
     const cursor = await deps.request(
       SEARCH_OPS.cursor,
       {},

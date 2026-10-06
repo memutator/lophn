@@ -10,6 +10,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   approvalRequestCreated,
   type CommandRoute,
+  type EventDefinition,
   type EventVisibilityDefinition,
   type RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
@@ -55,9 +56,19 @@ export const NOTIFICATIONS_CONTEXT: RequestContext = {
   credential_ref: NOTIFICATIONS_PRINCIPAL,
 };
 
-function isNotifications(ctx: RequestContext): boolean {
+export function isNotifications(ctx: RequestContext): boolean {
   return ctx.actor === "machine" && ctx.principal === NOTIFICATIONS_PRINCIPAL &&
     ctx.credential_ref === NOTIFICATIONS_PRINCIPAL;
+}
+
+// 계기 event의 소유 concern이 자기 등록 파일에서 쓰는 공개 정책이다. notifications 구독자만
+// 읽고, 사람·agent·app·다른 machine은 정책이 없을 때와 똑같이 못 본다(정책 없음 = 숨김).
+// 사람에게 event를 보이는 일은 notification read가 맡는다. 소유 concern이 사람·다른 자격에게
+// 이미 공개하는 event라면 이 정책을 그 정책 뒤에 이어 쓴다(owner 정책 || isNotifications).
+export function notificationsOnlyVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return { event, handle: (_snapshot, ctx) => ok(isNotifications(ctx)) };
 }
 
 const approvalCommands = createApprovalCommands();

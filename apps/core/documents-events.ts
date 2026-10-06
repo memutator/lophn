@@ -6,6 +6,7 @@
 // ledger snapshot read(project.tracking_roots·관측 근거)를 다시 한다.
 import { ok, type Result } from "../../packages/base/mod.ts";
 import {
+  contextWatchedItemChanged,
   documentArchived,
   documentCreated,
   documentRestored,
@@ -28,6 +29,7 @@ import type {
 } from "../../packages/contracts/platform/mod.ts";
 import { createProjectEventVisibility } from "../../packages/documents/projects/mod.ts";
 import type { EventRegistration } from "../../packages/platform/ledger/mod.ts";
+import { notificationsOnlyVisibility } from "./platform.ts";
 
 export const DOCUMENTS_FEED_PRINCIPAL = "machine:documents-feed";
 
@@ -108,6 +110,9 @@ export function createDocumentsEventRegistration(): EventRegistration {
       withFeed(documentArchived),
       withFeed(documentUnarchived),
       withFeed(documentRestored),
+      // 문서 watch 변화는 notifications 계기다(platform/notifications#R1). feed가 아니라
+      // notifications 구독자에게만 열고, 나머지 자격에는 닫혀 있다.
+      notificationsOnlyVisibility(contextWatchedItemChanged),
     ],
   };
 }

@@ -86,6 +86,9 @@ function launcherHead(layout: LinuxInstallLayout, name: string): string {
     "set -e",
     `ROOT=${layout.root}`,
     'H="${LOPHN_HOME:-$HOME/.lophn}"',
+    // 데이터 root를 Deno process와 helper가 같은 값으로 알게 한다(coding connection loader).
+    'LOPHN_HOME="$H"',
+    "export LOPHN_HOME",
     'DENO_DIR="${HOME}/.cache/lophn/deno"',
     "export DENO_DIR",
     'mkdir -p "$DENO_DIR"',
@@ -109,7 +112,7 @@ export function cliLauncher(layout: LinuxInstallLayout): string {
   return [
     launcherHead(layout, "lophn"),
     denoRun([
-      '--allow-read="$ROOT/platform,$DENO_DIR,$H/run,$PWD"',
+      '--allow-read="$ROOT/platform,$DENO_DIR,$H/run,$PWD,/proc/self/stat"',
       "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,HOME,DENO_DIR",
       `--allow-net=${LOOPBACK}`,
       '--allow-run="$ROOT/lophn-credential"',
@@ -124,7 +127,7 @@ export function mcpLauncher(layout: LinuxInstallLayout): string {
   return [
     launcherHead(layout, "lophn-mcp"),
     denoRun([
-      '--allow-read="$ROOT/platform,$DENO_DIR,$H/run"',
+      '--allow-read="$ROOT/platform,$DENO_DIR,$H/run,/proc/self/stat"',
       "--allow-env=LOPHN_HOME,LOPHN_CONNECTION,LOPHN_DAEMON_URL,LOPHN_APP,LOPHN_MCP_TOOLSETS,LOPHN_AGENT_LABEL,DENO_DIR",
       `--allow-net=${LOOPBACK}`,
       '--allow-run="$ROOT/lophn-credential"',

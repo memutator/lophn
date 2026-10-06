@@ -1161,6 +1161,7 @@ concerns: [shell]
 
 ### T58 settings: backup과 restore, update 안내, 진단, OS notification 선택
 
+- platform#T50에서 넘어온 것: settings의 사람이 고른 로컬 package metadata 후보 선택과 안내 UI, Electron main 정상 정지 연결에 core 신뢰 입구 `updateNotice`·`stopForUpdate`를 쓴다. platform#T50은 shell 자리 밖이라 UI 연결은 하지 않았다
 - 등급: frontend
 - concern: shell/wording
 - 요구: shell/wording#R5, R10

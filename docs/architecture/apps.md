@@ -20,7 +20,7 @@ agent runtime ─────────────────┼── HTTP/
 MCP / CLI / 앱 프로세스 B ───────┘                                ├ 화면 byte 서버
                                                                ├ command handler
 core ── 전용 stdio 제어 연결 ──> 공유 앱 supervisor                ├ automation clock
-                                  ├ spawn / stop / OS 종료 확인  └ A의 data/data.db
+                                  ├ spawn / stop / OS 종료 확인  └ A의 data/app.sqlite
                                   ├ 앱별 broker socket <──────── SDK 요청·관측
                                   ├ bounded invocation 전달 ──> core command
                                   ├ release worker (작업 동안)
@@ -129,7 +129,7 @@ core의 command·read는 동기이고 파일을 읽지 않으므로 `releases` �
   apps/<app ID>/
     source/                         선택적인 관리 git source; 외부 source_path도 허용
     bundles/<bundle hash>/          읽기 전용으로 풀어놓은 검증 사본
-    data/data.db                    운영 SQLite DB, WAL·SHM
+    data/app.sqlite                  운영 SQLite DB, WAL·SHM
     data/files/                     앱의 로컬 파일 영역; DB backup에 포함했다고 주장하지 않음
     preview/<process_nonce>/data.db disposable fixture DB와 파일 영역
     staging/<request key hash>/    commit 추출·build·bundle 준비 중 자료
@@ -168,7 +168,7 @@ secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취�
 | apps/permissions | core; supervisor broker; 앱 | `permissions/commands`, `permissions/flags`, `permissions/broker` | grants; secret 이름만 | 인증, approval, secret, redaction |
 | apps/automations | 앱; 전체 permit만 supervisor | `automations/clock`, `automations/permits` | 메모리 clock·permit; invocation | 앱 통로, invocation 전달 |
 | apps/invocations | 앱; supervisor; core | `invocations/context`, `invocations/delivery`, `invocations/commands` | invocations, detail blob, bounded 메모리 | invocation 전달, command, approval |
-| apps/data | 단독 data worker; 운영 앱; 결과만 core | `data/worker`, `data/commands` | data.db, 보호 backup blob, Activation 참조 | release 준비·적용, blob, invocation 전달 |
+| apps/data | 단독 data worker; 운영 앱; 결과만 core | `data/worker`, `data/commands` | app.sqlite, 보호 backup blob, Activation 참조 | release 준비·적용, blob, invocation 전달 |
 | apps/preview | supervisor(launcher); core(service·disposable 영역); preview 앱 | `preview/launcher`, `preview/service`, `preview/adapters` | disposable DB·파일·메모리 | 앱 통로, 앱 화면 틀, test 실행 |
 | apps/sdk | 설치 worker; core catalog; 앱·shell 소비자 | `sdk/catalog`, `sdk/resolve`; 공개 구현은 `packages/sdk/` | packages, package_versions, 코드/guide blob·사본 | read, blob, format 실행 |
 
@@ -261,7 +261,7 @@ write/external·confirm·automation의 read 포함 전체 호출·실패/거절 
 | `POST /v1/releases/preparation` | app,request_key | 현재 진행/완료/취소/실패; 작업 메모리 유실이면 unknown |
 | `POST /v1/releases/cancel_preparation` | app,request_key | 취소 요청. worker 종료 확인 뒤 정리 |
 | `POST /v1/releases/prepare` | 신뢰된 준비 결과(정규 blueprint JSON 포함), tests, ticket_source?, key | 불변 prepared Release |
-| `POST /v1/releases/start_activation` | release,approval,expected previous release,grants seq,실제 schema,key | activating, started_seq |
+| `POST /v1/releases/start_activation` (직접 호출 없음, 정확한 대상 release의 approval을 `/v1/approvals/apply`로 적용할 때만) | release,approval,expected previous release,grants seq,실제 schema,key | activating, started_seq(시작 event의 seq) |
 | `POST /v1/releases/record_backup` | release,activation_seq,보호 hash,실제 schema | 복구 참조 확정 |
 | `POST /v1/releases/record_data_change` | DataResult | 실제 schema·무결성 결과 확정 |
 | `POST /v1/releases/record_data_restore` | DataResult,backup_hash | 실제 복원 결과 확정 |

@@ -30,8 +30,14 @@ import {
   previewsStart,
   previewsStop,
   releaseCancelPreparation,
+  releaseCompleteActivation,
+  releaseFailActivation,
   releasePreparation,
   releasePrepareBundle,
+  releaseRecordBackup,
+  releaseRecordDataChange,
+  releaseRecordDataRestore,
+  releasesGet,
 } from "../../packages/contracts/apps/mod.ts";
 import {
   observeException,
@@ -148,6 +154,14 @@ const SUPERVISOR_OPERATIONS = [
   // broker가 요청마다 현재 release 선언과 active grant를 다시 읽는다(apps/permissions#R2, R14).
   appBlueprint.name,
   grantsList.name,
+  // activation을 진행하는 supervisor는 시도의 참조·결과를 확정하고 시도의 현재 상태를 읽는다
+  // (apps/releases#R12–R15, apps/data#R4). 시작은 사람 approval의 적용(`apply_approved_action`)이다.
+  releaseRecordBackup.name,
+  releaseRecordDataChange.name,
+  releaseRecordDataRestore.name,
+  releaseCompleteActivation.name,
+  releaseFailActivation.name,
+  releasesGet.name,
 ];
 // 자식 앱마다 받는 app credential이 닿는 operation. 문제 보고와 process 관측뿐이다.
 const APP_CHILD_OPERATIONS = [reportProblem.name, observeException.name];
@@ -185,6 +199,18 @@ export function appsOperationPolicies(): OperationPolicy[] {
       kind: "command",
     })),
     { name: grantsList.name, actors: ["machine"], kind: "command" },
+    ...[
+      releaseRecordBackup,
+      releaseRecordDataChange,
+      releaseRecordDataRestore,
+      releaseCompleteActivation,
+      releaseFailActivation,
+      releasesGet,
+    ].map((route): OperationPolicy => ({
+      name: route.name,
+      actors: ["machine"],
+      kind: "command",
+    })),
     // 호출한 앱 자신이 다른 앱의 confirm 호출 approval을 요청한다(요청자는 자격과 같아야 한다). core가
     // 그 요청 한 번을 위해서만 짧은 app credential을 발급한다. 앱 자식에게 주는 credential에는 없다.
     { name: createApprovalRequest.name, actors: ["app"], kind: "command" },

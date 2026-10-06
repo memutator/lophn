@@ -24,7 +24,7 @@ export async function runDataWorker(root: string): Promise<void> {
     throw new Error("migration needs its bundle scripts");
   }
   const outcome = await runDataJob(
-    { dataArea, databasePath: `${dataArea}/data.db` },
+    { dataArea, databasePath: `${dataArea}/app.sqlite` },
     line,
   );
   if (!outcome.ok) throw new Error(outcome.error.message);

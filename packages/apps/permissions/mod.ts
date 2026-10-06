@@ -28,7 +28,7 @@ export {
 } from "./protected-paths.ts";
 export { realPathResolver } from "./adapters/realpath.ts";
 export { createGrantCommands, GRANT_APPROVAL_CONCERN } from "./commands.ts";
-export { loadGrants } from "./store.ts";
+export { activationInProgress, grantsSeq, loadGrants } from "./store.ts";
 export { createGrantsReads } from "./reads.ts";
 export { permissionsSchemaSteps } from "./schema.ts";
 export {

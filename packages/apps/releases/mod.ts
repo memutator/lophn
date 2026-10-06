@@ -94,3 +94,32 @@ export {
   releaseDeclarations,
   type StoredBlueprint,
 } from "./store.ts";
+// activation: 한 시도를 순서대로 진행·복원·이어받는 모듈과 봉인 사본에서 앱 자식 입력을 만드는 함수다.
+// 실제 supervisor·data worker·core command는 `ActivationPorts`로 끼운다(apps/app-supervisor 조립).
+export { runActivation } from "./activation/orchestrator.ts";
+export {
+  loadMigrationHistory,
+  type MigrationHistoryEntry,
+  observeReleaseActivations,
+  recoverActivation,
+  rollback,
+} from "./activation/recovery.ts";
+export {
+  type ActivationFailure,
+  type ActivationOutcome,
+  type ActivationPorts,
+  type ActivationProblem,
+  type Attempt,
+  attemptOf,
+  type BackupOutcome,
+  type Candidate,
+} from "./activation/steps.ts";
+export {
+  bundleFlags,
+  type BundleParts,
+  createCopyPreviewBundles,
+  dataSchemaOf,
+  desiredFromBundle,
+  readBundleCopy,
+} from "./activation/desired.ts";
+export { activationAttemptGate } from "./commands.ts";

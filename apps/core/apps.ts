@@ -27,7 +27,10 @@ import {
 } from "../../packages/apps/permissions/mod.ts";
 import { createAutomationReads } from "../../packages/apps/automations/reads.ts";
 import { createBlueprintReads } from "../../packages/apps/blueprint/reads.ts";
-import { createReleaseCommands } from "../../packages/apps/releases/commands.ts";
+import {
+  activationAttemptGate,
+  createReleaseCommands,
+} from "../../packages/apps/releases/commands.ts";
 import { createReleaseReads } from "../../packages/apps/releases/reads.ts";
 import { releasesSchemaSteps } from "../../packages/apps/releases/schema.ts";
 import {
@@ -89,7 +92,10 @@ export function createLedgerRegistration(
   const sdk = createSdkCommands();
   const sdkReads = createSdkReads();
   // 기록은 command가 받은 tx의 sql에만 남긴다. DB 파일은 data worker가 연다.
-  const data = createDataCommands((tx) => createDataRecordStore(tx));
+  const data = createDataCommands(
+    (tx) => createDataRecordStore(tx),
+    activationAttemptGate,
+  );
   // record_*는 supervisor의 machine 통보다. 관측 없는 Tx projection은
   // 과거 event만으로 running이라 하지 않는다(R13).
   const runtime = createRuntimeCommands();
@@ -138,6 +144,9 @@ export function createLedgerRegistration(
       data.recordDataRestore,
       releaseCommands.prepare,
       releaseCommands.prepareBundle,
+      releaseCommands.startActivation,
+      releaseCommands.completeActivation,
+      releaseCommands.failActivation,
     ],
     reads: [
       reads.list,

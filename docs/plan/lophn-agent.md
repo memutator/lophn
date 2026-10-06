@@ -964,6 +964,7 @@ E2E는 T53이 쓴다.
 ### T52 Operator assignment 적용과 Context Engineer 초안
 
 - 등급: 기본
+- 상태: 완료 (#400)
 - concern: lophn-agent/assignments, lophn-agent/presets, lophn-agent/harness/tool-judgment, lophn-agent/roles/context-engineer
 - 요구: lophn-agent/assignments#R4, R5, R6, R7, R8, R15, lophn-agent/presets#R15, lophn-agent/harness/tool-judgment#R4, lophn-agent/roles/context-engineer#R11, R12, R13
 - 자리: packages/lophn-agent/assignments/ (operator.ts, commands.ts: ApplyOperatorAssignment, reads.ts: outputs read), packages/lophn-agent/roles/context-engineer/ (Operator 초안)

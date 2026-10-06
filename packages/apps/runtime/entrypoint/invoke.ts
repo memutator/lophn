@@ -2,10 +2,19 @@
 import type { CommandDeclaration } from "../../blueprint/mod.ts";
 import { COMMAND_BODY_MAX_BYTES } from "./limits.ts";
 import { parseCommandReference, parseInvokeBody } from "./command-body.ts";
-import { verifyCommandCall } from "./verify.ts";
+import { projectCaller, verifyCommandCall } from "./verify.ts";
 import type { InvocationRecord, RuntimeState } from "./state.ts";
 import type { AppConnection, InvocationCaller, Json } from "./wire.ts";
-import { readSchedulePort } from "../../invocations/mod.ts";
+import {
+  type DenyFact,
+  type FinishFact,
+  readSchedulePort,
+  type RecordedJson,
+  recordingMode,
+  type StartFact,
+  type SubmittedFact,
+} from "../../invocations/mod.ts";
+import { openStages, takeStages } from "./stages.ts";
 
 export type InvokeResult = {
   status: number;
@@ -80,6 +89,7 @@ export async function handleInvoke(
     accepting: state.accepting,
   });
   if (!verified.ok) {
+    denyCall(state, connection, parsed.value.command, verified.error.code);
     return fail(
       STATUS[verified.error.code] ?? 400,
       verified.error.code,
@@ -89,13 +99,19 @@ export async function handleInvoke(
   const existing = state.byRequest.get(parsed.value.request_key);
   if (existing) return known(state, existing);
   if (verified.value.proof) {
-    if (state.markers.has(verified.value.proof.invocation)) {
+    // 같은 접수는 알고 있는 진행·결과만 돌려주고 handler를 다시 부르지 않는다(R8).
+    // 가득 차면 기존 marker를 버리지 않고 새 접수를 거절한다(R19).
+    const admitted = state.markers.admit(
+      verified.value.proof.invocation,
+      verified.value.proof.expires_at,
+      state.clock.now(),
+    );
+    if (admitted === "known") {
       return known(state, verified.value.proof.invocation);
     }
-    if (state.markers.size >= 4096) {
+    if (admitted === "full") {
       return fail(409, "conflict", "confirm markers are full");
     }
-    state.markers.add(verified.value.proof.invocation);
   }
   return await runHandler(state, parsed.value.request_key, verified.value);
 }
@@ -141,6 +157,9 @@ function reference(
       },
     };
   }
+  // 취소 요청은 받았다는 사실만 남긴다. 진행 중이던 호출은 결과를 모르는 상태로 보이고 취소 완료로
+  // 보이지 않는다(apps/invocations#R11).
+  found.cancelRequested = true;
   found.progress = found.progress === "running" ? "unknown" : found.progress;
   return { status: 200, body: { accepted: true } };
 }
@@ -148,6 +167,16 @@ function reference(
 function known(state: RuntimeState, invocation: string): InvokeResult {
   const found = state.invocations.get(invocation);
   if (!found) return fail(404, "not_found", "invocation is unknown");
+  // 진행 중이거나 결과를 모르는 호출을 성공 응답처럼 돌려주지 않는다. 같은 호출을 다시 실행하지도 않는다.
+  if (found.progress === "running" || found.progress === "unknown") {
+    return fail(409, "conflict", `invocation is ${found.progress}`, {
+      invocation: found.id,
+      progress: found.progress,
+    });
+  }
+  if (found.progress === "failed") {
+    return fail(500, "internal", "handler failed", { invocation: found.id });
+  }
   return {
     status: 200,
     body: {
@@ -171,6 +200,7 @@ async function runHandler(
     command: CommandDeclaration;
     input: unknown;
     caller: InvocationCaller;
+    connection: AppConnection;
     proof?: { invocation: string };
   },
 ): Promise<InvokeResult> {
@@ -191,7 +221,23 @@ async function runHandler(
   };
   state.invocations.set(id, record);
   state.byRequest.set(requestKey, id);
-  void submit(state, id, "start", { command: call.command.key });
+  // 일반 성공 읽기는 남기지 않고(R2), 그 밖에는 실제 시작을 관측한 뒤 후행으로 알린다(R9).
+  const mode = recordingMode({
+    operation: "command",
+    effect: call.command.effect,
+    confirm: call.command.confirm,
+    trigger: "direct",
+  });
+  const startedAt = state.clock.now();
+  const start: StartFact = {
+    operation: { kind: "command", command: call.command.key },
+    trigger: { kind: "direct" },
+    caller: call.caller,
+    actor: call.connection.actor,
+    started_at: startedAt,
+  };
+  if (mode === "always") void submit(state, id, { fact: "start", body: start });
+  openStages(id);
   let result: unknown;
   try {
     result = await port!.run(
@@ -205,12 +251,35 @@ async function runHandler(
     );
   } catch (_error) {
     record.progress = "failed";
-    void submit(state, id, "finish", { status: "failed" });
+    const finish = finishFact(
+      record,
+      call.command.confirm,
+      "failed",
+      startedAt,
+      state,
+    );
+    if (mode === "on_failure") {
+      void submit(state, id, { fact: "start", body: start });
+    }
+    void submit(state, id, { fact: "finish", body: finish });
     return fail(500, "internal", "handler failed");
   }
   record.progress = "succeeded";
   record.result = result as Json;
-  void submit(state, id, "finish", { status: "succeeded" });
+  if (mode === "always") {
+    void submit(state, id, {
+      fact: "finish",
+      body: finishFact(
+        record,
+        call.command.confirm,
+        "succeeded",
+        startedAt,
+        state,
+      ),
+    });
+  } else {
+    takeStages(id);
+  }
   return {
     status: 200,
     body: {
@@ -221,16 +290,80 @@ async function runHandler(
   };
 }
 
+// 종료 사실의 요약. 입출력 본문이나 오류 원문은 담지 않는다. 실패·중단한 write·external은
+// 부분 저장이나 외부 전송이 없었다고 말하지 않고, 취소 요청은 효과 취소로 쓰지 않는다(R11).
+function finishFact(
+  record: InvocationRecord,
+  confirm: boolean,
+  status: "succeeded" | "failed",
+  startedAt: string,
+  state: RuntimeState,
+): FinishFact {
+  const stages = takeStages(record.id);
+  const summary: { [key: string]: RecordedJson } = {
+    command: record.command,
+    effect: record.effect,
+  };
+  if (confirm) summary.confirm = true;
+  if (stages.length > 0) {
+    summary.stages = stages.map((stage) => ({
+      name: stage.name,
+      state: stage.state,
+    }));
+  }
+  if (record.cancelRequested) summary.cancel_requested = true;
+  if (status === "failed") {
+    summary.error = "handler_failed";
+    if (record.effect !== "read") summary.effects = "unconfirmed";
+  }
+  return {
+    status,
+    started_at: startedAt,
+    finished_at: state.clock.now(),
+    summary,
+    detail_hash: null,
+  };
+}
+
+// handler 전 거절도 알려진 호출이면 남긴다. 선언 없는 command는 어떤 호출인지 모르므로 만들지 않는다.
+function denyCall(
+  state: RuntimeState,
+  connection: AppConnection,
+  command: string,
+  code: string,
+): void {
+  const declared = state.blueprint.commands.find((item) =>
+    item.key === command
+  );
+  if (!declared) return;
+  const deny: DenyFact = {
+    operation: { kind: "command", command },
+    trigger: { kind: "direct" },
+    caller: connectionCaller(connection),
+    actor: connection.actor,
+    finished_at: state.clock.now(),
+    summary: { command, effect: declared.effect, code },
+  };
+  void submit(state, state.ids.newId("inv"), { fact: "deny", body: deny });
+}
+
+function connectionCaller(connection: AppConnection): InvocationCaller {
+  return projectCaller(connection);
+}
+
 function submit(
   state: RuntimeState,
   invocation: string,
-  fact: "start" | "finish" | "deny",
-  summary: unknown,
+  submitted: SubmittedFact,
 ): Promise<void> {
-  return state.broker.submitInvocation({ invocation, fact, summary }).then(
-    () => {
+  return state.broker.submitInvocation({
+    invocation,
+    fact: submitted.fact,
+    summary: submitted.body,
+  }).then(
+    (response) => {
       const found = state.invocations.get(invocation);
-      if (found) found.recorded = true;
+      if (found && response.status === 200) found.recorded = true;
     },
     () => undefined,
   );

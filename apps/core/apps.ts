@@ -6,6 +6,7 @@ import {
 } from "../../packages/apps/registration/mod.ts";
 import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
+import { createConfirmCommands } from "../../packages/apps/invocations/confirm.ts";
 import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
 import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.ts";
 import {
@@ -48,6 +49,9 @@ export function createLedgerRegistration(
   const commands = createAppCommands();
   const reads = createAppsReads();
   const invocations = createInvocationsCommands();
+  // confirm 접수는 approval 사용과 같은 transaction에서 apply_approved_action이 부르는
+  // dispatchable machine command다(platform Q28).
+  const confirm = createConfirmCommands();
   const invocationReads = createInvocationsReads();
   const sdk = createSdkCommands();
   const sdkReads = createSdkReads();
@@ -76,6 +80,7 @@ export function createLedgerRegistration(
       commands.unarchive,
       grants.create,
       grants.revoke,
+      confirm.acceptConfirm,
       invocations.recordStarted,
       invocations.recordFinished,
       invocations.recordDenied,

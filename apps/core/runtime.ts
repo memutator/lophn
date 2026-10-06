@@ -54,6 +54,10 @@ import {
   listBackups,
 } from "../../packages/platform/backup-and-migration/mod.ts";
 import { authorize } from "../../packages/platform/identity/mod.ts";
+import {
+  interruptedFinish,
+  INVOCATION_RECOVERY_CONTEXT,
+} from "../../packages/apps/invocations/restart.ts";
 import { APPROVAL_EXPIRY_CONTEXT } from "./platform.ts";
 import type { Assembled } from "./registration.ts";
 import { openSecretStore, withSecretSync } from "./secret-store.ts";
@@ -80,6 +84,9 @@ export type CoreRuntime = {
   sweepTicketClaims(): Promise<void>;
   // 기한에 도달한 대기 approval request를 만료로 확정한다. 60초 timer와 재시작이 부른다(platform Q25).
   sweepApprovalExpiry(): Promise<void>;
+  // 재시작 뒤 접수·실행 중으로 남은 invocation을 미확인으로 확정한다. 기동 때 한 번 돈다
+  // (apps/invocations#R10, platform/backup-and-migration#R16).
+  sweepInterruptedInvocations(): Promise<void>;
   readers: ReaderPool;
   // credential_ref의 현재 context. 폐기·만료·없는 자격은 err다. worker route 서빙이
   // 요청 자격을 다시 읽는 데 쓴다.
@@ -351,6 +358,45 @@ export async function openRuntime(input: {
       }
     });
   }
+  // 재시작 점검이 unknown으로 본 접수·실행 중 invocation을 미확인으로 확정한다. 이전 core의 앱 프로세스는
+  // 이미 없고 새 프로세스는 새 nonce라 옛 접수·시작은 이어지지 않는다. 읽기 목록으로 후보를 읽고
+  // 기존 machine command `invocation.record_finished`로 확정하며, 같은 key라 여러 번 돌아도 같은 결과다.
+  // apps를 조립하지 않은 core에는 read가 없어 아무것도 하지 않는다.
+  const invocationRecovery =
+    INVOCATION_RECOVERY_CONTEXT as unknown as RequestContext;
+  async function sweepInterruptedInvocations(): Promise<void> {
+    if (!readers.ok) return;
+    const finishedAt = input.clock.now();
+    for (const status of ["accepted", "running"] as const) {
+      let cursor: string | undefined;
+      do {
+        const found = await readers.value.read(
+          { resource: "invocations", method: "list" },
+          invocationRecovery,
+          { status, limit: 200, ...(cursor ? { cursor } : {}) },
+        );
+        if (!found.ok) return;
+        const page = found.value as {
+          invocations?: {
+            id: string;
+            status: "accepted" | "running";
+            started_at: string | null;
+          }[];
+          next_cursor?: string | null;
+        };
+        for (const row of page.invocations ?? []) {
+          await openedWriter.writer.command(invocationRecovery as never, {
+            command: "invocation.record_finished",
+            input: interruptedFinish(row, finishedAt),
+            compare: {},
+            idempotency_key: `interrupted:${row.id}`,
+            prepared: [],
+          });
+        }
+        cursor = page.next_cursor ?? undefined;
+      } while (cursor);
+    }
+  }
   const events = createReaderEventBackend(
     readers.value,
     (ref) => Promise.resolve(currentCredential(input.ledgerPath, ref)),
@@ -384,6 +430,7 @@ export async function openRuntime(input: {
     trackedSessions: () => dispatcher.size,
     sweepTicketClaims,
     sweepApprovalExpiry,
+    sweepInterruptedInvocations,
     async close() {
       dispatcher.close();
       secretStore.stop();

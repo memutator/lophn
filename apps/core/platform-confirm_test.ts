@@ -1,7 +1,7 @@
 // 사람이 확인해야 하는 앱 command의 approval 사용(platform#T32, flow use-app-command 4~5단계)을
-// 실제 core와 임시 LOPHN_HOME의 HTTP route로 본다. 접수 command는 시험 전용 team
-// (testing/confirm-owner.ts)의 dispatchable `invocation.accept_confirm`이고 apps의 실제 invocations
-// 표와 event를 쓴다. 사람 데이터 root는 열지 않는다.
+// 실제 core와 임시 LOPHN_HOME의 HTTP route로 본다. 접수 command는
+// apps의 실제 dispatchable `invocation.accept_confirm`(packages/apps/invocations/confirm.ts)이고
+// apps의 실제 invocations 표와 event를 쓴다. 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../packages/base/mod.ts";
 import type { InvocationAcceptConfirmInput } from "../../packages/contracts/apps/mod.ts";
@@ -12,7 +12,6 @@ import type {
 } from "../../packages/contracts/platform/mod.ts";
 import { confirmAction } from "../../packages/platform/approvals/mod.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
-import * as confirmOwner from "./testing/confirm-owner.ts";
 import {
   call,
   codeOf,
@@ -66,14 +65,8 @@ async function login(
 async function open(): Promise<World> {
   const opened = await createCoreHarness({
     io: true,
-    teams: [
-      { createLedgerRegistration: createAppsRegistration },
-      confirmOwner,
-    ],
-    teamModules: [
-      new URL("./apps.ts", import.meta.url).href,
-      new URL("./testing/confirm-owner.ts", import.meta.url).href,
-    ],
+    teams: [{ createLedgerRegistration: createAppsRegistration }],
+    teamModules: [new URL("./apps.ts", import.meta.url).href],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;

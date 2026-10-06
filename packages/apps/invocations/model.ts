@@ -20,7 +20,8 @@ function terminal(status: Invocation["status"]): boolean {
   return status !== "accepted" && status !== "running";
 }
 
-// 같은 시작 사실인지. 모든 필드가 같을 때만 재전송이다.
+// 같은 시작 사실인지. 모든 필드가 같을 때만 재전송이다. confirm 접수(accepted)는 실제 시작이
+// 아직 없으므로 started_at 말고 접수가 고정한 대상·주체·호출자가 같은지만 본다(R9).
 export function startedFactsMatch(
   current: Invocation,
   input: InvocationRecordStartedInput,
@@ -32,7 +33,7 @@ export function startedFactsMatch(
     JSON.stringify(current.caller) === JSON.stringify(input.caller) &&
     JSON.stringify(current.operation) === JSON.stringify(input.operation) &&
     JSON.stringify(current.trigger) === JSON.stringify(input.trigger) &&
-    current.started_at === input.started_at;
+    (current.status === "accepted" || current.started_at === input.started_at);
 }
 
 // 같은 종료 사실인지. 저장된 summary 전체와 비교한다.
@@ -118,7 +119,11 @@ export function applyStarted(
   if (!startedFactsMatch(current, input)) {
     return conflict("invocation facts differ");
   }
-  if (terminal(current.status)) return ok(null);
+  // 접수만 있던 confirm 호출은 실제 시작을 관측한 뒤에야 running이 된다. 시작 시각은
+  // 접수 시각으로 채우지 않고 관측한 값 그대로다(R9). 그 밖의 재전송은 무변경이다.
+  if (current.status === "accepted") {
+    return ok({ ...current, status: "running", started_at: input.started_at });
+  }
   return ok(null);
 }
 
@@ -150,8 +155,26 @@ export function applyDenied(
   current: Invocation | null,
   input: InvocationRecordDeniedInput,
 ): Result<Invocation | null> {
+  // 접수 없이 handler 전에 거절된 알려진 호출(인증된 연결·선언된 command)은 거절 행으로 남는다.
+  // 실제 시작이 없으므로 started_at은 없고 approval·입력 지문도 없다(R2, R9).
   if (current === null) {
-    return conflict("absent invocation cannot be denied");
+    return ok({
+      id: input.invocation,
+      app: input.app,
+      release: input.release,
+      operation: input.operation,
+      trigger: input.trigger,
+      mode: "live",
+      actor: input.actor,
+      caller: input.caller,
+      approval: null,
+      input_hash: null,
+      status: "denied",
+      started_at: null,
+      finished_at: input.finished_at,
+      summary: redactSummary(input.summary),
+      detail_hash: null,
+    });
   }
   if (terminal(current.status)) {
     if (deniedFactsMatch(current, input)) return ok(null);

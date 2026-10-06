@@ -1,6 +1,6 @@
 // invoke·cancel·status 본문의 순수 검증.
-import type { ConfirmProof, Json, WireError } from "./wire.ts";
-import { parseConfirmProof } from "./wire.ts";
+import type { Json, SignedConfirmProof, WireError } from "./wire.ts";
+import { parseSignedConfirmProof } from "./wire.ts";
 import { commandKey, exact, id, isJson, opaque, record } from "./wire-check.ts";
 
 export type InvokeBody = {
@@ -8,7 +8,7 @@ export type InvokeBody = {
   release?: string;
   command: string;
   input?: Json;
-  proof?: ConfirmProof;
+  proof?: SignedConfirmProof;
 };
 
 export type CommandReference = { request_key: string; invocation: string };
@@ -46,7 +46,7 @@ export function parseInvokeBody(
   }
   const proof = source.proof === undefined
     ? undefined
-    : parseConfirmProof(source.proof);
+    : parseSignedConfirmProof(source.proof);
   if (source.proof !== undefined && !proof) return fail("proof is invalid");
   return {
     ok: true,

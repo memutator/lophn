@@ -83,7 +83,9 @@ async function open(withFixtures = true): Promise<World> {
   const documents = await import("../../../apps/core/documents.ts");
   const apps = await import("../../../apps/core/apps.ts");
   const fixtures = await import("./testing/mod.ts");
+  // approval 설명 글은 blob으로 준비되므로 I/O worker가 필요하다(platform#305).
   const opened = await createCoreHarness({
+    io: true,
     teams: [
       // 앱 등록의 place 이름 예약 표는 documents 등록의 몫이다.
       { createLedgerRegistration: documents.createLedgerRegistration },

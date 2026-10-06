@@ -243,6 +243,26 @@ export type ConfirmProof = {
   expires_at: string;
 };
 
+// core가 서명한 proof envelope. 서명 대상은 payload의 canonical JSON이다(apps Q5).
+export type SignedConfirmProof = { payload: unknown; signature: string };
+
+const SIGNATURE = /^[A-Za-z0-9_-]{86}$/;
+
+export function parseSignedConfirmProof(
+  value: unknown,
+): SignedConfirmProof | undefined {
+  const source = record(value);
+  if (!source || exact(source, ["payload", "signature"])) return;
+  if (
+    typeof source.signature !== "string" || !SIGNATURE.test(source.signature)
+  ) {
+    return;
+  }
+  // payload의 모양은 서명을 확인한 뒤 parseConfirmProof가 판정한다.
+  if (record(source.payload) === undefined) return;
+  return { payload: source.payload, signature: source.signature };
+}
+
 export function parseConfirmProof(value: unknown): ConfirmProof | undefined {
   const source = record(value);
   if (!source) return;

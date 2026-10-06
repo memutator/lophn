@@ -20,6 +20,8 @@ const ROOT = {
   use_gitignore: false,
 };
 
+const FOLDER = { project: PROJECT, path: "/work" };
+
 function link(path: string, version = "ver_1"): ObservationLinkBasis {
   return {
     project: PROJECT,
@@ -36,16 +38,19 @@ function link(path: string, version = "ver_1"): ObservationLinkBasis {
 Deno.test("documents/file-tracking#R3: 관측 근거는 모양이 틀리면 일부만 받지 않고 통째로 거절한다", () => {
   const good = parseObservationBasis({
     roots: [ROOT],
+    folders: [FOLDER],
     links: [link("/work/a.md")],
   });
   assert(good.ok);
   const badPattern = parseObservationBasis({
     roots: [{ ...ROOT, patterns: [{ effect: "allow", glob: "*" }] }],
+    folders: [FOLDER],
     links: [],
   });
   assert(!badPattern.ok);
   const badLink = parseObservationBasis({
     roots: [ROOT],
+    folders: [FOLDER],
     links: [link("/work/a.md"), { ...link("/work/b.md"), status: "gone" }],
   });
   assert(!badLink.ok);
@@ -58,6 +63,7 @@ Deno.test("documents/file-tracking#R3: 조각은 begin이면 root가 있고 아�
     begin: true,
     full: true,
     roots: [ROOT],
+    folders: [FOLDER],
     upsert: [link("/work/a.md")],
     remove: [],
     more: false,
@@ -67,6 +73,7 @@ Deno.test("documents/file-tracking#R3: 조각은 begin이면 root가 있고 아�
     begin: true,
     full: true,
     roots: null,
+    folders: null,
     upsert: [],
     remove: [],
     more: false,
@@ -76,6 +83,7 @@ Deno.test("documents/file-tracking#R3: 조각은 begin이면 root가 있고 아�
     begin: false,
     full: true,
     roots: [ROOT],
+    folders: [FOLDER],
     upsert: [],
     remove: [],
     more: false,
@@ -86,6 +94,7 @@ Deno.test("documents/file-tracking#R3: 조각은 begin이면 root가 있고 아�
     begin: true,
     full: true,
     roots: [],
+    folders: [],
     upsert: [],
     remove: ["/work/a.md"],
     more: false,
@@ -96,6 +105,7 @@ Deno.test("documents/file-tracking#R3: 조각은 begin이면 root가 있고 아�
 Deno.test("documents/file-tracking#R3: 처음 보내는 근거는 전체 대체 조각이고 바뀐 것이 없으면 보내지 않는다", () => {
   const payload: ObservationBasisPayload = {
     roots: [ROOT],
+    folders: [FOLDER],
     links: [link("/work/a.md"), link("/work/b.md")],
   };
   const first = chunkObservationBasis(undefined, payload);
@@ -110,10 +120,12 @@ Deno.test("documents/file-tracking#R3: 처음 보내는 근거는 전체 대체 
 Deno.test("documents/file-tracking#R7: 연결이 바뀌면 바뀐 연결과 사라진 경로만 보낸다", () => {
   const before: ObservationBasisPayload = {
     roots: [ROOT],
+    folders: [FOLDER],
     links: [link("/work/a.md"), link("/work/b.md")],
   };
   const after: ObservationBasisPayload = {
     roots: [ROOT],
+    folders: [FOLDER],
     links: [link("/work/a.md", "ver_2"), link("/work/c.md")],
   };
   const chunks = chunkObservationBasis(before, after);
@@ -127,9 +139,14 @@ Deno.test("documents/file-tracking#R7: 연결이 바뀌면 바뀐 연결과 사�
 });
 
 Deno.test("documents/file-tracking#R3: root·규칙만 바뀌어도 root가 담긴 조각을 보낸다", () => {
-  const before: ObservationBasisPayload = { roots: [ROOT], links: [] };
+  const before: ObservationBasisPayload = {
+    roots: [ROOT],
+    folders: [FOLDER],
+    links: [],
+  };
   const after: ObservationBasisPayload = {
     roots: [{ ...ROOT, project_revision: "3" }],
+    folders: [FOLDER],
     links: [],
   };
   const chunks = chunkObservationBasis(before, after);
@@ -145,7 +162,7 @@ Deno.test("documents/file-tracking#R3: 조각은 제어 frame 상한 아래로 �
   }));
   const chunks = chunkObservationBasis(
     undefined,
-    { roots: [ROOT], links },
+    { roots: [ROOT], folders: [FOLDER], links },
     8 * 1024,
   );
   assert(chunks.length > 1);
@@ -185,5 +202,62 @@ Deno.test("documents/file-tracking#R8: root 관측 key는 규칙·project 판·�
   assertEquals(
     rootSignature(ROOT, ["/work/b.md", "/work/a.md"]),
     rootSignature(ROOT, ["/work/a.md", "/work/b.md"]),
+  );
+});
+
+Deno.test("documents/file-tracking#R1 documents/file-tracking#R11: 쓰기 폴더는 관측 root와 따로다 — tracking을 끈 project의 폴더는 root 없이 folders에만 있다", () => {
+  const off = { project: "prj_01arz3ndektsv4rrffq69g5fax", path: "/off" };
+  const parsed = parseObservationBasis({
+    roots: [ROOT],
+    folders: [FOLDER, off],
+    links: [],
+  });
+  assert(parsed.ok);
+  assertEquals(parsed.value.roots.map((root) => root.root), ["/work"]);
+  assertEquals(parsed.value.folders.map((folder) => folder.path), [
+    "/work",
+    "/off",
+  ]);
+  // folders가 없는 근거는 일부만 받지 않고 거절한다.
+  assert(!parseObservationBasis({ roots: [ROOT], links: [] }).ok);
+  assert(
+    !parseObservationBasis({
+      roots: [ROOT],
+      folders: [{ project: PROJECT }],
+      links: [],
+    }).ok,
+  );
+});
+
+Deno.test("documents/file-tracking#R1: 폴더 집합만 바뀌어도 폴더가 담긴 조각을 보낸다", () => {
+  const before: ObservationBasisPayload = {
+    roots: [ROOT],
+    folders: [FOLDER],
+    links: [],
+  };
+  const after: ObservationBasisPayload = {
+    roots: [ROOT],
+    folders: [FOLDER, { project: PROJECT, path: "/extra" }],
+    links: [],
+  };
+  const chunks = chunkObservationBasis(before, after);
+  assertEquals(chunks.length, 1);
+  assertEquals(chunks[0].folders?.map((folder) => folder.path), [
+    "/work",
+    "/extra",
+  ]);
+  assertEquals(chunkObservationBasis(after, after), []);
+  // 폴더는 begin 조각에만 있고 꼬리 조각에는 없다.
+  assert(!parseObservationChunk({ ...chunks[0], folders: null }).ok);
+  assert(
+    !parseObservationChunk({
+      begin: false,
+      full: false,
+      roots: null,
+      folders: [FOLDER],
+      upsert: [],
+      remove: [],
+      more: false,
+    }).ok,
   );
 });

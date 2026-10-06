@@ -104,7 +104,10 @@ export const DOCUMENT_OPS = {
   validateFiles: "documents.validate_files",
   // 사람 파일 작업(file-tracking#R2, R11, R12). 요청은 user 자격으로 core가 검사한 뒤에만 온다.
   // write의 바이트는 이 요청 앞에 byte chunk frame으로 먼저 가고 요청이 channel로 가리킨다.
+  // 파일 읽기는 헤더(`fileRead`: hash·크기·identity)와 창(`fileWindow`: 응답 전에 core가 정한
+  // channel의 byte frame)으로 나뉜다. 한 응답 JSON frame에 파일을 싣지 않는다.
   fileRead: "documents.file_read",
+  fileWindow: "documents.file_window",
   fileWrite: "documents.file_write",
   fileRename: "documents.file_rename",
   fileDelete: "documents.file_delete",
@@ -117,6 +120,8 @@ export const DOCUMENT_OPS = {
 // coordinator가 준비 worker에 보내는 op. 목표는 이미 실제 root와 경로로 풀려 있다.
 export const PREPARATION_OPS = {
   readFile: "documents.read_file",
+  // 읽은 파일의 한 창. 바이트는 응답 전에 byte chunk frame으로 간다.
+  readWindow: "documents.read_window",
   writeFile: "documents.write_file",
   renameFile: "documents.rename_file",
   deleteFile: "documents.delete_file",

@@ -314,6 +314,7 @@ function storeWith(
       patterns: [],
       use_gitignore: false,
     }],
+    folders: [{ project: PROJECT, path: "/work" }],
     upsert: links.map((link) => ({
       project: PROJECT,
       path: link.path,
@@ -409,6 +410,7 @@ Deno.test("documents/file-tracking#R7: conflict면 새 근거가 반영된 뒤 �
     begin: true,
     full: true,
     roots: [],
+    folders: [],
     upsert: [],
     remove: [],
     more: false,

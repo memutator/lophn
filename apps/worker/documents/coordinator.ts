@@ -343,9 +343,10 @@ export async function runCoordinator(root: string): Promise<void> {
   // 자식 session이 감독 pipe로 core에 준비한다. credential은 이 process 메모리에만 있다.
   const session: { current?: ChildSession } = {};
   const coordinator: { current?: Coordinator } = {};
-  // 준비 worker pool(architecture/documents 2.1). coordinator가 띄우고 감독한다. 등록 root는
-  // core가 보낸 관측 근거에서 온다. worker는 첫 요청에서 띄운다.
-  const rootsOf = () => basis.roots().map((entry) => entry.root);
+  // 준비 worker pool(architecture/documents 2.1). coordinator가 띄우고 감독한다. 권한을 줄
+  // root는 core가 보낸 근거의 등록 폴더 전부다(tracking을 껐어도 사람이 쓴다). 관측 root가
+  // 아니다. worker는 첫 요청에서 띄운다.
+  const rootsOf = () => basis.folders().map((entry) => entry.path);
   const pool = createPreparationPool({
     specFor: () => preparationSpec(root, rootsOf()),
     signature: () => rootsOf().join("\n"),
@@ -366,6 +367,13 @@ export async function runCoordinator(root: string): Promise<void> {
     inbox,
     status,
     ops: denoFileOps(),
+    sendBytes: (channel, bytes) => {
+      const current = session.current;
+      if (current === undefined) {
+        return Promise.reject(new Error("core is not connected"));
+      }
+      return current.sendBytes(channel, bytes);
+    },
     nowIso: () => new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
     async record(result) {
       if (core.client === undefined) {

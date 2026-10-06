@@ -21,17 +21,24 @@ import {
   prepDeleteSchema,
   prepReadSchema,
   prepRenameSchema,
+  prepWindowSchema,
   prepWriteSchema,
 } from "../../../packages/documents/file-tracking/file-ipc.ts";
 import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
 import {
   confirmCopy,
   readLocation,
+  readWindow,
   writeLocation,
 } from "../../../packages/documents/file-tracking/prepared-files.ts";
 import type { ByteInbox } from "./byte-inbox.ts";
 
 const WRITE_CHUNK = 64 * 1024;
+
+// 응답 앞에 byte chunk frame을 보내는 출구. 준비 worker의 감독 session이 채운다.
+export type ByteOutbox = {
+  send(channel: number, bytes: Uint8Array): Promise<void>;
+};
 
 export function productFileDeps(): FileDeps {
   return {
@@ -65,10 +72,13 @@ export function acceptFileOp(
   request: WorkerRequest,
   inbox: ByteInbox,
   deps: FileDeps = productFileDeps(),
+  outbox?: ByteOutbox,
 ): Promise<Result<unknown, LophnError>> | undefined {
   switch (request.op) {
     case PREPARATION_OPS.readFile:
       return readOp(request, deps);
+    case PREPARATION_OPS.readWindow:
+      return windowOp(request, deps, outbox);
     case PREPARATION_OPS.writeFile:
       return writeOp(request, inbox, deps);
     case PREPARATION_OPS.renameFile:
@@ -90,6 +100,27 @@ async function readOp(
   if (!parsed.success) return invalid();
   const read = await readLocation(deps, parsed.data.location);
   return read.ok ? ok(read.value) : failure(read.error);
+}
+
+// 파일의 한 창을 byte chunk frame으로 보내고(응답보다 먼저 간다) 보낸 길이를 답한다.
+async function windowOp(
+  request: WorkerRequest,
+  deps: FileDeps,
+  outbox: ByteOutbox | undefined,
+): Promise<Result<unknown, LophnError>> {
+  const parsed = prepWindowSchema.safeParse(request.payload);
+  if (!parsed.success) return invalid();
+  if (outbox === undefined) {
+    return err({ code: "unavailable", message: "no byte channel" });
+  }
+  const read = await readWindow(deps, parsed.data);
+  if (!read.ok) return failure(read.error);
+  try {
+    await outbox.send(parsed.data.channel, read.value);
+  } catch {
+    return err({ code: "unavailable", message: "file bytes were not sent" });
+  }
+  return ok({ bytes: read.value.length });
 }
 
 async function writeOp(

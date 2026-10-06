@@ -822,6 +822,52 @@ Deno.test("platform/notifications#R1, R11: engine step은 계기와 계기 아�
   }
 });
 
+Deno.test("platform/notifications#R2: engine step은 조건 밖 계기(사람이 멈춘 assignment)에서 멈추지 않고 cursor를 올려 뒤 계기를 만든다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-engine-cond-" });
+  const connection = await schema(dir);
+  const { reader, backend } = notificationEventsRead(`${dir}/ledger.db`);
+  try {
+    emitSource(
+      connection,
+      "AssignmentPaused",
+      "asg_01arz3ndektsv4rrffq69g5fav",
+      {
+        before: 1,
+        after: 2,
+        reason: { kind: "user", detail: "잠시 멈춤", runs: [], target: null },
+        definition_hash: "0".repeat(64),
+      },
+    );
+    emitSource(
+      connection,
+      "QuestionCreated",
+      "qst_01arz3ndektsv4rrffq69g5fav",
+      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+    );
+    const engine = notificationsEngine({
+      backend,
+      command: engineCommand(connection),
+      machine: machine(),
+    });
+    const scanned = await engine.step();
+    assert(scanned.ok, scanned.ok ? "" : JSON.stringify(scanned.error));
+    // cursor는 뒤 계기(QuestionCreated, seq 2)까지 움직인다. 생성이 낸 NotificationCreated는 그 뒤다.
+    assertEquals(scanned.value, "2");
+    assertEquals(storedCursor(connection), "2");
+    const listed = connection.sql.all(
+      `select e.type as type from notifications n
+       join events e on e.seq = n.source_seq order by n.source_seq`,
+      [],
+    );
+    assertEquals(listed.map((row) => row["type"]), ["QuestionCreated"]);
+    await engine.close();
+  } finally {
+    reader.close();
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("platform/notifications#R11: engine step이 중간에 멈추면 다음 step은 멈춘 위치부터 다시 읽는다", async () => {
   const dir = await Deno.makeTempDir({ prefix: "ntf-engine-stop-" });
   const connection = await schema(dir);

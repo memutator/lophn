@@ -328,3 +328,40 @@ Deno.test("documents/file-tracking#R5: pool을 멈추면 진행 중인 요청은
   const after = await pool.request({ op: "x", payload: {}, priority: "human" });
   assert(!after.ok);
 });
+
+Deno.test("documents/file-tracking#R9: 바이트를 돌려받는 요청은 응답 전에 온 byte frame을 모아 결과에 싣고 길이가 어긋나면 unavailable이다", async () => {
+  for (const claimed of [3, 4]) {
+    const fakes = fakeSupervisors({
+      answer(fake, _op, payload) {
+        const { channel } = payload as { channel: number };
+        // 준비 worker는 같은 pipe로 바이트 frame을 먼저 보내고 응답을 보낸다.
+        fake.callbacks?.onFrame?.({
+          kind: "bytes",
+          channel,
+          payload: new Uint8Array([1, 2, 3]),
+        });
+        return { bytes: claimed };
+      },
+    });
+    const pool = poolOver(fakes);
+    const answered = await pool.request({
+      op: "window",
+      payload: (_channel, replyChannel) => ({ channel: replyChannel }),
+      replyBytes: true,
+      priority: "human",
+    });
+    if (claimed === 3) {
+      assert(answered.ok);
+      const value = answered.value as {
+        payload: { bytes: number };
+        bytes: Uint8Array;
+      };
+      assertEquals(value.payload, { bytes: 3 });
+      assertEquals(value.bytes, new Uint8Array([1, 2, 3]));
+    } else {
+      assert(!answered.ok);
+      assertEquals(answered.error.code, "unavailable");
+    }
+    await pool.stop();
+  }
+});

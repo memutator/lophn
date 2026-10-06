@@ -25,7 +25,8 @@ export type Located = {
 export type LocatorDeps = {
   // LOPHN_HOME. working copy 폴더의 근원이다.
   dataRoot: string;
-  basis: Pick<BasisStore, "roots">;
+  // 파일을 쓸 수 있는 폴더는 관측 root(tracking)가 아니라 등록 폴더 전부다.
+  basis: Pick<BasisStore, "folders">;
   ops: Pick<FileOps, "realPath" | "makeDirectory">;
 };
 
@@ -52,10 +53,10 @@ export function createLocator(deps: LocatorDeps): Locator {
   }
 
   function rootOf(project: string, path: string): string | undefined {
-    return deps.basis.roots().find((entry) =>
+    return deps.basis.folders().find((entry) =>
       entry.project === project &&
-      path.startsWith(entry.root === "/" ? "/" : `${entry.root}/`)
-    )?.root;
+      path.startsWith(entry.path === "/" ? "/" : `${entry.path}/`)
+    )?.path;
   }
 
   return {

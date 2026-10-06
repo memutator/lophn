@@ -31,6 +31,7 @@ const USER_OPERATIONS = [
   "document.upload",
   "document.prepare",
   "document.save",
+  "document.file",
 ];
 
 type Json = Record<string, unknown>;
@@ -865,6 +866,16 @@ Deno.test("documents/file-tracking#R1 documents/file-tracking#R15: 원본 없는
     assertEquals(conflicted.body["outcome"], "written");
     assertEquals(conflicted.body["recording"], "recorded");
     assertEquals(conflicted.body["version_result"], "conflict");
+    // 새 기준(그 문서의 지금 최신 판)이 결과에 실려 온다.
+    const newest = ledger(
+      home,
+      (db) =>
+        (db.prepare(
+          "SELECT id FROM versions WHERE document = ? ORDER BY number DESC LIMIT 1",
+        ).get(DOC) as { id: string }).id,
+    );
+    assertEquals(conflicted.body["latest_version"], newest);
+    assertNotEquals(newest, save.version);
     assertEquals(await Deno.readTextFile(copyFile), edit3);
     assertEquals(versions(home).length, 3);
     const pending = await post(opened, "files/status", {
@@ -879,6 +890,320 @@ Deno.test("documents/file-tracking#R1 documents/file-tracking#R15: 원본 없는
       fileEvents(home).filter((event) => event.type === "FileWritten").length,
       3,
     );
+  } finally {
+    await opened.dispose();
+  }
+});
+
+// tracking을 끈 project를 등록한다. coordinator가 그 폴더를 쓰기 폴더로 받는 것은 core가 자기
+// snapshot에서 읽어 envelope로 보내는 길이라, 테스트는 쓰기가 성공할 때까지 기다린다.
+async function registerUntracked(opened: Opened) {
+  const created = await post(opened, "projects/create", {
+    input: {
+      id: PROJECT,
+      name: "alpha",
+      title: "Alpha",
+      purpose: "",
+      folders: [{ path: opened.folder, description: "a" }],
+      tracking: { enabled: false, patterns: [], use_gitignore: false },
+    },
+    idempotency_key: "create-alpha",
+    compare: {},
+    prepared: [],
+  });
+  assertEquals(created.status, 200, JSON.stringify(created.body));
+}
+
+async function openRead(opened: Opened, target: unknown): Promise<Response> {
+  return await until("file read", async () => {
+    const answered = await fetch(
+      `http://127.0.0.1:${opened.core.port}/v1/files/read`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${USER}`,
+        },
+        body: JSON.stringify({ target }),
+      },
+    );
+    if (answered.status === 200) return answered;
+    await answered.body?.cancel();
+    return undefined;
+  });
+}
+
+Deno.test("documents/file-tracking#R1 documents/file-tracking#R11 documents/file-tracking#R17: tracking을 끈 project의 폴더도 쓰고 읽고 이름을 바꾸고 지운다 — 관측하지 않으니 판은 만들어지지 않는다", async () => {
+  const opened = await open();
+  const { core, home, folder } = opened;
+  try {
+    await registerUntracked(opened);
+    const target = projectTarget(opened, "note.md");
+    const first = "# note\n\n처음\n";
+    // coordinator가 폴더 근거를 받기 전의 쓰기는 없는 것과 같은 답이고 파일을 만들지 않는다.
+    const written = await until("untracked write", async () => {
+      const answered = await post(opened, "files/write", {
+        request_key: "untracked-1",
+        target,
+        base_hash: null,
+        content: { kind: "prepared", blob: await upload(opened, first) },
+        version_request: {
+          document: DOC,
+          base_version: null,
+          idempotency_key: "untracked-version",
+        },
+      });
+      return answered.status === 200 ? answered : undefined;
+    });
+    assertEquals(written.body["outcome"], "written");
+    assertEquals(written.body["recording"], "recorded");
+    assertEquals(written.body["written_hash"], await sha(first));
+    // 관측하지 않는 폴더라 기다릴 판이 없다.
+    assertEquals(written.body["version_result"], "not_requested");
+    assertEquals(await Deno.readTextFile(`${folder}/note.md`), first);
+    const read = await readFile(opened, target);
+    assertEquals(read.status, 200);
+    assertEquals(new TextDecoder().decode(read.bytes), first);
+
+    const edited = "# note\n\n고침\n";
+    const rewritten = await post(opened, "files/write", {
+      request_key: "untracked-2",
+      target,
+      base_hash: await sha(first),
+      content: { kind: "prepared", blob: await upload(opened, edited) },
+    });
+    assertEquals(rewritten.status, 200, JSON.stringify(rewritten.body));
+    // 낡은 base_hash는 이 폴더에서도 409다.
+    const stale = await post(opened, "files/write", {
+      request_key: "untracked-stale",
+      target,
+      base_hash: await sha(first),
+      content: { kind: "prepared", blob: await upload(opened, "overwrite") },
+    });
+    assertEquals(stale.status, 409);
+
+    const renamed = await post(opened, "files/rename", {
+      request_key: "untracked-rename",
+      target,
+      path: `${folder}/moved.md`,
+      base_hash: await sha(edited),
+    });
+    assertEquals(renamed.status, 200, JSON.stringify(renamed.body));
+    assertEquals(await Deno.readTextFile(`${folder}/moved.md`), edited);
+
+    const input = {
+      request_key: "untracked-delete",
+      target: projectTarget(opened, "moved.md"),
+      base_hash: await sha(edited),
+    };
+    const binding = await confirmationBinding(filesDelete, input);
+    assert(binding && core.confirmation);
+    const issued = await core.confirmation({
+      action: "issue",
+      request: {
+        type: "confirmation_handle_register",
+        window_id: "win-untracked-delete",
+        target_ref: binding.target,
+        content_hash: binding.content,
+        allowed_decisions: [FILE_DELETE_DECISION],
+        expires_at: new Date(Date.UTC(2024, 0, 1) + 600_000).toISOString(),
+      },
+    });
+    assert(issued.ok, issued.ok ? "" : issued.error.message);
+    const deleted = await post(opened, "files/delete", {
+      ...input,
+      confirmation: (issued.value as { confirmation: string }).confirmation,
+    });
+    assertEquals(deleted.status, 200, JSON.stringify(deleted.body));
+    const left: string[] = [];
+    for await (const entry of Deno.readDir(folder)) left.push(entry.name);
+    assertEquals(left, []);
+
+    // 저장·이름 변경·삭제가 각각 event 하나고, 관측 loop는 이 폴더를 보지 않아 판이 없다.
+    assertEquals(
+      fileEvents(home).map((event) => event.type),
+      ["FileWritten", "FileWritten", "FileRenamed", "FileDeleted"],
+    );
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    assertEquals(versions(home).length, 0);
+    // 등록 폴더 밖의 경로는 이 project의 목표가 아니다(없는 것과 같은 답).
+    const outside = await post(opened, "files/write", {
+      request_key: "untracked-outside",
+      target: {
+        kind: "project_file",
+        project: PROJECT,
+        path: `${await Deno.realPath(home)}/escape.md`,
+      },
+      base_hash: null,
+      content: { kind: "prepared", blob: await upload(opened, "x") },
+    });
+    assertEquals(outside.status, 400);
+    assertEquals(
+      (outside.body["error"] as Json)["code"],
+      ABSENT_BODY.error.code,
+    );
+  } finally {
+    await opened.dispose();
+  }
+});
+
+Deno.test("documents/file-tracking#R9: 512 KiB와 한 JSON frame을 넘는 파일도 창 단위 byte frame으로 흘려 읽고 hash가 같다", async () => {
+  const opened = await open();
+  const { folder } = opened;
+  try {
+    await registerUntracked(opened);
+    // 17 MiB: 옛 읽기 한도(512 KiB)와 검사 입력 상한(16 MiB)을 모두 넘는다.
+    const size = 17 * 1024 * 1024 + 321;
+    const bytes = new Uint8Array(size);
+    for (let at = 0; at < size; at++) bytes[at] = (at * 31 + (at >> 8)) & 255;
+    await Deno.writeFile(`${folder}/big.bin`, bytes);
+    const response = await openRead(opened, projectTarget(opened, "big.bin"));
+    assertEquals(response.headers.get("content-length"), String(size));
+    const body = new Uint8Array(await response.arrayBuffer());
+    assertEquals(body.length, size);
+    assertEquals(await sha(body), await sha(bytes));
+    // 빈 파일과 없는 파일.
+    await Deno.writeFile(`${folder}/empty.bin`, new Uint8Array());
+    const empty = await readFile(opened, projectTarget(opened, "empty.bin"));
+    assertEquals(empty.status, 200);
+    assertEquals(empty.bytes.length, 0);
+    const missing = await readFile(opened, projectTarget(opened, "none.bin"));
+    assertEquals(missing.status, 404);
+  } finally {
+    await opened.dispose();
+  }
+});
+
+Deno.test("documents/file-tracking#R9 documents/file-tracking#R11: 읽는 도중 파일이 바뀌면 섞인 바이트를 끝까지 내보내지 않고 응답을 끊는다", async () => {
+  const opened = await open();
+  const { folder } = opened;
+  try {
+    await registerUntracked(opened);
+    const size = 48 * 1024 * 1024;
+    await Deno.writeFile(`${folder}/live.bin`, new Uint8Array(size).fill(1));
+    const response = await openRead(opened, projectTarget(opened, "live.bin"));
+    const reader = response.body!.getReader();
+    const head = await reader.read();
+    assert(!head.done && head.value!.length > 0);
+    // 소비자가 멈춘 사이 파일을 같은 크기의 다른 내용으로 바꾼다(mtime이 달라진다).
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await Deno.writeFile(`${folder}/live.bin`, new Uint8Array(size).fill(2));
+    let received = head.value!.length;
+    let failed = false;
+    try {
+      while (true) {
+        const next = await reader.read();
+        if (next.done) break;
+        assert(next.value.every((byte) => byte === 1));
+        received += next.value.length;
+      }
+    } catch {
+      failed = true;
+    }
+    assert(failed, "바뀐 파일의 응답은 끝까지 가지 않고 끊긴다");
+    assert(received < size);
+  } finally {
+    await opened.dispose();
+  }
+});
+
+Deno.test("documents/file-tracking#R1 documents/file-tracking#R11: 옛 판 복원은 그 판 파일의 원본 참조로 쓰고, 위조된 참조는 없는 것과 같은 답이다", async () => {
+  const oldText = "# a\n\n옛 내용\n";
+  const opened = await open({ "a.md": oldText });
+  const { home, folder } = opened;
+  try {
+    await track(opened);
+    await until("first version", () => {
+      const rows = versions(home);
+      return rows.length === 1 ? rows : undefined;
+    });
+    const old = ledger(
+      home,
+      (db) =>
+        db.prepare("SELECT id FROM versions ORDER BY number").get() as {
+          id: string;
+        },
+    );
+    const target = projectTarget(opened, "a.md");
+    const newer = "# a\n\n새 내용\n";
+    const rewrite = await post(opened, "files/write", {
+      request_key: "restore-edit",
+      target,
+      base_hash: await sha(oldText),
+      content: { kind: "prepared", blob: await upload(opened, newer) },
+    });
+    assertEquals(rewrite.status, 200, JSON.stringify(rewrite.body));
+    await until("second version", () => {
+      const rows = versions(home);
+      return rows.length === 2 ? rows : undefined;
+    });
+    const registered = ledger(
+      home,
+      (db) =>
+        (db.prepare(
+          `SELECT registered_seq AS seq FROM blob_refs
+           WHERE owner_kind = 'document_version' AND owner_key = ? AND field = 'file'`,
+        ).get(`${old.id}/a.md`) as { seq: number | string }).seq,
+    );
+    const reference = {
+      owner_kind: "document_version",
+      owner_key: `${old.id}/a.md`,
+      field: "file",
+      hash: await sha(oldText),
+      registered_seq: String(registered),
+    };
+    // 위조: 다른 hash, 없는 판, 없는 경로, 판 파일이 아닌 참조는 모두 같은 400이고 파일을 건드리지 않는다.
+    const forged = [
+      { ...reference, hash: await sha("something else") },
+      { ...reference, owner_key: "ver_01kq12a1pha0000000000000zz/a.md" },
+      { ...reference, owner_key: `${old.id}/missing.md` },
+      { ...reference, owner_kind: "message_body" },
+    ];
+    const bodies = new Set<string>();
+    for (const [index, content] of forged.entries()) {
+      const refused = await post(opened, "files/write", {
+        request_key: `restore-forged-${index}`,
+        target,
+        base_hash: await sha(newer),
+        content: { kind: "existing", reference: content },
+      });
+      assertEquals(refused.status, 400, JSON.stringify(refused.body));
+      bodies.add(JSON.stringify(refused.body));
+    }
+    assertEquals(bodies.size, 1);
+    assertEquals(await Deno.readTextFile(`${folder}/a.md`), newer);
+    // 그 판의 문서를 읽을 권한(document.file)이 없는 자격은 같은 참조도 없는 것과 같은 400이다.
+    const LIMITED = "l".repeat(43);
+    await accept(opened.core, {
+      principal: "user-limited",
+      actor: "user",
+      scope: {
+        operations: USER_OPERATIONS.filter((name) => name !== "document.file"),
+        targets: {},
+      },
+      conditions: {},
+      credential_ref: "cred-files-limited",
+    }, LIMITED);
+    const limited = await post(opened, "files/write", {
+      request_key: "restore-limited",
+      target,
+      base_hash: await sha(newer),
+      content: { kind: "existing", reference },
+    }, LIMITED);
+    assertEquals(limited.status, 400, JSON.stringify(limited.body));
+    assertEquals(bodies.has(JSON.stringify(limited.body)), true);
+    assertEquals(await Deno.readTextFile(`${folder}/a.md`), newer);
+    // 읽을 수 있는 판의 참조는 그 바이트를 쓴다.
+    const restored = await post(opened, "files/write", {
+      request_key: "restore-1",
+      target,
+      base_hash: await sha(newer),
+      content: { kind: "existing", reference },
+    });
+    assertEquals(restored.status, 200, JSON.stringify(restored.body));
+    assertEquals(restored.body["outcome"], "written");
+    assertEquals(restored.body["written_hash"], await sha(oldText));
+    assertEquals(await Deno.readTextFile(`${folder}/a.md`), oldText);
   } finally {
     await opened.dispose();
   }

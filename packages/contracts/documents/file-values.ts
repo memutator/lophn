@@ -115,6 +115,9 @@ const fileResultFields = {
   event_seq: seqSchema.nullable(),
   version_result: z.enum(FILE_VERSION_RESULTS),
   save_result: saveResultSchema.optional(),
+  // version_result가 conflict일 때의 새 기준(그 문서의 지금 최신 판). 사본은 남아 있고
+  // 사람이 이 판과 비교해 다시 정한다. 최신 판을 읽지 못하면 없다.
+  latest_version: versionIdSchema.optional(),
 };
 
 // 파일 결과와 version 결과, 기록 결과는 각각이다. 뒤 단계 실패가 파일 성공을 지우지 않는다.
@@ -125,6 +128,10 @@ export const fileOperationResultSchema = z.object(fileResultFields).refine(
   (value) =>
     value.version_result !== "confirmed" || value.save_result !== undefined,
   { message: "confirmed version needs save_result" },
+).refine(
+  (value) =>
+    value.latest_version === undefined || value.version_result === "conflict",
+  { message: "latest_version only comes with a conflict" },
 ).refine(
   (value) =>
     value.observed_hash === null ||

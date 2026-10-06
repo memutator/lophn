@@ -6,9 +6,15 @@ import {
 } from "../../packages/contracts/platform/mod.ts";
 import {
   defineTxPort,
+  type EventRegistration,
   type ReaderRegistration,
   runAdmission,
 } from "../../packages/platform/ledger/mod.ts";
+import {
+  assignmentPaused,
+  questionCreated,
+} from "../../packages/contracts/lophn-agent/mod.ts";
+import { notificationsOnlyVisibility } from "./platform.ts";
 import type { Tx } from "../../packages/contracts/platform/mod.ts";
 import { approvalRunLineage } from "../../packages/platform/approvals/mod.ts";
 import {
@@ -473,6 +479,17 @@ export function createLedgerRegistration(
     // provider credential의 secret 값도 core의 알려진 값 registry에 등록·회수된다
     // (platform/secrets#R1). 외부 MCP credential은 extensions의 참조가 생기면 더한다.
     secretRefs: [createProviderSecretRefSource()],
+  };
+}
+
+// question·assignment 계기 event의 공개 정책(platform/notifications#R1). notifications
+// 구독자에게만 열고, 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
+export function createEventRegistration(): EventRegistration {
+  return {
+    visibility: [
+      notificationsOnlyVisibility(questionCreated),
+      notificationsOnlyVisibility(assignmentPaused),
+    ],
   };
 }
 

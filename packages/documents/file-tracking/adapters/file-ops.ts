@@ -96,6 +96,22 @@ export function denoFileOps(): FileOps {
         file.close();
       }
     },
+    async readRange(path, offset, length) {
+      const file = await guarded(() => Deno.open(path, { read: true }));
+      try {
+        await guarded(() => file.seek(offset, Deno.SeekMode.Start));
+        const out = new Uint8Array(length);
+        let filled = 0;
+        while (filled < length) {
+          const read = await guarded(() => file.read(out.subarray(filled)));
+          if (read === null) break;
+          filled += read;
+        }
+        return out.subarray(0, filled);
+      } finally {
+        file.close();
+      }
+    },
     async createTemp(path, mode): Promise<TempFile> {
       const file = await guarded(() =>
         Deno.open(path, {

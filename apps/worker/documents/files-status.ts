@@ -9,7 +9,7 @@ import type {
 import {
   coreFileReadSchema,
   coreFileWatchSchema,
-  FILE_READ_MAX_BYTES,
+  coreFileWindowSchema,
   type FileReadReply,
 } from "../../../packages/documents/file-tracking/file-ipc.ts";
 import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
@@ -26,6 +26,8 @@ export type StatusHandlerDeps = {
   pool: Pick<PreparationPool, "request">;
   status: StatusRecorder;
   locator: Locator;
+  // core에 byte chunk frame을 보낸다(파일 창). 보내지 못하면 던진다.
+  sendBytes(channel: number, bytes: Uint8Array): Promise<void>;
   nowIso(): string;
   // `files.watch`가 변화를 기다리는 한도와 간격.
   watchWaitMs?: number;
@@ -33,7 +35,11 @@ export type StatusHandlerDeps = {
 };
 
 export type StatusHandlers = {
+  // 파일의 헤더(hash·크기·identity). 바이트는 `window`가 창 단위 byte frame으로 보낸다.
   read(payload: unknown): Promise<Result<unknown, LophnError>>;
+  // 헤더의 identity가 그대로인 파일의 한 창을 읽어 core가 정한 channel의 byte frame으로
+  // 보내고 보낸 길이를 답한다. 응답은 바이트보다 늦게 간다.
+  window(payload: unknown): Promise<Result<unknown, LophnError>>;
   watch(payload: unknown): Promise<Result<unknown, LophnError>>;
   // `/v1/files/status`가 묻는 관측. project 파일은 관측 loop의 메모리, working copy는 사본이다.
   observation(
@@ -96,14 +102,40 @@ export function createStatusHandlers(deps: StatusHandlerDeps): StatusHandlers {
       if (!reply.value.exists) {
         return err({ code: "not_found", message: "file is missing" });
       }
-      if (reply.value.bytes_b64 === null) {
-        // 한 응답에 싣지 못하는 큰 파일은 일부로 꾸미지 않는다.
+      return ok({
+        hash: reply.value.hash,
+        size_bytes: reply.value.size,
+        identity: reply.value.identity,
+      });
+    },
+    async window(payload) {
+      const parsed = coreFileWindowSchema.safeParse(payload);
+      if (!parsed.success) return notAvailable();
+      const located = await deps.locator.locate(parsed.data.target);
+      if (!located.ok) return located;
+      const answered = await deps.pool.request({
+        op: PREPARATION_OPS.readWindow,
+        payload: (_channel, replyChannel) => ({
+          location: located.value.location,
+          identity: parsed.data.identity,
+          offset: parsed.data.offset,
+          length: parsed.data.length,
+          channel: replyChannel,
+        }),
+        replyBytes: true,
+        priority: "human",
+      });
+      if (!answered.ok) return answered;
+      const { bytes } = answered.value as { bytes: Uint8Array };
+      try {
+        await deps.sendBytes(parsed.data.channel, bytes);
+      } catch {
         return err({
           code: "unavailable",
-          message: `file is larger than ${FILE_READ_MAX_BYTES} bytes`,
+          message: "file bytes were not sent",
         });
       }
-      return ok({ hash: reply.value.hash, bytes_b64: reply.value.bytes_b64 });
+      return ok({ bytes: bytes.length });
     },
     async watch(payload) {
       const parsed = coreFileWatchSchema.safeParse(payload);

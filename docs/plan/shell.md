@@ -870,6 +870,7 @@ concerns: [shell]
 
 ### T44 앱 패널 탭과 세션 앱 카드
 
+- 상태: 완료 (#351) — 이어보냄: blueprint 화면 선언 read 연결 → T45, [Report a problem] port → T52, 앱 공간으로 열기 route → T42, 카드 입력의 앱 화면 전달 → apps#T22
 - 등급: frontend
 - concern: shell/workspace, shell/app-frame
 - 요구: shell/workspace#R5, R11, shell/app-frame#R33, R34(패널·카드 크롬), R35

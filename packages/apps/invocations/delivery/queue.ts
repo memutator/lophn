@@ -85,7 +85,10 @@ export function createDeliveryQueue(deps: DeliveryQueueDeps): DeliveryQueue {
   const entries = new Map<string, Entry>();
   const losses = new Map<string, Loss>();
   let bytes = 0;
-  let pumping = false;
+  // active는 순회 중인지, running은 그 순회가 끝나길 기다리는 handle이다. 순회가 첫 await 전에
+  // 끝나도 active가 먼저 내려가므로 다음 pump가 새로 시작한다.
+  let active = false;
+  let running: Promise<void> | undefined;
   let again = false;
   let lastFlushMs = Number.NEGATIVE_INFINITY;
 
@@ -161,12 +164,8 @@ export function createDeliveryQueue(deps: DeliveryQueueDeps): DeliveryQueue {
     bytes -= entry.bytes;
   }
 
-  async function pump(): Promise<void> {
-    if (pumping) {
-      again = true;
-      return;
-    }
-    pumping = true;
+  async function drain(): Promise<void> {
+    active = true;
     try {
       do {
         again = false;
@@ -194,10 +193,20 @@ export function createDeliveryQueue(deps: DeliveryQueueDeps): DeliveryQueue {
         }
       } while (again);
     } finally {
-      pumping = false;
+      active = false;
     }
     flushLossIfDue();
     wakeForNext();
+  }
+
+  // 이미 보내는 중이면 그 순회가 끝날 때까지 기다리게 하고 새로 시작하지 않는다.
+  function pump(): Promise<void> {
+    if (active) {
+      again = true;
+      return running ?? Promise.resolve();
+    }
+    running = drain();
+    return running;
   }
 
   return {

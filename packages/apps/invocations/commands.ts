@@ -125,8 +125,12 @@ export function createInvocationsCommands(): {
           finished_at: input.finished_at,
           summary: applied.value.summary,
         });
-        const stored = updateInvocation(tx, applied.value);
-        if (!stored.ok) return stored;
+        if (current.value === null) {
+          insertInvocation(tx, applied.value);
+        } else {
+          const stored = updateInvocation(tx, applied.value);
+          if (!stored.ok) return stored;
+        }
         void seq;
         return ok(ACCEPTED);
       },

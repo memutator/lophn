@@ -496,7 +496,7 @@ Deno.test("apps/invocations#R6: 같은 key 재전송은 같은 결과고 다른 
   }
 });
 
-Deno.test("apps/invocations#R10: 알려지지 않은 호출은 만들지 않고 부재는 그대로 표시한다", async () => {
+Deno.test("apps/invocations#R10 #R2: 알려지지 않은 종료 사실은 호출을 만들지 않고 알려진 거절만 남긴다", async () => {
   const opened = await harness();
   try {
     // record_finished는 행을 만들지 않는다.
@@ -522,8 +522,9 @@ Deno.test("apps/invocations#R10: 알려지지 않은 호출은 만들지 않고 
       ),
     );
     assertEquals(got1.invocation, null);
-    // record_denied도 행을 만들지 않는다.
-    code(
+    // 알려지지 않은 호출을 지어내지 않는다. record_denied는 인증된 연결이 선언된 command를
+    // 부르다 handler 전에 거절된 알려진 호출을 started_at 없이 거절 행으로 남긴다(R2, R9).
+    commandResult(
       await opened.command(
         machine,
         envelope("invocation.record_denied", "deny-absent", {
@@ -538,7 +539,6 @@ Deno.test("apps/invocations#R10: 알려지지 않은 호출은 만들지 않고 
           summary: { reason: "grant missing" },
         }),
       ),
-      "conflict",
     );
     const got2 = got(
       await opened.read(
@@ -547,7 +547,9 @@ Deno.test("apps/invocations#R10: 알려지지 않은 호출은 만들지 않고 
         { invocation: INV_2 },
       ),
     );
-    assertEquals(got2.invocation, null);
+    assertEquals(got2.invocation?.status, "denied");
+    assertEquals(got2.invocation?.started_at, null);
+    assertEquals(got2.invocation?.approval, null);
     // 알려진 ID만 unknown으로 확정한다.
     await start(opened, INV);
     await finish(opened, INV, { status: "unknown", started_at: null });

@@ -188,8 +188,13 @@ Deno.test("apps/invocations#R9: accepted는 started_at 없음, denied도 없음"
   assert(refused.value.finished_at === AT);
 });
 
-Deno.test("apps/invocations#R10: record_denied는 absent와 running을 거절한다", () => {
-  isConflict(applyDenied(null, deniedInput()));
+Deno.test("apps/invocations#R2 #R9: record_denied는 접수 없이 거절된 알려진 호출을 started_at 없이 남기고 running은 거절한다", () => {
+  const created = applyDenied(null, deniedInput());
+  assert(created.ok);
+  assert(created.value !== null && created.value.status === "denied");
+  assert(created.value.started_at === null);
+  assert(created.value.approval === null);
+  assert(created.value.finished_at === AT);
   const running = runningRow();
   isConflict(applyDenied(running, deniedInput()));
 });

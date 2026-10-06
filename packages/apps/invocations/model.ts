@@ -155,8 +155,26 @@ export function applyDenied(
   current: Invocation | null,
   input: InvocationRecordDeniedInput,
 ): Result<Invocation | null> {
+  // 접수 없이 handler 전에 거절된 알려진 호출(인증된 연결·선언된 command)은 거절 행으로 남는다.
+  // 실제 시작이 없으므로 started_at은 없고 approval·입력 지문도 없다(R2, R9).
   if (current === null) {
-    return conflict("absent invocation cannot be denied");
+    return ok({
+      id: input.invocation,
+      app: input.app,
+      release: input.release,
+      operation: input.operation,
+      trigger: input.trigger,
+      mode: "live",
+      actor: input.actor,
+      caller: input.caller,
+      approval: null,
+      input_hash: null,
+      status: "denied",
+      started_at: null,
+      finished_at: input.finished_at,
+      summary: redactSummary(input.summary),
+      detail_hash: null,
+    });
   }
   if (terminal(current.status)) {
     if (deniedFactsMatch(current, input)) return ok(null);

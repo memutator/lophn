@@ -54,53 +54,53 @@ function createMockClient(packages: Package[]) {
       if (route === packagesList) {
         if (inputObj.name !== undefined) {
           const found = packages.find((p) => p.name === inputObj.name);
-          return ok({
+          return Promise.resolve(ok({
             packages: found ? [found] : [],
             as_of_seq: 1,
             next_cursor: null,
-          });
+          }));
         }
-        return ok({
+        return Promise.resolve(ok({
           packages,
           as_of_seq: 1,
           next_cursor: null,
-        });
+        }));
       }
       if (route === packagesVersions) {
         const found = packages.find((p) => p.name === inputObj.name);
-        return ok({
+        return Promise.resolve(ok({
           name: inputObj.name,
           versions: found?.versions ?? [],
           as_of_seq: 1,
           next_cursor: null,
-        });
+        }));
       }
       if (route === packagesGuide) {
         const found = packages.find((p) => p.name === inputObj.name);
         if (!found) {
-          return err({
+          return Promise.resolve(err({
             code: "not_found",
             message: "package not found",
-          });
+          }));
         }
         const version = found.versions.find(
           (v) => v.version === inputObj.version,
         );
         if (!version) {
-          return err({
+          return Promise.resolve(err({
             code: "not_found",
             message: "version not found",
-          });
+          }));
         }
-        return ok({
+        return Promise.resolve(ok({
           name: inputObj.name,
           version: inputObj.version,
           guide_hash: version.guide_hash,
           as_of_seq: 1,
           next_cursor: null,
-        });
+        }));
       }
-      return ok({});
+      return Promise.resolve(ok({}));
     },
   };
 }

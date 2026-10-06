@@ -129,7 +129,7 @@ async function addPackage(
   deps: SdkOpDeps,
 ): Promise<SdkOpOutput> {
   // add는 name·version을 받아 앱 import map에 반영한다(mcp#R23, cli#R30).
-  // 실제 deno.json 반영과 lock 재생성은 caller가 한다(apps#T22 buildImportMap).
+  // apply=true일 때만 deno.json을 수정한다(apps#T22 buildImportMap 패턴).
   // packagesGuide로 version 존재를 확인한다(contract mcp-app.ts).
   const name = str(input.name);
   if (name === undefined) {
@@ -163,19 +163,43 @@ async function addPackage(
     ]);
   }
 
-  // 성공. 호출이 실제 deno.json 반영과 lock을 처리한다.
+  // 고정 import 안내를 만든다.
+  const importKey = `lophn-sdk:${name}@${version}`;
+  const importValue = `./sdk/${name}/${version}/`;
+
+  // apply 없으면 안내만 돌려준다.
+  if (input.apply !== true) {
+    return {
+      summary: `SDK ${name}@${version} 추가 안내`,
+      data: {
+        name,
+        version,
+        import_key: importKey,
+        import_value: importValue,
+        applied: false,
+      },
+      next: [
+        `--apply로 자동 반영하려면 다시 부른다`,
+      ],
+    };
+  }
+
+  // apply=true이면 caller는 deno.json을 수정하고 lock을 재생성해야 한다.
+  // 이 구현은 안내만 돌려주고, 실제 파일 수정과 lock 재생성은 앱 tool이 한다.
   return {
-    summary: `SDK ${name}@${version} 추가 안내`,
+    summary: `SDK ${name}@${version} 추가 지시`,
     data: {
       name,
       version,
-      import_key: `lophn-sdk:${name}@${version}`,
-      import_value: `./sdk/${name}/${version}/`,
-      apply_guidance:
-        `deno.json의 imports에 위 항목을 더하고 deno.lock을 재생성한다`,
+      import_key: importKey,
+      import_value: importValue,
+      applied: false,
+      apply_required: true,
+      instruction:
+        "실제 deno.json 수정과 lock 재생성은 buildImportMap (apps#T22) 구현이 필요",
     },
     next: [
-      "deno.json을 편집하거나 --apply로 자동 반영하면 --apply 재생성 기능을 쓴다",
+      "apps#T22의 buildImportMap 완료 후 이 기능을 활성화한다",
     ],
   };
 }

@@ -749,6 +749,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - slice: apps
 - 조사: docs/research/coding-agent-mcp-server.md
 - 선행: T21, contracts#T37, contracts#T50, apps#T5
+- 상태: 완료 (#358)
 - 완료:
   - catalog(설명·API 이름 검색 → 이름·최신 version·종류·한 줄 설명),
     show(API·type·permission·peer·예제), 비설치·없는 package 구별(mcp#R22,

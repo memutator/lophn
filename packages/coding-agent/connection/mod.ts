@@ -96,6 +96,8 @@ export {
   createAppDirect,
   NotSent,
 } from "./app-direct.ts";
+export { unixAppDirectTransport } from "./app-direct-unix.ts";
+export { createSdkSourcePort } from "./sdk-source.ts";
 export {
   APP_HUMAN_ONLY,
   APP_OP_CLI_NAMES,

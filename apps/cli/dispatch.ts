@@ -19,7 +19,10 @@ import {
   type CoreClient,
   UNREADABLE_MESSAGE,
 } from "../../packages/coding-agent/connection/client/core.ts";
-import { uploadPrepareBytes } from "../../packages/coding-agent/connection/mod.ts";
+import {
+  createSdkSourcePort,
+  uploadPrepareBytes,
+} from "../../packages/coding-agent/connection/mod.ts";
 import {
   type CommandOutput,
   humanDecisionGuide,
@@ -75,6 +78,7 @@ import {
   daemonStop,
   readRunMetadata,
 } from "../../packages/platform/install-and-update/mod.ts";
+import { appDirectSocketPaths } from "../../packages/contracts/apps/mod.ts";
 import type { Route } from "../../packages/contracts/platform/mod.ts";
 import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
 
@@ -105,6 +109,9 @@ export type CliRuntime = {
   // 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/apps/cli/main.ts`다.
   installRoot: string;
   daemonUrl: string;
+  // 앱 direct socket 자리의 폴더다(apps runtime과 같은 규칙). 모르면 undefined이고 설치하는 MCP에는 앱
+  // direct socket 권한이 없다.
+  appSocketDir?: string;
   now(): string;
   // 시험이 끼우는 눈이다. 없으면 실제 파일·process·platform daemon 판정을 쓴다.
   ports?: Partial<CliPorts>;
@@ -201,6 +208,18 @@ function portsOf(runtime: CliRuntime): CliPorts {
   return { ...defaultPorts(runtime), ...runtime.ports };
 }
 
+// 앱 runtime이 정하는 socket 폴더다(apps-control의 appSocketRoot와 같은 규칙: XDG runtime 아래
+// `lophn`, 없으면 임시 폴더의 `lophn-<uid>`). 읽을 수 없으면 undefined다.
+export function appSocketDirOf(
+  env: { get(name: string): string | undefined },
+  uid: () => number | null,
+): string | undefined {
+  const xdg = env.get("XDG_RUNTIME_DIR");
+  if (xdg !== undefined && xdg.length > 0) return `${xdg}/lophn`;
+  const id = uid();
+  return id === null ? undefined : `${env.get("TMPDIR") ?? "/tmp"}/lophn-${id}`;
+}
+
 export function ambientEnv(): { get(name: string): string | undefined } {
   return {
     get(name) {
@@ -263,6 +282,9 @@ function launchBase(runtime: CliRuntime, submissionRoot: string) {
     submissionRoot,
     coreAddress: url.host,
     appAddresses: [] as string[],
+    appSockets: runtime.appSocketDir === undefined
+      ? []
+      : appDirectSocketPaths(runtime.appSocketDir),
     credentialHelper: `${root}/lophn-credential`,
   };
 }
@@ -413,9 +435,13 @@ export async function runCliCommand(
     return ran.ok ? ok(ran.value) : ran;
   }
   if (name.startsWith("sdk ")) {
-    // 앱 source 쓰기 port는 이 실행 권한에 없다(apply는 unavailable).
+    // `apply`는 앱 source의 deno.json·deno.lock만 정확한 경로 권한으로 쓰는 CLI 전용 port다. MCP에는
+    // 이 port가 없고 권한이 없으면 unavailable이다.
     const ran = await runSdk(name as Parameters<typeof runSdk>[0], input, {
       client,
+      source: createSdkSourcePort({
+        denoExecutable: `${runtime.installRoot.replace(/\/$/, "")}/deno`,
+      }),
     });
     return ok(ran);
   }

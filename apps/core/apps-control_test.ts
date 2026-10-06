@@ -118,3 +118,68 @@ Deno.test("apps/runtime#R7: 자식 앱 credential은 그 앱·release·프로세
   assert(!(await keys.authenticate(first.value.credential)).ok);
   assert((await keys.authenticate(second.value.credential)).ok);
 });
+
+Deno.test("apps/permissions#R14, apps/connections#R1: supervisor machine credential은 실행 범위·앱 쌍 준비 route에 닿고 core 안쪽 operation에는 닿지 않는다", async () => {
+  const keys = registry();
+  // core가 supervisor를 띄울 때 발급하는 자격과 같은 모양이다.
+  const issued = await keys.issue({
+    actor: "machine",
+    principal: "machine:apps-supervisor",
+    scope: {
+      operations: [...SUPERVISOR_CREDENTIAL_OPERATIONS],
+      targets: { task: "apps" },
+    },
+    conditions: { task: "apps", process: "apps/supervisor" },
+  });
+  assert(issued.ok, issued.ok ? "" : issued.error.message);
+  const context = await keys.authenticate(issued.value.token);
+  assert(context.ok);
+  for (
+    const operation of [
+      "app.blueprint",
+      "grants.list",
+      "app.pair_prepare",
+      "app.pair_confirm_request",
+      "app.pair_confirm_poll",
+      "app.pair_observe",
+    ]
+  ) {
+    assert(
+      SUPERVISOR_CREDENTIAL_OPERATIONS.includes(operation),
+      `${operation} is not in the supervisor scope`,
+    );
+    // 앱을 대상으로 하는 읽기·준비는 모든 앱에 닿는다(supervisor는 앱 전체를 감독한다).
+    assert(
+      keys.authorize(context.value, operation, { app: APP, task: "apps" }).ok,
+      operation,
+    );
+  }
+  // release 확정·grant 변경·approval 같은 core 안쪽 일은 supervisor 자격으로 하지 못한다.
+  for (
+    const operation of [
+      "release.prepare",
+      "grant.create",
+      "grant.revoke",
+      "create_approval_request",
+      "apply_approved_action",
+    ]
+  ) {
+    assert(!keys.authorize(context.value, operation, { app: APP }).ok);
+  }
+  // 앱 자식의 app credential은 이 route 어디에도 닿지 않는다.
+  const child = await appCredentialIssuer(keys).request({
+    type: "app_credential_request",
+    request_id: "req-1",
+    app: APP,
+    release: REL,
+    process: "nonce-1",
+    mode: "live",
+    bundle_hash: "ab".repeat(32),
+  });
+  assert(child.ok);
+  const childContext = await keys.authenticate(child.value.credential);
+  assert(childContext.ok);
+  for (const operation of SUPERVISOR_CREDENTIAL_OPERATIONS) {
+    assert(!keys.authorize(childContext.value, operation, { app: APP }).ok);
+  }
+});

@@ -204,7 +204,10 @@ export async function openRuntime(input: {
   const root = input.ledgerPath.slice(0, input.ledgerPath.lastIndexOf("/"));
   const directory = `${root}/derived/api-subscriptions`;
   await Deno.mkdir(directory, { recursive: true });
-  const subscriptions = await createSubscriptionStore(directory);
+  const subscriptions = await createSubscriptionStore(
+    directory,
+    input.source.ledgerId,
+  );
   if (!subscriptions.ok) {
     secretStore.stop();
     readers.value.close();

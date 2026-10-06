@@ -1,4 +1,4 @@
-import { DatabaseSync, type StatementSync } from "node:sqlite";
+import { backup, DatabaseSync, type StatementSync } from "node:sqlite";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Sql, SqlParam, SqlRow } from "../../contracts/platform/mod.ts";
 
@@ -47,6 +47,9 @@ export type LedgerConnection = {
   inTransaction(): boolean;
   // handler SQL은 pragma를 못 쓰므로 무결성 검사는 연결이 직접 한다.
   integrityOk(): boolean;
+  // SQLite online backup API로 일관된 사본을 만든다(WAL 안의 내용 포함, 원본은 읽기만). 권한을
+  // 제한한 worker에서는 VACUUM INTO가 쓰는 attach가 막히므로 사본은 이 방법으로 만든다.
+  backupTo(path: string): Promise<void>;
   // rollback이 실패하면 연결을 다시 쓰지 않는다.
   fault(): void;
   failed(): boolean;
@@ -225,6 +228,10 @@ export function openConnection(path: string): Result<LedgerConnection> {
     },
     inTransaction() {
       return !dead && db.isTransaction;
+    },
+    async backupTo(path: string) {
+      if (dead) throw new ConnectionUnavailable();
+      await backup(db, path);
     },
     integrityOk() {
       if (dead) return false;

@@ -26,11 +26,6 @@ export const BACKUP_DIR_NAME = "backups";
 // 최근 완료 묶음 보존 수(R12).
 export const BACKUP_KEEP_COMPLETE = 7;
 
-// SQL literal에 들어가는 문자열. quote 두 개로 escape한다('' = quote 하나).
-function sqlQuote(value: string): string {
-  return value.replace(/'/g, "''");
-}
-
 // clock 시각(YYYY-MM-DDTHH:mm:ss.sssZ)을 filename-safe 폴더 stamp로 바꾼다.
 export function backupStamp(at: string): Result<string> {
   const parsed = Date.parse(at);
@@ -83,7 +78,7 @@ export async function readManifest(
 }
 
 // 밑의 폴더 중 stamp 이름만 산다. backups/migrations 같은 다른 이름은 뺀다.
-async function stampFolders(backupsRoot: string): Promise<string[]> {
+export async function stampFolders(backupsRoot: string): Promise<string[]> {
   const names: string[] = [];
   try {
     for await (const entry of Deno.readDir(backupsRoot)) {
@@ -121,6 +116,19 @@ export async function findBackup(
   for (const stamp of await stampFolders(backupsRoot)) {
     const manifest = await readManifest(`${backupsRoot}/${stamp}`);
     if (manifest?.created_at === createdAt) return manifest;
+  }
+  return undefined;
+}
+
+// created_at이 같은 manifest의 folder 경로. restore가 그 folder에서 ledger와 blob을 읽는다.
+export async function findBackupDirectory(
+  root: string,
+  createdAt: string,
+): Promise<string | undefined> {
+  const backupsRoot = `${root}/${BACKUP_DIR_NAME}`;
+  for (const stamp of await stampFolders(backupsRoot)) {
+    const manifest = await readManifest(`${backupsRoot}/${stamp}`);
+    if (manifest?.created_at === createdAt) return `${backupsRoot}/${stamp}`;
   }
   return undefined;
 }
@@ -213,7 +221,7 @@ async function copyBlobs(
 // blob_refs와 through_seq는 snapshot S에 고정된다. 열린 원본에서 따로 읽으면
 // vacuum과 시점이 어긋나므로, S를 만든 copy 안에서 읽는다(R8, R9). SQLite
 // 연결은 ledger 연결(sql 경계)로 열고, 이 모듈은 DatabaseSync를 import하지 않는다.
-function snapshotRefs(
+export function snapshotRefs(
   copyPath: string,
 ): Result<{ hash: string; sizeBytes: bigint }[]> {
   const opened = openConnection(copyPath);
@@ -246,7 +254,7 @@ function snapshotRefs(
   }
 }
 
-function snapshotThroughSeq(copyPath: string): Result<string> {
+export function snapshotThroughSeq(copyPath: string): Result<string> {
   const opened = openConnection(copyPath);
   if (!opened.ok) {
     return err({ code: "unavailable", message: "snapshot seq를 읽지 못했다" });
@@ -275,7 +283,7 @@ function snapshotThroughSeq(copyPath: string): Result<string> {
 
 // copy의 SQLite 무결성 검사. pragma는 handler SQL이 못 쓰므로 ledger 연결의
 // integrityOk 경계로 보다. copy는 검사 외에 쓰지 않는다.
-function verifyCopyIntegrity(copyPath: string): boolean {
+export function verifyCopyIntegrity(copyPath: string): boolean {
   const opened = openConnection(copyPath);
   if (!opened.ok) return false;
   const connection = opened.value;
@@ -349,17 +357,14 @@ export async function createBackup(
     return err({ code: "unavailable", message: "진행 표시를 남기지 못했다" });
   }
   // SQLite online backup은 열린 WAL db에서 일관된 snapshot을 만든다(R9). 원본을
-  // 쓰지 않는다. 함정: transaction 안에서는 vacuum이 실패하므로 감싸지 않는다.
+  // 쓰지 않는다. backup API는 권한을 제한한 I/O worker에서도 돈다(VACUUM INTO는 attach가
+  // 막혀 거기서 실패한다).
   const opened = openConnection(ledgerPath);
   if (!opened.ok) return opened;
   const connection = opened.value;
   let failure: Result<never> | undefined;
   try {
-    // exec는 raw SQL이다. path가 SQL literal에 그대로 들어가지 않게 ''으로
-    // escape한다(R10 확인: path의 곧은 따옴표는 syntax error가 난다).
-    connection.exec(
-      `vacuum into '${(sqlQuote(`${directory}/${BACKUP_LEDGER_PATH}`))}'`,
-    );
+    await connection.backupTo(`${directory}/${BACKUP_LEDGER_PATH}`);
   } catch {
     failure = err({
       code: "unavailable",

@@ -559,7 +559,7 @@ Deno.test(
         now: () => "2026-02-03T03:04:06.000Z",
       });
       assert(backup.ok);
-      // vacuum into가 quote를 escape해 snapshot이 실제로 남는다.
+      // 경로에 quote가 있어도 snapshot이 실제로 남는다.
       const copy = new DatabaseSync(
         `${dir}/backups/${stamp.value}/ledger.db`,
         { readOnly: true },
@@ -574,5 +574,39 @@ Deno.test(
       await Deno.remove(base, { recursive: true }).catch(() => {});
       throw error;
     }
+  },
+);
+
+Deno.test(
+  "platform/backup-and-migration#R9: 권한을 제한한 I/O worker 모양의 프로세스에서도 snapshot을 만든다",
+  async () => {
+    const dir = await tempDir();
+    const { version } = await ledger(dir);
+    await seedBlob(dir, "blob body");
+    const repo = new URL("../../..", import.meta.url).pathname;
+    const script = new URL("./testdata/restricted-backup.ts", import.meta.url)
+      .pathname;
+    // 데이터 root 밖은 코드와 deno 캐시만 읽고 쓰기는 데이터 root뿐이다(platformIoSpec과 같다).
+    const home = Deno.env.get("HOME");
+    const outcome = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        `--allow-read=${dir},${repo}${home ? `,${home}/.cache/deno` : ""}`,
+        `--allow-write=${dir}`,
+        "--no-prompt",
+        script,
+        dir,
+        String(version),
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    const out = new TextDecoder().decode(outcome.stdout) +
+      new TextDecoder().decode(outcome.stderr);
+    assert(outcome.success, out);
+    const listed = await listBackups(dir);
+    assertEquals(listed.backups.length, 1);
+    assertEquals(listed.backups[0].complete, true);
+    await Deno.remove(dir, { recursive: true });
   },
 );

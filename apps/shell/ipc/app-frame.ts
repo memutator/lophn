@@ -28,13 +28,22 @@ export const viewBoundsSchema = z.object({
   height: z.number().int().min(0),
 }).strict();
 
+// 세션 앱 카드의 message·block 표시 참조. 카드만 싣는다(contracts appViewCardSchema).
+export const appViewCardSchema = z.object({
+  message: z.string().regex(new RegExp(`^msg_${ULID}$`)),
+  block: z.string().regex(/^[a-z0-9_-]{1,64}$/),
+}).strict();
+
 export const appViewOpenSchema = z.object({
   app: appId,
   mode,
   release: releaseId.optional(),
   screen: screenKey,
   size,
-}).strict();
+  card: appViewCardSchema.optional(),
+}).strict().refine(
+  (value) => (value.size === "card") === (value.card !== undefined),
+);
 
 export const viewBoundsRequestSchema = z.object({
   view_session: viewSession,
@@ -61,6 +70,7 @@ export const appFrameViewStateSchema = z.object({
 
 export type ViewBounds = z.infer<typeof viewBoundsSchema>;
 export type AppViewOpen = z.infer<typeof appViewOpenSchema>;
+export type AppViewCard = z.infer<typeof appViewCardSchema>;
 export type ViewBoundsRequest = z.infer<typeof viewBoundsRequestSchema>;
 export type ViewsHidden = z.infer<typeof viewsHiddenSchema>;
 export type ViewCloseRequest = z.infer<typeof viewCloseRequestSchema>;

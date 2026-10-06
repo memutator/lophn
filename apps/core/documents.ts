@@ -3,6 +3,7 @@ import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
   CONTEXT_DISPATCHABLE_COMMANDS,
   contextExport,
+  contextWatch,
   DOCUMENT_DISPATCHABLE_COMMANDS,
   documentPrepare,
   filesDelete,
@@ -324,6 +325,20 @@ function contextExportRoute(): ReadDefinition<typeof contextExport> {
   };
 }
 
+// context watch read. 미확인 목록은 derived store에 있어 서빙은 reader Worker의 등록
+// (documents-reader.ts)이 한다. 여기 handler는 route를 registry에 올리는 자리다.
+function contextWatchRoute(): ReadDefinition<typeof contextWatch> {
+  return {
+    route: contextWatch,
+    handle() {
+      return err({
+        code: "unavailable",
+        message: "context watch는 reader Worker가 서빙한다",
+      });
+    },
+  };
+}
+
 export type DocumentsRelaunch =
   | { kind: "unchanged" }
   | { kind: "relaunch"; specs: KindLaunchSpec[] }
@@ -474,6 +489,7 @@ export function createLedgerRegistration(
       contextReads.get,
       contextReads.related,
       contextExportRoute(),
+      contextWatchRoute(),
       termReads.list,
       termReads.get,
       seriesReads.list,

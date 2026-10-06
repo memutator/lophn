@@ -53,3 +53,23 @@ export {
   loadProductGuides,
   type ProductGuides,
 } from "./work.ts";
+export {
+  checkPlan,
+  NO_HANDOFF_WORD,
+  oneSentence,
+  PLAN_OPTION_WORDS,
+  PLAN_OPTIONS,
+  type PlanCheckError,
+  planDocumentBody,
+  type PlanDraft,
+  type PlanMaterial,
+  type PlanOption,
+} from "./plan.ts";
+export {
+  checkDraftSubmission,
+  type DraftSubmission,
+  draftSubmission,
+  intentQuestion,
+  type SubmissionLike,
+} from "./question-submission.ts";
+export { lophnOffers, lophnToolNames, lophnTools } from "./tool-selection.ts";

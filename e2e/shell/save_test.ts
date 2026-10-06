@@ -6,6 +6,8 @@
 // - shell/editor#R1: CommandOrControl+S는 편집 종료로 version 준비 경계를 연다.
 // - shell/editor#R11, R2: 저장 상태가 머리 메타 줄에 보이고 단계별 사실은 상세에서 펼친다.
 // - shell/editor#R15: 바깥에서 바뀐 파일은 충돌 notice로 남고 해결 화면에서 고른 글만 쓴다.
+// - shell/design-system#R23: 문서 메뉴로 고른 읽기 폭은 제품 core settings에 남아 다시 띄워도
+//   같고, 다시 연 문서의 읽기 본문은 제품 core의 worker documents/read로 읽힌다.
 // 화면이 없으면 건너뛴다.
 import { assert, assertEquals } from "@std/assert";
 
@@ -58,8 +60,8 @@ async function waitForFile(path: string, expected: string): Promise<void> {
   throw new Error(`파일이 기대한 글이 아니다: ${JSON.stringify(last)}`);
 }
 
-// renderer가 쓰는 core 통로(main의 allowlist)로 프로젝트를 만들고 추적을 켠 뒤, 관측으로 생긴
-// 문서를 그 프로젝트 자리에 둔다. 사람 화면 조작과 같은 route다.
+// renderer가 쓰는 core 통로(main의 allowlist)로 프로젝트를 만들고 추적을 켠다. 사람 화면 조작과
+// 같은 route다. 관측으로 생긴 문서는 그 폴더를 가진 프로젝트가 자리다(documents Q31).
 const SETUP = (folder: string) =>
   `(async () => {
   const core = globalThis.lophnCore;
@@ -93,12 +95,19 @@ const SETUP = (folder: string) =>
     else await new Promise((resolve) => setTimeout(resolve, 200));
   }
   if (!doc) return "no document";
-  const moved = await call("command", "documents", "move", {
-    input: { document: doc.id, place: { kind: "project", id: "${PROJECT}" }, name: "plan" },
-    idempotency_key: "e2e-save-move", compare: { base_revision: doc.revision }, prepared: [],
-  });
-  if (!moved.ok) return "move " + JSON.stringify(moved);
+  if (doc.place?.id !== "${PROJECT}") return "place " + JSON.stringify(doc.place);
   return "ok:" + doc.id;
+})()`;
+
+// 최신 판 본문을 제품 core의 worker documents/read로 읽을 수 있는지(렌더러의 core 통로).
+const READABLE = (document: string) =>
+  `(async () => {
+  const core = globalThis.lophnCore;
+  const got = await core.call({ kind: "read", resource: "documents", method: "get", body: { document: "${document}" } });
+  if (!got.ok) return false;
+  const read = await core.call({ kind: "worker", resource: "documents", method: "read",
+    body: { reference: { document: "${document}", version: got.value.document.latest_version, section: null } } });
+  return read.ok && read.value.text !== null && read.value.section_status !== "unverified";
 })()`;
 
 const SAVE_STATUS =
@@ -282,8 +291,71 @@ Deno.test({
         `document.querySelector("[data-notice='conflict']") === null`,
         true,
       );
+
+      // 읽기 전환은 편집 종료다. documents가 그 바이트로 판을 만들 때까지 본다.
+      await shell.evaluate(
+        `(() => { document.querySelector("[data-edit-toggle]").click(); return true; })()`,
+      );
+      await waitFor(shell.evaluate, SAVE_STATUS, "version-saved");
+
+      // 문서 메뉴(overlay menu)로 넓은 폭을 고른다. 폭은 제품 core settings에 남는다.
+      await shell.evaluate(
+        `(() => { document.querySelector("[data-document-menu]").click(); return true; })()`,
+      );
+      const overlay = await shell.connect("lophn-shell://overlay/index.html");
+      await waitFor(
+        overlay.evaluate,
+        `[...document.querySelectorAll("[role=menuitem]")].some((item) => item.textContent === "Wide, 800px")`,
+        true,
+      );
+      await overlay.evaluate(
+        `(() => { [...document.querySelectorAll("[role=menuitem]")].find((item) => item.textContent === "Wide, 800px").click(); return true; })()`,
+      );
+      await waitFor(
+        shell.evaluate,
+        `document.querySelector("[data-document-view]")?.getAttribute("data-reading-width") ?? ""`,
+        "wide",
+      );
     } finally {
       await shell.close();
+    }
+    // 세 번째 실행: 다시 띄워도 고른 폭이고, 읽기 본문은 제품 core의 documents/read로 읽힌다.
+    const restarted = await launchShell({
+      executable: electronExecutable,
+      app: shellApp,
+      home,
+      port: freePort(),
+      env: {
+        LOPHN_SHELL_HEADLESS: "1",
+        LOPHN_SHELL_START: `project:${PROJECT}`,
+      },
+    });
+    try {
+      await waitFor(
+        restarted.evaluate,
+        `!!document.querySelector('[data-document="${documentId}"]')`,
+        true,
+      );
+      // 최신 판의 본문 추출(파생 store)이 끝날 때까지 기다린 뒤 연다. 추출 전 본문은
+      // "아직 읽을 수 없다"이다.
+      await waitFor(restarted.evaluate, READABLE(documentId), true);
+      await restarted.evaluate(
+        `(() => { document.querySelector('[data-document="${documentId}"]').click(); return true; })()`,
+      );
+      await waitFor(
+        restarted.evaluate,
+        `document.querySelector("[data-document-body]")?.textContent.includes("Second-edit.") ?? false`,
+        true,
+      );
+      assertEquals(
+        await restarted.evaluate(
+          `document.querySelector("[data-document-view]")?.getAttribute("data-reading-width")`,
+        ),
+        "wide",
+      );
+      await shot(restarted, shots, "editor-restarted-wide");
+    } finally {
+      await restarted.close();
       await Deno.remove(home, { recursive: true });
       await Deno.remove(folder, { recursive: true });
     }

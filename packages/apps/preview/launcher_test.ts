@@ -103,7 +103,7 @@ Deno.test("apps/preview#R2: disposable 영역 밖을 쓰거나 운영 data를 �
   const cases: Record<string, string[]> = {
     "write outside": [`--allow-write=${good.dataPath},${live}`],
     "read live data": [`--allow-read=${live}`],
-    "read inside live data": [`--allow-read=${live}/data.db`],
+    "read inside live data": [`--allow-read=${live}/app.sqlite`],
     "read the app folder above live data": [
       `--allow-read=${ROOT}/apps/${FIXTURE_APP}`,
     ],

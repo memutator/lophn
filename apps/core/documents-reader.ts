@@ -7,6 +7,7 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   contextExport,
+  contextWatch,
   documentDiff,
   documentExport,
   documentRead,
@@ -63,6 +64,7 @@ import {
   createContextReads,
 } from "../../packages/documents/contexts/reads.ts";
 import { sectionStatusOf } from "../../packages/documents/outline-and-search/context-outline.ts";
+import { listWatchUnverified } from "../../packages/documents/outline-and-search/watch.ts";
 import { createTermGlossarySource } from "../../packages/documents/terms/mod.ts";
 import {
   createGuideHandlers,
@@ -399,6 +401,32 @@ function contextExportRead(): ReadDefinition {
   };
 }
 
+// context watch 결과(`/v1/contexts/watch`). 확인된 변화는 ledger snapshot에서, 미확인은 derived
+// store의 `watch_unverified`에서 읽는다. derived가 아직 없으면 미확인을 읽지 못한 것이라
+// unavailable이다(빈 미확인으로 꾸미지 않는다).
+function contextWatchRead(): ReadDefinition {
+  return {
+    route: contextWatch,
+    handle(snapshot, ctx, input) {
+      const root = dataRootOf(snapshot);
+      const derived = root.ok ? derivedRead(root.value) : root;
+      const reads = createContextReads(
+        derived.ok
+          ? {
+            unverified: (contextId) =>
+              ok(
+                listWatchUnverified(derived.value).filter((row) =>
+                  row.context === contextId
+                ),
+              ),
+          }
+          : {},
+      );
+      return reads.watch.handle(snapshot, ctx, input as never);
+    },
+  };
+}
+
 const UNREADABLE_EVIDENCE = {
   code: "invalid_input" as const,
   message: "evidence cannot be read in the fixed version",
@@ -479,6 +507,7 @@ export function createReaderRegistration(): ReaderRegistration {
     reads: [
       root,
       contextExportRead(),
+      contextWatchRead(),
       worker(
         outlinePlace,
         (ready, ctx, input) => outline(ready).place(ctx, input as never),

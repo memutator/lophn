@@ -156,7 +156,7 @@ export const appCardBlock = {
   title: "Orders card",
   description: "The orders app's card.",
   sources: [],
-  payload: { app: APP, release: REL, view: "summary", input: {} },
+  payload: { app: APP, release: REL, view: "summary", input: { range: "7d" } },
 };
 
 export const VALID_BLOCKS = [

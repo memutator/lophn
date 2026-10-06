@@ -330,9 +330,8 @@ Deno.test(
     const area = await tempArea();
     const bundle = `${area}/bundle`;
     await Deno.mkdir(`${bundle}/migrations`, { recursive: true });
-    const fileHash = await sha256Hex(published);
     await Deno.writeTextFile(
-      `${bundle}/migrations/${fileHash}.sql`,
+      `${bundle}/migrations/0-1.sql`,
       "create table items (body text not null, extra integer)",
     );
     const loaded = await scriptFromBundle(bundle, original);
@@ -555,5 +554,54 @@ Deno.test(
     assertEquals(output.result.release, RELEASE);
     const names = [...await appBackupNames(area)];
     assertEquals(names, [`backup-${ACTIVATION}`]);
+  },
+);
+
+Deno.test(
+  "apps/data#R4, R11: backup 작업은 보호 blob이 될 byte의 hash를 내고 복원은 그 hash의 byte만 쓴다",
+  async () => {
+    const area = await tempArea();
+    const path = `${area}/data.db`;
+    seed(path, ["kept"]);
+    const job = (kind: "backup" | "restore", backupHash?: string) =>
+      runDataJob(
+        { dataArea: area, databasePath: path },
+        encodeDataJobInput({
+          kind,
+          app: APP,
+          release: RELEASE,
+          activation_seq: ACTIVATION,
+          data_path: "data.db",
+          data_schema: 0,
+          ...(backupHash === undefined ? {} : { backup_hash: backupHash }),
+        }),
+      );
+    const made = await job("backup");
+    assert(made.ok);
+    const output = decodeDataJobOutput(made.value);
+    const file = `${area}/backups/backup-${ACTIVATION}`;
+    // 내는 hash는 backup 파일 byte의 sha256이고 blob으로 보존할 byte와 같다.
+    const hash = output.backup_hash as string;
+    assertEquals(hash, await sha256Hex(await Deno.readFile(file)));
+
+    // 이후 업무 data가 쌓였다.
+    const db = new DatabaseSync(path);
+    db.prepare("insert into items (body) values (?)").run("later");
+    db.close();
+    // 보존한 hash가 아니면 복원하지 않고 운영 DB도 그대로다.
+    const wrong = await job("restore", "0".repeat(64));
+    assert(!wrong.ok);
+    assertEquals(items(path), ["kept", "later"]);
+    // 영역의 파일이 바뀌어도 보존한 hash와 달라 복원하지 않는다.
+    const original = await Deno.readFile(file);
+    await Deno.writeFile(file, new Uint8Array([...original, 0]));
+    const tampered = await job("restore", hash);
+    assert(!tampered.ok);
+    assertEquals(items(path), ["kept", "later"]);
+    await Deno.writeFile(file, original);
+    // 보존한 byte와 같은 파일만 복원한다.
+    const restored = await job("restore", hash);
+    assert(restored.ok);
+    assertEquals(items(path), ["kept"]);
   },
 );

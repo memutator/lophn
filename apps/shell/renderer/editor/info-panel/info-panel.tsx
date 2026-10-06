@@ -2,21 +2,12 @@
 // 기억, overlay 닫기)은 작업대의 정보 패널 자리가 두고, 여기는 focus 칸의 문서에 대한 정보·
 // 버전·컨텍스트 탭 본문을 그린다. 안 여백 16px·목록 행 32px·절 간격 20px는 CSS가 정한다.
 import { useEffect, useRef, useState } from "react";
-import {
-  editorIcons,
-  ErrorState,
-  Icon,
-  iconPixels,
-  Skeleton,
-} from "@lophn/design/components";
+import { ErrorState, Skeleton } from "@lophn/design/components";
 import { formatRelativeTime, t } from "@lophn/wording";
 
-import type {
-  DocumentContext,
-  DocumentFacts,
-  VersionSource,
-} from "../versions/source.ts";
+import type { DocumentFacts, VersionSource } from "../versions/source.ts";
 import { saverLabel, VersionsTab } from "../versions/versions-tab.tsx";
+import { ContextsTab } from "./contexts-tab.tsx";
 import styles from "./info-panel.module.css";
 
 export type InfoTabId = "info" | "versions" | "contexts";
@@ -31,6 +22,8 @@ export interface DocumentInfoPanelProps {
   /** 복원 뒤 다시 읽게 바꾸는 값. */
   refresh?: number;
   onCompare: (document: string, before: string, after: string) => void;
+  /** 컨텍스트 탭에서 고른 Focus를 연다. */
+  onOpenContext?: (context: string) => void;
   now?: () => number;
 }
 
@@ -130,41 +123,6 @@ function InfoTab(
   );
 }
 
-function ContextsTab(
-  { document, source }: { document: string; source: VersionSource },
-) {
-  const [contexts, retry] = useLoaded<readonly DocumentContext[]>(
-    () => source.contexts(document),
-    document,
-  );
-  if (contexts.kind === "loading") return <Skeleton shape="line" lines={3} />;
-  if (contexts.kind === "failed") {
-    return (
-      <ErrorState
-        target={t("document.label.contexts-target")}
-        onRetry={retry}
-      />
-    );
-  }
-  if (contexts.value.length === 0) {
-    return <p className={styles.muted}>{t("document.empty.contexts")}</p>;
-  }
-  return (
-    <ul className={styles.list} data-info-contexts="">
-      {contexts.value.map((context) => (
-        <li key={context.id} className={styles.row}>
-          <Icon
-            icon={editorIcons.context}
-            pixels={iconPixels("small")}
-            className={styles.rowIcon}
-          />
-          <span className={styles.who}>{context.title}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export function DocumentInfoPanel(
   {
     tab,
@@ -173,6 +131,7 @@ export function DocumentInfoPanel(
     viewing = null,
     refresh = 0,
     onCompare,
+    onOpenContext,
     now = Date.now,
   }: DocumentInfoPanelProps,
 ) {
@@ -192,7 +151,13 @@ export function DocumentInfoPanel(
     );
   }
   if (tab === "contexts") {
-    return <ContextsTab document={document} source={source} />;
+    return (
+      <ContextsTab
+        document={document}
+        source={source}
+        onOpen={onOpenContext}
+      />
+    );
   }
   return (
     <InfoTab document={document} source={source} refresh={refresh} now={now} />

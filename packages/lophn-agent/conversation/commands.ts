@@ -31,6 +31,7 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import { checkVisualContent } from "../visuals/mod.ts";
 import {
   type AssignmentRef,
   latestSessionRun,
@@ -648,6 +649,13 @@ export function createConversationCommands(deps: ConversationDeps): {
           !textMessageContentInputSchema.safeParse(input.content).success
         ) {
           return reject("invalid_input", "a machine message holds text only");
+        }
+        // 시각 블록의 markup·script·URL은 contract schema가 보지 않는다. 저장 전에 owner가 거절한다.
+        if (actor.kind === "agent") {
+          const checked = checkVisualContent(input.content);
+          if (!checked.ok) {
+            return reject("invalid_input", checked.error.message);
+          }
         }
         const body = bodyBlob(ctx, input.content);
         const links = JSON.stringify(input.links);

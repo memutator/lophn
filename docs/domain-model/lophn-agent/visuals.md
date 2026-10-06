@@ -75,13 +75,14 @@ ledger entity가 아닌 문서 준비 결과다. 실제 Document·Version은 →
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `source_message` | `msg` ID | 아니오 | 확정 agent 메시지; → lophn-agent/conversation | 원래 메시지 |
-| `block_keys` | 문자열 배열 | 아니오 | 1~8개; source_message에 존재; 중복 없음 | 선택 블록 |
-| `spec_hash` | sha256 | 아니오 | 원래 선택 블록의 canonical JSON·redaction본 | 고정 명세 |
-| `body_hash` | sha256 | 아니오 | 실행 코드·외부 자원 없는 `text/html` blob | 저장 본문 |
-| `snapshots` | `{block_key,hash?,status,captured_at}` 배열 | 아니오 | 앱 카드별 하나; status `captured / unavailable`; captured만 hash | 카드의 redaction된 snapshot |
-| `document_basis` | `{document?,version?,place?,name?}` | 아니오 | 역할 저장 범위; 기존 문서는 읽은 Version CAS | 문서 대상 |
+| `source_body` | sha256 | 아니오 | 읽은 메시지 본문 blob의 hash(저장된 값) | 고정 근거 |
+| `block_keys` | 문자열 배열 | 아니오 | 1~8개; source_message에 존재; 중복 없음; 메시지 순서 | 선택 블록 |
+| `text` | 글(`text/html`) | 아니오 | 실행 코드·외부 자원 없음; UTF-8 128 KiB 이하; 결과 한계 안의 창으로 이어 읽는다 | 준비한 본문 글 |
+| `snapshots` | `{block_key,status,captured_at}` 배열 | 아니오 | 앱 카드별 하나; status `captured / unavailable`; captured만 hash를 더하고 captured_at이 있다 | 카드의 redaction된 snapshot |
 
-본문은 제목·설명·출처, 검증한 명세를 escaped JSON으로 읽을 수 있는 절, SDK의 정적 그림·데이터 표를 포함한다. 명세를 script에 넣거나 앱 iframe·token·network 자원을 포함하지 않는다. 앱 카드 snapshot 준비는 → apps/agent-context, 앱 view contract이며 실패를 live 화면으로 대체하지 않는다. AppScreenContext의 JSON data를 snapshot 이미지가 있다고 가정하지 않는다.
+준비한 본문은 글 값이다. 준비는 blob을 만들지 않고 hash를 계산하지 않으며 문서도 저장하지 않는다(`saved: false`). 저장은 문서 tool이 글 값으로 하고 core가 redaction과 blob 준비를 맡으므로 저장한 Version 파일의 hash가 본문 hash이고, 저장 전에는 준비하지 않은 blob의 hash를 만들어 두지 않는다. 문서 대상(`document`, `base_version`, place, name)은 저장 tool의 입력이 정한다.
+
+본문은 제목·설명·출처, 같은 데이터를 읽을 수 있는 표·목록, 검증한 명세를 escaped JSON으로 읽을 수 있는 절을 포함한다. 명세를 script에 넣거나 앱 iframe·token·network 자원을 포함하지 않는다. 앱 카드 snapshot 준비는 → apps/agent-context, 앱 view contract이며 실패를 live 화면으로 대체하지 않는다. AppScreenContext의 JSON data를 snapshot 이미지가 있다고 가정하지 않는다.
 
 ## 정책
 

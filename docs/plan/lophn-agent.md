@@ -542,6 +542,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T28 compaction과 세션 이어가기 summary
 
+- 상태: 완료 (#388)
 - 등급: 기본
 - concern: lophn-agent/harness/prompt-assemble, lophn-agent/conversation
 - 요구: lophn-agent/harness/prompt-assemble#R10, R11, R12, R13, R14, R15, R16, R17, R19, R20, R21, R22, R23, lophn-agent/conversation#R9, R10, R11

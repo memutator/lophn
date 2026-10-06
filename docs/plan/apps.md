@@ -1497,6 +1497,8 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - slice: operations
 - 선행: apps#T17, apps#T19, platform#T12, platform#T13
 - shell#T43에서 넘어온 것: core에 `worker:apps/export`가 서면 app-detail Data 탭에 [Export]를 붙인다. 지금은 route가 core에 없어 탭이 "아직 내보낼 수 없다"만 보인다. shell main의 renderer allowlist(`main/desktop/core/allowlist.ts`의 `READING_WORKER_ROUTES`)에 이 worker route를 더하는 일도 그때 한다
+- 상태: 완료 (#414)
+- 이어보냄: shell#T43 — `worker:apps/export`를 `READING_WORKER_ROUTES`에 더하고 app-detail Data 탭에 [Export]를 붙이며, core 조립이 export worker serving을 연결해 실제 export 흐름을 연다. route 등록(`LedgerRegistration.workerRoutes`)과 준비 본체(`packages/apps/data/worker/export.ts`·`reads.ts`), flow e2e는 이 PR(#414)이 냈다.
 - 완료:
   - export 안에 고정 blueprint·release 이력·각 불변 bundle·정확한 SDK byte·WAL
     확정 내용을 포함한 무결성 확인 DB 사본이 있고 secret 원값·credential이

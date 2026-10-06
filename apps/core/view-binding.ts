@@ -25,11 +25,11 @@ export type ViewBindingDeps = {
 const NOT_FOUND: LophnError = { code: "not_found", message: "route not found" };
 
 export function withViewBinding(
-  workers: ReadonlyMap<string, WorkerRouteTarget> | undefined,
+  workers: ReadonlyMap<string, WorkerRouteTarget>,
   deps: ViewBindingDeps,
-): ReadonlyMap<string, WorkerRouteTarget> | undefined {
-  const target = workers?.get(VIEW_ERROR_KEY);
-  if (workers === undefined || target === undefined) return workers;
+): ReadonlyMap<string, WorkerRouteTarget> {
+  const target = workers.get(VIEW_ERROR_KEY);
+  if (target === undefined) return workers;
   const wrapped: WorkerRouteTarget = {
     ...target,
     handle: {

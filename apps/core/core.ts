@@ -1061,7 +1061,7 @@ async function open(
                   current: (ref) => runtime!.current(ref),
                   observedAt: () => new Date().toISOString(),
                 }),
-                // 문제 collector route는 view binding 검증 뒤에만 worker로 닿는다(problems#T16).
+                // 문제 collector route의 view 출처는 binding 검증 뒤에만 worker로 닿는다(problems#T16).
                 withViewBinding(
                   mergedWorkers(
                     collectorWorkers({
@@ -1073,13 +1073,21 @@ async function open(
                           reason: "report collector 감독이 없다",
                           observed_at: clock.now(),
                         },
-                      conditionsOf: (request) => {
+                      callerOf: (request) => {
                         const slash = request.request_id.lastIndexOf("/");
                         const ctx = slash > 0
                           ? runtime!.current(request.request_id.slice(0, slash))
                           : undefined;
-                        return ctx?.ok ? ctx.value.conditions : undefined;
+                        return ctx?.ok
+                          ? {
+                            actor: ctx.value.actor,
+                            conditions: ctx.value.conditions,
+                          }
+                          : undefined;
                       },
+                      sendBytes: async (channel, chunk) =>
+                        io !== undefined &&
+                        (await io.sendBytes(COLLECTOR_KIND, channel, chunk)).ok,
                     }),
                     options.workers,
                   ),
@@ -1422,7 +1430,8 @@ async function open(
   ) {
     const issued = await productRegistry.issue({
       actor: "machine",
-      principal: "machine:problems-collector",
+      // 준비 참조의 주체(child-blob-prepare 정책)와 Report의 원주체가 이 값과 같아야 등록된다.
+      principal: "collector",
       scope: {
         operations: [...COLLECTOR_CREDENTIAL_OPERATIONS],
         targets: { task: "problems" },

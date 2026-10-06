@@ -133,7 +133,14 @@ export function loadStoredBlueprint(
 export function loadActiveBlueprint(
   sql: Query,
   app: string,
+  release?: string,
 ): Result<StoredBlueprint | null> {
+  if (release !== undefined) {
+    const found = loadStoredBlueprint(sql, release);
+    return !found.ok || found.value === null || found.value.release.app === app
+      ? found
+      : ok(null);
+  }
   const row = sql.get(
     "SELECT * FROM releases WHERE app = ? AND status = 'active'",
     [app],

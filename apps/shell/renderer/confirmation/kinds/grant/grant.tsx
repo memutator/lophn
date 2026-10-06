@@ -151,12 +151,18 @@ export function GrantKind(props: KindProps) {
   const outside = list(requirement.outside_links);
   const limits = list(shown.limit_keys);
   const display: Display = {
-    title: title(kind, app),
+    title: shown.operation === "revoke"
+      ? t("confirmation-window.title.revoke-access", { app })
+      : title(kind, app),
     subject: t("confirmation-window.grant.subject", { app }),
-    effect: effect(kind),
+    effect: shown.operation === "revoke"
+      ? t("confirmation-window.revoke.effect")
+      : effect(kind),
     reversible: shown.reversible === true,
     revertNote: str(shown.reversibility),
-    action: t("confirmation-window.button.allow-access"),
+    action: shown.operation === "revoke"
+      ? t("app-detail.button.remove-access")
+      : t("confirmation-window.button.allow-access"),
     details: facts([
       [t("confirmation-window.label.requested-by"), str(shown.requester)],
       [t("confirmation-window.label.reason"), str(requirement.reason)],

@@ -83,7 +83,7 @@ export const grantCreate = defineCommand({
   input: grantCreateInputSchema,
   output: z.object({ grant: grantSchema }),
   compare: grantCompareSchema,
-  actors: ["machine"],
+  actors: ["machine", "user"],
   errors: ["forbidden", "invalid_input", "conflict"],
 });
 export type GrantCreate = typeof grantCreate;
@@ -91,6 +91,7 @@ export type GrantCreate = typeof grantCreate;
 // grant.revoke 입력. 종료 확인 근거는 suppression 관측의 사실이며
 // handler가 현재 프로세스 종료·이미 멈춤을 검사한다(apps/permissions#R21).
 export const grantRevokeInputSchema = z.strictObject({
+  app: appIdSchema.optional(),
   grant: grantIdSchema,
   process_nonce: z.string().min(1).nullable(),
   termination_confirmed: z.literal(true).nullable(),
@@ -112,6 +113,22 @@ export const grantRevoke = defineCommand({
   display_read: "grants/list",
 });
 export type GrantRevoke = typeof grantRevoke;
+
+// automation 끄기는 확인 창 없이 user가 정확한 grant를 CAS해 회수한다.
+export const automationGrantRevoke = defineCommand({
+  resource: "grants",
+  method: "revoke_automation",
+  name: "grant.revoke_automation",
+  input: z.strictObject({
+    app: appIdSchema,
+    grant: grantIdSchema,
+    automation: z.string().min(1),
+  }),
+  output: z.object({ grant: grantSchema }),
+  compare: grantCompareSchema,
+  actors: ["user", "coding_agent", "agent", "app", "machine"],
+  errors: ["not_found", "conflict", "unavailable"],
+});
 
 const readActors = ["user", "coding_agent", "agent", "app", "machine"] as const;
 const readErrors = [
@@ -187,6 +204,7 @@ export type GrantDisplay = z.infer<typeof grantDisplaySchema>;
 // 필드를 모르는 옛 소비자는 무시하므로 additive다.
 export const grantsListOutputSchema = withReadCommon(z.object({
   grants: z.array(grantSchema),
+  grants_seq: seqSchema.optional(),
   display: grantDisplaySchema.nullable().optional(),
 }));
 export const grantsList = defineRead({
@@ -203,6 +221,7 @@ export type GrantsList = typeof grantsList;
 export const GRANT_ROUTES = [
   grantCreate,
   grantRevoke,
+  automationGrantRevoke,
   grantsList,
 ] as const;
 

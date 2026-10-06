@@ -105,7 +105,7 @@ export const appBlueprint = defineRead({
   resource: "apps",
   method: "blueprint",
   name: "app.blueprint",
-  input: appInputSchema,
+  input: appInputSchema.extend({ release: releaseIdSchema.optional() }),
   output: appBlueprintOutputSchema,
   actors: ["user", "coding_agent", "agent", "app", "machine"],
   errors: [

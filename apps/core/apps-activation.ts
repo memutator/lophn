@@ -565,7 +565,9 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         app.active_release,
         app.run_enabled,
         app.status,
-        grants.value.map((grant) => grant.id).sort(),
+        grants.value.filter((grant) => grant.kind !== "automation.run").map((
+          grant,
+        ) => grant.id).sort(),
       ]);
       if (lastKeys.get(app.id) === key) continue;
       const desired = await desiredFor(app.id, app.active_release, {
@@ -574,8 +576,15 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       });
       // 봉인 사본을 읽지 못하면 알리지 않는다. 다음 sweep이 다시 본다.
       if (!desired.ok) continue;
+      // grant 집합이 달라지면 같은 release·bundle이어도 옛 OS flag를 가진 자식을 끝낸다.
+      const replacing = lastKeys.has(app.id);
+      if (replacing) {
+        const paused = await deps.client.activationPause(app.id);
+        if (!paused.ok || !paused.value) continue;
+      }
       const told = await deps.reconcile(desired.value);
       if (told.ok) lastKeys.set(app.id, key);
+      if (replacing && told.ok) await deps.client.activationResume(app.id);
     }
   }
 

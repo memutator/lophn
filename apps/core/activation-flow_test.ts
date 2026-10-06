@@ -33,7 +33,15 @@ import {
   type World,
 } from "../../packages/apps/releases/activation/world_test.ts";
 import { builtinFiles } from "../../packages/apps/sdk/testing/mod.ts";
-import { call, command, inspect } from "./testing/approvals-fixture.ts";
+import {
+  actionOf,
+  call,
+  command,
+  createInput,
+  decide,
+  inspect,
+} from "./testing/approvals-fixture.ts";
+import { createRuntimeClient } from "../../packages/apps/runtime/client/mod.ts";
 import { createCoreHarness } from "./testing/core.ts";
 
 const encoder = new TextEncoder();
@@ -88,6 +96,13 @@ async function open(): Promise<Opened> {
   };
   const user = await login("user", [
     "app.create",
+    "app.connect",
+    "grant.create",
+    "grant.revoke",
+    "grants.list",
+    "create_approval_request",
+    "apply_approved_action",
+    "release.start_activation",
     "grant_approval_request",
     "GetApproval",
   ]);
@@ -144,7 +159,12 @@ type Sealed = { over: Record<string, unknown>; hash: string };
 // 템플릿의 migration(있으면)과 command를 봉인한 bundle 사본이다. 사본 위치는 core의 data root다.
 async function sealed(
   world: Opened,
-  options: { version: number; schema: number; migration?: string },
+  options: {
+    version: number;
+    schema: number;
+    migration?: string;
+    readPath?: string;
+  },
 ): Promise<Sealed> {
   const template = await builtinFiles();
   const templateSql = new TextDecoder().decode(
@@ -167,6 +187,7 @@ async function sealed(
     ],
     ["data-schema", String(options.schema)],
   ]);
+  if (options.readPath) files.set("read-target", options.readPath);
   if (options.schema > 0) {
     files.set("migrations/0-1.sql", options.migration ?? templateSql);
   }
@@ -175,7 +196,20 @@ async function sealed(
     blueprint({
       name: "Items",
       description: `Keeps a list of items, version ${options.version}`,
-      commands: [declared("list_items"), declared("add_item", "write")],
+      commands: [
+        declared("list_items"),
+        declared("add_item", "write"),
+        ...(options.readPath ? [declared("read_file")] : []),
+      ],
+      ...(options.readPath
+        ? {
+          permissions: [{
+            kind: "fs.read",
+            scope: { path: options.readPath, recursive: false },
+            reason: "Reads input",
+          }],
+        }
+        : {}),
     }),
     { app: world.app },
   );
@@ -430,6 +464,185 @@ Deno.test("apps/data#R11, apps/releases#R15: migration이 실패하면 새 자�
     // 이전 release의 앱 자식이 다시 열려 있다.
     const seen = await untilRunning(world, first);
     assertEquals(seen.release, first);
+  } finally {
+    await close(world);
+  }
+});
+
+Deno.test("apps/permissions#R21: 사람 approval revoke는 실제 supervisor 자식을 종료하고 fs flag 없는 새 자식을 연다", async () => {
+  const world = await open();
+  try {
+    await untilReady(world);
+    const readPath = `${world.runtimeDir}/input.txt`;
+    await Deno.writeTextFile(readPath, "input");
+    const bundle = await sealed(world, { version: 1, schema: 0, readPath });
+    const release = await prepare(world, bundle.over);
+    async function approved(
+      action: Parameters<typeof createInput>[2],
+      approval: string,
+    ) {
+      const made = await call(
+        world.harness,
+        "approvals/create",
+        world.user.token,
+        command(createInput(approval, "user", action)),
+      );
+      assertEquals(made.status, 200, JSON.stringify(made.body));
+      const granted = await decide(
+        world.harness,
+        world.user.token,
+        made.body["request"] as never,
+        "grant",
+      );
+      assertEquals(granted.status, 200, JSON.stringify(granted.body));
+      return call(
+        world.harness,
+        "approvals/apply",
+        world.user.token,
+        command({ approval, action, idempotency_key: approval }),
+      );
+    }
+    const grantApproval = "apr_01h455vb4pex5v6nkc6gd5fd01";
+    const scope = { kind: "fs.read", path: readPath, recursive: false };
+    const grantAction = await actionOf({
+      concern: "apps/permissions",
+      command: "grant.create",
+      caller: "user",
+      targets: [world.app],
+      value: {
+        app: world.app,
+        kind: "fs.read",
+        scope,
+        approval: grantApproval,
+      },
+      comparison: { grants_seq: "0" },
+    });
+    const allowed = await approved(grantAction, grantApproval);
+    assertEquals(allowed.status, 200, JSON.stringify(allowed.body));
+    const activationApproval = "apr_01h455vb4pex5v6nkc6gd5fd02";
+    const grantRow =
+      inspect(world.harness, "select id from grants where app = ?", [
+        world.app,
+      ])[0];
+    const seq = String(
+      inspect(
+        world.harness,
+        "select max(seq) as seq from events where type = 'GrantCreated'",
+        [],
+      )[0]["seq"],
+    );
+    const startAction = await actionOf({
+      concern: "apps/releases",
+      command: "release.start_activation",
+      caller: "user",
+      targets: [release],
+      value: {
+        release,
+        approval: activationApproval,
+        previous_release: null,
+        expected_grants_seq: Number(seq),
+        expected_schema: 0,
+        key: activationApproval,
+      },
+      comparison: {},
+    });
+    const activation = await approved(startAction, activationApproval);
+    assertEquals(activation.status, 200, JSON.stringify(activation.body));
+    await drive(world);
+    await untilRunning(world, release);
+    const copy = bundleCopyPath(world.harness.dataRoot, world.app, bundle.hash);
+    assert(copy.ok);
+    const before = await childArgv(copy.value);
+    assert(
+      before?.some((arg) => arg.includes(readPath)),
+      JSON.stringify(before),
+    );
+    const client = createRuntimeClient({
+      core: {
+        call: (path, input) =>
+          call(
+            world.harness,
+            path,
+            world.user.token,
+            input,
+          ),
+      },
+    });
+    const connected = await client.connect({
+      app: world.app,
+      mode: "live",
+      commands: ["read_file"],
+      screens: ["home"],
+      screen_sizes: { home: ["full"] },
+    });
+    assert(connected.ok, connected.ok ? "" : connected.error.message);
+    const readable = await connected.value.invoke({ command: "read_file" });
+    assert(readable.ok, readable.ok ? "" : readable.error.message);
+    assert(
+      JSON.stringify(readable.value).includes("input"),
+      JSON.stringify(readable.value),
+    );
+    const old = inspect(
+      world.harness,
+      "select payload from events where type = 'AppStarted' and subject = ? order by seq desc limit 1",
+      [world.app],
+    );
+    const revokeApproval = "apr_01h455vb4pex5v6nkc6gd5fd03";
+    const grant = String(grantRow["id"]);
+    const revokeAction = await actionOf({
+      concern: "apps/permissions",
+      command: "grant.revoke",
+      caller: "user",
+      targets: [grant],
+      value: {
+        app: world.app,
+        grant,
+        process_nonce: null,
+        termination_confirmed: null,
+      },
+      comparison: { grants_seq: seq },
+    });
+    const revoked = await approved(revokeAction, revokeApproval);
+    assertEquals(revoked.status, 200, JSON.stringify(revoked.body));
+    assertEquals(
+      inspect(world.harness, "select status from grants where id = ?", [
+        grant,
+      ])[0]["status"],
+      "revoked",
+    );
+    await untilRunning(world, release);
+    const after = await childArgv(copy.value);
+    assert(
+      after && !after.some((arg) => arg.includes(readPath)),
+      JSON.stringify(after),
+    );
+    const reconnected = await client.connect({
+      app: world.app,
+      mode: "live",
+      commands: ["read_file"],
+      screens: ["home"],
+      screen_sizes: { home: ["full"] },
+    });
+    assert(reconnected.ok, reconnected.ok ? "" : reconnected.error.message);
+    const refused = await reconnected.value.invoke({ command: "read_file" });
+    assert(
+      JSON.stringify(refused).includes('"denied":true'),
+      JSON.stringify(refused),
+    );
+    const stops = inspect(
+      world.harness,
+      "select type from events where subject = ? and type = 'AppStopped'",
+      [world.app],
+    );
+    assert(stops.length > 0, JSON.stringify(old));
+    assertEquals(
+      inspect(
+        world.harness,
+        "select count(*) as n from approval_uses where approval = ?",
+        [revokeApproval],
+      )[0]["n"],
+      1,
+    );
   } finally {
     await close(world);
   }

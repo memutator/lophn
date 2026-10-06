@@ -3,7 +3,7 @@ import type {
   FileOperationResult,
   FileTarget,
 } from "../../contracts/documents/mod.ts";
-import { projectsSchemaSteps } from "../projects/schema.ts";
+import { projectsSchemaSteps } from "../projects/mod.ts";
 import { ids, userContext, versionFixture } from "../versions/testing/mod.ts";
 import { createFileCommands } from "./commands.ts";
 

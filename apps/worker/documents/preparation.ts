@@ -49,7 +49,6 @@ class PreparationFailure extends Error {
 
 // preview_tracking의 실제 실행. 입력을 contracts schema로 다시 검사하고 현재 폴더를
 // 깊이 우선으로 돌려 TrackingPreview page를 만든다. observed_at은 응답 때의 관측 시각이다.
-// deno-lint-ignore require-await -- accept 시그니처가 Promise를 요구한다.
 export async function acceptPreparation(
   request: WorkerRequest,
   inbox: ByteInbox = createByteInbox(),

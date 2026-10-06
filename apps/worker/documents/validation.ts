@@ -3,16 +3,13 @@
 // 요청을 보낸다. coordinator가 그 바이트를 format runner(권한 없는 QuickJS 호출 하나)에
 // 넘기고, runner 출력을 host가 다시 검사한 결과를 돌려준다. 바이트는 이 호출 동안만
 // 메모리에 있고 log·status에 남기지 않는다.
-import { err, ok, type Result, sha256Hex } from "../../../packages/base/mod.ts";
+import { err, type Result, sha256Hex } from "../../../packages/base/mod.ts";
 import type { LophnError } from "../../../packages/base/mod.ts";
 import {
   BUILTIN_FORMAT_NAMES,
   type BuiltinFormatName,
 } from "../../../packages/contracts/documents/mod.ts";
-import {
-  VALIDATE_INPUT_MAX_BYTES,
-  type ValidateFilesRequest,
-} from "../../../packages/documents/file-tracking/mod.ts";
+import type { ValidateFilesRequest } from "../../../packages/documents/file-tracking/mod.ts";
 import type { FormatCall } from "../../../packages/documents/formats/reads.ts";
 import { type ByteInbox } from "./byte-inbox.ts";
 

@@ -2,7 +2,7 @@ import { assert, assertEquals } from "@std/assert";
 import { createHash } from "node:crypto";
 import { denoFileOps } from "./adapters/file-ops.ts";
 import { createFileSerializer } from "./file-ops.ts";
-import { type FileDeps } from "./files.ts";
+import type { FileDeps } from "./files.ts";
 import { fromBase64 } from "./base64.ts";
 import { confirmCopy, readLocation, writeLocation } from "./prepared-files.ts";
 import {

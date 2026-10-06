@@ -14,8 +14,8 @@ import {
   type FolderPickerApi,
   type FolderPickReply,
 } from "../ipc/folder-picker.ts";
-import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createAppWindowsApi } from "./app-window-api.ts";
+import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createEditorApi } from "./editor-api.ts";
 import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createShellApi } from "./shell-api.ts";

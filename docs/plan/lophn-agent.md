@@ -619,6 +619,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T34 run revert (ledger 변경)
 
+- 상태: 완료 (#329) — 이어보냄: 앱 write 복원·문서 제목 복원·applying 단계 → T48, context·term owner → T42, 문서 내용 복원의 준비 결과 → shell#T29
 - 등급: 기본
 - concern: lophn-agent/revert
 - 요구: lophn-agent/revert#R1, R2, R3, R4, R5, R6, R7, R8, R9

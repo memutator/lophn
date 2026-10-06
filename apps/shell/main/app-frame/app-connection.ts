@@ -204,44 +204,73 @@ const GRANT_PAGE_LIMIT = 200;
 const GRANT_PAGES_MAX = 20;
 
 export function createAppConnector(call: CoreCaller) {
+  async function connectScoped(
+    target: ConnectTarget,
+    followRelease: boolean,
+    commands: readonly string[],
+  ): Promise<Outcome<{ binding: AppBinding; commands: string[] }>> {
+    let preview: PreviewProcess | undefined;
+    if (target.mode === "preview") {
+      const found = await currentPreview(call, target.app);
+      if (!found.ok) return found;
+      if (
+        !followRelease && target.release !== null &&
+        found.value.release !== target.release
+      ) {
+        return failure("conflict", "the preview runs another release");
+      }
+      preview = found.value;
+    }
+    const reply = await call("memory", "apps", "connect", {
+      app: target.app,
+      mode: target.mode,
+      screens: [target.screen],
+      screen_sizes: { [target.screen]: [target.size] },
+      commands: [...commands],
+      ...(preview === undefined ? {} : { preview_nonce: preview.nonce }),
+    });
+    if (!reply.ok) return mapped(reply.error);
+    const output = record(reply.value);
+    const adopted = record(output?.connection)?.release;
+    const expected: ConnectTarget = followRelease && target.mode === "live" &&
+        typeof adopted === "string"
+      ? { ...target, release: adopted }
+      : target;
+    const checked = checkConnectOutput(reply.value, expected, preview);
+    if (!checked.ok) return checked;
+    // core는 요청한 것 중 프로세스가 등록한 command만 넣는다. 요청 밖 command는 받지 않는다.
+    const granted = record(output?.connection)?.commands;
+    const scoped = Array.isArray(granted)
+      ? granted.filter((key): key is string =>
+        typeof key === "string" && commands.includes(key)
+      )
+      : [];
+    return { ok: true, value: { binding: checked.value, commands: scoped } };
+  }
+
   return {
     /**
      * view 하나의 연결을 얻는다. preview는 main이 지금 preview 프로세스의 nonce를 읽어 쓴다.
      * live에서 `followRelease`면 지금 채택된 release를 받아들인다(갱신). 아니면 다른
-     * release는 conflict다.
+     * release는 conflict다. 화면만 여는 연결이라 command 범위는 없다.
      */
     async connect(
       target: ConnectTarget,
       followRelease = false,
     ): Promise<Outcome<AppBinding>> {
-      let preview: PreviewProcess | undefined;
-      if (target.mode === "preview") {
-        const found = await currentPreview(call, target.app);
-        if (!found.ok) return found;
-        if (
-          !followRelease && target.release !== null &&
-          found.value.release !== target.release
-        ) {
-          return failure("conflict", "the preview runs another release");
-        }
-        preview = found.value;
-      }
-      const reply = await call("memory", "apps", "connect", {
-        app: target.app,
-        mode: target.mode,
-        screens: [target.screen],
-        screen_sizes: { [target.screen]: [target.size] },
-        commands: [],
-        ...(preview === undefined ? {} : { preview_nonce: preview.nonce }),
-      });
-      if (!reply.ok) return mapped(reply.error);
-      const output = record(reply.value);
-      const adopted = record(output?.connection)?.release;
-      const expected: ConnectTarget = followRelease && target.mode === "live" &&
-          typeof adopted === "string"
-        ? { ...target, release: adopted }
-        : target;
-      return checkConnectOutput(reply.value, expected, preview);
+      const opened = await connectScoped(target, followRelease, []);
+      return opened.ok ? { ok: true, value: opened.value.binding } : opened;
+    },
+
+    /**
+     * 같은 view 대상에 command 범위를 더한 연결이다(`app:call`). release는 따라가지 않는다:
+     * view에 묶인 release와 다르면 conflict다. 돌려주는 command는 core가 실제로 넣은 것이다.
+     */
+    connectCommands(
+      target: ConnectTarget,
+      commands: readonly string[],
+    ): Promise<Outcome<{ binding: AppBinding; commands: string[] }>> {
+      return connectScoped(target, false, commands);
     },
 
     /**

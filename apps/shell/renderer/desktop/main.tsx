@@ -16,6 +16,7 @@ import type { EditorDeps } from "../editor/document-view.tsx";
 import type { TerminalDeps } from "../terminal/deps.ts";
 import { LophnSpace } from "./lophn-space/lophn-space.tsx";
 import type { LophnSource } from "./lophn-space/source.ts";
+import type { OrganizeSource } from "./lophn-space/organize/source.ts";
 import { type PaletteDeps, PaletteProvider } from "./palette/host.tsx";
 import { NotificationChip } from "./notification-chip/notification-chip.tsx";
 import type { LauncherSource } from "./launcher/source.ts";
@@ -44,6 +45,8 @@ export interface DesktopProps {
   terminal?: TerminalDeps;
   /** lophn 공간(documents·series) 통로. 없으면 lophn 공간 대신 런처를 보인다. */
   lophn?: LophnSource;
+  /** projects 화면의 정리 통로. 없으면 projects는 준비 전 안내다. */
+  organize?: OrganizeSource;
   /** 창 안 팔레트와 shortcut 통로. 없으면 팔레트를 열지 않는다. */
   palette?: PaletteDeps;
   /** 런처의 프로젝트 카드·등록 통로. 없으면 카드 자리는 비었음 상태다. */
@@ -73,6 +76,7 @@ export function Desktop(
     editor,
     terminal,
     lophn,
+    organize,
     palette,
     projects,
     tracking,
@@ -162,6 +166,7 @@ export function Desktop(
       <LophnSpace
         key={visits}
         source={lophn}
+        organize={organize}
         screen={route.screen}
         initialRead={route.read}
         initialRequest={route.request}

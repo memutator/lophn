@@ -8,6 +8,7 @@ import {
   EDITOR_CURRENT_CHANNEL,
   EDITOR_LOOKUP_CHANNEL,
   EDITOR_OPEN_CHANNEL,
+  EDITOR_PLACE_CHANNEL,
   EDITOR_RELEASE_CHANNEL,
   EDITOR_RESTORE_CHANNEL,
   EDITOR_WATCH_CHANNEL,
@@ -48,6 +49,7 @@ export function createEditorApi(transport: EditorTransport): EditorFilesApi {
       current: (input) => invoke(EDITOR_CURRENT_CHANNEL, input),
       watch: (input) => invoke(EDITOR_WATCH_CHANNEL, input),
       restore: (input) => invoke(EDITOR_RESTORE_CHANNEL, input),
+      place: (input) => invoke(EDITOR_PLACE_CHANNEL, input),
       async release(input) {
         await invoke(EDITOR_RELEASE_CHANNEL, input);
       },

@@ -866,6 +866,117 @@ export const en = {
     "lophn couldn't read the project folders, so tracking stays off. Check that they exist and try again.",
   "project-workspace.tracking.unreadable-one":
     "lophn couldn't read {folder}, so tracking stays off. Check that it exists and try again.",
+  "projects.button.archive": "Archive project",
+  "projects.button.back-to-project": "Back to project",
+  "projects.button.export":
+    "Export {count, plural, one {# document} other {# documents}}",
+  "projects.button.move": "Move",
+  "projects.button.place": "Put in a file",
+  "projects.button.remove-file": "Remove the file",
+  "projects.button.rename": "Rename",
+  "projects.button.save": "Save changes",
+  "projects.button.show-latest": "Show latest",
+  "projects.button.unarchive": "Unarchive project",
+  "projects.empty.documents": "No documents in this project yet.",
+  "projects.empty.none": "No projects yet. Add one from the launcher.",
+  "projects.empty.pick": "Choose a project to see it here.",
+  "projects.error.changed": "This changed since you opened it.",
+  "projects.error.document-change-failed":
+    "Couldn't change this document. Nothing changed. Try again.",
+  "projects.error.document-name-taken":
+    "This name is already used in this place, now or before. Choose another.",
+  "projects.error.export-changed":
+    "This changed since you opened it. Nothing was exported. Check the latest and export again.",
+  "projects.error.export-failed":
+    "Couldn't export these documents. Nothing was exported. Try again.",
+  "projects.error.name-invalid":
+    "Use lowercase letters, numbers and dashes, starting with a letter.",
+  "projects.error.name-taken":
+    "This name is already used, now or before. Choose another.",
+  "projects.error.project-change-failed":
+    "Couldn't change this project. Nothing changed. Try again.",
+  "projects.error.review-unavailable":
+    "The review window can't open here yet, so the file wasn't removed.",
+  "projects.error.title-missing": "Add a title.",
+  "projects.heading.document": "Organize this document",
+  "projects.heading.documents": "Documents",
+  "projects.heading.export": "Export",
+  "projects.heading.export-included": "Included",
+  "projects.heading.export-left-out": "Not included",
+  "projects.heading.file": "File",
+  "projects.label.archived": "Archived",
+  "projects.label.document-name": "Name in links",
+  "projects.label.export-format": "Format",
+  "projects.label.export-kept-original": "Kept as the original file",
+  "projects.label.export-no-files": "Original files can't be returned",
+  "projects.label.export-not-picked": "Not picked",
+  "projects.label.export-version": "Version",
+  "projects.label.file-folder": "Folder",
+  "projects.label.file-linked": "Linked to a file",
+  "projects.label.file-name": "File name",
+  "projects.label.format-json": "JSON",
+  "projects.label.format-markdown": "Markdown",
+  "projects.label.move-to": "Move to",
+  "projects.label.name": "Name",
+  "projects.label.name-help": "Lowercase letters, numbers and dashes",
+  "projects.label.no-place": "No place",
+  "projects.label.place-project": "Project",
+  "projects.label.purpose": "Purpose",
+  "projects.label.show-archived": "Show archived projects",
+  "projects.label.step-done": "Done",
+  "projects.label.step-failed": "Didn't finish",
+  "projects.label.step-forbidden": "Not allowed",
+  "projects.label.step-move": "Put in this project",
+  "projects.label.step-not-attempted": "Not tried",
+  "projects.label.step-skipped": "Not needed",
+  "projects.label.step-source": "Link the document to the file",
+  "projects.label.step-tracking": "Track this file",
+  "projects.label.step-unlink-move": "Take out of this project",
+  "projects.label.step-unlink-source": "Unlink the file",
+  "projects.label.target-documents": "this project's documents",
+  "projects.label.target-project": "this project",
+  "projects.label.target-projects": "your projects",
+  "projects.label.title": "Title",
+  "projects.label.tracking-off": "Not tracking files",
+  "projects.label.tracking-on": "Tracking files",
+  "projects.label.version-latest": "Version {number, number}, newest",
+  "projects.label.version-number": "Version {number, number}",
+  "projects.notice.archive-keeps":
+    "Archiving hides this project from your lists. Its documents and versions stay.",
+  "projects.notice.archived":
+    "This project is archived. Its documents are still here and can be read.",
+  "projects.notice.export-pick": "Choose the documents and versions to export.",
+  "projects.notice.file-none":
+    "This document isn't in a file. lophn keeps its versions.",
+  "projects.notice.file-stays": "The file on disk stays where it is.",
+  "projects.notice.moved":
+    "Moved to {place}. Old links still open this document.",
+  "projects.notice.moved-out":
+    "Moved out of this project. It has no place now, so find it by its title.",
+  "projects.notice.place-help":
+    "lophn writes the newest version to a new file. It won't replace a file that's already there.",
+  "projects.notice.place-many-files":
+    "This version has more than one file, so it can't go in a single file.",
+  "projects.notice.place-no-project":
+    "Turn on file tracking for a project to put documents in files.",
+  "projects.notice.remove-help":
+    "The file is deleted only if it still matches the newest version. The document and its versions stay.",
+  "projects.notice.renamed":
+    "Renamed to {name}. Old links still open this document.",
+  "projects.notice.review-opened":
+    "Review the removal in the window that opened.",
+  "projects.notice.saved": "Saved.",
+  "projects.notice.steps-incomplete":
+    "Some steps after the file didn't finish. The file stays where it is.",
+  "projects.result.file-conflict":
+    "Nothing was written. A file is already there or the document changed. Choose another name or check the latest.",
+  "projects.result.file-deleted": "The file was deleted.",
+  "projects.result.file-failed":
+    "Couldn't write the file, so the document isn't in a file. Try again.",
+  "projects.result.file-gone": "The file was already gone.",
+  "projects.result.file-unknown":
+    "Couldn't confirm whether the file was written. Check the folder before trying again.",
+  "projects.result.file-written": "The file was written.",
   "projects.title.screen": "Projects",
   "report-problem.button.copy-text": "Copy your text",
   "report-problem.button.open": "Report a problem",

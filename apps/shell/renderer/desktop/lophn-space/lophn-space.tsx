@@ -45,6 +45,8 @@ export interface LophnSpaceProps {
   now?: () => number;
   /** documents 화면에서 처음 읽을 문서(전역 팔레트의 문서 행). */
   initialRead?: { readonly document: string; readonly version: string };
+  /** things-to-confirm에서 처음 고를 요청. */
+  initialRequest?: string;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -59,6 +61,7 @@ export function LophnSpace(
     onProject,
     now,
     initialRead,
+    initialRequest,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
@@ -203,7 +206,12 @@ export function LophnSpace(
               />
             )
             : current === "things-to-confirm" && requests !== null
-            ? <ThingsToConfirm deps={requests} />
+            ? (
+              <ThingsToConfirm
+                deps={requests}
+                initialSelected={initialRequest}
+              />
+            )
             : (
               <p className={styles.notReady} data-not-ready={current}>
                 {t("common.empty.not-ready")}

@@ -611,6 +611,7 @@ concerns: [shell]
   - 작업 검토: 기본은 대상·결과·다음 행동, 상세에 시각·역할·이유·근거·영향 링크. 도구 활동은 단계 수로 접고 펼침. 판단은 요약만. 호출별 사용량과 실제 청구·구독 포함·무료·모름을 구별한다. export는 내용 종류를 고르고 결과 수를 보인다.
   - Preset: 역할마다 기본 Preset과 사람이 고친 판, 계정 순서·model·context·skill·MCP·개별 tool 선택, 새 판 저장과 명시 적용. 내부 구성(prompt, capability)은 펼친 자리에만.
   - flow review-agent-work, resume-agent-session(roles 쪽), add-agent-extension(Preset 쪽) 화면. 화면 테스트.
+- shell#T35에서 넘어온 것: lophn 답의 streaming 임시 글(shell#T27 → T35에서 이어온 것, Q15 (3)). 대화 탭과 도크가 같은 `conversation/message-list`를 쓰므로 여기서 함께 한다. 임시 글을 보이고 같은 id의 확정 메시지가 오면 바꾸며, 그 동안에도 입력 focus와 읽던 위치를 지킨다(shell/workspace#R13). stream 조각은 시각 블록으로 그리지 않는다(lophn-agent/conversation#R13). renderer로 오는 streaming 통로(core event → main → renderer)가 아직 없으니 먼저 그 통로가 있는지 보고, 없으면 lead에게 올린다.
 
 ### T31 settings: provider 연결과 계정, 확장, 전역 Instructions 진입
 
@@ -689,6 +690,7 @@ concerns: [shell]
 
 ### T35 세션 시각 블록 renderer
 
+- 상태: 완료 (#338) — 이어보냄: lophn 답의 streaming 임시 글 → T30, 세션 앱 카드 갈래 → T44, 블록 하나만 output schema를 못 지날 때 메시지 전체 읽기 실패(contracts 판단, Q23 (2))
 - 등급: frontend
 - concern: shell/workspace
 - 요구: shell/workspace#R12, R13
@@ -697,9 +699,9 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T27, shell#T33, shell#T34, contracts#T30, lophn-agent#T33
-- lophn-agent#T33에서 넘어온 것: 블록 틀의 [Save as document]는 별도 visuals 저장 contract를 부르지 않는다(그런 contract는 없다). 누르면 "이 블록을 문서로 남겨 달라"는 요청을 대화 입력(`ReceiveMessage`)으로 보내고, agent가 `visual.prepare_document`와 문서 tool로 준비·저장한다(visuals#R6, lophn-agent 질문 Q45 (6), lead 승인). 저장 뒤 고정 문서 링크는 그 답 메시지의 링크에서 온다.
+- lophn-agent#T33에서 넘어온 것: 블록 틀의 [Save as document]는 별도 visuals 저장 contract를 부르지 않는다(그런 contract는 없다). 누르면 "이 블록을 문서로 남겨 달라"는 요청을 대화 입력(`ReceiveMessage`)으로 보내고, agent가 `visual.prepare_document`와 문서 tool로 준비·저장한다(visuals#R6, lophn-agent 질문 Q45 (6), lead 승인). 저장 뒤 고정 문서 링크는 그 답 메시지의 링크에서 온다. → 했다(Q23 (4)): 버튼은 요청 글을 일반 request로 보내고, 요청 말이 맡긴 run의 lophn 답에 문서·판 결과 링크가 오면 그 블록 틀에 고정 문서 링크를 보인다.
 - lophn-agent#Q29에서 넘어온 것(#281, 계약이 정해졌다): (1) 보내기는 `ReceiveMessage` 입력의 `body`(hash)를 `content`(`{schema_version: 1, parts: [{kind: "text", text}]}`, 정규 직렬화 64KiB 이하)로 바꾼다. renderer·main은 hash도 blob도 만들지 않고 core가 redaction·준비·영구 참조를 한다. 같은 id·같은 idempotency key의 재전송은 이전 결과다. 본문 hash는 응답의 `message.body`에서 온다. (2) 읽기는 `ReadMessageBody`(`/v1/messages/body`, 입력 `{message}`, 출력 `{message, session, body, size_bytes, content, as_of_seq, next_cursor}`)이고 `content.parts`는 글·시각 블록이다. 사람·그 assignment의 agent·machine만 읽으며 없는 메시지와 다른 assignment의 것은 같은 `not_found`, 본문 blob을 못 읽으면 `unavailable`이다. (3) 새 데이터 root에도 lophn assignment가 있다(core 기동이 만든다, lophn-agent Q37). model이 미준비라 run은 provider를 고르기 전까지 시작하지 못한다. → (1)·(2)는 #285에서 했다: 도크가 `content`를 보내고(보내기 전에 64KiB 상한을 보고 넘으면 보내지 않고 이유를 둔다) 확정 메시지 본문을 `ReadMessageBody`로 읽는다. 블록 renderer만 이 작업에 남는다
-- shell#T27에서 넘어온 것: 메시지 본문(MessageContent) 읽기와 그 글·블록 표시. → 읽기와 글 표시는 #285에서 했다: 도크(`apps/shell/renderer/conversation/`)는 사람 말·lophn 답·machine 사실·다른 창이 보낸 말의 본문을 모두 읽어 글 part를 그리고, 읽은 본문은 창 메모리(`DraftStore`)에 둔다. 이 창이 보낸 말은 읽기 전까지 보낸 글로 자리를 채운다. 시각 블록 part는 지금 제목과 "Charts, tables, and diagrams can't be shown in the conversation yet."만 글로 보이는 자리 표시다(`message-list.tsx`의 `VisualPending`). 이 작업의 블록 renderer가 그 자리를 바꾼다. 남은 것: 블록 그리기, lophn 답의 streaming 임시 글(확정 메시지로 바꾸기, renderer로 오는 streaming 통로가 아직 없다, Q15 (3))
+- shell#T27에서 넘어온 것: 메시지 본문(MessageContent) 읽기와 그 글·블록 표시. → 읽기와 글 표시는 #285에서 했다: 도크(`apps/shell/renderer/conversation/`)는 사람 말·lophn 답·machine 사실·다른 창이 보낸 말의 본문을 모두 읽어 글 part를 그리고, 읽은 본문은 창 메모리(`DraftStore`)에 둔다. 이 창이 보낸 말은 읽기 전까지 보낸 글로 자리를 채운다. 시각 블록 part는 지금 제목과 "Charts, tables, and diagrams can't be shown in the conversation yet."만 글로 보이는 자리 표시다(`message-list.tsx`의 `VisualPending`). 이 작업의 블록 renderer가 그 자리를 바꾼다. 남은 것: 블록 그리기, lophn 답의 streaming 임시 글(확정 메시지로 바꾸기, renderer로 오는 streaming 통로가 아직 없다, Q15 (3)) → 블록 그리기는 이 작업에서 했다(Q23): `VisualPending`을 없애고 본문 순서대로 블록 renderer가 그린다. streaming 임시 글은 통로가 아직 없어 T30으로 넘겼다
 - 완료: 아래 확인이 통과한다
   - 검증된 선언형 블록(표, 막대·선·산점 차트, node·edge 도표, 고정 문서)만 설치 SDK의 허용 registry로 그린다. 앱 카드 갈래는 T44. schema를 통과하지 못하면 그 자리에 오류와 안전한 설명만.
   - agent의 JS·HTML·CSS·URL을 import·eval·innerHTML로 실행하지 않고 label·text를 escape한다. script 입력은 실행 없이 거절된다.
@@ -838,6 +840,7 @@ concerns: [shell]
 - 선행: shell#T37, shell#T39, apps#T9
 - shell#T28에서 넘어온 것: 앱 공간 바의 lophn 크롬은 `apps/shell/renderer/desktop/notification-chip/space-decisions.tsx`의 `SpaceDecisions`(place `{kind: "app", id}`, 열기는 things-to-confirm)를 둔다. 프로젝트 작업대 바에는 T28에서 두었다
 - shell#T21에서 넘어온 것: lophn 공간 팔레트의 앱 행은 지금 apps 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 app target). 앱 공간이 생기면 그 앱 공간으로 간다.
+- shell#T47에서 넘어온 것: 앱 공간 바(또는 운영 패널)에 [Open in new window]와 OS 바로가기 추가·제거를 둔다. 새 창은 main의 `appWindows.open(app)`(`main/desktop/app-window.ts`)을, 바로가기는 `installOsEntry`·`removeOsEntry`(`main/desktop/os-entry/entry.ts`)를 sender 검사한 IPC로 부른다. renderer는 앱 ID만 보내고 이름은 main이 `apps/get`으로 읽는다. 실제 writer(`EntryFiles`의 원자 쓰기·mode, macOS 폴더 제거, Windows `shell.writeShortcutLink`)와 `OsEntryEnv`(XDG_DATA_HOME, APPDATA, home) 조립은 main.ts에 아직 없다. headless와 개발 실행은 쓰지 않는다
 - shell#T27에서 넘어온 것: 앱 공간 바의 대화 도크 토글(`DockToggle`)과 본문 오른쪽 `DockSlot`(새 세션 작업 자리 `{kind: "app"}`). 도크가 앱 view를 덮거나 밀 때의 native bounds는 T39를 따른다
 - 완료: 아래 확인이 통과한다
   - 앱 공간은 얇은 바와 앱 view 전체 본문. 바에 런처 복귀, 앱 이름·연결 상태, [Report a problem] 자리(T52), 운영 패널 진입, 문서 작업대 전환. 운영 패널 720px, 1024px 미만이면 overlay이되 앱 view는 남은 영역으로 줄어든다.
@@ -874,6 +877,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T35, shell#T37, shell#T39
+- shell#T35에서 넘어온 것: 세션 앱 카드 갈래. 블록 틀(`workspace/visuals/block-frame.tsx`)은 `app_card` 블록을 검사한 뒤 지금 설명·출처와 "App cards can't be shown in the conversation yet."만 둔다(`data-visual-app-card`). `app-card-block.tsx`가 그 자리를 앱 frame 카드로 바꾼다. registry(`registry.ts`의 `AppCardContent`)는 app·release·view만 옮기고 카드 입력(`input`)은 버린다. 카드가 입력을 쓰면 registry가 그 값을 옮기게 고친다(그리지 않고 앱 view 계약에 넘길 값이다). 저장된 release가 지금과 다르면 `contract_changed`, 사라지면 `unavailable`이고 다른 release로 바꾸지 않는다(lophn-agent/visuals domain model). 카드 블록도 [Save as document]가 있다(agent 준비에서 snapshot은 지금 unavailable, lophn-agent#T47).
 - 완료: 아래 확인이 통과한다
   - blueprint가 panel 크기를 선언한 screen만 프로젝트 탭에 연다. 아니면 앱 공간으로 열기를 안내하고 조용히 줄이지 않는다. 카드도 card 크기 선언만.
   - 패널·카드는 전체 앱 view와 같은 앱·release·mode 신원과 session·scheme·preload·network 격리. size class는 screen 요청에, 폭·높이는 앱이 viewport에서 읽는다.
@@ -900,6 +904,7 @@ concerns: [shell]
   - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
   - 종류별 테스트.
 - shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
+- shell#T47에서 넘어온 것: main.ts `appWindows`의 `entryScreen`(앱 전용 창에 여는 screen)을 같은 `/v1/apps/blueprint` read로 잇는다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen이다. 지금은 unavailable이라 실제 shell에서 `--open-app`은 전용 창 대신 가장 최근 창을 앞으로 가져온다
 
 ### T46 앱 화면 검사 host
 
@@ -935,6 +940,8 @@ concerns: [shell]
   - Linux `.desktop`, macOS app bundle, Windows shortcut은 고정 앱 ID를 `--open-app` intent로만 넘긴다. 앱 코드·source path·token·port를 실행하지 않는다.
   - `lophn://things-to-confirm/<id>`는 OS URL scheme으로 등록하고 single instance로 받아 엄격히 parse한 뒤 그 대상 화면을 창에 연다. confirmation window를 자동으로 띄우지 않는다(사람이 그 화면에서 누를 때 그 창을 부모로 연다).
   - `open-intent_test`, `os-entry_test`와 세 표시 방식에서 같은 격리 spec(`e2e/shell/app-isolation_test.ts` 확장).
+- 정한 것: (1) 앱 전용 창(`main/desktop/app-window.ts`)은 시스템 제목 표시줄이 있는 빈 BrowserWindow(preload 없음)이고 본문 전체를 앱 view 하나가 채운다. view는 본문 view와 같은 `appFrame`·`electronAppViews`로 열어 session·scheme·preload가 같다. main이 `apps/get`으로 보관되지 않았고 채택된 release가 있는지 보고 그 release를 live·full로 연다. 앱 하나에 전용 창은 하나이고 다시 요청하면 그 창을 앞으로 가져온다. 열지 못하면 창을 남기지 않고 가장 최근 창(없으면 새 기본 창)을 앞으로 가져온다. 전용 창은 shell 창이 아니라 shortcut·intent·core 상태를 받지 않는다. (2) 창 열기 intent(`main/desktop/open-intent.ts`)는 `--quit`, 정확히 한 번의 `--open-app <app ID>`(바로 뒤 값만, `=` 형식 거절), 정확히 하나의 `lophn://things-to-confirm/<apr|qst ID>`만 읽고 나머지·둘이 섞인 것은 기본 창이다. 첫 시작 argv, second-instance argv, macOS `open-url`이 같은 parser를 쓴다. node test가 zod를 풀지 못해 contracts/shell/launch.ts와 같은 모양을 정규식으로 본다. URL scheme은 packaged·headless 아님일 때만 `setAsDefaultProtocolClient("lophn")`로 등록한다. (3) 링크는 shell renderer에 `{kind: "things-to-confirm", request}` intent로 가 그 요청을 고른 things-to-confirm을 열 뿐이고 결정 창은 사람이 [Review]를 누를 때 그 창을 부모로 연다. (4) OS 바로가기(`main/desktop/os-entry/`)는 packaged 실행 파일의 검증된 경로(autostart와 같은 검사에 shell 특수 글자 거절)와 `--open-app <app ID>`만 담는다. 자리는 앱 ID로 정한다: Linux `$XDG_DATA_HOME/applications/lophn-<app>.desktop`, macOS `~/Applications/lophn-<app>.app`(Info.plist와 exec 두 줄 script, LSUIElement), Windows 시작 메뉴 `lophn\lophn-<app>.lnk`(`shell.writeShortcutLink`). headless·개발 실행은 쓰지 않는다
+- 상태: 완료 (#344) — 이어보냄: 등록 버튼·IPC와 실제 writer → shell#T42, 전용 창 screen의 blueprint read → shell#T45, 설치 묶음의 lophn scheme 등록 → shell#T57
 
 ### T48 깨진 앱 격리 확인
 
@@ -1104,6 +1111,7 @@ concerns: [shell]
 - 선행: shell#T3, shell#T24, shell#T47
 - shell#T24에서 넘어온 것: Windows terminal child의 Job Object 종료 확인(POSIX group 종료와 fail-closed unknown은 #232)
 - shell#T55에서 넘어온 것: tray 아이콘 `apps/shell/main/desktop/icon.png`를 packaged resources의 `icon.png`로 넣기, packaged Linux XDG autostart 실제 등록과 macOS·Windows login item(macOS `wasOpenedAtLogin` tray mode 포함)·tray의 실제 OS 확인(주입 adapter 단위 테스트와 개발 실행 Linux `--tray`·`--quit` smoke는 #233)
+- shell#T47에서 넘어온 것: electron-builder `protocols`로 `lophn` URL scheme을 설치 묶음에 넣는다(Linux `.desktop`의 `MimeType=x-scheme-handler/lophn;`과 `%u`, macOS `CFBundleURLTypes`). main은 packaged 실행에서 `setAsDefaultProtocolClient("lophn")`도 부른다(`main/desktop/open-intent.ts`의 `registerUrlScheme`). packaged smoke에서 링크·`--open-app`이 실행 중 main의 second-instance로 들어와 앱 전용 창·things-to-confirm을 여는지 본다
 - 완료: 아래 확인이 통과한다
   - electron-builder로 Linux .deb(먼저), macOS·Windows 설정. shell build, preload, renderer, 로컬 글꼴, 고정 의존성, bundle된 Deno, node-pty native 모듈을 staging에 넣는다. sandbox를 끄지 않는다(Ubuntu AppArmor userns는 chrome-sandbox 권한으로 맞추고 `--no-sandbox` 우회 없음).
   - packaged main은 bundle된 Deno로 core를 띄운다. 시작 실패·sandbox 실패·schema 비호환은 런처의 실패 갈래로 정상처럼 보이지 않게 안내하고 다음 행동 하나를 준다.
@@ -1244,3 +1252,10 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (3) shell tsc는 contracts의 `blueprint-schema.ts`를 `noUncheckedIndexedAccess`로 검사하면 실패한다. 그래서 `validateInput`·`canonicalInputHash`는 deno가 검사하는 main.ts 조립이 app-call에 넘긴다(`InputRules`). app-call 테스트는 같은 contracts 함수를 쓴다.
   - (4) context isolation 때문에 페이지의 error·unhandledrejection은 preload(isolated world) listener에 오지 않는다(e2e에서 확인). 감시 함수를 `contextBridge.executeInMainWorld`로 main world에서 돌리고 보고 함수는 인자로만 넘겨 `window`에 이름을 더하지 않는다. SDK 루트 render 오류는 `lophn:render-error` DOM event로 받는다(→ T40).
   - (5) 아직 core 통로가 없는 것: blueprint read(apps#T19 `/v1/apps/blueprint`)와 confirm gate(→ T45), view 오류의 collector 전달 binding과 main 조립 연결(→ problems#T16, contracts 판단 필요). 그 전까지 main은 각각 unavailable·unsent다. headless 확인(`LOPHN_SHELL_HEADLESS=1`)에서는 외부 링크를 OS browser로 열지 않고 log만 남긴다. 앱 view의 `<a target=_blank>`·main frame 탐색은 지금처럼 막히고 OS browser로 넘기지 않는다. 링크는 `lophnApp.openExternal`로만 연다.
+- **Q23 세션 시각 블록 renderer의 검사, 문서로 남기기, 남은 갈래(T35, 추천안으로 진행).**
+  - (1) renderer 검사. renderer는 contracts를 bundle에 싣지 않는다(zod와 core 쪽 graph, `editor/core-source.ts`와 같은 이유). 그래서 VisualBlock(contracts#T30)의 모양·상한과 owner 검사의 markup·URL 규칙(lophn-agent Q45 (1))을 `workspace/visuals/registry.ts`에 옮겨 적었고 `registry_test.ts`가 같은 fixture를 contract schema로도 통과시켜 맞춰 본다. 그릴 수 있는 종류는 frozen registry(`table`·`chart`·`diagram`, 앱 카드는 T44)뿐이다. 지금 검사를 지나지 못하는 저장 블록(규칙이 바뀌었거나 판·종류가 다른 것)은 그리지 않고 이유(모양·종류·markup·그릴 수 없음)와, 따로 검사해 안전한 제목·설명·출처만 둔다. 문자열은 React text node로만 그리고 SDK에는 문자열·숫자 props만 넘긴다. 블록마다 error boundary를 둬 SDK 그리기 예외도 그 블록의 "그릴 수 없음"에 그친다.
+  - (2) 막지 못하는 것(lead 판단). main의 contract client가 `messages/body` 출력을 route output schema로 검사하므로 저장 블록이 output schema(비엄격)조차 지나지 못하면 메시지 전체가 "Couldn't load this message."다. 블록 하나만 이용 불가로 두려면 output schema가 visual part를 블록별로 느슨하게 받아야 하고 그것은 contracts 몫이다. 지금은 owner가 저장 때 더 엄격한 검사를 하므로 생기지 않는다.
+  - (3) SDK 매핑. 막대는 `BarChart`(x를 처음 나온 순서의 범주로), 선은 `LineChart`(시간 축만, 시각 순 정렬), 산점은 `ScatterChart`(숫자 축, y가 null인 점은 자리가 없어 찍지 않는다), 도표는 `GraphDiagram`(node 설명은 아래 목록 글). SDK가 그리지 못하는 조합(범주·숫자 축의 선, 시간 축의 산점, 한 계열의 같은 x)은 값을 바꾸거나 버리지 않고 같은 데이터를 표로 보이며 "This chart is shown as a table."를 둔다. 자기 자신을 가리키는 edge는 contract가 받지만 SDK 도표가 받지 않아 "그릴 수 없음"이다. SDK가 이 조합을 그리게 되면 표 대신 차트로 바꾼다(shell/design-system 몫). 빈 표·차트의 한 가지 다음 행동은 "Read the description"(설명으로 focus)이다. 설명이 빈 값·결측을 말하기 때문이다(lophn-agent/visuals domain model).
+  - (4) 문서로 남기기(lophn-agent Q45 (6), lead 결정). 별도 저장 contract는 없다. 버튼은 "Save the visual “{title}” (block {block} in message {message}) as a document."를 일반 request로 보낸다. 글에 메시지 id와 block key를 싣는 것은 agent가 `visual.prepare_document`의 `message`·`block_keys`를 틀리지 않게 하기 위함이고, 그래서 사람 말 글에 id가 보인다. 작성 중 글·focus·읽던 위치는 건드리지 않는다(`DraftStore.sent`가 요청 말은 보낸 말만 지운다). 다른 말을 보내는 중이거나 연결이 끊기면 버튼만 잠근다. 진행은 창 메모리의 요청 id와 기록에서 계산한다(`conversation/model.ts`의 `visualSaveState`): 보내는 중, 요청됨, 못 보냄(다시 누를 수 있다), 저장 안 함(요청 말이 맡긴 run이 끝났는데 결과 링크가 없다, 이유는 답이 말한다), 저장됨(그 run의 lophn 답의 문서·판 결과 링크, 그 블록 틀에 고정 문서 링크로 보인다). 요청 기억은 창 메모리라 창을 다시 열면 블록 틀에는 링크가 없고 답 아래 결과 링크로만 보인다.
+  - (5) 고정 문서 블록. VisualBlock에는 문서 종류가 없다. 계획의 "고정 문서"는 출처의 문서 판과 저장 뒤 고정 문서 링크로 했다(`document-block.tsx`). 이름은 `documents/get`으로 읽고 not_found·forbidden이면 "Document you can't open"으로 두며 다른 판으로 바꾸지 않는다. 누르면 host의 `onOpenResult(document, version)`가 연다(실행 가능한 format은 T33 view).
+  - (6) 확인: `workspace/visuals/registry_test.ts`(script 거절, contract와 같은 모양), `workspace/visuals/visuals_test.tsx`(SDK 그리기, escape, 그 자리 상태, 출처 문서, 저장 진행), `conversation/dock_test.tsx`(본문 순서, 저장 요청과 focus·읽던 위치·작성 중 글). headless offscreen probe(`BrowserWindow({show:false, offscreen:true})`의 paint)로 도크의 막대·표·선·도표·이용 불가 블록과 저장 뒤 링크를 확인했다.

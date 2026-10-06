@@ -557,24 +557,6 @@ export async function untilSearch(
   }
 }
 
-/** 문서 이름을 정하고 프로젝트에 둔다(사람 command). */
-export async function placeDocument(
-  flow: FlowShell,
-  document: Listed,
-  name: string,
-  project = PROJECT,
-): Promise<void> {
-  await mustCall(flow, {
-    kind: "command",
-    resource: "documents",
-    method: "move",
-    body: commandBody(
-      { document: document.id, place: { kind: "project", id: project }, name },
-      { base_revision: document.revision },
-    ),
-  });
-}
-
 /** 문서의 최신 판 section 상태가 `status`가 될 때까지 기다린다(추출은 판을 뒤따른다). */
 export async function untilSectionStatus(
   flow: FlowShell,

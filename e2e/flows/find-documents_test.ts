@@ -21,7 +21,6 @@ import {
   listDocuments,
   mustCall,
   openFlowShell,
-  placeDocument,
   registerTrackedProject,
   removeHome,
   untilDocuments,
@@ -93,9 +92,10 @@ Deno.test({
       const glossary = await documentTitled(flow, "glossary");
 
       await t.step(
-        "documents/outline-and-search#R1 documents/outline-and-search#R12 documents/addressing#R3: 1 검색 목록은 제목과 짧은 근거만 보이고 본문은 열기 전까지 읽지 않으며 자리 없는 문서도 찾는다",
+        "documents/outline-and-search#R1 documents/outline-and-search#R12 documents/addressing#R3: 1 검색 목록은 제목과 짧은 근거만 보이고 본문은 열기 전까지 읽지 않고 관측한 문서는 그 프로젝트에 놓여 찾는다",
         async () => {
-          assertEquals(glossary.name, null);
+          // 폴더에서 관측해 만든 문서는 그 프로젝트의 문서고 파일 이름이 문서 이름이다(documents Q31).
+          assertEquals(glossary.name, "glossary");
           await search(flow, "문서");
           await flow.until(
             `document.querySelectorAll(${JSON.stringify(HITS)}).length >= 2`,
@@ -208,8 +208,8 @@ Deno.test({
       await t.step(
         "documents/versions#R6 documents/versions#R8 documents/addressing#R5 documents/addressing#R6 documents/addressing#R7: 4 지정한 판은 당시 내용으로 열고 최신 판을 따로 알리며 이름이 바뀐 옛 참조는 같은 문서로 안내한다",
         async () => {
-          // 문서에 이름을 붙여 주소로 닿게 한다(사람의 자리 이동 command).
-          await placeDocument(flow, glossary, "glossary");
+          // 관측한 문서는 프로젝트와 이름이 있어 주소(alpha/glossary)로 닿는다.
+          assertEquals(glossary.name, "glossary");
           // 밖에서 파일을 고쳐 두 번째 판을 만든다.
           await editExternally(
             folder,
@@ -323,7 +323,7 @@ Deno.test({
             "unsupported",
             "PDF의 section 상태가 정해지지 않았다",
           );
-          await placeDocument(flow, pdf, "sample");
+          assertEquals(pdf.name, "sample");
           await openLink(flow, "alpha/sample");
           await flow.until(
             `document.querySelector("[data-section-status]") !== null`,

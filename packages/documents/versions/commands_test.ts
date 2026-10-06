@@ -666,6 +666,80 @@ Deno.test("documents/versions#R13: 파일 관측의 첫 저장은 문서를 그 
   }
 });
 
+Deno.test("documents/addressing#R3 documents/file-tracking#R1: 파일 관측이 만든 새 문서는 그 프로젝트에 두고 같은 이름은 -2를 붙이며 자리를 정해 보낸 저장과 파일 없는 저장은 그대로다", () => {
+  const fixture = versionFixture();
+  try {
+    keep(save(fixture, newObservation(ids.doc, "/work/notes/a.md")));
+    keep(
+      save(
+        fixture,
+        newObservation(ids.other, "/work/more/a.md", {
+          idempotency_key: "save-2",
+        }),
+      ),
+    );
+    const placed = fixture.sql.all(
+      "SELECT id, place_kind, place_id, name FROM documents ORDER BY name",
+      [],
+    );
+    assertEquals(
+      placed.map((row) => [row["place_kind"], row["place_id"], row["name"]]),
+      [["project", ids.project, "notes"], ["project", ids.project, "notes-2"]],
+    );
+    // 두 이름 모두 예약 표에 올라 다른 문서가 쓰지 못한다.
+    const reserved = fixture.sql.all(
+      "SELECT name FROM document_names ORDER BY name",
+      [],
+    );
+    assertEquals(reserved.map((row) => row["name"]), ["notes", "notes-2"]);
+    // 만들어진 event도 자리와 이름을 담는다.
+    const created = fixture.emitted.filter((event) =>
+      event.type === "DocumentCreated"
+    ).map((event) => event.payload as { place: unknown; name: unknown });
+    assertEquals(created.map((payload) => payload.name), ["notes", "notes-2"]);
+    assertEquals(created[0].place, { kind: "project", id: ids.project });
+  } finally {
+    fixture.close();
+  }
+
+  // 파일 없는 저장은 임의 기본 자리에 넣지 않는다(addressing#R3).
+  const plain = versionFixture();
+  try {
+    keep(save(plain, preparedInput(ids.doc, [file("a.md", true)])));
+    const row = plain.sql.get(
+      "SELECT place_kind, name FROM documents WHERE id = ?",
+      [ids.doc],
+    );
+    assertEquals(row?.["place_kind"], null);
+    assertEquals(row?.["name"], null);
+  } finally {
+    plain.close();
+  }
+
+  // 호출자가 자리와 이름을 정해 보낸 관측 저장은 그대로 따른다.
+  const named = versionFixture();
+  try {
+    keep(
+      save(
+        named,
+        newObservation(ids.doc, "/work/notes/a.md", {
+          metadata: {
+            title: "Notes",
+            place: { kind: "project", id: ids.project },
+            name: "chosen",
+          },
+        }),
+      ),
+    );
+    const row = named.sql.get("SELECT name FROM documents WHERE id = ?", [
+      ids.doc,
+    ]);
+    assertEquals(row?.["name"], "chosen");
+  } finally {
+    named.close();
+  }
+});
+
 Deno.test("documents/versions#R13: 같은 경로에 이미 연결된 문서가 있으면 새 문서 저장은 충돌한다", () => {
   const fixture = versionFixture();
   try {

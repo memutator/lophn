@@ -17,7 +17,6 @@ import {
   listDocuments,
   mustCall,
   openFlowShell,
-  placeDocument,
   registerProject,
   registerTrackedProject,
   removeHome,
@@ -83,8 +82,8 @@ Deno.test({
         title: "Beta",
       });
       const glossary = await documentTitled(flow, "glossary");
-      await placeDocument(flow, glossary, "glossary");
-      const placed = await documentTitled(flow, "glossary");
+      assertEquals(glossary.name, "glossary");
+      const placed = glossary;
       const sourceBefore = await fileSource(flow, glossary.id);
       const bytesBefore = await Deno.readTextFile(`${folder}/glossary.md`);
       assert(sourceBefore !== null, "원본 연결 문서여야 한다");
@@ -188,8 +187,11 @@ Deno.test({
           });
           assertEquals(reserved.ok, false);
           assertEquals(reserved.error?.code, "conflict");
-          // 거절된 문서는 자리가 그대로다.
-          assertEquals((await documentTitled(flow, "migration")).name, null);
+          // 거절된 문서는 자리와 이름이 그대로다(관측할 때 놓인 프로젝트의 이름).
+          assertEquals(
+            (await documentTitled(flow, "migration")).name,
+            "migration",
+          );
         },
       );
 

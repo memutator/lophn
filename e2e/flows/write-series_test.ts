@@ -15,7 +15,6 @@ import {
   listDocuments,
   mustCall,
   openFlowShell,
-  placeDocument,
   registerTrackedProject,
   removeHome,
   untilDocuments,
@@ -60,9 +59,9 @@ Deno.test({
         ["P001", "P002"],
         "추적한 파일이 문서가 되지 않았다",
       );
-      // 멤버는 같은 자리의 문서다. 사람이 두 문서에 이름을 붙여 프로젝트에 둔다.
-      await placeDocument(flow, await documentTitled(flow, "P001"), "p001");
-      await placeDocument(flow, await documentTitled(flow, "P002"), "p002");
+      // 멤버는 같은 자리의 문서다. 관측한 두 문서는 이미 그 프로젝트에 이름이 있다.
+      assertEquals((await documentTitled(flow, "P001")).name, "p001");
+      assertEquals((await documentTitled(flow, "P002")).name, "p002");
       // 자리 선택지는 화면이 처음 읽는다. 등록한 프로젝트가 보이게 창을 다시 읽는다.
       await flow.reload();
       await flow.mouseClickText("[role=tab]", "Series");

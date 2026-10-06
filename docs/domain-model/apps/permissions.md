@@ -103,7 +103,7 @@ Permission kind는 `fs.read`, `fs.write`, `net.fetch`, `net.listen`, `secret.use
 | `grant.create` | machine | app,kind,scope,approval | 정확한 approval·현재 요구(app.call은 app_connections, agent.commands는 commands, automation.run은 external automation 선언)·앱의 grant 집합 seq; activation 없음 | `GrantCreated` | `forbidden`, `invalid_input`, `conflict` |
 | `grant.revoke` | user | grant,종료 확인 근거 | 앱의 grant 집합 seq·현재 프로세스 종료(automation.run은 제외)·activation 없음 | `GrantRevoked` | `conflict`, `unavailable` |
 
-`grant.create`는 dispatch 전용이다. `apply_approved_action`이 approval 사용과 같은 transaction에서만 부르고, HTTP 직접 호출은 등록되지 않은 command와 같은 `invalid_input`으로 거절된다(platform Q31). `grant.revoke`는 직접 호출 command다.
+`grant.create`는 dispatch 전용이다. `apply_approved_action`이 approval 사용과 같은 transaction에서만 부르고, HTTP 직접 호출은 등록되지 않은 command와 같은 `invalid_input`으로 거절된다(platform Q32). `grant.revoke`는 직접 호출 command다.
 
 grant 집합 seq는 그 앱의 grant에 마지막으로 남은 GrantCreated·GrantRevoked event의 seq(없으면 0)다. grant.create와 revoke가 같은 값으로 비교하고 activation도 시작 때 이 값을 고정한다. 종료 확인 근거는 그 앱의 마지막 프로세스 사실(AppStarted·AppStopped)로 판정한다: 한 번도 시작하지 않았거나 마지막이 AppStopped면 이미 멈춘 것이고, 마지막이 AppStarted면 입력의 process_nonce가 그 nonce와 같고 termination_confirmed가 true일 때만 revoked로 확정한다. 나머지는 unavailable이고 grant는 active로 남는다. 범위 밖 앱·없는 grant·이미 회수한 grant는 같은 `conflict`로 답한다.
 

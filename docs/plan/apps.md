@@ -1319,6 +1319,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T25 fixture: rate limit 대시보드 앱
 
+- 상태: 완료 (#398) — 남은 것: ui-filter 날짜 범위 popover의 카드 폭 잘림(shell), import map의 `@types` 지시문 따라가기(apps/sdk)
 - 등급: frontend
 - concern: apps/blueprint, apps/runtime, apps/invocations
 - 요구: apps/blueprint#R19, apps/runtime#R31, apps/invocations#R14

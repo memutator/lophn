@@ -55,7 +55,7 @@ ApprovalRequest의 고정 동작, 사람의 결정, 한 번 사용 연결을 정
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `concern` | concern id | 아니오 | 등록된 동작 소유 concern | 적용 영역 |
-| `command` | string | 아니오 | 해당 concern의 등록된 command 이름; 임의 함수 이름 금지 | 동작 |
+| `command` | string | 아니오 | 해당 concern이 등록한 command route 이름 그대로(`document.rename`처럼 dot 포함); 이름을 바꾸거나 맞추지 않음; 임의 함수 이름 금지 | 동작 |
 | `caller` | actor | 아니오 | 생성 시 검증한 실제 호출 주체; 자격 원문 금지 | 적용 주체 |
 | `targets` | ID 배열 | 아니오 | 비어 있지 않음; 중복 없음; 정확한 고정 ID; 생성 대상은 미리 배정한 ID | 대상 묶음 |
 | `input` | `{kind: inline, value: JSON object}` 또는 `{kind: blob, sha256: sha256}` | 아니오 | 둘 중 하나; command schema 통과; 큰 입력은 blob | 정확한 입력 |
@@ -65,7 +65,7 @@ ApprovalRequest의 고정 동작, 사람의 결정, 한 번 사용 연결을 정
 
 - “현재 release”, 이름·slug만으로 대상을 묶지 않는다. 같은 입력이라도 대상·caller·비교 기준이 달라지면 다른 동작이다.
 - assignment·tool·MCP 연결이 호출 전제이면 그 고정 ID와 판은 소유 command의 입력·비교 기준에 포함한다. → lophn-agent/harness/tool-judgment, lophn-agent/extensions
-- 앱 `confirm` 호출은 `concern = apps/invocations`이며 requester와 caller는 인증된 실제 요청자다. 앱 화면의 user·agent·다른 앱의 요청을 사람이 허락해도 원래 요청자를 user로 바꾸지 않는다. targets·입력은 정확한 앱·release·command와 실제 caller 근거를, `input_hash`는 그 command의 정규 입력을 고정한다. agent ask와 confirm이 겹치면 같은 정확한 approval을 한 번만 사용한다. → apps/invocations#R17, apps/invocations#R18, lophn-agent/harness/tool-judgment
+- 앱 `confirm` 호출은 `concern = apps/invocations`이며 requester와 caller는 인증된 실제 요청자다. 앱 화면의 user·agent·다른 앱의 요청을 사람이 허락해도 원래 요청자를 user로 바꾸지 않는다. `command`는 접수 command `invocation.accept_confirm`이고 `input`은 그 접수 입력 전체(approval id 포함)다. targets는 정확히 `[앱, release]`, `comparison`은 같은 release를 포함하며 `input_hash`는 접수 입력의 정규 지문이다. 요청자는 사람의 결정자와 별도로 남는다. agent ask와 confirm이 겹치면 같은 정확한 approval을 한 번만 사용한다. → apps/invocations#R17, apps/invocations#R18, lophn-agent/harness/tool-judgment
 - secret 값·credential 원문은 입력·미리보기·event에 넣지 않는다. secret 이름·안전 참조·사용 대상만 고정한다. → platform/secrets, platform/redaction
 
 ## ApprovalEffect (값)

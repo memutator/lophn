@@ -27,6 +27,7 @@ import {
   type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import { checkConfirmAction, overlappingConfirm } from "./confirm.ts";
 import { approvalRunLineage } from "./lineage.ts";
 import {
   cancelActorAllowed,
@@ -194,6 +195,17 @@ function createRequest(
     return err({
       code: "forbidden",
       message: "요청자는 현재 자격과 같아야 한다",
+    });
+  }
+  // 사람이 확인해야 하는 앱 command의 request는 정확한 앱·release·command·입력과 실제 호출 주체에 묶인다(R8).
+  const confirm = checkConfirmAction(input.id, input.requester, input.action);
+  if (!confirm.ok) return confirm;
+  const overlap = overlappingConfirm(tx, input.id, input.action);
+  if (overlap !== undefined) {
+    return err({
+      code: "conflict",
+      message: "같은 호출의 approval이 이미 있다",
+      details: { approval: overlap },
     });
   }
   // agent 요청은 자격에 묶인 run이 필수다. run 유효성은 ledger의 run admission이 본다.

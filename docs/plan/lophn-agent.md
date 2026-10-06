@@ -375,6 +375,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T19 prompt 층, 직렬화, cache 경계, 입력 예산
 
+- 상태: 완료 (#369)
 - 등급: 기본
 - concern: lophn-agent/harness/prompt-assemble
 - 요구: lophn-agent/harness/prompt-assemble#R1, R2, R3, R7, R8, R9, R24, R30

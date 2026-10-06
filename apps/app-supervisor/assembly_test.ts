@@ -49,6 +49,7 @@ type RigOptions = {
   adapters?: SupervisorIo["brokerAdapters"];
   invocations?: SupervisorIo["invocations"];
   directSocketOf?: SupervisorIo["directSocketOf"];
+  previewScopeOf?: SupervisorIo["previewScopeOf"];
   // 띄운 자식의 실행 인자를 시험이 본다.
   launched?: { flags: { args: string[] } }[];
 };
@@ -82,7 +83,43 @@ async function rig(options: RigOptions = {}): Promise<Rig> {
       const answered = options.answer?.(path, bearer, body);
       if (answered !== undefined) return answered;
       if (path === "apps/connect") {
-        const request = body as { app: string };
+        const request = body as {
+          app: string;
+          mode?: string;
+          preview_nonce?: string;
+        };
+        if (request.mode === "preview" && request.preview_nonce) {
+          // preview 자식의 제어 connection이다. release가 없는 bundle은 release를 null로 서명한다.
+          const preview = assembled.previews.observation(
+            request.app,
+            request.preview_nonce,
+          );
+          if (!preview) {
+            return { status: 503, body: { error: { code: "unavailable" } } };
+          }
+          const connection = {
+            app: request.app,
+            release: preview.release,
+            bundle_hash: preview.bundle_hash as string,
+            mode: "preview" as const,
+            process_nonce: preview.process_nonce,
+            actor: "machine" as const,
+            credential_ref: "machine-1",
+            screens: [],
+            screen_sizes: {},
+            caller: null,
+            commands: [],
+            expires_at: new Date(Date.now() + 600_000).toISOString(),
+          };
+          return {
+            status: 200,
+            body: {
+              endpoint: preview.endpoint,
+              connection,
+              signature: (await signer.signConnection(connection)).signature,
+            },
+          };
+        }
         const observation = assembled.supervisor.observation(request.app);
         if (!observation || observation.processNonce === "") {
           return { status: 503, body: { error: { code: "unavailable" } } };
@@ -155,6 +192,9 @@ async function rig(options: RigOptions = {}): Promise<Rig> {
     ...(options.directSocketOf === undefined
       ? {}
       : { directSocketOf: options.directSocketOf }),
+    ...(options.previewScopeOf === undefined
+      ? {}
+      : { previewScopeOf: options.previewScopeOf }),
     post: fake.post,
     direct: (endpoint, request) => unixDirectTransport(endpoint, request),
     send(message) {
@@ -1076,3 +1116,168 @@ Deno.test("apps/connections#R4: 사람이 허락한 app.call 대상의 direct so
     await r.stop();
   }
 });
+
+Deno.test("apps/preview#R4, apps/preview#R9: preview 자식의 broker는 선언 안의 외부 요청만 대역으로 받고 운영 서비스·다른 앱·release는 만들지 않는다", async () => {
+  const world = coreWorld();
+  const submitted: unknown[] = [];
+  const r = await rig({
+    answer: (p, b, body) => world.answer(p, b, body),
+    invocations: {
+      submit(child, body) {
+        submitted.push({ child, body });
+        return { ok: true as const, value: { accepted: true as const } };
+      },
+    },
+    previewScopeOf: () =>
+      Promise.resolve({
+        secrets: ["calendar-token"],
+        net: [{ host: "api.example.com", port: 443 }],
+        documents: ["report"],
+      }),
+  });
+  const nonce = "previewnonce01";
+  // disposable 영역: `<root>/apps/<app>/preview/<nonce>`. 읽기·쓰기는 bundle과 이 영역뿐이다.
+  const previewDir = `${r.dir}/apps/${FIXTURE_APP}/preview/${nonce}`;
+  await Deno.mkdir(previewDir, { recursive: true });
+  const previewFlags = appFlags(
+    [],
+    { bundle: `${r.dir}/bundle`, data: previewDir },
+    { ports: [] },
+    [],
+  );
+  assert(previewFlags.ok);
+  try {
+    const started = await r.assembled.ops["apps.preview_start"]({
+      app: FIXTURE_APP,
+      nonce,
+      release: null,
+      bundleHash: r.desired.bundleHash,
+      commands: [...COMMANDS],
+      screens: r.desired.screens,
+      dataSchema: 0,
+      flags: previewFlags.value,
+      entry: r.desired.entry,
+      importMap: r.desired.importMap,
+      dataPath: previewDir,
+    });
+    assertEquals(started, { accepted: true });
+    await until("the preview to be ready", async () => {
+      const seen = await r.assembled.ops["apps.preview_observe"]({
+        app: FIXTURE_APP,
+        process_nonce: nonce,
+      }) as { observation: { ready: boolean; accepting: boolean } | null };
+      return seen.observation?.ready && seen.observation.accepting
+        ? true
+        : undefined;
+    });
+    // preview 자식의 credential은 core가 발급한 app credential이 아니라 supervisor가 만든 일회용 값이다.
+    assertEquals(r.issued.length, 0);
+    const made = slotSockets(`${r.dir}/s`, 0);
+    assert(made.ok);
+    const credential = await previewCredential(r, nonce);
+    const post = (path: string, body: Record<string, unknown>) =>
+      unixDirectTransport(made.value.brokerSocket, {
+        method: "POST",
+        path,
+        authorization: `Bearer ${credential}`,
+        body: { process_nonce: nonce, mode: "preview", ...body },
+      });
+    // 선언한 secret·목적지는 대역이 받고 성공을 꾸미지 않는다(원값은 어디에도 없다).
+    const used = await post("/_lophn/broker/secrets/use", {
+      release: "rel_01h455vb4pex5v6nkc6gd5fdw1",
+      invocation: null,
+      command: "usage.read",
+      input_hash: "ab".repeat(32),
+      name: "calendar-token",
+      destination: { scheme: "https", host: "api.example.com", port: 443 },
+    });
+    assertEquals(used, { status: 200, body: { used: true } });
+    // 선언하지 않은 secret은 거절이다.
+    const unknown = await post("/_lophn/broker/secrets/use", {
+      release: "rel_01h455vb4pex5v6nkc6gd5fdw1",
+      invocation: null,
+      command: "usage.read",
+      input_hash: "ab".repeat(32),
+      name: "other-token",
+      destination: { scheme: "https", host: "api.example.com", port: 443 },
+    });
+    assert(unknown.status >= 400);
+    // 다른 앱 조회는 대상이 있든 없든 같은 거절이다.
+    const connectA = await post("/_lophn/broker/apps/connect", {
+      app: "app_01h455vb4pex5v6nkc6gd5fdw7",
+      commands: ["usage.read"],
+      parent_invocation: null,
+    });
+    const connectB = await post("/_lophn/broker/apps/connect", {
+      app: "app_01h455vb4pex5v6nkc6gd5fdw9",
+      commands: ["usage.read"],
+      parent_invocation: null,
+    });
+    assertEquals(connectA.status, 403);
+    assertEquals(connectB.status, connectA.status);
+    // 대상이 있든 없든 같은 거절이고 알려 주는 것은 요청한 대상뿐이다.
+    const refusal = (reply: { body: unknown }) => {
+      const error = (reply.body as { error: { code: string; message: string } })
+        .error;
+      return [error.code, error.message];
+    };
+    assertEquals(refusal(connectB), refusal(connectA));
+    // 운영 core에는 아무것도 가지 않았다: 선언·grant 조회도 보고도 없다.
+    assertEquals(
+      r.posted.filter((entry) =>
+        entry.path === "apps/blueprint" || entry.path === "grants/list" ||
+        entry.path === "apps/pair_prepare" || entry.path === "problems/report"
+      ).length,
+      0,
+    );
+    // 운영 broker와 hub가 달라 운영 자식 정지가 preview 연결을 막지 않는다.
+    assertEquals(r.assembled.broker.blockApp(FIXTURE_APP), 0);
+    assertEquals(r.assembled.previewBroker.blockApp(FIXTURE_APP), 1);
+    assertEquals(submitted.length, 0);
+  } finally {
+    await r.assembled.ops["apps.preview_stop"]({
+      app: FIXTURE_APP,
+      process_nonce: nonce,
+    }).catch(() => undefined);
+    await r.stop();
+  }
+});
+
+// preview 자식이 받은 일회용 broker credential이다. 시작 입력은 stdin 한 줄이라 fixture command로 꺼낸다.
+async function previewCredential(r: Rig, nonce: string): Promise<string> {
+  const observed = await r.assembled.ops["apps.preview_observe"]({
+    app: FIXTURE_APP,
+    process_nonce: nonce,
+  }) as { observation: { endpoint: string; bundle_hash: string } };
+  const connection = {
+    app: FIXTURE_APP,
+    release: null,
+    bundle_hash: observed.observation.bundle_hash,
+    mode: "preview" as const,
+    process_nonce: nonce,
+    actor: "user" as const,
+    credential_ref: "user-1",
+    screens: [],
+    screen_sizes: {},
+    caller: null,
+    commands: ["credential"],
+    expires_at: new Date(Date.now() + 60_000).toISOString(),
+  };
+  const answered = await unixDirectTransport(observed.observation.endpoint, {
+    method: "POST",
+    path: "/_lophn/commands/invoke",
+    authorization: JSON.stringify({
+      payload: connection,
+      signature: (await r.signer.signConnection(connection as never))
+        .signature,
+    }),
+    body: {
+      request_key: "credential-preview",
+      command: "credential",
+    },
+  });
+  assertEquals(answered.status, 200, JSON.stringify(answered.body));
+  return (answered.body as {
+    result: { result: { broker_credential: string } };
+  }).result.result.broker_credential;
+}

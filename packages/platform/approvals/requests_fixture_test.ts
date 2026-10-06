@@ -2,10 +2,10 @@
 
 import { assert } from "@std/assert";
 import type { Result } from "../../base/mod.ts";
-import { fingerprint, sha256Hex } from "../../base/mod.ts";
+import { fingerprint } from "../../base/mod.ts";
 import type {
   ApprovalAction,
-  ApprovalEffect,
+  ApprovalEffectInput,
   AuthenticatedContext,
   SqlRow,
 } from "../../contracts/platform/mod.ts";
@@ -16,6 +16,7 @@ import {
   rejectApprovalRequest,
 } from "../../contracts/platform/mod.ts";
 import { confirmationBinding } from "../identity/mod.ts";
+import { effectText, REASON_TEXT } from "./testing/mod.ts";
 
 export type CommandEnvelope = {
   command: string;
@@ -135,15 +136,13 @@ export async function action(): Promise<ApprovalAction> {
   };
 }
 
-export async function effect(
-  external: string | undefined,
-): Promise<ApprovalEffect> {
-  return {
-    changes_blob: await sha256Hex("release 하나를 시작한다"),
-    external_blob: external === undefined ? null : await sha256Hex(external),
-    reversible: false,
-    reversibility_blob: await sha256Hex("시작한 뒤에는 되돌리지 못한다"),
-  };
+// 설명 글 값. 요청에 값으로 싣는다.
+export function effect(external: string | undefined): ApprovalEffectInput {
+  return effectText({
+    changes: "release 하나를 시작한다",
+    external: external ?? null,
+    reversibility: "시작한 뒤에는 되돌리지 못한다",
+  });
 }
 
 export async function create(
@@ -163,8 +162,8 @@ export async function create(
       id: options.id ?? APPROVAL,
       requester: ctx.actor,
       run: options.run ?? null,
-      reason_blob: await sha256Hex("배포 전 확인이 필요하다"),
-      effect: await effect(options.external),
+      reason: REASON_TEXT,
+      effect: effect(options.external),
       action: await action(),
       expires_at: options.expiresAt ?? null,
     },

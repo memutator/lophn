@@ -128,6 +128,10 @@ import {
 } from "./lophn-agent-bootstrap.ts";
 import type { BuiltinRole } from "../../packages/lophn-agent/presets/mod.ts";
 import {
+  createApprovalTextPreparer,
+  withApprovalText,
+} from "./approval-text.ts";
+import {
   type BodyPrepare,
   createMessageBodyPreparer,
   messageBodyEnvironment,
@@ -286,19 +290,26 @@ async function open(
   );
   const eventNames = await eventOperations(modules);
   // approvals·notifications는 contract ROUTES가 route를 고정하므로 team 조립 뒤에 한 번만 더한다.
-  const assembled = withPlatform(assemble(options.teams, {
-    status: statusMemoryVia(documentsChannel),
-    // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
-    snapshotLogs: snapshotLogsEnvironment({
-      ledgerPath,
-      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+  // 메시지 본문·질문 글·approval 설명 글을 읽는 통로. 참조 판정은 ledger snapshot, 바이트는 blob 읽기다.
+  const bodyEnvironment = messageBodyEnvironment({
+    ledgerPath,
+    read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+  });
+  const assembled = withPlatform(
+    assemble(options.teams, {
+      status: statusMemoryVia(documentsChannel),
+      // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
+      snapshotLogs: snapshotLogsEnvironment({
+        ledgerPath,
+        read: (hash, offset, length) =>
+          blobRead.deps.read(hash, offset, length),
+      }),
+      // ReadMessageBody의 참조 판정과 blob 바이트 읽기 통로.
+      messageBody: bodyEnvironment,
     }),
-    // ReadMessageBody의 참조 판정과 blob 바이트 읽기 통로.
-    messageBody: messageBodyEnvironment({
-      ledgerPath,
-      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
-    }),
-  }));
+    // ReadApprovalText도 같은 통로를 쓴다.
+    { approvalText: bodyEnvironment },
+  );
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
   // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
@@ -562,16 +573,23 @@ async function open(
       clock,
       // 메시지 본문을 싣는 command는 writer 앞에서 값을 redaction해 blob으로 준비한다.
       // 질문 글(본문·이유·설명·자유 답·취소 이유)도 같은 길이다.
-      writer: withQuestionText(
-        withMessageBody(
-          runtime.writer,
-          createMessageBodyPreparer({
-            relay: () => bodyPrepare.current,
-            // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
-            known: () => runtime?.knownSecrets,
-          }),
+      // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
+      writer: withApprovalText(
+        withQuestionText(
+          withMessageBody(
+            runtime.writer,
+            createMessageBodyPreparer({
+              relay: () => bodyPrepare.current,
+              // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+              known: () => runtime?.knownSecrets,
+            }),
+          ),
+          createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
         ),
-        createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
+        createApprovalTextPreparer({
+          relay: () => bodyPrepare.current,
+          known: () => runtime?.knownSecrets,
+        }),
       ),
       reads: runtime.reads,
       memory: runtime.memory.handlers,

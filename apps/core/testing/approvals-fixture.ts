@@ -3,7 +3,7 @@
  * 제품 main.ts에는 없다. 사람 데이터 root는 열지 않고 core는 temp 홈에서 뜬다.
  */
 import { DatabaseSync } from "node:sqlite";
-import { fingerprint, sha256Hex } from "../../../packages/base/mod.ts";
+import { fingerprint } from "../../../packages/base/mod.ts";
 import {
   type ApprovalAction,
   approvalBinding,
@@ -125,7 +125,7 @@ export async function actionOf(draft: ActionDraft): Promise<ApprovalAction> {
   };
 }
 
-export async function createInput(
+export function createInput(
   id: string,
   requester: string,
   action: ApprovalAction,
@@ -133,18 +133,22 @@ export async function createInput(
     run?: string | null;
     expiresAt?: string | null;
     reason?: string;
+    changes?: string;
+    external?: string | null;
+    reversibility?: string;
   } = {},
 ) {
+  // 설명 글은 값으로 싣는다. core가 redaction을 거쳐 blob으로 준비한다.
   return {
     id,
     requester,
     run: options.run ?? null,
-    reason_blob: await sha256Hex(options.reason ?? "사람이 보고 정해야 한다"),
+    reason: options.reason ?? "사람이 보고 정해야 한다",
     effect: {
-      changes_blob: await sha256Hex("노트 하나를 남긴다"),
-      external_blob: null,
+      changes: options.changes ?? "노트 하나를 남긴다",
+      external: options.external ?? null,
       reversible: false,
-      reversibility_blob: await sha256Hex("남긴 뒤에는 되돌리지 못한다"),
+      reversibility: options.reversibility ?? "남긴 뒤에는 되돌리지 못한다",
     },
     action,
     expires_at: options.expiresAt ?? null,

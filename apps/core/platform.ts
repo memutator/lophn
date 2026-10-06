@@ -19,6 +19,8 @@ import {
   APPROVAL_SCHEMA_STEPS,
   approvalsGetRead,
   approvalsListRead,
+  approvalsTextRead,
+  type ApprovalTextEnvironment,
   createApplyCommand,
   createApprovalCommands,
 } from "../../packages/platform/approvals/mod.ts";
@@ -148,11 +150,32 @@ export function createEventRegistration(): EventRegistration {
   return { visibility: [approvalCreatedVisibility] };
 }
 
+// ReadApprovalText는 ledger snapshot에서 참조를 판정한 뒤 blob 바이트를 기다리는 core read다.
+// core가 기동 때 읽기 통로를 넣고, 넣지 않은 등록은 unavailable이다.
+const UNATTACHED_APPROVAL_TEXT: ApprovalTextEnvironment = {
+  snapshot: () =>
+    err({
+      code: "unavailable",
+      message: "approval 글 읽기 통로가 붙어 있지 않다",
+    }),
+  bytes: () =>
+    Promise.resolve(err({
+      code: "unavailable",
+      message: "blob 읽기 통로가 붙어 있지 않다",
+    })),
+};
+
 // core 조립이 team 조립 결과에 platform 항목을 더한다. command 이름·read 경로·schema id·blob
 // field가 팀 등록과 겹치면 거절한다. route는 더하지 않는다: contract ROUTES가 소유한다.
-export function withPlatform(assembled: Result<Assembled>): Result<Assembled> {
+export function withPlatform(
+  assembled: Result<Assembled>,
+  environment: { approvalText?: ApprovalTextEnvironment } = {},
+): Result<Assembled> {
   if (!assembled.ok) return assembled;
   const value = assembled.value;
+  const apiReads = [
+    approvalsTextRead(environment.approvalText ?? UNATTACHED_APPROVAL_TEXT),
+  ];
   const commands = new Set(value.commands.map((c) => c.route.name));
   const reads = new Set(
     [...value.reads, ...value.apiReads].map((r) =>
@@ -170,7 +193,7 @@ export function withPlatform(assembled: Result<Assembled>): Result<Assembled> {
       return overlap("command", command.route.name);
     }
   }
-  for (const read of platformDefinitions.reads) {
+  for (const read of [...platformDefinitions.reads, ...apiReads]) {
     const key = `${read.route.resource}/${read.route.method}`;
     if (reads.has(key)) return overlap("read", key);
   }
@@ -188,6 +211,10 @@ export function withPlatform(assembled: Result<Assembled>): Result<Assembled> {
     reads: [
       ...value.reads,
       ...platformDefinitions.reads as unknown as Assembled["reads"],
+    ],
+    apiReads: [
+      ...value.apiReads,
+      ...apiReads as unknown as Assembled["apiReads"],
     ],
     blobFields: [...value.blobFields, ...platformDefinitions.blobFields],
   });

@@ -3,7 +3,7 @@
 // route는 contract ROUTES가 소유하므로 조립은 command·read·schema만 더한다. 사람 데이터 root는
 // 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { fingerprint, sha256Hex } from "../../packages/base/mod.ts";
+import { fingerprint } from "../../packages/base/mod.ts";
 import {
   type ApprovalAction,
   approvalBinding,
@@ -99,12 +99,12 @@ async function createInput(id: string, requester: string) {
     id,
     requester,
     run: null,
-    reason_blob: await sha256Hex("배포 전 확인이 필요하다"),
+    reason: "배포 전 확인이 필요하다",
     effect: {
-      changes_blob: await sha256Hex("release 하나를 시작한다"),
-      external_blob: null,
+      changes: "release 하나를 시작한다",
+      external: null,
       reversible: false,
-      reversibility_blob: await sha256Hex("시작한 뒤에는 되돌리지 못한다"),
+      reversibility: "시작한 뒤에는 되돌리지 못한다",
     },
     action: await actionFor(requester),
     expires_at: null,
@@ -117,7 +117,7 @@ const APR_TWO = "apr_01h455vb4pex5v6nkc6gd5fdw2";
 const READS = ["GetApproval", "ListApprovals"];
 
 Deno.test("platform/approvals#R17: 요청자와 사람은 pending 요청을 읽고, 다른 connection의 요청은 없는 것과 똑같이 답한다", async () => {
-  const opened = await createCoreHarness({ teams: [] });
+  const opened = await createCoreHarness({ teams: [], io: true });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   try {
@@ -178,7 +178,7 @@ Deno.test("platform/approvals#R17: 요청자와 사람은 pending 요청을 읽�
 });
 
 Deno.test("platform/approvals#R3: handle 없는 허락·거절은 거절되고 coding agent 자격은 handle이 있어도 결정하지 못한다", async () => {
-  const opened = await createCoreHarness({ teams: [] });
+  const opened = await createCoreHarness({ teams: [], io: true });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   try {
@@ -303,7 +303,7 @@ Deno.test("platform/approvals#R3: handle 없는 허락·거절은 거절되고 c
 });
 
 Deno.test("platform/notifications#R1 #R5: approval 요청 계기가 listable notification을 만들고 읽음 표시가 남는다", async () => {
-  const opened = await createCoreHarness({ teams: [] });
+  const opened = await createCoreHarness({ teams: [], io: true });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   try {
@@ -382,7 +382,7 @@ Deno.test("platform/notifications#R1 #R5: approval 요청 계기가 listable not
 });
 
 Deno.test("platform/api#R2: platform 모듈은 team 등록 없이 approvals·notifications route를 한 번만 등록한다", async () => {
-  const opened = await createCoreHarness({ teams: [] });
+  const opened = await createCoreHarness({ teams: [], io: true });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
   try {

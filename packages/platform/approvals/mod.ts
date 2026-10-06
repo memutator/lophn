@@ -27,9 +27,6 @@ export {
 } from "./registration.ts";
 export { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
 export {
-  APPROVAL_TEXT_PURPOSE,
-  type ApprovalText,
-  prepareClosedReason,
-  prepareDescription,
-  type TextPreparer,
-} from "./work.ts";
+  approvalsTextRead,
+  type ApprovalTextEnvironment,
+} from "./text-read.ts";

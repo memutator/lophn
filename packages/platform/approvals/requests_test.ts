@@ -1,6 +1,7 @@
 // approval request 생성·조회·만료·취소(platform/approvals#R1, R2, R6, R12, R13, R14, R17).
-// 실제 ledger(임시 파일 SQLite)를 띄운다. 설명 본문의 공백·secret 검사는 command 밖이고
-// command는 그 hash를 저장한다. 본문 round-trip은 work_test.ts가 본다.
+// 실제 ledger(임시 파일 SQLite)를 띄운다. 설명 글은 값으로 받고 command는 같은 글에서 hash를
+// 만들어 저장한다. 글의 redaction·blob 준비·읽기 round-trip은 apps/core/approval-text_test.ts가
+// 실제 core로 본다.
 
 import { assert, assertEquals } from "@std/assert";
 import { sha256Hex } from "../../base/mod.ts";
@@ -64,6 +65,59 @@ Deno.test("platform/approvals#R1 #R17: 생성은 설명 hash를 저장하고 조
   }
 });
 
+Deno.test("platform/approvals#R1 #R2: 설명 글마다 영구 참조 하나가 같은 transaction에 등록되고 공백뿐인 글은 거절한다", async () => {
+  const harness = await openHarness([user]);
+  try {
+    const external = "example.com으로 결과를 보낸다";
+    value(await create(harness, user, { external }));
+    const refs = value(
+      await harness.inspect(
+        `select field, hash from blob_refs where owner_kind = 'approval_request'
+          and owner_key = ? order by field`,
+        [APPROVAL],
+      ),
+    );
+    assertEquals(
+      refs.map((ref) => [ref["field"], ref["hash"]]),
+      [
+        ["changes", await sha256Hex("release 하나를 시작한다")],
+        ["external", await sha256Hex(external)],
+        ["reason", await sha256Hex("배포 전 확인이 필요하다")],
+        ["reversibility", await sha256Hex("시작한 뒤에는 되돌리지 못한다")],
+      ],
+    );
+    // 이유·변경·되돌림이 공백뿐이면 request도 참조도 만들지 않는다.
+    for (const blank of ["reason", "changes", "reversibility"]) {
+      const input = {
+        id: "apr_01h455vb4pex5v6nkc6gd5fdw2",
+        requester: user.actor,
+        run: null,
+        reason: blank === "reason" ? "  \n" : "이유",
+        effect: {
+          ...effect(undefined),
+          ...(blank === "reason" ? {} : { [blank]: "   " }),
+        },
+        action: await action(),
+        expires_at: null,
+      };
+      const rejected = await harness.command(user, {
+        command: "create_approval_request",
+        input,
+        idempotency_key: `create-blank-${blank}`,
+        compare: {},
+        prepared: [],
+      });
+      assertEquals(failure(rejected).code, "invalid_input");
+    }
+    const rows = value(
+      await harness.inspect("select count(*) as n from approval_requests", []),
+    );
+    assertEquals(Number(rows[0]["n"]), 1);
+  } finally {
+    await harness.close();
+  }
+});
+
 Deno.test("platform/approvals#R1: 다른 actor를 대신 요청하거나 기한이 생성 시각보다 앞이면 거절한다", async () => {
   const harness = await openHarness([user]);
   try {
@@ -73,8 +127,8 @@ Deno.test("platform/approvals#R1: 다른 actor를 대신 요청하거나 기한�
         id: APPROVAL,
         requester: "machine",
         run: null,
-        reason_blob: await sha256Hex("배포 전 확인이 필요하다"),
-        effect: await effect(undefined),
+        reason: "배포 전 확인이 필요하다",
+        effect: effect(undefined),
         action: await action(),
         expires_at: null,
       },

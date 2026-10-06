@@ -2,13 +2,14 @@
 // R5, R6, R12, R13, R14, R15, R16). 적용은 apply.ts가 맡는다. handler는 동기이고 transaction 하나다.
 // 허락·거절의 사람 확인(confirmation handle)은 route의 `confirmation: "required"`와 binding으로
 // 선언하고, writer 실행기가 transaction 안에서 현재 handle을 예약·소비한다.
-// 설명 본문의 공백·secret 검사는 command 밖(work)에서 한다. 입력은 hash만 온다.
-// contract 입력에 준비 blob 참조가 없으므로 command는 hash를 저장하고 본문을 다시 hash하지 않는다.
+// 설명 글(이유·변경·외부 영향·되돌림)은 값으로 받는다. core가 redaction을 거쳐 blob으로
+// 준비해 두었고(공백·크기는 contract schema가 거절한다), create가 같은 글에서 hash와 준비
+// 증거를 다시 만들어 같은 transaction에서 영구 참조를 등록한다. 살아 있는 준비가 없으면 등록이
+// 거절되어 request가 만들어지지 않는다. 종료 이유(closed_reason_blob)는 아직 hash로 받는다.
 
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
   type Actor,
-  type ApprovalEffect,
   type ApprovalRequest,
   approvalRequestCancelled,
   approvalRequestCreated,
@@ -19,9 +20,11 @@ import {
   cancelApprovalRequest,
   type CommandDefinition,
   createApprovalRequest,
+  type CreateApprovalRequestInput,
   expireApprovalRequest,
   grantApprovalRequest,
   rejectApprovalRequest,
+  type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
 import { approvalRunLineage } from "./lineage.ts";
@@ -31,6 +34,7 @@ import {
   deadlineReached,
   deadlineValid,
 } from "./model.ts";
+import { registerTextBlobs, storedText } from "./text.ts";
 
 type StoredRow = {
   id: string;
@@ -178,19 +182,11 @@ export function createApprovalCommands(): {
   };
 }
 
-type CreateInput = {
-  id: string;
-  requester: string;
-  run: string | null;
-  reason_blob: string;
-  effect: ApprovalEffect;
-  action: ApprovalRequest["action"];
-  expires_at: string | null;
-};
+type CreateInput = CreateApprovalRequestInput;
 
 function createRequest(
   tx: Tx,
-  ctx: { actor: Actor; run?: string },
+  ctx: RequestContext,
   input: CreateInput,
 ): Result<{ request: ApprovalRequest }> {
   // 요청자 본문은 자격과 같아야 한다. 다른 actor를 대신 요청하지 못한다.
@@ -234,9 +230,12 @@ function createRequest(
       details: { rejected_approval: rejected.value },
     });
   }
+  const text = storedText(ctx, input);
   const created = tx.emit(approvalRequestCreated, input.id, {
     binding_hash: input.action.binding_hash,
   });
+  const registered = registerTextBlobs(tx, input.id, created, text.blobs);
+  if (!registered.ok) return registered;
   tx.sql.run(
     `insert into approval_requests
        (id, requester, run, reason_blob, effect, action, action_binding_hash,
@@ -246,8 +245,8 @@ function createRequest(
       input.id,
       input.requester,
       input.run,
-      input.reason_blob,
-      JSON.stringify(input.effect),
+      text.reason_blob,
+      JSON.stringify(text.effect),
       JSON.stringify(input.action),
       input.action.binding_hash,
       input.expires_at,

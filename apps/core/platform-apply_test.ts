@@ -62,6 +62,7 @@ async function login(
 
 async function open(): Promise<World> {
   const opened = await createCoreHarness({
+    io: true,
     teams: [approvalOwner],
     teamModules: [
       new URL("./testing/approval-owner.ts", import.meta.url).href,

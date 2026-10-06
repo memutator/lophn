@@ -25,7 +25,7 @@ function seqText(value: bigint | number): string {
 }
 
 // 요청자는 자기 요청만 본다. 사람은 전부 본다. machine은 만료·종료 처리로 전부 본다.
-function visible(ctx: RequestContext, requester: string): boolean {
+export function visible(ctx: RequestContext, requester: string): boolean {
   if (ctx.actor === "user" || ctx.actor === "machine") return true;
   return ctx.actor === requester;
 }

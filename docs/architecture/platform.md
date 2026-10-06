@@ -193,7 +193,8 @@ command body는 `{input,idempotency_key,compare,run?,prepared:[],confirmation?}`
 | command | `/v1/secrets/remove` | `RemoveSecret`; 참조 제거 확정 |
 | read | `/v1/secrets/cleanup` | 안전 `SecretCleanupResult`; 삭제·종료 완료 분리 |
 | read | `/v1/approvals/get`, `/v1/approvals/list` | 허용 request·안전 미리보기·결정·사용 receipt |
-| command | `/v1/approvals/create` | `create_approval_request` |
+| read | `/v1/approvals/text` | `ReadApprovalText`; request를 볼 수 있는 쪽(user·machine·요청자)만, 그 밖은 없는 request와 같은 not_found; 이유·변경·외부 영향·되돌림 글, blob 하나라도 읽을 수 없으면 unavailable |
+| command | `/v1/approvals/create` | `create_approval_request`; 설명 글을 값으로 받고 core가 redaction·blob 준비, command가 영구 참조 등록 |
 | command | `/v1/approvals/grant` | `grant_approval_request`; confirmation 필수 |
 | command | `/v1/approvals/reject` | `reject_approval_request`; confirmation 필수 |
 | command | `/v1/approvals/expire` | `expire_approval_request`; 전용 machine |

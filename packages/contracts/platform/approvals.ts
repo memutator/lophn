@@ -42,6 +42,47 @@ export const approvalActionSchema = z.strictObject({
 });
 export type ApprovalAction = z.infer<typeof approvalActionSchema>;
 
+// 설명 글(이유·변경·외부 영향·되돌림)은 요청에 값으로 싣는다. 호출자는 hash를 만들지도
+// blob을 준비하지도 않는다: core가 redaction을 거친 글을 UTF-8 bytes로 blob으로 준비하고
+// command가 같은 transaction에서 영구 참조를 등록한다(platform/approvals, 메시지 본문·질문
+// 글과 같은 길). ledger에는 그 blob의 hash만 남고, 글은 ReadApprovalText가 돌려준다.
+
+// 글 하나의 상한(UTF-8 bytes). 요청 전체는 platform/api의 RPC JSON 상한 안이어야 한다.
+export const APPROVAL_TEXT_MAX_BYTES = 32768;
+// 글 blob 준비·참조의 이름. 준비 주체는 보낸 쪽의 자격이고 참조는 permanent다.
+export const APPROVAL_TEXT_PURPOSE = "approval_text";
+export const APPROVAL_BLOB_OWNER_KIND = "approval_request";
+export const APPROVAL_TEXT_FIELDS = {
+  reason: "reason",
+  changes: "changes",
+  external: "external",
+  reversibility: "reversibility",
+} as const;
+
+const encoder = new TextEncoder();
+
+export function approvalTextBytes(text: string): Uint8Array {
+  return encoder.encode(text);
+}
+
+// 비어 있거나 공백뿐인 글은 글이 아니다(domain model ApprovalRequest·ApprovalEffect).
+export const approvalTextSchema = z.string()
+  .refine((value) => value.trim().length > 0, {
+    message: "expected nonblank text",
+  })
+  .refine(
+    (value) => approvalTextBytes(value).length <= APPROVAL_TEXT_MAX_BYTES,
+    { message: "approval text is too large" },
+  );
+
+export const approvalEffectInputSchema = z.strictObject({
+  changes: approvalTextSchema,
+  external: approvalTextSchema.nullable(),
+  reversible: z.boolean(),
+  reversibility: approvalTextSchema,
+});
+export type ApprovalEffectInput = z.infer<typeof approvalEffectInputSchema>;
+
 export const approvalEffectSchema = z.strictObject({
   changes_blob: sha256Schema,
   external_blob: sha256Schema.nullable(),
@@ -166,9 +207,31 @@ export const approvalsList = defineRead({
   errors: readErrors,
 });
 
+export const approvalsTextInputSchema = z.strictObject({
+  approval: idSchema("apr"),
+});
+// 사람이 결정할 때 보는 설명 글이다. 글은 준비 단계에서 이미 redaction을 거쳤다.
+export const approvalsTextOutputSchema = withReadCommon(z.object({
+  approval: idSchema("apr"),
+  reason: z.string(),
+  changes: z.string(),
+  external: z.string().nullable(),
+  reversibility: z.string(),
+}));
+export const approvalsText = defineRead({
+  resource: "approvals",
+  method: "text",
+  name: "ReadApprovalText",
+  input: approvalsTextInputSchema,
+  output: approvalsTextOutputSchema,
+  actors: ["user", "coding_agent", "agent", "app", "machine"],
+  errors: readErrors,
+});
+
 const contentCompareSchema = z.strictObject({ created_seq: seqSchema });
 
-export const createApprovalRequestInputSchema = z.strictObject({
+// 요청이 저장된 모양(글은 blob hash). 설명 글 값을 싣는 입력과 구별한다.
+export const createApprovalRequestStoredSchema = z.strictObject({
   id: idSchema("apr"),
   requester: actorSchema,
   run: idSchema("run").nullable(),
@@ -177,6 +240,19 @@ export const createApprovalRequestInputSchema = z.strictObject({
   action: approvalActionSchema,
   expires_at: atSchema.nullable(),
 });
+
+export const createApprovalRequestInputSchema = z.strictObject({
+  id: idSchema("apr"),
+  requester: actorSchema,
+  run: idSchema("run").nullable(),
+  reason: approvalTextSchema,
+  effect: approvalEffectInputSchema,
+  action: approvalActionSchema,
+  expires_at: atSchema.nullable(),
+});
+export type CreateApprovalRequestInput = z.infer<
+  typeof createApprovalRequestInputSchema
+>;
 export const createApprovalRequestOutputSchema = z.object({
   request: approvalRequestSchema,
 });
@@ -296,6 +372,7 @@ export const applyApprovedAction = defineCommand({
 export const APPROVAL_ROUTES = [
   approvalsGet,
   approvalsList,
+  approvalsText,
   createApprovalRequest,
   grantApprovalRequest,
   rejectApprovalRequest,

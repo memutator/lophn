@@ -5,10 +5,12 @@ import { routePath } from "./route.ts";
 import {
   APPROVAL_EVENTS,
   APPROVAL_ROUTES,
+  APPROVAL_TEXT_MAX_BYTES,
   approvalActionSchema,
   approvalBindingHash,
   approvalEffectSchema,
   approvalRequestSchema,
+  approvalsText,
   approvalUseSchema,
   createApprovalRequestInputSchema,
   grantApprovalRequest,
@@ -36,6 +38,21 @@ const action = {
   comparison: { seq: "41" },
   binding_hash: HASH,
 };
+// 생성 입력은 설명 글을 값으로 싣는다. hash를 만들지도 blob을 준비하지도 않는다.
+const createInput = {
+  id: APR,
+  requester: action.caller,
+  run: null,
+  reason: "Save the note.",
+  effect: {
+    changes: "One note is added.",
+    external: null,
+    reversible: false,
+    reversibility: "The note cannot be removed.",
+  },
+  action,
+  expires_at: "2026-10-04T00:00:00.000Z",
+};
 const request = {
   id: APR,
   requester: action.caller,
@@ -56,6 +73,7 @@ Deno.test("platform/approvals#R1, platform/approvals#R5: route와 event 이름�
     [
       ["read", "/v1/approvals/get"],
       ["read", "/v1/approvals/list"],
+      ["read", "/v1/approvals/text"],
       ["command", "/v1/approvals/create"],
       ["command", "/v1/approvals/grant"],
       ["command", "/v1/approvals/reject"],
@@ -67,6 +85,7 @@ Deno.test("platform/approvals#R1, platform/approvals#R5: route와 event 이름�
   assertEquals(APPROVAL_ROUTES.map((route) => route.name), [
     "GetApproval",
     "ListApprovals",
+    "ReadApprovalText",
     "create_approval_request",
     "grant_approval_request",
     "reject_approval_request",
@@ -113,15 +132,7 @@ Deno.test("platform/approvals#R1, platform/approvals#R5, platform/approvals#R7: 
     }).success,
   );
   assert(
-    createApprovalRequestInputSchema.safeParse({
-      id: APR,
-      requester: action.caller,
-      run: null,
-      reason_blob: HASH,
-      effect,
-      action,
-      expires_at: "2026-10-04T00:00:00.000Z",
-    }).success,
+    createApprovalRequestInputSchema.safeParse(createInput).success,
   );
   const envelope = eventEnvelopeSchema(APPROVAL_EVENTS[0]);
   assert(
@@ -223,14 +234,91 @@ Deno.test("platform/approvals#R1, platform/approvals#R5: 모르는 field·틀린
   }
   assert(
     !createApprovalRequestInputSchema.safeParse({
-      id: APR,
-      requester: action.caller,
-      run: null,
+      ...createInput,
+      note: "later",
+    }).success,
+  );
+});
+
+Deno.test("platform/approvals#R1 #R2: 생성 입력은 글 값만 받고 hash 입력과 공백뿐이거나 상한을 넘는 글을 거절한다", () => {
+  const { reason: _reason, ...rest } = createInput;
+  // 옛 모양(hash)은 글이 아니다.
+  assert(
+    !createApprovalRequestInputSchema.safeParse({
+      ...rest,
       reason_blob: HASH,
       effect,
-      action,
-      expires_at: null,
-      note: "later",
+    }).success,
+  );
+  for (const blank of ["", "   ", "\n\t"]) {
+    assert(
+      !createApprovalRequestInputSchema.safeParse({
+        ...createInput,
+        reason: blank,
+      }).success,
+    );
+    for (const field of ["changes", "reversibility"] as const) {
+      assert(
+        !createApprovalRequestInputSchema.safeParse({
+          ...createInput,
+          effect: { ...createInput.effect, [field]: blank },
+        }).success,
+      );
+    }
+    // 외부 영향은 없거나(null) 글이다.
+    assert(
+      !createApprovalRequestInputSchema.safeParse({
+        ...createInput,
+        effect: { ...createInput.effect, external: blank },
+      }).success,
+    );
+  }
+  assert(
+    createApprovalRequestInputSchema.safeParse({
+      ...createInput,
+      effect: { ...createInput.effect, external: "example.com으로 보낸다" },
+    }).success,
+  );
+  // 상한은 UTF-8 bytes다. 한글은 3바이트다.
+  const fits = "a".repeat(APPROVAL_TEXT_MAX_BYTES);
+  assert(
+    createApprovalRequestInputSchema.safeParse({
+      ...createInput,
+      reason: fits,
+    }).success,
+  );
+  assert(
+    !createApprovalRequestInputSchema.safeParse({
+      ...createInput,
+      reason: fits + "a",
+    }).success,
+  );
+  assert(
+    !createApprovalRequestInputSchema.safeParse({
+      ...createInput,
+      reason: "가".repeat(Math.floor(APPROVAL_TEXT_MAX_BYTES / 3) + 1),
+    }).success,
+  );
+});
+
+Deno.test("platform/approvals#R17: ReadApprovalText는 request를 볼 수 있는 자격이 읽는 글 read다", () => {
+  assertEquals(approvalsText.kind, "read");
+  assertEquals(routePath(approvalsText), "/v1/approvals/text");
+  assertEquals(approvalsText.input.safeParse({ approval: APR }).success, true);
+  assertEquals(approvalsText.input.safeParse({ approval: DOC }).success, false);
+  assertEquals(
+    approvalsText.input.safeParse({ approval: APR, extra: 1 }).success,
+    false,
+  );
+  assert(
+    approvalsText.output.safeParse({
+      approval: APR,
+      reason: "Save the note.",
+      changes: "One note is added.",
+      external: null,
+      reversibility: "The note cannot be removed.",
+      as_of_seq: "42",
+      next_cursor: null,
     }).success,
   );
 });

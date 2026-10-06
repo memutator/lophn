@@ -1,7 +1,7 @@
 // lophn_sdk tool 테스트다(T22, mcp#R22·R23). discovery·입력 검사·route 해석을 server 경계에서
 // 보고, 실행은 route별 답을 정한 흐름 client로 한다.
 import { assert, assertEquals } from "@std/assert";
-import { scriptedFlow } from "../../connection/testing/mod.ts";
+import { fail, scriptedFlow } from "../../connection/testing/mod.ts";
 import { createHandler, type JsonRpcResponse } from "../server.ts";
 import { resolveRoute, toolEntries } from "../registry.ts";
 import { createSdkTool } from "./sdk.ts";
@@ -38,6 +38,8 @@ function setup() {
       as_of_seq: 1,
       next_cursor: null,
     },
+    // 안내 blob은 이 fake core에서 읽을 수 없다(원문은 null이고 이유가 남는다).
+    "blob.read": fail("forbidden", "blob read forbidden"),
   });
   const tool = createSdkTool({ client: flow.client });
   const handler = createHandler({

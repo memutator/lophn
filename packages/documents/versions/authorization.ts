@@ -103,6 +103,9 @@ function authorizationTarget(
   if (place !== null) {
     value.place_kind = place.kind;
     value.place = place.id;
+    // 앱 하나 범위 연결의 scope.targets.app은 문서의 자리가 그 앱일 때만 맞는다. project·자리
+    // 없음 문서는 app을 주지 않아 앱 범위 연결에서 forbidden(없는 문서와 같은 답)이다.
+    if (place.kind === "app") value.app = place.id;
   }
   return value;
 }

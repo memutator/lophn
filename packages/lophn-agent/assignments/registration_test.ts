@@ -1,3 +1,4 @@
+import { ok } from "../../base/mod.ts";
 import type { LedgerTestRegistration } from "../../../apps/core/testing/ledger.ts";
 import type { McpServerConfig } from "../../contracts/lophn-agent/mod.ts";
 import {
@@ -11,6 +12,11 @@ import {
   createAssignmentCommands,
   createAssignmentReads,
 } from "./mod.ts";
+import {
+  APPROVAL_FIXTURE_SQL,
+  seedApprovalRoute,
+} from "../scheduling/testing/mod.ts";
+import { schedulingSchemaSteps } from "../scheduling/mod.ts";
 
 // assignment ledger 테스트 등록. preset 표와 같은 wire에 assignment 명령·읽기를
 // 붙인다. preset 검증 deps는 leaf 경계로 catalog 대체다(presets/registration_test.ts와
@@ -119,7 +125,17 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
   const assignmentCommands = createAssignmentCommands();
   const assignmentReads = createAssignmentReads();
   return {
-    schemaSteps: [...presetSchemaSteps, ...assignmentSchemaSteps],
+    schemaSteps: [
+      ...presetSchemaSteps,
+      ...assignmentSchemaSteps,
+      // 회차 표는 scheduling 소유다. operator 적용 등록만으로 row가 생기지 않는지
+      // 같은 schema로 본다(operator_assignment_test.ts R15).
+      ...schedulingSchemaSteps,
+      // 승인 표는 platform/approvals 소유다. ApplyOperatorAssignment가 읽는
+      // id·status만 같은 모양으로 심는 fixture다(scheduling/registration_test.ts와
+      // 같은 모양).
+      { id: "assignments.test.approvals", sql: APPROVAL_FIXTURE_SQL },
+    ],
     commands: [
       presetCommands.registerDefault,
       presetCommands.create,
@@ -132,6 +148,17 @@ export function createLedgerTestRegistration(): LedgerTestRegistration {
       assignmentCommands.resume,
       assignmentCommands.withdraw,
     ],
+    testCommands: [{
+      route: seedApprovalRoute,
+      handle(tx, _ctx, input) {
+        const seeded = input as { id: string; status: string };
+        tx.sql.run(
+          "insert into approval_requests (id, status) values (?, ?) on conflict (id) do update set status = excluded.status",
+          [seeded.id, seeded.status],
+        );
+        return ok({ id: seeded.id });
+      },
+    }],
     reads: [
       presetReads.read,
       presetReads.list,

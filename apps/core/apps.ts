@@ -51,6 +51,7 @@ import {
 import { findAppTestVerification } from "../../packages/problems/tests/app-test-lookup.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
 import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
+import { PACKAGE_GUIDE_BLOB_FIELD } from "../../packages/apps/sdk/blobs.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
 import { createSdkReads } from "../../packages/apps/sdk/reads.ts";
 import { sdkSchemaSteps } from "../../packages/apps/sdk/schema.ts";
@@ -117,8 +118,8 @@ export function createLedgerRegistration(
   const releaseReads = createReleaseReads();
   const blueprintReads = createBlueprintReads(loadActiveBlueprint);
   return {
-    // 보호 backup blob. 일반 blob 읽기가 없는 field다(apps/data#R4).
-    blobFields: [BACKUP_BLOB_FIELD],
+    // 보호 backup blob(일반 blob 읽기 없음, apps/data#R4)과 공개 SDK 사용 안내 blob(일반 읽기 허용, apps/sdk#R3).
+    blobFields: [BACKUP_BLOB_FIELD, PACKAGE_GUIDE_BLOB_FIELD],
     // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
     apiReads: createPreviewReads(() => unattachedPreviewService()),
@@ -139,6 +140,7 @@ export function createLedgerRegistration(
       commands.rename,
       grants.create,
       grants.revoke,
+      grants.revokeAutomation,
       confirm.acceptConfirm,
       invocations.recordStarted,
       invocations.recordFinished,

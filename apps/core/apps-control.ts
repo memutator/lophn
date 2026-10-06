@@ -2,6 +2,7 @@
 // 메인 스레드 덮기, supervisor 감독 pipe의 질의 통로, app credential 발급을 한곳에서 잇는다.
 // 업무 규칙은 packages/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
 import {
+  canonicalize,
   type Clock,
   createIdSource,
   err,
@@ -47,6 +48,7 @@ import {
 } from "../../packages/contracts/problems/mod.ts";
 import {
   applyApprovedAction,
+  approvalsGet,
   type AuthenticatedContext,
   createApprovalRequest,
   type KindLaunchSpec,
@@ -74,6 +76,7 @@ import {
   releaseDeclarations,
 } from "../../packages/apps/releases/store.ts";
 import { canonicalInputHash } from "../../packages/apps/blueprint/mod.ts";
+import { activationInProgress } from "../../packages/apps/permissions/mod.ts";
 import {
   createPairPreparer,
   type PairFacts,
@@ -318,6 +321,11 @@ export type AppsControl = {
   // release 준비 접수·진행·취소. command route지만 진행이 supervisor 메모리라 ledger queue를 거치지 않는다.
   // 키는 command 이름이고 `withReleasePreparation`이 writer 앞에서 이 처리기로 돌린다.
   readonly commands: ReadonlyMap<string, MemoryHandler>;
+  grantChange(
+    writer: Writer,
+    ctx: AuthenticatedContext,
+    envelope: Parameters<Writer["command"]>[1],
+  ): ReturnType<Writer["command"]>;
   // reader pool의 apps.runtime·apps.logs를 현재 관측·log로 덮는다.
   overlayReads(reads: Map<string, ReadHandler>): void;
   readonly channel: SupervisorChannel;
@@ -779,6 +787,102 @@ export async function createAppsControl(
       reconcile: reconcileApp,
     });
 
+  async function grantChange(
+    writer: Writer,
+    ctx: AuthenticatedContext,
+    envelope: Parameters<Writer["command"]>[1],
+  ): ReturnType<Writer["command"]> {
+    if (envelope.command !== applyApprovedAction.name) {
+      return writer.command(ctx, envelope);
+    }
+    const input = envelope.input as {
+      approval?: string;
+      action?: {
+        command?: string;
+        caller?: string;
+        comparison?: { grants_seq?: string };
+        input?: { value?: { app?: string; grant?: string } };
+      };
+    };
+    const action = input.action;
+    if (action?.command !== "grant.revoke" || action.caller !== "user") {
+      return writer.command(ctx, envelope);
+    }
+    // 정확한 허락을 독립 재조회하기 전에는 다른 앱을 멈추지도 않는다. writer는 같은 action·CAS를 다시 검사한다.
+    const read = await deps.readers.read(approvalsGet, ctx, {
+      approval: input.approval,
+    });
+    if (!read.ok) return read;
+    const approved = read.value as {
+      request: {
+        status: string;
+        action: unknown;
+        expires_at: string | null;
+        run: string | null;
+      };
+      use: unknown;
+    };
+    const request = approved.request;
+    if (
+      ctx.actor !== "user" || !deps.revalidate(ctx.credential_ref).ok ||
+      approved.use !== null || request.run !== null ||
+      request.status !== "granted" ||
+      (request.expires_at !== null &&
+        Date.parse(request.expires_at) <= deps.clock.nowMs()) ||
+      canonicalize(request.action) !== canonicalize(action)
+    ) return writer.command(ctx, envelope);
+    const app = action.input?.value?.app;
+    if (
+      typeof app !== "string" || activation === null ||
+      deps.activation === undefined
+    ) return writer.command(ctx, envelope);
+    const allowed = createTargetAuthorizer(ctx)(ctx, "grant.revoke", { app });
+    if (!allowed.ok) return writer.command(ctx, envelope);
+    const listed = await deps.readers.read(grantsList, ctx, {
+      app,
+      limit: 200,
+    });
+    if (!listed.ok) return writer.command(ctx, envelope);
+    const grants = listed.value as { grants_seq?: string; grants: Grant[] };
+    const grant = grants.grants.find((entry) =>
+      entry.id === action.input?.value?.grant && entry.app === app &&
+      entry.status === "active"
+    );
+    if (
+      grant === undefined ||
+      grants.grants_seq !== action.comparison?.grants_seq ||
+      grant.kind === "automation.run"
+    ) return writer.command(ctx, envelope);
+    const ledger = openConnection(deps.ledgerPath);
+    if (!ledger.ok) return writer.command(ctx, envelope);
+    try {
+      if (activationInProgress(ledger.value.sql, app)) {
+        return writer.command(ctx, envelope);
+      }
+    } finally {
+      ledger.value.close();
+    }
+    const factsOf = await facts.app(app);
+    if (!factsOf.ok || factsOf.value === null) {
+      return writer.command(ctx, envelope);
+    }
+    const paused = await client.activationPause(app);
+    if (!paused.ok || !paused.value) {
+      return err({
+        code: "unavailable",
+        message:
+          "process termination is not confirmed; the revoke is not complete",
+      });
+    }
+    // pause는 OS 종료와 record_stopped를 마친 뒤 true다. action을 새 evidence로 바꾸지 않는다.
+    const done = await writer.command(ctx, envelope);
+    // 회수가 확정되지 않았으면 옛 desired 그대로 다시 열고, 확정됐으면 새 flag의 desired를 먼저 알린 뒤 연다.
+    // 새 desired를 알리지 못하면 붙든 채 두고(옛 flag로 다시 띄우지 않는다) sweep이 이어서 맞춘다.
+    if (done.ok && !(await activation.applyGrants(app))) return done;
+    await client.activationResume(app);
+    return done;
+  }
+
   // 사람의 shell이 닫은 화면 view를 그 앱의 지금 live 자식에 중계한다. 앱 프로세스 nonce는
   // supervisor가 지금 쥔 자식에서 정하고 본문에서 받지 않는다. 범위 밖 앱은 없는 앱과 같다.
   const viewClosed: MemoryHandler = async (ctx, value) => {
@@ -828,6 +932,7 @@ export async function createAppsControl(
       ],
       [`${appPairObserve.resource}/${appPairObserve.method}`, pairObserve],
     ]),
+    grantChange,
     commands: new Map<string, MemoryHandler>([
       [releasePrepareBundle.name, releasePrepareBundleHandler],
       [releasePreparation.name, releasePreparationHandler],
@@ -986,12 +1091,17 @@ export function appSupervisorSpec(input: {
 export function withReleasePreparation(
   writer: Writer,
   commands: ReadonlyMap<string, MemoryHandler>,
+  grantChange?: AppsControl["grantChange"],
 ): Writer {
   return {
     ...writer,
     async command(ctx, envelope) {
       const handler = commands.get(envelope.command);
-      if (handler === undefined) return await writer.command(ctx, envelope);
+      if (handler === undefined) {
+        return grantChange === undefined
+          ? await writer.command(ctx, envelope)
+          : await grantChange(writer, ctx, envelope);
+      }
       // 접수는 요청 때 검사(앱 범위·source·ticket claim)를 ledger transaction에서 먼저 지난다.
       if (envelope.command === releasePrepareBundle.name) {
         const checked = await writer.command(ctx, envelope);

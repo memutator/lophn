@@ -56,7 +56,7 @@ export function ConnectionsTab({ app, source, now }: ConnectionsTabProps) {
   async function decide(
     target: string,
     decision:
-      | { kind: "connect_apps"; app: string }
+      | { kind: "connect_apps"; app: string; target: string }
       | { kind: "remove_access"; app: string; grant: string },
   ): Promise<void> {
     setFailed(false);
@@ -108,6 +108,7 @@ export function ConnectionsTab({ app, source, now }: ConnectionsTabProps) {
                           void decide(pair.target, {
                             kind: "connect_apps",
                             app,
+                            target: pair.target,
                           })}
                         onRemove={() =>
                           pair.grant &&

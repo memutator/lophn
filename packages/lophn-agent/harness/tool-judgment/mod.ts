@@ -15,6 +15,7 @@ export {
 } from "./model.ts";
 export {
   type Admission,
+  type CallRef,
   type CallRequest,
   type CoreCall,
   createToolJudgment,
@@ -23,3 +24,4 @@ export {
   type ResolvedAction,
   type ToolBinding,
 } from "./work.ts";
+export { type AppJudgmentPorts, createAppBinding } from "./app-judgment.ts";

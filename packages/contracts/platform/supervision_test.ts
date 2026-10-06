@@ -25,7 +25,11 @@ import {
   PROCESS_KINDS,
   processKindSchema,
   readySchema,
+  redactRequestSchema,
+  redactResponseSchema,
   runMetadataSchema,
+  secretSendRequestSchema,
+  secretSendResponseSchema,
   stoppedSchema,
   stopSchema,
   STREAM_CHUNK_MAX_BYTES,
@@ -644,4 +648,113 @@ Deno.test("lophn-agent/harness/run-loop#R8: agent credential 요청·응답·종
   assert(agentCredentialEndSchema.safeParse(end).success);
   assert(childMessageSchema.safeParse(end).success);
   assert(!parentMessageSchema.safeParse(end).success);
+});
+
+Deno.test("lophn-agent/harness/run-loop#R8: 안전화 요청은 조각 수와 합 크기를 제한하고 응답은 자리만 싣는다", () => {
+  const request = {
+    type: "redact_request",
+    request_id: "r",
+    windows: ["a secret", "b"],
+  };
+  assert(redactRequestSchema.safeParse(request).success);
+  assert(childMessageSchema.safeParse(request).success);
+  assert(!parentMessageSchema.safeParse(request).success);
+  assert(!redactRequestSchema.safeParse({ ...request, windows: [] }).success);
+  assert(
+    !redactRequestSchema.safeParse({
+      ...request,
+      windows: Array.from({ length: 129 }, () => "x"),
+    }).success,
+  );
+  assert(
+    !redactRequestSchema.safeParse({
+      ...request,
+      windows: ["x".repeat(32_769)],
+    }).success,
+  );
+  const ok = {
+    type: "redact_response",
+    request_id: "r",
+    ok: true,
+    spans: [[{ index: 2, length: 6 }], []],
+  };
+  assert(redactResponseSchema.safeParse(ok).success);
+  assert(parentMessageSchema.safeParse(ok).success);
+  assert(
+    redactResponseSchema.safeParse({
+      type: "redact_response",
+      request_id: "r",
+      ok: false,
+    }).success,
+  );
+  assert(!redactResponseSchema.safeParse({ ...ok, text: "raw" }).success);
+});
+
+Deno.test("lophn-agent/harness/provider#R7 platform/secrets#R5: secret 전송 요청은 값 없이 참조·판·목적지만 싣고 값은 성공 응답 한 곳에만 있다", () => {
+  const request = {
+    type: "secret_send_request",
+    request_id: "s1",
+    use: {
+      sealed_ref: "sealed-1",
+      revision: 1,
+      purpose: "provider_credential",
+      destination: { kind: "https", origin: "https://api.example.test" },
+    },
+    operation: "model.call",
+    url: "https://api.example.test/responses",
+    method: "POST",
+  };
+  assert(secretSendRequestSchema.safeParse(request).success);
+  assert(childMessageSchema.safeParse(request).success);
+  assert(!parentMessageSchema.safeParse(request).success);
+  assert(
+    !secretSendRequestSchema.safeParse({ ...request, value: "v" }).success,
+  );
+  // 앱 secret 외의 coding connection 용도는 이 통로로 받지 못한다.
+  assert(
+    !secretSendRequestSchema.safeParse({
+      ...request,
+      use: { ...request.use, purpose: "coding_connection_credential" },
+    }).success,
+  );
+  assert(
+    secretSendRequestSchema.safeParse({
+      ...request,
+      use: {
+        ...request.use,
+        destination: {
+          kind: "loopback_http",
+          origin: "http://127.0.0.1:11434",
+        },
+      },
+    }).success,
+  );
+  assert(
+    !secretSendRequestSchema.safeParse({
+      ...request,
+      use: {
+        ...request.use,
+        destination: { kind: "loopback_http", origin: "http://example.test" },
+      },
+    }).success,
+  );
+  const granted = {
+    type: "secret_send_response",
+    request_id: "s1",
+    ok: true,
+    value: "v",
+  };
+  assert(secretSendResponseSchema.safeParse(granted).success);
+  assert(parentMessageSchema.safeParse(granted).success);
+  assert(!childMessageSchema.safeParse(granted).success);
+  const denied = {
+    type: "secret_send_response",
+    request_id: "s1",
+    ok: false,
+    error: { code: "unavailable", message: "no" },
+  };
+  assert(secretSendResponseSchema.safeParse(denied).success);
+  assert(
+    !secretSendResponseSchema.safeParse({ ...denied, value: "v" }).success,
+  );
 });

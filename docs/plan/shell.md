@@ -1029,7 +1029,7 @@ concerns: [shell]
 
 ### T52 문제 알리기
 
-- 상태: 완료 (#PR)
+- 상태: 완료 (#366)
 - 등급: frontend
 - concern: shell/app-frame, shell/wording
 - 요구: shell/app-frame#R31, R32, R34(버튼이 그 view에 묶임), shell/wording#R8, R9, problems/feedback#R5, R6, R10, R11, R12, R13

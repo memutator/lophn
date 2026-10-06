@@ -866,6 +866,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T19 release 준비 확정, 비교, blueprint read
 
+- 상태: 완료 (#377) — 이어보냄: 봉인 사본 모양·PreviewBundles → apps#T18, release.prepare 호출자·secret 전송 부착·GrantApplier 조립 → apps#T27
 - 등급: 기본
 - concern: apps/releases, apps/blueprint
 - 요구: apps/releases#R5, R6, R7, R9, R10, R11, R18, apps/blueprint#R2, R3

@@ -428,7 +428,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T23 문서·format tool 묶음
 
-- 상태: 완료 (#PR) — 이어보냄: tool 호출의 ToolCall ledger 연결(RecordToolRequest→Finish, run 자격 operation 조립)은 T26, Operator 승인 outputs 저장 판정은 documents#T32·T52(그 전에는 Operator의 `document.save_version`이 documents의 일반 agent 출력 범위만 받는다)
+- 상태: 완료 (#319) — 이어보냄: tool 호출의 ToolCall ledger 연결(RecordToolRequest→Finish, run 자격 operation 조립)은 T26, Operator 승인 outputs 저장 판정은 documents#T32·T52(그 전에는 Operator의 `document.save_version`이 documents의 일반 agent 출력 범위만 받는다)
 - 등급: 기본
 - concern: lophn-agent/harness/tools, lophn-agent/roles/common
 - 요구: lophn-agent/harness/tools#R6, R7, lophn-agent/roles/common#R6, R7, R10

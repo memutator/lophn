@@ -16,9 +16,25 @@ import {
   createGrantCommands,
   createGrantsReads,
   createSecretAllowance,
+  currentDeclarations,
   permissionsSchemaSteps,
 } from "../../packages/apps/permissions/mod.ts";
 import { createAutomationReads } from "../../packages/apps/automations/reads.ts";
+import { createBlueprintReads } from "../../packages/apps/blueprint/reads.ts";
+import { createReleaseCommands } from "../../packages/apps/releases/commands.ts";
+import { createReleaseReads } from "../../packages/apps/releases/reads.ts";
+import { releasesSchemaSteps } from "../../packages/apps/releases/schema.ts";
+import {
+  loadActiveBlueprint,
+  releaseDeclarations,
+} from "../../packages/apps/releases/store.ts";
+import { checkTicketClaim } from "../../packages/coding-agent/tickets/claims.ts";
+import {
+  TicketClaimCheck,
+  type TicketClaimChecker,
+} from "../../packages/contracts/coding-agent/mod.ts";
+import { AppTestVerificationLookupPort } from "../../packages/contracts/problems/mod.ts";
+import { findAppTestVerification } from "../../packages/problems/tests/app-test-lookup.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
 import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
@@ -74,10 +90,15 @@ export function createLedgerRegistration(
   // grant 변경은 정확한 approval 적용(create)과 사람 확인(revoke)으로만 한다.
   const grants = createGrantCommands();
   const grantReads = createGrantsReads();
+  // release 준비 확정과 그 읽기(list·get·compare), 고정 blueprint 읽기.
+  const releaseCommands = createReleaseCommands();
+  const releaseReads = createReleaseReads();
+  const blueprintReads = createBlueprintReads(loadActiveBlueprint);
   return {
     // place_names 표는 documents 등록의 몫이다(R6, R10).
     schemaSteps: [
       ...appsSchemaSteps,
+      ...releasesSchemaSteps,
       ...permissionsSchemaSteps,
       ...invocationsSchemaSteps,
       ...sdkSchemaSteps,
@@ -103,10 +124,15 @@ export function createLedgerRegistration(
       data.recordBackup,
       data.recordDataChange,
       data.recordDataRestore,
+      releaseCommands.prepare,
     ],
     reads: [
       reads.list,
       reads.get,
+      blueprintReads.blueprint,
+      releaseReads.list,
+      releaseReads.get,
+      releaseReads.compare,
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
@@ -134,6 +160,21 @@ export function createLedgerRegistration(
         key: SecretAllowance,
         create: (tx) => createSecretAllowance(tx),
       },
+      // 현재 release의 선언 사실이다. grant·broker·automation 읽기가 선언과 교집합을 본다
+      // (apps/permissions#R2). 준비 때 고정한 blueprint에서 만든 값을 읽는다.
+      { key: currentDeclarations, create: () => releaseDeclarations },
+      // release 준비는 같은 bundle hash의 통과한 app test와 현재 ticket claim을 같은 transaction에서
+      // 다시 확인한다(apps/releases#R5, R6). 구현은 problems·coding-agent 소유 읽기다.
+      {
+        key: AppTestVerificationLookupPort,
+        create: (tx) => (verification: string) =>
+          findAppTestVerification(tx.sql, verification),
+      },
+      {
+        key: TicketClaimCheck,
+        create: (tx): TicketClaimChecker => (input) =>
+          checkTicketClaim(tx, input),
+      },
       // documents가 하나로 나눈 place 이름 공간이다(dm#C7). documents 조립도 같은
       // 구현을 등록하므로 harness 등록을 겹치지 않게 documents만 실지 등록했다.
       {
@@ -158,10 +199,16 @@ export function createReaderRegistration(): ReaderRegistration {
   const runtimeReads = createRuntimeReads();
   const automationReads = createAutomationReads();
   const grantReads = createGrantsReads();
+  const releaseReads = createReleaseReads();
+  const blueprintReads = createBlueprintReads(loadActiveBlueprint);
   return {
     reads: [
       reads.list,
       reads.get,
+      blueprintReads.blueprint,
+      releaseReads.list,
+      releaseReads.get,
+      releaseReads.compare,
       grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
@@ -172,7 +219,11 @@ export function createReaderRegistration(): ReaderRegistration {
       sdkReads.versions,
       sdkReads.usage,
     ],
-    ports: new Map(),
+    // 선언 port의 고정 값이다. grants.list의 표시 자료와 apps.automations가 같은 key로 읽는다.
+    ports: new Map<unknown, unknown>([[
+      currentDeclarations,
+      releaseDeclarations,
+    ]]),
   };
 }
 

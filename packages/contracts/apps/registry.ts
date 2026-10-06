@@ -11,6 +11,7 @@ import {
   appUnarchived,
 } from "./apps.ts";
 import { appConnect } from "./channel.ts";
+import { appBlueprint } from "./blueprint-read.ts";
 import {
   appAutomations,
   appDisableExecution,
@@ -62,6 +63,7 @@ export const ROUTES = [
   appRecordUnavailable,
   appList,
   appGet,
+  appBlueprint,
   appRuntime,
   appLogs,
   appAutomations,

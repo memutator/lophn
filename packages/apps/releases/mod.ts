@@ -73,3 +73,24 @@ export {
   type UiBuildInput,
   type UiBuildOutput,
 } from "./ui-build/build.ts";
+// core의 ledger 쪽(동기 command·read). apps/core/apps.ts는 core module graph에 worker 코드가 들어가지
+// 않도록 이 파일들을 각각 import한다.
+export { releasesSchemaSteps } from "./schema.ts";
+export { checkPreparationClaim, createReleaseCommands } from "./commands.ts";
+export { createReleaseReads } from "./reads.ts";
+export { type ComparedRelease, compareReleases } from "./compare.ts";
+export {
+  canonicalInputHashSync,
+  declarationsOfBlueprint,
+  permissionLabel,
+} from "./facts.ts";
+export {
+  insertRelease,
+  loadActiveBlueprint,
+  loadActiveRelease,
+  loadRelease,
+  loadReleases,
+  loadStoredBlueprint,
+  releaseDeclarations,
+  type StoredBlueprint,
+} from "./store.ts";

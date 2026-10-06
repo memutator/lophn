@@ -10,7 +10,7 @@ import type { RequestContext } from "../../contracts/platform/mod.ts";
 import type { AppDeclarations } from "./declarations.ts";
 import { createGrantsReads } from "./reads.ts";
 import { insertGrant } from "./store.ts";
-import { createGrantSnapshot } from "./testing/mod.ts";
+import { createGrantSnapshot, seedDeclarations } from "./testing/mod.ts";
 
 const APP = "app_01h455vb4pex5v6nkc6gd5fdw1";
 const OTHER = "app_01h455vb4pex5v6nkc6gd5fdw2";
@@ -55,9 +55,7 @@ function world(options: { withDeclarations: boolean; declared?: boolean }) {
     ).run(id, `app-${index}`, `App ${index}`, "an app");
   }
   if (options.declared !== false) {
-    opened.db.prepare(
-      "INSERT INTO permissions_test_declarations (app, body) VALUES (?, ?)",
-    ).run(APP, JSON.stringify(declarations));
+    seedDeclarations(opened.db, APP, declarations);
   }
   return opened;
 }

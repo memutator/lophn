@@ -28,6 +28,8 @@ export type AppDeclarations = {
   // 현재 blueprint의 command key 전체.
   commands: readonly string[];
   automations: readonly AutomationDeclarationFact[];
+  // 현재 blueprint가 선언한 problem code. broker의 보고 검사가 쓴다.
+  problem_codes?: readonly string[];
 };
 
 export interface CurrentDeclarations {

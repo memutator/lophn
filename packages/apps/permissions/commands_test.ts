@@ -525,11 +525,11 @@ Deno.test("apps/permissions#R24: fs.read와 net.fetch를 함께 선언해도 사
     assertEquals(applied.reply.status, 200, JSON.stringify(applied.reply.body));
     const grants = await listGrants(world, { app });
     assertEquals(grants.map((g) => g.kind), ["fs.read"]);
-    // 선언을 내는 reader port가 등록되지 않은 core의 grants.list는 표시 자료를 null로 답한다.
+    // 선언을 내는 reader port(releases 조립)가 있는 core의 grants.list는 현재 선언의 표시 자료를 준다.
     const listed = await call(world.harness, "grants/list", world.user.token, {
       app,
     });
-    assertEquals(listed.body["display"], null);
+    assert(listed.body["display"] !== null);
     assertEquals(effective(app, declarations, grants).access, [
       { kind: "fs.read", scope: path },
     ]);
@@ -910,7 +910,7 @@ Deno.test("apps/permissions#R5: 정규화되지 않은 scope와 source를 감싸
   }
 });
 
-Deno.test("apps/permissions#R26: 현재 선언을 낼 주체가 없는 core는 선언 비교가 필요한 grant를 만들지 않는다", async () => {
+Deno.test("apps/permissions#R26: 현재 release 선언이 없으면 선언 비교가 필요한 grant를 만들지 않는다", async () => {
   const world = await open(false);
   try {
     const a = await createApp(world, "caller");
@@ -920,7 +920,7 @@ Deno.test("apps/permissions#R26: 현재 선언을 낼 주체가 없는 core는 �
       app: b,
       commands: ["report.read"],
     });
-    assertEquals(codeOf(applied.reply), "unavailable");
+    assertEquals(codeOf(applied.reply), "conflict");
     assertEquals(await listGrants(world), []);
     // 선언을 비교하지 않는 net.fetch는 approval만으로 만들어진다(R1).
     const net = await grantViaApproval(world, a, { kind: "net.fetch", ...NET });

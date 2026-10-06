@@ -1,10 +1,11 @@
 /**
  * apps/permissions의 team-brief testing fixture다. mod.ts에서 내보내지 않는다.
  *
- * releases 조립(apps#T18·T19)이 들어오기 전에는 현재 release의 선언과 activation event를 낼
- * 주체가 없다. 이 fixture는 그 둘만 writer transaction 안에서 남기는 시험 전용 team이다.
- * 선언은 `currentDeclarations` port의 실제 구현으로 시험 표에서 읽는다. grant command와 read는
- * 제품 등록(apps/core/apps.ts) 그대로 쓴다.
+ * 이 fixture는 시험이 현재 release의 선언 사실과 activation event를 writer transaction 안에서 바로
+ * 남기는 시험 전용 team이다. 선언은 실제 `releases` 표에 채택한 release 행으로 둔다(제품의
+ * `currentDeclarations` 구현이 그 행의 선언 사실을 읽는다). blueprint 검증·test 확인 없이 선언 사실만
+ * 직접 넣는 것이 준비(`release.prepare`)와 다르다. grant command와 read는 제품 등록
+ * (apps/core/apps.ts) 그대로 쓴다.
  *
  * ```ts
  * const opened = await createCoreHarness({
@@ -27,6 +28,7 @@ import {
   type ReadSnapshot,
   type SchemaStep,
   TargetAuthorization,
+  type Tx,
 } from "../../../contracts/platform/mod.ts";
 import { appsSchemaSteps } from "../../registration/mod.ts";
 import {
@@ -35,6 +37,10 @@ import {
   currentDeclarations,
 } from "../declarations.ts";
 import { permissionsSchemaSteps } from "../schema.ts";
+import {
+  releaseDeclarations,
+  releasesSchemaSteps,
+} from "../../releases/mod.ts";
 
 const REL = "rel_01h455vb4pex5v6nkc6gd5fdw1";
 const APR = "apr_01h455vb4pex5v6nkc6gd5fdw1";
@@ -67,13 +73,79 @@ export const activation = defineCommand({
   errors: [],
 });
 
+// 선언 사실을 채택한 release 행으로 둔다. 이전 채택 행은 대체되고, 호출마다 새 행이다.
+export function seedActiveDeclarations(
+  sql: Pick<Tx["sql"], "run" | "get">,
+  id: string,
+  at: string,
+  app: string,
+  declarations: Record<string, unknown> | null,
+): void {
+  sql.run(
+    "UPDATE releases SET status = 'superseded' WHERE app = ? AND status = 'active'",
+    [app],
+  );
+  if (declarations === null) return;
+  const number = Number(
+    sql.get(
+      "SELECT COALESCE(MAX(number), 0) + 1 AS n FROM releases WHERE app = ?",
+      [
+        app,
+      ],
+    )?.n ?? 1,
+  );
+  sql.run(
+    `INSERT INTO releases
+      (id, app, number, code_commit, bundle_hash, blueprint_hash, data_schema,
+       data_changes, ticket_source, created_by, created_at, status, activation,
+       failure, blueprint, declarations)
+     VALUES (?, ?, ?, ?, ?, ?, 0, '[]', NULL, 'machine', ?, 'active', NULL, NULL,
+       '{}', ?)`,
+    [
+      id,
+      app,
+      number,
+      "0".repeat(40),
+      "a".repeat(64),
+      "b".repeat(64),
+      at,
+      JSON.stringify(declarations),
+    ],
+  );
+}
+
+let seeded = 0;
+
+// 메모리 DB(snapshot 시험)에 선언 사실을 채택한 release 행으로 둔다. 앱 행이 먼저 있어야 한다.
+export function seedDeclarations(
+  db: DatabaseSync,
+  app: string,
+  declarations: Record<string, unknown> | null,
+): void {
+  seeded += 1;
+  seedActiveDeclarations(
+    {
+      run: (sql, params) =>
+        db.prepare(sql).run(...(params as never[])) as never,
+      get: (sql, params) =>
+        db.prepare(sql).get(...(params as never[])) as never,
+    },
+    `rel_01h455vb4pex5v6nkc6gd5fd${String(seeded % 100).padStart(2, "0")}`,
+    "2026-10-06T00:00:00.000Z",
+    app,
+    declarations,
+  );
+}
+
 const setDeclarationsCommand: CommandDefinition<typeof setDeclarations> = {
   route: setDeclarations,
   handle(tx, _ctx, input) {
-    tx.sql.run(
-      `INSERT INTO permissions_test_declarations (app, body) VALUES (?, ?)
-       ON CONFLICT(app) DO UPDATE SET body = excluded.body`,
-      [input.app, JSON.stringify(input.declarations)],
+    seedActiveDeclarations(
+      tx.sql,
+      tx.newId("rel"),
+      tx.now(),
+      input.app,
+      input.declarations,
     );
     return ok({ stored: true });
   },
@@ -112,34 +184,17 @@ const activationCommand: CommandDefinition<typeof activation> = {
   },
 };
 
-const schemaSteps: readonly SchemaStep[] = [{
-  id: "apps.permissions.testing.declarations",
-  sql: `CREATE TABLE permissions_test_declarations (
-    app TEXT PRIMARY KEY NOT NULL,
-    body TEXT NOT NULL
-  ) STRICT;`,
-}];
+// 시험 team은 자기 표를 만들지 않는다. 선언은 실제 releases 표에 둔다.
+const schemaSteps: readonly SchemaStep[] = [];
 
-// tx port와 reader port가 같은 구현을 쓴다. 구현은 부른 쪽의 sql을 받아 시험 표를 읽는다.
-export const declarationsFixture: CurrentDeclarations = {
-  get(sql, app) {
-    const row = sql.get(
-      "SELECT body FROM permissions_test_declarations WHERE app = ?",
-      [app],
-    );
-    if (row === undefined) return ok(null);
-    return ok(JSON.parse(String(row.body)) as AppDeclarations | null);
-  },
-};
+// 선언 port의 제품 구현이다. reader 등록의 고정 값과 같다.
+export const declarationsFixture: CurrentDeclarations = releaseDeclarations;
 
 export function createLedgerRegistration() {
   return {
     schemaSteps,
     commands: [setDeclarationsCommand, activationCommand],
-    ports: [{
-      key: currentDeclarations,
-      create: () => declarationsFixture,
-    }],
+    ports: [],
   };
 }
 
@@ -155,6 +210,7 @@ export function createGrantSnapshot(options: {
 } {
   const db = new DatabaseSync(":memory:");
   for (const step of appsSchemaSteps) db.exec(step.sql);
+  for (const step of releasesSchemaSteps) db.exec(step.sql);
   for (const step of permissionsSchemaSteps) db.exec(step.sql);
   for (const step of schemaSteps) db.exec(step.sql);
   const snapshot: ReadSnapshot = {

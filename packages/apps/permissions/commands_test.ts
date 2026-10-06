@@ -30,6 +30,8 @@ import {
 } from "../../../apps/core/testing/core.ts";
 import type { AppDeclarations } from "./declarations.ts";
 import { effectiveScope } from "./effective.ts";
+import { ok } from "../../base/mod.ts";
+import { createAutomationBroker } from "./broker/automations.ts";
 
 const HASH = "ab".repeat(32);
 const NET = { host: "api.example.com", port: 443 };
@@ -63,6 +65,10 @@ const USER_OPERATIONS = [
   "app.create",
   "app.connect_source",
   "grant.revoke",
+  "grant.revoke_automation",
+  "grant.create",
+  "create_approval_request",
+  "apply_approved_action",
   "grants.list",
   "grant_approval_request",
   "GetApproval",
@@ -71,6 +77,7 @@ const MACHINE_OPERATIONS = [
   "create_approval_request",
   "apply_approved_action",
   "grant.create",
+  "grant.revoke_automation",
   "grants.list",
   "app.record_started",
   "app.record_stopped",
@@ -173,7 +180,7 @@ async function grantViaApproval(
   world: World,
   app: string,
   scope: GrantPermissionScope,
-  options: { seq?: string; decideGrant?: boolean } = {},
+  options: { seq?: string; decideGrant?: boolean; person?: boolean } = {},
 ): Promise<Approved> {
   const approval = approvalId(world);
   const input = { app, kind: scope.kind, scope, approval };
@@ -181,7 +188,7 @@ async function grantViaApproval(
   const action = await actionOf({
     concern: "apps/permissions",
     command: "grant.create",
-    caller: "machine",
+    caller: options.person ? "user" : "machine",
     targets: [app],
     value: input as never,
     comparison,
@@ -189,8 +196,10 @@ async function grantViaApproval(
   const created = await call(
     world.harness,
     "approvals/create",
-    world.machine.token,
-    command(await createInput(approval, world.machine.context.actor, action)),
+    options.person ? world.user.token : world.machine.token,
+    command(
+      await createInput(approval, options.person ? "user" : "machine", action),
+    ),
   );
   assertEquals(created.status, 200, JSON.stringify(created.body));
   if (options.decideGrant !== false) {
@@ -205,7 +214,7 @@ async function grantViaApproval(
   const reply = await call(
     world.harness,
     "approvals/apply",
-    world.machine.token,
+    options.person ? world.user.token : world.machine.token,
     command({
       approval,
       action,
@@ -999,6 +1008,90 @@ Deno.test("apps/permissions#R1: grants.list는 상태 조건이 다른 cursor를
       status: "revoked",
     });
     assertEquals(codeOf(wrong), "invalid_input");
+  } finally {
+    await world.harness.close();
+  }
+});
+
+Deno.test("apps/automations#R13: 사람 automation 끄기는 정확한 app·grant·key·CAS만 회수하고 다음 회차의 execution scope는 닫힌다", async () => {
+  const world = await open();
+  try {
+    const app = await createApp(world, "off");
+    const other = await createApp(world, "other");
+    const when = { kind: "interval", interval_ms: 60000 } as const;
+    const scope = {
+      kind: "automation.run",
+      automation: "sync",
+      command: "sync",
+      input_hash: HASH,
+      when,
+    } as const;
+    const declarations = declared({
+      automations: [{
+        key: "sync",
+        command: "sync",
+        external: true,
+        input_hash: HASH,
+        when,
+      }],
+    });
+    await declare(world, app, declarations);
+    const enabled = await grantViaApproval(world, app, scope, { person: true });
+    assertEquals(enabled.reply.status, 200, JSON.stringify(enabled.reply.body));
+    const grant = await onlyGrant(world, app);
+    const broker = createAutomationBroker({
+      access: {
+        current: async () => {
+          const active = await listGrants(world, { app, status: "active" });
+          return ok({
+            release: REL,
+            scope: effective(app, declarations, active),
+            commands: ["sync"],
+            problemCodes: [],
+            automations: declarations.automations,
+          });
+        },
+      },
+      permits: { tryAcquire: () => "granted", release: () => true },
+    });
+    const acquire = () =>
+      broker.tryAcquire({
+        app,
+        release: REL,
+        mode: "live",
+        processNonce: "running",
+      }, { release: REL, key: "sync", process_nonce: "running", mode: "live" });
+    assert((await acquire()).ok);
+    const seq = grantsSeq(world, app);
+    const off = (input: unknown, token = world.user.token, base = seq) =>
+      call(
+        world.harness,
+        "grants/revoke_automation",
+        token,
+        command(input, { compare: { grants_seq: base } }),
+      );
+    const input = { app, grant: grant.id, automation: "sync" };
+    const absent = codeOf(
+      await off({ ...input, grant: "grt_01h455vb4pex5v6nkc6gd5fd00" }),
+    );
+    assertEquals(absent, "not_found");
+    assertEquals(codeOf(await off({ ...input, app: other })), absent);
+    assertEquals(
+      codeOf(await off({ ...input, automation: "different" })),
+      absent,
+    );
+    assertEquals(codeOf(await off(input, world.machine.token)), absent);
+    assertEquals(codeOf(await off(input, world.user.token, "0")), "conflict");
+    assertEquals((await onlyGrant(world, app)).status, "active");
+    await startProcess(world, app, "running");
+    assertEquals((await off(input)).status, 200);
+    assertEquals((await onlyGrant(world, app)).status, "revoked");
+    const current = await listGrants(world, { app, status: "active" });
+    assertEquals(effective(app, declarations, current).automations, []);
+    const next = await acquire();
+    assert(!next.ok);
+    assertEquals(next.error.code, "forbidden");
+    assertEquals(codeOf(await off(input)), "conflict");
   } finally {
     await world.harness.close();
   }

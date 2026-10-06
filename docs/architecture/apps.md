@@ -302,7 +302,7 @@ write/external·confirm·automation의 read 포함 전체 호출·실패/거절 
 | `releases` | `list`, `get`, `compare` | 불변 Release와 당시 test·claim 출처·activation 비교 |
 | `grants` | `list` | 현재 app의 grant와 선언 교집합 |
 | `invocations` | `list`, `get` | 당시 release로 해석한 상태·안전한 detail 참조 |
-| `packages` | `list`, `versions`, `guide`, `usage` | 공개 exact version·고정 guide·release 사용처 |
+| `packages` | `list`, `versions`, `guide`, `guide_body`, `usage` | 공개 exact version·고정 guide·release 사용처. `guide_body`는 `package_version/guide` blob 한 field의 구간만 읽는 좁은 읽기다(입력은 이름·exact version·구간뿐이라 다른 blob을 가리킬 수 없고, 없는 version·안내 없는 version은 없는 것과 같은 답이다. coding agent에 일반 `blobs/read`를 열지 않는다) |
 | `previews` | `start`, `get`, `stop` | PreviewInput으로 별도 프로세스 시작/실제 관측/종료 요청; App 활성 참조 변경 없음 |
 | `apps` | `export` | 단독 data worker가 준비한 앱 export; 준비 중·완성·실패 구별 |
 

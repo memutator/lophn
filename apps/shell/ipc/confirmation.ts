@@ -44,6 +44,8 @@ export const confirmationIntentSchema = z.discriminatedUnion("kind", [
     targets: z.array(z.string().regex(ID)).min(1).refine((values) =>
       new Set(values).size === values.length
     ).optional(),
+    automation: z.string().min(1).optional(),
+    requirement: z.number().int().nonnegative().optional(),
   }).strict(),
   z.object({
     kind: z.literal("secret_input"),

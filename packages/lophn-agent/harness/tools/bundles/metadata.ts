@@ -26,8 +26,7 @@ import { bodyOf, resume, scopeOf, windowedResult } from "./paging.ts";
 
 // project·app 목적 묶음(concern harness/tools, roles/context-engineer R4). 프로젝트와 앱의 이름·
 // 목적·상태만 읽기로 준다. 앱 소스 경로·실행 상태·폴더 경로는 결과에 싣지 않고 앱 command는 호출하지
-// 않는다. 앱 blueprint의 command 목록(`app.commands`)은 blueprint read가 서면 앱 묶음(lophn-agent#T44)이
-// 더한다.
+// 않는다. 앱 blueprint의 command 목록(`app.commands`)은 앱 묶음(`app.ts`)이 읽는다.
 
 export const METADATA_TOOL_REVISION = "2026-10-06";
 

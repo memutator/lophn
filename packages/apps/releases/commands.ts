@@ -157,8 +157,6 @@ export function createReleaseCommands(): {
       dispatchable: true,
       dispatchOnly: true,
       handle(tx, ctx, input) {
-        const actor = requireMachine(ctx);
-        if (!actor.ok) return actor;
         const found = loadRelease(tx.sql, input.release);
         if (!found.ok) return found;
         const release = found.value;

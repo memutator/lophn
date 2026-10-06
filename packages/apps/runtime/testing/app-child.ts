@@ -102,6 +102,15 @@ for (const command of blueprint.commands) {
         return { broker_credential: started.start.broker_credential };
       }
       if (command.key === "slow") await slow();
+      if (command.key === "read_file") {
+        const path = (await Deno.readTextFile(new URL("read-target", mainDir)))
+          .trim();
+        try {
+          return { body: await Deno.readTextFile(path) };
+        } catch (error) {
+          return { denied: error instanceof Deno.errors.NotCapable };
+        }
+      }
       return { command: command.key, input: input ?? null };
     },
   });

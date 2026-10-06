@@ -107,6 +107,7 @@ export function allowCandidate(
       document: id,
       place_kind: place === null ? undefined : place.kind,
       place: place === null ? undefined : place.id,
+      ...(place !== null && place.kind === "app" ? { app: place.id } : {}),
     });
     if (result instanceof Promise) {
       void result.catch(() => {});

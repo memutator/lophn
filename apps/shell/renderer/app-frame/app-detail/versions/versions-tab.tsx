@@ -52,12 +52,6 @@ export function VersionsTab(
     now,
   });
   const start = useRead(() => source.startCheck(app), [app, source], { now });
-  const blueprint = useRead(() => source.blueprint(app), [app, source], {
-    now,
-  });
-  const screen = blueprint.loaded.state === "ready"
-    ? blueprint.loaded.value?.fullScreen ?? null
-    : null;
 
   const versions = list.loaded.state === "ready"
     ? list.loaded.value.versions
@@ -79,9 +73,15 @@ export function VersionsTab(
   }
 
   async function openPreview(version: VersionRow): Promise<void> {
-    if (screen === null) return;
     setNotice(null);
     setOpening(version.id);
+    const blueprint = await source.blueprint(app, version.id);
+    const screen = blueprint.ok ? blueprint.value?.fullScreen ?? null : null;
+    if (screen === null) {
+      setOpening(null);
+      setNotice({ version: version.id, kind: "preview-failed" });
+      return;
+    }
     const reply = await source.startPreview(app, version.id);
     setOpening(null);
     if (!reply.ok) {
@@ -168,7 +168,7 @@ export function VersionsTab(
                             : null}
                           previewing={preview?.release === version.id}
                           opening={opening === version.id}
-                          canPreview={screen !== null}
+                          canPreview
                           onChoose={() => void choose(version)}
                           onPreview={() => void openPreview(version)}
                           onClosePreview={() => onPreview(null)}

@@ -44,6 +44,7 @@ Deno.test("apps/sdk#R3, apps/sdk#R6, apps/sdk#R7: route와 event 이름은 archi
       ["read", "/v1/packages/list", "packages.list"],
       ["read", "/v1/packages/versions", "packages.versions"],
       ["worker", "/v1/packages/guide", "packages.guide"],
+      ["read", "/v1/packages/guide_body", "packages.guide_body"],
       ["read", "/v1/packages/usage", "packages.usage"],
     ],
   );

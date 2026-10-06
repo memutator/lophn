@@ -8,20 +8,29 @@ import {
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { resolveSelection } from "../../packages/lophn-agent/harness/model/mod.ts";
 import {
+  type AuthKind,
+  type AuthTransport,
   createAuthTransport,
   createFetchTransport,
   createInvokeModelCall,
   credentialUsable,
+  providerSecretDestination,
   type SecretAttachLike,
 } from "../../packages/lophn-agent/harness/provider/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
-import { anthropicPacker, type ModelBinding } from "./model-binding.ts";
+import {
+  anthropicPacker,
+  chatPacker,
+  type ModelBinding,
+  responsesPacker,
+} from "./model-binding.ts";
 
 // preset의 model 선택을 현재 provider·catalog로 검증해 run이 쓸 model 묶음으로 만든다
 // (lophn-agent/harness/model R10~R13, harness/provider R10). preset에 선택이 없으면 사람이 정한 기본
-// 선택(judgment)을 쓴다. 지금 닿는 protocol은 Anthropic Messages뿐이고 계정 없는 loopback provider만
-// 보낸다. 값이 있는 계정(API key·OAuth)의 전송 부착은 platform secret 전송 부착이 runtime에 이어진 뒤에
-// 채운다. 그 전에는 그 선택이 있는 run을 `unavailable`로 둔다.
+// 선택(judgment)을 쓴다. 닿는 protocol은 Anthropic Messages·OpenAI Responses·OpenAI Chat Completions다.
+// 계정 없는 loopback provider는 붙일 값이 없고, API key 계정은 core가 감독 pipe로 건네는 값을 인증
+// transport가 전송 직전에만 붙인다(platform/secrets#R5). 값을 받지 못하면 요청을 보내지 않는다. OAuth는
+// 로그인·갱신(provider#R12~R18)이 runtime에 이어지기 전까지 `unavailable`이다.
 
 const MAX_OUTPUT_TOKENS = 4096;
 
@@ -33,6 +42,8 @@ type Selection = NonNullable<
 
 export type ModelResolverDeps = {
   machine: CoreCall;
+  // API key 계정의 값을 전송 직전에 붙이는 port. 없으면 값이 있는 계정은 쓸 수 없다.
+  attach?: SecretAttachLike;
   // 마지막 정상 catalog와 동봉 snapshot의 합(derived catalog).
   catalog(): Promise<Result<readonly CatalogEntry[]>>;
   fetch?: typeof fetch;
@@ -42,23 +53,7 @@ export type ModelResolverDeps = {
 
 export function createModelResolver(deps: ModelResolverDeps) {
   const nowMs = deps.nowMs ?? (() => Date.now());
-  // 계정이 없는 loopback provider에는 붙일 값이 없다.
-  const attach: SecretAttachLike = {
-    send: (_input, transmit) => transmit(""),
-  };
-  const invoke = createInvokeModelCall({
-    transport: createAuthTransport({
-      attach,
-      transport: createFetchTransport(deps.fetch),
-      context: {} as never,
-      use: {} as never,
-      operation: "model.call",
-      headerName: "x-api-key",
-      kind: "api_key",
-    }),
-    nowMs,
-    at: formatAt,
-  });
+  const fetching = createFetchTransport(deps.fetch);
 
   return async function resolveModel(input: {
     preset: { id: string; revision: number };
@@ -88,13 +83,6 @@ export function createModelResolver(deps: ModelResolverDeps) {
         message: "the provider is turned off",
       });
     }
-    if (provider.protocol !== "anthropic-messages") {
-      return err({
-        code: "unavailable",
-        message: "this provider protocol is not connected to the runtime yet",
-      });
-    }
-
     // 계정은 preset이 적은 순서의 첫 usable 계정이다. 적지 않았고 provider에도 없으면 계정 없이 간다.
     const at = nowMs();
     const keys = selection.credentials;
@@ -107,15 +95,40 @@ export function createModelResolver(deps: ModelResolverDeps) {
     if (keys.length > 0 && credential === null) {
       return err({ code: "unavailable", message: "no usable credential" });
     }
-    if (credential !== null && credential.kind !== "none") {
-      return err({
-        code: "unavailable",
-        message: "sending a credential is not connected to the runtime yet",
-      });
-    }
     if (credential === null && provider.credentials.length > 0) {
       return err({ code: "unavailable", message: "no credential is chosen" });
     }
+    // 값이 있는 계정의 전송: API key만 닿고 값은 전송 직전에만 붙는다.
+    let transport: AuthTransport = { send: fetching };
+    if (credential !== null && credential.kind !== "none") {
+      const destination = providerSecretDestination(provider.endpoint);
+      if (
+        credential.kind !== "api_key" || credential.secret_ref === null ||
+        deps.attach === undefined || destination === undefined
+      ) {
+        return err({
+          code: "unavailable",
+          message: "this credential cannot be sent from the runtime yet",
+        });
+      }
+      transport = createAuthTransport({
+        attach: deps.attach,
+        transport: fetching,
+        context: {} as never,
+        use: {
+          sealed_ref: credential.secret_ref.sealed_ref,
+          revision: credential.secret_ref.revision,
+          purpose: "provider_credential",
+          destination,
+        },
+        operation: "model.call",
+        // protocol이 정한 인증 header다. Anthropic은 x-api-key, OpenAI 계열은 Bearer다.
+        ...(provider.protocol === "anthropic-messages"
+          ? { headerName: "x-api-key", kind: "api_key" as AuthKind }
+          : { headerName: "authorization", kind: "bearer" as AuthKind }),
+      });
+    }
+    const invoke = createInvokeModelCall({ transport, nowMs, at: formatAt });
 
     const catalog = await deps.catalog();
     if (!catalog.ok) return catalog;
@@ -140,6 +153,17 @@ export function createModelResolver(deps: ModelResolverDeps) {
     if (!resolved.ok) return resolved;
     const limits = resolved.value;
 
+    const maxTokens = Math.min(MAX_OUTPUT_TOKENS, limits.output_limit);
+    const pack = provider.protocol === "anthropic-messages"
+      ? anthropicPacker({ model: selection.model_name, maxTokens })
+      : provider.protocol === "openai-responses"
+      ? responsesPacker({ model: selection.model_name, maxTokens })
+      : chatPacker({
+        model: selection.model_name,
+        maxTokens,
+        provider: provider.definition.key,
+      });
+
     const call: CallModel = {
       provider: selection.provider,
       name: selection.model_name,
@@ -157,7 +181,8 @@ export function createModelResolver(deps: ModelResolverDeps) {
       },
       catalog_basis: limits.basis as Record<string, never>,
       price_basis: limits.price_basis,
-      billing_route: "unknown",
+      // API key는 API 과금이고 계정 없는 연결은 청구를 모른다(provider#R27).
+      billing_route: credential?.kind === "api_key" ? "api" : "unknown",
     };
     return ok({
       call,
@@ -165,16 +190,20 @@ export function createModelResolver(deps: ModelResolverDeps) {
       endpoint: provider.endpoint,
       usageRevision: limits.price_basis?.revision ?? "unknown",
       timeoutMs: deps.timeoutMs ?? null,
-      pack: anthropicPacker({
-        model: selection.model_name,
-        maxTokens: Math.min(MAX_OUTPUT_TOKENS, limits.output_limit),
-      }),
+      pack,
       invoke,
+      // provider가 켜져 있고 고른 계정이 그대로 켜져 있으며 값의 판이 바뀌지 않았을 때만 보낸다(R4).
       available: async () => {
         const again = await readOf(deps.machine, providerRead, {
           provider: selection.provider,
         });
-        return again.ok && again.value.provider.enabled;
+        if (!again.ok || !again.value.provider.enabled) return false;
+        if (credential === null) return true;
+        const current = again.value.provider.credentials.find((entry) =>
+          entry.key === credential.key
+        );
+        return current !== undefined && current.enabled &&
+          current.secret_ref?.revision === credential.secret_ref?.revision;
       },
     });
   };

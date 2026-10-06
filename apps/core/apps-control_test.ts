@@ -87,8 +87,9 @@ Deno.test("apps/runtime#R9: registry 상한은 machine에게 관측 기록과 �
     operationCeiling("agent:asg_01arz3ndektsv4rrffq69g5fav", policies),
     ["app.connect"],
   );
-  // coding agent는 connect에 더해 preview(apps/preview#R1)와 release 준비 접수·진행을 연다. 취소는 machine만
-  // 한다. 사람은 route 상한 전체를 받는다.
+  // coding agent는 connect에 더해 preview(apps/preview#R1), release 준비 접수·진행, SDK 안내 원문의 좁은 읽기
+  // (`packages.guide_body`, 일반 blobs/read는 아니다)를 연다. 취소는 machine만 한다. 사람은 route 상한 전체를
+  // 받는다.
   assertEquals(
     [
       ...operationCeiling(
@@ -98,6 +99,7 @@ Deno.test("apps/runtime#R9: registry 상한은 machine에게 관측 기록과 �
     ].sort(),
     [
       "app.connect",
+      "packages.guide_body",
       "previews.get",
       "previews.start",
       "previews.stop",

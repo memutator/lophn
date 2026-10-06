@@ -105,11 +105,32 @@ function flow(sourcePath: string | null = SOURCE) {
         next_cursor: null,
       };
     },
+    "packages.guide_body": (input) => {
+      const { name, version } = input as { name: string; version: string };
+      const text = GUIDES[`${name}@${version}`];
+      if (text === undefined) return fail("not_found", "blob 참조가 없다");
+      const bytes = new TextEncoder().encode(text);
+      return {
+        status: "available",
+        hash: "b".repeat(64),
+        size_bytes: bytes.length,
+        offset_bytes: 0,
+        length_bytes: bytes.length,
+        truncated: false,
+        bytes: btoa(String.fromCharCode(...bytes)),
+      };
+    },
     "app.get": {
       app: { id: APP, slug: "notes", source_path: sourcePath, revision: "1" },
     },
   });
 }
+
+// 안내 원문(owner key는 `<name>@<version>`)이다. 1.10.0 안내만 일부러 없다.
+const GUIDES: Record<string, string> = {
+  "@lophn/ui-table@1.2.0":
+    "# @lophn/ui-table 1.2.0\n\n## API\n표 component의 공개 API다.\n",
+};
 
 function memorySource(files: Record<string, string>) {
   const writes: string[] = [];
@@ -203,6 +224,26 @@ Deno.test("coding-agent/mcp-server#R22: 이름으로 찾지 못하면 비설치�
     (data(show).details as { status: string }).status,
     "not_installed",
   );
+});
+
+Deno.test("coding-agent/mcp-server#R22 coding-agent/cli#R30: show는 등록한 안내 blob의 원문을 body로 내고 읽지 못하면 body는 null이고 이유를 낸다", async () => {
+  const picked = await runSdkOp(
+    { op: "show", name: "@lophn/ui-table", version: "1.2.0" },
+    { client: flow().client },
+  );
+  const guide = data(picked).guide as Record<string, unknown>;
+  assertEquals(guide.body, GUIDES["@lophn/ui-table@1.2.0"]);
+  assertEquals(guide.body_truncated, false);
+  assertEquals(guide.body_unavailable, undefined);
+  // 안내 blob이 없는 version은 원문을 만들어 내지 않는다.
+  const missing = await runSdkOp(
+    { op: "show", name: "@lophn/ui-table" },
+    { client: flow().client },
+  );
+  const bare = data(missing).guide as Record<string, unknown>;
+  assertEquals(bare.body, null);
+  assert(typeof bare.body_unavailable === "string");
+  assertEquals(bare.guide_hash, "d".repeat(64));
 });
 
 Deno.test("coding-agent/mcp-server#R22: show는 version 목록과 고른 version의 안내 hash를 낸다", async () => {

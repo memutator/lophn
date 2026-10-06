@@ -5,7 +5,6 @@ import {
   readCursorSchema,
   recordMessage,
   toolCallRead,
-  type ToolResult,
   type VisualBlock,
   visualKeySchema,
 } from "../../../../contracts/lophn-agent/mod.ts";
@@ -35,6 +34,8 @@ import {
   blockWindow,
   bodyParts,
   keyOf,
+  messageIdFor,
+  notDone,
   summaryOf,
   visualsOf,
 } from "./visual-view.ts";
@@ -134,41 +135,6 @@ export type VisualToolPorts = ContractCall & {
 
 // 준비한 글 한 조각의 JSON 문자열 크기. 결과의 나머지 field가 상한 안에 남게 한다.
 const TEXT_WINDOW_BYTES = 20 * 1024;
-const SUMMARY_MAX = 400;
-
-// 모델이 고칠 수 있는 거절이다. 소유 contract를 부르지 않았으므로 not_executed고 아무것도 저장하지
-// 않았다. 받은 값은 싣지 않는다.
-function notDone(
-  subject: string,
-  reason: { stage: string; block: string | null; message: string },
-): ToolResult {
-  const text = `${subject}: ${reason.message}`;
-  return {
-    status: "not_executed",
-    summary: Array.from(text).slice(0, SUMMARY_MAX).join(""),
-    content: {
-      stored: false,
-      rejection: {
-        stage: reason.stage,
-        block: reason.block,
-        message: reason.message,
-      },
-    },
-    complete: true,
-    source: null,
-    continuation: null,
-    pending: [],
-  };
-}
-
-const TOOL_CALL_ULID = /^tcl_([0-7][0-9a-hjkmnp-tv-z]{25})$/;
-
-// 같은 ToolCall의 재전송이 같은 메시지 ID를 쓰도록 ToolCall ID에서 낸다. RecordMessage는 같은 ID·
-// 같은 내용을 이전 결과로 돌려주므로 재전송이 메시지를 늘리지 않는다.
-function messageIdFor(call: string | undefined, fresh: () => string): string {
-  const match = call === undefined ? null : TOOL_CALL_ULID.exec(call);
-  return match === null ? fresh() : `msg_${match[1]}`;
-}
 
 export function createVisualToolHandlers(
   ports: VisualToolPorts,

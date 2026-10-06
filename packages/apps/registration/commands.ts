@@ -6,6 +6,8 @@ import {
   appConnectSource,
   appCreate,
   appCreated,
+  appRename,
+  appRenamed,
   appSchema,
   appSourceConnected,
   appUnarchive,
@@ -87,6 +89,7 @@ export function createAppCommands(): {
   connectSource: CommandDefinition<typeof appConnectSource>;
   archive: CommandDefinition<typeof appArchive>;
   unarchive: CommandDefinition<typeof appUnarchive>;
+  rename: CommandDefinition<typeof appRename>;
 } {
   return {
     create: {
@@ -96,7 +99,14 @@ export function createAppCommands(): {
         if (!actor.ok) return actor;
         const whole = requireWholeScope(ctx);
         if (!whole.ok) return whole;
-        const id = tx.newId("app");
+        // 미리 배정한 ID는 사람 자격만 쓴다. 질문 선택지의 적용도 ledger가 근거를 검증해 넘긴 사람
+        // 자격이다. coding connection은 ID를 정하지 못하고, 이미 있는 ID는 만들지 않는다.
+        if (input.id !== undefined) {
+          if (parseActor(ctx.actor)?.kind !== "user") {
+            return forbidden("only a person assigns an app id");
+          }
+        }
+        const id = input.id ?? tx.newId("app");
         const candidate: App = {
           id,
           slug: input.slug,
@@ -120,6 +130,12 @@ export function createAppCommands(): {
           input.slug,
         ]);
         if (named !== undefined) return conflict("app slug already exists");
+        if (
+          input.id !== undefined && tx.sql.get(
+              "SELECT id FROM apps WHERE id = ?",
+              [input.id],
+            ) !== undefined
+        ) return conflict("app id already exists");
         const seq = tx.emit(appCreated, id, {
           slug: input.slug,
           name: input.name,
@@ -210,6 +226,34 @@ export function createAppCommands(): {
             payload: { run_enabled: false as const },
           },
         );
+      },
+    },
+    rename: {
+      route: appRename,
+      handle(tx, ctx, input, compare) {
+        const actor = requireUser(ctx);
+        if (!actor.ok) return actor;
+        const current = loadApp(tx.sql, input.app);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const changed: App = { ...current.value, name: input.name };
+        const access = authorizeApp(
+          tx.port,
+          ctx,
+          appRename.name,
+          accessTarget(current.value, changed),
+        );
+        // 범위 밖 앱은 revision 비교보다 먼저 없는 앱과 같은 응답으로 닫는다.
+        if (denied(access)) return notFound();
+        if (!access.ok) return access;
+        if (current.value.revision !== compare.base_revision) {
+          return conflict("app revision changed");
+        }
+        const seq = tx.emit(appRenamed, changed.id, { name: input.name });
+        const next: App = { ...changed, revision: seq };
+        const stored = replaceApp(tx, next);
+        if (!stored.ok) return stored;
+        return appView(next);
       },
     },
   };

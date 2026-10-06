@@ -12,8 +12,10 @@ export {
 } from "./model.ts";
 export { createQuestionCommands } from "./commands.ts";
 export {
+  appCreateOptionAction,
   buildOptionAction,
   checkOptionAction,
+  chosenOptionCall,
   createApplyQuestionOption,
   findOptionOwner,
   moveOptionAction,

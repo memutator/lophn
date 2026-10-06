@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
-import { checkRepo, checkSource, errorsOf } from "./check.ts";
+import { checkSource, errorsOf } from "./check.ts";
+import { checkRepo, PROBLEM_MESSAGE_KEYS } from "./repo-check.ts";
 import { en } from "./en.ts";
 
 const root = new URL("../../../", import.meta.url).pathname;
@@ -76,6 +77,37 @@ Deno.test("shell/wording#R13: Baseline, Reference, Follow changes, For decisions
   assertEquals(en["settings.models.for-summaries"], "For summaries");
   assertEquals(en["common.activity.agent"], "Agent activity");
   assertEquals(en["common.activity.app"], "App activity");
+});
+
+Deno.test("shell/wording#R9: problems 문구 key는 저장소 검사의 알려진 key라 화면이 쓸 수 있고 catalog에 다시 정의하면 오류다", async () => {
+  assertEquals(PROBLEM_MESSAGE_KEYS, [
+    "app-detail.issue.unexpected_error",
+    "app-detail.issue.reported",
+    "app-detail.issue.report_incomplete",
+  ]);
+  const directory = await Deno.makeTempDir();
+  try {
+    const screens = `${directory}/apps/shell/renderer/app-frame`;
+    await Deno.mkdir(screens, { recursive: true });
+    await Deno.writeTextFile(
+      `${screens}/issue.tsx`,
+      'export const A = () => <p>{t("app-detail.issue.reported")}</p>;',
+    );
+    const findings = await checkRepo(directory);
+    assertEquals(
+      findings.filter((finding) => finding.file.endsWith("issue.tsx")),
+      [],
+    );
+    const redefined = checkSource(
+      "en.ts",
+      JSON.stringify({ "app-detail.issue.reported": "Reported." }),
+      { "app-detail.issue.reported": "Reported." },
+      { knownKeys: PROBLEM_MESSAGE_KEYS },
+    );
+    assert(redefined.some((finding) => finding.rule === "owned-elsewhere"));
+  } finally {
+    await Deno.remove(directory, { recursive: true });
+  }
 });
 
 Deno.test("shell/wording#R7: 저장소 화면 코드와 catalog에 문구 오류가 없다", async () => {

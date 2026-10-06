@@ -9,6 +9,7 @@ import {
   type CoreChild,
   coreLaunch,
   HELLO_TIMEOUT_MS,
+  packagedDenoDir,
   spawnCore,
   STOP_GRACE_MS,
   supervise,
@@ -84,19 +85,55 @@ test("shell/desktop#R20: 개발 core는 deno run과 data root만 받고 credenti
 
 test("shell/desktop#R20: packaged core는 bundle된 Deno와 좁힌 권한으로 시작한다", () => {
   const launch = coreLaunch({
-    repoRoot: "/opt/lophn",
+    repoRoot: "/opt/lophn/platform",
     dataRoot: "/home/person/.lophn",
     denoBinary: "/opt/lophn/deno",
     packaged: true,
     port: 7431,
+    env: { HOME: "/home/person" },
   });
   assert.equal(launch.command, "/opt/lophn/deno");
   for (const flag of CORE_PERMISSION_FLAGS) {
     assert.ok(launch.args.includes(flag));
   }
+  assert.ok(launch.args.includes("--cached-only"));
+  assert.ok(launch.args.includes("--frozen"));
   assert.equal(launch.args.includes("--allow-all"), false);
   assert.equal(launch.args.includes("--allow-ffi"), false);
   assert.ok(launch.args.includes("--port=7431"));
+  assert.ok(
+    launch.args.includes("/opt/lophn/platform/apps/core/main.ts"),
+  );
+  // 쓰기는 data root뿐, 실행은 kill·keychain 도구·설치된 Deno뿐이다.
+  assert.ok(launch.args.includes("--allow-write=/home/person/.lophn"));
+  assert.ok(
+    launch.args.includes(
+      "--allow-run=/usr/bin/kill,/usr/bin/secret-tool,/usr/local/bin/secret-tool,/opt/lophn/deno",
+    ),
+  );
+  // 네트워크는 loopback과 보호 loader socket 하나뿐이다.
+  assert.ok(
+    launch.args.includes(
+      "--allow-net=127.0.0.1,[::1],unix:/home/person/.lophn/run/credential.sock",
+    ),
+  );
+});
+
+test("platform/install-and-update#R8: packaged core의 Deno cache는 ~/.cache/lophn/deno다", () => {
+  const launch = coreLaunch({
+    repoRoot: "/opt/lophn/platform",
+    dataRoot: "/home/person/.lophn",
+    denoBinary: "/opt/lophn/deno",
+    packaged: true,
+    env: { DENO_DIR: undefined },
+  });
+  assert.equal(launch.env.DENO_DIR, packagedDenoDir());
+  const read = launch.args.find((arg) => arg.startsWith("--allow-read="))!;
+  assert.ok(read.includes(packagedDenoDir()));
+  assert.ok(read.includes("/opt/lophn/guides"));
+  assert.ok(read.includes("/home/person/.lophn"));
+  // cache가 data root 안에 있지 않아 지워도 자료는 그대로다.
+  assert.equal(packagedDenoDir().startsWith("/home/person/.lophn"), false);
 });
 
 test("shell/desktop#R15: hello는 실제 port·core epoch·user token을 한 번만 준다", async () => {

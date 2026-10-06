@@ -3,6 +3,7 @@ import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
   CONTEXT_DISPATCHABLE_COMMANDS,
   contextExport,
+  contextWatch,
   DOCUMENT_DISPATCHABLE_COMMANDS,
   documentPrepare,
   filesDelete,
@@ -255,8 +256,14 @@ export function workerSpecs(
 // child가 코드와 deno 캐시를 올리는 읽기. 사용자 root가 아니다.
 function codeReads(): string[] {
   const repo = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
   const home = Deno.env.get("HOME");
-  return [repo, home ? `${home}/.cache/deno` : "/tmp"];
+  let configured: string | undefined;
+  try {
+    configured = Deno.env.get("DENO_DIR");
+  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
+  const cache = configured ?? (home ? `${home}/.cache/deno` : "/tmp");
+  return [repo, cache];
 }
 
 // format runner는 호출마다 시작하고 한 결과를 낸 뒤 종료한다(architecture/documents 2.1).
@@ -313,6 +320,20 @@ function contextExportRoute(): ReadDefinition<typeof contextExport> {
       return err({
         code: "unavailable",
         message: "context export는 reader Worker가 서빙한다",
+      });
+    },
+  };
+}
+
+// context watch read. 미확인 목록은 derived store에 있어 서빙은 reader Worker의 등록
+// (documents-reader.ts)이 한다. 여기 handler는 route를 registry에 올리는 자리다.
+function contextWatchRoute(): ReadDefinition<typeof contextWatch> {
+  return {
+    route: contextWatch,
+    handle() {
+      return err({
+        code: "unavailable",
+        message: "context watch는 reader Worker가 서빙한다",
       });
     },
   };
@@ -468,6 +489,7 @@ export function createLedgerRegistration(
       contextReads.get,
       contextReads.related,
       contextExportRoute(),
+      contextWatchRoute(),
       termReads.list,
       termReads.get,
       seriesReads.list,

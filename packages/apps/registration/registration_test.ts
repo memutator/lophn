@@ -5,6 +5,19 @@ import type {
   AuthenticatedContext,
   SqlRow,
 } from "../../contracts/platform/mod.ts";
+import {
+  answerFree,
+  APP_CREATED,
+  applyRegister,
+  askRegister,
+  chooseOption,
+  count,
+  EVIDENCE,
+  inspect,
+  openAppOptionWorld,
+  type Registration,
+} from "../../../apps/core/testing/app-option.ts";
+import { id } from "../../../apps/core/testing/tool-judgment-world.ts";
 
 // harness 값 타입만 선언한다. platform ledger 모듈을 type-check하지 않기 위해서다.
 type CommandEnvelope = {
@@ -55,6 +68,7 @@ const operations = [
   "app.connect_source",
   "app.archive",
   "app.unarchive",
+  "app.rename",
   "app.list",
   "app.get",
   // place_names 이름 공간을 나누는(R6) project command다.
@@ -677,6 +691,261 @@ Deno.test("apps/registration#R5: a stale base_revision conflicts", async () => {
     } finally {
       await Deno.remove(folder, { recursive: true });
     }
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: rename works and moves the revision", async () => {
+  const opened = await harness();
+  try {
+    const created = commandResult(await create(opened));
+    const id = (created.result as { id: string }).id;
+    const active = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { name: string; revision: string } };
+    assertEquals(active.app.name, "Usage");
+    commandResult(
+      await opened.command(
+        user,
+        envelope("app.rename", "rename-usage", {
+          app: id,
+          name: "Usage Analytics",
+        }, {
+          base_revision: active.app.revision,
+        }),
+      ),
+    );
+    const renamed = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { name: string; revision: string } };
+    assertEquals(renamed.app.name, "Usage Analytics");
+    assertEquals(renamed.app.revision !== active.app.revision, true);
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: a stale revision conflicts on rename", async () => {
+  const opened = await harness();
+  try {
+    const created = commandResult(await create(opened));
+    const id = (created.result as { id: string }).id;
+    const active = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { revision: string } };
+    commandResult(
+      await opened.command(
+        user,
+        envelope(
+          "app.rename",
+          "rename-first",
+          { app: id, name: "First Name" },
+          {
+            base_revision: active.app.revision,
+          },
+        ),
+      ),
+    );
+    // 낡은 base_revision은 conflict다.
+    code(
+      await opened.command(
+        user,
+        envelope(
+          "app.rename",
+          "rename-stale",
+          { app: id, name: "Second Name" },
+          {
+            base_revision: active.app.revision,
+          },
+        ),
+      ),
+      "conflict",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: a non-user actor is refused on rename", async () => {
+  const opened = await harness([user, coding]);
+  try {
+    const created = commandResult(await create(opened));
+    const id = (created.result as { id: string }).id;
+    const active = value(
+      await opened.read(
+        { resource: "apps", method: "get" },
+        user,
+        { app: id },
+      ),
+    ) as { app: { revision: string } };
+    // coding agent의 rename은 거절된다.
+    code(
+      await opened.command(
+        coding,
+        envelope("app.rename", "rename-coded", { app: id, name: "New Name" }, {
+          base_revision: active.app.revision,
+        }),
+      ),
+      "forbidden",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+Deno.test("apps/registration#R2: absent app is not found on rename", async () => {
+  const opened = await harness();
+  try {
+    // non-existent app
+    const nonExistentId = "app_00000000000000000000000000";
+    code(
+      await opened.command(
+        user,
+        envelope("app.rename", "rename-absent", {
+          app: nonExistentId,
+          name: "New Name",
+        }, {
+          base_revision: "1",
+        }),
+      ),
+      "not_found",
+    );
+  } finally {
+    await opened.close();
+  }
+});
+
+const APP_ONE = id("app", 1);
+const APP_TWO = id("app", 2);
+
+function appToRegister(app: string, slug = "usage"): Registration {
+  return {
+    id: app,
+    slug,
+    name: "Usage",
+    description: "collect usage",
+  };
+}
+
+function appRows(world: Parameters<typeof inspect>[0]) {
+  return inspect(world, "select id, slug, status, run_enabled from apps");
+}
+
+Deno.test("apps/registration#R3: a chosen question option registers the preassigned app once and the second apply conflicts", async () => {
+  const world = await openAppOptionWorld();
+  try {
+    const asked = await askRegister(world, appToRegister(APP_ONE));
+    // 질문과 답만으로는 등록하지 않는다.
+    assertEquals(appRows(world.server), []);
+    await chooseOption(world, asked);
+    assertEquals(appRows(world.server), []);
+    const applied = await applyRegister(world, asked.question, asked.action);
+    assertEquals(applied.status, 200, JSON.stringify(applied.body));
+    // 미리 배정한 ID로 등록되고 실행은 꺼진 채다. 적용은 사람 결정이라 actor=user, run=null이다.
+    assertEquals(appRows(world.server), [
+      { id: APP_ONE, slug: "usage", status: "active", run_enabled: 0 },
+    ]);
+    const created = inspect(
+      world.server,
+      "select subject, actor, run from events where type = 'AppCreated'",
+    );
+    assertEquals(created, [{ subject: APP_ONE, actor: "user", run: null }]);
+    assertEquals(count(world.server, EVIDENCE), 1);
+    // 같은 선택지의 두 번째 적용은 conflict이고 앱도 일회 기록도 더하지 않는다.
+    const again = await applyRegister(world, asked.question, asked.action);
+    assertEquals(again.status, 409, JSON.stringify(again.body));
+    assertEquals(count(world.server, APP_CREATED), 1);
+    assertEquals(count(world.server, EVIDENCE), 1);
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("apps/registration#R3: a free answer, another option or a changed action registers nothing", async () => {
+  const world = await openAppOptionWorld();
+  try {
+    // 자유 답은 사람이 고른 선택지가 아니다.
+    const free = await askRegister(world, appToRegister(APP_ONE));
+    await answerFree(world, free, "yes, register it");
+    const freeApply = await applyRegister(world, free.question, free.action);
+    assertEquals(freeApply.status, 403, JSON.stringify(freeApply.body));
+    // 고정 action과 다른 앱(이름)을 같은 질문의 근거로 내밀 수 없다.
+    const other = await askRegister(
+      world,
+      appToRegister(APP_TWO, "other"),
+      "editor",
+    );
+    await chooseOption(world, other);
+    const changed = {
+      ...other.action,
+      input: {
+        kind: "inline",
+        value: { ...appToRegister(APP_TWO, "other"), name: "Other Name" },
+      },
+    };
+    const changedApply = await applyRegister(world, other.question, changed);
+    assertEquals(changedApply.status, 403, JSON.stringify(changedApply.body));
+    assertEquals(appRows(world.server), []);
+    assertEquals(count(world.server, APP_CREATED), 0);
+    assertEquals(count(world.server, EVIDENCE), 0);
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("apps/registration#R3: a stale basis conflicts, keeps the answer and leaves the option appliable", async () => {
+  const world = await openAppOptionWorld();
+  try {
+    const first = await askRegister(world, appToRegister(APP_ONE));
+    const second = await askRegister(world, appToRegister(APP_TWO), "editor");
+    await chooseOption(world, first);
+    await chooseOption(world, second);
+    const done = await applyRegister(world, first.question, first.action);
+    assertEquals(done.status, 200, JSON.stringify(done.body));
+    // 두 번째 선택지의 slug는 그 사이 등록되었다. 달라진 대상과 이유를 알리고 등록하지 않는다.
+    const stale = await applyRegister(world, second.question, second.action);
+    assertEquals(stale.status, 409, JSON.stringify(stale.body));
+    const details = (stale.body["error"] as {
+      details?: { targets: string[]; reason: string };
+    }).details;
+    assertEquals(details?.targets, [APP_TWO]);
+    assert((details?.reason ?? "").length > 0);
+    assertEquals(appRows(world.server).map((row) => row["id"]), [APP_ONE]);
+    // 실패한 적용은 일회 기록을 남기지 않아 다시 적용을 시도할 수 있다.
+    assertEquals(count(world.server, EVIDENCE), 1);
+    assertEquals(count(world.server, APP_CREATED), 1);
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("apps/registration#R3: a coding connection cannot choose the app id", async () => {
+  const opened = await harness([user, coding]);
+  try {
+    code(
+      await opened.command(
+        coding,
+        envelope("app.create", "create-id", {
+          ...createInput("coded", "Coded"),
+          id: APP_ONE,
+        }),
+      ),
+      "forbidden",
+    );
+    assertEquals(rows(await opened.inspect("select id from apps", [])), []);
   } finally {
     await opened.close();
   }

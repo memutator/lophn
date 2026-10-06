@@ -47,9 +47,15 @@ export function createIntentApi(transport: ShortcutTransport): IntentApi {
   let held: DesktopIntent | null = null;
   transport.on(DESKTOP_INTENT_CHANNEL, (_event, payload) => {
     if (!isDesktopIntent(payload)) return;
-    // 대상 링크는 검사한 두 값만 새 객체로 넘긴다.
+    // 대상 링크는 검사한 값만 새 객체로 넘긴다.
     const intent: DesktopIntent = typeof payload === "string"
       ? payload
+      : payload.kind === "app-issue"
+      ? Object.freeze({
+        kind: payload.kind,
+        app: payload.app,
+        problem: payload.problem,
+      })
       : Object.freeze({ kind: payload.kind, request: payload.request });
     if (listeners.size === 0) {
       held = intent;

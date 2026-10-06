@@ -1231,11 +1231,12 @@ Deno.test("lophn-agent/questions#R13: 선택 전에는 적용이 없고 고른 �
       (read.body["question"] as { applied: boolean }).applied,
       true,
     );
-    // machine이 적용한 변경은 run에 묶이지 않는다(agent run revert 목록 밖).
+    // 근거를 검증한 적용은 사람 결정이라 actor=user, run=null로 남는다(identity R14).
     const events = inspect(
       world.server,
-      "select run from events where type = 'SettingsChanged'",
+      "select actor, run from events where type = 'SettingsChanged'",
     );
+    assertEquals(events[0]!["actor"], "user");
     assertEquals(events[0]!["run"], null);
   } finally {
     await world.dispose();

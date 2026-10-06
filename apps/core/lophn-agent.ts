@@ -3,6 +3,7 @@ import { err, ok } from "../../packages/base/mod.ts";
 import {
   defineSetting,
   type KindLaunchSpec,
+  questionOption,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   defineTxPort,
@@ -14,10 +15,15 @@ import {
   assignmentPaused,
   InstructionAttachments,
   questionCreated,
+  runAccepted,
+  runFinished,
+  runStarted,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type {
   CommandDefinition,
+  EventDefinition,
+  EventVisibilityDefinition,
   Tx,
 } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -59,6 +65,7 @@ import {
   createRunCommands,
   createRunReads,
   RUN_LIMIT_SETTING_KEYS,
+  runBodyFields,
   runSchemaSteps,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
@@ -76,6 +83,7 @@ import {
   messageBodyRead,
 } from "../../packages/lophn-agent/conversation/mod.ts";
 import {
+  chosenOptionCall,
   createApplyQuestionOption,
   createQuestionCommands,
   createQuestionReads,
@@ -246,7 +254,11 @@ export const runActiveSetting = runLimitSetting(
 // wire에 더한다.
 const commands = createProviderCommands();
 const modelCommands = createModelDefaultsCommands();
-const usage = createUsageCommands();
+// 수정 입력의 처음 반영은 ModelCall 시작과 같은 transaction이다(Q30).
+const usage = createUsageCommands({
+  applyMessages: (tx, ctx, input, compare) =>
+    conversationCommands.apply.handle(tx, ctx, input, compare),
+});
 const reads = createProviderReads();
 const modelReads = createModelDefaultsReads();
 const usageReads = createUsageReads();
@@ -413,6 +425,12 @@ const waitCommands = createWaitCommands({
 // agent 자격의 command(CreateQuestion 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
 // unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
+// platform/ledger의 callChosenOption이 대조하는 질문 정본(identity R14). 사람이 고른 option의
+// 고정 action이 내는 소유 command 호출을 같은 Tx에서 읽어 준다.
+const questionOptionPort = defineTxPort(questionOption, (tx) => ({
+  chosen: (question: string) => chosenOptionCall(tx, question),
+}));
+
 const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   status: (run: string) => {
     const row = tx.sql.get("select state from runs where id = ?", [run]);
@@ -572,11 +590,17 @@ export const lophnAgentDefinitions = {
   blobFields: [
     ...modelCallBodyFields,
     ...toolCallBodyFields,
+    ...runBodyFields,
     ...questionBodyFields,
     ...messageBodyFields,
     ...handoffBodyFields,
   ],
-  ports: [runAdmissionPort, approvalLineagePort, instructionAttachmentsPort],
+  ports: [
+    runAdmissionPort,
+    approvalLineagePort,
+    instructionAttachmentsPort,
+    questionOptionPort,
+  ],
   workers: [],
   // 문서·format tool의 글 값 통로다. 서빙은 core 조립이 한다(apps/core/tool-documents.ts).
   workerRoutes: TOOL_DOCUMENT_ROUTES,
@@ -620,9 +644,20 @@ export function createEventRegistration(): EventRegistration {
     visibility: [
       notificationsOnlyVisibility(questionCreated),
       notificationsOnlyVisibility(assignmentPaused),
+      // agent runtime(machine 자격)만 run의 접수·시작·끝남을 따라 읽는다. selector가 RunStarted를 훑고
+      // 감독 pipe의 credential 발급이 StartRun이 확정한 scope를 대조한다. 사람·agent·app은 못 본다.
+      machineOnlyVisibility(runAccepted),
+      machineOnlyVisibility(runStarted),
+      machineOnlyVisibility(runFinished),
       ...createRevertEventVisibility(),
     ],
   };
+}
+
+function machineOnlyVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return { event, handle: (_snapshot, ctx) => ok(ctx.actor === "machine") };
 }
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는

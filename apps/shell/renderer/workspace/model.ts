@@ -121,6 +121,9 @@ export interface TabItem {
   readonly pinned?: boolean;
   /** terminal 탭의 시작 폴더 참조. 사람이 다시 시작할 때 쓴다(workspace#R7). */
   readonly folder?: string;
+  /** 앱 패널 탭의 앱과 panel 크기를 선언한 화면. 고르기 전에는 없다(workspace#R5). */
+  readonly app?: string;
+  readonly screen?: string;
 }
 
 export interface PaneState {

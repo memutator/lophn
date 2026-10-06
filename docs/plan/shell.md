@@ -344,7 +344,7 @@ concerns: [shell]
 
 ### T17 저장 흐름: 파일 통로, 저장 상태, 충돌, 닫기 guard
 
-- 상태: 진행 (#306) — 한 것: main 파일 adapter(`files/read` stream·`documents/upload`·`files/write` base_hash CAS·편집 종료의 `version_request`·`latest_version`·결과 불명 조회·형식 검사), 창 닫기 guard와 `QuitWork.pendingSaves`, 저장 상태 줄·상세·notice·충돌 해결 화면·닫기 dialog, 실제 core 테스트, headless E2E(`e2e/shell/save_test.ts`, `read-edit_test.ts` 실제 실행), T15에서 넘어온 추적 미리보기·켜기·파일 목록 실제 core 확인. 남은 것: T19에서 넘어온 series 새 멤버 쓰기 길(새 파일·series draft), 읽기 폭 재시작 E2E와 version 충돌의 최신 판 비교(제품 core의 worker `documents/read`가 unavailable, Q19(6)). Q19
+- 상태: 완료 (#376) — 한 것(#306): main 파일 adapter(`files/read` stream·`documents/upload`·`files/write` base_hash CAS·편집 종료의 `version_request`·`latest_version`·결과 불명 조회·형식 검사), 창 닫기 guard와 `QuitWork.pendingSaves`, 저장 상태 줄·상세·notice·충돌 해결 화면·닫기 dialog, 실제 core 테스트, headless E2E(`e2e/shell/save_test.ts`, `read-edit_test.ts` 실제 실행), T15에서 넘어온 추적 미리보기·켜기·파일 목록 실제 core 확인. 한 것(#376): T19에서 넘어온 series 새 멤버 쓰기 길 — documents 화면 series 상세의 "이 key로 새 문서 쓰기"가 가족 draft(`series.set_draft`: 예정 문서·key·FormatRef, `content: null`)를 세우고 같은 편집기(`series/member-writer.tsx`)로 쓴다. 판이 없어 글은 창의 편집 session 묶음이 붙들고(`editor/draft-document.ts`, 창 닫기 guard가 센다) 편집 종료가 main의 `shell:editor-create`(`main/editor/create.ts`: 업로드 → `documents/prepare` base_version null → `document.save`)로 첫 판을 만들며 documents가 같은 transaction에서 가입·draft 비움을 한다. 이어 쓰기·버리기(`series.clear_draft`). 첫 판 뒤 고침은 working copy 파일 통로. draft에 글을 싣지 않는 것은 `set_draft`가 content blob을 설치하지 않아 hash만 남기면 저장 안 된 blob 참조가 되기 때문이다. Q19(6)은 풀렸다(documents#T21이 worker `documents/read`를 서빙): 읽기 폭 재시작 E2E(`save_test.ts` 세 번째 실행, Q31 뒤 깨진 `documents/move` 준비를 자리 확인으로 바꿈)와 version 충돌의 최신 판 본문 비교·그 판 기준 확정을 실제 core 테스트(`editor/draft-document-real-core_test.ts`)로 본다. flow write-series 2·5의 새 멤버 쓰기는 `e2e/flows/write-series_test.ts`에 step으로 더했다.
 - 등급: 기본
 - concern: shell/editor
 - 요구: shell/editor#R1, R2, R12, R15
@@ -420,6 +420,11 @@ concerns: [shell]
   - export: 문서·고정 판 선택, 포함·제외·반환 불가 이유와 실제 결과.
   - 이름 충돌·대상 변경은 "This changed since you opened it" 패턴.
   - flow organize-documents의 사람 갈래 화면. 화면 테스트.
+- 상태: 완료 (#356)
+- 정한 것: projects 화면은 왼쪽 목록(보관은 "Show archived projects"로만 보임)과 오른쪽 상세(제목·이름·목적 저장, 보관·해제, 소속 문서, export)다. 문서를 고르면 같은 칸에 정리 칸(`organize/document-panel.tsx`: 링크 이름, 자리 이동, 파일)이 열린다. 통로는 `organize/source.ts`의 `OrganizeSource`이고 `coreOrganizeSource`가 core 통로·편집 통로·보호 창을 나눠 부른다. 충돌(conflict)은 다시 읽은 revision이 그대로면 "이름이 이미 쓰임", 바뀌었으면 "This changed since you opened it"과 [Show latest]로 나눈다.
+- 정한 것: 파일로 두기는 renderer allowlist 밖인 `files/write`를 main 편집 통로 `shell:editor-place`(`apps/shell/main/editor/place.ts`)로 부른다. renderer는 문서·최신 판·프로젝트·절대 경로만 보내고 main이 그 판의 유일한 파일 `existing` 참조와 `place`를 싣는다. 결과 `PlaceReport`는 파일 결과와 `placement` 단계(source, tracking, move)를 꾸미지 않고 옮기고 화면은 단계별 줄과 "끝나지 않은 단계" 안내로 보인다. 빼기는 `lophnShell.openConfirmation`에 owner_decision(`documents/file-tracking`, `delete_file`)과 대상 문서 ID만 싣는다. 이를 위해 contracts shell confirmation의 owner_decision intent에 선택 `targets`를 더했다(additive). 결정 결과(`unlinking` 단계)를 받으면 `UnlinkResult`가 파일 삭제와 연결 해제·자리 되돌리기를 따로 보인다.
+- 정한 것: export는 읽기라 renderer allowlist에 `worker:documents/export`를 더했다. 결과는 포함한 문서·판·원래 파일, Markdown으로 못 바꿔 원래 파일로 남는 것, 원래 파일을 돌려줄 수 없는 판(목록 blob), 고르지 않은 문서를 나눠 보인다. conflict는 "아무것도 내보내지 않음", 그 밖의 실패는 원인을 추측하지 않는다. 내보낸 결과를 파일로 저장하는 길은 없다(결과 확인까지).
+- 정한 것: 프로젝트 목록에 문서 수를 보이지 않는다. core의 project 읽기가 소속 문서 seam(`apps/core/documents.ts`의 `emptyDocuments`) 때문에 늘 0을 돌려줘 "No documents"로 거짓이 된다. 개발 확인용으로 `LOPHN_SHELL_START=projects`(`#projects`)를 더했다.
 
 ### T21 명령 팔레트와 창 안 shortcut
 
@@ -585,6 +590,7 @@ concerns: [shell]
 - slice: agent
 - 선행: shell#T22, shell#T23, contracts#T22, contracts#T23, contracts#T28, contracts#T29, platform#T21, platform#T22, lophn-agent#T29, lophn-agent#T34
 - shell#T28에서 넘어온 것: 질문 칸·things-to-confirm의 [Review]는 `lophnShell.openConfirmation({request, parentWindow})`(contracts shell confirmation)을 부른다(`apps/shell/renderer/desktop/lophn-space/things-to-confirm/core-source.ts`의 `windowConfirmation`). shell preload에 `openConfirmation`과 main의 `shell:confirmation-open` 등록·coordinator 연결이 아직 없어 지금은 "The review window can't open here yet."를 보인다. main은 renderer가 보낸 `parentWindow` 값이 아니라 IPC를 보낸 창을 부모로 쓴다
+- shell#T20에서 넘어온 것: projects 화면의 [Remove the file]이 `lophnShell.openConfirmation({request: {kind: "owner_decision", concern: "documents/file-tracking", decision: "delete_file", targets: [문서 ID]}, parentWindow})`를 부른다(contracts shell confirmation의 owner_decision intent에 선택 `targets`를 더했다). main의 owner_decision 정본 읽기와 제출을 붙인다: 문서 `documents.get`의 `file_source`(project_file)와 `/v1/files/status`의 디스크 hash로 `files.delete {request_key, target, base_hash, unlink: {document}}`를 고정해 표시하고(T23 owner decision 화면), 결정이면 handle과 함께 보낸 결과 FileOperationResult의 `unlinking` 단계(source, move)를 요청한 창에 돌려준다. 화면은 `RemoveReply`의 `done`으로 받아 `UnlinkResult`로 보인다(`apps/shell/renderer/desktop/lophn-space/organize/`). 지금은 창이 열리지 않아 "The review window can't open here yet, so the file wasn't removed."를 보인다.
 - platform#T19 후속(#294)에서 넘어온 것: secret 입력 창의 main 쪽 길이 core에 열렸다. 값이 있는 곳은 창의 보호 입력과 main 메모리뿐이다. main은 (1) `POST /v1/secrets/input`(`content-type: application/octet-stream`, `x-lophn-input`에 `{purpose, owner, bytes}`의 base64url JSON, body는 값의 바이트, 상한 64KiB)으로 값을 보내 값 없는 준비 증거 `{preparation, sealed_ref, purpose, owner}`를 받고, (2) 그 증거가 들어간 `SetSecret` 입력(앱 secret은 `purpose: app_secret`, `owner == name`)의 binding으로 confirmation handle을 main↔core 비공개 연결에 등록하고(handle은 증거를 받은 뒤에만 만들 수 있다), (3) `SetSecret`(교체는 `compare: {sealed_ref, revision}`, 처음은 null 둘)을 보내고, (4) 결과로 창에는 안전 이름·저장 결과만 돌려준다. 제거는 `RemoveSecret`이다. 표시용 `/v1/secrets/list`(이름·설정 여부·판)도 열렸다. 실패는 keychain 잠김이면 `unavailable`(값은 어디에도 남지 않음), 크기 불일치면 `invalid_input`이다. provider credential(`RegisterProviderCredential`·`ChangeProviderCredentials`)은 같은 route에 `purpose: provider_credential`로 값을 보내 증거를 받고 소유 command를 부른다(T31). 제출·취소·창 종료 때 값을 지운다. core가 값을 쥐는 곳은 없으므로 main이 값을 로그·오류·IPC 결과에 넣지 않는 것이 이 작업의 시험이다.
 - platform Q29(#305)에서 넘어온 것: approval 결정 창은 `approvals/get`(exact 동작·대상·입력·기한·상태)과 함께 `ReadApprovalText`(`/v1/approvals/text`, 입력 `{approval}`)로 이유·변경·외부 영향·되돌림 글을 읽어 문장으로 보인다. 글은 core가 redaction한 값이고 blob 하나라도 읽지 못하면 `unavailable`이라 일부만 보이지 않는다. 거절 창은 선택 입력인 거절 이유를 `closed_reason` 글 값(없으면 `null`, 글 하나 32KiB 이하, 공백뿐인 글은 보내지 않는다)으로 `approvals/reject`에 싣는다. hash를 만들거나 blob을 준비하지 않고 core가 한다. 이유는 handle binding(approval·created_seq·binding_hash)에 들어가지 않는다. 종료된 request의 `ReadApprovalText.closed_reason`이 적은 거절·취소 이유이고 만료는 null이다(상태가 이유다).
 - lophn-agent#T34(Q44)에서 넘어온 것: revert 창의 main은 (1) `reverts/preview`로 본 묶음(`groups`)을 보이고, (2) 복원 가능한 묶음마다 문서의 이전 판을 사람 자격의 `documents/prepare`(`existing` 원문 참조와 그 판의 FormatRef)로 준비해 `buildRevertInput`(packages/lophn-agent/revert/work.ts)으로 `RevertRun` 입력의 `groups`(준비 결과는 `comparison.prepared`, `prepared_ref`는 그 hash)를 만들고 준비 참조를 요청의 `prepared`에 싣는다. (3) 확인 handle은 binding(`id, run, allow_partial, preview_hash`)으로 발급하고 결정 이름은 command 이름 `RevertRun`(= contract의 `REVERT_RUN_DECISION`)이다. (4) 이유(`reason`)는 고정 코드(`revertReasonSchema`)이므로 코드로 wording을 고른다. 결과 event는 사람이 `events/list`로 따라 볼 수 있다(payload는 run·지문·결과별 수). 준비 결과가 없으면 문서 내용 복원은 blocked(복원 준비 불충족)로 끝난다
@@ -629,6 +635,7 @@ concerns: [shell]
 - 선행: shell#T12, shell#T29, contracts#T24, contracts#T29, platform#T25, lophn-agent#T3, lophn-agent#T15, lophn-agent#T35, lophn-agent#T36
 - platform#T19 후속(#294)에서 넘어온 것: provider key·로그인 응답의 값은 T29의 secret 입력 창이 `/v1/secrets/input`(`purpose: provider_credential`)으로 보내 증거를 받은 뒤 `RegisterProviderCredential`·`ChangeProviderCredentials`를 부른다(순서는 T29의 넘어온 것을 따른다). 확정 뒤 core가 그 credential의 값을 알려진 값 registry에 등록하므로(documents 읽기·메시지 본문에서 가려진다) 화면이 따로 할 일은 없다.
 - shell#T29에서 넘어온 것: provider key는 `openConfirmation({request: {kind: "secret_input", owner: <provider id>, purpose: "provider_credential", credential: {key, kind, label, account, organization, plan, dedup_fingerprint}}})`로 연다. 창은 `providers/read`의 revision을 비교 기준으로 `RegisterProviderCredential`까지 보낸다. 교체·회수(`ChangeProviderCredentials`)와 앱 secret 제거(`RemoveSecret`)는 창 종류가 아직 없다(열기 모양을 정해 `apps/shell/main/confirmation/kinds/secret-input.ts`에 더한다)
+- shell#T32에서 넘어온 것: 전역 [Instructions] 단추는 `InstructionsButton`(`renderer/editor/instructions-entry.tsx`)을 놓고 누르면 `openInstructions({ layer: "global" })` route(`desktop/router.ts`)로 가서 `Desktop`이 `InstructionsEntry`를 연다. 같은 진입을 개발 시작 자리 `LOPHN_SHELL_START=instructions:global`로도 연다
 - 완료: 아래 확인이 통과한다
   - provider 연결: contract가 알려 준 인증 방식(API key, 공식 로그인, 로컬)만 보이고 과금·한도·금액 모름을 구별한다. key와 로그인 응답은 confirmation window의 secret 입력으로만 받는다.
   - 계정: 같은 provider의 계정 순서, 사용 가능·인증 문제·사용량 한도·확인된 리셋 시각, 다음 행동 하나. 교체·삭제·재로그인은 confirmation window.
@@ -641,6 +648,7 @@ concerns: [shell]
 
 ### T32 [Instructions]: 지침 파일을 같은 편집기로
 
+- 상태: 완료 (#380) — 이어보냄: app 층 열기(앱 자리 `LOPHN.md` 등록, documents#T28 후속이라 지금은 없는 대상과 같게 not_found) · [Instructions] 단추 배치(전역 → T31, app → T43, project-workspace는 작업대 화면에 `InstructionsButton`·`openInstructions`를 놓는 일이 남음)
 - 등급: 기본
 - concern: shell/editor
 - 요구: shell/editor#R17
@@ -718,6 +726,7 @@ concerns: [shell]
 
 ### T36 contexts 화면
 
+- 상태: 완료 (#365) — 더한 contract: read `context.watch`(`/v1/contexts/watch`, 확인된 변화와 미확인 이유). Follow changes의 section 이름은 지금 section key로 보인다(outline.context가 제목을 주지 않는다)
 - 등급: frontend
 - concern: shell/desktop, shell/editor, shell/wording
 - 요구: shell/desktop#R28(contexts), shell/editor#R6(정보 패널 컨텍스트 탭), shell/wording#R13(Baseline·Reference·Follow changes)
@@ -798,6 +807,8 @@ concerns: [shell]
   - `visibility_test`와 `e2e/shell/native-view_test.ts`(두 view 동시 표시, drag 중 view가 보임, 전환 중 겹친 frame 없음, 1024px 미만 bounds 축소)에 위 요구 테스트.
 - 가져올 것: legacy `views.ts`의 `#mount`·`setBounds`·`toDip`·latest requested bounds 처리, `renderer/src/shell/EmbeddedView.tsx`의 ResizeObserver+rAF.
 - shell#T37에서 넘어온 것: main.ts에 `appFrame`(`main/app-frame/registry.ts`의 `createAppFrame`)이 조립돼 있다. shell preload의 `openApp`·`setViewBounds`·`setViewsHidden`·`closeView`와 IPC(`shell:view-open-app` 등, sender 검사)를 registry의 `open`·`setBounds`·`hide`·`close`·`state`에 잇고 `shell:view-state` push를 더한다. 붙이기는 `electron-app-frame.ts`가 하고 붙일 때 overlay를 맨 위로 다시 둔다(`electronOverlays().raise`). `setBounds`는 실제 attach일 때만 generation을 올리고 진단을 남긴다
+- 정한 것: (1) renderer(`renderer/app-frame/bounds.ts`)가 칸·카드 목록 경계(overflow가 visible이 아닌 조상)로 자르고 `useViewCover`로 등록한 좁은 창 덮개를 빼 남은 가장 넓은 사각형을 보낸다. 넓이가 없으면 숨김이다. main(`main/app-frame/visibility.ts`)은 CSS pixel을 page zoom으로 창 DIP로 바꿔 창 본문(상단 바 아래)과 다시 교차한다. 붙이기·떼기는 registry와 `placement.ts`만 한다. (2) bounds 적용은 모든 view를 함께 16ms마다 한 번(마지막 값), 숨김·폐기는 바로 하고 그 view의 기다리던 bounds를 버린다. `openApp`은 bounds 없이 열고 registry는 bounds가 왔고 첫 load가 끝났을 때만 붙인다. 숨기거나 폐기한 view의 키보드 focus는 그 창 shell renderer로 돌린다. (3) `lophnShell`의 view API(`openApp`·`setViewBounds`·`setViewsHidden`·`closeView`·`subscribeViewState`)는 desktop 창에만 있고 실패는 code만 message로 싣는다. `openDocumentView`는 범위 밖이다. (4) 닫힌 view 중계(apps#T16): registry가 view를 폐기하거나 다른 앱으로 교체하면 main이 새 memory route `POST /v1/apps/view_closed {app, view_session}`(contracts `appViewClosed`, actor user)를 부르고 core apps 제어 어댑터가 supervisor `apps.view_closed`로 그 앱의 지금 live 자식 nonce를 붙여 `/_lophn/control/view-closed`를 보낸다. 자식이 없으면 `{relayed:false}`, 범위 밖 앱은 not_found다. 같은 앱 안의 교체는 같은 view_session이 이어지므로 보내지 않는다. preview 프로세스는 live supervisor 밖이라 보내지 않는다
+- 상태: 완료 (#342) — 이어보냄: 앱 공간 본문의 `EmbeddedView`·좁은 창 덮개 → shell#T42, 프로젝트 앱 패널 탭·세션 카드의 `EmbeddedView` → shell#T44
 
 ### T40 SDK UI: ui-control, ui-overlay, ui-layout, ui-state
 
@@ -849,12 +860,17 @@ concerns: [shell]
 - shell#T21에서 넘어온 것: lophn 공간 팔레트의 앱 행은 지금 apps 형제 화면으로만 간다(`apps/shell/renderer/desktop/palette/lophn-scope.ts`의 app target). 앱 공간이 생기면 그 앱 공간으로 간다.
 - shell#T47에서 넘어온 것: 앱 공간 바(또는 운영 패널)에 [Open in new window]와 OS 바로가기 추가·제거를 둔다. 새 창은 main의 `appWindows.open(app)`(`main/desktop/app-window.ts`)을, 바로가기는 `installOsEntry`·`removeOsEntry`(`main/desktop/os-entry/entry.ts`)를 sender 검사한 IPC로 부른다. renderer는 앱 ID만 보내고 이름은 main이 `apps/get`으로 읽는다. 실제 writer(`EntryFiles`의 원자 쓰기·mode, macOS 폴더 제거, Windows `shell.writeShortcutLink`)와 `OsEntryEnv`(XDG_DATA_HOME, APPDATA, home) 조립은 main.ts에 아직 없다. headless와 개발 실행은 쓰지 않는다
 - shell#T27에서 넘어온 것: 앱 공간 바의 대화 도크 토글(`DockToggle`)과 본문 오른쪽 `DockSlot`(새 세션 작업 자리 `{kind: "app"}`). 도크가 앱 view를 덮거나 밀 때의 native bounds는 T39를 따른다
+- shell#T39에서 넘어온 것: 앱 공간 본문에 `renderer/app-frame/embedded-view.tsx`의 `EmbeddedView`(views는 `globalThis.lophnShell`의 view 통로)를 두고, 창마다 `createViewCovers()`를 `ViewCoversProvider`로 준다. 1,024px 미만에서 overlay로 본문을 덮는 운영 패널과 대화 도크(`conversation/dock.tsx`의 overlay 배치)는 `useViewCover(ref, covering)`를 불러야 앱 view가 덮이지 않은 폭으로 준다(R26, R36). 덮개 등록이 없으면 앱 view가 패널 아래로 그대로 남는다
+- shell#T44에서 넘어온 것: 프로젝트 작업대의 `Workspace.onOpenApp(app)`(패널을 선언하지 않은 앱·화면의 [Open in app space])을 앱 공간 route로 잇는다. 지금 desktop `main.tsx`가 넘기지 않아 안내 글만 보인다. 창마다 `AppViewsProvider`(views 통로와 `apps.get`)가 desktop entry에 있으니 앱 공간도 같은 것을 쓸 수 있다
 - 완료: 아래 확인이 통과한다
   - 앱 공간은 얇은 바와 앱 view 전체 본문. 바에 런처 복귀, 앱 이름·연결 상태, [Report a problem] 자리(T52), 운영 패널 진입, 문서 작업대 전환. 운영 패널 720px, 1024px 미만이면 overlay이되 앱 view는 남은 영역으로 줄어든다.
   - 프로젝트·앱 공간의 lophn 크롬은 그 앱의 결정 대기와 daemon 장애 안내만.
   - lophn 공간 apps 화면: 사람이 지은 이름, 상태, 보관, 이름 바꾸기. 원시 enum·ID 없음.
   - 화면 테스트.
+- 후속: 앱 이름 변경 command app.rename(#354). apps 화면의 행 동작은 이 command를 부른다.
 - 가져올 것: legacy `spaces/AppSpace.tsx`의 얇은 chrome 배치, `screens/Apps.tsx`.
+- 상태: 완료 (#353) — 이어보냄: 앱 공간 screen의 blueprint read → shell#T45, [Report a problem] 자리 → shell#T52, 운영 패널 안 app-detail → shell#T43. 막힘: apps 화면의 이름 바꾸기(apps/registration에 앱 이름 바꾸는 command가 없다, lead에 보고)
+- 정한 것: (1) 앱 공간은 renderer route `{space: "app", app}`이고 apps 화면의 [Open]과 팔레트의 앱 행이 연다(앱 통로가 없는 창은 apps 형제로 간다). 본문은 그 앱의 지금 version을 live·full로 여는 `EmbeddedView` 하나이고, 열 screen은 `AppsSource.entryScreen`(blueprint가 `full`을 선언한 첫 screen)이 준다. 그 read가 없거나 view 통로가 없으면 view를 열지 않고 "This app's screen can't open here yet."을, 보관·version 없음·없는 앱도 각각 한 문장을 보인다. 연결 상태는 view가 알린 `connectionState`, 그 전에는 `apps/runtime`이다. (2) 운영 패널(`ops-panel-frame.tsx`)은 720px, 창 1,024px 이상은 본문 옆 열, 미만은 overlay이고 `useViewCover`로 앱 view를 덮이지 않은 폭으로 줄인다. 대화 도크가 열리면 패널은 자리를 내주고 닫히면 돌아온다. 좁은 창의 도크 overlay도 덮개로 등록한다. 패널 안에는 지금 "On this computer"(OS 앱 메뉴 추가·삭제)만 있고 나머지는 T43이 채운다. (3) 바: 런처 복귀, 이름·상태(`StatusMark`, 화면 말 Running·Stopped·Getting ready·Not responding·Archived·Status unknown), `SpaceDecisions`, [Report a problem] 자리(`AppBar.report`, 비어 있음), Documents(lophn 공간 documents로 전환), [Open in new window], App details, 도크 토글. 전역 관리 진입점은 두지 않는다. (4) 새 창·바로가기 IPC는 `shell:app-window-open`·`shell:app-shortcut-add`·`shell:app-shortcut-remove`(`ipc/app-window.ts`, preload `lophnAppWindows`)이고 desktop 창 main frame만 부르며 입력은 `{app}` 하나다. main(`main/desktop/app-window-ipc.ts`)은 바로가기 이름을 `apps/get`의 active 앱에서 읽고 결과를 `ok`·고정 code(`not_installed`=설치한 lophn이 아님, `os_failed`, `unavailable` 등)로만 돌려준다. 실제 writer(같은 폴더 임시 파일 rename·mode, 폴더째 제거, Windows `shell.writeShortcutLink`)와 `OsEntryEnv` 조립은 main.ts에 있고, headless·개발 실행은 `installOsEntry`가 쓰지 않는다. (5) apps 화면: 보관하지 않은 앱 먼저 이름 순, 이름·상태·[Open]·[Archive]/[Restore]. 보관은 되돌릴 수 있어 묻지 않고 결과만 알리고, 낡은 기준(conflict)이면 최신을 다시 읽는다. core가 다시 준비되면 다시 읽는다. (6) 이름 바꾸기는 하지 않았다: apps/registration에 앱 이름을 바꾸는 command가 없다(documents#T5가 예약 port의 "이름 변경 transaction"을 전제할 뿐). apps 쪽 command가 생기면 apps 화면 행에 붙인다. (7) 개발 확인용 `LOPHN_SHELL_START=apps`·`app:<app id>`(renderer `#apps`·`#app=<id>`)
 
 ### T43 app-detail: Version, Access, Automations, Connections, Activity, Data
 
@@ -865,6 +881,7 @@ concerns: [shell]
 - 쓰는 contract: apps#T19(release list·get·compare), apps#T18(activation 진행), apps#T4(grants.list), apps#T20(automations), apps#T15(앱 쌍 연결), apps#T11(invocation read), apps#T28(앱 export)
 - 내놓는 contract: 없음
 - slice: apps
+- shell#T32에서 넘어온 것: app [Instructions] 단추는 `InstructionsButton`을 놓고 `openInstructions({ layer: "app", place: <app id> })`로 연다. app 층은 documents에 앱 자리의 `LOPHN.md` 등록이 없어(documents#T28에서 넘어온 것: apps/registration이 앱 자리 경로를 내놓은 뒤 `instructionRegistrations`에 더한다) `main/editor/instructions.ts`가 없는 대상과 같게 not_found로 답한다. 등록이 서면 그 파일의 `app` 갈래만 `resolve`에 채운다
 - 선행: shell#T42, apps#T19, apps#T4, apps#T20
 - 완료: 아래 확인이 통과한다
   - Version(release는 화면에서 Version): 현재·다른 version, 바뀐 것의 요약, 그 version의 실제 Test result(당시 테스트는 지금 앱의 증명이 아님), 운영과 분리된 preview 열기(preview partition의 앱 view), 고르기는 confirmation window(T45). 준비·적용·시작 확인·ticket 확인을 서로 다른 결과로 보인다.
@@ -873,9 +890,11 @@ concerns: [shell]
   - Connections(다른 앱 command), Activity(invocation은 기본에서 숨기고 펼치면 Activity), Data(export).
   - app [Instructions] 진입(T32), Issues·Tasks 탭 자리(T53, T50).
   - flow change-app, restore-app-release, run-app-automation, manage-app-permissions, connect-apps, use-app-command(app-detail 쪽) 화면. 화면 테스트.
+- shell#T42에서 넘어온 것: 운영 패널 틀은 `renderer/app-frame/ops-panel-frame.tsx`의 `OpsPanelFrame`(720px, 좁은 창 overlay·덮개 등록, 머리 "App details"와 닫기)이고 `app-space.tsx`가 children으로 지금 "On this computer"(OS 앱 메뉴 추가·삭제) 칸만 넘긴다. app-detail 탭은 그 children 자리에 둔다
 
 ### T44 앱 패널 탭과 세션 앱 카드
 
+- 상태: 완료 (#351) — 이어보냄: blueprint 화면 선언 read 연결 → T45, [Report a problem] port → T52, 앱 공간으로 열기 route → T42, 카드 입력의 앱 화면 전달 → apps#T22
 - 등급: frontend
 - concern: shell/workspace, shell/app-frame
 - 요구: shell/workspace#R5, R11, shell/app-frame#R33, R34(패널·카드 크롬), R35
@@ -884,6 +903,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T35, shell#T37, shell#T39
+- shell#T39에서 넘어온 것: 앱 패널 탭과 세션 카드 본문에 `EmbeddedView`를 둔다. 탭이 안 보이면 `shown={false}`(view는 남고 바로 숨는다), 탭을 닫으면 unmount(폐기, 앱 runtime에 view-closed 중계)다. 카드 목록·칸의 스크롤 경계는 `overflow`가 visible이 아닌 조상으로 잡으니 목록 scroll 영역에 overflow를 둔다. 좁은 창의 정보 패널 overlay(`workspace/info-panel-slot`)는 `useViewCover`를 불러 앱 view를 덮지 않은 폭으로 줄인다(R36)
 - shell#T35에서 넘어온 것: 세션 앱 카드 갈래. 블록 틀(`workspace/visuals/block-frame.tsx`)은 `app_card` 블록을 검사한 뒤 지금 설명·출처와 "App cards can't be shown in the conversation yet."만 둔다(`data-visual-app-card`). `app-card-block.tsx`가 그 자리를 앱 frame 카드로 바꾼다. registry(`registry.ts`의 `AppCardContent`)는 app·release·view만 옮기고 카드 입력(`input`)은 버린다. 카드가 입력을 쓰면 registry가 그 값을 옮기게 고친다(그리지 않고 앱 view 계약에 넘길 값이다). 저장된 release가 지금과 다르면 `contract_changed`, 사라지면 `unavailable`이고 다른 release로 바꾸지 않는다(lophn-agent/visuals domain model). 카드 블록도 [Save as document]가 있다(agent 준비에서 snapshot은 지금 unavailable, lophn-agent#T47).
 - 완료: 아래 확인이 통과한다
   - blueprint가 panel 크기를 선언한 screen만 프로젝트 탭에 연다. 아니면 앱 공간으로 열기를 안내하고 조용히 줄이지 않는다. 카드도 card 크기 선언만.
@@ -892,6 +912,7 @@ concerns: [shell]
   - 앱 탭의 현재 보기 상태는 app·release·mode·screen 참조만. 상세 상태·힌트·주석은 앱이 선언한 command로만. DOM·screenshot을 보내지 않는다.
   - 카드는 message·block 표시 참조와 generation에 묶이고 보이는 사각형만 main에 보낸다. 카드를 열어도 command 권한이 늘지 않는다.
   - flow view-agent-visuals의 앱 카드 갈래, project-workspace의 앱 패널 단계, ask-app-hint 화면. `e2e/shell/app-card_test.ts`(카드 scroll bounds).
+- 정한 것: (1) 화면 선언: 탭에 고를 앱·화면은 renderer `AppViewsDeps.screens`(`renderer/app-frame/app-views.tsx`) port로 받고 panel을 선언한 화면만 고르게 둔다. 이름과 지금 판은 `apps.get`으로 읽는다. core에 blueprint read(apps#T19)가 아직 없어 desktop entry는 이 port를 주지 않으므로 실제 shell에는 [Open app in tab]이 아직 없다. 열 때 main이나 supervisor가 panel 미선언으로 거절(invalid_input·forbidden)하면 줄여 열지 않고 앱 공간 안내다. (2) 탭: 앱 패널 탭은 앱을 고르는 자리(`AppPanelPicker`)로 시작하고 고르면 같은 탭이 그 화면이 된다. 떠 있는 menu는 앱 native view 아래에 깔려 쓰지 않았다. 칸(`panes.tsx`의 `renderKept`)은 앱 패널 탭 본문을 고르지 않아도 남겨 view를 숨긴 채 두고 탭을 닫을 때만 폐기한다. 탭을 다른 칸으로 옮기거나 좁은 창의 한 칸 보기로 칸이 그려지지 않으면 view를 닫고 다시 연다. 작업대는 `ViewCoversProvider`를 두고 overlay 정보 패널이 `useViewCover`를 부른다. (3) 카드: view 열기 IPC에 `card {message, block}`(카드 크기만, contracts `appViewOpenSchema`와 shell ipc 사본에 additive)을 더해 registry가 view에 표시 참조를 묶고 `views(window)`로 낸다. 카드 view는 연결을 다시 얻을 때 다른 release를 따르지 않고 연결을 잃는다. renderer는 블록의 판과 `apps.get`의 지금 판을 비교해 contract_changed·unavailable·not_card를 그 자리에 두고 다른 판으로 열지 않는다. 카드 입력은 registry가 그대로 옮기지만 앱 view에 넘길 통로가 없다(→ apps#T22). (4) 크롬: `renderer/app-frame/view-chrome.tsx`가 앱 이름·모드(Live/Preview)·연결 상태와 [Report a problem]을 앱 bounds 밖에 그리고, 버튼은 그 view_session을 `AppViewsDeps.report`로 넘긴다. 통로가 없으면 잠근다(→ T52). (5) 현재 보기: `main/workspace/app-view-context.ts`가 그 창의 panel view에서 app·release·mode·screen·generation만 꺼내 `current-view.ts`의 `ViewRegistry.appView`로 준다. main.ts에는 현재 보기 publish 조립이 아직 없어 이 port도 그 조립에서 잇는다. (6) 확인: `workspace/app-panel-tab_test.tsx`, `workspace/visuals/app-card-block_test.tsx`, `main/app-frame/registry_test.ts`(R33, 카드 묶음), `main/workspace/app-view-context_test.ts`(workspace#R11), `e2e/shell/app-card_test.ts`(카드 scroll bounds, 실제 Chromium offscreen). headless offscreen paint로 패널 크롬·앱 고르기·카드·contract_changed 카드를 확인했다
 
 ### T45 confirmation window: 앱 결정 4종
 
@@ -903,6 +924,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T23, shell#T29, apps#T19, apps#T4, apps#T20
+- shell#T44에서 넘어온 것: blueprint read(`/v1/apps/blueprint`)가 서면 desktop entry(`renderer/desktop/entry.tsx`)의 `AppViewsDeps.screens`(앱마다 screen key·label·sizes)를 그 read로 잇는다. 그 전에는 프로젝트 탭의 [Open app in tab]이 보이지 않는다
 - 완료: 아래 확인이 통과한다
   - 넷 다 platform approval request로 오고 main이 apps read를 독립 재조회해 표시한다. 결정은 approvals 결정 command에 handle·CAS를 붙인다.
   - release activation: 바뀐 화면·command 입력·effect·confirm·automation·permission 추가/축소·data change와 손실, "검토 필요" 표시.
@@ -913,6 +935,7 @@ concerns: [shell]
 - shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
 - shell#T41에서 넘어온 것: @lophn/ui-action `CommandButton`은 confirm 거절·만료도 `lophnApp.call`의 일반 실패("<label> didn't finish. Try again.", `onFailed(code)`)로 보인다. 거절·만료에 따로 보일 code를 정하면 `packages/sdk/ui-action/use-command.ts`의 code 읽기와 문구를 그 code에 맞춘다
 - shell#T47에서 넘어온 것: main.ts `appWindows`의 `entryScreen`(앱 전용 창에 여는 screen)을 같은 `/v1/apps/blueprint` read로 잇는다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen이다. 지금은 unavailable이라 실제 shell에서 `--open-app`은 전용 창 대신 가장 최근 창을 앞으로 가져온다
+- shell#T42에서 넘어온 것: 앱 공간 본문의 screen도 같은 blueprint read로 잇는다. renderer `desktop/lophn-space/apps/core-source.ts`의 `entryScreen(app, release)`가 지금 unavailable을 돌려줘 실제 shell의 앱 공간은 "This app's screen can't open here yet."만 보인다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen key를 돌려주면 `EmbeddedView`가 연다(route가 contract에 생기면 renderer allowlist에도 자동으로 들어간다)
 
 ### T46 앱 화면 검사 host
 
@@ -1023,6 +1046,7 @@ concerns: [shell]
 
 ### T52 문제 알리기
 
+- 상태: 완료 (#366)
 - 등급: frontend
 - concern: shell/app-frame, shell/wording
 - 요구: shell/app-frame#R31, R32, R34(버튼이 그 view에 묶임), shell/wording#R8, R9, problems/feedback#R5, R6, R10, R11, R12, R13
@@ -1031,6 +1055,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: shell#T10, shell#T37, shell#T42, shell#T44, problems#T15
+- shell#T44에서 넘어온 것: 앱 패널 탭과 세션 카드 크롬(`renderer/app-frame/view-chrome.tsx`)의 [Report a problem]은 그 view_session을 `AppViewsDeps.report`(`renderer/app-frame/app-views.tsx`)로 넘긴다. desktop entry에서 이 port를 feedback IPC에 잇는다. 지금은 없어 버튼이 잠겨 있다
 - 완료: 아래 확인이 통과한다
   - [Report a problem]은 앱 공간 바·패널·카드의 독립 버튼이다. 누르면 main이 버튼 시점 `{view_session, generation, app, release, mode, screen path, observedAt}`를 고정하고 그 앱 view의 `capturePage`를 먼저 요청한 뒤 overlay에 dialog를 연다. 앱 view는 그대로 보인다. 앱 view가 가려졌거나 다른 창이면 캡처하지 않고 이유만 남긴다. 캡처는 1500ms까지, 늦으면 버린다.
   - capture한 PNG를 가리지 않고 그대로 dialog 미리보기에 보인다. 글·화면 상태·screenshot을 미리 보고 각각 뺄 수 있다. screenshot 기본은 꺼짐, 미리보기를 본 뒤 켬. 미선택·화면 없음·수집 실패·저장 실패의 이유를 보이고 첨부 없이 글만 보낼 수 있다.
@@ -1038,6 +1063,8 @@ concerns: [shell]
   - 앱 view가 crash·무한 loop여도 버튼과 dialog가 동작한다. 안내에 stack·log·원문 오류가 없고 문제 문구는 problems가 정한 값 그대로.
   - contracts/problems 문구 상수 key를 wording 검사의 알려진 key로 잇는다.
   - `feedback_test`와 `e2e/shell/report-problem_test.ts`(깨진 view에서 dialog 열림, 캡처 동안 view가 보임)에 위 요구 테스트. problems#T23의 선행.
+- 정한 것: dialog는 main이 overlay에 직접 여는 feedback 표면(`overlay.openFeedback`, 창 본문 전체, overlay 페이지의 일반 결과로는 닫지 못함)이고 제출·취소·Issue 열기는 overlay preload의 `lophnFeedback`만 갖는다. 미리보기 push에 같은 PNG의 data URL·이미지가 없는 분류·화면 이름과 URL path를 더했다(contracts `feedbackPreviewSchema` additive, `shell:feedback-open-issue` 추가). headless(offscreen)에서는 `capturePage`가 실패해 그 view의 마지막 paint를 쓴다
+- shell#T42에서 넘어온 것: 앱 공간 바의 [Report a problem] 자리는 `renderer/app-frame/app-bar.tsx`의 `AppBar.report`(지금 `app-space.tsx`가 넘기지 않아 비어 있다)다. 버튼이 묶일 view_session은 `EmbeddedView`의 `onState`가 알린 값이다
 
 ### T53 app-detail Issues: 문제, 수리 결과, 사람 결정
 
@@ -1049,6 +1076,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: problems
 - 선행: shell#T23, shell#T43, problems#T6, problems#T21
+- shell#T52에서 넘어온 것: (1) 기존 문제에 덧붙이기. report-problem dialog는 지금 "이 보고는 기존 문제에 덧붙지 않는다"만 보이고 `SubmitFeedback.existing_problem`은 늘 null이다. Issues에서 "직접 해 봤지만 안 됩니다"로 열 때 그 문제를 고른 채 여는 길(begin 입력 또는 dialog의 같은 앱 문제 고르기)을 둔다. (2) dialog의 [View issue]는 지금 `{kind: "app-issue", app, problem}` intent로 그 앱 공간만 연다(`renderer/desktop/intents.tsx`). Issues 탭이 생기면 그 문제를 고른 상세로 연다. (3) 접수 응답에는 항목별 저장 결과가 없어 dialog가 screenshot·화면 상태의 "저장 실패"를 보이지 못한다. 접수 뒤 그 Report의 snapshot 읽기로 보인다
 - 완료: 아래 확인이 통과한다
   - Issue 목록·상세: 사람이 겪는 영향 한 문장, 보고 수, 수리 주장과 실제 테스트·사람 확인("I checked")·미확인 범위를 구별한다. report·claim·snapshot은 이름으로 보이지 않는다(Details we collected).
   - 사람 결정(fixed, not fixed, not visible, dismiss + 한 줄 이유)은 confirmation window의 owner decision이다. main이 problem·basis_seq·release·last_report에 묶인 handle로 `ApplyProblemDecision`을 보낸다.
@@ -1111,6 +1139,7 @@ concerns: [shell]
 
 ### T57 Electron 패키징과 설치 실패 안내
 
+- 상태: 완료 (#363)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R11(패키징), R12, R20(bundle된 Deno)
@@ -1144,6 +1173,7 @@ concerns: [shell]
   - 진단: 보안 상태 점검과 doctor 결과는 영향 한 문장과 다음 행동, 원문은 개발자 diagnostics 펼침에만.
   - OS notification opt-in.
   - flow backup-and-restore, update-lophn 화면. 화면 테스트.
+- platform#T42에서 넘어온 것: 복원 확인 창과 main 연결. main↔core 감독 pipe(`apps/shell/main/desktop/core/supervise.ts`)로 `restore_plan_request`(묶음 `created_at`)를 보내 `restore_plan`(`lost` 잃을 범위, `target`·`content_hash`)을 읽어 창에 보이고, 사람이 확인하면 그 `target`·`content_hash`로 결정 `restore_backup`의 handle을 `confirmation_handle_register`로 발급해 `restore_request`를 보낸다(contract `packages/contracts/platform/restore-pipe.ts`). 결과는 `restore_result` 또는 `restore_failed`(`code`, `restarted`)다. 복원 뒤 core가 같은 pipe로 새 hello(새 epoch·token·port)를 보내므로 `supervise.ts`는 첫 hello 이후의 hello도 받아 session·구독을 새 값으로 다시 열어야 한다(지금은 hello 이후 frame을 listener에 넘기기만 한다)
 
 ### T59 offline: provider 끊김과 core 끊김
 

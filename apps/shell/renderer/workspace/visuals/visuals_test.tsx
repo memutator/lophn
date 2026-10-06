@@ -195,10 +195,10 @@ Deno.test("shell/workspace#R12: 이용 불가·빈 블록·앱 카드는 그 자
   );
   click(one(emptyBlock, "[data-state='empty'] button"));
   assert(isFocused(one(emptyBlock, "[data-visual-description]")));
-  // 앱 카드 갈래는 shell#T44 전까지 안내와 설명만 둔다.
+  // 창 view 통로가 없는 자리(overlay·테스트)의 앱 카드는 안내와 설명만 둔다.
   assertEquals(
     one(root, "[data-visual-app-card]").textContent,
-    "App cards can't be shown in the conversation yet.",
+    "App cards can't be shown here.",
   );
   // 범주 축의 선은 같은 데이터를 표로 보인다.
   const steps = one(root, "[data-visual-key='steps']");

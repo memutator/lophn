@@ -23,6 +23,8 @@ import {
   appRecordStopped,
   appRecordUnavailable,
   appRuntime,
+  appViewClosed,
+  type AppViewClosedInput,
   type Grant,
   grantsList,
   invocationAcceptConfirm,
@@ -716,6 +718,23 @@ export async function createAppsControl(
     return cancelled.ok ? ok({ accepted: true as const }) : cancelled;
   };
 
+  // 사람의 shell이 닫은 화면 view를 그 앱의 지금 live 자식에 중계한다. 앱 프로세스 nonce는
+  // supervisor가 지금 쥔 자식에서 정하고 본문에서 받지 않는다. 범위 밖 앱은 없는 앱과 같다.
+  const viewClosed: MemoryHandler = async (ctx, value) => {
+    const input = value as AppViewClosedInput;
+    if (!deps.revalidate(ctx.credential_ref).ok) {
+      return err({ code: "unauthorized", message: "credential unavailable" });
+    }
+    const allowed = createTargetAuthorizer(ctx)(ctx, appViewClosed.name, {
+      app: input.app,
+    });
+    if (!allowed.ok) {
+      return err({ code: "not_found", message: "app not found" });
+    }
+    const relayed = await client.viewClosed(input.app, input.view_session);
+    return relayed.ok ? ok({ relayed: relayed.value }) : relayed;
+  };
+
   async function sweep(): Promise<void> {
     await connector.sweep().catch(() => 0);
     // supervisor가 다시 떠서 상태를 잃었으면 마지막으로 알린 상태로 맞춘다.
@@ -735,6 +754,7 @@ export async function createAppsControl(
     signer,
     memory: new Map<string, MemoryHandler>([
       [`${appConnect.resource}/${appConnect.method}`, connect],
+      [`${appViewClosed.resource}/${appViewClosed.method}`, viewClosed],
       [`${appPairPrepare.resource}/${appPairPrepare.method}`, pairPrepare],
       [
         `${appPairConfirmRequest.resource}/${appPairConfirmRequest.method}`,
@@ -840,6 +860,11 @@ export function appCredentialIssuer(
 export const SUPERVISOR_CREDENTIAL_OPERATIONS = SUPERVISOR_OPERATIONS;
 
 function denoDir(): string {
+  let configured: string | undefined;
+  try {
+    configured = Deno.env.get("DENO_DIR");
+  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
+  if (configured) return configured;
   const home = Deno.env.get("HOME");
   return home ? `${home}/.cache/deno` : "/tmp";
 }

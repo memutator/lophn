@@ -17,6 +17,8 @@ export const SUPERVISOR_OPS = {
   restart: "apps.restart",
   // 그 앱의 broker 연결을 새 요청부터 막는다. 이미 한 전송은 취소하지 않는다(apps/permissions#R20).
   block: "apps.block",
+  // 닫힌 화면 view를 지금 live 자식에 알린다(control/view-closed).
+  viewClosed: "apps.view_closed",
   // preview 프로세스(운영 자식과 따로 한 앱에 많아야 하나)의 시작·관측·종료. 운영 상태와
   // 활성 참조를 건드리지 않는다(apps/preview).
   previewStart: "apps.preview_start",
@@ -167,3 +169,9 @@ export type ReleasePreparationWire = z.infer<
 export const releaseCancelOutputSchema = z.strictObject({
   accepted: z.literal(true),
 });
+
+export const viewClosedInputSchema = z.strictObject({
+  app: appId,
+  view_session: z.string().min(1).refine((value) => !/\p{Cc}/u.test(value)),
+});
+export const viewClosedOutputSchema = z.strictObject({ relayed: z.boolean() });

@@ -21,6 +21,12 @@ import { LophnEntry, TopBar, Wordmark } from "../top-bar/top-bar.tsx";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { useRequestOverview } from "../notification-chip/space-decisions.tsx";
 import { placeWaiting } from "../lophn-space/things-to-confirm/model.ts";
+import {
+  sandboxFailure,
+  schemaFailure,
+  startFailure,
+} from "./start-failure/model.ts";
+import { StartFailureScreen } from "./start-failure/start-failure.tsx";
 import { ProjectCard } from "./project-card.tsx";
 import { RegisterDialog } from "./register-dialog.tsx";
 import type { LauncherSource, ProjectCard as Card } from "./source.ts";
@@ -62,8 +68,23 @@ export function Launcher(
 ) {
   const connection = useConnection(source);
   const retry = () => retryConnection(source);
+  const isFailing = connection.state === "failed-start" ||
+    connection.state === "failed-sandbox" ||
+    connection.state === "failed-schema";
   const gated = connection.state === "starting" ||
-    connection.state === "failed";
+    connection.state === "failed" ||
+    isFailing;
+
+  const failureScreen = isFailing
+    ? (
+      connection.state === "failed-start"
+        ? <StartFailureScreen failure={startFailure()} />
+        : connection.state === "failed-sandbox"
+        ? <StartFailureScreen failure={sandboxFailure()} />
+        : <StartFailureScreen failure={schemaFailure()} />
+    )
+    : null;
+
   return (
     <div
       className={styles.window}
@@ -76,7 +97,9 @@ export function Launcher(
         trailing={gated ? undefined : <LophnEntry onLophn={onLophn} />}
       />
       <main className={styles.scroll}>
-        {gated
+        {failureScreen
+          ? failureScreen
+          : gated
           ? <ConnectionGate connection={connection} onRetry={retry} />
           : (
             <div className={styles.page} data-column="launcher">

@@ -6,11 +6,13 @@ import {
   appCreated,
   appGet,
   appList,
+  appRename,
+  appRenamed,
   appSourceConnected,
   appUnarchive,
   appUnarchived,
 } from "./apps.ts";
-import { appConnect } from "./channel.ts";
+import { appConnect, appViewClosed } from "./channel.ts";
 import { appBlueprint } from "./blueprint-read.ts";
 import { PAIR_ROUTES } from "./pair-routes.ts";
 import {
@@ -53,10 +55,12 @@ import {
 
 export const ROUTES = [
   appConnect,
+  appViewClosed,
   appCreate,
   appConnectSource,
   appArchive,
   appUnarchive,
+  appRename,
   appEnableExecution,
   appDisableExecution,
   appRecordStarted,
@@ -82,6 +86,7 @@ export const EVENTS = [
   appSourceConnected,
   appArchived,
   appUnarchived,
+  appRenamed,
   appExecutionEnabled,
   appExecutionDisabled,
   appStarted,

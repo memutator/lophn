@@ -29,6 +29,7 @@ import { directoryScanner } from "../../packages/documents/projects/scan.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
 const MIB = 1024 * 1024;
@@ -101,6 +102,11 @@ async function openUpload(): Promise<Opened> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(work, { recursive: true });
+  });
   const core = started.value;
   const contexts: [AuthenticatedContext, string][] = [
     [{
@@ -161,6 +167,7 @@ async function openUpload(): Promise<Opened> {
     },
   );
   assertEquals(created.status, 200, await created.text());
+  guard.keep();
   return {
     core,
     home,

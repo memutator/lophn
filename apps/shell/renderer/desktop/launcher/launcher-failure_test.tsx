@@ -11,15 +11,10 @@ import { Launcher } from "./launcher.tsx";
 function createMockCoreSource(
   initialState: ConnectionState,
 ): CoreSource {
-  let listener: ((state: ConnectionState) => void) | null = null;
-
   return {
     subscribe(fn) {
-      listener = fn;
       fn(initialState);
-      return () => {
-        listener = null;
-      };
+      return () => {};
     },
     call: () =>
       Promise.resolve({

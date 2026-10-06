@@ -47,7 +47,7 @@ function findPackagedApp(): string | null {
   return null;
 }
 
-test("shell#T57: stage creates Deno binary for packaged app", async (t) => {
+test("shell#T57: stage creates Deno binary for packaged app", (t) => {
   const denoBinary = path.join(
     stageDir,
     "bin",
@@ -69,7 +69,7 @@ test("shell#T57: stage creates Deno binary for packaged app", async (t) => {
   }
 });
 
-test("shell#T57: stage directory contains required resources", async (t) => {
+test("shell#T57: stage directory contains required resources", (t) => {
   if (!fs.existsSync(stageDir)) {
     t.skip("stage directory not yet created; skipping");
     return;
@@ -95,7 +95,7 @@ test("shell#T57: stage directory contains required resources", async (t) => {
   assert.equal(stageJson.platform, process.platform, "platform should match");
 });
 
-test("shell#T57: electron-builder config includes lophn protocol", async (t) => {
+test("shell#T57: electron-builder config includes lophn protocol", (t) => {
   const configPath = path.join(mainRoot, "electron-builder.yml");
   if (!fs.existsSync(configPath)) {
     t.skip("electron-builder.yml not found");
@@ -117,7 +117,7 @@ test("shell#T57: electron-builder config includes lophn protocol", async (t) => 
   );
 });
 
-test("shell#T57: linux .deb includes URL scheme MIME type", async (t) => {
+test("shell#T57: linux .deb includes URL scheme MIME type", (t) => {
   const configPath = path.join(mainRoot, "electron-builder.yml");
   if (!fs.existsSync(configPath)) {
     t.skip("electron-builder.yml not found");
@@ -140,7 +140,7 @@ test("shell#T57: linux .deb includes URL scheme MIME type", async (t) => {
   );
 });
 
-test("shell#T57: packaging scripts and config are present", async (t) => {
+test("shell#T57: packaging scripts and config are present", () => {
   const files = [
     path.join(mainRoot, "electron-builder.yml"),
     path.join(mainRoot, "packaging", "icon.png"),
@@ -152,7 +152,7 @@ test("shell#T57: packaging scripts and config are present", async (t) => {
   }
 });
 
-test("shell#T57: URL scheme registration test would run with packaged app", async (t) => {
+test("shell#T57: URL scheme registration test would run with packaged app", (t) => {
   // This is a placeholder test that would run with a packaged app
   // In a full CI environment, this would:
   // 1. Build the packaged app

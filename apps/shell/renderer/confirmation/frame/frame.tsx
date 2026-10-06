@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { t } from "@lophn/wording";
 
-import type { ConfirmationFrameApi, ConfirmationView } from "./api.ts";
+import {
+  type ConfirmationFrameApi,
+  type ConfirmationView,
+  failedSubmit,
+} from "./api.ts";
 
 export interface FrameProps {
   api: ConfirmationFrameApi;
@@ -80,7 +84,7 @@ export function ConfirmationFrame(
                 decision: decisionsOf(view)[0] ?? "",
                 confirmedSecond: true,
               }).then((result) => {
-                if (!result.ok) setStale(true);
+                if (failedSubmit(result)) setStale(true);
               });
             }}
           >
@@ -102,7 +106,7 @@ export function ConfirmationFrame(
               }
               void api.submit({ displayId: view.displayId, decision }).then(
                 (result) => {
-                  if (!result.ok) setStale(true);
+                  if (failedSubmit(result)) setStale(true);
                 },
               );
             }}

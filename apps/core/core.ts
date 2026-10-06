@@ -207,6 +207,8 @@ import {
   messageBodyEnvironment,
   withMessageBody,
 } from "./message-body.ts";
+import { instructionFilesEnvironment } from "./instruction-files.ts";
+import type { InstructionFiles } from "../../packages/lophn-agent/instructions/mod.ts";
 import {
   createQuestionTextPreparer,
   withQuestionText,
@@ -327,6 +329,8 @@ export type Core = {
   // 원하는 앱 프로세스 상태를 apps supervisor에 알린다. 마지막 상태를 기억해 supervisor가
   // 다시 떠도 같은 상태로 맞춘다. releases 조립이 활성 release를 보고 부른다.
   reconcileApp(desired: DesiredApp): Promise<Result<void>>;
+  // lophn agent runtime이 model call 직전에 사람 지침(LOPHN.md)의 확정 판을 읽는 통로다. 읽기만 있다.
+  instructionFiles: InstructionFiles;
   // testCredentials일 때만 있다. apps 제어(connect 어댑터·supervisor 질의)다.
   appsControl?: AppsControl;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
@@ -1559,6 +1563,10 @@ async function open(
       ? { codingCredentials: coding, codingCredentialsReady: codingReady }
       : {}),
     record: (context) => runtime!.record(context),
+    instructionFiles: instructionFilesEnvironment({
+      ledgerPath,
+      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+    }),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),

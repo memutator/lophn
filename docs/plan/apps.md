@@ -72,6 +72,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T4 grant command와 read
 
+- 상태: 진행 (#303) — 남은 것: grants.list의 표시 자료 field(contracts#T37 출력에 자리가 없어 `buildGrantDisplay`까지만 냄, Q13), platform#T47이 넘긴 doctor 관측 교체(grant 위험 read contract·T13의 사용 시각·platform#T48 연결이 앞서야 함, Q16), `currentDeclarations` port 구현과 activation event 발생(T18·T19, Q15)
 - 등급: 기본
 - concern: apps/permissions
 - 요구: apps/permissions#R1, R2, R3, R24, R26, R27, apps/automations#R13

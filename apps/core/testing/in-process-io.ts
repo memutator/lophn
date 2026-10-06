@@ -55,8 +55,11 @@ function bridge(
   start: (streams: Streams) => Promise<ChildSession>,
   pid: number,
   seen: Uint8Array[],
+  // child를 crash시키는 함수를 넘긴다. stdin을 닫아 child가 EOF를 보고 끝나게 한다.
+  onCrash?: (crash: () => void) => void,
 ): Spawned {
   const toChild = queue();
+  onCrash?.(() => toChild.end());
   const fromChild = queue();
   const log = queue();
   const exited = (async () => {
@@ -117,22 +120,48 @@ export type InProcessIo = {
   readonly requests: readonly SpawnRequest[];
   // core가 I/O worker의 stdin에 쓴 원 바이트다(frame 그대로). 값이 JSON 제어 frame에 없음을 본다.
   readonly stdin: readonly Uint8Array[];
+  // 그 kind의 지금 child를 crash시킨다(stdin EOF). 감독이 재기동 경로로 다룬다. child가 없으면 false다.
+  crash(kind: string): boolean;
+  // 그 kind의 child를 띄운 횟수다.
+  spawned(kind: string): number;
+  // core가 그 kind의 child stdin에 쓴 횟수다(hello 포함). I/O worker가 아닌 kind만 센다.
+  writes(kind: string): number;
 };
 
 export function inProcessIo(options: {
   root: string;
   secrets?: SecretPipe;
+  // 이 kind들은 실제 worker 대신 요청에 답하지 않는 child로 띄운다(요청이 child에 묶인 채 남는 모양).
+  stall?: readonly string[];
 }): InProcessIo {
+  const crashes = new Map<string, () => void>();
+  const counts = new Map<string, number>();
+  const written = new Map<string, Uint8Array[]>();
   const requests: SpawnRequest[] = [];
   const ioBytes: Uint8Array[] = [];
-  const idleBytes: Uint8Array[] = [];
   return {
     requests,
     stdin: ioBytes,
+    crash(kind) {
+      const crash = crashes.get(kind);
+      if (crash === undefined) return false;
+      crashes.delete(kind);
+      crash();
+      return true;
+    },
+    spawned: (kind) => counts.get(kind) ?? 0,
+    writes: (kind) => written.get(kind)?.length ?? 0,
     spawn(request) {
       requests.push(request);
       const pid = 4_000_000 + requests.length;
-      if (request.env["LOPHN_WORKER_KIND"] === "platform/io") {
+      const kind = request.env["LOPHN_WORKER_KIND"] ?? "";
+      counts.set(kind, (counts.get(kind) ?? 0) + 1);
+      const onCrash = (crash: () => void) => crashes.set(kind, crash);
+      const seen = written.get(kind) ?? [];
+      written.set(kind, seen);
+      if (
+        kind === "platform/io" && !(options.stall ?? []).includes(kind)
+      ) {
         return bridge(
           (streams) =>
             createPlatformIo({
@@ -147,6 +176,7 @@ export function inProcessIo(options: {
             }),
           pid,
           ioBytes,
+          onCrash,
         );
       }
       return bridge(
@@ -159,7 +189,8 @@ export function inProcessIo(options: {
           return Promise.resolve(idle.session);
         },
         pid,
-        idleBytes,
+        seen,
+        onCrash,
       );
     },
   };

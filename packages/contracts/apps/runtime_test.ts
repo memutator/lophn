@@ -90,6 +90,7 @@ Deno.test("apps/runtime#R2, apps/runtime#R13, apps/runtime#R26, apps/runtime#R27
         "AppSourceConnected",
         "AppArchived",
         "AppUnarchived",
+        "AppRenamed",
       ].includes(event.type)
     ).map((event) => event.type),
     [

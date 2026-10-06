@@ -9,6 +9,7 @@ import { CHILD_BLOB_POLICIES } from "./child-blob-prepare.ts";
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [{ createLedgerRegistration }];
 const PROJECT = "prj_01arz3ndektsv4rrffq69g5fav";
@@ -33,6 +34,10 @@ async function openCore(
     ...(onHello === undefined ? {} : { onDocumentsHello: onHello }),
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+  });
   const context: AuthenticatedContext = {
     principal: "user-1",
     actor: "user",
@@ -44,6 +49,7 @@ async function openCore(
   assert(accepted?.ok);
   const recorded = await started.value.record(context);
   assert(recorded.ok);
+  guard.keep();
   return { core: started.value, home };
 }
 

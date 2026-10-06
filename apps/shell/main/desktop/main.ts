@@ -301,7 +301,21 @@ const externalLinks = createExternalLinks({
   log,
 });
 const viewErrors = createViewErrors({
-  send: () => Promise.resolve(false),
+  send: async (forward) => {
+    const session = core.session();
+    if (!session) return false;
+    try {
+      const result = await session.internal(
+        "worker",
+        "problems",
+        "observe-view-error",
+        forward,
+      );
+      return result.ok;
+    } catch {
+      return false;
+    }
+  },
   ids: { reportId: () => reportIdOf(Date.now(), randomBytes(10)) },
   clock: {
     nowMs: () => Date.now(),

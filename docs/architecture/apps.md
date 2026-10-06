@@ -131,11 +131,11 @@ blueprint·agent-context·connections·automation·runtime·data·preview에는 
     data/files/                     앱의 로컬 파일 영역; DB backup에 포함했다고 주장하지 않음
     preview/<process_nonce>/data.db disposable fixture DB와 파일 영역
     staging/<request key hash>/    commit 추출·build·bundle 준비 중 자료
-  sdk/<Package.name>/<version>/     설치 제공 SDK의 읽기 전용 사본
+  sdk/<Package.name>/<version>/     설치 제공 SDK의 읽기 전용 사본(지원 소스 design·wording 포함)
   templates/app/                    hash 검증한 설치 템플릿
 ```
 
-bundle·정규 blueprint·SDK 코드와 guide·redaction된 실패 detail은 `blob` contract로 불변 저장한다. bundle manifest에는 entrypoint, 각 상대 path·hash, exact sdk_dependencies가 있다. 공개 SDK와 bundle 사본은 파일 0444·디렉터리 0555로 봉인하며 내용 hash를 확인하여 다시 만들 수 있다. 이 사본은 ledger 정본이 아니며 앱에 SDK 설치 디렉터리 전체 접근을 주지 않는다.
+bundle·정규 blueprint·SDK 코드와 guide·redaction된 실패 detail은 `blob` contract로 불변 저장한다. bundle manifest에는 entrypoint, 각 상대 path·hash, exact sdk_dependencies가 있다. 공개 SDK와 bundle 사본은 파일 0444·디렉터리 0555(깊은 파일의 중간 폴더까지)로 봉인하며 내용 hash를 확인하여 다시 만들 수 있다. 이 사본은 ledger 정본이 아니며 앱에 SDK 설치 디렉터리 전체 접근을 주지 않는다.
 
 app test Verification은 완성된 bundle hash를 대상으로 만들어지고 Release.tests로 고정된다. test result를 이미 hash한 bundle byte 안에 다시 집어넣어 hash를 바꾸지 않는다. 화면 build와 external source map, source commit 경로 대응은 bundle 안에 둔다. stack의 앱 frame은 그 commit 경로, SDK frame은 Package·version으로 해석한다. 일반 invocation 입력·출력 전체나 secret 원문을 blob으로 저장하지 않는다.
 
@@ -147,11 +147,11 @@ secret 원문은 OS keychain에만 있고 이 영역은 이름과 grant만 취�
 
 ### 3.3 SDK와 템플릿
 
-공개 API·type·permission 요구·exact peer·예제·import 안내는 version별 guide blob이다. `lophn-sdk:` import map은 release 준비 때 공개 hash를 확인한 bundle 내부 상대 file 경로로 치환한다. 운영에서 registry server를 조회하거나 설치 SDK 최신판을 선택하지 않는다. SDK update는 새 version만 추가하고 기존 release byte·guide를 바꾸지 않는다.
+설치 사본은 저장소 없이 읽히도록 자기 완결이다. `packages/sdk/<name>` 밖의 소스를 쓰는 Package(blueprint의 contracts 정본, cap-problem의 보고 계약)는 사본 안 `vendor/`로 함께 담고 specifier를 사본 안 상대 경로로 바꾸며, 공용 UI Package가 import하는 `@lophn/design`·`@lophn/wording`은 catalog Package가 아닌 지원 소스로 같은 자리에 푼다. 공개 API·type·permission 요구·exact peer·예제·import 안내는 version별 guide blob이다. `lophn-sdk:` import map은 release 준비 때 공개 hash를 확인한 bundle 내부 상대 file 경로로 치환한다. 운영에서 registry server를 조회하거나 설치 SDK 최신판을 선택하지 않는다. SDK update는 새 version만 추가하고 기존 release byte·guide를 바꾸지 않는다.
 
 첫 공개 묶음의 정확한 version은 1.0.0이다. 이름은 `@lophn/blueprint`, `@lophn/tokens`, `@lophn/ui-{control,overlay,layout,reading,table,chart,filter,stat,state,action}`, `@lophn/cap-{fs,net,store,problem,schedule,save,secret}`와 `documents/formats`가 정한 format Package다. Package는 component·capability·domain·format 중 한 종류다. `cap-read-model`, `cap-notify`, 개인 Package 등록은 제공하지 않는다. capability import는 grant를 주지 않는 typed client다.
 
-템플릿 선택은 명시된 `LOPHN_APP_TEMPLATE` → 설치 `templates/app` 순서이며 없으면 검증된 설치 템플릿을 제공한다. 진입 코드·blueprint·exact import map과 lock·생성 blueprint test·fixture·React 화면·root AppErrorBoundary·문제 보고와 예외 수집·coding agent 안내를 기본 연결하고 DB 사용 때만 migration을 둔다. GUI의 React/npm 의존은 고정 UI Package가 제공한 exact 목록으로 준비 단계에만 build한다. 공용 UI SDK·템플릿은 shell/wording의 message key·en-only·ICU·Intl 계약과 en catalog·placeholder 검사를 기본 build/test에 연결하고 catalog·formatter 의존 byte를 bundle에 고정한다. 화면 문구 변경은 screen/command key를 바꾸지 않는다. lophn 화면은 설치 SDK의 첫 소비자이며 앱 DB 구조나 한 앱 전용 prop을 SDK로 자동 승격하지 않는다.
+템플릿 선택은 명시된 `LOPHN_APP_TEMPLATE` → 설치 `templates/app`(고정 hash와 같을 때만) → 내장 검증 템플릿 순서다. 템플릿 원본은 `packages/apps/sdk/template/app/`이고 앱의 import map은 설치 사본에서 `buildImportMap`이 만든 정확한 pin이다. 진입 코드·blueprint·exact import map과 lock·생성 blueprint test·fixture·React 화면·root AppErrorBoundary·문제 보고와 예외 수집·coding agent 안내를 기본 연결하고 DB 사용 때만 migration을 둔다. GUI의 React/npm 의존은 고정 UI Package가 제공한 exact 목록으로 준비 단계에만 build한다. 공용 UI SDK·템플릿은 shell/wording의 message key·en-only·ICU·Intl 계약과 en catalog·placeholder 검사를 기본 build/test에 연결하고 catalog·formatter 의존 byte를 bundle에 고정한다. 화면 문구 변경은 screen/command key를 바꾸지 않는다. lophn 화면은 설치 SDK의 첫 소비자이며 앱 DB 구조나 한 앱 전용 prop을 SDK로 자동 승격하지 않는다.
 
 ## 4. concern 배치표
 
@@ -288,7 +288,7 @@ write/external·confirm·automation의 read 포함 전체 호출·실패/거절 
 
 | resource | RPC method (`/v1/<resource>/<method>`) | 결과·관련 event |
 |---|---|---|
-| `apps` | `create`, `connect_source`, `archive`, `unarchive` | App; `AppCreated`, `AppSourceConnected`, `AppArchived`, `AppUnarchived` |
+| `apps` | `create`, `connect_source`, `archive`, `unarchive`, `rename` | App; `AppCreated`, `AppSourceConnected`, `AppArchived`, `AppUnarchived`, `AppRenamed` |
 | `apps` | `enable_execution`, `disable_execution` | 실행 허용 변경; `AppExecutionEnabled`, `AppExecutionDisabled` |
 | `apps` | `record_started`, `record_stopped`, `record_unavailable` | 실제 관측; `AppStarted`, `AppStopped`, `AppUnavailable` |
 | `grants` | `create`, `revoke` | exact Grant와 종료 확인; `GrantCreated`, `GrantRevoked` |

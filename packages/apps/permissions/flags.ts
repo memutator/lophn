@@ -125,8 +125,12 @@ export function appFlags(
   const allowWrite = [app.data, ...sockets, ...write.allow];
   const denyRead = [...protectedDenies, ...read.deny, ...write.deny];
   const denyWrite = [...protectedDenies, ...write.deny];
+  // IPv6 host는 대괄호로 쓴다. `::1:4517`은 Deno가 빈 host로 읽어 프로세스가 시작하지 않는다
+  // (Deno 2.9.7 실측).
   const denyNet = LOOPBACK.flatMap((host) =>
-    platform.ports.map((port) => `${host}:${port}`)
+    platform.ports.map((port) =>
+      host.includes(":") ? `[${host}]:${port}` : `${host}:${port}`
+    )
   );
 
   const parts = [

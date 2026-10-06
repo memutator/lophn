@@ -57,6 +57,14 @@ for (const command of blueprint.commands) {
       // SDK logger와 같은 표시다. supervisor log buffer가 invocation으로 묶는다.
       console.log(`[inv=${context?.invocation}] ran ${command.key}`);
       if (command.key === "fail") throw new Error("fixture failure");
+      if (command.key === "leak") {
+        console.log(
+          `[inv=${context?.invocation}] token ghp_abcdefghijklmnopqrstuvwxyz0123456789 end`,
+        );
+      }
+      if (command.key === "credential") {
+        return { broker_credential: started.start.broker_credential };
+      }
       if (command.key === "slow") {
         await new Promise((resolve) => setTimeout(resolve, 1500));
       }

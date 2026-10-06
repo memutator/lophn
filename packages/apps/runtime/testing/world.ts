@@ -48,6 +48,8 @@ export const COMMANDS = [
   "usage.admin",
   "slow",
   "fail",
+  "credential",
+  "leak",
 ];
 
 // supervisor 관측의 시험 출처. 값은 실제 자식에서 만든 것이고 시험이 바꾼다.
@@ -90,6 +92,8 @@ export type World = {
   app: string;
   state: SourceState;
   children: FixtureApp[];
+  // supervisor를 띄운 world의 앱 socket 폴더 자리.
+  runtimeDir: string | undefined;
   login(
     actor: "user" | "machine" | "coding_agent" | "agent",
     operations: string[],
@@ -132,6 +136,8 @@ export async function openWorld(
     sweepMs?: number;
     // grant를 approval 적용으로 만들 때 켠다. approval 설명 글은 I/O worker가 준비한다.
     approvals?: boolean;
+    // 실제 apps supervisor를 감독 pipe로 띄운다. 켜면 프로세스 관측 시험 출처를 쓰지 않는다.
+    supervisor?: boolean;
   } = {},
 ): Promise<World> {
   const documents = await import("../../../../apps/core/documents.ts");
@@ -144,6 +150,9 @@ export async function openWorld(
     restarts: [],
     down: false,
   };
+  const runtimeDir = options.supervisor
+    ? await Deno.makeTempDir({ prefix: "lop-run-" })
+    : undefined;
   const opened = await createCoreHarness({
     // 앱 자식은 실제 시각으로 연결 기한을 비교한다. core 시계도 지금에서 시작한다.
     nowMs: Date.now(),
@@ -160,7 +169,9 @@ export async function openWorld(
       new URL("./mod.ts", import.meta.url).href,
       new URL("../../permissions/testing/mod.ts", import.meta.url).href,
     ],
-    apps: { process: processSource(state), sweepMs: options.sweepMs },
+    apps: options.supervisor
+      ? { supervisor: { runtimeDir }, sweepMs: options.sweepMs }
+      : { process: processSource(state), sweepMs: options.sweepMs },
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
@@ -211,6 +222,7 @@ export async function openWorld(
     app,
     state,
     children,
+    runtimeDir,
     login,
     async allow() {
       const adopted = await call(
@@ -260,6 +272,11 @@ export async function openWorld(
     async close() {
       for (const child of children) await child.stop();
       await harness.close();
+      if (runtimeDir) {
+        await Deno.remove(runtimeDir, { recursive: true }).catch(() =>
+          undefined
+        );
+      }
     },
   };
   return world;

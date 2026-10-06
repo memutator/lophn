@@ -53,6 +53,10 @@ export function fixtureBlueprint(): Record<string, unknown> {
       command("usage.admin", "write"),
       command("slow", "read"),
       command("fail", "read"),
+      // 자식이 시작 입력으로 받은 broker credential을 돌려준다(시험 전용).
+      command("credential", "read"),
+      // 자기 log에 credential 모양 문자열을 찍는다(시험 전용). write라 invocation을 돌려준다.
+      command("leak", "write"),
     ],
     automatic_tasks: [],
     permissions: [],

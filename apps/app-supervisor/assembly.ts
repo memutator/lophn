@@ -71,7 +71,7 @@ export type SupervisorIo = {
   ids: IdSource;
   deno: () => string;
   environment: AppEnvironment;
-  socketPaths: () => { broker: string; direct: string };
+  socketPaths: (app: string) => { broker: string; direct: string };
   nonce: () => string;
   wait: (ms: number) => Promise<void>;
   spawn: (launch: AppLaunch) => Promise<Spawned>;
@@ -109,6 +109,8 @@ export type Assembly = {
   // core가 app_credential_request에 준 답.
   onCredential(response: { request_id: string; credential: string }): void;
   logs(app: string): LogBuffer | undefined;
+  // 앱 자식의 RSS 표본기. 자식을 띄운 적이 없으면 없다.
+  memory(app: string): MemoryObserver | undefined;
   // 관측 timer를 거둔다. supervisor 정지는 따로다.
   shutdown(): void;
 };
@@ -231,6 +233,8 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         response = await io.post(`apps/${record.method}`, hello.credential, {
           input: recordInput(record),
           idempotency_key: crypto.randomUUID(),
+          // record_*는 관측 사실이라 비교 기준이 없다. envelope는 빈 compare를 요구한다.
+          compare: {},
           prepared: [],
         });
       } catch {
@@ -528,7 +532,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
           truncated: false,
         };
       }
-      return await buffer.collect({
+      const query = {
         ...(input.invocation === undefined
           ? {}
           : { invocation: input.invocation }),
@@ -536,7 +540,12 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         ...(input.max_bytes === undefined
           ? {}
           : { max_bytes: input.max_bytes }),
-      });
+      };
+      // 살아 있는 자식의 stream은 끝나지 않으므로 기다리지 않고 지금 모인 줄을 준다. 자식이 끝난
+      // 직후의 조회만 마지막 flush를 최대 20ms 기다린다(R27).
+      const alive = (supervisor.observation(input.app)?.processNonce ?? "") !==
+        "";
+      return alive ? buffer.read(query) : await buffer.collect(query);
     },
     [SUPERVISOR_OPS.restart]: async (payload) => {
       const input = parse(restartInputSchema, payload);
@@ -558,6 +567,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       waiting.get(response.request_id)?.(response.credential);
     },
     logs: (app) => buffers.get(app),
+    memory: (app) => memories.get(app),
     shutdown() {
       for (const memory of memories.values()) memory.stop();
     },

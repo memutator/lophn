@@ -84,7 +84,7 @@ Deno.test("apps/permissions#R11: platform ports are denied on every loopback spe
   const denied = flags.value.args.find((arg) => arg.startsWith("--deny-net="));
   assertEquals(
     denied,
-    "--deny-net=127.0.0.1:4517,127.0.0.1:4600,::1:4517,::1:4600,localhost:4517,localhost:4600",
+    "--deny-net=127.0.0.1:4517,127.0.0.1:4600,[::1]:4517,[::1]:4600,localhost:4517,localhost:4600",
   );
 });
 

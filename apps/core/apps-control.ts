@@ -45,6 +45,7 @@ import {
   type ProcessSource,
 } from "../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+import { allSlotSockets } from "../../packages/apps/runtime/processes/mod.ts";
 import {
   createSupervisorChannel,
   createSupervisorClient,
@@ -363,7 +364,13 @@ export function appSupervisorSpec(input: {
     entry: new URL("../app-supervisor/main.ts", import.meta.url).pathname,
     allow_read: [input.dataRoot, repoRoot(), denoDir(), sockets, "/proc"],
     allow_write: [sockets],
-    allow_net: [`127.0.0.1:${input.apiPort}`],
+    // core loopback과 앱 socket 자리의 정확한 경로다. Deno net 허락은 unix 경로의 폴더 prefix를
+    // 받지 않으므로 자리를 미리 허락한다. 가상 host는 socket 위 HTTP의 필수 통로다(R8).
+    allow_net: [
+      `127.0.0.1:${input.apiPort}`,
+      "lophn.invalid",
+      ...allSlotSockets(sockets).map((path) => `unix:${path}`),
+    ],
     allow_run: [Deno.execPath(), "/usr/bin/kill"],
     allow_sys: ["uid"],
     allow_env: [

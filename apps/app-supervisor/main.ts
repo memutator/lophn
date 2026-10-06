@@ -3,7 +3,11 @@
 // machine credential을 주지 않고 자식마다 core가 발급한 app credential을 준다.
 import { createIdSource, systemClock } from "../../packages/base/mod.ts";
 import { encodeFrame } from "../../packages/contracts/platform/mod.ts";
-import { createSocketDirectory } from "../../packages/apps/runtime/processes/mod.ts";
+import {
+  createSocketDirectory,
+  slotSockets,
+  SOCKET_SLOTS,
+} from "../../packages/apps/runtime/processes/mod.ts";
 import { procRssReader } from "../../packages/apps/runtime/observations/memory.ts";
 import { attachControlLink } from "../../packages/apps/runtime/supervisor/mod.ts";
 import { assembleSupervisor } from "./assembly.ts";
@@ -34,6 +38,34 @@ function send(message: unknown): Promise<void> {
 
 const port: { value: number } = { value: 0 };
 
+// 앱마다 고정 자리의 socket이다(allow-net이 정확한 경로만 받아서 자리를 미리 허락한다).
+// 이전 자식이 남긴 socket 파일은 종료 확인 뒤에 지운다.
+const slots = new Map<string, number>();
+function socketPathsOf(app: string): { broker: string; direct: string } {
+  let slot = slots.get(app);
+  if (slot === undefined) {
+    slot = slots.size;
+    if (slot >= SOCKET_SLOTS) throw new Error("no free app socket slot");
+    slots.set(app, slot);
+  }
+  const created = createSocketDirectory({
+    xdgRuntimeDir: Deno.env.get("XDG_RUNTIME_DIR"),
+    uid: Deno.uid() ?? 0,
+    ensureDir: (path, mode) => Deno.mkdirSync(path, { recursive: true, mode }),
+    tempParent: Deno.env.get("TMPDIR") ?? "/tmp",
+    randomName: () => "slot",
+  });
+  if (!created.ok) throw new Error(created.error.message);
+  const made = slotSockets(created.value.directory, slot);
+  if (!made.ok) throw new Error(made.error.message);
+  for (const path of [made.value.brokerSocket, made.value.directSocket]) {
+    try {
+      Deno.removeSync(path);
+    } catch { /* 없으면 지울 것이 없다 */ }
+  }
+  return { broker: made.value.brokerSocket, direct: made.value.directSocket };
+}
+
 async function readBody(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -57,21 +89,7 @@ const assembled = assembleSupervisor({
       : {}),
     ...(Deno.env.get("PATH") ? { path: Deno.env.get("PATH") } : {}),
   },
-  socketPaths: () => {
-    const created = createSocketDirectory({
-      xdgRuntimeDir: Deno.env.get("XDG_RUNTIME_DIR"),
-      uid: Deno.uid() ?? 0,
-      ensureDir: (path, mode) =>
-        Deno.mkdirSync(path, { recursive: true, mode }),
-      tempParent: Deno.env.get("TMPDIR") ?? "/tmp",
-      randomName: () => crypto.randomUUID().replaceAll("-", ""),
-    });
-    if (!created.ok) throw new Error(created.error.message);
-    return {
-      broker: created.value.brokerSocket,
-      direct: created.value.directSocket,
-    };
-  },
+  socketPaths: socketPathsOf,
   nonce: () => crypto.randomUUID(),
   wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   spawn: (launch) => spawnApp(launch),
@@ -142,6 +160,12 @@ Deno.addSignalListener("SIGINT", shutdown);
 Deno.addSignalListener("SIGTERM", shutdown);
 globalThis.addEventListener("unhandledrejection", (event) => {
   event.preventDefault();
+  // 원인을 stderr에 남긴다(감독이 줄 단위로 받는다). 자식은 남기지 않고 끝낸다.
+  console.error(
+    `unhandled rejection: ${
+      event.reason instanceof Error ? event.reason.message : String(event.reason)
+    }`,
+  );
   shutdown();
 });
 

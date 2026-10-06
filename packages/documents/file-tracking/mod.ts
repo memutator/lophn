@@ -121,8 +121,8 @@ export {
   type StepOutcome,
 } from "./placement.ts";
 export {
-  placementRead,
   type PlacementRead,
+  placementRead,
   type PlacementReadInput,
 } from "./placement-read.ts";
 export { workingCopyLocation } from "./working-copy.ts";

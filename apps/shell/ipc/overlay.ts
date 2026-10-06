@@ -90,7 +90,11 @@ export type OverlayModel = z.infer<typeof overlayModelSchema>;
 export type OverlayUpdate = z.infer<typeof overlayUpdateSchema>;
 export type PaletteIcon = typeof PALETTE_ICONS[number];
 export type OverlayResult = z.infer<typeof overlayResultSchema>;
-export type OverlaySurface = OverlayOpen & OverlayIdentity & { rect: Rect };
+/** `feedback`는 main이 연 [Report a problem] dialog의 draftRef다. shell renderer는 열 수 없다. */
+export type OverlaySurface = OverlayOpen & OverlayIdentity & {
+  rect: Rect;
+  feedback?: string;
+};
 export type OverlaySnapshot = {
   generation: number;
   bounds: Rect;

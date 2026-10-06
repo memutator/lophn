@@ -37,6 +37,7 @@ import {
   closedOf,
   type ClosedView,
   type ConnectionState,
+  type FeedbackViewSnapshot,
   sameConnection,
   stateOf as state,
   targetOf,
@@ -53,6 +54,7 @@ export type {
   CardDisplay,
   ClosedView,
   ConnectionState,
+  FeedbackViewSnapshot,
   ViewBounds,
   ViewListing,
 } from "./view-model.ts";
@@ -377,6 +379,37 @@ export function createAppFrame(deps: AppFrameDeps) {
         return undefined;
       }
       return boundViewOf(entry);
+    },
+
+    /** [Report a problem]의 버튼 시점 view. 없는 view는 undefined다. */
+    feedbackView(view_session: string): FeedbackViewSnapshot | undefined {
+      const entry = entries.get(view_session);
+      if (entry === undefined) return undefined;
+      const contents = entry.contents;
+      const generation = entry.generation;
+      const current = () =>
+        entries.get(view_session) === entry && entry.contents === contents &&
+        entry.generation === generation;
+      return {
+        view_session,
+        window: entry.window,
+        generation,
+        app: entry.target.app,
+        release: entry.target.release,
+        mode: entry.target.mode,
+        screen: entry.target.screen,
+        bundleHash: entry.binding.bundleHash,
+        processNonce: entry.binding.processNonce,
+        visible: entry.attached && entry.shown,
+        url: deps.views.pageUrl?.(contents) ?? null,
+        capture() {
+          if (!current() || deps.views.capture === undefined) {
+            return Promise.reject(new Error("view is not capturable"));
+          }
+          return deps.views.capture(contents);
+        },
+        current,
+      };
     },
 
     /** 그 view가 붙는 창. 없는 view는 undefined다. */

@@ -27,6 +27,7 @@ import { AppSpace } from "../app-frame/app-space.tsx";
 import type { AppsSource } from "./lophn-space/apps/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
+import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 
 export interface DesktopProps {
   source: CoreSource;
@@ -57,6 +58,8 @@ export interface DesktopProps {
   views?: LophnShellViewsApi;
   /** 앱 공간의 새 창 열기와 OS 앱 바로가기 통로. */
   appWindows?: LophnAppWindowsApi;
+  /** [Report a problem] 통로. 앱 공간 바의 버튼이 쓴다. */
+  feedback?: LophnShellFeedbackBegin;
 }
 
 // 새 기본 창의 첫 화면. 공간 이동은 이 상태가 기억한다.
@@ -77,6 +80,7 @@ export function Desktop(
     apps,
     views,
     appWindows,
+    feedback,
   }: DesktopProps,
 ) {
   const [route, setRoute] = useState<Route>(initial);
@@ -140,6 +144,7 @@ export function Desktop(
         source={apps}
         views={views}
         windows={appWindows}
+        feedback={feedback}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onDocuments={() => visit(openLophn("documents"))}

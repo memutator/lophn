@@ -34,6 +34,7 @@ import { coreTrackingSource } from "../workspace/tracking/core-source.ts";
 import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
+import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -83,7 +84,10 @@ const terminal = windowTerminalDeps(
 
 // 창 안 팔레트. overlay와 shortcut 통로는 desktop preload가 연다.
 const bridges = globalThis as {
-  lophnShell?: OverlayApi & Partial<LophnShellViewsApi>;
+  lophnShell?:
+    & OverlayApi
+    & Partial<LophnShellViewsApi>
+    & Partial<LophnShellFeedbackBegin>;
   lophnShortcuts?: ShortcutApi;
   lophnIntents?: IntentApi;
   lophnAppWindows?: LophnAppWindowsApi;
@@ -91,6 +95,10 @@ const bridges = globalThis as {
 const views: LophnShellViewsApi | undefined =
   typeof bridges.lophnShell?.openApp === "function"
     ? bridges.lophnShell as LophnShellViewsApi
+    : undefined;
+const feedback: LophnShellFeedbackBegin | undefined =
+  typeof bridges.lophnShell?.beginFeedback === "function"
+    ? bridges.lophnShell as LophnShellFeedbackBegin
     : undefined;
 const palette: PaletteDeps | undefined =
   bridges.lophnShell && bridges.lophnShortcuts
@@ -127,6 +135,7 @@ mount(
             apps={apps}
             views={views}
             appWindows={bridges.lophnAppWindows}
+            feedback={feedback}
           />
         </RequestsProvider>
       </ConversationProvider>

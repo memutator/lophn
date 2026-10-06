@@ -17,6 +17,7 @@ import {
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createEditorApi } from "./editor-api.ts";
+import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createTerminalApi } from "./terminal-api.ts";
@@ -25,18 +26,26 @@ import { createViewsApi } from "./views-api.ts";
 const location =
   (globalThis as unknown as { location: { host: string } }).location;
 const role = location.host === "overlay" ? "overlay" : "shell";
-// 앱 view 열기·bounds·숨김·폐기는 desktop renderer만 부른다. overlay view에는 열지 않는다.
-// 보호 창 열기는 desktop 창 본문만 갖는다. 창을 열 뿐 결정을 제출하지 못한다.
+// 보호 창 열기, 앱 view 열기·bounds·숨김·폐기와 [Report a problem] 시작은 desktop 창 본문만
+// 갖는다. overlay view에는 열지 않는다.
 contextBridge.exposeInMainWorld(
   "lophnShell",
   role === "shell"
     ? Object.freeze({
       ...createShellApi(ipcRenderer, role),
-      ...createViewsApi(ipcRenderer),
       openConfirmation: createConfirmationOpener(ipcRenderer),
+      ...createViewsApi(ipcRenderer),
+      ...createFeedbackBegin(ipcRenderer),
     })
     : createShellApi(ipcRenderer, role),
 );
+// [Report a problem] dialog의 제출·취소는 overlay view만 갖는다(shell/app-frame#R31).
+if (role === "overlay") {
+  contextBridge.exposeInMainWorld(
+    "lophnFeedback",
+    createOverlayFeedback(ipcRenderer),
+  );
+}
 // 터미널과 창 shortcut, main이 시키는 것은 desktop renderer만 쓴다. overlay view에는 열지 않는다.
 if (role === "shell") {
   contextBridge.exposeInMainWorld(

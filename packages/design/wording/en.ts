@@ -867,6 +867,38 @@ export const en = {
   "project-workspace.tracking.unreadable-one":
     "lophn couldn't read {folder}, so tracking stays off. Check that it exists and try again.",
   "projects.title.screen": "Projects",
+  "report-problem.button.copy-text": "Copy your text",
+  "report-problem.button.open": "Report a problem",
+  "report-problem.button.send": "Send report",
+  "report-problem.button.view-issue": "View issue",
+  "report-problem.error.rejected": "lophn couldn't accept this report.",
+  "report-problem.error.too-long": "Keep it to 500 characters or fewer.",
+  "report-problem.error.unreachable":
+    "Your report wasn't sent because lophn couldn't be reached.",
+  "report-problem.heading.sent-with": "Sent with your report",
+  "report-problem.hint.draft-memory":
+    "Your text is kept only while this window is open.",
+  "report-problem.label.screen-details": "Screen name and location",
+  "report-problem.label.screenshot": "Screenshot of this app",
+  "report-problem.label.what-happened": "What went wrong?",
+  "report-problem.notice.capturing": "Taking a screenshot of this app.",
+  "report-problem.notice.copy-text": "Copy your text so you don't lose it.",
+  "report-problem.notice.new-issue":
+    "This report isn't added to an existing issue.",
+  "report-problem.notice.open-failed":
+    "Couldn't open the report form. Try again.",
+  "report-problem.notice.screen-not-sent": "Screen details won't be sent.",
+  "report-problem.notice.screenshot-failed":
+    "Couldn't take a screenshot of this app. You can still send your text.",
+  "report-problem.notice.screenshot-hidden":
+    "No screenshot because this app wasn't showing.",
+  "report-problem.notice.screenshot-not-selected":
+    "The screenshot is sent only if you select it.",
+  "report-problem.notice.screenshot-protected":
+    "No screenshot because another lophn window was open over this app.",
+  "report-problem.status.received": "Received. lophn will look into it.",
+  "report-problem.status.sending": "Sending your report.",
+  "report-problem.title.report": "Report a problem",
   "roles.title.screen": "Roles",
   "settings.models.for-decisions": "For decisions",
   "settings.models.for-summaries": "For summaries",

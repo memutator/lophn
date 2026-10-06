@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { appConnectSource, appCreate, appGet, appList } from "../apps/apps.ts";
 import { invocationsGet, invocationsList } from "../apps/invocations.ts";
-import { appLogs, appRuntime } from "../apps/runtime.ts";
+import { appLogs, appRuntime, RUNTIME_MODES } from "../apps/runtime.ts";
+import { commandKeySchema } from "../apps/channel-values.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
 import { releasePrepareBundle } from "../apps/releases.ts";
 import { requestTest } from "../problems/tests.ts";
@@ -112,13 +113,23 @@ export const cliSdkAddSchema = withCommon(
 // `lophn app command|invocation|automation run`(cli#R31, R32). command는
 // appRuntime.input, invocation은 invocationsGet.input, automation run도 같은
 // command 경계를 쓴다.
+// `command` 이름은 CLI command 이름 literal이 쓰므로 앱 command key는 `name`이다. 그 command의
+// JSON 입력은 공통 `--input`/`--input-file`이 싣고, 환경은 preview가 기본이다(cli#R31).
 export const cliAppCommandSchema = withCommon(
   "app command",
-  appRuntime.input,
+  appRuntime.input.extend({
+    name: commandKeySchema,
+    environment: z.enum(RUNTIME_MODES).optional(),
+    timeout_ms: z.number().int().min(1).optional(),
+  }),
 );
+// invocation은 같은 환경의 기록만 읽는다. 환경 기본은 preview다(cli#R32, mcp#R29).
 export const cliAppInvocationSchema = withCommon(
   "app invocation",
-  invocationsGet.input,
+  invocationsGet.input.extend({
+    app: z.string().optional(),
+    environment: z.enum(RUNTIME_MODES).optional(),
+  }),
 );
 export const cliAppAutomationRunSchema = withCommon(
   "app automation run",

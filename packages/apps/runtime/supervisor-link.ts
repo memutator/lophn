@@ -161,7 +161,12 @@ export type SupervisorClient = {
   observe(app: string): Promise<Result<ObservationWire | null>>;
   logs(
     app: string,
-    query: { invocation?: string; limit: number; max_bytes?: number },
+    query: {
+      invocation?: string;
+      limit: number;
+      max_bytes?: number;
+      cursor?: string;
+    },
   ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
 };

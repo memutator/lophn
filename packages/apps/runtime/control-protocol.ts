@@ -75,12 +75,14 @@ export const logsInputSchema = z.strictObject({
   invocation: z.string().optional(),
   limit: z.number().int().min(1).max(200),
   max_bytes: z.number().int().positive().optional(),
+  cursor: z.string().regex(/^[0-9]+$/).optional(),
 });
 export const logsOutputSchema = z.strictObject({
   state: z.enum(["none", "off", "timeout", "ok"]),
   lines: z.array(z.string().max(300)).max(200),
   collected_at: z.string().nullable(),
   truncated: z.boolean(),
+  next_cursor: z.string().nullable().optional(),
 });
 export type LogsWire = z.infer<typeof logsOutputSchema>;
 

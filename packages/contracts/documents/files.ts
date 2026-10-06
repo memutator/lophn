@@ -128,6 +128,9 @@ export const filesDelete = defineWorker({
     request_key: idempotencyKeySchema,
     target: fileTargetSchema,
     base_hash: sha256Schema,
+    // 파일을 지운 뒤(이미 없으면 그대로) 그 문서의 원본 연결을 풀고 자리를 되돌린다.
+    // 확인 handle의 묶음은 그대로다(request_key, target, base_hash).
+    unlink: z.strictObject({ document: documentIdSchema }).optional(),
   }),
   output: fileOperationResultSchema,
   actors: userOnly,

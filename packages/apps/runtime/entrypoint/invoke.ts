@@ -8,6 +8,7 @@ import type { AppConnection, InvocationCaller, Json } from "./wire.ts";
 import {
   type DenyFact,
   type FinishFact,
+  readRejection,
   readSchedulePort,
   type RecordedJson,
   type RecordedTrigger,
@@ -179,6 +180,14 @@ function known(state: RuntimeState, invocation: string): InvokeResult {
     });
   }
   if (found.progress === "failed") {
+    if (found.rejection) {
+      return fail(
+        STATUS[found.rejection.code] ?? 400,
+        found.rejection.code,
+        found.rejection.message,
+        { invocation: found.id },
+      );
+    }
     return fail(500, "internal", "handler failed", { invocation: found.id });
   }
   return {
@@ -272,13 +281,16 @@ function launch(
         },
         () => call.handler.handle(call.input),
       );
-    } catch (_error) {
+    } catch (error) {
       // timeout으로 이미 결과 모름을 남겼으면 늦은 종료가 그 사실을 바꾸지 않는다.
       if (record.settled) {
         takeStages(id);
         return { ok: false as const };
       }
       record.progress = "failed";
+      // 효과 전의 거절은 코드를 남기고 같은 접수의 재전송도 같은 거절로 답한다.
+      const rejection = readRejection(error);
+      if (rejection) record.rejection = rejection;
       const finish = finishFact(
         record,
         command.confirm,
@@ -345,7 +357,18 @@ async function runHandler(
     port,
   });
   const done = await run.outcome;
-  if (!done.ok) return fail(500, "internal", "handler failed");
+  if (!done.ok) {
+    // handler가 효과 전에 받지 않겠다고 알린 호출만 그 코드로 답한다. 그 밖의 예외는 원문 없이 500이다.
+    const rejection = run.record.rejection;
+    if (rejection) {
+      return fail(
+        STATUS[rejection.code] ?? 400,
+        rejection.code,
+        rejection.message,
+      );
+    }
+    return fail(500, "internal", "handler failed");
+  }
   return {
     status: 200,
     body: {
@@ -466,8 +489,10 @@ function finishFact(
   }
   if (record.cancelRequested) summary.cancel_requested = true;
   if (status === "failed") {
-    summary.error = "handler_failed";
-    if (record.effect !== "read") summary.effects = "unconfirmed";
+    summary.error = record.rejection?.code ?? "handler_failed";
+    if (record.effect !== "read" && !record.rejection) {
+      summary.effects = "unconfirmed";
+    }
   }
   return {
     status,

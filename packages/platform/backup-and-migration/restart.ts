@@ -1,4 +1,5 @@
 import { type Clock, err, formatSeq, ok, type Result } from "../../base/mod.ts";
+import type { Sql } from "../../contracts/platform/mod.ts";
 import { openConnection } from "../ledger/mod.ts";
 
 // 재시작 점검 모양(install-and-update#R11의 중단 작업 점검, b&m#R15·R16).
@@ -23,8 +24,17 @@ export type RestartCheck = {
   observations: readonly RestartObservation[];
 };
 
+// 소유 concern이 자기 표를 읽어 낸 관측. 이 모듈은 소유 표를 읽지 않으므로 소유 concern이 함수로 준다.
+// 읽기 전용 SQL과 점검 시각을 받고, 읽지 못하면 unknown과 안전한 이유를 낸다(R16).
+export type RestartOwner = (
+  sql: Pick<Sql, "all">,
+  now: string,
+) => readonly RestartObservation[];
+
 export type RestartDeps = {
   clock: Pick<Clock, "now">;
+  // 복구 command 없이 표의 실제 상태를 관측할 수 있는 소유 concern(예: platform/approvals).
+  owners?: readonly RestartOwner[];
 };
 
 // 안전한 이유 모양(safeReason). unknown 관측값의 reason 필수 조건에 맞춘다.
@@ -39,7 +49,9 @@ export function checkRestart(
   ledgerPath: string,
   deps: RestartDeps,
 ): Promise<Result<RestartCheck>> {
-  return Promise.resolve(readRestartTrace(ledgerPath, deps.clock.now()));
+  return Promise.resolve(
+    readRestartTrace(ledgerPath, deps.clock.now(), deps.owners ?? []),
+  );
 }
 
 // ledger 이력의 마지막 event seq를 읽는다. 소유 concern의 표를 다시 쓰지 않고
@@ -47,6 +59,7 @@ export function checkRestart(
 function readRestartTrace(
   ledgerPath: string,
   at: string,
+  owners: readonly RestartOwner[],
 ): Result<RestartCheck> {
   const opened = openConnection(ledgerPath);
   if (!opened.ok) return opened;
@@ -87,7 +100,7 @@ function readRestartTrace(
         outcome: "unknown",
         evidence: [`events:${headSeq} at ${at}`],
         reason,
-      }],
+      }, ...owners.flatMap((owner) => owner(connection.sql, at))],
     });
   } finally {
     connection.close();

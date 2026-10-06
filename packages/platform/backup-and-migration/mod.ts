@@ -34,5 +34,6 @@ export {
   type RestartCheck,
   type RestartDeps,
   type RestartObservation,
+  type RestartOwner,
 } from "./restart.ts";
 export { verifyMigrated } from "./verification.ts";

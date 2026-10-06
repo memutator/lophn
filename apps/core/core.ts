@@ -100,6 +100,7 @@ import { DOCUMENTS_FEED_CONTEXT } from "./documents-events.ts";
 import { startDocumentsFeed } from "./documents-feed.ts";
 import { startNotifications } from "./notifications.ts";
 import { NOTIFICATIONS_CONTEXT, withPlatform } from "./platform.ts";
+import { observeApprovals } from "../../packages/platform/approvals/mod.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createValidatePort } from "./documents-validate.ts";
@@ -311,7 +312,10 @@ async function open(
   // concern의 복구 command가 아직 없는 영역은 unknown 관측값과 근거를 남기고
   // 읽기 열기를 막지 않는다(R16). 점검 관측은 status에 더하지 않는다: 상태는
   // 구성 요소 관측이고 소유 concern 관측은 복구 command로 남는다.
-  const restart = await checkRestart(ledgerPath, { clock });
+  const restart = await checkRestart(ledgerPath, {
+    clock,
+    owners: [observeApprovals],
+  });
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);
   // machine은 command kind 정책에만 닿는다(identity model operationCeiling).

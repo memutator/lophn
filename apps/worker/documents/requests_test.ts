@@ -3,6 +3,7 @@ import { assert, assertEquals } from "@std/assert";
 import {
   createStatusRecorder,
   DOCUMENT_OPS,
+  VALIDATE_INPUT_MAX_BYTES,
 } from "../../../packages/documents/file-tracking/mod.ts";
 import { createRequestHandler, type RequestDeps } from "./requests.ts";
 import { createBasisStore } from "./basis.ts";
@@ -143,6 +144,7 @@ const VALIDATE_BODY = {
     media_type: "text/markdown",
     primary: true,
     bytes: 3,
+    blob_hash: "cd".repeat(32),
     channel: 1,
   }],
   format: { name: "document", module_hash: "ab".repeat(32), explicit: false },
@@ -179,4 +181,46 @@ Deno.test("documents/formats#R4: runner가 실패하면 통과로 꾸미지 않�
   const invalid = await handle(request(DOCUMENT_OPS.validateFiles, {}));
   assert(!invalid.ok);
   assertEquals(invalid.error.code, "invalid_input");
+});
+
+Deno.test("documents/formats#R4: 검사 요청이 대표 파일 1 MiB 한도를 넘으면 거절하고 바이트를 보내지 않은 큰 첨부는 한도에 들지 않는다", async () => {
+  const handle = createRequestHandler(
+    deps(
+      createStatusRecorder(),
+      () => Promise.resolve(ok({ status: "passed" })),
+    ),
+  );
+  const over = await handle(request(DOCUMENT_OPS.validateFiles, {
+    ...VALIDATE_BODY,
+    files: [{ ...VALIDATE_BODY.files[0], bytes: VALIDATE_INPUT_MAX_BYTES + 1 }],
+  }));
+  assert(!over.ok);
+  assertEquals(over.error.code, "invalid_input");
+  const withAttachment = await handle(request(DOCUMENT_OPS.validateFiles, {
+    ...VALIDATE_BODY,
+    files: [VALIDATE_BODY.files[0], {
+      path: "big.png",
+      media_type: "image/png",
+      primary: false,
+      bytes: 64 * 1024 * 1024,
+      blob_hash: "ef".repeat(32),
+      channel: null,
+    }],
+  }));
+  assert(withAttachment.ok);
+});
+
+Deno.test("documents/formats#R4: runner가 invalid_input으로 답하면 그 code를 unavailable로 낮추지 않는다", async () => {
+  const handle = createRequestHandler(
+    deps(
+      createStatusRecorder(),
+      () =>
+        Promise.resolve(err({ code: "invalid_input", message: "too large" })),
+    ),
+  );
+  const answered = await handle(
+    request(DOCUMENT_OPS.validateFiles, VALIDATE_BODY),
+  );
+  assert(!answered.ok);
+  assertEquals(answered.error.code, "invalid_input");
 });

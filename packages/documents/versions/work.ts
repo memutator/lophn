@@ -34,7 +34,7 @@ export type ValidateOutcome = {
 };
 
 export type ValidateError = {
-  code: "not_found" | "unavailable";
+  code: "not_found" | "invalid_input" | "unavailable";
   message: string;
 };
 

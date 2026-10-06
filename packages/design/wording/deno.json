@@ -2,7 +2,8 @@
   "name": "@lophn/wording",
   "exports": {
     ".": "./mod.ts",
-    "./check": "./check.ts"
+    "./check": "./check.ts",
+    "./generate": "./generate.ts"
   },
   "imports": {
     "intl-messageformat": "npm:intl-messageformat@12.1.2",

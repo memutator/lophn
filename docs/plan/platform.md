@@ -736,6 +736,21 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - architecture/platform 5.1 route 목록을 같은 PR에서 고친다(lead 결정, Q14).
   - `workspace_test.ts`에 위 요구 테스트
 
+### T58 question option 적용의 user 자격 전환
+
+- 등급: 기본
+- concern: platform/ledger, platform/identity
+- 요구: platform/identity#R14
+- 자리: packages/platform/ledger/ (Tx 자격 전환), packages/platform/identity/, contracts 변경은 contracts 팀 작업으로 먼저
+- 쓰는 contract: QuestionActionEvidence, `Tx.call`
+- 내놓는 contract: 근거 검증을 거친 한 번의 소유 command 호출을 actor=user로 기록하는 Tx 경로(contracts 변경 필요)
+- slice: agent
+- 선행: platform#T24, lophn-agent#T29
+- lophn-agent#T29에서 넘어온 것: lophn-agent의 `ApplyQuestionOption`(machine)은 질문 정본과 제출 action이 같음을 검증한 뒤 core 조립(`apps/core/lophn-agent.ts`의 `bindQuestionOptionOwners`)이 묶은 소유 handler를 user 자격으로 같은 Tx에서 부른다. 그러나 `tx.emit`의 actor와 inner dispatch 자격은 바깥 command의 것이라 소유 event(DocumentMoved·SettingsChanged)가 actor=`machine`으로 남는다(도메인 모델은 actor=user, run=null).
+- 완료:
+  - 검증을 거친 option 적용의 event·변경 기록이 actor=user, run=null로 남고, 일반 machine의 user 주장·다른 option·변경된 입력·이미 적용한 답은 거절한다(identity R14). `apply_approved_action`의 caller 규칙과 섞이지 않는다
+  - `question_evidence_test.ts`·`dispatch_test.ts`에 위 요구 테스트, lophn-agent#T29의 option 적용 테스트가 event actor를 `user`로 확인한다
+
 ## context
 
 ### T53 notification 계기: context watch 변화

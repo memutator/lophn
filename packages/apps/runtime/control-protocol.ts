@@ -16,6 +16,11 @@ export const SUPERVISOR_OPS = {
   restart: "apps.restart",
   // 닫힌 화면 view를 지금 live 자식에 알린다(control/view-closed).
   viewClosed: "apps.view_closed",
+  // preview 프로세스(운영 자식과 따로 한 앱에 많아야 하나)의 시작·관측·종료. 운영 상태와
+  // 활성 참조를 건드리지 않는다(apps/preview).
+  previewStart: "apps.preview_start",
+  previewObserve: "apps.preview_observe",
+  previewStop: "apps.preview_stop",
 } as const;
 
 export type SupervisorOp = (typeof SUPERVISOR_OPS)[keyof typeof SUPERVISOR_OPS];
@@ -24,6 +29,11 @@ const appId = z.string().regex(/^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 const releaseId = z.string().regex(/^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/);
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/);
 const screenSize = z.enum(["full", "panel", "card"]);
+
+const flagsSchema = z.strictObject({
+  args: z.array(z.string()),
+  limits: z.array(z.enum(LIMIT_KEYS)),
+});
 
 export const desiredAppSchema = z.strictObject({
   app: z.string().min(1),
@@ -34,10 +44,7 @@ export const desiredAppSchema = z.strictObject({
   commands: z.array(z.string().min(1)),
   screens: z.record(z.string().min(1), z.array(screenSize).min(1)).optional(),
   dataSchema: z.number().int().nonnegative(),
-  flags: z.strictObject({
-    args: z.array(z.string()),
-    limits: z.array(z.enum(LIMIT_KEYS)),
-  }),
+  flags: flagsSchema,
   entry: z.string().min(1),
   importMap: z.string().min(1),
   dataPath: z.string().min(1),
@@ -94,6 +101,34 @@ export const restartInputSchema = z.strictObject({
 });
 export const restartOutputSchema = z.strictObject({ restarted: z.boolean() });
 
+// preview 프로세스 하나의 시작 입력이다. core가 nonce와 disposable 영역(dataPath)을 먼저 만들고
+// 운영 DesiredApp과 같은 모양으로 알린다. release는 준비 전 bundle이면 null이다.
+export const previewNonceSchema = z.string().regex(/^[0-9A-Za-z-]{8,64}$/);
+export const previewLaunchSchema = z.strictObject({
+  app: appId,
+  nonce: previewNonceSchema,
+  release: releaseId.nullable(),
+  bundleHash: sha256,
+  commands: z.array(z.string().min(1)),
+  screens: z.record(z.string().min(1), z.array(screenSize).min(1)).optional(),
+  dataSchema: z.number().int().nonnegative(),
+  flags: flagsSchema,
+  entry: z.string().min(1),
+  importMap: z.string().min(1),
+  dataPath: z.string().min(1),
+});
+export type PreviewLaunch = z.infer<typeof previewLaunchSchema>;
+export const previewStartOutputSchema = z.strictObject({
+  accepted: z.literal(true),
+});
+export const previewObserveInputSchema = z.strictObject({
+  app: appId,
+  process_nonce: previewNonceSchema,
+});
+export const previewStopInputSchema = previewObserveInputSchema;
+export const previewStopOutputSchema = z.strictObject({
+  stopped: z.boolean(),
+});
 export const viewClosedInputSchema = z.strictObject({
   app: appId,
   view_session: z.string().min(1).refine((value) => !/\p{Cc}/u.test(value)),

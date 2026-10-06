@@ -14,8 +14,12 @@ import type { AuthenticatedContext } from "../../packages/contracts/platform/mod
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
-const teams: TeamModule[] = [{ createLedgerRegistration }];
+const teams: TeamModule[] = [
+  { lophnAgentDefinitions },
+  { createLedgerRegistration },
+];
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 const AGENT_TOKEN = "a".repeat(43);
 const USER_TOKEN = "u".repeat(43);
@@ -41,7 +45,10 @@ const OPERATIONS = [
 async function open(): Promise<{ harness: CoreHarness; token: string }> {
   const opened = await createCoreHarness({
     teams,
-    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
   });
   assert(opened.ok, opened.ok ? "" : opened.error.message);
   const harness = opened.value;
@@ -88,7 +95,10 @@ async function openReal(): Promise<Real> {
     lophnHome: home,
     port: 0,
     teams,
-    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     clock: manualClock(Date.UTC(2024, 0, 1)),
     random: seededRandom(41),
     testCredentials: true,

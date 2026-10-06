@@ -14,6 +14,7 @@ import type { AuthenticatedContext } from "../../packages/contracts/platform/mod
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [{ createLedgerRegistration }];
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
@@ -94,6 +95,11 @@ async function openReal(): Promise<Real> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(work, { recursive: true });
+  });
   const core = started.value;
   for (
     const [context, token] of [
@@ -158,6 +164,7 @@ async function openReal(): Promise<Real> {
     assert(Date.now() < deadline, "문서가 index에 오르지 않았다");
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
+  guard.keep();
   return {
     core,
     token: USER_TOKEN,

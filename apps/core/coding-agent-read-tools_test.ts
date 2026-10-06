@@ -34,6 +34,7 @@ import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [
   { createLedgerRegistration },
@@ -106,6 +107,11 @@ async function open(): Promise<Opened> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(work, { recursive: true });
+  });
   const core = started.value;
   const agent = (
     cac: string,
@@ -171,6 +177,7 @@ async function open(): Promise<Opened> {
     return handler;
   }
   let id = 0;
+  guard.keep();
   return {
     core,
     home,

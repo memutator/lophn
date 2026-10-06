@@ -10,7 +10,6 @@ import { registerViewSchemes } from "../../desktop/security.ts";
 import { createShellHandler } from "../../desktop/shell-protocol.ts";
 import { createCoordinator } from "../coordinator.ts";
 import { registerConfirmationIpc } from "../ipc.ts";
-import { createKinds } from "../kinds/mod.ts";
 import { intents, world } from "../kinds/app-decisions_fixture.ts";
 import type {
   AppContents,

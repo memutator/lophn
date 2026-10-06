@@ -162,6 +162,9 @@ export async function assemblePrompt(
       hash: layer.hash,
     })),
     cache_boundaries,
+    references: [...(input.evidence?.references ?? [])],
+    omissions: [...(input.evidence?.omissions ?? [])],
+    turn_context: input.evidence?.turn_context ?? null,
     tool_names: tools.map((tool) => tool.name),
     size: {
       input_budget: budget.value,

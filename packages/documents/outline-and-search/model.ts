@@ -485,3 +485,202 @@ export function bodyChunk(
 }
 
 export const SEARCH_QUIET_MS = 500;
+
+// section-comparison: 같은 module의 section key와 body_hash만 비교하는 순수 규칙이다.
+// section 이력·diff(documents#T16)와 context watch(documents#T24)가 같은 함수를 쓴다.
+// 이름 변경·유사도·hash 일치로 의미상의 대응을 추측하지 않는다: 이름이 바뀌면 옛 key는
+// 소실이고 새 key는 추가다(outline-and-search#R19). body_hash 규약은 format module 묶음
+// 한 곳에 있으므로 module_hash가 다른 두 판은 비교하지 않는다.
+export type SectionSide = {
+  key: string;
+  title: string;
+  position: number;
+  body_hash: string;
+};
+
+export type SectionChangeStatus =
+  | "unchanged"
+  | "modified"
+  | "added"
+  | "missing";
+
+export type SectionChange = {
+  key: string;
+  // 살아 있으면 뒤 판의 제목이고 소실이면 앞 판의 제목이다.
+  title: string;
+  status: SectionChangeStatus;
+  before: SectionSide | null;
+  after: SectionSide | null;
+};
+
+// 한 판의 추출된 section 목록과 그 판이 쓴 format module.
+export type SectionSnapshot = {
+  module_hash: string;
+  sections: readonly SectionSide[];
+};
+
+export type ModuleChanged = { comparable: false; reason: "module_changed" };
+
+export type SectionComparison =
+  | { comparable: true; changes: SectionChange[] }
+  | ModuleChanged;
+
+// 앞뒤 body_hash(없으면 null)의 관계. 둘 다 없으면 비교할 것이 없어 null이다.
+export function sectionChangeStatus(
+  beforeHash: string | null,
+  afterHash: string | null,
+): SectionChangeStatus | null {
+  if (beforeHash === null && afterHash === null) return null;
+  if (beforeHash === null) return "added";
+  if (afterHash === null) return "missing";
+  return beforeHash === afterHash ? "unchanged" : "modified";
+}
+
+function changeOf(
+  before: SectionSide | undefined,
+  after: SectionSide | undefined,
+): SectionChange | null {
+  const status = sectionChangeStatus(
+    before?.body_hash ?? null,
+    after?.body_hash ?? null,
+  );
+  if (status === null) return null;
+  const named = (after ?? before)!;
+  return {
+    key: named.key,
+    title: named.title,
+    status,
+    before: before ?? null,
+    after: after ?? null,
+  };
+}
+
+// 두 판의 모든 key를 비교한다. 앞 판이 없으면(첫 판) 뒤 판의 모든 section이 추가다.
+// 살아 있는 행(변경 없음·수정·추가)은 뒤 판의 position 순이고, 소실 행은 그 뒤에
+// 앞 판의 position 순으로 모은다(outline-and-search#R20).
+export function compareSections(
+  before: SectionSnapshot | null,
+  after: SectionSnapshot,
+): SectionComparison {
+  if (before !== null && before.module_hash !== after.module_hash) {
+    return { comparable: false, reason: "module_changed" };
+  }
+  const previous = new Map<string, SectionSide>();
+  for (const section of before?.sections ?? []) {
+    previous.set(section.key, section);
+  }
+  const live: SectionChange[] = [];
+  const current = new Set<string>();
+  const byPosition = (a: SectionSide, b: SectionSide) =>
+    a.position - b.position;
+  for (const section of [...after.sections].sort(byPosition)) {
+    current.add(section.key);
+    const change = changeOf(previous.get(section.key), section);
+    if (change !== null) live.push(change);
+  }
+  const missing: SectionChange[] = [];
+  for (const section of [...(before?.sections ?? [])].sort(byPosition)) {
+    if (current.has(section.key)) continue;
+    const change = changeOf(section, undefined);
+    if (change !== null) missing.push(change);
+  }
+  return { comparable: true, changes: [...live, ...missing] };
+}
+
+// 한 key의 변화. 앞 판에도 뒤 판에도 key가 없으면 change가 null이다.
+export function compareSectionKey(
+  before: SectionSnapshot | null,
+  after: SectionSnapshot,
+  key: string,
+): { comparable: true; change: SectionChange | null } | ModuleChanged {
+  if (before !== null && before.module_hash !== after.module_hash) {
+    return { comparable: false, reason: "module_changed" };
+  }
+  return {
+    comparable: true,
+    change: changeOf(
+      before?.sections.find((section) => section.key === key),
+      after.sections.find((section) => section.key === key),
+    ),
+  };
+}
+
+// 판 하나의 section 상태. 비교할 수 있는 판은 ready고, 그 밖(미완료·미지원·실패·
+// 불일치)은 이유를 가진 unknown이다. unknown 판에서 section을 추정하지 않는다.
+export type ComparedVersion<F> = {
+  version: string;
+  format: F;
+  state:
+    | { kind: "ready"; snapshot: SectionSnapshot }
+    | { kind: "unknown"; reason: string };
+};
+
+export type SectionHistoryRow<F> = {
+  version: string;
+  status: SectionChangeStatus;
+  title: string;
+  before: { version: string; format: F; side: SectionSide } | null;
+  after: { version: string; format: F; side: SectionSide | null };
+};
+
+export type SectionHistoryOmission = { version: string; reason: string };
+
+// 한 key의 이력. chain은 번호 순의 연속한 판이고 첫 판은 보여 줄 첫 판의 직전 판(없으면
+// 첫 판 자체가 문서의 첫 판)이다. shown은 chain 중 행을 낼 첫 index다: 중간 판부터 잘라도
+// 그 판의 첫 비교는 직전 판과 한다(outline-and-search#R20). 비교하는 두 판 중 하나가
+// unknown이면 행을 만들지 않고 그 판의 누락으로 남긴다.
+export function sectionHistory<F>(
+  chain: readonly ComparedVersion<F>[],
+  shown: number,
+  key: string,
+): { rows: SectionHistoryRow<F>[]; omissions: SectionHistoryOmission[] } {
+  const rows: SectionHistoryRow<F>[] = [];
+  const omissions: SectionHistoryOmission[] = [];
+  const noted = new Set<string>();
+  const omit = (version: string, reason: string) => {
+    if (noted.has(version)) return;
+    noted.add(version);
+    omissions.push({ version, reason });
+  };
+  for (let index = shown; index < chain.length; index++) {
+    const after = chain[index];
+    const before = index === 0 ? null : chain[index - 1];
+    if (after.state.kind === "unknown") {
+      omit(after.version, after.state.reason);
+      continue;
+    }
+    if (before !== null && before.state.kind === "unknown") {
+      omit(before.version, before.state.reason);
+      continue;
+    }
+    const compared = compareSectionKey(
+      before !== null && before.state.kind === "ready"
+        ? before.state.snapshot
+        : null,
+      after.state.snapshot,
+      key,
+    );
+    if (!compared.comparable) {
+      omit(after.version, "format module changed");
+      continue;
+    }
+    const change = compared.change;
+    if (change === null) continue;
+    rows.push({
+      version: after.version,
+      status: change.status,
+      title: change.title,
+      before: change.before === null || before === null ? null : {
+        version: before.version,
+        format: before.format,
+        side: change.before,
+      },
+      after: {
+        version: after.version,
+        format: after.format,
+        side: change.after,
+      },
+    });
+  }
+  return { rows, omissions };
+}

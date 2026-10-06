@@ -3,9 +3,11 @@
 // derived store(node:sqlite)는 reader Worker 쪽 모듈만 연다(core_imports_test).
 import { z } from "zod";
 import {
+  documentDiff,
   documentExport,
   documentFile,
   documentRead,
+  documentSectionHistory,
   guideGet,
   guideList,
   guideOutline,
@@ -29,6 +31,8 @@ export const SERVED_ROUTES: readonly WorkerRoute[] = [
   outlineContext,
   outlineDocument,
   documentRead,
+  documentSectionHistory,
+  documentDiff,
   searchQuery,
   searchStatus,
   viewOpen,

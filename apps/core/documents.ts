@@ -373,6 +373,7 @@ export function createLedgerRegistration(
       commands.archive,
       commands.unarchive,
       versions.save,
+      versions.restore,
       versions.update,
       versions.archive,
       versions.unarchive,

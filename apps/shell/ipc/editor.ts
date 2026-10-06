@@ -9,6 +9,8 @@ export const EDITOR_LOOKUP_CHANNEL = "shell:editor-lookup";
 export const EDITOR_CURRENT_CHANNEL = "shell:editor-current";
 export const EDITOR_WATCH_CHANNEL = "shell:editor-watch";
 export const EDITOR_RELEASE_CHANNEL = "shell:editor-release";
+/** renderer → main: 고른 판을 새 최신 판으로 되살린다(flow restore-document). */
+export const EDITOR_RESTORE_CHANNEL = "shell:editor-restore";
 /** renderer → main: 이 창의 저장 중·끝나지 않은 편집 수. 끄기·창 닫기 확인이 읽는다. */
 export const EDITOR_COUNTS_CHANNEL = "shell:editor-counts";
 /** main → renderer: 창을 닫으려 한다. 마지막 고침을 보내고 답한다. */
@@ -46,6 +48,12 @@ export const editorLookupSchema = z.object({
 }).strict();
 
 export const editorSessionSchema = z.object({ session }).strict();
+
+export const editorRestoreSchema = z.object({
+  document: documentId,
+  version: versionId,
+  request_key: requestKey,
+}).strict();
 
 export const editorWatchSchema = z.object({
   session,
@@ -170,6 +178,27 @@ export interface WatchReport {
   readonly cursor: string;
 }
 
+/** 복원에서 원본 파일 쓰기의 결과. 원본 연결이 없으면 null이다. */
+export type RestoreFile =
+  | "written"
+  | "same"
+  | "conflict"
+  | "failed"
+  | "unknown";
+
+/**
+ * 복원 결과. saved: 새 최신 판, unchanged: 최신 판이 이미 같은 내용이라 판을 만들지 않음,
+ * conflict: 그 사이 최신 판·파일이 바뀌어 멈춤, pending: 파일은 썼지만 판 확정은 documents의
+ * 관측을 기다림, failed: 끝내지 못함(failure에 이유).
+ */
+export interface RestoreReport {
+  readonly outcome: "saved" | "unchanged" | "conflict" | "pending" | "failed";
+  /** 새 판, 또는 같은 내용의 최신 판. */
+  readonly version: string | null;
+  readonly file: RestoreFile | null;
+  readonly failure: string | null;
+}
+
 /** preload가 desktop renderer에 여는 편집 통로. */
 export interface EditorFilesApi {
   open(input: { document: string }): Promise<EditorReply<EditorOpened>>;
@@ -182,6 +211,9 @@ export interface EditorFilesApi {
     input: { session: string; cursor?: string },
   ): Promise<EditorReply<WatchReport>>;
   release(input: { session: string }): Promise<void>;
+  restore(
+    input: { document: string; version: string; request_key: string },
+  ): Promise<EditorReply<RestoreReport>>;
   counts(input: EditorCounts): void;
   /** main이 창 닫기를 묻는다. 해제는 반환 함수다. */
   onCloseRequest(listener: (request: number) => void): () => void;

@@ -34,8 +34,9 @@ import {
   CloseGuards,
   guardWindowClose,
 } from "../editor/close-guard.ts";
-import { coreFilesPort } from "../editor/core-port.ts";
+import { coreFilesPort, coreRestorePort } from "../editor/core-port.ts";
 import { createFileAdapter } from "../editor/file-adapter.ts";
+import { createRestorer } from "../editor/restore.ts";
 import { registerEditorIpc, removeEditorIpc } from "../editor/ipc.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
@@ -247,9 +248,18 @@ const editorIpc = {
   removeAllListeners: (channel: string) =>
     void ipcMain.removeAllListeners(channel),
 };
+// 버전 복원(shell#T18). 준비·파일 쓰기·판 바이트는 renderer allowlist 밖이라 main이 부른다.
+const restorer = createRestorer({
+  port: () => {
+    const session = core.session();
+    return session ? coreRestorePort(session) : null;
+  },
+  log,
+});
 registerEditorIpc(editorIpc, {
   registry: overlays.overlayRegistry(),
   adapter: fileAdapter,
+  restorer,
   guardOf: (id) => closeGuards.get(id),
 });
 

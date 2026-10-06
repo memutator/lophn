@@ -347,3 +347,205 @@ Deno.test("shell/editor#R4: 문서 탭은 문서 읽기 화면을 그리고 탭 
   const last = saved.at(-1) as { panes: { tabs: { title: string }[] }[] };
   assertEquals(last.panes[0]!.tabs[0]!.title, "notes.md");
 });
+
+function ctrlAltB(): void {
+  act(() => {
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "b",
+        code: "KeyB",
+        ctrlKey: true,
+        altKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+}
+
+Deno.test("shell/editor#R6: 정보 패널은 기본 닫힘이고 CommandOrControl+Alt+B로 여닫으며 공간의 열림과 마지막 탭을 기억한다", async () => {
+  const { source, saved } = sourceOf();
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+    />,
+  );
+  await flush();
+  assertEquals(view.container.querySelector("[data-info-panel]"), null);
+  ctrlAltB();
+  const panel = view.container.querySelector("[data-info-panel]") as
+    | HTMLElement
+    | null;
+  assert(panel);
+  assertEquals(panel.style.width, "320px");
+  act(() =>
+    (view.container.querySelector("[data-info-tab='versions']") as HTMLElement)
+      .click()
+  );
+  const last = saved.at(-1) as {
+    information_panel: { open: boolean; tab: string };
+  };
+  assertEquals(last.information_panel, { open: true, tab: "versions" });
+  ctrlAltB();
+  assertEquals(view.container.querySelector("[data-info-panel]"), null);
+  assertEquals(
+    (saved.at(-1) as { information_panel: unknown }).information_panel,
+    { open: false, tab: "versions" },
+  );
+
+  // 같은 공간을 다시 열면 열림과 마지막 탭이 돌아온다.
+  const restored = sourceOf({
+    panes: [{ tabs: [], selected_tab: null }],
+    information_panel: { open: true, tab: "versions" },
+  });
+  using again = render(
+    <Workspace
+      projectId="prj_1"
+      source={restored.source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+    />,
+  );
+  await flush();
+  assertEquals(
+    again.container.querySelector("[data-info-tab][aria-selected=true]")
+      ?.getAttribute("data-info-tab"),
+    "versions",
+  );
+});
+
+Deno.test("shell/editor#R6: overlay 정보 패널은 Escape와 바깥 click으로 닫히고 안쪽 click에는 남는다", async () => {
+  const { source } = sourceOf();
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1000}
+      bodyWidth={700}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+    />,
+  );
+  await flush();
+  const open = () =>
+    act(() =>
+      (view.container.querySelector("[data-info-toggle]") as HTMLElement)
+        .click()
+    );
+  const placement = () =>
+    view.container.querySelector("[data-info-panel]")?.getAttribute(
+      "data-info-panel",
+    ) ?? null;
+  open();
+  assertEquals(placement(), "overlay");
+  act(() => {
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+  });
+  assertEquals(placement(), null);
+  open();
+  const inside = view.container.querySelector("[data-info-body]")!;
+  act(() => {
+    inside.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  });
+  assertEquals(placement(), "overlay");
+  const outside = view.container.querySelector("[data-space]")!;
+  act(() => {
+    outside.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+  });
+  assertEquals(placement(), null);
+});
+
+Deno.test("shell/editor#R6 shell/editor#R13: 버전 탭의 비교는 focus 칸 문서 탭 본문에 비교를 열고 닫으면 문서로 돌아온다", async () => {
+  const { source } = sourceOf({
+    panes: [{
+      tabs: [{ key: "doc_1", kind: "document_editor", title: "notes" }],
+      selected_tab: "doc_1",
+    }],
+    split_ratio: 0.5,
+    focused_pane: 0,
+    information_panel: { open: true, tab: "versions" },
+  });
+  const rows = [2, 1].map((number) => ({
+    id: `ver_${number}`,
+    number,
+    savedBy: "user" as const,
+    savedAt: 0,
+    fromFile: false,
+    contentHash: `h${number}`,
+    restorable: true,
+  }));
+  const editor: EditorDeps = {
+    ...editorDeps(),
+    versions: {
+      facts: () => Promise.resolve({ ok: false, code: "unavailable" }),
+      history: () => Promise.resolve({ ok: true, value: rows }),
+      text: (_document, version) =>
+        Promise.resolve({
+          ok: true,
+          value: version === "ver_1" ? "# Notes\nold" : "# Notes\nnew",
+        }),
+      sections: () => Promise.resolve({ ok: true, value: [] }),
+      diff: () =>
+        Promise.resolve({
+          ok: true,
+          value: {
+            deletions: [{ range: { start: 2, end: 2 }, text: "old" }],
+            additions: [{ range: { start: 2, end: 2 }, text: "new" }],
+            omissions: [],
+            complete: true,
+          },
+        }),
+      sectionHistory: () => Promise.resolve({ ok: false, code: "unavailable" }),
+      contexts: () => Promise.resolve({ ok: true, value: [] }),
+      restore: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    },
+  };
+  using view = render(
+    <Workspace
+      projectId="prj_1"
+      source={source}
+      windowWidth={1600}
+      bodyWidth={1200}
+      onLauncher={() => {}}
+      onLophn={() => {}}
+      editor={editor}
+    />,
+  );
+  await flush();
+  await flush();
+  const compare = view.container.querySelector(
+    "[data-compare-previous='2']",
+  ) as HTMLElement;
+  assert(compare);
+  act(() => compare.click());
+  await flush();
+  await flush();
+  assertEquals(
+    view.container.querySelector("[data-pane-body] [data-document-view]")
+      ?.getAttribute("data-document-view"),
+    "compare",
+  );
+  const shown = [
+    ...view.container.querySelectorAll("[data-compare-body] tr[data-diff]"),
+  ].map((row) => row.getAttribute("data-diff"));
+  assertEquals(shown, ["same", "delete", "add"]);
+  act(() =>
+    (view.container.querySelector("[data-compare-close]") as HTMLElement)
+      .click()
+  );
+  await flush();
+  assertEquals(
+    view.container.querySelector("[data-pane-body] [data-document-view]")
+      ?.getAttribute("data-document-view"),
+    "read",
+  );
+});

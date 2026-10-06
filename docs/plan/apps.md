@@ -284,6 +284,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 내놓는 contract: broker `/_lophn/broker/apps/connect`(apps 안쪽), connectAppCommands(@lophn/cap-schedule)
 - slice: apps
 - 선행: apps#T4, apps#T10, apps#T12, apps#T13, contracts#T34
+- apps#T21에서 넘어온 것: preview 자식의 `/apps/connect` 서비스 자리에는 `packages/apps/preview`의 `createPreviewAppsService()` 대역(가짜 connection 없이 대상이 있든 없든 같은 forbidden, 시도만 메모리에 기록)을 올린다. live가 아닌 mode의 자식은 이 서비스로 다른 앱의 실제 connection을 받지 못한다
 - 완료:
   - `resolve_test.ts`: A→B 두 command 허락이면 그 둘만, B→A·A→C 거절(R1), 호출 범위 = source 선언 ∩ active app.call grant ∩ target 현재 command, 새 command는 옛 grant로 안 됨(R2)
   - `pair_test.ts`: 같은 handler·입력 검사·effect, secret grant가 있는 target의 confirm=false는 추가 approval 없이, confirm=true만 approval(R3), ledger 지연 중에도 A→B 응답(R4, apps/runtime#R30), 위조 caller·미허락 command·옛 프로세스 연결 거절(apps/runtime#R30), A의 당시 release와 부모 inv 전달·부모 없으면 없음, B→C는 B 자신의 선언·grant 없이는 거절(R5), B가 응답 중 종료돼도 A의 다른 화면과 C 호출이 동작하고 B 쓰기를 반복하지 않음(R6), A→B→A와 아홉 번째 앱 거절·독립 A→B와 B→A는 가능(R7)
@@ -330,6 +331,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 내놓는 contract: `/v1/releases/{start_activation,complete_activation,fail_activation}`, event ReleaseActivationStarted·ReleaseActivated·ReleaseSuperseded·ReleaseActivationFailed (contracts#T36)
 - slice: apps
 - 선행: apps#T4, apps#T8, apps#T9, apps#T17, apps#T19, platform#T23, platform#T33
+- apps#T21에서 넘어온 것: 실제 `PreviewBundles`(`packages/apps/preview/service.ts`의 port)를 `core.ts`의 `appPreviews.bundles`로 낸다. 봉인 bundle 사본(`bundleCopyPath`)의 manifest·blueprint에서 entry·import map·`appFlags(…, data=preview 영역)`·command key·선언 화면·data schema를 만들고 `fixture(hash)`는 manifest 파일 중 그 hash의 byte를 돌려준다. 운영 DesiredApp 조립과 같은 함수를 쓴다. 없으면 `/v1/previews/start`는 unavailable이다
 - 완료:
   - `activation_test.ts`: coding agent가 준비한 release도 approval 없이는 activating이 되지 않고 재시도에는 새 결정(R8), approval 뒤 grant·active release를 바꾸면 낡은 activation 거절(R12), activation 둘·grant 변경 동시 요청에서 하나만 진행, 이전 자식 종료 뒤 새 자식(R13), handler·hash·schema·probe 불일치면 active 불변·성공 commit 뒤에만 통로 open, 같은 transaction에 이름·설명 갱신과 첫 성공의 run_enabled=true(R14), 다른 schema의 옛 release는 바로 activation 안 됨·같은 schema rollback은 새 activation(R16)
   - `recovery_test.ts`: 종료 확인·backup 확정을 각각 지연시키면 migration도 새 업무도 시작하지 않음(apps/data#R4), migration·새 준비 실패면 새 자식 종료 → backup restore → 무결성·schema 확인 → record_data_restore → fail_activation → 이전 release 재준비, 복원 실패·미확인은 unavailable과 문제 보고(apps/data#R11, apps/releases#R15), 성공 commit 뒤 만든 업무 데이터는 옛 backup으로 자동 덮지 않음(apps/data#R12), migration 이력에서 출발·도착 schema·설명·손실 가능성·backup·결과·시각을 찾음(apps/data#R9)
@@ -353,6 +355,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 선행: apps#T6, apps#T8, contracts#T36, contracts#T41, problems#T9, problems#T10, problems#T11, coding-agent#T19
 - apps#T14에서 넘어온 것: (1) 앱 프로세스 entrypoint가 cap-net·cap-secret·cap-save·cap-store의 host port(`globalThis[Symbol.for("lophn.cap-host")]`, 모양은 T14 완료 줄)를 시작 입력으로 설치한다. `post`는 `createBrokerClient`와 같게 `process_nonce`·`mode`를 본문에 붙이고 broker socket에 credential로 POST하며, `call()`은 invoke 중인 command의 `command`·`inputHash`(검증·default 적용한 실제 입력의 hash)·`release`·`invocation`을 `AsyncLocalStorage` 문맥으로 낸다(`runtime/entrypoint/invoke.ts`가 `port.run`을 부르는 자리). `dataPath`는 시작 입력의 `data_path`다. 지금 entrypoint는 이 port를 설치하지 않아 실제 자식에서 cap-net 등은 `unavailable`이다. 위 supervisor 조립(자식마다 broker socket)이 서면 실제 자식에서 cap-net·cap-secret·cap-save가 broker를 지나는 것을 시험한다. (2) release 준비(`prepare`)는 blueprint의 `sdk_dependencies`가 cap-fs·cap-net·cap-save·cap-secret일 때 `permissions`에 요구 permission이 없으면 거절한다(apps/sdk#R22). 표는 각 package의 `REQUIRED_PERMISSIONS`(cap-fs는 fs.read 또는 fs.write, cap-net은 net.fetch, cap-save는 document.save, cap-secret은 secret.use와 net.fetch)이고 core는 SDK 코드를 import하지 않으므로 같은 표를 `packages/apps/blueprint`에 옮겨 쓴다. SDK의 `checkDeclaration`과 같은 결과여야 한다
 - apps#T13에서 넘어온 것: `apps/app-supervisor/main.ts`에서 운영 자식마다 broker socket을 열고(`createBrokerHub`·`serveBroker`, `permissions/broker/`) 서비스 어댑터를 조립한다. `BrokerAccess`는 이 작업의 blueprint read(현재 release 선언 ∩ active grant, 요청마다 다시 읽음), `SecretDelivery`·`RedactionGate`는 core secret store의 전송 부착(contracts#T23), `ProblemsReport`는 problems collector, `GrantRevoker`·`AppProcesses`는 core 제어 메시지. `DocumentsSave`는 documents#T31이 낸다. 지금은 시험 fake(`permissions/testing/broker.ts`)만 있어 broker가 아무 데서도 돌지 않는다
+- apps#T21에서 넘어온 것: (1) 실제 `PreviewReleases`(release→bundle hash, 없는 release·다른 앱의 release는 undefined)를 `appPreviews.releases`로 낸다. (2) supervisor 조립이 자식마다 broker socket을 열 때 preview 자식에는 `createPreviewBrokerServices({scope: previewScopeOf(blueprint), invocations, problems})`(`packages/apps/preview`)를 `BrokerServices`로 쓰고 launcher의 `attachBroker`가 그 자리다. invocation·problems 서비스는 운영과 같은 구현이고 mode와 release(null이면 기록 없음)로 구별된다
 - 완료:
   - `prepare_test.ts`: release 없이 bundle을 테스트한 뒤 같은 hash의 pass만 준비되고 한 byte 바꾼 bundle·자가 제출 결과는 거절(R5), 누락·만료·반납·connection 회수·claim 변경은 요청 때와 확정 때 모두 거절, 출처는 claim 해제 뒤에도 그대로(R6), 새 claim 없는 준비 거절·옛 ticket 없는 release는 null 출처 그대로 읽고 선택 가능(R7), 열린 problem의 code 삭제·완화는 경고로만(R18)
   - `compare_test.ts`: 새 필수 입력·external 효과·permission 추가·파괴 migration이 각각 비교에 보임(R9), schema가 같아도 효과가 바뀌면 호환이라 하지 않고 설명만 바뀐 경우를 구별(R10), 데이터 계약 변경은 apps/data 근거, 새 접근 요청은 grant 근거로 따로(R11)
@@ -370,6 +373,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 내놓는 contract: `/v1/apps/automations`(선언·현재 실행 가능 여부·승인 상태·실제 관측), broker `/_lophn/broker/automations/{try_acquire,release}`(apps 안쪽)
 - slice: apps
 - 선행: apps#T4, apps#T7, apps#T8, apps#T12, contracts#T34
+- apps#T21에서 넘어온 것: automation clock은 `mode !== "live"`인 프로세스(preview·test)에서 시작하지 않는다(apps/preview#R6). `packages/apps/preview/real_test.ts`의 "시작 계기가 있는 automation도 preview에서는 스스로 돌지 않는다" 시험이 이를 지킨다(clock이 없어 지금은 돌지 않음만 본다)
 - 완료:
   - `clock_test.ts`: 같은 입력의 직접 호출과 automation이 같은 handler를 부르고 미선언 command·잘못된 입력 거절(R1, apps/blueprint#R14), on_start 한 번과 60000ms 간격만, 59999ms·cron·파일·event 계기 거절(R2), 1초 검사·started_tick 배수·벽시계 변경 무관·재시작은 새 기준(R3), 통로 닫힘·schema 불일치면 handler 없이 이유를 남김(R4), 진행 중이면 다음 회차 skip(R5), 절전 1시간 뒤 지난 60회와 보충 1회 모두 없음(R7), 실패 직후 retry 0(R8), timeout 10분이면 취소 요청과 timeout 사실, 결과 모름은 성공·미실행으로 쓰지 않음(R9)
   - `permits_test.ts`: 독립 automation 5개가 동시에 도래하면 4개만 시작하고 대기열 없음, permit은 실제 handler 종료·자식 종료 확인 때만 반환(R6)

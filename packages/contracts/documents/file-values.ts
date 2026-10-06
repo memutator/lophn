@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ERROR_CODES } from "../../base/mod.ts";
 import {
   atSchema,
   idempotencyKeySchema,
@@ -74,6 +75,16 @@ const versionRequestFields = {
 export const fileVersionRequestSchema = z.strictObject(versionRequestFields);
 export const fileVersionRequestOutputSchema = z.object(versionRequestFields);
 
+// 문서를 이 새 파일에 둔다(documents/file-tracking#R13). 쓸 바이트는 content의 `existing` 원본
+// 참조(그 판의 유일한 파일)다. core가 파일을 쓴 뒤 원본 연결·추적 규칙·자리를 각각 확정한다.
+const placeIntentFields = {
+  document: documentIdSchema,
+  // 둘 문서의 최신 판. 그 사이 새 판이 생겼으면 conflict다.
+  version: versionIdSchema,
+};
+export const filePlaceIntentSchema = z.strictObject(placeIntentFields);
+export const filePlaceIntentOutputSchema = z.object(placeIntentFields);
+
 // 원문은 JSON에 싣지 않고 신뢰한 blob 준비 참조로 받는다(document file 입력과 같다).
 export const fileWriteRequestSchema = z.strictObject({
   request_key: idempotencyKeySchema,
@@ -81,8 +92,47 @@ export const fileWriteRequestSchema = z.strictObject({
   base_hash: sha256Schema.nullable(),
   content: documentFileInputSchema.shape.content,
   version_request: fileVersionRequestSchema.optional(),
-});
+  place: filePlaceIntentSchema.optional(),
+}).refine(
+  (value) =>
+    value.place === undefined ||
+    (value.target.kind === "project_file" && value.base_hash === null &&
+      value.version_request === undefined &&
+      value.content.kind === "existing"),
+  {
+    message:
+      "placing needs a new project file, no version request and an existing version file",
+  },
+);
 export type FileWriteRequest = z.infer<typeof fileWriteRequestSchema>;
+
+// 파일 작업 뒤 이어지는 연결 확정 단계 하나의 결과. 앞 단계가 실패하면 뒤 단계는
+// not_attempted고, 이미 끝난 파일 작업은 되돌리지 않는다.
+export const fileStepSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("done") }),
+  z.object({ state: z.literal("skipped"), reason: z.string().min(1) }),
+  z.object({
+    state: z.literal("failed"),
+    error: z.object({
+      code: z.enum(ERROR_CODES),
+      message: z.string(),
+    }),
+  }),
+  z.object({ state: z.literal("not_attempted") }),
+]);
+export type FileStep = z.infer<typeof fileStepSchema>;
+
+// 두기: 원본 연결, 추적 규칙, 자리 순서로 각각 확정한다.
+export const filePlacementSchema = z.object({
+  source: fileStepSchema,
+  tracking: fileStepSchema,
+  move: fileStepSchema,
+});
+// 빼기: 원본 연결 해제, 자리 되돌리기 순서로 각각 확정한다.
+export const fileUnlinkingSchema = z.object({
+  source: fileStepSchema,
+  move: fileStepSchema,
+});
 
 export const FILE_OPERATION_OUTCOMES = [
   "written",
@@ -118,6 +168,9 @@ const fileResultFields = {
   // version_result가 conflict일 때의 새 기준(그 문서의 지금 최신 판). 사본은 남아 있고
   // 사람이 이 판과 비교해 다시 정한다. 최신 판을 읽지 못하면 없다.
   latest_version: versionIdSchema.optional(),
+  // 두기·빼기 요청의 연결 확정 단계별 결과. 파일 결과와 따로 본다.
+  placement: filePlacementSchema.optional(),
+  unlinking: fileUnlinkingSchema.optional(),
 };
 
 // 파일 결과와 version 결과, 기록 결과는 각각이다. 뒤 단계 실패가 파일 성공을 지우지 않는다.

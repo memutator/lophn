@@ -10,6 +10,8 @@ export {
 } from "./model.ts";
 export { projectsSchemaSteps } from "./schema.ts";
 export { createProjectCommands } from "./commands.ts";
+export { exactFileGlob, includeExactFile } from "./placement.ts";
+export { loadProject } from "./store.ts";
 // scan.ts는 Deno.realPathSync 같은 동기 file API를 쓴다. barrel에 두면 file-tracking을
 // 경유한 core module graph에 동기 file API가 들어간다. 호출자는 scan.ts를 직접 import한다.
 export {

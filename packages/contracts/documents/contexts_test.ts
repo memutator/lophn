@@ -11,6 +11,7 @@ import {
   watchedItemComparisonSchema,
 } from "./contexts.ts";
 import {
+  CONTEXT_DISPATCHABLE_COMMANDS,
   CONTEXT_ROUTES,
   contextCreate,
   contextRecordWatchChange,
@@ -267,4 +268,27 @@ Deno.test("documents/contexts#R14: export keeps purpose, direct items and fixed 
       next_cursor: null,
     }).success,
   );
+});
+
+Deno.test("documents/contexts#R5: run revert가 보상으로 부르는 context command만 dispatchable이고 만들기·감시 기록·읽기는 아니다", () => {
+  assertEquals(
+    CONTEXT_DISPATCHABLE_COMMANDS.map((item) => item.route.name),
+    [
+      "context.update",
+      "context.set_item",
+      "context.remove_item",
+      "context.archive",
+      "context.unarchive",
+    ],
+  );
+  for (const item of CONTEXT_DISPATCHABLE_COMMANDS) {
+    assertEquals(item.dispatchable, true);
+    assertEquals(item.route.kind, "command");
+    // 보상은 사람 자격으로 부르는 같은 route다. 새 actor를 만들지 않는다.
+    assertEquals(item.route.actors.includes("user"), true);
+    assert(CONTEXT_ROUTES.includes(item.route as never));
+  }
+  const names = CONTEXT_DISPATCHABLE_COMMANDS.map((item) => item.route.name);
+  assertEquals(names.includes(contextCreate.name), false);
+  assertEquals(names.includes(contextRecordWatchChange.name), false);
 });

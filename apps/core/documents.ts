@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
+  CONTEXT_DISPATCHABLE_COMMANDS,
   contextExport,
   DOCUMENT_DISPATCHABLE_COMMANDS,
   documentPrepare,
@@ -13,6 +14,7 @@ import {
   outlineRoot,
   projectPreviewTracking,
   READ_ROUTES,
+  TERM_DISPATCHABLE_COMMANDS,
   UPLOAD_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
@@ -66,7 +68,10 @@ import {
 } from "../../packages/contracts/documents/mod.ts";
 import { SERVED_ROUTES } from "./documents-served.ts";
 import { createProjectCommands } from "../../packages/documents/projects/commands.ts";
-import { createVersionCommands } from "../../packages/documents/versions/mod.ts";
+import {
+  createSourceCommands,
+  createVersionCommands,
+} from "../../packages/documents/versions/mod.ts";
 import { createVersionReads } from "../../packages/documents/versions/mod.ts";
 import { versionsSchemaSteps } from "../../packages/documents/versions/mod.ts";
 import {
@@ -338,9 +343,11 @@ export async function connectDocumentsRelaunch(
 function dispatchableByContract<R extends CommandRoute>(
   definition: CommandDefinition<R>,
 ): CommandDefinition<R> {
-  const declared = DOCUMENT_DISPATCHABLE_COMMANDS.some((item) =>
-    item.route === (definition.route as CommandRoute)
-  );
+  const declared = [
+    ...DOCUMENT_DISPATCHABLE_COMMANDS,
+    ...CONTEXT_DISPATCHABLE_COMMANDS,
+    ...TERM_DISPATCHABLE_COMMANDS,
+  ].some((item) => item.route === (definition.route as CommandRoute));
   return declared ? { ...definition, dispatchable: true } : definition;
 }
 
@@ -350,6 +357,7 @@ export function createLedgerRegistration(
   // owner target은 ledger가 주입한 TargetAuthorization port가 판정한다.
   const commands = createProjectCommands();
   const versions = createVersionCommands({ joinSeries: joinSeriesOnSave });
+  const sourceCommands = createSourceCommands();
   const fileCommands = createFileCommands();
   const fileReads = createFileReads();
   const addressing = createDocumentChangeCommands();
@@ -390,23 +398,24 @@ export function createLedgerRegistration(
       versions.update,
       dispatchableByContract(versions.archive),
       versions.unarchive,
+      sourceCommands.setSource,
       fileCommands.recordResult,
       // 사람이 허락한 approval 적용(apply_approved_action)이 같은 transaction에서 부를 수 있다.
       // 어느 command가 그런지는 contract가 정한다(DOCUMENT_DISPATCHABLE_COMMANDS).
       dispatchableByContract(addressing.move),
       dispatchableByContract(addressing.rename),
       contexts.create,
-      contexts.update,
-      contexts.setItem,
-      contexts.removeItem,
-      contexts.archive,
-      contexts.unarchive,
+      dispatchableByContract(contexts.update),
+      dispatchableByContract(contexts.setItem),
+      dispatchableByContract(contexts.removeItem),
+      dispatchableByContract(contexts.archive),
+      dispatchableByContract(contexts.unarchive),
       contexts.recordWatchChange,
       terms.propose,
       terms.define,
-      terms.update,
-      terms.archive,
-      terms.unarchive,
+      dispatchableByContract(terms.update),
+      dispatchableByContract(terms.archive),
+      dispatchableByContract(terms.unarchive),
       series.create,
       series.update,
       series.setDraft,

@@ -244,6 +244,68 @@ Deno.test("documents/contexts#R3: 같은 문서를 두 context의 다른 관점�
   }
 });
 
+Deno.test("documents/contexts#R5: 항목 추가·변경·제거도 revision을 마지막 구성 변경으로 옮겨 같은 기준의 다른 변경은 conflict다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, null, "basis")]),
+    );
+    const setItem = (item: unknown, base: string) =>
+      fixture.transaction((tx) =>
+        commands.setItem.handle(
+          tx,
+          userContext(),
+          { context: ids.context, item } as never,
+          { base_revision: base },
+        )
+      );
+    const added = keep(setItem(appItem(), created.revision));
+    assert(added.revision !== created.revision);
+    // 낡은 기준으로 같은 항목을 다시 바꾸려는 변경은 기존 변경을 덮지 않는다.
+    const stale = setItem(appItem(), created.revision);
+    assert(!stale.ok);
+    assertEquals(stale.error.code, "conflict");
+    const changed = keep(
+      setItem({ ...appItem(), reason: "다른 이유" }, added.revision),
+    );
+    assert(changed.revision !== added.revision);
+    const removed = keep(
+      fixture.transaction((tx) =>
+        commands.removeItem.handle(
+          tx,
+          userContext(),
+          {
+            context: ids.context,
+            target: {
+              kind: "app_command",
+              app: ids.app,
+              command: "read_notes",
+            },
+          } as never,
+          { base_revision: changed.revision },
+        )
+      ),
+    );
+    assert(removed.revision !== changed.revision);
+    const staleRemove = fixture.transaction((tx) =>
+      commands.removeItem.handle(
+        tx,
+        userContext(),
+        {
+          context: ids.context,
+          target: { kind: "document", document: ids.doc, section: null },
+        } as never,
+        { base_revision: changed.revision },
+      )
+    );
+    assert(!staleRemove.ok);
+    assertEquals(staleRemove.error.code, "conflict");
+  } finally {
+    fixture.close();
+  }
+});
+
 Deno.test("documents/contexts#R5: 생성·변경·항목 추가·제거·보관·해제가 개별 동작으로 적용되고 충돌은 기존 변경을 덮지 않는다", () => {
   const fixture = contextFixture();
   try {

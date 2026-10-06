@@ -6,10 +6,37 @@ import {
   invocationsGet,
   invocationsList,
 } from "../../contracts/apps/mod.ts";
-import type { ReadDefinition } from "../../contracts/platform/mod.ts";
+import type {
+  ReadDefinition,
+  ReadSnapshot,
+  RequestContext,
+} from "../../contracts/platform/mod.ts";
+import { appAccessDenied, authorizeAppId } from "../registration/mod.ts";
 import { loadInvocation, loadInvocations } from "./store.ts";
 
 const PAGE = 50;
+
+// 호출 기록은 그 앱의 범위 안에서만 보인다. 범위 밖 앱의 기록은 없는 기록과 같다. 판정 의존이
+// 없으면(unavailable) 열어 주지 않고 오류로 낸다.
+function scopeOf(
+  snapshot: ReadSnapshot,
+  ctx: RequestContext,
+  operation: string,
+): (app: string) => Result<boolean> {
+  const seen = new Map<string, Result<boolean>>();
+  return (app) => {
+    const known = seen.get(app);
+    if (known !== undefined) return known;
+    const access = authorizeAppId(snapshot.port, ctx, operation, app);
+    const verdict: Result<boolean> = access.ok
+      ? ok(true)
+      : appAccessDenied(access)
+      ? ok(false)
+      : access;
+    seen.set(app, verdict);
+    return verdict;
+  };
+}
 
 function invalidCursor(): Result<never> {
   return err({
@@ -75,14 +102,20 @@ export function createInvocationsReads(): {
     list: {
       route: invocationsList,
       handle(snapshot, ctx, input) {
-        void ctx;
         const invocations = loadInvocations(snapshot.sql, {
           app: input.app,
           status: input.status,
         });
         if (!invocations.ok) return invocations;
+        const inScope = scopeOf(snapshot, ctx, invocationsList.name);
+        const visible: Invocation[] = [];
+        for (const row of invocations.value) {
+          const allowed = inScope(row.app);
+          if (!allowed.ok) return allowed;
+          if (allowed.value) visible.push(row);
+        }
         const limit = input.limit ?? PAGE;
-        const head = invocations.value.length;
+        const head = visible.length;
         const offset = invocationPageOffset(
           input.cursor,
           input.app,
@@ -92,7 +125,7 @@ export function createInvocationsReads(): {
         );
         if (!offset.ok) return offset;
         const start = offset.value;
-        const page = invocations.value.slice(start, start + limit);
+        const page = visible.slice(start, start + limit);
         const next = start + page.length;
         return ok({
           invocations: page,
@@ -106,9 +139,22 @@ export function createInvocationsReads(): {
     get: {
       route: invocationsGet,
       handle(snapshot, ctx, input) {
-        void ctx;
         const invocation = loadInvocation(snapshot.sql, input.invocation);
         if (!invocation.ok) return invocation;
+        if (invocation.value !== null) {
+          const allowed = scopeOf(snapshot, ctx, invocationsGet.name)(
+            invocation.value.app,
+          );
+          if (!allowed.ok) return allowed;
+          // 범위 밖 기록은 없는 기록과 같은 모양이다.
+          if (!allowed.value) {
+            return ok({
+              invocation: null,
+              as_of_seq: snapshot.as_of_seq,
+              next_cursor: null,
+            });
+          }
+        }
         // 기록이 없으면 그 부재를 그대로 표시한다(R10). denied-scope row는
         // 부재와 같은 모양이 아니다. 알려진 ID는 null로 표시하지 않는다.
         return ok({

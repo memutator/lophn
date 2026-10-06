@@ -431,7 +431,8 @@ export function setTracking(
 
 /**
  * 사람이 프로젝트를 등록하고 파일 추적을 켠다. 미리보기 화면과
- * `/v1/projects/preview_tracking`의 core 서빙은 shell#T15·documents#T12 몫이다.
+ * `/v1/projects/preview_tracking`은 core가 서빙하지만(documents#T12) shell main의 renderer
+ * 통로 allowlist에 아직 없어서 그 화면(shell#T15)이 열 때까지 미리보기는 시험이 계산한다.
  */
 export async function registerTrackedProject(
   flow: FlowShell,

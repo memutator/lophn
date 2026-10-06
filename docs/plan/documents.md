@@ -450,7 +450,7 @@ concerns: [documents]
   - organize-documents 4·5와 사람 직접 이동 갈래(이름 충돌·옛 예약 이름, 옛 참조 안내, 원본 파일은 그대로). 2~3(lophn 역할 추천·question)은 agent slice E2E(lead 결정 Q4)
   - 시험: `outline-and-search/consumer_test.ts`, `apps/worker/documents/search_test.ts`, `apps/core/documents-derived_test.ts`(실제 core·documents worker: 저장→검색·목차·읽기, 고친 판, 보관, core 재시작), `terms_test.ts`의 출현 확인 거절, `reads_test.ts`의 위 결함 셋. `deno task e2e`에서 위 flow가 통과한다.
 - 이어보냄(이 PR이 하지 않은 것):
-  - first-project 1·2·4(launcher의 프로젝트 등록, 추적 켜기와 범위 미리보기 화면) → shell#T15와 `/v1/projects/preview_tracking`의 core 서빙(documents#T12). 지금 E2E는 같은 사람 command를 core 통로로 내고 미리보기는 같은 계산을 시험이 직접 한다. 접근 상실·format 검사 실패 갈래 → 준비 worker가 붙은 뒤(documents#T12)
+  - first-project 1·2·4(launcher의 프로젝트 등록, 추적 켜기와 범위 미리보기 화면) → shell#T15(화면과 함께 `/v1/projects/preview_tracking`을 renderer 통로 allowlist에 연다. core 서빙은 documents#T12가 붙였다). 지금 E2E는 같은 사람 command를 core 통로로 내고 미리보기는 같은 계산을 시험이 직접 한다. 접근 상실·format 검사 실패 갈래 → 이 PR이 보지 않았다(후속)
   - project-workspace의 문서 단계(1, 2, 7과 저장 실패 갈래)·edit-document 1~8과 다른 갈래: 제품 build의 project 공간에 실제 core 작업대 source가 없고(`apps/shell/renderer/desktop/entry.tsx`는 개발 시드만 workspace를 준다) 저장 흐름(파일 통로·저장 상태·충돌·닫기 guard)이 없다 → shell#T17과 제품 workspace source, 파일 쓰기는 documents#T12. 이 flow 파일은 만들지 않았다(만들면 가짜 화면이 된다). 기존 `e2e/flows/project-workspace_test.ts`는 shell#T14의 치수 확인이다
   - restore-document 1~6과 다른 갈래 → documents#T16(이력·diff·restore)과 shell#T18(정보 패널·이력·비교·복원). flow 파일은 만들지 않았다
   - organize-documents 1·6·7과 아직 화면이 없는 사람 조작(projects 화면의 이름 변경·보관·export, 문서를 파일로 두기와 빼기) → shell#T20, documents#T19. write-series 2·3·5의 "내용을 쓰고 저장"(편집기 저장·series draft) → shell#T17. series 등록 화면의 자리 선택지는 화면이 처음 한 번 읽는다(새로 등록한 프로젝트는 창을 다시 읽어야 보인다, shell 쪽 갱신은 shell#T19 후속)

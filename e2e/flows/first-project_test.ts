@@ -4,7 +4,8 @@
 // - 3·5·6·7·8과 다른 갈래(등록만으로는 추적하지 않음, 겹침 거절, 미지원 형식, 추적을 꺼도 판은 남음)
 //   를 실제 core 경로로 본다. 8의 "준비된 문서를 열어 읽는다"는 lophn 공간 documents 화면에서 본다.
 // - 1·2·4(launcher의 프로젝트 등록, project-workspace의 추적 켜기와 범위 미리보기 화면)는
-//   shell#T15가 없고 `/v1/projects/preview_tracking`의 core 서빙은 documents#T12 몫이라, 화면 대신
+//   shell#T15가 없고 `/v1/projects/preview_tracking`은 shell main의 renderer 통로 allowlist에 아직
+//   없어서(core 서빙은 documents#T12가 붙였다), 화면 대신
 //   같은 사람 command를 core 통로로 내고 미리보기는 같은 계산을 시험이 직접 한다. 그 화면 단계는
 //   이 시험이 대신하지 않는다(계획 T21 이어보냄).
 import { assert, assertEquals } from "@std/assert";

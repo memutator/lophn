@@ -16,6 +16,7 @@ import {
 const TARGET: TargetFact = {
   id: "doc_01h455vb4pex5v6nkc6gd5fdw1",
   inScope: true,
+  declared: true,
   reversibility: "reversible",
 };
 
@@ -87,7 +88,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R2: 인증·효과·입력·assignm
   assertEquals(judge(facts({ effect: null })).effect, null);
 });
 
-Deno.test("lophn-agent/harness/tool-judgment#R3: 범위 안 읽기와 사람 요청·handoff의 되돌릴 수 있는 쓰기는 allow, 되돌림 없는 쓰기와 external은 ask, 주기 run의 쓰기는 deny다", () => {
+Deno.test("lophn-agent/harness/tool-judgment#R3: 범위 안 읽기와 사람 요청·handoff의 되돌릴 수 있는 쓰기는 allow, 되돌림 없는 쓰기와 external은 ask다", () => {
   for (const origin of ["human_request", "handoff"] as const) {
     assertEquals(judge(facts({ origin, effect: "read" })).decision, "allow");
     const reversible = judge(facts({ origin }));
@@ -101,14 +102,30 @@ Deno.test("lophn-agent/harness/tool-judgment#R3: 범위 안 읽기와 사람 요
     assertEquals(verdict.effect, "irreversible");
   }
   assertEquals(judge(facts({ effect: "external" })).decision, "ask");
-  // 표에 없는 조합(주기 run의 되돌릴 수 있는 쓰기)은 추측하지 않고 deny다.
-  assertEquals(judge(facts({ origin: "periodic" })).decision, "deny");
+  // 역할 밖이면 되돌릴 수 있어도 deny다.
+  assertEquals(judge(facts({ roleAllows: false })).decision, "deny");
+});
+
+Deno.test("lophn-agent/harness/tool-judgment#R4: 주기 run은 선언된 남길 문서의 새 version만 allow로 저장하고 선언 밖 쓰기는 approval request 없이 거절된다", () => {
+  // 선언된 남길 문서의 쓰기는 재확인 없이 allow다(R4).
+  assertEquals(judge(facts({ origin: "periodic" })).decision, "allow");
+  assertEquals(
+    judge(facts({ origin: "periodic" })).effect,
+    "reversible_write",
+  );
+  // 선언 밖 문서 쓰기는 ask가 아니라 deny다(R4).
+  assertEquals(
+    judge(facts({
+      origin: "periodic",
+      targets: [target("2", { declared: false })],
+    })).decision,
+    "deny",
+  );
+  // 주기 run의 읽기는 여전히 allow다(R4).
   assertEquals(
     judge(facts({ origin: "periodic", effect: "read" })).decision,
     "allow",
   );
-  // 역할 밖이면 되돌릴 수 있어도 deny다.
-  assertEquals(judge(facts({ roleAllows: false })).decision, "deny");
 });
 
 Deno.test("lophn-agent/harness/tool-judgment#R5: 대상 여러 개는 deny 하나면 전체 deny, deny 없이 ask가 있으면 전체 ask, 모두 allow일 때만 allow다", () => {
@@ -123,9 +140,12 @@ Deno.test("lophn-agent/harness/tool-judgment#R5: 대상 여러 개는 deny 하�
     "deny",
   );
   assertEquals(judge(facts({ targets: [outside, asks] })).decision, "deny");
-  // 되돌릴 수 있는 쓰기와 주기 run의 deny가 섞이지 않게: ask와 deny가 섞이면 deny다.
+  // 되돌릴 수 있는 쓰기와 주기 run의 deny가 섞이지 않게: 선언 안 된 대상이 섞이면 deny다.
   assertEquals(
-    judge(facts({ origin: "periodic", targets: [free, asks] })).decision,
+    judge(facts({
+      origin: "periodic",
+      targets: [target("1", { declared: false })],
+    })).decision,
     "deny",
   );
 });

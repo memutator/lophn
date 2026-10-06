@@ -8,7 +8,9 @@ import {
   type CommandDefinition,
   defineCommand,
 } from "../../../contracts/platform/mod.ts";
+import { ProblemWordingPort } from "../../../contracts/problems/mod.ts";
 import type { RecordReportInput } from "../../../contracts/problems/mod.ts";
+import type { Sql } from "../../../contracts/platform/mod.ts";
 import {
   getReportRead,
   getSnapshotRead,
@@ -59,11 +61,150 @@ const arrangeCommand: CommandDefinition<typeof arrange> = {
   },
 };
 
+// 선언 code의 당시 문구를 테스트에서 정한다. 제품에서는 apps/releases store가 보고 당시
+// release의 blueprint를 읽지만, 이 fixture는 문제 표와 별도 표에 두고 read가 같은 port로
+// 읽는다. release별로 정하고 지우면 보고했던 당시 선언이 사라진다.
+const setWording = defineCommand({
+  resource: "problems",
+  method: "set-test-wording",
+  name: "problems.testing.set-wording",
+  input: z.object({
+    release: z.string(),
+    code: z.string(),
+    message: z.string().nullable(),
+    message_key: z.string().nullable(),
+    fixer: z.enum(["coding_agent", "user"]).nullable(),
+    app_name: z.string().nullable(),
+  }),
+  output: z.object({ changed: z.boolean() }),
+  actors: ["machine"],
+  errors: ["not_found"],
+});
+
+// release·code → 선언. 지운 row는 없는 것과 같다.
+const WORDING_SCHEMA_STEP = {
+  id: "problems.testing_wording",
+  sql: `
+create table test_wording (
+  release text not null,
+  code text not null,
+  message text not null,
+  message_key text not null,
+  fixer text not null,
+  primary key (release, code)
+) strict;`,
+};
+
+const setWordingCommand: CommandDefinition<typeof setWording> = {
+  route: setWording,
+  handle(tx, _ctx, input) {
+    if (input.message === null) {
+      const changed = tx.sql.run(
+        "delete from test_wording where release = ? and code = ?",
+        [input.release, input.code],
+      );
+      return ok({ changed: Number(changed.changes) > 0 });
+    }
+    tx.sql.run(
+      `insert into test_wording (release, code, message, message_key, fixer)
+       values (?, ?, ?, ?, ?)`,
+      [
+        input.release,
+        input.code,
+        input.message,
+        input.message_key ?? "app-detail.issue.declared",
+        input.fixer ?? "coding_agent",
+      ],
+    );
+    return ok({ changed: true });
+  },
+};
+
+const APP_NAME_SCHEMA_STEP = {
+  id: "problems.testing_app_name",
+  sql: `
+create table test_app_name (
+  app text primary key,
+  name text not null
+) strict;`,
+};
+
+// 앱 등록 기록의 이름을 테스트에서 정한다. 제품에서는 apps 표를 읽는다.
+const setAppName = defineCommand({
+  resource: "problems",
+  method: "set-test-app-name",
+  name: "problems.testing.set-app-name",
+  input: z.object({
+    app: z.string(),
+    name: z.string().nullable(),
+  }),
+  output: z.object({ changed: z.boolean() }),
+  actors: ["machine"],
+  errors: ["not_found"],
+});
+
+const setAppNameCommand: CommandDefinition<typeof setAppName> = {
+  route: setAppName,
+  handle(tx, _ctx, input) {
+    if (input.name === null) {
+      const changed = tx.sql.run(
+        "delete from test_app_name where app = ?",
+        [input.app],
+      );
+      return ok({ changed: Number(changed.changes) > 0 });
+    }
+    tx.sql.run(
+      "insert into test_app_name (app, name) values (?, ?)",
+      [input.app, input.name],
+    );
+    return ok({ changed: true });
+  },
+};
+
+// 문구 port의 fixture 구현이다. 제품 구현(apps/releases store의 releaseWording)은 보고
+// 당시 release의 blueprint를 읽지만, 이 fixture는 테스트 표의 선언으로 같은 contract의
+// 답을 낸다. 문제 표의 read가 snapshot sql로 이 port를 읽는다. 앱 이름은 선언이 없어도
+// 부르는 쪽이 fallback에 붙일 수 있게 항상 준다.
+const fixtureWording = (
+  sql: Pick<Sql, "get">,
+  app: string,
+  release: string,
+  code: string,
+) => {
+  const nameRow = sql.get("select name from test_app_name where app = ?", [
+    app,
+  ]);
+  const app_name = nameRow === undefined ? app : String(nameRow.name);
+  const row = sql.get(
+    "select message, message_key, fixer from test_wording where release = ? and code = ?",
+    [release, code],
+  );
+  const declared = row === undefined ? null : {
+    message: String(row.message),
+    message_key: String(row.message_key),
+    fixer: String(row.fixer) as "coding_agent" | "user",
+  };
+  return ok({ app_name, declaration: declared });
+};
+
 export function createLedgerTestRegistration() {
   return {
-    schemaSteps: [...REPORTS_SCHEMA_STEPS, ...SNAPSHOTS_SCHEMA_STEPS],
+    schemaSteps: [
+      ...REPORTS_SCHEMA_STEPS,
+      ...SNAPSHOTS_SCHEMA_STEPS,
+      WORDING_SCHEMA_STEP,
+      APP_NAME_SCHEMA_STEP,
+    ],
     commands: [recordReportCommand as CommandDefinition],
-    testCommands: [arrangeCommand as CommandDefinition],
+    testCommands: [
+      arrangeCommand,
+      setWordingCommand,
+      setAppNameCommand,
+    ] as CommandDefinition[],
+    readPorts: new Map<unknown, unknown>([[
+      ProblemWordingPort,
+      fixtureWording,
+    ]]),
     // harness에는 blob 저장소가 없다. 준비 참조가 맞는지만 보고 그대로 등록한다.
     registerBlobRef(
       _tx: unknown,
@@ -116,7 +257,12 @@ export const COLLECTOR: AuthenticatedContext = {
   principal: "collector-1",
   actor: "machine",
   scope: {
-    operations: ["RecordReport", "problems.testing.arrange"],
+    operations: [
+      "RecordReport",
+      "problems.testing.arrange",
+      "problems.testing.set-wording",
+      "problems.testing.set-app-name",
+    ],
     targets: {},
   },
   conditions: {},

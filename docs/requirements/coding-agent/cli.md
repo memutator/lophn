@@ -133,7 +133,7 @@ concerns: [coding-agent/cli]
 
 **[R22]** 프로젝트는 보관 포함 목록·상세·현재 작업 위치 일치를 읽고 등록·보관·context 연결은 CLI에서 하지 않으며 화면에서 한다.
 - 이유: 위치와 역할 관점의 연결을 보존하되 CLI의 사람 관리 command는 MVP에서 빼고 coding agent 권한으로 만들지 않는다.
-- 확인: documents/projects 응답의 폴더·역할·문서 수·context를 읽고 scope 밖 프로젝트는 내용 없이 거절되며 CLI에 프로젝트 등록·보관·연결 command가 없다.
+- 확인: documents/projects 응답의 이름·목적·문서 수·읽을 자료 참조를 읽고 절대 경로·폴더 목록·tracking 규칙은 나오지 않으며 scope 밖 프로젝트는 내용 없이 거절되고 CLI에 프로젝트 등록·보관·연결 command가 없다.
 - 의도: coding-agent#I3
 
 **[R23]** CLI는 프로젝트 폴더의 추가·수정·등록 제거를 제공하지 않고 그 사람 관리는 화면에서 하며 등록 제거를 실제 파일 삭제로 하지 않는다.

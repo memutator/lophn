@@ -729,6 +729,7 @@ concerns: [shell]
 
 ### T37 앱 view registry, scheme proxy, session, network 정책
 
+- 상태: 완료 (#323) — 이어보냄: preload·IPC·`shell:view-state` 연결 → shell#T39, view 연결의 command 범위 → shell#T38, 앱 entrypoint의 화면 자원(`screenBytes`) → apps#T22, core가 main의 diagnostic 메시지를 받아 쓰는 일 → platform(Q21 (6), 작업 배정 요청)
 - 등급: 기본
 - concern: shell/app-frame, shell/desktop
 - 요구: shell/app-frame#R1(앱), R2, R3, R4, R8, R9, R11, R12, R16, R18, R19, R20, R22, shell/desktop#R13

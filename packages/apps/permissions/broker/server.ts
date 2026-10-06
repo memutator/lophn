@@ -8,6 +8,8 @@ import type { NetFetchService } from "./net-fetch.ts";
 import type { SecretUseService } from "./secrets.ts";
 import type { DocumentSaveService } from "./documents.ts";
 import type { ProblemReportService } from "./problems.ts";
+import type { AppsConnectService } from "./apps-connect.ts";
+import type { AppsConfirmService } from "./apps-confirm.ts";
 import type { AutomationBroker } from "./automations.ts";
 
 export const BROKER_ROUTES = {
@@ -16,6 +18,9 @@ export const BROKER_ROUTES = {
   secretsUse: "/_lophn/broker/secrets/use",
   documentsSave: "/_lophn/broker/documents/save",
   problemsReport: "/_lophn/broker/problems/report",
+  appsConnect: "/_lophn/broker/apps/connect",
+  appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
+  appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
   automationsTryAcquire: "/_lophn/broker/automations/try_acquire",
   automationsRelease: "/_lophn/broker/automations/release",
 } as const;
@@ -28,6 +33,8 @@ export type BrokerServices = {
   secrets?: SecretUseService;
   documents?: DocumentSaveService;
   problems?: ProblemReportService;
+  apps?: AppsConnectService;
+  appsConfirm?: AppsConfirmService;
   automations?: AutomationBroker;
 };
 
@@ -48,8 +55,16 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const { invocations, net, secrets, documents, problems, automations } =
-    services;
+  const {
+    invocations,
+    net,
+    secrets,
+    documents,
+    problems,
+    apps,
+    appsConfirm,
+    automations,
+  } = services;
   if (invocations) {
     table.set(
       BROKER_ROUTES.invocationsSubmit,
@@ -63,6 +78,14 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (problems) {
     table.set(BROKER_ROUTES.problemsReport, (c, b) => problems.report(c, b));
+  }
+  if (apps) table.set(BROKER_ROUTES.appsConnect, (c, b) => apps.connect(c, b));
+  if (appsConfirm) {
+    table.set(
+      BROKER_ROUTES.appsConfirmRequest,
+      (c, b) => appsConfirm.request(c, b),
+    );
+    table.set(BROKER_ROUTES.appsConfirmPoll, (c, b) => appsConfirm.poll(c, b));
   }
   if (automations) {
     table.set(

@@ -27,6 +27,7 @@ export {
 } from "./protected-paths.ts";
 export { realPathResolver } from "./adapters/realpath.ts";
 export { createGrantCommands, GRANT_APPROVAL_CONCERN } from "./commands.ts";
+export { loadGrants } from "./store.ts";
 export { createGrantsReads } from "./reads.ts";
 export { permissionsSchemaSteps } from "./schema.ts";
 export {
@@ -34,6 +35,7 @@ export {
   type AutomationDeclarationFact,
   type CurrentDeclarations,
   currentDeclarations,
+  declarationsAt,
   declarationsOf,
 } from "./declarations.ts";
 export {
@@ -112,6 +114,12 @@ export {
   type AppsConnectService,
   createAppsConnectService,
 } from "./broker/apps-connect.ts";
+export {
+  type AutomationBroker,
+  type AutomationPermitPort,
+  type AutomationTryAcquireOutput,
+  createAutomationBroker,
+} from "./broker/automations.ts";
 export {
   createProblemReportService,
   type ProblemReportRequest,

@@ -56,6 +56,7 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
   }
   const registry = new ContentsRegistry();
   const windows = new Set<OverlayController>();
+  const byWindow = new Map<BrowserWindow, OverlayController>();
   const denied = {
     ok: false,
     error: {
@@ -81,12 +82,17 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
     dispose() {
       for (const window of windows) window.dispose();
       windows.clear();
+      byWindow.clear();
       security.dispose();
       sessions.clear();
     },
     /** sender 검사에 쓰는 registry. terminal IPC가 같은 등록 표를 본다. */
     overlayRegistry(): ContentsRegistry {
       return registry;
+    },
+    /** 앱 view를 붙인 창의 overlay를 다시 맨 위에 둔다(z-order는 main만 바꾼다). */
+    raise(window: BrowserWindow): void {
+      byWindow.get(window)?.raise();
     },
     attach(window: BrowserWindow, preload: string, packaged: boolean) {
       const shell = contents(window.webContents);
@@ -189,6 +195,7 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
         },
       });
       windows.add(controller);
+      byWindow.set(window, controller);
       const resized = () => controller.refresh();
       window.on("resize", resized);
       window.once("closed", () => {
@@ -196,6 +203,7 @@ export function electronOverlays(headless: HeadlessMode = SHELL_OFF) {
         controller.dispose();
         registry.unregister(shell.id);
         windows.delete(controller);
+        byWindow.delete(window);
       });
       return controller;
     },

@@ -10,6 +10,7 @@ import type { DocumentSaveService } from "./documents.ts";
 import type { ProblemReportService } from "./problems.ts";
 import type { AppsConnectService } from "./apps-connect.ts";
 import type { AppsConfirmService } from "./apps-confirm.ts";
+import type { AutomationBroker } from "./automations.ts";
 
 export const BROKER_ROUTES = {
   invocationsSubmit: "/_lophn/broker/invocations/submit",
@@ -20,6 +21,8 @@ export const BROKER_ROUTES = {
   appsConnect: "/_lophn/broker/apps/connect",
   appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
   appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
+  automationsTryAcquire: "/_lophn/broker/automations/try_acquire",
+  automationsRelease: "/_lophn/broker/automations/release",
 } as const;
 
 export const BROKER_BODY_MAX_BYTES = 1_048_576;
@@ -32,6 +35,7 @@ export type BrokerServices = {
   problems?: ProblemReportService;
   apps?: AppsConnectService;
   appsConfirm?: AppsConfirmService;
+  automations?: AutomationBroker;
 };
 
 export type BrokerSession = {
@@ -51,8 +55,16 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const { invocations, net, secrets, documents, problems, apps, appsConfirm } =
-    services;
+  const {
+    invocations,
+    net,
+    secrets,
+    documents,
+    problems,
+    apps,
+    appsConfirm,
+    automations,
+  } = services;
   if (invocations) {
     table.set(
       BROKER_ROUTES.invocationsSubmit,
@@ -74,6 +86,16 @@ function routes(services: BrokerServices): Map<string, Handler> {
       (c, b) => appsConfirm.request(c, b),
     );
     table.set(BROKER_ROUTES.appsConfirmPoll, (c, b) => appsConfirm.poll(c, b));
+  }
+  if (automations) {
+    table.set(
+      BROKER_ROUTES.automationsTryAcquire,
+      (c, b) => automations.tryAcquire(c, b),
+    );
+    table.set(
+      BROKER_ROUTES.automationsRelease,
+      (c, b) => automations.release(c, b),
+    );
   }
   return table;
 }

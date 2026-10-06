@@ -13,7 +13,7 @@ import { test } from "node:test";
 
 import {
   hardenContents,
-  registerShellScheme,
+  registerViewSchemes,
   webPreferences,
 } from "./security.ts";
 import { createShellHandler, safeJoin, SHELL_CSP } from "./shell-protocol.ts";
@@ -60,16 +60,17 @@ test("shell/app-frame#R4: 새 창·camera·location 요청은 거절하고 packa
   assert.equal(closed, true);
 });
 
-test("shell/desktop#R12: shell scheme은 secure·standard·fetch 지원으로 등록한다", () => {
-  const registered: unknown[] = [];
-  registerShellScheme({
-    registerSchemesAsPrivileged: (schemes) => registered.push(...schemes),
+test("shell/desktop#R12, shell/app-frame#R1: shell·앱·문서 scheme을 한 번에 secure·standard·fetch 지원으로 등록하고 service worker 권한은 주지 않는다", () => {
+  const calls: unknown[][] = [];
+  registerViewSchemes({
+    registerSchemesAsPrivileged: (schemes) => calls.push(schemes),
   });
-  assert.deepEqual(registered, [
-    {
-      scheme: "lophn-shell",
-      privileges: { standard: true, secure: true, supportFetchAPI: true },
-    },
+  assert.equal(calls.length, 1);
+  const privileges = { standard: true, secure: true, supportFetchAPI: true };
+  assert.deepEqual(calls[0], [
+    { scheme: "lophn-shell", privileges },
+    { scheme: "lophn-app", privileges },
+    { scheme: "lophn-document", privileges },
   ]);
 });
 

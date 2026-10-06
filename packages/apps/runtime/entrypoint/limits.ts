@@ -17,6 +17,8 @@ export const BROKER_PATHS = {
   appsConnect: "/_lophn/broker/apps/connect",
   appsConfirmRequest: "/_lophn/broker/apps/confirm/request",
   appsConfirmPoll: "/_lophn/broker/apps/confirm/poll",
+  automationsTryAcquire: "/_lophn/broker/automations/try_acquire",
+  automationsRelease: "/_lophn/broker/automations/release",
 } as const;
 
 export const SOCKET_HOST = "lophn.invalid";

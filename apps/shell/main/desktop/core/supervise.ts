@@ -74,6 +74,11 @@ export interface CoreProcess {
   onMessage(listener: (payload: unknown) => void): () => void;
   /** 명시 종료. 창 닫기는 이 함수를 부르지 않는다. */
   stop(graceMs?: number): void;
+  /**
+   * 안전 진단 하나를 감독 pipe로 보낸다(platform#T8 diagnostic 메시지). contract 모양이
+   * 아니거나 core가 멈췄으면 보내지 않고 false다.
+   */
+  diagnostic(message: unknown): boolean;
   /** 테스트가 child를 이미 끝났다고 알릴 때. */
   ended(): void;
 }
@@ -199,6 +204,19 @@ export function supervise(
           child.kill();
         }
       }, graceMs);
+    },
+    diagnostic(message) {
+      if (phase === "stopped") return false;
+      const parsed = mainToCoreMessageSchema.safeParse(message);
+      if (!parsed.success || parsed.data.type !== "diagnostic") return false;
+      try {
+        child.stdin.write(
+          encodeFrame({ kind: "json", channel: 0, payload: parsed.data }),
+        );
+        return true;
+      } catch {
+        return false;
+      }
     },
     ended() {
       phase = "stopped";

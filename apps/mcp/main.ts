@@ -30,6 +30,7 @@ import {
   uploadPrepareBytes,
 } from "../../packages/coding-agent/connection/mod.ts";
 import { createAppTool } from "../../packages/coding-agent/mcp-server/tools/app.ts";
+import { createSdkTool } from "../../packages/coding-agent/mcp-server/tools/sdk.ts";
 import {
   type AppBlueprintSource,
   createAppCommandTools,
@@ -196,6 +197,8 @@ export function startMcpServer(
       lophn_project: createProjectTool({ client: caller }),
       lophn_document: createDocumentTool({ client: caller }),
       lophn_read: createReadTool({ client: caller }),
+      // SDK catalog·상세·exact version 안내(T22). source 쓰기 port는 주지 않는다(apply 거절).
+      lophn_sdk: createSdkTool({ client: caller }),
     }
     : undefined;
   // 질문·approval 읽기 tool의 실행이다(T16). 읽기 route만 부르고 결정하지 않는다.

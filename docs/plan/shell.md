@@ -916,6 +916,7 @@ concerns: [shell]
 
 ### T45 confirmation window: 앱 결정 4종
 
+- 상태: 완료 (#391) — 이어보냄: (1) 실제 `confirm` gate(`ConfirmGate`)와 user-direct accept_confirm proof(요청 생성·`apply`·proof 읽기 route가 사람 자격으로 열려야 한다) → contracts·apps 요청, (2) renderer blueprint read 연결(T44 `AppViewsDeps.screens`, T42 `entryScreen`)은 renderer allowlist에 `apps/blueprint`를 열어야 해 → shell#T44·T42. 정한 것: 결정 종류는 approval request의 고정 concern·command(`apps/releases` `release.start_activation`, `apps/permissions` `grant.create`(scope kind `automation.run`이면 automation), `apps/invocations` `invocation.accept_confirm`)로 고르고 표시 값만 apps read로 채운다. 접수 입력에는 입력 본문 없이 `input_hash`만 있어 confirm command와 automation은 입력 지문과 blueprint의 입력 shape로 보인다. command의 revert 지원은 blueprint read에 없어 요청의 `effect.reversible`·되돌림 글을 쓴다. 데이터 손실은 `data_changes[].description`이 싣는다
 - 등급: frontend
 - concern: shell/confirmation-window
 - 요구: shell/confirmation-window#R8, R10

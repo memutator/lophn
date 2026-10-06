@@ -557,7 +557,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T22 approval 허락·거절
 
-- 상태: 완료 (#PR) — #286: 허락·거절 command와 core 조립(handle 필수, 앱·agent·coding agent·machine 거부, 본 동작·생성 seq·기한 검사, 이유 없는 거절은 null). #PR: R16 거절 억제(create가 같은 run이나 같은 원래 사람 요청의 handoff 계보에서 거절된 같은 동작을 conflict로 막는다. 계보는 lophn-agent가 같은 Tx에서 채우는 `approvalRunLineage` port이고 runs/read의 source.message·handoff original_message와 같은 값, Q23)와 approval 대기의 재시작 관측(`observeApprovals`를 `checkRestart`의 owner로 core 기동에 연결, Q24). 남은 것: handoff tool을 거친 계보 E2E는 lophn-agent#T32, machine 만료 timer의 core 연결(Q25)
+- 상태: 완료 (#292) — #286: 허락·거절 command와 core 조립(handle 필수, 앱·agent·coding agent·machine 거부, 본 동작·생성 seq·기한 검사, 이유 없는 거절은 null). #292: R16 거절 억제(create가 같은 run이나 같은 원래 사람 요청의 handoff 계보에서 거절된 같은 동작을 conflict로 막는다. 계보는 lophn-agent가 같은 Tx에서 채우는 `approvalRunLineage` port이고 runs/read의 source.message·handoff original_message와 같은 값, Q23)와 approval 대기의 재시작 관측(`observeApprovals`를 `checkRestart`의 owner로 core 기동에 연결, Q24). 남은 것: handoff tool을 거친 계보 E2E는 lophn-agent#T32, machine 만료 timer의 core 연결(Q25)
 - 등급: 기본
 - concern: platform/approvals
 - 요구: platform/approvals#R3, R4, R5, R15, R16
@@ -576,7 +576,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 
 ### T23 approval 적용과 한 번 사용
 
-- 상태: 완료 (#PR) — `Tx.useApproval`은 정확한 action 일치·허락됨·기한 전·원래 run 진행 중을 보고 `approval_uses`에 한 번 INSERT한다(platform/ledger/approval-use.ts). `apply_approved_action`은 `apps/core/platform.ts`가 core에 한 번 조립하고 writer가 등록된 dispatchable command를 소유 command로 묶는다(Q26). 남은 것: 소유 concern(apps invocations·lophn-agent assignments 등)이 자기 command를 dispatchable로 두고 action command 이름 규칙(snake_case)에 맞추는 일, blob 입력 action의 적용(Q26)
+- 상태: 완료 (#292) — `Tx.useApproval`은 정확한 action 일치·허락됨·기한 전·원래 run 진행 중을 보고 `approval_uses`에 한 번 INSERT한다(platform/ledger/approval-use.ts). `apply_approved_action`은 `apps/core/platform.ts`가 core에 한 번 조립하고 writer가 등록된 dispatchable command를 소유 command로 묶는다(Q26). 남은 것: 소유 concern(apps invocations·lophn-agent assignments 등)이 자기 command를 dispatchable로 두고 action command 이름 규칙(snake_case)에 맞추는 일, blob 입력 action의 적용(Q26)
 - 등급: 기본
 - concern: platform/approvals
 - 요구: platform/approvals#R7, R9, R10, R11

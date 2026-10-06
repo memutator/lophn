@@ -6,6 +6,7 @@ import { commandKeySchema } from "../apps/channel-values.ts";
 import { previewsStart, previewsStop } from "../apps/previews.ts";
 import { releasePrepareBundle } from "../apps/releases.ts";
 import { requestTest } from "../problems/tests.ts";
+import { sdkAddFields, sdkCatalogFields, sdkShowFields } from "./mcp-app.ts";
 import {
   packagesGuide,
   packagesList,
@@ -100,14 +101,18 @@ export const cliAppSyncToolsSchema = withCommon(
 
 // `lophn sdk catalog|show|add`(cli#R30). catalog는 검색, show는 상세, add는
 // exact version 추가다.
+// 더한 field는 MCP `lophn_sdk`과 같다. add의 반영 앱은 공통 `--app`이다.
 export const cliSdkCatalogSchema = withCommon(
   "sdk catalog",
-  packagesList.input,
+  packagesList.input.extend(sdkCatalogFields),
 );
-export const cliSdkShowSchema = withCommon("sdk show", packagesVersions.input);
+export const cliSdkShowSchema = withCommon(
+  "sdk show",
+  packagesVersions.input.extend(sdkShowFields),
+);
 export const cliSdkAddSchema = withCommon(
   "sdk add",
-  packagesGuide.input,
+  packagesGuide.input.extend({ apply: sdkAddFields.apply }),
 );
 
 // `lophn app command|invocation|automation run`(cli#R31, R32). command는

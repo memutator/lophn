@@ -17,8 +17,11 @@ export { authorizeDocument } from "./authorization.ts";
 export {
   type LinkedDocument,
   loadDocument,
+  loadFiles,
   loadLatestVersion,
   loadLinkedDocuments,
+  loadSourcelessDocuments,
+  loadVersion,
   loadVersionByNumber,
   replaceDocument,
 } from "./store.ts";

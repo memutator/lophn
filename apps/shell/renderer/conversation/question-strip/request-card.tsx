@@ -14,6 +14,7 @@ import { formatRelativeTime, t } from "@lophn/wording";
 import type { CardDraft } from "../../desktop/lophn-space/things-to-confirm/context.tsx";
 import {
   needsReview,
+  textTooLong,
   usableText,
 } from "../../desktop/lophn-space/things-to-confirm/model.ts";
 import {
@@ -23,6 +24,7 @@ import {
 import type {
   ApprovalRequest,
   QuestionRequest,
+  QuestionText,
   Request,
   RequestSource,
   SourceResult,
@@ -139,6 +141,49 @@ function ProblemLine({ problem }: { problem: CardProblem | null }) {
   );
 }
 
+// 질문의 글. 읽는 동안·읽지 못하면 그렇다고 말한다. 글은 React 글로만 그린다.
+function useQuestionText(
+  source: RequestSource,
+  question: QuestionRequest,
+): QuestionText | null | undefined {
+  const [text, setText] = useState<QuestionText | null | undefined>(undefined);
+  // 닫히면 답·취소 글이 생기므로 상태가 바뀌면 다시 읽는다.
+  useEffect(() => {
+    let live = true;
+    setText(undefined);
+    void source.text(question).then((read) => {
+      if (live) setText(read.ok ? read.value : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, question.id, question.status]);
+  return text;
+}
+
+function Prompt({ text }: { text: QuestionText | null | undefined }) {
+  if (text === undefined) {
+    return (
+      <p className={styles.meta} data-question-text="loading">
+        {t("things-to-confirm.notice.question-loading")}
+      </p>
+    );
+  }
+  if (text === null) {
+    return (
+      <p className={styles.unavailable} data-question-text="failed">
+        {t("things-to-confirm.error.question-text")}
+      </p>
+    );
+  }
+  return (
+    <>
+      <p className={styles.text} data-question-text="ready">{text.prompt}</p>
+      <p className={styles.meta} data-question-reason="">{text.reason}</p>
+    </>
+  );
+}
+
 function QuestionBody(
   {
     question,
@@ -152,13 +197,23 @@ function QuestionBody(
 ) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<CardProblem | null>(null);
+  const text = useQuestionText(source, question);
 
   if (question.status !== "pending") {
-    return <ClosedQuestion question={question} />;
+    return (
+      <>
+        <Prompt text={text} />
+        <ClosedQuestion question={question} text={text} />
+      </>
+    );
   }
 
   const review = needsReview(question, current.option);
-  const canSend = current.option !== null || usableText(current.text);
+  const ownTooLong = current.option === null && textTooLong(current.text);
+  const reasonTooLong = textTooLong(current.reason);
+  const canSend = current.option !== null ||
+    (usableText(current.text) && !ownTooLong);
+  const canCancel = usableText(current.reason) && !reasonTooLong;
 
   const settle = (result: SourceResult<void>, otherwise: CardProblem) => {
     setBusy(false);
@@ -172,6 +227,8 @@ function QuestionBody(
     setBusy(true);
     setProblem(null);
     if (review && current.option !== null) {
+      // action 있는 선택지는 이 칸에서 답하지 않는다. 보호 창이 action 답 경로와 확인
+      // handle을 맡는다(shell#T29).
       const opened = await source.review({
         kind: "question_option_action",
         question: question.id,
@@ -195,7 +252,7 @@ function QuestionBody(
   };
 
   const cancel = async () => {
-    if (busy || offline || !usableText(current.reason)) return;
+    if (busy || offline || !canCancel) return;
     setBusy(true);
     setProblem(null);
     settle(await source.cancel(question, current.reason), "cancel-failed");
@@ -207,9 +264,7 @@ function QuestionBody(
 
   return (
     <>
-      <p className={styles.unavailable} data-question-text="">
-        {t("things-to-confirm.notice.question-text-unavailable")}
-      </p>
+      <Prompt text={text} />
       {question.expiresAt === null
         ? null
         : (
@@ -241,7 +296,19 @@ function QuestionBody(
                 onClick={() => save({ option: chosen ? null : option.key })}
               >
                 <span className={styles.dot} aria-hidden="true" />
-                <span className={styles.optionLabel}>{option.label}</span>
+                <span className={styles.optionText}>
+                  <span className={styles.optionLabel}>{option.label}</span>
+                  {text?.options.get(option.key)
+                    ? (
+                      <span
+                        className={styles.optionDescription}
+                        data-option-description=""
+                      >
+                        {text.options.get(option.key)}
+                      </span>
+                    )
+                    : null}
+                </span>
                 {question.recommended === option.key
                   ? (
                     <span className={styles.mark} data-recommended="">
@@ -269,6 +336,16 @@ function QuestionBody(
           })}
         </div>
       )}
+      {text?.recommendation
+        ? (
+          <p className={styles.why} data-recommendation="">
+            <span className={styles.whyLabel}>
+              {t("things-to-confirm.label.why-recommended")}
+            </span>
+            <span className={styles.text}>{text.recommendation}</span>
+          </p>
+        )
+        : null}
       <Field label={t("things-to-confirm.label.own-answer")}>
         <Textarea
           rows={2}
@@ -278,6 +355,7 @@ function QuestionBody(
             save({ text: event.currentTarget.value, option: null })}
         />
       </Field>
+      {ownTooLong ? <TooLong /> : null}
       <p className={styles.meta}>{t("things-to-confirm.notice.no-answer")}</p>
       <ProblemLine problem={problem} />
       {current.cancelling
@@ -292,6 +370,7 @@ function QuestionBody(
                   save({ reason: event.currentTarget.value })}
               />
             </Field>
+            {reasonTooLong ? <TooLong /> : null}
             <div className={styles.actions}>
               <Tooltip content={t("things-to-confirm.button.keep-question")}>
                 <IconButton
@@ -309,7 +388,7 @@ function QuestionBody(
                   variant="danger"
                   size="sm"
                   data-confirm-cancel=""
-                  disabled={busy || offline || !usableText(current.reason)}
+                  disabled={busy || offline || !canCancel}
                   onClick={() => void cancel()}
                 />
               </Tooltip>
@@ -358,8 +437,27 @@ function QuestionBody(
   );
 }
 
-// 닫힌 질문. 답 접수와 실제 적용을 따로 말한다(questions#R10).
-function ClosedQuestion({ question }: { question: QuestionRequest }) {
+function TooLong() {
+  return (
+    <p className={styles.problem} data-too-long="">
+      {t("things-to-confirm.error.too-long")}
+    </p>
+  );
+}
+
+// 닫힌 질문. 답 접수와 실제 적용을 따로 말한다(questions#R10). 자유 답과 취소 이유는 core가
+// 둔 글을 그대로 보인다.
+function ClosedQuestion(
+  { question, text }: {
+    question: QuestionRequest;
+    text: QuestionText | null | undefined;
+  },
+) {
+  if (question.status === "cancelled") {
+    return text?.closedReason
+      ? <p className={styles.text} data-closed-reason="">{text.closedReason}</p>
+      : null;
+  }
   if (question.status !== "answered" || question.answer === null) return null;
   const answer = question.answer;
   const option = answer.kind === "option"
@@ -374,6 +472,9 @@ function ClosedQuestion({ question }: { question: QuestionRequest }) {
           })
           : t("things-to-confirm.notice.answered-text")}
       </p>
+      {answer.kind === "text" && text?.answer
+        ? <p className={styles.text} data-answer-text="">{text.answer}</p>
+        : null}
       {option?.action
         ? (
           <p className={styles.meta} data-applied={String(question.applied)}>

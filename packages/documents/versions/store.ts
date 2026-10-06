@@ -220,6 +220,26 @@ export function loadLinkedDocuments(
   return ok(linked);
 }
 
+// 원본 연결이 없는 문서(보관 포함)를 id 순서로 한 page씩 읽는다. working copy를 편집할 수 있는
+// 문서의 근원이다. after는 직전 page의 마지막 id다.
+export function loadSourcelessDocuments(
+  sql: Pick<Sql, "all">,
+  page: { after?: string; limit: number },
+): Result<Document[]> {
+  const rows = sql.all(
+    `SELECT ${DOCUMENT_COLUMNS} FROM documents
+     WHERE source_kind IS NULL AND id > ? ORDER BY id LIMIT ?`,
+    [page.after ?? "", page.limit],
+  );
+  const documents: Document[] = [];
+  for (const row of rows) {
+    const document = documentFromRow(row);
+    if (!document.ok) return document;
+    documents.push(document.value);
+  }
+  return ok(documents);
+}
+
 export function loadVersionByNumber(
   sql: Sql,
   document: string,

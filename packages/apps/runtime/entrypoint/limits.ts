@@ -14,6 +14,7 @@ export const DIRECT_SOCKET_PATHS = {
 export const BROKER_PATHS = {
   ready: "/_lophn/broker/ready",
   invocationsSubmit: "/_lophn/broker/invocations/submit",
+  appsConnect: "/_lophn/broker/apps/connect",
 } as const;
 
 export const SOCKET_HOST = "lophn.invalid";

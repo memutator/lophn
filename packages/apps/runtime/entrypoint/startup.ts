@@ -1,6 +1,12 @@
 // 시작은 ready=false·accepting=false. 앱 code load 뒤에 등록 handler로 attestation을 만든다.
 import type { Clock, IdSource } from "@lophn/base";
 import type { Blueprint } from "../../blueprint/mod.ts";
+import {
+  createPairPort,
+  installPairPort,
+  type PairDirect,
+  unixPairDirect,
+} from "../../connections/mod.ts";
 import { type AppStart, parseAppStart } from "./start-input.ts";
 import { type BrokerTransport, createBrokerClient } from "./broker-client.ts";
 import { createRuntimeState, type RuntimeState } from "./state.ts";
@@ -30,6 +36,8 @@ export function startRuntime(deps: {
   broker: BrokerTransport;
   dataSchema: number;
   screenBytes?: RuntimeState["screenBytes"];
+  // 다른 앱 direct socket 전송. 기본은 Unix socket HTTP다.
+  pairDirect?: PairDirect;
 }): Started {
   const parsed = parseAppStart(deps.line);
   if (!parsed) throw new Error("app start input is invalid");
@@ -57,6 +65,11 @@ export function startRuntime(deps: {
     }),
     screenBytes: deps.screenBytes,
   });
+  // SDK의 connectAppCommands가 쓰는 앱 쌍 통로다. 준비 요청만 broker로 가고 업무 요청은 direct다.
+  installPairPort(createPairPort({
+    postConnect: (body) => state.broker.appsConnect(body),
+    direct: deps.pairDirect ?? unixPairDirect,
+  }));
   return { start: parsed, state };
 }
 

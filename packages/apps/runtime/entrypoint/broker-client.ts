@@ -45,6 +45,14 @@ export function createBrokerClient(deps: {
     }) {
       return post(BROKER_PATHS.invocationsSubmit, body);
     },
+    // 다른 앱 connection 준비. source 신원은 broker가 이 자식 연결에서 정한다.
+    appsConnect(body: {
+      app: string;
+      commands: readonly string[];
+      parent_invocation: string | null;
+    }) {
+      return post(BROKER_PATHS.appsConnect, body);
+    },
   };
 }
 

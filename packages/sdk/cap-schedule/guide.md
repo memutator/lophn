@@ -27,12 +27,22 @@ import {
   `TRACE_NAME_MAX_CHARS`).
 - `readResult(source, query)` — 읽기 명령 결과를 coverage·freshness와 함께
   돌려준다.
+- `connectAppCommands(app, commands)` — 다른 앱의 command를 쓰는 client를
+  준비한다(apps/sdk#R40). 쓸 수 있는 command는 blueprint `app_connections` 선언
+  ∩ 사람이 허락한 앱 쌍 ∩ 대상 앱의 현재 command다. 돌려주는 client의
+  `call(command, input?, {requestKey?, proof?})`는 대상 앱의 같은 handler·입력
+  검사·confirm 규칙으로 간다. 현재 invocation이 부모로 전달되고 호출자 신원은
+  lophn이 정한다. 전송이 끊기면 `{kind: "unknown"}`이고 자동으로 다시 부르지
+  않는다. 허락 없는 앱·command는 없는 것처럼 거절된다.
 - type: `InvocationContext`, `RegisteredHandler`, `SchedulePort`, `ReadQuery`,
-  `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`
+  `ReadSource`, `ReadCoverage`, `ReadFreshness`, `ReadContinuation`,
+  `AppCommandsClient`, `AppCommandOutcome`, `AppResult`
 
 ## 요구 permission
 
-없다. handler 등록과 문맥 전달은 앱 프로세스 안의 일이다.
+handler 등록과 문맥 전달은 요구 permission이 없다. `connectAppCommands`는
+import만으로 아무것도 열지 않는다. blueprint `app_connections`에 대상 앱과
+command와 목적을 선언하고 사람이 방향 있는 앱 쌍과 command 범위를 허락해야 한다.
 
 ## peer 의존
 

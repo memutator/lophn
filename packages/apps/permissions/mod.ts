@@ -102,6 +102,12 @@ export {
   type DocumentsSaveRequest,
 } from "./broker/documents.ts";
 export {
+  type AppPairPreparer,
+  type AppsConnectRequest,
+  type AppsConnectService,
+  createAppsConnectService,
+} from "./broker/apps-connect.ts";
+export {
   createProblemReportService,
   type ProblemReportRequest,
   type ProblemReportService,

@@ -213,7 +213,7 @@ screen은 `앱 화면 틀`의 좁은 preload와 Electron main을 통해 부른�
 
 source는 자기 broker의 `POST /_lophn/broker/apps/connect {app:target,commands}`로 준비 요청을 한다. 신원은 요청 본문이 아니라 자식 credential·현재 release/nonce에서 정한다. 준비 서비스는 source/target이 live·accepting임을 검사해 target endpoint와 app actor의 서명된 AppConnection을 반환한다. AppCallOrigin은 source app/release/nonce·Grant·알려진 parent_invocation·호출 path를 묶는다. target socket만 source의 Deno 범위에 추가하며 임의 다른 socket 접근은 열지 않는다. 연결 이후 `runtime/client`는 대상 direct socket의 기존 commands/invoke를 그대로 부른다. source/target release나 grant 변경은 관련 source 통로 차단·source 종료 확인·새 범위 재시작으로 나누며 연결 준비 중 교체는 conflict다.
 
-현재 path에 target이 있거나 추가 뒤 앱 수가 8을 넘으면 handler 전 invalid_input이다. path는 인증된 invocation 문맥에서 이어지며 입력 주장은 무시한다. SDK는 parent를 알고 있을 때만 전달하고 성공 일반 read의 부모 inv가 ledger에 없다고 새 기록을 만들지 않는다. 대상 failure와 전송 단절은 해당 호출에만 돌아가며 업무 쓰기 retry는 없다. confirm은 5.1의 같은 사람 approval/accepted/proof로 실행한다.
+현재 path에 target이 있거나 추가 뒤 앱 수가 8을 넘으면 handler 전 invalid_input이다. path는 broker 요청에 실리지 않는다. 준비 서비스가 자기가 발급한 origin과 broker가 본 호출 시작 사실(받은 앱이 보낸 caller 근거)로 이어 가며 입력 주장은 무시한다. 시작 사실이 없는 호출(ledger에 남지 않는 성공 일반 read, 아직 전달되지 않은 start)은 부모로 알려지지 않아 부모 없음·새 path로 시작하므로, 그런 호출만 거치는 상호 재귀는 준비 단계에서 잡지 못한다(Q28). SDK는 parent를 알고 있을 때만 전달하고 성공 일반 read의 부모 inv가 ledger에 없다고 새 기록을 만들지 않는다. 대상 failure와 전송 단절은 해당 호출에만 돌아가며 업무 쓰기 retry는 없다. confirm은 5.1의 같은 사람 approval/accepted/proof로 실행한다.
 
 ### 5.1.2 agent tool과 화면 context
 

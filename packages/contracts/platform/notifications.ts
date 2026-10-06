@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withReadCommon } from "./envelope.ts";
 import { defineEvent, eventTypeSchema } from "./events.ts";
 import { idSchema } from "./ids.ts";
-import { defineCommand, defineRead } from "./route.ts";
+import { defineCommand, defineMemory, defineRead } from "./route.ts";
 import { atSchema, seqSchema } from "./values.ts";
 
 export const notificationSchema = z.object({
@@ -80,12 +80,39 @@ const readErrors = [
   "unavailable",
 ] as const;
 
+// OS 표시 실패 이유는 이 고정 값뿐이다. OS 원문 오류는 wire에 실리지 않는다.
+export const OS_DELIVERY_FAILURE_REASONS = [
+  "unsupported",
+  "show_failed",
+] as const;
+export const osDeliveryFailureReasonSchema = z.enum(
+  OS_DELIVERY_FAILURE_REASONS,
+);
+export type OsDeliveryFailureReason = z.infer<
+  typeof osDeliveryFailureReasonSchema
+>;
+
+// 조회에 붙는 OS 전달 상태다(platform/notifications#R10). ledger 상태가 아니라 core 메모리의
+// 관측이다. "delivered"는 없다: 배달 성공은 보장하지 않는다. not_requested는 사람이 켜지
+// 않은 것, unconfirmed는 켰지만 이 실행에서 실패 관측이 없는 것이다(재시작 뒤 포함).
+export const osDeliverySchema = z.discriminatedUnion("state", [
+  z.strictObject({ state: z.literal("not_requested") }),
+  z.strictObject({ state: z.literal("unconfirmed") }),
+  z.strictObject({
+    state: z.literal("failed"),
+    reason: osDeliveryFailureReasonSchema,
+    observed_at: atSchema,
+  }),
+]);
+export type OsDelivery = z.infer<typeof osDeliverySchema>;
+
 export const notificationsGetInputSchema = z.strictObject({
   notification: idSchema("ntf"),
 });
 export const notificationsGetOutputSchema = withReadCommon(z.object({
   notification: notificationSchema,
   source_event: eventTypeSchema,
+  delivery: osDeliverySchema.optional(),
 }));
 export const notificationsGet = defineRead({
   resource: "notifications",
@@ -106,6 +133,7 @@ export const notificationsListOutputSchema = withReadCommon(z.object({
   notifications: z.array(z.object({
     notification: notificationSchema,
     source_event: eventTypeSchema,
+    delivery: osDeliverySchema.optional(),
   })),
 }));
 export const notificationsList = defineRead({
@@ -159,11 +187,62 @@ export const markNotificationRead = defineCommand({
   errors: ["forbidden", "not_found"],
 });
 
+// shell main이 OS에 올릴 때 받는 전부다(platform/notifications#R9). 사람이 켰을 때만 값이 있고,
+// 제목은 redaction을 거친 계기 종류, 열 곳은 대상 하나의 참조다. focus·이동 필드는 없다(R12).
+export const osDisplaySchema = z.strictObject({
+  notification: idSchema("ntf"),
+  title: z.strictObject({ kind: z.string() }),
+  open: z.strictObject({ kind: z.string(), id: z.string() }).nullable(),
+});
+export type OsDisplay = z.infer<typeof osDisplaySchema>;
+
+export const notificationsDisplayInputSchema = z.strictObject({
+  notification: idSchema("ntf"),
+});
+export const notificationsDisplayOutputSchema = withReadCommon(z.object({
+  display: osDisplaySchema.nullable(),
+}));
+// 없는 notification과 범위 밖 호출자는 같은 not_found다.
+export const notificationsDisplay = defineRead({
+  resource: "notifications",
+  method: "display",
+  name: "notification.os_display",
+  input: notificationsDisplayInputSchema,
+  output: notificationsDisplayOutputSchema,
+  actors: ["user"],
+  errors: readErrors,
+});
+
+export const reportOsDeliveryInputSchema = z.strictObject({
+  notification: idSchema("ntf"),
+  reason: osDeliveryFailureReasonSchema,
+});
+export const reportOsDeliveryOutputSchema = z.object({});
+// shell main이 OS 표시 실패를 알린다. ledger를 쓰지 않는 core 메모리 route다: event·표·재시도
+// 상태를 만들지 않는다. 고정 이유만 받고 원문 오류는 schema가 거절한다(invalid_input).
+export const reportOsDelivery = defineMemory({
+  resource: "notifications",
+  method: "delivery",
+  name: "notification.os_delivery_failed",
+  input: reportOsDeliveryInputSchema,
+  output: reportOsDeliveryOutputSchema,
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
 export const NOTIFICATION_ROUTES = [
   notificationsGet,
   notificationsList,
   createNotification,
   markNotificationRead,
+  notificationsDisplay,
+  reportOsDelivery,
 ] as const;
 
 const notificationSubject = idSchema("ntf");

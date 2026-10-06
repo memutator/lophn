@@ -272,10 +272,12 @@ export function openSession(input: SessionInput): CoreSession {
       } catch {
         json = undefined;
       }
-      const output = (route.output as { safeParse(value: unknown): {
-        success: boolean;
-        data?: unknown;
-      } }).safeParse(json);
+      const output = (route.output as {
+        safeParse(value: unknown): {
+          success: boolean;
+          data?: unknown;
+        };
+      }).safeParse(json);
       if (!output.success) {
         return {
           ok: false,

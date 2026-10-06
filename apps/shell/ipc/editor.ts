@@ -90,7 +90,10 @@ export type EditorReply<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly code: EditorFailure };
 
-export type FileTargetKind = "project_file" | "working_copy" | "instruction_file";
+export type FileTargetKind =
+  | "project_file"
+  | "working_copy"
+  | "instruction_file";
 
 export interface EditorOpened {
   readonly session: string;

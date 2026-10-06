@@ -30,7 +30,11 @@ function documentRead(
     version: {
       id: BASE_VERSION,
       files: [{ path: "plan.md", primary: true, media_type: "text/markdown" }],
-      format: { name: "document", module_hash: "cd".repeat(32), explicit: false },
+      format: {
+        name: "document",
+        module_hash: "cd".repeat(32),
+        explicit: false,
+      },
     },
   };
 }
@@ -120,7 +124,9 @@ function fake(over: {
     write: (request) => {
       state.writes.push(request);
       return Promise.resolve(
-        over.write ? over.write(request) : { ok: true, value: written(request) },
+        over.write
+          ? over.write(request)
+          : { ok: true, value: written(request) },
       );
     },
     validate: (input) => {
@@ -198,7 +204,10 @@ test("shell/editor#R12: 원본 없는 문서는 working copy를 목표로 하고
   // 첫 쓰기가 working copy를 만든다.
   assert.equal(opened.base_hash, null);
   await adapter.write(7, writeInput(opened.session, "# Plan\nmore\n", null));
-  assert.deepEqual(state.writes[0]!.target, { kind: "working_copy", document: DOC });
+  assert.deepEqual(state.writes[0]!.target, {
+    kind: "working_copy",
+    document: DOC,
+  });
   assert.equal(state.writes[0]!.base_hash, null);
 });
 
@@ -219,7 +228,10 @@ test("shell/editor#R12: 저장 버튼 없는 고침은 바이트를 올리고 ta
   });
   assert.equal(request.request_key, "key-0000000000000001");
   assert.equal(request.base_hash, sha256(ORIGINAL));
-  assert.equal(request.content.blob.hash, sha256(encoder.encode("# Plan\nnext\n")));
+  assert.equal(
+    request.content.blob.hash,
+    sha256(encoder.encode("# Plan\nnext\n")),
+  );
   // 자동 저장은 version 준비를 싣지 않는다.
   assert.equal(request.version_request, undefined);
   assert.equal(reply.value.disk, "written");
@@ -381,7 +393,13 @@ test("shell/editor#R12: 결과를 모르는 쓰기는 다시 쓰지 않고 docum
   // 다른 key로 다시 모르는 쓰기를 만들고, 이번에는 그 바이트가 디스크에 있다.
   await adapter.write(
     7,
-    writeInput(opened.session, "z\n", opened.base_hash, false, "key-0000000000000002"),
+    writeInput(
+      opened.session,
+      "z\n",
+      opened.base_hash,
+      false,
+      "key-0000000000000002",
+    ),
   );
   disk = encoder.encode("z\n");
   const after = await adapter.lookup(7, {

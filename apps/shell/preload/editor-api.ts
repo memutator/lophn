@@ -18,7 +18,10 @@ import {
 export interface EditorTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
   send(channel: string, input: unknown): void;
-  on(channel: string, callback: (event: unknown, payload: unknown) => void): void;
+  on(
+    channel: string,
+    callback: (event: unknown, payload: unknown) => void,
+  ): void;
   removeListener(
     channel: string,
     callback: (event: unknown, payload: unknown) => void,

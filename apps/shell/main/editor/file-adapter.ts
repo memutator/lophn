@@ -440,7 +440,9 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
       const session = own(owner, input.session);
       if (!session) return { ok: false, code: "unknown_session" };
       const port = options.port();
-      if (port === null) return { ok: true, value: emptyReport("failed", "offline") };
+      if (port === null) {
+        return { ok: true, value: emptyReport("failed", "offline") };
+      }
       const written = hash(input.bytes);
       session.attempts.set(input.request_key, {
         hash: written,

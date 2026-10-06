@@ -286,8 +286,12 @@ function windowOfRef(ref: string): BrowserWindow | undefined {
 }
 
 // 앱 view registry(shell#T37). 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
+// 붙이기·숨기기 IPC와 renderer 연결은 shell#T39가 이 registry에 잇는다.
 const appViews = electronAppViews({
-  windowOf: windowOfRef,
+  windowOf: (ref) =>
+    [...windows].find((window) =>
+      !window.isDestroyed() && windowRef(window) === ref
+    ) ?? appWindowRefs.get(ref),
   // build가 앱 preload를 같은 dist에 .cjs로 낸다.
   preload: join(here, "preload-app.cjs"),
   packaged: app.isPackaged,

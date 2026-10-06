@@ -75,11 +75,15 @@ Deno.test("apps/runtime#R9: registry 상한은 machine에게 관측 기록과 �
     operationCeiling("agent:asg_01arz3ndektsv4rrffq69g5fav", policies),
     ["app.connect"],
   );
+  // coding agent는 connect에 더해 preview를 연다(apps/preview#R1). 사람은 route 상한 전체를 받는다.
   assertEquals(
-    operationCeiling("coding_agent:cac_01arz3ndektsv4rrffq69g5fav", policies),
     [
-      "app.connect",
-    ],
+      ...operationCeiling(
+        "coding_agent:cac_01arz3ndektsv4rrffq69g5fav",
+        policies,
+      ),
+    ].sort(),
+    ["app.connect", "previews.get", "previews.start", "previews.stop"],
   );
 });
 

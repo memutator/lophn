@@ -822,6 +822,7 @@ concerns: [shell]
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
+- 상태: 완료 (#348) — 이어보냄: 템플릿 build·설치가 `@lophn/design/reading`·`@lophn/blueprint`를 푸는 일 → apps#T22, confirm 거절·만료 code → shell#T45
 - 등급: frontend
 - concern: shell/design-system
 - 요구: apps/sdk#R4(ui-reading·ui-filter·ui-stat·ui-action 1.0.0), R16(ui-reading), R18(ui-filter·ui-stat), R19, R41(공용 UI SDK)
@@ -834,6 +835,7 @@ concerns: [shell]
   - ui-reading: Markdown·목차 tree·code block·문서 주소 표시. ui-filter: 기간·다중 선택·검색. ui-stat: 수치·변화량. ui-action: 명령 버튼과 확인 표시, blueprint의 사람 확인 선언(confirm)을 따르고 확인 호출은 `lophnApp.call`로만.
   - 예제, package 옆 테스트. apps#T23–T26보다 먼저 main에 들어간다.
 - 가져올 것: legacy `ui-reading`, `ui-filter`, `ui-stat`, `ui-action`의 버튼 pending·error 표현만(구 invoker 계약은 빼고).
+- 정한 것: ui-reading은 design의 `Markdown`·`CodeBlock`·`Toc`·`parseMarkdown`·`ReadingFrame`을 다시 내보내고 새로 `DocumentAddress`(code 글꼴, 줄이지 않음, [Copy address])를 둔다. ui-filter는 `DateRangeFilter`(Today·Last 7/30/90 days·This month와 직접 기간, `resolveRange`가 양 끝 포함 `YYYY-MM-DD`로 푼다)·`MultiSelectFilter`(빈 값 = 전체, 6개 넘으면 검색 칸)·`SearchFilter`·`FilterBar`를 새로 짰고 값은 read command 입력에 그대로 싣는다. ui-stat은 design `StatTile`·`StatRow`를 다시 내보내고, `StatRow`는 넣은 칸이 640px 미만이면 한 줄 2개로 줄였다(container query). ui-action의 `CommandButton`·`useCommand`는 `confirm` 선언만 보고 방패 표시와 "lophn asks you before this runs." tooltip, 기다리는 동안 "Waiting for your confirmation."을 보인다. 사람 확인은 `lophnApp.call` 안에서 lophn 확인 창이 받으므로 앱 안 확인 dialog는 두지 않는다. pending은 spinner 대신 disabled·`aria-busy`·시계 아이콘, 실패는 원문 없이 버튼 옆 "<label> didn't finish. Try again."이다. `lophnApp` 타입은 SDK 쪽 사본(`AppBridge`)이고 blueprint는 type만 import한다. wording key 19개를 common에 더했다
 
 ### T42 app-space 화면과 apps 화면
 
@@ -888,7 +890,6 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: shell#T35, shell#T37, shell#T39
-- shell#T35에서 넘어온 것: 세션 앱 카드 갈래. 블록 틀(`workspace/visuals/block-frame.tsx`)은 `app_card` 블록을 검사한 뒤 지금 설명·출처와 "App cards can't be shown in the conversation yet."만 둔다(`data-visual-app-card`). `app-card-block.tsx`가 그 자리를 앱 frame 카드로 바꾼다. registry(`registry.ts`의 `AppCardContent`)는 app·release·view만 옮기고 카드 입력(`input`)은 버린다. 카드가 입력을 쓰면 registry가 그 값을 옮기게 고친다(그리지 않고 앱 view 계약에 넘길 값이다). 저장된 release가 지금과 다르면 `contract_changed`, 사라지면 `unavailable`이고 다른 release로 바꾸지 않는다(lophn-agent/visuals domain model). 카드 블록도 [Save as document]가 있다(agent 준비에서 snapshot은 지금 unavailable, lophn-agent#T47).
 - shell#T39에서 넘어온 것: 앱 패널 탭과 세션 카드 본문에 `EmbeddedView`를 둔다. 탭이 안 보이면 `shown={false}`(view는 남고 바로 숨는다), 탭을 닫으면 unmount(폐기, 앱 runtime에 view-closed 중계)다. 카드 목록·칸의 스크롤 경계는 `overflow`가 visible이 아닌 조상으로 잡으니 목록 scroll 영역에 overflow를 둔다. 좁은 창의 정보 패널 overlay(`workspace/info-panel-slot`)는 `useViewCover`를 불러 앱 view를 덮지 않은 폭으로 줄인다(R36)
 - shell#T35에서 넘어온 것: 세션 앱 카드 갈래. 블록 틀(`workspace/visuals/block-frame.tsx`)은 `app_card` 블록을 검사한 뒤 지금 설명·출처와 "App cards can't be shown in the conversation yet."만 둔다(`data-visual-app-card`). `app-card-block.tsx`가 그 자리를 앱 frame 카드로 바꾼다. registry(`registry.ts`의 `AppCardContent`)는 app·release·view만 옮기고 카드 입력(`input`)은 버린다. 카드가 입력을 쓰면 registry가 그 값을 옮기게 고친다(그리지 않고 앱 view 계약에 넘길 값이다). 저장된 release가 지금과 다르면 `contract_changed`, 사라지면 `unavailable`이고 다른 release로 바꾸지 않는다(lophn-agent/visuals domain model). 카드 블록도 [Save as document]가 있다(agent 준비에서 snapshot은 지금 unavailable, lophn-agent#T47).
 - 완료: 아래 확인이 통과한다
@@ -917,6 +918,7 @@ concerns: [shell]
   - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
   - 종류별 테스트.
 - shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
+- shell#T41에서 넘어온 것: @lophn/ui-action `CommandButton`은 confirm 거절·만료도 `lophnApp.call`의 일반 실패("<label> didn't finish. Try again.", `onFailed(code)`)로 보인다. 거절·만료에 따로 보일 code를 정하면 `packages/sdk/ui-action/use-command.ts`의 code 읽기와 문구를 그 code에 맞춘다
 - shell#T47에서 넘어온 것: main.ts `appWindows`의 `entryScreen`(앱 전용 창에 여는 screen)을 같은 `/v1/apps/blueprint` read로 잇는다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen이다. 지금은 unavailable이라 실제 shell에서 `--open-app`은 전용 창 대신 가장 최근 창을 앞으로 가져온다
 - shell#T42에서 넘어온 것: 앱 공간 본문의 screen도 같은 blueprint read로 잇는다. renderer `desktop/lophn-space/apps/core-source.ts`의 `entryScreen(app, release)`가 지금 unavailable을 돌려줘 실제 shell의 앱 공간은 "This app's screen can't open here yet."만 보인다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen key를 돌려주면 `EmbeddedView`가 연다(route가 contract에 생기면 renderer allowlist에도 자동으로 들어간다)
 

@@ -7,13 +7,14 @@ import {
   ID_PREFIX,
   INTERNAL_WORD,
   INTERNAL_WORDS,
-  KEY_SHAPE,
+  keyShape,
   RAW_ENUM,
   SHORT_PARTS,
   SNAKE_WORD,
   TEXT_ATTRIBUTES,
 } from "./rules.ts";
 import { scan } from "./scan.ts";
+import { placeholdersOf } from "./generate.ts";
 
 export type Severity = "error" | "warning";
 
@@ -28,6 +29,8 @@ export type Finding = {
 export type CheckOptions = {
   // contracts/problems 같은 다른 concern이 소유한 문구 key. catalog에 다시 정의하면 오류다.
   knownKeys?: readonly string[];
+  // key의 첫 구간으로 허용할 화면 이름. 없으면 lophn 화면 목록이고 앱은 자기 screen key와 common을 준다.
+  screens?: readonly string[];
 };
 
 const CALLED = new Set(["t"]);
@@ -53,6 +56,65 @@ function expectsPeriod(key: string): boolean {
   if (!parts) return false;
   if (SHORT_PARTS.has(parts[1]) || SHORT_PARTS.has(parts[2])) return false;
   return true;
+}
+
+// `t("key", { a, b })` 호출이 넘긴 값 이름. 값 없는 호출은 "none"이고, 객체 literal이 아니거나 펼침·계산된 이름이
+// 있어 알 수 없으면 undefined다(검사하지 않는다).
+function passedValues(
+  source: string,
+  from: number,
+): string[] | "none" | undefined {
+  let index = from;
+  while (/\s/.test(source[index] ?? "")) index += 1;
+  if (source[index] === ")") return "none";
+  if (source[index] !== ",") return undefined;
+  index += 1;
+  while (/\s/.test(source[index] ?? "")) index += 1;
+  if (source[index] === ")") return "none";
+  if (source[index] !== "{") return undefined;
+  const names: string[] = [];
+  let depth = 0;
+  let segment = "";
+  const flush = (): boolean => {
+    const text = segment.trim();
+    segment = "";
+    if (text === "") return true;
+    if (text.startsWith("...") || text.startsWith("[")) return false;
+    const name = /^(?:([A-Za-z_$][\w$]*)|"([^"]+)"|'([^']+)')/.exec(text);
+    if (!name) return false;
+    names.push(name[1] ?? name[2] ?? name[3]);
+    return true;
+  };
+  for (; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === '"' || char === "'" || char === "`") {
+      const quote = char;
+      segment += char;
+      index += 1;
+      while (index < source.length && source[index] !== quote) {
+        if (source[index] === "\\") {
+          segment += source[index];
+          index += 1;
+        }
+        segment += source[index];
+        index += 1;
+      }
+      segment += quote;
+      continue;
+    }
+    if (char === "{" || char === "(" || char === "[") {
+      depth += 1;
+      if (depth === 1) continue;
+    } else if (char === "}" || char === ")" || char === "]") {
+      depth -= 1;
+      if (depth === 0) return flush() ? names : undefined;
+    } else if (char === "," && depth === 1) {
+      if (!flush()) return undefined;
+      continue;
+    }
+    segment += char;
+  }
+  return undefined;
 }
 
 function messageText(message: string): string {
@@ -108,10 +170,34 @@ export function checkSource(
     if (!call || !CALLED.has(call[1])) continue;
     if (!(part.text in catalog) && !known.has(part.text)) {
       add(index, "error", "unknown-key", `없는 message key: ${part.text}`);
+      continue;
+    }
+    if (!(part.text in catalog)) continue;
+    // 호출이 넘긴 값 이름이 ICU 문장의 placeholder와 같아야 한다.
+    let expected: string[];
+    try {
+      expected = [...placeholdersOf(catalog[part.text]).keys()].sort();
+    } catch {
+      continue;
+    }
+    const passed = passedValues(source, index + part.text.length + 2);
+    if (passed === undefined) continue;
+    const given = passed === "none" ? [] : [...passed].sort();
+    if (given.join(",") !== expected.join(",")) {
+      add(
+        index,
+        "error",
+        "placeholder-mismatch",
+        `${part.text}의 값이 문장의 placeholder와 다르다: 필요 {${
+          expected.join(", ")
+        }}, 넘김 {${given.join(", ")}}`,
+      );
     }
   }
 
-  if (!file.endsWith(".tsx")) checkCatalog(source, catalog, known, add);
+  if (!file.endsWith(".tsx")) {
+    checkCatalog(source, catalog, known, keyShape(options.screens), add);
+  }
   return findings;
 }
 
@@ -119,6 +205,7 @@ function checkCatalog(
   source: string,
   catalog: Record<string, string>,
   known: Set<string>,
+  shape: RegExp,
   add: (
     index: number,
     severity: Severity,
@@ -137,7 +224,7 @@ function checkCatalog(
         `${key}는 다른 concern의 문구 key라 catalog에 두지 않는다.`,
       );
     }
-    if (!KEY_SHAPE.test(key)) {
+    if (!shape.test(key)) {
       add(
         at,
         "error",

@@ -189,6 +189,14 @@ export async function verifyCommandCall(deps: {
     return { ok: false, error: reject("invalid_input", hashed.error.message) };
   }
   const caller = projectCaller(deps.connection);
+  if (declared.confirm && deps.identity.mode === "preview") {
+    // preview에는 사람의 approval도 proof도 없다. confirm 명령의 실제 handler는 proof가 있어도
+    // 돌리지 않고, 대역 확인의 성공을 실행 성공으로 보이지 않는다(apps/preview#R5).
+    return {
+      ok: false,
+      error: reject("forbidden", "confirm commands are not run in preview"),
+    };
+  }
   if (declared.confirm) {
     const checked = await verifyProof({
       proof: deps.proof,

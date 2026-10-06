@@ -1,4 +1,5 @@
-// 시험 전용: 실제 앱 자식 프로세스를 temp 폴더에 띄운다. mod.ts에서 내보내지 않는다.
+// 시험 전용: 실제 앱 자식 프로세스를 temp 폴더에 띄운다. leaf의 mod.ts에서는 내보내지 않고, 다른
+// leaf의 시험(preview)이 쓰는 입구인 testing/mod.ts가 bundle 만들기만 다시 내보낸다.
 // 앱 진입 파일·blueprint·import map을 temp 폴더에 쓰고, 운영 앱 자식과 같은 Deno flag
 // 모양(`--no-config --no-remote --no-npm --cached-only`와 폴더 한정 읽기·쓰기)으로 띄운다.
 // bundle hash는 실제 쓴 파일 내용의 sha256이다.

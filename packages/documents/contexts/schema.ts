@@ -56,4 +56,26 @@ export const contextsSchemaSteps: readonly SchemaStep[] = [{
     CREATE INDEX context_items_app ON context_items(app, command);
     CREATE INDEX context_items_context ON context_items(context, perspective);
   `,
+}, {
+  // 확인된 문서 watch 변화 기록. `(context, target_key, after_version)`은 중복 방지 근거다.
+  // context_items에는 FK를 걸지 않는다: 항목을 빼도 이력을 잃지 않는다.
+  id: "documents.contexts.watch-changes",
+  sql: `
+    CREATE TABLE context_watch_changes (
+      context TEXT NOT NULL REFERENCES contexts(id),
+      target_key TEXT NOT NULL CHECK (length(target_key) > 0),
+      after_version TEXT NOT NULL,
+      source_seq TEXT NOT NULL,
+      before_version TEXT,
+      event_seq TEXT NOT NULL UNIQUE,
+      comparison TEXT NOT NULL,
+      PRIMARY KEY (context, target_key, after_version)
+    ) STRICT;
+    CREATE INDEX context_watch_changes_source ON context_watch_changes(source_seq);
+    CREATE INDEX context_watch_changes_event ON context_watch_changes(context, event_seq);
+    CREATE TRIGGER context_watch_changes_no_update BEFORE UPDATE ON context_watch_changes
+      BEGIN SELECT RAISE(ABORT, 'watch changes are immutable'); END;
+    CREATE TRIGGER context_watch_changes_no_delete BEFORE DELETE ON context_watch_changes
+      BEGIN SELECT RAISE(ABORT, 'watch changes are never deleted'); END;
+  `,
 }];

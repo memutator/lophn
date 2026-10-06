@@ -186,17 +186,19 @@ export const appConnectInputSchema = z.strictObject(connectFields).refine(
 );
 export type AppConnectInput = z.infer<typeof appConnectInputSchema>;
 
+// Authorization과 confirm proof가 싣는 서명 envelope의 서명. 서명 대상은 payload의 RFC 8785
+// canonical JSON UTF-8이고 signature는 raw 64byte Ed25519의 base64url이다(apps Q5).
+const signatureSchema = z.string().regex(/^[A-Za-z0-9_-]{86}$/);
+
+// core가 서명한 connection이다. 앱 direct 요청의 Authorization은 `{payload: connection, signature}`다.
 export const appConnectOutputSchema = z.object({
   endpoint: endpointSchema,
   connection: appConnectionSchema,
+  signature: signatureSchema,
 });
 export type AppConnectOutput = z.infer<typeof appConnectOutputSchema>;
 
 // Authorization과 confirm proof가 싣는 서명 envelope.
-// 서명 대상은 payload의 RFC 8785 canonical JSON UTF-8이고,
-// signature는 raw 64byte Ed25519의 base64url이다(apps Q5).
-const signatureSchema = z.string().regex(/^[A-Za-z0-9_-]{86}$/);
-
 export const signedConnectionSchema = z.strictObject({
   payload: appConnectionSchema,
   signature: signatureSchema,

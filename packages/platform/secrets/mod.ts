@@ -73,3 +73,9 @@ export {
   type SecretExchangeFile,
   type SecretExchangeItem,
 } from "./exchange.ts";
+export {
+  CODING_CREDENTIAL_PURPOSE,
+  type CodingCredentialKeychain,
+  codingCredentialRef,
+  createCodingCredentialKeychain,
+} from "./coding-credential.ts";

@@ -63,6 +63,11 @@ export function createLedgerTestRegistration() {
   };
 }
 
+// core harness(createCoreHarness)가 같은 fixture command를 등록하는 입구다.
+export function createLedgerRegistration() {
+  return { commands: [adoptReleaseCommand] };
+}
+
 // read handler를 ledger 없이 부르는 snapshot이다. 실제 apps 표(실제 schema)에 App 하나를
 // 넣은 메모리 DB를 읽고, 대상 권한 port는 요청 신원이 같은 앱이면 허용한다.
 export function createAppSnapshot(

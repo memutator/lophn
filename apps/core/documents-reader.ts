@@ -55,6 +55,10 @@ import {
   loadContextRow,
 } from "../../packages/documents/contexts/store.ts";
 import {
+  loadConfigEvents,
+  pendingWatches,
+} from "../../packages/documents/contexts/work.ts";
+import {
   createContextOutlineSource,
   createContextReads,
 } from "../../packages/documents/contexts/reads.ts";
@@ -79,6 +83,7 @@ import {
   storedFile,
 } from "../../packages/documents/versions/reads.ts";
 import {
+  FILE_PLACEMENT_ROUTE,
   internalRoute,
   OBSERVATION_BASIS_ROUTE,
   OBSERVATION_LINK_PAGE,
@@ -86,7 +91,7 @@ import {
   SEARCH_VERSION_ROUTE,
   STORED_FILE_ROUTE,
   TERM_OCCURRENCE_ROUTE,
-  FILE_PLACEMENT_ROUTE,
+  WATCH_INPUT_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { workingCopyCheck } from "../../packages/documents/file-tracking/reads.ts";
@@ -694,6 +699,72 @@ export function createReaderRegistration(): ReaderRegistration {
               files: files.value,
             },
             next_cursor: null,
+          });
+        },
+      },
+      // context watch consumer가 저장 event 하나를 확인하는 근거(documents#T24). 저장 판과 직전
+      // 판의 hash, source_seq 당시 watch였고 그 뒤 바뀌지 않은 문서 항목이다. core만 부른다.
+      {
+        route: WATCH_INPUT_ROUTE,
+        handle(snapshot, _ctx, input) {
+          const request = input as {
+            document: string;
+            version: string;
+            previous_version: string | null;
+            source_seq: string;
+          };
+          const versionInfo = (id: string) => {
+            const row = loadVersion(snapshot.sql as never, id);
+            if (!row.ok) return row;
+            if (row.value === null || row.value.document !== request.document) {
+              return ok(null);
+            }
+            return ok({
+              version: id,
+              content_hash: row.value.content_hash,
+              module_hash: row.value.format.module_hash,
+            });
+          };
+          const after = versionInfo(request.version);
+          if (!after.ok) return after;
+          if (after.value === null) {
+            return ok({
+              before: null,
+              after: null,
+              targets: [],
+              next_cursor: null,
+            });
+          }
+          let before = null;
+          if (request.previous_version !== null) {
+            const previous = versionInfo(request.previous_version);
+            if (!previous.ok) return previous;
+            // 판은 지워지지 않는다. 직전 판이 없으면 비교할 수 없다.
+            if (previous.value === null) {
+              return err({
+                code: "internal",
+                message: "the previous version is missing",
+              });
+            }
+            before = previous.value;
+          }
+          const events = loadConfigEvents(snapshot.sql);
+          if (!events.ok) return events;
+          const pending = pendingWatches(
+            events.value,
+            request.document,
+            request.source_seq,
+          );
+          if (!pending.ok) return pending;
+          return ok({
+            before,
+            next_cursor: null,
+            after: after.value,
+            targets: pending.value.map((watch) => ({
+              context: watch.context,
+              context_revision: watch.context_revision,
+              section: watch.target.section,
+            })),
           });
         },
       },

@@ -179,18 +179,25 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T10 apps.connect와 runtime client
 
+- 상태: 완료 (#312)
 - 등급: 기본
 - concern: apps/runtime, apps/permissions
 - 요구: apps/runtime#R9, R32, apps/permissions#R28
-- 자리: packages/apps/runtime/connect.ts(core 안 제어 어댑터, AppConnection 서명), packages/apps/runtime/client/ (Deno client), apps/core/apps.ts
+- 자리: packages/apps/runtime/connect.ts(core 안 제어 어댑터, AppConnection 서명), packages/apps/runtime/supervisor-link.ts·control-protocol.ts(core↔supervisor 제어 질의), packages/apps/runtime/client/ (Deno client), packages/apps/runtime/supervisor/control-link.ts(platform pipe로 고침), apps/app-supervisor/assembly.ts·main.ts(조립), apps/core/apps-control.ts·apps.ts(core 조립)
 - 쓰는 contract: platform 인증(AuthenticatedContext의 actor·scope·credential_ref·기한, core epoch; platform#T5), 소유 회수 event(GrantRevoked, assignment 멈춤, coding-agent의 CodingAgentConnectionRevoked, run 종료), lophn-agent의 AgentAppScope(contracts#T26, agent credential의 conditions), contracts#T34
 - 내놓는 contract: `POST /v1/apps/connect`, AppConnection, Deno runtime client(agent runtime·MCP·CLI가 씀). shell main의 Node client는 shell 팀이 같은 wire로 만든다
 - slice: apps
 - 선행: apps#T4, apps#T7, apps#T8, contracts#T34, contracts#T26, platform#T5, coding-agent#T9
 - 완료:
-  - `connect_test.ts`: 제어 경로는 플랫폼 인증 연결만 받고 임의 caller의 control 요청과 화면 본문의 다른 앱 주장은 거절(R9), live connection에 release 필수·release 없는 preview는 bundle_hash로 결속, endpoint·nonce를 ledger에 쓰지 않음, 화면 connection은 screen·size 교집합(blueprint sizes)만
+  - `connect_test.ts`: 제어 경로는 플랫폼 인증 연결만 받고 임의 caller의 control 요청과 화면 본문의 다른 앱 주장은 거절(R9), live connection에 release 필수·release 없는 preview는 bundle_hash로 결속, endpoint·nonce를 ledger에 쓰지 않음, 화면 connection은 screen·size 교집합(blueprint sizes)만. 실제 core와 실제 앱 자식이 Ed25519 서명을 매 요청 검증한다
   - `agent-connect_test.ts`: 열린 앱이라도 agent.commands grant가 없으면 거절, grant 뒤에도 AgentAppScope 밖 command는 connection에 들어가지 않음, lophn·App Engineer·Operator에게 각자 허용 command만(R32, apps/permissions#R28)
   - `client_test.ts`: Unix socket HTTP로 invoke·status·cancel, request_key 재사용으로 같은 결과 조회, 전송 단절은 결과 모름으로 돌려주고 자동 재호출 없음
+  - `runtime-source_test.ts`: 실제 core가 platform 감독 pipe로 실제 supervisor를 띄우고 supervisor가 실제 앱 자식을 띄워 probe·open·record_started, apps.runtime·apps.logs의 실제 source(현재 관측·log 줄 redaction·종료 중 terminating), 사람의 멈춤, core 종료 때 앱 종료, 회수된 credential의 connection이 새 nonce 재시작으로 닫힘
+  - `apps/app-supervisor/assembly_test.ts`: 조립한 supervisor가 실제 앱 자식에 probe·open·정지·crash 근거 보고(그 자식의 app credential)·RSS 표본·log 진단 frame·core 끊김 종료를 한다
+  - apps#T9에서 넘어온 것: core의 `apps.runtime`·`apps.logs`는 supervisor 메모리를 platform 감독 pipe의 `worker_request`(`apps.observe`·`apps.logs`)로 조회해 reader가 판정한 결과에 현재 관측·log를 덮어 준다. apps/app-supervisor/main.ts는 stdout·stderr `attach`와 `log-redact`, memory·crash observer, `requestStop`의 close·shutdown, `terminating` reason의 RuntimeObservation 변환을 조립한다
+  - problems#T17에서 넘어온 것: collector(machine) credential이 `/v1/settings/get`과, scope가 operation `app.logs`와 대상 앱을 함께 이름 지은 `/v1/apps/logs`에 닿는다. 앱을 이름 짓지 않은 machine 자격과 다른 앱은 없는 앱과 같은 응답이다(`runtime-source_test.ts`가 실제 core에서 collector가 log를 읽는 것을 본다, Q22)
+  - core 서명 key는 `createCoreSigner()` 하나다: AppConnection·confirm proof를 같은 key로 서명하고 앱 시작 입력과 감독 hello의 `verify_key`도 그 key다(`connect_test.ts`가 같은 core의 AppConnection과 proof가 같은 공개 key로 검증되는 것을 본다). 앱 entrypoint는 `control/shutdown`을 받으면 진행 호출이 끝나는 대로 스스로 끝나고(`entrypoint/shutdown_test.ts`) 유예가 지나면 supervisor가 강제 종료한다
+  - 별도 platform 회수 event는 없다. 소유 event를 구독하는 대신 발급한 connection의 credential 상태와 agent.commands grant를 1초마다 다시 읽어, 닫히거나 줄어든 것의 프로세스를 정지 확인 뒤 새 nonce로 다시 띄운다(Q5, Q23)
   - apps#T9에서 넘어온 것: core의 `apps.runtime`·`apps.logs`는 지금 관측·log source 없이 등록돼(없음·none을 명시) 있으니, supervisor 메모리(관측·`LogBuffer.collect`·memory·crash)를 core가 조회하는 제어 메시지와 source 연결, apps/app-supervisor/main.ts의 조립(stdout·stderr `attach`와 `log-redact`, memory observer와 crash observer 시작, `requestStop`으로 direct 제어의 close·shutdown 호출, 관측의 `terminating` reason을 RuntimeObservation으로 변환)
   - problems#T17에서 넘어온 것: problems collector가 `/v1/apps/logs`를 credential의 앱·invocation으로 부르고(`packages/problems/snapshots/adapters/core-logs.ts`) `/v1/settings/get`으로 진단 상세 수집 설정을 읽는다. 위 source 연결이 끝나면 collector credential이 두 route에 닿는지(authorizeApp의 collector 접근, scope operation `app.logs`·`GetSettings`)를 확인하고, 접근이 없으면 로그는 `unavailable` 이유로 남는다
   - 별도 platform 회수 event는 없다. 소유 event(GrantRevoked, assignment 멈춤, CodingAgentConnectionRevoked, run 종료)와 core epoch 변화를 받으면 그 credential_ref로 발급한 connection을 쓰는 통로를 닫는다(Q5)
@@ -231,6 +238,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T13 broker의 permission 강제
 
+- 상태: 완료 (#316) — 이어보냄: supervisor 조립(자식마다 broker socket·`createBrokerHub`·`serveBroker`, `BrokerAccess`·`SecretDelivery`·`ProblemsReport`·`GrantRevoker`·`AppProcesses` 어댑터) → T19, `DocumentsSave` 어댑터 → documents#T31. broker의 `/ready`·`/control/watch`·`/automations/*`·`/apps/connect` 경로는 각 담당 작업(T7·T10·T15·T20)이 `BrokerServices`에 더한다
 - 등급: 기본
 - concern: apps/permissions, apps/blueprint
 - 요구: apps/permissions#R4, R13, R14, R15, R16, R17, R20, R21, R22, R23, R29, apps/blueprint#R13
@@ -249,6 +257,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T14 cap-fs, cap-net, cap-store, cap-save, cap-secret
 
+- 상태: 완료 (#320) — 이어보냄: 앱 프로세스 entrypoint의 host port 설치와 실제 자식에서의 broker 시험, release 준비의 선언 permission 검사(R22) → T19, DB 파일 이름 `app.sqlite` 합의 → T18
 - 등급: 기본
 - concern: apps/sdk
 - 요구: apps/sdk#R22, R23, R24, R25, R26, R30, R31, R32
@@ -262,6 +271,8 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - cap-fs read·write·watch, cap-net timeout·retry fetch(재시도는 read에만 기본), cap-store 자기 SQLite와 migration 도우미(R24), loopback 듣기 안내는 Deno.serve이고 별도 패키지 없음(R25)
   - @lophn/cap-problem에 추가 permission 없이 선언 code 보고·해소 주장·변경 메모가 있고 닫기 API가 없다(R26). cap-problem 코드는 problems#T5가 쓰고(Q3) 이 작업은 공개 API 검사만 한다
   - cap-save는 선언 key·기대 version·재전송 key를 받고 같은 요청 재전송이 version 하나(R30), cap-secret은 grant 범위 사용 client와 preview 대역만 있고 원값 읽기·CRUD 없음(R31), 공개 API에 core DB·credential·grant 발급·problem 닫기 통로 없음(R32)
+  - 구현 자리: 각 package는 자기 완결(상대 import와 `node:` 뿐)이다. `packages/sdk/cap-fs/`(Deno flag 직접 사용, 거절을 permission 이름과 경로로 번역), `cap-net/fetch.ts`, `cap-secret/secret.ts`, `cap-save/save.ts`, `cap-store/store.ts`, 각 package의 `declaration.ts`(`checkDeclaration`·`REQUIRED_PERMISSIONS`)와 `guide.md`. 실제 broker와 이어 보는 시험은 `packages/sdk/capabilities_test.ts`(실제 `createBrokerEndpoint`를 unix socket으로 듣고 local fake server만 씀)
+  - host port: cap-net·cap-secret·cap-save·cap-store는 `Symbol.for("lophn.cap-host")` 전역 port로만 앱 프로세스 host에 닿는다(cap-schedule의 `SCHEDULE_PORT`와 같은 방식). 모양은 `{mode, dataPath, post(path, body, {signal?}) → {status, body}, call() → {command, inputHash, release, invocation} | null}`이다. `post`는 host가 process_nonce·mode·broker credential을 붙여 broker socket에 POST한다(앱 코드와 SDK는 credential을 보지 못한다). 이 port를 설치하는 쪽은 아래 T19로 넘겼다
 
 ### T15 앱 쌍 연결
 
@@ -323,10 +334,12 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - `activation_test.ts`: coding agent가 준비한 release도 approval 없이는 activating이 되지 않고 재시도에는 새 결정(R8), approval 뒤 grant·active release를 바꾸면 낡은 activation 거절(R12), activation 둘·grant 변경 동시 요청에서 하나만 진행, 이전 자식 종료 뒤 새 자식(R13), handler·hash·schema·probe 불일치면 active 불변·성공 commit 뒤에만 통로 open, 같은 transaction에 이름·설명 갱신과 첫 성공의 run_enabled=true(R14), 다른 schema의 옛 release는 바로 activation 안 됨·같은 schema rollback은 새 activation(R16)
   - `recovery_test.ts`: 종료 확인·backup 확정을 각각 지연시키면 migration도 새 업무도 시작하지 않음(apps/data#R4), migration·새 준비 실패면 새 자식 종료 → backup restore → 무결성·schema 확인 → record_data_restore → fail_activation → 이전 release 재준비, 복원 실패·미확인은 unavailable과 문제 보고(apps/data#R11, apps/releases#R15), 성공 commit 뒤 만든 업무 데이터는 옛 backup으로 자동 덮지 않음(apps/data#R12), migration 이력에서 출발·도착 schema·설명·손실 가능성·backup·결과·시각을 찾음(apps/data#R9)
   - 각 단계에서 child·core·supervisor를 끊는 테스트와 complete_activation 응답 유실 테스트(architecture/apps.md 8장)
+  - apps#T14에서 넘어온 것: 앱 DB 파일 이름은 `<data_path>/app.sqlite`다(cap-store의 `DEFAULT_DATABASE_FILE`). data worker의 `databasePath`·`backupPath` 기준을 이 파일로 맞춘다. cap-store의 migration 도우미는 data worker와 같은 `lophn_data_schema` 표와 `sha256:` script_hash 규칙을 쓰고 live 앱에서는 schema 변경을 거절하므로, 운영의 schema 변경은 activation의 data worker만 한다
   - 이어받음: apps#T17의 activation 순서(종료 확인 → backup 확정 → migration → 복원) 조립. 보호 backup의 blob field 등록(general_read 없음)은 record_backup hash로 이 작업이 확정한다. T17은 backup 파일을 앱 데이터 영역에 남긴다
   - 이어받음: platform#T33의 fail_activation 발생 작업. `fail_activation`이 `ReleaseActivationFailed`를 내는 것은 이 작업의 자리다
   - 이어받음: platform#T43의 release activation 복구 command. 재시작 점검이 미완료 activation을 실제 관측으로 확정하는 연결은 이 작업이 낸다
   - 이어받음: apps#T4의 activation 진행 판정 상대. grant.create·revoke는 ReleaseActivationStarted와 그 seq를 started_seq로 가리키는 ReleaseActivated·ReleaseActivationFailed event로 "activation 진행 중"을 본다(`permissions/store.ts`). start_activation은 `expected_grants_seq`에 apps/permissions의 grant 집합 seq(앱의 마지막 GrantCreated·GrantRevoked event seq, 없으면 0)를 쓰고, 시작 event의 시도 식별은 그 event의 seq다
+  - 이어받음: apps#T10의 supervisor 상태 알림. 활성 release와 실행 허용이 정해지면 `core.reconcileApp(desired)`(apps/core/apps-control.ts)로 release·bundle hash·등록 command·선언 화면·flag(`appFlags`의 결과; socket은 supervisor가 시작마다 더한다)·entry·import map·data 경로를 supervisor에 알리고, 사람의 멈춤·archive·grant 변화도 같은 호출로 알린다. core는 마지막으로 알린 상태를 기억해 supervisor가 다시 뜨면 같은 상태로 맞춘다. 후보 release의 activation 준비(commit 전 open 금지)는 지금 `DesiredApp`에 없다: 후보는 probe까지만 하고 commit 뒤에 open하는 조립이 이 작업 몫이다. 지금 supervisor는 probe가 통과하면 바로 open한다
 
 ### T19 release 준비 확정, 비교, blueprint read
 
@@ -338,6 +351,8 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 내놓는 contract: `/v1/releases/{prepare_bundle,preparation,cancel_preparation,prepare,list,get,compare}`, `/v1/apps/blueprint`, event ReleasePrepared (contracts#T36, T20)
 - slice: apps
 - 선행: apps#T6, apps#T8, contracts#T36, contracts#T41, problems#T9, problems#T10, problems#T11, coding-agent#T19
+- apps#T14에서 넘어온 것: (1) 앱 프로세스 entrypoint가 cap-net·cap-secret·cap-save·cap-store의 host port(`globalThis[Symbol.for("lophn.cap-host")]`, 모양은 T14 완료 줄)를 시작 입력으로 설치한다. `post`는 `createBrokerClient`와 같게 `process_nonce`·`mode`를 본문에 붙이고 broker socket에 credential로 POST하며, `call()`은 invoke 중인 command의 `command`·`inputHash`(검증·default 적용한 실제 입력의 hash)·`release`·`invocation`을 `AsyncLocalStorage` 문맥으로 낸다(`runtime/entrypoint/invoke.ts`가 `port.run`을 부르는 자리). `dataPath`는 시작 입력의 `data_path`다. 지금 entrypoint는 이 port를 설치하지 않아 실제 자식에서 cap-net 등은 `unavailable`이다. 위 supervisor 조립(자식마다 broker socket)이 서면 실제 자식에서 cap-net·cap-secret·cap-save가 broker를 지나는 것을 시험한다. (2) release 준비(`prepare`)는 blueprint의 `sdk_dependencies`가 cap-fs·cap-net·cap-save·cap-secret일 때 `permissions`에 요구 permission이 없으면 거절한다(apps/sdk#R22). 표는 각 package의 `REQUIRED_PERMISSIONS`(cap-fs는 fs.read 또는 fs.write, cap-net은 net.fetch, cap-save는 document.save, cap-secret은 secret.use와 net.fetch)이고 core는 SDK 코드를 import하지 않으므로 같은 표를 `packages/apps/blueprint`에 옮겨 쓴다. SDK의 `checkDeclaration`과 같은 결과여야 한다
+- apps#T13에서 넘어온 것: `apps/app-supervisor/main.ts`에서 운영 자식마다 broker socket을 열고(`createBrokerHub`·`serveBroker`, `permissions/broker/`) 서비스 어댑터를 조립한다. `BrokerAccess`는 이 작업의 blueprint read(현재 release 선언 ∩ active grant, 요청마다 다시 읽음), `SecretDelivery`·`RedactionGate`는 core secret store의 전송 부착(contracts#T23), `ProblemsReport`는 problems collector, `GrantRevoker`·`AppProcesses`는 core 제어 메시지. `DocumentsSave`는 documents#T31이 낸다. 지금은 시험 fake(`permissions/testing/broker.ts`)만 있어 broker가 아무 데서도 돌지 않는다
 - 완료:
   - `prepare_test.ts`: release 없이 bundle을 테스트한 뒤 같은 hash의 pass만 준비되고 한 byte 바꾼 bundle·자가 제출 결과는 거절(R5), 누락·만료·반납·connection 회수·claim 변경은 요청 때와 확정 때 모두 거절, 출처는 claim 해제 뒤에도 그대로(R6), 새 claim 없는 준비 거절·옛 ticket 없는 release는 null 출처 그대로 읽고 선택 가능(R7), 열린 problem의 code 삭제·완화는 경고로만(R18)
   - `compare_test.ts`: 새 필수 입력·external 효과·permission 추가·파괴 migration이 각각 비교에 보임(R9), schema가 같아도 효과가 바뀌면 호환이라 하지 않고 설명만 바뀐 경우를 구별(R10), 데이터 계약 변경은 apps/data 근거, 새 접근 요청은 grant 근거로 따로(R11)
@@ -572,3 +587,11 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - **Q18 거절 행(해결, T12).** domain-model의 전이표는 `없음 / accepted → denied`인데 T11 구현은 absent를 conflict로 막아 접수 없이 거절된 알려진 호출(선언된 command를 인증된 연결로 불렀다가 handler 전에 거절)을 남길 길이 없었다(apps/invocations#R2는 거절된 읽기를 남기라 한다). `record_denied`가 absent에서 거절 행(`denied`, started_at·approval·입력 지문 없음)을 만들게 고치고 T11의 absent 시험(`model_test.ts`, `reads_test.ts`)을 같은 PR에서 바꿨다. `record_finished`가 absent를 거절하는 것(모르는 호출을 만들지 않음, R10)은 그대로다.
 - **Q19 접수된 confirm의 start(해결, T12).** `record_started`가 accepted 행에는 started_at 불일치로 conflict였고 running으로 옮기지 못했다. 접수가 고정한 대상·주체·호출자가 같으면 관측한 시작 시각으로 같은 행을 running으로 옮긴다(접수 시각으로 채우지 않는다, R9).
 - **Q20 재시작 뒤 접수·실행 중 행의 확정(해결, T12).** 새 route를 더하지 않고 기존 machine command `invocation.record_finished`(status `unknown`)를 쓴다. core 기동이 `machine:invocation-recovery`(token 없는 내부 자격, `FIXED_CREDENTIALS`에 더함)로 `invocations.list`의 accepted·running 행을 읽어 같은 key(`interrupted:<inv>`)로 확정하고, 요약에 `reason: core_restarted`와 재시작 점검 관측의 근거(`observeInvocations`와 같은 `interruptedEvidence`)를 남긴다. 접수만 있던 행은 started_at 없이, 실행 중이던 행은 있던 started_at 그대로 unknown이다. 이전 core의 앱 프로세스는 이미 없고 새 프로세스는 새 nonce라 옛 접수·시작은 이어지지 않는다. 시험은 `invocations/restart_test.ts`(같은 홈으로 재시작을 두 번)다.
+- **Q21 AppConnectOutput에 서명이 없다(정함, T10).** contracts#T34의 `appConnectOutputSchema`는 `{endpoint, connection}`뿐이라 앱 direct 요청의 Authorization(`{payload, signature}`)에 필요한 서명을 실을 자리가 없었다. lead가 승인해 `appConnectOutputSchema`에 `signature`(raw 64byte Ed25519의 base64url)를 더했고 `createAppChannelClient.connect`와 Deno client가 그대로 읽는다.
+- **Q22 apps.logs의 machine 접근(정함, T10).** problems report collector는 machine actor인데 `apps.logs`의 actor 목록에 machine이 없었다. lead가 좁게 승인했다: `apps.logs`의 actor에 machine을 더하고, read handler가 machine은 credential scope의 대상 app이 요청한 app과 같고 operation `app.logs`가 scope에 있을 때만 열어 준다(그 밖은 없는 앱과 같은 응답). registry 상한에 machine의 `app.logs`를 더했다.
+- **Q23 회수 통로를 event 대신 credential 상태로(해결, T10).** Q5의 소유 event(GrantRevoked, assignment 멈춤, CodingAgentConnectionRevoked, run 종료)를 core 안 구독으로 받으려면 각 owner가 apps 구독자에게 event 공개 정책을 내야 한다. 그런데 run 종료·assignment 멈춤·connection 회수는 모두 platform registry의 credential 종료(`endBy`·`revoke`)로 끝나고, GrantRevoked는 grants를 다시 읽으면 보인다. 그래서 connector가 발급한 connection의 credential_ref를 `revalidate`하고 agent connection의 command가 아직 active agent.commands grant 안인지 grants를 다시 읽는다(기본 1초). 닫힌 것은 그 프로세스의 정지 확인 뒤 새 nonce 재시작이다. 사람 화면 connection도 같은 규칙이라 사람 credential이 닫히면 앱이 한 번 다시 뜬다. 비용: agent run이 끝날 때마다 그 run이 최근 10분 안에 연결한 앱이 정지 유예(Q25; 진행 호출이 없으면 바로 끝난다)를 거쳐 다시 뜬다. 정했다: 유지한다(Q5의 "run 종료로 통로를 닫는다"를 그대로 지킨다). 다만 run 종료마다 앱을 다시 띄우는 비용이 크면 앱 entrypoint에 특정 credential_ref의 connection만 거절하는 제어 경로(`control/revoke`, contracts#T34 후속)를 두어 재시작 없이 닫는 쪽이 낫다. owner event 구독으로 바꾸면 지연이 줄지만 owner마다 공개 정책이 필요하다.
+- **Q24 platform 조립 파일의 추가(T10).** `apps/core/core.ts`·`registration.ts`·`credentials.ts`·`test-credentials.ts`·`testing/core.ts`에 apps 조립이 들어갔다: team 등록의 `memoryRoutes`(handler는 core 조립이 붙인다), registry 상한에 apps operation 정책(`appsOperationPolicies`), `appSupervisor` 기동 옵션(제품 main만 true)과 `core.reconcileApp`, platform status의 `apps` 구성 요소, `machine:apps-control`의 고정 credential 등록, 시험 credential의 `revalidate`와 기한. 추천안: platform 팀이 위 조립을 review해 자기 파일의 모양으로 정리한다.
+- **Q25 앱 entrypoint의 shutdown 종료(정함, T10).** `control/shutdown`이 새 호출·clock만 닫고 프로세스를 끝내지 않아 멈춤·release 교체·회수 재시작이 항상 10초 유예를 기다렸다. lead가 승인해 entrypoint가 shutdown을 받으면 새 호출을 닫은 채 진행 호출이 끝나는 대로(유예 `grace_ms` 안에서) `Deno.exit(0)`한다. 유예가 지나도 끝나지 않으면 supervisor의 강제 종료가 이어진다(R15). Q23의 재시작 비용은 이로써 받아들일 수 있다.
+- **Q26 T3·T8·T9 조립의 실제 동작 오류(해결, T10).** 실제 프로세스로 처음 이어 보며 고쳤다. (1) `appFlags`가 socket 듣기·연결에 필요한 `--allow-net=unix:<경로>`와 가상 host `lophn.invalid` 허락을 만들지 않아 앱이 시작하지 못했다(Deno 2.9.7은 읽기·쓰기 허락만으로는 unix listen이 NotCapable이다). (2) `--deny-net`의 `::1:<port>`는 Deno가 빈 host로 읽어 프로세스가 시작하지 않는다. `[::1]:<port>`로 고쳤다. (3) supervisor가 자식에게 자신의 machine credential을 넘기고 있었다. 자식마다 `app_credential_request`로 core가 발급한 app credential을 쓴다. (4) supervisor main이 platform hello·ready·worker_request가 아닌 자체 hello를 기다려 감독 pipe가 ready에 닿지 못했고, record 호출에 `compare`가 없어 400이었으며, 응답 모양(`output` 감쌈)을 잘못 읽어 `record_stopped`가 남지 않았다. (5) 같은 앱의 두 socket 경로를 허락 목록에 넣을 방법이 없어(Deno net 허락은 정확한 경로만) socket을 고정 자리 64개로 바꿨다(architecture 2.2). (6) `apps/permissions/commands_test.ts`가 #305 이후 approval 설명 글의 I/O worker 없이 14개 모두 실패해 `io: true`로 고쳤다.
+- **Q27 cap-fs는 Deno flag를 그대로 쓴다(정함, T14).** Q12의 "폴더 direct grant를 broker로 옮길지"는 옮기지 않는다. architecture 2.3이 `fs.read`·`fs.write`를 대응 Deno flag로 강제한다고 정했고, T13의 broker 서비스에도 파일 통로가 없다. cap-fs는 얇은 client라 Deno의 `NotCapable`을 `forbidden`(permission `fs.read`·`fs.write`와 정확한 경로)으로 번역할 뿐이다. 실제 자식의 flag로 허락 안·밖을 가르는 시험이 `cap-fs/fs_test.ts`다. Q12의 TOCTOU 한계(`permissions.limit.symlink-changes`)는 그대로 공개한다.
+

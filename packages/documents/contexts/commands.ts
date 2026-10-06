@@ -12,15 +12,18 @@ import {
   type ContextItem,
   contextItemRemoved,
   contextItemSet,
+  contextRecordWatchChange,
   contextRemoveItem,
   contextSetItem,
   contextUnarchive,
   contextUnarchived,
   contextUpdate,
   contextUpdated,
+  contextWatchedItemChanged,
 } from "../../contracts/documents/mod.ts";
 import {
   type CommandDefinition,
+  type Input,
   parseActor,
   type RequestContext,
   type Sql,
@@ -28,6 +31,7 @@ import {
 } from "../../contracts/platform/mod.ts";
 import { authorizeDocument, loadDocument } from "../versions/mod.ts";
 import { targetKey } from "./model.ts";
+import { loadConfigEvents, pendingWatches } from "./work.ts";
 import {
   type ContextItemRow,
   type ContextRow,
@@ -73,6 +77,7 @@ export function createContextCommands(deps: ContextCommandDeps = {}): {
   removeItem: CommandDefinition<typeof contextRemoveItem>;
   archive: CommandDefinition<typeof contextArchive>;
   unarchive: CommandDefinition<typeof contextUnarchive>;
+  recordWatchChange: CommandDefinition<typeof contextRecordWatchChange>;
 } {
   return {
     create: {
@@ -273,7 +278,134 @@ export function createContextCommands(deps: ContextCommandDeps = {}): {
       handle: (tx, ctx, input, compare) =>
         transition(tx, ctx, input.context, compare.base_revision, "unarchive"),
     },
+    recordWatchChange: {
+      route: contextRecordWatchChange,
+      handle: (tx, ctx, input, compare) =>
+        recordWatchChange(tx, ctx, input, compare.base_revision),
+    },
   };
+}
+
+type WatchComparison = Input<typeof contextRecordWatchChange>;
+
+// 확인된 문서 watch 변화 하나를 기록한다. 기록은 구성 변경이 아니라서 context revision을
+// 바꾸지 않는다. 같은 `(context, target, after_version)`의 재전달은 event 하나만 남긴다.
+function recordWatchChange(
+  tx: Tx,
+  ctx: RequestContext,
+  input: WatchComparison,
+  base: string,
+): Result<{ id: string; revision: string; status: "active" | "archived" }> {
+  if (parseActor(ctx.actor)?.kind !== "machine") {
+    return rejected("forbidden", "watch changes are machine only");
+  }
+  // 확인된 변화만 event가 된다. 같음·미확인은 기록하지 않는다(contexts#R11).
+  if (
+    input.result !== "content_changed" && input.result !== "section_added" &&
+    input.result !== "section_missing"
+  ) {
+    return rejected("invalid_input", "only a confirmed change is recorded");
+  }
+  if (input.context_revision !== base) {
+    return rejected("invalid_input", "comparison revision must match base");
+  }
+  const target = input.target;
+  if (target.kind !== "document") {
+    return rejected("invalid_input", "watch change needs a document target");
+  }
+  const current = loadContextRow(tx.sql, input.context);
+  if (!current.ok) return current;
+  if (current.value === null) {
+    return rejected("not_found", "context not found");
+  }
+  const output = {
+    id: current.value.id,
+    revision: current.value.revision,
+    status: current.value.status,
+  };
+  const key = targetKey(target);
+  // 이미 기록한 변화의 재전달은 같은 결과다. 그 뒤 구성이 바뀌어도 기록은 그대로다.
+  const known = tx.sql.get(
+    `SELECT 1 AS found FROM context_watch_changes
+     WHERE context = ? AND target_key = ? AND after_version = ?`,
+    [input.context, key, input.after_version],
+  );
+  if (known !== undefined) return ok(output);
+  if (current.value.status !== "active") {
+    return rejected("conflict", "context is archived");
+  }
+  if (current.value.revision !== base) {
+    return rejected("conflict", "context revision changed");
+  }
+  // 원래 저장(또는 복원) event가 이 비교의 전후 판을 정한다.
+  const source = tx.sql.get(
+    "SELECT type, subject, payload FROM events WHERE seq = ?",
+    [input.source_seq],
+  );
+  const saved = source === undefined ||
+      (source.type !== "DocumentSaved" && source.type !== "DocumentRestored")
+    ? null
+    : savedPayload(source.payload);
+  if (
+    saved === null || source?.subject !== target.document ||
+    saved.version !== input.after_version ||
+    saved.previous_version !== input.before_version
+  ) {
+    return rejected("invalid_input", "comparison does not match its save");
+  }
+  // 저장 당시 watch였고 그 뒤 바뀌지 않은 항목만이다. 비교 중 관점·대상을 바꾸거나 보관했거나
+  // 저장 뒤에 추가한 항목이면 낡은 결과다(contexts#R12).
+  const events = loadConfigEvents(tx.sql, input.context);
+  if (!events.ok) return events;
+  const pending = pendingWatches(
+    events.value,
+    target.document,
+    input.source_seq,
+  );
+  if (!pending.ok) return pending;
+  if (!pending.value.some((watch) => targetKey(watch.target) === key)) {
+    return rejected("conflict", "context watch item changed since the save");
+  }
+  const seq = tx.emit(contextWatchedItemChanged, input.context, {
+    target: recordOf(target),
+    before_version: input.before_version,
+    after_version: input.after_version,
+    source_seq: input.source_seq,
+    change_kind: input.result,
+  });
+  tx.sql.run(
+    `INSERT INTO context_watch_changes
+       (context, target_key, after_version, source_seq, before_version,
+        event_seq, comparison)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      input.context,
+      key,
+      input.after_version,
+      input.source_seq,
+      input.before_version,
+      seq,
+      JSON.stringify(input),
+    ],
+  );
+  return ok(output);
+}
+
+function savedPayload(
+  value: unknown,
+): { version: string; previous_version: string | null } | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(value));
+  } catch {
+    return null;
+  }
+  const body = parsed as { version?: unknown; previous_version?: unknown };
+  if (typeof body !== "object" || body === null) return null;
+  if (typeof body.version !== "string") return null;
+  const previous = body.previous_version;
+  if (previous !== null && typeof previous !== "string") return null;
+  return { version: body.version, previous_version: previous };
 }
 
 function transition(

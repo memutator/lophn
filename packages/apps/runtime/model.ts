@@ -22,7 +22,9 @@ export const TERMINATING: RuntimeReason = {
 };
 
 // 관측과 무관하게 App 값만으로 정해지는 상태. running은 관측 없이는 나오지 않는다.
-function fromApp(app: App): RuntimeState {
+type RuntimeApp = Pick<App, "active_release" | "status" | "run_enabled">;
+
+function fromApp(app: RuntimeApp): RuntimeState {
   if (app.active_release === null) {
     return { state: "preparing", termination_pending: false };
   }
@@ -39,7 +41,7 @@ function fromApp(app: App): RuntimeState {
 // App 값과 현재 supervisor 관측으로 RuntimeState를 계산한다.
 // observation은 현재 연결의 메모리 값이고 null이면 관측이 없다(R13).
 export function projection(
-  app: App,
+  app: RuntimeApp,
   observation: RuntimeObservation | null,
 ): RuntimeState {
   const base = fromApp(app);

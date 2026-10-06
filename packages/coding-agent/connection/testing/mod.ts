@@ -2,6 +2,12 @@
 // 이 파일을 직접 import한다(code-map). core client의 호출 모양을 기록하고 route별로
 // 답을 정해 주는 흐름 client와, 준비를 마친 문서 파일 입력 예를 낸다.
 import { err, type LophnError, ok, type Result } from "../../../base/mod.ts";
+import { ROUTES as appsRoutes } from "../../../contracts/apps/mod.ts";
+import { ROUTES as codingAgentRoutes } from "../../../contracts/coding-agent/mod.ts";
+import { ROUTES as documentsRoutes } from "../../../contracts/documents/mod.ts";
+import { ROUTES as lophnAgentRoutes } from "../../../contracts/lophn-agent/mod.ts";
+import { ROUTES as platformRoutes } from "../../../contracts/platform/mod.ts";
+import { ROUTES as problemsRoutes } from "../../../contracts/problems/mod.ts";
 import type { DocumentFileInput } from "../../../contracts/documents/mod.ts";
 import type { CommandRoute, Route } from "../../../contracts/platform/mod.ts";
 import type { FlowClient } from "../document-save.ts";
@@ -225,4 +231,20 @@ export async function workspace(): Promise<Workspace> {
       await Deno.remove(data, { recursive: true });
     },
   };
+}
+
+// 모든 최상위 계약의 route를 이름으로 찾는 표다. 금지 route가 계약 표에 실제로 있는지,
+// 두 통로가 부르는 route가 coding_agent actor를 받는지 보는 시험이 쓴다.
+export type ContractRoute = { name: string; actors: readonly string[] };
+
+export function contractRoutesByName(): Map<string, ContractRoute> {
+  const all = [
+    ...platformRoutes,
+    ...documentsRoutes,
+    ...codingAgentRoutes,
+    ...appsRoutes,
+    ...problemsRoutes,
+    ...lophnAgentRoutes,
+  ] as readonly ContractRoute[];
+  return new Map(all.map((route) => [route.name, route]));
 }

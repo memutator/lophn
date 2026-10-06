@@ -8,3 +8,18 @@ export {
   createContextOutlineSource,
   createContextReads,
 } from "./reads.ts";
+export {
+  compareWatchedItem,
+  type ContextConfigEvent,
+  loadConfigEvents,
+  type PendingWatch,
+  pendingWatches,
+  replayContexts,
+  UNVERIFIED_MODULE_CHANGED,
+  UNVERIFIED_PENDING,
+  unverifiedReason,
+  type WatchComparisonInput,
+  type WatchedItemComparison,
+  type WatchSectionState,
+  type WatchVersion,
+} from "./work.ts";

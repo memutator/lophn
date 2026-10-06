@@ -406,6 +406,7 @@ export function createLedgerRegistration(
       contexts.removeItem,
       contexts.archive,
       contexts.unarchive,
+      contexts.recordWatchChange,
       terms.propose,
       terms.define,
       terms.update,

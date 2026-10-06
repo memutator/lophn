@@ -55,6 +55,7 @@ import { registerAppIpc, removeAppIpc } from "../app-frame/app-ipc.ts";
 import { createExternalLinks } from "../app-frame/external-link.ts";
 import { createViewErrors, reportIdOf } from "../app-frame/view-error.ts";
 import { startCoreConnection } from "./core/connection.ts";
+import { resolveDenoBinary } from "./core/deno-binary.ts";
 import { createCoordinator } from "../confirmation/coordinator.ts";
 import { createKinds } from "../confirmation/kinds/mod.ts";
 import {
@@ -226,7 +227,13 @@ const core = startCoreConnection({
   launch: {
     repoRoot: join(here, "..", "..", "..", ".."),
     dataRoot,
-    denoBinary: "deno",
+    denoBinary: resolveDenoBinary(
+      {
+        isPackaged: app.isPackaged,
+        resourcesPath: app.getAppPath() + "/resources",
+      },
+      log,
+    ),
     packaged: app.isPackaged,
   },
   ipc: { handle: (channel, listener) => ipcMain.handle(channel, listener) },
@@ -383,7 +390,21 @@ const externalLinks = createExternalLinks({
   log,
 });
 const viewErrors = createViewErrors({
-  send: () => Promise.resolve(false),
+  send: async (forward) => {
+    const session = core.session();
+    if (!session) return false;
+    try {
+      const result = await session.internal(
+        "worker",
+        "problems",
+        "observe-view-error",
+        forward,
+      );
+      return result.ok;
+    } catch {
+      return false;
+    }
+  },
   ids: { reportId: () => reportIdOf(Date.now(), randomBytes(10)) },
   clock: {
     nowMs: () => Date.now(),

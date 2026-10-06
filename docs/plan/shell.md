@@ -858,6 +858,7 @@ concerns: [shell]
   - 프로젝트·앱 공간의 lophn 크롬은 그 앱의 결정 대기와 daemon 장애 안내만.
   - lophn 공간 apps 화면: 사람이 지은 이름, 상태, 보관, 이름 바꾸기. 원시 enum·ID 없음.
   - 화면 테스트.
+- 후속: 앱 이름 변경 command app.rename(#354). apps 화면의 행 동작은 이 command를 부른다.
 - 가져올 것: legacy `spaces/AppSpace.tsx`의 얇은 chrome 배치, `screens/Apps.tsx`.
 
 ### T43 app-detail: Version, Access, Automations, Connections, Activity, Data
@@ -1120,6 +1121,7 @@ concerns: [shell]
 
 ### T57 Electron 패키징과 설치 실패 안내
 
+- 상태: 완료 (#363)
 - 등급: 기본
 - concern: shell/desktop
 - 요구: shell/desktop#R11(패키징), R12, R20(bundle된 Deno)
@@ -1153,6 +1155,7 @@ concerns: [shell]
   - 진단: 보안 상태 점검과 doctor 결과는 영향 한 문장과 다음 행동, 원문은 개발자 diagnostics 펼침에만.
   - OS notification opt-in.
   - flow backup-and-restore, update-lophn 화면. 화면 테스트.
+- platform#T42에서 넘어온 것: 복원 확인 창과 main 연결. main↔core 감독 pipe(`apps/shell/main/desktop/core/supervise.ts`)로 `restore_plan_request`(묶음 `created_at`)를 보내 `restore_plan`(`lost` 잃을 범위, `target`·`content_hash`)을 읽어 창에 보이고, 사람이 확인하면 그 `target`·`content_hash`로 결정 `restore_backup`의 handle을 `confirmation_handle_register`로 발급해 `restore_request`를 보낸다(contract `packages/contracts/platform/restore-pipe.ts`). 결과는 `restore_result` 또는 `restore_failed`(`code`, `restarted`)다. 복원 뒤 core가 같은 pipe로 새 hello(새 epoch·token·port)를 보내므로 `supervise.ts`는 첫 hello 이후의 hello도 받아 session·구독을 새 값으로 다시 열어야 한다(지금은 hello 이후 frame을 listener에 넘기기만 한다)
 
 ### T59 offline: provider 끊김과 core 끊김
 

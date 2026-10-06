@@ -1,11 +1,20 @@
 import type { Clock, IdSource, Result } from "../../base/mod.ts";
-import { err, formatSeq, internalError, ok, parseSeq } from "../../base/mod.ts";
+import {
+  canonicalize,
+  err,
+  formatSeq,
+  internalError,
+  ok,
+  parseSeq,
+} from "../../base/mod.ts";
 import {
   type BlobRefRegistration,
+  type ChosenOptionCall,
   type CommandRoute,
   type IdPrefix,
   type PermanentBlobReference,
   type PortKey,
+  questionOption,
   type RequestContext,
   type Sql,
   subjectSchema,
@@ -26,6 +35,7 @@ import {
 import { targetAuthorizationPort } from "./target-authorization.ts";
 import { useApproval as useApprovalRecord } from "./approval-use.ts";
 import type { CommandDispatch } from "./dispatch.ts";
+import { actorKind } from "./command-outcome.ts";
 import {
   createTxPortLookup,
   type TxPortLookup,
@@ -153,6 +163,11 @@ export function runTransaction<T>(
   }
 }
 
+const CHOSEN_FORBIDDEN = err({
+  code: "forbidden" as const,
+  message: "사람이 고른 고정 action이 아니다",
+});
+
 const COMMAND_MAX_CHANGED_ROWS = 1000n;
 
 const OVER_LIMIT = err({
@@ -220,6 +235,42 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     if (thrown !== undefined) throw sqlFailure(thrown.error, fail);
     return value as T;
   };
+  const emitAs = (
+    actor: string,
+    run: string | null,
+    event: { type: string; payload: z.ZodType },
+    subject: string | null,
+    payload: unknown,
+  ): string => {
+    live();
+    if (!subjectSchema.safeParse(subject).success) {
+      throw new TxRejected(err({
+        code: "invalid_input",
+        message: "event subject가 schema와 다르다",
+      }));
+    }
+    const parsed = event.payload.safeParse(payload);
+    if (!parsed.success) {
+      throw new TxRejected(err({
+        code: "invalid_input",
+        message: "event payload가 schema와 다르다",
+      }));
+    }
+    // event 행도 변경 행 한도에 든다. 실행기의 command_results 한 행만 뺀다(Q19).
+    const inserted = measured(true, () =>
+      sql.run(
+        "insert into events (type, subject, actor, run, payload, at) values (?, ?, ?, ?, ?, ?)",
+        [
+          event.type,
+          subject,
+          actor,
+          run,
+          JSON.stringify(parsed.data),
+          deps.clock.now(),
+        ],
+      ));
+    return formatSeq(BigInt(inserted.lastInsertRowid));
+  };
   const ports: { current?: TxPortLookup } = {};
   const tx: Tx & { portLookup?: TxPortLookup } = {
     sql: {
@@ -227,36 +278,8 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       get: (text, params) => measured(false, () => sql.get(text, params)),
       all: (text, params) => measured(false, () => sql.all(text, params)),
     },
-    emit(event, subject, payload) {
-      live();
-      if (!subjectSchema.safeParse(subject).success) {
-        throw new TxRejected(err({
-          code: "invalid_input",
-          message: "event subject가 schema와 다르다",
-        }));
-      }
-      const parsed = event.payload.safeParse(payload);
-      if (!parsed.success) {
-        throw new TxRejected(err({
-          code: "invalid_input",
-          message: "event payload가 schema와 다르다",
-        }));
-      }
-      // event 행도 변경 행 한도에 든다. 실행기의 command_results 한 행만 뺀다(Q19).
-      const inserted = measured(true, () =>
-        sql.run(
-          "insert into events (type, subject, actor, run, payload, at) values (?, ?, ?, ?, ?, ?)",
-          [
-            event.type,
-            subject,
-            ctx.actor,
-            ctx.run,
-            JSON.stringify(parsed.data),
-            deps.clock.now(),
-          ],
-        ));
-      return formatSeq(BigInt(inserted.lastInsertRowid));
-    },
+    emit: (event, subject, payload) =>
+      emitAs(ctx.actor, ctx.run, event, subject, payload),
     now: () => {
       live();
       return deps.clock.now();
@@ -314,6 +337,58 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       live();
       return useApprovalRecord(tx, approval, action, use);
     },
+    callChosenOption<R extends CommandRoute>(
+      route: R,
+      input: unknown,
+      compare: unknown,
+      evidence: { question: string; option: string },
+      handle: (tx: Tx) => Result<z.output<R["output"]>>,
+    ) {
+      live();
+      // 사람 결정을 대신하는 유일한 경로(identity R14). 자격은 machine만이다.
+      if (actorKind(ctx.actor) !== "machine") return CHOSEN_FORBIDDEN;
+      if (ports.current?.present(questionOption as PortKey<unknown>) !== true) {
+        return CHOSEN_FORBIDDEN;
+      }
+      let chosen: Result<ChosenOptionCall>;
+      try {
+        chosen = tx.port(questionOption).chosen(evidence.question);
+      } catch (thrown) {
+        if (thrown instanceof TxRejected || isSqlRejected(thrown)) throw thrown;
+        return CHOSEN_FORBIDDEN;
+      }
+      // 질문·답이 없거나 고정 action이 없는 경우도 같은 답이다(존재를 새지 않는다).
+      if (!chosen.ok) return CHOSEN_FORBIDDEN;
+      if (
+        chosen.value.option !== evidence.option ||
+        chosen.value.route !== route.name ||
+        canonicalize(chosen.value.input) !== canonicalize(input) ||
+        canonicalize(chosen.value.compare ?? null) !==
+          canonicalize(compare ?? null)
+      ) {
+        return CHOSEN_FORBIDDEN;
+      }
+      // 같은 질문 option은 한 번만 적용한다. 기록은 소유 변경과 같은 transaction이다.
+      try {
+        measured(true, () =>
+          sql.run(
+            "insert into question_evidence (evidence_key, question, option, at) values (?, ?, ?, ?)",
+            [
+              `${evidence.question}\u0000${evidence.option}`,
+              evidence.question,
+              evidence.option,
+              deps.clock.now(),
+            ],
+          ));
+      } catch (thrown) {
+        if (thrown instanceof TxRejected || isSqlRejected(thrown)) throw thrown;
+        return err({
+          code: "conflict",
+          message: "질문 option은 이미 적용했다",
+        });
+      }
+      return handle(chosenTx) as Result<z.output<R["output"]>>;
+    },
     call<R extends CommandRoute>(route: R, input: unknown, compare: unknown) {
       live();
       if (deps.dispatch !== undefined) {
@@ -323,6 +398,15 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
       }
       return deps.call(route, input, compare) as Result<z.output<R["output"]>>;
     },
+  };
+  // 근거를 검증한 option 적용 한 번에만 넘기는 Tx다. event는 사람 자격(user, run 없음)으로
+  // 기록하고, 다시 사람 자격으로 바꾸거나 다른 command를 부르는 입구는 없다.
+  const chosenTx: Tx = {
+    ...tx,
+    emit: (event, subject, payload) =>
+      emitAs("user", null, event, subject, payload),
+    callChosenOption: () => CHOSEN_FORBIDDEN,
+    call: () => CHOSEN_FORBIDDEN,
   };
   const ownerPorts = deps.ports.some((port) => port.key === TargetAuthorization)
     ? deps.ports

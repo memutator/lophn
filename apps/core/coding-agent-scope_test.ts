@@ -702,3 +702,41 @@ Deno.test("coding-agent/connection#R11: 대상 앱을 어떻게 골라도 앱 �
     await world.dispose();
   }
 });
+
+Deno.test("coding-agent/connection#R5 coding-agent/connection#R11: 발급이 내는 앱 하나 범위(targets.app·conditions.app) 하나로 자기 앱 문서는 읽히고 다른 앱·project 문서는 없는 문서와 같은 답이다", async () => {
+  const s = await setup();
+  const { world } = s;
+  try {
+    // 자기 앱 문서: 읽기·목차·이력이 닿는다.
+    for (
+      const [tool, input] of [
+        ["lophn_read", { reference: refOf(s.a) }],
+        ["lophn_index", { op: "document", reference: refOf(s.a) }],
+        ["lophn_document", { op: "history", document: s.a.document }],
+      ] as McpCall[]
+    ) {
+      const out = await world.mcp("appA", tool, input);
+      assertEquals(out.isError, false, `${tool}: ${out.summary}`);
+    }
+    // 다른 앱·project 문서는 실제 없는 문서와 같은 답이다.
+    for (const hidden of [s.b, s.p]) {
+      const out = await world.mcp("appA", "lophn_read", {
+        reference: refOf(hidden),
+      });
+      const absent = await world.mcp("appA", "lophn_read", {
+        reference: { ...refOf(hidden), document: ABSENT_DOC },
+      });
+      assertEquals(out, absent);
+      assertEquals(out.isError, true);
+    }
+    // 전체 범위 연결은 셋 모두 읽는다(앱 범위 표시가 전체 범위를 좁히지 않는다).
+    for (const saved of [s.a, s.b, s.p]) {
+      const out = await world.mcp("all", "lophn_read", {
+        reference: refOf(saved),
+      });
+      assertEquals(out.isError, false, out.summary);
+    }
+  } finally {
+    await world.dispose();
+  }
+});

@@ -632,6 +632,7 @@ Deno.test("lophn-agent/roles/context-engineer#R4: Context Engineer의 읽기 선
   const reads = caps.filter((name) => defined.get(name)?.effect === "read");
   // 선택한 읽기가 이름·목적·목차·검색·고정 판·절·범위·이력·차이 조회와 검사에 한정된다.
   assertEquals(reads.slice().sort(), [
+    "app.commands",
     "app.list",
     "app.read_purpose",
     "approval.read_decision",
@@ -677,7 +678,6 @@ Deno.test("lophn-agent/roles/context-engineer#R4: Context Engineer의 읽기 선
   // 정의가 아직 없는 선택은 소유 contract가 서는 작업이 채운다. 이 목록 밖에는 정의 없는 선택이 없다.
   const undefinedYet = caps.filter((name) => !defined.has(name)).sort();
   assertEquals(undefinedYet, [
-    "app.commands",
     "term.submit_definition_answer",
   ]);
 });

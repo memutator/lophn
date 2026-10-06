@@ -223,3 +223,23 @@ Deno.test("platform/identity#R3, coding-agent/connection#R5: owner가 준 target
   // 대상을 주지 않으면 조건의 값으로 채운다.
   assert(authorize(ctx, "app.get", {}).ok);
 });
+
+Deno.test("platform/identity#R3, coding-agent/connection#R5: 앱 하나 범위 coding connection(targets.app·conditions.app)은 owner가 target의 앱을 직접 줘야 통과하고 앱을 말하지 않은 target은 조건으로 채워 통과시키지 않는다", () => {
+  const A = "app_00000000000000000000000000";
+  const B = "app_00000000000000000000000001";
+  const ctx = {
+    ...user("owner-1"),
+    actor: "coding_agent:cac_00000000000000000000000000" as const,
+    scope: { operations: ["doc.get"], targets: { app: A } },
+    conditions: { app: A },
+  };
+  const authorize = createTargetAuthorizer(ctx);
+  assert(authorize(ctx, "doc.get", { document: "d", app: A }).ok);
+  // 다른 앱의 대상은 없는 대상과 같은 not_found다.
+  assertEquals(
+    code(authorize(ctx, "doc.get", { document: "d", app: B })),
+    "not_found",
+  );
+  // 앱을 말하지 않은 target(project 문서·project 읽기)은 자기 앱으로 통과하지 않는다.
+  assertEquals(code(authorize(ctx, "doc.get", { document: "d" })), "forbidden");
+});

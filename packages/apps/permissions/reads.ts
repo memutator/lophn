@@ -14,7 +14,7 @@ import { appAccessDenied, authorizeApp, loadApp } from "../registration/mod.ts";
 import { declarationsAt } from "./declarations.ts";
 import { buildGrantDisplay } from "./display.ts";
 import type { ResolvedRequirement } from "./model.ts";
-import { loadGrants } from "./store.ts";
+import { grantsSeq, loadGrants } from "./store.ts";
 
 const PAGE = 50;
 
@@ -187,6 +187,9 @@ export function createGrantsReads(): {
         }
         return ok({
           grants: page,
+          ...(input.app === undefined
+            ? {}
+            : { grants_seq: grantsSeq(snapshot.sql, input.app) }),
           display,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: next < head

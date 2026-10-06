@@ -1044,6 +1044,7 @@ async function open(
           placementReservations,
         ),
         appsControl.commands,
+        appsControl.grantChange,
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.

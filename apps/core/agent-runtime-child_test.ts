@@ -395,9 +395,14 @@ Deno.test("lophn-agent/harness/run-loop#R8: runtime child의 argv에는 -A가 �
       assertEquals(granted.get("allow-write"), [
         `${world.core.dataRoot}/derived/lophn-agent`,
       ]);
+      // MCP stdio 자식의 최소 환경 네 이름이 더해진다(lophn-agent#T36).
       assertEquals(granted.get("allow-env"), [
         "LOPHN_HOME",
         "LOPHN_WORKER_KIND",
+        "PATH",
+        "HOME",
+        "TEMP",
+        "LC_ALL",
       ]);
       assertEquals(
         args.slice(0, 4),

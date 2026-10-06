@@ -220,7 +220,11 @@ export type AppDecision =
     readonly app: string;
     readonly release: string;
   }
-  | { readonly kind: "change_access"; readonly app: string }
+  | {
+    readonly kind: "change_access";
+    readonly app: string;
+    readonly requirement?: number;
+  }
   | {
     readonly kind: "remove_access";
     readonly app: string;
@@ -231,7 +235,11 @@ export type AppDecision =
     readonly app: string;
     readonly automation: string;
   }
-  | { readonly kind: "connect_apps"; readonly app: string };
+  | {
+    readonly kind: "connect_apps";
+    readonly app: string;
+    readonly target?: string;
+  };
 
 export interface AppDetailSource {
   versions(app: string): Promise<SourceResult<VersionList>>;
@@ -241,7 +249,10 @@ export interface AppDetailSource {
   ): Promise<SourceResult<readonly TestResult[]>>;
   taskChecks(ticket: string): Promise<SourceResult<TaskChecks>>;
   startCheck(app: string): Promise<SourceResult<StartCheck | null>>;
-  blueprint(app: string): Promise<SourceResult<BlueprintView | null>>;
+  blueprint(
+    app: string,
+    release?: string,
+  ): Promise<SourceResult<BlueprintView | null>>;
   access(app: string): Promise<SourceResult<AccessView>>;
   runtime(app: string): Promise<SourceResult<RuntimeView>>;
   secrets(

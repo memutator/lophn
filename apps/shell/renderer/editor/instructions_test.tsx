@@ -294,3 +294,19 @@ Deno.test("shell/editor#R17: 대상을 열지 못하면 다시 시도를 보인�
   await flush();
   assert(rendered.container.querySelector("[data-instructions-view='draft']"));
 });
+
+Deno.test("shell/editor#R17: app 층 빈 지침의 제목은 전역 제목이 아니다", async () => {
+  const fake = sourceOf({ opened: () => ({ document: null, version: null }) });
+  using rendered = render(
+    <InstructionsEntry
+      place={{ layer: "app", place: "app_01h455vb4pex5v6nkc6gd5fd01" }}
+      source={fake.source}
+      editor={editorOf()}
+    />,
+  );
+  await flush();
+  assertEquals(
+    one(rendered.container, "[data-document-title]").textContent,
+    "App instructions",
+  );
+});

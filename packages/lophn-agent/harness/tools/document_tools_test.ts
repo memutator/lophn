@@ -2,8 +2,12 @@ import { assert, assertEquals } from "@std/assert";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { ROUTES as DOCUMENT_ROUTES } from "../../../contracts/documents/mod.ts";
 import { ROUTES } from "../../../contracts/lophn-agent/mod.ts";
-import { ROLE_CAPS } from "../../presets/mod.ts";
-import { expandBundles } from "../../presets/model.ts";
+import {
+  productPresetDefinition,
+  ROLE_CAPS,
+  validateDefinition,
+  type ValidateDeps,
+} from "../../presets/mod.ts";
 import {
   BUILTIN_TOOLS,
   createBuiltinToolHandlers,
@@ -17,6 +21,7 @@ import {
   FORMAT_TOOLS,
   listTools,
   type RunCredential,
+  runOperations,
   TOOL_BUNDLES,
 } from "./mod.ts";
 
@@ -971,6 +976,31 @@ Deno.test("lophn-agent/harness/tools#R7: SDK 안내는 이 묶음의 일이 아�
   );
 });
 
+// preset 저장 검사(presets#R7, R11)가 쓰는 묶음 판이다. 묶음은 이름 목록일 뿐이어서 역할 상한이 따로 적용된다.
+const VALIDATE: ValidateDeps = {
+  bundles: TOOL_BUNDLES,
+  mcpServers: new Map(),
+  roleCaps: ROLE_CAPS,
+  definitionKey: () => undefined,
+  catalogEntry: () => undefined,
+  modelListed: () => null,
+  credentialKeys: () => [],
+};
+
+function selecting(
+  kind: "lophn" | "context_engineer",
+  bundles: string[],
+  tools: string[] = [],
+) {
+  return {
+    ...productPresetDefinition(kind, "a".repeat(64)),
+    capability: {
+      bundles: bundles.map((name) => ({ name, revision: 1 })),
+      tools: tools.map((tool) => ({ tool, app_command: null })),
+    },
+  };
+}
+
 Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 펼쳐 고정되고 쓰기 묶음은 읽기 묶음과 따로 고른다", () => {
   assertEquals([...TOOL_BUNDLES.keys()].sort(), [
     "document-read",
@@ -980,22 +1010,48 @@ Deno.test("lophn-agent/harness/tools#R6: 묶음 이름은 개별 동작으로 �
   assertEquals(TOOL_BUNDLES.get("document-read"), DOCUMENT_READ_TOOL_NAMES);
   assertEquals(TOOL_BUNDLES.get("document-write"), DOCUMENT_WRITE_TOOL_NAMES);
   assertEquals(TOOL_BUNDLES.get("format"), FORMAT_TOOL_NAMES);
-  const read = expandBundles(
-    [{ name: "document-read", revision: 1 }],
-    TOOL_BUNDLES,
-  );
-  assert(read.ok);
-  assertEquals(read.value.includes("document.save_version"), false);
-  const missing = expandBundles(
-    [{ name: "document", revision: 1 }],
-    TOOL_BUNDLES,
-  );
-  assertEquals(missing.ok, false);
-  // 어느 묶음의 이름도 정의가 있다.
-  const defined = new Set(BUILTIN_TOOLS.map((tool) => tool.name));
+  // 어느 묶음의 이름도 정의가 있고 읽기 묶음에는 쓰기 동작이 없다.
+  const defined = new Map(BUILTIN_TOOLS.map((tool) => [tool.name, tool]));
   for (const names of TOOL_BUNDLES.values()) {
     for (const name of names) assert(defined.has(name), name);
   }
+  for (const name of TOOL_BUNDLES.get("document-read")!) {
+    assertEquals(defined.get(name)!.effect, "read", name);
+  }
+  // 읽기·format 묶음을 고른 preset은 저장되고 쓰기 동작은 들어가지 않는다.
+  const reading = validateDefinition(
+    selecting("lophn", ["document-read", "format"]),
+    VALIDATE,
+  );
+  assert(reading.ok, JSON.stringify(reading));
+  // 모르는 묶음 이름은 저장 전체의 not_found다(묶음 이름 추측 없음).
+  const unknown = validateDefinition(
+    selecting("lophn", ["document"]),
+    VALIDATE,
+  );
+  assertEquals(unknown.ok, false);
+  assertEquals(!unknown.ok && unknown.error.code, "not_found");
+  // 역할 상한은 묶음 뒤에도 적용된다: Operator 상한에는 새 문서 tool이 없어 쓰기 묶음 전체가
+  // 거절되고, 같은 묶음이 상한 안인 역할에서는 저장된다.
+  const writing = validateDefinition(
+    selecting("lophn", ["document-write"]),
+    VALIDATE,
+  );
+  assert(writing.ok, JSON.stringify(writing));
+  const operator = validateDefinition(
+    { ...selecting("lophn", ["document-write"]), kind: "operator" },
+    VALIDATE,
+  );
+  assertEquals(operator.ok, false);
+  assertEquals(!operator.ok && operator.error.code, "forbidden");
+  const operatorSaving = validateDefinition(
+    {
+      ...selecting("lophn", [], ["document.save_version"]),
+      kind: "operator",
+    },
+    VALIDATE,
+  );
+  assert(operatorSaving.ok, JSON.stringify(operatorSaving));
 });
 
 Deno.test("lophn-agent/harness/tools#R12: 범위 밖 문서의 읽기 실패는 없는 문서와 같은 결과이고 원문 오류를 싣지 않는다", async () => {
@@ -1021,4 +1077,35 @@ Deno.test("lophn-agent/harness/tools#R12: 범위 밖 문서의 읽기 실패는 
   assertEquals(noScope.outcome.code, "not_found");
   const formats = createFormatToolHandlers(world);
   assertEquals(formats.size, 4);
+});
+
+Deno.test("lophn-agent/harness/tools#R6: run 자격의 operation은 제공 목록의 소유 contract와 저장 보조 operation의 합이고 쓰기 tool이 없으면 저장 operation이 없다", () => {
+  const byName = (names: readonly string[]) =>
+    BUILTIN_TOOLS.filter((tool) => names.includes(tool.name));
+  const reading = runOperations(byName(DOCUMENT_READ_TOOL_NAMES));
+  assertEquals(reading.includes("document.save"), false);
+  assertEquals(reading.includes("document.prepare"), false);
+  assertEquals(reading.includes("SaveToolDocument"), false);
+  assert(reading.includes("document.read"));
+  const writing = runOperations(byName(["document.save_version"]));
+  assertEquals(writing, [
+    "SaveToolDocument",
+    "document.prepare",
+    "document.save",
+  ]);
+  // 이동·이름 변경·보관 같은 직접 관리 operation은 어느 목록에서도 나오지 않는다.
+  const all = runOperations(BUILTIN_TOOLS);
+  for (
+    const operation of [
+      "document.move",
+      "document.rename",
+      "document.archive",
+      "document.unarchive",
+      "document.restore",
+      "document.upload",
+      "document.update",
+    ]
+  ) {
+    assertEquals(all.includes(operation), false, operation);
+  }
 });

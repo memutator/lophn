@@ -7,6 +7,7 @@ export {
   findTool,
   FORBIDDEN_TOOL_NAMES,
   listTools,
+  runOperations,
   TOOL_BUNDLES,
   type ToolCatalog,
   type ToolDefinition,

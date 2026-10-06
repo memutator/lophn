@@ -20,6 +20,7 @@ import {
   executeTool,
   listTools,
   type RunCredential,
+  runOperations,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
@@ -59,11 +60,9 @@ const FORMAT_DOCUMENT = "document";
 
 // agent 자격이 가지는 operation. tool이 가리키는 소유 contract이고, 문서 저장은 core가 요청 자격으로
 // 준비·확정하므로 document.prepare·document.save를 함께 가진다. 그 밖의 문서 관리 operation은 없다.
-const TOOL_CONTRACTS = [...new Set(BUILTIN_TOOLS.map((tool) => tool.contract))];
 const AGENT_OPERATIONS = [
-  ...TOOL_CONTRACTS,
-  "document.prepare",
-  "document.save",
+  ...runOperations(BUILTIN_TOOLS),
+  // 시험이 저장된 판을 확인하려고 더하는 읽기다. tool이 쓰는 operation이 아니다.
   "document.file",
   "document.get",
 ];

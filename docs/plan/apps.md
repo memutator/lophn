@@ -975,6 +975,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   어댑터를 supervisor에 조립할 때 같은 모양으로 응답해야 한다. (3) 화면
   build(`scripts/build-ui.ts`, esbuild)를 준비 단계가 직접 돌려
   `screens`·`assets`를 만든다. 지금 입력은 이미 build된 JS와 자원이다
+- documents#T31에서 넘어온 것: `DocumentsSave` 실제 어댑터(`packages/apps/permissions/adapters/documents-save.ts`의 `createAppDocumentsSave`)는 documents#T31이 끝냈다(실제 core로 시험). supervisor 조립(위 apps#T13 줄)이 그 deps 셋을 채운다. (1) `client(child)`: 그 자식의 app credential(`app_credential_request`로 받은 token, 앱 코드는 못 봄)로 core API를 부르는 client. `createRpcClient`(contracts/platform)와 upload route(`x-lophn-input` base64url JSON header, body 바이트 stream)를 쓰며 구조는 `command`·`read`·`upload` 셋이다. (2) `output`(`AppOutputSource`): 앱이 선언한 key의 출력 bytes 근원. broker 요청에는 본문이 없으므로 근원을 정해야 한다(documents plan Q35 추천: 앱이 자기 `data/files/outputs/<key>/`에 쓰고 supervisor가 realpath로 앱 data 안임을 검사해 읽는다, hash·크기는 읽어서 재고 core가 실제 bytes와 맞춘다). cap-save의 안내(`guide.md`)에 그 규칙을 적어야 앱이 쓸 수 있다. (3) `declarations`(`AppOutputDeclarations`): 현재 release의 blueprint documents[] name·format·document. 이 작업의 blueprint read에서 낸다
 - 완료:
   - `prepare_test.ts`: release 없이 bundle을 테스트한 뒤 같은 hash의 pass만
     준비되고 한 byte 바꾼 bundle·자가 제출 결과는 거절(R5),

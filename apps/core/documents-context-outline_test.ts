@@ -14,6 +14,7 @@ import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 // root outline은 apps 표도 읽으므로 제품처럼 apps 등록이 같이 선다.
 const teams: TeamModule[] = [
@@ -77,6 +78,10 @@ async function open(): Promise<Opened> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+  });
   const core = started.value;
   const token = "d".repeat(43);
   const limited = "e".repeat(43);
@@ -86,6 +91,7 @@ async function open(): Promise<Opened> {
   await Deno.mkdir(`${home}/derived`, { recursive: true });
   const store = openDerived(derivedPath(`${home}/derived`));
   assert(store.ok, store.ok ? "" : store.error.message);
+  guard.keep();
   return { core, home, token, limited, store: store.value };
 }
 

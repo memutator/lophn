@@ -44,10 +44,12 @@ import { REPORT_BLOB_PURPOSES } from "../../packages/contracts/problems/mod.ts";
 import type { KindLaunchSpec } from "../../packages/contracts/platform/mod.ts";
 import {
   observeException,
+  observeViewError,
   problemClosed,
   problemOpened,
   problemReopened,
   reportProblem,
+  submitFeedback,
   verificationRecorded,
 } from "../../packages/contracts/problems/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
@@ -134,9 +136,16 @@ export const problemsReportDefinitions = {
   ],
   ports: {} as Record<string, TxPortRegistration>,
   workers: reportCollectorWorkers(),
-  // 보고 접수 worker route(T3). dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
-  // observe-exception도 예외 진단을 collector로 넘긴다(process 출처).
-  workerRoutes: [reportProblem, observeException],
+  // 보고 접수 worker route(T3, T16). dispatch가 입력 형식·scope 뒤 collector로 넘긴다.
+  // observe-exception은 예외 진단을 collector로 넘기고(process 출처),
+  // observe-view-error는 view exception을 collector로 넘긴다(view 출처, reporting#R5, R6).
+  // submit-feedback은 shell user의 제보를 collector로 넘긴다(feedback#R1; 선택한 PNG는 바이트 body).
+  workerRoutes: [
+    reportProblem,
+    observeException,
+    observeViewError,
+    submitFeedback,
+  ],
 };
 
 // 진단 상세 수집 on/off(snapshots#R7). 끄면 새 로그 같은 상세 수집만 멈추고 기존 자료의

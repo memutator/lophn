@@ -261,6 +261,8 @@ Deno.test("apps/sdk#R33 apps/releases#R1 shell#T37: 템플릿 앱 화면 build �
       bundle_hash: prepared.value.bundleHash,
       test_hash: failureTest,
       blueprint: blueprint as never,
+      // 템플릿 앱은 migrations/0-1.sql 하나이고 이전 release가 없다(apps/data#R3).
+      data: { schema: 1, previous_schema: null },
       blueprint_hash: prepared.value.blueprintHash,
       frozen: {
         blueprint: prepared.value.blueprintHash,

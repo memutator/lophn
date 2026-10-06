@@ -429,6 +429,51 @@ const APP_HELP: readonly CommandHelp[] = [
   ),
 ];
 
+// SDK command다(T22, cli#R30). add는 `apply`일 때만 앱 source의 deno.json을 바꾼다.
+const SDK_HELP: readonly CommandHelp[] = [
+  {
+    command: "sdk catalog",
+    purpose:
+      "설치 SDK를 설명·API 이름으로 찾아 이름·최신 version·종류·한 줄 설명을 읽는다. 개인 SDK(@me)는 지원 범위 밖으로 표시한다",
+    required: [],
+    optional: ["--input", "--input-file", "query", "name", "limit", "cursor"],
+    jsonExample: { command: "sdk catalog", query: "table", json: true },
+    mutate: false,
+    humanOnly: false,
+    confirmation: false,
+    next: ["sdk show", "sdk add"],
+  },
+  {
+    command: "sdk show",
+    purpose:
+      "SDK 하나의 설치 version과 고른 version(기본 최신)의 사용 안내를 읽는다",
+    required: ["name"],
+    optional: ["--input", "--input-file", "version"],
+    jsonExample: { command: "sdk show", name: "@lophn/ui-table", json: true },
+    mutate: false,
+    humanOnly: false,
+    confirmation: false,
+    next: ["sdk add"],
+  },
+  {
+    command: "sdk add",
+    purpose:
+      "exact version의 고정 import 안내를 낸다. apply면 --app의 source deno.json에 반영하고 changed·unchanged·conflict를 낸다. 범위 version·다른 version으로 바꾸기는 거절한다",
+    required: ["name", "version"],
+    optional: ["--input", "--input-file", "apply", "app"],
+    jsonExample: {
+      command: "sdk add",
+      name: "@lophn/ui-table",
+      version: "1.2.0",
+      json: true,
+    },
+    mutate: true,
+    humanOnly: false,
+    confirmation: false,
+    next: ["app validate"],
+  },
+];
+
 const TICKET_HELP: readonly CommandHelp[] = [
   {
     command: "ticket list",
@@ -690,6 +735,7 @@ const DECISION_HELP: readonly CommandHelp[] = [
     next: ["approval show"],
   },
   ...APP_HELP,
+  ...SDK_HELP,
   ...TICKET_HELP,
 ];
 

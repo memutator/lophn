@@ -1,0 +1,60 @@
+# electron-builder config (shell#T57). Run `npm run dist` (stages resources first).
+appId: dev.lophn.shell
+productName: lophn
+executableName: lophn
+copyright: lophn
+directories:
+  output: release
+  buildResources: packaging
+files:
+  - dist/**/*
+  - package.json
+asar: true
+extraResources:
+  - from: packaging/icon.png
+    to: icon.png
+  - from: build/stage/bin
+    to: bin
+  - from: build/stage/core
+    to: core
+  - from: build/stage/shell-renderer
+    to: shell-renderer
+protocols:
+  - name: lophn
+    schemes:
+      - lophn
+    role: Editor
+linux:
+  target:
+    - deb
+  category: Development
+  synopsis: Client workspace for projects and apps with lophn
+  maintainer: lophn developers <lophn@localhost>
+  syncDesktopName: true
+  mimeTypes:
+    - x-scheme-handler/lophn
+deb:
+  artifactName: lophn_${version}_${arch}.${ext}
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
+appImage:
+  artifactName: ${productName}-${version}-${arch}.AppImage
+mac:
+  target:
+    - dmg
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false

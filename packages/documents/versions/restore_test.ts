@@ -88,7 +88,7 @@ function preparedOf(
   };
 }
 
-async function saved(
+function saved(
   fixture: Fixture,
   base: string | null,
   item: Built,
@@ -181,8 +181,8 @@ function restore(
 async function history(fixture: Fixture) {
   const first = await built("# 계획서\n\n## 개요\n처음 글\n", EXPLICIT_FORMAT);
   const second = await built("# 계획서\n\n## 개요\n고친 글\n");
-  const one = await saved(fixture, null, first, "save-1");
-  const two = await saved(fixture, one.version, second, "save-2");
+  const one = saved(fixture, null, first, "save-1");
+  const two = saved(fixture, one.version, second, "save-2");
   return {
     first: { version: one.version, item: first },
     second: { version: two.version, item: second },
@@ -424,7 +424,7 @@ Deno.test("documents/versions#R10: 없는 문서·다른 문서의 판은 not_fo
     const { first, second } = await history(fixture);
     // 다른 문서의 판을 골라도 이 문서에는 그 판이 없다.
     const foreignItem = await built("남의 문서 글");
-    const foreign = await saved(
+    const foreign = saved(
       fixture,
       null,
       foreignItem,
@@ -564,9 +564,9 @@ async function linkedHistory(fixture: Fixture) {
       observed_at: AT,
     },
   });
-  const one = await saved(fixture, null, first, "obs-1", observed(first));
+  const one = saved(fixture, null, first, "obs-1", observed(first));
   const current = documentRow(fixture);
-  const two = await saved(
+  const two = saved(
     fixture,
     one.version,
     second,

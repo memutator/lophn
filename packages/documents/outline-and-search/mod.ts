@@ -58,14 +58,6 @@ export type {
 export { allowCandidate, candidateDocuments } from "./candidates.ts";
 export { createSeriesOutlineRead } from "./series-outline.ts";
 export {
-  createHistoryHandlers,
-  type DiffInput,
-  type DiffPage,
-  type HistoryHandlers,
-  type SectionHistoryInput,
-  type SectionHistoryPage,
-} from "./history-reads.ts";
-export {
   type ComparedVersion,
   compareSectionKey,
   compareSections,

@@ -123,6 +123,25 @@ Deno.test("documents/outline-and-search#R21: 계산 한도를 넘으면 구간 �
   }]);
 });
 
+Deno.test("documents/outline-and-search#R21: 탐색 단계 한도를 넘은 큰 비교도 구간 전체를 한 block으로 두고 끝낸다", () => {
+  const before = Array.from({ length: 4000 }, (_, i) => `줄 ${i}`);
+  const after = before.map((line, i) => (i % 2 === 0 ? `${line} 수정` : line));
+  // 거리 한도 안(2000)이지만 단계 한도를 아주 작게 주면 한 block으로 끝난다.
+  const capped = diffBlocks(before, after, 4000, 1000);
+  // 마지막 줄은 같아 앞뒤 공통 줄로 걷어 낸다.
+  assertEquals(capped, [{
+    delete_start: 0,
+    delete_end: 3999,
+    insert_start: 0,
+    insert_end: 3999,
+  }]);
+  assertEquals(apply(before, after, capped), after);
+  // 한도가 충분하면 같은 입력이 줄 단위로 나온다.
+  const exact = diffBlocks(before, after, 4000);
+  assertEquals(exact.length, 2000);
+  assertEquals(apply(before, after, exact), after);
+});
+
 Deno.test("documents/outline-and-search#R21: 큰 목록의 작은 수정은 한도 안에서 최소로 나온다", () => {
   const before = Array.from({ length: 5000 }, (_, i) => `줄 ${i}`);
   const after = [...before];

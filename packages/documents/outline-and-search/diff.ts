@@ -9,6 +9,9 @@ import { z } from "zod";
 
 // 앞뒤 공통 줄을 걷어 낸 뒤 Myers가 탐색하는 최대 편집 거리. trace가 D² 정수라 한도가 있다.
 export const MYERS_MAX_EDIT_DISTANCE = 1024;
+// 탐색 단계(대각선 하나를 한 번 보거나 같은 줄을 한 칸 지나는 것) 수의 한도. 거리가 한도
+// 안이어도 줄이 아주 많은 판이 한 응답을 오래 붙잡지 못하게 한다.
+export const MYERS_MAX_STEPS = 20_000_000;
 // 한 응답이 싣는 본문 codepoint 예산(`documents/read`와 같은 12,000)과 변경 줄 수 한도.
 export const DIFF_PAGE_CODEPOINTS = 12000;
 export const DIFF_PAGE_MAX_LINES = 1000;
@@ -50,6 +53,7 @@ function myersEdits(
   from: { a: number; b: number },
   to: { a: number; b: number },
   maxEditDistance: number,
+  maxSteps: number,
 ): Edit[] | null {
   const n = to.a - from.a;
   const m = to.b - from.b;
@@ -57,6 +61,7 @@ function myersEdits(
   const offset = max + 1;
   const v = new Int32Array(2 * max + 3);
   const trace: Int32Array[] = [];
+  let steps = 0;
   for (let d = 0; d <= max; d++) {
     // 이 d 단계가 읽는 이전 단계(d-1)의 v. k는 [-d, d] 범위만 쓴다.
     trace.push(v.slice(offset - d, offset + d + 1));
@@ -71,7 +76,10 @@ function myersEdits(
       while (x < n && y < m && a[from.a + x] === b[from.b + y]) {
         x += 1;
         y += 1;
+        steps += 1;
       }
+      steps += 1;
+      if (steps > maxSteps) return null;
       v[offset + k] = x;
       if (x >= n && y >= m) return backtrack(trace, n, m, d);
     }
@@ -112,6 +120,7 @@ export function diffBlocks(
   before: readonly string[],
   after: readonly string[],
   maxEditDistance = MYERS_MAX_EDIT_DISTANCE,
+  maxSteps = MYERS_MAX_STEPS,
 ): DiffBlock[] {
   let head = 0;
   while (
@@ -134,9 +143,9 @@ export function diffBlocks(
     }];
   }
   const { a, b } = intern(before, after);
-  const edits = myersEdits(a, b, from, to, maxEditDistance);
+  const edits = myersEdits(a, b, from, to, maxEditDistance, maxSteps);
   if (edits === null) {
-    // 한도를 넘었다. 줄 수준 일치를 찾지 못한 구간 전체가 한 block이다.
+    // 거리나 탐색 한도를 넘었다. 줄 수준 일치를 찾지 못한 구간 전체가 한 block이다.
     return [{
       delete_start: from.a,
       delete_end: to.a,

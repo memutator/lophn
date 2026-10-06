@@ -419,6 +419,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - 템플릿 업무 프로세스는 Deno, 화면은 React, lophn 화면과 같은 설치 Package를 쓴다(R1), guide에 재사용 기준(실제 사용처 2개 이상, 앱 DB 구조·앱 전용 prop은 앱에 남김)(R36)
   - 템플릿 앱이 T6 bundle 준비와 problems app test를 통과한다
 - shell#T37에서 넘어온 것: 앱 entrypoint(`packages/apps/runtime/entrypoint/main.ts`의 `startRuntime`)가 `screenBytes`를 넘기지 않아 실제 앱 프로세스의 `GET /screens/<screen>/<path>`가 모두 404다. 템플릿 앱의 build된 화면 자원을 bundle에서 내주게 잇는다. shell main은 view를 `lophn-app://<app label>/<screen key>/index.html`로 열어 `/screens/<screen key>/index.html`을 그 screen의 진입으로 부르고, 자원은 같은 screen 아래 상대 경로로 부른다(다른 screen 경로는 shell이 막는다). content type은 text/html·text/css·text/javascript·application/json·wasm·이미지·글꼴만 받는다(`apps/shell/main/app-frame/app-protocol.ts`)
+- shell#T41에서 넘어온 것: @lophn/ui-reading은 `@lophn/design/reading`도, @lophn/ui-action은 `@lophn/blueprint`(type만)도 import한다. 템플릿 화면 build의 import map·설치 묶음이 ui-reading·ui-filter·ui-stat·ui-action과 함께 이것을 풀어야 한다. 템플릿의 명령 버튼은 `CommandButton`에 blueprint command 선언을 그대로 주면 confirm 표시와 `lophnApp.call` 호출이 따라온다
 
 ### T23 fixture: 할 일 앱
 

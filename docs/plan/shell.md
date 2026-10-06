@@ -689,6 +689,7 @@ concerns: [shell]
 
 ### T35 세션 시각 블록 renderer
 
+- 상태: 완료 (#338) — 이어보냄: lophn 답의 streaming 임시 글 → T30, 세션 앱 카드 갈래 → T44, 블록 하나만 output schema를 못 지날 때 메시지 전체 읽기 실패(contracts 판단, Q23 (2))
 - 등급: frontend
 - concern: shell/workspace
 - 요구: shell/workspace#R12, R13

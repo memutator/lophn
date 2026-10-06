@@ -2,8 +2,8 @@
 // documents worker·format runner를 임시 LOPHN_HOME으로 띄우고 예시 project 폴더 fixture
 // (weekly-report)를 사람이 등록해 추적한다. 화면은 lophn 공간의 documents 화면(Series 탭)이다.
 // - 1·4·6·7과 다른 갈래(해석할 수 없는 규칙, 이미 쓴 key, 제안은 문서를 만들지 않음)를 이 화면으로 본다.
-// - 2·5의 "내용을 쓰고 저장"(문서 편집기의 저장·series draft)은 shell#T17(저장 흐름)이 없어서
-//   이 시험은 이미 추적 중인 문서를 key를 정해 멤버로 더하는 데까지만 본다.
+// - 2·5는 이미 추적 중인 문서를 key를 정해 멤버로 더하는 길과, 제안한 key로 새 문서를 같은
+//   편집기에서 쓰는 길(가족 draft → 편집 종료의 첫 판이 멤버 가입과 draft 비움, shell#T17)을 본다.
 // - 프로젝트 등록·추적 켜기는 launcher 화면(shell#T15)이 아직 없어 같은 사람 command를 core 통로로 낸다.
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
@@ -31,6 +31,25 @@ async function seriesCount(flow: FlowShell): Promise<number> {
     body: { status: "all" },
   });
   return (value.series as unknown[]).length;
+}
+
+// LOPHN_SHELL_SHOT_DIR을 주면 지금 화면을 그 폴더에 이름 붙여 남긴다. settled 그림은 paint가 멈춘 뒤
+// 쓰이므로 편집기 focus를 잠시 빼고 새로 쓰인 그림을 복사한다.
+async function shot(flow: FlowShell, name: string): Promise<void> {
+  const dir = Deno.env.get("LOPHN_SHELL_SHOT_DIR");
+  if (!dir) return;
+  const settled = `${dir}/window-1-settled.png`;
+  const stamp = () =>
+    Deno.stat(settled).then((info) => info.mtime?.getTime() ?? 0, () => 0);
+  const before = await stamp();
+  await flow.evaluate(
+    `(() => { document.activeElement?.blur?.(); return true; })()`,
+  );
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline && await stamp() <= before) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  await Deno.copyFile(settled, `${dir}/${name}.png`);
 }
 
 async function addMember(
@@ -214,6 +233,87 @@ Deno.test({
             "보관을 풀어도 멤버를 더할 수 없다",
           );
           assertEquals(await flow.count("[data-series-archived]"), 0);
+        },
+      );
+
+      await t.step(
+        "documents/series#R2 documents/series#R11 shell/editor#R1 shell/editor#R2: 2·5 제안한 key로 새 문서를 쓰면 첫 판 전에는 가족 draft이고, 편집 종료가 첫 판을 저장해 같은 자리의 멤버가 된다",
+        async () => {
+          await flow.until(
+            `document.querySelector("[data-member-key]")?.value === "P003"`,
+            "다음 제안 P003이 key 칸에 없다",
+          );
+          const before = (await listDocuments(flow)).length;
+          await flow.click("[data-write-member]");
+          await flow.until(
+            `document.querySelector("[data-member-writer='P003'] .cm-content") !== null`,
+            "새 문서 편집기가 열리지 않았다",
+          );
+          // 첫 판 전에는 가족 draft(key·예정 문서)만 있고 문서는 없다.
+          assertEquals(
+            await flow.evaluate(
+              `document.querySelector("[data-new-document]").getAttribute("data-new-document")`,
+            ),
+            "draft",
+          );
+          const drafted = await mustCall(flow, {
+            kind: "read",
+            resource: "series",
+            method: "list",
+            body: { status: "all" },
+          });
+          const family = (drafted.series as {
+            draft: { key: string; document: string } | null;
+          }[])[0]!;
+          assertEquals(family.draft?.key, "P003");
+          assertEquals((await listDocuments(flow)).length, before);
+          // 사람 입력처럼 편집기 끝에 글을 넣고 CommandOrControl+S로 편집을 끝낸다.
+          assertEquals(
+            await flow.evaluate(`(() => {
+              const content = document.querySelector("[data-member-writer] .cm-content");
+              content.focus();
+              const range = document.createRange();
+              range.selectNodeContents(content);
+              range.collapse(false);
+              const selection = getSelection();
+              selection.removeAllRanges();
+              selection.addRange(range);
+              return document.execCommand("insertText", false, "Third week.");
+            })()`),
+            true,
+          );
+          await shot(flow, "series-writer");
+          await flow.evaluate(
+            `(() => { document.querySelector("[data-member-writer]").dispatchEvent(new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true, cancelable: true })); return true; })()`,
+          );
+          await flow.until(
+            `${MEMBER_KEYS} === '["P001","P002","P003"]'`,
+            "새 멤버가 순서대로 없다",
+          );
+          const created = await documentTitled(flow, "P003");
+          assertEquals(created.id, family.draft!.document);
+          assertEquals(created.name, "p003");
+          assertEquals(created.format, "document");
+          const after = await mustCall(flow, {
+            kind: "read",
+            resource: "series",
+            method: "list",
+            body: { status: "all" },
+          });
+          assertEquals((after.series as { draft: unknown }[])[0]!.draft, null);
+          // 같은 자리(첫 멤버와 같은 프로젝트)의 문서다.
+          const placeOf = async (id: string) =>
+            ((await mustCall(flow, {
+              kind: "read",
+              resource: "documents",
+              method: "get",
+              body: { document: id },
+            })).document as { place: unknown }).place;
+          assertEquals(
+            await placeOf(created.id),
+            await placeOf((await documentTitled(flow, "P001")).id),
+          );
+          await shot(flow, "series-written");
         },
       );
     } finally {

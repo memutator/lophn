@@ -338,6 +338,7 @@ concerns: [documents]
 
 ### T16 이력·diff·restore
 
+- 상태: 완료 (#304) — 한 것: 공용 section-comparison(`model.ts` `compareSections`·`compareSectionKey`·`sectionHistory`, T24가 같은 함수를 쓴다), `/v1/documents/section_history`·`/diff`를 reader Worker가 ledger snapshot과 derived store로 서빙(`history-reads.ts`, bounded Myers `diff.ts`), `document.restore` command와 core 등록(`DocumentSaved`+`DocumentRestored`, 최신과 같으면 unchanged, 원본 연결 문서는 파일 쓰기 뒤 관측 근거로만), 실제 core·documents worker·I/O worker 통합 시험. 차이(질문 Q30): diff 계산이 준비 worker가 아니라 reader Worker에서 돌고(core 요청 thread 밖), 본문은 derived_texts만 쓴다(추출이 없거나 unverified·unsupported·failed인 판은 누락). 후속(선택): 준비 worker로 diff 이전, 파생 text가 없는 판의 원문 blob 직접 diff.
 - 등급: 기본
 - concern: documents/outline-and-search, documents/versions
 - 요구: documents/versions#R10, documents/outline-and-search#R19, R20, R21

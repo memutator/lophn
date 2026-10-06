@@ -75,6 +75,11 @@ export function Desktop(
     setRoute(next);
   };
   const thingsToConfirm = () => visit(openLophn("things-to-confirm"));
+  // 링크로 온 요청은 고르기만 한다. 결정 창은 사람이 그 화면에서 누를 때 연다(desktop#R14).
+  const confirmTarget = (request?: string) =>
+    request === undefined
+      ? thingsToConfirm()
+      : visit({ ...openLophn("things-to-confirm"), request });
   // 전역 팔레트에서 고른 대상. lophn 공간 팔레트와 같은 목적지로만 간다(desktop#R30).
   const go = (target: LophnTarget) => {
     if (target.kind === "launcher") launcher();
@@ -117,6 +122,7 @@ export function Desktop(
         organize={organize}
         screen={route.screen}
         initialRead={route.read}
+        initialRequest={route.request}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onProject={(project) => setRoute(openProject(project))}
@@ -143,7 +149,7 @@ export function Desktop(
           <DesktopIntents
             intents={intents}
             lophn={lophn}
-            onThingsToConfirm={thingsToConfirm}
+            onThingsToConfirm={confirmTarget}
             go={go}
           />
         )

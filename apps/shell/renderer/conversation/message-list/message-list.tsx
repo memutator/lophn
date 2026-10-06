@@ -6,11 +6,15 @@ import {
 } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
+import {
+  VisualBlock,
+  type VisualHost,
+} from "../../workspace/visuals/block-frame.tsx";
 import { deliveryAction } from "../delivery-state.ts";
 import type { BodyState } from "../drafts.ts";
 import { atBottom, type DeliveryLabel, type ListItem } from "../model.ts";
 import { ResultLinks } from "../result-links.tsx";
-import type { BodyPart, ConversationSource } from "../source.ts";
+import type { ConversationSource } from "../source.ts";
 import styles from "./message-list.module.css";
 
 export interface MessageListProps {
@@ -26,6 +30,8 @@ export interface MessageListProps {
   onCheck: () => void;
   onResend: () => void;
   onOpenResult?: (document: string, version: string | null) => void;
+  /** 시각 블록 틀이 쓰는 문서 읽기·열기와 문서로 남기기. */
+  visuals: VisualHost;
 }
 
 const DELIVERY_LABEL: Record<
@@ -49,38 +55,33 @@ function Text({ text }: { text: string }) {
   return <p className={styles.text}>{text}</p>;
 }
 
-// 시각 블록 자리. 블록 renderer(shell#T35)가 들어오기 전까지 제목만 글로 보이고 내용은
-// 그리지 않는다. payload는 이 화면에 오지 않는다.
-function VisualPending(
-  { part }: { part: Extract<BodyPart, { kind: "visual" }> },
-) {
-  return (
-    <div className={styles.visual} data-visual-pending={part.visual}>
-      <span className={styles.visualTitle}>{part.title}</span>
-      <span className={styles.visualNote}>
-        {t("conversation.notice.visual-pending")}
-      </span>
-    </div>
-  );
-}
-
 /**
  * 확정 메시지 본문. 읽은 본문의 글과 블록을 차례로 보인다. 읽기 전이나 읽지 못했을 때
  * 이 창이 보낸 글이 있으면 그것을, 없으면 그 상태를 말한다. 빈 말로 보이지 않는다.
  */
 function Body(
-  { body, fallback }: {
+  { message, body, fallback, visuals }: {
+    message: string;
     body: BodyState | undefined;
     fallback: string | undefined;
+    visuals: VisualHost;
   },
 ) {
   if (body?.state === "ready") {
+    // 시각 블록은 본문 순서 그대로 글 사이 자리에 그린다(shell/workspace#R12).
     return (
       <div className={styles.body} data-body="ready">
         {body.parts.map((part, index) =>
           part.kind === "text"
             ? <Text key={index} text={part.text} />
-            : <VisualPending key={index} part={part} />
+            : (
+              <VisualBlock
+                key={index}
+                message={message}
+                block={part.block}
+                host={visuals}
+              />
+            )
         )}
       </div>
     );
@@ -113,6 +114,7 @@ export function MessageList(
     onCheck,
     onResend,
     onOpenResult,
+    visuals,
   }: MessageListProps,
 ) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -191,6 +193,7 @@ export function MessageList(
               onCheck={onCheck}
               onResend={onResend}
               onOpenResult={onOpenResult}
+              visuals={visuals}
             />
           ))}
       </div>
@@ -222,10 +225,20 @@ interface RowProps {
   onCheck: () => void;
   onResend: () => void;
   onOpenResult?: (document: string, version: string | null) => void;
+  visuals: VisualHost;
 }
 
 function Row(
-  { item, textOf, bodyOf, source, onCheck, onResend, onOpenResult }: RowProps,
+  {
+    item,
+    textOf,
+    bodyOf,
+    source,
+    onCheck,
+    onResend,
+    onOpenResult,
+    visuals,
+  }: RowProps,
 ) {
   if (item.kind === "outgoing") {
     const { outgoing } = item;
@@ -289,7 +302,14 @@ function Row(
     return (
       <Mine
         id={message.id}
-        text={<Body body={bodyOf(message.id)} fallback={textOf(message.id)} />}
+        text={
+          <Body
+            message={message.id}
+            body={bodyOf(message.id)}
+            fallback={textOf(message.id)}
+            visuals={visuals}
+          />
+        }
         correction={message.mode === "correction"}
         delivery={item.delivery ?? "received"}
         provisional={false}
@@ -306,7 +326,12 @@ function Row(
         <span className={styles.author}>
           {t("conversation.label.author-check")}
         </span>
-        <Body body={bodyOf(message.id)} fallback={undefined} />
+        <Body
+          message={message.id}
+          body={bodyOf(message.id)}
+          fallback={undefined}
+          visuals={visuals}
+        />
       </div>
     );
   }
@@ -315,7 +340,12 @@ function Row(
       <span className={styles.author}>
         {t("conversation.label.author-lophn")}
       </span>
-      <Body body={bodyOf(message.id)} fallback={undefined} />
+      <Body
+        message={message.id}
+        body={bodyOf(message.id)}
+        fallback={undefined}
+        visuals={visuals}
+      />
       <ResultLinks
         links={message.results}
         source={source}

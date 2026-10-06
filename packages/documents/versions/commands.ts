@@ -9,6 +9,8 @@ import {
   documentArchive,
   documentArchived,
   documentCreated,
+  documentRestore,
+  documentRestored,
   documentSave,
   documentSaved,
   documentUnarchive,
@@ -38,9 +40,12 @@ import {
   insertDocument,
   insertVersion,
   loadDocument,
+  loadFiles,
   loadLatestVersion,
+  loadVersion,
   maxVersionNumber,
   replaceDocument,
+  type VersionRow,
 } from "./store.ts";
 import { authorizeDocument } from "./authorization.ts";
 
@@ -154,6 +159,7 @@ export function createVersionCommands(
   options: { joinSeries?: SeriesJoin } = {},
 ): {
   save: CommandDefinition<typeof documentSave>;
+  restore: CommandDefinition<typeof documentRestore>;
   update: CommandDefinition<typeof documentUpdate>;
   archive: CommandDefinition<typeof documentArchive>;
   unarchive: CommandDefinition<typeof documentUnarchive>;
@@ -178,6 +184,11 @@ export function createVersionCommands(
         }
         return saveVersion(tx, ctx, existing.value, input);
       },
+    },
+    restore: {
+      route: documentRestore,
+      handle: (tx, ctx, input, compare) =>
+        restoreVersion(tx, ctx, input, compare),
     },
     update: {
       route: documentUpdate,
@@ -384,6 +395,201 @@ function saveVersion(
   return ok(saveResult(next, version.value, seq, prepared));
 }
 
+type RestoreHandle = CommandDefinition<typeof documentRestore>["handle"];
+
+function sameFormat(left: FormatRef, right: FormatRef): boolean {
+  return left.name === right.name && left.module_hash === right.module_hash &&
+    left.explicit === right.explicit;
+}
+
+// 준비 결과가 선택한 옛 판의 바이트와 정확한 FormatRef 그대로인지 본다. core는 파일을
+// 다시 읽지 않는다: 준비가 낸 hash·목록이 선택 판의 행과 같은지만 비교한다. 새로 만든
+// 판은 이 확인을 지난 값으로만 선다(versions#R10).
+function restoresSelected(
+  tx: Tx,
+  selected: VersionRow,
+  prepared: PreparedVersion,
+): Result<void> {
+  const stale = () =>
+    rejected("invalid_input", "prepared result is not the selected version");
+  if (
+    prepared.content_hash !== selected.content_hash ||
+    prepared.files_hash !== selected.files_hash ||
+    prepared.file_count !== selected.file_count ||
+    prepared.primary_path !== selected.primary_path ||
+    !sameFormat(prepared.format, selected.format)
+  ) return stale();
+  const rows = loadFiles(tx.sql, selected.id);
+  if (!rows.ok) return rows;
+  // 판의 경로별 행이 있으면 준비한 파일 목록이 그 행과 한 줄씩 같아야 한다. 행이 없는
+  // 판(옛 저장)은 정규화 목록 hash가 같다는 것까지만 확인한다.
+  if (rows.value.length > 0) {
+    if (rows.value.length !== prepared.files.length) return stale();
+    for (const file of prepared.files) {
+      const row = rows.value.find((item) => item.path === file.path);
+      if (
+        row === undefined || row.blob_hash !== file.blob_hash ||
+        row.bytes !== file.bytes || row.media_type !== file.media_type ||
+        row.primary !== file.primary
+      ) return stale();
+    }
+  }
+  for (const file of prepared.files) {
+    if (!("existing" in file)) continue;
+    const source = existingFileSource(file.existing);
+    if (
+      source === undefined || source.version !== selected.id ||
+      source.path !== file.path
+    ) return stale();
+  }
+  return ok(undefined);
+}
+
+// 원본 연결 문서의 restore는 선택 판의 바이트를 사람이 파일에 쓴 뒤 그 파일의 관측 근거로만
+// 선다(versions#R13). 연결과 다른 source·근거 없는 직접 restore는 늦은 요청이다.
+function restoreSourceAllowed(
+  document: Document,
+  selected: VersionRow,
+  tx: Tx,
+  prepared: PreparedVersion,
+): Result<void> {
+  const linked = document.file_source;
+  const source = prepared.source;
+  if (linked === null) {
+    if (source !== null || prepared.file_basis !== undefined) {
+      return rejected(
+        "invalid_input",
+        "unlinked document restore has no file source",
+      );
+    }
+    return ok(undefined);
+  }
+  const needs = () =>
+    rejected("conflict", "linked document needs file write and observation");
+  if (
+    source === null || source.kind === "app" ||
+    prepared.file_basis === undefined
+  ) return needs();
+  const matches = source.kind === "file"
+    ? linked.kind === "project_file" && linked.project === source.project
+    : linked.kind === "instruction_file" &&
+      linked.instruction_target === source.instruction_target &&
+      linked.project === source.project;
+  if (!matches || linked.path !== source.path) return needs();
+  if (observationBasisStale(document, prepared)) {
+    return rejected("conflict", "observation basis changed");
+  }
+  // 관측한 파일 바이트가 선택 판의 대표 파일이어야 restore다.
+  const rows = loadFiles(tx.sql, selected.id);
+  if (!rows.ok) return rows;
+  const primary = rows.value.find((file) => file.primary);
+  if (primary !== undefined && source.original_hash !== primary.blob_hash) {
+    return rejected(
+      "invalid_input",
+      "observed file is not the selected version",
+    );
+  }
+  return ok(undefined);
+}
+
+// 선택한 옛 판의 내용과 정확한 FormatRef로 새 판을 만든다(versions#R10). 최신 판·문서
+// revision이 읽은 그대로일 때만 하고, 최신과 같은 내용·형식이면 새 판도 event도 없다.
+// 옛 판과 그 event는 그대로 남는다. 제목 보상 값은 요청된 revert(machine)만 보낸다.
+function restoreVersion(
+  tx: Tx,
+  ctx: RequestContext,
+  input: Parameters<RestoreHandle>[2],
+  compare: Parameters<RestoreHandle>[3],
+): Result<SaveResult> {
+  if (!actorAllowed(ctx, documentRestore.actors)) {
+    return rejected("forbidden", "actor cannot restore documents");
+  }
+  const prepared = input.prepared;
+  const kind = parseActor(ctx.actor)?.kind;
+  if (input.title !== undefined && kind !== "machine") {
+    return rejected("invalid_input", "only a requested revert sets the title");
+  }
+  const loaded = loadDocument(tx.sql, input.document);
+  if (!loaded.ok) return loaded;
+  const absent = () => rejected("not_found", "document not found");
+  if (loaded.value === null) return absent();
+  const document = loaded.value;
+  // 권한 밖은 없는 문서와 같은 답이다(존재를 새지 않는다).
+  const access = authorizeDocument(tx.port, ctx, documentRestore.name, {
+    kind: "document",
+    document,
+  });
+  if (!access.ok) {
+    return access.error.code === "unavailable" ? access : absent();
+  }
+  const selected = loadVersion(tx.sql, input.restore_version);
+  if (!selected.ok) return selected;
+  if (selected.value === null || selected.value.document !== document.id) {
+    return rejected("not_found", "version not found");
+  }
+  if (
+    document.latest_version !== compare.base_version ||
+    prepared.base_version !== compare.base_version
+  ) return rejected("conflict", "latest version changed");
+  if (document.revision !== compare.base_revision) {
+    return rejected("conflict", "document revision changed");
+  }
+  if (document.status !== "active") {
+    return rejected("conflict", "document is archived");
+  }
+  const matches = restoresSelected(tx, selected.value, prepared);
+  if (!matches.ok) return matches;
+  const sourced = restoreSourceAllowed(document, selected.value, tx, prepared);
+  if (!sourced.ok) return sourced;
+  const latest = loadLatestVersion(tx.sql, document.id);
+  if (!latest.ok) return latest;
+  if (latest.value === null || latest.value.id !== compare.base_version) {
+    return rejected("conflict", "latest version changed");
+  }
+  const retitle = input.title !== undefined && input.title !== document.title;
+  if (
+    contentUnchanged(
+      { content_hash: latest.value.content_hash, format: latest.value.format },
+      { content_hash: prepared.content_hash, format: prepared.format },
+    )
+  ) {
+    if (retitle) retitled(tx, document, input.title as string);
+    return ok(unchangedResult(document, latest.value));
+  }
+  const current = maxVersionNumber(tx.sql, document.id);
+  const version = mintVersion(tx, ctx, prepared, nextVersionNumber(current));
+  if (!version.ok) return version;
+  tx.emit(documentSaved, document.id, {
+    version: version.value.id,
+    previous_version: latest.value.id,
+    content_hash: prepared.content_hash,
+    format: prepared.format,
+    source: prepared.source,
+  });
+  const restoredSeq = tx.emit(documentRestored, document.id, {
+    restore_version: selected.value.id,
+    previous_version: latest.value.id,
+    version: version.value.id,
+  });
+  const next: Document = { ...document, latest_version: version.value.id };
+  replaceDocument(tx, next);
+  const stored = storeVersion(tx, ctx, version.value, prepared);
+  if (!stored.ok) return stored;
+  const seq = retitle ? retitled(tx, next, input.title as string) : restoredSeq;
+  return ok(saveResult(next, version.value, seq, prepared));
+}
+
+// revert가 보낸 제목으로 되돌린다. document.update와 같은 event와 revision 규칙이다.
+function retitled(tx: Tx, document: Document, title: string): string {
+  const seq = tx.emit(documentUpdated, document.id, {
+    before_title: document.title,
+    title,
+    before_revision: document.revision,
+  });
+  replaceDocument(tx, { ...document, title, revision: seq });
+  return seq;
+}
+
 function mintVersion(
   tx: Tx,
   ctx: RequestContext,
@@ -465,6 +671,25 @@ function contentFileOf(file: PreparedFile): ContentFile {
   };
 }
 
+// `existing` 원본 참조가 가리키는 판 파일(`document_version/file`, owner_key `<판>/<경로>`).
+// 판 파일 참조가 아니거나 owner_key가 그 모양이 아니면 undefined다. 판정(그 판의 행과
+// 문서 접근)은 부르는 쪽이 같은 규칙으로 한다: 저장(existingFileAllowed)과 파일 쓰기의
+// 옛 판 복원이 이 함수 하나로 참조를 푼다.
+export function existingFileSource(
+  reference: { owner_kind: string; owner_key: string; field: string },
+): { version: string; path: string } | undefined {
+  if (
+    reference.owner_kind !== versionFileField.owner_kind ||
+    reference.field !== versionFileField.field
+  ) return undefined;
+  const slash = reference.owner_key.indexOf("/");
+  if (slash <= 0 || slash === reference.owner_key.length - 1) return undefined;
+  return {
+    version: reference.owner_key.slice(0, slash),
+    path: reference.owner_key.slice(slash + 1),
+  };
+}
+
 // 이미 등록된 원문 blob을 새 판의 파일로 다시 묶을 수 있는지. 그 blob은 documents의 판 파일
 // 참조여야 하고, 그 판의 문서를 이 자격이 읽을 수 있어야 한다. 없는 참조와 권한 밖은 같은
 // 답이다(존재를 새지 않는다).
@@ -477,15 +702,10 @@ function existingFileAllowed(
     "forbidden",
     "existing blob reference is not allowed",
   );
-  const ref = file.existing;
-  if (
-    ref.owner_kind !== versionFileField.owner_kind ||
-    ref.field !== versionFileField.field
-  ) return absent;
-  const slash = ref.owner_key.indexOf("/");
-  if (slash < 0) return absent;
-  const sourceVersion = ref.owner_key.slice(0, slash);
-  const sourcePath = ref.owner_key.slice(slash + 1);
+  const source = existingFileSource(file.existing);
+  if (source === undefined) return absent;
+  const sourceVersion = source.version;
+  const sourcePath = source.path;
   const row = tx.sql.get(
     `SELECT v.document AS document FROM versions v
      JOIN version_files f ON f.version = v.id

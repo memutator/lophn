@@ -22,7 +22,13 @@ import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/m
 import {
   applyMigrations,
   checkRestart,
+  ensureLedgerId,
+  planRestore,
+  RESTORE_DECISION,
+  restoreBinding,
+  type RestoreOutcome,
 } from "../../packages/platform/backup-and-migration/mod.ts";
+import { backupStamp } from "../../packages/platform/backup-and-migration/mod.ts";
 import { type StatusSource } from "../../packages/platform/diagnostics/mod.ts";
 import {
   CredentialRegistry,
@@ -37,13 +43,24 @@ import {
   writeRunMetadata,
 } from "../../packages/platform/install-and-update/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../packages/platform/ledger/mod.ts";
-import { createSupervisor } from "../../packages/platform/responsiveness/mod.ts";
+import {
+  createSupervisor,
+  type Spawned,
+  type SpawnRequest,
+} from "../../packages/platform/responsiveness/mod.ts";
 import { SETTINGS_SCHEMA_STEPS } from "../../packages/platform/settings/mod.ts";
 import {
   type KeychainAdapter,
   SECRET_SCHEMA_STEPS,
+  SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
 import { productKeychain } from "./secret-store.ts";
+import {
+  createSecretInputRelay,
+  secretInputHandler,
+  type SecretInputRelay,
+} from "./secret-input.ts";
+import { secretInput } from "../../packages/contracts/platform/mod.ts";
 import {
   type BlobPrepareRelay,
   type BufferGauge,
@@ -76,9 +93,12 @@ import { formatValidateRoute } from "./documents-format-validate.ts";
 import {
   documentPrepare,
   documentUpload,
+  filesRead,
 } from "../../packages/contracts/documents/mod.ts";
 import type { VersionRow } from "../../packages/documents/versions/store.ts";
 import { connectDocumentsRelaunch, workerSpecs } from "./documents.ts";
+import { fileReadStreams } from "./documents-file-read.ts";
+import { createFileWindows } from "./documents-file-windows.ts";
 import {
   createDocumentsChannel,
   servedWorkers,
@@ -89,6 +109,7 @@ import {
   OBSERVATION_BASIS_ROUTE,
   PREPARE_BASE_ROUTE,
   SEARCH_VERSION_ROUTE,
+  STORED_FILE_ROUTE,
   TERM_OCCURRENCE_ROUTE,
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
@@ -103,7 +124,11 @@ import {
   watchSearchIndex,
 } from "./documents-search.ts";
 import { startNotifications } from "./notifications.ts";
-import { NOTIFICATIONS_CONTEXT, withPlatform } from "./platform.ts";
+import {
+  APPROVAL_EXPIRY_CONTEXT,
+  NOTIFICATIONS_CONTEXT,
+  withPlatform,
+} from "./platform.ts";
 import { observeApprovals } from "../../packages/platform/approvals/mod.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
@@ -121,6 +146,10 @@ import {
 } from "./lophn-agent-bootstrap.ts";
 import type { BuiltinRole } from "../../packages/lophn-agent/presets/mod.ts";
 import {
+  createApprovalTextPreparer,
+  withApprovalText,
+} from "./approval-text.ts";
+import {
   type BodyPrepare,
   createMessageBodyPreparer,
   messageBodyEnvironment,
@@ -134,6 +163,9 @@ import { assemble, type TeamModule } from "./registration.ts";
 import { type CoreRuntime, openRuntime } from "./runtime.ts";
 import { ticketClaimSweepIntervalMs } from "./tickets.ts";
 import { testCredentialFront } from "./test-credentials.ts";
+
+// approval 만료 정리 간격. ticket claim 정리와 같은 60초다(platform Q25).
+const APPROVAL_EXPIRY_SWEEP_INTERVAL_MS = 60_000;
 
 // 시작 순서: lock → ledger schema step → writer·reader → event 배포 → API → I/O worker 감독.
 export type CoreOptions = {
@@ -168,6 +200,8 @@ export type CoreOptions = {
   failShutdown?: () => Promise<void>;
   // 정지 유지보수 시간 제한. 없으면 30초. 테스트가 짧게 줄인다.
   maintenanceTimeoutMs?: number;
+  // restore 프로세스 시간 제한. 없으면 10분. 테스트가 줄인다.
+  restoreTimeoutMs?: number;
   // 내장 assignment 준비의 역할 prompt 자산과 재시도 대기(ms). 제품 기동은 소스 배치의
   // prompt 자산을 읽고 60초 뒤 한 번 다시 시도한다. 테스트가 대신한다.
   roleAsset?: (role: BuiltinRole) => Promise<Result<Uint8Array>>;
@@ -175,12 +209,21 @@ export type CoreOptions = {
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
   secretKeychain?: KeychainAdapter;
+  // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다(예: fake keychain을
+  // 쥔 I/O worker). 제품 기동에는 없다.
+  spawn?: (request: SpawnRequest) => Spawned;
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
   // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
   // 재시작마다 불린다. 제품
   // 기동에는 없다. credential은 log에 남기지 않는다.
   onDocumentsHello?: (hello: { credential: string; api_port: number }) => void;
+};
+export type RestoreRequest = {
+  // 복원할 묶음(manifest.created_at).
+  created_at: string;
+  // main이 사람 확인으로 발급한 handle 참조.
+  confirmation: string;
 };
 export type BlobPrepareCall = {
   principal: string;
@@ -223,6 +266,15 @@ export type Core = {
   ): Promise<Result<void>>;
   // 만료 claim 정리. 60초 timer와 재시작이 같은 함수를 부른다(tickets#R13).
   sweepTicketClaims(): Promise<void>;
+  // 사람이 잃을 범위를 확인한 backup 복원(platform/backup-and-migration#R13, R14). handle은
+  // `restoreBinding(plan)`의 target·content에 묶인 `restore_backup` 결정이어야 한다. 확인이
+  // 맞으면 새 command 입장을 닫고 모든 worker·writer를 멈춘 뒤 현재 자료를 보존하고 검증한
+  // 묶음으로 ledger를 바꾼다. 끝나면 이 core는 종료한 상태다(lock 해제). 같은 data root를 다시
+  // `startCore`하면 새 epoch·새 ledger_id로 시작하고 derived가 복원 ledger 기준으로 다시 만들어진다.
+  // 검증·보존이 실패하면 현재 자료는 그대로이고 core는 멈춘 채 오류를 돌려준다.
+  restore(request: RestoreRequest): Promise<Result<RestoreOutcome>>;
+  // 기한에 도달한 대기 approval request의 만료 확정. 같은 timer와 재시작이 부른다(platform Q25).
+  sweepApprovalExpiry(): Promise<void>;
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
   // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
   documentsFeed?: InternalSubscription;
@@ -267,6 +319,8 @@ async function open(
 ): Promise<Result<Core>> {
   // documents coordinator 요청 통로. FileStatus 조회가 이 통로로 묻는다.
   const documentsChannel = createDocumentsChannel();
+  // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
+  const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
   // writer·reader가 import하는 팀 module. 문서 worker route를 서빙하는 reader는 항상 붙는다.
   const modules = withPlatformModule(
@@ -274,19 +328,26 @@ async function open(
   );
   const eventNames = await eventOperations(modules);
   // approvals·notifications는 contract ROUTES가 route를 고정하므로 team 조립 뒤에 한 번만 더한다.
-  const assembled = withPlatform(assemble(options.teams, {
-    status: statusMemoryVia(documentsChannel),
-    // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
-    snapshotLogs: snapshotLogsEnvironment({
-      ledgerPath,
-      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+  // 메시지 본문·질문 글·approval 설명 글을 읽는 통로. 참조 판정은 ledger snapshot, 바이트는 blob 읽기다.
+  const bodyEnvironment = messageBodyEnvironment({
+    ledgerPath,
+    read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+  });
+  const assembled = withPlatform(
+    assemble(options.teams, {
+      status: statusMemoryVia(documentsChannel),
+      // problems의 GetSnapshotLogs 읽기 통로. 바이트 통로는 relay가 뜬 뒤 채워진다.
+      snapshotLogs: snapshotLogsEnvironment({
+        ledgerPath,
+        read: (hash, offset, length) =>
+          blobRead.deps.read(hash, offset, length),
+      }),
+      // ReadMessageBody의 참조 판정과 blob 바이트 읽기 통로.
+      messageBody: bodyEnvironment,
     }),
-    // ReadMessageBody의 참조 판정과 blob 바이트 읽기 통로.
-    messageBody: messageBodyEnvironment({
-      ledgerPath,
-      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
-    }),
-  }));
+    // ReadApprovalText도 같은 통로를 쓴다.
+    { approvalText: bodyEnvironment },
+  );
   if (!assembled.ok) return assembled;
   // HTTP route는 writer·reader가 받는 command·read와 같은 조립에서 온다.
   // platform 기본 route와 팀 route의 resource/method가 겹치면 기동을 거절한다.
@@ -297,18 +358,23 @@ async function open(
   } catch {
     return err({ code: "internal", message: "route 등록이 겹친다" });
   }
-  const migrated = await applyMigrations(
-    ledgerPath,
-    [
-      ...LEDGER_SCHEMA_STEPS,
-      CREDENTIAL_SCHEMA,
-      ...assembled.value.schemaSteps,
-      ...SETTINGS_SCHEMA_STEPS,
-      ...SECRET_SCHEMA_STEPS,
-    ],
-    { clock, recovery: { root: root.path } },
-  );
+  // ledger를 새로 만드는 기동인지는 migration이 파일을 만들기 전에 본다(Q12: ledger_id는
+  // ledger를 만들거나 복원할 때마다 새 값이다).
+  const ledgerExisted = await fileExists(ledgerPath);
+  const schemaSteps = [
+    ...LEDGER_SCHEMA_STEPS,
+    CREDENTIAL_SCHEMA,
+    ...assembled.value.schemaSteps,
+    ...SETTINGS_SCHEMA_STEPS,
+    ...SECRET_SCHEMA_STEPS,
+  ];
+  const migrated = await applyMigrations(ledgerPath, schemaSteps, {
+    clock,
+    recovery: { root: root.path },
+  });
   if (!migrated.ok) return migrated;
+  const ledgerId = await ensureLedgerId(root.path, ledgerExisted);
+  if (!ledgerId.ok) return ledgerId;
   // 중단 작업 점검 → cursor 복원 치는 R11 순서다. SQLite 복구·schema 점검 뒤
   // 정상 read를 열고 전체 scan·index·큰 hash를 기다리지 않는다(R15). 소유
   // concern의 복구 command가 아직 없는 영역은 unknown 관측값과 근거를 남기고
@@ -364,12 +430,15 @@ async function open(
   const io = options.superviseIo === false ? undefined : createSupervisor({
     clock,
     denoCommand: Deno.execPath(),
+    ...(options.spawn ? { spawn: options.spawn } : {}),
     env: (kind) => ({
       LOPHN_WORKER_KIND: kind,
       LOPHN_HOME: root.path,
       // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
       ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
       ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+      // I/O worker의 secret-tool이 session bus를 찾는 데 필요한 주소만이다. secret 값이 아니다.
+      ...(kind === "platform/io" ? sessionBusEnv() : {}),
     }),
   });
   let ready = false;
@@ -393,8 +462,9 @@ async function open(
     },
     schema: LEDGER_SCHEMA_STEPS.length + assembled.value.schemaSteps.length,
     dataRoot: root.path,
-    // ledger 파일 하나의 식별. 내용은 노출하지 않는다.
-    ledgerId: await ledgerIdentity(ledgerPath),
+    // ledger를 만들거나 복원할 때마다 새로 정한 식별(data root의 ledger-id). 내용은 노출하지 않는다.
+    // derived는 출처에 이 값을 적고 다르면 버리고 다시 만든다(backup-and-migration#R14).
+    ledgerId: ledgerId.value,
     components() {
       return [
         ["ledger", { available: true }],
@@ -451,6 +521,13 @@ async function open(
     await runtime.close();
     return sweepCredential;
   }
+  // approval 만료 정리(machine:approval-expiry)의 자격 기록. 기록이 없으면 reader·writer가 정리를
+  // 거절해 대기가 영원히 pending으로 남으므로 기동을 여기서 멈춘다(platform/approvals#R12).
+  const expiryCredential = await runtime.record(APPROVAL_EXPIRY_CONTEXT);
+  if (!expiryCredential.ok) {
+    await runtime.close();
+    return expiryCredential;
+  }
   // notifications 구독자(machine:notifications)의 자격 기록. token이 없는 core 내부 자격이라
   // HTTP로는 이 principal이 될 수 없다. reader·writer는 이 ledger 기록으로 현재 자격을 본다.
   const notificationsCredential = await runtime.record(NOTIFICATIONS_CONTEXT);
@@ -506,6 +583,8 @@ async function open(
   // I/O worker와 coordinator가 뜬 뒤에 채워지고, 그 전에는 unavailable이다.
   // 메시지 본문 준비 통로도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 unavailable이다.
   const bodyPrepare: { current?: BodyPrepare } = {};
+  // 보호 입력 중계도 I/O worker가 뜬 뒤에 채워진다. 그 전에는 secrets/input이 unavailable이다.
+  const secretInputRelay: { current?: SecretInputRelay } = {};
   const validateWiring: {
     readBlob?: ReturnType<typeof blobRelayFor>["readBytes"];
     sendBytes?: (channel: number, chunk: Uint8Array) => Promise<boolean>;
@@ -549,15 +628,26 @@ async function open(
       credentials: registry,
       clock,
       // 메시지 본문을 싣는 command는 writer 앞에서 값을 redaction해 blob으로 준비한다.
-      // 질문 글(본문·이유·설명·자유 답·취소 이유)도 같은 길이다. 용어 후보·근거 변경은 writer에
+      // 질문 글(본문·이유·설명·자유 답·취소 이유)도 같은 길이다.
+      // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
       writer: withTermOccurrence(
-        withQuestionText(
-          withMessageBody(
-            runtime.writer,
-            createMessageBodyPreparer({ relay: () => bodyPrepare.current }),
+        withApprovalText(
+          withQuestionText(
+            withMessageBody(
+              runtime.writer,
+              createMessageBodyPreparer({
+                relay: () => bodyPrepare.current,
+                // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                known: () => runtime?.knownSecrets,
+              }),
+            ),
+            createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
           ),
-          createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
+          createApprovalTextPreparer({
+            relay: () => bodyPrepare.current,
+            known: () => runtime?.knownSecrets,
+          }),
         ),
         (ctx, command, input) =>
           runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, { command, input }),
@@ -588,20 +678,40 @@ async function open(
       uploads: new Map([[
         `${documentUpload.resource}/${documentUpload.method}`,
         documentUploadHandler(prepareRelay),
+      ], [
+        // 사람의 보호 입력 값: core는 해석·보관 없이 I/O worker의 keychain adapter로 흘린다.
+        `${secretInput.resource}/${secretInput.method}`,
+        secretInputHandler(secretInputRelay),
       ]]),
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
-      fileStreams: storedFileStreams({
-        readers: runtime.readers,
-        current: (ref) => runtime!.current(ref),
-        readBlob: (hash, offset, length) =>
-          validateWiring.readBlob
-            ? validateWiring.readBlob(hash, offset, length)
-            : Promise.resolve(err({
-              code: "unavailable" as const,
-              message: "blob 읽기 통로가 없다",
-            })),
-        blobReady: () => validateWiring.readBlob !== undefined,
-      }),
+      fileStreams: new Map([
+        ...storedFileStreams({
+          readers: runtime.readers,
+          current: (ref) => runtime!.current(ref),
+          readBlob: (hash, offset, length) =>
+            validateWiring.readBlob
+              ? validateWiring.readBlob(hash, offset, length)
+              : Promise.resolve(err({
+                code: "unavailable" as const,
+                message: "blob 읽기 통로가 없다",
+              })),
+          blobReady: () => validateWiring.readBlob !== undefined,
+        }),
+        // 현재 디스크 파일은 헤더와 창 단위 byte frame으로 흘린다(한 JSON frame에 싣지 않는다).
+        ...fileReadStreams({
+          request: (op, payload, timeoutMs) =>
+            documentsChannel.request(op, payload, timeoutMs),
+          bound: () => documentsChannel.bound,
+          windows: fileWindows,
+          current: (ref) => runtime!.current(ref),
+          copyCheck: (ctx, document) =>
+            runtime!.readers.read(WORKING_COPY_ROUTE, ctx, {
+              document,
+              base_version: null,
+              operation: filesRead.name,
+            }) as ReturnType<FilesRouteDeps["copyCheck"]>,
+        }),
+      ]),
       workers: mergedWorkers(
         fileWorkers({
           request: (op, payload, timeoutMs) =>
@@ -621,6 +731,18 @@ async function open(
           principalOf: requestPrincipal(runtime),
           live: (prepared) =>
             validateWiring.live?.(prepared, clock.nowMs()) ?? false,
+          stored: async (request, source) => {
+            const read = await readAs(runtime!, request, STORED_FILE_ROUTE, {
+              version: source.version,
+              path: source.path,
+            });
+            // 없는 판·없는 경로·접근 밖은 reader가 같은 not_found로 답한다.
+            if (!read.ok) {
+              return read.error.code === "not_found" ? ok(undefined) : read;
+            }
+            const file = read.value as { hash: string; bytes: number };
+            return ok({ hash: file.hash, bytes: file.bytes });
+          },
           copyCheck: (request, document, baseVersion) =>
             readAs(runtime!, request, WORKING_COPY_ROUTE, {
               document,
@@ -734,18 +856,51 @@ async function open(
     ticketClaimSweepIntervalMs,
   );
   await runtime?.sweepTicketClaims();
+  // approval 만료 정리. 기한에 도달한 대기를 expired로 확정한다. 같은 간격과 재시작 때 돈다.
+  const approvalSweep = setInterval(
+    () => runtime?.sweepApprovalExpiry(),
+    APPROVAL_EXPIRY_SWEEP_INTERVAL_MS,
+  );
+  await runtime?.sweepApprovalExpiry();
   stopPrune.run = () => {
     clearInterval(timer);
     clearInterval(claimSweep);
+    clearInterval(approvalSweep);
     rootsWatch?.stop();
   };
+  // 보호 입력의 값은 I/O worker로만 간다. 준비 증거(값 없음)는 writer가 ledger에 남긴다.
+  const secretRelay = io
+    ? createSecretInputRelay({
+      send: async (payload) => {
+        const sent = await io.send("platform/io", payload);
+        if (!sent.ok) throw new Error("보호 입력을 넘기지 못했다");
+      },
+      sendBytes: async (channel, chunk) => {
+        const sent = await io.sendBytes("platform/io", channel, chunk);
+        if (!sent.ok) throw new Error("보호 입력을 넘기지 못했다");
+      },
+      sendAbort: async (channel) => {
+        await io.sendAbort("platform/io", channel);
+      },
+      record: (preparation) => runtime!.recordSecretPreparation(preparation),
+    })
+    : undefined;
+  secretInputRelay.current = secretRelay;
   const startedIo = io
     ? await startPlatformIo(
       io,
       root.path,
       epoch,
       server.port,
-      blobRelay?.callbacks,
+      {
+        onMessage(message) {
+          blobRelay?.callbacks.onMessage(message);
+          secretRelay?.accept(message);
+        },
+        onFrame(frame) {
+          blobRelay?.callbacks.onFrame(frame);
+        },
+      },
     )
     : undefined;
   if (startedIo && !startedIo.ok) {
@@ -798,7 +953,10 @@ async function open(
         onMessage: (message: ChildMessage) => {
           if (!handler.onMessage(message)) documentsChannel.onMessage(message);
         },
-        onFrame: (frame: Frame) => handler.onFrame(frame),
+        onFrame: (frame: Frame) => {
+          handler.onFrame(frame);
+          fileWindows.onFrame(frame);
+        },
       };
     };
     closeChildBlob = () => childBlob?.close();
@@ -963,6 +1121,12 @@ async function open(
     )
     : Promise.resolve(ok(undefined));
   let stopped = false;
+  // restore가 정지 단계에서 할 일과 그 결과. 한 번에 하나만 받는다.
+  let restoring = false;
+  let pendingRestore:
+    | { created_at: string; expectedCurrentSeq: string }
+    | undefined;
+  let restoreResult: Result<RestoreOutcome> | undefined;
   const core: Core = {
     port: server.port,
     epoch,
@@ -970,6 +1134,7 @@ async function open(
     done: Promise.resolve(),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
+    sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     ...(options.testCredentials
       ? { documentsFeed, eventSessions: () => runtime!.trackedSessions() }
       : {}),
@@ -986,6 +1151,53 @@ async function open(
         code: "unavailable",
         message: "blob 준비 통로가 없다",
       })),
+    async restore(request) {
+      if (stopped || restoring) {
+        return err({ code: "conflict", message: "이미 멈추는 중이다" });
+      }
+      if (!ready) {
+        return err({
+          code: "unavailable",
+          message: "core가 아직 준비되지 않았다",
+        });
+      }
+      restoring = true;
+      // 묶음이 복원 가능한지와 잃을 범위는 정지 전에 본다. 사람이 본 범위가 바로 이 값이다.
+      const planned = await planRestore(
+        root.path,
+        ledgerPath,
+        request.created_at,
+        schemaSteps.length,
+      );
+      if (!planned.ok) {
+        restoring = false;
+        return planned;
+      }
+      const binding = await restoreBinding(planned.value);
+      // 확인은 writer의 registry가 대상·내용·결정을 맞춰 보고 한 번에 소비한다. 맞지 않으면
+      // 아무것도 멈추지 않는다.
+      const used = await runtime!.confirmation({
+        action: "consume",
+        request: {
+          ref: request.confirmation,
+          decision: RESTORE_DECISION,
+          binding,
+        },
+      });
+      if (!used.ok) {
+        restoring = false;
+        return used;
+      }
+      pendingRestore = {
+        created_at: request.created_at,
+        expectedCurrentSeq: planned.value.current_through_seq,
+      };
+      await core.shutdown();
+      return restoreResult ?? err({
+        code: "unavailable",
+        message: "복원을 시작하지 못했다",
+      });
+    },
     async shutdown() {
       if (stopped) return;
       stopped = true;
@@ -1031,7 +1243,18 @@ async function open(
         // 읽기는 core graph 밖 프로세스의 몫이다(responsiveness#R1). 관측을
         // 못 하면 건너뛰고(fail-closed), 시간 제한을 넘기면 그 프로세스만
         // 끝내고 종료를 계속한다. 실패는 diagnostics 로그만 남긴다.
-        if (
+        if (pendingRestore !== undefined) {
+          // restore는 같은 정지 조건 위에서만 돈다. 이번 종료에는 blob GC를 하지 않는다.
+          restoreResult = await runStoppedRestore({
+            dataRoot: root.path,
+            ledgerPath,
+            request: pendingRestore,
+            conditions: stoppedAt,
+            supportedSchema: schemaSteps.length,
+            nowIso: clock.now(),
+            timeoutMs: options.restoreTimeoutMs,
+          });
+        } else if (
           stoppedAt.preparationsBlocked && stoppedAt.commandsBlocked &&
           stoppedAt.writerStopped
         ) {
@@ -1084,9 +1307,12 @@ async function open(
   return ok(core);
 }
 
-async function ledgerIdentity(path: string): Promise<string> {
-  const stat = await Deno.stat(path);
-  return `${path}:${stat.size}`;
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    return (await Deno.stat(path)).isFile;
+  } catch {
+    return false;
+  }
 }
 
 function hex(random: RandomSource, bytes: number): string {
@@ -1181,6 +1407,93 @@ async function runStoppedMaintenance(input: {
   if (!outcome.success) await noteMaintenanceFailure(input.dataRoot, false);
 }
 
+// restore 프로세스 입구(apps/worker/platform/restore-entry.ts)를 띄워 정지한 data root를
+// 복원한다. 파일 복사·hash·검증은 core graph 밖 프로세스의 몫이다(responsiveness#R1).
+// 어떤 실패도 현재 자료를 바꾸지 않은 채 오류로 돌아온다.
+const RESTORE_TIMEOUT_MS = 10 * 60_000;
+
+async function runStoppedRestore(input: {
+  dataRoot: string;
+  ledgerPath: string;
+  request: { created_at: string; expectedCurrentSeq: string };
+  conditions: {
+    preparationsBlocked: boolean;
+    commandsBlocked: boolean;
+    writerStopped: boolean;
+  };
+  supportedSchema: number;
+  nowIso: string;
+  timeoutMs?: number;
+}): Promise<Result<RestoreOutcome>> {
+  const { preparationsBlocked, commandsBlocked, writerStopped } =
+    input.conditions;
+  if (!(preparationsBlocked && commandsBlocked && writerStopped)) {
+    return err({
+      code: "unavailable",
+      message: "정지를 확인하지 못해 복원하지 않았다",
+    });
+  }
+  const stamp = backupStamp(input.nowIso);
+  if (!stamp.ok) return stamp;
+  const entry = new URL("../worker/platform/restore-entry.ts", import.meta.url)
+    .pathname;
+  let outcome: Deno.CommandOutput;
+  try {
+    outcome = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        `--allow-read=${input.dataRoot},${repoRoot()},${denoDir()}`,
+        `--allow-write=${input.dataRoot}`,
+        "--allow-env=LOPHN_HOME,LOPHN_RESTORE,HOME,PATH",
+        "--no-prompt",
+        entry,
+      ],
+      stdin: "null",
+      stdout: "piped",
+      stderr: "null",
+      clearEnv: true,
+      signal: AbortSignal.timeout(input.timeoutMs ?? RESTORE_TIMEOUT_MS),
+      env: {
+        ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+        ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+        LOPHN_HOME: input.dataRoot,
+        LOPHN_RESTORE: JSON.stringify({
+          ledger: input.ledgerPath,
+          createdAt: input.request.created_at,
+          expectedCurrentSeq: input.request.expectedCurrentSeq,
+          stamp: stamp.value,
+          supportedSchema: input.supportedSchema,
+          conditions: input.conditions,
+          now: input.nowIso,
+        }),
+      },
+    }).output();
+  } catch {
+    return err({
+      code: "unavailable",
+      message:
+        "복원 프로세스가 끝나지 않았다. 현재 자료는 확인 전까지 믿지 않는다",
+    });
+  }
+  const text = new TextDecoder().decode(outcome.stdout).trim();
+  try {
+    const reply = JSON.parse(text.slice(text.lastIndexOf("\n") + 1)) as {
+      ok?: boolean;
+      value?: RestoreOutcome;
+      error?: { code?: string; message?: string };
+    };
+    if (reply.ok === true && reply.value !== undefined) {
+      return ok(reply.value);
+    }
+    return err({
+      code: reply.error?.code === "conflict" ? "conflict" : "unavailable",
+      message: reply.error?.message ?? "복원하지 못했다",
+    });
+  } catch {
+    return err({ code: "unavailable", message: "복원 결과를 읽지 못했다" });
+  }
+}
+
 // 유지보수 실패의 diagnostics 기록. 종료를 막지 않으므로 기록 실패도 삼킨다.
 // 원문·경로·hash는 넣지 않고 분류만 남긴다(diagnostics#R5).
 async function noteMaintenanceFailure(
@@ -1262,6 +1575,16 @@ const trackingReader: RequestContext = {
   credential_ref: "machine:documents-roots",
 };
 
+// I/O worker의 secret-tool이 쓰는 session bus 위치. secret 값이 아니다.
+function sessionBusEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const name of ["DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR"]) {
+    const value = Deno.env.get(name);
+    if (value !== undefined) env[name] = value;
+  }
+  return env;
+}
+
 function repoRoot(): string {
   return new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 }
@@ -1282,9 +1605,18 @@ function platformIoSpec(dataRoot: string): KindLaunchSpec {
     allow_read: [dataRoot, repoRoot(), denoDir()],
     allow_write: [dataRoot],
     allow_net: [],
-    allow_run: [],
+    // 보호 입력의 값을 OS keychain에 두는 secret-tool만 실행한다(값은 stdin으로만 간다).
+    allow_run: [...SECRET_TOOL_PATHS],
     allow_sys: ["statfs"],
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND", "HOME", "PATH"],
+    allow_env: [
+      "LOPHN_HOME",
+      "LOPHN_WORKER_KIND",
+      "HOME",
+      "PATH",
+      // secret-tool이 사람의 session bus를 찾는 데만 읽는다.
+      "DBUS_SESSION_BUS_ADDRESS",
+      "XDG_RUNTIME_DIR",
+    ],
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };

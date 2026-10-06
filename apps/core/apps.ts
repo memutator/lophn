@@ -8,6 +8,11 @@ import { appRegistrationLookup } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createInvocationsReads } from "../../packages/apps/invocations/reads.ts";
 import { invocationsSchemaSteps } from "../../packages/apps/invocations/schema.ts";
+import {
+  createGrantCommands,
+  createGrantsReads,
+  permissionsSchemaSteps,
+} from "../../packages/apps/permissions/mod.ts";
 import { createRuntimeCommands } from "../../packages/apps/runtime/commands.ts";
 import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
@@ -21,10 +26,13 @@ import {
   placeNameReservation,
 } from "../../packages/contracts/documents/mod.ts";
 import { createPlaceNameReservation } from "../../packages/documents/addressing/mod.ts";
+import { releaseActivationFailed } from "../../packages/contracts/apps/mod.ts";
 import type {
+  EventRegistration,
   ReaderRegistration,
   TxPortRegistration,
 } from "../../packages/platform/ledger/mod.ts";
+import { notificationsOnlyVisibility } from "./platform.ts";
 
 type LedgerRegistration = {
   schemaSteps?: readonly { id: string; sql: string }[];
@@ -49,10 +57,14 @@ export function createLedgerRegistration(
   // 과거 event만으로 running이라 하지 않는다(R13).
   const runtime = createRuntimeCommands();
   const runtimeReads = createRuntimeReads();
+  // grant 변경은 정확한 approval 적용(create)과 사람 확인(revoke)으로만 한다.
+  const grants = createGrantCommands();
+  const grantReads = createGrantsReads();
   return {
     // place_names 표는 documents 등록의 몫이다(R6, R10).
     schemaSteps: [
       ...appsSchemaSteps,
+      ...permissionsSchemaSteps,
       ...invocationsSchemaSteps,
       ...sdkSchemaSteps,
       ...dataSchemaSteps,
@@ -62,6 +74,8 @@ export function createLedgerRegistration(
       commands.connectSource,
       commands.archive,
       commands.unarchive,
+      grants.create,
+      grants.revoke,
       invocations.recordStarted,
       invocations.recordFinished,
       invocations.recordDenied,
@@ -78,6 +92,7 @@ export function createLedgerRegistration(
     reads: [
       reads.list,
       reads.get,
+      grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
       invocationReads.list,
@@ -105,16 +120,24 @@ export function createLedgerRegistration(
   };
 }
 
+// release 계기 event의 공개 정책(platform/notifications#R1). notifications 구독자에게만 열고,
+// 다른 apps event는 정책이 없어 계속 숨김이다.
+export function createEventRegistration(): EventRegistration {
+  return { visibility: [notificationsOnlyVisibility(releaseActivationFailed)] };
+}
+
 // reader Worker가 이 모듈을 import해 read를 reader 풀에 붙인다. 실행 port는 없다.
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createAppsReads();
   const invocations = createInvocationsReads();
   const sdkReads = createSdkReads();
   const runtimeReads = createRuntimeReads();
+  const grantReads = createGrantsReads();
   return {
     reads: [
       reads.list,
       reads.get,
+      grantReads.list,
       runtimeReads.runtime,
       runtimeReads.logs,
       invocations.list,

@@ -12,12 +12,11 @@ import {
   ok,
   type Result,
   seededRandom,
-  sha256Hex,
 } from "../../base/mod.ts";
 import {
   type ApprovalAction,
   approvalBinding,
-  type ApprovalEffect,
+  type ApprovalEffectInput,
   type AuthenticatedContext,
   type RequestContext,
 } from "../../contracts/platform/mod.ts";
@@ -26,6 +25,7 @@ import {
   APPROVAL_SCHEMA_STEPS,
   createApprovalCommands,
 } from "../approvals/mod.ts";
+import { effectText } from "../approvals/testing/mod.ts";
 import {
   createSubscriberGate,
   LEDGER_COMMANDS,
@@ -236,13 +236,11 @@ async function approvalAction(): Promise<ApprovalAction> {
   };
 }
 
-async function approvalEffect(): Promise<ApprovalEffect> {
-  return {
-    changes_blob: await sha256Hex("release 하나를 시작한다"),
-    external_blob: null,
-    reversible: false,
-    reversibility_blob: await sha256Hex("시작한 뒤에는 되돌리지 못한다"),
-  };
+function approvalEffect(): ApprovalEffectInput {
+  return effectText({
+    changes: "release 하나를 시작한다",
+    reversibility: "시작한 뒤에는 되돌리지 못한다",
+  });
 }
 
 Deno.test("platform/notifications#R1: approval request 생성은 항상 notification을 만든다", async () => {
@@ -253,7 +251,33 @@ Deno.test("platform/notifications#R1: approval request 생성은 항상 notifica
     const approvals = createApprovalCommands();
     const requested = await runCommand(
       connection,
-      ledgerDeps(),
+      {
+        ...ledgerDeps(),
+        // 설명 글의 영구 참조는 같은 transaction의 실제 blob_refs 표에 넣는다.
+        registerBlobRef: (reference) => {
+          assert(reference.source.kind === "prepared");
+          const blob = reference.source.blob;
+          connection.sql.run(
+            `insert into blob_refs (owner_kind, owner_key, field, hash,
+               size_bytes, registered_seq) values (?, ?, ?, ?, ?, ?)`,
+            [
+              reference.owner_kind,
+              reference.owner_key,
+              reference.field,
+              blob.hash,
+              blob.size_bytes,
+              BigInt(reference.registered_seq),
+            ],
+          );
+          return ok({
+            owner_kind: reference.owner_kind,
+            owner_key: reference.owner_key,
+            field: reference.field,
+            hash: blob.hash,
+            registered_seq: reference.registered_seq,
+          });
+        },
+      },
       [approvals.create, createNotificationCommand],
       machine(),
       {
@@ -262,8 +286,8 @@ Deno.test("platform/notifications#R1: approval request 생성은 항상 notifica
           id: APPROVAL,
           requester: machine().actor,
           run: null,
-          reason_blob: await sha256Hex("배포 전 확인이 필요하다"),
-          effect: await approvalEffect(),
+          reason: "배포 전 확인이 필요하다",
+          effect: approvalEffect(),
           action: await approvalAction(),
           expires_at: null,
         },
@@ -814,6 +838,52 @@ Deno.test("platform/notifications#R1, R11: engine step은 계기와 계기 아�
       "QuestionCreated",
       "ProblemOpened",
     ]);
+    await engine.close();
+  } finally {
+    reader.close();
+    connection.close();
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
+Deno.test("platform/notifications#R2: engine step은 조건 밖 계기(사람이 멈춘 assignment)에서 멈추지 않고 cursor를 올려 뒤 계기를 만든다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ntf-engine-cond-" });
+  const connection = await schema(dir);
+  const { reader, backend } = notificationEventsRead(`${dir}/ledger.db`);
+  try {
+    emitSource(
+      connection,
+      "AssignmentPaused",
+      "asg_01arz3ndektsv4rrffq69g5fav",
+      {
+        before: 1,
+        after: 2,
+        reason: { kind: "user", detail: "잠시 멈춤", runs: [], target: null },
+        definition_hash: "0".repeat(64),
+      },
+    );
+    emitSource(
+      connection,
+      "QuestionCreated",
+      "qst_01arz3ndektsv4rrffq69g5fav",
+      { run: "run_01arz3ndektsv4rrffq69g5fav", session: null },
+    );
+    const engine = notificationsEngine({
+      backend,
+      command: engineCommand(connection),
+      machine: machine(),
+    });
+    const scanned = await engine.step();
+    assert(scanned.ok, scanned.ok ? "" : JSON.stringify(scanned.error));
+    // cursor는 뒤 계기(QuestionCreated, seq 2)까지 움직인다. 생성이 낸 NotificationCreated는 그 뒤다.
+    assertEquals(scanned.value, "2");
+    assertEquals(storedCursor(connection), "2");
+    const listed = connection.sql.all(
+      `select e.type as type from notifications n
+       join events e on e.seq = n.source_seq order by n.source_seq`,
+      [],
+    );
+    assertEquals(listed.map((row) => row["type"]), ["QuestionCreated"]);
     await engine.close();
   } finally {
     reader.close();

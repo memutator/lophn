@@ -344,6 +344,7 @@ concerns: [shell]
 
 ### T17 저장 흐름: 파일 통로, 저장 상태, 충돌, 닫기 guard
 
+- 상태: 진행 (#306) — 한 것: main 파일 adapter(`files/read` stream·`documents/upload`·`files/write` base_hash CAS·편집 종료의 `version_request`·`latest_version`·결과 불명 조회·형식 검사), 창 닫기 guard와 `QuitWork.pendingSaves`, 저장 상태 줄·상세·notice·충돌 해결 화면·닫기 dialog, 실제 core 테스트, headless E2E(`e2e/shell/save_test.ts`, `read-edit_test.ts` 실제 실행), T15에서 넘어온 추적 미리보기·켜기·파일 목록 실제 core 확인. 남은 것: T19에서 넘어온 series 새 멤버 쓰기 길(새 파일·series draft), 읽기 폭 재시작 E2E와 version 충돌의 최신 판 비교(제품 core의 worker `documents/read`가 unavailable, Q19(6)). Q19
 - 등급: 기본
 - concern: shell/editor
 - 요구: shell/editor#R1, R2, R12, R15
@@ -582,6 +583,8 @@ concerns: [shell]
 - slice: agent
 - 선행: shell#T22, shell#T23, contracts#T22, contracts#T23, contracts#T28, contracts#T29, platform#T21, platform#T22, lophn-agent#T29, lophn-agent#T34
 - shell#T28에서 넘어온 것: 질문 칸·things-to-confirm의 [Review]는 `lophnShell.openConfirmation({request, parentWindow})`(contracts shell confirmation)을 부른다(`apps/shell/renderer/desktop/lophn-space/things-to-confirm/core-source.ts`의 `windowConfirmation`). shell preload에 `openConfirmation`과 main의 `shell:confirmation-open` 등록·coordinator 연결이 아직 없어 지금은 "The review window can't open here yet."를 보인다. main은 renderer가 보낸 `parentWindow` 값이 아니라 IPC를 보낸 창을 부모로 쓴다
+- platform#T19 후속(#294)에서 넘어온 것: secret 입력 창의 main 쪽 길이 core에 열렸다. 값이 있는 곳은 창의 보호 입력과 main 메모리뿐이다. main은 (1) `POST /v1/secrets/input`(`content-type: application/octet-stream`, `x-lophn-input`에 `{purpose, owner, bytes}`의 base64url JSON, body는 값의 바이트, 상한 64KiB)으로 값을 보내 값 없는 준비 증거 `{preparation, sealed_ref, purpose, owner}`를 받고, (2) 그 증거가 들어간 `SetSecret` 입력(앱 secret은 `purpose: app_secret`, `owner == name`)의 binding으로 confirmation handle을 main↔core 비공개 연결에 등록하고(handle은 증거를 받은 뒤에만 만들 수 있다), (3) `SetSecret`(교체는 `compare: {sealed_ref, revision}`, 처음은 null 둘)을 보내고, (4) 결과로 창에는 안전 이름·저장 결과만 돌려준다. 제거는 `RemoveSecret`이다. 표시용 `/v1/secrets/list`(이름·설정 여부·판)도 열렸다. 실패는 keychain 잠김이면 `unavailable`(값은 어디에도 남지 않음), 크기 불일치면 `invalid_input`이다. provider credential(`RegisterProviderCredential`·`ChangeProviderCredentials`)은 같은 route에 `purpose: provider_credential`로 값을 보내 증거를 받고 소유 command를 부른다(T31). 제출·취소·창 종료 때 값을 지운다. core가 값을 쥐는 곳은 없으므로 main이 값을 로그·오류·IPC 결과에 넣지 않는 것이 이 작업의 시험이다.
+- platform Q29(#305)에서 넘어온 것: approval 결정 창은 `approvals/get`(exact 동작·대상·입력·기한·상태)과 함께 `ReadApprovalText`(`/v1/approvals/text`, 입력 `{approval}`)로 이유·변경·외부 영향·되돌림 글을 읽어 문장으로 보인다. 글은 core가 redaction한 값이고 blob 하나라도 읽지 못하면 `unavailable`이라 일부만 보이지 않는다. 거절 창은 선택 입력인 거절 이유를 `closed_reason` 글 값(없으면 `null`, 글 하나 32KiB 이하, 공백뿐인 글은 보내지 않는다)으로 `approvals/reject`에 싣는다. hash를 만들거나 blob을 준비하지 않고 core가 한다. 이유는 handle binding(approval·created_seq·binding_hash)에 들어가지 않는다. 종료된 request의 `ReadApprovalText.closed_reason`이 적은 거절·취소 이유이고 만료는 null이다(상태가 이유다).
 - 완료: 아래 확인이 통과한다
   - approval request: 결정을 문장으로 묻고 exact 대상·입력·영향·되돌릴 범위. 허락·거절·명시 취소. 승인 접수와 실제 적용을 구별해 돌려준다.
   - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
@@ -616,6 +619,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T12, shell#T29, contracts#T24, contracts#T29, platform#T25, lophn-agent#T3, lophn-agent#T15, lophn-agent#T35, lophn-agent#T36
+- platform#T19 후속(#294)에서 넘어온 것: provider key·로그인 응답의 값은 T29의 secret 입력 창이 `/v1/secrets/input`(`purpose: provider_credential`)으로 보내 증거를 받은 뒤 `RegisterProviderCredential`·`ChangeProviderCredentials`를 부른다(순서는 T29의 넘어온 것을 따른다). 확정 뒤 core가 그 credential의 값을 알려진 값 registry에 등록하므로(documents 읽기·메시지 본문에서 가려진다) 화면이 따로 할 일은 없다.
 - 완료: 아래 확인이 통과한다
   - provider 연결: contract가 알려 준 인증 방식(API key, 공식 로그인, 로컬)만 보이고 과금·한도·금액 모름을 구별한다. key와 로그인 응답은 confirmation window의 secret 입력으로만 받는다.
   - 계정: 같은 provider의 계정 순서, 사용 가능·인증 문제·사용량 한도·확인된 리셋 시각, 다음 행동 하나. 교체·삭제·재로그인은 confirmation window.
@@ -1206,3 +1210,11 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (5) 연관 컨텍스트를 프로젝트로 묻는 read가 없어(contexts.related는 문서·앱 command 대상) 제품 작업대는 그 프로젝트 문서를 하나라도 담은 활성 컨텍스트를 보인다. main은 아직 layout 저장·복원 통로를 renderer에 열지 않았다(`ipc/workspace.ts`의 channel만 있다). 그래서 제품 작업대는 빈 배치로 시작하고 배치를 저장하지 않는다. main·preload 연결은 lead가 배정한다.
   - (6) 창 시작 공간이 프로젝트여도 core 연결이 준비되기 전에는 런처의 연결 화면을 보이고, 준비되면 작업대를 열어 읽는다(실패한 첫 읽기로 "Couldn't load this project."를 남기지 않는다).
   - (7) headless 확인용으로 main이 `LOPHN_SHELL_START=project:<prj id>`면 그 작업대부터 연다. headless에서는 OS 폴더 선택기를 띄우지 않고 `LOPHN_SHELL_PICK_FOLDER`만 고른 것으로 돌려준다(개발 전용, stack.md).
+- **Q19 편집기 저장 흐름의 통로와 제품 core에서 드러난 것(T17, 추천안으로 진행).**
+  - (1) renderer는 문서 id와 main이 준 session handle만 안다(`ipc/editor.ts`, preload `lophnEditor`). main 파일 adapter(`main/editor/file-adapter.ts`)가 `documents/get`의 `file_source`로 목표를 정한다: project 파일, 지침 파일, 원본이 없으면 working copy. 편집 글은 판 본문이 아니라 `files/read` stream으로 읽은 지금 디스크 바이트이고(working copy가 아직 없으면 연 판의 주 파일, base_hash null), 쓰기는 바이트를 `documents/upload`로 준비한 뒤 `files/write`에 준비 참조로 보낸다. 파일 쓰기·upload·stream 읽기는 renderer allowlist 밖이고 main만 부른다(`CoreSession.internal`·`readStream`·`upload`).
+  - (2) 자동 저장(입력 멈춤 800ms)은 파일만 쓴다. version 준비(`version_request`)는 편집 종료에만 싣는다: CommandOrControl+S, 읽기 전환, 탭 닫기, 탭 전환(화면이 사라질 때), 창 닫기. 고침이 없으면 종료를 다시 보내지 않는다. 유휴 종료는 shell timer 없이 `files/watch`가 알린 상태(쓴 hash가 `tracked`이고 `compared_version`이 있음)로만 반영한다.
+  - (3) 결과를 모르는 쓰기(응답 유실, `unverified`)는 다시 쓰지 않고 `files/read`로 지금 바이트의 hash를 본다. `files/status`는 추적을 끈 폴더에 hash가 없어 가릴 수 없다. 형식 검사는 종료 쓰기 뒤 같은 준비 blob으로 `formats/validate`를 부른다(주 파일 하나인 document·data 형식만).
+  - (4) 창 닫기 guard: renderer가 창마다 저장 중(쓰는 중·대기·실패·불명·충돌)과 종료가 남은 문서 수를 main에 알리고, main은 그 수가 있으면 닫기를 막고 묻는다. renderer는 모두 종료로 보내고 남으면 overlay dialog(Keep editing, Check again, Discard changes)를 연다. 답이 없으면 15초 뒤 닫고, 묻는 중이라고 답하면 기한을 멈추며, 묻는 동안 온 닫기는 삼킨다(legacy close-guard). 앱 끄기(OS·app.quit)가 부른 닫기는 허락 뒤 끄기를 다시 잇는다. tray Quit은 `QuitWork.pendingSaves`(저장 중 문서 수)로 native 확인을 띄운다.
+  - (5) 실제 Electron의 CSP(`style-src 'self'`)가 CodeMirror(style-mod)의 <style>을 막아 편집기 기본 모양이 빠져 있었다(gutter가 글 위에 쌓여 첫 블록이 294px 밀림). 그 글을 constructable stylesheet의 cascade layer로 옮긴다(`editor/adopt-styles.ts`). `e2e/shell/read-edit_test.ts`를 headless로 처음 실제로 돌려 통과한다. 시드의 plan 탭을 `document_editor`로 바꿨다(test가 편집 탭을 연다).
+  - (6) 제품 core의 worker `documents/read`가 "worker가 사용할 수 없다"(unavailable)로 답해 읽기 본문이 "Couldn't load this document."다. 파일 통로가 있으면 편집은 디스크 글로 열 수 있게 했다(판 본문을 기다리지 않는다). 읽기 폭의 재시작 반영 E2E와 version 충돌의 "최신 판과 비교"(최신 판 본문 읽기)는 그 뒤에 확인한다. documents에 알린다.
+  - (7) 추적 관측으로 생긴 문서는 자리(place)가 없어 프로젝트 작업대의 문서 목록·팔레트 파일 묶음에 오지 않는다. 저장 E2E(`e2e/shell/save_test.ts`)는 `documents/move`로 그 문서를 프로젝트 자리에 둔 뒤 연다. 추적 문서의 자리를 누가 정하는지 documents와 shell/workspace가 정한다.

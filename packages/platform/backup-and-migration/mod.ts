@@ -12,6 +12,7 @@ export {
   backupStamp,
   createBackup,
   findBackup,
+  findBackupDirectory,
   listBackups,
   readManifest,
   retainBackups,
@@ -37,3 +38,22 @@ export {
   type RestartOwner,
 } from "./restart.ts";
 export { verifyMigrated } from "./verification.ts";
+export {
+  ensureLedgerId,
+  isLedgerId,
+  LEDGER_ID_FILE,
+  newLedgerId,
+  readLedgerId,
+  writeLedgerId,
+} from "./ledger-id.ts";
+export {
+  planRestore,
+  RESTORE_DECISION,
+  RESTORE_DIR_NAME,
+  restoreBinding,
+  type RestoreDeps,
+  restoreFromBackup,
+  type RestoreOutcome,
+  type RestorePlan,
+  type RestoreStopped,
+} from "./restore.ts";

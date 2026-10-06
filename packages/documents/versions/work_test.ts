@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import { err, ok } from "../../base/mod.ts";
+import { err, ok, sha256Hex } from "../../base/mod.ts";
 import { checkFileList, isSafeRelativePath } from "../file-tracking/mod.ts";
 import {
   createPrepareAssembly,
@@ -7,6 +7,7 @@ import {
   type ValidateError,
   type ValidateOutcome,
 } from "./work.ts";
+import { filesHash } from "./model.ts";
 import { file, ids, preparedInput, versionFixture } from "./testing/mod.ts";
 
 const BUILTIN_MODULE_HASH =
@@ -478,4 +479,190 @@ Deno.test("documents/versions#R5: 준비 결과의 파일은 새 바이트면 �
     { ...reusedFile, existing: reference },
   ]);
   assertEquals(ran.value.file_count, 2);
+});
+
+// ---- 이미 받아들인 판의 restore는 검사 한도 초과(check_skipped)를 warning으로 받는다 ----
+
+const SKIPPED: ValidateOutcome["diagnostics"][number] = {
+  severity: "error",
+  code: "check_skipped",
+  message: "primary file is over the check limit; the check was not run",
+  file: "report.md",
+  start_line: null,
+  end_line: null,
+  column: null,
+};
+
+function skippedOutcome(): PrepareDeps["validateFiles"] {
+  return validateOk({
+    status: "failed",
+    error_count: 1,
+    diagnostics: [SKIPPED],
+  });
+}
+
+const OVER_LIMIT = 1024 * 1024 + 1;
+const OLD_VERSION = "ver_01arz3ndektsv4rrffq69g5fav";
+
+// 판 하나의 파일 목록 hash는 실제 canonical 목록 hash다.
+async function acceptedVersion(explicit: boolean) {
+  const listed = {
+    path: "report.md",
+    blob_hash: await sha256Of("지난 본문"),
+    bytes: OVER_LIMIT,
+    media_type: "text/markdown",
+    primary: true,
+  };
+  const hash = await filesHash([listed]);
+  return { listed, hash, explicit };
+}
+
+async function sha256Of(text: string): Promise<string> {
+  return await sha256Hex(text);
+}
+
+function restoreRequest(
+  accepted: Awaited<ReturnType<typeof acceptedVersion>>,
+  explicit: boolean,
+  path = "report.md",
+) {
+  const { listed } = accepted;
+  return request({
+    base_version: OLD_VERSION,
+    metadata: undefined,
+    format: {
+      name: "document",
+      module_hash: BUILTIN_MODULE_HASH,
+      explicit,
+    },
+    files: [{
+      ...listed,
+      path,
+      content: {
+        kind: "existing",
+        reference: {
+          owner_kind: "document_version",
+          owner_key: `${OLD_VERSION}/${path}`,
+          field: "file",
+          hash: listed.blob_hash,
+          registered_seq: "2",
+        },
+      },
+    }],
+  });
+}
+
+function restoreDeps(
+  accepted: Awaited<ReturnType<typeof acceptedVersion>>,
+  stored: { explicit: boolean; files_hash?: string },
+  validateFiles = skippedOutcome(),
+): PrepareDeps {
+  return deps({
+    validateFiles,
+    // deno-lint-ignore require-await -- PrepareFilesPort의 모양을 그대로 따르는 fake다.
+    prepareFiles: async () =>
+      ok({ preparation: "pack-1", hash: accepted.hash, size_bytes: 8 }),
+    // deno-lint-ignore require-await -- BaseVersionRead의 모양을 그대로 따르는 fake다.
+    loadBaseVersion: async () =>
+      ok({
+        id: OLD_VERSION,
+        document: ids.doc,
+        number: 1,
+        files_hash: stored.files_hash ?? accepted.hash,
+        primary_path: "report.md",
+        file_count: 1,
+        content_hash: accepted.hash,
+        format: {
+          name: "document",
+          module_hash: BUILTIN_MODULE_HASH,
+          explicit: stored.explicit,
+        },
+        saved_by: "user",
+        saved_at: "2026-10-05T00:00:00.000Z",
+        run: null,
+        source: null,
+      }),
+  });
+}
+
+Deno.test("documents/versions#R10 documents/formats#R4: 이미 그 FormatRef로 저장된 판의 restore는 검사 한도 초과를 error가 아니라 warning으로 받는다", async () => {
+  const accepted = await acceptedVersion(true);
+  const prepare = createPrepareAssembly(
+    restoreDeps(accepted, { explicit: true }),
+  );
+  const ran = await prepare(restoreRequest(accepted, true));
+  assert(ran.ok, ran.ok ? "" : ran.error.message);
+  assertEquals(ran.value.validation.status, "passed");
+  assertEquals(ran.value.validation.error_count, 0);
+  assertEquals(ran.value.validation.warning_count, 1);
+  assertEquals(ran.value.validation.diagnostics[0].code, "check_skipped");
+  assertEquals(ran.value.validation.diagnostics[0].severity, "warning");
+  assertEquals(ran.value.format.explicit, true);
+  assertEquals(ran.value.files_hash, accepted.hash);
+});
+
+Deno.test("documents/formats#R4: 새 바이트의 명시 format 저장은 검사 한도를 넘으면 그대로 invalid_input이다", async () => {
+  const accepted = await acceptedVersion(true);
+  const prepare = createPrepareAssembly(
+    restoreDeps(accepted, { explicit: true }),
+  );
+  // 파일이 새로 올린 준비 참조다. 같은 hash·FormatRef의 판이 있어도 restore가 아니다.
+  const fresh = request({
+    base_version: OLD_VERSION,
+    metadata: undefined,
+    files: [{ ...fileInput("report.md", true, OVER_LIMIT) }],
+  });
+  const ran = await prepare(fresh);
+  assert(!ran.ok);
+  assertEquals(ran.error.code, "invalid_input");
+});
+
+Deno.test("documents/formats#R4: 선택 판의 목록·FormatRef와 다르거나 다른 error가 있으면 restore도 한도 초과를 받아 주지 않는다", async () => {
+  const accepted = await acceptedVersion(true);
+  const attempts: [string, PrepareDeps, ReturnType<typeof restoreRequest>][] = [
+    [
+      "저장된 판의 FormatRef가 명시가 아님",
+      restoreDeps(accepted, { explicit: false }),
+      restoreRequest(accepted, true),
+    ],
+    [
+      "저장된 판의 파일 목록 hash가 다름",
+      restoreDeps(accepted, { explicit: true, files_hash: "e".repeat(64) }),
+      restoreRequest(accepted, true),
+    ],
+    [
+      "참조의 경로가 파일 경로와 다름",
+      restoreDeps(accepted, { explicit: true }),
+      (() => {
+        const base = restoreRequest(accepted, true);
+        const [first] = base.files as unknown as {
+          content: { reference: { owner_key: string } };
+        }[];
+        first.content.reference.owner_key = `${OLD_VERSION}/other.md`;
+        return base;
+      })(),
+    ],
+    [
+      "한도 초과 말고 다른 검사 error가 함께 있음",
+      restoreDeps(
+        accepted,
+        { explicit: true },
+        validateOk({
+          status: "failed",
+          error_count: 2,
+          diagnostics: [SKIPPED, {
+            ...SKIPPED,
+            code: "invalid_structure",
+            message: "heading anchors do not nest",
+          }],
+        }),
+      ),
+      restoreRequest(accepted, true),
+    ],
+  ];
+  for (const [name, attemptDeps, input] of attempts) {
+    const ran = await createPrepareAssembly(attemptDeps)(input);
+    assert(!ran.ok, name);
+    assertEquals(ran.error.code, "invalid_input", name);
+  }
 });

@@ -68,3 +68,14 @@ export {
   type SearchApplyRequest,
   type SearchExtractionRequest,
 } from "./ipc.ts";
+export {
+  type ComparedVersion,
+  compareSectionKey,
+  compareSections,
+  type SectionChange,
+  type SectionChangeStatus,
+  type SectionComparison,
+  sectionHistory,
+  type SectionSide,
+  type SectionSnapshot,
+} from "./model.ts";

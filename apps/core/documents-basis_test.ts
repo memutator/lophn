@@ -21,6 +21,10 @@ const ROOT = {
   use_gitignore: false,
 };
 
+// 쓰기 폴더는 관측 root(ROOT)와 따로다: tracking을 끈 project의 폴더도 들어 있다.
+const FOLDER = { project: PROJECT, path: "/work" };
+const OFF_FOLDER = { project: "prj_01arz3ndektsv4rrffq69g5fax", path: "/off" };
+
 function linkRow(path: string, version = "ver_1") {
   return {
     project: PROJECT,
@@ -47,7 +51,12 @@ function reader(state: {
     calls.push(input);
     if (input.part === "roots") {
       return Promise.resolve(
-        ok({ roots: [ROOT], as_of_seq: state.seq, next_cursor: null }),
+        ok({
+          roots: [ROOT],
+          folders: [FOLDER, OFF_FOLDER],
+          as_of_seq: state.seq,
+          next_cursor: null,
+        }),
       );
     }
     linkReads += 1;
@@ -82,6 +91,9 @@ Deno.test("documents/file-tracking#R3: 근거는 root와 연결 page를 같은 s
   assert(read.ok);
   assert("payload" in read.value);
   assertEquals(read.value.payload.roots.length, 1);
+  // 쓰기 폴더는 관측 root보다 넓다(tracking을 끈 project의 폴더가 더 있다). 새 read 없이
+  // 같은 snapshot 응답에서 온다.
+  assertEquals(read.value.payload.folders, [FOLDER, OFF_FOLDER]);
   assertEquals(read.value.payload.links.length, 3);
   assertEquals(read.value.as_of_seq, "10");
   assertEquals(wired.calls.map((call) => call.part), [

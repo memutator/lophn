@@ -47,6 +47,7 @@ type Fake = {
   deps: FilesRouteDeps;
   requests: string[];
   prepared: unknown[];
+  sent: number[];
 };
 
 type FakeOptions = {
@@ -56,11 +57,15 @@ type FakeOptions = {
   principal?: string | undefined;
   live?: boolean;
   written?: FileOperationResult;
+  // 옛 판 파일 행(없거나 접근 밖이면 undefined).
+  stored?: Result<{ hash: string; bytes: number } | undefined>;
+  latest?: string | null;
 };
 
 function fake(over: FakeOptions = {}): Fake {
   const requests: string[] = [];
   const prepared: unknown[] = [];
+  const sent: number[] = [];
   const deps: FilesRouteDeps = {
     request(op) {
       requests.push(op);
@@ -77,13 +82,17 @@ function fake(over: FakeOptions = {}): Fake {
         sizeBytes: 3,
         bytes: new Uint8Array(Math.min(length, 3)),
       })),
-    sendBytes: () => Promise.resolve(true),
+    sendBytes: (channel) => {
+      sent.push(channel);
+      return Promise.resolve(true);
+    },
+    stored: () => Promise.resolve(over.stored ?? ok({ hash: HASH, bytes: 3 })),
     principalOf: () => "principal" in over ? over.principal : "person",
     live: () => over.live ?? true,
     copyCheck: () =>
       Promise.resolve(ok({
         eligible: over.eligible ?? true,
-        latest_version: BASE,
+        latest_version: "latest" in over ? over.latest! : BASE,
         base: {
           version: BASE,
           primary_path: "note.md",
@@ -122,7 +131,7 @@ function fake(over: FakeOptions = {}): Fake {
     },
     observedAt: () => "2026-10-06T00:00:00.000Z",
   };
-  return { deps, requests, prepared };
+  return { deps, requests, prepared, sent };
 }
 
 async function write(fakeDeps: Fake, input: Record<string, unknown> = {}) {
@@ -300,4 +309,116 @@ Deno.test("documents/file-tracking#R2: credential이 없는 요청은 unauthoriz
   const answer = await write(fake({ principal: undefined }));
   assert(!answer.ok);
   assertEquals(answer.error.code, "unauthorized");
+});
+
+const LATEST = "ver_01kq12a1pha000000000000007";
+const OLD_REFERENCE = {
+  owner_kind: "document_version",
+  owner_key: `${SAVED}/note.md`,
+  field: "file",
+  hash: HASH,
+  registered_seq: "4",
+};
+
+Deno.test("documents/file-tracking#R1 documents/file-tracking#R11: 옛 판 복원은 그 판 파일 행과 접근을 확인한 원본 참조의 바이트를 쓰고 판 확정에도 같은 참조를 넘긴다", async () => {
+  const subject = fake();
+  const done = result(
+    await write(subject, {
+      content: { kind: "existing", reference: OLD_REFERENCE },
+    }),
+  );
+  assertEquals(done.outcome, "written");
+  assertEquals(done.version_result, "confirmed");
+  // 바이트는 준비 참조가 아니라 그 판 파일의 blob에서 coordinator로 갔다.
+  assertEquals(subject.sent.length, 1);
+  assertEquals(subject.requests, [
+    DOCUMENT_OPS.fileWrite,
+    DOCUMENT_OPS.workingCopyConfirm,
+  ]);
+  const body = subject.prepared[0] as {
+    files: { blob_hash: string; bytes: number; content: unknown }[];
+  };
+  assertEquals(body.files[0].blob_hash, HASH);
+  assertEquals(body.files[0].bytes, 3);
+  assertEquals(body.files[0].content, {
+    kind: "existing",
+    reference: OLD_REFERENCE,
+  });
+});
+
+Deno.test("documents/file-tracking#R2: 위조·접근 밖·없는 원본 참조는 없는 것과 같은 invalid_input이고 coordinator에 닿지 않는다", async () => {
+  const forged: Record<string, unknown>[] = [
+    // 다른 owner kind·field, owner_key 모양이 아님.
+    { ...OLD_REFERENCE, owner_kind: "blob_probe" },
+    { ...OLD_REFERENCE, field: "files" },
+    { ...OLD_REFERENCE, owner_key: "no-slash" },
+    // 행의 hash와 다른 참조(같은 판·경로의 다른 바이트를 주장).
+    { ...OLD_REFERENCE, hash: "ee".repeat(32) },
+  ];
+  const messages = new Set<string>();
+  for (const reference of forged) {
+    const subject = fake();
+    const answer = await write(subject, {
+      content: { kind: "existing", reference },
+    });
+    assert(!answer.ok, JSON.stringify(reference));
+    assertEquals(answer.error.code, "invalid_input");
+    messages.add(answer.error.message);
+    assertEquals(subject.requests, []);
+    assertEquals(subject.sent, []);
+  }
+  // 그 판 파일 행이 없거나 document.file 접근이 없는 것(reader가 같은 undefined로 답한다).
+  const absent = fake({ stored: ok(undefined) });
+  const refused = await write(absent, {
+    content: { kind: "existing", reference: OLD_REFERENCE },
+  });
+  assert(!refused.ok);
+  assertEquals(refused.error.code, "invalid_input");
+  messages.add(refused.error.message);
+  assertEquals(absent.requests, []);
+  assertEquals(messages.size, 1);
+  // 판정을 못 하면(reader 불능) 없는 것으로 꾸미지 않고 그 오류다.
+  const down = fake({
+    stored: err({ code: "unavailable", message: "reader down" }),
+  });
+  const unavailable = await write(down, {
+    content: { kind: "existing", reference: OLD_REFERENCE },
+  });
+  assert(!unavailable.ok);
+  assertEquals(unavailable.error.code, "unavailable");
+});
+
+Deno.test("documents/file-tracking#R15: 판 충돌은 새 최신 판을 결과에 싣고 사본 쓰기 결과는 그대로다", async () => {
+  for (
+    const over of [
+      {
+        prepare: ok({
+          type: "worker_response" as const,
+          request_id: "cred/1",
+          ok: false as const,
+          error: { code: "conflict" as const, message: "base changed" },
+        }),
+      },
+      { save: err({ code: "conflict" as const, message: "stale" }) },
+    ]
+  ) {
+    const done = result(await write(fake({ ...over, latest: LATEST })));
+    assertEquals(done.version_result, "conflict");
+    assertEquals(done.latest_version, LATEST);
+    assertEquals(done.outcome, "written");
+    assertEquals(done.recording, "recorded");
+  }
+  // 최신 판을 읽지 못하면 충돌은 그대로이고 최신 판은 싣지 않는다.
+  const unread = result(
+    await write(fake({
+      save: err({ code: "conflict", message: "stale" }),
+      latest: null,
+    })),
+  );
+  assertEquals(unread.version_result, "conflict");
+  assertEquals(unread.latest_version, undefined);
+  // 충돌이 아닌 결과에는 최신 판이 없다.
+  const confirmed = result(await write(fake({ latest: LATEST })));
+  assertEquals(confirmed.version_result, "confirmed");
+  assertEquals(confirmed.latest_version, undefined);
 });

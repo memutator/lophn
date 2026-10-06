@@ -11,6 +11,7 @@ export {
 export {
   createLinuxSecretServiceAdapter,
   randomSealedRef,
+  SECRET_TOOL_PATHS,
   type SecretToolRunner,
   secretToolRunner,
 } from "./adapters/linux-secret-service.ts";
@@ -29,8 +30,15 @@ export {
   type SecretRecord,
   toStatus,
 } from "./model.ts";
-export { readSecretStatuses, type SecretView } from "./reads.ts";
+export {
+  readSecretStatuses,
+  secretsListRead,
+  type SecretView,
+} from "./reads.ts";
 export { readSecretRefs, type SecretReference } from "./refs.ts";
+export type { SecretRefSource } from "../../contracts/platform/mod.ts";
+export { recordSecretPreparation } from "./preparations.ts";
+export { productKeychain } from "./adapters/product.ts";
 export { SECRET_SCHEMA_STEPS } from "./schema.ts";
 export {
   createSecretWork,

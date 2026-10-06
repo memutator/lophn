@@ -49,9 +49,15 @@ function textOf(value: SecretValue): string {
 
 export function createSecretWork(options: {
   keychain: KeychainAdapter;
-  preparations: PreparationStore;
-  registry: KnownSecretRegistry;
-  processes: ProcessWatch;
+  // ledger에 직접 쓸 수 있는 곳에서만 둔다. I/O worker는 ledger를 쓰지 못하므로 두지 않고,
+  // 값 없는 준비 증거(SecretPreparation)를 응답으로 돌려주면 core의 writer가 남긴다.
+  preparations?: PreparationStore;
+  // 준비한 값을 곧바로 알려진 값으로 등록할 registry. I/O worker는 값을 쥐지 않으므로 두지
+  // 않는다: 알려진 값은 ledger가 그 참조를 현재로 확정한 뒤 core가 keychain에서 읽어 등록한다.
+  registry?: KnownSecretRegistry;
+  // 이 참조를 쓴 프로세스의 종료 관측. 없으면 종료를 관측하지 못한 것이라 processes_ended는
+  // false다(R7).
+  processes?: ProcessWatch;
   // 준비 증거 id. 값에서 파생하지 않는다.
   preparationId: () => string;
 }): SecretWork {
@@ -77,22 +83,23 @@ export function createSecretWork(options: {
         purpose: input.purpose,
         owner: input.owner,
       };
-      const recorded = await options.preparations.record(preparation);
+      const recorded = await options.preparations?.record(preparation) ??
+        ok(undefined);
       if (!recorded.ok) {
         // 증거를 남기지 못한 준비는 고아다. 실패해도 이전 참조는 건드리지 않는다.
         await options.keychain.remove(stored.value);
         return recorded;
       }
-      options.registry.register([textOf(value)]);
+      options.registry?.register([textOf(value)]);
       return ok(preparation);
     },
     async cleanup(target) {
       // 세 사실은 서로 추론하지 않는다. 삭제가 늦어도 차단은 차단이다(R7).
       const osDeleted =
         (await options.keychain.remove(target.previous.sealedRef)).ok;
-      const processesEnded = await options.processes.ended(
-        target.previous.sealedRef,
-      );
+      const processesEnded = options.processes === undefined
+        ? false
+        : await options.processes.ended(target.previous.sealedRef);
       return cleanupResult({
         referenceBlocked: target.referenceBlocked,
         osDeleted,

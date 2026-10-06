@@ -7,8 +7,10 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   contextExport,
+  documentDiff,
   documentExport,
   documentRead,
+  documentSectionHistory,
   guideGet,
   guideList,
   guideOutline,
@@ -46,6 +48,7 @@ import type {
   ContextItemSource,
   SearchSnapshot,
 } from "../../packages/documents/outline-and-search/types.ts";
+import { createHistoryHandlers } from "../../packages/documents/outline-and-search/history-reads.ts";
 import { createViewOpenHandler } from "../../packages/documents/outline-and-search/saved-views-open.ts";
 import {
   listItems,
@@ -336,6 +339,16 @@ function outline(ready: Prepared) {
   });
 }
 
+// section 이력·diff. 같은 ledger snapshot과 derived store를 읽고 계산은 reader Worker에서 한다.
+function history(ready: Prepared) {
+  return createHistoryHandlers({
+    read: ready.read,
+    snapshot: ready.search,
+    ports: ready.snapshot,
+    redactor: ready.redactor,
+  });
+}
+
 // context export. 공개 read route(`/v1/contexts/export`)를 reader Worker가 서빙한다.
 // 외부 출력이라 제품 redactor를 붙이고(없으면 내보내지 않는다), glossary는 같은 ledger
 // snapshot의 terms에서, section 상태는 derived store에서 읽는다. derived가 아직 없으면
@@ -470,6 +483,15 @@ export function createReaderRegistration(): ReaderRegistration {
         documentRead,
         (ready, ctx, input) => outline(ready).read(ctx, input as never),
       ),
+      worker(
+        documentSectionHistory,
+        (ready, ctx, input) =>
+          history(ready).sectionHistory(ctx, input as never),
+      ),
+      worker(
+        documentDiff,
+        (ready, ctx, input) => history(ready).diff(ctx, input as never),
+      ),
       worker(searchQuery, (ready, ctx, input) =>
         createSearchHandlers({
           read: ready.read,
@@ -567,7 +589,9 @@ export function createReaderRegistration(): ReaderRegistration {
         },
       },
       // coordinator가 파일을 관측할 근거(Q15). core만 부르는 내부 read다. 활성이고 tracking이
-      // 켜진 project의 root·규칙(roots)과 그 project 파일에 연결된 문서(links, 경로 page)다.
+      // 켜진 project의 root·규칙(roots), 활성 project의 모든 등록 폴더(folders: 파일 쓰기의
+      // root 권한 집합이고 tracking을 껐어도 들어간다), 그 project 파일에 연결된 문서(links,
+      // 경로 page)다. roots와 folders는 같은 snapshot의 한 응답이다.
       {
         route: OBSERVATION_BASIS_ROUTE,
         handle(snapshot, _ctx, input) {
@@ -582,6 +606,14 @@ export function createReaderRegistration(): ReaderRegistration {
           );
           if (part === "roots") {
             return ok({
+              folders: projects.value.flatMap((project) =>
+                project.status === "active"
+                  ? project.folders.map((folder) => ({
+                    project: project.id,
+                    path: folder.path,
+                  }))
+                  : []
+              ),
               roots: tracked.flatMap((project) =>
                 project.folders.map((folder) => ({
                   root: folder.path,

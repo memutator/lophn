@@ -2,13 +2,17 @@
 // R5, R6, R12, R13, R14, R15, R16). 적용은 apply.ts가 맡는다. handler는 동기이고 transaction 하나다.
 // 허락·거절의 사람 확인(confirmation handle)은 route의 `confirmation: "required"`와 binding으로
 // 선언하고, writer 실행기가 transaction 안에서 현재 handle을 예약·소비한다.
-// 설명 본문의 공백·secret 검사는 command 밖(work)에서 한다. 입력은 hash만 온다.
-// contract 입력에 준비 blob 참조가 없으므로 command는 hash를 저장하고 본문을 다시 hash하지 않는다.
+// 설명 글(이유·변경·외부 영향·되돌림)은 값으로 받는다. core가 redaction을 거쳐 blob으로
+// 준비해 두었고(공백·크기는 contract schema가 거절한다), create가 같은 글에서 hash와 준비
+// 증거를 다시 만들어 같은 transaction에서 영구 참조를 등록한다. 살아 있는 준비가 없으면 등록이
+// 거절되어 request가 만들어지지 않는다. 거절·취소의 이유도 글 값으로 받아 같은 길로 blob을
+// 준비하고 종료와 같은 transaction에 영구 참조를 등록한다(없으면 참조도 hash도 없다). 만료는
+// 이유 글이 없고 상태가 곧 이유다. 가짜 hash는 두지 않는다.
 
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
 import {
   type Actor,
-  type ApprovalEffect,
+  APPROVAL_TEXT_FIELDS,
   type ApprovalRequest,
   approvalRequestCancelled,
   approvalRequestCreated,
@@ -19,11 +23,14 @@ import {
   cancelApprovalRequest,
   type CommandDefinition,
   createApprovalRequest,
+  type CreateApprovalRequestInput,
   expireApprovalRequest,
   grantApprovalRequest,
   rejectApprovalRequest,
+  type RequestContext,
   type Tx,
 } from "../../contracts/platform/mod.ts";
+import { checkConfirmAction, overlappingConfirm } from "./confirm.ts";
 import { approvalRunLineage } from "./lineage.ts";
 import {
   cancelActorAllowed,
@@ -31,6 +38,7 @@ import {
   deadlineReached,
   deadlineValid,
 } from "./model.ts";
+import { registerTextBlobs, storedText, textBlob } from "./text.ts";
 
 type StoredRow = {
   id: string;
@@ -50,11 +58,6 @@ type StoredRow = {
 const REQUEST_COLUMNS =
   `id, requester, run, reason_blob, effect, action, action_binding_hash,
   expires_at, status, closed_reason_blob, created_seq, closed_seq`;
-
-// 만료 이유는 machine이 고정한 글 "expired"의 sha256이다(R12). handler가 동기라 미리 둔다.
-export const EXPIRY_REASON_TEXT = "expired";
-export const EXPIRY_REASON_HASH =
-  "fa64ea1e82e1206f828ab2a02917c7e92accb98e3b95881a1b4ad52b914b66e3";
 
 function seqText(value: bigint | number): string {
   return typeof value === "bigint" ? value.toString() : String(value);
@@ -153,8 +156,8 @@ export function createApprovalCommands(): {
     },
     expire: {
       route: expireApprovalRequest,
-      handle(tx, _ctx, input, compare) {
-        return expireRequest(tx, input, compare);
+      handle(tx, ctx, input, compare) {
+        return expireRequest(tx, ctx, input, compare);
       },
     },
     cancel: {
@@ -178,19 +181,11 @@ export function createApprovalCommands(): {
   };
 }
 
-type CreateInput = {
-  id: string;
-  requester: string;
-  run: string | null;
-  reason_blob: string;
-  effect: ApprovalEffect;
-  action: ApprovalRequest["action"];
-  expires_at: string | null;
-};
+type CreateInput = CreateApprovalRequestInput;
 
 function createRequest(
   tx: Tx,
-  ctx: { actor: Actor; run?: string },
+  ctx: RequestContext,
   input: CreateInput,
 ): Result<{ request: ApprovalRequest }> {
   // 요청자 본문은 자격과 같아야 한다. 다른 actor를 대신 요청하지 못한다.
@@ -198,6 +193,17 @@ function createRequest(
     return err({
       code: "forbidden",
       message: "요청자는 현재 자격과 같아야 한다",
+    });
+  }
+  // 사람이 확인해야 하는 앱 command의 request는 정확한 앱·release·command·입력과 실제 호출 주체에 묶인다(R8).
+  const confirm = checkConfirmAction(input.id, input.requester, input.action);
+  if (!confirm.ok) return confirm;
+  const overlap = overlappingConfirm(tx, input.id, input.action);
+  if (overlap !== undefined) {
+    return err({
+      code: "conflict",
+      message: "같은 호출의 approval이 이미 있다",
+      details: { approval: overlap },
     });
   }
   // agent 요청은 자격에 묶인 run이 필수다. run 유효성은 ledger의 run admission이 본다.
@@ -234,9 +240,12 @@ function createRequest(
       details: { rejected_approval: rejected.value },
     });
   }
+  const text = storedText(ctx, input);
   const created = tx.emit(approvalRequestCreated, input.id, {
     binding_hash: input.action.binding_hash,
   });
+  const registered = registerTextBlobs(tx, input.id, created, text.blobs);
+  if (!registered.ok) return registered;
   tx.sql.run(
     `insert into approval_requests
        (id, requester, run, reason_blob, effect, action, action_binding_hash,
@@ -246,8 +255,8 @@ function createRequest(
       input.id,
       input.requester,
       input.run,
-      input.reason_blob,
-      JSON.stringify(input.effect),
+      text.reason_blob,
+      JSON.stringify(text.effect),
       JSON.stringify(input.action),
       input.action.binding_hash,
       input.expires_at,
@@ -301,6 +310,7 @@ function rejectedInLineage(
 
 function expireRequest(
   tx: Tx,
+  _ctx: RequestContext,
   input: { approval: string; created_seq: string },
   compare: { created_seq: string } | undefined,
 ): Result<{ request: ApprovalRequest }> {
@@ -313,16 +323,17 @@ function expireRequest(
       message: "기한이 없거나 아직 도달하지 않았다",
     });
   }
-  return closeRequest(tx, loaded.value, "expired", {
-    kind: "expired",
-    reason: EXPIRY_REASON_HASH,
-  });
+  return closeRequest(tx, _ctx, loaded.value, "expired", { kind: "expired" });
 }
 
 function cancelRequest(
   tx: Tx,
-  ctx: { actor: Actor },
-  input: { approval: string; created_seq: string; closed_reason_blob: string },
+  ctx: RequestContext,
+  input: {
+    approval: string;
+    created_seq: string;
+    closed_reason: string | null;
+  },
   compare: { created_seq: string } | undefined,
 ): Result<{ request: ApprovalRequest }> {
   const loaded = pendingAt(tx, input.approval, input.created_seq, compare);
@@ -332,9 +343,9 @@ function cancelRequest(
     loaded.value.requester as Actor,
   );
   if (!allowed.ok) return allowed;
-  return closeRequest(tx, loaded.value, "cancelled", {
+  return closeRequest(tx, ctx, loaded.value, "cancelled", {
     kind: "cancelled",
-    reason: input.closed_reason_blob,
+    reason: input.closed_reason,
   });
 }
 
@@ -366,24 +377,23 @@ function pendingAt(
 
 type ClosedStatus = "granted" | "rejected" | "expired" | "cancelled";
 
+// 거절·취소의 reason은 적은 글 값이다. 만료는 이유 글이 없다.
 type Closing =
   | { kind: "granted"; bindingHash: string }
   | { kind: "rejected"; reason: string | null }
-  | {
-    kind: "expired" | "cancelled";
-    reason: string;
-  };
+  | { kind: "cancelled"; reason: string | null }
+  | { kind: "expired" };
 
 // 사람 결정(허락·거절)은 현재 내용·기한과 함께 본다(R5, R6, R12). 대기가 아니거나 생성 seq가
 // 다르면 거절한다. 허락·거절 event의 actor는 user이므로 다른 actor는 handler도 막는다.
 function decideRequest(
   tx: Tx,
-  ctx: { actor: Actor },
+  ctx: RequestContext,
   input: {
     approval: string;
     created_seq: string;
     binding_hash: string;
-    closed_reason_blob?: string | null;
+    closed_reason?: string | null;
   },
   compare: { created_seq: string } | undefined,
   decision: "granted" | "rejected",
@@ -409,49 +419,57 @@ function decideRequest(
   }
   return closeRequest(
     tx,
+    ctx,
     loaded.value,
     decision,
     decision === "granted"
       ? { kind: "granted", bindingHash: loaded.value.action_binding_hash }
-      : { kind: "rejected", reason: input.closed_reason_blob ?? null },
+      : { kind: "rejected", reason: input.closed_reason ?? null },
   );
 }
 
 function closeRequest(
   tx: Tx,
+  ctx: RequestContext,
   row: StoredRow,
   status: ClosedStatus,
   closing: Closing,
 ): Result<{ request: ApprovalRequest }> {
   const createdSeq = seqText(row.created_seq);
-  let reasonHash: string | null = null;
+  let reason: ReturnType<typeof textBlob> | null = null;
   let closed: string;
   if (closing.kind === "granted") {
     closed = tx.emit(approvalRequestGranted, row.id, {
       created_seq: createdSeq,
       binding_hash: closing.bindingHash,
     });
-  } else if (closing.kind === "rejected") {
-    reasonHash = closing.reason;
-    closed = tx.emit(approvalRequestRejected, row.id, {
+  } else if (closing.kind === "expired") {
+    // 만료는 이유 글이 없다. 상태가 곧 이유이고 가짜 hash를 두지 않는다.
+    closed = tx.emit(approvalRequestExpired, row.id, {
       created_seq: createdSeq,
-      closed_reason_blob: closing.reason,
+      closed_reason_blob: null,
     });
   } else {
-    reasonHash = closing.reason;
+    reason = closing.reason === null ? null : textBlob(ctx, closing.reason);
     closed = tx.emit(
-      closing.kind === "expired"
-        ? approvalRequestExpired
+      closing.kind === "rejected"
+        ? approvalRequestRejected
         : approvalRequestCancelled,
       row.id,
-      { created_seq: createdSeq, closed_reason_blob: closing.reason },
+      { created_seq: createdSeq, closed_reason_blob: reason?.hash ?? null },
     );
+    if (reason !== null) {
+      const registered = registerTextBlobs(tx, row.id, closed, [
+        { field: APPROVAL_TEXT_FIELDS.closed, blob: reason },
+      ]);
+      if (!registered.ok) return registered;
+    }
   }
   tx.sql.run(
     `update approval_requests
        set status = ?, closed_reason_blob = ?, closed_seq = ?
      where id = ? and status = 'pending'`,
-    [status, reasonHash, BigInt(closed), row.id],
+    [status, reason?.hash ?? null, BigInt(closed), row.id],
   );
   const stored = loadRequest(tx, row.id);
   if (!stored.ok) return stored;

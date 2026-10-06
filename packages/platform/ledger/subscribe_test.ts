@@ -20,6 +20,8 @@ import {
   resolveSubscriptionStart,
 } from "./subscribe.ts";
 import { createSubscriptionStore } from "./subscription-store.ts";
+
+const LEDGER_ID = "ldg_00000000000000000000000000000001";
 import { runCommand } from "./writer.ts";
 
 const start = {
@@ -196,6 +198,7 @@ Deno.test("platform/api#R5 platform/ledger#R15: named ack는 principal/name/cred
   const dir = await Deno.makeTempDir({ prefix: "ack-" });
   const opened = await createSubscriptionStore(
     `${dir}/derived/api-subscriptions`,
+    LEDGER_ID,
   );
   assert(opened.ok);
   const store = opened.value;
@@ -273,7 +276,7 @@ Deno.test("platform/ledger#R17 platform/ledger#R18: actual derived SQLite ack+pr
   const { path, connection } = await fileLedger(dir);
   await runCommand(connection, deps(), commands, user(), note("original"));
   const directory = `${dir}/derived/api-subscriptions`;
-  const opened = await createSubscriptionStore(directory);
+  const opened = await createSubscriptionStore(directory, LEDGER_ID);
   assert(opened.ok);
   assert((await opened.value.ack("user-1", "display", "1")).ok);
   const derived = new DatabaseSync(`${directory}/subscriptions.db`);
@@ -305,13 +308,13 @@ Deno.test("platform/ledger#R17 platform/ledger#R18: actual derived SQLite ack+pr
   derived.prepare("update provenance set value=?").run(originalProvenance);
   opened.value.close();
   derived.close();
-  const reopened = await createSubscriptionStore(directory);
+  const reopened = await createSubscriptionStore(directory, LEDGER_ID);
   assert(reopened.ok);
   assertEquals(await reopened.value.get("user-1", "display"), ok("1"));
   assert(!(await reopened.value.ack("user-1", "display", "0")).ok);
   reopened.value.close();
   await Deno.remove(`${dir}/derived`, { recursive: true });
-  const rebuilt = await createSubscriptionStore(directory);
+  const rebuilt = await createSubscriptionStore(directory, LEDGER_ID);
   assert(rebuilt.ok);
   assertEquals(await rebuilt.value.get("user-1", "display"), ok(null));
   assertEquals(
@@ -389,4 +392,40 @@ Deno.test("platform/api#R5 platform/api#R7: explicit future from은 inclusive �
   await until(() => codes.length > 0);
   assertEquals(codes, [1013]);
   assertEquals(sends, 0);
+});
+
+Deno.test("platform/backup-and-migration#R14: 기록한 ledger 식별이 다르면 ack 위치를 버리고 같으면 이어 쓴다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "ack-ledger-id-" });
+  try {
+    const directory = `${dir}/derived/api-subscriptions`;
+    const first = await createSubscriptionStore(directory, LEDGER_ID);
+    assert(first.ok);
+    assert((await first.value.ack("user-1", "display", "7")).ok);
+    first.value.close();
+    // 같은 ledger로 다시 열면 위치가 남는다.
+    const same = await createSubscriptionStore(directory, LEDGER_ID);
+    assert(same.ok);
+    assertEquals(await same.value.get("user-1", "display"), ok("7"));
+    same.value.close();
+    // 복원·새로 만든 ledger는 식별이 다르다. 옛 ledger의 seq 7을 이어 쓰지 않는다.
+    const other = await createSubscriptionStore(
+      directory,
+      "ldg_00000000000000000000000000000002",
+    );
+    assert(other.ok);
+    assertEquals(await other.value.get("user-1", "display"), ok(null));
+    // 낮은 seq로도 새 위치를 정할 수 있다: 옛 위치가 감소 거절의 근거로 남지 않는다.
+    assert((await other.value.ack("user-1", "display", "2")).ok);
+    assertEquals(await other.value.get("user-1", "display"), ok("2"));
+    other.value.close();
+    const reopened = await createSubscriptionStore(
+      directory,
+      "ldg_00000000000000000000000000000002",
+    );
+    assert(reopened.ok);
+    assertEquals(await reopened.value.get("user-1", "display"), ok("2"));
+    reopened.value.close();
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
 });

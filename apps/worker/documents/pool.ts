@@ -19,6 +19,7 @@ import {
 } from "../../../packages/platform/responsiveness/mod.ts";
 import { createFileSerializer } from "../../../packages/documents/file-tracking/file-ops.ts";
 import { systemClock } from "../../../packages/base/mod.ts";
+import { type ByteInbox, createByteInbox } from "./byte-inbox.ts";
 
 export const PREPARATION_KIND = "documents/preparation";
 // 한 요청의 기한. 큰 파일 읽기·hash·쓰기를 덮는다. 넘으면 결과 불명이라 unavailable이다.
@@ -27,15 +28,20 @@ const BYTE_CHUNK = 256 * 1024;
 
 export type SlotName = "human" | "background";
 
-// 바이트를 먼저 보내는 요청은 그 channel을 받아 payload를 만든다.
+// 바이트를 먼저 보내는 요청은 그 channel을 받아 payload를 만든다. 바이트를 돌려받는 요청
+// (`replyBytes`)은 준비 worker가 응답 전에 byte frame을 보낼 channel도 받는다.
 export type PoolPayload =
   | Record<string, unknown>
-  | ((channel: number) => unknown);
+  | ((channel: number, replyChannel: number) => unknown);
 
 export type PoolRequest = {
   op: string;
   payload: PoolPayload;
   bytes?: Uint8Array;
+  // true면 준비 worker가 응답 전에 byte chunk frame으로 보낸 바이트를 모아 결과에
+  // `{ payload, bytes }`로 싣는다. 응답 payload의 `bytes`(길이)와 받은 바이트가 다르면
+  // 일부로 꾸미지 않고 unavailable이다. 한 frame(1 MiB) 안의 창 하나를 위한 길이다.
+  replyBytes?: boolean;
   priority: SlotName;
   // 같은 key의 요청은 줄을 선다(canonical 파일 경로).
   keys?: readonly string[];
@@ -78,6 +84,8 @@ type Slot = {
   busy: boolean;
   pending: Map<string, Pending>;
   channel: number;
+  // 준비 worker가 응답 전에 보낸 byte chunk.
+  inbox: ByteInbox;
 };
 
 type Waiter = {
@@ -111,13 +119,20 @@ export function createPreparationPool(options: PoolOptions): PreparationPool {
     busy: false,
     pending: new Map(),
     channel: 0,
+    inbox: createByteInbox(),
   }));
   const waiters: Waiter[] = [];
   let counter = 0;
   let stopped = false;
 
-  function callbacks(pending: Map<string, Pending>): ChildCallbacks {
+  function callbacks(
+    pending: Map<string, Pending>,
+    inbox?: ByteInbox,
+  ): ChildCallbacks {
     return {
+      onFrame(frame) {
+        inbox?.collect(frame);
+      },
       onMessage(message: ChildMessage) {
         if (message.type !== "worker_response") return;
         const settle = pending.get(message.request_id);
@@ -149,7 +164,11 @@ export function createPreparationPool(options: PoolOptions): PreparationPool {
     const supervisor = make(supervisorOptions());
     slot.supervisor = supervisor;
     slot.signature = options.signature?.();
-    slot.starting = supervisor.start(spec, helloFor(), callbacks(slot.pending))
+    slot.starting = supervisor.start(
+      spec,
+      helloFor(),
+      callbacks(slot.pending, slot.inbox),
+    )
       .then((started) => {
         if (!started.ok) {
           slot.starting = undefined;
@@ -169,7 +188,11 @@ export function createPreparationPool(options: PoolOptions): PreparationPool {
     supervisor: Supervisor,
     pending: Map<string, Pending>,
     channel: () => number,
-    request: Pick<PoolRequest, "op" | "payload" | "bytes" | "timeoutMs">,
+    request: Pick<
+      PoolRequest,
+      "op" | "payload" | "bytes" | "timeoutMs" | "replyBytes"
+    >,
+    inbox?: ByteInbox,
   ): Promise<Result<unknown, LophnError>> {
     const id = `preparation-${++counter}`;
     let framed: number | undefined;
@@ -184,8 +207,9 @@ export function createPreparationPool(options: PoolOptions): PreparationPool {
         if (!sent.ok) return unavailable("preparation worker is not ready");
       }
     }
+    const replyChannel = request.replyBytes === true ? channel() : 0;
     const payload = typeof request.payload === "function"
-      ? request.payload(framed ?? 0)
+      ? request.payload(framed ?? 0, replyChannel)
       : request.payload;
     const answered = new Promise<Result<unknown, LophnError>>((resolve) => {
       const timer = setTimeout(() => {
@@ -208,7 +232,17 @@ export function createPreparationPool(options: PoolOptions): PreparationPool {
       pending.delete(id);
       return unavailable("preparation worker is not ready");
     }
-    return await answered;
+    const reply = await answered;
+    if (request.replyBytes !== true || !reply.ok) return reply;
+    // 바이트 frame은 응답보다 먼저 와 있다(같은 pipe의 순서).
+    const length = (reply.value as { bytes?: unknown } | null)?.bytes;
+    if (typeof length !== "number" || inbox === undefined) {
+      return unavailable("preparation worker sent no bytes");
+    }
+    const taken = inbox.take(replyChannel, length);
+    return taken.ok
+      ? ok({ payload: reply.value, bytes: taken.value })
+      : unavailable("preparation worker bytes did not arrive");
   }
 
   async function runOn(
@@ -228,10 +262,16 @@ export function createPreparationPool(options: PoolOptions): PreparationPool {
       if (!await start(slot) || slot.supervisor === undefined) {
         return unavailable("preparation worker is not available");
       }
-      return await send(slot.supervisor, slot.pending, () => {
-        slot.channel = slot.channel % 0xffffffff + 1;
-        return slot.channel;
-      }, request);
+      return await send(
+        slot.supervisor,
+        slot.pending,
+        () => {
+          slot.channel = slot.channel % 0xffffffff + 1;
+          return slot.channel;
+        },
+        request,
+        slot.inbox,
+      );
     } catch {
       return unavailable("preparation worker failed");
     }

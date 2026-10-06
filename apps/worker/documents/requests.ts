@@ -147,6 +147,8 @@ function fileOpOf(
   switch (op) {
     case DOCUMENT_OPS.fileRead:
       return files.read;
+    case DOCUMENT_OPS.fileWindow:
+      return files.window;
     case DOCUMENT_OPS.fileWrite:
       return files.write;
     case DOCUMENT_OPS.fileRename:

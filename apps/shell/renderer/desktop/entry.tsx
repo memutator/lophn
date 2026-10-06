@@ -90,7 +90,7 @@ mount(
           source={core}
           initial={start}
           workspace={workspace}
-          editor={seed ? { ...editor, ...seed.editor } : editor}
+          editor={seed ? { ...seed.editor, menu: editor.menu } : editor}
           windowWidth={seed ? 1440 : undefined}
           terminal={terminal}
           lophn={lophn}

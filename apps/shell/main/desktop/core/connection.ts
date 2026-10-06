@@ -6,7 +6,7 @@ import {
 } from "../../../ipc/core.ts";
 import type { RpcFetch } from "../../../../../packages/contracts/platform/mod.ts";
 
-import { type CoreSession, openSession } from "./client.ts";
+import { type CoreSession, openSession, type StreamFetch } from "./client.ts";
 import {
   type Clock,
   type EventSink,
@@ -36,6 +36,8 @@ export interface ConnectionOptions {
   launch: LaunchOptions;
   ipc: CoreIpc;
   fetch: RpcFetch;
+  /** 바이트 route(파일 읽기 stream, 업로드). main 안의 편집기 adapter만 쓴다. */
+  stream?: StreamFetch;
   sockets: SocketFactory;
   clock: Clock;
   /** 상태를 밀 대상. 창이 없으면 메모리에만 남긴다. */
@@ -82,6 +84,7 @@ export function startCoreConnection(
       coreEpoch: hello.core_epoch,
       userToken: hello.user_token,
       fetch: options.fetch,
+      ...(options.stream ? { stream: options.stream } : {}),
     });
     state.state = "ready";
     push();

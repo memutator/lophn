@@ -1,10 +1,18 @@
 export { APPROVAL_BLOB_FIELDS, APPROVAL_OWNER_KIND } from "./blobs.ts";
 export { createApplyCommand } from "./apply.ts";
 export {
-  createApprovalCommands,
-  EXPIRY_REASON_HASH,
-  EXPIRY_REASON_TEXT,
-} from "./commands.ts";
+  checkConfirmAction,
+  CONFIRM_COMMAND,
+  CONFIRM_CONCERN,
+  confirmAction,
+  overlappingConfirm,
+} from "./confirm.ts";
+export {
+  approvalExpirySweep,
+  approvalExpirySweepRead,
+  EXPIRY_SWEEP_BATCH,
+} from "./expiry.ts";
+export { createApprovalCommands } from "./commands.ts";
 export {
   cancelActorAllowed,
   closeAllowed,
@@ -27,9 +35,6 @@ export {
 } from "./registration.ts";
 export { APPROVAL_SCHEMA_STEPS } from "./schema.ts";
 export {
-  APPROVAL_TEXT_PURPOSE,
-  type ApprovalText,
-  prepareClosedReason,
-  prepareDescription,
-  type TextPreparer,
-} from "./work.ts";
+  approvalsTextRead,
+  type ApprovalTextEnvironment,
+} from "./text-read.ts";

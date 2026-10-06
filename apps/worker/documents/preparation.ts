@@ -29,14 +29,22 @@ import {
 import type { TrackingPattern } from "../../../packages/contracts/documents/mod.ts";
 import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
 import { type ByteInbox, createByteInbox } from "./byte-inbox.ts";
-import { acceptFileOp } from "./file-requests.ts";
+import {
+  acceptFileOp,
+  type ByteOutbox,
+  productFileDeps,
+} from "./file-requests.ts";
 
 export type PreparationOptions = {
   root: string;
   streams: ChildStreams;
   // op별 실행. op 이름과 payload는 준비 worker 경계에서 contracts schema로 다시
   // 검사한다. inbox는 요청 앞에 도착한 byte chunk(사람 파일 쓰기 내용)다.
-  accept(request: WorkerRequest, inbox: ByteInbox): Promise<unknown>;
+  accept(
+    request: WorkerRequest,
+    inbox: ByteInbox,
+    outbox: ByteOutbox,
+  ): Promise<unknown>;
 };
 
 // accept가 내는 경계 오류. code는 공통 7개 안의 LophnError고, 이 밖의 실패는
@@ -52,8 +60,9 @@ class PreparationFailure extends Error {
 export async function acceptPreparation(
   request: WorkerRequest,
   inbox: ByteInbox = createByteInbox(),
+  outbox?: ByteOutbox,
 ): Promise<unknown> {
-  const filed = acceptFileOp(request, inbox);
+  const filed = acceptFileOp(request, inbox, productFileDeps(), outbox);
   if (filed !== undefined) {
     const answered = await filed;
     if (!answered.ok) throw new PreparationFailure(answered.error);
@@ -371,7 +380,10 @@ export function createPreparation(options: PreparationOptions): ChildSession {
       }
       return respondTo(
         parsed.data as WorkerRequest,
-        (request) => options.accept(request, inbox),
+        (request) =>
+          options.accept(request, inbox, {
+            send: (channel, bytes) => session.sendBytes(channel, bytes),
+          }),
         (response) => session.send(response),
       );
     },

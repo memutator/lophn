@@ -9,7 +9,14 @@ import {
   style,
 } from "../../../../packages/design/components/testing.ts";
 
+import type {
+  EditorFilesApi,
+  EditorReply,
+  EditorWrite,
+  SaveReport,
+} from "../../ipc/editor.ts";
 import { type DocumentTabMeta, DocumentView } from "./document-view.tsx";
+import { EditorSessions } from "./sessions.ts";
 import type { MenuChoice, MenuOpener } from "./document-menu.ts";
 import { readingWidthStore, type SettingsPort } from "./reading-width.ts";
 import type {
@@ -140,6 +147,7 @@ function view(
     documentId?: string;
     onMeta?: (meta: DocumentTabMeta) => void;
     onToggleInfo?: () => void;
+    files?: EditorSessions;
   } = {},
 ) {
   const settings = props.settings ?? settingsOf();
@@ -152,6 +160,7 @@ function view(
       menu={props.menu ?? menuOf(null).menu}
       onMeta={props.onMeta}
       onToggleInfo={props.onToggleInfo ?? (() => {})}
+      {...(props.files ? { files: props.files } : {})}
       now={() => Date.parse("2026-10-05T10:00:00Z")}
     />,
   );
@@ -431,4 +440,234 @@ Deno.test("shell/editor#R8: 글을 줄 수 없는 문서와 읽기 실패는 이
   click(one(state, "button"));
   await flush();
   assertEquals(failing.reads.length, 2);
+});
+
+// ---- 저장 흐름(shell#T17). main 파일 adapter 자리는 가짜 preload 통로다.
+
+const DISK = "# Release notes\n\nOn disk.\n";
+
+function report(over: Partial<SaveReport> = {}): SaveReport {
+  return {
+    disk: "written",
+    written_hash: "a".repeat(64),
+    observed_hash: null,
+    observed_at: null,
+    changed_again: false,
+    recording: "recorded",
+    version: null,
+    saved_version: null,
+    latest_version: null,
+    problems: null,
+    failure: null,
+    ...over,
+  };
+}
+
+function filesOf(write: (input: EditorWrite) => EditorReply<SaveReport>) {
+  const writes: EditorWrite[] = [];
+  const api: EditorFilesApi = {
+    open: () =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          session: "es_session1x",
+          text: DISK,
+          base_hash: "0".repeat(64),
+          target: "project_file",
+          primary_path: "doc_notes.md",
+        },
+      }),
+    write: (input) => {
+      writes.push(input);
+      return Promise.resolve(write(input));
+    },
+    lookup: () =>
+      Promise.resolve({
+        ok: true,
+        value: { state: "unknown", observed_hash: null, observed_at: null },
+      }),
+    current: () =>
+      Promise.resolve({
+        ok: true,
+        value: { text: "# Release notes\n\nOutside.\n", hash: "e".repeat(64) },
+      }),
+    // 바깥 상태는 이 test에서 오지 않는다.
+    watch: () => new Promise(() => {}),
+    release: () => Promise.resolve(),
+    counts: () => {},
+    onCloseRequest: () => () => {},
+    answerClose: () => {},
+  };
+  const files = new EditorSessions(api, {
+    ask: () => Promise.resolve("keep"),
+  });
+  return { files, writes };
+}
+
+function ctrlS(target: Element): void {
+  act(() => {
+    target.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "s",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  });
+}
+
+function typeText(container: HTMLElement, text: string): void {
+  const editor = EditorView.findFromDOM(one(container, ".cm-editor"))!;
+  act(() =>
+    editor.dispatch({
+      changes: { from: editor.state.doc.length, insert: text },
+    })
+  );
+}
+
+Deno.test("shell/editor#R11 shell/editor#R12: 편집은 main이 연 디스크 글로 시작하고, 저장 버튼 없이 CommandOrControl+S가 편집 종료로 쓰며, 저장 상태가 머리 메타 줄에 보인다", async () => {
+  const { files, writes } = filesOf((input) => ({
+    ok: true,
+    value: report({ version: input.end ? "preparing" : null }),
+  }));
+  using rendered = view({ files });
+  await flush();
+  const root = one(rendered.container, "[data-document-view]");
+  ctrlE(root);
+  await flush();
+  assertEquals(root.getAttribute("data-document-view"), "edit");
+  assert(
+    one(rendered.container, ".cm-content").textContent?.includes("On disk."),
+  );
+  // 저장 버튼은 없다.
+  assertEquals(
+    [...rendered.container.querySelectorAll("button")].some((button) =>
+      button.textContent === "Save"
+    ),
+    false,
+  );
+  typeText(rendered.container, "More.\n");
+  ctrlS(root);
+  await flush();
+  assertEquals(writes.length, 1);
+  assertEquals(writes[0]!.end, true);
+  assertEquals(writes[0]!.base_hash, "0".repeat(64));
+  assertEquals(
+    new TextDecoder().decode(writes[0]!.bytes),
+    `${DISK}More.\n`,
+  );
+  const meta = one(rendered.container, "[data-document-meta]");
+  assertEquals(
+    one(meta, "[data-save-status]").getAttribute("data-save-status"),
+    "version-pending",
+  );
+  assert(meta.textContent?.includes("Saved to the file. Keeping a version."));
+  // 단계별 사실은 상세에서 펼친다.
+  assertEquals(rendered.container.querySelector("[data-save-details]"), null);
+  click(one(meta, "[data-save-details-toggle]"));
+  await flush();
+  const details = one(rendered.container, "[data-save-details]");
+  assertEquals(
+    [...details.querySelectorAll("[data-save-stage]")].map((row) => [
+      row.getAttribute("data-save-stage"),
+      row.getAttribute("data-save-value"),
+    ]),
+    [
+      ["file", "saved"],
+      ["record", "recorded"],
+      ["version", "preparing"],
+      ["format", "none"],
+    ],
+  );
+});
+
+Deno.test("shell/editor#R2 shell/editor#R11: 형식 검사 실패는 파일 저장 성공과 따로 메타 줄에 보이고 문제 목록에 줄로 보인다", async () => {
+  const { files } = filesOf(() => ({
+    ok: true,
+    value: report({
+      version: "validation_failed",
+      problems: [{
+        severity: "error",
+        message: "Heading is missing",
+        file: "doc_notes.md",
+        start_line: 1,
+      }],
+    }),
+  }));
+  using rendered = view({ files });
+  await flush();
+  const root = one(rendered.container, "[data-document-view]");
+  ctrlE(root);
+  await flush();
+  typeText(rendered.container, "x");
+  ctrlS(root);
+  await flush();
+  const meta = one(rendered.container, "[data-document-meta]");
+  assertEquals(
+    one(meta, "[data-save-status]").getAttribute("data-save-status"),
+    "format-failed",
+  );
+  assertEquals(one(meta, "[data-save-action]").textContent, "Show problems");
+  assert(
+    one(rendered.container, "[data-problem-list]").textContent?.includes(
+      "Heading is missing",
+    ),
+  );
+  click(one(meta, "[data-save-details-toggle]"));
+  await flush();
+  assertEquals(
+    one(rendered.container, "[data-save-stage='file']").getAttribute(
+      "data-save-value",
+    ),
+    "saved",
+  );
+});
+
+Deno.test("shell/editor#R15: 충돌 notice는 32px로 해결까지 남고 현재 파일과 비교하는 해결 화면으로 가며, 사람이 고르기 전에는 초안을 덮지 않는다", async () => {
+  let conflict = true;
+  const { files, writes } = filesOf(() =>
+    conflict
+      ? { ok: true, value: report({ disk: "conflict", failure: "conflict" }) }
+      : { ok: true, value: report() }
+  );
+  using rendered = view({ files });
+  await flush();
+  const root = one(rendered.container, "[data-document-view]");
+  ctrlE(root);
+  await flush();
+  typeText(rendered.container, "Mine.\n");
+  ctrlS(root);
+  await flush();
+  const notice = one(rendered.container, "[data-notice]");
+  assertEquals(notice.getAttribute("data-notice"), "conflict");
+  assertEquals(notice.getAttribute("role"), "alert");
+  assertEquals(style(notice).minHeight, "32px");
+  assertEquals(style(notice).marginBottom, "12px");
+  // 시간이 지나도 사라지지 않는다.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  await flush();
+  assert(rendered.container.querySelector("[data-notice='conflict']"));
+  click(one(notice, "[data-notice-compare]"));
+  await flush();
+  const resolving = one(rendered.container, "[data-conflict-view]");
+  assertEquals(resolving.getAttribute("data-conflict-view"), "disk");
+  assert(resolving.textContent?.includes("Outside."));
+  assert(resolving.textContent?.includes("Mine."));
+  assertEquals(
+    rendered.container.querySelectorAll("[data-variant='primary']").length,
+    0,
+  );
+  // 내 글을 고르면 지금 파일 hash 위에 쓴다.
+  conflict = false;
+  click(one(resolving, "[data-conflict-mine]"));
+  await flush();
+  const last = writes.at(-1)!;
+  assertEquals(last.base_hash, "e".repeat(64));
+  assert(new TextDecoder().decode(last.bytes).includes("Mine."));
+  assertEquals(
+    rendered.container.querySelector("[data-notice='conflict']"),
+    null,
+  );
+  assertEquals(rendered.container.querySelector("[data-conflict-view]"), null);
 });

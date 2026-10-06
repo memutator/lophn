@@ -10,14 +10,18 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   approvalRequestCreated,
   type CommandRoute,
+  type EventDefinition,
   type EventVisibilityDefinition,
   type RequestContext,
 } from "../../packages/contracts/platform/mod.ts";
 import {
   APPROVAL_BLOB_FIELDS,
   APPROVAL_SCHEMA_STEPS,
+  approvalExpirySweepRead,
   approvalsGetRead,
   approvalsListRead,
+  approvalsTextRead,
+  type ApprovalTextEnvironment,
   createApplyCommand,
   createApprovalCommands,
 } from "../../packages/platform/approvals/mod.ts";
@@ -28,6 +32,7 @@ import {
   notificationsGetRead,
   notificationsListRead,
 } from "../../packages/platform/notifications/mod.ts";
+import { secretsListRead } from "../../packages/platform/secrets/mod.ts";
 import type {
   EventRegistration,
   ReaderRegistration,
@@ -55,9 +60,34 @@ export const NOTIFICATIONS_CONTEXT: RequestContext = {
   credential_ref: NOTIFICATIONS_PRINCIPAL,
 };
 
-function isNotifications(ctx: RequestContext): boolean {
+// approval 만료 정리의 core 내부 machine 자격이다. token이 없어 HTTP로는 이 principal이 될 수 없다.
+// 기한에 도달한 대기를 읽고 `expire_approval_request`만 낸다. 허락·거절·취소·사용은 하지 못한다.
+export const APPROVAL_EXPIRY_PRINCIPAL = "machine:approval-expiry";
+
+export const APPROVAL_EXPIRY_CONTEXT: RequestContext = {
+  principal: APPROVAL_EXPIRY_PRINCIPAL,
+  actor: "machine",
+  scope: {
+    operations: ["ApprovalExpirySweep", "expire_approval_request"],
+    targets: {},
+  },
+  conditions: {},
+  credential_ref: APPROVAL_EXPIRY_PRINCIPAL,
+};
+
+export function isNotifications(ctx: RequestContext): boolean {
   return ctx.actor === "machine" && ctx.principal === NOTIFICATIONS_PRINCIPAL &&
     ctx.credential_ref === NOTIFICATIONS_PRINCIPAL;
+}
+
+// 계기 event의 소유 concern이 자기 등록 파일에서 쓰는 공개 정책이다. notifications 구독자만
+// 읽고, 사람·agent·app·다른 machine은 정책이 없을 때와 똑같이 못 본다(정책 없음 = 숨김).
+// 사람에게 event를 보이는 일은 notification read가 맡는다. 소유 concern이 사람·다른 자격에게
+// 이미 공개하는 event라면 이 정책을 그 정책 뒤에 이어 쓴다(owner 정책 || isNotifications).
+export function notificationsOnlyVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return { event, handle: (_snapshot, ctx) => ok(isNotifications(ctx)) };
 }
 
 const approvalCommands = createApprovalCommands();
@@ -85,8 +115,11 @@ export const platformDefinitions = {
   reads: [
     approvalsGetRead(),
     approvalsListRead(),
+    approvalExpirySweepRead(),
     notificationsGetRead(),
     notificationsListRead(),
+    // SetSecret·RemoveSecret의 display_read다. 이름·설정 여부·판만 보인다.
+    secretsListRead(),
   ],
   blobFields: APPROVAL_BLOB_FIELDS,
 };
@@ -134,11 +167,32 @@ export function createEventRegistration(): EventRegistration {
   return { visibility: [approvalCreatedVisibility] };
 }
 
+// ReadApprovalText는 ledger snapshot에서 참조를 판정한 뒤 blob 바이트를 기다리는 core read다.
+// core가 기동 때 읽기 통로를 넣고, 넣지 않은 등록은 unavailable이다.
+const UNATTACHED_APPROVAL_TEXT: ApprovalTextEnvironment = {
+  snapshot: () =>
+    err({
+      code: "unavailable",
+      message: "approval 글 읽기 통로가 붙어 있지 않다",
+    }),
+  bytes: () =>
+    Promise.resolve(err({
+      code: "unavailable",
+      message: "blob 읽기 통로가 붙어 있지 않다",
+    })),
+};
+
 // core 조립이 team 조립 결과에 platform 항목을 더한다. command 이름·read 경로·schema id·blob
 // field가 팀 등록과 겹치면 거절한다. route는 더하지 않는다: contract ROUTES가 소유한다.
-export function withPlatform(assembled: Result<Assembled>): Result<Assembled> {
+export function withPlatform(
+  assembled: Result<Assembled>,
+  environment: { approvalText?: ApprovalTextEnvironment } = {},
+): Result<Assembled> {
   if (!assembled.ok) return assembled;
   const value = assembled.value;
+  const apiReads = [
+    approvalsTextRead(environment.approvalText ?? UNATTACHED_APPROVAL_TEXT),
+  ];
   const commands = new Set(value.commands.map((c) => c.route.name));
   const reads = new Set(
     [...value.reads, ...value.apiReads].map((r) =>
@@ -156,7 +210,7 @@ export function withPlatform(assembled: Result<Assembled>): Result<Assembled> {
       return overlap("command", command.route.name);
     }
   }
-  for (const read of platformDefinitions.reads) {
+  for (const read of [...platformDefinitions.reads, ...apiReads]) {
     const key = `${read.route.resource}/${read.route.method}`;
     if (reads.has(key)) return overlap("read", key);
   }
@@ -174,6 +228,10 @@ export function withPlatform(assembled: Result<Assembled>): Result<Assembled> {
     reads: [
       ...value.reads,
       ...platformDefinitions.reads as unknown as Assembled["reads"],
+    ],
+    apiReads: [
+      ...value.apiReads,
+      ...apiReads as unknown as Assembled["apiReads"],
     ],
     blobFields: [...value.blobFields, ...platformDefinitions.blobFields],
   });

@@ -320,20 +320,31 @@ export function Workspace(
     });
   };
 
+  // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
+  const removeTab = (key: string) => {
+    const current = latest.current;
+    const at = current.panes.findIndex((item) =>
+      item.tabs.some((candidate) => candidate.key === key)
+    );
+    if (at >= 0) update(closeTab(current, at, key));
+  };
+
   // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다(R10).
+  // 문서 탭은 마지막 고침을 보내 편집을 끝내고, 저장이 남으면 사람이 고른다(editor#R1).
   const close = (pane: number, key: string) => {
     const tab = view.panes[pane]?.tabs.find((item) => item.key === key);
+    if (tab?.kind === "document_editor" && editor?.files) {
+      void editor.files.leave(key).then((leave) => {
+        if (leave) removeTab(key);
+      });
+      return;
+    }
     if (tab?.kind !== "terminal" || !terminal) {
       update(closeTab(view, pane, key));
       return;
     }
     void closeTerminalTab(terminal, key).then((remove) => {
-      if (!remove) return;
-      const current = latest.current;
-      const at = current.panes.findIndex((item) =>
-        item.tabs.some((candidate) => candidate.key === key)
-      );
-      if (at >= 0) update(closeTab(current, at, key));
+      if (remove) removeTab(key);
     });
   };
 
@@ -417,6 +428,7 @@ export function Workspace(
           source={editor.source}
           readingWidth={editor.readingWidth}
           menu={editor.menu}
+          files={editor.files}
           infoOpen={infoShown}
           onToggleInfo={() => setInfo(!infoShown, infoTab)}
           onMeta={(meta) => noteMeta(tab.key, meta)}

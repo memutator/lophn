@@ -117,7 +117,10 @@ Deno.test("documents/addressing#R1 #R6 #R8 #R9: core에서 move·rename 뒤 옛 
         name: "mahas",
         title: "Notes",
         purpose: "",
-        folders: [{ path: "/tmp/lophn-test-documents", description: "" }],
+        folders: [{
+          path: `${harness.dataRoot}/project-folder`,
+          description: "",
+        }],
         tracking: { enabled: false, patterns: [], use_gitignore: false },
       },
       idempotency_key: "project-1",

@@ -260,6 +260,7 @@ export const vars = {
     "problemList": "var(--editor-problem-list)",
     "stickyHead": "var(--editor-sticky-head)",
     "linkPicker": "var(--editor-link-picker)",
+    "notice": "var(--editor-notice)",
   },
   "table": {
     "row": {

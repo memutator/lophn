@@ -12,6 +12,7 @@ import type {
   WorkerRoute,
 } from "../../packages/contracts/platform/mod.ts";
 import type { TxPortRegistration } from "../../packages/platform/ledger/mod.ts";
+import type { SecretRefSource } from "../../packages/platform/secrets/mod.ts";
 
 // 최상위 팀의 등록 파일이 내놓는 모양. main.ts는 이 목록만 부르고 팀 내용을 모른다.
 // 팀 파일은 지금 자기 모양을 그대로 내보내므로, 여기 조립은 있는 항목만 읽는다.
@@ -31,6 +32,9 @@ export type TeamRegistration = {
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
+  // 자기 ledger 표에 secret 참조를 두는 concern(provider credential 등)이 그 참조를 읽는 함수를
+  // 낸다. core가 같은 keychain에서 값을 읽어 알려진 값 registry에 등록·회수한다.
+  secretRefs?: readonly SecretRefSource[];
   clock?: Clock;
   ids?: IdSource;
 };
@@ -58,6 +62,7 @@ type Loose = {
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
+  secretRefs?: readonly SecretRefSource[];
 };
 
 export type Assembled = {
@@ -71,6 +76,8 @@ export type Assembled = {
   ports: TxPortRegistration[];
   workers: KindLaunchSpec[];
   blobFields: BlobFieldDefinition[];
+  // 다른 concern의 secret 참조를 읽는 함수. owner가 겹치면 거절한다.
+  secretRefs: SecretRefSource[];
 };
 
 // command·read·file·worker route를 같은 경로 집합에 넣는다. 같은 resource/method는 거절한다.
@@ -131,7 +138,9 @@ export function assemble(
     ports: [],
     workers: [],
     blobFields: [],
+    secretRefs: [],
   };
+  const secretOwners = new Set<string>();
   const schema = new Set<string>();
   const commands = new Set<string>();
   const reads = new Set<string>();
@@ -228,6 +237,11 @@ export function assemble(
         assembled.ports.push(port);
       }
       assembled.blobFields.push(...registration.blobFields ?? []);
+      for (const source of registration.secretRefs ?? []) {
+        const check = taken(secretOwners, source.owner, source);
+        if (!check.ok) return check;
+        assembled.secretRefs.push(check.value);
+      }
       for (const worker of registration.workers ?? []) {
         const check = taken(workers, worker.kind, worker);
         if (!check.ok) return check;

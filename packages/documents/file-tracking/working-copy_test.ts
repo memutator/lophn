@@ -3,8 +3,12 @@ import { createHash } from "node:crypto";
 import { denoFileOps } from "./adapters/file-ops.ts";
 import { createFileSerializer } from "./file-ops.ts";
 import type { FileDeps } from "./files.ts";
-import { fromBase64 } from "./base64.ts";
-import { confirmCopy, readLocation, writeLocation } from "./prepared-files.ts";
+import {
+  confirmCopy,
+  readLocation,
+  readWindow,
+  writeLocation,
+} from "./prepared-files.ts";
 import {
   encodeWorkingCopyMeta,
   parseWorkingCopyMeta,
@@ -137,10 +141,16 @@ Deno.test("documents/file-tracking#R1: 선택한 판으로 만든 사본을 편�
     assert(read.ok);
     assertEquals(read.value.exists, true);
     assertEquals(read.value.hash, sha("edited"));
-    assertEquals(
-      new TextDecoder().decode(fromBase64(read.value.bytes_b64!)),
-      "edited",
-    );
+    // 본문은 헤더가 아니라 창으로 읽는다(헤더의 identity가 그대로인 파일만).
+    const window = await readWindow(deps, {
+      location,
+      identity: read.value.identity!,
+      offset: 0,
+      length: 6,
+      channel: 1,
+    });
+    assert(window.ok);
+    assertEquals(new TextDecoder().decode(window.value), "edited");
     // metadata는 첫 쓰기에서 한 번만 만들고 편집이 덮지 않는다.
     assertEquals(parseWorkingCopyMeta(read.value.meta), meta(sha("base")));
     // 사본 폴더 밖에는 아무것도 만들어지지 않았다.
@@ -236,5 +246,94 @@ Deno.test("documents/file-tracking#R1: 사본이 아닌 곳의 metadata는 읽�
     assert(!broken.ok);
     // 깨진 metadata를 덮어써서 되살리지 않는다.
     assertEquals(await Deno.readTextFile(place.meta), "{not json");
+  });
+});
+
+Deno.test("documents/file-tracking#R9: 파일 읽기는 크기와 무관하게 헤더와 창으로 나뉘고 창을 이으면 헤더의 hash와 같다", async () => {
+  await withData(async (dataRoot) => {
+    const place = await prepare(dataRoot);
+    const deps = depsOver();
+    const location = { root: place.root, path: place.content };
+    // 한 JSON frame(1 MiB)과 512 KiB 한도를 넘는 파일.
+    const size = 3 * 1024 * 1024 + 123;
+    const bytes = new Uint8Array(size);
+    for (let index = 0; index < size; index++) bytes[index] = index % 251;
+    await Deno.mkdir(place.root, { recursive: true });
+    await Deno.writeFile(place.content, bytes);
+    const header = await readLocation(deps, location);
+    assert(header.ok);
+    assertEquals(header.value.size, size);
+    assertEquals(
+      header.value.hash,
+      createHash("sha256").update(bytes).digest("hex"),
+    );
+    const identity = header.value.identity!;
+    const digest = createHash("sha256");
+    const window = 256 * 1024;
+    let offset = 0;
+    while (offset < size) {
+      const length = Math.min(window, size - offset);
+      const read = await readWindow(deps, {
+        location,
+        identity,
+        offset,
+        length,
+        channel: 1,
+      });
+      assert(read.ok);
+      assertEquals(read.value.length, length);
+      digest.update(read.value);
+      offset += length;
+    }
+    assertEquals(digest.digest("hex"), header.value.hash);
+  });
+});
+
+Deno.test("documents/file-tracking#R9 documents/file-tracking#R11: 헤더를 읽은 뒤 바뀐 파일의 창은 일부 바이트로 꾸미지 않고 conflict다", async () => {
+  await withData(async (dataRoot) => {
+    const place = await prepare(dataRoot);
+    const deps = depsOver();
+    const location = { root: place.root, path: place.content };
+    await Deno.mkdir(place.root, { recursive: true });
+    await Deno.writeTextFile(place.content, "0123456789");
+    const header = await readLocation(deps, location);
+    assert(header.ok);
+    const identity = header.value.identity!;
+    // 같은 크기로 외부에서 고친다(mtime이 달라진다).
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    await Deno.writeTextFile(place.content, "abcdefghij");
+    const changed = await readWindow(deps, {
+      location,
+      identity,
+      offset: 0,
+      length: 10,
+      channel: 1,
+    });
+    assert(!changed.ok);
+    assertEquals(changed.error.code, "conflict");
+    // 지워진 파일도 같다.
+    await Deno.remove(place.content);
+    const gone = await readWindow(deps, {
+      location,
+      identity,
+      offset: 0,
+      length: 10,
+      channel: 1,
+    });
+    assert(!gone.ok);
+    assertEquals(gone.error.code, "conflict");
+    // 파일 밖의 창은 읽지 않는다.
+    await Deno.writeTextFile(place.content, "0123456789");
+    const fresh = await readLocation(deps, location);
+    assert(fresh.ok);
+    const outside = await readWindow(deps, {
+      location,
+      identity: fresh.value.identity!,
+      offset: 5,
+      length: 10,
+      channel: 1,
+    });
+    assert(!outside.ok);
+    assertEquals(outside.error.code, "conflict");
   });
 });

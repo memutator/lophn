@@ -173,7 +173,7 @@ const SEEDED: WorkspaceSource = {
           {
             tabs: [
               { key: "doc_notes", kind: "document_editor", title: "notes" },
-              { key: "doc_plan", kind: "document_viewer", title: "plan" },
+              { key: "doc_plan", kind: "document_editor", title: "plan" },
             ],
             selected_tab: "doc_notes",
           },

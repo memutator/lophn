@@ -104,6 +104,7 @@ data root `H`는 Linux/macOS의 `~/.lophn`, Windows의 `%USERPROFILE%\.lophn`이
 ```text
 H/
   lophn.db                         ledger (+ SQLite WAL·SHM)
+  ledger-id                        ledger를 만들거나 복원할 때마다 새로 정하는 식별(`platform/status`의 `ledger_id`); derived가 출처에 적는다
   blobs/sha256/<2자>/<62자>         불변 blob, POSIX 0400
   blobs/tmp/                       아직 완성되지 않은 streaming 파일
   derived/                         소유 concern별 derived DB·출처·cursor
@@ -114,6 +115,7 @@ H/
   logs/                            안전 운영 log·crash 관측
   backups/<UTC stamp>/             manifest.json·ledger.db·blobs/...
   backups/migrations/s<N>-<stamp>/  migration 전 schema N의 검증 복구본
+  backups/restore/<stamp>/         restore 작업 자리: previous/(복원 전 현재 ledger·WAL·참조 blob의 보존본), staging/(검증 중인 묶음 ledger)
   settings/                        명시 import/export용 TOML, 원본 아님
 ```
 
@@ -188,11 +190,13 @@ command body는 `{input,idempotency_key,compare,run?,prepared:[],confirmation?}`
 | command | `/v1/events/advance-cursor` | `AdvanceSubscriberCursor`; 반응 완료 위치 |
 | read | `/v1/blobs/read` | 허용 owner·고정 판·field·offset·length → BlobReadResult + base64 안전 bytes |
 | read | `/v1/secrets/list` | 허용 이름·설정 여부만; sealed_ref 없음 |
+| upload | `/v1/secrets/input` | 사람의 보호 입력 값(body 바이트, 입력 header는 용도·owner·길이); core는 해석·보관 없이 I/O worker의 `secret.prepare`로 흘리고 값 없는 준비 증거를 돌려준다 |
 | command | `/v1/secrets/set` | `SetSecret`; 보호 준비 참조만 |
 | command | `/v1/secrets/remove` | `RemoveSecret`; 참조 제거 확정 |
 | read | `/v1/secrets/cleanup` | 안전 `SecretCleanupResult`; 삭제·종료 완료 분리 |
 | read | `/v1/approvals/get`, `/v1/approvals/list` | 허용 request·안전 미리보기·결정·사용 receipt |
-| command | `/v1/approvals/create` | `create_approval_request` |
+| read | `/v1/approvals/text` | `ReadApprovalText`; request를 볼 수 있는 쪽(user·machine·요청자)만, 그 밖은 없는 request와 같은 not_found; 이유·변경·외부 영향·되돌림 글과 거절·취소에 적은 종료 이유 글(없으면 null), blob 하나라도 읽을 수 없으면 unavailable |
+| command | `/v1/approvals/create` | `create_approval_request`; 설명 글을 값으로 받고 core가 redaction·blob 준비, command가 영구 참조 등록 |
 | command | `/v1/approvals/grant` | `grant_approval_request`; confirmation 필수 |
 | command | `/v1/approvals/reject` | `reject_approval_request`; confirmation 필수 |
 | command | `/v1/approvals/expire` | `expire_approval_request`; 전용 machine |
@@ -303,7 +307,7 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 
 ### 5.7 secret
 
-**입력:** `secret.prepare`는 전용 보호 입력의 값·용도·owner를 검증된 pipe로 받는다. `SetSecret`은 그 SecretPreparation과 이전 참조/revision CAS만 받는다. `secret.send`는 신뢰 소비 경계에서 현재 SecretUse·고정 destination·동작·안전 body를 받는다. 일반 secret 값 read는 없다.
+**입력:** `secret.prepare`는 전용 보호 입력의 값·용도·owner를 검증된 pipe로 받는다. 사람 화면에서 이 pipe까지 닿는 HTTP 입구는 upload route `/v1/secrets/input` 하나이고 actor는 사람뿐이다. core는 받은 chunk를 모으거나 해석하지 않고 I/O worker의 byte chunk frame으로 먼저 넘긴 뒤 값 없는 요청(core가 만든 machine context·용도·owner)을 보낸다. 값은 요청 JSON·응답·오류·log·argv·환경 변수 어디에도 없다. I/O worker는 ledger를 쓰지 않으므로 keychain에 둔 뒤 값 없는 준비 증거를 응답으로 돌려주고, core의 writer가 그 증거를 `secret_preparations`에 남긴다(남기지 못하면 준비는 실패다). `SetSecret`은 그 SecretPreparation과 이전 참조/revision CAS만 받는다. `secret.send`는 신뢰 소비 경계에서 현재 SecretUse·고정 destination·동작·안전 body를 받는다. 일반 secret 값 read는 없다.
 
 **출력:** 설정은 안전 이름·설정 여부·판, 사용은 소비 경계 안의 전송 결과, 정리는 `reference_blocked/os_deleted/processes_ended`를 각각 실제 관측으로 반환한다. **오류:** 자격·용도 위반, CAS 충돌, keychain 잠김/누락/안전 경계 불가는 공통 오류이며 값·length·공개 hash·OS 내부 경로를 넣지 않는다.
 
@@ -447,9 +451,12 @@ QuestionActionEvidence는 lophn-agent/questions 소유 정본에서 실제 사�
 
 ```text
 [사람] 보호 입력 → [main/보호 adapter] 값은 전용 pipe
- → [platform I/O] keychain 준비·known-secret 등록 → SecretPreparation
+ → [core] /v1/secrets/input: 값은 해석 없이 I/O worker로(byte chunk)
+ → [platform I/O] keychain 준비 → SecretPreparation(값 없음)
+ → [core writer] 준비 증거 기록
  → [main] SetSecret command(이전 참조/revision)
  → [writer] CAS·참조·SecretSet commit
+ → [core] 현재 참조의 값을 keychain에서 읽어 알려진 값 registry에 등록·옛 값 회수(응답 전)
  → [I/O/앱 supervisor] 이전 참조 차단·OS 정리·사용 프로세스 종료 각각 관측
 사용 → [신뢰 소비 adapter] 현재 참조/판·용도·목적지·앱의 현재 grant 검사(호출마다 secret approval 없음)
  → [keychain 경계] 값 조회 → 실제 허용 전송 직전 인증 첨부
@@ -470,6 +477,8 @@ CAS 실패는 이전 참조를 유지한다. keychain 잠김은 로컬 문서/se
  → [I/O] 현재 자료 별도 보존 → 검증본 staging → 교체
  → [core] 새 epoch·자격 재검증·derived/전송 cursor 초기화 → 정상 시작 순서
 ```
+
+restore는 core 안에서 이 순서로 한다: 사람이 확인한 handle(결정 `restore_backup`, 대상 `manifest.created_at`, 내용 기준은 묶음 끝과 현재 끝)을 writer registry가 한 번에 소비 → 새 command 입장 닫기 → 모든 child·writer 정지(정상 종료 순서) → 별도 프로세스(`apps/worker/platform/restore-entry.ts`)가 묶음 검증(ledger hash·integrity·끝 seq·참조 blob 존재, 모든 blob의 실제 hash·size)·현재 자료 보존(ledger·WAL 복사, 참조 blob hard link)·묶음 blob 설치·새 `ledger-id` 기록 → staging ledger를 `lophn.db`로 rename. 정지 뒤 다시 읽은 현재 끝이 사람이 확인한 끝과 다르면 교체하지 않는다. 실패하면 현재 자료는 그대로이고 core는 멈춘 채 오류만 돌려준다. 같은 data root를 다시 시작하면 새 epoch·새 `ledger_id`로 뜨고 `derived/api-subscriptions`는 기록한 `ledger_id`가 다르면 위치를 버리며, 소유 concern의 derived도 같은 값을 보고 다시 만든다.
 
 manifest format 1은 `schema_version,through_seq,created_at,ledger_hash,blobs,settings,integrity,complete`를 포함한다. 상대 경로는 `ledger.db`, `blobs/sha256/<2>/<62>`로 고정하고 제외 범위 안내를 함께 둔다. ledger 선택 설정은 snapshot에 들어간다. 앱 DB·외부 원본/source·keychain·token은 자동 포함하지 않는다. 실패/미완성 묶음 때문에 마지막 완료 7개를 지우지 않는다.
 

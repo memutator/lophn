@@ -205,8 +205,10 @@ export function parseDetections(
 export function detectionCacheOf(
   home: string,
   files: FilePort,
+  // receipt·journal과 같은 폴더다. 없으면 `<home>/.lophn/integrations`다.
+  integrations: string = `${home.replace(/\/$/, "")}/.lophn/integrations`,
 ): DetectionCache {
-  const path = `${home.replace(/\/$/, "")}/.lophn/integrations/detection.json`;
+  const path = `${integrations}/detection.json`;
   return {
     async read() {
       const read = await files.read(path);

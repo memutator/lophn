@@ -28,6 +28,7 @@ import {
   type Grant,
   grantsList,
   invocationAcceptConfirm,
+  packagesGuideBody,
   previewsGet,
   previewsStart,
   previewsStop,
@@ -238,6 +239,8 @@ export function appsOperationPolicies(): OperationPolicy[] {
       actors: ["coding_agent"],
       kind: "read",
     })),
+    // 안내 원문 한 field만 읽는 좁은 읽기다. coding agent에 일반 blobs/read는 열지 않는다(coding-agent#T36).
+    { name: packagesGuideBody.name, actors: ["coding_agent"], kind: "read" },
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
     // release 준비 접수·진행은 coding agent와 machine, 취소는 machine만 한다. 확정(release.prepare)은 아니다.

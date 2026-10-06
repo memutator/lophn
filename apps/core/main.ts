@@ -59,6 +59,8 @@ for (;;) {
     teams: TEAMS,
     // 앱 프로세스 감독(apps/supervisor)은 상시 신뢰 child다. 제품 기동만 띄운다.
     appSupervisor: true,
+    // lophn agent runtime child도 상시 신뢰 child다. 제품 기동만 띄운다.
+    agentRuntime: true,
     teamModules: [
       new URL("./documents.ts", import.meta.url).href,
       new URL("./apps.ts", import.meta.url).href,

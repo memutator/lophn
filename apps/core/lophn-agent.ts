@@ -134,6 +134,8 @@ export function agentRuntimeLaunchSpec(input: {
   // 등록된 MCP server 설정이다(contracts#T24 settings registry의 행). 없으면
   // `--allow-run`은 빈 목록이다(architecture §2.3).
   mcpServers?: readonly McpServerConfig[];
+  // 사람이 등록한 provider의 목적지(`host:port`). 등록되면 core가 이 목록을 바꿔 재기동한다.
+  hosts?: readonly string[];
 }): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",
@@ -141,8 +143,8 @@ export function agentRuntimeLaunchSpec(input: {
     allow_read: [input.dataRoot],
     // derived만 쓴다. ledger·blob·원본은 쓰지 않는다.
     allow_write: [`${input.dataRoot}/derived/lophn-agent`],
-    // core loopback만. provider·MCP host와 공개 models.dev는 등록될 때 더한다.
-    allow_net: [`127.0.0.1:${input.apiPort}`],
+    // core loopback과 등록된 provider 목적지만. MCP host와 공개 models.dev는 등록될 때 더한다.
+    allow_net: [`127.0.0.1:${input.apiPort}`, ...(input.hosts ?? [])],
     // 사람이 enabled로 등록한 MCP stdio executable만이다(architecture §2.3).
     allow_run: allowRunList(input.mcpServers ?? []),
     allow_sys: [],

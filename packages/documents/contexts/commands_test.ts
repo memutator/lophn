@@ -1009,6 +1009,42 @@ Deno.test("documents/contexts#R12: event가 열 개를 넘어도 구성은 seq �
   }
 });
 
+Deno.test("documents/contexts#R10: 복원이 만든 새 판의 변화도 저장과 같은 전후 판 비교로 한 번 기록한다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, null, "watch")]),
+    );
+    // VER_1을 복원해 새 최신 판(VER_2)이 생겼다. 비교 기준은 event 이름이 아니라 전후 판이다.
+    const restoredSeq = fixture.recordEvent("DocumentRestored", ids.doc, {
+      restore_version: VER_1,
+      previous_version: VER_1,
+      version: VER_2,
+    });
+    const input = comparison(restoredSeq, created.revision);
+    keep(record(fixture, input));
+    keep(record(fixture, input));
+    const events = changedEvents(fixture);
+    assertEquals(events.length, 1);
+    assertEquals(
+      (events[0].payload as { source_seq: string }).source_seq,
+      restoredSeq,
+    );
+    // 복원 event의 판과 다른 비교는 거절한다.
+    const wrong = record(
+      fixture,
+      comparison(restoredSeq, created.revision, {
+        after_version: "ver_01arz3ndektsv4rrffq69g5fb2",
+      }),
+    );
+    assert(!wrong.ok);
+    assertEquals(wrong.error.code, "invalid_input");
+  } finally {
+    fixture.close();
+  }
+});
+
 Deno.test("documents/contexts#R12: 없는 context는 not_found다", () => {
   const fixture = contextFixture();
   try {

@@ -1,6 +1,6 @@
 // core가 documents coordinator의 context watch consumer에 저장 event를 보낸다(documents#T24).
 // consumer의 자리(`watch` cursor)는 derived store에 있고 coordinator가 유일한 writer다. core는 그
-// 자리부터 DocumentSaved를 feed 자격(`machine:documents-feed`)으로 읽고, 저장마다 source_seq
+// 자리부터 DocumentSaved·DocumentRestored를 feed 자격(`machine:documents-feed`)으로 읽고, 저장마다 source_seq
 // 당시 watch였고 그 뒤 바뀌지 않은 문서 항목을 ledger snapshot read로 가려 coordinator에 보낸다.
 // 비교와 `context.record_watch_change` 제출, cursor 진행은 coordinator가 한다. 구독 event는 깨우는
 // 신호이고 읽기는 늘 cursor부터라서 구독이 끊긴 동안의 변화도 다음 확인이 따라잡는다

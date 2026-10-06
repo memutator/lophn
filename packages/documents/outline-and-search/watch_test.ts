@@ -12,6 +12,7 @@ import {
   WATCH_PENDING_REASON,
   watchCursorOf,
 } from "./watch.ts";
+import { WATCH_CONSUMED_EVENTS } from "./ipc.ts";
 
 const DOC = "doc_01arz3ndektsv4rrffq69g5fav";
 const CTX = "ctx_01arz3ndektsv4rrffq69g5fav";
@@ -201,4 +202,11 @@ Deno.test("documents/contexts#R10: 성공한 추출의 section 상태는 그 key
   } finally {
     target.close();
   }
+});
+
+Deno.test("documents/contexts#R10: watch consumer는 새 최신 판을 만드는 저장과 복원을 같은 경로로 읽는다", () => {
+  assertEquals([...WATCH_CONSUMED_EVENTS].sort(), [
+    "DocumentRestored",
+    "DocumentSaved",
+  ]);
 });

@@ -199,9 +199,11 @@ export const WATCH_OPS = {
   pending: "documents.watch_pending",
 } as const;
 
-// watch consumer가 읽는 event는 문서 저장 하나다.
+// watch consumer가 읽는 event는 새 최신 판을 만드는 저장과 복원이다. 항목이 바뀌었는가는
+// 전후 판의 내용으로 정하고 event 이름은 기준이 아니다(plan Q33).
 export const WATCH_CONSUMED_EVENTS: ReadonlySet<string> = new Set([
   "DocumentSaved",
+  "DocumentRestored",
 ]);
 
 export type WatchVersionInfo = {

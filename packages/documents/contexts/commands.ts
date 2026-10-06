@@ -337,12 +337,13 @@ function recordWatchChange(
   if (current.value.revision !== base) {
     return rejected("conflict", "context revision changed");
   }
-  // 원래 저장 event가 이 비교의 전후 판을 정한다.
+  // 원래 저장(또는 복원) event가 이 비교의 전후 판을 정한다.
   const source = tx.sql.get(
     "SELECT type, subject, payload FROM events WHERE seq = ?",
     [input.source_seq],
   );
-  const saved = source === undefined || source.type !== "DocumentSaved"
+  const saved = source === undefined ||
+      (source.type !== "DocumentSaved" && source.type !== "DocumentRestored")
     ? null
     : savedPayload(source.payload);
   if (

@@ -190,7 +190,7 @@ leaf concern은 9개이며 빠진 leaf는 없다. `documents/contracts`는 위 �
 
 **보장하지 않는 것.** 외부 편집기와 공동 잠금, 마지막 비교와 교체 사이 외부 쓰기 차단, 파일·ledger 단일 transaction은 없다. 교체 뒤 재관측으로 다시 바뀜을 표시한다. 응답 유실·결과 불명에 자동 재쓰기하지 않는다. 이미 성공한 파일 바이트를 format 실패 때문에 이전 내용으로 바꾸지 않는다.
 
-새 파일로 문서를 두기는 최신 고정 판의 바이트를 no-replace로 쓴 뒤 `project.set_tracking`의 정확한 include, `document.move`, `document.set_source`를 각각 현재 CAS로 확정한다. tracking이 꺼진 Project는 허용하지 않는다. 파일 성공 뒤 연결 확정 실패는 파일을 남기고 별도로 표시한다. 자리 없음으로 돌아가며 파일을 지우는 요청은 디스크 hash가 최신 Version의 원문과 같은 경우에만 삭제한다. place 이동만으로 파일을 이동하거나 source를 바꾸지 않는다.
+문서를 파일로 두기와 빼기는 같은 route 안의 선택 의도다(새 route는 없다). `files.write`의 `place: { document, version }`은 새 project 파일(base_hash null)에 그 문서 최신 판의 유일한 파일(content의 `existing` 원본 참조)을 쓰고, `files.delete`의 `unlink: { document }`는 확인 handle이 묶는 대상(request_key, target, base_hash)을 그대로 두고 지운 뒤 연결을 푼다. core가 쓰기·삭제는 coordinator 경로로 하고, 연결 확정은 요청한 사람의 자격으로 command를 직접 부른다. 두기: tracking이 꺼진 Project는 허용하지 않고, 패턴 밖 경로의 규칙 변경 미리보기는 파일을 쓰기 전에 하며, 쓰기 전부터 원본 연결이 확정될 때까지 core가 그 경로를 메모리에 잡는다(그 사이 같은 경로의 파일 관측 첫 저장은 conflict). 파일을 no-replace로 쓴 뒤 `document.set_source`, 패턴 밖이면 그 파일 하나의 include를 `project.set_tracking`으로, 자리 없는 문서면 `document.move`를 각각 그 순간의 현재 CAS로 확정한다. 원본 연결이 추적 규칙보다 앞서므로 패턴 밖 파일은 연결된 뒤에야 관측된다. 앞 단계가 실패하면 뒤 단계는 시도하지 않고 파일은 남기며, 단계별 결과는 FileOperationResult의 `placement`(source, tracking, move)에 따로 싣는다. 빼기: 사람이 확인한 디스크 hash가 최신 Version의 원문과 같고 디스크도 같은 경우에만 삭제하고(다르면 conflict로 파일과 연결을 그대로 둔다), 이어서 `document.set_source(null)`, `document.move(null)`을 각각 확정해 `unlinking`에 싣는다. 파일이 이미 없으면 지울 것 없이 연결 해제로 간다(outcome은 unverified, 기록·event 없음). place 이동만으로 파일을 이동하거나 source를 바꾸지 않는다.
 
 ### 5.3 format 실행
 

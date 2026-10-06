@@ -143,6 +143,19 @@ export const contextExport = defineRead({
   errors: readErrors,
 });
 
+// 다른 owner가 같은 transaction에서 `tx.call`로 부를 수 있는 command다. run revert
+// (lophn-agent/revert)가 Context Engineer run의 변경을 보상하는 데 쓴다: 목적·제목 되돌림,
+// 항목 되돌림(추가한 항목 제거·제거한 항목 복원·관점 되돌림), 보관과 해제. 만들기는 보상하지 않고
+// 보관한다. 새 transaction·actor·commit을 만들지 않고 호출한 자격과 command 자신의 CAS·범위
+// 검사를 받는다.
+export const CONTEXT_DISPATCHABLE_COMMANDS = [
+  { route: contextUpdate, dispatchable: true },
+  { route: contextSetItem, dispatchable: true },
+  { route: contextRemoveItem, dispatchable: true },
+  { route: contextArchive, dispatchable: true },
+  { route: contextUnarchive, dispatchable: true },
+] as const;
+
 export const CONTEXT_ROUTES = [
   contextCreate,
   contextUpdate,

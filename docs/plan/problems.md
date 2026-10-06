@@ -313,6 +313,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제command의 `list`·`get` 문구 필드
 - slice: apps
 - 선행: problems#T6, apps#T19
+- 상태: 완료 (#396)
 - T6에서 넘어온 것: 선언 문구를 읽을 수 없을 때의 fallback("확인할 문제")에 앱 이름을 붙인다(#261은 apps 데이터를 읽지 못해 이름 없는 안내만 준다); 당시 선언의 `fixer`가 user이면 목록의 `next_action`에 사람이 할 일을 채운다(#261은 항상 null)
 - 완료:
   - 선언 code 문제의 증상 문구는 보고 당시 release(또는 bundle)의 선언 message_key·en이다; 새 release에서 선언을 바꾸거나 지워도 이전 보고는 당시 문구다(problem-codes#R4)

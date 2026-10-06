@@ -1,0 +1,47 @@
+// 앱의 en catalog다(apps/sdk#R41). 값은 완성된 문장 하나의 ICU MessageFormat이고 화면 코드는 문장 조각을
+// 이어 붙이지 않는다. key는 `<screen>.<part>.<name>`이며 첫 구간은 이 앱의 screen key나 common이다.
+// placeholders.ts는 이 파일에서 생성한다(`deno task wording`). 사용자 이름·업무 데이터는 catalog에 넣지 않는다.
+export const en = {
+  "common.problem.file-unavailable": "The usage file couldn't be read.",
+  "common.problem.store-unavailable": "Usage couldn't be saved or read.",
+  "common.reason.import-folder":
+    "Read the usage files that are dropped in this folder.",
+  "common.summary.app":
+    "See how close each provider is to its rate limit, day by day.",
+  "usage.button.reload": "Reload",
+  "usage.empty.no-usage": "Collected for this period, and no usage was seen.",
+  "usage.empty.partial":
+    "Part of this period was collected, and no usage was seen in it.",
+  "usage.empty.uncollected": "Nothing has been collected for this period yet.",
+  "usage.label.chart-day": "Day",
+  "usage.label.collect-usage": "Collect usage",
+  "usage.label.limited": "Hit the limit",
+  "usage.label.peak": "Peak usage",
+  "usage.label.providers": "providers",
+  "usage.label.report": "usage",
+  "usage.label.samples": "Samples",
+  "usage.label.usage-report": "Usage report",
+  "usage.note.partial": "Only part of this period was collected.",
+  "usage.summary.collect-usage":
+    "Read one usage file from the import folder and save its time range and samples. A range with no samples is saved as collected with nothing seen.",
+  "usage.summary.continuation":
+    "The continuation from the previous page. Send it with the same period, time zone, providers and order, or it is rejected.",
+  "usage.summary.file-name":
+    "The name of a JSON usage file in the import folder, such as usage.json.",
+  "usage.summary.from":
+    "The first calendar day of the period in the given time zone, as YYYY-MM-DD.",
+  "usage.summary.limit": "How many rows to return in one page.",
+  "usage.summary.order": "Day order of the rows, oldest first or newest first.",
+  "usage.summary.providers":
+    "Only these providers. Leave it out for every provider.",
+  "usage.summary.timezone":
+    "The IANA time zone whose calendar days the rows are counted in, such as Asia/Seoul.",
+  "usage.summary.to":
+    "The last calendar day of the period, included, in the given time zone, as YYYY-MM-DD.",
+  "usage.summary.usage-report":
+    "Read each provider's usage per calendar day for a period and time zone. The answer says the period and time zone it used and whether the period was collected completely, partly or not at all, and how fresh the collection is. Reads only.",
+  "usage.title.screen": "Rate limits",
+} as const;
+
+export type Catalog = typeof en;
+export type MessageKey = keyof Catalog;

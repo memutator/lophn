@@ -1,5 +1,6 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { type Release, releaseSchema } from "../../contracts/apps/mod.ts";
+import type { ProblemWordingFact } from "../../contracts/problems/mod.ts";
 import type { Blueprint } from "../blueprint/mod.ts";
 import type { Sql, SqlRow, Tx } from "../../contracts/platform/mod.ts";
 import type {
@@ -205,3 +206,25 @@ export const releaseDeclarations: CurrentDeclarations = {
     }
   },
 };
+
+// problems의 `ProblemWording` port 구현이다(problems#T27). 보고 당시 release에 고정한
+// blueprint의 선언 문구와 앱 등록 기록의 이름을 부른 쪽의 snapshot sql로 읽는다. 보고 당시
+// 문구다: 새 release가 선언을 바꾸거나 지워도 이전 보고의 답은 그 release의 선언이다. 앱
+// 이름은 선언이 없어도 부르는 쪽이 fallback에 붙일 수 있게 항상 준다. 그 release가 없거나
+// 선언에 그 code가 없으면 declaration이 null이다.
+export function releaseWording(
+  sql: Query,
+  app: string,
+  release: string,
+  code: string,
+): Result<ProblemWordingFact | null> {
+  const appRow = sql.get("SELECT name FROM apps WHERE id = ?", [app]);
+  const app_name = appRow === undefined ? app : String(appRow.name);
+  const stored = loadStoredBlueprint(sql, release);
+  if (!stored.ok) return stored;
+  if (stored.value === null) return ok({ app_name, declaration: null });
+  const declared = stored.value.blueprint.problem_codes.find(
+    (entry) => entry.code === code,
+  );
+  return ok({ app_name, declaration: declared ?? null });
+}

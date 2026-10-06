@@ -6,7 +6,9 @@
     "build": "node build.ts",
     "rebuild": "electron-rebuild -f -m node_modules/node-pty",
     "dev": "node build.ts && electron dist/main.cjs",
-    "check": "deno fmt --check --ignore=node_modules,dist . ../preload ../ipc && deno lint --ignore=node_modules,dist . ../preload ../ipc && tsc --noEmit -p . && node --test --test-reporter=spec 'desktop/*_test.ts' 'app-frame/**/*_test.ts' 'workspace/*_test.ts' 'terminal/*_test.ts' 'editor/*_test.ts' 'build_test.ts' && node --experimental-strip-types --test --test-reporter=spec '../../../e2e/shell/terminal_test.ts' && deno check --config=desktop/core/deno.json desktop/main.ts desktop/core/allowlist.ts desktop/core/client.ts desktop/core/connection.ts desktop/core/events.ts desktop/core/node-io.ts desktop/core/routes.ts desktop/core/supervise.ts && deno test --allow-all --config=desktop/core/deno.json desktop/core/ confirmation/",
+    "stage": "node --experimental-strip-types scripts/stage.ts",
+    "dist": "npm run build && npm run stage && electron-builder",
+    "check": "deno fmt --check --ignore=node_modules,dist . ../preload ../ipc && deno lint --ignore=node_modules,dist . ../preload ../ipc && tsc --noEmit -p . && node --test --test-reporter=spec 'desktop/*_test.ts' 'app-frame/**/*_test.ts' 'workspace/*_test.ts' 'terminal/*_test.ts' 'editor/*_test.ts' 'build_test.ts' 'scripts/*_test.ts' && node --experimental-strip-types --test --test-reporter=spec '../../../e2e/shell/terminal_test.ts' && deno check --config=desktop/core/deno.json desktop/main.ts desktop/core/allowlist.ts desktop/core/client.ts desktop/core/connection.ts desktop/core/events.ts desktop/core/node-io.ts desktop/core/routes.ts desktop/core/supervise.ts && deno test --allow-all --config=desktop/core/deno.json desktop/core/ confirmation/",
     "postinstall": "electron-rebuild -f -m node_modules/node-pty",
     "precheck": "node -e \"const fs=require('node:fs'); const path=require('node:path'); const dir=path.resolve('..','node_modules'); fs.mkdirSync(dir,{recursive:true}); const link=path.join(dir,'zod'); try{fs.symlinkSync(path.resolve('node_modules/zod'), link)}catch(e){if(e.code!=='EEXIST') throw e}\""
   },
@@ -19,6 +21,7 @@
     "@types/node": "24.19.1",
     "@electron/rebuild": "4.2.0",
     "esbuild": "0.28.2",
+    "electron-builder": "25.1.7",
     "typescript": "7.0.2"
   }
 }

@@ -154,6 +154,34 @@
           "npm:react@19.3.0"
         ]
       },
+      "jsr:@lophn/ui-control@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-layout@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-overlay@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "jsr:@lophn/ui-state@1.0.0": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
       "jsr:@lophn/ui-table@1.0.0": {
         "dependencies": [
           "npm:@types/react@19.3.0",

@@ -293,3 +293,60 @@ Deno.test("platform/blob-store#R1 coding-agent/mcp-server#R13: 같은 주체·pu
   assertEquals(second.value, first.value);
   assertEquals(h.relay.size, 1);
 });
+
+Deno.test("platform/responsiveness#R3: I/O worker가 끝나면 credit을 기다리던 준비는 기한까지 두지 않고 abort하고 unavailable로 끝난다", async () => {
+  // 기한은 5초다. worker가 끝난 순간 끝나지 않으면 이 시험은 그만큼 기다린다.
+  const h = harness({ creditMs: 5_000, responseMs: 5_000 });
+  const src = source(8 * MIB);
+  const begun = performance.now();
+  const done = h.relay.prepare(input, src.stream);
+  await tick();
+  h.relay.failPending("I/O worker ended");
+  const result = await done;
+  assert(performance.now() - begun < 2_000);
+  assert(!result.ok);
+  assertEquals(result.error.code, "unavailable");
+  assertEquals(h.sent.events, ["request", "abort"]);
+  assertEquals(h.gauge.current, 0);
+});
+
+Deno.test("platform/responsiveness#R3: I/O worker가 끝나면 end 뒤 응답을 기다리던 준비도 바로 unavailable이다", async () => {
+  const h = harness({ creditMs: 5_000, responseMs: 5_000 });
+  const src = source(CHUNK);
+  const begun = performance.now();
+  const done = h.relay.prepare(input, src.stream);
+  await tick();
+  h.grant(MIB);
+  await tick();
+  assertEquals(h.sent.events.at(-1), "end");
+  h.relay.failPending("I/O worker ended");
+  const result = await done;
+  assert(performance.now() - begun < 2_000);
+  assert(!result.ok);
+  assertEquals(result.error.code, "unavailable");
+});
+
+Deno.test("platform/responsiveness#R3: I/O worker가 끝나면 blob 읽기도 기한(6초)까지 두지 않고 unavailable이다", async () => {
+  const h = harness();
+  const begun = performance.now();
+  const reading = h.relay.readBytes(HASH, 0, 16);
+  await tick();
+  h.relay.failPending("I/O worker ended");
+  const result = await reading;
+  assert(performance.now() - begun < 2_000);
+  assert(!result.ok);
+  assertEquals(result.error.code, "unavailable");
+});
+
+Deno.test("platform/responsiveness#R3: failPending 뒤에 시작한 준비는 영향을 받지 않는다", async () => {
+  const h = harness();
+  h.relay.failPending("I/O worker ended");
+  const src = source(CHUNK);
+  const done = h.relay.prepare(input, src.stream);
+  await tick();
+  h.grant(MIB);
+  await tick();
+  h.respond(HASH, CHUNK);
+  const result = await done;
+  assert(result.ok);
+});

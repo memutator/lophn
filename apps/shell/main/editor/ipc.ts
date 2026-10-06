@@ -7,6 +7,7 @@ import {
   EDITOR_CURRENT_CHANNEL,
   EDITOR_LOOKUP_CHANNEL,
   EDITOR_OPEN_CHANNEL,
+  EDITOR_PLACE_CHANNEL,
   EDITOR_RELEASE_CHANNEL,
   EDITOR_RESTORE_CHANNEL,
   EDITOR_WATCH_CHANNEL,
@@ -16,6 +17,7 @@ import {
   editorCreateSchema,
   editorLookupSchema,
   editorOpenSchema,
+  editorPlaceSchema,
   editorRestoreSchema,
   editorSessionSchema,
   editorWatchSchema,
@@ -31,6 +33,7 @@ import type { CloseGuard } from "./close-guard.ts";
 import type { DocumentCreator } from "./create.ts";
 import type { FileAdapter } from "./file-adapter.ts";
 import type { Restorer } from "./restore.ts";
+import type { Placer } from "./place.ts";
 
 export interface EditorIpcMain {
   handle(
@@ -47,6 +50,8 @@ export interface EditorIpcDeps {
   adapter: FileAdapter;
   restorer: Restorer;
   creator: DocumentCreator;
+  /** 없으면 두기 통로는 unavailable이다. */
+  placer?: Placer;
   /** sender 창의 guard. 창 본문이 아니면 없다. */
   guardOf(contentsId: number): CloseGuard | undefined;
 }
@@ -60,6 +65,7 @@ const HANDLED = [
   EDITOR_RELEASE_CHANNEL,
   EDITOR_RESTORE_CHANNEL,
   EDITOR_CREATE_CHANNEL,
+  EDITOR_PLACE_CHANNEL,
 ] as const;
 const HEARD = [EDITOR_COUNTS_CHANNEL, EDITOR_CLOSE_ANSWER_CHANNEL] as const;
 
@@ -164,6 +170,18 @@ export function registerEditorIpc(ipc: EditorIpcMain, deps: EditorIpcDeps) {
     const parsed = editorCreateSchema.safeParse(input);
     if (!parsed.success) return reject("invalid_input");
     return await deps.creator.create(parsed.data);
+});
+
+  ipc.handle(EDITOR_PLACE_CHANNEL, async (event, input) => {
+    const checked = guardIpc(
+      deps.registry,
+      event as IpcEvent,
+      editorPlaceSchema,
+      input,
+    );
+    if (!checked.ok) return reject(checked.error.code);
+    if (deps.placer === undefined) return { ok: false, code: "unavailable" };
+    return await deps.placer.place(checked.value);
   });
 
   ipc.on(EDITOR_COUNTS_CHANNEL, (event, input) => {

@@ -19,13 +19,13 @@ concerns: [platform, documents, apps, problems, lophn-agent, coding-agent, shell
 - plan 파일 끝에 새 Q 항목을 더하지 않는다(PR끼리 번호 충돌). 결정은 그 task 블록 안 "정한 것" 줄로 적는다.
 - 진행도는 시간순으로 `.dev-data/progress-log.md`(git 무시)에 남긴다. `docs/tmp/progress-snap.sh`가 한 줄을 더한다. 매시간 돌리던 cron은 세션 한정이라 새 세션에서 다시 건다(CronCreate, 매시 7분).
 
-## 2. worker 배정 (사람 지시)
+## 2. worker 배정 (사람 지시, 2026-10-06 갱신)
 
 | 일 | subagent_type | 비고 |
 |---|---|---|
-| 프론트(shell 화면·renderer·UI) | `general-purpose` + `model: opus` | 화면 작업은 headless screenshot을 보고 확인하게 한다 |
-| 그 밖의 일반 작업 | `glm-flash-max` | 범위가 분명한 일(충돌 정리, 작은 버그, 좁은 task) |
-| 매우 어려운·큰 기능 | `sonnet-high` | 실제로는 기능 task 대부분이 여기로 갔다(아래 함정 참고) |
+| 기본(대부분의 task) | `glm-flash-max` | 결과는 lead가 완료 기준과 대조한다 |
+| 어렵거나 복잡한 일, 같은 실수를 되풀이하는 일 | `sonnet-high` | glm이 되돌려 받은 task는 여기로 넘긴다 |
+| 프론트(shell 화면·renderer·UI) | `sonnet-high` | opus는 쓰지 않는다. 화면 작업은 headless screenshot을 보고 확인하게 한다 |
 
 - glm-flash-max는 proxy가 모델을 정한다. worker가 자기를 "Claude Haiku 4.5"라고 말하는 것은 사람이 정상이라고 확인했다.
 - **worker는 Agent tool로 하위 agent를 띄우면 안 된다.** 하위 agent는 lead 모델(Opus)로 돌아 배정한 모델을 벗어나고, 같은 branch에 두 agent가 동시에 commit했다. `worker-common.md`에 규칙을 넣었지만 프롬프트 첫 줄에도 "Don't use the Agent tool or spawn subagents"를 꼭 넣는다.

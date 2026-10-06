@@ -20,17 +20,20 @@ Deno.test(
       "shell:feedback-begin",
       "shell:feedback-submit",
       "shell:feedback-cancel",
+      "shell:feedback-open-issue",
     ]);
     assertEquals(Object.keys(FEEDBACK_PUSH), ["shell:feedback-preview"]);
     const shell: LophnShellFeedback = {
       beginFeedback: () => Promise.reject(new Error("x")),
       submitFeedback: () => Promise.reject(new Error("x")),
       cancelFeedback: () => Promise.reject(new Error("x")),
+      openFeedbackIssue: () => Promise.reject(new Error("x")),
     };
     assertEquals(Object.keys(shell), [
       "beginFeedback",
       "submitFeedback",
       "cancelFeedback",
+      "openFeedbackIssue",
     ]);
     assert(feedbackBeginSchema.safeParse({ view_session: "view-1" }).success);
     assert(
@@ -112,6 +115,59 @@ Deno.test(
         screen_missing_reason: { reason: "capture failed" },
         screenshot: null,
         screenshot_redaction: "omitted",
+      }).success,
+    );
+  },
+);
+
+Deno.test(
+  "problems/feedback#R6, problems/feedback#R10: 미리보기는 같은 PNG의 data URL과 이미지가 없는 분류를 함께 싣고 hash와 짝이 맞아야 한다",
+  () => {
+    const base = {
+      draftRef: "draft-1",
+      text: null,
+      screen: HASH,
+      screen_missing_reason: null,
+    };
+    assert(
+      feedbackPreviewSchema.safeParse({
+        ...base,
+        screenshot: HASH,
+        screenshot_png: "data:image/png;base64,iVBORw0KGgo=",
+        screenshot_block: null,
+        screen_summary: { name: "main", path: "/screens/main/index.html" },
+      }).success,
+    );
+    for (const block of ["pending", "hidden", "protected_window"]) {
+      assert(
+        feedbackPreviewSchema.safeParse({
+          ...base,
+          screenshot: null,
+          screenshot_png: null,
+          screenshot_block: block,
+        }).success,
+        block,
+      );
+    }
+    assert(
+      !feedbackPreviewSchema.safeParse({
+        ...base,
+        screenshot: null,
+        screenshot_png: "data:image/png;base64,iVBORw0KGgo=",
+      }).success,
+    );
+    assert(
+      !feedbackPreviewSchema.safeParse({
+        ...base,
+        screenshot: HASH,
+        screenshot_png: "data:image/jpeg;base64,AAAA",
+      }).success,
+    );
+    assert(
+      !feedbackPreviewSchema.safeParse({
+        ...base,
+        screenshot: null,
+        screenshot_block: "masked",
       }).success,
     );
   },

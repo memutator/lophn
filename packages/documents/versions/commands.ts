@@ -55,6 +55,7 @@ import {
   type VersionRow,
 } from "./store.ts";
 import { authorizeDocument } from "./authorization.ts";
+import { appOutputRejected, releaseClaimed } from "./app-output.ts";
 
 // 판 원문 파일. owner_key는 `<version id>/<상대 경로>`다. 일반 읽기를 연다.
 // save가 준비 결과의 파일별 준비 참조로 같은 tx에서 등록한다(Q16).
@@ -98,6 +99,8 @@ function actorAllowed(
 function claimedActor(ctx: RequestContext, prepared: PreparedVersion): boolean {
   const source = prepared.source;
   if (source?.kind === "app" && ctx.actor !== `app:${source.app}`) return true;
+  // 앱이 판의 출처로 쓰는 release는 자격이 발급 때 고정한 release다.
+  if (releaseClaimed(ctx, source)) return true;
   return false;
 }
 
@@ -272,6 +275,10 @@ export function createVersionCommands(
         if (claimed !== undefined) return claimed;
         const existing = loadDocument(tx.sql, input.document);
         if (!existing.ok) return existing;
+        // 앱 자격은 자기 앱 place의 출력만 쓴다(versions#R14). 다른 place의 기존 문서는 없는
+        // 문서와 같은 답이다.
+        const appOutput = appOutputRejected(tx, ctx, existing.value, input);
+        if (appOutput !== undefined) return appOutput;
         const instruction = instructionWriteRejected(
           ctx,
           tx,

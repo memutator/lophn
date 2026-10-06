@@ -1,7 +1,12 @@
 import { assert, assertEquals } from "@std/assert";
 import { z } from "zod";
-import { err, ok } from "../../base/mod.ts";
-import { defineCommand, type Tx } from "../../contracts/platform/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
+import {
+  defineCommand,
+  questionOption,
+  type Tx,
+} from "../../contracts/platform/mod.ts";
+import { defineTxPort } from "./tx-ports.ts";
 import { defineSyncCommand } from "./handler.ts";
 import { commands, deps, fileLedger, user } from "./command-harness.ts";
 import {
@@ -447,6 +452,185 @@ Deno.test("platform/approvals#R7: dispatch 전용 command는 직접 호출에서
   assertEquals(events(), 3n);
   connection.close();
   await Deno.remove(dir, { recursive: true });
+});
+
+// identity R14: 사람이 고른 질문 option의 고정 호출 한 번만 user 자격으로 남긴다.
+const QST = "qst_01arz3ndektsv4rrffq69g5fav";
+
+const applyChosen = defineCommand({
+  resource: "chosen",
+  method: "apply",
+  name: "ApplyChosen",
+  input: z.strictObject({
+    name: z.string(),
+    option: z.string(),
+    fail: z.boolean().optional(),
+  }),
+  output: z.strictObject({ name: z.string(), seq: z.string() }),
+  actors: ["machine", "user"],
+  errors: ["invalid_input", "conflict", "forbidden"],
+});
+
+const applyChosenCommand = defineSyncCommand(applyChosen, (tx, ctx, input) => {
+  const called = tx.callChosenOption!(
+    markAlpha,
+    { name: input.name },
+    {},
+    { question: QST, option: input.option },
+    (userTx) => {
+      const done = markAlphaCommand.handle(
+        userTx,
+        { ...ctx, actor: "user", run: undefined },
+        { name: input.name },
+        {},
+      ) as Result<{ name: string; seq: string }>;
+      if (done.ok && input.fail === true) {
+        return err({ code: "conflict", message: "stale" });
+      }
+      return done;
+    },
+  );
+  return called;
+});
+
+// 질문 정본 port의 가짜. 사람이 adopt를 골랐고 그 고정 호출은 MarkAlpha {name: "fixed"}다.
+function chosenPort(answered = true) {
+  return defineTxPort(questionOption, () => ({
+    chosen: (question: string) =>
+      answered && question === QST
+        ? ok({
+          option: "adopt",
+          route: "MarkAlpha",
+          input: { name: "fixed" },
+          compare: {},
+        })
+        : err({ code: "not_found" as const, message: "none" }),
+  }));
+}
+
+function machineCaller(actor = "machine") {
+  return {
+    ...caller(),
+    actor,
+    principal: "task:apply",
+    scope: { operations: ["ApplyChosen"], targets: {} },
+  };
+}
+
+function chosenRequest(
+  key: string,
+  over: { name?: string; option?: string; fail?: boolean } = {},
+) {
+  return {
+    command: "ApplyChosen",
+    input: { name: "fixed", option: "adopt", ...over },
+    idempotency_key: key,
+    compare: {},
+    prepared: [] as string[],
+  };
+}
+
+async function chosenWorld(ports: ReturnType<typeof chosenPort>[]) {
+  const dir = await Deno.makeTempDir({ prefix: "lophn-chosen-" });
+  const { connection } = await fileLedger(dir);
+  const bound = { ...deps(), ports };
+  const run = (
+    key: string,
+    over: { name?: string; option?: string; fail?: boolean } = {},
+    ctx: ReturnType<typeof machineCaller> = machineCaller(),
+  ) =>
+    runCommand(
+      connection,
+      bound,
+      [applyChosenCommand, markAlphaCommand],
+      ctx,
+      chosenRequest(key, over),
+    );
+  const events = () =>
+    connection.sql.all(
+      "select subject, actor, run from events order by seq",
+      [],
+    );
+  const used = () =>
+    connection.sql.get("select count(*) as n from question_evidence", [])?.[
+      "n"
+    ];
+  return {
+    run,
+    events,
+    used,
+    async dispose() {
+      connection.close();
+      await Deno.remove(dir, { recursive: true });
+    },
+  };
+}
+
+Deno.test("platform/identity#R14: 질문 근거를 검증한 option 적용은 event를 actor=user, run=null로 한 번만 남긴다", async () => {
+  const world = await chosenWorld([chosenPort()]);
+  const first = await world.run("applied-1");
+  assert(first.ok);
+  assertEquals(world.events(), [
+    { subject: "alpha:fixed", actor: "user", run: null },
+  ]);
+  assertEquals(world.used(), 1n);
+  // 이미 적용한 답은 다른 요청으로 다시 낼 수 없다.
+  const again = await world.run("applied-2");
+  assert(!again.ok);
+  assertEquals(again.error.code, "conflict");
+  assertEquals(world.events().length, 1);
+  assertEquals(world.used(), 1n);
+  await world.dispose();
+});
+
+Deno.test("platform/identity#R14: 일반 machine의 user 주장·다른 option·변경된 입력은 거절하고 기록이 없다", async () => {
+  // 질문 정본 port가 없는 일반 machine은 user로 기록할 수 없다.
+  const bare = await chosenWorld([]);
+  const claimed = await bare.run("bare");
+  assert(!claimed.ok);
+  assertEquals(claimed.error.code, "forbidden");
+  assertEquals(bare.events(), []);
+  assertEquals(bare.used(), 0n);
+  await bare.dispose();
+
+  // 사람이 답하지 않은 질문도 같은 답이다.
+  const open = await chosenWorld([chosenPort(false)]);
+  const unanswered = await open.run("unanswered");
+  assert(!unanswered.ok);
+  assertEquals(unanswered.error.code, "forbidden");
+  assertEquals(open.events(), []);
+  await open.dispose();
+
+  const world = await chosenWorld([chosenPort()]);
+  // user 자격은 이 경로를 쓸 수 없다. machine만이다.
+  const asUser = await world.run("as-user", {}, {
+    ...machineCaller("user"),
+  });
+  assert(!asUser.ok);
+  assertEquals(asUser.error.code, "forbidden");
+  // 다른 option, 변경된 입력.
+  const other = await world.run("other", { option: "reject" });
+  assert(!other.ok);
+  assertEquals(other.error.code, "forbidden");
+  const changed = await world.run("changed", { name: "other" });
+  assert(!changed.ok);
+  assertEquals(changed.error.code, "forbidden");
+  assertEquals(world.events(), []);
+  assertEquals(world.used(), 0n);
+  await world.dispose();
+});
+
+Deno.test("platform/identity#R14: 소유 command가 실패하면 적용 기록도 되돌아가 다시 적용할 수 있다", async () => {
+  const world = await chosenWorld([chosenPort()]);
+  const failed = await world.run("fail", { fail: true });
+  assert(!failed.ok);
+  assertEquals(failed.error.code, "conflict");
+  assertEquals(world.events(), []);
+  assertEquals(world.used(), 0n);
+  const retried = await world.run("retry");
+  assert(retried.ok);
+  assertEquals(world.used(), 1n);
+  await world.dispose();
 });
 
 // 부른 쪽에는 상대 표 SQL이 없다. alpha 행은 MarkAlpha handler의 emit뿐이다.

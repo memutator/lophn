@@ -27,7 +27,9 @@ const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
 // stdout은 frame 전용이다. 쓰기는 호출 순서대로 이어서 frame이 섞이지 않게 한다.
 let writing: Promise<void> = Promise.resolve();
 function send(message: unknown): Promise<void> {
-  return writeFrame(encodeFrame({ kind: "json", channel: 0, payload: message }));
+  return writeFrame(
+    encodeFrame({ kind: "json", channel: 0, payload: message }),
+  );
 }
 function writeFrame(bytes: Uint8Array): Promise<void> {
   writing = writing.then(async () => {

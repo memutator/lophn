@@ -47,7 +47,9 @@ export function createCoreSender(deps: {
     let response: Response;
     try {
       response = await request(
-        `${typeof deps.baseUrl === "string" ? deps.baseUrl : deps.baseUrl()}/v1/invocations/${record.method}`,
+        `${
+          typeof deps.baseUrl === "string" ? deps.baseUrl : deps.baseUrl()
+        }/v1/invocations/${record.method}`,
         {
           method: "POST",
           headers: {

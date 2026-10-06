@@ -6,7 +6,7 @@ import {
   ID_PREFIX,
   INTERNAL_WORD,
   INTERNAL_WORDS,
-  KEY_SHAPE,
+  keyShape,
   RAW_ENUM,
   SHORT_PARTS,
   SNAKE_WORD,
@@ -27,6 +27,8 @@ export type Finding = {
 export type CheckOptions = {
   // contracts/problems 같은 다른 concern이 소유한 문구 key. catalog에 다시 정의하면 오류다.
   knownKeys?: readonly string[];
+  // key의 첫 구간으로 허용할 화면 이름. 없으면 lophn 화면 목록이고 앱은 자기 screen key와 common을 준다.
+  screens?: readonly string[];
 };
 
 const CALLED = new Set(["t"]);
@@ -110,7 +112,9 @@ export function checkSource(
     }
   }
 
-  if (!file.endsWith(".tsx")) checkCatalog(source, catalog, known, add);
+  if (!file.endsWith(".tsx")) {
+    checkCatalog(source, catalog, known, keyShape(options.screens), add);
+  }
   return findings;
 }
 
@@ -118,6 +122,7 @@ function checkCatalog(
   source: string,
   catalog: Record<string, string>,
   known: Set<string>,
+  shape: RegExp,
   add: (
     index: number,
     severity: Severity,
@@ -136,7 +141,7 @@ function checkCatalog(
         `${key}는 다른 concern의 문구 key라 catalog에 두지 않는다.`,
       );
     }
-    if (!KEY_SHAPE.test(key)) {
+    if (!shape.test(key)) {
       add(
         at,
         "error",

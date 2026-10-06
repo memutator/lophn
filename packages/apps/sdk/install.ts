@@ -10,6 +10,14 @@ import {
   type PackageRegisterVersionInput,
 } from "../../contracts/apps/mod.ts";
 import { isWithheldPackageName } from "./model.ts";
+import {
+  keepSupportFile,
+  rewriteSpecifiers,
+  type SourceFile,
+  SUPPORT_PACKAGES,
+  type SupportPackage,
+  VENDOR_RULES,
+} from "./vendor.ts";
 
 // 설치 worker가 core에 제출할 결과. hash·guide hash와 machine 제출 입력이다.
 export type InstallSubmission = {
@@ -31,7 +39,12 @@ export type InstallDeps = {
   ) => Promise<Result<unknown>>;
   // 설치 소스 경계. 제품은 packages/sdk/*를 쓴다(테스트가 주입한다).
   sourceRoot?: string;
+  // packages/ 저장소 폴더. 사본이 가져오는 contracts·design 같은 지원 소스의 기준이다.
+  packagesRoot?: string;
 };
+
+const PACKAGES_ROOT = new URL("../../", import.meta.url).pathname
+  .replace(/\/$/, "");
 
 function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
@@ -49,8 +62,9 @@ function installRefused(name: string): Result<never> {
 // packages/sdk/<name>의 파일을 상대 경로와 함께 모은다.
 async function collectSourceFiles(
   root: string,
-): Promise<Result<{ path: string; bytes: Uint8Array }[]>> {
-  const files: { path: string; bytes: Uint8Array }[] = [];
+  keep: (path: string) => boolean = () => true,
+): Promise<Result<SourceFile[]>> {
+  const files: SourceFile[] = [];
   async function visit(
     directory: string,
     prefix: string,
@@ -65,9 +79,11 @@ async function collectSourceFiles(
       const path = prefix ? `${prefix}/${entry.name}` : entry.name;
       const target = `${directory}/${entry.name}`;
       if (entry.isDirectory) {
+        if (!keep(`${path}/`)) continue;
         const walked = await visit(target, path);
         if (!walked.ok) return walked;
       } else if (entry.isFile) {
+        if (!keep(path)) continue;
         try {
           files.push({ path, bytes: await Deno.readFile(target) });
         } catch {
@@ -84,6 +100,35 @@ async function collectSourceFiles(
   }
   files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   return ok(files);
+}
+
+function sortFiles(files: SourceFile[]): SourceFile[] {
+  return files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+// 사본이 packages/sdk/<name> 밖에서 가져오는 소스를 vendor/로 함께 담고 specifier를 바꾼다(R9, R10).
+async function vendorFiles(
+  name: string,
+  files: readonly SourceFile[],
+  packagesRoot: string,
+): Promise<Result<SourceFile[]>> {
+  const rule = VENDOR_RULES[name];
+  if (rule === undefined) return ok([...files]);
+  const out = files.map((file) => rewriteSpecifiers(file, rule.rewrite));
+  for (const [from, to] of Object.entries(rule.files)) {
+    try {
+      out.push({
+        path: to,
+        bytes: await Deno.readFile(`${packagesRoot}/${from}`),
+      });
+    } catch {
+      return invalid(`vendored source is missing: ${from}`);
+    }
+  }
+  for (const [path, text] of Object.entries(rule.generated ?? {})) {
+    out.push({ path, bytes: new TextEncoder().encode(text) });
+  }
+  return ok(sortFiles(out));
 }
 
 // manifest + 파일 내용을 순서대로 이은 자기 완결 byte다. hash는 이 byte의 sha256이다.
@@ -147,10 +192,12 @@ export async function installPackage(
   }
   const split = splitPackageName(name);
   if (!split.ok) return split;
-  const sourceRoot = deps.sourceRoot ?? new URL("../../sdk", import.meta.url)
-    .pathname;
+  const packagesRoot = deps.packagesRoot ?? PACKAGES_ROOT;
+  const sourceRoot = deps.sourceRoot ?? `${packagesRoot}/sdk`;
   const source = `${sourceRoot}/${split.value.part}`;
-  const files = await collectSourceFiles(source);
+  const collected = await collectSourceFiles(source);
+  if (!collected.ok) return collected;
+  const files = await vendorFiles(name, collected.value, packagesRoot);
   if (!files.ok) return files;
   const bundle = bundleBytes(files.value);
   const bundleHash = await sha256Hex(bundle);
@@ -219,6 +266,15 @@ export async function installPackage(
   });
 }
 
+// 지원 소스(@lophn/design·@lophn/wording)의 설치 사본. catalog에 등록하지 않으므로 guide·등록이 없다.
+export type SupportInstallResult = {
+  name: string;
+  version: string;
+  bundle_hash: string;
+  install_path: string;
+  files: readonly string[];
+};
+
 export type InstallResult = {
   name: string;
   version: string;
@@ -227,6 +283,67 @@ export type InstallResult = {
   install_path: string;
   files: readonly string[];
 };
+
+// 공용 UI Package가 import하는 지원 소스를 sdk/<name>/<version>/에 읽기 전용으로 풀어 놓는다.
+// catalog Package가 아니라 register_version은 없다(apps/sdk#R13). 같은 byte면 hash도 같다.
+export async function installSupportPackage(
+  name: string,
+  deps: Pick<InstallDeps, "dataRoot" | "packagesRoot">,
+): Promise<Result<SupportInstallResult>> {
+  const support = SUPPORT_PACKAGES.find((item) => item.name === name);
+  if (support === undefined) return installRefused(name);
+  const split = splitPackageName(name);
+  if (!split.ok) return split;
+  const packagesRoot = deps.packagesRoot ?? PACKAGES_ROOT;
+  const collected = await collectSourceFiles(
+    `${packagesRoot}/${support.source}`,
+    (path) => keepSupportFile(path, support),
+  );
+  if (!collected.ok) return collected;
+  const files = sortFiles(collected.value);
+  const target = `${deps.dataRoot}/sdk/${split.value.part}/${support.version}`;
+  // 같은 byte의 사본이 이미 있으면 그대로 둔다. 읽기 전용 사본을 다시 쓰지 않는다(R8, R9).
+  if (!await sameInstallCopy(target, files)) {
+    const copied = await writeInstallCopy(target, files);
+    if (!copied.ok) return copied;
+  }
+  return ok({
+    name,
+    version: support.version,
+    bundle_hash: await sha256Hex(bundleBytes(files)),
+    install_path: target,
+    files: files.map((file) => file.path),
+  });
+}
+
+// 사본이 있고 파일 목록과 byte가 모두 같은지 본다.
+export async function sameInstallCopy(
+  target: string,
+  files: readonly SourceFile[],
+): Promise<boolean> {
+  try {
+    const found: string[] = [];
+    async function visit(directory: string, prefix: string): Promise<void> {
+      for await (const entry of Deno.readDir(directory)) {
+        const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory) await visit(`${directory}/${entry.name}`, path);
+        else found.push(path);
+      }
+    }
+    await visit(target, "");
+    if (found.length !== files.length) return false;
+    for (const file of files) {
+      const bytes = await Deno.readFile(`${target}/${file.path}`);
+      if (
+        bytes.length !== file.bytes.length ||
+        bytes.some((byte, index) => byte !== file.bytes[index])
+      ) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export async function writeInstallCopy(
   target: string,

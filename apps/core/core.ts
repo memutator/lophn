@@ -531,6 +531,10 @@ async function open(
           ...(runtime ? {} : { reason: "reader가 아직 없다" }),
         }],
         ["io", ioComponent(io)],
+        // 앱 supervisor를 띄우는 기동만 앱 영역의 감독 상태를 더한다.
+        ...(appsSupervision
+          ? [["apps", appsComponent(appsSupervision)] as const]
+          : []),
       ];
     },
   };
@@ -1989,6 +1993,15 @@ function baseVersionRead(runtime: CoreRuntime): BaseVersionFor {
       (read.value as { version: VersionRow | null }).version,
     );
   };
+}
+
+function appsComponent(
+  supervision: ReturnType<typeof createSupervisor>,
+): { available: boolean; reason?: string } {
+  const observed = supervision.observation(APPS_SUPERVISOR_KIND);
+  return observed.available
+    ? { available: true }
+    : { available: false, reason: observed.reason ?? "apps supervisor가 없다" };
 }
 
 function ioComponent(

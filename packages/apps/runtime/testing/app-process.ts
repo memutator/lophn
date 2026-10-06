@@ -68,6 +68,22 @@ export function fixtureBlueprint(): Record<string, unknown> {
   };
 }
 
+export const SCREENS = {
+  usage: ["full", "panel"],
+  overview: ["full", "panel", "card"],
+} as const;
+
+export const COMMANDS = [
+  "usage.undo",
+  "usage.read",
+  "usage.save",
+  "usage.admin",
+  "slow",
+  "fail",
+  "credential",
+  "leak",
+];
+
 export type FixtureApp = {
   app: string;
   release: string | null;

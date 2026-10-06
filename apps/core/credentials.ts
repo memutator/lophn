@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { authenticatedContextSchema } from "../../packages/contracts/platform/mod.ts";
 import type { LedgerConnection } from "../../packages/platform/ledger/mod.ts";
+import { APPS_CONTROL_PRINCIPAL } from "./apps-control.ts";
 import { DOCUMENTS_FEED_PRINCIPAL } from "./documents-events.ts";
 import {
   APPROVAL_EXPIRY_PRINCIPAL,
@@ -80,6 +81,7 @@ export function recordCredential(
 // 같은 자격을 다시 기록한다.
 const FIXED_CREDENTIALS = new Set([
   "machine:ticket-claims",
+  APPS_CONTROL_PRINCIPAL,
   "machine:lophn-agent-bootstrap",
   APPROVAL_EXPIRY_PRINCIPAL,
   DOCUMENTS_FEED_PRINCIPAL,

@@ -11,7 +11,7 @@ import {
 import { appFlags } from "../permissions/mod.ts";
 import type { DesiredApp } from "./supervisor/mod.ts";
 import { createRuntimeClient } from "./client/mod.ts";
-import { COMMANDS, openWorld, SCREENS, type World } from "./testing/world.ts";
+import { COMMANDS, openWorld, SCREENS, type World } from "./world_test.ts";
 import { FIXTURE_RELEASE, writeFixtureBundle } from "./testing/app-process.ts";
 
 type Prepared = { desired: DesiredApp; dir: string };
@@ -456,5 +456,27 @@ Deno.test("apps/runtime#R9: 회수된 credential의 connection은 통로를 닫�
     assert(fresh.ok, fresh.ok ? "" : fresh.error.message);
     const ok = await fresh.value.invoke({ command: "usage.read" });
     assert(ok.ok && ok.value.kind === "result");
+  });
+});
+
+Deno.test("apps/runtime#R17: 플랫폼 상태는 apps supervisor 감독 상태를 구성 요소로 보인다", async () => {
+  await withSupervisor(async (world) => {
+    const status = await world.login("user", ["platform/status"]);
+    const read = await until("apps component", async () => {
+      const reply = await call(
+        world.harness,
+        "platform/status",
+        status.token,
+        {},
+      );
+      assertEquals(reply.status, 200, JSON.stringify(reply.body));
+      const components = reply.body["components"] as {
+        component: string;
+        available: boolean;
+      }[];
+      const apps = components.find((entry) => entry.component === "apps");
+      return apps?.available ? apps : undefined;
+    });
+    assertEquals(read.component, "apps");
   });
 });

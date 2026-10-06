@@ -10,14 +10,12 @@ import { slotSockets } from "../../packages/apps/runtime/processes/mod.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
 import { appFlags } from "../../packages/apps/permissions/mod.ts";
 import {
+  COMMANDS,
   FIXTURE_APP,
   FIXTURE_RELEASE,
+  SCREENS,
   writeFixtureBundle,
 } from "../../packages/apps/runtime/testing/app-process.ts";
-import {
-  COMMANDS,
-  SCREENS,
-} from "../../packages/apps/runtime/testing/world.ts";
 import { assembleSupervisor, type Assembly } from "./assembly.ts";
 import { spawnApp } from "./spawn.ts";
 

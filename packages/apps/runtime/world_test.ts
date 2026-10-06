@@ -3,11 +3,11 @@
 // 이 폴더의 실제 앱 프로세스다), 그 밖은 제품 조립 그대로다. 사람 데이터 root는 열지 않는다.
 import { DatabaseSync } from "node:sqlite";
 import { assert, assertEquals } from "@std/assert";
-import { err, ok } from "../../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import type {
   AuthenticatedContext,
   CredentialConditions,
-} from "../../../contracts/platform/mod.ts";
+} from "../../contracts/platform/mod.ts";
 import {
   actionOf,
   call,
@@ -16,42 +16,30 @@ import {
   decide,
   inspect,
   type Reply,
-} from "../../../../apps/core/testing/approvals-fixture.ts";
-import type { ApprovalRequest } from "../../../contracts/platform/mod.ts";
-import type { GrantPermissionScope } from "../../../contracts/apps/mod.ts";
+} from "../../../apps/core/testing/approvals-fixture.ts";
+import type { ApprovalRequest } from "../../contracts/platform/mod.ts";
+import type { GrantPermissionScope } from "../../contracts/apps/mod.ts";
 import {
   type CoreHarness,
   createCoreHarness,
-} from "../../../../apps/core/testing/core.ts";
+} from "../../../apps/core/testing/core.ts";
 import type {
   ProcessObservation,
   ProcessQuery,
   ProcessSource,
-} from "../connect.ts";
+} from "./connect.ts";
 import {
+  COMMANDS,
   FIXTURE_RELEASE,
   type FixtureApp,
   fixtureBlueprint,
+  SCREENS,
   startFixtureApp,
-} from "./app-process.ts";
+} from "./testing/app-process.ts";
+
+export { COMMANDS, SCREENS };
 
 export type Login = { token: string; context: AuthenticatedContext };
-
-export const SCREENS = {
-  usage: ["full", "panel"],
-  overview: ["full", "panel", "card"],
-} as const;
-
-export const COMMANDS = [
-  "usage.undo",
-  "usage.read",
-  "usage.save",
-  "usage.admin",
-  "slow",
-  "fail",
-  "credential",
-  "leak",
-];
 
 // supervisor 관측의 시험 출처. 값은 실제 자식에서 만든 것이고 시험이 바꾼다.
 export type SourceState = {
@@ -148,10 +136,10 @@ export async function openWorld(
     supervisor?: boolean;
   } = {},
 ): Promise<World> {
-  const documents = await import("../../../../apps/core/documents.ts");
-  const apps = await import("../../../../apps/core/apps.ts");
-  const fixtures = await import("./mod.ts");
-  const permissions = await import("../../permissions/testing/mod.ts");
+  const documents = await import("../../../apps/core/documents.ts");
+  const apps = await import("../../../apps/core/apps.ts");
+  const fixtures = await import("./testing/mod.ts");
+  const permissions = await import("../permissions/testing/mod.ts");
   const state: SourceState = {
     live: undefined,
     preview: undefined,
@@ -173,10 +161,10 @@ export async function openWorld(
       { createLedgerRegistration: permissions.createLedgerRegistration },
     ],
     teamModules: [
-      new URL("../../../../apps/core/documents.ts", import.meta.url).href,
-      new URL("../../../../apps/core/apps.ts", import.meta.url).href,
-      new URL("./mod.ts", import.meta.url).href,
-      new URL("../../permissions/testing/mod.ts", import.meta.url).href,
+      new URL("../../../apps/core/documents.ts", import.meta.url).href,
+      new URL("../../../apps/core/apps.ts", import.meta.url).href,
+      new URL("./testing/mod.ts", import.meta.url).href,
+      new URL("../permissions/testing/mod.ts", import.meta.url).href,
     ],
     apps: options.supervisor
       ? { supervisor: { runtimeDir }, sweepMs: options.sweepMs }

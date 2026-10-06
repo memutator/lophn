@@ -3,6 +3,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { AuthenticatedContext } from "../../contracts/platform/mod.ts";
 import {
+  type App,
   appLogs,
   type AppLogState,
   appRuntime,
@@ -144,19 +145,11 @@ export type RuntimeSources = {
   app(
     app: string,
   ): Promise<
-    Result<
-      | Pick<RuntimeStateApp, "active_release" | "status" | "run_enabled">
-      | null
-    >
+    Result<Pick<App, "active_release" | "status" | "run_enabled"> | null>
   >;
   // 알려진 secret까지 지운 줄. 안전화를 끝내지 못하면 null이다(fail-closed).
   redact(line: string): string | null;
   now(): string;
-};
-type RuntimeStateApp = {
-  active_release: string | null;
-  status: "active" | "archived";
-  run_enabled: boolean;
 };
 
 // apps.runtime: reader가 접근을 판정한 결과에 현재 관측과 그 관측으로 계산한 상태를 얹는다.

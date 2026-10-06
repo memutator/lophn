@@ -8,13 +8,7 @@ import type {
   AgentAppScope,
   AgentRole,
 } from "../../contracts/lophn-agent/mod.ts";
-import {
-  declare,
-  direct,
-  grant,
-  openWorld,
-  type World,
-} from "./testing/world.ts";
+import { declare, direct, grant, openWorld, type World } from "./world_test.ts";
 
 const ASSIGNMENT = "asg_01arz3ndektsv4rrffq69g5fav";
 const RUN = "run_01arz3ndektsv4rrffq69g5fav";

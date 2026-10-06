@@ -11,7 +11,7 @@ import {
   openWorld,
   revokeCredential,
   type World,
-} from "./testing/world.ts";
+} from "./world_test.ts";
 
 async function withWorld(
   run: (world: World) => Promise<void>,

@@ -1,7 +1,7 @@
 // Deno runtime client. 실제 core(임시 LOPHN_HOME)에서 connect하고 실제 앱 자식 프로세스에
 // Unix socket HTTP로 호출한다. 전송 단절은 앱 프로세스를 실제로 끝내서 만든다.
 import { assert, assertEquals } from "@std/assert";
-import { openWorld, type World } from "../testing/world.ts";
+import { openWorld, type World } from "../world_test.ts";
 import { createRuntimeClient } from "./mod.ts";
 import {
   type DirectTransport,

@@ -531,6 +531,21 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
   - pdf·image·data는 원문 format이라 Package를 만들지 않는다(documents 팀 추천, 그 팀 질문 Q10에 올라가 있다)
 - 상태: 완료 (#184)
 
+### T30 앱 등록의 question option action 경로
+
+- 등급: 좁은
+- concern: apps/registration
+- 요구: apps/registration#R3
+- 자리: packages/apps/registration/ (commands.ts), packages/contracts/apps/ (contracts 변경은 contracts 팀 작업으로 먼저), apps/core/apps.ts
+- 쓰는 contract: lophn-agent/questions의 option action(OPTION_ACTION_OWNERS, 값 type은 contracts/lophn-agent)
+- 내놓는 contract: `app.create`의 미리 배정한 app ID 입력과 option 적용 경로(contracts 변경 필요)
+- slice: apps
+- 선행: apps#T1, lophn-agent#T29, platform#T58
+- lophn-agent#T29에서 넘어온 것: option action의 생성 대상은 미리 배정한 ID여야 하는데 `app.create`는 ID를 만들어 돌려주고 dispatchable이 아니며 user·coding_agent만 받는다. lophn 제안의 새 앱 등록 선택지(questions#R13)는 이 경로가 있어야 열린다. 열면 `packages/lophn-agent/questions/option-actions.ts`의 `OPTION_ACTION_OWNERS`에 한 줄을 더하고 core 조립이 같은 handler를 묶는다.
+- 완료:
+  - 사람이 고른 질문 선택지로만 machine이 앱을 한 번 등록한다. 자유 답·낡은 기준은 등록하지 않고 같은 선택지의 두 번째는 conflict다
+  - `registration_test.ts`에 위 요구 테스트
+
 ## slice: operations
 
 ### T28 앱 export

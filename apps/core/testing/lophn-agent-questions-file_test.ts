@@ -10,6 +10,7 @@ import {
 import type {
   AuthenticatedContext,
   BlobRefRegistration,
+  SettingMutation,
 } from "../../../packages/contracts/platform/mod.ts";
 import { applyMigrations } from "../../../packages/platform/backup-and-migration/mod.ts";
 import {
@@ -43,6 +44,7 @@ import {
   createQuestionCommands,
   createQuestionReads,
   questionSchemaSteps,
+  settingsOptionAction,
 } from "../../../packages/lophn-agent/questions/mod.ts";
 import {
   agentRun,
@@ -297,16 +299,12 @@ function option(key: string, action: unknown = null) {
 }
 
 function settingsAction(question: string) {
-  const input = { changes: WIDTH };
-  return {
-    concern: "platform/settings",
-    command: "apply_settings",
-    targets: [question],
-    input: { kind: "inline", value: input },
-    input_hash: hashOf(input),
-    comparison: { revision: 0, defaults_revision: "defaults-1" },
-    binding_hash: hashOf({ question, input }),
-  };
+  return settingsOptionAction({
+    question,
+    changes: WIDTH as SettingMutation[],
+    revision: 0,
+    defaults_revision: "defaults-1",
+  });
 }
 
 function questionInput(

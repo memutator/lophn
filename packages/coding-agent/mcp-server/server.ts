@@ -8,8 +8,14 @@ import {
   mcpToolResult,
   parseToolsets,
 } from "../../contracts/coding-agent/mod.ts";
-import type { LophnError } from "../../base/mod.ts";
-import { findTool, resolveRoute, toolEntries } from "./registry.ts";
+import type { LophnError, Result } from "../../base/mod.ts";
+import { appCommandToolInputSchema } from "../../contracts/coding-agent/mod.ts";
+import {
+  findTool,
+  resolveRoute,
+  toolEntries,
+  type ToolEntry,
+} from "./registry.ts";
 import { effectUnknownResult, failureResult, successResult } from "./result.ts";
 
 // MCP 초기화에 답하는 server 정보다. protocol 버전은 client가 보낸 것을 그대로 돌려준다.
@@ -40,6 +46,7 @@ const PROTOCOL_ERRORS = {
   invalidRequest: -32600,
   methodNotFound: -32601,
   invalidParams: -32602,
+  internal: -32603,
 } as const;
 
 // server가 소유한 상태다. label 순서의 마지막 항목이 여기에 남는다(connection#R3).
@@ -64,8 +71,18 @@ export type HandleDeps = {
     next: string[];
     isError?: boolean;
   }>;
+  // blueprint 유래 앱 command tool이다(T23, mcp#R34·R35). app toolset을 켠 경우에만 목록과
+  // 호출에 닿고, 없거나 toolset이 꺼져 있으면 이름이 없는 tool과 같다.
+  appCommands?: DynamicAppTools;
   // 응답 밖으로 내는 JSON-RPC notification이다(progress). 없으면 progress를 보내지 않는다.
   notify?: (message: JsonRpcNotification) => void | Promise<void>;
+};
+
+export type DynamicAppTools = {
+  // 현재 scope 안 앱의 read command tool 목록이다. 오류는 discovery 실패(이름 충돌)다.
+  list(): Promise<Result<ToolEntry[], LophnError>>;
+  // 동적 tool 이름인지 본다. 지금 정의가 있는지는 호출에서 판정한다.
+  owns(name: string): boolean;
 };
 
 export type JsonRpcNotification = {
@@ -93,13 +110,21 @@ export function createHandler(
     if (request.id === undefined) return undefined;
     switch (request.method) {
       case "initialize":
-        return initializeResponse(request, deps.onClientInfo);
+        return initializeResponse(
+          request,
+          deps.onClientInfo,
+          // 동적 앱 tool이 바뀌면 list_changed를 보낸다(R35).
+          toolsets.includes("app") && deps.appCommands !== undefined,
+        );
       case "tools/list":
-        return okResponse(request.id, {
-          tools: toolEntries(toolsets),
-        });
+        return await listResponse(request.id, toolsets, deps.appCommands);
       case "tools/call":
-        return await callResponse(request, deps.callTool, deps.notify);
+        return await callResponse(
+          request,
+          deps.callTool,
+          deps.notify,
+          toolsets.includes("app") ? deps.appCommands : undefined,
+        );
       default:
         return errorResponse(
           request.id,
@@ -107,6 +132,27 @@ export function createHandler(
         );
     }
   };
+}
+
+// 고정 tool은 core에 닿지 않고 답한다(R1). app toolset의 동적 목록만 현재 blueprint를
+// 읽는다. 이름 충돌은 조용히 덮지 않고 목록 전체의 실패로 돌려준다(R34).
+async function listResponse(
+  id: JsonRpcId,
+  toolsets: readonly Toolset[],
+  appCommands: DynamicAppTools | undefined,
+): Promise<JsonRpcResponse> {
+  const fixed = toolEntries(toolsets);
+  if (!toolsets.includes("app") || appCommands === undefined) {
+    return okResponse(id, { tools: fixed });
+  }
+  const dynamic = await appCommands.list();
+  if (!dynamic.ok) {
+    return errorResponse(id, {
+      code: PROTOCOL_ERRORS.internal,
+      message: `tool discovery 실패: ${dynamic.error.message}`,
+    });
+  }
+  return okResponse(id, { tools: [...fixed, ...dynamic.value] });
 }
 
 // notification(id 없는 요청)은 응답을 내지 않는다.
@@ -176,6 +222,7 @@ function parseRequest(line: string): ParsedRequest {
 function initializeResponse(
   request: JsonRpcRequest,
   onClientInfo: ((name: string | undefined) => void) | undefined,
+  listChanged: boolean,
 ): JsonRpcResponse {
   const params = (request.params ?? {}) as {
     clientInfo?: { name?: unknown };
@@ -189,7 +236,7 @@ function initializeResponse(
   return okResponse(request.id ?? null, {
     protocolVersion: (request.params as { protocolVersion?: unknown })
       ?.protocolVersion ?? "2025-06-18",
-    capabilities: { tools: { listChanged: false } },
+    capabilities: { tools: { listChanged: listChanged } },
     serverInfo: SERVER_INFO,
   });
 }
@@ -227,6 +274,7 @@ async function callResponse(
   request: JsonRpcRequest,
   callTool: HandleDeps["callTool"],
   notify: HandleDeps["notify"],
+  appCommands: DynamicAppTools | undefined,
 ): Promise<JsonRpcResponse> {
   const params = (request.params ?? {}) as {
     name?: unknown;
@@ -242,6 +290,33 @@ async function callResponse(
     );
   }
   const args = (params.arguments ?? {}) as Record<string, unknown>;
+  if (appCommands?.owns(params.name)) {
+    // 바깥 입력은 input·environment·timeout_ms뿐이다. command 입력 검사는 앱 통로가 고정
+    // blueprint로 한다(R35).
+    const outer = appCommandToolInputSchema.safeParse(args);
+    if (!outer.success) {
+      return okResponse(
+        request.id,
+        failureResult({
+          code: "invalid_input",
+          message: "tool 입력이 맞지 않다",
+          details: { tool: params.name },
+        }),
+      );
+    }
+    const ran = await callTool(
+      params.name,
+      outer.data,
+      progressOf(request, notify),
+    );
+    return okResponse(
+      request.id,
+      mcpToolResult(
+        { summary: ran.summary, data: ran.data, next: ran.next },
+        ran.isError === true,
+      ),
+    );
+  }
   const resolved = resolveRoute(params.name, opOf(args));
   if (!findTool(params.name)) {
     return errorResponse(

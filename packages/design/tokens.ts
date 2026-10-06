@@ -149,6 +149,8 @@ export const tokens = {
   layout: {
     panePadding: { narrow: "16px", wide: "32px" },
     sidebar: { min: "200px", max: "400px", collapsed: "56px" },
+    // 공용 layout이 페이지 가로 scroll 없이 읽기와 조작을 주는 가장 좁은 패널·카드 폭(apps/sdk#R37).
+    container: { panel: "320px", card: "240px" },
   },
   // 컨트롤 sm·md·lg 높이·좌우 여백·아이콘과 라벨 간격(R26).
   control: {

@@ -104,9 +104,11 @@ import { authorizeDocument } from "../../packages/documents/versions/authorizati
 import {
   loadDocument,
   loadFiles,
+  loadInstructionDocuments,
   loadLinkedDocuments,
   loadVersion,
 } from "../../packages/documents/versions/store.ts";
+import { instructionRegistrations } from "../../packages/documents/file-tracking/instruction.ts";
 import { loadTerm } from "../../packages/documents/terms/store.ts";
 import {
   checkTermOccurrence,
@@ -627,7 +629,33 @@ export function createReaderRegistration(): ReaderRegistration {
             project.status === "active" && project.tracking.enabled
           );
           if (part === "roots") {
+            // 등록된 지침 파일(전역·project)과 그 파일에 이미 연결된 문서. 일반 tracking 규칙과 따로
+            // 있고 tracking을 껐어도 들어간다(file-tracking#R19). 파일은 보지 않는다.
+            const dataRoot = dataRootOf(snapshot);
+            if (!dataRoot.ok) return dataRoot;
+            const documents = loadInstructionDocuments(snapshot.sql);
+            if (!documents.ok) return documents;
+            const instructions = instructionRegistrations(
+              dataRoot.value,
+              projects.value,
+            ).map((registration) => {
+              const found = documents.value.find((linked) =>
+                linked.document.file_source?.path === registration.path
+              );
+              return {
+                ...registration,
+                link: found === undefined ? null : {
+                  document: found.document.id,
+                  document_revision: found.document.revision,
+                  status: found.document.status,
+                  latest_version: found.document.latest_version,
+                  latest_hash: found.latestOriginalHash,
+                  title: found.document.title,
+                },
+              };
+            });
             return ok({
+              instructions,
               folders: projects.value.flatMap((project) =>
                 project.status === "active"
                   ? project.folders.map((folder) => ({

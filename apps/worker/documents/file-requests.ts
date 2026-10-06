@@ -17,14 +17,18 @@ import {
   renameFile,
 } from "../../../packages/documents/file-tracking/files.ts";
 import {
+  INSTRUCTION_READ_MAX_BYTES,
   prepConfirmSchema,
   prepDeleteSchema,
+  prepInstructionReadSchema,
   prepReadSchema,
   prepRenameSchema,
   prepWindowSchema,
   prepWriteSchema,
 } from "../../../packages/documents/file-tracking/file-ipc.ts";
 import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
+import { instructionReadPort } from "../../../packages/documents/file-tracking/fs.ts";
+import { readStably } from "../../../packages/documents/file-tracking/work.ts";
 import {
   confirmCopy,
   readLocation,
@@ -79,6 +83,8 @@ export function acceptFileOp(
       return readOp(request, deps);
     case PREPARATION_OPS.readWindow:
       return windowOp(request, deps, outbox);
+    case PREPARATION_OPS.readInstruction:
+      return instructionOp(request, outbox);
     case PREPARATION_OPS.writeFile:
       return writeOp(request, inbox, deps);
     case PREPARATION_OPS.renameFile:
@@ -121,6 +127,43 @@ async function windowOp(
     return err({ code: "unavailable", message: "file bytes were not sent" });
   }
   return ok({ bytes: read.value.length });
+}
+
+// 등록된 지침 파일 하나를 안정 읽기해 hash·identity와 바이트(응답 전 byte frame)를 돌려준다. 소유자·
+// symlink·일반 파일 검사에 걸리면 invalid_input, 없으면 not_found다. 한 frame 안에 들어오지 않는
+// 큰 파일은 판을 만들 수 없어 미확인이다(검사 상한은 lophn-agent/instructions가 따로 막는다).
+async function instructionOp(
+  request: WorkerRequest,
+  outbox: ByteOutbox | undefined,
+): Promise<Result<unknown, LophnError>> {
+  const parsed = prepInstructionReadSchema.safeParse(request.payload);
+  if (!parsed.success) return invalid();
+  if (outbox === undefined) {
+    return err({ code: "unavailable", message: "no byte channel" });
+  }
+  const read = await readStably(
+    instructionReadPort(parsed.data.data_root),
+    parsed.data.path,
+  );
+  if (!read.ok) return err(read.error);
+  if (read.value.kind === "unverified") {
+    return ok({ kind: "unverified", reason: read.value.reason, bytes: 0 });
+  }
+  const { hash, bytes, identity } = read.value.read;
+  if (bytes.length > INSTRUCTION_READ_MAX_BYTES) {
+    return ok({
+      kind: "unverified",
+      reason: "instruction file is too large to observe",
+      bytes: 0,
+    });
+  }
+  try {
+    // 빈 파일(빈 사람 지침)은 보낼 바이트가 없다. 우편함은 0바이트를 받은 것으로 본다.
+    if (bytes.length > 0) await outbox.send(parsed.data.channel, bytes);
+  } catch {
+    return err({ code: "unavailable", message: "file bytes were not sent" });
+  }
+  return ok({ kind: "stable", hash, identity, bytes: bytes.length });
 }
 
 async function writeOp(

@@ -14,8 +14,12 @@ import {
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
-const teams: TeamModule[] = [{ createLedgerRegistration }];
+const teams: TeamModule[] = [
+  { lophnAgentDefinitions },
+  { createLedgerRegistration },
+];
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 const AGENT_TOKEN = "a".repeat(43);
 const USER_TOKEN = "c".repeat(43);
@@ -52,7 +56,10 @@ async function open(): Promise<Opened> {
     lophnHome: home,
     port: 0,
     teams,
-    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     clock: manualClock(Date.UTC(2024, 0, 1)),
     random: seededRandom(41),
     testCredentials: true,

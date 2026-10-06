@@ -1,0 +1,16 @@
+/* 상세 칸의 내용 여백. 틀은 칸 끝까지 가고 여백은 내용이 정한다. */
+.detail {
+  padding: var(--space-6);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* 주 행동은 줄 오른쪽 끝에 둔다. */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}

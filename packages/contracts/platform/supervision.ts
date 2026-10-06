@@ -278,7 +278,8 @@ export const appCredentialRequestSchema = z.strictObject({
   type: z.literal("app_credential_request"),
   request_id: opaque,
   app: idSchema("app"),
-  release: idSchema("rel"),
+  // 준비 전 bundle의 preview는 release가 없다(apps/preview#R9). 가짜 release를 만들지 않는다.
+  release: idSchema("rel").nullable(),
   process: opaque,
   mode: opaque,
   bundle_hash: sha256Schema.nullable().optional(),

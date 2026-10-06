@@ -122,6 +122,9 @@ export const PREPARATION_OPS = {
   readFile: "documents.read_file",
   // 읽은 파일의 한 창. 바이트는 응답 전에 byte chunk frame으로 간다.
   readWindow: "documents.read_window",
+  // 등록된 지침 파일 하나의 안정 읽기. 소유자·symlink·일반 파일을 검사하고 바이트는 응답 전에
+  // byte chunk frame으로 간다(coordinator는 등록 폴더를 읽을 권한이 없다).
+  readInstruction: "documents.read_instruction",
   writeFile: "documents.write_file",
   renameFile: "documents.rename_file",
   deleteFile: "documents.delete_file",

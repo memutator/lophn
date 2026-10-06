@@ -123,7 +123,9 @@ export function createConfirmCommands(): {
   return {
     acceptConfirm: {
       route: invocationAcceptConfirm,
+      // apply_approved_action 한 곳으로만 접수된다. 직접 호출은 approval_uses 없이 접수·proof를 낸다.
       dispatchable: true,
+      dispatchOnly: true,
       handle(tx, ctx, input) {
         // 접수는 machine이 한다. 원래 요청자는 approval에 고정된 호출 주체다(R17).
         if (ctx.actor !== "machine") {

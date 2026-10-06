@@ -205,7 +205,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
 // handler가 소유 contract를 부르는 통로다. 실제 연결(core client)은 agent runtime 조립이
 // 넣는다. `call`은 contract 이름 하나와 그 입력 하나이고 여러 영역의 숨은 절차는 없다.
 export type AgentToolPorts = ContractCall & {
-  newId(prefix: "qst" | "run"): string;
+  newId(prefix: "qst" | "run" | "msg"): string;
   // 호출 run이 이어진 사실. 질문의 session과 handoff의 보낸 역할·원래 사람 요청을 정한다.
   runFacts(run: string): Promise<
     Result<{

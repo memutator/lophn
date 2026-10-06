@@ -74,6 +74,26 @@ export const revertCapabilitySchema = z.enum([
   "conflict",
 ]);
 
+// 분류·차단 이유 코드. 화면 문장은 이 코드로 wording을 고른다. 값은 글이나 secret이 아니다.
+export const REVERT_REASON_CODES = [
+  "audit_fact",
+  "external_effect",
+  "later_change",
+  "linked_document",
+  "not_agent_output",
+  "title_change",
+  "no_previous_version",
+  "unclassified_document_event",
+  "unclassified_event",
+  "blocked_conflict",
+  "blocked_irreversible",
+  "blocked_dependency",
+  "blocked_not_prepared",
+  "stale_preview",
+] as const;
+export const revertReasonSchema = z.enum(REVERT_REASON_CODES);
+export type RevertReason = z.infer<typeof revertReasonSchema>;
+
 export const revertResultSchema = z.enum([
   "restored",
   "retained",

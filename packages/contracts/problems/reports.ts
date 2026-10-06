@@ -177,8 +177,8 @@ export const observeException = defineWorker({
 });
 
 // 앱 view의 exception 보고 (reporting#R5, R6). shell이 보내는 view error를
-// collector로 넘긴다. binding은 core가 서명한 AppConnection Authorization이고,
-// app·release·mode는 credential에서만 정한다(T16: 페이지 주장은 무시).
+// collector로 넘긴다. binding은 core가 서명한 SignedConnection이고,
+// app·release·mode는 검증된 binding에서만 정한다(T16: 페이지 주장은 무시).
 export const observeViewErrorInputSchema = z.strictObject({
   view: z.strictObject({
     view_session: z.string().min(1),
@@ -187,7 +187,7 @@ export const observeViewErrorInputSchema = z.strictObject({
     release: z.string().min(1).nullable(),
     mode: z.enum(["live", "preview", "test"]),
     bundle_hash: z.string().min(1),
-    binding: z.string().min(1),
+    binding: z.string().min(1), // JSON-encoded SignedConnection
   }),
   observation: exceptionObservationInputSchema,
 });
@@ -198,7 +198,7 @@ export const observeViewError = defineWorker({
   name: "ObserveViewError",
   input: observeViewErrorInputSchema,
   output: reportAcceptanceSchema,
-  actors: ["machine"],
+  actors: ["user"],
   errors: REPORT_ERRORS,
 });
 

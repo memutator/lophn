@@ -2,6 +2,10 @@
 import { DatabaseSync } from "node:sqlite";
 export * from "./guides.ts";
 import { ok, type Result } from "../../../base/mod.ts";
+import {
+  type AppRegistration,
+  appRegistrationLookup,
+} from "../../../contracts/apps/mod.ts";
 import type { ContentFile } from "../../../contracts/documents/mod.ts";
 import {
   type PortKey,
@@ -44,6 +48,18 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
   for (const step of [...addressingSchemaSteps, ...versionsSchemaSteps]) {
     db.exec(step.sql);
   }
+  // 앱 존재·status 조회(apps registration read). 기본은 활성 앱 하나다.
+  const apps = new Map<string, AppRegistration>([[
+    "app_01arz3ndektsv4rrffq69g5fav",
+    {
+      id: "app_01arz3ndektsv4rrffq69g5fav",
+      slug: "report-app",
+      status: "active",
+    },
+  ]]);
+  const appLookup = {
+    get: (app: string) => ok(apps.get(app) ?? null),
+  };
   let seq = 0n;
   let minted = 0;
   const emitted: Emitted[] = [];
@@ -64,6 +80,7 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
   });
   return {
     db,
+    apps,
     sql: sqlOf(() => {}),
     emitted,
     blobs,
@@ -98,6 +115,7 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
         },
         port<T>(key: PortKey<T>): T {
           guard();
+          if (Object.is(key, appRegistrationLookup)) return appLookup as T;
           if (!Object.is(key, TargetAuthorization)) {
             throw new Error("unregistered document port");
           }
@@ -162,6 +180,7 @@ export function versionFixture(authorize: TargetAuthorizer = allowAll) {
         sql: sqlOf(() => {}),
         as_of_seq,
         port<T>(key: PortKey<T>): T {
+          if (Object.is(key, appRegistrationLookup)) return appLookup as T;
           if (!Object.is(key, TargetAuthorization)) {
             throw new Error("unregistered document port");
           }

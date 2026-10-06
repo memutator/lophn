@@ -102,6 +102,16 @@ export {
   type DocumentsSaveRequest,
 } from "./broker/documents.ts";
 export {
+  type AppDocumentsSaveDeps,
+  type AppOutputDeclaration,
+  type AppOutputDeclarations,
+  type AppOutputFile,
+  type AppOutputRead,
+  type AppOutputSource,
+  createAppDocumentsSave,
+  type DocumentsClient,
+} from "./adapters/documents-save.ts";
+export {
   createProblemReportService,
   type ProblemReportRequest,
   type ProblemReportService,

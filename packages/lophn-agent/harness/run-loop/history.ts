@@ -1,4 +1,4 @@
-import { type HistoryPart } from "../prompt-assemble/mod.ts";
+import type { HistoryPart } from "../prompt-assemble/mod.ts";
 import { wireData } from "../safety/mod.ts";
 import type { CallResult } from "./tool-batch.ts";
 

@@ -3,13 +3,13 @@
 // run으로 이어지는지 본다. 완전 응답·확정 결과는 다시 부르지 않고 결과 없는 쓰기는 다시 보내지 않는다.
 // provider는 fake provider이고 실제 provider와 사람 데이터 root는 열지 않는다.
 import { assert, assertEquals } from "@std/assert";
-import { ok } from "../../packages/base/mod.ts";
 import type { Script } from "../../tools/fake-provider/mod.ts";
 import type { ToolLookup } from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import { decide as humanDecide } from "./testing/approvals-fixture.ts";
 import {
   count,
   inspect,
+  MACHINE_TOKEN,
   openRecoveryWorld,
   type RecoveryWorld,
   USER_TOKEN,
@@ -148,6 +148,60 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R8: runtime을 둘째 tool �
     assert(final.includes("Wrote two."));
   } finally {
     await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/harness/waiting-and-recovery#R8: 어느 command가 commit된 직후에 죽어도 중복 run·중복 효과·중복 usage 없이 같은 run이 끝난다", async () => {
+  const points: { path: string; nth: number }[] = [
+    { path: "/v1/model-calls/start", nth: 1 },
+    { path: "/v1/model-calls/finish", nth: 1 },
+    { path: "/v1/tool-calls/request", nth: 2 },
+    { path: "/v1/tool-calls/decide", nth: 2 },
+    { path: "/v1/tool-calls/start", nth: 2 },
+    { path: "/v1/tool-calls/finish", nth: 1 },
+    { path: "/v1/tool-calls/finish", nth: 3 },
+    { path: "/v1/runs/checkpoint", nth: 1 },
+  ];
+  for (const point of points) {
+    const world = await openRecoveryWorld(SCRIPT);
+    const label = `${point.path}#${point.nth}`;
+    try {
+      await runUntilDead(world, { die: { when: "after", ...point } });
+      world.clock.advance(1000);
+      const report = await world.runtime().driver.recover();
+      assert(report.ok, label);
+      for (const entry of report.value) await entry.done;
+      // 같은 run 하나가 끝났다.
+      assertEquals(
+        count(world.server, "select count(*) as n from runs"),
+        1,
+        label,
+      );
+      assertEquals(runRow(world)["state"], "finished", label);
+      // 같은 효과가 두 번 일어나지 않는다.
+      for (const note of ["one", "two"]) {
+        assert(
+          world.effects.writes.filter((value) => value === note).length <= 1,
+          label,
+        );
+      }
+      // 보낸 provider 요청마다 model call 기록이 정확히 하나다: 같은 응답으로 usage를 두 번 세지 않는다.
+      assertEquals(
+        count(world.server, "select count(*) as n from model_calls"),
+        world.provider.requests().length,
+        label,
+      );
+      // 요청 key마다 시도는 많아야 둘이다(최초와 retry).
+      assert(
+        count(
+          world.server,
+          "select count(*) as n from (select model_call, response_key from tool_calls group by 1, 2 having count(*) > 2)",
+        ) === 0,
+        label,
+      );
+    } finally {
+      await world.dispose();
+    }
   }
 });
 
@@ -428,7 +482,151 @@ Deno.test("lophn-agent/harness/waiting-and-recovery#R2: 사람의 결정으로 �
     // 마무리 판단은 허락을 받은 call의 결과를 이력으로 받았다.
     const final = JSON.stringify(world.provider.requests()[1]!.body);
     assert(final.includes("Wrote approve me."));
-    assert(ok(undefined).ok);
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/harness/waiting-and-recovery#R9: RecoverRun은 ledger의 경계와 다른 기준·줄어든 한도·사람 자격을 받지 않고 끝난 run은 감사 기록만 남긴다", async () => {
+  const world = await openRecoveryWorld(SCRIPT);
+  try {
+    await runUntilDead(world, {
+      die: { when: "after", path: "/v1/tool-calls/finish", nth: 2 },
+    });
+    const read = await world.read("runs/read", MACHINE_TOKEN, {
+      run: world.run,
+    });
+    const model = inspect(world.server, "select id from model_calls", [])[0]![
+      "id"
+    ] as string;
+    const confirmed = [
+      model,
+      ...inspect(world.server, "select id from tool_calls", []).map((row) =>
+        row["id"] as string
+      ),
+    ];
+    const stateSeq = async () =>
+      ((await world.read("runs/read", MACHINE_TOKEN, { run: world.run }))
+        .body as { run: { state_seq: string } }).run.state_seq;
+    const basis = (over: Record<string, unknown> = {}) => ({
+      run: world.run,
+      boundary: "model_finished",
+      basis_seq: (read.body as { as_of_seq: string }).as_of_seq,
+      call: model,
+      confirmed_results: confirmed,
+      elapsed: {
+        active_ms: 10_000,
+        stall_ms: 10_000,
+        checkpoint_at: new Date(world.clock.nowMs()).toISOString(),
+      },
+      resolution: "resume",
+      reason: "stored_boundary",
+      ...over,
+    });
+    const post = async (input: unknown, token = MACHINE_TOKEN) =>
+      world.post("runs/recover", token, input, { state_seq: await stateSeq() });
+
+    // 경계가 ledger와 다르면 conflict, 확정하지 않은 결과를 확정했다고 주장해도 conflict다.
+    assertEquals(
+      (await post(basis({ boundary: "accepted", call: null }))).status,
+      409,
+    );
+    assertEquals(
+      (await post(basis({
+        confirmed_results: [...confirmed, "tcl_01arz3ndektsv4rrffq69g5fav"],
+      }))).status,
+      409,
+    );
+    // 사람 자격은 이 command를 부르지 못한다.
+    assert((await post(basis(), USER_TOKEN)).status >= 400);
+    assertEquals(recovered(world), 0);
+
+    const resumed = await post(basis());
+    assertEquals(resumed.status, 200, JSON.stringify(resumed.body));
+    assertEquals(recovered(world), 1);
+    // 이미 센 한도는 줄지 않는다.
+    const smaller = await post(basis({
+      elapsed: {
+        active_ms: 5_000,
+        stall_ms: 5_000,
+        checkpoint_at: new Date(world.clock.nowMs()).toISOString(),
+      },
+    }));
+    assertEquals(smaller.status, 400);
+    // 끝냄은 실패 이유만 받고 확정한 사실로 정리한다.
+    const bad = await post(
+      basis({ resolution: "finish", reason: "user_stopped" }),
+    );
+    assertEquals(bad.status, 400);
+    const finished = await post(
+      basis({ resolution: "finish", reason: "target_unavailable" }),
+    );
+    assertEquals(finished.status, 200, JSON.stringify(finished.body));
+    const run = runRow(world);
+    assertEquals([run["state"], run["outcome_kind"], run["outcome_reason"]], [
+      "finished",
+      "failed",
+      "target_unavailable",
+    ]);
+    // 끝난 run은 감사 기록만 받는다: 결과는 그대로이고 다시 열리지 않는다.
+    const audit = await post(
+      basis({ boundary: "finished", call: null, resolution: "audit_only" }),
+    );
+    assertEquals(audit.status, 200, JSON.stringify(audit.body));
+    assertEquals(runRow(world), run);
+    assertEquals(recovered(world), 3);
+  } finally {
+    await world.dispose();
+  }
+});
+
+Deno.test("lophn-agent/harness/waiting-and-recovery#R8: ReadRunBody는 machine에게 저장된 run basis·model 응답·tool 결과를 hash 확인 뒤 주고 없는 대상과 다른 자격은 값을 주지 않는다", async () => {
+  const world = await openRecoveryWorld(SCRIPT);
+  try {
+    const runtime = world.runtime();
+    const started = await runtime.driver.startNext();
+    assert(started.kind === "started");
+    await started.done;
+    const id = (sql: string) =>
+      inspect(world.server, sql, [])[0]!["id"] as string;
+    const modelCall = id("select id from model_calls order by attempt_order");
+    const toolCall = id(
+      "select id from tool_calls where tool = 'document.create' order by response_order",
+    );
+    const body = (kind: string, target: string, token = MACHINE_TOKEN) =>
+      world.read("runs/body", token, { kind, id: target });
+
+    const model = await body("model_call_output", modelCall);
+    assertEquals(model.status, 200, JSON.stringify(model.body));
+    assertEquals(
+      (model.body["value"] as { text: string }).text,
+      "I will list projects and write two notes.",
+    );
+    // 값은 저장된 blob의 hash와 크기로 확인한 것이다.
+    assertEquals((model.body["hash"] as string).length, 64);
+    const tool = await body("tool_call_output", toolCall);
+    assertEquals(tool.status, 200);
+    assertEquals(
+      (tool.body["value"] as { summary: string }).summary,
+      "Wrote one.",
+    );
+    const basis = await body("run_basis", world.run);
+    assertEquals(basis.status, 200);
+    assert(
+      (basis.body["value"] as { preset: { id: string } }).preset.id.startsWith(
+        "pst_",
+      ),
+    );
+    // 없는 대상, 다른 자격, 종류와 맞지 않는 ID는 값을 주지 않는다.
+    assertEquals(
+      (await body("model_call_output", "mcl_01arz3ndektsv4rrffq69g5fav"))
+        .status,
+      404,
+    );
+    assertEquals((await body("model_call_output", toolCall)).status, 400);
+    const person = await body("model_call_output", modelCall, USER_TOKEN);
+    assert(person.status >= 400);
+    assertEquals(person.body["value"], undefined);
   } finally {
     await world.dispose();
   }

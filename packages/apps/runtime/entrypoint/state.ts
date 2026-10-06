@@ -21,6 +21,8 @@ export type InvocationRecord = {
   recorded: boolean;
   // 취소 요청을 받았다는 사실뿐이다. 효과가 취소됐다는 뜻이 아니다(apps/invocations#R11).
   cancelRequested?: boolean;
+  // handler가 효과 전에 받지 않겠다고 알린 호출(apps/agent-context#R5). 효과 없음이 알려진 실패다.
+  rejection?: { code: string; message: string };
   // 종료 사실(timeout의 결과 모름)을 이미 보냈다. 늦은 handler 종료가 그 사실을 바꾸지 않는다.
   settled?: boolean;
   startedAt?: string;
@@ -50,11 +52,27 @@ export type RuntimeState = {
   byRequest: Map<string, string>;
   markers: ConfirmMarkers;
   views: Map<string, ViewSession>;
+  // 닫히거나 교체된 view session. 늦게 온 화면 요청이 닫힌 session을 되살리지 못한다. 상한을 넘으면
+  // 가장 오래된 것부터 잊는다.
+  closedViews: Set<string>;
   // live 프로세스의 automation 수명. 업무 통로가 열리면 시작하고 닫히면 멈춘다.
   automations?: { open(): void; close(): void };
   screenBytes: (screen: string, path: string) => Uint8Array | undefined;
   contentType: (path: string) => string;
 };
+
+export const CLOSED_VIEW_LIMIT = 1024;
+
+export function closeView(state: RuntimeState, viewSession: string): void {
+  state.views.delete(viewSession);
+  state.closedViews.delete(viewSession);
+  state.closedViews.add(viewSession);
+  while (state.closedViews.size > CLOSED_VIEW_LIMIT) {
+    const oldest = state.closedViews.values().next().value;
+    if (oldest === undefined) break;
+    state.closedViews.delete(oldest);
+  }
+}
 
 export function createRuntimeState(input: {
   identity: ProcessIdentity;
@@ -78,6 +96,7 @@ export function createRuntimeState(input: {
     byRequest: new Map(),
     markers: createConfirmMarkers(),
     views: new Map(),
+    closedViews: new Set(),
     screenBytes: input.screenBytes ?? (() => undefined),
     contentType: input.contentType ??
       ((path) =>

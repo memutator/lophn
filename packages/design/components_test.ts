@@ -9,6 +9,10 @@ const bundled = await registerComponentTests([
   new URL("../sdk/ui-filter/", import.meta.url),
   new URL("../sdk/ui-stat/", import.meta.url),
   new URL("../sdk/ui-action/", import.meta.url),
+  new URL("../sdk/ui-control/", import.meta.url),
+  new URL("../sdk/ui-overlay/", import.meta.url),
+  new URL("../sdk/ui-layout/", import.meta.url),
+  new URL("../sdk/ui-state/", import.meta.url),
   new URL("../sdk/ui-table/", import.meta.url),
   new URL("../sdk/ui-chart/", import.meta.url),
 ]);

@@ -24,6 +24,17 @@ import { openProject } from "./router.ts";
 import { fakeSource } from "./lophn-space/testdata/fake-source.ts";
 import { find, flush } from "./lophn-space/testdata/dom.ts";
 import { documentSearch } from "./palette/search.ts";
+import {
+  RequestDrafts,
+  RequestsProvider,
+} from "./lophn-space/things-to-confirm/context.tsx";
+import {
+  approval,
+  approvalId,
+  fakeRequests,
+  manualTicks,
+  question,
+} from "./lophn-space/things-to-confirm/testdata/fake-source.ts";
 
 const calls: unknown[] = [];
 const core: CoreSource = {
@@ -249,4 +260,43 @@ Deno.test("shell/desktop#R10: OS notification 클릭은 things-to-confirm을 열
   assertEquals(screen(view.container), "roles");
   await win.send("things-to-confirm");
   assertEquals(screen(view.container), "things-to-confirm");
+});
+
+Deno.test("shell/desktop#R14: lophn://things-to-confirm/<id> 링크는 그 요청을 고른 things-to-confirm을 열고 결정 창은 열지 않는다", async () => {
+  const win = fakeWindow();
+  const { source } = fakeSource();
+  const requests = fakeRequests({ requests: [question(1), approval(2)] });
+  calls.length = 0;
+  using view = render(
+    <RequestsProvider
+      deps={{
+        source: requests.source,
+        drafts: new RequestDrafts(),
+        ticks: manualTicks().ticks,
+      }}
+    >
+      <Desktop
+        source={core}
+        lophn={source}
+        palette={win.deps}
+        intents={win.intents}
+      />
+    </RequestsProvider>,
+  );
+  await flush();
+  await win.send({ kind: "things-to-confirm", request: approvalId(2) });
+  await flush();
+  assertEquals(screen(view.container), "things-to-confirm");
+  assertEquals(
+    find(view.container, "[data-detail-column] [data-request-id]")
+      .getAttribute("data-request-id"),
+    approvalId(2),
+  );
+  // 고르기만 했다. 결정 창·답·읽음은 사람이 그 화면에서 누를 때만이다.
+  assertEquals(requests.state.reviewed, []);
+  assertEquals(requests.state.answered, []);
+  assertEquals(requests.state.marked, []);
+  assert(
+    calls.every((call) => (call as { kind?: string }).kind !== "command"),
+  );
 });

@@ -64,17 +64,12 @@ export interface TextContent {
 }
 
 /**
- * 확정 메시지 본문의 한 part. 시각 블록은 shell#T35의 블록 renderer가 그리기 전까지
- * 제목과 종류만 옮겨 자리 표시로 둔다.
+ * 확정 메시지 본문의 한 part. 시각 블록은 받은 값 그대로이며 블록 renderer
+ * (workspace/visuals/registry.ts)가 그리기 전에 검사한다.
  */
 export type BodyPart =
   | { readonly kind: "text"; readonly text: string }
-  | {
-    readonly kind: "visual";
-    readonly key: string;
-    readonly visual: string;
-    readonly title: string;
-  };
+  | { readonly kind: "visual"; readonly block: unknown };
 
 export interface SendInput {
   readonly session: SessionRow;

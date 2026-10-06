@@ -45,7 +45,9 @@ export function continuation(value: Paged): { text: string; more: boolean } {
   const parts: string[] = [];
   for (const item of value.omitted ?? []) {
     if (item.count > 0) {
-      parts.push(`${OMIT_REASON[item.reason] ?? "한도로"} ${item.count}개 생략`);
+      parts.push(
+        `${OMIT_REASON[item.reason] ?? "한도로"} ${item.count}개 생략`,
+      );
     }
   }
   const cursor = typeof value.next_cursor === "string" &&

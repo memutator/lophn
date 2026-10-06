@@ -50,7 +50,9 @@ function describe(value: ReadValue): ToolOutput {
   const tail = (head: string) =>
     staleNote === "" ? head : `${head}. ${staleNote}`;
   const nextLatest = stale
-    ? ["새 판을 읽으려면 reference.version을 latest_version으로 바꿔 다시 읽는다"]
+    ? [
+      "새 판을 읽으려면 reference.version을 latest_version으로 바꿔 다시 읽는다",
+    ]
     : [];
   switch (value.section_status) {
     case "missing":
@@ -83,7 +85,9 @@ function describe(value: ReadValue): ToolOutput {
     // 본문이 숨겨진 읽기다. 빈 본문과 구별되게 이유를 낸다.
     return {
       summary: tail(
-        `${where}의 본문을 내지 않았다(${value.omission_reason ?? "이유 없음"})`,
+        `${where}의 본문을 내지 않았다(${
+          value.omission_reason ?? "이유 없음"
+        })`,
       ),
       data: value,
       next: nextLatest,

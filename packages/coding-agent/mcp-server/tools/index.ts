@@ -206,7 +206,9 @@ function describeDocument(
       next = ["data.file의 고정 판 파일로 원문 존재를 확인한다"];
       break;
     default:
-      head = `${op === "section" ? "구역" : "문서"} 하위 목차 ${entries.length}개${
+      head = `${
+        op === "section" ? "구역" : "문서"
+      } 하위 목차 ${entries.length}개${
         hidden > 0 ? `, 깊이 밖 하위 구역 ${hidden}개` : ""
       }`;
       next = [

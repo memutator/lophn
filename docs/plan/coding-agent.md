@@ -362,6 +362,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T13 문서 읽기 tool: 목차·검색·project·목록·이력·본문
 
+- 상태: 진행 (#PR) — 한 것: MCP 쪽 전부(`lophn_index`·`lophn_project`·`lophn_document`·`lophn_read`, 실제 core 시험 포함). 남은 것: CLI `index`·`search`·`read`·`document list|history|diff`·`project …`의 실행(apps/cli가 command를 아직 실행하지 않는다)과 cli#R11–R14·R22 시험, find-documents 6단계 중 CLI 쪽 통합 시험(MCP 쪽은 apps/core/coding-agent-read-tools_test.ts), 질문 Q30
 - 등급: 기본
 - concern: coding-agent/mcp-server, coding-agent/cli
 - 요구: coding-agent/mcp-server#R8, R9, R10, R11, R12; coding-agent/cli#R11,
@@ -382,12 +383,12 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     `index …`·`search`: 깊이·cursor·반영 지연·잘림 표시(mcp#R8, cli#R11)
   - `lophn_project` list·show·current(documents#T7의
     /v1/projects/list·get·resolve): 이름·제목·목적, 폴더 설명, project 문서 수,
-    읽을 자료 참조, 연결 context(/v1/contexts/related, context slice부터). 절대
+    읽을 자료 참조(연결 context는 대상이 문서·app command뿐이라 Q30). 절대
     경로·파일 목록·폴더별 문서 수·label·tracking 규칙
     없음(documents/projects#R9, projects#Q2). current는 cwd로 가장 깊은 등록
     root의 project 참조만, 불일치는 빈 목록과 등록 안내. mcp-server#R9와
     cli#R22의 "label·폴더별 문서 수" 문장은 이 PR에서 documents/projects#R9에
-    맞게 고친다(mcp#R9, cli#R22; 질문 Q13)
+    맞게 고쳤다(mcp#R9, cli#R22; 질문 Q13)
   - `lophn_read`: 고정 판·section·start·length·cursor, 읽는 중 새 판이 생겨도
     원래 판을 이어 읽고 새 판 존재를 알린다. 부재와 추출 실패 구별(mcp#R10,
     cli#R12)
@@ -1613,7 +1614,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 - **Q12 daemon 시작·중지 contract.** (정함) platform#T55(coding-agent slice)가
   launcher 시작·single-instance 종료·`H/run` metadata·`H/logs`를 내놓는다.
   metadata schema는 platform이 contracts 팀에 요청한다.
-- **Q13 project 읽기 필드.** coding-agent/mcp-server#R9·cli#R22는 "등록
+- **Q13 project 읽기 필드.** (정함, T13 PR에서 고침) coding-agent/mcp-server#R9·cli#R22는 "등록
   폴더·label·폴더별 문서 수"를 보이라고 하지만 documents/projects#R9와
   projects#Q2 결정은 agent·coding agent에게 절대 경로·폴더별 문서 수를 주지 않고
   label을 없앴다. 추천: documents 쪽을 따르고 T13 PR에서 두 요구를 고친다.
@@ -1722,3 +1723,29 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   이미 있는 id 생성·없는 항목 제거를 접수하지 않는다. documents 쪽에 변경안 문서의
   구조 read나 적용 통로는 아직 없다(Context Engineer가 질문으로 잇는 일은
   lophn-agent 몫).
+- **Q30 T13 문서 읽기 tool의 구현 판단과 다른 팀에 알릴 것(구현).**
+  (1) `lophn_project`: agent 투영(`agentProjectSchema`)에는 폴더·문서 수가 없고 core의
+  project 읽기가 돌려주는 `documents`(읽을 자료 참조)는 아직 항상 비어 있다
+  (`apps/core/documents.ts`의 `emptyDocuments`). 그래서 "프로젝트 문서 수"는 전체
+  목차(`outline/root`)의 project `document_count`를 한 번 읽어 채우고(읽지 못하면 null과
+  "문서 수를 읽지 못했다"), 읽을 자료 참조는 `reading`으로 그대로 낸다. 폴더 설명과 "연결
+  context"는 낼 수 없다: 폴더는 agent 투영에 없고 context 대상은 문서·app command뿐이라
+  project에 연결된 context가 없다(`/v1/contexts/related`는 대상이 문서). R9·cli#R22를
+  이에 맞췄다. 여러 일치는 없다: `project.resolve_cwd`는 가장 깊은 등록 폴더의 project 하나다.
+  (2) contract 보정(contracts/coding-agent/mcp-core.ts): `lophn_document history`
+  입력에 선택 `section`을 더하고(architecture 표에 있던 입력) route를 `documentHistory`로
+  둔다(전에는 입력 schema가 route 자리에 있어 `resolveRoute`가 이 op를 풀지 못했다).
+  section을 주면 tool이 `documentSectionHistory`를 읽는다. `lophn_read`의 표 값을
+  `documentRead` route로, `lophn_index status`에서 쓸 수 없는 `cursor`를 뺐다(status는
+  한 쪽에 담겨 이어 읽기가 없다). CLI의 `cliDocumentHistorySchema`는 아직 section이
+  없다(CLI 남은 것).
+  (3) documents 쪽에 알림(고치지 않음): `search.query`의 `matchDocuments`
+  (`packages/documents/outline-and-search/reads.ts`)가 문서마다 `search_rows`의 첫 행
+  하나만 `get`으로 읽어, 둘째 이후 구역 본문에만 있는 낱말은 찾지 못한다(실제 core 시험에서
+  "그대로 두는 개요"가 안 찾아졌다). 구역별 행이 모두 후보여야 한다.
+  (4) `documents/file`(원문 bytes)은 이 tool들이 열지 않는다. `lophn_read`는 추출하지 못한
+  판(unverified·unsupported)에서 이유와 고정 판 파일 참조(`file`)를 오류가 아닌 결과로 내고,
+  요구 R10에 bytes 읽기는 없다. CLI에서 파일로 받는 command가 필요하면 별도로 정한다.
+  (5) 아직 못 닿는 것: MCP 실행 entry(`apps/mcp/main.ts`)는 실제 credential loader가 없어
+  (`noopProvider`, `options.client` 없으면 caller 없음) 제품 프로세스에서는 모든 tool이 "실행
+  준비가 안 됐다"로 답한다. tool 조립은 이미 걸려 있고 loader가 서면 그대로 동작한다(T9·T34).

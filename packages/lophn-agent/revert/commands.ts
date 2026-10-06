@@ -24,7 +24,7 @@ import {
   matchInput,
   type Outcome,
   type ReasonCode,
-  resultsHash,
+  resultCounts,
   resultsOf,
   type RevertGroup,
   type RevertOwner,
@@ -97,7 +97,7 @@ function record(
   for (const change of changes) {
     tx.sql.run(
       `insert into revert_changes
-         (revert, ordinal, owner, target, capability, result, reason_blob, app_revert)
+         (revert, ordinal, owner, target, capability, result, reason, app_revert)
        values (?, ?, ?, ?, ?, ?, ?, null)`,
       [
         input.id,
@@ -106,7 +106,7 @@ function record(
         change.target,
         change.capability,
         change.result,
-        change.reason_blob,
+        change.reason,
       ],
     );
     for (const source of change.source_seqs) {
@@ -135,7 +135,7 @@ function blocked(
   const changes = resultsOf(groups, new Map(), reason);
   const seq = tx.emit(revertBlocked, input.id, {
     run: input.run,
-    changes: resultsHash(changes),
+    results: resultCounts(changes),
   });
   record(tx, input, "blocked", seq, changes);
   return ok({
@@ -240,7 +240,7 @@ export function createRevertCommands(deps: RevertDeps): {
           run: input.run,
           allow_partial: input.allow_partial,
           partial,
-          changes: resultsHash(changes),
+          results: resultCounts(changes),
         });
         record(tx, input, "applied", seq, changes);
         return ok({

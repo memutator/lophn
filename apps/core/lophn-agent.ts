@@ -84,6 +84,7 @@ import {
 } from "../../packages/lophn-agent/handoff/mod.ts";
 import {
   createRevertCommands,
+  createRevertEventVisibility,
   createRevertReads,
   defaultRevertOwners,
   revertSchemaSteps,
@@ -565,13 +566,15 @@ export function createLedgerRegistration(
   };
 }
 
-// question·assignment 계기 event의 공개 정책(platform/notifications#R1). notifications
-// 구독자에게만 열고, 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
+// question·assignment 계기 event의 공개 정책(platform/notifications#R1)은 notifications
+// 구독자에게만 연다. revert event는 사람과 그 run의 assignment agent에게 연다(revert/visibility.ts).
+// 다른 lophn-agent event는 정책이 없어 계속 숨김이다.
 export function createEventRegistration(): EventRegistration {
   return {
     visibility: [
       notificationsOnlyVisibility(questionCreated),
       notificationsOnlyVisibility(assignmentPaused),
+      ...createRevertEventVisibility(),
     ],
   };
 }

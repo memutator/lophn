@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { canonicalize, err, ok, type Result } from "../../base/mod.ts";
+import type { RevertReason } from "../../contracts/lophn-agent/mod.ts";
 import type {
   JsonObject,
   Sql,
@@ -33,25 +34,9 @@ export type Outcome =
   | "uncertain"
   | "blocked";
 
-// 분류·차단 이유는 값이 작은 코드 하나다. 이유 blob은 이 코드의 정규 JSON hash라서 가능한 값이
-// 유한하다(REVERT_REASONS). 사람에게 보이는 문장은 shell이 코드로 wording을 고른다.
-export const REVERT_REASON_CODES = [
-  "audit_fact",
-  "external_effect",
-  "later_change",
-  "linked_document",
-  "not_agent_output",
-  "title_change",
-  "no_previous_version",
-  "unclassified_document_event",
-  "unclassified_event",
-  "blocked_conflict",
-  "blocked_irreversible",
-  "blocked_dependency",
-  "blocked_not_prepared",
-  "stale_preview",
-] as const;
-export type ReasonCode = (typeof REVERT_REASON_CODES)[number];
+// 분류·차단 이유는 값이 작은 고정 코드 하나다(contracts의 revertReasonSchema). 사람에게 보이는
+// 문장은 shell이 코드로 wording을 고른다.
+export type ReasonCode = RevertReason;
 
 export function sha256Text(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
@@ -59,19 +44,6 @@ export function sha256Text(text: string): string {
 
 export function hashOf(value: unknown): string {
   return sha256Text(canonicalize(value));
-}
-
-export function reasonHash(code: ReasonCode): string {
-  return hashOf({ code });
-}
-
-export const REVERT_REASONS: Readonly<Record<ReasonCode, string>> = Object
-  .fromEntries(
-    REVERT_REASON_CODES.map((code) => [code, reasonHash(code)]),
-  ) as Record<ReasonCode, string>;
-
-export function reasonOf(blob: string): ReasonCode | undefined {
-  return REVERT_REASON_CODES.find((code) => REVERT_REASONS[code] === blob);
 }
 
 export type Lookup = {
@@ -160,7 +132,7 @@ export type RevertGroup = {
   target: string | null;
   source_seqs: string[];
   capability: Capability;
-  reason_blob: string | null;
+  reason: ReasonCode | null;
   comparison: JsonObject | null;
   before_ref: JsonObject | null;
   dependencies: { owner: string; target: string; comparison: JsonObject }[];
@@ -263,7 +235,7 @@ export function buildGroups(
     target: draft.target,
     source_seqs: draft.source_seqs,
     capability: draft.capability,
-    reason_blob: draft.reason === null ? null : REVERT_REASONS[draft.reason],
+    reason: draft.reason,
     comparison: draft.comparison,
     before_ref: draft.before_ref,
     dependencies: draft.dependencies,
@@ -285,7 +257,7 @@ export function bindingHash(
       target: group.target,
       source_seqs: group.source_seqs,
       capability: group.capability,
-      reason_blob: group.reason_blob,
+      reason: group.reason,
       comparison: group.comparison,
       before_ref: group.before_ref,
       dependencies: group.dependencies,
@@ -394,7 +366,7 @@ export type ChangeResult = {
   source_seqs: string[];
   capability: Capability;
   result: ChangeOutcome;
-  reason_blob: string | null;
+  reason: ReasonCode | null;
   restored_seqs: string[];
   app_revert: null;
 };
@@ -421,28 +393,41 @@ export function resultsOf(
         return {
           ...base,
           result: "restored" as const,
-          reason_blob: null,
+          reason: null,
           restored_seqs: seqs,
         };
       }
       return {
         ...base,
         result: "unchanged" as const,
-        reason_blob: REVERT_REASONS[blocked ?? "blocked_not_prepared"],
+        reason: blocked ?? "blocked_not_prepared",
         restored_seqs: [],
       };
     }
     return {
       ...base,
       result: group.capability,
-      reason_blob: group.reason_blob ?? REVERT_REASONS.unclassified_event,
+      reason: group.reason ?? "unclassified_event",
       restored_seqs: [],
     };
   });
 }
 
-export function resultsHash(changes: readonly ChangeResult[]): string {
-  return hashOf(changes);
+// 결과 event가 싣는 결과별 묶음 수. 목록은 reverts/list가 읽는다.
+export function resultCounts(
+  changes: readonly ChangeResult[],
+): Record<ChangeOutcome, number> {
+  const counts: Record<ChangeOutcome, number> = {
+    restored: 0,
+    retained: 0,
+    irreversible: 0,
+    conflict: 0,
+    unchanged: 0,
+    failure: 0,
+    uncertain: 0,
+  };
+  for (const change of changes) counts[change.result] += 1;
+  return counts;
 }
 
 export function headSeq(sql: Pick<Sql, "get">): string {

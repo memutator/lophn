@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { DatabaseSync } from "node:sqlite";
 import {
+  REVERT_REASON_CODES,
   revertList,
   revertPreview,
   revertRun,
@@ -17,14 +18,12 @@ import {
   decide,
   hashOf,
   matchInput,
-  reasonOf,
-  REVERT_REASON_CODES,
-  REVERT_REASONS,
   type RevertGroup,
   type RevertOwner,
 } from "./model.ts";
 import { createDocumentsOwner } from "./documents-owner.ts";
 import { defaultRevertOwners } from "./owners.ts";
+import { createRevertEventVisibility } from "./visibility.ts";
 import { createRevertReads } from "./reads.ts";
 import { revertSchemaSteps } from "./schema.ts";
 import { buildRevertInput } from "./work.ts";
@@ -218,7 +217,7 @@ Deno.test("lophn-agent/revert#R4: run 뒤에 끼거나 이어진 다른 주체�
   });
   const [group] = docGroups(db);
   assertEquals(group.capability, "conflict");
-  assertEquals(group.reason_blob, REVERT_REASONS.later_change);
+  assertEquals(group.reason, "later_change");
   assert(group.comparison !== null);
   assertEquals(group.source_seqs.includes(later), false);
   // 끼어든 변경도 같다.
@@ -249,20 +248,20 @@ Deno.test("lophn-agent/revert#R9: 소유 concern이 복원할 수 없다고 본 
     "reversible",
     "irreversible",
   ]);
-  assertEquals(mixed[1].reason_blob, REVERT_REASONS.title_change);
+  assertEquals(mixed[1].reason, "title_change");
   // 이전 판이 없는 저장(첫 판)은 되돌릴 기준이 없다.
   const first = open();
   saved(first, VER_1, null);
   assertEquals(
-    docGroups(first)[0].reason_blob,
-    REVERT_REASONS.no_previous_version,
+    docGroups(first)[0].reason,
+    "no_previous_version",
   );
   // agent가 낸 변경이 아니면 보상 대상이 아니다.
   const human = open();
   saved(human, VER_2, VER_1, DOC, { actor: "user" });
   assertEquals(
-    docGroups(human)[0].reason_blob,
-    REVERT_REASONS.not_agent_output,
+    docGroups(human)[0].reason,
+    "not_agent_output",
   );
   // 원본 연결 문서는 디스크 원본이 걸려 있어 보관하지 않는다.
   const linked = open();
@@ -270,8 +269,8 @@ Deno.test("lophn-agent/revert#R9: 소유 concern이 복원할 수 없다고 본 
     file_source: { kind: "project_file", project: id("prj", 1), path: "a.md" },
   });
   assertEquals(
-    docGroups(linked)[0].reason_blob,
-    REVERT_REASONS.linked_document,
+    docGroups(linked)[0].reason,
+    "linked_document",
   );
   // run이 할 수 없는 문서 event(자리 이동)는 안전하다고 가정하지 않는다.
   const moved = open();
@@ -283,8 +282,8 @@ Deno.test("lophn-agent/revert#R9: 소유 concern이 복원할 수 없다고 본 
     before_revision: "1",
   });
   assertEquals(
-    docGroups(moved)[0].reason_blob,
-    REVERT_REASONS.unclassified_document_event,
+    docGroups(moved)[0].reason,
+    "unclassified_document_event",
   );
 });
 
@@ -354,7 +353,7 @@ Deno.test("lophn-agent/revert#R6: run·tool call·model call·질문·승인 같
   assertEquals(groups.length, 6);
   for (const group of groups) {
     assertEquals(group.capability, "retained", group.owner);
-    assertEquals(group.reason_blob, REVERT_REASONS.audit_fact);
+    assertEquals(group.reason, "audit_fact");
     assertEquals(group.comparison, null);
   }
   const owners = new Set(groups.map((group) => group.owner));
@@ -376,7 +375,7 @@ function group(over: Partial<RevertGroup>): RevertGroup {
     target: DOC,
     source_seqs: ["1"],
     capability: "reversible",
-    reason_blob: null,
+    reason: null,
     comparison: { kind: "x" },
     before_ref: {},
     dependencies: [],
@@ -391,7 +390,7 @@ Deno.test("lophn-agent/revert#R7: 충돌 하나, 동의 없는 복원 불가, �
   const retained = group({
     ordinal: 1,
     capability: "retained",
-    reason_blob: REVERT_REASONS.audit_fact,
+    reason: "audit_fact",
     comparison: null,
     before_ref: null,
   });
@@ -399,14 +398,14 @@ Deno.test("lophn-agent/revert#R7: 충돌 하나, 동의 없는 복원 불가, �
     ordinal: 2,
     target: id("doc", 9),
     capability: "irreversible",
-    reason_blob: REVERT_REASONS.external_effect,
+    reason: "external_effect",
     comparison: null,
     before_ref: null,
   });
   const conflict = group({
     ordinal: 3,
     capability: "conflict",
-    reason_blob: REVERT_REASONS.later_change,
+    reason: "later_change",
     before_ref: null,
   });
   // 유지하는 사실만 있는 것은 부분 복원이 아니다.
@@ -460,7 +459,7 @@ Deno.test("lophn-agent/revert#R4: 사람이 본 내용 지문은 묶음·기준�
       group({ comparison: { kind: "y" } }),
       group({
         capability: "conflict",
-        reason_blob: REVERT_REASONS.later_change,
+        reason: "later_change",
       }),
       group({ target: id("doc", 3) }),
       group({ before_ref: { other: true } }),
@@ -498,7 +497,7 @@ Deno.test("lophn-agent/revert#R9: 준비 결과는 복원 가능한 묶음에만
     ordinal: 1,
     source_seqs: ["2"],
     capability: "retained",
-    reason_blob: REVERT_REASONS.audit_fact,
+    reason: "audit_fact",
     comparison: null,
     before_ref: null,
   });
@@ -575,10 +574,29 @@ Deno.test("lophn-agent/revert#R2: revert는 사람만 요청하고 확인 handle
     assert(read.actors.includes("user"));
   }
   // 적용 command를 agent tool로 제공하는 길은 이 concern에 없다: command는 한 개이고 user 전용이다.
+  // 이유는 고정 코드이고 ledger 표도 그 코드만 받는다.
   assertEquals(REVERT_REASON_CODES.length, new Set(REVERT_REASON_CODES).size);
-  for (const code of REVERT_REASON_CODES) {
-    assertEquals(reasonOf(REVERT_REASONS[code]), code);
+  const db = open();
+  const event = emit(db, "RevertBlocked", id("rvt", 1), {}, { run: null });
+  db.prepare(
+    `insert into reverts (id, run, allow_partial, outcome, preview_hash, created_seq, state_seq, result_seq)
+     values (?, ?, 0, 'blocked', ?, ?, ?, ?)`,
+  ).run(id("rvt", 1), RUN, HASH, Number(event), Number(event), Number(event));
+  const change = (reason: string, ordinal: number) =>
+    db.prepare(
+      `insert into revert_changes (revert, ordinal, owner, target, capability, result, reason, app_revert)
+       values (?, ?, 'fixture', null, 'retained', 'retained', ?, null)`,
+    ).run(id("rvt", 1), ordinal, reason);
+  for (const [ordinal, code] of REVERT_REASON_CODES.entries()) {
+    change(code, ordinal);
   }
+  let rejected = false;
+  try {
+    change("a".repeat(64), 99);
+  } catch {
+    rejected = true;
+  }
+  assert(rejected);
 });
 
 function ctxOf(actor: string): RequestContext {
@@ -644,9 +662,9 @@ Deno.test("lophn-agent/revert#R8: 최종 결과 행과 원래 event는 고치거
     Number(result),
   );
   db.prepare(
-    `insert into revert_changes (revert, ordinal, owner, target, capability, result, reason_blob, app_revert)
+    `insert into revert_changes (revert, ordinal, owner, target, capability, result, reason, app_revert)
      values (?, 0, 'fixture', null, 'retained', 'retained', ?, null)`,
-  ).run(id("rvt", 1), HASH);
+  ).run(id("rvt", 1), "audit_fact");
   db.prepare(
     "insert into revert_change_sources (revert, ordinal, source_seq) values (?, 0, ?)",
   ).run(id("rvt", 1), Number(source));
@@ -684,4 +702,51 @@ Deno.test("lophn-agent/revert#R8: 최종 결과 행과 원래 event는 고치거
     id("rvt", 1),
     Number(source),
   );
+});
+
+Deno.test("lophn-agent/revert#R3: revert event의 공개 정책은 사람과 그 run의 assignment agent에게만 열리고 run이 다른 event는 닫는다", () => {
+  const db = open();
+  const seq = emit(db, "RevertBlocked", id("rvt", 1), {}, { run: null });
+  db.prepare(
+    `insert into reverts (id, run, allow_partial, outcome, preview_hash, created_seq, state_seq, result_seq)
+     values (?, ?, 0, 'blocked', ?, ?, ?, ?)`,
+  ).run(id("rvt", 1), RUN, HASH, Number(seq), Number(seq), Number(seq));
+  const policies = createRevertEventVisibility();
+  assertEquals(
+    policies.map((policy) => policy.event.type),
+    ["RevertStarted", "RevertApplied", "RevertBlocked", "RevertFinished"],
+  );
+  const blocked = policies.find((policy) =>
+    policy.event.type === "RevertBlocked"
+  )!;
+  const snapshot = snapshotOf(db);
+  const see = (
+    actor: string,
+    operations: string[] = ["ListReverts"],
+    run: string = RUN,
+  ) => {
+    const result = blocked.handle(
+      snapshot as never,
+      { ...ctxOf(actor), scope: { operations, targets: {} } } as never,
+      {
+        seq,
+        type: "RevertBlocked",
+        subject: id("rvt", 1),
+        actor: "user",
+        run: null,
+        at: "",
+        payload: { run, results: {} },
+      } as never,
+    );
+    assert(result.ok);
+    return result.value;
+  };
+  assertEquals(see("user"), true);
+  assertEquals(see(AGENT), true);
+  assertEquals(see(`agent:${OTHER_ASG}`), false);
+  assertEquals(see("machine"), false);
+  assertEquals(see("coding_agent:cac_x"), false);
+  assertEquals(see("user", []), false);
+  // event가 가리키는 run이 revert의 run과 다르면 보이지 않는다.
+  assertEquals(see("user", ["ListReverts"], OTHER_RUN), false);
 });

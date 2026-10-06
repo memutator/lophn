@@ -33,7 +33,6 @@ import {
 import { confirmationBinding } from "../../packages/platform/identity/mod.ts";
 import {
   buildRevertInput,
-  REVERT_REASONS,
   type RevertGroup,
 } from "../../packages/lophn-agent/revert/mod.ts";
 import { type Core, startCore } from "./core.ts";
@@ -66,6 +65,7 @@ const MACHINE_TOKEN = "m".repeat(43);
 const USER_TOKEN = "u".repeat(43);
 const SEED_TOKEN = "s".repeat(43);
 const AGENT_TOKEN = "x".repeat(43);
+const OTHER_AGENT_TOKEN = "y".repeat(43);
 const RUN_A = id("run", 1);
 const MSG_ONE = id("msg", 1);
 const BASIS = "b".repeat(64);
@@ -78,6 +78,12 @@ const AGENT_OPERATIONS = [
   "document.get",
   "PreviewRevert",
   "RevertRun",
+  "ListReverts",
+  "ListEvents",
+  "RevertStarted",
+  "RevertApplied",
+  "RevertBlocked",
+  "RevertFinished",
 ];
 
 const USER_OPERATIONS = [
@@ -91,6 +97,11 @@ const USER_OPERATIONS = [
   "PreviewRevert",
   "ListReverts",
   "RevertRun",
+  "ListEvents",
+  "RevertStarted",
+  "RevertApplied",
+  "RevertBlocked",
+  "RevertFinished",
 ];
 
 type World = {
@@ -264,6 +275,18 @@ async function open(): Promise<World> {
     conditions: { assignment: assignment.id, run: RUN_A },
     credential_ref: `cred-agent-${RUN_A}`,
   } as AuthenticatedContext, AGENT_TOKEN);
+  const editor = (listed.body["assignments"] as Assignment[]).find((entry) =>
+    entry.role === "context_engineer"
+  );
+  assert(editor !== undefined);
+  // 다른 assignment의 agent 자격이다. 이 run의 revert event를 보지 못해야 한다.
+  await accept(core, {
+    principal: `agent:${editor.id}`,
+    actor: `agent:${editor.id}`,
+    scope: { operations: AGENT_OPERATIONS, targets: { assignment: editor.id } },
+    conditions: { assignment: editor.id },
+    credential_ref: "cred-agent-other",
+  } as AuthenticatedContext, OTHER_AGENT_TOKEN);
   const created = await call(
     server,
     "projects/create",
@@ -644,7 +667,7 @@ Deno.test("lophn-agent/revert#R3: 끝난 run의 문서 변경은 복원 가능�
     for (const group of shown.groups) {
       if (group === archive || group === restore) continue;
       assertEquals(group.capability, "retained", JSON.stringify(group));
-      assertEquals(group.reason_blob, REVERT_REASONS.audit_fact);
+      assertEquals(group.reason, "audit_fact");
     }
     // 읽기는 command도 event도 만들지 않는다.
     assertEquals(runEventCount(world), events.length);
@@ -789,7 +812,7 @@ Deno.test("lophn-agent/revert#R4: run 뒤에 다른 변경이 있으면 어느 �
       shown.groups.find((group) => group.target === work.base.document);
     assert(conflicted !== undefined);
     assertEquals(conflicted.capability, "conflict");
-    assertEquals(conflicted.reason_blob, REVERT_REASONS.later_change);
+    assertEquals(conflicted.reason, "later_change");
     // 만든 문서는 복원할 수 있지만 전체가 막힌다.
     assertEquals(
       groupOf(shown, work.created, "archive")?.capability,
@@ -890,6 +913,54 @@ Deno.test("lophn-agent/revert#R1: 끝나지 않은 run은 미리보기도 적용
       run: id("run", 9),
     });
     assertEquals(absent.status, 404);
+  } finally {
+    await world.dispose();
+  }
+});
+
+async function revertEvents(world: World, token: string): Promise<string[]> {
+  const listed = await call(world.server, "events/list", token, {
+    after_seq: "0",
+    types: [
+      "RevertStarted",
+      "RevertApplied",
+      "RevertBlocked",
+      "RevertFinished",
+    ],
+  });
+  assertEquals(listed.status, 200, JSON.stringify(listed.body));
+  return (listed.body["events"] as { type: string }[]).map((event) =>
+    event.type
+  );
+}
+
+Deno.test("lophn-agent/revert#R3: revert 결과 event는 사람과 그 run의 assignment agent만 따라 볼 수 있고 payload에는 run·지문·결과별 수뿐이다", async () => {
+  const world = await open();
+  try {
+    await agentWork(world);
+    assertEquals(await revertEvents(world, USER_TOKEN), []);
+    const reply = await revert(world, await previewOf(world));
+    assertEquals(reply.body["outcome"], "applied");
+    assertEquals(await revertEvents(world, USER_TOKEN), ["RevertApplied"]);
+    assertEquals(await revertEvents(world, AGENT_TOKEN), ["RevertApplied"]);
+    // 다른 assignment의 agent는 보지 못한다.
+    assertEquals(await revertEvents(world, OTHER_AGENT_TOKEN), []);
+    const listed = await call(world.server, "events/list", USER_TOKEN, {
+      after_seq: "0",
+      types: ["RevertApplied"],
+    });
+    const payload = (listed.body["events"] as {
+      payload: Record<string, unknown>;
+    }[])[0].payload;
+    assertEquals(Object.keys(payload).sort(), [
+      "allow_partial",
+      "partial",
+      "results",
+      "run",
+    ]);
+    const results = payload["results"] as Record<string, number>;
+    assertEquals(results["restored"], 2);
+    assertEquals(payload["partial"], false);
   } finally {
     await world.dispose();
   }

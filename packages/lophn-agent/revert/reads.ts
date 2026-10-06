@@ -11,6 +11,7 @@ import {
   buildGroups,
   loadRunRef,
   type Lookup,
+  type ReasonCode,
   revertColumns,
   type RevertOwner,
   revertRowOf,
@@ -62,7 +63,7 @@ function cursorOf(after: string): string {
 
 function changesOf(lookup: Lookup, revert: string) {
   const rows = lookup.sql.all(
-    `select ordinal, owner, target, capability, result, reason_blob
+    `select ordinal, owner, target, capability, result, reason
        from revert_changes where revert = ? order by ordinal`,
     [revert],
   );
@@ -82,9 +83,9 @@ function changesOf(lookup: Lookup, revert: string) {
       ),
       capability: String(row["capability"]) as "reversible",
       result: String(row["result"]) as "restored",
-      reason_blob: row["reason_blob"] === null
+      reason: row["reason"] === null
         ? null
-        : String(row["reason_blob"]),
+        : String(row["reason"]) as ReasonCode,
       restored_seqs: seqs(
         `select cast(restored_seq as text) as seq from revert_change_compensations
           where revert = ? and ordinal = ? order by restored_seq`,

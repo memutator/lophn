@@ -26,7 +26,6 @@ import {
 } from "../../../packages/lophn-agent/harness/run-loop/testing/runs.ts";
 import {
   buildRevertInput,
-  REVERT_REASONS,
   type RevertGroup,
 } from "../../../packages/lophn-agent/revert/mod.ts";
 
@@ -245,7 +244,7 @@ async function list(h: LedgerHarness, run: string) {
         capability: string;
         result: string;
         owner: string;
-        reason_blob: string | null;
+        reason: string | null;
         restored_seqs: string[];
       }[];
     }[];
@@ -296,8 +295,8 @@ Deno.test("lophn-agent/revert#R4: 사전 검사에서 두 대상 중 하나만 �
       "unchanged",
       "conflict",
     ]);
-    assertEquals(notes[0].reason_blob, REVERT_REASONS.blocked_conflict);
-    assertEquals(notes[1].reason_blob, REVERT_REASONS.later_change);
+    assertEquals(notes[0].reason, "blocked_conflict");
+    assertEquals(notes[1].reason, "later_change");
     assert(revert.changes.every((change) => change.restored_seqs.length === 0));
   } finally {
     await h.close();
@@ -332,7 +331,7 @@ Deno.test("lophn-agent/revert#R4: preview 뒤 대상이 바뀌면 사람이 본 
     assert(
       reversible.every((change) =>
         change.result === "unchanged" &&
-        change.reason_blob === REVERT_REASONS.stale_preview
+        change.reason === "stale_preview"
       ),
     );
     // 사람이 본 뒤 대상 자체가 바뀌었으면 현재 판정은 충돌이고 그대로 기록한다.
@@ -355,7 +354,7 @@ Deno.test("lophn-agent/revert#R4: preview 뒤 대상이 바뀌면 사람이 본 
       change.capability === "conflict"
     );
     assertEquals(conflicted?.result, "conflict");
-    assertEquals(conflicted?.reason_blob, REVERT_REASONS.later_change);
+    assertEquals(conflicted?.reason, "later_change");
   } finally {
     await h.close();
   }
@@ -404,7 +403,7 @@ Deno.test("lophn-agent/revert#R7: 복원 불가 변경이 섞이면 기본으로
     const shown = await preview(h, RUN_1);
     const mail = shown.groups.find((group) => group.owner === "fixture/mail");
     assertEquals(mail?.capability, "irreversible");
-    assertEquals(mail?.reason_blob, REVERT_REASONS.external_effect);
+    assertEquals(mail?.reason, "external_effect");
     const before = await head(h);
     // 동의 없이는 막힌다.
     const refused = value(await apply(h, RUN_1, { shown })) as {
@@ -473,7 +472,7 @@ Deno.test("lophn-agent/revert#R7: 동의했어도 남는 영향에 의존하는 
       revert.changes.filter((change) => change.capability === "reversible")
         .every((change) =>
           change.result === "unchanged" &&
-          change.reason_blob === REVERT_REASONS.blocked_dependency
+          change.reason === "blocked_dependency"
         ),
       true,
     );
@@ -494,8 +493,8 @@ Deno.test("lophn-agent/revert#R9: 복원에 필요한 준비가 없으면 owner 
     const [revert] = await list(h, RUN_1);
     assertEquals(
       revert.changes.find((change) => change.capability === "reversible")
-        ?.reason_blob,
-      REVERT_REASONS.blocked_not_prepared,
+        ?.reason,
+      "blocked_not_prepared",
     );
     // 준비 결과(owner가 정의한 값)가 comparison.prepared에 실리면 같은 판정으로 적용된다.
     const applied = value(
@@ -559,7 +558,7 @@ Deno.test("lophn-agent/revert#R6: 유지하는 사실과 복원 불가 영향은
       if (change.capability === "retained") {
         assertEquals(change.result, "retained");
         assertEquals(change.restored_seqs, []);
-        assertEquals(change.reason_blob, REVERT_REASONS.audit_fact);
+        assertEquals(change.reason, "audit_fact");
       } else {
         assertEquals(change.result, "restored");
         assertEquals(change.restored_seqs.length, 1);
@@ -628,7 +627,7 @@ Deno.test("lophn-agent/revert#R9: 어느 owner도 맡지 않은 event는 목록�
     const stranger = shown.groups.find((group) => group.target === THING);
     assertEquals(stranger?.capability, "irreversible");
     assertEquals(stranger?.owner, "unclassified");
-    assertEquals(stranger?.reason_blob, REVERT_REASONS.unclassified_event);
+    assertEquals(stranger?.reason, "unclassified_event");
     const done = value(await apply(h, RUN_1, { shown })) as { result: Header };
     assertEquals(done.result.outcome, "blocked");
     assertEquals(await noteValue(h, NOTE_A), "a1");

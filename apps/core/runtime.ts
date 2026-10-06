@@ -61,7 +61,7 @@ import type { KeychainAdapter } from "../../packages/platform/secrets/mod.ts";
 export type CoreRuntime = {
   writer: Writer;
   confirmation(body: {
-    action: "issue" | "close-window" | "clear";
+    action: "issue" | "close-window" | "clear" | "consume";
     request?: unknown;
     windowId?: string;
   }): Promise<Result<unknown>>;
@@ -396,7 +396,7 @@ function openProductWriter(
 ): {
   writer: Writer;
   confirmation(body: {
-    action: "issue" | "close-window" | "clear";
+    action: "issue" | "close-window" | "clear" | "consume";
     request?: unknown;
     windowId?: string;
   }): Promise<Result<unknown>>;
@@ -484,7 +484,7 @@ function openProductWriter(
     },
     // main↔core 비공개 통로의 확인 등록을 writer 프로세스의 registry로 넘긴다.
     confirmation(body: {
-      action: "issue" | "close-window" | "clear";
+      action: "issue" | "close-window" | "clear" | "consume";
       request?: unknown;
       windowId?: string;
     }) {

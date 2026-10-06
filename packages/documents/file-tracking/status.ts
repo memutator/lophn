@@ -1,7 +1,7 @@
 // `/v1/files/status` read(file-tracking#R9). FileStatus는 ledger 열이 아니다.
 // 조회 때 coordinator가 쥔 마지막 관측으로 계산한다. 관측이 없으면 추적 안 함이다.
 import { ok, type Result } from "../../base/mod.ts";
-import type { FileTarget } from "../../contracts/documents/mod.ts";
+import type { FileStatus, FileTarget } from "../../contracts/documents/mod.ts";
 import { filesStatus } from "../../contracts/documents/mod.ts";
 import type {
   ApiReadDefinition,
@@ -53,6 +53,34 @@ export function createStatusRecorder(): StatusRecorder {
 
 const UNTRACKED_AT = "1970-01-01T00:00:00.000Z";
 
+// 조회 결과의 FileStatus. 관측이 없는 대상은 추적 밖이다. 같은 계산을 `/v1/files/status`와
+// `/v1/files/watch`가 쓴다.
+export function fileStatusView(
+  target: FileTarget,
+  found: StatusObservation | undefined,
+): FileStatus {
+  if (found === undefined) {
+    return {
+      state: "not_tracked",
+      target,
+      observed_at: UNTRACKED_AT,
+      observed_hash: null,
+      compared_version: null,
+      project_revision: null,
+      details: null,
+    };
+  }
+  return {
+    state: fileStatusOf(found),
+    target,
+    observed_at: found.observedAt,
+    observed_hash: found.observedHash,
+    compared_version: found.comparedVersion,
+    project_revision: found.projectRevision,
+    details: found.details,
+  };
+}
+
 export function fileStatusRead(
   memory: StatusMemory,
 ): ApiReadDefinition<typeof filesStatus> {
@@ -61,32 +89,8 @@ export function fileStatusRead(
     async handle(_ctx: RequestContext, input) {
       const looked = await memory.lookup(input.target);
       if (!looked.ok) return looked;
-      const found = looked.value;
-      if (found === undefined) {
-        return ok({
-          status: {
-            state: "not_tracked",
-            target: input.target,
-            observed_at: UNTRACKED_AT,
-            observed_hash: null,
-            compared_version: null,
-            project_revision: null,
-            details: null,
-          },
-          as_of_seq: "0",
-          next_cursor: null,
-        });
-      }
       return ok({
-        status: {
-          state: fileStatusOf(found),
-          target: input.target,
-          observed_at: found.observedAt,
-          observed_hash: found.observedHash,
-          compared_version: found.comparedVersion,
-          project_revision: found.projectRevision,
-          details: found.details,
-        },
+        status: fileStatusView(input.target, looked.value),
         as_of_seq: "0",
         next_cursor: null,
       });

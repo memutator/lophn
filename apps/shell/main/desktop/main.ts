@@ -18,6 +18,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { CORE_STATE_CHANNEL } from "../../ipc/core.ts";
+import { FOLDER_PICK_CHANNEL } from "../../ipc/folder-picker.ts";
 import {
   DESKTOP_INTENT_CHANNEL,
   type DesktopIntent,
@@ -57,6 +58,7 @@ import {
   reveal,
   surfaceOptions,
 } from "./headless.ts";
+import { createFolderPicker } from "./folder-picker.ts";
 import {
   type GlobalPalette,
   type GlobalShortcutPort,
@@ -191,6 +193,29 @@ registerTerminalIpc(
   terminalIpc,
 );
 
+// 프로젝트 등록의 OS 폴더 선택기. 그 창에 붙은 dialog로 열고 desktop 창 본문만 부른다.
+ipcMain.handle(
+  FOLDER_PICK_CHANNEL,
+  createFolderPicker({
+    registry: overlays.overlayRegistry(),
+    headless,
+    headlessPick: process.env.LOPHN_SHELL_PICK_FOLDER,
+    dialog: {
+      async open(event) {
+        const sender = (event as unknown as { sender: WebContents }).sender;
+        const parent = BrowserWindow.fromWebContents(sender);
+        const options = {
+          properties: ["openDirectory" as const, "createDirectory" as const],
+        };
+        const result = parent
+          ? await dialog.showOpenDialog(parent, options)
+          : await dialog.showOpenDialog(options);
+        return { canceled: result.canceled, paths: result.filePaths };
+      },
+    },
+  }),
+);
+
 let globalPalette: GlobalPalette | undefined;
 
 // 터미널 host와 core를 멈추는 한 번의 순서. tray Quit·`--quit`·OS 종료가 같이 쓴다.
@@ -204,6 +229,7 @@ function stopAll(): void {
       removeHandler: (channel) => ipcMain.removeHandler(channel),
     } satisfies MainIpc,
   );
+  ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   terminals.stop();
   core.shutdown();
   overlays.dispose();
@@ -454,7 +480,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
     // 개발 확인 전용. 제품 실행은 이 변수를 주지 않는다.
     // `LOPHN_SHELL_START=lophn`은 headless 확인에서 런처 대신 lophn 공간부터 연다.
     // `conversation`은 같은 자리에서 대화 도크까지 열어 둔다. `things-to-confirm`은
-    // lophn 공간의 things-to-confirm 형제부터 연다.
+    // lophn 공간의 things-to-confirm 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
@@ -463,6 +489,8 @@ function openDesktopWindow(): BrowserWindow | undefined {
       ? `${DESKTOP_URL}#conversation`
       : process.env.LOPHN_SHELL_START === "things-to-confirm"
       ? `${DESKTOP_URL}#things-to-confirm`
+      : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
+      ? `${DESKTOP_URL}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
       : DESKTOP_URL,
     windows: {
       create: (config: WindowConfig) => {

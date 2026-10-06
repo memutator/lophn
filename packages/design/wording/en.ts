@@ -344,23 +344,63 @@ export const en = {
     "This list is found again from the view's conditions each time you open it.",
   "documents.notice.view-saved": "Saved as {name}.",
   "documents.title.screen": "Documents",
+  "launcher.button.add-folder": "Add folder",
+  "launcher.button.hide-details": "Hide details",
   "launcher.button.lophn": "lophn",
   "launcher.button.reconnect": "Reconnect",
+  "launcher.button.register": "Register",
+  "launcher.button.register-project": "Register project",
+  "launcher.button.remove-folder": "Remove folder",
   "launcher.button.retry": "Try again",
+  "launcher.button.show-details": "Show details",
   "launcher.connection.confirmed-at": "Last checked {when}.",
   "launcher.connection.disconnected":
     "lophn can't refresh this page right now.",
   "launcher.connection.failed": "lophn couldn't get ready.",
   "launcher.connection.starting": "lophn is getting ready.",
+  "launcher.dialog.register-note":
+    "Registering doesn't track any files. You choose what to track inside the project.",
   "launcher.empty.no-cards": "Nothing to open yet.",
+  "launcher.empty.no-folders": "No folder yet. You can register without one.",
+  "launcher.empty.no-projects": "No projects yet.",
+  "launcher.error.name-required": "Enter a name.",
+  "launcher.error.name-taken":
+    "Another project already uses this name. Try a different name.",
+  "launcher.error.picker-failed": "The folder picker didn't open. Try again.",
+  "launcher.error.register-failed":
+    "{name} wasn't registered, so nothing was saved. Try again.",
+  "launcher.field.purpose-help": "Optional. What this project is for.",
+  "launcher.heading.projects": "Projects",
+  "launcher.label.detail-documents":
+    "{count, plural, =0 {No documents yet} one {# document} other {# documents}}",
+  "launcher.label.detail-gitignore": "Skips files listed in .gitignore",
+  "launcher.label.detail-id": "ID",
+  "launcher.label.detail-name": "Short name",
+  "launcher.label.detail-no-folders": "No folder",
+  "launcher.label.folder-description": "What's in this folder",
+  "launcher.label.folders": "Folders",
+  "launcher.label.name": "Name",
+  "launcher.label.projects": "your projects",
+  "launcher.label.purpose": "Purpose",
+  "launcher.label.rule-exclude": "Leave out {glob}",
+  "launcher.label.rule-include": "Track {glob}",
+  "launcher.label.status-no-folder": "No folder yet",
+  "launcher.label.status-not-tracking": "Not tracking files yet",
+  "launcher.label.status-tracking": "Tracking files",
   "launcher.label.wordmark": "lophn",
+  "launcher.title.register": "Register project",
+  "project-workspace.button.add-rule": "Add rule",
   "project-workspace.button.close-tab": "Close tab",
   "project-workspace.button.collapse-sidebar": "Collapse sidebar",
+  "project-workspace.button.edit-rules": "Edit rules",
   "project-workspace.button.expand-sidebar": "Expand sidebar",
   "project-workspace.button.info-panel": "Info panel",
   "project-workspace.button.launcher": "Launcher",
   "project-workspace.button.open-terminal": "Open terminal",
+  "project-workspace.button.preview-again": "Preview again",
+  "project-workspace.button.remove-rule": "Remove rule",
   "project-workspace.button.split-pane": "Open in side pane",
+  "project-workspace.button.turn-on-tracking": "Turn on tracking",
   "project-workspace.empty.no-contexts": "No related contexts.",
   "project-workspace.empty.no-documents": "No documents yet.",
   "project-workspace.empty.no-folders": "No project folder.",
@@ -369,9 +409,12 @@ export const en = {
   "project-workspace.heading.contexts": "Contexts",
   "project-workspace.heading.documents": "Documents",
   "project-workspace.heading.folders": "Folders",
+  "project-workspace.heading.left-out": "Left out",
+  "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.info.empty": "Nothing to show yet.",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
+  "project-workspace.label.gitignore": "Skip files listed in .gitignore",
   "project-workspace.label.info-tab-contexts": "Contexts",
   "project-workspace.label.info-tab-info": "Info",
   "project-workspace.label.info-tab-versions": "Versions",
@@ -379,9 +422,48 @@ export const en = {
   "project-workspace.label.kind-document-editor": "Document editor",
   "project-workspace.label.kind-document-viewer": "Document viewer",
   "project-workspace.label.kind-terminal": "Terminal",
+  "project-workspace.label.more-files":
+    "{count, plural, one {+# more file} other {+# more files}}",
   "project-workspace.label.path": "Path",
+  "project-workspace.label.reason-excluded": "Left out by {glob}",
+  "project-workspace.label.reason-gitignore": "Listed in .gitignore",
+  "project-workspace.label.reason-included": "Matches {glob}",
+  "project-workspace.label.reason-inside-git": "Inside .git",
+  "project-workspace.label.reason-inside-lophn": "Inside lophn's own data",
+  "project-workspace.label.reason-other": "Left out",
+  "project-workspace.label.reason-outside-link": "Points outside the folder",
+  "project-workspace.label.reason-tracking-off": "Tracking is off",
+  "project-workspace.label.reason-unmatched": "Matches no rule",
+  "project-workspace.label.rule-effect": "Rule",
+  "project-workspace.label.rule-exclude": "Leave out",
+  "project-workspace.label.rule-include": "Track",
+  "project-workspace.label.rule-pattern": "Pattern",
   "project-workspace.label.tabs": "Tabs",
   "project-workspace.sidebar.label": "Project",
+  "project-workspace.title.tracking": "Track files in {project}",
+  "project-workspace.tracking.apply-failed":
+    "Tracking didn't turn on for {project}. Nothing changed. Try again.",
+  "project-workspace.tracking.changed":
+    "{project} changed after this preview, so tracking stays off. Preview again.",
+  "project-workspace.tracking.excluded-count":
+    "{count, plural, =0 {Nothing is left out} one {# file is left out} other {# files are left out}}.",
+  "project-workspace.tracking.included-count":
+    "{count, plural, =0 {No files match yet, so the project stays empty for now} one {# file will be tracked} other {# files will be tracked}}.",
+  "project-workspace.tracking.no-folder":
+    "This project has no folder, so there are no files to track.",
+  "project-workspace.tracking.off":
+    "This project isn't tracking files yet, so no versions are kept.",
+  "project-workspace.tracking.overlap":
+    "{other} already tracks {path}, so tracking stays off here. Stop tracking it in {other} first.",
+  "project-workspace.tracking.preparing": "Checking which files match.",
+  "project-workspace.tracking.preview-failed":
+    "The file check for {project} didn't finish, so tracking stays off. Try again.",
+  "project-workspace.tracking.stale":
+    "The rules changed. Preview again before turning tracking on.",
+  "project-workspace.tracking.unreadable-many":
+    "lophn couldn't read the project folders, so tracking stays off. Check that they exist and try again.",
+  "project-workspace.tracking.unreadable-one":
+    "lophn couldn't read {folder}, so tracking stays off. Check that it exists and try again.",
   "projects.title.screen": "Projects",
   "roles.title.screen": "Roles",
   "settings.models.for-decisions": "For decisions",
@@ -449,10 +531,13 @@ export const en = {
   "things-to-confirm.error.not-allowed": "This answer can't be sent from here.",
   "things-to-confirm.error.notifications-unavailable":
     "Couldn't load notifications right now.",
+  "things-to-confirm.error.question-text":
+    "Couldn't load this question's text.",
   "things-to-confirm.error.review-unavailable":
     "The review window can't open here yet.",
   "things-to-confirm.error.send-failed":
     "Couldn't send your answer. Try again.",
+  "things-to-confirm.error.too-long": "This is too long to send. Shorten it.",
   "things-to-confirm.label.blocking": "Work is paused until you answer",
   "things-to-confirm.label.cancel-reason": "Why cancel it?",
   "things-to-confirm.label.count-decisions":
@@ -505,6 +590,7 @@ export const en = {
   "things-to-confirm.label.tab-past": "Past",
   "things-to-confirm.label.tab-waiting": "Waiting",
   "things-to-confirm.label.unread": "Unread",
+  "things-to-confirm.label.why-recommended": "Why it's recommended",
   "things-to-confirm.notice.answer-applied": "Your choice was applied.",
   "things-to-confirm.notice.answer-not-applied":
     "Your answer was received. The change it picks isn't applied yet.",
@@ -516,8 +602,7 @@ export const en = {
     "The reason for this decision can't be shown here.",
   "things-to-confirm.notice.no-answer":
     "If you don't answer, nothing is chosen for you.",
-  "things-to-confirm.notice.question-text-unavailable":
-    "This question's text can't be shown here yet.",
+  "things-to-confirm.notice.question-loading": "Loading this question.",
   "things-to-confirm.notice.stale":
     "Couldn't check for updates. Last checked {age}.",
   "things-to-confirm.notice.stale-never": "Couldn't check for updates yet.",

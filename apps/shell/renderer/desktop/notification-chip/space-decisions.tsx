@@ -50,9 +50,12 @@ export interface SpaceDecisionsProps {
   onOpen: () => void;
 }
 
-// 프로젝트·앱 공간의 lophn 크롬. 그 공간의 결정 대기와 lophn 장애 안내만 둔다(desktop#R27).
-// 전역 관리 크롬은 두지 않는다.
-export function SpaceDecisions({ place, onOpen }: SpaceDecisionsProps) {
+/** 열린 화면이 보는 질문·approval 기록과 연결 상태. 통로가 없으면 deps가 null이다. */
+export function useRequestOverview(): {
+  deps: ReturnType<typeof useRequests>;
+  requests: readonly Request[];
+  connection: ConnectionState["state"];
+} {
   const deps = useRequests();
   const [requests, setRequests] = useState<readonly Request[]>([]);
   const [connection, setConnection] = useState<ConnectionState["state"]>(
@@ -83,7 +86,13 @@ export function SpaceDecisions({ place, onOpen }: SpaceDecisionsProps) {
       }),
     [ticks, refresh, connection],
   );
+  return { deps, requests, connection };
+}
 
+// 프로젝트·앱 공간의 lophn 크롬. 그 공간의 결정 대기와 lophn 장애 안내만 둔다(desktop#R27).
+// 전역 관리 크롬은 두지 않는다.
+export function SpaceDecisions({ place, onOpen }: SpaceDecisionsProps) {
+  const { deps, requests, connection } = useRequestOverview();
   if (deps === null) return null;
   const down = connection === "failed" || connection === "stale";
   const count = placeWaiting(requests, place, "all");

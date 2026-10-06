@@ -178,3 +178,15 @@ export function needsReview(
 export function usableText(text: string): boolean {
   return text.trim().length > 0;
 }
+
+/**
+ * 자유 답·취소 이유 하나의 상한(UTF-8 bytes). lophn-agent contract의
+ * QUESTION_TEXT_MAX_BYTES와 같아야 한다(테스트가 비교한다). renderer는 contract schema를
+ * bundle에 넣지 않으므로 값만 둔다.
+ */
+export const QUESTION_TEXT_MAX_BYTES = 32768;
+
+/** core가 받지 않을 만큼 긴 글. 보내기 전에 막고 쓴 글은 그대로 둔다. */
+export function textTooLong(text: string): boolean {
+  return new TextEncoder().encode(text).length > QUESTION_TEXT_MAX_BYTES;
+}

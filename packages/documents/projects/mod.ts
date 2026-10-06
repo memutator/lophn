@@ -15,7 +15,9 @@ export { createProjectCommands } from "./commands.ts";
 export {
   decideTracking,
   type GitignoreRule,
+  hardExclusion,
   type TrackingDecision,
+  WRITE_TEMP_PREFIX,
 } from "./rules.ts";
 export {
   type DirectoryEntry,

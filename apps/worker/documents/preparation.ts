@@ -27,14 +27,16 @@ import {
   scanRoot,
 } from "../../../packages/documents/file-tracking/mod.ts";
 import type { TrackingPattern } from "../../../packages/contracts/documents/mod.ts";
+import { PREPARATION_OPS } from "../../../packages/documents/file-tracking/ipc.ts";
+import { type ByteInbox, createByteInbox } from "./byte-inbox.ts";
+import { acceptFileOp } from "./file-requests.ts";
 
 export type PreparationOptions = {
   root: string;
   streams: ChildStreams;
   // op별 실행. op 이름과 payload는 준비 worker 경계에서 contracts schema로 다시
-  // 검사한다. preview_tracking은 실제 폴더 scan을 돌린다. 실제 scan_batch·hash·diff는
-  // T11이 채운다.
-  accept(request: WorkerRequest): Promise<unknown>;
+  // 검사한다. inbox는 요청 앞에 도착한 byte chunk(사람 파일 쓰기 내용)다.
+  accept(request: WorkerRequest, inbox: ByteInbox): Promise<unknown>;
 };
 
 // accept가 내는 경계 오류. code는 공통 7개 안의 LophnError고, 이 밖의 실패는
@@ -47,10 +49,19 @@ class PreparationFailure extends Error {
 
 // preview_tracking의 실제 실행. 입력을 contracts schema로 다시 검사하고 현재 폴더를
 // 깊이 우선으로 돌려 TrackingPreview page를 만든다. observed_at은 응답 때의 관측 시각이다.
-// deno-lint-ignore require-await -- accept 시그니처가 Promise를 요구한다.
 export async function acceptPreparation(
   request: WorkerRequest,
+  inbox: ByteInbox = createByteInbox(),
 ): Promise<unknown> {
+  const filed = acceptFileOp(request, inbox);
+  if (filed !== undefined) {
+    const answered = await filed;
+    if (!answered.ok) throw new PreparationFailure(answered.error);
+    return answered.value;
+  }
+  if (request.op === PREPARATION_OPS.hashBatch) {
+    return hashBatchObserved(request.payload);
+  }
   if (request.op === "documents.scan_root") {
     return scanObserved(request.payload);
   }
@@ -129,6 +140,48 @@ async function hashObserved(payload: unknown): Promise<unknown> {
     size: read.value.read.bytes.length,
     real_path: read.value.read.identity.realPath,
   };
+}
+
+// 후보 배분 묶음의 안정 읽기. 후보마다 hash와 크기를 내고, 읽는 동안 흔들리면 이유와
+// 함께 unverified다. 결과 순서는 후보 순서다. 본문은 응답에 싣지 않는다.
+async function hashBatchObserved(payload: unknown): Promise<unknown> {
+  const body = payload as {
+    root?: unknown;
+    batch?: unknown;
+  };
+  if (
+    typeof body?.root !== "string" || !Array.isArray(body.batch) ||
+    !body.batch.every((entry) =>
+      typeof (entry as { path?: unknown })?.path === "string"
+    )
+  ) {
+    throw new PreparationFailure({
+      code: "invalid_input",
+      message: "invalid batch input",
+    });
+  }
+  const results: unknown[] = [];
+  for (const entry of body.batch as { path: string }[]) {
+    const read = await readStably(fileReadPort(), `${body.root}/${entry.path}`);
+    if (!read.ok || read.value.kind === "unverified") {
+      results.push({
+        path: entry.path,
+        kind: "unverified",
+        reason: read.ok && read.value.kind === "unverified"
+          ? read.value.reason
+          : "unreadable",
+      });
+      continue;
+    }
+    results.push({
+      path: entry.path,
+      kind: "stable",
+      hash: read.value.read.hash,
+      size: read.value.read.bytes.length,
+      real_path: read.value.read.identity.realPath,
+    });
+  }
+  return { results };
 }
 
 // 두 바이트 열의 줄 단위 diff. 준비 worker가 계산하고 core는 결과를 받기만 한다.
@@ -288,7 +341,11 @@ export async function respondTo(
 }
 
 export function createPreparation(options: PreparationOptions): ChildSession {
+  const inbox = createByteInbox();
   const session = startChild(options.streams, {
+    onFrame(frame) {
+      inbox.collect(frame);
+    },
     onHello(hello) {
       if (hello.kind !== "documents/preparation") {
         throw new Error("invalid worker kind");
@@ -314,7 +371,7 @@ export function createPreparation(options: PreparationOptions): ChildSession {
       }
       return respondTo(
         parsed.data as WorkerRequest,
-        options.accept,
+        (request) => options.accept(request, inbox),
         (response) => session.send(response),
       );
     },

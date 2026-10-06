@@ -56,7 +56,7 @@ export interface CompareViewProps {
   onChange: (before: string, after: string) => void;
   onClose: () => void;
   /** 고른 판을 새 최신 판으로 되살린다. 없으면 복원 행동을 두지 않는다. */
-  onRestore?: (version: string) => Promise<RestoreAnswer>;
+  onRestore?: (version: string, base: string) => Promise<RestoreAnswer>;
   /** 복원으로 판이 바뀐 뒤. 이력과 문서 머리를 다시 읽는다. */
   onRestored?: () => void;
 }
@@ -463,10 +463,11 @@ export function CompareView(
     : null;
 
   const restore = async () => {
-    if (!onRestore || restoreTarget === null) return;
+    if (!onRestore || restoreTarget === null || !latest) return;
     setConfirming(false);
     setNotice("restoring");
-    const answer = await onRestore(restoreTarget);
+    // 비교 화면이 지금 판으로 보여 준 최신 판을 함께 보낸다(그 사이 바뀌면 main이 충돌로 멈춘다).
+    const answer = await onRestore(restoreTarget, latest.id);
     const shown = restoreNotice(answer);
     setNotice(shown);
     if (shown === "saved" || shown === "pending" || shown === "unchanged") {

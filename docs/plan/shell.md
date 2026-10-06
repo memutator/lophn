@@ -371,6 +371,7 @@ concerns: [shell]
 ### T18 정보 패널, 버전 이력, 비교, 복원
 
 - 상태: 완료 (#310) — 정보 패널 탭 본문(정보·버전·컨텍스트, 절 이력), 비교 화면(접기·나란히·절 고르기·같은 판·누락), main 복원 통로(원문 참조 준비·`document.restore` CAS, 원본 연결 문서는 파일 CAS 쓰기 뒤 그 관측으로 확정, 1 MiB 넘는 명시 format 판 포함), overlay 닫기·CommandOrControl+Alt+B, 실제 core 테스트. 제품 core에서 비교·절 이력은 documents#T21(파생 consumer 조립) 뒤에 보인다. 그 전에는 비교 화면이 불러오지 못했다고 답한다(Q20 (3)).
+- 후속 (#410): 복원 기준 hash와 재시도 표시
 - 등급: frontend
 - concern: shell/editor
 - 요구: shell/editor#R6, R13, R14

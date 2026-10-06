@@ -119,3 +119,52 @@ Deno.test("platform/responsiveness#R3: 교체가 실패해 던져도 기다리�
   channel.onMessage(reply(pipe.sent[0].request_id, 1));
   assert((await held).ok);
 });
+
+Deno.test("platform/responsiveness#R3: coordinator가 끝나면(crash) 보낸 요청은 기한까지 기다리지 않고 바로 unavailable로 끝난다", async () => {
+  const channel = createDocumentsChannel({ drainMs: 30 });
+  const pipe = fakePipe();
+  channel.bind(pipe.send);
+  const lost = channel.request("documents.search_ledger", {}, 60_000);
+  const other = channel.request("project.preview_tracking", {}, 60_000);
+  channel.failPending("worker ended");
+  for (const pendingRequest of [lost, other]) {
+    const outcome = await settled(pendingRequest, 5_000);
+    assert(outcome !== "late", "the request waited for its own deadline");
+    assert(!outcome.ok);
+    assertEquals(outcome.error.code, "unavailable");
+  }
+  // 끝난 요청의 늦은 응답은 버리고, 그 뒤 새 요청은 평소처럼 통한다.
+  channel.onMessage(reply(pipe.sent[0].request_id, "late"));
+  const next = channel.request("documents.search_ledger", {}, 5_000);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  channel.onMessage(reply(pipe.sent[2].request_id, "fresh"));
+  const answer = await next;
+  assert(answer.ok);
+  assertEquals(answer.value, "fresh");
+});
+
+Deno.test("platform/responsiveness#R3: 교체가 겹쳐도 한 번에 하나씩 돈다", async () => {
+  const channel = createDocumentsChannel({ drainMs: 10 });
+  const pipe = fakePipe();
+  channel.bind(pipe.send);
+  const order: string[] = [];
+  let finishFirst: () => void = () => {};
+  const first = channel.replacing(() =>
+    new Promise<void>((resolve) => {
+      order.push("first start");
+      finishFirst = () => {
+        order.push("first end");
+        resolve();
+      };
+    })
+  );
+  const second = channel.replacing(() => {
+    order.push("second start");
+    return Promise.resolve();
+  });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assertEquals(order, ["first start"]);
+  finishFirst();
+  await Promise.all([first, second]);
+  assertEquals(order, ["first start", "first end", "second start"]);
+});

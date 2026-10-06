@@ -134,7 +134,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 선행: contracts#T39
 - T3에서 넘어온 것: 통합 테스트가 credential 이름 검증에 root credential 대신 앱 접수 credential을 쓴다(#216)
 - T15에서 넘어온 것: `submit-feedback`을 제품 core가 collector로 서빙한다. (1) `apps/worker/problems/report-collector.ts`에 `SubmitFeedback` op를 붙인다: core가 worker 요청에 싣는 호출자 actor·surface를 `FeedbackCaller`로 넘기고, `assembleFeedback`(`packages/problems/feedback/work.ts`)에 제품 redactor·`coreProblemLookup`·invocation 도착 확인·`readDetailCollection`·`prepareBlob`을 꽂아 `postRecordReport`로 보낸다. `apps/core/problems.ts`의 `workerRoutes`에 `submitFeedback`을 더한다. (2) collector credential이 `/v1/problems/get`(scope operation `GetProblem`)에 닿는지: 닿지 않으면 선택한 기존 문제를 읽지 못해 `unavailable`이다. (3) 입력은 Q19대로 원자료(`SubmitFeedbackInput`)와 PNG 바이트의 request channel이다. core는 인증하고 바이트를 해석 없이 byte frame으로 중계하며, collector가 `assembleFeedback(input, pngBytes, deps)`를 부른다
-- 상태: 완료 (#99)
+- shell#T52에서 넘어온 것: shell main은 이미 `SubmitFeedback`을 보낸다. screenshot을 고르지 않으면 JSON body의 worker 호출(`/v1/problems/submit-feedback`), 고르면 upload와 같은 모양(입력은 `UPLOAD_INPUT_HEADER`의 base64url JSON, body는 PNG octet-stream)으로 같은 경로에 보낸다(`apps/shell/main/desktop/core/client.ts`의 `workerBytes`). core가 이 경로를 서빙하기 전까지 실제 shell의 제출은 "lophn couldn't be reached"로 실패하고 글 복사만 남는다
+- 상태: 완료 (#99, #367) — 이어받은 것: 제품 core가 collector로 `submit-feedback`(JSON, 선택한 PNG는 upload 머리와 octet-stream body를 byte frame으로 중계)과 `observe-view-error`를 서빙하고, 호출자 actor·surface와 collector의 `invocations.get`·`GetSettings`·`GetProblem` 읽기를 잇는다(`apps/core/problems-feedback-product_test.ts`). collector credential의 principal을 준비 참조 주체와 같은 `collector`로 맞췄다(전에는 준비한 blob이 든 보고가 제품 core에서 등록되지 못했다)
 - 완료:
   - `reportProblem`은 Report ID를 첫 전송 전에 고정하고 실제 invocation 문맥을 붙인 뒤 업무 응답을 막지 않는다; completion은 값으로 끝나 전송 실패가 새 `unhandledrejection`을 만들지 않는다(R1, R13)
   - 대기 32개·4,194,304 bytes 초과는 새 입력 거절, 원문을 디스크에 쓰지 않는다; retry는 일시적 `unavailable`·응답 유실에만 첫 시도 뒤 250/1,000/3,000ms 최대 3회, 같은 고정 내용만(R16)
@@ -236,6 +237,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: problems#T9, contracts#T36, apps#T17, apps#T21
+- 상태: 완료 (#347) — 이어보냄: 실제 AppDriver가 이 검사의 driver 통로(migrate·probeRead·runAutomation·attemptConfirmAutomation·useSecret·exerciseAdapters·change·revert)를 data worker job·broker 대역·실제 앱 command로 채우기 → T12
+- 정한 것: AppTestInput에 `data: {schema, previous_schema}`를 더했다(DB 미사용 schema 0과 이전 release 없는 첫 release만 이유 있는 not_applicable). 필수 검사는 blueprint가 선언한 기능마다 생긴다(read·automation/confirm·secret.use·외부 효과·되돌리기 지원 write). 인접 불변식이 깨지면 고정 기준을 만족해도 통과가 아니다. apps#T21 PR(#327)의 브랜치를 병합해 쓰므로 #327이 먼저 병합돼야 한다.
 - 완료:
   - 빈 test DB 전체 migration과 이전 release schema → 새 schema migration을 각각 돌리고 한쪽 실패면 통과하지 않는다(R8)
   - 잘못된 입력·read의 업무 쓰기·grant 없는 접근·confirm automation은 실패; grant된 secret 대역의 read·write 가져오기·동기화와 한 번 승인한 external automation은 허용; 출력 schema는 필수로 만들지 않는다(R9)
@@ -292,6 +295,7 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: C-문제보고의 `observe-exception`(view 출처)
 - slice: apps
 - 선행: problems#T4, contracts#T38, shell#T38
+- 상태: 완료 (#340)
 - 완료:
   - view의 `error`·`unhandledrejection`·루트 render 오류가 해당 앱 Report가 되고 원래 실패가 성공으로 바뀌지 않는다(reporting#R5)
   - 다른 앱 이름을 넣은 view 오류도 실제 view 앱의 진단으로만 접수, 페이지의 app·release·mode는 무시(reporting#R6)

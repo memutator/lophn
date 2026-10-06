@@ -123,14 +123,31 @@ export async function judgeWithScreens(options: {
     test_hash: TEST_HASH,
     blueprint: {
       problem_codes: [declaration],
-      commands: [{ key: "save" }, { key: "load" }],
+      commands: [
+        {
+          key: "save",
+          effect: "write",
+          confirm: false,
+          revert: { supported: false },
+        },
+        {
+          key: "load",
+          effect: "write",
+          confirm: false,
+          revert: { supported: false },
+        },
+      ],
       screens: hasView ? [{ key: "main" }] : [],
       sdk_dependencies: SDK,
+      automatic_tasks: [],
+      permissions: [],
+      app_connections: [],
     } as unknown as AppTestInput["blueprint"],
     blueprint_hash: BLUEPRINT,
     frozen,
     fixed_sdk: SDK,
     previous_declarations: null,
+    data: { schema: 0, previous_schema: null },
   };
   const plan = generateAppTestChecks(input);
   const base = fixtureDriver({

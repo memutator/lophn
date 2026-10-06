@@ -217,6 +217,7 @@ main registry는 `{view_session, webContents, window, app/version, release, mode
 - 분할의 각 칸과 보이는 앱 카드는 자기 rectangle에 view를 붙인다. main은 창 본문·칸·카드 경계와 교차 영역을 검사한다. 스크롤 밖 카드는 detach한다. 좁은 창에서 대화·정보 패널이 본문을 덮으면 앱 view bounds를 패널 밖 영역으로 줄이고 숨기지 않는다. confirmation window는 별도 modal 창이다.
 - release·연결·permission 변경은 옛 view와 연결을 폐기하고 현재 앱 통로를 다시 얻는다. persistent session의 cache·이전 실행 코드가 새 release를 대신하지 않도록 cache를 정리하고 고정 release의 응답만 제공한다. 저장 상태의 존재가 호출 권한은 아니다.
 - view 생성·숨김·교체·폐기·실제 attach는 동일 view_session와 generation으로 platform diagnostics에 남긴다. URL query·본문·token은 기록하지 않는다.
+- view를 폐기하거나 다른 앱으로 교체하면 main이 `POST /v1/apps/view_closed`로 그 앱 runtime에 옛 view_session이 닫혔음을 알린다. 앱은 닫힌 view의 context 조회·주석 쓰기를 받지 않는다(apps/agent-context). 같은 앱 안의 교체는 같은 view_session이 이어진다.
 
 **shell overlay view**
 

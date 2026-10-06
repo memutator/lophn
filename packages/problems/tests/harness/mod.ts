@@ -1,6 +1,7 @@
 export {
   CHECK_DEFINITIONS_VERSION,
   checkDigest,
+  coverageOf,
   failurePathDefinition,
   failurePathName,
   HARNESS_CHECKS,
@@ -12,6 +13,7 @@ export {
   VIEW_HOST_INCONCLUSIVE,
 } from "./definitions.ts";
 export type {
+  CheckCoverage,
   CheckDefinition,
   CheckSource,
   HarnessCheckName,
@@ -20,13 +22,24 @@ export type {
 } from "./definitions.ts";
 export { ViewHostInconclusive } from "./driver.ts";
 export type {
+  AdapterEffects,
   AppDriver,
   Attestation,
+  AutomationRun,
+  ChangeResult,
   HarnessPlan,
   HarnessPlanCheck,
   InvokeResult,
+  MigrationRun,
+  MigrationScenario,
+  PlanAutomation,
+  PlanCommand,
+  ReadProbe,
   ReceivedReport,
+  RevertResult,
   SdkResult,
+  SecretOperation,
+  SecretUseResult,
   ViewDriver,
 } from "./driver.ts";
 export { createEmitter } from "./emit.ts";

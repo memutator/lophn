@@ -317,7 +317,7 @@ core는 지문을 계산하지 않는다. 신뢰 collector의 준비 참조·key
 
 플랫폼 필수 검사 code는 runner의 불변 설치 자료에서 읽으며 앱 bundle/agent가 고칠 수 없다. 앱이 작성한 code별 실패 경로 test는 실제 앱 command/화면에 fixture 실패를 주입해야 한다. SDK 직접 호출만으로 실패 경로를 통과시키지 않는다.
 
-검사는 선언·blueprint/handler 일치·고정 SDK·정적/동적 code 사용·SDK 접수·선언별 실패 경로·process/view exception·깨진 view의 feedback·redaction·permission 거절이다. apps/data의 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration, read의 입력 계약·업무 및 외부 상태 불변, automation의 command·고정 입력·grant와 confirm 금지, external은 사람이 켤 때 command·입력·주기를 한 번 승인한 것만 허용함을 각 apps contract로 검사한다. grant된 secret의 가져오기·동기화는 대역으로 허용하며 호출마다 approval을 요구하거나 호출 주체가 automation이라는 이유로 막지 않는다. apps/blueprint가 아직 선언하지 않는 출력 schema는 필수 검사로 새로 만들지 않는다. 화면 없는 bundle만 화면 검사에 이유 있는 `not_applicable`을 남긴다.
+검사는 선언·blueprint/handler 일치·고정 SDK·정적/동적 code 사용·SDK 접수·선언별 실패 경로·process/view exception·깨진 view의 feedback·redaction·permission 거절이다. apps/data의 빈 fixture DB 전체 migration과 이전 release schema→새 schema migration, read의 입력 계약·업무 및 외부 상태 불변, automation의 command·고정 입력·grant와 confirm 금지, external은 사람이 켤 때 command·입력·주기를 한 번 승인한 것만 허용함을 각 apps contract로 검사한다. 되돌리기를 지원하는 write(apps/blueprint#R21)는 변경 → 되돌림 → 원래 업무 상태, 후속 변경 뒤 되돌림 conflict, 중복 되돌림 거절을 검사한다. 검사마다 observations에 고정 기준·입력 범위(runner 설치 자료)와 harness가 따로 관측한 인접 불변식을 구별해 적고, net·secret·문서 쓰기는 apps/preview의 고정 대역에만 닿아야 하며 실제 외부 host 접속은 실패다. grant된 secret의 가져오기·동기화는 대역으로 허용하며 호출마다 approval을 요구하거나 호출 주체가 automation이라는 이유로 막지 않는다. apps/blueprint가 아직 선언하지 않는 출력 schema는 필수 검사로 새로 만들지 않는다. 화면 없는 bundle만 화면 검사에 이유 있는 `not_applicable`을 남긴다.
 
 출력 `pass` 문자열이나 생성 test 파일 존재는 근거가 아니다. runner가 검사별 status/reason/evidence를 모아 모든 필수 검사 실제 통과일 때만 `pass`다. 변경된 bundle은 새 app test가 필요하며 release 준비 자체는 runner가 하지 않는다.
 

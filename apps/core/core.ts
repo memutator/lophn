@@ -166,6 +166,13 @@ import {
 } from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
+  COLLECTOR_CREDENTIAL_OPERATIONS,
+  COLLECTOR_ROUTES,
+  collectorOperationPolicies,
+  collectorWorkers,
+} from "./problems-collector.ts";
+import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
+import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
   APPS_SUPERVISOR_KIND,
@@ -177,6 +184,10 @@ import {
 } from "./apps-control.ts";
 import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+import type {
+  PreviewBundles,
+  PreviewReleases,
+} from "../../packages/apps/preview/service.ts";
 import { createProductRedactor } from "./documents-redactor.ts";
 import {
   BOOTSTRAP_RETRY_MS,
@@ -197,6 +208,8 @@ import {
   messageBodyEnvironment,
   withMessageBody,
 } from "./message-body.ts";
+import { instructionFilesEnvironment } from "./instruction-files.ts";
+import type { InstructionFiles } from "../../packages/lophn-agent/instructions/mod.ts";
 import {
   createQuestionTextPreparer,
   withQuestionText,
@@ -268,6 +281,12 @@ export type CoreOptions = {
   appProcess?: ProcessSource;
   // 발급한 앱 connection의 회수 검사 간격(ms). 없으면 1초. 테스트가 줄인다.
   appsSweepMs?: number;
+  // preview가 준비된 bundle·release를 여는 자리(apps/preview). 없으면 preview 시작은 unavailable이다.
+  appPreviews?: {
+    bundles?: PreviewBundles;
+    releases?: PreviewReleases;
+    nonce?: () => string;
+  };
   // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
   // 재시작마다 불린다. 제품
   // 기동에는 없다. credential은 log에 남기지 않는다.
@@ -311,6 +330,8 @@ export type Core = {
   // 원하는 앱 프로세스 상태를 apps supervisor에 알린다. 마지막 상태를 기억해 supervisor가
   // 다시 떠도 같은 상태로 맞춘다. releases 조립이 활성 release를 보고 부른다.
   reconcileApp(desired: DesiredApp): Promise<Result<void>>;
+  // lophn agent runtime이 model call 직전에 사람 지침(LOPHN.md)의 확정 판을 읽는 통로다. 읽기만 있다.
+  instructionFiles: InstructionFiles;
   // testCredentials일 때만 있다. apps 제어(connect 어댑터·supervisor 질의)다.
   appsControl?: AppsControl;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
@@ -385,6 +406,8 @@ async function open(
 ): Promise<Result<Core>> {
   // documents coordinator 요청 통로. FileStatus 조회가 이 통로로 묻는다.
   const documentsChannel = createDocumentsChannel();
+  // problems report collector 요청 통로. 같은 통로 모양을 쓴다.
+  const collectorChannel = createDocumentsChannel();
   // coordinator가 파일 읽기의 창으로 보내는 byte frame의 우편함(`files.read` stream).
   const fileWindows = createFileWindows();
   const ledgerPath = `${root.path}/lophn.db`;
@@ -493,6 +516,8 @@ async function open(
       },
       // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
       ...appsOperationPolicies(),
+      // problems report collector(machine)가 보고를 제출한다.
+      ...collectorOperationPolicies(),
       // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
       ...eventNames.map((name): OperationPolicy => ({
         name,
@@ -573,6 +598,7 @@ async function open(
   let closeChildBlob: (() => void) | undefined;
   // 종료 때 감독이 포기한 documents worker를 다시 띄우는 일을 멈춘다.
   let respawnStop: (() => void) | undefined;
+  let closeCollectorBlob: (() => void) | undefined;
   // deno-lint-ignore prefer-const
   let runtime: CoreRuntime | undefined;
   const source: StatusSource = {
@@ -687,6 +713,7 @@ async function open(
         "text/plain",
         line,
       ),
+    previews: { dataRoot: root.path, ...options.appPreviews },
     ...(options.appProcess ? { process: options.appProcess } : {}),
     ...(options.appsSweepMs === undefined
       ? {}
@@ -1024,7 +1051,26 @@ async function open(
                   current: (ref) => runtime!.current(ref),
                   observedAt: () => new Date().toISOString(),
                 }),
-                options.workers,
+                mergedWorkers(
+                  collectorWorkers({
+                    channel: collectorChannel,
+                    observation: () =>
+                      io?.observation(COLLECTOR_KIND) ?? {
+                        component: COLLECTOR_KIND,
+                        available: false,
+                        reason: "report collector 감독이 없다",
+                        observed_at: clock.now(),
+                      },
+                    conditionsOf: (request) => {
+                      const slash = request.request_id.lastIndexOf("/");
+                      const ctx = slash > 0
+                        ? runtime!.current(request.request_id.slice(0, slash))
+                        : undefined;
+                      return ctx?.ok ? ctx.value.conditions : undefined;
+                    },
+                  }),
+                  options.workers,
+                ),
               ),
             ),
           ),
@@ -1349,6 +1395,73 @@ async function open(
       retryMs: DOCUMENTS_SEARCH_RETRY_MS,
     });
   }
+  // problems/report-collector. 문제 보고 worker route(`/v1/problems/report` 등)를 받는 상시
+  // worker다. 감독이 없는 harness와 problems를 등록하지 않은 조립은 띄우지 않는다. 띄우지
+  // 못해도 core는 계속 선다: 그 route는 unavailable이다. 앱 위치 주장은 요청이 싣는다.
+  const collectorSpec = reportCollectorSpec({ dataRoot: root.path });
+  if (
+    io && collectorSpec &&
+    allRoutes.some((route) => route.name === COLLECTOR_ROUTES[0].name)
+  ) {
+    const issued = await productRegistry.issue({
+      actor: "machine",
+      principal: "machine:problems-collector",
+      scope: {
+        operations: [...COLLECTOR_CREDENTIAL_OPERATIONS],
+        targets: { task: "problems" },
+      },
+      conditions: { task: "problems", process: COLLECTOR_KIND },
+    });
+    const current = issued.ok
+      ? productRegistry.revalidate({
+        credential_ref: issued.value.credential_ref,
+      })
+      : issued;
+    const recorded = issued.ok && current.ok
+      ? await runtime.record(current.value)
+      : current;
+    if (issued.ok && recorded.ok) {
+      // collector의 blob 준비 요청(보고 text·details·stack·log)은 core.prepareBlob으로 간다.
+      const handler = createChildBlobPrepare({
+        kind: COLLECTOR_KIND,
+        gauge: blobBuffer,
+        send: (message) =>
+          io.send(COLLECTOR_KIND, message).then((sent) => sent.ok),
+        prepareBlob: (call) =>
+          blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+            code: "unavailable",
+            message: "blob 준비 통로가 없다",
+          })),
+      });
+      closeCollectorBlob = () => handler.close();
+      const started = await io.start(
+        collectorSpec,
+        {
+          type: "hello",
+          core_epoch: epoch,
+          process_identity: epoch,
+          kind: COLLECTOR_KIND,
+          task: "problems",
+          scope: { operations: [], targets: {} },
+          credential: issued.value.token,
+          api_port: server.port,
+        },
+        {
+          onMessage: (message) => {
+            if (!handler.onMessage(message)) {
+              collectorChannel.onMessage(message);
+            }
+          },
+          onFrame: (frame) => handler.onFrame(frame),
+        },
+      );
+      if (started.ok) {
+        collectorChannel.bind((payload) =>
+          io.send(COLLECTOR_KIND, payload).then((sent) => sent.ok)
+        );
+      }
+    }
+  }
   // core 안 notifications 구독자. 계기 event를 notification으로 바꾸고 cursor를 올린다.
   const notifications = startNotifications({
     runtime,
@@ -1509,6 +1622,10 @@ async function open(
       ? { codingCredentials: coding, codingCredentialsReady: codingReady }
       : {}),
     record: (context) => runtime!.record(context),
+    instructionFiles: instructionFilesEnvironment({
+      ledgerPath,
+      read: (hash, offset, length) => blobRead.deps.read(hash, offset, length),
+    }),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
     reconcileApp: (desired) => appsControl.reconcile(desired),
@@ -1608,6 +1725,7 @@ async function open(
         searchSync?.stop();
         watchSync?.stop();
         closeChildBlob?.();
+        closeCollectorBlob?.();
         // main 연결이 끊기면 그 main의 relay 값을 모두 disconnected로 바꾼다(T57).
         runtime?.memory.disconnect();
         // server.stop은 받은 요청이 끝나기를 기다린 뒤 listen을 닫는다. 그 뒤에야

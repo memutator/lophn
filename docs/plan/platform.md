@@ -447,6 +447,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - slice: documents
 - 선행: platform#T2, platform#T9, contracts#T13
 - 상태: 완료 (#117)
+- shell#T29에서 넘어온 것: pipe의 `confirmation_handle_register`는 발급이 실패하면 답이 없고 응답에 요청 짝 id가 없어 main이 한 번에 하나씩 보내고 5초를 기다린다. 창 하나의 미사용 handle만 버리는 메시지도 없어 main은 닫힌 창의 handle을 기한(120초)과 일회 소비에 맡긴다
 - 완료: 아래 확인이 통과한다
   - handle은 main↔core 비공개 통로에서만 발급되는 메모리 값이고 core epoch·main 연결·window·정확한 대상·내용 기준·허용 결정·120초에 묶인다. ledger·fingerprint·event·log에 원문이 없다.
   - 사람 클릭이 필요한 command(documents의 파일 지우기, approval 결정 등)는 등록 때 handle 필요를 선언하고, writer가 transaction 안에서 현재 상태와 함께 검증·소비한다. handle이 없거나 대상·내용이 다르면 거절한다(R3, R5).
@@ -509,6 +510,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - documents#T11에서 넘어온 것(Q17): secret store를 제품 core 조립에서 열고(keychain 값 읽기) 알려진 값 registry를 core 보호 메모리에 채워, reader pool에 요청 message 밖의 값 등록·회수 통로로 넘긴다. 새 값 등록과 교체·제거 때 회수가 그 통로를 지나고, documents의 제품 redactor(`apps/core/documents-redactor.ts`)가 pattern 검출에 더해 알려진 값도 지운다. 지금 redactor는 pattern 검출만 한다. 값이 reader Worker의 module 전역 상태에 남지 않는 방식은 platform이 정한다
 - 후속 #289: documents#T11에서 넘어온 것을 조립했다. core(`apps/core/secret-store.ts`)가 기동 때와 SetSecret·RemoveSecret 확정 직후(응답 전)에 ledger의 현재 secret 참조(`secrets` 표, 이제 core 기동이 schema step을 적용하고 두 command가 writer에 항상 붙는다)의 값을 keychain adapter로 읽어 core 메모리(`held`, 이름→참조·값)에 두고, reader pool의 등록·회수 통로(`pool.known.register/revoke/setReady`, 요청 message 밖의 별도 message, 모든 healthy reader가 반영을 확인한 뒤 끝나고 확인 못 한 reader는 격리)로 각 reader Worker의 closure registry에 넣는다. reader는 팀 module 전역이 아니라 `snapshot.port(KNOWN_SECRETS)`의 matcher(일치 검사만, 목록·개수 없음)만 handler에 준다. 참조가 바뀌거나 사라지면 옛 값을 회수하고(다른 이름이 같은 값을 쥐면 남김) 참조가 없으면 keychain을 열지 않는다. 값을 다 읽지 못하는 동안(keychain 잠김·불가)은 reader가 "준비되지 않음"(처음 상태)이라 documents redactor가 null로 답해 `redaction_failed` omission이 되고(fail-closed) backoff로 재시도한다. documents redactor는 pattern 검출에 더해 알려진 값을 지운다. keychain은 `CoreOptions.secretKeychain`(테스트는 fake, 제품 기본은 Linux Secret Service adapter, 그 밖은 unavailable)이다. 시험은 `apps/core/secret-store_test.ts`(실제 core·reader, fake keychain: 등록한 값이 documents 읽기에서 가려지고 교체·제거로 회수되며 같은 값을 쥔 다른 이름은 남고 keychain이 잠긴 채 재기동하면 원문을 내지 않고 풀리면 다시 가림, 참조가 없으면 keychain 미접촉), `packages/platform/ledger/known-secrets_test.ts`(pool 통로), `packages/platform/redaction/rules_test.ts`(revoke). 남은 것: `secret.prepare` pipe 작업을 제품 I/O worker에 붙이는 일(보호 입력→keychain 준비→준비 증거 기록)은 아직 없다. SetSecret은 준비 증거가 있어야 하므로 제품에서 값을 처음 넣는 길은 그 조립이 끝나야 열린다. SetSecret 밖의 secret(provider·외부 MCP·coding connection credential)의 값은 이 registry에 아직 없다(각 소유 ledger 참조라 소유 concern이 같은 통로로 등록해야 한다). 메시지 본문 redactor(`message-body.ts`)는 아직 pattern 검출만 한다
 - 후속 #294: 제품에서 값을 처음 넣는 길을 열었다. (1) I/O worker(`apps/worker/platform/io.ts`)가 `secret.prepare`를 받는다: 값은 요청 json에 앞서 온 byte chunk(channel별 `pending`)로만 들어와 keychain adapter(`productKeychain`, Linux는 secret-tool stdin)에만 가고, 응답은 값 없는 `SecretPreparation`이다. worker는 ledger를 쓰지 않으므로 증거는 응답으로 돌려주고 core의 writer가 `secret_preparations`에 남긴다(`record-secret-preparation` writer op, 남기지 못하면 준비 실패). core가 요청 전에 끊으면 abort frame으로 worker가 받아 둔 chunk를 비운다. (2) 사람이 쓰는 입구는 upload route `/v1/secrets/input`(contracts `secretInput`, actor user, 상한 64KiB)이고 core(`apps/core/secret-input.ts`)는 chunk를 해석·보관하지 않고 worker로 흘린 뒤 core가 만든 machine context(`machine:secret-input`, process `platform/io`, task `secret-input`)로 요청한다. channel은 blob 중계(1..0x7fffffff)와 겹치지 않게 0x80000000 위를 쓴다. 이어서 shell main이 `SetSecret`(secret_input confirmation)을 부른다. `/v1/secrets/list` read(`secretsListRead`)도 등록했다: 사람만 설정된 이름 전부를 보고 다른 actor는 이름을 열지 않는다(앱의 이름 허용은 platform#T31). (3) 알려진 값 등록은 SetSecret·RemoveSecret 확정 뒤 core가 keychain에서 읽어 한다(#289). 준비 직후가 아니라 확정 뒤인 것은 확정되지 않은 값이 쓰이지 않기 때문이다. 다른 owner의 참조는 `SecretRefSource`(contracts, 등록 파일의 `secretRefs`)로 같은 통로를 지난다: provider credential은 `createProviderSecretRefSource`(lophn-agent)가 `provider_credentials`의 참조를 내고 `RegisterProviderCredential`·`ChangeProviderCredentials`·`RefreshProviderCredential` 확정 뒤 다시 맞춘다(회수된 credential도 참조가 남는 동안 알려진 값이다: 로컬 회수는 외부 key 폐기가 아니다). (4) `apps/core/message-body.ts`가 pattern 규칙에 더해 core secret store의 같은 matcher(`known`, 값을 다 읽었을 때만 ready)로 값을 가리고, ready가 아니면 본문을 막는다. 제품 I/O child의 launch spec은 `allow_run`에 secret-tool 절대 경로 후보, `allow_env`에 `DBUS_SESSION_BUS_ADDRESS`·`XDG_RUNTIME_DIR`를 더했다. 시험은 `apps/core/secret-input_test.ts`(실제 core·실제 I/O worker·fake keychain: 설정→documents 읽기·메시지 본문 가림, 교체·제거 회수, 값이 ledger·log·blob·argv·env·JSON 제어 frame에 없음, keychain 잠김, 크기 불일치, provider credential 등록·교체, 잠긴 채 재기동한 core의 메시지 본문 fail-closed), `apps/worker/platform/io-secret_test.ts`, `apps/core/secret-sources_test.ts`, `packages/lophn-agent/harness/provider/secret-refs_test.ts`. 남은 것: UI(shell#T29 secret 입력 창, shell#T31 provider 연결·교체)가 main에서 `/v1/secrets/input` → handle 발급 → `SetSecret`·provider command를 잇는 일(각 계획의 "넘어온 것"에 적었다), 외부 MCP credential(lophn-agent#T36·T38)과 coding connection credential(coding-agent#T36)의 참조 등록(각 계획에 적었다), 준비 뒤 SetSecret이 오지 않은 keychain 항목과 증거 행의 고아 정리(`PreparationStore.orphans`는 있으나 호출하는 곳이 없다), 교체·제거 뒤 keychain 삭제 확인(`reference_blocked/os_deleted/processes_ended` 관측, R7), 질문 자유 답의 secret 판정(`apps/core/question-text.ts`)은 아직 빈 registry다(같은 matcher를 넣는 일은 lophn-agent#Q38 쪽 조립).
+- shell#T29에서 넘어온 것: core의 비공개 pipe(`apps/core/parent.ts` `watchParent`)가 `secret_comparison_request`에 답하지 않아 shell main이 이미 값이 있는 앱 secret의 교체 비교 기준(`{sealed_ref, revision}`)을 얻지 못한다. 지금 보호 창은 처음 넣는 이름만 받고 교체는 이유만 보인다
 - 완료: 아래 확인이 통과한다
   - I/O worker의 OS adapter가 Linux Secret Service에 값을 둔다. 값은 argv·환경 변수·파일에 가지 않는다(→ Q7). macOS·Windows adapter는 T49.
   - 보호 입력은 전용 pipe 작업 `secret.prepare`로만 받는다. 세션 메시지·agent·외부 MCP 경로가 없다(R2).
@@ -733,6 +735,21 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
   - 값은 core 메모리에만 있고 ledger·blob·log에 없다. 크기는 창 수 × (2048 bytes + 탭 page)로 묶인다. main 연결이 끊기거나 core epoch가 바뀌면 그 main의 값은 모두 `disconnected`, 결합 없는 주기 run은 `unavailable`이며 옛 값을 `current`로 주지 않는다(prompt-assemble#R28).
   - architecture/platform 5.1 route 목록을 같은 PR에서 고친다(lead 결정, Q14).
   - `workspace_test.ts`에 위 요구 테스트
+
+### T58 question option 적용의 user 자격 전환
+
+- 등급: 기본
+- concern: platform/ledger, platform/identity
+- 요구: platform/identity#R14
+- 자리: packages/platform/ledger/ (Tx 자격 전환), packages/platform/identity/, contracts 변경은 contracts 팀 작업으로 먼저
+- 쓰는 contract: QuestionActionEvidence, `Tx.call`
+- 내놓는 contract: 근거 검증을 거친 한 번의 소유 command 호출을 actor=user로 기록하는 Tx 경로(contracts 변경 필요)
+- slice: agent
+- 선행: platform#T24, lophn-agent#T29
+- lophn-agent#T29에서 넘어온 것: lophn-agent의 `ApplyQuestionOption`(machine)은 질문 정본과 제출 action이 같음을 검증한 뒤 core 조립(`apps/core/lophn-agent.ts`의 `bindQuestionOptionOwners`)이 묶은 소유 handler를 user 자격으로 같은 Tx에서 부른다. 그러나 `tx.emit`의 actor와 inner dispatch 자격은 바깥 command의 것이라 소유 event(DocumentMoved·SettingsChanged)가 actor=`machine`으로 남는다(도메인 모델은 actor=user, run=null).
+- 완료:
+  - 검증을 거친 option 적용의 event·변경 기록이 actor=user, run=null로 남고, 일반 machine의 user 주장·다른 option·변경된 입력·이미 적용한 답은 거절한다(identity R14). `apply_approved_action`의 caller 규칙과 섞이지 않는다
+  - `question_evidence_test.ts`·`dispatch_test.ts`에 위 요구 테스트, lophn-agent#T29의 option 적용 테스트가 event actor를 `user`로 확인한다
 
 ## context
 

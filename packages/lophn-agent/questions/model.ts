@@ -152,22 +152,6 @@ export function registerTextBlobs(
   return ok(undefined);
 }
 
-// 선택지의 고정 action으로 열 수 있는 owner 동작. 안쪽에서 되돌릴 수 있는 동작만이다.
-// 권한 부여·외부 효과·복원 불가 동작은 이 목록에 없으므로 생성에서 막힌다(R12).
-// 새 owner 동작은 option action을 등록하는 작업(lophn-agent#T29)이 더한다.
-export const QUESTION_ACTIONS: readonly {
-  concern: string;
-  command: string;
-}[] = [{ concern: "platform/settings", command: "apply_settings" }];
-
-export function actionAllowed(
-  action: { concern: string; command: string },
-): boolean {
-  return QUESTION_ACTIONS.some((allowed) =>
-    allowed.concern === action.concern && allowed.command === action.command
-  );
-}
-
 type Lookup = {
   sql: { get: (query: string, params: SqlParams) => SqlRow | undefined };
 };
@@ -263,11 +247,62 @@ export function assignmentState(
 
 export type QuestionRecord = Output<typeof questionList>["questions"][number];
 
-// 이 질문의 고정 action을 적용한 기록이 있는지. 적용은 action owner의 변경 event가
-// 소유하고(option action 적용, lophn-agent#T29) 이 concern에는 적용 상태 표가 없다.
-// 적용 기록을 내는 command가 아직 없으므로 답 접수는 적용 완료로 보이지 않는다(R10).
-export function appliedOf(_lookup: Lookup, _row: QuestionRow): boolean {
-  return false;
+// 같은 질문 option을 사람 결정으로 적용한 기록의 key. 적용 기록은 platform/ledger의
+// question_evidence(identity R14의 일회 표)이고 이 concern에는 적용 상태 표가 없다.
+export function evidenceKey(question: string, option: string): string {
+  return `${question}\u0000${option}`;
+}
+
+// 사람이 고른 선택지의 고정 action을 실제로 적용했는지. 답 접수와 적용 완료는 다르다(R10).
+// 자유 답·답 없음·종료한 질문은 적용한 일이 없다. 표가 없는 harness는 적용 기록도 없다.
+export function appliedOf(lookup: Lookup, row: QuestionRow): boolean {
+  if (row.status !== "answered" || row.answer === null) return false;
+  const answer = JSON.parse(row.answer) as {
+    kind: string;
+    option_key: string | null;
+  };
+  if (answer.kind !== "option" || answer.option_key === null) return false;
+  try {
+    return lookup.sql.get(
+      "select 1 as found from question_evidence where evidence_key = ?",
+      [evidenceKey(row.id, answer.option_key)],
+    ) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+// 채택은 answered 질문이 고른 선택지의 adoption으로만 판정한다(R16). 새 version은 자동
+// 채택하지 않는다: 같은 질문의 답은 그때 고정한 document·version만 가리킨다. 채택을 근거로
+// 쓰는 ticket·handoff는 이 값의 document·version과 질문 ID를 함께 보관한다.
+export type Adoption = {
+  question: string;
+  document: string;
+  version: string;
+  section: string | null;
+};
+
+export function adoptionOf(row: QuestionRow): Adoption | null {
+  if (row.status !== "answered" || row.answer === null) return null;
+  const answer = JSON.parse(row.answer) as {
+    kind: string;
+    option_key: string | null;
+  };
+  if (answer.kind !== "option") return null;
+  const options = JSON.parse(row.options) as {
+    key: string;
+    adoption:
+      | { document: string; version: string; section: string | null }
+      | null;
+  }[];
+  const chosen = options.find((option) => option.key === answer.option_key);
+  if (chosen === undefined || chosen.adoption === null) return null;
+  return {
+    question: row.id,
+    document: chosen.adoption.document,
+    version: chosen.adoption.version,
+    section: chosen.adoption.section,
+  };
 }
 
 export function recordOf(row: QuestionRow, applied: boolean): QuestionRecord {
@@ -356,6 +391,37 @@ export function storedContent(
     recommendation,
     blobs,
   };
+}
+
+// 선택지의 근거·채택 참조는 그 document의 실제 불변 version이어야 한다(R16). 판 표(documents/
+// versions)는 소유 concern의 것이라 읽기만 한다. 판 표가 없는 등록(문서 concern 없는 harness)은
+// 확인할 판이 없으므로 통과한다.
+export function fixedVersionsExist(
+  lookup: Lookup,
+  option: QuestionOption,
+): Result<void> {
+  const references = [
+    ...option.evidence,
+    ...(option.adoption === null ? [] : [option.adoption]),
+  ];
+  for (const reference of references) {
+    let found: SqlRow | undefined;
+    try {
+      found = lookup.sql.get(
+        "select 1 as found from versions where id = ? and document = ?",
+        [reference.version, reference.document],
+      );
+    } catch {
+      return ok(undefined);
+    }
+    if (found === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "a fixed version reference does not name a stored version",
+      });
+    }
+  }
+  return ok(undefined);
 }
 
 export function sameContent(

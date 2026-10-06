@@ -13,8 +13,31 @@ export type ConfirmationIntent =
     question: string;
     option_key: string;
   }
-  | { kind: "owner_decision"; concern: string; decision: string }
-  | { kind: "secret_input"; owner: string; purpose: string };
+  | {
+    kind: "owner_decision";
+    concern: string;
+    decision: string;
+    /** 결정 대상의 고정 ID(예: 되돌릴 run). */
+    targets?: string[];
+  }
+  | {
+    kind: "secret_input";
+    owner: string;
+    purpose: string;
+    /** provider credential의 값 아닌 등록 정보. */
+    credential?: ProviderCredentialFields;
+  };
+
+/** contracts shell providerCredentialFieldsSchema. */
+export interface ProviderCredentialFields {
+  readonly key: string;
+  readonly kind: "api_key" | "oauth";
+  readonly label: string;
+  readonly account: string | null;
+  readonly organization: string | null;
+  readonly plan: string | null;
+  readonly dedup_fingerprint: string;
+}
 
 /**
  * confirmationDisplaySchema의 request. 표시 IPC는 이 객체만 보낸다.
@@ -63,3 +86,22 @@ export interface ConfirmationHandleRegister {
   readonly allowed_decisions: readonly string[];
   readonly expires_at: string;
 }
+
+/** confirmationDisplaySchema. view는 종류별 표시 값이고 handle·gate 원문은 없다. */
+export interface ConfirmationDisplay {
+  readonly displayId: string;
+  readonly request: ConfirmationRequest;
+  readonly view?: Record<string, unknown>;
+  readonly state?: "ready" | "stale" | "expired" | "unknown" | "submitted";
+  readonly decisions?: readonly string[];
+  readonly second?: boolean;
+}
+
+/** confirmationOutcomeSchema의 decided result. */
+export type ConfirmationResult =
+  | "accepted"
+  | "applying"
+  | "applied"
+  | "partial"
+  | "uncertain"
+  | "blocked";

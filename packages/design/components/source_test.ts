@@ -8,6 +8,10 @@ const packages = new URL("../", design);
 const roots = [
   new URL("components/", design),
   new URL("reading/", design),
+  new URL("sdk/ui-reading/", packages),
+  new URL("sdk/ui-filter/", packages),
+  new URL("sdk/ui-stat/", packages),
+  new URL("sdk/ui-action/", packages),
   new URL("sdk/ui-control/", packages),
   new URL("sdk/ui-overlay/", packages),
   new URL("sdk/ui-layout/", packages),
@@ -171,7 +175,7 @@ Deno.test("shell/design-system#R17: 섹션 32~48px과 칸 여백은 정한 파�
 const ALLOWED_IMPORT =
   /^(react|react-dom\/client|lucide-react|@radix-ui\/react-[a-z-]+|@lophn\/wording|\.{1,2}\/.+)$/;
 const SDK_IMPORT =
-  /^@lophn\/(design(\/components)?|tokens|ui-(control|overlay|layout|state|table|chart))$/;
+  /^@lophn\/(design(\/(components|reading))?|tokens|blueprint|ui-(reading|filter|stat|action|control|overlay|layout|state|table|chart))$/;
 const PUBLIC_CSS = new Set([
   "@lophn/tokens/base.css",
   "@lophn/tokens/tokens.css",

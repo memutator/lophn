@@ -22,8 +22,12 @@ import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { closeUnlessKept } from "./testing/close-on-throw.ts";
+import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
-const teams: TeamModule[] = [{ createLedgerRegistration }];
+const teams: TeamModule[] = [
+  { lophnAgentDefinitions },
+  { createLedgerRegistration },
+];
 const CAC = "cac_01arz3ndektsv4rrffq69g5fav";
 const AGENT_TOKEN = "a".repeat(43);
 const USER_TOKEN = "c".repeat(43);
@@ -54,7 +58,10 @@ async function open(
     lophnHome: home,
     port: 0,
     teams,
-    teamModules: [new URL("./documents.ts", import.meta.url).href],
+    teamModules: [
+      new URL("./lophn-agent.ts", import.meta.url).href,
+      new URL("./documents.ts", import.meta.url).href,
+    ],
     clock: manualClock(NOW),
     // 시작마다 다른 seed다. 같은 seed는 같은 epoch·credential ref를 만든다.
     random: seededRandom(50 + generation),

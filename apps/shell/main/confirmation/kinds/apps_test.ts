@@ -477,7 +477,10 @@ test("shell/confirmation-window#R5: automation 켜기는 승인할 command·고�
     runnable: false,
     reason: null,
   });
-  assert.equal((view.app_command as Record<string, unknown>).effect, "external");
+  assert.equal(
+    (view.app_command as Record<string, unknown>).effect,
+    "external",
+  );
   assert.equal(
     (view.app_command as Record<string, unknown>).description,
     "Fetches new rows from the bank.",

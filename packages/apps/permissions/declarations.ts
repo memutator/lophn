@@ -1,5 +1,9 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { definePort, type Tx } from "../../contracts/platform/mod.ts";
+import {
+  definePort,
+  type ReadSnapshot,
+  type Tx,
+} from "../../contracts/platform/mod.ts";
 import type {
   GrantPermissionRequirement,
   GrantPermissionScope,
@@ -27,8 +31,12 @@ export type AppDeclarations = {
 };
 
 export interface CurrentDeclarations {
-  // 현재 release가 없으면 null이다.
-  get(app: string): Result<AppDeclarations | null>;
+  // 현재 release가 없으면 null이다. sql은 부른 transaction·snapshot의 것이다.
+  // reader Worker의 port는 고정 값이라 구현은 sql을 받아 읽는다.
+  get(
+    sql: Pick<Tx["sql"], "get" | "all">,
+    app: string,
+  ): Result<AppDeclarations | null>;
 }
 
 export const currentDeclarations = definePort<CurrentDeclarations>(
@@ -38,10 +46,10 @@ export const currentDeclarations = definePort<CurrentDeclarations>(
 // 선언 port가 등록되지 않은 core에서는 선언 비교가 필요한 grant를 만들지 않는다.
 // 선언을 알 수 없는데 허락 범위가 선언과 같다고 가정하지 않는다(fail-closed).
 export function declarationsOf(
-  tx: Pick<Tx, "port">,
+  tx: Pick<Tx, "port" | "sql">,
   app: string,
 ): Result<AppDeclarations | null> {
-  const lookup = tx as Pick<Tx, "port"> & {
+  const lookup = tx as Pick<Tx, "port" | "sql"> & {
     portLookup?: { present(key: object): boolean };
   };
   if (lookup.portLookup?.present(currentDeclarations) !== true) {
@@ -51,6 +59,20 @@ export function declarationsOf(
     });
   }
   const declarations = tx.port(currentDeclarations);
-  const found = declarations.get(app);
+  const found = declarations.get(tx.sql, app);
   return found.ok ? ok(found.value) : found;
+}
+
+// read 쪽. 선언을 낼 주체가 없으면(port 미등록) 선언을 모르는 것이고 null이다.
+export function declarationsAt(
+  snapshot: Pick<ReadSnapshot, "port" | "sql">,
+  app: string,
+): Result<AppDeclarations | null> {
+  let declarations: CurrentDeclarations;
+  try {
+    declarations = snapshot.port(currentDeclarations);
+  } catch {
+    return ok(null);
+  }
+  return declarations.get(snapshot.sql, app);
 }

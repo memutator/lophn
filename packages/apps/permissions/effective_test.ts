@@ -331,7 +331,7 @@ Deno.test("apps/permissions#R25: 표시 자료는 Deno 한계 문구 key 전체�
     requirements: [],
     grants: [],
   });
-  assertEquals(display.limit_keys, LIMIT_KEYS);
+  assertEquals(display.limit_keys, [...LIMIT_KEYS]);
   for (
     const key of [
       "permissions.limit.not-isolated",
@@ -342,7 +342,7 @@ Deno.test("apps/permissions#R25: 표시 자료는 Deno 한계 문구 key 전체�
       "permissions.limit.disk",
     ]
   ) {
-    assert(display.limit_keys.includes(key as never));
+    assert(display.limit_keys.includes(key));
   }
 });
 

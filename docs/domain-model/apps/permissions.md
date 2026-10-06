@@ -124,6 +124,7 @@ secret 사용은 ledger 변경 command가 아니다. 플랫폼 전달기가 현�
 - **전달.** argv·환경 변수·화면·agent 응답·invocation·event·공통 blob에 secret 값을 넣지 않는다. redaction 등록 실패면 전달하지 않는다. destination 변경 redirect는 재검사한다.
 - **회수.** secret 교체·삭제는 사용 앱을 재시작한다. 이미 일어난 업무 쓰기·외부 요청의 취소를 뜻하지 않는다.
 - **조합 검사.** fs.read와 net.fetch 동시 요구는 외부 전송 조합 경고 대상이며 grant 자체를 자동 허락하지 않는다.
+- **grant 표시 자료.** `grants.list`는 앱을 지정하면 현재 release 선언을 아는 경우에 한해 `display`를 함께 낸다: 요구별 kind·정규 scope·reason·granted(같은 정규 scope의 active grant 유무)·경고 key, 조합 경고, Deno 한계 문구 key(`permissions.limit.*`). 선언을 모르면 null이다. read는 파일 I/O를 하지 않으므로 폴더 밖 link 검사는 부여 준비가 한다.
 
 - **command 허락.** app.call·agent.commands는 기본 0이다. Deno flag가 아니라 서명된 AppConnection의 명령 범위로 강제한다. app.call은 필요한 target direct socket만 source에 추가한다. 연결 준비 뒤 요청/응답은 직접 전송한다.
 - **관련 프로세스.** app.call 변경/회수는 source 자식 종료 확인 뒤 적용한다. target의 release/command/permission 경계 교체도 관련 source 연결을 닫고 source 자식을 새 연결 범위로 재시작한다. agent.commands 변경/회수는 target 자식 종료 확인 뒤 새 nonce로 적용한다. 다른 app.call/agent 연결도 옛 nonce를 쓸 수 없다. 종료 미확인은 회수 진행 중이다.

@@ -523,6 +523,11 @@ Deno.test("apps/permissions#R24: fs.read와 net.fetch를 함께 선언해도 사
     assertEquals(applied.reply.status, 200, JSON.stringify(applied.reply.body));
     const grants = await listGrants(world, { app });
     assertEquals(grants.map((g) => g.kind), ["fs.read"]);
+    // 선언을 내는 reader port가 등록되지 않은 core의 grants.list는 표시 자료를 null로 답한다.
+    const listed = await call(world.harness, "grants/list", world.user.token, {
+      app,
+    });
+    assertEquals(listed.body["display"], null);
     assertEquals(effective(app, declarations, grants).access, [
       { kind: "fs.read", scope: path },
     ]);

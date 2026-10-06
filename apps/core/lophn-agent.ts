@@ -16,7 +16,10 @@ import {
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type { Tx } from "../../packages/contracts/platform/mod.ts";
-import { approvalRunLineage } from "../../packages/platform/approvals/mod.ts";
+import {
+  approvalRunLineage,
+  createApprovalCommands,
+} from "../../packages/platform/approvals/mod.ts";
 import {
   createModelDefaultsCommands,
   createModelDefaultsReads,
@@ -80,6 +83,10 @@ import {
   toolCallBodyFields,
   toolsSchemaSteps,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
+import {
+  createWaitCommands,
+  waitSchemaSteps,
+} from "../../packages/lophn-agent/harness/waiting-and-recovery/mod.ts";
 import {
   DEFAULT_RUN_LIMITS,
   type McpServerConfig,
@@ -309,6 +316,21 @@ const toolReads = createToolReads();
 const questionCommands = createQuestionCommands();
 const questionReads = createQuestionReads();
 
+// 사람 기다림(concern harness/waiting-and-recovery). 기다림 연결(WaitRun)은 요청 생성과
+// waiting_on 연결, 결정 반영(ResolveRunWait)은 run 재개·종료와 반영 기록을 한 transaction에서
+// 확정한다. approval 생성은 platform의 create handler를, 수정 입력 보존은 run 접수와 메시지
+// 이동의 handler를 같은 Tx에서 부른다. 두 command는 machine 전용 기록이라 이 연결에 한해 자격을
+// 바꿔 넘기고 바깥 command의 actor와 event 기록은 그대로다.
+const approvalCommands = createApprovalCommands();
+const waitCommands = createWaitCommands({
+  createApproval: (tx, ctx, input, compare) =>
+    approvalCommands.create.handle(tx, ctx, input, compare),
+  acceptRun: (tx, ctx, input, compare) =>
+    runCommands.accept.handle(tx, ctx, input, compare),
+  assignMessage: (tx, ctx, input, compare) =>
+    conversationCommands.assign.handle(tx, ctx, input, compare),
+});
+
 // agent 자격의 command(CreateQuestion 같은)는 자격에 묶인 run이 진행 중일 때만 통과한다
 // (platform/ledger#R11). 판정은 이 concern의 runs 표를 같은 Tx에서 읽는다. 없는 run은
 // unknown이고 끝난 run은 감사 보완만 통과한다. 이 port가 없으면 agent command는 막힌다.
@@ -362,6 +384,7 @@ export const lophnAgentDefinitions = {
     ...conversationSchemaSteps,
     ...toolsSchemaSteps,
     ...questionSchemaSteps,
+    ...waitSchemaSteps,
   ],
   commands: [
     commands.register,
@@ -412,6 +435,9 @@ export const lophnAgentDefinitions = {
     questionCommands.defer,
     questionCommands.cancel,
     questionCommands.expire,
+    waitCommands.wait,
+    waitCommands.resolve,
+    waitCommands.correct,
   ],
   reads: [
     reads.read,

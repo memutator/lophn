@@ -5,7 +5,12 @@ export {
   type StartupInput,
 } from "./startup.ts";
 export { runSchemaSteps } from "./schema.ts";
-export { createRunCommands, type RunLoopDeps } from "./commands.ts";
+export {
+  createRunCommands,
+  finishRow as finishRunRow,
+  type RunLoopDeps,
+} from "./commands.ts";
+export { loadRun, type RunRow } from "./model.ts";
 export { createRunReads } from "./reads.ts";
 export {
   type AttemptEnd,

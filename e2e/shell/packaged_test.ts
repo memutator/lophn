@@ -1,19 +1,27 @@
 // packaged_test: shell#T57 packaged app smoke test
 // Tests that the packaged Electron app can start with bundled Deno,
 // handle URL scheme links, and --open-app flags correctly.
+//
+// To run packaged smoke tests:
+//   LOPHN_PACKAGED_APP=/path/to/app deno task e2e
 
 import { strict as assert } from "node:assert";
-import { spawn, execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { test } from "node:test";
-import { once } from "node:events";
 
 const mainRoot = path.resolve(__dirname, "..", "..", "apps", "shell", "main");
 const stageDir = path.join(mainRoot, "build", "stage");
 const releaseDir = path.join(mainRoot, "release");
 
 function findPackagedApp(): string | null {
+  // First check environment variable (explicit path for testing)
+  const envPath = process.env.LOPHN_PACKAGED_APP;
+  if (envPath && fs.existsSync(envPath)) {
+    return envPath;
+  }
+
+  // Otherwise look in release directory
   if (!fs.existsSync(releaseDir)) return null;
 
   // Look for the packaged executable
@@ -23,15 +31,17 @@ function findPackagedApp(): string | null {
     const files = fs.readdirSync(releaseDir);
     const deb = files.find((f) => f.endsWith(".deb"));
     if (deb) return path.join(releaseDir, deb);
+    const appImage = files.find((f) => f.endsWith(".AppImage"));
+    if (appImage) return path.join(releaseDir, appImage);
   } else if (osType === "darwin") {
-    // Look for .dmg
+    // Look for .dmg or .app
     const files = fs.readdirSync(releaseDir);
     const dmg = files.find((f) => f.endsWith(".dmg"));
     if (dmg) return path.join(releaseDir, dmg);
   } else if (osType === "win32") {
     // Look for NSIS installer or executable
     const files = fs.readdirSync(releaseDir);
-    const exe = files.find((f) => f.endsWith(".exe"));
+    const exe = files.find((f) => f.endsWith(".exe") && !f.includes("nsis"));
     if (exe) return path.join(releaseDir, exe);
   }
   return null;

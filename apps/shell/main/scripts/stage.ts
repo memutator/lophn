@@ -4,8 +4,12 @@
 //
 // Output: apps/shell/main/build/stage/
 //   bin/deno              Deno runtime (runs core daemon)
-//   core/                 bundle된 Deno로 실행할 core packages
-//   shell-renderer/       shell renderer build output (Electron에서 로드)
+//   bin/node-pty-prebuilt/lib/binding/*/pty.node  node-pty native module
+//   shell-main/dist/      main.cjs, preload.cjs (electron-builder에서 사용)
+//   shell-renderer/       shell renderer build output
+//   fonts/                design token 글꼴 (Pretendard Variable, JetBrains Mono)
+//   core/                 Deno workspace packages (contracts#T45가 완성)
+//   STAGE.json            빌드 메타데이터
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -67,17 +71,80 @@ interface RootConfig {
   [k: string]: unknown;
 }
 
+function stageShellMain(): void {
+  const src = path.join(mainRoot, "dist");
+  const dst = path.join(out, "shell-main", "dist");
+  if (fs.existsSync(src)) {
+    copyTree(src, dst, () => false);
+    log("shell main build staged");
+  }
+}
+
+function stageNodePty(): void {
+  const nodePtyPath = path.join(mainRoot, "node_modules", "node-pty-prebuilt");
+  const dst = path.join(out, "bin", "node-pty-prebuilt");
+  if (fs.existsSync(nodePtyPath)) {
+    copyTree(nodePtyPath, dst, (rel) => {
+      // Only copy lib/binding/* and node binding, exclude tests and docs
+      const isBinding = rel.includes("lib/binding");
+      return !isBinding && !rel.includes(".gyp");
+    });
+    log("node-pty native module staged");
+  } else {
+    log("warning: node-pty-prebuilt not found, skipping");
+  }
+}
+
+function stageFonts(): void {
+  const designDir = path.join(repoRoot, "packages", "design");
+  const fontsDir = path.join(designDir, "fonts");
+  const dst = path.join(out, "fonts");
+  if (fs.existsSync(fontsDir)) {
+    copyTree(fontsDir, dst, () => false);
+    log("fonts staged");
+  }
+}
+
 function stageCorePackages(): void {
   const dst = path.join(out, "core");
-  // Copy core and related packages
-  const coreDir = path.join(repoRoot, "packages", "platform");
-  if (!fs.existsSync(coreDir)) {
-    log("warning: core packages not found, skipping");
+  const packagesDir = path.join(repoRoot, "packages");
+  if (!fs.existsSync(packagesDir)) {
+    log("warning: packages directory not found, skipping");
     return;
   }
 
-  // For now, copy basic structure. Full core bundling is handled by contracts#T45
-  fs.mkdirSync(dst, { recursive: true });
+  // Copy packages for Deno bundling (contracts#T45 completes the rest)
+  const toStage = ["platform", "contracts", "base"];
+  for (const pkg of toStage) {
+    const srcPkg = path.join(packagesDir, pkg);
+    if (fs.existsSync(srcPkg)) {
+      copyTree(
+        srcPkg,
+        path.join(dst, pkg),
+        (rel) => {
+          // Skip tests, dist, node_modules
+          return (
+            rel.endsWith("_test.ts") ||
+            rel.endsWith(".test.ts") ||
+            rel.includes("node_modules") ||
+            rel.includes("dist") ||
+            rel.startsWith(".")
+          );
+        },
+      );
+    }
+  }
+
+  // Copy deno.json and deno.lock for dependency resolution
+  const denoJson = path.join(repoRoot, "deno.json");
+  const denoLock = path.join(repoRoot, "deno.lock");
+  if (fs.existsSync(denoJson)) {
+    fs.copyFileSync(denoJson, path.join(dst, "deno.json"));
+  }
+  if (fs.existsSync(denoLock)) {
+    fs.copyFileSync(denoLock, path.join(dst, "deno.lock"));
+  }
+
   log("core packages staged");
 }
 
@@ -131,6 +198,9 @@ function main(): void {
   fs.rmSync(out, { recursive: true, force: true });
   fs.mkdirSync(out, { recursive: true });
   const denoVersion = stageBin();
+  stageShellMain();
+  stageNodePty();
+  stageFonts();
   stageCorePackages();
   stageRendererBundle();
   fs.writeFileSync(

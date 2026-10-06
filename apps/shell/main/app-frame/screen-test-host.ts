@@ -15,6 +15,7 @@ import { Readable } from "node:stream";
 import { type CallOutcome, outcomeOf } from "./app-call.ts";
 import type { Invoker } from "./app-invoke.ts";
 import type { Upstream, UpstreamResponse } from "./app-protocol.ts";
+import { SCREEN_TEST_PROBE_SCRIPTS } from "../../ipc/screen-test.ts";
 import { APP_SCHEME } from "./network-policy.ts";
 import { checkViewError } from "./view-error.ts";
 
@@ -24,6 +25,8 @@ export const FRAME_MAX_BYTES = 65_536;
 export const SETTLE_MS = 1_000;
 /** feedback 캡처·dialog를 기다리는 한계. 운영 feedback의 캡처 대기와 같다(architecture/shell 7.4). */
 export const FEEDBACK_MS = 1_500;
+/** 일부러 멈춘 renderer가 응답하지 않는지 기다리는 시간. */
+export const BLOCK_RESPONSE_MS = 500;
 // 관측 frame이 상한 안에 머물게 하는 화면당 상한.
 export const ERRORS_PER_SCREEN = 20;
 export const BLOCKED_PER_SCREEN = 32;
@@ -49,6 +52,8 @@ export interface ScreenTestInput {
   screens: readonly ScreenEntry[];
   app_socket_path: string;
   deadline_ms: number;
+  /** 있으면 화면마다 오류 probe를 일으키고 첫 화면을 일부러 멈춘다(problems#T11). */
+  probe_nonce?: string;
 }
 
 type ViewErrorKind = "error" | "unhandledrejection" | "render_error";
@@ -62,7 +67,7 @@ export interface ScreenTestObservation {
     name: string;
     message: string | null;
   }[];
-  feedback_check: ({ screen: string } & FeedbackResult)[];
+  feedback_check: ({ screen: string; induced?: boolean } & FeedbackResult)[];
   blocked_requests: { screen: string; url_hash: string }[];
 }
 
@@ -163,8 +168,16 @@ export function createScreenTestRecorder() {
       }
       observation.blocked_requests.push({ screen, url_hash: sha256(url) });
     },
-    feedback(screen: string, result: FeedbackResult): void {
-      observation.feedback_check.push({ screen, ...result });
+    feedback(
+      screen: string,
+      result: FeedbackResult,
+      induced = false,
+    ): void {
+      observation.feedback_check.push({
+        screen,
+        ...result,
+        ...(induced ? { induced: true } : {}),
+      });
     },
     observation(): ScreenTestObservation {
       return structuredClone(observation);
@@ -185,6 +198,13 @@ export interface ScreenSurface {
   bound(): boolean;
   /** ms 안에 새 frame을 얻으면 true다. 멈춘·죽은 view는 false다. */
   capture(ms: number): Promise<boolean>;
+  /** 화면에 오류 probe script(error·unhandledrejection·render-error)를 붙인다. */
+  probe?(): void;
+  /**
+   * 페이지 main thread를 막고 renderer가 응답하지 않게 됐는지 돌려준다. offscreen은 멈춘
+   * renderer에서도 마지막 frame을 다시 주므로 캡처 결과로는 멈춤을 알 수 없다.
+   */
+  block?(): Promise<boolean>;
   close(): void;
 }
 
@@ -216,6 +236,8 @@ export async function runScreenTest(
   recorder: ScreenTestRecorder,
 ): Promise<void> {
   const end = ports.now() + input.deadline_ms;
+  // 첫 번째로 load된 화면 하나만 일부러 멈춘다. 나머지 화면은 온전한 채로 feedback을 본다.
+  let blocked = false;
   for (const [index, screen] of input.screens.entries()) {
     const left = end - ports.now();
     if (left <= 0) {
@@ -232,9 +254,20 @@ export async function runScreenTest(
         { ok: false, reason: "timeout" } as LoadResult,
       );
       recorder.load(screen.key, loaded.ok, loaded.ok ? null : loaded.reason);
+      if (loaded.ok && input.probe_nonce !== undefined) {
+        surface.probe?.();
+      }
       await ports.wait(
         Math.max(0, Math.min(SETTLE_MS, budget - FEEDBACK_MS)),
       );
+      let induce = false;
+      if (
+        loaded.ok && input.probe_nonce !== undefined && !blocked &&
+        surface.block !== undefined
+      ) {
+        blocked = true;
+        induce = await surface.block();
+      }
       const bound = surface.bound();
       const ms = Math.min(FEEDBACK_MS, budget);
       const [captured, opened] = await Promise.all([
@@ -245,7 +278,7 @@ export async function runScreenTest(
         binding: bound,
         capture: captured ? "captured" : "missing",
         dialog: opened ? "opened" : "blocked",
-      });
+      }, induce);
     } finally {
       surface.close();
     }
@@ -288,6 +321,27 @@ const NOT_FOUND: UpstreamResponse = { status: 404, headers: {}, body: null };
  * handler(`app-protocol.ts`)가 경로 마디·CSP·MIME을 운영과 똑같이 검사한 뒤 부른다. 화면
  * 파일이 있는 폴더 밖(symlink 포함)과 모르는 확장자는 404다.
  */
+/** host가 화면 origin에서 내주는 probe script. nonce는 runner가 준 값이고 오류 message에 든다. */
+export function probeScript(
+  name: string,
+  nonce: string | undefined,
+): string | undefined {
+  if (nonce === undefined) return undefined;
+  const text = (kind: string) => JSON.stringify(`lophn-probe:${nonce}:${kind}`);
+  if (name === SCREEN_TEST_PROBE_SCRIPTS.errors) {
+    return `setTimeout(() => { throw new Error(${text("error")}); }, 0);
+Promise.reject(new TypeError(${text("unhandledrejection")}));
+dispatchEvent(new CustomEvent("lophn:render-error", { detail: { name: "RenderError", message: ${
+      text("render_error")
+    } } }));
+`;
+  }
+  if (name === SCREEN_TEST_PROBE_SCRIPTS.block) {
+    return "setTimeout(() => { for (;;) {} }, 0);\n";
+  }
+  return undefined;
+}
+
 export function bundleUpstream(input: ScreenTestInput): Upstream {
   return async (request) => {
     const parts = new URL(request.path, "http://screen.invalid").pathname
@@ -296,6 +350,16 @@ export function bundleUpstream(input: ScreenTestInput): Upstream {
     const screen = input.screens.find((item) => item.key === key);
     if (prefix !== "screens" || screen === undefined || asset.length === 0) {
       return NOT_FOUND;
+    }
+    const probe = asset.length === 1
+      ? probeScript(asset[0]!, input.probe_nonce)
+      : undefined;
+    if (probe !== undefined) {
+      return {
+        status: 200,
+        headers: { "content-type": "text/javascript; charset=utf-8" },
+        body: new Blob([probe]).stream(),
+      };
     }
     let root: string;
     let file: string;

@@ -25,6 +25,9 @@ import {
   logsInputSchema,
   type ObservationWire,
   observeInputSchema,
+  previewLaunchSchema,
+  previewObserveInputSchema,
+  previewStopInputSchema,
   restartInputSchema,
   SUPERVISOR_OPS,
 } from "../../packages/apps/runtime/control-protocol.ts";
@@ -46,6 +49,11 @@ import type {
   AppEnvironment,
   AppLaunch,
 } from "../../packages/apps/runtime/processes/mod.ts";
+import {
+  createPreviewLauncher,
+  type PreviewLauncher,
+  type PreviewScope,
+} from "../../packages/apps/preview/mod.ts";
 import { DIRECT_SOCKET_PATHS } from "../../packages/contracts/apps/mod.ts";
 import { diagnosticSchema } from "../../packages/contracts/platform/mod.ts";
 import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
@@ -62,6 +70,10 @@ import {
 } from "../../packages/apps/automations/permits.ts";
 import { reportAcceptanceSchema } from "../../packages/contracts/problems/mod.ts";
 import { createCoreAppCallTargets, createCoreBrokerAccess } from "./access.ts";
+import {
+  previewScopeFromBundle,
+  previewServicesFor,
+} from "./preview-broker.ts";
 import { createCorePairs, forgetAtCore, observeStartsAtCore } from "./pairs.ts";
 import {
   type BrokerAdapters,
@@ -121,6 +133,12 @@ export type SupervisorIo = {
   credentialWaitMs?: number;
   // 자식 종료를 관측하면 알린다(결과를 못 받은 invocation을 미확인으로 확정하는 쪽이 쓴다).
   childExited?: (processNonce: string) => void;
+  // preview 자식이 선언한 외부 범위(고정 bundle의 blueprint)다. 기본은 bundle 사본의 blueprint.json을 읽는다.
+  previewScopeOf?: (info: {
+    app: string;
+    bundleHash: string;
+    dataPath: string;
+  }) => Promise<PreviewScope>;
   // 앱이 broker로 보낸 invocation 후행 기록을 core에 전달하는 쪽이다. 없으면 기록 통로는 unavailable이다.
   invocations?: Pick<InvocationBroker, "submit">;
   // broker 서비스에 더하는 어댑터와 시험 대역(외부 전송 등). 기본은 core read·route를 지나는 어댑터다.
@@ -140,6 +158,8 @@ export type Assembly = {
   supervisor: Supervisor;
   // 앱 자식마다 여는 broker socket과 서비스다. 시험과 grant 적용이 앱 단위로 막는다.
   broker: SupervisorBroker;
+  // preview 자식의 broker다. 운영 자식의 broker와 hub를 나눠 서로의 정지·회수가 영향을 주지 않는다.
+  previewBroker: SupervisorBroker;
   // automation 전체 동시 한도의 permit이다. 앱마다가 아니라 하나뿐이다(apps/automations#R6).
   permits: AutomationPermits;
   ops: OpHandlers;
@@ -149,6 +169,8 @@ export type Assembly = {
   ): void;
   // core가 app_credential_request에 준 답.
   onCredential(response: { request_id: string; credential: string }): void;
+  // preview 프로세스 수명. 운영 supervisor와 따로 한 앱에 하나만 쥔다(apps/preview).
+  previews: PreviewLauncher;
   logs(app: string): LogBuffer | undefined;
   // 앱 자식의 RSS 표본기. 자식을 띄운 적이 없으면 없다.
   memory(app: string): MemoryObserver | undefined;
@@ -205,6 +227,31 @@ function errorCodeOf(
   if (status === 409) return "conflict";
   if (status >= 400 && status < 500) return "invalid_input";
   return "unavailable";
+}
+
+// preview 시작 입력의 broker credential·bundle hash·disposable 영역이다.
+function startFieldsOf(
+  startLine: string,
+): { credential: string; bundleHash: string; dataPath: string } | undefined {
+  try {
+    const parsed = JSON.parse(startLine) as {
+      broker_credential?: unknown;
+      bundle_hash?: unknown;
+      data_path?: unknown;
+    };
+    return typeof parsed.broker_credential === "string" &&
+        parsed.broker_credential.length > 0 &&
+        typeof parsed.bundle_hash === "string" &&
+        typeof parsed.data_path === "string"
+      ? {
+        credential: parsed.broker_credential,
+        bundleHash: parsed.bundle_hash,
+        dataPath: parsed.data_path,
+      }
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // 시작 입력(stdin JSON 한 줄)의 자식 broker credential이다.
@@ -298,21 +345,21 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
 
   const toCore = { post: io.post, bearer: () => hello.credential };
   const callTargets = createCoreAppCallTargets(toCore);
-  const broker = createSupervisorBroker({
-    adapters: {
-      access: createCoreBrokerAccess(toCore),
-      // 호출의 start 사실은 core의 앱 쌍 경로 장부에도 알린다(apps/connections#R7).
-      invocations: observeStartsAtCore(
-        io.invocations ?? closedInvocations,
-        toCore,
-      ),
-      permits,
-      pairs: createCorePairs(toCore),
-      platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
-      problems: problemsFor,
-      ...(io.brokerAdapters ?? {}),
-    },
-  });
+  const brokerAdapters: BrokerAdapters = {
+    access: createCoreBrokerAccess(toCore),
+    // 호출의 start 사실은 core의 앱 쌍 경로 장부에도 알린다(apps/connections#R7).
+    invocations: observeStartsAtCore(
+      io.invocations ?? closedInvocations,
+      toCore,
+    ),
+    permits,
+    pairs: createCorePairs(toCore),
+    platformPorts: () => hello.apiPort === 0 ? [] : [hello.apiPort],
+    problems: problemsFor,
+    ...(io.brokerAdapters ?? {}),
+  };
+  const broker = createSupervisorBroker({ adapters: brokerAdapters });
+  const previewBroker = createSupervisorBroker({ adapters: brokerAdapters });
 
   function send(message: unknown): void {
     try {
@@ -429,17 +476,23 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     return credential;
   }
 
+  // 제어 요청을 받는 자식. 운영 자식은 앱 하나, preview 자식은 그 nonce까지다.
+  type ControlTarget = { app: string; previewNonce?: string };
+
   // core가 서명한 machine connection. 제어 요청(probe·open·close·shutdown)의 Authorization이다.
   async function authorization(
-    desired: DesiredApp,
+    target: ControlTarget,
   ): Promise<Result<string>> {
     try {
       const response = await io.post("apps/connect", hello.credential, {
-        app: desired.app,
-        mode: "live",
+        app: target.app,
+        mode: target.previewNonce === undefined ? "live" : "preview",
         screens: [CONTROL_SCREEN],
         screen_sizes: {},
         commands: [],
+        ...(target.previewNonce === undefined
+          ? {}
+          : { preview_nonce: target.previewNonce }),
       });
       const body = response.body as
         | { connection?: unknown; signature?: unknown }
@@ -463,12 +516,12 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   }
 
   async function control(
-    desired: DesiredApp,
+    target: ControlTarget,
     direct: string,
     path: string,
     body: unknown,
   ): Promise<Result<{ status: number; body: unknown }>> {
-    const signed = await authorization(desired);
+    const signed = await authorization(target);
     if (!signed.ok) return signed;
     try {
       return ok(
@@ -482,6 +535,75 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     } catch {
       return err({ code: "unavailable", message: "app is not listening" });
     }
+  }
+
+  // 준비 확인. 운영 자식과 preview 자식이 같은 probe 규칙을 쓴다.
+  async function probeChild(
+    child: { identity: { processNonce: string }; exited: Promise<unknown> },
+    direct: string,
+    target: ControlTarget,
+  ) {
+    const nonce = child.identity.processNonce;
+    let exited = false;
+    void child.exited.then(() => {
+      exited = true;
+    });
+    const deadline = io.clock.nowMs() + (io.readyTimeoutMs ?? 30_000);
+    let reason = "the app did not answer";
+    while (io.clock.nowMs() < deadline) {
+      if (exited) return { ok: false as const, reason: "exited before ready" };
+      const answered = await control(
+        target,
+        direct,
+        DIRECT_SOCKET_PATHS.probe,
+        { process_nonce: nonce },
+      );
+      if (answered.ok) {
+        const attestation = answered.value.body as
+          | {
+            commands?: string[];
+            data_schema?: number;
+            bundle_hash?: string;
+          }
+          | null;
+        if (answered.value.status === 200 && attestation !== null) {
+          return {
+            ok: true as const,
+            commands: attestation.commands ?? [],
+            dataSchema: attestation.data_schema ?? 0,
+            bundleHash: attestation.bundle_hash ?? "",
+          };
+        }
+        // 서명·nonce·handler 불일치는 기다린다고 낫지 않는다. 준비 중(503)만 다시 본다.
+        if (answered.value.status !== 503) {
+          return {
+            ok: false as const,
+            reason: `probe was rejected (${answered.value.status})`,
+          };
+        }
+      } else {
+        reason = answered.error.message;
+      }
+      await io.wait(100);
+    }
+    return { ok: false as const, reason };
+  }
+
+  // 새 호출·clock을 닫고 종료를 요청한다. 닿지 않아도 유예 뒤 강제 종료가 이어진다.
+  async function stopChild(
+    child: { identity: { processNonce: string } },
+    direct: string,
+    target: ControlTarget,
+  ): Promise<void> {
+    const nonce = child.identity.processNonce;
+    await control(target, direct, DIRECT_SOCKET_PATHS.close, {
+      process_nonce: nonce,
+      reason: "stop",
+    });
+    await control(target, direct, DIRECT_SOCKET_PATHS.shutdown, {
+      process_nonce: nonce,
+      grace_ms: 10_000,
+    });
   }
 
   const deps: SupervisorDeps = {
@@ -562,55 +684,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       };
       return child;
     },
-    async probe(child, direct, desired) {
-      const nonce = child.identity.processNonce;
-      let exited = false;
-      void child.exited.then(() => {
-        exited = true;
-      });
-      const deadline = io.clock.nowMs() + (io.readyTimeoutMs ?? 30_000);
-      let reason = "the app did not answer";
-      while (io.clock.nowMs() < deadline) {
-        if (exited) return { ok: false, reason: "exited before ready" };
-        const answered = await control(
-          desired,
-          direct,
-          DIRECT_SOCKET_PATHS.probe,
-          { process_nonce: nonce },
-        );
-        if (answered.ok) {
-          const attestation = answered.value.body as
-            | {
-              commands?: string[];
-              data_schema?: number;
-              bundle_hash?: string;
-            }
-            | null;
-          if (answered.value.status === 200 && attestation !== null) {
-            return {
-              ok: true,
-              commands: attestation.commands ?? [],
-              dataSchema: attestation.data_schema ?? 0,
-              bundleHash: attestation.bundle_hash ?? "",
-            };
-          }
-          // 서명·nonce·handler 불일치는 기다린다고 낫지 않는다. 준비 중(503)만 다시 본다.
-          if (answered.value.status !== 503) {
-            return {
-              ok: false,
-              reason: `probe was rejected (${answered.value.status})`,
-            };
-          }
-        } else {
-          reason = answered.error.message;
-        }
-        await io.wait(100);
-      }
-      return { ok: false, reason };
-    },
+    probe: (child, direct, desired) =>
+      probeChild(child, direct, { app: desired.app }),
     async open(child, direct, desired) {
       const answered = await control(
-        desired,
+        { app: desired.app },
         direct,
         DIRECT_SOCKET_PATHS.open,
         {
@@ -620,19 +698,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       );
       return answered.ok && answered.value.status === 200;
     },
-    async requestStop(child, direct, desired) {
-      const nonce = child.identity.processNonce;
+    requestStop: (child, direct, desired) => {
       // broker도 새 요청부터 막는다. 이미 한 전송을 취소하지는 않는다.
       broker.blockApp(desired.app);
-      // 새 호출·clock부터 닫고 종료를 요청한다. 닿지 않아도 유예 뒤 강제 종료가 이어진다.
-      await control(desired, direct, DIRECT_SOCKET_PATHS.close, {
-        process_nonce: nonce,
-        reason: "stop",
-      });
-      await control(desired, direct, DIRECT_SOCKET_PATHS.shutdown, {
-        process_nonce: nonce,
-        grace_ms: 10_000,
-      });
+      return stopChild(child, direct, { app: desired.app });
     },
     wait: io.wait,
     ...(io.readyTimeoutMs === undefined
@@ -694,6 +763,117 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
 
   const supervisor = createSupervisor(deps);
 
+  // preview 프로세스. 운영 자식과 따로 쥐고(별도 nonce·socket 자리·disposable DB) 운영 앱의 credential·
+  // record_* 사실·재시작 정책을 쓰지 않는다. 자식의 broker 자격은 이 supervisor가 만든 일회용 값이고
+  // core가 발급한 app credential이 아니다(같은 앱의 운영 자식 credential을 끝내지 않는다).
+  const previews = createPreviewLauncher({
+    clock: io.clock,
+    deno: io.deno,
+    environment: io.environment,
+    socketPaths: (app) => io.socketPaths(`preview:${app}`),
+    credential: () => {
+      const bytes = crypto.getRandomValues(new Uint8Array(32));
+      return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-")
+        .replaceAll("/", "_").replace(/=+$/, "");
+    },
+    verifyKey: () => verifyKey,
+    async spawn(request) {
+      const sockets = socketFlags(request.sockets);
+      if (!sockets.ok) throw new Error(sockets.error.message);
+      // preview 자식도 연결하기 전에 broker socket이 듣고 있어야 한다. 외부에 닿는 서비스는 모두 대역이고
+      // 선언은 그 bundle의 고정 blueprint가 정한다(apps/preview#R4).
+      const started = startFieldsOf(request.startLine);
+      if (started === undefined) {
+        throw new Error("the start input has no broker credential");
+      }
+      const scope = await (io.previewScopeOf ?? previewScopeFromBundle)({
+        app: request.app,
+        bundleHash: started.bundleHash,
+        dataPath: started.dataPath,
+      });
+      const opened = previewBroker.open({
+        child: {
+          app: request.app,
+          release: request.release,
+          mode: "preview",
+          processNonce: request.nonce,
+        },
+        credential: started.credential,
+        socketPath: request.sockets.brokerSocket,
+        services: previewServicesFor(
+          scope,
+          io.invocations ?? closedInvocations,
+        ),
+      });
+      if (!opened.ok) throw new Error(opened.error.message);
+      let spawned: Awaited<ReturnType<SupervisorIo["spawn"]>>;
+      try {
+        spawned = await io.spawn({
+          deno: request.deno,
+          entry: request.entry,
+          flags: {
+            ...request.flags,
+            args: [...request.flags.args, ...sockets.value],
+          },
+          importMap: request.importMap,
+          environment: request.environment,
+          startLine: request.startLine,
+        });
+      } catch (thrown) {
+        await previewBroker.closed(request.nonce);
+        throw thrown;
+      }
+      void spawned.exited.then(() => previewBroker.closed(request.nonce));
+      // 출력은 운영 앱 log와 섞이지 않는 preview 자리로 모은다. 읽지 않으면 자식이 막힌다.
+      const log = bufferOf(`preview:${request.app}`);
+      void log.attach(spawned.stdout);
+      void log.attach(spawned.stderr);
+      return {
+        identity: {
+          pid: spawned.pid,
+          startedAtMs: request.identity.startedAtMs,
+          processNonce: request.nonce,
+        },
+        exited: spawned.exited,
+        terminate: () => spawned.terminate(),
+      };
+    },
+    probe: (child, direct, launch) =>
+      probeChild(child, direct, {
+        app: launch.app,
+        previewNonce: launch.nonce,
+      }),
+    async open(child, direct, launch) {
+      const answered = await control(
+        { app: launch.app, previewNonce: launch.nonce },
+        direct,
+        DIRECT_SOCKET_PATHS.open,
+        { process_nonce: child.identity.processNonce, release: launch.release },
+      );
+      return answered.ok && answered.value.status === 200;
+    },
+    requestStop: (child, direct, launch) =>
+      stopChild(child, direct, { app: launch.app, previewNonce: launch.nonce }),
+    wait: io.wait,
+    ...(io.readyTimeoutMs === undefined
+      ? {}
+      : { readyTimeoutMs: io.readyTimeoutMs }),
+    ...(io.stopGraceMs === undefined ? {} : { stopGraceMs: io.stopGraceMs }),
+  });
+
+  // core 연결이 끊기거나 supervisor가 멈추면 preview 자식도 남기지 않는다.
+  const guarded: Supervisor = {
+    ...supervisor,
+    async coreClosed() {
+      await previews.stopAll();
+      await supervisor.coreClosed();
+    },
+    async stop() {
+      await previews.stopAll();
+      await supervisor.stop();
+    },
+  };
+
   const ops: OpHandlers = {
     [SUPERVISOR_OPS.reconcile]: (payload) => {
       const desired = parse(desiredAppSchema, payload) as DesiredApp;
@@ -748,13 +928,41 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         restarted: await supervisor.restart(input.app, input.process_nonce),
       };
     },
+    [SUPERVISOR_OPS.previewStart]: (payload) => {
+      const launch = parse(previewLaunchSchema, payload);
+      if (verifyKey === "" || hello.credential === "") {
+        throw new OpError("unavailable", "supervisor is not configured");
+      }
+      // 시작은 비동기다. 접수만 답하고 상태는 preview 관측으로 따라간다.
+      const started = previews.start(launch);
+      if (!started.ok) {
+        throw new OpError(started.error.code, started.error.message);
+      }
+      return Promise.resolve({ accepted: true });
+    },
+    [SUPERVISOR_OPS.previewObserve]: (payload) => {
+      const input = parse(previewObserveInputSchema, payload);
+      return Promise.resolve({
+        observation: previews.observation(input.app, input.process_nonce),
+      });
+    },
+    [SUPERVISOR_OPS.previewStop]: async (payload) => {
+      const input = parse(previewStopInputSchema, payload);
+      const stopped = await previews.stop(input.app, input.process_nonce);
+      if (!stopped.ok) {
+        throw new OpError(stopped.error.code, stopped.error.message);
+      }
+      return { stopped: stopped.value };
+    },
   };
 
   return {
-    supervisor,
+    supervisor: guarded,
     broker,
+    previewBroker,
     permits,
     ops,
+    previews,
     onHello(received) {
       hello.credential = received.credential;
       hello.apiPort = received.apiPort;

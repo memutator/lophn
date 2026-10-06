@@ -44,6 +44,8 @@ import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
 import { createSdkReads } from "../../packages/apps/sdk/reads.ts";
 import { sdkSchemaSteps } from "../../packages/apps/sdk/schema.ts";
+import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
+import { unattachedPreviewService } from "../../packages/apps/preview/service.ts";
 import { createDataCommands } from "../../packages/apps/data/commands.ts";
 import { dataSchemaSteps } from "../../packages/apps/data/schema.ts";
 import { createDataRecordStore } from "../../packages/apps/data/store.ts";
@@ -62,6 +64,7 @@ import type {
 import { notificationsOnlyVisibility } from "./platform.ts";
 
 type LedgerRegistration = {
+  apiReads?: readonly unknown[];
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
@@ -99,6 +102,9 @@ export function createLedgerRegistration(
   const releaseReads = createReleaseReads();
   const blueprintReads = createBlueprintReads(loadActiveBlueprint);
   return {
+    // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
+    // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
+    apiReads: createPreviewReads(() => unattachedPreviewService()),
     // place_names 표는 documents 등록의 몫이다(R6, R10).
     schemaSteps: [
       ...appsSchemaSteps,

@@ -122,6 +122,8 @@ export function servicesFor(
 }
 
 export type OpenedChild = {
+  // 이 자식에게만 올릴 서비스다. 없으면 운영 서비스 묶음이다(preview 대역이 따로 올린다).
+  services?: BrokerServices;
   child: BrokerChild;
   // 시작 입력의 자식 credential이다. argv·환경에는 없다.
   credential: string;
@@ -162,7 +164,7 @@ export function createSupervisorBroker(deps: {
       };
       const endpoint = hub.register(
         session,
-        servicesFor(opened.child, deps.adapters),
+        opened.services ?? servicesFor(opened.child, deps.adapters),
       );
       try {
         listening.set(

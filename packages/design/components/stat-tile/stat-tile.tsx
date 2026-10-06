@@ -51,7 +51,11 @@ export function StatTile(
   );
 }
 
-// 한 줄에 최대 4개. 더 많으면 다음 줄로 넘긴다.
+// 한 줄에 최대 4개. 더 많으면 다음 줄로 넘긴다. 넣은 칸이 640px 미만이면 한 줄에 2개다.
 export function StatRow({ children }: { children: ReactNode }) {
-  return <div className={styles.row}>{children}</div>;
+  return (
+    <div className={styles.rowBox}>
+      <div className={styles.row}>{children}</div>
+    </div>
+  );
 }

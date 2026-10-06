@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
+  CONTEXT_DISPATCHABLE_COMMANDS,
   contextExport,
   DOCUMENT_DISPATCHABLE_COMMANDS,
   documentPrepare,
@@ -13,6 +14,7 @@ import {
   outlineRoot,
   projectPreviewTracking,
   READ_ROUTES,
+  TERM_DISPATCHABLE_COMMANDS,
   UPLOAD_ROUTES,
 } from "../../packages/contracts/documents/mod.ts";
 import type {
@@ -341,9 +343,11 @@ export async function connectDocumentsRelaunch(
 function dispatchableByContract<R extends CommandRoute>(
   definition: CommandDefinition<R>,
 ): CommandDefinition<R> {
-  const declared = DOCUMENT_DISPATCHABLE_COMMANDS.some((item) =>
-    item.route === (definition.route as CommandRoute)
-  );
+  const declared = [
+    ...DOCUMENT_DISPATCHABLE_COMMANDS,
+    ...CONTEXT_DISPATCHABLE_COMMANDS,
+    ...TERM_DISPATCHABLE_COMMANDS,
+  ].some((item) => item.route === (definition.route as CommandRoute));
   return declared ? { ...definition, dispatchable: true } : definition;
 }
 
@@ -401,17 +405,17 @@ export function createLedgerRegistration(
       dispatchableByContract(addressing.move),
       dispatchableByContract(addressing.rename),
       contexts.create,
-      contexts.update,
-      contexts.setItem,
-      contexts.removeItem,
-      contexts.archive,
-      contexts.unarchive,
+      dispatchableByContract(contexts.update),
+      dispatchableByContract(contexts.setItem),
+      dispatchableByContract(contexts.removeItem),
+      dispatchableByContract(contexts.archive),
+      dispatchableByContract(contexts.unarchive),
       contexts.recordWatchChange,
       terms.propose,
       terms.define,
-      terms.update,
-      terms.archive,
-      terms.unarchive,
+      dispatchableByContract(terms.update),
+      dispatchableByContract(terms.archive),
+      dispatchableByContract(terms.unarchive),
       series.create,
       series.update,
       series.setDraft,

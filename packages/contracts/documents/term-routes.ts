@@ -114,6 +114,15 @@ export const termGet = defineRead({
   errors: readErrors,
 });
 
+// run revert(lophn-agent/revert)가 같은 transaction에서 `tx.call`로 부르는 command다. Context
+// Engineer run의 후보 제안은 보관으로, 후보 수정은 이전 이름·근거로, 보관·해제는 반대로 되돌린다.
+// 정의 확정(`term.define`)은 사람 몫이라 보상 대상이 아니고 dispatchable도 아니다.
+export const TERM_DISPATCHABLE_COMMANDS = [
+  { route: termUpdate, dispatchable: true },
+  { route: termArchive, dispatchable: true },
+  { route: termUnarchive, dispatchable: true },
+] as const;
+
 export const TERM_ROUTES = [
   termPropose,
   termDefine,

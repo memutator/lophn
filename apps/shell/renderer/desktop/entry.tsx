@@ -41,6 +41,7 @@ import {
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
 import { coreTrackingSource } from "../workspace/tracking/core-source.ts";
 import { coreAppsSource } from "./lophn-space/apps/core-source.ts";
+import { coreAppDetailSource } from "../app-frame/app-detail/core-source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
@@ -57,6 +58,7 @@ const contexts = coreContextsSource(core);
 const organize = coreOrganizeSource(core);
 // apps 화면과 앱 공간. 앱 view는 shell preload의 view 통로로 main이 붙인다.
 const apps = coreAppsSource(core);
+const appDetail = coreAppDetailSource(core);
 // 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
 const projects = coreLauncherSource(core, windowFolderPicker());
 const workspace = seed?.source ?? coreWorkspaceSource(core);
@@ -165,6 +167,7 @@ mount(
             tracking={tracking}
             intents={bridges.lophnIntents}
             apps={apps}
+            appDetail={appDetail}
             views={views}
             appWindows={bridges.lophnAppWindows}
             feedback={feedback}

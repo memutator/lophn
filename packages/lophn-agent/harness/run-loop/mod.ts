@@ -75,6 +75,7 @@ export {
   type ModelCallRequest,
   type ModelPort,
   type PendingInputs,
+  type ResumeState,
   type RunContext,
   type RunInput,
   type RunLoopHandle,
@@ -106,3 +107,5 @@ export {
   type ModelToolCall,
   runToolBatch,
 } from "./tool-batch.ts";
+export { historyResultPart } from "./history.ts";
+export { parseToolArgs } from "./tool-batch.ts";

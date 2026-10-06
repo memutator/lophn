@@ -524,6 +524,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T27 중단 뒤 복구
 
+- 상태: 완료 (#394)
 - 등급: 최상위
 - concern: lophn-agent/harness/waiting-and-recovery
 - 요구: lophn-agent/harness/waiting-and-recovery#R8, R9, R10, R12
@@ -539,6 +540,9 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
   - recovery_test.ts에 R8–R10, R12 테스트: 완전 응답·확정 결과를 다음 판단 전에 저장, 각 command commit 직후 죽여도 중복 run·효과·usage 없음, 순차 세 call 중 둘째 뒤 끊기면 셋째부터, 저장 실패를 완료로 가정하지 않음, 비사용자 중단만 자동 복구하고 현재 assignment·판정·안전·대상·credential·누적 한도 재확인, 멈춘 assignment를 풀지 않음, 결과 모르는 write·external은 결과 조회·멱등 확인 전 반복 없음·확인 불가면 effect_unknown 종료와 충돌 후속 call 차단, opaque 추론 상태 유실은 state-free 검증 또는 configuration_unavailable, 압축 summary는 완성 출력과 원문 보호 범위로 같은 run에 복구·이어가기 summary와 합치지 않음
   - 앱 invocation 결과 조회 연결은 T44
   - 이어받음: platform#T43의 run 복구 command. 재시작 점검이 미완료 run을 실제 관측으로 확정하는 연결은 이 작업이 낸다
+  - 한 것: (1) core: `RecoverRun`(machine 전용, ledger의 model·tool call 행에서 경계를 다시 계산해 입력과 같을 때만 받고 한도 시간이 줄면 거절, resume은 `RunRecovered`와 elapsed 보존, finish는 실패 이유만 받아 확정 사실로 정리, 끝난 run은 감사 기록만)와 additive 읽기 `ReadRunBody`(`/v1/runs/body`, machine만, run basis·model 응답·tool 결과를 blob hash 확인 뒤 값으로 준다. 복구가 이력을 다시 만들려면 저장된 본문을 읽어야 해서 더했다). `ResolveRunWait`가 재개할 때 `elapsed_checkpoint_at`을 재개 시각으로 올려 기다린 시간이 중단 시간으로 세어지지 않는다. (2) loop: `RunInput.resume`(이력·사실·남은 응답·retry 상태)을 받아 같은 loop로 잇는다: 이미 받은 완전 응답은 다시 부르지 않고 확정한 call 결과는 `confirmed`로 건너뛰며 허락으로 진입이 기록된 call은 `tools.resume`으로 판정 없이 한 번 실행하고 일시 실패 뒤 retry는 남은 대기만 기다린다. (3) runtime: `recoverRunFromLedger`가 열린 호출을 먼저 닫고(시작만 있는 model call은 uncertain, 진입하지 않은 call은 미실행, 읽기는 중단, 쓰기·external은 소유 계약 결과 조회 `Toolkit.lookups`가 확정한 결과만 쓰고 모르면 uncertain 뒤 `effect_unknown`으로 끝내며 남은 call은 미실행으로 남겨 구별) 저장된 본문으로 이력을 다시 만든다. preset은 run basis가 고정한 판이고 credential은 StartRun이 고정한 scope로만 받으며 현재 scope·model·credential이 달라졌으면 진행하지 않는다. `driver.recover()`는 runtime 기동에서 새 run을 고르기 전에 돌고 `driver.resume(run)`은 사람의 결정 뒤 같은 길로 잇는다. 사람이 멈춘 run은 이미 끝나 있어 대상이 아니고 멈춘·회수된 assignment의 run은 `StopRun`(machine)으로 멈춤 종료한다
+  - 시험: packages/lophn-agent/harness/waiting-and-recovery/recovery_test.ts(경계·계획·이력 재구성·loop 이어가기·압축 summary 복구), apps/core/run-recovery_test.ts(실제 core·fake provider: runtime을 중단 지점에 죽이고 다시 세워 앞 두 call과 완전 응답을 반복하지 않고 셋째부터, 결과 없는 쓰기는 다시 보내지 않고 `effect_unknown`·조회가 있으면 그 결과, 어느 command 직후에 죽어도 중복 없음, 멈춘 assignment·한도, approval 대기 중 재시작·같은 process의 결정 뒤 재개, RecoverRun·ReadRunBody 검사), apps/agent-runtime/runtime_test.ts(기동 순서)
+  - 이어보냄: (1) R12의 실제 연결: loop가 아직 압축을 부르지 않아(`compaction_summary: null`) 복구는 규칙(`recoverCompactionSummaries`: 같은 run의 완성 압축 호출만, 이어가기 summary와 합치지 않음)만 있다. loop가 압축을 쓸 때 이 규칙으로 derived `summaries/`를 다시 세운다. (2) 쓰기·external tool의 결과 조회 채우기(`Toolkit.lookups`)와 MCP `extension` 기록(그 전에는 `outside_call` 경계가 나오지 않는다)은 각 소유 작업(앱 command는 T44, MCP는 T36)이다. 조회가 없는 tool은 결과를 확인할 수 없는 것으로 다뤄 `effect_unknown`으로 끝난다. (3) 제품 main이 `driver`를 만들어 기동하는 자리는 T26이 넘긴 제품 core의 runtime child 띄우기와 같은 연결이다(`startAgentRuntime({driver})`가 기동 때 `recover()`를 돈다). (4) 질문(question) 대기를 run loop가 거는 일(WaitRun 질문)은 loop가 아직 approval만 건다. 해소기와 복구는 질문도 이어 받도록 되어 있다
 
 ### T28 compaction과 세션 이어가기 summary
 

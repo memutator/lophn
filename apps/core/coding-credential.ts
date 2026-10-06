@@ -7,6 +7,7 @@ import {
   type Clock,
   createIdSource,
   err,
+  ok,
   type RandomSource,
   type Result,
 } from "../../packages/base/mod.ts";
@@ -14,9 +15,15 @@ import {
   listConnections,
   lookupConnectionAuth,
 } from "../../packages/coding-agent/mod.ts";
+import {
+  connectionConnectInputSchema,
+  connectionCreate,
+} from "../../packages/contracts/coding-agent/mod.ts";
 import type {
   AuthenticatedContext,
 } from "../../packages/contracts/platform/mod.ts";
+import type { MemoryHandler } from "../../packages/platform/api/mod.ts";
+import type { Writer } from "../../packages/platform/ledger/mod.ts";
 import {
   type CodingCredentialAuthority,
   createCodingCredentialAuthority,
@@ -175,4 +182,38 @@ async function note(dataRoot: string, at: string, step: string): Promise<void> {
   } catch {
     // 기록하지 못해도 core는 그대로 선다.
   }
+}
+
+// 사람의 연결 결정 입구의 처리기다(connection#R2). 사람 credential의 요청만 이 route에 닿는다
+// (route actors가 user). 인증 경계가 token을 자동 발급해 keychain에 준비하고, 검증 hash만 같은 사람
+// credential로 connection create command에 제출한다. 결과는 connection 참조뿐이다.
+export function connectHandler(
+  coding: Pick<CodingCredentials, "connect">,
+  writer: () => Writer,
+): MemoryHandler {
+  return async (ctx, input) => {
+    const parsed = connectionConnectInputSchema.safeParse(input);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "연결 이름 또는 범위가 올바르지 않다",
+      });
+    }
+    const connected = await coding.connect(
+      parsed.data,
+      async (submission) => {
+        const sent = await writer().command(ctx, {
+          command: connectionCreate.name,
+          input: submission,
+          idempotency_key: `connect-${submission.id}`,
+          compare: {},
+          prepared: [],
+        } as never);
+        return sent.ok ? ok(sent.value.result) : err(sent.error);
+      },
+    );
+    return connected.ok
+      ? ok({ connection: connected.value.connection })
+      : connected;
+  };
 }

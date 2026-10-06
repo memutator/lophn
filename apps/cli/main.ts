@@ -16,27 +16,39 @@ import {
   helpText,
 } from "../../packages/coding-agent/cli/help.ts";
 import { createOutput } from "../../packages/coding-agent/cli/output.ts";
-import type {
-  CommandRef,
-  ParsedArgs,
-} from "../../packages/coding-agent/cli/parser.ts";
+import type { ParsedArgs } from "../../packages/coding-agent/cli/parser.ts";
 import type { AgentFailure } from "../../packages/contracts/coding-agent/mod.ts";
 import {
+  discoverDaemonAddress,
   LOPHN_DAEMON_URL,
   resolveDaemonAddress,
 } from "../../packages/coding-agent/connection/client/daemon.ts";
+import {
+  connectionFromRef,
+  createCoreClient,
+} from "../../packages/coding-agent/connection/client/core.ts";
+import {
+  createHelperCredentialProvider,
+  registeringProvider,
+} from "../../packages/coding-agent/connection/credential/helper.ts";
+import { LOPHN_CONNECTION } from "../../packages/contracts/coding-agent/mod.ts";
+import { REDACTION_REPLACEMENT } from "../../packages/contracts/platform/mod.ts";
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   createKnownSecretRegistry,
   createRedactionStream,
 } from "../../packages/platform/redaction/mod.ts";
+import { actorOf, ambientEnv, runCliCommand } from "./dispatch.ts";
+import type { CredentialProvider } from "../../packages/coding-agent/connection/credential/provider.ts";
+import type { RpcFetch } from "../../packages/contracts/platform/mod.ts";
 
 const VERSION = "0.1.0";
 
 // 조립이 끼워 주는 redaction이다(mcp-server/stdio의 같은 모양). 알려진 secret
 // registry를 process 수명으로 두고 실패 진단·details를 거친다.
-function redactor(): (text: string) => string {
-  const registry = createKnownSecretRegistry();
+function redactor(
+  registry: ReturnType<typeof createKnownSecretRegistry>,
+): (text: string) => string {
   return (text) => {
     const stream = createRedactionStream(registry);
     stream.push(text);
@@ -71,9 +83,54 @@ function safeJson(text: string): Result<unknown, AgentFailure> {
   }
 }
 
-export async function cliMain(argv: readonly string[]): Promise<number> {
+// 시험이 끼우는 환경이다. 없으면 process의 것이다. 사람의 실제 data root·HOME은 시험이 temp로 준다.
+export type CliOptions = {
+  env?: { get(name: string): string | undefined };
+  provider?: CredentialProvider;
+  fetch?: RpcFetch;
+  stdout?: WritableStream<Uint8Array>;
+  stderr?: WritableStream<Uint8Array>;
+  cwd?: string;
+  home?: string;
+  installRoot?: string;
+};
+
+// 설치 묶음의 위치다. 이 entry는 `<설치 root>/platform/apps/cli/main.ts`라 세 단계 위다.
+const INSTALL_ROOT = new URL("../../../", import.meta.url).pathname;
+
+function readTextOrUndefined(path: string): string | undefined {
+  try {
+    return Deno.readTextFileSync(path);
+  } catch {
+    return undefined;
+  }
+}
+
+// 받은 token은 어떤 출력에도 남지 않게 마지막으로 한 번 더 지운다(connection#R17).
+function scrub(
+  known: ReturnType<typeof createKnownSecretRegistry>,
+  text: string,
+): string {
+  let out = text;
+  for (let hit = known.match(out); hit !== undefined; hit = known.match(out)) {
+    out = out.slice(0, hit.index) + REDACTION_REPLACEMENT +
+      out.slice(hit.index + hit.length);
+  }
+  return out;
+}
+
+export async function cliMain(
+  argv: readonly string[],
+  options: CliOptions = {},
+): Promise<number> {
   const parsed = parseArgs(argv);
-  const output = createOutput({ json: parsed.json, redact: redactor() });
+  const known = createKnownSecretRegistry();
+  const output = createOutput({
+    json: parsed.json,
+    redact: redactor(known),
+    stdout: options.stdout,
+    stderr: options.stderr,
+  });
   if (parsed.help) {
     await emitHelp(parsed, output);
   }
@@ -95,7 +152,7 @@ export async function cliMain(argv: readonly string[]): Promise<number> {
     return output.exitCode(ref.error);
   }
   if (ref.value.group === HELP_COMMAND) {
-    const help = helpJson(ref.value.name);
+    const help = helpJson(parsed.positional.join(" ") || undefined);
     await output.result(help);
     return output.exitCode(undefined);
   }
@@ -107,8 +164,28 @@ export async function cliMain(argv: readonly string[]): Promise<number> {
     });
     return output.exitCode(undefined);
   }
-  const command = commandRefName(ref.value);
+  // command 이름은 표에 있는 가장 긴 앞부분이다(`app preview start`까지 세 조각). 남는 위치 인자는
+  // 받지 않는다(위치 인자가 없고 선택값만 있다).
+  const tokens = [parsed.command, ...parsed.positional];
+  let command = tokens.slice(0, 2).join(" ");
+  let used = Math.min(2, tokens.length);
+  for (let size = Math.min(3, tokens.length); size >= 1; size -= 1) {
+    const candidate = tokens.slice(0, size).join(" ");
+    if (findCommand(candidate) !== undefined) {
+      command = candidate;
+      used = size;
+      break;
+    }
+  }
   const entry = findCommand(command);
+  if (entry !== undefined && tokens.length > used) {
+    const failure: AgentFailure = {
+      code: "invalid_input",
+      message: "command 뒤에 받지 않는 위치 인자가 있다",
+    };
+    await output.failure(failure);
+    return output.exitCode(failure);
+  }
   if (parsed.help || entry === undefined) {
     // 표 밖 command는 실행 전 거절이다(cli#R4). 지원 목록을 다음 조회로 남긴다.
     await output.failure({
@@ -125,10 +202,23 @@ export async function cliMain(argv: readonly string[]): Promise<number> {
     await output.failure(body.error);
     return output.exitCode(body.error);
   }
-  const checked = entry.input.safeParse({
-    ...((body.value ?? {}) as Record<string, unknown>),
+  // command와 공통 option(flag)을 입력에 합친다. flag는 `--input`의 같은 field보다 우선한다.
+  const flags: Record<string, unknown> = {
+    command,
     json: parsed.json || undefined,
-  });
+    connection: parsed.connection,
+    daemon_url: parsed.daemonUrl,
+    app: parsed.app,
+    base_revision: parsed.baseRevision,
+    idempotency_key: parsed.idempotencyKey,
+  };
+  const candidate: Record<string, unknown> = {
+    ...((body.value ?? {}) as Record<string, unknown>),
+  };
+  for (const [key, value] of Object.entries(flags)) {
+    if (value !== undefined) candidate[key] = value;
+  }
+  const checked = entry.input.safeParse(candidate);
   if (!checked.success) {
     const field = checked.error.issues[0]?.path.join(".") ?? "";
     const failure: AgentFailure = {
@@ -140,13 +230,82 @@ export async function cliMain(argv: readonly string[]): Promise<number> {
     await output.failure(failure);
     return output.exitCode(failure);
   }
-  // 실제 실행은 T13·T14가 route마다 잇는다. credential provider는 T36 자리다.
-  await output.diagnostic("core 실행 배선은 이후 작업이다");
-  return output.exitCode(undefined);
-}
-
-function commandRefName(ref: CommandRef): string {
-  return ref.name === undefined ? ref.group : `${ref.group} ${ref.name}`;
+  const env = options.env ?? ambientEnv();
+  const connection = connectionFromRef(
+    (checked.data as { connection?: string }).connection ??
+      env.get(LOPHN_CONNECTION),
+  );
+  const dataRoot = env.get("LOPHN_HOME");
+  const address = discoverDaemonAddress({
+    option: parsed.daemonUrl,
+    env: env.get(LOPHN_DAEMON_URL),
+    dataRoot,
+    readText: readTextOrUndefined,
+  });
+  if (!address.ok) {
+    await output.failure(address.error);
+    return output.exitCode(address.error);
+  }
+  // connection 참조로 시작할 때 helper에서 credential을 한 번 받는다. 평문 파일·user credential
+  // fallback은 없다(connection#R17).
+  const provider = registeringProvider(
+    options.provider ?? createHelperCredentialProvider({
+      helper: `${
+        (options.installRoot ?? INSTALL_ROOT).replace(/\/$/, "")
+      }/lophn-credential`,
+    }),
+    known,
+  );
+  const client = connection.ok
+    ? createCoreClient({
+      baseUrl: address.value.url,
+      provider,
+      connection: connection.value,
+      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    })
+    : undefined;
+  const ran = await runCliCommand(
+    command,
+    { ...checked.data as Record<string, unknown> },
+    {
+      client,
+      provider,
+      actor: actorOf(env),
+      cwd: options.cwd ?? Deno.cwd(),
+      dataRoot,
+      env,
+      home: options.home ?? env.get("HOME"),
+      installRoot: options.installRoot ?? INSTALL_ROOT,
+      daemonUrl: address.value.url,
+      now: () => new Date().toISOString(),
+    },
+  );
+  if (!ran.ok) {
+    const failure: AgentFailure = {
+      code: ran.error.code,
+      message: ran.error.message,
+      ...(ran.error.details === undefined
+        ? {}
+        : { details: ran.error.details }),
+    };
+    await output.failure(failure);
+    return output.exitCode(failure);
+  }
+  const { isError, ...result } = ran.value;
+  const safe = JSON.parse(
+    scrub(known, JSON.stringify(result)),
+  ) as typeof result;
+  await output.result(safe);
+  // 실패·거절·검사 실패 결과는 성공 exit가 아니다(cli#R26).
+  // 쓰기 응답을 잃은 결과는 실제 오류와 구별한 effect_unknown(exit 6)이다(cli#R5).
+  const lost = (result.data as { details?: Record<string, unknown> } | null)
+    ?.details;
+  const refused: AgentFailure | undefined = isError !== true
+    ? undefined
+    : lost?.diagnosis === "effect_unknown"
+    ? { code: "unavailable", message: result.summary, details: lost }
+    : { code: "conflict", message: "결과가 실패를 알린다" };
+  return output.exitCode(refused);
 }
 
 async function emitHelp(

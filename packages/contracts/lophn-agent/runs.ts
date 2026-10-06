@@ -1,3 +1,4 @@
+import { blobSizeSchema } from "./run-blobs.ts";
 import { z } from "zod";
 import {
   atSchema,
@@ -58,6 +59,8 @@ export const acceptRunCompareSchema = z.strictObject({
 export const startRunInputSchema = z.strictObject({
   ...runRef,
   basis: sha256Schema,
+  // 준비한 basis blob의 크기. 있으면 command가 영구 참조를 등록한다.
+  basis_size: blobSizeSchema.optional(),
   limits: runLimitsSchema,
   scope: agentAppScopeSchema,
 });
@@ -75,6 +78,8 @@ export const finishRunInputSchema = z.strictObject({
   ...runRef,
   outcome: runOutcomeSchema,
   result: sha256Schema,
+  // 준비한 result blob의 크기. 있으면 command가 영구 참조를 등록한다.
+  result_size: blobSizeSchema.optional(),
 });
 
 export const finishRunCompareSchema = z.strictObject(stateSeq);

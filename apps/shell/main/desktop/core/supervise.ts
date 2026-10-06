@@ -1,6 +1,7 @@
 // core 수명은 창과 따로다. 창을 닫아도 pipe는 남고, 명시 종료나 pipe EOF만 core를 끝낸다.
 import { type ChildProcess, spawn } from "node:child_process";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 
 import {
   coreToMainMessageSchema,
@@ -17,13 +18,8 @@ export const STOP_GRACE_MS = 5_000;
 export const HELLO_TIMEOUT_MS = 30_000;
 
 // architecture/platform 2.4. core 자신은 설치 코드·data root·loopback·고정 child만 연다.
-export const CORE_PERMISSION_FLAGS = [
-  "--allow-read=apps/core,packages",
-  "--allow-write",
-  "--allow-net=127.0.0.1,::1",
-  "--allow-env=LOPHN_HOME,HOME,NODE_V8_COVERAGE",
-  "--allow-run=/usr/bin/kill",
-];
+// loopback의 IPv6 주소는 Deno 규칙대로 대괄호가 필요하다.
+export const CORE_PERMISSION_FLAGS = ["--allow-sys=uid,gid,statfs"];
 
 export interface CoreSpawn {
   command: string;
@@ -32,7 +28,7 @@ export interface CoreSpawn {
 }
 
 export interface LaunchOptions {
-  /** 저장소 루트. core entry와 Deno 권한 경로의 기준이다. */
+  /** 저장소 루트(개발) 또는 설치 묶음의 platform/(packaged). core entry의 기준이다. */
   repoRoot: string;
   dataRoot: string;
   /** 개발은 `deno`. packaged는 bundle된 Deno binary. */
@@ -42,17 +38,52 @@ export interface LaunchOptions {
   env?: NodeJS.ProcessEnv;
 }
 
+/**
+ * Deno transpile cache. 설치 묶음은 `~/.cache/lophn/deno`다(platform/install-and-update#R8).
+ * 지워도 data root는 그대로고 고정 의존성으로 다시 만든다.
+ */
+export function packagedDenoDir(home: string = homedir()): string {
+  return join(home, ".cache", "lophn", "deno");
+}
+
+/** packaged core의 읽기·쓰기·환경·실행 권한. 일반 `--allow-all`·ffi·전체 환경 접근은 없다. */
+export function packagedPermissionFlags(
+  options: LaunchOptions,
+  denoDir: string,
+): string[] {
+  // platform/ 옆의 guides/는 설치 묶음의 읽기 전용 안내다.
+  const guides = join(dirname(options.repoRoot), "guides");
+  return [
+    `--allow-read=${
+      [options.repoRoot, guides, options.dataRoot, denoDir].join(",")
+    }`,
+    `--allow-write=${options.dataRoot}`,
+    "--allow-env=LOPHN_HOME,LOPHN_INSTALL_ROOT,HOME,PATH,DENO_DIR,XDG_RUNTIME_DIR,XDG_CACHE_HOME,DBUS_SESSION_BUS_ADDRESS,NODE_V8_COVERAGE",
+    // kill과 설치된 Deno, keychain 도구(`secret-tool`) 말고는 실행하지 않는다.
+    `--allow-run=/usr/bin/kill,/usr/bin/secret-tool,/usr/local/bin/secret-tool,${options.denoBinary}`,
+    // loopback과 보호 loader가 이어 오는 소유자 전용 socket(`<H>/run/credential.sock`) 하나다.
+    `--allow-net=127.0.0.1,[::1],unix:${options.dataRoot}/run/credential.sock`,
+    ...CORE_PERMISSION_FLAGS,
+  ];
+}
+
 /** `deno run <flags> apps/core/main.ts`. argv·env에 credential은 없다. */
 export function coreLaunch(options: LaunchOptions): CoreSpawn {
   const entry = join(options.repoRoot, "apps", "core", "main.ts");
   const port = options.port ?? 0;
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...options.env,
+    LOPHN_HOME: options.dataRoot,
+  };
+  if (options.packaged && !env.DENO_DIR) env.DENO_DIR = packagedDenoDir();
   const flags = options.packaged
     ? [
       "run",
       "--cached-only",
       "--frozen",
       "--no-prompt",
-      ...CORE_PERMISSION_FLAGS,
+      ...packagedPermissionFlags(options, env.DENO_DIR!),
     ]
     : ["run", "--allow-all"];
   return {
@@ -60,7 +91,7 @@ export function coreLaunch(options: LaunchOptions): CoreSpawn {
     args: [...flags, entry, `--port=${port}`],
     // spawn에 기본 env는 없다. PATH가 사라지면 `deno`를 못 찾으므로 프로세스
     // 환경을 바탕으로 LOPHN_HOME만 덮어쓴다. credential은 env에 넣지 않는다.
-    env: { ...process.env, ...options.env, LOPHN_HOME: options.dataRoot },
+    env,
   };
 }
 

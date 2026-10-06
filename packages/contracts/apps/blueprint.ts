@@ -27,4 +27,5 @@ export type {
   ValidationResult,
 } from "./blueprint-types.ts";
 export { canonicalInputHash, validateInput } from "./blueprint-schema.ts";
+export { canonicalJson } from "./blueprint-json.ts";
 export { validateBlueprint } from "./blueprint-value.ts";

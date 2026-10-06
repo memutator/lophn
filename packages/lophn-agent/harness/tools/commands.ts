@@ -4,6 +4,8 @@ import {
   finishToolCall,
   recordReadToolCall,
   recordToolRequest,
+  registerPreparedBlob,
+  RUN_BLOB_PURPOSES,
   startToolCall,
   supplementToolCall,
   toolCallDecided,
@@ -171,7 +173,18 @@ export function createToolCommands(): {
           input: input.input,
           retry_of: input.retry_of,
         });
-        void seq;
+        if (input.input_size !== undefined) {
+          const registered = registerPreparedBlob(tx, ctx, {
+            owner_kind: "tool_call",
+            owner_key: input.id,
+            field: "input",
+            hash: input.input,
+            size: input.input_size,
+            purpose: RUN_BLOB_PURPOSES.tool_call_input,
+            seq,
+          });
+          if (!registered.ok) return registered;
+        }
         insertCall(tx, input, 0, {
           decision: null,
           state: "requested",
@@ -270,7 +283,18 @@ export function createToolCommands(): {
           output: input.output,
           finished_at: input.finished_at,
         });
-        void seq;
+        if (input.output_size !== undefined && input.output !== null) {
+          const registered = registerPreparedBlob(tx, ctx, {
+            owner_kind: "tool_call",
+            owner_key: input.tool_call,
+            field: "output",
+            hash: input.output,
+            size: input.output_size,
+            purpose: RUN_BLOB_PURPOSES.tool_call_output,
+            seq,
+          });
+          if (!registered.ok) return registered;
+        }
         tx.sql.run(
           `update tool_calls set state = 'finished', outcome = ?, output = ?,
              result = ?, finished_at = ?, duration_ms = ?, state_seq = ?

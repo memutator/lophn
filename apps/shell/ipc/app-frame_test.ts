@@ -67,15 +67,25 @@ Deno.test("shell/app-frame#R23: shell IPC 사본은 contracts의 view channel �
       { view_session: "view-1", bounds: { ...bounds, z: 1 } },
     ],
   );
-  same(VIEWS_HIDDEN_CHANNEL, viewsHiddenSchema, APP_FRAME_IPC[VIEWS_HIDDEN_CHANNEL], [
-    { view_sessions: ["view-1", "view-2"] },
-    { view_sessions: [] },
-    { view_sessions: ["view\u0000"] },
-  ]);
-  same(VIEW_CLOSE_CHANNEL, viewCloseRequestSchema, APP_FRAME_IPC[VIEW_CLOSE_CHANNEL], [
-    { view_session: "view-1" },
-    { view_session: "view-1", force: true },
-  ]);
+  same(
+    VIEWS_HIDDEN_CHANNEL,
+    viewsHiddenSchema,
+    APP_FRAME_IPC[VIEWS_HIDDEN_CHANNEL],
+    [
+      { view_sessions: ["view-1", "view-2"] },
+      { view_sessions: [] },
+      { view_sessions: ["view\u0000"] },
+    ],
+  );
+  same(
+    VIEW_CLOSE_CHANNEL,
+    viewCloseRequestSchema,
+    APP_FRAME_IPC[VIEW_CLOSE_CHANNEL],
+    [
+      { view_session: "view-1" },
+      { view_session: "view-1", force: true },
+    ],
+  );
   const state = {
     view_session: "view-1",
     app: APP,
@@ -85,10 +95,15 @@ Deno.test("shell/app-frame#R23: shell IPC 사본은 contracts의 view channel �
     size: "full",
     connectionState: "running",
   };
-  same(VIEW_STATE_CHANNEL, appFrameViewStateSchema, APP_FRAME_PUSH[VIEW_STATE_CHANNEL], [
-    state,
-    { ...state, release: null },
-    { ...state, release: null, mode: "preview" },
-    { ...state, connectionState: "paused" },
-  ]);
+  same(
+    VIEW_STATE_CHANNEL,
+    appFrameViewStateSchema,
+    APP_FRAME_PUSH[VIEW_STATE_CHANNEL],
+    [
+      state,
+      { ...state, release: null },
+      { ...state, release: null, mode: "preview" },
+      { ...state, connectionState: "paused" },
+    ],
+  );
 });

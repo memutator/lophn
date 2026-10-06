@@ -67,7 +67,11 @@ function relayWorld() {
   let frames: (() => void)[] = [];
   const observed: (() => void)[] = [];
   const covers = createViewCovers();
-  const list = dom.element({ x: 0, y: 40, width: 600, height: 400 }, null, "auto");
+  const list = dom.element(
+    { x: 0, y: 40, width: 600, height: 400 },
+    null,
+    "auto",
+  );
   const card = dom.element({ x: 20, y: 60, width: 300, height: 200 }, list);
   const relay = startBoundsRelay({
     element: card as unknown as Element,
@@ -107,9 +111,10 @@ function relayWorld() {
 }
 
 Deno.test("shell/app-frame#R25: 사각형은 가장자리를 반올림해 이웃 칸과 겹치지 않는다", () => {
-  const box = (left: number, right: number) => ({
-    getBoundingClientRect: () => ({ left, right, top: 40.4, bottom: 300.6 }),
-  }) as unknown as Element;
+  const box = (left: number, right: number) =>
+    ({
+      getBoundingClientRect: () => ({ left, right, top: 40.4, bottom: 300.6 }),
+    }) as unknown as Element;
   const left = rectOf(box(0, 320.5));
   const right = rectOf(box(320.5, 640));
   assertEquals(left.x + left.width, right.x);

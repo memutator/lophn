@@ -1,6 +1,6 @@
 import {
-  appFrameViewStateSchema,
   type AppFrameViewState,
+  appFrameViewStateSchema,
   type LophnShellViewsApi,
   VIEW_BOUNDS_CHANNEL,
   VIEW_CLOSE_CHANNEL,
@@ -13,7 +13,10 @@ import {
 
 export interface ViewsTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
-  on(channel: string, callback: (event: unknown, payload: unknown) => void): void;
+  on(
+    channel: string,
+    callback: (event: unknown, payload: unknown) => void,
+  ): void;
   removeListener(
     channel: string,
     callback: (event: unknown, payload: unknown) => void,

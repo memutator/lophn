@@ -145,7 +145,10 @@ test("shell/app-frame#R23: shell preload의 view 통로는 고정 channel만 쓰
     removeHandler: (channel: string) => void handlers.delete(channel),
   };
   registerViewIpc(ipc, w.handlers);
-  const listeners = new Map<string, (event: unknown, payload: unknown) => void>();
+  const listeners = new Map<
+    string,
+    (event: unknown, payload: unknown) => void
+  >();
   let sender = desk;
   const api = createViewsApi({
     invoke: (channel, input) => handlers.get(channel)!(event(sender), input),

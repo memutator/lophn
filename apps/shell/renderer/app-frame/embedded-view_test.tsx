@@ -252,7 +252,11 @@ Deno.test("shell/app-frame#R25: 열기에 실패하면 자리에 오류와 다�
     };
     act(() => {
       views.push(base);
-      views.push({ ...base, view_session: "view-9", connectionState: "stopped" });
+      views.push({
+        ...base,
+        view_session: "view-9",
+        connectionState: "stopped",
+      });
     });
     assertEquals(seen, ["running", "unavailable"]);
   });

@@ -74,7 +74,6 @@ export interface AppFrameDeps {
   closed?(view: ClosedView): void;
 }
 
-
 interface ViewFacts {
   view_session: string;
   target: ConnectTarget;

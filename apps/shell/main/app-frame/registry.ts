@@ -5,7 +5,7 @@
 // main이 얻은 연결의 screen·size 안에서만 화면을 받고 command 범위는 없다.
 import { appEntryUrl, type ProtocolView } from "./app-protocol.ts";
 import { type ConnectTarget, failure, type Outcome } from "./app-connection.ts";
-import { type Bound, bindTarget, sameConnection } from "./binding.ts";
+import { bindTarget, type Bound, sameConnection } from "./binding.ts";
 import type { ViewEvent } from "./diagnostics.ts";
 import { navigationAllowed } from "./network-policy.ts";
 import {

@@ -89,7 +89,8 @@ export function visibleRect(
   return empty(rect) ? EMPTY_RECT : rect;
 }
 
-const clipping = (overflow: string) => overflow !== "" && overflow !== "visible";
+const clipping = (overflow: string) =>
+  overflow !== "" && overflow !== "visible";
 
 /** 내용을 자르는 조상(칸·카드 목록의 스크롤 영역). 그 밖은 보이지 않는다. */
 export function clipAncestors(element: Element): Element[] {
@@ -101,7 +102,9 @@ export function clipAncestors(element: Element): Element[] {
     node = node.parentElement
   ) {
     const style = view.getComputedStyle(node);
-    if (clipping(style.overflowX) || clipping(style.overflowY)) found.push(node);
+    if (clipping(style.overflowX) || clipping(style.overflowY)) {
+      found.push(node);
+    }
   }
   return found;
 }

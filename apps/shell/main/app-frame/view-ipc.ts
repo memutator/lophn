@@ -36,7 +36,10 @@ export interface ViewIpcDeps {
 }
 
 export interface ViewIpcHandlers {
-  openApp(event: IpcEvent, input: unknown): Promise<ViewReply<AppFrameViewState>>;
+  openApp(
+    event: IpcEvent,
+    input: unknown,
+  ): Promise<ViewReply<AppFrameViewState>>;
   setBounds(
     event: IpcEvent,
     input: unknown,

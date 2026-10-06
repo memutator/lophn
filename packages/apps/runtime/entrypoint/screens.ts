@@ -43,6 +43,12 @@ export function handleScreen(
       error: { code: rejected.code, message: rejected.message },
     };
   }
+  if (state.closedViews.has(query.view_session)) {
+    return {
+      status: 409,
+      error: { code: "conflict", message: "view session is closed" },
+    };
+  }
   const bytes = state.screenBytes(parsed.screen, parsed.path);
   if (!bytes) {
     return {

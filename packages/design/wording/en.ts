@@ -4,6 +4,7 @@ export const en = {
   "common.activity.agent": "Agent activity",
   "common.activity.app": "App activity",
   "common.author.label": "Written by {author}",
+  "common.button.back": "Back",
   "common.button.cancel": "Cancel",
   "common.button.close": "Close",
   "common.button.columns": "Columns",
@@ -31,6 +32,7 @@ export const en = {
   "common.copy.failed": "Couldn't copy. Try again.",
   "common.empty.not-ready": "This screen isn't ready yet.",
   "common.error.load-failed": "Couldn't load {target}.",
+  "common.error.show-failed": "Couldn't show this screen.",
   "common.heading.column-unit": "{header} ({unit})",
   "common.heading.count": "Count",
   "common.heading.group": "Group",
@@ -99,6 +101,8 @@ export const en = {
   "contexts.view.baseline": "Baseline",
   "contexts.view.follow-changes": "Follow changes",
   "contexts.view.reference": "Reference",
+  "conversation.body.save-visual-request":
+    "Save the visual “{title}” (block {block} in message {message}) as a document.",
   "conversation.button.check-delivery": "Check whether it arrived",
   "conversation.button.close": "Close conversation",
   "conversation.button.jump-latest": "Jump to newest messages",
@@ -109,14 +113,17 @@ export const en = {
   "conversation.button.open": "Open conversation",
   "conversation.button.previous-request": "Previous request",
   "conversation.button.resend": "Send again",
+  "conversation.button.save-visual": "Save as document",
   "conversation.button.send": "Send",
   "conversation.button.show-all-results": "Show all results",
   "conversation.button.stop": "Stop",
+  "conversation.button.visual-read-description": "Read the description",
   "conversation.empty.no-agent": "lophn isn't set up for conversations yet.",
   "conversation.empty.no-messages":
     "Nothing here yet. Write what you need below.",
   "conversation.empty.no-session":
     "Start a conversation to ask lophn for something.",
+  "conversation.empty.visual-no-data": "This visual has no data.",
   "conversation.error.load-failed":
     "Couldn't load this conversation. Try again.",
   "conversation.error.message-body": "Couldn't load this message.",
@@ -150,6 +157,16 @@ export const en = {
   "conversation.label.status-in-progress": "In progress",
   "conversation.label.status-stopped": "Stopped",
   "conversation.label.status-waiting": "Waiting",
+  "conversation.label.visual-axes": "{y} by {x}",
+  "conversation.label.visual-document-unavailable": "Document you can't open",
+  "conversation.label.visual-no": "No",
+  "conversation.label.visual-observed": "Observed {at}",
+  "conversation.label.visual-saved": "Saved as a document",
+  "conversation.label.visual-source-app": "App result: {command}",
+  "conversation.label.visual-source-estimate": "Estimate: {label}",
+  "conversation.label.visual-sources": "Sources",
+  "conversation.label.visual-untitled": "Visual",
+  "conversation.label.visual-yes": "Yes",
   "conversation.notice.ended":
     "This conversation has ended. You can read it but not reply.",
   "conversation.notice.message-loading": "Loading this message.",
@@ -165,8 +182,25 @@ export const en = {
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",
   "conversation.notice.unconfirmed":
     "lophn couldn't confirm this message arrived. Check before sending it again.",
-  "conversation.notice.visual-pending":
-    "Charts, tables, and diagrams can't be shown in the conversation yet.",
+  "conversation.notice.visual-app-card":
+    "App cards can't be shown in the conversation yet.",
+  "conversation.notice.visual-as-table": "This chart is shown as a table.",
+  "conversation.notice.visual-not-saved":
+    "lophn didn't save a document. Its answer says why.",
+  "conversation.notice.visual-save-failed":
+    "Couldn't ask lophn to save this. Try again.",
+  "conversation.notice.visual-save-requested":
+    "lophn is saving this as a document.",
+  "conversation.notice.visual-save-sending":
+    "Asking lophn to save this as a document.",
+  "conversation.notice.visual-unavailable-drawing":
+    "This visual couldn't be drawn from its data.",
+  "conversation.notice.visual-unavailable-kind":
+    "This kind of visual can't be shown here.",
+  "conversation.notice.visual-unavailable-markup":
+    "This visual holds markup or a link, so it isn't shown.",
+  "conversation.notice.visual-unavailable-shape":
+    "This visual's data doesn't match what can be shown.",
   "conversation.title.dock": "Conversation",
   "document.button.back-to-editing": "Back to editing",
   "document.button.check-again": "Check again",

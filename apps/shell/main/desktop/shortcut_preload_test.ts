@@ -66,3 +66,25 @@ test("shell/desktop#R18: main이 시키는 것은 표에 있는 이름만 넘기
   // 창 shortcut channel로는 전역 팔레트가 오지 않는다.
   assert.notEqual(DESKTOP_INTENT_CHANNEL, WINDOW_SHORTCUT_CHANNEL);
 });
+
+test("shell/desktop#R14: preload는 things-to-confirm 링크 대상을 검사한 두 값만 넘기고 다른 모양은 버린다", () => {
+  const listeners = new Map<
+    string,
+    (event: unknown, payload: unknown) => void
+  >();
+  const api = createIntentApi({
+    on: (channel, callback) => void listeners.set(channel, callback),
+    removeListener: () => {},
+  });
+  const received: DesktopIntent[] = [];
+  api.subscribe((intent) => received.push(intent));
+  const deliver = listeners.get(DESKTOP_INTENT_CHANNEL)!;
+  const APR = "apr_01j9zzzzzzzzzzzzzzzzzzzzzz";
+  deliver({}, { kind: "things-to-confirm", request: APR });
+  deliver({}, { kind: "things-to-confirm", request: APR, approve: true });
+  deliver({}, { kind: "things-to-confirm", request: "apr_bad" });
+  deliver({}, { kind: "things-to-confirm", request: `app_${APR.slice(4)}` });
+  deliver({}, { kind: "global-palette", request: APR });
+  assert.deepEqual(received, [{ kind: "things-to-confirm", request: APR }]);
+  assert.ok(Object.isFrozen(received[0]));
+});

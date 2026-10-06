@@ -718,6 +718,7 @@ concerns: [shell]
 
 ### T36 contexts 화면
 
+- 상태: 완료 (#365) — 더한 contract: read `context.watch`(`/v1/contexts/watch`, 확인된 변화와 미확인 이유). Follow changes의 section 이름은 지금 section key로 보인다(outline.context가 제목을 주지 않는다)
 - 등급: frontend
 - concern: shell/desktop, shell/editor, shell/wording
 - 요구: shell/desktop#R28(contexts), shell/editor#R6(정보 패널 컨텍스트 탭), shell/wording#R13(Baseline·Reference·Follow changes)

@@ -605,7 +605,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T33 시각 블록
 
-- 상태: 진행
+- 상태: 완료 (#332) — 이어보냄: T26(run 연결), T47(앱 카드 현재 검사·snapshot·SDK 정적 그림), shell#T35(문서로 남기기 버튼)
 - 등급: 기본
 - concern: lophn-agent/visuals, lophn-agent/conversation, lophn-agent/harness/tools
 - 요구: lophn-agent/visuals#R1, R2, R3, R5, R6, lophn-agent/conversation#R12, R13, lophn-agent/harness/tools#R19

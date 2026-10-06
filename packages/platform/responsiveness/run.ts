@@ -32,6 +32,7 @@ export type RunDeps = {
   denoCommand: string;
   readyMs: number;
   teardownMs: number;
+  writeMs: number;
   env?: (kind: string) => Record<string, string>;
   spawn: (request: SpawnRequest) => Spawned;
 };
@@ -56,7 +57,7 @@ export async function runOnce(slot: Slot, deps: RunDeps): Promise<Outcome> {
     slot.reason = "spawn failed";
     return "failed";
   }
-  const attempt = openAttempt(slot, process, deps.teardownMs);
+  const attempt = openAttempt(slot, process, deps);
   const frames = readFrames(process.stdout);
   const exitedCode = process.exited.then((code) => code, () => null);
   const readyTimer = armTimer(deps.readyMs);
@@ -139,20 +140,27 @@ async function afterReady(
 }
 
 // 한 기동의 수명. slot.attempt는 teardown이 종료를 확인할 때까지 남는다.
-function openAttempt(slot: Slot, process: Spawned, teardownMs: number) {
+function openAttempt(slot: Slot, process: Spawned, deps: RunDeps) {
   let tearing: Promise<boolean> | undefined;
   const attempt: Attempt = {
     process,
     generation: slot.generation,
-    writer: createFrameWriter(rawWriter(process)),
+    // child가 stdin을 읽지 않으면 쓰기가 끝나지 않는다. 기한을 넘기면 그 child를 끝낸다: 끊긴 frame이
+    // 있을 수 있어 그 pipe는 다시 쓰지 못하고, 끝난 child는 감독의 재기동 경로로 간다.
+    writer: createFrameWriter(rawWriter(process), {
+      writeMs: deps.writeMs,
+      onTimeout: () => void attempt.teardown(),
+    }),
     live: true,
     closed: false,
     teardown: () =>
       tearing ??= (async () => {
         attempt.live = false;
+        // 이 child에게 보낸 요청은 이제 답이 오지 않는다. 종료 확인을 기다리지 않고 알린다.
+        safeCall(() => slot.callbacks.onEnd?.());
         const reaped = await valueWithin(
           () => process.terminate(),
-          teardownMs,
+          deps.teardownMs,
           false,
         );
         // 막힌 stdin close는 기다리지 않는다. group이 끝났으면 OS가 닫는다.

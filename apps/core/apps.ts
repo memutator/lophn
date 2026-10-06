@@ -94,6 +94,7 @@ export function createLedgerRegistration(
       commands.connectSource,
       commands.archive,
       commands.unarchive,
+      commands.rename,
       grants.create,
       grants.revoke,
       confirm.acceptConfirm,

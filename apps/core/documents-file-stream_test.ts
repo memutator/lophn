@@ -25,6 +25,7 @@ import {
   STORED_FILE_MAX_BYTES,
   storedFileStreams,
 } from "./documents-serving.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [
   { lophnAgentDefinitions },
@@ -61,6 +62,11 @@ async function open(): Promise<Opened> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(work, { recursive: true });
+  });
   const core = started.value;
   const contexts: [AuthenticatedContext, string][] = [
     [{
@@ -117,6 +123,7 @@ async function open(): Promise<Opened> {
     },
   );
   assertEquals(created.status, 200, await created.text());
+  guard.keep();
   return {
     core,
     home,

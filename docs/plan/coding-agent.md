@@ -758,6 +758,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
     반영(변경·무변경·충돌), 범위 version·미설치 version·조용한 upgrade 거절, 두
     번 추가해도 중복 없음(mcp#R23, cli#R30)
   - 개인 SDK는 지원 범위 밖으로 구별해 표시
+- apps#T22에서 넘어온 것: `add`가 앱 deno.json의 import map을 고칠 때 `buildImportMap`(`packages/apps/sdk`)이 같은 결과를 내야 한다(설치 사본의 `@lophn/*`·npm import를 따라간 정확한 pin). 바꾼 뒤 개발용 map(`.lophn/import-map.json`, `devImportMap`)과 deno.lock도 다시 만든다
   - 구현 메모(T22):
     - 흐름은 `connection/sdk-ops.ts` 하나를 MCP `lophn_sdk`와 CLI `sdk …`가 같이 지난다.
       통로 입력에 catalog `query`, show `version`, add `apply`·`app`을 더했다
@@ -1191,6 +1192,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - release bundle 제외 목록(안내·skill·hook·wrapper·제품 local MCP 설정)을
     contracts에 두고 apps bundle이 쓰는지 통합 테스트, local hook 설정은 ignore
     관리 구간에(R19)
+- apps#T22에서 넘어온 것: 설치 템플릿의 `AGENTS.md`(`<!-- begin lophn-managed -->`·`<!-- end lophn-managed -->` 빈 쌍과 그 밖의 사람 몫 구간)·`CLAUDE.md`(`@AGENTS.md`)·`.gitignore`(`# begin lophn-managed`·`# end lophn-managed` 빈 쌍)를 `packages/apps/sdk/template/app/`(원본 이름은 `*.tmpl`)에 두었다. 관리 구간 본문을 `packages/coding-agent/guides/templates/`에서 채울 때 같은 PR에서 이 원본을 고치고 `packages/apps/sdk/template/pin.ts`의 `TEMPLATE_HASH`를 `template_test`가 알려 주는 값으로 바꾼다
 - coding-agent#T21에서 넘어온 것: `sync_tools` op·`app sync-tools`의 실제 실행.
   지금 `lophn_app sync_tools`는 `connection/app-ops.ts`에서 `unavailable`을 돌려준다
   (소유 route 표에는 appRuntime이 입력 자리로 있다). 파일별 변경·무변경·건너뜀

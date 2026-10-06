@@ -5,6 +5,7 @@ import type {
   CommandDefinition,
   FileRoute,
   KindLaunchSpec,
+  MemoryRoute,
   ReadDefinition,
   Route,
   SchemaStep,
@@ -29,6 +30,8 @@ export type TeamRegistration = {
   workerRoutes?: readonly WorkerRoute[];
   // 바이트 body route. handler는 core 조립(core.ts)이 route 이름으로 붙인다.
   uploadRoutes?: readonly UploadRoute[];
+  // ledger를 쓰지 않는 core 메모리 route. handler는 core 조립(core.ts)이 route 이름으로 붙인다.
+  memoryRoutes?: readonly MemoryRoute[];
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
@@ -59,6 +62,7 @@ type Loose = {
   files?: readonly { resource?: unknown; method?: unknown }[];
   workerRoutes?: readonly { resource?: unknown; method?: unknown }[];
   uploadRoutes?: readonly { resource?: unknown; method?: unknown }[];
+  memoryRoutes?: readonly { resource?: unknown; method?: unknown }[];
   ports?: readonly TxPortRegistration[];
   workers?: readonly KindLaunchSpec[];
   blobFields?: readonly BlobFieldDefinition[];
@@ -230,6 +234,11 @@ export function assemble(
       }
       for (const upload of registration.uploadRoutes ?? []) {
         const route = routeOf(routes, upload as Route);
+        if (!route.ok) return route;
+        assembled.routes.push(route.value);
+      }
+      for (const memory of registration.memoryRoutes ?? []) {
+        const route = routeOf(routes, memory as Route);
         if (!route.ok) return route;
         assembled.routes.push(route.value);
       }

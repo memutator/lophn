@@ -25,6 +25,9 @@ import {
 } from "../../../packages/contracts/platform/mod.ts";
 import type { PreparedBlob } from "../../../packages/contracts/platform/mod.ts";
 import { type Core, startCore } from "../core.ts";
+import type { AppsControl } from "../apps-control.ts";
+import type { ProcessSource } from "../../../packages/apps/runtime/connect.ts";
+import type { DesiredApp } from "../../../packages/apps/runtime/supervisor/mod.ts";
 import type { TeamModule } from "../registration.ts";
 
 export type CoreHarnessCredential = {
@@ -32,6 +35,8 @@ export type CoreHarnessCredential = {
   principal: string;
   scope: CredentialScope;
   conditions: CredentialConditions;
+  // 자격의 기한. 없으면 기한이 없다.
+  expires_at?: string;
 };
 
 export type CoreHarnessOptions = {
@@ -41,6 +46,12 @@ export type CoreHarnessOptions = {
   seed?: number;
   // I/O worker를 띄운다. 글·본문을 blob으로 준비하는 command(approval 설명 글 등)를 시험할 때 켠다.
   io?: boolean;
+  // apps 제어를 시험한다. supervisor를 실제로 띄우거나(supervisor), 프로세스 관측을 바꿔 끼운다.
+  apps?: {
+    supervisor?: boolean | { runtimeDir?: string };
+    process?: ProcessSource;
+    sweepMs?: number;
+  };
 };
 
 export type CoreHarness = {
@@ -58,6 +69,10 @@ export type CoreHarness = {
   sweepTicketClaims(): Promise<void>;
   // 기한에 도달한 대기 approval request를 한 번 만료로 확정한다. 60초 timer와 같은 함수다.
   sweepApprovalExpiry(): Promise<void>;
+  // 원하는 앱 프로세스 상태를 apps supervisor에 알린다.
+  reconcileApp(desired: DesiredApp): Promise<Result<void>>;
+  // apps 제어(connect 어댑터·supervisor 질의). 시험이 sweep을 직접 돌린다.
+  appsControl: AppsControl;
   // 확인 창 handle을 writer registry에 발급한다. confirmation route 시험에 쓴다.
   confirmation(body: {
     action: "issue" | "close-window" | "clear";
@@ -92,6 +107,13 @@ export async function createCoreHarness(
     random: seededRandom(seed),
     testCredentials: true,
     superviseIo: options.io === true,
+    ...(options.apps?.supervisor
+      ? { appSupervisor: options.apps.supervisor }
+      : {}),
+    ...(options.apps?.process ? { appProcess: options.apps.process } : {}),
+    ...(options.apps?.sweepMs === undefined
+      ? {}
+      : { appsSweepMs: options.apps.sweepMs }),
   });
   if (!started.ok) {
     await Deno.remove(directory, { recursive: true });
@@ -130,6 +152,8 @@ export async function createCoreHarness(
     clock,
     sweepTicketClaims: () => core.sweepTicketClaims(),
     sweepApprovalExpiry: () => core.sweepApprovalExpiry(),
+    reconcileApp: (desired) => core.reconcileApp(desired),
+    appsControl: core.appsControl!,
     async confirmation(body) {
       if (!core.confirmation) {
         return err({ code: "unavailable", message: "확인 발급 입구가 없다" });
@@ -164,6 +188,7 @@ function buildContext(
     scope: input.scope,
     conditions: input.conditions,
     credential_ref: `test-${sequence}`,
+    ...(input.expires_at === undefined ? {} : { expires_at: input.expires_at }),
   });
   if (!parsed.success) {
     return err({

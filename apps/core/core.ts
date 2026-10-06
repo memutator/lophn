@@ -54,6 +54,10 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import {
+  type CodingCredentials,
+  createCodingCredentials,
+} from "./coding-credential.ts";
 import { productKeychain } from "./secret-store.ts";
 import {
   createSecretInputRelay,
@@ -143,6 +147,19 @@ import { projectTrackingRoots } from "../../packages/contracts/documents/mod.ts"
 import { greet, type ParentPipe, watchParent, writeParent } from "./parent.ts";
 import { snapshotLogsEnvironment } from "./problems-logs.ts";
 import {
+  appCredentialIssuer,
+  APPS_CONTROL_CONTEXT,
+  APPS_SUPERVISOR_KIND,
+  type AppsControl,
+  appsOperationPolicies,
+  appSupervisorSpec,
+  createAppsControl,
+  SUPERVISOR_CREDENTIAL_OPERATIONS,
+} from "./apps-control.ts";
+import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
+import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
+import { createProductRedactor } from "./documents-redactor.ts";
+import {
   BOOTSTRAP_RETRY_MS,
   bootstrapBuiltinAssignments,
   noteBootstrapFailure,
@@ -214,11 +231,23 @@ export type CoreOptions = {
   // secret store가 값을 읽는 keychain adapter. 없으면 제품 adapter(Linux Secret Service)다.
   // 테스트는 fake를 주어 사람의 실제 keychain에 닿지 않게 한다.
   secretKeychain?: KeychainAdapter;
+  // coding agent connection credential을 준비·읽는 keychain adapter. 없으면 coding credential 인증은
+  // 꺼져 있다. 제품 main만 OS adapter를 주고 테스트는 fake를 준다(사람의 실제 keychain에 닿지 않는다).
+  codingKeychain?: KeychainAdapter;
+  // 설치된 보호 loader의 identity 목록. 설치 쪽이 정하기 전에는 비어 있어 child를 등록할 수 없다.
+  codingLoaders?: readonly string[];
   // 테스트가 감독 child를 실제 process 대신 같은 process 안의 것으로 바꿔 끼운다(예: fake keychain을
   // 쥔 I/O worker). 제품 기동에는 없다.
   spawn?: (request: SpawnRequest) => Spawned;
   // 테스트가 worker route serving을 붙이는 입구(T8·T13 통합). 제품 기동에는 없다.
   workers?: ReadonlyMap<string, WorkerRouteTarget>;
+  // 앱 supervisor(앱 프로세스 감독)를 띄운다. 제품 기동만 true다. runtimeDir은 앱 socket을 두는
+  // XDG runtime 디렉터리 자리이고 없으면 core 환경의 XDG_RUNTIME_DIR·사용자별 임시 폴더다.
+  appSupervisor?: boolean | { runtimeDir?: string };
+  // 테스트가 supervisor 대신 프로세스 관측을 바꿔 끼운다. 제품 기동에는 없다.
+  appProcess?: ProcessSource;
+  // 발급한 앱 connection의 회수 검사 간격(ms). 없으면 1초. 테스트가 줄인다.
+  appsSweepMs?: number;
   // 테스트가 documents worker에 준 hello(machine credential과 api port)를 본다. 시작과
   // 재시작마다 불린다. 제품
   // 기동에는 없다. credential은 log에 남기지 않는다.
@@ -259,6 +288,11 @@ export type Core = {
     kind: string,
     send: (message: ParentMessage) => Promise<boolean>,
   ): ChildBlobPrepare;
+  // 원하는 앱 프로세스 상태를 apps supervisor에 알린다. 마지막 상태를 기억해 supervisor가
+  // 다시 떠도 같은 상태로 맞춘다. releases 조립이 활성 release를 보고 부른다.
+  reconcileApp(desired: DesiredApp): Promise<Result<void>>;
+  // testCredentials일 때만 있다. apps 제어(connect 어댑터·supervisor 질의)다.
+  appsControl?: AppsControl;
   // testCredentials일 때만 있다. 제품 발급이 막는 actor의 테스트 기록이다.
   acceptTestCredential?(
     context: AuthenticatedContext,
@@ -282,6 +316,11 @@ export type Core = {
   sweepApprovalExpiry(): Promise<void>;
   // 재시작 때 접수·실행 중으로 남은 invocation을 미확인으로 확정한다(기동이 한 번 부른다).
   sweepInterruptedInvocations(): Promise<void>;
+  // codingKeychain이 있을 때만 있다. 사람의 연결 결정 입구가 connect를, 신뢰 감독이 registerChild를
+  // 부른다(입구의 contract는 coding-agent 소유라 HTTP route는 없다).
+  codingCredentials?: CodingCredentials;
+  // 시작 때의 고아 정리·색인 복원이 끝나면 resolve한다. 실패해도 resolve한다(기동을 막지 않는다).
+  codingCredentialsReady?: Promise<void>;
   // testCredentials일 때만 있다. core 안 documents 구독자(machine:documents-feed)의 session이다.
   // listen으로 그 session이 받는 event를 같이 들을 수 있다(documents plan Q17).
   documentsFeed?: InternalSubscription;
@@ -396,10 +435,21 @@ async function open(
   // machine은 command kind 정책에만 닿는다(identity model operationCeiling).
   // 문서 관측 제출은 machine document.prepare(준비 route)와 document.save command다
   // (documents#T11). 준비 route도 machine이 닿도록 command kind로 올린다.
+  const coding = options.codingKeychain
+    ? createCodingCredentials({
+      ledgerPath,
+      dataRoot: root.path,
+      keychain: options.codingKeychain,
+      clock,
+      random,
+      loaders: options.codingLoaders ?? [],
+    })
+    : undefined;
   const productRegistry = new CredentialRegistry({
     epoch,
     clock,
     random,
+    ...(coding ? { external: coding.authority } : {}),
     operations: [
       {
         name: "platform/status",
@@ -415,6 +465,8 @@ async function open(
       { name: "document.prepare", actors: ["machine"], kind: "command" },
       // 파일 작업 결과 기록(documents#T12). 사람 요청에 결합해 받은 worker만 쓴다.
       { name: "file.record_result", actors: ["machine"], kind: "command" },
+      // apps 관측 기록·제어 connection·자식 앱 credential이 닿는 operation(apps#T10).
+      ...appsOperationPolicies(),
       // 팀이 공개 정책을 내놓은 event 이름. 사람 token의 operation에 들어가 owner 정책이 판단한다.
       ...eventNames.map((name): OperationPolicy => ({
         name,
@@ -448,6 +500,36 @@ async function open(
       ...(kind === "platform/io" ? sessionBusEnv() : {}),
     }),
   });
+  // 앱 supervisor는 platform/io와 따로 감독한다. I/O worker 없이도 앱 감독을 띄울 수 있다.
+  const appsRuntimeDir = typeof options.appSupervisor === "object"
+    ? options.appSupervisor.runtimeDir
+    : undefined;
+  const appsSupervision = options.appSupervisor
+    ? createSupervisor({
+      clock,
+      denoCommand: Deno.execPath(),
+      env: () => ({
+        LOPHN_WORKER_KIND: APPS_SUPERVISOR_KIND,
+        LOPHN_HOME: root.path,
+        // 앱 자식에게 넘길 deno 캐시·XDG·임시 폴더 위치뿐이다. 그 밖 환경은 복사하지 않는다.
+        ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
+        ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+        ...(Deno.env.get("DENO_DIR")
+          ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
+          : {}),
+        ...(Deno.env.get("XDG_CACHE_HOME")
+          ? { XDG_CACHE_HOME: Deno.env.get("XDG_CACHE_HOME")! }
+          : {}),
+        ...((appsRuntimeDir ?? Deno.env.get("XDG_RUNTIME_DIR"))
+          ? {
+            XDG_RUNTIME_DIR: (appsRuntimeDir ??
+              Deno.env.get("XDG_RUNTIME_DIR"))!,
+          }
+          : {}),
+        ...(Deno.env.get("TMPDIR") ? { TMPDIR: Deno.env.get("TMPDIR")! } : {}),
+      }),
+    })
+    : undefined;
   let ready = false;
   const stopPrune: {
     run?: () => void;
@@ -491,6 +573,10 @@ async function open(
           ...(runtime ? {} : { reason: "reader가 아직 없다" }),
         }],
         ["io", ioComponent(io)],
+        // 앱 supervisor를 띄우는 기동만 앱 영역의 감독 상태를 더한다.
+        ...(appsSupervision
+          ? [["apps", appsComponent(appsSupervision)] as const]
+          : []),
       ];
     },
   };
@@ -551,6 +637,32 @@ async function open(
     await runtime.close();
     return notificationsCredential;
   }
+  // apps 제어(connect 어댑터·runtime·logs 덮기)가 ledger 사실을 읽는 core 내부 자격 기록.
+  const appsControlCredential = await runtime.record(APPS_CONTROL_CONTEXT);
+  if (!appsControlCredential.ok) {
+    await runtime.close();
+    return appsControlCredential;
+  }
+  const knownSecrets = runtime.knownSecrets;
+  const redactLine = createProductRedactor(knownSecrets);
+  const appsControl = await createAppsControl({
+    clock,
+    ledgerPath,
+    readers: runtime.readers,
+    revalidate: (credentialRef) =>
+      registry.revalidate({ credential_ref: credentialRef }),
+    redact: (line) =>
+      redactLine(
+        { concern: "apps/runtime", revision: "1", scope: "app-log" },
+        "text/plain",
+        line,
+      ),
+    ...(options.appProcess ? { process: options.appProcess } : {}),
+    ...(options.appsSweepMs === undefined
+      ? {}
+      : { sweepMs: options.appsSweepMs }),
+  });
+  appsControl.overlayReads(runtime.reads);
   // documents 구독자(machine:documents-feed)의 자격 기록. token이 없는 core 내부 자격이라
   // HTTP로는 이 principal이 될 수 없고, reader가 이 ledger 기록으로 event 공개를 판단한다.
   const feedCredential = await runtime.record(DOCUMENTS_FEED_CONTEXT);
@@ -676,7 +788,8 @@ async function open(
           runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, { command, input }),
       ),
       reads: runtime.reads,
-      memory: runtime.memory.handlers,
+      // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.
+      memory: new Map([...runtime.memory.handlers, ...appsControl.memory]),
       events: runtime.events,
       subscriptions: runtime.subscriptions,
       track: (session) => runtime.track(session),
@@ -1131,6 +1244,67 @@ async function open(
     }
     await bootstrapState.inflight;
   };
+  // apps/supervisor. 앱 프로세스 감독이다. machine credential과 서명 검증 공개 key를 hello에
+  // 싣고, 자식 앱이 쓸 app credential은 supervisor의 요청마다 발급한다. 띄우지 못해도 core는
+  // 계속 선다: connect와 runtime은 supervisor 관측이 없는 상태(unavailable)로 답한다.
+  if (appsSupervision) {
+    appsControl.useIssuer(appCredentialIssuer(productRegistry));
+    const issued = await productRegistry.issue({
+      actor: "machine",
+      principal: "machine:apps-supervisor",
+      scope: {
+        operations: [...SUPERVISOR_CREDENTIAL_OPERATIONS],
+        targets: { task: "apps" },
+      },
+      conditions: { task: "apps", process: APPS_SUPERVISOR_KIND },
+    });
+    const current = issued.ok
+      ? productRegistry.revalidate({
+        credential_ref: issued.value.credential_ref,
+      })
+      : issued;
+    const recorded = issued.ok && current.ok
+      ? await runtime.record(current.value)
+      : current;
+    if (issued.ok && current.ok && recorded.ok) {
+      const started = await appsSupervision.start(
+        appSupervisorSpec({
+          dataRoot: root.path,
+          apiPort: server.port,
+          runtimeDir: appsRuntimeDir,
+        }),
+        {
+          type: "hello",
+          core_epoch: epoch,
+          process_identity: epoch,
+          kind: APPS_SUPERVISOR_KIND,
+          task: "apps",
+          // 서명 검증 공개 key는 secret이 아니다. 감독이 supervisor를 다시 띄워도 hello가
+          // 같은 key를 다시 준다.
+          scope: {
+            operations: [],
+            targets: { task: "apps", verify_key: appsControl.verifyKey },
+          },
+          credential: issued.value.token,
+          api_port: server.port,
+        },
+        { onMessage: (message) => appsControl.onSupervisorMessage(message) },
+      );
+      if (started.ok) {
+        appsControl.channel.bind((payload) =>
+          appsSupervision.send(APPS_SUPERVISOR_KIND, payload).then((sent) =>
+            sent.ok
+          )
+        );
+      }
+    }
+  }
+  appsControl.start();
+  // 고아 정리와 active connection 색인 복원은 기동을 기다리게 하지 않는다. 실패는 진단 log뿐이다.
+  const codingReady = coding
+    ? coding.start(productRegistry, (context) => runtime!.record(context))
+      .catch(() => {})
+    : undefined;
   ready = true;
   // 부모 pipe는 호출자가 명시할 때만 연다. 터미널에서 직접 띄우면 종료는 신호가 담당한다.
   const parent = options.parent;
@@ -1158,12 +1332,20 @@ async function open(
     epoch,
     dataRoot: root.path,
     done: Promise.resolve(),
+    ...(coding
+      ? { codingCredentials: coding, codingCredentialsReady: codingReady }
+      : {}),
     record: (context) => runtime!.record(context),
     sweepTicketClaims: () => runtime!.sweepTicketClaims(),
     sweepApprovalExpiry: () => runtime!.sweepApprovalExpiry(),
+    reconcileApp: (desired) => appsControl.reconcile(desired),
     sweepInterruptedInvocations: () => runtime!.sweepInterruptedInvocations(),
     ...(options.testCredentials
-      ? { documentsFeed, eventSessions: () => runtime!.trackedSessions() }
+      ? {
+        documentsFeed,
+        eventSessions: () => runtime!.trackedSessions(),
+        appsControl,
+      }
       : {}),
     blobBuffer,
     childBlobPrepare: (kind, send) =>
@@ -1258,6 +1440,9 @@ async function open(
         await server.stop();
         if (options.failShutdown) await options.failShutdown();
         stoppedAt.commandsBlocked = ready === false;
+        // 앱 supervisor가 먼저 앱 자식을 정지한다. 그 뒤 질의 통로를 닫는다.
+        appsControl.stop();
+        if (appsSupervision) await appsSupervision.stopAll();
         // child 정상 정지. stopAll이 돌아온 뒤에야 새 blob 준비 접수가 없다.
         if (io) await io.stopAll();
         stoppedAt.preparationsBlocked = true;
@@ -1917,6 +2102,15 @@ function baseVersionRead(runtime: CoreRuntime): BaseVersionFor {
       (read.value as { version: VersionRow | null }).version,
     );
   };
+}
+
+function appsComponent(
+  supervision: ReturnType<typeof createSupervisor>,
+): { available: boolean; reason?: string } {
+  const observed = supervision.observation(APPS_SUPERVISOR_KIND);
+  return observed.available
+    ? { available: true }
+    : { available: false, reason: observed.reason ?? "apps supervisor가 없다" };
 }
 
 function ioComponent(

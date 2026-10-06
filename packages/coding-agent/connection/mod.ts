@@ -1,4 +1,6 @@
 export { connectionSchemaSteps } from "./schema.ts";
+// core 조립이 시작 때 active connection 목록을 읽는다(platform 인증 색인 복원).
+export { listConnections } from "./store.ts";
 export {
   assertConnection,
   nextState,

@@ -2,7 +2,12 @@ import { assert, assertEquals } from "@std/assert";
 import { manualClock } from "../../../base/mod.ts";
 import type { Result } from "../../../base/mod.ts";
 import type { CoreLink, RuntimeRecord } from "../core-link.ts";
-import type { AppChild, DesiredApp, ProbeResult } from "./supervisor.ts";
+import type {
+  AppChild,
+  DesiredApp,
+  ProbeResult,
+  SupervisorEvent,
+} from "./supervisor.ts";
 import { createSupervisor } from "./supervisor.ts";
 
 const RELEASE = "rel_00000000000000000000000001";
@@ -27,6 +32,8 @@ function desired(over: Partial<DesiredApp> = {}): DesiredApp {
 
 type Harness = {
   records: RuntimeRecord[];
+  events: SupervisorEvent[];
+  socketApps: string[];
   spawned: number;
   alive: () => number;
   child: (index: number) => FakeChild;
@@ -44,9 +51,13 @@ function harness(options: {
   confirm?: boolean;
   core?: CoreLink;
   wait?: (ms: number) => Promise<void>;
+  open?: (index: number) => Promise<boolean>;
+  credential?: () => Promise<string> | string;
 } = {}): Harness {
   const clock = manualClock(0);
   const records: RuntimeRecord[] = [];
+  const events: SupervisorEvent[] = [];
+  const socketApps: string[] = [];
   const children: FakeChild[] = [];
   let nonce = 0;
   const core: CoreLink = options.core ?? {
@@ -60,9 +71,14 @@ function harness(options: {
     core,
     deno: () => "/usr/bin/deno",
     environment: { home: "/h", denoDir: "/d", xdgCacheHome: "/c", path: "/p" },
-    socketPaths: () => ({ broker: "/run/b.sock", direct: "/run/a.sock" }),
+    socketPaths: (app) => {
+      socketApps.push(app);
+      return { broker: "/run/b.sock", direct: "/run/a.sock" };
+    },
     nonce: () => `nonce-${nonce++}`,
-    credential: () => "broker-credential",
+    credential: options.credential ?? (() => "broker-credential"),
+    ...(options.open ? { open: () => options.open!(children.length - 1) } : {}),
+    onEvent: (event) => events.push(event),
     verifyKey: () => "v".repeat(43),
     readyTimeoutMs: 30_000,
     spawn(request): Promise<AppChild> {
@@ -104,6 +120,8 @@ function harness(options: {
   });
   return {
     records,
+    events,
+    socketApps,
     get spawned() {
       return children.length;
     },
@@ -355,4 +373,129 @@ Deno.test("apps/runtime#R2: probe가 30초 안에 끝나지 않으면 시작 실
   assert(failed && failed.method === "record_unavailable");
   assertEquals(failed.reason.code, "start_failed");
   assertEquals(env.alive(), 0);
+});
+
+Deno.test("apps/runtime#R2: probe가 통과해야 ready이고 통로를 연 뒤에야 accepting이며 open이 실패하면 시작 실패다", async () => {
+  let release: (opened: boolean) => void = () => {};
+  const gate = new Promise<boolean>((resolve) => {
+    release = resolve;
+  });
+  const env = harness({ open: () => gate });
+  const starting = env.supervisor.reconcile(desired());
+  // 자식은 떴지만 probe 통과·open 전이다. 띄운 것만으로 ready라고 하지 않는다.
+  assertEquals(env.supervisor.observation(APP)?.ready, false);
+  for (
+    let tick = 0;
+    tick < 50 && !env.supervisor.observation(APP)?.ready;
+    tick++
+  ) await Promise.resolve();
+  const during = env.supervisor.observation(APP)!;
+  assertEquals(during.ready, true, "probe는 통과했고 open을 기다린다");
+  assertEquals(during.accepting, false);
+  release(true);
+  await starting;
+  const after = env.supervisor.observation(APP)!;
+  assertEquals(after.ready, true);
+  assertEquals(after.accepting, true);
+  assertEquals(env.records.map((record) => record.method), ["record_started"]);
+
+  const refused = harness({ open: () => Promise.resolve(false) });
+  await refused.supervisor.reconcile(desired());
+  assertEquals(refused.records.map((record) => record.method), [
+    "record_unavailable",
+  ]);
+  assertEquals(refused.supervisor.observation(APP)!.ready, false);
+  assertEquals(refused.child(0).stopRequests, 1);
+});
+
+Deno.test("apps/runtime#R7: 자식 credential 발급이 거절되면 자식을 띄우지 않고 시작 실패로 남긴다", async () => {
+  const env = harness({
+    credential: () => Promise.reject(new Error("core refused")),
+  });
+  await env.supervisor.reconcile(desired());
+  assertEquals(env.spawned, 0);
+  assertEquals(env.records.length, 1);
+  assertEquals(env.records[0].method, "record_unavailable");
+  const record = env.records[0] as Extract<
+    RuntimeRecord,
+    { method: "record_unavailable" }
+  >;
+  assertEquals(record.reason.code, "start_failed");
+});
+
+Deno.test("apps/runtime#R6: socket 자리는 앱마다 정해진다", async () => {
+  const env = harness();
+  await env.supervisor.reconcile(desired());
+  assertEquals(env.socketApps, [APP]);
+});
+
+Deno.test("apps/permissions#R21: restart는 그 nonce의 자식을 종료 확인한 뒤 새 nonce로 다시 띄우고 다른 nonce면 하지 않는다", async () => {
+  const env = harness();
+  await env.supervisor.reconcile(desired());
+  const first = env.child(0).identity.processNonce;
+  assertEquals(await env.supervisor.restart(APP, "another-nonce"), false);
+  assertEquals(env.spawned, 1);
+  assertEquals(await env.supervisor.restart(APP, first), true);
+  assertEquals(env.child(0).stopRequests, 1);
+  assertEquals(env.spawned, 2);
+  assert(env.child(1).identity.processNonce !== first);
+  assertEquals(env.records.map((record) => record.method), [
+    "record_started",
+    "record_stopped",
+    "record_started",
+  ]);
+  // 이미 교체된 옛 nonce로 다시 부르면 새 자식을 건드리지 않는다.
+  assertEquals(await env.supervisor.restart(APP, first), false);
+  assertEquals(env.spawned, 2);
+  assertEquals(
+    await env.supervisor.restart("app_00000000000000000000000009", first),
+    false,
+  );
+});
+
+Deno.test("apps/runtime#R28: 종료·시작 실패·crash loop는 근거 사실로 알리고 의도된 정지는 intended로 표시한다", async () => {
+  const stopped = harness();
+  await stopped.supervisor.reconcile(desired());
+  await stopped.supervisor.reconcile(desired({ runEnabled: false }));
+  assertEquals(stopped.events.length, 1);
+  assertEquals(stopped.events[0].kind, "exit");
+  assertEquals(
+    (stopped.events[0] as Extract<SupervisorEvent, { kind: "exit" }>).intended,
+    true,
+  );
+
+  const crashed = harness();
+  await crashed.supervisor.reconcile(desired());
+  crashed.child(0).kill(1);
+  for (let tick = 0; tick < 20; tick++) await Promise.resolve();
+  const exit = crashed.events.find((event) => event.kind === "exit") as
+    | Extract<SupervisorEvent, { kind: "exit" }>
+    | undefined;
+  assert(exit !== undefined);
+  assertEquals(exit.intended, false);
+  assertEquals(exit.exitCode, 1);
+  assertEquals(exit.processNonce, crashed.child(0).identity.processNonce);
+
+  const failed = harness({
+    probe: () => ({ ok: false, reason: "ready timeout" }),
+  });
+  await failed.supervisor.reconcile(desired());
+  const start = failed.events.find((event) => event.kind === "start_failed") as
+    | Extract<SupervisorEvent, { kind: "start_failed" }>
+    | undefined;
+  assert(start !== undefined);
+  assertEquals(start.reason.summary, "ready timeout");
+});
+
+Deno.test("apps/runtime#R19: 멈춘 앱은 지난 crash loop 근거를 관측에 남기지 않는다", async () => {
+  const env = harness();
+  await env.supervisor.reconcile(desired());
+  for (let crash = 0; crash < 6; crash++) {
+    env.child(env.spawned - 1).kill(1);
+    for (let tick = 0; tick < 50; tick++) await Promise.resolve();
+  }
+  assertEquals(env.supervisor.observation(APP)!.reason?.code, "crash_loop");
+  // 사람이 멈추면 그 근거는 더 이상 이 앱의 현재 상태가 아니다.
+  await env.supervisor.reconcile(desired({ runEnabled: false }));
+  assertEquals(env.supervisor.observation(APP)!.reason, undefined);
 });

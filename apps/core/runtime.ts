@@ -193,11 +193,13 @@ export async function openRuntime(input: {
       readerModules.push(new URL(url));
     }
   }
+  // 격리됐다 다시 뜬 reader는 알려진 secret 값을 모른다. secret store가 현재 값을 다시 넣는다.
+  const resync: { run?: () => Promise<unknown> } = {};
   const readers = await createReaderPool(input.ledgerPath, [
     new URL("./reader-registration.ts", import.meta.url),
     // createReaderRegistration을 내보내는 팀 read도 같은 풀로 붙는다.
     ...readerModules,
-  ]);
+  ], { onRespawn: () => resync.run?.() });
   if (!readers.ok) {
     await openedWriter.writer.close();
     return readers;
@@ -211,6 +213,7 @@ export async function openRuntime(input: {
     keychain: input.keychain,
     sources: input.assembled.secretRefs,
   });
+  resync.run = () => secretStore.sync();
   await secretStore.sync();
   const writer = withSecretSync(
     openedWriter.writer,

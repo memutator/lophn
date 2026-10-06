@@ -232,23 +232,6 @@ export async function startFixtureApp(
     collect(process.stdout),
     collect(process.stderr),
   ]);
-  const writer = process.stdin.getWriter();
-  await writer.write(
-    new TextEncoder().encode(
-      `${
-        startLineOf({
-          app,
-          release,
-          bundleHash: bundle.bundleHash,
-          mode,
-          nonce,
-          dir,
-          verifyKey: options.verifyKey,
-        })
-      }\n`,
-    ),
-  );
-  await writer.close();
   const exited = process.status;
   let stopped = false;
   const stop = async () => {
@@ -262,6 +245,23 @@ export async function startFixtureApp(
     await Deno.remove(dir, { recursive: true }).catch(() => undefined);
   };
   try {
+    const writer = process.stdin.getWriter();
+    await writer.write(
+      new TextEncoder().encode(
+        `${
+          startLineOf({
+            app,
+            release,
+            bundleHash: bundle.bundleHash,
+            mode,
+            nonce,
+            dir,
+            verifyKey: options.verifyKey,
+          })
+        }\n`,
+      ),
+    );
+    await writer.close();
     await listening(`${dir}/a.sock`, exited);
   } catch (error) {
     const output = text;
@@ -281,4 +281,51 @@ export async function startFixtureApp(
     exited,
     stop,
   };
+}
+
+// 이 폴더만 읽는 앱 자식(`--allow-read=<dir>,...`)의 pid. Linux /proc에서 읽고, 없으면 빈 목록이다.
+// 폴더는 시험마다 새로 만든 임시 폴더라 다른 시험·다른 사람의 프로세스를 가리키지 않는다.
+export async function appProcessesReading(dir: string): Promise<number[]> {
+  const found: number[] = [];
+  let entries: Deno.DirEntry[];
+  try {
+    entries = await Array.fromAsync(Deno.readDir("/proc"));
+  } catch {
+    return found;
+  }
+  for (const entry of entries) {
+    if (!/^[0-9]+$/.test(entry.name)) continue;
+    let argv: string[];
+    try {
+      const raw = await Deno.readFile(`/proc/${entry.name}/cmdline`);
+      argv = new TextDecoder().decode(raw).split("\0");
+    } catch {
+      continue;
+    }
+    const reads = argv.find((arg) => arg.startsWith("--allow-read="));
+    if (reads?.slice("--allow-read=".length).split(",").includes(dir)) {
+      found.push(Number(entry.name));
+    }
+  }
+  return found;
+}
+
+// 시험이 끝났는데 남은 앱 자식을 끝낸다. 시험이 실패하거나 중간에 던지면 core가 supervisor까지
+// 정리하지 못해 자식이 고아로 남는다. 끝낸 pid를 돌려준다(정상 종료면 빈 목록).
+export async function reapAppProcesses(
+  dir: string,
+  waitMs = 5_000,
+): Promise<number[]> {
+  const pids = await appProcessesReading(dir);
+  for (const pid of pids) {
+    try {
+      Deno.kill(pid, "SIGKILL");
+    } catch { /* 이미 끝났다 */ }
+  }
+  const deadline = performance.now() + waitMs;
+  while (performance.now() < deadline) {
+    if ((await appProcessesReading(dir)).length === 0) break;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return pids;
 }

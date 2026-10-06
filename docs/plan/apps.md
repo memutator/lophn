@@ -1291,6 +1291,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T24 fixture: 캘린더 앱
 
+- 상태: 완료 (#387) — 이어보냄: add_event의 되돌림 근거 조립 → T23, AppShell nav 없는 전체 폭 → shell#T40
 - 등급: frontend
 - concern: apps/blueprint, apps/automations, apps/permissions, apps/connections
 - 요구: apps/blueprint#R5, R6, R20, apps/automations#R13, apps/permissions#R8,
@@ -1310,6 +1311,8 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     automation: on_start sync·interval sync(60000ms)·external 동기화(켜는 승인
     필요)
   - 다른 앱(할 일)과 agent가 쓰는 command, problems/tests#R18의 "외부 연동 효과"
+  - 정한 것: 앱 원본은 `fixtures/apps/calendar/`에 `.tmpl` 접미로 두고(`fake-external/`만 일반 `.ts`), 시험(`apps/core/app-calendar-fixture_test.ts`)이 `readTemplateDirectory(stripSuffix)`로 temp 폴더에 풀어 commit한 뒤 T6 `prepareFromSource`로 준비한다. 앱 test가 network 권한이 없어 앱 안 tests는 fake의 메모리 `fetch`를 net 대역에 잇고, 실제 HTTP는 `serveFakeExternal`(선언한 127.0.0.1:38917)과 broker `net/fetch` 서비스 시험이 쓴다. net 요청에는 body가 없어 `create_external_event`는 query로 보낸다. 되돌림 command는 `revert_event`다. 만들기 요청의 5xx·전송 단절은 효과 모름(`CommandRejection`이 아닌 오류), 가져오기 실패와 4xx는 효과 없는 거절이다
+  - T23으로 넘김: `add_event`는 결과로 일정(`id` 포함)만 돌려주고 `revert_event {id}`를 선언한다. `{result, revert:{invocation, receipt, expected_revision}}` 조립 helper를 SDK에 더하면(T23) 이 앱도 같은 helper로 바꾼다. T23이 `app.call`로 부를 command는 `add_event {title, starts_at(ISO 8601)}`다
 
 ### T25 fixture: rate limit 대시보드 앱
 

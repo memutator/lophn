@@ -1,7 +1,7 @@
 // 문서 권한 판정. platform이 주입한 TargetAuthorization port가 domain target을 본다.
 // port가 없거나 판정이 Result가 아니면 fail-closed다.
 
-import { err, ERROR_CODES, type Result } from "../../base/mod.ts";
+import { err, ERROR_CODES, ok, type Result } from "../../base/mod.ts";
 import type { Document } from "../../contracts/documents/mod.ts";
 import {
   type AuthorizationTarget,
@@ -9,6 +9,7 @@ import {
   TargetAuthorization,
   type TargetAuthorizer,
 } from "../../contracts/platform/mod.ts";
+import { actingApp, isAppPlace } from "../addressing/mod.ts";
 
 export type DocumentAccessTarget =
   | { kind: "create"; document: Document }
@@ -45,12 +46,31 @@ function synchronousResult<T>(value: unknown): Result<T> {
   return dependencyUnavailable();
 }
 
+// 앱 자격은 자기 앱 place의 문서에만 닿는다. 앱 credential의 scope target은 place를 담지 않으므로
+// (platform/identity 발급은 app·release·process·mode만 고정한다) port 판정 앞에서 documents가 직접
+// 판정한다. 다른 place·자리 없음의 기존 문서는 없는 문서와 같은 not_found고, 다른 자리에 새
+// 문서를 만드는 것은 forbidden이다.
+function appScope(
+  ctx: RequestContext,
+  target: DocumentAccessTarget,
+): Result<void> {
+  const app = actingApp(ctx);
+  if (app === null || isAppPlace(app, target.document.place)) {
+    return ok(undefined);
+  }
+  return target.kind === "create"
+    ? err({ code: "forbidden", message: "app writes only its own app place" })
+    : err({ code: "not_found", message: "target not found" });
+}
+
 export function authorizeDocument(
   port: (<T>(key: { readonly name: string }) => T) | undefined,
   ctx: RequestContext,
   operation: string,
   target: DocumentAccessTarget,
 ): Result<void> {
+  const scoped = appScope(ctx, target);
+  if (!scoped.ok) return scoped;
   let authorize: unknown;
   try {
     authorize = port?.(TargetAuthorization);

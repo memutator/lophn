@@ -147,39 +147,18 @@ export function cutOutline<S extends CuttableSection>(
   return { entries, complete };
 }
 
-// depth 아래로 숨은 자손 수. 자식 section은 key parent 사슬로 센다.
+// depth 아래로 숨은 자식 수. 직접 자식 중 depth를 넘는 것만 센다(계약: hidden_children_count는
+// children_count를 넘지 않는다). 손자 이하는 그 자식 아래에 숨으므로 세지 않는다.
 function hiddenBelow(
   sections: readonly CuttableSection[],
   section: CuttableSection,
   depth: number,
 ): number {
-  // depth를 넘는 section만 숨는다. depth와 같은 level의 section도 자식이 숨는다.
   let count = 0;
   for (const other of sections) {
-    if (other.level > depth && isDescendant(sections, other, section)) {
-      count += 1;
-    }
+    if (other.parent === section.key && other.level > depth) count += 1;
   }
   return count;
-}
-
-// parent key 사슬을 걸어 올라가 다다르면 자손이다. 순환은 추출 규약이 이미 막는다,
-// 보험으로 걸음 수를 제한한다.
-function isDescendant(
-  sections: readonly CuttableSection[],
-  other: { parent: string | null },
-  ancestor: CuttableSection,
-): boolean {
-  let parent = other.parent;
-  let guard = 0;
-  while (parent !== null && guard <= sections.length) {
-    if (parent === ancestor.key) return true;
-    const next = sections.find((section) => section.key === parent);
-    if (next === undefined) return false;
-    parent = next.parent;
-    guard += 1;
-  }
-  return false;
 }
 
 // 읽을 줄 번호. section 범위(section 선택이 없으면 null)와 줄 범위를 합치고, 아무

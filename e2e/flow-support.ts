@@ -77,6 +77,8 @@ export type CoreCall = {
 
 export interface FlowShell {
   readonly shell: RunningShell;
+  /** 창을 다시 읽는다. 화면이 처음 한 번만 읽는 목록(자리 선택지)을 새로 받는다. */
+  reload(): Promise<void>;
   /** 임시 LOPHN_HOME. */
   readonly home: string;
   /** shell preload의 core 통로로 사람 token의 read·command·worker 읽기를 부른다. */
@@ -287,6 +289,14 @@ export async function openFlowShell(
       );
       return JSON.parse(String(found)) as string[];
     },
+    async reload() {
+      await evaluate(`(() => { location.reload(); return true; })()`);
+      await delay(500);
+      await flow.until(
+        `document.querySelector("[data-space]") !== null && document.querySelector("[data-connection]") === null && document.querySelector("[data-search-input]") !== null`,
+        "창을 다시 읽은 뒤 화면이 서지 않았다",
+      );
+    },
     async close() {
       await shell.close();
     },
@@ -343,24 +353,22 @@ export type Listed = {
   format: string;
 };
 
+export type TrackingOptions = {
+  folder: string;
+  globs?: readonly string[];
+  useGitignore?: boolean;
+  enabled?: boolean;
+};
+
 /**
- * 사람이 프로젝트를 등록하고 파일 추적을 켠다. 이 화면(launcher 등록·추적 미리보기)은
- * shell#T15 몫이라 아직 없어서 같은 사람 command를 core 통로로 낸다. 미리보기는 같은 계산을
- * 시험이 직접 하고(`/v1/projects/preview_tracking`의 core 서빙은 documents#T12), 적용
- * command는 실제로 낸다.
+ * 사람이 프로젝트를 등록한다. 추적은 켜지 않는다(등록과 추적은 다르다, documents/projects#R3).
+ * launcher의 등록 화면은 shell#T15 몫이라 아직 없어서 같은 사람 command를 core 통로로 낸다.
  */
-export async function registerTrackedProject(
+export async function registerProject(
   flow: FlowShell,
-  options: {
-    folder: string;
-    globs?: readonly string[];
-    id?: string;
-    name?: string;
-    title?: string;
-  },
+  options: { folder: string; id?: string; name?: string; title?: string },
 ): Promise<{ project: string; revision: string }> {
   const project = options.id ?? PROJECT;
-  const folders = [{ path: options.folder, description: "" }];
   const created = await mustCall(flow, {
     kind: "command",
     resource: "projects",
@@ -370,18 +378,27 @@ export async function registerTrackedProject(
       name: options.name ?? "alpha",
       title: options.title ?? "Alpha",
       purpose: "",
-      folders,
+      folders: [{ path: options.folder, description: "" }],
       tracking: { enabled: false, patterns: [], use_gitignore: false },
     }),
   });
-  const revision = String(created.revision);
+  return { project, revision: String(created.revision) };
+}
+
+/** 추적 규칙 변경 command 본문. 미리보기는 같은 계산을 시험이 직접 한다. */
+function trackingChange(
+  project: string,
+  revision: string,
+  options: TrackingOptions,
+) {
+  const folders = [{ path: options.folder, description: "" }];
   const tracking = {
-    enabled: true,
+    enabled: options.enabled ?? true,
     patterns: (options.globs ?? ["**/*.md"]).map((glob) => ({
       effect: "include" as const,
       glob,
     })),
-    use_gitignore: false,
+    use_gitignore: options.useGitignore ?? false,
   };
   const preview = previewTracking(directoryScanner(), {
     project,
@@ -391,16 +408,51 @@ export async function registerTrackedProject(
     observedAt: new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z"),
   });
   assert(preview.ok, "추적 미리보기를 계산하지 못했다");
-  const applied = await mustCall(flow, {
+  return commandBody(
+    { project, folders, tracking, preview: preview.value },
+    { base_revision: revision },
+  );
+}
+
+/** 추적을 켜거나 끄는 call. 결과는 호출자가 본다(겹침 같은 거절을 확인한다). */
+export function setTracking(
+  flow: FlowShell,
+  project: string,
+  revision: string,
+  options: TrackingOptions,
+): Promise<CoreReply> {
+  return flow.call({
     kind: "command",
     resource: "projects",
     method: "set_tracking",
-    body: commandBody(
-      { project, folders, tracking, preview: preview.value },
-      { base_revision: revision },
-    ),
+    body: trackingChange(project, revision, options),
   });
-  return { project, revision: String(applied.revision) };
+}
+
+/**
+ * 사람이 프로젝트를 등록하고 파일 추적을 켠다. 미리보기 화면과
+ * `/v1/projects/preview_tracking`의 core 서빙은 shell#T15·documents#T12 몫이다.
+ */
+export async function registerTrackedProject(
+  flow: FlowShell,
+  options: TrackingOptions & {
+    id?: string;
+    name?: string;
+    title?: string;
+  },
+): Promise<{ project: string; revision: string }> {
+  const registered = await registerProject(flow, options);
+  const applied = await setTracking(
+    flow,
+    registered.project,
+    registered.revision,
+    options,
+  );
+  assert(applied.ok, `set_tracking: ${JSON.stringify(applied)}`);
+  return {
+    project: registered.project,
+    revision: String((applied.value as { revision: string }).revision),
+  };
 }
 
 /** 문서 목록(사람 token). 보관 문서를 포함할지는 status로 고른다. */

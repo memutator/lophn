@@ -2098,3 +2098,51 @@ Deno.test("documents/outline-and-search#R4: 읽을 수 없는 문서의 근거�
     fx.close();
   }
 });
+
+Deno.test("documents/outline-and-search#R5: 여섯 단계까지 깊은 문서의 목차도 숨긴 자식 수가 직접 자식 수를 넘지 않아 계약 출력을 지킨다", async () => {
+  const { extractFormat } = await import("../formats/guest.ts");
+  const { BUILTIN_MODULE_HASH } = await import("../formats/mod.ts");
+  const { documentOutlinePageSchema } = await import(
+    "../../contracts/documents/mod.ts"
+  );
+  // notes-basic/index.md는 h2~h6가 차례로 이어지고 level을 건너뛰는 제목도 있다.
+  const text = await Deno.readTextFile(
+    new URL("../../../fixtures/projects/notes-basic/index.md", import.meta.url),
+  );
+  const extracted = extractFormat("document", {
+    input_hash: HASH,
+    module_hash: BUILTIN_MODULE_HASH,
+    files: [{
+      path: "index.md",
+      media_type: "text/markdown",
+      primary: true,
+      content: Array.from(new TextEncoder().encode(text)),
+    }],
+  });
+  assertEquals(extracted.status, "ready");
+  const fx = openDerivedFixture();
+  try {
+    ledgerRow(fx, DOC_A, VER_A, { kind: "project", id: PROJECT });
+    keep(recordExtraction(fx.store, {
+      document: DOC_A,
+      version: VER_A,
+      content_hash: HASH,
+      module_hash: BUILTIN_MODULE_HASH,
+      extraction: extracted as ExtractionRecord["extraction"],
+    }, "1"));
+    fx.consumed("5");
+    const page = keep(
+      fx.outline().document(OUTLINE_CTX, { reference: { document: DOC_A } }),
+    );
+    for (const entry of page.entries) {
+      assert(entry.hidden_children_count <= entry.children_count);
+    }
+    const parsed = documentOutlinePageSchema.safeParse(page);
+    assert(parsed.success, JSON.stringify(parsed.error?.issues));
+    // h2 "아웃라인"의 직접 자식(h3)은 depth 2 밖이라 하나가 숨는다.
+    const outline = page.entries.find((entry) => entry.key === "아웃라인");
+    assertEquals(outline?.hidden_children_count, 1);
+  } finally {
+    fx.close();
+  }
+});

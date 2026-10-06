@@ -225,19 +225,24 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
 
   // agent가 쓸 수 있는 command: 현재 프로세스가 등록한 것 ∩ 역할·assignment 범위 ∩ 현재 active
   // agent.commands 허락. 어느 하나라도 없으면 connection에 들어가지 않는다(R32).
-  async function agentCommands(
+  // 역할·assignment 범위. 이 앱이 범위에 없으면 없는 앱과 같다.
+  function agentEntry(
     ctx: AuthenticatedContext,
+    app: string,
+  ): { app: string; commands: readonly string[] } | undefined {
+    const bound = (ctx.scope as { agent?: unknown }).agent as
+      | { apps: readonly { app: string; commands: readonly string[] }[] }
+      | undefined;
+    return bound?.apps.find((item) => item.app === app);
+  }
+
+  // agent가 쓸 수 있는 command: 현재 프로세스가 등록한 것 ∩ 역할·assignment 범위 ∩ 현재 active
+  // agent.commands 허락. 어느 하나라도 없으면 connection에 들어가지 않는다(R32).
+  async function agentCommands(
+    entry: { commands: readonly string[] },
     input: AppConnectInput,
     process: ProcessObservation,
   ): Promise<Result<string[]>> {
-    const bound = (ctx.scope as { agent?: unknown }).agent as
-      | {
-        apps: readonly { app: string; commands: readonly string[] }[];
-      }
-      | undefined;
-    const entry = bound?.apps.find((item) => item.app === input.app);
-    // 역할·assignment 범위 밖의 앱은 없는 것과 같다.
-    if (entry === undefined) return notFound();
     const grants = await deps.facts.grants(input.app);
     if (!grants.ok) return grants;
     const allowedByGrant = effectiveScope({
@@ -339,6 +344,9 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
     const app = await deps.facts.app(input.app);
     if (!app.ok) return app;
     if (app.value === null) return notFound();
+    // 역할 범위 밖의 앱은 프로세스 상태를 보기 전에 없는 앱과 같게 답한다.
+    const scoped = kind === "agent" ? agentEntry(ctx, input.app) : undefined;
+    if (kind === "agent" && scoped === undefined) return notFound();
     const process = await observe(ctx, input, app.value);
     if (!process.ok) return process;
     const found = process.value;
@@ -352,7 +360,7 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
       const origin = agentCaller(ctx, input);
       if (!origin.ok) return origin;
       caller = origin.value;
-      const listed = await agentCommands(ctx, input, found);
+      const listed = await agentCommands(scoped!, input, found);
       if (!listed.ok) return listed;
       commands = listed.value;
     } else {
@@ -381,6 +389,8 @@ export function createAppConnector(deps: ConnectorDeps): AppConnector {
       });
     }
 
+    // command 범위는 정렬한다. 같은 범위는 같은 서명 bytes다.
+    commands = [...new Set(commands)].sort();
     const credentialEnd = ctx.expires_at === undefined
       ? Number.POSITIVE_INFINITY
       : Date.parse(ctx.expires_at);

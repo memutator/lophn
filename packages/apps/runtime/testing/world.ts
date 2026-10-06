@@ -8,10 +8,16 @@ import type {
   CredentialConditions,
 } from "../../../contracts/platform/mod.ts";
 import {
+  actionOf,
   call,
   command,
+  createInput,
+  decide,
+  inspect,
   type Reply,
 } from "../../../../apps/core/testing/approvals-fixture.ts";
+import type { ApprovalRequest } from "../../../contracts/platform/mod.ts";
+import type { GrantPermissionScope } from "../../../contracts/apps/mod.ts";
 import {
   type CoreHarness,
   createCoreHarness,
@@ -122,7 +128,11 @@ export function observationOf(
 }
 
 export async function openWorld(
-  options: { sweepMs?: number } = {},
+  options: {
+    sweepMs?: number;
+    // grant를 approval 적용으로 만들 때 켠다. approval 설명 글은 I/O worker가 준비한다.
+    approvals?: boolean;
+  } = {},
 ): Promise<World> {
   const documents = await import("../../../../apps/core/documents.ts");
   const apps = await import("../../../../apps/core/apps.ts");
@@ -137,6 +147,7 @@ export async function openWorld(
   const opened = await createCoreHarness({
     // 앱 자식은 실제 시각으로 연결 기한을 비교한다. core 시계도 지금에서 시작한다.
     nowMs: Date.now(),
+    io: options.approvals === true,
     teams: [
       { createLedgerRegistration: documents.createLedgerRegistration },
       { createLedgerRegistration: apps.createLedgerRegistration },
@@ -169,10 +180,19 @@ export async function openWorld(
     "app.create",
     "app.enable_execution",
     "app.connect",
+    "grants.list",
+    "grant_approval_request",
+    "GetApproval",
   ]);
   const machine = await login("machine", [
     "app.connect",
     "runtime.tests.adopt_release",
+    "create_approval_request",
+    "apply_approved_action",
+    "grant.create",
+    "grants.list",
+    "GetApproval",
+    "permissions.tests.set_declarations",
   ]);
   const created = await call(
     harness,
@@ -311,4 +331,80 @@ export async function direct(
   } finally {
     client.close();
   }
+}
+
+let approvals = 0;
+
+function grantsSeq(world: World, app: string): string {
+  const rows = inspect(
+    world.harness,
+    `SELECT COALESCE(MAX(e.seq), 0) AS n FROM events e
+     JOIN grants g ON g.id = e.subject
+     WHERE g.app = ? AND e.type IN ('GrantCreated', 'GrantRevoked')`,
+    [app],
+  );
+  return String(rows[0]["n"]);
+}
+
+// 현재 release의 선언을 시험 team이 낸다(releases 조립 전의 대역).
+export async function declare(
+  world: World,
+  commands: readonly string[],
+): Promise<void> {
+  const stored = await call(
+    world.harness,
+    "permissions_tests/set_declarations",
+    world.machine.token,
+    command({
+      app: world.app,
+      declarations: {
+        release: FIXTURE_RELEASE,
+        permissions: [],
+        app_connections: [],
+        commands,
+        automations: [],
+      },
+    }),
+  );
+  assertEquals(stored.status, 200, JSON.stringify(stored.body));
+}
+
+// 정확한 approval을 만들고 사람이 허락한 뒤 적용한다. grant.create의 유일한 정상 경로다.
+export async function grant(
+  world: World,
+  scope: GrantPermissionScope,
+): Promise<Reply> {
+  approvals += 1;
+  const approval = `apr_01h455vb4pex5v6nkc6gd5f${
+    String(approvals).padStart(3, "0")
+  }`.slice(0, 30);
+  const input = { app: world.app, kind: scope.kind, scope, approval };
+  const action = await actionOf({
+    concern: "apps/permissions",
+    command: "grant.create",
+    caller: "machine",
+    targets: [world.app],
+    value: input as never,
+    comparison: { grants_seq: grantsSeq(world, world.app) },
+  });
+  const created = await call(
+    world.harness,
+    "approvals/create",
+    world.machine.token,
+    command(await createInput(approval, world.machine.context.actor, action)),
+  );
+  assertEquals(created.status, 200, JSON.stringify(created.body));
+  const decided = await decide(
+    world.harness,
+    world.user.token,
+    created.body["request"] as ApprovalRequest,
+    "grant",
+  );
+  assertEquals(decided.status, 200, JSON.stringify(decided.body));
+  return await call(
+    world.harness,
+    "approvals/apply",
+    world.machine.token,
+    command({ approval, action, idempotency_key: `apply-${approval}` }),
+  );
 }

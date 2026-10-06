@@ -6,6 +6,7 @@ import {
   migrationFlags,
   type PlatformPorts,
   type ResolvedRequirement,
+  socketFlags,
 } from "./mod.ts";
 
 const app: AppPaths = {
@@ -180,4 +181,32 @@ Deno.test("apps/permissions#R18: a recursive directory grant and an unscoped rea
   assert(write?.includes("/data/box"));
   assert(!flags.value.args.some((arg) => arg.startsWith("--allow-run")));
   assert(!flags.value.args.some((arg) => arg.startsWith("--allow-ffi")));
+});
+
+Deno.test("apps/runtime#R8: socket은 시작마다 정해지므로 flag 계산은 socket 없이도 되고 socketFlags가 더한다", () => {
+  const flags = appFlags([], { bundle: "/b", data: "/d" }, platform, denies);
+  assert(flags.ok);
+  if (!flags.ok) return;
+  // socket 경로를 모르면 net 허락도 socket 읽기·쓰기도 넣지 않는다.
+  assert(!flags.value.args.some((arg) => arg.startsWith("--allow-net")));
+  assertEquals(
+    flags.value.args.find((arg) => arg.startsWith("--allow-read=")),
+    "--allow-read=/b,/d",
+  );
+  const sockets = socketFlags({
+    brokerSocket: "/run/lophn/b-1.sock",
+    directSocket: "/run/lophn/a-1.sock",
+  });
+  assert(sockets.ok);
+  if (!sockets.ok) return;
+  assertEquals(sockets.value, [
+    "--allow-read=/run/lophn/a-1.sock,/run/lophn/b-1.sock",
+    "--allow-write=/run/lophn/a-1.sock,/run/lophn/b-1.sock",
+    "--allow-net=lophn.invalid,unix:/run/lophn/a-1.sock,unix:/run/lophn/b-1.sock",
+  ]);
+  // 외부 host와 와일드카드는 이 flag에 없다.
+  assert(!sockets.value.some((arg) => arg.includes("*")));
+  // 쉼표가 든 경로는 한 항목이 아니라 거절한다.
+  const bad = socketFlags({ brokerSocket: "/a,/b", directSocket: "/c" });
+  assert(!bad.ok);
 });

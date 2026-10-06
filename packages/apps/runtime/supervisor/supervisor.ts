@@ -118,6 +118,8 @@ export const STOP_GRACE_MS = 10_000;
 export type SpawnRequest = {
   app: string;
   release: string;
+  // 이번 시작의 두 socket. flag에는 없으니 띄우는 쪽이 socketFlags로 더한다.
+  sockets: { brokerSocket: string; directSocket: string };
   deno: string;
   entry: string;
   flags: FlagSet;
@@ -338,6 +340,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     const child = await deps.spawn({
       app: desired.app,
       release: desired.release,
+      sockets: { brokerSocket: sockets.broker, directSocket: sockets.direct },
       deno: deps.deno(),
       entry: desired.entry,
       flags: desired.flags,

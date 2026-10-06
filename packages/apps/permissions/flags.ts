@@ -23,11 +23,13 @@ export const LIMIT_KEYS = [
 
 export type LimitKey = (typeof LIMIT_KEYS)[number];
 
+// 두 socket은 supervisor가 시작마다 새로 정한다. 정해진 값이 있으면 결과에 넣고, 없으면
+// supervisor가 `socketFlags`로 띄울 때 더한다.
 export type AppPaths = {
   bundle: string;
   data: string;
-  brokerSocket: string;
-  directSocket: string;
+  brokerSocket?: string;
+  directSocket?: string;
 };
 
 export type PlatformPorts = {
@@ -116,19 +118,11 @@ export function appFlags(
 
   const read = fsOf(ordered.value, "fs.read");
   const write = fsOf(ordered.value, "fs.write");
-  const allowRead = [
-    app.bundle,
-    app.data,
-    app.brokerSocket,
-    app.directSocket,
-    ...read.allow,
-  ];
-  const allowWrite = [
-    app.data,
-    app.brokerSocket,
-    app.directSocket,
-    ...write.allow,
-  ];
+  const sockets = [app.brokerSocket, app.directSocket].filter((path) =>
+    path !== undefined
+  );
+  const allowRead = [app.bundle, app.data, ...sockets, ...read.allow];
+  const allowWrite = [app.data, ...sockets, ...write.allow];
   const denyRead = [...protectedDenies, ...read.deny, ...write.deny];
   const denyWrite = [...protectedDenies, ...write.deny];
   const denyNet = LOOPBACK.flatMap((host) =>
@@ -142,11 +136,12 @@ export function appFlags(
     flag("deny-write", denyWrite),
     // 앱 두 socket과 가상 host만 연다. net.fetch grant는 Deno flag가 아니라 broker가 강제하므로
     // 외부 host는 이 flag에 없다. --deny-net은 플랫폼 port를 한 번 더 막는 방어선이다.
-    flag("allow-net", [
-      SOCKET_HOST,
-      `unix:${app.brokerSocket}`,
-      `unix:${app.directSocket}`,
-    ]),
+    sockets.length === 2
+      ? flag("allow-net", [
+        SOCKET_HOST,
+        ...sockets.map((path) => `unix:${path}`),
+      ])
+      : ok(undefined),
     flag("deny-net", denyNet),
   ];
   const args: string[] = [...FIXED];
@@ -156,6 +151,24 @@ export function appFlags(
   }
   args.sort();
   return ok({ args, limits: LIMIT_KEYS });
+}
+
+// 시작마다 새로 정한 두 socket의 Deno flag. 읽기·쓰기에 더해 socket 듣기·연결과 가상 host의 net
+// 허락이다. 외부 host는 넣지 않는다. 같은 flag 이름을 여러 번 주면 Deno가 합친다(Deno 2.9.7 실측).
+export function socketFlags(
+  sockets: { brokerSocket: string; directSocket: string },
+): Result<string[]> {
+  const paths = [sockets.brokerSocket, sockets.directSocket];
+  const read = flag("allow-read", paths);
+  if (!read.ok) return read;
+  const write = flag("allow-write", paths);
+  if (!write.ok) return write;
+  const net = flag("allow-net", [
+    SOCKET_HOST,
+    ...paths.map((path) => `unix:${path}`),
+  ]);
+  if (!net.ok) return net;
+  return ok([read.value!, write.value!, net.value!]);
 }
 
 // migration은 외부 grant를 물려받지 않는다. bundle 읽기와 자기 DB 작업 영역만.

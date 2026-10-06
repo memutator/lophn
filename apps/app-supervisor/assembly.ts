@@ -48,6 +48,7 @@ import type {
 import { DIRECT_SOCKET_PATHS } from "../../packages/contracts/apps/mod.ts";
 import { diagnosticSchema } from "../../packages/contracts/platform/mod.ts";
 import { createKnownSecretRegistry } from "../../packages/platform/redaction/mod.ts";
+import { socketFlags } from "../../packages/apps/permissions/mod.ts";
 import { lineRedactor } from "./log-redact.ts";
 import { readRecordState, recordInput } from "./record.ts";
 
@@ -341,10 +342,16 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     // hello가 채운다. 비어 있으면 reconcile이 닿지 못한다.
     verifyKey: () => verifyKey,
     async spawn(request) {
+      // 두 socket의 허락은 시작마다 새로 정한 경로로 supervisor가 더한다.
+      const sockets = socketFlags(request.sockets);
+      if (!sockets.ok) throw new Error(sockets.error.message);
       const spawned = await io.spawn({
         deno: request.deno,
         entry: request.entry,
-        flags: request.flags,
+        flags: {
+          ...request.flags,
+          args: [...request.flags.args, ...sockets.value],
+        },
         importMap: request.importMap,
         environment: request.environment,
         startLine: request.startLine,

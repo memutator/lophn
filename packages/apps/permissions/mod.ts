@@ -18,6 +18,7 @@ export {
   type LimitKey,
   migrationFlags,
   type PlatformPorts,
+  socketFlags,
 } from "./flags.ts";
 export {
   credentialRoots,

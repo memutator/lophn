@@ -231,6 +231,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T13 broker의 permission 강제
 
+- 상태: 완료 (#316) — 이어보냄: apps/app-supervisor/main.ts에서 자식마다 broker socket 열기(`createBrokerHub`·`serveBroker`)와 서비스 어댑터 조립(`BrokerAccess`는 현재 선언·active grant 읽기라 apps.blueprint read(T19) 뒤, `SecretDelivery`는 platform secret.send pipe, `DocumentsSave`는 documents#T31, `ProblemsReport`는 problems collector, `GrantRevoker`·`AppProcesses`는 core 제어 메시지) → T10(main.ts 조립)·T19. broker의 `/ready`·`/control/watch`·`/automations/*`·`/apps/connect` 경로는 각 담당 작업(T7·T10·T15·T20)이 `BrokerServices`에 더한다
 - 등급: 기본
 - concern: apps/permissions, apps/blueprint
 - 요구: apps/permissions#R4, R13, R14, R15, R16, R17, R20, R21, R22, R23, R29, apps/blueprint#R13

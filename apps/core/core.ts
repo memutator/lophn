@@ -29,11 +29,14 @@ import {
 } from "../../packages/platform/api/mod.ts";
 import type { WorkerRouteTarget } from "../../packages/platform/responsiveness/mod.ts";
 import {
+  AGENT_RUNTIME_KIND,
+  AGENT_RUNTIME_TASK,
   type AgentRuntimeChild,
   agentRuntimePolicies,
   providerHost,
   startAgentRuntimeChild,
 } from "./agent-runtime.ts";
+import { createAgentRuntimeSecrets } from "./agent-runtime-secret.ts";
 import { withViewBinding } from "./view-binding.ts";
 import {
   applyMigrations,
@@ -1774,6 +1777,11 @@ async function open(
   // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
   // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.
   if (options.agentRuntime && io) {
+    // provider API key를 읽는 keychain adapter. 요청이 올 때 처음 한 번 만든다. 시험은 fake를 준다.
+    let agentKeychain: KeychainAdapter | undefined;
+    const agentSecretKeychain = (): KeychainAdapter =>
+      agentKeychain ??= options.secretKeychain ?? options.codingKeychain ??
+        productKeychain();
     const started = await startAgentRuntimeChild({
       io,
       registry: productRegistry,
@@ -1790,6 +1798,13 @@ async function open(
       read: (route, context, input) =>
         runtime!.readers.read(route, context, input),
       known: () => runtime?.knownSecrets,
+      secrets: createAgentRuntimeSecrets({
+        ledgerPath,
+        keychain: agentSecretKeychain,
+        known: () => runtime?.knownSecrets,
+        process: AGENT_RUNTIME_KIND,
+        task: AGENT_RUNTIME_TASK,
+      }),
       readProviders: async (context) => {
         const hosts = new Set<string>();
         let cursor: string | undefined;

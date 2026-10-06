@@ -36,6 +36,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
       blobs: calls.blobs,
       resolveModel: createModelResolver({
         machine: calls.machine,
+        ...(calls.secrets === undefined ? {} : { attach: calls.secrets }),
         catalog: async () => {
           if (calls.catalog === undefined) {
             return err({

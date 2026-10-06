@@ -1,6 +1,10 @@
-import { ROLE_CAPS } from "../../presets/mod.ts";
+import { APP_COMMAND_EXPOSURE, ROLE_CAPS } from "../../presets/mod.ts";
 import { OPTION_ACTION_OPERATIONS } from "../../questions/mod.ts";
-import { BUILTIN_TOOLS, runOperations } from "../tools/mod.ts";
+import {
+  APP_TOOL_CONTRACT,
+  BUILTIN_TOOLS,
+  runOperations,
+} from "../tools/mod.ts";
 import {
   applyQuestionOption,
   assignmentList,
@@ -36,6 +40,11 @@ import {
   toolCallRead,
   waitRun,
 } from "../../../contracts/lophn-agent/mod.ts";
+import {
+  appBlueprint,
+  grantsList,
+  invocationsList,
+} from "../../../contracts/apps/mod.ts";
 import {
   applyApprovedAction,
   approvalsGet,
@@ -91,6 +100,10 @@ export const RUNTIME_MACHINE_ROUTES = [
   cancelQuestion,
   applyQuestionOption,
   processAssignmentOccurrence,
+  // 앱 command tool의 정의 재료(선언·허락)와 결과 조회(invocation 기록)를 읽는다.
+  appBlueprint,
+  grantsList,
+  invocationsList,
 ] as const;
 
 // machine credential이 가져야 하는 operation 이름이다. 사람이 고른 선택지의 고정 action을 적용하는
@@ -109,5 +122,11 @@ export function roleOperations(role: string): readonly string[] {
   const cap = ROLE_CAPS.get(role);
   if (cap === undefined) return [];
   const names = new Set(cap.tools);
-  return runOperations(BUILTIN_TOOLS.filter((tool) => names.has(tool.name)));
+  const own = runOperations(
+    BUILTIN_TOOLS.filter((tool) => names.has(tool.name)),
+  );
+  // 앱 command를 실행하는 역할은 앱 통로(`app.connect`)를 더한다. 범위는 StartRun이 고정한 AgentAppScope가 정한다.
+  return APP_COMMAND_EXPOSURE.get(role)?.execution === "none"
+    ? own
+    : [...own, APP_TOOL_CONTRACT];
 }

@@ -123,12 +123,17 @@ import {
   mcpServersSetting,
   TOOL_DOCUMENT_ROUTES,
 } from "../../packages/contracts/lophn-agent/mod.ts";
+import { allowRunList } from "../../packages/lophn-agent/extensions/mod.ts";
+import { createMcpSecretRefSource } from "../../packages/lophn-agent/extensions/mod.ts";
 
 // agent runtime 등록 뼈대. worker는 나중 작업이 이 객체에 더한다.
 // 권한 목록은 architecture §2.3의 최소다. host·skill·MCP를 등록하면 core가 목록을 바꿔 재기동한다.
 export function agentRuntimeLaunchSpec(input: {
   dataRoot: string;
   apiPort: number;
+  // 등록된 MCP server 설정이다(contracts#T24 settings registry의 행). 없으면
+  // `--allow-run`은 빈 목록이다(architecture §2.3).
+  mcpServers?: readonly McpServerConfig[];
   // 사람이 등록한 provider의 목적지(`host:port`). 등록되면 core가 이 목록을 바꿔 재기동한다.
   hosts?: readonly string[];
 }): KindLaunchSpec {
@@ -140,9 +145,18 @@ export function agentRuntimeLaunchSpec(input: {
     allow_write: [`${input.dataRoot}/derived/lophn-agent`],
     // core loopback과 등록된 provider 목적지만. MCP host와 공개 models.dev는 등록될 때 더한다.
     allow_net: [`127.0.0.1:${input.apiPort}`, ...(input.hosts ?? [])],
-    allow_run: [],
+    // 사람이 enabled로 등록한 MCP stdio executable만이다(architecture §2.3).
+    allow_run: allowRunList(input.mcpServers ?? []),
     allow_sys: [],
-    allow_env: ["LOPHN_HOME", "LOPHN_WORKER_KIND"],
+    // MCP 최소 환경을 구성하는 네 이름이다(architecture §2.3).
+    allow_env: [
+      "LOPHN_HOME",
+      "LOPHN_WORKER_KIND",
+      "PATH",
+      "HOME",
+      "TEMP",
+      "LC_ALL",
+    ],
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,
   };
@@ -272,9 +286,30 @@ const usageReads = createUsageReads();
 // harness/model R5), credential key와 provider 정의 key는 같은 Tx의 provider
 // 표·provider_credentials 표에서 읽는다(R6, R10).
 function presetValidateDeps(sql: Pick<Tx["sql"], "get" | "all">) {
+  // MCP server 설정은 setting_choices 행(platform/settings)에 있다. 형식 검사는
+  // mcpServersSetting.value_type이 결정하고, 검사를 통과한 server만 deps에 온다.
+  // 없거나 형식 검사를 통과하지 못한 server는 presets이 그 server를 거절한다(R11).
+  const mcpServers = new Map<string, McpServerConfig>();
+  try {
+    const rows = sql.all(
+      "select layer, key, value from setting_choices where key = ?",
+      [mcpServersSetting.key],
+    );
+    if (rows.length > 0) {
+      const parsed: unknown = JSON.parse(String(rows[0]["value"]));
+      const shaped = mcpServersSetting.value_type.safeParse(parsed);
+      if (shaped.success) {
+        for (const [name, config] of Object.entries(shaped.data)) {
+          mcpServers.set(name, config);
+        }
+      }
+    }
+  } catch {
+    // 읽지 못하면 빈 목록으로 fail-closed다. 그 server는 presets이 거절한다.
+  }
   return {
     bundles: TOOL_BUNDLES,
-    mcpServers: new Map<string, McpServerConfig>(),
+    mcpServers,
     roleCaps: ROLE_CAPS,
     // provider 정의 key는 provider 표 definition_key다. 기록이 없으면
     // undefined로 fail-closed다(R6).
@@ -636,9 +671,10 @@ export function createLedgerRegistration(
       // 복구가 저장된 run basis·model 응답·tool 결과를 다시 읽는 같은 길이다(machine만).
       runBodyRead(environment.messageBody ?? UNATTACHED_MESSAGE_BODY),
     ],
-    // provider credential의 secret 값도 core의 알려진 값 registry에 등록·회수된다
-    // (platform/secrets#R1). 외부 MCP credential은 extensions의 참조가 생기면 더한다.
-    secretRefs: [createProviderSecretRefSource()],
+    // provider credential과 외부 MCP credential의 secret 값도 core의 알려진 값
+    // registry에 등록·회수된다(platform/secrets#R1). MCP 참조는 extensions
+    // secret-refs의 통로다(#294).
+    secretRefs: [createProviderSecretRefSource(), createMcpSecretRefSource()],
   };
 }
 

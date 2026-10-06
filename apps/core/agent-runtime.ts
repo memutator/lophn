@@ -32,6 +32,7 @@ import type {
 } from "../../packages/platform/identity/mod.ts";
 import type { Supervisor } from "../../packages/platform/responsiveness/mod.ts";
 import { answerRedactRequest } from "./agent-runtime-redaction.ts";
+import type { AgentRuntimeSecrets } from "./agent-runtime-secret.ts";
 import { createAgentCredentialLink } from "./agent-credentials.ts";
 import {
   type ChildBlobPrepare,
@@ -164,6 +165,8 @@ export type AgentRuntimeDeps = {
   ): Promise<Result<unknown>>;
   // 알려진 secret 값의 matcher. child가 보낼 글의 안전화(`redact_request`)가 쓴다.
   known(): KnownSecretMatch | undefined;
+  // provider API key의 전송 부착(`secret_send_request`). child가 청하면 값을 한 번 건넨다.
+  secrets: AgentRuntimeSecrets;
   // 목적지 점검 주기. 시험이 줄인다.
   pollMs?: number;
 };
@@ -226,6 +229,8 @@ export async function startAgentRuntimeChild(
     blob?.close();
     let handler = newBlob();
     blob = handler;
+    // 이 child generation이 감독 중인 동안만 값을 건넨다.
+    let alive = true;
     return {
       onMessage(message: ChildMessage) {
         if (handler.onMessage(message)) return;
@@ -234,6 +239,14 @@ export async function startAgentRuntimeChild(
           if (response !== undefined) {
             void deps.io.send(AGENT_RUNTIME_KIND, response).catch(() => {});
           }
+          return;
+        }
+        if (message.type === "secret_send_request") {
+          void deps.secrets.answer(message, () => alive).then((response) => {
+            if (response !== undefined && alive) {
+              return deps.io.send(AGENT_RUNTIME_KIND, response);
+            }
+          }).catch(() => {});
           return;
         }
         void link.onMessage(message).then((response) => {
@@ -245,6 +258,7 @@ export async function startAgentRuntimeChild(
       onFrame: (frame: Frame) => handler.onFrame(frame),
       // child가 끝났다. 그 child가 쥐고 있던 run의 agent credential은 더 쓰이지 않는다.
       onEnd() {
+        alive = false;
         handler.close();
         deps.registry.endBy("process", AGENT_RUNTIME_PROCESS);
         if (blob === handler) {

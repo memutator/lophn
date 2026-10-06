@@ -33,6 +33,42 @@ export {
   TERM_EVIDENCE_MAX,
 } from "./bundles/context.ts";
 export {
+  APP_READ_TOOL_NAMES,
+  APP_READ_TOOLS,
+  APP_TOOL_REVISION,
+  type AppReadToolPorts,
+  createAppReadToolHandlers,
+  PROBLEM_READ_TOOL_NAMES,
+  PROBLEM_READ_TOOLS,
+} from "./bundles/app.ts";
+export {
+  createSdkToolHandlers,
+  SDK_TOOL_NAMES,
+  SDK_TOOL_REVISION,
+  SDK_TOOLS,
+  type SdkToolPorts,
+} from "./bundles/sdk.ts";
+export {
+  APP_TOOL_CONTRACT,
+  APP_TOOL_PREFIX,
+  type AppBlueprintView,
+  type AppCommandPorts,
+  appDefinitionHash,
+  type AppGrant,
+  type AppInvokeCall,
+  type AppInvokeOutcome,
+  type AppStatusAnswer,
+  type AppTool,
+  type AppToolSource,
+  buildAppTools,
+  commandInputOf,
+  createAppToolHandlers,
+  findInvocation,
+  grantFor,
+  recordedResult,
+  revertCounterpart,
+} from "./app-tools.ts";
+export {
   createMetadataToolHandlers,
   METADATA_TOOL_NAMES,
   METADATA_TOOL_REVISION,

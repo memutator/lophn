@@ -21,6 +21,7 @@ import {
 import {
   secretComparisonRequestSchema,
   secretComparisonResponseSchema,
+  secretUseSchema,
 } from "./secrets.ts";
 import { atSchema, durationMsSchema, sha256Schema } from "./values.ts";
 
@@ -367,6 +368,45 @@ export const redactResponseSchema = z.discriminatedUnion("ok", [
 export type RedactRequest = z.infer<typeof redactRequestSchema>;
 export type RedactResponse = z.infer<typeof redactResponseSchema>;
 
+// agent runtime의 provider 호출이 credential 값을 받는 통로(lophn-agent/harness/provider#R7,
+// platform/secrets#R5). 요청은 값 없이 secret 참조·판·용도·목적지와 보낼 요청의 url·method만 싣는다.
+// core가 현재 참조·판·목적지와 대조하고 값을 읽을 수 있을 때만 `value`를 답한다. 값은 이 응답 하나로만
+// child에 닿고 child의 인증 전송 callback 메모리에서만 쓰인다. 읽을 수 없거나 대조에 실패하면 값 없이
+// 오류이고 child는 요청을 보내지 않는다(fail-closed).
+export const SECRET_SEND_ERROR_CODES = [
+  "invalid_input",
+  "forbidden",
+  "conflict",
+  "unavailable",
+] as const;
+export const secretSendRequestSchema = z.strictObject({
+  type: z.literal("secret_send_request"),
+  request_id: opaque,
+  use: secretUseSchema,
+  operation: opaque,
+  url: opaque,
+  method: opaque,
+});
+export const secretSendResponseSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    type: z.literal("secret_send_response"),
+    request_id: opaque,
+    ok: z.literal(true),
+    value: opaque,
+  }),
+  z.strictObject({
+    type: z.literal("secret_send_response"),
+    request_id: opaque,
+    ok: z.literal(false),
+    error: z.strictObject({
+      code: z.enum(SECRET_SEND_ERROR_CODES),
+      message: z.string().max(200),
+    }),
+  }),
+]);
+export type SecretSendRequest = z.infer<typeof secretSendRequestSchema>;
+export type SecretSendResponse = z.infer<typeof secretSendResponseSchema>;
+
 export const DIAGNOSTIC_KINDS = [
   "lophn_internal",
   "unattributed_observation",
@@ -468,6 +508,7 @@ export const parentMessageSchema = z.union([
   appCredentialResponseSchema,
   agentCredentialResponseSchema,
   redactResponseSchema,
+  secretSendResponseSchema,
   blobPrepareResultSchema,
 ]);
 export const childMessageSchema = z.union([
@@ -480,6 +521,7 @@ export const childMessageSchema = z.union([
   agentCredentialRequestSchema,
   agentCredentialEndSchema,
   redactRequestSchema,
+  secretSendRequestSchema,
   blobPrepareRequestSchema,
 ]);
 // 사람 결정 handle 등록과 secret 비교 read는 main↔core 비공개 연결로만 오간다

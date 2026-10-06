@@ -77,6 +77,8 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
     targets: z.array(anyIdSchema).min(1).refine(unique, {
       message: "duplicate target",
     }).optional(),
+    automation: z.string().min(1).optional(),
+    requirement: z.number().int().nonnegative().optional(),
   }),
   z.strictObject({
     kind: z.literal("secret_input"),

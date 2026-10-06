@@ -17,7 +17,11 @@ import {
 } from "../documents/mod.ts";
 import { documentDiff } from "../documents/history.ts";
 import { documentReadInputSchema } from "../documents/read.ts";
-import { absolutePathSchema, versionIdSchema } from "../documents/values.ts";
+import {
+  absolutePathSchema,
+  sectionKeySchema,
+  versionIdSchema,
+} from "../documents/values.ts";
 import { idempotencyKeySchema } from "../platform/envelope.ts";
 import { connectionIdSchema } from "./connections.ts";
 import { cliSaveFields } from "./mcp-core.ts";
@@ -115,9 +119,11 @@ export const CLI_CORE_NAMES = [
   "series next",
 ] as const;
 
+// section을 주면 그 key의 판별 변화(section_history), 없으면 고정 판 목록(history)이다. MCP
+// `lophn_document history`와 같은 입력이다(cli#R13).
 export const cliDocumentHistorySchema = withCommon(
   "document history",
-  historyInputSchema,
+  historyInputSchema.extend({ section: sectionKeySchema.optional() }),
 );
 export const cliDocumentDiffSchema = withCommon(
   "document diff",

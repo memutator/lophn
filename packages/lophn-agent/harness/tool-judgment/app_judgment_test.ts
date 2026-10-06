@@ -168,6 +168,7 @@ async function judged(key: string, world = worldOf(), input: unknown = {}) {
         id: target.id,
         inScope: true,
         reversibility: target.reversibility,
+        declared: false,
       }))
       : [],
   };
@@ -317,6 +318,7 @@ Deno.test("lophn-agent/harness/tool-judgment#R10: ticket 취소처럼 되돌릴 
       id: "tkt_01h455vb4pex5v6nkc6gd5fdw1",
       inScope: true,
       reversibility: "reversible",
+      declared: false,
     }],
   };
   assertEquals(judge(facts).decision, "allow");

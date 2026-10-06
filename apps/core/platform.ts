@@ -29,6 +29,7 @@ import {
   NOTIFICATION_COMMANDS,
   NOTIFICATION_SUBSCRIBER,
   NOTIFICATIONS_SCHEMA_STEPS,
+  notificationsDisplayRead,
   notificationsGetRead,
   notificationsListRead,
 } from "../../packages/platform/notifications/mod.ts";
@@ -118,6 +119,7 @@ export const platformDefinitions = {
     approvalExpirySweepRead(),
     notificationsGetRead(),
     notificationsListRead(),
+    notificationsDisplayRead(),
     // SetSecret·RemoveSecret의 display_read다. 이름·설정 여부·판만 보인다.
     secretsListRead(),
   ],

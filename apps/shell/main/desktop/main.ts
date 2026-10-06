@@ -9,6 +9,7 @@ import {
   nativeImage,
   Notification,
   protocol,
+  shell,
   Tray,
   type WebContents,
   WebContentsView,
@@ -33,6 +34,15 @@ import { createAppConnector } from "../app-frame/app-connection.ts";
 import { nodeUpstream } from "../app-frame/app-protocol.ts";
 import { createViewDiagnostics } from "../app-frame/diagnostics.ts";
 import { createAppFrame } from "../app-frame/registry.ts";
+import { createAppCall } from "../app-frame/app-call.ts";
+import { nodeInvoke } from "../app-frame/app-invoke.ts";
+import {
+  canonicalInputHash,
+  validateInput,
+} from "../../../../packages/contracts/apps/blueprint.ts";
+import { registerAppIpc, removeAppIpc } from "../app-frame/app-ipc.ts";
+import { createExternalLinks } from "../app-frame/external-link.ts";
+import { createViewErrors, reportIdOf } from "../app-frame/view-error.ts";
 import { startCoreConnection } from "./core/connection.ts";
 import { nodeFetch, nodeSockets, nodeStreamFetch } from "./core/node-io.ts";
 import {
@@ -82,8 +92,7 @@ import {
 } from "./global-shortcut.ts";
 import {
   createOsNotifications,
-  optInFromSettings,
-  OS_NOTIFICATIONS_KEY,
+  displayFromReply,
   type OsNotifier,
 } from "./os-notification.ts";
 import { registerViewSchemes } from "./security.ts";
@@ -148,17 +157,27 @@ const windows = new Set<BrowserWindow>();
 const log = (message: string) => console.log(`[lophn] ${message}`);
 let tray: InstalledTray | undefined;
 
-// OS notification(shell#T56). 사람이 켰을 때만 지금 도착한 NotificationCreated를 고정 문구로
-// 올린다. 클릭은 things-to-confirm을 열 뿐 읽음이 아니다. headless는 OS에 올리지 않는다.
+// OS notification(shell#T56, platform#T46). 지금 도착한 NotificationCreated마다 core가 주는 OS
+// 표시 요청(사람이 켰을 때만 값이 있다)으로 계기 종류의 고정 문구만 올린다. 클릭은
+// things-to-confirm을 열 뿐 읽음이 아니다. 표시 실패는 고정 이유로 core에 알린다. headless는
+// OS에 올리지 않는다.
 const osNotifications = createOsNotifications({
   notifier: guardNotifier(electronNotifier(), headless, log),
-  optedIn: async () => {
+  display: async (notification) => {
     const session = core.session();
-    if (!session) return false;
-    const reply = await session.call("read", "settings", "get", {
-      keys: [OS_NOTIFICATIONS_KEY],
+    if (!session) return null;
+    const reply = await session.internal("read", "notifications", "display", {
+      notification,
     });
-    return reply.ok && optInFromSettings(reply.value);
+    return reply.ok ? displayFromReply(reply.value) : null;
+  },
+  report: async (notification, reason) => {
+    const session = core.session();
+    if (!session) return;
+    await session.internal("memory", "notifications", "delivery", {
+      notification,
+      reason,
+    });
   },
   open: () => sendIntent("things-to-confirm"),
   unavailable: () => tray?.notice("notifications-unavailable"),
@@ -201,16 +220,17 @@ const appViews = electronAppViews({
   headless,
   raise: (window) => overlays.raise(window),
 });
+const appConnector = createAppConnector((kind, resource, method, body) => {
+  const session = core.session();
+  return session
+    ? session.internal(kind, resource, method, body)
+    : Promise.resolve({
+      ok: false,
+      error: { code: "unavailable", message: "core is not ready" },
+    });
+});
 const appFrame = createAppFrame({
-  connector: createAppConnector((kind, resource, method, body) => {
-    const session = core.session();
-    return session
-      ? session.internal(kind, resource, method, body)
-      : Promise.resolve({
-        ok: false,
-        error: { code: "unavailable", message: "core is not ready" },
-      });
-  }),
+  connector: appConnector,
   views: appViews.views,
   sessionHandle: appViews.sessionHandle,
   upstream: nodeUpstream,
@@ -229,6 +249,59 @@ const appFrame = createAppFrame({
     token: () => randomBytes(32).toString("base64url"),
   },
   clock: { nowMs: () => Date.now() },
+});
+
+// 앱 preload 통로(shell#T38). 신원은 IPC sender view에서만 정한다. 고정 blueprint read
+// (`/v1/apps/blueprint`, apps#T19)와 confirm command의 approval·proof(shell#T45), view 오류의
+// collector 전달 binding(problems#T16)은 아직 core 통로가 없어 unavailable·unsent다.
+const appCall = createAppCall({
+  connector: appConnector,
+  blueprint: () =>
+    Promise.resolve({
+      ok: false,
+      error: { code: "unavailable", message: "blueprint read is not ready" },
+    }),
+  rules: { validate: validateInput, hash: canonicalInputHash },
+  confirm: () =>
+    Promise.resolve({
+      ok: false,
+      error: { code: "unavailable", message: "confirmation is not ready" },
+    }),
+  invoke: nodeInvoke,
+  ids: { requestKey: () => randomUUID() },
+  clock: { nowMs: () => Date.now() },
+});
+// headless 확인에서는 사람 화면에 browser를 띄우지 않는다.
+const externalLinks = createExternalLinks({
+  open: (url) =>
+    headless.headless ? Promise.resolve() : shell.openExternal(url),
+  log,
+});
+const viewErrors = createViewErrors({
+  send: () => Promise.resolve(false),
+  ids: { reportId: () => reportIdOf(Date.now(), randomBytes(10)) },
+  clock: {
+    nowMs: () => Date.now(),
+    nowIso: () => new Date().toISOString(),
+  },
+  log,
+});
+const appIpc = {
+  handle: (
+    channel: string,
+    listener: (event: unknown, input: unknown) => Promise<unknown>,
+  ) => ipcMain.handle(channel, listener),
+  on: (channel: string, listener: (event: unknown, input: unknown) => void) =>
+    void ipcMain.on(channel, listener),
+  removeHandler: (channel: string) => ipcMain.removeHandler(channel),
+  removeAllListeners: (channel: string) =>
+    void ipcMain.removeAllListeners(channel),
+};
+registerAppIpc(appIpc, {
+  view: (contentsId) => appFrame.senderView(contentsId),
+  call: (view, input) => appCall.call(view, input),
+  openExternal: (view, input) => externalLinks.open(view, input),
+  viewError: (view, input) => viewErrors.observe(view, input),
 });
 
 function windowRef(window: BrowserWindow): string {
@@ -349,6 +422,7 @@ function stopAll(): void {
   );
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   removeEditorIpc(editorIpc);
+  removeAppIpc(appIpc);
   appFrame.dispose();
   terminals.stop();
   core.shutdown();

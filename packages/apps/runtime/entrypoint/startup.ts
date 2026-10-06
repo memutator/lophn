@@ -2,6 +2,12 @@
 import type { Clock, IdSource } from "@lophn/base";
 import type { Blueprint } from "../../blueprint/mod.ts";
 import { installScreenContextHost } from "../../agent-context/mod.ts";
+import {
+  createPairPort,
+  installPairPort,
+  type PairDirect,
+  unixPairDirect,
+} from "../../connections/mod.ts";
 import { type AppStart, parseAppStart } from "./start-input.ts";
 import { type BrokerTransport, createBrokerClient } from "./broker-client.ts";
 import { createRuntimeState, type RuntimeState } from "./state.ts";
@@ -31,6 +37,8 @@ export function startRuntime(deps: {
   broker: BrokerTransport;
   dataSchema: number;
   screenBytes?: RuntimeState["screenBytes"];
+  // 다른 앱 direct socket 전송. 기본은 Unix socket HTTP다.
+  pairDirect?: PairDirect;
 }): Started {
   const parsed = parseAppStart(deps.line);
   if (!parsed) throw new Error("app start input is invalid");
@@ -63,6 +71,13 @@ export function startRuntime(deps: {
     declarations: () => state.blueprint.agent_context,
     view: (viewSession) => state.views.get(viewSession),
   });
+  // SDK의 connectAppCommands가 쓰는 앱 쌍 통로다. 준비 요청만 broker로 가고 업무 요청은 direct다.
+  installPairPort(createPairPort({
+    postConnect: (body) => state.broker.appsConnect(body),
+    postConfirmRequest: (body) => state.broker.appsConfirmRequest(body),
+    postConfirmPoll: (body) => state.broker.appsConfirmPoll(body),
+    direct: deps.pairDirect ?? unixPairDirect,
+  }));
   return { start: parsed, state };
 }
 

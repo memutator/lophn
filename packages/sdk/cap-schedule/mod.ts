@@ -38,3 +38,13 @@ export type {
   ReadQuery,
   ReadSource,
 } from "./results.ts";
+export { connectAppCommands, PAIR_PORT } from "./connect.ts";
+export type {
+  AppCallOptions,
+  AppCommandOutcome,
+  AppCommandsClient,
+  AppError,
+  AppErrorCode,
+  AppResult,
+  PairPort,
+} from "./connect.ts";

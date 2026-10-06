@@ -326,7 +326,7 @@ Deno.test({
       // view에는 Node·socket 경로가 없고 새 창·장치·scheme 밖 탐색을 거절한다.
       assertEquals(result.surface.require, "undefined");
       assertEquals(result.surface.process, "undefined");
-      assertEquals(result.surface.bridge, []);
+      assertEquals(result.surface.bridge, ["call", "openExternal"]);
       assertEquals(result.surface.opened, true);
       assert(result.surface.media !== "granted");
       assert(result.surface.geo !== "granted");

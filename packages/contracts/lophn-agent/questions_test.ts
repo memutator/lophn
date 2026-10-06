@@ -10,6 +10,7 @@ import {
   applyQuestionOptionInputSchema,
   cancelQuestionInputSchema,
   createQuestion,
+  QUESTION_ANSWER_DECISION,
   QUESTION_COMMANDS,
   QUESTION_EVENTS,
   questionCancelled,
@@ -369,4 +370,9 @@ Deno.test("lophn-agent/questions#R4: the question text read is open to the perso
       .success,
   );
   assert(!questionTextOutputSchema.safeParse({ ...body, prompt: 3 }).success);
+});
+
+Deno.test("lophn-agent/questions#R13: 확인 handle의 결정 이름 상수는 ledger가 검사하는 action 답 command 이름이다", () => {
+  assertEquals(QUESTION_ANSWER_DECISION, answerQuestionAction.name);
+  assertEquals(answerQuestionAction.name, "AnswerQuestionAction");
 });

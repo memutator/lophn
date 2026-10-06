@@ -15,6 +15,9 @@ const AGENT = "agent:asg_01arz3ndektsv4rrffq69g5fav";
 const CODING = "coding_agent:cac_01arz3ndektsv4rrffq69g5fav";
 const APP = `app:${ids.app}`;
 const NON_HUMAN = [AGENT, CODING, APP];
+// 지침 문서는 앱 자리 밖에 있어 앱에는 존재를 새지 않는 없는 문서 답이 간다.
+const expectedSaveCode = (actor: string) =>
+  actor === APP ? "invalid_input" : "forbidden";
 const AT = "2026-10-06T00:00:00.000Z";
 const HASH = "cd".repeat(32);
 const PATH = "/home/p/.lophn/LOPHN.md";
@@ -215,7 +218,8 @@ Deno.test("documents/versions#R20 documents/file-tracking#R20: preset 지침 첨
         base,
       );
       assert(!result.ok, actor);
-      assertEquals(result.error.code, "forbidden", actor);
+      // 앱 자리 밖 문서는 앱에 없는 문서와 같은 답이다(versions#R14).
+      assertEquals(result.error.code, expectedSaveCode(actor), actor);
     }
     const human = save(
       fixture,
@@ -287,7 +291,7 @@ Deno.test("documents/file-tracking#R20 documents/versions#R20: instruction_file�
         base,
       );
       assert(!saved.ok, actor);
-      assertEquals(saved.error.code, "forbidden", actor);
+      assertEquals(saved.error.code, expectedSaveCode(actor), actor);
       const renamed = update(fixture, actor, revisionOf(fixture));
       assert(!renamed.ok, actor);
       assertEquals(renamed.error.code, "forbidden", actor);

@@ -1,3 +1,4 @@
+import { armTimer } from "./deadline.ts";
 import {
   CONTROL_MAX_BYTES,
   encodeFrame,
@@ -27,7 +28,7 @@ export type FrameWriter = {
   // 아직 쓰기를 시작하지 않은 frame을 거절하고 일반 쓰기를 닫는다. 이미 시작된 OS write는 되돌리지 못한다.
   // 닫은 뒤에도 writeFinal은 한 번 쓸 수 있다.
   close(): void;
-  // 한 번 partial write가 실패하거나 backlog가 넘치면 영원히 true다.
+  // 한 번 partial write가 실패하거나 backlog가 넘치거나 쓰기 기한을 넘기면 영원히 true다.
   readonly faulted: boolean;
   // 쓰는 중인 frame과 줄 선 frame의 수·바이트(header 포함).
   readonly backlog: WriterBacklog;
@@ -42,9 +43,26 @@ export const WRITE_BACKLOG_MAX_BYTES = 2 *
 const FINAL_RESERVE_FRAMES = 1;
 const FINAL_RESERVE_BYTES = CONTROL_MAX_BYTES + FRAME_HEADER_BYTES;
 
-async function writeAll(writer: ByteWriter, bytes: Uint8Array) {
+export type FrameWriterOptions = {
+  // frame 하나를 쓰기 시작해 끝나기까지의 기한(ms). 실제 경과 시간으로 잰다. 넘으면 그 writer는
+  // fault가 되고(쓰던 frame은 끊겼을 수 있다), 쓰던 frame과 줄 선 frame은 같은 오류로 거절한다.
+  // 없으면 기한이 없다(상대가 읽지 않으면 쓰기가 끝나지 않는다).
+  writeMs?: number;
+  // 기한을 넘겨 fault가 났을 때 한 번 부른다. 상대가 읽지 않으니 호출자가 상대를 끝낸다.
+  onTimeout?: () => void;
+};
+
+// 기한을 넘겨 버린 쓰기는 더 쓰지 않는다. 늦게 깨어난 write가 끊긴 frame의 나머지를 잇지 않는다.
+type WriteGuard = { abandoned: boolean };
+
+async function writeAll(
+  writer: ByteWriter,
+  bytes: Uint8Array,
+  guard: WriteGuard = { abandoned: false },
+) {
   let offset = 0;
   while (offset < bytes.length) {
+    if (guard.abandoned) throw new Error("frame write was abandoned");
     const remaining = bytes.length - offset;
     const written = await writer.write(bytes.subarray(offset));
     if (!Number.isInteger(written) || written < 1 || written > remaining) {
@@ -63,7 +81,10 @@ type Item = {
 // 한 pipe(한 spawned handle)에 하나만 만든다. 전역 상태 없이 이 instance 안에서만
 // FIFO queue와 fault를 쥔다. partial write가 실패하면 그 뒤로 큐에 있던 것과
 // 새로 들어오는 것 모두 같은 오류로 거절한다(protocol이 깨진 pipe에 더 쓰지 않는다).
-export function createFrameWriter(writer: ByteWriter): FrameWriter {
+export function createFrameWriter(
+  writer: ByteWriter,
+  options: FrameWriterOptions = {},
+): FrameWriter {
   const queue: Item[] = [];
   let active: Item | undefined;
   let queuedBytes = 0;
@@ -87,15 +108,45 @@ export function createFrameWriter(writer: ByteWriter): FrameWriter {
       if (!item) return;
       queuedBytes -= item.bytes.length;
       active = item;
+      const guard: WriteGuard = { abandoned: false };
+      const timer = options.writeMs === undefined
+        ? undefined
+        : armTimer(options.writeMs);
+      let timedOut = false;
       try {
-        await writeAll(writer, item.bytes);
+        const writing = writeAll(writer, item.bytes, guard);
+        if (timer === undefined) {
+          await writing;
+        } else {
+          // 진 쪽(막힌 write)이 나중에 거절해도 처리하지 않은 거절로 남기지 않는다.
+          writing.catch(() => {});
+          const raced = await Promise.race([
+            writing.then(() => "written" as const),
+            timer.promise,
+          ]);
+          if (raced === "timeout") {
+            timedOut = true;
+            guard.abandoned = true;
+            throw new Error(
+              `frame write timed out after ${options.writeMs}ms`,
+            );
+          }
+        }
         item.resolve();
       } catch (error) {
         fault = error instanceof Error ? error : new Error(String(error));
         item.reject(fault);
         rejectQueued(fault);
       } finally {
+        timer?.cancel();
         active = undefined;
+      }
+      if (timedOut) {
+        try {
+          options.onTimeout?.();
+        } catch {
+          /* 안전 실패: 호출자 hook 예외가 writer 정리를 막지 않는다 */
+        }
       }
     }
   }

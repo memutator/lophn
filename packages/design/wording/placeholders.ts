@@ -36,6 +36,22 @@ export type PlaceholderKinds = {
   "apps.notice.restored": {
     name: "string";
   };
+  "app-card.notice.contract-changed": Record<never, never>;
+  "app-card.notice.not-card": Record<never, never>;
+  "app-card.notice.unavailable": Record<never, never>;
+  "app-panel.button.open-app-space": Record<never, never>;
+  "app-panel.empty.no-apps": Record<never, never>;
+  "app-panel.label.screen": {
+    app: "string";
+    screen: "string";
+  };
+  "app-panel.notice.app-gone": Record<never, never>;
+  "app-panel.notice.app-space-only": {
+    app: "string";
+  };
+  "app-panel.notice.no-version": Record<never, never>;
+  "app-panel.notice.not-panel": Record<never, never>;
+  "app-panel.title.choose": Record<never, never>;
   "apps.title.screen": Record<never, never>;
   "common.activity.agent": Record<never, never>;
   "common.activity.app": Record<never, never>;
@@ -63,6 +79,7 @@ export type PlaceholderKinds = {
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
+  "common.button.report-problem": Record<never, never>;
   "common.button.reset-filters": Record<never, never>;
   "common.button.retry": Record<never, never>;
   "common.button.select-all": Record<never, never>;
@@ -106,6 +123,12 @@ export type PlaceholderKinds = {
   "common.label.app-stopped": Record<never, never>;
   "common.label.app-unavailable": Record<never, never>;
   "common.label.app-unknown": Record<never, never>;
+  "common.label.app-mode-live": Record<never, never>;
+  "common.label.app-mode-preview": Record<never, never>;
+  "common.label.app-state-preparing": Record<never, never>;
+  "common.label.app-state-running": Record<never, never>;
+  "common.label.app-state-stopped": Record<never, never>;
+  "common.label.app-state-unavailable": Record<never, never>;
   "common.label.date-from": Record<never, never>;
   "common.label.date-to": Record<never, never>;
   "common.label.date-with-weekday": {
@@ -784,6 +807,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
+  "project-workspace.button.open-app-panel": Record<never, never>;
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
   "project-workspace.button.remove-rule": Record<never, never>;
@@ -800,6 +824,7 @@ export type PlaceholderKinds = {
   "project-workspace.heading.left-out": Record<never, never>;
   "project-workspace.heading.tracked": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
+  "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
   "project-workspace.label.gitignore": Record<never, never>;

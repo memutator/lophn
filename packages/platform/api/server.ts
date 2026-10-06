@@ -1,12 +1,10 @@
-import type { Clock, Logger, LophnError, Result } from "../../base/mod.ts";
+import type { Clock, Logger } from "../../base/mod.ts";
 import {
   type AuthenticatedContext,
   DEFAULT_API_PORT,
   ERROR_HTTP_STATUS,
   EVENT_SUBSCRIBE_PATH,
   RPC_JSON_MAX_BYTES,
-  type WorkerRequest,
-  type WorkerResponse,
 } from "../../contracts/platform/mod.ts";
 import type { CredentialRegistry } from "../identity/mod.ts";
 import type { ConfirmationBridge, RouteConfirmation } from "../identity/mod.ts";
@@ -29,6 +27,7 @@ import {
   type MemoryHandler,
   type ReadHandler,
   type UploadHandler,
+  type WorkerRouteTarget,
   type WorkerTargets,
 } from "./dispatch.ts";
 import {
@@ -351,14 +350,13 @@ function json(reason: ReturnType<typeof failure>): Response {
 function adaptedWorkers(
   workers: ReadonlyMap<string, ResponsivenessTarget>,
 ): WorkerTargets {
-  const adapted = new Map<string, {
-    forward(
-      request: WorkerRequest,
-    ): Promise<Result<WorkerResponse, LophnError>>;
-  }>();
+  const adapted = new Map<string, WorkerRouteTarget>();
   for (const [name, target] of workers) {
     adapted.set(name, {
-      forward: (request) => forwardToWorker(target, request),
+      forward: (request, bytes) => forwardToWorker(target, request, bytes),
+      ...(target.limits?.requestBytesMax === undefined
+        ? {}
+        : { requestBytesMax: target.limits.requestBytesMax }),
     });
   }
   return adapted;

@@ -33,6 +33,20 @@ export const en = {
   "apps.notice.archived": "{name} is archived and won't start.",
   "apps.notice.restored":
     "{name} is back. It stays stopped until you start it.",
+  "app-card.notice.contract-changed":
+    "This app changed after the card was made, so the card isn't shown.",
+  "app-card.notice.not-card": "This screen can't be shown as a card.",
+  "app-card.notice.unavailable":
+    "This app is no longer available, so the card isn't shown.",
+  "app-panel.button.open-app-space": "Open in app space",
+  "app-panel.empty.no-apps": "No apps are registered yet.",
+  "app-panel.label.screen": "{app} · {screen}",
+  "app-panel.notice.app-gone": "This app is no longer available.",
+  "app-panel.notice.app-space-only": "{app} opens only in the app space.",
+  "app-panel.notice.no-version": "This app has no version ready to open yet.",
+  "app-panel.notice.not-panel":
+    "This screen can't open in a tab. Open it in the app space.",
+  "app-panel.title.choose": "Open an app in this tab",
   "apps.title.screen": "Apps",
   "common.activity.agent": "Agent activity",
   "common.activity.app": "App activity",
@@ -56,6 +70,7 @@ export const en = {
   "common.button.previous-page": "Previous page",
   "common.button.quit": "Quit",
   "common.button.reload": "Reload",
+  "common.button.report-problem": "Report a problem",
   "common.button.reset-filters": "Reset filters",
   "common.button.retry": "Try again",
   "common.button.select-all": "Select all",
@@ -89,6 +104,12 @@ export const en = {
   "common.label.app-stopped": "Stopped",
   "common.label.app-unavailable": "Not responding",
   "common.label.app-unknown": "Status unknown",
+  "common.label.app-mode-live": "Live",
+  "common.label.app-mode-preview": "Preview",
+  "common.label.app-state-preparing": "Starting",
+  "common.label.app-state-running": "Connected",
+  "common.label.app-state-stopped": "Stopped",
+  "common.label.app-state-unavailable": "Not connected",
   "common.label.date-from": "From",
   "common.label.date-to": "To",
   "common.label.date-with-weekday": "{date} ({weekday})",
@@ -375,8 +396,7 @@ export const en = {
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",
   "conversation.notice.unconfirmed":
     "lophn couldn't confirm this message arrived. Check before sending it again.",
-  "conversation.notice.visual-app-card":
-    "App cards can't be shown in the conversation yet.",
+  "conversation.notice.visual-app-card": "App cards can't be shown here.",
   "conversation.notice.visual-as-table": "This chart is shown as a table.",
   "conversation.notice.visual-not-saved":
     "lophn didn't save a document. Its answer says why.",
@@ -776,6 +796,7 @@ export const en = {
   "project-workspace.button.expand-sidebar": "Expand sidebar",
   "project-workspace.button.info-panel": "Info panel",
   "project-workspace.button.launcher": "Launcher",
+  "project-workspace.button.open-app-panel": "Open app in tab",
   "project-workspace.button.open-terminal": "Open terminal",
   "project-workspace.button.preview-again": "Preview again",
   "project-workspace.button.remove-rule": "Remove rule",
@@ -792,6 +813,7 @@ export const en = {
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.info.empty": "Nothing to show yet.",
+  "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
   "project-workspace.label.gitignore": "Skip files listed in .gitignore",

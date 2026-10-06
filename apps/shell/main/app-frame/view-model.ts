@@ -80,6 +80,24 @@ export interface AppViewHost {
   focusShell?(window: string): void;
 }
 
+/** 세션 앱 카드가 묶인 답의 표시 참조. 카드 입력은 싣지 않는다. */
+export interface CardDisplay {
+  message: string;
+  block: string;
+}
+
+/** 창에 열린 view 하나의 참조. 화면 내용·DOM·캡처는 없다. */
+export interface ViewListing {
+  view_session: string;
+  generation: number;
+  app: string;
+  release: string | null;
+  mode: ViewMode;
+  screen: string;
+  size: ScreenSize;
+  card: CardDisplay | null;
+}
+
 /**
  * [Report a problem]이 버튼 시점에 고정하는 view(architecture/shell 5.2 feedback binding).
  * capture는 같은 contents·generation일 때만 그 view를 찍고, `current`는 그 사이 교체·폐기가

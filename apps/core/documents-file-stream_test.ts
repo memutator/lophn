@@ -199,7 +199,7 @@ Deno.test("documents/versions#R8: 여러 창으로 이뤄진 파일은 실제 co
   const opened = await open();
   try {
     // 256 KiB 창 네 개. 창마다 내용이 달라서 밀리거나 건너뛴 창이 hash에 드러난다.
-    // 저장 경로가 받아 주는 파일은 이 정도까지다(아래 서빙 대상 시험이 64 MiB를 본다).
+    // 큰 파일의 저장은 documents-large-text_test.ts가 본다. 아래 서빙 대상 시험은 64 MiB를 본다.
     const size = 4 * WINDOW;
     const content = new Uint8Array(size);
     for (let i = 0; i < size; i++) {

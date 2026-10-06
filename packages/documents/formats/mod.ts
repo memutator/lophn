@@ -11,3 +11,8 @@ export {
   formatForMediaType,
   MODULE_HASH_PLACEHOLDER,
 } from "./model.ts";
+export {
+  CHECK_SKIPPED_CODE,
+  type OverLimitOutcome,
+  overLimitOutcome,
+} from "./check-limit.ts";

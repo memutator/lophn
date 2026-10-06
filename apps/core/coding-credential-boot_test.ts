@@ -16,6 +16,7 @@ import {
 } from "../../packages/platform/secrets/mod.ts";
 import { codingAgentConnectionDefinitions } from "./coding-agent.ts";
 import { type Core, startCore } from "./core.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const LOADER = "lophn-mcp-loader";
 const ORPHAN = "cac_01arz3ndektsv4rrffq69g5fax";
@@ -63,9 +64,13 @@ async function start(
     codingLoaders: [LOADER],
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+  });
   const core = started.value;
   assert(core.codingCredentials !== undefined);
   await core.codingCredentialsReady;
+  guard.keep();
   return core;
 }
 

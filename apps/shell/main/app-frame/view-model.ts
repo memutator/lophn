@@ -67,6 +67,65 @@ export interface AppViewHost {
   /** 창 본문에 붙이거나 bounds를 옮긴다. 창이 없으면 false다. */
   attach(window: string, view: AppViewContents, bounds: ViewBounds): boolean;
   detach(window: string, view: AppViewContents): void;
+  /** 이 view가 지금 키보드 focus를 가졌는가. */
+  focused?(view: AppViewContents): boolean;
+  /**
+   * 그 view만 PNG로 캡처한다(긴 변 1,600px 이하로 줄인 것). 다른 view·창·overlay는 담지
+   * 않는다. view가 crash했거나 없으면 거절한다.
+   */
+  capture?(view: AppViewContents): Promise<Uint8Array>;
+  /** 그 view의 지금 주소. 없으면 null이다. */
+  pageUrl?(view: AppViewContents): string | null;
+  /** 키보드 focus를 그 창의 shell renderer로 돌린다. */
+  focusShell?(window: string): void;
+}
+
+/** 세션 앱 카드가 묶인 답의 표시 참조. 카드 입력은 싣지 않는다. */
+export interface CardDisplay {
+  message: string;
+  block: string;
+}
+
+/** 창에 열린 view 하나의 참조. 화면 내용·DOM·캡처는 없다. */
+export interface ViewListing {
+  view_session: string;
+  generation: number;
+  app: string;
+  release: string | null;
+  mode: ViewMode;
+  screen: string;
+  size: ScreenSize;
+  card: CardDisplay | null;
+}
+
+/**
+ * [Report a problem]이 버튼 시점에 고정하는 view(architecture/shell 5.2 feedback binding).
+ * capture는 같은 contents·generation일 때만 그 view를 찍고, `current`는 그 사이 교체·폐기가
+ * 없었는지 본다.
+ */
+export interface FeedbackViewSnapshot {
+  view_session: string;
+  window: string;
+  generation: number;
+  app: string;
+  release: string | null;
+  mode: ViewMode;
+  screen: string;
+  bundleHash: string;
+  processNonce: string;
+  /** 지금 창 본문에 붙어 보인다. 숨김·준비 전이면 false다. */
+  visible: boolean;
+  url: string | null;
+  capture(): Promise<Uint8Array>;
+  current(): boolean;
+}
+
+/** 폐기되거나 다른 앱으로 교체되어 그 앱에서 닫힌 view. */
+export interface ClosedView {
+  app: string;
+  mode: ViewMode;
+  release: string | null;
+  view_session: string;
 }
 
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
@@ -84,6 +143,11 @@ export function boundsValid(value: unknown): value is ViewBounds {
   return keys === "height,width,x,y" &&
     [bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isInteger) &&
     (bounds.width as number) >= 0 && (bounds.height as number) >= 0;
+}
+
+/** 넓이가 없는 bounds다. 붙일 자리가 없으니 보이지 않는 view로 둔다. */
+export function boundsEmpty(bounds: ViewBounds): boolean {
+  return bounds.width <= 0 || bounds.height <= 0;
 }
 
 /** contracts#T38 appFrameOpenSchema와 같은 검사. 모르는 field도 거절한다. */
@@ -146,6 +210,15 @@ export function stateOf(entry: ViewEntry): AppFrameViewState {
     screen: entry.target.screen,
     size: entry.target.size,
     connectionState: entry.connectionState,
+  };
+}
+
+export function closedOf(entry: ViewEntry): ClosedView {
+  return {
+    app: entry.target.app,
+    mode: entry.target.mode,
+    release: entry.target.release,
+    view_session: entry.view_session,
   };
 }
 

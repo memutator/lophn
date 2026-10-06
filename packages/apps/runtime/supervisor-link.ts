@@ -17,15 +17,21 @@ import {
   type LogsWire,
   type ObservationWire,
   observeOutputSchema,
+  type PreviewLaunch,
+  previewStartOutputSchema,
+  previewStopOutputSchema,
   reconcileOutputSchema,
   restartOutputSchema,
   SUPERVISOR_OPS,
+  viewClosedOutputSchema,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
 
 const REQUEST_TIMEOUT_MS = 5_000;
 // 재시작은 이전 자식의 정지 유예(10초)와 종료 확인까지 기다린다.
 const RESTART_TIMEOUT_MS = 30_000;
+// preview 종료도 정지 유예와 종료 확인까지 기다린다.
+const PREVIEW_STOP_TIMEOUT_MS = 30_000;
 
 type WorkerResponse =
   | { type: "worker_response"; request_id: string; ok: true; payload: unknown }
@@ -50,6 +56,9 @@ export type SupervisorChannel = {
   bind(send: (payload: unknown) => Promise<boolean>): void;
   // supervisor가 멈췄다. 기다리던 요청은 unavailable로 끝난다.
   unbind(): void;
+  // supervisor child가 끝났다(crash·재기동). 보낸 요청은 답이 오지 않으므로 기한(5초·재시작 30초)까지
+  // 기다리지 않고 바로 unavailable로 끝낸다. 연결(bind)은 그대로다: 감독이 새 child를 띄운다.
+  failPending(message: string): void;
   readonly bound: boolean;
 };
 
@@ -57,6 +66,12 @@ export function createSupervisorChannel(): SupervisorChannel {
   let send: ((payload: unknown) => Promise<boolean>) | null = null;
   let counter = 0;
   const pending = new Map<string, (answer: Result<unknown>) => void>();
+  function failPending(message: string) {
+    for (const [id, settle] of [...pending]) {
+      pending.delete(id);
+      settle(err({ code: "unavailable", message }));
+    }
+  }
   return {
     request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS) {
       const sender = send;
@@ -121,15 +136,10 @@ export function createSupervisorChannel(): SupervisorChannel {
     bind(next) {
       send = next;
     },
+    failPending,
     unbind() {
       send = null;
-      for (const [id, settle] of [...pending]) {
-        pending.delete(id);
-        settle(err({
-          code: "unavailable",
-          message: "app supervisor stopped",
-        }));
-      }
+      failPending("app supervisor stopped");
     },
     get bound() {
       return send !== null;
@@ -165,6 +175,15 @@ export type SupervisorClient = {
     },
   ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
+  // 닫힌 화면 view를 그 앱의 지금 live 자식에 알린다. 자식이 없으면 false다.
+  viewClosed(app: string, viewSession: string): Promise<Result<boolean>>;
+  // preview 프로세스. 운영 자식과 다른 통로이고 운영 관측을 바꾸지 않는다(apps/preview).
+  previewStart(launch: PreviewLaunch): Promise<Result<void>>;
+  previewObserve(
+    app: string,
+    processNonce: string,
+  ): Promise<Result<ObservationWire | null>>;
+  previewStop(app: string, processNonce: string): Promise<Result<boolean>>;
 };
 
 export function createSupervisorClient(
@@ -202,6 +221,44 @@ export function createSupervisorClient(
       );
       return answer.ok ? ok(answer.value.restarted) : answer;
     },
+    async viewClosed(app, viewSession) {
+      const answer = shaped(
+        viewClosedOutputSchema,
+        await channel.request(SUPERVISOR_OPS.viewClosed, {
+          app,
+          view_session: viewSession,
+        }),
+      );
+      return answer.ok ? ok(answer.value.relayed) : answer;
+    },
+    async previewStart(launch) {
+      const answer = shaped(
+        previewStartOutputSchema,
+        await channel.request(SUPERVISOR_OPS.previewStart, launch),
+      );
+      return answer.ok ? ok(undefined) : answer;
+    },
+    async previewObserve(app, processNonce) {
+      const answer = shaped(
+        observeOutputSchema,
+        await channel.request(SUPERVISOR_OPS.previewObserve, {
+          app,
+          process_nonce: processNonce,
+        }),
+      );
+      return answer.ok ? ok(answer.value.observation) : answer;
+    },
+    async previewStop(app, processNonce) {
+      const answer = shaped(
+        previewStopOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.previewStop,
+          { app, process_nonce: processNonce },
+          PREVIEW_STOP_TIMEOUT_MS,
+        ),
+      );
+      return answer.ok ? ok(answer.value.stopped) : answer;
+    },
   };
 }
 
@@ -209,7 +266,10 @@ export function createSupervisorClient(
 export function processSourceOf(client: SupervisorClient): ProcessSource {
   return {
     async current(query: ProcessQuery) {
-      const found = await client.observe(query.app);
+      // preview는 운영 자식과 따로 쥔 프로세스라 그 nonce로 묻는다. 운영 관측으로 대신하지 않는다.
+      const found = query.mode === "preview"
+        ? await client.previewObserve(query.app, query.nonce)
+        : await client.observe(query.app);
       if (!found.ok) return found;
       const wire = found.value;
       if (

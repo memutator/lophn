@@ -2,16 +2,69 @@
 import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
+  "app-space.button.add-shortcut": Record<never, never>;
+  "app-space.button.app-details": Record<never, never>;
+  "app-space.button.documents": Record<never, never>;
+  "app-space.button.new-window": Record<never, never>;
+  "app-space.button.remove-shortcut": Record<never, never>;
+  "app-space.empty.archived": Record<never, never>;
+  "app-space.empty.no-version": Record<never, never>;
+  "app-space.empty.not-found": Record<never, never>;
+  "app-space.empty.screen-not-ready": Record<never, never>;
+  "app-space.heading.app-details": Record<never, never>;
+  "app-space.heading.this-computer": Record<never, never>;
+  "app-space.label.this-app": Record<never, never>;
+  "app-space.notice.shortcut-added": Record<never, never>;
+  "app-space.notice.shortcut-failed": Record<never, never>;
+  "app-space.notice.shortcut-not-installed": Record<never, never>;
+  "app-space.notice.shortcut-removed": Record<never, never>;
+  "app-space.notice.window-failed": Record<never, never>;
+  "apps.button.archive": Record<never, never>;
+  "apps.button.open": Record<never, never>;
+  "apps.button.restore": Record<never, never>;
+  "apps.empty.no-apps": Record<never, never>;
+  "apps.error.action-failed": {
+    name: "string";
+  };
+  "apps.error.changed": Record<never, never>;
+  "apps.label.list-target": Record<never, never>;
+  "apps.label.name": Record<never, never>;
+  "apps.label.status": Record<never, never>;
+  "apps.notice.archived": {
+    name: "string";
+  };
+  "apps.notice.restored": {
+    name: "string";
+  };
+  "app-card.notice.contract-changed": Record<never, never>;
+  "app-card.notice.not-card": Record<never, never>;
+  "app-card.notice.unavailable": Record<never, never>;
+  "app-panel.button.open-app-space": Record<never, never>;
+  "app-panel.empty.no-apps": Record<never, never>;
+  "app-panel.label.screen": {
+    app: "string";
+    screen: "string";
+  };
+  "app-panel.notice.app-gone": Record<never, never>;
+  "app-panel.notice.app-space-only": {
+    app: "string";
+  };
+  "app-panel.notice.no-version": Record<never, never>;
+  "app-panel.notice.not-panel": Record<never, never>;
+  "app-panel.title.choose": Record<never, never>;
   "apps.title.screen": Record<never, never>;
   "common.activity.agent": Record<never, never>;
   "common.activity.app": Record<never, never>;
   "common.author.label": {
     author: "string";
   };
+  "common.button.apply": Record<never, never>;
   "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
+  "common.button.clear": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
+  "common.button.copy-address": Record<never, never>;
   "common.button.copy-code": Record<never, never>;
   "common.button.copy-id": Record<never, never>;
   "common.button.next-page": Record<never, never>;
@@ -26,7 +79,10 @@ export type PlaceholderKinds = {
   "common.button.previous-page": Record<never, never>;
   "common.button.quit": Record<never, never>;
   "common.button.reload": Record<never, never>;
+  "common.button.report-problem": Record<never, never>;
+  "common.button.reset-filters": Record<never, never>;
   "common.button.retry": Record<never, never>;
+  "common.button.select-all": Record<never, never>;
   "common.button.show-chart": Record<never, never>;
   "common.button.show-table": Record<never, never>;
   "common.button.sort-ascending": Record<never, never>;
@@ -38,6 +94,9 @@ export type PlaceholderKinds = {
   "common.chart.unreadable": Record<never, never>;
   "common.copy.failed": Record<never, never>;
   "common.empty.not-ready": Record<never, never>;
+  "common.error.action-failed": {
+    action: "string";
+  };
   "common.error.load-failed": {
     target: "string";
   };
@@ -55,11 +114,32 @@ export type PlaceholderKinds = {
   "common.heading.palette-files": Record<never, never>;
   "common.heading.palette-projects": Record<never, never>;
   "common.heading.palette-tabs": Record<never, never>;
+  "common.label.all-of": {
+    dimension: "string";
+  };
+  "common.label.app-archived": Record<never, never>;
+  "common.label.app-preparing": Record<never, never>;
+  "common.label.app-running": Record<never, never>;
+  "common.label.app-stopped": Record<never, never>;
+  "common.label.app-unavailable": Record<never, never>;
+  "common.label.app-unknown": Record<never, never>;
+  "common.label.app-mode-live": Record<never, never>;
+  "common.label.app-mode-preview": Record<never, never>;
+  "common.label.app-state-preparing": Record<never, never>;
+  "common.label.app-state-running": Record<never, never>;
+  "common.label.app-state-stopped": Record<never, never>;
+  "common.label.app-state-unavailable": Record<never, never>;
+  "common.label.date-from": Record<never, never>;
+  "common.label.date-to": Record<never, never>;
   "common.label.date-with-weekday": {
     date: "string";
     weekday: "string";
   };
   "common.label.decisions-waiting": {
+    count: "plural";
+  };
+  "common.label.first-and-more": {
+    first: "string";
     count: "plural";
   };
   "common.label.lophn-space": Record<never, never>;
@@ -78,11 +158,18 @@ export type PlaceholderKinds = {
     kind: "string";
     pane: "string";
   };
+  "common.label.range-custom": Record<never, never>;
+  "common.label.range-last-30-days": Record<never, never>;
+  "common.label.range-last-7-days": Record<never, never>;
+  "common.label.range-last-90-days": Record<never, never>;
+  "common.label.range-this-month": Record<never, never>;
+  "common.label.range-today": Record<never, never>;
   "common.label.row-range": {
     start: "number";
     end: "number";
     total: "number";
   };
+  "common.label.search": Record<never, never>;
   "common.label.sort-by": Record<never, never>;
   "common.label.tray-global-search-unavailable": Record<never, never>;
   "common.label.tray-launcher": Record<never, never>;
@@ -95,7 +182,9 @@ export type PlaceholderKinds = {
     start: "string";
     end: "string";
   };
+  "common.notice.asks-first": Record<never, never>;
   "common.notice.core-down": Record<never, never>;
+  "common.notice.waiting-confirmation": Record<never, never>;
   "common.notification.body": Record<never, never>;
   "common.notification.title": Record<never, never>;
   "common.overlay.unavailable": Record<never, never>;
@@ -801,6 +890,7 @@ export type PlaceholderKinds = {
   "project-workspace.button.expand-sidebar": Record<never, never>;
   "project-workspace.button.info-panel": Record<never, never>;
   "project-workspace.button.launcher": Record<never, never>;
+  "project-workspace.button.open-app-panel": Record<never, never>;
   "project-workspace.button.open-terminal": Record<never, never>;
   "project-workspace.button.preview-again": Record<never, never>;
   "project-workspace.button.remove-rule": Record<never, never>;
@@ -817,6 +907,7 @@ export type PlaceholderKinds = {
   "project-workspace.heading.left-out": Record<never, never>;
   "project-workspace.heading.tracked": Record<never, never>;
   "project-workspace.info.empty": Record<never, never>;
+  "project-workspace.label.choose-app": Record<never, never>;
   "project-workspace.label.drop-here": Record<never, never>;
   "project-workspace.label.drop-side": Record<never, never>;
   "project-workspace.label.gitignore": Record<never, never>;
@@ -880,7 +971,128 @@ export type PlaceholderKinds = {
   "project-workspace.tracking.unreadable-one": {
     folder: "string";
   };
+  "projects.button.archive": Record<never, never>;
+  "projects.button.back-to-project": Record<never, never>;
+  "projects.button.export": {
+    count: "plural";
+  };
+  "projects.button.move": Record<never, never>;
+  "projects.button.place": Record<never, never>;
+  "projects.button.remove-file": Record<never, never>;
+  "projects.button.rename": Record<never, never>;
+  "projects.button.save": Record<never, never>;
+  "projects.button.show-latest": Record<never, never>;
+  "projects.button.unarchive": Record<never, never>;
+  "projects.empty.documents": Record<never, never>;
+  "projects.empty.none": Record<never, never>;
+  "projects.empty.pick": Record<never, never>;
+  "projects.error.changed": Record<never, never>;
+  "projects.error.document-change-failed": Record<never, never>;
+  "projects.error.document-name-taken": Record<never, never>;
+  "projects.error.export-changed": Record<never, never>;
+  "projects.error.export-failed": Record<never, never>;
+  "projects.error.name-invalid": Record<never, never>;
+  "projects.error.name-taken": Record<never, never>;
+  "projects.error.project-change-failed": Record<never, never>;
+  "projects.error.review-unavailable": Record<never, never>;
+  "projects.error.title-missing": Record<never, never>;
+  "projects.heading.document": Record<never, never>;
+  "projects.heading.documents": Record<never, never>;
+  "projects.heading.export": Record<never, never>;
+  "projects.heading.export-included": Record<never, never>;
+  "projects.heading.export-left-out": Record<never, never>;
+  "projects.heading.file": Record<never, never>;
+  "projects.label.archived": Record<never, never>;
+  "projects.label.document-name": Record<never, never>;
+  "projects.label.export-format": Record<never, never>;
+  "projects.label.export-kept-original": Record<never, never>;
+  "projects.label.export-no-files": Record<never, never>;
+  "projects.label.export-not-picked": Record<never, never>;
+  "projects.label.export-version": Record<never, never>;
+  "projects.label.file-folder": Record<never, never>;
+  "projects.label.file-linked": Record<never, never>;
+  "projects.label.file-name": Record<never, never>;
+  "projects.label.format-json": Record<never, never>;
+  "projects.label.format-markdown": Record<never, never>;
+  "projects.label.move-to": Record<never, never>;
+  "projects.label.name": Record<never, never>;
+  "projects.label.name-help": Record<never, never>;
+  "projects.label.no-place": Record<never, never>;
+  "projects.label.place-project": Record<never, never>;
+  "projects.label.purpose": Record<never, never>;
+  "projects.label.show-archived": Record<never, never>;
+  "projects.label.step-done": Record<never, never>;
+  "projects.label.step-failed": Record<never, never>;
+  "projects.label.step-forbidden": Record<never, never>;
+  "projects.label.step-move": Record<never, never>;
+  "projects.label.step-not-attempted": Record<never, never>;
+  "projects.label.step-skipped": Record<never, never>;
+  "projects.label.step-source": Record<never, never>;
+  "projects.label.step-tracking": Record<never, never>;
+  "projects.label.step-unlink-move": Record<never, never>;
+  "projects.label.step-unlink-source": Record<never, never>;
+  "projects.label.target-documents": Record<never, never>;
+  "projects.label.target-project": Record<never, never>;
+  "projects.label.target-projects": Record<never, never>;
+  "projects.label.title": Record<never, never>;
+  "projects.label.tracking-off": Record<never, never>;
+  "projects.label.tracking-on": Record<never, never>;
+  "projects.label.version-latest": {
+    number: "number";
+  };
+  "projects.label.version-number": {
+    number: "number";
+  };
+  "projects.notice.archive-keeps": Record<never, never>;
+  "projects.notice.archived": Record<never, never>;
+  "projects.notice.export-pick": Record<never, never>;
+  "projects.notice.file-none": Record<never, never>;
+  "projects.notice.file-stays": Record<never, never>;
+  "projects.notice.moved": {
+    place: "string";
+  };
+  "projects.notice.moved-out": Record<never, never>;
+  "projects.notice.place-help": Record<never, never>;
+  "projects.notice.place-many-files": Record<never, never>;
+  "projects.notice.place-no-project": Record<never, never>;
+  "projects.notice.remove-help": Record<never, never>;
+  "projects.notice.renamed": {
+    name: "string";
+  };
+  "projects.notice.review-opened": Record<never, never>;
+  "projects.notice.saved": Record<never, never>;
+  "projects.notice.steps-incomplete": Record<never, never>;
+  "projects.result.file-conflict": Record<never, never>;
+  "projects.result.file-deleted": Record<never, never>;
+  "projects.result.file-failed": Record<never, never>;
+  "projects.result.file-gone": Record<never, never>;
+  "projects.result.file-unknown": Record<never, never>;
+  "projects.result.file-written": Record<never, never>;
   "projects.title.screen": Record<never, never>;
+  "report-problem.button.copy-text": Record<never, never>;
+  "report-problem.button.open": Record<never, never>;
+  "report-problem.button.send": Record<never, never>;
+  "report-problem.button.view-issue": Record<never, never>;
+  "report-problem.error.rejected": Record<never, never>;
+  "report-problem.error.too-long": Record<never, never>;
+  "report-problem.error.unreachable": Record<never, never>;
+  "report-problem.heading.sent-with": Record<never, never>;
+  "report-problem.hint.draft-memory": Record<never, never>;
+  "report-problem.label.screen-details": Record<never, never>;
+  "report-problem.label.screenshot": Record<never, never>;
+  "report-problem.label.what-happened": Record<never, never>;
+  "report-problem.notice.capturing": Record<never, never>;
+  "report-problem.notice.copy-text": Record<never, never>;
+  "report-problem.notice.new-issue": Record<never, never>;
+  "report-problem.notice.open-failed": Record<never, never>;
+  "report-problem.notice.screen-not-sent": Record<never, never>;
+  "report-problem.notice.screenshot-failed": Record<never, never>;
+  "report-problem.notice.screenshot-hidden": Record<never, never>;
+  "report-problem.notice.screenshot-not-selected": Record<never, never>;
+  "report-problem.notice.screenshot-protected": Record<never, never>;
+  "report-problem.status.received": Record<never, never>;
+  "report-problem.status.sending": Record<never, never>;
+  "report-problem.title.report": Record<never, never>;
   "roles.title.screen": Record<never, never>;
   "settings.models.for-decisions": Record<never, never>;
   "settings.models.for-summaries": Record<never, never>;

@@ -46,11 +46,24 @@ export interface ConfirmTargetIntent {
   readonly request: string;
 }
 
+/**
+ * [Report a problem]으로 접수된 feedback이 묶인 Issue(problems/feedback#R13). 그 앱 공간을 연다.
+ * 앱·문제 ID는 main이 접수 결과에서 정하고 화면에는 보이지 않는다.
+ */
+export interface AppIssueIntent {
+  readonly kind: "app-issue";
+  readonly app: string;
+  readonly problem: string;
+}
+
 export type DesktopIntent =
   | typeof DESKTOP_INTENTS[number]
-  | ConfirmTargetIntent;
+  | ConfirmTargetIntent
+  | AppIssueIntent;
 
 const CONFIRM_TARGET = /^(?:apr|qst)_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+const PROBLEM_ID = /^prb_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 
 export function isDesktopIntent(value: unknown): value is DesktopIntent {
   if (typeof value === "string") {
@@ -58,6 +71,11 @@ export function isDesktopIntent(value: unknown): value is DesktopIntent {
   }
   if (typeof value !== "object" || value === null) return false;
   const target = value as Record<string, unknown>;
+  if (target.kind === "app-issue") {
+    return Object.keys(target).sort().join(",") === "app,kind,problem" &&
+      typeof target.app === "string" && APP_ID.test(target.app) &&
+      typeof target.problem === "string" && PROBLEM_ID.test(target.problem);
+  }
   return Object.keys(target).sort().join(",") === "kind,request" &&
     target.kind === "things-to-confirm" &&
     typeof target.request === "string" && CONFIRM_TARGET.test(target.request);

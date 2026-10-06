@@ -29,13 +29,19 @@ import {
 } from "../palette/host.tsx";
 import { lophnScope } from "../palette/lophn-scope.ts";
 import { ThingsToConfirm } from "./things-to-confirm/things-to-confirm.tsx";
+import { ProjectsScreen } from "./projects/projects-screen.tsx";
+import type { OrganizeSource } from "./organize/source.ts";
 import { useRequests } from "./things-to-confirm/context.tsx";
 import { ContextsScreen } from "./contexts/contexts-screen.tsx";
 import type { ContextsSource } from "./contexts/source.ts";
+import { AppsScreen } from "./apps/apps-screen.tsx";
+import type { AppsSource } from "./apps/source.ts";
 import styles from "./lophn-space.module.css";
 
 export interface LophnSpaceProps {
   source: LophnSource;
+  /** projects 화면의 정리 통로. 없으면 projects는 준비 전 안내다. */
+  organize?: OrganizeSource;
   /** 처음 보일 형제. 없으면 documents다(desktop#R1). */
   screen?: LophnScreen;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
@@ -55,6 +61,10 @@ export interface LophnSpaceProps {
   initialFocus?: string;
   /** core 연결이 (다시) 준비될 때마다 오른다. contexts가 현재 기록을 다시 읽는다. */
   connected?: number;
+  /** apps 화면 통로. 없으면 apps는 준비 전 안내다. */
+  apps?: AppsSource;
+  /** 그 앱의 앱 공간으로 간다. apps 화면의 열기와 팔레트의 앱 행이 쓴다. */
+  onApp?: (app: string) => void;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -63,6 +73,7 @@ const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
 export function LophnSpace(
   {
     source,
+    organize,
     screen,
     windowWidth,
     onLauncher,
@@ -73,6 +84,8 @@ export function LophnSpace(
     contexts,
     initialFocus,
     connected = 0,
+    apps,
+    onApp,
   }: LophnSpaceProps,
 ) {
   const [current, setCurrent] = useState<LophnScreen>(screen ?? DEFAULT_SCREEN);
@@ -162,8 +175,10 @@ export function LophnSpace(
             id: target.id,
             count: (last?.count ?? 0) + 1,
           }));
-        } else if (target.kind === "app") setCurrent("apps");
-        else {
+        } else if (target.kind === "app") {
+          if (onApp) onApp(target.id);
+          else setCurrent("apps");
+        } else {
           setCurrent("documents");
           setReading((last) => ({
             target: {
@@ -249,6 +264,8 @@ export function LophnSpace(
                 onAsk={conversation ? () => setDockOpen(true) : undefined}
               />
             )
+            : current === "apps" && apps && onApp
+            ? <AppsScreen source={apps} onOpen={onApp} />
             : current === "things-to-confirm" && requests !== null
             ? (
               <ThingsToConfirm
@@ -256,6 +273,8 @@ export function LophnSpace(
                 initialSelected={initialRequest}
               />
             )
+            : current === "projects" && organize !== undefined
+            ? <ProjectsScreen source={organize} lophn={source} />
             : (
               <p className={styles.notReady} data-not-ready={current}>
                 {t("common.empty.not-ready")}

@@ -11,6 +11,8 @@ export const EDITOR_WATCH_CHANNEL = "shell:editor-watch";
 export const EDITOR_RELEASE_CHANNEL = "shell:editor-release";
 /** renderer → main: 고른 판을 새 최신 판으로 되살린다(flow restore-document). */
 export const EDITOR_RESTORE_CHANNEL = "shell:editor-restore";
+/** renderer → main: 문서의 최신 판을 추적 중인 프로젝트의 새 파일로 둔다(flow organize-documents). */
+export const EDITOR_PLACE_CHANNEL = "shell:editor-place";
 /** renderer → main: 이 창의 저장 중·끝나지 않은 편집 수. 끄기·창 닫기 확인이 읽는다. */
 export const EDITOR_COUNTS_CHANNEL = "shell:editor-counts";
 /** main → renderer: 창을 닫으려 한다. 마지막 고침을 보내고 답한다. */
@@ -52,6 +54,15 @@ export const editorSessionSchema = z.object({ session }).strict();
 export const editorRestoreSchema = z.object({
   document: documentId,
   version: versionId,
+  request_key: requestKey,
+}).strict();
+
+export const editorPlaceSchema = z.object({
+  document: documentId,
+  version: versionId,
+  project: z.string().regex(/^prj_[0-9a-z]{26}$/),
+  /** 새 파일의 절대 경로. 등록 폴더 안인지는 core가 본다. */
+  path: z.string().min(1).max(4096),
   request_key: requestKey,
 }).strict();
 
@@ -199,6 +210,28 @@ export interface RestoreReport {
   readonly failure: string | null;
 }
 
+/** 두기 뒤 연결 단계 하나. documents FileStep과 같은 뜻이다. */
+export type PlaceStep =
+  | { readonly state: "done" }
+  | { readonly state: "skipped"; readonly reason: string }
+  | { readonly state: "failed"; readonly code: string }
+  | { readonly state: "not_attempted" };
+
+/**
+ * 파일로 두기 결과. file은 파일 쓰기 결과이고 steps는 원본 연결·추적 규칙·자리 단계다.
+ * 파일 쓰기가 끝나지 못했으면 steps는 null이다. 뒤 단계 실패가 파일 성공을 지우지 않는다.
+ */
+export interface PlaceReport {
+  readonly file: "written" | "conflict" | "failed" | "unknown";
+  readonly path: string | null;
+  readonly steps: {
+    readonly source: PlaceStep;
+    readonly tracking: PlaceStep;
+    readonly move: PlaceStep;
+  } | null;
+  readonly failure: string | null;
+}
+
 /** preload가 desktop renderer에 여는 편집 통로. */
 export interface EditorFilesApi {
   open(input: { document: string }): Promise<EditorReply<EditorOpened>>;
@@ -214,6 +247,15 @@ export interface EditorFilesApi {
   restore(
     input: { document: string; version: string; request_key: string },
   ): Promise<EditorReply<RestoreReport>>;
+  place(
+    input: {
+      document: string;
+      version: string;
+      project: string;
+      path: string;
+      request_key: string;
+    },
+  ): Promise<EditorReply<PlaceReport>>;
   counts(input: EditorCounts): void;
   /** main이 창 닫기를 묻는다. 해제는 반환 함수다. */
   onCloseRequest(listener: (request: number) => void): () => void;

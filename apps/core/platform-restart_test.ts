@@ -18,6 +18,7 @@ import {
   decide,
   type Server,
 } from "./testing/approvals-fixture.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const NOW = Date.UTC(2024, 0, 1);
 const USER_TOKEN = "e".repeat(43);
@@ -54,6 +55,9 @@ async function start(home: string, generation: number) {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+  });
   const core = started.value;
   for (
     const [credential, token] of [
@@ -88,6 +92,7 @@ async function start(home: string, generation: number) {
       core.confirmation?.(body) ??
         Promise.resolve({ ok: false as const, error: { message: "없다" } }),
   };
+  guard.keep();
   return { core, server, clock };
 }
 

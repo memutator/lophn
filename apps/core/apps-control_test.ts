@@ -1,7 +1,8 @@
 // core 안 apps 제어 조립의 권한 경계: supervisor 실행 권한, registry 발급 상한, 자식 앱의
 // app credential. 실제 registry와 실제 launch spec 검사를 쓴다.
 import { assert, assertEquals } from "@std/assert";
-import { manualClock } from "../../packages/base/mod.ts";
+import { err, manualClock, ok } from "../../packages/base/mod.ts";
+import type { AuthenticatedContext } from "../../packages/contracts/platform/mod.ts";
 import { CredentialRegistry } from "../../packages/platform/identity/mod.ts";
 import { operationCeiling } from "../../packages/platform/identity/model.ts";
 import {
@@ -12,6 +13,7 @@ import {
   appCredentialIssuer,
   appsOperationPolicies,
   appSupervisorSpec,
+  createAppsControl,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
 } from "./apps-control.ts";
 
@@ -73,11 +75,15 @@ Deno.test("apps/runtime#R9: registry 상한은 machine에게 관측 기록과 �
     operationCeiling("agent:asg_01arz3ndektsv4rrffq69g5fav", policies),
     ["app.connect"],
   );
+  // coding agent는 connect에 더해 preview를 연다(apps/preview#R1). 사람은 route 상한 전체를 받는다.
   assertEquals(
-    operationCeiling("coding_agent:cac_01arz3ndektsv4rrffq69g5fav", policies),
     [
-      "app.connect",
-    ],
+      ...operationCeiling(
+        "coding_agent:cac_01arz3ndektsv4rrffq69g5fav",
+        policies,
+      ),
+    ].sort(),
+    ["app.connect", "previews.get", "previews.start", "previews.stop"],
   );
 });
 
@@ -117,4 +123,66 @@ Deno.test("apps/runtime#R7: 자식 앱 credential은 그 앱·release·프로세
   assert(second.ok);
   assert(!(await keys.authenticate(first.value.credential)).ok);
   assert((await keys.authenticate(second.value.credential)).ok);
+});
+
+Deno.test("apps/agent-context#R2, apps/agent-context#R5: 닫힌 화면 view는 사람 자격의 범위 안 앱만 supervisor의 지금 live 자식에 중계한다", async () => {
+  const revoked = new Set<string>();
+  const control = await createAppsControl({
+    clock: manualClock(Date.parse("2026-10-06T00:00:00.000Z")),
+    ledgerPath: "/nonexistent/ledger.db",
+    readers: {
+      read: () => Promise.resolve(err({ code: "unavailable", message: "x" })),
+    },
+    revalidate: (ref) =>
+      revoked.has(ref)
+        ? err({ code: "unauthorized", message: "revoked" })
+        : ok(user(ref)),
+    redact: (line) => line,
+  });
+  function user(ref = "cred-user", app?: string): AuthenticatedContext {
+    return {
+      principal: "user",
+      actor: "user",
+      scope: {
+        operations: ["app.view_closed"],
+        targets: app === undefined ? {} : { app: [app] },
+      },
+      conditions: {},
+      credential_ref: ref,
+    };
+  }
+  const handler = control.memory.get("apps/view_closed")!;
+  const input = { app: APP, view_session: "view-1" };
+  // supervisor가 없으면 닿지 못한다.
+  const early = await handler(user(), input);
+  assertEquals(early.ok ? "" : early.error.code, "unavailable");
+  const sent: unknown[] = [];
+  control.channel.bind((payload) => {
+    sent.push(payload);
+    const request = payload as { request_id: string; payload: unknown };
+    queueMicrotask(() =>
+      control.channel.onMessage({
+        type: "worker_response",
+        request_id: request.request_id,
+        ok: true,
+        payload: { relayed: true },
+      } as { type: string })
+    );
+    return Promise.resolve(true);
+  });
+  assertEquals(await handler(user(), input), ok({ relayed: true }));
+  assertEquals(sent, [{
+    type: "worker_request",
+    request_id: "apps-request-1",
+    op: "apps.view_closed",
+    payload: { app: APP, view_session: "view-1" },
+  }]);
+  // 범위 밖 앱은 없는 앱과 같고 supervisor에 닿지 않는다.
+  const outside = await handler(user("cred-user", OTHER), input);
+  assertEquals(outside.ok ? "" : outside.error.code, "not_found");
+  revoked.add("cred-gone");
+  const gone = await handler(user("cred-gone"), input);
+  assertEquals(gone.ok ? "" : gone.error.code, "unauthorized");
+  assertEquals(sent.length, 1);
+  control.stop();
 });

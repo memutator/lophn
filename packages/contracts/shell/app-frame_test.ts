@@ -176,6 +176,25 @@ Deno.test(
         mode: "preview",
         screen: "usage",
         size: "card",
+        card: { message: "msg_01arz3ndektsv4rrffq69g5fav", block: "usage" },
+      }).success,
+    );
+    // 카드는 message·block 표시 참조에 묶여 열리고 다른 크기는 그 참조를 싣지 않는다.
+    assert(
+      !APP_FRAME_IPC["shell:view-open-app"].safeParse({
+        app: APP,
+        mode: "preview",
+        screen: "usage",
+        size: "card",
+      }).success,
+    );
+    assert(
+      !APP_FRAME_IPC["shell:view-open-app"].safeParse({
+        app: APP,
+        mode: "preview",
+        screen: "usage",
+        size: "panel",
+        card: { message: "msg_01arz3ndektsv4rrffq69g5fav", block: "usage" },
       }).success,
     );
     assert(

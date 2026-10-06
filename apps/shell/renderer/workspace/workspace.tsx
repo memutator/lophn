@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
@@ -61,6 +61,12 @@ import {
   dockPlacement,
   infoPanelShown,
 } from "../conversation/model.ts";
+import { AppPanelPicker, AppPanelTab } from "./app-panel-tab.tsx";
+import { useAppViews } from "../app-frame/app-views.tsx";
+import {
+  createViewCovers,
+  ViewCoversProvider,
+} from "../app-frame/embedded-view.tsx";
 import styles from "./workspace.module.css";
 
 export interface WorkspaceProps {
@@ -84,6 +90,8 @@ export interface WorkspaceProps {
   terminal?: TerminalDeps;
   /** 파일 추적 켜기 통로. 없으면 추적 안내 줄을 두지 않는다. */
   tracking?: TrackingSource;
+  /** 앱 공간으로 연다. 없으면 패널을 못 여는 앱에는 안내 글만 둔다. */
+  onOpenApp?: (app: string) => void;
 }
 
 interface Loaded {
@@ -150,6 +158,7 @@ function viewFromLayout(layout: unknown): RestoredLayout {
 }
 
 let terminalCount = 0;
+let appPanelCount = 0;
 
 function freshView(): WorkspaceView {
   return {
@@ -173,8 +182,12 @@ export function Workspace(
     terminal,
     editor,
     tracking,
+    onOpenApp,
   }: WorkspaceProps,
 ) {
+  // 앱 패널 view와 본문을 덮는 패널(정보 패널·대화 도크 overlay)이 같이 보는 목록.
+  const covers = useMemo(createViewCovers, []);
+  const appViews = useAppViews();
   const [loaded, setLoaded] = useState<Loaded>(EMPTY_LOADED);
   const [view, setView] = useState<WorkspaceView>(freshView);
   const [sidebar, setSidebar] = useState<SidebarState>({
@@ -311,6 +324,68 @@ export function Workspace(
         index === pane ? { tabs: [...item.tabs, tab], selected: key } : item
       ),
     });
+  };
+
+  // 사람이 누른 앱 패널 열기. 탭은 앱을 고르는 자리로 시작한다(workspace#R5).
+  const openAppPanel = () => {
+    const key = `app-panel-${Date.now().toString(36)}-${++appPanelCount}`;
+    const pane = view.focusedPane;
+    const tab: TabItem = {
+      key,
+      kind: "app_panel",
+      title: t("project-workspace.label.kind-app-panel"),
+    };
+    update({
+      ...view,
+      panes: view.panes.map((item, index) =>
+        index === pane ? { tabs: [...item.tabs, tab], selected: key } : item
+      ),
+    });
+  };
+
+  const chooseApp = (
+    key: string,
+    choice: { app: string; screen: string; title: string },
+  ) => {
+    const current = latest.current;
+    update({
+      ...current,
+      panes: current.panes.map((pane) => ({
+        ...pane,
+        tabs: pane.tabs.map((tab) =>
+          tab.key === key
+            ? {
+              ...tab,
+              app: choice.app,
+              screen: choice.screen,
+              title: choice.title,
+            }
+            : tab
+        ),
+      })),
+    });
+  };
+
+  // 앱 패널은 고르지 않아도 칸에 남아 view를 숨긴 채 둔다. 닫으면 빠져 view가 폐기된다.
+  const renderKept = (tab: TabItem, shown: boolean): ReactNode | null => {
+    if (tab.kind !== "app_panel") return null;
+    if (tab.app === undefined || tab.screen === undefined) {
+      return (
+        <AppPanelPicker
+          onChoose={(choice) => chooseApp(tab.key, choice)}
+          onOpenAppSpace={onOpenApp}
+          onClose={() => removeTab(tab.key)}
+        />
+      );
+    }
+    return (
+      <AppPanelTab
+        app={tab.app}
+        screen={tab.screen}
+        shown={shown}
+        onOpenAppSpace={onOpenApp}
+      />
+    );
   };
 
   const terminalStarted = (
@@ -528,145 +603,149 @@ export function Workspace(
   );
 
   return (
-    <div className={styles.workspace} data-space="project" ref={frameRef}>
-      <Sidebar
-        mode={sidebarShown.mode}
-        width={sidebarShown.width}
-        project={loaded.project}
-        documents={loaded.documents}
-        contexts={loaded.contexts}
-        current={focused?.selected ?? null}
-        onLauncher={onLauncher}
-        onToggle={() =>
-          setSidebar((current) => ({
-            ...current,
-            collapsedByUser: sidebarShown.mode !== "collapsed",
-          }))}
-        onOpenDocument={openDocument}
-        onResizeStart={(event) => {
-          const start = sidebar.chosenWidth;
-          const startShown = sidebarShown.width;
-          let last = start;
-          startPointerDrag(event, {
-            move: (dx) => {
-              last = clampSidebar(startShown + dx);
-              setSidebar((current) => ({ ...current, chosenWidth: last }));
-            },
-            finish: (outcome) => {
-              const applied = applyDrag(start, last, outcome);
-              setSidebar((current) => ({ ...current, chosenWidth: applied }));
-              if (outcome.type === "drag-end") setUserChoseWidth(true);
-            },
-          });
-        }}
-      />
-      <div className={styles.main}>
-        <div className={styles.topBar}>
-          <TopBar
-            leading={
-              <span className={styles.leading}>
-                {sidebarShown.launcherInTopBar
-                  ? <LauncherButton onLauncher={onLauncher} />
-                  : null}
-                <Breadcrumbs crumbs={crumbs} />
-              </span>
-            }
-            trailing={
-              <span className={styles.trailing}>
-                <SpaceDecisions
-                  place={{ kind: "project", id: projectId }}
-                  onOpen={onThingsToConfirm ?? onLophn}
-                />
-                <PaletteButton />
-                {conversation
-                  ? (
-                    <DockToggle
-                      open={dockOpen}
-                      onToggle={() => setDockOpen(!dockOpen)}
-                    />
-                  )
-                  : null}
-                <LophnEntry onLophn={onLophn} />
-              </span>
-            }
-          />
-        </div>
-        {loaded.failed
-          ? (
-            <p className={styles.notice} data-load-failed="">
-              {t("project-workspace.error.load-failed")}
-            </p>
-          )
-          : null}
-        {tracking
-          ? (
-            <TrackingStrip
-              project={projectId}
-              source={tracking}
-              onTracking={() => void refreshDocuments()}
+    <ViewCoversProvider value={covers}>
+      <div className={styles.workspace} data-space="project" ref={frameRef}>
+        <Sidebar
+          mode={sidebarShown.mode}
+          width={sidebarShown.width}
+          project={loaded.project}
+          documents={loaded.documents}
+          contexts={loaded.contexts}
+          current={focused?.selected ?? null}
+          onLauncher={onLauncher}
+          onToggle={() =>
+            setSidebar((current) => ({
+              ...current,
+              collapsedByUser: sidebarShown.mode !== "collapsed",
+            }))}
+          onOpenDocument={openDocument}
+          onResizeStart={(event) => {
+            const start = sidebar.chosenWidth;
+            const startShown = sidebarShown.width;
+            let last = start;
+            startPointerDrag(event, {
+              move: (dx) => {
+                last = clampSidebar(startShown + dx);
+                setSidebar((current) => ({ ...current, chosenWidth: last }));
+              },
+              finish: (outcome) => {
+                const applied = applyDrag(start, last, outcome);
+                setSidebar((current) => ({ ...current, chosenWidth: applied }));
+                if (outcome.type === "drag-end") setUserChoseWidth(true);
+              },
+            });
+          }}
+        />
+        <div className={styles.main}>
+          <div className={styles.topBar}>
+            <TopBar
+              leading={
+                <span className={styles.leading}>
+                  {sidebarShown.launcherInTopBar
+                    ? <LauncherButton onLauncher={onLauncher} />
+                    : null}
+                  <Breadcrumbs crumbs={crumbs} />
+                </span>
+              }
+              trailing={
+                <span className={styles.trailing}>
+                  <SpaceDecisions
+                    place={{ kind: "project", id: projectId }}
+                    onOpen={onThingsToConfirm ?? onLophn}
+                  />
+                  <PaletteButton />
+                  {conversation
+                    ? (
+                      <DockToggle
+                        open={dockOpen}
+                        onToggle={() => setDockOpen(!dockOpen)}
+                      />
+                    )
+                    : null}
+                  <LophnEntry onLophn={onLophn} />
+                </span>
+              }
             />
-          )
-          : null}
-        <div className={styles.content} ref={mainRef}>
-          <Panes
-            view={view}
-            bodyWidth={panesWidth}
-            windowWidth={measuredWindow}
-            infoOpen={infoShown}
-            onToggleInfo={() => setInfo(!infoShown, infoTab)}
-            onSelect={(pane, key) =>
-              update({
-                ...view,
-                focusedPane: pane,
-                panes: view.panes.map((item, index) =>
-                  index === pane ? { ...item, selected: key } : item
-                ),
-              })}
-            onClose={close}
-            onOpenTerminal={terminal ? openTerminal : undefined}
-            onFocus={(pane) => update({ ...view, focusedPane: pane })}
-            onMove={(key, toPane) => update(moveTab(view, key, toPane))}
-            onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
-            renderTab={renderTab}
-            tooltips={tooltips}
-          />
-          <InfoPanel
-            placement={infoPlacement}
-            tab={infoTab}
-            onTab={(tab) => setInfo(infoOpen, tab)}
-            onClose={() => setInfo(false, infoTab)}
-          >
-            {editor?.versions
-              ? (
-                <DocumentInfoPanel
-                  tab={infoTab}
-                  document={infoDocument}
-                  source={editor.versions}
-                  viewing={infoDocument === null
-                    ? null
-                    : tabMeta[infoDocument]?.version ?? null}
-                  refresh={versionsTick}
-                  onCompare={(document, before, after) =>
-                    showCompare(document, { before, after })}
-                  onOpenContext={onContext}
-                />
-              )
-              : undefined}
-          </InfoPanel>
-          <DockSlot
-            placement={dock}
-            workPlace={{ kind: "project", id: projectId }}
-            onClose={() => setDockOpen(false)}
-            onOpenResult={(id) => {
-              const row = loaded.documents.find((item) => item.id === id);
-              openDocument(
-                row ?? { id, title: tabMeta[id]?.fileName ?? id },
-              );
-            }}
-          />
+          </div>
+          {loaded.failed
+            ? (
+              <p className={styles.notice} data-load-failed="">
+                {t("project-workspace.error.load-failed")}
+              </p>
+            )
+            : null}
+          {tracking
+            ? (
+              <TrackingStrip
+                project={projectId}
+                source={tracking}
+                onTracking={() => void refreshDocuments()}
+              />
+            )
+            : null}
+          <div className={styles.content} ref={mainRef}>
+            <Panes
+              view={view}
+              bodyWidth={panesWidth}
+              windowWidth={measuredWindow}
+              infoOpen={infoShown}
+              onToggleInfo={() => setInfo(!infoShown, infoTab)}
+              onSelect={(pane, key) =>
+                update({
+                  ...view,
+                  focusedPane: pane,
+                  panes: view.panes.map((item, index) =>
+                    index === pane ? { ...item, selected: key } : item
+                  ),
+                })}
+              onClose={close}
+              onOpenTerminal={terminal ? openTerminal : undefined}
+              onOpenAppPanel={appViews?.screens ? openAppPanel : undefined}
+              onFocus={(pane) => update({ ...view, focusedPane: pane })}
+              onMove={(key, toPane) => update(moveTab(view, key, toPane))}
+              onRatio={(ratio) => update({ ...view, splitRatio: ratio })}
+              renderTab={renderTab}
+              renderKept={renderKept}
+              tooltips={tooltips}
+            />
+            <InfoPanel
+              placement={infoPlacement}
+              tab={infoTab}
+              onTab={(tab) => setInfo(infoOpen, tab)}
+              onClose={() => setInfo(false, infoTab)}
+            >
+              {editor?.versions
+                ? (
+                  <DocumentInfoPanel
+                    tab={infoTab}
+                    document={infoDocument}
+                    source={editor.versions}
+                    viewing={infoDocument === null
+                      ? null
+                      : tabMeta[infoDocument]?.version ?? null}
+                    refresh={versionsTick}
+                    onCompare={(document, before, after) =>
+                      showCompare(document, { before, after })}
+                    onOpenContext={onContext}
+                  />
+                )
+                : undefined}
+            </InfoPanel>
+            <DockSlot
+              placement={dock}
+              workPlace={{ kind: "project", id: projectId }}
+              onClose={() => setDockOpen(false)}
+              onOpenResult={(id) => {
+                const row = loaded.documents.find((item) => item.id === id);
+                openDocument(
+                  row ?? { id, title: tabMeta[id]?.fileName ?? id },
+                );
+              }}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </ViewCoversProvider>
   );
 }
 

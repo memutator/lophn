@@ -329,7 +329,7 @@ export function screenAssetPath(value: string): boolean {
 }
 
 export type ControlProbe = { process_nonce: string };
-export type ControlOpen = { process_nonce: string; release: string };
+export type ControlOpen = { process_nonce: string; release: string | null };
 export type ControlClose = { process_nonce: string; reason: string };
 export type ControlViewClosed = { process_nonce: string; view_session: string };
 export type ControlShutdown = { process_nonce: string; grace_ms: number };
@@ -349,8 +349,9 @@ export function parseControlOpen(value: unknown): ControlOpen | undefined {
   const source = record(value);
   if (!source || exact(source, ["process_nonce", "release"])) return;
   const nonce = controlNonce(source);
-  const release = id(source.release, "rel");
-  if (!nonce || !release) return;
+  // 준비 전 bundle의 preview에는 release가 없다. null은 live 자식의 release 검사에서 불일치로 거절된다.
+  const release = source.release === null ? null : id(source.release, "rel");
+  if (!nonce || release === undefined) return;
   return { process_nonce: nonce, release };
 }
 

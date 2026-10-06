@@ -11,8 +11,13 @@ import {
   appRecordStopped,
   appRecordUnavailable,
   appRuntime,
+  appViewClosed,
+  type AppViewClosedInput,
   type Grant,
   grantsList,
+  previewsGet,
+  previewsStart,
+  previewsStop,
 } from "../../packages/contracts/apps/mod.ts";
 import {
   observeException,
@@ -64,6 +69,14 @@ import {
   withRuntimeLogs,
   withRuntimeObservation,
 } from "../../packages/apps/runtime/reads.ts";
+import { createFsPreviewArea } from "../../packages/apps/preview/area.ts";
+import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
+import {
+  createPreviewService,
+  type PreviewBundles,
+  type PreviewReleases,
+  type PreviewService,
+} from "../../packages/apps/preview/service.ts";
 
 export const APPS_SUPERVISOR_KIND = "apps/supervisor";
 export const APPS_CONTROL_PRINCIPAL = "machine:apps-control";
@@ -106,6 +119,14 @@ export function appsOperationPolicies(): OperationPolicy[] {
     },
     // problems report collector(machine)가 자기 credential의 앱 log를 읽는다.
     { name: appLogs.name, actors: ["machine"], kind: "command" },
+    // preview는 사람(전체 user 상한)과 coding agent가 연다(apps/preview#R1).
+    ...[previewsStart, previewsGet, previewsStop].map((
+      route,
+    ): OperationPolicy => ({
+      name: route.name,
+      actors: ["coding_agent"],
+      kind: "read",
+    })),
     { name: reportProblem.name, actors: ["app"], kind: "command" },
     { name: observeException.name, actors: ["app"], kind: "command" },
   ];
@@ -129,6 +150,14 @@ export type AppsControlDeps = {
   process?: ProcessSource;
   // 발급한 connection의 회수 검사 간격(ms). 기본 1000.
   sweepMs?: number;
+  // preview(`/v1/previews/*`). disposable 영역은 data root 아래에 만든다. bundle을 여는 자리가
+  // 없으면 시작은 unavailable이고 조회·종료는 그대로 된다(apps/preview).
+  previews?: {
+    dataRoot: string;
+    bundles?: PreviewBundles;
+    releases?: PreviewReleases;
+    nonce?: () => string;
+  };
 };
 
 export type AppsControl = {
@@ -251,12 +280,52 @@ export async function createAppsControl(
     now: () => deps.clock.now(),
   };
 
+  const previewService: PreviewService | undefined = deps.previews
+    ? createPreviewService({
+      clock: deps.clock,
+      nonce: deps.previews.nonce ?? (() => crypto.randomUUID()),
+      supervisor: {
+        start: (launch) => client.previewStart(launch),
+        observe: (app, nonce) => client.previewObserve(app, nonce),
+        stop: (app, nonce) => client.previewStop(app, nonce),
+      },
+      area: createFsPreviewArea(deps.previews.dataRoot),
+      apps: {
+        async exists(app) {
+          const found = await facts.app(app);
+          return found.ok ? ok(found.value !== null) : found;
+        },
+      },
+      authorize: (ctx, operation, target) =>
+        createTargetAuthorizer(ctx)(ctx, operation, target),
+      ...(deps.previews.bundles ? { bundles: deps.previews.bundles } : {}),
+      ...(deps.previews.releases ? { releases: deps.previews.releases } : {}),
+    })
+    : undefined;
+
   const connect: MemoryHandler = async (ctx, input) => {
     const connected = await connector.connect(
       ctx,
       input as AppConnectInput,
     );
     return connected;
+  };
+
+  // 사람의 shell이 닫은 화면 view를 그 앱의 지금 live 자식에 중계한다. 앱 프로세스 nonce는
+  // supervisor가 지금 쥔 자식에서 정하고 본문에서 받지 않는다. 범위 밖 앱은 없는 앱과 같다.
+  const viewClosed: MemoryHandler = async (ctx, value) => {
+    const input = value as AppViewClosedInput;
+    if (!deps.revalidate(ctx.credential_ref).ok) {
+      return err({ code: "unauthorized", message: "credential unavailable" });
+    }
+    const allowed = createTargetAuthorizer(ctx)(ctx, appViewClosed.name, {
+      app: input.app,
+    });
+    if (!allowed.ok) {
+      return err({ code: "not_found", message: "app not found" });
+    }
+    const relayed = await client.viewClosed(input.app, input.view_session);
+    return relayed.ok ? ok({ relayed: relayed.value }) : relayed;
   };
 
   async function sweep(): Promise<void> {
@@ -276,7 +345,10 @@ export async function createAppsControl(
   return {
     verifyKey: signer.verifyKey,
     signer,
-    memory: new Map([[`${appConnect.resource}/${appConnect.method}`, connect]]),
+    memory: new Map([
+      [`${appConnect.resource}/${appConnect.method}`, connect],
+      [`${appViewClosed.resource}/${appViewClosed.method}`, viewClosed],
+    ]),
     overlayReads(reads) {
       const runtime = reads.get(`${appRuntime.resource}/${appRuntime.method}`);
       if (runtime) {
@@ -300,6 +372,15 @@ export async function createAppsControl(
           `${appLogs.resource}/${appLogs.method}`,
           withRuntimeLogs(logs, sources) as ReadHandler,
         );
+      }
+      // 등록 때 unavailable로 올린 `/v1/previews/*`를 supervisor 통로가 있는 service로 덮는다.
+      if (previewService !== undefined) {
+        for (const read of createPreviewReads(() => previewService)) {
+          reads.set(
+            `${read.route.resource}/${read.route.method}`,
+            ((ctx, body) => read.handle(ctx, body as never)) as ReadHandler,
+          );
+        }
       }
     },
     channel,
@@ -327,6 +408,8 @@ export async function createAppsControl(
     },
     sweep,
     start() {
+      // 지난 실행이 남긴 preview 영역을 지운다. 그때의 preview 프로세스는 core와 함께 끝났다.
+      void previewService?.discardStale().catch(() => undefined);
       if (timer !== undefined) return;
       timer = setInterval(() => void sweep(), deps.sweepMs ?? 1_000);
       Deno.unrefTimer(timer as unknown as number);

@@ -7,6 +7,7 @@ import {
 import {
   appConnect,
   appRegistrationLookup,
+  appViewClosed,
 } from "../../packages/contracts/apps/mod.ts";
 import { createInvocationsCommands } from "../../packages/apps/invocations/commands.ts";
 import { createConfirmCommands } from "../../packages/apps/invocations/confirm.ts";
@@ -24,6 +25,8 @@ import { createRuntimeReads } from "../../packages/apps/runtime/reads.ts";
 import { createSdkCommands } from "../../packages/apps/sdk/commands.ts";
 import { createSdkReads } from "../../packages/apps/sdk/reads.ts";
 import { sdkSchemaSteps } from "../../packages/apps/sdk/schema.ts";
+import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
+import { unattachedPreviewService } from "../../packages/apps/preview/service.ts";
 import { createDataCommands } from "../../packages/apps/data/commands.ts";
 import { dataSchemaSteps } from "../../packages/apps/data/schema.ts";
 import { createDataRecordStore } from "../../packages/apps/data/store.ts";
@@ -42,6 +45,7 @@ import type {
 import { notificationsOnlyVisibility } from "./platform.ts";
 
 type LedgerRegistration = {
+  apiReads?: readonly unknown[];
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
   reads?: readonly unknown[];
@@ -75,6 +79,9 @@ export function createLedgerRegistration(
   const grants = createGrantCommands();
   const grantReads = createGrantsReads();
   return {
+    // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
+    // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
+    apiReads: createPreviewReads(() => unattachedPreviewService()),
     // place_names 표는 documents 등록의 몫이다(R6, R10).
     schemaSteps: [
       ...appsSchemaSteps,
@@ -88,6 +95,7 @@ export function createLedgerRegistration(
       commands.connectSource,
       commands.archive,
       commands.unarchive,
+      commands.rename,
       grants.create,
       grants.revoke,
       confirm.acceptConfirm,
@@ -118,8 +126,9 @@ export function createLedgerRegistration(
       sdkReads.usage,
     ],
     // apps.connect는 supervisor의 메모리 관측과 인증 연결을 읽는 제어 어댑터라 ledger queue를
-    // 거치지 않는다(apps/runtime#R9, architecture/apps 5.1).
-    memoryRoutes: [appConnect],
+    // 거치지 않는다(apps/runtime#R9, architecture/apps 5.1). apps.view_closed도 같은 어댑터가
+    // 닫힌 화면 view를 지금 live 자식에 중계할 뿐 ledger를 쓰지 않는다.
+    memoryRoutes: [appConnect, appViewClosed],
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.
     ports: [

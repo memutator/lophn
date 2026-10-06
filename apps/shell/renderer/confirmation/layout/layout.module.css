@@ -1,0 +1,69 @@
+.layout {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: min(var(--dialog-width-wide), 100%);
+  max-width: var(--dialog-width-wide);
+  margin: var(--space-0) auto;
+  padding: var(--space-8);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.title {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--type-tracking-title);
+}
+
+.title:focus {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.heading {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--type-tracking-normal);
+}
+
+.body {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+/* 정확한 경로·대상은 줄이지 않고 고정폭 원문으로 보인다. */
+.path {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}

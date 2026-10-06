@@ -222,7 +222,17 @@ export async function runCollectorWorker(): Promise<void> {
       stopped = true;
       return stopped;
     },
-    async accept(request, position) {
+    async accept(request, hello) {
+      // core가 요청마다 credential의 위치 주장(request_claims)과 본문(body)을 싣는다. 제품
+      // collector 하나가 여러 앱을 받으므로 위치는 hello가 아니라 요청에서 온다. 싣지 않은
+      // 요청(단일 위치 기동)은 hello의 위치를 쓴다.
+      const carried = requestClaims(request.payload);
+      const position: CollectorPosition = carried === undefined
+        ? hello
+        : { ...hello, claims: carried.claims };
+      if (carried !== undefined) {
+        request = { ...request, payload: carried.body };
+      }
       // 세션당 한 위치다. hello 뒤에만 접수한다(helloSchema 검사는 startChild 몫).
       const client: CoreClientOptions = {
         baseUrl: `http://127.0.0.1:${position.api_port}`,
@@ -260,6 +270,35 @@ export async function runCollectorWorker(): Promise<void> {
     },
   });
   await session.run();
+}
+
+const CLAIM_KEYS = [
+  "app",
+  "release",
+  "process",
+  "mode",
+  "bundle_hash",
+  "diagnostic_scope",
+] as const;
+
+// core가 worker 요청 payload에 싣는 `{request_claims, body}`를 푼다. 모양이 아니면 undefined다.
+function requestClaims(
+  payload: unknown,
+): { claims: CollectorPosition["claims"]; body: unknown } | undefined {
+  if (typeof payload !== "object" || payload === null) return undefined;
+  const record = payload as Record<string, unknown>;
+  const carried = record["request_claims"];
+  if (
+    !("body" in record) || typeof carried !== "object" || carried === null
+  ) {
+    return undefined;
+  }
+  const claims: CollectorPosition["claims"] = {};
+  for (const key of CLAIM_KEYS) {
+    const value = (carried as Record<string, unknown>)[key];
+    if (typeof value === "string") claims[key] = value;
+  }
+  return { claims, body: record["body"] };
 }
 
 // 로그 증거의 출처. 기본은 core loopback의 apps.logs와 settings.get이고, 테스트와

@@ -588,6 +588,9 @@ concerns: [shell]
 - platform#T19 후속(#294)에서 넘어온 것: secret 입력 창의 main 쪽 길이 core에 열렸다. 값이 있는 곳은 창의 보호 입력과 main 메모리뿐이다. main은 (1) `POST /v1/secrets/input`(`content-type: application/octet-stream`, `x-lophn-input`에 `{purpose, owner, bytes}`의 base64url JSON, body는 값의 바이트, 상한 64KiB)으로 값을 보내 값 없는 준비 증거 `{preparation, sealed_ref, purpose, owner}`를 받고, (2) 그 증거가 들어간 `SetSecret` 입력(앱 secret은 `purpose: app_secret`, `owner == name`)의 binding으로 confirmation handle을 main↔core 비공개 연결에 등록하고(handle은 증거를 받은 뒤에만 만들 수 있다), (3) `SetSecret`(교체는 `compare: {sealed_ref, revision}`, 처음은 null 둘)을 보내고, (4) 결과로 창에는 안전 이름·저장 결과만 돌려준다. 제거는 `RemoveSecret`이다. 표시용 `/v1/secrets/list`(이름·설정 여부·판)도 열렸다. 실패는 keychain 잠김이면 `unavailable`(값은 어디에도 남지 않음), 크기 불일치면 `invalid_input`이다. provider credential(`RegisterProviderCredential`·`ChangeProviderCredentials`)은 같은 route에 `purpose: provider_credential`로 값을 보내 증거를 받고 소유 command를 부른다(T31). 제출·취소·창 종료 때 값을 지운다. core가 값을 쥐는 곳은 없으므로 main이 값을 로그·오류·IPC 결과에 넣지 않는 것이 이 작업의 시험이다.
 - platform Q29(#305)에서 넘어온 것: approval 결정 창은 `approvals/get`(exact 동작·대상·입력·기한·상태)과 함께 `ReadApprovalText`(`/v1/approvals/text`, 입력 `{approval}`)로 이유·변경·외부 영향·되돌림 글을 읽어 문장으로 보인다. 글은 core가 redaction한 값이고 blob 하나라도 읽지 못하면 `unavailable`이라 일부만 보이지 않는다. 거절 창은 선택 입력인 거절 이유를 `closed_reason` 글 값(없으면 `null`, 글 하나 32KiB 이하, 공백뿐인 글은 보내지 않는다)으로 `approvals/reject`에 싣는다. hash를 만들거나 blob을 준비하지 않고 core가 한다. 이유는 handle binding(approval·created_seq·binding_hash)에 들어가지 않는다. 종료된 request의 `ReadApprovalText.closed_reason`이 적은 거절·취소 이유이고 만료는 null이다(상태가 이유다).
 - lophn-agent#T34(Q44)에서 넘어온 것: revert 창의 main은 (1) `reverts/preview`로 본 묶음(`groups`)을 보이고, (2) 복원 가능한 묶음마다 문서의 이전 판을 사람 자격의 `documents/prepare`(`existing` 원문 참조와 그 판의 FormatRef)로 준비해 `buildRevertInput`(packages/lophn-agent/revert/work.ts)으로 `RevertRun` 입력의 `groups`(준비 결과는 `comparison.prepared`, `prepared_ref`는 그 hash)를 만들고 준비 참조를 요청의 `prepared`에 싣는다. (3) 확인 handle은 binding(`id, run, allow_partial, preview_hash`)으로 발급하고 결정 이름은 command 이름 `RevertRun`(= contract의 `REVERT_RUN_DECISION`)이다. (4) 이유(`reason`)는 고정 코드(`revertReasonSchema`)이므로 코드로 wording을 고른다. 결과 event는 사람이 `events/list`로 따라 볼 수 있다(payload는 run·지문·결과별 수). 준비 결과가 없으면 문서 내용 복원은 blocked(복원 준비 불충족)로 끝난다
+- 상태: 완료 (#350)
+- 정한 것(T29): shell#T23(#154)은 계획만 완료로 적히고 코드가 main에 없어 이 PR이 그 branch를 merge해 함께 싣는다(layout·details·before-after·owner decision 화면, 화면 테스트는 `apps/shell/renderer/confirmation/screens_test.ts`로 등록). T28이 넘긴 길을 이었다: shell preload `lophnShell.openConfirmation`, main의 `shell:confirmation-open`(부모는 IPC를 보낸 desktop 창)·`confirmation:display`(무효면 다시 읽는 최신 내용 열기)·`confirmation:submit`·`confirmation:cancel`, coordinator 조립, 비공개 pipe의 handle 등록(응답에 짝 id가 없어 한 번에 하나, 5초 안에 답이 없으면 unavailable). contract는 additive로 늘렸다(contracts shell confirmation): owner decision 열기의 `targets`, secret 입력 열기의 provider `credential`(값 아닌 등록 정보), 표시의 `view`·`state`·`decisions`·`second`, 제출의 `confirmedSecond`, 결과의 `result`(accepted는 결정 접수, applying·applied·partial·uncertain·blocked는 RevertRun의 실제 결과), 보호 preload의 `subscribe`. approval은 `approvals/get`·`ReadApprovalText`로 그리고 허락·거절은 handle로, 대기 요청의 명시 취소는 handle 없는 `cancel_approval_request`로 보낸다. 거절·취소 이유는 같은 선택 입력칸이다. option action은 `questions/read`·`questions/text`로 그리고 `AnswerQuestionAction`(evidence 포함)을 보낸다. revert 열기는 `{kind: owner_decision, concern: lophn-agent/revert, decision: RevertRun, targets: [run]}`이다. revert id는 창마다 main이 만든다. 복원 불가·유지·충돌이 섞이면 `allow_partial: true`로 결합하고 남는 묶음을 다시 보이는 2차 확인 뒤에만 보내며, 복원 가능한 묶음이 없으면 결정이 없다. 문서 준비는 binding 밖이라 제출 때 `documents/get`·`documents/prepare`(existing 참조)로 하고 `buildRevertInput`과 같은 규칙으로 groups와 `prepared`를 싣는다(shell main은 packages를 import하지 않아 규칙을 `apps/shell/main/confirmation/kinds/revert.ts`에 옮겼다). secret 입력은 열 때 handle을 만들지 않고 제출 때 upload→증거→증거를 넣은 binding으로 handle→command 순서이며 창에는 안전 이름(앱 secret 이름, provider credential label)과 저장 결과만 돌려준다. 이미 값이 있는 앱 secret은 교체 비교 기준이 없어 결정 없이 이유만 보인다
+- 남긴 것(T29): T23의 `delete_file` owner decision은 main 정본 read·제출이 없다(열면 not_found). 실제 core로 네 종류 창을 끝까지 연 확인은 seed가 없어 하지 못했고 화면은 offscreen probe로 보았다
 - 완료: 아래 확인이 통과한다
   - approval request: 결정을 문장으로 묻고 exact 대상·입력·영향·되돌릴 범위. 허락·거절·명시 취소. 승인 접수와 실제 적용을 구별해 돌려준다.
   - question option action: concern·command·대상·정확한 입력·비교 기준·영향을 고르기 전에 그대로 보인다.
@@ -605,12 +608,14 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T12, shell#T27, contracts#T26, contracts#T27, contracts#T30, lophn-agent#T7, lophn-agent#T9, lophn-agent#T39
+- shell#T29에서 넘어온 것: revert 진입은 `lophnShell.openConfirmation({request: {kind: "owner_decision", concern: "lophn-agent/revert", decision: "RevertRun", targets: [run]}, parentWindow})`이다. 창이 `reverts/preview`를 다시 읽고 문서 준비·`RevertRun` 제출까지 한다. 결과(접수·실제 복원 결과)는 창이 말하고 목록은 `reverts/list`·`events/list`로 다시 읽는다
 - 완료: 아래 확인이 통과한다
   - 역할 목록은 같은 열 배치. 상세는 하는 일·만든 것·대화 탭. 회수된 담당은 지난 대화만 보이고 입력창이 없다. 멈춘 담당의 입력은 소유 concern의 허용 결과를 그대로 따른다.
   - 하는 일은 In progress / Waiting / Stopped / Done 순, 다시 시작과 다시 시키기는 다른 버튼.
   - 작업 검토: 기본은 대상·결과·다음 행동, 상세에 시각·역할·이유·근거·영향 링크. 도구 활동은 단계 수로 접고 펼침. 판단은 요약만. 호출별 사용량과 실제 청구·구독 포함·무료·모름을 구별한다. export는 내용 종류를 고르고 결과 수를 보인다.
   - Preset: 역할마다 기본 Preset과 사람이 고친 판, 계정 순서·model·context·skill·MCP·개별 tool 선택, 새 판 저장과 명시 적용. 내부 구성(prompt, capability)은 펼친 자리에만.
   - flow review-agent-work, resume-agent-session(roles 쪽), add-agent-extension(Preset 쪽) 화면. 화면 테스트.
+- shell#T35에서 넘어온 것: lophn 답의 streaming 임시 글(shell#T27 → T35에서 이어온 것, Q15 (3)). 대화 탭과 도크가 같은 `conversation/message-list`를 쓰므로 여기서 함께 한다. 임시 글을 보이고 같은 id의 확정 메시지가 오면 바꾸며, 그 동안에도 입력 focus와 읽던 위치를 지킨다(shell/workspace#R13). stream 조각은 시각 블록으로 그리지 않는다(lophn-agent/conversation#R13). renderer로 오는 streaming 통로(core event → main → renderer)가 아직 없으니 먼저 그 통로가 있는지 보고, 없으면 lead에게 올린다.
 
 ### T31 settings: provider 연결과 계정, 확장, 전역 Instructions 진입
 
@@ -623,6 +628,7 @@ concerns: [shell]
 - slice: agent
 - 선행: shell#T12, shell#T29, contracts#T24, contracts#T29, platform#T25, lophn-agent#T3, lophn-agent#T15, lophn-agent#T35, lophn-agent#T36
 - platform#T19 후속(#294)에서 넘어온 것: provider key·로그인 응답의 값은 T29의 secret 입력 창이 `/v1/secrets/input`(`purpose: provider_credential`)으로 보내 증거를 받은 뒤 `RegisterProviderCredential`·`ChangeProviderCredentials`를 부른다(순서는 T29의 넘어온 것을 따른다). 확정 뒤 core가 그 credential의 값을 알려진 값 registry에 등록하므로(documents 읽기·메시지 본문에서 가려진다) 화면이 따로 할 일은 없다.
+- shell#T29에서 넘어온 것: provider key는 `openConfirmation({request: {kind: "secret_input", owner: <provider id>, purpose: "provider_credential", credential: {key, kind, label, account, organization, plan, dedup_fingerprint}}})`로 연다. 창은 `providers/read`의 revision을 비교 기준으로 `RegisterProviderCredential`까지 보낸다. 교체·회수(`ChangeProviderCredentials`)와 앱 secret 제거(`RemoveSecret`)는 창 종류가 아직 없다(열기 모양을 정해 `apps/shell/main/confirmation/kinds/secret-input.ts`에 더한다)
 - 완료: 아래 확인이 통과한다
   - provider 연결: contract가 알려 준 인증 방식(API key, 공식 로그인, 로컬)만 보이고 과금·한도·금액 모름을 구별한다. key와 로그인 응답은 confirmation window의 secret 입력으로만 받는다.
   - 계정: 같은 provider의 계정 순서, 사용 가능·인증 문제·사용량 한도·확인된 리셋 시각, 다음 행동 하나. 교체·삭제·재로그인은 confirmation window.
@@ -689,6 +695,7 @@ concerns: [shell]
 
 ### T35 세션 시각 블록 renderer
 
+- 상태: 완료 (#338) — 이어보냄: lophn 답의 streaming 임시 글 → T30, 세션 앱 카드 갈래 → T44, 블록 하나만 output schema를 못 지날 때 메시지 전체 읽기 실패(contracts 판단, Q23 (2))
 - 등급: frontend
 - concern: shell/workspace
 - 요구: shell/workspace#R12, R13
@@ -697,9 +704,9 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: agent
 - 선행: shell#T27, shell#T33, shell#T34, contracts#T30, lophn-agent#T33
-- lophn-agent#T33에서 넘어온 것: 블록 틀의 [Save as document]는 별도 visuals 저장 contract를 부르지 않는다(그런 contract는 없다). 누르면 "이 블록을 문서로 남겨 달라"는 요청을 대화 입력(`ReceiveMessage`)으로 보내고, agent가 `visual.prepare_document`와 문서 tool로 준비·저장한다(visuals#R6, lophn-agent 질문 Q45 (6), lead 승인). 저장 뒤 고정 문서 링크는 그 답 메시지의 링크에서 온다.
+- lophn-agent#T33에서 넘어온 것: 블록 틀의 [Save as document]는 별도 visuals 저장 contract를 부르지 않는다(그런 contract는 없다). 누르면 "이 블록을 문서로 남겨 달라"는 요청을 대화 입력(`ReceiveMessage`)으로 보내고, agent가 `visual.prepare_document`와 문서 tool로 준비·저장한다(visuals#R6, lophn-agent 질문 Q45 (6), lead 승인). 저장 뒤 고정 문서 링크는 그 답 메시지의 링크에서 온다. → 했다(Q23 (4)): 버튼은 요청 글을 일반 request로 보내고, 요청 말이 맡긴 run의 lophn 답에 문서·판 결과 링크가 오면 그 블록 틀에 고정 문서 링크를 보인다.
 - lophn-agent#Q29에서 넘어온 것(#281, 계약이 정해졌다): (1) 보내기는 `ReceiveMessage` 입력의 `body`(hash)를 `content`(`{schema_version: 1, parts: [{kind: "text", text}]}`, 정규 직렬화 64KiB 이하)로 바꾼다. renderer·main은 hash도 blob도 만들지 않고 core가 redaction·준비·영구 참조를 한다. 같은 id·같은 idempotency key의 재전송은 이전 결과다. 본문 hash는 응답의 `message.body`에서 온다. (2) 읽기는 `ReadMessageBody`(`/v1/messages/body`, 입력 `{message}`, 출력 `{message, session, body, size_bytes, content, as_of_seq, next_cursor}`)이고 `content.parts`는 글·시각 블록이다. 사람·그 assignment의 agent·machine만 읽으며 없는 메시지와 다른 assignment의 것은 같은 `not_found`, 본문 blob을 못 읽으면 `unavailable`이다. (3) 새 데이터 root에도 lophn assignment가 있다(core 기동이 만든다, lophn-agent Q37). model이 미준비라 run은 provider를 고르기 전까지 시작하지 못한다. → (1)·(2)는 #285에서 했다: 도크가 `content`를 보내고(보내기 전에 64KiB 상한을 보고 넘으면 보내지 않고 이유를 둔다) 확정 메시지 본문을 `ReadMessageBody`로 읽는다. 블록 renderer만 이 작업에 남는다
-- shell#T27에서 넘어온 것: 메시지 본문(MessageContent) 읽기와 그 글·블록 표시. → 읽기와 글 표시는 #285에서 했다: 도크(`apps/shell/renderer/conversation/`)는 사람 말·lophn 답·machine 사실·다른 창이 보낸 말의 본문을 모두 읽어 글 part를 그리고, 읽은 본문은 창 메모리(`DraftStore`)에 둔다. 이 창이 보낸 말은 읽기 전까지 보낸 글로 자리를 채운다. 시각 블록 part는 지금 제목과 "Charts, tables, and diagrams can't be shown in the conversation yet."만 글로 보이는 자리 표시다(`message-list.tsx`의 `VisualPending`). 이 작업의 블록 renderer가 그 자리를 바꾼다. 남은 것: 블록 그리기, lophn 답의 streaming 임시 글(확정 메시지로 바꾸기, renderer로 오는 streaming 통로가 아직 없다, Q15 (3))
+- shell#T27에서 넘어온 것: 메시지 본문(MessageContent) 읽기와 그 글·블록 표시. → 읽기와 글 표시는 #285에서 했다: 도크(`apps/shell/renderer/conversation/`)는 사람 말·lophn 답·machine 사실·다른 창이 보낸 말의 본문을 모두 읽어 글 part를 그리고, 읽은 본문은 창 메모리(`DraftStore`)에 둔다. 이 창이 보낸 말은 읽기 전까지 보낸 글로 자리를 채운다. 시각 블록 part는 지금 제목과 "Charts, tables, and diagrams can't be shown in the conversation yet."만 글로 보이는 자리 표시다(`message-list.tsx`의 `VisualPending`). 이 작업의 블록 renderer가 그 자리를 바꾼다. 남은 것: 블록 그리기, lophn 답의 streaming 임시 글(확정 메시지로 바꾸기, renderer로 오는 streaming 통로가 아직 없다, Q15 (3)) → 블록 그리기는 이 작업에서 했다(Q23): `VisualPending`을 없애고 본문 순서대로 블록 renderer가 그린다. streaming 임시 글은 통로가 아직 없어 T30으로 넘겼다
 - 완료: 아래 확인이 통과한다
   - 검증된 선언형 블록(표, 막대·선·산점 차트, node·edge 도표, 고정 문서)만 설치 SDK의 허용 registry로 그린다. 앱 카드 갈래는 T44. schema를 통과하지 못하면 그 자리에 오류와 안전한 설명만.
   - agent의 JS·HTML·CSS·URL을 import·eval·innerHTML로 실행하지 않고 label·text를 escape한다. script 입력은 실행 없이 거절된다.
@@ -796,6 +803,7 @@ concerns: [shell]
 
 ### T40 SDK UI: ui-control, ui-overlay, ui-layout, ui-state
 
+- 상태: 완료 (#343) — 이어보냄: 설치 사본·템플릿 화면 build가 ui-*의 `@lophn/design`·`@lophn/wording` import를 푸는 일 → apps#T22
 - 등급: frontend
 - concern: shell/design-system
 - 요구: apps/sdk#R4(ui-control·ui-overlay·ui-layout·ui-state 1.0.0), R14, R15, R18(ui-state), R21, R29(AppErrorBoundary component), R37, R41(공용 UI SDK)
@@ -810,6 +818,7 @@ concerns: [shell]
   - 예제와 package 옆 테스트. apps#T22·T23–T26보다 먼저 main에 들어간다.
 - 가져올 것: legacy `ui-control`, `ui-overlay`, `ui-layout`, `ui-state`(presented.ts, reportError.ts 빼고).
 - shell#T38에서 넘어온 것: 앱 preload는 main world에서 `lophn:render-error` DOM event(`detail: {name, message}`)를 `render_error`로 view 오류 통로에 보낸다(`apps/shell/preload/app-api.ts`의 `RENDER_ERROR_EVENT`·`watchMainWorldErrors`). ui-state의 AppErrorBoundary는 루트 render 오류를 잡으면 이 event를 `window`에 dispatch한다. `lophnApp`에 새 이름을 더하지 않는다(Q22)
+- 정한 것: 네 package는 lophn 화면과 같은 packages/design component를 다시 내보내고(R21) 새로 짠 것은 ui-layout의 `AppShell`·`Sidebar`·`Grid`·`containerSpace`, ui-overlay의 `ToastProvider`·`useToast`, ui-state의 `ReadState`·`AppErrorBoundary`다. 패널·카드 최소 폭은 token `layout.container`(320·240px)로 두고, 칸 640px 미만에서 design의 `ListDetailFrame`은 `active` 한 쪽과 [Back](`onBack`), `DashboardFrame`은 한 줄 한 칸, 탭 줄은 가로 scroll, toast 쌓임은 view 폭 안으로 바꿨다. `Checkbox`·`Switch`에 `size`(28·32·36px)를 더했다. AppErrorBoundary는 `document.defaultView`에 event를 보내고 화면에는 `common.error.show-failed`와 [Try again]만 둔다. shell 첫 소비자는 overlay surface(ui-overlay·ui-control), 연결 상태(ui-control·ui-state), 시리즈 등록 폼(ui-layout·ui-control)이다
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
@@ -880,6 +889,7 @@ concerns: [shell]
 - slice: apps
 - 선행: shell#T35, shell#T37, shell#T39
 - shell#T39에서 넘어온 것: 앱 패널 탭과 세션 카드 본문에 `EmbeddedView`를 둔다. 탭이 안 보이면 `shown={false}`(view는 남고 바로 숨는다), 탭을 닫으면 unmount(폐기, 앱 runtime에 view-closed 중계)다. 카드 목록·칸의 스크롤 경계는 `overflow`가 visible이 아닌 조상으로 잡으니 목록 scroll 영역에 overflow를 둔다. 좁은 창의 정보 패널 overlay(`workspace/info-panel-slot`)는 `useViewCover`를 불러 앱 view를 덮지 않은 폭으로 줄인다(R36)
+- shell#T35에서 넘어온 것: 세션 앱 카드 갈래. 블록 틀(`workspace/visuals/block-frame.tsx`)은 `app_card` 블록을 검사한 뒤 지금 설명·출처와 "App cards can't be shown in the conversation yet."만 둔다(`data-visual-app-card`). `app-card-block.tsx`가 그 자리를 앱 frame 카드로 바꾼다. registry(`registry.ts`의 `AppCardContent`)는 app·release·view만 옮기고 카드 입력(`input`)은 버린다. 카드가 입력을 쓰면 registry가 그 값을 옮기게 고친다(그리지 않고 앱 view 계약에 넘길 값이다). 저장된 release가 지금과 다르면 `contract_changed`, 사라지면 `unavailable`이고 다른 release로 바꾸지 않는다(lophn-agent/visuals domain model). 카드 블록도 [Save as document]가 있다(agent 준비에서 snapshot은 지금 unavailable, lophn-agent#T47).
 - 완료: 아래 확인이 통과한다
   - blueprint가 panel 크기를 선언한 screen만 프로젝트 탭에 연다. 아니면 앱 공간으로 열기를 안내하고 조용히 줄이지 않는다. 카드도 card 크기 선언만.
   - 패널·카드는 전체 앱 view와 같은 앱·release·mode 신원과 session·scheme·preload·network 격리. size class는 screen 요청에, 폭·높이는 앱이 viewport에서 읽는다.
@@ -1256,3 +1266,10 @@ shell 최상위의 요구는 8개 leaf에 177개이고 모두 위 작업의 `요
   - (3) shell tsc는 contracts의 `blueprint-schema.ts`를 `noUncheckedIndexedAccess`로 검사하면 실패한다. 그래서 `validateInput`·`canonicalInputHash`는 deno가 검사하는 main.ts 조립이 app-call에 넘긴다(`InputRules`). app-call 테스트는 같은 contracts 함수를 쓴다.
   - (4) context isolation 때문에 페이지의 error·unhandledrejection은 preload(isolated world) listener에 오지 않는다(e2e에서 확인). 감시 함수를 `contextBridge.executeInMainWorld`로 main world에서 돌리고 보고 함수는 인자로만 넘겨 `window`에 이름을 더하지 않는다. SDK 루트 render 오류는 `lophn:render-error` DOM event로 받는다(→ T40).
   - (5) 아직 core 통로가 없는 것: blueprint read(apps#T19 `/v1/apps/blueprint`)와 confirm gate(→ T45), view 오류의 collector 전달 binding과 main 조립 연결(→ problems#T16, contracts 판단 필요). 그 전까지 main은 각각 unavailable·unsent다. headless 확인(`LOPHN_SHELL_HEADLESS=1`)에서는 외부 링크를 OS browser로 열지 않고 log만 남긴다. 앱 view의 `<a target=_blank>`·main frame 탐색은 지금처럼 막히고 OS browser로 넘기지 않는다. 링크는 `lophnApp.openExternal`로만 연다.
+- **Q23 세션 시각 블록 renderer의 검사, 문서로 남기기, 남은 갈래(T35, 추천안으로 진행).**
+  - (1) renderer 검사. renderer는 contracts를 bundle에 싣지 않는다(zod와 core 쪽 graph, `editor/core-source.ts`와 같은 이유). 그래서 VisualBlock(contracts#T30)의 모양·상한과 owner 검사의 markup·URL 규칙(lophn-agent Q45 (1))을 `workspace/visuals/registry.ts`에 옮겨 적었고 `registry_test.ts`가 같은 fixture를 contract schema로도 통과시켜 맞춰 본다. 그릴 수 있는 종류는 frozen registry(`table`·`chart`·`diagram`, 앱 카드는 T44)뿐이다. 지금 검사를 지나지 못하는 저장 블록(규칙이 바뀌었거나 판·종류가 다른 것)은 그리지 않고 이유(모양·종류·markup·그릴 수 없음)와, 따로 검사해 안전한 제목·설명·출처만 둔다. 문자열은 React text node로만 그리고 SDK에는 문자열·숫자 props만 넘긴다. 블록마다 error boundary를 둬 SDK 그리기 예외도 그 블록의 "그릴 수 없음"에 그친다.
+  - (2) 막지 못하는 것(lead 판단). main의 contract client가 `messages/body` 출력을 route output schema로 검사하므로 저장 블록이 output schema(비엄격)조차 지나지 못하면 메시지 전체가 "Couldn't load this message."다. 블록 하나만 이용 불가로 두려면 output schema가 visual part를 블록별로 느슨하게 받아야 하고 그것은 contracts 몫이다. 지금은 owner가 저장 때 더 엄격한 검사를 하므로 생기지 않는다.
+  - (3) SDK 매핑. 막대는 `BarChart`(x를 처음 나온 순서의 범주로), 선은 `LineChart`(시간 축만, 시각 순 정렬), 산점은 `ScatterChart`(숫자 축, y가 null인 점은 자리가 없어 찍지 않는다), 도표는 `GraphDiagram`(node 설명은 아래 목록 글). SDK가 그리지 못하는 조합(범주·숫자 축의 선, 시간 축의 산점, 한 계열의 같은 x)은 값을 바꾸거나 버리지 않고 같은 데이터를 표로 보이며 "This chart is shown as a table."를 둔다. 자기 자신을 가리키는 edge는 contract가 받지만 SDK 도표가 받지 않아 "그릴 수 없음"이다. SDK가 이 조합을 그리게 되면 표 대신 차트로 바꾼다(shell/design-system 몫). 빈 표·차트의 한 가지 다음 행동은 "Read the description"(설명으로 focus)이다. 설명이 빈 값·결측을 말하기 때문이다(lophn-agent/visuals domain model).
+  - (4) 문서로 남기기(lophn-agent Q45 (6), lead 결정). 별도 저장 contract는 없다. 버튼은 "Save the visual “{title}” (block {block} in message {message}) as a document."를 일반 request로 보낸다. 글에 메시지 id와 block key를 싣는 것은 agent가 `visual.prepare_document`의 `message`·`block_keys`를 틀리지 않게 하기 위함이고, 그래서 사람 말 글에 id가 보인다. 작성 중 글·focus·읽던 위치는 건드리지 않는다(`DraftStore.sent`가 요청 말은 보낸 말만 지운다). 다른 말을 보내는 중이거나 연결이 끊기면 버튼만 잠근다. 진행은 창 메모리의 요청 id와 기록에서 계산한다(`conversation/model.ts`의 `visualSaveState`): 보내는 중, 요청됨, 못 보냄(다시 누를 수 있다), 저장 안 함(요청 말이 맡긴 run이 끝났는데 결과 링크가 없다, 이유는 답이 말한다), 저장됨(그 run의 lophn 답의 문서·판 결과 링크, 그 블록 틀에 고정 문서 링크로 보인다). 요청 기억은 창 메모리라 창을 다시 열면 블록 틀에는 링크가 없고 답 아래 결과 링크로만 보인다.
+  - (5) 고정 문서 블록. VisualBlock에는 문서 종류가 없다. 계획의 "고정 문서"는 출처의 문서 판과 저장 뒤 고정 문서 링크로 했다(`document-block.tsx`). 이름은 `documents/get`으로 읽고 not_found·forbidden이면 "Document you can't open"으로 두며 다른 판으로 바꾸지 않는다. 누르면 host의 `onOpenResult(document, version)`가 연다(실행 가능한 format은 T33 view).
+  - (6) 확인: `workspace/visuals/registry_test.ts`(script 거절, contract와 같은 모양), `workspace/visuals/visuals_test.tsx`(SDK 그리기, escape, 그 자리 상태, 출처 문서, 저장 진행), `conversation/dock_test.tsx`(본문 순서, 저장 요청과 focus·읽던 위치·작성 중 글). headless offscreen probe(`BrowserWindow({show:false, offscreen:true})`의 paint)로 도크의 막대·표·선·도표·이용 불가 블록과 저장 뒤 링크를 확인했다.

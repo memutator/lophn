@@ -143,6 +143,26 @@ test("shell/desktop#R15: 실제 core에서 hello→read→WS 구독 event 수신
     assert.equal(applied.ok, true, JSON.stringify(applied));
     assert.equal((await readOptIn()).on, true);
 
+    // OS 표시 요청과 표시 실패 보고(platform#T46): main 안의 통로가 실제 core의 route로 닿는다.
+    // 없는 notification은 두 길 모두 같은 not_found다.
+    const missing = "ntf_01arz3ndektsv4rrffq69g5fav";
+    const display = await session.internal(
+      "read",
+      "notifications",
+      "display",
+      { notification: missing },
+    );
+    assert.equal(display.ok, false);
+    assert.equal(!display.ok && display.error.code, "not_found");
+    const reported = await session.internal(
+      "memory",
+      "notifications",
+      "delivery",
+      { notification: missing, reason: "show_failed" },
+    );
+    assert.equal(reported.ok, false);
+    assert.equal(!reported.ok && reported.error.code, "not_found");
+
     // WS 구독: Bearer는 headers로 싣는다. token은 URL에 넣지 않는다.
     const received: unknown[] = [];
     const catches: number[] = [];

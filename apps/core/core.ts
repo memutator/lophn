@@ -848,7 +848,11 @@ async function open(
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.
-      memory: new Map([...runtime.memory.handlers, ...appsControl.memory]),
+      memory: new Map([
+        ...runtime.memory.handlers,
+        ...runtime.deliveryMemory,
+        ...appsControl.memory,
+      ]),
       events: runtime.events,
       subscriptions: runtime.subscriptions,
       track: (session) => runtime.track(session),

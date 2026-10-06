@@ -202,7 +202,9 @@ command body는 `{input,idempotency_key,compare,run?,prepared:[],confirmation?}`
 | command | `/v1/approvals/expire` | `expire_approval_request`; 전용 machine |
 | command | `/v1/approvals/cancel` | `cancel_approval_request` |
 | command | `/v1/approvals/apply` | `apply_approved_action`; 등록된 소유 command로 dispatch |
-| read | `/v1/notifications/get`, `/v1/notifications/list` | source 사실·읽음·대상 열기 경로 |
+| read | `/v1/notifications/get`, `/v1/notifications/list` | source 사실·읽음·대상 열기 경로; 선택 `delivery`(not_requested·unconfirmed·failed 고정 이유와 관측 시각) |
+| read | `/v1/notifications/display` | shell main용 OS 표시 요청(redaction한 제목 종류·열 곳 하나); 사람이 켰을 때만 값 |
+| memory | `/v1/notifications/delivery` | shell main이 OS 표시 실패를 고정 이유로 알림; ledger를 쓰지 않는 core 메모리 |
 | command | `/v1/notifications/create` | `create_notification`; 전용 machine만 |
 | command | `/v1/notifications/read` | `mark_notification_read` |
 | read | `/v1/settings/definitions`, `/v1/settings/get`, `/v1/settings/history` | 사람이 읽는 이름·설명·영향·위험·되돌림·적용 시점을 포함한 등록 항목·EffectiveSetting·판 이력; 화면과 lophn 역할이 같은 registry를 읽고 변경은 questions의 고정 option action으로 기존 ApplySettings에 전달 |

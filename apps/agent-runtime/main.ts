@@ -11,13 +11,25 @@ import {
 } from "../../packages/platform/responsiveness/mod.ts";
 import {
   type CoreRead,
+  createRunCredentials,
   createRunSelector,
+  type RunCredentials,
   type RunSelector,
   SELECTOR_READ_ROUTES,
   startRuntime,
   type Startup,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
+import {
+  BUILTIN_TOOLS,
+  runOperations,
+} from "../../packages/lophn-agent/harness/tools/mod.ts";
 import { startCatalogRefresher } from "./catalog.ts";
+import { createCredentialLink } from "./credential-link.ts";
+import {
+  createRunDriver,
+  type DriveDeps,
+  type RunDriver,
+} from "./run-driver.ts";
 
 // core가 감독하는 agent runtime. ledger writer는 core만 소유하고 이 프로세스는 read만 한다.
 export type Runtime = {
@@ -25,6 +37,10 @@ export type Runtime = {
   // 시작할 accepted run을 고른다(run-loop R4). 읽기만 하고 ledger를 바꾸지 않는다.
   // 고른 run의 시작·loop는 이 selector를 부르는 쪽이 한다.
   selector: RunSelector;
+  // run마다 받는 agent credential. 감독 pipe로 core에 청한다.
+  credentials: RunCredentials;
+  // 고른 run을 시작해 loop를 돌린다. 시작 재료(`driver` 입력)를 받았을 때만 있다.
+  driver: RunDriver | undefined;
   // 새 model·tool 진입을 막는다. 진행 호출 취소는 나중 작업이 이 신호에 붙는다.
   readonly stopped: boolean;
   done: Promise<void>;
@@ -44,6 +60,8 @@ export async function startAgentRuntime(input: {
   fetch?: typeof fetch;
   // derived 위치의 root. 없으면 LOPHN_HOME에서 결정한다(T3와 같은 근원).
   dataRoot?: string;
+  // run 시작 재료(basis 준비, StartRun, loop의 port). core 연결이 만든다.
+  driver?: Pick<DriveDeps, "prepare" | "closeUnusable">;
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Deno.stdin.readable,
@@ -60,6 +78,13 @@ export async function startAgentRuntime(input: {
     resolveReady = resolve;
   });
   let stopped = false;
+  const link = createCredentialLink({ send: (message) => child.send(message) });
+  const credentials = createRunCredentials({
+    issuer: link.issuer,
+    operations: runOperations(BUILTIN_TOOLS),
+    process: "agent-runtime",
+  });
+  let driver: RunDriver | undefined;
 
   const child = startChild(
     {
@@ -97,10 +122,16 @@ export async function startAgentRuntime(input: {
         }
         resolveReady(started);
       },
+      onParent(message) {
+        link.onParent(message);
+      },
       onStop() {
         // 종료 요청·pipe 닫힘·core 종료 모두 여기로 온다. 새 진입은 이 순간부터 막힌다.
         // stopped ack는 cleanup 안에서만 통과한다. 그 전에 보내면 거절된다.
         stopped = true;
+        // 감독 상실: 진행 loop의 새 진입을 막고 들고 있는 credential을 모두 끝낸다.
+        if (driver !== undefined) driver.endAll();
+        else credentials.endAll();
         return send(child, { type: "stopped" });
       },
     },
@@ -125,9 +156,15 @@ export async function startAgentRuntime(input: {
   if (!started.ok) {
     return started;
   }
+  const selector = createRunSelector({ read: selectorRead! });
+  if (input.driver !== undefined) {
+    driver = createRunDriver({ selector, credentials, ...input.driver });
+  }
   const runtime: Runtime = {
     startup: startup!,
-    selector: createRunSelector({ read: selectorRead! }),
+    selector,
+    credentials,
+    driver,
     get stopped() {
       return stopped;
     },

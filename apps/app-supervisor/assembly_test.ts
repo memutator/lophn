@@ -35,6 +35,8 @@ type Rig = {
   signer: Awaited<ReturnType<typeof createCoreSigner>>;
   dir: string;
   issued: string[];
+  // 앱 direct socket으로 보낸 요청의 경로와 본문.
+  directs: { path: string; body: unknown }[];
   stop(): Promise<void>;
 };
 
@@ -50,6 +52,10 @@ type RigOptions = {
   invocations?: SupervisorIo["invocations"];
   directSocketOf?: SupervisorIo["directSocketOf"];
   previewScopeOf?: SupervisorIo["previewScopeOf"];
+  // 그 경로의 direct 요청에 자식 대신 답한다. 없으면 자식 socket으로 보낸다.
+  directAnswer?: (
+    path: string,
+  ) => { status: number; body: unknown } | undefined;
   // 띄운 자식의 실행 인자를 시험이 본다.
   launched?: { flags: { args: string[] } }[];
 };
@@ -75,6 +81,7 @@ async function rig(options: RigOptions = {}): Promise<Rig> {
   const posted: Posted[] = [];
   const frames: unknown[] = [];
   const issued: string[] = [];
+  const directs: { path: string; body: unknown }[] = [];
   // deno-lint-ignore prefer-const
   let assembled: Assembly;
   const fake = {
@@ -196,7 +203,12 @@ async function rig(options: RigOptions = {}): Promise<Rig> {
       ? {}
       : { previewScopeOf: options.previewScopeOf }),
     post: fake.post,
-    direct: (endpoint, request) => unixDirectTransport(endpoint, request),
+    direct: (endpoint, request) => {
+      directs.push({ path: request.path, body: request.body });
+      const answered = options.directAnswer?.(request.path);
+      if (answered) return Promise.resolve(answered);
+      return unixDirectTransport(endpoint, request);
+    },
     send(message) {
       frames.push(message);
       const request = message as {
@@ -252,6 +264,7 @@ async function rig(options: RigOptions = {}): Promise<Rig> {
     signer,
     dir,
     issued,
+    directs,
     async stop() {
       await assembled.supervisor.stop();
       assembled.shutdown();
@@ -918,6 +931,43 @@ Deno.test("apps/connections#R1, apps/connections#R4: 다른 앱 연결 준비는
     });
     assertEquals(forged.status, 401);
     assertEquals(sent.length, 1);
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/agent-context#R2, apps/agent-context#R5: 닫힌 화면 view는 지금 live 자식의 nonce로 control/view-closed에 보내고 자식이 없으면 보내지 않는다", async () => {
+  // runtime의 view-closed 처리는 apps 쪽 테스트가 본다. 여기서는 자식의 답만 정해 중계를 본다.
+  let childStatus = 200;
+  const r = await rig({
+    directAnswer: (path) =>
+      path === "/_lophn/control/view-closed"
+        ? { status: childStatus, body: {} }
+        : undefined,
+  });
+  try {
+    const op = r.assembled.ops["apps.view_closed"];
+    assertEquals(await op({ app: FIXTURE_APP, view_session: "view-1" }), {
+      relayed: false,
+    });
+    await r.assembled.supervisor.reconcile(r.desired);
+    const observation = await until("ready", () => readyOf(r));
+    assertEquals(await op({ app: FIXTURE_APP, view_session: "view-1" }), {
+      relayed: true,
+    });
+    const sent = r.directs.filter((entry) =>
+      entry.path === "/_lophn/control/view-closed"
+    );
+    assertEquals(sent.length, 1);
+    assertEquals(sent[0]!.body, {
+      process_nonce: observation.processNonce,
+      view_session: "view-1",
+    });
+    // 자식이 nonce를 거절하면 중계하지 못한 것이다.
+    childStatus = 401;
+    assertEquals(await op({ app: FIXTURE_APP, view_session: "view-2" }), {
+      relayed: false,
+    });
   } finally {
     await r.stop();
   }

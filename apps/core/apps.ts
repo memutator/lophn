@@ -11,6 +11,7 @@ import {
   appPairObserve,
   appPairPrepare,
   appRegistrationLookup,
+  appViewClosed,
   releaseCancelPreparation,
   releasePreparation,
 } from "../../packages/contracts/apps/mod.ts";
@@ -121,6 +122,7 @@ export function createLedgerRegistration(
       commands.connectSource,
       commands.archive,
       commands.unarchive,
+      commands.rename,
       grants.create,
       grants.revoke,
       confirm.acceptConfirm,
@@ -157,10 +159,12 @@ export function createLedgerRegistration(
       sdkReads.usage,
     ],
     // apps.connect는 supervisor의 메모리 관측과 인증 연결을 읽는 제어 어댑터라 ledger queue를
-    // 거치지 않는다(apps/runtime#R9, architecture/apps 5.1).
+    // 거치지 않는다(apps/runtime#R9, architecture/apps 5.1). apps.view_closed도 같은 어댑터가
+    // 닫힌 화면 view를 지금 live 자식에 중계할 뿐 ledger를 쓰지 않는다.
     // 앱 쌍 연결 준비·confirm·경로 장부 통보도 supervisor(machine)의 같은 제어 어댑터다.
     memoryRoutes: [
       appConnect,
+      appViewClosed,
       appPairPrepare,
       appPairConfirmRequest,
       appPairConfirmPoll,

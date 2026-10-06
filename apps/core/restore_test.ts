@@ -15,6 +15,7 @@ import {
 } from "../../packages/platform/backup-and-migration/mod.ts";
 import { type Core, startCore } from "./core.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const NOW = Date.UTC(2024, 0, 1);
 const USER_TOKEN = "u".repeat(43);
@@ -52,6 +53,9 @@ async function startAt(home: string, generation: number): Promise<Core> {
     superviseIo: false,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+  });
   const core = started.value;
   const accepted = await core.acceptTestCredential?.(
     context(generation),
@@ -59,6 +63,7 @@ async function startAt(home: string, generation: number): Promise<Core> {
   );
   assert(accepted?.ok);
   assert((await core.record(context(generation))).ok);
+  guard.keep();
   return core;
 }
 

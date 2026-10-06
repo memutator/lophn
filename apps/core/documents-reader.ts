@@ -83,6 +83,7 @@ import {
   storedFile,
 } from "../../packages/documents/versions/reads.ts";
 import {
+  FILE_PLACEMENT_ROUTE,
   internalRoute,
   OBSERVATION_BASIS_ROUTE,
   OBSERVATION_LINK_PAGE,
@@ -94,6 +95,10 @@ import {
   WORKING_COPY_ROUTE,
 } from "./documents-served.ts";
 import { workingCopyCheck } from "../../packages/documents/file-tracking/reads.ts";
+import {
+  placementRead,
+  type PlacementReadInput,
+} from "../../packages/documents/file-tracking/placement-read.ts";
 import { loadProjects } from "../../packages/documents/projects/store.ts";
 import { authorizeDocument } from "../../packages/documents/versions/authorization.ts";
 import {
@@ -591,6 +596,18 @@ export function createReaderRegistration(): ReaderRegistration {
           return checked.ok
             ? ok({ ...checked.value, next_cursor: null })
             : checked;
+        },
+      },
+      // 두기·빼기 근거. 요청 자격으로 문서와 프로젝트·최신 판 파일·연결된 경로·쓸 이름을 읽는다.
+      {
+        route: FILE_PLACEMENT_ROUTE,
+        handle(snapshot, ctx, input) {
+          const read = placementRead(
+            snapshot,
+            ctx,
+            input as PlacementReadInput,
+          );
+          return read.ok ? ok({ ...read.value, next_cursor: null }) : read;
         },
       },
       // coordinator가 파일을 관측할 근거(Q15). core만 부르는 내부 read다. 활성이고 tracking이

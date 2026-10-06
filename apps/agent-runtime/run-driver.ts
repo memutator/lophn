@@ -27,7 +27,13 @@ export type PreparedRun = {
   loop(
     credential: AgentRunCredential,
     started: StartRunResult,
-  ): { deps: LoopDeps; input: RunInput };
+  ): {
+    deps: LoopDeps;
+    input: RunInput;
+    // 사람의 결정을 기다리는 run의 결정 반영(기다림 해소기). 고정 call의 실제 입력은 이 process가
+    // 들고 있다.
+    settle?(): Promise<Result<unknown>>;
+  };
 };
 
 export type DriveDeps = {
@@ -55,10 +61,13 @@ export type RunDriver = {
   revokeServer(server: string): void;
   // 감독이 끊겼다. 새 진입을 막고 진행 호출을 취소하며 들고 있는 credential을 모두 끝낸다.
   endAll(): void;
+  // 기다리는 run의 결정을 한 번 반영한다. 이 process가 기다림에 넣은 run만 있다.
+  settle(run: string): Promise<Result<unknown>> | undefined;
   readonly active: number;
 };
 
 export function createRunDriver(deps: DriveDeps): RunDriver {
+  const waiting = new Map<string, () => Promise<Result<unknown>>>();
   const active = new Map<
     string,
     { assignment: string; handle: RunLoopHandle }
@@ -81,13 +90,18 @@ export function createRunDriver(deps: DriveDeps): RunDriver {
         if (begun.started) await deps.closeUnusable(selection);
         return { kind: "not_started", run: selection.run };
       }
-      const { deps: loopDeps, input } = run.loop(
+      const { deps: loopDeps, input, settle } = run.loop(
         begun.value.credential,
         begun.value.started,
       );
       const handle = startRunLoop(loopDeps, input);
       active.set(selection.run, { assignment: selection.assignment, handle });
-      const done = handle.done.finally(() => {
+      const done = handle.done.then((end) => {
+        if (end.kind === "waiting" && settle !== undefined) {
+          waiting.set(selection.run, settle);
+        }
+        return end;
+      }).finally(() => {
         // run 종료·멈춤·사람 기다림에서 credential을 끝낸다. 재개는 새 credential을 받는다.
         deps.credentials.end(selection.run);
         active.delete(selection.run);
@@ -116,6 +130,9 @@ export function createRunDriver(deps: DriveDeps): RunDriver {
         entry.handle.revoke({ provider: true });
       }
       deps.credentials.endAll();
+    },
+    settle(run) {
+      return waiting.get(run)?.();
     },
     get active() {
       return active.size;

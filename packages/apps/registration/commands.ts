@@ -99,7 +99,14 @@ export function createAppCommands(): {
         if (!actor.ok) return actor;
         const whole = requireWholeScope(ctx);
         if (!whole.ok) return whole;
-        const id = tx.newId("app");
+        // 미리 배정한 ID는 사람 자격만 쓴다. 질문 선택지의 적용도 ledger가 근거를 검증해 넘긴 사람
+        // 자격이다. coding connection은 ID를 정하지 못하고, 이미 있는 ID는 만들지 않는다.
+        if (input.id !== undefined) {
+          if (parseActor(ctx.actor)?.kind !== "user") {
+            return forbidden("only a person assigns an app id");
+          }
+        }
+        const id = input.id ?? tx.newId("app");
         const candidate: App = {
           id,
           slug: input.slug,
@@ -123,6 +130,12 @@ export function createAppCommands(): {
           input.slug,
         ]);
         if (named !== undefined) return conflict("app slug already exists");
+        if (
+          input.id !== undefined && tx.sql.get(
+              "SELECT id FROM apps WHERE id = ?",
+              [input.id],
+            ) !== undefined
+        ) return conflict("app id already exists");
         const seq = tx.emit(appCreated, id, {
           slug: input.slug,
           name: input.name,

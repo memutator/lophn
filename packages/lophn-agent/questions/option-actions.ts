@@ -11,6 +11,7 @@ import {
   documentRename,
   type PlaceRef,
 } from "../../contracts/documents/mod.ts";
+import { appCreate } from "../../contracts/apps/mod.ts";
 import {
   applyQuestionOption,
   type OptionAction,
@@ -130,6 +131,28 @@ const settingsOwner: OptionActionOwner = {
   },
 };
 
+// 앱 등록은 미리 배정한 app ID가 고정 입력에 들어 있어야 하고 그 ID가 대상이다. 비교 기준은 없다:
+// 낡은 전제(같은 slug·ID가 이미 있음)는 등록 command가 conflict로 막는다(apps/registration#R3).
+const appCreateOwner: OptionActionOwner = {
+  concern: "apps/registration",
+  command: appCreate.name,
+  route: appCreate,
+  prepare(_question, action) {
+    const value = inlineValue(action);
+    if (!value.ok) return value;
+    const input = appCreate.input.safeParse(value.value);
+    const compare = appCreate.compare?.safeParse(action.comparison);
+    if (!input.success || compare === undefined || !compare.success) {
+      return invalid("the action does not match the owner command");
+    }
+    const app = (input.data as { id?: string }).id;
+    if (app === undefined) return invalid("an app action fixes the app id");
+    const target = onlyTarget(action, app);
+    if (!target.ok) return target;
+    return ok({ input: input.data, compare: compare.data });
+  },
+};
+
 // 선택지로 열 수 있는 owner 동작. 안쪽에서 되돌릴 수 있는 동작만이다. 권한 부여·외부 효과·
 // 복원 불가 동작은 이 목록에 없으므로 질문을 만들 때 막힌다(R12). 새 owner 동작은 이 목록에
 // 더하고 그 owner의 handler를 core 조립이 묶는다(apps/core/lophn-agent.ts).
@@ -137,6 +160,7 @@ export const OPTION_ACTION_OWNERS: readonly OptionActionOwner[] = [
   documentOwner(documentMove),
   documentOwner(documentRename),
   settingsOwner,
+  appCreateOwner,
 ];
 
 export function findOptionOwner(
@@ -220,6 +244,22 @@ export function renameOptionAction(fixed: {
     targets: [fixed.document],
     input: { document: fixed.document, name: fixed.name },
     comparison: { base_revision: fixed.base_revision },
+  });
+}
+
+// 새 앱 등록 선택지. 미리 배정한 app ID와 등록할 slug·이름·목적이 고정된다.
+export function appCreateOptionAction(fixed: {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+}): OptionAction {
+  return buildOptionAction({
+    concern: "apps/registration",
+    command: appCreate.name,
+    targets: [fixed.id],
+    input: fixed,
+    comparison: {},
   });
 }
 

@@ -14,10 +14,15 @@ import {
   assignmentPaused,
   InstructionAttachments,
   questionCreated,
+  runAccepted,
+  runFinished,
+  runStarted,
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type {
   CommandDefinition,
+  EventDefinition,
+  EventVisibilityDefinition,
   Tx,
 } from "../../packages/contracts/platform/mod.ts";
 import {
@@ -620,9 +625,20 @@ export function createEventRegistration(): EventRegistration {
     visibility: [
       notificationsOnlyVisibility(questionCreated),
       notificationsOnlyVisibility(assignmentPaused),
+      // agent runtime(machine 자격)만 run의 접수·시작·끝남을 따라 읽는다. selector가 RunStarted를 훑고
+      // 감독 pipe의 credential 발급이 StartRun이 확정한 scope를 대조한다. 사람·agent·app은 못 본다.
+      machineOnlyVisibility(runAccepted),
+      machineOnlyVisibility(runStarted),
+      machineOnlyVisibility(runFinished),
       ...createRevertEventVisibility(),
     ],
   };
+}
+
+function machineOnlyVisibility<D extends EventDefinition>(
+  event: D,
+): EventVisibilityDefinition<D> {
+  return { event, handle: (_snapshot, ctx) => ok(ctx.actor === "machine") };
 }
 
 // reader Worker가 이 등록 파일에서 팀 read를 다시 조립한다. provider·model read는

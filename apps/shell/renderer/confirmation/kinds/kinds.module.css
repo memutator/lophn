@@ -82,3 +82,76 @@
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
 }
+
+/* 앱 결정의 정확한 동작은 읽기 쉬운 표시 아래에 접는다. */
+.folded {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.folded > summary {
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 바뀐 것·경고 묶음. 표지는 글이고 색에 기대지 않는다. */
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: var(--space-0);
+}
+
+.part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.partHead {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.warning {
+  margin: var(--space-0);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-text-primary);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}

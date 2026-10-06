@@ -173,6 +173,7 @@ function loopMaterial() {
     tools: {
       info: () => undefined,
       attempt: () => Promise.reject(new Error("no tool")),
+      resume: () => Promise.reject(new Error("no tool")),
       close: () => Promise.reject(new Error("no tool")),
     },
     checkpoint: () => Promise.resolve(),

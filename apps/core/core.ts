@@ -59,8 +59,11 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import { connectionConnect } from "../../packages/contracts/coding-agent/mod.ts";
+import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
+  connectHandler,
   createCodingCredentials,
 } from "./coding-credential.ts";
 import { productKeychain } from "./secret-store.ts";
@@ -671,11 +674,22 @@ async function open(
     seed: seedOf(random),
     // 문서 worker route를 서빙하는 reader 등록은 항상 붙는다(documents-reader.ts).
     modules,
-    assembled: assembled.value,
+    // connection credential의 알려진 값 참조는 coding keychain이 있을 때만 읽는다. 없는 core(시험)가
+    // 사람의 실제 keychain으로 그 참조를 찾지 않게 한다.
+    assembled: options.codingKeychain === undefined
+      ? {
+        ...assembled.value,
+        secretRefs: assembled.value.secretRefs.filter((source) =>
+          source.owner !== CONNECTION_SECRET_OWNER
+        ),
+      }
+      : assembled.value,
     source,
     blob: blobRead.deps,
-    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다.
-    keychain: () => options.secretKeychain ?? productKeychain(),
+    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다. coding
+    // keychain만 준 core는 같은 adapter로 connection credential 값을 읽는다.
+    keychain: () =>
+      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
@@ -800,6 +814,21 @@ async function open(
         line,
       ),
     // 봉인 bundle 사본을 여는 실제 자리다. 시험이 `appPreviews.bundles`로 바꿔 끼울 수 있다.
+    activation: {
+      dataRoot: root.path,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+      platformPorts: () => apiPort === 0 ? [] : [apiPort],
+    },
     previews: {
       dataRoot: root.path,
       bundles: createCopyPreviewBundles({
@@ -995,6 +1024,15 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
+        // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
+        ...(coding
+          ? [
+            [
+              `${connectionConnect.resource}/${connectionConnect.method}`,
+              connectHandler(coding, () => runtime!.writer),
+            ] as const,
+          ]
+          : []),
       ]),
       events: runtime.events,
       subscriptions: runtime.subscriptions,
@@ -1661,19 +1699,6 @@ async function open(
     const recorded = issued.ok && current.ok
       ? await runtime.record(current.value)
       : current;
-    const supervisorBlob = createChildBlobPrepare({
-      kind: APPS_SUPERVISOR_KIND,
-      gauge: blobBuffer,
-      send: (message) =>
-        appsSupervision.send(APPS_SUPERVISOR_KIND, message).then((sent) =>
-          sent.ok
-        ),
-      prepareBlob: (call) =>
-        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
-          code: "unavailable",
-          message: "blob 준비 통로가 없다",
-        })),
-    });
     if (issued.ok && current.ok && recorded.ok) {
       const started = await appsSupervision.start(
         appSupervisorSpec({
@@ -1697,13 +1722,7 @@ async function open(
           api_port: server.port,
         },
         {
-          onMessage: (message) => {
-            // supervisor의 보호 backup blob 준비 요청이다. 나머지는 apps 제어의 질의다.
-            if (!supervisorBlob.onMessage(message)) {
-              appsControl.onSupervisorMessage(message);
-            }
-          },
-          onFrame: (frame) => supervisorBlob.onFrame(frame),
+          onMessage: (message) => appsControl.onSupervisorMessage(message),
           // supervisor child가 끝나면 답을 기다리던 질의를 기한(5초·재시작 30초)까지 두지 않고 끝낸다.
           onEnd: () =>
             appsControl.channel.failPending(

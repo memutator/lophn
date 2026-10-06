@@ -4,6 +4,7 @@
 // (cli#R1, architecture 5.1).
 import { APP_COMMANDS } from "./commands/app.ts";
 import { APPROVAL_COMMANDS } from "./commands/approval.ts";
+import { CONNECTION_COMMANDS } from "./commands/connection.ts";
 import { CONTEXT_COMMANDS } from "./commands/context.ts";
 import { QUESTION_COMMANDS } from "./commands/question.ts";
 import { DAEMON_COMMANDS } from "./commands/daemon.ts";
@@ -38,6 +39,7 @@ export const COMMANDS: readonly CommandEntry[] = [
   ...DAEMON_COMMANDS,
   ...DOCTOR_COMMANDS,
   ...HARNESS_COMMANDS,
+  ...CONNECTION_COMMANDS,
   ...MCP_COMMANDS,
 ];
 

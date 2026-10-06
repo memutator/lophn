@@ -6,6 +6,7 @@ import { Launcher } from "./launcher/launcher.tsx";
 import {
   LAUNCHER,
   openApp,
+  openInstructions,
   openLophn,
   openProject,
   type Route,
@@ -31,6 +32,7 @@ import { DesktopIntents } from "./intents.tsx";
 import type { LophnTarget } from "./palette/lophn-scope.ts";
 import { AppSpace } from "../app-frame/app-space.tsx";
 import type { AppsSource } from "./lophn-space/apps/source.ts";
+import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { LophnAppWindowsApi } from "../../ipc/app-window.ts";
 import type { LophnShellFeedbackBegin } from "../../ipc/feedback.ts";
@@ -66,6 +68,8 @@ export interface DesktopProps {
   instructions?: InstructionsSource;
   /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
   apps?: AppsSource;
+  /** 앱 공간 운영 패널의 app-detail 통로. 없으면 app-detail 탭을 두지 않는다. */
+  appDetail?: AppDetailSource;
   /** shell preload의 앱 view 통로. 앱 공간 본문이 쓴다. */
   views?: LophnShellViewsApi;
   /** 앱 공간의 새 창 열기와 OS 앱 바로가기 통로. */
@@ -93,6 +97,7 @@ export function Desktop(
     intents,
     instructions,
     apps,
+    appDetail,
     views,
     appWindows,
     feedback,
@@ -181,6 +186,11 @@ export function Desktop(
         views={views}
         windows={appWindows}
         feedback={feedback}
+        detail={appDetail}
+        onInstructions={instructions
+          ? () =>
+            setRoute(openInstructions({ layer: "app", place: route.app! }))
+          : undefined}
         windowWidth={windowWidth}
         onLauncher={launcher}
         onDocuments={() => visit(openLophn("documents"))}

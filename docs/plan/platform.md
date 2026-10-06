@@ -828,6 +828,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: coding credential 보호 전달(신뢰 MCP·CLI loader와 TUI child)
 - slice: coding-agent
 - 선행: platform#T19, platform#T22, contracts#T47(`CodingAgentConnectionAuth` port와 loader 보호 전달 요청), coding-agent#T9
+- coding-agent#T36에서 넘어온 것: 앱 하나 범위 connection credential의 scope 모양이 둘이라 production 발급으로는 그 연결의 문서 읽기가 forbidden이다(fail-closed, 노출 없음). `externalOf`는 `targets {app}`+`conditions {app}`를 내고(coding-agent T21 앱 tool 시험 `apps/core/coding-agent-app-tools_test.ts`와 같은 모양) documents 읽기 인가(`packages/documents/versions/authorization.ts`)는 `targets {place_kind:"app", place:<app>}`를 기대한다(T15 `apps/core/coding-agent-scope_test.ts`가 직접 만든 모양). 한 credential이 둘을 모두 통과하는 모양이나 인가 쪽 정리를 정한다. 두 시험의 credential 모양을 바꿔 보면 서로 실패한다.
 - 완료: 아래 확인이 통과한다
   - 사람의 connection 결정 뒤 인증 경계가 token을 만들고 keychain에 준비하고 digest만 connection command에 제출한다. commit 실패·중단 token은 쓸 수 없고 고아를 정리한다(identity R5, secrets R12).
   - 신뢰 loader가 현재 connection·scope·process generation을 확인한 지정 child에만 non-inheritable 보호 통로로 넘긴다. 일반 shell·renderer·coding agent 요청으로는 열리지 않는다(identity R15).
@@ -1063,6 +1064,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - slice: operations
 - 선행: platform#T43, shell#T57
 - platform#T34에서 넘어온 것: (Linux) compile binary `lophn-credential`(OS keychain 도구 실행만 허용한 고정 권한, 설치 묶음의 고정 절대 경로)과 그 loader identity를 `startCore`의 `codingLoaders`(apps/core/main.ts)에 채우는 일, `ProtectedChannel`(`packages/platform/identity/coding-credential.ts`)의 Linux 구현(non-inheritable 통로, → redesign/propagate#Q2). helper의 처리 본문은 `serveCredentialDelivery`가 있다. 실제 .deb 설치에서 MCP·CLI child가 helper로 token을 받는 것을 확인한다
+- coding-agent#T36에서 넘어온 것: (1) launcher가 `LOPHN_HOME`을 export하고 `/proc/self/stat` read를 더했다(helper 요청의 process generation 시작 tick). (2) `tools/verify-linux-install.ts`의 등록된 child 양성 단계(connection 생성 → 등록 → helper가 token 수신)는 실제 Secret Service가 있는 일회용 session이 필요하다(제품 core의 keychain은 OS adapter). 같은 경로를 fake keychain으로 보는 시험은 `apps/core/coding-connect-flow_test.ts`다. (3) CLI launcher의 `--allow-read/--allow-write` 범위: `lophn doctor`·`connection install`은 사람이 고른 harness home을 읽고 쓰며 MCP probe는 설치 Deno 실행이 필요한데 지금 CLI launcher는 helper 실행·`$PWD` read뿐이다. 선택 target별로 어떤 범위를 줄지(launcher 분기 또는 shell main이 권한을 계산해 띄우기)와 앱 direct socket(`unix:` 정확한 경로) 허락을 MCP에 줄지 정한다.
 - 완료: 아래 확인이 통과한다
   - `/opt/lophn/`에 Deno binary·platform source·lock·vendor·desktop·skills·sdk·guides(자리는 이 작업이 정하고, 원문은 lophn-agent의 `packages/lophn-agent/roles/lophn/guides/`에서 복사한다. architecture 3.1을 같은 PR에서 고친다), `/usr/bin/lophn-desktop`·`lophn`·`lophn-mcp` launcher. 시작에 의존성 다운로드가 없다(R4, R5, R6).
   - Chromium sandbox 파일 root 소유·4755와 Ubuntu 24.04 이상에서 실제 sandbox 활성 검사. sandbox를 끈 실행은 배포 테스트 통과로 세지 않는다(R2, R3, security R4).

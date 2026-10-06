@@ -1,5 +1,192 @@
 // en catalog. 값은 완성된 문장 하나의 ICU MessageFormat이다. 화면 코드는 문장 조각을 이어 붙이지 않는다.
 export const en = {
+  "app-detail.button.change-access": "Review access",
+  "app-detail.button.close-preview": "Close preview",
+  "app-detail.button.hide-activity": "Hide activity",
+  "app-detail.button.hide-changes": "Hide changes",
+  "app-detail.button.open-preview": "Open preview",
+  "app-detail.button.remove-access": "Remove",
+  "app-detail.button.review-connection": "Review connection",
+  "app-detail.button.see-changes": "See what changes",
+  "app-detail.button.show-activity": "Show activity",
+  "app-detail.button.turn-off": "Turn off",
+  "app-detail.button.turn-on": "Turn on",
+  "app-detail.button.use-version": "Use this version",
+  "app-detail.error.apply-failed":
+    "Version {number} couldn't be applied. Your current version is unchanged.",
+  "app-detail.error.decision-failed":
+    "The confirmation window didn't open. Try again.",
+  "app-detail.error.preview-failed":
+    "The preview didn't open. Your app in use isn't affected.",
+  "app-detail.error.turn-off-failed":
+    "Couldn't turn off {name}. It's still on. Try again.",
+  "app-detail.heading.access-agents": "Actions agents can start",
+  "app-detail.heading.access-asks": "Asking for more access",
+  "app-detail.heading.access-documents": "Documents this app can save",
+  "app-detail.heading.access-files-read": "Files this app can read",
+  "app-detail.heading.access-files-write": "Files this app can change",
+  "app-detail.heading.access-listen": "Ports this app can listen on",
+  "app-detail.heading.access-network": "Websites this app can contact",
+  "app-detail.heading.access-removed": "Removed access",
+  "app-detail.heading.access-secrets": "Secrets this app can use",
+  "app-detail.heading.current-version": "Current version",
+  "app-detail.heading.detail-access": "Permissions",
+  "app-detail.heading.detail-actions": "Actions",
+  "app-detail.heading.detail-automations": "Automations",
+  "app-detail.heading.detail-data": "Saved data",
+  "app-detail.heading.detail-screens": "Screens",
+  "app-detail.heading.other-versions": "Other versions",
+  "app-detail.heading.what-changes": "What changes",
+  "app-detail.label.access-target": "this app's access",
+  "app-detail.label.activity-target": "this app's activity",
+  "app-detail.label.an-action": "an action",
+  "app-detail.label.another-app": "Another app",
+  "app-detail.label.applied-before": "It was in use before",
+  "app-detail.label.applied-failed": "Couldn't be applied",
+  "app-detail.label.applied-no": "Not in use",
+  "app-detail.label.applied-working": "Being applied",
+  "app-detail.label.applied-yes": "In use",
+  "app-detail.label.automation-off": "Off",
+  "app-detail.label.automation-on": "On",
+  "app-detail.label.automations-target": "this app's automations",
+  "app-detail.label.by-agent": "By an agent",
+  "app-detail.label.by-app": "By another app",
+  "app-detail.label.by-applying": "While a version was being applied",
+  "app-detail.label.by-automation": "By an automation",
+  "app-detail.label.by-direct": "Directly",
+  "app-detail.label.by-restart": "After the app restarted",
+  "app-detail.label.change-access-added":
+    "{count, plural, one {# new permission asked} other {# new permissions asked}}",
+  "app-detail.label.change-access-removed":
+    "{count, plural, one {# permission no longer needed} other {# permissions no longer needed}}",
+  "app-detail.label.change-actions-added":
+    "{count, plural, one {# action added} other {# actions added}}",
+  "app-detail.label.change-actions-changed":
+    "{count, plural, one {# action behaves differently} other {# actions behave differently}}",
+  "app-detail.label.change-actions-external":
+    "{count, plural, one {# action can change things outside lophn} other {# actions can change things outside lophn}}",
+  "app-detail.label.change-actions-removed":
+    "{count, plural, one {# action removed} other {# actions removed}}",
+  "app-detail.label.change-automations":
+    "{count, plural, one {# automation changed} other {# automations changed}}",
+  "app-detail.label.change-data":
+    "Saved data changes from format {from} to {to}",
+  "app-detail.label.change-screens":
+    "{count, plural, one {# screen changed} other {# screens changed}}",
+  "app-detail.label.changes-target": "what changes",
+  "app-detail.label.checked-at": "Last checked {age}",
+  "app-detail.label.connection-actions":
+    "{count, plural, one {# action} other {# actions}}",
+  "app-detail.label.connection-allowed": "Allowed",
+  "app-detail.label.connection-asks": "Needs your approval",
+  "app-detail.label.connection-partly": "Partly allowed",
+  "app-detail.label.connections-target": "this app's connections",
+  "app-detail.label.data-format": "Saved data format {number}",
+  "app-detail.label.data-target": "this app's data",
+  "app-detail.label.details": "Details",
+  "app-detail.label.did-action": "Used {action}",
+  "app-detail.label.did-action-unnamed": "Used an action",
+  "app-detail.label.did-data-change": "Updated saved data",
+  "app-detail.label.did-start": "Started",
+  "app-detail.label.fact-action": "Action",
+  "app-detail.label.fact-applied": "Applied",
+  "app-detail.label.fact-can-start": "Can start now",
+  "app-detail.label.fact-input": "Fixed input",
+  "app-detail.label.fact-saved": "Saved",
+  "app-detail.label.fact-schedule": "When",
+  "app-detail.label.fact-seen": "Seen working",
+  "app-detail.label.fact-start": "Start check",
+  "app-detail.label.fact-task": "Task check",
+  "app-detail.label.fact-test": "Test result",
+  "app-detail.label.input-saved": "Saved with the app",
+  "app-detail.label.last-activity": "Last activity: {status}, {age}",
+  "app-detail.label.mode-preview": "Preview",
+  "app-detail.label.mode-test": "Test",
+  "app-detail.label.no": "No",
+  "app-detail.label.not-yet": "Not yet",
+  "app-detail.label.preview-banner":
+    "Preview of Version {number}, not the app in use",
+  "app-detail.label.schedule-interval":
+    "Every {minutes, plural, one {# minute} other {# minutes}}",
+  "app-detail.label.schedule-start": "When the app starts",
+  "app-detail.label.start-ok": "Started and responding",
+  "app-detail.label.start-unconfirmed": "Not confirmed yet",
+  "app-detail.label.status-applying": "Being applied",
+  "app-detail.label.status-blocked": "Blocked",
+  "app-detail.label.status-current": "In use",
+  "app-detail.label.status-didnt-finish": "Didn't finish",
+  "app-detail.label.status-done": "Done",
+  "app-detail.label.status-failed": "Couldn't be applied",
+  "app-detail.label.status-older": "Older version",
+  "app-detail.label.status-prepared": "Saved, not in use",
+  "app-detail.label.status-result-unknown": "Result unknown",
+  "app-detail.label.status-waiting": "Waiting",
+  "app-detail.label.status-working": "In progress",
+  "app-detail.label.tab-access": "Access",
+  "app-detail.label.tab-activity": "Activity",
+  "app-detail.label.tab-automations": "Automations",
+  "app-detail.label.tab-connections": "Connections",
+  "app-detail.label.tab-data": "Data",
+  "app-detail.label.tab-issues": "Issues",
+  "app-detail.label.tab-tasks": "Tasks",
+  "app-detail.label.tab-version": "Version",
+  "app-detail.label.task-failed": "Some checks failed",
+  "app-detail.label.task-none": "No checks were set",
+  "app-detail.label.task-passed": "All checks passed",
+  "app-detail.label.task-pending": "Not reported yet",
+  "app-detail.label.task-unavailable": "Can't read the result right now",
+  "app-detail.label.task-unclear": "Some checks were inconclusive",
+  "app-detail.label.test-fail": "Failed",
+  "app-detail.label.test-inconclusive": "Inconclusive",
+  "app-detail.label.test-pass": "Passed",
+  "app-detail.label.test-unavailable": "Can't read the result right now",
+  "app-detail.label.time-unknown": "time unknown",
+  "app-detail.label.version": "Version {number}",
+  "app-detail.label.versions-target": "this app's versions",
+  "app-detail.label.yes": "Yes",
+  "app-detail.note.access-empty":
+    "This app can't read files, contact websites or use secrets yet.",
+  "app-detail.note.access-removal-scope":
+    "Removing access doesn't undo what the app already read, sent or changed.",
+  "app-detail.note.access-removed": "Access was removed.",
+  "app-detail.note.access-removing":
+    "Removal was requested. It isn't finished yet.",
+  "app-detail.note.access-removing-stop":
+    "Removal was requested. Waiting for the app to stop before it counts as removed.",
+  "app-detail.note.activity-scope":
+    "Done means the action finished. It doesn't mean the result is right for you.",
+  "app-detail.note.automation-follows-app":
+    "Starts with the app. It needs no separate approval.",
+  "app-detail.note.automations-empty": "This app doesn't have automations.",
+  "app-detail.note.connection-scope":
+    "Allowing this connection doesn't approve actions that ask you first.",
+  "app-detail.note.connections-empty": "This app doesn't use other apps.",
+  "app-detail.note.data-converts":
+    "Your saved data will be converted. Going back to an older version later won't convert it back.",
+  "app-detail.note.decision-waiting":
+    "Waiting for your decision in the confirmation window.",
+  "app-detail.note.export-unavailable":
+    "Exporting this app's data isn't available yet.",
+  "app-detail.note.issues-unavailable": "Issues aren't available here yet.",
+  "app-detail.note.no-activity": "No activity yet.",
+  "app-detail.note.no-changes": "Nothing differs from the version in use.",
+  "app-detail.note.no-current": "No version is in use yet.",
+  "app-detail.note.no-other-versions": "There are no other versions.",
+  "app-detail.note.review-needed":
+    "Review this before you use it. A comparison can't show whether the app still does what you expect.",
+  "app-detail.note.secret-deleted": "The saved value was deleted.",
+  "app-detail.note.secret-missing": "No value is saved for this secret yet.",
+  "app-detail.note.secret-still-stored": "The saved value is still stored.",
+  "app-detail.note.secret-stored": "A value is saved for this secret.",
+  "app-detail.note.tasks-unavailable": "Tasks aren't available here yet.",
+  "app-detail.note.test-scope":
+    "This is what was checked when the version was saved. It doesn't prove the app works today.",
+  "app-detail.note.warning-other":
+    "Review these permissions together before you allow them.",
+  "app-detail.note.warning-outside-link":
+    "A permission points outside the folder you chose.",
+  "app-detail.note.warning-read-network":
+    "This app can read files and use the network, so it could send what it reads elsewhere.",
   "app-space.button.add-shortcut": "Add to app menu",
   "app-space.button.app-details": "App details",
   "app-space.button.documents": "Documents",
@@ -311,6 +498,142 @@ export const en = {
   "confirmation-window.secret.subject":
     "What you type goes straight to your system keychain. lophn and apps never show it.",
   "confirmation-window.title.confirm": "Confirm",
+  "confirmation-window.automation.effect":
+    "Once you allow it, lophn uses this command on schedule without asking again, always with exactly this input.",
+  "confirmation-window.automation.effect-external":
+    "This command changes things outside the app. Once you allow it, it does so on schedule without asking again, always with exactly this input.",
+  "confirmation-window.automation.not-ready":
+    "It can't start right now. Allowing it turns it on for when it can.",
+  "confirmation-window.automation.now": "This automation is off.",
+  "confirmation-window.automation.subject-minutes":
+    "{app} will use {command} on its own every {minutes, plural, one {# minute} other {# minutes}}.",
+  "confirmation-window.automation.subject-seconds":
+    "{app} will use {command} on its own every {seconds, number} seconds.",
+  "confirmation-window.automation.subject-start":
+    "{app} will use {command} on its own each time it starts.",
+  "confirmation-window.button.allow-access": "Allow access",
+  "confirmation-window.button.allow-once": "Allow once",
+  "confirmation-window.button.turn-on": "Turn on automation",
+  "confirmation-window.button.use-version": "Use this version",
+  "confirmation-window.confirm.input-note":
+    "The input itself isn't kept with this request. The fingerprint identifies exactly the input that will be used.",
+  "confirmation-window.confirm.now": "This hasn't been done yet.",
+  "confirmation-window.confirm.preview-none":
+    "No safe preview is available for this action. Nothing is tried before you decide.",
+  "confirmation-window.confirm.subject":
+    "{caller, select, direct {You ask {app} to use {command} once} app {{name} asks {app} to use {command} once} other {An agent asks {app} to use {command} once}}.",
+  "confirmation-window.grant-effect.agent-commands":
+    "Agents can use the commands listed here in this app, within what their role allows.",
+  "confirmation-window.grant-effect.app-call":
+    "The app can use the commands listed here in the target app. This doesn't allow anything the target app asks you to confirm.",
+  "confirmation-window.grant-effect.document-save":
+    "The app can save documents into the place named by this key.",
+  "confirmation-window.grant-effect.fs-read":
+    "The app can read what is at this path, including everything under it when subfolders are included.",
+  "confirmation-window.grant-effect.fs-write":
+    "The app can create, change and delete what is at this path, including everything under it when subfolders are included.",
+  "confirmation-window.grant-effect.net-fetch":
+    "The app can send requests to this host and port and read the answers.",
+  "confirmation-window.grant-effect.net-listen":
+    "The app can accept connections on this local host and port.",
+  "confirmation-window.grant-effect.secret-use":
+    "The app can use this secret without ever seeing its value.",
+  "confirmation-window.grant-effect.unknown":
+    "This access isn't described here. Check the exact request.",
+  "confirmation-window.grant.already":
+    "This access is already allowed. Allowing it again changes nothing.",
+  "confirmation-window.grant.limit-cpu":
+    "lophn doesn't strongly limit how much CPU an app uses.",
+  "confirmation-window.grant.limit-disk":
+    "lophn doesn't strongly limit how much disk an app uses.",
+  "confirmation-window.grant.limit-not-isolated":
+    "App protection is Deno permissions, not a virtual machine or container, so it is not full isolation.",
+  "confirmation-window.grant.limit-path-secrets":
+    "Anything inside an allowed folder, secrets included, can be read by the app.",
+  "confirmation-window.grant.limit-rss":
+    "lophn doesn't strongly limit how much memory an app uses. A Deno heap setting is not a limit on total memory.",
+  "confirmation-window.grant.limit-symlink":
+    "If something adds a link inside an allowed folder after you allow it, the app may reach beyond the folder.",
+  "confirmation-window.grant.limit-unknown":
+    "There is a limit on app protection that can't be described here.",
+  "confirmation-window.grant.subject": "{app} is asking for this access.",
+  "confirmation-window.grant.warning-file-read-network":
+    "This app asked to both read files and use the network. Together they could send your files out of this computer.",
+  "confirmation-window.grant.warning-outside-link":
+    "Some links inside this folder point outside it, so the app could read what they point to.",
+  "confirmation-window.grant.warning-unknown":
+    "This access has a warning that can't be described here.",
+  "confirmation-window.heading.access": "Access",
+  "confirmation-window.heading.automations": "Automations",
+  "confirmation-window.heading.commands": "Commands",
+  "confirmation-window.heading.data": "Data",
+  "confirmation-window.heading.preview": "Preview",
+  "confirmation-window.heading.problems": "Problem reports",
+  "confirmation-window.heading.screens": "Screens",
+  "confirmation-window.label.added": "Added",
+  "confirmation-window.label.agent": "An agent",
+  "confirmation-window.label.app": "App",
+  "confirmation-window.label.automation": "Automation",
+  "confirmation-window.label.called-by": "Called by",
+  "confirmation-window.label.change-confirm": "Asking you first",
+  "confirmation-window.label.change-effect": "What it does",
+  "confirmation-window.label.change-input": "Input",
+  "confirmation-window.label.change-revert": "Undo support",
+  "confirmation-window.label.changed": "Changed",
+  "confirmation-window.label.command": "Command",
+  "confirmation-window.label.commands": "Commands",
+  "confirmation-window.label.data-version": "Data version",
+  "confirmation-window.label.document-key": "Document key",
+  "confirmation-window.label.effect-external": "Changes things outside the app",
+  "confirmation-window.label.effect-read": "Only reads data",
+  "confirmation-window.label.effect-write": "Changes data in the app",
+  "confirmation-window.label.exact-request": "Exact request",
+  "confirmation-window.label.host": "Host",
+  "confirmation-window.label.input-fingerprint": "Input fingerprint",
+  "confirmation-window.label.input-shape": "Input it accepts",
+  "confirmation-window.label.limits": "What app protection can't do",
+  "confirmation-window.label.name-only": "Only the name or description changed",
+  "confirmation-window.label.new-inputs": "New required input",
+  "confirmation-window.label.no": "No",
+  "confirmation-window.label.path": "Path",
+  "confirmation-window.label.port": "Port",
+  "confirmation-window.label.reaches-outside": "Now reaches outside the app",
+  "confirmation-window.label.removed": "Removed",
+  "confirmation-window.label.schedule": "Schedule",
+  "confirmation-window.label.secret-name": "Secret name",
+  "confirmation-window.label.subfolders": "Includes subfolders",
+  "confirmation-window.label.target-app": "Target app",
+  "confirmation-window.label.you": "You",
+  "confirmation-window.release.effect":
+    "The app restarts on the new version. Its data stays unless Data below lists a change.",
+  "confirmation-window.release.effect-data":
+    "The app restarts on the new version, and its data changes as listed under Data, including anything that may be lost.",
+  "confirmation-window.release.first":
+    "This is the first version of the app, so there is nothing earlier to compare it with.",
+  "confirmation-window.release.none":
+    "Nothing changed from the version in use.",
+  "confirmation-window.release.preview-none":
+    "No preview is available for this version.",
+  "confirmation-window.release.preview-ready":
+    "A preview of this version is ready. Open it from the app to try it safely.",
+  "confirmation-window.release.review":
+    "Review needed. lophn can't tell whether this version works the same as the one in use, so check each change below.",
+  "confirmation-window.release.subject":
+    "{app} will switch to version {number, number}.",
+  "confirmation-window.title.automation": "Turn on {automation} in {app}?",
+  "confirmation-window.title.confirm-command": "Allow {command} in {app}?",
+  "confirmation-window.title.grant-agent-commands":
+    "Let agents use commands in {app}?",
+  "confirmation-window.title.grant-app-call": "Let {app} use another app?",
+  "confirmation-window.title.grant-document-save": "Let {app} save documents?",
+  "confirmation-window.title.grant-fs-read": "Let {app} read files?",
+  "confirmation-window.title.grant-fs-write": "Let {app} change files?",
+  "confirmation-window.title.grant-net-fetch":
+    "Let {app} connect to the network?",
+  "confirmation-window.title.grant-net-listen":
+    "Let {app} listen for connections?",
+  "confirmation-window.title.grant-secret-use": "Let {app} use a secret?",
+  "confirmation-window.title.release": "Use version {number, number} of {app}?",
   "contexts.button.archive": "Archive focus",
   "contexts.button.ask": "Ask in conversation",
   "contexts.button.change": "Change",

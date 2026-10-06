@@ -1,5 +1,38 @@
 export { inputBudget, measureWire } from "./budget.ts";
 export {
+  checkCompletion,
+  COMPACTION_REASSEMBLY_RETRY_MAX,
+  compactionNeeded,
+  type CompactionResult,
+  compactionTarget,
+  type CompletionCheck,
+  historyCut,
+  mergeStepInputCap,
+  type Precheck,
+  precheckCompaction,
+  recentHistoryBudget,
+  SHRINK_RESULT_CODE_POINTS,
+  SHRINK_RESULT_HEAD,
+  SHRINK_RESULT_TAIL,
+  shrinkResultText,
+  splitChunks,
+  SUMMARY_RULE_VERSION,
+  summaryOutputCap,
+  type SummaryParts,
+  type SummaryRef,
+} from "./compaction.ts";
+export {
+  assertsNoPreferenceGeneralization,
+  type ClampResult,
+  clampSummaryText,
+  CONTINUATION_BODY_MAX_TOKENS,
+  CONTINUATION_RESHRINK_MAX,
+  latestContinuationSummary,
+  SUMMARY_PART_KEYS,
+  summaryBodyHash,
+  summaryBodyTokens,
+} from "./summary.ts";
+export {
   anthropicSystem,
   anthropicTools,
   instructionsText,

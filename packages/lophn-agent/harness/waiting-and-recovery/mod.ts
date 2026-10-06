@@ -1,5 +1,28 @@
 export { waitSchemaSteps } from "./schema.ts";
 export { createWaitCommands, type WaitDeps } from "./commands.ts";
+export { type RunBodyEnvironment, runBodyRead } from "./reads.ts";
+export {
+  advanceElapsed,
+  type Boundary,
+  boundaryOf,
+  confirmedFactsOf,
+  type ModelBody,
+  planRecovery,
+  type RebuildModel,
+  rebuildResume,
+  type RebuildTool,
+  recoverCompactionSummaries,
+  type RecoveryPlan,
+  type SummaryCallRecord,
+  type ToolView,
+} from "./recovery.ts";
+export {
+  recoverRunFromLedger,
+  type RecoveryDeps,
+  type RecoveryFinishReason,
+  type RecoveryOutcome,
+  type ToolLookup,
+} from "./recovery-work.ts";
 export {
   type ApprovalStatus,
   type ApprovalVerdict,

@@ -15,6 +15,7 @@ import type {
   LophnAppWindowsApi,
 } from "../../ipc/app-window.ts";
 import { AppSpace } from "./app-space.tsx";
+import { fakeDetail, REL_4 } from "./app-detail/testdata/fake-source.ts";
 import { opsPanelPlacement } from "./ops-panel-frame.tsx";
 import {
   appRow,
@@ -444,4 +445,100 @@ Deno.test("shell/app-frame#R34: 화면이 아직 열리지 않은 앱 공간의 
   await frames();
   const button = find(view.container, "[data-report-problem]");
   assert(button.hasAttribute("disabled"));
+});
+
+Deno.test("shell/wording#R4: 운영 패널에는 그 앱의 app-detail이 있고 [Instructions]는 app 층 진입으로 연다", async () => {
+  await withLayout(1280, async () => {
+    const views = fakeViews();
+    const apps = fakeApps({ rows: [budget], screen: "home" });
+    const detail = fakeDetail();
+    let instructions = 0;
+    using view = render(
+      <AppSpace
+        app={BUDGET}
+        source={apps.source}
+        views={views.api}
+        detail={detail.source}
+        onInstructions={() => instructions++}
+        windowWidth={1280}
+        onLauncher={() => {}}
+        onDocuments={() => {}}
+        onThingsToConfirm={() => {}}
+      />,
+    );
+    await frames();
+    assertEquals(
+      view.container.querySelectorAll("[data-app-detail]").length,
+      0,
+    );
+    click(find(view.container, "[data-app-bar='app-details']"));
+    await frames();
+    const panel = find(view.container, "[data-ops-panel]");
+    assertEquals(
+      find(panel, "[data-app-detail-name]").textContent,
+      "Grocery budget",
+    );
+    assertEquals(
+      find(panel, "[data-section='current']").textContent?.includes(
+        "Version 3",
+      ),
+      true,
+    );
+    click(find(panel, "[data-open-instructions]"));
+    assertEquals(instructions, 1);
+  });
+});
+
+Deno.test("shell/wording#R4: Version의 preview는 앱 공간 본문을 운영 앱이 아닌 preview로 바꾸고 닫으면 운영 앱으로 돌아오며 preview 프로세스를 멈춘다", async () => {
+  await withLayout(1280, async () => {
+    const views = fakeViews();
+    const apps = fakeApps({ rows: [budget], screen: "home" });
+    const detail = fakeDetail();
+    using view = render(
+      <AppSpace
+        app={BUDGET}
+        source={apps.source}
+        views={views.api}
+        detail={detail.source}
+        windowWidth={1280}
+        onLauncher={() => {}}
+        onDocuments={() => {}}
+        onThingsToConfirm={() => {}}
+      />,
+    );
+    await frames();
+    click(find(view.container, "[data-app-bar='app-details']"));
+    await frames();
+    click(
+      find(view.container, `[data-version='${REL_4}'] [data-preview-open]`),
+    );
+    await frames();
+    // 운영과 분리된 preview로 열린다. 지금 쓰는 앱의 view는 닫힌다.
+    const opens = views.calls.filter((call) => call[0] === "open");
+    assertEquals(opens.at(-1), ["open", {
+      app: BUDGET,
+      mode: "preview",
+      release: REL_4,
+      screen: "home",
+      size: "full",
+    }]);
+    const banner = find(view.container, "[data-preview-banner]");
+    assertEquals(
+      banner.textContent?.includes("Preview of Version 4, not the app in use"),
+      true,
+    );
+    // 사람이 그 자리에서 닫으면 운영 앱이 다시 열리고 preview 프로세스를 멈춘다.
+    click(find(banner, "[data-preview-close]"));
+    await frames();
+    assertEquals(
+      view.container.querySelectorAll("[data-preview-banner]").length,
+      0,
+    );
+    const reopened = views.calls.filter((call) => call[0] === "open").at(-1);
+    assertEquals((reopened?.[1] as { mode: string }).mode, "live");
+    assertEquals(
+      detail.calls.filter((call) => call[0] === "stopPreview"),
+      [["stopPreview", BUDGET, "nonce-1"]],
+    );
+  });
 });

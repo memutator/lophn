@@ -4,7 +4,10 @@ import {
   type acceptRun,
   type assignMessage,
   correctWaitingRun,
+  recoverRun,
   resolveRunWait,
+  RUN_OUTCOME_REASONS,
+  runRecovered,
   runResumed,
   runWaited,
   waitRun,
@@ -24,6 +27,12 @@ import type { QuestionRow } from "../../questions/mod.ts";
 import { appliedOf } from "../../questions/mod.ts";
 import { finishRunRow, loadRun, type RunRow } from "../run-loop/mod.ts";
 import { loadToolCall } from "../tools/mod.ts";
+import {
+  boundaryOf,
+  confirmedFactsOf,
+  type ModelView,
+  type ToolView,
+} from "./recovery.ts";
 import {
   type ApprovalFacts,
   approvalVerdict,
@@ -270,10 +279,16 @@ function resumeWith(
     resolution: resolution as never,
   });
   recordResolution(tx, { ...resolution, resolved_seq: seq });
+  // 기다린 시간은 active·stall에 세지 않는다. 재개 시각을 마지막 확인 시각으로 삼아 이후 재시작이
+  // 기다린 시간을 중단 시간으로 더하지 않게 한다(R7, R9).
+  const resumedAt = tx.now();
   tx.sql.run(
-    `update runs set state = 'running', waiting_on = null, state_seq = ?
+    `update runs set state = 'running', waiting_on = null, state_seq = ?,
+       elapsed_checkpoint_at = case
+         when elapsed_checkpoint_at is null or elapsed_checkpoint_at < ?
+         then ? else elapsed_checkpoint_at end
      where id = ?`,
-    [Number(seq), run.id],
+    [Number(seq), resumedAt, resumedAt, run.id],
   );
   return ok(seq);
 }
@@ -313,10 +328,49 @@ function stopNoAnswer(
   return done.ok ? ok({ seq: done.value.seq }) : done;
 }
 
+function loadModelViews(tx: Tx, run: string): ModelView[] {
+  return tx.sql.all(
+    `select id, attempt_order, state, json_extract(outcome, '$.kind') as kind
+     from model_calls where run = ? order by attempt_order`,
+    [run],
+  ).map((row) => ({
+    id: String(row["id"]),
+    attempt_order: Number(row["attempt_order"]),
+    state: String(row["state"]) as ModelView["state"],
+    outcome_kind: row["kind"] === null ? null : String(row["kind"]),
+  }));
+}
+
+function loadToolViews(tx: Tx, run: string): ToolView[] {
+  return tx.sql.all(
+    `select id, model_call, response_key, response_order, attempt, effect,
+       extension, state, json_extract(outcome, '$.kind') as kind
+     from tool_calls where run = ? order by model_call, response_order, attempt`,
+    [run],
+  ).map((row) => ({
+    id: String(row["id"]),
+    model_call: String(row["model_call"]),
+    response_key: String(row["response_key"]),
+    response_order: Number(row["response_order"]),
+    attempt: Number(row["attempt"]),
+    effect: String(row["effect"]) as ToolView["effect"],
+    extension: row["extension"] === null
+      ? null
+      : JSON.parse(String(row["extension"])),
+    state: String(row["state"]) as ToolView["state"],
+    outcome_kind: row["kind"] === null ? null : String(row["kind"]),
+  }));
+}
+
+const FAILED_REASONS: ReadonlySet<string> = new Set(
+  RUN_OUTCOME_REASONS.failed,
+);
+
 export function createWaitCommands(deps: WaitDeps): {
   wait: CommandDefinition<typeof waitRun>;
   resolve: CommandDefinition<typeof resolveRunWait>;
   correct: CommandDefinition<typeof correctWaitingRun>;
+  recover: CommandDefinition<typeof recoverRun>;
 } {
   const questions = createQuestionCommands();
   return {
@@ -703,6 +757,125 @@ export function createWaitCommands(deps: WaitDeps): {
           state_seq: done.value.seq,
           request: input.request,
         });
+      },
+    },
+    recover: {
+      route: recoverRun,
+      // 복구가 ledger에서 확정한 경계(RecoveryBasis)를 한 번 기록한다. 경계는 ledger의 model·tool call
+      // 행에서 다시 계산해 입력과 같을 때만 받는다. 한도 시간은 줄지 않고 run 전체를 처음부터
+      // 반복하거나 멈춘 assignment를 풀지 않는다(R9).
+      handle(tx, ctx, input: Input<typeof recoverRun>, compare) {
+        const machine = requireMachine(ctx);
+        if (!machine.ok) return machine;
+        const run = loadRun(tx, input.run);
+        if (run === undefined) return notFound();
+        if (run.state_seq !== compare.state_seq) {
+          return reject("conflict", "run state changed");
+        }
+        const models = loadModelViews(tx, run.id);
+        const tools = loadToolViews(tx, run.id);
+        const found = boundaryOf(run, models, tools);
+        if (found.boundary !== input.boundary || found.call !== input.call) {
+          return reject(
+            "conflict",
+            "the recovery basis does not match the stored boundary",
+          );
+        }
+        const head = tx.sql.get(
+          "select coalesce(max(seq), 0) as seq from events",
+          [],
+        );
+        if (BigInt(input.basis_seq) > BigInt(String(head?.["seq"] ?? 0))) {
+          return reject(
+            "conflict",
+            "the recovery basis is newer than the ledger",
+          );
+        }
+        const known = new Set([
+          ...models.filter((call) => call.state === "finished").map((call) =>
+            call.id
+          ),
+          ...tools.filter((call) => call.state === "finished").map((call) =>
+            call.id
+          ),
+        ]);
+        if (input.confirmed_results.some((id) => !known.has(id))) {
+          return reject("conflict", "a confirmed result is not stored");
+        }
+        const output = (seq: string, outcome: RunOutcome | null) => ({
+          run: run.id,
+          state_seq: seq,
+          basis: input,
+          outcome,
+        } as Output<typeof recoverRun>);
+        if (run.state === "finished") {
+          // 끝난 run은 감사 기록만 남긴다. 결과를 바꾸거나 다시 열지 않는다.
+          tx.emit(runRecovered, run.id, input);
+          return ok(output(run.state_seq, outcomeOf(run) as never));
+        }
+        if (run.state === "accepted" || run.state === "waiting_user") {
+          if (input.resolution !== "resume") {
+            return reject(
+              "conflict",
+              "only a running run is finished by recovery",
+            );
+          }
+          tx.emit(runRecovered, run.id, input);
+          return ok(output(run.state_seq, null));
+        }
+        const assignment = loadAssignmentState(tx, run.assignment);
+        if (assignment === undefined) return notFound();
+        if (assignment.state !== "enabled") {
+          return reject("forbidden", "the assignment is not enabled");
+        }
+        const at = input.elapsed.checkpoint_at;
+        if (
+          input.elapsed.active_ms < run.elapsed_active_ms ||
+          input.elapsed.stall_ms < run.elapsed_stall_ms ||
+          at === null ||
+          (run.elapsed_checkpoint_at !== null && at < run.elapsed_checkpoint_at)
+        ) {
+          return reject(
+            "invalid_input",
+            "recovery cannot reduce the elapsed limits",
+          );
+        }
+        tx.sql.run(
+          `update runs set elapsed_active_ms = ?, elapsed_stall_ms = ?,
+             elapsed_checkpoint_at = ? where id = ?`,
+          [input.elapsed.active_ms, input.elapsed.stall_ms, at, run.id],
+        );
+        const seq = tx.emit(runRecovered, run.id, input);
+        if (input.resolution === "resume") {
+          tx.sql.run("update runs set state_seq = ? where id = ?", [
+            Number(seq),
+            run.id,
+          ]);
+          return ok(output(seq, null));
+        }
+        // 끝냄은 확정한 사실로만 정리한다. model을 다시 부르지 않는다.
+        if (!FAILED_REASONS.has(input.reason)) {
+          return reject("invalid_input", "recovery ends with a failed reason");
+        }
+        const outcome = { kind: "failed", reason: input.reason };
+        const facts = {
+          run: run.id,
+          assignment: run.assignment,
+          started: true,
+          outcome,
+          recovered: { boundary: input.boundary, call: input.call },
+          confirmed: confirmedFactsOf(tools),
+        };
+        const done = finishRunRow(
+          tx,
+          run,
+          outcome,
+          sha256(facts),
+          canonicalize(facts),
+          null,
+        );
+        if (!done.ok) return done;
+        return ok(output(done.value.seq, outcome as RunOutcome));
       },
     },
   };

@@ -2,6 +2,202 @@
 import type { MessageKey } from "./en.ts";
 
 export type PlaceholderKinds = {
+  "app-detail.button.change-access": Record<never, never>;
+  "app-detail.button.close-preview": Record<never, never>;
+  "app-detail.button.hide-activity": Record<never, never>;
+  "app-detail.button.hide-changes": Record<never, never>;
+  "app-detail.button.open-preview": Record<never, never>;
+  "app-detail.button.remove-access": Record<never, never>;
+  "app-detail.button.review-connection": Record<never, never>;
+  "app-detail.button.see-changes": Record<never, never>;
+  "app-detail.button.show-activity": Record<never, never>;
+  "app-detail.button.turn-off": Record<never, never>;
+  "app-detail.button.turn-on": Record<never, never>;
+  "app-detail.button.use-version": Record<never, never>;
+  "app-detail.error.apply-failed": {
+    number: "string";
+  };
+  "app-detail.error.decision-failed": Record<never, never>;
+  "app-detail.error.preview-failed": Record<never, never>;
+  "app-detail.error.turn-off-failed": {
+    name: "string";
+  };
+  "app-detail.heading.access-agents": Record<never, never>;
+  "app-detail.heading.access-asks": Record<never, never>;
+  "app-detail.heading.access-documents": Record<never, never>;
+  "app-detail.heading.access-files-read": Record<never, never>;
+  "app-detail.heading.access-files-write": Record<never, never>;
+  "app-detail.heading.access-listen": Record<never, never>;
+  "app-detail.heading.access-network": Record<never, never>;
+  "app-detail.heading.access-removed": Record<never, never>;
+  "app-detail.heading.access-secrets": Record<never, never>;
+  "app-detail.heading.current-version": Record<never, never>;
+  "app-detail.heading.detail-access": Record<never, never>;
+  "app-detail.heading.detail-actions": Record<never, never>;
+  "app-detail.heading.detail-automations": Record<never, never>;
+  "app-detail.heading.detail-data": Record<never, never>;
+  "app-detail.heading.detail-screens": Record<never, never>;
+  "app-detail.heading.other-versions": Record<never, never>;
+  "app-detail.heading.what-changes": Record<never, never>;
+  "app-detail.label.access-target": Record<never, never>;
+  "app-detail.label.activity-target": Record<never, never>;
+  "app-detail.label.an-action": Record<never, never>;
+  "app-detail.label.another-app": Record<never, never>;
+  "app-detail.label.applied-before": Record<never, never>;
+  "app-detail.label.applied-failed": Record<never, never>;
+  "app-detail.label.applied-no": Record<never, never>;
+  "app-detail.label.applied-working": Record<never, never>;
+  "app-detail.label.applied-yes": Record<never, never>;
+  "app-detail.label.automation-off": Record<never, never>;
+  "app-detail.label.automation-on": Record<never, never>;
+  "app-detail.label.automations-target": Record<never, never>;
+  "app-detail.label.by-agent": Record<never, never>;
+  "app-detail.label.by-app": Record<never, never>;
+  "app-detail.label.by-applying": Record<never, never>;
+  "app-detail.label.by-automation": Record<never, never>;
+  "app-detail.label.by-direct": Record<never, never>;
+  "app-detail.label.by-restart": Record<never, never>;
+  "app-detail.label.change-access-added": {
+    count: "plural";
+  };
+  "app-detail.label.change-access-removed": {
+    count: "plural";
+  };
+  "app-detail.label.change-actions-added": {
+    count: "plural";
+  };
+  "app-detail.label.change-actions-changed": {
+    count: "plural";
+  };
+  "app-detail.label.change-actions-external": {
+    count: "plural";
+  };
+  "app-detail.label.change-actions-removed": {
+    count: "plural";
+  };
+  "app-detail.label.change-automations": {
+    count: "plural";
+  };
+  "app-detail.label.change-data": {
+    from: "string";
+    to: "string";
+  };
+  "app-detail.label.change-screens": {
+    count: "plural";
+  };
+  "app-detail.label.changes-target": Record<never, never>;
+  "app-detail.label.checked-at": {
+    age: "string";
+  };
+  "app-detail.label.connection-actions": {
+    count: "plural";
+  };
+  "app-detail.label.connection-allowed": Record<never, never>;
+  "app-detail.label.connection-asks": Record<never, never>;
+  "app-detail.label.connection-partly": Record<never, never>;
+  "app-detail.label.connections-target": Record<never, never>;
+  "app-detail.label.data-format": {
+    number: "string";
+  };
+  "app-detail.label.data-target": Record<never, never>;
+  "app-detail.label.details": Record<never, never>;
+  "app-detail.label.did-action": {
+    action: "string";
+  };
+  "app-detail.label.did-action-unnamed": Record<never, never>;
+  "app-detail.label.did-data-change": Record<never, never>;
+  "app-detail.label.did-start": Record<never, never>;
+  "app-detail.label.fact-action": Record<never, never>;
+  "app-detail.label.fact-applied": Record<never, never>;
+  "app-detail.label.fact-can-start": Record<never, never>;
+  "app-detail.label.fact-input": Record<never, never>;
+  "app-detail.label.fact-saved": Record<never, never>;
+  "app-detail.label.fact-schedule": Record<never, never>;
+  "app-detail.label.fact-seen": Record<never, never>;
+  "app-detail.label.fact-start": Record<never, never>;
+  "app-detail.label.fact-task": Record<never, never>;
+  "app-detail.label.fact-test": Record<never, never>;
+  "app-detail.label.input-saved": Record<never, never>;
+  "app-detail.label.last-activity": {
+    status: "string";
+    age: "string";
+  };
+  "app-detail.label.mode-preview": Record<never, never>;
+  "app-detail.label.mode-test": Record<never, never>;
+  "app-detail.label.no": Record<never, never>;
+  "app-detail.label.not-yet": Record<never, never>;
+  "app-detail.label.preview-banner": {
+    number: "string";
+  };
+  "app-detail.label.schedule-interval": {
+    minutes: "plural";
+  };
+  "app-detail.label.schedule-start": Record<never, never>;
+  "app-detail.label.start-ok": Record<never, never>;
+  "app-detail.label.start-unconfirmed": Record<never, never>;
+  "app-detail.label.status-applying": Record<never, never>;
+  "app-detail.label.status-blocked": Record<never, never>;
+  "app-detail.label.status-current": Record<never, never>;
+  "app-detail.label.status-didnt-finish": Record<never, never>;
+  "app-detail.label.status-done": Record<never, never>;
+  "app-detail.label.status-failed": Record<never, never>;
+  "app-detail.label.status-older": Record<never, never>;
+  "app-detail.label.status-prepared": Record<never, never>;
+  "app-detail.label.status-result-unknown": Record<never, never>;
+  "app-detail.label.status-waiting": Record<never, never>;
+  "app-detail.label.status-working": Record<never, never>;
+  "app-detail.label.tab-access": Record<never, never>;
+  "app-detail.label.tab-activity": Record<never, never>;
+  "app-detail.label.tab-automations": Record<never, never>;
+  "app-detail.label.tab-connections": Record<never, never>;
+  "app-detail.label.tab-data": Record<never, never>;
+  "app-detail.label.tab-issues": Record<never, never>;
+  "app-detail.label.tab-tasks": Record<never, never>;
+  "app-detail.label.tab-version": Record<never, never>;
+  "app-detail.label.task-failed": Record<never, never>;
+  "app-detail.label.task-none": Record<never, never>;
+  "app-detail.label.task-passed": Record<never, never>;
+  "app-detail.label.task-pending": Record<never, never>;
+  "app-detail.label.task-unavailable": Record<never, never>;
+  "app-detail.label.task-unclear": Record<never, never>;
+  "app-detail.label.test-fail": Record<never, never>;
+  "app-detail.label.test-inconclusive": Record<never, never>;
+  "app-detail.label.test-pass": Record<never, never>;
+  "app-detail.label.test-unavailable": Record<never, never>;
+  "app-detail.label.time-unknown": Record<never, never>;
+  "app-detail.label.version": {
+    number: "string";
+  };
+  "app-detail.label.versions-target": Record<never, never>;
+  "app-detail.label.yes": Record<never, never>;
+  "app-detail.note.access-empty": Record<never, never>;
+  "app-detail.note.access-removal-scope": Record<never, never>;
+  "app-detail.note.access-removed": Record<never, never>;
+  "app-detail.note.access-removing": Record<never, never>;
+  "app-detail.note.access-removing-stop": Record<never, never>;
+  "app-detail.note.activity-scope": Record<never, never>;
+  "app-detail.note.automation-follows-app": Record<never, never>;
+  "app-detail.note.automations-empty": Record<never, never>;
+  "app-detail.note.connection-scope": Record<never, never>;
+  "app-detail.note.connections-empty": Record<never, never>;
+  "app-detail.note.data-converts": Record<never, never>;
+  "app-detail.note.decision-waiting": Record<never, never>;
+  "app-detail.note.export-unavailable": Record<never, never>;
+  "app-detail.note.issues-unavailable": Record<never, never>;
+  "app-detail.note.no-activity": Record<never, never>;
+  "app-detail.note.no-changes": Record<never, never>;
+  "app-detail.note.no-current": Record<never, never>;
+  "app-detail.note.no-other-versions": Record<never, never>;
+  "app-detail.note.review-needed": Record<never, never>;
+  "app-detail.note.secret-deleted": Record<never, never>;
+  "app-detail.note.secret-missing": Record<never, never>;
+  "app-detail.note.secret-still-stored": Record<never, never>;
+  "app-detail.note.secret-stored": Record<never, never>;
+  "app-detail.note.tasks-unavailable": Record<never, never>;
+  "app-detail.note.test-scope": Record<never, never>;
+  "app-detail.note.warning-other": Record<never, never>;
+  "app-detail.note.warning-outside-link": Record<never, never>;
+  "app-detail.note.warning-read-network": Record<never, never>;
   "app-space.button.add-shortcut": Record<never, never>;
   "app-space.button.app-details": Record<never, never>;
   "app-space.button.documents": Record<never, never>;
@@ -313,6 +509,148 @@ export type PlaceholderKinds = {
   "confirmation-window.secret.revert": Record<never, never>;
   "confirmation-window.secret.subject": Record<never, never>;
   "confirmation-window.title.confirm": Record<never, never>;
+  "confirmation-window.automation.effect": Record<never, never>;
+  "confirmation-window.automation.effect-external": Record<never, never>;
+  "confirmation-window.automation.not-ready": Record<never, never>;
+  "confirmation-window.automation.now": Record<never, never>;
+  "confirmation-window.automation.subject-minutes": {
+    app: "string";
+    command: "string";
+    minutes: "plural";
+  };
+  "confirmation-window.automation.subject-seconds": {
+    app: "string";
+    command: "string";
+    seconds: "number";
+  };
+  "confirmation-window.automation.subject-start": {
+    app: "string";
+    command: "string";
+  };
+  "confirmation-window.button.allow-access": Record<never, never>;
+  "confirmation-window.button.allow-once": Record<never, never>;
+  "confirmation-window.button.turn-on": Record<never, never>;
+  "confirmation-window.button.use-version": Record<never, never>;
+  "confirmation-window.confirm.input-note": Record<never, never>;
+  "confirmation-window.confirm.now": Record<never, never>;
+  "confirmation-window.confirm.preview-none": Record<never, never>;
+  "confirmation-window.confirm.subject": {
+    caller: "string";
+    app: "string";
+    command: "string";
+    name: "string";
+  };
+  "confirmation-window.grant-effect.agent-commands": Record<never, never>;
+  "confirmation-window.grant-effect.app-call": Record<never, never>;
+  "confirmation-window.grant-effect.document-save": Record<never, never>;
+  "confirmation-window.grant-effect.fs-read": Record<never, never>;
+  "confirmation-window.grant-effect.fs-write": Record<never, never>;
+  "confirmation-window.grant-effect.net-fetch": Record<never, never>;
+  "confirmation-window.grant-effect.net-listen": Record<never, never>;
+  "confirmation-window.grant-effect.secret-use": Record<never, never>;
+  "confirmation-window.grant-effect.unknown": Record<never, never>;
+  "confirmation-window.grant.already": Record<never, never>;
+  "confirmation-window.grant.limit-cpu": Record<never, never>;
+  "confirmation-window.grant.limit-disk": Record<never, never>;
+  "confirmation-window.grant.limit-not-isolated": Record<never, never>;
+  "confirmation-window.grant.limit-path-secrets": Record<never, never>;
+  "confirmation-window.grant.limit-rss": Record<never, never>;
+  "confirmation-window.grant.limit-symlink": Record<never, never>;
+  "confirmation-window.grant.limit-unknown": Record<never, never>;
+  "confirmation-window.grant.subject": {
+    app: "string";
+  };
+  "confirmation-window.grant.warning-file-read-network": Record<never, never>;
+  "confirmation-window.grant.warning-outside-link": Record<never, never>;
+  "confirmation-window.grant.warning-unknown": Record<never, never>;
+  "confirmation-window.heading.access": Record<never, never>;
+  "confirmation-window.heading.automations": Record<never, never>;
+  "confirmation-window.heading.commands": Record<never, never>;
+  "confirmation-window.heading.data": Record<never, never>;
+  "confirmation-window.heading.preview": Record<never, never>;
+  "confirmation-window.heading.problems": Record<never, never>;
+  "confirmation-window.heading.screens": Record<never, never>;
+  "confirmation-window.label.added": Record<never, never>;
+  "confirmation-window.label.agent": Record<never, never>;
+  "confirmation-window.label.app": Record<never, never>;
+  "confirmation-window.label.automation": Record<never, never>;
+  "confirmation-window.label.called-by": Record<never, never>;
+  "confirmation-window.label.change-confirm": Record<never, never>;
+  "confirmation-window.label.change-effect": Record<never, never>;
+  "confirmation-window.label.change-input": Record<never, never>;
+  "confirmation-window.label.change-revert": Record<never, never>;
+  "confirmation-window.label.changed": Record<never, never>;
+  "confirmation-window.label.command": Record<never, never>;
+  "confirmation-window.label.commands": Record<never, never>;
+  "confirmation-window.label.data-version": Record<never, never>;
+  "confirmation-window.label.document-key": Record<never, never>;
+  "confirmation-window.label.effect-external": Record<never, never>;
+  "confirmation-window.label.effect-read": Record<never, never>;
+  "confirmation-window.label.effect-write": Record<never, never>;
+  "confirmation-window.label.exact-request": Record<never, never>;
+  "confirmation-window.label.host": Record<never, never>;
+  "confirmation-window.label.input-fingerprint": Record<never, never>;
+  "confirmation-window.label.input-shape": Record<never, never>;
+  "confirmation-window.label.limits": Record<never, never>;
+  "confirmation-window.label.name-only": Record<never, never>;
+  "confirmation-window.label.new-inputs": Record<never, never>;
+  "confirmation-window.label.no": Record<never, never>;
+  "confirmation-window.label.path": Record<never, never>;
+  "confirmation-window.label.port": Record<never, never>;
+  "confirmation-window.label.reaches-outside": Record<never, never>;
+  "confirmation-window.label.removed": Record<never, never>;
+  "confirmation-window.label.schedule": Record<never, never>;
+  "confirmation-window.label.secret-name": Record<never, never>;
+  "confirmation-window.label.subfolders": Record<never, never>;
+  "confirmation-window.label.target-app": Record<never, never>;
+  "confirmation-window.label.you": Record<never, never>;
+  "confirmation-window.release.effect": Record<never, never>;
+  "confirmation-window.release.effect-data": Record<never, never>;
+  "confirmation-window.release.first": Record<never, never>;
+  "confirmation-window.release.none": Record<never, never>;
+  "confirmation-window.release.preview-none": Record<never, never>;
+  "confirmation-window.release.preview-ready": Record<never, never>;
+  "confirmation-window.release.review": Record<never, never>;
+  "confirmation-window.release.subject": {
+    app: "string";
+    number: "number";
+  };
+  "confirmation-window.title.automation": {
+    automation: "string";
+    app: "string";
+  };
+  "confirmation-window.title.confirm-command": {
+    command: "string";
+    app: "string";
+  };
+  "confirmation-window.title.grant-agent-commands": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-app-call": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-document-save": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-fs-read": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-fs-write": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-net-fetch": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-net-listen": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-secret-use": {
+    app: "string";
+  };
+  "confirmation-window.title.release": {
+    number: "number";
+    app: "string";
+  };
   "contexts.button.archive": Record<never, never>;
   "contexts.button.ask": Record<never, never>;
   "contexts.button.change": Record<never, never>;

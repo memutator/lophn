@@ -828,6 +828,7 @@ concerns: [shell]
 - 가져올 것: legacy `ui-control`, `ui-overlay`, `ui-layout`, `ui-state`(presented.ts, reportError.ts 빼고).
 - shell#T38에서 넘어온 것: 앱 preload는 main world에서 `lophn:render-error` DOM event(`detail: {name, message}`)를 `render_error`로 view 오류 통로에 보낸다(`apps/shell/preload/app-api.ts`의 `RENDER_ERROR_EVENT`·`watchMainWorldErrors`). ui-state의 AppErrorBoundary는 루트 render 오류를 잡으면 이 event를 `window`에 dispatch한다. `lophnApp`에 새 이름을 더하지 않는다(Q22)
 - 정한 것: 네 package는 lophn 화면과 같은 packages/design component를 다시 내보내고(R21) 새로 짠 것은 ui-layout의 `AppShell`·`Sidebar`·`Grid`·`containerSpace`, ui-overlay의 `ToastProvider`·`useToast`, ui-state의 `ReadState`·`AppErrorBoundary`다. 패널·카드 최소 폭은 token `layout.container`(320·240px)로 두고, 칸 640px 미만에서 design의 `ListDetailFrame`은 `active` 한 쪽과 [Back](`onBack`), `DashboardFrame`은 한 줄 한 칸, 탭 줄은 가로 scroll, toast 쌓임은 view 폭 안으로 바꿨다. `Checkbox`·`Switch`에 `size`(28·32·36px)를 더했다. AppErrorBoundary는 `document.defaultView`에 event를 보내고 화면에는 `common.error.show-failed`와 [Try again]만 둔다. shell 첫 소비자는 overlay surface(ui-overlay·ui-control), 연결 상태(ui-control·ui-state), 시리즈 등록 폼(ui-layout·ui-control)이다
+- apps#T24에서 넘어온 것: `AppShell`에 `nav`를 주지 않으면 `.body` grid(`var(--layout-sidebar-min) minmax(0,1fr)`)의 첫 칸(sidebar 폭)에 `main`이 들어가 전체 크기에서 본문이 좁은 한 줄로 나온다(캘린더 fixture 화면 screenshot, 패널 320px은 정상). nav가 없으면 `main`이 두 칸을 쓰게 한다
 
 ### T41 SDK UI: ui-reading, ui-filter, ui-stat, ui-action
 
@@ -874,6 +875,7 @@ concerns: [shell]
 
 ### T43 app-detail: Version, Access, Automations, Connections, Activity, Data
 
+- 상태: 완료 (#392) — 이어보냄: automation 끄기(grant.revoke의 확인 handle·grants_seq) → apps#T4, 준비만 된 Version의 화면 선언 read → apps#T19, 앱 export → apps#T28, 결정 intent 5종 main 처리 → T45, Issues·Tasks 탭 내용 → T53·T50
 - 등급: frontend
 - concern: shell/desktop, shell/wording
 - 요구: shell/wording#R4, R10, R12
@@ -916,6 +918,7 @@ concerns: [shell]
 
 ### T45 confirmation window: 앱 결정 4종
 
+- 상태: 완료 (#391) — 이어보냄: (1) 실제 `confirm` gate(`ConfirmGate`)와 user-direct accept_confirm proof(요청 생성·`apply`·proof 읽기 route가 사람 자격으로 열려야 한다) → contracts·apps 요청, (2) renderer blueprint read 연결(T44 `AppViewsDeps.screens`, T42 `entryScreen`)은 renderer allowlist에 `apps/blueprint`를 열어야 해 → shell#T44·T42. 정한 것: 결정 종류는 approval request의 고정 concern·command(`apps/releases` `release.start_activation`, `apps/permissions` `grant.create`(scope kind `automation.run`이면 automation), `apps/invocations` `invocation.accept_confirm`)로 고르고 표시 값만 apps read로 채운다. 접수 입력에는 입력 본문 없이 `input_hash`만 있어 confirm command와 automation은 입력 지문과 blueprint의 입력 shape로 보인다. command의 revert 지원은 blueprint read에 없어 요청의 `effect.reversible`·되돌림 글을 쓴다. 데이터 손실은 `data_changes[].description`이 싣는다
 - 등급: frontend
 - concern: shell/confirmation-window
 - 요구: shell/confirmation-window#R8, R10
@@ -932,6 +935,7 @@ concerns: [shell]
   - confirm command: label·설명·effect·revert와 정규 입력. diff로 못 보이는 동작은 현재·바뀐 뒤 설명을 세로로, 안전 preview는 apps/preview 결과로만, 없으면 없다고.
   - automation 켜기: command·고정 입력·주기를 한 번 승인하면 apps가 grant kind `automation.run`(automation key·command·input_hash·주기)을 만든다(grant.create). 끄기는 사람의 grant.revoke이고 확인 창이 없다(T43).
   - 종류별 테스트.
+- shell#T43에서 넘어온 것: app-detail은 사람 결정을 보호 창 열기(`lophnShell.openConfirmation`)의 `owner_decision` intent로만 보낸다(`renderer/app-frame/app-detail/core-source.ts`의 `intentOf`). 대상은 고정 ID만이다. Version 고르기 `{concern: "apps/releases", decision: "start_activation", targets: [release]}`, Access 바꾸기 `{apps/permissions, grant_access, [app]}`, Access·연결 회수 `{apps/permissions, revoke_grant, [grant]}`, 앱 쌍 연결 `{apps/connections, connect_apps, [app]}`, automation 켜기 `{apps/automations, enable_automation, [app]}`. main이 그 앱의 apps read를 독립 재조회해 approval request를 만들고 보인다(지금 main은 이 결정을 not_found로 답한다). automation 켜기는 어느 automation인지 intent에 실을 자리(key)가 없다 — intent에 additive 필드가 필요하다. 끄기는 확인 창이 없다(apps#T4가 서야 한다)
 - shell#T38에서 넘어온 것: (1) main.ts의 `appCall`(`apps/shell/main/app-frame/app-call.ts`) `blueprint` source를 apps#T19의 `/v1/apps/blueprint`로 잇는다. 입력은 view의 app·release·mode·bundle_hash이고 같은 bundle은 app-call이 cache한다. 지금은 unavailable이라 실제 shell에서 `lophnApp.call`은 `unavailable: app is not available`이다. (2) confirm command의 `confirm` gate(`ConfirmGate`): app-call이 넘기는 view의 app·release·process nonce, 검사·default 적용한 정규 입력과 `input_hash`로 approval request(concern `apps/invocations`, command `invocation.accept_confirm`, requester user, caller direct)를 만들고 confirm-command 종류의 confirmation window로 사람 결정을 받은 뒤 accept_confirm의 서명 proof envelope `{payload, signature}`를 돌려준다. 거절·만료·취소는 실패로 돌려주고 app-call은 앱을 부르지 않는다. 지금 main은 unavailable이다. release 없는 preview의 confirm은 accept_confirm 입력에 release가 있어야 해서 받을 수 없다고 답한다
 - shell#T41에서 넘어온 것: @lophn/ui-action `CommandButton`은 confirm 거절·만료도 `lophnApp.call`의 일반 실패("<label> didn't finish. Try again.", `onFailed(code)`)로 보인다. 거절·만료에 따로 보일 code를 정하면 `packages/sdk/ui-action/use-command.ts`의 code 읽기와 문구를 그 code에 맞춘다
 - shell#T47에서 넘어온 것: main.ts `appWindows`의 `entryScreen`(앱 전용 창에 여는 screen)을 같은 `/v1/apps/blueprint` read로 잇는다. 그 release blueprint가 `sizes`에 `full`을 선언한 첫 screen이다. 지금은 unavailable이라 실제 shell에서 `--open-app`은 전용 창 대신 가장 최근 창을 앞으로 가져온다
@@ -1019,6 +1023,7 @@ concerns: [shell]
 - 내놓는 contract: 없음
 - slice: coding-agent
 - 선행: shell#T29, shell#T43, shell#T49, coding-agent#T27, coding-agent#T36, coding-agent#T40
+- coding-agent#T36에서 넘어온 것: 연결 생성 입구는 core의 `POST /v1/coding_agent_connections/connect`(memory route, user만; 입력 `{label, scope}`, 출력 `{connection}`)다. renderer allowlist는 read·command만이라 main이 사람 credential로 부른다(`CONNECTION_INTENT`의 route 이름도 이 route로 바꾼다). 이어서 `lophn connection install --connection <id> --input '{"target":...}' --json`으로 선택 target을 설치하고 `lophn doctor --json`을 부른다. 순서와 결과 모양은 `connectAndInstall`(packages/coding-agent/cli/commands/connection.ts)이다. `harness detect|refresh --json`의 CLI 실행은 coding-agent#T36 남은 것이다.
 - 완료: 아래 확인이 통과한다
   - Connection: 감지된 harness(예: "Claude Code")를 고르기만 한다. renderer는 "이 harness로 연결" 고정 intent만 보내고 main이 따로 검증한다. main이 `lophn harness detect|refresh|install --json`, `lophn doctor --json`을 child로 부른다(refresh는 사람 클릭만). 감지 기록·MCP·skill 위치는 펼친 자리에만. 회수만 confirmation window.
   - Tasks(ticket): 목록·상세, 상태, 복사할 요청 문장, [Start](누르는 것이 허락, 확인 창 없음, 등록 project 폴더가 여럿이면 고른 뒤 누른다), TUI 상태(starting/ready/working/waiting_input/ended/unknown)를 Task 상태와 구별. 한 줄 사유로 취소, claim이 풀린 일을 다시 맡기기, 완료 주장과 실제 검사(통과·실패·미확인)와 남은 확인을 구별한다.

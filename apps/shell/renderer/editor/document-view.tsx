@@ -22,10 +22,7 @@ import { Markdown, Toc } from "@lophn/design/reading";
 import { formatRelativeTime, t } from "@lophn/wording";
 
 import { ConflictView } from "./conflict/conflict-view.tsx";
-import {
-  CompareView,
-  type RestoreAnswer,
-} from "./compare/compare-view.tsx";
+import { CompareView, type RestoreAnswer } from "./compare/compare-view.tsx";
 import { DocumentHead, StickyHeadBar } from "./document-head.tsx";
 import type { MenuOpener } from "./document-menu.ts";
 import {

@@ -120,9 +120,11 @@ export function VersionsTab(
     setHistory({ kind: "loading" });
     void source.sectionHistory(document, section).then((read) => {
       if (!live) return;
-      setHistory(read.ok ? { kind: "ready", value: read.value } : {
-        kind: "failed",
-      });
+      setHistory(
+        read.ok ? { kind: "ready", value: read.value } : {
+          kind: "failed",
+        },
+      );
     });
     return () => {
       live = false;

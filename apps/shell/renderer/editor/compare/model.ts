@@ -215,12 +215,14 @@ export function changedSections(
     newRanges: readonly LineSpan[],
     oldRanges: readonly LineSpan[],
   ) => ({
-    added: lines.filter((line) =>
-      line.kind === "add" && inside(newRanges, line.newNumber)
-    ).length,
-    removed: lines.filter((line) =>
-      line.kind === "delete" && inside(oldRanges, line.oldNumber)
-    ).length,
+    added:
+      lines.filter((line) =>
+        line.kind === "add" && inside(newRanges, line.newNumber)
+      ).length,
+    removed:
+      lines.filter((line) =>
+        line.kind === "delete" && inside(oldRanges, line.oldNumber)
+      ).length,
   });
   const out: SectionDelta[] = [];
   for (const entry of after) {

@@ -78,9 +78,7 @@ function panel(
   return render(
     <DocumentInfoPanel
       tab={tab}
-      document={options.document === undefined
-        ? "doc_plan"
-        : options.document}
+      document={options.document === undefined ? "doc_plan" : options.document}
       source={options.source ?? sourceOf()}
       viewing="ver_3"
       onCompare={options.onCompare ?? (() => {})}

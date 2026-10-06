@@ -20,7 +20,11 @@ import type {
   VersionRow,
   VersionSource,
 } from "../versions/source.ts";
-import { CompareView, type RestoreAnswer, restoreNotice } from "./compare-view.tsx";
+import {
+  CompareView,
+  type RestoreAnswer,
+  restoreNotice,
+} from "./compare-view.tsx";
 import {
   buildLines,
   changedSections,
@@ -102,9 +106,9 @@ function sourceOf(options: {
     sections: (_document, version) =>
       Promise.resolve({
         ok: true,
-        value: (version === V1
-          ? options.sectionsBefore
-          : options.sectionsAfter) ?? [],
+        value:
+          (version === V1 ? options.sectionsBefore : options.sectionsAfter) ??
+            [],
       }),
     diff: () =>
       Promise.resolve(
@@ -164,21 +168,25 @@ function view(
 }
 
 function tableRows(container: HTMLElement): HTMLTableRowElement[] {
-  return [...container.querySelectorAll("[data-compare-body] tr")] as
-    HTMLTableRowElement[];
+  return [
+    ...container.querySelectorAll("[data-compare-body] tr"),
+  ] as HTMLTableRowElement[];
 }
 
 Deno.test("shell/editor#R13: documents의 추가·삭제 줄을 두 판 본문과 맞춰 줄 번호를 옛/새 각각 단다", () => {
   const before = ["# Plan", "", "first", "keep"];
   const { after, diff } = changed(before, 3, "second");
   const built = buildLines(before.join("\n"), after.join("\n"), diff)!;
-  assertEquals(built.map((line) => [line.kind, line.oldNumber, line.newNumber]), [
-    ["same", 1, 1],
-    ["same", 2, 2],
-    ["delete", 3, undefined],
-    ["add", undefined, 3],
-    ["same", 4, 4],
-  ]);
+  assertEquals(
+    built.map((line) => [line.kind, line.oldNumber, line.newNumber]),
+    [
+      ["same", 1, 1],
+      ["same", 2, 2],
+      ["delete", 3, undefined],
+      ["add", undefined, 3],
+      ["same", 4, 4],
+    ],
+  );
   // 줄 좌표가 맞지 않으면(지운 줄 글이 옛 판과 다르면) 비교를 꾸미지 않는다.
   const wrong: VersionDiff = {
     ...diff,
@@ -407,11 +415,15 @@ Deno.test("shell/editor#R13: 바뀐 절 목록은 220px이고 5,000줄 넘는 �
   // 고른 절의 줄만 그린다(변경 앞뒤 3줄과 바뀐 두 줄).
   assertEquals(shown.length, 3 + 2 + 3);
   assertEquals(
-    changedSections(sectionsBefore, sectionsAfter, buildLines(
-      before.join("\n"),
-      after.join("\n"),
-      diff,
-    )!).map((delta) => [delta.key, delta.change, delta.added, delta.removed]),
+    changedSections(
+      sectionsBefore,
+      sectionsAfter,
+      buildLines(
+        before.join("\n"),
+        after.join("\n"),
+        diff,
+      )!,
+    ).map((delta) => [delta.key, delta.change, delta.added, delta.removed]),
     [["beta", "modified", 1, 1]],
   );
   rendered.unmount();

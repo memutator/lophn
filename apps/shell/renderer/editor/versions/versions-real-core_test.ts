@@ -8,7 +8,10 @@ import {
   coreFilesPort,
   coreRestorePort,
 } from "../../../main/editor/core-port.ts";
-import { createFileAdapter, sha256 } from "../../../main/editor/file-adapter.ts";
+import {
+  createFileAdapter,
+  sha256,
+} from "../../../main/editor/file-adapter.ts";
 import { createRestorer } from "../../../main/editor/restore.ts";
 import { coreLauncherSource } from "../../desktop/launcher/core-source.ts";
 import { shortNameOf } from "../../desktop/launcher/model.ts";

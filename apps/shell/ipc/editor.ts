@@ -179,7 +179,12 @@ export interface WatchReport {
 }
 
 /** 복원에서 원본 파일 쓰기의 결과. 원본 연결이 없으면 null이다. */
-export type RestoreFile = "written" | "same" | "conflict" | "failed" | "unknown";
+export type RestoreFile =
+  | "written"
+  | "same"
+  | "conflict"
+  | "failed"
+  | "unknown";
 
 /**
  * 복원 결과. saved: 새 최신 판, unchanged: 최신 판이 이미 같은 내용이라 판을 만들지 않음,

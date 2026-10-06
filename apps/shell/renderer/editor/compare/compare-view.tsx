@@ -534,11 +534,15 @@ export function CompareView(
   }
 
   const notes: HintKey[] = [];
-  if (mode === "split" && !fits) notes.push("document.notice.side-by-side-narrow");
+  if (mode === "split" && !fits) {
+    notes.push("document.notice.side-by-side-narrow");
+  }
   if (ready?.omitted && lines !== null) {
     notes.push("document.notice.compare-omitted");
   }
-  if (ready && !ready.complete) notes.push("document.notice.compare-incomplete");
+  if (ready && !ready.complete) {
+    notes.push("document.notice.compare-incomplete");
+  }
   const targetNumber = restoreTarget === null ? undefined : numberOf(
     restoreTarget,
   );

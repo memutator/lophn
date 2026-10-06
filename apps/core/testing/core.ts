@@ -35,6 +35,8 @@ export type CoreHarnessCredential = {
   principal: string;
   scope: CredentialScope;
   conditions: CredentialConditions;
+  // 자격의 기한. 없으면 기한이 없다.
+  expires_at?: string;
 };
 
 export type CoreHarnessOptions = {
@@ -186,6 +188,7 @@ function buildContext(
     scope: input.scope,
     conditions: input.conditions,
     credential_ref: `test-${sequence}`,
+    ...(input.expires_at === undefined ? {} : { expires_at: input.expires_at }),
   });
   if (!parsed.success) {
     return err({

@@ -44,6 +44,8 @@ const started = startRuntime({
   // broker는 이 시험에 없다. 관측 전달은 앱 응답을 막지 않는다.
   broker: () => Promise.resolve({ status: 503, body: null }),
   dataSchema: 0,
+  screenBytes: (screen, path) =>
+    new TextEncoder().encode(`screen ${screen} ${path}`),
 });
 
 const port = ensureSchedulePort();

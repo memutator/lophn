@@ -592,6 +592,7 @@ async function open(
   const redactLine = createProductRedactor(knownSecrets);
   const appsControl = await createAppsControl({
     clock,
+    ledgerPath,
     readers: runtime.readers,
     revalidate: (credentialRef) =>
       registry.revalidate({ credential_ref: credentialRef }),

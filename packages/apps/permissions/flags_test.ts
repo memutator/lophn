@@ -55,7 +55,11 @@ Deno.test("apps/permissions#R18: generated flags ban broad grants and keep the f
   for (const flag of FORBIDDEN) assert(!has(flags.value.args, flag));
   for (const flag of REQUIRED) assert(flags.value.args.includes(flag));
   assert(flags.value.args.some((arg) => arg.startsWith("--allow-read=")));
-  assert(!flags.value.args.some((arg) => arg.startsWith("--allow-net")));
+  // 앱 두 socket과 가상 host 말고는 net 허락이 없다(runtime#R8).
+  assertEquals(
+    flags.value.args.filter((arg) => arg.startsWith("--allow-net")),
+    ["--allow-net=lophn.invalid,unix:/run/a.sock,unix:/run/b.sock"],
+  );
 });
 
 Deno.test("apps/permissions#R18: migration flags allow only the bundle read and the app data area", () => {
@@ -108,7 +112,11 @@ Deno.test("apps/permissions#R19: net.fetch and secret add no net or env flag", (
   const flags = appFlags([fetch, secret], app, platform, denies);
   assert(flags.ok);
   if (!flags.ok) return;
-  assert(!flags.value.args.some((arg) => arg.startsWith("--allow-net")));
+  // 외부 host는 flag에 없다. 두 socket과 가상 host뿐이다.
+  assertEquals(
+    flags.value.args.filter((arg) => arg.startsWith("--allow-net")),
+    ["--allow-net=lophn.invalid,unix:/run/a.sock,unix:/run/b.sock"],
+  );
   assert(!flags.value.args.some((arg) => arg.includes("example.com")));
   assert(!flags.value.args.some((arg) => arg.startsWith("--allow-env")));
 });

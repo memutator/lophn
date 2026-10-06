@@ -37,6 +37,11 @@ export type PlatformPorts = {
 
 const LOOPBACK = ["localhost", "127.0.0.1", "::1"] as const;
 
+// Unix socket HTTP의 가상 host다. Deno는 socket 위 HTTP 요청에도 이 host의 net 허락을 요구하고
+// socket 듣기·연결에도 `unix:<경로>` net 허락을 요구한다(Deno 2.9.7 실측: 읽기·쓰기 허락만으로는
+// Deno.serve의 unix listen이 NotCapable이다). 일반 외부 host로 넓어지지 않는다(apps/runtime#R8).
+const SOCKET_HOST = "lophn.invalid";
+
 const FIXED = [
   "--no-prompt",
   "--no-config",
@@ -135,10 +140,15 @@ export function appFlags(
     flag("allow-write", allowWrite),
     flag("deny-read", denyRead),
     flag("deny-write", denyWrite),
+    // 앱 두 socket과 가상 host만 연다. net.fetch grant는 Deno flag가 아니라 broker가 강제하므로
+    // 외부 host는 이 flag에 없다. --deny-net은 플랫폼 port를 한 번 더 막는 방어선이다.
+    flag("allow-net", [
+      SOCKET_HOST,
+      `unix:${app.brokerSocket}`,
+      `unix:${app.directSocket}`,
+    ]),
     flag("deny-net", denyNet),
   ];
-  // net grant는 없다. --allow-net을 내지 않으므로 net은 모두 닫히고,
-  // --deny-net은 플랫폼 port를 한 번 더 막는 방어선이다.
   const args: string[] = [...FIXED];
   for (const part of parts) {
     if (!part.ok) return part;

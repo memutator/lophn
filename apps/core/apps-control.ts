@@ -3,10 +3,8 @@
 // 업무 규칙은 packages/apps/runtime에 있고 여기는 core의 읽기·인증·감독 통로를 끼운다.
 import { type Clock, err, ok, type Result } from "../../packages/base/mod.ts";
 import {
-  type App,
   appConnect,
   type AppConnectInput,
-  appGet,
   appLogs,
   appRecordStarted,
   appRecordStopped,
@@ -34,7 +32,11 @@ import {
   type CredentialRegistry,
   type OperationPolicy,
 } from "../../packages/platform/identity/mod.ts";
-import { createTargetAuthorizer } from "../../packages/platform/ledger/mod.ts";
+import {
+  createTargetAuthorizer,
+  openConnection,
+} from "../../packages/platform/ledger/mod.ts";
+import { loadApp } from "../../packages/apps/registration/mod.ts";
 import {
   type AppConnector,
   type ConnectFacts,
@@ -65,7 +67,7 @@ export const APPS_CONTROL_PRINCIPAL = "machine:apps-control";
 export const APPS_CONTROL_CONTEXT: RequestContext = {
   principal: APPS_CONTROL_PRINCIPAL,
   actor: "machine",
-  scope: { operations: [appGet.name, grantsList.name], targets: {} },
+  scope: { operations: [grantsList.name], targets: {} },
   conditions: {},
   credential_ref: APPS_CONTROL_PRINCIPAL,
 };
@@ -103,6 +105,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
 
 export type AppsControlDeps = {
   clock: Clock;
+  ledgerPath: string;
   readers: {
     read(
       route: { resource: string; method: string },
@@ -161,22 +164,28 @@ export async function createAppsControl(
   let issuer: AppCredentialIssuer | undefined;
 
   const facts: ConnectFacts = {
-    async app(id) {
-      const read = await deps.readers.read(
-        appGet,
-        APPS_CONTROL_CONTEXT,
-        { app: id },
-      );
-      if (!read.ok) {
-        return read.error.code === "not_found" ? ok(null) : internalError();
+    // App 한 행은 읽기 전용 connection으로 짧게 읽는다(app.get은 machine actor가 닿는 read가
+    // 아니고, 호출자 자격으로 읽지도 않는다).
+    app(id) {
+      const opened = openConnection(deps.ledgerPath);
+      if (!opened.ok) return Promise.resolve(internalError());
+      try {
+        const found = loadApp(opened.value.sql, id);
+        if (!found.ok) return Promise.resolve(internalError());
+        const app = found.value;
+        return Promise.resolve(ok(
+          app === null ? null : {
+            id: app.id,
+            status: app.status,
+            run_enabled: app.run_enabled,
+            active_release: app.active_release,
+          },
+        ));
+      } catch {
+        return Promise.resolve(internalError());
+      } finally {
+        opened.value.close();
       }
-      const app = (read.value as { app: App }).app;
-      return ok({
-        id: app.id,
-        status: app.status,
-        run_enabled: app.run_enabled,
-        active_release: app.active_release,
-      });
     },
     async grants(id) {
       const grants: Grant[] = [];

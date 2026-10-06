@@ -131,7 +131,8 @@ function earlierStartable(tx: Tx, row: RunRow): boolean {
   );
 }
 
-function finishRow(
+// 끝내는 쓰기 하나. 정상 종료·멈춤·사람 기다림의 답 없음 종료가 같은 길로 끝난다(R18).
+export function finishRow(
   tx: Tx,
   row: RunRow,
   outcome: { kind: string; reason: string },

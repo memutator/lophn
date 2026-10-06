@@ -154,6 +154,7 @@ import {
   createApprovalTextPreparer,
   withApprovalText,
 } from "./approval-text.ts";
+import { createHandoffBodyPreparer, withHandoffBody } from "./handoff-body.ts";
 import {
   type BodyPrepare,
   createMessageBodyPreparer,
@@ -704,13 +705,20 @@ async function open(
       // 메시지 본문을 싣는 command는 writer 앞에서 값을 redaction해 blob으로 준비한다.
       // 질문 글(본문·이유·설명·자유 답·취소 이유)도 같은 길이다.
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
+      // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다.
       writer: withApprovalText(
         withQuestionText(
-          withMessageBody(
-            runtime.writer,
-            createMessageBodyPreparer({
+          withHandoffBody(
+            withMessageBody(
+              runtime.writer,
+              createMessageBodyPreparer({
+                relay: () => bodyPrepare.current,
+                // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                known: () => runtime?.knownSecrets,
+              }),
+            ),
+            createHandoffBodyPreparer({
               relay: () => bodyPrepare.current,
-              // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
               known: () => runtime?.knownSecrets,
             }),
           ),

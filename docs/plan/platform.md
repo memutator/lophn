@@ -996,7 +996,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T46 OS notification 표시와 전달 실패
 
-- 상태: 완료 (#PR) — 이어보냄: 전달 실패를 notifications get·list 응답과 shell 보고로 잇는 wire(contract 변경)와 core 조립 → platform#T61
+- 상태: 완료 (#322) — 이어보냄: 전달 실패를 notifications get·list 응답과 shell 보고로 잇는 wire(contract 변경)와 core 조립 → platform#T61
 - 등급: 기본
 - concern: platform/notifications
 - 요구: platform/notifications#R9, R10, R12

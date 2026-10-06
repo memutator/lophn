@@ -1427,6 +1427,34 @@
           "npm:react@19.3.0"
         ]
       },
+      "packages/sdk/ui-control": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "packages/sdk/ui-layout": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "packages/sdk/ui-overlay": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
+      "packages/sdk/ui-state": {
+        "dependencies": [
+          "npm:@types/react@19.3.0",
+          "npm:lucide-react@1.51.0",
+          "npm:react@19.3.0"
+        ]
+      },
       "packages/sdk/ui-table": {
         "dependencies": [
           "npm:@types/react@19.3.0",

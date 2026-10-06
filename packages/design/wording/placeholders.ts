@@ -8,6 +8,7 @@ export type PlaceholderKinds = {
   "common.author.label": {
     author: "string";
   };
+  "common.button.back": Record<never, never>;
   "common.button.cancel": Record<never, never>;
   "common.button.close": Record<never, never>;
   "common.button.columns": Record<never, never>;
@@ -40,6 +41,7 @@ export type PlaceholderKinds = {
   "common.error.load-failed": {
     target: "string";
   };
+  "common.error.show-failed": Record<never, never>;
   "common.heading.column-unit": {
     header: "string";
     unit: "string";

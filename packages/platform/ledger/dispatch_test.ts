@@ -382,5 +382,72 @@ Deno.test("platform/ledger#R3: 어느 하나라도 실패하면 전체 rollback�
   await Deno.remove(dir, { recursive: true });
 });
 
+Deno.test("platform/approvals#R7: dispatch 전용 command는 직접 호출에서 없는 command와 같게 거절되고 기록이 없지만 tx.call로는 같은 transaction에서 불린다", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "lophn-dispatch-" });
+  const { connection } = await fileLedger(dir);
+  const only = { ...markAlphaCommand, dispatchOnly: true };
+  const events = () =>
+    connection.sql.get("select count(*) as n from events", [])?.["n"];
+  const direct = (key: string) => ({
+    command: "MarkAlpha",
+    input: { name: "direct" },
+    idempotency_key: key,
+    compare: {},
+    prepared: [] as string[],
+  });
+
+  // 같은 이름의 command가 아예 없을 때의 답이 기준이다.
+  const absent = await runCommand(
+    connection,
+    deps(),
+    [markBetaCommand],
+    caller(),
+    direct("absent"),
+  );
+  assert(!absent.ok);
+  const refused = await runCommand(
+    connection,
+    deps(),
+    [only, markBetaCommand],
+    caller(),
+    direct("direct"),
+  );
+  assert(!refused.ok);
+  assertEquals(refused.error, absent.error);
+  assertEquals(refused.error.code, "invalid_input");
+  assertEquals(events(), 0n);
+  assertEquals(
+    connection.sql.get("select count(*) as n from command_results", [])?.["n"],
+    0n,
+  );
+
+  // 직접 호출이 허용되는 같은 command는 불린다(표시가 있는 command만 막힌다).
+  const open = await runCommand(
+    connection,
+    deps(),
+    [markAlphaCommand, markBetaCommand],
+    caller(),
+    direct("open"),
+  );
+  assert(open.ok);
+  assertEquals(events(), 1n);
+
+  // 바깥 command가 tx.call로 부르면 같은 transaction에서 처리된다.
+  const dispatched = await runCommand(
+    connection,
+    deps(),
+    [only, markBetaCommand],
+    caller(),
+    beta("via", "via"),
+  );
+  assert(dispatched.ok);
+  if (dispatched.ok) {
+    assertEquals(dispatched.value.last_seq, "3");
+  }
+  assertEquals(events(), 3n);
+  connection.close();
+  await Deno.remove(dir, { recursive: true });
+});
+
 // 부른 쪽에는 상대 표 SQL이 없다. alpha 행은 MarkAlpha handler의 emit뿐이다.
 void 0 as unknown as Tx;

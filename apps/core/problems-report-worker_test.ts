@@ -105,9 +105,9 @@ Deno.test("problems/reporting#R1 R2: 시작된 core에서 실행 credential로 /
       observed_at: AT,
     });
 
-    // collector seam이 시작 core의 API server에 아직 연결되지 않았다(남은 것).
-    // 입력 형식·actor·scope 검사를 모두 통과한 뒤 worker target이 없으면
-    // 결정 응답은 unavailable이다.
+    // 감독을 끈 core(superviseIo: false)에는 collector가 없다(제품 조립은
+    // problems-collector-product_test가 본다). 입력 형식·actor·scope 검사를 모두
+    // 통과한 뒤 worker가 없으면 결정 응답은 unavailable이다.
     const seam = await post(token, body);
     assertEquals(seam.status, 503);
     assertEquals((await seam.json()).error.code, "unavailable");

@@ -79,6 +79,11 @@ export interface CoreProcess {
    * 아니거나 core가 멈췄으면 보내지 않고 false다.
    */
   diagnostic(message: unknown): boolean;
+  /**
+   * 사람 결정 handle 등록 하나를 비공개 pipe로 보낸다. contract 모양의
+   * confirmation_handle_register가 아니거나 core가 멈췄으면 보내지 않고 false다.
+   */
+  confirmation(message: unknown): boolean;
   /** 테스트가 child를 이미 끝났다고 알릴 때. */
   ended(): void;
 }
@@ -209,6 +214,22 @@ export function supervise(
       if (phase === "stopped") return false;
       const parsed = mainToCoreMessageSchema.safeParse(message);
       if (!parsed.success || parsed.data.type !== "diagnostic") return false;
+      try {
+        child.stdin.write(
+          encodeFrame({ kind: "json", channel: 0, payload: parsed.data }),
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    confirmation(message) {
+      if (phase !== "ready") return false;
+      const parsed = mainToCoreMessageSchema.safeParse(message);
+      if (
+        !parsed.success ||
+        parsed.data.type !== "confirmation_handle_register"
+      ) return false;
       try {
         child.stdin.write(
           encodeFrame({ kind: "json", channel: 0, payload: parsed.data }),

@@ -2,7 +2,7 @@
 import type { Clock, IdSource } from "@lophn/base";
 import type { Blueprint } from "../../blueprint/mod.ts";
 import { gateClock } from "./clock-gate.ts";
-import { CONFIRM_MARKER_LIMIT } from "./limits.ts";
+import { type ConfirmMarkers, createConfirmMarkers } from "./confirm-marker.ts";
 import type { BrokerClient } from "./broker-client.ts";
 import type { ProcessIdentity } from "./verify.ts";
 import type { VerifyKey } from "./signature.ts";
@@ -19,6 +19,8 @@ export type InvocationRecord = {
   progress: InvocationProgress;
   result?: Json;
   recorded: boolean;
+  // 취소 요청을 받았다는 사실뿐이다. 효과가 취소됐다는 뜻이 아니다(apps/invocations#R11).
+  cancelRequested?: boolean;
 };
 
 export type ViewSession = {
@@ -43,7 +45,7 @@ export type RuntimeState = {
   closed: boolean;
   invocations: Map<string, InvocationRecord>;
   byRequest: Map<string, string>;
-  markers: Set<string>;
+  markers: ConfirmMarkers;
   views: Map<string, ViewSession>;
   screenBytes: (screen: string, path: string) => Uint8Array | undefined;
   contentType: (path: string) => string;
@@ -69,7 +71,7 @@ export function createRuntimeState(input: {
     closed: false,
     invocations: new Map(),
     byRequest: new Map(),
-    markers: new Set(),
+    markers: createConfirmMarkers(),
     views: new Map(),
     screenBytes: input.screenBytes ?? (() => undefined),
     contentType: input.contentType ??
@@ -78,8 +80,4 @@ export function createRuntimeState(input: {
   };
   state.businessClock = gateClock(input.clock, () => state.accepting);
   return state;
-}
-
-export function markerFull(state: RuntimeState): boolean {
-  return state.markers.size >= CONFIRM_MARKER_LIMIT;
 }

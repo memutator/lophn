@@ -10,6 +10,7 @@ import {
 } from "../../packages/apps/runtime/supervisor/mod.ts";
 import type { CoreLink } from "../../packages/apps/runtime/core-link.ts";
 import { readRecordState, recordInput } from "./record.ts";
+import { createCoreSender, createSupervisorDelivery } from "./delivery.ts";
 
 const stdin: { read(buffer: Uint8Array): Promise<number | null> } = {
   async read(buffer) {
@@ -68,12 +69,25 @@ const received: { credential: string; verifyKey: string } = {
   verifyKey: "",
 };
 
+const coreUrl = Deno.env.get("LOPHN_CORE_URL") ?? "http://127.0.0.1:7431";
+
+// 앱이 broker로 보낸 invocation 기록을 응답 뒤 유한한 목록으로 core에 전달한다.
+// broker 서비스(permissions/broker)가 `delivery.broker.submit`을 부른다.
+const delivery = createSupervisorDelivery({
+  clock: systemClock,
+  send: createCoreSender({
+    baseUrl: coreUrl,
+    token: () => received.credential,
+  }),
+  write: (frame) => {
+    Deno.stdout.writeSync(frame);
+  },
+});
+
 const supervisor = createSupervisor({
   clock: systemClock,
-  core: coreLink(
-    Deno.env.get("LOPHN_CORE_URL") ?? "http://127.0.0.1:7431",
-    () => received.credential,
-  ),
+  childExited: (nonce) => delivery.childExited(nonce),
+  core: coreLink(coreUrl, () => received.credential),
   deno: () => Deno.env.get("LOPHN_DENO") ?? Deno.execPath(),
   environment: {
     ...(Deno.env.get("HOME") ? { home: Deno.env.get("HOME") } : {}),

@@ -122,6 +122,7 @@ import {
   withPlatform,
 } from "./platform.ts";
 import { observeApprovals } from "../../packages/platform/approvals/mod.ts";
+import { observeInvocations } from "../../packages/apps/invocations/restart.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createValidatePort } from "./documents-validate.ts";
@@ -374,7 +375,7 @@ async function open(
   // 구성 요소 관측이고 소유 concern 관측은 복구 command로 남는다.
   const restart = await checkRestart(ledgerPath, {
     clock,
-    owners: [observeApprovals],
+    owners: [observeApprovals, observeInvocations],
   });
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);

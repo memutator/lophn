@@ -6,6 +6,9 @@ export type InvocationContext = {
   release: string | null;
   mode: "live" | "preview" | "test";
   invocation: string | null;
+  // 이 호출의 command key와 검증·default 적용한 실제 입력의 정규 hash다(cap-host의 호출 문맥).
+  command?: string | null;
+  inputHash?: string | null;
   // 이 호출을 다른 앱에게서 받았다면 그 앱의 인증된 출처 식별이다(받은 연결의 caller).
   // 다른 앱을 부를 때 준비 서비스가 path를 이어 가는 근거로 쓴다(apps/connections#R7).
   caller?: {

@@ -429,7 +429,7 @@ export function checkTicketClaim(
     now_ms: Date.parse(input.now),
     expires_at_ms: claim === null ? null : Date.parse(claim.expires_at),
   });
-  return ok(reason);
+  return ok(reason.ok ? { ...reason, app: ticket.value.app } : reason);
 }
 
 export type { ClaimReject };

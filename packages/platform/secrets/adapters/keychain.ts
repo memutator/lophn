@@ -9,6 +9,9 @@ export type KeychainItem = {
   purpose: SecretPurpose;
   owner: string;
   value: Uint8Array;
+  // 소유 경계가 고정 위치를 정할 때만 준다(coding connection credential). 없으면 adapter가
+  // 값과 무관한 무작위 참조를 만든다.
+  ref?: string;
 };
 
 export type KeychainStatus = "available" | "unavailable";
@@ -22,6 +25,12 @@ export type KeychainAdapter = {
   load(sealedRef: string): Promise<Result<Uint8Array>>;
   // 실제 삭제를 확인한 경우만 ok. 없으면 not_found, 확인 불가면 unavailable.
   remove(sealedRef: string): Promise<Result<void>>;
+  // 고정 위치를 쓰는 용도의 중단 고아를 찾는 데만 쓴다. 그 용도로 둔 항목 중 참조가 prefix로
+  // 시작하는 것의 참조만 돌려주고 값은 내지 않는다. 없는 adapter는 목록을 만들 수 없다.
+  listRefs?(
+    purpose: SecretPurpose,
+    prefix: string,
+  ): Promise<Result<readonly string[]>>;
 };
 
 export const KEYCHAIN_UNAVAILABLE = {

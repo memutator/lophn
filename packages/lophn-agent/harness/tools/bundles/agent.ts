@@ -8,11 +8,17 @@ import {
   questionTextSchema,
   readCursorSchema,
   roleKindSchema,
-  type ToolResult,
 } from "../../../../contracts/lophn-agent/mod.ts";
 import { atSchema, idSchema } from "../../../../contracts/platform/mod.ts";
 import { handoffBodyHash } from "../../../handoff/mod.ts";
-import { limitJson } from "../result.ts";
+import {
+  type ContractCall,
+  defineBuiltin,
+  type DefineOptions,
+  passThrough,
+  READ,
+  success,
+} from "./common.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { RunCredential, ToolHandler } from "../work.ts";
 
@@ -24,43 +30,22 @@ import type { RunCredential, ToolHandler } from "../work.ts";
 
 export const AGENT_TOOL_REVISION = "2026-10-06";
 
-const COMMON_ERRORS = [
-  "invalid_input",
-  "not_found",
-  "forbidden",
-  "conflict",
-  "unavailable",
-] as const;
-
 function define(
   name: string,
   description: string,
   input: z.ZodType,
   contract: string,
-  options: {
-    effect: ToolDefinition["effect"];
-    scopeCheck: string;
-    reversible: boolean;
-    idempotent: boolean;
-  },
+  options: DefineOptions,
 ): ToolDefinition {
-  return {
+  return defineBuiltin(
+    AGENT_TOOL_REVISION,
     name,
     description,
-    revision: AGENT_TOOL_REVISION,
     input,
-    effect: options.effect,
-    confirm: false,
     contract,
-    scopeCheck: options.scopeCheck,
-    reversible: options.reversible,
-    idempotent: options.idempotent,
-    errors: COMMON_ERRORS,
-    origin: "builtin",
-  };
+    options,
+  );
 }
-
-const READ = { effect: "read", reversible: true, idempotent: true } as const;
 
 // 질문 선택지에는 고정 action을 모델이 싣지 않는다. action은 사람이 열람한 owner 동작을
 // 고정하는 별도 경로(lophn-agent#T29)가 정한다.
@@ -219,12 +204,7 @@ export const AGENT_TOOLS: readonly ToolDefinition[] = [
 
 // handler가 소유 contract를 부르는 통로다. 실제 연결(core client)은 agent runtime 조립이
 // 넣는다. `call`은 contract 이름 하나와 그 입력 하나이고 여러 영역의 숨은 절차는 없다.
-export type AgentToolPorts = {
-  call(
-    contract: string,
-    input: unknown,
-    run: string,
-  ): Promise<Result<unknown>>;
+export type AgentToolPorts = ContractCall & {
   newId(prefix: "qst" | "run"): string;
   // 호출 run이 이어진 사실. 질문의 session과 handoff의 보낸 역할·원래 사람 요청을 정한다.
   runFacts(run: string): Promise<
@@ -235,42 +215,6 @@ export type AgentToolPorts = {
     }>
   >;
 };
-
-function success(summary: string, value: unknown): ToolResult {
-  const limited = limitJson(value);
-  return {
-    status: "success",
-    summary,
-    content: limited.content as ToolResult["content"],
-    complete: limited.complete,
-    source: null,
-    continuation: null,
-    pending: [],
-  };
-}
-
-function listResult(
-  summary: string,
-  value: { next_cursor?: string | null },
-): ToolResult {
-  const result = success(summary, value);
-  const next = value.next_cursor ?? null;
-  return next === null
-    ? result
-    : { ...result, continuation: { has_more: true, read_next: next } };
-}
-
-async function passThrough(
-  ports: AgentToolPorts,
-  contract: string,
-  summary: string,
-  input: unknown,
-  run: string,
-): Promise<Result<ToolResult>> {
-  const read = await ports.call(contract, input, run);
-  if (!read.ok) return read;
-  return ok(listResult(summary, read.value as { next_cursor?: string | null }));
-}
 
 // 정의별 handler다. 입력은 실행기가 정의 schema로 이미 검사했다. 소유 contract가 거절하면
 // 그 오류를 그대로 돌려주고 실행기가 안전한 문장으로 포장한다(범위 밖은 없는 대상과 같다).

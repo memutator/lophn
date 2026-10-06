@@ -1,5 +1,9 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
-import type { Frame, Route } from "../../packages/contracts/platform/mod.ts";
+import type {
+  Diagnostic,
+  Frame,
+  Route,
+} from "../../packages/contracts/platform/mod.ts";
 import {
   coreToMainMessageSchema,
   mainToCoreMessageSchema,
@@ -119,19 +123,74 @@ export type ParentConfirmation = {
   reply(message: unknown): Promise<void>;
 };
 
+export type ShellViewLifetime = Extract<
+  Diagnostic,
+  { kind: "shell_view_lifetime" }
+>;
+
+// main의 안전 진단을 받는 곳. 기록 실패는 core를 멈추지 않는다.
+export type ParentDiagnostics = {
+  shellView(diagnostic: ShellViewLifetime): Promise<void>;
+};
+
+// view 수명 한 줄. schema가 고정한 field(구성 요소·관측 시각·view id·generation·개수)만 쓰고
+// URL·query·token·경로는 payload에 들어올 자리가 없다(platform/diagnostics#R12, redaction R15).
+export function shellViewLogLine(diagnostic: ShellViewLifetime): string {
+  const payload = diagnostic.payload;
+  return JSON.stringify({
+    at: payload.observed_at,
+    component: payload.component,
+    kind: "diagnostic",
+    code: "shell_view_lifetime",
+    view_id: payload.view_id,
+    generation: payload.generation,
+    created: payload.created,
+    hidden: payload.hidden,
+    replaced: payload.replaced,
+    disposed: payload.disposed,
+    attached: payload.attached,
+  });
+}
+
+// `<데이터 root>/logs/shell-view.jsonl`에 덧붙인다. 다른 core 진단 파일과 같은 자리다.
+export function shellViewLog(dataRoot: string): ParentDiagnostics {
+  return {
+    async shellView(diagnostic) {
+      try {
+        const directory = `${dataRoot}/logs`;
+        try {
+          await Deno.mkdir(directory, { mode: 0o700 });
+        } catch (error) {
+          if (!(error instanceof Deno.errors.AlreadyExists)) throw error;
+        }
+        await Deno.writeTextFile(
+          `${directory}/shell-view.jsonl`,
+          shellViewLogLine(diagnostic) + "\n",
+          { append: true },
+        );
+      } catch {
+        // 기록하지 못해도 core와 main 통로는 그대로 간다.
+      }
+    },
+  };
+}
+
 // pipe EOF나 main의 명시 종료가 core 종료를 시작한다(install-and-update R12).
 // confirmation 등록은 이 비공개 통로에서만 받고 writer의 registry로 넘긴다.
 export function watchParent(
   parent: ParentPipe,
   shutdown: () => Promise<void>,
   confirmation?: ParentConfirmation,
+  diagnostics?: ParentDiagnostics,
 ): Promise<void> {
   return (async () => {
     try {
       for await (
         const frame of readFrames({ read: streamReader(parent.stdin) })
       ) {
-        if (await handleParent(frame, shutdown, confirmation)) return;
+        if (await handleParent(frame, shutdown, confirmation, diagnostics)) {
+          return;
+        }
       }
     } catch {
       // frame이 아닌 바이트는 protocol 위반이다. 종료로 다룬다.
@@ -145,6 +204,7 @@ async function handleParent(
   frame: Frame,
   shutdown: () => Promise<void>,
   confirmation: ParentConfirmation | undefined,
+  diagnostics: ParentDiagnostics | undefined,
 ): Promise<boolean> {
   if (frame.kind !== "json") return false;
   const message = mainToCoreMessageSchema.safeParse(frame.payload);
@@ -153,6 +213,13 @@ async function handleParent(
     await confirmation?.confirmation({ action: "clear" });
     await shutdown();
     return true;
+  }
+  if (message.data.type === "diagnostic") {
+    // main이 보내는 진단은 view 수명뿐이다. 다른 종류는 이 통로에서 받지 않고 무시한다.
+    if (message.data.kind === "shell_view_lifetime") {
+      await diagnostics?.shellView(message.data);
+    }
+    return false;
   }
   if (message.data.type !== "confirmation_handle_register" || !confirmation) {
     return false;

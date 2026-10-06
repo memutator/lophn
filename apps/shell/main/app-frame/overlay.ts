@@ -262,6 +262,8 @@ export function createOverlay(options: OverlayOptions) {
       return contents === options.shell || contents === view.webContents;
     },
     attach: order.attach,
+    // 앱 view를 창에 붙인 뒤 부른다. overlay를 다시 맨 위로 둔다.
+    raise: order.raise,
     refresh() {
       if (!disposed && available) resizeFrame.schedule(generation);
     },

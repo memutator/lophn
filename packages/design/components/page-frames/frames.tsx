@@ -1,4 +1,7 @@
 import { type ReactNode, useRef } from "react";
+import { ArrowLeft } from "lucide-react";
+import { t } from "@lophn/wording";
+import { Button } from "../button/button.tsx";
 import { useObservedSize } from "../resize.ts";
 import { cx } from "../shared.ts";
 import styles from "./page-frames.module.css";
@@ -89,14 +92,46 @@ export function DashboardCell(
 export interface ListDetailFrameProps {
   list: ReactNode;
   detail: ReactNode;
+  // 640px 미만 칸에서 보이는 한 쪽(R24). 넓은 칸에서는 둘 다 보인다.
+  active?: "list" | "detail";
+  // 좁은 칸의 상세에서 목록으로 돌아가는 버튼을 그린다.
+  onBack?: () => void;
 }
 
-// 목록 360px과 나머지 상세. 전체 폭이다(R21).
-export function ListDetailFrame({ list, detail }: ListDetailFrameProps) {
+// 목록 360px과 나머지 상세. 전체 폭이다(R21). 640px 미만 칸은 한 쪽씩 보인다(R24).
+export function ListDetailFrame(
+  { list, detail, active = "list", onBack }: ListDetailFrameProps,
+) {
+  const { ref, pad } = usePane();
+  const narrow = pad === "narrow";
   return (
-    <div className={styles.listDetail} data-frame="list-detail">
-      <div className={styles.list}>{list}</div>
-      <div className={styles.detail}>{detail}</div>
+    <div
+      ref={ref}
+      className={styles.listDetail}
+      data-frame="list-detail"
+      data-pad={pad}
+      data-active={active}
+    >
+      {(!narrow || active === "list") && (
+        <div className={styles.list}>{list}</div>
+      )}
+      {(!narrow || active === "detail") && (
+        <div className={styles.detail}>
+          {narrow && onBack && (
+            <div className={styles.back}>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={ArrowLeft}
+                onClick={onBack}
+              >
+                {t("common.button.back")}
+              </Button>
+            </div>
+          )}
+          {detail}
+        </div>
+      )}
     </div>
   );
 }

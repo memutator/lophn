@@ -331,6 +331,10 @@
         "min": "200px",
         "max": "400px",
         "collapsed": "56px"
+      },
+      "container": {
+        "panel": "320px",
+        "card": "240px"
       }
     },
     "control": {

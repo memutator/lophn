@@ -135,7 +135,17 @@ export async function build(
     );
     await addPackage(imports, design);
     await addPackage(imports, new URL("wording/", design));
-    for (const name of ["tokens", "ui-table", "ui-chart"]) {
+    for (
+      const name of [
+        "tokens",
+        "ui-control",
+        "ui-overlay",
+        "ui-layout",
+        "ui-state",
+        "ui-table",
+        "ui-chart",
+      ]
+    ) {
       await addPackage(imports, new URL(`../sdk/${name}/`, design));
     }
     await writeFile(configPath, JSON.stringify({ imports }));

@@ -318,6 +318,7 @@ Deno.test("shell/editor#R4: 문서를 읽으면 탭에 파일 이름·문서 제
     fileName: "doc_notes.md",
     title: "Release notes",
     path: "docs/doc_notes.md",
+    version: "ver_doc_notes",
   }]);
 });
 
@@ -493,6 +494,7 @@ function filesOf(write: (input: EditorWrite) => EditorReply<SaveReport>) {
       }),
     // 바깥 상태는 이 test에서 오지 않는다.
     watch: () => new Promise(() => {}),
+    restore: () => Promise.resolve({ ok: false, code: "unavailable" }),
     release: () => Promise.resolve(),
     counts: () => {},
     onCloseRequest: () => () => {},

@@ -1,0 +1,291 @@
+/* 버전 비교(shell/editor#R13, R14). legacy CompareTab·DiffView의 모양: 44px 도구 줄, 220px 바뀐 절
+   목록, 원문 고정폭 13px/20px, 옛/새 줄 번호 40px씩, 기호 16px, diff 배경과 +/− 기호. */
+.view {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: var(--space-0);
+  background: var(--color-surface-base);
+  font-family: var(--font-sans);
+}
+
+.toolbar {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  min-height: var(--table-row-comfortable);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-base);
+}
+
+.pair {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-4);
+}
+
+.end {
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.confirm,
+.note {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: var(--editor-notice);
+  padding: var(--space-2) var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  background: var(--color-surface-subtle);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.noteIcon {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.noteText {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  color: var(--color-text-primary);
+}
+
+.hint {
+  flex: none;
+  margin: var(--space-0);
+  padding: var(--space-2) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.main {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: var(--space-0);
+}
+
+/* 바뀐 절 목록 220px. 읽기 목차와 같은 폭이다. */
+.rail {
+  box-sizing: border-box;
+  flex: none;
+  width: var(--page-toc);
+  padding: var(--space-4) var(--space-5) var(--space-4) var(--space-6);
+  overflow-y: auto;
+  border-right: var(--border-width) solid var(--color-border-base);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.railTitle {
+  display: flex;
+  align-items: center;
+  height: var(--control-md-height);
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.railList {
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+  border-left: var(--border-width) solid var(--color-border-base);
+}
+
+.railItem {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-md-height);
+  padding: var(--space-3) var(--space-0) var(--space-3) var(--space-4);
+  border: var(--space-0);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.railItem:hover,
+.railItem[aria-current="true"] {
+  color: var(--color-text-primary);
+}
+
+.railItem[aria-current="true"]::before {
+  position: absolute;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  left: calc(var(--border-width) * -1);
+  width: var(--tab-indicator);
+  background: var(--color-focus);
+  content: "";
+}
+
+.railItem:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.railMark {
+  flex: none;
+  width: var(--space-5);
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.railName {
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.railCount {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-variant-numeric: var(--font-numeric);
+}
+
+.hidden {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 비교 본문: 원문 고정폭 13px/20px, 긴 줄은 접어 쓴다. */
+.body {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: var(--space-0);
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-0);
+  outline: none;
+}
+
+.body:focus-visible {
+  box-shadow: inset 0 0 0 var(--border-focus-width) var(--color-focus);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.row[data-diff="add"],
+.pairRow [data-diff="add"] {
+  background: var(--diff-add-line);
+}
+
+.row[data-diff="delete"],
+.pairRow [data-diff="delete"] {
+  background: var(--diff-delete-line);
+}
+
+/* 옛/새 줄 번호 40px씩, 기호 16px. */
+.number {
+  box-sizing: border-box;
+  width: var(--space-10);
+  padding: var(--space-0) var(--space-4) var(--space-0) var(--space-0);
+  color: var(--color-text-muted);
+  text-align: right;
+  vertical-align: top;
+  font-variant-numeric: var(--font-numeric);
+  user-select: none;
+}
+
+.sign {
+  width: var(--space-6);
+  text-align: center;
+  vertical-align: top;
+  user-select: none;
+}
+
+.text {
+  padding: var(--space-0) var(--space-6) var(--space-0) var(--space-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.blank {
+  background: var(--color-surface-subtle);
+}
+
+.pairRow > .text + .number {
+  border-left: var(--border-width) solid var(--color-border-subtle);
+}
+
+.foldRow > td {
+  padding: var(--space-0);
+}
+
+.fold {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--control-sm-height);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  cursor: pointer;
+}
+
+.fold:hover {
+  color: var(--color-text-primary);
+}
+
+.fold:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.message {
+  margin: var(--space-0);
+  padding: var(--space-8) var(--space-6);
+  color: var(--color-text-secondary);
+  text-align: center;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.state {
+  padding: var(--space-6);
+}

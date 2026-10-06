@@ -41,10 +41,12 @@ import {
 } from "../desktop/palette/host.tsx";
 import { workspaceScope } from "../desktop/palette/workspace-scope.ts";
 import {
+  type CompareTarget,
   type DocumentTabMeta,
   DocumentView,
   type EditorDeps,
 } from "../editor/document-view.tsx";
+import { DocumentInfoPanel } from "../editor/info-panel/info-panel.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../terminal/deps.ts";
 import { TerminalTab } from "../terminal/terminal-tab.tsx";
 import { TrackingStrip } from "./tracking/tracking.tsx";
@@ -188,6 +190,12 @@ export function Workspace(
   const [tabMeta, setTabMeta] = useState<
     Readonly<Record<string, DocumentTabMeta>>
   >({});
+  // 문서 탭마다 열린 버전 비교. 정보 패널의 버전 탭이 열고 문서 탭 본문 자리에 그린다(editor#R13).
+  const [compares, setCompares] = useState<
+    Readonly<Record<string, CompareTarget>>
+  >({});
+  // 복원으로 판이 바뀌면 정보 패널이 다시 읽는다.
+  const [versionsTick, setVersionsTick] = useState(0);
   const frameRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const frameSize = useObservedSize(frameRef);
@@ -431,6 +439,10 @@ export function Workspace(
           files={editor.files}
           infoOpen={infoShown}
           onToggleInfo={() => setInfo(!infoShown, infoTab)}
+          versions={editor.versions}
+          compare={compares[tab.key] ?? null}
+          onCompare={(target) => showCompare(tab.key, target)}
+          onVersionsChanged={() => setVersionsTick((value) => value + 1)}
           onMeta={(meta) => noteMeta(tab.key, meta)}
           onOpenDocument={(id) => {
             const row = loaded.documents.find((item) => item.id === id);
@@ -441,6 +453,36 @@ export function Workspace(
     }
     return null;
   };
+
+  const showCompare = (document: string, target: CompareTarget | null) => {
+    setCompares((current) => {
+      const next = { ...current };
+      if (target === null) delete next[document];
+      else next[document] = target;
+      return next;
+    });
+  };
+
+  // focus 칸의 활성 탭이 문서면 정보 패널이 그 문서를 보인다.
+  const focusedTab = focused?.tabs.find((tab) => tab.key === focused.selected);
+  const infoDocument = focusedTab?.kind === "document_editor"
+    ? focusedTab.key
+    : null;
+
+  // CommandOrControl+Alt+B는 정보 패널을 여닫는다(editor#R6).
+  const toggleInfo = useRef(() => {});
+  toggleInfo.current = () => setInfo(!infoShown, infoTab);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const mod = event.metaKey || event.ctrlKey;
+      if (!mod || !event.altKey || event.shiftKey) return;
+      if (event.code !== "KeyB" && event.key.toLowerCase() !== "b") return;
+      event.preventDefault();
+      toggleInfo.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   const setInfo = (open: boolean, tab: InfoTab) => {
     // 정보 패널을 사람이 열면 그 자리를 쓰던 도크는 닫힌다. 둘을 쌓지 않는다(desktop#R29).
@@ -589,7 +631,24 @@ export function Workspace(
             placement={infoPlacement}
             tab={infoTab}
             onTab={(tab) => setInfo(infoOpen, tab)}
-          />
+            onClose={() => setInfo(false, infoTab)}
+          >
+            {editor?.versions
+              ? (
+                <DocumentInfoPanel
+                  tab={infoTab}
+                  document={infoDocument}
+                  source={editor.versions}
+                  viewing={infoDocument === null
+                    ? null
+                    : tabMeta[infoDocument]?.version ?? null}
+                  refresh={versionsTick}
+                  onCompare={(document, before, after) =>
+                    showCompare(document, { before, after })}
+                />
+              )
+              : undefined}
+          </InfoPanel>
           <DockSlot
             placement={dock}
             workPlace={{ kind: "project", id: projectId }}

@@ -15,7 +15,7 @@ import {
 export type InstructionDeps = {
   files: InstructionFiles;
   // 전송 본문을 안전화한다. 끝내지 못하면 null이고 그 층은 전송하지 않는다(platform redaction).
-  redact(text: string): string | null;
+  redact(text: string): string | null | Promise<string | null>;
 };
 
 function absent(kind: InstructionLayerKind, place: string | null) {
@@ -57,7 +57,7 @@ async function readLayer(
       reason: inspected.reason,
     });
   }
-  const text = deps.redact(inspected.text);
+  const text = await deps.redact(inspected.text);
   if (text === null) {
     return layerOf(kind, place, {
       ...base,

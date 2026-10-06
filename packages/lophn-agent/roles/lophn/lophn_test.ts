@@ -757,6 +757,7 @@ Deno.test("lophn-agent/roles/lophn#R19: the question submit tool rejects a model
         session: null,
         role: "lophn" as const,
         original_message: "msg_01arz3ndektsv4rrffq69g5fav",
+        assignment: "asg_01arz3ndektsv4rrffq69g5fav",
       })),
   };
   const names = AGENT_TOOLS.map((tool) => tool.name);

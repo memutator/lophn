@@ -119,6 +119,7 @@ export function createAppSnapshot(
 export { createConfirmMarkers } from "../entrypoint/confirm-marker.ts";
 export { handleInvoke } from "../entrypoint/invoke.ts";
 export { startRuntime } from "../entrypoint/startup.ts";
+export { startDirectServer } from "../entrypoint/direct-server.ts";
 export type { BrokerTransport } from "../entrypoint/broker-client.ts";
 export type { AppConnection } from "../entrypoint/wire.ts";
 export {

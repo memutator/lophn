@@ -112,7 +112,7 @@ import {
   readOpenIntent,
   registerUrlScheme,
 } from "./open-intent.ts";
-import { browserDataPath, resolveDataRoot } from "./paths.ts";
+import { browserDataPath, packagedInstall, resolveDataRoot } from "./paths.ts";
 import {
   type AutostartOs,
   nodeAutostartFiles,
@@ -250,13 +250,13 @@ const osNotifications = createOsNotifications({
 // 창을 다 닫아도 core는 남긴다. 명시 종료(tray·OS 종료)만 core를 멈춘다.
 const core = startCoreConnection({
   launch: {
-    repoRoot: join(here, "..", "..", "..", ".."),
+    // packaged는 설치 묶음의 platform/(source·lock·vendor)이고, 개발은 저장소 루트다.
+    repoRoot: app.isPackaged
+      ? packagedInstall(process.resourcesPath).platform
+      : join(here, "..", "..", "..", ".."),
     dataRoot,
     denoBinary: resolveDenoBinary(
-      {
-        isPackaged: app.isPackaged,
-        resourcesPath: app.getAppPath() + "/resources",
-      },
+      { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath },
       log,
     ),
     packaged: app.isPackaged,
@@ -1114,6 +1114,8 @@ if (instance.acquired) {
 }
 
 function rendererDist(): string {
+  // packaged는 설치 묶음의 desktop/이다.
+  if (app.isPackaged) return packagedInstall(process.resourcesPath).desktop;
   // build 결과에서 here는 apps/shell/main/dist이고 renderer dist는 형제 concern
   // 폴더 바로 아래다: apps/shell/renderer/dist.
   return join(here, "..", "..", "renderer", "dist");

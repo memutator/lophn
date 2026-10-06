@@ -2,6 +2,10 @@
   "name": "lophn-shell-main",
   "private": true,
   "type": "module",
+  "main": "dist/main.cjs",
+  "description": "lophn desktop",
+  "author": "lophn developers <lophn@localhost>",
+  "version": "0.1.0",
   "scripts": {
     "build": "node build.ts",
     "rebuild": "electron-rebuild -f -m node_modules/node-pty",
@@ -13,15 +17,15 @@
     "precheck": "node -e \"const fs=require('node:fs'); const path=require('node:path'); const dir=path.resolve('..','node_modules'); fs.mkdirSync(dir,{recursive:true}); const link=path.join(dir,'zod'); try{fs.symlinkSync(path.resolve('node_modules/zod'), link)}catch(e){if(e.code!=='EEXIST') throw e}\""
   },
   "dependencies": {
-    "electron": "44.5.1",
     "node-pty": "1.1.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/node": "24.19.1",
     "@electron/rebuild": "4.2.0",
-    "esbuild": "0.28.2",
+    "@types/node": "24.19.1",
+    "electron": "44.5.1",
     "electron-builder": "25.1.7",
+    "esbuild": "0.28.2",
     "typescript": "7.0.2"
   }
 }

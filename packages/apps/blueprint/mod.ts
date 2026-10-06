@@ -28,6 +28,7 @@ export type {
 } from "../../contracts/apps/blueprint.ts";
 export {
   canonicalInputHash,
+  canonicalJson,
   validateBlueprint,
   validateInput,
 } from "../../contracts/apps/blueprint.ts";

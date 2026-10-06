@@ -1,7 +1,8 @@
-# electron-builder config (shell#T57). Run `npm run dist` (stages resources first).
+# electron-builder config (shell#T57, platform#T48). Linux는 `--linux dir`로 앱만 풀고,
+# 설치 묶음(.deb)은 tools/package-linux.ts가 /opt/lophn 배치로 잇는다.
 appId: dev.lophn.shell
 productName: lophn
-executableName: lophn
+executableName: lophn-desktop
 copyright: lophn
 directories:
   output: release
@@ -13,12 +14,6 @@ asar: true
 extraResources:
   - from: packaging/icon.png
     to: icon.png
-  - from: build/stage/bin
-    to: bin
-  - from: build/stage/core
-    to: core
-  - from: build/stage/shell-renderer
-    to: shell-renderer
 protocols:
   - name: lophn
     schemes:
@@ -26,25 +21,12 @@ protocols:
     role: Editor
 linux:
   target:
-    - deb
+    - dir
   category: Development
   synopsis: Client workspace for projects and apps with lophn
   maintainer: lophn developers <lophn@localhost>
-  syncDesktopName: true
   mimeTypes:
     - x-scheme-handler/lophn
-deb:
-  artifactName: lophn_${version}_${arch}.${ext}
-  depends:
-    - libgtk-3-0
-    - libnotify4
-    - libnss3
-    - libxss1
-    - libxtst6
-    - xdg-utils
-    - libatspi2.0-0
-    - libuuid1
-    - libsecret-1-0
 appImage:
   artifactName: ${productName}-${version}-${arch}.AppImage
 mac:

@@ -22,6 +22,7 @@ export {
   validateDefinition,
   type ValidateDeps,
 } from "./validate.ts";
+export { validateModelSelection } from "./capability.ts";
 export {
   BUILTIN_ROLES,
   type BuiltinRole,

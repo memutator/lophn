@@ -3,6 +3,7 @@
 // 여기는 op 이름과 payload 모양만 정한다. core는 앱 코드를 import하지 않고 supervisor와
 // 이 모양으로만 말한다.
 import { z } from "zod";
+import { bundleManifestSchema } from "../../contracts/apps/mod.ts";
 import { LIMIT_KEYS } from "../permissions/mod.ts";
 
 export const SUPERVISOR_OPS = {
@@ -14,6 +15,8 @@ export const SUPERVISOR_OPS = {
   logs: "apps.logs",
   // 그 nonce의 프로세스를 새 nonce로 다시 띄운다.
   restart: "apps.restart",
+  // 그 앱의 broker 연결을 새 요청부터 막는다. 이미 한 전송은 취소하지 않는다(apps/permissions#R20).
+  block: "apps.block",
   // 닫힌 화면 view를 지금 live 자식에 알린다(control/view-closed).
   viewClosed: "apps.view_closed",
   // preview 프로세스(운영 자식과 따로 한 앱에 많아야 하나)의 시작·관측·종료. 운영 상태와
@@ -21,6 +24,10 @@ export const SUPERVISOR_OPS = {
   previewStart: "apps.preview_start",
   previewObserve: "apps.preview_observe",
   previewStop: "apps.preview_stop",
+  // release 준비 요청의 접수·조회·취소. 진행은 supervisor 메모리다(apps/releases).
+  releasePrepare: "releases.prepare_bundle",
+  releasePreparation: "releases.preparation",
+  releaseCancel: "releases.cancel_preparation",
 } as const;
 
 export type SupervisorOp = (typeof SUPERVISOR_OPS)[keyof typeof SUPERVISOR_OPS];
@@ -101,6 +108,11 @@ export const restartInputSchema = z.strictObject({
 });
 export const restartOutputSchema = z.strictObject({ restarted: z.boolean() });
 
+export const blockInputSchema = z.strictObject({ app: appId });
+export const blockOutputSchema = z.strictObject({
+  blocked: z.number().int().min(0),
+});
+
 // preview 프로세스 하나의 시작 입력이다. core가 nonce와 disposable 영역(dataPath)을 먼저 만들고
 // 운영 DesiredApp과 같은 모양으로 알린다. release는 준비 전 bundle이면 null이다.
 export const previewNonceSchema = z.string().regex(/^[0-9A-Za-z-]{8,64}$/);
@@ -129,6 +141,35 @@ export const previewStopInputSchema = previewObserveInputSchema;
 export const previewStopOutputSchema = z.strictObject({
   stopped: z.boolean(),
 });
+
+// release 준비. 접수는 즉시 답하고 진행은 `releasePreparation`으로 따라간다.
+const requestKey = z.string().min(1).max(128);
+export const releasePrepareInputSchema = z.strictObject({
+  app: appId,
+  commit: z.string().regex(/^[0-9a-f]{40}$/),
+  request_key: requestKey,
+  // 연결된 source 경계. core가 앱 등록에서 읽는다.
+  source_path: z.string().min(1),
+});
+export const releasePreparationInputSchema = z.strictObject({
+  app: appId,
+  request_key: requestKey,
+});
+export const releasePreparationOutputSchema = z.strictObject({
+  app: appId,
+  request_key: requestKey,
+  status: z.enum(["preparing", "completed", "cancelled", "failed", "unknown"]),
+  bundle_hash: sha256.nullable(),
+  blueprint_hash: sha256.nullable(),
+  manifest: bundleManifestSchema.nullable(),
+});
+export type ReleasePreparationWire = z.infer<
+  typeof releasePreparationOutputSchema
+>;
+export const releaseCancelOutputSchema = z.strictObject({
+  accepted: z.literal(true),
+});
+
 export const viewClosedInputSchema = z.strictObject({
   app: appId,
   view_session: z.string().min(1).refine((value) => !/\p{Cc}/u.test(value)),

@@ -8,6 +8,7 @@ export { runSchemaSteps } from "./schema.ts";
 export {
   createRunCommands,
   finishRow as finishRunRow,
+  runBodyFields,
   type RunLoopDeps,
 } from "./commands.ts";
 export { loadRun, type RunRow } from "./model.ts";

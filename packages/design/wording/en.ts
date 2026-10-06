@@ -1,5 +1,239 @@
 // en catalog. 값은 완성된 문장 하나의 ICU MessageFormat이다. 화면 코드는 문장 조각을 이어 붙이지 않는다.
 export const en = {
+  "app-detail.button.change-access": "Review access",
+  "app-detail.button.close-preview": "Close preview",
+  "app-detail.button.hide-activity": "Hide activity",
+  "app-detail.button.hide-changes": "Hide changes",
+  "app-detail.button.open-preview": "Open preview",
+  "app-detail.button.remove-access": "Remove",
+  "app-detail.button.review-connection": "Review connection",
+  "app-detail.button.see-changes": "See what changes",
+  "app-detail.button.show-activity": "Show activity",
+  "app-detail.button.turn-off": "Turn off",
+  "app-detail.button.turn-on": "Turn on",
+  "app-detail.button.use-version": "Use this version",
+  "app-detail.error.apply-failed":
+    "Version {number} couldn't be applied. Your current version is unchanged.",
+  "app-detail.error.decision-failed":
+    "The confirmation window didn't open. Try again.",
+  "app-detail.error.preview-failed":
+    "The preview didn't open. Your app in use isn't affected.",
+  "app-detail.error.turn-off-failed":
+    "Couldn't turn off {name}. It's still on. Try again.",
+  "app-detail.heading.access-agents": "Actions agents can start",
+  "app-detail.heading.access-asks": "Asking for more access",
+  "app-detail.heading.access-documents": "Documents this app can save",
+  "app-detail.heading.access-files-read": "Files this app can read",
+  "app-detail.heading.access-files-write": "Files this app can change",
+  "app-detail.heading.access-listen": "Ports this app can listen on",
+  "app-detail.heading.access-network": "Websites this app can contact",
+  "app-detail.heading.access-removed": "Removed access",
+  "app-detail.heading.access-secrets": "Secrets this app can use",
+  "app-detail.heading.current-version": "Current version",
+  "app-detail.heading.detail-access": "Permissions",
+  "app-detail.heading.detail-actions": "Actions",
+  "app-detail.heading.detail-automations": "Automations",
+  "app-detail.heading.detail-data": "Saved data",
+  "app-detail.heading.detail-screens": "Screens",
+  "app-detail.heading.other-versions": "Other versions",
+  "app-detail.heading.what-changes": "What changes",
+  "app-detail.label.access-target": "this app's access",
+  "app-detail.label.activity-target": "this app's activity",
+  "app-detail.label.an-action": "an action",
+  "app-detail.label.another-app": "Another app",
+  "app-detail.label.applied-before": "It was in use before",
+  "app-detail.label.applied-failed": "Couldn't be applied",
+  "app-detail.label.applied-no": "Not in use",
+  "app-detail.label.applied-working": "Being applied",
+  "app-detail.label.applied-yes": "In use",
+  "app-detail.label.automation-off": "Off",
+  "app-detail.label.automation-on": "On",
+  "app-detail.label.automations-target": "this app's automations",
+  "app-detail.label.by-agent": "By an agent",
+  "app-detail.label.by-app": "By another app",
+  "app-detail.label.by-applying": "While a version was being applied",
+  "app-detail.label.by-automation": "By an automation",
+  "app-detail.label.by-direct": "Directly",
+  "app-detail.label.by-restart": "After the app restarted",
+  "app-detail.label.change-access-added":
+    "{count, plural, one {# new permission asked} other {# new permissions asked}}",
+  "app-detail.label.change-access-removed":
+    "{count, plural, one {# permission no longer needed} other {# permissions no longer needed}}",
+  "app-detail.label.change-actions-added":
+    "{count, plural, one {# action added} other {# actions added}}",
+  "app-detail.label.change-actions-changed":
+    "{count, plural, one {# action behaves differently} other {# actions behave differently}}",
+  "app-detail.label.change-actions-external":
+    "{count, plural, one {# action can change things outside lophn} other {# actions can change things outside lophn}}",
+  "app-detail.label.change-actions-removed":
+    "{count, plural, one {# action removed} other {# actions removed}}",
+  "app-detail.label.change-automations":
+    "{count, plural, one {# automation changed} other {# automations changed}}",
+  "app-detail.label.change-data":
+    "Saved data changes from format {from} to {to}",
+  "app-detail.label.change-screens":
+    "{count, plural, one {# screen changed} other {# screens changed}}",
+  "app-detail.label.changes-target": "what changes",
+  "app-detail.label.checked-at": "Last checked {age}",
+  "app-detail.label.connection-actions":
+    "{count, plural, one {# action} other {# actions}}",
+  "app-detail.label.connection-allowed": "Allowed",
+  "app-detail.label.connection-asks": "Needs your approval",
+  "app-detail.label.connection-partly": "Partly allowed",
+  "app-detail.label.connections-target": "this app's connections",
+  "app-detail.label.data-format": "Saved data format {number}",
+  "app-detail.label.data-target": "this app's data",
+  "app-detail.label.details": "Details",
+  "app-detail.label.did-action": "Used {action}",
+  "app-detail.label.did-action-unnamed": "Used an action",
+  "app-detail.label.did-data-change": "Updated saved data",
+  "app-detail.label.did-start": "Started",
+  "app-detail.label.fact-action": "Action",
+  "app-detail.label.fact-applied": "Applied",
+  "app-detail.label.fact-can-start": "Can start now",
+  "app-detail.label.fact-input": "Fixed input",
+  "app-detail.label.fact-saved": "Saved",
+  "app-detail.label.fact-schedule": "When",
+  "app-detail.label.fact-seen": "Seen working",
+  "app-detail.label.fact-start": "Start check",
+  "app-detail.label.fact-task": "Task check",
+  "app-detail.label.fact-test": "Test result",
+  "app-detail.label.input-saved": "Saved with the app",
+  "app-detail.label.last-activity": "Last activity: {status}, {age}",
+  "app-detail.label.mode-preview": "Preview",
+  "app-detail.label.mode-test": "Test",
+  "app-detail.label.no": "No",
+  "app-detail.label.not-yet": "Not yet",
+  "app-detail.label.preview-banner":
+    "Preview of Version {number}, not the app in use",
+  "app-detail.label.schedule-interval":
+    "Every {minutes, plural, one {# minute} other {# minutes}}",
+  "app-detail.label.schedule-start": "When the app starts",
+  "app-detail.label.start-ok": "Started and responding",
+  "app-detail.label.start-unconfirmed": "Not confirmed yet",
+  "app-detail.label.status-applying": "Being applied",
+  "app-detail.label.status-blocked": "Blocked",
+  "app-detail.label.status-current": "In use",
+  "app-detail.label.status-didnt-finish": "Didn't finish",
+  "app-detail.label.status-done": "Done",
+  "app-detail.label.status-failed": "Couldn't be applied",
+  "app-detail.label.status-older": "Older version",
+  "app-detail.label.status-prepared": "Saved, not in use",
+  "app-detail.label.status-result-unknown": "Result unknown",
+  "app-detail.label.status-waiting": "Waiting",
+  "app-detail.label.status-working": "In progress",
+  "app-detail.label.tab-access": "Access",
+  "app-detail.label.tab-activity": "Activity",
+  "app-detail.label.tab-automations": "Automations",
+  "app-detail.label.tab-connections": "Connections",
+  "app-detail.label.tab-data": "Data",
+  "app-detail.label.tab-issues": "Issues",
+  "app-detail.label.tab-tasks": "Tasks",
+  "app-detail.label.tab-version": "Version",
+  "app-detail.label.task-failed": "Some checks failed",
+  "app-detail.label.task-none": "No checks were set",
+  "app-detail.label.task-passed": "All checks passed",
+  "app-detail.label.task-pending": "Not reported yet",
+  "app-detail.label.task-unavailable": "Can't read the result right now",
+  "app-detail.label.task-unclear": "Some checks were inconclusive",
+  "app-detail.label.test-fail": "Failed",
+  "app-detail.label.test-inconclusive": "Inconclusive",
+  "app-detail.label.test-pass": "Passed",
+  "app-detail.label.test-unavailable": "Can't read the result right now",
+  "app-detail.label.time-unknown": "time unknown",
+  "app-detail.label.version": "Version {number}",
+  "app-detail.label.versions-target": "this app's versions",
+  "app-detail.label.yes": "Yes",
+  "app-detail.note.access-empty":
+    "This app can't read files, contact websites or use secrets yet.",
+  "app-detail.note.access-removal-scope":
+    "Removing access doesn't undo what the app already read, sent or changed.",
+  "app-detail.note.access-removed": "Access was removed.",
+  "app-detail.note.access-removing":
+    "Removal was requested. It isn't finished yet.",
+  "app-detail.note.access-removing-stop":
+    "Removal was requested. Waiting for the app to stop before it counts as removed.",
+  "app-detail.note.activity-scope":
+    "Done means the action finished. It doesn't mean the result is right for you.",
+  "app-detail.note.automation-follows-app":
+    "Starts with the app. It needs no separate approval.",
+  "app-detail.note.automations-empty": "This app doesn't have automations.",
+  "app-detail.note.connection-scope":
+    "Allowing this connection doesn't approve actions that ask you first.",
+  "app-detail.note.connections-empty": "This app doesn't use other apps.",
+  "app-detail.note.data-converts":
+    "Your saved data will be converted. Going back to an older version later won't convert it back.",
+  "app-detail.note.decision-waiting":
+    "Waiting for your decision in the confirmation window.",
+  "app-detail.note.export-unavailable":
+    "Exporting this app's data isn't available yet.",
+  "app-detail.note.issues-unavailable": "Issues aren't available here yet.",
+  "app-detail.note.no-activity": "No activity yet.",
+  "app-detail.note.no-changes": "Nothing differs from the version in use.",
+  "app-detail.note.no-current": "No version is in use yet.",
+  "app-detail.note.no-other-versions": "There are no other versions.",
+  "app-detail.note.review-needed":
+    "Review this before you use it. A comparison can't show whether the app still does what you expect.",
+  "app-detail.note.secret-deleted": "The saved value was deleted.",
+  "app-detail.note.secret-missing": "No value is saved for this secret yet.",
+  "app-detail.note.secret-still-stored": "The saved value is still stored.",
+  "app-detail.note.secret-stored": "A value is saved for this secret.",
+  "app-detail.note.tasks-unavailable": "Tasks aren't available here yet.",
+  "app-detail.note.test-scope":
+    "This is what was checked when the version was saved. It doesn't prove the app works today.",
+  "app-detail.note.warning-other":
+    "Review these permissions together before you allow them.",
+  "app-detail.note.warning-outside-link":
+    "A permission points outside the folder you chose.",
+  "app-detail.note.warning-read-network":
+    "This app can read files and use the network, so it could send what it reads elsewhere.",
+  "app-space.button.add-shortcut": "Add to app menu",
+  "app-space.button.app-details": "App details",
+  "app-space.button.documents": "Documents",
+  "app-space.button.new-window": "Open in new window",
+  "app-space.button.remove-shortcut": "Remove from app menu",
+  "app-space.empty.archived":
+    "This app is archived. Restore it in Apps to open it again.",
+  "app-space.empty.no-version": "This app has nothing to show yet.",
+  "app-space.empty.not-found": "This app isn't here anymore.",
+  "app-space.empty.screen-not-ready": "This app's screen can't open here yet.",
+  "app-space.heading.app-details": "App details",
+  "app-space.heading.this-computer": "On this computer",
+  "app-space.label.this-app": "this app",
+  "app-space.notice.shortcut-added": "Added to your computer's app menu.",
+  "app-space.notice.shortcut-failed":
+    "Your computer's app menu didn't change. Try again.",
+  "app-space.notice.shortcut-not-installed":
+    "Only the installed lophn app can change your computer's app menu.",
+  "app-space.notice.shortcut-removed": "Removed from your computer's app menu.",
+  "app-space.notice.window-failed":
+    "The app didn't open in a new window. Try again.",
+  "apps.button.archive": "Archive",
+  "apps.button.open": "Open",
+  "apps.button.restore": "Restore",
+  "apps.empty.no-apps": "No apps yet.",
+  "apps.error.action-failed": "{name} didn't change. Try again.",
+  "apps.error.changed": "This changed since you opened it. Showing the latest.",
+  "apps.label.list-target": "your apps",
+  "apps.label.name": "Name",
+  "apps.label.status": "Status",
+  "apps.notice.archived": "{name} is archived and won't start.",
+  "apps.notice.restored":
+    "{name} is back. It stays stopped until you start it.",
+  "app-card.notice.contract-changed":
+    "This app changed after the card was made, so the card isn't shown.",
+  "app-card.notice.not-card": "This screen can't be shown as a card.",
+  "app-card.notice.unavailable":
+    "This app is no longer available, so the card isn't shown.",
+  "app-panel.button.open-app-space": "Open in app space",
+  "app-panel.empty.no-apps": "No apps are registered yet.",
+  "app-panel.label.screen": "{app} · {screen}",
+  "app-panel.notice.app-gone": "This app is no longer available.",
+  "app-panel.notice.app-space-only": "{app} opens only in the app space.",
+  "app-panel.notice.no-version": "This app has no version ready to open yet.",
+  "app-panel.notice.not-panel":
+    "This screen can't open in a tab. Open it in the app space.",
+  "app-panel.title.choose": "Open an app in this tab",
   "apps.title.screen": "Apps",
   "common.activity.agent": "Agent activity",
   "common.activity.app": "App activity",
@@ -23,6 +257,7 @@ export const en = {
   "common.button.previous-page": "Previous page",
   "common.button.quit": "Quit",
   "common.button.reload": "Reload",
+  "common.button.report-problem": "Report a problem",
   "common.button.reset-filters": "Reset filters",
   "common.button.retry": "Try again",
   "common.button.select-all": "Select all",
@@ -50,6 +285,18 @@ export const en = {
   "common.heading.palette-projects": "Projects",
   "common.heading.palette-tabs": "Open tabs",
   "common.label.all-of": "All {dimension}",
+  "common.label.app-archived": "Archived",
+  "common.label.app-preparing": "Getting ready",
+  "common.label.app-running": "Running",
+  "common.label.app-stopped": "Stopped",
+  "common.label.app-unavailable": "Not responding",
+  "common.label.app-unknown": "Status unknown",
+  "common.label.app-mode-live": "Live",
+  "common.label.app-mode-preview": "Preview",
+  "common.label.app-state-preparing": "Starting",
+  "common.label.app-state-running": "Connected",
+  "common.label.app-state-stopped": "Stopped",
+  "common.label.app-state-unavailable": "Not connected",
   "common.label.date-from": "From",
   "common.label.date-to": "To",
   "common.label.date-with-weekday": "{date} ({weekday})",
@@ -251,6 +498,225 @@ export const en = {
   "confirmation-window.secret.subject":
     "What you type goes straight to your system keychain. lophn and apps never show it.",
   "confirmation-window.title.confirm": "Confirm",
+  "confirmation-window.automation.effect":
+    "Once you allow it, lophn uses this command on schedule without asking again, always with exactly this input.",
+  "confirmation-window.automation.effect-external":
+    "This command changes things outside the app. Once you allow it, it does so on schedule without asking again, always with exactly this input.",
+  "confirmation-window.automation.not-ready":
+    "It can't start right now. Allowing it turns it on for when it can.",
+  "confirmation-window.automation.now": "This automation is off.",
+  "confirmation-window.automation.subject-minutes":
+    "{app} will use {command} on its own every {minutes, plural, one {# minute} other {# minutes}}.",
+  "confirmation-window.automation.subject-seconds":
+    "{app} will use {command} on its own every {seconds, number} seconds.",
+  "confirmation-window.automation.subject-start":
+    "{app} will use {command} on its own each time it starts.",
+  "confirmation-window.button.allow-access": "Allow access",
+  "confirmation-window.button.allow-once": "Allow once",
+  "confirmation-window.button.turn-on": "Turn on automation",
+  "confirmation-window.button.use-version": "Use this version",
+  "confirmation-window.confirm.input-note":
+    "The input itself isn't kept with this request. The fingerprint identifies exactly the input that will be used.",
+  "confirmation-window.confirm.now": "This hasn't been done yet.",
+  "confirmation-window.confirm.preview-none":
+    "No safe preview is available for this action. Nothing is tried before you decide.",
+  "confirmation-window.confirm.subject":
+    "{caller, select, direct {You ask {app} to use {command} once} app {{name} asks {app} to use {command} once} other {An agent asks {app} to use {command} once}}.",
+  "confirmation-window.grant-effect.agent-commands":
+    "Agents can use the commands listed here in this app, within what their role allows.",
+  "confirmation-window.grant-effect.app-call":
+    "The app can use the commands listed here in the target app. This doesn't allow anything the target app asks you to confirm.",
+  "confirmation-window.grant-effect.document-save":
+    "The app can save documents into the place named by this key.",
+  "confirmation-window.grant-effect.fs-read":
+    "The app can read what is at this path, including everything under it when subfolders are included.",
+  "confirmation-window.grant-effect.fs-write":
+    "The app can create, change and delete what is at this path, including everything under it when subfolders are included.",
+  "confirmation-window.grant-effect.net-fetch":
+    "The app can send requests to this host and port and read the answers.",
+  "confirmation-window.grant-effect.net-listen":
+    "The app can accept connections on this local host and port.",
+  "confirmation-window.grant-effect.secret-use":
+    "The app can use this secret without ever seeing its value.",
+  "confirmation-window.grant-effect.unknown":
+    "This access isn't described here. Check the exact request.",
+  "confirmation-window.grant.already":
+    "This access is already allowed. Allowing it again changes nothing.",
+  "confirmation-window.grant.limit-cpu":
+    "lophn doesn't strongly limit how much CPU an app uses.",
+  "confirmation-window.grant.limit-disk":
+    "lophn doesn't strongly limit how much disk an app uses.",
+  "confirmation-window.grant.limit-not-isolated":
+    "App protection is Deno permissions, not a virtual machine or container, so it is not full isolation.",
+  "confirmation-window.grant.limit-path-secrets":
+    "Anything inside an allowed folder, secrets included, can be read by the app.",
+  "confirmation-window.grant.limit-rss":
+    "lophn doesn't strongly limit how much memory an app uses. A Deno heap setting is not a limit on total memory.",
+  "confirmation-window.grant.limit-symlink":
+    "If something adds a link inside an allowed folder after you allow it, the app may reach beyond the folder.",
+  "confirmation-window.grant.limit-unknown":
+    "There is a limit on app protection that can't be described here.",
+  "confirmation-window.grant.subject": "{app} is asking for this access.",
+  "confirmation-window.grant.warning-file-read-network":
+    "This app asked to both read files and use the network. Together they could send your files out of this computer.",
+  "confirmation-window.grant.warning-outside-link":
+    "Some links inside this folder point outside it, so the app could read what they point to.",
+  "confirmation-window.grant.warning-unknown":
+    "This access has a warning that can't be described here.",
+  "confirmation-window.heading.access": "Access",
+  "confirmation-window.heading.automations": "Automations",
+  "confirmation-window.heading.commands": "Commands",
+  "confirmation-window.heading.data": "Data",
+  "confirmation-window.heading.preview": "Preview",
+  "confirmation-window.heading.problems": "Problem reports",
+  "confirmation-window.heading.screens": "Screens",
+  "confirmation-window.label.added": "Added",
+  "confirmation-window.label.agent": "An agent",
+  "confirmation-window.label.app": "App",
+  "confirmation-window.label.automation": "Automation",
+  "confirmation-window.label.called-by": "Called by",
+  "confirmation-window.label.change-confirm": "Asking you first",
+  "confirmation-window.label.change-effect": "What it does",
+  "confirmation-window.label.change-input": "Input",
+  "confirmation-window.label.change-revert": "Undo support",
+  "confirmation-window.label.changed": "Changed",
+  "confirmation-window.label.command": "Command",
+  "confirmation-window.label.commands": "Commands",
+  "confirmation-window.label.data-version": "Data version",
+  "confirmation-window.label.document-key": "Document key",
+  "confirmation-window.label.effect-external": "Changes things outside the app",
+  "confirmation-window.label.effect-read": "Only reads data",
+  "confirmation-window.label.effect-write": "Changes data in the app",
+  "confirmation-window.label.exact-request": "Exact request",
+  "confirmation-window.label.host": "Host",
+  "confirmation-window.label.input-fingerprint": "Input fingerprint",
+  "confirmation-window.label.input-shape": "Input it accepts",
+  "confirmation-window.label.limits": "What app protection can't do",
+  "confirmation-window.label.name-only": "Only the name or description changed",
+  "confirmation-window.label.new-inputs": "New required input",
+  "confirmation-window.label.no": "No",
+  "confirmation-window.label.path": "Path",
+  "confirmation-window.label.port": "Port",
+  "confirmation-window.label.reaches-outside": "Now reaches outside the app",
+  "confirmation-window.label.removed": "Removed",
+  "confirmation-window.label.schedule": "Schedule",
+  "confirmation-window.label.secret-name": "Secret name",
+  "confirmation-window.label.subfolders": "Includes subfolders",
+  "confirmation-window.label.target-app": "Target app",
+  "confirmation-window.label.you": "You",
+  "confirmation-window.release.effect":
+    "The app restarts on the new version. Its data stays unless Data below lists a change.",
+  "confirmation-window.release.effect-data":
+    "The app restarts on the new version, and its data changes as listed under Data, including anything that may be lost.",
+  "confirmation-window.release.first":
+    "This is the first version of the app, so there is nothing earlier to compare it with.",
+  "confirmation-window.release.none":
+    "Nothing changed from the version in use.",
+  "confirmation-window.release.preview-none":
+    "No preview is available for this version.",
+  "confirmation-window.release.preview-ready":
+    "A preview of this version is ready. Open it from the app to try it safely.",
+  "confirmation-window.release.review":
+    "Review needed. lophn can't tell whether this version works the same as the one in use, so check each change below.",
+  "confirmation-window.release.subject":
+    "{app} will switch to version {number, number}.",
+  "confirmation-window.title.automation": "Turn on {automation} in {app}?",
+  "confirmation-window.title.confirm-command": "Allow {command} in {app}?",
+  "confirmation-window.title.grant-agent-commands":
+    "Let agents use commands in {app}?",
+  "confirmation-window.title.grant-app-call": "Let {app} use another app?",
+  "confirmation-window.title.grant-document-save": "Let {app} save documents?",
+  "confirmation-window.title.grant-fs-read": "Let {app} read files?",
+  "confirmation-window.title.grant-fs-write": "Let {app} change files?",
+  "confirmation-window.title.grant-net-fetch":
+    "Let {app} connect to the network?",
+  "confirmation-window.title.grant-net-listen":
+    "Let {app} listen for connections?",
+  "confirmation-window.title.grant-secret-use": "Let {app} use a secret?",
+  "confirmation-window.title.release": "Use version {number, number} of {app}?",
+  "contexts.button.archive": "Archive focus",
+  "contexts.button.ask": "Ask in conversation",
+  "contexts.button.change": "Change",
+  "contexts.button.decide": "Set meaning",
+  "contexts.button.export": "Save as Markdown",
+  "contexts.button.later": "Later",
+  "contexts.button.new-meaning": "Add a meaning",
+  "contexts.button.open": "Open",
+  "contexts.button.open-after": "Open newer version",
+  "contexts.button.open-before": "Open earlier version",
+  "contexts.button.save-meaning": "Save meaning",
+  "contexts.button.show-latest": "Show latest",
+  "contexts.button.unarchive": "Restore focus",
+  "contexts.empty.candidates": "No undecided words.",
+  "contexts.empty.definitions": "No meanings set for this focus yet.",
+  "contexts.empty.no-focus":
+    "No focus yet. Tell lophn what you want to look at together.",
+  "contexts.empty.perspective": "Nothing here yet.",
+  "contexts.empty.pick-focus": "Pick a focus to see its materials.",
+  "contexts.error.change-failed": "That didn't go through. Nothing changed.",
+  "contexts.error.changed": "This focus changed since you opened it.",
+  "contexts.error.define-failed":
+    "Couldn't save this meaning. Nothing changed.",
+  "contexts.error.export-failed":
+    "Couldn't save this focus as Markdown. Nothing was saved.",
+  "contexts.error.meaning-changed":
+    "This word changed since you opened it. The latest is shown.",
+  "contexts.heading.candidates": "Not decided yet",
+  "contexts.heading.definitions": "Your meanings",
+  "contexts.label.archived": "Archived",
+  "contexts.label.evidence": "Where it appears",
+  "contexts.label.evidence-lines": "Lines {start, number}–{end, number}",
+  "contexts.label.evidence-more":
+    "{count, plural, one {# more place} other {# more places}}",
+  "contexts.label.export-app": "{title} (app data)",
+  "contexts.label.export-section": "{title}, section {section}",
+  "contexts.label.gaps": "What's missing",
+  "contexts.label.item-count": "{count, plural, one {# item} other {# items}}",
+  "contexts.label.meaning": "Meaning",
+  "contexts.label.read-version": "Version read",
+  "contexts.label.reason": "Why it's here",
+  "contexts.label.section": "Section {section}",
+  "contexts.label.show-archived": "Show archived",
+  "contexts.label.tab-materials": "Materials",
+  "contexts.label.tab-meanings": "Meanings",
+  "contexts.label.target-focus": "this focus",
+  "contexts.label.target-list": "the focus list",
+  "contexts.label.target-meanings": "the meanings",
+  "contexts.label.untitled": "Untitled",
+  "contexts.label.watch-added": "Section added in a newer version",
+  "contexts.label.watch-changed": "Changed in a newer version",
+  "contexts.label.watch-missing": "Section gone",
+  "contexts.label.watch-quiet": "No changes found",
+  "contexts.label.watch-unread": "Changes not checked",
+  "contexts.label.watch-unverified": "Couldn't check",
+  "contexts.label.word": "Word",
+  "contexts.notice.archived":
+    "This focus is archived. Changes aren't followed while it's archived, and its documents and apps are unchanged.",
+  "contexts.notice.deferred": "Left undecided for now.",
+  "contexts.notice.gap-no-version":
+    "This document has no saved version to read.",
+  "contexts.notice.gap-section-missing":
+    "This section isn't in the latest version. Pick the part to use again.",
+  "contexts.notice.gap-section-unverified":
+    "This section couldn't be checked in the latest version yet.",
+  "contexts.notice.gap-unreadable": "You can't open this right now.",
+  "contexts.notice.gap-unsupported": "This format has no sections to find.",
+  "contexts.notice.partial": "Only the first part is shown.",
+  "contexts.notice.watch-app":
+    "App data isn't checked for changes automatically.",
+  "contexts.notice.watch-format":
+    "The format changed, so the parts can't be compared.",
+  "contexts.notice.watch-missing":
+    "This part isn't in the latest version. Pick what to follow again.",
+  "contexts.notice.watch-other":
+    "The latest version couldn't be read, so this isn't counted as a change.",
+  "contexts.notice.watch-pending":
+    "The latest version is still being read. Check back later.",
+  "contexts.notice.watch-unavailable":
+    "Couldn't check what changed. Change states may be out of date.",
+  "contexts.notice.write-own":
+    "Write the meaning you use. Nothing is filled in for you.",
+  "contexts.title.focus": "Focus: {title}",
   "contexts.title.screen": "Focus",
   "contexts.view.baseline": "Baseline",
   "contexts.view.follow-changes": "Follow changes",
@@ -336,8 +802,7 @@ export const en = {
   "conversation.notice.stale-never": "Couldn't check for new messages yet.",
   "conversation.notice.unconfirmed":
     "lophn couldn't confirm this message arrived. Check before sending it again.",
-  "conversation.notice.visual-app-card":
-    "App cards can't be shown in the conversation yet.",
+  "conversation.notice.visual-app-card": "App cards can't be shown here.",
   "conversation.notice.visual-as-table": "This chart is shown as a table.",
   "conversation.notice.visual-not-saved":
     "lophn didn't save a document. Its answer says why.",
@@ -366,6 +831,7 @@ export const en = {
   "document.button.find-match-case": "Match case",
   "document.button.find-next": "Next match",
   "document.button.find-previous": "Previous match",
+  "document.button.instructions": "Instructions",
   "document.button.keep-editing": "Keep editing",
   "document.button.keep-mine": "Keep my changes",
   "document.button.menu": "Document menu",
@@ -439,6 +905,7 @@ export const en = {
   "document.label.replace-with": "Replace with",
   "document.label.saved": "Saved",
   "document.label.saving": "Saving…",
+  "document.label.these-instructions": "these instructions",
   "document.label.this-document": "this document",
   "document.label.version-confirmed": "Kept as a new version",
   "document.label.version-conflict": "A newer version exists",
@@ -469,6 +936,8 @@ export const en = {
     "Saved, but a newer version was kept while you edited.",
   "document.status.version-pending": "Saved to the file. Keeping a version.",
   "document.status.version-saved": "Saved as a new version.",
+  "document.title.global-instructions": "Global instructions",
+  "document.title.project-instructions": "Project instructions",
   "document.title.compare-disk": "Your changes and the file on disk",
   "document.title.compare-newest": "Your changes and the newest version",
   "document.title.unsaved": "Changes aren't saved yet",
@@ -555,6 +1024,8 @@ export const en = {
   "documents.button.back-to-series": "Back to series",
   "documents.button.clear-conditions": "Clear conditions",
   "documents.button.confirm-save-view": "Save view",
+  "documents.button.continue-draft": "Continue writing",
+  "documents.button.discard-draft": "Discard draft",
   "documents.button.go-search": "Search documents",
   "documents.button.include-archived": "Include archived",
   "documents.button.more-results": "More results",
@@ -570,6 +1041,7 @@ export const en = {
   "documents.button.search": "Search",
   "documents.button.search-again": "Search again",
   "documents.button.unarchive-series": "Unarchive series",
+  "documents.button.write-member": "Write a new document with this key",
   "documents.empty.no-candidates":
     "No other documents in this place use this series' format.",
   "documents.empty.no-matches": "Nothing matches these conditions.",
@@ -587,6 +1059,7 @@ export const en = {
   "documents.error.change-failed": "Couldn't change this series. Try again.",
   "documents.error.changed": "This changed since you opened it.",
   "documents.error.key-taken": "This key is already used in this series.",
+  "documents.error.key-unnamed": "lophn can't name a document from this key.",
   "documents.error.link-unknown":
     "This link doesn't point to a document lophn can open.",
   "documents.error.name-invalid":
@@ -659,6 +1132,8 @@ export const en = {
   "documents.label.whole-document": "Whole document",
   "documents.notice.archived-document":
     "This document is archived. Its versions can still be read.",
+  "documents.notice.draft":
+    "You're writing {key}. It becomes a document when you finish editing.",
   "documents.notice.first-key":
     "This series has no documents yet. Choose the first key yourself.",
   "documents.notice.lagging":
@@ -684,6 +1159,10 @@ export const en = {
   "documents.notice.view-rebuilt":
     "This list is found again from the view's conditions each time you open it.",
   "documents.notice.view-saved": "Saved as {name}.",
+  "documents.status.draft": "Not saved yet. Finish editing to keep it.",
+  "documents.status.draft-conflict":
+    "Not saved. This key or series changed. Your text is kept here.",
+  "documents.status.draft-failed": "Couldn't save. Your text is kept here.",
   "documents.title.screen": "Documents",
   "launcher.button.add-folder": "Add folder",
   "launcher.button.hide-details": "Hide details",
@@ -737,6 +1216,7 @@ export const en = {
   "project-workspace.button.expand-sidebar": "Expand sidebar",
   "project-workspace.button.info-panel": "Info panel",
   "project-workspace.button.launcher": "Launcher",
+  "project-workspace.button.open-app-panel": "Open app in tab",
   "project-workspace.button.open-terminal": "Open terminal",
   "project-workspace.button.preview-again": "Preview again",
   "project-workspace.button.remove-rule": "Remove rule",
@@ -753,6 +1233,7 @@ export const en = {
   "project-workspace.heading.left-out": "Left out",
   "project-workspace.heading.tracked": "Will be tracked",
   "project-workspace.info.empty": "Nothing to show yet.",
+  "project-workspace.label.choose-app": "Choose an app",
   "project-workspace.label.drop-here": "Move here",
   "project-workspace.label.drop-side": "Open in side pane",
   "project-workspace.label.gitignore": "Skip files listed in .gitignore",
@@ -805,7 +1286,150 @@ export const en = {
     "lophn couldn't read the project folders, so tracking stays off. Check that they exist and try again.",
   "project-workspace.tracking.unreadable-one":
     "lophn couldn't read {folder}, so tracking stays off. Check that it exists and try again.",
+  "projects.button.archive": "Archive project",
+  "projects.button.back-to-project": "Back to project",
+  "projects.button.export":
+    "Export {count, plural, one {# document} other {# documents}}",
+  "projects.button.move": "Move",
+  "projects.button.place": "Put in a file",
+  "projects.button.remove-file": "Remove the file",
+  "projects.button.rename": "Rename",
+  "projects.button.save": "Save changes",
+  "projects.button.show-latest": "Show latest",
+  "projects.button.unarchive": "Unarchive project",
+  "projects.empty.documents": "No documents in this project yet.",
+  "projects.empty.none": "No projects yet. Add one from the launcher.",
+  "projects.empty.pick": "Choose a project to see it here.",
+  "projects.error.changed": "This changed since you opened it.",
+  "projects.error.document-change-failed":
+    "Couldn't change this document. Nothing changed. Try again.",
+  "projects.error.document-name-taken":
+    "This name is already used in this place, now or before. Choose another.",
+  "projects.error.export-changed":
+    "This changed since you opened it. Nothing was exported. Check the latest and export again.",
+  "projects.error.export-failed":
+    "Couldn't export these documents. Nothing was exported. Try again.",
+  "projects.error.name-invalid":
+    "Use lowercase letters, numbers and dashes, starting with a letter.",
+  "projects.error.name-taken":
+    "This name is already used, now or before. Choose another.",
+  "projects.error.project-change-failed":
+    "Couldn't change this project. Nothing changed. Try again.",
+  "projects.error.review-unavailable":
+    "The review window can't open here yet, so the file wasn't removed.",
+  "projects.error.title-missing": "Add a title.",
+  "projects.heading.document": "Organize this document",
+  "projects.heading.documents": "Documents",
+  "projects.heading.export": "Export",
+  "projects.heading.export-included": "Included",
+  "projects.heading.export-left-out": "Not included",
+  "projects.heading.file": "File",
+  "projects.label.archived": "Archived",
+  "projects.label.document-name": "Name in links",
+  "projects.label.export-format": "Format",
+  "projects.label.export-kept-original": "Kept as the original file",
+  "projects.label.export-no-files": "Original files can't be returned",
+  "projects.label.export-not-picked": "Not picked",
+  "projects.label.export-version": "Version",
+  "projects.label.file-folder": "Folder",
+  "projects.label.file-linked": "Linked to a file",
+  "projects.label.file-name": "File name",
+  "projects.label.format-json": "JSON",
+  "projects.label.format-markdown": "Markdown",
+  "projects.label.move-to": "Move to",
+  "projects.label.name": "Name",
+  "projects.label.name-help": "Lowercase letters, numbers and dashes",
+  "projects.label.no-place": "No place",
+  "projects.label.place-project": "Project",
+  "projects.label.purpose": "Purpose",
+  "projects.label.show-archived": "Show archived projects",
+  "projects.label.step-done": "Done",
+  "projects.label.step-failed": "Didn't finish",
+  "projects.label.step-forbidden": "Not allowed",
+  "projects.label.step-move": "Put in this project",
+  "projects.label.step-not-attempted": "Not tried",
+  "projects.label.step-skipped": "Not needed",
+  "projects.label.step-source": "Link the document to the file",
+  "projects.label.step-tracking": "Track this file",
+  "projects.label.step-unlink-move": "Take out of this project",
+  "projects.label.step-unlink-source": "Unlink the file",
+  "projects.label.target-documents": "this project's documents",
+  "projects.label.target-project": "this project",
+  "projects.label.target-projects": "your projects",
+  "projects.label.title": "Title",
+  "projects.label.tracking-off": "Not tracking files",
+  "projects.label.tracking-on": "Tracking files",
+  "projects.label.version-latest": "Version {number, number}, newest",
+  "projects.label.version-number": "Version {number, number}",
+  "projects.notice.archive-keeps":
+    "Archiving hides this project from your lists. Its documents and versions stay.",
+  "projects.notice.archived":
+    "This project is archived. Its documents are still here and can be read.",
+  "projects.notice.export-pick": "Choose the documents and versions to export.",
+  "projects.notice.file-none":
+    "This document isn't in a file. lophn keeps its versions.",
+  "projects.notice.file-stays": "The file on disk stays where it is.",
+  "projects.notice.moved":
+    "Moved to {place}. Old links still open this document.",
+  "projects.notice.moved-out":
+    "Moved out of this project. It has no place now, so find it by its title.",
+  "projects.notice.place-help":
+    "lophn writes the newest version to a new file. It won't replace a file that's already there.",
+  "projects.notice.place-many-files":
+    "This version has more than one file, so it can't go in a single file.",
+  "projects.notice.place-no-project":
+    "Turn on file tracking for a project to put documents in files.",
+  "projects.notice.remove-help":
+    "The file is deleted only if it still matches the newest version. The document and its versions stay.",
+  "projects.notice.renamed":
+    "Renamed to {name}. Old links still open this document.",
+  "projects.notice.review-opened":
+    "Review the removal in the window that opened.",
+  "projects.notice.saved": "Saved.",
+  "projects.notice.steps-incomplete":
+    "Some steps after the file didn't finish. The file stays where it is.",
+  "projects.result.file-conflict":
+    "Nothing was written. A file is already there or the document changed. Choose another name or check the latest.",
+  "projects.result.file-deleted": "The file was deleted.",
+  "projects.result.file-failed":
+    "Couldn't write the file, so the document isn't in a file. Try again.",
+  "projects.result.file-gone": "The file was already gone.",
+  "projects.result.file-unknown":
+    "Couldn't confirm whether the file was written. Check the folder before trying again.",
+  "projects.result.file-written": "The file was written.",
   "projects.title.screen": "Projects",
+  "report-problem.button.copy-text": "Copy your text",
+  "report-problem.button.open": "Report a problem",
+  "report-problem.button.send": "Send report",
+  "report-problem.button.view-issue": "View issue",
+  "report-problem.error.rejected": "lophn couldn't accept this report.",
+  "report-problem.error.too-long": "Keep it to 500 characters or fewer.",
+  "report-problem.error.unreachable":
+    "Your report wasn't sent because lophn couldn't be reached.",
+  "report-problem.heading.sent-with": "Sent with your report",
+  "report-problem.hint.draft-memory":
+    "Your text is kept only while this window is open.",
+  "report-problem.label.screen-details": "Screen name and location",
+  "report-problem.label.screenshot": "Screenshot of this app",
+  "report-problem.label.what-happened": "What went wrong?",
+  "report-problem.notice.capturing": "Taking a screenshot of this app.",
+  "report-problem.notice.copy-text": "Copy your text so you don't lose it.",
+  "report-problem.notice.new-issue":
+    "This report isn't added to an existing issue.",
+  "report-problem.notice.open-failed":
+    "Couldn't open the report form. Try again.",
+  "report-problem.notice.screen-not-sent": "Screen details won't be sent.",
+  "report-problem.notice.screenshot-failed":
+    "Couldn't take a screenshot of this app. You can still send your text.",
+  "report-problem.notice.screenshot-hidden":
+    "No screenshot because this app wasn't showing.",
+  "report-problem.notice.screenshot-not-selected":
+    "The screenshot is sent only if you select it.",
+  "report-problem.notice.screenshot-protected":
+    "No screenshot because another lophn window was open over this app.",
+  "report-problem.status.received": "Received. lophn will look into it.",
+  "report-problem.status.sending": "Sending your report.",
+  "report-problem.title.report": "Report a problem",
   "roles.title.screen": "Roles",
   "settings.models.for-decisions": "For decisions",
   "settings.models.for-summaries": "For summaries",

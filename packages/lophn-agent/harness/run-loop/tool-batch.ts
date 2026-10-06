@@ -53,6 +53,10 @@ export type BatchControl = {
   wait(ms: number, signal: AbortSignal): Promise<"elapsed" | "aborted">;
   random(): number;
   graceMs: number;
+  // 이미 확정한 call의 결과(요청 key). 다시 부르지 않고 그대로 쓴다.
+  confirmed?: ReadonlyMap<string, CallResult>;
+  // 진입이 이미 기록된 call(요청 key → ToolCall ID). 판정 없이 실행만 한다.
+  started?: ReadonlyMap<string, string>;
 };
 
 const REASON_TEXT: Readonly<Record<string, string>> = {
@@ -88,7 +92,7 @@ export function synthesizedResult(
 
 // 인자는 JSON 객체여야 한다. 비어 있으면 인자 없는 호출이다(adapter가 같은 규칙으로 완성을
 // 확인한다). 그 밖의 것은 고치지 않고 원문을 그대로 둔다.
-function parseArgs(
+export function parseToolArgs(
   args: string,
 ): { ok: true; value: unknown } | { ok: false } {
   if (args.trim().length === 0) return { ok: true, value: {} };
@@ -158,7 +162,7 @@ export async function runToolBatch(
   calls: readonly ModelToolCall[],
 ): Promise<BatchOutcome> {
   const requests: ToolCallRequest[] = calls.map((call, order) => {
-    const parsed = parseArgs(call.args);
+    const parsed = parseToolArgs(call.args);
     return {
       model_call: control.modelCall,
       key: call.id,
@@ -170,7 +174,7 @@ export async function runToolBatch(
     };
   });
   const infos = requests.map((request) => control.tools.info(request.name));
-  const valid = calls.map((call) => parseArgs(call.args).ok);
+  const valid = calls.map((call) => parseToolArgs(call.args).ok);
   const hold: { waiting: BatchOutcome["waiting"] } = { waiting: null };
 
   async function notExecuted(
@@ -190,12 +194,16 @@ export async function runToolBatch(
     info: ToolInfo,
   ): Promise<CallResult> {
     let entries = 0;
+    const resumedCall = control.started?.get(request.key);
     async function once(next: ToolCallRequest): Promise<ToolAttempt | null> {
       entries += 1;
       const link = control.signalFor(info.server);
       try {
+        const run = resumedCall !== undefined && next.attempt === 0
+          ? control.tools.resume(next, resumedCall, link.signal)
+          : control.tools.attempt(next, link.signal);
         const settled = await awaitAbortable(
-          control.tools.attempt(next, link.signal),
+          run,
           link.signal,
           control,
         );
@@ -272,6 +280,12 @@ export async function runToolBatch(
   async function one(index: number, hold_: string | null): Promise<CallResult> {
     const request = requests[index];
     const info = infos[index];
+    const prior = control.confirmed?.get(request.key);
+    if (prior !== undefined) return prior;
+    // 진입이 이미 기록된 call은 허락과 판정을 마쳤다. 새 진입 검사 없이 실행만 한다.
+    if (info !== undefined && control.started?.has(request.key)) {
+      return await entered(request, info);
+    }
     const blocked = (await control.gate(info?.server ?? null)) ?? hold_;
     if (blocked !== null) return await notExecuted(request, blocked);
     if (info === undefined) {

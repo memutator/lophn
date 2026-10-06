@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Tab, TabList, Tabs } from "@lophn/design/components";
 import { t } from "@lophn/wording";
 
-import type { Catalog, LophnSource, SeriesMember } from "../source.ts";
+import type { EditorSessions } from "../../../editor/sessions.ts";
+import type { Catalog, LophnSource, Series, SeriesMember } from "../source.ts";
+import { MemberWriter } from "../series/member-writer.tsx";
 import { SeriesDetailView } from "../series/series-detail.tsx";
 import { SeriesPanel } from "../series/series-panel.tsx";
 import { RegisterSeries } from "../series/register-form.tsx";
@@ -17,6 +19,7 @@ type Detail =
   | { readonly kind: "none" }
   | { readonly kind: "reader"; readonly target: ReaderTarget }
   | { readonly kind: "series"; readonly id: string }
+  | { readonly kind: "write"; readonly series: Series }
   | { readonly kind: "register" };
 
 export interface DocumentsScreenProps {
@@ -27,6 +30,8 @@ export interface DocumentsScreenProps {
   initialTab?: DocumentsTab;
   /** 처음 읽을 문서. 대화의 결과 링크가 연다. */
   initialRead?: ReaderTarget;
+  /** 창의 편집 session 묶음. 있으면 series 새 멤버를 이 화면에서 쓴다. */
+  sessions?: EditorSessions;
 }
 
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
@@ -34,7 +39,7 @@ const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
 // documents 화면. 왼쪽 360px 목록 칸에서 찾고 고르며 오른쪽 상세에서 읽는다(desktop#R1).
 // 검색·saved view·series가 같은 목록 칸을 나눠 쓰고 대화 없이도 문서에 닿는다.
 export function DocumentsScreen(
-  { source, now = Date.now, initialTab = "search", initialRead }:
+  { source, now = Date.now, initialTab = "search", initialRead, sessions }:
     DocumentsScreenProps,
 ) {
   const [tab, setTab] = useState<DocumentsTab>(initialTab);
@@ -109,6 +114,28 @@ export function DocumentsScreen(
           catalog={catalog}
           onRead={(members, index) => readMember(detail.id, members, index)}
           onChanged={() => setSeriesRevision((value) => value + 1)}
+          {...(sessions
+            ? {
+              onWrite: (series: Series) => setDetail({ kind: "write", series }),
+            }
+            : {})}
+        />
+      );
+    }
+    if (detail.kind === "write" && sessions && detail.series.draft) {
+      const id = detail.series.id;
+      return (
+        <MemberWriter
+          key={detail.series.draft.document}
+          source={source}
+          sessions={sessions}
+          series={detail.series}
+          onSaved={() => {
+            // 첫 판이 멤버가 되었다. 가족 목록과 순서를 다시 읽는다.
+            setSeriesRevision((value) => value + 1);
+            setDetail({ kind: "series", id });
+          }}
+          onBack={() => setDetail({ kind: "series", id })}
         />
       );
     }

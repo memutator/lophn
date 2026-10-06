@@ -16,12 +16,13 @@ import { COMMAND_BODY_MAX_BYTES } from "./limits.ts";
 import type { AppConnection } from "./wire.ts";
 
 let saves = 0;
+let saveResult: unknown = { saved: true };
 installHandlers([
   {
     command: "usage.save",
     handle: () => {
       saves += 1;
-      return { saved: true };
+      return saveResult;
     },
   },
   { command: "usage.read", handle: () => ({ rows: [] }) },
@@ -210,4 +211,46 @@ Deno.test("apps/runtime#R11: test mode does not pretend to be preview", async ()
   );
   assertEquals(matched.status, 200);
   assertEquals((matched.body as { mode: string }).mode, "test");
+});
+
+Deno.test("apps/blueprint#R21: a write handler's withRevert value becomes the command result's revert, and other values stay the result", async () => {
+  const marker = Symbol.for("lophn.command-revert");
+  const evidence = {
+    invocation: "inv_01h455vb4pex5v6nkc6gd5fdw3",
+    receipt: "before-1",
+    expected_revision: "4",
+  };
+  saveResult = { result: { saved: true }, revert: evidence, [marker]: true };
+  const started = startRuntime({
+    line: startLine(),
+    blueprint: blueprint(),
+    key: shaKey(),
+    clock: clockAt(),
+    ids: { newId: (prefix) => `${prefix}_01h455vb4pex5v6nkc6gd5fdw3` },
+    broker: () => Promise.resolve({ status: 503, body: null }),
+    dataSchema: 0,
+  });
+  started.state.accepting = true;
+  const user = connection() as AppConnection;
+  const call = async (requestKey: string) =>
+    (await handleInvoke(
+      started.state,
+      "/_lophn/commands/invoke",
+      new TextEncoder().encode(JSON.stringify({
+        request_key: requestKey,
+        release: REL,
+        command: "usage.save",
+      })),
+      user,
+    )).body as { result: Record<string, unknown> };
+  assertEquals((await call("marked")).result, {
+    result: { saved: true },
+    revert: evidence,
+  });
+  // 심볼이 없는 값은 앱 데이터이므로 `revert`라는 key가 있어도 올리지 않는다.
+  saveResult = { revert: "plain", rows: [] };
+  assertEquals((await call("plain")).result, {
+    result: { revert: "plain", rows: [] },
+  });
+  saveResult = { saved: true };
 });

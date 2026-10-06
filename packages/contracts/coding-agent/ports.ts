@@ -24,7 +24,8 @@ export type TicketClaimCheckInput = {
 };
 
 export type TicketClaimCheckResult =
-  | { ok: true; expires_at: string }
+  // app은 ticket이 속한 앱이다. release 준비가 준비 대상 앱과 같은지 대조한다.
+  | { ok: true; expires_at: string; app?: string }
   | { ok: false; reason: TicketClaimReject };
 
 // apps의 release 준비 transaction이 현재 claim을 확인한다.

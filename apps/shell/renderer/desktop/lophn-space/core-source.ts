@@ -135,6 +135,7 @@ interface SeriesValue {
   next_rule: string;
   revision: string;
   status: "active" | "archived";
+  draft: { document: string; key: string } | null;
 }
 
 interface SeriesGetValue {
@@ -210,6 +211,9 @@ function seriesOf(value: SeriesValue): Series {
     nextRule: value.next_rule,
     revision: value.revision,
     archived: value.status === "archived",
+    draft: value.draft === null
+      ? null
+      : { document: value.draft.document, key: value.draft.key },
   };
 }
 
@@ -648,6 +652,65 @@ export function coreLophnSource(
         { base_revision: series.revision },
       );
       return result.ok ? { ok: true, value: seriesOf(result.value) } : result;
+    },
+
+    async startDraft(series, key) {
+      // draft의 format은 정확한 FormatRef다. 가족 format의 지금 module을 쓴다. 편집기가 쓰는
+      // Markdown은 그 MIME의 기본 형식으로 저장되므로 명시 형식이 아니다.
+      const formats = await call<
+        { formats: { name: string; module_hash: string }[] }
+      >(core, "read", "formats", "list", {});
+      if (!formats.ok) return formats;
+      const format = formats.value.formats.find((item) =>
+        item.name === series.format
+      );
+      if (!format) return { ok: false, code: "unavailable" };
+      const result = await command<SeriesValue>(
+        core,
+        "series",
+        "set_draft",
+        {
+          series: series.id,
+          draft: {
+            document: idOf("doc"),
+            key,
+            base_version: null,
+            format: {
+              name: format.name,
+              module_hash: format.module_hash,
+              explicit: false,
+            },
+            content: null,
+          },
+        },
+        { base_revision: series.revision },
+      );
+      return result.ok ? { ok: true, value: seriesOf(result.value) } : result;
+    },
+
+    async clearDraft(series) {
+      const result = await command<SeriesValue>(
+        core,
+        "series",
+        "clear_draft",
+        { series: series.id },
+        { base_revision: series.revision },
+      );
+      return result.ok ? { ok: true, value: seriesOf(result.value) } : result;
+    },
+
+    async latestVersion(document) {
+      const result = await call<{ document: { latest_version: string } }>(
+        core,
+        "read",
+        "documents",
+        "get",
+        { document },
+      );
+      if (result.ok) {
+        return { ok: true, value: result.value.document.latest_version };
+      }
+      return result.code === "not_found" ? { ok: true, value: null } : result;
     },
 
     async placeDocuments(place) {

@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { err } from "../../base/mod.ts";
 import { type ContextCommandDeps, createContextCommands } from "./commands.ts";
+import { createContextReads } from "./reads.ts";
 import { contextFixture, ids, keep, userContext } from "./testing/mod.ts";
 
 // apps blueprint read가 들어오기 전 test double. read command만 허용한다.
@@ -1115,6 +1116,81 @@ Deno.test("documents/contexts#R12: 없는 context는 not_found다", () => {
     const missing = record(fixture, comparison(sourceSeq, "1"));
     assert(!missing.ok);
     assertEquals(missing.error.code, "not_found");
+  } finally {
+    fixture.close();
+  }
+});
+
+Deno.test("documents/contexts#R11: watch read는 확인된 변화와 미확인 이유를 따로 내고 권한 밖 문서와 미확인 근원 없음을 꾸미지 않는다", () => {
+  const fixture = contextFixture();
+  try {
+    fixture.seedDocument(ids.doc);
+    const created = keep(
+      create(fixture, ids.context, [item(ids.doc, "요약", "watch")]),
+    );
+    const sourceSeq = save(fixture);
+    keep(record(
+      fixture,
+      comparison(sourceSeq, created.revision, {
+        target: { kind: "document", document: ids.doc, section: "요약" },
+        result: "section_missing",
+        after_hash: null,
+      }),
+    ));
+    const unverified = {
+      document: ids.doc,
+      section: "결론",
+      before_version: VER_1,
+      after_version: VER_2,
+      reason: "format module changed",
+    };
+    const reads = createContextReads({
+      unverified: (context) => ({
+        ok: true,
+        value: context === ids.context ? [unverified] : [],
+      }),
+    });
+    const read = () =>
+      reads.watch.handle(fixture.snapshot(), userContext(), {
+        context: ids.context,
+      } as never);
+    const value = keep(read()) as {
+      changes: unknown[];
+      unverified: unknown[];
+    };
+    assertEquals(value.changes, [{
+      target: { kind: "document", document: ids.doc, section: "요약" },
+      change_kind: "section_missing",
+      before_version: VER_1,
+      after_version: VER_2,
+      source_seq: sourceSeq,
+    }]);
+    assertEquals(value.unverified, [{
+      target: { kind: "document", document: ids.doc, section: "결론" },
+      before_version: VER_1,
+      after_version: VER_2,
+      reason: "format module changed",
+    }]);
+    // 권한 밖 문서의 결과는 없는 것과 같다.
+    fixture.use((_ctx, _operation, target) =>
+      (target as { document?: string }).document === ids.doc
+        ? err({ code: "forbidden", message: "no" })
+        : { ok: true, value: undefined }
+    );
+    const hidden = keep(read()) as {
+      changes: unknown[];
+      unverified: unknown[];
+    };
+    assertEquals(hidden.changes, []);
+    assertEquals(hidden.unverified, []);
+    // 미확인 근원이 없으면 빈 목록이 아니라 읽지 못한 것이다.
+    const unconnected = createContextReads().watch.handle(
+      fixture.snapshot(),
+      userContext(),
+      { context: ids.context } as never,
+    );
+    assert(!unconnected.ok);
+    assertEquals(unconnected.error.code, "unavailable");
   } finally {
     fixture.close();
   }

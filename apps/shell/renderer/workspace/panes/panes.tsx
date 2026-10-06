@@ -49,6 +49,13 @@ export interface PanesProps {
    * 탭인지다.
    */
   renderTab?: (tab: TabItem, active: boolean) => ReactNode | null;
+  /**
+   * 고르지 않아도 칸에 남겨 둘 탭 본문(앱 패널). null이 아니면 그 칸의 모든 그런 탭을 그리고
+   * 고른 탭만 보인다. shown은 그 탭이 칸에서 보이는지다.
+   */
+  renderKept?: (tab: TabItem, shown: boolean) => ReactNode | null;
+  /** 주면 마지막 칸 탭 줄 끝에 앱 패널 열기 버튼을 둔다(workspace#R5). */
+  onOpenAppPanel?: () => void;
   /** 탭 key마다 tooltip. */
   tooltips?: Readonly<Record<string, ReactNode>>;
 }
@@ -72,7 +79,9 @@ export function Panes(
     infoOpen = false,
     onToggleInfo,
     onOpenTerminal,
+    onOpenAppPanel,
     renderTab,
+    renderKept,
     tooltips,
   }: PanesProps,
 ) {
@@ -109,8 +118,21 @@ export function Panes(
     const splitLabel = t("project-workspace.button.split-pane");
     const infoLabel = t("project-workspace.button.info-panel");
     const terminalLabel = t("project-workspace.button.open-terminal");
+    const appPanelLabel = t("project-workspace.button.open-app-panel");
     return (
       <>
+        {onOpenAppPanel
+          ? (
+            <Tooltip content={appPanelLabel}>
+              <IconButton
+                icon={workspaceIcons.appPanel}
+                label={appPanelLabel}
+                data-open-app-panel=""
+                onClick={onOpenAppPanel}
+              />
+            </Tooltip>
+          )
+          : null}
         {onOpenTerminal
           ? (
             <Tooltip content={terminalLabel}>
@@ -201,6 +223,7 @@ export function Panes(
               wide={wide}
               end={end(index, position)}
               renderTab={renderTab}
+              renderKept={renderKept}
               dropTarget={dragging !== null && dragging.pane !== index}
               over={over === index}
               dropProps={dropProps(index)}
@@ -261,6 +284,7 @@ interface PaneViewProps {
   };
   children?: ReactNode;
   renderTab?: (tab: TabItem, active: boolean) => ReactNode | null;
+  renderKept?: (tab: TabItem, shown: boolean) => ReactNode | null;
   tooltips?: Readonly<Record<string, ReactNode>>;
   onSelect: (key: string) => void;
   onClose: (key: string) => void;
@@ -283,6 +307,7 @@ function PaneView(
     dropProps,
     children,
     renderTab,
+    renderKept,
     tooltips,
     onSelect,
     onClose,
@@ -292,7 +317,19 @@ function PaneView(
   }: PaneViewProps,
 ) {
   const selected = pane.tabs.find((tab) => tab.key === pane.selected);
-  const custom = selected && renderTab ? renderTab(selected, focused) : null;
+  // 앱 패널은 고르지 않아도 칸에 남는다. 다른 탭을 고르면 숨고 닫으면 빠진다.
+  const kept = renderKept
+    ? pane.tabs.flatMap((tab) => {
+      const node = renderKept(tab, tab.key === pane.selected);
+      return node === null ? [] : [{ tab, node }];
+    })
+    : [];
+  const keptSelected = kept.some(({ tab }) => tab.key === pane.selected);
+  const custom = keptSelected
+    ? null
+    : selected && renderTab
+    ? renderTab(selected, focused)
+    : null;
   return (
     <section
       className={`${styles.pane} ${width === null ? "" : styles.sized}`}
@@ -319,32 +356,46 @@ function PaneView(
       />
       <div
         className={`${styles.body} ${wide ? "" : styles.narrow} ${
-          custom ? styles.flush : ""
+          custom || keptSelected ? styles.flush : ""
         }`}
         data-pane-body=""
         role="tabpanel"
       >
-        {custom ?? (selected
-          ? (
-            <div className={styles.content} data-tab-body={selected.key}>
-              <h1 className={styles.heading}>{selected.title}</h1>
-              <p className={styles.meta}>{t(TAB_KIND_LABEL[selected.kind])}</p>
-            </div>
-          )
-          : (
-            <div className={styles.placeholderWrap}>
-              <div className={styles.placeholder} data-pane-empty="">
-                <Icon
-                  icon={workspaceIcons.document}
-                  pixels={iconPixels("large")}
-                  className={styles.placeholderIcon}
-                />
-                <p className={styles.placeholderText}>
-                  {t("project-workspace.empty.no-tabs")}
+        {kept.map(({ tab, node }) => (
+          <div
+            key={tab.key}
+            className={styles.kept}
+            data-kept-tab={tab.key}
+            hidden={tab.key !== pane.selected}
+          >
+            {node}
+          </div>
+        ))}
+        {keptSelected
+          ? null
+          : custom ?? (selected
+            ? (
+              <div className={styles.content} data-tab-body={selected.key}>
+                <h1 className={styles.heading}>{selected.title}</h1>
+                <p className={styles.meta}>
+                  {t(TAB_KIND_LABEL[selected.kind])}
                 </p>
               </div>
-            </div>
-          ))}
+            )
+            : (
+              <div className={styles.placeholderWrap}>
+                <div className={styles.placeholder} data-pane-empty="">
+                  <Icon
+                    icon={workspaceIcons.document}
+                    pixels={iconPixels("large")}
+                    className={styles.placeholderIcon}
+                  />
+                  <p className={styles.placeholderText}>
+                    {t("project-workspace.empty.no-tabs")}
+                  </p>
+                </div>
+              </div>
+            ))}
       </div>
       {dropTarget && over
         ? (

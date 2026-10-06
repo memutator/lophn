@@ -375,6 +375,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T19 prompt 층, 직렬화, cache 경계, 입력 예산
 
+- 상태: 완료 (#369)
 - 등급: 기본
 - concern: lophn-agent/harness/prompt-assemble
 - 요구: lophn-agent/harness/prompt-assemble#R1, R2, R3, R7, R8, R9, R24, R30
@@ -515,7 +516,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - T51에서 넘어온 것: 회차 시계(`scheduling/work.ts`의 `createOccurrenceClock`·`run`)를 agent runtime 기동에서 돌려 `/v1/assignment-occurrences/process`를 machine credential로 부르는 연결(#267은 시계와 command만 닫았다). 주입할 `read`는 selector와 같은 core read, `wait`는 runtime 시각 대기, clock은 systemClock이다
 - T33에서 넘어온 것: visual.show·visual.read·visual.prepare_document의 run 연결(operation·세션·메시지 ID·판정 대상·handler 수명). 자세한 것은 T33 블록 "T26에 넘기는 것"과 질문 Q45.
 - T12에서 넘어온 것: (1) `RunSelector.next()`로 고른 run을 StartRun으로 시작하고 `beginRun`·`createRunCredentials`(#260)로 `agent:<asg>` credential을 받아 tool 진입에만 쓰며 run 종료·멈춤·감독 상실에 `end`한다. (2) credential을 core에서 runtime으로 전달하는 감독 pipe 메시지(app_credential_request의 agent판)와 core의 `CredentialRegistry.issue` 호출 자리, run 상태를 다시 보는 `current/live` 연결은 platform에 맡은 작업이 없다(platform#T24는 registry까지 닫혔다). 이 작업이 platform·contracts에 그 계약을 요청해 받은 뒤 연결하고, 계약이 없으면 멈추고 lead에게 보고한다.
-- 상태: 완료 (#375) — 이어보냄(후속 작업 필요): (1) core 쪽 감독 pipe `agent_credential_request` 처리(`CredentialRegistry.issue`, run·assignment·process 조건, `agent_credential_end`의 `endBy`). 계약(platform/supervision의 agent_credential_request·response·end)은 이 PR이 additive로 더했고 runtime 쪽 요청·종료는 `apps/agent-runtime/credential-link.ts`가 한다. (2) loop `RunPorts`의 실제 core 연결: StartModelCall·FinishModelCall과 ApplyMessages(Q30), RecordToolRequest부터 Finish까지의 ToolCall 기록과 `createToolJudgment`·`executeTool` 연결, `ports.inputs`(request·미반영 correction 읽기), `ports.context`(preset·assignment 판, 문서 읽기와 `MaterialSource`, skill 목록), `ports.view`(relay `workspace.read`), RecordMessage·WaitRun·FinishRun·CheckpointRun 호출, `prepare`(basis blob 준비와 StartRun). T25·T11·T33·T32·T51·T15·T10의 "넘어온 것" 연결은 이 (2)와 함께 간다. loop 엔진·port 모양은 `run-loop/ports.ts`
+- 상태: 완료 (#375, #378) — 이어보냄: (1) 제품 core가 agent runtime child를 띄우는 자리(`agentRuntimeLaunchSpec` 사용, hello의 machine credential scope에 `RUNTIME_MACHINE_OPERATIONS`, 감독 pipe child message를 `createAgentCredentialLink`에 연결, 발급기는 core의 CredentialRegistry)는 platform에 맡은 작업이 없다. 발급 판정과 시험은 #378에서 닫혔다. (2) 쓰기·external tool의 소유 계약 연결(`Toolkit.binding`)과 앱 command 선언·허락(`offers`), skill·MCP·material source 읽기, 사람 지침 읽기(`InstructionFiles`)의 runtime 연결, OpenAI 두 protocol의 `pack`은 각 소유 작업이 그 port를 채운다. 읽기 tool 연결, model 호출·tool 호출 기록, 답·기다림·끝남 기록은 #378에서 실제 core로 시험했다. run basis·result, ModelCall input·context_basis·output, ToolCall input·output은 redaction한 바이트를 감독 pipe(`blob_prepare_request`, kind `lophn-agent/runtime`의 principal `machine:agent-runtime`)로 먼저 저장하고 StartRun·FinishRun·StartModelCall·FinishModelCall·RecordToolRequest·FinishToolCall이 같은 transaction에서 영구 참조를 등록한다(T10에서 넘어온 것 완료). 크기 입력(`*_size`)이 없는 옛 호출은 hash만 남는다.
 - 완료:
   - loop_test.ts에 R8–R13, R15, R23–R25 테스트(fake provider·clock·owner contract): model이 응답하지 않아도 core read·다른 assignment가 진행, turn 순서와 조립 뒤 입력·멈춤 재확인, 수정 입력은 다음 tool 전에 새 판단, 불완전 응답의 tool 0개와 잘림을 다음 판단에 전달, 모든 call이 확인된 read일 때만 병렬·하나라도 아니면 요청 순서 순차·결과는 요청 순서, 없는 tool·잘못된 인자는 call별 결과·인자 보정 없음, 순차 write·external 거절·최종 실패 뒤 나머지 미실행 이유·독립 read 결과 보존, 멈춤 뒤 새 model·tool·retry 차단·진행 호출 중단 요청·미시작 call 미실행 결과 합성, 일시 실패만 최대 2회(서버 시각을 지키고 없으면 2초·4초, fake clock으로 서버 시각 전 재시도 없음)·부분 응답 미채택, tool retry는 read·멱등 write만 1회 1초±10%와 재판정, provider 끄기·MCP 제거 뒤 새 진입 차단
   - flow steer-agent-work의 agent 갈래(R10 테스트가 steering → 새 판단을 확인한다)
@@ -523,6 +524,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T27 중단 뒤 복구
 
+- 상태: 완료 (#394)
 - 등급: 최상위
 - concern: lophn-agent/harness/waiting-and-recovery
 - 요구: lophn-agent/harness/waiting-and-recovery#R8, R9, R10, R12
@@ -532,14 +534,19 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: docs/research/agent-run-loop.md, docs/research/session-and-conversation.md
 - 선행: T26, T28
+- lophn-agent#T26에서 넘어온 것: (1) 사람의 결정으로 재개된 run(`RunResumed`)과 재시작 뒤의 run을 같은 loop로 이어 가는 일: 이력 재구성(완전 응답·확정 tool 결과를 ledger에서 읽어 `history`로)과 retry 시각·횟수 보존(#309). 지금 loop는 새 run만 시작하고 기다림에 들어간 run은 이 process가 들고 있는 해소기(`driver.settle`)로 결정만 반영한다. (2) 복구가 run basis blob(`run`/`basis`, 준비 용도 `run_basis`)을 읽는 경로.
 - T25에서 넘어온 것: R8–R10·R12, RecoverRun·RunRecovered(#309의 resolver `recover` 위에)
 - 완료:
   - recovery_test.ts에 R8–R10, R12 테스트: 완전 응답·확정 결과를 다음 판단 전에 저장, 각 command commit 직후 죽여도 중복 run·효과·usage 없음, 순차 세 call 중 둘째 뒤 끊기면 셋째부터, 저장 실패를 완료로 가정하지 않음, 비사용자 중단만 자동 복구하고 현재 assignment·판정·안전·대상·credential·누적 한도 재확인, 멈춘 assignment를 풀지 않음, 결과 모르는 write·external은 결과 조회·멱등 확인 전 반복 없음·확인 불가면 effect_unknown 종료와 충돌 후속 call 차단, opaque 추론 상태 유실은 state-free 검증 또는 configuration_unavailable, 압축 summary는 완성 출력과 원문 보호 범위로 같은 run에 복구·이어가기 summary와 합치지 않음
   - 앱 invocation 결과 조회 연결은 T44
   - 이어받음: platform#T43의 run 복구 command. 재시작 점검이 미완료 run을 실제 관측으로 확정하는 연결은 이 작업이 낸다
+  - 한 것: (1) core: `RecoverRun`(machine 전용, ledger의 model·tool call 행에서 경계를 다시 계산해 입력과 같을 때만 받고 한도 시간이 줄면 거절, resume은 `RunRecovered`와 elapsed 보존, finish는 실패 이유만 받아 확정 사실로 정리, 끝난 run은 감사 기록만)와 additive 읽기 `ReadRunBody`(`/v1/runs/body`, machine만, run basis·model 응답·tool 결과를 blob hash 확인 뒤 값으로 준다. 복구가 이력을 다시 만들려면 저장된 본문을 읽어야 해서 더했다). `ResolveRunWait`가 재개할 때 `elapsed_checkpoint_at`을 재개 시각으로 올려 기다린 시간이 중단 시간으로 세어지지 않는다. (2) loop: `RunInput.resume`(이력·사실·남은 응답·retry 상태)을 받아 같은 loop로 잇는다: 이미 받은 완전 응답은 다시 부르지 않고 확정한 call 결과는 `confirmed`로 건너뛰며 허락으로 진입이 기록된 call은 `tools.resume`으로 판정 없이 한 번 실행하고 일시 실패 뒤 retry는 남은 대기만 기다린다. (3) runtime: `recoverRunFromLedger`가 열린 호출을 먼저 닫고(시작만 있는 model call은 uncertain, 진입하지 않은 call은 미실행, 읽기는 중단, 쓰기·external은 소유 계약 결과 조회 `Toolkit.lookups`가 확정한 결과만 쓰고 모르면 uncertain 뒤 `effect_unknown`으로 끝내며 남은 call은 미실행으로 남겨 구별) 저장된 본문으로 이력을 다시 만든다. preset은 run basis가 고정한 판이고 credential은 StartRun이 고정한 scope로만 받으며 현재 scope·model·credential이 달라졌으면 진행하지 않는다. `driver.recover()`는 runtime 기동에서 새 run을 고르기 전에 돌고 `driver.resume(run)`은 사람의 결정 뒤 같은 길로 잇는다. 사람이 멈춘 run은 이미 끝나 있어 대상이 아니고 멈춘·회수된 assignment의 run은 `StopRun`(machine)으로 멈춤 종료한다
+  - 시험: packages/lophn-agent/harness/waiting-and-recovery/recovery_test.ts(경계·계획·이력 재구성·loop 이어가기·압축 summary 복구), apps/core/run-recovery_test.ts(실제 core·fake provider: runtime을 중단 지점에 죽이고 다시 세워 앞 두 call과 완전 응답을 반복하지 않고 셋째부터, 결과 없는 쓰기는 다시 보내지 않고 `effect_unknown`·조회가 있으면 그 결과, 어느 command 직후에 죽어도 중복 없음, 멈춘 assignment·한도, approval 대기 중 재시작·같은 process의 결정 뒤 재개, RecoverRun·ReadRunBody 검사), apps/agent-runtime/runtime_test.ts(기동 순서)
+  - 이어보냄: (1) R12의 실제 연결: loop가 아직 압축을 부르지 않아(`compaction_summary: null`) 복구는 규칙(`recoverCompactionSummaries`: 같은 run의 완성 압축 호출만, 이어가기 summary와 합치지 않음)만 있다. loop가 압축을 쓸 때 이 규칙으로 derived `summaries/`를 다시 세운다. (2) 쓰기·external tool의 결과 조회 채우기(`Toolkit.lookups`)와 MCP `extension` 기록(그 전에는 `outside_call` 경계가 나오지 않는다)은 각 소유 작업(앱 command는 T44, MCP는 T36)이다. 조회가 없는 tool은 결과를 확인할 수 없는 것으로 다뤄 `effect_unknown`으로 끝난다. (3) 제품 main이 `driver`를 만들어 기동하는 자리는 T26이 넘긴 제품 core의 runtime child 띄우기와 같은 연결이다(`startAgentRuntime({driver})`가 기동 때 `recover()`를 돈다). (4) 질문(question) 대기를 run loop가 거는 일(WaitRun 질문)은 loop가 아직 approval만 건다. 해소기와 복구는 질문도 이어 받도록 되어 있다
 
 ### T28 compaction과 세션 이어가기 summary
 
+- 상태: 완료 (#388)
 - 등급: 기본
 - concern: lophn-agent/harness/prompt-assemble, lophn-agent/conversation
 - 요구: lophn-agent/harness/prompt-assemble#R10, R11, R12, R13, R14, R15, R16, R17, R19, R20, R21, R22, R23, lophn-agent/conversation#R9, R10, R11
@@ -593,6 +600,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 
 ### T31 lophn 역할: 기획과 안내
 
+- 상태: 완료 (#382) — 이어보냄: 새 앱 등록(`app.create`)의 option action owner → apps#T30(apps/registration#R3), 앱 기획(R6, R9, R10, R12) → T47, 판단 품질 eval → T55
 - 등급: 기본
 - concern: lophn-agent/roles/lophn
 - 요구: lophn-agent/roles/lophn#R1, R2, R3, R4, R5, R7, R8, R11, R13, R16, R19
@@ -767,6 +775,7 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - slice: agent
 - 조사: 없음
 - 선행: T3–T40, contracts#T10, platform#T17, platform#T29, shell#T26, shell#T27, shell#T28, shell#T29, shell#T30, shell#T31, shell#T32, shell#T33, shell#T34, shell#T35
+- lophn-agent#T26에서 넘어온 것: (1) T15의 `/v1/providers/test` route를 runtime에 잇는 일(`runConnectionTest`·`ConnectionTestPort`, core에서 runtime으로 요청을 보내는 감독 pipe 통로가 필요하다). (2) T32의 받는 run이 맡긴 내용 blob을 prompt로 읽는 통로와 handoff 뒤 보낸 run 끝내기(지금 handoff 출처 run의 `inputs().request`는 null이다). (3) T33의 visual 도구 연결 중 판정 대상·handler 수명은 `Toolkit.handlers`가 run마다 한 묶음을 쥐는 것으로 닫았고, 주기 run(세션 없음)의 `RecordMessage`는 세션이 필요해 답을 남기지 않는다. 이 셋을 E2E에서 확인한다.
 - 완료:
   - fake provider·fixture로 E2E가 돈다: connect-provider, manage-provider-accounts, steer-agent-work, resume-agent-session, review-agent-work, answer-question, approve-action(앱 confirm 단계 제외), ask-lophn-help, edit-instructions, add-agent-extension, view-agent-visuals(앱 카드 갈래 제외), organize-documents 2~3단계, find-documents 5~6단계, project-workspace 8단계
   - 앱 confirm·앱 카드 단계는 apps#T27이 돈다
@@ -795,6 +804,7 @@ context slice의 선행은 documents와 agent다(lead 결정). E2E는 documents#
 
 ### T43 Context Engineer 역할
 
+- 상태: 완료 (#383)
 - 등급: 기본
 - concern: lophn-agent/roles/context-engineer
 - 요구: lophn-agent/roles/context-engineer#R1, R2, R3, R6, R7, R8, R9, R10, R14
@@ -890,6 +900,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: apps
 - 조사: docs/research/revert-and-checkpoints.md
 - 선행: T34, T44, apps#T23
+- apps#T23에서 넘어온 것: 되돌림 근거는 command 결과 `result.revert={invocation,receipt,expected_revision}`(`withRevert`가 만들고 앱 entrypoint가 올림)이고 expected_revision은 양의 정수 문자열이다. fixture의 `revert_todo`는 이 세 값을 그대로 입력으로 받아 앞선 변경이 없을 때만 되돌린다(뒤 변경이 있으면 `conflict`, 같은 근거 재사용도 `conflict`).
 - T34에서 넘어온 것: (1) 앱 write 복원 owner. `defaultRevertOwners()`에 앱 owner를 더하고 `revert_changes.app_revert`(지금은 null)·RevertStarted·applying 단계 갱신(`revert_changes_final_rows` trigger는 applying 헤더의 미확정 단계만 CAS로 한 번 바꾸도록 풀어야 한다)을 쓴다. ToolCall.run으로 연결한 성공 앱 write Invocation은 지금 event.run에 없으면 목록에 나오지 않는다. 있으면 분류되지 않은 복원 불가다. (2) 문서 제목 변경(`title_change`)은 user 자격의 `document.restore`가 제목 보상 값을 받지 못해 복원 불가로 남는다. FinishRevert(machine)가 `document.restore`의 `title`로 되돌리면 이 묶음을 복원 가능으로 바꾼다
 - 완료:
   - app_revert_test.ts에 R10, R11 테스트: 저장한 invocation·receipt·현재 revision 검증 뒤 원래 호출 역순 direct call, applying 단계와 step_key 조회로 중복 방지, 시작 전 실패는 blocked·시작 뒤 실패·충돌·응답 유실은 실제 복원·미시작·불명확으로 보존(전체 완료·전체 미실행으로 덮지 않음), 네트워크와 ledger를 한 transaction으로 주장하지 않음

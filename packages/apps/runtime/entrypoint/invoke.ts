@@ -1,5 +1,6 @@
 // command 경계 하나에 invocation 하나. 응답은 ledger 전달을 기다리지 않는다.
 import type { CommandDeclaration } from "../../blueprint/mod.ts";
+import { inputHashOf } from "./cap-host.ts";
 import { COMMAND_BODY_MAX_BYTES } from "./limits.ts";
 import { parseCommandReference, parseInvokeBody } from "./command-body.ts";
 import { projectCaller, verifyCommandCall } from "./verify.ts";
@@ -135,6 +136,25 @@ function queryObject(raw: Uint8Array | URLSearchParams): unknown {
   }
 }
 
+// SDK `withRevert`가 만든 값의 심볼이다(packages/sdk/cap-schedule/revert.ts와 같다).
+const COMMAND_REVERT = Symbol.for("lophn.command-revert");
+
+// handler 값을 command 결과로 만든다. 되돌림 근거를 가진 write는 `{result, revert}`로 올리고 그 밖의 값은
+// result 그대로다(apps/blueprint#R21).
+function commandResult(value: unknown): { result: unknown; revert?: unknown } {
+  if (
+    value !== null && typeof value === "object" &&
+    (value as Record<symbol, unknown>)[COMMAND_REVERT] === true
+  ) {
+    const { result, revert } = value as { result?: unknown; revert?: unknown };
+    return {
+      result: result ?? null,
+      ...(revert === undefined ? {} : { revert }),
+    };
+  }
+  return { result: value ?? null };
+}
+
 function reference(
   state: RuntimeState,
   path: string,
@@ -158,7 +178,7 @@ function reference(
       status: 200,
       body: {
         progress: found.progress,
-        ...(found.result ? { result: { result: found.result } } : {}),
+        ...(found.result ? { result: commandResult(found.result) } : {}),
       },
     };
   }
@@ -193,7 +213,7 @@ function known(state: RuntimeState, invocation: string): InvokeResult {
   return {
     status: 200,
     body: {
-      result: { result: found.result ?? null },
+      result: commandResult(found.result),
       ...(recordedInvocation(found, state.identity.release)
         ? { invocation: found.id }
         : {}),
@@ -276,6 +296,11 @@ function launch(
           release: state.identity.release,
           mode: state.identity.mode,
           invocation: id,
+          command: command.key,
+          // 검증·default 적용한 실제 입력의 정규 hash다. 앱 코드의 capability 호출이 같은 호출에
+          // 묶였음을 broker가 확인하는 근거다(cap-host의 호출 문맥). handler 시작을 미루지 않도록
+          // 동기로 계산한다.
+          inputHash: inputHashOf(call.input),
           // 다른 앱에게서 받은 호출이면 그 출처의 식별이다(apps/connections#R7).
           caller: call.caller.kind === "app"
             ? {
@@ -378,7 +403,7 @@ async function runHandler(
   return {
     status: 200,
     body: {
-      result: { result: done.result ?? null },
+      result: commandResult(done.result),
       ...(recordedInvocation(run.record, state.identity.release)
         ? { invocation: id }
         : {}),

@@ -11,6 +11,13 @@ import {
 
 const RELEASE = "rel_01h455vb4pex5v6nkc6gd5fdw1";
 const BACKUP = "a".repeat(64);
+const BLOB = {
+  preparation: "prep-1",
+  principal: "machine",
+  purpose: "app_backup",
+  hash: BACKUP,
+  size_bytes: 10,
+};
 
 function memoryStore(): DataRecordStore & { records: DataRecord[] } {
   const records: DataRecord[] = [];
@@ -36,6 +43,12 @@ function tx(): Tx & { events: unknown[] } {
   const events: unknown[] = [];
   return {
     events,
+    registerBlobRef(reference: { source: { blob: typeof BLOB } }) {
+      return {
+        ok: true,
+        value: { hash: reference.source.blob.hash },
+      };
+    },
     emit(event: { type: string }, subject: string | null, payload: unknown) {
       events.push({ type: event.type, subject, payload });
       return "1";
@@ -90,6 +103,7 @@ Deno.test(
       release: RELEASE,
       activation_seq: "1",
       backup_hash: BACKUP,
+      blob: BLOB,
       data_schema: 0,
     }, {});
     assert(recorded.ok);
@@ -100,6 +114,7 @@ Deno.test(
       release: RELEASE,
       activation_seq: "1",
       backup_hash: BACKUP,
+      blob: BLOB,
       data_schema: 0,
     }, {});
     assert(!again.ok);
@@ -116,6 +131,7 @@ Deno.test(
       release: RELEASE,
       activation_seq: "1",
       backup_hash: BACKUP,
+      blob: BLOB,
       data_schema: 0,
     }, {});
     const noIntegrity = commands.recordDataChange.handle(
@@ -147,6 +163,7 @@ Deno.test(
       release: RELEASE,
       activation_seq: "1",
       backup_hash: BACKUP,
+      blob: BLOB,
       data_schema: 0,
     }, {});
     const mismatch = commands.recordDataRestore.handle(
@@ -180,6 +197,7 @@ Deno.test(
       release: RELEASE,
       activation_seq: "1",
       backup_hash: BACKUP,
+      blob: BLOB,
       data_schema: 0,
     }, {});
     assert(!recorded.ok);

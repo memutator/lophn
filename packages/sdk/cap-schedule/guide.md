@@ -37,6 +37,13 @@ import {
   자리의 write handler를 등록한다. `write`는 조회한 revision이 지금 revision과
   같을 때만 불리고 `{ revision, result? }`를 돌려준다. 다른 revision은
   `conflict`, 닫힌 view는 `unavailable`이다.
+- `withRevert(result, { receipt, revision })` — 되돌리기를 지원하는 write
+  command의 성공 값을
+  `{result, revert:{invocation, receipt, expected_revision}}`로 만든다.
+  `receipt`는 변경 직전 상태를 가리키는 앱 내부 참조, `revision`은 변경 직후 앱
+  revision(양의 정수 문자열)이다. handler가 이 값을 돌려주면 lophn이 command
+  결과의 `revert`로 올린다. invocation이 없는 실행(release 없는 preview)은
+  `revert`가 빠진다.
 - `CommandRejection(code, message)` — handler가 효과 전에 호출을 받지 않겠다고
   알린다(`invalid_input|forbidden|conflict|unavailable`). 안내 문장에 입력·상태
   값을 넣지 않는다.

@@ -163,6 +163,14 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - 선행: apps#T1, apps#T3, contracts#T37, platform#T23
 - platform#T47에서 넘어온 것: doctor 보안 진단이 지금 읽는 관측 파일 대신 grant
   위험 read와 SDK hash(T5 contract)를 읽게 교체(#180)
+- shell#T43에서 넘어온 것: app-detail Automations [Turn off]는 `automation.run`
+  grant를 확인 창 없이 `grant.revoke`로 거두는데 지금 호출할 수 없다. (1)
+  `grant.revoke`가 contract에서 `confirmation: "required"`라 확인 handle 없는
+  호출은 invalid_input이다. automation.run만 확인 없이 받는 경로가 필요하다.
+  (2) `grants.list`가 비교 기준 `grants_seq`(앱의 마지막 Grant 사건 seq)를 내지
+  않아 shell이 `compare`를 채울 수 없다(additive 출력 field). 둘이 서기 전에는
+  shell의 `turnOffAutomation`이 unavailable을 답하고 화면은 "아직 켜져 있다"만
+  보인다
 - 완료:
   - `commands_test.ts`: 선언만 있는 접근은 실행 범위가 0이고 같은 범위의
     approval 적용 뒤만 grant가 생긴다(R1), 실행 범위 = 현재 release 요구 ∩
@@ -197,6 +205,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   import map 해석 함수(T6이 쓴다)
 - slice: apps
 - 선행: apps#T2, contracts#T37, platform#T13, platform#T14
+- coding-agent#T36에서 넘어온 것: `sdk show`의 안내 원문(API·type·permission·peer·예제) read. `packages.guide`는 `guide_hash`만 돌려주고 `blob.read`는 owner가 blob field를 등록해야 읽힌다(`owner_kind`·`owner_key`·`field`). guide blob field 등록(coding credential·agent·app가 읽는 `general_read`)과 owner 키를 정하면 coding-agent의 `sdk show`가 `body`를 채운다(connection/sdk-ops.ts의 `body: null`).
 - 완료:
   - `install_test.ts`: 설치가 packages/sdk/*를 패키지마다 자기 완결 byte로 묶고
     hash·guide hash를 blob에 넣은 뒤 register_version을 machine으로 부른다. 설치
@@ -789,6 +798,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T18 activation
 
+- 상태: 완료 (#381, 조립 #386) — 이어보냄: 템플릿 앱의 실제 기동 entry·problems 보고 → apps#T27
 - 등급: 최상위
 - concern: apps/releases, apps/data
 - 요구: apps/releases#R8, R12, R13, R14, R15, R16, apps/data#R4, R9, R11, R12
@@ -853,9 +863,20 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     후보 release의 activation 준비(commit 전 open 금지)는 지금 `DesiredApp`에
     없다: 후보는 probe까지만 하고 commit 뒤에 open하는 조립이 이 작업 몫이다.
     지금 supervisor는 probe가 통과하면 바로 open한다
+  - apps#T19에서 넘어온 것: (1) 봉인 bundle 사본 모양. release 준비가 앱 source·build한 `screens/`·정규
+    `blueprint.json`·`manifest.json` 말고 `import-map.json`(앱 deno.json의 import map을 잠근 것: SDK는
+    `./sdk/<이름>/<version>/<경로>`, npm·jsr는 정확한 pin)과 설치 SDK 사본(`sdk/<이름>/<version>/...`,
+    지원 소스 design·wording 포함)과 앱의 `deno.lock`을 담는다. 운영 DesiredApp의 `importMap`은 사본의
+    `import-map.json`이고 상대 경로는 그 파일 위치(사본 root) 기준이다. 앱 자식의 읽기 허락은 사본 root를
+    덮어야 한다(`appFlags`의 bundle). (2) `PreviewBundles`(`appPreviews.bundles`)도 같은 사본 모양에서
+    entry·import map을 만든다. (3) release.prepare를 부르는 쪽이 없다: 준비(`prepare_bundle`)가 끝나고
+    같은 bundle hash의 app test가 pass이면 machine이 사본의 `blueprint.json`·`manifest.json`·data schema와
+    data_changes(`migrations/`의 단계 파일)·tests·ticket_source로 `release.prepare`를 부르는 자리는
+    apps#T27이 정한다(아래 T27)
 
 ### T19 release 준비 확정, 비교, blueprint read
 
+- 상태: 완료 (#377) — 이어보냄: 봉인 사본 모양·PreviewBundles → apps#T18, release.prepare 호출자·secret 전송 부착·GrantApplier 조립 → apps#T27
 - 등급: 기본
 - concern: apps/releases, apps/blueprint
 - 요구: apps/releases#R5, R6, R7, R9, R10, R11, R18, apps/blueprint#R2, R3
@@ -877,6 +898,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - apps#T13에서 넘어온 것: `apps/app-supervisor/main.ts`에서 운영 자식마다 broker socket을 열고(`createBrokerHub`·`serveBroker`, `permissions/broker/`) 서비스 어댑터를 조립한다. `BrokerAccess`는 이 작업의 blueprint read(현재 release 선언 ∩ active grant, 요청마다 다시 읽음), `SecretDelivery`·`RedactionGate`는 core secret store의 전송 부착(contracts#T23), `ProblemsReport`는 problems collector, `GrantRevoker`·`AppProcesses`는 core 제어 메시지. `DocumentsSave`는 documents#T31이 낸다. 지금은 시험 fake(`permissions/testing/broker.ts`)만 있어 broker가 아무 데서도 돌지 않는다
 - apps#T15에서 넘어온 것: (1) core에서 `createPairPreparer({clock, signer, process, facts})`(`connections/prepare.ts`)를 만든다. `signer`는 T10의 같은 `createCoreSigner()` 하나, `process`는 `supervisor-link`의 `ProcessSource`, `facts`는 T10의 `ConnectFacts`에 `declarations(app)`(현재 release 선언 `{release, app_connections}`, 위 `currentDeclarations`)를 더한 것이다. (2) supervisor의 자식 broker 서비스에 `apps: createAppsConnectService({preparer})`를 달되 supervisor는 core의 preparer를 부르는 `AppPairPreparer` 어댑터(감독 pipe `worker_request`)를 쓴다. `invocations`는 `observeStarts(createInvocationBroker(...), preparer.paths)`로 감싸 start 사실이 path 장부에 알려지게 하고(`childExited`가 장부를 비운다), `ConnectionGate.close`는 `preparer.close`다. (3) 앱 자식의 Deno 허락에 app.call target의 direct socket(`unix:<고정 자리 socket>`과 읽기·쓰기)을 `effectiveScope.app_calls`의 대상마다 더한다. 지금 `appFlags`는 자기 두 socket만 열어 실제 자식의 `unixPairDirect`는 NotCapable이다. (3-1) confirm: core에서 `createPairConfirmer({process, facts, signer, paths: preparer.paths, ids, targets, approvals, accepted})`(`connections/confirm-request.ts`)를 만들고 supervisor 자식 broker에 `appsConfirm: createAppsConfirmService({confirmer})`를 단다. 어댑터는 이 작업(T19)이 만든다: `ConfirmTargets`(대상 release의 고정 blueprint로 `canonicalInputHash`와 confirm=true 확인, 아니면 invalid_input), `ConfirmApprovals`(요청자 `app:<호출 앱>`의 `confirmAction`으로 approval 생성·상태 읽기·machine의 `apply_approved_action`), `ConfirmAcceptances`(core에 저장된 접수 사실(`invocations`의 approval과 `InvocationAccepted` event 시각)에서 proof payload를 다시 만든다. `invocation.accept_confirm`은 dispatch 전용이라 직접 HTTP 재전송은 거절되고(platform Q32, #328), 접수가 없으면 `not_found`다). 시험 어댑터는 `connections/confirm_test.ts`에 있고 같은 방식으로 읽는다. (4) 앱 프로세스 entrypoint는 `startRuntime`이 `PairPort`(`Symbol.for("lophn.cap-apps")`)를 이미 설치한다. 위 cap-host port를 설치할 때 broker `post`를 공유하도록 합치려면 `connections/client.ts`의 `createPairPort`를 `CAP_HOST.post`로 바꾸면 된다
 - apps#T21에서 넘어온 것: (1) 실제 `PreviewReleases`(release→bundle hash, 없는 release·다른 앱의 release는 undefined)를 `appPreviews.releases`로 낸다. (2) supervisor 조립이 자식마다 broker socket을 열 때 preview 자식에는 `createPreviewBrokerServices({scope: previewScopeOf(blueprint), invocations, problems})`(`packages/apps/preview`)를 `BrokerServices`로 쓰고 launcher의 `attachBroker`가 그 자리다. invocation·problems 서비스는 운영과 같은 구현이고 mode와 release(null이면 기록 없음)로 구별된다
+- shell#T43에서 넘어온 것: `apps.blueprint`는 active release의 blueprint만 읽는다(입력이 `{app}`뿐). app-detail의 준비만 된 Version preview는 그 Version이 여는 화면 key를 읽을 길이 없어 지금 쓰는 Version의 full 화면 key로 연다. `{app, release}`로 그 Version의 화면 선언을 읽는 additive 입력이 필요하다. 그 전에 새 Version이 첫 화면 key를 바꾸면 preview가 열리지 않는다
 - apps#T20에서 넘어온 것: 같은 supervisor 조립에서 (1) `createAutomationPermits()`(`automations/permits.ts`) 인스턴스를 supervisor에 하나 쥐고(앱마다가 아니라 전체 동시 4개 한도) 자식마다 `createAutomationBroker({access, permits})`(`permissions/broker/automations.ts`)를 `BrokerServices.automations`에 넣는다. (2) `BrokerAccess.current`의 `AccessState`에 `automations`(현재 release 선언의 `AutomationDeclarationFact` 목록)를 채운다. 이 작업의 `currentDeclarations` port가 낸다. (3) 자식 종료를 확인하면 `permits.childExited(processNonce)`를 `InvocationBroker.childExited`와 같은 자리에서 부른다. (4) `apps.automations` read가 선언을 알려면 이 작업의 `currentDeclarations`를 `apps/core/apps.ts` `createReaderRegistration`의 `ports` map에 같은 key로 등록해야 한다(지금은 등록이 없어 core에서 빈 목록이다). 등록한 뒤 `automations/core_http_test.ts`에 선언·승인·관측 흐름(permissions/testing의 `set_declarations` 등)을 더한다
 - 선행: apps#T6, apps#T8, contracts#T36, contracts#T41, problems#T9,
   problems#T10, problems#T11, coding-agent#T19
@@ -1001,6 +1023,23 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     `createReaderRegistration` ports map에 고정 값으로 등록한다. 등록 전에는
     app.call·agent.commands·automation.run의 grant.create가 `unavailable`이고
     grants.list의 display는 null이다
+  - 구현 자리: ledger 쪽 `releases/{commands,reads,compare,store,facts,schema}.ts`(`release.prepare`·
+    `release.prepare_bundle`의 요청 때 검사·`releases.list·get·compare`), `blueprint/reads.ts`
+    (`apps.blueprint`), 준비 진행 `releases/preparation.ts`(supervisor 메모리, 모르면 `unknown`)와 실제 일
+    `releases/prepare/from-source.ts`(commit 추출 → 설치 SDK 사본·잠근 `import-map.json` → blueprint 평가 →
+    화면 build → 봉인; `bundle/lock.ts`; 앱 source는 신뢰하지 않아 앱의 build script를 실행하지 않고 신뢰된
+    `ui-build/{app-build,eval-blueprint,binaries}.ts`가 권한을 좁혀 한다, apps/releases#R3), supervisor 쪽 `apps/app-supervisor/{release-runner,assembly,broker,
+    access,pairs,preview-broker}.ts`와 자식 `apps/worker/apps/release-job.ts`, core 쪽 `apps/core/{apps,
+    apps-control,apps-confirm}.ts`. 준비 접수·진행·취소는 command route지만 진행이 메모리라
+    `withReleasePreparation`이 writer 앞에서 supervisor로 넘긴다(접수만 먼저 ledger transaction에서 앱 범위·
+    source 연결·ticket claim을 확인한다). 시험: `releases/{prepare,compare,preparation,core_http}_test.ts`,
+    `releases/prepare/from-source_test.ts`, `blueprint/blueprint-read_test.ts`,
+    `app-supervisor/{preparation,release-runner,assembly}_test.ts`, `apps/core/release-preparation_test.ts`
+  - 정함(추천으로 진행): 준비 접수 요청 때 ticket claim 확인은 `release.prepare_bundle`의 ledger 검사로,
+    범위 밖·없는 앱·source 없는 앱은 같은 `forbidden`(진행 조회는 같은 `not_found`)이다. release 자식의 쓰기는
+    그 앱의 폴더(`apps/<app>/`)에만 하고 build 자식은 staging 안 `TMPDIR`만 쓴다
+  - 이어보냄: 위 apps#T18 두 줄(사본 모양·PreviewBundles), apps#T27 세 줄(release.prepare 호출자, secret 전송
+    부착, GrantApplier 조립)
 
 ### T20 automation
 
@@ -1137,6 +1176,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   - 템플릿 앱이 T6 bundle 준비와 problems app test를 통과한다
 - shell#T37에서 넘어온 것: 앱 entrypoint(`packages/apps/runtime/entrypoint/main.ts`의 `startRuntime`)가 `screenBytes`를 넘기지 않아 실제 앱 프로세스의 `GET /screens/<screen>/<path>`가 모두 404다. 템플릿 앱의 build된 화면 자원을 bundle에서 내주게 잇는다. shell main은 view를 `lophn-app://<app label>/<screen key>/index.html`로 열어 `/screens/<screen key>/index.html`을 그 screen의 진입으로 부르고, 자원은 같은 screen 아래 상대 경로로 부른다(다른 screen 경로는 shell이 막는다). content type은 text/html·text/css·text/javascript·application/json·wasm·이미지·글꼴만 받는다(`apps/shell/main/app-frame/app-protocol.ts`)
 - shell#T41에서 넘어온 것: @lophn/ui-reading은 `@lophn/design/reading`도, @lophn/ui-action은 `@lophn/blueprint`(type만)도 import한다. 템플릿 화면 build의 import map·설치 묶음이 ui-reading·ui-filter·ui-stat·ui-action과 함께 이것을 풀어야 한다. 템플릿의 명령 버튼은 `CommandButton`에 blueprint command 선언을 그대로 주면 confirm 표시와 `lophnApp.call` 호출이 따라온다
+- shell#T44에서 넘어온 것: 세션 앱 카드의 입력(AppCardReference `input`)을 앱의 card 화면에 넘길 통로가 없다. shell renderer registry(`workspace/visuals/registry.ts`)는 그 값을 그대로 들고 있고 card view는 screen·size·view_session만으로 열린다. AppScreenRequest(contracts)에 카드 입력을 더하고 SDK가 card 화면에서 읽게 하면, shell은 view 열기 IPC의 `card`에 입력을 실어 main이 화면 요청에 붙인다
 - shell#T40에서 넘어온 것: @lophn/ui-control·ui-overlay·ui-layout·ui-state(ui-table·ui-chart도)는 `@lophn/design`·`@lophn/design/components`·`@lophn/wording`을 import한다. 설치(`install.ts`)는 packages/sdk/<name>만 묶으므로 템플릿 화면 build의 import map·설치 묶음이 이 셋을 함께 풀어야 한다. root 오류 경계는 `@lophn/ui-state`의 `AppErrorBoundary`로 화면 root를 감싸기만 하면 앱 preload가 `lophn:render-error`를 받아 넘긴다(따로 잇는 통로 없음)
 - shell#T37에서 넘어온 것: 앱
   entrypoint(`packages/apps/runtime/entrypoint/main.ts`의 `startRuntime`)가
@@ -1226,6 +1266,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T23 fixture: 할 일 앱
 
+- 상태: 완료 (#389) — 이어보냄: 화면의 view_session 통로·템플릿 화면의 응답 모양 → T27
 - 등급: frontend
 - concern: apps/blueprint, apps/data, apps/agent-context, apps/connections,
   apps/permissions
@@ -1263,6 +1304,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T24 fixture: 캘린더 앱
 
+- 상태: 완료 (#387) — 이어보냄: add_event의 되돌림 근거 조립 → T23, AppShell nav 없는 전체 폭 → shell#T40
 - 등급: frontend
 - concern: apps/blueprint, apps/automations, apps/permissions, apps/connections
 - 요구: apps/blueprint#R5, R6, R20, apps/automations#R13, apps/permissions#R8,
@@ -1282,6 +1324,8 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     automation: on_start sync·interval sync(60000ms)·external 동기화(켜는 승인
     필요)
   - 다른 앱(할 일)과 agent가 쓰는 command, problems/tests#R18의 "외부 연동 효과"
+  - 정한 것: 앱 원본은 `fixtures/apps/calendar/`에 `.tmpl` 접미로 두고(`fake-external/`만 일반 `.ts`), 시험(`apps/core/app-calendar-fixture_test.ts`)이 `readTemplateDirectory(stripSuffix)`로 temp 폴더에 풀어 commit한 뒤 T6 `prepareFromSource`로 준비한다. 앱 test가 network 권한이 없어 앱 안 tests는 fake의 메모리 `fetch`를 net 대역에 잇고, 실제 HTTP는 `serveFakeExternal`(선언한 127.0.0.1:38917)과 broker `net/fetch` 서비스 시험이 쓴다. net 요청에는 body가 없어 `create_external_event`는 query로 보낸다. 되돌림 command는 `revert_event`다. 만들기 요청의 5xx·전송 단절은 효과 모름(`CommandRejection`이 아닌 오류), 가져오기 실패와 4xx는 효과 없는 거절이다
+  - T23으로 넘김: `add_event`는 결과로 일정(`id` 포함)만 돌려주고 `revert_event {id}`를 선언한다. `{result, revert:{invocation, receipt, expected_revision}}` 조립 helper를 SDK에 더하면(T23) 이 앱도 같은 helper로 바꾼다. T23이 `app.call`로 부를 command는 `add_event {title, starts_at(ISO 8601)}`다
 
 ### T25 fixture: rate limit 대시보드 앱
 
@@ -1370,6 +1414,14 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
   - apps#T16에서 넘어온 것: ask-app-hint flow에서 탭을 닫은 뒤 agent의 context
     조회·주석 쓰기가 `unavailable`이고 옛 상태를 최신으로 내보내지 않는다(실제
     앱 view와 T23 fixture)
+  - apps#T23에서 넘어온 것: (1) fixture의 `edit_todo`가 화면이 고치는 할 일을
+    view_session과 함께 알리는데 화면은 자기 view_session을 지금 알 길이 없다
+    (앱 화면 URL에 query가 안 간다). fixture 화면은 `?view_session=`을 읽고
+    없으면 알리지 않는다. ask-app-hint E2E는 shell이 앱 화면에 view_session을
+    주는 통로(shell#T39)를 정한 뒤 돈다. (2) 화면이 `lophnApp.call`로 받는 값은
+    앱 응답 전체 `{result:{result,revert?},invocation?,mode}`다. fixture 화면은
+    안쪽 result를 읽고, 템플릿 화면의 `result.rows`는 이 모양과 맞지 않으니
+    템플릿(apps#T22)을 고칠 때 함께 본다
   - apps#T12에서 넘어온 것: agent 요청자의 confirm은 agent 요청 → 허락 →
     `apply_approved_action` → proof 서명(`CoreSigner.signConfirmProof`) → direct
     호출로 이어 E2E로 본다. agent의 asg id는 접수 입력 caller(run·tool_call)가
@@ -1381,6 +1433,17 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
     approval을 요청 → confirmation window에서 사람이 결정 → poll이 적용·proof
     서명 → direct 호출로 이어진다(서비스 시험은 `connections/confirm_test.ts`).
     거절·만료·결정 지연(`confirmTimeoutMs`)도 한 갈래씩 본다
+  - apps#T19에서 넘어온 것: (1) release.prepare를 부르는 쪽: new-app flow가 prepare_bundle 완료 → app
+    test pass → release.prepare까지 가려면 supervisor(또는 core)가 같은 bundle hash의 통과한 app test를
+    확인한 뒤 machine 자격으로 `release.prepare`를 불러야 한다. 입력은 봉인 사본의 `blueprint.json`·
+    `manifest.json`, `migrations/` 단계 파일에서 낸 data_schema·data_changes, tests, prepare_bundle의
+    ticket_source다. 지금 core에는 `prepare_bundle` 요청의 ticket_source를 기억하는 곳도(supervisor 진행은
+    메모리) 부르는 쪽도 없다. (2) supervisor의 `SecretDelivery`·`RedactionGate`(broker secrets/use)는 platform
+    secret 전송 부착(`secret.send` worker op)에 닿지 않아 허락된 요청이 unavailable로 닫힌다. 값은 keychain과
+    전송 callback 메모리에만 있다. (3) `GrantApplier`(`permissions/broker/apply-grant.ts`)의 supervisor 쪽
+    `AppProcesses`(stop·start)와 core `GrantRevoker` 조립: grant 확정·회수가 broker 연결을 막고 자식 종료를 확인한
+    뒤 새 범위로 재시작하는 흐름(manage-app-permissions flow)
+  - apps#T18에서 넘어온 것: (1) activation 실행은 core(`apps/core/apps-activation.ts`)가 `runActivation`·`recoverActivation`을 돌리고 단계는 supervisor op(`apps.activation_pause`·`prepare`·`open`·`resume`, `apps.data_job`)와 core 내부 machine command로 간다. 앱 자식의 실제 기동 entry는 아직 시험 자식(`runtime/testing/app-child.ts`)뿐이다: 템플릿 앱의 `main.ts`는 runtime entrypoint(`entrypoint/main.ts`)가 `@lophn/app`으로 불러 오는 모듈이고 사본의 import map·진입 파일이 그 entrypoint를 띄우도록 준비(release 준비)가 만들지 않는다. 실제 템플릿 앱이 운영 자식으로 뜨는 흐름(entry·`@lophn/base` 해석·read 허락)은 T27 new-app flow가 닫는다. (2) problems 보고: activation의 복원 실패·종료 미확인은 `app.record_unavailable`로 이유를 runtime 상태에 남기지만 problems의 보고(report)로는 가지 않는다(플랫폼이 낸 보고를 받는 경로가 없다). (3) grant 변경(create·revoke)이 새 flag로 자식을 다시 띄우는 흐름은 위 apps#T19의 (3)이다. 운영 DesiredApp은 App 행·active release·grant가 바뀌면 다시 알리지만 supervisor는 같은 release·bundle이면 기존 자식을 그대로 둔다.
 
 ### T29 @lophn/format-document
 
@@ -1412,6 +1475,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - 쓰는 contract: lophn-agent/questions의 option action(OPTION_ACTION_OWNERS, 값 type은 contracts/lophn-agent)
 - 내놓는 contract: `app.create`의 미리 배정한 app ID 입력과 option 적용 경로(contracts 변경 필요)
 - slice: apps
+- 상태: 완료 (#374)
 - 선행: apps#T1, lophn-agent#T29, platform#T58
 - lophn-agent#T29에서 넘어온 것: option action의 생성 대상은 미리 배정한 ID여야 하는데 `app.create`는 ID를 만들어 돌려주고 dispatchable이 아니며 user·coding_agent만 받는다. lophn 제안의 새 앱 등록 선택지(questions#R13)는 이 경로가 있어야 열린다. 열면 `packages/lophn-agent/questions/option-actions.ts`의 `OPTION_ACTION_OWNERS`에 한 줄을 더하고 core 조립이 같은 handler를 묶는다.
 - 완료:
@@ -1432,6 +1496,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - 내놓는 contract: `/v1/apps/export`(준비 중·완성·실패 구별) (contracts#T20)
 - slice: operations
 - 선행: apps#T17, apps#T19, platform#T12, platform#T13
+- shell#T43에서 넘어온 것: core에 `worker:apps/export`가 서면 app-detail Data 탭에 [Export]를 붙인다. 지금은 route가 core에 없어 탭이 "아직 내보낼 수 없다"만 보인다. shell main의 renderer allowlist(`main/desktop/core/allowlist.ts`의 `READING_WORKER_ROUTES`)에 이 worker route를 더하는 일도 그때 한다
 - 완료:
   - export 안에 고정 blueprint·release 이력·각 불변 bundle·정확한 SDK byte·WAL
     확정 내용을 포함한 무결성 확인 DB 사본이 있고 secret 원값·credential이
@@ -1674,7 +1739,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 - **Q30 automation의 설계 선택(정함, T20).**
 - **Q31 화면 context의 거절 코드와 host port(정함, T16).** (1) handler 예외는 모두 원문 없는 500이라 `invalid_input`·`conflict`·`unavailable`을 호출자에게 구별해 줄 길이 없었다. handler가 효과 전의 거절을 `CommandRejection`(심볼 `lophn.command-rejection`, 코드 4개)으로 던지면 entrypoint(`invoke.ts`)가 그 코드와 안내 문장으로 답하고 invocation 요약에 `error=<코드>`만 남기며 write도 `effects: unconfirmed`로 적지 않는다(효과 없음이 알려진 거절). 같은 접수의 재전송도 같은 거절이다. 다른 예외는 그대로 500이다. (2) 선언·민감 path·열린 view는 앱 코드가 넘기지 않고 runtime이 `startRuntime`에서 설치하는 host port(`lophn.screen-context`)가 release에 고정된 blueprint와 `state.views`에서 준다. 제거·요약 규칙(`agent-context/redaction.ts`)은 bundle의 플랫폼 진입 파일이라 앱이 바꾸지 못하고 host가 없으면 원문을 내보내지 않고 거절한다. SDK는 packages/apps를 import하지 않으므로 같은 symbol·모양을 맞춘다. (3) `sensitive_paths`는 AppScreenContext 값을 가리킨다(`/data/private_note`, `/summary`). 요약이나 남은 data에 제거한 문자열이 그대로 있으면(4자 이상) 그 자료를 보내지 않고 생략 사실만 남긴다. domain-model/apps/agent-context·sdk를 같은 PR에서 고쳤다. (4) 닫힌 view: runtime이 `closedViews`와 `control/view-closed`(contracts `controlViewClosedInputSchema`, machine 연결 전용)로 view session을 버려 앱 협조 없이 조회·주석이 unavailable이고 닫힌 session은 화면 요청으로 되살아나지 않는다(상한 1024). 보내는 쪽은 shell#T39에 넘겼다. (5) 시험 fixture: `startFixtureApp`·`world.start`가 다른 앱 자식 entry(`child`·`fixture`)를 받는다. (1) 입력 source: blueprint의 automation은 고정 입력뿐이라 R10의 "입력 source 없음" 사실은 따로 없다. 필요해지면 reason code를 더한다. (2) 놓친 회차의 판정: 도래한 배수가 검사 시각보다 `LATE_TOLERANCE_MS`(2000ms, 1초 검사 두 번) 넘게 지났으면 놓친 회차로 건너뛰고 다음 미래 배수부터 이어 간다(절전 복귀와 timer 지연을 한 규칙으로 본다). (3) on_start는 접수 결과와 상관없이 업무 통로가 열릴 때 한 번만 시도한다. permit 거절·한도 초과로 건너뛰어도 승인이 나중에 와도 그 프로세스에서는 다시 시도하지 않는다(재시작이 새 시작). (4) 시작하지 못한 이유(통로 닫힘·schema 불일치·진행 중·한도·승인 없음·놓침)는 invocation이 아니라 clock 메모리의 reason이고 `apps.automations`의 reason으로 보인다. 선언을 어긴 회차(confirm=true, 고정 입력 불일치)만 `deny` 사실로 남는다. (5) broker `try_acquire`는 승인 없음을 `forbidden`(필요한 `automation.run` scope를 details로), 한도·점유를 `permit:false`로 구별한다. contracts#T34의 출력 모양은 바꾸지 않았다.
 - **Q30 automation의 설계 선택(정함, T20).** (1) 입력 source: blueprint의 automation은 고정 입력뿐이라 R10의 "입력 source 없음" 사실은 따로 없다. 필요해지면 reason code를 더한다. (2) 놓친 회차의 판정: 도래한 배수가 검사 시각보다 `LATE_TOLERANCE_MS`(2000ms, 1초 검사 두 번) 넘게 지났으면 놓친 회차로 건너뛰고 다음 미래 배수부터 이어 간다(절전 복귀와 timer 지연을 한 규칙으로 본다). (3) on_start는 접수 결과와 상관없이 업무 통로가 열릴 때 한 번만 시도한다. permit 거절·한도 초과로 건너뛰어도 승인이 나중에 와도 그 프로세스에서는 다시 시도하지 않는다(재시작이 새 시작). (4) 시작하지 못한 이유(통로 닫힘·schema 불일치·진행 중·한도·승인 없음·놓침)는 invocation이 아니라 clock 메모리의 reason이고 `apps.automations`의 reason으로 보인다. 선언을 어긴 회차(confirm=true, 고정 입력 불일치)만 `deny` 사실로 남는다. (5) broker `try_acquire`는 승인 없음을 `forbidden`(필요한 `automation.run` scope를 details로), 한도·점유를 `permit:false`로 구별한다. contracts#T34의 출력 모양은 바꾸지 않았다.
-- **Q31 preview 시작 입력의 fixture(정함, T21).** `PreviewInput.fixture_hash`는 bundle manifest의 파일 중 그 hash의 byte다(domain-model apps/sdk의 files에 fixture가 있다). core가 byte를 확인해 새 preview 영역의 `data.db`로 놓고(없으면 영역은 비어 있다) 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. bundle에 없는 hash는 invalid_input이다. 추천안으로 진행했다. fixture를 다른 형식(SQL 시드 등)으로 쓰려면 requirements를 정한 뒤 `PreviewBundle.fixture`만 바꾼다.
+- **Q31 preview 시작 입력의 fixture(정함, T21).** `PreviewInput.fixture_hash`는 bundle manifest의 파일 중 그 hash의 byte다(domain-model apps/sdk의 files에 fixture가 있다). core가 byte를 확인해 새 preview 영역의 `app.sqlite`로 놓고(없으면 영역은 비어 있다) 운영 DB·backup·files는 어떤 경로로도 복사하지 않는다. bundle에 없는 hash는 invalid_input이다. 추천안으로 진행했다. fixture를 다른 형식(SQL 시드 등)으로 쓰려면 requirements를 정한 뒤 `PreviewBundle.fixture`만 바꾼다.
 - **Q32 release 없는 preview의 통로(해결, T21).** `control/open`의 `release`와 `app_credential_request.release`가 null을 받지 못해 준비 전 bundle의 preview가 가짜 release 없이 열릴 길이 없었다. lead가 승인해 이 PR에서 두 schema를 nullable로 고쳤다(live 자식은 null이면 release 불일치로 거절, 발급기는 null이면 조건·대상에 release를 넣지 않고 registry는 live가 아니고 bundle hash가 있는 app 자격만 release 없이 받는다). preview 자식은 core가 발급한 app credential 없이 supervisor가 만든 일회용 broker 자격을 쓴다(core 발급 경로는 같은 앱 운영 자식의 credential을 끝낸다). preview 자식의 problems 보고 자격은 problems 팀이 정한다.
 - **Q33 preview의 confirm command(정함, T21).** preview 자식은 confirm=true command를 proof가 있어도 실행하지 않고 forbidden으로 답한다(verify 단계, handler 전). 대역 확인을 사람에게 어떻게 보일지는 shell이 정한다(shell#T45).
 - **Q31 화면 context의 거절 코드와 host port(정함, T16).** (1) handler 예외는

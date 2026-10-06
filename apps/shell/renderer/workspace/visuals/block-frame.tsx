@@ -10,6 +10,7 @@ import { Component, type ReactNode, useMemo, useRef, useState } from "react";
 import { Button, conversationIcons } from "@lophn/design/components";
 import { formatDate, t } from "@lophn/wording";
 
+import { AppCardBlock } from "./app-card-block.tsx";
 import { ChartBlock } from "./chart-block.tsx";
 import { DiagramBlock } from "./diagram-block.tsx";
 import { DocumentLink, type TitleRead } from "./document-block.tsx";
@@ -259,11 +260,14 @@ export function VisualBlock({ message, block, host }: VisualBlockProps) {
       />
     );
   } else {
-    // 앱 카드 갈래는 shell#T44가 앱 frame으로 그린다. 그 전까지 설명·출처와 안내만 둔다.
+    // 앱 카드는 그 앱의 card 화면을 main이 연 앱 frame으로 보인다(shell#T44).
     content = (
-      <p className={styles.unavailable} data-visual-app-card="">
-        {t("conversation.notice.visual-app-card")}
-      </p>
+      <AppCardBlock
+        content={checked.content}
+        message={message}
+        block={checked.key}
+        label={checked.title}
+      />
     );
   }
 

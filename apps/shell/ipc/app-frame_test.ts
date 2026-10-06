@@ -19,6 +19,7 @@ import {
 
 const APP = "app_01j9zzzzzzzzzzzzzzzzzzzzzz";
 const REL = "rel_01j9zzzzzzzzzzzzzzzzzzzzz1";
+const CARD = { message: "msg_01j9zzzzzzzzzzzzzzzzzzzzzz", block: "usage" };
 
 type Schema = { safeParse(value: unknown): { success: boolean } };
 
@@ -52,6 +53,12 @@ Deno.test("shell/app-frame#R23: shell IPC 사본은 contracts의 view channel �
       { ...open, screen: " " },
       { ...open, screen: "a\u0007" },
       { ...open, parentWindow: "window-1" },
+      { ...open, size: "card", card: CARD },
+      { ...open, size: "card" },
+      { ...open, card: CARD },
+      { ...open, size: "card", card: { ...CARD, block: "Bad Key" } },
+      { ...open, size: "card", card: { ...CARD, message: "msg_x" } },
+      { ...open, size: "card", card: { ...CARD, input: {} } },
     ],
   );
   const bounds = { x: 0, y: 40, width: 640, height: 600 };

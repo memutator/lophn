@@ -4,6 +4,7 @@ import {
   conditionsOfView,
   coverageNotes,
   DEFAULT_SCREEN,
+  documentNameForKey,
   EMPTY_CONDITIONS,
   emptyHint,
   LOPHN_SCREENS,
@@ -99,6 +100,34 @@ Deno.test("shell/desktop#R1: 다음 이름 규칙은 숫자 자리 하나와 4�
   assert(validSeriesName("weekly-report"));
   assert(!validSeriesName("Weekly"));
   assert(!validSeriesName("1-week"));
+});
+
+Deno.test("documents/series#R2: 새 멤버 문서 이름은 contracts의 key→이름 규칙과 같다", async () => {
+  const url = new URL(
+    "../../../../../packages/contracts/documents/series-values.ts",
+    import.meta.url,
+  );
+  const contract = await import(url.href) as {
+    documentNameForKey(key: string): string | null;
+  };
+  for (
+    const key of [
+      "P003",
+      "week-3",
+      " Week 3 ",
+      "0.3",
+      "v1.2.0",
+      "보고",
+      "a".repeat(70),
+    ]
+  ) {
+    assertEquals(
+      documentNameForKey(key),
+      contract.documentNameForKey(key),
+      key,
+    );
+  }
+  assertEquals(documentNameForKey("P003"), "p003");
 });
 
 Deno.test("shell/desktop#R28: 자리 선택지 값은 project·app만 되돌린다", () => {

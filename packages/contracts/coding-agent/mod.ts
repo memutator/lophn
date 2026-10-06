@@ -8,6 +8,9 @@ export {
   CONNECTION_EVENTS,
   CONNECTION_ROUTES,
   CONNECTION_STATES,
+  connectionConnect,
+  connectionConnectInputSchema,
+  connectionConnectOutputSchema,
   connectionCreate,
   connectionCreateInputSchema,
   connectionCreateOutputSchema,
@@ -30,6 +33,7 @@ export {
   connectionStateSchema,
 } from "./connections.ts";
 export {
+  CODING_CREDENTIAL_REF_PREFIX,
   CodingAgentConnectionAuth,
   type CodingAgentConnectionAuthPort,
   type CodingAgentConnectionAuthResult,

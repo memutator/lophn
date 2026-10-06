@@ -828,6 +828,7 @@ contracts 팀에 보냈고 모든 항목의 contracts 작업 id를 받았다.
 - 내놓는 contract: coding credential 보호 전달(신뢰 MCP·CLI loader와 TUI child)
 - slice: coding-agent
 - 선행: platform#T19, platform#T22, contracts#T47(`CodingAgentConnectionAuth` port와 loader 보호 전달 요청), coding-agent#T9
+- coding-agent#T36에서 넘어온 것: 앱 하나 범위 connection credential의 scope 모양이 둘이라 production 발급으로는 그 연결의 문서 읽기가 forbidden이다(fail-closed, 노출 없음). `externalOf`는 `targets {app}`+`conditions {app}`를 내고(coding-agent T21 앱 tool 시험 `apps/core/coding-agent-app-tools_test.ts`와 같은 모양) documents 읽기 인가(`packages/documents/versions/authorization.ts`)는 `targets {place_kind:"app", place:<app>}`를 기대한다(T15 `apps/core/coding-agent-scope_test.ts`가 직접 만든 모양). 한 credential이 둘을 모두 통과하는 모양이나 인가 쪽 정리를 정한다. 두 시험의 credential 모양을 바꿔 보면 서로 실패한다.
 - 완료: 아래 확인이 통과한다
   - 사람의 connection 결정 뒤 인증 경계가 token을 만들고 keychain에 준비하고 digest만 connection command에 제출한다. commit 실패·중단 token은 쓸 수 없고 고아를 정리한다(identity R5, secrets R12).
   - 신뢰 loader가 현재 connection·scope·process generation을 확인한 지정 child에만 non-inheritable 보호 통로로 넘긴다. 일반 shell·renderer·coding agent 요청으로는 열리지 않는다(identity R15).
@@ -1053,6 +1054,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 
 ### T48 Linux 설치 묶음(.deb)
 
+- 상태: 완료 (#379) — Linux 배포는 미검증이다: Ubuntu 24.04+ 설치에서 `tools/verify-linux-install.ts`와 `deno task e2e install-lophn`이 통과하기 전에는 사용 가능으로 표시하지 않는다(R1)
 - 등급: 기본
 - concern: platform/install-and-update, platform/security
 - 요구: platform/install-and-update#R1, R2, R3, R4, R5, R6, R8, platform/security#R4, R5
@@ -1062,6 +1064,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - slice: operations
 - 선행: platform#T43, shell#T57
 - platform#T34에서 넘어온 것: (Linux) compile binary `lophn-credential`(OS keychain 도구 실행만 허용한 고정 권한, 설치 묶음의 고정 절대 경로)과 그 loader identity를 `startCore`의 `codingLoaders`(apps/core/main.ts)에 채우는 일, `ProtectedChannel`(`packages/platform/identity/coding-credential.ts`)의 Linux 구현(non-inheritable 통로, → redesign/propagate#Q2). helper의 처리 본문은 `serveCredentialDelivery`가 있다. 실제 .deb 설치에서 MCP·CLI child가 helper로 token을 받는 것을 확인한다
+- coding-agent#T36에서 넘어온 것: (1) launcher가 `LOPHN_HOME`을 export하고 `/proc/self/stat` read를 더했다(helper 요청의 process generation 시작 tick). (2) `tools/verify-linux-install.ts`의 등록된 child 양성 단계(connection 생성 → 등록 → helper가 token 수신)는 실제 Secret Service가 있는 일회용 session이 필요하다(제품 core의 keychain은 OS adapter). 같은 경로를 fake keychain으로 보는 시험은 `apps/core/coding-connect-flow_test.ts`다. (3) CLI launcher의 `--allow-read/--allow-write` 범위: `lophn doctor`·`connection install`은 사람이 고른 harness home을 읽고 쓰며 MCP probe는 설치 Deno 실행이 필요한데 지금 CLI launcher는 helper 실행·`$PWD` read뿐이다. 선택 target별로 어떤 범위를 줄지(launcher 분기 또는 shell main이 권한을 계산해 띄우기)와 앱 direct socket(`unix:` 정확한 경로) 허락을 MCP에 줄지 정한다.
 - 완료: 아래 확인이 통과한다
   - `/opt/lophn/`에 Deno binary·platform source·lock·vendor·desktop·skills·sdk·guides(자리는 이 작업이 정하고, 원문은 lophn-agent의 `packages/lophn-agent/roles/lophn/guides/`에서 복사한다. architecture 3.1을 같은 PR에서 고친다), `/usr/bin/lophn-desktop`·`lophn`·`lophn-mcp` launcher. 시작에 의존성 다운로드가 없다(R4, R5, R6).
   - Chromium sandbox 파일 root 소유·4755와 Ubuntu 24.04 이상에서 실제 sandbox 활성 검사. sandbox를 끈 실행은 배포 테스트 통과로 세지 않는다(R2, R3, security R4).
@@ -1069,6 +1072,8 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
   - 실제 build·설치·기동·앱 호출·backup restore를 Ubuntu에서 확인하기 전에는 Linux 배포를 사용 가능으로 표시하지 않는다(R1 Linux).
   - 이어받음: apps#T4가 넘긴 platform#T47의 doctor 관측 교체. grant 위험 read(`app·kind·file·network·broad·last_used_at`)와 SDK hash read가 contracts에 생기고 apps#T13이 grant 사용 시각을 남긴 뒤, `apps/worker/platform/doctor.ts`의 관측 파일(grants.json, sdk.json)을 그 read로 바꾸고 core.ts에 doctor·diagnostics source를 연결한다. 미관측을 미사용으로 단정하지 않는다(check/platform#Q21)
   - flow install-lophn E2E 단계(Linux)
+- 정한 것(T48): 배치는 architecture/platform 3.1이다(`sdk`는 `platform/packages/sdk` 링크, `skills/`는 `packages/coding-agent/guides/skills`가 생기기 전까지 빈 자리). 묶음은 `tools/package-linux.ts`(electron-builder `--linux dir` → `dpkg-deb`; fpm·system Deno 없음)가 만들고 `tools/verify-linux-install.ts`가 설치된 묶음을 확인한다. helper `lophn-credential`은 keychain을 열지 않고 core의 소유자 전용 unix socket(`H/run/credential.sock`)으로 요청을 건네는 relay이며, 그 연결이 Linux `ProtectedChannel`이다(`packages/platform/install-and-update/credential-*.ts`). Linux 배포는 **미검증**이다: root 소유 4755 설치와 실제 sandbox 확인(`tools/verify-linux-install.ts`가 Ubuntu 24.04+ 설치에서 통과하고 `deno task e2e install-lophn`이 돌기 전)은 이 환경에서 설치할 수 없어 하지 못했고, 풀어 놓은 묶음에서 배치·cached-only 시작·cache 삭제·helper 왕복·CLI/MCP 시작까지만 확인했다. shell#T57의 packaged 경로(`resources/bin`·`resources/core` 가정, `stage.ts`의 `__dirname`, `package.json`의 `main`, electron-builder 설정 오류, core flag의 `::1`·sys 권한)를 이 작업이 맞췄다. 문서 format runner의 wasm 위치(`packages/documents/formats/guest/contract.ts`)와 child의 Deno cache 위치(`DENO_DIR`)도 설치 묶음에 맞게 더했다
+- coding-agent#T36으로 넘김: 실제 설치에서 MCP·CLI child가 token을 받는 양성 경로(등록된 child가 있어야 한다)는 connection 생성 입구와 child generation 등록(T36·T38) 뒤에 확인한다. production provider는 `/opt/lophn/lophn-credential`을 stdin `CredentialDeliveryRequest`로 부르고 stdout `{"token"}`·실패 `{"reason"}`(종료 1)을 읽는다. `apps/cli`·`apps/mcp`의 daemon 주소 발견·core 연결은 아직 뼈대라 설치 확인은 launcher 시작과 MCP initialize 응답까지다
 
 ### T49 macOS·Windows 설치 묶음과 OS adapter
 
@@ -1081,6 +1086,7 @@ platform 작업이 없다. Operator assignment 허락의 고정 범위는 T23(ap
 - slice: operations
 - 선행: platform#T48, shell#T57
 - platform#T34에서 넘어온 것: macOS·Windows의 `ProtectedChannel` 구현과 `lophn-credential` binary·loader identity, keychain adapter의 `listRefs`(시작 때 고아 정리, Linux는 `secret-tool search`로 구현됨)와 잠김 구별(`details.reason: "locked"`)
+- platform#T48에서 넘어온 것: Linux 보호 통로는 core의 소유자 전용 unix socket과 relay helper(`credential-channel.ts`·`credential-helper.ts`)다. macOS는 같은 socket을 쓸 수 있고 Windows는 같은 모양을 named pipe·소유자 ACL로 만든다. `electron-builder.yml`은 Linux만 `dir` 대상으로 정리했고 mac·win 설정과 `scripts/stage.ts`(`__dirname` 오류가 남은 채 Linux 묶음은 쓰지 않는다)는 T57 그대로라, 그 OS 묶음은 `tools/package-linux.ts`와 같은 모양의 build 도구가 필요하다
 - 완료: 아래 확인이 통과한다
   - macOS `Lophn.app/Contents/Resources/`, Windows `Lophn/resources/` 묶음, 서명·공증 검증
   - macOS Keychain·Windows Credential Manager adapter, Windows Job Object 자식 종료, 감독 frame 통로 동작(→ Q2), 소유자 전용 ACL 검사

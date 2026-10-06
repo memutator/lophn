@@ -12,7 +12,10 @@ import type {
   RequestContext,
   WorkerRequest,
 } from "../../packages/contracts/platform/mod.ts";
-import { ROUTES } from "../../packages/contracts/platform/mod.ts";
+import {
+  createApprovalRequest,
+  ROUTES,
+} from "../../packages/contracts/platform/mod.ts";
 import {
   type ApiServer,
   RouteRegistry,
@@ -56,8 +59,11 @@ import {
   SECRET_SCHEMA_STEPS,
   SECRET_TOOL_PATHS,
 } from "../../packages/platform/secrets/mod.ts";
+import { connectionConnect } from "../../packages/contracts/coding-agent/mod.ts";
+import { CONNECTION_SECRET_OWNER } from "../../packages/coding-agent/mod.ts";
 import {
   type CodingCredentials,
+  connectHandler,
   createCodingCredentials,
 } from "./coding-credential.ts";
 import { productKeychain } from "./secret-store.ts";
@@ -153,6 +159,8 @@ import {
   INVOCATION_RECOVERY_CONTEXT,
   observeInvocations,
 } from "../../packages/apps/invocations/restart.ts";
+import { createCopyPreviewBundles } from "../../packages/apps/releases/activation/desired.ts";
+import { observeReleaseActivations } from "../../packages/apps/releases/activation/recovery.ts";
 import { eventOperations } from "./event-operations.ts";
 import type { InternalSubscription } from "./internal-subscription.ts";
 import { createStreamer, createValidatePort } from "./documents-validate.ts";
@@ -177,13 +185,16 @@ import { COLLECTOR_KIND, reportCollectorSpec } from "./problems-runner.ts";
 import {
   appCredentialIssuer,
   APPS_CONTROL_CONTEXT,
+  APPS_CONTROL_PRINCIPAL,
   APPS_SUPERVISOR_KIND,
   type AppsControl,
   appsOperationPolicies,
   appSupervisorSpec,
   createAppsControl,
   SUPERVISOR_CREDENTIAL_OPERATIONS,
+  withReleasePreparation,
 } from "./apps-control.ts";
+import { createConfirmAdapters } from "./apps-confirm.ts";
 import type { ProcessSource } from "../../packages/apps/runtime/connect.ts";
 import type { DesiredApp } from "../../packages/apps/runtime/supervisor/mod.ts";
 import type {
@@ -481,7 +492,11 @@ async function open(
   // 구성 요소 관측이고 소유 concern 관측은 복구 command로 남는다.
   const restart = await checkRestart(ledgerPath, {
     clock,
-    owners: [observeApprovals, observeInvocations],
+    owners: [
+      observeApprovals,
+      observeInvocations,
+      observeReleaseActivations,
+    ],
   });
   if (!restart.ok) return restart;
   const epoch = hex(random, 16);
@@ -557,6 +572,9 @@ async function open(
       // deno는 이 둘 없이 캐시와 실행 파일을 못 찾는다. 그 밖 환경은 복사하지 않는다.
       ...(Deno.env.get("HOME") ? { HOME: Deno.env.get("HOME")! } : {}),
       ...(Deno.env.get("PATH") ? { PATH: Deno.env.get("PATH")! } : {}),
+      ...(Deno.env.get("DENO_DIR")
+        ? { DENO_DIR: Deno.env.get("DENO_DIR")! }
+        : {}),
       // I/O worker의 secret-tool이 session bus를 찾는 데 필요한 주소만이다. secret 값이 아니다.
       ...(kind === "platform/io" ? sessionBusEnv() : {}),
     }),
@@ -656,11 +674,22 @@ async function open(
     seed: seedOf(random),
     // 문서 worker route를 서빙하는 reader 등록은 항상 붙는다(documents-reader.ts).
     modules,
-    assembled: assembled.value,
+    // connection credential의 알려진 값 참조는 coding keychain이 있을 때만 읽는다. 없는 core(시험)가
+    // 사람의 실제 keychain으로 그 참조를 찾지 않게 한다.
+    assembled: options.codingKeychain === undefined
+      ? {
+        ...assembled.value,
+        secretRefs: assembled.value.secretRefs.filter((source) =>
+          source.owner !== CONNECTION_SECRET_OWNER
+        ),
+      }
+      : assembled.value,
     source,
     blob: blobRead.deps,
-    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다.
-    keychain: () => options.secretKeychain ?? productKeychain(),
+    // 제품 기동은 OS keychain adapter, 테스트는 fake를 준다. 참조가 있을 때만 부른다. coding
+    // keychain만 준 core는 같은 adapter로 connection credential 값을 읽는다.
+    keychain: () =>
+      options.secretKeychain ?? options.codingKeychain ?? productKeychain(),
   });
   if (!openedRuntime.ok) return openedRuntime;
   runtime = openedRuntime.value;
@@ -711,10 +740,71 @@ async function open(
   }
   const knownSecrets = runtime.knownSecrets;
   const redactLine = createProductRedactor(knownSecrets);
+  // 앱 쌍 confirm의 approval 요청은 approval 글 준비를 지나는 writer로 낸다(사람이 보는 글은 blob이다).
+  const confirmWriter = withApprovalText(
+    runtime.writer,
+    createApprovalTextPreparer({
+      relay: () => bodyPrepare.current,
+      known: () => runtime?.knownSecrets,
+    }),
+  );
+  // preview 자식이 loopback으로 core API에 닿지 못하게 막을 port다. API를 연 뒤에 정해진다.
+  let apiPort = 0;
   const appsControl = await createAppsControl({
     clock,
     ledgerPath,
     readers: runtime.readers,
+    confirm: createConfirmAdapters({
+      clock,
+      ledgerPath,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      // 호출한 앱 자신의 짧은 app credential이다. 요청 하나를 마치면 끝낸다.
+      async requester(source) {
+        // 앱 자격은 앱·release·process·mode에 고정된다. release가 없는 자식은 confirm을 요청하지 못한다.
+        if (source.release === null) {
+          return err({
+            code: "forbidden",
+            message: "app confirm is live only",
+          });
+        }
+        const issued = await productRegistry.issue({
+          actor: `app:${source.app}`,
+          principal: `app:${source.app}`,
+          scope: {
+            operations: [createApprovalRequest.name],
+            targets: {
+              app: source.app,
+              release: source.release,
+              process: source.processNonce,
+              mode: source.mode,
+            },
+          },
+          conditions: {
+            app: source.app,
+            release: source.release,
+            process: source.processNonce,
+            mode: source.mode,
+          },
+        });
+        if (!issued.ok) return issued;
+        const ref = issued.value.credential_ref;
+        const current = productRegistry.revalidate({ credential_ref: ref });
+        if (!current.ok) return current;
+        const recorded = await runtime!.record(current.value);
+        if (!recorded.ok) return recorded;
+        const context = runtime!.current(ref);
+        if (!context.ok) return context;
+        return ok({
+          context: context.value,
+          end: () => void productRegistry.end(ref),
+        });
+      },
+    }),
     revalidate: (credentialRef) =>
       registry.revalidate({ credential_ref: credentialRef }),
     redact: (line) =>
@@ -723,7 +813,30 @@ async function open(
         "text/plain",
         line,
       ),
-    previews: { dataRoot: root.path, ...options.appPreviews },
+    // 봉인 bundle 사본을 여는 실제 자리다. 시험이 `appPreviews.bundles`로 바꿔 끼울 수 있다.
+    activation: {
+      dataRoot: root.path,
+      command: (ctx, envelope) =>
+        confirmWriter.command(ctx as never, envelope as never),
+      machine: () => {
+        const current = runtime?.current(APPS_CONTROL_PRINCIPAL);
+        return current?.ok ? current.value : undefined;
+      },
+      prepareBlob: (call) =>
+        blobRelay ? blobRelay.prepare(call) : Promise.resolve(err({
+          code: "unavailable",
+          message: "blob 준비 통로가 없다",
+        })),
+      platformPorts: () => apiPort === 0 ? [] : [apiPort],
+    },
+    previews: {
+      dataRoot: root.path,
+      bundles: createCopyPreviewBundles({
+        dataRoot: root.path,
+        platformPorts: () => apiPort === 0 ? [] : [apiPort],
+      }),
+      ...options.appPreviews,
+    },
     ...(options.appProcess ? { process: options.appProcess } : {}),
     ...(options.appsSweepMs === undefined
       ? {}
@@ -867,38 +980,43 @@ async function open(
       // approval 설명 글(이유·변경·외부 영향·되돌림)도 같은 길이다.
       // handoff 내용(무엇·왜·제외·기대 결과)도 같은 길이다. 용어 후보·근거 변경은 writer에
       // 닿기 전에 고정 판 본문의 출현을 확인한다(documents Q8).
-      writer: withPlacementReservation(
-        withTermOccurrence(
-          withApprovalText(
-            withQuestionText(
-              withHandoffBody(
-                withMessageBody(
-                  runtime.writer,
-                  createMessageBodyPreparer({
+      writer: withReleasePreparation(
+        withPlacementReservation(
+          withTermOccurrence(
+            withApprovalText(
+              withQuestionText(
+                withHandoffBody(
+                  withMessageBody(
+                    runtime.writer,
+                    createMessageBodyPreparer({
+                      relay: () => bodyPrepare.current,
+                      // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
+                      known: () => runtime?.knownSecrets,
+                    }),
+                  ),
+                  createHandoffBodyPreparer({
                     relay: () => bodyPrepare.current,
-                    // 알려진 secret 값도 pattern과 함께 가린다. 값을 다 모르는 동안은 막는다.
                     known: () => runtime?.knownSecrets,
                   }),
                 ),
-                createHandoffBodyPreparer({
+                createQuestionTextPreparer({
                   relay: () => bodyPrepare.current,
-                  known: () => runtime?.knownSecrets,
                 }),
               ),
-              createQuestionTextPreparer({ relay: () => bodyPrepare.current }),
+              createApprovalTextPreparer({
+                relay: () => bodyPrepare.current,
+                known: () => runtime?.knownSecrets,
+              }),
             ),
-            createApprovalTextPreparer({
-              relay: () => bodyPrepare.current,
-              known: () => runtime?.knownSecrets,
-            }),
+            (ctx, command, input) =>
+              runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
+                command,
+                input,
+              }),
           ),
-          (ctx, command, input) =>
-            runtime!.readers.read(TERM_OCCURRENCE_ROUTE, ctx, {
-              command,
-              input,
-            }),
+          placementReservations,
         ),
-        placementReservations,
+        appsControl.commands,
       ),
       reads: runtime.reads,
       // 현재 보기 relay와 apps.connect(supervisor 메모리 관측을 읽는 제어 어댑터)다.
@@ -906,6 +1024,15 @@ async function open(
         ...runtime.memory.handlers,
         ...runtime.deliveryMemory,
         ...appsControl.memory,
+        // 사람의 연결 결정 입구. codingKeychain이 있을 때만 서고 없으면 route는 처리기 없이 남는다.
+        ...(coding
+          ? [
+            [
+              `${connectionConnect.resource}/${connectionConnect.method}`,
+              connectHandler(coding, () => runtime!.writer),
+            ] as const,
+          ]
+          : []),
       ]),
       events: runtime.events,
       subscriptions: runtime.subscriptions,
@@ -1106,6 +1233,7 @@ async function open(
     await runtime.close();
     return err({ code: "unavailable", message: "API를 열 수 없다" });
   }
+  apiPort = server.port;
   const recorded = await writeRunMetadata(root.run, {
     apiPort: server.port,
     coreEpoch: epoch,
@@ -2155,6 +2283,12 @@ function repoRoot(): string {
 }
 
 function denoDir(): string {
+  // 설치 묶음은 DENO_DIR로 ~/.cache/lophn/deno를 준다(install-and-update#R8).
+  let configured: string | undefined;
+  try {
+    configured = Deno.env.get("DENO_DIR");
+  } catch { /* env 권한이 없는 worker는 spec을 쓰지 않는다 */ }
+  if (configured) return configured;
   const home = Deno.env.get("HOME");
   return home ? `${home}/.cache/deno` : "/tmp";
 }

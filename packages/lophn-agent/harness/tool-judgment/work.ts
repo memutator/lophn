@@ -17,6 +17,7 @@ import {
   startToolCall,
   type ToolDecision,
 } from "../../../contracts/lophn-agent/mod.ts";
+import type { InvocationAcceptConfirmInput } from "../../../contracts/apps/mod.ts";
 import {
   applyApprovedAction,
   type ApprovalAction,
@@ -69,10 +70,21 @@ export type ResolvedAction = {
   changes: string;
   external: string | null;
   reversibility: string;
+  // 사람이 확인해야 하는 앱 command(confirm)의 접수 입력에서 approval ID를 뺀 값이다. 있으면 approval
+  // request의 동작이 접수 command(`invocation.accept_confirm`) 자체라서, agent의 사전 질문과 앱의
+  // confirm이 같은 approval 하나다(apps/invocations#R7, platform/approvals#R8).
+  confirm?: Omit<InvocationAcceptConfirmInput, "approval">;
 };
 
+export type CallRef = { run: string; toolCall: string };
+
 export type ToolBinding = {
-  resolve(input: unknown): Result<ResolvedAction>;
+  // 현재 사실로 소유 계약의 동작을 읽는다. 읽지 못하거나 정의가 만들어진 계약과 달라졌으면 err이고
+  // 호출은 deny다(R2, R6).
+  resolve(
+    input: unknown,
+    call: CallRef,
+  ): Result<ResolvedAction> | Promise<Result<ResolvedAction>>;
 };
 
 export type JudgmentDeps = {
@@ -161,10 +173,17 @@ async function refusedBefore(
     if (request.run === null || request.action.input.kind !== "inline") {
       continue;
     }
+    // confirm 접수 입력의 approval ID는 요청마다 달라 같은 동작의 비교에서 뺀다.
+    const rejected = request.action.input.value;
     const same = refusalKey({
       operation: request.action.command,
       targets: request.action.targets,
-      input: request.action.input.value,
+      input: "approval" in rejected && request.action.command ===
+          "invocation.accept_confirm"
+        ? Object.fromEntries(
+          Object.entries(rejected).filter(([name]) => name !== "approval"),
+        )
+        : rejected,
     }) === key;
     if (!same) continue;
     if (run.run === request.run) return true;
@@ -212,7 +231,10 @@ async function gather(
   const resolved = definition === undefined || binding === undefined ||
       !validInput
     ? undefined
-    : binding.resolve(request.input);
+    : await binding.resolve(request.input, {
+      run: request.run,
+      toolCall: request.toolCall,
+    });
   const action = resolved?.ok ? resolved.value : null;
   const connection = definition?.origin === "external"
     ? deps.mcpConnection(definition)
@@ -227,11 +249,17 @@ async function gather(
     ? await refusedBefore(
       deps,
       { run: request.run, origin: origin.id },
-      {
-        operation: action.operation,
-        targets: action.targets.map((target) => target.id),
-        input,
-      },
+      action.confirm === undefined
+        ? {
+          operation: action.operation,
+          targets: action.targets.map((target) => target.id),
+          input,
+        }
+        : {
+          operation: action.operation,
+          targets: [action.confirm.app, action.confirm.release],
+          input: action.confirm as JsonObject,
+        },
     )
     : false;
   const facts: CallFacts = {
@@ -248,7 +276,9 @@ async function gather(
       ? "ended"
       : "active",
     origin: origin?.kind ?? null,
-    listed: definition !== undefined && binding !== undefined,
+    // 소유 계약이 현재 동작을 읽어 주지 못하면(범위 밖·없는 대상·계약이 바뀜) 없는 tool과 같은 답이다.
+    listed: definition !== undefined && binding !== undefined &&
+      resolved?.ok !== false,
     roleAllows: definition !== undefined &&
       deps.credential.operations.has(definition.contract),
     connection: definition?.origin !== "external"
@@ -295,22 +325,40 @@ async function gather(
   };
 }
 
-// approval에 고정하는 정확한 동작. 같은 사실에서 항상 같은 binding hash가 나온다.
+// approval에 고정하는 정확한 동작. 같은 사실에서 항상 같은 binding hash가 나온다. confirm 앱 command는
+// 접수 command 자체가 동작이라 approval ID가 입력에 들어간다.
 async function actionFor(
   deps: JudgmentDeps,
   gathered: Gathered,
+  approval?: string,
 ): Promise<ApprovalAction | undefined> {
   const { resolved, input } = gathered;
   if (resolved === null || input === null) return undefined;
-  const base = {
-    concern: resolved.concern,
-    command: resolved.operation,
-    caller: `agent:${deps.assignment}` as ApprovalAction["caller"],
-    targets: resolved.targets.map((target) => target.id),
-    input: { kind: "inline" as const, value: input },
-    input_hash: await fingerprint(input),
-    comparison: resolved.comparison,
-  };
+  const caller = `agent:${deps.assignment}` as ApprovalAction["caller"];
+  let base;
+  if (resolved.confirm !== undefined) {
+    if (approval === undefined) return undefined;
+    const accept = { ...resolved.confirm, approval };
+    base = {
+      concern: resolved.concern,
+      command: resolved.operation,
+      caller,
+      targets: [accept.app, accept.release],
+      input: { kind: "inline" as const, value: accept },
+      input_hash: await fingerprint(accept),
+      comparison: { release: accept.release },
+    };
+  } else {
+    base = {
+      concern: resolved.concern,
+      command: resolved.operation,
+      caller,
+      targets: resolved.targets.map((target) => target.id),
+      input: { kind: "inline" as const, value: input },
+      input_hash: await fingerprint(input),
+      comparison: resolved.comparison,
+    };
+  }
   return {
     ...base,
     binding_hash: await approvalBindingHash({ ...base, binding_hash: "0" }),
@@ -345,49 +393,61 @@ export function createToolJudgment(deps: JudgmentDeps) {
 
   // 설명은 이 call 하나를 가리킨다. 승인은 그 call 하나에만 쓰므로 같은 동작의 다른 call은 다른
   // approval이 필요하다.
-  function reasonOf(request: CallRequest, action: ApprovalAction): string {
+  function reasonOf(request: CallRequest, targets: readonly string[]): string {
     return `tool call ${request.toolCall}: ${request.tool} on ${
-      action.targets.join(", ")
+      targets.join(", ")
     }`;
+  }
+
+  function targetsOf(gathered: Gathered): string[] {
+    const resolved = gathered.resolved!;
+    return resolved.confirm === undefined
+      ? resolved.targets.map((target) => target.id)
+      : [resolved.confirm.app, resolved.confirm.release];
   }
 
   // 같은 call의 대기 approval이 이미 있으면 그것을 쓴다. 재시도·복구가 같은 질문을 둘 만들지
   // 않는다.
   async function pendingFor(
     request: CallRequest,
-    action: ApprovalAction,
+    gathered: Gathered,
   ): Promise<string | undefined> {
-    const reason = await sha256Hex(reasonOf(request, action));
+    const reason = await sha256Hex(reasonOf(request, targetsOf(gathered)));
     const listed = await post(deps.machine, approvalsList, {
       run: request.run,
       status: "pending",
     });
     if (!listed.ok) return undefined;
-    return listed.value.requests.find((entry) =>
-      entry.action.binding_hash === action.binding_hash &&
-      entry.reason_blob === reason
-    )?.id;
+    for (const entry of listed.value.requests) {
+      if (entry.reason_blob !== reason) continue;
+      const action = await actionFor(deps, gathered, entry.id);
+      if (action?.binding_hash === entry.action.binding_hash) return entry.id;
+    }
+    return undefined;
   }
 
   async function createApproval(
     request: CallRequest,
     gathered: Gathered,
-    action: ApprovalAction,
   ): Promise<Result<string | "refused">> {
-    const existing = await pendingFor(request, action);
+    const existing = await pendingFor(request, gathered);
     if (existing !== undefined) return ok(existing);
     const resolved = gathered.resolved;
     if (resolved === null) {
       return err({ code: "internal", message: "approval has no action" });
     }
     const id = deps.ids.newId("apr");
+    const action = await actionFor(deps, gathered, id);
+    if (action === undefined) {
+      return err({ code: "internal", message: "approval has no action" });
+    }
     // 설명은 값으로 싣는다. core가 redaction을 거쳐 blob으로 준비하고 platform이 영구 참조를
     // 등록한다. 여기서 hash를 만들지도 blob을 준비하지도 않는다.
     const body = {
       id,
       requester: `agent:${deps.assignment}`,
       run: request.run,
-      reason: reasonOf(request, action),
+      reason: reasonOf(request, targetsOf(gathered)),
       effect: {
         changes: resolved.changes,
         external: resolved.external,
@@ -420,11 +480,10 @@ export function createToolJudgment(deps: JudgmentDeps) {
     let judgment = judge(gathered.facts);
     let approval: string | null = null;
     if (judgment.decision === "ask") {
-      const action = await actionFor(deps, gathered);
-      if (action === undefined) {
+      if (gathered.resolved === null || gathered.input === null) {
         judgment = judge({ ...gathered.facts, effect: null });
       } else {
-        const created = await createApproval(request, gathered, action);
+        const created = await createApproval(request, gathered);
         if (!created.ok) return created;
         if (created.value === "refused") {
           judgment = judge({ ...gathered.facts, refused: true });
@@ -530,7 +589,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
     if (approval === undefined || recorded.approval === null) {
       return ok({ kind: "enter", approval: null });
     }
-    const action = await actionFor(deps, gathered);
+    const action = await actionFor(deps, gathered, recorded.approval);
     if (
       action === undefined ||
       action.binding_hash !== approval.request.action.binding_hash
@@ -579,7 +638,7 @@ export function createToolJudgment(deps: JudgmentDeps) {
       return err({ code: "invalid_input", message: "nothing to apply" });
     }
     const gathered = await gather(deps, request);
-    const action = await actionFor(deps, gathered);
+    const action = await actionFor(deps, gathered, admission.approval);
     if (action === undefined) {
       return err({ code: "conflict", message: "the action is not available" });
     }

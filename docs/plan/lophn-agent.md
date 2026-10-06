@@ -901,6 +901,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - 선행: T34, T44, apps#T23
 - apps#T23에서 넘어온 것: 되돌림 근거는 command 결과 `result.revert={invocation,receipt,expected_revision}`(`withRevert`가 만들고 앱 entrypoint가 올림)이고 expected_revision은 양의 정수 문자열이다. fixture의 `revert_todo`는 이 세 값을 그대로 입력으로 받아 앞선 변경이 없을 때만 되돌린다(뒤 변경이 있으면 `conflict`, 같은 근거 재사용도 `conflict`).
 - T34에서 넘어온 것: (1) 앱 write 복원 owner. `defaultRevertOwners()`에 앱 owner를 더하고 `revert_changes.app_revert`(지금은 null)·RevertStarted·applying 단계 갱신(`revert_changes_final_rows` trigger는 applying 헤더의 미확정 단계만 CAS로 한 번 바꾸도록 풀어야 한다)을 쓴다. ToolCall.run으로 연결한 성공 앱 write Invocation은 지금 event.run에 없으면 목록에 나오지 않는다. 있으면 분류되지 않은 복원 불가다. (2) 문서 제목 변경(`title_change`)은 user 자격의 `document.restore`가 제목 보상 값을 받지 못해 복원 불가로 남는다. FinishRevert(machine)가 `document.restore`의 `title`로 되돌리면 이 묶음을 복원 가능으로 바꾼다
+- lophn-agent#T44에서 넘어온 것: 앱 tool 호출의 성공 receipt `{invocation, receipt, expected_revision}`는 ToolCall `result.content.revert`에 보존된다. 앱이 남기는 invocation의 caller가 인증된 `{kind:"agent", run, tool_call}`이라 ToolCall ID로 이어진다. 다만 `tool_calls.app_command`(app·release·command·blueprint_hash·permission_basis)는 `RecordToolRequest` 입력에 자리가 없어 null로 저장된다. 원래 호출 계약을 그 열로 묶으려면 contracts에 `app_command` 입력을 additive하게 더하는 변경이 필요하다.
 - 완료:
   - app_revert_test.ts에 R10, R11 테스트: 저장한 invocation·receipt·현재 revision 검증 뒤 원래 호출 역순 direct call, applying 단계와 step_key 조회로 중복 방지, 시작 전 실패는 blocked·시작 뒤 실패·충돌·응답 유실은 실제 복원·미시작·불명확으로 보존(전체 완료·전체 미실행으로 덮지 않음), 네트워크와 ledger를 한 transaction으로 주장하지 않음
 
@@ -917,6 +918,7 @@ E2E는 apps#T27(use-app-command, ask-app-hint, connect-apps, view-agent-visuals 
 - slice: coding-agent
 - 조사: docs/research/tool-registry-and-judgment.md
 - 선행: T31, T46, coding-agent#T18, contracts#T41
+- lophn-agent#T44에서 넘어온 것: ticket 취소 tool을 정의할 때 소유 계약이 되돌릴 수 있는 변경이면 `ToolBinding`의 대상 `reversibility: "reversible"`로 선언한다. 판정표에 ticket 전용 분기가 없어 그러면 사람 요청에서 묻지 않고 allow다(tool-judgment#R10 "ticket 취소는 묻지 않는다").
 - 완료:
   - ticket_tools_test.ts에 tools#R9, roles/lophn#R24, AE#R16, R17, R22 테스트: 생성·make_ready·읽기만(claim·연장·보고·[Start] 없음), 직접 요청·피드백도 ticket, 근거·acceptance check 부족은 `readiness: needs_confirmation`과 필요한 확인 목록(질문 Q4), 실행 준비(ready)는 채택 고정 설계·채택 질문·실행 가능한 acceptance check·흐름 하나 최대 6개 요구, 같은 원인 가설의 수리 묶음, 설정 변경만 필요한 일은 coding ticket 아님, ToolCall 성공과 ticket 생성이 한 transaction
   - lophn-agent/harness/tools#R9와 architecture의 ticket tool 목록을 make_ready에 맞게 고친다

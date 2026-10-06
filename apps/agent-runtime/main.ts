@@ -27,6 +27,7 @@ import {
   type Startup,
 } from "../../packages/lophn-agent/harness/run-loop/mod.ts";
 import {
+  APP_TOOL_CONTRACT,
   BUILTIN_TOOLS,
   runOperations,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
@@ -113,7 +114,8 @@ export async function startAgentRuntime(input: {
   const link = createCredentialLink({ send: (message) => child.send(message) });
   const credentials = createRunCredentials({
     issuer: link.issuer,
-    operations: runOperations(BUILTIN_TOOLS),
+    // 앱 command tool은 앱 통로(`app.connect`) 하나로 부른다. 범위는 StartRun이 고정한 AgentAppScope가 정한다.
+    operations: [...runOperations(BUILTIN_TOOLS), APP_TOOL_CONTRACT],
     process: "agent-runtime",
   });
   let driver: RunDriver | undefined;

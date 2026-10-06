@@ -50,6 +50,8 @@ import {
   type ToolDefinition,
   type ToolHandler,
 } from "../../packages/lophn-agent/harness/tools/mod.ts";
+import type { AppTool } from "../../packages/lophn-agent/harness/tools/mod.ts";
+import type { AppToolkit } from "./app-toolkit.ts";
 import { commandOf, type CoreCall, readOf } from "./core-call.ts";
 import { createCorePorts, type RunSeat } from "./core-ports.ts";
 import type { ModelBinding } from "./model-binding.ts";
@@ -93,6 +95,8 @@ export type PreparerDeps = {
   toolkit: Toolkit;
   // 앱 command 선언과 사람 허락. 없으면 앱 command 없는 scope다.
   offers?(assignment: { id: string }): Promise<readonly AppOffer[]>;
+  // 앱 command의 자동 tool(선언·허락 읽기, 판정 근거, 호출, 결과 조회). 있으면 `offers`를 대신한다.
+  apps?: AppToolkit;
   product: string;
   rolePrompt(role: string): Promise<Result<string>>;
   instructions: InstructionDeps;
@@ -171,16 +175,12 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       ),
       ...definition.capability.tools.map((tool) => tool.tool),
     ];
-    const listed = listTools(
-      {
-        builtin: deps.toolkit.definitions ?? BUILTIN_TOOLS,
-        app: [],
-        external: [],
-      },
-      { presetTools, roleTools },
-    );
 
-    const offers = deps.offers === undefined
+    // 앱 command의 선언과 사람의 허락. 읽지 못하면 앱 command 없는 scope다(fail closed).
+    const loaded = deps.apps === undefined ? undefined : await deps.apps.load();
+    const offers = loaded !== undefined
+      ? (loaded.ok ? loaded.value.offers : [])
+      : deps.offers === undefined
       ? []
       : await deps.offers(assignment);
     const scope = computeAgentAppScope({
@@ -192,6 +192,20 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       offers,
     });
     if (!scope.ok) return scope;
+
+    // 앱 command 정의는 역할·현재 허락·assignment(AgentAppScope)의 교집합만이다.
+    const appTools: readonly AppTool[] = deps.apps === undefined ||
+        loaded === undefined || !loaded.ok
+      ? []
+      : await deps.apps.define(scope.value, loaded.value);
+    const listed = listTools(
+      {
+        builtin: deps.toolkit.definitions ?? BUILTIN_TOOLS,
+        app: appTools.map((tool) => tool.definition),
+        external: [],
+      },
+      { presetTools, roleTools },
+    );
 
     const model = await deps.resolveModel({
       preset: { id: preset.id, revision: preset.revision },
@@ -215,6 +229,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       preset,
       definition,
       listed,
+      appTools,
       scope: scope.value,
       model: model.value,
       place,
@@ -236,7 +251,15 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
     const { seat, listed, model, definition, place } = m;
     const toolkit = deps.toolkit;
     const bindings = new Map<string, ToolBinding>();
+    const appByName = new Map(
+      m.appTools.map((tool) => [tool.definition.name, tool]),
+    );
     for (const tool of listed) {
+      const app = appByName.get(tool.name);
+      if (app !== undefined && deps.apps !== undefined) {
+        bindings.set(tool.name, deps.apps.binding(app, agent));
+        continue;
+      }
       const bound = toolkit.binding(tool) ??
         (tool.effect === "read" ? readBinding(tool) : undefined);
       if (bound !== undefined) bindings.set(tool.name, bound);
@@ -250,7 +273,7 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         tools: listed.map((tool) => ({
           name: tool.name,
           description: tool.description,
-          input_schema: z.toJSONSchema(tool.input),
+          input_schema: tool.inputSchema ?? z.toJSONSchema(tool.input),
         })),
         work: {
           role: assignment.role,
@@ -287,10 +310,17 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
       tools: {
         listed,
         bindings,
-        handlers: toolkit.handlers(seat, agent),
+        handlers: new Map([
+          ...toolkit.handlers(seat, agent),
+          ...(deps.apps?.handlers(m.appTools, agent) ?? []),
+        ]),
         credential: {
           run: seat.run,
-          targets: new Set(toolkit.targets?.(assignment) ?? []),
+          // 앱 command의 대상은 이 run의 AgentAppScope에 든 앱이다.
+          targets: new Set([
+            ...(toolkit.targets?.(assignment) ?? []),
+            ...m.scope.apps.map((entry) => entry.app),
+          ]),
           operations: new Set(runOperations(listed)),
         },
         mcpConnection: toolkit.mcpConnection ?? (() => undefined),
@@ -466,14 +496,17 @@ export function createRunPreparer(deps: PreparerDeps): PreparerResult {
         )
         : holder.agent(path, body);
     const built = loopFor(found.value, assignment, agent);
-    const lookups = deps.toolkit.lookups?.(found.value.seat, agent);
+    const lookups = new Map([
+      ...(deps.toolkit.lookups?.(found.value.seat, agent) ?? []),
+      ...(deps.apps?.lookups(found.value.appTools) ?? []),
+    ]);
     let held: AgentRunCredential | undefined;
     const recoveryDeps = {
       machine,
       clock,
       store: (purpose: string, value: unknown) =>
         storeValue(deps.blobs, deps.instructions.redact, purpose, value),
-      lookup: (tool: string) => lookups?.get(tool),
+      lookup: (tool: string) => lookups.get(tool),
       close: built.ported.ports.tools.close,
     };
     return ok({

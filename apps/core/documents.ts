@@ -2,12 +2,12 @@ import { err, ok, type Result } from "../../packages/base/mod.ts";
 import type { DocumentRef } from "../../packages/contracts/documents/mod.ts";
 import {
   contextExport,
+  DOCUMENT_DISPATCHABLE_COMMANDS,
   documentPrepare,
   filesDelete,
   filesRead,
   filesRename,
   filesWatch,
-  DOCUMENT_DISPATCHABLE_COMMANDS,
   filesWrite,
   formatValidate,
   outlineRoot,

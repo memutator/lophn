@@ -84,10 +84,10 @@ Deno.test("platform/approvals#R12 #R15: 기한에 도달한 대기만 expired가
     ]);
     const at = (afterMs: number) =>
       new Date(harness.clock.nowMs() + afterMs).toISOString();
-    async function create(
+    const create = async (
       id: string,
       expiresAt: string | null,
-    ): Promise<ApprovalRequest> {
+    ): Promise<ApprovalRequest> => {
       const created = await call(
         harness,
         "approvals/create",
@@ -103,7 +103,7 @@ Deno.test("platform/approvals#R12 #R15: 기한에 도달한 대기만 expired가
       );
       assertEquals(created.status, 200, JSON.stringify(created.body));
       return created.body["request"] as ApprovalRequest;
-    }
+    };
 
     await create(DUE_SOON, at(60_000));
     await create(DUE_LATER, at(120_000));

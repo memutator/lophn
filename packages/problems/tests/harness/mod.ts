@@ -1,6 +1,7 @@
 export {
   CHECK_DEFINITIONS_VERSION,
   checkDigest,
+  coverageOf,
   failurePathDefinition,
   failurePathName,
   HARNESS_CHECKS,
@@ -11,6 +12,7 @@ export {
   UNDECLARED_PROBE_CODE,
 } from "./definitions.ts";
 export type {
+  CheckCoverage,
   CheckDefinition,
   CheckSource,
   HarnessCheckName,
@@ -18,13 +20,24 @@ export type {
   RunnerCheckName,
 } from "./definitions.ts";
 export type {
+  AdapterEffects,
   AppDriver,
   Attestation,
+  AutomationRun,
+  ChangeResult,
   HarnessPlan,
   HarnessPlanCheck,
   InvokeResult,
+  MigrationRun,
+  MigrationScenario,
+  PlanAutomation,
+  PlanCommand,
+  ReadProbe,
   ReceivedReport,
+  RevertResult,
   SdkResult,
+  SecretOperation,
+  SecretUseResult,
   ViewDriver,
 } from "./driver.ts";
 export { createEmitter } from "./emit.ts";

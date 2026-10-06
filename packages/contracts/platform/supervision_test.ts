@@ -1,6 +1,9 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { z } from "zod";
 import {
+  agentCredentialEndSchema,
+  agentCredentialRequestSchema,
+  agentCredentialResponseSchema,
   appCredentialRequestSchema,
   appCredentialResponseSchema,
   BLOB_PREPARE_CREDIT_WINDOW,
@@ -407,6 +410,52 @@ Deno.test("platform/identity#R3 platform/diagnostics#R2: main↔core의 hello·r
     );
   }
 });
+Deno.test("platform/backup-and-migration#R13: 복원 통로는 main→core 요청과 core→main 응답으로 나뉘고 정해진 field만 받는다", () => {
+  const at = "2024-01-02T03:04:05.000Z";
+  const requests = [
+    { type: "restore_plan_request", created_at: at },
+    { type: "restore_request", created_at: at, confirmation: "c".repeat(43) },
+  ];
+  const responses = [
+    {
+      type: "restore_plan",
+      created_at: at,
+      through_seq: "2",
+      current_through_seq: "4",
+      lost: { from_seq: "3", through_seq: "4", events: 2 },
+      target: at,
+      content_hash: "a".repeat(64),
+    },
+    {
+      type: "restore_result",
+      created_at: at,
+      restored_through_seq: "2",
+      previous_through_seq: null,
+    },
+    {
+      type: "restore_failed",
+      stage: "restore",
+      created_at: at,
+      code: "unavailable",
+      message: "복원하지 못했다",
+      restarted: true,
+    },
+  ];
+  for (const value of requests) {
+    assert(mainToCoreMessageSchema.safeParse(value).success);
+    assert(!coreToMainMessageSchema.safeParse(value).success);
+    assert(
+      !mainToCoreMessageSchema.safeParse({ ...value, extra: true }).success,
+    );
+  }
+  for (const value of responses) {
+    assert(coreToMainMessageSchema.safeParse(value).success);
+    assert(!mainToCoreMessageSchema.safeParse(value).success);
+    assert(
+      !coreToMainMessageSchema.safeParse({ ...value, extra: true }).success,
+    );
+  }
+});
 Deno.test("platform/identity#R2 platform/identity#R6: launch spec 권한·메모리 방식과 credential 없는 run metadata", () => {
   assert(
     kindLaunchSpecSchema.safeParse({
@@ -562,4 +611,37 @@ Deno.test("apps/preview#R9: app_credential_request는 release 없는 preview를 
       .success,
   );
   assert(!appCredentialRequestSchema.safeParse(base).success);
+});
+
+Deno.test("lophn-agent/harness/run-loop#R8: agent credential 요청·응답·종료는 run과 assignment ID를 정확히 묶고 child·parent 합집합에 들어 있다", () => {
+  const suffix = "01arz3ndektsv4rrffq69g5fav";
+  const request = {
+    type: "agent_credential_request",
+    request_id: "r",
+    run: `run_${suffix}`,
+    assignment: `asg_${suffix}`,
+    operations: ["ReadRun"],
+    scope: { role: "lophn" },
+  };
+  assert(agentCredentialRequestSchema.safeParse(request).success);
+  assert(childMessageSchema.safeParse(request).success);
+  assert(
+    !agentCredentialRequestSchema.safeParse({ ...request, run: "run_x" })
+      .success,
+  );
+  assert(
+    !agentCredentialRequestSchema.safeParse({ ...request, extra: 1 }).success,
+  );
+  const response = {
+    type: "agent_credential_response",
+    request_id: "r",
+    credential: "token",
+    credential_ref: "ref",
+  };
+  assert(agentCredentialResponseSchema.safeParse(response).success);
+  assert(parentMessageSchema.safeParse(response).success);
+  const end = { type: "agent_credential_end", run: `run_${suffix}` };
+  assert(agentCredentialEndSchema.safeParse(end).success);
+  assert(childMessageSchema.safeParse(end).success);
+  assert(!parentMessageSchema.safeParse(end).success);
 });

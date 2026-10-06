@@ -290,7 +290,7 @@ write/external·confirm·automation의 read 포함 전체 호출·실패/거절 
 
 | resource | RPC method (`/v1/<resource>/<method>`) | 결과·관련 event |
 |---|---|---|
-| `apps` | `create`, `connect_source`, `archive`, `unarchive` | App; `AppCreated`, `AppSourceConnected`, `AppArchived`, `AppUnarchived` |
+| `apps` | `create`, `connect_source`, `archive`, `unarchive`, `rename` | App; `AppCreated`, `AppSourceConnected`, `AppArchived`, `AppUnarchived`, `AppRenamed` |
 | `apps` | `enable_execution`, `disable_execution` | 실행 허용 변경; `AppExecutionEnabled`, `AppExecutionDisabled` |
 | `apps` | `record_started`, `record_stopped`, `record_unavailable` | 실제 관측; `AppStarted`, `AppStopped`, `AppUnavailable` |
 | `grants` | `create`, `revoke` | exact Grant와 종료 확인; `GrantCreated`, `GrantRevoked` |

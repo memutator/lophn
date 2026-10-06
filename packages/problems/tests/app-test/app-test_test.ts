@@ -64,9 +64,25 @@ function inputFor(shape: Shape = {}): AppTestInput {
   const codes = shape.codes ?? ["save_failed"];
   const blueprint = {
     problem_codes: codes.map((code) => declaration(code)),
-    commands: [{ key: "save" }, { key: "load" }],
+    commands: [
+      {
+        key: "save",
+        effect: "write",
+        confirm: false,
+        revert: { supported: false },
+      },
+      {
+        key: "load",
+        effect: "write",
+        confirm: false,
+        revert: { supported: false },
+      },
+    ],
     screens: shape.view ? [{ key: "main" }] : [],
     sdk_dependencies: SDK,
+    automatic_tasks: [],
+    permissions: [],
+    app_connections: [],
   } as unknown as AppTestInput["blueprint"];
   const frozen: Pick<
     FrozenTest,
@@ -84,6 +100,7 @@ function inputFor(shape: Shape = {}): AppTestInput {
     frozen,
     fixed_sdk: SDK,
     previous_declarations: shape.previous ?? null,
+    data: { schema: 0, previous_schema: null },
   };
   shape.patch?.(input);
   return input;
@@ -105,6 +122,7 @@ function driverFor(
     ),
     has_view: plan.harness.has_view,
     omit,
+    plan: plan.harness,
   });
 }
 
@@ -175,6 +193,11 @@ Deno.test("problems/tests#R7: 모든 필수 검사가 실제 pass일 때만 pass
   assertEquals(judgment.result, "pass");
   assertEquals(judgment.observations.checks.length, plan.checks.length);
   for (const check of judgment.observations.checks) {
+    // 선언이 없는 앱 계약 검사만 이유 있는 not_applicable이다.
+    if (check.status === "not_applicable") {
+      assert(check.reason.trim() !== "");
+      continue;
+    }
     assertEquals(check.status, "pass");
     assert(check.reason.trim() !== "");
     assert(/^[0-9a-f]{64}$/.test(check.evidence.actual_hash ?? ""));

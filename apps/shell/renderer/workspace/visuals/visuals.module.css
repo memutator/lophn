@@ -183,3 +183,19 @@
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
 }
+
+/* 세션 앱 카드. 위 한 줄 shell 크롬 아래를 card 크기 앱 view 자리가 채운다. */
+.appCard {
+  display: flex;
+  flex-direction: column;
+  min-width: var(--space-0);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.appCardView {
+  display: flex;
+  height: var(--chart-height);
+  min-width: var(--space-0);
+}

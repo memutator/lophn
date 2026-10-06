@@ -73,6 +73,24 @@ export interface AppViewHost {
   focusShell?(window: string): void;
 }
 
+/** 세션 앱 카드가 묶인 답의 표시 참조. 카드 입력은 싣지 않는다. */
+export interface CardDisplay {
+  message: string;
+  block: string;
+}
+
+/** 창에 열린 view 하나의 참조. 화면 내용·DOM·캡처는 없다. */
+export interface ViewListing {
+  view_session: string;
+  generation: number;
+  app: string;
+  release: string | null;
+  mode: ViewMode;
+  screen: string;
+  size: ScreenSize;
+  card: CardDisplay | null;
+}
+
 /** 폐기되거나 다른 앱으로 교체되어 그 앱에서 닫힌 view. */
 export interface ClosedView {
   app: string;

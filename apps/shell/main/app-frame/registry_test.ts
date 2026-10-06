@@ -578,3 +578,101 @@ test("shell/app-frame#R12, problems/reporting#R6: IPC sender view는 지금 살�
   w.frame.close(view.view_session);
   assert.equal(w.frame.senderView(next.id), undefined);
 });
+
+const CARD = { message: "msg_01j9zzzzzzzzzzzzzzzzzzzzzz", block: "usage" };
+
+test("shell/app-frame#R33: 패널·카드는 전체 view와 같은 앱·release·mode 연결과 partition·scheme·탐색 경계를 쓰고 command 범위가 없다", async () => {
+  const w = world();
+  await opened(w);
+  await opened(w, { size: "panel" });
+  const result = await w.frame.open(openInput({ size: "card" }), CARD);
+  assert.equal(result.ok, true);
+  assert.deepEqual(
+    w.state.connects.map(({ target }) => target),
+    ["full", "panel", "card"].map((size) => ({
+      app: APP_A,
+      mode: "live",
+      release: REL_1,
+      screen: "main",
+      size,
+    })),
+  );
+  const [full, panel, card] = w.contents;
+  for (const small of [panel!, card!]) {
+    assert.equal(small.partition, full!.partition);
+    assert.deepEqual(small.loaded, full!.loaded);
+    for (
+      const url of [
+        `lophn-app://${LABEL_A}/main/next.html`,
+        `lophn-app://${LABEL_A}/other/index.html`,
+        "https://api.example.com/",
+      ]
+    ) {
+      assert.equal(small.allow(url), full!.allow(url), url);
+    }
+  }
+  // session 정책은 partition 하나에 한 번이고, 세 view 모두 그 정책을 지난다.
+  assert.deepEqual(w.handles, [full!.partition]);
+  const session = w.sessions.get(full!.partition)!;
+  for (const item of w.contents) {
+    assert.equal(
+      cancelled(session, "https://other.example.com/", item.id),
+      true,
+    );
+    assert.equal(
+      cancelled(session, "https://api.example.com/v1", item.id),
+      false,
+    );
+  }
+  // preview 패널은 운영 partition과 섞이지 않는다.
+  await opened(w, { size: "panel", mode: "preview", release: null });
+  assert.notEqual(w.contents[3]!.partition, full!.partition);
+  // view를 열어도 registry에 command를 부르는 길은 없다.
+  for (const name of ["call", "invoke", "command", "grant"]) {
+    assert.equal(name in w.frame, false);
+  }
+});
+
+test("shell/app-frame#R35, shell/workspace#R12: 카드는 message·block 표시 참조에 묶여 열리고 만든 때의 release에서 다른 release로 바꿔 열지 않는다", async () => {
+  const w = world();
+  // 카드 크기는 표시 참조 없이, 다른 크기는 참조와 함께 열 수 없다.
+  for (
+    const [input, card] of [
+      [openInput({ size: "card" }), undefined],
+      [openInput({ size: "panel" }), CARD],
+    ] as const
+  ) {
+    const refused = await w.frame.open(input, card);
+    assert.equal(refused.ok, false);
+  }
+  const panel = await opened(w, { size: "panel" });
+  const result = await w.frame.open(openInput({ size: "card" }), CARD);
+  assert.equal(result.ok, true);
+  const card = (result as { ok: true; value: { view_session: string } }).value;
+  const listed = w.frame.views("window-1");
+  assert.deepEqual(
+    listed.map((item) => [item.view_session, item.size, item.card]),
+    [[panel.view_session, "panel", null], [card.view_session, "card", CARD]],
+  );
+  assert.deepEqual(w.frame.views("window-2"), []);
+  // 카드 view를 다른 대상으로 바꾸지 않는다.
+  const replaced = await w.frame.replace(
+    card.view_session,
+    openInput({ size: "card" }),
+  );
+  assert.equal(replaced.ok, false);
+
+  // 앱이 다른 release를 채택하면 패널은 따라가고 카드는 다시 열지 않고 연결을 잃는다.
+  w.state.release = REL_2;
+  await w.frame.refresh();
+  assert.equal(w.frame.state(panel.view_session)?.release, REL_2);
+  assert.equal(w.frame.state(card.view_session)?.release, REL_1);
+  assert.equal(
+    w.frame.state(card.view_session)?.connectionState,
+    "unavailable",
+  );
+  const cardConnects = w.state.connects.filter(({ target }) =>
+    target.size === "card"
+  );
+  assert.equal(cardConnects.every(({ follow }) => !follow), true);
+});

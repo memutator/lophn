@@ -31,6 +31,8 @@ type Rig = {
   signer: Awaited<ReturnType<typeof createCoreSigner>>;
   dir: string;
   issued: string[];
+  // 앱 direct socket으로 보낸 요청의 경로와 본문.
+  directs: { path: string; body: unknown }[];
   stop(): Promise<void>;
 };
 
@@ -55,6 +57,7 @@ async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
   const posted: Posted[] = [];
   const frames: unknown[] = [];
   const issued: string[] = [];
+  const directs: { path: string; body: unknown }[] = [];
   // deno-lint-ignore prefer-const
   let assembled: Assembly;
   const fake = {
@@ -129,7 +132,10 @@ async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     spawn: (launch) => spawnApp(launch),
     post: fake.post,
-    direct: (endpoint, request) => unixDirectTransport(endpoint, request),
+    direct: (endpoint, request) => {
+      directs.push({ path: request.path, body: request.body });
+      return unixDirectTransport(endpoint, request);
+    },
     send(message) {
       frames.push(message);
       const request = message as {
@@ -179,6 +185,7 @@ async function rig(options: { stopGraceMs?: number } = {}): Promise<Rig> {
     signer,
     dir,
     issued,
+    directs,
     async stop() {
       await assembled.supervisor.stop();
       assembled.shutdown();
@@ -411,6 +418,31 @@ Deno.test("apps/runtime#R17: core 제어가 끊기면 새 호출을 닫고 자�
       r.posted.filter((entry) => entry.path === "apps/record_stopped").length,
       0,
     );
+  } finally {
+    await r.stop();
+  }
+});
+
+Deno.test("apps/agent-context#R2, apps/agent-context#R5: 닫힌 화면 view는 지금 live 자식의 nonce로 control/view-closed에 보내고 자식이 없으면 보내지 않는다", async () => {
+  const r = await rig();
+  try {
+    const op = r.assembled.ops["apps.view_closed"];
+    assertEquals(await op({ app: FIXTURE_APP, view_session: "view-1" }), {
+      relayed: false,
+    });
+    await r.assembled.supervisor.reconcile(r.desired);
+    const observation = await until("ready", () => readyOf(r));
+    assertEquals(await op({ app: FIXTURE_APP, view_session: "view-1" }), {
+      relayed: true,
+    });
+    const sent = r.directs.filter((entry) =>
+      entry.path === "/_lophn/control/view-closed"
+    );
+    assertEquals(sent.length, 1);
+    assertEquals(sent[0]!.body, {
+      process_nonce: observation.processNonce,
+      view_session: "view-1",
+    });
   } finally {
     await r.stop();
   }

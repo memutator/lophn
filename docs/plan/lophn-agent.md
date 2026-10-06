@@ -515,9 +515,11 @@ agent slice가 lophn-agent의 본체다. 순서: 기반 ledger(T3–T12) → pro
 - T51에서 넘어온 것: 회차 시계(`scheduling/work.ts`의 `createOccurrenceClock`·`run`)를 agent runtime 기동에서 돌려 `/v1/assignment-occurrences/process`를 machine credential로 부르는 연결(#267은 시계와 command만 닫았다). 주입할 `read`는 selector와 같은 core read, `wait`는 runtime 시각 대기, clock은 systemClock이다
 - T33에서 넘어온 것: visual.show·visual.read·visual.prepare_document의 run 연결(operation·세션·메시지 ID·판정 대상·handler 수명). 자세한 것은 T33 블록 "T26에 넘기는 것"과 질문 Q45.
 - T12에서 넘어온 것: (1) `RunSelector.next()`로 고른 run을 StartRun으로 시작하고 `beginRun`·`createRunCredentials`(#260)로 `agent:<asg>` credential을 받아 tool 진입에만 쓰며 run 종료·멈춤·감독 상실에 `end`한다. (2) credential을 core에서 runtime으로 전달하는 감독 pipe 메시지(app_credential_request의 agent판)와 core의 `CredentialRegistry.issue` 호출 자리, run 상태를 다시 보는 `current/live` 연결은 platform에 맡은 작업이 없다(platform#T24는 registry까지 닫혔다). 이 작업이 platform·contracts에 그 계약을 요청해 받은 뒤 연결하고, 계약이 없으면 멈추고 lead에게 보고한다.
+- 상태: 완료 (#375) — 이어보냄(후속 작업 필요): (1) core 쪽 감독 pipe `agent_credential_request` 처리(`CredentialRegistry.issue`, run·assignment·process 조건, `agent_credential_end`의 `endBy`). 계약(platform/supervision의 agent_credential_request·response·end)은 이 PR이 additive로 더했고 runtime 쪽 요청·종료는 `apps/agent-runtime/credential-link.ts`가 한다. (2) loop `RunPorts`의 실제 core 연결: StartModelCall·FinishModelCall과 ApplyMessages(Q30), RecordToolRequest부터 Finish까지의 ToolCall 기록과 `createToolJudgment`·`executeTool` 연결, `ports.inputs`(request·미반영 correction 읽기), `ports.context`(preset·assignment 판, 문서 읽기와 `MaterialSource`, skill 목록), `ports.view`(relay `workspace.read`), RecordMessage·WaitRun·FinishRun·CheckpointRun 호출, `prepare`(basis blob 준비와 StartRun). T25·T11·T33·T32·T51·T15·T10의 "넘어온 것" 연결은 이 (2)와 함께 간다. loop 엔진·port 모양은 `run-loop/ports.ts`
 - 완료:
   - loop_test.ts에 R8–R13, R15, R23–R25 테스트(fake provider·clock·owner contract): model이 응답하지 않아도 core read·다른 assignment가 진행, turn 순서와 조립 뒤 입력·멈춤 재확인, 수정 입력은 다음 tool 전에 새 판단, 불완전 응답의 tool 0개와 잘림을 다음 판단에 전달, 모든 call이 확인된 read일 때만 병렬·하나라도 아니면 요청 순서 순차·결과는 요청 순서, 없는 tool·잘못된 인자는 call별 결과·인자 보정 없음, 순차 write·external 거절·최종 실패 뒤 나머지 미실행 이유·독립 read 결과 보존, 멈춤 뒤 새 model·tool·retry 차단·진행 호출 중단 요청·미시작 call 미실행 결과 합성, 일시 실패만 최대 2회(서버 시각을 지키고 없으면 2초·4초, fake clock으로 서버 시각 전 재시도 없음)·부분 응답 미채택, tool retry는 read·멱등 write만 1회 1초±10%와 재판정, provider 끄기·MCP 제거 뒤 새 진입 차단
-  - flow steer-agent-work의 agent 갈래
+  - flow steer-agent-work의 agent 갈래(R10 테스트가 steering → 새 판단을 확인한다)
+  - apps/agent-runtime/run_driver_test.ts: StartRun 확정 뒤 credential 발급, 종료·멈춤·감독 상실에 credential 끝냄, 시작 거절이면 credential 없음
 
 ### T27 중단 뒤 복구
 

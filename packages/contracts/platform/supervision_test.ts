@@ -1,6 +1,9 @@
 import { assert, assertEquals, assertThrows } from "@std/assert";
 import { z } from "zod";
 import {
+  agentCredentialEndSchema,
+  agentCredentialRequestSchema,
+  agentCredentialResponseSchema,
   appCredentialRequestSchema,
   appCredentialResponseSchema,
   BLOB_PREPARE_CREDIT_WINDOW,
@@ -608,4 +611,37 @@ Deno.test("apps/preview#R9: app_credential_request는 release 없는 preview를 
       .success,
   );
   assert(!appCredentialRequestSchema.safeParse(base).success);
+});
+
+Deno.test("lophn-agent/harness/run-loop#R8: agent credential 요청·응답·종료는 run과 assignment ID를 정확히 묶고 child·parent 합집합에 들어 있다", () => {
+  const suffix = "01arz3ndektsv4rrffq69g5fav";
+  const request = {
+    type: "agent_credential_request",
+    request_id: "r",
+    run: `run_${suffix}`,
+    assignment: `asg_${suffix}`,
+    operations: ["ReadRun"],
+    scope: { role: "lophn" },
+  };
+  assert(agentCredentialRequestSchema.safeParse(request).success);
+  assert(childMessageSchema.safeParse(request).success);
+  assert(
+    !agentCredentialRequestSchema.safeParse({ ...request, run: "run_x" })
+      .success,
+  );
+  assert(
+    !agentCredentialRequestSchema.safeParse({ ...request, extra: 1 }).success,
+  );
+  const response = {
+    type: "agent_credential_response",
+    request_id: "r",
+    credential: "token",
+    credential_ref: "ref",
+  };
+  assert(agentCredentialResponseSchema.safeParse(response).success);
+  assert(parentMessageSchema.safeParse(response).success);
+  const end = { type: "agent_credential_end", run: `run_${suffix}` };
+  assert(agentCredentialEndSchema.safeParse(end).success);
+  assert(childMessageSchema.safeParse(end).success);
+  assert(!parentMessageSchema.safeParse(end).success);
 });

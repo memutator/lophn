@@ -191,6 +191,11 @@ export {
 } from "./platform-routes.ts";
 export { EVENTS, ROUTES } from "./registry.ts";
 export {
+  agentCredentialEndSchema,
+  type AgentCredentialRequest,
+  agentCredentialRequestSchema,
+  type AgentCredentialResponse,
+  agentCredentialResponseSchema,
   appCredentialRequestSchema,
   appCredentialResponseSchema,
   BLOB_PREPARE_CREDIT_WINDOW,

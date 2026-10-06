@@ -231,7 +231,11 @@ export async function openWaitingWorld(
       core.confirmation?.(body) ??
         Promise.resolve({ ok: false as const, error: { message: "없다" } }),
   };
-  await acceptCredential(core, context("machine", MACHINE_OPERATIONS), MACHINE_TOKEN);
+  await acceptCredential(
+    core,
+    context("machine", MACHINE_OPERATIONS),
+    MACHINE_TOKEN,
+  );
   await acceptCredential(core, context("user", USER_OPERATIONS), USER_TOKEN);
   const post = (
     path: string,

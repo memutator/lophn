@@ -317,7 +317,9 @@ function chosenOf(
     key: string;
     action: unknown;
   }[];
-  const option = options.find((candidate) => candidate.key === answer.option_key);
+  const option = options.find((candidate) =>
+    candidate.key === answer.option_key
+  );
   if (option === undefined || option.action === null) return undefined;
   const parsed = optionActionSchema.safeParse(option.action);
   return parsed.success ? { action: parsed.data } : undefined;
@@ -371,9 +373,12 @@ export function createApplyQuestionOption(
       // 같은 질문 option은 한 번만 적용한다. 소유 command가 실패하면 이 기록도 되돌아간다.
       const key = evidenceKey(row.id, input.option_key);
       if (
-        tx.sql.get("select 1 as found from question_evidence where evidence_key = ?", [
-          key,
-        ]) !== undefined
+        tx.sql.get(
+          "select 1 as found from question_evidence where evidence_key = ?",
+          [
+            key,
+          ],
+        ) !== undefined
       ) {
         return err({
           code: "conflict",

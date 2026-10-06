@@ -291,7 +291,9 @@ export function adoptionOf(row: QuestionRow): Adoption | null {
   if (answer.kind !== "option") return null;
   const options = JSON.parse(row.options) as {
     key: string;
-    adoption: { document: string; version: string; section: string | null } | null;
+    adoption:
+      | { document: string; version: string; section: string | null }
+      | null;
   }[];
   const chosen = options.find((option) => option.key === answer.option_key);
   if (chosen === undefined || chosen.adoption === null) return null;

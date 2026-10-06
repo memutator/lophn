@@ -28,8 +28,8 @@ export {
   settingsOptionAction,
 } from "./option-actions.ts";
 export {
-  protectedSetting,
   type ProtectedSetting,
+  protectedSetting,
   type ProtectedSettingKind,
 } from "./protected-settings.ts";
 export { createQuestionReads } from "./reads.ts";

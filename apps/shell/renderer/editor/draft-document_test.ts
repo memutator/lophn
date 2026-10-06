@@ -119,3 +119,32 @@ Deno.test("shell/editor#R2: 통로가 끊겨 결과를 모르면 다시 저장�
   assertEquals(absent.sent.length, 1);
   assert(absent.looked() >= 1);
 });
+
+Deno.test("shell/editor#R2 shell/editor#R17: 파일은 썼지만 첫 판이 아직이면 pending으로 따로 보이고 조회로만 다시 보며 다시 저장하지 않는다", async () => {
+  const pending: EditorReply<CreateReport> = {
+    ok: true,
+    value: { outcome: "pending", version: null, failure: null },
+  };
+  const waiting = harness([pending], null);
+  waiting.session.edit("# P003\n\nthird\n");
+  assert(await waiting.session.flush(true));
+  assertEquals(waiting.session.facts.state, "pending");
+  // 첫 판 전 draft와 구별되고 창 닫기를 막지 않는다. 더 고쳐도 다시 쓰지 않는다.
+  assertEquals(waiting.session.unsettled(), false);
+  assertEquals(waiting.session.needsEnd(), false);
+  waiting.session.edit("# P003\n\nmore\n");
+  assert(await waiting.session.flush(true));
+  assertEquals(waiting.sent.length, 1);
+  // 판이 아직 없으면 그대로 기다린다(draft로 돌아가 다시 쓰지 않는다).
+  await waiting.session.check();
+  assertEquals(waiting.session.facts.state, "pending");
+  assert(waiting.looked() >= 1);
+
+  const observed = harness([pending], V1);
+  observed.session.edit("# P003\n\nthird\n");
+  await observed.session.flush(true);
+  await observed.session.check();
+  assertEquals(observed.session.facts.state, "saved");
+  assertEquals(observed.session.facts.version, V1);
+  assertEquals(observed.sent.length, 1);
+});

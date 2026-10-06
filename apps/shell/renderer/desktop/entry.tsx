@@ -3,7 +3,14 @@ import { Desktop } from "./main.tsx";
 import { windowCoreSource } from "./connection/connection.ts";
 import { devSeed } from "./dev-seed.ts";
 import { windowEditorDeps } from "../editor/window-deps.ts";
-import { openApp, openLophn, openProject, type Route } from "./router.ts";
+import { windowInstructionsSource } from "../editor/instructions-entry.tsx";
+import {
+  openApp,
+  openInstructions,
+  openLophn,
+  openProject,
+  type Route,
+} from "./router.ts";
 import { coreLophnSource } from "./lophn-space/core-source.ts";
 import { coreContextsSource } from "./lophn-space/contexts/core-source.ts";
 import { coreOrganizeSource } from "./lophn-space/organize/core-source.ts";
@@ -68,7 +75,8 @@ const requests = {
 // 개발 확인용 시작 자리. `#lophn`이면 lophn 공간(documents)부터, `#conversation`이면
 // 거기에 대화 도크까지 열어 두고, `#things-to-confirm`이면 그 형제부터, `#project=<id>`면 그
 // 프로젝트 작업대부터, `#app=<id>`면 그 앱 공간부터, `#apps`면 apps 형제부터 연다. `#contexts`면 contexts
-// 형제부터, `#contexts=<id>`면 그 Focus까지 연다. 기본은 런처다.
+// 형제부터, `#contexts=<id>`면 그 Focus까지 연다. `#instructions=global`·`#instructions=project:<id>`면
+// 그 [Instructions] 편집기부터 연다. 기본은 런처다.
 const start: Route | undefined = seed
   ? openProject(seed.project)
   : location.hash === "#lophn" || location.hash === "#conversation"
@@ -86,6 +94,13 @@ const start: Route | undefined = seed
   ? openLophn("projects")
   : location.hash.startsWith("#project=")
   ? openProject(location.hash.slice("#project=".length))
+  : location.hash === "#instructions=global"
+  ? openInstructions({ layer: "global" })
+  : location.hash.startsWith("#instructions=project:")
+  ? openInstructions({
+    layer: "project",
+    place: location.hash.slice("#instructions=project:".length),
+  })
   : location.hash.startsWith("#app=")
   ? openApp(location.hash.slice("#app=".length))
   : location.hash === "#apps"
@@ -153,6 +168,7 @@ mount(
             views={views}
             appWindows={bridges.lophnAppWindows}
             feedback={feedback}
+            instructions={windowInstructionsSource()}
           />
         </RequestsProvider>
       </ConversationProvider>

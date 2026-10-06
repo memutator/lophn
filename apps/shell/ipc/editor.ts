@@ -238,10 +238,11 @@ export interface RestoreReport {
 /**
  * 새 문서 첫 판의 결과. saved: 첫 판이 생겼다(가족 draft와 일치하면 같은 저장에서 멤버가 된다),
  * conflict: 그 사이 key·문서·가족이 바뀌어 저장하지 않음, failed: 저장하지 않음(failure에 이유),
- * unknown: 응답을 잃었고 문서 조회로도 결과를 모른다.
+ * unknown: 응답을 잃었고 문서 조회로도 결과를 모른다, pending: 파일은 썼고 판 확정은 documents의
+ * 관측을 기다림(지침 파일의 첫 저장).
  */
 export interface CreateReport {
-  readonly outcome: "saved" | "conflict" | "failed" | "unknown";
+  readonly outcome: "saved" | "conflict" | "failed" | "unknown" | "pending";
   readonly version: string | null;
   readonly failure: string | null;
 }

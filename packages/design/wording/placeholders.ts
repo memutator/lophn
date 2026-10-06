@@ -513,6 +513,7 @@ export type PlaceholderKinds = {
   "document.button.find-match-case": Record<never, never>;
   "document.button.find-next": Record<never, never>;
   "document.button.find-previous": Record<never, never>;
+  "document.button.instructions": Record<never, never>;
   "document.button.keep-editing": Record<never, never>;
   "document.button.keep-mine": Record<never, never>;
   "document.button.menu": Record<never, never>;
@@ -594,6 +595,7 @@ export type PlaceholderKinds = {
   "document.label.replace-with": Record<never, never>;
   "document.label.saved": Record<never, never>;
   "document.label.saving": Record<never, never>;
+  "document.label.these-instructions": Record<never, never>;
   "document.label.this-document": Record<never, never>;
   "document.label.version-confirmed": Record<never, never>;
   "document.label.version-conflict": Record<never, never>;
@@ -620,6 +622,8 @@ export type PlaceholderKinds = {
   "document.status.version-conflict": Record<never, never>;
   "document.status.version-pending": Record<never, never>;
   "document.status.version-saved": Record<never, never>;
+  "document.title.global-instructions": Record<never, never>;
+  "document.title.project-instructions": Record<never, never>;
   "document.title.compare-disk": Record<never, never>;
   "document.title.compare-newest": Record<never, never>;
   "document.title.unsaved": Record<never, never>;

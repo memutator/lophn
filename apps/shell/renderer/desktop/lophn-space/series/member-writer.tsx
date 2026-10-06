@@ -54,6 +54,8 @@ function statusText(facts: DraftDocumentFacts): string {
       return t("document.status.offline");
     case "unknown":
       return t("document.status.unknown");
+    case "pending":
+      return t("document.status.version-pending");
   }
 }
 
@@ -165,7 +167,7 @@ export function MemberWriter(
 
   const action = facts.state === "failed" || facts.state === "offline"
     ? { label: t("common.button.retry"), run: () => session.retry() }
-    : facts.state === "unknown"
+    : facts.state === "unknown" || facts.state === "pending"
     ? {
       label: t("document.button.check-again"),
       run: () => void session.check(),

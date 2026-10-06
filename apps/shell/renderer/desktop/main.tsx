@@ -10,6 +10,10 @@ import {
   openProject,
   type Route,
 } from "./router.ts";
+import {
+  InstructionsEntry,
+  type InstructionsSource,
+} from "../editor/instructions-entry.tsx";
 import { Workspace } from "../workspace/workspace.tsx";
 import type { WorkspaceSource } from "../workspace/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
@@ -58,6 +62,8 @@ export interface DesktopProps {
   tracking?: TrackingSource;
   /** main이 시키는 것(전역 팔레트, OS notification 클릭). 없으면 받지 않는다. */
   intents?: IntentApi;
+  /** [Instructions] 통로. 없으면 instructions 공간을 열지 않는다. */
+  instructions?: InstructionsSource;
   /** apps 화면과 앱 공간의 통로. 없으면 앱 행은 apps 형제 화면으로만 간다. */
   apps?: AppsSource;
   /** shell preload의 앱 view 통로. 앱 공간 본문이 쓴다. */
@@ -85,6 +91,7 @@ export function Desktop(
     projects,
     tracking,
     intents,
+    instructions,
     apps,
     views,
     appWindows,
@@ -151,6 +158,18 @@ export function Desktop(
         editor={editor}
         terminal={terminal}
         tracking={tracking}
+      />
+    );
+  } else if (
+    route.space === "instructions" && route.instructions && instructions &&
+    editor && live
+  ) {
+    space = (
+      <InstructionsEntry
+        place={route.instructions}
+        source={instructions}
+        editor={editor}
+        onBack={launcher}
       />
     );
   } else if (route.space === "app" && route.app && apps && live) {

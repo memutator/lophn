@@ -84,11 +84,13 @@ import {
 import {
   coreCreatePort,
   coreFilesPort,
+  coreInstructionsPort,
   corePlacePort,
   coreRestorePort,
 } from "../editor/core-port.ts";
 import { createDocumentCreator } from "../editor/create.ts";
 import { createFileAdapter } from "../editor/file-adapter.ts";
+import { createInstructions } from "../editor/instructions.ts";
 import { createRestorer } from "../editor/restore.ts";
 import { createPlacer } from "../editor/place.ts";
 import { registerEditorIpc, removeEditorIpc } from "../editor/ipc.ts";
@@ -908,6 +910,14 @@ const creator = createDocumentCreator({
     return session ? coreCreatePort(session) : null;
   },
 });
+// [Instructions](shell#T32). exact 지침 파일만 main이 resolve하고, 파일이 없으면 첫 저장이 만든다.
+const instructions = createInstructions({
+  port: () => {
+    const session = core.session();
+    return session ? coreInstructionsPort(session) : null;
+  },
+  dataRoot,
+});
 // 문서를 파일로 두기(shell#T20). 파일 쓰기는 renderer allowlist 밖이라 main이 부른다.
 const placer = createPlacer(() => {
   const session = core.session();
@@ -918,6 +928,7 @@ registerEditorIpc(editorIpc, {
   adapter: fileAdapter,
   restorer,
   creator,
+  instructions,
   placer,
   guardOf: (id) => closeGuards.get(id),
 });
@@ -1227,6 +1238,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
     // lophn 공간의 things-to-confirm 형제부터, `projects`는 projects 형제부터 연다. `project:<id>`는 그 프로젝트 작업대부터,
     // `apps`는 apps 형제부터, `app:<id>`는 그 앱 공간부터 연다.
     // `contexts`·`contexts:<ctx id>`는 contexts 형제(와 그 Focus)부터 연다.
+    // `instructions:global`·`instructions:project:<id>`는 그 [Instructions] 편집기부터 연다.
     url: process.env.LOPHN_DEV_SEED === "1"
       ? `${DESKTOP_URL}?dev-seed=1`
       : process.env.LOPHN_SHELL_START === "lophn"
@@ -1243,6 +1255,12 @@ function openDesktopWindow(): BrowserWindow | undefined {
       ? `${DESKTOP_URL}#projects`
       : /^project:prj_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")
       ? `${DESKTOP_URL}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
+      : /^instructions:(global|project:prj_[0-9a-z]{26})$/.test(
+          process.env.LOPHN_SHELL_START ?? "",
+        )
+      ? `${DESKTOP_URL}#instructions=${
+        process.env.LOPHN_SHELL_START!.slice(13)
+      }`
       : process.env.LOPHN_SHELL_START === "apps"
       ? `${DESKTOP_URL}#apps`
       : /^app:app_[0-9a-z]{26}$/.test(process.env.LOPHN_SHELL_START ?? "")

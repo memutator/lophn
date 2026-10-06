@@ -9,7 +9,8 @@ import type { CreateReport, EditorReply } from "../../ipc/editor.ts";
 /**
  * draft: 첫 판이 아직 없다(글은 이 창에, key·예정 문서는 가족 draft에). saving: 첫 판을 만드는 중.
  * saved: 첫 판이 생겼다. conflict: 그 사이 key·가족이 바뀌어 저장하지 않았다. failed·offline:
- * 저장하지 않았다. unknown: 저장했는지 모른다.
+ * 저장하지 않았다. unknown: 저장했는지 모른다. pending: 파일은 썼고 첫 판은 documents의 관측을
+ * 기다린다(지침 파일의 첫 저장, shell/editor#R2·R17).
  */
 export type DraftDocumentState =
   | "draft"
@@ -18,7 +19,8 @@ export type DraftDocumentState =
   | "conflict"
   | "failed"
   | "offline"
-  | "unknown";
+  | "unknown"
+  | "pending";
 
 export interface DraftDocumentFacts {
   readonly state: DraftDocumentState;
@@ -101,9 +103,11 @@ export class DraftDocumentSession {
 
   /** 편집기의 고침. 첫 판 전에는 이 창이 들고 있다. */
   edit(text: string): void {
-    if (this.#closed || this.#facts.state === "saved" || text === this.#text) {
-      return;
-    }
+    const state = this.#facts.state;
+    if (
+      this.#closed || state === "saved" || state === "pending" ||
+      text === this.#text
+    ) return;
     this.#text = text;
     if (!this.#facts.edited) this.#set({ edited: true });
   }
@@ -116,7 +120,7 @@ export class DraftDocumentSession {
     while (this.#inFlight) await this.#inFlight;
     if (!end || this.#closed) return !this.unsettled();
     const state = this.#facts.state;
-    if (state === "saved") return true;
+    if (state === "saved" || state === "pending") return true;
     if (state === "conflict" || state === "unknown") return false;
     if (!this.#facts.edited) return true;
     await this.#start();
@@ -130,16 +134,20 @@ export class DraftDocumentSession {
     void this.#start();
   }
 
-  /** 결과를 모르는 저장을 그 예정 문서 조회로 다시 본다. 다시 저장하지 않는다. */
+  /**
+   * 결과를 모르는 저장(unknown)이나 판 확정을 기다리는 저장(pending)을 그 예정 문서 조회로 다시
+   * 본다. 다시 저장하지 않는다. 아직 없으면 unknown은 초안으로 돌아가고 pending은 그대로 기다린다.
+   */
   async check(): Promise<void> {
-    if (this.#facts.state !== "unknown") return;
+    const before = this.#facts.state;
+    if (before !== "unknown" && before !== "pending") return;
     const found = await this.#port.lookup();
-    if (found === undefined || this.#facts.state !== "unknown") return;
-    this.#set(
-      found === null
-        ? { state: "draft", at: this.#now() }
-        : { state: "saved", version: found, at: this.#now() },
-    );
+    if (found === undefined || this.#facts.state !== before) return;
+    if (found !== null) {
+      this.#set({ state: "saved", version: found, at: this.#now() });
+    } else if (before === "unknown") {
+      this.#set({ state: "draft", at: this.#now() });
+    }
   }
 
   /** 명시 폐기. 더 저장하지 않는다. */
@@ -195,6 +203,9 @@ export class DraftDocumentSession {
         return;
       case "unknown":
         this.#set({ state: "unknown", at: now });
+        return;
+      case "pending":
+        this.#set({ state: "pending", at: now });
         return;
       case "failed":
         this.#set({

@@ -17,6 +17,7 @@ import {
 import { createAppWindowsApi } from "./app-window-api.ts";
 import { createConfirmationOpener } from "./confirmation-open.ts";
 import { createEditorApi } from "./editor-api.ts";
+import { createInstructionsApi } from "./instructions-api.ts";
 import { createFeedbackBegin, createOverlayFeedback } from "./feedback-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
@@ -82,6 +83,11 @@ if (role === "shell") {
   );
   // 문서 편집기의 파일 통로(shell/editor#R1). 경로·core port는 main에만 있다.
   contextBridge.exposeInMainWorld("lophnEditor", createEditorApi(ipcRenderer));
+  // [Instructions]: 지침 파일을 같은 편집기로 연다(shell/editor#R17). 경로는 main에만 있다.
+  contextBridge.exposeInMainWorld(
+    "lophnInstructions",
+    createInstructionsApi(ipcRenderer),
+  );
 }
 
 const unavailable: CoreReply = {

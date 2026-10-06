@@ -1,7 +1,8 @@
+import type { InstructionsPlace } from "../../ipc/instructions.ts";
 import type { LophnScreen } from "./lophn-space/model.ts";
 
 // 창 안의 자리. 새 기본 창은 언제나 런처에서 시작한다(desktop#R24).
-export type Space = "launcher" | "lophn" | "project" | "app";
+export type Space = "launcher" | "lophn" | "project" | "app" | "instructions";
 
 export interface Route {
   readonly space: Space;
@@ -11,6 +12,8 @@ export interface Route {
   readonly app?: string;
   /** lophn 공간의 형제. 없으면 documents다(desktop#R1). */
   readonly screen?: LophnScreen;
+  /** instructions 공간이 여는 지침 층. settings·project-workspace·app-detail의 [Instructions]가 쓴다. */
+  readonly instructions?: InstructionsPlace;
   /** documents 화면에서 바로 읽을 문서. 전역 팔레트의 문서 행이 쓴다. */
   readonly read?: { readonly document: string; readonly version: string };
   /** things-to-confirm에서 처음 고를 요청. `lophn://things-to-confirm/<id>` 링크가 쓴다. */
@@ -42,6 +45,11 @@ export function openLophn(
 /** 프로젝트 작업대로 이동한다. */
 export function openProject(project: string): Route {
   return { space: "project", project };
+}
+
+/** [Instructions] 편집기로 이동한다. */
+export function openInstructions(place: InstructionsPlace): Route {
+  return { space: "instructions", instructions: place };
 }
 
 /** 앱 공간으로 이동한다. */

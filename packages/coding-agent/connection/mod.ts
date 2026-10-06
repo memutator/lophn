@@ -10,7 +10,10 @@ export {
   appScopeAllows,
   type AppScopeConcern,
   FORBIDDEN_ACTIONS,
+  FORBIDDEN_ROUTES,
   type ForbiddenAction,
+  forbiddenRouteNames,
+  HUMAN_ONLY_DOCUMENT_ROUTES,
   isForbiddenAction,
   registrationAllowed,
 } from "./policy.ts";

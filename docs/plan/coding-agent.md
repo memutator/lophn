@@ -460,6 +460,24 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
   - source처럼 보이는 data symlink·다른 앱 source를 거절하고 API·MCP·CLI 출력에
     운영 data 경로가 없다(connection#R10)
   - 대상 앱 우선순위가 scope를 넓히지 않는다(connection#R11)
+  - 구현 메모(T15):
+    - 범위 밖 읽기의 거절은 core client 한 곳에서 같게 만든다. core가 준 `not_found`는
+      메시지·details를 버리고 "현재 연결로 읽을 수 없다. 없는 대상이거나 이 연결의
+      범위 밖이다"(`UNREADABLE_MESSAGE`) 하나로 바뀐다. MCP와 CLI가 이 client를 같이
+      지나므로 두 통로의 거절이 같다. 앱 하나 연결 credential의 scope는 platform이
+      `scope.targets`(`place_kind`·`place`)로 판정하고, documents의 읽기가 그 판정으로
+      범위 밖 문서를 없는 문서와 같은 답으로 닫는다. 시험의 credential은 그 모양으로 직접
+      만든다(실제 발급은 T36).
+    - 금지 목록은 `connection/policy.ts`의 `FORBIDDEN_ROUTES`(금지 작업 → 소유 route
+      이름)와 `HUMAN_ONLY_DOCUMENT_ROUTES`다. 시험이 이름이 계약 표에 있는지, 두
+      통로의 표가 부르는 route가 금지 route가 아니고 모두 `coding_agent` actor를
+      받는지 본다. daemon 시험(`apps/core/coding-agent-scope_test.ts`)은 제품 core의
+      팀 조립 그대로 띄운 core에 허용 operation만 가진 연결과 금지 operation을 직접 열어
+      준 연결로 금지 route를 모두 보내 거절을 본다.
+    - fixture `fixtures/projects/two-apps/`는 앱 source 폴더 둘이다.
+    - 이어보냄: CLI의 core 실행(dispatch) 배선은 T36이다. CLI 쪽 parity는 command 표의
+      route와 같은 core client로 본다(`cliRead`는 시험 안의 얇은 실행이다). `apps/mcp/main.ts`는
+      제출 scope의 `forbidden`을 비워 둔다. 운영 data root를 넣는 일은 T36 조립 몫이다.
 
 ## agent slice
 
@@ -1561,6 +1579,20 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ## 질문
 
+- **Q31 coding credential이 닿는 platform 읽기와 root 목차의 건수(T15, 구현).**
+  (1) `ListBackups`·`GetBackup`(contracts/platform/backups.ts, `actors: ACTOR_KINDS`)과
+  `ListSecrets`는 계약 actor에 `coding_agent`가 있고, core가 서빙하는 platform 읽기
+  (`apps/core/runtime.ts`의 backup·status 읽기와 secrets 읽기)는 `scope.operations`를
+  보지 않는다. 그래서 연결 credential이 operation을 열어 주지 않아도 요청이 거절되지
+  않는다(daemon 시험으로 확인). mcp-server#R30·cli#R38의 "backup·secret은 coding
+  credential에서 거절"이 daemon에서는 지켜지지 않는다. `ListSecrets`는 이름·설정 여부·
+  revision만 낸다. 추천: platform이 `ListBackups`·`GetBackup`의 actor에서 `coding_agent`를
+  빼고 `ListSecrets`는 앱 범위 연결에 다른 앱의 secret 이름이 나오지 않게 한다. 이
+  PR의 daemon 시험은 이 셋을 목록으로 고정해 두었으니 고치면 시험이 깨져 목록을 지우게
+  한다. (2) `outline.root`(documents/outline-and-search)의 `unplaced` 항목은 권한 판정 없이
+  자리 없는 문서 수를 낸다. 앱 하나 범위 연결은 자리 없는 문서를 읽지 못하는데도 그 건수는
+  본다. 추천: documents가 `unplaced` 항목에도 대상 판정을 걸어 범위가 좁은 연결에는 빼고,
+  이 시험의 root 확인(`unplaced`만 거르는 줄)을 고친다.
 - **Q15 ticket claim의 readiness.** coding-agent/tickets#R11 본문은
   needs_confirmation ticket도 claim할 수 있다고 적고, T19 완료 줄과
   checkTicketClaim의 not_ready 거절은 ready만 허용한다. 구현은 완료 줄을

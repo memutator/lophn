@@ -541,7 +541,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         // 시도가 끝났다. 이전 release가 없어 다시 띄울 것이 없어도 붙들기는 푼다.
         await deps.client.activationResume(row.app).catch(() => undefined);
       }
-    })().catch((e) => {
+    })().catch(() => {
       unsettled.set(key, deps.clock.nowMs() + ACTIVATION_RETRY_MS);
     }).finally(() => {
       running.delete(key);

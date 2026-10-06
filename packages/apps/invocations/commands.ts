@@ -73,7 +73,13 @@ export function createInvocationsCommands(): {
           started_at: input.started_at,
         });
         const invocation: Invocation = { ...applied.value };
-        insertInvocation(tx, invocation);
+        // 접수(accepted)가 먼저 있던 confirm 호출은 같은 행을 running으로 옮긴다.
+        if (current.value === null) {
+          insertInvocation(tx, invocation);
+        } else {
+          const stored = updateInvocation(tx, invocation);
+          if (!stored.ok) return stored;
+        }
         void seq;
         return ok(ACCEPTED);
       },

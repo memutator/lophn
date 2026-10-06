@@ -20,7 +20,8 @@ function terminal(status: Invocation["status"]): boolean {
   return status !== "accepted" && status !== "running";
 }
 
-// 같은 시작 사실인지. 모든 필드가 같을 때만 재전송이다.
+// 같은 시작 사실인지. 모든 필드가 같을 때만 재전송이다. confirm 접수(accepted)는 실제 시작이
+// 아직 없으므로 started_at 말고 접수가 고정한 대상·주체·호출자가 같은지만 본다(R9).
 export function startedFactsMatch(
   current: Invocation,
   input: InvocationRecordStartedInput,
@@ -32,7 +33,7 @@ export function startedFactsMatch(
     JSON.stringify(current.caller) === JSON.stringify(input.caller) &&
     JSON.stringify(current.operation) === JSON.stringify(input.operation) &&
     JSON.stringify(current.trigger) === JSON.stringify(input.trigger) &&
-    current.started_at === input.started_at;
+    (current.status === "accepted" || current.started_at === input.started_at);
 }
 
 // 같은 종료 사실인지. 저장된 summary 전체와 비교한다.
@@ -118,7 +119,11 @@ export function applyStarted(
   if (!startedFactsMatch(current, input)) {
     return conflict("invocation facts differ");
   }
-  if (terminal(current.status)) return ok(null);
+  // 접수만 있던 confirm 호출은 실제 시작을 관측한 뒤에야 running이 된다. 시작 시각은
+  // 접수 시각으로 채우지 않고 관측한 값 그대로다(R9). 그 밖의 재전송은 무변경이다.
+  if (current.status === "accepted") {
+    return ok({ ...current, status: "running", started_at: input.started_at });
+  }
   return ok(null);
 }
 

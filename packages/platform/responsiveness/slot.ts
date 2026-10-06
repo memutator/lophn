@@ -11,6 +11,8 @@ import { LEADER_EXIT_MS, type Spawned } from "./process.ts";
 // architecture 2.3의 고정 값. 설정으로 늘리지 않는다.
 export const READY_MS = 10_000;
 export const STOP_MS = 5_000;
+// child stdin에 frame 하나를 쓰는 기한. child가 읽지 않으면 이 안에 그 child를 끝내고 재기동 경로로 보낸다.
+export const WRITE_MS = 20_000;
 export const RESTART_DELAYS_MS = [1_000, 2_000, 4_000];
 export const RESTART_LIMIT = RESTART_DELAYS_MS.length;
 export const STDERR_LINE_MAX = 8 * 1024;
@@ -27,6 +29,13 @@ export type ChildCallbacks = {
   onFrame?(frame: Frame): void;
   // stderr는 제어·성공 근거가 아니다. 줄을 넘길 뿐 supervisor가 원문을 보관하지 않는다.
   onStderr?(line: string): void;
+  // 한 번의 기동이 끝났다(crash·정상 정지·교체·protocol 위반·쓰기 기한 초과). 그 child에게 보낸
+  // 요청은 답이 오지 않으니 호출자가 바로 실패로 끝낸다. 기동마다 정확히 한 번, 그 child의 종료 확인
+  // 시도가 시작될 때 부른다. 같은 kind의 새 child는 이 호출 뒤에 뜬다.
+  onEnd?(): void;
+  // 감독이 이 kind를 포기했다(재기동 한도·ready 초과·protocol 위반·종료 미확인). 정지·교체로 끝난
+  // 것은 부르지 않는다. 호출자가 더 다시 띄울지 정한다. kind마다 포기당 한 번이다.
+  onGiveUp?(reason: string): void;
 };
 
 // stopped: 종료가 확인된 정지. unavailable: 한도 초과·protocol 위반·종료 미확인.

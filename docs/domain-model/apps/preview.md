@@ -24,7 +24,7 @@ preview는 별도 entity·ID·운영 상태·ledger 표가 아니다. 같은 고
 | 필드 | 타입 | null | 제약 | 뜻 |
 |---|---|---|---|---|
 | `process_nonce` | 무작위 문자열 | 아니오 | 시작마다 새 값 → apps/runtime | 프로세스 구분 |
-| `data_path` | 절대 경로 | 아니오 | apps/<app ID>/preview/<process_nonce>/data.db; 운영 data와 분리 | 테스트 DB |
+| `data_path` | 절대 경로 | 아니오 | apps/<app ID>/preview/<process_nonce>/app.sqlite; 운영 data와 분리 | 테스트 DB |
 | `mode` | `preview` | 아니오 | 고정 | 통로·보고·결과 구분 |
 | `secret_adapter` | `test_double` | 아니오 | 실제 keychain/secret 사용 금지 | secret 대역 |
 | `external_adapter` | `test_double` | 아니오 | 외부 쓰기 금지 | 외부 효과 대역 |

@@ -28,7 +28,10 @@ import {
 } from "../../packages/apps/permissions/mod.ts";
 import { createAutomationReads } from "../../packages/apps/automations/reads.ts";
 import { createBlueprintReads } from "../../packages/apps/blueprint/reads.ts";
-import { createReleaseCommands } from "../../packages/apps/releases/commands.ts";
+import {
+  activationAttemptGate,
+  createReleaseCommands,
+} from "../../packages/apps/releases/commands.ts";
 import { createReleaseReads } from "../../packages/apps/releases/reads.ts";
 import { releasesSchemaSteps } from "../../packages/apps/releases/schema.ts";
 import {
@@ -51,6 +54,7 @@ import { createPreviewReads } from "../../packages/apps/preview/reads.ts";
 import { unattachedPreviewService } from "../../packages/apps/preview/service.ts";
 import { createDataCommands } from "../../packages/apps/data/commands.ts";
 import { dataSchemaSteps } from "../../packages/apps/data/schema.ts";
+import { BACKUP_BLOB_FIELD } from "../../packages/apps/data/blobs.ts";
 import { createDataRecordStore } from "../../packages/apps/data/store.ts";
 import {
   type PlaceNameReservation,
@@ -67,6 +71,7 @@ import type {
 import { notificationsOnlyVisibility } from "./platform.ts";
 
 type LedgerRegistration = {
+  blobFields?: readonly unknown[];
   apiReads?: readonly unknown[];
   schemaSteps?: readonly { id: string; sql: string }[];
   commands?: readonly unknown[];
@@ -90,7 +95,10 @@ export function createLedgerRegistration(
   const sdk = createSdkCommands();
   const sdkReads = createSdkReads();
   // 기록은 command가 받은 tx의 sql에만 남긴다. DB 파일은 data worker가 연다.
-  const data = createDataCommands((tx) => createDataRecordStore(tx));
+  const data = createDataCommands(
+    (tx) => createDataRecordStore(tx),
+    activationAttemptGate,
+  );
   // record_*는 supervisor의 machine 통보다. 관측 없는 Tx projection은
   // 과거 event만으로 running이라 하지 않는다(R13).
   const runtime = createRuntimeCommands();
@@ -105,6 +113,8 @@ export function createLedgerRegistration(
   const releaseReads = createReleaseReads();
   const blueprintReads = createBlueprintReads(loadActiveBlueprint);
   return {
+    // 보호 backup blob. 일반 blob 읽기가 없는 field다(apps/data#R4).
+    blobFields: [BACKUP_BLOB_FIELD],
     // `/v1/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
     apiReads: createPreviewReads(() => unattachedPreviewService()),
@@ -140,6 +150,9 @@ export function createLedgerRegistration(
       data.recordDataRestore,
       releaseCommands.prepare,
       releaseCommands.prepareBundle,
+      releaseCommands.startActivation,
+      releaseCommands.completeActivation,
+      releaseCommands.failActivation,
     ],
     reads: [
       reads.list,

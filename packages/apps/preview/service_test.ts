@@ -56,7 +56,7 @@ async function open(
   const root = await Deno.makeTempDir({ prefix: "lop-pvs-" });
   // 운영 data는 preview가 닿으면 안 되는 값이다.
   await Deno.mkdir(`${root}/apps/${APP}/data`, { recursive: true });
-  await Deno.writeTextFile(`${root}/apps/${APP}/data/data.db`, "LIVE");
+  await Deno.writeTextFile(`${root}/apps/${APP}/data/app.sqlite`, "LIVE");
   await Deno.mkdir(`${root}/apps/${APP}/backups`, { recursive: true });
   await Deno.writeTextFile(`${root}/apps/${APP}/backups/one.bak`, "BACKUP");
   const calls: string[] = [];
@@ -274,12 +274,12 @@ Deno.test("apps/preview#R2: preview 영역은 fixture만 담은 새 폴더이고
     const directory = `${world.root}/apps/${APP}/preview/${nonce}`;
     assertEquals(world.launches[0].dataPath, directory);
     // 영역에는 fixture byte와 빈 files 자리뿐이다.
-    assertEquals(await entries(directory), ["data.db", "files"]);
-    assertEquals(await Deno.readFile(`${directory}/data.db`), FIXTURE_BYTES);
+    assertEquals(await entries(directory), ["app.sqlite", "files"]);
+    assertEquals(await Deno.readFile(`${directory}/app.sqlite`), FIXTURE_BYTES);
     assertEquals(await entries(`${directory}/files`), []);
     // 운영 data와 backup은 그대로다.
     assertEquals(
-      await Deno.readTextFile(`${world.root}/apps/${APP}/data/data.db`),
+      await Deno.readTextFile(`${world.root}/apps/${APP}/data/app.sqlite`),
       "LIVE",
     );
     assertEquals(
@@ -300,7 +300,7 @@ Deno.test("apps/preview#R2: preview 영역은 fixture만 담은 새 폴더이고
       false,
     );
     assertEquals(
-      await Deno.readTextFile(`${world.root}/apps/${APP}/data/data.db`),
+      await Deno.readTextFile(`${world.root}/apps/${APP}/data/app.sqlite`),
       "LIVE",
     );
   } finally {
@@ -558,7 +558,7 @@ Deno.test("apps/preview#R10: preview 시작·종료는 운영 앱의 사실을 �
   const world = await open();
   try {
     const before = await Deno.readTextFile(
-      `${world.root}/apps/${APP}/data/data.db`,
+      `${world.root}/apps/${APP}/data/app.sqlite`,
     );
     const started = await world.service.start(ctxOf("user"), input());
     assert(started.ok);
@@ -573,7 +573,7 @@ Deno.test("apps/preview#R10: preview 시작·종료는 운영 앱의 사실을 �
       "stop",
     ]);
     assertEquals(
-      await Deno.readTextFile(`${world.root}/apps/${APP}/data/data.db`),
+      await Deno.readTextFile(`${world.root}/apps/${APP}/data/app.sqlite`),
       before,
     );
   } finally {

@@ -20,6 +20,7 @@ import {
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import type { BlobPrepareCall } from "./core.ts";
 import type { BufferGauge, PreparedRelayResult } from "./blob-prepare.ts";
+import { BACKUP_BLOB_PURPOSE_DEFINITION } from "../../packages/apps/data/blobs.ts";
 import { problemsReportDefinitions } from "./problems.ts";
 
 // kind별 허용. kind가 여기 없으면 요청은 forbidden이다(자식 spec이 준 권한이 아니라
@@ -50,6 +51,18 @@ export const CHILD_BLOB_POLICIES: ReadonlyMap<string, ChildBlobPolicy> =
             ["document_file", BLOB_PREPARE_MAX_BYTES],
             ["document_files", BLOB_PREPARE_MAX_BYTES],
           ]),
+        },
+      ],
+      [
+        // apps supervisor의 보호 backup 준비다. principal은 core가 supervisor에 준 machine credential의
+        // principal이고 `release.record_backup`이 같은 principal의 준비만 등록한다(apps/data#R4).
+        "apps/supervisor",
+        {
+          principal: "machine:apps-supervisor",
+          purposes: new Map([[
+            BACKUP_BLOB_PURPOSE_DEFINITION.purpose,
+            BACKUP_BLOB_PURPOSE_DEFINITION.max_size_bytes,
+          ]]),
         },
       ],
       [

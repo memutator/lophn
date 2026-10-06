@@ -214,10 +214,10 @@ Deno.test("apps/preview#R2, R4: preview 자식의 Deno 권한은 disposable 영�
         JSON.stringify(world.liveData)
       }));
       await attempt("write_preview", () => Deno.writeTextFile(${
-        JSON.stringify(launch.dataPath + "/data.db")
+        JSON.stringify(launch.dataPath + "/app.sqlite")
       }, "edited"));
       await attempt("read_preview", () => Deno.readTextFile(${
-        JSON.stringify(launch.dataPath + "/data.db")
+        JSON.stringify(launch.dataPath + "/app.sqlite")
       }));
       await attempt("listen_loopback", () => { const l = Deno.listen({ hostname: "127.0.0.1", port: 0 }); l.close(); });
       await attempt("fetch_loopback", () => fetch("http://127.0.0.1:65000/"));

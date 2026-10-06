@@ -16,10 +16,7 @@ import {
   helpText,
 } from "../../packages/coding-agent/cli/help.ts";
 import { createOutput } from "../../packages/coding-agent/cli/output.ts";
-import type {
-  CommandRef,
-  ParsedArgs,
-} from "../../packages/coding-agent/cli/parser.ts";
+import type { ParsedArgs } from "../../packages/coding-agent/cli/parser.ts";
 import type { AgentFailure } from "../../packages/contracts/coding-agent/mod.ts";
 import {
   discoverDaemonAddress,
@@ -309,10 +306,6 @@ export async function cliMain(
     ? { code: "unavailable", message: result.summary, details: lost }
     : { code: "conflict", message: "결과가 실패를 알린다" };
   return output.exitCode(refused);
-}
-
-function commandRefName(ref: CommandRef): string {
-  return ref.name === undefined ? ref.group : `${ref.group} ${ref.name}`;
 }
 
 async function emitHelp(

@@ -1228,6 +1228,7 @@ coding-agent slice는 apps 뒤지만 앞 slice가 coding agent 통로를 먼저 
 
 ### T36 keychain loader·연결 생성·설치 흐름과 기본 harness
 
+- 상태: 진행 (#393) — 끝낸 것: 완료 기준 전부(helper loader production provider, 사람의 연결 결정 입구 `connect` route와 연결·설치·doctor 흐름 통합 시험, 무생성·partial 분리, 기본 harness 선택, `connection install`, R1 process 시험)와 넘어온 것 중 platform#T19 알려진 값 source, platform#T34 연결 결정 입구, platform#T48 helper 양성 경로(fake keychain 통합 시험), T22 `SdkSourcePort` 외 MCP 쪽, T23 `appBlueprint`, T15 (1) CLI core 실행 배선·(2) `forbidden` data root, T13 문서 읽기 CLI 실행, T16 CLI question·approval open, T21 (2) CLI `runApp` 배선, T32 `doctorOf` 배선. 남은 것: (1) CLI의 `harness list|detect|refresh|inspect|plan|install|update|remove`, `skills`, `mcp config`, `session`, `daemon`(`DaemonPort`) 실행 배선(지금은 성공으로 꾸미지 않고 unavailable) — 감지 port·launcher 권한 결정(platform#T48 (3)) 뒤 (2) `doctor`의 daemon 상태 port (3) 앱 direct socket transport와 MCP 권한(T21 (1), platform#T48 (3)) (4) CLI `SdkSourcePort`(`sdk add --apply`의 deno.json 쓰기·lock 재생성; CLI에 write·run 권한이 없다) (5) `sdk show` 안내 원문 → apps#T5로 넘김 (6) T13의 `cliDocumentHistorySchema` section과 CLI 6단계 통합 시험 (7) T15 (3) 앱 하나 범위 credential 모양 불일치 → platform#T34로 넘김(위 platform 줄) (8) `tools/verify-linux-install.ts`의 양성 단계 → platform#T48로 넘김(실제 Secret Service 필요)
 - 등급: 기본
 - concern: coding-agent/connection, coding-agent/harnesses, coding-agent/cli,
   coding-agent/mcp-server

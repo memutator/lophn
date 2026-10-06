@@ -22,6 +22,7 @@ import {
   count,
   createInput,
   decide,
+  inspect,
 } from "../../../apps/core/testing/approvals-fixture.ts";
 import type {
   ApprovalRequest,
@@ -147,28 +148,46 @@ async function inputHash(value: unknown): Promise<string> {
   return hashed.value;
 }
 
-// 적용된 접수만 다시 읽는다. 접수가 없으면 accept_confirm을 직접 부르지 않는다. 직접 부르면
-// approval 사용 없이 접수가 만들어질 수 있기 때문이다.
+// proof 수명(invocations/confirm.ts의 CONFIRM_PROOF_LIFETIME_MS와 같은 120초). 다른 leaf라 mod.ts 밖
+// 값은 import하지 못해 값만 맞춰 둔다.
+const PROOF_LIFETIME_MS = 120_000;
+
+// 적용된 접수만 다시 읽는다. 접수 command는 dispatch 전용이라 직접 HTTP로 부르지 않는다(직접 부르면
+// approval 사용 없이 접수가 만들어질 수 있다). 운영 어댑터처럼 core가 가진 접수 사실에서 proof를
+// 다시 만든다. 수명은 접수 시각 기준이다(R7).
 function acceptances(core: Core): ConfirmAcceptances {
   return {
-    async find(input) {
-      const known = (await core.access.invocations()).some((row) =>
-        row["approval"] === input.approval
+    find(input) {
+      const [row] = inspect(
+        core.harness,
+        `select i.id as id, e.at as at from invocations i
+           join events e on e.subject = i.id and e.type = 'InvocationAccepted'
+          where i.approval = ?`,
+        [input.approval],
       );
-      if (!known) {
-        return {
+      if (row === undefined) {
+        return Promise.resolve({
           ok: false,
           error: { code: "not_found", message: "confirm is not accepted" },
-        };
+        });
       }
-      const reply = await core.access.post("invocations/accept_confirm", input);
-      if (reply.status !== 200) {
-        return {
-          ok: false,
-          error: { code: "forbidden", message: "confirm is not accepted" },
-        };
-      }
-      return { ok: true, value: reply.body as never };
+      return Promise.resolve({
+        ok: true,
+        value: {
+          invocation: String(row["id"]),
+          proof: {
+            invocation: String(row["id"]),
+            process_nonce: input.process_nonce,
+            release: input.release,
+            command: input.command,
+            input_hash: input.input_hash,
+            caller: input.caller,
+            expires_at: new Date(
+              Date.parse(String(row["at"])) + PROOF_LIFETIME_MS,
+            ).toISOString(),
+          },
+        } as never,
+      });
     },
   };
 }

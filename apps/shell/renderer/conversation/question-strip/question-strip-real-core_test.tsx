@@ -141,7 +141,7 @@ Deno.test("shell/desktop#R9: 실제 core에서 things-to-confirm은 approval과 
     );
     assertEquals(
       overview.value.notifications.map((row) => row.sourceEvent),
-      ["ApprovalRequestCreated"],
+      ["QuestionCreated", "ApprovalRequestCreated"],
     );
 
     const screen = (initialTab: "waiting" | "notifications") => (
@@ -179,9 +179,12 @@ Deno.test("shell/desktop#R9: 실제 core에서 things-to-confirm은 approval과 
         () => root.querySelector("[data-notifications]") !== null,
       );
       const rows = root.querySelectorAll("[data-notification]");
-      assertEquals(rows.length, 1);
+      assertEquals(rows.length, 2);
+      // 화면 목록은 최신 알림이 먼저다.
       assert(rows[0]!.textContent?.includes("A decision is waiting"));
+      assert(rows[1]!.textContent?.includes("A question is waiting"));
       assert(rows[0]!.hasAttribute("data-unread"));
+      assert(rows[1]!.hasAttribute("data-unread"));
       assertEquals(root.querySelector("[data-unavailable]"), null);
     }
   } finally {

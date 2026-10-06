@@ -231,6 +231,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T13 broker의 permission 강제
 
+- 상태: 완료 (#316) — 이어보냄: supervisor 조립(자식마다 broker socket·`createBrokerHub`·`serveBroker`, `BrokerAccess`·`SecretDelivery`·`ProblemsReport`·`GrantRevoker`·`AppProcesses` 어댑터) → T19, `DocumentsSave` 어댑터 → documents#T31. broker의 `/ready`·`/control/watch`·`/automations/*`·`/apps/connect` 경로는 각 담당 작업(T7·T10·T15·T20)이 `BrokerServices`에 더한다
 - 등급: 기본
 - concern: apps/permissions, apps/blueprint
 - 요구: apps/permissions#R4, R13, R14, R15, R16, R17, R20, R21, R22, R23, R29, apps/blueprint#R13
@@ -338,6 +339,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 - 내놓는 contract: `/v1/releases/{prepare_bundle,preparation,cancel_preparation,prepare,list,get,compare}`, `/v1/apps/blueprint`, event ReleasePrepared (contracts#T36, T20)
 - slice: apps
 - 선행: apps#T6, apps#T8, contracts#T36, contracts#T41, problems#T9, problems#T10, problems#T11, coding-agent#T19
+- apps#T13에서 넘어온 것: `apps/app-supervisor/main.ts`에서 운영 자식마다 broker socket을 열고(`createBrokerHub`·`serveBroker`, `permissions/broker/`) 서비스 어댑터를 조립한다. `BrokerAccess`는 이 작업의 blueprint read(현재 release 선언 ∩ active grant, 요청마다 다시 읽음), `SecretDelivery`·`RedactionGate`는 core secret store의 전송 부착(contracts#T23), `ProblemsReport`는 problems collector, `GrantRevoker`·`AppProcesses`는 core 제어 메시지. `DocumentsSave`는 documents#T31이 낸다. 지금은 시험 fake(`permissions/testing/broker.ts`)만 있어 broker가 아무 데서도 돌지 않는다
 - 완료:
   - `prepare_test.ts`: release 없이 bundle을 테스트한 뒤 같은 hash의 pass만 준비되고 한 byte 바꾼 bundle·자가 제출 결과는 거절(R5), 누락·만료·반납·connection 회수·claim 변경은 요청 때와 확정 때 모두 거절, 출처는 claim 해제 뒤에도 그대로(R6), 새 claim 없는 준비 거절·옛 ticket 없는 release는 null 출처 그대로 읽고 선택 가능(R7), 열린 problem의 code 삭제·완화는 경고로만(R18)
   - `compare_test.ts`: 새 필수 입력·external 효과·permission 추가·파괴 migration이 각각 비교에 보임(R9), schema가 같아도 효과가 바뀌면 호환이라 하지 않고 설명만 바뀐 경우를 구별(R10), 데이터 계약 변경은 apps/data 근거, 새 접근 요청은 grant 근거로 따로(R11)

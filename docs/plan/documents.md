@@ -637,6 +637,7 @@ concerns: [documents]
 - 내놓는 contract: 자리 이름 예약 port의 구현(T5에서 모양을 냄)
 - slice: apps
 - 선행: T9, T17, contracts#T20, contracts#T33, apps#T1(app 생성의 이름 예약), apps#T13(앱 broker), apps#T14(cap-save)
+- apps#T13에서 넘어온 것: broker의 `DocumentsSave` port(`packages/apps/permissions/broker/documents.ts`)를 실제 앱 자격 저장에 잇는 어댑터. broker는 선언 key·grant를 확인하고 늘 자식의 앱 자리와 같은 idempotency key로 부른다
 - 완료:
   - 앱은 자기 앱 자리의 선언된 출력 이름(blueprint documents[].key)만 저장. save는 (앱 자리, key)로 대상을 찾아 첫 저장이면 만들고 그 뒤에는 같은 Document의 새 판(base_version CAS), VersionSource kind=app{app, release}. 앱 결과는 고정 판으로 다시 연다
   - project 이름을 앱이 쓰면 conflict(같은 transaction 예약), 앱 이름 변경 뒤 옛 address 안내

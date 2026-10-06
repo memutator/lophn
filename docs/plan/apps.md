@@ -1256,6 +1256,7 @@ apps 줄, 실행 entry `apps/app-supervisor/`와 `apps/worker/`의 release·data
 
 ### T23 fixture: 할 일 앱
 
+- 상태: 완료 (#389) — 이어보냄: 화면의 view_session 통로·템플릿 화면의 응답 모양 → T27
 - 등급: frontend
 - concern: apps/blueprint, apps/data, apps/agent-context, apps/connections,
   apps/permissions

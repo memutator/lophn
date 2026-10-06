@@ -35,6 +35,16 @@ import { createAppConnector } from "../app-frame/app-connection.ts";
 import { nodeUpstream } from "../app-frame/app-protocol.ts";
 import { createViewDiagnostics } from "../app-frame/diagnostics.ts";
 import { createAppFrame } from "../app-frame/registry.ts";
+import { createViewClosedRelay } from "../app-frame/view-closed.ts";
+import {
+  createViewIpc,
+  registerViewIpc,
+  removeViewIpc,
+  type ViewIpcMain,
+} from "../app-frame/view-ipc.ts";
+import type { IpcEvent } from "./ipc-guard.ts";
+import { createViewVisibility } from "../app-frame/visibility.ts";
+import { VIEW_STATE_CHANNEL } from "../../ipc/app-frame.ts";
 import { createAppCall } from "../app-frame/app-call.ts";
 import { nodeInvoke } from "../app-frame/app-invoke.ts";
 import {
@@ -121,7 +131,12 @@ import { registerViewSchemes } from "./security.ts";
 import { listenShortcuts } from "./shortcuts.ts";
 import { startSingleInstance } from "./single-instance.ts";
 import { createShellHandler, DESKTOP_URL } from "./shell-protocol.ts";
-import { type CreatedWindow, openWindow, type WindowConfig } from "./window.ts";
+import {
+  type CreatedWindow,
+  openWindow,
+  TOP_BAR_HEIGHT,
+  type WindowConfig,
+} from "./window.ts";
 import {
   attachTerminalSurface,
   type MainIpc,
@@ -237,6 +252,28 @@ const core = startCoreConnection({
   },
 });
 
+// main 안 core 통로. renderer allowlist를 거치지 않는다.
+function coreInternal(
+  kind: string,
+  resource: string,
+  method: string,
+  body: unknown,
+): Promise<CallResult> {
+  const session = core.session();
+  return session
+    ? session.internal(kind, resource, method, body)
+    : Promise.resolve({
+      ok: false,
+      error: { code: "unavailable", message: "core is not ready" },
+    });
+}
+
+function windowOfRef(ref: string): BrowserWindow | undefined {
+  return [...windows].find((window) =>
+    !window.isDestroyed() && windowRef(window) === ref
+  );
+}
+
 // 앱 view registry(shell#T37). 연결은 core 앱 통로로 main이 얻고, view는 앱 preload만 갖는다.
 // 붙이기·숨기기 IPC와 renderer 연결은 shell#T39가 이 registry에 잇는다.
 const appViews = electronAppViews({
@@ -250,15 +287,8 @@ const appViews = electronAppViews({
   headless,
   raise: (window) => overlays.raise(window),
 });
-const appConnector = createAppConnector((kind, resource, method, body) => {
-  const session = core.session();
-  return session
-    ? session.internal(kind, resource, method, body)
-    : Promise.resolve({
-      ok: false,
-      error: { code: "unavailable", message: "core is not ready" },
-    });
-});
+const relayViewClosed = createViewClosedRelay({ call: coreInternal, log });
+const appConnector = createAppConnector(coreInternal);
 const appFrame = createAppFrame({
   connector: appConnector,
   views: appViews.views,
@@ -279,8 +309,60 @@ const appFrame = createAppFrame({
     token: () => randomBytes(32).toString("base64url"),
   },
   clock: { nowMs: () => Date.now() },
+  // 연결 상태·release가 바뀌면 그 창의 shell renderer에 표시 갱신을 민다(ledger event가 아님).
+  onState(ref, state) {
+    const window = windowOfRef(ref);
+    if (window !== undefined && !window.webContents.isDestroyed()) {
+      window.webContents.send(VIEW_STATE_CHANNEL, state);
+    }
+  },
+  closed: (view) => void relayViewClosed(view),
 });
 
+// native view 배치(shell#T39). renderer는 사각형만 보내고 붙이기·숨기기·폐기는 registry가 한다.
+const viewVisibility = createViewVisibility({
+  frame: appFrame,
+  geometry: {
+    // overlay와 같은 창 본문이다. 상단 바는 shell 크롬이라 앱 view가 덮지 않는다.
+    body(ref) {
+      const window = windowOfRef(ref);
+      if (window === undefined) return undefined;
+      const [width = 0, height = 0] = window.getContentSize();
+      return {
+        x: 0,
+        y: TOP_BAR_HEIGHT,
+        width: Math.max(0, width),
+        height: Math.max(0, height - TOP_BAR_HEIGHT),
+      };
+    },
+    zoom: (ref) => windowOfRef(ref)?.webContents.getZoomFactor() ?? 1,
+  },
+  timer: {
+    set: (callback, ms) => setTimeout(callback, ms),
+    clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+  },
+});
+const viewIpcMain: ViewIpcMain = {
+  handle: (channel, listener) =>
+    ipcMain.handle(
+      channel,
+      (event, input: unknown) => listener(event as unknown as IpcEvent, input),
+    ),
+  removeHandler: (channel) => ipcMain.removeHandler(channel),
+};
+registerViewIpc(
+  viewIpcMain,
+  createViewIpc({
+    registry: overlays.overlayRegistry(),
+    windowOf: (sender) => {
+      const window = [...windows].find((window) =>
+        !window.isDestroyed() && window.webContents === sender
+      );
+      return window === undefined ? undefined : windowRef(window);
+    },
+    visibility: viewVisibility,
+  }),
+);
 // 앱 preload 통로(shell#T38). 신원은 IPC sender view에서만 정한다. 고정 blueprint read
 // (`/v1/apps/blueprint`, apps#T19)와 confirm command의 approval·proof(shell#T45), view 오류의
 // collector 전달 binding(problems#T16)은 아직 core 통로가 없어 unavailable·unsent다.
@@ -648,6 +730,8 @@ function stopAll(): void {
   );
   ipcMain.removeHandler(FOLDER_PICK_CHANNEL);
   removeEditorIpc(editorIpc);
+  removeViewIpc(viewIpcMain);
+  viewVisibility.dispose();
   removeAppIpc(appIpc);
   removeConfirmationIpc(confirmationIpc);
   appFrame.dispose();
@@ -997,6 +1081,7 @@ function openDesktopWindow(): BrowserWindow | undefined {
         window.on("closed", () => {
           closeGuards.remove(contentsId);
           fileAdapter.dropOwner(contentsId);
+          viewVisibility.closeWindow(ref);
           appFrame.closeWindow(ref);
         });
         window.on("focus", () => {

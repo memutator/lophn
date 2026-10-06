@@ -12,7 +12,7 @@ import {
   appUnarchive,
   appUnarchived,
 } from "./apps.ts";
-import { appConnect } from "./channel.ts";
+import { appConnect, appViewClosed } from "./channel.ts";
 import {
   appAutomations,
   appDisableExecution,
@@ -53,6 +53,7 @@ import {
 
 export const ROUTES = [
   appConnect,
+  appViewClosed,
   appCreate,
   appConnectSource,
   appArchive,

@@ -292,6 +292,7 @@ apps 최상위의 12개 leaf concern(registration, blueprint, releases, runtime,
 
 ### T16 화면 context와 agent 주석
 
+- 상태: 완료 (#326) — 이어보냄: 닫힌 view를 앱이 알고 버리는 통로와 revert 조립(`{result,revert}`) → apps#T23, 탭 닫은 뒤 거절의 E2E → apps#T27
 - 등급: 기본
 - concern: apps/agent-context, apps/sdk
 - 요구: apps/agent-context#R1–R6, apps/sdk#R39

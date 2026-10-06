@@ -427,7 +427,7 @@ concerns: [documents]
 
 ### T21 documents slice flow E2E
 
-- 상태: 진행 (#PRNUM) — 한 것: T11·T25에서 넘어온 실제 조립 셋(coordinator의 derived store·search consumer와 core의 event 공급·원문 blob 전달·section 추출, route 앞단의 용어 출현 확인, 원문 읽기는 #284가 붙인 `documents/file`), 그리고 그 위에서 돈 flow E2E 네 파일(`e2e/flows/{find-documents,first-project,write-series,organize-documents}_test.ts`, 실제 headless shell·core·documents worker·format runner). 남은 것(아래 "이어보냄"): 화면이 아직 없는 flow 단계와 flow 파일(project-workspace의 문서 단계, edit-document, restore-document)
+- 상태: 진행 (#297) — 한 것: T11·T25에서 넘어온 실제 조립 셋(coordinator의 derived store·search consumer와 core의 event 공급·원문 blob 전달·section 추출, route 앞단의 용어 출현 확인, 원문 읽기는 #284가 붙인 `documents/file`), 그리고 그 위에서 돈 flow E2E 네 파일(`e2e/flows/{find-documents,first-project,write-series,organize-documents}_test.ts`, 실제 headless shell·core·documents worker·format runner). 남은 것(아래 "이어보냄"): 화면이 아직 없는 flow 단계와 flow 파일(project-workspace의 문서 단계, edit-document, restore-document)
 - 등급: 기본
 - concern: documents
 - 요구: 없음 (flow 시나리오: first-project, project-workspace, edit-document, find-documents, organize-documents, restore-document, write-series)
@@ -519,7 +519,7 @@ concerns: [documents]
 
 ### T25 Term
 
-- 상태: 완료 (#269) — 한 것: `terms`·`term_evidence` 표, 다섯 command와 `/v1/terms/list`·`/get`, `/v1/outline/context`의 glossary·candidates(T23에서 이어받음), `term.define`의 compare(새 등록은 base_revision 없음, 질문 Q19), 출현 확인 함수(`checkTermOccurrence`). 이어보냄: route 앞단의 출현 확인 연결(coordinator derived store가 필요하다) → documents#T21(T21에서 붙음, #PRNUM)
+- 상태: 완료 (#269) — 한 것: `terms`·`term_evidence` 표, 다섯 command와 `/v1/terms/list`·`/get`, `/v1/outline/context`의 glossary·candidates(T23에서 이어받음), `term.define`의 compare(새 등록은 base_revision 없음, 질문 Q19), 출현 확인 함수(`checkTermOccurrence`). 이어보냄: route 앞단의 출현 확인 연결(coordinator derived store가 필요하다) → documents#T21(T21에서 붙음, #297)
 - 등급: 기본
 - concern: documents/terms
 - 요구: documents/terms#R1, R2, R3, R4, R5, R6

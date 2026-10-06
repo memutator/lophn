@@ -66,3 +66,10 @@ test("shell/desktop#R1: documents 화면의 검색과 saved view 열기 worker�
   assert.equal(isAllowed("worker", "documents", "export"), false);
   assert.equal(isAllowed("worker", "documents", "prepare"), false);
 });
+
+test("documents/projects#R6: 추적 미리보기 worker는 읽기라 통과하고 추적 적용은 command로만 간다", () => {
+  assert.equal(isAllowed("worker", "projects", "preview_tracking"), true);
+  assert.equal(isAllowed("command", "projects", "set_tracking"), true);
+  assert.equal(isAllowed("command", "projects", "create"), true);
+  assert.equal(isAllowed("worker", "files", "watch"), false);
+});

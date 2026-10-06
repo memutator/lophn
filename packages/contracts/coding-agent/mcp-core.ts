@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  documentHistory,
   documentList,
   documentMetadataSchema,
   formatGet,
@@ -15,6 +16,7 @@ import {
   projectList,
   projectResolveCwd,
   relativePathSchema,
+  sectionKeySchema,
   searchQuery,
   searchStatus,
   seriesGet,
@@ -23,7 +25,7 @@ import {
   seriesNext,
 } from "../documents/mod.ts";
 import { documentDiff } from "../documents/history.ts";
-import { documentReadInputSchema } from "../documents/read.ts";
+import { documentRead, documentReadInputSchema } from "../documents/read.ts";
 import { versionIdSchema } from "../documents/values.ts";
 import { idempotencyKeySchema } from "../platform/envelope.ts";
 import { readOnlyHint, type ScopeMark, type Toolset } from "./output.ts";
@@ -34,7 +36,6 @@ const listInput = documentList.input.omit({ limit: true }).extend({
   limit: z.number().int().min(1).max(500).optional(),
 });
 
-const indexCursor = { cursor: z.string().min(1).optional() };
 const indexInput = z.discriminatedUnion("op", [
   outlineRoot.input.extend({ op: z.literal("root") }),
   outlinePlace.input.extend({ op: z.literal("place") }),
@@ -42,7 +43,8 @@ const indexInput = z.discriminatedUnion("op", [
   outlineDocument.input.extend({ op: z.literal("document") }),
   outlineDocument.input.extend({ op: z.literal("section") }),
   searchQuery.input.omit({ limit: true }).extend({ op: z.literal("search") }),
-  searchStatus.input.extend({ op: z.literal("status"), ...indexCursor }),
+  // status는 한 쪽에 담기는 읽기라 이어 읽기가 없다. cursor는 입력에 없다.
+  searchStatus.input.extend({ op: z.literal("status") }),
 ]);
 
 const projectInput = z.discriminatedUnion("op", [
@@ -59,7 +61,11 @@ const documentInput = z.discriminatedUnion("op", [
   }).refine((value) => !(value.place !== undefined && value.unplaced), {
     message: "place and unplaced are exclusive",
   }),
-  historyInputSchema.extend({ op: z.literal("history") }),
+  // section을 주면 그 key의 판별 변화(section_history), 없으면 고정 판 목록(history)이다.
+  historyInputSchema.extend({
+    op: z.literal("history"),
+    section: sectionKeySchema.optional(),
+  }),
   documentDiff.input.extend({ op: z.literal("diff") }),
 ]);
 
@@ -195,10 +201,10 @@ export const MCP_CORE_ROUTES = {
   },
   lophn_document: {
     list: documentList,
-    history: historyInputSchema,
+    history: documentHistory,
     diff: documentDiff,
   },
-  lophn_read: documentReadInputSchema,
+  lophn_read: documentRead,
   lophn_save: saveInput,
   lophn_format: {
     list: formatList,

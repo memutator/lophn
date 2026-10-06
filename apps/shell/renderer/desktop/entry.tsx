@@ -5,6 +5,7 @@ import { devSeed } from "./dev-seed.ts";
 import { windowEditorDeps } from "../editor/window-deps.ts";
 import { openLophn, openProject, type Route } from "./router.ts";
 import { coreLophnSource } from "./lophn-space/core-source.ts";
+import { coreOrganizeSource } from "./lophn-space/organize/core-source.ts";
 import { windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import { createXtermView } from "../terminal/xterm-view.ts";
@@ -34,6 +35,8 @@ const seed = devSeed();
 const core = windowCoreSource();
 const editor = windowEditorDeps(core);
 const lophn = coreLophnSource(core);
+// projects 화면의 정리(이름·보관·문서 이동·export·파일로 두기와 빼기).
+const organize = coreOrganizeSource(core);
 // 런처의 프로젝트 카드·등록과 작업대(추적 켜기 포함)는 제품 core 통로로 읽고 쓴다.
 const projects = coreLauncherSource(core, windowFolderPicker());
 const workspace = seed?.source ?? coreWorkspaceSource(core);
@@ -58,6 +61,8 @@ const start: Route | undefined = seed
   ? openLophn()
   : location.hash === "#things-to-confirm"
   ? openLophn("things-to-confirm")
+  : location.hash === "#projects"
+  ? openLophn("projects")
   : location.hash.startsWith("#project=")
   ? openProject(location.hash.slice("#project=".length))
   : undefined;
@@ -94,6 +99,7 @@ mount(
           windowWidth={seed ? 1440 : undefined}
           terminal={terminal}
           lophn={lophn}
+          organize={organize}
           palette={palette}
           projects={projects}
           tracking={tracking}

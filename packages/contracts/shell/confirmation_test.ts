@@ -199,3 +199,34 @@ Deno.test(
     );
   },
 );
+
+Deno.test(
+  "shell/confirmation-window#R1 documents/file-tracking#R14: owner_decision 열기는 대상 ID만 싣고 결정 입력·본문은 받지 않는다",
+  () => {
+    const open = CONFIRMATION_IPC["shell:confirmation-open"];
+    const request = {
+      kind: "owner_decision",
+      concern: "documents/file-tracking",
+      decision: "delete_file",
+    };
+    assert(open.safeParse({ request, parentWindow: "win-1" }).success);
+    assert(
+      open.safeParse({
+        request: { ...request, targets: [DOC] },
+        parentWindow: "win-1",
+      }).success,
+    );
+    for (
+      const wrong of [
+        { ...request, targets: [] },
+        { ...request, targets: [DOC, DOC] },
+        { ...request, targets: ["notes/a.md"] },
+        { ...request, targets: [DOC], input: { path: "notes/a.md" } },
+      ]
+    ) {
+      assert(
+        !open.safeParse({ request: wrong, parentWindow: "win-1" }).success,
+      );
+    }
+  },
+);

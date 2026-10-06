@@ -62,6 +62,10 @@ const confirmationIntentSchema = z.discriminatedUnion("kind", [
     kind: z.literal("owner_decision"),
     concern: concernSchema,
     decision: decisionNameSchema,
+    // 결정할 대상 ID(예: 파일에서 뺄 문서). main이 이 ID로 정본을 따로 읽어 요청을 고정한다.
+    targets: z.array(anyIdSchema).min(1).refine(unique, {
+      message: "duplicate target",
+    }).optional(),
   }),
   z.strictObject({
     kind: z.literal("secret_input"),

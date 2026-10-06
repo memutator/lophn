@@ -13,7 +13,12 @@ export type ConfirmationIntent =
     question: string;
     option_key: string;
   }
-  | { kind: "owner_decision"; concern: string; decision: string }
+  | {
+    kind: "owner_decision";
+    concern: string;
+    decision: string;
+    targets?: string[];
+  }
   | { kind: "secret_input"; owner: string; purpose: string };
 
 /**

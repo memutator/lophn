@@ -1,0 +1,21 @@
+/* projects 상세: 등록(이름·목적), 보관, 소속 문서, export를 위에서 아래로 쌓는다. */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  font-family: var(--font-sans);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: var(--space-0);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}

@@ -59,12 +59,17 @@ test("shell/editor#R7: 문서 읽기 worker는 outline·본문 읽기뿐이고 �
   assert.equal(isAllowed("worker", "formats", "validate"), false);
 });
 
-test("shell/desktop#R1: documents 화면의 검색과 saved view 열기 worker는 읽기라 통과하고 export·준비는 막는다", () => {
+test("shell/desktop#R1: documents 화면의 검색과 saved view 열기 worker는 읽기라 통과하고 준비는 막는다", () => {
   assert.equal(isAllowed("worker", "search", "query"), true);
   assert.equal(isAllowed("worker", "views", "open"), true);
   assert.equal(isAllowed("worker", "search", "status"), false);
-  assert.equal(isAllowed("worker", "documents", "export"), false);
   assert.equal(isAllowed("worker", "documents", "prepare"), false);
+});
+
+test("shell/desktop#R28: projects 화면의 export는 고정 판 읽기라 통과하고 파일 쓰기·지우기는 main 통로로만 간다", () => {
+  assert.equal(isAllowed("worker", "documents", "export"), true);
+  assert.equal(isAllowed("worker", "files", "write"), false);
+  assert.equal(isAllowed("worker", "files", "delete"), false);
 });
 
 test("documents/projects#R6: 추적 미리보기 worker는 읽기라 통과하고 추적 적용은 command로만 간다", () => {

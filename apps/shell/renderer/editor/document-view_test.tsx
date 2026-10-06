@@ -495,6 +495,7 @@ function filesOf(write: (input: EditorWrite) => EditorReply<SaveReport>) {
     // 바깥 상태는 이 test에서 오지 않는다.
     watch: () => new Promise(() => {}),
     restore: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    place: () => Promise.resolve({ ok: false, code: "unavailable" }),
     release: () => Promise.resolve(),
     counts: () => {},
     onCloseRequest: () => () => {},

@@ -29,11 +29,15 @@ import {
 } from "../palette/host.tsx";
 import { lophnScope } from "../palette/lophn-scope.ts";
 import { ThingsToConfirm } from "./things-to-confirm/things-to-confirm.tsx";
+import { ProjectsScreen } from "./projects/projects-screen.tsx";
+import type { OrganizeSource } from "./organize/source.ts";
 import { useRequests } from "./things-to-confirm/context.tsx";
 import styles from "./lophn-space.module.css";
 
 export interface LophnSpaceProps {
   source: LophnSource;
+  /** projects 화면의 정리 통로. 없으면 projects는 준비 전 안내다. */
+  organize?: OrganizeSource;
   /** 처음 보일 형제. 없으면 documents다(desktop#R1). */
   screen?: LophnScreen;
   /** 창 폭. 테스트가 고정하고 화면은 관측값을 쓴다. */
@@ -53,6 +57,7 @@ const EMPTY_CATALOG: Catalog = { projects: [], apps: [], contexts: [] };
 export function LophnSpace(
   {
     source,
+    organize,
     screen,
     windowWidth,
     onLauncher,
@@ -204,6 +209,8 @@ export function LophnSpace(
             )
             : current === "things-to-confirm" && requests !== null
             ? <ThingsToConfirm deps={requests} />
+            : current === "projects" && organize !== undefined
+            ? <ProjectsScreen source={organize} lophn={source} />
             : (
               <p className={styles.notReady} data-not-ready={current}>
                 {t("common.empty.not-ready")}

@@ -1,0 +1,60 @@
+// en.ts에서 생성한다. 직접 고치지 않고 `deno task wording --check`로 맞춘다.
+import type { MessageKey } from "./en.ts";
+
+export type PlaceholderKinds = {
+  "common.label.external-sync": Record<never, never>;
+  "common.label.sync-every-minute": Record<never, never>;
+  "common.label.sync-on-start": Record<never, never>;
+  "common.problem.external-unavailable": Record<never, never>;
+  "common.problem.store-unavailable": Record<never, never>;
+  "common.reason.external-host": Record<never, never>;
+  "common.reason.external-token": Record<never, never>;
+  "common.summary.app": Record<never, never>;
+  "events.button.add": Record<never, never>;
+  "events.button.reload": Record<never, never>;
+  "events.button.sync": Record<never, never>;
+  "events.empty.none": Record<never, never>;
+  "events.error.save-failed": Record<never, never>;
+  "events.error.sync-failed": Record<never, never>;
+  "events.label.add-event": Record<never, never>;
+  "events.label.count": {
+    count: "plural";
+  };
+  "events.label.create-external-event": Record<never, never>;
+  "events.label.delete-all-events": Record<never, never>;
+  "events.label.events": Record<never, never>;
+  "events.label.list-events": Record<never, never>;
+  "events.label.new-starts": Record<never, never>;
+  "events.label.new-title": Record<never, never>;
+  "events.label.revert-event": Record<never, never>;
+  "events.label.sync-events": Record<never, never>;
+  "events.summary.add-event": Record<never, never>;
+  "events.summary.create-external-event": Record<never, never>;
+  "events.summary.delete-all-events": Record<never, never>;
+  "events.summary.event-id": Record<never, never>;
+  "events.summary.event-starts": Record<never, never>;
+  "events.summary.event-title": Record<never, never>;
+  "events.summary.list-events": Record<never, never>;
+  "events.summary.revert-event": Record<never, never>;
+  "events.summary.sync-events": Record<never, never>;
+  "events.title.screen": Record<never, never>;
+};
+
+type ValueFor<T> = T extends "plural" | "number" ? number
+  : T extends "date" ? Date
+  : string;
+
+export type ValuesOf<K extends MessageKey> = {
+  [P in keyof PlaceholderKinds[K]]: ValueFor<PlaceholderKinds[K][P]>;
+};
+
+export type HasPlaceholders<K extends MessageKey> = [
+  keyof PlaceholderKinds[K],
+] extends [never] ? false
+  : true;
+
+type _SameKeys =
+  | Exclude<MessageKey, keyof PlaceholderKinds>
+  | Exclude<keyof PlaceholderKinds, MessageKey>;
+const _sameKeys: [_SameKeys] extends [never] ? true : never = true;
+void _sameKeys;

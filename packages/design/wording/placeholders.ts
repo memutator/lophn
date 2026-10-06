@@ -509,6 +509,148 @@ export type PlaceholderKinds = {
   "confirmation-window.secret.revert": Record<never, never>;
   "confirmation-window.secret.subject": Record<never, never>;
   "confirmation-window.title.confirm": Record<never, never>;
+  "confirmation-window.automation.effect": Record<never, never>;
+  "confirmation-window.automation.effect-external": Record<never, never>;
+  "confirmation-window.automation.not-ready": Record<never, never>;
+  "confirmation-window.automation.now": Record<never, never>;
+  "confirmation-window.automation.subject-minutes": {
+    app: "string";
+    command: "string";
+    minutes: "plural";
+  };
+  "confirmation-window.automation.subject-seconds": {
+    app: "string";
+    command: "string";
+    seconds: "number";
+  };
+  "confirmation-window.automation.subject-start": {
+    app: "string";
+    command: "string";
+  };
+  "confirmation-window.button.allow-access": Record<never, never>;
+  "confirmation-window.button.allow-once": Record<never, never>;
+  "confirmation-window.button.turn-on": Record<never, never>;
+  "confirmation-window.button.use-version": Record<never, never>;
+  "confirmation-window.confirm.input-note": Record<never, never>;
+  "confirmation-window.confirm.now": Record<never, never>;
+  "confirmation-window.confirm.preview-none": Record<never, never>;
+  "confirmation-window.confirm.subject": {
+    caller: "string";
+    app: "string";
+    command: "string";
+    name: "string";
+  };
+  "confirmation-window.grant-effect.agent-commands": Record<never, never>;
+  "confirmation-window.grant-effect.app-call": Record<never, never>;
+  "confirmation-window.grant-effect.document-save": Record<never, never>;
+  "confirmation-window.grant-effect.fs-read": Record<never, never>;
+  "confirmation-window.grant-effect.fs-write": Record<never, never>;
+  "confirmation-window.grant-effect.net-fetch": Record<never, never>;
+  "confirmation-window.grant-effect.net-listen": Record<never, never>;
+  "confirmation-window.grant-effect.secret-use": Record<never, never>;
+  "confirmation-window.grant-effect.unknown": Record<never, never>;
+  "confirmation-window.grant.already": Record<never, never>;
+  "confirmation-window.grant.limit-cpu": Record<never, never>;
+  "confirmation-window.grant.limit-disk": Record<never, never>;
+  "confirmation-window.grant.limit-not-isolated": Record<never, never>;
+  "confirmation-window.grant.limit-path-secrets": Record<never, never>;
+  "confirmation-window.grant.limit-rss": Record<never, never>;
+  "confirmation-window.grant.limit-symlink": Record<never, never>;
+  "confirmation-window.grant.limit-unknown": Record<never, never>;
+  "confirmation-window.grant.subject": {
+    app: "string";
+  };
+  "confirmation-window.grant.warning-file-read-network": Record<never, never>;
+  "confirmation-window.grant.warning-outside-link": Record<never, never>;
+  "confirmation-window.grant.warning-unknown": Record<never, never>;
+  "confirmation-window.heading.access": Record<never, never>;
+  "confirmation-window.heading.automations": Record<never, never>;
+  "confirmation-window.heading.commands": Record<never, never>;
+  "confirmation-window.heading.data": Record<never, never>;
+  "confirmation-window.heading.preview": Record<never, never>;
+  "confirmation-window.heading.problems": Record<never, never>;
+  "confirmation-window.heading.screens": Record<never, never>;
+  "confirmation-window.label.added": Record<never, never>;
+  "confirmation-window.label.agent": Record<never, never>;
+  "confirmation-window.label.app": Record<never, never>;
+  "confirmation-window.label.automation": Record<never, never>;
+  "confirmation-window.label.called-by": Record<never, never>;
+  "confirmation-window.label.change-confirm": Record<never, never>;
+  "confirmation-window.label.change-effect": Record<never, never>;
+  "confirmation-window.label.change-input": Record<never, never>;
+  "confirmation-window.label.change-revert": Record<never, never>;
+  "confirmation-window.label.changed": Record<never, never>;
+  "confirmation-window.label.command": Record<never, never>;
+  "confirmation-window.label.commands": Record<never, never>;
+  "confirmation-window.label.data-version": Record<never, never>;
+  "confirmation-window.label.document-key": Record<never, never>;
+  "confirmation-window.label.effect-external": Record<never, never>;
+  "confirmation-window.label.effect-read": Record<never, never>;
+  "confirmation-window.label.effect-write": Record<never, never>;
+  "confirmation-window.label.exact-request": Record<never, never>;
+  "confirmation-window.label.host": Record<never, never>;
+  "confirmation-window.label.input-fingerprint": Record<never, never>;
+  "confirmation-window.label.input-shape": Record<never, never>;
+  "confirmation-window.label.limits": Record<never, never>;
+  "confirmation-window.label.name-only": Record<never, never>;
+  "confirmation-window.label.new-inputs": Record<never, never>;
+  "confirmation-window.label.no": Record<never, never>;
+  "confirmation-window.label.path": Record<never, never>;
+  "confirmation-window.label.port": Record<never, never>;
+  "confirmation-window.label.reaches-outside": Record<never, never>;
+  "confirmation-window.label.removed": Record<never, never>;
+  "confirmation-window.label.schedule": Record<never, never>;
+  "confirmation-window.label.secret-name": Record<never, never>;
+  "confirmation-window.label.subfolders": Record<never, never>;
+  "confirmation-window.label.target-app": Record<never, never>;
+  "confirmation-window.label.you": Record<never, never>;
+  "confirmation-window.release.effect": Record<never, never>;
+  "confirmation-window.release.effect-data": Record<never, never>;
+  "confirmation-window.release.first": Record<never, never>;
+  "confirmation-window.release.none": Record<never, never>;
+  "confirmation-window.release.preview-none": Record<never, never>;
+  "confirmation-window.release.preview-ready": Record<never, never>;
+  "confirmation-window.release.review": Record<never, never>;
+  "confirmation-window.release.subject": {
+    app: "string";
+    number: "number";
+  };
+  "confirmation-window.title.automation": {
+    automation: "string";
+    app: "string";
+  };
+  "confirmation-window.title.confirm-command": {
+    command: "string";
+    app: "string";
+  };
+  "confirmation-window.title.grant-agent-commands": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-app-call": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-document-save": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-fs-read": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-fs-write": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-net-fetch": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-net-listen": {
+    app: "string";
+  };
+  "confirmation-window.title.grant-secret-use": {
+    app: "string";
+  };
+  "confirmation-window.title.release": {
+    number: "number";
+    app: "string";
+  };
   "contexts.button.archive": Record<never, never>;
   "contexts.button.ask": Record<never, never>;
   "contexts.button.change": Record<never, never>;

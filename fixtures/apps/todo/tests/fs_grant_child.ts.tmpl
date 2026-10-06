@@ -1,0 +1,50 @@
+// 앱 프로세스의 Deno flag(blueprint가 선언하고 사람이 grant한 폴더만 연다)를 만든 자식이다. fixture_test.ts가
+// flag를 정해 띄우고 이 자식이 앱의 실제 파일 통로(cap-fs)로 한 일의 결과를 JSON 한 줄로 돌려준다. test 파일이
+// 아니므로 앱 test에서는 돌지 않는다.
+import { CapabilityError } from "@lophn/cap-fs";
+import { CommandRejection } from "@lophn/cap-schedule";
+import { openStore } from "@lophn/cap-store";
+import {
+  addTodoHandler,
+  exportMarkdownHandler,
+  importMarkdownHandler,
+  listTodosHandler,
+} from "../src/commands.ts";
+import { defaults } from "../src/deps.ts";
+
+const [data, exportDir, importDir] = Deno.args;
+const deps = {
+  ...defaults,
+  openStore: () => openStore({ host: { mode: "test", dataPath: data } }),
+  dirs: { export: exportDir, import: importDir },
+};
+
+async function outcome(work: () => Promise<unknown>): Promise<string> {
+  try {
+    await work();
+    return "ok";
+  } catch (error) {
+    if (error instanceof CommandRejection) return `rejected:${error.code}`;
+    if (error instanceof CapabilityError) {
+      return `capability:${error.code}:${error.permission ?? ""}`;
+    }
+    return `error:${error instanceof Error ? error.name : "unknown"}`;
+  }
+}
+
+await addTodoHandler(deps)({ title: "From the child" });
+await listTodosHandler(deps)();
+const results = {
+  export: await outcome(() => exportMarkdownHandler(deps)({ file: "out.md" })),
+  readExported: await outcome(() =>
+    defaults.files.readText(`${exportDir}/out.md`)
+  ),
+  writeSibling: await outcome(() =>
+    defaults.files.writeText(`${exportDir}-sibling/x.md`, "x")
+  ),
+  import: await outcome(() => importMarkdownHandler(deps)({ file: "in.md" })),
+  writeImport: await outcome(() =>
+    defaults.files.writeText(`${importDir}/y.md`, "y")
+  ),
+};
+console.log(JSON.stringify(results));

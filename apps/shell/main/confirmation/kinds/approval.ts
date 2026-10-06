@@ -2,6 +2,7 @@
 // (이유·변경·외부 영향·되돌림 글)다. 글은 core가 redaction한 값이고 하나라도 못 읽으면 일부만
 // 보이지 않는다. 허락·거절은 일회 handle을, 대기 요청의 명시 취소는 user command를 쓴다.
 import type { LiveHandle } from "../handle.ts";
+import { readAppsView } from "./apps.ts";
 import {
   bindingOf,
   failed,
@@ -47,6 +48,24 @@ export async function readApproval(
     binding_hash: bindingHash,
   });
   const effect = record(request.effect);
+  const view = {
+    kind: "approval",
+    requester: text(request.requester),
+    concern: text(action.concern),
+    command: text(action.command),
+    targets: Array.isArray(action.targets) ? action.targets : [],
+    input: record(action.input),
+    comparison: record(action.comparison),
+    reason: text(words.reason),
+    changes: text(words.changes),
+    external: text(words.external),
+    reversible: effect.reversible === true,
+    reversibility: text(words.reversibility),
+    expires_at: text(request.expires_at),
+  };
+  // 앱 결정(activation·grant·confirm·automation)은 같은 approval이고 표시만 apps read로 채운다.
+  const apps = await readAppsView(core, action, view);
+  if (!apps.ok) return apps;
   return {
     ok: true,
     value: {
@@ -61,21 +80,7 @@ export async function readApproval(
         created_seq: createdSeq,
         binding_hash: bindingHash,
       },
-      view: {
-        kind: "approval",
-        requester: text(request.requester),
-        concern: text(action.concern),
-        command: text(action.command),
-        targets: Array.isArray(action.targets) ? action.targets : [],
-        input: record(action.input),
-        comparison: record(action.comparison),
-        reason: text(words.reason),
-        changes: text(words.changes),
-        external: text(words.external),
-        reversible: effect.reversible === true,
-        reversibility: text(words.reversibility),
-        expires_at: text(request.expires_at),
-      },
+      view: apps.view ?? view,
     },
   };
 }

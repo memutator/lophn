@@ -498,6 +498,142 @@ export const en = {
   "confirmation-window.secret.subject":
     "What you type goes straight to your system keychain. lophn and apps never show it.",
   "confirmation-window.title.confirm": "Confirm",
+  "confirmation-window.automation.effect":
+    "Once you allow it, lophn uses this command on schedule without asking again, always with exactly this input.",
+  "confirmation-window.automation.effect-external":
+    "This command changes things outside the app. Once you allow it, it does so on schedule without asking again, always with exactly this input.",
+  "confirmation-window.automation.not-ready":
+    "It can't start right now. Allowing it turns it on for when it can.",
+  "confirmation-window.automation.now": "This automation is off.",
+  "confirmation-window.automation.subject-minutes":
+    "{app} will use {command} on its own every {minutes, plural, one {# minute} other {# minutes}}.",
+  "confirmation-window.automation.subject-seconds":
+    "{app} will use {command} on its own every {seconds, number} seconds.",
+  "confirmation-window.automation.subject-start":
+    "{app} will use {command} on its own each time it starts.",
+  "confirmation-window.button.allow-access": "Allow access",
+  "confirmation-window.button.allow-once": "Allow once",
+  "confirmation-window.button.turn-on": "Turn on automation",
+  "confirmation-window.button.use-version": "Use this version",
+  "confirmation-window.confirm.input-note":
+    "The input itself isn't kept with this request. The fingerprint identifies exactly the input that will be used.",
+  "confirmation-window.confirm.now": "This hasn't been done yet.",
+  "confirmation-window.confirm.preview-none":
+    "No safe preview is available for this action. Nothing is tried before you decide.",
+  "confirmation-window.confirm.subject":
+    "{caller, select, direct {You ask {app} to use {command} once} app {{name} asks {app} to use {command} once} other {An agent asks {app} to use {command} once}}.",
+  "confirmation-window.grant-effect.agent-commands":
+    "Agents can use the commands listed here in this app, within what their role allows.",
+  "confirmation-window.grant-effect.app-call":
+    "The app can use the commands listed here in the target app. This doesn't allow anything the target app asks you to confirm.",
+  "confirmation-window.grant-effect.document-save":
+    "The app can save documents into the place named by this key.",
+  "confirmation-window.grant-effect.fs-read":
+    "The app can read what is at this path, including everything under it when subfolders are included.",
+  "confirmation-window.grant-effect.fs-write":
+    "The app can create, change and delete what is at this path, including everything under it when subfolders are included.",
+  "confirmation-window.grant-effect.net-fetch":
+    "The app can send requests to this host and port and read the answers.",
+  "confirmation-window.grant-effect.net-listen":
+    "The app can accept connections on this local host and port.",
+  "confirmation-window.grant-effect.secret-use":
+    "The app can use this secret without ever seeing its value.",
+  "confirmation-window.grant-effect.unknown":
+    "This access isn't described here. Check the exact request.",
+  "confirmation-window.grant.already":
+    "This access is already allowed. Allowing it again changes nothing.",
+  "confirmation-window.grant.limit-cpu":
+    "lophn doesn't strongly limit how much CPU an app uses.",
+  "confirmation-window.grant.limit-disk":
+    "lophn doesn't strongly limit how much disk an app uses.",
+  "confirmation-window.grant.limit-not-isolated":
+    "App protection is Deno permissions, not a virtual machine or container, so it is not full isolation.",
+  "confirmation-window.grant.limit-path-secrets":
+    "Anything inside an allowed folder, secrets included, can be read by the app.",
+  "confirmation-window.grant.limit-rss":
+    "lophn doesn't strongly limit how much memory an app uses. A Deno heap setting is not a limit on total memory.",
+  "confirmation-window.grant.limit-symlink":
+    "If something adds a link inside an allowed folder after you allow it, the app may reach beyond the folder.",
+  "confirmation-window.grant.limit-unknown":
+    "There is a limit on app protection that can't be described here.",
+  "confirmation-window.grant.subject": "{app} is asking for this access.",
+  "confirmation-window.grant.warning-file-read-network":
+    "This app asked to both read files and use the network. Together they could send your files out of this computer.",
+  "confirmation-window.grant.warning-outside-link":
+    "Some links inside this folder point outside it, so the app could read what they point to.",
+  "confirmation-window.grant.warning-unknown":
+    "This access has a warning that can't be described here.",
+  "confirmation-window.heading.access": "Access",
+  "confirmation-window.heading.automations": "Automations",
+  "confirmation-window.heading.commands": "Commands",
+  "confirmation-window.heading.data": "Data",
+  "confirmation-window.heading.preview": "Preview",
+  "confirmation-window.heading.problems": "Problem reports",
+  "confirmation-window.heading.screens": "Screens",
+  "confirmation-window.label.added": "Added",
+  "confirmation-window.label.agent": "An agent",
+  "confirmation-window.label.app": "App",
+  "confirmation-window.label.automation": "Automation",
+  "confirmation-window.label.called-by": "Called by",
+  "confirmation-window.label.change-confirm": "Asking you first",
+  "confirmation-window.label.change-effect": "What it does",
+  "confirmation-window.label.change-input": "Input",
+  "confirmation-window.label.change-revert": "Undo support",
+  "confirmation-window.label.changed": "Changed",
+  "confirmation-window.label.command": "Command",
+  "confirmation-window.label.commands": "Commands",
+  "confirmation-window.label.data-version": "Data version",
+  "confirmation-window.label.document-key": "Document key",
+  "confirmation-window.label.effect-external": "Changes things outside the app",
+  "confirmation-window.label.effect-read": "Only reads data",
+  "confirmation-window.label.effect-write": "Changes data in the app",
+  "confirmation-window.label.exact-request": "Exact request",
+  "confirmation-window.label.host": "Host",
+  "confirmation-window.label.input-fingerprint": "Input fingerprint",
+  "confirmation-window.label.input-shape": "Input it accepts",
+  "confirmation-window.label.limits": "What app protection can't do",
+  "confirmation-window.label.name-only": "Only the name or description changed",
+  "confirmation-window.label.new-inputs": "New required input",
+  "confirmation-window.label.no": "No",
+  "confirmation-window.label.path": "Path",
+  "confirmation-window.label.port": "Port",
+  "confirmation-window.label.reaches-outside": "Now reaches outside the app",
+  "confirmation-window.label.removed": "Removed",
+  "confirmation-window.label.schedule": "Schedule",
+  "confirmation-window.label.secret-name": "Secret name",
+  "confirmation-window.label.subfolders": "Includes subfolders",
+  "confirmation-window.label.target-app": "Target app",
+  "confirmation-window.label.you": "You",
+  "confirmation-window.release.effect":
+    "The app restarts on the new version. Its data stays unless Data below lists a change.",
+  "confirmation-window.release.effect-data":
+    "The app restarts on the new version, and its data changes as listed under Data, including anything that may be lost.",
+  "confirmation-window.release.first":
+    "This is the first version of the app, so there is nothing earlier to compare it with.",
+  "confirmation-window.release.none":
+    "Nothing changed from the version in use.",
+  "confirmation-window.release.preview-none":
+    "No preview is available for this version.",
+  "confirmation-window.release.preview-ready":
+    "A preview of this version is ready. Open it from the app to try it safely.",
+  "confirmation-window.release.review":
+    "Review needed. lophn can't tell whether this version works the same as the one in use, so check each change below.",
+  "confirmation-window.release.subject":
+    "{app} will switch to version {number, number}.",
+  "confirmation-window.title.automation": "Turn on {automation} in {app}?",
+  "confirmation-window.title.confirm-command": "Allow {command} in {app}?",
+  "confirmation-window.title.grant-agent-commands":
+    "Let agents use commands in {app}?",
+  "confirmation-window.title.grant-app-call": "Let {app} use another app?",
+  "confirmation-window.title.grant-document-save": "Let {app} save documents?",
+  "confirmation-window.title.grant-fs-read": "Let {app} read files?",
+  "confirmation-window.title.grant-fs-write": "Let {app} change files?",
+  "confirmation-window.title.grant-net-fetch":
+    "Let {app} connect to the network?",
+  "confirmation-window.title.grant-net-listen":
+    "Let {app} listen for connections?",
+  "confirmation-window.title.grant-secret-use": "Let {app} use a secret?",
+  "confirmation-window.title.release": "Use version {number, number} of {app}?",
   "contexts.button.archive": "Archive focus",
   "contexts.button.ask": "Ask in conversation",
   "contexts.button.change": "Change",

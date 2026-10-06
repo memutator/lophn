@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { t } from "@lophn/wording";
 import { Button, Field, Textarea } from "@lophn/design/components";
 
@@ -15,11 +15,8 @@ export const CANCEL_REQUEST = "cancel_approval_request";
  * 보인다. 허락·거절·대기 요청의 명시 취소는 각각 다른 버튼이고, 닫기는 결정이 아니다.
  * 거절·취소 이유는 선택 입력이다.
  */
-export function ApprovalKind({ view, decide, cancel, busy }: KindProps) {
-  const shown = obj(view.view);
-  const decisions = view.decisions ?? [];
-  const [reason, setReason] = useState("");
-  const withReason = () => reason.trim() === "" ? {} : { input: { reason } };
+export function ApprovalKind(props: KindProps) {
+  const shown = obj(props.view.view);
   const display: Display = {
     title: t("confirmation-window.approval.title"),
     subject: str(shown.changes) ?? t("confirmation-window.change.missing"),
@@ -36,9 +33,31 @@ export function ApprovalKind({ view, decide, cancel, busy }: KindProps) {
     noChange: true,
   };
   return (
-    <ConfirmationLayout
+    <ApprovalDecision
+      {...props}
       display={display}
       exact={<ExactAction view={shown} />}
+    />
+  );
+}
+
+/**
+ * approval request의 결정 틀. 앱 결정 네 종류도 같은 허락·거절·취소와 같은 이유 입력을 쓴다.
+ * 종류마다 다른 것은 표시(display)와 정확한 동작 자리(exact)뿐이다.
+ */
+export function ApprovalDecision(
+  { view, decide, cancel, busy, display, exact }: KindProps & {
+    display: Display;
+    exact: ReactNode;
+  },
+) {
+  const decisions = view.decisions ?? [];
+  const [reason, setReason] = useState("");
+  const withReason = () => reason.trim() === "" ? {} : { input: { reason } };
+  return (
+    <ConfirmationLayout
+      display={display}
+      exact={exact}
       input={decisions.includes(REJECT) || decisions.includes(CANCEL_REQUEST)
         ? (
           <Field label={t("confirmation-window.label.close-reason")}>

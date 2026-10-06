@@ -3,7 +3,14 @@ import { dataChangeSchema, dataResultSchema } from "./releases.ts";
 
 // data worker job 입력. migration·backup·restore 프로세스와 problems test runner가
 // 같은 진입점으로 읽는다(apps/plan T17).
-export const DATA_JOB_KINDS = ["backup", "migrate", "restore", "test"] as const;
+// inspect는 종료를 확인한 앱 DB의 실제 schema와 무결성을 읽기만 하는 작업이다(apps/releases#R12).
+export const DATA_JOB_KINDS = [
+  "inspect",
+  "backup",
+  "migrate",
+  "restore",
+  "test",
+] as const;
 export const dataJobKindSchema = z.enum(DATA_JOB_KINDS);
 
 export const DATA_JOB_PREPARATION_TIMEOUT_MS = 300_000;

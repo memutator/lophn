@@ -162,7 +162,12 @@ export type SupervisorClient = {
   observe(app: string): Promise<Result<ObservationWire | null>>;
   logs(
     app: string,
-    query: { invocation?: string; limit: number; max_bytes?: number },
+    query: {
+      invocation?: string;
+      limit: number;
+      max_bytes?: number;
+      cursor?: string;
+    },
   ): Promise<Result<LogsWire>>;
   restart(app: string, processNonce: string): Promise<Result<boolean>>;
   // preview 프로세스. 운영 자식과 다른 통로이고 운영 관측을 바꾸지 않는다(apps/preview).

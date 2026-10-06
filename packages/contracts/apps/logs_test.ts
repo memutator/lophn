@@ -85,3 +85,14 @@ Deno.test("apps/runtime#R26, apps/runtime#R27: log는 source 없음·수집 꺼�
     }).success,
   );
 });
+
+Deno.test("coding-agent/cli#R24, apps/runtime#R27: log는 앞선 응답의 next_cursor로 이어 읽는다", () => {
+  assertEquals(
+    appLogsInputSchema.parse({ app: APP, limit: 10, cursor: "42" }).cursor,
+    "42",
+  );
+  appLogsInputSchema.parse({ app: APP });
+  for (const cursor of ["", "-1", "1.5", "abc", "1e3", 42, null]) {
+    assert(!appLogsInputSchema.safeParse({ app: APP, cursor }).success);
+  }
+});

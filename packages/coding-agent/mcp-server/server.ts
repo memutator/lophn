@@ -54,12 +54,30 @@ export type HandleDeps = {
   onClientInfo?: (name: string | undefined) => void;
   // tools/call의 실행이다. registry route 하나로만 routing된다(R2).
   // isError는 실행 실패·거절을 model에 실패로 알린다(R7). 성공 결과는 생략한다.
-  callTool: (toolName: string, args: unknown) => Promise<{
+  callTool: (
+    toolName: string,
+    args: unknown,
+    context?: ToolCallContext,
+  ) => Promise<{
     summary: string;
     data: unknown;
     next: string[];
     isError?: boolean;
   }>;
+  // 응답 밖으로 내는 JSON-RPC notification이다(progress). 없으면 progress를 보내지 않는다.
+  notify?: (message: JsonRpcNotification) => void | Promise<void>;
+};
+
+export type JsonRpcNotification = {
+  jsonrpc: "2.0";
+  method: string;
+  params: Record<string, unknown>;
+};
+
+// tools/call 하나의 맥락이다. 요청이 `_meta.progressToken`을 주었을 때만 progress가 있다.
+// 오래 기다리는 tool이 client의 tool timeout 전에 살아 있음을 알린다(mcp#R19).
+export type ToolCallContext = {
+  progress?: (message: string) => Promise<void>;
 };
 
 // protocol 처리와 tool 실행을 나눈다. stdin 줄 하나가 여기로 들어온다.
@@ -81,7 +99,7 @@ export function createHandler(
           tools: toolEntries(toolsets),
         });
       case "tools/call":
-        return await callResponse(request, deps.callTool);
+        return await callResponse(request, deps.callTool, deps.notify);
       default:
         return errorResponse(
           request.id,
@@ -176,9 +194,39 @@ function initializeResponse(
   });
 }
 
+function progressOf(
+  request: JsonRpcRequest,
+  notify: HandleDeps["notify"],
+): ToolCallContext {
+  const meta =
+    ((request.params ?? {}) as { _meta?: { progressToken?: unknown } })
+      ._meta;
+  const token = meta?.progressToken;
+  if (
+    notify === undefined ||
+    !(typeof token === "string" || typeof token === "number")
+  ) return {};
+  let count = 0;
+  return {
+    progress: async (message) => {
+      count += 1;
+      try {
+        await notify({
+          jsonrpc: "2.0",
+          method: "notifications/progress",
+          params: { progressToken: token, progress: count, message },
+        });
+      } catch {
+        // 알림 실패는 호출을 막지 않는다.
+      }
+    },
+  };
+}
+
 async function callResponse(
   request: JsonRpcRequest,
   callTool: HandleDeps["callTool"],
+  notify: HandleDeps["notify"],
 ): Promise<JsonRpcResponse> {
   const params = (request.params ?? {}) as {
     name?: unknown;
@@ -230,7 +278,11 @@ async function callResponse(
       }),
     );
   }
-  const ran = await callTool(params.name, input.data);
+  const ran = await callTool(
+    params.name,
+    input.data,
+    progressOf(request, notify),
+  );
   return okResponse(
     request.id,
     mcpToolResult(

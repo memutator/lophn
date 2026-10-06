@@ -16,6 +16,7 @@ import {
 } from "../../packages/contracts/lophn-agent/mod.ts";
 import { notificationsOnlyVisibility } from "./platform.ts";
 import type { Tx } from "../../packages/contracts/platform/mod.ts";
+import { approvalRunLineage } from "../../packages/platform/approvals/mod.ts";
 import {
   createModelDefaultsCommands,
   createModelDefaultsReads,
@@ -320,6 +321,25 @@ const runAdmissionPort = defineTxPort(runAdmission, (tx) => ({
   },
 }));
 
+// approval 거절 억제(platform/approvals#R16)가 쓰는 run 계보 판정이다. 사람 요청에서 시작한 run은
+// 그 message, handoff run은 runs/read의 source.original_message다. AcceptRun이 handoff의 original_message가
+// sender chain의 시작과 같은지 검사하므로 한 번의 조회로 계보가 정해진다. 주기 회차는 계보가 없다.
+const approvalLineagePort = defineTxPort(approvalRunLineage, (tx) => ({
+  origin: (run: string) => {
+    const row = tx.sql.get(
+      `select source_kind, source_message, source_original_message
+         from runs where id = ?`,
+      [run],
+    );
+    if (row === undefined) return null;
+    if (row["source_kind"] === "message") return String(row["source_message"]);
+    if (row["source_kind"] === "handoff") {
+      return String(row["source_original_message"]);
+    }
+    return null;
+  },
+}));
+
 export const lophnAgentDefinitions = {
   // settings registry 출처의 항목이다(platform/settings#R31). core 조립의 settings.ts가 모은다.
   settings: [
@@ -427,7 +447,7 @@ export const lophnAgentDefinitions = {
     ...questionBodyFields,
     ...messageBodyFields,
   ],
-  ports: [runAdmissionPort],
+  ports: [runAdmissionPort, approvalLineagePort],
   workers: [],
 };
 

@@ -108,7 +108,9 @@ export function formatValidateRoute(
     if (!ran.ok) {
       return failed(
         request,
-        ran.error.code === "not_found" ? "not_found" : "unavailable",
+        ran.error.code === "not_found" || ran.error.code === "invalid_input"
+          ? ran.error.code
+          : "unavailable",
         ran.error.message,
       );
     }

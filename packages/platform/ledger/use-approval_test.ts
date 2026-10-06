@@ -12,7 +12,7 @@ import { applyMigrations } from "../backup-and-migration/mod.ts";
 import { LEDGER_SCHEMA_STEPS, openLedger } from "./mod.ts";
 
 Deno.test(
-  "platform/approvals#R7, platform/approvals#R11: 적용 구현 전에는 approval 사용을 거절하고 변경을 rollback한다",
+  "platform/approvals#R7, platform/approvals#R11: approval 표가 없는 ledger에서는 approval 사용을 거절하고 변경을 rollback한다",
   async () => {
     const dir = await Deno.makeTempDir({ prefix: "lophn-approval-hook-" });
     const path = `${dir}/ledger.db`;

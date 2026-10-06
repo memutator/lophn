@@ -21,6 +21,7 @@ export {
   type RunMarkedCommand,
 } from "./commands.ts";
 export { type RunAdmission, runAdmission } from "./run-admission.ts";
+export { recordedUse, usableApproval } from "./approval-use.ts";
 export { commandResultRead } from "./command-results.ts";
 export { openWriter, runCommand } from "./writer.ts";
 export {

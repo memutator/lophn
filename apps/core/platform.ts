@@ -9,6 +9,7 @@
 import { err, ok, type Result } from "../../packages/base/mod.ts";
 import {
   approvalRequestCreated,
+  type CommandRoute,
   type EventDefinition,
   type EventVisibilityDefinition,
   type RequestContext,
@@ -18,6 +19,7 @@ import {
   APPROVAL_SCHEMA_STEPS,
   approvalsGetRead,
   approvalsListRead,
+  createApplyCommand,
   createApprovalCommands,
 } from "../../packages/platform/approvals/mod.ts";
 import {
@@ -71,6 +73,15 @@ export function notificationsOnlyVisibility<D extends EventDefinition>(
 
 const approvalCommands = createApprovalCommands();
 
+// apply_approved_action이 dispatch할 수 있는 소유 command route다. writer가 모든 등록을 모은 뒤
+// dispatchable로 표시된 command만 여기 묶는다(bindApprovalOwners). 묶기 전에는 비어 있어 어느
+// command도 적용하지 않는다. writer Worker마다 이 module 상태가 따로 있다.
+let approvalOwners: readonly CommandRoute[] = [];
+
+export function bindApprovalOwners(routes: readonly CommandRoute[]): void {
+  approvalOwners = [...routes];
+}
+
 export const platformDefinitions = {
   schemaSteps: [...APPROVAL_SCHEMA_STEPS, ...NOTIFICATIONS_SCHEMA_STEPS],
   commands: [
@@ -79,6 +90,7 @@ export const platformDefinitions = {
     approvalCommands.cancel,
     approvalCommands.grant,
     approvalCommands.reject,
+    createApplyCommand(() => approvalOwners),
     ...NOTIFICATION_COMMANDS,
   ],
   reads: [

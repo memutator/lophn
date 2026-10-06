@@ -17,6 +17,7 @@ import { resolveRoute } from "../../packages/coding-agent/mcp-server/registry.ts
 import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 import { lophnAgentDefinitions } from "./lophn-agent.ts";
 
 const teams: TeamModule[] = [
@@ -56,6 +57,11 @@ async function open(): Promise<Opened> {
     testCredentials: true,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+    await Deno.remove(home, { recursive: true });
+    await Deno.remove(work, { recursive: true });
+  });
   const core = started.value;
   const contexts: [AuthenticatedContext, string][] = [
     [{
@@ -99,6 +105,7 @@ async function open(): Promise<Opened> {
     const recorded = await core.record(context);
     assert(recorded.ok);
   }
+  guard.keep();
   return {
     core,
     home,

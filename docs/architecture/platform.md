@@ -64,7 +64,7 @@ SQL import는 ledger/read 실행기에만 허용한다. core 모듈의 동기 �
 | read | 실행 2개, 대기 64개, principal당 대기 8개, 최대 500행·1MiB 응답 | 페이지 또는 명시적 한도 오류 |
 | HTTP | header 8KiB, 동시 요청 128개·principal당 16개, body 수신 5초 | 한도 오류; chunked도 누적 bytes로 검사 |
 | event | 연결 32개·principal당 4개, batch 256개·256KiB, 연결 buffer 1MiB | 느린 구독 연결 종료; event 건너뛰기 금지 |
-| 신뢰 child | ready 10초, 정상 정지 5초, 실패 재기동 1·2·4초 후 최대 3회 | 해당 구성 요소만 사용 불가; 무한 재시작 금지 |
+| 신뢰 child | ready 10초, 정상 정지 5초, child stdin의 frame 하나 쓰기 20초, 실패 재기동 1·2·4초 후 최대 3회 | 해당 구성 요소만 사용 불가; 무한 재시작 금지. 쓰기 기한을 넘으면 그 child를 끝내고 재기동 경로로 보낸다. 끝난 child에게 보낸 요청은 기한을 기다리지 않고 바로 `unavailable`. documents coordinator는 감독이 포기한 뒤 core가 backoff(250ms부터 두 배, 최대 8초)로 core 시작마다 6회까지 다시 띄운다 |
 | platform I/O | 무거운 작업 동시 2개, 대기 32개, principal당 4개 | `unavailable`; 작업 사이 round-robin |
 | 안전 log | info, 파일당 10MiB ×5(오래된 파일부터 정리), crash 관측 30일, 메모리 대기 1MiB | 진단만 누락 이유/계수 표시; API 대기 금지 |
 

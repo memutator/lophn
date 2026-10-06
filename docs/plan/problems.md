@@ -237,6 +237,8 @@ apps slice의 flow E2E는 apps 팀이 돌린다. problems는 그 단계가 기�
 - 내놓는 contract: 없음
 - slice: apps
 - 선행: problems#T9, contracts#T36, apps#T17, apps#T21
+- 상태: 완료 (#347) — 이어보냄: 실제 AppDriver가 이 검사의 driver 통로(migrate·probeRead·runAutomation·attemptConfirmAutomation·useSecret·exerciseAdapters·change·revert)를 data worker job·broker 대역·실제 앱 command로 채우기 → T12
+- 정한 것: AppTestInput에 `data: {schema, previous_schema}`를 더했다(DB 미사용 schema 0과 이전 release 없는 첫 release만 이유 있는 not_applicable). 필수 검사는 blueprint가 선언한 기능마다 생긴다(read·automation/confirm·secret.use·외부 효과·되돌리기 지원 write). 인접 불변식이 깨지면 고정 기준을 만족해도 통과가 아니다. apps#T21 PR(#327)의 브랜치를 병합해 쓰므로 #327이 먼저 병합돼야 한다.
 - 완료:
   - 빈 test DB 전체 migration과 이전 release schema → 새 schema migration을 각각 돌리고 한쪽 실패면 통과하지 않는다(R8)
   - 잘못된 입력·read의 업무 쓰기·grant 없는 접근·confirm automation은 실패; grant된 secret 대역의 read·write 가져오기·동기화와 한 번 승인한 external automation은 허용; 출력 schema는 필수로 만들지 않는다(R9)

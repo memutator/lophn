@@ -25,6 +25,7 @@ import { type Core, startCore } from "./core.ts";
 import type { TeamModule } from "./registration.ts";
 import { createLedgerRegistration } from "./documents.ts";
 import { createLedgerRegistration as createAppsRegistration } from "./apps.ts";
+import { closeUnlessKept } from "./testing/close-on-throw.ts";
 
 const teams: TeamModule[] = [
   { createLedgerRegistration },
@@ -80,6 +81,9 @@ async function startAt(
     secretKeychain: keychain,
   });
   assert(started.ok, started.ok ? "" : started.error.message);
+  await using guard = closeUnlessKept(async () => {
+    await started.value.shutdown();
+  });
   const core = started.value;
   const context: AuthenticatedContext = {
     principal: "user-1",
@@ -94,6 +98,7 @@ async function startAt(
     const recorded = await core.record(context);
     assert(recorded.ok);
   }
+  guard.keep();
   return core;
 }
 
@@ -101,9 +106,14 @@ async function open(): Promise<Opened> {
   const home = await Deno.makeTempDir({ prefix: "lophn-secret-store-" });
   const keychain = createFakeKeychain();
   const core = await startAt(home, keychain, false);
+  await using guard = closeUnlessKept(async () => {
+    await core.shutdown();
+    await Deno.remove(home, { recursive: true });
+  });
   await Deno.mkdir(`${home}/derived`, { recursive: true });
   const store = openDerived(derivedPath(`${home}/derived`));
   assert(store.ok, store.ok ? "" : store.error.message);
+  guard.keep();
   return { core, home, keychain, store: store.value };
 }
 

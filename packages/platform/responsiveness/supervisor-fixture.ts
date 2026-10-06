@@ -43,8 +43,9 @@ export type FakeOptions = {
   exitOnStop?: boolean;
   // 바로 끝난다(stdout EOF, exit 1).
   dieAtStart?: boolean;
-  // all: 모든 stdin 쓰기가, stop: stop frame 쓰기만 영원히 끝나지 않는다.
-  blockWrites?: "all" | "stop";
+  // all: 모든 stdin 쓰기가, stop: stop frame 쓰기만, data: hello·stop을 뺀 쓰기(요청·byte chunk)가
+  // 영원히 끝나지 않는다. child가 stdin을 읽지 않는 모양이다.
+  blockWrites?: "all" | "stop" | "data";
   // leader exit가 영원히 안 온다(신호를 받아도).
   neverExit?: boolean;
   // group 종료 확인 결과. "hang"이면 영원히 답하지 않는다.
@@ -104,7 +105,9 @@ export function fakeProcess(
         const text = new TextDecoder().decode(bytes);
         if (
           options.blockWrites === "all" ||
-          (options.blockWrites === "stop" && text.includes('"stop"'))
+          (options.blockWrites === "stop" && text.includes('"stop"')) ||
+          (options.blockWrites === "data" && !text.includes('"hello"') &&
+            !text.includes('"stop"'))
         ) return new Promise(() => {});
         writes.push(text);
         if (text.includes('"hello"') && (options.ready ?? true)) {

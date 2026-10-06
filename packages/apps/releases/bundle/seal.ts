@@ -102,9 +102,12 @@ export async function sealBundle(
     for (const file of written) {
       const relative = relativeCopyPath(file.path);
       if (!relative.ok) return relative;
-      const slash = relative.value.lastIndexOf("/");
-      if (slash > 0) {
-        const directory = `${input.copyPath}/${relative.value.slice(0, slash)}`;
+      // 깊은 파일의 중간 폴더도 모두 좁힌다. 파일 바로 위 폴더만 좁히면 중간 폴더에 쓸 수 있다(R1).
+      const segments = relative.value.split("/").slice(0, -1);
+      for (let depth = 1; depth <= segments.length; depth += 1) {
+        const directory = `${input.copyPath}/${
+          segments.slice(0, depth).join("/")
+        }`;
         await Deno.mkdir(directory, { recursive: true });
         directories.push(directory);
       }

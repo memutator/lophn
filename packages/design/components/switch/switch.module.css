@@ -2,7 +2,18 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-5);
+}
+
+.sm {
+  min-height: var(--control-sm-height);
+}
+
+.md {
   min-height: var(--control-md-height);
+}
+
+.lg {
+  min-height: var(--control-lg-height);
 }
 
 .label {

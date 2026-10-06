@@ -48,7 +48,7 @@ interface BodyValue {
   content: {
     parts: (
       | { kind: "text"; text: string }
-      | { kind: "visual"; block: { key: string; kind: string; title: string } }
+      | { kind: "visual"; block: unknown }
     )[];
   };
 }
@@ -146,16 +146,11 @@ function resultsOf(links: MessageValue["message"]["links"]): ResultLink[] {
   return results;
 }
 
-// 시각 블록은 블록 renderer(shell#T35)가 들어오기 전까지 제목과 종류만 넘긴다. payload는
-// 이 화면에 오지 않으므로 그릴 수도 실행할 수도 없다.
+// 시각 블록은 받은 값 그대로 넘긴다. 블록 renderer가 그리기 전에 다시 검사하고 문자열을
+// text node로만 그린다(shell/workspace#R12).
 function partOf(part: BodyValue["content"]["parts"][number]): BodyPart {
   if (part.kind === "text") return { kind: "text", text: part.text };
-  return {
-    kind: "visual",
-    key: part.block.key,
-    visual: part.block.kind,
-    title: part.block.title,
-  };
+  return { kind: "visual", block: part.block };
 }
 
 function sessionOf(value: SessionValue): SessionRow {
